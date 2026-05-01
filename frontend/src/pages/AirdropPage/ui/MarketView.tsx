@@ -1,8 +1,10 @@
 import { Component, createSignal } from 'solid-js';
-import { t } from '@/shared/i18n/index.js';
+import { t, locale } from '@/shared/i18n/index.js';
 import { hapticFeedback } from '@tma.js/sdk-solid';
-import { balance, setBalance } from '@/shared/store/airdrop.js';
+import { balance, setBalance, frgBalance, setFrgBalance } from '@/shared/store/airdrop.js';
 import { SectionHeader } from '@/shared/ui/section-header.js';
+
+const isRtl = () => locale() === 'fa';
 
 export const MarketView: Component = () => {
   const [amount, setAmount] = createSignal('');
@@ -18,6 +20,7 @@ export const MarketView: Component = () => {
     if (isNaN(num) || num <= 0 || num > balance()) return;
     try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
     setBalance(b => b - num);
+    setFrgBalance(f => f + frgAmount());
     setAmount('');
   };
 
@@ -42,9 +45,17 @@ export const MarketView: Component = () => {
           <span class="text-[#3390ec] font-bold text-xs">{RATE.toLocaleString()} = 1 FRG</span>
         </div>
 
+        <div class="flex items-center justify-between bg-[#2c2c2e]/50 rounded-xl p-3 mb-4">
+          <span class="text-[#8e8e93] text-xs font-medium">FRG Balance</span>
+          <span class="text-white font-bold text-xs">{frgBalance().toFixed(4)} FRG</span>
+        </div>
+
         <div class="relative mb-3">
           <input
             type="number"
+            min="0"
+            max={balance()}
+            step="1000"
             value={amount()}
             onInput={(e) => setAmount(e.target.value)}
             placeholder="0"
@@ -52,7 +63,7 @@ export const MarketView: Component = () => {
           />
           <button
             onClick={() => setAmount(balance().toString())}
-            class="absolute right-3 top-1/2 -translate-y-1/2 text-[#3390ec] text-xs font-bold"
+            class={`absolute ${isRtl() ? 'left-3' : 'right-3'} top-1/2 -translate-y-1/2 text-[#3390ec] text-xs font-bold`}
           >MAX</button>
         </div>
 

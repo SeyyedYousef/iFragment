@@ -1,5 +1,7 @@
 import { Component, createSignal, For } from 'solid-js';
-import { t } from '@/shared/i18n/index.js';
+import { t, locale } from '@/shared/i18n/index.js';
+
+const isRtl = () => locale() === 'fa';
 import { hapticFeedback } from '@tma.js/sdk-solid';
 import { setBalance } from '@/shared/store/airdrop.js';
 import { SectionHeader } from '@/shared/ui/section-header.js';
@@ -90,7 +92,7 @@ export const TasksView: Component = () => {
 
       {/* Referral Card */}
       <div class="bg-gradient-to-br from-[#1c1c1e] to-[#2c2c2e] rounded-2xl p-5 mb-6 border border-white/[0.06] relative overflow-hidden">
-        <div class="absolute top-0 right-0 w-32 h-32 bg-[#3390ec]/20 blur-[50px] rounded-full pointer-events-none"></div>
+        <div class={`absolute top-0 ${isRtl() ? 'left-0' : 'right-0'} w-32 h-32 bg-[#3390ec]/20 blur-[50px] rounded-full pointer-events-none`}></div>
         <div class="relative z-10 flex items-center justify-between mb-4">
           <div>
             <h3 class="text-white font-bold text-sm flex items-center gap-2 mb-1">

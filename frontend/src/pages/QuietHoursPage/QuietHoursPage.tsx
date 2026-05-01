@@ -3,11 +3,10 @@ import { useNavigate, useParams } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Motion } from '@motionone/solid';
 import { createStore } from 'solid-js/store';
-import { t, locale } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
 import { SettingsSection } from '@/shared/ui/settings-controls.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 
-const isRtl = () => locale() === 'fa';
 
 export const QuietHoursPage: Component = () => {
   const navigate = useNavigate();
@@ -62,7 +61,7 @@ export const QuietHoursPage: Component = () => {
   };
 
   return (
-    <div class="min-h-screen bg-[#0f1014] text-white pb-24" dir={isRtl() ? 'rtl' : 'ltr'}>
+    <div class="min-h-screen bg-[#0f1014] text-white pb-24">
       {/* Header */}
       <div class="pt-6 pb-4 px-5 sticky top-0 bg-[#0f1014]/90 backdrop-blur-md z-20 border-b border-[#2a2a2a] flex items-center justify-between">
         <Motion.div
@@ -165,7 +164,7 @@ export const QuietHoursPage: Component = () => {
                       <label class="text-[12px] font-bold text-[#8e8e93]">{t('quietHoursSettings.startTime')}</label>
                       <input 
                         type="time" 
-                        dir="ltr" 
+                        
                         value={period.start} 
                         onInput={(e) => updatePeriod(period.id, 'start', e.currentTarget.value)} 
                         class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#3390ec]" 
@@ -175,7 +174,7 @@ export const QuietHoursPage: Component = () => {
                       <label class="text-[12px] font-bold text-[#8e8e93]">{t('quietHoursSettings.endTime')}</label>
                       <input 
                         type="time" 
-                        dir="ltr" 
+                        
                         value={period.end} 
                         onInput={(e) => updatePeriod(period.id, 'end', e.currentTarget.value)} 
                         class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#3390ec]" 

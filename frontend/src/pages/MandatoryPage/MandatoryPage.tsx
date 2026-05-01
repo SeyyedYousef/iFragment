@@ -3,11 +3,10 @@ import { useNavigate, useParams } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Motion } from '@motionone/solid';
 import { createStore } from 'solid-js/store';
-import { t, locale } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
 import { NumberInputField, StringListField } from '@/shared/ui/settings-controls.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 
-const isRtl = () => locale() === 'fa';
 
 export const MandatoryPage: Component = () => {
   const navigate = useNavigate();
@@ -45,7 +44,7 @@ export const MandatoryPage: Component = () => {
   };
 
   return (
-    <div class="min-h-screen bg-[#0f1014] text-white pb-24" dir={isRtl() ? 'rtl' : 'ltr'}>
+    <div class="min-h-screen bg-[#0f1014] text-white pb-24">
       {/* Header */}
       <div class="pt-6 pb-4 px-5 sticky top-0 bg-[#0f1014]/90 backdrop-blur-md z-20 border-b border-[#2a2a2a] flex items-center justify-between">
         <Motion.div

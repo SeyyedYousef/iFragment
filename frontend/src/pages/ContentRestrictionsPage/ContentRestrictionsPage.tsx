@@ -3,11 +3,10 @@ import { createStore } from 'solid-js/store';
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Motion } from '@motionone/solid';
-import { t, locale } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
 import { SettingsSection } from '@/shared/ui/settings-controls.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 
-const isRtl = () => locale() === 'fa';
 
 // Type definitions for restriction settings
 type RestrictionSetting = {
@@ -145,7 +144,7 @@ export const ContentRestrictionsPage: Component = () => {
   ];
 
   return (
-    <div class="min-h-screen bg-[#0f1014] pb-24 relative text-white" dir={isRtl() ? 'rtl' : 'ltr'}>
+    <div class="min-h-screen bg-[#0f1014] pb-24 relative text-white">
       {/* Header */}
       <div class="px-5 pt-6 pb-4 flex flex-col gap-1 sticky top-0 bg-[#0f1014]/90 backdrop-blur-md z-30 border-b border-[#1c1c1c]">
         <div class="flex items-center justify-between">

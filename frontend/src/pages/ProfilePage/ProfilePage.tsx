@@ -23,12 +23,19 @@ export const ProfilePage: Component = () => {
           animate={{ opacity: 1, y: 0 }}
           class="flex flex-col items-center text-center relative z-10"
         >
-          <div class="w-24 h-24 rounded-full border-4 border-[#2a2a2a] p-1 mb-4 shadow-inner bg-[#0f1014]">
-            <img 
-              src={user?.photo_url || "https://lh3.googleusercontent.com/aida-public/AB6AXuDlhnjNsGlfInmLIIN02ChdkgyPOzqZiC4r5EnIK77oCAHQaSx1lSef170FRxmyGJnzKdQfcCKVZy9KGhf-K14L8g8E7UV4KaaNNGY124GeKTtwHprnqgu3ucI5s0kZ4ImQve0G6TCQSwjHqTuaVwPsAvTM2asZbtbl56RdRq3A0pr-wcs2LwaSvW92dFCiUiKATzoUFP9mOOTwoEZk794yzHFP8Zb_45GoNOfvXcKG792JDOepm2LsmoYBcDOhkpVvPeEwZ_Up5bs"} 
-              alt="Profile" 
-              class="w-full h-full rounded-full object-cover"
-            />
+          <div class="w-24 h-24 rounded-full border-4 border-[#2a2a2a] p-1 mb-4 shadow-inner bg-[#0f1014] flex items-center justify-center overflow-hidden">
+            {user?.photo_url ? (
+              <img 
+                src={user.photo_url} 
+                alt="Profile" 
+                class="w-full h-full rounded-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <div class="w-full h-full rounded-full flex items-center justify-center bg-gradient-to-br from-[#3390ec] to-[#34c759] text-white font-black text-3xl">
+                {user?.first_name ? user.first_name[0].toUpperCase() : 'U'}
+              </div>
+            )}
           </div>
           <h1 class="text-white text-2xl font-black tracking-tight">{user?.first_name} {user?.last_name}</h1>
           <p class="text-[#8e8e93] font-medium text-sm mt-1">@{user?.username || 'Guest'}</p>

@@ -1,8 +1,8 @@
 export const dict = {
-  tabs: {
-    username: 'Usernames',
-    collectibles: 'Collectible Numbers',
-    gifts: 'Gifts'
+  common: {
+    close: 'Close',
+    back: 'Back',
+    loading: 'Loading...'
   },
   hero: {
     title: 'Precise. Bold. Professional.',
@@ -10,20 +10,31 @@ export const dict = {
     promoBadge: 'SAFE WORK',
     selectToStart: 'Select one of the options above to start'
   },
+  home: {
+    targetAsset: 'TARGET ASSET',
+    success: 'Success',
+    premiumReport: 'PREMIUM REPORT',
+    promotion: 'PROMOTION',
+    scatterFloorLimit: 'Scatter Floor Limit',
+    asset3d: '3D ASSET HERE'
+  },
   action: {
     username: {
+      label: 'Usernames',
       title: 'Master the Market.',
       description: "Analyze any username's rarity and market value with surgical precision.",
       inputPlaceholder: 'Enter the target username...',
       analyzeBtn: 'Advanced Username Analysis',
     },
     collectibles: {
+      label: 'Collectible Numbers',
       title: 'Decrypt the Anonymous.',
       description: 'Trace ownership history and evaluate market premiums for +888 numbers.',
       inputPlaceholder: 'Enter +888 number...',
       analyzeBtn: 'Analyze Anonymous Number',
     },
     gifts: {
+      label: 'Gifts',
       title: 'Track the Unseen Wealth.',
       description: 'Monitor high-value transfers and assess true market rarity of Telegram Gifts.',
       inputPlaceholder: 'Enter gift ID or transaction...',
@@ -51,33 +62,20 @@ export const dict = {
   airdrop: {
     title: 'Airdrop',
     description: 'Mine FRG tokens! Tap, complete missions, and climb the leaderboard.',
-    tabs: {
-      tap: 'Tap',
-      tasks: 'Tasks',
-      clan: 'Clan',
-      market: 'Market',
-      leaderboard: 'Top',
-      boosters: 'Boost',
-      friends: 'Friends'
-    },
-    tabs: {
-      tasks: 'Tasks',
-      boosters: 'Boosters',
-      market: 'Market',
-      clan: 'Clans',
-      leaderboard: 'Top Miners',
-      daily: 'Daily Reward'
-    },
     tap: {
+      label: 'Tap',
       energy: 'Energy',
       rank: 'Your Rank',
       league: 'League',
-      tapToEarn: 'Tap to mine FRG!',
       level: 'Level',
       perTap: 'per tap',
-      totalMined: 'Total Mined'
+      totalMined: 'Total Mined',
+      mining: 'Mining Balance',
+      tapToMine: 'Tap to mine Coins!',
+      earnMore: 'Earn more by inviting friends'
     },
     daily: {
+      label: 'Daily Reward',
       title: 'Daily Reward',
       subtitle: 'Come back every day to earn bigger rewards!',
       day: 'Day',
@@ -87,6 +85,7 @@ export const dict = {
       comeBack: 'Come back tomorrow!'
     },
     tasks: {
+      label: 'Tasks',
       title: 'Missions',
       subtitle: 'Complete tasks to boost your mining speed.',
       daily: 'Daily Tasks',
@@ -108,6 +107,7 @@ export const dict = {
       timeLeft: 'Time left'
     },
     friends: {
+      label: 'Friends',
       title: 'Invite Friends',
       subtitle: 'Earn 10,000 coins for each friend who joins!',
       inviteBtn: 'Send Invite Link',
@@ -119,15 +119,8 @@ export const dict = {
       noFriends: 'No friends invited yet',
       perFriend: 'per friend'
     },
-    leaderboard: {
-      title: 'Leaderboard',
-      subtitle: 'Top miners in the FRG ecosystem.',
-      global: 'Global',
-      friendsTab: 'Friends',
-      yourPosition: 'Your Position',
-      totalMiners: 'total miners'
-    },
     boosters: {
+      label: 'Boosters',
       title: 'Boosters',
       subtitle: 'Upgrade your mining power to earn faster!',
       tapPower: 'Tap Power',
@@ -142,6 +135,7 @@ export const dict = {
       insufficientFunds: 'Not enough coins'
     },
     clan: {
+      label: 'Clans',
       title: 'Clans',
       subtitle: 'Create or join a clan to mine as a team!',
       createClanBtn: 'Create Clan with Channel',
@@ -152,12 +146,17 @@ export const dict = {
       weeklyBattle: 'Weekly Clan Battle',
       clanBonus: 'Clan Bonus'
     },
-    tap: {
-      mining: 'Mining Balance',
-      tapToMine: 'Tap to mine Coins!',
-      earnMore: 'Earn more by inviting friends'
+    leaderboard: {
+      label: 'Top Miners',
+      title: 'Leaderboard',
+      subtitle: 'Top miners in the FRG ecosystem.',
+      global: 'Global',
+      friendsTab: 'Friends',
+      yourPosition: 'Your Position',
+      totalMiners: 'total miners'
     },
     market: {
+      label: 'Market',
       title: 'Convert Coins',
       subtitle: 'Convert your mined coins to internal FRG tokens.',
       convertTitle: 'Convert Coins to FRG Token',
@@ -302,7 +301,6 @@ export const dict = {
     tabInteractions: 'Interactions',
     tabLanguages: 'Languages',
     tabKeywords: 'Keywords',
-    // Links & IDs
     removeLinks: 'Remove Links',
     removeLinksDesc: 'Removes any text containing URLs (http, https) or Telegram links.',
     blockBots: 'Block Bots',
@@ -313,7 +311,6 @@ export const dict = {
     blockDomainsDesc: 'Identifies and removes messages containing website domains (e.g., .com, .ir).',
     blockUsernames: 'Block Usernames',
     blockUsernamesDesc: 'Deletes messages containing Telegram usernames (starting with @).',
-    // Text & Symbols
     blockHashtags: 'Block Hashtags',
     blockHashtagsDesc: 'Removes any message containing a hashtag (#).',
     blockTextPatterns: 'Block Text Patterns',
@@ -324,7 +321,6 @@ export const dict = {
     blockEmojiOnlyDesc: 'Deletes messages that consist entirely of emojis with no text.',
     blockPhoneNumbers: 'Block Phone Numbers',
     blockPhoneNumbersDesc: 'Identifies and removes phone numbers from text.',
-    // Media & Files
     blockPhotos: 'Block Photos',
     blockPhotosDesc: 'Prevents members from sending images.',
     blockStickers: 'Block Stickers',
@@ -341,7 +337,6 @@ export const dict = {
     blockGifsDesc: 'Removes animated GIF images.',
     blockCaptionless: 'Block Captionless Posts',
     blockCaptionlessDesc: 'Deletes photos or videos that do not include a caption.',
-    // Interactions
     blockForwards: 'Block Forwards',
     blockForwardsDesc: 'Prevents forwarding messages from any other chat.',
     restrictChannelForwards: 'Restrict Forwards from Channels',
@@ -360,7 +355,6 @@ export const dict = {
     blockUserRepliesDesc: 'Prevents members from replying to each other\'s messages.',
     blockCrossChatReplies: 'Block Cross-Chat Replies',
     blockCrossChatRepliesDesc: 'Removes replies that reference messages from other chats.',
-    // Languages
     blockLatinLetters: 'Block Latin Letters',
     blockLatinLettersDesc: 'Removes messages containing English/Latin letters (A-Z).',
     blockPersianArabicLetters: 'Block Persian/Arabic Letters',
@@ -369,7 +363,6 @@ export const dict = {
     blockCyrillicLettersDesc: 'Removes text containing Russian/Cyrillic letters.',
     blockChineseCharacters: 'Block Chinese Characters',
     blockChineseCharactersDesc: 'Blocks messages containing Chinese characters.',
-    // Keywords
     bannedKeywords: 'Banned Keywords (Blacklist)',
     bannedKeywordsDesc: 'Messages containing these words will be deleted.',
     requiredKeywords: 'Required Keywords',

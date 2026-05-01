@@ -1,18 +1,19 @@
 import { Component, createSignal, For, onMount, onCleanup } from 'solid-js';
-import { useNavigate, useParams } from '@solidjs/router';
+import { useParams } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Motion } from '@motionone/solid';
 import { t, locale } from '@/shared/i18n/index.js';
-import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 
 const isRtl = () => locale() === 'fa';
+import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
+
 
 // Mock Data
 const MOCK_GROWTH = [12, 18, 15, 25, 32, 45, 52];
 const MOCK_ACTIVITY = [120, 200, 150, 300, 250, 400, 380];
 
 export const AnalyticsPage: Component = () => {
-  const navigate = useNavigate();
+
   const params = useParams();
 
   // Menu State
@@ -53,7 +54,7 @@ export const AnalyticsPage: Component = () => {
   const areaChart = () => generateAreaPath(MOCK_GROWTH, 300, 100);
 
   return (
-    <div class="min-h-screen bg-[#0f1014] text-white pb-10 overflow-x-hidden" dir={isRtl() ? 'rtl' : 'ltr'}>
+    <div class="min-h-screen bg-[#0f1014] text-white pb-10 overflow-x-hidden">
       {/* Header */}
       <div class="pt-6 pb-4 px-5 sticky top-0 bg-[#0f1014]/90 backdrop-blur-md z-20 border-b border-[#2a2a2a] flex items-center justify-between">
         <Motion.div
@@ -108,7 +109,7 @@ export const AnalyticsPage: Component = () => {
         {/* Stat Cards Grid */}
         <div class="grid grid-cols-2 gap-3">
           <Motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15 }} class="bg-[#1c1c1c] p-4 rounded-3xl border border-[#2a2a2a] flex flex-col gap-2 relative overflow-hidden">
-            <div class="absolute right-0 top-0 w-16 h-16 bg-[#34c759]/10 rounded-full blur-xl"></div>
+            <div class={`absolute ${isRtl() ? 'left-0' : 'right-0'} top-0 w-16 h-16 bg-[#34c759]/10 rounded-full blur-xl`}></div>
             <span class="text-[12px] font-bold text-[#8e8e93]">{t('analyticsSettings.newMembers')}</span>
             <span class="text-2xl font-black text-white">1,245</span>
             <div class="flex items-center gap-1 text-[#34c759]">
@@ -118,7 +119,7 @@ export const AnalyticsPage: Component = () => {
           </Motion.div>
 
           <Motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }} class="bg-[#1c1c1c] p-4 rounded-3xl border border-[#2a2a2a] flex flex-col gap-2 relative overflow-hidden">
-            <div class="absolute right-0 top-0 w-16 h-16 bg-[#3390ec]/10 rounded-full blur-xl"></div>
+            <div class={`absolute ${isRtl() ? 'left-0' : 'right-0'} top-0 w-16 h-16 bg-[#3390ec]/10 rounded-full blur-xl`}></div>
             <span class="text-[12px] font-bold text-[#8e8e93]">{t('analyticsSettings.totalMessages')}</span>
             <span class="text-2xl font-black text-white">45.2K</span>
             <div class="flex items-center gap-1 text-[#3390ec]">

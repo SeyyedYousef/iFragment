@@ -2,16 +2,14 @@
 @source "../../**/*.{js,ts,jsx,tsx}";
 
 @theme {
-  /* Fonts — Multi-script stack: Persian → Chinese → Cyrillic/Latin → Fallback */
-  --font-vazirmatn: "Vazirmatn", "Noto Sans SC", "Manrope", sans-serif;
-  --font-manrope: "Manrope", "Noto Sans SC", sans-serif;
-  --font-cjk: "Noto Sans SC", "Manrope", sans-serif;
+  /* Fonts per locale */
+  --font-app: "Manrope", "Roboto", sans-serif;
   
-  --font-headline-md: var(--font-vazirmatn);
-  --font-label-caps: var(--font-vazirmatn);
-  --font-body-md: var(--font-vazirmatn);
-  --font-headline-lg: var(--font-vazirmatn);
-  --font-body-lg: var(--font-vazirmatn);
+  --font-headline-md: var(--font-app);
+  --font-label-caps: var(--font-app);
+  --font-body-md: var(--font-app);
+  --font-headline-lg: var(--font-app);
+  --font-body-lg: var(--font-app);
 
   /* Spacing */
   --spacing-unit: 4px;
@@ -55,13 +53,13 @@
   --color-error-container: #ffdad6;
   --color-on-error-container: #93000a;
   
-  --color-background: #faf8ff;
-  --color-on-background: #191b25;
-  --color-surface: #faf8ff;
-  --color-on-surface: #191b25;
-  --color-surface-variant: #e1e1ef;
-  --color-on-surface-variant: #434656;
-  --color-inverse-surface: #2e303a;
+  --color-background: #0f1014;
+  --color-on-background: #ffffff;
+  --color-surface: #1c1c1c;
+  --color-on-surface: #ffffff;
+  --color-surface-variant: #2a2a2a;
+  --color-on-surface-variant: #8e8e93;
+  --color-inverse-surface: #ffffff;
   --color-inverse-on-surface: #f0f0fd;
   --color-surface-tint: #004ee7;
   --color-surface-bright: #faf8ff;
@@ -77,8 +75,13 @@
 }
 
 @layer base {
+  html[lang="fa"] { --font-app: "Vazirmatn", "Manrope", sans-serif; }
+  html[lang="zh"] { --font-app: "Noto Sans SC", "Manrope", sans-serif; }
+  html[lang="ru"] { --font-app: "Manrope", "Roboto", sans-serif; }
+  html[lang="en"] { --font-app: "Manrope", "Roboto", sans-serif; }
+
   body {
-    font-family: var(--font-vazirmatn);
+    font-family: var(--font-app);
     background-color: var(--color-background);
     color: var(--color-on-background);
     /* For Telegram Mini Apps, it's better to avoid 100dvh directly here
@@ -130,13 +133,7 @@
   text-align: center;
 }
 
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
+
 
 .shimmer-overlay {
   position: absolute;
@@ -165,10 +162,7 @@
   animation: glow 2s ease-in-out infinite;
 }
 
-@keyframes shimmer {
-  0% { transform: translateX(-150%); }
-  100% { transform: translateX(150%); }
-}
+
 
 @keyframes orb-float-1 {
   0%, 100% { transform: translate(0, 0) scale(1); }
@@ -238,4 +232,19 @@
 }
 .animate-slide-up {
   animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px) rotate(-2deg); }
+  75% { transform: translateX(5px) rotate(2deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

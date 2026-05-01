@@ -1,28 +1,38 @@
-import { Component, createSignal, Match, Switch, For, Show, createEffect } from 'solid-js';
+import { Component, createSignal, Match, Switch, For, Show, createEffect, onCleanup } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
-import { hapticFeedback, backButton, viewport, miniApp } from '@tma.js/sdk-solid';
-import { balance, checkedInToday, currentLeague } from '@/shared/store/airdrop.js';
+
+import { hapticFeedback, backButton, miniApp } from '@tma.js/sdk-solid';
+import { checkedInToday, currentLeague } from '@/shared/store/airdrop.js';
 import { TapView, TasksView, LeaderboardView, BoostersView, DailyRewardView, ClanView, MarketView } from './ui/index.js';
 import { BottomNav } from '@/widgets/bottom-nav/index.js';
 
 type ModalType = 'tasks' | 'leaderboard' | 'boosters' | 'daily' | 'clan' | 'market';
 
 const ACTION_BUTTONS: { id: ModalType; icon: string; labelKey: string; color: string }[] = [
-  { id: 'tasks',       icon: 'assignment',        labelKey: 'airdrop.tabs.tasks', color: '#3390ec' },
-  { id: 'boosters',    icon: 'rocket_launch',     labelKey: 'airdrop.tabs.boosters', color: '#f59e0b' },
-  { id: 'market',      icon: 'currency_exchange',  labelKey: 'airdrop.tabs.market', color: '#14b8a6' },
-  { id: 'clan',        icon: 'shield',            labelKey: 'airdrop.tabs.clan', color: '#ef4444' },
-  { id: 'leaderboard', icon: 'emoji_events',      labelKey: 'airdrop.tabs.leaderboard', color: '#cd7f32' },
+  { id: 'tasks',       icon: 'assignment',        labelKey: 'airdrop.tasks.label', color: '#3390ec' },
+  { id: 'boosters',    icon: 'rocket_launch',     labelKey: 'airdrop.boosters.label', color: '#f59e0b' },
+  { id: 'market',      icon: 'currency_exchange',  labelKey: 'airdrop.market.label', color: '#14b8a6' },
+  { id: 'clan',        icon: 'shield',            labelKey: 'airdrop.clan.label', color: '#ef4444' },
+  { id: 'leaderboard', icon: 'emoji_events',      labelKey: 'airdrop.leaderboard.label', color: '#cd7f32' },
 ];
 
 export const AirdropPage: Component = () => {
   const [activeModal, setActiveModal] = createSignal<ModalType | null>(null);
 
   createEffect(() => {
-    backButton.hide();
-    if (viewport.expand.isAvailable() && !viewport.isExpanded()) {
-      viewport.expand();
+    if (activeModal()) {
+      backButton.show();
+      const off = backButton.onClick(closeModal);
+      onCleanup(() => {
+        off();
+        backButton.hide();
+      });
+    } else {
+      backButton.hide();
     }
+  });
+
+  createEffect(() => {
     try {
       if (miniApp && typeof miniApp.setHeaderColor === 'function') {
         miniApp.setHeaderColor('#0f1014');
@@ -43,7 +53,6 @@ export const AirdropPage: Component = () => {
   return (
     <div 
       class="flex flex-col bg-[#0f1014] relative overflow-hidden" 
-      dir="ltr"
       style={{ "min-height": "var(--tg-viewport-stable-height, 100vh)" }}
     >
       {/* Premium Header */}
@@ -67,7 +76,7 @@ export const AirdropPage: Component = () => {
               }`}
             >
               <span class="material-symbols-outlined text-lg" style={{ 'font-variation-settings': '"FILL" 1' }}>redeem</span>
-              <span class="text-[10px] font-black uppercase tracking-wider">{t('airdrop.tabs.daily')}</span>
+              <span class="text-[10px] font-black uppercase tracking-wider">{t('airdrop.daily.label')}</span>
             </button>
           </div>
         </div>
@@ -97,16 +106,21 @@ export const AirdropPage: Component = () => {
 
       <BottomNav />
 
-      {/* Modals for sub-views */}
       <Show when={activeModal()}>
-        <div class="fixed inset-0 z-[60] bg-[#0f1014] flex flex-col animate-slide-up pb-32">
+        <div 
+          class="fixed inset-0 z-[60] bg-[#0f1014] flex flex-col animate-slide-up pb-32"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-title"
+        >
           <div class="flex items-center justify-between p-4 bg-[#1c1c1c]/90 backdrop-blur-xl border-b border-white/10 z-10">
-            <h2 class="text-white font-black text-lg uppercase tracking-tight">
-              {t(`airdrop.tabs.${activeModal()}` as any)}
+            <h2 id="modal-title" class="text-white font-black text-lg uppercase tracking-tight">
+              {t(`airdrop.${activeModal()}.label` as any)}
             </h2>
             <button 
               onClick={closeModal}
               class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center active:scale-90 transition-transform border border-white/10"
+              aria-label={t('common.close')}
             >
               <span class="material-symbols-outlined text-white text-xl">close</span>
             </button>

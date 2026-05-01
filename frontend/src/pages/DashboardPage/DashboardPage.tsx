@@ -2,14 +2,13 @@ import { Component } from 'solid-js';
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
 import { BottomNav } from '@/widgets/bottom-nav/index.js';
-import { t, locale } from '@/shared/i18n/index.js';
+import { t, isRtl } from '@/shared/i18n/index.js';
 
-const isRtl = () => locale() === 'fa';
 
 export const DashboardPage: Component = () => {
   const navigate = useNavigate();
   return (
-    <div class="min-h-screen bg-[#0f1014] pb-40 relative overflow-y-auto no-scrollbar text-white" dir={isRtl() ? 'rtl' : 'ltr'}>
+    <div class="min-h-screen bg-[#0f1014] pb-40 relative overflow-y-auto no-scrollbar text-white">
       {/* Top Header Area */}
       <div class="pt-10 pb-20 px-6 text-center relative z-10">
         <Motion.div

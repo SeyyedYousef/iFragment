@@ -9,7 +9,7 @@ import { dict as zh } from './zh.js';
 
 const dictionaries = { en, fa, ru, zh };
 export type Locale = keyof typeof dictionaries;
-export type Dictionary = typeof en;
+export type Dictionary = typeof en & typeof fa & typeof ru & typeof zh;
 
 const mapLanguageCode = (code?: string): Locale => {
   if (!code) return 'en';
@@ -20,20 +20,45 @@ const mapLanguageCode = (code?: string): Locale => {
   return 'en';
 };
 
-export const [locale, setLocale] = createSignal<Locale>('en');
+export const RTL_LOCALES: Locale[] = ['fa'];
+
+const getInitialLocale = (): Locale => {
+  const saved = localStorage.getItem('locale');
+  if (saved && (saved === 'en' || saved === 'fa' || saved === 'ru' || saved === 'zh')) {
+    return saved as Locale;
+  }
+  
+  try {
+    const params = new URLSearchParams(window.location.hash.slice(1) || window.location.search);
+    const tgWebAppData = params.get('tgWebAppData');
+    if (tgWebAppData) {
+      const data = new URLSearchParams(tgWebAppData);
+      const user = JSON.parse(decodeURIComponent(data.get('user') || '{}'));
+      if (user.language_code) return mapLanguageCode(user.language_code);
+    }
+  } catch (e) {}
+
+  return mapLanguageCode(navigator.language);
+};
+
+export const [locale, setLocale] = createSignal<Locale>(getInitialLocale());
+export const isRtl = () => RTL_LOCALES.includes(locale());
 
 // Reactively detect language from Telegram SDK after it initializes
 createEffect(() => {
+  if (localStorage.getItem('locale')) return;
   const user = initData.user();
-  const langCode = user?.language_code || navigator.language;
-  const detected = mapLanguageCode(langCode);
-  setLocale(detected);
+  if (user?.language_code) {
+    setLocale(mapLanguageCode(user.language_code));
+  }
 });
 
-// Keep HTML lang attribute in sync, layout always LTR
+// Keep HTML lang attribute in sync, handle RTL
 createEffect(() => {
-  document.documentElement.dir = 'ltr';
-  document.documentElement.lang = locale();
+  const currentLocale = locale();
+  localStorage.setItem('locale', currentLocale);
+  document.documentElement.dir = RTL_LOCALES.includes(currentLocale) ? 'rtl' : 'ltr';
+  document.documentElement.lang = currentLocale;
 });
 
 // Auto-generate all valid translation key paths from the dictionary structure

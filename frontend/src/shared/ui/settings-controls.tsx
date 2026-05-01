@@ -8,6 +8,7 @@ const isRtl = () => locale() === 'fa';
 export const ToggleSwitch: Component<{ checked: boolean; onChange: (v: boolean) => void }> = (props) => {
   return (
     <button
+      dir="ltr"
       onClick={() => {
         hapticFeedback.impactOccurred('light');
         props.onChange(!props.checked);
@@ -15,7 +16,6 @@ export const ToggleSwitch: Component<{ checked: boolean; onChange: (v: boolean) 
       class={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-300 focus:outline-none ${
         props.checked ? 'bg-[#34c759]' : 'bg-[#39393d]'
       }`}
-      dir="ltr"
     >
       <span
         class={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform duration-300 shadow-sm ${
@@ -42,7 +42,7 @@ export const SelectField: Component<{
       <div class="relative w-full">
         <select 
           value={props.value}
-          dir="auto"
+         
           onChange={(e) => {
             hapticFeedback.selectionChanged();
             props.onChange(e.currentTarget.value);
@@ -88,7 +88,7 @@ export const NumberInputField: Component<{
           max={props.max}
           value={props.value === 0 ? '' : props.value}
           placeholder={props.placeholder || '0'}
-          dir="auto"
+         
           onInput={(e) => {
             const val = parseInt(e.currentTarget.value) || 0;
             props.onChange(val);
@@ -144,7 +144,7 @@ export const StringListField: Component<{
           onInput={(e) => setInputValue(e.currentTarget.value)}
           onKeyDown={handleKeyDown}
           placeholder={props.placeholder || 'Type and press enter...'}
-          dir="auto"
+         
           class="flex-1 bg-[#2c2c2e] text-white text-[14px] rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-transparent transition-all placeholder-[#8e8e93]"
         />
         <button 
@@ -165,7 +165,7 @@ export const StringListField: Component<{
           <For each={props.items}>
             {(item) => (
               <div class="bg-[#2c2c2e] border border-[#3a3a3c] rounded-lg px-3 py-1.5 flex items-center gap-2">
-                <span class="text-[13px] text-white" dir="ltr">{item}</span>
+                <span class="text-[13px] text-white">{item}</span>
                 <button 
                   onClick={() => {
                     hapticFeedback.impactOccurred('light');
@@ -220,7 +220,7 @@ export const InlineButtonField: Component<{
           value={title()}
           onInput={(e) => setTitle(e.currentTarget.value)}
           placeholder="Button Title (e.g. My Channel)"
-          dir="auto"
+         
           class="w-full bg-[#1c1c1c] text-white text-[14px] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-transparent transition-all placeholder-[#8e8e93]"
         />
         <div class="flex gap-2">
@@ -229,7 +229,7 @@ export const InlineButtonField: Component<{
             value={url()}
             onInput={(e) => setUrl(e.currentTarget.value)}
             placeholder="URL (e.g. https://t.me/)"
-            dir="ltr"
+           
             class="flex-1 bg-[#1c1c1c] text-white text-[14px] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-transparent transition-all placeholder-[#8e8e93]"
           />
           <button 
@@ -248,8 +248,8 @@ export const InlineButtonField: Component<{
             {(btn) => (
               <div class="bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg p-2.5 flex items-center justify-between gap-3 group">
                 <div class="flex flex-col min-w-0">
-                  <span class="text-[13px] font-bold text-white truncate" dir="auto">{btn.title}</span>
-                  <span class="text-[11px] text-[#3390ec] truncate" dir="ltr">{btn.url}</span>
+                  <span class="text-[13px] font-bold text-white truncate">{btn.title}</span>
+                  <span class="text-[11px] text-[#3390ec] truncate">{btn.url}</span>
                 </div>
                 <button 
                   onClick={() => {
@@ -319,11 +319,11 @@ export const SettingsSection: Component<{
             <div class="grid grid-cols-2 gap-3 mt-1">
               <div class="flex flex-col gap-1.5">
                 <label class="text-[12px] font-bold text-[#8e8e93]">{t('generalSettings.startTime')}</label>
-                <input type="time" dir="ltr" value={props.customStart} onInput={(e) => props.onCustomStart!(e.currentTarget.value)} class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#3390ec]" />
+                <input type="time" value={props.customStart} onInput={(e) => props.onCustomStart!(e.currentTarget.value)} class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#3390ec]" />
               </div>
               <div class="flex flex-col gap-1.5">
                 <label class="text-[12px] font-bold text-[#8e8e93]">{t('generalSettings.endTime')}</label>
-                <input type="time" dir="ltr" value={props.customEnd} onInput={(e) => props.onCustomEnd!(e.currentTarget.value)} class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#3390ec]" />
+                <input type="time" value={props.customEnd} onInput={(e) => props.onCustomEnd!(e.currentTarget.value)} class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#3390ec]" />
               </div>
             </div>
           </Show>

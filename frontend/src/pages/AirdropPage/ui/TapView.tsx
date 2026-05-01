@@ -1,7 +1,7 @@
 import { Component, createSignal, onCleanup, For } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 import { hapticFeedback } from '@tma.js/sdk-solid';
-import { balance, setBalance, energy, setEnergy, maxEnergy, tapPower, energyRecovery, setTotalTaps, currentLeague, nextLeague, leagueProgress } from '@/shared/store/airdrop.js';
+import { balance, setBalance, energy, setEnergy, maxEnergy, tapPower, energyRecovery, setTotalTaps, currentLeague } from '@/shared/store/airdrop.js';
 
 interface Particle {
   id: number;
@@ -13,7 +13,7 @@ interface Particle {
 export const TapView: Component = () => {
   const [particles, setParticles] = createSignal<Particle[]>([]);
   const [isPressed, setIsPressed] = createSignal(false);
-  let coinRef: HTMLDivElement | undefined;
+  const [isShaking, setIsShaking] = createSignal(false);
 
   // Energy regeneration
   const timer = setInterval(() => {
@@ -25,7 +25,12 @@ export const TapView: Component = () => {
 
   const handleTap = (e: TouchEvent | MouseEvent) => {
     e.preventDefault();
-    if (energy() <= 0) return;
+    if (energy() <= 0) {
+      try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+      setIsShaking(true);
+      setTimeout(() => setIsShaking(false), 300);
+      return;
+    }
 
     try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
 
@@ -76,7 +81,7 @@ export const TapView: Component = () => {
           onPointerDown={handleTap}
           class={`relative w-full h-full rounded-full transition-all duration-75 select-none active:scale-[0.92] group ${
             isPressed() ? 'scale-95' : ''
-          }`}
+          } ${isShaking() ? 'animate-[shake_0.3s_ease-in-out]' : ''}`}
           style={{
             background: `radial-gradient(circle at 35% 35%, ${currentLeague().color}40 0%, #000 100%)`,
             'box-shadow': `0 30px 60px rgba(0,0,0,0.8), 0 0 100px ${currentLeague().color}10, inset 0 2px 4px rgba(255,255,255,0.1)`

@@ -3,11 +3,10 @@ import { useNavigate, useParams } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Motion } from '@motionone/solid';
 import { createStore } from 'solid-js/store';
-import { t, locale } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
 import { InlineButtonField } from '@/shared/ui/settings-controls.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 
-const isRtl = () => locale() === 'fa';
 
 export const CustomTextsPage: Component = () => {
   const navigate = useNavigate();
@@ -48,7 +47,7 @@ export const CustomTextsPage: Component = () => {
   };
 
   return (
-    <div class="min-h-screen bg-[#0f1014] text-white pb-24" dir={isRtl() ? 'rtl' : 'ltr'}>
+    <div class="min-h-screen bg-[#0f1014] text-white pb-24">
       {/* Header */}
       <div class="pt-6 pb-4 px-5 sticky top-0 bg-[#0f1014]/90 backdrop-blur-md z-20 border-b border-[#2a2a2a] flex items-center justify-between">
         <Motion.div
@@ -132,7 +131,7 @@ export const CustomTextsPage: Component = () => {
             value={welcomeText()}
             onInput={(e) => setWelcomeText(e.currentTarget.value)}
             placeholder={t('customTextsSettings.welcomePlaceholder')}
-            dir="auto"
+           
             class="w-full h-28 bg-[#1c1c1c] text-white text-[14px] rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-[#2a2a2a] transition-all resize-none placeholder-[#8e8e93]"
           />
         </Motion.div>
@@ -152,7 +151,7 @@ export const CustomTextsPage: Component = () => {
           <textarea 
             value={warningText()}
             onInput={(e) => setWarningText(e.currentTarget.value)}
-            dir="auto"
+           
             class="w-full h-24 bg-[#1c1c1c] text-white text-[14px] rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-[#2a2a2a] transition-all resize-none placeholder-[#8e8e93]"
           />
         </Motion.div>
@@ -173,7 +172,7 @@ export const CustomTextsPage: Component = () => {
             <textarea 
               value={silenceStartText()}
               onInput={(e) => setSilenceStartText(e.currentTarget.value)}
-              dir="auto"
+             
               class="w-full h-20 bg-[#1c1c1c] text-white text-[14px] rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-[#2a2a2a] transition-all resize-none placeholder-[#8e8e93]"
             />
           </div>
@@ -187,7 +186,7 @@ export const CustomTextsPage: Component = () => {
             <textarea 
               value={silenceEndText()}
               onInput={(e) => setSilenceEndText(e.currentTarget.value)}
-              dir="auto"
+             
               class="w-full h-20 bg-[#1c1c1c] text-white text-[14px] rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-[#2a2a2a] transition-all resize-none placeholder-[#8e8e93]"
             />
           </div>
@@ -208,7 +207,7 @@ export const CustomTextsPage: Component = () => {
           <textarea 
             value={rulesText()}
             onInput={(e) => setRulesText(e.currentTarget.value)}
-            dir="auto"
+           
             class="w-full h-32 bg-[#1c1c1c] text-white text-[14px] rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-[#2a2a2a] transition-all resize-none placeholder-[#8e8e93]"
           />
         </Motion.div>

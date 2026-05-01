@@ -1,19 +1,22 @@
 import type { Component } from 'solid-js';
 
+import { lazy } from 'solid-js';
+
 import { IndexPage } from '@/pages/IndexPage/IndexPage.js';
-import { AirdropPage } from '@/pages/AirdropPage/AirdropPage.js';
-import { DashboardPage } from '@/pages/DashboardPage/DashboardPage.js';
-import { ProfilePage } from '@/pages/ProfilePage/ProfilePage.js';
-import { ManagedBotsPage } from '@/pages/ManagedBotsPage/index.js';
-import { BotManagePage } from '@/pages/BotManagePage/index.js';
-import { GroupDashboardPage } from '@/pages/GroupDashboardPage/index.js';
-import { GeneralSettingsPage } from '@/pages/GeneralSettingsPage/index.js';
-import { ContentRestrictionsPage } from '@/pages/ContentRestrictionsPage/index.js';
-import { LimitsPage } from '@/pages/LimitsPage/index.js';
-import { QuietHoursPage } from '@/pages/QuietHoursPage/index.js';
-import { MandatoryPage } from '@/pages/MandatoryPage/index.js';
-import { CustomTextsPage } from '@/pages/CustomTextsPage/index.js';
-import { AnalyticsPage } from '@/pages/AnalyticsPage/index.js';
+
+const AirdropPage = lazy(() => import('@/pages/AirdropPage/AirdropPage.js').then(m => ({ default: m.AirdropPage })));
+const DashboardPage = lazy(() => import('@/pages/DashboardPage/DashboardPage.js').then(m => ({ default: m.DashboardPage })));
+const ProfilePage = lazy(() => import('@/pages/ProfilePage/ProfilePage.js').then(m => ({ default: m.ProfilePage })));
+const ManagedBotsPage = lazy(() => import('@/pages/ManagedBotsPage/index.js').then(m => ({ default: m.ManagedBotsPage })));
+const BotManagePage = lazy(() => import('@/pages/BotManagePage/index.js').then(m => ({ default: m.BotManagePage })));
+const GroupDashboardPage = lazy(() => import('@/pages/GroupDashboardPage/index.js').then(m => ({ default: m.GroupDashboardPage })));
+const GeneralSettingsPage = lazy(() => import('@/pages/GeneralSettingsPage/index.js').then(m => ({ default: m.GeneralSettingsPage })));
+const ContentRestrictionsPage = lazy(() => import('@/pages/ContentRestrictionsPage/index.js').then(m => ({ default: m.ContentRestrictionsPage })));
+const LimitsPage = lazy(() => import('@/pages/LimitsPage/index.js').then(m => ({ default: m.LimitsPage })));
+const QuietHoursPage = lazy(() => import('@/pages/QuietHoursPage/index.js').then(m => ({ default: m.QuietHoursPage })));
+const MandatoryPage = lazy(() => import('@/pages/MandatoryPage/index.js').then(m => ({ default: m.MandatoryPage })));
+const CustomTextsPage = lazy(() => import('@/pages/CustomTextsPage/index.js').then(m => ({ default: m.CustomTextsPage })));
+const AnalyticsPage = lazy(() => import('@/pages/AnalyticsPage/index.js').then(m => ({ default: m.AnalyticsPage })));
 
 interface Route {
   path: string;

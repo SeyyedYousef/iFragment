@@ -2,9 +2,8 @@ import { Component, createSignal, For, onCleanup, onMount } from 'solid-js';
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
 import { backButton, openTelegramLink } from '@tma.js/sdk-solid';
-import { t, locale } from '@/shared/i18n/index.js';
+import { t, isRtl } from '@/shared/i18n/index.js';
 
-const isRtl = () => locale() === 'fa';
 
 // Mock Data for a single bot and its groups
 const MOCK_BOT = { id: '1', name: 'iFragment Community Bot', username: '@ifragment_group_bot' };
@@ -57,7 +56,7 @@ export const BotManagePage: Component = () => {
   };
 
   return (
-    <div class="min-h-screen bg-[#0f1014] pb-20 relative overflow-y-auto no-scrollbar text-white" dir={isRtl() ? 'rtl' : 'ltr'}>
+    <div class="min-h-screen bg-[#0f1014] pb-20 relative overflow-y-auto no-scrollbar text-white">
       {/* Header */}
       <div class="pt-8 pb-12 px-6 text-center relative z-10">
         <Motion.div

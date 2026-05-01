@@ -1,5 +1,6 @@
 import { Component, For } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
+import { hapticFeedback } from '@tma.js/sdk-solid';
 import { SectionHeader } from '@/shared/ui/section-header.js';
 
 const TOP_CLANS = [
@@ -17,13 +18,13 @@ export const ClanView: Component = () => {
 
       {/* Actions */}
       <div class="grid grid-cols-2 gap-3 mb-5">
-        <button class="bg-[#3390ec] text-white font-bold py-3.5 rounded-2xl active:scale-[0.97] transition-transform text-xs shadow-[0_4px_20px_rgba(51,144,236,0.3)]">
+        <button onClick={() => { try { hapticFeedback.notificationOccurred('warning'); } catch (_) {} }} class="bg-[#3390ec] text-white font-bold py-3.5 rounded-2xl active:scale-[0.97] transition-transform text-xs shadow-[0_4px_20px_rgba(51,144,236,0.3)]">
           <span class="flex flex-col items-center gap-1.5">
             <span class="material-symbols-outlined text-xl" style={{ 'font-variation-settings': '"FILL" 1' }}>add_circle</span>
             {t('airdrop.clan.createClanBtn')}
           </span>
         </button>
-        <button class="bg-[#2c2c2e] text-white font-bold py-3.5 rounded-2xl active:scale-[0.97] transition-transform text-xs border border-white/[0.06]">
+        <button onClick={() => { try { hapticFeedback.notificationOccurred('warning'); } catch (_) {} }} class="bg-[#2c2c2e] text-white font-bold py-3.5 rounded-2xl active:scale-[0.97] transition-transform text-xs border border-white/[0.06]">
           <span class="flex flex-col items-center gap-1.5">
             <span class="material-symbols-outlined text-xl">search</span>
             {t('airdrop.clan.joinClanBtn')}

@@ -2,9 +2,8 @@ import { Component, createSignal, For, onCleanup, onMount } from 'solid-js';
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
 import { backButton, openTelegramLink } from '@tma.js/sdk-solid';
-import { t, locale } from '@/shared/i18n/index.js';
+import { t, isRtl } from '@/shared/i18n/index.js';
 
-const isRtl = () => locale() === 'fa';
 
 // Mock data for existing bots
 const MOCK_BOTS = [
@@ -40,7 +39,7 @@ export const ManagedBotsPage: Component = () => {
   };
 
   return (
-    <div class="min-h-screen bg-[#0f1014] pb-20 relative overflow-y-auto no-scrollbar text-white" dir={isRtl() ? 'rtl' : 'ltr'}>
+    <div class="min-h-screen bg-[#0f1014] pb-20 relative overflow-y-auto no-scrollbar text-white">
       {/* Header */}
       <div class="pt-8 pb-12 px-6 text-center relative z-10">
         <Motion.div
@@ -118,7 +117,7 @@ export const ManagedBotsPage: Component = () => {
                         <div class="w-12 h-12 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] overflow-hidden">
                           <span class="text-xl font-bold text-[#3390ec]">{bot.name.charAt(0)}</span>
                         </div>
-                        <div class={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-[#0f1014] ${bot.status === 'active' ? 'bg-[#34c759]' : 'bg-[#ff3b30]'}`}></div>
+                        <div class={`absolute bottom-0 ${isRtl() ? 'left-0' : 'right-0'} w-3.5 h-3.5 rounded-full border-2 border-[#0f1014] ${bot.status === 'active' ? 'bg-[#34c759]' : 'bg-[#ff3b30]'}`}></div>
                       </div>
                       
                       <div class="flex flex-col">

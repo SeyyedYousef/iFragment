@@ -58,7 +58,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
   };
 
   return (
-    <main class="space-y-6 w-full max-w-[420px] mx-auto pb-8" role="main" aria-label="Analysis section" dir="auto">
+    <main class="space-y-6 w-full max-w-[420px] mx-auto pb-8" role="main" aria-label="Analysis section">
       
       {/* 1. Header Section */}
       <Motion.div
@@ -89,7 +89,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
           {/* Top Info */}
           <div class="flex items-center justify-between mb-3 px-2">
             <span class="text-[10px] font-black text-[#8e8e93] uppercase tracking-[0.15em] opacity-80">
-              TARGET ASSET
+              {t('home.targetAsset')}
             </span>
             <Show when={charCount() > 0}>
               <span class={`text-[11px] font-black tracking-widest ${isValidLength() ? 'text-[#34c759]' : 'text-[#ff3b30]'}`}>
@@ -100,7 +100,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
           {/* Input Area */}
           <div class="flex items-center gap-2 px-2 pb-2">
-            <span class={`text-4xl font-light transition-colors duration-300 ${searchQuery() ? 'text-[#3390ec]' : 'text-[#8e8e93] opacity-50'}`} dir="ltr">
+            <span class={`text-4xl font-light transition-colors duration-300 ${searchQuery() ? 'text-[#3390ec]' : 'text-[#8e8e93] opacity-50'}`}>
               {props.activeTab === 'username' ? '@' : props.activeTab === 'collectibles' ? '+' : ''}
             </span>
             <input
@@ -111,7 +111,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
               autocomplete="off"
               value={searchQuery()}
               onInput={(e) => setSearchQuery(e.currentTarget.value)}
-              dir="auto"
+             
             />
           </div>
 
@@ -151,11 +151,11 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
               {analyzeState() === 'loading'
                 ? t('action.analyzing')
                 : analyzeState() === 'success'
-                  ? 'Success'
+                  ? t('home.success')
                   : t(keys().analyzeBtn)}
             </span>
             <span class="text-white/70 text-[11px] font-bold uppercase tracking-widest mt-1">
-              PREMIUM REPORT
+              {t('home.premiumReport')}
             </span>
           </div>
 

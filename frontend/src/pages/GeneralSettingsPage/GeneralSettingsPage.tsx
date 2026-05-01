@@ -2,10 +2,9 @@ import { Component, createSignal, onMount, onCleanup, Show } from 'solid-js';
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Motion } from '@motionone/solid';
-import { t, locale } from '@/shared/i18n/index.js';
+import { t, isRtl } from '@/shared/i18n/index.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 
-const isRtl = () => locale() === 'fa';
 
 import { ToggleSwitch, SelectField, SettingsSection } from '@/shared/ui/settings-controls.js';
 
@@ -104,7 +103,7 @@ export const GeneralSettingsPage: Component = () => {
   };
 
   return (
-    <div class="min-h-screen bg-[#0f1014] pb-28 relative overflow-x-hidden text-white" dir={isRtl() ? 'rtl' : 'ltr'}>
+    <div class="min-h-screen bg-[#0f1014] pb-28 relative overflow-x-hidden text-white">
       {/* Header */}
       <div class="px-5 pt-6 pb-4 bg-[#0f1014] sticky top-0 z-30 border-b border-[#1c1c1c] flex items-center justify-between">
         <div class="flex flex-col">
@@ -200,7 +199,7 @@ export const GeneralSettingsPage: Component = () => {
               <input 
                 type="number" 
                 min="0"
-                dir="ltr"
+               
                 value={autoDeleteTime()} 
                 onInput={handleNumberInput(setAutoDeleteTime)}
                 class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-2 w-24 text-center focus:outline-none focus:ring-2 focus:ring-[#3390ec]"
@@ -317,7 +316,7 @@ export const GeneralSettingsPage: Component = () => {
                 <label class="text-[13px] font-bold text-white">{t('generalSettings.threshold')}</label>
                 <div class="relative">
                   <input 
-                    type="number" min="1" dir="ltr" value={warningThreshold()} onInput={handleNumberInput(setWarningThreshold)}
+                    type="number" min="1" value={warningThreshold()} onInput={handleNumberInput(setWarningThreshold)}
                     class={`w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl py-2 focus:outline-none focus:ring-2 focus:ring-[#3390ec] ${
                       isRtl() ? 'pr-4 pl-16 text-right' : 'pl-4 pr-16 text-left'
                     }`}
@@ -331,7 +330,7 @@ export const GeneralSettingsPage: Component = () => {
                 <label class="text-[13px] font-bold text-white">{t('generalSettings.retention')}</label>
                 <div class="relative">
                   <input 
-                    type="number" min="1" dir="ltr" value={warningRetention()} onInput={handleNumberInput(setWarningRetention)}
+                    type="number" min="1" value={warningRetention()} onInput={handleNumberInput(setWarningRetention)}
                     class={`w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl py-2 focus:outline-none focus:ring-2 focus:ring-[#3390ec] ${
                       isRtl() ? 'pr-4 pl-12 text-right' : 'pl-4 pr-12 text-left'
                     }`}

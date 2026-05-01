@@ -41,7 +41,7 @@ export const HamburgerMenu: Component<HamburgerMenuProps> = (props) => {
           initial={{ x: isRtl() ? '-100%' : '100%' }} animate={{ x: 0 }} exit={{ x: isRtl() ? '-100%' : '100%' }}
           transition={{ duration: 0.3, easing: [0.25, 1, 0.5, 1] }}
           class={`w-[80%] max-w-[320px] h-full bg-[#1c1c1c] relative z-10 flex flex-col shadow-2xl ${isRtl() ? 'border-r border-[#2a2a2a]' : 'border-l border-[#2a2a2a]'}`}
-          dir={isRtl() ? 'rtl' : 'ltr'}
+         
         >
           <div class="p-5 border-b border-[#2a2a2a] flex items-center justify-between bg-[#1c1c1c] sticky top-0 z-20">
             <h2 class="text-lg font-black text-white">{t('groupDashboard.menu')}</h2>

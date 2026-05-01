@@ -1,11 +1,10 @@
 import { Component, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { Motion } from '@motionone/solid';
-import { useNavigate, useParams } from '@solidjs/router';
+import { useParams } from '@solidjs/router';
 import { backButton } from '@tma.js/sdk-solid';
-import { t, locale } from '@/shared/i18n/index.js';
+import { t, isRtl } from '@/shared/i18n/index.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 
-const isRtl = () => locale() === 'fa';
 
 const MOCK_GROUP = {
   id: 'g1',
@@ -38,23 +37,13 @@ const MOCK_GROUP = {
 };
 
 export const GroupDashboardPage: Component = () => {
-  const navigate = useNavigate();
+
   const params = useParams(); 
   
   const [isMenuOpen, setIsMenuOpen] = createSignal(false);
   const [showTooltip, setShowTooltip] = createSignal(true);
   const [isGroupLocked, setIsGroupLocked] = createSignal(false);
 
-  const menuItems = () => [
-    { id: 'dashboard', icon: 'dashboard', label: t('groupDashboard.menuDashboard') },
-    { id: 'general', icon: 'settings', label: t('groupDashboard.menuGeneral') },
-    { id: 'content', icon: 'gpp_bad', label: t('groupDashboard.menuContent') },
-    { id: 'limits', icon: 'speed', label: t('groupDashboard.menuLimits') },
-    { id: 'quiet', icon: 'do_not_disturb_on', label: t('groupDashboard.menuQuiet') },
-    { id: 'mandatory', icon: 'group_add', label: t('groupDashboard.menuMandatory') },
-    { id: 'custom', icon: 'edit_note', label: t('groupDashboard.menuCustom') },
-    { id: 'analytics', icon: 'analytics', label: t('groupDashboard.menuAnalytics') },
-  ];
 
   onMount(() => {
     backButton.show();
@@ -76,7 +65,7 @@ export const GroupDashboardPage: Component = () => {
   };
 
   return (
-    <div class="min-h-screen bg-[#0f1014] pb-24 relative overflow-x-hidden text-white" dir={isRtl() ? 'rtl' : 'ltr'}>
+    <div class="min-h-screen bg-[#0f1014] pb-24 relative overflow-x-hidden text-white">
       {/* Header */}
       <div class="px-5 pt-6 pb-4 flex items-center justify-between relative z-30 bg-[#0f1014] sticky top-0 border-b border-[#1c1c1c]">
         <div class="flex items-center gap-3">
@@ -101,7 +90,7 @@ export const GroupDashboardPage: Component = () => {
               animate={{ opacity: 1, scale: 1, y: 0 }} 
               exit={{ opacity: 0, scale: 0.9 }}
               class={`absolute top-[120%] w-[180px] bg-[#3390ec] text-white text-[12px] font-bold p-3 rounded-2xl shadow-[0_10px_25px_rgba(51,144,236,0.4)] z-50 flex flex-col gap-2 ${isRtl() ? 'left-0 origin-top-left' : 'right-0 origin-top-right'}`}
-              dir={isRtl() ? 'rtl' : 'ltr'}
+             
             >
               <div class={`absolute -top-2 w-4 h-4 bg-[#3390ec] rotate-45 rounded-sm ${isRtl() ? 'left-4' : 'right-4'}`}></div>
               <div class="relative z-10 flex items-start justify-between gap-2">
@@ -231,7 +220,7 @@ export const GroupDashboardPage: Component = () => {
                     }`}>
                       {user.avatar}
                     </div>
-                    <div class={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-[#0f1014] ${
+                    <div class={`absolute -bottom-1 ${isRtl() ? '-left-1' : '-right-1'} w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-[#0f1014] ${
                       i() === 0 ? 'bg-[#ffcc00] text-black' : 
                       i() === 1 ? 'bg-[#e0e0e0] text-black' : 
                       'bg-[#cd7f32] text-black'

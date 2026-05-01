@@ -1,18 +1,22 @@
 import { Component, For, Show } from 'solid-js';
 import { Motion } from '@motionone/solid';
-import { t, type DictPaths } from '@/shared/i18n/index.js';
+import { t, locale, type DictPaths } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
+const isRtl = () => locale() === 'fa';
+
+type TabType = 'username' | 'collectibles' | 'gifts';
+
 interface HeroTabsProps {
-  activeTab: 'username' | 'collectibles' | 'gifts' | null;
-  onTabChange: (tab: 'username' | 'collectibles' | 'gifts') => void;
+  activeTab: TabType | null;
+  onTabChange: (tab: TabType) => void;
 }
 
 export const HeroTabs: Component<HeroTabsProps> = (props) => {
-  const TABS: { id: 'username' | 'collectibles' | 'gifts'; dictId: DictPaths; icon: string }[] = [
-    { id: 'username', dictId: 'tabs.username', icon: 'person_search' },
-    { id: 'collectibles', dictId: 'tabs.collectibles', icon: 'numbers' },
-    { id: 'gifts', dictId: 'tabs.gifts', icon: 'redeem' }
+  const TABS: { id: TabType; icon: string; labelKey: DictPaths }[] = [
+    { id: 'username', icon: 'person_search', labelKey: 'action.username.label' },
+    { id: 'collectibles', icon: 'tag', labelKey: 'action.collectibles.label' },
+    { id: 'gifts', icon: 'featured_seasonal_and_gifts', labelKey: 'action.gifts.label' }
   ];
 
   const handleTabClick = (tab: typeof TABS[number]) => {
@@ -27,9 +31,9 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
       }`}
     >
       {/* Floating Light Orbs (Dark Mode adapted) */}
-      <div class="orb w-48 h-48 top-10 -left-20 opacity-30" style={{ background: 'radial-gradient(circle, rgba(51,144,236,0.3) 0%, transparent 70%)', animation: 'orb-float-1 12s ease-in-out infinite' }}></div>
-      <div class="orb w-32 h-32 top-40 right-[-10%] opacity-20" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%)', animation: 'orb-float-2 15s ease-in-out infinite' }}></div>
-      <div class="orb w-24 h-24 bottom-20 left-[30%] opacity-30" style={{ background: 'radial-gradient(circle, rgba(51,144,236,0.2) 0%, transparent 70%)', animation: 'orb-float-1 18s ease-in-out infinite reverse' }}></div>
+      <div class={`orb w-48 h-48 top-10 ${isRtl() ? '-right-20' : '-left-20'} opacity-30`} style={{ background: 'radial-gradient(circle, rgba(51,144,236,0.3) 0%, transparent 70%)', animation: 'orb-float-1 12s ease-in-out infinite' }}></div>
+      <div class={`orb w-32 h-32 top-40 ${isRtl() ? 'left-[-10%]' : 'right-[-10%]'} opacity-20`} style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%)', animation: 'orb-float-2 15s ease-in-out infinite' }}></div>
+      <div class={`orb w-24 h-24 bottom-20 ${isRtl() ? 'right-[30%]' : 'left-[30%]'} opacity-30`} style={{ background: 'radial-gradient(circle, rgba(51,144,236,0.2) 0%, transparent 70%)', animation: 'orb-float-1 18s ease-in-out infinite reverse' }}></div>
 
       {/* Promo Banner + Slogan — hidden when tab is active */}
       <Show when={!props.activeTab}>
@@ -43,10 +47,10 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
           <div class="w-full max-w-sm bg-[#1c1c1c]/80 backdrop-blur-xl border border-[#2a2a2a] rounded-[32px] p-4 mb-12 shadow-lg flex flex-col items-center relative overflow-hidden">
             <div class="shimmer-overlay opacity-30"></div>
             <div class="bg-[#B03060] text-white px-8 py-2 rounded-xl rotate-[-2deg] shadow-lg mb-2 relative z-10">
-              <p class="text-[12px] font-black tracking-[0.2em] opacity-80 leading-none">PROMOTION</p>
+              <p class="text-[12px] font-black tracking-[0.2em] opacity-80 leading-none">{t('home.promotion')}</p>
               <p class="text-[20px] font-black leading-none mt-1">{t('hero.promoBadge')}</p>
             </div>
-            <p class="text-[#8e8e93] text-[10px] font-bold tracking-widest uppercase relative z-10">Scatter Floor Limit</p>
+            <p class="text-[#8e8e93] text-[10px] font-bold tracking-widest uppercase relative z-10">{t('home.scatterFloorLimit')}</p>
           </div>
 
           {/* Main Slogan */}
@@ -65,7 +69,7 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
       <Motion.nav
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5, delay: props.activeTab ? 0 : 0.2 }}
-        class={`w-full flex flex-row-reverse items-center justify-between gap-3 transition-all duration-500 relative z-20 ${
+        class={`w-full flex items-center justify-between gap-3 transition-all duration-500 relative z-20 ${
           props.activeTab ? '' : 'mb-12'
         }`}
         role="tablist"
@@ -77,7 +81,7 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
               onClick={() => handleTabClick(tab)}
               role="tab"
               aria-selected={props.activeTab === tab.id}
-              aria-label={t(tab.dictId)}
+              aria-label={t(tab.labelKey)}
               class={`flex-1 flex items-center justify-center gap-2 transition-all duration-400 rounded-2xl text-center border relative overflow-hidden ${
                 props.activeTab === tab.id
                   ? 'bg-[#1c1c1c] border-[#2a2a2a] text-white shadow-lg py-2.5'
@@ -98,7 +102,7 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
               <span class={`font-black tracking-tight transition-all duration-300 ${
                 props.activeTab ? 'text-[13px]' : 'text-[14px]'
               }`}>
-                {t(tab.dictId)}
+                {t(tab.labelKey)}
               </span>
 
               {/* Active underline */}
@@ -127,12 +131,12 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
               {props.activeTab === 'username' ? 'person_search' : props.activeTab === 'collectibles' ? 'numbers' : 'redeem'}
             </span>
             <p class="text-white font-black text-[11px] tracking-widest uppercase relative z-10 drop-shadow-md">
-              3D ASSET HERE
+              {t('home.asset3d')}
             </p>
             
             {/* Fake ambient light behind the asset */}
-            <div class="absolute -top-10 -left-10 w-24 h-24 bg-[#3390ec]/20 rounded-full blur-2xl"></div>
-            <div class="absolute -bottom-10 -right-10 w-24 h-24 bg-[#3390ec]/20 rounded-full blur-2xl"></div>
+            <div class={`absolute -top-10 ${isRtl() ? '-right-10' : '-left-10'} w-24 h-24 bg-[#3390ec]/20 rounded-full blur-2xl`}></div>
+            <div class={`absolute -bottom-10 ${isRtl() ? '-left-10' : '-right-10'} w-24 h-24 bg-[#3390ec]/20 rounded-full blur-2xl`}></div>
           </div>
         </Motion.div>
       </Show>

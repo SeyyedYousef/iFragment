@@ -1,5 +1,7 @@
 import { Component, For } from 'solid-js';
-import { t } from '@/shared/i18n/index.js';
+import { t, locale } from '@/shared/i18n/index.js';
+
+const isRtl = () => locale() === 'fa';
 import { hapticFeedback } from '@tma.js/sdk-solid';
 import { streakDay, checkedInToday, claimDailyReward, DAILY_REWARDS } from '@/shared/store/airdrop.js';
 import { SectionHeader } from '@/shared/ui/section-header.js';
@@ -56,7 +58,7 @@ export const DailyRewardView: Component = () => {
                 </span>
 
                 {isLocked() && (
-                  <span class="material-symbols-outlined text-[#8e8e93]/30 text-base absolute top-2 right-2">lock</span>
+                  <span class={`material-symbols-outlined text-[#8e8e93]/30 text-base absolute top-2 ${isRtl() ? 'left-2' : 'right-2'}`}>lock</span>
                 )}
               </div>
             );
