@@ -25,6 +25,8 @@ export const dict = {
       description: 'کمیابی و ارزش بازار هر یوزرنیم را با دقت جراحی تحلیل کنید.',
       inputPlaceholder: 'یوزرنیم هدف را وارد کنید...',
       analyzeBtn: 'تحلیل پیشرفته یوزرنیم',
+      collection_stats_title: 'تحلیل مجموعه یوزرنیم',
+      collection_stats_subtitle: 'داده‌های لحظه‌ای از فرگمنت و بلاک‌چین TON.',
     },
     collectibles: {
       label: 'شماره‌های رند',

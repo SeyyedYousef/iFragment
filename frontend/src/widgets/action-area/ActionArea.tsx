@@ -2,7 +2,9 @@ import { Component, createSignal, createMemo, Show } from 'solid-js';
 import { Motion } from '@motionone/solid';
 import { t, type DictPaths } from '@/shared/i18n/index.js';
 import { useUsernameSearch } from '@/entities/username/model/index.js';
-import { hapticFeedback } from '@tma.js/sdk-solid';
+import { useUsernameAvailability, useRequestPremiumReport } from '@/entities/username/api/index.js';
+import { hapticFeedback, invoice } from '@tma.js/sdk-solid';
+import { useNavigate } from '@solidjs/router';
 
 interface ActionAreaProps {
   activeTab: 'username' | 'collectibles' | 'gifts';
@@ -37,21 +39,40 @@ const CONTENT: Record<ActionAreaProps['activeTab'], {
 export const ActionArea: Component<ActionAreaProps> = (props) => {
   const { searchQuery, setSearchQuery, searchError, validate } = useUsernameSearch();
   const [analyzeState, setAnalyzeState] = createSignal<AnalyzeState>('idle');
+  const navigate = useNavigate();
+  const requestPremium = useRequestPremiumReport();
+
+  const availability = useUsernameAvailability(() => searchQuery());
 
   const keys = createMemo(() => CONTENT[props.activeTab]);
   const charCount = createMemo(() => searchQuery().length);
   const isValidLength = createMemo(() => charCount() >= 4 && charCount() <= 32);
 
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
     if (analyzeState() !== 'idle') return;
     if (validate(searchQuery())) {
       try { hapticFeedback.impactOccurred('medium'); } catch {}
       setAnalyzeState('loading');
-      setTimeout(() => {
-        setAnalyzeState('success');
-        try { hapticFeedback.notificationOccurred('success'); } catch {}
-        setTimeout(() => setAnalyzeState('idle'), 1500);
-      }, 2000);
+      
+      try {
+        const { invoice_link } = await requestPremium(searchQuery());
+        const status = await invoice.open(invoice_link, 'url');
+        if (status === 'paid') {
+          setAnalyzeState('success');
+          try { hapticFeedback.notificationOccurred('success'); } catch {}
+          // Navigate to report page
+          setTimeout(() => {
+            navigate(`/username/report?u=${searchQuery()}`);
+            setAnalyzeState('idle');
+          }, 1000);
+        } else {
+          setAnalyzeState('idle');
+        }
+      } catch (err) {
+        console.error('Payment failed', err);
+        setAnalyzeState('idle');
+        try { hapticFeedback.notificationOccurred('error'); } catch {}
+      }
     } else {
       try { hapticFeedback.notificationOccurred('error'); } catch {}
     }
@@ -92,9 +113,18 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
               {t('home.targetAsset')}
             </span>
             <Show when={charCount() > 0}>
-              <span class={`text-[11px] font-black tracking-widest ${isValidLength() ? 'text-[#34c759]' : 'text-[#ff3b30]'}`}>
-                {charCount()}<span class="text-[#8e8e93] opacity-50">/32</span>
-              </span>
+              <div class="flex items-center gap-2">
+                <Show when={availability.data}>
+                  <span class={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                    availability.data?.status === 'available' ? 'bg-[#34c759]/20 text-[#34c759]' : 'bg-[#ff3b30]/20 text-[#ff3b30]'
+                  }`}>
+                    {availability.data?.status}
+                  </span>
+                </Show>
+                <span class={`text-[11px] font-black tracking-widest ${isValidLength() ? 'text-[#34c759]' : 'text-[#ff3b30]'}`}>
+                  {charCount()}<span class="text-[#8e8e93] opacity-50">/32</span>
+                </span>
+              </div>
             </Show>
           </div>
 
@@ -174,7 +204,10 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
         transition={{ duration: 0.5, delay: 0.3 }}
         class="text-center pt-4"
       >
-        <button class="group inline-flex items-center gap-1.5 text-[13px] font-bold text-[#8e8e93] hover:text-[#3390ec] transition-colors border-b border-transparent hover:border-[#3390ec]/30 pb-0.5">
+        <button 
+          onClick={() => navigate('/username/stats')}
+          class="group inline-flex items-center gap-1.5 text-[13px] font-bold text-[#8e8e93] hover:text-[#3390ec] transition-colors border-b border-transparent hover:border-[#3390ec]/30 pb-0.5"
+        >
           <span class="material-symbols-outlined text-[16px] group-hover:scale-110 transition-transform">info</span>
           <span>
             {t('action.freeInfoPrefix')} <span class="text-white group-hover:text-[#3390ec]">{t('action.freeInfoHighlight')}</span> {t('action.freeInfoSuffix')}

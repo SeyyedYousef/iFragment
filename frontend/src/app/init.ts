@@ -10,6 +10,8 @@ import {
   emitEvent,
   miniApp,
   backButton,
+  invoice,
+  shareToStory,
 } from '@tma.js/sdk-solid';
 
 import { initStorageSync } from '@/shared/store/airdrop.js';
@@ -98,6 +100,15 @@ export async function init(options: {
     }
   } catch (e) {
     console.warn('Viewport mount failed', e);
+  }
+
+  try {
+    // @ts-ignore
+    if (invoice.mount && typeof invoice.mount.isAvailable === 'function' && invoice.mount.isAvailable()) {
+      invoice.mount();
+    }
+  } catch (e) {
+    console.warn('Invoice mount failed', e);
   }
 
   // Set default theme colors if available

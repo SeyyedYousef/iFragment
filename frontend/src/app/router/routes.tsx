@@ -18,6 +18,9 @@ const MandatoryPage = lazy(() => import('@/pages/MandatoryPage/index.js').then(m
 const CustomTextsPage = lazy(() => import('@/pages/CustomTextsPage/index.js').then(m => ({ default: m.CustomTextsPage })));
 const AnalyticsPage = lazy(() => import('@/pages/AnalyticsPage/index.js').then(m => ({ default: m.AnalyticsPage })));
 
+const CollectionStatsPage = lazy(() => import('@/pages/CollectionStatsPage/CollectionStatsPage.js').then(m => ({ default: m.CollectionStatsPage })));
+const PremiumReportPage = lazy(() => import('@/pages/PremiumReportPage/PremiumReportPage.js').then(m => ({ default: m.PremiumReportPage })));
+
 interface Route {
   path: string;
   Component: Component;
@@ -26,6 +29,8 @@ interface Route {
 
 export const routes: Route[] = [
   { path: '/', Component: IndexPage },
+  { path: '/username/stats', Component: CollectionStatsPage },
+  { path: '/username/report', Component: PremiumReportPage },
   { path: '/airdrop', Component: AirdropPage },
   { path: '/dashboard', Component: DashboardPage },
   { path: '/profile', Component: ProfilePage },
