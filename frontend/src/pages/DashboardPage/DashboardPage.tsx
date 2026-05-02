@@ -2,7 +2,7 @@ import { Component } from 'solid-js';
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
 import { BottomNav } from '@/widgets/bottom-nav/index.js';
-import { t, isRtl } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
 
 
 export const DashboardPage: Component = () => {
@@ -21,7 +21,7 @@ export const DashboardPage: Component = () => {
             <span class="material-symbols-outlined text-[#3390ec] text-4xl" style={{ 'font-variation-settings': '"FILL" 1' }}>dashboard</span>
           </div>
           <h1 class="text-3xl font-black tracking-tight">{t('dashboard.title')}</h1>
-          <p class="text-[#8e8e93] mt-2 font-medium max-w-xs mx-auto text-sm">{t('dashboard.description')}</p>
+          <p class="text-on-surface-variant mt-2 font-medium max-w-xs mx-auto text-sm">{t('dashboard.description')}</p>
         </Motion.div>
       </div>
 
@@ -48,7 +48,7 @@ export const DashboardPage: Component = () => {
               </div>
               <div class="flex-1 pt-1">
                 <h3 class="text-lg font-bold text-white mb-1">{t('dashboard.groupMgmt')}</h3>
-                <p class="text-sm text-[#8e8e93] leading-relaxed font-medium">
+                <p class="text-sm text-on-surface-variant leading-relaxed font-medium">
                   {t('dashboard.groupDesc')}
                 </p>
               </div>
@@ -56,7 +56,7 @@ export const DashboardPage: Component = () => {
             
             <div class="flex items-center justify-end mt-2 relative z-10">
               <button class="w-10 h-10 rounded-full bg-[#3390ec] text-white flex items-center justify-center hover:bg-[#2b7bc9] transition-all shadow-sm">
-                <span class={`material-symbols-outlined ${isRtl() ? '-scale-x-100' : ''}`}>arrow_forward</span>
+                <span class="material-symbols-outlined rtl:-scale-x-100">arrow_forward</span>
               </button>
             </div>
           </Motion.div>
@@ -74,7 +74,7 @@ export const DashboardPage: Component = () => {
               </div>
               <div class="flex-1 pt-1">
                 <h3 class="text-lg font-bold text-white mb-1">{t('dashboard.channelMgmt')}</h3>
-                <p class="text-sm text-[#8e8e93] leading-relaxed font-medium">
+                <p class="text-sm text-[#a0a4ad] leading-relaxed font-medium">
                   {t('dashboard.channelDesc')}
                 </p>
               </div>

@@ -1,7 +1,7 @@
-import { Component, createSignal, onCleanup, For } from 'solid-js';
+import { Component, createSignal, For } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 import { hapticFeedback } from '@tma.js/sdk-solid';
-import { balance, setBalance, energy, setEnergy, maxEnergy, tapPower, energyRecovery, setTotalTaps, currentLeague } from '@/shared/store/airdrop.js';
+import { balance, setBalance, energy, setEnergy, maxEnergy, tapPower, setTotalTaps, currentLeague } from '@/shared/store/airdrop.js';
 
 interface Particle {
   id: number;
@@ -15,13 +15,7 @@ export const TapView: Component = () => {
   const [isPressed, setIsPressed] = createSignal(false);
   const [isShaking, setIsShaking] = createSignal(false);
 
-  // Energy regeneration
-  const timer = setInterval(() => {
-    if (energy() < maxEnergy()) {
-      setEnergy(e => Math.min(e + energyRecovery(), maxEnergy()));
-    }
-  }, 1000);
-  onCleanup(() => clearInterval(timer));
+  // Energy regeneration is now handled globally in the airdrop store
 
   const handleTap = (e: TouchEvent | MouseEvent) => {
     e.preventDefault();

@@ -8,6 +8,13 @@ export interface League {
   color: string;
 }
 
+export interface LeaderEntry {
+  rank: number;
+  name: string;
+  score: number;
+  league: string;
+}
+
 export const LEAGUES: League[] = [
   { name: 'Bronze',   icon: 'looks_3',       minScore: 0,          color: '#cd7f32' },
   { name: 'Silver',   icon: 'looks_two',      minScore: 50_000,     color: '#c0c0c0' },
@@ -132,58 +139,48 @@ export const claimDailyReward = () => {
 export const [referralCount, setReferralCount] = createSignal(savedState.referralCount || 3);
 export const REFERRAL_REWARD = 10000;
 
-// --- Leaderboard Mock ---
-export interface LeaderEntry {
-  rank: number;
-  name: string;
-  score: number;
-  league: string;
-  avatar?: string;
-}
+// --- Leaderboard functionality has been moved to LeaderboardView.tsx using TanStack Query ---
 
-export const [leaderboard, setLeaderboard] = createSignal<LeaderEntry[]>([
-  { rank: 1, name: 'CryptoKing', score: 12_540_000, league: 'Legendary' },
-  { rank: 2, name: 'TON_Whale', score: 8_320_000, league: 'Legendary' },
-  { rank: 3, name: 'DiamondHands', score: 5_100_000, league: 'Legendary' },
-  { rank: 4, name: 'FragMaster', score: 2_800_000, league: 'Diamond' },
-  { rank: 5, name: 'NotcoinFan', score: 1_500_000, league: 'Diamond' },
-  { rank: 6, name: 'TapGod', score: 980_000, league: 'Platinum' },
-  { rank: 7, name: 'MoonShot', score: 650_000, league: 'Platinum' },
-  { rank: 8, name: 'GoldRush', score: 320_000, league: 'Gold' },
-  { rank: 9, name: 'SilverBullet', score: 150_000, league: 'Silver' },
-  { rank: 10, name: 'NewMiner', score: 45_000, league: 'Bronze' },
-]);
-
-// Determine user position
-export const userRank = createMemo(() => {
-  const currentBalance = balance();
-  let rank = 11;
-  const currentLeaderboard = leaderboard();
-  for (let i = 0; i < currentLeaderboard.length; i++) {
-    if (currentBalance >= currentLeaderboard[i].score) {
-      rank = i + 1;
-      break;
+// Energy regeneration timer
+export const initEnergyRegen = () => {
+  const timer = setInterval(() => {
+    if (energy() < maxEnergy()) {
+      setEnergy(e => Math.min(e + energyRecovery(), maxEnergy()));
     }
-  }
-  return rank;
-});
+  }, 1000);
+  return () => clearInterval(timer);
+};
 
-// Sync to local storage
-createRoot(() => {
-  createEffect(() => {
-    const state = {
-      balance: balance(),
-      totalTaps: totalTaps(),
-      energy: energy(),
-      maxEnergy: maxEnergy(),
-      tapPower: tapPower(),
-      energyRecovery: energyRecovery(),
-      frgBalance: frgBalance(),
-      boosters: boosters(),
-      streakDay: streakDay(),
-      lastCheckIn: lastCheckIn(),
-      referralCount: referralCount()
-    };
-    localStorage.setItem('airdrop-state', JSON.stringify(state));
+// Sync to local storage with throttle
+let pendingSave: ReturnType<typeof setTimeout> | undefined;
+
+export const initStorageSync = () => {
+  createRoot(() => {
+    // Energy regen in store root
+    initEnergyRegen();
+
+    createEffect(() => {
+      // Access all signals to track them
+      const state = {
+        balance: balance(),
+        totalTaps: totalTaps(),
+        energy: energy(),
+        maxEnergy: maxEnergy(),
+        tapPower: tapPower(),
+        energyRecovery: energyRecovery(),
+        frgBalance: frgBalance(),
+        boosters: boosters(),
+        streakDay: streakDay(),
+        lastCheckIn: lastCheckIn(),
+        referralCount: referralCount()
+      };
+
+      if (pendingSave) clearTimeout(pendingSave);
+      
+      pendingSave = setTimeout(() => {
+        localStorage.setItem('airdrop-state', JSON.stringify(state));
+        pendingSave = undefined;
+      }, 1000); // 1 second debounce/throttle for persistence
+    });
   });
-});
+};

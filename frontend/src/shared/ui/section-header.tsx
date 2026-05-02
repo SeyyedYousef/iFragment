@@ -18,7 +18,7 @@ export const SectionHeader: Component<SectionHeaderProps> = (props) => (
       <span class="material-symbols-outlined text-white text-2xl" style={{ 'font-variation-settings': '"FILL" 1' }}>{props.icon}</span>
     </div>
     <h1 class="text-xl font-black text-white">{props.title}</h1>
-    {props.subtitle && <p class="text-[#8e8e93] text-xs mt-1 max-w-[260px] mx-auto">{props.subtitle}</p>}
+    {props.subtitle && <p class="text-on-surface-variant text-xs mt-1 max-w-[260px] mx-auto">{props.subtitle}</p>}
     {props.children}
   </div>
 );

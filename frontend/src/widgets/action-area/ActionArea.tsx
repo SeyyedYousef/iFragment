@@ -2,7 +2,7 @@ import { Component, createSignal, createMemo, Show } from 'solid-js';
 import { Motion } from '@motionone/solid';
 import { t, type DictPaths } from '@/shared/i18n/index.js';
 import { useUsernameSearch } from '@/entities/username/model/index.js';
-import { haptic } from '@/shared/lib/haptic.js';
+import { hapticFeedback } from '@tma.js/sdk-solid';
 
 interface ActionAreaProps {
   activeTab: 'username' | 'collectibles' | 'gifts';
@@ -45,15 +45,15 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
   const handleAnalyze = () => {
     if (analyzeState() !== 'idle') return;
     if (validate(searchQuery())) {
-      haptic.medium();
+      try { hapticFeedback.impactOccurred('medium'); } catch {}
       setAnalyzeState('loading');
       setTimeout(() => {
         setAnalyzeState('success');
-        haptic.success();
+        try { hapticFeedback.notificationOccurred('success'); } catch {}
         setTimeout(() => setAnalyzeState('idle'), 1500);
       }, 2000);
     } else {
-      haptic.error();
+      try { hapticFeedback.notificationOccurred('error'); } catch {}
     }
   };
 

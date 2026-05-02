@@ -1,7 +1,7 @@
 import { Component, For, Show } from 'solid-js';
 import { Motion } from '@motionone/solid';
 import { t, locale, type DictPaths } from '@/shared/i18n/index.js';
-import { haptic } from '@/shared/lib/haptic.js';
+import { hapticFeedback } from '@tma.js/sdk-solid';
 
 const isRtl = () => locale() === 'fa';
 
@@ -20,7 +20,7 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
   ];
 
   const handleTabClick = (tab: typeof TABS[number]) => {
-    haptic.light();
+    try { hapticFeedback.impactOccurred('light'); } catch {}
     props.onTabChange(tab.id);
   };
 

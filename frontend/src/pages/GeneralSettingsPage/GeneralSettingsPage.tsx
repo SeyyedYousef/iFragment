@@ -108,7 +108,7 @@ export const GeneralSettingsPage: Component = () => {
       <div class="px-5 pt-6 pb-4 bg-[#0f1014] sticky top-0 z-30 border-b border-[#1c1c1c] flex items-center justify-between">
         <div class="flex flex-col">
           <h1 class="text-[20px] font-black text-white leading-tight">{t('generalSettings.title')}</h1>
-          <span class="text-[12px] text-[#8e8e93]">{t('generalSettings.description')}</span>
+          <span class="text-[12px] text-on-surface-variant">{t('generalSettings.description')}</span>
         </div>
         
         <button 
@@ -190,157 +190,158 @@ export const GeneralSettingsPage: Component = () => {
           <div class="flex items-center justify-between gap-3">
             <div class="flex flex-col flex-1 min-w-0">
               <span class="text-[15px] font-bold text-white">{t('generalSettings.autoDeleteBot')}</span>
-              <span class="text-[12px] text-[#8e8e93] leading-snug">{t('generalSettings.autoDeleteBotDesc')}</span>
+              <span class="text-[12px] text-on-surface-variant leading-snug">{t('generalSettings.autoDeleteBotDesc')}</span>
             </div>
             <ToggleSwitch checked={autoDeleteBot()} onChange={setAutoDeleteBot} />
           </div>
           <Show when={autoDeleteBot()}>
             <div class="flex items-center gap-3 mt-2">
-              <input 
-                type="number" 
-                min="0"
-               
-                value={autoDeleteTime()} 
-                onInput={handleNumberInput(setAutoDeleteTime)}
-                class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-2 w-24 text-center focus:outline-none focus:ring-2 focus:ring-[#3390ec]"
-              />
-              <span class="text-[14px] font-bold text-[#8e8e93]">{t('generalSettings.seconds')}</span>
+                <input 
+                  type="number" 
+                  inputMode="numeric"
+                  min="0"
+                 
+                  value={autoDeleteTime()} 
+                  onInput={handleNumberInput(setAutoDeleteTime)}
+                  class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-2 w-24 text-center focus:outline-none focus:ring-2 focus:ring-[#3390ec] placeholder-[#a0a4ad]"
+                />
+                <span class="text-[14px] font-bold text-[#a0a4ad]">{t('generalSettings.seconds')}</span>
+              </div>
+            </Show>
+          </Motion.div>
+
+          {/* 5. Track admin violations */}
+          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} class="flex flex-col gap-2">
+            <SelectField 
+              label={t('generalSettings.trackAdmin')}
+              value={adminViolations()}
+              onChange={setAdminViolations}
+              options={[
+                { value: 'ignore', label: t('generalSettings.optIgnore') },
+                { value: 'log', label: t('generalSettings.optLog') },
+                { value: 'delete', label: t('generalSettings.optDelete') }
+              ]}
+              description={t('generalSettings.trackAdminDesc')}
+            />
+          </Motion.div>
+
+          {/* 6. Verify new members */}
+          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+            <SettingsSection
+              title={t('generalSettings.verifyMembers')}
+              description={t('generalSettings.verifyMembersDesc')}
+              enabled={verifyEnabled()}
+              onToggle={setVerifyEnabled}
+              hasWindow={true}
+              windowVal={verifyWindow()}
+              onWindowChange={setVerifyWindow}
+              customStart={verifyStart()}
+              onCustomStart={setVerifyStart}
+              customEnd={verifyEnd()}
+              onCustomEnd={setVerifyEnd}
+              hasPenalty={true}
+              penaltyVal={verifyPenalty()}
+              onPenaltyChange={setVerifyPenalty}
+            />
+          </Motion.div>
+
+          {/* 7. Public commands */}
+          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+            <SettingsSection
+              title={t('generalSettings.publicCommands')}
+              description={t('generalSettings.publicCommandsDesc')}
+              enabled={publicCmdEnabled()}
+              onToggle={setPublicCmdEnabled}
+              hasWindow={true}
+              windowVal={publicCmdWindow()}
+              onWindowChange={setPublicCmdWindow}
+              customStart={publicCmdStart()}
+              onCustomStart={setPublicCmdStart}
+              customEnd={publicCmdEnd()}
+              onCustomEnd={setPublicCmdEnd}
+              hasPenalty={true}
+              penaltyVal={publicCmdPenalty()}
+              onPenaltyChange={setPublicCmdPenalty}
+            />
+          </Motion.div>
+
+          {/* 8. Hide join and leave */}
+          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+            <SettingsSection
+              title={t('generalSettings.hideJoinLeave')}
+              description={t('generalSettings.hideJoinLeaveDesc')}
+              enabled={hideJoinLeaveEnabled()}
+              onToggle={setHideJoinLeaveEnabled}
+              hasWindow={true}
+              windowVal={hideJoinLeaveWindow()}
+              onWindowChange={setHideJoinLeaveWindow}
+              customStart={hideJoinLeaveStart()}
+              onCustomStart={setHideJoinLeaveStart}
+              customEnd={hideJoinLeaveEnd()}
+              onCustomEnd={setHideJoinLeaveEnd}
+            />
+          </Motion.div>
+
+          {/* 9. Default system penalty */}
+          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
+            <SelectField 
+              label={t('generalSettings.defaultPenalty')}
+              value={defaultPenalty()}
+              onChange={setDefaultPenalty}
+              options={[
+                { value: 'delete', label: t('generalSettings.optDelete') },
+                { value: 'mute_1h', label: t('generalSettings.optMute1h') },
+                { value: 'mute_24h', label: t('generalSettings.optMute24h') },
+                { value: 'kick', label: t('generalSettings.optKick') },
+                { value: 'ban', label: t('generalSettings.optBan') }
+              ]}
+              description={t('generalSettings.defaultPenaltyDesc')}
+            />
+          </Motion.div>
+
+          {/* 10. Auto warning counter */}
+          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-3">
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex flex-col flex-1 min-w-0">
+                <span class="text-[15px] font-bold text-white">{t('generalSettings.autoWarning')}</span>
+                <span class="text-[12px] text-[#a0a4ad] leading-snug">{t('generalSettings.autoWarningDesc')}</span>
+              </div>
+              <ToggleSwitch checked={warningCounterEnabled()} onChange={setWarningCounterEnabled} />
             </div>
-          </Show>
-        </Motion.div>
-
-        {/* 5. Track admin violations */}
-        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} class="flex flex-col gap-2">
-          <SelectField 
-            label={t('generalSettings.trackAdmin')}
-            value={adminViolations()}
-            onChange={setAdminViolations}
-            options={[
-              { value: 'ignore', label: t('generalSettings.optIgnore') },
-              { value: 'log', label: t('generalSettings.optLog') },
-              { value: 'delete', label: t('generalSettings.optDelete') }
-            ]}
-            description={t('generalSettings.trackAdminDesc')}
-          />
-        </Motion.div>
-
-        {/* 6. Verify new members */}
-        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-          <SettingsSection
-            title={t('generalSettings.verifyMembers')}
-            description={t('generalSettings.verifyMembersDesc')}
-            enabled={verifyEnabled()}
-            onToggle={setVerifyEnabled}
-            hasWindow={true}
-            windowVal={verifyWindow()}
-            onWindowChange={setVerifyWindow}
-            customStart={verifyStart()}
-            onCustomStart={setVerifyStart}
-            customEnd={verifyEnd()}
-            onCustomEnd={setVerifyEnd}
-            hasPenalty={true}
-            penaltyVal={verifyPenalty()}
-            onPenaltyChange={setVerifyPenalty}
-          />
-        </Motion.div>
-
-        {/* 7. Public commands */}
-        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-          <SettingsSection
-            title={t('generalSettings.publicCommands')}
-            description={t('generalSettings.publicCommandsDesc')}
-            enabled={publicCmdEnabled()}
-            onToggle={setPublicCmdEnabled}
-            hasWindow={true}
-            windowVal={publicCmdWindow()}
-            onWindowChange={setPublicCmdWindow}
-            customStart={publicCmdStart()}
-            onCustomStart={setPublicCmdStart}
-            customEnd={publicCmdEnd()}
-            onCustomEnd={setPublicCmdEnd}
-            hasPenalty={true}
-            penaltyVal={publicCmdPenalty()}
-            onPenaltyChange={setPublicCmdPenalty}
-          />
-        </Motion.div>
-
-        {/* 8. Hide join and leave */}
-        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-          <SettingsSection
-            title={t('generalSettings.hideJoinLeave')}
-            description={t('generalSettings.hideJoinLeaveDesc')}
-            enabled={hideJoinLeaveEnabled()}
-            onToggle={setHideJoinLeaveEnabled}
-            hasWindow={true}
-            windowVal={hideJoinLeaveWindow()}
-            onWindowChange={setHideJoinLeaveWindow}
-            customStart={hideJoinLeaveStart()}
-            onCustomStart={setHideJoinLeaveStart}
-            customEnd={hideJoinLeaveEnd()}
-            onCustomEnd={setHideJoinLeaveEnd}
-          />
-        </Motion.div>
-
-        {/* 9. Default system penalty */}
-        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
-          <SelectField 
-            label={t('generalSettings.defaultPenalty')}
-            value={defaultPenalty()}
-            onChange={setDefaultPenalty}
-            options={[
-              { value: 'delete', label: t('generalSettings.optDelete') },
-              { value: 'mute_1h', label: t('generalSettings.optMute1h') },
-              { value: 'mute_24h', label: t('generalSettings.optMute24h') },
-              { value: 'kick', label: t('generalSettings.optKick') },
-              { value: 'ban', label: t('generalSettings.optBan') }
-            ]}
-            description={t('generalSettings.defaultPenaltyDesc')}
-          />
-        </Motion.div>
-
-        {/* 10. Auto warning counter */}
-        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-3">
-          <div class="flex items-center justify-between gap-3">
-            <div class="flex flex-col flex-1 min-w-0">
-              <span class="text-[15px] font-bold text-white">{t('generalSettings.autoWarning')}</span>
-              <span class="text-[12px] text-[#8e8e93] leading-snug">{t('generalSettings.autoWarningDesc')}</span>
-            </div>
-            <ToggleSwitch checked={warningCounterEnabled()} onChange={setWarningCounterEnabled} />
-          </div>
-          
-          <Show when={warningCounterEnabled()}>
-            <div class="h-[1px] bg-[#2a2a2a] w-full my-2"></div>
             
-            <div class="grid grid-cols-2 gap-4">
-              <div class="flex flex-col gap-1.5">
-                <label class="text-[13px] font-bold text-white">{t('generalSettings.threshold')}</label>
-                <div class="relative">
-                  <input 
-                    type="number" min="1" value={warningThreshold()} onInput={handleNumberInput(setWarningThreshold)}
-                    class={`w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl py-2 focus:outline-none focus:ring-2 focus:ring-[#3390ec] ${
-                      isRtl() ? 'pr-4 pl-16 text-right' : 'pl-4 pr-16 text-left'
-                    }`}
-                  />
-                  <span class={`absolute top-1/2 -translate-y-1/2 text-[12px] text-[#8e8e93] ${
-                    isRtl() ? 'left-3' : 'right-3'
-                  }`}>{t('generalSettings.strikes')}</span>
+            <Show when={warningCounterEnabled()}>
+              <div class="h-[1px] bg-[#2a2a2a] w-full my-2"></div>
+              
+              <div class="grid grid-cols-2 gap-4">
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-[13px] font-bold text-white">{t('generalSettings.threshold')}</label>
+                  <div class="relative">
+                    <input 
+                      type="number" inputMode="numeric" min="1" value={warningThreshold()} onInput={handleNumberInput(setWarningThreshold)}
+                      class={`w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl py-2 focus:outline-none focus:ring-2 focus:ring-[#3390ec] ${
+                        isRtl() ? 'pr-4 pl-16 text-right' : 'pl-4 pr-16 text-left'
+                      }`}
+                    />
+                    <span class={`absolute top-1/2 -translate-y-1/2 text-[12px] text-[#a0a4ad] ${
+                      isRtl() ? 'left-3' : 'right-3'
+                    }`}>{t('generalSettings.strikes')}</span>
+                  </div>
+                </div>
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-[13px] font-bold text-white">{t('generalSettings.retention')}</label>
+                  <div class="relative">
+                    <input 
+                      type="number" inputMode="numeric" min="1" value={warningRetention()} onInput={handleNumberInput(setWarningRetention)}
+                      class={`w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl py-2 focus:outline-none focus:ring-2 focus:ring-[#3390ec] ${
+                        isRtl() ? 'pr-4 pl-12 text-right' : 'pl-4 pr-12 text-left'
+                      }`}
+                    />
+                    <span class={`absolute top-1/2 -translate-y-1/2 text-[12px] text-[#a0a4ad] ${
+                      isRtl() ? 'left-3' : 'right-3'
+                    }`}>{t('generalSettings.days')}</span>
+                  </div>
                 </div>
               </div>
-              <div class="flex flex-col gap-1.5">
-                <label class="text-[13px] font-bold text-white">{t('generalSettings.retention')}</label>
-                <div class="relative">
-                  <input 
-                    type="number" min="1" value={warningRetention()} onInput={handleNumberInput(setWarningRetention)}
-                    class={`w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl py-2 focus:outline-none focus:ring-2 focus:ring-[#3390ec] ${
-                      isRtl() ? 'pr-4 pl-12 text-right' : 'pl-4 pr-12 text-left'
-                    }`}
-                  />
-                  <span class={`absolute top-1/2 -translate-y-1/2 text-[12px] text-[#8e8e93] ${
-                    isRtl() ? 'left-3' : 'right-3'
-                  }`}>{t('generalSettings.days')}</span>
-                </div>
-              </div>
-            </div>
 
             <div class="mt-2">
               <SelectField 

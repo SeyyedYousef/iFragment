@@ -53,7 +53,7 @@ export const ManagedBotsPage: Component = () => {
             <span class="material-symbols-outlined text-[#3390ec] text-4xl relative z-10" style={{ 'font-variation-settings': '"FILL" 1' }}>smart_toy</span>
           </div>
           <h1 class="text-3xl font-black tracking-tight">{t('managedBots.title')}</h1>
-          <p class="text-[#8e8e93] mt-3 font-medium max-w-sm mx-auto text-sm leading-relaxed">
+          <p class="text-on-surface-variant mt-3 font-medium max-w-sm mx-auto text-sm leading-relaxed">
             {t('managedBots.description')}
           </p>
         </Motion.div>
@@ -84,10 +84,10 @@ export const ManagedBotsPage: Component = () => {
                 </div>
                 <div>
                   <h3 class="text-lg font-bold text-white">{t('managedBots.createBtn')}</h3>
-                  <p class="text-[11px] text-[#8e8e93] font-medium mt-0.5 leading-tight max-w-[200px]">{t('managedBots.botFatherPrompt')}</p>
+                  <p class="text-[11px] text-on-surface-variant font-medium mt-0.5 leading-tight max-w-[200px]">{t('managedBots.botFatherPrompt')}</p>
                 </div>
               </div>
-              <span class={`material-symbols-outlined text-[#8e8e93] ${isRtl() ? '-scale-x-100' : ''}`}>chevron_right</span>
+              <span class={`material-symbols-outlined text-on-surface-variant ${isRtl() ? '-scale-x-100' : ''}`}>chevron_right</span>
             </div>
           </Motion.button>
 
@@ -101,8 +101,8 @@ export const ManagedBotsPage: Component = () => {
             <div class="flex flex-col gap-3">
               <For each={bots()} fallback={
                 <div class="bg-[#0f1014] rounded-3xl p-8 border border-[#2a2a2a] flex flex-col items-center justify-center text-center">
-                  <span class="material-symbols-outlined text-[#8e8e93] text-4xl mb-3 opacity-50">robot_2</span>
-                  <p class="text-[#8e8e93] text-sm font-medium">{t('managedBots.noBots')}</p>
+                  <span class="material-symbols-outlined text-on-surface-variant text-4xl mb-3 opacity-50">robot_2</span>
+                  <p class="text-on-surface-variant text-sm font-medium">{t('managedBots.noBots')}</p>
                 </div>
               }>
                 {(bot, i) => (

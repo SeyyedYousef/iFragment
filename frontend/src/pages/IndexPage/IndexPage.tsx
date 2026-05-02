@@ -1,6 +1,6 @@
 import { type Component, createEffect, createSignal, Show } from 'solid-js';
 import { Motion } from '@motionone/solid';
-import { backButton, viewport, miniApp } from '@tma.js/sdk-solid';
+import { viewport, backButton } from '@tma.js/sdk-solid';
 
 import { HeroTabs } from '@/widgets/hero-tabs/index.js';
 import { ActionArea } from '@/widgets/action-area/index.js';
@@ -14,17 +14,7 @@ export const IndexPage: Component = () => {
     if (viewport.expand.isAvailable() && !viewport.isExpanded()) {
       viewport.expand();
     }
-    // Fragment Dark Theme Header
-    try {
-      if (miniApp && typeof miniApp.setHeaderColor === 'function') {
-        miniApp.setHeaderColor('#0f1014');
-      }
-      if (miniApp && typeof (miniApp as any).setBackgroundColor === 'function') {
-        (miniApp as any).setBackgroundColor('#0f1014');
-      }
-    } catch (e) {
-      console.warn('Telegram header color API not fully supported in this environment', e);
-    }
+    // Theme colors are now handled globally in init.ts
   });
 
   const handleTabChange = (tab: 'username' | 'collectibles' | 'gifts') => {

@@ -58,7 +58,7 @@ export const ProfilePage: Component = () => {
       </div>
 
       {/* Settings Sections */}
-      <div class="px-margin-main -mt-10 relative z-20 space-y-4">
+      <div class="px-[var(--spacing-margin-main)] -mt-10 relative z-20 space-y-4">
         <Motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -106,15 +106,15 @@ export const ProfilePage: Component = () => {
         >
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-2xl bg-[#0f1014] flex items-center justify-center text-[#8e8e93] border border-[#2a2a2a]">
+              <div class="w-10 h-10 rounded-2xl bg-[#0f1014] flex items-center justify-center text-[#a0a4ad] border border-[#2a2a2a]">
                 <span class="material-symbols-outlined text-[24px]">security</span>
               </div>
               <div>
                 <h2 class="text-white font-black text-sm">{t('profile.privacyPolicy')}</h2>
-                <p class="text-[#8e8e93] text-[11px] font-medium leading-none">{t('profile.termsDescription')}</p>
+                <p class="text-[#a0a4ad] text-[11px] font-medium leading-none">{t('profile.termsDescription')}</p>
               </div>
             </div>
-            <span class="material-symbols-outlined text-[#8e8e93]">chevron_right</span>
+            <span class="material-symbols-outlined text-[#a0a4ad]">chevron_right</span>
           </div>
         </Motion.div>
       </div>

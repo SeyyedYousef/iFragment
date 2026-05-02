@@ -9,11 +9,14 @@ export const ToggleSwitch: Component<{ checked: boolean; onChange: (v: boolean) 
   return (
     <button
       dir="ltr"
+      role="switch"
+      aria-checked={props.checked}
+      aria-label={t('common.toggle' as any)}
       onClick={() => {
         hapticFeedback.impactOccurred('light');
         props.onChange(!props.checked);
       }}
-      class={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-300 focus:outline-none ${
+      class={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-[#3390ec] focus:ring-offset-2 focus:ring-offset-[#1c1c1c] ${
         props.checked ? 'bg-[#34c759]' : 'bg-[#39393d]'
       }`}
     >
@@ -55,14 +58,14 @@ export const SelectField: Component<{
             <option value={opt.value}>{opt.label}</option>
           ))}
         </select>
-        <span class={`material-symbols-outlined absolute top-1/2 -translate-y-1/2 text-[#8e8e93] pointer-events-none ${
+        <span class={`material-symbols-outlined absolute top-1/2 -translate-y-1/2 text-[#a0a4ad] pointer-events-none ${
           isRtl() ? 'left-3' : 'right-3'
         }`}>
           expand_more
         </span>
       </div>
       <Show when={props.description}>
-        <span class="text-[12px] text-[#8e8e93] leading-snug px-1">{props.description}</span>
+        <span class="text-[12px] text-[#a0a4ad] leading-snug px-1">{props.description}</span>
       </Show>
     </div>
   );
@@ -84,6 +87,7 @@ export const NumberInputField: Component<{
       <div class="relative w-full">
         <input 
           type="number"
+          inputMode="numeric"
           min={props.min}
           max={props.max}
           value={props.value === 0 ? '' : props.value}
@@ -96,11 +100,11 @@ export const NumberInputField: Component<{
           onBlur={() => {
             hapticFeedback.impactOccurred('light');
           }}
-          class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-transparent transition-all placeholder-[#8e8e93]"
+          class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-transparent transition-all placeholder-[#a0a4ad]"
         />
       </div>
       <Show when={props.description}>
-        <span class="text-[12px] text-[#8e8e93] leading-snug px-1">{props.description}</span>
+        <span class="text-[12px] text-on-surface-variant leading-snug px-1">{props.description}</span>
       </Show>
     </div>
   );
@@ -145,7 +149,7 @@ export const StringListField: Component<{
           onKeyDown={handleKeyDown}
           placeholder={props.placeholder || 'Type and press enter...'}
          
-          class="flex-1 bg-[#2c2c2e] text-white text-[14px] rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-transparent transition-all placeholder-[#8e8e93]"
+          class="flex-1 bg-[#2c2c2e] text-white text-[14px] rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-transparent transition-all placeholder-on-surface-variant"
         />
         <button 
           onClick={handleAdd}
@@ -157,7 +161,7 @@ export const StringListField: Component<{
       </div>
 
       <Show when={props.description}>
-        <span class="text-[12px] text-[#8e8e93] leading-snug px-1">{props.description}</span>
+        <span class="text-[12px] text-on-surface-variant leading-snug px-1">{props.description}</span>
       </Show>
 
       <Show when={props.items.length > 0}>
@@ -171,7 +175,7 @@ export const StringListField: Component<{
                     hapticFeedback.impactOccurred('light');
                     props.onRemove(item);
                   }}
-                  class="text-[#8e8e93] hover:text-[#ff3b30] transition-colors flex items-center justify-center"
+                  class="text-on-surface-variant hover:text-[#ff3b30] transition-colors flex items-center justify-center"
                 >
                   <span class="material-symbols-outlined text-[16px]">close</span>
                 </button>
@@ -211,7 +215,7 @@ export const InlineButtonField: Component<{
       <label class="text-[15px] font-bold text-white">{props.label}</label>
       
       <Show when={props.description}>
-        <span class="text-[12px] text-[#8e8e93] leading-snug px-1 -mt-1">{props.description}</span>
+        <span class="text-[12px] text-on-surface-variant leading-snug px-1 -mt-1">{props.description}</span>
       </Show>
 
       <div class="flex flex-col gap-2 bg-[#2c2c2e] p-3 rounded-xl border border-[#3a3a3c]">
@@ -221,7 +225,7 @@ export const InlineButtonField: Component<{
           onInput={(e) => setTitle(e.currentTarget.value)}
           placeholder="Button Title (e.g. My Channel)"
          
-          class="w-full bg-[#1c1c1c] text-white text-[14px] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-transparent transition-all placeholder-[#8e8e93]"
+          class="w-full bg-[#1c1c1c] text-white text-[14px] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-transparent transition-all placeholder-on-surface-variant"
         />
         <div class="flex gap-2">
           <input 
@@ -230,7 +234,7 @@ export const InlineButtonField: Component<{
             onInput={(e) => setUrl(e.currentTarget.value)}
             placeholder="URL (e.g. https://t.me/)"
            
-            class="flex-1 bg-[#1c1c1c] text-white text-[14px] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-transparent transition-all placeholder-[#8e8e93]"
+            class="flex-1 bg-[#1c1c1c] text-white text-[14px] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-transparent transition-all placeholder-on-surface-variant"
           />
           <button 
             onClick={handleAdd}
@@ -296,7 +300,7 @@ export const SettingsSection: Component<{
       <div class="flex items-center justify-between gap-3">
         <div class="flex flex-col flex-1 min-w-0">
           <span class="text-[15px] font-bold text-white">{props.title}</span>
-          <span class="text-[12px] text-[#8e8e93] leading-snug">{props.description}</span>
+          <span class="text-[12px] text-on-surface-variant leading-snug">{props.description}</span>
         </div>
         <ToggleSwitch checked={props.enabled} onChange={props.onToggle} />
       </div>
@@ -318,11 +322,11 @@ export const SettingsSection: Component<{
           <Show when={props.windowVal === 'Custom'}>
             <div class="grid grid-cols-2 gap-3 mt-1">
               <div class="flex flex-col gap-1.5">
-                <label class="text-[12px] font-bold text-[#8e8e93]">{t('generalSettings.startTime')}</label>
+                <label class="text-[12px] font-bold text-on-surface-variant">{t('generalSettings.startTime')}</label>
                 <input type="time" value={props.customStart} onInput={(e) => props.onCustomStart!(e.currentTarget.value)} class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#3390ec]" />
               </div>
               <div class="flex flex-col gap-1.5">
-                <label class="text-[12px] font-bold text-[#8e8e93]">{t('generalSettings.endTime')}</label>
+                <label class="text-[12px] font-bold text-on-surface-variant">{t('generalSettings.endTime')}</label>
                 <input type="time" value={props.customEnd} onInput={(e) => props.onCustomEnd!(e.currentTarget.value)} class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#3390ec]" />
               </div>
             </div>

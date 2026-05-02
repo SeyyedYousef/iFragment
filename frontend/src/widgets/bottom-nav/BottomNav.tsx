@@ -13,7 +13,7 @@ export const BottomNav: Component = () => {
   };
 
   return (
-    <div class="fixed bottom-8 left-1/2 -translate-x-1/2 w-[95%] max-w-md z-50 flex items-center justify-between gap-3 px-2">
+    <div class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 flex items-center justify-between gap-3 px-margin-main pb-[max(1.5rem,env(safe-area-inset-bottom))]">
       <A 
         href="/profile"
         class={`flex flex-col items-center cursor-pointer transition-all ${isActive('/profile') ? 'scale-110' : 'hover:scale-105'}`}

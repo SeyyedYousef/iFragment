@@ -58,7 +58,7 @@
   --color-surface: #1c1c1c;
   --color-on-surface: #ffffff;
   --color-surface-variant: #2a2a2a;
-  --color-on-surface-variant: #8e8e93;
+  --color-on-surface-variant: #a0a4ad; /* Updated for WCAG AA contrast on dark background */
   --color-inverse-surface: #ffffff;
   --color-inverse-on-surface: #f0f0fd;
   --color-surface-tint: #004ee7;
@@ -92,13 +92,13 @@
   }
 
   /* Telegram Theme Variables Mapping for seamless integration */
+  /* Correct Theme Mapping: Tailwind tokens follow Telegram theme if available */
   :root {
-    --tg-theme-bg-color: var(--color-background);
-    --tg-theme-text-color: var(--color-on-background);
-    --tg-theme-hint-color: var(--color-outline);
-    --tg-theme-link-color: var(--color-primary);
-    --tg-theme-button-color: var(--color-primary);
-    --tg-theme-button-text-color: var(--color-on-primary);
+    --color-background: var(--tg-theme-bg-color, #0f1014);
+    --color-on-background: var(--tg-theme-text-color, #ffffff);
+    --color-outline: var(--tg-theme-hint-color, #8e8e93);
+    --color-primary: var(--tg-theme-link-color, #0088CC);
+    --color-surface: var(--tg-theme-secondary-bg-color, #1c1c1c);
   }
 }
 

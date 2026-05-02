@@ -12,6 +12,8 @@ import {
   backButton,
 } from '@tma.js/sdk-solid';
 
+import { initStorageSync } from '@/shared/store/airdrop.js';
+
 /**
  * Initializes the application and configures its dependencies.
  */
@@ -60,19 +62,58 @@ export async function init(options: {
   }
 
   // Mount all components used in the project.
-  backButton.mount.ifAvailable();
+  // We use try-catch for each component to prevent the entire app from crashing.
+  
+  try {
+    // @ts-ignore - SDK components have different mount structures
+    if (backButton.mount && typeof backButton.mount.isAvailable === 'function' && backButton.mount.isAvailable()) {
+      backButton.mount();
+    } else if (typeof backButton.mount === 'function') {
+      backButton.mount();
+    }
+  } catch (e) {
+    console.warn('BackButton mount failed', e);
+  }
+  
   initData.restore();
 
-  if (miniApp.mount.isAvailable()) {
-    themeParams.mount();
-    miniApp.mount();
-    themeParams.bindCssVars();
+  try {
+    // @ts-ignore
+    if (miniApp.mount && typeof miniApp.mount.isAvailable === 'function' && miniApp.mount.isAvailable()) {
+      miniApp.mount();
+      themeParams.mount();
+      themeParams.bindCssVars();
+    }
+  } catch (e) {
+    console.warn('MiniApp/ThemeParams mount failed', e);
   }
 
-  if (viewport.mount.isAvailable()) {
-    viewport.mount().then(() => {
-      viewport.bindCssVars();
-      viewport.expand();
-    });
+  try {
+    // @ts-ignore
+    if (viewport.mount && typeof viewport.mount.isAvailable === 'function' && viewport.mount.isAvailable()) {
+      viewport.mount().then(() => {
+        viewport.bindCssVars();
+        viewport.expand();
+      }).catch(e => console.warn('Viewport expansion failed', e));
+    }
+  } catch (e) {
+    console.warn('Viewport mount failed', e);
   }
+
+  // Set default theme colors if available
+  try {
+    if (miniApp.isMounted()) {
+      if (typeof miniApp.setHeaderColor === 'function') {
+        miniApp.setHeaderColor('#0f1014');
+      }
+      if (typeof (miniApp as any).setBackgroundColor === 'function') {
+        (miniApp as any).setBackgroundColor('#0f1014');
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to set initial theme colors', e);
+  }
+
+  // Initialize store persistence
+  initStorageSync();
 }
