@@ -53,23 +53,28 @@ func (c *Client) CheckUsername(username string) (Status, error) {
 	}
 
 	// Logic to determine status based on DOM elements
-	if doc.Find(".tm-section-bid").Length() > 0 {
+	// 1. Check for Auction
+	if doc.Find(".tm-section-bid, .tm-auction-active").Length() > 0 {
 		return StatusAuction, nil
 	}
 	
-	if doc.Find(".tm-section-buy").Length() > 0 {
+	// 2. Check for Sale (Fixed Price)
+	if doc.Find(".tm-section-buy, .tm-buy-fixed").Length() > 0 {
 		return StatusSale, nil
 	}
 
-	// Check for "Owner" or similar to determine if taken
-	if doc.Find(".tm-owner").Length() > 0 || doc.Find(".tm-owner-address").Length() > 0 {
+	// 3. Check for Taken (Owner present)
+	if doc.Find(".tm-owner, .tm-owner-address, .tm-main-owner").Length() > 0 {
 		return StatusSold, nil
 	}
 
-	// Check if it's available for bidding/unavailable
-	statusText := strings.ToLower(doc.Find(".tm-status-avail").Text())
-	if strings.Contains(statusText, "available") {
+	// 4. Check status labels
+	statusLabel := strings.ToLower(doc.Find(".tm-status-avail, .tm-section-header-status").Text())
+	if strings.Contains(statusLabel, "available") {
 		return StatusAvailable, nil
+	}
+	if strings.Contains(statusLabel, "sold") || strings.Contains(statusLabel, "taken") {
+		return StatusSold, nil
 	}
 
 	return StatusSold, nil // Default to sold if we see it exists but no buy/bid action

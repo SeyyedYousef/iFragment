@@ -49,33 +49,53 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
   const isValidLength = createMemo(() => charCount() >= 4 && charCount() <= 32);
 
   const handleAnalyze = async () => {
-    if (analyzeState() !== 'idle') return;
+    if (analyzeState() !== 'idle' || requestPremium.isPending) return;
     if (validate(searchQuery())) {
       try { hapticFeedback.impactOccurred('medium'); } catch {}
       setAnalyzeState('loading');
       
-      try {
-        const { invoice_link } = await requestPremium(searchQuery());
-        const status = await invoice.open(invoice_link, 'url');
-        if (status === 'paid') {
-          setAnalyzeState('success');
-          try { hapticFeedback.notificationOccurred('success'); } catch {}
-          // Navigate to report page
-          setTimeout(() => {
-            navigate(`/username/report?u=${searchQuery()}`);
+      requestPremium.mutate(searchQuery(), {
+        onSuccess: async ({ invoice_link }) => {
+          const status = await invoice.open(invoice_link, 'url');
+          if (status === 'paid') {
+            setAnalyzeState('success');
+            try { hapticFeedback.notificationOccurred('success'); } catch {}
+            setTimeout(() => {
+              navigate(`/username/report?u=${searchQuery()}`);
+              setAnalyzeState('idle');
+            }, 1000);
+          } else {
             setAnalyzeState('idle');
-          }, 1000);
-        } else {
+          }
+        },
+        onError: (err) => {
+          console.error('Payment failed', err);
           setAnalyzeState('idle');
+          try { hapticFeedback.notificationOccurred('error'); } catch {}
         }
-      } catch (err) {
-        console.error('Payment failed', err);
-        setAnalyzeState('idle');
-        try { hapticFeedback.notificationOccurred('error'); } catch {}
-      }
+      });
     } else {
       try { hapticFeedback.notificationOccurred('error'); } catch {}
     }
+  };
+
+  const updateSearchQuery = (val: string) => {
+    const stripped = val.replace(/^[@+]/, '');
+    setSearchQuery(stripped);
+  };
+
+  const getButtonText = () => {
+    if (analyzeState() === 'loading' || requestPremium.isPending) return t('action.analyzing');
+    if (analyzeState() === 'success') return t('home.success');
+    
+    const status = availability.data?.status;
+    if (status === 'available') {
+      return t('action.username.registerBtn' as DictPaths);
+    }
+    if (status && status !== 'available') {
+      return t('action.username.analyzeMarketBtn' as DictPaths);
+    }
+    return t(keys().analyzeBtn);
   };
 
   return (
@@ -118,7 +138,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
                   <span class={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
                     availability.data?.status === 'available' ? 'bg-[#34c759]/20 text-[#34c759]' : 'bg-[#ff3b30]/20 text-[#ff3b30]'
                   }`}>
-                    {t(`pages.premiumReport.status.${availability.data?.status || 'available'}` as any)}
+                    {t(`pages.premiumReport.status.${availability.data?.status || 'available'}` as DictPaths)}
                   </span>
                 </Show>
                 <span class={`text-[11px] font-black tracking-widest ${isValidLength() ? 'text-[#34c759]' : 'text-[#ff3b30]'}`}>
@@ -140,7 +160,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
               type="text"
               autocomplete="off"
               value={searchQuery()}
-              onInput={(e) => setSearchQuery(e.currentTarget.value)}
+              onInput={(e) => updateSearchQuery(e.currentTarget.value)}
              
             />
           </div>
@@ -163,7 +183,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
       >
         <button
           onClick={handleAnalyze}
-          disabled={analyzeState() === 'loading' || !searchQuery()}
+          disabled={analyzeState() === 'loading' || requestPremium.isPending || !searchQuery()}
           class={`relative w-full overflow-hidden rounded-[22px] px-6 py-4 flex items-center justify-between transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 ${
             analyzeState() === 'success'
               ? 'bg-[#34c759] shadow-[0_0_20px_rgba(52,199,89,0.4)] text-white'
@@ -178,11 +198,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
           {/* Left Side: Text */}
           <div class="flex flex-col items-start relative z-10 text-left">
             <span class="font-black text-[16px] md:text-[18px] tracking-wide drop-shadow-sm">
-              {analyzeState() === 'loading'
-                ? t('action.analyzing')
-                : analyzeState() === 'success'
-                  ? t('home.success')
-                  : t(keys().analyzeBtn)}
+              {getButtonText()}
             </span>
             <span class="text-white/70 text-[11px] font-bold uppercase tracking-widest mt-1">
               {t('home.premiumReport')}

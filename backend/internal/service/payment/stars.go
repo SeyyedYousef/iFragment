@@ -4,19 +4,23 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"ifragment-backend/internal/repository"
 	"net/http"
 	"os"
+	"time"
 )
 
 type StarsService struct {
 	BotToken string
 	HTTP     *http.Client
+	DB       *repository.Database
 }
 
-func NewStarsService() *StarsService {
+func NewStarsService(db *repository.Database) *StarsService {
 	return &StarsService{
 		BotToken: os.Getenv("BOT_TOKEN"),
-		HTTP:     &http.Client{},
+		HTTP:     &http.Client{Timeout: 10 * time.Second},
+		DB:       db,
 	}
 }
 

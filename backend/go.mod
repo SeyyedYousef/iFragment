@@ -1,10 +1,11 @@
 module ifragment-backend
 
-go 1.26.2
+go 1.25.0
 
 require (
 	github.com/PuerkitoBio/goquery v1.12.0
 	github.com/go-chi/chi/v5 v5.2.5
+	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/joho/godotenv v1.5.1
 	github.com/redis/go-redis/v9 v9.18.0

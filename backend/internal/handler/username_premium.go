@@ -2,6 +2,8 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
+	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/payment"
 	"ifragment-backend/internal/service/username"
 	"net/http"
@@ -35,15 +37,36 @@ func (h *PremiumHandler) RequestPremiumReport(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// Get user from context
+	tgUser, ok := r.Context().Value("tg_user").(map[string]interface{})
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID := int64(tgUser["id"].(float64))
+	payload := fmt.Sprintf("report_pay:%d:%s", userID, req.Username)
+
 	// 1. Create Invoice Link (100 Stars)
 	link, err := h.paymentService.CreateInvoiceLink(
 		"Premium Username Report",
 		"Detailed analysis for @"+req.Username,
-		"report_pay:"+req.Username,
+		payload,
 		100,
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// 2. Save Pending Order to DB
+	_, err = h.paymentService.DB.CreateOrder(r.Context(), repository.Order{
+		UserID:  userID,
+		Amount:  100,
+		Status:  "pending",
+		Payload: payload,
+	})
+	if err != nil {
+		http.Error(w, "failed to create order", http.StatusInternalServerError)
 		return
 	}
 

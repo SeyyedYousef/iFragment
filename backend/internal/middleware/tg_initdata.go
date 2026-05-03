@@ -12,6 +12,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 )
 
 // ValidateTelegramInitData is a middleware that validates Telegram Mini App InitData
@@ -25,11 +26,7 @@ func ValidateTelegramInitData(next http.Handler) http.Handler {
 
 		botToken := os.Getenv("BOT_TOKEN")
 		if botToken == "" {
-			// In development, we might skip this if bot token isn't provided, 
-			// but for production it's a MUST.
-			// For now, let's log a warning and proceed if in DEV mode.
-			fmt.Println("⚠️ WARNING: BOT_TOKEN is not set. Skipping InitData validation.")
-			next.ServeHTTP(w, r)
+			http.Error(w, "Internal Server Error: Security configuration missing", http.StatusInternalServerError)
 			return
 		}
 
@@ -92,6 +89,17 @@ func validate(initData, botToken string) error {
 
 	if calculatedHash != hash {
 		return fmt.Errorf("hash mismatch")
+	}
+
+	// Check auth_date for replay attacks (max 24h)
+	authDateStr := values.Get("auth_date")
+	if authDateStr != "" {
+		var authDate int64
+		fmt.Sscanf(authDateStr, "%d", &authDate)
+		now := time.Now().Unix()
+		if now-authDate > 86400 {
+			return fmt.Errorf("init data expired")
+		}
 	}
 
 	return nil

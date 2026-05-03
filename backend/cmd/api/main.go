@@ -60,11 +60,11 @@ func main() {
 
 	// Initialize Services
 	aggregatorService := username.NewAggregatorService(tonClient, ggClient)
-	paymentService := payment.NewStarsService()
+	paymentService := payment.NewStarsService(db)
 	reportService := username.NewReportService(db, cache, tonClient, fragClient)
 
 	// Initialize Handlers
-	usernameHandler := handler.NewUsernameHandler(aggregatorService, fragClient)
+	usernameHandler := handler.NewUsernameHandler(aggregatorService, fragClient, cache)
 	premiumHandler := handler.NewPremiumHandler(reportService, paymentService)
 	webhookHandler := handler.NewWebhookHandler(db)
 

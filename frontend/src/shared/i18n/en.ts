@@ -25,6 +25,8 @@ export const dict = {
       description: "Analyze any username's rarity and market value with surgical precision.",
       inputPlaceholder: 'Enter the target username...',
       analyzeBtn: 'Advanced Username Analysis',
+      registerBtn: 'Register on Fragment',
+      analyzeMarketBtn: 'Analyze Market Value',
       collection_stats_title: 'Collection Insights',
       collection_stats_subtitle: 'Real-time data from Fragment and TON blockchain.',
     },

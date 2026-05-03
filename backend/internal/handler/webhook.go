@@ -1,10 +1,14 @@
 package handler
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
 	"ifragment-backend/internal/repository"
 	"log"
 	"net/http"
+	"os"
 )
 
 type WebhookHandler struct {
@@ -37,15 +41,24 @@ type SuccessfulPayment struct {
 }
 
 func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Request) {
+	// Security: Validate secret token if provided by Telegram
+	secret := r.Header.Get("X-Telegram-Bot-Api-Secret-Token")
+	expectedSecret := os.Getenv("WEBHOOK_SECRET_TOKEN")
+	if expectedSecret != "" && secret != expectedSecret {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	var update TelegramUpdate
 	if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
 		log.Printf("Error decoding update: %v", err)
 		return
 	}
 
-	// 1. Handle Pre-Checkout (MUST answer within 10 seconds)
+	// 1. Handle Pre-Checkout
 	if update.PreCheckoutQuery != nil {
-		h.answerPreCheckout(update.PreCheckoutQuery.ID)
+		h.answerPreCheckout(update.PreCheckoutQuery.ID, true, "")
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 
@@ -54,15 +67,31 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 		pay := update.Message.SuccessfulPayment
 		log.Printf("💰 Successful payment received for payload: %s", pay.InvoicePayload)
 		
-		// Mark order as paid in DB (Phase C: DB integration)
-		// For now, we log and proceed
+		// Update DB
+		err := h.db.UpdateOrderStatus(context.Background(), pay.InvoicePayload, "paid", pay.TelegramPaymentChargeID)
+		if err != nil {
+			log.Printf("❌ Failed to update order status: %v", err)
+		}
 	}
 
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h *WebhookHandler) answerPreCheckout(id string) {
-	// Telegram expects an answer to allow the payment to proceed
-	// API: https://api.telegram.org/bot<token>/answerPreCheckoutQuery?pre_checkout_query_id=<id>&ok=true
-	// We'll skip implementation details here but this is the logic
+func (h *WebhookHandler) answerPreCheckout(id string, ok bool, errorMessage string) {
+	botToken := os.Getenv("BOT_TOKEN")
+	url := fmt.Sprintf("https://api.telegram.org/bot%s/answerPreCheckoutQuery", botToken)
+
+	payload := map[string]interface{}{
+		"pre_checkout_query_id": id,
+		"ok":                    ok,
+	}
+	if !ok {
+		payload["error_message"] = errorMessage
+	}
+
+	jsonBody, _ := json.Marshal(payload)
+	_, err := http.Post(url, "application/json", bytes.NewBuffer(jsonBody))
+	if err != nil {
+		log.Printf("❌ Failed to answer pre-checkout: %v", err)
+	}
 }

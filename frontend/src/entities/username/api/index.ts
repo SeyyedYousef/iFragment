@@ -1,5 +1,6 @@
-import { createQuery } from '@tanstack/solid-query';
+import { createQuery, createMutation } from '@tanstack/solid-query';
 import { apiFetch } from '@/shared/api/base';
+import { createSignal, createEffect } from 'solid-js';
 
 export interface CollectionStats {
   total_supply: number;
@@ -14,9 +15,10 @@ export interface AvailabilityStatus {
 }
 
 export interface PremiumReport {
+  id: string;
   username: string;
   status: 'available' | 'taken' | 'on_auction' | 'on_sale';
-  on_chain: {
+  on_chain?: {
     collection: string;
     market: string;
     owner?: string;
@@ -35,21 +37,31 @@ export const useCollectionStats = () => {
 };
 
 export const useUsernameAvailability = (username: () => string) => {
+  const [debouncedUsername, setDebouncedUsername] = createSignal(username());
+
+  createEffect(() => {
+    const val = username();
+    const timeout = setTimeout(() => {
+      setDebouncedUsername(val);
+    }, 350); // 350ms debounce
+    return () => clearTimeout(timeout);
+  });
+
   return createQuery(() => ({
-    queryKey: ['username', 'check', username()],
-    queryFn: () => apiFetch<AvailabilityStatus>(`/usernames/check?u=${username()}`),
-    enabled: !!username() && username().length >= 4,
+    queryKey: ['username', 'check', debouncedUsername()],
+    queryFn: () => apiFetch<AvailabilityStatus>(`/usernames/check?u=${debouncedUsername()}`),
+    enabled: !!debouncedUsername() && debouncedUsername().length >= 4,
     staleTime: 5 * 60 * 1000, // 5 minutes
   }));
 };
 
 export const useRequestPremiumReport = () => {
-  return async (username: string) => {
-    return apiFetch<{ invoice_link: string }>('/usernames/report/request', {
+  return createMutation(() => ({
+    mutationFn: (username: string) => apiFetch<{ invoice_link: string }>('/usernames/report/request', {
       method: 'POST',
       body: JSON.stringify({ username }),
-    });
-  };
+    }),
+  }));
 };
 
 export const usePremiumReport = (username: () => string) => {
@@ -64,7 +76,8 @@ export const usePremiumReport = (username: () => string) => {
 export const useUserHistory = () => {
   return createQuery(() => ({
     queryKey: ['username', 'history'],
-    queryFn: () => apiFetch<any[]>('/usernames/report/history'),
+    queryFn: () => apiFetch<PremiumReport[]>('/usernames/report/history'),
     staleTime: 5 * 60 * 1000, // 5 minutes
   }));
 };
+

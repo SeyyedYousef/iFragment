@@ -29,6 +29,7 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 	addr := tonapi.UsernamesCollectionAddr
 
 	var summary CollectionSummary
+	var mu sync.Mutex
 	var wg sync.WaitGroup
 	wg.Add(2)
 
@@ -38,20 +39,28 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 		defer wg.Done()
 		coll, err := s.tonClient.GetCollection(addr)
 		if err == nil {
+			mu.Lock()
 			summary.TotalSupply = coll.NextItemIndex
+			mu.Unlock()
 		}
+		mu.Lock()
 		errTon = err
+		mu.Unlock()
 	}()
 
 	go func() {
 		defer wg.Done()
 		stats, err := s.getgemsClient.GetCollectionStats(addr)
 		if err == nil {
+			mu.Lock()
 			summary.FloorPrice = stats.Data.AlphaNftCollectionStats.FloorPrice
 			summary.TotalVolume = stats.Data.AlphaNftCollectionStats.TotalVolume
 			summary.Holders = stats.Data.AlphaNftCollectionStats.OwnersCount
+			mu.Unlock()
 		}
+		mu.Lock()
 		errGg = err
+		mu.Unlock()
 	}()
 
 	wg.Wait()
