@@ -1,6 +1,8 @@
 import * as v from 'valibot';
 import { createSignal } from 'solid-js';
 
+import { t } from '@/shared/i18n/index.js';
+
 // Telegram Username Rules:
 // 1. Length 5-32 (Premium can be 4, but 5 is standard for public)
 // 2. Starts with a letter
@@ -8,12 +10,12 @@ import { createSignal } from 'solid-js';
 // 4. No consecutive underscores
 export const UsernameSchema = v.pipe(
   v.string(),
-  v.minLength(4, 'Username must be at least 4 characters'),
-  v.maxLength(32, 'Username is too long'),
-  v.regex(/^[a-zA-Z]/, 'Username must start with a letter'),
-  v.regex(/^[a-zA-Z0-9_]+$/, 'Only letters, numbers and underscores allowed'),
-  v.regex(/^(?!.*__)/, 'Consecutive underscores are not allowed'),
-  v.regex(/[^_]$/, 'Username cannot end with an underscore')
+  v.minLength(4, () => t('entities.username.validation.minLength' as any)),
+  v.maxLength(32, () => t('entities.username.validation.maxLength' as any)),
+  v.regex(/^[a-zA-Z]/, () => t('entities.username.validation.startLetter' as any)),
+  v.regex(/^[a-zA-Z0-9_]+$/, () => t('entities.username.validation.invalidChars' as any)),
+  v.regex(/^(?!.*__)/, () => t('entities.username.validation.consecutiveUnderscores' as any)),
+  v.regex(/[^_]$/, () => t('entities.username.validation.trailingUnderscore' as any))
 );
 
 export type Username = v.InferOutput<typeof UsernameSchema>;

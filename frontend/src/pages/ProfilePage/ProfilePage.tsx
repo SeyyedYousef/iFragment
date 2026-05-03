@@ -17,7 +17,7 @@ export const ProfilePage: Component = () => {
   return (
     <div class="min-h-screen bg-[#0f1014] pb-32 text-white">
       {/* Header / Profile Info */}
-      <div class="pt-12 pb-20 rounded-b-[40px] px-margin-main relative overflow-hidden bg-[#1c1c1c] border-b border-[#2a2a2a]">
+      <div class="pt-12 pb-20 rounded-b-[40px] px-6 relative overflow-hidden bg-[#1c1c1c] border-b border-[#2a2a2a]">
         <Motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -38,15 +38,15 @@ export const ProfilePage: Component = () => {
             )}
           </div>
           <h1 class="text-white text-2xl font-black tracking-tight">{user?.first_name} {user?.last_name}</h1>
-          <p class="text-[#8e8e93] font-medium text-sm mt-1">@{user?.username || 'Guest'}</p>
+          <p class="text-on-surface-variant font-medium text-sm mt-1">@{user?.username || 'Guest'}</p>
           
           <div class="mt-6 flex gap-3">
             <div class="bg-[#0f1014] px-4 py-2 rounded-2xl border border-[#2a2a2a]">
-              <span class="text-[10px] text-[#8e8e93] block uppercase font-bold tracking-widest leading-none mb-1 text-center">{t('profile.id')}</span>
+              <span class="text-[10px] text-on-surface-variant block uppercase font-bold tracking-widest leading-none mb-1 text-center">{t('profile.id')}</span>
               <span class="text-white font-mono font-bold text-xs">{user?.id || '---'}</span>
             </div>
             <div class="bg-[#0f1014] px-4 py-2 rounded-2xl border border-[#2a2a2a]">
-              <span class="text-[10px] text-[#8e8e93] block uppercase font-bold tracking-widest leading-none mb-1 text-center">{t('profile.premium')}</span>
+              <span class="text-[10px] text-on-surface-variant block uppercase font-bold tracking-widest leading-none mb-1 text-center">{t('profile.premium')}</span>
               <span class="text-white font-bold text-xs flex items-center gap-1 justify-center">
                 {user?.is_premium ? (
                   <><span class="material-symbols-outlined text-[14px] text-amber-300" style={{ 'font-variation-settings': '"FILL" 1' }}>star</span> {t('profile.yes')}</>
@@ -58,7 +58,7 @@ export const ProfilePage: Component = () => {
       </div>
 
       {/* Settings Sections */}
-      <div class="px-[var(--spacing-margin-main)] -mt-10 relative z-20 space-y-4">
+      <div class="px-6 -mt-10 relative z-20 space-y-4">
         <Motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

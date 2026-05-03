@@ -37,6 +37,11 @@ func (h *UsernameHandler) CheckAvailability(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	if !username.ValidateUsername(u) {
+		http.Error(w, "invalid username format", http.StatusBadRequest)
+		return
+	}
+
 	status, err := h.fragmentClient.CheckUsername(u)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

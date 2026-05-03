@@ -30,6 +30,11 @@ func (h *PremiumHandler) RequestPremiumReport(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	if !username.ValidateUsername(req.Username) {
+		http.Error(w, "invalid username format", http.StatusBadRequest)
+		return
+	}
+
 	// 1. Create Invoice Link (100 Stars)
 	link, err := h.paymentService.CreateInvoiceLink(
 		"Premium Username Report",
@@ -52,6 +57,11 @@ func (h *PremiumHandler) GetReport(w http.ResponseWriter, r *http.Request) {
 	u := r.URL.Query().Get("u")
 	if u == "" {
 		http.Error(w, "missing username", http.StatusBadRequest)
+		return
+	}
+
+	if !username.ValidateUsername(u) {
+		http.Error(w, "invalid username format", http.StatusBadRequest)
 		return
 	}
 

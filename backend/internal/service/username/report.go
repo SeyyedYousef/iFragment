@@ -88,14 +88,58 @@ func (s *ReportService) SaveReportToDB(ctx context.Context, userID int64, userna
 }
 
 func CalculateRarity(u string) int {
-	// Simple rarity logic for now
+	// 2026-Ready Rarity Algorithm
+	score := 0
 	length := len(u)
-	score := 100
-	if length < 5 {
+
+	// 1. Length Factor (Shorter is much rarer)
+	if length == 4 {
+		score += 2000
+	} else if length == 5 {
+		score += 1000
+	} else if length <= 7 {
 		score += 500
-	} else if length < 8 {
+	} else if length <= 10 {
 		score += 200
 	}
-	// Add more logic later
+
+	// 2. Pattern Factor
+	isNumeric := true
+	for _, char := range u {
+		if char < '0' || char > '9' {
+			isNumeric = false
+			break
+		}
+	}
+	if isNumeric {
+		score += 800 // Pure numeric handles are rare
+	}
+
+	// 3. Character Diversity (Fewer unique characters = rarer)
+	uniqueChars := make(map[rune]bool)
+	for _, char := range u {
+		uniqueChars[char] = true
+	}
+	if len(uniqueChars) <= 3 {
+		score += 1200 // Patterns like 'aaaa', 'abab'
+	} else if len(uniqueChars) <= 5 {
+		score += 400
+	}
+
+	// 4. No Underscores Bonus
+	if !containsUnderscore(u) {
+		score += 300
+	}
+
+	// Normalizing to 0-1000 range or higher
 	return score
+}
+
+func containsUnderscore(u string) bool {
+	for _, c := range u {
+		if c == '_' {
+			return true
+		}
+	}
+	return false
 }

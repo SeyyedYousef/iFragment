@@ -13,6 +13,19 @@ export interface AvailabilityStatus {
   status: 'available' | 'taken' | 'on_auction' | 'on_sale';
 }
 
+export interface PremiumReport {
+  username: string;
+  status: 'available' | 'taken' | 'on_auction' | 'on_sale';
+  on_chain: {
+    collection: string;
+    market: string;
+    owner?: string;
+    last_price?: string;
+  };
+  rarity_score: number;
+  generated_at: string;
+}
+
 export const useCollectionStats = () => {
   return createQuery(() => ({
     queryKey: ['username', 'collection', 'stats'],
@@ -42,7 +55,7 @@ export const useRequestPremiumReport = () => {
 export const usePremiumReport = (username: () => string) => {
   return createQuery(() => ({
     queryKey: ['username', 'report', username()],
-    queryFn: () => apiFetch<any>(`/usernames/report/view?u=${username()}`),
+    queryFn: () => apiFetch<PremiumReport>(`/usernames/report/view?u=${username()}`),
     enabled: !!username(),
     staleTime: 24 * 60 * 60 * 1000, // 24 hours
   }));

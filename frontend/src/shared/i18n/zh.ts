@@ -469,5 +469,46 @@ export const dict = {
     activityChart: '消息活动',
     trendUp: '比上一时段上升',
     trendDown: '比上一时段下降'
+  },
+  entities: {
+    username: {
+      validation: {
+        minLength: '最少 4 个字符',
+        maxLength: '最多 32 个字符',
+        invalidChars: '仅限字母、数字和下划线',
+        consecutiveUnderscores: '不能包含连续下划线',
+        startWithChar: '必须以字母开头',
+        endWithUnderscore: '不能以下划线结尾',
+      },
+    },
+  },
+  pages: {
+    premiumReport: {
+      title: '高级报告',
+      rarityScore: '稀缺性评分',
+      marketValue: '市场价值',
+      holderInsights: '持有者见解',
+      rarityLevels: {
+        legendary: '传奇',
+        epic: '史诗',
+        rare: '稀有',
+        common: '普通',
+      },
+      status: {
+        available: '可用',
+        taken: '已占用',
+        on_auction: '竞拍中',
+        on_sale: '出售中',
+      },
+      metrics: {
+        length: '长度',
+        pattern: '模式',
+        demand: '需求',
+      },
+      cta: {
+        viewOnFragment: '在 Fragment 上查看',
+        contactHolder: '联系持有者',
+      }
+    }
   }
 };

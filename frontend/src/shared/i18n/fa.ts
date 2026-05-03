@@ -183,6 +183,18 @@ export const dict = {
       hint: 'راهنما: تسک‌ها و بوسترها رو چک کن'
     }
   },
+  entities: {
+    username: {
+      validation: {
+        minLength: 'نام کاربری باید حداقل ۴ کاراکتر باشد',
+        maxLength: 'نام کاربری خیلی طولانی است',
+        startLetter: 'نام کاربری باید با یک حرف شروع شود',
+        invalidChars: 'فقط حروف، اعداد و زیرخط (underscore) مجاز هستند',
+        consecutiveUnderscores: 'استفاده از دو زیرخط پشت سر هم مجاز نیست',
+        trailingUnderscore: 'نام کاربری نمی‌تواند با زیرخط تمام شود'
+      }
+    }
+  },
   dashboard: {
     title: 'مدیریت',
     description: 'یک سرویس را برای مدیریت جوامع خود انتخاب کنید.',
@@ -190,6 +202,32 @@ export const dict = {
     groupDesc: 'یک بات مدیریت گروه فوق پیشرفته بسازید تا با نام و پروفایل شخصی خودتان، گروهتان را حرفه‌ای مدیریت کنید...',
     channelMgmt: 'مدیریت کانال تلگرام',
     channelDesc: 'مدیریت حرفه‌ای کانال و سایر قابلیت‌ها'
+  },
+  pages: {
+    premiumReport: {
+      title: 'گزارش هوشمند پرمیوم',
+      scarcityIndex: 'شاخص کمیابی',
+      rankingDesc: 'این یوزرنیم در بین {percent}٪ برتر محبوب‌ترین یوزرنیم‌های تلگرام قرار دارد.',
+      metrics: {
+        length: 'طول',
+        format: 'فرمت',
+        onChain: 'شواهد آن‌چین',
+        lastAuction: 'آخرین ارزش حراج',
+        holder: 'آدرس مالک',
+        formatValue: 'حروفی-عددی'
+      },
+      actions: {
+        exportPdf: 'خروجی PDF گزارش',
+        shareStory: 'اشتراک‌گذاری در استوری تلگرام'
+      },
+      shareText: 'گزارش هوشمند برای @{u}\nامتیاز کمیابی: {score}/1000',
+      status: {
+        available: 'موجود',
+        taken: 'گرفته شده',
+        on_auction: 'در حال حراج',
+        on_sale: 'برای فروش'
+      }
+    }
   },
   managedBots: {
     title: 'مدیریت گروه‌ها',

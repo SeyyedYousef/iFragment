@@ -469,5 +469,46 @@ export const dict = {
     activityChart: 'Активность сообщений',
     trendUp: 'Рост к прошлому периоду',
     trendDown: 'Спад к прошлому периоду'
+  },
+  entities: {
+    username: {
+      validation: {
+        minLength: 'Минимум 4 символа',
+        maxLength: 'Максимум 32 символа',
+        invalidChars: 'Только буквы, цифры и подчеркивания',
+        consecutiveUnderscores: 'Нельзя два подчеркивания подряд',
+        startWithChar: 'Должно начинаться с буквы',
+        endWithUnderscore: 'Нельзя заканчивать подчеркиванием',
+      },
+    },
+  },
+  pages: {
+    premiumReport: {
+      title: 'Премиум отчет',
+      rarityScore: 'Показатель редкости',
+      marketValue: 'Рыночная стоимость',
+      holderInsights: 'Данные о владельце',
+      rarityLevels: {
+        legendary: 'Легендарный',
+        epic: 'Эпический',
+        rare: 'Редкий',
+        common: 'Обычный',
+      },
+      status: {
+        available: 'Свободен',
+        taken: 'Занят',
+        on_auction: 'На аукционе',
+        on_sale: 'В продаже',
+      },
+      metrics: {
+        length: 'Длина',
+        pattern: 'Патерн',
+        demand: 'Спрос',
+      },
+      cta: {
+        viewOnFragment: 'Посмотреть на Fragment',
+        contactHolder: 'Связаться с владельцем',
+      }
+    }
   }
 };

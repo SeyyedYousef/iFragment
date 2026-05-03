@@ -45,7 +45,7 @@ try {
       <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #0f1014; color: white; font-family: sans-serif; text-align: center; padding: 20px;">
         <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
         <h1 style="font-size: 20px; margin-bottom: 10px;">Failed to initialize</h1>
-        <p style="color: #8e8e93; font-size: 14px; max-width: 300px;">${e instanceof Error ? e.message : 'Unknown error occurred during startup.'}</p>
+        <p style="color: #a0a4ad; font-size: 14px; max-width: 300px;">${e instanceof Error ? e.message : 'Unknown error occurred during startup.'}</p>
         <button onclick="location.reload()" style="margin-top: 24px; padding: 10px 24px; background: #0088CC; border: none; border-radius: 20px; color: white; font-weight: bold; cursor: pointer;">Try Again</button>
       </div>
     `;

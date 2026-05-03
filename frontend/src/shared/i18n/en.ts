@@ -183,6 +183,18 @@ export const dict = {
       hint: 'Hint: check tasks & boosters'
     }
   },
+  entities: {
+    username: {
+      validation: {
+        minLength: 'Username must be at least 4 characters',
+        maxLength: 'Username is too long',
+        startLetter: 'Username must start with a letter',
+        invalidChars: 'Only letters, numbers and underscores allowed',
+        consecutiveUnderscores: 'Consecutive underscores are not allowed',
+        trailingUnderscore: 'Username cannot end with an underscore'
+      }
+    }
+  },
   dashboard: {
     title: 'Management',
     description: 'Select a service to manage your communities.',
@@ -190,6 +202,32 @@ export const dict = {
     groupDesc: 'Create an ultra-advanced Telegram group management bot to manage your group with your own personal name and profile, and manage your group professionally...',
     channelMgmt: 'Telegram Channel Management',
     channelDesc: 'Manage your channel professionally and other features'
+  },
+  pages: {
+    premiumReport: {
+      title: 'Premium Intelligence Report',
+      scarcityIndex: 'Scarcity Index',
+      rankingDesc: 'This handle ranks in the top {percent}% of most desirable Telegram usernames.',
+      metrics: {
+        length: 'Length',
+        format: 'Format',
+        onChain: 'On-Chain Evidence',
+        lastAuction: 'Last Auction Value',
+        holder: 'Holder Address',
+        formatValue: 'Alpha-Numeric'
+      },
+      actions: {
+        exportPdf: 'Export Intelligence PDF',
+        shareStory: 'Share to Telegram Story'
+      },
+      shareText: 'Intelligence Report for @{u}\nRarity Score: {score}/1000',
+      status: {
+        available: 'Available',
+        taken: 'Taken',
+        on_auction: 'On Auction',
+        on_sale: 'On Sale'
+      }
+    }
   },
   managedBots: {
     title: 'Telegram Group Management',

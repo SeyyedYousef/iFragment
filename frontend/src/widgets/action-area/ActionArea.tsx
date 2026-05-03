@@ -91,7 +91,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
         <h2 class="text-[28px] md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-white/60 tracking-tight leading-tight">
           {t(keys().title)}
         </h2>
-        <p class="text-[#8e8e93] text-[14px] font-medium leading-[1.7] px-2 max-w-[340px] mx-auto">
+        <p class="text-on-surface-variant text-[14px] font-medium leading-[1.7] px-2 max-w-[340px] mx-auto">
           {t(keys().description)}
         </p>
       </Motion.div>
@@ -109,7 +109,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
         >
           {/* Top Info */}
           <div class="flex items-center justify-between mb-3 px-2">
-            <span class="text-[10px] font-black text-[#8e8e93] uppercase tracking-[0.15em] opacity-80">
+            <span class="text-[10px] font-black text-on-surface-variant uppercase tracking-[0.15em] opacity-80">
               {t('home.targetAsset')}
             </span>
             <Show when={charCount() > 0}>
@@ -118,11 +118,11 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
                   <span class={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
                     availability.data?.status === 'available' ? 'bg-[#34c759]/20 text-[#34c759]' : 'bg-[#ff3b30]/20 text-[#ff3b30]'
                   }`}>
-                    {availability.data?.status}
+                    {t(`pages.premiumReport.status.${availability.data?.status || 'available'}` as any)}
                   </span>
                 </Show>
                 <span class={`text-[11px] font-black tracking-widest ${isValidLength() ? 'text-[#34c759]' : 'text-[#ff3b30]'}`}>
-                  {charCount()}<span class="text-[#8e8e93] opacity-50">/32</span>
+                  {charCount()}<span class="text-on-surface-variant opacity-50">/32</span>
                 </span>
               </div>
             </Show>
@@ -130,7 +130,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
           {/* Input Area */}
           <div class="flex items-center gap-2 px-2 pb-2">
-            <span class={`text-4xl font-light transition-colors duration-300 ${searchQuery() ? 'text-[#3390ec]' : 'text-[#8e8e93] opacity-50'}`}>
+            <span class={`text-4xl font-light transition-colors duration-300 ${searchQuery() ? 'text-[#3390ec]' : 'text-on-surface-variant opacity-50'}`}>
               {props.activeTab === 'username' ? '@' : props.activeTab === 'collectibles' ? '+' : ''}
             </span>
             <input
@@ -206,7 +206,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
       >
         <button 
           onClick={() => navigate('/username/stats')}
-          class="group inline-flex items-center gap-1.5 text-[13px] font-bold text-[#8e8e93] hover:text-[#3390ec] transition-colors border-b border-transparent hover:border-[#3390ec]/30 pb-0.5"
+          class="group inline-flex items-center gap-1.5 text-[13px] font-bold text-on-surface-variant hover:text-[#3390ec] transition-colors border-b border-transparent hover:border-[#3390ec]/30 pb-0.5"
         >
           <span class="material-symbols-outlined text-[16px] group-hover:scale-110 transition-transform">info</span>
           <span>
