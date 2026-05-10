@@ -38,7 +38,7 @@ func NewUsernameHandler(
 func (h *UsernameHandler) GetCollectionStats(w http.ResponseWriter, r *http.Request) {
 	stats, err := h.service.GetCollectionStats()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		RespondError(w, r, http.StatusInternalServerError, "failed to get collection stats", err)
 		return
 	}
 
@@ -49,7 +49,7 @@ func (h *UsernameHandler) GetCollectionStats(w http.ResponseWriter, r *http.Requ
 func (h *UsernameHandler) CheckAvailability(w http.ResponseWriter, r *http.Request) {
 	u := r.URL.Query().Get("u")
 	if u == "" {
-		http.Error(w, "missing username", http.StatusBadRequest)
+		RespondError(w, r, http.StatusBadRequest, "missing username", nil)
 		return
 	}
 
@@ -64,13 +64,13 @@ func (h *UsernameHandler) CheckAvailability(w http.ResponseWriter, r *http.Reque
 			h.cache.Client.Expire(ctx, rlKey, time.Minute)
 		}
 		if count > 20 {
-			http.Error(w, "Too many requests. Please try again later.", http.StatusTooManyRequests)
+			RespondError(w, r, http.StatusTooManyRequests, "Too many requests. Please try again later.", nil)
 			return
 		}
 	}
 
 	if !username.ValidateUsername(u) {
-		http.Error(w, "invalid username format", http.StatusBadRequest)
+		RespondError(w, r, http.StatusBadRequest, "invalid username format", nil)
 		return
 	}
 	cacheKey := "check_cache:" + u
@@ -89,7 +89,7 @@ func (h *UsernameHandler) CheckAvailability(w http.ResponseWriter, r *http.Reque
 	mtStatus, err := h.mtprotoClient.CheckUsername(ctx, u)
 	if err != nil {
 		slog.Error("MTProto check failed", "username", u, "error", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		RespondError(w, r, http.StatusInternalServerError, "failed to check username", err)
 		return
 	}
 
@@ -126,12 +126,12 @@ func (h *UsernameHandler) CheckAvailability(w http.ResponseWriter, r *http.Reque
 func (h *UsernameHandler) QuickAnalysis(w http.ResponseWriter, r *http.Request) {
 	u := r.URL.Query().Get("u")
 	if u == "" {
-		http.Error(w, "missing username", http.StatusBadRequest)
+		RespondError(w, r, http.StatusBadRequest, "missing username", nil)
 		return
 	}
 
 	if !username.ValidateUsername(u) {
-		http.Error(w, "invalid username format", http.StatusBadRequest)
+		RespondError(w, r, http.StatusBadRequest, "invalid username format", nil)
 		return
 	}
 
@@ -146,7 +146,7 @@ func (h *UsernameHandler) QuickAnalysis(w http.ResponseWriter, r *http.Request) 
 			h.cache.Client.Expire(ctx, rlKey, time.Minute)
 		}
 		if count > 15 {
-			http.Error(w, "Too many requests", http.StatusTooManyRequests)
+			RespondError(w, r, http.StatusTooManyRequests, "Too many requests", nil)
 			return
 		}
 	}
@@ -163,7 +163,7 @@ func (h *UsernameHandler) QuickAnalysis(w http.ResponseWriter, r *http.Request) 
 
 	result, err := h.reportService.QuickAnalysis(ctx, u, 0)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		RespondError(w, r, http.StatusInternalServerError, "failed to perform quick analysis", err)
 		return
 	}
 

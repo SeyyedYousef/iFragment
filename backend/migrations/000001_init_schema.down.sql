@@ -1,0 +1,8 @@
+BEGIN;
+
+DROP TABLE IF EXISTS search_logs;
+DROP TABLE IF EXISTS username_reports;
+DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS users;
+
+COMMIT;

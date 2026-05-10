@@ -30,21 +30,28 @@ type ReportRequest struct {
 func (h *PremiumHandler) RequestPremiumReport(w http.ResponseWriter, r *http.Request) {
 	var req ReportRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request", http.StatusBadRequest)
+		RespondError(w, r, http.StatusBadRequest, "invalid request", err)
 		return
 	}
 
 	if !username.ValidateUsername(req.Username) {
-		http.Error(w, "invalid username format", http.StatusBadRequest)
+		RespondError(w, r, http.StatusBadRequest, "invalid username format", nil)
 		return
 	}
 
 	tgUser, ok := r.Context().Value(middleware.UserContextKey).(map[string]interface{})
 	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
 		return
 	}
-	userID := int64(tgUser["id"].(float64))
+	var userID int64
+	if v, ok := tgUser["id"].(float64); ok {
+		userID = int64(v)
+	} else if v, ok := tgUser["id"].(int64); ok {
+		userID = v
+	} else if v, ok := tgUser["id"].(int); ok {
+		userID = int64(v)
+	}
 	payload := fmt.Sprintf("report_pay:%d:%s", userID, req.Username)
 
 	link, err := h.paymentService.CreateInvoiceLink(
@@ -54,7 +61,7 @@ func (h *PremiumHandler) RequestPremiumReport(w http.ResponseWriter, r *http.Req
 		100,
 	)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		RespondError(w, r, http.StatusInternalServerError, "failed to create invoice", err)
 		return
 	}
 
@@ -65,7 +72,7 @@ func (h *PremiumHandler) RequestPremiumReport(w http.ResponseWriter, r *http.Req
 		Payload: payload,
 	})
 	if err != nil {
-		http.Error(w, "failed to create order", http.StatusInternalServerError)
+		RespondError(w, r, http.StatusInternalServerError, "failed to create order", err)
 		return
 	}
 
@@ -78,38 +85,45 @@ func (h *PremiumHandler) RequestPremiumReport(w http.ResponseWriter, r *http.Req
 func (h *PremiumHandler) GetReport(w http.ResponseWriter, r *http.Request) {
 	u := r.URL.Query().Get("u")
 	if u == "" {
-		http.Error(w, "missing username", http.StatusBadRequest)
+		RespondError(w, r, http.StatusBadRequest, "missing username", nil)
 		return
 	}
 
 	if !username.ValidateUsername(u) {
-		http.Error(w, "invalid username format", http.StatusBadRequest)
+		RespondError(w, r, http.StatusBadRequest, "invalid username format", nil)
 		return
 	}
 
 	tgUser, ok := r.Context().Value(middleware.UserContextKey).(map[string]interface{})
 	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
 		return
 	}
-	userID := int64(tgUser["id"].(float64))
+	var userID int64
+	if v, ok := tgUser["id"].(float64); ok {
+		userID = int64(v)
+	} else if v, ok := tgUser["id"].(int64); ok {
+		userID = v
+	} else if v, ok := tgUser["id"].(int); ok {
+		userID = int64(v)
+	}
 
 	if os.Getenv("APP_ENV") != "development" {
 		hasPaid, err := h.reportService.CheckPayment(r.Context(), userID, u)
 		if err != nil {
-			http.Error(w, "database error", http.StatusInternalServerError)
+			RespondError(w, r, http.StatusInternalServerError, "database error", err)
 			return
 		}
 
 		if !hasPaid {
-			http.Error(w, "Payment required for this report", http.StatusPaymentRequired)
+			RespondError(w, r, http.StatusPaymentRequired, "Payment required for this report", nil)
 			return
 		}
 	}
 
 	report, err := h.reportService.GenerateDeepReport(r.Context(), userID, u)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		RespondError(w, r, http.StatusInternalServerError, "failed to generate report", err)
 		return
 	}
 
@@ -122,14 +136,21 @@ func (h *PremiumHandler) GetReport(w http.ResponseWriter, r *http.Request) {
 func (h *PremiumHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
 	tgUser, ok := r.Context().Value(middleware.UserContextKey).(map[string]interface{})
 	if !ok {
-		http.Error(w, "user not found in context", http.StatusUnauthorized)
+		RespondError(w, r, http.StatusUnauthorized, "user not found in context", nil)
 		return
 	}
 
-	userID := int64(tgUser["id"].(float64))
+	var userID int64
+	if v, ok := tgUser["id"].(float64); ok {
+		userID = int64(v)
+	} else if v, ok := tgUser["id"].(int64); ok {
+		userID = v
+	} else if v, ok := tgUser["id"].(int); ok {
+		userID = int64(v)
+	}
 	reports, err := h.reportService.GetUserHistory(r.Context(), userID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		RespondError(w, r, http.StatusInternalServerError, "failed to fetch history", err)
 		return
 	}
 

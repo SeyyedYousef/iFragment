@@ -21,12 +21,20 @@ import (
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/joho/godotenv"
 	"github.com/rs/cors"
+	"strings"
+	"time"
+
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
 func main() {
-	// Load .env file
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using system environment variables")
+	// Load .env file (only in non-production)
+	if os.Getenv("APP_ENV") != "production" {
+		if err := godotenv.Load(); err != nil {
+			log.Println("No .env file found, using system environment variables")
+		}
 	}
 
 	ctx := context.Background()
@@ -37,6 +45,21 @@ func main() {
 		log.Printf("⚠️ Database connection failed: %v. Continuing without DB.", err)
 	} else {
 		defer db.Close()
+
+		// Run Migrations with retry
+		for i := 0; i < 5; i++ {
+			m, mErr := migrate.New("file://migrations", os.Getenv("DATABASE_URL"))
+			if mErr == nil {
+				if upErr := m.Up(); upErr != nil && upErr != migrate.ErrNoChange {
+					log.Printf("⚠️ Database migration warning: %v", upErr)
+				} else {
+					log.Println("✅ Database migrations applied successfully")
+				}
+				break
+			}
+			log.Printf("⏳ Waiting for database to be ready for migrations... (%d/5)", i+1)
+			time.Sleep(2 * time.Second)
+		}
 	}
 
 	// Initialize Cache
@@ -57,14 +80,17 @@ func main() {
 	r.Use(chiMiddleware.Recoverer)
 	r.Use(middleware.NewRateLimiter())
 
-	// CORS (Patch 1)
+	allowedOrigins := strings.Split(os.Getenv("ALLOWED_ORIGINS"), ",")
+	if len(allowedOrigins) == 1 && allowedOrigins[0] == "" {
+		allowedOrigins = []string{"http://localhost:5173", "http://127.0.0.1:5173"} // fallback for dev
+	}
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"}, // In prod, specify the TWA URL
-		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Telegram-Init-Data"},
+		AllowedOrigins:   allowedOrigins,
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Telegram-Init-Data", "X-Request-ID"},
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: true,
-		MaxAge:           300,
+		MaxAge:           86400,
 	})
 	r.Use(c.Handler)
 
@@ -72,7 +98,7 @@ func main() {
 	tonClient := tonapi.NewClient()
 
 	fragClient := fragment.NewClient()
-	mtprotoClient := mtproto.InitClient()
+	mtprotoClient := mtproto.InitClient(ctx)
 	marketappClient := marketapp.NewClient()
 
 	// Initialize Services

@@ -45,7 +45,7 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 	secret := r.Header.Get("X-Telegram-Bot-Api-Secret-Token")
 	expectedSecret := os.Getenv("WEBHOOK_SECRET_TOKEN")
 	if expectedSecret != "" && secret != expectedSecret {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		RespondError(w, r, http.StatusUnauthorized, "Unauthorized", nil)
 		return
 	}
 

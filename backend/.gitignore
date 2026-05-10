@@ -1,5 +1,7 @@
-.env
-tmp_build
-bin
+tmp_*
 *.exe
-/vendor/
+*.test
+coverage.out
+.env
+.env.*
+!.env.example

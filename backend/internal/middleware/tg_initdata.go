@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -36,7 +37,7 @@ func ValidateTelegramInitData(next http.Handler) http.Handler {
 			return
 		}
 
-		if os.Getenv("APP_ENV") == "development" && initData == "dev-user" {
+		if allowDevBypass && initData == "dev-user" {
 			// Bypass for local testing
 			ctx := context.WithValue(r.Context(), UserContextKey, map[string]interface{}{"id": int64(12345), "username": "testuser"})
 			next.ServeHTTP(w, r.WithContext(ctx))
@@ -100,7 +101,7 @@ func validate(initData, botToken string) error {
 	h2.Write([]byte(dataCheckString))
 	calculatedHash := hex.EncodeToString(h2.Sum(nil))
 
-	if calculatedHash != hash {
+	if subtle.ConstantTimeCompare([]byte(calculatedHash), []byte(hash)) != 1 {
 		return fmt.Errorf("hash mismatch")
 	}
 
