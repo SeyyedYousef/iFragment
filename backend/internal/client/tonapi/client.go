@@ -1,6 +1,7 @@
 package tonapi
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -78,8 +79,8 @@ type TransferHistory struct {
 	Transfers []Transfer `json:"nft_transfers"`
 }
 
-func (c *Client) doRequest(url string) (*http.Response, error) {
-	req, err := http.NewRequest("GET", url, nil)
+func (c *Client) doRequest(ctx context.Context, url string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -90,9 +91,9 @@ func (c *Client) doRequest(url string) (*http.Response, error) {
 }
 
 // GetCollection fetches collection-level data
-func (c *Client) GetCollection(addr string) (*NFTCollection, error) {
+func (c *Client) GetCollection(ctx context.Context, addr string) (*NFTCollection, error) {
 	url := fmt.Sprintf("%s/nfts/collections/%s", c.BaseURL, addr)
-	resp, err := c.doRequest(url)
+	resp, err := c.doRequest(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -110,9 +111,9 @@ func (c *Client) GetCollection(addr string) (*NFTCollection, error) {
 }
 
 // GetNFTByDNS resolves a username to its NFT item via TON DNS
-func (c *Client) GetNFTByDNS(username string) (*NFTItem, error) {
+func (c *Client) GetNFTByDNS(ctx context.Context, username string) (*NFTItem, error) {
 	url := fmt.Sprintf("%s/dns/%s.t.me/resolve", c.BaseURL, username)
-	resp, err := c.doRequest(url)
+	resp, err := c.doRequest(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -133,9 +134,9 @@ func (c *Client) GetNFTByDNS(username string) (*NFTItem, error) {
 }
 
 // GetNFTItem fetches a specific NFT item by its address
-func (c *Client) GetNFTItem(nftAddr string) (*NFTItem, error) {
+func (c *Client) GetNFTItem(ctx context.Context, nftAddr string) (*NFTItem, error) {
 	url := fmt.Sprintf("%s/nfts/%s", c.BaseURL, nftAddr)
-	resp, err := c.doRequest(url)
+	resp, err := c.doRequest(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -156,9 +157,9 @@ func (c *Client) GetNFTItem(nftAddr string) (*NFTItem, error) {
 }
 
 // GetWalletInfo fetches balance and status of a TON wallet
-func (c *Client) GetWalletInfo(address string) (*WalletInfo, error) {
+func (c *Client) GetWalletInfo(ctx context.Context, address string) (*WalletInfo, error) {
 	url := fmt.Sprintf("%s/accounts/%s", c.BaseURL, address)
-	resp, err := c.doRequest(url)
+	resp, err := c.doRequest(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -176,9 +177,9 @@ func (c *Client) GetWalletInfo(address string) (*WalletInfo, error) {
 }
 
 // GetOwnerNFTs fetches all NFTs owned by a wallet in the usernames collection
-func (c *Client) GetOwnerNFTs(ownerAddr string) (*NFTItems, error) {
+func (c *Client) GetOwnerNFTs(ctx context.Context, ownerAddr string) (*NFTItems, error) {
 	url := fmt.Sprintf("%s/accounts/%s/nfts?collection=%s&limit=100", c.BaseURL, ownerAddr, UsernamesCollectionAddr)
-	resp, err := c.doRequest(url)
+	resp, err := c.doRequest(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -196,9 +197,9 @@ func (c *Client) GetOwnerNFTs(ownerAddr string) (*NFTItems, error) {
 }
 
 // GetNFTTransfers fetches transfer history for an NFT
-func (c *Client) GetNFTTransfers(nftAddr string) (*TransferHistory, error) {
+func (c *Client) GetNFTTransfers(ctx context.Context, nftAddr string) (*TransferHistory, error) {
 	url := fmt.Sprintf("%s/nfts/%s/history?limit=50", c.BaseURL, nftAddr)
-	resp, err := c.doRequest(url)
+	resp, err := c.doRequest(ctx, url)
 	if err != nil {
 		return nil, err
 	}

@@ -4,8 +4,23 @@ import { retrieveLaunchParams, isTMA, mockTelegramEnv } from '@tma.js/sdk-solid'
 
 import { Root } from '@/app/Root.js';
 import { init } from '@/app/init.js';
+import { ErrorBoundary } from '@/shared/ui/ErrorBoundary';
+import * as Sentry from '@sentry/browser';
 
 import './app/styles/index.css';
+
+if (import.meta.env.VITE_SENTRY_DSN) {
+  Sentry.init({
+    dsn: import.meta.env.VITE_SENTRY_DSN,
+    integrations: [
+      Sentry.browserTracingIntegration(),
+      Sentry.replayIntegration(),
+    ],
+    tracesSampleRate: 0.1,
+    replaysSessionSampleRate: 0.1,
+    replaysOnErrorSampleRate: 1.0,
+  });
+}
 
 async function startApp() {
   const root = document.getElementById('root');
@@ -49,7 +64,11 @@ async function startApp() {
     });
 
     // 4. Final Render
-    render(() => <Root />, root);
+    render(() => (
+      <ErrorBoundary>
+        <Root />
+      </ErrorBoundary>
+    ), root);
 
   } catch (e) {
     console.error('Startup Error:', e);

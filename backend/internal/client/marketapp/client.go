@@ -1,6 +1,7 @@
 package marketapp
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -61,8 +62,8 @@ type SaleRecord struct {
 	To    string  `json:"to"`
 }
 
-func (c *Client) doRequest(url string) (*http.Response, error) {
-	req, err := http.NewRequest("GET", url, nil)
+func (c *Client) doRequest(ctx context.Context, url string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -74,9 +75,9 @@ func (c *Client) doRequest(url string) (*http.Response, error) {
 }
 
 // GetCollection fetches global collection data
-func (c *Client) GetCollection() (*CollectionData, error) {
+func (c *Client) GetCollection(ctx context.Context) (*CollectionData, error) {
 	url := fmt.Sprintf("%s/collections/%s", c.BaseURL, CollectionAddr)
-	resp, err := c.doRequest(url)
+	resp, err := c.doRequest(ctx, url)
 	if err != nil {
 		return nil, fmt.Errorf("marketapp collection request failed: %w", err)
 	}
@@ -94,9 +95,9 @@ func (c *Client) GetCollection() (*CollectionData, error) {
 }
 
 // GetItem fetches data for a specific username NFT
-func (c *Client) GetItem(username string) (*ItemData, error) {
+func (c *Client) GetItem(ctx context.Context, username string) (*ItemData, error) {
 	url := fmt.Sprintf("%s/collections/%s/items/%s", c.BaseURL, CollectionAddr, username)
-	resp, err := c.doRequest(url)
+	resp, err := c.doRequest(ctx, url)
 	if err != nil {
 		return nil, fmt.Errorf("marketapp item request failed: %w", err)
 	}

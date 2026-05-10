@@ -3,8 +3,16 @@ package main
 import (
 	"context"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/google/uuid"
+	"github.com/getsentry/sentry-go"
+	sentryhttp "github.com/getsentry/sentry-go/http"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"ifragment-backend/internal/client/fragment"
 
@@ -73,12 +81,37 @@ func main() {
 	// Initialize Router
 	r := chi.NewRouter()
 
-	// Base middleware
-	r.Use(chiMiddleware.RequestID)
+	r.Use(middleware.SecurityHeaders)
+	// Request-ID and Structured Logging
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			reqID := r.Header.Get("X-Request-ID")
+			if reqID == "" {
+				reqID = uuid.NewString()
+			}
+			w.Header().Set("X-Request-ID", reqID)
+			ctx := context.WithValue(r.Context(), "request_id", reqID)
+			logger := slog.With("request_id", reqID, "path", r.URL.Path)
+			ctx = context.WithValue(ctx, "logger", logger)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	})
 	r.Use(chiMiddleware.RealIP)
 	r.Use(chiMiddleware.Logger)
 	r.Use(chiMiddleware.Recoverer)
 	r.Use(middleware.NewRateLimiter())
+
+	// Sentry
+	sentry.Init(sentry.ClientOptions{
+		Dsn:              os.Getenv("SENTRY_DSN"),
+		TracesSampleRate: 0.1,
+		Environment:      os.Getenv("APP_ENV"),
+	})
+	defer sentry.Flush(2 * time.Second)
+	r.Use(sentryhttp.New(sentryhttp.Options{Repanic: true}).Handle)
+
+	// Prometheus Metrics
+	r.Handle("/metrics", promhttp.Handler())
 
 	allowedOrigins := strings.Split(os.Getenv("ALLOWED_ORIGINS"), ",")
 	if len(allowedOrigins) == 1 && allowedOrigins[0] == "" {
@@ -111,6 +144,8 @@ func main() {
 	premiumHandler := handler.NewPremiumHandler(reportService, paymentService)
 	webhookHandler := handler.NewWebhookHandler(db)
 
+	authHandler := handler.NewAuthHandler()
+
 	// Public Routes
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -119,15 +154,16 @@ func main() {
 		})
 
 		r.Post("/webhook/telegram", webhookHandler.HandleTelegramWebhook)
+		r.With(middleware.ValidateTelegramInitData).Post("/auth/token", authHandler.IssueToken)
 
 		r.Route("/usernames", func(r chi.Router) {
 			r.Get("/collection/stats", usernameHandler.GetCollectionStats)
 			r.Get("/check", usernameHandler.CheckAvailability)
 			r.Get("/quick", usernameHandler.QuickAnalysis)
 			
-			// Protected Routes (Require Telegram InitData)
+			// Protected Routes (Require JWT)
 			r.Group(func(r chi.Router) {
-				r.Use(middleware.ValidateTelegramInitData)
+				r.Use(middleware.AuthMiddleware)
 				r.Post("/report/request", premiumHandler.RequestPremiumReport)
 				r.Get("/report/view", premiumHandler.GetReport)
 				r.Get("/report/history", premiumHandler.GetHistory)
@@ -135,13 +171,36 @@ func main() {
 		})
 	})
 
-	// Start server
+	// Start server with graceful shutdown
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
-	log.Printf("🚀 iFragment Backend starting on port %s...", port)
-	if err := http.ListenAndServe(":"+port, r); err != nil {
-		log.Fatalf("Server failed to start: %v", err)
+	
+	srv := &http.Server{
+		Addr:    ":" + port,
+		Handler: r,
 	}
+
+	go func() {
+		log.Printf("🚀 iFragment Backend starting on port %s...", port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Server failed to start: %v", err)
+		}
+	}()
+
+	// Wait for interrupt signal to gracefully shutdown the server
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("Shutting down server...")
+
+	ctxShut, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctxShut); err != nil {
+		log.Fatalf("Server forced to shutdown: %v", err)
+	}
+
+	log.Println("Server exiting")
 }

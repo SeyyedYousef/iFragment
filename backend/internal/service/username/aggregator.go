@@ -56,11 +56,15 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 			return
 		}
 		
-		coll, err := s.tonClient.GetCollection(addr)
-		if err == nil && coll != nil {
-			mu.Lock()
-			summary.TotalSupply = coll.NextItemIndex
-			mu.Unlock()
+		var err error
+		if s.tonClient != nil {
+			coll, errTonGet := s.tonClient.GetCollection(ctx, addr)
+			if errTonGet == nil && coll != nil {
+				mu.Lock()
+				summary.TotalSupply = coll.NextItemIndex
+				mu.Unlock()
+			}
+			err = errTonGet
 		}
 		mu.Lock()
 		errTon = err
@@ -75,18 +79,22 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 			return
 		}
 		
-		stats, err := s.marketappClient.GetCollection()
-		if err == nil && stats != nil {
-			mu.Lock()
-			summary.FloorPrice = fmt.Sprintf("%.2f", stats.FloorPrice)
-			summary.TotalVolume = fmt.Sprintf("%.2f", stats.TotalVolume)
-			summary.Holders = stats.TotalOwners
-			summary.ActiveAuctions = stats.ActiveAuctions
-			summary.DailyVolume = stats.Volume24h
-			summary.SalesCount = stats.SalesCount
-			summary.HighestSale = stats.HighestSale
-			summary.ListedRatio = stats.ListedRatio
-			mu.Unlock()
+		var err error
+		if s.marketappClient != nil {
+			stats, errMappGet := s.marketappClient.GetCollection(ctx)
+			if errMappGet == nil && stats != nil {
+				mu.Lock()
+				summary.FloorPrice = fmt.Sprintf("%.2f", stats.FloorPrice)
+				summary.TotalVolume = fmt.Sprintf("%.2f", stats.TotalVolume)
+				summary.Holders = stats.TotalOwners
+				summary.ActiveAuctions = stats.ActiveAuctions
+				summary.DailyVolume = stats.Volume24h
+				summary.SalesCount = stats.SalesCount
+				summary.HighestSale = stats.HighestSale
+				summary.ListedRatio = stats.ListedRatio
+				mu.Unlock()
+			}
+			err = errMappGet
 		}
 		mu.Lock()
 		errMapp = err

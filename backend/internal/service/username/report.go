@@ -160,7 +160,7 @@ func (s *ReportService) QuickAnalysis(ctx context.Context, username string, user
 
 	// Get market data from Marketapp
 	if s.marketappClient != nil {
-		item, err := s.marketappClient.GetItem(username)
+		item, err := s.marketappClient.GetItem(ctx, username)
 		if err == nil && item != nil {
 			result.SaleStatus = item.SaleStatus
 			result.BuyNowPrice = item.BuyNowPrice
@@ -266,7 +266,7 @@ func (s *ReportService) GenerateDeepReport(ctx context.Context, userID int64, us
 			return
 		}
 
-		item, err := s.marketappClient.GetItem(username)
+		item, err := s.marketappClient.GetItem(ctx, username)
 		if err != nil || item == nil {
 			return
 		}
@@ -293,7 +293,7 @@ func (s *ReportService) GenerateDeepReport(ctx context.Context, userID int64, us
 			return
 		}
 
-		nft, err := s.tonClient.GetNFTByDNS(username)
+		nft, err := s.tonClient.GetNFTByDNS(ctx, username)
 		if err != nil || nft == nil {
 			return
 		}
@@ -311,7 +311,7 @@ func (s *ReportService) GenerateDeepReport(ctx context.Context, userID int64, us
 
 		// Get wallet info for the owner
 		if nft.Owner.Address != "" {
-			walletInfo, err := s.tonClient.GetWalletInfo(nft.Owner.Address)
+			walletInfo, err := s.tonClient.GetWalletInfo(ctx, nft.Owner.Address)
 			if err == nil && walletInfo != nil {
 				mu.Lock()
 				report.OwnerWalletBalance = float64(walletInfo.Balance) / 1e9 // nanoTON to TON
@@ -319,7 +319,7 @@ func (s *ReportService) GenerateDeepReport(ctx context.Context, userID int64, us
 			}
 
 			// Get other assets owned by same wallet
-			otherNFTs, err := s.tonClient.GetOwnerNFTs(nft.Owner.Address)
+			otherNFTs, err := s.tonClient.GetOwnerNFTs(ctx, nft.Owner.Address)
 			if err == nil && otherNFTs != nil {
 				mu.Lock()
 				report.OwnerOtherAssets = len(otherNFTs.Items) - 1 // Exclude this one
@@ -338,7 +338,7 @@ func (s *ReportService) GenerateDeepReport(ctx context.Context, userID int64, us
 		if s.fragmentClient == nil {
 			return
 		}
-		fragStatus, err := s.fragmentClient.CheckUsername(username)
+		fragStatus, err := s.fragmentClient.CheckUsername(ctx, username)
 		if err != nil {
 			return
 		}

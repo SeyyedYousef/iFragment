@@ -1,12 +1,14 @@
 package fragment
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/sony/gobreaker"
 )
 
 type Status string
@@ -31,10 +33,30 @@ func NewClient() *Client {
 	}
 }
 
-func (c *Client) CheckUsername(username string) (Status, error) {
+var fragmentCB = gobreaker.NewCircuitBreaker(gobreaker.Settings{
+	Name:        "fragment-scraper",
+	MaxRequests: 3,
+	Interval:    60 * time.Second,
+	Timeout:     30 * time.Second,
+	ReadyToTrip: func(c gobreaker.Counts) bool {
+		return c.ConsecutiveFailures > 5
+	},
+})
+
+func (c *Client) CheckUsername(ctx context.Context, username string) (Status, error) {
+	res, err := fragmentCB.Execute(func() (any, error) {
+		return c.checkInternal(ctx, username)
+	})
+	if err != nil {
+		return StatusUnknown, err
+	}
+	return res.(Status), nil
+}
+
+func (c *Client) checkInternal(ctx context.Context, username string) (Status, error) {
 	url := fmt.Sprintf("%s/username/%s", c.BaseURL, username)
 	
-	req, _ := http.NewRequest("GET", url, nil)
+	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
 	// Important: Use a browser-like User-Agent to avoid being blocked
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 

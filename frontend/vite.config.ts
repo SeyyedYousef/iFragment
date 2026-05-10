@@ -3,6 +3,7 @@ import solidPlugin from 'vite-plugin-solid';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import mkcert from 'vite-plugin-mkcert';
 import tailwindcss from '@tailwindcss/vite';
+import { sentryVitePlugin } from "@sentry/vite-plugin";
 
 export default defineConfig({
   plugins: [
@@ -18,9 +19,15 @@ export default defineConfig({
     // Using this plugin requires admin rights on the first dev-mode launch.
     // https://www.npmjs.com/package/vite-plugin-mkcert
     process.env.HTTPS && mkcert(),
+    process.env.VITE_SENTRY_AUTH_TOKEN && sentryVitePlugin({
+      org: "ifragment",
+      project: "ifragment-frontend",
+      authToken: process.env.VITE_SENTRY_AUTH_TOKEN,
+    }),
   ],
   build: {
     target: 'esnext',
+    sourcemap: true,
   },
   publicDir: './public',
   server: {

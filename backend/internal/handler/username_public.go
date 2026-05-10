@@ -102,7 +102,7 @@ func (h *UsernameHandler) CheckAvailability(w http.ResponseWriter, r *http.Reque
 	} else if mtStatus == mtproto.StatusOccupied {
 		finalStatus = "taken"
 	} else if mtStatus == mtproto.StatusPurchase {
-		fragStatus, _ := h.fragmentClient.CheckUsername(u)
+		fragStatus, _ := h.fragmentClient.CheckUsername(ctx, u)
 		if fragStatus == fragment.StatusAuction {
 			finalStatus = "on_auction"
 		} else if fragStatus == fragment.StatusSale {
@@ -180,7 +180,7 @@ func (h *UsernameHandler) QuickAnalysis(w http.ResponseWriter, r *http.Request) 
 		case mtproto.StatusOccupied:
 			result.Status = "taken"
 		case mtproto.StatusPurchase:
-			fragStatus, _ := h.fragmentClient.CheckUsername(u)
+			fragStatus, _ := h.fragmentClient.CheckUsername(ctx, u)
 			if fragStatus == fragment.StatusAuction {
 				result.Status = "on_auction"
 			} else if fragStatus == fragment.StatusSale {
