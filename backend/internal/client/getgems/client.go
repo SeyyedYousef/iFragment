@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 )
 
 type Client struct {
@@ -15,7 +16,7 @@ type Client struct {
 func NewClient() *Client {
 	return &Client{
 		BaseURL: "https://api.getgems.io/graphql",
-		HTTP:    &http.Client{},
+		HTTP:    &http.Client{Timeout: 10 * time.Second},
 	}
 }
 

@@ -55,9 +55,19 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// 1. Handle Pre-Checkout
+	// 1. Handle Pre-Checkout (Patch 4)
 	if update.PreCheckoutQuery != nil {
-		h.answerPreCheckout(update.PreCheckoutQuery.ID, true, "")
+		ctx := r.Context()
+		order, err := h.db.GetOrderByPayload(ctx, update.PreCheckoutQuery.InvoicePayload)
+		if err != nil {
+			log.Printf("⚠️ Pre-checkout failed: Order not found for payload %s", update.PreCheckoutQuery.InvoicePayload)
+			h.answerPreCheckout(update.PreCheckoutQuery.ID, false, "Order verification failed")
+		} else if order.Amount != update.PreCheckoutQuery.TotalAmount {
+			log.Printf("⚠️ Pre-checkout failed: Amount mismatch. Expected %d, got %d", order.Amount, update.PreCheckoutQuery.TotalAmount)
+			h.answerPreCheckout(update.PreCheckoutQuery.ID, false, "Price mismatch")
+		} else {
+			h.answerPreCheckout(update.PreCheckoutQuery.ID, true, "")
+		}
 		w.WriteHeader(http.StatusOK)
 		return
 	}

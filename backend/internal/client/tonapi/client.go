@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 )
 
 type Client struct {
@@ -17,7 +18,7 @@ func NewClient() *Client {
 	return &Client{
 		BaseURL: "https://tonapi.io/v2",
 		APIKey:  os.Getenv("TONAPI_KEY"),
-		HTTP:    &http.Client{},
+		HTTP:    &http.Client{Timeout: 10 * time.Second},
 	}
 }
 

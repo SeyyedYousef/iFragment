@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -26,7 +27,7 @@ type Client struct {
 func NewClient() *Client {
 	return &Client{
 		BaseURL: "https://fragment.com",
-		HTTP:    &http.Client{},
+		HTTP:    &http.Client{Timeout: 10 * time.Second},
 	}
 }
 

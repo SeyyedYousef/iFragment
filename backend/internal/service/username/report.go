@@ -26,6 +26,13 @@ func NewReportService(db *repository.Database, cache *repository.Cache, ton *ton
 	}
 }
 
+func (s *ReportService) CheckPayment(ctx context.Context, userID int64, username string) (bool, error) {
+	if s.db == nil {
+		return false, fmt.Errorf("database not available")
+	}
+	return s.db.HasPaidForReport(ctx, userID, username)
+}
+
 type PremiumReport struct {
 	Username    string            `json:"username"`
 	Status      fragment.Status   `json:"status"`
@@ -34,10 +41,11 @@ type PremiumReport struct {
 	GeneratedAt time.Time         `json:"generated_at"`
 }
 
-func (s *ReportService) GenerateDeepReport(ctx context.Context, username string) (*PremiumReport, error) {
-	// 1. Check Cache first
+func (s *ReportService) GenerateDeepReport(ctx context.Context, userID int64, username string) (*PremiumReport, error) {
+	// 1. Check Cache first (Patch 3: User-Scoped)
 	if s.cache != nil {
-		val, err := s.cache.Client.Get(ctx, "report:"+username).Result()
+		cacheKey := fmt.Sprintf("report:%d:%s", userID, username)
+		val, err := s.cache.Client.Get(ctx, cacheKey).Result()
 		if err == nil {
 			var cachedReport PremiumReport
 			if json.Unmarshal([]byte(val), &cachedReport) == nil {
@@ -67,7 +75,8 @@ func (s *ReportService) GenerateDeepReport(ctx context.Context, username string)
 	// 4. Save to Cache (24h TTL)
 	if s.cache != nil {
 		data, _ := json.Marshal(report)
-		s.cache.Client.Set(ctx, "report:"+username, data, 24*time.Hour)
+		cacheKey := fmt.Sprintf("report:%d:%s", userID, username)
+		s.cache.Client.Set(ctx, cacheKey, data, 24*time.Hour)
 	}
 
 	return report, nil

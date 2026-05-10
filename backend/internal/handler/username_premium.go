@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/payment"
 	"ifragment-backend/internal/service/username"
@@ -38,7 +39,7 @@ func (h *PremiumHandler) RequestPremiumReport(w http.ResponseWriter, r *http.Req
 	}
 
 	// Get user from context
-	tgUser, ok := r.Context().Value("tg_user").(map[string]interface{})
+	tgUser, ok := r.Context().Value(middleware.UserContextKey).(map[string]interface{})
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
@@ -88,24 +89,40 @@ func (h *PremiumHandler) GetReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	report, err := h.reportService.GenerateDeepReport(r.Context(), u)
+	// 1. Access Control (Patch 2)
+	tgUser, ok := r.Context().Value(middleware.UserContextKey).(map[string]interface{})
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID := int64(tgUser["id"].(float64))
+
+	hasPaid, err := h.reportService.CheckPayment(r.Context(), userID, u)
+	if err != nil {
+		http.Error(w, "database error", http.StatusInternalServerError)
+		return
+	}
+
+	if !hasPaid {
+		http.Error(w, "Payment required for this report", http.StatusPaymentRequired)
+		return
+	}
+
+	report, err := h.reportService.GenerateDeepReport(r.Context(), userID, u)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Save report to DB if user is present
-	if tgUser, ok := r.Context().Value("tg_user").(map[string]interface{}); ok {
-		userID := int64(tgUser["id"].(float64))
-		h.reportService.SaveReportToDB(r.Context(), userID, u, report)
-	}
+	// Save report to DB (Patch: userID already extracted)
+	h.reportService.SaveReportToDB(r.Context(), userID, u, report)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(report)
 }
 
 func (h *PremiumHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
-	tgUser, ok := r.Context().Value("tg_user").(map[string]interface{})
+	tgUser, ok := r.Context().Value(middleware.UserContextKey).(map[string]interface{})
 	if !ok {
 		http.Error(w, "user not found in context", http.StatusUnauthorized)
 		return

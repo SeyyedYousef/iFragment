@@ -1,6 +1,6 @@
 import { createQuery, createMutation } from '@tanstack/solid-query';
-import { apiFetch } from '@/shared/api/base';
-import { createSignal, createEffect } from 'solid-js';
+import { apiFetch } from '@/shared/api/base.js';
+import { createSignal, createEffect, onCleanup } from 'solid-js';
 
 export interface CollectionStats {
   total_supply: number;
@@ -44,7 +44,7 @@ export const useUsernameAvailability = (username: () => string) => {
     const timeout = setTimeout(() => {
       setDebouncedUsername(val);
     }, 350); // 350ms debounce
-    return () => clearTimeout(timeout);
+    onCleanup(() => clearTimeout(timeout));
   });
 
   return createQuery(() => ({

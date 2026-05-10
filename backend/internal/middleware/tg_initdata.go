@@ -16,6 +16,12 @@ import (
 )
 
 // ValidateTelegramInitData is a middleware that validates Telegram Mini App InitData
+type ContextKey string
+
+const (
+	UserContextKey ContextKey = "tg_user"
+)
+
 func ValidateTelegramInitData(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		initData := r.Header.Get("X-Telegram-Init-Data")
@@ -42,7 +48,7 @@ func ValidateTelegramInitData(next http.Handler) http.Handler {
 		if userData != "" {
 			var user map[string]interface{}
 			if err := json.Unmarshal([]byte(userData), &user); err == nil {
-				ctx = context.WithValue(ctx, "tg_user", user)
+				ctx = context.WithValue(ctx, UserContextKey, user)
 			}
 		}
 

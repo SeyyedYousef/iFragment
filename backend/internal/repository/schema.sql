@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS orders (
     user_id BIGINT REFERENCES users(telegram_id),
     amount INTEGER NOT NULL, -- In Stars
     status TEXT NOT NULL DEFAULT 'pending', -- pending, paid, cancelled
-    payload TEXT, -- Internal verification payload
+    payload TEXT UNIQUE, -- Internal verification payload
     telegram_payment_charge_id TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
