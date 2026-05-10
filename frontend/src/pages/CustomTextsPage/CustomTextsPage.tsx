@@ -33,6 +33,8 @@ export const CustomTextsPage: Component = () => {
   const [silenceStartText, setSilenceStartText] = createSignal('');
   const [silenceEndText, setSilenceEndText] = createSignal('');
   const [rulesText, setRulesText] = createSignal('');
+  const [forceJoinText, setForceJoinText] = createSignal('');
+  const [forceAddText, setForceAddText] = createSignal('');
 
   const [inlineButtons, setInlineButtons] = createStore<{ id: string; title: string; url: string }[]>([]);
 
@@ -209,6 +211,44 @@ export const CustomTextsPage: Component = () => {
             onInput={(e) => setRulesText(e.currentTarget.value)}
            
             class="w-full h-32 bg-[#1c1c1c] text-white text-[14px] rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-[#2a2a2a] transition-all resize-none placeholder-[#8e8e93]"
+          />
+        </Motion.div>
+
+        {/* Force Join Message */}
+        <Motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.45 }}
+          class="flex flex-col gap-2 mt-2"
+        >
+          <label class="text-[15px] font-bold text-white flex items-center gap-2">
+            <span class="material-symbols-outlined text-[#3390ec] text-[18px]">campaign</span>
+            {t('customTextsSettings.forceJoinText')}
+          </label>
+          <span class="text-[12px] text-[#8e8e93] leading-snug px-1 mb-1">{t('customTextsSettings.forceJoinTextDesc')}</span>
+          <textarea 
+            value={forceJoinText()}
+            onInput={(e) => setForceJoinText(e.currentTarget.value)}
+            class="w-full h-24 bg-[#1c1c1c] text-white text-[14px] rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-[#2a2a2a] transition-all resize-none placeholder-[#8e8e93]"
+          />
+        </Motion.div>
+
+        {/* Force Add Message */}
+        <Motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.48 }}
+          class="flex flex-col gap-2 mt-2"
+        >
+          <label class="text-[15px] font-bold text-white flex items-center gap-2">
+            <span class="material-symbols-outlined text-[#ff9500] text-[18px]">person_add</span>
+            {t('customTextsSettings.forceAddText')}
+          </label>
+          <span class="text-[12px] text-[#8e8e93] leading-snug px-1 mb-1">{t('customTextsSettings.forceAddTextDesc')}</span>
+          <textarea 
+            value={forceAddText()}
+            onInput={(e) => setForceAddText(e.currentTarget.value)}
+            class="w-full h-24 bg-[#1c1c1c] text-white text-[14px] rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-[#2a2a2a] transition-all resize-none placeholder-[#8e8e93]"
           />
         </Motion.div>
 

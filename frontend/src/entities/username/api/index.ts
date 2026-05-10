@@ -7,24 +7,69 @@ export interface CollectionStats {
   holders: number;
   floor_price: string;
   total_volume: string;
+  active_auctions: number;
+  revenue: string;
+  daily_volume: number;
+  sales_count: number;
+  highest_sale: number;
+  listed_ratio: number;
 }
 
 export interface AvailabilityStatus {
   username: string;
-  status: 'available' | 'taken' | 'on_auction' | 'on_sale';
+  status: 'available' | 'taken' | 'on_auction' | 'on_sale' | 'purchase_available' | string;
+}
+
+export interface QuickCheck {
+  username: string;
+  status: string;
+  length: number;
+  rarity_score: number;
+  sale_status: string;
+  buy_now_price?: number;
+  highest_bid?: number;
+  end_time?: string;
+  fragment_url: string;
+  search_popularity: number;
+  linguistic_score: number;
 }
 
 export interface PremiumReport {
-  id: string;
   username: string;
-  status: 'available' | 'taken' | 'on_auction' | 'on_sale';
-  on_chain?: {
-    collection: string;
-    market: string;
-    owner?: string;
-    last_price?: string;
-  };
+  length: number;
+  contains_numbers: boolean;
+  is_dictionary_word: boolean;
+
+  status: string;
+  peer_type: string;
+
+  is_verified: boolean;
+  is_premium: boolean;
+  is_scam: boolean;
+  is_fake: boolean;
+
+  participants_count?: number;
+
+  owner_address?: string;
+
+  sale_status: string;
+  highest_bid?: number;
+  buy_now_price?: number;
+  end_time?: string;
+
+  mint_date?: string;
+  previous_owners?: string[];
+  past_sales?: any[];
+
+  owner_wallet_balance?: number;
+  owner_other_assets?: number;
+
   rarity_score: number;
+  linguistic_score: number;
+  estimated_value?: number;
+  search_popularity: number;
+  fragment_url: string;
+
   generated_at: string;
 }
 
@@ -52,6 +97,25 @@ export const useUsernameAvailability = (username: () => string) => {
     queryFn: () => apiFetch<AvailabilityStatus>(`/usernames/check?u=${debouncedUsername()}`),
     enabled: !!debouncedUsername() && debouncedUsername().length >= 4,
     staleTime: 5 * 60 * 1000, // 5 minutes
+  }));
+};
+
+export const useUsernameQuickAnalysis = (username: () => string) => {
+  const [debouncedUsername, setDebouncedUsername] = createSignal(username());
+
+  createEffect(() => {
+    const val = username();
+    const timeout = setTimeout(() => {
+      setDebouncedUsername(val);
+    }, 450); // 450ms debounce
+    onCleanup(() => clearTimeout(timeout));
+  });
+
+  return createQuery(() => ({
+    queryKey: ['username', 'quick', debouncedUsername()],
+    queryFn: () => apiFetch<QuickCheck>(`/usernames/quick?u=${debouncedUsername()}`),
+    enabled: !!debouncedUsername() && debouncedUsername().length >= 4,
+    staleTime: 3 * 60 * 1000, // 3 minutes
   }));
 };
 

@@ -1,9 +1,9 @@
-import { Component, createSignal, createMemo, Show } from 'solid-js';
+import { Component, createSignal, createMemo, Show, For } from 'solid-js';
 import { Motion } from '@motionone/solid';
 import { t, type DictPaths } from '@/shared/i18n/index.js';
 import { useUsernameSearch } from '@/entities/username/model/index.js';
-import { useUsernameAvailability, useRequestPremiumReport } from '@/entities/username/api/index.js';
-import { hapticFeedback, invoice } from '@tma.js/sdk-solid';
+import { useUsernameQuickAnalysis } from '@/entities/username/api/index.js';
+import { hapticFeedback } from '@tma.js/sdk-solid';
 import { useNavigate } from '@solidjs/router';
 
 interface ActionAreaProps {
@@ -12,7 +12,6 @@ interface ActionAreaProps {
 
 type AnalyzeState = 'idle' | 'loading' | 'success';
 
-// Type-safe content map
 const CONTENT: Record<ActionAreaProps['activeTab'], {
   title: DictPaths; description: DictPaths; inputPlaceholder: DictPaths; analyzeBtn: DictPaths;
 }> = {
@@ -36,46 +35,37 @@ const CONTENT: Record<ActionAreaProps['activeTab'], {
   },
 };
 
+const TRENDING = ['news', 'auto', 'bank', 'crypto'];
+
 export const ActionArea: Component<ActionAreaProps> = (props) => {
   const { searchQuery, setSearchQuery, searchError, validate } = useUsernameSearch();
-  const [analyzeState, setAnalyzeState] = createSignal<AnalyzeState>('idle');
   const navigate = useNavigate();
-  const requestPremium = useRequestPremiumReport();
+  const [analyzeState, setAnalyzeState] = createSignal<AnalyzeState>('idle');
+  const [isFocused, setIsFocused] = createSignal(false);
 
-  const availability = useUsernameAvailability(() => searchQuery());
+  const quickAnalysis = useUsernameQuickAnalysis(() => searchQuery());
 
   const keys = createMemo(() => CONTENT[props.activeTab]);
   const charCount = createMemo(() => searchQuery().length);
   const isValidLength = createMemo(() => charCount() >= 4 && charCount() <= 32);
 
   const handleAnalyze = async () => {
-    if (analyzeState() !== 'idle' || requestPremium.isPending) return;
+    if (analyzeState() !== 'idle' || !searchQuery()) return;
     if (validate(searchQuery())) {
-      try { hapticFeedback.impactOccurred('medium'); } catch {}
+      try { hapticFeedback.impactOccurred('medium'); } catch { }
       setAnalyzeState('loading');
-      
-      requestPremium.mutate(searchQuery(), {
-        onSuccess: async ({ invoice_link }) => {
-          const status = await invoice.open(invoice_link, 'url');
-          if (status === 'paid') {
-            setAnalyzeState('success');
-            try { hapticFeedback.notificationOccurred('success'); } catch {}
-            setTimeout(() => {
-              navigate(`/username/report?u=${searchQuery()}`);
-              setAnalyzeState('idle');
-            }, 1000);
-          } else {
-            setAnalyzeState('idle');
-          }
-        },
-        onError: (err) => {
-          console.error('Payment failed', err);
+
+      // Free access for now
+      setTimeout(() => {
+        setAnalyzeState('success');
+        try { hapticFeedback.notificationOccurred('success'); } catch { }
+        setTimeout(() => {
+          navigate(`/username/report?u=${searchQuery()}`);
           setAnalyzeState('idle');
-          try { hapticFeedback.notificationOccurred('error'); } catch {}
-        }
-      });
+        }, 600);
+      }, 800);
     } else {
-      try { hapticFeedback.notificationOccurred('error'); } catch {}
+      try { hapticFeedback.notificationOccurred('error'); } catch { }
     }
   };
 
@@ -85,148 +75,314 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
   };
 
   const getButtonText = () => {
-    if (analyzeState() === 'loading' || requestPremium.isPending) return t('action.analyzing');
+    if (analyzeState() === 'loading') return t('action.analyzing');
     if (analyzeState() === 'success') return t('home.success');
-    
-    const status = availability.data?.status;
+
+    const status = quickAnalysis.data?.status;
     if (status === 'available') {
       return t('action.username.registerBtn' as DictPaths);
-    }
-    if (status && status !== 'available') {
+    } else if (status) {
       return t('action.username.analyzeMarketBtn' as DictPaths);
     }
     return t(keys().analyzeBtn);
   };
 
+  const [isFeaturesExpanded, setIsFeaturesExpanded] = createSignal(false);
+
+  const getPrefix = () => {
+    if (props.activeTab === 'username') return '@';
+    if (props.activeTab === 'collectibles') return '+';
+    return '';
+  };
+
   return (
-    <main class="space-y-6 w-full max-w-[420px] mx-auto pb-8" role="main" aria-label="Analysis section">
-      
-      {/* 1. Header Section */}
+    <main class="w-full max-w-[420px] mx-auto pb-8" role="main" aria-label="Analysis section">
+
+      {/* ── HEADER ── */}
       <Motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, easing: [0.23, 1, 0.32, 1] }}
-        class="text-center space-y-3 px-2"
+        class="text-center space-y-3 px-6 mb-8"
       >
-        <h2 class="text-[28px] md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-white/60 tracking-tight leading-tight">
+        <h2 class="text-[28px] md:text-3xl font-black text-white tracking-tight leading-tight">
           {t(keys().title)}
         </h2>
-        <p class="text-on-surface-variant text-[14px] font-medium leading-[1.7] px-2 max-w-[340px] mx-auto">
+        <p class="text-[#8e8e93] text-[14px] font-medium leading-[1.7] px-2 max-w-[340px] mx-auto">
           {t(keys().description)}
         </p>
       </Motion.div>
 
-      {/* 2. Search Console (Input) */}
-      <div class="relative w-full group mt-6">
-        {/* Glow */}
-        <div class="absolute -inset-1 bg-gradient-to-r from-[#3390ec]/0 via-[#3390ec]/15 to-[#3390ec]/0 rounded-[32px] blur-xl opacity-0 group-focus-within:opacity-100 transition-all duration-700 pointer-events-none"></div>
-        
-        <Motion.div
-          initial={{ opacity: 0, scale: 0.98 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          class={`relative bg-[#0a0b0e] border ${searchError() ? 'border-[#ff3b30]/50' : 'border-white/10 group-focus-within:border-[#3390ec]/50'} rounded-[24px] p-4 shadow-[0_10px_40px_rgba(0,0,0,0.5)] transition-all duration-500`}
+      {/* ── SEARCH CARD ── */}
+      <Motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.08, easing: [0.23, 1, 0.32, 1] }}
+        class="px-6"
+      >
+        <div
+          class={`bg-[#0f1014] border rounded-[24px] p-5 transition-all duration-400 ${
+            searchError()
+              ? 'border-red-500/40'
+              : isFocused()
+                ? 'border-[#3390ec]/30 shadow-[0_0_0_4px_rgba(51,144,236,0.05)]'
+                : 'border-[#2a2a2a]'
+          }`}
         >
-          {/* Top Info */}
-          <div class="flex items-center justify-between mb-3 px-2">
-            <span class="text-[10px] font-black text-on-surface-variant uppercase tracking-[0.15em] opacity-80">
+          {/* Top Bar */}
+          <div class="flex items-center justify-between mb-4">
+            <span class="flex items-center gap-2 text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em]">
+              <span class="material-symbols-outlined text-[16px] text-[#3390ec]" style={{ 'font-variation-settings': '"FILL" 1' }}>search</span>
               {t('home.targetAsset')}
             </span>
+
             <Show when={charCount() > 0}>
               <div class="flex items-center gap-2">
-                <Show when={availability.data}>
-                  <span class={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
-                    availability.data?.status === 'available' ? 'bg-[#34c759]/20 text-[#34c759]' : 'bg-[#ff3b30]/20 text-[#ff3b30]'
-                  }`}>
-                    {t(`pages.premiumReport.status.${availability.data?.status || 'available'}` as DictPaths)}
+                <Show when={quickAnalysis.data}>
+                  <span
+                    class={`text-[10px] font-black uppercase px-2.5 py-1 rounded-xl ${
+                      quickAnalysis.data?.status === 'available'
+                        ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                        : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                    }`}
+                    aria-live="polite"
+                  >
+                    {t(`pages.premiumReport.status.${quickAnalysis.data?.status || 'available'}` as DictPaths) || quickAnalysis.data?.status}
                   </span>
                 </Show>
-                <span class={`text-[11px] font-black tracking-widest ${isValidLength() ? 'text-[#34c759]' : 'text-[#ff3b30]'}`}>
-                  {charCount()}<span class="text-on-surface-variant opacity-50">/32</span>
+                <span
+                  class={`text-[11px] font-mono font-bold tabular-nums px-2 py-1 rounded-lg bg-white/[0.03] border border-white/[0.05] ${
+                    isValidLength() ? 'text-green-400' : 'text-[#ff6b35]'
+                  }`}
+                >
+                  {charCount()}<span class="text-white/15">/32</span>
                 </span>
               </div>
             </Show>
           </div>
 
-          {/* Input Area */}
-          <div class="flex items-center gap-2 px-2 pb-2">
-            <span class={`text-4xl font-light transition-colors duration-300 ${searchQuery() ? 'text-[#3390ec]' : 'text-on-surface-variant opacity-50'}`}>
-              {props.activeTab === 'username' ? '@' : props.activeTab === 'collectibles' ? '+' : ''}
+          {/* Input */}
+          <div
+            class={`flex items-center gap-3 bg-[#1c1c1c] rounded-2xl p-4 border transition-all duration-300 ${
+              isFocused() ? 'border-[#3390ec]/25' : 'border-[#2a2a2a]'
+            }`}
+            dir="ltr"
+          >
+            <span
+              class={`text-[22px] font-black select-none transition-colors duration-300 ${
+                searchQuery() ? 'text-[#3390ec]' : 'text-white/10'
+              }`}
+            >
+              {getPrefix()}
             </span>
             <input
               id="search-input"
-              class="w-full bg-transparent border-none focus:ring-0 text-3xl md:text-4xl font-black text-white placeholder:text-white/10 outline-none text-left tracking-tight"
+              class="w-full bg-transparent border-none focus:ring-0 outline-none text-left font-sans text-[20px] font-extrabold text-white placeholder:text-white/15 tracking-wide"
               placeholder={t(keys().inputPlaceholder)}
+              aria-label={t(keys().inputPlaceholder)}
               type="text"
               autocomplete="off"
+              spellcheck={false}
               value={searchQuery()}
               onInput={(e) => updateSearchQuery(e.currentTarget.value)}
-             
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
             />
+            <Show when={searchQuery()}>
+              <button
+                onClick={() => setSearchQuery('')}
+                class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-white/[0.06] hover:bg-white/10 transition-colors"
+                aria-label="Clear"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <path d="M8 2L2 8M2 2L8 8" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" stroke-linecap="round" />
+                </svg>
+              </button>
+            </Show>
           </div>
 
+          {/* Error */}
           <Show when={searchError()}>
-             <p class="text-[#ff3b30] text-[12px] font-bold mt-2 px-2 flex items-center gap-1">
-               <span class="material-symbols-outlined text-[14px]">error</span>
-               {searchError()}
-             </p>
-          </Show>
-        </Motion.div>
-      </div>
-
-      {/* 3. CTA Action */}
-      <Motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-        class="w-full pt-4"
-      >
-        <button
-          onClick={handleAnalyze}
-          disabled={analyzeState() === 'loading' || requestPremium.isPending || !searchQuery()}
-          class={`relative w-full overflow-hidden rounded-[22px] px-6 py-4 flex items-center justify-between transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 ${
-            analyzeState() === 'success'
-              ? 'bg-[#34c759] shadow-[0_0_20px_rgba(52,199,89,0.4)] text-white'
-              : 'bg-gradient-to-r from-[#3390ec] to-[#2b7bc9] hover:opacity-90 shadow-[0_6px_24px_rgba(51,144,236,0.4)] hover:shadow-[0_10px_30px_rgba(51,144,236,0.6)] active:scale-[0.98] text-white'
-          }`}
-        >
-          {/* Loading Animation */}
-          <Show when={analyzeState() === 'loading'}>
-            <div class="absolute inset-0 bg-white/20" style={{ animation: 'progress-sweep 1.5s ease-out infinite', 'transform-origin': 'left' }}></div>
+            <Motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              class="flex items-center gap-2 mt-3 px-1"
+            >
+              <span class="material-symbols-outlined text-[14px] text-red-400">error</span>
+              <span class="text-[12px] font-bold text-red-400">{searchError()}</span>
+            </Motion.div>
           </Show>
 
-          {/* Left Side: Text */}
-          <div class="flex flex-col items-start relative z-10 text-left">
-            <span class="font-black text-[16px] md:text-[18px] tracking-wide drop-shadow-sm">
-              {getButtonText()}
-            </span>
-            <span class="text-white/70 text-[11px] font-bold uppercase tracking-widest mt-1">
-              {t('home.premiumReport')}
-            </span>
-          </div>
+          {/* Quick Info Preview */}
+          <Show when={quickAnalysis.data}>
+            <Motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              class="mt-4 bg-[#141518] rounded-xl border border-[#2a2a2a] p-3 flex items-center justify-between"
+            >
+              <div class="flex flex-col gap-1">
+                <span class="text-[#8e8e93] text-[11px] font-bold uppercase tracking-wider">
+                  Rarity Score
+                </span>
+                <div class="flex items-center gap-1.5">
+                  <span class="text-[#3390ec] material-symbols-outlined text-[14px]">diamond</span>
+                  <span class="text-white text-[15px] font-black">{quickAnalysis.data?.rarity_score}</span>
+                  <span class="text-[#8e8e93] text-[12px] font-medium">/ 10000</span>
+                </div>
+              </div>
+              <Show when={quickAnalysis.data?.sale_status !== 'not_for_sale' && (quickAnalysis.data?.buy_now_price || quickAnalysis.data?.highest_bid)}>
+                <div class="flex flex-col gap-1 items-end">
+                  <span class="text-[#8e8e93] text-[11px] font-bold uppercase tracking-wider">
+                    {quickAnalysis.data?.sale_status === 'on_auction' ? 'Highest Bid' : 'Price'}
+                  </span>
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-white text-[15px] font-black">
+                      {quickAnalysis.data?.buy_now_price || quickAnalysis.data?.highest_bid}
+                    </span>
+                    <span class="text-[#3390ec] font-bold text-[12px]">TON</span>
+                  </div>
+                </div>
+              </Show>
+            </Motion.div>
+          </Show>
 
-          {/* Right Side: Cost Badge */}
-          <div class="relative z-10 flex items-center gap-1.5 bg-black/20 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
-            <span class="font-black text-[#ffcc00] tracking-wider text-[16px] md:text-[18px] drop-shadow-sm">100</span>
-            <span class="material-symbols-outlined text-[#ffcc00] text-[18px] md:text-[20px]" style={{ 'font-variation-settings': '"FILL" 1' }}>star</span>
-          </div>
-        </button>
+          {/* CTA Button */}
+          <button
+            onClick={handleAnalyze}
+            disabled={analyzeState() === 'loading' || !searchQuery()}
+            aria-busy={analyzeState() === 'loading'}
+            class={`relative w-full overflow-hidden rounded-2xl mt-4 py-4 px-5 flex items-center justify-between transition-all duration-300 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed ${
+              analyzeState() === 'success'
+                ? 'bg-[#34c759] shadow-lg shadow-green-500/15'
+                : 'bg-[#3390ec] hover:bg-[#4da3f5] shadow-lg shadow-[#3390ec]/15'
+            }`}
+          >
+            {/* Loading sweep */}
+            <Show when={analyzeState() === 'loading'}>
+              <div class="absolute inset-0 bg-white/10" style={{ animation: 'progress-sweep 1.5s ease-out infinite', 'transform-origin': 'left' }} />
+            </Show>
+
+            {/* Left: text */}
+            <div class="flex flex-col items-start relative z-10">
+              <span class="font-black text-[15px] text-white tracking-wide flex items-center gap-2">
+                <Show when={analyzeState() === 'loading'}>
+                  <div class="w-4 h-4 rounded-full border-2 border-white/25 border-t-white" style={{ animation: 'spin 0.7s linear infinite' }} />
+                </Show>
+                <Show when={analyzeState() === 'success'}>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8L6.5 11.5L13 5" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                </Show>
+                {getButtonText()}
+              </span>
+              <Show when={analyzeState() === 'idle'}>
+                <span class="text-white/50 text-[10px] font-bold uppercase tracking-[0.15em] mt-0.5">
+                  {t('home.premiumReport')}
+                </span>
+              </Show>
+            </div>
+
+            {/* Right: arrow */}
+            <Show when={analyzeState() === 'idle'}>
+              <div class="relative z-10">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" class="rtl:rotate-180 text-white/60">
+                  <path d="M4 10H16M16 10L11 5M16 10L11 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </div>
+            </Show>
+          </button>
+        </div>
       </Motion.div>
 
-      {/* Free Info Link */}
+      {/* ── VALUE PROPOSITION (FEATURES) ACCORDION ── */}
+      <Show when={props.activeTab === 'username'}>
+        <Motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.15, easing: [0.23, 1, 0.32, 1] }}
+          class="px-6 pt-4"
+        >
+          <div class="bg-[#0f1014] border border-[#2a2a2a] rounded-[20px] overflow-hidden transition-all duration-300">
+            <button
+              onClick={() => setIsFeaturesExpanded(!isFeaturesExpanded())}
+              class="w-full flex items-center justify-between p-4 bg-transparent hover:bg-white/[0.02] transition-colors"
+            >
+              <h3 class="text-[#8e8e93] text-[13px] font-bold flex items-center gap-2">
+                <span class="material-symbols-outlined text-[16px] text-[#3390ec]" style={{ 'font-variation-settings': '"FILL" 1' }}>insights</span>
+                {t('action.username.features.title' as DictPaths)}
+              </h3>
+              <span 
+                class="material-symbols-outlined text-[18px] text-[#8e8e93] transition-transform duration-300"
+                style={{ transform: isFeaturesExpanded() ? 'rotate(180deg)' : 'rotate(0deg)' }}
+              >
+                expand_more
+              </span>
+            </button>
+            
+            <div 
+              class="overflow-hidden transition-all duration-400 ease-in-out"
+              style={{ 
+                "max-height": isFeaturesExpanded() ? '200px' : '0px',
+                opacity: isFeaturesExpanded() ? 1 : 0
+              }}
+            >
+              <ul class="space-y-3 px-5 pb-5 pt-1 border-t border-[#2a2a2a]/50 mx-4">
+                <For each={[0, 1, 2]}>
+                  {(index) => (
+                    <li class="flex items-start gap-2.5">
+                      <span class="material-symbols-outlined text-[16px] text-[#34c759] shrink-0 mt-0.5">check_circle</span>
+                      <span class="text-white/80 text-[13px] font-medium leading-relaxed">
+                        {t(`action.username.features.items.${index}` as DictPaths)}
+                      </span>
+                    </li>
+                  )}
+                </For>
+              </ul>
+            </div>
+          </div>
+        </Motion.div>
+      </Show>
+
+      {/* ── TRENDING ── */}
+      <Motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+        class="px-6 pt-6"
+        dir="ltr"
+      >
+        <div class="flex items-center gap-2 mb-3">
+          <span class="text-[14px]" aria-hidden="true">🔥</span>
+          <span class="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em]">
+            {t('action.trending.title' as DictPaths)}
+          </span>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <For each={TRENDING}>
+            {(item) => (
+              <button
+                onClick={() => updateSearchQuery(item)}
+                class="px-3.5 py-2 rounded-xl bg-[#0f1014] border border-[#2a2a2a] hover:border-[#3390ec]/30 hover:bg-[#3390ec]/5 text-[12px] font-bold text-[#8e8e93] hover:text-white transition-all duration-300 active:scale-[0.96]"
+              >
+                @{item}
+              </button>
+            )}
+          </For>
+        </div>
+      </Motion.div>
+
+      {/* ── FREE STATS LINK ── */}
       <Motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5, delay: 0.3 }}
-        class="text-center pt-4"
+        class="px-6 pt-6"
       >
-        <button 
+        <button
           onClick={() => navigate('/username/stats')}
-          class="group inline-flex items-center gap-1.5 text-[13px] font-bold text-on-surface-variant hover:text-[#3390ec] transition-colors border-b border-transparent hover:border-[#3390ec]/30 pb-0.5"
+          class="group w-full flex items-center justify-center gap-2.5 py-3.5 rounded-2xl bg-[#0f1014] border border-[#2a2a2a] hover:border-[#3390ec]/25 hover:bg-[#3390ec]/[0.03] transition-all duration-300 active:scale-[0.98]"
         >
-          <span class="material-symbols-outlined text-[16px] group-hover:scale-110 transition-transform">info</span>
-          <span>
-            {t('action.freeInfoPrefix')} <span class="text-white group-hover:text-[#3390ec]">{t('action.freeInfoHighlight')}</span> {t('action.freeInfoSuffix')}
+          <span class="material-symbols-outlined text-[16px] text-[#8e8e93] group-hover:text-[#3390ec] transition-colors" style={{ 'font-variation-settings': '"FILL" 0' }}>info</span>
+          <span class="text-[13px] font-bold text-[#8e8e93] group-hover:text-white/60 transition-colors">
+            {t('action.freeInfoPrefix')}<span class="text-[#3390ec]">{t('action.freeInfoHighlight')}</span>{t('action.freeInfoSuffix')}
           </span>
         </button>
       </Motion.div>

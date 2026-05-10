@@ -1,0 +1,77 @@
+openapi: 3.0.3
+info:
+  title: iFragment Username Analytics API
+  description: High-performance API for Telegram Username scarcity and market analysis.
+  version: 1.0.0
+  contact:
+    name: iFragment Support
+    url: https://ifragment.stel.com
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development server
+
+paths:
+  /username/check:
+    get:
+      summary: Check username availability and status
+      description: Returns the current status of a Telegram username (available, auction, taken, etc.) with rate-limiting protection.
+      parameters:
+        - name: u
+          in: query
+          required: true
+          description: The username to check (without @)
+          schema:
+            type: string
+            minLength: 4
+            maxLength: 32
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  username:
+                    type: string
+                  status:
+                    type: string
+                    enum: [available, auction, taken, on_sale]
+        '400':
+          description: Invalid username format
+        '429':
+          description: Too many requests (Rate limit exceeded)
+        '500':
+          description: Internal server error
+
+  /collection/stats:
+    get:
+      summary: Get real-time collection statistics
+      description: Returns aggregated data for the entire Telegram Usernames collection from TON blockchain and Fragment.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_supply:
+                    type: integer
+                  holders:
+                    type: integer
+                  floor_price:
+                    type: string
+                  total_volume:
+                    type: string
+        '500':
+          description: External API error or internal failure
+
+components:
+  securitySchemes:
+    TelegramAuth:
+      type: apiKey
+      in: header
+      name: X-Telegram-Init-Data
+      description: Telegram Mini App InitData for authentication.

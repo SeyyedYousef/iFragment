@@ -20,15 +20,14 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
   ];
 
   const handleTabClick = (tab: typeof TABS[number]) => {
-    try { hapticFeedback.impactOccurred('light'); } catch {}
+    try { hapticFeedback.impactOccurred('light'); } catch { }
     props.onTabChange(tab.id);
   };
 
   return (
     <div
-      class={`relative bg-[#0f1014] overflow-hidden transition-all duration-700 ease-[cubic-bezier(0.4,0,0.2,1)] flex flex-col items-center px-margin-main z-10 ${
-        props.activeTab ? 'pt-4 pb-24' : 'pt-8 pb-20 min-h-[85vh]'
-      }`}
+      class={`relative bg-[#0f1014] overflow-hidden transition-all duration-700 ease-[cubic-bezier(0.4,0,0.2,1)] flex flex-col items-center px-margin-main z-10 ${props.activeTab ? 'pt-4 pb-20' : 'pt-8 pb-20 min-h-[85vh]'
+        }`}
     >
       {/* Floating Light Orbs (Dark Mode adapted) */}
       <div class={`orb w-48 h-48 top-10 ${isRtl() ? '-right-20' : '-left-20'} opacity-30`} style={{ background: 'radial-gradient(circle, rgba(51,144,236,0.3) 0%, transparent 70%)', animation: 'orb-float-1 12s ease-in-out infinite' }}></div>
@@ -69,9 +68,8 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
       <Motion.nav
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5, delay: props.activeTab ? 0 : 0.2 }}
-        class={`w-full flex items-center justify-between gap-3 transition-all duration-500 relative z-20 ${
-          props.activeTab ? '' : 'mb-12'
-        }`}
+        class={`w-full flex items-center justify-between gap-3 transition-all duration-500 relative z-20 ${props.activeTab ? '' : 'mb-12'
+          }`}
         role="tablist"
         aria-label="Analysis categories"
       >
@@ -82,26 +80,22 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
               role="tab"
               aria-selected={props.activeTab === tab.id}
               aria-label={t(tab.labelKey)}
-              class={`flex-1 flex items-center justify-center gap-2 transition-all duration-400 rounded-2xl text-center border relative overflow-hidden ${
-                props.activeTab === tab.id
+              class={`flex-1 flex items-center justify-center gap-2 transition-all duration-400 rounded-2xl text-center border relative overflow-hidden ${props.activeTab === tab.id
                   ? 'bg-[#1c1c1c] border-[#2a2a2a] text-white shadow-lg py-2.5'
-                  : `border-transparent text-[#8e8e93] hover:bg-[#1c1c1c] hover:text-white ${
-                      props.activeTab ? 'bg-transparent py-2' : 'bg-[#1c1c1c]/50 py-3.5'
-                    }`
-              }`}
+                  : `border-transparent text-[#8e8e93] hover:bg-[#1c1c1c] hover:text-white ${props.activeTab ? 'bg-transparent py-2' : 'bg-[#1c1c1c]/50 py-3.5'
+                  }`
+                }`}
             >
               <span
-                class={`material-symbols-outlined transition-all duration-300 ${
-                  props.activeTab === tab.id ? 'text-[20px] text-white' : 'text-[18px]'
-                }`}
+                class={`material-symbols-outlined transition-all duration-300 ${props.activeTab === tab.id ? 'text-[20px] text-white' : 'text-[18px]'
+                  }`}
                 style={{ 'font-variation-settings': props.activeTab === tab.id ? '"FILL" 1' : '"FILL" 0' }}
                 aria-hidden="true"
               >
                 {tab.icon}
               </span>
-              <span class={`font-black tracking-tight transition-all duration-300 ${
-                props.activeTab ? 'text-[13px]' : 'text-[14px]'
-              }`}>
+              <span class={`font-black tracking-tight transition-all duration-300 ${props.activeTab ? 'text-[13px]' : 'text-[14px]'
+                }`}>
                 {t(tab.labelKey)}
               </span>
 
@@ -113,33 +107,6 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
           )}
         </For>
       </Motion.nav>
-
-      {/* Premium Image Showcase Stage — appears ONLY when a tab is active */}
-      <Show when={props.activeTab}>
-        <Motion.div
-          initial={{ opacity: 0, scale: 0.9, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1, easing: [0.4, 0, 0.2, 1] }}
-          class="w-full mt-6 mb-4 flex justify-center relative z-10"
-        >
-          {/* Mockup Placeholder (Dark Mode 3D feel) */}
-          <div class="w-44 h-44 bg-[#1c1c1c] border border-[#2a2a2a] rounded-[32px] shadow-2xl flex flex-col items-center justify-center relative overflow-hidden">
-            {/* Glossy reflection effect */}
-            <div class="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/5 to-transparent"></div>
-            
-            <span class="material-symbols-outlined text-[56px] text-[#3390ec] drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] mb-2 relative z-10" style={{ 'font-variation-settings': '"FILL" 1' }}>
-              {props.activeTab === 'username' ? 'person_search' : props.activeTab === 'collectibles' ? 'numbers' : 'redeem'}
-            </span>
-            <p class="text-white font-black text-[11px] tracking-widest uppercase relative z-10 drop-shadow-md">
-              {t('home.asset3d')}
-            </p>
-            
-            {/* Fake ambient light behind the asset */}
-            <div class={`absolute -top-10 ${isRtl() ? '-right-10' : '-left-10'} w-24 h-24 bg-[#3390ec]/20 rounded-full blur-2xl`}></div>
-            <div class={`absolute -bottom-10 ${isRtl() ? '-left-10' : '-right-10'} w-24 h-24 bg-[#3390ec]/20 rounded-full blur-2xl`}></div>
-          </div>
-        </Motion.div>
-      </Show>
 
       {/* Guide Hint */}
       <Show when={!props.activeTab}>

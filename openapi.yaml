@@ -1,0 +1,64 @@
+openapi: 3.0.3
+info:
+  title: iFragment Username API
+  description: API for Telegram Username and Collectible availability checking
+  version: 1.0.0
+servers:
+  - url: https://api.ifragment.com/api/v1/usernames
+    description: Production server
+  - url: http://localhost:8080/api/v1/usernames
+    description: Local development server
+paths:
+  /collection/stats:
+    get:
+      summary: Get global collection statistics
+      description: Returns real-time statistics about the Telegram Username collection from Fragment and TON.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_sales:
+                    type: integer
+                  floor_price:
+                    type: integer
+                  volume:
+                    type: integer
+                  last_update:
+                    type: string
+                    format: date-time
+        '500':
+          description: Internal Server Error
+  /check:
+    get:
+      summary: Check Username Availability
+      description: Checks if a Telegram username is available, occupied, or purchaseable on Fragment. Uses MTProto for accuracy.
+      parameters:
+        - in: query
+          name: u
+          required: true
+          schema:
+            type: string
+          description: The username to check (without @ symbol)
+      responses:
+        '200':
+          description: Availability status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  username:
+                    type: string
+                  status:
+                    type: string
+                    enum: [available, taken, purchase_available, on_auction, on_sale, invalid]
+        '400':
+          description: Invalid username format
+        '429':
+          description: Too many requests
+        '500':
+          description: Internal Server Error

@@ -7,8 +7,10 @@ import (
 	"os"
 
 	"ifragment-backend/internal/client/fragment"
-	"ifragment-backend/internal/client/getgems"
+
 	"ifragment-backend/internal/client/tonapi"
+	"ifragment-backend/internal/client/marketapp"
+	"ifragment-backend/internal/client/mtproto"
 	"ifragment-backend/internal/handler"
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/repository"
@@ -68,16 +70,18 @@ func main() {
 
 	// Initialize Clients
 	tonClient := tonapi.NewClient()
-	ggClient := getgems.NewClient()
+
 	fragClient := fragment.NewClient()
+	mtprotoClient := mtproto.InitClient()
+	marketappClient := marketapp.NewClient()
 
 	// Initialize Services
-	aggregatorService := username.NewAggregatorService(tonClient, ggClient)
+	aggregatorService := username.NewAggregatorService(tonClient, marketappClient)
 	paymentService := payment.NewStarsService(db)
-	reportService := username.NewReportService(db, cache, tonClient, fragClient)
+	reportService := username.NewReportService(db, cache, tonClient, fragClient, marketappClient, mtprotoClient)
 
 	// Initialize Handlers
-	usernameHandler := handler.NewUsernameHandler(aggregatorService, fragClient, cache)
+	usernameHandler := handler.NewUsernameHandler(aggregatorService, reportService, fragClient, mtprotoClient, cache)
 	premiumHandler := handler.NewPremiumHandler(reportService, paymentService)
 	webhookHandler := handler.NewWebhookHandler(db)
 
@@ -93,6 +97,7 @@ func main() {
 		r.Route("/usernames", func(r chi.Router) {
 			r.Get("/collection/stats", usernameHandler.GetCollectionStats)
 			r.Get("/check", usernameHandler.CheckAvailability)
+			r.Get("/quick", usernameHandler.QuickAnalysis)
 			
 			// Protected Routes (Require Telegram InitData)
 			r.Group(func(r chi.Router) {

@@ -23,6 +23,7 @@ export type Username = v.InferOutput<typeof UsernameSchema>;
 export const useUsernameSearch = () => {
   const [searchQuery, setSearchQuery] = createSignal('');
   const [searchError, setSearchError] = createSignal<string | null>(null);
+  const [isCollectibleOnly, setIsCollectibleOnly] = createSignal<boolean>(false);
 
   const validate = (val: string) => {
     // Remove @ if present
@@ -30,8 +31,17 @@ export const useUsernameSearch = () => {
     const result = v.safeParse(UsernameSchema, cleanVal);
     if (!result.success) {
       setSearchError(result.issues[0].message);
+      setIsCollectibleOnly(false);
       return false;
     }
+
+    // Check if it's strictly collectible length (4 chars)
+    if (cleanVal.length === 4) {
+      setIsCollectibleOnly(true);
+    } else {
+      setIsCollectibleOnly(false);
+    }
+
     setSearchError(null);
     return true;
   };
@@ -41,6 +51,7 @@ export const useUsernameSearch = () => {
     setSearchQuery,
     searchError,
     setSearchError,
+    isCollectibleOnly,
     validate
   };
 };

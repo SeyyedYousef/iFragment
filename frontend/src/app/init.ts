@@ -10,8 +10,8 @@ import {
   emitEvent,
   miniApp,
   backButton,
-  invoice,
-  shareToStory,
+
+  isTMA,
 } from '@tma.js/sdk-solid';
 
 import { initStorageSync } from '@/shared/store/airdrop.js';
@@ -24,7 +24,21 @@ export async function init(options: {
   eruda: boolean;
   mockForMacOS: boolean;
 }): Promise<void> {
-  // Set @telegram-apps/sdk-solid debug mode and initialize it.
+  // 1. First, handle environment mocking if we're not in Telegram
+  // This must happen BEFORE initSDK to prevent hanging
+  if (import.meta.env.DEV && !(await isTMA())) {
+    // Basic mock for local browser testing
+    mockTelegramEnv({
+      launchParams: new URLSearchParams([
+        ['tgWebAppData', 'dev-user'],
+        ['tgWebAppThemeParams', JSON.stringify({ bg_color: '#0f1014', text_color: '#ffffff' })],
+        ['tgWebAppPlatform', 'tdesktop'],
+      ]),
+    });
+    console.warn('TMA Mock Environment active');
+  }
+
+  // 2. Now initialize the SDK
   setDebug(options.debug);
   initSDK();
 
@@ -100,15 +114,6 @@ export async function init(options: {
     }
   } catch (e) {
     console.warn('Viewport mount failed', e);
-  }
-
-  try {
-    // @ts-ignore
-    if (invoice.mount && typeof invoice.mount.isAvailable === 'function' && invoice.mount.isAvailable()) {
-      invoice.mount();
-    }
-  } catch (e) {
-    console.warn('Invoice mount failed', e);
   }
 
   // Set default theme colors if available

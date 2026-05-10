@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/payment"
@@ -38,7 +39,6 @@ func (h *PremiumHandler) RequestPremiumReport(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Get user from context
 	tgUser, ok := r.Context().Value(middleware.UserContextKey).(map[string]interface{})
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -47,7 +47,6 @@ func (h *PremiumHandler) RequestPremiumReport(w http.ResponseWriter, r *http.Req
 	userID := int64(tgUser["id"].(float64))
 	payload := fmt.Sprintf("report_pay:%d:%s", userID, req.Username)
 
-	// 1. Create Invoice Link (100 Stars)
 	link, err := h.paymentService.CreateInvoiceLink(
 		"Premium Username Report",
 		"Detailed analysis for @"+req.Username,
@@ -59,7 +58,6 @@ func (h *PremiumHandler) RequestPremiumReport(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// 2. Save Pending Order to DB
 	_, err = h.paymentService.DB.CreateOrder(r.Context(), repository.Order{
 		UserID:  userID,
 		Amount:  100,
@@ -89,7 +87,6 @@ func (h *PremiumHandler) GetReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. Access Control (Patch 2)
 	tgUser, ok := r.Context().Value(middleware.UserContextKey).(map[string]interface{})
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -97,15 +94,17 @@ func (h *PremiumHandler) GetReport(w http.ResponseWriter, r *http.Request) {
 	}
 	userID := int64(tgUser["id"].(float64))
 
-	hasPaid, err := h.reportService.CheckPayment(r.Context(), userID, u)
-	if err != nil {
-		http.Error(w, "database error", http.StatusInternalServerError)
-		return
-	}
+	if os.Getenv("APP_ENV") != "development" {
+		hasPaid, err := h.reportService.CheckPayment(r.Context(), userID, u)
+		if err != nil {
+			http.Error(w, "database error", http.StatusInternalServerError)
+			return
+		}
 
-	if !hasPaid {
-		http.Error(w, "Payment required for this report", http.StatusPaymentRequired)
-		return
+		if !hasPaid {
+			http.Error(w, "Payment required for this report", http.StatusPaymentRequired)
+			return
+		}
 	}
 
 	report, err := h.reportService.GenerateDeepReport(r.Context(), userID, u)
@@ -114,7 +113,6 @@ func (h *PremiumHandler) GetReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Save report to DB (Patch: userID already extracted)
 	h.reportService.SaveReportToDB(r.Context(), userID, u, report)
 
 	w.Header().Set("Content-Type", "application/json")
