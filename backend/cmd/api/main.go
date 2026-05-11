@@ -24,6 +24,7 @@ import (
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/payment"
 	"ifragment-backend/internal/service/username"
+	"ifragment-backend/internal/service/botmgmt"
 
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
@@ -110,9 +111,6 @@ func main() {
 	defer sentry.Flush(2 * time.Second)
 	r.Use(sentryhttp.New(sentryhttp.Options{Repanic: true}).Handle)
 
-	// Prometheus Metrics
-	r.Handle("/metrics", promhttp.Handler())
-
 	allowedOrigins := strings.Split(os.Getenv("ALLOWED_ORIGINS"), ",")
 	if len(allowedOrigins) == 1 && allowedOrigins[0] == "" {
 		allowedOrigins = []string{"http://localhost:5173", "http://127.0.0.1:5173"} // fallback for dev
@@ -127,6 +125,9 @@ func main() {
 	})
 	r.Use(c.Handler)
 
+	// Prometheus Metrics
+	r.Handle("/metrics", promhttp.Handler())
+
 	// Initialize Clients
 	tonClient := tonapi.NewClient()
 
@@ -139,10 +140,22 @@ func main() {
 	paymentService := payment.NewStarsService(db)
 	reportService := username.NewReportService(db, cache, tonClient, fragClient, marketappClient, mtprotoClient)
 
+	// Initialize Bot Management repos & services
+	botRepo := repository.NewBotRepo(db)
+	settingsRepo := repository.NewSettingsRepo(db, cache)
+	auditRepo := repository.NewAuditRepo(db)
+	frgRepo := repository.NewFRGRepo(db)
+	analyticsRepo := repository.NewAnalyticsRepo(db)
+
+	botService := botmgmt.NewBotService(botRepo, settingsRepo, auditRepo, frgRepo, analyticsRepo)
+	marketplaceService := botmgmt.NewMarketplaceService(frgRepo)
+	moderatorService := botmgmt.NewModeratorService(settingsRepo, botRepo, auditRepo, analyticsRepo, cache)
+
 	// Initialize Handlers
 	usernameHandler := handler.NewUsernameHandler(aggregatorService, reportService, fragClient, mtprotoClient, cache)
 	premiumHandler := handler.NewPremiumHandler(reportService, paymentService)
-	webhookHandler := handler.NewWebhookHandler(db)
+	webhookHandler := handler.NewWebhookHandler(db, moderatorService, botRepo)
+	botMgmtHandler := handler.NewBotMgmtHandler(botService, marketplaceService)
 
 	authHandler := handler.NewAuthHandler()
 
@@ -168,6 +181,50 @@ func main() {
 				r.Get("/report/view", premiumHandler.GetReport)
 				r.Get("/report/history", premiumHandler.GetHistory)
 			})
+		})
+
+		// ─── Bot Management API ─────────────────────────
+		r.Route("/bots", func(r chi.Router) {
+			r.Use(middleware.AuthMiddleware)
+
+			r.Get("/", botMgmtHandler.ListBots)
+			r.Post("/", botMgmtHandler.RegisterBot)
+			r.Get("/{botID}", botMgmtHandler.GetBot)
+			r.Delete("/{botID}", botMgmtHandler.RevokeBot)
+			r.Get("/{botID}/groups", botMgmtHandler.ListGroups)
+		})
+
+		r.Route("/groups", func(r chi.Router) {
+			r.Use(middleware.AuthMiddleware)
+
+			r.Get("/{groupID}", botMgmtHandler.GetGroup)
+			r.Get("/{groupID}/settings", botMgmtHandler.GetSettings)
+			r.Put("/{groupID}/settings", botMgmtHandler.UpdateSettings)
+			r.Get("/{groupID}/analytics", botMgmtHandler.GetAnalytics)
+			r.Get("/{groupID}/audit", botMgmtHandler.GetAuditLogs)
+		})
+
+		r.Route("/subscription", func(r chi.Router) {
+			r.Use(middleware.AuthMiddleware)
+
+			r.Get("/packages", botMgmtHandler.GetPackages)
+			r.Post("/subscribe", botMgmtHandler.Subscribe)
+		})
+
+		r.Route("/frg", func(r chi.Router) {
+			r.Use(middleware.AuthMiddleware)
+
+			r.Get("/balance", botMgmtHandler.GetFRGBalance)
+			r.Get("/transactions", botMgmtHandler.GetFRGTransactions)
+		})
+
+		r.Route("/marketplace", func(r chi.Router) {
+			r.Use(middleware.AuthMiddleware)
+
+			r.Get("/options", botMgmtHandler.GetPurchaseOptions)
+			r.Post("/purchase/stars", botMgmtHandler.PurchaseWithStars)
+			r.Post("/purchase/toncoin", botMgmtHandler.PurchaseWithToncoin)
+			r.Post("/convert/airdrop", botMgmtHandler.ConvertAirdropCoins)
 		})
 	})
 

@@ -1,43 +1,56 @@
-import { Component, createSignal, createResource, For, onCleanup, onMount, Show } from 'solid-js';
+﻿import { Component, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { Motion } from '@motionone/solid';
 import { useParams } from '@solidjs/router';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import { t, isRtl } from '@/shared/i18n/index.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
-import { groupApi } from '@/shared/api/bot-management.js';
 
-const MOCK_TOP_USERS = [
-  { id: 1, name: 'Crypto King', msgs: 342, avatar: '👑' },
-  { id: 2, name: 'Alpha Hunter', msgs: 215, avatar: 'A' },
-  { id: 3, name: 'Moon Boy', msgs: 184, avatar: 'M' }
-];
 
-const MOCK_ACTIVITY = [
-  { id: 1, user: 'John Doe', action: 'Spam deleted', time: '2 mins ago', type: 'delete' },
-  { id: 2, user: 'Crypto King', action: 'Warned (Bad words)', time: '15 mins ago', type: 'warn' },
-  { id: 3, user: 'Alice', action: 'Muted for 1h', time: '1 hour ago', type: 'mute' }
-];
+const MOCK_GROUP = {
+  id: 'g1',
+  name: 'Crypto Alpha Signals',
+  avatar: 'C',
+  status: 'trial',
+  stats: {
+    totalMembers: 4500,
+    membersChange: '+12',
+    messagesToday: 1250,
+    messagesStatus: 'Active',
+    newMembersToday: 45,
+    growthStatus: 'Growing'
+  },
+  health: {
+    score: 98,
+    label: 'Very Safe',
+    blockedSpam: 124
+  },
+  topUsers: [
+    { id: 1, name: 'Crypto King', msgs: 342, avatar: '≡ƒææ' },
+    { id: 2, name: 'Alpha Hunter', msgs: 215, avatar: 'A' },
+    { id: 3, name: 'Moon Boy', msgs: 184, avatar: 'M' }
+  ],
+  recentActivity: [
+    { id: 1, user: 'John Doe', action: 'Spam deleted', time: '2 mins ago', type: 'delete' },
+    { id: 2, user: 'Crypto King', action: 'Warned (Bad words)', time: '15 mins ago', type: 'warn' },
+    { id: 3, user: 'Alice', action: 'Muted for 1h', time: '1 hour ago', type: 'mute' }
+  ]
+};
 
 export const GroupDashboardPage: Component = () => {
+
   const params = useParams(); 
   
   const [isMenuOpen, setIsMenuOpen] = createSignal(false);
   const [showTooltip, setShowTooltip] = createSignal(true);
   const [isGroupLocked, setIsGroupLocked] = createSignal(false);
 
-  const [group] = createResource(
-    () => params.id,
-    (id) => groupApi.getGroup(id)
-  );
-
-  const [analytics] = createResource(
-    () => params.id,
-    (id) => groupApi.getAnalytics(id, 7)
-  );
 
   onMount(() => {
     backButton.show();
-    const off = backButton.onClick(() => window.history.back());
+    const off = backButton.onClick(() => {
+      window.history.back();
+    });
+    
     const timer = setTimeout(() => setShowTooltip(false), 10000);
 
     onCleanup(() => {
@@ -49,24 +62,6 @@ export const GroupDashboardPage: Component = () => {
   const handleMenuOpen = () => {
     setIsMenuOpen(true);
     setShowTooltip(false);
-    hapticFeedback.impactOccurred('light');
-  };
-
-  const healthScore = () => {
-    const data = analytics();
-    if (!data) return 98;
-    const spam = data.summary.spam_blocked;
-    const total = data.summary.total_messages;
-    if (total === 0) return 100;
-    return Math.max(0, Math.round(100 - (spam / total * 100)));
-  };
-
-  const healthLabel = () => {
-    const score = healthScore();
-    if (score >= 90) return 'Very Safe';
-    if (score >= 70) return 'Safe';
-    if (score >= 50) return 'Needs Attention';
-    return 'Critical';
   };
 
   return (
@@ -75,16 +70,14 @@ export const GroupDashboardPage: Component = () => {
       <div class="px-5 pt-6 pb-4 flex items-center justify-between relative z-30 bg-[#0f1014] sticky top-0 border-b border-[#1c1c1c]">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a]">
-            <span class="text-sm font-bold text-[#3390ec]">{group()?.chat_title?.charAt(0) || 'G'}</span>
+            <span class="text-sm font-bold text-[#3390ec]">{MOCK_GROUP.avatar}</span>
           </div>
           <div class="flex flex-col">
-            <h1 class="text-[16px] font-bold text-white leading-tight truncate max-w-[150px]">
-              {group.loading ? '...' : group()?.chat_title || 'Group Dashboard'}
-            </h1>
+            <h1 class="text-[16px] font-bold text-white leading-tight truncate max-w-[150px]">{MOCK_GROUP.name}</h1>
             <span class={`text-[10px] font-bold uppercase tracking-wider ${
-              group()?.subscription_status === 'paid' ? 'text-[#34c759]' : group()?.subscription_status === 'trial' ? 'text-[#ffcc00]' : 'text-[#ff3b30]'
+              MOCK_GROUP.status === 'paid' ? 'text-[#34c759]' : 'text-[#ffcc00]'
             }`}>
-              {group()?.subscription_status || 'LOADING'}
+              {MOCK_GROUP.status}
             </span>
           </div>
         </div>
@@ -97,6 +90,7 @@ export const GroupDashboardPage: Component = () => {
               animate={{ opacity: 1, scale: 1, y: 0 }} 
               exit={{ opacity: 0, scale: 0.9 }}
               class={`absolute top-[120%] w-[180px] bg-[#3390ec] text-white text-[12px] font-bold p-3 rounded-2xl shadow-[0_10px_25px_rgba(51,144,236,0.4)] z-50 flex flex-col gap-2 ${isRtl() ? 'left-0 origin-top-left' : 'right-0 origin-top-right'}`}
+             
             >
               <div class={`absolute -top-2 w-4 h-4 bg-[#3390ec] rotate-45 rounded-sm ${isRtl() ? 'left-4' : 'right-4'}`}></div>
               <div class="relative z-10 flex items-start justify-between gap-2">
@@ -137,20 +131,20 @@ export const GroupDashboardPage: Component = () => {
             <div class="absolute right-0 top-0 w-24 h-24 bg-[#34c759]/10 rounded-full blur-2xl"></div>
             <div class="w-14 h-14 shrink-0 rounded-full border-[4px] border-[#34c759]/30 flex items-center justify-center relative">
                <svg class="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 36 36">
-                 <path class="text-[#34c759]" stroke-dasharray={`${healthScore()}, 100`} stroke-width="3.5" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" stroke="currentColor"/>
+                 <path class="text-[#34c759]" stroke-dasharray={`${MOCK_GROUP.health.score}, 100`} stroke-width="3.5" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" stroke="currentColor"/>
                </svg>
-               <span class="font-black text-white text-[14px]">{healthScore()}%</span>
+               <span class="font-black text-white text-[14px]">{MOCK_GROUP.health.score}%</span>
             </div>
             <div class="flex flex-col z-10">
               <span class="text-[12px] text-[#8e8e93] font-bold uppercase tracking-wider">{t('groupDashboard.health')}</span>
-              <span class="text-[15px] font-black text-[#34c759]">{healthLabel()}</span>
-              <span class="text-[10px] text-[#8e8e93] font-medium mt-0.5">{analytics()?.summary.spam_blocked || 0} {t('groupDashboard.spamBlocked')}</span>
+              <span class="text-[15px] font-black text-[#34c759]">{MOCK_GROUP.health.label}</span>
+              <span class="text-[10px] text-[#8e8e93] font-medium mt-0.5">{MOCK_GROUP.health.blockedSpam} {t('groupDashboard.spamBlocked')}</span>
             </div>
           </div>
 
           {/* Quick Toggle (Lock) */}
           <button 
-            onClick={() => { setIsGroupLocked(!isGroupLocked()); hapticFeedback.impactOccurred('medium'); }}
+            onClick={() => setIsGroupLocked(!isGroupLocked())}
             class={`w-20 shrink-0 rounded-3xl border transition-all duration-300 flex flex-col items-center justify-center gap-2 ${
               isGroupLocked() 
                 ? 'bg-[#ff3b30]/10 border-[#ff3b30]/30 text-[#ff3b30]' 
@@ -178,9 +172,9 @@ export const GroupDashboardPage: Component = () => {
               <path d="M0 40 Q 20 30, 40 35 T 80 15 T 100 20" fill="none" stroke="#3390ec" stroke-width="2"/>
             </svg>
             <span class="material-symbols-outlined text-[#8e8e93] text-[20px] mb-1 relative z-10">group</span>
-            <h3 class="text-2xl font-black text-white relative z-10">{group()?.members_count || analytics()?.summary.total_members || 0}</h3>
+            <h3 class="text-2xl font-black text-white relative z-10">{MOCK_GROUP.stats.totalMembers}</h3>
             <p class="text-[11px] text-[#8e8e93] font-medium flex items-center gap-1 relative z-10">
-              {t('groupDashboard.totalMembers')} <span class="text-[#34c759]">+{analytics()?.summary.new_members || 0}</span>
+              {t('groupDashboard.totalMembers')} <span class="text-[#34c759]">{MOCK_GROUP.stats.membersChange}</span>
             </p>
           </Motion.div>
 
@@ -194,9 +188,9 @@ export const GroupDashboardPage: Component = () => {
               <path d="M0 40 Q 20 20, 40 25 T 80 10 T 100 5" fill="none" stroke="#ffcc00" stroke-width="2"/>
             </svg>
             <span class="material-symbols-outlined text-[#8e8e93] text-[20px] mb-1 relative z-10">forum</span>
-            <h3 class="text-2xl font-black text-white relative z-10">{analytics()?.summary.total_messages || 0}</h3>
+            <h3 class="text-2xl font-black text-white relative z-10">{MOCK_GROUP.stats.messagesToday}</h3>
             <p class="text-[11px] text-[#8e8e93] font-medium flex items-center gap-1 relative z-10">
-              {t('groupDashboard.msgsToday')} <span class="text-[#ffcc00]">Active</span>
+              {t('groupDashboard.msgsToday')} <span class="text-[#ffcc00]">{MOCK_GROUP.stats.messagesStatus}</span>
             </p>
           </Motion.div>
         </div>
@@ -215,7 +209,7 @@ export const GroupDashboardPage: Component = () => {
           </h2>
           
           <div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-3 flex items-center justify-around gap-2">
-            <For each={MOCK_TOP_USERS}>
+            <For each={MOCK_GROUP.topUsers}>
               {(user, i) => (
                 <div class="flex flex-col items-center gap-1.5 w-1/3">
                   <div class="relative">
@@ -253,9 +247,9 @@ export const GroupDashboardPage: Component = () => {
           </h2>
           
           <div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-2 flex flex-col">
-            <For each={MOCK_ACTIVITY}>
+            <For each={MOCK_GROUP.recentActivity}>
               {(log, index) => (
-                <div class={`flex items-start gap-3 p-3 ${index() !== MOCK_ACTIVITY.length - 1 ? 'border-b border-[#2a2a2a]' : ''}`}>
+                <div class={`flex items-start gap-3 p-3 ${index() !== MOCK_GROUP.recentActivity.length - 1 ? 'border-b border-[#2a2a2a]' : ''}`}>
                   <div class={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center ${
                     log.type === 'delete' ? 'bg-[#ff3b30]/10 text-[#ff3b30]' : 
                     log.type === 'warn' ? 'bg-[#ffcc00]/10 text-[#ffcc00]' : 

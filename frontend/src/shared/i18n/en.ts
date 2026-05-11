@@ -282,22 +282,46 @@ export const dict = {
     botFatherPrompt: 'You will be redirected to BotFather to create a new bot.'
   },
   botManage: {
+    title: 'Bot Management',
+    description: 'Manage your bot groups and subscriptions',
     addToGroup: 'Add to Group',
     addToGroupDesc: 'Invite bot to a new group',
     trialInfo: 'Bots added to groups receive a',
     trialFree: '24-hour free trial',
-    trialSuffix: '. To keep the bot active beyond the trial, you must subscribe for',
+    trialSuffix: '. To keep the bot active beyond the trial, you must subscribe.',
     trialPrice: '$1/month',
-    trialEnd: 'per group. Only the bot creator can manage subscriptions.',
+    trialEnd: 'Only the bot creator can manage subscriptions.',
     connectedGroups: 'Connected Groups',
     noGroups: 'No groups connected yet.',
     members: 'members',
     manage: 'Manage',
-    extendSub: 'Extend ($1)',
-    payMonthly: 'Pay $1/Mo',
+    extendSub: 'Extend',
+    payMonthly: 'Pay Monthly',
     expired: 'Expired',
-    daysLeft: 'd',
-    hoursLeft: 'h left'
+    daysLeft: 'd left',
+    hoursLeft: 'h left',
+    subscriptionSuccess: 'Subscription activated successfully!',
+    choosePackage: 'Choose a Package',
+    buySubscription: 'Buy Subscription',
+    goToMarketplace: 'Go to FRG Marketplace'
+  },
+  marketplace: {
+    title: 'FRG Marketplace',
+    subtitle: 'Buy, convert, and manage your FRG tokens',
+    buyTokens: 'Buy FRG',
+    convertAirdrop: 'Convert Airdrop',
+    history: 'History',
+    buyWithStars: 'Buy with Stars',
+    buyWithTon: 'Buy with TON',
+    price: 'Price:',
+    stars: 'Stars',
+    insufficientAirdrop: 'Insufficient Airdrop Coins',
+    convertBtn: 'Convert to FRG',
+    exchangeRate: 'Rate: 100 Coins = 1 FRG',
+    noHistory: 'No transactions yet.',
+    credit: 'Credit',
+    debit: 'Debit',
+    balance: 'FRG Balance'
   },
   groupDashboard: {
     tooltip: 'Configure your group settings here!',
@@ -448,7 +472,8 @@ export const dict = {
     bannedKeywordsDesc: 'Messages containing these words will be deleted.',
     requiredKeywords: 'Required Keywords',
     requiredKeywordsDesc: 'Messages NOT containing these words will be deleted.',
-    addKeywordPlaceholder: 'Type a keyword and press Enter or add...'
+    addKeywordPlaceholder: 'Type a keyword and press Enter or add...',
+    addKeyword: 'Add keyword...'
   },
   limitsSettings: {
     title: 'Limits',

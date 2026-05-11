@@ -1,12 +1,30 @@
-import { Component, createSignal, Show, onMount, onCleanup } from 'solid-js';
+import { Component, createSignal, createResource, onMount, onCleanup, Show } from 'solid-js';
+import { createStore, reconcile } from 'solid-js/store';
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Motion } from '@motionone/solid';
-import { createStore } from 'solid-js/store';
 import { t } from '@/shared/i18n/index.js';
 import { NumberInputField } from '@/shared/ui/settings-controls.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
+import { groupApi } from '@/shared/api/bot-management.js';
 
+interface LimitsConfig {
+  minMessageLen: number;
+  maxMessageLen: number;
+  floodMessages: number;
+  floodWindow: number;
+  duplicateCount: number;
+  duplicateWindow: number;
+}
+
+const defaultConfig: LimitsConfig = {
+  minMessageLen: 0,
+  maxMessageLen: 0,
+  floodMessages: 0,
+  floodWindow: 0,
+  duplicateCount: 0,
+  duplicateWindow: 0,
+};
 
 export const LimitsPage: Component = () => {
   const navigate = useNavigate();
@@ -14,6 +32,35 @@ export const LimitsPage: Component = () => {
 
   // Menu State
   const [isMenuOpen, setIsMenuOpen] = createSignal(false);
+
+  const [isSaving, setIsSaving] = createSignal(false);
+  const [isDirty, setIsDirty] = createSignal(false);
+  const [settingsVersion, setSettingsVersion] = createSignal(1);
+
+  // State Management with createStore for limits
+  const [limits, setLimits] = createStore<LimitsConfig>({ ...defaultConfig });
+
+  const [settingsData] = createResource(
+    () => params.id,
+    async (groupId) => {
+      const data = await groupApi.getSettings(groupId);
+      setSettingsVersion(data.version);
+      
+      const remoteLimits = (data.limits || {}) as any;
+      // map their remote limits (camelCase vs what we expect)
+      const mappedLimits = {
+        minMessageLen: remoteLimits.minMessageLength ?? 0,
+        maxMessageLen: remoteLimits.maxMessageLength ?? 0,
+        floodMessages: remoteLimits.floodMessages ?? 0,
+        floodWindow: remoteLimits.floodWindow ?? 0,
+        duplicateCount: remoteLimits.duplicateCount ?? 0,
+        duplicateWindow: remoteLimits.duplicateWindow ?? 0,
+      };
+
+      setLimits(reconcile({ ...defaultConfig, ...mappedLimits }));
+      return data;
+    }
+  );
 
   // Handle Telegram Back Button
   onMount(() => {
@@ -25,26 +72,34 @@ export const LimitsPage: Component = () => {
     onCleanup(() => off());
   });
 
-  // State Management with createStore for limits
-  const [limits, setLimits] = createStore({
-    minMessageLen: 0,
-    maxMessageLen: 0,
-    floodMessages: 0,
-    floodWindow: 0,
-    duplicateCount: 0,
-    duplicateWindow: 0,
-  });
+  const updateField = (key: keyof LimitsConfig, value: number) => {
+    setLimits(key, value);
+    setIsDirty(true);
+  };
 
-  const [isSaving, setIsSaving] = createSignal(false);
-
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!isDirty()) return;
     hapticFeedback.notificationOccurred('success');
     setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
+    try {
+      const payload = {
+        minMessageLength: limits.minMessageLen,
+        maxMessageLength: limits.maxMessageLen,
+        floodMessages: limits.floodMessages,
+        floodWindow: limits.floodWindow,
+        duplicateCount: limits.duplicateCount,
+        duplicateWindow: limits.duplicateWindow,
+      };
+      const result = await groupApi.updateSettings(params.id, 'limits', payload, settingsVersion());
+      setSettingsVersion(result.version);
+      setIsDirty(false);
       navigate(`/group/${params.id}`);
       backButton.hide();
-    }, 800);
+    } catch (e) {
+      hapticFeedback.notificationOccurred('error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -56,7 +111,12 @@ export const LimitsPage: Component = () => {
           animate={{ opacity: 1, y: 0 }}
           class="flex flex-col gap-1"
         >
-          <h1 class="text-2xl font-black text-white">{t('limitsSettings.title')}</h1>
+          <div class="flex items-center gap-2">
+            <h1 class="text-2xl font-black text-white">{t('limitsSettings.title')}</h1>
+            <Show when={isDirty()}>
+              <span class="w-2.5 h-2.5 rounded-full bg-[#ff9f0a] animate-pulse" />
+            </Show>
+          </div>
           <p class="text-[13px] text-[#8e8e93] font-medium leading-snug">
             {t('limitsSettings.subtitle')}
           </p>
@@ -77,122 +137,130 @@ export const LimitsPage: Component = () => {
         activeTab="limits" 
       />
 
-      <div class="p-5 flex flex-col gap-5">
-        {/* Info Banner for Rule of Zero */}
-        <Motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          class="bg-[#3390ec]/10 border border-[#3390ec]/30 rounded-2xl p-4 flex items-start gap-3"
-        >
-          <span class="material-symbols-outlined text-[#3390ec] text-[24px] shrink-0 mt-0.5">info</span>
-          <div class="flex flex-col">
-            <span class="text-[14px] font-bold text-white mb-1">{t('limitsSettings.ruleOfZero')}</span>
-            <span class="text-[12px] text-[#8e8e93] leading-relaxed">{t('limitsSettings.ruleOfZeroDesc')}</span>
-          </div>
-        </Motion.div>
+      <Show when={settingsData.loading}>
+        <div class="flex items-center justify-center py-20">
+          <span class="w-6 h-6 border-2 border-[#3390ec]/30 border-t-[#3390ec] rounded-full animate-spin" />
+        </div>
+      </Show>
 
-        {/* Message Length limits */}
-        <Motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-4"
-        >
-          <div class="flex items-center gap-2 mb-2">
-            <span class="material-symbols-outlined text-[#3390ec]">sort_by_alpha</span>
-            <h2 class="text-[16px] font-bold text-white">{t('limitsSettings.messageLength')}</h2>
-          </div>
+      <Show when={!settingsData.loading}>
+        <div class="p-5 flex flex-col gap-5">
+          {/* Info Banner for Rule of Zero */}
+          <Motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            class="bg-[#3390ec]/10 border border-[#3390ec]/30 rounded-2xl p-4 flex items-start gap-3"
+          >
+            <span class="material-symbols-outlined text-[#3390ec] text-[24px] shrink-0 mt-0.5">info</span>
+            <div class="flex flex-col">
+              <span class="text-[14px] font-bold text-white mb-1">{t('limitsSettings.ruleOfZero')}</span>
+              <span class="text-[12px] text-[#8e8e93] leading-relaxed">{t('limitsSettings.ruleOfZeroDesc')}</span>
+            </div>
+          </Motion.div>
 
-          <NumberInputField 
-            label={t('limitsSettings.minLen')}
-            description={t('limitsSettings.minLenDesc')}
-            value={limits.minMessageLen}
-            onChange={(v) => setLimits('minMessageLen', v)}
-            placeholder="0"
-          />
+          {/* Message Length limits */}
+          <Motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-4"
+          >
+            <div class="flex items-center gap-2 mb-2">
+              <span class="material-symbols-outlined text-[#3390ec]">sort_by_alpha</span>
+              <h2 class="text-[16px] font-bold text-white">{t('limitsSettings.messageLength')}</h2>
+            </div>
 
-          <div class="w-full h-[1px] bg-[#2a2a2a]"></div>
+            <NumberInputField 
+              label={t('limitsSettings.minLen')}
+              description={t('limitsSettings.minLenDesc')}
+              value={limits.minMessageLen}
+              onChange={(v) => updateField('minMessageLen', v)}
+              placeholder="0"
+            />
 
-          <NumberInputField 
-            label={t('limitsSettings.maxLen')}
-            description={t('limitsSettings.maxLenDesc')}
-            value={limits.maxMessageLen}
-            onChange={(v) => setLimits('maxMessageLen', v)}
-            placeholder="0"
-          />
-        </Motion.div>
+            <div class="w-full h-[1px] bg-[#2a2a2a]"></div>
 
-        {/* Flood Control */}
-        <Motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-4"
-        >
-          <div class="flex items-center gap-2 mb-2">
-            <span class="material-symbols-outlined text-[#ffcc00]">speed</span>
-            <h2 class="text-[16px] font-bold text-white">{t('limitsSettings.floodControl')}</h2>
-          </div>
+            <NumberInputField 
+              label={t('limitsSettings.maxLen')}
+              description={t('limitsSettings.maxLenDesc')}
+              value={limits.maxMessageLen}
+              onChange={(v) => updateField('maxMessageLen', v)}
+              placeholder="0"
+            />
+          </Motion.div>
 
-          <NumberInputField 
-            label={t('limitsSettings.floodMsgs')}
-            description={t('limitsSettings.floodMsgsDesc')}
-            value={limits.floodMessages}
-            onChange={(v) => setLimits('floodMessages', v)}
-            placeholder="0"
-          />
+          {/* Flood Control */}
+          <Motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-4"
+          >
+            <div class="flex items-center gap-2 mb-2">
+              <span class="material-symbols-outlined text-[#ffcc00]">speed</span>
+              <h2 class="text-[16px] font-bold text-white">{t('limitsSettings.floodControl')}</h2>
+            </div>
 
-          <div class="w-full h-[1px] bg-[#2a2a2a]"></div>
+            <NumberInputField 
+              label={t('limitsSettings.floodMsgs')}
+              description={t('limitsSettings.floodMsgsDesc')}
+              value={limits.floodMessages}
+              onChange={(v) => updateField('floodMessages', v)}
+              placeholder="0"
+            />
 
-          <NumberInputField 
-            label={t('limitsSettings.floodWin')}
-            description={t('limitsSettings.floodWinDesc')}
-            value={limits.floodWindow}
-            onChange={(v) => setLimits('floodWindow', v)}
-            placeholder="0"
-          />
-        </Motion.div>
+            <div class="w-full h-[1px] bg-[#2a2a2a]"></div>
 
-        {/* Duplicate Protection */}
-        <Motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-4"
-        >
-          <div class="flex items-center gap-2 mb-2">
-            <span class="material-symbols-outlined text-[#34c759]">file_copy</span>
-            <h2 class="text-[16px] font-bold text-white">{t('limitsSettings.duplicateProtection')}</h2>
-          </div>
+            <NumberInputField 
+              label={t('limitsSettings.floodWin')}
+              description={t('limitsSettings.floodWinDesc')}
+              value={limits.floodWindow}
+              onChange={(v) => updateField('floodWindow', v)}
+              placeholder="0"
+            />
+          </Motion.div>
 
-          <NumberInputField 
-            label={t('limitsSettings.dupCount')}
-            description={t('limitsSettings.dupCountDesc')}
-            value={limits.duplicateCount}
-            onChange={(v) => setLimits('duplicateCount', v)}
-            placeholder="0"
-          />
+          {/* Duplicate Protection */}
+          <Motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-4"
+          >
+            <div class="flex items-center gap-2 mb-2">
+              <span class="material-symbols-outlined text-[#34c759]">file_copy</span>
+              <h2 class="text-[16px] font-bold text-white">{t('limitsSettings.duplicateProtection')}</h2>
+            </div>
 
-          <div class="w-full h-[1px] bg-[#2a2a2a]"></div>
+            <NumberInputField 
+              label={t('limitsSettings.dupCount')}
+              description={t('limitsSettings.dupCountDesc')}
+              value={limits.duplicateCount}
+              onChange={(v) => updateField('duplicateCount', v)}
+              placeholder="0"
+            />
 
-          <NumberInputField 
-            label={t('limitsSettings.dupWin')}
-            description={t('limitsSettings.dupWinDesc')}
-            value={limits.duplicateWindow}
-            onChange={(v) => setLimits('duplicateWindow', v)}
-            placeholder="0"
-          />
-        </Motion.div>
+            <div class="w-full h-[1px] bg-[#2a2a2a]"></div>
 
-      </div>
+            <NumberInputField 
+              label={t('limitsSettings.dupWin')}
+              description={t('limitsSettings.dupWinDesc')}
+              value={limits.duplicateWindow}
+              onChange={(v) => updateField('duplicateWindow', v)}
+              placeholder="0"
+            />
+          </Motion.div>
+
+        </div>
+      </Show>
 
       {/* Floating Save Button */}
       <div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#0f1014] via-[#0f1014]/90 to-transparent z-30">
         <button 
           onClick={handleSave}
-          disabled={isSaving()}
-          class="w-full h-14 bg-[#3390ec] hover:bg-[#2b7bc9] text-white rounded-2xl font-bold text-[16px] shadow-[0_10px_25px_rgba(51,144,236,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+          disabled={isSaving() || !isDirty()}
+          class="w-full h-14 bg-[#3390ec] hover:bg-[#2b7bc9] text-white rounded-2xl font-bold text-[16px] shadow-[0_10px_25px_rgba(51,144,236,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-40"
         >
           <Show when={!isSaving()} fallback={<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>}>
             {t('generalSettings.saveSettings')}

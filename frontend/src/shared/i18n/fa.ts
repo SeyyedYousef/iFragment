@@ -281,22 +281,46 @@ export const dict = {
     botFatherPrompt: 'شما برای ساخت بات جدید به BotFather هدایت خواهید شد.'
   },
   botManage: {
+    title: 'مدیریت بات',
+    description: 'مدیریت گروه‌ها و اشتراک‌های بات',
     addToGroup: 'افزودن به گروه',
     addToGroupDesc: 'دعوت بات به گروه جدید',
     trialInfo: 'بات‌های افزوده شده دارای',
     trialFree: '۲۴ ساعت تست رایگان',
-    trialSuffix: 'هستند. برای فعال ماندن بعد از تست، باید اشتراک',
+    trialSuffix: 'هستند. برای فعال ماندن بعد از تست، باید اشتراک تهیه کنید.',
     trialPrice: '۱ دلار در ماه',
-    trialEnd: 'تهیه کنید. فقط سازنده بات می‌تواند اشتراک‌ها را مدیریت کند.',
+    trialEnd: 'فقط سازنده بات می‌تواند اشتراک‌ها را مدیریت کند.',
     connectedGroups: 'گروه‌های متصل',
     noGroups: 'هنوز هیچ گروهی متصل نشده است.',
     members: 'عضو',
     manage: 'مدیریت',
-    extendSub: 'تمدید (۱$)',
-    payMonthly: 'پرداخت ماهانه ۱$',
+    extendSub: 'تمدید',
+    payMonthly: 'پرداخت ماهانه',
     expired: 'منقضی شده',
-    daysLeft: 'روز',
-    hoursLeft: 'ساعت مانده'
+    daysLeft: 'روز مانده',
+    hoursLeft: 'ساعت مانده',
+    subscriptionSuccess: 'اشتراک با موفقیت فعال شد!',
+    choosePackage: 'انتخاب پکیج',
+    buySubscription: 'خرید اشتراک',
+    goToMarketplace: 'رفتن به بازارچه FRG'
+  },
+  marketplace: {
+    title: 'بازارچه FRG',
+    subtitle: 'خرید، تبدیل و مدیریت توکن‌های FRG',
+    buyTokens: 'خرید FRG',
+    convertAirdrop: 'تبدیل ایردراپ',
+    history: 'تاریخچه',
+    buyWithStars: 'خرید با تلگرام استارز',
+    buyWithTon: 'خرید با تون‌کوین',
+    price: 'قیمت:',
+    stars: 'ستاره',
+    insufficientAirdrop: 'سکه ایردراپ کافی نیست',
+    convertBtn: 'تبدیل به FRG',
+    exchangeRate: 'نرخ: ۱۰۰ سکه = ۱ FRG',
+    noHistory: 'تراکنشی ثبت نشده است.',
+    credit: 'واریز',
+    debit: 'برداشت',
+    balance: 'موجودی FRG'
   },
   groupDashboard: {
     tooltip: 'تنظیمات گروه خود را اینجا پیکربندی کنید!',
@@ -447,7 +471,8 @@ export const dict = {
     bannedKeywordsDesc: 'پیام‌های حاوی این کلمات حذف خواهند شد.',
     requiredKeywords: 'کلمات کلیدی اجباری',
     requiredKeywordsDesc: 'پیام‌هایی که شامل این کلمات نباشند حذف می‌شوند.',
-    addKeywordPlaceholder: 'کلمه را تایپ کرده و اینتر بزنید...'
+    addKeywordPlaceholder: 'کلمه را تایپ کرده و اینتر بزنید...',
+    addKeyword: 'افزودن کلمه...'
   },
   limitsSettings: {
     title: 'محدودیت‌ها',

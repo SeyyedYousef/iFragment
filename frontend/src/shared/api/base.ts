@@ -1,5 +1,5 @@
 import { retrieveLaunchParams } from '@tma.js/sdk-solid';
-import { apiClient } from './axios';
+import { apiClient } from './axios.js';
 
 export const apiFetch = async <T>(endpoint: string, options: RequestInit = {}): Promise<T> => {
   let initDataRaw = '';
@@ -11,7 +11,7 @@ export const apiFetch = async <T>(endpoint: string, options: RequestInit = {}): 
   }
 
   // Fallback for dev mode if needed
-  if (import.meta.env.DEV && !initDataRaw && !window.Telegram?.WebApp?.initData) {
+  if (import.meta.env.DEV && !initDataRaw && !(window as any).Telegram?.WebApp?.initData) {
      apiClient.defaults.headers.common['X-Telegram-Init-Data'] = 'dev-user';
   }
 

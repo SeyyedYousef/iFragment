@@ -1,0 +1,238 @@
+package repository
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+)
+
+type ManagedBot struct {
+	ID             uuid.UUID `json:"id"`
+	OwnerUserID    int64     `json:"owner_user_id"`
+	BotTokenEncrypted []byte `json:"-"`
+	BotUsername     string    `json:"bot_username"`
+	BotName        string    `json:"bot_name"`
+	BotID          int64     `json:"bot_id"`
+	Status         string    `json:"status"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+type ManagedGroup struct {
+	ID                 uuid.UUID  `json:"id"`
+	BotID              uuid.UUID  `json:"bot_id"`
+	ChatID             int64      `json:"chat_id"`
+	ChatTitle          string     `json:"chat_title"`
+	ChatType           string     `json:"chat_type"`
+	MembersCount       int        `json:"members_count"`
+	SubscriptionStatus string     `json:"subscription_status"`
+	TrialEndsAt        time.Time  `json:"trial_ends_at"`
+	PaidUntil          *time.Time `json:"paid_until,omitempty"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
+}
+
+type BotRepo struct {
+	db *Database
+}
+
+func NewBotRepo(db *Database) *BotRepo {
+	return &BotRepo{db: db}
+}
+
+func (r *BotRepo) CreateBot(ctx context.Context, bot *ManagedBot) error {
+	query := `INSERT INTO managed_bots (owner_user_id, bot_token_encrypted, bot_username, bot_name, bot_id, status)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, created_at, updated_at`
+	return r.db.Pool.QueryRow(ctx, query,
+		bot.OwnerUserID, bot.BotTokenEncrypted, bot.BotUsername, bot.BotName, bot.BotID, bot.Status,
+	).Scan(&bot.ID, &bot.CreatedAt, &bot.UpdatedAt)
+}
+
+func (r *BotRepo) GetBotsByOwner(ctx context.Context, ownerID int64) ([]ManagedBot, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return []ManagedBot{
+			{
+				ID: uuid.New(),
+				OwnerUserID: ownerID,
+				BotUsername: "mocked_bot",
+				BotName: "Mocked Bot",
+				BotID: 123456789,
+				Status: "active",
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+		}, nil
+	}
+
+	query := `SELECT id, owner_user_id, bot_username, bot_name, bot_id, status, created_at, updated_at
+		FROM managed_bots WHERE owner_user_id = $1 ORDER BY created_at DESC`
+	rows, err := r.db.Pool.Query(ctx, query, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var bots []ManagedBot
+	for rows.Next() {
+		var b ManagedBot
+		if err := rows.Scan(&b.ID, &b.OwnerUserID, &b.BotUsername, &b.BotName, &b.BotID, &b.Status, &b.CreatedAt, &b.UpdatedAt); err != nil {
+			return nil, err
+		}
+		bots = append(bots, b)
+	}
+	return bots, nil
+}
+
+func (r *BotRepo) GetBotByID(ctx context.Context, id uuid.UUID) (*ManagedBot, error) {
+	query := `SELECT id, owner_user_id, bot_token_encrypted, bot_username, bot_name, bot_id, status, created_at, updated_at
+		FROM managed_bots WHERE id = $1`
+	var b ManagedBot
+	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
+		&b.ID, &b.OwnerUserID, &b.BotTokenEncrypted, &b.BotUsername, &b.BotName, &b.BotID, &b.Status, &b.CreatedAt, &b.UpdatedAt,
+	)
+	if err == pgx.ErrNoRows {
+		return nil, fmt.Errorf("bot not found")
+	}
+	return &b, err
+}
+
+func (r *BotRepo) UpdateBotStatus(ctx context.Context, id uuid.UUID, status string) error {
+	query := `UPDATE managed_bots SET status = $1, updated_at = now() WHERE id = $2`
+	_, err := r.db.Pool.Exec(ctx, query, status, id)
+	return err
+}
+
+func (r *BotRepo) DeleteBot(ctx context.Context, id uuid.UUID) error {
+	query := `DELETE FROM managed_bots WHERE id = $1`
+	_, err := r.db.Pool.Exec(ctx, query, id)
+	return err
+}
+
+// Groups
+
+func (r *BotRepo) CreateGroup(ctx context.Context, group *ManagedGroup) error {
+	query := `INSERT INTO managed_groups (bot_id, chat_id, chat_title, chat_type, members_count, subscription_status, trial_ends_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (bot_id, chat_id) DO UPDATE SET chat_title = EXCLUDED.chat_title, members_count = EXCLUDED.members_count, updated_at = now()
+		RETURNING id, created_at, updated_at, trial_ends_at`
+	return r.db.Pool.QueryRow(ctx, query,
+		group.BotID, group.ChatID, group.ChatTitle, group.ChatType, group.MembersCount, group.SubscriptionStatus, group.TrialEndsAt,
+	).Scan(&group.ID, &group.CreatedAt, &group.UpdatedAt, &group.TrialEndsAt)
+}
+
+func (r *BotRepo) GetGroupsByBot(ctx context.Context, botID uuid.UUID) ([]ManagedGroup, error) {
+	if r.db == nil || r.db.Pool == nil {
+		pu := time.Now().Add(30 * 24 * time.Hour)
+		return []ManagedGroup{
+			{
+				ID: uuid.New(),
+				BotID: botID,
+				ChatID: -100123456,
+				ChatTitle: "Mocked Group",
+				ChatType: "supergroup",
+				MembersCount: 42,
+				SubscriptionStatus: "trial",
+				TrialEndsAt: time.Now().Add(24 * time.Hour),
+				PaidUntil: &pu,
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+		}, nil
+	}
+
+	query := `SELECT id, bot_id, chat_id, chat_title, chat_type, members_count, subscription_status, trial_ends_at, paid_until, created_at, updated_at
+		FROM managed_groups WHERE bot_id = $1 ORDER BY created_at DESC`
+	rows, err := r.db.Pool.Query(ctx, query, botID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var groups []ManagedGroup
+	for rows.Next() {
+		var g ManagedGroup
+		if err := rows.Scan(&g.ID, &g.BotID, &g.ChatID, &g.ChatTitle, &g.ChatType, &g.MembersCount,
+			&g.SubscriptionStatus, &g.TrialEndsAt, &g.PaidUntil, &g.CreatedAt, &g.UpdatedAt); err != nil {
+			return nil, err
+		}
+		groups = append(groups, g)
+	}
+	return groups, nil
+}
+
+func (r *BotRepo) GetGroupByID(ctx context.Context, id uuid.UUID) (*ManagedGroup, error) {
+	if r.db == nil || r.db.Pool == nil {
+		pu := time.Now().Add(30 * 24 * time.Hour)
+		return &ManagedGroup{
+			ID: id,
+			BotID: uuid.New(),
+			ChatID: -100123456,
+			ChatTitle: "Mocked Group",
+			ChatType: "supergroup",
+			MembersCount: 42,
+			SubscriptionStatus: "trial",
+			TrialEndsAt: time.Now().Add(24 * time.Hour),
+			PaidUntil: &pu,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}, nil
+	}
+
+	query := `SELECT id, bot_id, chat_id, chat_title, chat_type, members_count, subscription_status, trial_ends_at, paid_until, created_at, updated_at
+		FROM managed_groups WHERE id = $1`
+	var g ManagedGroup
+	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
+		&g.ID, &g.BotID, &g.ChatID, &g.ChatTitle, &g.ChatType, &g.MembersCount,
+		&g.SubscriptionStatus, &g.TrialEndsAt, &g.PaidUntil, &g.CreatedAt, &g.UpdatedAt,
+	)
+	if err == pgx.ErrNoRows {
+		return nil, fmt.Errorf("group not found")
+	}
+	return &g, err
+}
+
+func (r *BotRepo) UpdateGroupSubscription(ctx context.Context, groupID uuid.UUID, status string, paidUntil *time.Time) error {
+	query := `UPDATE managed_groups SET subscription_status = $1, paid_until = $2, updated_at = now() WHERE id = $3`
+	_, err := r.db.Pool.Exec(ctx, query, status, paidUntil, groupID)
+	return err
+}
+
+func (r *BotRepo) GetGroupByChatID(ctx context.Context, chatID int64) (*ManagedGroup, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, fmt.Errorf("no database connection")
+	}
+	query := `SELECT id, bot_id, chat_id, chat_title, chat_type, members_count, subscription_status, trial_ends_at, paid_until, created_at, updated_at
+		FROM managed_groups WHERE chat_id = $1`
+	var g ManagedGroup
+	err := r.db.Pool.QueryRow(ctx, query, chatID).Scan(
+		&g.ID, &g.BotID, &g.ChatID, &g.ChatTitle, &g.ChatType, &g.MembersCount,
+		&g.SubscriptionStatus, &g.TrialEndsAt, &g.PaidUntil, &g.CreatedAt, &g.UpdatedAt,
+	)
+	if err == pgx.ErrNoRows {
+		return nil, fmt.Errorf("group not found")
+	}
+	return &g, err
+}
+
+func (r *BotRepo) GetBotByChatID(ctx context.Context, chatID int64) (*ManagedBot, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, fmt.Errorf("no database connection")
+	}
+	// Note: chatID here usually refers to the group's chat ID, we need to find which bot manages it
+	query := `SELECT b.id, b.owner_user_id, b.bot_token_encrypted, b.bot_username, b.bot_name, b.bot_id, b.status, b.created_at, b.updated_at
+		FROM managed_bots b
+		JOIN managed_groups g ON g.bot_id = b.id
+		WHERE g.chat_id = $1`
+	var b ManagedBot
+	err := r.db.Pool.QueryRow(ctx, query, chatID).Scan(
+		&b.ID, &b.OwnerUserID, &b.BotTokenEncrypted, &b.BotUsername, &b.BotName, &b.BotID, &b.Status, &b.CreatedAt, &b.UpdatedAt,
+	)
+	if err == pgx.ErrNoRows {
+		return nil, fmt.Errorf("bot not found for group")
+	}
+	return &b, err
+}

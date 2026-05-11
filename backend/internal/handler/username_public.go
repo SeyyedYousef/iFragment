@@ -93,24 +93,26 @@ func (h *UsernameHandler) CheckAvailability(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if mtStatus == mtproto.StatusAvailable {
+	switch mtStatus {
+	case mtproto.StatusAvailable:
 		if username.IsBasicEligible(u) {
 			finalStatus = "available"
 		} else {
 			finalStatus = "purchase_available"
 		}
-	} else if mtStatus == mtproto.StatusOccupied {
+	case mtproto.StatusOccupied:
 		finalStatus = "taken"
-	} else if mtStatus == mtproto.StatusPurchase {
+	case mtproto.StatusPurchase:
 		fragStatus, _ := h.fragmentClient.CheckUsername(ctx, u)
-		if fragStatus == fragment.StatusAuction {
+		switch fragStatus {
+		case fragment.StatusAuction:
 			finalStatus = "on_auction"
-		} else if fragStatus == fragment.StatusSale {
+		case fragment.StatusSale:
 			finalStatus = "on_sale"
-		} else {
+		default:
 			finalStatus = "purchase_available"
 		}
-	} else {
+	default:
 		finalStatus = string(mtStatus)
 	}
 
@@ -181,11 +183,12 @@ func (h *UsernameHandler) QuickAnalysis(w http.ResponseWriter, r *http.Request) 
 			result.Status = "taken"
 		case mtproto.StatusPurchase:
 			fragStatus, _ := h.fragmentClient.CheckUsername(ctx, u)
-			if fragStatus == fragment.StatusAuction {
+			switch fragStatus {
+			case fragment.StatusAuction:
 				result.Status = "on_auction"
-			} else if fragStatus == fragment.StatusSale {
+			case fragment.StatusSale:
 				result.Status = "on_sale"
-			} else {
+			default:
 				result.Status = "purchase_available"
 			}
 		default:

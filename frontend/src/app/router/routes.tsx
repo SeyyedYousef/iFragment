@@ -17,6 +17,7 @@ const QuietHoursPage = lazy(() => import('@/pages/QuietHoursPage/index.js').then
 const MandatoryPage = lazy(() => import('@/pages/MandatoryPage/index.js').then(m => ({ default: m.MandatoryPage })));
 const CustomTextsPage = lazy(() => import('@/pages/CustomTextsPage/index.js').then(m => ({ default: m.CustomTextsPage })));
 const AnalyticsPage = lazy(() => import('@/pages/AnalyticsPage/index.js').then(m => ({ default: m.AnalyticsPage })));
+const MarketplacePage = lazy(() => import('@/pages/MarketplacePage/index.js').then(m => ({ default: m.MarketplacePage })));
 
 const CollectionStatsPage = lazy(() => import('@/pages/CollectionStatsPage/CollectionStatsPage.js').then(m => ({ default: m.CollectionStatsPage })));
 const PremiumReportPage = lazy(() => import('@/pages/PremiumReportPage/PremiumReportPage.js').then(m => ({ default: m.PremiumReportPage })));
@@ -35,13 +36,14 @@ export const routes: Route[] = [
   { path: '/dashboard', Component: DashboardPage },
   { path: '/profile', Component: ProfilePage },
   { path: '/managed-bots', Component: ManagedBotsPage },
-  { path: '/managed-bots/:id', Component: BotManagePage },
+  { path: '/bot/:botId/manage', Component: BotManagePage },
   { path: '/group/:id', Component: GroupDashboardPage },
-  { path: '/group/:id/settings/general', Component: GeneralSettingsPage },
-  { path: '/group/:id/settings/content-restrictions', Component: ContentRestrictionsPage },
-  { path: '/group/:id/settings/limits', Component: LimitsPage },
-  { path: '/group/:id/settings/quiet-hours', Component: QuietHoursPage },
-  { path: '/group/:id/settings/mandatory-membership', Component: MandatoryPage },
+  { path: '/group/:id/settings', Component: GeneralSettingsPage },
+  { path: '/group/:id/content', Component: ContentRestrictionsPage },
+  { path: '/group/:id/limits', Component: LimitsPage },
+  { path: '/group/:id/quiet', Component: QuietHoursPage },
+  { path: '/group/:id/mandatory', Component: MandatoryPage },
   { path: '/group/:id/settings/custom-texts', Component: CustomTextsPage },
-  { path: '/group/:id/settings/analytics', Component: AnalyticsPage },
+  { path: '/group/:id/analytics', Component: AnalyticsPage },
+  { path: '/marketplace', Component: MarketplacePage },
 ];

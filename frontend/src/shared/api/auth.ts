@@ -1,4 +1,4 @@
-import { apiClient } from './axios';
+import { apiClient } from './axios.js';
 
 export const authenticate = async (): Promise<string | null> => {
   // If we already have a valid token (you'd normally check expiration too)
@@ -8,7 +8,7 @@ export const authenticate = async (): Promise<string | null> => {
   }
 
   // If no initData, we can't authenticate as Telegram user
-  if (!window.Telegram?.WebApp?.initData) {
+  if (!(window as any).Telegram?.WebApp?.initData) {
     return null;
   }
 

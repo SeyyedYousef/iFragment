@@ -4,7 +4,7 @@ import { retrieveLaunchParams, isTMA, mockTelegramEnv } from '@tma.js/sdk-solid'
 
 import { Root } from '@/app/Root.js';
 import { init } from '@/app/init.js';
-import { ErrorBoundary } from '@/shared/ui/ErrorBoundary';
+import { ErrorBoundary } from '@/shared/ui/ErrorBoundary.js';
 import * as Sentry from '@sentry/browser';
 
 import './app/styles/index.css';

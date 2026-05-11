@@ -1,145 +1,254 @@
-import { Component, createSignal, For, onCleanup, onMount } from 'solid-js';
-import { Motion } from '@motionone/solid';
+import { Component, createSignal, createResource, onMount, onCleanup, For, Show } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
-import { backButton, openTelegramLink } from '@tma.js/sdk-solid';
-import { t, isRtl } from '@/shared/i18n/index.js';
-
-
-// Mock data for existing bots
-const MOCK_BOTS = [
-  { id: '1', name: 'iFragment Community Bot', username: '@ifragment_group_bot', status: 'active', users: 1250 },
-  { id: '2', name: 'Alpha Traders VIP', username: '@alpha_vip_bot', status: 'inactive', users: 0 }
-];
+import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { Motion } from '@motionone/solid';
+import { t } from '@/shared/i18n/index.js';
+import { botApi } from '@/shared/api/bot-management.js';
+import type { ManagedBot } from '@/shared/api/bot-management.js';
 
 export const ManagedBotsPage: Component = () => {
   const navigate = useNavigate();
-  const [bots] = createSignal(MOCK_BOTS);
+  const [showCreateModal, setShowCreateModal] = createSignal(false);
+  const [botToken, setBotToken] = createSignal('');
+  const [isCreating, setIsCreating] = createSignal(false);
+  const [errorMsg, setErrorMsg] = createSignal('');
+
+  const [bots, { refetch }] = createResource(botApi.listBots);
 
   onMount(() => {
     backButton.show();
     const off = backButton.onClick(() => {
-      navigate('/dashboard');
+      if (showCreateModal()) {
+        setShowCreateModal(false);
+      } else {
+        navigate('/dashboard');
+      }
     });
-
-    onCleanup(() => {
-      off();
-      backButton.hide();
-    });
+    onCleanup(() => off());
   });
 
-  const handleCreateBot = () => {
-    // Official TMA feature for creating managed bots
+  const handleCreateBot = async () => {
+    const token = botToken().trim();
+    if (!token) {
+      setErrorMsg('Please enter a valid bot token');
+      return;
+    }
+
+    // Basic token format validation (numbers:alphanumeric)
+    if (!/^\d+:[A-Za-z0-9_-]+$/.test(token)) {
+      setErrorMsg('Invalid token format. Get your token from @BotFather');
+      return;
+    }
+
+    setIsCreating(true);
+    setErrorMsg('');
+
     try {
-      openTelegramLink('https://t.me/BotFather?start=manage');
-    } catch (e) {
-      console.error('Failed to open Telegram link', e);
-      // Fallback
-      window.open('https://t.me/BotFather?start=manage', '_blank');
+      // Extract bot ID from token
+      const botIdStr = token.split(':')[0];
+      const botIdNum = parseInt(botIdStr, 10);
+
+      await botApi.registerBot({
+        token,
+        username: `bot_${botIdStr}`, // Will be updated by backend after verifying with Telegram
+        name: 'New Bot',
+        bot_id: botIdNum,
+      });
+
+      hapticFeedback.notificationOccurred('success');
+      setBotToken('');
+      setShowCreateModal(false);
+      refetch();
+    } catch (e: any) {
+      const msg = e?.response?.data?.error || 'Failed to register bot. Please try again.';
+      setErrorMsg(msg);
+      hapticFeedback.notificationOccurred('error');
+    } finally {
+      setIsCreating(false);
     }
   };
 
   return (
-    <div class="min-h-screen bg-[#0f1014] pb-20 relative overflow-y-auto no-scrollbar text-white">
+    <div class="min-h-screen bg-[#0f1014] pb-24 relative text-white">
       {/* Header */}
-      <div class="pt-8 pb-12 px-6 text-center relative z-10">
-        <Motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          class="flex flex-col items-center justify-center mb-2"
-        >
-          <div class="w-20 h-20 rounded-[20px] bg-[#1c1c1c] flex items-center justify-center mb-4 border border-[#2a2a2a] shadow-inner relative overflow-hidden">
-            <div class="absolute inset-0 bg-gradient-to-br from-[#3390ec]/20 to-transparent opacity-50"></div>
-            <span class="material-symbols-outlined text-[#3390ec] text-4xl relative z-10" style={{ 'font-variation-settings': '"FILL" 1' }}>smart_toy</span>
-          </div>
-          <h1 class="text-3xl font-black tracking-tight">{t('managedBots.title')}</h1>
-          <p class="text-on-surface-variant mt-3 font-medium max-w-sm mx-auto text-sm leading-relaxed">
-            {t('managedBots.description')}
-          </p>
-        </Motion.div>
+      <div class="px-5 pt-6 pb-4 sticky top-0 bg-[#0f1014]/90 backdrop-blur-md z-30 border-b border-[#1c1c1c]">
+        <h1 class="text-2xl font-black text-white">{t('managedBots.title')}</h1>
+        <p class="text-[13px] font-medium text-[#8e8e93] leading-snug mt-1 max-w-[90%]">
+          {t('managedBots.description')}
+        </p>
       </div>
 
-      {/* Main Content Area */}
-      <Motion.div
-        initial={{ opacity: 0, y: 50 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, easing: [0.4, 0, 0.2, 1] }}
-        class="w-full bg-[#1c1c1c] border-t border-[#2a2a2a] rounded-t-[40px] relative z-20 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] pt-8 pb-12 px-5 min-h-[60vh] -mt-6"
-      >
-        <div class="flex flex-col gap-8 max-w-md mx-auto">
-          
-          {/* Create Action */}
-          <Motion.button 
-            onClick={handleCreateBot}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.2, duration: 0.5 }}
-            class="w-full bg-gradient-to-r from-[#3390ec] to-[#2b7bc9] rounded-3xl p-[1.5px] relative group overflow-hidden shadow-[0_10px_30px_rgba(51,144,236,0.2)] transition-transform active:scale-95"
+      <div class="px-5 mt-4 space-y-4">
+        {/* Create Bot Button */}
+        <Motion.button
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          onClick={() => { setShowCreateModal(true); hapticFeedback.impactOccurred('medium'); }}
+          class="w-full bg-gradient-to-br from-[#3390ec] to-[#2b7bc9] rounded-3xl p-5 flex items-center gap-4 shadow-[0_10px_30px_rgba(51,144,236,0.25)] hover:shadow-[0_10px_40px_rgba(51,144,236,0.35)] transition-all active:scale-[0.98]"
+        >
+          <div class="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center backdrop-blur-sm">
+            <span class="material-symbols-outlined text-white text-[28px]">add</span>
+          </div>
+          <div class="flex flex-col items-start gap-0.5">
+            <span class="text-[16px] font-bold text-white">{t('managedBots.createBtn')}</span>
+            <span class="text-[12px] text-white/60">Connect your BotFather bot</span>
+          </div>
+        </Motion.button>
+
+        {/* Your Bots Section */}
+        <div class="flex flex-col gap-2">
+          <h2 class="text-[14px] font-bold text-[#8e8e93] uppercase tracking-wider px-1">
+            {t('managedBots.yourBots')}
+          </h2>
+
+          <Show when={bots.loading}>
+            <div class="flex items-center justify-center py-16">
+              <span class="w-6 h-6 border-2 border-[#3390ec]/30 border-t-[#3390ec] rounded-full animate-spin" />
+            </div>
+          </Show>
+
+          <Show when={!bots.loading && (!bots() || bots()!.length === 0)}>
+            <Motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              class="flex flex-col items-center justify-center py-20 gap-3"
+            >
+              <span class="material-symbols-outlined text-[56px] text-[#3a3a3a]">smart_toy</span>
+              <p class="text-[14px] text-[#8e8e93] font-medium">{t('managedBots.noBots')}</p>
+              <p class="text-[12px] text-[#555] text-center max-w-[80%]">
+                Create your first bot to start managing Telegram groups professionally
+              </p>
+            </Motion.div>
+          </Show>
+
+          <For each={bots() || []}>
+            {(bot: ManagedBot, index) => (
+              <Motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3, delay: index() * 0.05 }}
+                class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex items-center gap-3 hover:bg-[#222] transition-colors"
+              >
+                {/* Bot Avatar */}
+                <div class={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                  bot.status === 'active'
+                    ? 'bg-gradient-to-br from-[#3390ec]/20 to-[#3390ec]/5'
+                    : 'bg-[#2c2c2e]'
+                }`}>
+                  <span class={`material-symbols-outlined text-[24px] ${
+                    bot.status === 'active' ? 'text-[#3390ec]' : 'text-[#555]'
+                  }`}>smart_toy</span>
+                </div>
+
+                {/* Bot Info */}
+                <div class="flex flex-col flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[15px] font-bold text-white truncate">{bot.bot_name}</span>
+                    <span class={`w-2 h-2 rounded-full shrink-0 ${
+                      bot.status === 'active' ? 'bg-[#34c759]' : 'bg-[#ff3b30]'
+                    }`} />
+                  </div>
+                  <span class="text-[12px] text-[#8e8e93]">@{bot.bot_username}</span>
+                </div>
+
+                {/* Manage Button */}
+                <button
+                  onClick={() => {
+                    hapticFeedback.impactOccurred('light');
+                    navigate(`/bot/${bot.id}/manage`);
+                  }}
+                  class="bg-[#3390ec]/10 border border-[#3390ec]/20 text-[#3390ec] text-[13px] font-bold px-4 py-2.5 rounded-xl hover:bg-[#3390ec]/20 transition-colors flex items-center gap-1.5 shrink-0"
+                >
+                  {t('managedBots.manage')}
+                  <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+                </button>
+              </Motion.div>
+            )}
+          </For>
+        </div>
+      </div>
+
+      {/* Create Bot Modal */}
+      <Show when={showCreateModal()}>
+        <Motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end justify-center"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowCreateModal(false); }}
+        >
+          <Motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            transition={{ duration: 0.35, easing: [0.32, 0.72, 0, 1] }}
+            class="w-full bg-[#1c1c1c] rounded-t-[2rem] border-t border-[#2a2a2a] p-5"
           >
-            <div class="absolute inset-0 bg-white/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-            <div class="bg-[#1c1c1c] backdrop-blur-sm rounded-[22px] p-5 flex items-center justify-between relative z-10">
-              <div class="flex items-center gap-4">
-                <div class="w-12 h-12 rounded-full bg-[#3390ec]/10 flex items-center justify-center border border-[#3390ec]/20">
-                  <span class="material-symbols-outlined text-[#3390ec]">add</span>
+            <div class="w-10 h-1 bg-[#3a3a3a] rounded-full mx-auto mb-5" />
+
+            <h3 class="text-[18px] font-black text-white mb-1">Connect Your Bot</h3>
+            <p class="text-[13px] text-[#8e8e93] mb-5">
+              Paste the bot token from @BotFather to connect your bot to iFragment
+            </p>
+
+            {/* Steps */}
+            <div class="space-y-3 mb-5">
+              <div class="flex items-start gap-3">
+                <div class="w-7 h-7 rounded-full bg-[#3390ec]/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <span class="text-[12px] font-black text-[#3390ec]">1</span>
                 </div>
                 <div>
-                  <h3 class="text-lg font-bold text-white">{t('managedBots.createBtn')}</h3>
-                  <p class="text-[11px] text-on-surface-variant font-medium mt-0.5 leading-tight max-w-[200px]">{t('managedBots.botFatherPrompt')}</p>
+                  <p class="text-[13px] text-white font-medium">Open @BotFather in Telegram</p>
+                  <p class="text-[11px] text-[#8e8e93]">Send /newbot or use an existing bot</p>
                 </div>
               </div>
-              <span class={`material-symbols-outlined text-on-surface-variant ${isRtl() ? '-scale-x-100' : ''}`}>chevron_right</span>
-            </div>
-          </Motion.button>
-
-          {/* List of Bots */}
-          <div class="flex flex-col gap-4">
-            <h2 class="text-xl font-bold text-white px-2 flex items-center gap-2">
-              <span class="w-1.5 h-5 bg-[#3390ec] rounded-full"></span>
-              {t('managedBots.yourBots')}
-            </h2>
-            
-            <div class="flex flex-col gap-3">
-              <For each={bots()} fallback={
-                <div class="bg-[#0f1014] rounded-3xl p-8 border border-[#2a2a2a] flex flex-col items-center justify-center text-center">
-                  <span class="material-symbols-outlined text-on-surface-variant text-4xl mb-3 opacity-50">robot_2</span>
-                  <p class="text-on-surface-variant text-sm font-medium">{t('managedBots.noBots')}</p>
+              <div class="flex items-start gap-3">
+                <div class="w-7 h-7 rounded-full bg-[#3390ec]/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <span class="text-[12px] font-black text-[#3390ec]">2</span>
                 </div>
-              }>
-                {(bot, i) => (
-                  <Motion.div 
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.3 + (i() * 0.1), duration: 0.5 }}
-                    class="bg-[#0f1014] rounded-3xl p-4 shadow-inner border border-[#2a2a2a] flex items-center justify-between group hover:border-[#3390ec]/50 transition-colors cursor-pointer"
-                  >
-                    <div class="flex items-center gap-4">
-                      <div class="relative">
-                        <div class="w-12 h-12 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] overflow-hidden">
-                          <span class="text-xl font-bold text-[#3390ec]">{bot.name.charAt(0)}</span>
-                        </div>
-                        <div class={`absolute bottom-0 ${isRtl() ? 'left-0' : 'right-0'} w-3.5 h-3.5 rounded-full border-2 border-[#0f1014] ${bot.status === 'active' ? 'bg-[#34c759]' : 'bg-[#ff3b30]'}`}></div>
-                      </div>
-                      
-                      <div class="flex flex-col">
-                        <h3 class="text-[15px] font-bold text-white leading-tight mb-0.5">{bot.name}</h3>
-                        <span class="text-xs text-[#3390ec] font-medium">{bot.username}</span>
-                      </div>
-                    </div>
-                    
-                    <button 
-                      onClick={() => navigate(`/managed-bots/${bot.id}`)}
-                      class="px-3.5 py-1.5 rounded-full bg-[#1c1c1c] text-[13px] font-bold text-white border border-[#2a2a2a] hover:bg-[#2a2a2a] transition-colors"
-                    >
-                      {t('managedBots.manage')}
-                    </button>
-                  </Motion.div>
-                )}
-              </For>
+                <div>
+                  <p class="text-[13px] text-white font-medium">Copy the bot token</p>
+                  <p class="text-[11px] text-[#8e8e93]">It looks like: 123456:ABCdefGhi...</p>
+                </div>
+              </div>
+              <div class="flex items-start gap-3">
+                <div class="w-7 h-7 rounded-full bg-[#3390ec]/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <span class="text-[12px] font-black text-[#3390ec]">3</span>
+                </div>
+                <div>
+                  <p class="text-[13px] text-white font-medium">Paste it below</p>
+                  <p class="text-[11px] text-[#8e8e93]">We'll encrypt it with AES-256</p>
+                </div>
+              </div>
             </div>
-          </div>
-          
-        </div>
-      </Motion.div>
+
+            <Show when={errorMsg()}>
+              <div class="bg-[#ff3b30]/10 border border-[#ff3b30]/30 text-[#ff3b30] rounded-xl px-4 py-2.5 text-[12px] font-bold mb-3 flex items-center gap-2">
+                <span class="material-symbols-outlined text-[16px]">error</span>
+                {errorMsg()}
+              </div>
+            </Show>
+
+            <input
+              type="password"
+              value={botToken()}
+              onInput={(e) => setBotToken(e.currentTarget.value)}
+              placeholder="Paste your bot token here..."
+              class="w-full bg-[#2c2c2e] text-white text-[14px] rounded-2xl px-4 py-4 focus:outline-none focus:ring-2 focus:ring-[#3390ec] placeholder:text-[#555] mb-4"
+            />
+
+            <button
+              onClick={handleCreateBot}
+              disabled={isCreating() || !botToken().trim()}
+              class="w-full h-14 bg-[#3390ec] hover:bg-[#2b7bc9] text-white rounded-2xl font-bold text-[16px] transition-all disabled:opacity-40 flex items-center justify-center gap-2 shadow-[0_10px_25px_rgba(51,144,236,0.3)]"
+            >
+              <Show when={!isCreating()} fallback={<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}>
+                <span class="material-symbols-outlined text-[20px]">link</span>
+                Connect Bot
+              </Show>
+            </button>
+          </Motion.div>
+        </Motion.div>
+      </Show>
     </div>
   );
 };
