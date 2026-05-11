@@ -77,6 +77,12 @@ export interface PurchaseOption {
   popular?: boolean;
 }
 
+export interface TopUser {
+  user_id: number;
+  name: string;
+  msgs: number;
+}
+
 export interface AnalyticsSummary {
   total_members: number;
   members_change: number;
@@ -86,6 +92,7 @@ export interface AnalyticsSummary {
   new_members: number;
   members_left: number;
   active_users: number;
+  top_users?: TopUser[];
 }
 
 export interface DailyMetric {

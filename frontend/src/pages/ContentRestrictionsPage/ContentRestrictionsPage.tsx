@@ -86,8 +86,15 @@ export const ContentRestrictionsPage: Component = () => {
       setIsDirty(false);
       navigate(`/group/${params.id}`);
       backButton.hide();
-    } catch {
+    } catch (err: any) {
       hapticFeedback.notificationOccurred('error');
+      if (err.response?.data?.error === 'version_mismatch') {
+        alert(t('common.errorVersionMismatch' as any) || 'Settings were updated by another user. Please refresh.');
+        // Optionally re-fetch settings here
+        // settingsData.refetch(); 
+      } else {
+        alert(t('common.errorUpdateFailed' as any) || 'Failed to update settings');
+      }
     } finally {
       setIsSaving(false);
     }

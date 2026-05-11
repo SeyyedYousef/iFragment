@@ -95,3 +95,22 @@ func (c *BotAPIClient) RestrictChatMember(chatID int64, userID int64, untilDate 
 	})
 	return err
 }
+
+func (c *BotAPIClient) BanChatMember(chatID int64, userID int64, untilDate int64, revokeMessages bool) error {
+	_, err := c.request("banChatMember", map[string]interface{}{
+		"chat_id":         chatID,
+		"user_id":         userID,
+		"until_date":      untilDate,
+		"revoke_messages": revokeMessages,
+	})
+	return err
+}
+
+func (c *BotAPIClient) UnbanChatMember(chatID int64, userID int64, onlyIfBanned bool) error {
+	_, err := c.request("unbanChatMember", map[string]interface{}{
+		"chat_id":        chatID,
+		"user_id":        userID,
+		"only_if_banned": onlyIfBanned,
+	})
+	return err
+}

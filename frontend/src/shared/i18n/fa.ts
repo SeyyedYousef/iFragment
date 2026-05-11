@@ -343,7 +343,9 @@ export const dict = {
     menuQuiet: 'ساعات سکوت',
     menuMandatory: 'عضویت اجباری',
     menuCustom: 'پیام‌های سفارشی',
-    menuAnalytics: 'آمار و تحلیل'
+    menuAnalytics: 'آمار و تحلیل',
+    noData: 'داده‌ای در دسترس نیست',
+    noActivity: 'فعالیتی یافت نشد'
   },
   error: {
     title: 'مشکلی پیش آمده است',

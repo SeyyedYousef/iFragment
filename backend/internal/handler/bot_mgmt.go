@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"ifragment-backend/internal/middleware"
+	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/botmgmt"
 )
 
@@ -147,36 +148,34 @@ func (h *BotMgmtHandler) ListGroups(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *BotMgmtHandler) GetGroup(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
 	groupID, err := uuid.Parse(chi.URLParam(r, "groupID"))
 	if err != nil {
 		RespondError(w, r, http.StatusBadRequest, "invalid group ID", err)
 		return
 	}
-
-	group, err := h.svc.GetGroup(r.Context(), groupID)
+	group, err := h.svc.GetGroup(r.Context(), groupID, userID)
 	if err != nil {
-		RespondError(w, r, http.StatusNotFound, "group not found", err)
+		RespondError(w, r, http.StatusForbidden, "access denied", err)
 		return
 	}
-
 	respondJSON(w, http.StatusOK, group)
 }
 
 // ─── Settings ─────────────────────────────────────────────
 
 func (h *BotMgmtHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
 	groupID, err := uuid.Parse(chi.URLParam(r, "groupID"))
 	if err != nil {
 		RespondError(w, r, http.StatusBadRequest, "invalid group ID", err)
 		return
 	}
-
-	settings, err := h.svc.GetSettings(r.Context(), groupID)
+	settings, err := h.svc.GetSettings(r.Context(), groupID, userID)
 	if err != nil {
-		RespondError(w, r, http.StatusInternalServerError, "failed to load settings", err)
+		RespondError(w, r, http.StatusForbidden, "access denied", err)
 		return
 	}
-
 	respondJSON(w, http.StatusOK, settings)
 }
 
@@ -202,7 +201,11 @@ func (h *BotMgmtHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) 
 
 	settings, err := h.svc.UpdateSettings(r.Context(), groupID, req.Category, req.Data, userID, req.Version)
 	if err != nil {
-		RespondError(w, r, http.StatusConflict, err.Error(), err)
+		if err == repository.ErrOptimisticLockConflict {
+			RespondError(w, r, http.StatusConflict, "version_mismatch", err)
+			return
+		}
+		RespondError(w, r, http.StatusInternalServerError, "failed to update settings", err)
 		return
 	}
 
@@ -245,12 +248,12 @@ func (h *BotMgmtHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
 // ─── Analytics ────────────────────────────────────────────
 
 func (h *BotMgmtHandler) GetAnalytics(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
 	groupID, err := uuid.Parse(chi.URLParam(r, "groupID"))
 	if err != nil {
 		RespondError(w, r, http.StatusBadRequest, "invalid group ID", err)
 		return
 	}
-
 	daysStr := r.URL.Query().Get("days")
 	days := 7
 	if daysStr != "" {
@@ -258,16 +261,13 @@ func (h *BotMgmtHandler) GetAnalytics(w http.ResponseWriter, r *http.Request) {
 			days = d
 		}
 	}
-
-	summary, err := h.svc.GetAnalytics(r.Context(), groupID, days)
+	summary, err := h.svc.GetAnalytics(r.Context(), groupID, userID, days)
 	if err != nil {
-		RespondError(w, r, http.StatusInternalServerError, "failed to load analytics", err)
+		RespondError(w, r, http.StatusForbidden, "access denied", err)
 		return
 	}
-
 	growth, _ := h.svc.GetGrowthTimeline(r.Context(), groupID, days)
 	activity, _ := h.svc.GetActivityTimeline(r.Context(), groupID, days)
-
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"summary":  summary,
 		"growth":   growth,
@@ -377,12 +377,12 @@ func (h *BotMgmtHandler) ConvertAirdropCoins(w http.ResponseWriter, r *http.Requ
 // ─── Audit Logs ───────────────────────────────────────────
 
 func (h *BotMgmtHandler) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
 	groupID, err := uuid.Parse(chi.URLParam(r, "groupID"))
 	if err != nil {
 		RespondError(w, r, http.StatusBadRequest, "invalid group ID", err)
 		return
 	}
-
 	limit := 50
 	offset := 0
 	if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && l > 0 && l <= 100 {
@@ -391,10 +391,9 @@ func (h *BotMgmtHandler) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	if o, err := strconv.Atoi(r.URL.Query().Get("offset")); err == nil && o >= 0 {
 		offset = o
 	}
-
-	logs, err := h.svc.GetAuditLog(r.Context(), groupID, limit, offset)
+	logs, err := h.svc.GetAuditLog(r.Context(), groupID, userID, limit, offset)
 	if err != nil {
-		RespondError(w, r, http.StatusInternalServerError, "failed to load audit logs", err)
+		RespondError(w, r, http.StatusForbidden, "access denied", err)
 		return
 	}
 	respondJSON(w, http.StatusOK, logs)

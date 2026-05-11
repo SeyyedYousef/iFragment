@@ -10,6 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+var ErrOptimisticLockConflict = fmt.Errorf("settings have been modified by another user")
+
 type GroupSettings struct {
 	GroupID             uuid.UUID       `json:"group_id"`
 	General             json.RawMessage `json:"general"`
@@ -40,40 +42,48 @@ type SettingsGeneral struct {
 	WarningFinalPenalty string `json:"warningFinalPenalty"`
 }
 
+type RestrictionDetail struct {
+	Enabled bool   `json:"enabled"`
+	Window  string `json:"window"` // Always, QuietHours, Custom
+	Start   string `json:"start"`  // HH:mm
+	End     string `json:"end"`    // HH:mm
+	Penalty string `json:"penalty"` // delete, mute_1h, mute_24h, kick, ban
+}
+
 type SettingsContentRestrictions struct {
-	RemoveLinks               bool     `json:"removeLinks"`
-	BlockBots                 bool     `json:"blockBots"`
-	RemoveBotInviters         bool     `json:"removeBotInviters"`
-	BlockDomains              bool     `json:"blockDomains"`
-	BlockUsernames            bool     `json:"blockUsernames"`
-	BlockHashtags             bool     `json:"blockHashtags"`
-	BlockTextPatterns         bool     `json:"blockTextPatterns"`
-	BlockEmojis               bool     `json:"blockEmojis"`
-	BlockEmojiOnly            bool     `json:"blockEmojiOnly"`
-	BlockPhoneNumbers         bool     `json:"blockPhoneNumbers"`
-	BlockPhotos               bool     `json:"blockPhotos"`
-	BlockStickers             bool     `json:"blockStickers"`
-	BlockLocations            bool     `json:"blockLocations"`
-	BlockAudio                bool     `json:"blockAudio"`
-	BlockVoiceMessages        bool     `json:"blockVoiceMessages"`
-	BlockFiles                bool     `json:"blockFiles"`
-	BlockGifs                 bool     `json:"blockGifs"`
-	BlockCaptionless          bool     `json:"blockCaptionless"`
-	BlockForwards             bool     `json:"blockForwards"`
-	RestrictChannelForwards   bool     `json:"restrictChannelForwards"`
-	BlockAppMessages          bool     `json:"blockAppMessages"`
-	BlockPolls                bool     `json:"blockPolls"`
-	BlockInlineKeyboards      bool     `json:"blockInlineKeyboards"`
-	BlockGames                bool     `json:"blockGames"`
-	BlockSlashCommands        bool     `json:"blockSlashCommands"`
-	BlockUserReplies          bool     `json:"blockUserReplies"`
-	BlockCrossChatReplies     bool     `json:"blockCrossChatReplies"`
-	BlockLatinLetters         bool     `json:"blockLatinLetters"`
-	BlockPersianArabicLetters bool     `json:"blockPersianArabicLetters"`
-	BlockCyrillicLetters      bool     `json:"blockCyrillicLetters"`
-	BlockChineseCharacters    bool     `json:"blockChineseCharacters"`
-	BannedKeywords            []string `json:"bannedKeywords"`
-	RequiredKeywords          []string `json:"requiredKeywords"`
+	RemoveLinks               RestrictionDetail `json:"removeLinks"`
+	BlockBots                 RestrictionDetail `json:"blockBots"`
+	RemoveBotInviters         RestrictionDetail `json:"removeBotInviters"`
+	BlockDomains              RestrictionDetail `json:"blockDomains"`
+	BlockUsernames            RestrictionDetail `json:"blockUsernames"`
+	BlockHashtags             RestrictionDetail `json:"blockHashtags"`
+	BlockTextPatterns         RestrictionDetail `json:"blockTextPatterns"`
+	BlockEmojis               RestrictionDetail `json:"blockEmojis"`
+	BlockEmojiOnly            RestrictionDetail `json:"blockEmojiOnly"`
+	BlockPhoneNumbers         RestrictionDetail `json:"blockPhoneNumbers"`
+	BlockPhotos               RestrictionDetail `json:"blockPhotos"`
+	BlockStickers             RestrictionDetail `json:"blockStickers"`
+	BlockLocations            RestrictionDetail `json:"blockLocations"`
+	BlockAudio                RestrictionDetail `json:"blockAudio"`
+	BlockVoiceMessages        RestrictionDetail `json:"blockVoiceMessages"`
+	BlockFiles                RestrictionDetail `json:"blockFiles"`
+	BlockGifs                 RestrictionDetail `json:"blockGifs"`
+	BlockCaptionless          RestrictionDetail `json:"blockCaptionless"`
+	BlockForwards             RestrictionDetail `json:"blockForwards"`
+	RestrictChannelForwards   RestrictionDetail `json:"restrictChannelForwards"`
+	BlockAppMessages          RestrictionDetail `json:"blockAppMessages"`
+	BlockPolls                RestrictionDetail `json:"blockPolls"`
+	BlockInlineKeyboards      RestrictionDetail `json:"blockInlineKeyboards"`
+	BlockGames                RestrictionDetail `json:"blockGames"`
+	BlockSlashCommands        RestrictionDetail `json:"blockSlashCommands"`
+	BlockUserReplies          RestrictionDetail `json:"blockUserReplies"`
+	BlockCrossChatReplies     RestrictionDetail `json:"blockCrossChatReplies"`
+	BlockLatinLetters         RestrictionDetail `json:"blockLatinLetters"`
+	BlockPersianArabicLetters RestrictionDetail `json:"blockPersianArabicLetters"`
+	BlockCyrillicLetters      RestrictionDetail `json:"blockCyrillicLetters"`
+	BlockChineseCharacters    RestrictionDetail `json:"blockChineseCharacters"`
+	BannedKeywords            []string          `json:"bannedKeywords"`
+	RequiredKeywords          []string          `json:"requiredKeywords"`
 }
 
 type SettingsLimits struct {
@@ -226,7 +236,7 @@ func (r *SettingsRepo) UpdateCategory(ctx context.Context, groupID uuid.UUID, ca
 	var updatedAt time.Time
 	err := r.db.Pool.QueryRow(ctx, query, data, userID, groupID, currentVersion).Scan(&version, &updatedAt)
 	if err == pgx.ErrNoRows {
-		return nil, fmt.Errorf("settings have been modified by another user (optimistic lock conflict)")
+		return nil, ErrOptimisticLockConflict
 	}
 	if err != nil {
 		return nil, err

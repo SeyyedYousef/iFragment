@@ -24,24 +24,28 @@ export const MandatoryPage: Component = () => {
   const [isDirty, setIsDirty] = createSignal(false);
   const [isSaving, setIsSaving] = createSignal(false);
 
-  const [sd] = createSignal(groupApi.getSettings(params.id));
+  const [settingsData, { refetch }] = createResource(
+    () => params.id,
+    async (groupId) => {
+      const res = await groupApi.getSettings(groupId);
+      const mm = (res.mandatory_membership || {}) as any;
+      setCfg({
+        forcedAddEnabled: mm.forced_add_enabled ?? false,
+        forcedAddCount: mm.forced_add_count ?? 0,
+        forceJoinEnabled: mm.force_join_enabled ?? false,
+        requiredChannels: mm.required_channels ?? [],
+        verificationEnabled: mm.verification_enabled ?? false,
+        excludedUsers: mm.exemptions ?? []
+      });
+      setIsDirty(false);
+      return res;
+    }
+  );
 
   onMount(() => {
     backButton.show();
     const off = backButton.onClick(() => window.history.back());
     onCleanup(() => off());
-
-    sd().then(res => {
-      setCfg({
-        forcedAddEnabled: res.mandatory_settings?.forced_add_enabled ?? false,
-        forcedAddCount: res.mandatory_settings?.forced_add_count ?? 0,
-        forceJoinEnabled: res.mandatory_settings?.force_join_enabled ?? false,
-        requiredChannels: res.mandatory_settings?.required_channels ?? [],
-        verificationEnabled: res.mandatory_settings?.verification_enabled ?? false,
-        excludedUsers: res.mandatory_settings?.exemptions ?? []
-      });
-      setIsDirty(false);
-    }).catch(() => {});
   });
 
   const updateCfg = (key: keyof ReturnType<typeof cfg>, value: any) => {
@@ -50,11 +54,10 @@ export const MandatoryPage: Component = () => {
   };
 
   const handleSave = async () => {
-    if (!isDirty()) return;
+    if (!isDirty() || !settingsData()) return;
     hapticFeedback.notificationOccurred('success');
     setIsSaving(true);
     try {
-      const current = await sd();
       await groupApi.updateSettings(params.id, 'mandatory_membership', {
         forced_add_enabled: cfg().forcedAddEnabled,
         forced_add_count: cfg().forcedAddCount,
@@ -62,8 +65,10 @@ export const MandatoryPage: Component = () => {
         required_channels: cfg().requiredChannels,
         verification_enabled: cfg().verificationEnabled,
         exemptions: cfg().excludedUsers,
-      }, current.version);
+      }, settingsData()!.version);
       setIsDirty(false);
+      refetch();
+      hapticFeedback.notificationOccurred('success');
       navigate(`/group/${params.id}`);
     } catch (e) {
       hapticFeedback.notificationOccurred('error');

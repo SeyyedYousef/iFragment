@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"ifragment-backend/internal/client/telegram"
@@ -24,6 +26,7 @@ type ModeratorService struct {
 	auditRepo     *repository.AuditRepo
 	analyticsRepo *repository.AnalyticsRepo
 	cache         *repository.Cache
+	clientCache   sync.Map // botID (uuid.UUID) -> *telegram.BotAPIClient
 }
 
 func NewModeratorService(
@@ -42,6 +45,24 @@ func NewModeratorService(
 	}
 }
 
+func (s *ModeratorService) GetCache() *repository.Cache {
+	return s.cache
+}
+
+func (s *ModeratorService) GetSettings(ctx context.Context, groupID uuid.UUID) (*repository.GroupSettings, error) {
+	return s.settingsRepo.GetSettings(ctx, groupID)
+}
+
+func (s *ModeratorService) LogMemberEvent(ctx context.Context, groupID uuid.UUID, eventType string, userID *int64) {
+	if s.analyticsRepo != nil {
+		_ = s.analyticsRepo.LogEvent(ctx, &repository.GroupEvent{
+			GroupID:   groupID,
+			EventType: eventType,
+			UserID:    userID,
+		})
+	}
+}
+
 // Violation represents a detected rule violation.
 type Violation struct {
 	Type            string
@@ -57,6 +78,7 @@ type MessageContext struct {
 	UserID       int64
 	MessageID    int
 	Text         string
+	Username     string // @username
 	IsBot        bool
 	HasPhoto     bool
 	HasSticker   bool
@@ -92,14 +114,22 @@ func (s *ModeratorService) ValidateMessage(ctx context.Context, mc *MessageConte
 		return nil, err
 	}
 
-	token, err := DecryptToken(bot.BotTokenEncrypted)
+	tgClient, err := s.getTelegramClient(ctx, bot)
 	if err != nil {
 		return nil, err
 	}
 
-	tgClient := telegram.NewBotAPIClient(token)
+	// 2.1 Check Bot Status (BUG #11)
+	if bot.Status != "active" {
+		return nil, nil // Bot is paused or revoked
+	}
 
-	// 2. Fetch settings (cached via SettingsRepo)
+	// 2.2 Check Subscription (BUG #9)
+	if !s.isSubscriptionValid(group) {
+		return nil, nil // Subscription expired
+	}
+
+	// 3. Fetch settings (cached via SettingsRepo)
 	settings, err := s.settingsRepo.GetSettings(ctx, group.ID)
 	if err != nil {
 		return nil, err
@@ -122,7 +152,7 @@ func (s *ModeratorService) ValidateMessage(ctx context.Context, mc *MessageConte
 	s.logEvent(ctx, group.ID, "message", &mc.UserID)
 
 	// 5. Check if user is admin — admins bypass all rules
-	if quiet.AdminOverride || true { // always check admin status
+	if quiet.AdminOverride {
 		status, _ := tgClient.GetChatMember(mc.ChatID, mc.UserID)
 		if status == "administrator" || status == "creator" {
 			return nil, nil
@@ -132,9 +162,10 @@ func (s *ModeratorService) ValidateMessage(ctx context.Context, mc *MessageConte
 	// 6. Check exemptions list (usernames or IDs)
 	for _, ex := range mandatory.Exemptions {
 		if strings.HasPrefix(ex, "@") {
-			// Note: We'd need to resolve username to ID, but for now we skip check
-			// or assume user knows what they are doing. Simple check:
-			continue 
+			if mc.Username != "" && strings.EqualFold(mc.Username, strings.TrimPrefix(ex, "@")) {
+				return nil, nil
+			}
+			continue
 		}
 		if fmt.Sprintf("%d", mc.UserID) == ex {
 			return nil, nil
@@ -143,27 +174,45 @@ func (s *ModeratorService) ValidateMessage(ctx context.Context, mc *MessageConte
 
 	// 7. Emergency Lock / Quiet Hours
 	if s.isQuietHours(quiet, general.Timezone) {
-		return &Violation{Type: "quiet_hours", Message: "Group is in quiet mode", Action: "delete"}, nil
+		return &Violation{Type: "quiet_hours", Message: "Group is in quiet mode", Action: s.resolveAction(general.DefaultPenalty)}, nil
 	}
 
 	// 8. Mandatory Membership (Force Join)
-	if v := s.checkMandatoryMembership(tgClient, mc, mandatory); v != nil {
+	if v := s.checkMandatoryMembership(tgClient, mc, mandatory, settings.CustomTexts); v != nil {
 		return v, nil
 	}
 
 	// 9. Content Restrictions — ALL checks
-	if v := s.checkAllContent(content, mc); v != nil {
-		v.Action = s.resolveAction(general.DefaultPenalty)
-		return s.handleAutoWarning(ctx, group.ID, mc.UserID, general, v)
+	if v := s.checkAllContent(content, quiet, general, mc); v != nil {
+		var ct repository.SettingsCustomTexts
+		json.Unmarshal(settings.CustomTexts, &ct)
+		return s.handleAutoWarning(ctx, group.ID, mc.UserID, general, ct, v)
 	}
 
 	// 10. Limits — length, flood, duplicates
 	if v := s.checkAllLimits(ctx, limits, mc, group.ID.String()); v != nil {
 		v.Action = s.resolveAction(general.DefaultPenalty)
-		return s.handleAutoWarning(ctx, group.ID, mc.UserID, general, v)
+		var ct repository.SettingsCustomTexts
+		json.Unmarshal(settings.CustomTexts, &ct)
+		return s.handleAutoWarning(ctx, group.ID, mc.UserID, general, ct, v)
 	}
 
 	return nil, nil
+}
+
+func (s *ModeratorService) getTelegramClient(_ context.Context, bot *repository.ManagedBot) (*telegram.BotAPIClient, error) {
+	if client, ok := s.clientCache.Load(bot.ID); ok {
+		return client.(*telegram.BotAPIClient), nil
+	}
+
+	token, err := DecryptToken(bot.BotTokenEncrypted)
+	if err != nil {
+		return nil, err
+	}
+
+	client := telegram.NewBotAPIClient(token)
+	s.clientCache.Store(bot.ID, client)
+	return client, nil
 }
 
 // ─── Quiet Hours ──────────────────────────────────────────
@@ -206,12 +255,25 @@ func (s *ModeratorService) isQuietHours(q repository.SettingsQuietHours, tz stri
 	return false
 }
 
+func (s *ModeratorService) isSubscriptionValid(g *repository.ManagedGroup) bool {
+	now := time.Now()
+	// If paid period exists and is in the future
+	if g.PaidUntil != nil && now.Before(*g.PaidUntil) {
+		return true
+	}
+	// Otherwise check trial
+	return now.Before(g.TrialEndsAt)
+}
+
 // ─── Mandatory Membership ─────────────────────────────────
 
-func (s *ModeratorService) checkMandatoryMembership(tg *telegram.BotAPIClient, mc *MessageContext, m repository.SettingsMandatoryMembership) *Violation {
+func (s *ModeratorService) checkMandatoryMembership(tg *telegram.BotAPIClient, mc *MessageContext, m repository.SettingsMandatoryMembership, customTextsRaw json.RawMessage) *Violation {
 	if !m.ForceJoinEnabled || len(m.RequiredChannels) == 0 {
 		return nil
 	}
+
+	var ct repository.SettingsCustomTexts
+	json.Unmarshal(customTextsRaw, &ct)
 
 	for _, channel := range m.RequiredChannels {
 		channelID := channel
@@ -221,9 +283,13 @@ func (s *ModeratorService) checkMandatoryMembership(tg *telegram.BotAPIClient, m
 
 		status, err := tg.GetChatMember(channelID, mc.UserID)
 		if err != nil || status == "left" || status == "kicked" || status == "" {
+			msg := ct.ForceJoinText
+			if msg == "" {
+				msg = fmt.Sprintf("You must join %s first", channel)
+			}
 			return &Violation{
 				Type:    "mandatory_membership",
-				Message: fmt.Sprintf("You must join %s first", channel),
+				Message: msg,
 				Action:  "delete",
 			}
 		}
@@ -231,153 +297,160 @@ func (s *ModeratorService) checkMandatoryMembership(tg *telegram.BotAPIClient, m
 	return nil
 }
 
-// ─── Content Restrictions (ALL 30+ checks) ────────────────
+// ─── Content Restrictions ─────────────────────────────────
 
-func (s *ModeratorService) checkAllContent(c repository.SettingsContentRestrictions, mc *MessageContext) *Violation {
+func (s *ModeratorService) checkAllContent(c repository.SettingsContentRestrictions, quiet repository.SettingsQuietHours, general repository.SettingsGeneral, mc *MessageContext) *Violation {
 	text := mc.Text
 	if text == "" {
 		text = mc.Caption
 	}
 
+	// ── Rules Wrapper ──
+	check := func(rd repository.RestrictionDetail, violated bool, vType, vMsg string) *Violation {
+		if !violated {
+			return nil
+		}
+		if s.shouldBlock(rd, quiet, general.Timezone) {
+			penalty := rd.Penalty
+			if penalty == "" || penalty == "default" {
+				penalty = general.DefaultPenalty
+			}
+			return &Violation{Type: vType, Message: vMsg, Action: s.resolveAction(penalty)}
+		}
+		return nil
+	}
+
 	// Bot blocking
-	if c.BlockBots && mc.IsBot {
-		return &Violation{Type: "bot_blocked", Message: "Bots are not allowed"}
+	if v := check(c.BlockBots, mc.IsBot, "bot_blocked", "Bots are not allowed"); v != nil {
+		return v
 	}
 
 	// ── Links & IDs ──
-	if c.RemoveLinks {
-		if regexp.MustCompile(`(?i)(https?://|t\.me/|t\.co/)`).MatchString(text) {
-			return &Violation{Type: "link", Message: "Links are not allowed"}
-		}
+	if v := check(c.RemoveLinks, regexp.MustCompile(`(?i)(https?://|t\.me/|t\.co/|tg://|www\.)`).MatchString(text), "link", "Links are not allowed"); v != nil {
+		return v
 	}
 
-	if c.BlockDomains {
-		if regexp.MustCompile(`(?i)\b[\w-]+\.(com|org|net|ir|io|me|co|info|biz|xyz|app|dev|ru|cn)\b`).MatchString(text) {
-			return &Violation{Type: "domain", Message: "Domains are not allowed"}
-		}
+	if v := check(c.BlockDomains, regexp.MustCompile(`(?i)\b[\w-]+\.[a-z]{2,24}\b`).MatchString(text), "domain", "Domains are not allowed"); v != nil {
+		return v
 	}
 
-	if c.BlockUsernames {
-		if regexp.MustCompile(`@[a-zA-Z][a-zA-Z0-9_]{3,}`).MatchString(text) {
-			return &Violation{Type: "username", Message: "Usernames are not allowed"}
-		}
+	if v := check(c.BlockUsernames, regexp.MustCompile(`(?i)(^|\s)@[a-z][a-z0-9_]{3,24}\b`).MatchString(text), "username", "Usernames are not allowed"); v != nil {
+		return v
 	}
 
-	if c.BlockHashtags && strings.Contains(text, "#") {
-		return &Violation{Type: "hashtag", Message: "Hashtags are not allowed"}
+	if v := check(c.BlockHashtags, strings.Contains(text, "#"), "hashtag", "Hashtags are not allowed"); v != nil {
+		return v
 	}
 
-	if c.BlockPhoneNumbers {
-		if regexp.MustCompile(`(\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}`).MatchString(text) {
-			return &Violation{Type: "phone", Message: "Phone numbers are not allowed"}
-		}
+	if v := check(c.BlockPhoneNumbers, regexp.MustCompile(`(\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}`).MatchString(text), "phone", "Phone numbers are not allowed"); v != nil {
+		return v
 	}
 
 	// ── Text & Symbols ──
-	if c.BlockEmojis && containsEmoji(text) {
-		return &Violation{Type: "emoji", Message: "Emojis are not allowed"}
+	if v := check(c.BlockEmojis, containsEmoji(text), "emoji", "Emojis are not allowed"); v != nil {
+		return v
 	}
 
-	if c.BlockEmojiOnly && isEmojiOnly(text) {
-		return &Violation{Type: "emoji_only", Message: "Emoji-only messages are not allowed"}
+	if v := check(c.BlockEmojiOnly, isEmojiOnly(text), "emoji_only", "Emoji-only messages are not allowed"); v != nil {
+		return v
 	}
 
-	if c.BlockTextPatterns && isSpamPattern(text) {
-		return &Violation{Type: "spam_pattern", Message: "Spam pattern detected"}
+	if v := check(c.BlockTextPatterns, s.isSpamPattern(text), "spam_pattern", "Spam pattern detected"); v != nil {
+		return v
 	}
 
 	// ── Language Filters ──
-	if c.BlockLatinLetters && containsScript(text, unicode.Latin) {
-		return &Violation{Type: "latin", Message: "Latin letters are not allowed"}
+	if v := check(c.BlockLatinLetters, containsScriptRatio(text, unicode.Latin, 0.5), "latin", "Latin letters are not allowed"); v != nil {
+		return v
 	}
 
-	if c.BlockPersianArabicLetters && containsScript(text, unicode.Arabic) {
-		return &Violation{Type: "persian_arabic", Message: "Persian/Arabic letters are not allowed"}
+	if v := check(c.BlockPersianArabicLetters, containsScriptRatio(text, unicode.Arabic, 0.5), "persian_arabic", "Persian/Arabic letters are not allowed"); v != nil {
+		return v
 	}
 
-	if c.BlockCyrillicLetters && containsScript(text, unicode.Cyrillic) {
-		return &Violation{Type: "cyrillic", Message: "Cyrillic letters are not allowed"}
+	if v := check(c.BlockCyrillicLetters, containsScriptRatio(text, unicode.Cyrillic, 0.5), "cyrillic", "Cyrillic letters are not allowed"); v != nil {
+		return v
 	}
 
-	if c.BlockChineseCharacters && containsScript(text, unicode.Han) {
-		return &Violation{Type: "chinese", Message: "Chinese characters are not allowed"}
+	if v := check(c.BlockChineseCharacters, containsScriptRatio(text, unicode.Han, 0.5), "chinese", "Chinese characters are not allowed"); v != nil {
+		return v
 	}
 
 	// ── Media & Files ──
-	if c.BlockPhotos && mc.HasPhoto {
-		return &Violation{Type: "photo", Message: "Photos are not allowed"}
+	if v := check(c.BlockPhotos, mc.HasPhoto, "photo", "Photos are not allowed"); v != nil {
+		return v
 	}
 
-	if c.BlockStickers && mc.HasSticker {
-		return &Violation{Type: "sticker", Message: "Stickers are not allowed"}
+	if v := check(c.BlockStickers, mc.HasSticker, "sticker", "Stickers are not allowed"); v != nil {
+		return v
 	}
 
-	if c.BlockLocations && mc.HasLocation {
-		return &Violation{Type: "location", Message: "Locations are not allowed"}
+	if v := check(c.BlockLocations, mc.HasLocation, "location", "Locations are not allowed"); v != nil {
+		return v
 	}
 
-	if c.BlockAudio && mc.HasAudio {
-		return &Violation{Type: "audio", Message: "Audio files are not allowed"}
+	if v := check(c.BlockAudio, mc.HasAudio, "audio", "Audio files are not allowed"); v != nil {
+		return v
 	}
 
-	if c.BlockVoiceMessages && mc.HasVoice {
-		return &Violation{Type: "voice", Message: "Voice messages are not allowed"}
+	if v := check(c.BlockVoiceMessages, mc.HasVoice, "voice", "Voice messages are not allowed"); v != nil {
+		return v
 	}
 
-	if c.BlockFiles && mc.HasDocument {
-		return &Violation{Type: "file", Message: "Files are not allowed"}
+	if v := check(c.BlockFiles, mc.HasDocument, "file", "Files are not allowed"); v != nil {
+		return v
 	}
 
-	if c.BlockGifs && mc.HasAnimation {
-		return &Violation{Type: "gif", Message: "GIFs are not allowed"}
+	if v := check(c.BlockGifs, mc.HasAnimation, "gif", "GIFs are not allowed"); v != nil {
+		return v
 	}
 
-	if c.BlockCaptionless && (mc.HasPhoto || mc.HasVideo) && !mc.HasCaption {
-		return &Violation{Type: "captionless", Message: "Media without caption is not allowed"}
+	if v := check(c.BlockCaptionless, (mc.HasPhoto || mc.HasVideo) && !mc.HasCaption, "captionless", "Media without caption is not allowed"); v != nil {
+		return v
 	}
 
 	// ── Interactions ──
-	if c.BlockForwards && mc.IsForward {
-		return &Violation{Type: "forward", Message: "Forwarded messages are not allowed"}
+	if v := check(c.BlockForwards, mc.IsForward, "forward", "Forwarded messages are not allowed"); v != nil {
+		return v
 	}
 
-	if c.RestrictChannelForwards && mc.ForwardFromChannel {
-		return &Violation{Type: "channel_forward", Message: "Forwards from channels are not allowed"}
+	if v := check(c.RestrictChannelForwards, mc.ForwardFromChannel, "channel_forward", "Forwards from channels are not allowed"); v != nil {
+		return v
 	}
 
-	if c.BlockAppMessages && mc.HasViaBot {
-		return &Violation{Type: "app_message", Message: "Mini App messages are not allowed"}
+	if v := check(c.BlockAppMessages, mc.HasViaBot, "app_message", "Mini App messages are not allowed"); v != nil {
+		return v
 	}
 
-	if c.BlockPolls && mc.HasPoll {
-		return &Violation{Type: "poll", Message: "Polls are not allowed"}
+	if v := check(c.BlockPolls, mc.HasPoll, "poll", "Polls are not allowed"); v != nil {
+		return v
 	}
 
-	if c.BlockInlineKeyboards && mc.HasInlineKeyboard {
-		return &Violation{Type: "inline_keyboard", Message: "Inline keyboards are not allowed"}
+	if v := check(c.BlockInlineKeyboards, mc.HasInlineKeyboard, "inline_keyboard", "Inline keyboards are not allowed"); v != nil {
+		return v
 	}
 
-	if c.BlockGames && mc.HasGame {
-		return &Violation{Type: "game", Message: "Games are not allowed"}
+	if v := check(c.BlockGames, mc.HasGame, "game", "Games are not allowed"); v != nil {
+		return v
 	}
 
-	if c.BlockSlashCommands && mc.IsCommand {
-		return &Violation{Type: "slash_command", Message: "Slash commands are not allowed"}
+	if v := check(c.BlockSlashCommands, mc.IsCommand, "slash_command", "Slash commands are not allowed"); v != nil {
+		return v
 	}
 
-	if c.BlockUserReplies && mc.HasReply {
-		return &Violation{Type: "reply", Message: "Replies are not allowed"}
+	if v := check(c.BlockUserReplies, mc.HasReply, "reply", "Replies are not allowed"); v != nil {
+		return v
 	}
 
-	if c.BlockCrossChatReplies && mc.IsReplyToCrossChat {
-		return &Violation{Type: "cross_chat_reply", Message: "Cross-chat replies are not allowed"}
+	if v := check(c.BlockCrossChatReplies, mc.IsReplyToCrossChat, "cross_chat_reply", "Cross-chat replies are not allowed"); v != nil {
+		return v
 	}
 
 	// ── Keywords ──
 	lowerText := strings.ToLower(text)
 	for _, kw := range c.BannedKeywords {
 		if strings.Contains(lowerText, strings.ToLower(kw)) {
-			return &Violation{Type: "banned_keyword", Message: fmt.Sprintf("Banned keyword: %s", kw)}
+			return &Violation{Type: "banned_keyword", Message: fmt.Sprintf("Banned keyword: %s", kw), Action: s.resolveAction(general.DefaultPenalty)}
 		}
 	}
 
@@ -390,11 +463,50 @@ func (s *ModeratorService) checkAllContent(c repository.SettingsContentRestricti
 			}
 		}
 		if !found {
-			return &Violation{Type: "required_keyword", Message: "Required keyword missing"}
+			return &Violation{Type: "required_keyword", Message: "Required keyword missing", Action: s.resolveAction(general.DefaultPenalty)}
 		}
 	}
 
 	return nil
+}
+
+func (s *ModeratorService) shouldBlock(rd repository.RestrictionDetail, quiet repository.SettingsQuietHours, tz string) bool {
+	if !rd.Enabled {
+		return false
+	}
+	switch rd.Window {
+	case "Always":
+		return true
+	case "QuietHours":
+		return s.isQuietHours(quiet, tz)
+	case "Custom":
+		return s.isInCustomWindow(rd.Start, rd.End, tz)
+	default:
+		return true
+	}
+}
+
+func (s *ModeratorService) isInCustomWindow(start, end, tz string) bool {
+	if start == "" || end == "" {
+		return false
+	}
+	loc, err := time.LoadLocation(tz)
+	if err != nil {
+		loc = time.UTC
+	}
+	now := time.Now().In(loc)
+	nowMin := now.Hour()*60 + now.Minute()
+
+	var sH, sM, eH, eM int
+	fmt.Sscanf(start, "%d:%d", &sH, &sM)
+	fmt.Sscanf(end, "%d:%d", &eH, &eM)
+	startMin := sH*60 + sM
+	endMin := eH*60 + eM
+
+	if startMin < endMin {
+		return nowMin >= startMin && nowMin < endMin
+	}
+	return nowMin >= startMin || nowMin < endMin
 }
 
 // ─── Limits (length + flood + duplicates) ─────────────────
@@ -404,7 +516,7 @@ func (s *ModeratorService) checkAllLimits(ctx context.Context, l repository.Sett
 	if text == "" {
 		text = mc.Caption
 	}
-	textLen := len([]rune(text))
+	textLen := utf8.RuneCountInString(text)
 
 	// Min/Max length
 	if l.MinLen > 0 && textLen > 0 && textLen < l.MinLen {
@@ -417,10 +529,12 @@ func (s *ModeratorService) checkAllLimits(ctx context.Context, l repository.Sett
 	// Flood Control (requires Redis)
 	if l.FloodMsgs > 0 && l.FloodWin > 0 && s.cache != nil && s.cache.Client != nil {
 		floodKey := fmt.Sprintf("flood:%s:%d", groupID, mc.UserID)
-		count, _ := s.cache.Client.Incr(ctx, floodKey).Result()
-		if count == 1 {
-			s.cache.Client.Expire(ctx, floodKey, time.Duration(l.FloodWin)*time.Minute)
-		}
+		pipe := s.cache.Client.Pipeline()
+		incr := pipe.Incr(ctx, floodKey)
+		pipe.ExpireNX(ctx, floodKey, time.Duration(l.FloodWin)*time.Minute)
+		_, _ = pipe.Exec(ctx)
+		count, _ := incr.Result()
+
 		if int(count) > l.FloodMsgs {
 			return &Violation{Type: "flood", Message: fmt.Sprintf("Flood detected (%d msgs in %d min)", l.FloodMsgs, l.FloodWin)}
 		}
@@ -445,21 +559,20 @@ func (s *ModeratorService) checkAllLimits(ctx context.Context, l repository.Sett
 // ─── Helpers ──────────────────────────────────────────────
 
 func (s *ModeratorService) resolveAction(penalty string) string {
-	switch penalty {
-	case "mute_1h", "mute_24h":
-		return "mute"
-	case "kick":
-		return "kick"
-	case "ban":
-		return "ban"
-	default:
+	if penalty == "" {
 		return "delete"
 	}
+	return penalty
 }
 
-func (s *ModeratorService) handleAutoWarning(ctx context.Context, groupID uuid.UUID, userID int64, gen repository.SettingsGeneral, v *Violation) (*Violation, error) {
+func (s *ModeratorService) handleAutoWarning(ctx context.Context, groupID uuid.UUID, userID int64, gen repository.SettingsGeneral, ct repository.SettingsCustomTexts, v *Violation) (*Violation, error) {
 	if !gen.AutoWarning {
 		return v, nil
+	}
+
+	// Use custom warning text if available
+	if ct.WarningText != "" {
+		v.Message = ct.WarningText
 	}
 
 	// Log warning event
@@ -523,16 +636,18 @@ func isEmojiRune(r rune) bool {
 		(r >= 0x2700 && r <= 0x27BF)
 }
 
-func isSpamPattern(text string) bool {
-	if len(text) == 0 {
+func (s *ModeratorService) isSpamPattern(text string) bool {
+	runes := []rune(text)
+	if len(runes) == 0 {
 		return false
 	}
-	// Detect repeated characters (e.g. "aaaaaa")
-	if len(text) >= 10 {
-		first := rune(text[0])
+
+	// 1. Detect repeated characters (e.g. "aaaaaa")
+	if len(runes) >= 10 {
+		first := runes[0]
 		allSame := true
-		for _, r := range text {
-			if r != first {
+		for _, r := range runes {
+			if r != first && !unicode.IsSpace(r) {
 				allSame = false
 				break
 			}
@@ -541,11 +656,23 @@ func isSpamPattern(text string) bool {
 			return true
 		}
 	}
-	// Detect excessive caps (>80% uppercase in long messages)
-	if len([]rune(text)) > 20 {
+
+	// 2. Detect Zalgo / Excessive Combining Marks
+	combiningMarks := 0
+	for _, r := range runes {
+		if unicode.Is(unicode.Mn, r) || unicode.Is(unicode.Me, r) || unicode.Is(unicode.Mc, r) {
+			combiningMarks++
+		}
+	}
+	if len(runes) > 0 && float64(combiningMarks)/float64(len(runes)) > 0.4 {
+		return true
+	}
+
+	// 3. Detect excessive caps (>80% uppercase in long messages)
+	if len(runes) > 20 {
 		upper := 0
 		total := 0
-		for _, r := range text {
+		for _, r := range runes {
 			if unicode.IsLetter(r) {
 				total++
 				if unicode.IsUpper(r) {
@@ -553,20 +680,38 @@ func isSpamPattern(text string) bool {
 				}
 			}
 		}
-		if total > 0 && float64(upper)/float64(total) > 0.8 {
+		if total > 5 && float64(upper)/float64(total) > 0.8 {
 			return true
 		}
 	}
+
+	// 4. Vertical text detection (many newlines)
+	newlines := strings.Count(text, "\n")
+	if newlines > 10 && len(text)/newlines < 5 {
+		return true
+	}
+
 	return false
 }
 
-func containsScript(text string, rangeTable *unicode.RangeTable) bool {
+func containsScriptRatio(text string, rangeTable *unicode.RangeTable, threshold float64) bool {
+	if text == "" {
+		return false
+	}
+	matched := 0
+	total := 0
 	for _, r := range text {
-		if unicode.Is(rangeTable, r) {
-			return true
+		if unicode.IsLetter(r) {
+			total++
+			if unicode.Is(rangeTable, r) {
+				matched++
+			}
 		}
 	}
-	return false
+	if total == 0 {
+		return false
+	}
+	return float64(matched)/float64(total) >= threshold
 }
 
 // Ensure redis import is used

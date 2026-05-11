@@ -6,24 +6,15 @@ import { t, isRtl } from '@/shared/i18n/index.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 import { groupApi } from '@/shared/api/bot-management.js';
 
-const MOCK_TOP_USERS = [
-  { id: 1, name: 'Crypto King', msgs: 342, avatar: '👑' },
-  { id: 2, name: 'Alpha Hunter', msgs: 215, avatar: 'A' },
-  { id: 3, name: 'Moon Boy', msgs: 184, avatar: 'M' }
-];
 
-const MOCK_ACTIVITY = [
-  { id: 1, user: 'John Doe', action: 'Spam deleted', time: '2 mins ago', type: 'delete' },
-  { id: 2, user: 'Crypto King', action: 'Warned (Bad words)', time: '15 mins ago', type: 'warn' },
-  { id: 3, user: 'Alice', action: 'Muted for 1h', time: '1 hour ago', type: 'mute' }
-];
 
 export const GroupDashboardPage: Component = () => {
   const params = useParams(); 
   
   const [isMenuOpen, setIsMenuOpen] = createSignal(false);
   const [showTooltip, setShowTooltip] = createSignal(true);
-  const [isGroupLocked, setIsGroupLocked] = createSignal(false);
+  const [isLocking, setIsLocking] = createSignal(false);
+  const [settingsVersion, setSettingsVersion] = createSignal(1);
 
   const [group] = createResource(
     () => params.id,
@@ -33,6 +24,22 @@ export const GroupDashboardPage: Component = () => {
   const [analytics] = createResource(
     () => params.id,
     (id) => groupApi.getAnalytics(id, 7)
+  );
+
+  const [settings, { mutate }] = createResource(
+    () => params.id,
+    async (id) => {
+      const s = await groupApi.getSettings(id);
+      setSettingsVersion(s.version);
+      return s;
+    }
+  );
+
+  const isGroupLocked = () => (settings()?.quiet_hours as any)?.emergencyLock || false;
+
+  const [auditLogs] = createResource(
+    () => params.id,
+    (id) => groupApi.getAuditLogs(id, 5)
   );
 
   onMount(() => {
@@ -45,6 +52,25 @@ export const GroupDashboardPage: Component = () => {
       clearTimeout(timer);
     });
   });
+
+  const toggleGroupLock = async () => {
+    if (isLocking()) return;
+    const current = isGroupLocked();
+    hapticFeedback.impactOccurred('medium');
+    setIsLocking(true);
+    try {
+      const qh = { ...(settings()?.quiet_hours as any || {}), emergencyLock: !current };
+      const res = await groupApi.updateSettings(params.id, 'quiet_hours', qh, settingsVersion());
+      setSettingsVersion(res.version);
+      mutate(res); // Update local cache
+      hapticFeedback.notificationOccurred('success');
+    } catch (e) {
+      hapticFeedback.notificationOccurred('error');
+      alert('Failed to toggle group lock');
+    } finally {
+      setIsLocking(false);
+    }
+  };
 
   const handleMenuOpen = () => {
     setIsMenuOpen(true);
@@ -150,19 +176,22 @@ export const GroupDashboardPage: Component = () => {
 
           {/* Quick Toggle (Lock) */}
           <button 
-            onClick={() => { setIsGroupLocked(!isGroupLocked()); hapticFeedback.impactOccurred('medium'); }}
+            onClick={toggleGroupLock}
+            disabled={isLocking() || settings.loading}
             class={`w-20 shrink-0 rounded-3xl border transition-all duration-300 flex flex-col items-center justify-center gap-2 ${
               isGroupLocked() 
                 ? 'bg-[#ff3b30]/10 border-[#ff3b30]/30 text-[#ff3b30]' 
                 : 'bg-[#1c1c1c] border-[#2a2a2a] text-[#8e8e93] hover:text-white'
             }`}
           >
-            <span class="material-symbols-outlined text-[24px]">
-              {isGroupLocked() ? 'lock' : 'lock_open_right'}
-            </span>
-            <span class="text-[11px] font-bold leading-tight text-center px-1">
-              {isGroupLocked() ? t('groupDashboard.groupLocked') : t('groupDashboard.lockGroup')}
-            </span>
+            <Show when={!isLocking()} fallback={<span class="w-5 h-5 border-2 border-current/30 border-t-current rounded-full animate-spin"></span>}>
+              <span class="material-symbols-outlined text-[24px]">
+                {isGroupLocked() ? 'lock' : 'lock_open_right'}
+              </span>
+              <span class="text-[11px] font-bold leading-tight text-center px-1">
+                {isGroupLocked() ? t('groupDashboard.groupLocked') : t('groupDashboard.lockGroup')}
+              </span>
+            </Show>
           </button>
         </Motion.div>
 
@@ -215,7 +244,7 @@ export const GroupDashboardPage: Component = () => {
           </h2>
           
           <div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-3 flex items-center justify-around gap-2">
-            <For each={MOCK_TOP_USERS}>
+            <For each={analytics()?.summary.top_users || []} fallback={<div class="py-4 text-[#8e8e93] text-[12px]">{t('groupDashboard.noData')}</div>}>
               {(user, i) => (
                 <div class="flex flex-col items-center gap-1.5 w-1/3">
                   <div class="relative">
@@ -224,7 +253,7 @@ export const GroupDashboardPage: Component = () => {
                       i() === 1 ? 'bg-[#e0e0e0]/10 border-[#e0e0e0] text-[#e0e0e0]' : 
                       'bg-[#cd7f32]/10 border-[#cd7f32] text-[#cd7f32]'
                     }`}>
-                      {user.avatar}
+                      {user.name.charAt(0)}
                     </div>
                     <div class={`absolute -bottom-1 ${isRtl() ? '-left-1' : '-right-1'} w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-[#0f1014] ${
                       i() === 0 ? 'bg-[#ffcc00] text-black' : 
@@ -253,27 +282,30 @@ export const GroupDashboardPage: Component = () => {
           </h2>
           
           <div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-2 flex flex-col">
-            <For each={MOCK_ACTIVITY}>
-              {(log, index) => (
-                <div class={`flex items-start gap-3 p-3 ${index() !== MOCK_ACTIVITY.length - 1 ? 'border-b border-[#2a2a2a]' : ''}`}>
-                  <div class={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center ${
-                    log.type === 'delete' ? 'bg-[#ff3b30]/10 text-[#ff3b30]' : 
-                    log.type === 'warn' ? 'bg-[#ffcc00]/10 text-[#ffcc00]' : 
-                    'bg-[#8e8e93]/10 text-[#8e8e93]'
-                  }`}>
-                    <span class="material-symbols-outlined text-[16px]">
-                      {log.type === 'delete' ? 'delete' : log.type === 'warn' ? 'warning' : 'volume_off'}
-                    </span>
-                  </div>
-                  <div class="flex flex-col flex-1">
-                    <div class="flex items-center justify-between mb-0.5">
-                      <span class="text-[13px] font-bold text-white">{log.user}</span>
-                      <span class="text-[10px] text-[#8e8e93] font-medium">{log.time}</span>
+            <For each={auditLogs() || []} fallback={<div class="py-10 text-center text-[#8e8e93] text-[13px]">{t('groupDashboard.noActivity')}</div>}>
+              {(log, index) => {
+                const type = log.action.includes('delete') ? 'delete' : log.action.includes('warn') ? 'warn' : 'info';
+                return (
+                  <div class={`flex items-start gap-3 p-3 ${index() !== (auditLogs()?.length || 0) - 1 ? 'border-b border-[#2a2a2a]' : ''}`}>
+                    <div class={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center ${
+                      type === 'delete' ? 'bg-[#ff3b30]/10 text-[#ff3b30]' : 
+                      type === 'warn' ? 'bg-[#ffcc00]/10 text-[#ffcc00]' : 
+                      'bg-[#3390ec]/10 text-[#3390ec]'
+                    }`}>
+                      <span class="material-symbols-outlined text-[16px]">
+                        {type === 'delete' ? 'delete' : type === 'warn' ? 'warning' : 'info'}
+                      </span>
                     </div>
-                    <span class="text-[12px] text-[#8e8e93]">{log.action}</span>
+                    <div class="flex flex-col flex-1">
+                      <div class="flex items-center justify-between mb-0.5">
+                        <span class="text-[13px] font-bold text-white">User {log.actor_id}</span>
+                        <span class="text-[10px] text-[#8e8e93] font-medium">{new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                      <span class="text-[12px] text-[#8e8e93]">{log.action}</span>
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              }}
             </For>
           </div>
         </Motion.div>

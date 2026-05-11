@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -51,6 +52,40 @@ func NewBotService(
 		auditRepo:     auditRepo,
 		frgRepo:       frgRepo,
 		analyticsRepo: analyticsRepo,
+	}
+}
+
+func (s *BotService) StartBackgroundTasks(ctx context.Context) {
+	ticker := time.NewTicker(1 * time.Hour)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				s.CheckExpirations(ctx)
+			}
+		}
+	}()
+}
+
+func (s *BotService) CheckExpirations(ctx context.Context) {
+	// 1. Get all groups that might be expired
+	// For now, we'll just log and update status. 
+	// In production, this would trigger notifications.
+	groups, err := s.botRepo.GetAllActiveGroups(ctx)
+	if err != nil {
+		return
+	}
+
+	now := time.Now()
+	for _, g := range groups {
+		if g.SubscriptionStatus == "trial" && now.After(g.TrialEndsAt) {
+			_ = s.botRepo.UpdateGroupSubscription(ctx, g.ID, "expired", nil)
+		}
+		if g.SubscriptionStatus == "paid" && g.PaidUntil != nil && now.After(*g.PaidUntil) {
+			_ = s.botRepo.UpdateGroupSubscription(ctx, g.ID, "expired", nil)
+		}
 	}
 }
 
@@ -128,18 +163,28 @@ func (s *BotService) ListGroups(ctx context.Context, botID uuid.UUID, ownerID in
 	return groups, nil
 }
 
-func (s *BotService) GetGroup(ctx context.Context, groupID uuid.UUID) (*repository.ManagedGroup, error) {
-	return s.botRepo.GetGroupByID(ctx, groupID)
+func (s *BotService) GetGroup(ctx context.Context, groupID uuid.UUID, ownerID int64) (*repository.ManagedGroup, error) {
+	group, err := s.botRepo.GetGroupByID(ctx, groupID)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := s.GetBot(ctx, group.BotID, ownerID); err != nil {
+		return nil, err
+	}
+	return group, nil
 }
 
 // Settings Operations
 
-func (s *BotService) GetSettings(ctx context.Context, groupID uuid.UUID) (*repository.GroupSettings, error) {
+func (s *BotService) GetSettings(ctx context.Context, groupID uuid.UUID, ownerID int64) (*repository.GroupSettings, error) {
+	if _, err := s.GetGroup(ctx, groupID, ownerID); err != nil {
+		return nil, err
+	}
 	return s.settingsRepo.GetSettings(ctx, groupID)
 }
 
 func (s *BotService) UpdateSettings(ctx context.Context, groupID uuid.UUID, category string, data json.RawMessage, userID int64, version int) (*repository.GroupSettings, error) {
-	oldSettings, err := s.settingsRepo.GetSettings(ctx, groupID)
+	oldSettings, err := s.GetSettings(ctx, groupID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +262,10 @@ func (s *BotService) Subscribe(ctx context.Context, userID int64, groupID uuid.U
 
 // Analytics
 
-func (s *BotService) GetAnalytics(ctx context.Context, groupID uuid.UUID, days int) (*repository.AnalyticsSummary, error) {
+func (s *BotService) GetAnalytics(ctx context.Context, groupID uuid.UUID, ownerID int64, days int) (*repository.AnalyticsSummary, error) {
+	if _, err := s.GetGroup(ctx, groupID, ownerID); err != nil {
+		return nil, err
+	}
 	return s.analyticsRepo.GetSummary(ctx, groupID, days)
 }
 
@@ -231,7 +279,10 @@ func (s *BotService) GetActivityTimeline(ctx context.Context, groupID uuid.UUID,
 
 // Audit
 
-func (s *BotService) GetAuditLog(ctx context.Context, groupID uuid.UUID, limit, offset int) ([]repository.AuditLog, error) {
+func (s *BotService) GetAuditLog(ctx context.Context, groupID uuid.UUID, ownerID int64, limit, offset int) ([]repository.AuditLog, error) {
+	if _, err := s.GetGroup(ctx, groupID, ownerID); err != nil {
+		return nil, err
+	}
 	return s.auditRepo.GetByGroup(ctx, groupID, limit, offset)
 }
 
@@ -247,14 +298,26 @@ func (s *BotService) GetFRGTransactions(ctx context.Context, userID int64, limit
 
 // Token encryption
 
-func EncryptToken(token string) ([]byte, error) {
-	key := []byte(os.Getenv("BOT_TOKEN_KEY"))
-	if len(key) != 32 {
-		padded := make([]byte, 32)
-		copy(padded, key)
-		key = padded
-	}
+var (
+	cryptoKey  []byte
+	cryptoOnce sync.Once
+)
 
+func getCryptoKey() []byte {
+	cryptoOnce.Do(func() {
+		key := []byte(os.Getenv("BOT_TOKEN_KEY"))
+		if len(key) != 32 {
+			padded := make([]byte, 32)
+			copy(padded, key)
+			key = padded
+		}
+		cryptoKey = key
+	})
+	return cryptoKey
+}
+
+func EncryptToken(token string) ([]byte, error) {
+	key := getCryptoKey()
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -274,13 +337,7 @@ func EncryptToken(token string) ([]byte, error) {
 }
 
 func DecryptToken(ciphertext []byte) (string, error) {
-	key := []byte(os.Getenv("BOT_TOKEN_KEY"))
-	if len(key) != 32 {
-		padded := make([]byte, 32)
-		copy(padded, key)
-		key = padded
-	}
-
+	key := getCryptoKey()
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return "", err

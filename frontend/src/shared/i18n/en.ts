@@ -344,7 +344,9 @@ export const dict = {
     menuQuiet: 'Quiet hours',
     menuMandatory: 'Mandatory membership',
     menuCustom: 'Custom messages',
-    menuAnalytics: 'Analytics'
+    menuAnalytics: 'Analytics',
+    noData: 'No data available',
+    noActivity: 'No activity found'
   },
   error: {
     title: 'Something went wrong',

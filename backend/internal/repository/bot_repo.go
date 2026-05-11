@@ -222,7 +222,6 @@ func (r *BotRepo) GetBotByChatID(ctx context.Context, chatID int64) (*ManagedBot
 	if r.db == nil || r.db.Pool == nil {
 		return nil, fmt.Errorf("no database connection")
 	}
-	// Note: chatID here usually refers to the group's chat ID, we need to find which bot manages it
 	query := `SELECT b.id, b.owner_user_id, b.bot_token_encrypted, b.bot_username, b.bot_name, b.bot_id, b.status, b.created_at, b.updated_at
 		FROM managed_bots b
 		JOIN managed_groups g ON g.bot_id = b.id
@@ -235,4 +234,31 @@ func (r *BotRepo) GetBotByChatID(ctx context.Context, chatID int64) (*ManagedBot
 		return nil, fmt.Errorf("bot not found for group")
 	}
 	return &b, err
+}
+
+func (r *BotRepo) GetAllActiveGroups(ctx context.Context) ([]ManagedGroup, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, nil
+	}
+	query := `SELECT id, bot_id, chat_id, chat_title, chat_type, members_count, subscription_status, trial_ends_at, paid_until, created_at, updated_at
+		FROM managed_groups`
+	rows, err := r.db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var groups []ManagedGroup
+	for rows.Next() {
+		var g ManagedGroup
+		err := rows.Scan(
+			&g.ID, &g.BotID, &g.ChatID, &g.ChatTitle, &g.ChatType, &g.MembersCount,
+			&g.SubscriptionStatus, &g.TrialEndsAt, &g.PaidUntil, &g.CreatedAt, &g.UpdatedAt,
+		)
+		if err != nil {
+			continue
+		}
+		groups = append(groups, g)
+	}
+	return groups, nil
 }

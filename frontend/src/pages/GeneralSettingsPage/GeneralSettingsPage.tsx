@@ -9,7 +9,7 @@ import { ToggleSwitch, SelectField, SettingsSection } from '@/shared/ui/settings
 import { groupApi } from '@/shared/api/bot-management.js';
 
 interface GeneralConfig {
-  timeZone: string;
+  timezone: string;
   welcomeMessage: boolean;
   warningMessage: boolean;
   autoDeleteBot: boolean;
@@ -26,7 +26,7 @@ interface GeneralConfig {
 }
 
 const defaultConfig: GeneralConfig = {
-  timeZone: 'UTC',
+  timezone: 'UTC',
   welcomeMessage: true,
   warningMessage: true,
   autoDeleteBot: false,
@@ -39,7 +39,7 @@ const defaultConfig: GeneralConfig = {
   autoWarning: true,
   warningThreshold: 3,
   warningRetention: 7,
-  warningFinalPenalty: 'mute24h',
+  warningFinalPenalty: 'mute_24h',
 };
 
 export const GeneralSettingsPage: Component = () => {
@@ -137,8 +137,8 @@ export const GeneralSettingsPage: Component = () => {
           <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
             <SelectField 
               label={t('generalSettings.timeZone')}
-              value={config.timeZone}
-              onChange={(v) => updateField('timeZone', v)}
+              value={config.timezone}
+              onChange={(v) => updateField('timezone', v)}
               options={[
                 { value: 'UTC', label: 'UTC (GMT+0)' },
                 { value: 'Europe/Moscow', label: 'Europe/Moscow (GMT+3)' },
