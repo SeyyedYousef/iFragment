@@ -6,10 +6,9 @@ import (
 )
 
 // T retrieves a translated string by key and replaces placeholders.
-func T(lang, key string, args ...interface{}) string {
+func T(lang, key string, vars ...interface{}) string {
 	dict := getDict(lang)
 	
-	// Support nested keys like "generalSettings.title"
 	parts := strings.Split(key, ".")
 	var val interface{} = dict
 	
@@ -24,15 +23,24 @@ func T(lang, key string, args ...interface{}) string {
 	
 	str, ok := val.(string)
 	if !ok {
-		// Fallback to English if key not found
 		if lang != "en" {
-			return T("en", key, args...)
+			return T("en", key, vars...)
 		}
 		return key
 	}
 	
-	// Replace positional args if any (simple fmt-like replacement)
-	for i, arg := range args {
+	// Support Named Placeholders (map[string]interface{})
+	if len(vars) > 0 {
+		if vm, ok := vars[0].(map[string]interface{}); ok {
+			for k, v := range vm {
+				placeholder := "{" + k + "}"
+				str = strings.ReplaceAll(str, placeholder, fmt.Sprintf("%v", v))
+			}
+		}
+	}
+
+	// Fallback to Positional Placeholders {arg0}, {arg1}, etc.
+	for i, arg := range vars {
 		placeholder := fmt.Sprintf("{arg%d}", i)
 		str = strings.ReplaceAll(str, placeholder, fmt.Sprintf("%v", arg))
 	}
@@ -83,6 +91,17 @@ var enDict = map[string]interface{}{
 		"admin_revoked":   "⚠️ *Permissions Revoked*\n\nMy administrator rights in \"{arg0}\" have been revoked. I can no longer protect the group.",
 		"spam_attack":     "🚨 *SPAM ATTACK DETECTED*\n\nMassive spam wave detected! I have automatically switched to High-Security mode for 5 minutes.",
 	},
+	"notifications": map[string]interface{}{
+		"expiry_3d":           "⏰ Subscription for group \"{group}\" ends in 3 days. Renew now to avoid service interruption.",
+		"expiry_24h":          "⏳ Only 24 hours left until service for \"{group}\" is suspended!",
+		"service_ended":       "🔒 Service for group \"{group}\" has been temporarily disabled.",
+		"mass_spam":           "🚨 Group \"{group}\" is currently under a mass spam attack!",
+		"bot_removed":         "😢 The bot was removed from group \"{group}\". If this was a mistake, please add it back.",
+		"admin_revoked":       "⚠️ The bot was demoted from admin in group \"{group}\".",
+		"admin_revoked_group": "⚠️ I am no longer an admin; I cannot protect the group.",
+		"payment_success":     "✅ Payment received. Subscription extended until {date}. Thank you!",
+		"milestone":           "🎉 Group has reached the milestone of {n} messages!",
+	},
 	"generalSettings": map[string]interface{}{
 		"welcomeMessage": "Welcome Message",
 		"warningMessage": "Warning Message",
@@ -104,6 +123,17 @@ var faDict = map[string]interface{}{
 		"not_admin":       "⚠️ *دسترسی ادمین موجود نیست*\n\nمن دیگر در این گروه ادمین نیستم. لطفاً دسترسی‌های مرا برای ادامه محافظت بازیابی کنید.",
 		"admin_revoked":   "⚠️ *سلب دسترسی ادمین*\n\nدسترسی‌های مدیریت من در گروه «{arg0}» سلب شده است. دیگر نمی‌توانم از گروه محافظت کنم.",
 		"spam_attack":     "🚨 *حمله اسپم شناسایی شد*\n\nموج شدیدی از اسپم شناسایی شد! من به مدت ۵ دقیقه به حالت امنیتی بالا (High-Security) تغییر وضعیت دادم.",
+	},
+	"notifications": map[string]interface{}{
+		"expiry_3d":           "⏰ اعتبار گروه «{group}» تا ۳ روز دیگر تمام می‌شود. برای تمدید اقدام کنید.",
+		"expiry_24h":          "⏳ تنها ۲۴ ساعت تا قطع خدمات گروه «{group}» باقی است!",
+		"service_ended":       "🔒 سرویس گروه «{group}» موقتأ غیرفعال شد.",
+		"mass_spam":           "🚨 گروه «{group}» در حال هدف حمله اسپم است!",
+		"bot_removed":         "😢 ربات از گروه «{group}» حذف شد. اگر اشتباه بود، دوباره اضافه‌اش کنید.",
+		"admin_revoked":       "⚠️ ربات از مقام ادمینی در گروه «{group}» برکنار شد.",
+		"admin_revoked_group": "⚠️ من ادمین نیستم؛ نمی‌توانم دفاع کنم.",
+		"payment_success":     "✅ پرداخت دریافت شد. اعتبار تا {date} تمدید شد. سپاسگزاریم!",
+		"milestone":           "🎉 گروه به نقطه عطف {n} پیام رسید!",
 	},
 	"generalSettings": map[string]interface{}{
 		"welcomeMessage": "پیام خوش‌آمدگویی",
@@ -127,6 +157,17 @@ var ruDict = map[string]interface{}{
 		"admin_revoked":   "⚠️ *Права отозваны*\n\nМои права администратора в «{arg0}» были отозваны. Я больше не могу защищать группу.",
 		"spam_attack":     "🚨 *ОБНАРУЖЕНА СПАМ-АТАКА*\n\nОбнаружена массированная волна спама! Я автоматически перешел в режим повышенной безопасности на 5 минут.",
 	},
+	"notifications": map[string]interface{}{
+		"expiry_3d":           "⏰ Подписка группы «{group}» истекает через 3 дня. Продлите сейчас, чтобы избежать перебоев.",
+		"expiry_24h":          "⏳ Осталось всего 24 часа до приостановки обслуживания группы «{group}»!",
+		"service_ended":       "🔒 Обслуживание группы «{group}» временно отключено.",
+		"mass_spam":           "🚨 Группа «{group}» подвергается массовой спам-атаке!",
+		"bot_removed":         "😢 Бот был удален из группы «{group}». Если это ошибка, добавьте его снова.",
+		"admin_revoked":       "⚠️ Бот был снят с должности администратора в группе «{group}».",
+		"admin_revoked_group": "⚠️ Я больше не админ; я не могу защищать группу.",
+		"payment_success":     "✅ Оплата получена. Подписка продлена до {date}. Спасибо!",
+		"milestone":           "🎉 Группа достигла отметки в {n} сообщений!",
+	},
 	"generalSettings": map[string]interface{}{
 		"welcomeMessage": "Приветствие",
 		"warningMessage": "Сообщение с предупреждением",
@@ -148,6 +189,17 @@ var zhDict = map[string]interface{}{
 		"not_admin":       "⚠️ *缺少管理员权限*\n\n我不再是该群组的管理员。请恢复我的权限以继续保护。",
 		"admin_revoked":   "⚠️ *权限被撤销*\n\n我在“{arg0}”中的管理员权限已被撤销。我无法再保护该群组。",
 		"spam_attack":     "🚨 *检测到垃圾邮件攻击*\n\n检测到大规模垃圾邮件浪潮！我已自动切换到高安全模式，持续 5 分钟。",
+	},
+	"notifications": map[string]interface{}{
+		"expiry_3d":           "⏰ 群组“{group}”的订阅将在 3 天内结束。请立即续订以避免服务中断。",
+		"expiry_24h":          "⏳ 距离群组“{group}”的服务暂停仅剩 24 小时！",
+		"service_ended":       "🔒 群组“{group}”的服务已暂时禁用。",
+		"mass_spam":           "🚨 群组“{group}”正遭受大规模垃圾邮件攻击！",
+		"bot_removed":         "😢 机器人已从群组“{group}”中移除。如果这是个错误，请重新添加。",
+		"admin_revoked":       "⚠️ 机器人已在群组“{group}”中被取消管理员身份。",
+		"admin_revoked_group": "⚠️ 我不再是管理员；无法保护群组。",
+		"payment_success":     "✅ 已收到付款。订阅已延长至 {date}。谢谢！",
+		"milestone":           "🎉 群组已达到 {n} 条消息的里程碑！",
 	},
 	"generalSettings": map[string]interface{}{
 		"welcomeMessage": "欢迎消息",

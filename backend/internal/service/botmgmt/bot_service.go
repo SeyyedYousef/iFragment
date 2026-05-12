@@ -10,12 +10,12 @@ import (
 	"io"
 	"log"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"ifragment-backend/internal/client/telegram"
+	"ifragment-backend/internal/i18n"
 	"ifragment-backend/internal/repository"
 )
 
@@ -136,9 +136,9 @@ func (s *BotService) sendExpirationNotice(ctx context.Context, g repository.Mana
 	msg := i18n.T(lang, "notifications."+template, vars)
 	
 	// Send to group
-	_ = tg.SendMessage(g.ChatID, msg, nil)
+	_ = tg.SendMessage(g.ChatID, msg, nil, nil)
 	// Send to owner PV
-	_ = tg.SendMessage(bot.OwnerUserID, msg, nil)
+	_ = tg.SendMessage(bot.OwnerUserID, msg, nil, nil)
 }
 
 // Bot Operations

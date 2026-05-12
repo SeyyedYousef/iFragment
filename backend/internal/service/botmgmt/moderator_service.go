@@ -18,6 +18,8 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/singleflight"
+	"log"
+	"net/http"
 )
 
 // ModeratorService handles real-time group moderation logic.
@@ -89,7 +91,7 @@ func (s *ModeratorService) checkAntiRaid(ctx context.Context, groupID uuid.UUID)
 			if !qh.EmergencyLock {
 				qh.EmergencyLock = true
 				raw, _ := json.Marshal(qh)
-				_ = s.settingsRepo.UpdateSettings(ctx, groupID, "quiet_hours", raw, settings.Version)
+				_, _ = s.settingsRepo.UpdateCategory(ctx, groupID, "quiet_hours", raw, 0, settings.Version)
 				log.Printf("🚨 ANTI-RAID TRIGGERED for group %s. Lockdown enabled.", groupID)
 			}
 		}
@@ -291,6 +293,14 @@ func (s *ModeratorService) checkCAS(ctx context.Context, userID int64) bool {
 		return result.OK
 	}
 	return false
+}
+
+func (s *ModeratorService) AnswerCallbackQuery(ctx context.Context, bot *repository.ManagedBot, queryID string, text string, showAlert bool) error {
+	tg, err := s.GetTelegramClient(ctx, bot)
+	if err != nil {
+		return err
+	}
+	return tg.AnswerCallbackQuery(queryID, text, showAlert)
 }
 
 func (s *ModeratorService) GetTelegramClient(ctx context.Context, bot *repository.ManagedBot) (*telegram.BotAPIClient, error) {
