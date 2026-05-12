@@ -1,9 +1,10 @@
-import { Component, createSignal, createResource, For, Show, onMount, onCleanup } from 'solid-js';
+import { Component, createSignal, createResource, For, Show, onMount, onCleanup, Suspense } from 'solid-js';
 import { createStore, reconcile } from 'solid-js/store';
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Motion } from '@motionone/solid';
 import { t } from '@/shared/i18n/index.js';
+import { showToast } from '@/shared/ui/toast.js';
 import { InlineButtonField } from '@/shared/ui/settings-controls.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 import { groupApi } from '@/shared/api/bot-management.js';
@@ -42,13 +43,14 @@ export const CustomTextsPage: Component = () => {
 
   const [cfg, setCfg] = createStore<CustomTextsConfig>({ ...defaults });
 
-  const [settingsData] = createResource(
+  const [_, { refetch }] = createResource(
     () => params.id,
     async (groupId) => {
       const data = await groupApi.getSettings(groupId);
       setSettingsVersion(data.version);
       const ct = (data.custom_texts || {}) as Partial<CustomTextsConfig>;
       setCfg(reconcile({ ...defaults, ...ct }));
+      setIsDirty(false);
       return data;
     }
   );
@@ -76,9 +78,11 @@ export const CustomTextsPage: Component = () => {
       const result = await groupApi.updateSettings(params.id, 'custom_texts', cfg as any, settingsVersion());
       setSettingsVersion(result.version);
       setIsDirty(false);
+      showToast(t('botManage.subscriptionSuccess'), 'success');
       navigate(`/group/${params.id}`);
       backButton.hide();
     } catch (e) {
+      showToast(t('error.title'), 'error');
       hapticFeedback.notificationOccurred('error');
     } finally {
       setIsSaving(false);
@@ -120,13 +124,7 @@ export const CustomTextsPage: Component = () => {
         activeTab="custom" 
       />
 
-      <Show when={settingsData.loading}>
-        <div class="flex items-center justify-center py-20">
-          <span class="w-6 h-6 border-2 border-[#3390ec]/30 border-t-[#3390ec] rounded-full animate-spin" />
-        </div>
-      </Show>
-
-      <Show when={!settingsData.loading}>
+      <Suspense fallback={<div class="flex items-center justify-center py-20"><span class="w-6 h-6 border-2 border-[#3390ec]/30 border-t-[#3390ec] rounded-full animate-spin" /></div>}>
         <div class="p-5 flex flex-col gap-5">
 
           {/* Info Banner for Placeholders */}
@@ -311,23 +309,32 @@ export const CustomTextsPage: Component = () => {
               onRemove={(id) => update('inlineButtons', cfg.inlineButtons.filter((b) => b.id !== id))}
             />
           </Motion.div>
+        </div>
+      </Suspense>
 
+      {/* Floating Action Bar */}
+      <Show when={isDirty()}>
+        <div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#0f1014] via-[#0f1014]/90 to-transparent z-40 flex gap-3">
+          <button 
+            onClick={() => refetch()}
+            disabled={isSaving()}
+            class="flex-1 h-14 bg-[#1c1c1c] text-[#ff3b30] border border-[#ff3b30]/20 rounded-2xl font-bold text-[15px] transition-all flex items-center justify-center gap-2 hover:bg-[#ff3b30]/10"
+          >
+            {t('common.cancel')}
+            <span class="material-symbols-outlined text-[18px]">close</span>
+          </button>
+          <button 
+            onClick={handleSave}
+            disabled={isSaving()}
+            class="flex-[2] h-14 bg-[#3390ec] hover:bg-[#2b7bc9] text-white rounded-2xl font-bold text-[16px] shadow-[0_10px_25_rgba(51,144,236,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-40"
+          >
+            <Show when={!isSaving()} fallback={<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>}>
+              {t('generalSettings.saveSettings')}
+              <span class="material-symbols-outlined text-[20px]">save</span>
+            </Show>
+          </button>
         </div>
       </Show>
-
-      {/* Floating Save Button */}
-      <div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#0f1014] via-[#0f1014]/90 to-transparent z-30">
-        <button 
-          onClick={handleSave}
-          disabled={isSaving() || !isDirty()}
-          class="w-full h-14 bg-[#3390ec] hover:bg-[#2b7bc9] text-white rounded-2xl font-bold text-[16px] shadow-[0_10px_25px_rgba(51,144,236,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-40"
-        >
-          <Show when={!isSaving()} fallback={<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>}>
-            {t('generalSettings.saveSettings')}
-            <span class="material-symbols-outlined text-[20px]">save</span>
-          </Show>
-        </button>
-      </div>
     </div>
   );
 };

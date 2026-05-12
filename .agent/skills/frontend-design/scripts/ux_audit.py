@@ -118,7 +118,11 @@ class UXAuditor:
 
         # --- 1. PSYCHOLOGY LAWS ---
         # Hick's Law
-        nav_items = len(re.findall(r'<NavLink|<Link|<a\s+href|nav-item', content, re.IGNORECASE))
+        nav_items = len(re.findall(r'<NavLink|<Link\b|<a\s+href|nav-item', content, re.IGNORECASE))
+        # Exclude <link tags in HTML
+        if filepath.endswith('.html'):
+            nav_items = len(re.findall(r'<a\s+href|nav-item', content, re.IGNORECASE))
+        
         if nav_items > 7:
             self.issues.append(f"[Hick's Law] {filename}: {nav_items} nav items (Max 7)")
         
@@ -208,8 +212,9 @@ class UXAuditor:
             self.warnings.append(f"[Cognitive Load] {filename}: High visual noise detected. Many colors and borders increase cognitive load.")
 
         # Familiar patterns
-        if has_form:
-            has_standard_labels = bool(re.search(r'<label|placeholder|aria-label', content, re.IGNORECASE))
+        has_actual_input = bool(re.search(r'<input|<select|<textarea', content, re.IGNORECASE))
+        if has_actual_input:
+            has_standard_labels = bool(re.search(r'<label|placeholder|aria-label|htmlFor|for=', content, re.IGNORECASE))
             if not has_standard_labels:
                 self.issues.append(f"[Cognitive Load] {filename}: Form inputs without labels. Use <label> for accessibility and clarity.")
 
@@ -253,13 +258,15 @@ class UXAuditor:
         for font in font_faces: font_families.add(font.strip().lower())
         for font in google_fonts:
             for f in font.replace('+', ' ').split('|'):
-                font_families.add(f.split(':')[0].strip().lower())
+                name = f.split(':')[0].strip().lower()
+                if name not in {'material symbols outlined', 'material icons'}:
+                    font_families.add(name)
         for family in font_family_css:
             # Extract first font from stack
-            first_font = family.split(',')[0].strip().strip('"\'')
+            first_font = family.split(',')[0].strip().strip('"\'').lower()
 
-            if first_font.lower() not in {'sans-serif', 'serif', 'monospace', 'cursive', 'fantasy', 'system-ui', 'inherit', 'arial', 'georgia', 'times new roman', 'courier new', 'verdana', 'helvetica', 'tahoma'}:
-                font_families.add(first_font.lower())
+            if first_font not in {'sans-serif', 'serif', 'monospace', 'cursive', 'fantasy', 'system-ui', 'inherit', 'arial', 'georgia', 'times new roman', 'courier new', 'verdana', 'helvetica', 'tahoma', 'material symbols outlined', 'material icons'}:
+                font_families.add(first_font)
 
         if len(font_families) > 3:
             self.issues.append(f"[Typography] {filename}: {len(font_families)} font families detected. Limit to 2-3 for cohesion.")

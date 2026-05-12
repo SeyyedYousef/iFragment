@@ -107,7 +107,7 @@ export const MarketView: Component = () => {
             </div>
           </div>
           <div class="flex items-start gap-3">
-            <span class="material-symbols-outlined text-[#8b5cf6] mt-0.5" style={{ 'font-variation-settings': '"FILL" 1' }}>admin_panel_settings</span>
+            <span class="material-symbols-outlined text-[#3390ec] mt-0.5" style={{ 'font-variation-settings': '"FILL" 1' }}>admin_panel_settings</span>
             <div>
               <div class="text-white font-semibold text-xs">{t('airdrop.market.utilAdmin')}</div>
               <div class="text-[#8e8e93] text-[10px] leading-tight mt-0.5">{t('airdrop.market.utilAdminDesc')}</div>

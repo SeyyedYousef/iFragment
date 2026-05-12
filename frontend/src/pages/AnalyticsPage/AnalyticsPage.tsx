@@ -21,6 +21,28 @@ export const AnalyticsPage: Component = () => {
 
   const changeDays = (d: number) => { setDays(d); hapticFeedback.selectionChanged(); };
 
+  const downloadCSV = () => {
+    const d = data();
+    if (!d) return;
+    hapticFeedback.impactOccurred('medium');
+    
+    let csv = "Date,Growth,Activity\n";
+    const maxLength = Math.max(d.growth.length, d.activity.length);
+    for (let i = 0; i < maxLength; i++) {
+      const date = d.growth[i]?.date || d.activity[i]?.date || "";
+      const growth = d.growth[i]?.value || 0;
+      const activity = d.activity[i]?.value || 0;
+      csv += `${date},${growth},${activity}\n`;
+    }
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('href', url);
+    a.setAttribute('download', `analytics_${params.id}_${days()}d.csv`);
+    a.click();
+  };
+
   const renderChart = (metrics: DailyMetric[], color: string, label: string) => {
     if (!metrics || metrics.length === 0) return (
       <div class="flex items-center justify-center py-8"><span class="text-[13px] text-[#555]">No data yet</span></div>
@@ -31,13 +53,13 @@ export const AnalyticsPage: Component = () => {
         <span class="text-[13px] font-bold text-[#8e8e93]">{label}</span>
         <div class="flex items-end gap-1 h-32">
           <For each={metrics}>{(m) => {
-            const h = Math.max(4, (m.value / maxVal) * 100);
+            const h = Math.max(8, (m.value / maxVal) * 100);
             return (
               <div class="flex-1 flex flex-col items-center gap-1 group relative">
-                <div class="absolute -top-8 bg-[#2c2c2e] text-white text-[10px] font-bold px-2 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                  {m.value} · {m.date.slice(5)}
+                <div class="absolute -top-10 bg-[#2c2c2e] border border-[#3a3a3c] text-white text-[11px] font-bold px-2 py-1.5 rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none transform -translate-y-1 group-hover:translate-y-0 whitespace-nowrap z-50">
+                  {m.value.toLocaleString()} <span class="text-[#8e8e93] font-medium ml-1">({m.date.slice(5)})</span>
                 </div>
-                <div class="w-full rounded-t-lg transition-all hover:opacity-80" style={{ height: `${h}%`, background: color }}/>
+                <div class="w-full rounded-full transition-all duration-300 hover:brightness-125" style={{ height: `${h}%`, background: `linear-gradient(to top, ${color}cc, ${color})` }}/>
               </div>
             );
           }}</For>
@@ -52,9 +74,19 @@ export const AnalyticsPage: Component = () => {
 
   const statCards = () => {
     const s = data()?.summary;
+    const growth = data()?.growth || [];
+    const activity = data()?.activity || [];
+    
+    const calcTrend = (arr: DailyMetric[]) => {
+      if (arr.length < 2) return 0;
+      const first = arr[0].value;
+      const last = arr[arr.length - 1].value;
+      return last - first;
+    };
+
     return [
-      { icon: 'person_add', label: t('analyticsSettings.newMembers'), value: s?.new_members ?? 0, color: '#34c759', change: s?.members_change ?? 0 },
-      { icon: 'chat_bubble', label: t('analyticsSettings.totalMessages'), value: s?.total_messages ?? 0, color: '#3390ec', change: 0 },
+      { icon: 'person_add', label: t('analyticsSettings.newMembers'), value: s?.new_members ?? 0, color: '#34c759', change: calcTrend(growth) },
+      { icon: 'chat_bubble', label: t('analyticsSettings.totalMessages'), value: s?.total_messages ?? 0, color: '#3390ec', change: calcTrend(activity) },
       { icon: 'calculate', label: t('analyticsSettings.avgPerDay'), value: s ? Math.round(s.total_messages / Math.max(days(), 1)) : 0, color: '#ff9f0a', change: 0 },
       { icon: 'block', label: 'Spam Blocked', value: s?.spam_blocked ?? 0, color: '#ff3b30', change: 0 },
       { icon: 'people', label: 'Active Users', value: s?.active_users ?? 0, color: '#af52de', change: 0 },
@@ -70,9 +102,18 @@ export const AnalyticsPage: Component = () => {
             <h1 class="text-2xl font-black text-white">{t('analyticsSettings.title')}</h1>
             <p class="text-[13px] font-medium text-[#8e8e93]">{t('analyticsSettings.subtitle')}</p>
           </div>
-          <button onClick={()=>setIsMenuOpen(true)} class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a]">
-            <span class="material-symbols-outlined text-white text-[20px]">menu</span>
-          </button>
+          <div class="flex items-center gap-3">
+            <button 
+              onClick={downloadCSV} 
+              class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] transition-colors"
+              title="Export CSV"
+            >
+              <span class="material-symbols-outlined text-[#3390ec] text-[20px]">download</span>
+            </button>
+            <button onClick={()=>setIsMenuOpen(true)} class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a]">
+              <span class="material-symbols-outlined text-white text-[20px]">menu</span>
+            </button>
+          </div>
         </div>
         {/* Date Range */}
         <div class="flex gap-2 mt-4">

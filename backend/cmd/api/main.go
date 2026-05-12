@@ -151,6 +151,9 @@ func main() {
 	marketplaceService := botmgmt.NewMarketplaceService(frgRepo)
 	moderatorService := botmgmt.NewModeratorService(settingsRepo, botRepo, auditRepo, analyticsRepo, cache)
 
+	// 🚀 Start Background Expiration Worker
+	botService.StartBackgroundTasks(ctx)
+
 	// Initialize Handlers
 	usernameHandler := handler.NewUsernameHandler(aggregatorService, reportService, fragClient, mtprotoClient, cache)
 	premiumHandler := handler.NewPremiumHandler(reportService, paymentService)
@@ -166,7 +169,7 @@ func main() {
 			w.Write([]byte(`{"status": "ok"}`))
 		})
 
-		r.Post("/webhook/telegram", webhookHandler.HandleTelegramWebhook)
+		r.Post("/webhook/telegram/{botID}", webhookHandler.HandleTelegramWebhook)
 		r.With(middleware.ValidateTelegramInitData).Post("/auth/token", authHandler.IssueToken)
 
 		r.Route("/usernames", func(r chi.Router) {

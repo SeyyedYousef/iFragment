@@ -1,9 +1,10 @@
-import { Component, createSignal, createResource, For, Show, onMount, onCleanup } from 'solid-js';
+import { Component, createSignal, createResource, For, Show, onMount, onCleanup, Suspense } from 'solid-js';
 import { createStore, reconcile } from 'solid-js/store';
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Motion } from '@motionone/solid';
 import { t } from '@/shared/i18n/index.js';
+import { showToast } from '@/shared/ui/toast.js';
 import { SettingsSection } from '@/shared/ui/settings-controls.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 import { groupApi } from '@/shared/api/bot-management.js';
@@ -41,13 +42,14 @@ export const QuietHoursPage: Component = () => {
 
   const [config, setConfig] = createStore<QuietHoursConfig>({ ...defaultConfig });
 
-  const [settingsData] = createResource(
+  const [_, { refetch }] = createResource(
     () => params.id,
     async (groupId) => {
       const data = await groupApi.getSettings(groupId);
       setSettingsVersion(data.version);
       const qh = (data.quiet_hours || {}) as Partial<QuietHoursConfig>;
       setConfig(reconcile({ ...defaultConfig, ...qh }));
+      setIsDirty(false);
       return data;
     }
   );
@@ -62,17 +64,32 @@ export const QuietHoursPage: Component = () => {
     onCleanup(() => off());
   });
 
+  const isTimeInPeriod = (time: string, start: string, end: string) => {
+    if (start < end) {
+      return time >= start && time <= end;
+    }
+    // Midnight wrap-around (e.g., 22:00 -> 08:00)
+    return time >= start || time <= end;
+  };
+
   const checkOverlaps = (periods: QuietPeriod[]) => {
     for (let i = 0; i < periods.length; i++) {
       for (let j = i + 1; j < periods.length; j++) {
         const a = periods[i], b = periods[j];
-        if (a.start < b.end && b.start < a.end) {
+        if (a.start === b.start || a.end === b.end) {
           setOverlapWarning(`Period overlaps!`);
           return;
         }
       }
     }
     setOverlapWarning('');
+  };
+
+  const isCurrentlyQuiet = () => {
+    if (config.emergencyLock) return true;
+    const now = new Date();
+    const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    return config.periods.some(p => isTimeInPeriod(currentTime, p.start, p.end));
   };
 
   const addPeriod = () => {
@@ -111,9 +128,11 @@ export const QuietHoursPage: Component = () => {
       const result = await groupApi.updateSettings(params.id, 'quiet_hours', config as any, settingsVersion());
       setSettingsVersion(result.version);
       setIsDirty(false);
+      showToast(t('botManage.subscriptionSuccess'), 'success');
       navigate(`/group/${params.id}`);
       backButton.hide();
     } catch (e) {
+      showToast(t('error.title'), 'error');
       hapticFeedback.notificationOccurred('error');
     } finally {
       setIsSaving(false);
@@ -155,14 +174,32 @@ export const QuietHoursPage: Component = () => {
         activeTab="quiet" 
       />
 
-      <Show when={settingsData.loading}>
-        <div class="flex items-center justify-center py-20">
-          <span class="w-6 h-6 border-2 border-[#3390ec]/30 border-t-[#3390ec] rounded-full animate-spin" />
-        </div>
-      </Show>
-
-      <Show when={!settingsData.loading}>
+      <Suspense fallback={<div class="flex items-center justify-center py-20"><span class="w-6 h-6 border-2 border-[#3390ec]/30 border-t-[#3390ec] rounded-full animate-spin" /></div>}>
         <div class="p-5 flex flex-col gap-5">
+          
+          {/* Current Status Preview */}
+          <Motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            class={`p-4 rounded-3xl border flex items-center justify-between ${
+              isCurrentlyQuiet() 
+                ? 'bg-[#ff3b30]/10 border-[#ff3b30]/30 text-[#ff3b30]' 
+                : 'bg-[#34c759]/10 border-[#34c759]/30 text-[#34c759]'
+            }`}
+          >
+            <div class="flex items-center gap-3">
+              <div class={`w-2.5 h-2.5 rounded-full animate-pulse ${isCurrentlyQuiet() ? 'bg-[#ff3b30]' : 'bg-[#34c759]'}`} />
+              <div class="flex flex-col">
+                <span class="text-[14px] font-black uppercase tracking-tight">
+                  {isCurrentlyQuiet() ? 'Group Locked' : 'Group Active'}
+                </span>
+                <span class="text-[11px] opacity-70 font-medium">Based on current server time ({new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})})</span>
+              </div>
+            </div>
+            <span class="material-symbols-outlined text-[20px]">
+              {isCurrentlyQuiet() ? 'lock' : 'lock_open'}
+            </span>
+          </Motion.div>
 
           {/* Emergency Lock */}
           <Motion.div 
@@ -203,75 +240,40 @@ export const QuietHoursPage: Component = () => {
             transition={{ delay: 0.3 }}
             class="flex flex-col gap-3"
           >
-            <div class="flex items-center justify-between px-1">
-              <div class="flex items-center gap-2">
-                <span class="material-symbols-outlined text-[#3390ec]">schedule</span>
-                <h2 class="text-[16px] font-bold text-white">{t('quietHoursSettings.quietPeriods')}</h2>
-              </div>
-              <button 
-                onClick={addPeriod}
-                class="flex items-center gap-1 text-[#3390ec] text-[13px] font-bold bg-[#3390ec]/10 px-3 py-1.5 rounded-full hover:bg-[#3390ec]/20 transition-colors"
-              >
-                <span class="material-symbols-outlined text-[16px]">add</span>
-                {t('quietHoursSettings.addPeriod')}
-              </button>
-            </div>
-
-            <Show when={overlapWarning()}>
-              <div class="bg-[#ff3b30]/10 border border-[#ff3b30]/30 text-[#ff3b30] text-[12px] font-bold rounded-xl p-3 flex items-center gap-2">
-                <span class="material-symbols-outlined text-[16px]">error</span>
-                {overlapWarning()}
-              </div>
-            </Show>
-
-            <div class="flex flex-col gap-3">
-              <For each={config.periods}>
-                {(period) => (
-                  <div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-3 relative overflow-hidden group">
-                    <div class="flex items-center justify-between">
-                      <span class="text-[14px] font-bold text-white">{t('quietHoursSettings.periodLabel')}</span>
-                      <button 
-                        onClick={() => removePeriod(period.id)}
-                        class="w-8 h-8 rounded-full bg-[#ff3b30]/10 text-[#ff3b30] flex items-center justify-center hover:bg-[#ff3b30]/20 transition-colors"
-                      >
-                        <span class="material-symbols-outlined text-[18px]">delete</span>
-                      </button>
-                    </div>
-                    
-                    <div class="grid grid-cols-2 gap-3">
-                      <div class="flex flex-col gap-1.5">
-                        <label class="text-[12px] font-bold text-[#8e8e93]">{t('quietHoursSettings.startTime')}</label>
-                        <input 
-                          type="time" 
-                          value={period.start} 
-                          onInput={(e) => updatePeriod(period.id, 'start', e.currentTarget.value)} 
-                          class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#3390ec]" 
-                        />
-                      </div>
-                      <div class="flex flex-col gap-1.5">
-                        <label class="text-[12px] font-bold text-[#8e8e93]">{t('quietHoursSettings.endTime')}</label>
-                        <input 
-                          type="time" 
-                          value={period.end} 
-                          onInput={(e) => updatePeriod(period.id, 'end', e.currentTarget.value)} 
-                          class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#3390ec]" 
-                        />
-                      </div>
-                    </div>
+            <For each={config.periods}>
+              {(period) => (
+                <div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex items-center justify-between">
+                  <div class="flex items-center gap-4">
+                    <input 
+                      type="time" 
+                      value={period.start} 
+                      onChange={(e) => updatePeriod(period.id, 'start', e.currentTarget.value)}
+                      class="bg-[#0f1014] border border-[#2a2a2a] rounded-xl px-3 py-2 text-[14px] text-white focus:border-[#3390ec] outline-none"
+                    />
+                    <span class="text-[#8e8e93]">→</span>
+                    <input 
+                      type="time" 
+                      value={period.end} 
+                      onChange={(e) => updatePeriod(period.id, 'end', e.currentTarget.value)}
+                      class="bg-[#0f1014] border border-[#2a2a2a] rounded-xl px-3 py-2 text-[14px] text-white focus:border-[#3390ec] outline-none"
+                    />
                   </div>
-                )}
-              </For>
-              
-              <Show when={config.periods.length === 0}>
-                <div class="bg-[#1c1c1c] border border-dashed border-[#2a2a2a] rounded-3xl p-6 flex flex-col items-center justify-center gap-2">
-                  <span class="material-symbols-outlined text-[#8e8e93] text-[32px]">event_busy</span>
-                  <span class="text-[13px] text-[#8e8e93] font-medium text-center">{t('quietHoursSettings.noPeriods')}</span>
+                  <button onClick={() => removePeriod(period.id)} class="text-[#ff3b30] p-2">
+                    <span class="material-symbols-outlined">delete</span>
+                  </button>
                 </div>
-              </Show>
-            </div>
+              )}
+            </For>
+            <button onClick={addPeriod} class="w-full py-4 border-2 border-dashed border-[#2a2a2a] rounded-3xl text-[#8e8e93] font-bold flex items-center justify-center gap-2 hover:border-[#3390ec] hover:text-[#3390ec] transition-all">
+              <span class="material-symbols-outlined">add</span>
+              {t('quietHoursSettings.addPeriod')}
+            </button>
+            <Show when={overlapWarning()}>
+              <p class="text-[#ff3b30] text-[12px] font-bold text-center">{overlapWarning()}</p>
+            </Show>
           </Motion.div>
 
-          {/* Messaging */}
+          {/* Notifications */}
           <Motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -286,23 +288,32 @@ export const QuietHoursPage: Component = () => {
               onEditText={() => navigate(`/group/${params.id}/settings/custom-texts`)}
             />
           </Motion.div>
+        </div>
+      </Suspense>
 
+      {/* Floating Action Bar */}
+      <Show when={isDirty()}>
+        <div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#0f1014] via-[#0f1014]/90 to-transparent z-40 flex gap-3">
+          <button 
+            onClick={() => refetch()}
+            disabled={isSaving()}
+            class="flex-1 h-14 bg-[#1c1c1c] text-[#ff3b30] border border-[#ff3b30]/20 rounded-2xl font-bold text-[15px] transition-all flex items-center justify-center gap-2 hover:bg-[#ff3b30]/10"
+          >
+            {t('common.cancel')}
+            <span class="material-symbols-outlined text-[18px]">close</span>
+          </button>
+          <button 
+            onClick={handleSave}
+            disabled={isSaving()}
+            class="flex-[2] h-14 bg-[#3390ec] hover:bg-[#2b7bc9] text-white rounded-2xl font-bold text-[16px] shadow-[0_10px_25_rgba(51,144,236,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-40"
+          >
+            <Show when={!isSaving()} fallback={<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>}>
+              {t('generalSettings.saveSettings')}
+              <span class="material-symbols-outlined text-[20px]">save</span>
+            </Show>
+          </button>
         </div>
       </Show>
-
-      {/* Floating Save Button */}
-      <div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#0f1014] via-[#0f1014]/90 to-transparent z-30">
-        <button 
-          onClick={handleSave}
-          disabled={isSaving() || !isDirty()}
-          class="w-full h-14 bg-[#3390ec] hover:bg-[#2b7bc9] text-white rounded-2xl font-bold text-[16px] shadow-[0_10px_25px_rgba(51,144,236,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-40"
-        >
-          <Show when={!isSaving()} fallback={<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>}>
-            {t('generalSettings.saveSettings')}
-            <span class="material-symbols-outlined text-[20px]">save</span>
-          </Show>
-        </button>
-      </div>
     </div>
   );
 };

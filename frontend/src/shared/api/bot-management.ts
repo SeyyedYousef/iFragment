@@ -29,12 +29,29 @@ export interface ManagedGroup {
 
 export interface GroupSettings {
   group_id: string;
-  general: Record<string, unknown>;
-  content_restrictions: Record<string, unknown>;
-  limits: Record<string, unknown>;
-  quiet_hours: Record<string, unknown>;
-  mandatory_membership: Record<string, unknown>;
-  custom_texts: Record<string, unknown>;
+  general: Partial<{
+    language: string;
+    timezone: string;
+    link_protection: boolean;
+    welcome_message: boolean;
+  }>;
+  content_restrictions: Record<string, any>;
+  limits: Partial<{
+    minMessageLength: number;
+    maxMessageLength: number;
+    floodMessages: number;
+    floodWindow: number;
+    duplicateCount: number;
+    duplicateWindow: number;
+  }>;
+  quiet_hours: Partial<{
+    emergencyLock: boolean;
+    adminOverride: boolean;
+    sendNotifications: boolean;
+    periods: Array<{ id: string; start: string; end: string }>;
+  }>;
+  mandatory_membership: Record<string, any>;
+  custom_texts: Record<string, any>;
   version: number;
   updated_at: string;
   updated_by?: number;

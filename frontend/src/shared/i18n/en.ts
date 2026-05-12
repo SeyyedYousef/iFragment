@@ -2,7 +2,9 @@ export const dict = {
   common: {
     close: 'Close',
     back: 'Back',
-    loading: 'Loading...'
+    loading: 'Loading...',
+    cancel: 'Cancel',
+    save: 'Save'
   },
   hero: {
     title: 'Precise. Bold. Professional.',
@@ -397,7 +399,17 @@ export const dict = {
     optMute24h: 'Mute (24 Hours)',
     optKick: 'Kick (Remove)',
     optBan: 'Ban Permanently',
-    editText: 'Edit text in Custom Messages'
+    editText: 'Edit text in Custom Messages',
+    casProtection: 'CAS Protection (Combot)',
+    casProtectionDesc: 'Automatically ban users who are in the global Combot Anti-Spam blacklist.',
+    antiRaid: 'Anti-Raid System',
+    antiRaidDesc: 'Protects the group from sudden automated join attacks (raids).',
+    antiRaidThreshold: 'Threshold',
+    antiRaidAction: 'Action',
+    antiRaidLockdown: 'Lockdown',
+    antiRaidAlert: 'Alert Admins',
+    antiRaidOff: 'Off',
+    antiRaidNote: 'Set threshold to 0 to disable. Lockdown will enable emergency lock automatically.'
   },
   contentRestrictions: {
     title: 'Content Restrictions',
@@ -523,8 +535,8 @@ export const dict = {
     forceJoin: 'Force Join Channels',
     reqChannels: 'Required Channels',
     reqChannelsDesc: 'Users must join these channels to unlock chat privileges.',
-    verification: 'Real-time Verification',
-    verificationDesc: 'The bot checks the user\'s membership status instantly via API before allowing them to post any message.',
+    verification: 'User Captcha (Anti-Bot)',
+    verificationDesc: 'Forces new members to click a verification button before they can chat. Effectively blocks 99% of automated userbots.',
     exemptions: 'Exemptions',
     excludedUsers: 'Excluded Users',
     excludedUsersDesc: 'Admins and users added to this list will bypass all mandatory membership rules.'
@@ -581,5 +593,60 @@ export const dict = {
     activityChart: 'Message Activity',
     trendUp: 'Up from last period',
     trendDown: 'Down from last period'
+  },
+  onboarding: {
+    welcome_pv: `✨ Hello {userName}!
+
+Welcome to your group's smart assistant 🎯
+This bot was created by you using 𝗶𝗙𝗿𝗮𝗴𝗺𝗲𝗻𝘁 𝗕𝗼𝘁 power —
+A smart shield to protect your community from spam, ads, and misbehavior.
+
+🛡️ What do I do?
+  • Auto-clean links, ads, and profanity
+  • Smart detection of spam and flood
+  • Manage silence hours and mandatory membership
+  • Detailed statistical reports on group activity
+
+🚀 To start, add me to your group and appoint me as an "Admin" with "Delete Messages" and "Restrict Users" permissions.
+
+🔧 For full management, open the advanced dashboard 👇`,
+    welcome_group_1: `🎉 Infinite thanks for your trust!
+
+From this moment, the digital guardian of the group "{groupTitle}" is at your service.
+Proudly protecting your community from spam, ads, and chaos.`,
+    welcome_group_2: `⚠️ One step remains for full activation!
+
+To enable me to delete malicious messages and restrict violating users, please appoint me as an "Admin" with permissions:
+
+  ✓ Delete Messages
+  ✓ Restrict Members
+  ✓ Ban Users (Optional)
+  ✓ Pin Messages (Optional)
+
+💡 Without these permissions, I can only report violations, not take action.`,
+    welcome_group_3: `✅ These features are now active:
+
+  🚫 Auto-delete links and domains
+  🤖 Prevent annoying bots
+  🔥 Smart Anti-Spam (5 messages in 10 seconds)
+  📵 Delete duplicate messages
+  ⏰ Welcome message for new members
+  📊 Record group activity statistics
+
+🎛 To customize each, open the dashboard:
+   👉 t.me/iFragmentBot/app?startapp=group_{groupId}
+
+⏱ These three messages will be automatically deleted in 2 minutes.`
+  },
+  notifications: {
+    expiry_3d: '⏰ Group \'{group}\' subscription expires in 3 days. Renew now →',
+    expiry_24h: '⏳ Only 24 hours left until group services are suspended!',
+    service_ended: '🔒 Service for group \'{group}\' has been temporarily disabled.',
+    mass_spam: '🚨 Group \'{group}\' is currently under a mass spam attack!',
+    bot_removed: '😢 The bot was removed from group \'{group}\'. If this was a mistake, please add it back.',
+    admin_revoked: '⚠️ The bot was demoted from admin in group \'{group}\'.',
+    admin_revoked_group: '⚠️ I am no longer an admin; I cannot protect the group.',
+    payment_success: '✅ Payment received. Subscription extended until {date}. Thank you!',
+    milestone: '🎉 Group has reached the milestone of {n} messages!'
   }
 };

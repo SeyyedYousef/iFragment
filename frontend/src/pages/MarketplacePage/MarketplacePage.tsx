@@ -244,8 +244,9 @@ export const MarketplacePage: Component = () => {
 
               <div class="bg-[#2c2c2e] rounded-2xl p-4 flex items-center gap-3">
                 <div class="flex-1">
-                  <label class="text-[11px] font-bold text-[#8e8e93] uppercase tracking-wider">Coins to convert</label>
+                  <label for="coins-to-convert" class="text-[11px] font-bold text-[#8e8e93] uppercase tracking-wider">Coins to convert</label>
                   <input
+                    id="coins-to-convert"
                     type="number"
                     value={convertAmount()}
                     onInput={(e) => setConvertAmount(e.currentTarget.value)}

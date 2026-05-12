@@ -243,8 +243,8 @@ export const CollectionStatsPage: Component = () => {
           <div class="h-2 w-full bg-[#1c1c1c] rounded-full overflow-hidden flex mb-4">
             <div class="h-full bg-[#3390ec]" style="width: 70%" title="1 Item"></div>
             <div class="h-full bg-blue-600" style="width: 20%" title="2-5 Items"></div>
-            <div class="h-full bg-purple-500" style="width: 7%" title="6-24 Items"></div>
-            <div class="h-full bg-pink-500" style="width: 2%" title="25-50 Items"></div>
+            <div class="h-full bg-cyan-500" style="width: 7%" title="6-24 Items"></div>
+            <div class="h-full bg-teal-500" style="width: 2%" title="25-50 Items"></div>
             <div class="h-full bg-orange-500" style="width: 1%" title="Whales"></div>
           </div>
 
@@ -258,11 +258,11 @@ export const CollectionStatsPage: Component = () => {
               <span class="text-white">20%</span>
             </div>
             <div class="flex items-center justify-between px-2 py-1.5 bg-[#1c1c1c] rounded-lg">
-              <span class="flex items-center gap-1.5 text-[#8e8e93]"><span class="w-1.5 h-1.5 rounded-full bg-purple-500"></span>{t('action.username.dist6_24')}</span>
+              <span class="flex items-center gap-1.5 text-[#8e8e93]"><span class="w-1.5 h-1.5 rounded-full bg-cyan-500"></span>{t('action.username.dist6_24')}</span>
               <span class="text-white">7%</span>
             </div>
             <div class="flex items-center justify-between px-2 py-1.5 bg-[#1c1c1c] rounded-lg">
-              <span class="flex items-center gap-1.5 text-[#8e8e93]"><span class="w-1.5 h-1.5 rounded-full bg-pink-500"></span>{t('action.username.dist25_50')}</span>
+              <span class="flex items-center gap-1.5 text-[#8e8e93]"><span class="w-1.5 h-1.5 rounded-full bg-teal-500"></span>{t('action.username.dist25_50')}</span>
               <span class="text-white">2%</span>
             </div>
             <div class="flex items-center justify-between px-2 py-1.5 bg-[#1c1c1c] rounded-lg col-span-2">

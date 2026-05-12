@@ -7,6 +7,7 @@ import { t } from '@/shared/i18n/index.js';
 import { SettingsSection } from '@/shared/ui/settings-controls.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 import { groupApi } from '@/shared/api/bot-management.js';
+import { showToast } from '@/shared/ui/toast.js';
 
 type RestrictionSetting = {
   enabled: boolean;
@@ -88,12 +89,11 @@ export const ContentRestrictionsPage: Component = () => {
       backButton.hide();
     } catch (err: any) {
       hapticFeedback.notificationOccurred('error');
-      if (err.response?.data?.error === 'version_mismatch') {
-        alert(t('common.errorVersionMismatch' as any) || 'Settings were updated by another user. Please refresh.');
-        // Optionally re-fetch settings here
-        // settingsData.refetch(); 
+      const errorMsg = err.response?.data?.error || err.message;
+      if (errorMsg === 'version_mismatch') {
+        showToast(t('common.errorVersionMismatch' as any) || 'Settings were updated by another user. Please refresh.', 'error');
       } else {
-        alert(t('common.errorUpdateFailed' as any) || 'Failed to update settings');
+        showToast(t('common.errorUpdateFailed' as any) || 'Failed to update settings', 'error');
       }
     } finally {
       setIsSaving(false);
@@ -219,6 +219,20 @@ export const ContentRestrictionsPage: Component = () => {
           
           <Show when={activeTab() === 'links'}>
             <Motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} class="flex flex-col gap-4">
+              <div class="flex items-center justify-between px-1 mb-1">
+                <span class="text-[12px] text-[#8e8e93] font-medium uppercase tracking-wider">{t('contentRestrictions.tabLinks')}</span>
+                <button 
+                  onClick={() => {
+                    settingKeys.links.forEach(k => setSettings(k, 'enabled', true));
+                    setIsDirty(true);
+                    hapticFeedback.impactOccurred('medium');
+                    showToast('All link blockers enabled', 'success');
+                  }}
+                  class="text-[12px] text-[#3390ec] font-bold hover:underline"
+                >
+                  Quick Enable All
+                </button>
+              </div>
               {renderSetting('removeLinks', 'removeLinks', 'removeLinksDesc')}
               {renderSetting('blockBots', 'blockBots', 'blockBotsDesc')}
               {renderSetting('removeBotInviters', 'removeBotInviters', 'removeBotInvitersDesc')}

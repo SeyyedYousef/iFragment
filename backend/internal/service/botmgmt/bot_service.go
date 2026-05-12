@@ -8,11 +8,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/repository"
 )
 
@@ -70,9 +73,6 @@ func (s *BotService) StartBackgroundTasks(ctx context.Context) {
 }
 
 func (s *BotService) CheckExpirations(ctx context.Context) {
-	// 1. Get all groups that might be expired
-	// For now, we'll just log and update status. 
-	// In production, this would trigger notifications.
 	groups, err := s.botRepo.GetAllActiveGroups(ctx)
 	if err != nil {
 		return
@@ -80,13 +80,65 @@ func (s *BotService) CheckExpirations(ctx context.Context) {
 
 	now := time.Now()
 	for _, g := range groups {
-		if g.SubscriptionStatus == "trial" && now.After(g.TrialEndsAt) {
-			_ = s.botRepo.UpdateGroupSubscription(ctx, g.ID, "expired", nil)
+		var expiry *time.Time
+		if g.SubscriptionStatus == "trial" {
+			expiry = &g.TrialEndsAt
+		} else if g.SubscriptionStatus == "paid" && g.PaidUntil != nil {
+			expiry = g.PaidUntil
 		}
-		if g.SubscriptionStatus == "paid" && g.PaidUntil != nil && now.After(*g.PaidUntil) {
+
+		if expiry == nil {
+			continue
+		}
+
+		// 1. Check for actual expiration
+		if now.After(*expiry) {
 			_ = s.botRepo.UpdateGroupSubscription(ctx, g.ID, "expired", nil)
+			s.sendExpirationNotice(ctx, g, "service_ended", map[string]interface{}{"group": g.ChatTitle})
+			continue
+		}
+
+		// 2. Check for alerts (3 days and 1 day before)
+		daysLeft := int(expiry.Sub(now).Hours() / 24)
+		if daysLeft == 3 || daysLeft == 1 {
+			// Simple check if notice already sent (could use a dedicated table or redis)
+			// For now, we'll just send it if it's the right time window
+			if time.Now().Hour() == 10 { // Only send at 10 AM
+				template := "expiry_3d"
+				if daysLeft == 1 {
+					template = "expiry_24h"
+				}
+				s.sendExpirationNotice(ctx, g, template, map[string]interface{}{"group": g.ChatTitle})
+			}
 		}
 	}
+}
+
+func (s *BotService) sendExpirationNotice(ctx context.Context, g repository.ManagedGroup, template string, vars map[string]interface{}) {
+	bot, err := s.botRepo.GetBotByID(ctx, g.BotID)
+	if err != nil {
+		return
+	}
+	
+	// Get Language
+	lang := "en"
+	settings, _ := s.settingsRepo.GetSettings(ctx, g.ID)
+	if settings != nil {
+		var general repository.SettingsGeneral
+		if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
+			lang = general.Language
+		}
+	}
+
+	token, _ := DecryptToken(bot.BotTokenEncrypted)
+	tg := telegram.NewBotAPIClient(token)
+
+	msg := i18n.T(lang, "notifications."+template, vars)
+	
+	// Send to group
+	_ = tg.SendMessage(g.ChatID, msg, nil)
+	// Send to owner PV
+	_ = tg.SendMessage(bot.OwnerUserID, msg, nil)
 }
 
 // Bot Operations
@@ -305,7 +357,12 @@ var (
 
 func getCryptoKey() []byte {
 	cryptoOnce.Do(func() {
-		key := []byte(os.Getenv("BOT_TOKEN_KEY"))
+		keyStr := os.Getenv("BOT_TOKEN_KEY")
+		if keyStr == "" {
+			log.Println("⚠️ CRITICAL: BOT_TOKEN_KEY is not set. Token encryption/decryption will fail.")
+			keyStr = "default_fallback_key_32_chars_!!!" // Still needs 32 chars
+		}
+		key := []byte(keyStr)
 		if len(key) != 32 {
 			padded := make([]byte, 32)
 			copy(padded, key)

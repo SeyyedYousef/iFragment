@@ -2,6 +2,7 @@ import { ErrorBoundary, type Component } from 'solid-js';
 
 import { App } from '@/app/App.js';
 import { t } from '@/shared/i18n/index.js';
+import { ToastContainer } from '@/shared/ui/toast.js';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/solid-query';
 
@@ -41,6 +42,7 @@ export const Root: Component = () => {
         }}
       >
         <App />
+        <ToastContainer />
       </ErrorBoundary>
     </QueryClientProvider>
   );

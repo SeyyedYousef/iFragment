@@ -5,6 +5,7 @@ import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { t, isRtl } from '@/shared/i18n/index.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 import { groupApi } from '@/shared/api/bot-management.js';
+import { showToast } from '@/shared/ui/toast.js';
 
 
 
@@ -66,7 +67,7 @@ export const GroupDashboardPage: Component = () => {
       hapticFeedback.notificationOccurred('success');
     } catch (e) {
       hapticFeedback.notificationOccurred('error');
-      alert('Failed to toggle group lock');
+      showToast('Failed to toggle group lock', 'error');
     } finally {
       setIsLocking(false);
     }
@@ -153,6 +154,25 @@ export const GroupDashboardPage: Component = () => {
       {/* Main Content Area */}
       <div class="px-5 pt-6 flex flex-col gap-6">
         
+        {/* Status Indicators */}
+        <div class="grid grid-cols-3 gap-3">
+          <div class="bg-[#1c1c1c] rounded-2xl border border-[#2a2a2a] p-3 flex flex-col items-center gap-1">
+            <span class="material-symbols-outlined text-[#34c759] text-[18px]">cloud_done</span>
+            <span class="text-[10px] text-[#8e8e93] font-medium uppercase tracking-wider">Webhook</span>
+            <span class="text-[12px] font-bold text-white">Active</span>
+          </div>
+          <div class="bg-[#1c1c1c] rounded-2xl border border-[#2a2a2a] p-3 flex flex-col items-center gap-1">
+            <span class="material-symbols-outlined text-[#3390ec] text-[18px]">history</span>
+            <span class="text-[10px] text-[#8e8e93] font-medium uppercase tracking-wider">Activity</span>
+            <span class="text-[12px] font-bold text-white">Live</span>
+          </div>
+          <div class="bg-[#1c1c1c] rounded-2xl border border-[#2a2a2a] p-3 flex flex-col items-center gap-1">
+            <span class="material-symbols-outlined text-[#ffcc00] text-[18px]">stars</span>
+            <span class="text-[10px] text-[#8e8e93] font-medium uppercase tracking-wider">Plan</span>
+            <span class="text-[12px] font-bold text-white">{group()?.subscription_status === 'paid' ? 'Pro' : 'Free'}</span>
+          </div>
+        </div>
+
         {/* Health Score & Quick Toggles */}
         <Motion.div 
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
@@ -253,7 +273,7 @@ export const GroupDashboardPage: Component = () => {
                       i() === 1 ? 'bg-[#e0e0e0]/10 border-[#e0e0e0] text-[#e0e0e0]' : 
                       'bg-[#cd7f32]/10 border-[#cd7f32] text-[#cd7f32]'
                     }`}>
-                      {user.name.charAt(0)}
+                      {user.name.startsWith('User ') ? user.name.split(' ')[1].charAt(0) : user.name.charAt(0)}
                     </div>
                     <div class={`absolute -bottom-1 ${isRtl() ? '-left-1' : '-right-1'} w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-[#0f1014] ${
                       i() === 0 ? 'bg-[#ffcc00] text-black' : 
@@ -298,7 +318,9 @@ export const GroupDashboardPage: Component = () => {
                     </div>
                     <div class="flex flex-col flex-1">
                       <div class="flex items-center justify-between mb-0.5">
-                        <span class="text-[13px] font-bold text-white">User {log.actor_id}</span>
+                        <span class="text-[13px] font-bold text-white">
+                          {log.actor_name || (log.actor_id === 0 ? 'System' : `User ${log.actor_id}`)}
+                        </span>
                         <span class="text-[10px] text-[#8e8e93] font-medium">{new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                       <span class="text-[12px] text-[#8e8e93]">{log.action}</span>

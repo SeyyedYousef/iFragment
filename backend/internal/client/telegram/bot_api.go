@@ -57,16 +57,34 @@ func (c *BotAPIClient) DeleteMessage(chatID int64, messageID int) error {
 	return err
 }
 
-func (c *BotAPIClient) SendMessage(chatID int64, text string, replyToID *int) error {
+func (c *BotAPIClient) SendMessage(chatID int64, text string, replyToID *int, threadID *int) error {
+	_, err := c.SendMessageWithResult(chatID, text, replyToID, threadID)
+	return err
+}
+
+type MessageResult struct {
+	MessageID int `json:"message_id"`
+}
+
+func (c *BotAPIClient) SendMessageWithResult(chatID int64, text string, replyToID *int, threadID *int) (*MessageResult, error) {
 	payload := map[string]interface{}{
-		"chat_id": chatID,
-		"text":    text,
+		"chat_id":    chatID,
+		"text":       text,
+		"parse_mode": "Markdown",
 	}
 	if replyToID != nil {
 		payload["reply_to_message_id"] = *replyToID
 	}
-	_, err := c.request("sendMessage", payload)
-	return err
+	if threadID != nil {
+		payload["message_thread_id"] = *threadID
+	}
+	resp, err := c.request("sendMessage", payload)
+	if err != nil {
+		return nil, err
+	}
+	var res MessageResult
+	json.Unmarshal(resp, &res)
+	return &res, nil
 }
 
 func (c *BotAPIClient) GetChatMember(chatID interface{}, userID int64) (string, error) {
@@ -111,6 +129,58 @@ func (c *BotAPIClient) UnbanChatMember(chatID int64, userID int64, onlyIfBanned 
 		"chat_id":        chatID,
 		"user_id":        userID,
 		"only_if_banned": onlyIfBanned,
+	})
+	return err
+}
+func (c *BotAPIClient) UnrestrictChatMember(chatID int64, userID int64) error {
+	_, err := c.request("restrictChatMember", map[string]interface{}{
+		"chat_id":    chatID,
+		"user_id":    userID,
+		"permissions": map[string]bool{
+			"can_send_messages":       true,
+			"can_send_media_messages": true,
+			"can_send_polls":          true,
+			"can_send_other_messages": true,
+			"can_add_web_page_previews": true,
+			"can_invite_users":        true,
+			"can_pin_messages":        true,
+		},
+	})
+	return err
+}
+
+func (c *BotAPIClient) SendMessageWithMarkup(chatID int64, text string, markup interface{}, threadID *int) (*MessageResult, error) {
+	payload := map[string]interface{}{
+		"chat_id":      chatID,
+		"text":         text,
+		"parse_mode":   "Markdown",
+		"reply_markup": markup,
+	}
+	if threadID != nil {
+		payload["message_thread_id"] = *threadID
+	}
+	resp, err := c.request("sendMessage", payload)
+	if err != nil {
+		return nil, err
+	}
+	var res MessageResult
+	json.Unmarshal(resp, &res)
+	return &res, nil
+}
+
+func (c *BotAPIClient) AnswerCallbackQuery(queryID string, text string, showAlert bool) error {
+	_, err := c.request("answerCallbackQuery", map[string]interface{}{
+		"callback_query_id": queryID,
+		"text":              text,
+		"show_alert":        showAlert,
+	})
+	return err
+}
+
+func (c *BotAPIClient) PinChatMessage(chatID int64, messageID int) error {
+	_, err := c.request("pinChatMessage", map[string]interface{}{
+		"chat_id":    chatID,
+		"message_id": messageID,
 	})
 	return err
 }

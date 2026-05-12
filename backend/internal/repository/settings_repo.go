@@ -26,6 +26,7 @@ type GroupSettings struct {
 }
 
 type SettingsGeneral struct {
+	Language            string `json:"language"`
 	Timezone            string `json:"timezone"`
 	WelcomeMessage      bool   `json:"welcomeMessage"`
 	WarningMessage      bool   `json:"warningMessage"`
@@ -40,6 +41,9 @@ type SettingsGeneral struct {
 	WarningThreshold    int    `json:"warningThreshold"`
 	WarningRetention    int    `json:"warningRetention"`
 	WarningFinalPenalty string `json:"warningFinalPenalty"`
+	CasEnabled          bool   `json:"casEnabled"`
+	AntiRaidThreshold   int    `json:"antiRaidThreshold"` // Joins per minute
+	AntiRaidAction      string `json:"antiRaidAction"`    // lockdown, alert
 }
 
 type RestrictionDetail struct {
@@ -82,6 +86,7 @@ type SettingsContentRestrictions struct {
 	BlockPersianArabicLetters RestrictionDetail `json:"blockPersianArabicLetters"`
 	BlockCyrillicLetters      RestrictionDetail `json:"blockCyrillicLetters"`
 	BlockChineseCharacters    RestrictionDetail `json:"blockChineseCharacters"`
+	ForwardWhitelist          []string          `json:"forwardWhitelist"`
 	BannedKeywords            []string          `json:"bannedKeywords"`
 	RequiredKeywords          []string          `json:"requiredKeywords"`
 }

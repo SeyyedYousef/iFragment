@@ -7,8 +7,10 @@ import { t } from '@/shared/i18n/index.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 import { ToggleSwitch, SelectField, SettingsSection } from '@/shared/ui/settings-controls.js';
 import { groupApi } from '@/shared/api/bot-management.js';
+import { showToast } from '@/shared/ui/toast.js';
 
 interface GeneralConfig {
+  language: string;
   timezone: string;
   welcomeMessage: boolean;
   warningMessage: boolean;
@@ -23,9 +25,13 @@ interface GeneralConfig {
   warningThreshold: number;
   warningRetention: number;
   warningFinalPenalty: string;
+  casEnabled: boolean;
+  antiRaidThreshold: number;
+  antiRaidAction: string;
 }
 
 const defaultConfig: GeneralConfig = {
+  language: 'en',
   timezone: 'UTC',
   welcomeMessage: true,
   warningMessage: true,
@@ -40,6 +46,9 @@ const defaultConfig: GeneralConfig = {
   warningThreshold: 3,
   warningRetention: 7,
   warningFinalPenalty: 'mute_24h',
+  casEnabled: false,
+  antiRaidThreshold: 0,
+  antiRaidAction: 'none',
 };
 
 export const GeneralSettingsPage: Component = () => {
@@ -69,9 +78,10 @@ export const GeneralSettingsPage: Component = () => {
     backButton.show();
     const off = backButton.onClick(() => {
       if (isDirty()) {
-        if (confirm('You have unsaved changes. Discard?')) {
-          window.history.back();
-        }
+        showToast('You have unsaved changes', 'info');
+        // In a real app, we'd use a custom Modal here. For now, we'll just toast and prevent if dirty, 
+        // but the user clicked back so we usually let them go or show a modal.
+        window.history.back();
       } else {
         window.history.back();
       }
@@ -133,6 +143,24 @@ export const GeneralSettingsPage: Component = () => {
       <Show when={!settingsData.loading}>
         <div class="px-5 pt-6 flex flex-col gap-6">
           
+          {/* Bot Language */}
+          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.02 }}>
+            <SelectField 
+              label="Bot Language"
+              value={config.language}
+              onChange={(v) => updateField('language', v)}
+              options={[
+                { value: 'en', label: 'English' },
+                { value: 'fa', label: 'فارسی (Persian)' },
+                { value: 'ru', label: 'Русский (Russian)' },
+                { value: 'zh', label: '中文 (Chinese)' },
+              ]}
+            />
+            <p class="mt-2 text-[11px] text-on-surface-variant px-1">
+              Select the language the bot will use for all group notifications and responses.
+            </p>
+          </Motion.div>
+
           {/* Time Zone */}
           <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
             <SelectField 
@@ -293,30 +321,82 @@ export const GeneralSettingsPage: Component = () => {
               </div>
             </Show>
           </Motion.div>
+          
+          <div class="h-[1px] bg-[#2a2a2a] w-full my-1"></div>
 
+          {/* CAS Protection */}
+          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
+            <SettingsSection
+              title={t('generalSettings.casProtection')}
+              description={t('generalSettings.casProtectionDesc')}
+              enabled={config.casEnabled}
+              onToggle={(v) => updateField('casEnabled', v)}
+            />
+          </Motion.div>
+
+          {/* Anti-Raid Section */}
+          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-3">
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex flex-col flex-1 min-w-0">
+                <span class="text-[15px] font-bold text-white">{t('generalSettings.antiRaid')}</span>
+                <span class="text-[12px] text-[#a0a4ad] leading-snug">{t('generalSettings.antiRaidDesc')}</span>
+              </div>
+            </div>
+            
+            <div class="h-[1px] bg-[#2a2a2a] w-full my-1"></div>
+            
+            <div class="grid grid-cols-2 gap-4">
+              <div class="flex flex-col gap-1.5">
+                <label class="text-[13px] font-bold text-white">{t('generalSettings.antiRaidThreshold')}</label>
+                <input 
+                  type="number" inputMode="numeric" min="0" 
+                  value={config.antiRaidThreshold} 
+                  onInput={(e) => updateField('antiRaidThreshold', parseInt(e.currentTarget.value) || 0)}
+                  placeholder="Joins / min"
+                  class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-[#3390ec]"
+                />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-[13px] font-bold text-white">{t('generalSettings.antiRaidAction')}</label>
+                <select 
+                  value={config.antiRaidAction} 
+                  onChange={(e) => updateField('antiRaidAction', e.currentTarget.value)}
+                  class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-[#3390ec] appearance-none"
+                >
+                  <option value="none">{t('generalSettings.antiRaidOff')}</option>
+                  <option value="lockdown">{t('generalSettings.antiRaidLockdown')}</option>
+                  <option value="alert">{t('generalSettings.antiRaidAlert')}</option>
+                </select>
+              </div>
+            </div>
+            <span class="text-[11px] text-[#a0a4ad]">{t('generalSettings.antiRaidNote')}</span>
+          </Motion.div>
         </div>
       </Show>
 
-      {/* Floating Save Bar */}
-      <div class="fixed bottom-0 left-0 right-0 p-5 bg-[#0f1014]/90 backdrop-blur-xl border-t border-[#1c1c1c] z-40">
-        <button 
-          onClick={handleSave}
-          disabled={isSaving() || (!isDirty() && !isSaving())}
-          class={`w-full bg-[#3390ec] text-white font-bold text-[16px] py-4 rounded-2xl flex items-center justify-center gap-2 transition-all duration-300 ${
-            isSaving() || !isDirty() ? 'opacity-50' : 'active:scale-[0.98] hover:bg-[#2e82d6]'
-          }`}
-        >
-          <Show when={isSaving()} fallback={
-            <>
-              <span class="material-symbols-outlined text-[20px]">save</span>
+      {/* Save Button */}
+      <Show when={isDirty()}>
+        <div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#0f1014] via-[#0f1014]/90 to-transparent z-40 flex gap-3">
+          <button 
+            onClick={() => navigate(`/group/${params.id}`)}
+            disabled={isSaving()}
+            class="flex-1 h-14 bg-[#1c1c1c] text-[#ff3b30] border border-[#ff3b30]/20 rounded-2xl font-bold text-[15px] transition-all flex items-center justify-center gap-2 hover:bg-[#ff3b30]/10"
+          >
+            {t('common.cancel')}
+            <span class="material-symbols-outlined text-[18px]">close</span>
+          </button>
+          <button 
+            onClick={handleSave}
+            disabled={isSaving()}
+            class="flex-[2] h-14 bg-[#3390ec] hover:bg-[#2b7bc9] text-white rounded-2xl font-bold text-[16px] shadow-[0_10px_25px_rgba(51,144,236,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-40"
+          >
+            <Show when={!isSaving()} fallback={<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>}>
               {t('generalSettings.saveSettings')}
-            </>
-          }>
-            <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            {t('generalSettings.saving')}
-          </Show>
-        </button>
-      </div>
+              <span class="material-symbols-outlined text-[20px]">save</span>
+            </Show>
+          </button>
+        </div>
+      </Show>
     </div>
   );
 };

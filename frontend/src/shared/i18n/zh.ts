@@ -2,7 +2,9 @@ export const dict = {
   common: {
     close: '关闭',
     back: '返回',
-    loading: '加载中...'
+    loading: '加载中...',
+    cancel: '取消',
+    save: '保存'
   },
   hero: {
     title: '精准. 大胆. 专业.',
@@ -325,7 +327,17 @@ export const dict = {
     optMute24h: '禁言 (24 小时)',
     optKick: '踢出 (移除)',
     optBan: '永久封禁',
-    editText: '在自定义消息中编辑文本'
+    editText: '在自定义消息中编辑文本',
+    casProtection: 'CAS 保护 (Combot)',
+    casProtectionDesc: '自动封禁位于全局 Combot 反垃圾邮件黑名单中的用户。',
+    antiRaid: '防入群攻击系统',
+    antiRaidDesc: '保护群组免受突然的自动化入群攻击（Raid）。',
+    antiRaidThreshold: '阈值',
+    antiRaidAction: '动作',
+    antiRaidLockdown: '锁定群组 (Lockdown)',
+    antiRaidAlert: '提醒管理员',
+    antiRaidOff: '关闭',
+    antiRaidNote: '将阈值设置为 0 以禁用。锁定群组将自动启用紧急锁定。'
   },
   contentRestrictions: {
     title: '内容限制',
@@ -450,8 +462,8 @@ export const dict = {
     forceJoin: '强制加入频道',
     reqChannels: '必需频道',
     reqChannelsDesc: '用户必须加入这些频道才能解锁聊天权限。',
-    verification: '实时验证',
-    verificationDesc: '机器人在允许用户发布任何消息之前，会通过 API 立即检查用户的会员状态。',
+    verification: '用户验证码 (防机器人)',
+    verificationDesc: '强制新成员在聊天前点击验证按钮。有效拦截 99% 的自动化机器人。',
     exemptions: '豁免',
     excludedUsers: '排除的用户',
     excludedUsersDesc: '管理员和添加到此列表的用户将绕过所有强制会员规则。'
@@ -549,5 +561,60 @@ export const dict = {
         contactHolder: '联系持有者',
       }
     }
+  },
+  onboarding: {
+    welcome_pv: `✨ 你好， {userName}！
+
+欢迎使用您的群组智能助手 🎯
+此机器人是由您利用 𝗶𝗙𝗿𝗮𝗴𝗺𝗲𝗻𝘁 𝗕𝗼𝘁 的力量创建的 —
+一个保护您的社区免受垃圾邮件、广告和不当行为影响的智能护盾。
+
+🛡️ 我能做什么？
+  • 自动清理链接、广告和脏话
+  • 智能检测垃圾邮件和刷屏
+  • 管理安静时段和强制入群
+  • 详细的群组活动统计报告
+
+🚀 首先，请将我添加到您的群组，并将其设置为具有“删除消息”和“限制用户”权限的“管理员”。
+
+🔧 如需全面管理，请打开高级控制面板 👇`,
+    welcome_group_1: `🎉 万分感谢您的信任！
+
+从这一刻起，群组“{groupTitle}”的数字守护者将为您服务。
+我很荣幸能保护您的社区免受垃圾邮件、广告和混乱的影响。`,
+    welcome_group_2: `⚠️ 距离完全激活仅剩一步！
+
+为了让我能够删除恶意消息并限制违规用户，请将我设置为具有以下权限的“管理员”：
+
+  ✓ 删除消息 (Delete Messages)
+  ✓ 限制成员 (Restrict Members)
+  ✓ 封禁用户 (Ban Users) — 可选
+  ✓ 置顶消息 (Pin Messages) — 可选
+
+💡 如果没有这些权限，我只能报告违规行为，无法采取行动。`,
+    welcome_group_3: `✅ 这些功能现已启用：
+
+  🚫 自动删除链接和域名
+  🤖 防止骚扰机器人
+  🔥 智能反垃圾邮件（10 秒内 5 条消息）
+  📵 删除重复消息
+  ⏰ 新成员欢迎消息
+  📊 记录群组活动统计数据
+
+🎛 要自定义每个功能，请打开控制面板：
+   👉 t.me/iFragmentBot/app?startapp=group_{groupId}
+
+⏱ 这三条消息将在 2 分钟后自动删除。`
+  },
+  notifications: {
+    expiry_3d: '⏰ 群组“{group}”的订阅将在 3 天后到期。立即续订 →',
+    expiry_24h: '⏳ 距离群组服务暂停仅剩 24 小时！',
+    service_ended: '🔒 群组“{group}”的服务已暂时禁用。',
+    mass_spam: '🚨 群组“{group}”正遭受大规模垃圾邮件攻击！',
+    bot_removed: '😢 机器人已从群组“{group}”中移除。如果这是个错误，请重新添加。',
+    admin_revoked: '⚠️ 机器人已在群组“{group}”中被取消管理员身份。',
+    admin_revoked_group: '⚠️ 我不再是管理员；无法保护群组。',
+    payment_success: '✅ 已收到付款。订阅已延长至 {date}。谢谢！',
+    milestone: '🎉 群组已达到 {n} 条消息的里程碑！'
   }
 };

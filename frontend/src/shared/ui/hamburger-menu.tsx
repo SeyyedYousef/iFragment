@@ -23,14 +23,13 @@ export const HamburgerMenu: Component<HamburgerMenuProps> = (props) => {
   });
 
   const menuItems = () => [
-    { id: 'dashboard', icon: 'dashboard', label: t('groupDashboard.menuDashboard') },
-    { id: 'general', icon: 'settings', label: t('groupDashboard.menuGeneral') },
-    { id: 'content', icon: 'gpp_bad', label: t('groupDashboard.menuContent') },
-    { id: 'limits', icon: 'speed', label: t('groupDashboard.menuLimits') },
-    { id: 'quiet', icon: 'do_not_disturb_on', label: t('groupDashboard.menuQuiet') },
-    { id: 'mandatory', icon: 'group_add', label: t('groupDashboard.menuMandatory') },
-    { id: 'custom', icon: 'edit_note', label: t('groupDashboard.menuCustom') },
-    { id: 'analytics', icon: 'analytics', label: t('groupDashboard.menuAnalytics') },
+    { id: 'dashboard', icon: 'dashboard', label: t('groupDashboard.menuDashboard'), path: `/group/${props.groupId}` },
+    { id: 'general', icon: 'settings', label: t('groupDashboard.menuGeneral'), path: `/group/${props.groupId}/settings` },
+    { id: 'content', icon: 'gpp_bad', label: t('groupDashboard.menuContent'), path: `/group/${props.groupId}/content` },
+    { id: 'limits', icon: 'speed', label: t('groupDashboard.menuLimits'), path: `/group/${props.groupId}/limits` },
+    { id: 'quiet', icon: 'do_not_disturb_on', label: t('groupDashboard.menuQuiet'), path: `/group/${props.groupId}/quiet` },
+    { id: 'mandatory', icon: 'group_add', label: t('groupDashboard.menuMandatory'), path: `/group/${props.groupId}/mandatory` },
+    { id: 'analytics', icon: 'analytics', label: t('groupDashboard.menuAnalytics'), path: `/group/${props.groupId}/analytics` },
   ];
 
   return (
@@ -68,14 +67,7 @@ export const HamburgerMenu: Component<HamburgerMenuProps> = (props) => {
                     <button 
                       onClick={() => {
                         props.onClose();
-                        if (item.id === 'dashboard') navigate(`/group/${props.groupId}`);
-                        if (item.id === 'general') navigate(`/group/${props.groupId}/settings`);
-                        if (item.id === 'content') navigate(`/group/${props.groupId}/content`);
-                        if (item.id === 'limits') navigate(`/group/${props.groupId}/limits`);
-                        if (item.id === 'quiet') navigate(`/group/${props.groupId}/quiet`);
-                        if (item.id === 'mandatory') navigate(`/group/${props.groupId}/mandatory`);
-                        if (item.id === 'custom') navigate(`/group/${props.groupId}/settings/custom-texts`);
-                        if (item.id === 'analytics') navigate(`/group/${props.groupId}/analytics`);
+                        navigate(item.path);
                       }}
                       class={`flex items-center gap-3 p-3.5 rounded-2xl transition-colors w-full ${
                       (props.activeTab === item.id) ? 'bg-[#3390ec]/10 text-[#3390ec]' : 'text-white hover:bg-[#2a2a2a]'

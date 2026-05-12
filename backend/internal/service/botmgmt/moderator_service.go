@@ -17,6 +17,7 @@ import (
 	"ifragment-backend/internal/repository"
 
 	"github.com/redis/go-redis/v9"
+	"golang.org/x/sync/singleflight"
 )
 
 // ModeratorService handles real-time group moderation logic.
@@ -27,6 +28,7 @@ type ModeratorService struct {
 	analyticsRepo *repository.AnalyticsRepo
 	cache         *repository.Cache
 	clientCache   sync.Map // botID (uuid.UUID) -> *telegram.BotAPIClient
+	sf            singleflight.Group
 }
 
 func NewModeratorService(
@@ -61,6 +63,37 @@ func (s *ModeratorService) LogMemberEvent(ctx context.Context, groupID uuid.UUID
 			UserID:    userID,
 		})
 	}
+
+	if eventType == "member_join" && s.cache != nil && s.cache.Client != nil {
+		s.checkAntiRaid(ctx, groupID)
+	}
+}
+
+func (s *ModeratorService) checkAntiRaid(ctx context.Context, groupID uuid.UUID) {
+	settings, err := s.settingsRepo.GetSettings(ctx, groupID)
+	if err != nil { return }
+	var gen repository.SettingsGeneral
+	if json.Unmarshal(settings.General, &gen) != nil || gen.AntiRaidThreshold <= 0 { return }
+
+	key := fmt.Sprintf("joins_per_min:%s", groupID)
+	count, _ := s.cache.Client.Incr(ctx, key).Result()
+	if count == 1 {
+		s.cache.Client.Expire(ctx, key, 1*time.Minute)
+	}
+
+	if int(count) >= gen.AntiRaidThreshold {
+		if gen.AntiRaidAction == "lockdown" {
+			// Trigger Emergency Lock
+			var qh repository.SettingsQuietHours
+			json.Unmarshal(settings.QuietHours, &qh)
+			if !qh.EmergencyLock {
+				qh.EmergencyLock = true
+				raw, _ := json.Marshal(qh)
+				_ = s.settingsRepo.UpdateSettings(ctx, groupID, "quiet_hours", raw, settings.Version)
+				log.Printf("🚨 ANTI-RAID TRIGGERED for group %s. Lockdown enabled.", groupID)
+			}
+		}
+	}
 }
 
 // Violation represents a detected rule violation.
@@ -94,6 +127,7 @@ type MessageContext struct {
 	Caption      string
 	IsForward    bool
 	ForwardFromChannel bool
+	ForwardFromChatID  int64
 	HasInlineKeyboard  bool
 	HasReply     bool
 	IsReplyToCrossChat bool
@@ -114,7 +148,7 @@ func (s *ModeratorService) ValidateMessage(ctx context.Context, mc *MessageConte
 		return nil, err
 	}
 
-	tgClient, err := s.getTelegramClient(ctx, bot)
+	tgClient, err := s.GetTelegramClient(ctx, bot)
 	if err != nil {
 		return nil, err
 	}
@@ -142,21 +176,38 @@ func (s *ModeratorService) ValidateMessage(ctx context.Context, mc *MessageConte
 	var quiet repository.SettingsQuietHours
 	var mandatory repository.SettingsMandatoryMembership
 
-	json.Unmarshal(settings.ContentRestrictions, &content)
-	json.Unmarshal(settings.Limits, &limits)
-	json.Unmarshal(settings.QuietHours, &quiet)
-	json.Unmarshal(settings.MandatoryMembership, &mandatory)
-	json.Unmarshal(settings.General, &general)
+	if err := json.Unmarshal(settings.ContentRestrictions, &content); err != nil {
+		content = repository.SettingsContentRestrictions{}
+	}
+	if err := json.Unmarshal(settings.Limits, &limits); err != nil {
+		limits = repository.SettingsLimits{}
+	}
+	if err := json.Unmarshal(settings.QuietHours, &quiet); err != nil {
+		quiet = repository.SettingsQuietHours{}
+	}
+	if err := json.Unmarshal(settings.MandatoryMembership, &mandatory); err != nil {
+		mandatory = repository.SettingsMandatoryMembership{}
+	}
+	if err := json.Unmarshal(settings.General, &general); err != nil {
+		general = repository.SettingsGeneral{}
+	}
 
 	// 4. Log message event for analytics
-	s.logEvent(ctx, group.ID, "message", &mc.UserID)
+	s.logEvent(ctx, group.ID, "message", &mc.UserID, mc.Username)
 
-	// 5. Check if user is admin — admins bypass all rules
-	if quiet.AdminOverride {
-		status, _ := tgClient.GetChatMember(mc.ChatID, mc.UserID)
-		if status == "administrator" || status == "creator" {
-			return nil, nil
+	// 5. Check if user is admin — admins bypass all rules unless emergency locked without override
+	isAdmin := false
+	status, _ := s.GetChatMemberCached(ctx, tgClient, mc.ChatID, mc.UserID)
+	if status == "administrator" || status == "creator" {
+		isAdmin = true
+	}
+
+	if isAdmin {
+		// Admins bypass everything EXCEPT emergency lock if AdminOverride is false
+		if quiet.EmergencyLock && !quiet.AdminOverride {
+			return &Violation{Type: "quiet_hours", Message: "Emergency Lock active", Action: "delete"}, nil
 		}
+		return nil, nil
 	}
 
 	// 6. Check exemptions list (usernames or IDs)
@@ -178,12 +229,14 @@ func (s *ModeratorService) ValidateMessage(ctx context.Context, mc *MessageConte
 	}
 
 	// 8. Mandatory Membership (Force Join)
-	if v := s.checkMandatoryMembership(tgClient, mc, mandatory, settings.CustomTexts); v != nil {
+	if v := s.checkMandatoryMembership(ctx, tgClient, mc, mandatory, settings.CustomTexts); v != nil {
+		s.logEvent(ctx, group.ID, "spam_blocked", &mc.UserID, mc.Username)
 		return v, nil
 	}
 
 	// 9. Content Restrictions — ALL checks
 	if v := s.checkAllContent(content, quiet, general, mc); v != nil {
+		s.logEvent(ctx, group.ID, "spam_blocked", &mc.UserID, mc.Username)
 		var ct repository.SettingsCustomTexts
 		json.Unmarshal(settings.CustomTexts, &ct)
 		return s.handleAutoWarning(ctx, group.ID, mc.UserID, general, ct, v)
@@ -191,16 +244,56 @@ func (s *ModeratorService) ValidateMessage(ctx context.Context, mc *MessageConte
 
 	// 10. Limits — length, flood, duplicates
 	if v := s.checkAllLimits(ctx, limits, mc, group.ID.String()); v != nil {
+		s.logEvent(ctx, group.ID, "spam_blocked", &mc.UserID, mc.Username)
 		v.Action = s.resolveAction(general.DefaultPenalty)
 		var ct repository.SettingsCustomTexts
 		json.Unmarshal(settings.CustomTexts, &ct)
 		return s.handleAutoWarning(ctx, group.ID, mc.UserID, general, ct, v)
 	}
 
+	// 9. CAS (Combot Anti-Spam) Check
+	if general.CasEnabled {
+		if s.checkCAS(ctx, mc.UserID) {
+			return &Violation{
+				Type:    "cas_ban",
+				Action:  "ban",
+				Message: "Banned by Combot Anti-Spam (CAS)",
+			}, nil
+		}
+	}
+
 	return nil, nil
 }
 
-func (s *ModeratorService) getTelegramClient(_ context.Context, bot *repository.ManagedBot) (*telegram.BotAPIClient, error) {
+func (s *ModeratorService) checkCAS(ctx context.Context, userID int64) bool {
+	// Cache CAS results for 24h
+	cacheKey := fmt.Sprintf("cas:%d", userID)
+	if s.cache != nil && s.cache.Client != nil {
+		if val, _ := s.cache.Client.Get(ctx, cacheKey).Result(); val != "" {
+			return val == "banned"
+		}
+	}
+
+	url := fmt.Sprintf("https://api.cas.chat/check?user_id=%d", userID)
+	resp, err := http.Get(url)
+	if err != nil { return false }
+	defer resp.Body.Close()
+
+	var result struct {
+		OK bool `json:"ok"`
+	}
+	if json.NewDecoder(resp.Body).Decode(&result) == nil {
+		status := "ok"
+		if result.OK { status = "banned" }
+		if s.cache != nil && s.cache.Client != nil {
+			s.cache.Client.Set(ctx, cacheKey, status, 24*time.Hour)
+		}
+		return result.OK
+	}
+	return false
+}
+
+func (s *ModeratorService) GetTelegramClient(ctx context.Context, bot *repository.ManagedBot) (*telegram.BotAPIClient, error) {
 	if client, ok := s.clientCache.Load(bot.ID); ok {
 		return client.(*telegram.BotAPIClient), nil
 	}
@@ -267,7 +360,7 @@ func (s *ModeratorService) isSubscriptionValid(g *repository.ManagedGroup) bool 
 
 // ─── Mandatory Membership ─────────────────────────────────
 
-func (s *ModeratorService) checkMandatoryMembership(tg *telegram.BotAPIClient, mc *MessageContext, m repository.SettingsMandatoryMembership, customTextsRaw json.RawMessage) *Violation {
+func (s *ModeratorService) checkMandatoryMembership(ctx context.Context, tg *telegram.BotAPIClient, mc *MessageContext, m repository.SettingsMandatoryMembership, customTextsRaw json.RawMessage) *Violation {
 	if !m.ForceJoinEnabled || len(m.RequiredChannels) == 0 {
 		return nil
 	}
@@ -281,7 +374,7 @@ func (s *ModeratorService) checkMandatoryMembership(tg *telegram.BotAPIClient, m
 			channelID = "@" + channel
 		}
 
-		status, err := tg.GetChatMember(channelID, mc.UserID)
+		status, err := s.GetChatMemberCached(ctx, tg, channelID, mc.UserID)
 		if err != nil || status == "left" || status == "kicked" || status == "" {
 			msg := ct.ForceJoinText
 			if msg == "" {
@@ -295,6 +388,28 @@ func (s *ModeratorService) checkMandatoryMembership(tg *telegram.BotAPIClient, m
 		}
 	}
 	return nil
+}
+
+// GetChatMemberCached fetches chat member status with Redis caching (BUG #5)
+func (s *ModeratorService) GetChatMemberCached(ctx context.Context, tg *telegram.BotAPIClient, chatID interface{}, userID int64) (string, error) {
+	if s.cache == nil || s.cache.Client == nil {
+		return tg.GetChatMember(chatID, userID)
+	}
+
+	key := fmt.Sprintf("chat_member:%v:%d", chatID, userID)
+	status, err := s.cache.Client.Get(ctx, key).Result()
+	if err == nil {
+		return status, nil
+	}
+
+	status, err = tg.GetChatMember(chatID, userID)
+	if err != nil {
+		return "", err
+	}
+
+	// Cache for 5 minutes
+	s.cache.Client.Set(ctx, key, status, 5*time.Minute)
+	return status, nil
 }
 
 // ─── Content Restrictions ─────────────────────────────────
@@ -410,11 +525,21 @@ func (s *ModeratorService) checkAllContent(c repository.SettingsContentRestricti
 	}
 
 	// ── Interactions ──
-	if v := check(c.BlockForwards, mc.IsForward, "forward", "Forwarded messages are not allowed"); v != nil {
+	isWhitelisted := false
+	if mc.IsForward && mc.ForwardFromChatID != 0 {
+		for _, wID := range c.ForwardWhitelist {
+			if wID == fmt.Sprintf("%d", mc.ForwardFromChatID) {
+				isWhitelisted = true
+				break
+			}
+		}
+	}
+
+	if v := check(c.BlockForwards, mc.IsForward && !isWhitelisted, "forward", "Forwarded messages are not allowed"); v != nil {
 		return v
 	}
 
-	if v := check(c.RestrictChannelForwards, mc.ForwardFromChannel, "channel_forward", "Forwards from channels are not allowed"); v != nil {
+	if v := check(c.RestrictChannelForwards, mc.ForwardFromChannel && !isWhitelisted, "channel_forward", "Forwards from channels are not allowed"); v != nil {
 		return v
 	}
 
@@ -576,7 +701,7 @@ func (s *ModeratorService) handleAutoWarning(ctx context.Context, groupID uuid.U
 	}
 
 	// Log warning event
-	s.logEvent(ctx, groupID, "member_warned", &userID)
+	s.logEvent(ctx, groupID, "member_warned", &userID, "")
 
 	// Check count
 	count, _ := s.analyticsRepo.GetUserWarningsCount(ctx, groupID, userID, gen.WarningRetention)
@@ -590,14 +715,20 @@ func (s *ModeratorService) handleAutoWarning(ctx context.Context, groupID uuid.U
 	return v, nil
 }
 
-func (s *ModeratorService) logEvent(ctx context.Context, groupID uuid.UUID, eventType string, userID *int64) {
+func (s *ModeratorService) logEvent(ctx context.Context, groupID uuid.UUID, eventType string, userID *int64, name string) {
 	if s.analyticsRepo == nil {
 		return
+	}
+	payload := []byte(nil)
+	if name != "" {
+		p, _ := json.Marshal(map[string]string{"name": name})
+		payload = p
 	}
 	_ = s.analyticsRepo.LogEvent(ctx, &repository.GroupEvent{
 		GroupID:   groupID,
 		EventType: eventType,
 		UserID:    userID,
+		Payload:   payload,
 	})
 }
 

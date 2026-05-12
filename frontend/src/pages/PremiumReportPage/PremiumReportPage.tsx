@@ -107,7 +107,7 @@ export const PremiumReportPage: Component = () => {
                   </span>
                 </Show>
                 <Show when={report.data?.is_premium}>
-                  <span class="flex items-center gap-1 px-2.5 py-1 bg-purple-500/20 border border-purple-500/30 text-purple-400 rounded-md text-[10px] font-bold uppercase">
+                  <span class="flex items-center gap-1 px-2.5 py-1 bg-blue-600/20 border border-blue-600/30 text-blue-400 rounded-md text-[10px] font-bold uppercase">
                     <span class="material-symbols-outlined text-[12px]">star</span> Premium
                   </span>
                 </Show>

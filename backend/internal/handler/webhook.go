@@ -5,14 +5,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"ifragment-backend/internal/client/telegram"
+	"ifragment-backend/internal/i18n"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/botmgmt"
-	"ifragment-backend/internal/client/telegram"
 	"log"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 )
 
 type WebhookHandler struct {
@@ -31,6 +35,14 @@ type TelegramUpdate struct {
 	Message           *Message           `json:"message"`
 	EditedMessage     *Message           `json:"edited_message"`
 	MyChatMember      *ChatMemberUpdated `json:"my_chat_member"`
+	CallbackQuery     *CallbackQuery     `json:"callback_query"`
+}
+
+type CallbackQuery struct {
+	ID      string   `json:"id"`
+	From    User     `json:"from"`
+	Message *Message `json:"message"`
+	Data    string   `json:"data"`
 }
 
 type ChatMemberUpdated struct {
@@ -58,8 +70,15 @@ type PreCheckoutQuery struct {
 	TotalAmount      int    `json:"total_amount"`
 }
 
+type Chat struct {
+	ID    int64  `json:"id"`
+	Type  string `json:"type"`
+	Title string `json:"title,omitempty"`
+}
+
 type Message struct {
 	MessageID         int                `json:"message_id"`
+	MessageThreadID   *int               `json:"message_thread_id,omitempty"`
 	From              *User              `json:"from"`
 	Chat              *Chat              `json:"chat"`
 	Text              string             `json:"text"`
@@ -91,14 +110,11 @@ type MessageEntity struct {
 }
 
 type User struct {
-	ID       int64  `json:"id"`
-	IsBot    bool   `json:"is_bot"`
-	Username string `json:"username,omitempty"`
-}
-
-type Chat struct {
-	ID   int64  `json:"id"`
-	Type string `json:"type"`
+	ID           int64  `json:"id"`
+	IsBot        bool   `json:"is_bot"`
+	FirstName    string `json:"first_name"`
+	Username     string `json:"username,omitempty"`
+	LanguageCode string `json:"language_code,omitempty"`
 }
 
 type SuccessfulPayment struct {
@@ -108,10 +124,25 @@ type SuccessfulPayment struct {
 
 func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Request) {
 	// Security: Validate secret token if provided by Telegram
-	secret := r.Header.Get("X-Telegram-Bot-Api-Secret-Token")
+	// ─── AUTHENTICATION (Patch 5) ───
+	secretToken := r.Header.Get("X-Telegram-Bot-Api-Secret-Token")
 	expectedSecret := os.Getenv("WEBHOOK_SECRET_TOKEN")
-	if expectedSecret != "" && secret != expectedSecret {
-		RespondError(w, r, http.StatusUnauthorized, "Unauthorized", nil)
+	if expectedSecret != "" && secretToken != expectedSecret {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	botIDStr := chi.URLParam(r, "botID")
+	botID, err := uuid.Parse(botIDStr)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	// Verify bot exists
+	bot, err := h.botRepo.GetBotByID(r.Context(), botID)
+	if err != nil || bot == nil {
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
@@ -121,16 +152,37 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// 0. Idempotency Check (BUG #16)
+	// 0. Idempotency Check (BUG #16 - Hardened)
 	ctx := r.Context()
 	cacheKey := fmt.Sprintf("update:%d", update.UpdateID)
-	if h.moderator.GetCache() != nil {
-		exists, _ := h.moderator.GetCache().Client.Exists(ctx, cacheKey).Result()
-		if exists > 0 {
-			w.WriteHeader(http.StatusOK)
+	cache := h.moderator.GetCache()
+	if cache != nil && cache.Client != nil {
+		// Use SETNX as a "processing" lock with short TTL
+		locked, err := cache.Client.SetNX(ctx, cacheKey, "processing", 2*time.Minute).Result()
+		if err != nil {
+			log.Printf("⚠️ Redis error in idempotency: %v", err)
+		} else if !locked {
+			val, _ := cache.Client.Get(ctx, cacheKey).Result()
+			if val == "processed" {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			w.WriteHeader(http.StatusAccepted) // Still processing, tell TG we got it
 			return
 		}
-		h.moderator.GetCache().Client.Set(ctx, cacheKey, "1", 10*time.Minute)
+		defer func() {
+			if r := recover(); r != nil {
+				cache.Client.Del(context.Background(), cacheKey)
+				panic(r)
+			}
+		}()
+	}
+
+	// 0.5 Handle Callback Query (Captcha, etc.)
+	if update.CallbackQuery != nil {
+		h.handleCallbackQuery(ctx, update.CallbackQuery)
+		w.WriteHeader(http.StatusOK)
+		return
 	}
 
 	// 1. Handle Pre-Checkout (Patch 4)
@@ -167,8 +219,59 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 		pay := update.Message.SuccessfulPayment
 		log.Printf("💰 Successful payment received for payload: %s", pay.InvoicePayload)
 		err := h.db.UpdateOrderStatus(context.Background(), pay.InvoicePayload, "paid", pay.TelegramPaymentChargeID)
-		if err != nil {
+		if err == nil {
+			// ✅ Payment Notification
+			lang := i18n.DetectLanguage(bot.Status)
+			settings, _ := h.moderator.GetSettings(ctx, bot.ID)
+			if settings != nil {
+				var general repository.SettingsGeneral
+				if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
+					lang = general.Language
+				}
+			}
+			tg, _ := h.moderator.GetTelegramClient(ctx, bot)
+			msg := i18n.T(lang, "notifications.payment_success", map[string]interface{}{"date": time.Now().Add(30 * 24 * time.Hour).Format("2006-01-02")})
+			_ = tg.SendMessage(bot.OwnerUserID, msg, nil)
+		} else {
 			log.Printf("❌ Failed to update order status: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// 3. Handle Chat Member Updates (Bot Status)
+	if update.MyChatMember != nil {
+		ctx := r.Context()
+		chat := update.MyChatMember.Chat
+		newStatus := update.MyChatMember.NewChatMember.Status
+		oldStatus := update.MyChatMember.OldChatMember.Status
+
+		_, err := h.botRepo.GetGroupByChatID(ctx, chat.ID)
+		if err == nil {
+			tg, _ := h.moderator.GetTelegramClient(ctx, bot)
+			
+			lang := "en"
+			// Get the group from bot repo to get the UUID
+			managedGroup, err := h.botRepo.GetGroupByChatID(ctx, chat.ID)
+			if err == nil {
+				settings, _ := h.moderator.GetSettings(ctx, managedGroup.ID)
+				if settings != nil {
+					var general repository.SettingsGeneral
+					if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
+						lang = general.Language
+					}
+				}
+			}
+
+			if newStatus == "left" || newStatus == "kicked" {
+				msg := i18n.T(lang, "notifications.bot_removed", map[string]interface{}{"group": chat.Title})
+				_ = tg.SendMessage(bot.OwnerUserID, msg, nil)
+			} else if newStatus == "member" && (oldStatus == "administrator" || oldStatus == "creator") {
+				msg := i18n.T(lang, "notifications.admin_revoked_group")
+				_ = tg.SendMessage(chat.ID, msg, nil)
+				ownerMsg := i18n.T(lang, "notifications.admin_revoked", map[string]interface{}{"group": chat.Title})
+				_ = tg.SendMessage(bot.OwnerUserID, ownerMsg, nil)
+			}
 		}
 		w.WriteHeader(http.StatusOK)
 		return
@@ -182,6 +285,8 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 			if len(update.Message.NewChatMembers) > 0 {
 				for _, user := range update.Message.NewChatMembers {
 					h.moderator.LogMemberEvent(ctx, group.ID, "member_join", &user.ID)
+					// 🛡️ Captcha (BUG #10)
+					h.handleJoinCaptcha(ctx, update.Message, &user)
 				}
 				// Handle Welcome Message (BUG #8)
 				h.handleWelcomeMessage(ctx, update.Message)
@@ -223,6 +328,13 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 				h.handleGroupSettingsCommand(ctx, msg)
 				w.WriteHeader(http.StatusOK)
 				return
+			} else {
+				// 🛡️ Admin Commands (/ban, /mute, /warn, etc.)
+				handled := h.handleGroupAdminCommand(ctx, msg)
+				if handled {
+					w.WriteHeader(http.StatusOK)
+					return
+				}
 			}
 		}
 
@@ -232,10 +344,42 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 			log.Printf("⚠️ Moderation error: %v", err)
 		} else if violation != nil {
 			log.Printf("🚫 Violation detected: %s in chat %d by user %d", violation.Type, msg.Chat.ID, msg.From.ID)
-			h.executeViolationAction(ctx, msg.Chat.ID, msg.From.ID, msg.MessageID, violation)
+			h.executeViolationAction(ctx, msg.Chat.ID, msg.From.ID, msg.MessageID, msg.MessageThreadID, violation)
+
+			// 🚨 Spam Attack Detector (>10 violations in 1 minute)
+			cache := h.moderator.GetCache()
+			if cache != nil && cache.Client != nil {
+				attackKey := fmt.Sprintf("attack:%d", msg.Chat.ID)
+				count, _ := cache.Client.Incr(ctx, attackKey).Result()
+				if count == 1 {
+					cache.Client.Expire(ctx, attackKey, 1*time.Minute)
+				}
+				if count == 10 {
+					tg, _ := h.moderator.GetTelegramClient(ctx, bot)
+					group, _ := h.botRepo.GetGroupByChatID(ctx, msg.Chat.ID)
+					lang := i18n.DetectLanguage("") // Placeholder
+					alert := i18n.T(lang, "notifications.mass_spam", map[string]interface{}{"group": group.ChatTitle})
+					_ = tg.SendMessage(bot.OwnerUserID, alert, nil)
+				}
+			}
+		}
+
+		// 🎉 Milestones (1000, 10000, etc.)
+		totalKey := fmt.Sprintf("total_msgs:%d", msg.Chat.ID)
+		total, _ := h.moderator.GetCache().Client.Incr(ctx, totalKey).Result()
+		if total == 1000 || total == 10000 || total == 100000 {
+			botToken, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+			tg := telegram.NewBotAPIClient(botToken)
+			lang := i18n.DetectLanguage("")
+			milestoneMsg := i18n.T(lang, "notifications.milestone", map[string]interface{}{"n": total})
+			_ = tg.SendMessage(msg.Chat.ID, milestoneMsg, nil)
 		}
 	}
 
+	// If everything succeeded, mark as processed
+	if cache != nil && cache.Client != nil {
+		cache.Client.Set(context.Background(), cacheKey, "processed", 10*time.Minute)
+	}
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -267,6 +411,7 @@ func (h *WebhookHandler) mapToModeratorContext(m *Message) *botmgmt.MessageConte
 		HasGame:            m.Game != nil,
 		IsForward:          m.ForwardFromChat != nil,
 		ForwardFromChannel: m.ForwardFromChat != nil && m.ForwardFromChat.Type == "channel",
+		ForwardFromChatID:  h.getForwardID(m),
 		HasInlineKeyboard:  m.ReplyMarkup != nil,
 		HasReply:           m.ReplyToMessage != nil,
 		HasViaBot:          m.ViaBot != nil,
@@ -275,16 +420,15 @@ func (h *WebhookHandler) mapToModeratorContext(m *Message) *botmgmt.MessageConte
 	}
 }
 
-func (h *WebhookHandler) executeViolationAction(ctx context.Context, chatID int64, userID int64, messageID int, violation *botmgmt.Violation) {
+func (h *WebhookHandler) executeViolationAction(ctx context.Context, chatID int64, userID int64, messageID int, threadID *int, violation *botmgmt.Violation) {
 	bot, err := h.botRepo.GetBotByChatID(ctx, chatID)
 	if err != nil {
 		return
 	}
-	token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+	tgClient, err := h.moderator.GetTelegramClient(ctx, bot)
 	if err != nil {
 		return
 	}
-	tgClient := telegram.NewBotAPIClient(token)
 
 	// 1. Delete message
 	_ = tgClient.DeleteMessage(chatID, messageID)
@@ -319,16 +463,16 @@ func (h *WebhookHandler) executeViolationAction(ctx context.Context, chatID int6
 	switch {
 	case strings.HasPrefix(violation.Action, "mute"):
 		_ = tgClient.RestrictChatMember(chatID, userID, until)
-		_ = tgClient.SendMessage(chatID, fmt.Sprintf("🔇 User restricted for %s due to: %s", durationText, penaltyMsg), nil)
+		_ = tgClient.SendMessage(chatID, fmt.Sprintf("🔇 User restricted for %s due to: %s", durationText, penaltyMsg), nil, threadID)
 	case violation.Action == "kick":
 		_ = tgClient.UnbanChatMember(chatID, userID, true)
-		_ = tgClient.SendMessage(chatID, fmt.Sprintf("👢 User kicked due to: %s", penaltyMsg), nil)
+		_ = tgClient.SendMessage(chatID, fmt.Sprintf("👢 User kicked due to: %s", penaltyMsg), nil, threadID)
 	case violation.Action == "ban":
 		_ = tgClient.BanChatMember(chatID, userID, 0, false)
-		_ = tgClient.SendMessage(chatID, fmt.Sprintf("🚫 User banned due to: %s", penaltyMsg), nil)
+		_ = tgClient.SendMessage(chatID, fmt.Sprintf("🚫 User banned due to: %s", penaltyMsg), nil, threadID)
 	case violation.Action == "delete":
 		if violation.CurrentWarnings > 0 {
-			_ = tgClient.SendMessage(chatID, fmt.Sprintf("⚠️ %s", penaltyMsg), nil)
+			_ = tgClient.SendMessage(chatID, fmt.Sprintf("⚠️ %s", penaltyMsg), nil, threadID)
 		}
 	}
 }
@@ -354,12 +498,18 @@ func (h *WebhookHandler) answerPreCheckout(id string, ok bool, errorMessage stri
 
 func (h *WebhookHandler) handlePrivateCommand(_ context.Context, m *Message) {
 	if strings.HasPrefix(m.Text, "/start") {
-		appURL := "https://t.me/ifragment_bot/app"
-		welcome := "👋 *Welcome to iFragment!*\n\nI am the most advanced group management bot. Add me to your group to start protecting it from spam and managing your community.\n\n🚀 [Open Dashboard](" + appURL + ")"
+		appURL := os.Getenv("APP_URL")
+		if appURL == "" {
+			appURL = "https://t.me/ifragment_bot/app"
+		}
+		
+		userName := m.From.FirstName
+		lang := i18n.DetectLanguage(m.From.LanguageCode)
+		welcome := i18n.T(lang, "onboarding.welcome_pv", userName)
 		
 		botToken := os.Getenv("BOT_TOKEN")
 		tg := telegram.NewBotAPIClient(botToken)
-		_ = tg.SendMessage(m.Chat.ID, welcome, nil)
+		_ = tg.SendMessage(m.Chat.ID, welcome, nil, m.MessageThreadID)
 	}
 }
 
@@ -370,17 +520,19 @@ func (h *WebhookHandler) handleGroupSettingsCommand(ctx context.Context, m *Mess
 	}
 
 	bot, _ := h.botRepo.GetBotByID(ctx, group.BotID)
-	token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-	tg := telegram.NewBotAPIClient(token)
+	tg, _ := h.moderator.GetTelegramClient(ctx, bot)
 
-	status, _ := tg.GetChatMember(m.Chat.ID, m.From.ID)
+	status, _ := h.moderator.GetChatMemberCached(ctx, tg, m.Chat.ID, m.From.ID)
 	if status != "administrator" && status != "creator" {
 		return
 	}
 
-	appURL := fmt.Sprintf("https://t.me/ifragment_bot/app?startapp=group_%s", group.ID)
-	msg := fmt.Sprintf("⚙️ *Group Settings*\n\nYou can manage this group's settings via the dashboard:\n\n🔗 [Manage Group](%s)", appURL)
-	_ = tg.SendMessage(m.Chat.ID, msg, &m.MessageID)
+	appURL := os.Getenv("APP_URL")
+	if appURL == "" { appURL = "https://t.me/ifragment_bot/app" }
+	dashboardURL := fmt.Sprintf("%s?startapp=group_%s", appURL, group.ID)
+	
+	msg := fmt.Sprintf("⚙️ *Group Settings*\n\nYou can manage this group's settings via the dashboard:\n\n🔗 [Manage Group](%s)", dashboardURL)
+	_ = tg.SendMessage(m.Chat.ID, msg, &m.MessageID, m.MessageThreadID)
 }
 
 func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, chat *Chat, _ int64) {
@@ -391,17 +543,53 @@ func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, chat *Chat, 
 	token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 	tg := telegram.NewBotAPIClient(token)
 
-	// Sequence of onboarding messages (BUG #8)
-	welcome := "✨ *iFragment has been added to the group!*\n\nI am ready to protect and manage your community."
-	_ = tg.SendMessage(chat.ID, welcome, nil)
+	// Sequence of onboarding messages (BUG #8 - Fixed with premium Persian flow)
+	go func() {
+		var msgIDs []int
+		ctx := context.Background()
 
-	time.Sleep(1 * time.Second)
-	adminMsg := "⚠️ *Important: Admin Permissions Required*\n\nPlease promote me to administrator with 'Delete Messages' and 'Restrict Members' permissions to enable full protection."
-	_ = tg.SendMessage(chat.ID, adminMsg, nil)
+		// Try to detect language from group settings
+		lang := "en"
+		// We need to fetch the group to get its ID (UUID)
+		managedGroup, err := h.botRepo.GetGroupByChatID(ctx, chat.ID)
+		if err == nil {
+			settings, _ := h.moderator.GetSettings(ctx, managedGroup.ID)
+			if settings != nil {
+				var general repository.SettingsGeneral
+				if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
+					lang = general.Language
+				}
+			}
+		}
 
-	time.Sleep(2 * time.Second)
-	setupMsg := "🚀 *Get Started:*\nUse /settings to configure the bot or open the [Dashboard](https://t.me/ifragment_bot/app)."
-	_ = tg.SendMessage(chat.ID, setupMsg, nil)
+		// 1. Thank you message
+		welcome := i18n.T(lang, "onboarding.thanks", chat.Title)
+		msg1, _ := tg.SendMessageWithResult(chat.ID, welcome, nil)
+		if msg1 != nil { msgIDs = append(msgIDs, msg1.MessageID) }
+
+		time.Sleep(1 * time.Second)
+		// 2. Admin request
+		adminMsg := i18n.T(lang, "onboarding.admin_req")
+		msg2, _ := tg.SendMessageWithResult(chat.ID, adminMsg, nil)
+		if msg2 != nil { msgIDs = append(msgIDs, msg2.MessageID) }
+
+		time.Sleep(2 * time.Second)
+		// 3. Default features
+		appURL := os.Getenv("APP_URL")
+		if appURL == "" {
+			appURL = "https://t.me/ifragment_bot/app"
+		}
+		dashboardURL := fmt.Sprintf("%s?startapp=group_%s", appURL, bot.ID)
+		setupMsg := i18n.T(lang, "onboarding.features", dashboardURL)
+		msg3, _ := tg.SendMessageWithResult(chat.ID, setupMsg, nil)
+		if msg3 != nil { msgIDs = append(msgIDs, msg3.MessageID) }
+
+		// Auto-delete after 2 minutes (P3-B2)
+		time.Sleep(2 * time.Minute)
+		for _, mid := range msgIDs {
+			_ = tg.DeleteMessage(chat.ID, mid)
+		}
+	}()
 }
 
 func (h *WebhookHandler) handleWelcomeMessage(ctx context.Context, m *Message) {
@@ -424,16 +612,23 @@ func (h *WebhookHandler) handleWelcomeMessage(ctx context.Context, m *Message) {
 	}
 
 	bot, _ := h.botRepo.GetBotByID(ctx, group.BotID)
-	token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-	tg := telegram.NewBotAPIClient(token)
+	tg, _ := h.moderator.GetTelegramClient(ctx, bot)
 
-	// Replace placeholders
-	text := ct.WelcomeText
-	user := m.NewChatMembers[0]
-	text = strings.ReplaceAll(text, "{user}", fmt.Sprintf("[%s](tg://user?id=%d)", user.Username, user.ID))
-	text = strings.ReplaceAll(text, "{group}", m.Chat.Type)
+	// Handle all new members
+	for _, user := range m.NewChatMembers {
+		if user.IsBot { continue }
+		
+		text := ct.WelcomeText
+		// Improved placeholders
+		name := user.FirstName
+		if user.Username != "" { name = "@" + user.Username }
+		
+		text = strings.ReplaceAll(text, "{user}", fmt.Sprintf("[%s](tg://user?id=%d)", name, user.ID))
+		text = strings.ReplaceAll(text, "{group}", m.Chat.Title)
+		text = strings.ReplaceAll(text, "{chat_title}", m.Chat.Title)
 
-	_ = tg.SendMessage(m.Chat.ID, text, nil)
+		_ = tg.SendMessage(m.Chat.ID, text, nil, m.MessageThreadID)
+	}
 }
 
 func (h *WebhookHandler) deleteMessage(ctx context.Context, chatID int64, messageID int) {
@@ -444,4 +639,213 @@ func (h *WebhookHandler) deleteMessage(ctx context.Context, chatID int64, messag
 	token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 	tg := telegram.NewBotAPIClient(token)
 	_ = tg.DeleteMessage(chatID, messageID)
+}
+
+func (h *WebhookHandler) handleGroupAdminCommand(ctx context.Context, m *Message) bool {
+	if m.From == nil || m.Chat == nil { return false }
+	
+	// Command check
+	cmd := ""
+	for _, ent := range m.Entities {
+		if ent.Type == "bot_command" && ent.Offset == 0 {
+			cmd = strings.Split(m.Text, "@")[0]
+			cmd = strings.Split(cmd, " ")[0]
+			break
+		}
+	}
+	if cmd == "" { return false }
+
+	group, err := h.botRepo.GetGroupByChatID(ctx, m.Chat.ID)
+	if err != nil { return false }
+
+	bot, _ := h.botRepo.GetBotByID(ctx, group.BotID)
+	tg, _ := h.moderator.GetTelegramClient(ctx, bot)
+
+	// Admin Check
+	if !h.isAdmin(ctx, tg, m.Chat.ID, m.From.ID) {
+		return false
+	}
+
+	lang := i18n.DetectLanguage(m.From.LanguageCode)
+
+	switch cmd {
+	case "/ban":
+		return h.adminBan(ctx, tg, m, lang)
+	case "/unban":
+		return h.adminUnban(ctx, tg, m, lang)
+	case "/mute":
+		return h.adminMute(ctx, tg, m, lang)
+	case "/unmute":
+		return h.adminUnmute(ctx, tg, m, lang)
+	case "/warn":
+		return h.adminWarn(ctx, tg, m, lang, group.ID)
+	case "/rules":
+		return h.adminRules(ctx, tg, m, group.ID)
+	case "/report":
+		return h.adminReport(ctx, tg, m, bot.OwnerUserID)
+	case "/pin":
+		return h.adminPin(ctx, tg, m)
+	}
+
+	return false
+}
+
+func (h *WebhookHandler) isAdmin(ctx context.Context, tg *telegram.BotAPIClient, chatID, userID int64) bool {
+	status, _ := h.moderator.GetChatMemberCached(ctx, tg, chatID, userID)
+	return status == "administrator" || status == "creator"
+}
+
+func (h *WebhookHandler) adminBan(ctx context.Context, tg *telegram.BotAPIClient, m *Message, lang string) bool {
+	targetID, targetName := h.getTarget(m)
+	if targetID == 0 { return false }
+	
+	_ = tg.BanChatMember(m.Chat.ID, targetID, 0, false)
+	_ = tg.SendMessage(m.Chat.ID, fmt.Sprintf("🚫 *User Banned*\n\nUser: [%s](tg://user?id=%d)", targetName, targetID), &m.MessageID, m.MessageThreadID)
+	return true
+}
+
+func (h *WebhookHandler) adminUnban(ctx context.Context, tg *telegram.BotAPIClient, m *Message, lang string) bool {
+	targetID, targetName := h.getTarget(m)
+	if targetID == 0 { return false }
+	
+	_ = tg.UnbanChatMember(m.Chat.ID, targetID, false)
+	_ = tg.SendMessage(m.Chat.ID, fmt.Sprintf("✅ *User Unbanned*\n\nUser: [%s](tg://user?id=%d)", targetName, targetID), &m.MessageID, m.MessageThreadID)
+	return true
+}
+
+func (h *WebhookHandler) adminMute(ctx context.Context, tg *telegram.BotAPIClient, m *Message, lang string) bool {
+	targetID, targetName := h.getTarget(m)
+	if targetID == 0 { return false }
+	
+	until := time.Now().Add(24 * time.Hour).Unix()
+	_ = tg.RestrictChatMember(m.Chat.ID, targetID, until)
+	_ = tg.SendMessage(m.Chat.ID, fmt.Sprintf("🔇 *User Muted (24h)*\n\nUser: [%s](tg://user?id=%d)", targetName, targetID), &m.MessageID, m.MessageThreadID)
+	return true
+}
+
+func (h *WebhookHandler) adminUnmute(ctx context.Context, tg *telegram.BotAPIClient, m *Message, lang string) bool {
+	targetID, targetName := h.getTarget(m)
+	if targetID == 0 { return false }
+	
+	_ = tg.UnrestrictChatMember(m.Chat.ID, targetID)
+	_ = tg.SendMessage(m.Chat.ID, fmt.Sprintf("🔊 *User Unmuted*\n\nUser: [%s](tg://user?id=%d)", targetName, targetID), &m.MessageID, m.MessageThreadID)
+	return true
+}
+
+func (h *WebhookHandler) adminWarn(ctx context.Context, tg *telegram.BotAPIClient, m *Message, lang string, groupID uuid.UUID) bool {
+	targetID, targetName := h.getTarget(m)
+	if targetID == 0 { return false }
+
+	// Use existing moderation logic for warning
+	violation := &botmgmt.Violation{
+		Type: "admin_warn",
+		Action: "warn",
+		Message: "Warned by administrator",
+	}
+	h.executeViolationAction(ctx, m.Chat.ID, targetID, m.MessageID, m.MessageThreadID, violation)
+	return true
+}
+
+func (h *WebhookHandler) adminRules(ctx context.Context, tg *telegram.BotAPIClient, m *Message, groupID uuid.UUID) bool {
+	settings, _ := h.moderator.GetSettings(ctx, groupID)
+	if settings == nil { return false }
+	
+	var ct repository.SettingsCustomTexts
+	json.Unmarshal(settings.CustomTexts, &ct)
+	
+	if ct.RulesText == "" {
+		_ = tg.SendMessage(m.Chat.ID, "⚠️ Rules are not set for this group.", &m.MessageID, m.MessageThreadID)
+		return true
+	}
+	
+	_ = tg.SendMessage(m.Chat.ID, fmt.Sprintf("📜 *Group Rules*\n\n%s", ct.RulesText), &m.MessageID, m.MessageThreadID)
+	return true
+}
+
+func (h *WebhookHandler) adminReport(ctx context.Context, tg *telegram.BotAPIClient, m *Message, ownerID int64) bool {
+	if m.ReplyToMessage == nil { return false }
+	
+	reportMsg := fmt.Sprintf("🚨 *Report Received*\n\nGroup: %s\nReporter: %d\nOffender: %d\nMessage: [Link](https://t.me/c/%d/%d)", 
+		m.Chat.Title, m.From.ID, m.ReplyToMessage.From.ID, strings.TrimPrefix(fmt.Sprintf("%d", m.Chat.ID), "-100"), m.ReplyToMessage.MessageID)
+	
+	_ = tg.SendMessage(ownerID, reportMsg, nil)
+	_ = tg.SendMessage(m.Chat.ID, "✅ Report sent to administrators.", &m.MessageID, m.MessageThreadID)
+	return true
+}
+
+func (h *WebhookHandler) adminPin(ctx context.Context, tg *telegram.BotAPIClient, m *Message) bool {
+	if m.ReplyToMessage == nil { return false }
+	_ = tg.PinChatMessage(m.Chat.ID, m.ReplyToMessage.MessageID)
+	return true
+}
+
+func (h *WebhookHandler) getTarget(m *Message) (int64, string) {
+	if m.ReplyToMessage != nil && m.ReplyToMessage.From != nil {
+		name := m.ReplyToMessage.From.FirstName
+		if m.ReplyToMessage.From.Username != "" { name = "@" + m.ReplyToMessage.From.Username }
+		return m.ReplyToMessage.From.ID, name
+	}
+	return 0, ""
+}
+
+func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, cq *CallbackQuery) {
+	if strings.HasPrefix(cq.Data, "captcha:") {
+		parts := strings.Split(cq.Data, ":")
+		if len(parts) < 2 { return }
+		expectedUserID := parts[1]
+		
+		if fmt.Sprintf("%d", cq.From.ID) != expectedUserID {
+			_ = h.moderator.AnswerCallbackQuery(cq.ID, "This is not for you!", false)
+			return
+		}
+
+		group, err := h.botRepo.GetGroupByChatID(ctx, cq.Message.Chat.ID)
+		if err != nil { return }
+		
+		bot, _ := h.botRepo.GetBotByID(ctx, group.BotID)
+		tg, _ := h.moderator.GetTelegramClient(ctx, bot)
+
+		_ = tg.UnrestrictChatMember(cq.Message.Chat.ID, cq.From.ID)
+		_ = tg.DeleteMessage(cq.Message.Chat.ID, cq.Message.MessageID)
+		_ = tg.AnswerCallbackQuery(cq.ID, "Verification successful! Welcome.", false)
+	}
+}
+
+func (h *WebhookHandler) getForwardID(m *Message) int64 {
+	if m.ForwardFromChat != nil {
+		return m.ForwardFromChat.ID
+	}
+	return 0
+}
+
+func (h *WebhookHandler) handleJoinCaptcha(ctx context.Context, m *Message, user *User) {
+	group, err := h.botRepo.GetGroupByChatID(ctx, m.Chat.ID)
+	if err != nil { return }
+	
+	settings, _ := h.moderator.GetSettings(ctx, group.ID)
+	if settings == nil { return }
+	
+	var mm repository.SettingsMandatoryMembership
+	json.Unmarshal(settings.MandatoryMembership, &mm)
+	
+	if !mm.VerificationEnabled { return }
+
+	bot, _ := h.botRepo.GetBotByID(ctx, group.BotID)
+	tg, _ := h.moderator.GetTelegramClient(ctx, bot)
+
+	// 1. Restrict member
+	_ = tg.RestrictChatMember(m.Chat.ID, user.ID, 0)
+
+	// 2. Send Captcha
+	markup := map[string]interface{}{
+		"inline_keyboard": [][]map[string]interface{}{
+			{{
+				"text":          "✅ I am not a robot",
+				"callback_data": fmt.Sprintf("captcha:%d", user.ID),
+			}},
+		},
+	}
+	
+	welcome := fmt.Sprintf("👋 Welcome [%s](tg://user?id=%d)!\n\nPlease click the button below to verify you are human.", user.FirstName, user.ID)
+	_, _ = tg.SendMessageWithMarkup(m.Chat.ID, welcome, markup, m.MessageThreadID)
 }

@@ -37,13 +37,15 @@ export const SelectField: Component<{
   options: { value: string; label: string }[];
   description?: string;
 }> = (props) => {
+  const id = `select-${Math.random().toString(36).substr(2, 9)}`;
   return (
     <div class="flex flex-col gap-1.5 w-full">
       <div class="flex items-center justify-between">
-        <label class="text-[15px] font-bold text-white">{props.label}</label>
+        <label for={id} class="text-[15px] font-bold text-white">{props.label}</label>
       </div>
       <div class="relative w-full">
         <select 
+          id={id}
           value={props.value}
          
           onChange={(e) => {
@@ -81,11 +83,13 @@ export const NumberInputField: Component<{
   min?: number;
   max?: number;
 }> = (props) => {
+  const id = `number-${Math.random().toString(36).substr(2, 9)}`;
   return (
     <div class="flex flex-col gap-1.5 w-full">
-      <label class="text-[15px] font-bold text-white">{props.label}</label>
+      <label for={id} class="text-[15px] font-bold text-white">{props.label}</label>
       <div class="relative w-full">
         <input 
+          id={id}
           type="number"
           inputMode="numeric"
           min={props.min}
@@ -137,12 +141,14 @@ export const StringListField: Component<{
     }
   };
 
+  const id = `list-${Math.random().toString(36).substr(2, 9)}`;
   return (
     <div class="flex flex-col gap-2 w-full">
-      <label class="text-[15px] font-bold text-white">{props.label}</label>
+      <label for={id} class="text-[15px] font-bold text-white">{props.label}</label>
       
       <div class="flex gap-2">
         <input 
+          id={id}
           type="text"
           value={inputValue()}
           onInput={(e) => setInputValue(e.currentTarget.value)}
