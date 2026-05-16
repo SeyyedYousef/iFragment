@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  api:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - APP_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/ifragment?sslmode=disable
+      - REDIS_URL=dragonfly:6379
+      - DRAGONFLY_ADDR=dragonfly:6379
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+      - dragonfly
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=pass
+      - POSTGRES_DB=ifragment
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  dragonfly:
+    image: 'docker.dragonflydb.io/dragonflydb/dragonfly'
+    ports:
+      - "6379:6379"
+    ulimits:
+      memlock: -1
+
+volumes:
+  pgdata:
