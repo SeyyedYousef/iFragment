@@ -161,6 +161,7 @@ export const StringListField: Component<{
           onClick={handleAdd}
           disabled={!inputValue().trim()}
           class="w-11 shrink-0 bg-[#3390ec] hover:bg-[#2b7bc9] disabled:opacity-50 text-white rounded-xl flex items-center justify-center transition-colors"
+          aria-label="Add item"
         >
           <span class="material-symbols-outlined text-[20px]">add</span>
         </button>
@@ -182,6 +183,7 @@ export const StringListField: Component<{
                     props.onRemove(item);
                   }}
                   class="text-on-surface-variant hover:text-[#ff3b30] transition-colors flex items-center justify-center"
+                  aria-label="Remove item"
                 >
                   <span class="material-symbols-outlined text-[16px]">close</span>
                 </button>
@@ -246,6 +248,7 @@ export const InlineButtonField: Component<{
             onClick={handleAdd}
             disabled={!title().trim() || !url().trim()}
             class="w-10 shrink-0 bg-[#3390ec] hover:bg-[#2b7bc9] disabled:opacity-50 text-white rounded-lg flex items-center justify-center transition-colors"
+            aria-label="Add link"
           >
             <span class="material-symbols-outlined text-[20px]">add</span>
           </button>
@@ -267,6 +270,7 @@ export const InlineButtonField: Component<{
                     props.onRemove(btn.id);
                   }}
                   class="w-8 h-8 rounded-full bg-[#ff3b30]/10 text-[#ff3b30] flex items-center justify-center hover:bg-[#ff3b30]/20 transition-colors shrink-0"
+                  aria-label="Remove link"
                 >
                   <span class="material-symbols-outlined text-[16px]">delete</span>
                 </button>

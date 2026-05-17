@@ -1,12 +1,10 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosError, AxiosResponse } from 'axios';
 import { mockApiLogic } from './mock-api.js';
-
-// Ensure the baseURL points to the correct backend API endpoint
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
+import { API_CONFIG } from './config.js';
 
 export const apiClient: AxiosInstance = axios.create({
-  baseURL: API_URL,
-  timeout: 10000,
+  baseURL: API_CONFIG.BASE_URL,
+  timeout: API_CONFIG.TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -41,8 +39,8 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
-    // Fallback to MOCK data if Network Error or 500 (Server Down)
-    if (!error.response || error.response.status >= 500) {
+    // Fallback to MOCK data ONLY if enabled in config (Dev/Forced)
+    if (API_CONFIG.USE_MOCKS && (!error.response || error.response.status >= 500)) {
       console.warn('⚠️ Backend unreachable or errored, using MOCK data for:', originalRequest.url);
       try {
         const mockData = mockApiLogic(originalRequest.method, originalRequest.url, originalRequest.data);

@@ -1,0 +1,43 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen } from '@solidjs/testing-library';
+import { MandatoryPage } from './MandatoryPage.js';
+import { groupApi } from '@/shared/api/bot-management.js';
+
+vi.mock('@solidjs/router', () => ({
+  useParams: () => ({ id: 'g1' }),
+  useNavigate: () => vi.fn(),
+}));
+
+vi.mock('@/shared/api/bot-management.js', () => ({
+  groupApi: {
+    getSettings: vi.fn(),
+    updateSettings: vi.fn(),
+  }
+}));
+
+describe('MandatoryPage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (groupApi.getSettings as any).mockResolvedValue({
+      mandatory_membership: {
+        forced_add_enabled: true,
+        forced_add_count: 3,
+        force_join_enabled: true,
+        required_channels: ['@channel1'],
+        verification_enabled: false,
+        exemptions: [],
+      },
+      version: 1,
+    });
+  });
+
+  it('renders mandatory title', async () => {
+    render(() => <MandatoryPage />);
+    expect(await screen.findByText('mandatorySettings.title')).toBeInTheDocument();
+  });
+
+  it('renders subtitle', async () => {
+    render(() => <MandatoryPage />);
+    expect(await screen.findByText('mandatorySettings.subtitle')).toBeInTheDocument();
+  });
+});

@@ -1,4 +1,4 @@
-export const mockApiLogic = (method: string = 'GET', url: string = '', data: any = null) => {
+export const mockApiLogic = (method: string = 'GET', url: string = '', _data: any = null) => {
   // Extract path from URL
   const path = url.split('?')[0];
 

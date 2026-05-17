@@ -1,4 +1,4 @@
-import { createQuery, createMutation } from '@tanstack/solid-query';
+import { createQuery } from '@tanstack/solid-query';
 import { apiFetch } from '@/shared/api/base.js';
 import { createSignal, createEffect, onCleanup } from 'solid-js';
 
@@ -81,24 +81,7 @@ export const useCollectionStats = () => {
   }));
 };
 
-export const useUsernameAvailability = (username: () => string) => {
-  const [debouncedUsername, setDebouncedUsername] = createSignal(username());
 
-  createEffect(() => {
-    const val = username();
-    const timeout = setTimeout(() => {
-      setDebouncedUsername(val);
-    }, 350); // 350ms debounce
-    onCleanup(() => clearTimeout(timeout));
-  });
-
-  return createQuery(() => ({
-    queryKey: ['username', 'check', debouncedUsername()],
-    queryFn: () => apiFetch<AvailabilityStatus>(`/usernames/check?u=${debouncedUsername()}`),
-    enabled: !!debouncedUsername() && debouncedUsername().length >= 4,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  }));
-};
 
 export const useUsernameQuickAnalysis = (username: () => string) => {
   const [debouncedUsername, setDebouncedUsername] = createSignal(username());
@@ -119,14 +102,7 @@ export const useUsernameQuickAnalysis = (username: () => string) => {
   }));
 };
 
-export const useRequestPremiumReport = () => {
-  return createMutation(() => ({
-    mutationFn: (username: string) => apiFetch<{ invoice_link: string }>('/usernames/report/request', {
-      method: 'POST',
-      body: JSON.stringify({ username }),
-    }),
-  }));
-};
+
 
 export const usePremiumReport = (username: () => string) => {
   return createQuery(() => ({
@@ -137,11 +113,5 @@ export const usePremiumReport = (username: () => string) => {
   }));
 };
 
-export const useUserHistory = () => {
-  return createQuery(() => ({
-    queryKey: ['username', 'history'],
-    queryFn: () => apiFetch<PremiumReport[]>('/usernames/report/history'),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  }));
-};
+
 

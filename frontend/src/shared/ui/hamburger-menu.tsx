@@ -29,6 +29,7 @@ export const HamburgerMenu: Component<HamburgerMenuProps> = (props) => {
     { id: 'limits', icon: 'speed', label: t('groupDashboard.menuLimits'), path: `/group/${props.groupId}/limits` },
     { id: 'quiet', icon: 'do_not_disturb_on', label: t('groupDashboard.menuQuiet'), path: `/group/${props.groupId}/quiet` },
     { id: 'mandatory', icon: 'group_add', label: t('groupDashboard.menuMandatory'), path: `/group/${props.groupId}/mandatory` },
+    { id: 'custom', icon: 'edit_note', label: t('groupDashboard.menuCustom'), path: `/group/${props.groupId}/settings/custom-texts` },
     { id: 'analytics', icon: 'analytics', label: t('groupDashboard.menuAnalytics'), path: `/group/${props.groupId}/analytics` },
   ];
 

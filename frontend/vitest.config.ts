@@ -3,13 +3,11 @@ import solidPlugin from 'vite-plugin-solid';
 import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
-  plugins: [solidPlugin(), tsconfigPaths()],
+  plugins: [solidPlugin({ hot: false }), tsconfigPaths()],
   test: {
     environment: 'jsdom',
     globals: true,
-    transformMode: {
-      web: [/\.[jt]sx?$/],
-    },
+    setupFiles: ['./src/test-setup.tsx'],
     deps: {
       optimizer: {
         web: {
@@ -19,6 +17,6 @@ export default defineConfig({
     },
   },
   resolve: {
-    conditions: ['development', 'browser'],
+    conditions: ['browser'],
   },
 });

@@ -27,7 +27,7 @@ export interface ManagedGroup {
   updated_at: string;
 }
 
-export interface GroupSettings {
+interface GroupSettings {
   group_id: string;
   general: Partial<{
     language: string;
@@ -65,7 +65,7 @@ export interface SubscriptionPackage {
   discount?: string;
 }
 
-export interface FRGBalance {
+interface FRGBalance {
   user_id: number;
   balance: number;
   total_earned: number;
@@ -94,13 +94,13 @@ export interface PurchaseOption {
   popular?: boolean;
 }
 
-export interface TopUser {
+interface TopUser {
   user_id: number;
   name: string;
   msgs: number;
 }
 
-export interface AnalyticsSummary {
+interface AnalyticsSummary {
   total_members: number;
   members_change: number;
   total_messages: number;
@@ -117,13 +117,13 @@ export interface DailyMetric {
   value: number;
 }
 
-export interface AnalyticsData {
+interface AnalyticsData {
   summary: AnalyticsSummary;
   growth: DailyMetric[];
   activity: DailyMetric[];
 }
 
-export interface AuditLog {
+interface AuditLog {
   id: string;
   group_id: string;
   actor_id: number;
