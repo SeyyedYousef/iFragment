@@ -94,7 +94,7 @@ export const BotManagePage: Component = () => {
   };
 
   return (
-    <div class="min-h-screen bg-[#0f1014] pb-32 relative text-white overflow-x-hidden">
+    <div class={`min-h-screen bg-[#0f1014] pb-32 relative text-white overflow-x-hidden ${isRtl() ? 'rtl' : 'ltr'}`}>
       {/* Header */}
       <div class="pt-8 pb-6 px-6 sticky top-0 bg-[#0f1014]/90 backdrop-blur-xl z-30 border-b border-[#1c1c1c] flex items-center justify-between">
         <div class="flex flex-col gap-1">

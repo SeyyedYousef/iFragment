@@ -19,6 +19,19 @@ const CustomTextsPage = lazy(() => import('@/pages/group/custom-texts/index.js')
 const AnalyticsPage = lazy(() => import('@/pages/group/analytics/index.js').then(m => ({ default: m.AnalyticsPage })));
 const MarketplacePage = lazy(() => import('@/pages/marketplace/marketplace/index.js').then(m => ({ default: m.MarketplacePage })));
 
+const ChannelDashboardPage = lazy(() => import('@/pages/channel/dashboard/index.js').then(m => ({ default: m.ChannelDashboardPage })));
+const ChannelGeneralSettingsPage = lazy(() => import('@/pages/channel/general-settings/index.js').then(m => ({ default: m.ChannelGeneralSettingsPage })));
+const ChannelPostingPage = lazy(() => import('@/pages/channel/posting/index.js').then(m => ({ default: m.ChannelPostingPage })));
+const ChannelForwardingPage = lazy(() => import('@/pages/channel/forwarding/index.js').then(m => ({ default: m.ChannelForwardingPage })));
+const ChannelAdminsPage = lazy(() => import('@/pages/channel/admins/index.js').then(m => ({ default: m.ChannelAdminsPage })));
+const ChannelAnalyticsPage = lazy(() => import('@/pages/channel/analytics/index.js').then(m => ({ default: m.ChannelAnalyticsPage })));
+const ChannelInlineButtonsPage = lazy(() => import('@/pages/channel/inline-buttons/index.js').then(m => ({ default: m.ChannelInlineButtonsPage })));
+const ChannelDynamicBioPage = lazy(() => import('@/pages/channel/dynamic-bio/index.js').then(m => ({ default: m.ChannelDynamicBioPage })));
+const ChannelAutoResponderPage = lazy(() => import('@/pages/channel/auto-responder/index.js').then(m => ({ default: m.ChannelAutoResponderPage })));
+const ChannelAuditLogPage = lazy(() => import('@/pages/channel/audit-log/index.js').then(m => ({ default: m.ChannelAuditLogPage })));
+const ManagedChannelsPage = lazy(() => import('@/pages/channel/managed-channels/index.js').then(m => ({ default: m.ManagedChannelsPage })));
+const ConnectChannelPage = lazy(() => import('@/pages/channel/connect-channel/index.js').then(m => ({ default: m.ConnectChannelPage })));
+
 const CollectionStatsPage = lazy(() => import('@/pages/username/collection-stats/index.js').then(m => ({ default: m.CollectionStatsPage })));
 const PremiumReportPage = lazy(() => import('@/pages/username/premium-report/index.js').then(m => ({ default: m.PremiumReportPage })));
 
@@ -45,5 +58,17 @@ export const routes: Route[] = [
   { path: '/group/:id/mandatory', Component: MandatoryPage },
   { path: '/group/:id/settings/custom-texts', Component: CustomTextsPage },
   { path: '/group/:id/analytics', Component: AnalyticsPage },
+  { path: '/managed-channels', Component: ManagedChannelsPage },
+  { path: '/channel/connect', Component: ConnectChannelPage },
+  { path: '/channel/:id', Component: ChannelDashboardPage },
+  { path: '/channel/:id/settings', Component: ChannelGeneralSettingsPage },
+  { path: '/channel/:id/posting', Component: ChannelPostingPage },
+  { path: '/channel/:id/forwarding', Component: ChannelForwardingPage },
+  { path: '/channel/:id/admins', Component: ChannelAdminsPage },
+  { path: '/channel/:id/analytics', Component: ChannelAnalyticsPage },
+  { path: '/channel/:id/inline-buttons', Component: ChannelInlineButtonsPage },
+  { path: '/channel/:id/dynamic-bio', Component: ChannelDynamicBioPage },
+  { path: '/channel/:id/auto-responder', Component: ChannelAutoResponderPage },
+  { path: '/channel/:id/audit-log', Component: ChannelAuditLogPage },
   { path: '/marketplace', Component: MarketplacePage },
 ];

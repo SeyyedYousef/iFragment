@@ -78,13 +78,13 @@ export const DashboardPage: Component = () => {
             tabIndex={0}
             onClick={() => {
               hapticFeedback.impactOccurred('medium');
-              navigate('/managed-bots'); // Adjust route if channel management has a different route
+              navigate('/managed-channels'); // Link to channel management list
             }}
             onKeyDown={(e: KeyboardEvent) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 hapticFeedback.impactOccurred('medium');
-                navigate('/managed-bots');
+                navigate('/managed-channels');
               }
             }}
             initial={{ opacity: 0, scale: 0.9 }}

@@ -156,7 +156,7 @@ def print_summary(results: List[dict]):
         print_error(f"{failed_count} check(s) FAILED - Please fix before proceeding")
         return False
     else:
-        print_success("All checks PASSED ✨")
+        print_success("All checks PASSED!")
         return True
 
 def main():

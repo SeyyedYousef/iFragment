@@ -244,19 +244,23 @@ export const QuietHoursPage: Component = () => {
               {(period) => (
                 <div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex items-center justify-between">
                   <div class="flex items-center gap-4">
-                    <input 
-                      type="time" 
-                      value={period.start} 
-                      onChange={(e) => updatePeriod(period.id, 'start', e.currentTarget.value)}
-                      class="bg-[#0f1014] border border-[#2a2a2a] rounded-xl px-3 py-2 text-[14px] text-white focus:border-[#3390ec] outline-none"
-                    />
+                    <label>
+                      <input 
+                        type="time" 
+                        value={period.start} 
+                        onChange={(e) => updatePeriod(period.id, 'start', e.currentTarget.value)}
+                        class="bg-[#0f1014] border border-[#2a2a2a] rounded-xl px-3 py-2 text-[14px] text-white focus:border-[#3390ec] outline-none"
+                      />
+                    </label>
                     <span class="text-[#8e8e93]">→</span>
-                    <input 
-                      type="time" 
-                      value={period.end} 
-                      onChange={(e) => updatePeriod(period.id, 'end', e.currentTarget.value)}
-                      class="bg-[#0f1014] border border-[#2a2a2a] rounded-xl px-3 py-2 text-[14px] text-white focus:border-[#3390ec] outline-none"
-                    />
+                    <label>
+                      <input 
+                        type="time" 
+                        value={period.end} 
+                        onChange={(e) => updatePeriod(period.id, 'end', e.currentTarget.value)}
+                        class="bg-[#0f1014] border border-[#2a2a2a] rounded-xl px-3 py-2 text-[14px] text-white focus:border-[#3390ec] outline-none"
+                      />
+                    </label>
                   </div>
                   <button onClick={() => removePeriod(period.id)} class="text-[#ff3b30] p-2">
                     <span class="material-symbols-outlined">delete</span>

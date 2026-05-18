@@ -49,7 +49,7 @@ vi.mock('@/shared/ui/settings-controls.js', () => ({
   SettingsSection: (props: any) => <div data-testid="settings-section">{props.title}</div>,
   ToggleSwitch: (props: any) => <button data-testid="toggle" onClick={() => props.onChange?.(!props.checked)}>{props.checked ? 'ON' : 'OFF'}</button>,
   SelectField: (props: any) => <select data-testid="select"><option>{props.value}</option></select>,
-  NumberInputField: (props: any) => <div data-testid="number-input"><span>{props.label}</span><input type="number" value={props.value} /></div>,
+  NumberInputField: (props: any) => <div data-testid="number-input"><label><span>{props.label}</span><input type="number" value={props.value} /></label></div>,
   InlineButtonField: (props: any) => <div data-testid="inline-button">{props.title}</div>,
   StringListField: (props: any) => <div data-testid="string-list">{props.label}</div>,
 }));

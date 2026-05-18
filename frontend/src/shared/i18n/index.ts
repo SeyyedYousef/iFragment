@@ -76,5 +76,5 @@ export const getDict = () => i18n.flatten(dictionaries[locale()]);
 // Type-safe translator: wrong keys cause a compile-time error
 export const t = i18n.translator(getDict) as (key: DictPaths) => string;
 
-export const I18nContext = createContext({ t, locale, setLocale });
+export const I18nContext = createContext({ t, locale, setLocale, isRtl });
 export const useI18n = () => useContext(I18nContext);

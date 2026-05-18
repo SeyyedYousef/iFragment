@@ -33,6 +33,26 @@ export const mockApiLogic = (method: string = 'GET', url: string = '', _data: an
 
   if (path.includes('/groups') && !path.includes('/settings') && !path.includes('/analytics')) {
     if (method.toUpperCase() === 'GET') {
+      if (path.includes('/audit')) {
+        return [
+          {
+            id: 'log-1',
+            group_id: 'mock-group-1',
+            actor_id: 12345,
+            actor_name: 'Admin User',
+            action: 'warned user @spammer',
+            created_at: new Date(Date.now() - 5 * 60000).toISOString(),
+          },
+          {
+            id: 'log-2',
+            group_id: 'mock-group-1',
+            actor_id: 0,
+            actor_name: 'System',
+            action: 'deleted spam message',
+            created_at: new Date(Date.now() - 15 * 60000).toISOString(),
+          }
+        ];
+      }
       if (path.includes('/bots/') && path.includes('/groups')) {
         return [
           {
@@ -90,15 +110,25 @@ export const mockApiLogic = (method: string = 'GET', url: string = '', _data: an
 
   if (path.includes('/analytics')) {
     return {
-      summary: {
-        total_messages: 5000,
-        active_users: 150,
-        new_members: 20,
-        removed_members: 5,
-        deleted_messages: 120,
-        warnings_issued: 15,
-        bans_issued: 2,
-      },
+        summary: {
+          total_messages: 5000,
+          active_users: 150,
+          new_members: 20,
+          removed_members: 5,
+          deleted_messages: 120,
+          warnings_issued: 15,
+          bans_issued: 2,
+          spam_blocked: 450,
+          total_members: 1337,
+          members_change: 20,
+          messages_change_pct: 12.5,
+          members_left: 5,
+          top_users: [
+            { user_id: 1, name: 'User 1', msgs: 150 },
+            { user_id: 2, name: 'User 2', msgs: 120 },
+            { user_id: 3, name: 'User 3', msgs: 95 }
+          ]
+        },
       growth: [
         { date: '2026-05-01', members_count: 1300 },
         { date: '2026-05-05', members_count: 1320 },
