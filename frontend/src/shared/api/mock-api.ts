@@ -160,5 +160,64 @@ export const mockApiLogic = (method: string = 'GET', url: string = '', _data: an
     };
   }
 
+  if (path.includes('/profile/stats')) {
+    return {
+      usernamesAnalyzed: 47,
+      groupsManaged: 3,
+      channelsManaged: 2,
+      daysActive: 34,
+      currentStreak: 12,
+      globalRank: 156,
+      totalTaps: 84250,
+      totalFrgEarned: 12450,
+      totalFrgSpent: 3200,
+      frgBalance: 9250,
+      memberSince: '2026-04-15T00:00:00Z',
+      level: 5,
+      xp: 8500,
+      xpToNextLevel: 12000,
+    };
+  }
+
+  if (path.includes('/profile/achievements')) {
+    return [
+      { id: 'first_steps', unlocked: true, unlockedAt: '2026-04-15', progress: 1, target: 1 },
+      { id: 'home_base', unlocked: false, progress: 0, target: 1 },
+      { id: 'tap_novice', unlocked: true, unlockedAt: '2026-04-16', progress: 1000, target: 1000 },
+      { id: 'mining_machine', unlocked: false, progress: 84250, target: 100000 },
+      { id: 'frg_millionaire', unlocked: false, progress: 12450, target: 1000000 },
+      { id: 'first_scan', unlocked: true, unlockedAt: '2026-04-15', progress: 1, target: 1 },
+      { id: 'whale_hunter', unlocked: false, progress: 47, target: 100 },
+      { id: 'data_scientist', unlocked: false, progress: 47, target: 500 },
+      { id: 'social_butterfly', unlocked: true, unlockedAt: '2026-04-20', progress: 5, target: 5 },
+      { id: 'army_builder', unlocked: false, progress: 8, target: 50 },
+      { id: 'network_king', unlocked: false, progress: 8, target: 200 },
+      { id: 'group_guardian', unlocked: true, unlockedAt: '2026-04-18', progress: 1, target: 1 },
+      { id: 'channel_commander', unlocked: true, unlockedAt: '2026-04-22', progress: 1, target: 1 },
+      { id: 'empire_builder', unlocked: false, progress: 5, target: 10 },
+      { id: 'week_warrior', unlocked: true, unlockedAt: '2026-04-22', progress: 7, target: 7 },
+      { id: 'month_master', unlocked: false, progress: 12, target: 30 },
+      { id: 'legendary', unlocked: false, progress: 12, target: 100 },
+      { id: 'early_adopter', unlocked: true, unlockedAt: '2026-04-15', progress: 1, target: 1 },
+      { id: 'premium_user', unlocked: false, progress: 0, target: 1 },
+      { id: 'bug_hunter', unlocked: false, progress: 0, target: 1 },
+    ];
+  }
+
+  if (path.includes('/profile/referral')) {
+    return {
+      referralCode: 'ref_12345',
+      totalInvited: 8,
+      totalEarned: 80000,
+      friends: [
+        { id: 101, name: 'Alex K.', joinedAt: '2026-04-20', earned: 10000 },
+        { id: 102, name: 'Sara M.', joinedAt: '2026-04-21', earned: 10000 },
+        { id: 103, name: 'Mike R.', joinedAt: '2026-04-25', earned: 10000 },
+        { id: 104, name: 'Nina P.', joinedAt: '2026-05-01', earned: 10000 },
+        { id: 105, name: 'David L.', joinedAt: '2026-05-05', earned: 10000 },
+      ],
+    };
+  }
+
   throw new Error('No mock found for this route');
 };

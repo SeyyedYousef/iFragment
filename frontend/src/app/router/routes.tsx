@@ -7,6 +7,10 @@ import { IndexPage } from '@/pages/home/home/index.js';
 const AirdropPage = lazy(() => import('@/pages/airdrop/airdrop/index.js').then(m => ({ default: m.AirdropPage })));
 const DashboardPage = lazy(() => import('@/pages/dashboard/dashboard/index.js').then(m => ({ default: m.DashboardPage })));
 const ProfilePage = lazy(() => import('@/pages/profile/profile/index.js').then(m => ({ default: m.ProfilePage })));
+const AchievementsPage = lazy(() => import('@/pages/profile/achievements/index.js').then(m => ({ default: m.AchievementsPage })));
+const ReferralPage = lazy(() => import('@/pages/profile/referral/index.js').then(m => ({ default: m.ReferralPage })));
+const SettingsPage = lazy(() => import('@/pages/profile/settings/index.js').then(m => ({ default: m.SettingsPage })));
+const SecurityPage = lazy(() => import('@/pages/profile/security/index.js').then(m => ({ default: m.SecurityPage })));
 const ManagedBotsPage = lazy(() => import('@/pages/group/managed-bots/index.js').then(m => ({ default: m.ManagedBotsPage })));
 const BotManagePage = lazy(() => import('@/pages/group/bot-manage/index.js').then(m => ({ default: m.BotManagePage })));
 const GroupDashboardPage = lazy(() => import('@/pages/group/dashboard/index.js').then(m => ({ default: m.GroupDashboardPage })));
@@ -48,6 +52,10 @@ export const routes: Route[] = [
   { path: '/airdrop', Component: AirdropPage },
   { path: '/dashboard', Component: DashboardPage },
   { path: '/profile', Component: ProfilePage },
+  { path: '/profile/achievements', Component: AchievementsPage },
+  { path: '/profile/referral', Component: ReferralPage },
+  { path: '/profile/settings', Component: SettingsPage },
+  { path: '/profile/security', Component: SecurityPage },
   { path: '/managed-bots', Component: ManagedBotsPage },
   { path: '/bot/:botId/manage', Component: BotManagePage },
   { path: '/group/:id', Component: GroupDashboardPage },

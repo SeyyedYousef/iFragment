@@ -22,9 +22,10 @@ import (
 	"ifragment-backend/internal/handler"
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/repository"
+	"ifragment-backend/internal/service"
+	"ifragment-backend/internal/service/botmgmt"
 	"ifragment-backend/internal/service/payment"
 	"ifragment-backend/internal/service/username"
-	"ifragment-backend/internal/service/botmgmt"
 
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
@@ -159,6 +160,8 @@ func main() {
 	premiumHandler := handler.NewPremiumHandler(reportService, paymentService)
 	webhookHandler := handler.NewWebhookHandler(db, moderatorService, botRepo)
 	botMgmtHandler := handler.NewBotMgmtHandler(botService, marketplaceService)
+	profileService := service.NewProfileService(db)
+	profileHandler := handler.NewProfileHandler(profileService)
 
 	authHandler := handler.NewAuthHandler()
 
@@ -228,6 +231,16 @@ func main() {
 			r.Post("/purchase/stars", botMgmtHandler.PurchaseWithStars)
 			r.Post("/purchase/toncoin", botMgmtHandler.PurchaseWithToncoin)
 			r.Post("/convert/airdrop", botMgmtHandler.ConvertAirdropCoins)
+		})
+
+		r.Route("/profile", func(r chi.Router) {
+			r.Use(middleware.AuthMiddleware)
+
+			r.Get("/stats", profileHandler.GetStats)
+			r.Get("/achievements", profileHandler.GetAchievements)
+			r.Get("/referral", profileHandler.GetReferralData)
+			r.Post("/referral", profileHandler.SetReferrerCode)
+			r.Post("/tap", profileHandler.AddTaps)
 		})
 	})
 

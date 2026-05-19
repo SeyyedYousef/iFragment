@@ -1,0 +1,9 @@
+BEGIN;
+
+DROP TABLE IF EXISTS user_achievements;
+DROP TABLE IF EXISTS user_stats;
+
+ALTER TABLE users DROP COLUMN IF EXISTS referred_by;
+ALTER TABLE users DROP COLUMN IF EXISTS referral_code;
+
+COMMIT;

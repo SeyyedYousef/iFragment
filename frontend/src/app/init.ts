@@ -12,9 +12,11 @@ import {
   backButton,
 
   isTMA,
+  hapticFeedback,
 } from '@tma.js/sdk-solid';
 
 import { initStorageSync } from '@/shared/store/airdrop.js';
+import { initProfileSync, profileSettings } from '@/shared/store/profile.js';
 
 /**
  * Initializes the application and configures its dependencies.
@@ -132,4 +134,33 @@ export async function init(options: {
 
   // Initialize store persistence
   initStorageSync();
+  initProfileSync();
+
+  // Wrap hapticFeedback methods to respect user preferences
+  try {
+    const hf = hapticFeedback as any;
+    const originalImpact = hf.impactOccurred;
+    const originalNotification = hf.notificationOccurred;
+    const originalSelection = hf.selectionChanged;
+
+    hf.impactOccurred = (style: any) => {
+      if (profileSettings().hapticEnabled) {
+        originalImpact.call(hf, style);
+      }
+    };
+
+    hf.notificationOccurred = (type: any) => {
+      if (profileSettings().hapticEnabled) {
+        originalNotification.call(hf, type);
+      }
+    };
+
+    hf.selectionChanged = () => {
+      if (profileSettings().hapticEnabled) {
+        originalSelection.call(hf);
+      }
+    };
+  } catch (e) {
+    console.warn('Failed to wrap hapticFeedback', e);
+  }
 }
