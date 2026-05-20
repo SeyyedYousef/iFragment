@@ -1,6 +1,6 @@
 import { Component, For } from 'solid-js';
 import { Motion } from '@motionone/solid';
-import { t } from '@/shared/i18n/index.js';
+import { t, locale } from '@/shared/i18n/index.js';
 import type { ProfileStats } from '@/shared/store/profile.js';
 
 interface Props { stats: ProfileStats | null }
@@ -16,9 +16,16 @@ export const StatsDashboard: Component<Props> = (props) => {
   ];
 
   const formatVal = (v: number) => {
-    if (v >= 1_000_000) return (v / 1_000_000).toFixed(1) + 'M';
-    if (v >= 1_000) return (v / 1_000).toFixed(1) + 'K';
-    return v.toString();
+    const isFa = locale() === 'fa';
+    if (v >= 1_000_000) {
+      const val = (v / 1_000_000).toFixed(1);
+      return (isFa ? parseFloat(val).toLocaleString('fa-IR') : val) + (isFa ? ' میلیون' : 'M');
+    }
+    if (v >= 1_000) {
+      const val = (v / 1_000).toFixed(1);
+      return (isFa ? parseFloat(val).toLocaleString('fa-IR') : val) + (isFa ? ' هزار' : 'K');
+    }
+    return v.toLocaleString(isFa ? 'fa-IR' : 'en-US');
   };
 
   return (

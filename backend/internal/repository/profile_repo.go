@@ -2,52 +2,16 @@ package repository
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"time"
+
+	"ifragment-backend/internal/model"
 
 	"github.com/jackc/pgx/v5"
 )
-
-type ProfileStats struct {
-	UsernamesAnalyzed int       `json:"usernamesAnalyzed"`
-	GroupsManaged     int       `json:"groupsManaged"`
-	ChannelsManaged   int       `json:"channelsManaged"`
-	DaysActive        int       `json:"daysActive"`
-	CurrentStreak     int       `json:"currentStreak"`
-	GlobalRank        int       `json:"globalRank"`
-	TotalTaps         int       `json:"totalTaps"`
-	TotalFrgEarned    float64   `json:"totalFrgEarned"`
-	TotalFrgSpent     float64   `json:"totalFrgSpent"`
-	FrgBalance        float64   `json:"frgBalance"`
-	MemberSince       time.Time `json:"memberSince"`
-	Level             int       `json:"level"`
-	XP                int       `json:"xp"`
-	XPToNextLevel     int       `json:"xpToNextLevel"`
-}
-
-type UserAchievement struct {
-	ID         string     `json:"id"`
-	Unlocked   bool       `json:"unlocked"`
-	UnlockedAt *time.Time `json:"unlockedAt,omitempty"`
-	Progress   int        `json:"progress"`
-	Target     int        `json:"target"`
-}
-
-type ReferralFriend struct {
-	ID       int64     `json:"id"`
-	Name     string    `json:"name"`
-	JoinedAt time.Time `json:"joinedAt"`
-	Earned   float64   `json:"earned"`
-}
-
-type ReferralHubData struct {
-	ReferralCode string           `json:"referralCode"`
-	TotalInvited int              `json:"totalInvited"`
-	TotalEarned  float64          `json:"totalEarned"`
-	Friends      []ReferralFriend `json:"friends"`
-}
 
 // EnsureStatsExists inserts default stats for the user if they don't exist
 func (db *Database) EnsureStatsExists(ctx context.Context, userID int64) error {
@@ -60,46 +24,85 @@ func (db *Database) EnsureStatsExists(ctx context.Context, userID int64) error {
 	return err
 }
 
-func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*ProfileStats, error) {
+func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.ProfileStats, error) {
 	if err := db.EnsureStatsExists(ctx, userID); err != nil {
 		return nil, err
 	}
 
-	// 1. Fetch member_since from users
+	query := `
+		WITH user_info AS (
+			SELECT created_at, is_premium, premium_until FROM users WHERE telegram_id = $1
+		),
+		reports_count AS (
+			SELECT COUNT(*) as count FROM username_reports WHERE user_id = $1
+		),
+		managed_counts AS (
+			SELECT 
+				COALESCE(SUM(CASE WHEN chat_type IN ('group', 'supergroup') THEN 1 ELSE 0 END), 0) as groups,
+				COALESCE(SUM(CASE WHEN chat_type = 'channel' THEN 1 ELSE 0 END), 0) as channels
+			FROM managed_groups mg
+			JOIN managed_bots mb ON mg.bot_id = mb.id
+			WHERE mb.owner_user_id = $1
+		),
+		frg_info AS (
+			SELECT balance, total_earned, total_spent FROM frg_balances WHERE user_id = $1
+		),
+		stats_info AS (
+			SELECT days_active, current_streak, total_taps, xp, level, last_active_at,
+			       COALESCE(emoji_status, '') as emoji_status,
+			       COALESCE(equipped_border, '') as equipped_border,
+			       COALESCE(equipped_skin, '') as equipped_skin
+			FROM user_stats WHERE user_id = $1
+		)
+		SELECT 
+			ui.created_at,
+			rc.count,
+			mc.groups,
+			mc.channels,
+			COALESCE(fi.balance, 0.0),
+			COALESCE(fi.total_earned, 0.0),
+			COALESCE(fi.total_spent, 0.0),
+			si.days_active,
+			si.current_streak,
+			si.total_taps,
+			si.xp,
+			si.level,
+			si.last_active_at,
+			ui.is_premium,
+			ui.premium_until,
+			si.emoji_status,
+			si.equipped_border,
+			si.equipped_skin
+		FROM stats_info si
+		CROSS JOIN user_info ui
+		CROSS JOIN reports_count rc
+		CROSS JOIN managed_counts mc
+		LEFT JOIN frg_info fi ON true
+	`
+
 	var memberSince time.Time
-	err := db.Pool.QueryRow(ctx, "SELECT created_at FROM users WHERE telegram_id = $1", userID).Scan(&memberSince)
+	var usernamesAnalyzed, groupsManaged, channelsManaged int
+	var frgBalance, totalFrgEarned, totalFrgSpent float64
+	var daysActive, currentStreak, totalTaps, xp, level int
+	var lastActiveAt time.Time
+	var isPremium bool
+	var premiumUntil *time.Time
+	var emojiStatus, equippedBorder, equippedSkin string
+
+	err := db.Pool.QueryRow(ctx, query, userID).Scan(
+		&memberSince, &usernamesAnalyzed, &groupsManaged, &channelsManaged,
+		&frgBalance, &totalFrgEarned, &totalFrgSpent,
+		&daysActive, &currentStreak, &totalTaps, &xp, &level, &lastActiveAt,
+		&isPremium, &premiumUntil, &emojiStatus, &equippedBorder, &equippedSkin,
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	// 2. Fetch usernames_analyzed count
-	var usernamesAnalyzed int
-	_ = db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM username_reports WHERE user_id = $1", userID).Scan(&usernamesAnalyzed)
-
-	// 3. Fetch groups_managed and channels_managed count
-	var groupsManaged, channelsManaged int
-	groupQuery := `
-		SELECT 
-			COALESCE(SUM(CASE WHEN chat_type IN ('group', 'supergroup') THEN 1 ELSE 0 END), 0) as groups,
-			COALESCE(SUM(CASE WHEN chat_type = 'channel' THEN 1 ELSE 0 END), 0) as channels
-		FROM managed_groups mg
-		JOIN managed_bots mb ON mg.bot_id = mb.id
-		WHERE mb.owner_user_id = $1
-	`
-	_ = db.Pool.QueryRow(ctx, groupQuery, userID).Scan(&groupsManaged, &channelsManaged)
-
-	// 4. Fetch FRG balance details
-	var frgBalance, totalFrgEarned, totalFrgSpent float64
-	frgQuery := "SELECT balance, total_earned, total_spent FROM frg_balances WHERE user_id = $1"
-	_ = db.Pool.QueryRow(ctx, frgQuery, userID).Scan(&frgBalance, &totalFrgEarned, &totalFrgSpent)
-
-	// 5. Fetch user_stats properties
-	var daysActive, currentStreak, totalTaps, xp, level int
-	var lastActiveAt time.Time
-	statsQuery := "SELECT days_active, current_streak, total_taps, xp, level, last_active_at FROM user_stats WHERE user_id = $1"
-	err = db.Pool.QueryRow(ctx, statsQuery, userID).Scan(&daysActive, &currentStreak, &totalTaps, &xp, &level, &lastActiveAt)
-	if err != nil {
-		return nil, err
+	// Auto-expire premium if duration passed
+	if isPremium && premiumUntil != nil && time.Now().After(*premiumUntil) {
+		isPremium = false
+		_, _ = db.Pool.Exec(ctx, "UPDATE users SET is_premium = FALSE WHERE telegram_id = $1", userID)
 	}
 
 	// Dynamic streak update: if last active was yesterday, keep streak. If it was today, keep. If it was more than 1 day ago, reset streak to 1.
@@ -111,21 +114,16 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*Profile
 	} else if diff > 24*time.Hour {
 		currentStreak++
 		daysActive++
-		_, _ = db.Pool.Exec(ctx, "UPDATE user_stats SET current_streak = $1, days_active = $2, last_active_at = CURRENT_TIMESTAMP WHERE user_id = $1", currentStreak, daysActive, userID)
+		_, _ = db.Pool.Exec(ctx, "UPDATE user_stats SET current_streak = $1, days_active = $2, last_active_at = CURRENT_TIMESTAMP WHERE user_id = $3", currentStreak, daysActive, userID)
 	}
 
-	// 6. Calculate global rank (simple ordering by total taps/xp)
-	var globalRank int
-	rankQuery := "SELECT COUNT(*) + 1 FROM user_stats WHERE xp > $1"
-	_ = db.Pool.QueryRow(ctx, rankQuery, xp).Scan(&globalRank)
-
-	return &ProfileStats{
+	return &model.ProfileStats{
 		UsernamesAnalyzed: usernamesAnalyzed,
 		GroupsManaged:     groupsManaged,
 		ChannelsManaged:   channelsManaged,
 		DaysActive:        daysActive,
 		CurrentStreak:     currentStreak,
-		GlobalRank:        globalRank,
+		GlobalRank:        0,
 		TotalTaps:         totalTaps,
 		TotalFrgEarned:    totalFrgEarned,
 		TotalFrgSpent:     totalFrgSpent,
@@ -133,11 +131,23 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*Profile
 		MemberSince:       memberSince,
 		Level:             level,
 		XP:                xp,
-		XPToNextLevel:     level * 3000,
+		XPToNextLevel:     GetXPToNextLevel(level),
+		IsPremium:         isPremium,
+		PremiumUntil:      premiumUntil,
+		EmojiStatus:       emojiStatus,
+		EquippedBorder:    equippedBorder,
+		EquippedSkin:      equippedSkin,
 	}, nil
 }
 
-var predefinedAchievements = map[string]int{
+func (db *Database) GetGlobalRankFromDB(ctx context.Context, xp int) (int, error) {
+	var globalRank int
+	rankQuery := "SELECT COUNT(*) + 1 FROM user_stats WHERE xp > $1"
+	err := db.Pool.QueryRow(ctx, rankQuery, xp).Scan(&globalRank)
+	return globalRank, err
+}
+
+var PredefinedAchievements = map[string]int{
 	"first_steps":        1,
 	"home_base":          1,
 	"tap_novice":         1000,
@@ -160,25 +170,25 @@ var predefinedAchievements = map[string]int{
 	"bug_hunter":         1,
 }
 
-func (db *Database) GetAchievements(ctx context.Context, userID int64) ([]UserAchievement, error) {
+func (db *Database) GetAchievements(ctx context.Context, userID int64) ([]model.UserAchievement, error) {
 	rows, err := db.Pool.Query(ctx, "SELECT achievement_id, progress, unlocked, unlocked_at FROM user_achievements WHERE user_id = $1", userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	userProgress := make(map[string]UserAchievement)
+	userProgress := make(map[string]model.UserAchievement)
 	for rows.Next() {
 		var achID string
 		var progress int
 		var unlocked bool
 		var unlockedAt *time.Time
 		if err := rows.Scan(&achID, &progress, &unlocked, &unlockedAt); err == nil {
-			target := predefinedAchievements[achID]
+			target := PredefinedAchievements[achID]
 			if target == 0 {
 				target = 1
 			}
-			userProgress[achID] = UserAchievement{
+			userProgress[achID] = model.UserAchievement{
 				ID:         achID,
 				Unlocked:   unlocked,
 				UnlockedAt: unlockedAt,
@@ -188,7 +198,7 @@ func (db *Database) GetAchievements(ctx context.Context, userID int64) ([]UserAc
 		}
 	}
 
-	achievementsList := []UserAchievement{}
+	achievementsList := []model.UserAchievement{}
 	// Order by achievement name to match frontend mock expectations
 	keys := []string{
 		"first_steps", "home_base", "tap_novice", "mining_machine", "frg_millionaire",
@@ -201,11 +211,11 @@ func (db *Database) GetAchievements(ctx context.Context, userID int64) ([]UserAc
 		if ach, exists := userProgress[k]; exists {
 			achievementsList = append(achievementsList, ach)
 		} else {
-			achievementsList = append(achievementsList, UserAchievement{
+			achievementsList = append(achievementsList, model.UserAchievement{
 				ID:       k,
 				Unlocked: false,
 				Progress: 0,
-				Target:   predefinedAchievements[k],
+				Target:   PredefinedAchievements[k],
 			})
 		}
 	}
@@ -214,7 +224,7 @@ func (db *Database) GetAchievements(ctx context.Context, userID int64) ([]UserAc
 }
 
 func (db *Database) UpdateAchievementProgress(ctx context.Context, userID int64, achievementID string, progress int) error {
-	target, ok := predefinedAchievements[achievementID]
+	target, ok := PredefinedAchievements[achievementID]
 	if !ok {
 		return fmt.Errorf("unknown achievement %s", achievementID)
 	}
@@ -238,7 +248,7 @@ func (db *Database) UpdateAchievementProgress(ctx context.Context, userID int64,
 	return err
 }
 
-func (db *Database) GetReferralData(ctx context.Context, userID int64) (*ReferralHubData, error) {
+func (db *Database) GetReferralData(ctx context.Context, userID int64) (*model.ReferralHubData, error) {
 	// 1. Fetch user's referral code. Generate one if missing.
 	var refCode sql.NullString
 	err := db.Pool.QueryRow(ctx, "SELECT referral_code FROM users WHERE telegram_id = $1", userID).Scan(&refCode)
@@ -249,7 +259,11 @@ func (db *Database) GetReferralData(ctx context.Context, userID int64) (*Referra
 	code := refCode.String
 	if !refCode.Valid || code == "" {
 		// Generate random ref code
-		code = fmt.Sprintf("ref_%d", rand.Intn(1000000))
+		var err error
+		code, err = generateSecureReferralCode(8)
+		if err != nil {
+			return nil, err
+		}
 		_, err = db.Pool.Exec(ctx, "UPDATE users SET referral_code = $1 WHERE telegram_id = $2", code, userID)
 		if err != nil {
 			return nil, err
@@ -270,7 +284,7 @@ func (db *Database) GetReferralData(ctx context.Context, userID int64) (*Referra
 	}
 	defer rows.Close()
 
-	friends := []ReferralFriend{}
+	friends := []model.ReferralFriend{}
 	var totalInvited int
 	var totalEarned float64
 
@@ -280,7 +294,7 @@ func (db *Database) GetReferralData(ctx context.Context, userID int64) (*Referra
 		var joinedAt time.Time
 		var earned float64
 		if err := rows.Scan(&friendID, &name, &joinedAt, &earned); err == nil {
-			friends = append(friends, ReferralFriend{
+			friends = append(friends, model.ReferralFriend{
 				ID:       friendID,
 				Name:     name,
 				JoinedAt: joinedAt,
@@ -291,7 +305,7 @@ func (db *Database) GetReferralData(ctx context.Context, userID int64) (*Referra
 		}
 	}
 
-	return &ReferralHubData{
+	return &model.ReferralHubData{
 		ReferralCode: code,
 		TotalInvited: totalInvited,
 		TotalEarned:  totalEarned,
@@ -299,26 +313,190 @@ func (db *Database) GetReferralData(ctx context.Context, userID int64) (*Referra
 	}, nil
 }
 
-func (db *Database) SetReferredBy(ctx context.Context, userID int64, referrerCode string) error {
+func (db *Database) SetReferredBy(ctx context.Context, userID int64, referrerCode string) (bool, error) {
 	// Find referrer by referral_code
 	var referrerID int64
 	err := db.Pool.QueryRow(ctx, "SELECT telegram_id FROM users WHERE referral_code = $1", referrerCode).Scan(&referrerID)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return fmt.Errorf("invalid referral code")
+			return false, fmt.Errorf("invalid referral code")
 		}
-		return err
+		return false, err
 	}
 
 	if referrerID == userID {
-		return fmt.Errorf("cannot refer yourself")
+		return false, fmt.Errorf("cannot refer yourself")
 	}
 
 	// Update user's referred_by if it is currently NULL
-	_, err = db.Pool.Exec(ctx, `
+	cmdTag, err := db.Pool.Exec(ctx, `
 		UPDATE users 
 		SET referred_by = $1 
 		WHERE telegram_id = $2 AND referred_by IS NULL
 	`, referrerID, userID)
+	if err != nil {
+		return false, err
+	}
+	return cmdTag.RowsAffected() == 1, nil
+}
+
+const base62Chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+func generateSecureReferralCode(length int) (string, error) {
+	result := make([]byte, length)
+	for i := 0; i < length; i++ {
+		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(base62Chars))))
+		if err != nil {
+			return "", err
+		}
+		result[i] = base62Chars[num.Int64()]
+	}
+	return string(result), nil
+}
+
+var LevelThresholds = []int{
+	0,      // Level 1
+	500,    // Level 2
+	1500,   // Level 3
+	3500,   // Level 4
+	7000,   // Level 5
+	12000,  // Level 6
+	20000,  // Level 7
+	35000,  // Level 8
+	55000,  // Level 9
+	80000,  // Level 10
+	120000, // Level 11
+	200000, // Level 12
+}
+
+func GetLevelFromXP(xp int) int {
+	level := 1
+	for i, req := range LevelThresholds {
+		if xp >= req {
+			level = i + 1
+		} else {
+			break
+		}
+	}
+	return level
+}
+
+func GetXPToNextLevel(level int) int {
+	if level <= 0 {
+		return 0
+	}
+	if level >= len(LevelThresholds) {
+		return LevelThresholds[len(LevelThresholds)-1] // Cap at Max Level XP
+	}
+	return LevelThresholds[level] // LevelThresholds[level] is the XP needed for level + 1 (0-indexed)
+}
+
+// PredefinedCosmetics holds all profile cosmetic shop items
+var PredefinedCosmetics = []model.CosmeticItem{
+	{ID: "gold_shimmer", Type: "border", Name: "Gold Shimmer", Cost: 10000, BorderClass: "border-gold-shimmer"},
+	{ID: "cyber_glow", Type: "border", Name: "Cyber Glow", Cost: 25000, BorderClass: "border-cyber-glow"},
+	{ID: "rainbow_wave", Type: "border", Name: "Rainbow Wave", Cost: 50000, BorderClass: "border-rainbow-wave"},
+	{ID: "cosmic_void", Type: "skin", Name: "Cosmic Void", Cost: 20000, SkinClass: "bg-cosmic-void"},
+	{ID: "neon_matrix", Type: "skin", Name: "Neon Matrix", Cost: 35000, SkinClass: "bg-neon-matrix"},
+}
+
+// GetCosmetics gets all cosmetics indicating which ones are purchased by the user
+func (db *Database) GetCosmetics(ctx context.Context, userID int64) ([]model.CosmeticItem, error) {
+	rows, err := db.Pool.Query(ctx, "SELECT cosmetic_id FROM user_cosmetics WHERE user_id = $1", userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	purchased := make(map[string]bool)
+	for rows.Next() {
+		var cid string
+		if err := rows.Scan(&cid); err == nil {
+			purchased[cid] = true
+		}
+	}
+
+	result := make([]model.CosmeticItem, len(PredefinedCosmetics))
+	for i, item := range PredefinedCosmetics {
+		item.Purchased = purchased[item.ID]
+		result[i] = item
+	}
+	return result, nil
+}
+
+// HasCosmetic checks if user has purchased the cosmetic
+func (db *Database) HasCosmetic(ctx context.Context, userID int64, cosmeticID string) (bool, error) {
+	var exists bool
+	err := db.Pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM user_cosmetics WHERE user_id = $1 AND cosmetic_id = $2)", userID, cosmeticID).Scan(&exists)
+	return exists, err
+}
+
+// RecordCosmeticPurchase inserts the purchased cosmetic
+func (db *Database) RecordCosmeticPurchase(ctx context.Context, userID int64, cosmeticID string) error {
+	_, err := db.Pool.Exec(ctx, "INSERT INTO user_cosmetics (user_id, cosmetic_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", userID, cosmeticID)
 	return err
 }
+
+// EquipCosmetic equips the border or skin for the user
+func (db *Database) EquipCosmetic(ctx context.Context, userID int64, cosmeticID string, cosmeticType string) error {
+	var query string
+	if cosmeticType == "border" {
+		query = "UPDATE user_stats SET equipped_border = $1 WHERE user_id = $2"
+	} else if cosmeticType == "skin" {
+		query = "UPDATE user_stats SET equipped_skin = $1 WHERE user_id = $2"
+	} else {
+		return fmt.Errorf("invalid cosmetic type: %s", cosmeticType)
+	}
+	_, err := db.Pool.Exec(ctx, query, cosmeticID, userID)
+	return err
+}
+
+// SetEmojiStatus sets the user's custom status emoji
+func (db *Database) SetEmojiStatus(ctx context.Context, userID int64, emoji string) error {
+	_, err := db.Pool.Exec(ctx, "UPDATE user_stats SET emoji_status = $1 WHERE user_id = $2", emoji, userID)
+	return err
+}
+
+// UpdateUserPremium adds premium duration to a user
+func (db *Database) UpdateUserPremium(ctx context.Context, userID int64, duration time.Duration) error {
+	var currentPremiumUntil *time.Time
+	err := db.Pool.QueryRow(ctx, "SELECT premium_until FROM users WHERE telegram_id = $1", userID).Scan(&currentPremiumUntil)
+	if err != nil && err != pgx.ErrNoRows {
+		return err
+	}
+
+	newUntil := time.Now().Add(duration)
+	if currentPremiumUntil != nil && currentPremiumUntil.After(time.Now()) {
+		newUntil = currentPremiumUntil.Add(duration)
+	}
+
+	_, err = db.Pool.Exec(ctx, "UPDATE users SET is_premium = TRUE, premium_until = $1 WHERE telegram_id = $2", newUntil, userID)
+	return err
+}
+
+// GetReferralChain gets the Tier 1 and Tier 2 referrers of a user
+func (db *Database) GetReferralChain(ctx context.Context, userID int64) (int64, int64, error) {
+	var t1, t2 *int64
+	query := `
+		SELECT u1.referred_by, u2.referred_by
+		FROM users u1
+		LEFT JOIN users u2 ON u1.referred_by = u2.telegram_id
+		WHERE u1.telegram_id = $1
+	`
+	err := db.Pool.QueryRow(ctx, query, userID).Scan(&t1, &t2)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return 0, 0, nil
+		}
+		return 0, 0, err
+	}
+	var referrerID, grandparentID int64
+	if t1 != nil {
+		referrerID = *t1
+	}
+	if t2 != nil {
+		grandparentID = *t2
+	}
+	return referrerID, grandparentID, nil
+}
+

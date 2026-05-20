@@ -12,6 +12,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -220,18 +221,29 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 		log.Printf("💰 Successful payment received for payload: %s", pay.InvoicePayload)
 		err := h.db.UpdateOrderStatus(context.Background(), pay.InvoicePayload, "paid", pay.TelegramPaymentChargeID)
 		if err == nil {
-			// ✅ Payment Notification
-			lang := i18n.DetectLanguage(bot.Status)
-			settings, _ := h.moderator.GetSettings(ctx, bot.ID)
-			if settings != nil {
-				var general repository.SettingsGeneral
-				if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
-					lang = general.Language
+			if strings.HasPrefix(pay.InvoicePayload, "stars_premium_1m:") {
+				parts := strings.Split(pay.InvoicePayload, ":")
+				if len(parts) == 2 {
+					userID, parseErr := strconv.ParseInt(parts[1], 10, 64)
+					if parseErr == nil {
+						_ = h.db.UpdateUserPremium(context.Background(), userID, 30*24*time.Hour)
+						log.Printf("🌟 Granted 30-day Premium access to User %d via Stars Webhook", userID)
+					}
 				}
+			} else {
+				// ✅ Payment Notification
+				lang := i18n.DetectLanguage(bot.Status)
+				settings, _ := h.moderator.GetSettings(ctx, bot.ID)
+				if settings != nil {
+					var general repository.SettingsGeneral
+					if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
+						lang = general.Language
+					}
+				}
+				tg, _ := h.moderator.GetTelegramClient(ctx, bot)
+				msg := i18n.T(lang, "notifications.payment_success", map[string]interface{}{"date": time.Now().Add(30 * 24 * time.Hour).Format("2006-01-02")})
+				_ = tg.SendMessage(bot.OwnerUserID, msg, nil, nil)
 			}
-			tg, _ := h.moderator.GetTelegramClient(ctx, bot)
-			msg := i18n.T(lang, "notifications.payment_success", map[string]interface{}{"date": time.Now().Add(30 * 24 * time.Hour).Format("2006-01-02")})
-			_ = tg.SendMessage(bot.OwnerUserID, msg, nil, nil)
 		} else {
 			log.Printf("❌ Failed to update order status: %v", err)
 		}

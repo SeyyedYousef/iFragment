@@ -161,22 +161,87 @@ export const mockApiLogic = (method: string = 'GET', url: string = '', _data: an
   }
 
   if (path.includes('/profile/stats')) {
-    return {
-      usernamesAnalyzed: 47,
-      groupsManaged: 3,
-      channelsManaged: 2,
-      daysActive: 34,
-      currentStreak: 12,
-      globalRank: 156,
-      totalTaps: 84250,
-      totalFrgEarned: 12450,
-      totalFrgSpent: 3200,
-      frgBalance: 9250,
-      memberSince: '2026-04-15T00:00:00Z',
-      level: 5,
-      xp: 8500,
-      xpToNextLevel: 12000,
-    };
+    // Keep dynamic memory in window if present for realistic testing
+    const win = window as any;
+    if (!win.__mockProfileStats) {
+      win.__mockProfileStats = {
+        usernamesAnalyzed: 47,
+        groupsManaged: 3,
+        channelsManaged: 2,
+        daysActive: 34,
+        currentStreak: 12,
+        globalRank: 156,
+        totalTaps: 84250,
+        totalFrgEarned: 12450,
+        totalFrgSpent: 3200,
+        frgBalance: 9250,
+        memberSince: '2026-04-15T00:00:00Z',
+        level: 5,
+        xp: 8500,
+        xpToNextLevel: 12000,
+        isPremium: false,
+        emojiStatus: '',
+        equippedBorder: '',
+        equippedSkin: '',
+      };
+    }
+    return win.__mockProfileStats;
+  }
+
+  if (path.includes('/profile/cosmetics')) {
+    const win = window as any;
+    if (!win.__mockCosmetics) {
+      win.__mockCosmetics = [
+        { id: 'gold_shimmer', type: 'border', name: 'Gold Shimmer', cost: 5000, purchased: false, borderClass: 'border-gold-shimmer' },
+        { id: 'cyber_glow', type: 'border', name: 'Cyber Glow', cost: 7500, purchased: false, borderClass: 'border-cyber-glow' },
+        { id: 'rainbow_wave', type: 'border', name: 'Rainbow Wave', cost: 10000, purchased: false, borderClass: 'border-rainbow-wave' },
+        { id: 'cosmic_void', type: 'skin', name: 'Cosmic Void', cost: 12000, purchased: false, skinClass: 'bg-cosmic-void' },
+        { id: 'neon_matrix', type: 'skin', name: 'Neon Matrix', cost: 15000, purchased: false, skinClass: 'bg-neon-matrix' }
+      ];
+    }
+    if (path.includes('/purchase')) {
+      const { cosmeticId } = _data || {};
+      const found = win.__mockCosmetics.find((c: any) => c.id === cosmeticId);
+      if (found) {
+        found.purchased = true;
+        if (win.__mockProfileStats) {
+          win.__mockProfileStats.frgBalance -= found.cost;
+        }
+      }
+      return { success: true };
+    }
+    if (path.includes('/equip')) {
+      const { cosmeticId, type } = _data || {};
+      if (win.__mockProfileStats) {
+        if (type === 'border') {
+          win.__mockProfileStats.equippedBorder = win.__mockProfileStats.equippedBorder === cosmeticId ? '' : cosmeticId;
+        } else if (type === 'skin') {
+          win.__mockProfileStats.equippedSkin = win.__mockProfileStats.equippedSkin === cosmeticId ? '' : cosmeticId;
+        }
+      }
+      return { success: true };
+    }
+    return win.__mockCosmetics;
+  }
+
+  if (path.includes('/profile/emoji-status')) {
+    const win = window as any;
+    const { emoji } = _data || {};
+    if (win.__mockProfileStats) {
+      win.__mockProfileStats.emojiStatus = emoji;
+    }
+    return { success: true };
+  }
+
+  if (path.includes('/profile/premium/checkout')) {
+    const win = window as any;
+    // Simulate successful payment instantly or return mock invoice
+    setTimeout(() => {
+      if (win.__mockProfileStats) {
+        win.__mockProfileStats.isPremium = true;
+      }
+    }, 1500);
+    return { invoice_link: 'https://t.me/stars?start=stars_premium_1m_mock' };
   }
 
   if (path.includes('/profile/achievements')) {

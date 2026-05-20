@@ -1,30 +1,30 @@
 import { Component, createSignal, onMount, onCleanup, For, Show, createMemo } from 'solid-js';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Motion } from '@motionone/solid';
-import { t } from '@/shared/i18n/index.js';
+import { createQuery } from '@tanstack/solid-query';
+import { t, formatNumber } from '@/shared/i18n/index.js';
 import { getReferralInfo } from '@/shared/api/profile.js';
-import type { ReferralInfo } from '@/shared/store/profile.js';
 import { copyToClipboard, shareToStory, switchInlineQuery, showScanQrPopup, showAlert } from '@/shared/lib/telegram-native.js';
 
 export const ReferralPage: Component = () => {
-  const [refInfo, setRefInfo] = createSignal<ReferralInfo | null>(null);
   const [showQrModal, setShowQrModal] = createSignal(false);
   const [copied, setCopied] = createSignal(false);
 
-  onMount(async () => {
+  const referralQuery = createQuery(() => ({
+    queryKey: ['profile', 'referral'],
+    queryFn: getReferralInfo,
+    staleTime: 60000,
+  }));
+
+  const refInfo = () => referralQuery.data || null;
+
+  onMount(() => {
     backButton.show();
     const off = backButton.onClick(() => window.history.back());
     onCleanup(() => {
       off();
       try { backButton.hide(); } catch {}
     });
-
-    try {
-      const res = await getReferralInfo();
-      setRefInfo(res);
-    } catch (err) {
-      console.error('Failed to fetch referral info', err);
-    }
   });
 
   const referralLink = createMemo(() => {
@@ -85,12 +85,12 @@ export const ReferralPage: Component = () => {
           <div class="bg-[#0f1014]/60 border border-[#2a2a2a] rounded-2xl p-4 flex flex-col gap-1">
             <span class="material-symbols-outlined text-[#3390ec] text-2xl">group</span>
             <span class="text-[10px] text-[#a0a4ad] font-bold uppercase tracking-wider mt-1">{t('profile.friendsInvited') || 'Invited'}</span>
-            <span class="text-lg font-black text-white font-mono">{refInfo()?.totalInvited ?? 0}</span>
+            <span class="text-lg font-black text-white font-mono">{formatNumber(refInfo()?.totalInvited ?? 0)}</span>
           </div>
           <div class="bg-[#0f1014]/60 border border-[#2a2a2a] rounded-2xl p-4 flex flex-col gap-1">
             <span class="material-symbols-outlined text-[#34c759] text-2xl">payments</span>
             <span class="text-[10px] text-[#a0a4ad] font-bold uppercase tracking-wider mt-1">{t('profile.earned') || 'Earned'}</span>
-            <span class="text-lg font-black text-white font-mono">{(refInfo()?.totalEarned ?? 0).toLocaleString()} FRG</span>
+            <span class="text-lg font-black text-white font-mono">{formatNumber(refInfo()?.totalEarned ?? 0)} FRG</span>
           </div>
         </div>
       </div>
@@ -175,7 +175,7 @@ export const ReferralPage: Component = () => {
                       </div>
                     </div>
                     <div class="flex flex-col items-end">
-                      <span class="text-xs font-black text-[#34c759] font-mono">+{friend.earned.toLocaleString()} FRG</span>
+                      <span class="text-xs font-black text-[#34c759] font-mono">+{formatNumber(friend.earned)} FRG</span>
                       <span class="text-[9px] text-[#a0a4ad]">{t('referral.invitedBy') || 'Invited by you'}</span>
                     </div>
                   </div>
@@ -197,7 +197,7 @@ export const ReferralPage: Component = () => {
             {/* Close Button */}
             <button
               onClick={() => setShowQrModal(false)}
-              class="absolute top-4 right-4 w-8 h-8 rounded-full bg-[#0f1014] flex items-center justify-center border border-[#2a2a2a]"
+              class="absolute top-4 end-4 w-8 h-8 rounded-full bg-[#0f1014] flex items-center justify-center border border-[#2a2a2a]"
             >
               <span class="material-symbols-outlined text-white text-[18px]">close</span>
             </button>

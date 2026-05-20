@@ -70,11 +70,28 @@ type FlattenKeys<T, Prefix extends string = ''> = {
 
 export type DictPaths = FlattenKeys<Dictionary>;
 
-// Flatten dictionary for performance
-export const getDict = () => i18n.flatten(dictionaries[locale()]);
+// Flatten dictionaries once at startup for high performance
+const flattenedDicts = {
+  en: i18n.flatten(dictionaries.en),
+  fa: i18n.flatten(dictionaries.fa),
+  ru: i18n.flatten(dictionaries.ru),
+  zh: i18n.flatten(dictionaries.zh)
+};
+
+// Flatten dictionary for performance with 'en' fallback for missing keys
+export const getDict = () => {
+  const currentLocale = locale();
+  if (currentLocale === 'en') return flattenedDicts.en;
+  return { ...flattenedDicts.en, ...flattenedDicts[currentLocale] };
+};
 
 // Type-safe translator: wrong keys cause a compile-time error
 export const t = i18n.translator(getDict) as (key: DictPaths) => string;
 
-export const I18nContext = createContext({ t, locale, setLocale, isRtl });
+// Helper to format numbers based on active locale (Farsi digits for Persian)
+export const formatNumber = (num: number): string => {
+  return num.toLocaleString(locale() === 'fa' ? 'fa-IR' : 'en-US');
+};
+
+export const I18nContext = createContext({ t, locale, setLocale, isRtl, formatNumber });
 export const useI18n = () => useContext(I18nContext);

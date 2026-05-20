@@ -160,8 +160,10 @@ func main() {
 	premiumHandler := handler.NewPremiumHandler(reportService, paymentService)
 	webhookHandler := handler.NewWebhookHandler(db, moderatorService, botRepo)
 	botMgmtHandler := handler.NewBotMgmtHandler(botService, marketplaceService)
-	profileService := service.NewProfileService(db)
-	profileHandler := handler.NewProfileHandler(profileService)
+	profileService := service.NewProfileService(db, cache)
+	profileHandler := handler.NewProfileHandler(profileService, paymentService)
+	gamificationService := service.NewGamificationService(db, cache)
+	gamificationHandler := handler.NewGamificationHandler(gamificationService)
 
 	authHandler := handler.NewAuthHandler()
 
@@ -238,9 +240,26 @@ func main() {
 
 			r.Get("/stats", profileHandler.GetStats)
 			r.Get("/achievements", profileHandler.GetAchievements)
+			r.Get("/achievements/defs", profileHandler.GetAchievementDefs)
 			r.Get("/referral", profileHandler.GetReferralData)
 			r.Post("/referral", profileHandler.SetReferrerCode)
 			r.Post("/tap", profileHandler.AddTaps)
+
+			// Cosmetics & Premium routes
+			r.Get("/cosmetics", profileHandler.GetCosmetics)
+			r.Post("/cosmetics/purchase", profileHandler.PurchaseCosmetic)
+			r.Post("/cosmetics/equip", profileHandler.EquipCosmetic)
+			r.Post("/emoji-status", profileHandler.SetEmojiStatus)
+			r.Post("/premium/checkout", profileHandler.CreatePremiumCheckout)
+
+			// Gamification routes
+			r.Get("/daily", gamificationHandler.GetDailyStatus)
+			r.Post("/daily/claim", gamificationHandler.ClaimDailyReward)
+			r.Get("/tasks", gamificationHandler.GetTasksStatus)
+			r.Post("/tasks/complete", gamificationHandler.CompleteTask)
+			r.Get("/boosts", gamificationHandler.GetBoostsStatus)
+			r.Post("/boosts/upgrade", gamificationHandler.UpgradeBoost)
+			r.Get("/leaderboard", gamificationHandler.GetLeaderboard)
 		})
 	})
 

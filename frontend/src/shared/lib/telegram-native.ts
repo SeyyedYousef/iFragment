@@ -216,3 +216,46 @@ export const getVersion = (): string => {
 export const isVersionAtLeast = (version: string): boolean => {
   try { return getWebApp()?.isVersionAtLeast(version) || false; } catch { return false; }
 };
+
+// ─── Closing Confirmation (TMA 2.0) ───
+export const enableClosingConfirmation = () => {
+  try { getWebApp()?.enableClosingConfirmation(); } catch {}
+};
+
+export const disableClosingConfirmation = () => {
+  try { getWebApp()?.disableClosingConfirmation(); } catch {}
+};
+
+// ─── Fullscreen Mode (TMA 2.0) ───
+export const requestFullscreen = () => {
+  try { getWebApp()?.requestFullscreen(); } catch {}
+};
+
+export const exitFullscreen = () => {
+  try { getWebApp()?.exitFullscreen(); } catch {}
+};
+
+export const isFullscreen = (): boolean => {
+  try { return getWebApp()?.isFullscreen || false; } catch { return false; }
+};
+
+// ─── Subscriptions & Invoices (TMA 2.0) ───
+export const openSubscriptionLink = (url: string): Promise<boolean> => {
+  return new Promise((resolve) => {
+    try {
+      getWebApp()?.openSubscriptionLink(url, (success: boolean) => resolve(success));
+    } catch {
+      resolve(false);
+    }
+  });
+};
+
+export const openInvoice = (url: string): Promise<string> => {
+  return new Promise((resolve) => {
+    try {
+      getWebApp()?.openInvoice(url, (status: string) => resolve(status));
+    } catch {
+      resolve('failed');
+    }
+  });
+};

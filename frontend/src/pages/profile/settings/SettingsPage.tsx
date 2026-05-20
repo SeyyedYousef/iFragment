@@ -2,6 +2,7 @@ import { Component, onMount, onCleanup } from 'solid-js';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { t, locale, setLocale } from '@/shared/i18n/index.js';
 import { profileSettings, updateSetting, updateNotification } from '@/shared/store/profile.js';
+import { requestWriteAccess } from '@/shared/lib/telegram-native.js';
 
 export const SettingsPage: Component = () => {
   onMount(() => {
@@ -12,6 +13,19 @@ export const SettingsPage: Component = () => {
       try { backButton.hide(); } catch {}
     });
   });
+
+  const handleToggleNotification = async (key: 'mining' | 'referral' | 'community' | 'promotions') => {
+    try { hapticFeedback.impactOccurred('light'); } catch {}
+    const currentVal = profileSettings().notifications[key];
+    const targetVal = !currentVal;
+    
+    if (targetVal) {
+      // Prompt Telegram write access permission for push notifications
+      await requestWriteAccess();
+    }
+    
+    updateNotification(key, targetVal);
+  };
 
   const handleToggleHaptic = () => {
     const newVal = !profileSettings().hapticEnabled;
@@ -52,6 +66,7 @@ export const SettingsPage: Component = () => {
                 <span class="text-[10px] text-[#a0a4ad] leading-normal">{t('settings.hapticDesc') || 'Vibration feedback on tap and actions'}</span>
               </div>
               <button
+                dir="ltr"
                 onClick={handleToggleHaptic}
                 class={`w-11 h-6 rounded-full relative transition-colors duration-200 ${
                   profileSettings().hapticEnabled ? 'bg-[#3390ec]' : 'bg-white/10'
@@ -72,6 +87,7 @@ export const SettingsPage: Component = () => {
                 <span class="text-[10px] text-[#a0a4ad] leading-normal">{t('settings.soundDesc') || 'Sound feedback on game elements'}</span>
               </div>
               <button
+                dir="ltr"
                 onClick={handleToggleSound}
                 class={`w-11 h-6 rounded-full relative transition-colors duration-200 ${
                   profileSettings().soundEnabled ? 'bg-[#3390ec]' : 'bg-white/10'
@@ -92,6 +108,7 @@ export const SettingsPage: Component = () => {
                 <span class="text-[10px] text-[#a0a4ad] leading-normal">{t('settings.animationsDesc') || 'Animate items automatically'}</span>
               </div>
               <button
+                dir="ltr"
                 onClick={handleToggleAnimations}
                 class={`w-11 h-6 rounded-full relative transition-colors duration-200 ${
                   profileSettings().autoPlayAnimations ? 'bg-[#3390ec]' : 'bg-white/10'
@@ -114,10 +131,8 @@ export const SettingsPage: Component = () => {
             <div class="flex items-center justify-between">
               <span class="text-xs font-black text-white">{t('settings.pushMining') || 'Mining Updates'}</span>
               <button
-                onClick={() => {
-                  try { hapticFeedback.impactOccurred('light'); } catch {}
-                  updateNotification('mining', !profileSettings().notifications.mining);
-                }}
+                dir="ltr"
+                onClick={() => handleToggleNotification('mining')}
                 class={`w-11 h-6 rounded-full relative transition-colors duration-200 ${
                   profileSettings().notifications.mining ? 'bg-[#3390ec]' : 'bg-white/10'
                 }`}
@@ -134,10 +149,8 @@ export const SettingsPage: Component = () => {
             <div class="flex items-center justify-between">
               <span class="text-xs font-black text-white">{t('settings.pushReferrals') || 'New Referrals'}</span>
               <button
-                onClick={() => {
-                  try { hapticFeedback.impactOccurred('light'); } catch {}
-                  updateNotification('referral', !profileSettings().notifications.referral);
-                }}
+                dir="ltr"
+                onClick={() => handleToggleNotification('referral')}
                 class={`w-11 h-6 rounded-full relative transition-colors duration-200 ${
                   profileSettings().notifications.referral ? 'bg-[#3390ec]' : 'bg-white/10'
                 }`}
@@ -154,10 +167,8 @@ export const SettingsPage: Component = () => {
             <div class="flex items-center justify-between">
               <span class="text-xs font-black text-white">{t('settings.pushCommunity') || 'Community Alerts'}</span>
               <button
-                onClick={() => {
-                  try { hapticFeedback.impactOccurred('light'); } catch {}
-                  updateNotification('community', !profileSettings().notifications.community);
-                }}
+                dir="ltr"
+                onClick={() => handleToggleNotification('community')}
                 class={`w-11 h-6 rounded-full relative transition-colors duration-200 ${
                   profileSettings().notifications.community ? 'bg-[#3390ec]' : 'bg-white/10'
                 }`}
@@ -174,10 +185,8 @@ export const SettingsPage: Component = () => {
             <div class="flex items-center justify-between">
               <span class="text-xs font-black text-white">{t('settings.pushPromotions') || 'Special Deals'}</span>
               <button
-                onClick={() => {
-                  try { hapticFeedback.impactOccurred('light'); } catch {}
-                  updateNotification('promotions', !profileSettings().notifications.promotions);
-                }}
+                dir="ltr"
+                onClick={() => handleToggleNotification('promotions')}
                 class={`w-11 h-6 rounded-full relative transition-colors duration-200 ${
                   profileSettings().notifications.promotions ? 'bg-[#3390ec]' : 'bg-white/10'
                 }`}

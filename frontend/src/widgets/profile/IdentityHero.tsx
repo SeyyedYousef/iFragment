@@ -1,7 +1,7 @@
 import { Component, Show, createSignal } from 'solid-js';
 import { initData, hapticFeedback } from '@tma.js/sdk-solid';
 import { Motion } from '@motionone/solid';
-import { t, locale, setLocale } from '@/shared/i18n/index.js';
+import { t, locale, setLocale, formatNumber } from '@/shared/i18n/index.js';
 import { copyToClipboard } from '@/shared/lib/telegram-native.js';
 import type { ProfileStats } from '@/shared/store/profile.js';
 import { getLevelInfo } from '@/shared/store/profile.js';
@@ -24,13 +24,30 @@ export const IdentityHero: Component<Props> = (props) => {
   const memberSince = () => {
     if (!props.stats?.memberSince) return '';
     const d = new Date(props.stats.memberSince);
-    return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    return d.toLocaleDateString(locale() === 'fa' ? 'fa-IR' : 'en-US', { month: 'short', year: 'numeric' });
+  };
+
+  const getBorderClass = () => {
+    switch (props.stats?.equippedBorder) {
+      case 'gold_shimmer': return 'border-gold-shimmer';
+      case 'cyber_glow': return 'border-cyber-glow';
+      case 'rainbow_wave': return 'border-rainbow-wave';
+      default: return '';
+    }
+  };
+
+  const getSkinClass = () => {
+    switch (props.stats?.equippedSkin) {
+      case 'cosmic_void': return 'bg-cosmic-void';
+      case 'neon_matrix': return 'bg-neon-matrix';
+      default: return '';
+    }
   };
 
   return (
-    <div class="pt-10 pb-20 px-6 relative overflow-hidden bg-[#1c1c1c] border-b border-[#2a2a2a]" style={{ 'border-bottom-left-radius': '40px', 'border-bottom-right-radius': '40px' }}>
+    <div class={`pt-10 pb-20 px-6 relative overflow-hidden border-b border-[#2a2a2a] ${getSkinClass() || 'bg-[#1c1c1c]'}`} style={{ 'border-bottom-left-radius': '40px', 'border-bottom-right-radius': '40px' }}>
       {/* Language Switcher Dropdown */}
-      <div class={`absolute top-4 ${locale() === 'fa' ? 'left-4' : 'right-4'} z-20`}>
+      <div class="absolute top-4 end-4 z-20">
         <button
           onClick={() => {
             try { hapticFeedback.impactOccurred('light'); } catch {}
@@ -49,7 +66,7 @@ export const IdentityHero: Component<Props> = (props) => {
         </button>
 
         <Show when={langOpen()}>
-          <div class={`absolute mt-2 w-32 rounded-2xl bg-[#1c1c1c] border border-[#2a2a2a] p-1.5 flex flex-col gap-1 shadow-2xl backdrop-blur-xl z-30 ${locale() === 'fa' ? 'left-0' : 'right-0'}`}>
+          <div class="absolute mt-2 w-32 rounded-2xl bg-[#1c1c1c] border border-[#2a2a2a] p-1.5 flex flex-col gap-1 shadow-2xl backdrop-blur-xl z-30 end-0">
             <button
               onClick={() => {
                 setLocale('en');
@@ -95,17 +112,17 @@ export const IdentityHero: Component<Props> = (props) => {
       </div>
 
       {/* Background glow */}
-      <div class="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 rounded-full opacity-10 blur-3xl" style={{ background: user?.is_premium ? 'radial-gradient(circle, #ffd700, transparent)' : 'radial-gradient(circle, #3390ec, transparent)' }} />
+      <div class="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 rounded-full opacity-10 blur-3xl" style={{ background: (props.stats?.isPremium || user?.is_premium) ? 'radial-gradient(circle, #ffd700, transparent)' : 'radial-gradient(circle, #3390ec, transparent)' }} />
 
       <Motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} class="flex flex-col items-center text-center relative z-10">
         {/* Avatar with animated ring */}
         <div class="relative mb-4">
-          <div class="w-28 h-28 rounded-full p-[3px] relative" style={{
-            background: user?.is_premium
+          <div class={`w-28 h-28 rounded-full p-[3px] relative ${getBorderClass()}`} style={!getBorderClass() ? {
+            background: (props.stats?.isPremium || user?.is_premium)
               ? 'linear-gradient(135deg, #ffd700, #ff8c00, #ffd700)'
               : 'linear-gradient(135deg, #3390ec, #34c759, #3390ec)',
             animation: 'spin 4s linear infinite',
-          }}>
+          } : undefined}>
             <div class="w-full h-full rounded-full bg-[#0f1014] p-[3px]">
               <Show when={user?.photo_url} fallback={
                 <div class="w-full h-full rounded-full flex items-center justify-center bg-gradient-to-br from-[#3390ec] to-[#34c759] text-white font-black text-3xl">
@@ -116,7 +133,7 @@ export const IdentityHero: Component<Props> = (props) => {
               </Show>
             </div>
           </div>
-          <Show when={user?.is_premium}>
+          <Show when={props.stats?.isPremium || user?.is_premium}>
             <div class="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-[#1c1c1c] flex items-center justify-center border-2 border-[#ffd700]">
               <span class="material-symbols-outlined text-[16px] text-amber-300" style={{ 'font-variation-settings': '"FILL" 1' }}>star</span>
             </div>
@@ -124,7 +141,15 @@ export const IdentityHero: Component<Props> = (props) => {
         </div>
 
         {/* Name */}
-        <h1 class="text-white text-2xl font-black tracking-tight">{user?.first_name} {user?.last_name}</h1>
+        <h1 class="text-white text-2xl font-black tracking-tight flex items-center gap-2 justify-center">
+          {user?.first_name} {user?.last_name}
+          <Show when={props.stats?.emojiStatus}>
+            <span class="text-xl animate-bounce">{props.stats?.emojiStatus}</span>
+          </Show>
+          <Show when={props.stats?.isPremium || user?.is_premium}>
+            <span class="material-symbols-outlined text-[18px] text-amber-300" style={{ 'font-variation-settings': '"FILL" 1' }}>verified</span>
+          </Show>
+        </h1>
 
         {/* Username — tap to copy */}
         <button onClick={() => handleCopy(`@${user?.username || 'guest'}`, 'username')} class="flex items-center gap-1 mt-1 px-3 py-1 rounded-full hover:bg-white/5 transition-colors">
@@ -137,14 +162,14 @@ export const IdentityHero: Component<Props> = (props) => {
           {(info) => (
             <Motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15 }} class="mt-3 flex flex-col items-center gap-1.5">
               <div class="flex items-center gap-2 bg-[#0f1014] px-4 py-1.5 rounded-full border border-[#2a2a2a]">
-                <span class="text-[#3390ec] font-black text-xs">Lv.{info().current.level}</span>
+                <span class="text-[#3390ec] font-black text-xs">Lv.{formatNumber(info().current.level)}</span>
                 <span class="text-white font-bold text-xs">{info().current.title}</span>
               </div>
               <div class="w-40 h-1.5 bg-[#2a2a2a] rounded-full overflow-hidden">
                 <Motion.div initial={{ width: '0%' }} animate={{ width: `${info().progress}%` }} transition={{ duration: 1, easing: 'ease-out' }}
                   class="h-full rounded-full" style={{ background: 'linear-gradient(90deg, #3390ec, #34c759)' }} />
               </div>
-              <span class="text-[10px] text-[#a0a4ad]">{props.stats?.xp?.toLocaleString()} / {info().next.xpRequired.toLocaleString()} XP</span>
+              <span class="text-[10px] text-[#a0a4ad]">{formatNumber(props.stats?.xp ?? 0)} / {formatNumber(info().next.xpRequired)} XP</span>
             </Motion.div>
           )}
         </Show>
@@ -153,7 +178,7 @@ export const IdentityHero: Component<Props> = (props) => {
         <div class="mt-4 flex gap-2 flex-wrap justify-center">
           <button onClick={() => handleCopy(String(user?.id || ''), 'id')} class="bg-[#0f1014] px-3 py-1.5 rounded-2xl border border-[#2a2a2a] flex items-center gap-1.5 hover:border-[#3a3a3a] transition-colors">
             <span class="text-[10px] text-[#a0a4ad] uppercase font-bold tracking-widest">{t('profile.id')}</span>
-            <span class="text-white font-mono font-bold text-xs">{user?.id || '---'}</span>
+            <span class="text-white font-mono font-bold text-xs">{user?.id ? formatNumber(user.id) : '---'}</span>
             <span class="material-symbols-outlined text-[12px] text-[#a0a4ad]">{copied() === 'id' ? 'check' : 'content_copy'}</span>
           </button>
           <Show when={memberSince()}>
@@ -165,7 +190,7 @@ export const IdentityHero: Component<Props> = (props) => {
           <Show when={props.stats?.globalRank}>
             <div class="bg-[#0f1014] px-3 py-1.5 rounded-2xl border border-[#2a2a2a] flex items-center gap-1.5">
               <span class="material-symbols-outlined text-[14px] text-[#ffd700]" style={{ 'font-variation-settings': '"FILL" 1' }}>emoji_events</span>
-              <span class="text-white font-bold text-xs">#{props.stats!.globalRank}</span>
+              <span class="text-white font-bold text-xs">#{formatNumber(props.stats!.globalRank)}</span>
             </div>
           </Show>
         </div>

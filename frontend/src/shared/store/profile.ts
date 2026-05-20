@@ -30,6 +30,11 @@ export interface ProfileStats {
   level: number;
   xp: number;
   xpToNextLevel: number;
+  isPremium: boolean;
+  premiumUntil?: string;
+  emojiStatus: string;
+  equippedBorder: string;
+  equippedSkin: string;
 }
 
 export interface ReferralInfo {

@@ -1,6 +1,6 @@
 import { Component } from 'solid-js';
 import { Motion } from '@motionone/solid';
-import { t } from '@/shared/i18n/index.js';
+import { t, locale } from '@/shared/i18n/index.js';
 import type { ProfileStats } from '@/shared/store/profile.js';
 import { useNavigate } from '@solidjs/router';
 
@@ -10,9 +10,16 @@ export const FrgWalletCard: Component<Props> = (props) => {
   const navigate = useNavigate();
 
   const formatNum = (n: number) => {
-    if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
-    if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
-    return n.toLocaleString();
+    const isFa = locale() === 'fa';
+    if (n >= 1_000_000) {
+      const val = (n / 1_000_000).toFixed(1);
+      return (isFa ? parseFloat(val).toLocaleString('fa-IR') : val) + (isFa ? ' میلیون' : 'M');
+    }
+    if (n >= 1_000) {
+      const val = (n / 1_000).toFixed(1);
+      return (isFa ? parseFloat(val).toLocaleString('fa-IR') : val) + (isFa ? ' هزار' : 'K');
+    }
+    return n.toLocaleString(isFa ? 'fa-IR' : 'en-US');
   };
 
   return (

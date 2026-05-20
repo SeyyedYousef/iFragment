@@ -36,6 +36,10 @@ func NewFRGRepo(db *Database) *FRGRepo {
 	return &FRGRepo{db: db}
 }
 
+func (r *FRGRepo) DB() *Database {
+	return r.db
+}
+
 func (r *FRGRepo) GetBalance(ctx context.Context, userID int64) (*FRGBalance, error) {
 	query := `SELECT user_id, balance, total_earned, total_spent, updated_at FROM frg_balances WHERE user_id = $1`
 	var b FRGBalance

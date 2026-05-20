@@ -309,6 +309,9 @@ func (s *BotService) Subscribe(ctx context.Context, userID int64, groupID uuid.U
 		return fmt.Errorf("failed to activate subscription: %w", err)
 	}
 
+	// Trigger tiered lifetime referral commissions (10% Tier 1, 3% Tier 2)
+	go s.frgRepo.DB().CreditReferrerShare(context.Background(), userID, pkg.PriceFRG, s.frgRepo)
+
 	return nil
 }
 

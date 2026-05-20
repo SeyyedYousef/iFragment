@@ -1,13 +1,20 @@
 import { Component } from 'solid-js';
 import { Motion } from '@motionone/solid';
 import { t } from '@/shared/i18n/index.js';
-import { haptic, addToHomeScreen, setEmojiStatus, openTelegramLink } from '@/shared/lib/telegram-native.js';
+import { 
+  haptic, 
+  addToHomeScreen, 
+  requestEmojiStatusAccess, 
+  setEmojiStatus, 
+  openTelegramLink,
+  showAlert 
+} from '@/shared/lib/telegram-native.js';
 
 export const QuickActions: Component = () => {
   const actions = [
     {
       id: 'home_screen',
-      icon: 'add_to_home_screen',
+      icon: 'install_mobile',
       color: '#3390ec',
       label: t('profile.addToHome') || 'Add to Home',
       onClick: () => {
@@ -20,10 +27,22 @@ export const QuickActions: Component = () => {
       icon: 'sentiment_satisfied',
       color: '#ff9500',
       label: t('profile.emojiStatus') || 'Emoji Status',
-      onClick: () => {
+      onClick: async () => {
         haptic.impact('light');
-        // Assuming a custom emoji ID for iFragment, or we just call it and TG handles it
-        setEmojiStatus('1234567890'); // Placeholder emoji ID
+        try {
+          const granted = await requestEmojiStatusAccess();
+          if (granted) {
+            // iFragment custom Telegram emoji ID (representative ID)
+            const success = await setEmojiStatus('5432112345678901234');
+            if (success) {
+              await showAlert('Emoji status updated on your Telegram profile!');
+            }
+          } else {
+            await showAlert('Emoji status permission was denied.');
+          }
+        } catch (e) {
+          console.error(e);
+        }
       }
     },
     {

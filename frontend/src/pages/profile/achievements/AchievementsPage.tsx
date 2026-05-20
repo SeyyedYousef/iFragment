@@ -1,15 +1,27 @@
 import { Component, createSignal, onMount, onCleanup, For, Show, createMemo } from 'solid-js';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Motion } from '@motionone/solid';
-import { t } from '@/shared/i18n/index.js';
-import { getProfileAchievements } from '@/shared/api/profile.js';
-import { ACHIEVEMENT_DEFS, type Achievement } from '@/shared/store/profile.js';
+import { createQuery } from '@tanstack/solid-query';
+import { t, locale, formatNumber } from '@/shared/i18n/index.js';
+import { getProfileAchievements, getAchievementDefs } from '@/shared/api/profile.js';
+import { ACHIEVEMENT_DEFS } from '@/shared/store/profile.js';
 import { shareToStory, switchInlineQuery } from '@/shared/lib/telegram-native.js';
 
 export const AchievementsPage: Component = () => {
-  const [achievements, setAchievements] = createSignal<Achievement[]>([]);
   const [activeCategory, setActiveCategory] = createSignal<string>('all');
-  const [selectedAch, setSelectedAch] = createSignal<(Achievement & { title: string; desc: string }) | null>(null);
+  const [selectedAch, setSelectedAch] = createSignal<any | null>(null);
+
+  const achievementsQuery = createQuery(() => ({
+    queryKey: ['profile', 'achievements'],
+    queryFn: getProfileAchievements,
+    staleTime: 30000,
+  }));
+
+  const defsQuery = createQuery(() => ({
+    queryKey: ['profile', 'achievements', 'defs'],
+    queryFn: getAchievementDefs,
+    staleTime: 300000,
+  }));
 
   const categories = [
     { id: 'all', label: () => t('achievements.categories.all') || 'All' },
@@ -22,29 +34,31 @@ export const AchievementsPage: Component = () => {
     { id: 'special', label: () => t('achievements.categories.special') || 'Special' },
   ];
 
-  onMount(async () => {
+  onMount(() => {
     backButton.show();
     const off = backButton.onClick(() => window.history.back());
     onCleanup(() => {
       off();
       try { backButton.hide(); } catch {}
     });
-
-    try {
-      const res = await getProfileAchievements();
-      setAchievements(res);
-    } catch (err) {
-      console.error('Failed to fetch achievements', err);
-    }
   });
 
   const mergedAchievements = createMemo(() => {
-    return ACHIEVEMENT_DEFS.map(def => {
-      const serverData = achievements().find(a => a.id === def.id);
-      const title = t(`achievements.${def.id}_title` as any) || def.id;
-      const desc = t(`achievements.${def.id}_desc` as any) || '';
+    const serverDefs = defsQuery.data || [];
+    const serverAchs = achievementsQuery.data || [];
+
+    // Map using either server definition target or local fallback
+    return ACHIEVEMENT_DEFS.map(localDef => {
+      const serverDef = serverDefs.find(d => d.id === localDef.id);
+      const serverData = serverAchs.find(a => a.id === localDef.id);
+      
+      const target = serverDef ? serverDef.target : localDef.target;
+      const title = t(`achievements.${localDef.id}_title` as any) || localDef.id;
+      const desc = t(`achievements.${localDef.id}_desc` as any) || '';
+
       return {
-        ...def,
+        ...localDef,
+        target,
         unlocked: serverData?.unlocked ?? false,
         progress: serverData?.progress ?? 0,
         unlockedAt: serverData?.unlockedAt,
@@ -171,7 +185,7 @@ export const AchievementsPage: Component = () => {
                     <div class="w-full h-1 bg-[#0f1014] rounded-full overflow-hidden">
                       <div class="h-full bg-[#3390ec] rounded-full" style={{ width: `${Math.min(100, (ach.progress / ach.target) * 100)}%` }} />
                     </div>
-                    <span class="text-[9px] text-[#a0a4ad] font-bold font-mono">{ach.progress.toLocaleString()} / {ach.target.toLocaleString()}</span>
+                    <span class="text-[9px] text-[#a0a4ad] font-bold font-mono">{formatNumber(ach.progress)} / {formatNumber(ach.target)}</span>
                   </div>
                 </Show>
               }>
@@ -201,7 +215,7 @@ export const AchievementsPage: Component = () => {
               {/* Close Button */}
               <button
                 onClick={() => setSelectedAch(null)}
-                class="absolute top-4 right-4 w-8 h-8 rounded-full bg-[#0f1014] flex items-center justify-center border border-[#2a2a2a]"
+                class="absolute top-4 end-4 w-8 h-8 rounded-full bg-[#0f1014] flex items-center justify-center border border-[#2a2a2a]"
               >
                 <span class="material-symbols-outlined text-white text-[18px]">close</span>
               </button>
@@ -227,7 +241,7 @@ export const AchievementsPage: Component = () => {
                 <Show when={ach().unlocked} fallback={
                   <div class="flex flex-col items-center gap-2">
                     <span class="text-xs text-[#a0a4ad] font-bold">{t('achievements.progress') || 'Current Progress'}</span>
-                    <span class="text-lg font-black text-white font-mono">{ach().progress.toLocaleString()} / {ach().target.toLocaleString()}</span>
+                    <span class="text-lg font-black text-white font-mono">{formatNumber(ach().progress)} / {formatNumber(ach().target)}</span>
                     <div class="w-full h-2 bg-[#1c1c1c] rounded-full overflow-hidden">
                       <div class="h-full bg-[#3390ec] rounded-full" style={{ width: `${Math.min(100, (ach().progress / ach().target) * 100)}%` }} />
                     </div>
@@ -235,7 +249,7 @@ export const AchievementsPage: Component = () => {
                 }>
                   <div class="flex flex-col items-center gap-1">
                     <span class="text-[10px] text-[#a0a4ad] font-bold uppercase tracking-widest">{t('achievements.unlockedAtLabel') || 'Date Unlocked'}</span>
-                    <span class="text-sm font-black text-white">{ach().unlockedAt ? new Date(ach().unlockedAt!).toLocaleDateString('en-US', { dateStyle: 'medium' }) : '---'}</span>
+                    <span class="text-sm font-black text-white">{ach().unlockedAt ? new Date(ach().unlockedAt!).toLocaleDateString(locale() === 'fa' ? 'fa-IR' : 'en-US', { dateStyle: 'medium' }) : '---'}</span>
                   </div>
                 </Show>
               </div>
