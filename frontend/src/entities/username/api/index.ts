@@ -13,6 +13,16 @@ export interface CollectionStats {
   sales_count: number;
   highest_sale: number;
   listed_ratio: number;
+  top_holders?: Array<{ address: string; count: number }>;
+  top_sales?: Array<{ username: string; price: number; date: string }>;
+  distribution?: {
+    single: number;
+    small: number;
+    medium: number;
+    large: number;
+    whale: number;
+    total_uniq: number;
+  };
 }
 
 export interface AvailabilityStatus {
@@ -69,6 +79,7 @@ export interface PremiumReport {
   estimated_value?: number;
   search_popularity: number;
   fragment_url: string;
+  exchange_rate?: number;
 
   generated_at: string;
 }
@@ -113,5 +124,20 @@ export const usePremiumReport = (username: () => string) => {
   }));
 };
 
+export const requestPremiumReport = (username: string) => {
+  return apiFetch<{ invoice_link: string }>('/usernames/report/request', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username }),
+  });
+};
+
+export const useTrendingUsernames = () => {
+  return createQuery(() => ({
+    queryKey: ['username', 'trending'],
+    queryFn: () => apiFetch<string[]>('/usernames/trending'),
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  }));
+};
 
 

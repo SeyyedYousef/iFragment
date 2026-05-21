@@ -137,7 +137,7 @@ func main() {
 	marketappClient := marketapp.NewClient()
 
 	// Initialize Services
-	aggregatorService := username.NewAggregatorService(tonClient, marketappClient)
+	aggregatorService := username.NewAggregatorService(tonClient, marketappClient, cache)
 	paymentService := payment.NewStarsService(db)
 	reportService := username.NewReportService(db, cache, tonClient, fragClient, marketappClient, mtprotoClient)
 
@@ -175,12 +175,16 @@ func main() {
 		})
 
 		r.Post("/webhook/telegram/{botID}", webhookHandler.HandleTelegramWebhook)
+		r.Post("/webhook/tonapi", webhookHandler.HandleTonAPIWebhook)
 		r.With(middleware.ValidateTelegramInitData).Post("/auth/token", authHandler.IssueToken)
 
 		r.Route("/usernames", func(r chi.Router) {
 			r.Get("/collection/stats", usernameHandler.GetCollectionStats)
 			r.Get("/check", usernameHandler.CheckAvailability)
 			r.Get("/quick", usernameHandler.QuickAnalysis)
+			r.Get("/quick/stream", usernameHandler.StreamQuickAnalysis)
+			r.Get("/trending", usernameHandler.GetTrending)
+			r.Get("/rates", usernameHandler.GetRates)
 			
 			// Protected Routes (Require JWT)
 			r.Group(func(r chi.Router) {

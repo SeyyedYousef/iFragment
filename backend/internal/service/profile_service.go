@@ -163,22 +163,47 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int) (*
 	}
 
 	var lastActive time.Time
-	err := s.db.Pool.QueryRow(ctx, "SELECT last_active_at FROM user_stats WHERE user_id = $1", userID).Scan(&lastActive)
-	if err == nil {
-		elapsed := time.Since(lastActive)
-		if elapsed < 0 {
-			elapsed = 0
-		}
-		minRequiredDuration := time.Duration(taps) * (time.Second / 15) - 200*time.Millisecond
-		if elapsed < minRequiredDuration {
-			return nil, fmt.Errorf("tapping rate too high (rate limit exceeded)")
+	useDBFallback := true
+
+	if s.cache != nil && s.cache.Client != nil {
+		cacheKey := fmt.Sprintf("profile:taps:last_active:%d", userID)
+		val, err := s.cache.Client.Get(ctx, cacheKey).Result()
+		if err == nil {
+			var ts int64
+			ts, err = strconv.ParseInt(val, 10, 64)
+			if err == nil {
+				lastActive = time.Unix(0, ts)
+				useDBFallback = false
+			}
 		}
 	}
 
+	if useDBFallback {
+		err := s.db.Pool.QueryRow(ctx, "SELECT last_active_at FROM user_stats WHERE user_id = $1", userID).Scan(&lastActive)
+		if err != nil {
+			// If not found in DB, default to current time minus safety duration so request passes
+			lastActive = time.Now().Add(-5 * time.Second)
+		}
+	}
+
+	elapsed := time.Since(lastActive)
+	if elapsed < 0 {
+		elapsed = 0
+	}
+	minRequiredDuration := time.Duration(taps) * (time.Second / 15) - 200*time.Millisecond
+	if elapsed < minRequiredDuration {
+		return nil, fmt.Errorf("tapping rate too high (rate limit exceeded)")
+	}
+
 	// Award XP (2 XP per tap)
-	_, err = s.db.Pool.Exec(ctx, "UPDATE user_stats SET total_taps = total_taps + $1, xp = xp + $2, last_active_at = CURRENT_TIMESTAMP WHERE user_id = $3", taps, taps*2, userID)
+	_, err := s.db.Pool.Exec(ctx, "UPDATE user_stats SET total_taps = total_taps + $1, xp = xp + $2, last_active_at = CURRENT_TIMESTAMP WHERE user_id = $3", taps, taps*2, userID)
 	if err != nil {
 		return nil, err
+	}
+
+	if s.cache != nil && s.cache.Client != nil {
+		cacheKey := fmt.Sprintf("profile:taps:last_active:%d", userID)
+		s.cache.Client.Set(ctx, cacheKey, strconv.FormatInt(time.Now().UnixNano(), 10), 30*time.Second)
 	}
 
 	frgEarned := float64(taps) * 0.1

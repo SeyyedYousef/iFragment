@@ -4,7 +4,15 @@ import { vi, describe, it, expect } from 'vitest';
 
 vi.mock('@tma.js/sdk-solid', () => ({
   hapticFeedback: { selectionChanged: vi.fn() },
-  backButton: { show: vi.fn(), hide: vi.fn(), onClick: () => vi.fn() }
+  backButton: { show: vi.fn(), hide: vi.fn(), onClick: () => vi.fn() },
+  initData: {
+    user: () => ({ first_name: 'Test', photo_url: '' })
+  }
+}));
+
+vi.mock('@solidjs/router', () => ({
+  useLocation: () => ({ pathname: '/airdrop' }),
+  A: (props: any) => <a {...props}>{props.children}</a>
 }));
 
 vi.mock('@/shared/store/airdrop.js', () => ({

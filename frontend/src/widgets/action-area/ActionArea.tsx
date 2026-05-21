@@ -2,7 +2,7 @@ import { Component, createSignal, createMemo, Show, For } from 'solid-js';
 import { Motion } from '@motionone/solid';
 import { t, type DictPaths } from '@/shared/i18n/index.js';
 import { useUsernameSearch } from '@/entities/username/model/index.js';
-import { useUsernameQuickAnalysis } from '@/entities/username/api/index.js';
+import { useUsernameQuickAnalysis, useTrendingUsernames } from '@/entities/username/api/index.js';
 import { hapticFeedback } from '@tma.js/sdk-solid';
 import { useNavigate } from '@solidjs/router';
 
@@ -35,8 +35,6 @@ const CONTENT: Record<ActionAreaProps['activeTab'], {
   },
 };
 
-const TRENDING = ['news', 'auto', 'bank', 'crypto'];
-
 export const ActionArea: Component<ActionAreaProps> = (props) => {
   const { searchQuery, setSearchQuery, searchError, validate } = useUsernameSearch();
   const navigate = useNavigate();
@@ -44,6 +42,8 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
   const [isFocused, setIsFocused] = createSignal(false);
 
   const quickAnalysis = useUsernameQuickAnalysis(() => searchQuery());
+  const trendingQuery = useTrendingUsernames();
+  const trendingList = createMemo(() => trendingQuery.data || ['news', 'auto', 'bank', 'crypto']);
 
   const keys = createMemo(() => CONTENT[props.activeTab]);
   const charCount = createMemo(() => searchQuery().length);
@@ -54,16 +54,12 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
     if (validate(searchQuery())) {
       try { hapticFeedback.impactOccurred('medium'); } catch { }
       setAnalyzeState('loading');
-
-      // Free access for now
-      setTimeout(() => {
-        setAnalyzeState('success');
-        try { hapticFeedback.notificationOccurred('success'); } catch { }
-        setTimeout(() => {
-          navigate(`/username/report?u=${searchQuery()}`);
-          setAnalyzeState('idle');
-        }, 600);
-      }, 800);
+      try {
+        await quickAnalysis.refetch();
+        navigate(`/username/report?u=${encodeURIComponent(searchQuery())}`);
+      } finally {
+        setAnalyzeState('idle');
+      }
     } else {
       try { hapticFeedback.notificationOccurred('error'); } catch { }
     }
@@ -80,11 +76,26 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
     const status = quickAnalysis.data?.status;
     if (status === 'available') {
-      return t('action.username.registerBtn' as DictPaths);
+      return t('action.username.registerBtn');
     } else if (status) {
-      return t('action.username.analyzeMarketBtn' as DictPaths);
+      return t('action.username.analyzeMarketBtn');
     }
     return t(keys().analyzeBtn);
+  };
+
+  const getStatusLabel = (status?: string) => {
+    switch (status) {
+      case 'available':
+        return t('pages.premiumReport.status.available');
+      case 'taken':
+        return t('pages.premiumReport.status.taken');
+      case 'on_auction':
+        return t('pages.premiumReport.status.on_auction');
+      case 'on_sale':
+        return t('pages.premiumReport.status.on_sale');
+      default:
+        return status || '';
+    }
   };
 
   const [isFeaturesExpanded, setIsFeaturesExpanded] = createSignal(false);
@@ -121,6 +132,8 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
         class="px-6"
       >
         <div
+          role="search"
+          aria-label="Username search"
           class={`bg-[#0f1014] border rounded-[24px] p-5 transition-all duration-400 ${
             searchError()
               ? 'border-red-500/40'
@@ -147,7 +160,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
                     }`}
                     aria-live="polite"
                   >
-                    {t(`pages.premiumReport.status.${quickAnalysis.data?.status || 'available'}` as DictPaths) || quickAnalysis.data?.status}
+                    {getStatusLabel(quickAnalysis.data?.status)}
                   </span>
                 </Show>
                 <span
@@ -219,6 +232,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               class="mt-4 bg-[#141518] rounded-xl border border-[#2a2a2a] p-3 flex items-center justify-between"
+              aria-live="polite"
             >
               <div class="flex flex-col gap-1">
                 <span class="text-[#8e8e93] text-[11px] font-bold uppercase tracking-wider">
@@ -251,6 +265,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
             onClick={handleAnalyze}
             disabled={analyzeState() === 'loading' || !searchQuery()}
             aria-busy={analyzeState() === 'loading'}
+            aria-live="polite"
             class={`relative w-full overflow-hidden rounded-2xl mt-4 py-4 px-5 flex items-center justify-between transition-all duration-300 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed ${
               analyzeState() === 'success'
                 ? 'bg-[#34c759] shadow-lg shadow-green-500/15'
@@ -307,7 +322,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
             >
               <h3 class="text-[#8e8e93] text-[13px] font-bold flex items-center gap-2">
                 <span class="material-symbols-outlined text-[16px] text-[#3390ec]" style={{ 'font-variation-settings': '"FILL" 1' }}>insights</span>
-                {t('action.username.features.title' as DictPaths)}
+                {t('action.username.features.title')}
               </h3>
               <span 
                 class="material-symbols-outlined text-[18px] text-[#8e8e93] transition-transform duration-300"
@@ -352,11 +367,11 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
         <div class="flex items-center gap-2 mb-3">
           <span class="text-[14px]" aria-hidden="true">🔥</span>
           <span class="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em]">
-            {t('action.trending.title' as DictPaths)}
+            {t('action.trending.title')}
           </span>
         </div>
         <div class="flex flex-wrap gap-2">
-          <For each={TRENDING}>
+          <For each={trendingList()}>
             {(item) => (
               <button
                 onClick={() => updateSearchQuery(item)}

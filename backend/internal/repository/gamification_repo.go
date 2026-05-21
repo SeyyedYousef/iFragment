@@ -146,17 +146,11 @@ func (db *Database) CreditReferrerShare(ctx context.Context, spenderID int64, am
 		return
 	}
 
-	// 1. Get spender's Tier 1 referrer
-	var t1ReferrerCode string
-	err := db.Pool.QueryRow(ctx, "SELECT referred_by FROM users WHERE telegram_id = $1", spenderID).Scan(&t1ReferrerCode)
-	if err != nil || t1ReferrerCode == "" {
+	// 1. Get spender's Tier 1 referrer ID directly (referred_by is BIGINT telegram_id)
+	var t1ReferrerID *int64
+	err := db.Pool.QueryRow(ctx, "SELECT referred_by FROM users WHERE telegram_id = $1", spenderID).Scan(&t1ReferrerID)
+	if err != nil || t1ReferrerID == nil || *t1ReferrerID == 0 {
 		return // Spender has no referrer
-	}
-
-	var t1ReferrerID int64
-	err = db.Pool.QueryRow(ctx, "SELECT telegram_id FROM users WHERE referral_code = $1", t1ReferrerCode).Scan(&t1ReferrerID)
-	if err != nil {
-		return
 	}
 
 	// Credit 10% to Tier 1
@@ -166,19 +160,13 @@ func (db *Database) CreditReferrerShare(ctx context.Context, spenderID int64, am
 		"spender_id":      spenderID,
 		"amount_spent":    amountSpent,
 	})
-	_, _ = frgRepo.Credit(ctx, t1ReferrerID, t1Commission, "referral_payout", metaT1)
+	_, _ = frgRepo.Credit(ctx, *t1ReferrerID, t1Commission, "referral_payout", metaT1)
 
-	// 2. Get Tier 1's referrer (Tier 2 of spender)
-	var t2ReferrerCode string
-	err = db.Pool.QueryRow(ctx, "SELECT referred_by FROM users WHERE telegram_id = $1", t1ReferrerID).Scan(&t2ReferrerCode)
-	if err != nil || t2ReferrerCode == "" {
+	// 2. Get Tier 1's referrer ID (referred_by is BIGINT telegram_id of Tier 1's referrer)
+	var t2ReferrerID *int64
+	err = db.Pool.QueryRow(ctx, "SELECT referred_by FROM users WHERE telegram_id = $1", *t1ReferrerID).Scan(&t2ReferrerID)
+	if err != nil || t2ReferrerID == nil || *t2ReferrerID == 0 {
 		return // No Tier 2 referrer
-	}
-
-	var t2ReferrerID int64
-	err = db.Pool.QueryRow(ctx, "SELECT telegram_id FROM users WHERE referral_code = $1", t2ReferrerCode).Scan(&t2ReferrerID)
-	if err != nil {
-		return
 	}
 
 	// Credit 3% to Tier 2
@@ -188,5 +176,5 @@ func (db *Database) CreditReferrerShare(ctx context.Context, spenderID int64, am
 		"spender_id":      spenderID,
 		"amount_spent":    amountSpent,
 	})
-	_, _ = frgRepo.Credit(ctx, t2ReferrerID, t2Commission, "referral_payout", metaT2)
+	_, _ = frgRepo.Credit(ctx, *t2ReferrerID, t2Commission, "referral_payout", metaT2)
 }

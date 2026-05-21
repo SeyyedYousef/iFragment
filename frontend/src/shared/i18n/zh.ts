@@ -733,7 +733,13 @@ export const dict = {
         "exportPdf": "导出情报 PDF",
         "shareStory": "分享至 Telegram 故事"
       },
-      "shareText": "关于 @{u} 的情报报告\n稀有度评分：{score}/1000"
+      "shareText": "关于 @{u} 的情报报告\n稀有度评分：{score}/1000",
+      "paymentRequired": "完整用户名情报报告属于高级内容。",
+      "openingInvoice": "正在打开发票...",
+      "unlock": "用 100 Stars 解锁",
+      "paymentNotCompleted": "付款未完成。",
+      "paymentStartFailed": "无法开始付款。",
+      "unlockPending": "已收到付款。报告仍在解锁中；请稍后重试。"
     }
   },
   "onboarding": {

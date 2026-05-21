@@ -9,7 +9,7 @@ import (
 func TestAggregatorService(t *testing.T) {
 	// A proper test would mock tonClient and ggClient
 	// Here we just ensure the service initializes correctly
-	service := NewAggregatorService(nil, nil)
+	service := NewAggregatorService(nil, nil, nil)
 	if service == nil {
 		t.Fatal("Expected service to be initialized")
 	}

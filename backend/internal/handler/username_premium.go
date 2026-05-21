@@ -3,12 +3,12 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/payment"
 	"ifragment-backend/internal/service/username"
 	"net/http"
+	"os"
 )
 
 type PremiumHandler struct {
@@ -27,6 +27,27 @@ type ReportRequest struct {
 	Username string `json:"username"`
 }
 
+func extractTelegramUserID(ctx map[string]interface{}) (int64, bool) {
+	switch v := ctx["id"].(type) {
+	case float64:
+		return int64(v), true
+	case int64:
+		return v, true
+	case int:
+		return int64(v), true
+	default:
+		return 0, false
+	}
+}
+
+func userIDFromRequest(r *http.Request) (int64, bool) {
+	tgUser, ok := r.Context().Value(middleware.UserContextKey).(map[string]interface{})
+	if !ok {
+		return 0, false
+	}
+	return extractTelegramUserID(tgUser)
+}
+
 func (h *PremiumHandler) RequestPremiumReport(w http.ResponseWriter, r *http.Request) {
 	var req ReportRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -39,18 +60,10 @@ func (h *PremiumHandler) RequestPremiumReport(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	tgUser, ok := r.Context().Value(middleware.UserContextKey).(map[string]interface{})
+	userID, ok := userIDFromRequest(r)
 	if !ok {
 		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
 		return
-	}
-	var userID int64
-	if v, ok := tgUser["id"].(float64); ok {
-		userID = int64(v)
-	} else if v, ok := tgUser["id"].(int64); ok {
-		userID = v
-	} else if v, ok := tgUser["id"].(int); ok {
-		userID = int64(v)
 	}
 	payload := fmt.Sprintf("report_pay:%d:%s", userID, req.Username)
 
@@ -94,18 +107,10 @@ func (h *PremiumHandler) GetReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tgUser, ok := r.Context().Value(middleware.UserContextKey).(map[string]interface{})
+	userID, ok := userIDFromRequest(r)
 	if !ok {
 		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
 		return
-	}
-	var userID int64
-	if v, ok := tgUser["id"].(float64); ok {
-		userID = int64(v)
-	} else if v, ok := tgUser["id"].(int64); ok {
-		userID = v
-	} else if v, ok := tgUser["id"].(int); ok {
-		userID = int64(v)
 	}
 
 	if os.Getenv("APP_ENV") != "development" {
@@ -134,20 +139,12 @@ func (h *PremiumHandler) GetReport(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *PremiumHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
-	tgUser, ok := r.Context().Value(middleware.UserContextKey).(map[string]interface{})
+	userID, ok := userIDFromRequest(r)
 	if !ok {
 		RespondError(w, r, http.StatusUnauthorized, "user not found in context", nil)
 		return
 	}
 
-	var userID int64
-	if v, ok := tgUser["id"].(float64); ok {
-		userID = int64(v)
-	} else if v, ok := tgUser["id"].(int64); ok {
-		userID = v
-	} else if v, ok := tgUser["id"].(int); ok {
-		userID = int64(v)
-	}
 	reports, err := h.reportService.GetUserHistory(r.Context(), userID)
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, "failed to fetch history", err)

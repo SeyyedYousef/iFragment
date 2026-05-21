@@ -5,7 +5,15 @@ import { vi, describe, it, expect } from 'vitest';
 // Mock the router and query hooks
 vi.mock('@solidjs/router', () => ({
   useNavigate: () => vi.fn(),
+  useLocation: () => ({ pathname: '/dashboard' }),
   A: (props: any) => <a {...props}>{props.children}</a>
+}));
+
+vi.mock('@tma.js/sdk-solid', () => ({
+  hapticFeedback: { impactOccurred: vi.fn() },
+  initData: {
+    user: () => ({ first_name: 'Test', photo_url: '' })
+  }
 }));
 
 vi.mock('@tanstack/solid-query', () => ({
@@ -21,16 +29,16 @@ vi.mock('@tanstack/solid-query', () => ({
 describe('DashboardPage', () => {
   it('renders the dashboard with title', () => {
     render(() => <DashboardPage />);
-    expect(screen.getByText(/مدیریت ای‌فرگمنت/i)).toBeInTheDocument();
+    expect(screen.getByText('dashboard.title')).toBeInTheDocument();
   });
 
-  it('renders the managed bots section', () => {
+  it('renders the group management section', () => {
     render(() => <DashboardPage />);
-    expect(screen.getByText(/ربات‌های شما/i)).toBeInTheDocument();
+    expect(screen.getByText('dashboard.groupMgmt')).toBeInTheDocument();
   });
 
-  it('contains the marketplace link', () => {
+  it('contains the bottom navigation dashboard link', () => {
     render(() => <DashboardPage />);
-    expect(screen.getByText(/فروشگاه/i)).toBeInTheDocument();
+    expect(screen.getByText('bottomNav.dashboard')).toBeInTheDocument();
   });
 });

@@ -399,6 +399,12 @@ export const dict = {
         "shareStory": "اشتراک‌گذاری در استوری تلگرام"
       },
       "shareText": "گزارش هوشمند برای @{u}\nامتیاز کمیابی: {score}/1000",
+      "paymentRequired": "گزارش کامل این یوزرنیم پرمیوم است.",
+      "openingInvoice": "در حال باز کردن فاکتور...",
+      "unlock": "باز کردن با ۱۰۰ استار",
+      "paymentNotCompleted": "پرداخت کامل نشد.",
+      "paymentStartFailed": "شروع پرداخت ممکن نشد.",
+      "unlockPending": "پرداخت دریافت شد. گزارش هنوز در حال باز شدن است؛ چند لحظه دیگر دوباره تلاش کنید.",
       "status": {
         "available": "موجود",
         "taken": "گرفته شده",

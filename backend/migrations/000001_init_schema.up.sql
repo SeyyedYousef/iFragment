@@ -35,15 +35,19 @@ CREATE TABLE username_reports (
 );
 
 CREATE TABLE search_logs (
-    id UUID DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username TEXT NOT NULL,
     user_id BIGINT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE INDEX idx_search_logs_username ON search_logs(username);
+CREATE INDEX idx_search_logs_created ON search_logs(created_at DESC);
+
 CREATE INDEX idx_username_reports_username ON username_reports(username);
 CREATE INDEX idx_username_reports_user_generated 
   ON username_reports(user_id, generated_at DESC);
+CREATE INDEX idx_username_reports_data_gin ON username_reports USING GIN (report_data);
 CREATE INDEX idx_orders_user ON orders(user_id);
 CREATE INDEX idx_orders_payload_status ON orders(payload, status);
 

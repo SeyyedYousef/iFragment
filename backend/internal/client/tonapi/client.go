@@ -1,18 +1,24 @@
 package tonapi
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
 type Client struct {
 	BaseURL string
 	APIKey  string
 	HTTP    *http.Client
+	Limiter *rate.Limiter
 }
 
 func NewClient() *Client {
@@ -20,6 +26,7 @@ func NewClient() *Client {
 		BaseURL: "https://tonapi.io/v2",
 		APIKey:  os.Getenv("TONAPI_KEY"),
 		HTTP:    &http.Client{Timeout: 10 * time.Second},
+		Limiter: rate.NewLimiter(rate.Limit(8), 1),
 	}
 }
 
@@ -80,6 +87,11 @@ type TransferHistory struct {
 }
 
 func (c *Client) doRequest(ctx context.Context, url string) (*http.Response, error) {
+	if c.Limiter != nil {
+		if err := c.Limiter.Wait(ctx); err != nil {
+			return nil, err
+		}
+	}
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -214,4 +226,216 @@ func (c *Client) GetNFTTransfers(ctx context.Context, nftAddr string) (*Transfer
 		return nil, err
 	}
 	return &history, nil
+}
+
+// HolderInfo represents aggregated ownership data for a single wallet
+type HolderInfo struct {
+	Address string `json:"address"`
+	Count   int    `json:"count"`
+}
+
+// CollectionItemsResponse wraps paginated collection items
+type CollectionItemsResponse struct {
+	Items []NFTItem `json:"nft_items"`
+}
+
+// GetCollectionItems fetches NFT items from a collection with offset/limit pagination
+func (c *Client) GetCollectionItems(ctx context.Context, collectionAddr string, limit, offset int) (*CollectionItemsResponse, error) {
+	url := fmt.Sprintf("%s/nfts/collections/%s/items?limit=%d&offset=%d", c.BaseURL, collectionAddr, limit, offset)
+	resp, err := c.doRequest(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("tonapi collection items error: %s", resp.Status)
+	}
+
+	var result CollectionItemsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// GetTopHolders fetches collection items and aggregates ownership to find top holders
+// maxItems controls how many items to scan (to avoid very long API calls)
+func (c *Client) GetTopHolders(ctx context.Context, collectionAddr string, maxItems int) ([]HolderInfo, map[string]int, error) {
+	ownerCounts := make(map[string]int)
+	offset := 0
+	batchSize := 1000
+	totalScanned := 0
+
+	for totalScanned < maxItems {
+		remaining := maxItems - totalScanned
+		limit := batchSize
+		if remaining < limit {
+			limit = remaining
+		}
+
+		items, err := c.GetCollectionItems(ctx, collectionAddr, limit, offset)
+		if err != nil {
+			break
+		}
+		if len(items.Items) == 0 {
+			break
+		}
+
+		for _, item := range items.Items {
+			if item.Owner.Address != "" {
+				ownerCounts[item.Owner.Address]++
+			}
+		}
+
+		totalScanned += len(items.Items)
+		offset += len(items.Items)
+
+		if len(items.Items) < limit {
+			break
+		}
+	}
+
+	// Sort by count descending and return top holders
+	type kv struct {
+		Key   string
+		Value int
+	}
+	var sorted []kv
+	for k, v := range ownerCounts {
+		sorted = append(sorted, kv{k, v})
+	}
+	// Simple bubble sort for small result set
+	for i := 0; i < len(sorted); i++ {
+		for j := i + 1; j < len(sorted); j++ {
+			if sorted[j].Value > sorted[i].Value {
+				sorted[i], sorted[j] = sorted[j], sorted[i]
+			}
+		}
+	}
+
+	var topHolders []HolderInfo
+	limit := 10
+	if len(sorted) < limit {
+		limit = len(sorted)
+	}
+	for i := 0; i < limit; i++ {
+		topHolders = append(topHolders, HolderInfo{
+			Address: sorted[i].Key,
+			Count:   sorted[i].Value,
+		})
+	}
+
+	return topHolders, ownerCounts, nil
+}
+
+type RatesResponse struct {
+	Rates map[string]struct {
+		Prices map[string]float64 `json:"prices"`
+	} `json:"rates"`
+}
+
+// GetTONRates fetches the current TON to USD exchange rate from TonAPI
+func (c *Client) GetTONRates(ctx context.Context) (float64, error) {
+	url := fmt.Sprintf("%s/rates?tokens=ton&currencies=usd", c.BaseURL)
+	resp, err := c.doRequest(ctx, url)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("tonapi rates error: %s", resp.Status)
+	}
+
+	var rates RatesResponse
+	if err := json.NewDecoder(resp.Body).Decode(&rates); err != nil {
+		return 0, err
+	}
+
+	tonData, ok := rates.Rates["ton"]
+	if !ok {
+		return 0, fmt.Errorf("ton rate data not found")
+	}
+
+	usdPrice, ok := tonData.Prices["USD"]
+	if !ok {
+		return 0, fmt.Errorf("usd price not found")
+	}
+
+	return usdPrice, nil
+}
+
+type DNSResolve struct {
+	Wallet struct {
+		Address string `json:"address"`
+	} `json:"wallet"`
+}
+
+// ResolveDNS resolves a domain directly via TON DNS
+func (c *Client) ResolveDNS(ctx context.Context, domain string) (*DNSResolve, error) {
+	url := fmt.Sprintf("%s/dns/%s/resolve", c.BaseURL, domain)
+	resp, err := c.doRequest(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, nil
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("tonapi dns resolve error: %s", resp.Status)
+	}
+
+	var resolve DNSResolve
+	if err := json.NewDecoder(resp.Body).Decode(&resolve); err != nil {
+		return nil, err
+	}
+	return &resolve, nil
+}
+
+// StreamAccountEvents opens an SSE connection to stream events for specific accounts
+func (c *Client) StreamAccountEvents(ctx context.Context, accounts []string, onEvent func(data []byte)) error {
+	accountsStr := strings.Join(accounts, ",")
+	url := fmt.Sprintf("https://tonapi.io/v2/sse/accounts/transactions?accounts=%s", accountsStr)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return err
+	}
+	if c.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+c.APIKey)
+	}
+	req.Header.Set("Accept", "text/event-stream")
+	req.Header.Set("Cache-Control", "no-cache")
+	req.Header.Set("Connection", "keep-alive")
+
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("sse connection failed: %s", resp.Status)
+	}
+
+	reader := bufio.NewReader(resp.Body)
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			line, err := reader.ReadBytes('\n')
+			if err != nil {
+				return err
+			}
+			if bytes.HasPrefix(line, []byte("data: ")) {
+				data := bytes.TrimPrefix(line, []byte("data: "))
+				data = bytes.TrimSpace(data)
+				onEvent(data)
+			}
+		}
+	}
 }

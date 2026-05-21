@@ -399,6 +399,12 @@ export const dict = {
         shareStory: 'Share to Telegram Story'
       },
       shareText: 'Intelligence Report for @{u}\nRarity Score: {score}/1000',
+      paymentRequired: 'Full username intelligence is a premium report.',
+      openingInvoice: 'Opening Invoice...',
+      unlock: 'Unlock for 100 Stars',
+      paymentNotCompleted: 'Payment was not completed.',
+      paymentStartFailed: 'Could not start payment.',
+      unlockPending: 'Payment received. The report is still unlocking; try again in a moment.',
       status: {
         available: 'Available',
         taken: 'Taken',

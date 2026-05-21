@@ -6,7 +6,7 @@ import (
 )
 
 type DBReport struct {
-	ID             int64           `json:"id"`
+	ID             string          `json:"id"`
 	UserID         int64           `json:"user_id"`
 	TargetUsername string          `json:"username"`
 	Status         string          `json:"status"`
@@ -34,6 +34,7 @@ func (db *Database) GetUserReports(ctx context.Context, userID int64) ([]DBRepor
 		FROM username_reports
 		WHERE user_id = $1
 		ORDER BY generated_at DESC
+		LIMIT 100
 	`
 	rows, err := db.Pool.Query(ctx, query, userID)
 	if err != nil {

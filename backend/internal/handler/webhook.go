@@ -230,6 +230,21 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 						log.Printf("🌟 Granted 30-day Premium access to User %d via Stars Webhook", userID)
 					}
 				}
+			} else if strings.HasPrefix(pay.InvoicePayload, "report_pay:") {
+				parts := strings.Split(pay.InvoicePayload, ":")
+				if len(parts) == 3 {
+					userID, parseErr := strconv.ParseInt(parts[1], 10, 64)
+					username := parts[2]
+					if parseErr == nil && username != "" {
+						appURL := os.Getenv("APP_URL")
+						if appURL == "" {
+							appURL = "https://t.me/ifragment_bot/app"
+						}
+						reportURL := fmt.Sprintf("%s?startapp=username_%s", appURL, username)
+						tg, _ := h.moderator.GetTelegramClient(ctx, bot)
+						_ = tg.SendMessage(userID, fmt.Sprintf("Payment received. Your @%s report is unlocked:\n%s", username, reportURL), nil, nil)
+					}
+				}
 			} else {
 				// ✅ Payment Notification
 				lang := i18n.DetectLanguage(bot.Status)
@@ -856,4 +871,20 @@ func (h *WebhookHandler) handleJoinCaptcha(ctx context.Context, m *Message, user
 	
 	welcome := fmt.Sprintf("👋 Welcome [%s](tg://user?id=%d)!\n\nPlease click the button below to verify you are human.", user.FirstName, user.ID)
 	_, _ = tg.SendMessageWithMarkup(m.Chat.ID, welcome, markup, m.MessageThreadID)
+}
+
+// HandleTonAPIWebhook handles webhooks from TonAPI console for ownership or other events
+func (h *WebhookHandler) HandleTonAPIWebhook(w http.ResponseWriter, r *http.Request) {
+	var payload struct {
+		Event      string `json:"event"`
+		Account    string `json:"account"`
+		NFTAddress string `json:"nft_address"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("Received TonAPI webhook event: %s, account: %s, nft: %s", payload.Event, payload.Account, payload.NFTAddress)
+	w.WriteHeader(http.StatusOK)
 }

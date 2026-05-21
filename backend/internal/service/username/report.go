@@ -2,6 +2,7 @@ package username
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"ifragment-backend/internal/client/fragment"
@@ -14,7 +15,56 @@ import (
 	"sync"
 	"time"
 	"unicode"
+
+	"golang.org/x/sync/singleflight"
 )
+
+//go:embed words.txt
+var wordsData string
+
+var englishWords map[string]bool
+
+func init() {
+	englishWords = make(map[string]bool)
+	lines := strings.Split(wordsData, "\n")
+	for _, line := range lines {
+		word := strings.TrimSpace(strings.ToLower(line))
+		if word != "" {
+			englishWords[word] = true
+		}
+	}
+	// Add critical custom/tech/crypto/brand names
+	extra := []string{"bitcoin", "crypto", "tesla", "solana", "ethereum", "blockchain", "apple"}
+	for _, w := range extra {
+		englishWords[w] = true
+	}
+}
+
+type RarityConfig struct {
+	Length4Bonus      int
+	Length5Bonus      int
+	Length6to7Bonus   int
+	Length8to10Bonus  int
+	LengthOtherBonus  int
+	NumericBonus      int
+	Unique3Bonus      int
+	Unique5Bonus      int
+	NoUnderscoreBonus int
+	DictionaryBonus   int
+}
+
+var DefaultRarityConfig = RarityConfig{
+	Length4Bonus:      5000,
+	Length5Bonus:      1000,
+	Length6to7Bonus:   500,
+	Length8to10Bonus:  200,
+	LengthOtherBonus:  50,
+	NumericBonus:      1000,
+	Unique3Bonus:      1200,
+	Unique5Bonus:      400,
+	NoUnderscoreBonus: 300,
+	DictionaryBonus:   2000,
+}
 
 type ReportTask struct {
 	UserID   int64
@@ -30,6 +80,8 @@ type ReportService struct {
 	marketappClient *marketapp.Client
 	mtprotoClient   mtproto.Client
 	saveQueue       chan ReportTask
+	rarityConfig    RarityConfig
+	sfGroup         singleflight.Group
 }
 
 func NewReportService(
@@ -48,9 +100,43 @@ func NewReportService(
 		marketappClient: mapp,
 		mtprotoClient:   mtp,
 		saveQueue:       make(chan ReportTask, 1000),
+		rarityConfig:    DefaultRarityConfig,
 	}
 	go s.worker()
 	return s
+}
+
+type OwnerWalletCache struct {
+	Balance     float64 `json:"balance"`
+	OtherAssets int     `json:"other_assets"`
+}
+
+func (s *ReportService) getCachedSearchPopularity(ctx context.Context, username string) (int, error) {
+	if s.db == nil {
+		return 0, fmt.Errorf("database not available")
+	}
+
+	cacheKey := fmt.Sprintf("popularity:%s", username)
+	if s.cache != nil {
+		val, err := s.cache.Client.Get(ctx, cacheKey).Result()
+		if err == nil {
+			var count int
+			if _, err := fmt.Sscanf(val, "%d", &count); err == nil {
+				return count, nil
+			}
+		}
+	}
+
+	pop, err := s.db.GetSearchPopularity(ctx, username)
+	if err != nil {
+		return 0, err
+	}
+
+	if s.cache != nil {
+		s.cache.Client.Set(ctx, cacheKey, fmt.Sprintf("%d", pop), 5*time.Minute)
+	}
+
+	return pop, nil
 }
 
 func (s *ReportService) worker() {
@@ -73,10 +159,10 @@ func (s *ReportService) worker() {
 
 type FullReport struct {
 	// ─ Text Analysis ─
-	Username       string `json:"username"`
-	Length         int    `json:"length"`
-	ContainsNumbers bool  `json:"contains_numbers"`
-	IsDictionaryWord bool `json:"is_dictionary_word"`
+	Username         string `json:"username"`
+	Length           int    `json:"length"`
+	ContainsNumbers  bool   `json:"contains_numbers"`
+	IsDictionaryWord bool   `json:"is_dictionary_word"`
 
 	// ─ Telegram Status ─
 	Status   string `json:"status"`    // available, taken, on_auction, on_sale, purchase_available
@@ -95,14 +181,14 @@ type FullReport struct {
 	OwnerAddress string `json:"owner_address,omitempty"`
 
 	// ─ Sale Info ─
-	SaleStatus  string  `json:"sale_status"`  // not_for_sale, on_auction, on_sale
+	SaleStatus  string  `json:"sale_status"` // not_for_sale, on_auction, on_sale
 	HighestBid  float64 `json:"highest_bid,omitempty"`
 	BuyNowPrice float64 `json:"buy_now_price,omitempty"`
 	EndTime     string  `json:"end_time,omitempty"`
 
 	// ─ History ─
-	MintDate       string   `json:"mint_date,omitempty"`
-	PreviousOwners []string `json:"previous_owners,omitempty"`
+	MintDate       string                 `json:"mint_date,omitempty"`
+	PreviousOwners []string               `json:"previous_owners,omitempty"`
 	PastSales      []marketapp.SaleRecord `json:"past_sales,omitempty"`
 
 	// ─ Wallet Intel ─
@@ -117,42 +203,43 @@ type FullReport struct {
 	FragmentURL      string  `json:"fragment_url"`
 
 	// ─ Meta ─
-	GeneratedAt time.Time `json:"generated_at"`
+	ExchangeRate float64   `json:"exchange_rate,omitempty"`
+	GeneratedAt  time.Time `json:"generated_at"`
 }
 
 // ── Quick Check (Free - used by ActionArea) ──
 
 type QuickCheck struct {
-	Username    string  `json:"username"`
-	Status      string  `json:"status"`
-	Length      int     `json:"length"`
-	RarityScore int     `json:"rarity_score"`
-	SaleStatus  string  `json:"sale_status"`
-	BuyNowPrice float64 `json:"buy_now_price,omitempty"`
-	HighestBid  float64 `json:"highest_bid,omitempty"`
-	EndTime     string  `json:"end_time,omitempty"`
-	FragmentURL string  `json:"fragment_url"`
-	SearchPopularity int `json:"search_popularity"`
-	LinguisticScore float64 `json:"linguistic_score"`
+	Username         string  `json:"username"`
+	Status           string  `json:"status"`
+	Length           int     `json:"length"`
+	RarityScore      int     `json:"rarity_score"`
+	SaleStatus       string  `json:"sale_status"`
+	BuyNowPrice      float64 `json:"buy_now_price,omitempty"`
+	HighestBid       float64 `json:"highest_bid,omitempty"`
+	EndTime          string  `json:"end_time,omitempty"`
+	FragmentURL      string  `json:"fragment_url"`
+	SearchPopularity int     `json:"search_popularity"`
+	LinguisticScore  float64 `json:"linguistic_score"`
 }
 
 func (s *ReportService) QuickAnalysis(ctx context.Context, username string, userID int64) (*QuickCheck, error) {
 	// Log search
 	if s.db != nil {
-		go s.db.LogSearch(ctx, username, userID)
+		go s.db.LogSearch(context.Background(), username, userID)
 	}
 
 	result := &QuickCheck{
-		Username:    username,
-		Length:      len(username),
-		RarityScore: CalculateRarity(username),
-		FragmentURL: fmt.Sprintf("https://fragment.com/username/%s", username),
+		Username:        username,
+		Length:          len(username),
+		RarityScore:     s.CalculateRarity(username),
+		FragmentURL:     fmt.Sprintf("https://fragment.com/username/%s", username),
 		LinguisticScore: calculateLinguisticScore(username),
 	}
 
 	// Get search popularity
 	if s.db != nil {
-		pop, err := s.db.GetSearchPopularity(ctx, username)
+		pop, err := s.getCachedSearchPopularity(ctx, username)
 		if err == nil {
 			result.SearchPopularity = pop
 		}
@@ -177,9 +264,11 @@ func (s *ReportService) QuickAnalysis(ctx context.Context, username string, user
 // ── Deep Report (Premium) ──
 
 func (s *ReportService) GenerateDeepReport(ctx context.Context, userID int64, username string) (*FullReport, error) {
-	// 1. Check Cache
+	ctx, cancel := context.WithTimeout(ctx, 12*time.Second)
+	defer cancel()
+
+	cacheKey := fmt.Sprintf("report:%s", username)
 	if s.cache != nil {
-		cacheKey := fmt.Sprintf("report:%d:%s", userID, username)
 		val, err := s.cache.Client.Get(ctx, cacheKey).Result()
 		if err == nil {
 			var cached FullReport
@@ -189,18 +278,50 @@ func (s *ReportService) GenerateDeepReport(ctx context.Context, userID int64, us
 		}
 	}
 
+	val, err, _ := s.sfGroup.Do(cacheKey, func() (interface{}, error) {
+		if s.cache != nil {
+			val, err := s.cache.Client.Get(ctx, cacheKey).Result()
+			if err == nil {
+				var cached FullReport
+				if json.Unmarshal([]byte(val), &cached) == nil {
+					return &cached, nil
+				}
+			}
+		}
+
+		report, err := s.generateDeepReport(ctx, userID, username)
+		if err != nil {
+			return nil, err
+		}
+		if s.cache != nil {
+			data, _ := json.Marshal(report)
+			s.cache.Client.Set(ctx, cacheKey, data, 24*time.Hour)
+		}
+		return report, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return val.(*FullReport), nil
+}
+
+func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, username string) (*FullReport, error) {
+
+	rateUSD, _ := s.GetTONRate(ctx)
+
 	report := &FullReport{
-		Username:        username,
-		Length:          len(username),
-		ContainsNumbers: containsNumbers(username),
+		Username:         username,
+		Length:           len(username),
+		ContainsNumbers:  containsNumbers(username),
 		IsDictionaryWord: isDictionaryWord(username),
-		RarityScore:     CalculateRarity(username),
-		LinguisticScore: calculateLinguisticScore(username),
-		FragmentURL:     fmt.Sprintf("https://fragment.com/username/%s", username),
-		GeneratedAt:     time.Now(),
-		SaleStatus:      "not_for_sale",
-		PeerType:        "unknown",
-		Status:          "unknown",
+		RarityScore:      s.CalculateRarity(username),
+		LinguisticScore:  calculateLinguisticScore(username),
+		FragmentURL:      fmt.Sprintf("https://fragment.com/username/%s", username),
+		GeneratedAt:      time.Now(),
+		ExchangeRate:     rateUSD,
+		SaleStatus:       "not_for_sale",
+		PeerType:         "unknown",
+		Status:           "unknown",
 	}
 
 	// Log search
@@ -210,7 +331,7 @@ func (s *ReportService) GenerateDeepReport(ctx context.Context, userID int64, us
 
 	// Search popularity
 	if s.db != nil {
-		pop, _ := s.db.GetSearchPopularity(ctx, username)
+		pop, _ := s.getCachedSearchPopularity(ctx, username)
 		report.SearchPopularity = pop
 	}
 
@@ -293,6 +414,14 @@ func (s *ReportService) GenerateDeepReport(ctx context.Context, userID int64, us
 			return
 		}
 
+		// Resolve direct DNS for validation / verification
+		dnsResolve, dnsErr := s.tonClient.ResolveDNS(ctx, username+".t.me")
+		if dnsErr == nil && dnsResolve != nil && dnsResolve.Wallet.Address != "" {
+			mu.Lock()
+			report.OwnerAddress = dnsResolve.Wallet.Address
+			mu.Unlock()
+		}
+
 		nft, err := s.tonClient.GetNFTByDNS(ctx, username)
 		if err != nil || nft == nil {
 			return
@@ -309,24 +438,88 @@ func (s *ReportService) GenerateDeepReport(ctx context.Context, userID int64, us
 		}
 		mu.Unlock()
 
-		// Get wallet info for the owner
-		if nft.Owner.Address != "" {
-			walletInfo, err := s.tonClient.GetWalletInfo(ctx, nft.Owner.Address)
-			if err == nil && walletInfo != nil {
-				mu.Lock()
-				report.OwnerWalletBalance = float64(walletInfo.Balance) / 1e9 // nanoTON to TON
-				mu.Unlock()
+		// Fetch transfers and history
+		transfers, trErr := s.tonClient.GetNFTTransfers(ctx, nft.Address)
+		if trErr == nil && transfers != nil {
+			var tonapiOwners []string
+			for _, tr := range transfers.Transfers {
+				if tr.From.Address != "" {
+					tonapiOwners = append(tonapiOwners, tr.From.Address)
+				}
 			}
 
-			// Get other assets owned by same wallet
-			otherNFTs, err := s.tonClient.GetOwnerNFTs(ctx, nft.Owner.Address)
-			if err == nil && otherNFTs != nil {
-				mu.Lock()
-				report.OwnerOtherAssets = len(otherNFTs.Items) - 1 // Exclude this one
-				if report.OwnerOtherAssets < 0 {
-					report.OwnerOtherAssets = 0
+			mu.Lock()
+			if len(report.PreviousOwners) == 0 && len(tonapiOwners) > 0 {
+				report.PreviousOwners = tonapiOwners
+			}
+			// If we don't have sales from marketapp/fragment, map them from transfers
+			if len(report.PastSales) == 0 {
+				for _, tr := range transfers.Transfers {
+					report.PastSales = append(report.PastSales, marketapp.SaleRecord{
+						Price: 0.0,
+						Date:  time.Unix(tr.Timestamp, 0).Format(time.RFC3339),
+						From:  tr.From.Address,
+						To:    tr.To.Address,
+					})
 				}
+			}
+			mu.Unlock()
+		}
+
+		// Get wallet info for the owner
+		if nft.Owner.Address != "" {
+			ownerAddr := nft.Owner.Address
+			var cachedData *OwnerWalletCache
+			cacheKey := fmt.Sprintf("owner:%s", ownerAddr)
+
+			if s.cache != nil {
+				val, err := s.cache.Client.Get(ctx, cacheKey).Result()
+				if err == nil {
+					var cached OwnerWalletCache
+					if json.Unmarshal([]byte(val), &cached) == nil {
+						cachedData = &cached
+					}
+				}
+			}
+
+			if cachedData != nil {
+				mu.Lock()
+				report.OwnerWalletBalance = cachedData.Balance
+				report.OwnerOtherAssets = cachedData.OtherAssets
 				mu.Unlock()
+			} else {
+				var balance float64
+				var otherAssets int
+
+				walletInfo, err := s.tonClient.GetWalletInfo(ctx, ownerAddr)
+				if err == nil && walletInfo != nil {
+					balance = float64(walletInfo.Balance) / 1e9 // nanoTON to TON
+				}
+
+				otherNFTs, err := s.tonClient.GetOwnerNFTs(ctx, ownerAddr)
+				if err == nil && otherNFTs != nil {
+					otherAssets = len(otherNFTs.Items) - 1 // Exclude this one
+					if otherAssets < 0 {
+						otherAssets = 0
+					}
+				}
+
+				mu.Lock()
+				report.OwnerWalletBalance = balance
+				report.OwnerOtherAssets = otherAssets
+				mu.Unlock()
+
+				// Cache the retrieved values in Redis
+				if s.cache != nil {
+					cData := OwnerWalletCache{
+						Balance:     balance,
+						OtherAssets: otherAssets,
+					}
+					cBytes, err := json.Marshal(cData)
+					if err == nil {
+						s.cache.Client.Set(ctx, cacheKey, cBytes, 1*time.Hour)
+					}
+				}
 			}
 		}
 	}()
@@ -371,13 +564,6 @@ func (s *ReportService) GenerateDeepReport(ctx context.Context, userID int64, us
 	// ─ Estimated Value (AI/Algorithm) ─
 	report.EstimatedValue = estimateValue(report)
 
-	// Save to cache
-	if s.cache != nil {
-		data, _ := json.Marshal(report)
-		cacheKey := fmt.Sprintf("report:%d:%s", userID, username)
-		s.cache.Client.Set(ctx, cacheKey, data, 24*time.Hour)
-	}
-
 	return report, nil
 }
 
@@ -399,8 +585,10 @@ func (s *ReportService) SaveReportToDB(ctx context.Context, userID int64, userna
 	if s.db != nil {
 		select {
 		case s.saveQueue <- ReportTask{UserID: userID, Username: username, Report: report}:
-		default:
-			go s.db.SaveReport(context.Background(), userID, username, report.Status, report.RarityScore, report)
+		case <-time.After(2 * time.Second):
+			slog.Warn("Dropping report save task because queue is full", "user_id", userID, "username", username)
+		case <-ctx.Done():
+			slog.Warn("Dropping report save task because request ended", "user_id", userID, "username", username)
 		}
 	}
 }
@@ -417,21 +605,8 @@ func containsNumbers(u string) bool {
 }
 
 func isDictionaryWord(u string) bool {
-	commonWords := []string{
-		"bank", "news", "auto", "shop", "tech", "game", "love", "life", "home",
-		"code", "data", "gold", "star", "moon", "fire", "king", "blue", "dark",
-		"cool", "fast", "free", "rich", "work", "play", "mind", "soul", "meta",
-		"cash", "coin", "swap", "deal", "sale", "fund", "boss", "lord", "hero",
-		"club", "zone", "labs", "plus", "visa", "uber", "zoom", "link", "mail",
-		"chat", "food", "wine", "beer", "cafe", "cars", "bike", "moto", "taxi",
-	}
 	lower := strings.ToLower(u)
-	for _, w := range commonWords {
-		if lower == w {
-			return true
-		}
-	}
-	return false
+	return englishWords[lower]
 }
 
 func calculateLinguisticScore(u string) float64 {
@@ -539,20 +714,20 @@ func estimateValue(r *FullReport) float64 {
 	return value
 }
 
-func CalculateRarity(u string) int {
+func (s *ReportService) CalculateRarity(u string) int {
 	score := 0
 	length := len(u)
 
 	if length == 4 {
-		score += 5000
+		score += s.rarityConfig.Length4Bonus
 	} else if length == 5 {
-		score += 1000
+		score += s.rarityConfig.Length5Bonus
 	} else if length <= 7 {
-		score += 500
+		score += s.rarityConfig.Length6to7Bonus
 	} else if length <= 10 {
-		score += 200
+		score += s.rarityConfig.Length8to10Bonus
 	} else {
-		score += 50
+		score += s.rarityConfig.LengthOtherBonus
 	}
 
 	isNumeric := true
@@ -563,7 +738,7 @@ func CalculateRarity(u string) int {
 		}
 	}
 	if isNumeric {
-		score += 1000
+		score += s.rarityConfig.NumericBonus
 	}
 
 	uniqueChars := make(map[rune]bool)
@@ -571,18 +746,48 @@ func CalculateRarity(u string) int {
 		uniqueChars[char] = true
 	}
 	if len(uniqueChars) <= 3 {
-		score += 1200
+		score += s.rarityConfig.Unique3Bonus
 	} else if len(uniqueChars) <= 5 {
-		score += 400
+		score += s.rarityConfig.Unique5Bonus
 	}
 
 	if !strings.Contains(u, "_") {
-		score += 300
+		score += s.rarityConfig.NoUnderscoreBonus
 	}
 
 	if isDictionaryWord(u) {
-		score += 2000
+		score += s.rarityConfig.DictionaryBonus
 	}
 
 	return score
+}
+
+// GetTONRate fetches the current TON to USD exchange rate from TonAPI with caching
+func (s *ReportService) GetTONRate(ctx context.Context) (float64, error) {
+	cacheKey := "ton_rate_usd"
+	if s.cache != nil {
+		val, err := s.cache.Client.Get(ctx, cacheKey).Result()
+		if err == nil {
+			var price float64
+			if _, err := fmt.Sscanf(val, "%f", &price); err == nil {
+				return price, nil
+			}
+		}
+	}
+
+	if s.tonClient == nil {
+		return 7.25, nil
+	}
+
+	price, err := s.tonClient.GetTONRates(ctx)
+	if err != nil {
+		// Return a fallback price
+		return 7.25, nil
+	}
+
+	if s.cache != nil {
+		s.cache.Client.Set(ctx, cacheKey, fmt.Sprintf("%f", price), 5*time.Minute)
+	}
+
+	return price, nil
 }

@@ -733,7 +733,13 @@ export const dict = {
         "exportPdf": "Экспорт PDF отчета",
         "shareStory": "Поделиться в Telegram Story"
       },
-      "shareText": "Отчет по юзернейму @{u}\nПоказатель редкости: {score}/1000"
+      "shareText": "Отчет по юзернейму @{u}\nПоказатель редкости: {score}/1000",
+      "paymentRequired": "Полный отчет по юзернейму доступен в премиум-режиме.",
+      "openingInvoice": "Открываем счет...",
+      "unlock": "Открыть за 100 Stars",
+      "paymentNotCompleted": "Платеж не был завершен.",
+      "paymentStartFailed": "Не удалось начать оплату.",
+      "unlockPending": "Платеж получен. Отчет еще открывается; попробуйте снова через несколько секунд."
     }
   },
   "onboarding": {

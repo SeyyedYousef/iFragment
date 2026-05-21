@@ -17,7 +17,7 @@ export const TasksPage: Component = () => {
 
   const completeTaskMutation = createMutation(() => ({
     mutationFn: ({ key }: { key: string }) => completeTask(key),
-    onSuccess: (_, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile', 'tasks'] });
       queryClient.invalidateQueries({ queryKey: ['profile', 'stats'] });
       try { hapticFeedback.notificationOccurred('success'); } catch {}

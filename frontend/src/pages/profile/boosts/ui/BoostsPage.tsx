@@ -3,7 +3,6 @@ import { useNavigate } from '@solidjs/router';
 import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { getBoostsStatus, upgradeBoost, getProfileStats } from '@/shared/api/profile.js';
-import { t } from '@/shared/i18n/index.js';
 
 export const BoostsPage: Component = () => {
   const navigate = useNavigate();

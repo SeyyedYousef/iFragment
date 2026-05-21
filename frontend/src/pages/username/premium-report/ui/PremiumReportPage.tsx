@@ -1,9 +1,12 @@
-import { Component, createEffect, onCleanup, Show, For } from 'solid-js';
+import { Component, createEffect, createSignal, onCleanup, Show, For } from 'solid-js';
 import { Motion } from '@motionone/solid';
 import { backButton, openTelegramLink, openLink } from '@tma.js/sdk-solid';
 import { useNavigate, useSearchParams } from '@solidjs/router';
-import { usePremiumReport } from '@/entities/username/api/index.js';
+import { requestPremiumReport, usePremiumReport } from '@/entities/username/api/index.js';
 import { useI18n } from '@/shared/i18n/index.js';
+import { openInvoice } from '@/shared/lib/telegram-native.js';
+
+type ApiError = Error & { response?: { status?: number; data?: { message?: string } } };
 
 const Skeleton: Component = () => (
   <div class="animate-pulse space-y-8">
@@ -26,12 +29,18 @@ export const PremiumReportPage: Component = () => {
   const navigate = useNavigate();
   const { t } = useI18n();
   const username = () => searchParams.u || '';
+  const [isPaying, setIsPaying] = createSignal(false);
+  const [paymentError, setPaymentError] = createSignal('');
   
   const report = usePremiumReport(username);
+  const isPaymentRequired = () => (report.error as ApiError | null)?.response?.status === 402;
 
   createEffect(() => {
     backButton.show();
-    const unsubscribe = backButton.onClick(() => navigate(-1));
+    const unsubscribe = backButton.onClick(() => {
+      if (window.history.length > 1) navigate(-1);
+      else navigate('/');
+    });
     onCleanup(() => {
       unsubscribe();
       backButton.hide();
@@ -39,12 +48,55 @@ export const PremiumReportPage: Component = () => {
   });
 
   const handleShare = () => {
-    const text = t('pages.premiumReport.shareText' as any)
+    const text = t('pages.premiumReport.shareText')
       .replace('{u}', username())
       .replace('{score}', String(report.data?.rarity_score || 0));
     
     const shareUrl = `https://t.me/share/url?url=${encodeURIComponent('https://t.me/iFragmentBot/app')}&text=${encodeURIComponent(text)}`;
     openTelegramLink(shareUrl);
+  };
+
+  const handlePayment = async () => {
+    if (!username() || isPaying()) return;
+    setPaymentError('');
+    setIsPaying(true);
+    try {
+      const { invoice_link } = await requestPremiumReport(username());
+      const status = await openInvoice(invoice_link);
+      if (status === 'paid') {
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+          const result = await report.refetch();
+          if (result.data) return;
+          await new Promise((resolve) => setTimeout(resolve, 800));
+        }
+        setPaymentError(t('pages.premiumReport.unlockPending'));
+      } else {
+        setPaymentError(t('pages.premiumReport.paymentNotCompleted'));
+      }
+    } catch (err: any) {
+      setPaymentError(err?.response?.data?.message || err?.message || t('pages.premiumReport.paymentStartFailed'));
+    } finally {
+      setIsPaying(false);
+    }
+  };
+
+  const openFragment = () => {
+    const fragmentUrl = report.data?.fragment_url;
+    if (!fragmentUrl) return;
+    try {
+      const url = new URL(fragmentUrl);
+      if (url.protocol === 'https:' && url.hostname === 'fragment.com') {
+        openLink(url.toString());
+      }
+    } catch {
+      // Ignore malformed external URLs from upstream data.
+    }
+  };
+
+  const usdValue = (ton?: number) => {
+    const rate = report.data?.exchange_rate;
+    if (!ton || !rate) return '';
+    return (ton * rate).toFixed(2);
   };
 
   const getFormatType = (score: number) => {
@@ -60,15 +112,38 @@ export const PremiumReportPage: Component = () => {
       <Show when={!report.isLoading} fallback={<Skeleton />}>
         <Show when={report.error}>
           <div class="flex flex-col items-center justify-center pt-20">
-            <span class="material-symbols-outlined text-[48px] text-red-500 mb-4">error</span>
-            <p class="text-white/80 font-bold text-center mb-4">{report.error?.message || 'Error loading report'}</p>
-            <button 
-              class="px-6 py-3 bg-[#3390ec] active:scale-95 transition-all rounded-xl font-black uppercase tracking-wider"
-              onClick={() => report.refetch()}
-              aria-label="Retry connection"
-            >
-              Retry Connection
-            </button>
+            <Show when={isPaymentRequired()} fallback={
+              <>
+                <span class="material-symbols-outlined text-[48px] text-red-500 mb-4">error</span>
+                <p class="text-white/80 font-bold text-center mb-4">
+                  {report.error?.message || 'Error loading report'}
+                </p>
+                <button
+                  class="px-6 py-3 bg-[#3390ec] active:scale-95 transition-all rounded-xl font-black uppercase tracking-wider"
+                  onClick={() => report.refetch()}
+                  aria-label="Retry connection"
+                >
+                  Retry Connection
+                </button>
+              </>
+            }>
+              <span class="material-symbols-outlined text-[48px] text-[#3390ec] mb-4">lock</span>
+              <h1 class="text-2xl font-black text-center mb-2">@{username()}</h1>
+              <p class="text-[#a6a6ad] font-bold text-center mb-6 max-w-[320px]">
+                {t('pages.premiumReport.paymentRequired')}
+              </p>
+              <button
+                class="px-6 py-3 bg-[#3390ec] active:scale-95 transition-all rounded-xl font-black uppercase tracking-wider disabled:opacity-50"
+                onClick={handlePayment}
+                disabled={isPaying()}
+                aria-busy={isPaying()}
+              >
+                {isPaying() ? t('pages.premiumReport.openingInvoice') : t('pages.premiumReport.unlock')}
+              </button>
+              <Show when={paymentError()}>
+                <p class="text-red-400 text-xs font-bold text-center mt-4" aria-live="polite">{paymentError()}</p>
+              </Show>
+            </Show>
           </div>
         </Show>
 
@@ -151,7 +226,12 @@ export const PremiumReportPage: Component = () => {
                     <span class="text-3xl font-black text-white">{report.data?.estimated_value?.toFixed(1) || 'N/A'}</span>
                     <span class="text-sm text-[#3390ec] font-bold">TON</span>
                   </div>
-                  <span class="text-[10px] font-bold text-[#34c759] mt-1 flex items-center gap-1 bg-[#34c759]/10 px-2 py-0.5 rounded">
+                  <Show when={report.data?.estimated_value && report.data?.exchange_rate}>
+                    <span class="text-[11px] font-bold text-[#8e8e93] mt-0.5">
+                      ~${(report.data!.estimated_value! * report.data!.exchange_rate!).toFixed(2)}
+                    </span>
+                  </Show>
+                  <span class="text-[10px] font-bold text-[#34c759] mt-1.5 flex items-center gap-1 bg-[#34c759]/10 px-2 py-0.5 rounded">
                     <span class="material-symbols-outlined text-[12px]">trending_up</span> Strong Asset
                   </span>
                 </div>
@@ -214,11 +294,21 @@ export const PremiumReportPage: Component = () => {
               <Show when={report.data?.sale_status !== 'not_for_sale'}>
                 <div class="flex items-center justify-between py-2 border-b border-[#2a2a2a]">
                   <span class="text-sm font-bold text-[#8e8e93]">Highest Bid</span>
-                  <span class="text-sm font-black text-white">{report.data?.highest_bid || 0} TON</span>
+                  <div class="text-right">
+                    <span class="text-sm font-black text-white">{report.data?.highest_bid || 0} TON</span>
+                    <Show when={usdValue(report.data?.highest_bid)}>
+                      <span class="text-[10px] text-[#8e8e93] font-bold block">~${usdValue(report.data?.highest_bid)}</span>
+                    </Show>
+                  </div>
                 </div>
                 <div class="flex items-center justify-between py-2 border-b border-[#2a2a2a]">
                   <span class="text-sm font-bold text-[#8e8e93]">Buy Now</span>
-                  <span class="text-sm font-black text-white">{report.data?.buy_now_price || 'N/A'} TON</span>
+                  <div class="text-right">
+                    <span class="text-sm font-black text-white">{report.data?.buy_now_price || 'N/A'} TON</span>
+                    <Show when={usdValue(report.data?.buy_now_price)}>
+                      <span class="text-[10px] text-[#8e8e93] font-bold block">~${usdValue(report.data?.buy_now_price)}</span>
+                    </Show>
+                  </div>
                 </div>
                 <Show when={report.data?.end_time}>
                   <div class="flex items-center justify-between py-2 border-b border-[#2a2a2a]">
@@ -245,6 +335,9 @@ export const PremiumReportPage: Component = () => {
                     </span>
                     <div class="text-right">
                       <div class="text-sm font-black text-white">{report.data?.owner_wallet_balance?.toFixed(2)} TON</div>
+                      <Show when={usdValue(report.data?.owner_wallet_balance)}>
+                        <div class="text-[10px] text-[#8e8e93] font-bold">~${usdValue(report.data?.owner_wallet_balance)}</div>
+                      </Show>
                       <div class="text-[10px] font-bold text-[#8e8e93] mt-0.5">{report.data?.owner_other_assets} other NFTs</div>
                     </div>
                   </div>
@@ -272,7 +365,7 @@ export const PremiumReportPage: Component = () => {
             {/* ── ACTION BUTTONS ── */}
             <div class="mt-8 space-y-3">
                <button 
-                 onClick={() => openLink(report.data!.fragment_url)}
+                 onClick={openFragment}
                  class="w-full bg-[#3390ec] active:scale-95 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 transition-all shadow-[0_4px_20px_rgba(51,144,236,0.3)]"
                  aria-label="Open username in Fragment market"
                >

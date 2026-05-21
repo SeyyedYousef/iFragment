@@ -25,11 +25,8 @@ vi.mock('@/entities/username/model/index.js', () => ({
 
 // Mock the api
 vi.mock('@/entities/username/api/index.js', () => ({
-  useUsernameAvailability: () => ({ data: { status: 'available' } }),
-  useRequestPremiumReport: () => ({
-    mutate: vi.fn(),
-    isPending: false
-  })
+  useUsernameQuickAnalysis: () => ({ data: { status: 'available' }, refetch: vi.fn() }),
+  useTrendingUsernames: () => ({ data: ['news', 'auto', 'bank', 'crypto'] }),
 }));
 
 describe('ActionArea Component', () => {

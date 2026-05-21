@@ -5,8 +5,6 @@ import (
 )
 
 var (
-	// Basic: 5-32 chars, must start with letter
-	basicUsernameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]{4,31}$`)
 	// Collectible: 4-32 chars
 	collectibleUsernameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]{3,31}$`)
 	consecutiveUnderscoreRegex = regexp.MustCompile(`__`)
