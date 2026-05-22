@@ -11,10 +11,13 @@ import (
 	"ifragment-backend/internal/client/tonapi"
 	"ifragment-backend/internal/repository"
 	"log/slog"
+	"math"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	"golang.org/x/sync/singleflight"
 )
@@ -34,7 +37,7 @@ func init() {
 		}
 	}
 	// Add critical custom/tech/crypto/brand names
-	extra := []string{"bitcoin", "crypto", "tesla", "solana", "ethereum", "blockchain", "apple"}
+	extra := []string{"auto", "bank", "bitcoin", "boss", "crypto", "ethereum", "money", "news", "pavel", "solana", "tesla", "wallet", "blockchain", "apple"}
 	for _, w := range extra {
 		englishWords[w] = true
 	}
@@ -81,6 +84,7 @@ type ReportService struct {
 	mtprotoClient   mtproto.Client
 	saveQueue       chan ReportTask
 	rarityConfig    RarityConfig
+	pricingClient   *PricingClient
 	sfGroup         singleflight.Group
 }
 
@@ -101,6 +105,7 @@ func NewReportService(
 		mtprotoClient:   mtp,
 		saveQueue:       make(chan ReportTask, 1000),
 		rarityConfig:    DefaultRarityConfig,
+		pricingClient:   NewPricingClientFromEnv(),
 	}
 	go s.worker()
 	return s
@@ -109,6 +114,15 @@ func NewReportService(
 type OwnerWalletCache struct {
 	Balance     float64 `json:"balance"`
 	OtherAssets int     `json:"other_assets"`
+}
+
+type PriceEstimate struct {
+	P10        float64  `json:"p10_ton"`
+	P50        float64  `json:"p50_ton"`
+	P90        float64  `json:"p90_ton"`
+	Confidence float64  `json:"confidence"`
+	Method     string   `json:"method"`
+	Signals    []string `json:"signals,omitempty"`
 }
 
 func (s *ReportService) getCachedSearchPopularity(ctx context.Context, username string) (int, error) {
@@ -196,11 +210,12 @@ type FullReport struct {
 	OwnerOtherAssets   int     `json:"owner_other_assets,omitempty"`   // count of other username NFTs
 
 	// ─ iFragment Analytics ─
-	RarityScore      int     `json:"rarity_score"`
-	LinguisticScore  float64 `json:"linguistic_score"`
-	EstimatedValue   float64 `json:"estimated_value,omitempty"` // in TON
-	SearchPopularity int     `json:"search_popularity"`
-	FragmentURL      string  `json:"fragment_url"`
+	RarityScore      int            `json:"rarity_score"`
+	LinguisticScore  float64        `json:"linguistic_score"`
+	EstimatedValue   float64        `json:"estimated_value,omitempty"` // in TON
+	ValueEstimate    *PriceEstimate `json:"value_estimate,omitempty"`
+	SearchPopularity int            `json:"search_popularity"`
+	FragmentURL      string         `json:"fragment_url"`
 
 	// ─ Meta ─
 	ExchangeRate float64   `json:"exchange_rate,omitempty"`
@@ -231,7 +246,7 @@ func (s *ReportService) QuickAnalysis(ctx context.Context, username string, user
 
 	result := &QuickCheck{
 		Username:        username,
-		Length:          len(username),
+		Length:          usernameLength(username),
 		RarityScore:     s.CalculateRarity(username),
 		FragmentURL:     fmt.Sprintf("https://fragment.com/username/%s", username),
 		LinguisticScore: calculateLinguisticScore(username),
@@ -311,7 +326,7 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 
 	report := &FullReport{
 		Username:         username,
-		Length:           len(username),
+		Length:           usernameLength(username),
 		ContainsNumbers:  containsNumbers(username),
 		IsDictionaryWord: isDictionaryWord(username),
 		RarityScore:      s.CalculateRarity(username),
@@ -562,7 +577,8 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 	wg.Wait()
 
 	// ─ Estimated Value (AI/Algorithm) ─
-	report.EstimatedValue = estimateValue(report)
+	report.ValueEstimate = s.estimateValue(ctx, report)
+	report.EstimatedValue = report.ValueEstimate.P50
 
 	return report, nil
 }
@@ -643,7 +659,7 @@ func calculateLinguisticScore(u string) float64 {
 	}
 
 	// Bonus for starting with uppercase-friendly letter
-	if len(u) > 0 && unicode.IsLetter(rune(u[0])) {
+	if first, ok := firstRune(u); ok && unicode.IsLetter(first) {
 		score += 5
 	}
 
@@ -662,8 +678,9 @@ func calculateLinguisticScore(u string) float64 {
 	return score
 }
 
-func estimateValue(r *FullReport) float64 {
+func estimateValue(r *FullReport) *PriceEstimate {
 	var value float64
+	var signals []string
 
 	// Base value from rarity
 	value = float64(r.RarityScore) * 0.5
@@ -672,8 +689,12 @@ func estimateValue(r *FullReport) float64 {
 	switch {
 	case r.Length == 4:
 		value += 500
+		value *= 2.2
+		signals = append(signals, "short_4_char")
 	case r.Length == 5:
 		value += 100
+		value *= 1.45
+		signals = append(signals, "short_5_char")
 	case r.Length <= 7:
 		value += 30
 	case r.Length <= 10:
@@ -682,41 +703,106 @@ func estimateValue(r *FullReport) float64 {
 
 	// Dictionary word premium
 	if r.IsDictionaryWord {
-		value *= 3.0
+		value *= dictionaryPremium(r.Username)
+		signals = append(signals, "dictionary_word")
 	}
 
 	// Linguistic bonus
 	if r.LinguisticScore > 70 {
-		value *= 1.5
+		value *= 1.15 + (r.LinguisticScore-70)/200
+		signals = append(signals, "pronounceable")
 	}
 
-	// If there are past sales, use average as anchor
-	if len(r.PastSales) > 0 {
-		var total float64
-		for _, s := range r.PastSales {
-			total += s.Price
-		}
-		avgSale := total / float64(len(r.PastSales))
-		// Weight: 70% market data, 30% our algorithm
-		value = avgSale*0.7 + value*0.3
+	if isBrandLikeKeyword(r.Username) {
+		value *= 3.5
+		signals = append(signals, "brand_keyword")
+	}
+	if isHighValueMarketKeyword(r.Username) {
+		value *= 2.4
+		signals = append(signals, "market_keyword")
+	}
+	if r.SearchPopularity > 0 {
+		value *= 1 + math.Min(math.Log1p(float64(r.SearchPopularity))/18, 0.7)
+		signals = append(signals, "search_popularity")
+	}
+	if r.ParticipantsCount > 0 {
+		value *= 1 + math.Min(math.Log1p(float64(r.ParticipantsCount))/24, 0.5)
+		signals = append(signals, "telegram_audience")
+	}
+	if r.OwnerWalletBalance > 0 {
+		value *= 1 + math.Min(math.Log1p(r.OwnerWalletBalance)/40, 0.35)
+		signals = append(signals, "owner_wallet_depth")
+	}
+	if r.OwnerOtherAssets > 0 {
+		value *= 1 + math.Min(math.Log1p(float64(r.OwnerOtherAssets))/30, 0.25)
+		signals = append(signals, "owner_collection_depth")
+	}
+	if len(r.PreviousOwners) > 0 {
+		value *= 1 + math.Min(float64(len(r.PreviousOwners))*0.025, 0.25)
+		signals = append(signals, "transfer_history")
+	}
+
+	// If there are paid past sales, use the median as the market anchor.
+	if medianSale, ok := medianPositiveSale(r.PastSales); ok {
+		value = medianSale*0.75 + value*0.25
+		signals = append(signals, "past_sales_median")
 	}
 
 	// If on auction and has bids, use highest bid as floor
 	if r.SaleStatus == "on_auction" && r.HighestBid > value {
 		value = r.HighestBid * 1.1
+		signals = append(signals, "auction_bid_floor")
 	}
 
 	// If buy now price exists, cap estimate below it
 	if r.BuyNowPrice > 0 && value > r.BuyNowPrice*0.9 {
 		value = r.BuyNowPrice * 0.85
+		signals = append(signals, "buy_now_cap")
 	}
 
-	return value
+	confidence := estimateConfidence(r)
+	spread := 0.75 - confidence*0.35
+	p10 := value * (1 - spread)
+	p90 := value * (1 + spread*1.6)
+	if r.BuyNowPrice > 0 && p90 > r.BuyNowPrice {
+		p90 = r.BuyNowPrice
+	}
+	if p10 < 0 {
+		p10 = 0
+	}
+
+	return &PriceEstimate{
+		P10:        roundTON(p10),
+		P50:        roundTON(value),
+		P90:        roundTON(p90),
+		Confidence: roundConfidence(confidence),
+		Method:     "heuristic_v2_feature_weighted",
+		Signals:    signals,
+	}
+}
+
+func (s *ReportService) estimateValue(ctx context.Context, r *FullReport) *PriceEstimate {
+	features := buildPricingFeatures(r)
+	if s.pricingClient != nil {
+		estimate, err := s.pricingClient.Predict(ctx, features)
+		if err == nil && isUsablePriceEstimate(estimate) {
+			if estimate.Method == "" {
+				estimate.Method = "ml_external"
+			}
+			estimate.Signals = append([]string{"external_model", features.FeatureVersion}, estimate.Signals...)
+			return estimate
+		}
+		slog.Warn("pricing model unavailable; falling back to heuristic", "username", r.Username, "error", err)
+	}
+
+	estimate := estimateValue(r)
+	estimate.Signals = append([]string{features.FeatureVersion}, estimate.Signals...)
+	return estimate
 }
 
 func (s *ReportService) CalculateRarity(u string) int {
 	score := 0
-	length := len(u)
+	length := usernameLength(u)
 
 	if length == 4 {
 		score += s.rarityConfig.Length4Bonus
@@ -760,6 +846,107 @@ func (s *ReportService) CalculateRarity(u string) int {
 	}
 
 	return score
+}
+
+func usernameLength(u string) int {
+	return utf8.RuneCountInString(u)
+}
+
+func firstRune(u string) (rune, bool) {
+	r, size := utf8.DecodeRuneInString(u)
+	return r, size > 0 && r != utf8.RuneError
+}
+
+func dictionaryPremium(u string) float64 {
+	switch {
+	case isHighValueMarketKeyword(u):
+		return 5.0
+	case usernameLength(u) <= 5:
+		return 4.2
+	default:
+		return 3.0
+	}
+}
+
+func isBrandLikeKeyword(u string) bool {
+	brands := map[string]bool{
+		"apple":  true,
+		"amazon": true,
+		"bank":   true,
+		"boss":   true,
+		"google": true,
+		"meta":   true,
+		"nike":   true,
+		"pavel":  true,
+		"tesla":  true,
+		"visa":   true,
+	}
+	return brands[strings.ToLower(u)]
+}
+
+func isHighValueMarketKeyword(u string) bool {
+	keywords := map[string]bool{
+		"auto":    true,
+		"bitcoin": true,
+		"cars":    true,
+		"casino":  true,
+		"crypto":  true,
+		"money":   true,
+		"news":    true,
+		"nft":     true,
+		"ton":     true,
+		"wallet":  true,
+	}
+	return keywords[strings.ToLower(u)]
+}
+
+func medianPositiveSale(sales []marketapp.SaleRecord) (float64, bool) {
+	prices := make([]float64, 0, len(sales))
+	for _, sale := range sales {
+		if sale.Price > 0 {
+			prices = append(prices, sale.Price)
+		}
+	}
+	if len(prices) == 0 {
+		return 0, false
+	}
+	sort.Float64s(prices)
+	mid := len(prices) / 2
+	if len(prices)%2 == 1 {
+		return prices[mid], true
+	}
+	return (prices[mid-1] + prices[mid]) / 2, true
+}
+
+func estimateConfidence(r *FullReport) float64 {
+	confidence := 0.25
+	if _, ok := medianPositiveSale(r.PastSales); ok {
+		confidence += 0.35
+	}
+	if r.BuyNowPrice > 0 || r.HighestBid > 0 {
+		confidence += 0.18
+	}
+	if r.SearchPopularity > 0 {
+		confidence += 0.08
+	}
+	if r.OwnerWalletBalance > 0 || r.OwnerOtherAssets > 0 {
+		confidence += 0.08
+	}
+	if r.ExchangeRate > 0 {
+		confidence += 0.04
+	}
+	if confidence > 0.9 {
+		return 0.9
+	}
+	return confidence
+}
+
+func roundTON(v float64) float64 {
+	return math.Round(v*100) / 100
+}
+
+func roundConfidence(v float64) float64 {
+	return math.Round(v*100) / 100
 }
 
 // GetTONRate fetches the current TON to USD exchange rate from TonAPI with caching

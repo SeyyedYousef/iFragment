@@ -3,6 +3,7 @@ import { Motion } from '@motionone/solid';
 import { backButton, openTelegramLink, openLink } from '@tma.js/sdk-solid';
 import { useNavigate, useSearchParams } from '@solidjs/router';
 import { requestPremiumReport, usePremiumReport } from '@/entities/username/api/index.js';
+import type { SaleRecord } from '@/entities/username/api/index.js';
 import { useI18n } from '@/shared/i18n/index.js';
 import { openInvoice } from '@/shared/lib/telegram-native.js';
 
@@ -98,6 +99,32 @@ export const PremiumReportPage: Component = () => {
     if (!ton || !rate) return '';
     return (ton * rate).toFixed(2);
   };
+
+  const paidSales = () => {
+    const sales = report.data?.past_sales || [];
+    return sales
+      .filter((sale): sale is SaleRecord => Number(sale.price) > 0 && !!sale.date)
+      .slice()
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  };
+
+  const chartPoints = () => {
+    const sales = paidSales();
+    if (sales.length === 0) return '';
+    const prices = sales.map((sale) => sale.price);
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    const span = max - min || 1;
+    return sales
+      .map((sale, index) => {
+        const x = sales.length === 1 ? 160 : 16 + (index / (sales.length - 1)) * 288;
+        const y = 112 - ((sale.price - min) / span) * 88;
+        return `${x},${y}`;
+      })
+      .join(' ');
+  };
+
+  const confidencePercent = () => Math.round((report.data?.value_estimate?.confidence || 0) * 100);
 
   const getFormatType = (score: number) => {
     if (score > 5000) return 'Legendary';
@@ -231,12 +258,55 @@ export const PremiumReportPage: Component = () => {
                       ~${(report.data!.estimated_value! * report.data!.exchange_rate!).toFixed(2)}
                     </span>
                   </Show>
+                  <Show when={report.data?.value_estimate}>
+                    <span class="text-[10px] font-bold text-[#8e8e93] mt-1">
+                      {report.data!.value_estimate!.p10_ton.toFixed(1)}-{report.data!.value_estimate!.p90_ton.toFixed(1)} TON
+                    </span>
+                  </Show>
                   <span class="text-[10px] font-bold text-[#34c759] mt-1.5 flex items-center gap-1 bg-[#34c759]/10 px-2 py-0.5 rounded">
                     <span class="material-symbols-outlined text-[12px]">trending_up</span> Strong Asset
                   </span>
                 </div>
               </div>
             </div>
+
+            <Show when={report.data?.value_estimate}>
+              <div class="bg-[#141518] border border-[#2a2a2a] p-5 rounded-[24px] mb-4">
+                <div class="flex items-center justify-between mb-4">
+                  <h3 class="text-[#8e8e93] text-xs font-black uppercase tracking-widest flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[16px]">analytics</span> Price Model
+                  </h3>
+                  <span class="text-[10px] font-black text-[#34c759] bg-[#34c759]/10 border border-[#34c759]/20 px-2.5 py-1 rounded-lg">
+                    {confidencePercent()}% confidence
+                  </span>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                  <div class="bg-[#1c1c1c] rounded-xl border border-[#2a2a2a] p-3">
+                    <span class="text-[9px] text-[#8e8e93] font-black uppercase">P10</span>
+                    <div class="text-sm font-black text-white mt-1">{report.data!.value_estimate!.p10_ton.toFixed(1)}</div>
+                  </div>
+                  <div class="bg-[#1c1c1c] rounded-xl border border-[#3390ec]/30 p-3">
+                    <span class="text-[9px] text-[#3390ec] font-black uppercase">Median</span>
+                    <div class="text-sm font-black text-white mt-1">{report.data!.value_estimate!.p50_ton.toFixed(1)}</div>
+                  </div>
+                  <div class="bg-[#1c1c1c] rounded-xl border border-[#2a2a2a] p-3">
+                    <span class="text-[9px] text-[#8e8e93] font-black uppercase">P90</span>
+                    <div class="text-sm font-black text-white mt-1">{report.data!.value_estimate!.p90_ton.toFixed(1)}</div>
+                  </div>
+                </div>
+                <Show when={report.data?.value_estimate?.signals?.length}>
+                  <div class="flex flex-wrap gap-1.5 mt-4">
+                    <For each={report.data?.value_estimate?.signals?.slice(0, 6)}>
+                      {(signal) => (
+                        <span class="text-[9px] font-bold uppercase text-[#8e8e93] bg-[#1c1c1c] border border-[#2a2a2a] px-2 py-1 rounded-md">
+                          {signal.split('_').join(' ')}
+                        </span>
+                      )}
+                    </For>
+                  </div>
+                </Show>
+              </div>
+            </Show>
 
             {/* ── LINGUISTIC & SEARCH DATA ── */}
             <div class="grid grid-cols-2 gap-3 mb-4">
@@ -345,12 +415,35 @@ export const PremiumReportPage: Component = () => {
               </Show>
 
               {/* Past Sales (If any) */}
-              <Show when={report.data?.past_sales && report.data.past_sales.length > 0}>
+              <Show when={paidSales().length > 0}>
                 <div class="pt-2">
                   <span class="text-[11px] font-bold text-[#8e8e93] uppercase tracking-wider mb-2 block">Price History</span>
+                  <div class="bg-[#1c1c1c] rounded-2xl border border-[#2a2a2a] p-3 mb-3">
+                    <svg viewBox="0 0 320 128" class="w-full h-32" role="img" aria-label="Username price history chart">
+                      <line x1="16" y1="112" x2="304" y2="112" stroke="#2a2a2a" stroke-width="2" />
+                      <line x1="16" y1="24" x2="16" y2="112" stroke="#2a2a2a" stroke-width="2" />
+                      <polyline points={chartPoints()} fill="none" stroke="#3390ec" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+                      <For each={paidSales()}>
+                        {(sale, index) => {
+                          const sales = paidSales();
+                          const prices = sales.map((item) => item.price);
+                          const min = Math.min(...prices);
+                          const max = Math.max(...prices);
+                          const span = max - min || 1;
+                          const x = sales.length === 1 ? 160 : 16 + (index() / (sales.length - 1)) * 288;
+                          const y = 112 - ((sale.price - min) / span) * 88;
+                          return <circle cx={x} cy={y} r="4" fill="#34c759" stroke="#0a0b0e" stroke-width="2" />;
+                        }}
+                      </For>
+                    </svg>
+                    <div class="flex justify-between text-[10px] text-[#8e8e93] font-bold px-1">
+                      <span>{new Date(paidSales()[0].date).toLocaleDateString()}</span>
+                      <span>{paidSales()[paidSales().length - 1].price} TON</span>
+                    </div>
+                  </div>
                   <div class="space-y-2">
-                    <For each={report.data?.past_sales}>
-                      {(sale: any) => (
+                    <For each={paidSales()}>
+                      {(sale) => (
                         <div class="flex items-center justify-between bg-[#1c1c1c] p-2.5 rounded-lg border border-[#2a2a2a]">
                           <span class="text-xs text-white/60">{new Date(sale.date).toLocaleDateString()}</span>
                           <span class="text-xs font-black text-white">{sale.price} TON</span>

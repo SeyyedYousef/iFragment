@@ -27,32 +27,34 @@ func NewClient() *Client {
 
 // CollectionData represents global collection stats from Marketapp
 type CollectionData struct {
-	Name           string  `json:"name"`
-	Description    string  `json:"description"`
-	Address        string  `json:"address"`
-	TotalMinted    int     `json:"total_minted"`
-	ItemsCount     int     `json:"items_count"`
-	TotalOwners    int     `json:"total_owners"`
-	FloorPrice     float64 `json:"floor_price"`
-	TotalVolume    float64 `json:"total_volume"`
-	Volume24h      float64 `json:"24h_volume"`
-	SalesCount     int     `json:"sales_count"`
-	HighestSale    float64 `json:"highest_sale"`
-	ListedRatio    float64 `json:"listed_ratio"`
-	ActiveAuctions int     `json:"active_auctions_count"`
+	Name           string          `json:"name"`
+	Description    string          `json:"description"`
+	Address        string          `json:"address"`
+	TotalMinted    int             `json:"total_minted"`
+	ItemsCount     int             `json:"items_count"`
+	TotalOwners    int             `json:"total_owners"`
+	FloorPrice     float64         `json:"floor_price"`
+	TotalVolume    float64         `json:"total_volume"`
+	Revenue        float64         `json:"revenue"`
+	Volume24h      float64         `json:"24h_volume"`
+	SalesCount     int             `json:"sales_count"`
+	HighestSale    float64         `json:"highest_sale"`
+	ListedRatio    float64         `json:"listed_ratio"`
+	ActiveAuctions int             `json:"active_auctions_count"`
+	TopSales       []TopSaleRecord `json:"top_sales"`
 }
 
 // ItemData represents data for a specific username NFT
 type ItemData struct {
-	Name           string        `json:"name"`
-	OwnerAddress   string        `json:"owner_address"`
-	SaleStatus     string        `json:"sale_status"`
-	HighestBid     float64       `json:"highest_bid"`
-	BuyNowPrice    float64       `json:"buy_now_price"`
-	EndTime        string        `json:"end_time"`
-	MintDate       string        `json:"mint_date"`
-	PastSales      []SaleRecord  `json:"past_sales"`
-	PreviousOwners []string      `json:"previous_owners"`
+	Name           string       `json:"name"`
+	OwnerAddress   string       `json:"owner_address"`
+	SaleStatus     string       `json:"sale_status"`
+	HighestBid     float64      `json:"highest_bid"`
+	BuyNowPrice    float64      `json:"buy_now_price"`
+	EndTime        string       `json:"end_time"`
+	MintDate       string       `json:"mint_date"`
+	PastSales      []SaleRecord `json:"past_sales"`
+	PreviousOwners []string     `json:"previous_owners"`
 }
 
 type SaleRecord struct {
@@ -60,6 +62,12 @@ type SaleRecord struct {
 	Date  string  `json:"date"`
 	From  string  `json:"from"`
 	To    string  `json:"to"`
+}
+
+type TopSaleRecord struct {
+	Username string  `json:"username"`
+	Price    float64 `json:"price"`
+	Date     string  `json:"date"`
 }
 
 func (c *Client) doRequest(ctx context.Context, url string) (*http.Response, error) {

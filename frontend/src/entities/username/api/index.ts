@@ -44,6 +44,22 @@ export interface QuickCheck {
   linguistic_score: number;
 }
 
+export interface PriceEstimate {
+  p10_ton: number;
+  p50_ton: number;
+  p90_ton: number;
+  confidence: number;
+  method: string;
+  signals?: string[];
+}
+
+export interface SaleRecord {
+  price: number;
+  date: string;
+  from?: string;
+  to?: string;
+}
+
 export interface PremiumReport {
   username: string;
   length: number;
@@ -69,7 +85,7 @@ export interface PremiumReport {
 
   mint_date?: string;
   previous_owners?: string[];
-  past_sales?: any[];
+  past_sales?: SaleRecord[];
 
   owner_wallet_balance?: number;
   owner_other_assets?: number;
@@ -77,6 +93,7 @@ export interface PremiumReport {
   rarity_score: number;
   linguistic_score: number;
   estimated_value?: number;
+  value_estimate?: PriceEstimate;
   search_popularity: number;
   fragment_url: string;
   exchange_rate?: number;
@@ -139,5 +156,4 @@ export const useTrendingUsernames = () => {
     staleTime: 10 * 60 * 1000, // 10 minutes
   }));
 };
-
 

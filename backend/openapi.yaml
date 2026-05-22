@@ -1,77 +1,535 @@
 openapi: 3.0.3
 info:
-  title: iFragment Username Analytics API
-  description: High-performance API for Telegram Username scarcity and market analysis.
-  version: 1.0.0
-  contact:
-    name: iFragment Support
-    url: https://ifragment.stel.com
-
+  title: iFragment API
+  description: Telegram username analytics, premium reports, bot management, profile and marketplace APIs.
+  version: 1.1.0
 servers:
+  - url: https://api.ifragment.com/api/v1
+    description: Production server
   - url: http://localhost:8080/api/v1
     description: Local development server
-
+tags:
+  - name: Health
+  - name: Auth
+  - name: Usernames
+  - name: Premium Reports
+  - name: Bots
+  - name: Groups
+  - name: Profile
+  - name: Marketplace
 paths:
-  /username/check:
+  /health:
     get:
-      summary: Check username availability and status
-      description: Returns the current status of a Telegram username (available, auction, taken, etc.) with rate-limiting protection.
+      tags: [Health]
+      summary: Health check
+      responses:
+        "200":
+          description: Service is healthy
+  /auth/token:
+    post:
+      tags: [Auth]
+      summary: Issue JWT from Telegram init data
+      security:
+        - TelegramInitData: []
+      responses:
+        "200":
+          description: JWT response
+        "401":
+          description: Invalid Telegram init data
+  /usernames/collection/stats:
+    get:
+      tags: [Usernames]
+      summary: Get Telegram username collection statistics
+      responses:
+        "200":
+          description: Collection summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollectionSummary"
+  /usernames/check:
+    get:
+      tags: [Usernames]
+      summary: Check username availability
       parameters:
-        - name: u
-          in: query
-          required: true
-          description: The username to check (without @)
-          schema:
-            type: string
-            minLength: 4
-            maxLength: 32
+        - $ref: "#/components/parameters/UsernameQuery"
       responses:
-        '200':
-          description: Success
+        "200":
+          description: Availability result
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  username:
-                    type: string
-                  status:
-                    type: string
-                    enum: [available, auction, taken, on_sale]
-        '400':
+                $ref: "#/components/schemas/UsernameStatus"
+        "400":
           description: Invalid username format
-        '429':
-          description: Too many requests (Rate limit exceeded)
-        '500':
-          description: Internal server error
-
-  /collection/stats:
+        "429":
+          description: Rate limit exceeded
+  /usernames/quick:
     get:
-      summary: Get real-time collection statistics
-      description: Returns aggregated data for the entire Telegram Usernames collection from TON blockchain and Fragment.
+      tags: [Usernames]
+      summary: Get free quick username analysis
+      parameters:
+        - $ref: "#/components/parameters/UsernameQuery"
       responses:
-        '200':
-          description: Success
+        "200":
+          description: Quick analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuickCheck"
+  /usernames/quick/stream:
+    get:
+      tags: [Usernames]
+      summary: Stream quick username analysis with Server-Sent Events
+      parameters:
+        - $ref: "#/components/parameters/UsernameQuery"
+      responses:
+        "200":
+          description: SSE stream of QuickCheck payloads
+          content:
+            text/event-stream:
+              schema:
+                type: string
+  /usernames/trending:
+    get:
+      tags: [Usernames]
+      summary: Get trending usernames
+      responses:
+        "200":
+          description: Username list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+  /usernames/rates:
+    get:
+      tags: [Usernames]
+      summary: Get TON/USD rate
+      responses:
+        "200":
+          description: Current TON rate
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  total_supply:
-                    type: integer
-                  holders:
-                    type: integer
-                  floor_price:
-                    type: string
-                  total_volume:
-                    type: string
-        '500':
-          description: External API error or internal failure
-
+                  ton_to_usd:
+                    type: number
+  /usernames/similar:
+    get:
+      tags: [Usernames]
+      summary: Get similar username candidates
+      parameters:
+        - $ref: "#/components/parameters/UsernameQuery"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 25
+            default: 10
+      responses:
+        "200":
+          description: Similar usernames ranked by string and market-category similarity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SimilarUsername"
+  /usernames/report/request:
+    post:
+      tags: [Premium Reports]
+      summary: Create Telegram Stars invoice for a premium username report
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportRequest"
+      responses:
+        "200":
+          description: Invoice link
+        "402":
+          description: Payment required
+  /usernames/report/view:
+    get:
+      tags: [Premium Reports]
+      summary: View or generate a paid premium username report
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UsernameQuery"
+      responses:
+        "200":
+          description: Premium report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FullReport"
+        "402":
+          description: Payment required
+  /usernames/report/history:
+    get:
+      tags: [Premium Reports]
+      summary: List current user's generated reports
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Report history
+  /bots:
+    get:
+      tags: [Bots]
+      summary: List registered bots
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Bot list
+    post:
+      tags: [Bots]
+      summary: Register a bot
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Registered bot
+  /bots/{botID}:
+    get:
+      tags: [Bots]
+      summary: Get bot details
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/BotID"
+      responses:
+        "200":
+          description: Bot details
+    delete:
+      tags: [Bots]
+      summary: Revoke a bot
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/BotID"
+      responses:
+        "204":
+          description: Bot revoked
+  /bots/{botID}/groups:
+    get:
+      tags: [Bots]
+      summary: List groups connected to a bot
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/BotID"
+      responses:
+        "200":
+          description: Group list
+  /groups/{groupID}:
+    get:
+      tags: [Groups]
+      summary: Get group details
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/GroupID"
+      responses:
+        "200":
+          description: Group details
+  /groups/{groupID}/settings:
+    get:
+      tags: [Groups]
+      summary: Get group settings
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/GroupID"
+      responses:
+        "200":
+          description: Settings
+    put:
+      tags: [Groups]
+      summary: Update group settings
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/GroupID"
+      responses:
+        "200":
+          description: Updated settings
+  /groups/{groupID}/analytics:
+    get:
+      tags: [Groups]
+      summary: Get group analytics
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/GroupID"
+      responses:
+        "200":
+          description: Analytics
+  /groups/{groupID}/audit:
+    get:
+      tags: [Groups]
+      summary: Get group audit log
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/GroupID"
+      responses:
+        "200":
+          description: Audit log
+  /profile/stats:
+    get:
+      tags: [Profile]
+      summary: Get profile stats
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Profile stats
+  /profile/achievements:
+    get:
+      tags: [Profile]
+      summary: Get user achievements
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Achievement list
+  /profile/achievements/defs:
+    get:
+      tags: [Profile]
+      summary: Get achievement definitions
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Achievement definitions
+  /profile/referral:
+    get:
+      tags: [Profile]
+      summary: Get referral data
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Referral data
+    post:
+      tags: [Profile]
+      summary: Set referrer code
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Referrer applied
+  /marketplace/options:
+    get:
+      tags: [Marketplace]
+      summary: Get purchase options
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Purchase options
+  /marketplace/purchase/stars:
+    post:
+      tags: [Marketplace]
+      summary: Purchase with Telegram Stars
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Purchase result
+  /marketplace/purchase/toncoin:
+    post:
+      tags: [Marketplace]
+      summary: Purchase with Toncoin
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Purchase result
 components:
   securitySchemes:
-    TelegramAuth:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    TelegramInitData:
       type: apiKey
       in: header
       name: X-Telegram-Init-Data
-      description: Telegram Mini App InitData for authentication.
+  parameters:
+    UsernameQuery:
+      name: u
+      in: query
+      required: true
+      schema:
+        type: string
+        minLength: 4
+        maxLength: 32
+        pattern: "^[A-Za-z][A-Za-z0-9_]{3,31}$"
+      description: Telegram username without @
+    BotID:
+      name: botID
+      in: path
+      required: true
+      schema:
+        type: string
+    GroupID:
+      name: groupID
+      in: path
+      required: true
+      schema:
+        type: string
+  schemas:
+    UsernameStatus:
+      type: object
+      properties:
+        username:
+          type: string
+        status:
+          type: string
+          enum: [available, taken, purchase_available, on_auction, on_sale, invalid]
+    QuickCheck:
+      type: object
+      properties:
+        username:
+          type: string
+        status:
+          type: string
+        length:
+          type: integer
+        rarity_score:
+          type: integer
+        sale_status:
+          type: string
+        buy_now_price:
+          type: number
+        highest_bid:
+          type: number
+        fragment_url:
+          type: string
+        search_popularity:
+          type: integer
+        linguistic_score:
+          type: number
+    ReportRequest:
+      type: object
+      required: [username]
+      properties:
+        username:
+          type: string
+    PriceEstimate:
+      type: object
+      properties:
+        p10_ton:
+          type: number
+        p50_ton:
+          type: number
+        p90_ton:
+          type: number
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        method:
+          type: string
+        signals:
+          type: array
+          items:
+            type: string
+    SimilarUsername:
+      type: object
+      properties:
+        username:
+          type: string
+        score:
+          type: number
+          minimum: 0
+          maximum: 1
+        reason:
+          type: string
+        rarity_score:
+          type: integer
+        fragment_url:
+          type: string
+    FullReport:
+      allOf:
+        - $ref: "#/components/schemas/QuickCheck"
+        - type: object
+          properties:
+            contains_numbers:
+              type: boolean
+            is_dictionary_word:
+              type: boolean
+            peer_type:
+              type: string
+            is_verified:
+              type: boolean
+            is_premium:
+              type: boolean
+            is_scam:
+              type: boolean
+            is_fake:
+              type: boolean
+            participants_count:
+              type: integer
+            owner_address:
+              type: string
+            past_sales:
+              type: array
+              items:
+                type: object
+            owner_wallet_balance:
+              type: number
+            owner_other_assets:
+              type: integer
+            estimated_value:
+              type: number
+            value_estimate:
+              $ref: "#/components/schemas/PriceEstimate"
+            exchange_rate:
+              type: number
+            generated_at:
+              type: string
+              format: date-time
+    CollectionSummary:
+      type: object
+      properties:
+        total_supply:
+          type: integer
+        holders:
+          type: integer
+        floor_price:
+          type: string
+        total_volume:
+          type: string
+        active_auctions:
+          type: integer
+        revenue:
+          type: string
+        daily_volume:
+          type: number
+        sales_count:
+          type: integer
+        highest_sale:
+          type: number
+        listed_ratio:
+          type: number
+        top_holders:
+          type: array
+          items:
+            type: object
+        top_sales:
+          type: array
+          items:
+            type: object

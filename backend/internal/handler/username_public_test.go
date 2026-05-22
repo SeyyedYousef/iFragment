@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -47,5 +48,28 @@ func TestCheckAvailability(t *testing.T) {
 	// but the handler logic paths should be tested. We just ensure it doesn't crash here.
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("Unexpected status code %d", w.Code)
+	}
+}
+
+func TestGetSimilar(t *testing.T) {
+	mockMTProto := mtproto.NewMockClient()
+	aggService := username.NewAggregatorService(nil, nil, nil)
+	reportService := username.NewReportService(nil, nil, nil, nil, nil, mockMTProto)
+	h := NewUsernameHandler(aggService, reportService, nil, mockMTProto, nil)
+
+	req := httptest.NewRequest("GET", "/api/v1/usernames/similar?u=news&limit=3", nil)
+	w := httptest.NewRecorder()
+	h.GetSimilar(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK, got %d", w.Code)
+	}
+
+	var result []username.SimilarUsername
+	if err := json.NewDecoder(w.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(result) == 0 || len(result) > 3 {
+		t.Fatalf("unexpected result length %d", len(result))
 	}
 }

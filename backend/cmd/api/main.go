@@ -9,16 +9,16 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/google/uuid"
 	"github.com/getsentry/sentry-go"
 	sentryhttp "github.com/getsentry/sentry-go/http"
+	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"ifragment-backend/internal/client/fragment"
 
-	"ifragment-backend/internal/client/tonapi"
 	"ifragment-backend/internal/client/marketapp"
 	"ifragment-backend/internal/client/mtproto"
+	"ifragment-backend/internal/client/tonapi"
 	"ifragment-backend/internal/handler"
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/repository"
@@ -185,7 +185,8 @@ func main() {
 			r.Get("/quick/stream", usernameHandler.StreamQuickAnalysis)
 			r.Get("/trending", usernameHandler.GetTrending)
 			r.Get("/rates", usernameHandler.GetRates)
-			
+			r.Get("/similar", usernameHandler.GetSimilar)
+
 			// Protected Routes (Require JWT)
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.AuthMiddleware)
@@ -272,7 +273,7 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
-	
+
 	srv := &http.Server{
 		Addr:    ":" + port,
 		Handler: r,

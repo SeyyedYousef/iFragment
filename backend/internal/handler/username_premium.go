@@ -113,7 +113,7 @@ func (h *PremiumHandler) GetReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if os.Getenv("APP_ENV") != "development" {
+	if !allowUnpaidReports() {
 		hasPaid, err := h.reportService.CheckPayment(r.Context(), userID, u)
 		if err != nil {
 			RespondError(w, r, http.StatusInternalServerError, "database error", err)
@@ -153,4 +153,8 @@ func (h *PremiumHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(reports)
+}
+
+func allowUnpaidReports() bool {
+	return os.Getenv("IFRAGMENT_ALLOW_UNPAID_REPORTS") == "true"
 }

@@ -6,7 +6,7 @@ import (
 
 var (
 	// Collectible: 4-32 chars
-	collectibleUsernameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]{3,31}$`)
+	collectibleUsernameRegex   = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]{3,31}$`)
 	consecutiveUnderscoreRegex = regexp.MustCompile(`__`)
 )
 
@@ -33,5 +33,5 @@ func IsBasicEligible(u string) bool {
 	if !ValidateUsername(u) {
 		return false
 	}
-	return len(u) >= 5
+	return usernameLength(u) >= 5
 }

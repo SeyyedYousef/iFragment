@@ -113,12 +113,25 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 			mu.Lock()
 			summary.FloorPrice = fmt.Sprintf("%.2f", stats.FloorPrice)
 			summary.TotalVolume = fmt.Sprintf("%.2f", stats.TotalVolume)
+			if stats.Revenue > 0 {
+				summary.Revenue = fmt.Sprintf("%.2f", stats.Revenue)
+			}
 			summary.Holders = stats.TotalOwners
 			summary.ActiveAuctions = stats.ActiveAuctions
 			summary.DailyVolume = stats.Volume24h
 			summary.SalesCount = stats.SalesCount
 			summary.HighestSale = stats.HighestSale
 			summary.ListedRatio = stats.ListedRatio
+			for _, sale := range stats.TopSales {
+				if sale.Username == "" || sale.Price <= 0 {
+					continue
+				}
+				summary.TopSales = append(summary.TopSales, TopSale{
+					Username: strings.TrimPrefix(sale.Username, "@"),
+					Price:    sale.Price,
+					Date:     sale.Date,
+				})
+			}
 			mu.Unlock()
 		}
 		mu.Lock()
@@ -283,4 +296,3 @@ func (s *AggregatorService) GetTrendingUsernames(ctx context.Context) ([]string,
 
 	return list, nil
 }
-

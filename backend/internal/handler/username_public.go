@@ -10,6 +10,7 @@ import (
 	"ifragment-backend/internal/service/username"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"golang.org/x/sync/singleflight"
@@ -360,4 +361,35 @@ func (h *UsernameHandler) GetRates(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]float64{"ton_to_usd": rateUSD})
+}
+
+func (h *UsernameHandler) GetSimilar(w http.ResponseWriter, r *http.Request) {
+	u := r.URL.Query().Get("u")
+	if u == "" {
+		RespondError(w, r, http.StatusBadRequest, "missing username", nil)
+		return
+	}
+	if !username.ValidateUsername(u) {
+		RespondError(w, r, http.StatusBadRequest, "invalid username format", nil)
+		return
+	}
+
+	limit := 10
+	if rawLimit := r.URL.Query().Get("limit"); rawLimit != "" {
+		parsed, err := strconv.Atoi(rawLimit)
+		if err != nil || parsed < 1 || parsed > 25 {
+			RespondError(w, r, http.StatusBadRequest, "invalid limit", nil)
+			return
+		}
+		limit = parsed
+	}
+
+	results, err := h.reportService.FindSimilarUsernames(r.Context(), u, limit)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to find similar usernames", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(results)
 }
