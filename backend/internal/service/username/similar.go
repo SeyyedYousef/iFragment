@@ -5,7 +5,15 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"sync"
 )
+
+var levenshteinPool = sync.Pool{
+	New: func() any {
+		s := make([]int, 64)
+		return &s
+	},
+}
 
 type SimilarUsername struct {
 	Username    string  `json:"username"`
@@ -153,8 +161,25 @@ func levenshtein(a, b []rune) int {
 		return len(a)
 	}
 
-	prev := make([]int, len(b)+1)
-	curr := make([]int, len(b)+1)
+	needed := len(b) + 1
+
+	var prev, curr []int
+	var pPtr, cPtr *[]int
+
+	if needed <= 64 {
+		pPtr = levenshteinPool.Get().(*[]int)
+		cPtr = levenshteinPool.Get().(*[]int)
+		prev = (*pPtr)[:needed]
+		curr = (*cPtr)[:needed]
+		defer func() {
+			levenshteinPool.Put(pPtr)
+			levenshteinPool.Put(cPtr)
+		}()
+	} else {
+		prev = make([]int, needed)
+		curr = make([]int, needed)
+	}
+
 	for j := range prev {
 		prev[j] = j
 	}

@@ -10,6 +10,7 @@ import (
 	"ifragment-backend/internal/client/mtproto"
 	"ifragment-backend/internal/client/tonapi"
 	"ifragment-backend/internal/repository"
+	"ifragment-backend/internal/telemetry"
 	"log/slog"
 	"math"
 	"sort"
@@ -25,21 +26,65 @@ import (
 //go:embed words.txt
 var wordsData string
 
-var englishWords map[string]bool
+type TrieNode struct {
+	children map[rune]*TrieNode
+	isEnd    bool
+}
+
+type Trie struct {
+	root *TrieNode
+}
+
+func NewTrie() *Trie {
+	return &Trie{root: &TrieNode{children: make(map[rune]*TrieNode)}}
+}
+
+func (t *Trie) Insert(word string) {
+	node := t.root
+	for _, r := range word {
+		if node.children == nil {
+			node.children = make(map[rune]*TrieNode)
+		}
+		child, ok := node.children[r]
+		if !ok {
+			child = &TrieNode{children: make(map[rune]*TrieNode)}
+			node.children[r] = child
+		}
+		node = child
+	}
+	node.isEnd = true
+}
+
+func (t *Trie) Search(word string) bool {
+	node := t.root
+	for _, r := range word {
+		if node.children == nil {
+			return false
+		}
+		child, ok := node.children[r]
+		if !ok {
+			return false
+		}
+		node = child
+	}
+	return node.isEnd
+}
+
+var englishTrie *Trie
 
 func init() {
-	englishWords = make(map[string]bool)
+	englishTrie = NewTrie()
 	lines := strings.Split(wordsData, "\n")
 	for _, line := range lines {
 		word := strings.TrimSpace(strings.ToLower(line))
 		if word != "" {
-			englishWords[word] = true
+			englishTrie.Insert(word)
 		}
 	}
 	// Add critical custom/tech/crypto/brand names
 	extra := []string{"auto", "bank", "bitcoin", "boss", "crypto", "ethereum", "money", "news", "pavel", "solana", "tesla", "wallet", "blockchain", "apple"}
 	for _, w := range extra {
-		englishWords[w] = true
+		englishTrie.Insert(w)
 	}
 }
 
@@ -69,6 +114,87 @@ var DefaultRarityConfig = RarityConfig{
 	DictionaryBonus:   2000,
 }
 
+// PricingHeuristicsConfig defines all parameters for the heuristic pricing model.
+// Moving these parameters out of hardcoded magic numbers allows fine-tuning and updates via configuration.
+type PricingHeuristicsConfig struct {
+	// BaseValueMultiplier scales the rarity score to determine the base value.
+	BaseValueMultiplier float64 `json:"base_value_multiplier"`
+
+	// Character length premium multipliers and bonuses.
+	Length4Bonus      float64 `json:"length_4_bonus"`
+	Length4Multiplier float64 `json:"length_4_multiplier"`
+	Length5Bonus      float64 `json:"length_5_bonus"`
+	Length5Multiplier float64 `json:"length_5_multiplier"`
+	Length7Bonus      float64 `json:"length_7_bonus"`
+	Length10Bonus     float64 `json:"length_10_bonus"`
+
+	// Multipliers for pronounceability and dictionary properties.
+	PronounceableThreshold  float64 `json:"pronounceable_threshold"`
+	PronounceableMultiplier float64 `json:"pronounceable_multiplier"`
+	BrandKeywordMultiplier  float64 `json:"brand_keyword_multiplier"`
+	MarketKeywordMultiplier float64 `json:"market_keyword_multiplier"`
+
+	// Log-scale parameters and maximum limits for on-chain/search signals.
+	SearchPopularityScale float64 `json:"search_popularity_scale"`
+	SearchPopularityMax   float64 `json:"search_popularity_max"`
+	AudienceScale         float64 `json:"audience_scale"`
+	AudienceMax           float64 `json:"audience_max"`
+	WalletDepthScale      float64 `json:"wallet_depth_scale"`
+	WalletDepthMax        float64 `json:"wallet_depth_max"`
+	CollectionDepthScale  float64 `json:"collection_depth_scale"`
+	CollectionDepthMax    float64 `json:"collection_depth_max"`
+	TransferHistoryScale  float64 `json:"transfer_history_scale"`
+	TransferHistoryMax    float64 `json:"transfer_history_max"`
+
+	// Anchors and caps for sales/auction data.
+	PastSalesMedianWeight     float64 `json:"past_sales_median_weight"`
+	PastSalesHeuristicWeight  float64 `json:"past_sales_heuristic_weight"`
+	AuctionBidFloorMultiplier float64 `json:"auction_bid_floor_multiplier"`
+	BuyNowCapMultiplier       float64 `json:"buy_now_cap_multiplier"`
+
+	// Confidence calculation parameters.
+	BaseConfidence            float64 `json:"base_confidence"`
+	PastSalesConfidenceBonus  float64 `json:"past_sales_confidence_bonus"`
+	ActiveSalesConfidenceBonus float64 `json:"active_sales_confidence_bonus"`
+	PopularityConfidenceBonus float64 `json:"popularity_confidence_bonus"`
+	DepthConfidenceBonus      float64 `json:"depth_confidence_bonus"`
+	ExchangeRateConfidenceBonus float64 `json:"exchange_rate_confidence_bonus"`
+}
+
+var DefaultPricingHeuristicsConfig = PricingHeuristicsConfig{
+	BaseValueMultiplier:       0.5,
+	Length4Bonus:              500.0,
+	Length4Multiplier:         2.2,
+	Length5Bonus:              100.0,
+	Length5Multiplier:         1.45,
+	Length7Bonus:              30.0,
+	Length10Bonus:             10.0,
+	PronounceableThreshold:    70.0,
+	PronounceableMultiplier:   1.15,
+	BrandKeywordMultiplier:    3.5,
+	MarketKeywordMultiplier:   2.4,
+	SearchPopularityScale:     18.0,
+	SearchPopularityMax:       0.7,
+	AudienceScale:             24.0,
+	AudienceMax:               0.5,
+	WalletDepthScale:          40.0,
+	WalletDepthMax:            0.35,
+	CollectionDepthScale:      30.0,
+	CollectionDepthMax:        0.25,
+	TransferHistoryScale:      0.025,
+	TransferHistoryMax:        0.25,
+	PastSalesMedianWeight:     0.75,
+	PastSalesHeuristicWeight:  0.25,
+	AuctionBidFloorMultiplier: 1.1,
+	BuyNowCapMultiplier:       0.85,
+	BaseConfidence:            0.25,
+	PastSalesConfidenceBonus:  0.35,
+	ActiveSalesConfidenceBonus: 0.18,
+	PopularityConfidenceBonus: 0.08,
+	DepthConfidenceBonus:      0.08,
+	ExchangeRateConfidenceBonus: 0.04,
+}
+
 type ReportTask struct {
 	UserID   int64
 	Username string
@@ -84,11 +210,13 @@ type ReportService struct {
 	mtprotoClient   mtproto.Client
 	saveQueue       chan ReportTask
 	rarityConfig    RarityConfig
+	pricingConfig   PricingHeuristicsConfig
 	pricingClient   *PricingClient
 	sfGroup         singleflight.Group
 }
 
 func NewReportService(
+	ctx context.Context,
 	db *repository.Database,
 	cache *repository.Cache,
 	ton *tonapi.Client,
@@ -105,9 +233,10 @@ func NewReportService(
 		mtprotoClient:   mtp,
 		saveQueue:       make(chan ReportTask, 1000),
 		rarityConfig:    DefaultRarityConfig,
+		pricingConfig:   DefaultPricingHeuristicsConfig,
 		pricingClient:   NewPricingClientFromEnv(),
 	}
-	go s.worker()
+	go s.worker(ctx)
 	return s
 }
 
@@ -153,18 +282,30 @@ func (s *ReportService) getCachedSearchPopularity(ctx context.Context, username 
 	return pop, nil
 }
 
-func (s *ReportService) worker() {
-	for task := range s.saveQueue {
-		var err error
-		for i := 0; i < 3; i++ {
-			err = s.db.SaveReport(context.Background(), task.UserID, task.Username, string(task.Report.Status), task.Report.RarityScore, task.Report)
-			if err == nil {
-				break
+func (s *ReportService) worker(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case task, ok := <-s.saveQueue:
+			if !ok {
+				return
 			}
-			time.Sleep(time.Second * time.Duration(i+1))
-		}
-		if err != nil {
-			slog.Error("Failed to save report after retries", "user_id", task.UserID, "error", err)
+			var err error
+			for i := 0; i < 3; i++ {
+				err = s.db.SaveReport(ctx, task.UserID, task.Username, string(task.Report.Status), task.Report.RarityScore, task.Report)
+				if err == nil {
+					break
+				}
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(time.Second * time.Duration(i+1)):
+				}
+			}
+			if err != nil {
+				slog.Error("Failed to save report after retries", "user_id", task.UserID, "error", err)
+			}
 		}
 	}
 }
@@ -238,12 +379,13 @@ type QuickCheck struct {
 	LinguisticScore  float64 `json:"linguistic_score"`
 }
 
-func (s *ReportService) QuickAnalysis(ctx context.Context, username string, userID int64) (*QuickCheck, error) {
-	// Log search
+func (s *ReportService) LogSearch(ctx context.Context, username string, userID int64) {
 	if s.db != nil {
-		go s.db.LogSearch(context.Background(), username, userID)
+		go s.db.LogSearch(context.WithoutCancel(ctx), username, userID)
 	}
+}
 
+func (s *ReportService) QuickAnalysis(ctx context.Context, username string, userID int64) (*QuickCheck, error) {
 	result := &QuickCheck{
 		Username:        username,
 		Length:          usernameLength(username),
@@ -341,7 +483,7 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 
 	// Log search
 	if s.db != nil {
-		go s.db.LogSearch(ctx, username, userID)
+		go s.db.LogSearch(context.WithoutCancel(ctx), username, userID)
 	}
 
 	// Search popularity
@@ -354,6 +496,12 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
+	var (
+		tonapiOwner    string
+		dnsOwner       string
+		marketappOwner string
+	)
+
 	// ─ MTProto Data ─
 	wg.Add(1)
 	go func() {
@@ -361,9 +509,11 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 		if s.mtprotoClient == nil {
 			return
 		}
+		subCtx, cancel := context.WithTimeout(ctx, 6*time.Second)
+		defer cancel()
 
 		// Check status
-		status, err := s.mtprotoClient.CheckUsername(ctx, username)
+		status, err := s.mtprotoClient.CheckUsername(subCtx, username)
 		if err == nil {
 			mu.Lock()
 			switch status {
@@ -380,7 +530,7 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 		}
 
 		// Resolve peer for extra info
-		peer, err := s.mtprotoClient.ResolveUsername(ctx, username)
+		peer, err := s.mtprotoClient.ResolveUsername(subCtx, username)
 		if err == nil && peer != nil {
 			mu.Lock()
 
@@ -401,8 +551,10 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 		if s.marketappClient == nil {
 			return
 		}
+		subCtx, cancel := context.WithTimeout(ctx, 4*time.Second)
+		defer cancel()
 
-		item, err := s.marketappClient.GetItem(ctx, username)
+		item, err := s.marketappClient.GetItem(subCtx, username)
 		if err != nil || item == nil {
 			return
 		}
@@ -416,7 +568,7 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 		report.PastSales = item.PastSales
 		report.PreviousOwners = item.PreviousOwners
 		if item.OwnerAddress != "" {
-			report.OwnerAddress = item.OwnerAddress
+			marketappOwner = item.OwnerAddress
 		}
 		mu.Unlock()
 	}()
@@ -428,33 +580,48 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 		if s.tonClient == nil {
 			return
 		}
+		subCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
+		defer cancel()
 
 		// Resolve direct DNS for validation / verification
-		dnsResolve, dnsErr := s.tonClient.ResolveDNS(ctx, username+".t.me")
+		dnsResolve, dnsErr := s.tonClient.ResolveDNS(subCtx, username+".t.me")
 		if dnsErr == nil && dnsResolve != nil && dnsResolve.Wallet.Address != "" {
 			mu.Lock()
-			report.OwnerAddress = dnsResolve.Wallet.Address
+			dnsOwner = dnsResolve.Wallet.Address
 			mu.Unlock()
 		}
 
-		nft, err := s.tonClient.GetNFTByDNS(ctx, username)
+		nft, err := s.tonClient.GetNFTByDNS(subCtx, username)
 		if err != nil || nft == nil {
 			return
 		}
 
 		mu.Lock()
 		if nft.Owner.Address != "" {
-			report.OwnerAddress = nft.Owner.Address
+			tonapiOwner = nft.Owner.Address
 		}
 		if nft.Sale != nil {
 			if report.SaleStatus == "not_for_sale" || report.SaleStatus == "" {
 				report.SaleStatus = "on_sale"
 			}
+			if nft.Sale.Price.Value != "" {
+				var val float64
+				if _, sErr := fmt.Sscanf(nft.Sale.Price.Value, "%f", &val); sErr == nil {
+					priceTON := val
+					tokenName := strings.ToLower(nft.Sale.Price.TokenName)
+					if tokenName == "ton" || tokenName == "nanoton" || tokenName == "" {
+						priceTON = val / 1e9
+					}
+					if report.BuyNowPrice == 0 {
+						report.BuyNowPrice = priceTON
+					}
+				}
+			}
 		}
 		mu.Unlock()
 
 		// Fetch transfers and history
-		transfers, trErr := s.tonClient.GetNFTTransfers(ctx, nft.Address)
+		transfers, trErr := s.tonClient.GetNFTTransfers(subCtx, nft.Address)
 		if trErr == nil && transfers != nil {
 			var tonapiOwners []string
 			for _, tr := range transfers.Transfers {
@@ -488,7 +655,7 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 			cacheKey := fmt.Sprintf("owner:%s", ownerAddr)
 
 			if s.cache != nil {
-				val, err := s.cache.Client.Get(ctx, cacheKey).Result()
+				val, err := s.cache.Client.Get(subCtx, cacheKey).Result()
 				if err == nil {
 					var cached OwnerWalletCache
 					if json.Unmarshal([]byte(val), &cached) == nil {
@@ -506,12 +673,12 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 				var balance float64
 				var otherAssets int
 
-				walletInfo, err := s.tonClient.GetWalletInfo(ctx, ownerAddr)
+				walletInfo, err := s.tonClient.GetWalletInfo(subCtx, ownerAddr)
 				if err == nil && walletInfo != nil {
 					balance = float64(walletInfo.Balance) / 1e9 // nanoTON to TON
 				}
 
-				otherNFTs, err := s.tonClient.GetOwnerNFTs(ctx, ownerAddr)
+				otherNFTs, err := s.tonClient.GetOwnerNFTs(subCtx, ownerAddr)
 				if err == nil && otherNFTs != nil {
 					otherAssets = len(otherNFTs.Items) - 1 // Exclude this one
 					if otherAssets < 0 {
@@ -532,7 +699,7 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 					}
 					cBytes, err := json.Marshal(cData)
 					if err == nil {
-						s.cache.Client.Set(ctx, cacheKey, cBytes, 1*time.Hour)
+						s.cache.Client.Set(subCtx, cacheKey, cBytes, 1*time.Hour)
 					}
 				}
 			}
@@ -546,7 +713,10 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 		if s.fragmentClient == nil {
 			return
 		}
-		fragStatus, err := s.fragmentClient.CheckUsername(ctx, username)
+		subCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+
+		fragStatus, err := s.fragmentClient.CheckUsername(subCtx, username)
 		if err != nil {
 			return
 		}
@@ -576,23 +746,35 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 
 	wg.Wait()
 
-	// ─ Estimated Value (AI/Algorithm) ─
+	if tonapiOwner != "" {
+		report.OwnerAddress = tonapiOwner
+	} else if dnsOwner != "" {
+		report.OwnerAddress = dnsOwner
+	} else if marketappOwner != "" {
+		report.OwnerAddress = marketappOwner
+	}
+
+	// ─ Estimated Value (AI/Algorithm) –
 	report.ValueEstimate = s.estimateValue(ctx, report)
-	report.EstimatedValue = report.ValueEstimate.P50
+	if report.ValueEstimate != nil {
+		report.EstimatedValue = report.ValueEstimate.P50
+	} else {
+		report.EstimatedValue = 0.0
+	}
 
 	return report, nil
 }
 
 func (s *ReportService) CheckPayment(ctx context.Context, userID int64, username string) (bool, error) {
 	if s.db == nil {
-		return false, fmt.Errorf("database not available")
+		return false, ErrDatabaseNotAvailable
 	}
 	return s.db.HasPaidForReport(ctx, userID, username)
 }
 
 func (s *ReportService) GetUserHistory(ctx context.Context, userID int64) ([]repository.DBReport, error) {
 	if s.db == nil {
-		return nil, fmt.Errorf("database not available")
+		return nil, ErrDatabaseNotAvailable
 	}
 	return s.db.GetUserReports(ctx, userID)
 }
@@ -622,7 +804,7 @@ func containsNumbers(u string) bool {
 
 func isDictionaryWord(u string) bool {
 	lower := strings.ToLower(u)
-	return englishWords[lower]
+	return englishTrie.Search(lower)
 }
 
 func calculateLinguisticScore(u string) float64 {
@@ -678,27 +860,27 @@ func calculateLinguisticScore(u string) float64 {
 	return score
 }
 
-func estimateValue(r *FullReport) *PriceEstimate {
+func estimateValue(r *FullReport, cfg PricingHeuristicsConfig) *PriceEstimate {
 	var value float64
 	var signals []string
 
 	// Base value from rarity
-	value = float64(r.RarityScore) * 0.5
+	value = float64(r.RarityScore) * cfg.BaseValueMultiplier
 
 	// Length premium
 	switch {
 	case r.Length == 4:
-		value += 500
-		value *= 2.2
+		value += cfg.Length4Bonus
+		value *= cfg.Length4Multiplier
 		signals = append(signals, "short_4_char")
 	case r.Length == 5:
-		value += 100
-		value *= 1.45
+		value += cfg.Length5Bonus
+		value *= cfg.Length5Multiplier
 		signals = append(signals, "short_5_char")
 	case r.Length <= 7:
-		value += 30
+		value += cfg.Length7Bonus
 	case r.Length <= 10:
-		value += 10
+		value += cfg.Length10Bonus
 	}
 
 	// Dictionary word premium
@@ -708,59 +890,59 @@ func estimateValue(r *FullReport) *PriceEstimate {
 	}
 
 	// Linguistic bonus
-	if r.LinguisticScore > 70 {
-		value *= 1.15 + (r.LinguisticScore-70)/200
+	if r.LinguisticScore > cfg.PronounceableThreshold {
+		value *= cfg.PronounceableMultiplier + (r.LinguisticScore-cfg.PronounceableThreshold)/200
 		signals = append(signals, "pronounceable")
 	}
 
 	if isBrandLikeKeyword(r.Username) {
-		value *= 3.5
+		value *= cfg.BrandKeywordMultiplier
 		signals = append(signals, "brand_keyword")
 	}
 	if isHighValueMarketKeyword(r.Username) {
-		value *= 2.4
+		value *= cfg.MarketKeywordMultiplier
 		signals = append(signals, "market_keyword")
 	}
 	if r.SearchPopularity > 0 {
-		value *= 1 + math.Min(math.Log1p(float64(r.SearchPopularity))/18, 0.7)
+		value *= 1 + math.Min(math.Log1p(float64(r.SearchPopularity))/cfg.SearchPopularityScale, cfg.SearchPopularityMax)
 		signals = append(signals, "search_popularity")
 	}
 	if r.ParticipantsCount > 0 {
-		value *= 1 + math.Min(math.Log1p(float64(r.ParticipantsCount))/24, 0.5)
+		value *= 1 + math.Min(math.Log1p(float64(r.ParticipantsCount))/cfg.AudienceScale, cfg.AudienceMax)
 		signals = append(signals, "telegram_audience")
 	}
 	if r.OwnerWalletBalance > 0 {
-		value *= 1 + math.Min(math.Log1p(r.OwnerWalletBalance)/40, 0.35)
+		value *= 1 + math.Min(math.Log1p(r.OwnerWalletBalance)/cfg.WalletDepthScale, cfg.WalletDepthMax)
 		signals = append(signals, "owner_wallet_depth")
 	}
 	if r.OwnerOtherAssets > 0 {
-		value *= 1 + math.Min(math.Log1p(float64(r.OwnerOtherAssets))/30, 0.25)
+		value *= 1 + math.Min(math.Log1p(float64(r.OwnerOtherAssets))/cfg.CollectionDepthScale, cfg.CollectionDepthMax)
 		signals = append(signals, "owner_collection_depth")
 	}
 	if len(r.PreviousOwners) > 0 {
-		value *= 1 + math.Min(float64(len(r.PreviousOwners))*0.025, 0.25)
+		value *= 1 + math.Min(float64(len(r.PreviousOwners))*cfg.TransferHistoryScale, cfg.TransferHistoryMax)
 		signals = append(signals, "transfer_history")
 	}
 
 	// If there are paid past sales, use the median as the market anchor.
 	if medianSale, ok := medianPositiveSale(r.PastSales); ok {
-		value = medianSale*0.75 + value*0.25
+		value = medianSale*cfg.PastSalesMedianWeight + value*cfg.PastSalesHeuristicWeight
 		signals = append(signals, "past_sales_median")
 	}
 
 	// If on auction and has bids, use highest bid as floor
 	if r.SaleStatus == "on_auction" && r.HighestBid > value {
-		value = r.HighestBid * 1.1
+		value = r.HighestBid * cfg.AuctionBidFloorMultiplier
 		signals = append(signals, "auction_bid_floor")
 	}
 
 	// If buy now price exists, cap estimate below it
 	if r.BuyNowPrice > 0 && value > r.BuyNowPrice*0.9 {
-		value = r.BuyNowPrice * 0.85
+		value = r.BuyNowPrice * cfg.BuyNowCapMultiplier
 		signals = append(signals, "buy_now_cap")
 	}
 
-	confidence := estimateConfidence(r)
+	confidence := estimateConfidence(r, cfg)
 	spread := 0.75 - confidence*0.35
 	p10 := value * (1 - spread)
 	p90 := value * (1 + spread*1.6)
@@ -790,13 +972,15 @@ func (s *ReportService) estimateValue(ctx context.Context, r *FullReport) *Price
 				estimate.Method = "ml_external"
 			}
 			estimate.Signals = append([]string{"external_model", features.FeatureVersion}, estimate.Signals...)
+			telemetry.RecordPrediction("success")
 			return estimate
 		}
 		slog.Warn("pricing model unavailable; falling back to heuristic", "username", r.Username, "error", err)
 	}
 
-	estimate := estimateValue(r)
+	estimate := estimateValue(r, s.pricingConfig)
 	estimate.Signals = append([]string{features.FeatureVersion}, estimate.Signals...)
+	telemetry.RecordPrediction("fallback")
 	return estimate
 }
 
@@ -918,22 +1102,22 @@ func medianPositiveSale(sales []marketapp.SaleRecord) (float64, bool) {
 	return (prices[mid-1] + prices[mid]) / 2, true
 }
 
-func estimateConfidence(r *FullReport) float64 {
-	confidence := 0.25
+func estimateConfidence(r *FullReport, cfg PricingHeuristicsConfig) float64 {
+	confidence := cfg.BaseConfidence
 	if _, ok := medianPositiveSale(r.PastSales); ok {
-		confidence += 0.35
+		confidence += cfg.PastSalesConfidenceBonus
 	}
 	if r.BuyNowPrice > 0 || r.HighestBid > 0 {
-		confidence += 0.18
+		confidence += cfg.ActiveSalesConfidenceBonus
 	}
 	if r.SearchPopularity > 0 {
-		confidence += 0.08
+		confidence += cfg.PopularityConfidenceBonus
 	}
 	if r.OwnerWalletBalance > 0 || r.OwnerOtherAssets > 0 {
-		confidence += 0.08
+		confidence += cfg.DepthConfidenceBonus
 	}
 	if r.ExchangeRate > 0 {
-		confidence += 0.04
+		confidence += cfg.ExchangeRateConfidenceBonus
 	}
 	if confidence > 0.9 {
 		return 0.9

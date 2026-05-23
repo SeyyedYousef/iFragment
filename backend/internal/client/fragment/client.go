@@ -29,7 +29,14 @@ type Client struct {
 func NewClient() *Client {
 	return &Client{
 		BaseURL: "https://fragment.com",
-		HTTP:    &http.Client{Timeout: 10 * time.Second},
+		HTTP: &http.Client{
+			Timeout: 10 * time.Second,
+			Transport: &http.Transport{
+				MaxIdleConns:        100,
+				MaxIdleConnsPerHost: 20,
+				IdleConnTimeout:     90 * time.Second,
+			},
+		},
 	}
 }
 
@@ -100,5 +107,5 @@ func (c *Client) checkInternal(ctx context.Context, username string) (Status, er
 		return StatusSold, nil
 	}
 
-	return StatusSold, nil // Default to sold if we see it exists but no buy/bid action
+	return StatusUnknown, nil // Default to unknown if we see it exists but no status matches
 }

@@ -91,9 +91,9 @@ export const ContentRestrictionsPage: Component = () => {
       hapticFeedback.notificationOccurred('error');
       const errorMsg = err.response?.data?.error || err.message;
       if (errorMsg === 'version_mismatch') {
-        showToast(t('common.errorVersionMismatch' as any) || 'Settings were updated by another user. Please refresh.', 'error');
+        showToast(t('common.errorVersionMismatch'), 'error');
       } else {
-        showToast(t('common.errorUpdateFailed' as any) || 'Failed to update settings', 'error');
+        showToast(t('common.errorUpdateFailed'), 'error');
       }
     } finally {
       setIsSaving(false);
@@ -107,8 +107,8 @@ export const ContentRestrictionsPage: Component = () => {
 
   const renderSetting = (key: string, titleKey: string, descKey: string) => (
     <SettingsSection
-      title={t(`contentRestrictions.${titleKey}` as any)}
-      description={t(`contentRestrictions.${descKey}` as any)}
+      title={t(`contentRestrictions.${titleKey}` as import('@/shared/i18n/index.js').DictPaths)}
+      description={t(`contentRestrictions.${descKey}` as import('@/shared/i18n/index.js').DictPaths)}
       enabled={settings[key].enabled}
       onToggle={(v) => updateSetting(key, 'enabled', v)}
       hasWindow={true}

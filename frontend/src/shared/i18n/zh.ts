@@ -4,7 +4,10 @@ export const dict = {
     "back": "返回",
     "loading": "加载中...",
     "cancel": "取消",
-    "save": "保存"
+    "save": "保存",
+    "toggle": "切换",
+    "errorVersionMismatch": "设置已被另一名用户更新。请刷新页面。",
+    "errorUpdateFailed": "无法更新设置"
   },
   "hero": {
     "title": "精准. 大胆. 专业.",

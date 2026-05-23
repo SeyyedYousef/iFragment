@@ -8,26 +8,57 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/time/rate"
+	"ifragment-backend/internal/telemetry"
 )
 
 type Client struct {
-	BaseURL string
-	APIKey  string
-	HTTP    *http.Client
-	Limiter *rate.Limiter
+	BaseURL  string
+	APIKeys  []string
+	keyIndex uint64
+	HTTP     *http.Client
+	Limiter  *rate.Limiter
 }
 
 func NewClient() *Client {
+	var apiKeys []string
+	if keysStr := os.Getenv("TONAPI_KEYS"); keysStr != "" {
+		for _, k := range strings.Split(keysStr, ",") {
+			if trimmed := strings.TrimSpace(k); trimmed != "" {
+				apiKeys = append(apiKeys, trimmed)
+			}
+		}
+	} else if singleKey := os.Getenv("TONAPI_KEY"); singleKey != "" {
+		apiKeys = []string{singleKey}
+	}
+
 	return &Client{
 		BaseURL: "https://tonapi.io/v2",
-		APIKey:  os.Getenv("TONAPI_KEY"),
-		HTTP:    &http.Client{Timeout: 10 * time.Second},
+		APIKeys: apiKeys,
+		HTTP: &http.Client{
+			Timeout: 10 * time.Second,
+			Transport: &http.Transport{
+				MaxIdleConns:        100,
+				MaxIdleConnsPerHost: 20,
+				IdleConnTimeout:     90 * time.Second,
+			},
+		},
 		Limiter: rate.NewLimiter(rate.Limit(8), 1),
 	}
+}
+
+func (c *Client) getAPIKey() string {
+	if len(c.APIKeys) == 0 {
+		return ""
+	}
+	idx := atomic.AddUint64(&c.keyIndex, 1) % uint64(len(c.APIKeys))
+	return c.APIKeys[idx]
 }
 
 const UsernamesCollectionAddr = "EQCA14o1-VWhS2efqoh_9M1b_A9DtKTuoqfmkn83AbJzwnPi"
@@ -96,10 +127,35 @@ func (c *Client) doRequest(ctx context.Context, url string) (*http.Response, err
 	if err != nil {
 		return nil, err
 	}
-	if c.APIKey != "" {
-		req.Header.Set("Authorization", "Bearer "+c.APIKey)
+	key := c.getAPIKey()
+	if key != "" {
+		req.Header.Set("Authorization", "Bearer "+key)
 	}
-	return c.HTTP.Do(req)
+
+	start := time.Now()
+	resp, err := c.HTTP.Do(req)
+	duration := time.Since(start).Seconds()
+
+	statusCode := "error"
+	if err == nil {
+		statusCode = fmt.Sprintf("%d", resp.StatusCode)
+	}
+
+	method := "unknown"
+	if strings.Contains(url, "/nfts/collections/") {
+		method = "GetCollection"
+	} else if strings.Contains(url, "/resolve") {
+		method = "ResolveDNS"
+	} else if strings.Contains(url, "/nfts/") {
+		method = "GetNFTItem"
+	} else if strings.Contains(url, "/accounts/") {
+		method = "GetWalletInfo"
+	} else if strings.Contains(url, "/rates") {
+		method = "GetRates"
+	}
+
+	telemetry.RecordTonAPILatency(method, statusCode, duration)
+	return resp, err
 }
 
 // GetCollection fetches collection-level data
@@ -262,37 +318,56 @@ func (c *Client) GetCollectionItems(ctx context.Context, collectionAddr string, 
 // GetTopHolders fetches collection items and aggregates ownership to find top holders
 // maxItems controls how many items to scan (to avoid very long API calls)
 func (c *Client) GetTopHolders(ctx context.Context, collectionAddr string, maxItems int) ([]HolderInfo, map[string]int, error) {
-	ownerCounts := make(map[string]int)
-	offset := 0
 	batchSize := 1000
-	totalScanned := 0
+	pagesCount := (maxItems + batchSize - 1) / batchSize
+	if pagesCount <= 0 {
+		return nil, nil, fmt.Errorf("invalid maxItems: %d", maxItems)
+	}
 
-	for totalScanned < maxItems {
-		remaining := maxItems - totalScanned
+	type pageResult struct {
+		items []NFTItem
+		err   error
+	}
+
+	results := make([]pageResult, pagesCount)
+	var wg sync.WaitGroup
+
+	// Concurrency semaphore (worker pool with max 5 concurrent workers)
+	sem := make(chan struct{}, 5)
+
+	for i := 0; i < pagesCount; i++ {
+		offset := i * batchSize
 		limit := batchSize
-		if remaining < limit {
-			limit = remaining
+		if offset+limit > maxItems {
+			limit = maxItems - offset
 		}
 
-		items, err := c.GetCollectionItems(ctx, collectionAddr, limit, offset)
-		if err != nil {
-			break
-		}
-		if len(items.Items) == 0 {
-			break
-		}
+		wg.Add(1)
+		go func(pageIdx, l, off int) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
 
-		for _, item := range items.Items {
+			itemsResp, err := c.GetCollectionItems(ctx, collectionAddr, l, off)
+			if err != nil {
+				results[pageIdx] = pageResult{err: err}
+				return
+			}
+			results[pageIdx] = pageResult{items: itemsResp.Items}
+		}(i, limit, offset)
+	}
+
+	wg.Wait()
+
+	ownerCounts := make(map[string]int)
+	for _, res := range results {
+		if res.err != nil {
+			continue
+		}
+		for _, item := range res.items {
 			if item.Owner.Address != "" {
 				ownerCounts[item.Owner.Address]++
 			}
-		}
-
-		totalScanned += len(items.Items)
-		offset += len(items.Items)
-
-		if len(items.Items) < limit {
-			break
 		}
 	}
 
@@ -305,14 +380,11 @@ func (c *Client) GetTopHolders(ctx context.Context, collectionAddr string, maxIt
 	for k, v := range ownerCounts {
 		sorted = append(sorted, kv{k, v})
 	}
-	// Simple bubble sort for small result set
-	for i := 0; i < len(sorted); i++ {
-		for j := i + 1; j < len(sorted); j++ {
-			if sorted[j].Value > sorted[i].Value {
-				sorted[i], sorted[j] = sorted[j], sorted[i]
-			}
-		}
-	}
+	
+	// Standard sort.Slice descending
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].Value > sorted[j].Value
+	})
 
 	var topHolders []HolderInfo
 	limit := 10
@@ -404,8 +476,9 @@ func (c *Client) StreamAccountEvents(ctx context.Context, accounts []string, onE
 	if err != nil {
 		return err
 	}
-	if c.APIKey != "" {
-		req.Header.Set("Authorization", "Bearer "+c.APIKey)
+	key := c.getAPIKey()
+	if key != "" {
+		req.Header.Set("Authorization", "Bearer "+key)
 	}
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("Cache-Control", "no-cache")

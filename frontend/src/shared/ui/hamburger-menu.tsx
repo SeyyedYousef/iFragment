@@ -55,7 +55,7 @@ export const HamburgerMenu: Component<HamburgerMenuProps> = (props) => {
               <button 
                 onClick={props.onClose} 
                 class="w-8 h-8 rounded-full bg-[#2a2a2a] flex items-center justify-center text-on-surface-variant hover:text-white transition-colors"
-                aria-label={t('common.close' as any)}
+                aria-label={t('common.close')}
               >
                 <span class="material-symbols-outlined text-[20px]">close</span>
               </button>

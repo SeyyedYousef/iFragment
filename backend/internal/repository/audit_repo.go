@@ -9,7 +9,7 @@ import (
 
 type AuditLog struct {
 	ID         uuid.UUID   `json:"id"`
-	GroupID    uuid.UUID   `json:"group_id"`
+	GroupID    *uuid.UUID  `json:"group_id,omitempty"`
 	ActorID   int64       `json:"actor_id"`
 	Action    string      `json:"action"`
 	TargetType *string    `json:"target_type,omitempty"`

@@ -4,6 +4,7 @@ import { createQuery } from '@tanstack/solid-query';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { getLeaderboard, getProfileStats } from '@/shared/api/profile.js';
 import { t } from '@/shared/i18n/index.js';
+import { SkeletonLeader } from '@/shared/ui/Skeleton.js';
 
 export const LeaderboardPage: Component = () => {
   const navigate = useNavigate();
@@ -103,9 +104,12 @@ export const LeaderboardPage: Component = () => {
       </div>
 
       {loading() ? (
-        <div class="flex flex-col items-center justify-center py-20 gap-4">
-          <div class="w-10 h-10 rounded-full border-4 border-[#3390ec]/20 border-t-[#3390ec] animate-spin" />
-          <span class="text-[10px] text-[#a0a4ad] font-bold uppercase tracking-wider">{t('gamification.loadingLeaderboard') || 'Loading Leaderboard...'}</span>
+        <div class="px-6 py-4 flex flex-col gap-3">
+          <SkeletonLeader />
+          <SkeletonLeader />
+          <SkeletonLeader />
+          <SkeletonLeader />
+          <SkeletonLeader />
         </div>
       ) : (
         <div class="px-6 py-4 flex flex-col gap-3">

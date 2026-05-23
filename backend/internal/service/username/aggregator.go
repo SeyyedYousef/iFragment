@@ -74,6 +74,21 @@ type cachedHolderData struct {
 
 func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 	addr := tonapi.UsernamesCollectionAddr
+	cacheKey := "collection:stats_summary"
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	// Try global cache first to prevent hitting APIs and rate limit errors
+	if s.cache != nil {
+		val, err := s.cache.Client.Get(ctx, cacheKey).Result()
+		if err == nil {
+			var cached CollectionSummary
+			if json.Unmarshal([]byte(val), &cached) == nil {
+				return &cached, nil
+			}
+		}
+	}
 
 	var summary CollectionSummary
 	var mu sync.Mutex
@@ -81,9 +96,6 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 	wg.Add(3) // tonapi collection, marketapp, holder analytics
 
 	var errTon, errMapp error
-
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
 
 	// ── Goroutine 1: TonAPI Collection Info ──
 	go func() {
@@ -146,11 +158,11 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 			return
 		}
 
-		cacheKey := "collection:holder_analytics"
+		holderCacheKey := "collection:holder_analytics"
 
 		// Try cache first (valid for 30 minutes)
 		if s.cache != nil {
-			val, err := s.cache.Client.Get(ctx, cacheKey).Result()
+			val, err := s.cache.Client.Get(ctx, holderCacheKey).Result()
 			if err == nil {
 				var cached cachedHolderData
 				if json.Unmarshal([]byte(val), &cached) == nil {
@@ -195,7 +207,7 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 			}
 			cBytes, err := json.Marshal(data)
 			if err == nil {
-				s.cache.Client.Set(ctx, cacheKey, cBytes, 30*time.Minute)
+				s.cache.Client.Set(ctx, holderCacheKey, cBytes, 30*time.Minute)
 			}
 		}
 	}()
@@ -212,8 +224,25 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 		return nil, fmt.Errorf("external APIs timeout")
 	}
 
-	if errTon != nil && errMapp != nil {
-		return nil, errTon
+	// Handle partial responses and failures
+	if errTon != nil || errMapp != nil {
+		slog.Warn("Partial or total failure while fetching collection stats",
+			"errTon", errTon,
+			"errMapp", errMapp,
+		)
+		
+		// If both failed, we cannot proceed and must return an error
+		if errTon != nil && errMapp != nil {
+			return nil, fmt.Errorf("both TonAPI and Marketapp services failed: %w", errTon)
+		}
+	}
+
+	// Cache successful response (only if no errors occurred)
+	if s.cache != nil && errTon == nil && errMapp == nil {
+		cBytes, err := json.Marshal(summary)
+		if err == nil {
+			s.cache.Client.Set(ctx, cacheKey, cBytes, 5*time.Minute)
+		}
 	}
 
 	return &summary, nil

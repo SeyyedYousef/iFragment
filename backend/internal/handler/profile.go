@@ -299,6 +299,16 @@ func (h *ProfileHandler) CreatePremiumCheckout(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	auditRepo := repository.NewAuditRepo(h.paymentService.DB)
+	targetType := "user"
+	targetID := fmt.Sprintf("%d", userID)
+	_ = auditRepo.Log(r.Context(), &repository.AuditLog{
+		ActorID:    userID,
+		Action:     "premium.checkout.create",
+		TargetType: &targetType,
+		TargetID:   &targetID,
+	})
+
 	RespondJSON(w, http.StatusOK, map[string]string{"invoice_link": link})
 }
 

@@ -3,11 +3,11 @@ package repository
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
-
+	"strconv"
 	"time"
-	
+
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -26,8 +26,19 @@ func NewDatabase(ctx context.Context) (*Database, error) {
 		return nil, fmt.Errorf("unable to parse DATABASE_URL: %v", err)
 	}
 
-	config.MaxConns = 20
-	config.MinConns = 5
+	maxConns := 50
+	if maxConnsStr := os.Getenv("DB_MAX_CONNS"); maxConnsStr != "" {
+		if val, err := strconv.Atoi(maxConnsStr); err == nil && val > 0 {
+			maxConns = val
+		}
+	}
+
+	config.MaxConns = int32(maxConns)
+	config.MinConns = int32(maxConns / 4)
+	if config.MinConns < 2 {
+		config.MinConns = 2
+	}
+
 	config.MaxConnLifetime = time.Hour
 	config.MaxConnIdleTime = 30 * time.Minute
 
@@ -41,7 +52,7 @@ func NewDatabase(ctx context.Context) (*Database, error) {
 		return nil, fmt.Errorf("database ping failed: %v", err)
 	}
 
-	log.Println("✅ Connected to PostgreSQL successfully")
+	slog.Info("✅ Connected to PostgreSQL successfully", "max_conns", maxConns)
 	return &Database{Pool: pool}, nil
 }
 

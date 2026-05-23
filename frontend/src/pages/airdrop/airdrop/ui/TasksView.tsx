@@ -45,7 +45,7 @@ export const TasksView: Component = () => {
       <div class="mb-5">
         <h2 class="text-white font-bold text-sm mb-2.5 flex items-center gap-2 px-1">
           <span class={`material-symbols-outlined text-lg`} style={{ color: iconColor, 'font-variation-settings': '"FILL" 1' }}>{icon}</span>
-          {t(labelKey as any)}
+          {t(labelKey as import('@/shared/i18n/index.js').DictPaths)}
         </h2>
         <div class="bg-[#1c1c1e]/80 backdrop-blur-lg rounded-2xl overflow-hidden border border-white/[0.04]">
           <For each={filtered()}>
@@ -56,7 +56,7 @@ export const TasksView: Component = () => {
                     <span class="material-symbols-outlined text-xl" style={{ color: iconColor }}>{task.icon}</span>
                   </div>
                   <div class="flex flex-col min-w-0">
-                    <span class="text-white font-semibold text-[13px] truncate">{t(task.titleKey as any)}</span>
+                    <span class="text-white font-semibold text-[13px] truncate">{t(task.titleKey as import('@/shared/i18n/index.js').DictPaths)}</span>
                     <span class="text-amber-400 font-bold text-xs flex items-center gap-1 mt-0.5">
                       <span class="material-symbols-outlined text-[13px]" style={{ 'font-variation-settings': '"FILL" 1' }}>monetization_on</span>
                       +{task.reward.toLocaleString()}

@@ -11,7 +11,7 @@ export const ToggleSwitch: Component<{ checked: boolean; onChange: (v: boolean) 
       dir="ltr"
       role="switch"
       aria-checked={props.checked}
-      aria-label={t('common.toggle' as any)}
+      aria-label={t('common.toggle')}
       onClick={() => {
         hapticFeedback.impactOccurred('light');
         props.onChange(!props.checked);

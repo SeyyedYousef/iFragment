@@ -37,9 +37,25 @@ apiClient.interceptors.response.use(
     return response;
   },
   async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retryCount?: number };
+    if (!originalRequest) {
+      return Promise.reject(error);
+    }
 
-    // Fallback to MOCK data ONLY if enabled in config (Dev/Forced)
+    const maxRetries = 3;
+    const baseDelay = 1000; // 1s base delay
+    const retryCount = originalRequest._retryCount || 0;
+    const isNetworkOr5xx = !error.response || (error.response.status >= 500 && error.response.status < 600);
+
+    if (isNetworkOr5xx && retryCount < maxRetries) {
+      originalRequest._retryCount = retryCount + 1;
+      const delay = baseDelay * Math.pow(2, retryCount);
+      console.warn(`[API] Attempt ${originalRequest._retryCount} failed for ${originalRequest.url}. Retrying in ${delay}ms...`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      return apiClient(originalRequest);
+    }
+
+    // Fallback to MOCK data ONLY if enabled in config (Dev/Forced) and retries failed
     if (API_CONFIG.USE_MOCKS && (!error.response || error.response.status >= 500)) {
       console.warn('⚠️ Backend unreachable or errored, using MOCK data for:', originalRequest.url);
       try {
@@ -56,14 +72,9 @@ apiClient.interceptors.response.use(
       }
     }
 
-    // Basic auto-retry logic for network errors
-    if (!error.response && !originalRequest._retry) {
-      originalRequest._retry = true;
-      return apiClient(originalRequest);
-    }
-
     // If unauthorized, could trigger a re-auth flow here
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && !originalRequest._retryCount) {
+      originalRequest._retryCount = 1; // prevent infinite loops
       // Trigger token refresh logic or redirect
     }
 

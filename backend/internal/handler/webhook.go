@@ -3,13 +3,18 @@ package handler
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/i18n"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/botmgmt"
-	"log"
+	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
@@ -128,6 +133,12 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 	// ─── AUTHENTICATION (Patch 5) ───
 	secretToken := r.Header.Get("X-Telegram-Bot-Api-Secret-Token")
 	expectedSecret := os.Getenv("WEBHOOK_SECRET_TOKEN")
+	isProd := os.Getenv("APP_ENV") == "production"
+	if isProd && expectedSecret == "" {
+		slog.Warn("Security Alert: WEBHOOK_SECRET_TOKEN is empty in production")
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
 	if expectedSecret != "" && secretToken != expectedSecret {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
@@ -149,7 +160,7 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 
 	var update TelegramUpdate
 	if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
-		log.Printf("Error decoding update: %v", err)
+		slog.Error("Error decoding update", "error", err)
 		return
 	}
 
@@ -161,7 +172,7 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 		// Use SETNX as a "processing" lock with short TTL
 		locked, err := cache.Client.SetNX(ctx, cacheKey, "processing", 2*time.Minute).Result()
 		if err != nil {
-			log.Printf("⚠️ Redis error in idempotency: %v", err)
+			slog.Warn("Redis error in idempotency", "error", err)
 		} else if !locked {
 			val, _ := cache.Client.Get(ctx, cacheKey).Result()
 			if val == "processed" {
@@ -191,10 +202,10 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 		ctx := r.Context()
 		order, err := h.db.GetOrderByPayload(ctx, update.PreCheckoutQuery.InvoicePayload)
 		if err != nil {
-			log.Printf("⚠️ Pre-checkout failed: Order not found for payload %s", update.PreCheckoutQuery.InvoicePayload)
+			slog.Warn("Pre-checkout failed: Order not found for payload", "payload", update.PreCheckoutQuery.InvoicePayload)
 			h.answerPreCheckout(update.PreCheckoutQuery.ID, false, "Order verification failed")
 		} else if order.Amount != update.PreCheckoutQuery.TotalAmount {
-			log.Printf("⚠️ Pre-checkout failed: Amount mismatch. Expected %d, got %d", order.Amount, update.PreCheckoutQuery.TotalAmount)
+			slog.Warn("Pre-checkout failed: Amount mismatch", "expected", order.Amount, "got", update.PreCheckoutQuery.TotalAmount)
 			h.answerPreCheckout(update.PreCheckoutQuery.ID, false, "Price mismatch")
 		} else {
 			h.answerPreCheckout(update.PreCheckoutQuery.ID, true, "")
@@ -203,75 +214,18 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// 2. Handle MyChatMember (Onboarding/Setup)
-	if update.MyChatMember != nil {
-		ctx := r.Context()
-		if update.MyChatMember.NewChatMember.Status == "administrator" || update.MyChatMember.NewChatMember.Status == "member" {
-			log.Printf("🤖 Bot added to group %d (%s)", update.MyChatMember.Chat.ID, update.MyChatMember.Chat.Type)
-			// Trigger onboarding flow
-			h.handleBotAddedToGroup(ctx, &update.MyChatMember.Chat, update.MyChatMember.From.ID)
-		}
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	// 3. Handle Successful Payment
-	if update.Message != nil && update.Message.SuccessfulPayment != nil {
-		pay := update.Message.SuccessfulPayment
-		log.Printf("💰 Successful payment received for payload: %s", pay.InvoicePayload)
-		err := h.db.UpdateOrderStatus(context.Background(), pay.InvoicePayload, "paid", pay.TelegramPaymentChargeID)
-		if err == nil {
-			if strings.HasPrefix(pay.InvoicePayload, "stars_premium_1m:") {
-				parts := strings.Split(pay.InvoicePayload, ":")
-				if len(parts) == 2 {
-					userID, parseErr := strconv.ParseInt(parts[1], 10, 64)
-					if parseErr == nil {
-						_ = h.db.UpdateUserPremium(context.Background(), userID, 30*24*time.Hour)
-						log.Printf("🌟 Granted 30-day Premium access to User %d via Stars Webhook", userID)
-					}
-				}
-			} else if strings.HasPrefix(pay.InvoicePayload, "report_pay:") {
-				parts := strings.Split(pay.InvoicePayload, ":")
-				if len(parts) == 3 {
-					userID, parseErr := strconv.ParseInt(parts[1], 10, 64)
-					username := parts[2]
-					if parseErr == nil && username != "" {
-						appURL := os.Getenv("APP_URL")
-						if appURL == "" {
-							appURL = "https://t.me/ifragment_bot/app"
-						}
-						reportURL := fmt.Sprintf("%s?startapp=username_%s", appURL, username)
-						tg, _ := h.moderator.GetTelegramClient(ctx, bot)
-						_ = tg.SendMessage(userID, fmt.Sprintf("Payment received. Your @%s report is unlocked:\n%s", username, reportURL), nil, nil)
-					}
-				}
-			} else {
-				// ✅ Payment Notification
-				lang := i18n.DetectLanguage(bot.Status)
-				settings, _ := h.moderator.GetSettings(ctx, bot.ID)
-				if settings != nil {
-					var general repository.SettingsGeneral
-					if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
-						lang = general.Language
-					}
-				}
-				tg, _ := h.moderator.GetTelegramClient(ctx, bot)
-				msg := i18n.T(lang, "notifications.payment_success", map[string]interface{}{"date": time.Now().Add(30 * 24 * time.Hour).Format("2006-01-02")})
-				_ = tg.SendMessage(bot.OwnerUserID, msg, nil, nil)
-			}
-		} else {
-			log.Printf("❌ Failed to update order status: %v", err)
-		}
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	// 3. Handle Chat Member Updates (Bot Status)
+	// 2. Handle MyChatMember (Onboarding/Setup & Bot Status Updates)
 	if update.MyChatMember != nil {
 		ctx := r.Context()
 		chat := update.MyChatMember.Chat
 		newStatus := update.MyChatMember.NewChatMember.Status
 		oldStatus := update.MyChatMember.OldChatMember.Status
+
+		if newStatus == "administrator" || newStatus == "member" {
+			slog.Info("Bot added to group", "chat_id", chat.ID, "chat_type", chat.Type)
+			// Trigger onboarding flow
+			h.handleBotAddedToGroup(ctx, &chat, update.MyChatMember.From.ID)
+		}
 
 		_, err := h.botRepo.GetGroupByChatID(ctx, chat.ID)
 		if err == nil {
@@ -299,6 +253,75 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 				ownerMsg := i18n.T(lang, "notifications.admin_revoked", map[string]interface{}{"group": chat.Title})
 				_ = tg.SendMessage(bot.OwnerUserID, ownerMsg, nil, nil)
 			}
+		}
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// 3. Handle Successful Payment
+	if update.Message != nil && update.Message.SuccessfulPayment != nil {
+		pay := update.Message.SuccessfulPayment
+		slog.Info("Successful payment received for payload", "payload", pay.InvoicePayload)
+		err := h.db.UpdateOrderStatus(r.Context(), pay.InvoicePayload, "paid", pay.TelegramPaymentChargeID)
+		if err == nil {
+			if strings.HasPrefix(pay.InvoicePayload, "stars_premium_1m:") {
+				parts := strings.Split(pay.InvoicePayload, ":")
+				if len(parts) == 2 {
+					userID, parseErr := strconv.ParseInt(parts[1], 10, 64)
+					if parseErr == nil {
+						_ = h.db.UpdateUserPremium(r.Context(), userID, 30*24*time.Hour)
+						slog.Info("Granted 30-day Premium access to User via Stars Webhook", "user_id", userID)
+
+						auditRepo := repository.NewAuditRepo(h.db)
+						targetType := "user"
+						targetID := strconv.FormatInt(userID, 10)
+						_ = auditRepo.Log(r.Context(), &repository.AuditLog{
+							ActorID:    userID,
+							Action:     "premium.grant",
+							TargetType: &targetType,
+							TargetID:   &targetID,
+						})
+					}
+				}
+			} else if strings.HasPrefix(pay.InvoicePayload, "report_pay:") {
+				parts := strings.Split(pay.InvoicePayload, ":")
+				if len(parts) == 3 {
+					userID, parseErr := strconv.ParseInt(parts[1], 10, 64)
+					username := parts[2]
+					if parseErr == nil && username != "" {
+						auditRepo := repository.NewAuditRepo(h.db)
+						targetType := "username"
+						_ = auditRepo.Log(r.Context(), &repository.AuditLog{
+							ActorID:    userID,
+							Action:     "report.payment.success",
+							TargetType: &targetType,
+							TargetID:   &username,
+						})
+						appURL := os.Getenv("APP_URL")
+						if appURL == "" {
+							appURL = "https://t.me/ifragment_bot/app"
+						}
+						reportURL := fmt.Sprintf("%s?startapp=username_%s", appURL, username)
+						tg, _ := h.moderator.GetTelegramClient(ctx, bot)
+						_ = tg.SendMessage(userID, fmt.Sprintf("Payment received. Your @%s report is unlocked:\n%s", username, reportURL), nil, nil)
+					}
+				}
+			} else {
+				// ✅ Payment Notification
+				lang := i18n.DetectLanguage(bot.Status)
+				settings, _ := h.moderator.GetSettings(ctx, bot.ID)
+				if settings != nil {
+					var general repository.SettingsGeneral
+					if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
+						lang = general.Language
+					}
+				}
+				tg, _ := h.moderator.GetTelegramClient(ctx, bot)
+				msg := i18n.T(lang, "notifications.payment_success", map[string]interface{}{"date": time.Now().Add(30 * 24 * time.Hour).Format("2006-01-02")})
+				_ = tg.SendMessage(bot.OwnerUserID, msg, nil, nil)
+			}
+		} else {
+			slog.Error("Failed to update order status", "error", err)
 		}
 		w.WriteHeader(http.StatusOK)
 		return
@@ -368,9 +391,9 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 		// Regular Moderation
 		violation, err := h.moderator.ValidateMessage(ctx, mc)
 		if err != nil {
-			log.Printf("⚠️ Moderation error: %v", err)
+			slog.Warn("Moderation error", "error", err)
 		} else if violation != nil {
-			log.Printf("🚫 Violation detected: %s in chat %d by user %d", violation.Type, msg.Chat.ID, msg.From.ID)
+			slog.Info("Violation detected", "type", violation.Type, "chat_id", msg.Chat.ID, "user_id", msg.From.ID)
 			h.executeViolationAction(ctx, msg.Chat.ID, msg.From.ID, msg.MessageID, msg.MessageThreadID, violation)
 
 			// 🚨 Spam Attack Detector (>10 violations in 1 minute)
@@ -409,6 +432,7 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 	}
 	w.WriteHeader(http.StatusOK)
 }
+
 
 func (h *WebhookHandler) mapToModeratorContext(m *Message) *botmgmt.MessageContext {
 	isCommand := false
@@ -519,7 +543,7 @@ func (h *WebhookHandler) answerPreCheckout(id string, ok bool, errorMessage stri
 	jsonBody, _ := json.Marshal(payload)
 	_, err := http.Post(url, "application/json", bytes.NewBuffer(jsonBody))
 	if err != nil {
-		log.Printf("❌ Failed to answer pre-checkout: %v", err)
+		slog.Error("Failed to answer pre-checkout", "error", err)
 	}
 }
 
@@ -875,6 +899,46 @@ func (h *WebhookHandler) handleJoinCaptcha(ctx context.Context, m *Message, user
 
 // HandleTonAPIWebhook handles webhooks from TonAPI console for ownership or other events
 func (h *WebhookHandler) HandleTonAPIWebhook(w http.ResponseWriter, r *http.Request) {
+	// Read raw body for HMAC verification
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	// Restore body
+	r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+	sigHeader := r.Header.Get("X-Tonapi-Signature")
+	if sigHeader == "" {
+		sigHeader = r.Header.Get("x-tonapi-signature")
+	}
+
+	secret := os.Getenv("TONAPI_WEBHOOK_SECRET")
+	isProd := os.Getenv("APP_ENV") == "production"
+
+	if isProd && secret == "" {
+		slog.Warn("Security Alert: TONAPI_WEBHOOK_SECRET is empty in production, rejecting webhook request")
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	if secret != "" {
+		if sigHeader == "" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		// Compute HMAC SHA256
+		mac := hmac.New(sha256.New, []byte(secret))
+		mac.Write(bodyBytes)
+		expectedMAC := mac.Sum(nil)
+		
+		sigBytes, err := hex.DecodeString(sigHeader)
+		if err != nil || subtle.ConstantTimeCompare(sigBytes, expectedMAC) != 1 {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+	}
+
 	var payload struct {
 		Event      string `json:"event"`
 		Account    string `json:"account"`
@@ -885,6 +949,6 @@ func (h *WebhookHandler) HandleTonAPIWebhook(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	log.Printf("Received TonAPI webhook event: %s, account: %s, nft: %s", payload.Event, payload.Account, payload.NFTAddress)
+	slog.Info("Received TonAPI webhook event", "event", payload.Event, "account", payload.Account, "nft", payload.NFTAddress)
 	w.WriteHeader(http.StatusOK)
 }

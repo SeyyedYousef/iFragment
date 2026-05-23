@@ -18,7 +18,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/singleflight"
-	"log"
+	"log/slog"
 	"net/http"
 )
 
@@ -92,7 +92,7 @@ func (s *ModeratorService) checkAntiRaid(ctx context.Context, groupID uuid.UUID)
 				qh.EmergencyLock = true
 				raw, _ := json.Marshal(qh)
 				_, _ = s.settingsRepo.UpdateCategory(ctx, groupID, "quiet_hours", raw, 0, settings.Version)
-				log.Printf("🚨 ANTI-RAID TRIGGERED for group %s. Lockdown enabled.", groupID)
+				slog.Info("ANTI-RAID TRIGGERED for group. Lockdown enabled.", "group_id", groupID)
 			}
 		}
 	}

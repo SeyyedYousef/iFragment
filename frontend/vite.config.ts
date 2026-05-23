@@ -4,6 +4,7 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 import mkcert from 'vite-plugin-mkcert';
 import tailwindcss from '@tailwindcss/vite';
 import { sentryVitePlugin } from "@sentry/vite-plugin";
+import { visualizer } from 'rollup-plugin-visualizer';
 
 export default defineConfig({
   plugins: [
@@ -24,10 +25,37 @@ export default defineConfig({
       project: "ifragment-frontend",
       authToken: process.env.VITE_SENTRY_AUTH_TOKEN,
     }),
+    visualizer({
+      open: false,
+      filename: 'dist/bundle-analysis.html',
+      gzipSize: true,
+      brotliSize: true,
+    }),
   ],
   build: {
     target: 'esnext',
     sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('solid-js') || id.includes('@solidjs/router')) {
+              return 'vendor-solid';
+            }
+            if (id.includes('@sentry')) {
+              return 'vendor-sentry';
+            }
+            if (id.includes('@tma.js') || id.includes('@telegram-apps')) {
+              return 'vendor-telegram';
+            }
+            if (id.includes('@tanstack') || id.includes('axios')) {
+              return 'vendor-data';
+            }
+            return 'vendor-others';
+          }
+        },
+      },
+    },
   },
   publicDir: './public',
   server: {

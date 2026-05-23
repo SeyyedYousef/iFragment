@@ -18,6 +18,11 @@ func NewBotAPIClient(token string) *BotAPIClient {
 		token: token,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
+			Transport: &http.Transport{
+				MaxIdleConns:        100,
+				MaxIdleConnsPerHost: 20,
+				IdleConnTimeout:     90 * time.Second,
+			},
 		},
 	}
 }

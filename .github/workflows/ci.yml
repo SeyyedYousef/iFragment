@@ -13,6 +13,20 @@ jobs:
     defaults:
       run:
         working-directory: ./backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: ifragment_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - name: Setup Go
@@ -28,10 +42,16 @@ jobs:
           version: latest
           working-directory: backend
       - name: Run Tests
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/ifragment_test?sslmode=disable
         run: go test -v -coverprofile=coverage.out ./...
       - name: Check Coverage
         run: |
           go tool cover -func=coverage.out | grep total | awk '{print substr($3, 1, length($3)-1)}' | awk '{if ($1 < 85.0) {print "Coverage is below 85%"; exit 1}}'
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - name: Run govulncheck
+        run: govulncheck ./...
 
   frontend-check:
     name: Frontend Lint & Type Check
@@ -57,3 +77,16 @@ jobs:
         run: pnpm run lint
       - name: Run Type Check
         run: npx tsc --noEmit
+      - name: Run Dependency Audit
+        run: pnpm audit
+
+  openapi-lint:
+    name: OpenAPI Spec Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Spectral Linter
+        uses: stoplight/spectral-action@v0.8.2
+        with:
+          file_glob: 'backend/openapi.yaml'
+          spectral_ruleset: '.spectral.yaml'

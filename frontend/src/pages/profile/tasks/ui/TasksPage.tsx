@@ -4,6 +4,7 @@ import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-que
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { getTasksStatus, completeTask } from '@/shared/api/profile.js';
 import { t } from '@/shared/i18n/index.js';
+import { SkeletonTask } from '@/shared/ui/Skeleton.js';
 
 export const TasksPage: Component = () => {
   const navigate = useNavigate();
@@ -95,9 +96,10 @@ export const TasksPage: Component = () => {
         </Show>
 
         {loading() ? (
-          <div class="flex flex-col items-center justify-center py-20 gap-4">
-            <div class="w-10 h-10 rounded-full border-4 border-[#3390ec]/20 border-t-[#3390ec] animate-spin" />
-            <span class="text-[10px] text-[#a0a4ad] font-bold uppercase tracking-wider">{t('gamification.loadingQuests') || 'Loading Quests...'}</span>
+          <div class="flex flex-col gap-3">
+            <SkeletonTask />
+            <SkeletonTask />
+            <SkeletonTask />
           </div>
         ) : (
           <div class="flex flex-col gap-3">

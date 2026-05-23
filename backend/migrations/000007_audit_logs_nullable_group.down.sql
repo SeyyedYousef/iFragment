@@ -1,0 +1,3 @@
+BEGIN;
+ALTER TABLE audit_logs ALTER COLUMN group_id SET NOT NULL;
+COMMIT;

@@ -45,12 +45,12 @@ export const BoostersView: Component = () => {
                   </div>
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 mb-0.5">
-                      <span class="text-white font-bold text-sm">{t(meta.nameKey as any)}</span>
+                      <span class="text-white font-bold text-sm">{t(meta.nameKey as import('@/shared/i18n/index.js').DictPaths)}</span>
                       <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-md" style={{ background: `${meta.color}20`, color: meta.color }}>
                         {isMaxed() ? t('airdrop.boosters.maxed') : `${t('airdrop.boosters.level')}${booster.level}`}
                       </span>
                     </div>
-                    <p class="text-[11px] text-[#8e8e93] font-medium">{t(meta.descKey as any)}</p>
+                    <p class="text-[11px] text-[#8e8e93] font-medium">{t(meta.descKey as import('@/shared/i18n/index.js').DictPaths)}</p>
                     <div class="w-full h-1 bg-[#2c2c2e] rounded-full mt-2 overflow-hidden">
                       <div class="h-full rounded-full transition-all duration-500" style={{ width: `${(booster.level / booster.maxLevel) * 100}%`, background: meta.color }}></div>
                     </div>

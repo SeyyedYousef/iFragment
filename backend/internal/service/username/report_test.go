@@ -17,7 +17,7 @@ func TestUsernameLengthCountsRunes(t *testing.T) {
 }
 
 func TestCalculateRarityUsesRuneLength(t *testing.T) {
-	service := NewReportService(nil, nil, nil, nil, nil, nil)
+	service := NewReportService(context.Background(), nil, nil, nil, nil, nil, nil)
 	got := service.CalculateRarity("\u0627\u0628\u062c\u062d")
 
 	want := DefaultRarityConfig.Length4Bonus + DefaultRarityConfig.Unique5Bonus + DefaultRarityConfig.NoUnderscoreBonus
@@ -46,7 +46,7 @@ func TestEstimateValueUsesMarketAndReportSignals(t *testing.T) {
 		ExchangeRate: 7.25,
 	}
 
-	estimate := estimateValue(report)
+	estimate := estimateValue(report, DefaultPricingHeuristicsConfig)
 
 	if estimate.P50 <= 5000 {
 		t.Fatalf("P50 = %.2f, want market median and feature signals to lift value above 5000", estimate.P50)
@@ -74,7 +74,7 @@ func TestEstimateValueIgnoresZeroPriceTransferHistoryAsSaleAnchor(t *testing.T) 
 		},
 	}
 
-	estimate := estimateValue(report)
+	estimate := estimateValue(report, DefaultPricingHeuristicsConfig)
 
 	if estimate.P50 == 0 {
 		t.Fatal("zero-price transfer history should not collapse estimate to zero")
@@ -141,7 +141,7 @@ func TestReportServiceUsesExternalPricingModelWhenConfigured(t *testing.T) {
 	}))
 	defer server.Close()
 
-	service := NewReportService(nil, nil, nil, nil, nil, nil)
+	service := NewReportService(context.Background(), nil, nil, nil, nil, nil, nil)
 	service.pricingClient = NewPricingClient(server.URL)
 
 	estimate := service.estimateValue(context.Background(), &FullReport{
@@ -157,7 +157,7 @@ func TestReportServiceUsesExternalPricingModelWhenConfigured(t *testing.T) {
 }
 
 func TestFindSimilarUsernamesReturnsRankedCandidates(t *testing.T) {
-	service := NewReportService(nil, nil, nil, nil, nil, nil)
+	service := NewReportService(context.Background(), nil, nil, nil, nil, nil, nil)
 
 	results, err := service.FindSimilarUsernames(context.Background(), "news", 5)
 	if err != nil {

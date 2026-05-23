@@ -8,6 +8,7 @@ import (
 	"ifragment-backend/internal/client/mtproto"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/username"
+	"ifragment-backend/internal/middleware"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -48,6 +49,7 @@ func (h *UsernameHandler) GetCollectionStats(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	w.Header().Set("Cache-Control", "public, max-age=300")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(stats)
 }
@@ -160,6 +162,17 @@ func (h *UsernameHandler) QuickAnalysis(w http.ResponseWriter, r *http.Request) 
 
 	ctx := r.Context()
 
+	var userID int64
+	if rawUser := ctx.Value(middleware.UserContextKey); rawUser != nil {
+		if user, ok := rawUser.(map[string]interface{}); ok {
+			if id, ok := user["id"].(int64); ok {
+				userID = id
+			} else if id, ok := user["id"].(float64); ok {
+				userID = int64(id)
+			}
+		}
+	}
+
 	// Rate limit
 	if h.cache != nil {
 		ip := r.RemoteAddr
@@ -243,6 +256,8 @@ func (h *UsernameHandler) QuickAnalysis(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	h.reportService.LogSearch(ctx, u, userID)
+
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(val.([]byte))
 }
@@ -264,7 +279,6 @@ func (h *UsernameHandler) StreamQuickAnalysis(w http.ResponseWriter, r *http.Req
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -347,6 +361,7 @@ func (h *UsernameHandler) GetTrending(w http.ResponseWriter, r *http.Request) {
 		list = []string{"news", "auto", "bank", "crypto"}
 	}
 
+	w.Header().Set("Cache-Control", "public, max-age=180")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(list)
 }
@@ -359,6 +374,7 @@ func (h *UsernameHandler) GetRates(w http.ResponseWriter, r *http.Request) {
 		rateUSD = 7.25
 	}
 
+	w.Header().Set("Cache-Control", "public, max-age=60")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]float64{"ton_to_usd": rateUSD})
 }

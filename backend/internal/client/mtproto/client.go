@@ -11,6 +11,7 @@ import (
 	"github.com/gotd/td/session"
 	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/tg"
+	"github.com/gotd/td/tgerr"
 )
 
 // Status represents the availability status of a username in Telegram
@@ -54,7 +55,7 @@ func NewRealClient(ctx context.Context) (Client, error) {
 
 	// Run client in background
 	go func() {
-		err := client.Run(context.Background(), func(ctx context.Context) error {
+		err := client.Run(ctx, func(ctx context.Context) error {
 			if botToken != "" {
 				if _, authErr := client.Auth().Bot(ctx, botToken); authErr != nil {
 					slog.Error("MTProto Bot Auth failed", "err", authErr)
@@ -79,18 +80,18 @@ func NewRealClient(ctx context.Context) (Client, error) {
 func (c *RealClient) CheckUsername(ctx context.Context, username string) (Status, error) {
 	ok, err := c.api.AccountCheckUsername(ctx, username)
 	if err != nil {
-		errStr := err.Error()
-		if strings.Contains(errStr, "USERNAME_OCCUPIED") {
-			return StatusOccupied, nil
-		}
-		if strings.Contains(errStr, "USERNAME_PURCHASE_AVAILABLE") {
-			return StatusPurchase, nil
-		}
-		if strings.Contains(errStr, "USERNAME_INVALID") {
-			return StatusInvalid, nil
-		}
-		if strings.Contains(errStr, "FLOOD_WAIT") {
-			return StatusUnknown, fmt.Errorf("rate_limit_exceeded")
+		if rpcErr, ok := tgerr.As(err); ok {
+			switch rpcErr.Type {
+			case "USERNAME_OCCUPIED":
+				return StatusOccupied, nil
+			case "USERNAME_PURCHASE_AVAILABLE":
+				return StatusPurchase, nil
+			case "USERNAME_INVALID":
+				return StatusInvalid, nil
+			}
+			if rpcErr.IsCode(420) || strings.HasPrefix(rpcErr.Type, "FLOOD_WAIT") {
+				return StatusUnknown, fmt.Errorf("rate_limit_exceeded: %w", err)
+			}
 		}
 		return StatusUnknown, err
 	}
@@ -118,17 +119,39 @@ func NewMockClient() *MockClient {
 
 func (m *MockClient) CheckUsername(ctx context.Context, username string) (Status, error) {
 	slog.Warn("Using MOCK MTProto Client for CheckUsername", "username", username)
-	// Mock logic: lengths 4 or special are Purchase
+	
+	// Basic RFC/Telegram username checks
+	if len(username) < 4 || len(username) > 32 {
+		return StatusInvalid, nil
+	}
+	
+	// Character validation: must start with letter, contain only a-z, 0-9, _
+	// Check first char
+	first := username[0]
+	if !((first >= 'a' && first <= 'z') || (first >= 'A' && first <= 'Z')) {
+		return StatusInvalid, nil
+	}
+	// Check remaining chars
+	for i := 1; i < len(username); i++ {
+		c := username[i]
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') {
+			return StatusInvalid, nil
+		}
+	}
+	
+	// Under 5 chars (exactly 4) is always collectible (StatusPurchase)
 	if len(username) == 4 {
 		return StatusPurchase, nil
 	}
+	
+	// Special cases
 	if username == "admin" || username == "telegram" || username == "durov" {
 		return StatusOccupied, nil
 	}
-	// Let's pretend some are purchase available
 	if username == "bank" || username == "auto" {
 		return StatusPurchase, nil
 	}
+	
 	return StatusAvailable, nil
 }
 

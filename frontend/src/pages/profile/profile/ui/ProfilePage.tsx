@@ -14,6 +14,7 @@ import { QuickActions } from '@/widgets/profile/QuickActions.js';
 import { GamificationHub } from '@/widgets/profile/GamificationHub.js';
 import { getProfileStats, getProfileAchievements, getReferralInfo } from '@/shared/api/profile.js';
 import { checkHomeScreenStatus, addToHomeScreen } from '@/shared/lib/telegram-native.js';
+import { SkeletonProfile } from '@/shared/ui/Skeleton.js';
 
 export const ProfilePage: Component = () => {
   const navigate = useNavigate();
@@ -92,9 +93,8 @@ export const ProfilePage: Component = () => {
 
       {/* Loading Skeleton */}
       {loading() ? (
-        <div class="flex flex-col items-center justify-center min-h-[80vh] gap-4">
-          <div class="w-12 h-12 rounded-full border-4 border-[#3390ec]/20 border-t-[#3390ec] animate-spin" />
-          <span class="text-xs text-[#a0a4ad] font-bold uppercase tracking-wider">{t('common.loading') || 'Loading Profile...'}</span>
+        <div class="px-6 py-6 min-h-[80vh]">
+          <SkeletonProfile />
         </div>
       ) : (
         <div class="flex flex-col">

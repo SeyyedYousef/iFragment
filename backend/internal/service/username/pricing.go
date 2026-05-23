@@ -82,7 +82,14 @@ func NewPricingClientFromEnv() *PricingClient {
 func NewPricingClient(baseURL string) *PricingClient {
 	return &PricingClient{
 		baseURL: strings.TrimRight(baseURL, "/"),
-		http:    &http.Client{Timeout: 1500 * time.Millisecond},
+		http: &http.Client{
+			Timeout: 5 * time.Second,
+			Transport: &http.Transport{
+				MaxIdleConns:        100,
+				MaxIdleConnsPerHost: 20,
+				IdleConnTimeout:     90 * time.Second,
+			},
+		},
 	}
 }
 
@@ -101,28 +108,45 @@ func (c *PricingClient) Predict(ctx context.Context, features PriceFeatures) (*P
 		return nil, fmt.Errorf("pricing request encode failed: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("pricing request create failed: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
+	maxAttempts := 3
+	var lastErr error
+	backoff := 100 * time.Millisecond
 
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("pricing request failed: %w", err)
-	}
-	defer resp.Body.Close()
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		// Re-create the body reader for each attempt
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+		if err != nil {
+			return nil, fmt.Errorf("pricing request create failed: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
 
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return nil, fmt.Errorf("pricing model returned %s", resp.Status)
+		resp, err := c.http.Do(req)
+		if err == nil {
+			defer resp.Body.Close()
+			if resp.StatusCode >= 200 && resp.StatusCode <= 299 {
+				var estimate PriceEstimate
+				if err := json.NewDecoder(resp.Body).Decode(&estimate); err != nil {
+					return nil, fmt.Errorf("pricing response decode failed: %w", err)
+				}
+				return &estimate, nil
+			}
+			lastErr = fmt.Errorf("pricing model returned %s", resp.Status)
+		} else {
+			lastErr = err
+		}
+
+		if attempt < maxAttempts {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(backoff):
+				backoff *= 2
+			}
+		}
 	}
 
-	var estimate PriceEstimate
-	if err := json.NewDecoder(resp.Body).Decode(&estimate); err != nil {
-		return nil, fmt.Errorf("pricing response decode failed: %w", err)
-	}
-	return &estimate, nil
+	return nil, fmt.Errorf("pricing request failed after %d attempts: %w", maxAttempts, lastErr)
 }
 
 func buildPricingFeatures(r *FullReport) PriceFeatures {

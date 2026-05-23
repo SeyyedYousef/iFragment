@@ -6,23 +6,52 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
+	"sync/atomic"
 	"time"
 )
 
 const CollectionAddr = "EQCA14o1-VWhS2efqoh_9M1b_A9DtKTuoqfmkn83AbJzwnPi"
 
 type Client struct {
-	BaseURL string
-	Token   string
-	HTTP    *http.Client
+	BaseURL    string
+	Tokens     []string
+	tokenIndex uint64
+	HTTP       *http.Client
 }
 
 func NewClient() *Client {
+	var tokens []string
+	if tokensStr := os.Getenv("MARKETAPP_TOKENS"); tokensStr != "" {
+		for _, t := range strings.Split(tokensStr, ",") {
+			if trimmed := strings.TrimSpace(t); trimmed != "" {
+				tokens = append(tokens, trimmed)
+			}
+		}
+	} else if singleToken := os.Getenv("MARKETAPP_TOKEN"); singleToken != "" {
+		tokens = []string{singleToken}
+	}
+
 	return &Client{
 		BaseURL: "https://api.marketapp.ws/v1",
-		Token:   os.Getenv("MARKETAPP_TOKEN"),
-		HTTP:    &http.Client{Timeout: 10 * time.Second},
+		Tokens:  tokens,
+		HTTP: &http.Client{
+			Timeout: 10 * time.Second,
+			Transport: &http.Transport{
+				MaxIdleConns:        100,
+				MaxIdleConnsPerHost: 20,
+				IdleConnTimeout:     90 * time.Second,
+			},
+		},
 	}
+}
+
+func (c *Client) getToken() string {
+	if len(c.Tokens) == 0 {
+		return ""
+	}
+	idx := atomic.AddUint64(&c.tokenIndex, 1) % uint64(len(c.Tokens))
+	return c.Tokens[idx]
 }
 
 // CollectionData represents global collection stats from Marketapp
@@ -75,8 +104,9 @@ func (c *Client) doRequest(ctx context.Context, url string) (*http.Response, err
 	if err != nil {
 		return nil, err
 	}
-	if c.Token != "" {
-		req.Header.Set("Authorization", "Bearer "+c.Token)
+	token := c.getToken()
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
 	}
 	req.Header.Set("Accept", "application/json")
 	return c.HTTP.Do(req)

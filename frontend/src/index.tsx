@@ -83,3 +83,37 @@ async function startApp() {
 }
 
 startApp();
+
+// Register Service Worker for offline support and immediate refresh updates in production
+if ('serviceWorker' in navigator && !import.meta.env.DEV) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then((registration) => {
+      console.info('[SW] ServiceWorker registered with scope:', registration.scope);
+
+      // Listen for updates
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+        if (newWorker) {
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              console.info('[SW] New version detected, notifying worker to skip waiting...');
+              newWorker.postMessage({ type: 'SKIP_WAITING' });
+            }
+          });
+        }
+      });
+    }).catch((err) => {
+      console.error('[SW] Registration failed:', err);
+    });
+  });
+
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!refreshing) {
+      refreshing = true;
+      console.info('[SW] Controller changed, refreshing page immediately...');
+      window.location.reload();
+    }
+  });
+}
+

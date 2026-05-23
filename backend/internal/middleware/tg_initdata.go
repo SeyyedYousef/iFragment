@@ -8,12 +8,16 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"ifragment-backend/internal/repository"
 	"net/http"
 	"net/url"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 // ValidateTelegramInitData is a middleware that validates Telegram Mini App InitData
@@ -23,45 +27,115 @@ const (
 	UserContextKey ContextKey = "tg_user"
 )
 
-func ValidateTelegramInitData(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		initData := r.Header.Get("X-Telegram-Init-Data")
-		if initData == "" {
-			http.Error(w, "Unauthorized: Missing X-Telegram-Init-Data header", http.StatusUnauthorized)
-			return
-		}
-
-		botToken := os.Getenv("BOT_TOKEN")
-		if botToken == "" {
-			http.Error(w, "Internal Server Error: Security configuration missing", http.StatusInternalServerError)
-			return
-		}
-
-		if allowDevBypass && initData == "dev-user" {
-			// Bypass for local testing
-			ctx := context.WithValue(r.Context(), UserContextKey, map[string]interface{}{"id": int64(12345), "username": "testuser"})
-			next.ServeHTTP(w, r.WithContext(ctx))
-			return
-		}
-
-		if err := validate(initData, botToken); err != nil {
-			http.Error(w, fmt.Sprintf("Unauthorized: %v", err), http.StatusUnauthorized)
-			return
-		}
-
-		// Inject user data into context
-		ctx := r.Context()
-		values, _ := url.ParseQuery(initData)
-		userData := values.Get("user")
-		if userData != "" {
-			var user map[string]interface{}
-			if err := json.Unmarshal([]byte(userData), &user); err == nil {
-				ctx = context.WithValue(ctx, UserContextKey, user)
+func ValidateTelegramInitData(cache *repository.Cache) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			initData := r.Header.Get("X-Telegram-Init-Data")
+			if initData == "" {
+				http.Error(w, "Unauthorized: Missing X-Telegram-Init-Data header", http.StatusUnauthorized)
+				return
 			}
-		}
 
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
+			botToken := os.Getenv("BOT_TOKEN")
+			if botToken == "" {
+				http.Error(w, "Internal Server Error: Security configuration missing", http.StatusInternalServerError)
+				return
+			}
+
+			ip := r.RemoteAddr
+			var userID string
+			values, parseErr := url.ParseQuery(initData)
+			if parseErr == nil {
+				userData := values.Get("user")
+				if userData != "" {
+					var user struct {
+						ID int64 `json:"id"`
+					}
+					if json.Unmarshal([]byte(userData), &user) == nil && user.ID != 0 {
+						userID = strconv.FormatInt(user.ID, 10)
+					}
+				}
+			}
+
+			ctx := r.Context()
+			if cache != nil && cache.Client != nil {
+				// Check IP lock
+				if exists, _ := cache.Client.Exists(ctx, "brute_lock:ip:"+ip).Result(); exists > 0 {
+					http.Error(w, "Too many failed authentication attempts. IP temporarily locked.", http.StatusTooManyRequests)
+					return
+				}
+				// Check User lock
+				if userID != "" {
+					if exists, _ := cache.Client.Exists(ctx, "brute_lock:user:"+userID).Result(); exists > 0 {
+						http.Error(w, "Too many failed authentication attempts. User temporarily locked.", http.StatusTooManyRequests)
+						return
+					}
+				}
+			}
+
+			if allowDevBypass && initData == "dev-user" {
+				// Bypass for local testing
+				ctx := context.WithValue(r.Context(), UserContextKey, map[string]interface{}{"id": int64(12345), "username": "testuser"})
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+
+			if err := validate(initData, botToken); err != nil {
+				if cache != nil && cache.Client != nil {
+					pipe := cache.Client.Pipeline()
+					ipFailKey := "brute_fail:ip:" + ip
+					incrIP := pipe.Incr(ctx, ipFailKey)
+					pipe.Expire(ctx, ipFailKey, 1*time.Hour)
+
+					var incrUser *redis.IntCmd
+					var userFailKey string
+					if userID != "" {
+						userFailKey = "brute_fail:user:" + userID
+						incrUser = pipe.Incr(ctx, userFailKey)
+						pipe.Expire(ctx, userFailKey, 1*time.Hour)
+					}
+
+					_, _ = pipe.Exec(ctx)
+
+					fails, _ := incrIP.Result()
+					if fails >= 10 {
+						cache.Client.Set(ctx, "brute_lock:ip:"+ip, "locked", 24*time.Hour)
+					}
+
+					if incrUser != nil {
+						ufails, _ := incrUser.Result()
+						if ufails >= 10 {
+							cache.Client.Set(ctx, "brute_lock:user:"+userID, "locked", 24*time.Hour)
+						}
+					}
+				}
+
+				http.Error(w, fmt.Sprintf("Unauthorized: %v", err), http.StatusUnauthorized)
+				return
+			}
+
+			// Validation succeeded: reset failed counters
+			if cache != nil && cache.Client != nil {
+				pipe := cache.Client.Pipeline()
+				pipe.Del(ctx, "brute_fail:ip:"+ip)
+				if userID != "" {
+					pipe.Del(ctx, "brute_fail:user:"+userID)
+				}
+				_, _ = pipe.Exec(ctx)
+			}
+
+			// Inject user data into context
+			userData := values.Get("user")
+			if userData != "" {
+				var user map[string]interface{}
+				if err := json.Unmarshal([]byte(userData), &user); err == nil {
+					ctx = context.WithValue(ctx, UserContextKey, user)
+				}
+			}
+
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
 }
 
 func validate(initData, botToken string) error {

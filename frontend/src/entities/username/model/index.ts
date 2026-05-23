@@ -10,12 +10,12 @@ import { t } from '@/shared/i18n/index.js';
 // 4. No consecutive underscores
 export const UsernameSchema = v.pipe(
   v.string(),
-  v.minLength(4, () => t('entities.username.validation.minLength' as any)),
-  v.maxLength(32, () => t('entities.username.validation.maxLength' as any)),
-  v.regex(/^[a-zA-Z]/, () => t('entities.username.validation.startLetter' as any)),
-  v.regex(/^[a-zA-Z0-9_]+$/, () => t('entities.username.validation.invalidChars' as any)),
-  v.regex(/^(?!.*__)/, () => t('entities.username.validation.consecutiveUnderscores' as any)),
-  v.regex(/[^_]$/, () => t('entities.username.validation.trailingUnderscore' as any))
+  v.minLength(4, () => t('entities.username.validation.minLength')),
+  v.maxLength(32, () => t('entities.username.validation.maxLength')),
+  v.regex(/^[a-zA-Z]/, () => t('entities.username.validation.startLetter')),
+  v.regex(/^[a-zA-Z0-9_]+$/, () => t('entities.username.validation.invalidChars')),
+  v.regex(/^(?!.*__)/, () => t('entities.username.validation.consecutiveUnderscores')),
+  v.regex(/[^_]$/, () => t('entities.username.validation.trailingUnderscore'))
 );
 
 export type Username = v.InferOutput<typeof UsernameSchema>;

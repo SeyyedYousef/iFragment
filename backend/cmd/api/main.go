@@ -21,6 +21,7 @@ import (
 	"ifragment-backend/internal/client/tonapi"
 	"ifragment-backend/internal/handler"
 	"ifragment-backend/internal/middleware"
+	"ifragment-backend/internal/logger"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service"
 	"ifragment-backend/internal/service/botmgmt"
@@ -37,22 +38,45 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"ifragment-backend/internal/telemetry"
 )
 
 func main() {
+	// Initialize PII Masking Logger
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		ReplaceAttr: logger.MaskPIIAttr,
+	})))
+	log.SetOutput(&logger.PIIMaskingWriter{Out: os.Stdout})
+
 	// Load .env file (only in non-production)
 	if os.Getenv("APP_ENV") != "production" {
 		if err := godotenv.Load(); err != nil {
-			log.Println("No .env file found, using system environment variables")
+			slog.Info("No .env file found, using system environment variables")
 		}
 	}
 
-	ctx := context.Background()
+	ctx, cancelMain := context.WithCancel(context.Background())
+	defer cancelMain()
+
+	// Initialize OpenTelemetry Tracer
+	otelShutdown, err := telemetry.InitTracer(ctx, "ifragment-api")
+	if err != nil {
+		slog.Error("Failed to initialize OpenTelemetry Tracer", "error", err)
+	} else {
+		defer func() {
+			if err := otelShutdown(context.Background()); err != nil {
+				slog.Error("Failed to shutdown OpenTelemetry Tracer", "error", err)
+			}
+		}()
+		slog.Info("OpenTelemetry Tracer initialized successfully")
+	}
 
 	// Initialize Database
 	db, err := repository.NewDatabase(ctx)
 	if err != nil {
-		log.Printf("⚠️ Database connection failed: %v. Continuing without DB.", err)
+		slog.Warn("Database connection failed, continuing without DB", "error", err)
 	} else {
 		defer db.Close()
 
@@ -61,13 +85,13 @@ func main() {
 			m, mErr := migrate.New("file://migrations", os.Getenv("DATABASE_URL"))
 			if mErr == nil {
 				if upErr := m.Up(); upErr != nil && upErr != migrate.ErrNoChange {
-					log.Printf("⚠️ Database migration warning: %v", upErr)
+					slog.Warn("Database migration warning", "error", upErr)
 				} else {
-					log.Println("✅ Database migrations applied successfully")
+					slog.Info("Database migrations applied successfully")
 				}
 				break
 			}
-			log.Printf("⏳ Waiting for database to be ready for migrations... (%d/5)", i+1)
+			slog.Info("Waiting for database to be ready for migrations...", "attempt", i+1)
 			time.Sleep(2 * time.Second)
 		}
 	}
@@ -75,7 +99,7 @@ func main() {
 	// Initialize Cache
 	cache, err := repository.NewCache(ctx)
 	if err != nil {
-		log.Printf("⚠️ Cache connection failed: %v. Continuing without Cache.", err)
+		slog.Warn("Cache connection failed, continuing without Cache", "error", err)
 	} else {
 		defer cache.Close()
 	}
@@ -101,7 +125,7 @@ func main() {
 	r.Use(chiMiddleware.RealIP)
 	r.Use(chiMiddleware.Logger)
 	r.Use(chiMiddleware.Recoverer)
-	r.Use(middleware.NewRateLimiter())
+	r.Use(middleware.NewRateLimiter(cache))
 
 	// Sentry
 	sentry.Init(sentry.ClientOptions{
@@ -116,12 +140,19 @@ func main() {
 	if len(allowedOrigins) == 1 && allowedOrigins[0] == "" {
 		allowedOrigins = []string{"http://localhost:5173", "http://127.0.0.1:5173"} // fallback for dev
 	}
+	allowCreds := true
+	for _, o := range allowedOrigins {
+		if o == "*" {
+			allowCreds = false
+			break
+		}
+	}
 	c := cors.New(cors.Options{
 		AllowedOrigins:   allowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Telegram-Init-Data", "X-Request-ID"},
 		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: true,
+		AllowCredentials: allowCreds,
 		MaxAge:           86400,
 	})
 	r.Use(c.Handler)
@@ -139,7 +170,7 @@ func main() {
 	// Initialize Services
 	aggregatorService := username.NewAggregatorService(tonClient, marketappClient, cache)
 	paymentService := payment.NewStarsService(db)
-	reportService := username.NewReportService(db, cache, tonClient, fragClient, marketappClient, mtprotoClient)
+	reportService := username.NewReportService(ctx, db, cache, tonClient, fragClient, marketappClient, mtprotoClient)
 
 	// Initialize Bot Management repos & services
 	botRepo := repository.NewBotRepo(db)
@@ -154,6 +185,12 @@ func main() {
 
 	// 🚀 Start Background Expiration Worker
 	botService.StartBackgroundTasks(ctx)
+
+	// 🚀 Start Background Partition & Maintenance Worker
+	if db != nil {
+		partitionWorker := username.NewPartitionWorker(db)
+		go partitionWorker.Start(ctx)
+	}
 
 	// Initialize Handlers
 	usernameHandler := handler.NewUsernameHandler(aggregatorService, reportService, fragClient, mtprotoClient, cache)
@@ -176,7 +213,7 @@ func main() {
 
 		r.Post("/webhook/telegram/{botID}", webhookHandler.HandleTelegramWebhook)
 		r.Post("/webhook/tonapi", webhookHandler.HandleTonAPIWebhook)
-		r.With(middleware.ValidateTelegramInitData).Post("/auth/token", authHandler.IssueToken)
+		r.With(middleware.ValidateTelegramInitData(cache)).Post("/auth/token", authHandler.IssueToken)
 
 		r.Route("/usernames", func(r chi.Router) {
 			r.Get("/collection/stats", usernameHandler.GetCollectionStats)
@@ -276,13 +313,14 @@ func main() {
 
 	srv := &http.Server{
 		Addr:    ":" + port,
-		Handler: r,
+		Handler: otelhttp.NewHandler(r, "ifragment-api"),
 	}
 
 	go func() {
-		log.Printf("🚀 iFragment Backend starting on port %s...", port)
+		slog.Info("iFragment Backend starting...", "port", port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Server failed to start: %v", err)
+			slog.Error("Server failed to start", "error", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -290,14 +328,18 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Println("Shutting down server...")
+	slog.Info("Shutting down server...")
+
+	// Cancel the main context to stop all background goroutines (MTProto, etc.)
+	cancelMain()
 
 	ctxShut, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctxShut); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+		slog.Error("Server forced to shutdown", "error", err)
+		os.Exit(1)
 	}
 
-	log.Println("Server exiting")
+	slog.Info("Server exiting")
 }

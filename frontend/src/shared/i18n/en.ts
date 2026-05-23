@@ -4,7 +4,10 @@ export const dict = {
     back: 'Back',
     loading: 'Loading...',
     cancel: 'Cancel',
-    save: 'Save'
+    save: 'Save',
+    toggle: 'Toggle',
+    errorVersionMismatch: 'Settings were updated by another user. Please refresh.',
+    errorUpdateFailed: 'Failed to update settings'
   },
   hero: {
     title: 'Precise. Bold. Professional.',

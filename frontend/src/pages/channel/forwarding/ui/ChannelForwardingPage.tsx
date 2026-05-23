@@ -399,7 +399,7 @@ export const ChannelForwardingPage: Component = () => {
                    <div class="flex gap-2">
                       <input 
                         type="text" 
-                        value={`https://api.ifragment.com/wh/${params.id}/in_${Date.now().toString().slice(-6)}`} 
+                        value={`${import.meta.env.VITE_API_URL || 'https://api.ifragment.app'}/wh/${params.id}/in_${Date.now().toString().slice(-6)}`} 
                         readonly
                         class="bg-[#2c2c2e] text-[#8e8e93] text-[13px] rounded-xl px-4 py-3 w-full focus:outline-none"
                       />

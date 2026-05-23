@@ -89,6 +89,15 @@ func (h *PremiumHandler) RequestPremiumReport(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	auditRepo := repository.NewAuditRepo(h.paymentService.DB)
+	targetType := "username"
+	_ = auditRepo.Log(r.Context(), &repository.AuditLog{
+		ActorID:    userID,
+		Action:     "report.request",
+		TargetType: &targetType,
+		TargetID:   &req.Username,
+	})
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"invoice_link": link,
@@ -134,6 +143,15 @@ func (h *PremiumHandler) GetReport(w http.ResponseWriter, r *http.Request) {
 
 	h.reportService.SaveReportToDB(r.Context(), userID, u, report)
 
+	auditRepo := repository.NewAuditRepo(h.paymentService.DB)
+	targetType := "username"
+	_ = auditRepo.Log(r.Context(), &repository.AuditLog{
+		ActorID:    userID,
+		Action:     "report.generate",
+		TargetType: &targetType,
+		TargetID:   &u,
+	})
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(report)
 }
@@ -156,5 +174,5 @@ func (h *PremiumHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
 }
 
 func allowUnpaidReports() bool {
-	return os.Getenv("IFRAGMENT_ALLOW_UNPAID_REPORTS") == "true"
+	return os.Getenv("APP_ENV") != "production" && os.Getenv("IFRAGMENT_ALLOW_UNPAID_REPORTS") == "true"
 }

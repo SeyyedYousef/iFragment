@@ -16,7 +16,14 @@ type Client struct {
 func NewClient() *Client {
 	return &Client{
 		BaseURL: "https://api.getgems.io/graphql",
-		HTTP:    &http.Client{Timeout: 10 * time.Second},
+		HTTP: &http.Client{
+			Timeout: 10 * time.Second,
+			Transport: &http.Transport{
+				MaxIdleConns:        100,
+				MaxIdleConnsPerHost: 20,
+				IdleConnTimeout:     90 * time.Second,
+			},
+		},
 	}
 }
 
@@ -32,18 +39,19 @@ type GraphQLResponse struct {
 }
 
 func (c *Client) GetCollectionStats(addr string) (*GraphQLResponse, error) {
-	query := fmt.Sprintf(`
-	query NftCollectionStats {
-	  alphaNftCollectionStats(address: "%s") {
+	query := `
+	query NftCollectionStats($address: String!) {
+	  alphaNftCollectionStats(address: $address) {
 		floorPrice
 		totalVolume
 		ownersCount
 		itemsCount
 	  }
-	}`, addr)
+	}`
 
-	body, _ := json.Marshal(map[string]string{
-		"query": query,
+	body, _ := json.Marshal(map[string]interface{}{
+		"query":     query,
+		"variables": map[string]interface{}{"address": addr},
 	})
 
 	resp, err := c.HTTP.Post(c.BaseURL, "application/json", bytes.NewBuffer(body))

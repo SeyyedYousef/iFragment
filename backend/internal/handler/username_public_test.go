@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -16,7 +17,7 @@ func TestCheckAvailability(t *testing.T) {
 	mockMTProto := mtproto.NewMockClient()
 	fragClient := fragment.NewClient() // Using real/mock fragment
 	aggService := username.NewAggregatorService(nil, nil, nil)
-	reportService := username.NewReportService(nil, nil, nil, nil, nil, mockMTProto)
+	reportService := username.NewReportService(context.Background(), nil, nil, nil, nil, nil, mockMTProto)
 
 	// Inject MTProto Mock
 	h := NewUsernameHandler(aggService, reportService, fragClient, mockMTProto, nil)
@@ -54,7 +55,7 @@ func TestCheckAvailability(t *testing.T) {
 func TestGetSimilar(t *testing.T) {
 	mockMTProto := mtproto.NewMockClient()
 	aggService := username.NewAggregatorService(nil, nil, nil)
-	reportService := username.NewReportService(nil, nil, nil, nil, nil, mockMTProto)
+	reportService := username.NewReportService(context.Background(), nil, nil, nil, nil, nil, mockMTProto)
 	h := NewUsernameHandler(aggService, reportService, nil, mockMTProto, nil)
 
 	req := httptest.NewRequest("GET", "/api/v1/usernames/similar?u=news&limit=3", nil)

@@ -19,8 +19,15 @@ type StarsService struct {
 func NewStarsService(db *repository.Database) *StarsService {
 	return &StarsService{
 		BotToken: os.Getenv("BOT_TOKEN"),
-		HTTP:     &http.Client{Timeout: 10 * time.Second},
-		DB:       db,
+		HTTP: &http.Client{
+			Timeout: 10 * time.Second,
+			Transport: &http.Transport{
+				MaxIdleConns:        100,
+				MaxIdleConnsPerHost: 20,
+				IdleConnTimeout:     90 * time.Second,
+			},
+		},
+		DB: db,
 	}
 }
 

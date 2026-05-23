@@ -128,7 +128,7 @@ export const AirdropPage: Component = () => {
                   class="flex flex-col items-center gap-1.5 py-3 px-1 rounded-2xl bg-white/5 border border-white/5 active:scale-90 transition-all group"
                 >
                   <span class="material-symbols-outlined text-xl transition-colors group-hover:scale-110" style={{ color: btn.color, 'font-variation-settings': '"FILL" 1' }}>{btn.icon}</span>
-                  <span class="text-[8px] font-black text-on-surface-variant uppercase tracking-tighter group-hover:text-white">{t(btn.labelKey as any)}</span>
+                  <span class="text-[8px] font-black text-on-surface-variant uppercase tracking-tighter group-hover:text-white">{t(btn.labelKey as import('@/shared/i18n/index.js').DictPaths)}</span>
                 </button>
               )}
             </For>
@@ -148,12 +148,12 @@ export const AirdropPage: Component = () => {
         >
           <div class="flex items-center justify-between p-4 bg-[#1c1c1c]/90 backdrop-blur-xl border-b border-white/10 z-10">
             <h2 id="modal-title" class="text-white font-black text-lg uppercase tracking-tight">
-              {t(`airdrop.${activeModal()}.label` as any)}
+              {t(`airdrop.${activeModal()}.label` as import('@/shared/i18n/index.js').DictPaths)}
             </h2>
             <button 
               onClick={closeModal}
               class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center active:scale-90 transition-transform border border-white/10"
-              aria-label={t('common.close' as any)}
+              aria-label={t('common.close')}
             >
               <span class="material-symbols-outlined text-white text-xl">close</span>
             </button>

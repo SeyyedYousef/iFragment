@@ -133,16 +133,19 @@ func (s *ProfileService) SetReferralCode(ctx context.Context, userID int64, refe
 	if err == nil {
 		meta, _ := json.Marshal(map[string]interface{}{"referred_user_id": userID})
 		_, _ = s.frgRepo.Credit(ctx, referrerID, 10000.0, "admin_credit", meta)
-		if s.cache != nil && s.cache.Client != nil {
-			s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", referrerID))
-		}
 	}
 
 	// Reward the referred user with 5,000 FRG tokens as a welcome bonus!
 	metaUser, _ := json.Marshal(map[string]interface{}{"referrer_code": referrerCode})
 	_, _ = s.frgRepo.Credit(ctx, userID, 5000.0, "admin_credit", metaUser)
+
 	if s.cache != nil && s.cache.Client != nil {
-		s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
+		pipe := s.cache.Client.Pipeline()
+		pipe.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
+		if err == nil {
+			pipe.Del(ctx, fmt.Sprintf("profile:stats:%d", referrerID))
+		}
+		_, _ = pipe.Exec(ctx)
 	}
 
 	return nil
@@ -269,21 +272,25 @@ func (s *ProfileService) PurchaseCosmetic(ctx context.Context, userID int64, cos
 		if t1 != 0 {
 			metaT1, _ := json.Marshal(map[string]interface{}{"ref_type": "tier1", "from_user_id": userID, "cosmetic_id": cosmeticID})
 			_, _ = s.frgRepo.Credit(ctx, t1, item.Cost*0.1, "referral_revenue", metaT1)
-			if s.cache != nil && s.cache.Client != nil {
-				s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", t1))
-			}
 		}
 		if t2 != 0 {
 			metaT2, _ := json.Marshal(map[string]interface{}{"ref_type": "tier2", "from_user_id": userID, "cosmetic_id": cosmeticID})
 			_, _ = s.frgRepo.Credit(ctx, t2, item.Cost*0.02, "referral_revenue", metaT2)
-			if s.cache != nil && s.cache.Client != nil {
-				s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", t2))
-			}
 		}
 	}
 
 	if s.cache != nil && s.cache.Client != nil {
-		s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
+		pipe := s.cache.Client.Pipeline()
+		pipe.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
+		if refErr == nil {
+			if t1 != 0 {
+				pipe.Del(ctx, fmt.Sprintf("profile:stats:%d", t1))
+			}
+			if t2 != 0 {
+				pipe.Del(ctx, fmt.Sprintf("profile:stats:%d", t2))
+			}
+		}
+		_, _ = pipe.Exec(ctx)
 	}
 	return nil
 }

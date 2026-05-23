@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"sync"
 	"time"
@@ -264,7 +264,7 @@ func (s *BotService) UpdateSettings(ctx context.Context, groupID uuid.UUID, cate
 	}
 
 	_ = s.auditRepo.Log(ctx, &repository.AuditLog{
-		GroupID:  groupID,
+		GroupID:  &groupID,
 		ActorID:  userID,
 		Action:   "settings.update." + category,
 		OldValue: oldVal,
@@ -362,7 +362,7 @@ func getCryptoKey() []byte {
 	cryptoOnce.Do(func() {
 		keyStr := os.Getenv("BOT_TOKEN_KEY")
 		if keyStr == "" {
-			log.Println("⚠️ CRITICAL: BOT_TOKEN_KEY is not set. Token encryption/decryption will fail.")
+			slog.Warn("CRITICAL: BOT_TOKEN_KEY is not set. Token encryption/decryption will fail.")
 			keyStr = "default_fallback_key_32_chars_!!!" // Still needs 32 chars
 		}
 		key := []byte(keyStr)

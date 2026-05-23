@@ -101,9 +101,9 @@ export const MarketplacePage: Component = () => {
       <div class="px-5 pt-6 pb-4 sticky top-0 bg-[#0f1014]/90 backdrop-blur-md z-30 border-b border-[#1c1c1c]">
         <div class="flex items-center justify-between">
           <div class="flex flex-col gap-1">
-            <h1 class="text-2xl font-black text-white">{t('marketplace.title' as any) || 'FRG Marketplace'}</h1>
+            <h1 class="text-2xl font-black text-white">{t('marketplace.title')}</h1>
             <p class="text-[13px] font-medium text-[#8e8e93] leading-snug">
-              {t('marketplace.subtitle' as any) || 'Buy, convert, and manage your FRG tokens'}
+              {t('marketplace.subtitle')}
             </p>
           </div>
         </div>
