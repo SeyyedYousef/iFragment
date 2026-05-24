@@ -1,13 +1,15 @@
-import { Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
-import { useParams } from '@solidjs/router';
+import { Component, createSignal, createResource, createEffect, onCleanup, onMount, Show } from 'solid-js';
+import { useParams, useNavigate } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Motion } from '@motionone/solid';
 import { t } from '@/shared/i18n/index.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SelectField, ToggleSwitch, SettingsSection } from '@/shared/ui/settings-controls.js';
+import { channelApi } from '@/shared/api/channel-management.js';
 
 export const ChannelDynamicBioPage: Component = () => {
   const params = useParams();
+  const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = createSignal(false);
   const [bioTemplate, setBioTemplate] = createSignal('Official Channel | Members: $members | Price: $btc');
   const [nameTemplate, setNameTemplate] = createSignal('');
@@ -25,6 +27,37 @@ export const ChannelDynamicBioPage: Component = () => {
   const [countdownLocation, setCountdownLocation] = createSignal('bio'); // bio, name, both
   const [postExpiryText, setPostExpiryText] = createSignal('');
 
+  const [settings] = createResource(
+    () => params.id,
+    (id) => channelApi.getSettings(id)
+  );
+
+  createEffect(() => {
+    const data = settings();
+    if (data) {
+      try {
+        let dbio = data.dynamic_bio;
+        if (typeof dbio === 'string') {
+          dbio = JSON.parse(dbio);
+        }
+        if (dbio && typeof dbio === 'object') {
+          if ('enabled' in dbio) setEnabled(dbio.enabled);
+          if ('bioTemplate' in dbio) setBioTemplate(dbio.bioTemplate);
+          if ('displayInName' in dbio) setDisplayInName(dbio.displayInName);
+          if ('nameTemplate' in dbio) setNameTemplate(dbio.nameTemplate);
+          if ('interval' in dbio) setIntervalVal(dbio.interval);
+          if ('enableCountdown' in dbio) setEnableCountdown(dbio.enableCountdown);
+          if ('eventName' in dbio) setEventName(dbio.eventName);
+          if ('targetDate' in dbio) setTargetDate(dbio.targetDate);
+          if ('countdownLocation' in dbio) setCountdownLocation(dbio.countdownLocation);
+          if ('postExpiryText' in dbio) setPostExpiryText(dbio.postExpiryText);
+        }
+      } catch (e) {
+        console.error("Failed to parse dynamic_bio settings:", e);
+      }
+    }
+  });
+
   const variables = [
     { tag: '$members', desc: t('channelDynamicBio.varMembers') || 'Member Count', val: '45,102' },
     { tag: '$btc', desc: t('channelDynamicBio.varBtc') || 'Bitcoin Price', val: '$64,200' },
@@ -38,15 +71,38 @@ export const ChannelDynamicBioPage: Component = () => {
     { tag: '$countdown', desc: 'Live Countdown', val: '02:14:05' },
   ];
 
-  const handleSave = () => {
+  const handleSave = async () => {
     hapticFeedback.notificationOccurred('success');
     setIsSaving(true);
-    setTimeout(() => setIsSaving(false), 500);
+    
+    const currentVersion = settings()?.version ?? 1;
+    const payload = {
+      enabled: enabled(),
+      bioTemplate: bioTemplate(),
+      displayInName: displayInName(),
+      nameTemplate: nameTemplate(),
+      interval: interval(),
+      enableCountdown: enableCountdown(),
+      eventName: eventName(),
+      targetDate: targetDate(),
+      countdownLocation: countdownLocation(),
+      postExpiryText: postExpiryText(),
+    };
+
+    try {
+      await channelApi.updateSettings(params.id, 'dynamic_bio', payload, currentVersion);
+      navigate(`/channel/${params.id}`);
+    } catch (e) {
+      console.error("Failed to save dynamic bio settings:", e);
+      navigate(`/channel/${params.id}`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   onMount(() => {
     backButton.show();
-    const off = backButton.onClick(() => window.history.back());
+    const off = backButton.onClick(() => navigate(`/channel/${params.id}`));
     onCleanup(() => off());
   });
 

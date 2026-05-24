@@ -155,7 +155,7 @@ export const PremiumReportPage: Component = () => {
               </>
             }>
               <span class="material-symbols-outlined text-[48px] text-[#3390ec] mb-4">lock</span>
-              <h1 class="text-2xl font-black text-center mb-2">@{username()}</h1>
+              <h2 class="text-2xl font-black text-center mb-2">@{username()}</h2>
               <p class="text-[#a6a6ad] font-bold text-center mb-6 max-w-[320px]">
                 {t('pages.premiumReport.paymentRequired')}
               </p>

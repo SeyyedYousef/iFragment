@@ -1,4 +1,4 @@
-import { Component, createSignal, onCleanup, onMount, Show, For } from 'solid-js';
+import { Component, createSignal, createResource, createEffect, onCleanup, onMount, Show, For } from 'solid-js';
 import { useParams, useNavigate } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Motion } from '@motionone/solid';
@@ -6,6 +6,7 @@ import { Motion } from '@motionone/solid';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SettingsSection, SelectField } from '@/shared/ui/settings-controls.js';
 import { t } from '@/shared/i18n/index.js';
+import { channelApi } from '@/shared/api/channel-management.js';
 
 interface InlineBtn {
   id: string;
@@ -44,13 +45,43 @@ export const ChannelInlineButtonsPage: Component = () => {
   const [isDirty, setIsDirty] = createSignal(false);
   const [isSaving, setIsSaving] = createSignal(false);
 
+  const [settings] = createResource(
+    () => params.id,
+    (id) => channelApi.getSettings(id)
+  );
+
+  createEffect(() => {
+    const data = settings();
+    if (data) {
+      try {
+        let inlineButtonsVal = data.inline_buttons;
+        if (typeof inlineButtonsVal === 'string') {
+          inlineButtonsVal = JSON.parse(inlineButtonsVal);
+        }
+        if (inlineButtonsVal && typeof inlineButtonsVal === 'object') {
+          if ('enabled' in inlineButtonsVal) {
+            setIsButtonsEnabled(inlineButtonsVal.enabled);
+          }
+          if ('preset' in inlineButtonsVal) {
+            setActivePreset(inlineButtonsVal.preset as any);
+          }
+          if ('buttons' in inlineButtonsVal && Array.isArray(inlineButtonsVal.buttons)) {
+            setButtons(inlineButtonsVal.buttons);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to parse inline_buttons from server settings:", e);
+      }
+    }
+  });
+
   onMount(() => {
     backButton.show();
     const off = backButton.onClick(() => {
       navigate(`/channel/${params.id}`);
     });
     
-    // Load from localStorage if present
+    // Fallback/pre-load from localStorage if server has not responded yet
     const saved = localStorage.getItem(`channel_buttons_${params.id}`);
     if (saved) {
       try {
@@ -153,19 +184,32 @@ export const ChannelInlineButtonsPage: Component = () => {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     hapticFeedback.notificationOccurred('success');
     setIsSaving(true);
     
-    // Save to localStorage
-    localStorage.setItem(`channel_buttons_${params.id}`, JSON.stringify(buttons()));
-    localStorage.setItem(`channel_buttons_preset_${params.id}`, activePreset());
-    
-    setTimeout(() => {
-      setIsSaving(false);
+    // Save to server
+    const currentVersion = settings()?.version ?? 1;
+    const payload = {
+      enabled: isButtonsEnabled(),
+      preset: activePreset(),
+      buttons: buttons()
+    };
+
+    try {
+      await channelApi.updateSettings(params.id, 'inline_buttons', payload, currentVersion);
       setIsDirty(false);
       navigate(`/channel/${params.id}`);
-    }, 800);
+    } catch (e) {
+      console.error("Failed to save inline buttons to server:", e);
+      // Fallback: save to localStorage on failure
+      localStorage.setItem(`channel_buttons_${params.id}`, JSON.stringify(buttons()));
+      localStorage.setItem(`channel_buttons_preset_${params.id}`, activePreset());
+      setIsDirty(false);
+      navigate(`/channel/${params.id}`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (

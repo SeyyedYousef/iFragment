@@ -31,6 +31,9 @@ func getUserID(r *http.Request) string {
 			secret := os.Getenv("JWT_SECRET")
 			if secret != "" {
 				token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
+					if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+						return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+					}
 					return []byte(secret), nil
 				})
 				if err == nil && token.Valid {

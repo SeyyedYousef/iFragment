@@ -25,6 +25,7 @@ import (
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service"
 	"ifragment-backend/internal/service/botmgmt"
+	"ifragment-backend/internal/service/channelmgmt"
 	"ifragment-backend/internal/service/payment"
 	"ifragment-backend/internal/service/username"
 
@@ -150,7 +151,7 @@ func main() {
 	c := cors.New(cors.Options{
 		AllowedOrigins:   allowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Telegram-Init-Data", "X-Request-ID"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Telegram-Init-Data", "X-Request-ID"},
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: allowCreds,
 		MaxAge:           86400,
@@ -193,9 +194,13 @@ func main() {
 	}
 
 	// Initialize Handlers
+	channelRepo := repository.NewChannelRepo(db, cache)
+	channelService := channelmgmt.NewChannelService(channelRepo, botRepo, auditRepo)
+	channelHandler := handler.NewChannelHandler(channelService)
+
 	usernameHandler := handler.NewUsernameHandler(aggregatorService, reportService, fragClient, mtprotoClient, cache)
 	premiumHandler := handler.NewPremiumHandler(reportService, paymentService)
-	webhookHandler := handler.NewWebhookHandler(db, moderatorService, botRepo)
+	webhookHandler := handler.NewWebhookHandler(db, moderatorService, botRepo, channelService)
 	botMgmtHandler := handler.NewBotMgmtHandler(botService, marketplaceService)
 	profileService := service.NewProfileService(db, cache)
 	profileHandler := handler.NewProfileHandler(profileService, paymentService)
@@ -252,6 +257,17 @@ func main() {
 			r.Put("/{groupID}/settings", botMgmtHandler.UpdateSettings)
 			r.Get("/{groupID}/analytics", botMgmtHandler.GetAnalytics)
 			r.Get("/{groupID}/audit", botMgmtHandler.GetAuditLogs)
+		})
+
+		r.Route("/channels", func(r chi.Router) {
+			r.Use(middleware.AuthMiddleware)
+
+			r.Get("/", channelHandler.ListChannels)
+			r.Post("/connect", channelHandler.ConnectChannel)
+			r.Get("/{channelID}", channelHandler.GetChannel)
+			r.Delete("/{channelID}", channelHandler.DisconnectChannel)
+			r.Get("/{channelID}/settings", channelHandler.GetSettings)
+			r.Put("/{channelID}/settings", channelHandler.UpdateSettings)
 		})
 
 		r.Route("/subscription", func(r chi.Router) {

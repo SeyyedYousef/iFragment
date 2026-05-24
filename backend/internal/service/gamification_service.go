@@ -366,7 +366,11 @@ func (s *GamificationService) UpgradeBoost(ctx context.Context, userID int64, bo
 	}
 
 	// Trigger lifetime referral commission payout on this purchase!
-	go s.db.CreditReferrerShare(context.Background(), userID, target.PriceFrg, s.frgRepo)
+	go func() {
+		bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		s.db.CreditReferrerShare(bgCtx, userID, target.PriceFrg, s.frgRepo)
+	}()
 
 	err = s.db.UpgradeUserBoost(ctx, userID, boostType, target.NextLevel)
 	if err != nil {

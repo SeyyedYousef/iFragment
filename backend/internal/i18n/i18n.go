@@ -82,7 +82,9 @@ var enDict = map[string]interface{}{
 	"onboarding": map[string]interface{}{
 		"thanks":   "🎉 *Thank you for your trust!*\n\nFrom this moment, the digital guardian of \"{arg0}\" is at your service. I will proudly protect your community from spam, ads, and chaos.\n\n🌟 Powered by AI & ❤️ by @iFragmentBot",
 		"admin_req": "⚠️ *One step left to full activation!*\n\nTo allow me to delete malicious messages and restrict offenders, please promote me to \"Administrator\" with these permissions:\n\n✓ Delete Messages\n✓ Restrict Members\n✓ Ban Users\n✓ Pin Messages",
-		"features":  "✅ *These features are now active:*\n\n🚫 Auto-delete links & domains\n🤖 Block nuisance bots\n🔥 Smart Anti-Spam (5 msgs / 10s)\n📵 Duplicate message removal\n⏰ Welcome message for new members\n📊 Group activity statistics\n\n🎛 To customize, open the dashboard:\n👉 [Open Dashboard]({arg0})\n\n⏱ These messages will be auto-deleted in 2 minutes.",
+		"features":  "隐私设置 (Privacy Settings)\n\n✅ *These features are now active:*\n\n🚫 Auto-delete links & domains\n🤖 Block nuisance bots\n🔥 Smart Anti-Spam (5 msgs / 10s)\n📵 Duplicate message removal\n⏰ Welcome message for new members\n📊 Group activity statistics\n\n🎛 To customize, open the dashboard:\n👉 [Open Dashboard]({arg0})\n\n⏱ These messages will be auto-deleted in 2 minutes.",
+		"welcome_owner": "👋 *Hello Owner {arg0}!* Welcome to your bot dashboard. Here you can configure group protection, view logs, and manage subscriptions.",
+		"welcome_public": "👋 *Hello {arg0}!* I am a group moderation bot. Add me to your group and make me an admin to protect your group from spam, links, and raid attacks.",
 	},
 	"notice": map[string]interface{}{
 		"payment_success": "✅ *Payment Successful!*\n\nYour subscription has been updated. Thank you for supporting iFragment!",
@@ -90,6 +92,7 @@ var enDict = map[string]interface{}{
 		"not_admin":       "⚠️ *Admin Permissions Missing*\n\nI am no longer an administrator in this group. Please restore my permissions to continue protection.",
 		"admin_revoked":   "⚠️ *Permissions Revoked*\n\nMy administrator rights in \"{arg0}\" have been revoked. I can no longer protect the group.",
 		"spam_attack":     "🚨 *SPAM ATTACK DETECTED*\n\nMassive spam wave detected! I have automatically switched to High-Security mode for 5 minutes.",
+		"warning":         "⚠️ *Warning:* {arg0} (Warning {arg1}/{arg2})",
 	},
 	"notifications": map[string]interface{}{
 		"expiry_3d":           "⏰ Subscription for group \"{group}\" ends in 3 days. Renew now to avoid service interruption.",
@@ -116,6 +119,8 @@ var faDict = map[string]interface{}{
 		"thanks":   "🎉 *سپاس بیکران از اعتمادتان!*\n\nاز این لحظه، نگهبان دیجیتال گروه «{arg0}» در خدمت شماست. با افتخار از جامعه‌ی شما در برابر اسپم، تبلیغ و آشوب محافظت خواهم کرد.\n\n🌟 ساخته‌شده با هوش مصنوعی و ❤️ توسط تیم @iFragmentBot",
 		"admin_req": "⚠️ *یک قدم تا فعالسازی کامل باقی مانده!*\n\nبرای آنکه بتوانم پیامهای مخرب را حذف کنم و کاربران متخلف را محدود کنم، لطفاً مرا به عنوان «ادمین» منصوب کنید با دسترسی‌های:\n\n✓ حذف پیام‌ها (Delete Messages)\n✓ محدود کردن کاربران (Restrict Members)\n✓ بن کردن کاربران (Ban Users)\n✓ پین کردن پیام (Pin Messages)",
 		"features":  "✅ *این قابلیتها هم‌اکنون فعال هستند:*\n\n🚫 حذف خودکار لینک‌ها و دامنهها\n🤖 جلوگیری از ربات‌های مزاحم\n🔥 ضد اسپم هوشمند (۵ پیام در ۱۰ ثانیه)\n📵 حذف پیام‌های تکراری\n⏰ پیام خوشآمد به اعضای جدید\n📊 ثبت آمار فعالیت گروه\n\n🎛 برای شخصی‌سازی، داشبورد را باز کنید:\n👉 [Open Dashboard]({arg0})\n\n⏱ این پیام‌ها تا ۲ دقیقه دیگر خودکار حذف می‌شوند.",
+		"welcome_owner": "👋 *سلام مدیر {arg0}!* به پیشخوان مدیریت ربات خود خوش آمدید. در اینجا می‌توانید تنظیمات محافظت گروه‌ها، گزارش‌ها و اشتراک‌ها را مدیریت کنید.",
+		"welcome_public": "👋 *سلام {arg0}!* من ربات مدیریت و محافظت گروه هستم. برای محافظت از گروه خود در برابر اسپم، تبلیغات و حملات، مرا به گروه خود اضافه کرده و ادمین کنید.",
 	},
 	"notice": map[string]interface{}{
 		"payment_success": "✅ *پرداخت موفقیت‌آمیز بود!*\n\nاشتراک شما با موفقیت تمدید شد. از حمایت شما از iFragment سپاسگزاریم!",
@@ -123,6 +128,7 @@ var faDict = map[string]interface{}{
 		"not_admin":       "⚠️ *دسترسی ادمین موجود نیست*\n\nمن دیگر در این گروه ادمین نیستم. لطفاً دسترسی‌های مرا برای ادامه محافظت بازیابی کنید.",
 		"admin_revoked":   "⚠️ *سلب دسترسی ادمین*\n\nدسترسی‌های مدیریت من در گروه «{arg0}» سلب شده است. دیگر نمی‌توانم از گروه محافظت کنم.",
 		"spam_attack":     "🚨 *حمله اسپم شناسایی شد*\n\nموج شدیدی از اسپم شناسایی شد! من به مدت ۵ دقیقه به حالت امنیتی بالا (High-Security) تغییر وضعیت دادم.",
+		"warning":         "⚠️ *اخطار:* {arg0} (شما {arg1}/{arg2} اخطار دارید)",
 	},
 	"notifications": map[string]interface{}{
 		"expiry_3d":           "⏰ اعتبار گروه «{group}» تا ۳ روز دیگر تمام می‌شود. برای تمدید اقدام کنید.",

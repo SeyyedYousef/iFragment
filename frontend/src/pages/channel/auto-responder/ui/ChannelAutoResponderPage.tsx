@@ -1,13 +1,15 @@
-import { Component, createSignal, onCleanup, onMount, Show, For } from 'solid-js';
-import { useParams } from '@solidjs/router';
+import { Component, createSignal, createResource, createEffect, onCleanup, onMount, Show, For } from 'solid-js';
+import { useParams, useNavigate } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Motion } from '@motionone/solid';
 import { t } from '@/shared/i18n/index.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SelectField, ToggleSwitch, SettingsSection } from '@/shared/ui/settings-controls.js';
+import { channelApi } from '@/shared/api/channel-management.js';
 
 export const ChannelAutoResponderPage: Component = () => {
   const params = useParams();
+  const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = createSignal(false);
   
   const [isCreating, setIsCreating] = createSignal(false);
@@ -32,6 +34,62 @@ export const ChannelAutoResponderPage: Component = () => {
   const [welcomeDelay, setWelcomeDelay] = createSignal('0');
   const [welcomeText, setWelcomeText] = createSignal('');
 
+  const [isDirty, setIsDirty] = createSignal(false);
+  const [isSaving, setIsSaving] = createSignal(false);
+
+  const [settings] = createResource(
+    () => params.id,
+    (id) => channelApi.getSettings(id)
+  );
+
+  // Parse settings on load
+  createEffect(() => {
+    const data = settings();
+    if (data) {
+      try {
+        let ar = data.auto_responder;
+        if (typeof ar === 'string') {
+          ar = JSON.parse(ar);
+        }
+        if (ar && typeof ar === 'object') {
+          if ('autoFirstComment' in ar) setAutoFirstComment(ar.autoFirstComment);
+          if ('commentMode' in ar) setCommentMode(ar.commentMode);
+          if ('fixedComment' in ar) setFixedComment(ar.fixedComment);
+          if ('rotatingTexts' in ar && Array.isArray(ar.rotatingTexts)) setRotatingTexts(ar.rotatingTexts);
+          if ('attachButton' in ar) setAttachButton(ar.attachButton);
+          if ('newMemberWelcome' in ar) setNewMemberWelcome(ar.newMemberWelcome);
+          if ('welcomeDelay' in ar) setWelcomeDelay(ar.welcomeDelay);
+          if ('welcomeText' in ar) setWelcomeText(ar.welcomeText);
+          if ('rules' in ar && Array.isArray(ar.rules)) setRules(ar.rules);
+        }
+      } catch (e) {
+        console.error("Failed to parse auto_responder settings:", e);
+      }
+    }
+  });
+
+  // Auto-detect dirty state on user change (ignoring initial load)
+  let isInitialized = false;
+  createEffect(() => {
+    autoFirstComment();
+    commentMode();
+    fixedComment();
+    rotatingTexts();
+    attachButton();
+    newMemberWelcome();
+    welcomeDelay();
+    welcomeText();
+    rules();
+
+    if (!settings.loading) {
+      if (!isInitialized) {
+        isInitialized = true;
+      } else {
+        setIsDirty(true);
+      }
+    }
+  });
+
   const getLocalizedMatch = (match: string) => {
     if (match === 'exact') return t('channelAutoResponder.matchExact') || 'Exact Match';
     if (match === 'contains') return t('channelAutoResponder.matchContains') || 'Contains';
@@ -47,6 +105,7 @@ export const ChannelAutoResponderPage: Component = () => {
       setKeywords('');
       setReplyText('');
       setUseAi(false);
+      setIsDirty(true);
     }
   };
 
@@ -55,12 +114,43 @@ export const ChannelAutoResponderPage: Component = () => {
       hapticFeedback.impactOccurred('light');
       setRotatingTexts([...rotatingTexts(), newRotatingText().trim()]);
       setNewRotatingText('');
+      setIsDirty(true);
     }
   };
 
   const handleRemoveRotatingText = (idx: number) => {
     hapticFeedback.impactOccurred('light');
     setRotatingTexts(rotatingTexts().filter((_, i) => i !== idx));
+    setIsDirty(true);
+  };
+
+  const handleSave = async () => {
+    hapticFeedback.notificationOccurred('success');
+    setIsSaving(true);
+    
+    const currentVersion = settings()?.version ?? 1;
+    const payload = {
+      autoFirstComment: autoFirstComment(),
+      commentMode: commentMode(),
+      fixedComment: fixedComment(),
+      rotatingTexts: rotatingTexts(),
+      attachButton: attachButton(),
+      newMemberWelcome: newMemberWelcome(),
+      welcomeDelay: welcomeDelay(),
+      welcomeText: welcomeText(),
+      rules: rules(),
+    };
+
+    try {
+      await channelApi.updateSettings(params.id, 'auto_responder', payload, currentVersion);
+      setIsDirty(false);
+      navigate(`/channel/${params.id}`);
+    } catch (e) {
+      console.error("Failed to save auto responder settings:", e);
+      navigate(`/channel/${params.id}`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   onMount(() => {
@@ -69,7 +159,7 @@ export const ChannelAutoResponderPage: Component = () => {
       if (isCreating()) {
         setIsCreating(false);
       } else {
-        window.history.back();
+        navigate(`/channel/${params.id}`);
       }
     });
     onCleanup(() => off());
@@ -348,6 +438,30 @@ export const ChannelAutoResponderPage: Component = () => {
           </Motion.div>
         </Show>
       </div>
+
+      {/* Footer Actions (Save button fixed bar) */}
+      <Show when={isDirty()}>
+        <div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#0f1014] via-[#0f1014]/90 to-transparent z-40 flex gap-3">
+          <button 
+            onClick={() => navigate(`/channel/${params.id}`)}
+            disabled={isSaving()}
+            class="flex-1 h-14 bg-[#1c1c1c] text-[#ff3b30] border border-[#ff3b30]/20 rounded-2xl font-bold text-[15px] transition-all flex items-center justify-center gap-2 hover:bg-[#ff3b30]/10"
+          >
+            {t('common.cancel') || 'Cancel'}
+            <span class="material-symbols-outlined text-[18px]">close</span>
+          </button>
+          <button 
+            onClick={handleSave}
+            disabled={isSaving()}
+            class="flex-[2] h-14 bg-[#32ade6] hover:bg-[#2b96c8] text-black rounded-2xl font-bold text-[16px] shadow-[0_10px_25px_rgba(50,173,230,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-40"
+          >
+            <Show when={!isSaving()} fallback={<span class="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin"></span>}>
+              {t('common.save') || 'Save Changes'}
+              <span class="material-symbols-outlined text-[20px]">save</span>
+            </Show>
+          </button>
+        </div>
+      </Show>
     </div>
   );
 };

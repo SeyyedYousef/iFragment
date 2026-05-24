@@ -31,6 +31,7 @@ type ModeratorService struct {
 	cache         *repository.Cache
 	clientCache   sync.Map // botID (uuid.UUID) -> *telegram.BotAPIClient
 	sf            singleflight.Group
+	httpClient    *http.Client
 }
 
 func NewModeratorService(
@@ -46,11 +47,18 @@ func NewModeratorService(
 		auditRepo:     auditRepo,
 		analyticsRepo: analyticsRepo,
 		cache:         cache,
+		httpClient: &http.Client{
+			Timeout: 3 * time.Second,
+		},
 	}
 }
 
 func (s *ModeratorService) GetCache() *repository.Cache {
 	return s.cache
+}
+
+func (s *ModeratorService) GetAnalyticsRepo() *repository.AnalyticsRepo {
+	return s.analyticsRepo
 }
 
 func (s *ModeratorService) GetSettings(ctx context.Context, groupID uuid.UUID) (*repository.GroupSettings, error) {
@@ -72,6 +80,12 @@ func (s *ModeratorService) LogMemberEvent(ctx context.Context, groupID uuid.UUID
 }
 
 func (s *ModeratorService) checkAntiRaid(ctx context.Context, groupID uuid.UUID) {
+	group, err := s.botRepo.GetGroupByID(ctx, groupID)
+	if err != nil { return }
+	if !s.isSubscriptionValid(group) {
+		return
+	}
+
 	settings, err := s.settingsRepo.GetSettings(ctx, groupID)
 	if err != nil { return }
 	var gen repository.SettingsGeneral
@@ -197,14 +211,14 @@ func (s *ModeratorService) ValidateMessage(ctx context.Context, mc *MessageConte
 	// 4. Log message event for analytics
 	s.logEvent(ctx, group.ID, "message", &mc.UserID, mc.Username)
 
-	// 5. Check if user is admin — admins bypass all rules unless emergency locked without override
+	// 5. Check if user is admin
 	isAdmin := false
 	status, _ := s.GetChatMemberCached(ctx, tgClient, mc.ChatID, mc.UserID)
 	if status == "administrator" || status == "creator" {
 		isAdmin = true
 	}
 
-	if isAdmin {
+	if isAdmin && !general.TrackAdmin {
 		// Admins bypass everything EXCEPT emergency lock if AdminOverride is false
 		if quiet.EmergencyLock && !quiet.AdminOverride {
 			return &Violation{Type: "quiet_hours", Message: "Emergency Lock active", Action: "delete"}, nil
@@ -212,28 +226,86 @@ func (s *ModeratorService) ValidateMessage(ctx context.Context, mc *MessageConte
 		return nil, nil
 	}
 
+	// CAS (Combot Anti-Spam) Check
+	if general.CasEnabled {
+		if s.checkCAS(ctx, mc.UserID) {
+			vAction := "ban"
+			if isAdmin {
+				vAction = "delete"
+			}
+			return &Violation{
+				Type:    "cas_ban",
+				Action:  vAction,
+				Message: "Banned by Combot Anti-Spam (CAS)",
+			}, nil
+		}
+	}
+
 	// 6. Check exemptions list (usernames or IDs)
+	isExempt := false
 	for _, ex := range mandatory.Exemptions {
 		if strings.HasPrefix(ex, "@") {
 			if mc.Username != "" && strings.EqualFold(mc.Username, strings.TrimPrefix(ex, "@")) {
-				return nil, nil
+				isExempt = true
+				break
 			}
 			continue
 		}
 		if fmt.Sprintf("%d", mc.UserID) == ex {
-			return nil, nil
+			isExempt = true
+			break
 		}
+	}
+	if isExempt {
+		return nil, nil
 	}
 
 	// 7. Emergency Lock / Quiet Hours
 	if s.isQuietHours(quiet, general.Timezone) {
-		return &Violation{Type: "quiet_hours", Message: "Group is in quiet mode", Action: s.resolveAction(general.DefaultPenalty)}, nil
+		vAction := s.ResolveAction(general.DefaultPenalty)
+		if isAdmin {
+			vAction = "delete"
+		}
+		return &Violation{Type: "quiet_hours", Message: "Group is in quiet mode", Action: vAction}, nil
 	}
 
 	// 8. Mandatory Membership (Force Join)
 	if v := s.checkMandatoryMembership(ctx, tgClient, mc, mandatory, settings.CustomTexts); v != nil {
 		s.logEvent(ctx, group.ID, "spam_blocked", &mc.UserID, mc.Username)
+		if isAdmin {
+			v.Action = "delete"
+		}
 		return v, nil
+	}
+
+	// 8.5 Forced Add Members Check
+	if mandatory.ForcedAddEnabled && mandatory.ForcedAddCount > 0 {
+		inviteCount := 0
+		if s.cache != nil && s.cache.Client != nil {
+			key := fmt.Sprintf("invites:%s:%d", group.ID, mc.UserID)
+			val, _ := s.cache.Client.Get(ctx, key).Result()
+			if val != "" {
+				fmt.Sscanf(val, "%d", &inviteCount)
+			}
+		}
+		if inviteCount < mandatory.ForcedAddCount {
+			var ct repository.SettingsCustomTexts
+			_ = json.Unmarshal(settings.CustomTexts, &ct)
+			
+			forceAddMsg := ct.ForceAddText
+			if forceAddMsg == "" {
+				forceAddMsg = fmt.Sprintf("You must add %d members to the group before you can send messages.", mandatory.ForcedAddCount)
+			} else {
+				forceAddMsg = strings.ReplaceAll(forceAddMsg, "{count}", fmt.Sprintf("%d", mandatory.ForcedAddCount))
+			}
+			
+			vAction := "delete"
+			return &Violation{
+				Type:    "forced_add",
+				Message: forceAddMsg,
+				Action:  vAction,
+			}, nil
+		}
 	}
 
 	// 9. Content Restrictions — ALL checks
@@ -241,27 +313,24 @@ func (s *ModeratorService) ValidateMessage(ctx context.Context, mc *MessageConte
 		s.logEvent(ctx, group.ID, "spam_blocked", &mc.UserID, mc.Username)
 		var ct repository.SettingsCustomTexts
 		json.Unmarshal(settings.CustomTexts, &ct)
-		return s.handleAutoWarning(ctx, group.ID, mc.UserID, general, ct, v)
+		resViolation, err := s.handleAutoWarning(ctx, group.ID, mc.UserID, general, ct, v)
+		if resViolation != nil && isAdmin {
+			resViolation.Action = "delete"
+		}
+		return resViolation, err
 	}
 
 	// 10. Limits — length, flood, duplicates
 	if v := s.checkAllLimits(ctx, limits, mc, group.ID.String()); v != nil {
 		s.logEvent(ctx, group.ID, "spam_blocked", &mc.UserID, mc.Username)
-		v.Action = s.resolveAction(general.DefaultPenalty)
+		v.Action = s.ResolveAction(general.DefaultPenalty)
 		var ct repository.SettingsCustomTexts
 		json.Unmarshal(settings.CustomTexts, &ct)
-		return s.handleAutoWarning(ctx, group.ID, mc.UserID, general, ct, v)
-	}
-
-	// 9. CAS (Combot Anti-Spam) Check
-	if general.CasEnabled {
-		if s.checkCAS(ctx, mc.UserID) {
-			return &Violation{
-				Type:    "cas_ban",
-				Action:  "ban",
-				Message: "Banned by Combot Anti-Spam (CAS)",
-			}, nil
+		resViolation, err := s.handleAutoWarning(ctx, group.ID, mc.UserID, general, ct, v)
+		if resViolation != nil && isAdmin {
+			resViolation.Action = "delete"
 		}
+		return resViolation, err
 	}
 
 	return nil, nil
@@ -277,8 +346,14 @@ func (s *ModeratorService) checkCAS(ctx context.Context, userID int64) bool {
 	}
 
 	url := fmt.Sprintf("https://api.cas.chat/check?user_id=%d", userID)
-	resp, err := http.Get(url)
-	if err != nil { return false }
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return false
+	}
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return false
+	}
 	defer resp.Body.Close()
 
 	var result struct {
@@ -440,7 +515,7 @@ func (s *ModeratorService) checkAllContent(c repository.SettingsContentRestricti
 			if penalty == "" || penalty == "default" {
 				penalty = general.DefaultPenalty
 			}
-			return &Violation{Type: vType, Message: vMsg, Action: s.resolveAction(penalty)}
+			return &Violation{Type: vType, Message: vMsg, Action: s.ResolveAction(penalty)}
 		}
 		return nil
 	}
@@ -455,7 +530,7 @@ func (s *ModeratorService) checkAllContent(c repository.SettingsContentRestricti
 		return v
 	}
 
-	if v := check(c.BlockDomains, regexp.MustCompile(`(?i)\b[\w-]+\.[a-z]{2,24}\b`).MatchString(text), "domain", "Domains are not allowed"); v != nil {
+	if v := check(c.BlockDomains, regexp.MustCompile(`(?i)\b[\w-]+\.(com|net|org|co|info|biz|me|io|tv|cc|us|uk|ca|de|fr|ir|xyz|site|online|tech|app|top|link|club|store|ru|cn|in|gov|edu)\b`).MatchString(text), "domain", "Domains are not allowed"); v != nil {
 		return v
 	}
 
@@ -467,7 +542,7 @@ func (s *ModeratorService) checkAllContent(c repository.SettingsContentRestricti
 		return v
 	}
 
-	if v := check(c.BlockPhoneNumbers, regexp.MustCompile(`(\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}`).MatchString(text), "phone", "Phone numbers are not allowed"); v != nil {
+	if v := check(c.BlockPhoneNumbers, regexp.MustCompile(`(?i)(?:(?:\+\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\+\d{7,15}|09\d{9})`).MatchString(text), "phone", "Phone numbers are not allowed"); v != nil {
 		return v
 	}
 
@@ -585,7 +660,7 @@ func (s *ModeratorService) checkAllContent(c repository.SettingsContentRestricti
 	lowerText := strings.ToLower(text)
 	for _, kw := range c.BannedKeywords {
 		if strings.Contains(lowerText, strings.ToLower(kw)) {
-			return &Violation{Type: "banned_keyword", Message: fmt.Sprintf("Banned keyword: %s", kw), Action: s.resolveAction(general.DefaultPenalty)}
+			return &Violation{Type: "banned_keyword", Message: fmt.Sprintf("Banned keyword: %s", kw), Action: s.ResolveAction(general.DefaultPenalty)}
 		}
 	}
 
@@ -598,7 +673,7 @@ func (s *ModeratorService) checkAllContent(c repository.SettingsContentRestricti
 			}
 		}
 		if !found {
-			return &Violation{Type: "required_keyword", Message: "Required keyword missing", Action: s.resolveAction(general.DefaultPenalty)}
+			return &Violation{Type: "required_keyword", Message: "Required keyword missing", Action: s.ResolveAction(general.DefaultPenalty)}
 		}
 	}
 
@@ -693,7 +768,7 @@ func (s *ModeratorService) checkAllLimits(ctx context.Context, l repository.Sett
 
 // ─── Helpers ──────────────────────────────────────────────
 
-func (s *ModeratorService) resolveAction(penalty string) string {
+func (s *ModeratorService) ResolveAction(penalty string) string {
 	if penalty == "" {
 		return "delete"
 	}
@@ -719,7 +794,7 @@ func (s *ModeratorService) handleAutoWarning(ctx context.Context, groupID uuid.U
 	v.WarningThreshold = gen.WarningThreshold
 
 	if count >= gen.WarningThreshold {
-		v.Action = s.resolveAction(gen.WarningFinalPenalty)
+		v.Action = s.ResolveAction(gen.WarningFinalPenalty)
 	}
 
 	return v, nil

@@ -52,16 +52,29 @@ func (w *PartitionWorker) runMaintenance(ctx context.Context) {
 		slog.Error("[PartitionWorker] Failed to create partitions", "error", err)
 	}
 
-	// 2. Perform VACUUM ANALYZE (only on Sundays to minimize load)
+	// 2. Retention policy: delete audit_logs older than 90 days
+	slog.Info("[PartitionWorker] Cleaning up audit_logs older than 90 days...")
+	retentionStart := time.Now()
+	res, err := w.db.Pool.Exec(ctx, "DELETE FROM audit_logs WHERE created_at < now() - INTERVAL '90 days';")
+	if err != nil {
+		slog.Error("[PartitionWorker] Failed to clean up audit_logs", "error", err)
+	} else {
+		slog.Info("[PartitionWorker] Successfully cleaned up audit_logs", "rows_deleted", res.RowsAffected(), "duration", time.Since(retentionStart))
+	}
+
+	// 3. Perform VACUUM ANALYZE (only on Sundays to minimize load)
 	if time.Now().Weekday() == time.Sunday {
-		slog.Info("[PartitionWorker] Running weekly VACUUM ANALYZE on search_logs...")
+		slog.Info("[PartitionWorker] Running weekly VACUUM ANALYZE on search_logs and group_events...")
 		start := time.Now()
 		_, err := w.db.Pool.Exec(ctx, "VACUUM ANALYZE search_logs;")
 		if err != nil {
-			slog.Error("[PartitionWorker] VACUUM ANALYZE failed", "error", err)
-		} else {
-			slog.Info("[PartitionWorker] VACUUM ANALYZE completed successfully", "duration", time.Since(start))
+			slog.Error("[PartitionWorker] VACUUM ANALYZE search_logs failed", "error", err)
 		}
+		_, err = w.db.Pool.Exec(ctx, "VACUUM ANALYZE group_events;")
+		if err != nil {
+			slog.Error("[PartitionWorker] VACUUM ANALYZE group_events failed", "error", err)
+		}
+		slog.Info("[PartitionWorker] VACUUM ANALYZE completed successfully", "duration", time.Since(start))
 	}
 
 	slog.Info("[PartitionWorker] Maintenance cycle finished")
@@ -76,39 +89,76 @@ func (w *PartitionWorker) createFuturePartitions(ctx context.Context) error {
 		year := t.Year()
 		month := t.Month()
 
-		partitionName := fmt.Sprintf("search_logs_y%dm%02d", year, month)
+		// 1. search_logs partitions
+		{
+			partitionName := fmt.Sprintf("search_logs_y%dm%02d", year, month)
+			var exists bool
+			query := `
+				SELECT EXISTS (
+					SELECT FROM pg_tables 
+					WHERE schemaname = 'public' 
+					AND tablename = $1
+				);`
+			err := w.db.Pool.QueryRow(ctx, query, partitionName).Scan(&exists)
+			if err != nil {
+				return fmt.Errorf("failed to check partition existence for %s: %w", partitionName, err)
+			}
 
-		// Check if partition exists
-		var exists bool
-		query := `
-			SELECT EXISTS (
-				SELECT FROM pg_tables 
-				WHERE schemaname = 'public' 
-				AND tablename = $1
-			);`
-		err := w.db.Pool.QueryRow(ctx, query, partitionName).Scan(&exists)
-		if err != nil {
-			return fmt.Errorf("failed to check partition existence for %s: %w", partitionName, err)
+			if !exists {
+				slog.Info("[PartitionWorker] Creating missing partition table", "name", partitionName)
+				startStr := t.Format("2006-01-02 15:04:05+00")
+				next := t.AddDate(0, 1, 0)
+				endStr := next.Format("2006-01-02 15:04:05+00")
+
+				createStmt := fmt.Sprintf(
+					"CREATE TABLE IF NOT EXISTS %s PARTITION OF search_logs FOR VALUES FROM ('%s') TO ('%s');",
+					partitionName, startStr, endStr,
+				)
+
+				_, err = w.db.Pool.Exec(ctx, createStmt)
+				if err != nil {
+					return fmt.Errorf("failed to create partition %s: %w", partitionName, err)
+				}
+				slog.Info("[PartitionWorker] Successfully created partition table", "name", partitionName)
+			} else {
+				slog.Debug("[PartitionWorker] Partition table already exists", "name", partitionName)
+			}
 		}
 
-		if !exists {
-			slog.Info("[PartitionWorker] Creating missing partition table", "name", partitionName)
-			startStr := t.Format("2006-01-02 15:04:05+00")
-			next := t.AddDate(0, 1, 0)
-			endStr := next.Format("2006-01-02 15:04:05+00")
-
-			createStmt := fmt.Sprintf(
-				"CREATE TABLE IF NOT EXISTS %s PARTITION OF search_logs FOR VALUES FROM ('%s') TO ('%s');",
-				partitionName, startStr, endStr,
-			)
-
-			_, err = w.db.Pool.Exec(ctx, createStmt)
+		// 2. group_events partitions
+		{
+			partitionName := fmt.Sprintf("group_events_y%dm%02d", year, month)
+			var exists bool
+			query := `
+				SELECT EXISTS (
+					SELECT FROM pg_tables 
+					WHERE schemaname = 'public' 
+					AND tablename = $1
+				);`
+			err := w.db.Pool.QueryRow(ctx, query, partitionName).Scan(&exists)
 			if err != nil {
-				return fmt.Errorf("failed to create partition %s: %w", partitionName, err)
+				return fmt.Errorf("failed to check partition existence for %s: %w", partitionName, err)
 			}
-			slog.Info("[PartitionWorker] Successfully created partition table", "name", partitionName)
-		} else {
-			slog.Debug("[PartitionWorker] Partition table already exists", "name", partitionName)
+
+			if !exists {
+				slog.Info("[PartitionWorker] Creating missing partition table", "name", partitionName)
+				startStr := t.Format("2006-01-02 15:04:05+00")
+				next := t.AddDate(0, 1, 0)
+				endStr := next.Format("2006-01-02 15:04:05+00")
+
+				createStmt := fmt.Sprintf(
+					"CREATE TABLE IF NOT EXISTS %s PARTITION OF group_events FOR VALUES FROM ('%s') TO ('%s');",
+					partitionName, startStr, endStr,
+				)
+
+				_, err = w.db.Pool.Exec(ctx, createStmt)
+				if err != nil {
+					return fmt.Errorf("failed to create partition %s: %w", partitionName, err)
+				}
+				slog.Info("[PartitionWorker] Successfully created partition table", "name", partitionName)
+			} else {
+				slog.Debug("[PartitionWorker] Partition table already exists", "name", partitionName)
+			}
 		}
 	}
 

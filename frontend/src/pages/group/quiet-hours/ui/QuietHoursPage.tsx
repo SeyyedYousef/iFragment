@@ -73,12 +73,45 @@ export const QuietHoursPage: Component = () => {
   };
 
   const checkOverlaps = (periods: QuietPeriod[]) => {
+    const getMinutes = (timeStr: string): number => {
+      const [h, m] = timeStr.split(':').map(Number);
+      return h * 60 + m;
+    };
+
+    const getIntervals = (startStr: string, endStr: string): { start: number; end: number }[] => {
+      const start = getMinutes(startStr);
+      const end = getMinutes(endStr);
+      if (start < end) {
+        return [{ start, end }];
+      } else if (start > end) {
+        return [
+          { start, end: 1440 },
+          { start: 0, end }
+        ];
+      } else {
+        // start === end is a 24-hour quiet period
+        return [{ start: 0, end: 1440 }];
+      }
+    };
+
+    const isOverlap = (
+      i1: { start: number; end: number },
+      i2: { start: number; end: number }
+    ): boolean => {
+      return i1.start < i2.end && i2.start < i1.end;
+    };
+
     for (let i = 0; i < periods.length; i++) {
+      const intervalsA = getIntervals(periods[i].start, periods[i].end);
       for (let j = i + 1; j < periods.length; j++) {
-        const a = periods[i], b = periods[j];
-        if (a.start === b.start || a.end === b.end) {
-          setOverlapWarning(`Period overlaps!`);
-          return;
+        const intervalsB = getIntervals(periods[j].start, periods[j].end);
+        for (const intA of intervalsA) {
+          for (const intB of intervalsB) {
+            if (isOverlap(intA, intB)) {
+              setOverlapWarning(`Period overlaps!`);
+              return;
+            }
+          }
         }
       }
     }

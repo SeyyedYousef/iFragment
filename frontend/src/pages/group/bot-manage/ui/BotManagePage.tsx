@@ -5,6 +5,7 @@ import { backButton, openTelegramLink, hapticFeedback } from '@tma.js/sdk-solid'
 import { t, isRtl } from '@/shared/i18n/index.js';
 import { botApi, subscriptionApi, frgApi } from '@/shared/api/bot-management.js';
 import type { ManagedGroup, SubscriptionPackage } from '@/shared/api/bot-management.js';
+import { channelApi } from '@/shared/api/channel-management.js';
 
 export const BotManagePage: Component = () => {
   const navigate = useNavigate();
@@ -26,6 +27,11 @@ export const BotManagePage: Component = () => {
   const [groups, { refetch: refetchGroups }] = createResource(
     () => botId,
     (id) => botApi.listGroups(id)
+  );
+
+  const [channels] = createResource(
+    () => botId,
+    (id) => channelApi.getUserChannels(id)
   );
 
   const [packages] = createResource(subscriptionApi.getPackages);
@@ -278,6 +284,80 @@ export const BotManagePage: Component = () => {
                         >
                           {group.subscription_status === 'paid' ? (t('botManage.extendSub' as any) || 'Extend') : (t('botManage.buySubscription' as any) || 'Buy Subscription')}
                         </button>
+                      </div>
+                    </Motion.div>
+                   )
+                }}
+              </For>
+            </div>
+          </div>
+
+          {/* Connected Channels Section */}
+          <div class="flex flex-col gap-4 mt-6">
+            <h2 class="text-xl font-black text-white px-2 flex items-center gap-3">
+              <span class="w-1.5 h-6 bg-[#32ade6] rounded-full"></span>
+              Connected Channels
+            </h2>
+            
+            <div class="flex flex-col gap-3">
+              <Show when={channels.loading}>
+                <div class="flex items-center justify-center py-12">
+                  <span class="w-6 h-6 border-2 border-[#32ade6]/30 border-t-[#32ade6] rounded-full animate-spin" />
+                </div>
+              </Show>
+
+              <Show when={!channels.loading && (!channels() || channels()!.length === 0)}>
+                <div class="bg-[#1c1c1c] rounded-[2rem] p-10 border border-[#2a2a2a] flex flex-col items-center justify-center text-center gap-3 shadow-inner">
+                  <div class="w-16 h-16 rounded-full bg-[#2c2c2e] flex items-center justify-center border border-[#3a3a3c]">
+                    <span class="material-symbols-outlined text-[#3a3a3c] text-[32px]">campaign</span>
+                  </div>
+                  <p class="text-[#8e8e93] text-sm font-bold">No channels connected yet</p>
+                </div>
+              </Show>
+
+              <For each={channels() || []}>
+                {(channel: any, i) => {
+                   const endDateStr = channel.subscription_status === 'trial' ? channel.trial_ends_at : channel.paid_until;
+                   return (
+                    <Motion.div 
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.1 + (i() * 0.08), duration: 0.4 }}
+                      class="bg-[#1c1c1c] rounded-[1.75rem] p-4 border border-[#2a2a2a] flex flex-col gap-4 group hover:border-[#32ade6]/30 transition-all shadow-lg active:scale-[0.99]"
+                    >
+                      <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4 overflow-hidden">
+                          <div class="w-12 h-12 shrink-0 rounded-2xl bg-gradient-to-br from-[#32ade6]/10 to-transparent flex items-center justify-center border border-[#32ade6]/20">
+                            <span class="text-lg font-black text-[#32ade6]">{channel.title.charAt(0)}</span>
+                          </div>
+                          <div class="flex flex-col overflow-hidden">
+                            <h3 class="text-[16px] font-black text-white leading-tight mb-0.5 truncate">{channel.title}</h3>
+                            <span class="text-[12px] text-[#8e8e93] font-bold">{channel.members} subscribers</span>
+                          </div>
+                        </div>
+                        
+                        <div class="flex flex-col items-end shrink-0">
+                          <span class={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${
+                            channel.subscription_status === 'paid' ? 'text-[#34c759] border-[#34c759]/20 bg-[#34c759]/5' : 
+                            channel.subscription_status === 'trial' ? 'text-[#ff9f0a] border-[#ff9f0a]/20 bg-[#ff9f0a]/5' : 'text-[#ff3b30] border-[#ff3b30]/20 bg-[#ff3b30]/5'
+                          }`}>
+                            {channel.subscription_status === 'paid' ? 'Active' : channel.subscription_status === 'trial' ? 'Trial' : 'Expired'}
+                          </span>
+                          <Show when={endDateStr && channel.subscription_status !== 'expired'}>
+                            <span class="text-[10px] text-[#8e8e93] font-medium mt-1 whitespace-nowrap">{formatTimeRemaining(endDateStr!)}</span>
+                          </Show>
+                        </div>
+                      </div>
+                      
+                      <div class="flex gap-2 w-full">
+                        <Show when={channel.subscription_status !== 'expired'}>
+                          <button 
+                            onClick={() => { hapticFeedback.impactOccurred('light'); navigate(`/channel/${channel.id}`); }}
+                            class="flex-1 h-11 rounded-xl text-[13px] font-black transition-all bg-[#2c2c2e] text-white border border-[#3a3a3c] hover:bg-[#3a3a3c]"
+                          >
+                            Manage Channel
+                          </button>
+                        </Show>
                       </div>
                     </Motion.div>
                    )

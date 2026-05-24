@@ -1,10 +1,11 @@
-import { Component, createSignal, onCleanup, onMount, Show, For } from 'solid-js';
-import { useParams } from '@solidjs/router';
+import { Component, createSignal, createResource, createEffect, onCleanup, onMount, Show, For } from 'solid-js';
+import { useParams, useNavigate } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Motion } from '@motionone/solid';
 import { t } from '@/shared/i18n/index.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SelectField, SettingsSection } from '@/shared/ui/settings-controls.js';
+import { channelApi } from '@/shared/api/channel-management.js';
 
 interface ContentTypes {
   text: boolean;
@@ -25,6 +26,7 @@ interface ForwardRule {
 
 export const ChannelForwardingPage: Component = () => {
   const params = useParams();
+  const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = createSignal(false);
   const [isCreating, setIsCreating] = createSignal(false);
   
@@ -47,10 +49,84 @@ export const ChannelForwardingPage: Component = () => {
   const [watermark, setWatermark] = createSignal('');
   const [delay, setDelay] = createSignal('');
   
-  const [rules, setRules] = createSignal<ForwardRule[]>([
-    { id: '1', direction: 'outbound', targetType: 'telegram', target: 'backup_ch', mode: 'copy', active: true },
-    { id: '2', direction: 'inbound', targetType: 'webhook', target: 'Incoming Webhook', mode: 'forward', active: true }
-  ]);
+  const [rules, setRules] = createSignal<ForwardRule[]>([]);
+
+  const [isDirty, setIsDirty] = createSignal(false);
+  const [isSaving, setIsSaving] = createSignal(false);
+
+  const [settings] = createResource(
+    () => params.id,
+    (id) => channelApi.getSettings(id)
+  );
+
+  createEffect(() => {
+    const data = settings();
+    if (data) {
+      try {
+        let fwd = data.forwarding;
+        if (typeof fwd === 'string') {
+          fwd = JSON.parse(fwd);
+        }
+        if (fwd && typeof fwd === 'object') {
+          if ('contentTypes' in fwd) setContentTypes(fwd.contentTypes);
+          if ('removeAds' in fwd) setRemoveAds(fwd.removeAds);
+          if ('removeHashtags' in fwd) setRemoveHashtags(fwd.removeHashtags);
+          if ('removeLinks' in fwd) setRemoveLinks(fwd.removeLinks);
+          if ('watermark' in fwd) setWatermark(fwd.watermark);
+          if ('delay' in fwd) setDelay(fwd.delay);
+          if ('rules' in fwd && Array.isArray(fwd.rules)) setRules(fwd.rules);
+        }
+      } catch (e) {
+        console.error("Failed to parse forwarding settings:", e);
+      }
+    }
+  });
+
+  let isInitialized = false;
+  createEffect(() => {
+    contentTypes();
+    removeAds();
+    removeHashtags();
+    removeLinks();
+    watermark();
+    delay();
+    rules();
+
+    if (!settings.loading) {
+      if (!isInitialized) {
+        isInitialized = true;
+      } else {
+        setIsDirty(true);
+      }
+    }
+  });
+
+  const handleSave = async () => {
+    hapticFeedback.notificationOccurred('success');
+    setIsSaving(true);
+    
+    const currentVersion = settings()?.version ?? 1;
+    const payload = {
+      contentTypes: contentTypes(),
+      removeAds: removeAds(),
+      removeHashtags: removeHashtags(),
+      removeLinks: removeLinks(),
+      watermark: watermark(),
+      delay: delay(),
+      rules: rules(),
+    };
+
+    try {
+      await channelApi.updateSettings(params.id, 'forwarding', payload, currentVersion);
+      setIsDirty(false);
+      navigate(`/channel/${params.id}`);
+    } catch (e) {
+      console.error("Failed to save forwarding settings:", e);
+      navigate(`/channel/${params.id}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Mock Forward Log
   const forwardLog = () => [
@@ -77,7 +153,7 @@ export const ChannelForwardingPage: Component = () => {
       if (isCreating()) {
         setIsCreating(false);
       } else {
-        window.history.back();
+        navigate(`/channel/${params.id}`);
       }
     });
     onCleanup(() => off());
@@ -577,8 +653,32 @@ export const ChannelForwardingPage: Component = () => {
                </button>
             </div>
           </Motion.div>
-        </Show>
-     </div>
-   </div>
- );
+         </Show>
+      </div>
+
+      {/* Footer Actions (Save button fixed bar) */}
+      <Show when={isDirty()}>
+        <div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#0f1014] via-[#0f1014]/90 to-transparent z-40 flex gap-3">
+          <button 
+            onClick={() => navigate(`/channel/${params.id}`)}
+            disabled={isSaving()}
+            class="flex-1 h-14 bg-[#1c1c1c] text-[#ff3b30] border border-[#ff3b30]/20 rounded-2xl font-bold text-[15px] transition-all flex items-center justify-center gap-2 hover:bg-[#ff3b30]/10"
+          >
+            {t('common.cancel') || 'Cancel'}
+            <span class="material-symbols-outlined text-[18px]">close</span>
+          </button>
+          <button 
+            onClick={handleSave}
+            disabled={isSaving()}
+            class="flex-[2] h-14 bg-[#32ade6] hover:bg-[#2b96c8] text-black rounded-2xl font-bold text-[16px] shadow-[0_10px_25px_rgba(50,173,230,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-40"
+          >
+            <Show when={!isSaving()} fallback={<span class="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin"></span>}>
+              {t('common.save') || 'Save Changes'}
+              <span class="material-symbols-outlined text-[20px]">save</span>
+            </Show>
+          </button>
+        </div>
+      </Show>
+    </div>
+  );
 };

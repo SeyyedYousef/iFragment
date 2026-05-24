@@ -10,15 +10,30 @@ import (
 )
 
 type ManagedBot struct {
-	ID             uuid.UUID `json:"id"`
-	OwnerUserID    int64     `json:"owner_user_id"`
-	BotTokenEncrypted []byte `json:"-"`
-	BotUsername     string    `json:"bot_username"`
-	BotName        string    `json:"bot_name"`
-	BotID          int64     `json:"bot_id"`
-	Status         string    `json:"status"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID                 uuid.UUID `json:"id"`
+	OwnerUserID        int64     `json:"owner_user_id"`
+	BotTokenEncrypted  []byte    `json:"-"`
+	BotUsername        string    `json:"bot_username"`
+	BotName            string    `json:"bot_name"`
+	BotID              int64     `json:"bot_id"`
+	Status             string    `json:"status"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
+	ManagedGroupsCount int       `json:"managed_groups_count"`
+	SubscriptionStatus string    `json:"subscription_status"`
+}
+
+type BillingSubscription struct {
+	ID          uuid.UUID
+	UserID      int64
+	GroupID     uuid.UUID
+	PackageID   string
+	GroupsLimit int
+	AmountFRG   float64
+	Period      string
+	Status      string
+	StartsAt    time.Time
+	ExpiresAt   time.Time
 }
 
 type ManagedGroup struct {
@@ -64,12 +79,31 @@ func (r *BotRepo) GetBotsByOwner(ctx context.Context, ownerID int64) ([]ManagedB
 				Status: "active",
 				CreatedAt: time.Now(),
 				UpdatedAt: time.Now(),
+				ManagedGroupsCount: 2,
+				SubscriptionStatus: "pro",
 			},
 		}, nil
 	}
 
-	query := `SELECT id, owner_user_id, bot_username, bot_name, bot_id, status, created_at, updated_at
-		FROM managed_bots WHERE owner_user_id = $1 ORDER BY created_at DESC`
+	query := `SELECT b.id, b.owner_user_id, b.bot_username, b.bot_name, b.bot_id, b.status, b.created_at, b.updated_at,
+		       (SELECT COUNT(*) FROM managed_groups g WHERE g.bot_id = b.id) as managed_groups_count,
+		       COALESCE(
+		           (SELECT bs.package_id FROM billing_subscriptions bs
+		            JOIN managed_groups g ON bs.group_id = g.id
+		            WHERE g.bot_id = b.id AND bs.status = 'active'
+		            ORDER BY CASE bs.package_id
+		                WHEN 'business' THEN 4
+		                WHEN 'pro' THEN 3
+		                WHEN 'basic' THEN 2
+		                WHEN 'starter' THEN 1
+		                ELSE 0
+		            END DESC LIMIT 1),
+		           (SELECT g.subscription_status FROM managed_groups g 
+		            WHERE g.bot_id = b.id AND g.subscription_status = 'trial' 
+		            LIMIT 1),
+		           'free'
+		       ) as subscription_status
+		FROM managed_bots b WHERE b.owner_user_id = $1 ORDER BY b.created_at DESC`
 	rows, err := r.db.Pool.Query(ctx, query, ownerID)
 	if err != nil {
 		return nil, err
@@ -79,7 +113,10 @@ func (r *BotRepo) GetBotsByOwner(ctx context.Context, ownerID int64) ([]ManagedB
 	var bots []ManagedBot
 	for rows.Next() {
 		var b ManagedBot
-		if err := rows.Scan(&b.ID, &b.OwnerUserID, &b.BotUsername, &b.BotName, &b.BotID, &b.Status, &b.CreatedAt, &b.UpdatedAt); err != nil {
+		if err := rows.Scan(
+			&b.ID, &b.OwnerUserID, &b.BotUsername, &b.BotName, &b.BotID, &b.Status, &b.CreatedAt, &b.UpdatedAt,
+			&b.ManagedGroupsCount, &b.SubscriptionStatus,
+		); err != nil {
 			return nil, err
 		}
 		bots = append(bots, b)
@@ -88,11 +125,29 @@ func (r *BotRepo) GetBotsByOwner(ctx context.Context, ownerID int64) ([]ManagedB
 }
 
 func (r *BotRepo) GetBotByID(ctx context.Context, id uuid.UUID) (*ManagedBot, error) {
-	query := `SELECT id, owner_user_id, bot_token_encrypted, bot_username, bot_name, bot_id, status, created_at, updated_at
-		FROM managed_bots WHERE id = $1`
+	query := `SELECT b.id, b.owner_user_id, b.bot_token_encrypted, b.bot_username, b.bot_name, b.bot_id, b.status, b.created_at, b.updated_at,
+		       (SELECT COUNT(*) FROM managed_groups g WHERE g.bot_id = b.id) as managed_groups_count,
+		       COALESCE(
+		           (SELECT bs.package_id FROM billing_subscriptions bs
+		            JOIN managed_groups g ON bs.group_id = g.id
+		            WHERE g.bot_id = b.id AND bs.status = 'active'
+		            ORDER BY CASE bs.package_id
+		                WHEN 'business' THEN 4
+		                WHEN 'pro' THEN 3
+		                WHEN 'basic' THEN 2
+		                WHEN 'starter' THEN 1
+		                ELSE 0
+		            END DESC LIMIT 1),
+		           (SELECT g.subscription_status FROM managed_groups g 
+		            WHERE g.bot_id = b.id AND g.subscription_status = 'trial' 
+		            LIMIT 1),
+		           'free'
+		       ) as subscription_status
+		FROM managed_bots b WHERE b.id = $1`
 	var b ManagedBot
 	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
 		&b.ID, &b.OwnerUserID, &b.BotTokenEncrypted, &b.BotUsername, &b.BotName, &b.BotID, &b.Status, &b.CreatedAt, &b.UpdatedAt,
+		&b.ManagedGroupsCount, &b.SubscriptionStatus,
 	)
 	if err == pgx.ErrNoRows {
 		return nil, fmt.Errorf("bot not found")
@@ -136,7 +191,7 @@ func (r *BotRepo) GetGroupsByBot(ctx context.Context, botID uuid.UUID) ([]Manage
 				ChatType: "supergroup",
 				MembersCount: 42,
 				SubscriptionStatus: "trial",
-				TrialEndsAt: time.Now().Add(24 * time.Hour),
+				TrialEndsAt: time.Now().Add(72 * time.Hour),
 				PaidUntil: &pu,
 				CreatedAt: time.Now(),
 				UpdatedAt: time.Now(),
@@ -175,7 +230,7 @@ func (r *BotRepo) GetGroupByID(ctx context.Context, id uuid.UUID) (*ManagedGroup
 			ChatType: "supergroup",
 			MembersCount: 42,
 			SubscriptionStatus: "trial",
-			TrialEndsAt: time.Now().Add(24 * time.Hour),
+			TrialEndsAt: time.Now().Add(72 * time.Hour),
 			PaidUntil: &pu,
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
@@ -196,8 +251,45 @@ func (r *BotRepo) GetGroupByID(ctx context.Context, id uuid.UUID) (*ManagedGroup
 }
 
 func (r *BotRepo) UpdateGroupSubscription(ctx context.Context, groupID uuid.UUID, status string, paidUntil *time.Time) error {
-	query := `UPDATE managed_groups SET subscription_status = $1, paid_until = $2, updated_at = now() WHERE id = $3`
-	_, err := r.db.Pool.Exec(ctx, query, status, paidUntil, groupID)
+	if r.db == nil || r.db.Pool == nil {
+		return nil
+	}
+
+	tx, err := r.db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	query1 := `UPDATE managed_groups SET subscription_status = $1, paid_until = $2, updated_at = now() WHERE id = $3`
+	if _, err := tx.Exec(ctx, query1, status, paidUntil, groupID); err != nil {
+		return err
+	}
+
+	if status == "expired" {
+		query2 := `UPDATE billing_subscriptions SET status = 'expired' WHERE group_id = $1 AND status = 'active'`
+		if _, err := tx.Exec(ctx, query2, groupID); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (r *BotRepo) CreateBillingSubscription(ctx context.Context, sub *BillingSubscription) error {
+	if r.db == nil || r.db.Pool == nil {
+		return nil
+	}
+
+	// Deactivate any existing active subscriptions for this group
+	query1 := `UPDATE billing_subscriptions SET status = 'expired' WHERE group_id = $1 AND status = 'active'`
+	_, _ = r.db.Pool.Exec(ctx, query1, sub.GroupID)
+
+	query2 := `
+		INSERT INTO billing_subscriptions (user_id, group_id, package_id, groups_limit, amount_frg, period, status, starts_at, expires_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	`
+	_, err := r.db.Pool.Exec(ctx, query2, sub.UserID, sub.GroupID, sub.PackageID, sub.GroupsLimit, sub.AmountFRG, sub.Period, sub.Status, sub.StartsAt, sub.ExpiresAt)
 	return err
 }
 

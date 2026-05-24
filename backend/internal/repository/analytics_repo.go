@@ -62,35 +62,27 @@ func (r *AnalyticsRepo) GetSummary(ctx context.Context, groupID uuid.UUID, days 
 	since := time.Now().AddDate(0, 0, -days)
 	summary := &AnalyticsSummary{}
 
-	// Messages count
-	r.db.Pool.QueryRow(ctx,
-		`SELECT COALESCE(COUNT(*), 0) FROM group_events WHERE group_id = $1 AND event_type = 'message' AND created_at >= $2`,
-		groupID, since,
-	).Scan(&summary.TotalMessages)
+	query := `
+		SELECT 
+			COALESCE(COUNT(*) FILTER (WHERE event_type = 'message'), 0),
+			COALESCE(COUNT(*) FILTER (WHERE event_type = 'member_join'), 0),
+			COALESCE(COUNT(*) FILTER (WHERE event_type = 'member_leave'), 0),
+			COALESCE(COUNT(*) FILTER (WHERE event_type = 'spam_blocked'), 0),
+			COALESCE(COUNT(DISTINCT user_id) FILTER (WHERE event_type = 'message'), 0)
+		FROM group_events 
+		WHERE group_id = $1 AND created_at >= $2
+	`
 
-	// New members
-	r.db.Pool.QueryRow(ctx,
-		`SELECT COALESCE(COUNT(*), 0) FROM group_events WHERE group_id = $1 AND event_type = 'member_join' AND created_at >= $2`,
-		groupID, since,
-	).Scan(&summary.NewMembers)
-
-	// Left members
-	r.db.Pool.QueryRow(ctx,
-		`SELECT COALESCE(COUNT(*), 0) FROM group_events WHERE group_id = $1 AND event_type = 'member_leave' AND created_at >= $2`,
-		groupID, since,
-	).Scan(&summary.MembersLeft)
-
-	// Spam blocked
-	r.db.Pool.QueryRow(ctx,
-		`SELECT COALESCE(COUNT(*), 0) FROM group_events WHERE group_id = $1 AND event_type = 'spam_blocked' AND created_at >= $2`,
-		groupID, since,
-	).Scan(&summary.SpamBlocked)
-
-	// Active unique users
-	r.db.Pool.QueryRow(ctx,
-		`SELECT COALESCE(COUNT(DISTINCT user_id), 0) FROM group_events WHERE group_id = $1 AND event_type = 'message' AND created_at >= $2`,
-		groupID, since,
-	).Scan(&summary.ActiveUsers)
+	err := r.db.Pool.QueryRow(ctx, query, groupID, since).Scan(
+		&summary.TotalMessages,
+		&summary.NewMembers,
+		&summary.MembersLeft,
+		&summary.SpamBlocked,
+		&summary.ActiveUsers,
+	)
+	if err != nil {
+		return nil, err
+	}
 
 	summary.MembersChange = summary.NewMembers - summary.MembersLeft
 	summary.TopUsers, _ = r.GetTopUsers(ctx, groupID, days, 5)

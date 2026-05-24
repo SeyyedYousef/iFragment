@@ -56,7 +56,7 @@ CREATE TABLE managed_groups (
     members_count INT NOT NULL DEFAULT 0,
     subscription_status TEXT NOT NULL DEFAULT 'trial'
         CHECK (subscription_status IN ('trial', 'paid', 'expired', 'cancelled')),
-    trial_ends_at TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '24 hours'),
+    trial_ends_at TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '72 hours'),
     paid_until TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),

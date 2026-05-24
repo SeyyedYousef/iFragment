@@ -5,17 +5,24 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 )
 
 type BotAPIClient struct {
-	token  string
-	client *http.Client
+	token   string
+	client  *http.Client
+	baseURL string
 }
 
 func NewBotAPIClient(token string) *BotAPIClient {
+	baseURL := os.Getenv("TELEGRAM_API_URL")
+	if baseURL == "" {
+		baseURL = "https://api.telegram.org"
+	}
 	return &BotAPIClient{
-		token: token,
+		token:   token,
+		baseURL: baseURL,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
 			Transport: &http.Transport{
@@ -28,7 +35,7 @@ func NewBotAPIClient(token string) *BotAPIClient {
 }
 
 func (c *BotAPIClient) request(method string, payload interface{}) (json.RawMessage, error) {
-	url := fmt.Sprintf("https://api.telegram.org/bot%s/%s", c.token, method)
+	url := fmt.Sprintf("%s/bot%s/%s", c.baseURL, c.token, method)
 	body, _ := json.Marshal(payload)
 	
 	resp, err := c.client.Post(url, "application/json", bytes.NewBuffer(body))
@@ -189,3 +196,55 @@ func (c *BotAPIClient) PinChatMessage(chatID int64, messageID int) error {
 	})
 	return err
 }
+
+type User struct {
+	ID        int64  `json:"id"`
+	IsBot     bool   `json:"is_bot"`
+	FirstName string `json:"first_name"`
+	Username  string `json:"username,omitempty"`
+}
+
+func (c *BotAPIClient) GetMe() (*User, error) {
+	resp, err := c.request("getMe", nil)
+	if err != nil {
+		return nil, err
+	}
+	var me User
+	if err := json.Unmarshal(resp, &me); err != nil {
+		return nil, err
+	}
+	return &me, nil
+}
+
+func (c *BotAPIClient) GetChatMemberCount(chatID interface{}) (int, error) {
+	resp, err := c.request("getChatMemberCount", map[string]interface{}{
+		"chat_id": chatID,
+	})
+	if err != nil {
+		return 0, err
+	}
+	var count int
+	err = json.Unmarshal(resp, &count)
+	return count, err
+}
+
+type ChatResult struct {
+	ID    int64  `json:"id"`
+	Type  string `json:"type"`
+	Title string `json:"title,omitempty"`
+}
+
+func (c *BotAPIClient) GetChat(chatID interface{}) (*ChatResult, error) {
+	resp, err := c.request("getChat", map[string]interface{}{
+		"chat_id": chatID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var res ChatResult
+	if err := json.Unmarshal(resp, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+

@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log/slog"
 	"os"
 	"sync"
 	"time"
@@ -35,11 +34,14 @@ var Packages = []SubscriptionPackage{
 }
 
 type BotService struct {
-	botRepo       *repository.BotRepo
-	settingsRepo  *repository.SettingsRepo
-	auditRepo     *repository.AuditRepo
-	frgRepo       *repository.FRGRepo
-	analyticsRepo *repository.AnalyticsRepo
+	botRepo              *repository.BotRepo
+	settingsRepo         *repository.SettingsRepo
+	auditRepo            *repository.AuditRepo
+	frgRepo              *repository.FRGRepo
+	analyticsRepo        *repository.AnalyticsRepo
+	mu                   sync.Mutex
+	lastNotificationDate string               // format: YYYY-MM-DD
+	qhNotifications      map[string]time.Time // key: groupID:action:HH:MM, val: time
 }
 
 func NewBotService(
@@ -59,14 +61,17 @@ func NewBotService(
 }
 
 func (s *BotService) StartBackgroundTasks(ctx context.Context) {
-	ticker := time.NewTicker(1 * time.Hour)
+	expiryTicker := time.NewTicker(10 * time.Minute)
+	qhTicker := time.NewTicker(1 * time.Minute)
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case <-ticker.C:
+			case <-expiryTicker.C:
 				s.CheckExpirations(ctx)
+			case <-qhTicker.C:
+				s.CheckQuietHoursTransitions(ctx)
 			}
 		}
 	}()
@@ -79,6 +84,19 @@ func (s *BotService) CheckExpirations(ctx context.Context) {
 	}
 
 	now := time.Now()
+
+	// Determine if we should process 10 AM alerts today
+	shouldAlert := false
+	todayStr := now.Format("2006-01-02")
+	if now.Hour() == 10 {
+		s.mu.Lock()
+		if s.lastNotificationDate != todayStr {
+			shouldAlert = true
+			s.lastNotificationDate = todayStr
+		}
+		s.mu.Unlock()
+	}
+
 	for _, g := range groups {
 		var expiry *time.Time
 		if g.SubscriptionStatus == "trial" {
@@ -99,11 +117,9 @@ func (s *BotService) CheckExpirations(ctx context.Context) {
 		}
 
 		// 2. Check for alerts (3 days and 1 day before)
-		daysLeft := int(expiry.Sub(now).Hours() / 24)
-		if daysLeft == 3 || daysLeft == 1 {
-			// Simple check if notice already sent (could use a dedicated table or redis)
-			// For now, we'll just send it if it's the right time window
-			if time.Now().Hour() == 10 { // Only send at 10 AM
+		if shouldAlert {
+			daysLeft := int(expiry.Sub(now).Hours() / 24)
+			if daysLeft == 3 || daysLeft == 1 {
 				template := "expiry_3d"
 				if daysLeft == 1 {
 					template = "expiry_24h"
@@ -144,6 +160,15 @@ func (s *BotService) sendExpirationNotice(ctx context.Context, g repository.Mana
 // Bot Operations
 
 func (s *BotService) RegisterBot(ctx context.Context, ownerID int64, token, username, name string, botID int64) (*repository.ManagedBot, error) {
+	tgClient := telegram.NewBotAPIClient(token)
+	me, err := tgClient.GetMe()
+	if err != nil {
+		return nil, fmt.Errorf("bot token verification failed: %w", err)
+	}
+	if me.ID != botID || me.Username != username {
+		return nil, fmt.Errorf("bot token verification details mismatch")
+	}
+
 	encrypted, err := EncryptToken(token)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encrypt token: %w", err)
@@ -281,6 +306,11 @@ func (s *BotService) GetPackages() []SubscriptionPackage {
 }
 
 func (s *BotService) Subscribe(ctx context.Context, userID int64, groupID uuid.UUID, packageID string) error {
+	group, err := s.GetGroup(ctx, groupID, userID)
+	if err != nil {
+		return fmt.Errorf("unauthorized or invalid group: %w", err)
+	}
+
 	var pkg *SubscriptionPackage
 	for _, p := range Packages {
 		if p.ID == packageID {
@@ -297,20 +327,42 @@ func (s *BotService) Subscribe(ctx context.Context, userID int64, groupID uuid.U
 		"group_id": groupID.String(),
 	})
 
-	_, err := s.frgRepo.Debit(ctx, userID, pkg.PriceFRG, "subscription_payment", meta)
+	_, err = s.frgRepo.Debit(ctx, userID, pkg.PriceFRG, "subscription_payment", meta)
 	if err != nil {
 		return fmt.Errorf("payment failed: %w", err)
 	}
 
-	paidUntil := time.Now().Add(30 * 24 * time.Hour)
+	base := time.Now()
+	if group.SubscriptionStatus == "paid" && group.PaidUntil != nil && group.PaidUntil.After(base) {
+		base = *group.PaidUntil
+	}
+	paidUntil := base.Add(30 * 24 * time.Hour)
+
 	if err := s.botRepo.UpdateGroupSubscription(ctx, groupID, "paid", &paidUntil); err != nil {
 		// Refund on failure
 		_, _ = s.frgRepo.Credit(ctx, userID, pkg.PriceFRG, "refund", meta)
 		return fmt.Errorf("failed to activate subscription: %w", err)
 	}
 
+	// Create billing subscription record
+	_ = s.botRepo.CreateBillingSubscription(ctx, &repository.BillingSubscription{
+		UserID:      userID,
+		GroupID:     groupID,
+		PackageID:   packageID,
+		GroupsLimit: pkg.GroupsLimit,
+		AmountFRG:   pkg.PriceFRG,
+		Period:      "monthly",
+		Status:      "active",
+		StartsAt:    time.Now(),
+		ExpiresAt:   paidUntil,
+	})
+
 	// Trigger tiered lifetime referral commissions (10% Tier 1, 3% Tier 2)
-	go s.frgRepo.DB().CreditReferrerShare(context.Background(), userID, pkg.PriceFRG, s.frgRepo)
+	go func() {
+		bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		s.frgRepo.DB().CreditReferrerShare(bgCtx, userID, pkg.PriceFRG, s.frgRepo)
+	}()
 
 	return nil
 }
@@ -362,14 +414,11 @@ func getCryptoKey() []byte {
 	cryptoOnce.Do(func() {
 		keyStr := os.Getenv("BOT_TOKEN_KEY")
 		if keyStr == "" {
-			slog.Warn("CRITICAL: BOT_TOKEN_KEY is not set. Token encryption/decryption will fail.")
-			keyStr = "default_fallback_key_32_chars_!!!" // Still needs 32 chars
+			panic("CRITICAL: BOT_TOKEN_KEY environment variable is not set")
 		}
 		key := []byte(keyStr)
 		if len(key) != 32 {
-			padded := make([]byte, 32)
-			copy(padded, key)
-			key = padded
+			panic("CRITICAL: BOT_TOKEN_KEY must be exactly 32 bytes/characters long")
 		}
 		cryptoKey = key
 	})
@@ -421,4 +470,95 @@ func DecryptToken(ciphertext []byte) (string, error) {
 	}
 
 	return string(plaintext), nil
+}
+
+func (s *BotService) CheckQuietHoursTransitions(ctx context.Context) {
+	groups, err := s.botRepo.GetAllActiveGroups(ctx)
+	if err != nil {
+		return
+	}
+
+	now := time.Now()
+	for _, g := range groups {
+		settings, err := s.settingsRepo.GetSettings(ctx, g.ID)
+		if err != nil {
+			continue
+		}
+
+		var general repository.SettingsGeneral
+		var quiet repository.SettingsQuietHours
+		var customTexts repository.SettingsCustomTexts
+
+		if json.Unmarshal(settings.General, &general) != nil {
+			continue
+		}
+		if json.Unmarshal(settings.QuietHours, &quiet) != nil {
+			continue
+		}
+		if json.Unmarshal(settings.CustomTexts, &customTexts) != nil {
+			continue
+		}
+
+		if len(quiet.Periods) == 0 || !quiet.SendNotifications {
+			continue
+		}
+
+		loc, err := time.LoadLocation(general.Timezone)
+		if err != nil {
+			loc = time.UTC
+		}
+
+		nowInTZ := now.In(loc)
+		currentTimeStr := nowInTZ.Format("15:04") // HH:MM
+
+		for _, p := range quiet.Periods {
+			if p.Start == currentTimeStr {
+				s.sendQHNotice(ctx, g, "start", customTexts.SilenceStartText, currentTimeStr)
+			}
+			if p.End == currentTimeStr {
+				s.sendQHNotice(ctx, g, "end", customTexts.SilenceEndText, currentTimeStr)
+			}
+		}
+	}
+}
+
+func (s *BotService) sendQHNotice(ctx context.Context, g repository.ManagedGroup, action string, customText string, timeStr string) {
+	key := fmt.Sprintf("%s:%s:%s", g.ID, action, timeStr)
+	s.mu.Lock()
+	if s.qhNotifications == nil {
+		s.qhNotifications = make(map[string]time.Time)
+	}
+	lastSent, exists := s.qhNotifications[key]
+	// Clean up old entries
+	now := time.Now()
+	for k, t := range s.qhNotifications {
+		if now.Sub(t) > 24*time.Hour {
+			delete(s.qhNotifications, k)
+		}
+	}
+	if exists && now.Sub(lastSent) < 5*time.Minute {
+		s.mu.Unlock()
+		return
+	}
+	s.qhNotifications[key] = now
+	s.mu.Unlock()
+
+	bot, err := s.botRepo.GetBotByID(ctx, g.BotID)
+	if err != nil {
+		return
+	}
+
+	token, _ := DecryptToken(bot.BotTokenEncrypted)
+	tg := telegram.NewBotAPIClient(token)
+
+	msg := customText
+	if msg == "" {
+		if action == "start" {
+			msg = "🔒 *Quiet hours have started.* The group is now muted."
+		} else {
+			msg = "🔓 *Quiet hours have ended.* You can now send messages."
+		}
+	}
+
+	_ = tg.SendMessage(g.ChatID, msg, nil, nil)
 }
