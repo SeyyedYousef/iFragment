@@ -13,8 +13,8 @@ const BOOSTER_META: Record<string, { nameKey: string; descKey: string; icon: str
 export const BoostersView: Component = () => {
   const [animatingId, setAnimatingId] = createSignal<string | null>(null);
 
-  const handleUpgrade = (id: string) => {
-    const success = upgradeBooster(id);
+  const handleUpgrade = async (id: string) => {
+    const success = await upgradeBooster(id);
     if (success) {
       try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
       setAnimatingId(id);

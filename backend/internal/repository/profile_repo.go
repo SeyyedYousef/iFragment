@@ -51,7 +51,8 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 			SELECT days_active, current_streak, total_taps, xp, level, last_active_at,
 			       COALESCE(emoji_status, '') as emoji_status,
 			       COALESCE(equipped_border, '') as equipped_border,
-			       COALESCE(equipped_skin, '') as equipped_skin
+			       COALESCE(equipped_skin, '') as equipped_skin,
+			       airdrop_coins
 			FROM user_stats WHERE user_id = $1
 		)
 		SELECT 
@@ -72,7 +73,8 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 			ui.premium_until,
 			si.emoji_status,
 			si.equipped_border,
-			si.equipped_skin
+			si.equipped_skin,
+			si.airdrop_coins
 		FROM stats_info si
 		CROSS JOIN user_info ui
 		CROSS JOIN reports_count rc
@@ -88,12 +90,13 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 	var isPremium bool
 	var premiumUntil *time.Time
 	var emojiStatus, equippedBorder, equippedSkin string
+	var airdropCoins float64
 
 	err := db.Pool.QueryRow(ctx, query, userID).Scan(
 		&memberSince, &usernamesAnalyzed, &groupsManaged, &channelsManaged,
 		&frgBalance, &totalFrgEarned, &totalFrgSpent,
 		&daysActive, &currentStreak, &totalTaps, &xp, &level, &lastActiveAt,
-		&isPremium, &premiumUntil, &emojiStatus, &equippedBorder, &equippedSkin,
+		&isPremium, &premiumUntil, &emojiStatus, &equippedBorder, &equippedSkin, &airdropCoins,
 	)
 	if err != nil {
 		return nil, err
@@ -137,6 +140,7 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 		EmojiStatus:       emojiStatus,
 		EquippedBorder:    equippedBorder,
 		EquippedSkin:      equippedSkin,
+		AirdropCoins:      airdropCoins,
 	}, nil
 }
 

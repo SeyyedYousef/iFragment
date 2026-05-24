@@ -1,89 +1,96 @@
-import { Component, createSignal, For } from 'solid-js';
+import { Component, createSignal, For, Show } from 'solid-js';
+import { createQuery } from '@tanstack/solid-query';
 import { t, locale } from '@/shared/i18n/index.js';
+import { hapticFeedback } from '@tma.js/sdk-solid';
+import { syncProfileStats } from '@/shared/store/airdrop.js';
+import { SectionHeader } from '@/shared/ui/section-header.js';
+import { getTasksStatus, completeTask, TaskStatus } from '@/shared/api/profile.js';
 
 const isRtl = () => locale() === 'fa';
-import { hapticFeedback } from '@tma.js/sdk-solid';
-import { setBalance } from '@/shared/store/airdrop.js';
-import { SectionHeader } from '@/shared/ui/section-header.js';
-
-interface Task {
-  id: string;
-  titleKey: string;
-  reward: number;
-  icon: string;
-  type: 'daily' | 'partner' | 'social';
-  status: 'todo' | 'verifying' | 'done';
-}
 
 export const TasksView: Component = () => {
-  const [tasks, setTasks] = createSignal<Task[]>([
-    { id: '1', titleKey: 'airdrop.tasks.joinChannel', reward: 50000, icon: 'campaign', type: 'daily', status: 'todo' },
-    { id: '2', titleKey: 'airdrop.tasks.answerQuestion', reward: 10000, icon: 'quiz', type: 'daily', status: 'todo' },
-    { id: '3', titleKey: 'airdrop.tasks.tapMilestone', reward: 25000, icon: 'trending_up', type: 'daily', status: 'todo' },
-    { id: '4', titleKey: 'airdrop.tasks.joinSponsor', reward: 75000, icon: 'handshake', type: 'partner', status: 'todo' },
-    { id: '5', titleKey: 'airdrop.tasks.buyNumber', reward: 150000, icon: 'shopping_bag', type: 'partner', status: 'done' },
-    { id: '6', titleKey: 'airdrop.tasks.inviteFriend', reward: 10000, icon: 'person_add', type: 'social', status: 'todo' },
-    { id: '7', titleKey: 'airdrop.tasks.followTwitter', reward: 30000, icon: 'share', type: 'social', status: 'todo' },
-  ]);
+  const [taskErrors, setTaskErrors] = createSignal<Record<string, string>>({});
+  const [loadingKeys, setLoadingKeys] = createSignal<Record<string, boolean>>({});
 
-  const handleTaskClick = (id: string) => {
-    const task = tasks().find(t => t.id === id);
-    if (!task || task.status !== 'todo') return;
-    try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+  const tasksQuery = createQuery(() => ({
+    queryKey: ['tasks-status'],
+    queryFn: getTasksStatus,
+  }));
 
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'verifying' as const } : t));
-    setTimeout(() => {
-      setTasks(p => p.map(t => t.id === id ? { ...t, status: 'done' as const } : t));
-      setBalance(b => b + task.reward);
-      try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
-    }, 2000);
+  const handleTaskClick = async (task: TaskStatus) => {
+    if (task.completed) return;
+    const key = task.key;
+    
+    // Clear previous errors
+    setTaskErrors(prev => ({ ...prev, [key]: '' }));
+    setLoadingKeys(prev => ({ ...prev, [key]: true }));
+    
+    try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
+
+    // CTA Redirect if Telegram channel task
+    if (key === "join_ifragment_channel") {
+      window.open("https://t.me/ifragment_net", "_blank");
+      // Give a tiny timeout for channel redirection before triggering verification
+      await new Promise(resolve => setTimeout(resolve, 800));
+    }
+
+    try {
+      const result = await completeTask(key);
+      if (result) {
+        try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+        tasksQuery.refetch();
+        await syncProfileStats();
+      }
+    } catch (e: any) {
+      console.error("Failed to complete task:", e);
+      let farsiErr = "شرایط انجام این ماموریت هنوز برقرار نیست";
+      if (e.message) {
+        if (e.message.includes("search/scan")) {
+          farsiErr = "ابتدا باید حداقل یک یوزرنیم تلگرام را جستجو/اسکن کنید";
+        } else if (e.message.includes("managed bot")) {
+          farsiErr = "ابتدا باید حداقل یک ربات مدیریت کانال ثبت کنید";
+        } else {
+          farsiErr = e.message;
+        }
+      }
+      setTaskErrors(prev => ({ ...prev, [key]: farsiErr }));
+      try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+    } finally {
+      setLoadingKeys(prev => ({ ...prev, [key]: false }));
+    }
   };
 
-  const renderTaskGroup = (type: Task['type'], labelKey: string, icon: string, iconColor: string) => {
-    const filtered = () => tasks().filter(t => t.type === type);
-    return (
-      <div class="mb-5">
-        <h2 class="text-white font-bold text-sm mb-2.5 flex items-center gap-2 px-1">
-          <span class={`material-symbols-outlined text-lg`} style={{ color: iconColor, 'font-variation-settings': '"FILL" 1' }}>{icon}</span>
-          {t(labelKey as import('@/shared/i18n/index.js').DictPaths)}
-        </h2>
-        <div class="bg-[#1c1c1e]/80 backdrop-blur-lg rounded-2xl overflow-hidden border border-white/[0.04]">
-          <For each={filtered()}>
-            {(task, i) => (
-              <div class={`flex items-center justify-between px-4 py-3.5 ${i() < filtered().length - 1 ? 'border-b border-white/[0.04]' : ''}`}>
-                <div class="flex items-center gap-3 flex-1 min-w-0">
-                  <div class="w-10 h-10 rounded-xl bg-[#2c2c2e] flex items-center justify-center shrink-0">
-                    <span class="material-symbols-outlined text-xl" style={{ color: iconColor }}>{task.icon}</span>
-                  </div>
-                  <div class="flex flex-col min-w-0">
-                    <span class="text-white font-semibold text-[13px] truncate">{t(task.titleKey as import('@/shared/i18n/index.js').DictPaths)}</span>
-                    <span class="text-amber-400 font-bold text-xs flex items-center gap-1 mt-0.5">
-                      <span class="material-symbols-outlined text-[13px]" style={{ 'font-variation-settings': '"FILL" 1' }}>monetization_on</span>
-                      +{task.reward.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleTaskClick(task.id)}
-                  disabled={task.status !== 'todo'}
-                  class={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ml-3 ${
-                    task.status === 'done' ? 'bg-[#34c759]/15 text-[#34c759]' :
-                    task.status === 'verifying' ? 'bg-[#2c2c2e] text-[#8e8e93]' :
-                    'bg-[#3390ec] text-white active:scale-95 shadow-[0_2px_10px_rgba(51,144,236,0.3)]'
-                  }`}
-                >
-                  {task.status === 'done' ? (
-                    <span class="material-symbols-outlined text-sm" style={{ 'font-variation-settings': '"FILL" 1' }}>check_circle</span>
-                  ) : task.status === 'verifying' ? (
-                    <span class="material-symbols-outlined text-sm animate-spin">progress_activity</span>
-                  ) : t('airdrop.tasks.startBtn')}
-                </button>
-              </div>
-            )}
-          </For>
-        </div>
-      </div>
-    );
+  const getTaskDetails = (key: string) => {
+    switch (key) {
+      case "join_ifragment_channel":
+        return {
+          title: "عضویت در کانال رسمی iFragment",
+          desc: "به کانال رسمی تلگرام ما بپیوندید",
+          icon: "campaign",
+          color: "#3390ec"
+        };
+      case "first_username_scan":
+        return {
+          title: "اولین جستجو و اسکن یوزرنیم",
+          desc: "یک یوزرنیم تلگرام را در سربرگ جستجو اسکن کنید",
+          icon: "search",
+          color: "#fbbf24"
+        };
+      case "register_first_bot":
+        return {
+          title: "ثبت اولین ربات مدیریت",
+          desc: "یک ربات مدیریت در بخش مدیریت پنل ثبت و فعال کنید",
+          icon: "smart_toy",
+          color: "#34c759"
+        };
+      default:
+        return {
+          title: "ماموریت ویژه سیستم",
+          desc: "شرایط ویژه این ماموریت را تکمیل کنید",
+          icon: "assignment_turned_in",
+          color: "#a78bfa"
+        };
+    }
   };
 
   return (
@@ -117,9 +124,73 @@ export const TasksView: Component = () => {
         </button>
       </div>
 
-      {renderTaskGroup('daily', 'airdrop.tasks.daily', 'wb_sunny', '#fbbf24')}
-      {renderTaskGroup('social', 'airdrop.tasks.social', 'groups', '#3390ec')}
-      {renderTaskGroup('partner', 'airdrop.tasks.partners', 'verified', '#34c759')}
+      {/* System Tasks Section */}
+      <div>
+        <h2 class="text-white font-bold text-sm mb-2.5 flex items-center gap-2 px-1">
+          <span class="material-symbols-outlined text-lg text-amber-400" style={{ 'font-variation-settings': '"FILL" 1' }}>military_tech</span>
+          ماموریت‌های فعال ایردراپ
+        </h2>
+        <div class="bg-[#1c1c1e]/80 backdrop-blur-lg rounded-2xl overflow-hidden border border-white/[0.04] min-h-[150px] flex flex-col">
+          <Show 
+            when={!tasksQuery.isLoading} 
+            fallback={
+              <div class="flex-1 flex items-center justify-center py-12">
+                <div class="w-8 h-8 border-2 border-[#3390ec] border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            }
+          >
+            <For each={tasksQuery.data} fallback={
+              <div class="flex-1 flex items-center justify-center py-8 text-[#8e8e93] text-xs">هیچ ماموریت فعالی در حال حاضر وجود ندارد.</div>
+            }>
+              {(task, i) => {
+                const details = getTaskDetails(task.key);
+                return (
+                  <div class={`flex flex-col px-4 py-3.5 ${i() < (tasksQuery.data?.length || 0) - 1 ? 'border-b border-white/[0.04]' : ''}`}>
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center gap-3 flex-1 min-w-0">
+                        <div class="w-10 h-10 rounded-xl bg-[#2c2c2e] flex items-center justify-center shrink-0">
+                          <span class="material-symbols-outlined text-xl" style={{ color: details.color }}>{details.icon}</span>
+                        </div>
+                        <div class="flex flex-col min-w-0">
+                          <span class="text-white font-semibold text-[13px] truncate">{details.title}</span>
+                          <span class="text-[#8e8e93] text-[10px] truncate mt-0.5">{details.desc}</span>
+                          <span class="text-amber-400 font-bold text-xs flex items-center gap-1 mt-0.5">
+                            <span class="material-symbols-outlined text-[13px]" style={{ 'font-variation-settings': '"FILL" 1' }}>monetization_on</span>
+                            +{task.reward_frg.toLocaleString()} FRG
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleTaskClick(task)}
+                        disabled={task.completed || loadingKeys()[task.key]}
+                        class={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ml-3 ${
+                          task.completed ? 'bg-[#34c759]/15 text-[#34c759]' :
+                          loadingKeys()[task.key] ? 'bg-[#2c2c2e] text-[#8e8e93]' :
+                          'bg-[#3390ec] text-white active:scale-95 shadow-[0_2px_10px_rgba(51,144,236,0.3)]'
+                        }`}
+                      >
+                        {task.completed ? (
+                          <span class="material-symbols-outlined text-sm" style={{ 'font-variation-settings': '"FILL" 1' }}>check_circle</span>
+                        ) : loadingKeys()[task.key] ? (
+                          <span class="material-symbols-outlined text-sm animate-spin">progress_activity</span>
+                        ) : (
+                          task.key === "join_ifragment_channel" ? "عضویت و بررسی" : "بررسی و انجام"
+                        )}
+                      </button>
+                    </div>
+                    {taskErrors()[task.key] && (
+                      <div class="text-red-500 font-semibold text-[10px] mt-2 px-1 flex items-center gap-1">
+                        <span class="material-symbols-outlined text-xs">warning</span>
+                        {taskErrors()[task.key]}
+                      </div>
+                    )}
+                  </div>
+                );
+              }}
+            </For>
+          </Show>
+        </div>
+      </div>
     </div>
   );
 };

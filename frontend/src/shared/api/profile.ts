@@ -143,3 +143,40 @@ export const createPremiumCheckout = async (): Promise<{ invoice_link: string }>
   });
 };
 
+export const addTaps = async (taps: number): Promise<ProfileStats> => {
+  return apiFetch<ProfileStats>('/profile/tap', {
+    method: 'POST',
+    body: JSON.stringify({ taps })
+  });
+};
+
+export interface UserClanDetails {
+  clan?: {
+    id: string;
+    telegram_channel_id: number;
+    channel_username: string;
+    channel_photo?: string;
+    chat_title: string;
+    members_count: number;
+  };
+  is_member: boolean;
+  joined_at?: string;
+}
+
+export const getClan = async (): Promise<UserClanDetails> => {
+  return apiFetch<UserClanDetails>('/profile/clan');
+};
+
+export const joinClan = async (username: string): Promise<any> => {
+  return apiFetch<any>('/profile/clan/join', {
+    method: 'POST',
+    body: JSON.stringify({ username })
+  });
+};
+
+export const leaveClan = async (): Promise<any> => {
+  return apiFetch<any>('/profile/clan/leave', {
+    method: 'POST'
+  });
+};
+

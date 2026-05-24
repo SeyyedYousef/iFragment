@@ -198,8 +198,23 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int) (*
 		return nil, fmt.Errorf("tapping rate too high (rate limit exceeded)")
 	}
 
-	// Award XP (2 XP per tap)
-	_, err := s.db.Pool.Exec(ctx, "UPDATE user_stats SET total_taps = total_taps + $1, xp = xp + $2, last_active_at = CURRENT_TIMESTAMP WHERE user_id = $3", taps, taps*2, userID)
+	// Get Multitap boost level to calculate coins earned
+	boosts, err := s.db.GetUserBoosts(ctx, userID)
+	multitapLevel := 1
+	if err == nil && boosts != nil {
+		multitapLevel = boosts.MultitapLevel
+	}
+	coinsEarned := float64(taps) * float64(multitapLevel)
+
+	// Award XP (2 XP per tap) and credit airdrop_coins
+	_, err = s.db.Pool.Exec(ctx, `
+		UPDATE user_stats 
+		SET total_taps = total_taps + $1, 
+		    xp = xp + $2, 
+		    airdrop_coins = airdrop_coins + $3, 
+		    last_active_at = CURRENT_TIMESTAMP 
+		WHERE user_id = $4
+	`, taps, taps*2, coinsEarned, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -208,10 +223,6 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int) (*
 		cacheKey := fmt.Sprintf("profile:taps:last_active:%d", userID)
 		s.cache.Client.Set(ctx, cacheKey, strconv.FormatInt(time.Now().UnixNano(), 10), 30*time.Second)
 	}
-
-	frgEarned := float64(taps) * 0.1
-	meta, _ := json.Marshal(map[string]interface{}{"taps": taps})
-	_, _ = s.frgRepo.Credit(ctx, userID, frgEarned, "admin_credit", meta)
 
 	var xp, oldLevel int
 	_ = s.db.Pool.QueryRow(ctx, "SELECT xp, level FROM user_stats WHERE user_id = $1", userID).Scan(&xp, &oldLevel)

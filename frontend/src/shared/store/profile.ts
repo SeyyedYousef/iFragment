@@ -35,6 +35,7 @@ export interface ProfileStats {
   emojiStatus: string;
   equippedBorder: string;
   equippedSkin: string;
+  airdropCoins?: number;
 }
 
 export interface ReferralInfo {

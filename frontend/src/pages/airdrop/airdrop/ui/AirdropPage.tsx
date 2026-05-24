@@ -2,7 +2,7 @@ import { Component, createSignal, Match, Switch, For, Show, createEffect, onClea
 import { t } from '@/shared/i18n/index.js';
 
 import { hapticFeedback, backButton } from '@tma.js/sdk-solid';
-import { checkedInToday, currentLeague } from '@/shared/store/airdrop.js';
+import { checkedInToday, currentLeague, userClan } from '@/shared/store/airdrop.js';
 const TapView = lazy(() => import('./TapView.js').then(m => ({ default: m.TapView })));
 const TasksView = lazy(() => import('./TasksView.js').then(m => ({ default: m.TasksView })));
 const LeaderboardView = lazy(() => import('./LeaderboardView.js').then(m => ({ default: m.LeaderboardView })));
@@ -112,6 +112,45 @@ export const AirdropPage: Component = () => {
             </button>
           </div>
         </div>
+
+        {/* Clan prominent badge */}
+        <Show 
+          when={userClan()} 
+          fallback={
+            <button 
+              onClick={() => openModal('clan')}
+              class="w-full flex items-center justify-between bg-white/5 border border-white/[0.04] p-3 rounded-2xl active:scale-[0.98] transition-transform"
+            >
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20 text-sm">🛡️</div>
+                <div class="text-left">
+                  <div class="text-white font-bold text-xs">بدون کلن (کلیک کنید)</div>
+                  <div class="text-[#8e8e93] text-[10px]">برای کار تیمی و استخر استخراج کلن بسازید یا عضو شوید</div>
+                </div>
+              </div>
+              <span class="material-symbols-outlined text-[#8e8e93] text-sm">chevron_right</span>
+            </button>
+          }
+        >
+          {(clan) => (
+            <button 
+              onClick={() => openModal('clan')}
+              class="w-full flex items-center justify-between bg-[#1c1c1e]/80 backdrop-blur-lg border border-red-500/20 p-3 rounded-2xl active:scale-[0.98] transition-transform"
+            >
+              <div class="flex items-center gap-2.5">
+                <img src={clan().channel_photo || "https://telegram.org/img/t_logo.png"} alt={clan().chat_title} class="w-8 h-8 rounded-xl object-cover border border-white/10" />
+                <div class="text-left">
+                  <div class="text-white font-black text-xs">{clan().chat_title}</div>
+                  <div class="text-red-400 font-bold text-[10px] flex items-center gap-1 mt-0.5">
+                    <span class="material-symbols-outlined text-[10px]" style={{ 'font-variation-settings': '"FILL" 1' }}>shield</span>
+                    کلن من • {clan().members_count.toLocaleString()} عضو
+                  </div>
+                </div>
+              </div>
+              <span class="material-symbols-outlined text-[#8e8e93] text-sm">chevron_right</span>
+            </button>
+          )}
+        </Show>
       </div>
 
       {/* Main Content Area */}

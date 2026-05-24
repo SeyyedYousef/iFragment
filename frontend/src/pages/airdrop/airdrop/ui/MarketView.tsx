@@ -3,11 +3,13 @@ import { t, locale } from '@/shared/i18n/index.js';
 import { hapticFeedback } from '@tma.js/sdk-solid';
 import { balance, setBalance, frgBalance, setFrgBalance } from '@/shared/store/airdrop.js';
 import { SectionHeader } from '@/shared/ui/section-header.js';
+import { marketplaceApi } from '@/shared/api/bot-management.js';
 
 const isRtl = () => locale() === 'fa';
 
 export const MarketView: Component = () => {
   const [amount, setAmount] = createSignal('');
+  const [loading, setLoading] = createSignal(false);
   const RATE = 100000;
 
   const frgAmount = () => {
@@ -15,13 +17,21 @@ export const MarketView: Component = () => {
     return isNaN(num) ? 0 : num / RATE;
   };
 
-  const handleConvert = () => {
+  const handleConvert = async () => {
     const num = parseInt(amount());
-    if (isNaN(num) || num <= 0 || num > balance()) return;
+    if (isNaN(num) || num <= 0 || num > balance() || loading()) return;
     try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
-    setBalance(b => b - num);
-    setFrgBalance(f => f + frgAmount());
-    setAmount('');
+    setLoading(true);
+    try {
+      await marketplaceApi.convertAirdropCoins(num);
+      setBalance(b => b - num);
+      setFrgBalance(f => f + frgAmount());
+      setAmount('');
+    } catch (e) {
+      console.error("Conversion failed:", e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

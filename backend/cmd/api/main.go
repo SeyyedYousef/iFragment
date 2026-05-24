@@ -211,6 +211,8 @@ func main() {
 	profileHandler := handler.NewProfileHandler(profileService, paymentService)
 	gamificationService := service.NewGamificationService(db, cache)
 	gamificationHandler := handler.NewGamificationHandler(gamificationService)
+	clanService := service.NewClanService(db)
+	clanHandler := handler.NewClanHandler(clanService)
 
 	authHandler := handler.NewAuthHandler()
 
@@ -383,6 +385,11 @@ func main() {
 			r.Get("/boosts", gamificationHandler.GetBoostsStatus)
 			r.Post("/boosts/upgrade", gamificationHandler.UpgradeBoost)
 			r.Get("/leaderboard", gamificationHandler.GetLeaderboard)
+
+			// Clan routes
+			r.Get("/clan", clanHandler.GetClanDetails)
+			r.Post("/clan/join", clanHandler.JoinClan)
+			r.Post("/clan/leave", clanHandler.LeaveClan)
 		})
 	})
 

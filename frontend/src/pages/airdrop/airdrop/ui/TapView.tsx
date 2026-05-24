@@ -1,7 +1,7 @@
 import { Component, createSignal, For } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 import { hapticFeedback } from '@tma.js/sdk-solid';
-import { balance, setBalance, energy, setEnergy, maxEnergy, tapPower, setTotalTaps, currentLeague } from '@/shared/store/airdrop.js';
+import { balance, energy, maxEnergy, tapPower, currentLeague, recordTaps } from '@/shared/store/airdrop.js';
 
 interface Particle {
   id: number;
@@ -29,9 +29,7 @@ export const TapView: Component = () => {
     try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
 
     const power = tapPower();
-    setBalance(b => b + power);
-    setTotalTaps(t => t + 1);
-    setEnergy(en => Math.max(en - power, 0));
+    recordTaps(1);
 
     // Get touch/click positions for particles
     const touches = e.type.startsWith('touch')

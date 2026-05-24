@@ -7,8 +7,8 @@ import { streakDay, checkedInToday, claimDailyReward, DAILY_REWARDS } from '@/sh
 import { SectionHeader } from '@/shared/ui/section-header.js';
 
 export const DailyRewardView: Component = () => {
-  const handleClaim = () => {
-    const reward = claimDailyReward();
+  const handleClaim = async () => {
+    const reward = await claimDailyReward();
     if (reward) {
       try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
     }

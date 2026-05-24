@@ -22,6 +22,7 @@ type ProfileStats struct {
 	EmojiStatus       string     `json:"emojiStatus"`
 	EquippedBorder    string     `json:"equippedBorder"`
 	EquippedSkin      string     `json:"equippedSkin"`
+	AirdropCoins      float64    `json:"airdropCoins"`
 }
 
 type UserAchievement struct {

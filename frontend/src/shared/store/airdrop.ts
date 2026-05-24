@@ -24,6 +24,8 @@ export const LEAGUES: League[] = [
   { name: 'Legendary', icon: 'auto_awesome',  minScore: 5_000_000,  color: '#ff6b35' },
 ];
 
+import { Clan } from '@/shared/api/bot-management.js';
+
 const loadState = () => {
   try {
     const data = localStorage.getItem('airdrop-state');
@@ -34,12 +36,13 @@ const loadState = () => {
 const savedState = loadState() || {};
 
 // --- Core State ---
+export const [userClan, setUserClan] = createSignal<Clan | null>(null);
 export const [balance, setBalance] = createSignal(savedState.balance || 0);
 export const [totalTaps, setTotalTaps] = createSignal(savedState.totalTaps || 0);
-export const [energy, setEnergy] = createSignal(savedState.energy !== undefined ? savedState.energy : 1000);
-export const [maxEnergy, setMaxEnergy] = createSignal(savedState.maxEnergy || 1000);
+export const [energy, setEnergy] = createSignal(savedState.energy !== undefined ? savedState.energy : 500);
+export const [maxEnergy, setMaxEnergy] = createSignal(savedState.maxEnergy || 500);
 export const [tapPower, setTapPower] = createSignal(savedState.tapPower || 1);
-export const [energyRecovery, setEnergyRecovery] = createSignal(savedState.energyRecovery || 3);
+export const [energyRecovery, setEnergyRecovery] = createSignal(savedState.energyRecovery || 1);
 export const [frgBalance, setFrgBalance] = createSignal(savedState.frgBalance || 0);
 
 // --- Boosters ---
@@ -59,19 +62,52 @@ export const [boosters, setBoosters] = createSignal<Record<string, Booster>>(sav
 export const getBoosterCost = (booster: Booster) =>
   Math.floor(booster.baseCost * Math.pow(1.8, booster.level - 1));
 
-export const upgradeBooster = (id: string) => {
+import { upgradeBoost as apiUpgradeBoost, getBoostsStatus } from '@/shared/api/profile.js';
+
+export const syncBoostersStatus = async () => {
+  try {
+    const backendBoosts = await getBoostsStatus();
+    if (backendBoosts) {
+      setBoosters(prev => {
+        const next = { ...prev };
+        for (const b of backendBoosts) {
+          if (b.type === "multitap") {
+            next.tapPower = { id: 'tapPower', level: b.current_level, maxLevel: 10, baseCost: 2000 };
+            setTapPower(b.current_level);
+          } else if (b.type === "energy_limit") {
+            next.energyCap = { id: 'energyCap', level: b.current_level, maxLevel: 10, baseCost: 1500 };
+            setMaxEnergy(500 + (b.current_level - 1) * 250);
+          }
+        }
+        return next;
+      });
+    }
+  } catch (e) {
+    console.error("Failed to sync boosters status:", e);
+  }
+};
+
+export const upgradeBooster = async (id: string) => {
   const b = boosters()[id];
   if (!b || b.level >= b.maxLevel) return false;
-  const cost = getBoosterCost(b);
-  if (balance() < cost) return false;
-
-  setBalance(v => v - cost);
-  setBoosters(prev => ({ ...prev, [id]: { ...b, level: b.level + 1 } }));
-
-  if (id === 'tapPower')  setTapPower(v => v + 1);
-  if (id === 'energyCap') setMaxEnergy(v => v + 500);
-  if (id === 'recovery')  setEnergyRecovery(v => v + 1);
-  return true;
+  
+  let backendType = "";
+  if (id === 'tapPower') backendType = "multitap";
+  else if (id === 'energyCap') backendType = "energy_limit";
+  
+  if (backendType === "") return false;
+  
+  try {
+    const updated = await apiUpgradeBoost(backendType);
+    if (updated) {
+      await syncBoostersStatus();
+      await syncProfileStats();
+      return true;
+    }
+  } catch (e) {
+    console.error("Failed to upgrade booster:", e);
+  }
+  return false;
 };
 
 // --- League ---
@@ -107,32 +143,35 @@ export const checkedInToday = createMemo(() => {
   return lastCheckIn() === today;
 });
 
+import { claimDailyReward as apiClaimDailyReward, getDailyStatus } from '@/shared/api/profile.js';
+
+export const syncDailyRewardStatus = async () => {
+  try {
+    const status = await getDailyStatus();
+    if (status) {
+      setStreakDay(status.streak);
+      setLastCheckIn(status.claimed ? new Date().toISOString().split('T')[0] : null);
+    }
+  } catch (e) {
+    console.error("Failed to sync daily status:", e);
+  }
+};
+
 export const DAILY_REWARDS = [500, 1000, 2500, 5000, 10000, 25000, 50000];
 
-export const claimDailyReward = () => {
-  const today = new Date().toISOString().split('T')[0];
-  const yesterdayDate = new Date();
-  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-  const yesterday = yesterdayDate.toISOString().split('T')[0];
-
-  if (lastCheckIn() === today) return false;
-
-  let currentStreak = streakDay();
-  if (lastCheckIn() !== yesterday && lastCheckIn() !== null) {
-    currentStreak = 0;
-  } else if (lastCheckIn() === yesterday) {
-    currentStreak++;
+export const claimDailyReward = async () => {
+  try {
+    const status = await apiClaimDailyReward();
+    if (status) {
+      setStreakDay(status.streak);
+      setLastCheckIn(status.claimed ? new Date().toISOString().split('T')[0] : null);
+      await syncProfileStats();
+      return status.frg_reward;
+    }
+  } catch (e) {
+    console.error("Failed to claim daily reward:", e);
   }
-  
-  if (currentStreak >= 7) {
-    currentStreak = 0;
-  }
-
-  const reward = DAILY_REWARDS[currentStreak];
-  setBalance(v => v + reward);
-  setStreakDay(currentStreak);
-  setLastCheckIn(today);
-  return reward;
+  return false;
 };
 
 // --- Referral ---
@@ -151,6 +190,70 @@ export const initEnergyRegen = () => {
   return () => clearInterval(timer);
 };
 
+import { addTaps, getClan, getProfileStats } from '@/shared/api/profile.js';
+
+let pendingTaps = 0;
+try {
+  const savedPending = localStorage.getItem('airdrop-pending-taps');
+  if (savedPending) {
+    pendingTaps = parseInt(savedPending, 10) || 0;
+  }
+} catch (e) {}
+
+let syncTimeout: ReturnType<typeof setTimeout> | undefined;
+
+export const syncPendingTaps = async () => {
+  if (pendingTaps <= 0) return;
+  const tapsToSend = pendingTaps;
+  try {
+    const stats = await addTaps(tapsToSend);
+    if (stats) {
+      setBalance(stats.airdropCoins || 0);
+      setFrgBalance(stats.frgBalance || 0);
+      setTotalTaps(stats.totalTaps || 0);
+      
+      pendingTaps = Math.max(0, pendingTaps - tapsToSend);
+      if (pendingTaps === 0) {
+        localStorage.removeItem('airdrop-pending-taps');
+      } else {
+        localStorage.setItem('airdrop-pending-taps', pendingTaps.toString());
+      }
+    }
+  } catch (e) {
+    console.error("Failed to sync taps with server:", e);
+  }
+};
+
+export const recordTaps = (count: number) => {
+  if (energy() < count) return;
+  setEnergy(e => Math.max(0, e - count));
+  setBalance(b => b + count * tapPower());
+  setTotalTaps(t => t + count);
+
+  pendingTaps += count;
+  try {
+    localStorage.setItem('airdrop-pending-taps', pendingTaps.toString());
+  } catch (e) {}
+
+  if (syncTimeout) clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(async () => {
+    await syncPendingTaps();
+  }, 1500); // 1.5 seconds debounce
+};
+
+export const syncProfileStats = async () => {
+  try {
+    const stats = await getProfileStats();
+    if (stats) {
+      setBalance(stats.airdropCoins || 0);
+      setFrgBalance(stats.frgBalance || 0);
+      setTotalTaps(stats.totalTaps || 0);
+    }
+  } catch (e) {
+    console.error("Failed to sync profile stats:", e);
+  }
+};
+
 // Sync to local storage with throttle
 let pendingSave: ReturnType<typeof setTimeout> | undefined;
 
@@ -158,6 +261,18 @@ export const initStorageSync = () => {
   createRoot(() => {
     // Energy regen in store root
     initEnergyRegen();
+
+    // Fetch initial user clan and sync profile stats from server
+    syncProfileStats();
+    syncDailyRewardStatus();
+    syncBoostersStatus();
+    syncPendingTaps();
+
+    getClan().then(res => {
+      if (res && res.is_member && res.clan) {
+        setUserClan(res.clan as any);
+      }
+    }).catch(e => console.error("Failed to load user clan:", e));
 
     createEffect(() => {
       // Access all signals to track them

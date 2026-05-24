@@ -7,12 +7,13 @@ import (
 	"math"
 
 	"ifragment-backend/internal/repository"
+	"github.com/jackc/pgx/v5"
 )
 
 const (
-	AirdropToFRGRate = 100.0 // 100 airdrop coins = 1 FRG
-	FRGToUSD         = 1.0   // 1 FRG = $1
-	StarsToUSD       = 0.013 // ~1 Star = $0.013
+	AirdropToFRGRate = 100000.0 // 100,000 airdrop coins = 1 FRG
+	FRGToUSD         = 1.0      // 1 FRG = $1
+	StarsToUSD       = 0.013    // ~1 Star = $0.013
 )
 
 type MarketplaceService struct {
@@ -99,14 +100,87 @@ func (s *MarketplaceService) ConvertAirdropCoins(ctx context.Context, userID int
 		return nil, fmt.Errorf("minimum conversion is %.0f coins (= 1 FRG)", AirdropToFRGRate)
 	}
 
+	tx, err := s.frgRepo.DB().Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Lock and check user_stats for airdrop_coins
+	var currentCoins float64
+	err = tx.QueryRow(ctx, `SELECT airdrop_coins FROM user_stats WHERE user_id = $1 FOR UPDATE`, userID).Scan(&currentCoins)
+	if err == pgx.ErrNoRows {
+		return nil, fmt.Errorf("user stats not found, no coins to convert")
+	} else if err != nil {
+		return nil, err
+	}
+
+	if currentCoins < coins {
+		return nil, fmt.Errorf("insufficient airdrop coins: have %.0f, trying to convert %.0f", currentCoins, coins)
+	}
+
 	frgAmount := math.Floor(coins/AirdropToFRGRate*10000) / 10000 // 4 decimal precision
+
+	// 2. Deduct coins from user_stats
+	_, err = tx.Exec(ctx, `UPDATE user_stats SET airdrop_coins = airdrop_coins - $1 WHERE user_id = $2`, coins, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Lock balance row
+	var balanceBefore float64
+	err = tx.QueryRow(ctx,
+		`SELECT balance FROM frg_balances WHERE user_id = $1 FOR UPDATE`, userID,
+	).Scan(&balanceBefore)
+	if err == pgx.ErrNoRows {
+		// Initialize balance inside transaction
+		_, err = tx.Exec(ctx, `INSERT INTO frg_balances (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`, userID)
+		if err != nil {
+			return nil, err
+		}
+		balanceBefore = 0
+	} else if err != nil {
+		return nil, err
+	}
+
+	balanceAfter := balanceBefore + frgAmount
+
+	_, err = tx.Exec(ctx,
+		`UPDATE frg_balances SET balance = $1, total_earned = total_earned + $2, updated_at = now() WHERE user_id = $3`,
+		balanceAfter, frgAmount, userID,
+	)
+	if err != nil {
+		return nil, err
+	}
 
 	meta, _ := json.Marshal(map[string]interface{}{
 		"coins_converted": coins,
 		"rate":            AirdropToFRGRate,
 	})
 
-	return s.frgRepo.Credit(ctx, userID, frgAmount, "airdrop_convert", meta)
+	var t repository.FRGTransaction
+	err = tx.QueryRow(ctx,
+		`INSERT INTO frg_transactions (user_id, type, amount, balance_before, balance_after, metadata)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, created_at`,
+		userID, "airdrop_convert", frgAmount, balanceBefore, balanceAfter, meta,
+	).Scan(&t.ID, &t.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	t.UserID = userID
+	t.Type = "airdrop_convert"
+	t.Amount = frgAmount
+	t.BalanceBefore = balanceBefore
+	t.BalanceAfter = balanceAfter
+	t.Metadata = meta
+
+	return &t, nil
 }
 
 func (s *MarketplaceService) GetBalance(ctx context.Context, userID int64) (*repository.FRGBalance, error) {
@@ -116,3 +190,4 @@ func (s *MarketplaceService) GetBalance(ctx context.Context, userID int64) (*rep
 func (s *MarketplaceService) GetTransactions(ctx context.Context, userID int64, limit, offset int) ([]repository.FRGTransaction, error) {
 	return s.frgRepo.GetTransactions(ctx, userID, limit, offset)
 }
+

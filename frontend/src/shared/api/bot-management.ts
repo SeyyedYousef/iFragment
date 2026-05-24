@@ -194,7 +194,30 @@ export const frgApi = {
     apiClient.get<FRGTransaction[]>('/frg/transactions', { params: { limit, offset } }).then((r: any) => r.data),
 };
 
-// ─── Marketplace API ──────────────────────────────────────
+export interface Clan {
+  id: string;
+  telegram_channel_id: number;
+  channel_username: string;
+  channel_photo?: string;
+  chat_title: string;
+  members_count: number;
+  created_at: string;
+}
+
+export interface UserClanDetails {
+  clan?: Clan;
+  is_member: boolean;
+  joined_at?: string;
+}
+
+export const clanApi = {
+  getClan: () =>
+    apiClient.get<UserClanDetails>('/profile/clan').then((r: any) => r.data),
+  joinClan: (username: string) =>
+    apiClient.post<Clan>('/profile/clan/join', { username }).then((r: any) => r.data),
+  leaveClan: () =>
+    apiClient.post('/profile/clan/leave').then((r: any) => r.data),
+};
 
 export const marketplaceApi = {
   getOptions: () =>
