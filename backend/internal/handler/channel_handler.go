@@ -3,7 +3,9 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -60,13 +62,42 @@ func (h *ChannelHandler) ListChannels(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	channels, err := h.svc.ListChannels(r.Context(), userID, botID)
+	limitStr := r.URL.Query().Get("limit")
+	cursorStr := r.URL.Query().Get("cursor")
+
+	var cursor *time.Time
+	if cursorStr != "" {
+		if t, err := time.Parse(time.RFC3339, cursorStr); err == nil {
+			cursor = &t
+		}
+	}
+
+	limit := 20
+	if limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			limit = l
+			if limit > 100 {
+				limit = 100
+			}
+		}
+	}
+
+	channels, nextCursor, err := h.svc.ListChannels(r.Context(), userID, botID, cursor, limit)
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, "failed to list channels", err)
 		return
 	}
 
-	respondJSON(w, http.StatusOK, channels)
+	var nextCursorStr *string
+	if nextCursor != nil {
+		s := nextCursor.Format(time.RFC3339)
+		nextCursorStr = &s
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"data":        channels,
+		"next_cursor": nextCursorStr,
+	})
 }
 
 type ConnectChannelRequest struct {
@@ -198,13 +229,339 @@ func (h *ChannelHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) 
 
 	settings, err := h.svc.UpdateSettings(r.Context(), userID, channelID, req.Category, req.Data, req.Version)
 	if err != nil {
-		if err == repository.ErrOptimisticLockConflict {
-			RespondError(w, r, http.StatusConflict, "version_mismatch", err)
-			return
-		}
-		RespondError(w, r, http.StatusInternalServerError, "failed to update channel settings", err)
+		RespondError(w, r, http.StatusInternalServerError, "failed to update settings", err)
 		return
 	}
 
 	respondJSON(w, http.StatusOK, settings)
 }
+
+func (h *ChannelHandler) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	channelIDStr := chi.URLParam(r, "channelID")
+	channelID, err := uuid.Parse(channelIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	limit := 20
+	offset := 0
+
+	if qLimit := r.URL.Query().Get("limit"); qLimit != "" {
+		if val, err := strconv.Atoi(qLimit); err == nil {
+			limit = val
+		}
+	}
+	if qOffset := r.URL.Query().Get("offset"); qOffset != "" {
+		if val, err := strconv.Atoi(qOffset); err == nil {
+			offset = val
+		}
+	}
+
+	logs, err := h.svc.GetAuditLogs(r.Context(), userID, channelID, limit, offset)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to get audit logs", err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, logs)
+}
+
+func (h *ChannelHandler) GetAnalytics(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	channelIDStr := chi.URLParam(r, "channelID")
+	channelID, err := uuid.Parse(channelIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	days := 7
+	if qDays := r.URL.Query().Get("days"); qDays != "" {
+		if val, err := strconv.Atoi(qDays); err == nil {
+			days = val
+		}
+	}
+
+	analytics, err := h.svc.GetAnalytics(r.Context(), userID, channelID, days)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to get analytics data", err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, analytics)
+}
+
+type CreatePostRequest struct {
+	Text        string     `json:"text"`
+	ScheduledAt *time.Time `json:"scheduled_at,omitempty"`
+}
+
+func (h *ChannelHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	channelIDStr := chi.URLParam(r, "channelID")
+	channelID, err := uuid.Parse(channelIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	var req CreatePostRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
+	post := &repository.ChannelPost{
+		ChannelID:   channelID,
+		Text:        req.Text,
+		ScheduledAt: req.ScheduledAt,
+	}
+
+	err = h.svc.CreatePost(r.Context(), userID, post)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		return
+	}
+
+	respondJSON(w, http.StatusCreated, post)
+}
+
+func (h *ChannelHandler) GetForwardingRules(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	channelIDStr := chi.URLParam(r, "channelID")
+	channelID, err := uuid.Parse(channelIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	rules, err := h.svc.GetForwardingRules(r.Context(), userID, channelID)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to get forwarding rules", err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, rules)
+}
+
+func (h *ChannelHandler) CreateForwardingRule(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	channelIDStr := chi.URLParam(r, "channelID")
+	channelID, err := uuid.Parse(channelIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	var rule repository.ChannelForwardingRule
+	if err := json.NewDecoder(r.Body).Decode(&rule); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
+	rule.ChannelID = channelID
+
+	err = h.svc.CreateForwardingRule(r.Context(), userID, &rule)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		return
+	}
+
+	respondJSON(w, http.StatusCreated, rule)
+}
+
+func (h *ChannelHandler) UpdateForwardingRule(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	channelIDStr := chi.URLParam(r, "channelID")
+	channelID, err := uuid.Parse(channelIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	ruleIDStr := chi.URLParam(r, "ruleID")
+	ruleID, err := uuid.Parse(ruleIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid rule ID", err)
+		return
+	}
+
+	var rule repository.ChannelForwardingRule
+	if err := json.NewDecoder(r.Body).Decode(&rule); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
+	rule.ID = ruleID
+	rule.ChannelID = channelID
+
+	err = h.svc.UpdateForwardingRule(r.Context(), userID, &rule)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, rule)
+}
+
+func (h *ChannelHandler) DeleteForwardingRule(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	channelIDStr := chi.URLParam(r, "channelID")
+	channelID, err := uuid.Parse(channelIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	ruleIDStr := chi.URLParam(r, "ruleID")
+	ruleID, err := uuid.Parse(ruleIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid rule ID", err)
+		return
+	}
+
+	err = h.svc.DeleteForwardingRule(r.Context(), userID, channelID, ruleID)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+func (h *ChannelHandler) SyncAdmins(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	channelIDStr := chi.URLParam(r, "channelID")
+	channelID, err := uuid.Parse(channelIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	err = h.svc.SyncAdmins(r.Context(), userID, channelID)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{"status": "synchronized"})
+}
+
+func (h *ChannelHandler) GetAdmins(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	channelIDStr := chi.URLParam(r, "channelID")
+	channelID, err := uuid.Parse(channelIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	admins, err := h.svc.GetAdmins(r.Context(), userID, channelID)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, admins)
+}
+
+func (h *ChannelHandler) GetButtons(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	channelIDStr := chi.URLParam(r, "channelID")
+	channelID, err := uuid.Parse(channelIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	buttons, err := h.svc.GetButtons(r.Context(), userID, channelID)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, buttons)
+}
+
+func (h *ChannelHandler) SaveButtons(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	channelIDStr := chi.URLParam(r, "channelID")
+	channelID, err := uuid.Parse(channelIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	var buttons []repository.ChannelInlineButton
+	if err := json.NewDecoder(r.Body).Decode(&buttons); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
+	err = h.svc.SaveButtons(r.Context(), userID, channelID, buttons)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, buttons)
+}
+
+

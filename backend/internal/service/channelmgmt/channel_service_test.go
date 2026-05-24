@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"ifragment-backend/internal/repository"
@@ -96,3 +97,57 @@ func TestProcessChannelPostAutoResponder(t *testing.T) {
 		t.Errorf("Expected contains rule to match")
 	}
 }
+
+func TestChannelServiceNewFeatures(t *testing.T) {
+	// Create mock channel repo
+	channelRepo := repository.NewChannelRepo(nil, nil)
+	botRepo := repository.NewBotRepo(nil)
+	auditRepo := repository.NewAuditRepo(nil)
+
+	s := NewChannelService(channelRepo, botRepo, auditRepo)
+	ctx := context.Background()
+
+	channelID := uuid.New()
+	ownerUserID := int64(12345)
+
+	// Test GetAuditLogs (since db is nil, it falls back to mock list)
+	logs, err := s.GetAuditLogs(ctx, ownerUserID, channelID, 10, 0)
+	if err != nil {
+		t.Fatalf("Expected no error from GetAuditLogs mock fallback, got: %v", err)
+	}
+	if len(logs) == 0 {
+		t.Errorf("Expected at least one mock audit log, got 0")
+	}
+
+	// Test GetAnalytics (mock fallback)
+	analytics, err := s.GetAnalytics(ctx, ownerUserID, channelID, 7)
+	if err != nil {
+		t.Fatalf("Expected no error from GetAnalytics mock fallback, got: %v", err)
+	}
+	if len(analytics) != 7 {
+		t.Errorf("Expected 7 days of mock analytics snapshots, got %d", len(analytics))
+	}
+
+	// Test CreatePost (scheduling post)
+	futureTime := time.Now().Add(2 * time.Hour)
+	post := &repository.ChannelPost{
+		ChannelID:   channelID,
+		Text:        "This is a scheduled post",
+		ScheduledAt: &futureTime,
+	}
+
+	err = s.CreatePost(ctx, ownerUserID, post)
+	if err != nil {
+		t.Fatalf("Expected no error when scheduling post with nil DB, got: %v", err)
+	}
+
+	if post.ID == uuid.Nil {
+		t.Errorf("Expected post ID to be generated")
+	}
+
+	// Verify starting background workers executes without errors
+	workerCtx, cancel := context.WithCancel(context.Background())
+	s.StartBackgroundTasks(workerCtx)
+	cancel() // instantly stop to prevent long run
+}
+

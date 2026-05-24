@@ -1,4 +1,4 @@
-openapi: 3.0.3
+openapi: 3.1.0
 info:
   title: iFragment API
   description: Telegram username analytics, premium reports, bot management, profile and marketplace APIs.
@@ -15,6 +15,7 @@ tags:
   - name: Premium Reports
   - name: Bots
   - name: Groups
+  - name: Channels
   - name: Profile
   - name: Marketplace
 paths:
@@ -357,6 +358,312 @@ paths:
       responses:
         "200":
           description: Purchase result
+  /healthz/live:
+    get:
+      tags: [Health]
+      summary: Liveness health check
+      responses:
+        "200":
+          description: Service is alive
+  /healthz/ready:
+    get:
+      tags: [Health]
+      summary: Readiness health check
+      responses:
+        "200":
+          description: Service is ready
+        "503":
+          description: Service is not ready
+  /profile/gdpr:
+    delete:
+      tags: [Profile]
+      summary: GDPR Data Deletion Request
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Data successfully wiped
+  /channels:
+    get:
+      tags: [Channels]
+      summary: List managed channels with cursor pagination
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: bot_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated channels list
+    post:
+      tags: [Channels]
+      summary: Connect a new channel
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bot_id, username]
+              properties:
+                bot_id:
+                  type: string
+                username:
+                  type: string
+      responses:
+        "200":
+          description: Connected channel details
+  /channels/{channelID}:
+    get:
+      tags: [Channels]
+      summary: Get channel details
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+      responses:
+        "200":
+          description: Channel details
+    delete:
+      tags: [Channels]
+      summary: Disconnect a channel
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+      responses:
+        "200":
+          description: Channel disconnected
+  /channels/{channelID}/settings:
+    get:
+      tags: [Channels]
+      summary: Get channel settings
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+      responses:
+        "200":
+          description: Channel settings details
+    put:
+      tags: [Channels]
+      summary: Update channel settings
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [category, data, version]
+              properties:
+                category:
+                  type: string
+                data:
+                  type: object
+                version:
+                  type: integer
+      responses:
+        "200":
+          description: Updated channel settings
+  /channels/{channelID}/audit:
+    get:
+      tags: [Channels]
+      summary: Get channel audit logs
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Paginated audit logs
+  /channels/{channelID}/analytics:
+    get:
+      tags: [Channels]
+      summary: Get channel daily analytics snapshots
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+        - name: days
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 7
+      responses:
+        "200":
+          description: Channel analytics timeline
+  /channels/{channelID}/posts:
+    post:
+      tags: [Channels]
+      summary: Schedule or post a new message to channel
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                scheduled_at:
+                  type: string
+                  format: date-time
+      responses:
+        "200":
+          description: Created/Scheduled post details
+  /channels/{channelID}/forwarding/rules:
+    get:
+      tags: [Channels]
+      summary: Get channel forwarding rules
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+      responses:
+        "200":
+          description: List of forwarding rules
+    post:
+      tags: [Channels]
+      summary: Create a forwarding rule
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForwardingRuleInput"
+      responses:
+        "200":
+          description: Created forwarding rule
+  /channels/{channelID}/forwarding/rules/{ruleID}:
+    put:
+      tags: [Channels]
+      summary: Update a forwarding rule
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+        - name: ruleID
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForwardingRuleInput"
+      responses:
+        "200":
+          description: Updated forwarding rule
+    delete:
+      tags: [Channels]
+      summary: Delete a forwarding rule
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+        - name: ruleID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Rule deleted
+  /channels/{channelID}/admins/sync:
+    post:
+      tags: [Channels]
+      summary: Sync channel administrators from Telegram
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+      responses:
+        "200":
+          description: Success confirmation
+  /channels/{channelID}/admins:
+    get:
+      tags: [Channels]
+      summary: Get channel administrators
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+      responses:
+        "200":
+          description: List of channel admins
+  /channels/{channelID}/buttons:
+    get:
+      tags: [Channels]
+      summary: Get channel custom inline buttons
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+      responses:
+        "200":
+          description: List of inline buttons
+    post:
+      tags: [Channels]
+      summary: Save channel custom inline buttons
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "#/components/schemas/InlineButtonInput"
+      responses:
+        "200":
+          description: Success confirmation
 components:
   securitySchemes:
     BearerAuth:
@@ -386,6 +693,12 @@ components:
         type: string
     GroupID:
       name: groupID
+      in: path
+      required: true
+      schema:
+        type: string
+    ChannelID:
+      name: channelID
       in: path
       required: true
       schema:
@@ -533,3 +846,27 @@ components:
           type: array
           items:
             type: object
+    ForwardingRuleInput:
+      type: object
+      required: [source_channel_id, target_channel_id, active]
+      properties:
+        source_channel_id:
+          type: string
+        target_channel_id:
+          type: string
+        active:
+          type: boolean
+        filter_keywords:
+          type: array
+          items:
+            type: string
+    InlineButtonInput:
+      type: object
+      required: [text, url, row]
+      properties:
+        text:
+          type: string
+        url:
+          type: string
+        row:
+          type: integer

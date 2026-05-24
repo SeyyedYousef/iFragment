@@ -1,0 +1,6 @@
+BEGIN;
+
+DROP TABLE IF EXISTS channel_analytics CASCADE;
+DROP TABLE IF EXISTS channel_audit_logs CASCADE;
+
+COMMIT;

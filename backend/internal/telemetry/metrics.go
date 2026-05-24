@@ -24,6 +24,34 @@ var (
 		},
 		[]string{"method", "status_code"},
 	)
+
+	// ChannelConnectTotal counts channel connect attempts
+	ChannelConnectTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "channel_connect_total",
+			Help: "Total number of channel connect attempts.",
+		},
+		[]string{"status"},
+	)
+
+	// ChannelWebhookLatencySeconds tracks latency of webhook processing
+	ChannelWebhookLatencySeconds = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "channel_webhook_latency_seconds",
+			Help:    "Latency of channel webhook update processing.",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"bot_id", "status"},
+	)
+
+	// AutoresponderMatchTotal counts autoresponder keyword matches
+	AutoresponderMatchTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "autoresponder_match_total",
+			Help: "Total number of autoresponder keyword matches.",
+		},
+		[]string{"match_type"},
+	)
 )
 
 // RecordPrediction records the prediction result
@@ -34,4 +62,19 @@ func RecordPrediction(result string) {
 // RecordTonAPILatency records the latency of a TonAPI request
 func RecordTonAPILatency(method string, statusCode string, duration float64) {
 	TonAPILatencySeconds.WithLabelValues(method, statusCode).Observe(duration)
+}
+
+// RecordChannelConnect records a channel connection attempt
+func RecordChannelConnect(status string) {
+	ChannelConnectTotal.WithLabelValues(status).Inc()
+}
+
+// RecordChannelWebhookLatency records the latency of a webhook request
+func RecordChannelWebhookLatency(botID string, status string, duration float64) {
+	ChannelWebhookLatencySeconds.WithLabelValues(botID, status).Observe(duration)
+}
+
+// RecordAutoresponderMatch records an autoresponder match event
+func RecordAutoresponderMatch(matchType string) {
+	AutoresponderMatchTotal.WithLabelValues(matchType).Inc()
 }

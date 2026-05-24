@@ -375,7 +375,7 @@ func (s *ModeratorService) AnswerCallbackQuery(ctx context.Context, bot *reposit
 	if err != nil {
 		return err
 	}
-	return tg.AnswerCallbackQuery(queryID, text, showAlert)
+	return tg.AnswerCallbackQuery(ctx, queryID, text, showAlert)
 }
 
 func (s *ModeratorService) GetTelegramClient(ctx context.Context, bot *repository.ManagedBot) (*telegram.BotAPIClient, error) {
@@ -478,7 +478,7 @@ func (s *ModeratorService) checkMandatoryMembership(ctx context.Context, tg *tel
 // GetChatMemberCached fetches chat member status with Redis caching (BUG #5)
 func (s *ModeratorService) GetChatMemberCached(ctx context.Context, tg *telegram.BotAPIClient, chatID interface{}, userID int64) (string, error) {
 	if s.cache == nil || s.cache.Client == nil {
-		return tg.GetChatMember(chatID, userID)
+		return tg.GetChatMember(ctx, chatID, userID)
 	}
 
 	key := fmt.Sprintf("chat_member:%v:%d", chatID, userID)
@@ -487,7 +487,7 @@ func (s *ModeratorService) GetChatMemberCached(ctx context.Context, tg *telegram
 		return status, nil
 	}
 
-	status, err = tg.GetChatMember(chatID, userID)
+	status, err = tg.GetChatMember(ctx, chatID, userID)
 	if err != nil {
 		return "", err
 	}

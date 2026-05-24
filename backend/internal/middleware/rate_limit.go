@@ -13,6 +13,7 @@ import (
 	"log/slog"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/redis/go-redis/v9"
 	"ifragment-backend/internal/repository"
 )
 
@@ -152,6 +153,63 @@ func NewRateLimiter(cache *repository.Cache) func(http.Handler) http.Handler {
 			}
 
 			rl.ips[ip] = append(valid, now)
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func NewChannelRateLimiter(cache *repository.Cache) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ip := getRealIP(r)
+			userID := getUserID(r)
+
+			if cache != nil && cache.Client != nil {
+				ctx := r.Context()
+				var key string
+				limit := int64(60)
+				window := 60 * time.Second
+
+				if userID != "" {
+					key = "rate_limit:channel:user:" + userID
+				} else {
+					key = "rate_limit:channel:ip:" + ip
+				}
+
+				now := time.Now()
+				nowMs := now.UnixNano() / int64(time.Millisecond)
+				clearBefore := now.Add(-window).UnixNano() / int64(time.Millisecond)
+
+				// Sliding window using sorted sets: ZADD, ZREMRANGEBYSCORE, ZCARD
+				pipe := cache.Client.Pipeline()
+				pipe.ZRemRangeByScore(ctx, key, "-inf", fmt.Sprintf("%d", clearBefore))
+				pipe.ZAdd(ctx, key, redis.Z{Score: float64(nowMs), Member: fmt.Sprintf("%d", nowMs)})
+				cardCmd := pipe.ZCard(ctx, key)
+				pipe.Expire(ctx, key, 65*time.Second)
+
+				_, err := pipe.Exec(ctx)
+				if err == nil {
+					count := cardCmd.Val()
+					remaining := limit - count
+					if remaining < 0 {
+						remaining = 0
+					}
+					w.Header().Set("X-RateLimit-Remaining", fmt.Sprintf("%d", remaining))
+
+					if count > limit {
+						slog.Warn("Channel rate limit exceeded (Redis sliding window)", "key", key, "count", count)
+						w.Header().Set("Retry-After", "60")
+						http.Error(w, "Rate limit exceeded. Please try again in a minute.", http.StatusTooManyRequests)
+						return
+					}
+					next.ServeHTTP(w, r)
+					return
+				} else {
+					slog.Warn("Redis rate limit pipeline error", "error", err)
+				}
+			}
+
+			// Fallback: Continue without rate limiting if Redis is down
 			next.ServeHTTP(w, r)
 		})
 	}

@@ -50,6 +50,25 @@ export const ChannelInlineButtonsPage: Component = () => {
     (id) => channelApi.getSettings(id)
   );
 
+  const [buttonsData] = createResource(
+    () => params.id,
+    (id) => channelApi.getButtons(id)
+  );
+
+  createEffect(() => {
+    const list = buttonsData();
+    if (list) {
+      setButtons(list.map((b: any) => ({
+        id: b.id || '',
+        title: b.title,
+        value: b.value,
+        type: b.type,
+        style: b.style,
+        emoji: b.emoji || ''
+      })));
+    }
+  });
+
   createEffect(() => {
     const data = settings();
     if (data) {
@@ -65,9 +84,6 @@ export const ChannelInlineButtonsPage: Component = () => {
           if ('preset' in inlineButtonsVal) {
             setActivePreset(inlineButtonsVal.preset as any);
           }
-          if ('buttons' in inlineButtonsVal && Array.isArray(inlineButtonsVal.buttons)) {
-            setButtons(inlineButtonsVal.buttons);
-          }
         }
       } catch (e) {
         console.error("Failed to parse inline_buttons from server settings:", e);
@@ -80,21 +96,6 @@ export const ChannelInlineButtonsPage: Component = () => {
     const off = backButton.onClick(() => {
       navigate(`/channel/${params.id}`);
     });
-    
-    // Fallback/pre-load from localStorage if server has not responded yet
-    const saved = localStorage.getItem(`channel_buttons_${params.id}`);
-    if (saved) {
-      try {
-        setButtons(JSON.parse(saved));
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    const savedPreset = localStorage.getItem(`channel_buttons_preset_${params.id}`);
-    if (savedPreset) {
-      setActivePreset(savedPreset as any);
-    }
-    
     onCleanup(() => off());
   });
 
@@ -190,21 +191,28 @@ export const ChannelInlineButtonsPage: Component = () => {
     
     // Save to server
     const currentVersion = settings()?.version ?? 1;
-    const payload = {
+    const settingsPayload = {
       enabled: isButtonsEnabled(),
-      preset: activePreset(),
-      buttons: buttons()
+      preset: activePreset()
     };
 
+    const buttonsPayload = buttons().map(b => ({
+      channel_id: params.id,
+      title: b.title,
+      value: b.value,
+      type: b.type as any,
+      style: b.style,
+      emoji: b.emoji,
+      click_count: 0
+    }));
+
     try {
-      await channelApi.updateSettings(params.id, 'inline_buttons', payload, currentVersion);
+      await channelApi.updateSettings(params.id, 'inline_buttons', settingsPayload, currentVersion);
+      await channelApi.saveButtons(params.id, buttonsPayload);
       setIsDirty(false);
       navigate(`/channel/${params.id}`);
     } catch (e) {
       console.error("Failed to save inline buttons to server:", e);
-      // Fallback: save to localStorage on failure
-      localStorage.setItem(`channel_buttons_${params.id}`, JSON.stringify(buttons()));
-      localStorage.setItem(`channel_buttons_preset_${params.id}`, activePreset());
       setIsDirty(false);
       navigate(`/channel/${params.id}`);
     } finally {

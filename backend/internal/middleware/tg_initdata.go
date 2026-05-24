@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"ifragment-backend/internal/repository"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -81,6 +82,14 @@ func ValidateTelegramInitData(cache *repository.Cache) func(http.Handler) http.H
 			}
 
 			if err := validate(initData, botToken); err != nil {
+				// S8: failed login auditing
+				slog.Warn("SECURITY EVENT: Telegram InitData authentication failed",
+					"ip", ip,
+					"user_id", userID,
+					"error", err.Error(),
+					"user_agent", r.UserAgent(),
+				)
+
 				if cache != nil && cache.Client != nil {
 					pipe := cache.Client.Pipeline()
 					ipFailKey := "brute_fail:ip:" + ip

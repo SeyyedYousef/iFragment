@@ -28,12 +28,39 @@ export const ChannelAdminsPage: Component = () => {
     onCleanup(() => off());
   });
 
-  // Mock Admin List
-  const [allAdmins, setAllAdmins] = createSignal([
-    { id: '1', name: 'Creator', role: 'Owner', customTitle: 'Founder', perms: { post: true, edit: true, delete: true, pin: true, invite: true, videoChat: true, editInfo: true, manageTags: true } },
-    { id: '2', name: 'Moderator Bot', role: 'Bot', customTitle: '', perms: { post: false, edit: false, delete: true, pin: false, invite: false, videoChat: false, editInfo: false, manageTags: false } },
-    { id: '3', name: 'Content Manager', role: 'Admin', customTitle: 'Editor', perms: { post: true, edit: true, delete: false, pin: true, invite: true, videoChat: false, editInfo: false, manageTags: true } },
-  ]);
+  const [adminsData, { refetch }] = createResource(
+    () => params.id,
+    (channelId) => channelApi.getAdmins(channelId)
+  );
+
+  const [isSyncing, setIsSyncing] = createSignal(false);
+
+  const handleSync = async () => {
+    try {
+      setIsSyncing(true);
+      hapticFeedback.impactOccurred('light');
+      await channelApi.syncAdmins(params.id);
+      await refetch();
+      hapticFeedback.notificationOccurred('success');
+    } catch (err) {
+      console.error(err);
+      hapticFeedback.notificationOccurred('error');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const allAdmins = createMemo(() => {
+    const list = adminsData() || [];
+    return list.map((a: any) => ({
+      id: a.id || a.telegram_id.toString(),
+      name: a.first_name,
+      role: a.is_owner ? 'Owner' : (a.username && a.username.toLowerCase().includes('bot') ? 'Bot' : 'Admin'),
+      customTitle: a.custom_title || '',
+      username: a.username ? '@' + a.username : '',
+      perms: { post: true, edit: true, delete: true, pin: true, invite: true }
+    }));
+  });
 
   // Mock Members List
   const [allMembers] = createSignal([
@@ -45,7 +72,7 @@ export const ChannelAdminsPage: Component = () => {
   const filteredItems = createMemo(() => {
     const q = searchQuery().toLowerCase();
     if (activeTab() === 'admins') {
-      return allAdmins().filter(a => a.name.toLowerCase().includes(q) || a.role.toLowerCase().includes(q) || a.customTitle.toLowerCase().includes(q));
+      return allAdmins().filter((a: any) => a.name.toLowerCase().includes(q) || a.role.toLowerCase().includes(q) || a.customTitle.toLowerCase().includes(q));
     } else {
       return allMembers().filter(m => m.name.toLowerCase().includes(q) || m.username.toLowerCase().includes(q));
     }
@@ -65,11 +92,7 @@ export const ChannelAdminsPage: Component = () => {
   };
 
   const saveAdmin = () => {
-    const isNew = !allAdmins().find(a => a.id === editingAdmin().id);
-    if (isNew) setAllAdmins([...allAdmins(), editingAdmin()]);
-    else setAllAdmins(allAdmins().map(a => a.id === editingAdmin().id ? editingAdmin() : a));
     setShowModal(false);
-    hapticFeedback.notificationOccurred('success');
   };
 
   return (
@@ -123,9 +146,20 @@ export const ChannelAdminsPage: Component = () => {
 
           <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} class="flex flex-col gap-3">
              <Show when={activeTab() === 'admins'}>
-               <button onClick={() => openAdminModal()} class="w-full bg-[#32ade6]/10 border border-[#32ade6]/20 hover:bg-[#32ade6]/15 active:scale-[0.98] text-[#32ade6] rounded-2xl py-3.5 flex items-center justify-center gap-2 font-bold transition-all shadow-sm">
-                 <span class="material-symbols-outlined text-[20px]">person_add</span>
-                 {t('channelAdmins.addNewAdmin')}
+               <button 
+                 onClick={handleSync} 
+                 disabled={isSyncing()}
+                 class="w-full bg-[#32ade6]/10 border border-[#32ade6]/20 hover:bg-[#32ade6]/15 active:scale-[0.98] text-[#32ade6] rounded-2xl py-3.5 flex items-center justify-center gap-2 font-bold transition-all shadow-sm disabled:opacity-50"
+               >
+                 <Show when={isSyncing()} fallback={
+                   <>
+                     <span class="material-symbols-outlined text-[20px]">sync</span>
+                     Sync from Telegram
+                   </>
+                 }>
+                   <span class="material-symbols-outlined text-[20px] animate-spin">sync</span>
+                   Syncing...
+                 </Show>
                </button>
              </Show>
              

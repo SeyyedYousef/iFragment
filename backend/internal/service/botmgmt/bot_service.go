@@ -152,16 +152,16 @@ func (s *BotService) sendExpirationNotice(ctx context.Context, g repository.Mana
 	msg := i18n.T(lang, "notifications."+template, vars)
 	
 	// Send to group
-	_ = tg.SendMessage(g.ChatID, msg, nil, nil)
+	_ = tg.SendMessage(ctx, g.ChatID, msg, nil, nil)
 	// Send to owner PV
-	_ = tg.SendMessage(bot.OwnerUserID, msg, nil, nil)
+	_ = tg.SendMessage(ctx, bot.OwnerUserID, msg, nil, nil)
 }
 
 // Bot Operations
 
 func (s *BotService) RegisterBot(ctx context.Context, ownerID int64, token, username, name string, botID int64) (*repository.ManagedBot, error) {
 	tgClient := telegram.NewBotAPIClient(token)
-	me, err := tgClient.GetMe()
+	me, err := tgClient.GetMe(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("bot token verification failed: %w", err)
 	}
@@ -560,5 +560,5 @@ func (s *BotService) sendQHNotice(ctx context.Context, g repository.ManagedGroup
 		}
 	}
 
-	_ = tg.SendMessage(g.ChatID, msg, nil, nil)
+	_ = tg.SendMessage(ctx, g.ChatID, msg, nil, nil)
 }

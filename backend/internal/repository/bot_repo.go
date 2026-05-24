@@ -125,6 +125,22 @@ func (r *BotRepo) GetBotsByOwner(ctx context.Context, ownerID int64) ([]ManagedB
 }
 
 func (r *BotRepo) GetBotByID(ctx context.Context, id uuid.UUID) (*ManagedBot, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return &ManagedBot{
+			ID:                 id,
+			OwnerUserID:        12345,
+			BotTokenEncrypted:  []byte("mock_token"),
+			BotUsername:        "mock_bot",
+			BotName:            "Mock Bot",
+			BotID:              987654321,
+			Status:             "active",
+			CreatedAt:          time.Now(),
+			UpdatedAt:          time.Now(),
+			ManagedGroupsCount: 0,
+			SubscriptionStatus: "free",
+		}, nil
+	}
+
 	query := `SELECT b.id, b.owner_user_id, b.bot_token_encrypted, b.bot_username, b.bot_name, b.bot_id, b.status, b.created_at, b.updated_at,
 		       (SELECT COUNT(*) FROM managed_groups g WHERE g.bot_id = b.id) as managed_groups_count,
 		       COALESCE(

@@ -1,79 +1,67 @@
-import { Component, createSignal, onCleanup, onMount, Show, For } from 'solid-js';
+import { Component, createSignal, onCleanup, onMount, Show, For, createResource } from 'solid-js';
 import { useParams } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Motion } from '@motionone/solid';
 import { t } from '@/shared/i18n/index.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SelectField } from '@/shared/ui/settings-controls.js';
+import { channelApi } from '@/shared/api/channel-management.js';
 
 export const ChannelAuditLogPage: Component = () => {
   const params = useParams();
   const [isMenuOpen, setIsMenuOpen] = createSignal(false);
   
   const [actionFilter, setActionFilter] = createSignal('all');
-  const [dateFilter, setDateFilter] = createSignal('today');
-  const [adminFilter, setAdminFilter] = createSignal('all');
   const [searchQuery, setSearchQuery] = createSignal('');
 
-  const mockLogs = [
-    { id: 1, action: 'deleted', user: 'Admin Sarah', target: 'Spam Message', time: '10:45 AM', icon: 'delete', color: '#ff3b30' },
-    { id: 2, action: 'settings', user: 'Admin Mike', target: 'Auto-Forwarding Enabled', time: '09:12 AM', icon: 'settings', color: '#32ade6' },
-    { id: 3, action: 'banned', user: 'System Bot', target: 'User @spammer99', time: '08:30 AM', icon: 'block', color: '#ff9f0a' },
-    { id: 4, action: 'edited', user: 'Admin Sarah', target: 'Channel Description', time: 'Yesterday', icon: 'edit', color: '#34c759' },
-    { id: 5, action: 'promoted', user: 'Owner', target: 'Admin Mike (Full Rights)', time: 'Yesterday', icon: 'verified_user', color: '#bf5af2' },
-  ];
+  const [auditLogsData] = createResource(
+    () => params.id,
+    (channelId) => channelApi.getAuditLogs(channelId)
+  );
 
-  const getLocalizedUser = (user: string) => {
-    if (user === 'Admin Sarah') return t('channelAuditLog.adminSarah') || 'Admin Sarah';
-    if (user === 'Admin Mike') return t('channelAuditLog.adminMike') || 'Admin Mike';
-    if (user === 'System Bot') return t('channelAuditLog.systemBot') || 'System Bot';
-    if (user === 'Owner') return t('channelAuditLog.owner') || 'Owner';
-    return user;
+  const getActionIcon = (action: string) => {
+    const act = action.toLowerCase();
+    if (act.includes('delete') || act.includes('remove') || act.includes('disconnect')) return 'delete';
+    if (act.includes('settings') || act.includes('update')) return 'settings';
+    if (act.includes('ban') || act.includes('restrict')) return 'block';
+    if (act.includes('create') || act.includes('add') || act.includes('connect')) return 'add_circle';
+    if (act.includes('sync')) return 'sync';
+    return 'info';
   };
 
-  const getLocalizedTarget = (target: string) => {
-    if (target === 'Spam Message') return t('channelAuditLog.targetSpam') || 'Spam Message';
-    if (target === 'Auto-Forwarding Enabled') return t('channelAuditLog.targetAutoForward') || 'Auto-Forwarding Enabled';
-    if (target === 'User @spammer99') return t('channelAuditLog.targetUserSpammer') || 'User @spammer99';
-    if (target === 'Channel Description') return t('channelAuditLog.targetDesc') || 'Channel Description';
-    if (target === 'Admin Mike (Full Rights)') return t('channelAuditLog.targetMikeRights') || 'Admin Mike (Full Rights)';
-    return target;
+  const getActionColor = (action: string) => {
+    const act = action.toLowerCase();
+    if (act.includes('delete') || act.includes('remove') || act.includes('disconnect')) return '#ff3b30'; // Red
+    if (act.includes('settings') || act.includes('update')) return '#32ade6'; // Blue
+    if (act.includes('ban') || act.includes('restrict')) return '#ff9f0a'; // Orange
+    if (act.includes('create') || act.includes('add') || act.includes('connect')) return '#34c759'; // Green
+    if (act.includes('sync')) return '#bf5af2'; // Purple
+    return '#8e8e93';
   };
 
-  const getLocalizedTime = (time: string) => {
-    if (time === 'Yesterday') return t('channelAuditLog.dateYesterday') || 'Yesterday';
-    return time;
-  };
-
-  const getLocalizedAction = (action: string) => {
-    if (action === 'deleted') return t('channelAuditLog.actDeleted') || 'Deleted';
-    if (action === 'settings') return t('channelAuditLog.actSettings') || 'Settings';
-    if (action === 'banned') return t('channelAuditLog.actBanned') || 'Banned';
-    if (action === 'edited') return t('channelAuditLog.actEdited') || 'Edited';
-    if (action === 'promoted') return t('channelAuditLog.actPromoted') || 'Promoted';
-    if (action === 'demoted') return t('channelAuditLog.actDemoted') || 'Demoted';
-    if (action === 'pinned') return t('channelAuditLog.actPinned') || 'Pinned';
-    return action;
+  const formatLogTime = (timeStr: string) => {
+    if (!timeStr) return '';
+    const d = new Date(timeStr);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' - ' + d.toLocaleDateString([], { month: 'short', day: 'numeric' });
   };
 
   const filteredLogs = () => {
-    return mockLogs.filter(log => {
-       const userMatch = getLocalizedUser(log.user).toLowerCase().includes(searchQuery().toLowerCase());
-       const targetMatch = getLocalizedTarget(log.target).toLowerCase().includes(searchQuery().toLowerCase());
+    const list = auditLogsData() || [];
+    return list.filter((log: any) => {
+       const searchStr = searchQuery().toLowerCase();
+       const actionMatch = actionFilter() === 'all' || log.action.toLowerCase().includes(actionFilter().toLowerCase());
        
-       const actionMatch = actionFilter() === 'all' || log.action === actionFilter();
-       const dateMatch = dateFilter() === 'all' || 
-                         (dateFilter() === 'today' ? log.time.includes('AM') || log.time.includes('PM') : 
-                         (dateFilter() === 'yesterday' ? log.time === 'Yesterday' : true));
-       const adminMatch = adminFilter() === 'all' || log.user === adminFilter();
+       const actionStr = log.action.toLowerCase();
+       const actorStr = log.actor_name.toLowerCase();
+       
+       const textMatch = actionStr.includes(searchStr) || actorStr.includes(searchStr);
 
-       return (userMatch || targetMatch) && actionMatch && dateMatch && adminMatch;
+       return textMatch && actionMatch;
     });
   };
 
   const handleExport = (format: 'csv' | 'json') => {
     hapticFeedback.notificationOccurred('success');
-    // Mock export logic
     console.log(`Exporting logs as ${format.toUpperCase()}`);
   };
 
@@ -118,7 +106,7 @@ export const ChannelAuditLogPage: Component = () => {
             />
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
+          <div class="flex flex-col gap-3">
              {/* Action Filter */}
              <SelectField 
                label={t('channelAuditLog.filterAction') || 'Action'}
@@ -126,40 +114,11 @@ export const ChannelAuditLogPage: Component = () => {
                onChange={setActionFilter}
                options={[
                  { value: 'all', label: t('channelAuditLog.allActions') || 'All Actions' },
-                 { value: 'deleted', label: t('channelAuditLog.actDeleted') || 'Deleted' },
+                 { value: 'delete', label: t('channelAuditLog.actDeleted') || 'Deleted' },
                  { value: 'settings', label: t('channelAuditLog.actSettings') || 'Settings' },
-                 { value: 'banned', label: t('channelAuditLog.actBanned') || 'Banned' }
+                 { value: 'sync', label: 'Synced' }
                ]}
              />
-             
-             {/* Date Filter */}
-             <SelectField 
-               label={t('channelAnalytics.timeRange') || 'Time Range'}
-               value={dateFilter()}
-               onChange={setDateFilter}
-               options={[
-                 { value: 'today', label: t('channelAuditLog.dateToday') || 'Today' },
-                 { value: 'yesterday', label: t('channelAuditLog.dateYesterday') || 'Yesterday' },
-                 { value: '7d', label: t('analyticsSettings.range7d') || 'Last 7 Days' },
-                 { value: '30d', label: t('analyticsSettings.range30d') || 'Last 30 Days' },
-                 { value: 'custom', label: t('channelAnalytics.rangeCustom') || 'Custom Range' }
-               ]}
-             />
-
-             {/* Admin Filter */}
-             <div class="col-span-2">
-                <SelectField 
-                  label={t('channelAuditLog.filterByAdmin') || 'Performed By'}
-                  value={adminFilter()}
-                  onChange={setAdminFilter}
-                  options={[
-                    { value: 'all', label: t('channelAuditLog.allAdmins') || 'All Admins & Bots' },
-                    { value: 'sarah', label: t('channelAuditLog.adminSarah') || 'Admin Sarah' },
-                    { value: 'mike', label: t('channelAuditLog.adminMike') || 'Admin Mike' },
-                    { value: 'bot', label: t('channelAuditLog.systemBot') || 'System Bot' }
-                  ]}
-                />
-             </div>
           </div>
 
           {/* Export Buttons */}
@@ -185,23 +144,21 @@ export const ChannelAuditLogPage: Component = () => {
                </div>
             </Show>
             <For each={filteredLogs()}>
-              {(log: {id: number, action: string, user: string, target: string, time: string, icon: string, color: string}, i) => (
+              {(log: any, i) => (
                 <div class="flex gap-4 relative">
                   <Show when={i() !== filteredLogs().length - 1}>
                     <div class="absolute left-[19px] top-10 bottom-[-20px] w-[2px] bg-[#2a2a2a]"></div>
                   </Show>
-                  <div class={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 z-10`} style={{ "background-color": `${log.color}20`, color: log.color }}>
-                     <span class="material-symbols-outlined text-[18px]">{log.icon}</span>
+                  <div class={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 z-10`} style={{ "background-color": `${getActionColor(log.action)}20`, color: getActionColor(log.action) }}>
+                     <span class="material-symbols-outlined text-[18px]">{getActionIcon(log.action)}</span>
                   </div>
                   <div class="flex flex-col flex-1 min-w-0 pt-1">
                      <div class="flex items-center justify-between gap-2">
-                       <span class="text-[14px] font-bold text-white truncate">{getLocalizedUser(log.user)}</span>
-                       <span class="text-[11px] text-[#8e8e93] font-mono shrink-0">{getLocalizedTime(log.time)}</span>
+                       <span class="text-[14px] font-bold text-white truncate">{log.actor_name}</span>
+                       <span class="text-[11px] text-[#8e8e93] font-mono shrink-0">{formatLogTime(log.created_at)}</span>
                      </div>
                      <div class="flex items-center gap-1.5 mt-0.5">
-                       <span class="text-[12px] font-bold uppercase tracking-wide" style={{ color: log.color }}>{getLocalizedAction(log.action)}</span>
-                       <span class="text-[12px] text-[#8e8e93]">•</span>
-                       <span class="text-[13px] text-[#a0a4ad] truncate">{getLocalizedTarget(log.target)}</span>
+                       <span class="text-[12px] font-bold uppercase tracking-wide" style={{ color: getActionColor(log.action) }}>{log.action}</span>
                      </div>
                   </div>
                 </div>

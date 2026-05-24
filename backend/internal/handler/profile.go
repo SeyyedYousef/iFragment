@@ -312,6 +312,22 @@ func (h *ProfileHandler) CreatePremiumCheckout(w http.ResponseWriter, r *http.Re
 	RespondJSON(w, http.StatusOK, map[string]string{"invoice_link": link})
 }
 
+func (h *ProfileHandler) DeleteUserDataGDPR(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.getUserID(r)
+	if !ok {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	err := h.profileService.DeleteUserDataGDPR(r.Context(), userID)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to wipe user data", err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]string{"status": "ok", "message": "all user data successfully deleted under GDPR right to be forgotten"})
+}
+
 func RespondJSON(w http.ResponseWriter, status int, payload interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

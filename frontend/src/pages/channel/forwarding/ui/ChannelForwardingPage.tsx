@@ -59,6 +59,25 @@ export const ChannelForwardingPage: Component = () => {
     (id) => channelApi.getSettings(id)
   );
 
+  const [rulesData, { refetch: refetchRules }] = createResource(
+    () => params.id,
+    (id) => channelApi.getForwardingRules(id)
+  );
+
+  createEffect(() => {
+    const list = rulesData();
+    if (list) {
+      setRules(list.map((r: any) => ({
+        id: r.id || '',
+        direction: r.direction,
+        targetType: r.target_type,
+        target: r.target,
+        mode: r.mode,
+        active: r.is_active
+      })));
+    }
+  });
+
   createEffect(() => {
     const data = settings();
     if (data) {
@@ -74,7 +93,6 @@ export const ChannelForwardingPage: Component = () => {
           if ('removeLinks' in fwd) setRemoveLinks(fwd.removeLinks);
           if ('watermark' in fwd) setWatermark(fwd.watermark);
           if ('delay' in fwd) setDelay(fwd.delay);
-          if ('rules' in fwd && Array.isArray(fwd.rules)) setRules(fwd.rules);
         }
       } catch (e) {
         console.error("Failed to parse forwarding settings:", e);
@@ -113,7 +131,6 @@ export const ChannelForwardingPage: Component = () => {
       removeLinks: removeLinks(),
       watermark: watermark(),
       delay: delay(),
-      rules: rules(),
     };
 
     try {
@@ -175,7 +192,7 @@ export const ChannelForwardingPage: Component = () => {
     }, 800);
   };
 
-  const handleSaveRule = () => {
+  const handleSaveRule = async () => {
     let finalTarget = targetChat();
     let isReadyToSave = false;
 
@@ -194,19 +211,33 @@ export const ChannelForwardingPage: Component = () => {
 
     if (isReadyToSave) {
       hapticFeedback.notificationOccurred('success');
-      setRules([...rules(), { 
-        id: Date.now().toString(), 
-        direction: direction(), 
-        targetType: targetType(),
-        target: finalTarget, 
-        mode: mode(), 
-        active: true 
-      }]);
-      setIsCreating(false);
-      setTargetChat('');
-      setIsVerified(null);
-      setMode('forward');
-      setDelay('');
+      
+      const newRule = {
+        channel_id: params.id,
+        direction: direction(),
+        target_type: targetType(),
+        target: finalTarget,
+        mode: mode() as any,
+        delay: delay(),
+        is_active: true,
+        content_types: contentTypes(),
+        remove_ads: removeAds(),
+        remove_hashtags: removeHashtags(),
+        remove_links: removeLinks(),
+        watermark: watermark()
+      };
+
+      try {
+        await channelApi.createForwardingRule(params.id, newRule);
+        refetchRules();
+        setIsCreating(false);
+        setTargetChat('');
+        setIsVerified(null);
+        setMode('forward');
+        setDelay('');
+      } catch (err) {
+        console.error("Failed to create rule:", err);
+      }
     }
   };
 
@@ -290,15 +321,33 @@ export const ChannelForwardingPage: Component = () => {
                                   </span>
                                </div>
                             </div>
-                            <button 
-                               onClick={() => {
-                                 hapticFeedback.selectionChanged();
-                                 setRules(rules().map(r => r.id === rule.id ? {...r, active: !r.active} : r));
-                               }}
-                               class={`w-12 h-7 rounded-full relative transition-colors ${rule.active ? 'bg-[#34c759]' : 'bg-[#3a3a3c]'}`}
-                            >
-                               <div class={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full transition-transform ${rule.active ? 'translate-x-5' : 'translate-x-0'}`}></div>
-                            </button>
+                            <div class="flex items-center gap-3">
+                               <button 
+                                  onClick={async () => {
+                                    hapticFeedback.selectionChanged();
+                                    const r = rulesData()?.find((x: any) => x.id === rule.id);
+                                    if (r) {
+                                      const updated = { ...r, is_active: !r.is_active };
+                                      await channelApi.updateForwardingRule(params.id, r.id!, updated);
+                                      refetchRules();
+                                    }
+                                  }}
+                                  class={`w-12 h-7 rounded-full relative transition-colors ${rule.active ? 'bg-[#34c759]' : 'bg-[#3a3a3c]'}`}
+                               >
+                                  <div class={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full transition-transform ${rule.active ? 'translate-x-5' : 'translate-x-0'}`}></div>
+                               </button>
+
+                               <button 
+                                  onClick={async () => {
+                                    hapticFeedback.impactOccurred('medium');
+                                    await channelApi.deleteForwardingRule(params.id, rule.id);
+                                    refetchRules();
+                                  }}
+                                  class="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 text-red-500 flex items-center justify-center transition-all shadow-sm shrink-0"
+                               >
+                                  <span class="material-symbols-outlined text-[16px]">delete</span>
+                               </button>
+                             </div>
                          </div>
                       </div>
                    )}

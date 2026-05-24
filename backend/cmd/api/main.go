@@ -45,10 +45,10 @@ import (
 )
 
 func main() {
-	// Initialize PII Masking Logger
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+	// Initialize PII Masking Logger with Tracing Support
+	slog.SetDefault(slog.New(logger.NewTracingHandler(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		ReplaceAttr: logger.MaskPIIAttr,
-	})))
+	}))))
 	log.SetOutput(&logger.PIIMaskingWriter{Out: os.Stdout})
 
 	// Load .env file (only in non-production)
@@ -109,6 +109,7 @@ func main() {
 	r := chi.NewRouter()
 
 	r.Use(middleware.SecurityHeaders)
+	r.Use(middleware.CSRF)
 	// Request-ID and Structured Logging
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -196,6 +197,10 @@ func main() {
 	// Initialize Handlers
 	channelRepo := repository.NewChannelRepo(db, cache)
 	channelService := channelmgmt.NewChannelService(channelRepo, botRepo, auditRepo)
+	
+	// 🚀 Start Channel Background Workers (Post scheduler & daily analytics snapshots)
+	channelService.StartBackgroundTasks(ctx)
+
 	channelHandler := handler.NewChannelHandler(channelService)
 
 	usernameHandler := handler.NewUsernameHandler(aggregatorService, reportService, fragClient, mtprotoClient, cache)
@@ -214,6 +219,36 @@ func main() {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			w.Write([]byte(`{"status": "ok"}`))
+		})
+
+		r.Get("/healthz/live", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"status": "alive"}`))
+		})
+
+		r.Get("/healthz/ready", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			if db == nil {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				w.Write([]byte(`{"status": "unready", "db": "disconnected"}`))
+				return
+			}
+			if err := db.Pool.Ping(r.Context()); err != nil {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				w.Write([]byte(`{"status": "unready", "db": "error"}`))
+				return
+			}
+			if cache == nil {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				w.Write([]byte(`{"status": "unready", "cache": "disconnected"}`))
+				return
+			}
+			if err := cache.Client.Ping(r.Context()).Err(); err != nil {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				w.Write([]byte(`{"status": "unready", "cache": "error"}`))
+				return
+			}
+			w.Write([]byte(`{"status": "ready"}`))
 		})
 
 		r.Post("/webhook/telegram/{botID}", webhookHandler.HandleTelegramWebhook)
@@ -261,6 +296,7 @@ func main() {
 
 		r.Route("/channels", func(r chi.Router) {
 			r.Use(middleware.AuthMiddleware)
+			r.Use(middleware.NewChannelRateLimiter(cache))
 
 			r.Get("/", channelHandler.ListChannels)
 			r.Post("/connect", channelHandler.ConnectChannel)
@@ -268,6 +304,23 @@ func main() {
 			r.Delete("/{channelID}", channelHandler.DisconnectChannel)
 			r.Get("/{channelID}/settings", channelHandler.GetSettings)
 			r.Put("/{channelID}/settings", channelHandler.UpdateSettings)
+			r.Get("/{channelID}/audit", channelHandler.GetAuditLogs)
+			r.Get("/{channelID}/analytics", channelHandler.GetAnalytics)
+			r.Post("/{channelID}/posts", channelHandler.CreatePost)
+
+			// Forwarding Rules
+			r.Get("/{channelID}/forwarding/rules", channelHandler.GetForwardingRules)
+			r.Post("/{channelID}/forwarding/rules", channelHandler.CreateForwardingRule)
+			r.Put("/{channelID}/forwarding/rules/{ruleID}", channelHandler.UpdateForwardingRule)
+			r.Delete("/{channelID}/forwarding/rules/{ruleID}", channelHandler.DeleteForwardingRule)
+
+			// Sync Admins
+			r.Post("/{channelID}/admins/sync", channelHandler.SyncAdmins)
+			r.Get("/{channelID}/admins", channelHandler.GetAdmins)
+
+			// Custom Inline Buttons
+			r.Get("/{channelID}/buttons", channelHandler.GetButtons)
+			r.Post("/{channelID}/buttons", channelHandler.SaveButtons)
 		})
 
 		r.Route("/subscription", func(r chi.Router) {
@@ -296,6 +349,7 @@ func main() {
 		r.Route("/profile", func(r chi.Router) {
 			r.Use(middleware.AuthMiddleware)
 
+			r.Delete("/gdpr", profileHandler.DeleteUserDataGDPR)
 			r.Get("/stats", profileHandler.GetStats)
 			r.Get("/achievements", profileHandler.GetAchievements)
 			r.Get("/achievements/defs", profileHandler.GetAchievementDefs)

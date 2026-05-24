@@ -337,3 +337,26 @@ func (s *ProfileService) SetEmojiStatus(ctx context.Context, userID int64, emoji
 	return nil
 }
 
+func (s *ProfileService) DeleteUserDataGDPR(ctx context.Context, userID int64) error {
+	query := `DELETE FROM users WHERE telegram_id = $1`
+	_, err := s.db.Pool.Exec(ctx, query, userID)
+	if err != nil {
+		return fmt.Errorf("failed to wipe physical user database records: %w", err)
+	}
+
+	if s.cache != nil && s.cache.Client != nil {
+		userIDStr := strconv.FormatInt(userID, 10)
+		pipe := s.cache.Client.Pipeline()
+		pipe.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
+		pipe.ZRem(ctx, "leaderboard", userIDStr)
+		pipe.Del(ctx, fmt.Sprintf("referrals:%d", userID))
+		pipe.Del(ctx, fmt.Sprintf("achievements:%d", userID))
+		pipe.Del(ctx, fmt.Sprintf("daily:%d", userID))
+		pipe.Del(ctx, fmt.Sprintf("tasks:%d", userID))
+		pipe.Del(ctx, fmt.Sprintf("boosts:%d", userID))
+		_, _ = pipe.Exec(ctx)
+	}
+
+	return nil
+}
+
