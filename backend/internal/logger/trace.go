@@ -7,6 +7,10 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+type LoggerContextKey string
+
+const RequestIDKey LoggerContextKey = "request_id"
+
 // TracingHandler wraps an existing slog.Handler and injects trace_id and request_id
 // from context if they exist.
 type TracingHandler struct {
@@ -23,7 +27,18 @@ func (h *TracingHandler) Handle(ctx context.Context, r slog.Record) error {
 	}
 
 	// Extract request_id from context
-	if reqID, ok := ctx.Value("request_id").(string); ok && reqID != "" {
+	var reqID string
+	if val := ctx.Value(RequestIDKey); val != nil {
+		if s, ok := val.(string); ok {
+			reqID = s
+		}
+	} else if val := ctx.Value("request_id"); val != nil {
+		if s, ok := val.(string); ok {
+			reqID = s
+		}
+	}
+
+	if reqID != "" {
 		r.AddAttrs(slog.String("request_id", reqID))
 	}
 

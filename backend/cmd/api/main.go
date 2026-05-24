@@ -118,7 +118,7 @@ func main() {
 				reqID = uuid.NewString()
 			}
 			w.Header().Set("X-Request-ID", reqID)
-			ctx := context.WithValue(r.Context(), "request_id", reqID)
+			ctx := context.WithValue(r.Context(), logger.RequestIDKey, reqID)
 			logger := slog.With("request_id", reqID, "path", r.URL.Path)
 			ctx = context.WithValue(ctx, "logger", logger)
 			next.ServeHTTP(w, r.WithContext(ctx))
@@ -248,6 +248,17 @@ func main() {
 				w.Write([]byte(`{"status": "unready", "cache": "error"}`))
 				return
 			}
+
+			// Probe Telegram API reachability (Issue 24)
+			tgClient := &http.Client{Timeout: 2 * time.Second}
+			tgResp, err := tgClient.Get("https://api.telegram.org")
+			if err != nil {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				w.Write([]byte(`{"status": "unready", "telegram_api": "error"}`))
+				return
+			}
+			tgResp.Body.Close()
+
 			w.Write([]byte(`{"status": "ready"}`))
 		})
 

@@ -18,6 +18,12 @@ func CSRF(next http.Handler) http.Handler {
 			return
 		}
 
+		// Skip CSRF check if Authorization header is present (Bearer tokens are immune to CSRF) (Issue 25)
+		if strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		// Retrieve allowed origins
 		allowedStr := os.Getenv("ALLOWED_ORIGINS")
 		allowedOrigins := strings.Split(allowedStr, ",")

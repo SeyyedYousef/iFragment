@@ -68,10 +68,7 @@ func NewChannelRepo(db *Database, cache *Cache) *ChannelRepo {
 
 func (r *ChannelRepo) CreateChannel(ctx context.Context, ch *ManagedChannel) error {
 	if r.db == nil || r.db.Pool == nil {
-		ch.ID = uuid.New()
-		ch.CreatedAt = time.Now()
-		ch.UpdatedAt = time.Now()
-		return nil
+		return fmt.Errorf("database pool is not initialized")
 	}
 
 	query := `INSERT INTO managed_channels (bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content)
@@ -87,21 +84,7 @@ func (r *ChannelRepo) CreateChannel(ctx context.Context, ch *ManagedChannel) err
 
 func (r *ChannelRepo) GetChannelsByBot(ctx context.Context, botID uuid.UUID, cursor *time.Time, limit int) ([]ManagedChannel, *time.Time, error) {
 	if r.db == nil || r.db.Pool == nil {
-		pu := time.Now().Add(30 * 24 * time.Hour)
-		return []ManagedChannel{
-			{
-				ID:                 uuid.New(),
-				BotID:              botID,
-				ChatID:             -100222222,
-				ChatTitle:          "Mock Channel",
-				SubscribersCount:   1000,
-				SubscriptionStatus: "trial",
-				TrialEndsAt:        time.Now().Add(72 * time.Hour),
-				PaidUntil:          &pu,
-				CreatedAt:          time.Now(),
-				UpdatedAt:          time.Now(),
-			},
-		}, nil, nil
+		return nil, nil, fmt.Errorf("database pool is not initialized")
 	}
 
 	var query string
@@ -114,13 +97,13 @@ func (r *ChannelRepo) GetChannelsByBot(ctx context.Context, botID uuid.UUID, cur
 	if cursor != nil {
 		query = `SELECT id, bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, paid_until, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content, created_at, updated_at
 			FROM managed_channels 
-			WHERE bot_id = $1 AND created_at < $2 AND deleted_at IS NULL 
+			WHERE bot_id = $1 AND created_at < $2 
 			ORDER BY created_at DESC LIMIT $3`
 		args = []interface{}{botID, *cursor, limit}
 	} else {
 		query = `SELECT id, bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, paid_until, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content, created_at, updated_at
 			FROM managed_channels 
-			WHERE bot_id = $1 AND deleted_at IS NULL 
+			WHERE bot_id = $1 
 			ORDER BY created_at DESC LIMIT $2`
 		args = []interface{}{botID, limit}
 	}
@@ -155,7 +138,7 @@ func (r *ChannelRepo) GetChannelsByBot(ctx context.Context, botID uuid.UUID, cur
 
 func (r *ChannelRepo) GetChannelsByOwner(ctx context.Context, ownerUserID int64, cursor *time.Time, limit int) ([]ManagedChannel, *time.Time, error) {
 	if r.db == nil || r.db.Pool == nil {
-		return []ManagedChannel{}, nil, nil
+		return nil, nil, fmt.Errorf("database pool is not initialized")
 	}
 
 	var query string
@@ -169,14 +152,14 @@ func (r *ChannelRepo) GetChannelsByOwner(ctx context.Context, ownerUserID int64,
 		query = `SELECT c.id, c.bot_id, c.chat_id, c.chat_title, c.subscribers_count, c.subscription_status, c.trial_ends_at, c.paid_until, c.linked_chat_id, c.slow_mode_delay, c.auto_delete_time, c.sign_messages, c.protect_content, c.created_at, c.updated_at
 			FROM managed_channels c
 			JOIN managed_bots b ON c.bot_id = b.id
-			WHERE b.owner_user_id = $1 AND c.created_at < $2 AND c.deleted_at IS NULL 
+			WHERE b.owner_user_id = $1 AND c.created_at < $2 
 			ORDER BY c.created_at DESC LIMIT $3`
 		args = []interface{}{ownerUserID, *cursor, limit}
 	} else {
 		query = `SELECT c.id, c.bot_id, c.chat_id, c.chat_title, c.subscribers_count, c.subscription_status, c.trial_ends_at, c.paid_until, c.linked_chat_id, c.slow_mode_delay, c.auto_delete_time, c.sign_messages, c.protect_content, c.created_at, c.updated_at
 			FROM managed_channels c
 			JOIN managed_bots b ON c.bot_id = b.id
-			WHERE b.owner_user_id = $1 AND c.deleted_at IS NULL 
+			WHERE b.owner_user_id = $1 
 			ORDER BY c.created_at DESC LIMIT $2`
 		args = []interface{}{ownerUserID, limit}
 	}
@@ -211,21 +194,11 @@ func (r *ChannelRepo) GetChannelsByOwner(ctx context.Context, ownerUserID int64,
 
 func (r *ChannelRepo) GetChannelByID(ctx context.Context, id uuid.UUID) (*ManagedChannel, error) {
 	if r.db == nil || r.db.Pool == nil {
-		return &ManagedChannel{
-			ID:                 id,
-			BotID:              uuid.New(),
-			ChatID:             -100222222,
-			ChatTitle:          "Mock Channel",
-			SubscribersCount:   1000,
-			SubscriptionStatus: "trial",
-			TrialEndsAt:        time.Now().Add(72 * time.Hour),
-			CreatedAt:          time.Now(),
-			UpdatedAt:          time.Now(),
-		}, nil
+		return nil, fmt.Errorf("database pool is not initialized")
 	}
 
 	query := `SELECT id, bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, paid_until, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content, created_at, updated_at
-		FROM managed_channels WHERE id = $1 AND deleted_at IS NULL`
+		FROM managed_channels WHERE id = $1`
 	
 	var c ManagedChannel
 	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
@@ -241,11 +214,11 @@ func (r *ChannelRepo) GetChannelByID(ctx context.Context, id uuid.UUID) (*Manage
 
 func (r *ChannelRepo) GetChannelByChatID(ctx context.Context, chatID int64) (*ManagedChannel, error) {
 	if r.db == nil || r.db.Pool == nil {
-		return nil, fmt.Errorf("no database connection")
+		return nil, fmt.Errorf("database pool is not initialized")
 	}
 
 	query := `SELECT id, bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, paid_until, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content, created_at, updated_at
-		FROM managed_channels WHERE chat_id = $1 AND deleted_at IS NULL`
+		FROM managed_channels WHERE chat_id = $1`
 	
 	var c ManagedChannel
 	err := r.db.Pool.QueryRow(ctx, query, chatID).Scan(
@@ -261,9 +234,9 @@ func (r *ChannelRepo) GetChannelByChatID(ctx context.Context, chatID int64) (*Ma
 
 func (r *ChannelRepo) DeleteChannel(ctx context.Context, id uuid.UUID) error {
 	if r.db == nil || r.db.Pool == nil {
-		return nil
+		return fmt.Errorf("database pool is not initialized")
 	}
-	query := `UPDATE managed_channels SET deleted_at = now() WHERE id = $1`
+	query := `DELETE FROM managed_channels WHERE id = $1`
 	_, err := r.db.Pool.Exec(ctx, query, id)
 	return err
 }
@@ -272,18 +245,7 @@ func (r *ChannelRepo) DeleteChannel(ctx context.Context, id uuid.UUID) error {
 
 func (r *ChannelRepo) GetChannelSettings(ctx context.Context, channelID uuid.UUID) (*ChannelSettings, error) {
 	if r.db == nil || r.db.Pool == nil {
-		empty := json.RawMessage(`{}`)
-		return &ChannelSettings{
-			ChannelID:     channelID,
-			General:       empty,
-			Posting:       empty,
-			Forwarding:    empty,
-			InlineButtons: empty,
-			DynamicBio:    empty,
-			AutoResponder: empty,
-			Version:       1,
-			UpdatedAt:     time.Now(),
-		}, nil
+		return nil, fmt.Errorf("database pool is not initialized")
 	}
 
 	// 1. Try cache
@@ -346,7 +308,7 @@ func (r *ChannelRepo) InitChannelSettings(ctx context.Context, channelID uuid.UU
 
 func (r *ChannelRepo) UpdateChannelSettingsCategory(ctx context.Context, channelID uuid.UUID, category string, data json.RawMessage, userID int64, currentVersion int) (*ChannelSettings, error) {
 	if r.db == nil || r.db.Pool == nil {
-		return r.GetChannelSettings(ctx, channelID)
+		return nil, fmt.Errorf("database pool is not initialized")
 	}
 
 	var query string
@@ -394,7 +356,16 @@ func (r *ChannelRepo) UpdateChannelSettingsCategory(ctx context.Context, channel
 		r.cache.Client.Del(ctx, cacheKey)
 	}
 
-	return r.GetChannelSettings(ctx, channelID)
+	res, err := r.GetChannelSettings(ctx, channelID)
+	if err == nil && r.cache != nil {
+		cacheKey := fmt.Sprintf("channel_settings:%s", channelID.String())
+		// Double delete/evict to guarantee cache consistency
+		r.cache.Client.Del(ctx, cacheKey)
+		
+		dataBytes, _ := json.Marshal(res)
+		r.cache.Client.Set(ctx, cacheKey, dataBytes, 1*time.Hour)
+	}
+	return res, err
 }
 
 type ChannelAuditLog struct {
@@ -425,9 +396,7 @@ type ChannelAnalytics struct {
 // LogAudit persists an audit log entry for channel events
 func (r *ChannelRepo) LogAudit(ctx context.Context, log *ChannelAuditLog) error {
 	if r.db == nil || r.db.Pool == nil {
-		log.ID = uuid.New()
-		log.CreatedAt = time.Now()
-		return nil
+		return fmt.Errorf("database pool is not initialized")
 	}
 
 	query := `INSERT INTO channel_audit_logs (channel_id, actor_id, action, target_type, target_id, old_value, new_value, metadata)
@@ -442,15 +411,7 @@ func (r *ChannelRepo) LogAudit(ctx context.Context, log *ChannelAuditLog) error 
 // GetAuditLogs loads paginated audit logs for a specific channel
 func (r *ChannelRepo) GetAuditLogs(ctx context.Context, channelID uuid.UUID, limit, offset int) ([]ChannelAuditLog, error) {
 	if r.db == nil || r.db.Pool == nil {
-		return []ChannelAuditLog{
-			{
-				ID:        uuid.New(),
-				ChannelID: channelID,
-				ActorID:   12345,
-				Action:    "channel.mock_action",
-				CreatedAt: time.Now(),
-			},
-		}, nil
+		return nil, fmt.Errorf("database pool is not initialized")
 	}
 
 	query := `SELECT id, channel_id, actor_id, action, target_type, target_id, old_value, new_value, metadata, created_at
@@ -478,9 +439,7 @@ func (r *ChannelRepo) GetAuditLogs(ctx context.Context, channelID uuid.UUID, lim
 // SaveAnalyticsSnapshot inserts or updates a daily analytics snapshot
 func (r *ChannelRepo) SaveAnalyticsSnapshot(ctx context.Context, snapshot *ChannelAnalytics) error {
 	if r.db == nil || r.db.Pool == nil {
-		snapshot.ID = uuid.New()
-		snapshot.CreatedAt = time.Now()
-		return nil
+		return fmt.Errorf("database pool is not initialized")
 	}
 
 	query := `INSERT INTO channel_analytics (channel_id, snapshot_date, subscribers_count, new_subscribers, views_count, reactions_count, posts_count)
@@ -502,22 +461,7 @@ func (r *ChannelRepo) SaveAnalyticsSnapshot(ctx context.Context, snapshot *Chann
 // GetAnalyticsTimeline retrieves a history timeline of daily snapshots
 func (r *ChannelRepo) GetAnalyticsTimeline(ctx context.Context, channelID uuid.UUID, days int) ([]ChannelAnalytics, error) {
 	if r.db == nil || r.db.Pool == nil {
-		var out []ChannelAnalytics
-		now := time.Now()
-		for i := days - 1; i >= 0; i-- {
-			out = append(out, ChannelAnalytics{
-				ID:               uuid.New(),
-				ChannelID:        channelID,
-				SnapshotDate:     now.AddDate(0, 0, -i),
-				SubscribersCount: 12000 + i*10,
-				NewSubscribers:   10,
-				ViewsCount:       45000 + i*100,
-				ReactionsCount:   80,
-				PostsCount:       3,
-				CreatedAt:        now.AddDate(0, 0, -i),
-			})
-		}
-		return out, nil
+		return nil, fmt.Errorf("database pool is not initialized")
 	}
 
 	query := `SELECT id, channel_id, snapshot_date, subscribers_count, new_subscribers, views_count, reactions_count, posts_count, created_at
@@ -547,9 +491,7 @@ func (r *ChannelRepo) GetAnalyticsTimeline(ctx context.Context, channelID uuid.U
 // CreatePost schedules or registers a post entry
 func (r *ChannelRepo) CreatePost(ctx context.Context, post *ChannelPost) error {
 	if r.db == nil || r.db.Pool == nil {
-		post.ID = uuid.New()
-		post.CreatedAt = time.Now()
-		return nil
+		return fmt.Errorf("database pool is not initialized")
 	}
 
 	query := `INSERT INTO channel_posts (channel_id, telegram_message_id, author_user_id, text, has_media, views_count, reactions_count, forwards_count, is_pinned, scheduled_at, posted_at)
@@ -565,7 +507,7 @@ func (r *ChannelRepo) CreatePost(ctx context.Context, post *ChannelPost) error {
 // GetScheduledPosts retrieves all pending posts scheduled for publishing
 func (r *ChannelRepo) GetScheduledPosts(ctx context.Context) ([]ChannelPost, error) {
 	if r.db == nil || r.db.Pool == nil {
-		return nil, nil
+		return nil, fmt.Errorf("database pool is not initialized")
 	}
 
 	query := `SELECT id, channel_id, telegram_message_id, author_user_id, text, has_media, views_count, reactions_count, forwards_count, is_pinned, scheduled_at, posted_at, created_at
@@ -594,7 +536,7 @@ func (r *ChannelRepo) GetScheduledPosts(ctx context.Context) ([]ChannelPost, err
 // MarkPostAsPublished marks a scheduled post as successfully published
 func (r *ChannelRepo) MarkPostAsPublished(ctx context.Context, postID uuid.UUID, telegramMsgID int64) error {
 	if r.db == nil || r.db.Pool == nil {
-		return nil
+		return fmt.Errorf("database pool is not initialized")
 	}
 
 	query := `UPDATE channel_posts SET telegram_message_id = $1, posted_at = now() WHERE id = $2`
@@ -605,11 +547,11 @@ func (r *ChannelRepo) MarkPostAsPublished(ctx context.Context, postID uuid.UUID,
 // GetAllChannels retrieves all active (non-deleted) managed channels in the system
 func (r *ChannelRepo) GetAllChannels(ctx context.Context) ([]ManagedChannel, error) {
 	if r.db == nil || r.db.Pool == nil {
-		return []ManagedChannel{}, nil
+		return nil, fmt.Errorf("database pool is not initialized")
 	}
 
 	query := `SELECT id, bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, paid_until, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content, created_at, updated_at
-		FROM managed_channels WHERE deleted_at IS NULL`
+		FROM managed_channels`
 	
 	rows, err := r.db.Pool.Query(ctx, query)
 	if err != nil {
@@ -635,7 +577,7 @@ func (r *ChannelRepo) GetAllChannels(ctx context.Context) ([]ManagedChannel, err
 // UpdateChannelSubscribers updates the cached subscribers count for a channel
 func (r *ChannelRepo) UpdateChannelSubscribers(ctx context.Context, channelID uuid.UUID, subscribersCount int) error {
 	if r.db == nil || r.db.Pool == nil {
-		return nil
+		return fmt.Errorf("database pool is not initialized")
 	}
 
 	query := `UPDATE managed_channels SET subscribers_count = $1, updated_at = now() WHERE id = $2`
@@ -686,9 +628,7 @@ type ChannelInlineButton struct {
 // CreateForwardingRule creates a new channel forwarding rule
 func (r *ChannelRepo) CreateForwardingRule(ctx context.Context, rule *ChannelForwardingRule) error {
 	if r.db == nil || r.db.Pool == nil {
-		rule.ID = uuid.New()
-		rule.CreatedAt = time.Now()
-		return nil
+		return fmt.Errorf("database pool is not initialized")
 	}
 
 	query := `INSERT INTO channel_forwarding_rules (channel_id, direction, target_type, target, mode, delay, is_active, content_types, remove_ads, remove_hashtags, remove_links, watermark)
@@ -704,7 +644,7 @@ func (r *ChannelRepo) CreateForwardingRule(ctx context.Context, rule *ChannelFor
 // GetForwardingRules retrieves all forwarding rules for a channel
 func (r *ChannelRepo) GetForwardingRules(ctx context.Context, channelID uuid.UUID) ([]ChannelForwardingRule, error) {
 	if r.db == nil || r.db.Pool == nil {
-		return []ChannelForwardingRule{}, nil
+		return nil, fmt.Errorf("database pool is not initialized")
 	}
 
 	query := `SELECT id, channel_id, direction, target_type, target, mode, delay, is_active, content_types, remove_ads, remove_hashtags, remove_links, watermark, created_at
@@ -733,7 +673,7 @@ func (r *ChannelRepo) GetForwardingRules(ctx context.Context, channelID uuid.UUI
 // UpdateForwardingRule updates an existing forwarding rule
 func (r *ChannelRepo) UpdateForwardingRule(ctx context.Context, rule *ChannelForwardingRule) error {
 	if r.db == nil || r.db.Pool == nil {
-		return nil
+		return fmt.Errorf("database pool is not initialized")
 	}
 
 	query := `UPDATE channel_forwarding_rules SET direction = $1, target_type = $2, target = $3, mode = $4, delay = $5, is_active = $6, content_types = $7, remove_ads = $8, remove_hashtags = $9, remove_links = $10, watermark = $11
@@ -749,7 +689,7 @@ func (r *ChannelRepo) UpdateForwardingRule(ctx context.Context, rule *ChannelFor
 // DeleteForwardingRule deletes a forwarding rule
 func (r *ChannelRepo) DeleteForwardingRule(ctx context.Context, ruleID uuid.UUID) error {
 	if r.db == nil || r.db.Pool == nil {
-		return nil
+		return fmt.Errorf("database pool is not initialized")
 	}
 
 	query := `DELETE FROM channel_forwarding_rules WHERE id = $1`
@@ -760,7 +700,7 @@ func (r *ChannelRepo) DeleteForwardingRule(ctx context.Context, ruleID uuid.UUID
 // GetActiveForwardingRulesBySource retrieves active rules (inbound or outbound) by a target username or ID
 func (r *ChannelRepo) GetActiveForwardingRulesBySource(ctx context.Context, target string) ([]ChannelForwardingRule, error) {
 	if r.db == nil || r.db.Pool == nil {
-		return []ChannelForwardingRule{}, nil
+		return nil, fmt.Errorf("database pool is not initialized")
 	}
 
 	query := `SELECT id, channel_id, direction, target_type, target, mode, delay, is_active, content_types, remove_ads, remove_hashtags, remove_links, watermark, created_at
@@ -789,7 +729,7 @@ func (r *ChannelRepo) GetActiveForwardingRulesBySource(ctx context.Context, targ
 // SyncChannelAdmins synchronizes Telegram administrators list locally
 func (r *ChannelRepo) SyncChannelAdmins(ctx context.Context, channelID uuid.UUID, admins []ChannelAdmin) error {
 	if r.db == nil || r.db.Pool == nil {
-		return nil
+		return fmt.Errorf("database pool is not initialized")
 	}
 
 	tx, err := r.db.Pool.Begin(ctx)
@@ -836,7 +776,7 @@ func (r *ChannelRepo) SyncChannelAdmins(ctx context.Context, channelID uuid.UUID
 // GetChannelAdmins returns local administrators list for a channel
 func (r *ChannelRepo) GetChannelAdmins(ctx context.Context, channelID uuid.UUID) ([]ChannelAdmin, error) {
 	if r.db == nil || r.db.Pool == nil {
-		return []ChannelAdmin{}, nil
+		return nil, fmt.Errorf("database pool is not initialized")
 	}
 
 	query := `SELECT id, channel_id, telegram_id, username, first_name, custom_title, is_owner, created_at
@@ -864,7 +804,7 @@ func (r *ChannelRepo) GetChannelAdmins(ctx context.Context, channelID uuid.UUID)
 // SaveChannelButtons synchronizes interactive inline buttons for a channel
 func (r *ChannelRepo) SaveChannelButtons(ctx context.Context, channelID uuid.UUID, buttons []ChannelInlineButton) error {
 	if r.db == nil || r.db.Pool == nil {
-		return nil
+		return fmt.Errorf("database pool is not initialized")
 	}
 
 	tx, err := r.db.Pool.Begin(ctx)
@@ -895,7 +835,7 @@ func (r *ChannelRepo) SaveChannelButtons(ctx context.Context, channelID uuid.UUI
 // GetChannelButtons returns inline buttons list for a channel
 func (r *ChannelRepo) GetChannelButtons(ctx context.Context, channelID uuid.UUID) ([]ChannelInlineButton, error) {
 	if r.db == nil || r.db.Pool == nil {
-		return []ChannelInlineButton{}, nil
+		return nil, fmt.Errorf("database pool is not initialized")
 	}
 
 	query := `SELECT id, channel_id, title, value, type, style, emoji, click_count, created_at
@@ -923,7 +863,7 @@ func (r *ChannelRepo) GetChannelButtons(ctx context.Context, channelID uuid.UUID
 // IncrementButtonClicks increments count of clicks for an inline button
 func (r *ChannelRepo) IncrementButtonClicks(ctx context.Context, buttonID uuid.UUID) error {
 	if r.db == nil || r.db.Pool == nil {
-		return nil
+		return fmt.Errorf("database pool is not initialized")
 	}
 
 	query := `UPDATE channel_inline_buttons SET click_count = click_count + 1 WHERE id = $1`
@@ -934,7 +874,7 @@ func (r *ChannelRepo) IncrementButtonClicks(ctx context.Context, buttonID uuid.U
 // GetButtonByID retrieves an inline button by its UUID
 func (r *ChannelRepo) GetButtonByID(ctx context.Context, buttonID uuid.UUID) (*ChannelInlineButton, error) {
 	if r.db == nil || r.db.Pool == nil {
-		return nil, fmt.Errorf("no database connection")
+		return nil, fmt.Errorf("database pool is not initialized")
 	}
 
 	query := `SELECT id, channel_id, title, value, type, style, emoji, click_count, created_at
@@ -950,5 +890,23 @@ func (r *ChannelRepo) GetButtonByID(ctx context.Context, buttonID uuid.UUID) (*C
 	return &b, err
 }
 
+func (r *ChannelRepo) GetCache() *Cache {
+	return r.cache
+}
 
+func (r *ChannelRepo) PruneAuditLogs(ctx context.Context, cutoff time.Time) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("database pool is not initialized")
+	}
+	query := `DELETE FROM channel_audit_logs WHERE created_at < $1`
+	_, err := r.db.Pool.Exec(ctx, query, cutoff)
+	return err
+}
 
+type PendingPost struct {
+	ID        uuid.UUID             `json:"id"`
+	ChannelID uuid.UUID             `json:"channel_id"`
+	ChatID    int64                 `json:"chat_id"`
+	Text      string                `json:"text"`
+	Buttons   []ChannelInlineButton `json:"buttons"`
+}

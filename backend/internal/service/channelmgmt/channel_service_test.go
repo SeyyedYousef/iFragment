@@ -110,25 +110,19 @@ func TestChannelServiceNewFeatures(t *testing.T) {
 	channelID := uuid.New()
 	ownerUserID := int64(12345)
 
-	// Test GetAuditLogs (since db is nil, it falls back to mock list)
-	logs, err := s.GetAuditLogs(ctx, ownerUserID, channelID, 10, 0)
-	if err != nil {
-		t.Fatalf("Expected no error from GetAuditLogs mock fallback, got: %v", err)
-	}
-	if len(logs) == 0 {
-		t.Errorf("Expected at least one mock audit log, got 0")
+	// Test GetAuditLogs (since db is nil, it correctly returns db pool initialization error)
+	_, err := s.GetAuditLogs(ctx, ownerUserID, channelID, 10, 0)
+	if err == nil || err.Error() != "database pool is not initialized" {
+		t.Fatalf("Expected 'database pool is not initialized' error, got: %v", err)
 	}
 
-	// Test GetAnalytics (mock fallback)
-	analytics, err := s.GetAnalytics(ctx, ownerUserID, channelID, 7)
-	if err != nil {
-		t.Fatalf("Expected no error from GetAnalytics mock fallback, got: %v", err)
-	}
-	if len(analytics) != 7 {
-		t.Errorf("Expected 7 days of mock analytics snapshots, got %d", len(analytics))
+	// Test GetAnalytics (correctly returns db pool initialization error)
+	_, err = s.GetAnalytics(ctx, ownerUserID, channelID, 7)
+	if err == nil || err.Error() != "database pool is not initialized" {
+		t.Fatalf("Expected 'database pool is not initialized' error, got: %v", err)
 	}
 
-	// Test CreatePost (scheduling post)
+	// Test CreatePost (correctly returns db pool initialization error)
 	futureTime := time.Now().Add(2 * time.Hour)
 	post := &repository.ChannelPost{
 		ChannelID:   channelID,
@@ -137,12 +131,8 @@ func TestChannelServiceNewFeatures(t *testing.T) {
 	}
 
 	err = s.CreatePost(ctx, ownerUserID, post)
-	if err != nil {
-		t.Fatalf("Expected no error when scheduling post with nil DB, got: %v", err)
-	}
-
-	if post.ID == uuid.Nil {
-		t.Errorf("Expected post ID to be generated")
+	if err == nil || err.Error() != "database pool is not initialized" {
+		t.Fatalf("Expected 'database pool is not initialized' error when scheduling post with nil DB, got: %v", err)
 	}
 
 	// Verify starting background workers executes without errors

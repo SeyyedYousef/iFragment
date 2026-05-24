@@ -161,9 +161,11 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-	if expectedSecret != "" && secretToken != expectedSecret {
-		w.WriteHeader(http.StatusUnauthorized)
-		return
+	if expectedSecret != "" {
+		if len(secretToken) != len(expectedSecret) || subtle.ConstantTimeCompare([]byte(secretToken), []byte(expectedSecret)) != 1 {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
 	}
 
 	botID, err := uuid.Parse(botIDStr)
@@ -508,6 +510,133 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 
 	if msg != nil && msg.Chat != nil && msg.From != nil {
 		ctx := r.Context()
+
+		// Intercept owner PV edit messages for approval workflow (Issue 1.5)
+		if msg.Chat.Type == "private" && msg.From.ID == bot.OwnerUserID && cache != nil && cache.Client != nil {
+			stateKey := fmt.Sprintf("edit_state:%d", msg.From.ID)
+			pendingIDStr, err := cache.Client.Get(ctx, stateKey).Result()
+			if err == nil && pendingIDStr != "" {
+				cache.Client.Del(ctx, stateKey)
+				pendingKey := fmt.Sprintf("pending_post:%s", pendingIDStr)
+				pendingVal, err := cache.Client.Get(ctx, pendingKey).Result()
+				if err == nil && pendingVal != "" {
+					var pending repository.PendingPost
+					_ = json.Unmarshal([]byte(pendingVal), &pending)
+					pending.Text = msg.Text
+					updatedJSON, _ := json.Marshal(pending)
+					_ = cache.Client.Set(ctx, pendingKey, updatedJSON, 24*time.Hour).Err()
+
+					token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+					tg := telegram.NewBotAPIClient(token)
+
+					markup := map[string]interface{}{
+						"inline_keyboard": [][]map[string]interface{}{
+							{
+								{
+									"text":          "✅ تایید و ارسال",
+									"callback_data": fmt.Sprintf("approve:%s", pending.ID.String()),
+								},
+								{
+									"text":          "❌ رد کردن",
+									"callback_data": fmt.Sprintf("reject:%s", pending.ID.String()),
+								},
+							},
+							{
+								{
+									"text":          "✏️ ویرایش متن",
+									"callback_data": fmt.Sprintf("edit_text:%s", pending.ID.String()),
+								},
+								{
+									"text":          "🔗 ویرایش دکمه‌ها",
+									"callback_data": fmt.Sprintf("edit_btn:%s", pending.ID.String()),
+								},
+							},
+						},
+					}
+
+					previewText := fmt.Sprintf(
+						"📢 **پیش‌نویس پست ویرایش‌شده جدید**\n\n%s\n\n---\n⏳ **وضعیت:** در انتظار تایید",
+						pending.Text,
+					)
+					_, _ = tg.SendMessageWithMarkup(ctx, msg.Chat.ID, previewText, markup, nil)
+				}
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+
+			btnStateKey := fmt.Sprintf("edit_btn_state:%d", msg.From.ID)
+			pendingIDStr, err = cache.Client.Get(ctx, btnStateKey).Result()
+			if err == nil && pendingIDStr != "" {
+				cache.Client.Del(ctx, btnStateKey)
+				pendingKey := fmt.Sprintf("pending_post:%s", pendingIDStr)
+				pendingVal, err := cache.Client.Get(ctx, pendingKey).Result()
+				if err == nil && pendingVal != "" {
+					var pending repository.PendingPost
+					_ = json.Unmarshal([]byte(pendingVal), &pending)
+
+					lines := strings.Split(msg.Text, "\n")
+					var newButtons []repository.ChannelInlineButton
+					for _, line := range lines {
+						parts := strings.Split(line, "-")
+						if len(parts) >= 2 {
+							title := strings.TrimSpace(parts[0])
+							value := strings.TrimSpace(parts[1])
+							if title != "" && value != "" {
+								newButtons = append(newButtons, repository.ChannelInlineButton{
+									ID:        uuid.New(),
+									ChannelID: pending.ChannelID,
+									Title:     title,
+									Value:     value,
+									Type:      "url",
+									CreatedAt: time.Now(),
+								})
+							}
+						}
+					}
+
+					pending.Buttons = newButtons
+					updatedJSON, _ := json.Marshal(pending)
+					_ = cache.Client.Set(ctx, pendingKey, updatedJSON, 24*time.Hour).Err()
+
+					token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+					tg := telegram.NewBotAPIClient(token)
+
+					markup := map[string]interface{}{
+						"inline_keyboard": [][]map[string]interface{}{
+							{
+								{
+									"text":          "✅ تایید و ارسال",
+									"callback_data": fmt.Sprintf("approve:%s", pending.ID.String()),
+								},
+								{
+									"text":          "❌ رد کردن",
+									"callback_data": fmt.Sprintf("reject:%s", pending.ID.String()),
+								},
+							},
+							{
+								{
+									"text":          "✏️ ویرایش متن",
+									"callback_data": fmt.Sprintf("edit_text:%s", pending.ID.String()),
+								},
+								{
+									"text":          "🔗 ویرایش دکمه‌ها",
+									"callback_data": fmt.Sprintf("edit_btn:%s", pending.ID.String()),
+								},
+							},
+						},
+					}
+
+					previewText := fmt.Sprintf(
+						"📢 **پیش‌نویس پست ویرایش‌شده جدید (همراه دکمه‌های جدید)**\n\n%s\n\n---\n⏳ **وضعیت:** در انتظار تایید",
+						pending.Text,
+					)
+					_, _ = tg.SendMessageWithMarkup(ctx, msg.Chat.ID, previewText, markup, nil)
+				}
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+		}
+
 		mc := h.mapToModeratorContext(msg)
 
 		if mc.IsCommand {
@@ -1161,6 +1290,168 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 				}
 			}
 		}
+	} else if strings.HasPrefix(cq.Data, "approve:") {
+		parts := strings.Split(cq.Data, ":")
+		if len(parts) < 2 { return }
+		pendingIDStr := parts[1]
+
+		cache := h.moderator.GetCache()
+		if cache == nil || cache.Client == nil { return }
+
+		cacheKey := fmt.Sprintf("pending_post:%s", pendingIDStr)
+		pendingVal, err := cache.Client.Get(ctx, cacheKey).Result()
+		if err != nil {
+			_ = h.moderator.AnswerCallbackQuery(ctx, bot, cq.ID, "Post draft expired or not found!", true)
+			return
+		}
+
+		var pending repository.PendingPost
+		if err := json.Unmarshal([]byte(pendingVal), &pending); err != nil { return }
+
+		token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+		if err != nil { return }
+
+		tg := telegram.NewBotAPIClient(token)
+		
+		// Construct reply markup for the channel post
+		markup := buildReplyMarkupFromButtons(pending.Buttons)
+		
+		// Send message to final channel
+		_, err = tg.SendMessageWithMarkup(ctx, pending.ChatID, pending.Text, markup, nil)
+		if err != nil {
+			_ = tg.AnswerCallbackQuery(ctx, cq.ID, "Failed to publish: "+err.Error(), true)
+			return
+		}
+
+		// Delete pending post in Redis
+		cache.Client.Del(ctx, cacheKey)
+
+		// Answer callback query
+		_ = tg.AnswerCallbackQuery(ctx, cq.ID, "Post successfully published!", false)
+
+		// Edit original message in PV to show success
+		previewText := fmt.Sprintf(
+			"📢 **پیش‌نویس پست جدید برای کانال «%s»**\n\n%s\n\n---\n✅ **وضعیت:** با موفقیت در کانال منتشر شد!",
+			cq.Message.Chat.Title,
+			pending.Text,
+		)
+		_ = tg.EditMessageText(ctx, cq.Message.Chat.ID, cq.Message.MessageID, previewText)
+
+	} else if strings.HasPrefix(cq.Data, "reject:") {
+		parts := strings.Split(cq.Data, ":")
+		if len(parts) < 2 { return }
+		pendingIDStr := parts[1]
+
+		cache := h.moderator.GetCache()
+		if cache == nil || cache.Client == nil { return }
+
+		cacheKey := fmt.Sprintf("pending_post:%s", pendingIDStr)
+		pendingVal, err := cache.Client.Get(ctx, cacheKey).Result()
+		if err != nil {
+			_ = h.moderator.AnswerCallbackQuery(ctx, bot, cq.ID, "Post draft expired or not found!", true)
+			return
+		}
+
+		var pending repository.PendingPost
+		if err := json.Unmarshal([]byte(pendingVal), &pending); err != nil { return }
+
+		token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+		if err != nil { return }
+		tg := telegram.NewBotAPIClient(token)
+
+		// Delete pending post in Redis
+		cache.Client.Del(ctx, cacheKey)
+
+		_ = tg.AnswerCallbackQuery(ctx, cq.ID, "Post rejected and deleted.", false)
+
+		// Edit original message in PV to show rejected status
+		previewText := fmt.Sprintf(
+			"📢 **پیش‌نویس پست جدید برای کانال «%s»**\n\n%s\n\n---\n❌ **وضعیت:** این پست توسط شما رد و حذف گردید.",
+			cq.Message.Chat.Title,
+			pending.Text,
+		)
+		_ = tg.EditMessageText(ctx, cq.Message.Chat.ID, cq.Message.MessageID, previewText)
+
+	} else if strings.HasPrefix(cq.Data, "edit_text:") {
+		parts := strings.Split(cq.Data, ":")
+		if len(parts) < 2 { return }
+		pendingIDStr := parts[1]
+
+		cache := h.moderator.GetCache()
+		if cache == nil || cache.Client == nil { return }
+
+		// Set user edit text state
+		stateKey := fmt.Sprintf("edit_state:%d", cq.From.ID)
+		_ = cache.Client.Set(ctx, stateKey, pendingIDStr, 10*time.Minute).Err()
+
+		token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+		if err != nil { return }
+		tg := telegram.NewBotAPIClient(token)
+
+		_ = tg.AnswerCallbackQuery(ctx, cq.ID, "Please send the new text", false)
+
+		markup := map[string]interface{}{
+			"inline_keyboard": [][]map[string]interface{}{
+				{
+					{
+						"text":          "↩️ انصراف و بازگشت",
+						"callback_data": fmt.Sprintf("cancel_edit:%s", pendingIDStr),
+					},
+				},
+			},
+		}
+
+		instruction := "📝 **لطفاً متن جدید پست را ارسال کنید یا بنویسید (در صورت تمایل می‌توانید پیام پیش‌نویس اصلی را ریپلای کنید):**"
+		_, _ = tg.SendMessageWithMarkup(ctx, cq.Message.Chat.ID, instruction, markup, nil)
+
+	} else if strings.HasPrefix(cq.Data, "edit_btn:") {
+		parts := strings.Split(cq.Data, ":")
+		if len(parts) < 2 { return }
+		pendingIDStr := parts[1]
+
+		cache := h.moderator.GetCache()
+		if cache == nil || cache.Client == nil { return }
+
+		// Set user edit buttons state
+		stateKey := fmt.Sprintf("edit_btn_state:%d", cq.From.ID)
+		_ = cache.Client.Set(ctx, stateKey, pendingIDStr, 10*time.Minute).Err()
+
+		token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+		if err != nil { return }
+		tg := telegram.NewBotAPIClient(token)
+
+		_ = tg.AnswerCallbackQuery(ctx, cq.ID, "Please send button configuration", false)
+
+		markup := map[string]interface{}{
+			"inline_keyboard": [][]map[string]interface{}{
+				{
+					{
+						"text":          "↩️ انصراف و بازگشت",
+						"callback_data": fmt.Sprintf("cancel_edit:%s", pendingIDStr),
+					},
+				},
+			},
+		}
+
+		instruction := "🔗 **لطفاً دکمه‌های شیشه‌ای جدید را با فرمت زیر ارسال کنید (هر دکمه در یک خط):**\n\n`عنوان دکمه - لینک دکمه`\n\n*مثال:*\n`گوگل - https://google.com`\n`پشتیبانی - https://t.me/support`"
+		_, _ = tg.SendMessageWithMarkup(ctx, cq.Message.Chat.ID, instruction, markup, nil)
+
+	} else if strings.HasPrefix(cq.Data, "cancel_edit:") {
+		parts := strings.Split(cq.Data, ":")
+		if len(parts) < 2 { return }
+
+		cache := h.moderator.GetCache()
+		if cache != nil && cache.Client != nil {
+			cache.Client.Del(ctx, fmt.Sprintf("edit_state:%d", cq.From.ID))
+			cache.Client.Del(ctx, fmt.Sprintf("edit_btn_state:%d", cq.From.ID))
+		}
+
+		token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+		if err == nil {
+			tg := telegram.NewBotAPIClient(token)
+			_ = tg.AnswerCallbackQuery(ctx, cq.ID, "Editing cancelled.", false)
+			_ = tg.DeleteMessage(ctx, cq.Message.Chat.ID, cq.Message.MessageID)
+		}
 	}
 }
 
@@ -1215,6 +1506,45 @@ func (h *WebhookHandler) buildChannelInlineKeyboard(ctx context.Context, channel
 	}
 
 	return InlineKeyboardMarkup{InlineKeyboard: keyboard}, nil
+}
+
+func buildReplyMarkupFromButtons(buttons []repository.ChannelInlineButton) interface{} {
+	if len(buttons) == 0 {
+		return nil
+	}
+	type InlineKeyboardButton struct {
+		Text         string `json:"text"`
+		URL          string `json:"url,omitempty"`
+		CallbackData string `json:"callback_data,omitempty"`
+	}
+	type InlineKeyboardMarkup struct {
+		InlineKeyboard [][]InlineKeyboardButton `json:"inline_keyboard"`
+	}
+	var row []InlineKeyboardButton
+	for _, btn := range buttons {
+		text := ""
+		if btn.Emoji != "" {
+			text += btn.Emoji + " "
+		}
+		text += btn.Title
+		
+		ikb := InlineKeyboardButton{Text: text}
+		if btn.Type == "url" {
+			ikb.URL = btn.Value
+		} else {
+			ikb.CallbackData = fmt.Sprintf("btn_click:%s", btn.ID.String())
+		}
+		row = append(row, ikb)
+	}
+	var keyboard [][]InlineKeyboardButton
+	for i := 0; i < len(row); i += 2 {
+		end := i + 2
+		if end > len(row) {
+			end = len(row)
+		}
+		keyboard = append(keyboard, row[i:end])
+	}
+	return InlineKeyboardMarkup{InlineKeyboard: keyboard}
 }
 
 func (h *WebhookHandler) getForwardID(m *Message) int64 {

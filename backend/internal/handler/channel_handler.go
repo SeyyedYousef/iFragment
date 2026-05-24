@@ -2,7 +2,9 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -229,6 +231,10 @@ func (h *ChannelHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) 
 
 	settings, err := h.svc.UpdateSettings(r.Context(), userID, channelID, req.Category, req.Data, req.Version)
 	if err != nil {
+		if errors.Is(err, repository.ErrOptimisticLockConflict) {
+			RespondError(w, r, http.StatusConflict, "optimistic lock conflict: settings have been updated by another admin", err)
+			return
+		}
 		RespondError(w, r, http.StatusInternalServerError, "failed to update settings", err)
 		return
 	}
@@ -325,6 +331,11 @@ func (h *ChannelHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
 	var req CreatePostRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
+	if len(req.Text) > 4096 {
+		RespondError(w, r, http.StatusBadRequest, "post text length exceeds Telegram's 4096 character limit", nil)
 		return
 	}
 
@@ -553,6 +564,16 @@ func (h *ChannelHandler) SaveButtons(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&buttons); err != nil {
 		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
 		return
+	}
+
+	for _, btn := range buttons {
+		if btn.Type == "url" {
+			u, err := url.ParseRequestURI(btn.Value)
+			if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+				RespondError(w, r, http.StatusBadRequest, "invalid URL in buttons: must be a valid http or https address", err)
+				return
+			}
+		}
 	}
 
 	err = h.svc.SaveButtons(r.Context(), userID, channelID, buttons)

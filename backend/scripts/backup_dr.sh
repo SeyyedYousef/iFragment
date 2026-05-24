@@ -25,6 +25,24 @@ perform_backup() {
         -Fp -Xs -P -z
         
     echo "[+] Base backup completed successfully at ${BACKUP_DIR}/base_${TIMESTAMP}"
+
+    # Archive the backup to a tarball
+    echo "[+] Creating backup archive..."
+    tar -czf "${BACKUP_DIR}/base_${TIMESTAMP}.tar.gz" -C "${BACKUP_DIR}" "base_${TIMESTAMP}"
+    echo "[+] Archive created at ${BACKUP_DIR}/base_${TIMESTAMP}.tar.gz"
+
+    # Cloud Backup: Fallback upload to AWS S3 if credentials are set (Issue 23)
+    if [ -n "$AWS_ACCESS_KEY_ID" ] && [ -n "$AWS_SECRET_ACCESS_KEY" ] && [ -n "$S3_BUCKET_NAME" ]; then
+        echo "[+] S3 Credentials detected. Uploading backup to S3..."
+        if command -v aws &> /dev/null; then
+            aws s3 cp "${BACKUP_DIR}/base_${TIMESTAMP}.tar.gz" "s3://${S3_BUCKET_NAME}/backups/base_${TIMESTAMP}.tar.gz"
+            echo "[+] Upload to S3 completed successfully."
+        else
+            echo "[-] WARNING: aws CLI is not installed. Skipping S3 upload."
+        fi
+    else
+        echo "[i] S3 backup skipped (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, or S3_BUCKET_NAME not set)."
+    fi
 }
 
 # 2. PITR Setup Instructions

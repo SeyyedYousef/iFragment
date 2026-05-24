@@ -3,11 +3,17 @@ package channelmgmt
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -207,13 +213,34 @@ func (s *ChannelService) verifyAccess(ctx context.Context, userID int64, channel
 		return err
 	}
 
+	matched := false
 	for _, allowed := range allowedRoles {
 		if role == allowed {
-			return nil
+			matched = true
+			break
 		}
 	}
+	if !matched {
+		return fmt.Errorf("unauthorized: role %s not allowed", role)
+	}
 
-	return fmt.Errorf("unauthorized: role %s not allowed", role)
+	// Verify subscription status (Issue 7)
+	ch, err := s.channelRepo.GetChannelByID(ctx, channelID)
+	if err != nil {
+		return err
+	}
+
+	if ch.SubscriptionStatus == "expired" {
+		return fmt.Errorf("unauthorized: channel subscription has expired")
+	}
+	if ch.SubscriptionStatus == "trial" && ch.TrialEndsAt.Before(time.Now()) {
+		return fmt.Errorf("unauthorized: channel trial has ended")
+	}
+	if ch.SubscriptionStatus == "paid" && ch.PaidUntil != nil && ch.PaidUntil.Before(time.Now()) {
+		return fmt.Errorf("unauthorized: channel paid subscription has expired")
+	}
+
+	return nil
 }
 
 func (s *ChannelService) GetChannel(ctx context.Context, ownerUserID int64, channelID uuid.UUID) (*repository.ManagedChannel, error) {
@@ -273,6 +300,15 @@ func (s *ChannelService) UpdateSettings(ctx context.Context, ownerUserID int64, 
 // Webhook & Interactive Handlers
 
 func (s *ChannelService) ProcessChannelPost(ctx context.Context, chatID int64, messageID int, postText string, replyMarkup json.RawMessage) error {
+	if cache := s.channelRepo.GetCache(); cache != nil && cache.Client != nil {
+		textHash := fmt.Sprintf("%x", sha256.Sum256([]byte(postText)))
+		loopKey := fmt.Sprintf("forward_loop:%s", textHash)
+		locked, err := cache.Client.SetNX(ctx, loopKey, "active", 5*time.Minute).Result()
+		if err == nil && !locked {
+			slog.Warn("Forward loop or duplication detected, skipping", "text", postText)
+			return nil
+		}
+	}
 	// 1. Inbound Forwarding Rules (Inbound copy/forward from other channels into ours)
 	if os.Getenv("FEATURE_FLAG_FORWARDING") != "false" {
 		inboundRules, err := s.channelRepo.GetActiveForwardingRulesBySource(ctx, strconv.FormatInt(chatID, 10))
@@ -303,7 +339,7 @@ func (s *ChannelService) ProcessChannelPost(ctx context.Context, chatID int64, m
 				} else {
 					text := postText
 					if rule.Mode == "ai" {
-						text = "🤖 [AI Paraphrase] " + text + "\n\nParaphrased with iFragment AI."
+						text = dynamicParaphrase(text)
 					}
 					if rule.Watermark != "" {
 						text = text + "\n\n" + rule.Watermark
@@ -371,30 +407,91 @@ func (s *ChannelService) ProcessChannelPost(ctx context.Context, chatID int64, m
 					}
 
 					if finalChatID != 0 {
-						if rule.Mode == "forward" {
-							_ = tg.ForwardMessage(ctx, finalChatID, chatID, messageID)
-						} else {
-							text := postText
-							if rule.Mode == "ai" {
-								text = "🤖 [AI Paraphrase] " + text + "\n\nParaphrased with iFragment AI."
-							}
-							if rule.Watermark != "" {
-								text = text + "\n\n" + rule.Watermark
-							}
-							if rule.RemoveAds {
-								text = strings.ReplaceAll(text, "#ad", "")
-							}
-							if rule.RemoveHashtags {
-								text = removeHashtagsHelper(text)
-							}
-							if rule.RemoveLinks {
-								text = removeLinksHelper(text)
-							}
-							_ = tg.SendMessage(ctx, finalChatID, text, nil, nil)
+						text := postText
+						if rule.Mode == "ai" {
+							text = dynamicParaphrase(text)
 						}
+						if rule.Watermark != "" {
+							text = text + "\n\n" + rule.Watermark
+						}
+						if rule.RemoveAds {
+							text = strings.ReplaceAll(text, "#ad", "")
+						}
+						if rule.RemoveHashtags {
+							text = removeHashtagsHelper(text)
+						}
+						if rule.RemoveLinks {
+							text = removeLinksHelper(text)
+						}
+
+						// Fetch default buttons for the channel
+						buttons, _ := s.GetChannelButtonsByChannelID(ctx, ch.ID)
+
+						// Send to owner PV for approval instead of publishing directly
+						pendingID := uuid.New()
+						pending := repository.PendingPost{
+							ID:        pendingID,
+							ChannelID: ch.ID,
+							ChatID:    finalChatID,
+							Text:      text,
+							Buttons:   buttons,
+						}
+
+						cache := s.channelRepo.GetCache()
+						if cache != nil && cache.Client != nil {
+							pendingJSON, _ := json.Marshal(pending)
+							cacheKey := fmt.Sprintf("pending_post:%s", pendingID.String())
+							_ = cache.Client.Set(ctx, cacheKey, pendingJSON, 24*time.Hour).Err()
+						}
+
+						// Prepare inline buttons for PV message
+						markup := map[string]interface{}{
+							"inline_keyboard": [][]map[string]interface{}{
+								{
+									{
+										"text":          "✅ تایید و ارسال",
+										"callback_data": fmt.Sprintf("approve:%s", pendingID.String()),
+									},
+									{
+										"text":          "❌ رد کردن",
+										"callback_data": fmt.Sprintf("reject:%s", pendingID.String()),
+									},
+								},
+								{
+									{
+										"text":          "✏️ ویرایش متن",
+										"callback_data": fmt.Sprintf("edit_text:%s", pendingID.String()),
+									},
+									{
+										"text":          "🔗 ویرایش دکمه‌ها",
+										"callback_data": fmt.Sprintf("edit_btn:%s", pendingID.String()),
+									},
+								},
+							},
+						}
+
+						// Format preview text
+						previewText := fmt.Sprintf(
+							"📢 **پیش‌نویس پست جدید حاصل از AutoForward برای کانال «%s»**\n\n%s\n\n---\n⏳ **وضعیت:** در انتظار تایید",
+							ch.ChatTitle,
+							text,
+						)
+
+						_, _ = tg.SendMessageWithMarkup(ctx, bot.OwnerUserID, previewText, markup, nil)
 					}
 				} else if rule.TargetType == "webhook" {
 					go func(targetURL string, msgText string) {
+						safe, err := IsSafeURL(targetURL)
+						if !safe || err != nil {
+							slog.Warn("SSRF Blocked: webhook target URL is unsafe", "url", targetURL, "error", err)
+							return
+						}
+
+						secret := os.Getenv("OUTBOUND_WEBHOOK_SECRET")
+						if secret == "" {
+							secret = os.Getenv("WEBHOOK_SECRET_TOKEN")
+						}
+
 						payload := map[string]interface{}{
 							"channel_id":   ch.ID,
 							"chat_id":      chatID,
@@ -403,7 +500,31 @@ func (s *ChannelService) ProcessChannelPost(ctx context.Context, chatID int64, m
 							"timestamp":    time.Now().Unix(),
 						}
 						body, _ := json.Marshal(payload)
-						_, _ = http.Post(targetURL, "application/json", bytes.NewBuffer(body))
+
+						req, err := http.NewRequest("POST", targetURL, bytes.NewBuffer(body))
+						if err != nil {
+							return
+						}
+						req.Header.Set("Content-Type", "application/json")
+
+						if secret != "" {
+							mac := hmac.New(sha256.New, []byte(secret))
+							mac.Write(body)
+							signature := hex.EncodeToString(mac.Sum(nil))
+							req.Header.Set("X-iFragment-Signature", signature)
+						}
+
+						ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+						defer cancel()
+
+						req = req.WithContext(ctx)
+						client := &http.Client{}
+						resp, err := client.Do(req)
+						if err == nil {
+							defer resp.Body.Close()
+						} else {
+							slog.Error("Webhook forwarding failed", "url", targetURL, "error", err)
+						}
 					}(rule.Target, postText)
 				}
 			}
@@ -487,28 +608,16 @@ func (s *ChannelService) CreatePost(ctx context.Context, ownerUserID int64, post
 
 	post.AuthorUserID = &ownerUserID
 
-	// If no scheduling date is provided, publish immediately
+	// If no scheduling date is provided, route through approval instead of publishing immediately
 	if post.ScheduledAt == nil || post.ScheduledAt.Before(time.Now()) {
-		bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
+		buttons, _ := s.GetChannelButtonsByChannelID(ctx, ch.ID)
+		err = s.RequestApprovalForPost(ctx, ch, post.Text, buttons)
 		if err != nil {
-			return fmt.Errorf("bot not found for channel: %w", err)
+			return err
 		}
 
-		token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-		if err != nil {
-			return fmt.Errorf("failed to decrypt bot token: %w", err)
-		}
-
-		tg := telegram.NewBotAPIClient(token)
-		res, err := tg.SendMessageWithResult(ctx, ch.ChatID, post.Text, nil, nil)
-		if err != nil {
-			return fmt.Errorf("failed to send message via telegram: %w", err)
-		}
-
-		telegramMsgID := int64(res.MessageID)
-		post.TelegramMessageID = telegramMsgID
-		now := time.Now()
-		post.PostedAt = &now
+		err = s.channelRepo.CreatePost(ctx, post)
+		return err
 	}
 
 	err = s.channelRepo.CreatePost(ctx, post)
@@ -521,7 +630,7 @@ func (s *ChannelService) CreatePost(ctx context.Context, ownerUserID int64, post
 	_ = s.channelRepo.LogAudit(ctx, &repository.ChannelAuditLog{
 		ChannelID: ch.ID,
 		ActorID:   ownerUserID,
-		Action:    "channel.post.create",
+		Action:    "channel.post.create_scheduled",
 		Metadata:  meta,
 	})
 
@@ -545,6 +654,13 @@ func (s *ChannelService) scheduledPostWorker(ctx context.Context) {
 			slog.Info("Scheduled Post Worker stopped due to context cancellation")
 			return
 		case <-ticker.C:
+			cache := s.channelRepo.GetCache()
+			if cache != nil && cache.Client != nil {
+				locked, err := cache.Client.SetNX(ctx, "lock:scheduled_posts_worker", "locked", 25*time.Second).Result()
+				if err != nil || !locked {
+					continue
+				}
+			}
 			posts, err := s.channelRepo.GetScheduledPosts(ctx)
 			if err != nil {
 				slog.Error("Failed to fetch scheduled posts in worker", "error", err)
@@ -599,11 +715,12 @@ func (s *ChannelService) scheduledPostWorker(ctx context.Context) {
 }
 
 func (s *ChannelService) analyticsSnapshotWorker(ctx context.Context) {
-	// Execute immediately on startup
 	s.runAnalyticsSnapshot(ctx)
 
-	ticker := time.NewTicker(24 * time.Hour)
+	ticker := time.NewTicker(1 * time.Hour)
 	defer ticker.Stop()
+
+	lastRunDay := time.Now().YearDay()
 
 	for {
 		select {
@@ -611,7 +728,11 @@ func (s *ChannelService) analyticsSnapshotWorker(ctx context.Context) {
 			slog.Info("Daily Analytics Worker stopped due to context cancellation")
 			return
 		case <-ticker.C:
-			s.runAnalyticsSnapshot(ctx)
+			currentDay := time.Now().YearDay()
+			if currentDay != lastRunDay {
+				s.runAnalyticsSnapshot(ctx)
+				lastRunDay = currentDay
+			}
 		}
 	}
 }
@@ -879,15 +1000,10 @@ func removeHashtagsHelper(text string) string {
 	return strings.Join(out, " ")
 }
 
+var linkRegex = regexp.MustCompile(`(?i)\b(https?://[^\s]+|t\.me/[^\s]+|[\w-]+\.(com|org|net|io|ir|co|me|info|biz|edu|gov|xyz|link|online)[^\s]*)\b`)
+
 func removeLinksHelper(text string) string {
-	words := strings.Fields(text)
-	var out []string
-	for _, w := range words {
-		if !strings.HasPrefix(w, "http://") && !strings.HasPrefix(w, "https://") && !strings.Contains(w, ".com") {
-			out = append(out, w)
-		}
-	}
-	return strings.Join(out, " ")
+	return linkRegex.ReplaceAllString(text, "")
 }
 
 func parseChatIDOrUsername(target string) interface{} {
@@ -915,3 +1031,157 @@ func (s *ChannelService) GetChannelButtonsByChannelID(ctx context.Context, chann
 }
 
 
+func IsSafeURL(targetURL string) (bool, error) {
+	u, err := url.Parse(targetURL)
+	if err != nil {
+		return false, err
+	}
+
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return false, fmt.Errorf("invalid scheme: %s", u.Scheme)
+	}
+
+	host, _, err := net.SplitHostPort(u.Host)
+	if err != nil {
+		host = u.Host
+	}
+
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		return false, err
+	}
+
+	for _, ip := range ips {
+		if ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
+			return false, fmt.Errorf("unsafe IP address: %s", ip.String())
+		}
+	}
+
+	return true, nil
+}
+
+func dynamicParaphrase(text string) string {
+	if len(text) == 0 {
+		return text
+	}
+	replacements := map[string]string{
+		"hello":   "greetings",
+		"hi":      "hey there",
+		"buy":     "purchase",
+		"sell":    "market",
+		"price":   "cost",
+		"support": "assistance",
+	}
+	words := strings.Fields(text)
+	for i, w := range words {
+		cleanW := strings.Trim(w, ".,!?;:")
+		lowerW := strings.ToLower(cleanW)
+		if repl, ok := replacements[lowerW]; ok {
+			suffix := w[len(cleanW):]
+			words[i] = repl + suffix
+		}
+	}
+	return "🤖 [iFragment AI Paraphrased] " + strings.Join(words, " ") + "\n\n✨ Content updated via iFragment Paraphraser."
+}
+
+func (s *ChannelService) startDLQAlertingWorker(ctx context.Context) {
+	cache := s.channelRepo.GetCache()
+	if cache == nil || cache.Client == nil {
+		return
+	}
+
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			lenVal, err := cache.Client.XLen(ctx, "webhook:dlq").Result()
+			if err == nil && lenVal > 0 {
+				slog.Error("[DLQ_ALERT] Webhook Dead Letter Queue contains unprocessed failed payloads",
+					"dlq_size", lenVal,
+					"action_required", "please review and drain Redis stream 'webhook:dlq'",
+				)
+			}
+		}
+	}
+}
+
+func (s *ChannelService) RequestApprovalForPost(ctx context.Context, ch *repository.ManagedChannel, text string, buttons []repository.ChannelInlineButton) error {
+	cache := s.channelRepo.GetCache()
+	if cache == nil || cache.Client == nil {
+		return fmt.Errorf("cache is not initialized")
+	}
+
+	bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
+	if err != nil {
+		return fmt.Errorf("bot not found: %w", err)
+	}
+
+	token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+	if err != nil {
+		return fmt.Errorf("failed to decrypt bot token: %w", err)
+	}
+
+	tg := telegram.NewBotAPIClient(token)
+
+	// Save pending post draft in cache
+	pendingID := uuid.New()
+	pending := repository.PendingPost{
+		ID:        pendingID,
+		ChannelID: ch.ID,
+		ChatID:    ch.ChatID,
+		Text:      text,
+		Buttons:   buttons,
+	}
+
+	pendingJSON, _ := json.Marshal(pending)
+	cacheKey := fmt.Sprintf("pending_post:%s", pendingID.String())
+	err = cache.Client.Set(ctx, cacheKey, pendingJSON, 24*time.Hour).Err()
+	if err != nil {
+		return fmt.Errorf("failed to cache pending post: %w", err)
+	}
+
+	// Prepare inline buttons for PV message
+	markup := map[string]interface{}{
+		"inline_keyboard": [][]map[string]interface{}{
+			{
+				{
+					"text":          "✅ تایید و ارسال",
+					"callback_data": fmt.Sprintf("approve:%s", pendingID.String()),
+				},
+				{
+					"text":          "❌ رد کردن",
+					"callback_data": fmt.Sprintf("reject:%s", pendingID.String()),
+				},
+			},
+			{
+				{
+					"text":          "✏️ ویرایش متن",
+					"callback_data": fmt.Sprintf("edit_text:%s", pendingID.String()),
+				},
+				{
+					"text":          "🔗 ویرایش دکمه‌ها",
+					"callback_data": fmt.Sprintf("edit_btn:%s", pendingID.String()),
+				},
+			},
+		},
+	}
+
+	// Format preview text
+	previewText := fmt.Sprintf(
+		"📢 **پیش‌نویس پست جدید برای کانال «%s»**\n\n%s\n\n---\n⏳ **وضعیت:** در انتظار تایید",
+		ch.ChatTitle,
+		text,
+	)
+
+	_, err = tg.SendMessageWithMarkup(ctx, bot.OwnerUserID, previewText, markup, nil)
+	if err != nil {
+		slog.Warn("Failed to send post approval to owner PV", "owner_id", bot.OwnerUserID, "error", err)
+		return fmt.Errorf("لطفاً ابتدا ربات را در پی‌وی خود استارت کنید (امکان ارسال پیام خصوصی به شما وجود ندارد): %w", err)
+	}
+
+	return nil
+}

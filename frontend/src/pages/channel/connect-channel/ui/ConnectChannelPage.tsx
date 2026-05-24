@@ -1,43 +1,23 @@
-import { Component, createSignal, onMount, onCleanup, Show, For } from 'solid-js';
+import { Component, createSignal, onMount, onCleanup, Show } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { Motion } from '@motionone/solid';
 import { backButton, hapticFeedback, openTelegramLink } from '@tma.js/sdk-solid';
 import { showToast } from '@/shared/ui/toast.js';
 import { t, isRtl } from '@/shared/i18n/index.js';
-import { botApi } from '@/shared/api/bot-management.js';
 import { channelApi } from '@/shared/api/channel-management.js';
 
 export const ConnectChannelPage: Component = () => {
   const navigate = useNavigate();
   const [channelInput, setChannelInput] = createSignal('');
   const [isVerifying, setIsVerifying] = createSignal(false);
-  const [bots, setBots] = createSignal<any[]>([]);
-  const [selectedBotId, setSelectedBotId] = createSignal('');
 
-  onMount(async () => {
+  onMount(() => {
     backButton.show();
     const off = backButton.onClick(() => window.history.back());
     onCleanup(() => off());
-
-    // Fetch user bots to establish bot context
-    try {
-      const botList = await botApi.listBots();
-      setBots(botList || []);
-      if (botList && botList.length > 0) {
-        setSelectedBotId(botList[0].id);
-      }
-    } catch (err) {
-      showToast('Failed to load bots', 'error');
-    }
   });
 
   const handleConnect = async () => {
-    if (!selectedBotId()) {
-      showToast('Please select a bot context first', 'error');
-      hapticFeedback.notificationOccurred('error');
-      return;
-    }
-
     if (!channelInput().trim()) {
       showToast(t('connectChannel.errorEmpty') || 'Channel username or ID cannot be empty', 'error');
       hapticFeedback.notificationOccurred('error');
@@ -48,7 +28,7 @@ export const ConnectChannelPage: Component = () => {
     setIsVerifying(true);
 
     try {
-      await channelApi.connectChannel(selectedBotId(), channelInput().trim());
+      await channelApi.connectChannel('auto', channelInput().trim());
       showToast(t('connectChannel.success') || 'Channel connected successfully!', 'success');
       hapticFeedback.notificationOccurred('success');
       navigate('/managed-channels', { replace: true });
@@ -63,7 +43,6 @@ export const ConnectChannelPage: Component = () => {
 
   const handleOpenTelegram = () => {
     hapticFeedback.impactOccurred('light');
-    // Open Telegram to add bot as administrator
     openTelegramLink('https://t.me/iFragmentBot?startchannel=true');
   };
 
@@ -95,50 +74,10 @@ export const ConnectChannelPage: Component = () => {
           </button>
         </Motion.div>
 
-        {/* Step 2: Choose Bot Context */}
+        {/* Step 2: Enter Channel & Connect */}
         <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} class="bg-[#1c1c1c] rounded-3xl p-5 border border-[#2a2a2a] flex flex-col gap-3">
           <div class="flex items-center gap-3 mb-1">
              <div class="w-8 h-8 rounded-full bg-[#32ade6] text-black font-black flex items-center justify-center text-[15px]">2</div>
-             <h2 class="text-[16px] font-bold text-white">Select Bot Context</h2>
-          </div>
-          <p class="text-[13px] text-[#8e8e93] leading-relaxed">
-            Choose which bot you want to manage this channel through.
-          </p>
-          
-          <Show when={bots().length > 0} fallback={
-            <div class="py-3 text-[#5a5a5e] text-[13px] italic flex items-center gap-2">
-              <span class="w-4 h-4 border-2 border-[#32ade6]/30 border-t-[#32ade6] rounded-full animate-spin"></span>
-              Fetching your active bots...
-            </div>
-          }>
-            <div class="relative w-full">
-              <select
-                value={selectedBotId()}
-                onChange={(e) => {
-                  setSelectedBotId(e.currentTarget.value);
-                  hapticFeedback.selectionChanged();
-                }}
-                class="bg-[#0f1014] border border-[#3a3a3c] text-white text-[15px] rounded-xl px-4 py-3.5 w-full focus:outline-none focus:border-[#32ade6] appearance-none cursor-pointer transition-colors"
-              >
-                <For each={bots()}>
-                  {(bot) => (
-                    <option value={bot.id}>
-                      {bot.bot_name} (@{bot.bot_username})
-                    </option>
-                  )}
-                </For>
-              </select>
-              <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-[#8e8e93]">
-                <span class="material-symbols-outlined">expand_more</span>
-              </div>
-            </div>
-          </Show>
-        </Motion.div>
-
-        {/* Step 3: Enter Channel & Connect */}
-        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} class="bg-[#1c1c1c] rounded-3xl p-5 border border-[#2a2a2a] flex flex-col gap-3">
-          <div class="flex items-center gap-3 mb-1">
-             <div class="w-8 h-8 rounded-full bg-[#32ade6] text-black font-black flex items-center justify-center text-[15px]">3</div>
              <h2 class="text-[16px] font-bold text-white">{t('connectChannel.step2Title') || 'Submit Channel Link'}</h2>
           </div>
           <p class="text-[13px] text-[#8e8e93] leading-relaxed mb-1">
@@ -155,7 +94,7 @@ export const ConnectChannelPage: Component = () => {
 
           <button 
             onClick={handleConnect}
-            disabled={isVerifying() || !channelInput().trim() || !selectedBotId()}
+            disabled={isVerifying() || !channelInput().trim()}
             class="mt-3 w-full bg-[#32ade6] text-black disabled:bg-[#32ade6]/40 disabled:text-black/50 rounded-xl py-3.5 flex items-center justify-center gap-2 font-bold transition-all text-[15px]"
           >
             <Show when={!isVerifying()} fallback={<span class="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin"></span>}>

@@ -6,6 +6,7 @@ import { t } from '@/shared/i18n/index.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SelectField, SettingsSection } from '@/shared/ui/settings-controls.js';
 import { channelApi } from '@/shared/api/channel-management.js';
+import { showToast } from '@/shared/ui/toast.js';
 
 interface ContentTypes {
   text: boolean;
@@ -137,8 +138,13 @@ export const ChannelForwardingPage: Component = () => {
       await channelApi.updateSettings(params.id, 'forwarding', payload, currentVersion);
       setIsDirty(false);
       navigate(`/channel/${params.id}`);
-    } catch (e) {
+    } catch (e: any) {
       console.error("Failed to save forwarding settings:", e);
+      if (e?.status === 409) {
+        showToast(t('common.errorVersionMismatch') || 'Settings have been updated by another administrator. Please try again.', 'error');
+      } else {
+        showToast(t('channelPosting.failedToSaveSettings') || 'Failed to save forwarding settings', 'error');
+      }
       navigate(`/channel/${params.id}`);
     } finally {
       setIsSaving(false);

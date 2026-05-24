@@ -1,20 +1,17 @@
 import { Component, createResource, onMount, onCleanup, For, Show } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { Motion } from '@motionone/solid';
-import { backButton, hapticFeedback, initData } from '@tma.js/sdk-solid';
+import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { channelApi } from '@/shared/api/channel-management.js';
 import { t, isRtl } from '@/shared/i18n/index.js';
 
 export const ManagedChannelsPage: Component = () => {
   const navigate = useNavigate();
-  
-  // Get Telegram user info
-  const userId = () => initData.user()?.id?.toString() || 'guest_user';
 
-  // Fetch channels specific to THIS logged-in user
+  // Fetch all channels for the logged-in user
   const [channels] = createResource(
-    userId,
-    (id) => channelApi.getUserChannels(id)
+    () => true,
+    () => channelApi.getUserChannels('all')
   );
 
   onMount(() => {

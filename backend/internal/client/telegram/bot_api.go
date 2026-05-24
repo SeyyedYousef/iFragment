@@ -399,3 +399,26 @@ func (c *BotAPIClient) EditMessageReplyMarkup(ctx context.Context, chatID interf
 	})
 	return err
 }
+
+// EditMessageText edits the text of a message
+func (c *BotAPIClient) EditMessageText(ctx context.Context, chatID interface{}, messageID int, text string) error {
+	_, err := c.request(ctx, "editMessageText", map[string]interface{}{
+		"chat_id":    chatID,
+		"message_id": messageID,
+		"text":       text,
+		"parse_mode": "Markdown",
+	})
+	return err
+}
+
+// EditMessageTextWithMarkup edits both text and markup of a message
+func (c *BotAPIClient) EditMessageTextWithMarkup(ctx context.Context, chatID interface{}, messageID int, text string, markup interface{}) error {
+	_, err := c.request(ctx, "editMessageText", map[string]interface{}{
+		"chat_id":      chatID,
+		"message_id":   messageID,
+		"text":         text,
+		"parse_mode":   "Markdown",
+		"reply_markup": markup,
+	})
+	return err
+}
