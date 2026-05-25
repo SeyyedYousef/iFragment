@@ -5,6 +5,7 @@ import { t, locale, setLocale, formatNumber } from '@/shared/i18n/index.js';
 import { copyToClipboard } from '@/shared/lib/telegram-native.js';
 import type { ProfileStats } from '@/shared/store/profile.js';
 import { getLevelInfo } from '@/shared/store/profile.js';
+import { getBorderClass, getSkinClass } from '@/shared/lib/cosmetics.js';
 
 interface Props { stats: ProfileStats | null }
 
@@ -27,25 +28,11 @@ export const IdentityHero: Component<Props> = (props) => {
     return d.toLocaleDateString(locale() === 'fa' ? 'fa-IR' : 'en-US', { month: 'short', year: 'numeric' });
   };
 
-  const getBorderClass = () => {
-    switch (props.stats?.equippedBorder) {
-      case 'gold_shimmer': return 'border-gold-shimmer';
-      case 'cyber_glow': return 'border-cyber-glow';
-      case 'rainbow_wave': return 'border-rainbow-wave';
-      default: return '';
-    }
-  };
-
-  const getSkinClass = () => {
-    switch (props.stats?.equippedSkin) {
-      case 'cosmic_void': return 'bg-cosmic-void';
-      case 'neon_matrix': return 'bg-neon-matrix';
-      default: return '';
-    }
-  };
+  const borderClass = () => getBorderClass(props.stats?.equippedBorder);
+  const skinClass = () => getSkinClass(props.stats?.equippedSkin);
 
   return (
-    <div class={`pt-10 pb-20 px-6 relative overflow-hidden border-b border-[#2a2a2a] ${getSkinClass() || 'bg-[#1c1c1c]'}`} style={{ 'border-bottom-left-radius': '40px', 'border-bottom-right-radius': '40px' }}>
+    <div class={`pt-10 pb-20 px-6 relative overflow-hidden border-b border-[#2a2a2a] ${skinClass() || 'bg-[#1c1c1c]'}`} style={{ 'border-bottom-left-radius': '40px', 'border-bottom-right-radius': '40px' }}>
       {/* Language Switcher Dropdown */}
       <div class="absolute top-4 end-4 z-20">
         <button
@@ -117,7 +104,7 @@ export const IdentityHero: Component<Props> = (props) => {
       <Motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} class="flex flex-col items-center text-center relative z-10">
         {/* Avatar with animated ring */}
         <div class="relative mb-4">
-          <div class={`w-28 h-28 rounded-full p-[3px] relative ${getBorderClass()}`} style={!getBorderClass() ? {
+          <div class={`w-28 h-28 rounded-full p-[3px] relative ${borderClass()}`} style={!borderClass() ? {
             background: (props.stats?.isPremium || user?.is_premium)
               ? 'linear-gradient(135deg, #ffd700, #ff8c00, #ffd700)'
               : 'linear-gradient(135deg, #3390ec, #34c759, #3390ec)',

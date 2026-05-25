@@ -1,4 +1,4 @@
-import { Component, createSignal, onMount, Show } from 'solid-js';
+import { Component, createSignal, onMount, Show, ErrorBoundary } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { Motion } from '@motionone/solid';
 import { createQuery } from '@tanstack/solid-query';
@@ -15,6 +15,7 @@ import { GamificationHub } from '@/widgets/profile/GamificationHub.js';
 import { getProfileStats, getProfileAchievements, getReferralInfo } from '@/shared/api/profile.js';
 import { checkHomeScreenStatus, addToHomeScreen } from '@/shared/lib/telegram-native.js';
 import { SkeletonProfile } from '@/shared/ui/Skeleton.js';
+import { ErrorFallback } from '@/shared/ui/ErrorFallback.js';
 
 export const ProfilePage: Component = () => {
   const navigate = useNavigate();
@@ -41,7 +42,8 @@ export const ProfilePage: Component = () => {
     refetchOnWindowFocus: false,
   }));
 
-  const loading = () => statsQuery.isLoading || achievementsQuery.isLoading || referralQuery.isLoading;
+  // Parallelize loading: only above-the-fold stats block the initial screen
+  const loading = () => statsQuery.isLoading;
   const stats = () => statsQuery.data || null;
   const achievements = () => achievementsQuery.data || [];
   const referral = () => referralQuery.data || null;
@@ -94,116 +96,125 @@ export const ProfilePage: Component = () => {
         </div>
       </Show>
 
-      {/* Loading Skeleton */}
+      {/* Loading Skeleton for above-the-fold */}
       {loading() ? (
         <div class="px-6 py-6 min-h-[80vh]">
           <SkeletonProfile />
         </div>
       ) : (
-        <div class="flex flex-col">
-          {/* Identity Hero */}
-          <IdentityHero stats={stats()} />
+        <ErrorBoundary fallback={(err, reset) => <ErrorFallback err={err} reset={reset} />}>
+          <div class="flex flex-col">
+            {/* Identity Hero */}
+            <IdentityHero stats={stats()} />
 
-          {/* Wallet Card */}
-          <FrgWalletCard stats={stats()} />
+            {/* Wallet Card */}
+            <FrgWalletCard stats={stats()} />
 
-          {/* Stats Grid */}
-          <StatsDashboard stats={stats()} />
+            {/* Stats Grid */}
+            <StatsDashboard stats={stats()} />
 
-          {/* Gamification Hub */}
-          <GamificationHub />
+            {/* Gamification Hub */}
+            <GamificationHub />
 
-          {/* Achievements Preview */}
-          <div class="relative group cursor-pointer">
-            <AchievementPreview achievements={achievements()} />
-            <button
-              onClick={() => handleNavigate('/profile/achievements')}
-              class="absolute top-9 end-10 w-8 h-8 rounded-full bg-[#0f1014]/40 border border-[#2a2a2a] flex items-center justify-center active:scale-95 transition-all"
+            {/* Achievements Preview */}
+            <div class="relative group cursor-pointer">
+              <Show 
+                when={!achievementsQuery.isLoading} 
+                fallback={
+                  <div class="mx-6 mt-4 bg-[#1c1c1c] rounded-3xl p-5 border border-[#2a2a2a] animate-pulse h-36 flex flex-col justify-between">
+                    <div class="h-5 w-1/3 bg-white/5 rounded-lg" />
+                    <div class="flex gap-3 overflow-x-hidden">
+                      <div class="w-20 h-20 bg-white/5 rounded-2xl flex-shrink-0" />
+                      <div class="w-20 h-20 bg-white/5 rounded-2xl flex-shrink-0" />
+                      <div class="w-20 h-20 bg-white/5 rounded-2xl flex-shrink-0" />
+                      <div class="w-20 h-20 bg-white/5 rounded-2xl flex-shrink-0" />
+                    </div>
+                  </div>
+                }
+              >
+                <AchievementPreview achievements={achievements()} />
+              </Show>
+              <button
+                onClick={() => handleNavigate('/profile/achievements')}
+                class="absolute top-9 end-10 w-8 h-8 rounded-full bg-[#0f1014]/40 border border-[#2a2a2a] flex items-center justify-center active:scale-95 transition-all"
+              >
+                <span class={`material-symbols-outlined text-[16px] text-white transition-transform ${isRtl() ? 'rotate-180' : ''}`}>chevron_right</span>
+              </button>
+            </div>
+
+            {/* Referral Preview */}
+            <div class="relative group cursor-pointer">
+              <Show 
+                when={!referralQuery.isLoading} 
+                fallback={
+                  <div class="mx-6 mt-4 bg-[#1c1c1c] rounded-3xl p-5 border border-[#2a2a2a] animate-pulse h-48 flex flex-col gap-3">
+                    <div class="h-5 w-1/3 bg-white/5 rounded-lg" />
+                    <div class="grid grid-cols-2 gap-2 h-14">
+                      <div class="bg-white/5 rounded-2xl" />
+                      <div class="bg-white/5 rounded-2xl" />
+                    </div>
+                    <div class="bg-white/5 rounded-2xl h-10" />
+                  </div>
+                }
+              >
+                <ReferralPreview referral={referral()} />
+              </Show>
+              <button
+                onClick={() => handleNavigate('/profile/referral')}
+                class="absolute top-9 end-10 w-8 h-8 rounded-full bg-[#0f1014]/40 border border-[#2a2a2a] flex items-center justify-center active:scale-95 transition-all"
+              >
+                <span class={`material-symbols-outlined text-[16px] text-white transition-transform ${isRtl() ? 'rotate-180' : ''}`}>chevron_right</span>
+              </button>
+            </div>
+
+            {/* Quick Actions (Home sync, status, support) */}
+            <QuickActions />
+
+            {/* Navigation Menu (Settings & Security) */}
+            <Motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35 }}
+              class="mx-6 mt-4 bg-[#1c1c1c] border border-[#2a2a2a] rounded-3xl p-5 flex flex-col gap-4"
             >
-              <span class={`material-symbols-outlined text-[16px] text-white transition-transform ${isRtl() ? 'rotate-180' : ''}`}>chevron_right</span>
-            </button>
+              {/* Settings button */}
+              <button
+                onClick={() => handleNavigate('/profile/settings')}
+                class="flex items-center justify-between w-full py-1 group"
+              >
+                <div class="flex items-center gap-3">
+                  <div class="w-9 h-9 rounded-xl bg-[#0f1014] flex items-center justify-center border border-[#2a2a2a]">
+                    <span class="material-symbols-outlined text-[20px] text-[#3390ec]">settings</span>
+                  </div>
+                  <span class="text-xs font-black text-white">{t('settings.title') || 'Settings'}</span>
+                </div>
+                <span class={`material-symbols-outlined text-[#a0a4ad] text-[18px] transition-transform ${isRtl() ? 'rotate-180 group-hover:-translate-x-0.5' : 'group-hover:translate-x-0.5'}`}>chevron_right</span>
+              </button>
+
+              <div class="h-[1px] bg-[#2a2a2a] w-full" />
+
+              {/* Security button */}
+              <button
+                onClick={() => handleNavigate('/profile/security')}
+                class="flex items-center justify-between w-full py-1 group"
+              >
+                <div class="flex items-center gap-3">
+                  <div class="w-9 h-9 rounded-xl bg-[#0f1014] flex items-center justify-center border border-[#2a2a2a]">
+                    <span class="material-symbols-outlined text-[20px] text-[#34c759]">security</span>
+                  </div>
+                  <span class="text-xs font-black text-white">{t('security.title') || 'Security & Keys'}</span>
+                </div>
+                <span class={`material-symbols-outlined text-[#a0a4ad] text-[18px] transition-transform ${isRtl() ? 'rotate-180 group-hover:-translate-x-0.5' : 'group-hover:translate-x-0.5'}`}>chevron_right</span>
+              </button>
+            </Motion.div>
+
+            {/* Profile Footer */}
+            <div class="mt-8 mb-6 text-center flex flex-col items-center gap-1 opacity-40">
+              <span class="text-[10px] font-black text-white uppercase tracking-widest">{t('profile.walletHub') || 'iFragment Wallet Hub'}</span>
+              <span class="text-[9px] text-[#a0a4ad] font-bold">{t('profile.version') || 'Version'} 1.0.4 ({t('profile.tmaProduction') || 'TMA Production'})</span>
+            </div>
           </div>
-
-          {/* Referral Preview */}
-          <div class="relative group cursor-pointer">
-            <ReferralPreview referral={referral()} />
-            <button
-              onClick={() => handleNavigate('/profile/referral')}
-              class="absolute top-9 end-10 w-8 h-8 rounded-full bg-[#0f1014]/40 border border-[#2a2a2a] flex items-center justify-center active:scale-95 transition-all"
-            >
-              <span class={`material-symbols-outlined text-[16px] text-white transition-transform ${isRtl() ? 'rotate-180' : ''}`}>chevron_right</span>
-            </button>
-          </div>
-
-          {/* Quick Actions (Home sync, status, support) */}
-          <QuickActions />
-
-          {/* Navigation Menu (Settings & Security) */}
-          <Motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35 }}
-            class="mx-6 mt-4 bg-[#1c1c1c] border border-[#2a2a2a] rounded-3xl p-5 flex flex-col gap-4"
-          >
-            {/* Premium & Cosmetics Hub button */}
-            <button
-              onClick={() => handleNavigate('/profile/premium')}
-              class="flex items-center justify-between w-full py-1 group"
-            >
-              <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-[#ffd700]/20 to-[#ff8c00]/20 flex items-center justify-center border border-[#ffd700]/30">
-                  <span class="material-symbols-outlined text-[20px] text-amber-400" style={{ 'font-variation-settings': '"FILL" 1' }}>verified</span>
-                </div>
-                <div class="flex flex-col items-start">
-                  <span class="text-xs font-black text-white flex items-center gap-1.5">
-                    {t('premium.title') || 'Premium & Cosmetics'}
-                    <span class="px-1.5 py-0.5 text-[8px] bg-gradient-to-r from-[#ffd700] to-[#ff8c00] text-black font-black rounded uppercase tracking-wider">New</span>
-                  </span>
-                  <span class="text-[9px] text-[#a0a4ad] font-bold">{t('premium.subtitle') || 'Skins, Borders, Emoji Status'}</span>
-                </div>
-              </div>
-              <span class={`material-symbols-outlined text-[#a0a4ad] text-[18px] transition-transform ${isRtl() ? 'rotate-180 group-hover:-translate-x-0.5' : 'group-hover:translate-x-0.5'}`}>chevron_right</span>
-            </button>
-
-            <div class="h-[1px] bg-[#2a2a2a] w-full" />
-
-            {/* Settings button */}
-            <button
-              onClick={() => handleNavigate('/profile/settings')}
-              class="flex items-center justify-between w-full py-1 group"
-            >
-              <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-[#0f1014] flex items-center justify-center border border-[#2a2a2a]">
-                  <span class="material-symbols-outlined text-[20px] text-[#3390ec]">settings</span>
-                </div>
-                <span class="text-xs font-black text-white">{t('settings.title') || 'Settings'}</span>
-              </div>
-              <span class={`material-symbols-outlined text-[#a0a4ad] text-[18px] transition-transform ${isRtl() ? 'rotate-180 group-hover:-translate-x-0.5' : 'group-hover:translate-x-0.5'}`}>chevron_right</span>
-            </button>
-
-            <div class="h-[1px] bg-[#2a2a2a] w-full" />
-
-            {/* Security button */}
-            <button
-              onClick={() => handleNavigate('/profile/security')}
-              class="flex items-center justify-between w-full py-1 group"
-            >
-              <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-[#0f1014] flex items-center justify-center border border-[#2a2a2a]">
-                  <span class="material-symbols-outlined text-[20px] text-[#34c759]">security</span>
-                </div>
-                <span class="text-xs font-black text-white">{t('security.title') || 'Security & Keys'}</span>
-              </div>
-              <span class={`material-symbols-outlined text-[#a0a4ad] text-[18px] transition-transform ${isRtl() ? 'rotate-180 group-hover:-translate-x-0.5' : 'group-hover:translate-x-0.5'}`}>chevron_right</span>
-            </button>
-          </Motion.div>
-
-          {/* Profile Footer */}
-          <div class="mt-8 mb-6 text-center flex flex-col items-center gap-1 opacity-40">
-            <span class="text-[10px] font-black text-white uppercase tracking-widest">{t('profile.walletHub') || 'iFragment Wallet Hub'}</span>
-            <span class="text-[9px] text-[#a0a4ad] font-bold">{t('profile.version') || 'Version'} 1.0.4 ({t('profile.tmaProduction') || 'TMA Production'})</span>
-          </div>
-        </div>
+        </ErrorBoundary>
       )}
 
       {/* Bottom Navigation */}

@@ -13,8 +13,8 @@ export const dict = {
     }
   },
   "hero": {
-    "title": "精准. 大胆. 专业.",
-    "description": "Fragment 用户名终极情报平台。深入扫描交易历史，验证真实稀缺性，并与全球最积极的收藏家建立联系。",
+    "title": "精准，大胆，专业。",
+    "description": "Fragment 资产终极智能与估值平台。深度扫描交易历史，验证真实稀缺性，并对 Telegram 用户名、靓号及礼物进行高级分析。",
     "promoBadge": "安全作业",
     "selectToStart": "选择上方选项之一开始"
   },
@@ -92,6 +92,12 @@ export const dict = {
       "analyzeBtn": "扫描礼物资产"
     },
     "analyzing": "分析中...",
+    "comingSoon": {
+      "badge": "将在下个版本推出",
+      "title": "正在筹备中...",
+      "description": "该板块（包括 Telegram 靓号及礼物智能分析功能）将在下个版本上线。现在您可以优先体验我们的高级用户名分析功能！",
+      "btn": "体验用户名分析"
+    },
     "freeInfoPrefix": "立即 ",
     "freeInfoHighlight": "免费",
     "freeInfoSuffix": " 查看常规收藏信息。"

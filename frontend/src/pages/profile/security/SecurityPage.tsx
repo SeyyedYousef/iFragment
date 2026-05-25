@@ -6,18 +6,11 @@ import {
   biometric, 
   showAlert, 
   showConfirm, 
-  requestContact, 
-  enableClosingConfirmation, 
-  disableClosingConfirmation, 
-  copyToClipboard 
+  disableClosingConfirmation 
 } from '@/shared/lib/telegram-native.js';
 
 export const SecurityPage: Component = () => {
   const [biometricsAvailable, setBiometricsAvailable] = createSignal(false);
-  const [showKeyModal, setShowKeyModal] = createSignal(false);
-  const [backupKey, setBackupKey] = createSignal('');
-  const [verified, setVerified] = createSignal(localStorage.getItem('kyc_verified') === 'true');
-  const [verifying, setVerifying] = createSignal(false);
 
   onMount(async () => {
     backButton.show();
@@ -25,7 +18,6 @@ export const SecurityPage: Component = () => {
     onCleanup(() => {
       off();
       try { backButton.hide(); } catch {}
-      // Ensure closing confirmation is cleaned up if they navigate away
       try { disableClosingConfirmation(); } catch {}
     });
 
@@ -63,55 +55,6 @@ export const SecurityPage: Component = () => {
     }
   };
 
-  const handleKycVerification = async () => {
-    try { hapticFeedback.impactOccurred('medium'); } catch {}
-    setVerifying(true);
-    try {
-      const granted = await requestContact();
-      if (granted) {
-        setVerified(true);
-        localStorage.setItem('kyc_verified', 'true');
-        try { hapticFeedback.notificationOccurred('success'); } catch {}
-        await showAlert('Identity verified successfully! You are now a Verified Citizen.');
-      } else {
-        try { hapticFeedback.notificationOccurred('warning'); } catch {}
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setVerifying(false);
-    }
-  };
-
-  const handleOpenBackup = () => {
-    try { hapticFeedback.impactOccurred('medium'); } catch {}
-    // Generate a secure, unique private backup key for this session
-    const randomBytes = new Uint8Array(16);
-    crypto.getRandomValues(randomBytes);
-    const key = 'ifr_bk_' + Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-    setBackupKey(key);
-    
-    setShowKeyModal(true);
-    // Block accidental swipe-to-close gesture in Telegram WebApp
-    enableClosingConfirmation();
-  };
-
-  const handleCloseBackup = () => {
-    try { hapticFeedback.impactOccurred('light'); } catch {}
-    setShowKeyModal(false);
-    setBackupKey('');
-    // Restore normal swipe-to-close gesture
-    disableClosingConfirmation();
-  };
-
-  const handleCopyKey = async () => {
-    if (!backupKey()) return;
-    const success = await copyToClipboard(backupKey());
-    if (success) {
-      await showAlert('Backup key copied to clipboard. Store it securely!');
-    }
-  };
-
   const handleDeleteAccount = async () => {
     try { hapticFeedback.notificationOccurred('warning'); } catch {}
     const confirmed = await showConfirm(
@@ -119,7 +62,8 @@ export const SecurityPage: Component = () => {
     );
     if (confirmed) {
       try { hapticFeedback.notificationOccurred('success'); } catch {}
-      localStorage.clear();
+      const profileKeys = ['profile-settings', 'kyc_verified', 'profile-cache'];
+      profileKeys.forEach(k => localStorage.removeItem(k));
       window.location.reload();
     }
   };
@@ -129,42 +73,10 @@ export const SecurityPage: Component = () => {
       {/* Header */}
       <div class="px-6 pt-8 pb-6 bg-[#1c1c1c] border-b border-[#2a2a2a] rounded-b-[32px]">
         <h1 class="text-2xl font-black">{t('security.title') || 'Account & Security'}</h1>
-        <p class="text-[#a0a4ad] text-xs mt-1">{t('security.subtitle') || 'Manage biometric lock, keys, and verification'}</p>
+        <p class="text-[#a0a4ad] text-xs mt-1">{t('security.subtitle') || 'Manage biometric lock and security preferences'}</p>
       </div>
 
       <div class="px-6 pt-6 flex flex-col gap-6">
-        {/* Verification / KYC */}
-        <div class="flex flex-col gap-3">
-          <h2 class="text-xs font-black text-[#a0a4ad] uppercase tracking-wider px-1">KYC & Verification</h2>
-          
-          <div class="bg-[#1c1c1c] border border-[#2a2a2a] rounded-3xl p-5 flex flex-col gap-4">
-            <div class="flex items-center justify-between">
-              <div class="flex flex-col gap-0.5 max-w-[70%]">
-                <span class="text-xs font-black text-white">Verified Citizen Status</span>
-                <span class="text-[10px] text-[#a0a4ad] leading-normal">Verify your identity using secure Telegram contact sharing</span>
-              </div>
-              
-              <Show 
-                when={verified()}
-                fallback={
-                  <button
-                    onClick={handleKycVerification}
-                    disabled={verifying()}
-                    class="px-4 py-2 bg-[#3390ec] active:scale-95 disabled:opacity-50 text-[10px] font-black text-white rounded-xl uppercase tracking-wider transition-all"
-                  >
-                    {verifying() ? 'Verifying...' : 'Verify'}
-                  </button>
-                }
-              >
-                <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#34c759]/10 border border-[#34c759]/20 text-[#34c759] text-[10px] font-black uppercase tracking-wider">
-                  <span class="material-symbols-outlined text-[14px]">verified</span>
-                  Verified
-                </div>
-              </Show>
-            </div>
-          </div>
-        </div>
-
         {/* Biometrics */}
         <div class="flex flex-col gap-3">
           <h2 class="text-xs font-black text-[#a0a4ad] uppercase tracking-wider px-1">{t('security.biometricTitle') || 'Lock Options'}</h2>
@@ -196,26 +108,6 @@ export const SecurityPage: Component = () => {
           </div>
         </div>
 
-        {/* Backup Key */}
-        <div class="flex flex-col gap-3">
-          <h2 class="text-xs font-black text-[#a0a4ad] uppercase tracking-wider px-1">Account Backup</h2>
-          
-          <div class="bg-[#1c1c1c] border border-[#2a2a2a] rounded-3xl p-5 flex flex-col gap-4">
-            <div class="flex flex-col gap-0.5">
-              <span class="text-xs font-black text-white">Secure Private Key Export</span>
-              <span class="text-[10px] text-[#a0a4ad] leading-normal">Generate a secure cryptographic key to restore your profile and balances</span>
-            </div>
-            
-            <button
-              onClick={handleOpenBackup}
-              class="w-full py-3 bg-[#3390ec]/10 border border-[#3390ec]/20 text-[#3390ec] font-black text-xs rounded-2xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-[#3390ec]/20"
-            >
-              <span class="material-symbols-outlined text-[16px]">key</span>
-              Export Backup Key
-            </button>
-          </div>
-        </div>
-
         {/* Data Purge */}
         <div class="flex flex-col gap-3">
           <h2 class="text-xs font-black text-[#a0a4ad] uppercase tracking-wider px-1">{t('security.dangerZone') || 'Danger Zone'}</h2>
@@ -236,44 +128,6 @@ export const SecurityPage: Component = () => {
           </div>
         </div>
       </div>
-
-      {/* Backup Key Modal */}
-      <Show when={showKeyModal()}>
-        <div class="fixed inset-0 bg-[#090a0d]/95 backdrop-blur-md flex items-center justify-center z-50 p-6 animate-fade-in">
-          <div class="bg-[#15161d] border border-[#2a2a2a] w-full max-w-sm rounded-[32px] p-6 flex flex-col items-center shadow-2xl relative">
-            <button
-              onClick={handleCloseBackup}
-              class="absolute top-5 right-5 w-8 h-8 rounded-full bg-[#1c1c1c] border border-[#2a2a2a] flex items-center justify-center"
-            >
-              <span class="material-symbols-outlined text-[16px] text-white">close</span>
-            </button>
-
-            <span class="text-[32px] mb-2">🔐</span>
-            <h3 class="text-lg font-black text-white text-center">Secure Backup Key</h3>
-            <p class="text-[10px] text-[#ff3b30] text-center font-bold mb-6">
-              ⚠️ Swipe-to-close is disabled while viewing this key. Copy and store it safely. Never share it with anyone!
-            </p>
-
-            {/* Key display box */}
-            <div class="w-full bg-[#0f1014] border border-[#2a2a2a] rounded-2xl p-4 mb-6 flex items-center justify-between gap-3">
-              <span class="text-[11px] font-mono text-[#a0a4ad] break-all select-all">{backupKey()}</span>
-              <button 
-                onClick={handleCopyKey}
-                class="flex items-center justify-center w-8 h-8 rounded-xl bg-[#1c1c1c] border border-[#2a2a2a] active:scale-95 transition-all text-[#3390ec]"
-              >
-                <span class="material-symbols-outlined text-[16px]">content_copy</span>
-              </button>
-            </div>
-
-            <button
-              onClick={handleCloseBackup}
-              class="w-full py-4 rounded-2xl bg-[#3390ec] hover:bg-[#2b7ec9] text-xs font-black tracking-wider uppercase text-white shadow-lg active:scale-95 transition-all"
-            >
-              Done & Lock Key
-            </button>
-          </div>
-        </div>
-      </Show>
     </div>
   );
 };

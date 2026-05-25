@@ -5,16 +5,24 @@ import type { ProfileStats } from '@/shared/store/profile.js';
 
 interface Props { stats: ProfileStats | null }
 
-export const StatsDashboard: Component<Props> = (props) => {
-  const statItems = () => [
-    { key: 'usernamesAnalyzed', icon: 'search', color: '#3390ec', value: props.stats?.usernamesAnalyzed ?? 0, label: t('profile.statsAnalyzed') || 'Analyzed' },
-    { key: 'groupsManaged', icon: 'group', color: '#34c759', value: props.stats?.groupsManaged ?? 0, label: t('profile.statsGroups') || 'Groups' },
-    { key: 'channelsManaged', icon: 'campaign', color: '#ff9500', value: props.stats?.channelsManaged ?? 0, label: t('profile.statsChannels') || 'Channels' },
-    { key: 'currentStreak', icon: 'local_fire_department', color: '#ff6b35', value: props.stats?.currentStreak ?? 0, label: t('profile.statsStreak') || 'Streak' },
-    { key: 'daysActive', icon: 'event_available', color: '#00c7e2', value: props.stats?.daysActive ?? 0, label: t('profile.statsDaysActive') || 'Days Active' },
-    { key: 'totalTaps', icon: 'touch_app', color: '#ff2d55', value: props.stats?.totalTaps ?? 0, label: t('profile.statsTaps') || 'Total Taps' },
-  ];
+interface StatItemTemplate {
+  key: keyof ProfileStats;
+  icon: string;
+  color: string;
+  labelKey: string;
+  defaultLabel: string;
+}
 
+const STAT_TEMPLATES: StatItemTemplate[] = [
+  { key: 'usernamesAnalyzed', icon: 'search', color: '#3390ec', labelKey: 'profile.statsAnalyzed', defaultLabel: 'Analyzed' },
+  { key: 'groupsManaged', icon: 'group', color: '#34c759', labelKey: 'profile.statsGroups', defaultLabel: 'Groups' },
+  { key: 'channelsManaged', icon: 'campaign', color: '#ff9500', labelKey: 'profile.statsChannels', defaultLabel: 'Channels' },
+  { key: 'currentStreak', icon: 'local_fire_department', color: '#ff6b35', labelKey: 'profile.statsStreak', defaultLabel: 'Streak' },
+  { key: 'daysActive', icon: 'event_available', color: '#00c7e2', labelKey: 'profile.statsDaysActive', defaultLabel: 'Days Active' },
+  { key: 'totalTaps', icon: 'touch_app', color: '#ff2d55', labelKey: 'profile.statsTaps', defaultLabel: 'Total Taps' },
+];
+
+export const StatsDashboard: Component<Props> = (props) => {
   const formatVal = (v: number) => {
     const isFa = locale() === 'fa';
     if (v >= 1_000_000) {
@@ -38,15 +46,19 @@ export const StatsDashboard: Component<Props> = (props) => {
         <span class="text-white font-black text-sm">{t('profile.activityStats') || 'Activity Stats'}</span>
       </div>
       <div class="grid grid-cols-3 gap-2.5">
-        <For each={statItems()}>
-          {(item, i) => (
-            <Motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 + i() * 0.05 }}
-              class="bg-[#0f1014] rounded-2xl p-3 border border-[#2a2a2a] flex flex-col items-center text-center gap-1">
-              <span class="material-symbols-outlined text-[20px]" style={{ color: item.color, 'font-variation-settings': '"FILL" 1' }}>{item.icon}</span>
-              <span class="text-white font-black text-lg leading-none">{formatVal(item.value)}</span>
-              <span class="text-[#a0a4ad] text-[10px] font-bold leading-tight">{item.label}</span>
-            </Motion.div>
-          )}
+        <For each={STAT_TEMPLATES}>
+          {(item, i) => {
+            const rawVal = () => props.stats ? (props.stats[item.key] as number) : 0;
+            const label = () => t(item.labelKey as any) || item.defaultLabel;
+            return (
+              <Motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 + i() * 0.05 }}
+                class="bg-[#0f1014] rounded-2xl p-3 border border-[#2a2a2a] flex flex-col items-center text-center gap-1">
+                <span class="material-symbols-outlined text-[20px]" style={{ color: item.color, 'font-variation-settings': '"FILL" 1' }}>{item.icon}</span>
+                <span class="text-white font-black text-lg leading-none">{formatVal(rawVal())}</span>
+                <span class="text-[#a0a4ad] text-[10px] font-bold leading-tight">{label()}</span>
+              </Motion.div>
+            );
+          }}
         </For>
       </div>
     </Motion.div>

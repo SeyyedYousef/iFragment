@@ -14,7 +14,6 @@ const SecurityPage = lazy(() => import('@/pages/profile/security/index.js').then
 const LeaderboardPage = lazy(() => import('@/pages/profile/leaderboard/index.js').then(m => ({ default: m.LeaderboardPage })));
 const TasksPage = lazy(() => import('@/pages/profile/tasks/index.js').then(m => ({ default: m.TasksPage })));
 const BoostsPage = lazy(() => import('@/pages/profile/boosts/index.js').then(m => ({ default: m.BoostsPage })));
-const PremiumPage = lazy(() => import('@/pages/profile/premium/index.js').then(m => ({ default: m.PremiumPage })));
 const ManagedBotsPage = lazy(() => import('@/pages/group/managed-bots/index.js').then(m => ({ default: m.ManagedBotsPage })));
 const BotManagePage = lazy(() => import('@/pages/group/bot-manage/index.js').then(m => ({ default: m.BotManagePage })));
 const GroupDashboardPage = lazy(() => import('@/pages/group/dashboard/index.js').then(m => ({ default: m.GroupDashboardPage })));
@@ -56,7 +55,6 @@ export const routes: Route[] = [
   { path: '/airdrop', Component: AirdropPage },
   { path: '/dashboard', Component: DashboardPage },
   { path: '/profile', Component: ProfilePage },
-  { path: '/profile/premium', Component: PremiumPage },
   { path: '/profile/achievements', Component: AchievementsPage },
   { path: '/profile/referral', Component: ReferralPage },
   { path: '/profile/settings', Component: SettingsPage },

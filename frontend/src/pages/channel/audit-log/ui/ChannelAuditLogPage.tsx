@@ -35,7 +35,7 @@ export const ChannelAuditLogPage: Component = () => {
     if (act.includes('settings') || act.includes('update')) return '#32ade6'; // Blue
     if (act.includes('ban') || act.includes('restrict')) return '#ff9f0a'; // Orange
     if (act.includes('create') || act.includes('add') || act.includes('connect')) return '#34c759'; // Green
-    if (act.includes('sync')) return '#bf5af2'; // Purple
+    if (act.includes('sync')) return '#00c7e6'; // Cyan
     return '#8e8e93';
   };
 

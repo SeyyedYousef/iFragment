@@ -2,7 +2,7 @@
  * Profile Store — Signals for profile-related state
  * Uses localStorage for persistence (same pattern as airdrop store)
  */
-import { createSignal, createEffect, createRoot } from 'solid-js';
+import { createSignal, createEffect, createRoot, onCleanup } from 'solid-js';
 
 // ─── Types ───
 export interface Achievement {
@@ -150,13 +150,25 @@ export const ACHIEVEMENT_DEFS: Omit<Achievement, 'unlocked' | 'unlockedAt' | 'pr
 ];
 
 // ─── Persist Settings ───
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+
 export const initProfileSync = () => {
-  createRoot(() => {
+  return createRoot(dispose => {
     createEffect(() => {
       const state = profileSettings();
-      setTimeout(() => {
-        localStorage.setItem('profile-settings', JSON.stringify(state));
+      if (saveTimer) clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        try {
+          localStorage.setItem('profile-settings', JSON.stringify(state));
+        } catch (e) {
+          console.warn('localStorage write failed', e);
+        }
       }, 500);
     });
+    onCleanup(() => {
+      if (saveTimer) clearTimeout(saveTimer);
+    });
+    return dispose;
   });
 };
+

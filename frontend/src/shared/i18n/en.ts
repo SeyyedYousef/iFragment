@@ -13,8 +13,8 @@ export const dict = {
     }
   },
   hero: {
-    title: 'Precise. Bold. Professional.',
-    description: 'The definitive intelligence platform for Fragment usernames. Deep-scan transaction history, verify true scarcity, and connect with the world\'s most aggressive collectors.',
+    title: 'Precise, Bold, Professional.',
+    description: 'The ultimate intelligence and pricing platform for Fragment assets. Deep-scan transaction history, verify true scarcity, and analyze Telegram usernames, collectible numbers, and gifts.',
     promoBadge: 'SAFE WORK',
     selectToStart: 'Select one of the options above to start'
   },
@@ -92,6 +92,12 @@ export const dict = {
       analyzeBtn: 'Scan Gift Asset',
     },
     analyzing: 'Analyzing...',
+    comingSoon: {
+      badge: 'Coming in the next update',
+      title: 'Preparing...',
+      description: 'This section, along with advanced analytics for collectible numbers and Telegram gifts, will launch in the next update. You can try our smart username analysis right now!',
+      btn: 'Try Username Analysis'
+    },
     freeInfoPrefix: 'View general collection info ',
     freeInfoHighlight: 'for free',
     freeInfoSuffix: ' right now.'

@@ -4,6 +4,7 @@ import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-que
 import { hapticFeedback } from '@tma.js/sdk-solid';
 import { getDailyStatus, claimDailyReward } from '@/shared/api/profile.js';
 import { t } from '@/shared/i18n/index.js';
+import { PROFILE_CONFIG } from '@/shared/config/profile.js';
 
 export const GamificationHub: Component = () => {
   const navigate = useNavigate();
@@ -53,7 +54,6 @@ export const GamificationHub: Component = () => {
 
   // Helper for 7-day grid rendering
   const daysArray = [1, 2, 3, 4, 5, 6, 7];
-  const dayRewards = [500, 1000, 2500, 5000, 10000, 15000, 25000];
 
   return (
     <div class="mx-6 mt-4 flex flex-col gap-4 font-sans text-white">
@@ -158,7 +158,7 @@ export const GamificationHub: Component = () => {
                       <span class="text-[9px] font-black uppercase tracking-wider">
                         {t('gamification.dayLabel')?.replace('{day}', day.toString()) || `Day ${day}`}
                       </span>
-                      <span class="text-[10px] font-black mt-1 text-white">{dayRewards[day-1].toLocaleString()}</span>
+                      <span class="text-[10px] font-black mt-1 text-white">{PROFILE_CONFIG.DAILY_REWARDS[day-1].toLocaleString()}</span>
                       <span class="text-[8px] text-[#a0a4ad] font-bold">FRG</span>
                     </div>
                   );

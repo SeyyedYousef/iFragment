@@ -90,7 +90,7 @@ export const TasksView: Component = () => {
           title: "ماموریت ویژه سیستم",
           desc: "شرایط ویژه این ماموریت را تکمیل کنید",
           icon: "assignment_turned_in",
-          color: "#a78bfa"
+          color: "#06b6d4"
         };
     }
   };

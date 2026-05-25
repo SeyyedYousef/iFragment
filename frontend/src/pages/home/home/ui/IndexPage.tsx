@@ -41,7 +41,7 @@ export const IndexPage: Component = () => {
               class="w-full bg-[#1c1c1c] border-t border-[#2a2a2a] rounded-t-[40px] relative z-20 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] pt-12 pb-32 min-h-[70vh] -mt-12"
               role="tabpanel"
             >
-              <ActionArea activeTab={tab} />
+              <ActionArea activeTab={tab} onTabChange={handleTabChange} />
             </Motion.div>
           )}
         </Show>

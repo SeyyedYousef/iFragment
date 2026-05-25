@@ -3,6 +3,7 @@ import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { t, locale, setLocale } from '@/shared/i18n/index.js';
 import { profileSettings, updateSetting, updateNotification } from '@/shared/store/profile.js';
 import { requestWriteAccess } from '@/shared/lib/telegram-native.js';
+import { ToggleSwitch } from '@/shared/ui/ToggleSwitch.js';
 
 export const SettingsPage: Component = () => {
   onMount(() => {
@@ -27,22 +28,19 @@ export const SettingsPage: Component = () => {
     updateNotification(key, targetVal);
   };
 
-  const handleToggleHaptic = () => {
-    const newVal = !profileSettings().hapticEnabled;
-    updateSetting('hapticEnabled', newVal);
-    if (newVal) {
+  const handleToggleHaptic = (checked: boolean) => {
+    updateSetting('hapticEnabled', checked);
+    if (checked) {
       try { hapticFeedback.impactOccurred('medium'); } catch {}
     }
   };
 
-  const handleToggleSound = () => {
-    try { hapticFeedback.impactOccurred('light'); } catch {}
-    updateSetting('soundEnabled', !profileSettings().soundEnabled);
+  const handleToggleSound = (checked: boolean) => {
+    updateSetting('soundEnabled', checked);
   };
 
-  const handleToggleAnimations = () => {
-    try { hapticFeedback.impactOccurred('light'); } catch {}
-    updateSetting('autoPlayAnimations', !profileSettings().autoPlayAnimations);
+  const handleToggleAnimations = (checked: boolean) => {
+    updateSetting('autoPlayAnimations', checked);
   };
 
   return (
@@ -60,64 +58,43 @@ export const SettingsPage: Component = () => {
           
           <div class="bg-[#1c1c1c] border border-[#2a2a2a] rounded-3xl p-5 flex flex-col gap-4">
             {/* Haptics Switch */}
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-4">
               <div class="flex flex-col gap-0.5 max-w-[75%]">
                 <span class="text-xs font-black text-white">{t('settings.hapticFeedback') || 'Haptic Feedback'}</span>
                 <span class="text-[10px] text-[#a0a4ad] leading-normal">{t('settings.hapticDesc') || 'Vibration feedback on tap and actions'}</span>
               </div>
-              <button
-                dir="ltr"
-                onClick={handleToggleHaptic}
-                class={`w-11 h-6 rounded-full relative transition-colors duration-200 ${
-                  profileSettings().hapticEnabled ? 'bg-[#3390ec]' : 'bg-white/10'
-                }`}
-              >
-                <div class={`w-5 h-5 rounded-full bg-white absolute top-[2px] transition-all duration-200 ${
-                  profileSettings().hapticEnabled ? 'left-[22px]' : 'left-[2px]'
-                }`} />
-              </button>
+              <ToggleSwitch 
+                checked={profileSettings().hapticEnabled} 
+                onChange={handleToggleHaptic} 
+              />
             </div>
 
             <div class="h-[1px] bg-[#2a2a2a] w-full"></div>
 
             {/* Sound Switch */}
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-4">
               <div class="flex flex-col gap-0.5 max-w-[75%]">
                 <span class="text-xs font-black text-white">{t('settings.soundEffects') || 'Sound Effects'}</span>
                 <span class="text-[10px] text-[#a0a4ad] leading-normal">{t('settings.soundDesc') || 'Sound feedback on game elements'}</span>
               </div>
-              <button
-                dir="ltr"
-                onClick={handleToggleSound}
-                class={`w-11 h-6 rounded-full relative transition-colors duration-200 ${
-                  profileSettings().soundEnabled ? 'bg-[#3390ec]' : 'bg-white/10'
-                }`}
-              >
-                <div class={`w-5 h-5 rounded-full bg-white absolute top-[2px] transition-all duration-200 ${
-                  profileSettings().soundEnabled ? 'left-[22px]' : 'left-[2px]'
-                }`} />
-              </button>
+              <ToggleSwitch 
+                checked={profileSettings().soundEnabled} 
+                onChange={handleToggleSound} 
+              />
             </div>
 
             <div class="h-[1px] bg-[#2a2a2a] w-full"></div>
 
             {/* Animations Switch */}
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-4">
               <div class="flex flex-col gap-0.5 max-w-[75%]">
                 <span class="text-xs font-black text-white">{t('settings.animations') || 'Autoplay Animations'}</span>
                 <span class="text-[10px] text-[#a0a4ad] leading-normal">{t('settings.animationsDesc') || 'Animate items automatically'}</span>
               </div>
-              <button
-                dir="ltr"
-                onClick={handleToggleAnimations}
-                class={`w-11 h-6 rounded-full relative transition-colors duration-200 ${
-                  profileSettings().autoPlayAnimations ? 'bg-[#3390ec]' : 'bg-white/10'
-                }`}
-              >
-                <div class={`w-5 h-5 rounded-full bg-white absolute top-[2px] transition-all duration-200 ${
-                  profileSettings().autoPlayAnimations ? 'left-[22px]' : 'left-[2px]'
-                }`} />
-              </button>
+              <ToggleSwitch 
+                checked={profileSettings().autoPlayAnimations} 
+                onChange={handleToggleAnimations} 
+              />
             </div>
           </div>
         </div>
@@ -128,73 +105,45 @@ export const SettingsPage: Component = () => {
           
           <div class="bg-[#1c1c1c] border border-[#2a2a2a] rounded-3xl p-5 flex flex-col gap-4">
             {/* Mining updates */}
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-4">
               <span class="text-xs font-black text-white">{t('settings.pushMining') || 'Mining Updates'}</span>
-              <button
-                dir="ltr"
-                onClick={() => handleToggleNotification('mining')}
-                class={`w-11 h-6 rounded-full relative transition-colors duration-200 ${
-                  profileSettings().notifications.mining ? 'bg-[#3390ec]' : 'bg-white/10'
-                }`}
-              >
-                <div class={`w-5 h-5 rounded-full bg-white absolute top-[2px] transition-all duration-200 ${
-                  profileSettings().notifications.mining ? 'left-[22px]' : 'left-[2px]'
-                }`} />
-              </button>
+              <ToggleSwitch 
+                checked={profileSettings().notifications.mining} 
+                onChange={() => handleToggleNotification('mining')} 
+              />
             </div>
 
             <div class="h-[1px] bg-[#2a2a2a] w-full"></div>
 
             {/* Referral updates */}
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-4">
               <span class="text-xs font-black text-white">{t('settings.pushReferrals') || 'New Referrals'}</span>
-              <button
-                dir="ltr"
-                onClick={() => handleToggleNotification('referral')}
-                class={`w-11 h-6 rounded-full relative transition-colors duration-200 ${
-                  profileSettings().notifications.referral ? 'bg-[#3390ec]' : 'bg-white/10'
-                }`}
-              >
-                <div class={`w-5 h-5 rounded-full bg-white absolute top-[2px] transition-all duration-200 ${
-                  profileSettings().notifications.referral ? 'left-[22px]' : 'left-[2px]'
-                }`} />
-              </button>
+              <ToggleSwitch 
+                checked={profileSettings().notifications.referral} 
+                onChange={() => handleToggleNotification('referral')} 
+              />
             </div>
 
             <div class="h-[1px] bg-[#2a2a2a] w-full"></div>
 
             {/* Community updates */}
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-4">
               <span class="text-xs font-black text-white">{t('settings.pushCommunity') || 'Community Alerts'}</span>
-              <button
-                dir="ltr"
-                onClick={() => handleToggleNotification('community')}
-                class={`w-11 h-6 rounded-full relative transition-colors duration-200 ${
-                  profileSettings().notifications.community ? 'bg-[#3390ec]' : 'bg-white/10'
-                }`}
-              >
-                <div class={`w-5 h-5 rounded-full bg-white absolute top-[2px] transition-all duration-200 ${
-                  profileSettings().notifications.community ? 'left-[22px]' : 'left-[2px]'
-                }`} />
-              </button>
+              <ToggleSwitch 
+                checked={profileSettings().notifications.community} 
+                onChange={() => handleToggleNotification('community')} 
+              />
             </div>
 
             <div class="h-[1px] bg-[#2a2a2a] w-full"></div>
 
             {/* Promotions updates */}
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-4">
               <span class="text-xs font-black text-white">{t('settings.pushPromotions') || 'Special Deals'}</span>
-              <button
-                dir="ltr"
-                onClick={() => handleToggleNotification('promotions')}
-                class={`w-11 h-6 rounded-full relative transition-colors duration-200 ${
-                  profileSettings().notifications.promotions ? 'bg-[#3390ec]' : 'bg-white/10'
-                }`}
-              >
-                <div class={`w-5 h-5 rounded-full bg-white absolute top-[2px] transition-all duration-200 ${
-                  profileSettings().notifications.promotions ? 'left-[22px]' : 'left-[2px]'
-                }`} />
-              </button>
+              <ToggleSwitch 
+                checked={profileSettings().notifications.promotions} 
+                onChange={() => handleToggleNotification('promotions')} 
+              />
             </div>
           </div>
         </div>

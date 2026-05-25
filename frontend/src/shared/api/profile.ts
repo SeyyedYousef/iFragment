@@ -2,6 +2,7 @@ import { apiFetch } from './base.js';
 import type { Achievement, ProfileStats, ReferralInfo } from '@/shared/store/profile.js';
 import { z } from 'zod';
 
+// ─── Zod Schemas ───
 export const UserBoostsSchema = z.object({
   user_id: z.number().int(),
   multitap_level: z.number().int(),
@@ -11,107 +12,190 @@ export const UserBoostsSchema = z.object({
 
 export type UserBoosts = z.infer<typeof UserBoostsSchema>;
 
-export const getProfileStats = async (): Promise<ProfileStats> => {
-  // Simulate network delay in dev for smooth transitions
+export const ProfileStatsSchema = z.object({
+  usernamesAnalyzed: z.number().int().nonnegative(),
+  groupsManaged: z.number().int().nonnegative(),
+  channelsManaged: z.number().int().nonnegative(),
+  daysActive: z.number().int().nonnegative(),
+  currentStreak: z.number().int().nonnegative(),
+  globalRank: z.number().int().nonnegative(),
+  totalTaps: z.number().int().nonnegative(),
+  totalFrgEarned: z.number().nonnegative(),
+  totalFrgSpent: z.number().nonnegative(),
+  frgBalance: z.number().nonnegative(),
+  memberSince: z.string(),
+  level: z.number().int().min(1),
+  xp: z.number().int().nonnegative(),
+  xpToNextLevel: z.number().int().nonnegative(),
+  isPremium: z.boolean(),
+  premiumUntil: z.string().optional(),
+  emojiStatus: z.string(),
+  equippedBorder: z.string(),
+  equippedSkin: z.string(),
+  airdropCoins: z.number().optional(),
+});
+
+export const AchievementSchema = z.object({
+  id: z.string(),
+  category: z.enum(['onboarding', 'mining', 'analysis', 'social', 'management', 'streaks', 'special']),
+  icon: z.string(),
+  unlocked: z.boolean(),
+  unlockedAt: z.string().optional(),
+  progress: z.number().nonnegative(),
+  target: z.number().positive(),
+});
+
+export const ReferralFriendSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  avatar: z.string().optional(),
+  joinedAt: z.string(),
+  earned: z.number().nonnegative(),
+});
+
+export const ReferralInfoSchema = z.object({
+  referralCode: z.string(),
+  totalInvited: z.number().int().nonnegative(),
+  totalEarned: z.number().nonnegative(),
+  friends: z.array(ReferralFriendSchema),
+});
+
+export const DailyStatusSchema = z.object({
+  streak: z.number().int().nonnegative(),
+  frg_reward: z.number().nonnegative(),
+  xp_reward: z.number().nonnegative(),
+  claimed: z.boolean(),
+  can_claim: z.boolean(),
+  time_left_seconds: z.number().optional(),
+});
+
+export const TaskStatusSchema = z.object({
+  key: z.string(),
+  title: z.string(),
+  reward_frg: z.number().nonnegative(),
+  reward_xp: z.number().nonnegative(),
+  completed: z.boolean(),
+});
+
+export const BoostStatusSchema = z.object({
+  type: z.string(),
+  title: z.string(),
+  current_level: z.number().int().nonnegative(),
+  next_level: z.number().int().nonnegative(),
+  price_frg: z.number().nonnegative(),
+  max_level: z.boolean(),
+});
+
+export const LeaderboardMemberSchema = z.object({
+  rank: z.number().int().positive(),
+  user_id: z.number(),
+  first_name: z.string(),
+  username: z.string(),
+  level: z.number().int().min(1),
+  xp: z.number().int().nonnegative(),
+});
+
+export const AchievementDefSchema = z.object({
+  id: z.string(),
+  target: z.number().positive(),
+});
+
+export const CosmeticItemSchema = z.object({
+  id: z.string(),
+  type: z.enum(['border', 'skin']),
+  name: z.string(),
+  cost: z.number().nonnegative(),
+  purchased: z.boolean(),
+  borderClass: z.string().optional(),
+  skinClass: z.string().optional(),
+});
+
+export const ClanSchema = z.object({
+  id: z.string(),
+  telegram_channel_id: z.number(),
+  channel_username: z.string(),
+  channel_photo: z.string().optional(),
+  chat_title: z.string(),
+  members_count: z.number().int().nonnegative(),
+});
+
+export const UserClanDetailsSchema = z.object({
+  clan: ClanSchema.optional(),
+  is_member: z.boolean(),
+  joined_at: z.string().optional(),
+});
+
+// Infer and export types
+export type DailyStatus = z.infer<typeof DailyStatusSchema>;
+export type TaskStatus = z.infer<typeof TaskStatusSchema>;
+export type BoostStatus = z.infer<typeof BoostStatusSchema>;
+export type LeaderboardMember = z.infer<typeof LeaderboardMemberSchema>;
+export type Clan = z.infer<typeof ClanSchema>;
+export type UserClanDetails = z.infer<typeof UserClanDetailsSchema>;
+
+// ─── Validated Fetch Helper ───
+const validatedFetch = async <T extends z.ZodTypeAny>(
+  endpoint: string,
+  schema: T,
+  options?: RequestInit
+): Promise<z.infer<T>> => {
   if (import.meta.env.DEV) {
+    // Keep simulation delay for smooth dev transitions
     await new Promise(resolve => setTimeout(resolve, 500));
   }
-  return apiFetch<ProfileStats>('/profile/stats');
-};
-
-export const getProfileAchievements = async (): Promise<Achievement[]> => {
-  if (import.meta.env.DEV) {
-    await new Promise(resolve => setTimeout(resolve, 500));
+  const raw = await apiFetch<unknown>(endpoint, options);
+  const result = schema.safeParse(raw);
+  if (!result.success) {
+    console.error(`[API Schema Mismatch] at ${endpoint}:`, result.error.format());
+    throw new Error(`Server returned invalid data format at ${endpoint}`);
   }
-  return apiFetch<Achievement[]>('/profile/achievements');
+  return result.data;
 };
 
-export const getReferralInfo = async (): Promise<ReferralInfo> => {
-  if (import.meta.env.DEV) {
-    await new Promise(resolve => setTimeout(resolve, 500));
-  }
-  return apiFetch<ReferralInfo>('/profile/referral');
-};
+// ─── Validated API Exports ───
+export const getProfileStats = (): Promise<ProfileStats> => 
+  validatedFetch('/profile/stats', ProfileStatsSchema);
 
-// Gamification API wrappers
-export interface DailyStatus {
-  streak: number;
-  frg_reward: number;
-  xp_reward: number;
-  claimed: boolean;
-  can_claim: boolean;
-  time_left_seconds?: number;
-}
+export const getProfileAchievements = (): Promise<Achievement[]> => 
+  validatedFetch('/profile/achievements', z.array(AchievementSchema));
 
-export interface TaskStatus {
-  key: string;
-  title: string;
-  reward_frg: number;
-  reward_xp: number;
-  completed: boolean;
-}
+export const getReferralInfo = (): Promise<ReferralInfo> => 
+  validatedFetch('/profile/referral', ReferralInfoSchema);
 
-export interface BoostStatus {
-  type: string;
-  title: string;
-  current_level: number;
-  next_level: number;
-  price_frg: number;
-  max_level: boolean;
-}
+export const getDailyStatus = (): Promise<DailyStatus> => 
+  validatedFetch('/profile/daily', DailyStatusSchema);
 
-export interface LeaderboardMember {
-  rank: number;
-  user_id: number;
-  first_name: string;
-  username: string;
-  level: number;
-  xp: number;
-}
+export const claimDailyReward = (): Promise<DailyStatus> => 
+  validatedFetch('/profile/daily/claim', DailyStatusSchema, { method: 'POST' });
 
-export const getDailyStatus = async (): Promise<DailyStatus> => {
-  return apiFetch<DailyStatus>('/profile/daily');
-};
+export const getTasksStatus = (): Promise<TaskStatus[]> => 
+  validatedFetch('/profile/tasks', z.array(TaskStatusSchema));
 
-export const claimDailyReward = async (): Promise<DailyStatus> => {
-  return apiFetch<DailyStatus>('/profile/daily/claim', { method: 'POST' });
-};
-
-export const getTasksStatus = async (): Promise<TaskStatus[]> => {
-  return apiFetch<TaskStatus[]>('/profile/tasks');
-};
-
-export const completeTask = async (taskKey: string): Promise<TaskStatus> => {
-  return apiFetch<TaskStatus>('/profile/tasks/complete', {
+export const completeTask = (taskKey: string): Promise<TaskStatus> => 
+  validatedFetch('/profile/tasks/complete', TaskStatusSchema, {
     method: 'POST',
     body: JSON.stringify({ taskKey })
   });
-};
 
-export const getBoostsStatus = async (): Promise<BoostStatus[]> => {
-  return apiFetch<BoostStatus[]>('/profile/boosts');
-};
+export const getBoostsStatus = (): Promise<BoostStatus[]> => 
+  validatedFetch('/profile/boosts', z.array(BoostStatusSchema));
 
-export const upgradeBoost = async (boostType: string): Promise<UserBoosts> => {
-  const raw = await apiFetch<unknown>('/profile/boosts/upgrade', {
+export const upgradeBoost = (boostType: string): Promise<UserBoosts> => 
+  validatedFetch('/profile/boosts/upgrade', UserBoostsSchema, {
     method: 'POST',
     body: JSON.stringify({ boostType })
   });
-  return UserBoostsSchema.parse(raw);
-};
 
-export const getLeaderboard = async (): Promise<LeaderboardMember[]> => {
-  return apiFetch<LeaderboardMember[]>('/profile/leaderboard');
-};
+export const getLeaderboard = (): Promise<LeaderboardMember[]> => 
+  validatedFetch('/profile/leaderboard', z.array(LeaderboardMemberSchema));
 
 export interface AchievementDef {
   id: string;
   target: number;
 }
 
-export const getAchievementDefs = async (): Promise<AchievementDef[]> => {
-  return apiFetch<AchievementDef[]>('/profile/achievements/defs');
-};
+export const getAchievementDefs = (): Promise<AchievementDef[]> => 
+  validatedFetch('/profile/achievements/defs', z.array(AchievementDefSchema));
 
 export interface CosmeticItem {
   id: string;
@@ -123,84 +207,52 @@ export interface CosmeticItem {
   skinClass?: string;
 }
 
-export const getCosmetics = async (): Promise<CosmeticItem[]> => {
-  return apiFetch<CosmeticItem[]>('/profile/cosmetics');
-};
+export const getCosmetics = (): Promise<CosmeticItem[]> => 
+  validatedFetch('/profile/cosmetics', z.array(CosmeticItemSchema));
 
-export const purchaseCosmetic = async (cosmeticId: string): Promise<any> => {
-  return apiFetch<any>('/profile/cosmetics/purchase', {
+export const purchaseCosmetic = (cosmeticId: string): Promise<any> => 
+  validatedFetch('/profile/cosmetics/purchase', z.any(), {
     method: 'POST',
     body: JSON.stringify({ cosmeticId })
   });
-};
 
-export const equipCosmetic = async (cosmeticId: string, type: 'border' | 'skin'): Promise<any> => {
-  return apiFetch<any>('/profile/cosmetics/equip', {
+export const equipCosmetic = (cosmeticId: string, type: 'border' | 'skin'): Promise<any> => 
+  validatedFetch('/profile/cosmetics/equip', z.any(), {
     method: 'POST',
     body: JSON.stringify({ cosmeticId, type })
   });
-};
 
-export const setEmojiStatus = async (emoji: string): Promise<any> => {
-  return apiFetch<any>('/profile/emoji-status', {
+export const setEmojiStatus = (emoji: string): Promise<any> => 
+  validatedFetch('/profile/emoji-status', z.any(), {
     method: 'POST',
     body: JSON.stringify({ emoji })
   });
-};
 
-export const createPremiumCheckout = async (): Promise<{ invoice_link: string }> => {
-  return apiFetch<{ invoice_link: string }>('/profile/premium/checkout', {
+export const createPremiumCheckout = (): Promise<{ invoice_link: string }> => 
+  validatedFetch('/profile/premium/checkout', z.object({ invoice_link: z.string() }), {
     method: 'POST'
   });
-};
 
-export const addTaps = async (taps: number): Promise<ProfileStats> => {
-  return apiFetch<ProfileStats>('/profile/tap', {
+export const addTaps = (taps: number): Promise<ProfileStats> => 
+  validatedFetch('/profile/tap', ProfileStatsSchema, {
     method: 'POST',
     body: JSON.stringify({ taps })
   });
-};
 
-export interface UserClanDetails {
-  clan?: {
-    id: string;
-    telegram_channel_id: number;
-    channel_username: string;
-    channel_photo?: string;
-    chat_title: string;
-    members_count: number;
-  };
-  is_member: boolean;
-  joined_at?: string;
-}
+export const getClan = (): Promise<UserClanDetails> => 
+  validatedFetch('/profile/clan', UserClanDetailsSchema);
 
-export const getClan = async (): Promise<UserClanDetails> => {
-  return apiFetch<UserClanDetails>('/profile/clan');
-};
-
-export const joinClan = async (username: string): Promise<any> => {
-  return apiFetch<any>('/profile/clan/join', {
+export const joinClan = (username: string): Promise<any> => 
+  validatedFetch('/profile/clan/join', z.any(), {
     method: 'POST',
     body: JSON.stringify({ username })
   });
-};
 
-export const leaveClan = async (): Promise<any> => {
-  return apiFetch<any>('/profile/clan/leave', {
+export const leaveClan = (): Promise<any> => 
+  validatedFetch('/profile/clan/leave', z.any(), {
     method: 'POST'
   });
-};
 
-export interface Clan {
-  id: string;
-  telegram_channel_id: number;
-  channel_username: string;
-  channel_photo?: string;
-  chat_title: string;
-  members_count: number;
-}
+export const getTopClans = (): Promise<Clan[]> => 
 
-export const getTopClans = async (): Promise<Clan[]> => {
-  return apiFetch<Clan[]>('/profile/clan/top');
-};
-
+  validatedFetch('/profile/clan/top', z.array(ClanSchema));

@@ -1,16 +1,14 @@
-import { Component } from 'solid-js';
+import { Component, For } from 'solid-js';
 import { Motion } from '@motionone/solid';
 import { t } from '@/shared/i18n/index.js';
 import { 
   haptic, 
   addToHomeScreen, 
-  requestEmojiStatusAccess, 
-  setEmojiStatus, 
-  openTelegramLink,
-  showAlert 
+  openTelegramLink 
 } from '@/shared/lib/telegram-native.js';
 
 export const QuickActions: Component = () => {
+
   const actions = [
     {
       id: 'home_screen',
@@ -20,29 +18,6 @@ export const QuickActions: Component = () => {
       onClick: () => {
         haptic.impact('light');
         addToHomeScreen();
-      }
-    },
-    {
-      id: 'emoji_status',
-      icon: 'sentiment_satisfied',
-      color: '#ff9500',
-      label: t('profile.emojiStatus') || 'Emoji Status',
-      onClick: async () => {
-        haptic.impact('light');
-        try {
-          const granted = await requestEmojiStatusAccess();
-          if (granted) {
-            // iFragment custom Telegram emoji ID (representative ID)
-            const success = await setEmojiStatus('5432112345678901234');
-            if (success) {
-              await showAlert('Emoji status updated on your Telegram profile!');
-            }
-          } else {
-            await showAlert('Emoji status permission was denied.');
-          }
-        } catch (e) {
-          console.error(e);
-        }
       }
     },
     {
@@ -59,16 +34,18 @@ export const QuickActions: Component = () => {
 
   return (
     <Motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-      class="mx-6 mt-4 grid grid-cols-3 gap-3">
-      {actions.map(action => (
-        <button
-          onClick={action.onClick}
-          class="bg-[#1c1c1c] rounded-2xl p-3 border border-[#2a2a2a] flex flex-col items-center gap-1.5 hover:bg-[#2a2a2a] transition-colors"
-        >
-          <span class="material-symbols-outlined text-[20px]" style={{ color: action.color, 'font-variation-settings': '"FILL" 1' }}>{action.icon}</span>
-          <span class="text-[#a0a4ad] text-[10px] font-bold text-center leading-tight">{action.label}</span>
-        </button>
-      ))}
+      class="mx-6 mt-4 grid grid-cols-2 gap-3">
+      <For each={actions}>
+        {(action) => (
+          <button
+            onClick={action.onClick}
+            class="bg-[#1c1c1c] rounded-2xl p-3 border border-[#2a2a2a] flex flex-col items-center gap-1.5 hover:bg-[#2a2a2a] transition-colors active:scale-95"
+          >
+            <span class="material-symbols-outlined text-[20px]" style={{ color: action.color, 'font-variation-settings': '"FILL" 1' }}>{action.icon}</span>
+            <span class="text-[#a0a4ad] text-[10px] font-bold text-center leading-tight">{action.label}</span>
+          </button>
+        )}
+      </For>
     </Motion.div>
   );
 };
