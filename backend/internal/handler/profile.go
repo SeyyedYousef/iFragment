@@ -23,6 +23,39 @@ func NewProfileHandler(s *service.ProfileService, p *payment.StarsService) *Prof
 	}
 }
 
+func (h *ProfileHandler) GetPublicConfig(w http.ResponseWriter, r *http.Request) {
+	config := map[string]interface{}{
+		"airdrop_to_frg_rate": 100000.0,
+		"boosters": map[string]interface{}{
+			"tapPower": map[string]interface{}{
+				"maxLevel": 10,
+				"baseCost": 2000.0,
+			},
+			"energyCap": map[string]interface{}{
+				"maxLevel": 10,
+				"baseCost": 1500.0,
+			},
+			"tapBot": map[string]interface{}{
+				"maxLevel": 1,
+				"baseCost": 20000.0,
+			},
+		},
+		"leagues": []map[string]interface{}{
+			{"name": "Bronze", "minScore": 0},
+			{"name": "Silver", "minScore": 50000},
+			{"name": "Gold", "minScore": 200000},
+			{"name": "Platinum", "minScore": 500000},
+			{"name": "Diamond", "minScore": 1000000},
+			{"name": "Legendary", "minScore": 5000000},
+		},
+		"daily_rewards": []int{500, 1000, 2500, 5000, 10000, 25000, 50000},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+	json.NewEncoder(w).Encode(config)
+}
+
 func (h *ProfileHandler) getUserID(r *http.Request) (int64, bool) {
 	tgUser, ok := r.Context().Value(middleware.UserContextKey).(map[string]interface{})
 	if !ok {

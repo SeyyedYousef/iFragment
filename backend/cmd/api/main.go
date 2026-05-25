@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
@@ -108,8 +109,9 @@ func main() {
 	// Initialize Router
 	r := chi.NewRouter()
 
-	r.Use(middleware.SecurityHeaders)
-	r.Use(middleware.CSRF)
+	r.Use(chiMiddleware.RealIP)
+	r.Use(chiMiddleware.Recoverer)
+
 	// Request-ID and Structured Logging
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -124,19 +126,15 @@ func main() {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	})
-	r.Use(chiMiddleware.RealIP)
 	r.Use(chiMiddleware.Logger)
-	r.Use(chiMiddleware.Recoverer)
-	r.Use(middleware.NewRateLimiter(cache))
 
-	// Sentry
+	// Sentry Initialization
 	sentry.Init(sentry.ClientOptions{
 		Dsn:              os.Getenv("SENTRY_DSN"),
 		TracesSampleRate: 0.1,
 		Environment:      os.Getenv("APP_ENV"),
 	})
 	defer sentry.Flush(2 * time.Second)
-	r.Use(sentryhttp.New(sentryhttp.Options{Repanic: true}).Handle)
 
 	allowedOrigins := strings.Split(os.Getenv("ALLOWED_ORIGINS"), ",")
 	if len(allowedOrigins) == 1 && allowedOrigins[0] == "" {
@@ -157,7 +155,22 @@ func main() {
 		AllowCredentials: allowCreds,
 		MaxAge:           86400,
 	})
+	// CORS must be executed before rate limiter and auth
 	r.Use(c.Handler)
+
+	r.Use(middleware.SecurityHeaders)
+
+	// 1MB body limit middleware
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+			next.ServeHTTP(w, r)
+		})
+	})
+
+	r.Use(middleware.NewRateLimiter(cache))
+	r.Use(sentryhttp.New(sentryhttp.Options{Repanic: true}).Handle)
+	r.Use(middleware.CSRF)
 
 	// Prometheus Metrics
 	r.Handle("/metrics", promhttp.Handler())
@@ -251,18 +264,23 @@ func main() {
 				return
 			}
 
-			// Probe Telegram API reachability (Issue 24)
-			tgClient := &http.Client{Timeout: 2 * time.Second}
+			w.Write([]byte(`{"status": "ready"}`))
+		})
+
+		r.Get("/diagnostics/telegram", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			tgClient := &http.Client{Timeout: 5 * time.Second}
 			tgResp, err := tgClient.Get("https://api.telegram.org")
 			if err != nil {
 				w.WriteHeader(http.StatusServiceUnavailable)
-				w.Write([]byte(`{"status": "unready", "telegram_api": "error"}`))
+				w.Write([]byte(fmt.Sprintf(`{"status": "unhealthy", "error": %q}`, err.Error())))
 				return
 			}
 			tgResp.Body.Close()
-
-			w.Write([]byte(`{"status": "ready"}`))
+			w.Write([]byte(`{"status": "healthy", "telegram_api": "reachable"}`))
 		})
+
+		r.Get("/config", profileHandler.GetPublicConfig)
 
 		r.Post("/webhook/telegram/{botID}", webhookHandler.HandleTelegramWebhook)
 		r.Post("/webhook/tonapi", webhookHandler.HandleTonAPIWebhook)
@@ -390,6 +408,8 @@ func main() {
 			r.Get("/clan", clanHandler.GetClanDetails)
 			r.Post("/clan/join", clanHandler.JoinClan)
 			r.Post("/clan/leave", clanHandler.LeaveClan)
+			r.Get("/clan/top", clanHandler.GetTopClans)
+			r.Get("/clans/top", clanHandler.GetTopClans)
 		})
 	})
 
@@ -400,8 +420,13 @@ func main() {
 	}
 
 	srv := &http.Server{
-		Addr:    ":" + port,
-		Handler: otelhttp.NewHandler(r, "ifragment-api"),
+		Addr:              ":" + port,
+		Handler:           otelhttp.NewHandler(r, "ifragment-api"),
+		ReadTimeout:       10 * time.Second,
+		ReadHeaderTimeout: 5 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 14, // 16KB
 	}
 
 	go func() {

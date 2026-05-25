@@ -6,11 +6,13 @@ import (
 	"database/sql"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"ifragment-backend/internal/model"
 
 	"github.com/jackc/pgx/v5"
+	"golang.org/x/sync/errgroup"
 )
 
 // EnsureStatsExists inserts default stats for the user if they don't exist
@@ -100,24 +102,6 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 	)
 	if err != nil {
 		return nil, err
-	}
-
-	// Auto-expire premium if duration passed
-	if isPremium && premiumUntil != nil && time.Now().After(*premiumUntil) {
-		isPremium = false
-		_, _ = db.Pool.Exec(ctx, "UPDATE users SET is_premium = FALSE WHERE telegram_id = $1", userID)
-	}
-
-	// Dynamic streak update: if last active was yesterday, keep streak. If it was today, keep. If it was more than 1 day ago, reset streak to 1.
-	now := time.Now()
-	diff := now.Sub(lastActiveAt)
-	if diff > 48*time.Hour {
-		currentStreak = 1
-		_, _ = db.Pool.Exec(ctx, "UPDATE user_stats SET current_streak = 1, last_active_at = CURRENT_TIMESTAMP WHERE user_id = $1", userID)
-	} else if diff > 24*time.Hour {
-		currentStreak++
-		daysActive++
-		_, _ = db.Pool.Exec(ctx, "UPDATE user_stats SET current_streak = $1, days_active = $2, last_active_at = CURRENT_TIMESTAMP WHERE user_id = $3", currentStreak, daysActive, userID)
 	}
 
 	return &model.ProfileStats{
@@ -252,61 +236,161 @@ func (db *Database) UpdateAchievementProgress(ctx context.Context, userID int64,
 	return err
 }
 
-func (db *Database) GetReferralData(ctx context.Context, userID int64) (*model.ReferralHubData, error) {
-	// 1. Fetch user's referral code. Generate one if missing.
-	var refCode sql.NullString
-	err := db.Pool.QueryRow(ctx, "SELECT referral_code FROM users WHERE telegram_id = $1", userID).Scan(&refCode)
-	if err != nil {
-		return nil, err
+// MaintainUserStats maintains user streak and days active atomically.
+func (db *Database) MaintainUserStats(ctx context.Context, userID int64) error {
+	if err := db.EnsureStatsExists(ctx, userID); err != nil {
+		return err
 	}
 
-	code := refCode.String
-	if !refCode.Valid || code == "" {
-		// Generate random ref code
-		var err error
-		code, err = generateSecureReferralCode(8)
-		if err != nil {
-			return nil, err
-		}
-		_, err = db.Pool.Exec(ctx, "UPDATE users SET referral_code = $1 WHERE telegram_id = $2", code, userID)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// 2. Query all friends referred by this user
-	friendsQuery := `
-		SELECT u.telegram_id, COALESCE(u.username, u.first_name), u.created_at, COALESCE(fb.total_earned, 0)
-		FROM users u
-		LEFT JOIN frg_balances fb ON u.telegram_id = fb.user_id
-		WHERE u.referred_by = $1
-		ORDER BY u.created_at DESC
+	query := `
+		UPDATE user_stats SET
+			current_streak = CASE
+				WHEN now() - last_active_at > interval '48 hours' THEN 1
+				WHEN now() - last_active_at > interval '24 hours' THEN current_streak + 1
+				ELSE current_streak
+			END,
+			days_active = CASE
+				WHEN now() - last_active_at > interval '24 hours'
+				THEN days_active + 1
+				ELSE days_active
+			END,
+			last_active_at = CASE
+				WHEN now() - last_active_at > interval '24 hours'
+				THEN now()
+				ELSE last_active_at
+			END
+		WHERE user_id = $1
 	`
-	rows, err := db.Pool.Query(ctx, friendsQuery, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+	_, err := db.Pool.Exec(ctx, query, userID)
+	return err
+}
 
-	friends := []model.ReferralFriend{}
+// ExpirePremiumSubscriptions updates all expired premium subscriptions bulk.
+func (db *Database) ExpirePremiumSubscriptions(ctx context.Context) error {
+	query := `
+		UPDATE users SET is_premium = FALSE
+		WHERE is_premium = TRUE AND premium_until < now()
+	`
+	_, err := db.Pool.Exec(ctx, query)
+	return err
+}
+
+type AchievementProgress struct {
+	ID       string
+	Progress int
+}
+
+// BatchUpdateAchievements updates multiple achievements in a single roundtrip to database.
+func (db *Database) BatchUpdateAchievements(ctx context.Context, userID int64, items []AchievementProgress) error {
+	if len(items) == 0 {
+		return nil
+	}
+
+	var values []string
+	var args []interface{}
+	args = append(args, userID)
+
+	for _, item := range items {
+		target, ok := PredefinedAchievements[item.ID]
+		if !ok {
+			target = 1
+		}
+		unlocked := item.Progress >= target
+
+		var unlockedAt *time.Time
+		if unlocked {
+			t := time.Now()
+			unlockedAt = &t
+		}
+
+		idxUser := 1
+		idxAch := len(args) + 1
+		idxProg := len(args) + 2
+		idxUnl := len(args) + 3
+		idxUnlAt := len(args) + 4
+
+		values = append(values, fmt.Sprintf("($%d, $%d, $%d, $%d, $%d)", idxUser, idxAch, idxProg, idxUnl, idxUnlAt))
+		args = append(args, item.ID, item.Progress, unlocked, unlockedAt)
+	}
+
+	query := fmt.Sprintf(`
+		INSERT INTO user_achievements (user_id, achievement_id, progress, unlocked, unlocked_at)
+		VALUES %s
+		ON CONFLICT (user_id, achievement_id) DO UPDATE SET
+			progress = GREATEST(user_achievements.progress, EXCLUDED.progress),
+			unlocked = user_achievements.unlocked OR EXCLUDED.unlocked,
+			unlocked_at = COALESCE(user_achievements.unlocked_at, EXCLUDED.unlocked_at)
+	`, strings.Join(values, ", "))
+
+	_, err := db.Pool.Exec(ctx, query, args...)
+	return err
+}
+
+func (db *Database) GetReferralData(ctx context.Context, userID int64) (*model.ReferralHubData, error) {
+	g, ctx := errgroup.WithContext(ctx)
+
+	var code string
+	g.Go(func() error {
+		var refCode sql.NullString
+		err := db.Pool.QueryRow(ctx, "SELECT referral_code FROM users WHERE telegram_id = $1", userID).Scan(&refCode)
+		if err != nil {
+			return err
+		}
+		code = refCode.String
+		if !refCode.Valid || code == "" {
+			var err error
+			code, err = generateSecureReferralCode(8)
+			if err != nil {
+				return err
+			}
+			_, err = db.Pool.Exec(ctx, "UPDATE users SET referral_code = $1 WHERE telegram_id = $2", code, userID)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	var friends []model.ReferralFriend
 	var totalInvited int
 	var totalEarned float64
 
-	for rows.Next() {
-		var friendID int64
-		var name string
-		var joinedAt time.Time
-		var earned float64
-		if err := rows.Scan(&friendID, &name, &joinedAt, &earned); err == nil {
-			friends = append(friends, model.ReferralFriend{
-				ID:       friendID,
-				Name:     name,
-				JoinedAt: joinedAt,
-				Earned:   earned,
-			})
-			totalInvited++
-			totalEarned += 10000 // referrer gets 10000 FRG per friend
+	g.Go(func() error {
+		friendsQuery := `
+			SELECT u.telegram_id, COALESCE(u.username, u.first_name), u.created_at, COALESCE(fb.total_earned, 0)
+			FROM users u
+			LEFT JOIN frg_balances fb ON u.telegram_id = fb.user_id
+			WHERE u.referred_by = $1
+			ORDER BY u.created_at DESC
+		`
+		rows, err := db.Pool.Query(ctx, friendsQuery, userID)
+		if err != nil {
+			return err
 		}
+		defer rows.Close()
+
+		friends = []model.ReferralFriend{}
+		for rows.Next() {
+			var friendID int64
+			var name string
+			var joinedAt time.Time
+			var earned float64
+			if err := rows.Scan(&friendID, &name, &joinedAt, &earned); err == nil {
+				friends = append(friends, model.ReferralFriend{
+					ID:       friendID,
+					Name:     name,
+					JoinedAt: joinedAt,
+					Earned:   earned,
+				})
+				totalInvited++
+				totalEarned += 10000 // referrer gets 10000 FRG per friend
+			}
+		}
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		return nil, err
 	}
 
 	return &model.ReferralHubData{

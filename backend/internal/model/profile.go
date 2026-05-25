@@ -23,6 +23,7 @@ type ProfileStats struct {
 	EquippedBorder    string     `json:"equippedBorder"`
 	EquippedSkin      string     `json:"equippedSkin"`
 	AirdropCoins      float64    `json:"airdropCoins"`
+	ServerNow         int64      `json:"serverNow"`
 }
 
 type UserAchievement struct {

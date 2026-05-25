@@ -37,13 +37,13 @@ const savedState = loadState() || {};
 
 // --- Core State ---
 export const [userClan, setUserClan] = createSignal<Clan | null>(null);
-export const [balance, setBalance] = createSignal(savedState.balance || 0);
-export const [totalTaps, setTotalTaps] = createSignal(savedState.totalTaps || 0);
-export const [energy, setEnergy] = createSignal(savedState.energy !== undefined ? savedState.energy : 500);
+export const [balance, setBalance] = createSignal(0);
+export const [totalTaps, setTotalTaps] = createSignal(0);
+export const [energy, setEnergy] = createSignal(savedState.energy !== undefined ? Math.min(savedState.energy, 500) : 500);
 export const [maxEnergy, setMaxEnergy] = createSignal(savedState.maxEnergy || 500);
 export const [tapPower, setTapPower] = createSignal(savedState.tapPower || 1);
 export const [energyRecovery, setEnergyRecovery] = createSignal(savedState.energyRecovery || 1);
-export const [frgBalance, setFrgBalance] = createSignal(savedState.frgBalance || 0);
+export const [frgBalance, setFrgBalance] = createSignal(0);
 
 // --- Boosters ---
 export interface Booster {
@@ -53,14 +53,12 @@ export interface Booster {
   baseCost: number;
 }
 
-export const [boosters, setBoosters] = createSignal<Record<string, Booster>>(savedState.boosters || {
-  tapPower:  { id: 'tapPower',  level: 1,  maxLevel: 20, baseCost: 1000 },
-  energyCap: { id: 'energyCap', level: 1,  maxLevel: 20, baseCost: 2000 },
-  recovery:  { id: 'recovery',  level: 1,  maxLevel: 20, baseCost: 1500 },
+export const [boosters, setBoosters] = createSignal<Record<string, Booster>>({
+  tapPower:  { id: 'tapPower',  level: 1,  maxLevel: 10, baseCost: 2000 },
+  energyCap: { id: 'energyCap', level: 1,  maxLevel: 10, baseCost: 1500 },
 });
 
-export const getBoosterCost = (booster: Booster) =>
-  Math.floor(booster.baseCost * Math.pow(1.8, booster.level - 1));
+export const getBoosterCost = (booster: Booster) => booster.baseCost;
 
 import { upgradeBoost as apiUpgradeBoost, getBoostsStatus } from '@/shared/api/profile.js';
 
@@ -72,10 +70,10 @@ export const syncBoostersStatus = async () => {
         const next = { ...prev };
         for (const b of backendBoosts) {
           if (b.type === "multitap") {
-            next.tapPower = { id: 'tapPower', level: b.current_level, maxLevel: 10, baseCost: 2000 };
+            next.tapPower = { id: 'tapPower', level: b.current_level, maxLevel: 10, baseCost: b.price_frg };
             setTapPower(b.current_level);
           } else if (b.type === "energy_limit") {
-            next.energyCap = { id: 'energyCap', level: b.current_level, maxLevel: 10, baseCost: 1500 };
+            next.energyCap = { id: 'energyCap', level: b.current_level, maxLevel: 10, baseCost: b.price_frg };
             setMaxEnergy(500 + (b.current_level - 1) * 250);
           }
         }
@@ -135,8 +133,8 @@ export const leagueProgress = createMemo(() => {
 });
 
 // --- Daily Check-in ---
-export const [streakDay, setStreakDay] = createSignal(savedState.streakDay || 0);
-export const [lastCheckIn, setLastCheckIn] = createSignal<string | null>(savedState.lastCheckIn || null);
+export const [streakDay, setStreakDay] = createSignal(0);
+export const [lastCheckIn, setLastCheckIn] = createSignal<string | null>(null);
 
 export const checkedInToday = createMemo(() => {
   const today = new Date().toISOString().split('T')[0];
@@ -175,16 +173,24 @@ export const claimDailyReward = async () => {
 };
 
 // --- Referral ---
-export const [referralCount, setReferralCount] = createSignal(savedState.referralCount || 3);
+export const [referralCount, setReferralCount] = createSignal(0);
 export const REFERRAL_REWARD = 10000;
 
 // --- Leaderboard functionality has been moved to LeaderboardView.tsx using TanStack Query ---
 
-// Energy regeneration timer
+// Energy regeneration timer using high-resolution monotonic performance clock
+let lastRegenTime = performance.now();
+
 export const initEnergyRegen = () => {
   const timer = setInterval(() => {
-    if (energy() < maxEnergy()) {
-      setEnergy(e => Math.min(e + energyRecovery(), maxEnergy()));
+    const now = performance.now();
+    const elapsed = (now - lastRegenTime) / 1000;
+    if (elapsed >= 1.0) {
+      const recoveryAmount = Math.floor(elapsed * energyRecovery());
+      if (recoveryAmount > 0) {
+        setEnergy(e => Math.min(maxEnergy(), e + recoveryAmount));
+        lastRegenTime = now;
+      }
     }
   }, 1000);
   return () => clearInterval(timer);
@@ -275,19 +281,12 @@ export const initStorageSync = () => {
     }).catch(e => console.error("Failed to load user clan:", e));
 
     createEffect(() => {
-      // Access all signals to track them
+      // Access only UI signals to persist them securely
       const state = {
-        balance: balance(),
-        totalTaps: totalTaps(),
         energy: energy(),
         maxEnergy: maxEnergy(),
         tapPower: tapPower(),
         energyRecovery: energyRecovery(),
-        frgBalance: frgBalance(),
-        boosters: boosters(),
-        streakDay: streakDay(),
-        lastCheckIn: lastCheckIn(),
-        referralCount: referralCount()
       };
 
       if (pendingSave) clearTimeout(pendingSave);

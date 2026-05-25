@@ -7,7 +7,10 @@ export const dict = {
     "save": "Сохранить",
     "toggle": "Переключить",
     "errorVersionMismatch": "Настройки были изменены другим пользователем. Пожалуйста, обновите страницу.",
-    "errorUpdateFailed": "Не удалось обновить настройки"
+    "errorUpdateFailed": "Не удалось обновить настройки",
+    "errors": {
+      "generic": "Что-то пошло не так. Пожалуйста, попробуйте еще раз."
+    }
   },
   "hero": {
     "title": "Точно. Смело. Профессионально.",
@@ -354,7 +357,12 @@ export const dict = {
       "utilAdmin": "Управление группами",
       "utilAdminDesc": "Оплачивайте подписки ботов управления",
       "utilServices": "Продвижение",
-      "utilServicesDesc": "Покупка подписчиков, просмотров и реакций"
+      "utilServicesDesc": "Покупка подписчиков, просмотров и реакций",
+      "errors": {
+        "invalidAmount": "Введена неверная сумма",
+        "insufficient": "Недостаточно монет",
+        "minimumAmount": "Минимальная сумма обмена составляет 100 000 монет"
+      }
     },
     "combo": {
       "title": "Ежедневное комбо",
@@ -1391,6 +1399,7 @@ export const dict = {
     "claiming": "Получение...",
     "comeBackTomorrow": "Приходите завтра",
     "claimedSuccess": "Награда успешно получена!",
+    "claimFailed": "Не удалось получить ежедневную награду.",
     "globalLeaderboard": "Глобальная таблица лидеров",
     "leaderboardSubtitle": "Топ 100 лучших майнеров iFragment в мире",
     "loadingLeaderboard": "Загрузка таблицы лидеров...",

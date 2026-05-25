@@ -2,8 +2,10 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/service"
+	"log/slog"
 	"net/http"
 )
 
@@ -40,6 +42,7 @@ func (h *ClanHandler) GetClanDetails(w http.ResponseWriter, r *http.Request) {
 
 	details, err := h.clanService.GetClanDetails(r.Context(), userID)
 	if err != nil {
+		slog.Error("GetClanDetails failed", "user_id", userID, "error", err)
 		RespondError(w, r, http.StatusInternalServerError, "failed to get clan details", err)
 		return
 	}
@@ -72,7 +75,19 @@ func (h *ClanHandler) JoinClan(w http.ResponseWriter, r *http.Request) {
 
 	clan, err := h.clanService.SearchAndJoinClan(r.Context(), userID, req.Username)
 	if err != nil {
-		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
+		switch {
+		case errors.Is(err, service.ErrInvalidUsername):
+			RespondError(w, r, http.StatusBadRequest, "invalid_username", err)
+		case errors.Is(err, service.ErrChannelNotFound):
+			RespondError(w, r, http.StatusNotFound, "channel_not_found", err)
+		case errors.Is(err, service.ErrNotChannelMember):
+			RespondError(w, r, http.StatusForbidden, "not_channel_member", err)
+		case errors.Is(err, service.ErrAlreadyInClan):
+			RespondError(w, r, http.StatusBadRequest, "already_in_clan", err)
+		default:
+			slog.Error("JoinClan failed", "user_id", userID, "error", err)
+			RespondError(w, r, http.StatusInternalServerError, "internal_error", err)
+		}
 		return
 	}
 
@@ -89,9 +104,22 @@ func (h *ClanHandler) LeaveClan(w http.ResponseWriter, r *http.Request) {
 
 	err := h.clanService.LeaveClan(r.Context(), userID)
 	if err != nil {
+		slog.Error("LeaveClan failed", "user_id", userID, "error", err)
 		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
 		return
 	}
 
 	RespondJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (h *ClanHandler) GetTopClans(w http.ResponseWriter, r *http.Request) {
+	clans, err := h.clanService.GetTopClans(r.Context(), 10)
+	if err != nil {
+		slog.Error("GetTopClans failed", "error", err)
+		RespondError(w, r, http.StatusInternalServerError, "failed to fetch top clans", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(clans)
 }

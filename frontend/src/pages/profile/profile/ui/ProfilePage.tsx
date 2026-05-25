@@ -24,18 +24,21 @@ export const ProfilePage: Component = () => {
     queryKey: ['profile', 'stats'],
     queryFn: getProfileStats,
     staleTime: 15000,
+    refetchOnWindowFocus: false,
   }));
 
   const achievementsQuery = createQuery(() => ({
     queryKey: ['profile', 'achievements'],
     queryFn: getProfileAchievements,
     staleTime: 30000,
+    refetchOnWindowFocus: false,
   }));
 
   const referralQuery = createQuery(() => ({
     queryKey: ['profile', 'referral'],
     queryFn: getReferralInfo,
     staleTime: 60000,
+    refetchOnWindowFocus: false,
   }));
 
   const loading = () => statsQuery.isLoading || achievementsQuery.isLoading || referralQuery.isLoading;

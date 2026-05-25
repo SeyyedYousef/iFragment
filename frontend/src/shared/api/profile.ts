@@ -1,5 +1,15 @@
 import { apiFetch } from './base.js';
 import type { Achievement, ProfileStats, ReferralInfo } from '@/shared/store/profile.js';
+import { z } from 'zod';
+
+export const UserBoostsSchema = z.object({
+  user_id: z.number().int(),
+  multitap_level: z.number().int(),
+  energy_limit_level: z.number().int(),
+  tap_bot_level: z.number().int(),
+});
+
+export type UserBoosts = z.infer<typeof UserBoostsSchema>;
 
 export const getProfileStats = async (): Promise<ProfileStats> => {
   // Simulate network delay in dev for smooth transitions
@@ -82,11 +92,12 @@ export const getBoostsStatus = async (): Promise<BoostStatus[]> => {
   return apiFetch<BoostStatus[]>('/profile/boosts');
 };
 
-export const upgradeBoost = async (boostType: string): Promise<any> => {
-  return apiFetch<any>('/profile/boosts/upgrade', {
+export const upgradeBoost = async (boostType: string): Promise<UserBoosts> => {
+  const raw = await apiFetch<unknown>('/profile/boosts/upgrade', {
     method: 'POST',
     body: JSON.stringify({ boostType })
   });
+  return UserBoostsSchema.parse(raw);
 };
 
 export const getLeaderboard = async (): Promise<LeaderboardMember[]> => {
@@ -178,5 +189,18 @@ export const leaveClan = async (): Promise<any> => {
   return apiFetch<any>('/profile/clan/leave', {
     method: 'POST'
   });
+};
+
+export interface Clan {
+  id: string;
+  telegram_channel_id: number;
+  channel_username: string;
+  channel_photo?: string;
+  chat_title: string;
+  members_count: number;
+}
+
+export const getTopClans = async (): Promise<Clan[]> => {
+  return apiFetch<Clan[]>('/profile/clan/top');
 };
 

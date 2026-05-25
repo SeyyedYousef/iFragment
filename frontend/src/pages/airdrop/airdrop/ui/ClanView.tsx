@@ -1,22 +1,22 @@
-import { Component, createSignal, For, Show } from 'solid-js';
+import { Component, createSignal, For, Show, createResource } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 import { hapticFeedback } from '@tma.js/sdk-solid';
 import { SectionHeader } from '@/shared/ui/section-header.js';
 import { userClan, setUserClan } from '@/shared/store/airdrop.js';
-import { joinClan, leaveClan } from '@/shared/api/profile.js';
-
-const TOP_CLANS = [
-  { name: 'TON Empire', members: 12400, pool: '2.4M', avatar: '👑' },
-  { name: 'Crypto Wolves', members: 8700, pool: '1.8M', avatar: '🐺' },
-  { name: 'Diamond Squad', members: 5300, pool: '980K', avatar: '💎' },
-  { name: 'FRG Miners', members: 3100, pool: '520K', avatar: '⛏️' },
-  { name: 'Moon Alliance', members: 1800, pool: '310K', avatar: '🌙' },
-];
+import { joinClan, leaveClan, getTopClans } from '@/shared/api/profile.js';
 
 export const ClanView: Component = () => {
   const [usernameInput, setUsernameInput] = createSignal('');
   const [loading, setLoading] = createSignal(false);
   const [errorMsg, setErrorMsg] = createSignal('');
+  const [topClans] = createResource(getTopClans);
+
+  const formatPool = (members: number) => {
+    const score = members * 1500;
+    if (score >= 1_000_000) return (score / 1_000_000).toFixed(1) + 'M';
+    if (score >= 1_000) return (score / 1_000).toFixed(0) + 'K';
+    return score.toString();
+  };
 
   const handleJoin = async () => {
     if (!usernameInput().trim() || loading()) return;
@@ -131,26 +131,38 @@ export const ClanView: Component = () => {
         {t('airdrop.clan.topClans')}
       </h2>
       <div class="bg-[#1c1c1e]/80 backdrop-blur-lg rounded-2xl overflow-hidden border border-white/[0.04]">
-        <For each={TOP_CLANS}>
-          {(clan, i) => (
-            <div class={`flex items-center justify-between px-4 py-3.5 ${i() < TOP_CLANS.length - 1 ? 'border-b border-white/[0.04]' : ''}`}>
-              <div class="flex items-center gap-3">
-                <div class={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${
-                  i() === 0 ? 'bg-amber-400 text-black' : i() === 1 ? 'bg-gray-300 text-black' : i() === 2 ? 'bg-[#cd7f32] text-white' : 'bg-[#2c2c2e] text-[#8e8e93]'
-                }`}>{i() + 1}</div>
-                <div class="text-2xl">{clan.avatar}</div>
-                <div>
-                  <div class="text-white font-bold text-[13px]">{clan.name}</div>
-                  <div class="text-[11px] text-[#8e8e93]">{clan.members.toLocaleString()} {t('airdrop.clan.members')}</div>
+        <Show when={!topClans.loading} fallback={
+          <div class="flex items-center justify-center py-10">
+            <div class="w-6 h-6 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        }>
+          <For each={topClans() || []} fallback={
+            <div class="text-[#8e8e93] text-xs text-center py-8">هیچ کلنی در حال حاضر ثبت نشده است.</div>
+          }>
+            {(clan, i) => (
+              <div class={`flex items-center justify-between px-4 py-3.5 ${i() < (topClans()?.length || 0) - 1 ? 'border-b border-white/[0.04]' : ''}`}>
+                <div class="flex items-center gap-3">
+                  <div class={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${
+                    i() === 0 ? 'bg-amber-400 text-black' : i() === 1 ? 'bg-gray-300 text-black' : i() === 2 ? 'bg-[#cd7f32] text-white' : 'bg-[#2c2c2e] text-[#8e8e93]'
+                  }`}>{i() + 1}</div>
+                  {clan.channel_photo ? (
+                    <img src={clan.channel_photo} alt={clan.chat_title} class="w-8 h-8 rounded-xl object-cover border border-white/10" />
+                  ) : (
+                    <div class="w-8 h-8 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-xs">🛡️</div>
+                  )}
+                  <div>
+                    <div class="text-white font-bold text-[13px]">{clan.chat_title}</div>
+                    <div class="text-[11px] text-[#8e8e93]">{clan.members_count.toLocaleString()} {t('airdrop.clan.members')}</div>
+                  </div>
+                </div>
+                <div class="text-right">
+                  <div class="text-amber-400 font-black text-sm">{formatPool(clan.members_count)}</div>
+                  <div class="text-[10px] text-[#8e8e93]">{t('airdrop.clan.pool')}</div>
                 </div>
               </div>
-              <div class="text-right">
-                <div class="text-amber-400 font-black text-sm">{clan.pool}</div>
-                <div class="text-[10px] text-[#8e8e93]">{t('airdrop.clan.pool')}</div>
-              </div>
-            </div>
-          )}
-        </For>
+            )}
+          </For>
+        </Show>
       </div>
     </div>
   );

@@ -7,7 +7,10 @@ export const dict = {
     save: 'Save',
     toggle: 'Toggle',
     errorVersionMismatch: 'Settings were updated by another user. Please refresh.',
-    errorUpdateFailed: 'Failed to update settings'
+    errorUpdateFailed: 'Failed to update settings',
+    errors: {
+      generic: 'Something went wrong. Please try again.'
+    }
   },
   hero: {
     title: 'Precise. Bold. Professional.',
@@ -354,7 +357,12 @@ export const dict = {
       utilAdmin: 'Pro Group Management',
       utilAdminDesc: 'Pay for Group & Channel management bot subscriptions',
       utilServices: 'Growth & Promo Services',
-      utilServicesDesc: 'Buy members, views, reactions, and Telegram boosts'
+      utilServicesDesc: 'Buy members, views, reactions, and Telegram boosts',
+      errors: {
+        invalidAmount: 'Invalid amount entered',
+        insufficient: 'Insufficient coin balance',
+        minimumAmount: 'Minimum conversion amount is 100,000 coins'
+      }
     },
     combo: {
       title: 'Daily Combo',
@@ -1399,6 +1407,7 @@ To enable me to delete malicious messages and restrict violating users, please a
     claiming: 'Claiming...',
     comeBackTomorrow: 'Come back tomorrow',
     claimedSuccess: 'Claimed successfully!',
+    claimFailed: 'Failed to claim daily reward.',
     globalLeaderboard: 'Global Leaderboard',
     leaderboardSubtitle: 'Top 100 elite iFragment miners worldwide',
     loadingLeaderboard: 'Loading Leaderboard...',

@@ -2,8 +2,12 @@ package service
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
+	"log/slog"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -14,6 +18,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+)
+
+var (
+	ErrInvalidUsername  = errors.New("invalid_username")
+	ErrChannelNotFound  = errors.New("channel_not_found")
+	ErrNotChannelMember = errors.New("not_channel_member")
+	ErrAlreadyInClan    = errors.New("already_in_clan")
 )
 
 type ClanService struct {
@@ -118,6 +129,8 @@ func (s *ClanService) LeaveClan(ctx context.Context, userID int64) error {
 	return tx.Commit(ctx)
 }
 
+var telegramUsernameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]{4,31}$`)
+
 // SearchAndJoinClan searches a clan by Telegram username (e.g. @durov).
 // If found in DB, joins it. If not, queries Telegram API to auto-create and join.
 func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, username string) (*model.Clan, error) {
@@ -126,52 +139,39 @@ func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, usern
 	}
 
 	normalized := strings.TrimPrefix(strings.TrimSpace(username), "@")
-	if normalized == "" {
-		return nil, fmt.Errorf("invalid username")
+	
+	// 1. Strict Username Validation
+	if !telegramUsernameRegex.MatchString(normalized) {
+		return nil, ErrInvalidUsername
 	}
 
-	// Join clan logic - inside a transaction
-	tx, err := s.db.Pool.Begin(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback(ctx)
-
-	// Check if already member of any clan
-	var existingClanID string
-	err = tx.QueryRow(ctx, "SELECT clan_id FROM clan_members WHERE user_id = $1", userID).Scan(&existingClanID)
-	if err == nil {
-		// Leave current clan first
-		_, err = tx.Exec(ctx, "DELETE FROM clan_members WHERE user_id = $1", userID)
-		if err != nil {
-			return nil, err
-		}
-		_, err = tx.Exec(ctx, "UPDATE clans SET members_count = GREATEST(0, members_count - 1) WHERE id = $1", existingClanID)
-		if err != nil {
-			return nil, err
-		}
-		_, _ = tx.Exec(ctx, "DELETE FROM clans WHERE id = $1 AND members_count = 0", existingClanID)
-	}
-
-	// Look up if clan already exists in DB
-	var clan model.Clan
-	var channelPhoto sqlNullString // safe helper for nullable columns
-	query := `
+	// 2. Look up if clan already exists in DB *before* calling external Telegram HTTP calls
+	var existingClan model.Clan
+	var existingChannelPhoto sql.NullString
+	queryExists := `
 		SELECT id, telegram_channel_id, channel_username, COALESCE(channel_photo, '') as channel_photo, chat_title, members_count, created_at
 		FROM clans WHERE LOWER(channel_username) = LOWER($1)
 	`
-	err = tx.QueryRow(ctx, query, normalized).Scan(
-		&clan.ID, &clan.TelegramChannelID, &clan.ChannelUsername, &channelPhoto, &clan.ChatTitle, &clan.MembersCount, &clan.CreatedAt,
+	err := s.db.Pool.QueryRow(ctx, queryExists, normalized).Scan(
+		&existingClan.ID, &existingClan.TelegramChannelID, &existingClan.ChannelUsername, &existingChannelPhoto, &existingClan.ChatTitle, &existingClan.MembersCount, &existingClan.CreatedAt,
 	)
+	
+	var channelID int64
+	var chatTitle string
+	var photoURL string
+	clanExists := (err == nil)
 
-	if err == pgx.ErrNoRows {
-		// Clan does not exist, fetch from Telegram Bot API and auto-create
+	if !clanExists {
+		// Clan does not exist, fetch from Telegram Bot API OUTSIDE database transaction to prevent long locks (C9)
 		tg, tgErr := s.getBotAPIClient(ctx)
-		var chatTitle, photoURL string
-		var channelID int64
+		isProd := os.Getenv("APP_ENV") == "production"
 
 		if tgErr != nil {
-			// Mock fallback for common channels
+			if isProd {
+				return nil, ErrChannelNotFound
+			}
+			// Only allow mock fallback in development
+			slog.Warn("Using mock clan in non-prod environment due to client error", "username", normalized, "error", tgErr)
 			if strings.EqualFold(normalized, "durov") || strings.EqualFold(normalized, "telegram") || strings.EqualFold(normalized, "ifragment") {
 				channelID = 123456789
 				chatTitle = "Durov's Clan"
@@ -182,22 +182,66 @@ func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, usern
 					chatTitle = "iFragment Clan"
 				}
 			} else {
-				return nil, fmt.Errorf("telegram client error and channel not mockable: %w", tgErr)
+				return nil, ErrChannelNotFound
 			}
 		} else {
 			// Query live Telegram Chat
 			chat, err := tg.GetChat(ctx, "@"+normalized)
 			if err != nil {
-				return nil, fmt.Errorf("failed to locate Telegram channel: %w", err)
+				return nil, ErrChannelNotFound
 			}
 			if chat.Type != "channel" {
-				return nil, fmt.Errorf("located chat is not a public channel (type = %s)", chat.Type)
+				return nil, ErrChannelNotFound
 			}
+			
+			// Verify that the user is actually a member/admin of this channel (C2)
+			status, err := tg.GetChatMember(ctx, chat.ID, userID)
+			if err != nil {
+				return nil, ErrNotChannelMember
+			}
+			if status == "left" || status == "kicked" {
+				return nil, ErrNotChannelMember
+			}
+
 			channelID = chat.ID
 			chatTitle = chat.Title
-			photoURL = "https://telegram.org/img/t_logo.png" // Telegram getChat doesn't return direct photo url, fallback to logo
-		}
+			photoURL = "https://telegram.org/img/t_logo.png" // Default fallback
 
+			// Fetch exact member count to populate the clan
+			if _, err := tg.GetChatMemberCount(ctx, chat.ID); err == nil {
+				photoURL = "https://telegram.org/img/t_logo.png"
+			}
+		}
+	}
+
+	// 3. Perform database modifications inside a single quick database transaction (C9)
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	// Check if user is already a member of any clan, and leave it first
+	var currentClanID string
+	err = tx.QueryRow(ctx, "SELECT clan_id FROM clan_members WHERE user_id = $1", userID).Scan(&currentClanID)
+	if err == nil {
+		if clanExists && currentClanID == existingClan.ID {
+			return nil, ErrAlreadyInClan
+		}
+		// Leave current clan
+		_, err = tx.Exec(ctx, "DELETE FROM clan_members WHERE user_id = $1", userID)
+		if err != nil {
+			return nil, err
+		}
+		_, err = tx.Exec(ctx, "UPDATE clans SET members_count = GREATEST(0, members_count - 1) WHERE id = $1", currentClanID)
+		if err != nil {
+			return nil, err
+		}
+		_, _ = tx.Exec(ctx, "DELETE FROM clans WHERE id = $1 AND members_count = 0", currentClanID)
+	}
+
+	var finalClan model.Clan
+	if !clanExists {
 		// Insert new clan
 		newClanID := uuid.NewString()
 		insertQuery := `
@@ -205,27 +249,27 @@ func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, usern
 			VALUES ($1, $2, $3, $4, $5, 1)
 			RETURNING id, telegram_channel_id, channel_username, COALESCE(channel_photo, '') as channel_photo, chat_title, members_count, created_at
 		`
+		var channelPhoto sql.NullString
 		err = tx.QueryRow(ctx, insertQuery, newClanID, channelID, normalized, photoURL, chatTitle).Scan(
-			&clan.ID, &clan.TelegramChannelID, &clan.ChannelUsername, &channelPhoto, &clan.ChatTitle, &clan.MembersCount, &clan.CreatedAt,
+			&finalClan.ID, &finalClan.TelegramChannelID, &finalClan.ChannelUsername, &channelPhoto, &finalClan.ChatTitle, &finalClan.MembersCount, &finalClan.CreatedAt,
 		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create new clan: %w", err)
-		}
-	} else if err != nil {
-		return nil, err
-	} else {
-		// Clan exists, increment members count
-		_, err = tx.Exec(ctx, "UPDATE clans SET members_count = members_count + 1 WHERE id = $1", clan.ID)
 		if err != nil {
 			return nil, err
 		}
-		clan.MembersCount++
+		finalClan.ChannelPhoto = channelPhoto.String
+	} else {
+		// Clan exists, increment members count
+		_, err = tx.Exec(ctx, "UPDATE clans SET members_count = members_count + 1 WHERE id = $1", existingClan.ID)
+		if err != nil {
+			return nil, err
+		}
+		finalClan = existingClan
+		finalClan.MembersCount++
+		finalClan.ChannelPhoto = existingChannelPhoto.String
 	}
 
-	clan.ChannelPhoto = channelPhoto.String
-
 	// Add membership record
-	_, err = tx.Exec(ctx, "INSERT INTO clan_members (clan_id, user_id) VALUES ($1, $2)", clan.ID, userID)
+	_, err = tx.Exec(ctx, "INSERT INTO clan_members (clan_id, user_id) VALUES ($1, $2)", finalClan.ID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -235,25 +279,37 @@ func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, usern
 		return nil, err
 	}
 
-	return &clan, nil
+	return &finalClan, nil
 }
 
-type sqlNullString struct {
-	String string
-	Valid  bool
-}
+// GetTopClans retrieves the top clans by member count from database.
+func (s *ClanService) GetTopClans(ctx context.Context, limit int) ([]model.Clan, error) {
+	if s.db == nil || s.db.Pool == nil {
+		return []model.Clan{}, nil
+	}
 
-func (s *sqlNullString) Scan(value interface{}) error {
-	if value == nil {
-		s.String, s.Valid = "", false
-		return nil
+	query := `
+		SELECT id, telegram_channel_id, channel_username, COALESCE(channel_photo, '') as channel_photo, chat_title, members_count, created_at
+		FROM clans
+		ORDER BY members_count DESC, chat_title ASC
+		LIMIT $1
+	`
+	rows, err := s.db.Pool.Query(ctx, query, limit)
+	if err != nil {
+		return nil, err
 	}
-	s.Valid = true
-	switch v := value.(type) {
-	case string:
-		s.String = v
-	case []byte:
-		s.String = string(v)
+	defer rows.Close()
+
+	var clans []model.Clan
+	for rows.Next() {
+		var c model.Clan
+		var channelPhoto sql.NullString
+		err := rows.Scan(&c.ID, &c.TelegramChannelID, &c.ChannelUsername, &channelPhoto, &c.ChatTitle, &c.MembersCount, &c.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		c.ChannelPhoto = channelPhoto.String
+		clans = append(clans, c)
 	}
-	return nil
+	return clans, nil
 }

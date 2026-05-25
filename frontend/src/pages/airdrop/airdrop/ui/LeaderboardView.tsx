@@ -2,24 +2,28 @@ import { Component, For, Show } from 'solid-js';
 import { createQuery } from '@tanstack/solid-query';
 import { fetchLeaderboard } from '@/shared/api/airdrop.js';
 import { t } from '@/shared/i18n/index.js';
-import { balance, LEAGUES } from '@/shared/store/airdrop.js';
+import { LEAGUES } from '@/shared/store/airdrop.js';
 import { SectionHeader } from '@/shared/ui/section-header.js';
+import { getProfileStats } from '@/shared/api/profile.js';
 
 export const LeaderboardView: Component = () => {
   const leaderboardQuery = createQuery(() => ({
     queryKey: ['leaderboard'],
     queryFn: fetchLeaderboard,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   }));
 
-  const getLeagueColor = (name: string) => LEAGUES.find(l => l.name === name)?.color || '#8e8e93';
+  const statsQuery = createQuery(() => ({
+    queryKey: ['profile-stats'],
+    queryFn: getProfileStats,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  }));
 
-  const userPosition = () => {
-    const data = leaderboardQuery.data;
-    if (!data) return '?';
-    const myScore = balance();
-    const rank = data.findIndex(e => myScore >= e.score);
-    return rank === -1 ? data.length + 1 : rank + 1;
-  };
+  const userPosition = () => statsQuery.data?.globalRank ?? '?';
+  const userScore = () => statsQuery.data?.xp ?? 0;
+  const getLeagueColor = (name: string) => LEAGUES.find(l => l.name === name)?.color || '#8e8e93';
 
   return (
     <div class="flex-1 overflow-y-auto px-4 pt-4 pb-8 animate-fade-in no-scrollbar">
@@ -31,7 +35,7 @@ export const LeaderboardView: Component = () => {
           <div class="w-9 h-9 rounded-full bg-[#3390ec]/20 flex items-center justify-center text-[#3390ec] font-black text-sm">#{userPosition()}</div>
           <div>
             <div class="text-[11px] text-[#3390ec] font-semibold uppercase">{t('airdrop.leaderboard.yourPosition')}</div>
-            <div class="text-white font-black text-sm">{balance().toLocaleString()}</div>
+            <div class="text-white font-black text-sm">{userScore().toLocaleString()} XP</div>
           </div>
         </div>
         <span class="text-[#8e8e93] text-[11px] font-semibold">{t('airdrop.leaderboard.totalMiners')}</span>

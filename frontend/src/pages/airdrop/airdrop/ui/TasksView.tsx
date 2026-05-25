@@ -1,7 +1,7 @@
 import { Component, createSignal, For, Show } from 'solid-js';
 import { createQuery } from '@tanstack/solid-query';
 import { t, locale } from '@/shared/i18n/index.js';
-import { hapticFeedback } from '@tma.js/sdk-solid';
+import { hapticFeedback, openTelegramLink } from '@tma.js/sdk-solid';
 import { syncProfileStats } from '@/shared/store/airdrop.js';
 import { SectionHeader } from '@/shared/ui/section-header.js';
 import { getTasksStatus, completeTask, TaskStatus } from '@/shared/api/profile.js';
@@ -15,6 +15,8 @@ export const TasksView: Component = () => {
   const tasksQuery = createQuery(() => ({
     queryKey: ['tasks-status'],
     queryFn: getTasksStatus,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   }));
 
   const handleTaskClick = async (task: TaskStatus) => {
@@ -29,7 +31,7 @@ export const TasksView: Component = () => {
 
     // CTA Redirect if Telegram channel task
     if (key === "join_ifragment_channel") {
-      window.open("https://t.me/ifragment_net", "_blank");
+      openTelegramLink("https://t.me/ifragment_net");
       // Give a tiny timeout for channel redirection before triggering verification
       await new Promise(resolve => setTimeout(resolve, 800));
     }
@@ -116,7 +118,7 @@ export const TasksView: Component = () => {
           onClick={() => {
             try { hapticFeedback.impactOccurred('light'); } catch (_) {}
             const link = 'https://t.me/iFragmentBot?start=ref_abc123';
-            window.open(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(t('airdrop.friends.subtitle'))}`, '_blank');
+            openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(t('airdrop.friends.subtitle'))}`);
           }}
           class="w-full bg-[#3390ec] text-white font-bold py-3 rounded-xl active:scale-95 transition-transform text-sm shadow-[0_2px_10px_rgba(51,144,236,0.3)]"
         >

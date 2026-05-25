@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -71,10 +72,14 @@ func (s *ProfileService) GetStats(ctx context.Context, userID int64) (*model.Pro
 			var stats model.ProfileStats
 			if json.Unmarshal([]byte(val), &stats) == nil {
 				stats.GlobalRank = s.getGlobalRank(ctx, userID, stats.XP)
+				stats.ServerNow = time.Now().UnixNano() / int64(time.Millisecond)
 				return &stats, nil
 			}
 		}
 	}
+
+	// Perform atomic maintenance upon cache miss
+	_ = s.db.MaintainUserStats(ctx, userID)
 
 	stats, err := s.db.GetProfileStats(ctx, userID)
 	if err != nil {
@@ -90,25 +95,42 @@ func (s *ProfileService) GetStats(ctx context.Context, userID int64) (*model.Pro
 		}
 	}
 
+	stats.ServerNow = time.Now().UnixNano() / int64(time.Millisecond)
 	return stats, nil
 }
 
+func (s *ProfileService) shouldSyncAchievements(ctx context.Context, userID int64) bool {
+	if s.cache == nil || s.cache.Client == nil {
+		return true
+	}
+	key := fmt.Sprintf("ach:sync:%d", userID)
+	set, err := s.cache.Client.SetNX(ctx, key, 1, 5*time.Minute).Result()
+	if err != nil {
+		return true
+	}
+	return set
+}
+
 func (s *ProfileService) GetAchievements(ctx context.Context, userID int64) ([]model.UserAchievement, error) {
-	// Auto update achievements based on current stats before returning
-	stats, err := s.GetStats(ctx, userID)
-	if err == nil {
-		_ = s.db.UpdateAchievementProgress(ctx, userID, "first_steps", 1)
-		_ = s.db.UpdateAchievementProgress(ctx, userID, "tap_novice", stats.TotalTaps)
-		_ = s.db.UpdateAchievementProgress(ctx, userID, "mining_machine", stats.TotalTaps)
-		_ = s.db.UpdateAchievementProgress(ctx, userID, "first_scan", stats.UsernamesAnalyzed)
-		_ = s.db.UpdateAchievementProgress(ctx, userID, "whale_hunter", stats.UsernamesAnalyzed)
-		_ = s.db.UpdateAchievementProgress(ctx, userID, "data_scientist", stats.UsernamesAnalyzed)
-		_ = s.db.UpdateAchievementProgress(ctx, userID, "group_guardian", stats.GroupsManaged)
-		_ = s.db.UpdateAchievementProgress(ctx, userID, "channel_commander", stats.ChannelsManaged)
-		_ = s.db.UpdateAchievementProgress(ctx, userID, "empire_builder", stats.GroupsManaged+stats.ChannelsManaged)
-		_ = s.db.UpdateAchievementProgress(ctx, userID, "week_warrior", stats.DaysActive)
-		_ = s.db.UpdateAchievementProgress(ctx, userID, "month_master", stats.DaysActive)
-		_ = s.db.UpdateAchievementProgress(ctx, userID, "legendary", stats.DaysActive)
+	if s.shouldSyncAchievements(ctx, userID) {
+		stats, err := s.GetStats(ctx, userID)
+		if err == nil {
+			items := []repository.AchievementProgress{
+				{ID: "first_steps", Progress: 1},
+				{ID: "tap_novice", Progress: stats.TotalTaps},
+				{ID: "mining_machine", Progress: stats.TotalTaps},
+				{ID: "first_scan", Progress: stats.UsernamesAnalyzed},
+				{ID: "whale_hunter", Progress: stats.UsernamesAnalyzed},
+				{ID: "data_scientist", Progress: stats.UsernamesAnalyzed},
+				{ID: "group_guardian", Progress: stats.GroupsManaged},
+				{ID: "channel_commander", Progress: stats.ChannelsManaged},
+				{ID: "empire_builder", Progress: stats.GroupsManaged + stats.ChannelsManaged},
+				{ID: "week_warrior", Progress: stats.DaysActive},
+				{ID: "month_master", Progress: stats.DaysActive},
+				{ID: "legendary", Progress: stats.DaysActive},
+			}
+			_ = s.db.BatchUpdateAchievements(ctx, userID, items)
+		}
 	}
 	return s.db.GetAchievements(ctx, userID)
 }
@@ -258,51 +280,107 @@ func (s *ProfileService) PurchaseCosmetic(ctx context.Context, userID int64, cos
 		return fmt.Errorf("cosmetic item not found")
 	}
 
-	alreadyBought, err := s.db.HasCosmetic(ctx, userID, cosmeticID)
+	tx, err := s.db.Pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	if alreadyBought {
+	defer tx.Rollback(ctx)
+
+	// 1. Lock balance + check
+	var balance float64
+	err = tx.QueryRow(ctx,
+		`SELECT balance FROM frg_balances WHERE user_id = $1 FOR UPDATE`,
+		userID,
+	).Scan(&balance)
+	if err == pgx.ErrNoRows {
+		return fmt.Errorf("insufficient FRG balance: need %.4f, have 0", item.Cost)
+	} else if err != nil {
+		return err
+	}
+
+	if balance < item.Cost {
+		return fmt.Errorf("insufficient FRG balance: have %.4f, need %.4f", balance, item.Cost)
+	}
+
+	// 2. Check not already owned (within tx)
+	var exists bool
+	err = tx.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM user_cosmetics WHERE user_id = $1 AND cosmetic_id = $2)`,
+		userID, cosmeticID,
+	).Scan(&exists)
+	if err != nil {
+		return err
+	}
+	if exists {
 		return fmt.Errorf("cosmetic already purchased")
 	}
 
+	// 3. Debit
+	_, err = tx.Exec(ctx,
+		`UPDATE frg_balances SET balance = balance - $1, total_spent = total_spent + $1,
+		 updated_at = now() WHERE user_id = $2`,
+		item.Cost, userID,
+	)
+	if err != nil {
+		return err
+	}
+
+	// 4. Record purchase
+	_, err = tx.Exec(ctx,
+		`INSERT INTO user_cosmetics (user_id, cosmetic_id) VALUES ($1, $2)`,
+		userID, cosmeticID,
+	)
+	if err != nil {
+		return err
+	}
+
+	// 5. Log transaction
 	meta, _ := json.Marshal(map[string]interface{}{"cosmetic_id": cosmeticID})
-	_, err = s.frgRepo.Debit(ctx, userID, item.Cost, "cosmetic_purchase", meta)
+	_, err = tx.Exec(ctx,
+		`INSERT INTO frg_transactions (user_id, type, amount, balance_before, balance_after, metadata)
+		 VALUES ($1, $2, $3, $4, $5, $6)`,
+		userID, "cosmetic_purchase", -item.Cost, balance, balance-item.Cost, meta,
+	)
 	if err != nil {
 		return err
 	}
 
-	err = s.db.RecordCosmeticPurchase(ctx, userID, cosmeticID)
-	if err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
 
-	// Referral revenue share (10% Tier 1, 2% Tier 2)
-	t1, t2, refErr := s.db.GetReferralChain(ctx, userID)
-	if refErr == nil {
-		if t1 != 0 {
-			metaT1, _ := json.Marshal(map[string]interface{}{"ref_type": "tier1", "from_user_id": userID, "cosmetic_id": cosmeticID})
-			_, _ = s.frgRepo.Credit(ctx, t1, item.Cost*0.1, "referral_revenue", metaT1)
-		}
-		if t2 != 0 {
-			metaT2, _ := json.Marshal(map[string]interface{}{"ref_type": "tier2", "from_user_id": userID, "cosmetic_id": cosmeticID})
-			_, _ = s.frgRepo.Credit(ctx, t2, item.Cost*0.02, "referral_revenue", metaT2)
-		}
-	}
+	// Referral revenue share (outside critical tx, async-safe)
+	go func() {
+		bgCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
 
-	if s.cache != nil && s.cache.Client != nil {
-		pipe := s.cache.Client.Pipeline()
-		pipe.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
+		t1, t2, refErr := s.db.GetReferralChain(bgCtx, userID)
 		if refErr == nil {
 			if t1 != 0 {
-				pipe.Del(ctx, fmt.Sprintf("profile:stats:%d", t1))
+				metaT1, _ := json.Marshal(map[string]interface{}{"ref_type": "tier1", "from_user_id": userID, "cosmetic_id": cosmeticID})
+				_, _ = s.frgRepo.Credit(bgCtx, t1, item.Cost*0.1, "referral_revenue", metaT1)
 			}
 			if t2 != 0 {
-				pipe.Del(ctx, fmt.Sprintf("profile:stats:%d", t2))
+				metaT2, _ := json.Marshal(map[string]interface{}{"ref_type": "tier2", "from_user_id": userID, "cosmetic_id": cosmeticID})
+				_, _ = s.frgRepo.Credit(bgCtx, t2, item.Cost*0.02, "referral_revenue", metaT2)
 			}
 		}
-		_, _ = pipe.Exec(ctx)
-	}
+
+		if s.cache != nil && s.cache.Client != nil {
+			pipe := s.cache.Client.Pipeline()
+			pipe.Del(bgCtx, fmt.Sprintf("profile:stats:%d", userID))
+			if refErr == nil {
+				if t1 != 0 {
+					pipe.Del(bgCtx, fmt.Sprintf("profile:stats:%d", t1))
+				}
+				if t2 != 0 {
+					pipe.Del(bgCtx, fmt.Sprintf("profile:stats:%d", t2))
+				}
+			}
+			_, _ = pipe.Exec(bgCtx)
+		}
+	}()
+
 	return nil
 }
 

@@ -7,7 +7,10 @@ export const dict = {
     "save": "ذخیره",
     "toggle": "تغییر وضعیت",
     "errorVersionMismatch": "تنظیمات توسط کاربر دیگری ویرایش شده است. لطفا صفحه را رفرش کنید.",
-    "errorUpdateFailed": "خطا در بروزرسانی تنظیمات"
+    "errorUpdateFailed": "خطا در بروزرسانی تنظیمات",
+    "errors": {
+      "generic": "مشکلی پیش آمده است. لطفا دوباره تلاش کنید."
+    }
   },
   "hero": {
     "title": "دقیق. جسور. حرفه‌ای.",
@@ -354,7 +357,12 @@ export const dict = {
       "utilAdmin": "مدیریت حرفه‌ای گروه",
       "utilAdminDesc": "پرداخت اشتراک بات‌های مدیریت گروه و کانال",
       "utilServices": "خدمات رشد و تبلیغات",
-      "utilServicesDesc": "خرید ممبر، ویو، ری‌اکشن و بوست تلگرام"
+      "utilServicesDesc": "خرید ممبر، ویو، ری‌اکشن و بوست تلگرام",
+      "errors": {
+        "invalidAmount": "مقدار وارد شده نامعتبر است",
+        "insufficient": "موجودی کوین کافی نیست",
+        "minimumAmount": "حداقل مقدار تبدیل ۱۰۰,۰۰۰ کوین است"
+      }
     },
     "combo": {
       "title": "کمبو روزانه",
@@ -1375,6 +1383,7 @@ export const dict = {
     "claiming": "در حال دریافت...",
     "comeBackTomorrow": "فردا بازگردید",
     "claimedSuccess": "پاداش با موفقیت دریافت شد!",
+    "claimFailed": "خطا در دریافت جایزه روزانه.",
     "globalLeaderboard": "جدول امتیازات جهانی",
     "leaderboardSubtitle": "۱۰۰ معدن‌چی برتر iFragment در سراسر جهان",
     "loadingLeaderboard": "در حال بارگذاری جدول امتیازات...",

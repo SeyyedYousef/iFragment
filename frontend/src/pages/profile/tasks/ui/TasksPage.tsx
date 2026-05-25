@@ -1,7 +1,7 @@
 import { Component, createSignal, onMount, onCleanup, For, Show } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton, hapticFeedback, openTelegramLink } from '@tma.js/sdk-solid';
 import { getTasksStatus, completeTask } from '@/shared/api/profile.js';
 import { t } from '@/shared/i18n/index.js';
 import { SkeletonTask } from '@/shared/ui/Skeleton.js';
@@ -14,6 +14,8 @@ export const TasksPage: Component = () => {
   const tasksQuery = createQuery(() => ({
     queryKey: ['profile', 'tasks'],
     queryFn: getTasksStatus,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   }));
 
   const completeTaskMutation = createMutation(() => ({
@@ -54,7 +56,7 @@ export const TasksPage: Component = () => {
       
       // If joining telegram channel, redirect user to the link first
       if (key === 'join_ifragment_channel') {
-        window.open('https://t.me/iFragment_Official', '_blank');
+        openTelegramLink('https://t.me/iFragment_Official');
       }
 
       completeTaskMutation.mutate({ key });

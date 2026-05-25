@@ -1,7 +1,7 @@
 import { Component, createSignal } from 'solid-js';
 import { t, locale } from '@/shared/i18n/index.js';
 import { hapticFeedback } from '@tma.js/sdk-solid';
-import { balance, setBalance, frgBalance, setFrgBalance } from '@/shared/store/airdrop.js';
+import { balance, setBalance, frgBalance, setFrgBalance, syncProfileStats } from '@/shared/store/airdrop.js';
 import { SectionHeader } from '@/shared/ui/section-header.js';
 import { marketplaceApi } from '@/shared/api/bot-management.js';
 
@@ -17,18 +17,47 @@ export const MarketView: Component = () => {
     return isNaN(num) ? 0 : num / RATE;
   };
 
+  const [errorMsg, setErrorMsg] = createSignal('');
+
   const handleConvert = async () => {
-    const num = parseInt(amount());
-    if (isNaN(num) || num <= 0 || num > balance() || loading()) return;
-    try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+    setErrorMsg('');
+    const num = Math.floor(Number(amount()));  // proper parsing
+    if (!Number.isFinite(num) || num <= 0) {
+      setErrorMsg(t('airdrop.market.errors.invalidAmount') || 'مقدار وارد شده نامعتبر است');
+      return;
+    }
+    if (num > balance()) {
+      setErrorMsg(t('airdrop.market.errors.insufficient') || 'موجودی کوین کافی نیست');
+      return;
+    }
+    if (num < RATE) {
+      setErrorMsg(t('airdrop.market.errors.minimumAmount') || `حداقل مقدار تبدیل ${RATE.toLocaleString()} کوین است`);
+      return;
+    }
+    if (loading()) return;
+
+    // Snapshot for rollback
+    const prevBalance = balance();
+    const prevFrg = frgBalance();
+
     setLoading(true);
+
+    // Optimistic update
+    setBalance(prevBalance - num);
+    setFrgBalance(prevFrg + (num / RATE));
+
     try {
+      try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
       await marketplaceApi.convertAirdropCoins(num);
-      setBalance(b => b - num);
-      setFrgBalance(f => f + frgAmount());
+      // Sync with server's authoritative values
+      await syncProfileStats();
       setAmount('');
-    } catch (e) {
-      console.error("Conversion failed:", e);
+    } catch (e: any) {
+      // Rollback optimistic update
+      setBalance(prevBalance);
+      setFrgBalance(prevFrg);
+      setErrorMsg(e.message || t('common.errors.generic') || 'عملیات با خطا مواجه شد');
+      try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
     } finally {
       setLoading(false);
     }
@@ -93,6 +122,9 @@ export const MarketView: Component = () => {
         >
           {t('airdrop.market.convertBtn')}
         </button>
+        {errorMsg() && (
+          <div class="text-red-500 text-xs text-center mt-3 font-bold">{errorMsg()}</div>
+        )}
       </div>
 
       {/* Utilities List */}

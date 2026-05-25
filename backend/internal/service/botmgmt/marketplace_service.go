@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"os"
 
+	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/repository"
 	"github.com/jackc/pgx/v5"
 )
@@ -49,6 +51,26 @@ func (s *MarketplaceService) GetPurchaseOptions() []PurchaseOption {
 	}
 }
 
+func (s *MarketplaceService) getBotAPIClient(ctx context.Context) (*telegram.BotAPIClient, error) {
+	// Try first from DB
+	var encryptedToken []byte
+	err := s.frgRepo.DB().Pool.QueryRow(ctx, "SELECT bot_token_encrypted FROM managed_bots WHERE status = 'active' LIMIT 1").Scan(&encryptedToken)
+	if err == nil && len(encryptedToken) > 0 {
+		token, err := DecryptToken(encryptedToken)
+		if err == nil {
+			return telegram.NewBotAPIClient(token), nil
+		}
+	}
+
+	// Try from env variable
+	token := os.Getenv("TELEGRAM_BOT_TOKEN")
+	if token != "" {
+		return telegram.NewBotAPIClient(token), nil
+	}
+
+	return nil, fmt.Errorf("no active telegram bot client found or configured")
+}
+
 func (s *MarketplaceService) PurchaseWithStars(ctx context.Context, userID int64, optionID string, telegramChargeID string) (*repository.FRGTransaction, error) {
 	options := s.GetPurchaseOptions()
 	var opt *PurchaseOption
@@ -62,6 +84,55 @@ func (s *MarketplaceService) PurchaseWithStars(ctx context.Context, userID int64
 		return nil, fmt.Errorf("invalid purchase option: %s", optionID)
 	}
 
+	if telegramChargeID == "" {
+		return nil, fmt.Errorf("empty telegram charge id")
+	}
+
+	// 1. Idempotency Check in Database
+	exists, err := s.frgRepo.TransactionExistsByChargeID(ctx, telegramChargeID)
+	if err != nil {
+		return nil, err
+	}
+	if exists {
+		return nil, fmt.Errorf("charge already processed")
+	}
+
+	// 2. Verification with Telegram getStarTransactions API
+	isProd := os.Getenv("APP_ENV") == "production"
+	if isProd {
+		tg, err := s.getBotAPIClient(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load telegram bot client for verification: %w", err)
+		}
+		
+		txs, err := tg.GetStarTransactions(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to retrieve star transactions: %w", err)
+		}
+		
+		var verifiedTx *telegram.StarTransaction
+		for _, tx := range txs.Transactions {
+			if tx.ID == telegramChargeID {
+				verifiedTx = &tx
+				break
+			}
+		}
+		
+		if verifiedTx == nil {
+			return nil, fmt.Errorf("stars payment charge %s not found on Telegram", telegramChargeID)
+		}
+		
+		if verifiedTx.Source.User == nil || verifiedTx.Source.User.ID != userID {
+			return nil, fmt.Errorf("stars payment user mismatch")
+		}
+		
+		expectedAmount := int(opt.Price)
+		if verifiedTx.Amount != expectedAmount {
+			return nil, fmt.Errorf("stars payment amount mismatch: expected %d, got %d", expectedAmount, verifiedTx.Amount)
+		}
+	}
+
+	// 3. Credit inside transaction with idempotency
 	meta, _ := json.Marshal(map[string]interface{}{
 		"option_id":          optionID,
 		"method":             "stars",
@@ -69,7 +140,7 @@ func (s *MarketplaceService) PurchaseWithStars(ctx context.Context, userID int64
 		"telegram_charge_id": telegramChargeID,
 	})
 
-	return s.frgRepo.Credit(ctx, userID, opt.FRGAmount, "purchase_stars", meta)
+	return s.frgRepo.CreditWithIdempotency(ctx, userID, opt.FRGAmount, "purchase_stars", meta, telegramChargeID)
 }
 
 func (s *MarketplaceService) PurchaseWithToncoin(ctx context.Context, userID int64, optionID string, txHash string) (*repository.FRGTransaction, error) {

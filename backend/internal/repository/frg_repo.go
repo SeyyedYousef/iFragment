@@ -187,3 +187,73 @@ func (r *FRGRepo) GetTransactions(ctx context.Context, userID int64, limit, offs
 	}
 	return txs, nil
 }
+
+func (r *FRGRepo) TransactionExistsByChargeID(ctx context.Context, chargeID string) (bool, error) {
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM frg_transactions WHERE metadata->>'telegram_charge_id' = $1)`
+	err := r.db.Pool.QueryRow(ctx, query, chargeID).Scan(&exists)
+	return exists, err
+}
+
+func (r *FRGRepo) CreditWithIdempotency(ctx context.Context, userID int64, amount float64, txType string, metadata []byte, chargeID string) (*FRGTransaction, error) {
+	tx, err := r.db.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	// Check idempotency inside transaction
+	var exists bool
+	err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM frg_transactions WHERE metadata->>'telegram_charge_id' = $1)`, chargeID).Scan(&exists)
+	if err != nil {
+		return nil, err
+	}
+	if exists {
+		return nil, fmt.Errorf("transaction with charge id %s already processed", chargeID)
+	}
+
+	// Lock balance row
+	var balanceBefore float64
+	err = tx.QueryRow(ctx,
+		`SELECT balance FROM frg_balances WHERE user_id = $1 FOR UPDATE`, userID,
+	).Scan(&balanceBefore)
+	if err == pgx.ErrNoRows {
+		_, _ = r.initBalance(ctx, userID)
+		balanceBefore = 0
+	} else if err != nil {
+		return nil, err
+	}
+
+	balanceAfter := balanceBefore + amount
+
+	_, err = tx.Exec(ctx,
+		`UPDATE frg_balances SET balance = $1, total_earned = total_earned + $2, updated_at = now() WHERE user_id = $3`,
+		balanceAfter, amount, userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var t FRGTransaction
+	err = tx.QueryRow(ctx,
+		`INSERT INTO frg_transactions (user_id, type, amount, balance_before, balance_after, metadata)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, created_at`,
+		userID, txType, amount, balanceBefore, balanceAfter, metadata,
+	).Scan(&t.ID, &t.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	t.UserID = userID
+	t.Type = txType
+	t.Amount = amount
+	t.BalanceBefore = balanceBefore
+	t.BalanceAfter = balanceAfter
+	t.Metadata = metadata
+	return &t, nil
+}

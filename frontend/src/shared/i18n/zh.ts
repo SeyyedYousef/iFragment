@@ -7,7 +7,10 @@ export const dict = {
     "save": "保存",
     "toggle": "切换",
     "errorVersionMismatch": "设置已被另一名用户更新。请刷新页面。",
-    "errorUpdateFailed": "无法更新设置"
+    "errorUpdateFailed": "无法更新设置",
+    "errors": {
+      "generic": "出错了。请稍后再试。"
+    }
   },
   "hero": {
     "title": "精准. 大胆. 专业.",
@@ -354,7 +357,12 @@ export const dict = {
       "utilAdmin": "专业群组管理",
       "utilAdminDesc": "支付群组和频道管理机器人订阅费",
       "utilServices": "增长与推广服务",
-      "utilServicesDesc": "购买成员、浏览量、反应和 Telegram 提速"
+      "utilServicesDesc": "购买成员、浏览量、反应和 Telegram 提速",
+      "errors": {
+        "invalidAmount": "输入的金额无效",
+        "insufficient": "硬币余额不足",
+        "minimumAmount": "最小兑换金额为 100,000 硬币"
+      }
     },
     "combo": {
       "title": "每日组合",
@@ -1391,6 +1399,7 @@ export const dict = {
     "claiming": "正在领取...",
     "comeBackTomorrow": "明天再来",
     "claimedSuccess": "成功领取奖励！",
+    "claimFailed": "领取每日奖励失败。",
     "globalLeaderboard": "全球排行榜",
     "leaderboardSubtitle": "全球前 100 名 iFragment 精英矿工",
     "loadingLeaderboard": "正在加载排行榜...",

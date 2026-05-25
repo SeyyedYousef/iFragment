@@ -1,4 +1,4 @@
-import { Component, createSignal, For } from 'solid-js';
+import { Component, createSignal, For, onCleanup } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 import { hapticFeedback } from '@tma.js/sdk-solid';
 import { balance, energy, maxEnergy, tapPower, currentLeague, recordTaps } from '@/shared/store/airdrop.js';
@@ -8,6 +8,7 @@ interface Particle {
   x: number;
   y: number;
   value: number;
+  createdAt: number;
 }
 
 export const TapView: Component = () => {
@@ -15,9 +16,22 @@ export const TapView: Component = () => {
   const [isPressed, setIsPressed] = createSignal(false);
   const [isShaking, setIsShaking] = createSignal(false);
 
-  // Energy regeneration is now handled globally in the airdrop store
+  const MAX_PARTICLES = 30;
+  let particleIdCounter = 0;
+  let cleanupRaf: number | undefined;
+  let lastHapticAt = 0;
 
-  const handleTap = (e: TouchEvent | MouseEvent) => {
+  const scheduleCleanup = () => {
+    if (cleanupRaf) return;
+    cleanupRaf = requestAnimationFrame(() => {
+      const now = performance.now();
+      setParticles(prev => prev.filter(p => now - p.createdAt < 900));
+      cleanupRaf = undefined;
+      if (particles().length > 0) scheduleCleanup();
+    });
+  };
+
+  const handleTap = (e: PointerEvent) => {
     e.preventDefault();
     if (energy() <= 0) {
       try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
@@ -26,26 +40,31 @@ export const TapView: Component = () => {
       return;
     }
 
-    try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
+    // Throttle haptic triggers to 60fps (16ms)
+    const nowTime = performance.now();
+    if (nowTime - lastHapticAt > 16) {
+      try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
+      lastHapticAt = nowTime;
+    }
 
     const power = tapPower();
     recordTaps(1);
 
-    // Get touch/click positions for particles
-    const touches = e.type.startsWith('touch')
-      ? Array.from((e as TouchEvent).changedTouches)
-      : [e as MouseEvent];
-
-    for (const touch of touches) {
-      const id = Date.now() + Math.random();
-      setParticles(prev => [...prev, { id, x: touch.clientX, y: touch.clientY, value: power }]);
-      setTimeout(() => setParticles(prev => prev.filter(p => p.id !== id)), 900);
-    }
+    const id = ++particleIdCounter;
+    setParticles(prev => {
+      const next = [...prev, { id, x: e.clientX, y: e.clientY, value: power, createdAt: performance.now() }];
+      return next.length > MAX_PARTICLES ? next.slice(-MAX_PARTICLES) : next;
+    });
+    scheduleCleanup();
 
     // Coin press animation
     setIsPressed(true);
     setTimeout(() => setIsPressed(false), 80);
   };
+
+  onCleanup(() => {
+    if (cleanupRaf) cancelAnimationFrame(cleanupRaf);
+  });
 
   return (
     <div class="flex-1 flex flex-col items-center relative overflow-hidden px-4 pt-2 pb-6">

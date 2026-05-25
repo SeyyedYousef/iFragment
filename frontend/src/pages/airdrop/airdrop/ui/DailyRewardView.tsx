@@ -1,4 +1,4 @@
-import { Component, For } from 'solid-js';
+import { Component, For, createSignal, createMemo } from 'solid-js';
 import { t, locale } from '@/shared/i18n/index.js';
 
 const isRtl = () => locale() === 'fa';
@@ -7,10 +7,32 @@ import { streakDay, checkedInToday, claimDailyReward, DAILY_REWARDS } from '@/sh
 import { SectionHeader } from '@/shared/ui/section-header.js';
 
 export const DailyRewardView: Component = () => {
+  const [claimLoading, setClaimLoading] = createSignal(false);
+  const [claimError, setClaimError] = createSignal('');
+
+  const safeReward = createMemo(() => {
+    const day = streakDay();
+    const index = day % DAILY_REWARDS.length;
+    return DAILY_REWARDS[index];
+  });
+
   const handleClaim = async () => {
-    const reward = await claimDailyReward();
-    if (reward) {
-      try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+    if (claimLoading()) return;
+    setClaimError('');
+    setClaimLoading(true);
+    try {
+      const reward = await claimDailyReward();
+      if (reward) {
+        try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+      } else {
+        setClaimError(t('gamification.claimFailed') || 'خطا در دریافت جایزه روزانه');
+        try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+      }
+    } catch (e: any) {
+      setClaimError(e.message || t('common.errors.generic') || 'عملیات ناموفق بود');
+      try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+    } finally {
+      setClaimLoading(false);
     }
   };
 
@@ -68,12 +90,22 @@ export const DailyRewardView: Component = () => {
 
       {/* Claim Button */}
       {!checkedInToday() ? (
-        <button onClick={handleClaim} class="w-full bg-[#3390ec] text-white font-bold py-4 rounded-2xl active:scale-[0.97] transition-transform shadow-[0_4px_20px_rgba(51,144,236,0.4)] text-sm">
-          <span class="flex items-center justify-center gap-2">
-            <span class="material-symbols-outlined text-lg" style={{ 'font-variation-settings': '"FILL" 1' }}>card_giftcard</span>
-            {t('airdrop.daily.claimBtn')}
-            <span class="text-amber-300 font-black">+{DAILY_REWARDS[streakDay()].toLocaleString()}</span>
-          </span>
+        <button 
+          onClick={handleClaim} 
+          disabled={claimLoading()} 
+          class={`w-full text-white font-bold py-4 rounded-2xl active:scale-[0.97] transition-all text-sm ${
+            claimLoading() ? 'bg-[#2c2c2e] text-[#555]' : 'bg-[#3390ec] shadow-[0_4px_20px_rgba(51,144,236,0.4)]'
+          }`}
+        >
+          {claimLoading() ? (
+            <span class="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
+          ) : (
+            <span class="flex items-center justify-center gap-2">
+              <span class="material-symbols-outlined text-lg" style={{ 'font-variation-settings': '"FILL" 1' }}>card_giftcard</span>
+              {t('airdrop.daily.claimBtn')}
+              <span class="text-amber-300 font-black">+{safeReward().toLocaleString()}</span>
+            </span>
+          )}
         </button>
       ) : (
         <div class="w-full bg-[#1c1c1e] text-[#8e8e93] font-bold py-4 rounded-2xl text-sm text-center border border-white/[0.04]">
@@ -82,6 +114,9 @@ export const DailyRewardView: Component = () => {
             {t('airdrop.daily.comeBack')}
           </span>
         </div>
+      )}
+      {claimError() && (
+        <div class="text-red-500 text-xs text-center mt-3 font-bold">{claimError()}</div>
       )}
     </div>
   );

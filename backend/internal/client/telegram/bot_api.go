@@ -422,3 +422,32 @@ func (c *BotAPIClient) EditMessageTextWithMarkup(ctx context.Context, chatID int
 	})
 	return err
 }
+
+type StarTransaction struct {
+	ID     string `json:"id"`
+	Amount int    `json:"amount"`
+	Date   int    `json:"date"`
+	Source struct {
+		Type string `json:"type"`
+		User *User  `json:"user,omitempty"`
+	} `json:"source"`
+	Receiver struct {
+		Type string `json:"type"`
+	} `json:"receiver"`
+}
+
+type StarTransactions struct {
+	Transactions []StarTransaction `json:"transactions"`
+}
+
+func (c *BotAPIClient) GetStarTransactions(ctx context.Context) (*StarTransactions, error) {
+	resp, err := c.request(ctx, "getStarTransactions", nil)
+	if err != nil {
+		return nil, err
+	}
+	var res StarTransactions
+	if err := json.Unmarshal(resp, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
