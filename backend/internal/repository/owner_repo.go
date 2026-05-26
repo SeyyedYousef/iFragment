@@ -103,7 +103,11 @@ func (r *OwnerRepo) SetUserBan(ctx context.Context, ban *model.UserBan) error {
 			banned_at = CURRENT_TIMESTAMP,
 			expires_at = EXCLUDED.expires_at
 	`
-	_, err := r.db.Pool.Exec(ctx, query, ban.UserID, ban.BanType, ban.Reason, ban.BannedBy, ban.ExpiresAt)
+	var bannedBy *int64
+	if ban.BannedBy != 0 {
+		bannedBy = &ban.BannedBy
+	}
+	_, err := r.db.Pool.Exec(ctx, query, ban.UserID, ban.BanType, ban.Reason, bannedBy, ban.ExpiresAt)
 	return err
 }
 
@@ -152,49 +156,60 @@ func (r *OwnerRepo) EndImpersonationSession(ctx context.Context, id string, acti
 	return err
 }
 
+func (r *OwnerRepo) GetImpersonationSession(ctx context.Context, id string) (*model.ImpersonationSession, error) {
+	query := `
+		SELECT id, owner_id, target_user_id, started_at, ended_at, actions_taken
+		FROM impersonation_sessions
+		WHERE id = $1
+	`
+	var s model.ImpersonationSession
+	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
+		&s.ID, &s.OwnerID, &s.TargetUserID, &s.StartedAt, &s.EndedAt, &s.ActionsTaken,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &s, nil
+}
+
+func (r *OwnerRepo) MarkTOTPUsed(ctx context.Context, tgID int64, window int64) error {
+	query := `
+		INSERT INTO used_totp_codes (owner_telegram_id, code_window)
+		VALUES ($1, $2)
+	`
+	_, err := r.db.Pool.Exec(ctx, query, tgID, window)
+	return err
+}
+
 func (r *OwnerRepo) GetDashboardStats(ctx context.Context) (*model.OwnerDashboardStats, error) {
 	var stats model.OwnerDashboardStats
 
-	// 1. Get DAU (Users active in last 24h)
-	err := r.db.Pool.QueryRow(ctx, `
-		SELECT COUNT(DISTINCT user_id) FROM user_stats WHERE last_active_at > now() - interval '24 hours'
-	`).Scan(&stats.DAU)
-	if err != nil {
-		stats.DAU = 0
-	}
+	// Combined single round-trip CTE query to fetch all 5 statistics securely
+	const statsQuery = `
+		WITH counts AS (
+			SELECT
+				(SELECT COUNT(DISTINCT user_id) FROM user_stats WHERE last_active_at > now() - interval '24 hours') AS dau,
+				(SELECT COUNT(DISTINCT user_id) FROM user_stats WHERE last_active_at > now() - interval '30 days')  AS mau,
+				(SELECT COUNT(*) FROM users) AS total_users,
+				(SELECT COALESCE(SUM(balance), 0.0) FROM frg_balances) AS frg_circulation,
+				(SELECT COALESCE(SUM(amount), 0.0) FROM orders WHERE status = 'paid') AS stars_volume
+		)
+		SELECT dau, mau, total_users, frg_circulation, stars_volume FROM counts;
+	`
 
-	// 2. Get MAU (Users active in last 30d)
-	err = r.db.Pool.QueryRow(ctx, `
-		SELECT COUNT(DISTINCT user_id) FROM user_stats WHERE last_active_at > now() - interval '30 days'
-	`).Scan(&stats.MAU)
-	if err != nil {
-		stats.MAU = 0
-	}
-
-	// 3. Get Total Users
-	err = r.db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM users`).Scan(&stats.TotalUsers)
-	if err != nil {
-		stats.TotalUsers = 0
-	}
-
-	// 4. Get FRG Circulation (Sum of balances)
-	err = r.db.Pool.QueryRow(ctx, `SELECT COALESCE(SUM(balance), 0.0) FROM frg_balances`).Scan(&stats.FrgCirculation)
-	if err != nil {
-		stats.FrgCirculation = 0
-	}
-
-	// 5. Get TON Volume (Order sum for completed payments in stars to ton approximate or TON coin transactions)
-	// We'll calculate a mock/aggregate TON volume from stars purchases (approx 1 TON = 100 Stars)
 	var starsVolume float64
-	err = r.db.Pool.QueryRow(ctx, `
-		SELECT COALESCE(SUM(amount), 0.0) FROM orders WHERE status = 'paid'
-	`).Scan(&starsVolume)
+	err := r.db.Pool.QueryRow(ctx, statsQuery).Scan(
+		&stats.DAU, &stats.MAU, &stats.TotalUsers, &stats.FrgCirculation, &starsVolume,
+	)
 	if err != nil {
-		starsVolume = 0
+		return nil, err
 	}
-	stats.TonVolume = starsVolume / 100.0 // Approximate conversion for demonstration
+	stats.TonVolume = starsVolume / 100.0
 
-	// 6. Get Recent Owner Activities (last 5)
+	// Get Recent Owner Activities (last 5)
 	recentLogs, err := r.GetOwnerAuditLogs(ctx, 5, 0)
 	if err == nil {
 		stats.RecentActivity = recentLogs

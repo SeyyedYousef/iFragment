@@ -31,22 +31,20 @@ const PageErrorFallback = (err: any, reset: () => void) => {
 export function App() {
   return (
     <HashRouter>
-      <Suspense fallback={<div class="min-h-screen bg-[#0f1014] flex items-center justify-center"><div class="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div></div>}>
-        <For each={routes}>
-          {(route) => (
-            <Route 
-              path={route.path} 
-              component={(props) => (
-                <ErrorBoundary fallback={(err, reset) => PageErrorFallback(err, reset)}>
-                  <ImpersonationBanner />
-                  <route.Component {...(props as any)} />
-                </ErrorBoundary>
-              )}
-            />
-          )}
-        </For>
-        <Route path="*" component={() => <Navigate href="/"/>}/>
-      </Suspense>
+      <For each={routes}>
+        {(route) => {
+          const RouteComponent = (props: any) => (
+            <ErrorBoundary fallback={(err, reset) => PageErrorFallback(err, reset)}>
+              <Suspense fallback={<div class="min-h-screen bg-[#0f1014] flex items-center justify-center"><div class="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div></div>}>
+                <ImpersonationBanner />
+                <route.Component {...(props as any)} />
+              </Suspense>
+            </ErrorBoundary>
+          );
+          return <Route path={route.path} component={RouteComponent} />;
+        }}
+      </For>
+      <Route path="*" component={() => <Navigate href="/"/>}/>
     </HashRouter>
   );
 }

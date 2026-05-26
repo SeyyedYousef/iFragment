@@ -125,6 +125,7 @@ export const dict = {
     "addToHome": "افزودن به خانه",
     "emojiStatus": "وضعیت ایموجی",
     "support": "پشتیبانی",
+    "redeemCode": "کد هدیه",
     "achievements": "دستاوردها",
     "referralHub": "مرکز معرف‌ها",
     "friendsInvited": "دوستان دعوت شده",
@@ -145,7 +146,9 @@ export const dict = {
     "addBtn": "افزودن",
     "walletHub": "مرکز کیف پول iFragment",
     "version": "نسخه",
-    "tmaProduction": "نسخه اصلی تلگرام"
+    "tmaProduction": "نسخه اصلی تلگرام",
+    "impersonationBanner": "در حال مشاهده برنامه به عنوان: @{username}",
+    "exitSimulation": "خروج از شبیه‌سازی"
   },
   "achievements": {
     "title": "دستاوردها",
@@ -1418,5 +1421,18 @@ export const dict = {
     "tapBotDesc": "استخراج سکه به صورت آفلاین تا سقف ۱۲ ساعت",
     "upgradeBtn": "ارتقا",
     "upgradingBtn": "در حال ارتقا..."
+  },
+  "ownerAuditLog": {
+    "title": "گزارش‌های عملیات",
+    "systemSecurity": "امنیت سیستم",
+    "overview": "بررسی اجمالی",
+    "users": "کاربران",
+    "retrieveError": "خطا در دریافت گزارش‌ها. لطفا احراز هویت خود را بررسی کنید.",
+    "operatorId": "شناسه مالک عمل‌کننده:",
+    "targetId": "شناسه کاربر هدف:",
+    "ipAddress": "آدرس IP:",
+    "userAgent": "مرورگر کاربر (User Agent):",
+    "payloadChanges": "تغییرات دیتای وضعیت:",
+    "loadMore": "بارگذاری رکوردهای بیشتر"
   }
 };

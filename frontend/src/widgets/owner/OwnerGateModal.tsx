@@ -141,18 +141,22 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
           <div class="flex justify-between gap-2 mb-6">
             <For each={pin()}>
               {(digit, index) => (
-                <input
-                  type="text"
-                  inputmode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={1}
-                  value={digit}
-                  ref={(el) => (inputRefs[index()] = el)}
-                  onInput={(e) => handleInput(e.currentTarget.value, index())}
-                  onKeyDown={(e) => handleKeyDown(e, index())}
-                  class="w-12 h-14 bg-[#0f1014] border border-[#2a2c35] focus:border-[#3390ec] text-white text-xl font-bold text-center rounded-2xl shadow-inner focus:outline-none transition-all"
-                  disabled={loading()}
-                />
+                <div class="block">
+                  <span id={`digit-label-${index()}`} class="sr-only">Digit {index() + 1}</span>
+                  <input
+                    type="text"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={1}
+                    value={digit}
+                    aria-labelledby={`digit-label-${index()}`}
+                    ref={(el) => (inputRefs[index()] = el)}
+                    onInput={(e) => handleInput(e.currentTarget.value, index())}
+                    onKeyDown={(e) => handleKeyDown(e, index())}
+                    class="w-12 h-14 bg-[#0f1014] border border-[#2a2c35] focus:border-[#3390ec] text-white text-xl font-bold text-center rounded-2xl shadow-inner focus:outline-none transition-all"
+                    disabled={loading()}
+                  />
+                </div>
               )}
             </For>
           </div>

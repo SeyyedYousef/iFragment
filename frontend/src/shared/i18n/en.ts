@@ -125,6 +125,7 @@ export const dict = {
     addToHome: 'Add to Home',
     emojiStatus: 'Emoji Status',
     support: 'Support',
+    redeemCode: 'Gift Code',
     achievements: 'Achievements',
     referralHub: 'Referral Hub',
     friendsInvited: 'Friends Invited',
@@ -145,7 +146,9 @@ export const dict = {
     addBtn: 'Add',
     walletHub: 'iFragment Wallet Hub',
     version: 'Version',
-    tmaProduction: 'TMA Production'
+    tmaProduction: 'TMA Production',
+    impersonationBanner: 'Viewing application as: @{username}',
+    exitSimulation: 'Exit Simulation'
   },
   achievements: {
     title: 'Achievements',
@@ -1442,5 +1445,18 @@ To enable me to delete malicious messages and restrict violating users, please a
     tapBotDesc: 'Claims coins while offline for up to 12 hours',
     upgradeBtn: 'Upgrade',
     upgradingBtn: 'Upgrading...'
+  },
+  ownerAuditLog: {
+    title: 'Audit Logs',
+    systemSecurity: 'System Security',
+    overview: 'Overview',
+    users: 'Users',
+    retrieveError: 'Failed to retrieve logs. Please verify your authentication.',
+    operatorId: 'Operator Owner ID:',
+    targetId: 'Target User ID:',
+    ipAddress: 'IP Address:',
+    userAgent: 'User Agent:',
+    payloadChanges: 'State Payload Changes:',
+    loadMore: 'Load More Records'
   }
 };

@@ -26,6 +26,11 @@ async function startApp() {
   const root = document.getElementById('root');
   if (!root) return;
 
+  // Prevent iOS Safari native pinch-to-zoom gesture
+  document.addEventListener('gesturestart', (e) => {
+    e.preventDefault();
+  });
+
   try {
     // 1. Check environment and mock if necessary BEFORE anything else
     const isTelegram = await isTMA();

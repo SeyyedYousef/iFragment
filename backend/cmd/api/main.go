@@ -231,13 +231,13 @@ func main() {
 
 	// Initialize Owner components
 	ownerRepo := repository.NewOwnerRepo(db)
-	ownerService := service.NewOwnerService(ownerRepo, frgRepo)
+	middleware.InitAuthMiddleware(ownerRepo)
+	ownerService := service.NewOwnerService(ownerRepo, frgRepo, cache)
 	ownerHandler := handler.NewOwnerHandler(ownerService)
 
 	// Public Routes
 	r.Route("/api/v1", func(r chi.Router) {
-		r.Use(middleware.BlockImpersonatedWrites)
-		r.Use(middleware.UserBanCheckMiddleware(ownerRepo))
+		// Health check routes kept outside ban checking to avoid database liveness probe DoS
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			w.Write([]byte(`{"status": "ok"}`))
@@ -287,11 +287,16 @@ func main() {
 			w.Write([]byte(`{"status": "healthy", "telegram_api": "reachable"}`))
 		})
 
-		r.Get("/config", profileHandler.GetPublicConfig)
+		// Protected core business API routes (require ban checking and blocking impersonated writes)
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.BlockImpersonatedWrites)
+			r.Use(middleware.UserBanCheckMiddleware(ownerRepo))
 
-		r.Post("/webhook/telegram/{botID}", webhookHandler.HandleTelegramWebhook)
-		r.Post("/webhook/tonapi", webhookHandler.HandleTonAPIWebhook)
-		r.With(middleware.ValidateTelegramInitData(cache)).Post("/auth/token", authHandler.IssueToken)
+			r.Get("/config", profileHandler.GetPublicConfig)
+
+			r.Post("/webhook/telegram/{botID}", webhookHandler.HandleTelegramWebhook)
+			r.Post("/webhook/tonapi", webhookHandler.HandleTonAPIWebhook)
+			r.With(middleware.ValidateTelegramInitData(cache)).Post("/auth/token", authHandler.IssueToken)
 
 		r.Route("/usernames", func(r chi.Router) {
 			r.Get("/collection/stats", usernameHandler.GetCollectionStats)
@@ -422,6 +427,8 @@ func main() {
 			r.Post("/promo/redeem", ownerHandler.RedeemPromo)
 		})
 
+		}) // Close protected /api/v1 routes group
+
 		// ─── Owner Panel APIs ───────────────────────────
 		r.Route("/owner", func(r chi.Router) {
 			r.Post("/auth/totp", ownerHandler.Login)
@@ -430,18 +437,18 @@ func main() {
 				r.Use(middleware.AuthMiddleware)
 				r.Use(middleware.ValidateOwnerAdmin)
 
-				r.Get("/dashboard/stats", ownerHandler.GetStats)
-				r.Get("/users/search", ownerHandler.SearchUsers)
-				r.Post("/users/adjust-frg", ownerHandler.AdjustFrg)
-				r.Post("/users/impersonate", ownerHandler.Impersonate)
-				r.Post("/users/ban", ownerHandler.BanUser)
-				r.Post("/users/unban", ownerHandler.UnbanUser)
-				r.Get("/audit-logs", ownerHandler.GetAuditLogs)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/dashboard/stats", ownerHandler.GetStats)
+				r.With(middleware.RequirePermission(middleware.PermSearchUsers)).Get("/users/search", ownerHandler.SearchUsers)
+				r.With(middleware.RequirePermission(middleware.PermAdjustFRG)).Post("/users/adjust-frg", ownerHandler.AdjustFrg)
+				r.With(middleware.RequirePermission(middleware.PermImpersonate)).Post("/users/impersonate", ownerHandler.Impersonate)
+				r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/ban", ownerHandler.BanUser)
+				r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/unban", ownerHandler.UnbanUser)
+				r.With(middleware.RequirePermission(middleware.PermAuditView)).Get("/audit-logs", ownerHandler.GetAuditLogs)
 
 				// Promo Code management
-				r.Post("/promos", ownerHandler.CreatePromo)
-				r.Delete("/promos", ownerHandler.DeletePromo)
-				r.Get("/promos", ownerHandler.ListPromos)
+				r.With(middleware.RequirePermission(middleware.PermPromoManage)).Post("/promos", ownerHandler.CreatePromo)
+				r.With(middleware.RequirePermission(middleware.PermPromoManage)).Delete("/promos", ownerHandler.DeletePromo)
+				r.With(middleware.RequirePermission(middleware.PermPromoView)).Get("/promos", ownerHandler.ListPromos)
 			})
 		})
 	})

@@ -17,7 +17,8 @@ vi.mock('@solidjs/router', () => ({
 
 vi.mock('@/shared/store/airdrop.js', () => ({
   checkedInToday: () => false,
-  currentLeague: () => ({ name: 'Bronze', color: '#cd7f32', icon: 'stars' })
+  currentLeague: () => ({ name: 'Bronze', color: '#cd7f32', icon: 'stars' }),
+  userClan: () => null
 }));
 
 describe('AirdropPage', () => {

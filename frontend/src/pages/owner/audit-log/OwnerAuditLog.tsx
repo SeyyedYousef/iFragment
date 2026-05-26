@@ -2,6 +2,7 @@ import { Component, createSignal, onMount, Show, For } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { hapticFeedback } from '@tma.js/sdk-solid';
 import { apiClient } from '@/shared/api/axios.js';
+import { t } from '@/shared/i18n/index.js';
 
 interface AuditLog {
   id: string;
@@ -34,7 +35,7 @@ export const OwnerAuditLog: Component = () => {
         setLogs(newLogs);
       }
     } catch (err: any) {
-      setError('Failed to retrieve logs. Please verify your authentication.');
+      setError(t('ownerAuditLog.retrieveError'));
     } finally {
       setLoading(false);
     }
@@ -71,8 +72,8 @@ export const OwnerAuditLog: Component = () => {
             <span class="material-symbols-outlined text-[18px] text-white/70">chevron_left</span>
           </div>
           <div>
-            <h1 class="text-sm font-black uppercase tracking-wider text-white">Audit Logs</h1>
-            <p class="text-[9px] text-[#3390ec] font-black uppercase tracking-widest mt-0.5">System Security</p>
+            <h1 class="text-sm font-black uppercase tracking-wider text-white">{t('ownerAuditLog.title')}</h1>
+            <p class="text-[9px] text-[#3390ec] font-black uppercase tracking-widest mt-0.5">{t('ownerAuditLog.systemSecurity')}</p>
           </div>
         </div>
       </div>
@@ -84,20 +85,20 @@ export const OwnerAuditLog: Component = () => {
           class="h-8 px-4 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-1.5 border border-white/5"
         >
           <span class="material-symbols-outlined text-[14px]">dashboard</span>
-          Overview
+          {t('ownerAuditLog.overview')}
         </button>
         <button 
           onClick={() => handleNav('/owner/users')}
           class="h-8 px-4 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-1.5 border border-white/5"
         >
           <span class="material-symbols-outlined text-[14px]">group</span>
-          Users
+          {t('ownerAuditLog.users')}
         </button>
         <button 
           class="h-8 px-4 bg-[#3390ec] text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-[#3390ec]/15 flex items-center gap-1.5"
         >
           <span class="material-symbols-outlined text-[14px]">receipt_long</span>
-          Audit Logs
+          {t('ownerAuditLog.title')}
         </button>
       </div>
 
@@ -127,30 +128,30 @@ export const OwnerAuditLog: Component = () => {
 
                 <div class="flex flex-col gap-1.5 text-xs">
                   <div class="flex justify-between text-white/60">
-                    <span class="font-bold">Operator Owner ID:</span>
+                    <span class="font-bold">{t('ownerAuditLog.operatorId')}</span>
                     <span class="text-white font-medium">{log.owner_id}</span>
                   </div>
                   <Show when={log.target_user_id}>
                     <div class="flex justify-between text-white/60">
-                      <span class="font-bold">Target User ID:</span>
+                      <span class="font-bold">{t('ownerAuditLog.targetId')}</span>
                       <span class="text-[#3390ec] font-medium">{log.target_user_id}</span>
                     </div>
                   </Show>
                   <Show when={log.ip_address}>
                     <div class="flex justify-between text-white/60">
-                      <span class="font-bold">IP Address:</span>
+                      <span class="font-bold">{t('ownerAuditLog.ipAddress')}</span>
                       <span class="font-mono text-[10px] text-white/80">{log.ip_address}</span>
                     </div>
                   </Show>
                   <Show when={log.user_agent}>
                     <div class="flex flex-col gap-0.5 text-white/60">
-                      <span class="font-bold">User Agent:</span>
+                      <span class="font-bold">{t('ownerAuditLog.userAgent')}</span>
                       <span class="text-[10px] text-white/40 leading-relaxed font-mono truncate">{log.user_agent}</span>
                     </div>
                   </Show>
                   <Show when={log.payload}>
                     <div class="mt-2 p-3 bg-[#0f1014] border border-[#2a2c35]/30 rounded-2xl flex flex-col gap-1 font-mono text-[9px] text-white/50">
-                      <span class="font-bold text-[#a0a4ad] uppercase text-[8px] tracking-wide mb-1">State Payload Changes:</span>
+                      <span class="font-bold text-[#a0a4ad] uppercase text-[8px] tracking-wide mb-1">{t('ownerAuditLog.payloadChanges')}</span>
                       <pre class="whitespace-pre-wrap break-all leading-normal">{JSON.stringify(log.payload, null, 2)}</pre>
                     </div>
                   </Show>
@@ -167,7 +168,7 @@ export const OwnerAuditLog: Component = () => {
             class="w-full h-12 mt-6 bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-black uppercase tracking-wider text-white rounded-2xl active:scale-95 transition-all flex items-center justify-center gap-1.5"
           >
             <span class="material-symbols-outlined text-[16px]">expand_more</span>
-            Load More Records
+            {t('ownerAuditLog.loadMore')}
           </button>
         </Show>
 

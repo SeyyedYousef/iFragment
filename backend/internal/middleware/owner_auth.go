@@ -10,6 +10,91 @@ import (
 	"ifragment-backend/internal/repository"
 )
 
+type Permission string
+
+const (
+	PermViewDashboard Permission = "dashboard:view"
+	PermSearchUsers   Permission = "users:search"
+	PermAdjustFRG     Permission = "frg:adjust"
+	PermBanUser       Permission = "users:ban"
+	PermImpersonate   Permission = "users:impersonate"
+	PermPromoManage   Permission = "promo:manage"
+	PermPromoView     Permission = "promo:view"
+	PermAuditView     Permission = "audit:view"
+)
+
+var rolePermissions = map[string]map[Permission]bool{
+	"support": {
+		PermViewDashboard: true,
+		PermSearchUsers:   true,
+		PermPromoView:     true,
+	},
+	"moderator": {
+		PermViewDashboard: true,
+		PermSearchUsers:   true,
+		PermBanUser:       true,
+		PermPromoView:     true,
+	},
+	"admin": {
+		PermViewDashboard: true,
+		PermSearchUsers:   true,
+		PermBanUser:       true,
+		PermAdjustFRG:     true,
+		PermPromoManage:   true,
+		PermPromoView:     true,
+		PermAuditView:     true,
+	},
+	"super_admin": {
+		PermViewDashboard: true,
+		PermSearchUsers:   true,
+		PermBanUser:       true,
+		PermAdjustFRG:     true,
+		PermPromoManage:   true,
+		PermPromoView:     true,
+		PermAuditView:     true,
+		PermImpersonate:   true,
+	},
+}
+
+// RequirePermission ensures the authenticated owner possesses the necessary fine-grained RBAC permission
+func RequirePermission(p Permission) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			rawUser := r.Context().Value(UserContextKey)
+			if rawUser == nil {
+				http.Error(w, "Unauthorized: Owner session required", http.StatusUnauthorized)
+				return
+			}
+
+			user, ok := rawUser.(map[string]interface{})
+			if !ok {
+				http.Error(w, "Internal Server Error: Invalid user format", http.StatusInternalServerError)
+				return
+			}
+
+			role, _ := user["role"].(string)
+			if role == "" {
+				http.Error(w, "Forbidden: Role not assigned", http.StatusForbidden)
+				return
+			}
+
+			perms, ok := rolePermissions[role]
+			if !ok || !perms[p] {
+				slog.Warn("SECURITY ALERT: Insufficient permissions for owner action",
+					"user_id", user["id"],
+					"role", role,
+					"required_permission", p,
+					"ip", getRealIP(r),
+				)
+				http.Error(w, "Forbidden: Insufficient privileges to perform this action", http.StatusForbidden)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 // ValidateOwnerAdmin ensures the authenticated user is an owner admin
 func ValidateOwnerAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -30,7 +115,7 @@ func ValidateOwnerAdmin(next http.Handler) http.Handler {
 			slog.Warn("SECURITY ALERT: Non-owner attempted to access owner endpoint",
 				"user_id", user["id"],
 				"username", user["username"],
-				"ip", r.RemoteAddr,
+				"ip", getRealIP(r),
 			)
 			http.Error(w, "Forbidden: Owner access denied", http.StatusForbidden)
 			return
@@ -102,21 +187,24 @@ func HoneypotMiddleware(repo *repository.OwnerRepo) func(http.Handler) http.Hand
 				return
 			}
 
-			// NOT an owner! Honeypot triggered! Auto-ban the user permanently!
-			slog.Warn("🚨 HONEYPOT TRIGGERED! Permanent ban initiated",
+			// NOT an owner! Honeypot triggered! Auto-ban the user with 24 hours expiry!
+			clientIP := getRealIP(r)
+			slog.Warn("🚨 HONEYPOT TRIGGERED! 24-hour automated ban initiated",
 				"user_id", userID,
 				"username", user["username"],
-				"ip", r.RemoteAddr,
+				"ip", clientIP,
 				"path", r.URL.Path,
 			)
 
 			banReason := "Security violation: Unauthorized attempt to access admin panel honeypot."
+			expiresAt := time.Now().Add(24 * time.Hour)
 			ban := &model.UserBan{
-				UserID:   userID,
-				BanType:  "full",
-				Reason:   banReason,
-				BannedBy: 0, // Automated security system
-				BannedAt: time.Now(),
+				UserID:    userID,
+				BanType:   "full",
+				Reason:    banReason,
+				BannedBy:  0, // Automated security system (stored as NULL via SetUserBan)
+				BannedAt:  time.Now(),
+				ExpiresAt: &expiresAt,
 			}
 
 			_ = repo.SetUserBan(r.Context(), ban)
@@ -124,18 +212,18 @@ func HoneypotMiddleware(repo *repository.OwnerRepo) func(http.Handler) http.Hand
 			// Clean up audit logs
 			payload, _ := json.Marshal(map[string]string{
 				"triggered_path": r.URL.Path,
-				"action":         "automated_permanent_ban",
+				"action":         "automated_24h_ban",
 			})
 			_ = repo.LogOwnerAudit(r.Context(), &model.OwnerAuditLog{
-				OwnerID:      0, // Security System
+				OwnerID:      0, // Security System (stored as NULL via SetUserBan)
 				Action:       "honeypot_ban",
 				TargetUserID: &userID,
 				Payload:      payload,
-				IPAddress:    r.RemoteAddr,
+				IPAddress:    clientIP,
 				UserAgent:    r.UserAgent(),
 			})
 
-			http.Error(w, "Forbidden: Security violation. Permanent ban initiated.", http.StatusForbidden)
+			http.Error(w, "Forbidden: Security violation. Temporary 24-hour ban initiated.", http.StatusForbidden)
 		})
 	}
 }

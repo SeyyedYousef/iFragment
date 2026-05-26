@@ -125,6 +125,7 @@ export const dict = {
     "addToHome": "添加到主屏幕",
     "emojiStatus": "表情状态",
     "support": "支持",
+    "redeemCode": "兑换码",
     "achievements": "成就",
     "referralHub": "推荐中心",
     "friendsInvited": "已邀请好友",
@@ -145,7 +146,9 @@ export const dict = {
     "addBtn": "添加",
     "walletHub": "iFragment 钱包中心",
     "version": "版本",
-    "tmaProduction": "TMA 正式版"
+    "tmaProduction": "TMA 正式版",
+    "impersonationBanner": "正在以 @{username} 的身份查看应用",
+    "exitSimulation": "退出模拟"
   },
   "achievements": {
     "title": "成就",
@@ -1434,6 +1437,19 @@ export const dict = {
     "tapBotDesc": "在离线状态下自动收集代币，最长可达 12 合时",
     "upgradeBtn": "升级",
     "upgradingBtn": "正在升级..."
+  },
+  "ownerAuditLog": {
+    "title": "审计日志",
+    "systemSecurity": "系统安全",
+    "overview": "概览",
+    "users": "用户",
+    "retrieveError": "无法检索日志。请验证您的身份验证。",
+    "operatorId": "操作员所有者 ID:",
+    "targetId": "目标用户 ID:",
+    "ipAddress": "IP 地址:",
+    "userAgent": "用户代理 (User Agent):",
+    "payloadChanges": "状态载荷变化:",
+    "loadMore": "加载更多记录"
   }
 };
 

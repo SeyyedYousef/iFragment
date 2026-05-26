@@ -4,12 +4,16 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/service"
 )
+
+var promoCodeRe = regexp.MustCompile(`^[A-Z0-9]{4,20}$`)
 
 type OwnerHandler struct {
 	srv *service.OwnerService
@@ -60,15 +64,10 @@ func (h *OwnerHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *OwnerHandler) AdjustFrg(w http.ResponseWriter, r *http.Request) {
-	rawUser := r.Context().Value(middleware.UserContextKey)
-	user, _ := rawUser.(map[string]interface{})
-	ownerIDVal, _ := user["id"]
-	var ownerID int64
-	switch v := ownerIDVal.(type) {
-	case int64:
-		ownerID = v
-	case float64:
-		ownerID = int64(v)
+	ownerID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, err.Error(), err)
+		return
 	}
 
 	var req struct {
@@ -101,15 +100,10 @@ func (h *OwnerHandler) AdjustFrg(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *OwnerHandler) Impersonate(w http.ResponseWriter, r *http.Request) {
-	rawUser := r.Context().Value(middleware.UserContextKey)
-	user, _ := rawUser.(map[string]interface{})
-	ownerIDVal, _ := user["id"]
-	var ownerID int64
-	switch v := ownerIDVal.(type) {
-	case int64:
-		ownerID = v
-	case float64:
-		ownerID = int64(v)
+	ownerID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, err.Error(), err)
+		return
 	}
 
 	var req struct {
@@ -139,15 +133,10 @@ func (h *OwnerHandler) Impersonate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *OwnerHandler) BanUser(w http.ResponseWriter, r *http.Request) {
-	rawUser := r.Context().Value(middleware.UserContextKey)
-	user, _ := rawUser.(map[string]interface{})
-	ownerIDVal, _ := user["id"]
-	var ownerID int64
-	switch v := ownerIDVal.(type) {
-	case int64:
-		ownerID = v
-	case float64:
-		ownerID = int64(v)
+	ownerID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, err.Error(), err)
+		return
 	}
 
 	var req struct {
@@ -167,7 +156,7 @@ func (h *OwnerHandler) BanUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.srv.SetUserBan(r.Context(), ownerID, req.UserID, req.BanType, req.Reason, req.DurationSeconds, r.RemoteAddr, r.UserAgent())
+	err = h.srv.SetUserBan(r.Context(), ownerID, req.UserID, req.BanType, req.Reason, req.DurationSeconds, r.RemoteAddr, r.UserAgent())
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
 		return
@@ -178,15 +167,10 @@ func (h *OwnerHandler) BanUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *OwnerHandler) UnbanUser(w http.ResponseWriter, r *http.Request) {
-	rawUser := r.Context().Value(middleware.UserContextKey)
-	user, _ := rawUser.(map[string]interface{})
-	ownerIDVal, _ := user["id"]
-	var ownerID int64
-	switch v := ownerIDVal.(type) {
-	case int64:
-		ownerID = v
-	case float64:
-		ownerID = int64(v)
+	ownerID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, err.Error(), err)
+		return
 	}
 
 	var req struct {
@@ -203,7 +187,7 @@ func (h *OwnerHandler) UnbanUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.srv.RemoveUserBan(r.Context(), ownerID, req.UserID, r.RemoteAddr, r.UserAgent())
+	err = h.srv.RemoveUserBan(r.Context(), ownerID, req.UserID, r.RemoteAddr, r.UserAgent())
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
 		return
@@ -217,6 +201,19 @@ func (h *OwnerHandler) SearchUsers(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("q")
 	if query == "" {
 		RespondError(w, r, http.StatusBadRequest, "Query parameter 'q' is required", errors.New("missing query"))
+		return
+	}
+
+	// Validation check on search query (at least 3 characters long, or numeric Telegram ID)
+	isNumeric := true
+	for _, c := range query {
+		if c < '0' || c > '9' {
+			isNumeric = false
+			break
+		}
+	}
+	if len(query) < 3 && !isNumeric {
+		RespondError(w, r, http.StatusBadRequest, "Query must be at least 3 characters long or a numeric Telegram ID", errors.New("search query too short"))
 		return
 	}
 
@@ -248,6 +245,11 @@ func (h *OwnerHandler) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Limit ceiling to prevent query memory exhaustion DoS
+	if limit > 200 {
+		limit = 200
+	}
+
 	logs, err := h.srv.GetAuditLogs(r.Context(), limit, offset)
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, "Failed to load audit logs", err)
@@ -259,15 +261,10 @@ func (h *OwnerHandler) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *OwnerHandler) CreatePromo(w http.ResponseWriter, r *http.Request) {
-	rawUser := r.Context().Value(middleware.UserContextKey)
-	user, _ := rawUser.(map[string]interface{})
-	ownerIDVal, _ := user["id"]
-	var ownerID int64
-	switch v := ownerIDVal.(type) {
-	case int64:
-		ownerID = v
-	case float64:
-		ownerID = int64(v)
+	ownerID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, err.Error(), err)
+		return
 	}
 
 	var req struct {
@@ -287,13 +284,27 @@ func (h *OwnerHandler) CreatePromo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Alphanumeric, Reward bounds and MaxUses limits validation
+	if !promoCodeRe.MatchString(strings.ToUpper(req.Code)) {
+		RespondError(w, r, http.StatusBadRequest, "code must be 4-20 alphanumeric characters", errors.New("invalid promo code charset or length"))
+		return
+	}
+	if req.RewardAmount <= 0 || req.RewardAmount > 100000 {
+		RespondError(w, r, http.StatusBadRequest, "reward_amount must be between 0 and 100000", errors.New("invalid reward amount bounds"))
+		return
+	}
+	if req.MaxUses <= 0 || req.MaxUses > 1000000 {
+		RespondError(w, r, http.StatusBadRequest, "max_uses must be between 0 and 1000000", errors.New("invalid max uses bounds"))
+		return
+	}
+
 	var expiresAt *time.Time
 	if req.ExpiresInHours != nil && *req.ExpiresInHours > 0 {
 		exp := time.Now().Add(time.Duration(*req.ExpiresInHours * float64(time.Hour)))
 		expiresAt = &exp
 	}
 
-	err := h.srv.CreatePromoCode(r.Context(), ownerID, req.Code, req.RewardAmount, req.MaxUses, expiresAt, r.RemoteAddr, r.UserAgent())
+	err = h.srv.CreatePromoCode(r.Context(), ownerID, req.Code, req.RewardAmount, req.MaxUses, expiresAt, r.RemoteAddr, r.UserAgent())
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
 		return
@@ -304,15 +315,10 @@ func (h *OwnerHandler) CreatePromo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *OwnerHandler) DeletePromo(w http.ResponseWriter, r *http.Request) {
-	rawUser := r.Context().Value(middleware.UserContextKey)
-	user, _ := rawUser.(map[string]interface{})
-	ownerIDVal, _ := user["id"]
-	var ownerID int64
-	switch v := ownerIDVal.(type) {
-	case int64:
-		ownerID = v
-	case float64:
-		ownerID = int64(v)
+	ownerID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, err.Error(), err)
+		return
 	}
 
 	code := r.URL.Query().Get("code")
@@ -321,7 +327,7 @@ func (h *OwnerHandler) DeletePromo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.srv.DeletePromoCode(r.Context(), ownerID, code, r.RemoteAddr, r.UserAgent())
+	err = h.srv.DeletePromoCode(r.Context(), ownerID, code, r.RemoteAddr, r.UserAgent())
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
 		return
@@ -343,15 +349,10 @@ func (h *OwnerHandler) ListPromos(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *OwnerHandler) RedeemPromo(w http.ResponseWriter, r *http.Request) {
-	rawUser := r.Context().Value(middleware.UserContextKey)
-	user, _ := rawUser.(map[string]interface{})
-	userIDVal, _ := user["id"]
-	var userID int64
-	switch v := userIDVal.(type) {
-	case int64:
-		userID = v
-	case float64:
-		userID = int64(v)
+	userID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, err.Error(), err)
+		return
 	}
 
 	var req struct {
@@ -368,7 +369,7 @@ func (h *OwnerHandler) RedeemPromo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.srv.RedeemPromoCode(r.Context(), userID, req.Code)
+	err = h.srv.RedeemPromoCode(r.Context(), userID, req.Code)
 	if err != nil {
 		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
 		return
@@ -380,4 +381,3 @@ func (h *OwnerHandler) RedeemPromo(w http.ResponseWriter, r *http.Request) {
 		"message": "Promo code redeemed successfully! Check your FRG balance.",
 	})
 }
-

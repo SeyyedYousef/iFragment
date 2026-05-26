@@ -2,10 +2,13 @@ package middleware
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"strings"
+
+	"ifragment-backend/internal/repository"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -15,6 +18,36 @@ type JWTClaims struct {
 	Username string `json:"username"`
 	Role     string `json:"role,omitempty"`
 	jwt.RegisteredClaims
+}
+
+var ownerRepo *repository.OwnerRepo
+
+// InitAuthMiddleware initializes the repository used by AuthMiddleware for revocation checks
+func InitAuthMiddleware(repo *repository.OwnerRepo) {
+	ownerRepo = repo
+}
+
+// GetUserID parses user ID from request context safely
+func GetUserID(ctx context.Context) (int64, error) {
+	raw := ctx.Value(UserContextKey)
+	if raw == nil {
+		return 0, errors.New("unauthorized: missing user context")
+	}
+	if user, ok := raw.(map[string]interface{}); ok {
+		if idVal, ok := user["id"]; ok {
+			switch v := idVal.(type) {
+			case int64:
+				return v, nil
+			case float64:
+				return int64(v), nil
+			case int:
+				return int64(v), nil
+			default:
+				return 0, fmt.Errorf("invalid user id type: %T", idVal)
+			}
+		}
+	}
+	return 0, errors.New("unauthorized: invalid user context format")
 }
 
 // AuthMiddleware validates JWT and sets UserContextKey
@@ -46,6 +79,16 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		if claims, ok := token.Claims.(*JWTClaims); ok {
+			// If this is an impersonated token (RegisteredClaims.ID is set to session ID),
+			// verify that the impersonation session is still active in the database (ended_at is NULL).
+			if claims.ID != "" && ownerRepo != nil {
+				sess, sessErr := ownerRepo.GetImpersonationSession(r.Context(), claims.ID)
+				if sessErr != nil || sess == nil || sess.EndedAt != nil {
+					http.Error(w, "Unauthorized: Impersonation session has been revoked or ended", http.StatusUnauthorized)
+					return
+				}
+			}
+
 			user := map[string]interface{}{
 				"id":           claims.UserID,
 				"username":     claims.Username,

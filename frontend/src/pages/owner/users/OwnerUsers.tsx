@@ -278,7 +278,7 @@ export const OwnerUsers: Component = () => {
                           {user.first_name} {user.last_name}
                         </span>
                         <Show when={user.is_premium}>
-                          <span class="px-2 py-0.5 rounded bg-gradient-to-r from-purple-500/20 to-indigo-500/20 border border-purple-500/30 text-[8px] font-black uppercase tracking-wider text-purple-400">
+                          <span class="px-2 py-0.5 rounded bg-gradient-to-r from-teal-500/20 to-cyan-500/20 border border-teal-500/30 text-[8px] font-black uppercase tracking-wider text-teal-400">
                             Premium
                           </span>
                         </Show>

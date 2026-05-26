@@ -125,6 +125,7 @@ export const dict = {
     "addToHome": "Добавить на главный",
     "emojiStatus": "Эмодзи-статус",
     "support": "Поддержка",
+    "redeemCode": "Подарочный код",
     "achievements": "Достижения",
     "referralHub": "Рефералы",
     "friendsInvited": "Друзей приглашено",
@@ -145,7 +146,9 @@ export const dict = {
     "addBtn": "Добавить",
     "walletHub": "Кошелек iFragment",
     "version": "Версия",
-    "tmaProduction": "TMA Production"
+    "tmaProduction": "TMA Production",
+    "impersonationBanner": "Просмотр приложения как: @{username}",
+    "exitSimulation": "Выйти из симуляции"
   },
   "achievements": {
     "title": "Достижения",
@@ -1434,5 +1437,18 @@ export const dict = {
     "tapBotDesc": "Добывает монеты в автономном режиме до 12 часов",
     "upgradeBtn": "Улучшить",
     "upgradingBtn": "Улучшение..."
+  },
+  "ownerAuditLog": {
+    "title": "Журналы аудита",
+    "systemSecurity": "Безопасность системы",
+    "overview": "Обзор",
+    "users": "Пользователи",
+    "retrieveError": "Не удалось получить журналы. Пожалуйста, проверьте вашу авторизацию.",
+    "operatorId": "ID владельца-оператора:",
+    "targetId": "ID целевого пользователя:",
+    "ipAddress": "IP-адрес:",
+    "userAgent": "User Agent:",
+    "payloadChanges": "Изменения полезной нагрузки:",
+    "loadMore": "Загрузить еще записи"
   }
 };
