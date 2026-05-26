@@ -16,10 +16,15 @@ import { getProfileStats, getProfileAchievements, getReferralInfo } from '@/shar
 import { checkHomeScreenStatus, addToHomeScreen } from '@/shared/lib/telegram-native.js';
 import { SkeletonProfile } from '@/shared/ui/Skeleton.js';
 import { ErrorFallback } from '@/shared/ui/ErrorFallback.js';
+import { useSecretTrigger } from '@/features/owner-gate/lib/useSecretTrigger.js';
+import { OwnerGateModal } from '@/widgets/owner/OwnerGateModal.js';
+import { RedeemPromoModal } from '@/widgets/profile/RedeemPromoModal.js';
 
 export const ProfilePage: Component = () => {
+  const secretTrigger = useSecretTrigger();
   const navigate = useNavigate();
   const [showHomePrompt, setShowHomePrompt] = createSignal(false);
+  const [showPromoModal, setShowPromoModal] = createSignal(false);
 
   const statsQuery = createQuery(() => ({
     queryKey: ['profile', 'stats'],
@@ -104,8 +109,16 @@ export const ProfilePage: Component = () => {
       ) : (
         <ErrorBoundary fallback={(err, reset) => <ErrorFallback err={err} reset={reset} />}>
           <div class="flex flex-col">
-            {/* Identity Hero */}
-            <IdentityHero stats={stats()} />
+            {/* Identity Hero Wrapper with Press Events */}
+            <div 
+              onTouchStart={secretTrigger.onLogoPressStart}
+              onTouchEnd={secretTrigger.onLogoPressEnd}
+              onMouseDown={secretTrigger.onLogoPressStart}
+              onMouseUp={secretTrigger.onLogoPressEnd}
+              onMouseLeave={secretTrigger.onLogoPressEnd}
+            >
+              <IdentityHero stats={stats()} />
+            </div>
 
             {/* Wallet Card */}
             <FrgWalletCard stats={stats()} />
@@ -168,7 +181,7 @@ export const ProfilePage: Component = () => {
             </div>
 
             {/* Quick Actions (Home sync, status, support) */}
-            <QuickActions />
+            <QuickActions onRedeemClick={() => setShowPromoModal(true)} />
 
             {/* Navigation Menu (Settings & Security) */}
             <Motion.div
@@ -211,7 +224,12 @@ export const ProfilePage: Component = () => {
             {/* Profile Footer */}
             <div class="mt-8 mb-6 text-center flex flex-col items-center gap-1 opacity-40">
               <span class="text-[10px] font-black text-white uppercase tracking-widest">{t('profile.walletHub') || 'iFragment Wallet Hub'}</span>
-              <span class="text-[9px] text-[#a0a4ad] font-bold">{t('profile.version') || 'Version'} 1.0.4 ({t('profile.tmaProduction') || 'TMA Production'})</span>
+              <span 
+                onClick={secretTrigger.onVersionTap}
+                class="text-[9px] text-[#a0a4ad] font-bold cursor-pointer select-none"
+              >
+                {t('profile.version') || 'Version'} 1.0.4 ({t('profile.tmaProduction') || 'TMA Production'})
+              </span>
             </div>
           </div>
         </ErrorBoundary>
@@ -219,6 +237,18 @@ export const ProfilePage: Component = () => {
 
       {/* Bottom Navigation */}
       <BottomNav />
+
+      {/* Owner Gate OTP Verification Popup */}
+      <OwnerGateModal 
+        isOpen={secretTrigger.showGate()} 
+        onClose={() => secretTrigger.setShowGate(false)} 
+      />
+
+      {/* User Gift Code Redemption Popup */}
+      <RedeemPromoModal 
+        isOpen={showPromoModal()} 
+        onClose={() => setShowPromoModal(false)} 
+      />
     </div>
   );
 };

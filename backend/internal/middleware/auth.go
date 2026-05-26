@@ -13,6 +13,7 @@ import (
 type JWTClaims struct {
 	UserID   int64  `json:"uid"`
 	Username string `json:"username"`
+	Role     string `json:"role,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -46,8 +47,10 @@ func AuthMiddleware(next http.Handler) http.Handler {
 
 		if claims, ok := token.Claims.(*JWTClaims); ok {
 			user := map[string]interface{}{
-				"id":       claims.UserID,
-				"username": claims.Username,
+				"id":           claims.UserID,
+				"username":     claims.Username,
+				"role":         claims.Role,
+				"impersonated": claims.ID != "", // If ID exists, this is an impersonation session
 			}
 			ctx := context.WithValue(r.Context(), UserContextKey, user)
 			next.ServeHTTP(w, r.WithContext(ctx))
@@ -57,3 +60,4 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		http.Error(w, "Unauthorized: Invalid claims", http.StatusUnauthorized)
 	})
 }
+

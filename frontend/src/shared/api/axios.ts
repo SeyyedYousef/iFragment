@@ -13,8 +13,9 @@ export const apiClient: AxiosInstance = axios.create({
 // Request Interceptor
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    // Attempt to retrieve a valid JWT token
-    const token = localStorage.getItem('jwt_token');
+    // Attempt to retrieve a valid JWT token (Prefer impersonation session token if active)
+    const impersonationToken = localStorage.getItem('owner_impersonation_token');
+    const token = impersonationToken || localStorage.getItem('jwt_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

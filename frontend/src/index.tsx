@@ -33,9 +33,17 @@ async function startApp() {
     if (!isTelegram && import.meta.env.DEV) {
       mockTelegramEnv({
         launchParams: new URLSearchParams([
-          ['tgWebAppData', 'dev-user'],
+          ['tgWebAppData', 'query_id=AAHdJuE0AAAAAN0i4TR&user=' + encodeURIComponent(JSON.stringify({
+            id: 12345,
+            first_name: 'Test',
+            last_name: 'User',
+            username: 'testuser',
+            language_code: 'en',
+            is_premium: true,
+          })) + '&auth_date=1716674690&hash=e8248c8b417e2e31ef78f0b72a0834ba7d8cf1f1a511394f71a4f7e2739fa41c'],
           ['tgWebAppThemeParams', JSON.stringify({ bg_color: '#0f1014', text_color: '#ffffff' })],
           ['tgWebAppPlatform', 'tdesktop'],
+          ['tgWebAppVersion', '7.0'],
         ]),
       });
       console.info('TMA Mock Environment active');

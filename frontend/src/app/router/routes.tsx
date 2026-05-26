@@ -42,6 +42,10 @@ const ConnectChannelPage = lazy(() => import('@/pages/channel/connect-channel/in
 const CollectionStatsPage = lazy(() => import('@/pages/username/collection-stats/index.js').then(m => ({ default: m.CollectionStatsPage })));
 const PremiumReportPage = lazy(() => import('@/pages/username/premium-report/index.js').then(m => ({ default: m.PremiumReportPage })));
 
+const OwnerDashboardPage = lazy(() => import('@/pages/owner/dashboard/index.js').then(m => ({ default: m.OwnerDashboardPage })));
+const OwnerUsersPage = lazy(() => import('@/pages/owner/users/index.js').then(m => ({ default: m.OwnerUsersPage })));
+const OwnerAuditLogPage = lazy(() => import('@/pages/owner/audit-log/index.js').then(m => ({ default: m.OwnerAuditLogPage })));
+
 interface Route {
   path: string;
   Component: Component;
@@ -85,4 +89,7 @@ export const routes: Route[] = [
   { path: '/channel/:id/auto-responder', Component: ChannelAutoResponderPage },
   { path: '/channel/:id/audit-log', Component: ChannelAuditLogPage },
   { path: '/marketplace', Component: MarketplacePage },
+  { path: '/owner/dashboard', Component: OwnerDashboardPage },
+  { path: '/owner/users', Component: OwnerUsersPage },
+  { path: '/owner/audit-logs', Component: OwnerAuditLogPage },
 ];

@@ -4,6 +4,7 @@ import * as Sentry from '@sentry/browser';
 import { t } from '@/shared/i18n/index.js';
 
 import { routes } from '@/app/router/routes.js';
+import { ImpersonationBanner } from '@/widgets/owner/ImpersonationBanner.js';
 
 const PageErrorFallback = (err: any, reset: () => void) => {
   Sentry.captureException(err);
@@ -37,6 +38,7 @@ export function App() {
               path={route.path} 
               component={(props) => (
                 <ErrorBoundary fallback={(err, reset) => PageErrorFallback(err, reset)}>
+                  <ImpersonationBanner />
                   <route.Component {...(props as any)} />
                 </ErrorBoundary>
               )}

@@ -7,7 +7,11 @@ import {
   openTelegramLink 
 } from '@/shared/lib/telegram-native.js';
 
-export const QuickActions: Component = () => {
+interface QuickActionsProps {
+  onRedeemClick?: () => void;
+}
+
+export const QuickActions: Component<QuickActionsProps> = (props) => {
 
   const actions = [
     {
@@ -18,6 +22,16 @@ export const QuickActions: Component = () => {
       onClick: () => {
         haptic.impact('light');
         addToHomeScreen();
+      }
+    },
+    {
+      id: 'redeem_promo',
+      icon: 'redeem',
+      color: '#ffcc00',
+      label: t('profile.redeemCode') || 'Gift Code',
+      onClick: () => {
+        haptic.impact('light');
+        if (props.onRedeemClick) props.onRedeemClick();
       }
     },
     {
@@ -34,15 +48,15 @@ export const QuickActions: Component = () => {
 
   return (
     <Motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-      class="mx-6 mt-4 grid grid-cols-2 gap-3">
+      class="mx-6 mt-4 grid grid-cols-3 gap-2">
       <For each={actions}>
         {(action) => (
           <button
             onClick={action.onClick}
-            class="bg-[#1c1c1c] rounded-2xl p-3 border border-[#2a2a2a] flex flex-col items-center gap-1.5 hover:bg-[#2a2a2a] transition-colors active:scale-95"
+            class="bg-[#1c1c1c] rounded-2xl p-3 border border-[#2a2a2a] flex flex-col items-center justify-center gap-1.5 hover:bg-[#2a2a2a] transition-colors active:scale-95 min-h-[72px]"
           >
             <span class="material-symbols-outlined text-[20px]" style={{ color: action.color, 'font-variation-settings': '"FILL" 1' }}>{action.icon}</span>
-            <span class="text-[#a0a4ad] text-[10px] font-bold text-center leading-tight">{action.label}</span>
+            <span class="text-[#a0a4ad] text-[9px] font-bold text-center leading-tight">{action.label}</span>
           </button>
         )}
       </For>

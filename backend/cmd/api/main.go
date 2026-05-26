@@ -229,8 +229,15 @@ func main() {
 
 	authHandler := handler.NewAuthHandler()
 
+	// Initialize Owner components
+	ownerRepo := repository.NewOwnerRepo(db)
+	ownerService := service.NewOwnerService(ownerRepo, frgRepo)
+	ownerHandler := handler.NewOwnerHandler(ownerService)
+
 	// Public Routes
 	r.Route("/api/v1", func(r chi.Router) {
+		r.Use(middleware.BlockImpersonatedWrites)
+		r.Use(middleware.UserBanCheckMiddleware(ownerRepo))
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			w.Write([]byte(`{"status": "ok"}`))
@@ -410,6 +417,32 @@ func main() {
 			r.Post("/clan/leave", clanHandler.LeaveClan)
 			r.Get("/clan/top", clanHandler.GetTopClans)
 			r.Get("/clans/top", clanHandler.GetTopClans)
+
+			// Promo Code redemption
+			r.Post("/promo/redeem", ownerHandler.RedeemPromo)
+		})
+
+		// ─── Owner Panel APIs ───────────────────────────
+		r.Route("/owner", func(r chi.Router) {
+			r.Post("/auth/totp", ownerHandler.Login)
+
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.AuthMiddleware)
+				r.Use(middleware.ValidateOwnerAdmin)
+
+				r.Get("/dashboard/stats", ownerHandler.GetStats)
+				r.Get("/users/search", ownerHandler.SearchUsers)
+				r.Post("/users/adjust-frg", ownerHandler.AdjustFrg)
+				r.Post("/users/impersonate", ownerHandler.Impersonate)
+				r.Post("/users/ban", ownerHandler.BanUser)
+				r.Post("/users/unban", ownerHandler.UnbanUser)
+				r.Get("/audit-logs", ownerHandler.GetAuditLogs)
+
+				// Promo Code management
+				r.Post("/promos", ownerHandler.CreatePromo)
+				r.Delete("/promos", ownerHandler.DeletePromo)
+				r.Get("/promos", ownerHandler.ListPromos)
+			})
 		})
 	})
 
