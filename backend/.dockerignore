@@ -1,0 +1,29 @@
+# Build artifacts
+*.exe
+tmp_*
+api.exe
+api_check.exe
+coverage.out
+
+# Environment files (NEVER send secrets to Docker build context)
+.env
+.env.*
+!.env.example
+
+# IDE and OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Git
+.git/
+.gitignore
+
+# Tests (not needed in production image)
+tests/
+*_test.go
+
+# Documentation
+*.md
