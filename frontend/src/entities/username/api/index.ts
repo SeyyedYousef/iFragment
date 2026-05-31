@@ -124,7 +124,7 @@ export const useUsernameQuickAnalysis = (username: () => string) => {
 
   return createQuery(() => ({
     queryKey: ['username', 'quick', debouncedUsername()],
-    queryFn: () => apiFetch<QuickCheck>(`/usernames/quick?u=${debouncedUsername()}`),
+    queryFn: () => apiFetch<QuickCheck>(`/usernames/quick?u=${encodeURIComponent(debouncedUsername())}`),
     enabled: !!debouncedUsername() && debouncedUsername().length >= 4,
     staleTime: 3 * 60 * 1000, // 3 minutes
   }));
@@ -135,7 +135,7 @@ export const useUsernameQuickAnalysis = (username: () => string) => {
 export const usePremiumReport = (username: () => string) => {
   return createQuery(() => ({
     queryKey: ['username', 'report', username()],
-    queryFn: () => apiFetch<PremiumReport>(`/usernames/report/view?u=${username()}`),
+    queryFn: () => apiFetch<PremiumReport>(`/usernames/report/view?u=${encodeURIComponent(username())}`),
     enabled: !!username(),
     staleTime: 24 * 60 * 60 * 1000, // 24 hours
   }));

@@ -45,7 +45,6 @@ export const CollectionStatsPage: Component = () => {
   };
 
   const marketCap = () => metric('totalSupply') * metric('floorPrice');
-  const burnedTon = () => metric('totalSupply') * 5;
   const distribution = () => stats.data?.distribution;
   const topHolders = () => stats.data?.top_holders || [];
   const topSales = () => stats.data?.top_sales || [];
@@ -105,7 +104,6 @@ export const CollectionStatsPage: Component = () => {
           <Row label={t('action.username.holders')} value={metric('holders').toLocaleString()} />
           <Row label={t('action.username.listedRatio')} value={`${(metric('listedRatio') * 100).toFixed(2)}%`} accent="text-[#3390ec]" />
           <Row label={t('action.username.totalSales')} value={metric('salesCount').toLocaleString()} />
-          <Row label={t('action.username.burnedTon')} value={`${burnedTon().toLocaleString()} TON`} accent="text-orange-500" />
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -123,9 +121,9 @@ export const CollectionStatsPage: Component = () => {
             icon="military_tech"
             accent="text-[#34c759]"
             empty="No sale leaderboard data available yet."
-            hasData={topSales().length > 0 || metric('highestSale') > 0}
+            hasData={topSales().length > 0}
           >
-            <For each={(topSales().length > 0 ? topSales() : [{ username: 'highest_sale', price: metric('highestSale'), date: '' }]).slice(0, 5)}>
+            <For each={topSales().slice(0, 5)}>
               {(sale) => (
                 <div class="flex items-center justify-between p-3 rounded-2xl bg-[#1c1c1c] border border-[#2a2a2a]">
                   <span class="text-sm font-black text-white">{sale.username.startsWith('@') ? sale.username : `@${sale.username}`}</span>

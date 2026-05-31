@@ -3,6 +3,7 @@ package fragment
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -63,7 +64,10 @@ func (c *Client) CheckUsername(ctx context.Context, username string) (Status, er
 func (c *Client) checkInternal(ctx context.Context, username string) (Status, error) {
 	url := fmt.Sprintf("%s/username/%s", c.BaseURL, username)
 	
-	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return StatusUnknown, err
+	}
 	// Important: Use a browser-like User-Agent to avoid being blocked
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
@@ -107,5 +111,21 @@ func (c *Client) checkInternal(ctx context.Context, username string) (Status, er
 		return StatusSold, nil
 	}
 
+	// If we get here on an HTTP 200, the scraper could not parse any known DOM selectors.
+	// This might indicate a change in Fragment's UI layout, which is highly critical to log.
+	slog.Warn("Fragment scraper failed to determine status from DOM selectors on valid HTTP response", 
+		"username", username, 
+		"status_code", resp.StatusCode,
+		"html_preview", truncateString(doc.Text(), 200),
+	)
+
 	return StatusUnknown, nil // Default to unknown if we see it exists but no status matches
+}
+
+func truncateString(s string, maxLen int) string {
+	cleaned := strings.Join(strings.Fields(s), " ")
+	if len(cleaned) <= maxLen {
+		return cleaned
+	}
+	return cleaned[:maxLen] + "..."
 }

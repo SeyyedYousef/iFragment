@@ -636,14 +636,8 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 			}
 			// If we don't have sales from marketapp/fragment, map them from transfers
 			if len(report.PastSales) == 0 {
-				for _, tr := range transfers.Transfers {
-					report.PastSales = append(report.PastSales, marketapp.SaleRecord{
-						Price: 0.0,
-						Date:  time.Unix(tr.Timestamp, 0).Format(time.RFC3339),
-						From:  tr.From.Address,
-						To:    tr.To.Address,
-					})
-				}
+				// We omit mapping pure transfers to PastSales as sales because they have no price,
+				// avoiding skewing average/median prices in the analytics.
 			}
 			mu.Unlock()
 		}

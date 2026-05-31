@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/sync/singleflight"
@@ -24,6 +25,7 @@ type UsernameHandler struct {
 	mtprotoClient  mtproto.Client
 	cache          *repository.Cache
 	sfGroup        singleflight.Group
+	activeStreams  atomic.Int64
 }
 
 func NewUsernameHandler(
@@ -65,7 +67,7 @@ func (h *UsernameHandler) CheckAvailability(w http.ResponseWriter, r *http.Reque
 
 	// Rate Limiting
 	if h.cache != nil {
-		ip := r.RemoteAddr
+		ip := ClientIP(r)
 		rlKey := "rate_limit:check:" + ip
 		count, _ := h.cache.Client.Incr(ctx, rlKey).Result()
 		if count == 1 {
@@ -175,7 +177,7 @@ func (h *UsernameHandler) QuickAnalysis(w http.ResponseWriter, r *http.Request) 
 
 	// Rate limit
 	if h.cache != nil {
-		ip := r.RemoteAddr
+		ip := ClientIP(r)
 		rlKey := "rate_limit:quick:" + ip
 		count, _ := h.cache.Client.Incr(ctx, rlKey).Result()
 		if count == 1 {
@@ -275,6 +277,30 @@ func (h *UsernameHandler) StreamQuickAnalysis(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	ctx := r.Context()
+
+	// Rate limit check for stream creation
+	if h.cache != nil {
+		ip := ClientIP(r)
+		rlKey := "rate_limit:stream:" + ip
+		count, _ := h.cache.Client.Incr(ctx, rlKey).Result()
+		if count == 1 {
+			h.cache.Client.Expire(ctx, rlKey, time.Minute)
+		}
+		if count > 10 {
+			RespondError(w, r, http.StatusTooManyRequests, "Too many streaming requests. Please try again later.", nil)
+			return
+		}
+	}
+
+	// Concurrent connections limit
+	if h.activeStreams.Load() >= 500 {
+		RespondError(w, r, http.StatusServiceUnavailable, "stream capacity reached", nil)
+		return
+	}
+	h.activeStreams.Add(1)
+	defer h.activeStreams.Add(-1)
+
 	// Set headers for Server-Sent Events
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -286,7 +312,10 @@ func (h *UsernameHandler) StreamQuickAnalysis(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	ctx := r.Context()
+	// Cap total connection lifetime to 5 minutes to prevent zombie leaks
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 

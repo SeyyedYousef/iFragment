@@ -1,4 +1,4 @@
-import { Component, createSignal, createResource, createEffect, onCleanup, onMount, Show, For } from 'solid-js';
+import { Component, createSignal, createResource, createMemo, createEffect, onCleanup, onMount, Show, For } from 'solid-js';
 import { useParams, useNavigate } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Motion } from '@motionone/solid';
