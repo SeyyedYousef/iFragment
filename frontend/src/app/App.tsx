@@ -68,10 +68,18 @@ const DeepLinkHandler = () => {
   return null;
 };
 
+const AppLayout = (props: { children?: any }) => {
+  return (
+    <>
+      <DeepLinkHandler />
+      {props.children}
+    </>
+  );
+};
+
 export function App() {
   return (
-    <HashRouter>
-      <DeepLinkHandler />
+    <HashRouter root={AppLayout}>
       <For each={routes}>
         {(route) => (
           <Route path={route.path} component={(props) => <RouteWrapper component={route.Component} {...props} />} />
