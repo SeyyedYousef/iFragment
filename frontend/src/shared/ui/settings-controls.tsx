@@ -56,9 +56,9 @@ export const SelectField: Component<{
             isRtl() ? 'pr-4 pl-10 text-right' : 'pl-4 pr-10 text-left'
           }`}
         >
-          {props.options.map((opt) => (
-            <option value={opt.value}>{opt.label}</option>
-          ))}
+          <For each={props.options}>
+            {(opt) => <option value={opt.value}>{opt.label}</option>}
+          </For>
         </select>
         <span class={`material-symbols-outlined absolute top-1/2 -translate-y-1/2 text-[#a0a4ad] pointer-events-none ${
           isRtl() ? 'left-3' : 'right-3'

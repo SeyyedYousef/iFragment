@@ -1,11 +1,11 @@
-import { Component, createSignal, createResource, createEffect, onCleanup, onMount, Show } from 'solid-js';
+import { Component, createSignal, createEffect, onCleanup, onMount, Show, For } from 'solid-js';
 import { useParams, useNavigate } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Motion } from '@motionone/solid';
 import { t } from '@/shared/i18n/index.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SelectField, ToggleSwitch, SettingsSection } from '@/shared/ui/settings-controls.js';
-import { channelApi } from '@/shared/api/channel-management.js';
+import { useChannelSettings, useUpdateChannelSettings } from '@/shared/api/queries.js';
 
 export const ChannelDynamicBioPage: Component = () => {
   const params = useParams();
@@ -27,13 +27,11 @@ export const ChannelDynamicBioPage: Component = () => {
   const [countdownLocation, setCountdownLocation] = createSignal('bio'); // bio, name, both
   const [postExpiryText, setPostExpiryText] = createSignal('');
 
-  const [settings] = createResource(
-    () => params.id,
-    (id) => channelApi.getSettings(id)
-  );
+  const settingsQuery = useChannelSettings(() => params.id!);
+  const updateSettingsMutation = useUpdateChannelSettings(() => params.id!);
 
   createEffect(() => {
-    const data = settings();
+    const data = settingsQuery.data;
     if (data) {
       try {
         let dbio = data.dynamic_bio;
@@ -75,7 +73,7 @@ export const ChannelDynamicBioPage: Component = () => {
     hapticFeedback.notificationOccurred('success');
     setIsSaving(true);
     
-    const currentVersion = settings()?.version ?? 1;
+    const currentVersion = settingsQuery.data?.version ?? 1;
     const payload = {
       enabled: enabled(),
       bioTemplate: bioTemplate(),
@@ -90,7 +88,11 @@ export const ChannelDynamicBioPage: Component = () => {
     };
 
     try {
-      await channelApi.updateSettings(params.id, 'dynamic_bio', payload, currentVersion);
+      await updateSettingsMutation.mutateAsync({
+        category: 'dynamic_bio',
+        data: payload,
+        version: currentVersion,
+      });
       navigate(`/channel/${params.id}`);
     } catch (e) {
       console.error("Failed to save dynamic bio settings:", e);
@@ -126,7 +128,32 @@ export const ChannelDynamicBioPage: Component = () => {
       <ChannelHamburgerMenu isOpen={isMenuOpen()} onClose={() => setIsMenuOpen(false)} channelId={params.id} activeTab="dynamic-bio" />
 
       <div class="px-5 pt-6 flex flex-col gap-6">
-        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-4">
+        <Show when={settingsQuery.isLoading}>
+          <div class="flex flex-col gap-4 animate-pulse">
+            <div class="h-40 bg-[#1c1c1c] rounded-3xl"></div>
+            <div class="h-32 bg-[#1c1c1c] rounded-3xl"></div>
+            <div class="h-24 bg-[#1c1c1c] rounded-3xl"></div>
+          </div>
+        </Show>
+
+        <Show when={settingsQuery.isError}>
+          <div class="bg-[#1c1c1c] rounded-3xl border border-[#ff3b30]/30 p-6 flex flex-col gap-4 items-center text-center">
+            <span class="material-symbols-outlined text-[48px] text-[#ff3b30]">error</span>
+            <div class="flex flex-col gap-1">
+              <span class="text-[16px] font-bold text-white">Failed to Load Settings</span>
+              <span class="text-[12px] text-[#8e8e93]">Please check your internet connection and try again.</span>
+            </div>
+            <button 
+              onClick={() => settingsQuery.refetch()}
+              class="px-5 py-2.5 bg-[#32ade6] hover:bg-[#2b96c8] text-black rounded-xl font-bold text-[14px]"
+            >
+              Retry
+            </button>
+          </div>
+        </Show>
+
+        <Show when={settingsQuery.data}>
+          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-4">
           <div class="flex items-center justify-between gap-3">
             <div class="flex flex-col flex-1 min-w-0">
               <span class="text-[15px] font-bold text-white">{t('channelDynamicBio.title') || 'Dynamic Bio & Name'}</span>
@@ -182,20 +209,22 @@ export const ChannelDynamicBioPage: Component = () => {
             <div class="mt-2 flex flex-col gap-2">
                <span class="text-[13px] font-bold text-white">{t('channelDynamicBio.variables') || 'Available Tags'}</span>
                <div class="flex flex-wrap gap-2">
-                 {variables.map(v => (
-                   <button 
-                     onClick={() => {
-                        hapticFeedback.impactOccurred('light');
-                        if (bioTemplate().length + v.tag.length <= 255) {
-                          setBioTemplate(bioTemplate() + ' ' + v.tag);
-                        }
-                     }}
-                     class="bg-[#2c2c2e] hover:bg-[#3a3a3c] transition-colors border border-[#3a3a3c] rounded-lg px-2.5 py-1.5 flex flex-col items-start"
-                   >
-                     <span class="text-[12px] font-bold text-[#32ade6]">{v.tag}</span>
-                     <span class="text-[10px] text-on-surface-variant">{v.desc}</span>
-                   </button>
-                 ))}
+                 <For each={variables}>
+                   {(v) => (
+                     <button 
+                       onClick={() => {
+                          hapticFeedback.impactOccurred('light');
+                          if (bioTemplate().length + v.tag.length <= 255) {
+                            setBioTemplate(bioTemplate() + ' ' + v.tag);
+                          }
+                       }}
+                       class="bg-[#2c2c2e] hover:bg-[#3a3a3c] transition-colors border border-[#3a3a3c] rounded-lg px-2.5 py-1.5 flex flex-col items-start"
+                     >
+                       <span class="text-[12px] font-bold text-[#32ade6]">{v.tag}</span>
+                       <span class="text-[10px] text-on-surface-variant">{v.desc}</span>
+                     </button>
+                   )}
+                 </For>
                </div>
             </div>
 
@@ -302,7 +331,8 @@ export const ChannelDynamicBioPage: Component = () => {
              </div>
           </Motion.div>
         </Show>
-      </div>
+      </Show>
+    </div>
 
       {/* Save Button */}
       <div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#0f1014] via-[#0f1014]/90 to-transparent z-40 flex">

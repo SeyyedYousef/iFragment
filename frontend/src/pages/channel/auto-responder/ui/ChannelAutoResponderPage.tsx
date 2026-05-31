@@ -1,4 +1,4 @@
-import { Component, createSignal, createResource, createEffect, onCleanup, onMount, Show, For } from 'solid-js';
+import { Component, createSignal, createResource, createEffect, createMemo, onCleanup, onMount, Show, For } from 'solid-js';
 import { useParams, useNavigate } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Motion } from '@motionone/solid';
@@ -34,7 +34,6 @@ export const ChannelAutoResponderPage: Component = () => {
   const [welcomeDelay, setWelcomeDelay] = createSignal('0');
   const [welcomeText, setWelcomeText] = createSignal('');
 
-  const [isDirty, setIsDirty] = createSignal(false);
   const [isSaving, setIsSaving] = createSignal(false);
 
   const [settings] = createResource(
@@ -68,26 +67,38 @@ export const ChannelAutoResponderPage: Component = () => {
     }
   });
 
-  // Auto-detect dirty state on user change (ignoring initial load)
-  let isInitialized = false;
-  createEffect(() => {
-    autoFirstComment();
-    commentMode();
-    fixedComment();
-    rotatingTexts();
-    attachButton();
-    newMemberWelcome();
-    welcomeDelay();
-    welcomeText();
-    rules();
+  const isDirty = createMemo(() => {
+    const data = settings();
+    if (!data) return false;
 
-    if (!settings.loading) {
-      if (!isInitialized) {
-        isInitialized = true;
-      } else {
-        setIsDirty(true);
-      }
-    }
+    let originalAR: any = {};
+    try {
+      originalAR = typeof data.auto_responder === 'string' ? JSON.parse(data.auto_responder) : data.auto_responder;
+    } catch (e) { originalAR = {}; }
+
+    const currentPayload = {
+      autoFirstComment: autoFirstComment(),
+      commentMode: commentMode(),
+      fixedComment: fixedComment(),
+      rotatingTexts: rotatingTexts(),
+      attachButton: attachButton(),
+      newMemberWelcome: newMemberWelcome(),
+      welcomeDelay: welcomeDelay(),
+      welcomeText: welcomeText(),
+      rules: rules(),
+    };
+
+    return JSON.stringify(currentPayload) !== JSON.stringify({
+      autoFirstComment: !!originalAR?.autoFirstComment,
+      commentMode: originalAR?.commentMode || 'fixed',
+      fixedComment: originalAR?.fixedComment || '',
+      rotatingTexts: originalAR?.rotatingTexts || [],
+      attachButton: originalAR?.attachButton || '',
+      newMemberWelcome: !!originalAR?.newMemberWelcome,
+      welcomeDelay: originalAR?.welcomeDelay || '0',
+      welcomeText: originalAR?.welcomeText || '',
+      rules: originalAR?.rules || [],
+    });
   });
 
   const getLocalizedMatch = (match: string) => {
@@ -105,7 +116,6 @@ export const ChannelAutoResponderPage: Component = () => {
       setKeywords('');
       setReplyText('');
       setUseAi(false);
-      setIsDirty(true);
     }
   };
 
@@ -114,14 +124,12 @@ export const ChannelAutoResponderPage: Component = () => {
       hapticFeedback.impactOccurred('light');
       setRotatingTexts([...rotatingTexts(), newRotatingText().trim()]);
       setNewRotatingText('');
-      setIsDirty(true);
     }
   };
 
   const handleRemoveRotatingText = (idx: number) => {
     hapticFeedback.impactOccurred('light');
     setRotatingTexts(rotatingTexts().filter((_, i) => i !== idx));
-    setIsDirty(true);
   };
 
   const handleSave = async () => {
@@ -143,7 +151,6 @@ export const ChannelAutoResponderPage: Component = () => {
 
     try {
       await channelApi.updateSettings(params.id, 'auto_responder', payload, currentVersion);
-      setIsDirty(false);
       navigate(`/channel/${params.id}`);
     } catch (e) {
       console.error("Failed to save auto responder settings:", e);

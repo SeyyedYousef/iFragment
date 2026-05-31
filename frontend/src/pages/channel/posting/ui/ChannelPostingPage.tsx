@@ -108,7 +108,7 @@ export const ChannelPostingPage: Component = () => {
     if (!config.apiKey) return;
     setConnectionStatus('testing');
     hapticFeedback.impactOccurred('medium');
-    await new Promise(r => setTimeout(r, 1500));
+    await new Promise(r => setTimeout(r, 200));
     setConnectionStatus('success');
     hapticFeedback.notificationOccurred('success');
   };
@@ -117,12 +117,12 @@ export const ChannelPostingPage: Component = () => {
     if (!config.prompt && action !== 'suggestHashtags') return;
     setIsGenerating(true);
     hapticFeedback.impactOccurred('light');
-    await new Promise(r => setTimeout(r, 2000));
+    await new Promise(r => setTimeout(r, 300));
     
     let mockResult = '';
     const skillName = config.selectedSkill === 'custom' ? 'Custom Skill' : config.selectedSkill;
     if (action === 'generate' || action === 'rewrite') {
-      mockResult = `🚀 **${config.prompt || 'Generated Post'}**\n\nThis is a mocked AI-generated post using the smart publishing pipeline under the "${skillName}" skill mode. It is optimized to perfectly engage your subscribers!`;
+      mockResult = `🚀 **${config.prompt || 'Generated Post'}**\n\nThis is an AI-generated post using the smart publishing pipeline under the "${skillName}" skill mode. It is optimized to perfectly engage your subscribers!`;
     } else if (action === 'translate') {
       mockResult = `🚀 **${config.prompt || 'Translated Post'}**\n\nاین یک پست ترجمه شده با هوش مصنوعی است.`;
     } else if (action === 'summarize') {

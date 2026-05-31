@@ -1,7 +1,8 @@
-import { Navigate, Route, HashRouter } from '@solidjs/router';
-import { For, Suspense, ErrorBoundary } from 'solid-js';
+import { Navigate, Route, HashRouter, useNavigate } from '@solidjs/router';
+import { For, Suspense, ErrorBoundary, createEffect } from 'solid-js';
 import * as Sentry from '@sentry/browser';
 import { t } from '@/shared/i18n/index.js';
+import { retrieveLaunchParams } from '@tma.js/sdk-solid';
 
 import { routes } from '@/app/router/routes.js';
 import { ImpersonationBanner } from '@/widgets/owner/ImpersonationBanner.js';
@@ -28,21 +29,53 @@ const PageErrorFallback = (err: any, reset: () => void) => {
   );
 };
 
+const RouteWrapper = (props: { component: any; [key: string]: any }) => {
+  return (
+    <ErrorBoundary fallback={(err, reset) => PageErrorFallback(err, reset)}>
+      <Suspense fallback={<div class="min-h-screen bg-[#0f1014] flex items-center justify-center"><div class="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div></div>}>
+        <ImpersonationBanner />
+        <props.component {...props} />
+      </Suspense>
+    </ErrorBoundary>
+  );
+};
+
+const DeepLinkHandler = () => {
+  const navigate = useNavigate();
+
+  createEffect(() => {
+    try {
+      const launchParams = retrieveLaunchParams();
+      const startParam = launchParams.tgWebAppStartParam;
+      if (startParam) {
+        if (startParam.startsWith('group_')) {
+          const groupId = startParam.substring(6);
+          if (groupId) {
+            navigate(`/group/${groupId}`, { replace: true });
+          }
+        } else if (startParam.startsWith('username_')) {
+          const username = startParam.substring(9);
+          if (username) {
+            navigate(`/username/report?u=${username}`, { replace: true });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[DeepLink] Failed to parse parameters or redirect:', e);
+    }
+  });
+
+  return null;
+};
+
 export function App() {
   return (
     <HashRouter>
+      <DeepLinkHandler />
       <For each={routes}>
-        {(route) => {
-          const RouteComponent = (props: any) => (
-            <ErrorBoundary fallback={(err, reset) => PageErrorFallback(err, reset)}>
-              <Suspense fallback={<div class="min-h-screen bg-[#0f1014] flex items-center justify-center"><div class="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div></div>}>
-                <ImpersonationBanner />
-                <route.Component {...(props as any)} />
-              </Suspense>
-            </ErrorBoundary>
-          );
-          return <Route path={route.path} component={RouteComponent} />;
-        }}
+        {(route) => (
+          <Route path={route.path} component={(props) => <RouteWrapper component={route.Component} {...props} />} />
+        )}
       </For>
       <Route path="*" component={() => <Navigate href="/"/>}/>
     </HashRouter>

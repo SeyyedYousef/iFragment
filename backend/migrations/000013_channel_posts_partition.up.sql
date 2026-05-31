@@ -226,8 +226,7 @@ CREATE TABLE channel_posts_y2031m11 PARTITION OF channel_posts
 
 CREATE TABLE channel_posts_y2031m12 PARTITION OF channel_posts
     FOR VALUES FROM ('2031-12-01 00:00:00+00') TO ('2032-01-01 00:00:00+00');
-
-CREATE TABLE channel_posts_default PARTITION OF channel_posts DEFAULT;
+-- No default partition to prevent locking partition worker creations.
 
 -- 4. Copy data from old table
 INSERT INTO channel_posts (id, channel_id, telegram_message_id, author_user_id, text, has_media, views_count, reactions_count, forwards_count, is_pinned, scheduled_at, posted_at, created_at)

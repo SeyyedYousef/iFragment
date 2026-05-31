@@ -97,28 +97,31 @@ export const channelApi = {
 
       return {
         summary: {
-          total_members: totalMembers || 12500,
-          new_members: newMembers || 145,
-          total_views: totalViews || 45200,
-          engagement_rate: totalMembers > 0 ? Math.round(((newMembers + totalViews) / totalMembers) * 100) || 8.5 : 8.5,
+          total_members: totalMembers,
+          new_members: newMembers,
+          total_views: totalViews,
+          engagement_rate: totalMembers > 0 ? Math.round(((newMembers + totalViews) / totalMembers) * 100) : 0,
           top_posts: [
-            { title: 'Welcome to the channel', views: Math.round(totalViews * 0.4) || 3100 },
-            { title: 'Weekly Updates', views: Math.round(totalViews * 0.3) || 2800 },
+            { title: 'Welcome to the channel', views: Math.round(totalViews * 0.4) },
+            { title: 'Weekly Updates', views: Math.round(totalViews * 0.3) },
           ]
         },
         timeline: list
       };
     }),
 
-  getAuditLogs: (id: string, limit = 50, offset = 0) =>
-    apiClient.get<any[]>(`/channels/${id}/audit`, { params: { limit, offset } }).then((r: any) => {
-      const list = r.data || [];
-      return list.map((l: any) => ({
-        id: l.id,
-        action: l.action,
-        actor_name: l.actor_id === 0 ? 'System' : `User (${l.actor_id})`,
-        created_at: l.created_at
-      }));
+  getAuditLogs: (id: string, limit = 50, cursor?: string) =>
+    apiClient.get<any>(`/channels/${id}/audit`, { params: { limit, cursor } }).then((r: any) => {
+      const list = r.data?.data || [];
+      return {
+        data: list.map((l: any) => ({
+          id: l.id,
+          action: l.action,
+          actor_name: l.actor_id === 0 ? 'System' : `User (${l.actor_id})`,
+          created_at: l.created_at
+        })),
+        nextCursor: r.data?.next_cursor || null
+      };
     }),
 
   // Forwarding Rules CRUD

@@ -121,32 +121,25 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
             >
               {/* Inner Glowing Orb */}
               <div 
-                class="absolute -top-24 w-48 h-48 rounded-full opacity-20 blur-3xl animate-pulse"
-                style={{
-                  background: props.activeTab === 'collectibles' 
-                    ? 'radial-gradient(circle, #ff9500 0%, transparent 70%)'
-                    : 'radial-gradient(circle, #e23b8c 0%, transparent 70%)'
-                }}
+                class={`absolute -top-24 w-48 h-48 rounded-full opacity-20 blur-3xl animate-pulse ${
+                  props.activeTab === 'collectibles' 
+                    ? 'bg-[radial-gradient(circle,_#ff9500_0%,_transparent_70%)]'
+                    : 'bg-[radial-gradient(circle,_#e23b8c_0%,_transparent_70%)]'
+                }`}
               />
 
               {/* Icon Container with active tab's color */}
               <div 
-                class="w-20 h-20 rounded-[24px] flex items-center justify-center border relative transition-all duration-500"
-                style={{
-                  background: props.activeTab === 'collectibles' 
-                    ? 'rgba(255, 149, 0, 0.08)' 
-                    : 'rgba(226, 59, 140, 0.08)',
-                  'border-color': props.activeTab === 'collectibles' 
-                    ? 'rgba(255, 149, 0, 0.2)' 
-                    : 'rgba(226, 59, 140, 0.2)'
-                }}
+                class={`w-20 h-20 rounded-[24px] flex items-center justify-center border relative transition-all duration-500 ${
+                  props.activeTab === 'collectibles' 
+                    ? 'bg-[#ff9500]/8 border-[#ff9500]/20' 
+                    : 'bg-[#e23b8c]/8 border-[#e23b8c]/20'
+                }`}
               >
                 <span 
-                  class="material-symbols-outlined text-[36px] transition-transform duration-500 hover:scale-110"
-                  style={{
-                    color: props.activeTab === 'collectibles' ? '#ff9500' : '#e23b8c',
-                    'font-variation-settings': '"FILL" 1'
-                  }}
+                  class={`material-symbols-outlined text-[36px] transition-transform duration-500 hover:scale-110 filled-icon ${
+                    props.activeTab === 'collectibles' ? 'text-[#ff9500]' : 'text-[#e23b8c]'
+                  }`}
                 >
                   {props.activeTab === 'collectibles' ? 'tag' : 'featured_seasonal_and_gifts'}
                 </span>
@@ -159,16 +152,11 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
               {/* Badge */}
               <span 
-                class="px-4 py-1.5 text-[10px] font-black uppercase rounded-full tracking-wider border transition-colors duration-500"
-                style={{
-                  background: props.activeTab === 'collectibles' 
-                    ? 'rgba(255, 149, 0, 0.05)' 
-                    : 'rgba(226, 59, 140, 0.05)',
-                  'border-color': props.activeTab === 'collectibles' 
-                    ? 'rgba(255, 149, 0, 0.15)' 
-                    : 'rgba(226, 59, 140, 0.15)',
-                  color: props.activeTab === 'collectibles' ? '#ff9500' : '#e23b8c'
-                }}
+                class={`px-4 py-1.5 text-[10px] font-black uppercase rounded-full tracking-wider border transition-colors duration-500 ${
+                  props.activeTab === 'collectibles' 
+                    ? 'bg-[#ff9500]/5 border-[#ff9500]/15 text-[#ff9500]' 
+                    : 'bg-[#e23b8c]/5 border-[#e23b8c]/15 text-[#e23b8c]'
+                }`}
               >
                 {t('action.comingSoon.badge')}
               </span>
@@ -366,14 +354,14 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
               >
                 {/* Loading sweep */}
                 <Show when={analyzeState() === 'loading'}>
-                  <div class="absolute inset-0 bg-white/10" style={{ animation: 'progress-sweep 1.5s ease-out infinite', 'transform-origin': 'left' }} />
+                  <div class="absolute inset-0 bg-white/10 animate-progress-sweep origin-left" />
                 </Show>
 
                 {/* Left: text */}
                 <div class="flex flex-col items-start relative z-10">
                   <span class="font-black text-[15px] text-white tracking-wide flex items-center gap-2">
                     <Show when={analyzeState() === 'loading'}>
-                      <div class="w-4 h-4 rounded-full border-2 border-white/25 border-t-white" style={{ animation: 'spin 0.7s linear infinite' }} />
+                      <div class="w-4 h-4 rounded-full border-2 border-white/25 border-t-white animate-spin" />
                     </Show>
                     <Show when={analyzeState() === 'success'}>
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8L6.5 11.5L13 5" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" /></svg>

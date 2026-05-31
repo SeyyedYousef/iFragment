@@ -57,19 +57,8 @@ func (h *ProfileHandler) GetPublicConfig(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *ProfileHandler) getUserID(r *http.Request) (int64, bool) {
-	tgUser, ok := r.Context().Value(middleware.UserContextKey).(map[string]interface{})
-	if !ok {
-		return 0, false
-	}
-	var userID int64
-	if v, ok := tgUser["id"].(float64); ok {
-		userID = int64(v)
-	} else if v, ok := tgUser["id"].(int64); ok {
-		userID = v
-	} else if v, ok := tgUser["id"].(int); ok {
-		userID = int64(v)
-	}
-	return userID, userID != 0
+	id, err := middleware.GetUserID(r.Context())
+	return id, err == nil
 }
 
 func (h *ProfileHandler) GetStats(w http.ResponseWriter, r *http.Request) {
@@ -169,6 +158,12 @@ func (h *ProfileHandler) AddTaps(w http.ResponseWriter, r *http.Request) {
 	var req AddTapsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
+	// P1-B5: Validate tap count to prevent score manipulation
+	if req.Taps <= 0 || req.Taps > 100 {
+		RespondError(w, r, http.StatusBadRequest, "taps must be between 1 and 100", nil)
 		return
 	}
 
@@ -359,10 +354,4 @@ func (h *ProfileHandler) DeleteUserDataGDPR(w http.ResponseWriter, r *http.Reque
 	}
 
 	RespondJSON(w, http.StatusOK, map[string]string{"status": "ok", "message": "all user data successfully deleted under GDPR right to be forgotten"})
-}
-
-func RespondJSON(w http.ResponseWriter, status int, payload interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(payload)
 }

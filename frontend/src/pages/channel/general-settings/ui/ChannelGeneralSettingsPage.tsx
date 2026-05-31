@@ -3,11 +3,12 @@ import { createStore, reconcile, unwrap } from 'solid-js/store';
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Motion } from '@motionone/solid';
-import { t } from '@/shared/i18n/index.js';
+import { t, locale } from '@/shared/i18n/index.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { ToggleSwitch, SelectField, SettingsSection } from '@/shared/ui/settings-controls.js';
 import { channelApi } from '@/shared/api/channel-management.js';
 import { showToast } from '@/shared/ui/toast.js';
+import { showConfirm } from '@/shared/lib/telegram-native.js';
 
 interface ChannelConfig {
   // Original
@@ -116,10 +117,18 @@ export const ChannelGeneralSettingsPage: Component = () => {
 
   onMount(() => {
     backButton.show();
-    const off = backButton.onClick(() => {
+    const off = backButton.onClick(async () => {
       if (isDirty()) {
-        showToast(t('channelSettings.unsavedChanges'), 'info');
-        window.history.back();
+        hapticFeedback.notificationOccurred('warning');
+        const confirmDiscard = await showConfirm(
+          locale() === 'fa'
+            ? 'تغییرات ذخیره نشده‌ای دارید. آیا مطمئن هستید که می‌خواهید خارج شوید؟'
+            : 'You have unsaved changes. Are you sure you want to exit?'
+        );
+        if (confirmDiscard) {
+          setIsDirty(false); // Reset state to allow clean navigation
+          window.history.back();
+        }
       } else {
         window.history.back();
       }
@@ -140,9 +149,26 @@ export const ChannelGeneralSettingsPage: Component = () => {
       const result = await channelApi.updateSettings(params.id, 'general', unwrap(config), settingsVersion());
       setSettingsVersion(result.version);
       setIsDirty(false);
+      showToast(
+        locale() === 'fa' ? 'تنظیمات با موفقیت ذخیره شد' : 'Settings saved successfully',
+        'success'
+      );
       navigate(`/channel/${params.id}`);
     } catch (e: any) {
       hapticFeedback.notificationOccurred('error');
+      if (e.status === 409 || (e.response && e.response.status === 409)) {
+        showToast(
+          locale() === 'fa'
+            ? 'خطای تداخل همزمانی: این تنظیمات قبلاً توسط یکی دیگر از مدیران به‌روز شده است. لطفاً صفحه را مجدداً لود کنید.'
+            : 'Conflict: These settings have been updated by another admin. Please refresh the page.',
+          'error'
+        );
+      } else {
+        showToast(
+          locale() === 'fa' ? 'خطا در ذخیره‌سازی تنظیمات.' : 'Failed to save settings.',
+          'error'
+        );
+      }
     } finally {
       setIsSaving(false);
     }

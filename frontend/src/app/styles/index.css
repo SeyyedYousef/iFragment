@@ -2,6 +2,8 @@
 @source "../../**/*.{js,ts,jsx,tsx}";
 
 @theme {
+  --animate-progress-sweep: progress-sweep 1.5s ease-out infinite;
+
   /* Fonts per locale */
   --font-app: "Manrope", "Roboto", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji";
 
@@ -170,6 +172,10 @@
   max-width: 1em;
   overflow: hidden;
   text-align: center;
+}
+
+.filled-icon {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
 }
 
 

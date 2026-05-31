@@ -1,4 +1,4 @@
-import { Component, createSignal, Show, For } from 'solid-js';
+import { Component, createSignal, Show, For, onCleanup, createEffect } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
 import { hapticFeedback } from '@tma.js/sdk-solid';
@@ -11,6 +11,8 @@ export const GamificationHub: Component = () => {
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = createSignal(false);
   const [claimSuccess, setClaimSuccess] = createSignal(false);
+  const [timeLeft, setTimeLeft] = createSignal<number>(0);
+  let timerInterval: any;
 
   const dailyQuery = createQuery(() => ({
     queryKey: ['profile', 'daily'],
@@ -37,6 +39,39 @@ export const GamificationHub: Component = () => {
 
   const daily = () => dailyQuery.data || null;
   const claiming = () => claimDailyMutation.isPending;
+
+  // Sync and tick next claim countdown using server-returned time_left_seconds
+  createEffect(() => {
+    const data = daily();
+    if (data && !data.can_claim && data.time_left_seconds) {
+      setTimeLeft(Math.floor(data.time_left_seconds));
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            clearInterval(timerInterval);
+            queryClient.invalidateQueries({ queryKey: ['profile', 'daily'] });
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      setTimeLeft(0);
+      if (timerInterval) clearInterval(timerInterval);
+    }
+  });
+
+  onCleanup(() => {
+    if (timerInterval) clearInterval(timerInterval);
+  });
+
+  const formatTimeLeft = (sec: number) => {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = Math.floor(sec % 60);
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
 
   const handleClaim = async () => {
     try {
@@ -173,13 +208,13 @@ export const GamificationHub: Component = () => {
                 <button
                   onClick={handleClaim}
                   disabled={claiming() || !daily()?.can_claim}
-                  class="w-full py-4 rounded-2xl bg-[#3390ec] hover:bg-[#2b7ec9] disabled:opacity-50 disabled:hover:bg-[#3390ec] text-xs font-black tracking-wider uppercase text-white shadow-lg active:scale-95 transition-all"
+                  class="w-full py-4 rounded-2xl bg-[#3390ec] hover:bg-[#2b7ec9] disabled:bg-[#1c1c24] disabled:text-[#a0a4ad] disabled:border disabled:border-[#2a2a2a] disabled:hover:bg-[#1c1c24] text-xs font-black tracking-wider uppercase text-white shadow-lg active:scale-95 transition-all"
                 >
                   {claiming() 
                     ? (t('gamification.claiming') || 'Claiming...') 
                     : daily()?.can_claim 
                       ? (t('gamification.claimReward') || 'Claim Reward') 
-                      : (t('gamification.comeBackTomorrow') || 'Come back tomorrow')}
+                      : `${t('gamification.comeBackTomorrow') || 'Come back tomorrow'} (${formatTimeLeft(timeLeft())})`}
                 </button>
               }
             >

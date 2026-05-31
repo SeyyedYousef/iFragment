@@ -21,6 +21,7 @@ type ManagedBot struct {
 	UpdatedAt          time.Time `json:"updated_at"`
 	ManagedGroupsCount int       `json:"managed_groups_count"`
 	SubscriptionStatus string    `json:"subscription_status"`
+	WebhookSecretToken string    `json:"webhook_secret_token"`
 }
 
 type BillingSubscription struct {
@@ -59,11 +60,11 @@ func NewBotRepo(db *Database) *BotRepo {
 }
 
 func (r *BotRepo) CreateBot(ctx context.Context, bot *ManagedBot) error {
-	query := `INSERT INTO managed_bots (owner_user_id, bot_token_encrypted, bot_username, bot_name, bot_id, status)
-		VALUES ($1, $2, $3, $4, $5, $6)
+	query := `INSERT INTO managed_bots (owner_user_id, bot_token_encrypted, bot_username, bot_name, bot_id, status, webhook_secret_token)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id, created_at, updated_at`
 	return r.db.Pool.QueryRow(ctx, query,
-		bot.OwnerUserID, bot.BotTokenEncrypted, bot.BotUsername, bot.BotName, bot.BotID, bot.Status,
+		bot.OwnerUserID, bot.BotTokenEncrypted, bot.BotUsername, bot.BotName, bot.BotID, bot.Status, bot.WebhookSecretToken,
 	).Scan(&bot.ID, &bot.CreatedAt, &bot.UpdatedAt)
 }
 
@@ -81,11 +82,12 @@ func (r *BotRepo) GetBotsByOwner(ctx context.Context, ownerID int64) ([]ManagedB
 				UpdatedAt: time.Now(),
 				ManagedGroupsCount: 2,
 				SubscriptionStatus: "pro",
+				WebhookSecretToken: "mock_webhook_secret",
 			},
 		}, nil
 	}
 
-	query := `SELECT b.id, b.owner_user_id, b.bot_username, b.bot_name, b.bot_id, b.status, b.created_at, b.updated_at,
+	query := `SELECT b.id, b.owner_user_id, b.bot_username, b.bot_name, b.bot_id, b.status, b.created_at, b.updated_at, b.webhook_secret_token,
 		       (SELECT COUNT(*) FROM managed_groups g WHERE g.bot_id = b.id) as managed_groups_count,
 		       COALESCE(
 		           (SELECT bs.package_id FROM billing_subscriptions bs
@@ -114,7 +116,7 @@ func (r *BotRepo) GetBotsByOwner(ctx context.Context, ownerID int64) ([]ManagedB
 	for rows.Next() {
 		var b ManagedBot
 		if err := rows.Scan(
-			&b.ID, &b.OwnerUserID, &b.BotUsername, &b.BotName, &b.BotID, &b.Status, &b.CreatedAt, &b.UpdatedAt,
+			&b.ID, &b.OwnerUserID, &b.BotUsername, &b.BotName, &b.BotID, &b.Status, &b.CreatedAt, &b.UpdatedAt, &b.WebhookSecretToken,
 			&b.ManagedGroupsCount, &b.SubscriptionStatus,
 		); err != nil {
 			return nil, err
@@ -138,10 +140,11 @@ func (r *BotRepo) GetBotByID(ctx context.Context, id uuid.UUID) (*ManagedBot, er
 			UpdatedAt:          time.Now(),
 			ManagedGroupsCount: 0,
 			SubscriptionStatus: "free",
+			WebhookSecretToken: "mock_webhook_secret",
 		}, nil
 	}
 
-	query := `SELECT b.id, b.owner_user_id, b.bot_token_encrypted, b.bot_username, b.bot_name, b.bot_id, b.status, b.created_at, b.updated_at,
+	query := `SELECT b.id, b.owner_user_id, b.bot_token_encrypted, b.bot_username, b.bot_name, b.bot_id, b.status, b.created_at, b.updated_at, b.webhook_secret_token,
 		       (SELECT COUNT(*) FROM managed_groups g WHERE g.bot_id = b.id) as managed_groups_count,
 		       COALESCE(
 		           (SELECT bs.package_id FROM billing_subscriptions bs
@@ -162,7 +165,7 @@ func (r *BotRepo) GetBotByID(ctx context.Context, id uuid.UUID) (*ManagedBot, er
 		FROM managed_bots b WHERE b.id = $1`
 	var b ManagedBot
 	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
-		&b.ID, &b.OwnerUserID, &b.BotTokenEncrypted, &b.BotUsername, &b.BotName, &b.BotID, &b.Status, &b.CreatedAt, &b.UpdatedAt,
+		&b.ID, &b.OwnerUserID, &b.BotTokenEncrypted, &b.BotUsername, &b.BotName, &b.BotID, &b.Status, &b.CreatedAt, &b.UpdatedAt, &b.WebhookSecretToken,
 		&b.ManagedGroupsCount, &b.SubscriptionStatus,
 	)
 	if err == pgx.ErrNoRows {
@@ -297,16 +300,27 @@ func (r *BotRepo) CreateBillingSubscription(ctx context.Context, sub *BillingSub
 		return nil
 	}
 
+	tx, err := r.db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
 	// Deactivate any existing active subscriptions for this group
 	query1 := `UPDATE billing_subscriptions SET status = 'expired' WHERE group_id = $1 AND status = 'active'`
-	_, _ = r.db.Pool.Exec(ctx, query1, sub.GroupID)
+	if _, err := tx.Exec(ctx, query1, sub.GroupID); err != nil {
+		return err
+	}
 
 	query2 := `
 		INSERT INTO billing_subscriptions (user_id, group_id, package_id, groups_limit, amount_frg, period, status, starts_at, expires_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`
-	_, err := r.db.Pool.Exec(ctx, query2, sub.UserID, sub.GroupID, sub.PackageID, sub.GroupsLimit, sub.AmountFRG, sub.Period, sub.Status, sub.StartsAt, sub.ExpiresAt)
-	return err
+	if _, err := tx.Exec(ctx, query2, sub.UserID, sub.GroupID, sub.PackageID, sub.GroupsLimit, sub.AmountFRG, sub.Period, sub.Status, sub.StartsAt, sub.ExpiresAt); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
 
 func (r *BotRepo) GetGroupByChatID(ctx context.Context, chatID int64) (*ManagedGroup, error) {
@@ -330,13 +344,13 @@ func (r *BotRepo) GetBotByChatID(ctx context.Context, chatID int64) (*ManagedBot
 	if r.db == nil || r.db.Pool == nil {
 		return nil, fmt.Errorf("no database connection")
 	}
-	query := `SELECT b.id, b.owner_user_id, b.bot_token_encrypted, b.bot_username, b.bot_name, b.bot_id, b.status, b.created_at, b.updated_at
+	query := `SELECT b.id, b.owner_user_id, b.bot_token_encrypted, b.bot_username, b.bot_name, b.bot_id, b.status, b.created_at, b.updated_at, b.webhook_secret_token
 		FROM managed_bots b
 		JOIN managed_groups g ON g.bot_id = b.id
 		WHERE g.chat_id = $1`
 	var b ManagedBot
 	err := r.db.Pool.QueryRow(ctx, query, chatID).Scan(
-		&b.ID, &b.OwnerUserID, &b.BotTokenEncrypted, &b.BotUsername, &b.BotName, &b.BotID, &b.Status, &b.CreatedAt, &b.UpdatedAt,
+		&b.ID, &b.OwnerUserID, &b.BotTokenEncrypted, &b.BotUsername, &b.BotName, &b.BotID, &b.Status, &b.CreatedAt, &b.UpdatedAt, &b.WebhookSecretToken,
 	)
 	if err == pgx.ErrNoRows {
 		return nil, fmt.Errorf("bot not found for group")

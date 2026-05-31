@@ -74,8 +74,8 @@ func (s *OwnerService) Authenticate(ctx context.Context, telegramUserID int64, c
 	// 4. IP whitelist validation
 	if len(o.IPWhitelist) > 0 {
 		clientIP := ip
-		if idx := strings.LastIndex(clientIP, ":"); idx != -1 {
-			clientIP = clientIP[:idx]
+		if host, _, err := net.SplitHostPort(clientIP); err == nil {
+			clientIP = host
 		}
 		allowed := false
 		for _, cidr := range o.IPWhitelist {
@@ -99,10 +99,19 @@ func (s *OwnerService) Authenticate(ctx context.Context, telegramUserID int64, c
 		return "", errors.New("invalid TOTP code")
 	}
 
-	// 6. Prevent TOTP code replay attacks (register the code for the 30-second window in the database)
-	window := time.Now().Unix() / 30
-	if err := s.repo.MarkTOTPUsed(ctx, telegramUserID, window); err != nil {
-		return "", errors.New("TOTP code already used; potential replay attack blocked")
+	// 6. Prevent TOTP code replay attacks by caching the exact consumed code string in Redis for the drift duration
+	if s.cache != nil && s.cache.Client != nil {
+		replayKey := fmt.Sprintf("totp:used:%d:%s", telegramUserID, code)
+		locked, err := s.cache.Client.SetNX(ctx, replayKey, "used", 90*time.Second).Result()
+		if err != nil || !locked {
+			return "", errors.New("TOTP code already used; potential replay attack blocked")
+		}
+	} else {
+		// Fallback to database time-step window lock if Redis is unavailable
+		window := time.Now().Unix() / 30
+		if err := s.repo.MarkTOTPUsed(ctx, telegramUserID, window); err != nil {
+			return "", errors.New("TOTP code already used; potential replay attack blocked")
+		}
 	}
 
 	// 7. Update last login

@@ -90,7 +90,7 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
       const { token } = resp.data;
       if (token) {
         try { hapticFeedback.notificationOccurred('success'); } catch {}
-        localStorage.setItem('owner_original_user_token', localStorage.getItem('jwt_token') || '');
+        sessionStorage.setItem('owner_original_user_token', localStorage.getItem('jwt_token') || '');
         localStorage.setItem('jwt_token', token);
         localStorage.setItem('owner_telegram_id', String(telegramID));
         

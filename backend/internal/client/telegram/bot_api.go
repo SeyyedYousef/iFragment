@@ -207,7 +207,9 @@ func (c *BotAPIClient) SendMessageWithResult(ctx context.Context, chatID int64, 
 		return nil, err
 	}
 	var res MessageResult
-	json.Unmarshal(resp, &res)
+	if err := json.Unmarshal(resp, &res); err != nil {
+		return nil, fmt.Errorf("failed to parse message result: %w", err)
+	}
 	return &res, nil
 }
 
@@ -222,8 +224,18 @@ func (c *BotAPIClient) GetChatMember(ctx context.Context, chatID interface{}, us
 	var member struct {
 		Status string `json:"status"`
 	}
-	json.Unmarshal(resp, &member)
+	if err := json.Unmarshal(resp, &member); err != nil {
+		return "", fmt.Errorf("failed to parse member status: %w", err)
+	}
 	return member.Status, nil
+}
+
+func (c *BotAPIClient) ApproveChatJoinRequest(ctx context.Context, chatID interface{}, userID int64) error {
+	_, err := c.request(ctx, "approveChatJoinRequest", map[string]interface{}{
+		"chat_id": chatID,
+		"user_id": userID,
+	})
+	return err
 }
 
 func (c *BotAPIClient) RestrictChatMember(ctx context.Context, chatID int64, userID int64, untilDate int64) error {
@@ -289,7 +301,9 @@ func (c *BotAPIClient) SendMessageWithMarkup(ctx context.Context, chatID int64, 
 		return nil, err
 	}
 	var res MessageResult
-	json.Unmarshal(resp, &res)
+	if err := json.Unmarshal(resp, &res); err != nil {
+		return nil, fmt.Errorf("failed to parse message result: %w", err)
+	}
 	return &res, nil
 }
 
@@ -406,7 +420,7 @@ func (c *BotAPIClient) EditMessageText(ctx context.Context, chatID interface{}, 
 		"chat_id":    chatID,
 		"message_id": messageID,
 		"text":       text,
-		"parse_mode": "Markdown",
+		"parse_mode": "HTML",
 	})
 	return err
 }
@@ -417,7 +431,7 @@ func (c *BotAPIClient) EditMessageTextWithMarkup(ctx context.Context, chatID int
 		"chat_id":      chatID,
 		"message_id":   messageID,
 		"text":         text,
-		"parse_mode":   "Markdown",
+		"parse_mode":   "HTML",
 		"reply_markup": markup,
 	})
 	return err

@@ -254,3 +254,52 @@ func (r *SettingsRepo) UpdateCategory(ctx context.Context, groupID uuid.UUID, ca
 
 	return r.GetSettings(ctx, groupID)
 }
+
+func (r *SettingsRepo) GetMultipleSettings(ctx context.Context, groupIDs []uuid.UUID) (map[uuid.UUID]*GroupSettings, error) {
+	result := make(map[uuid.UUID]*GroupSettings)
+	if len(groupIDs) == 0 {
+		return result, nil
+	}
+
+	keys := make([]string, len(groupIDs))
+	for i, id := range groupIDs {
+		keys[i] = fmt.Sprintf("settings:%s", id.String())
+	}
+
+	// 1. Try cache (Redis MGET)
+	var cacheMisses []uuid.UUID
+	if r.cache != nil && r.cache.Client != nil {
+		vals, err := r.cache.Client.MGet(ctx, keys...).Result()
+		if err == nil {
+			for i, v := range vals {
+				gID := groupIDs[i]
+				if v != nil {
+					if str, ok := v.(string); ok {
+						var s GroupSettings
+						if json.Unmarshal([]byte(str), &s) == nil {
+							result[gID] = &s
+							continue
+						}
+					}
+				}
+				cacheMisses = append(cacheMisses, gID)
+			}
+		} else {
+			cacheMisses = groupIDs
+		}
+	} else {
+		cacheMisses = groupIDs
+	}
+
+	// 2. Load misses from DB
+	if len(cacheMisses) > 0 {
+		for _, id := range cacheMisses {
+			s, err := r.GetSettings(ctx, id)
+			if err == nil && s != nil {
+				result[id] = s
+			}
+		}
+	}
+
+	return result, nil
+}

@@ -8,7 +8,10 @@ import (
 	"os"
 
 	"ifragment-backend/internal/client/telegram"
+	"ifragment-backend/internal/client/tonapi"
 	"ifragment-backend/internal/repository"
+	"strings"
+
 	"github.com/jackc/pgx/v5"
 )
 
@@ -156,14 +159,51 @@ func (s *MarketplaceService) PurchaseWithToncoin(ctx context.Context, userID int
 		return nil, fmt.Errorf("invalid purchase option: %s", optionID)
 	}
 
+	if txHash == "" {
+		return nil, fmt.Errorf("tx_hash is required")
+	}
+
+	// 1. Verification with TON Blockchain via TonAPI (only if not local/development)
+	isProd := os.Getenv("APP_ENV") == "production"
+	if isProd {
+		tonClient := tonapi.NewClient()
+		txInfo, err := tonClient.GetTransaction(ctx, txHash)
+		if err != nil {
+			return nil, fmt.Errorf("failed to verify Toncoin transaction: %w", err)
+		}
+		if txInfo == nil {
+			return nil, fmt.Errorf("Toncoin transaction %s not found on blockchain", txHash)
+		}
+		if !txInfo.Success {
+			return nil, fmt.Errorf("Toncoin transaction was not successful")
+		}
+		if txInfo.InMsg == nil {
+			return nil, fmt.Errorf("invalid Toncoin transaction: missing in_msg")
+		}
+
+		expectedNanotons := int64(math.Round(opt.Price * 1e9))
+		if txInfo.InMsg.Value < expectedNanotons {
+			return nil, fmt.Errorf("Toncoin payment amount mismatch: expected %d nanotons, got %d", expectedNanotons, txInfo.InMsg.Value)
+		}
+
+		recipientWallet := os.Getenv("TON_RECIPIENT_WALLET")
+		if recipientWallet != "" && txInfo.InMsg.Destination != nil {
+			destAddr := txInfo.InMsg.Destination.Address
+			if !strings.EqualFold(destAddr, recipientWallet) {
+				return nil, fmt.Errorf("Toncoin payment recipient mismatch: expected %s, got %s", recipientWallet, destAddr)
+			}
+		}
+	}
+
+	// 2. Credit inside transaction with idempotency
 	meta, _ := json.Marshal(map[string]interface{}{
-		"option_id": optionID,
-		"method":    "toncoin",
+		"option_id":  optionID,
+		"method":     "toncoin",
 		"ton_amount": opt.Price,
-		"tx_hash":   txHash,
+		"tx_hash":    txHash,
 	})
 
-	return s.frgRepo.Credit(ctx, userID, opt.FRGAmount, "purchase_toncoin", meta)
+	return s.frgRepo.CreditWithToncoinIdempotency(ctx, userID, opt.FRGAmount, "purchase_toncoin", meta, txHash)
 }
 
 func (s *MarketplaceService) ConvertAirdropCoins(ctx context.Context, userID int64, coins float64) (*repository.FRGTransaction, error) {

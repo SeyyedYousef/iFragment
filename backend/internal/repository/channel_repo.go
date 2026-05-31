@@ -82,9 +82,9 @@ func (r *ChannelRepo) CreateChannel(ctx context.Context, ch *ManagedChannel) err
 	).Scan(&ch.ID, &ch.CreatedAt, &ch.UpdatedAt, &ch.TrialEndsAt)
 }
 
-func (r *ChannelRepo) GetChannelsByBot(ctx context.Context, botID uuid.UUID, cursor *time.Time, limit int) ([]ManagedChannel, *time.Time, error) {
+func (r *ChannelRepo) GetChannelsByBot(ctx context.Context, botID uuid.UUID, cursor *time.Time, cursorID *uuid.UUID, limit int) ([]ManagedChannel, *time.Time, *uuid.UUID, error) {
 	if r.db == nil || r.db.Pool == nil {
-		return nil, nil, fmt.Errorf("database pool is not initialized")
+		return nil, nil, nil, fmt.Errorf("database pool is not initialized")
 	}
 
 	var query string
@@ -94,23 +94,23 @@ func (r *ChannelRepo) GetChannelsByBot(ctx context.Context, botID uuid.UUID, cur
 		limit = 20
 	}
 
-	if cursor != nil {
+	if cursor != nil && cursorID != nil {
 		query = `SELECT id, bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, paid_until, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content, created_at, updated_at
 			FROM managed_channels 
-			WHERE bot_id = $1 AND created_at < $2 
-			ORDER BY created_at DESC LIMIT $3`
-		args = []interface{}{botID, *cursor, limit}
+			WHERE bot_id = $1 AND (created_at < $2 OR (created_at = $2 AND id < $3)) 
+			ORDER BY created_at DESC, id DESC LIMIT $4`
+		args = []interface{}{botID, *cursor, *cursorID, limit}
 	} else {
 		query = `SELECT id, bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, paid_until, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content, created_at, updated_at
 			FROM managed_channels 
 			WHERE bot_id = $1 
-			ORDER BY created_at DESC LIMIT $2`
+			ORDER BY created_at DESC, id DESC LIMIT $2`
 		args = []interface{}{botID, limit}
 	}
 	
 	rows, err := r.db.Pool.Query(ctx, query, args...)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	defer rows.Close()
 
@@ -122,23 +122,29 @@ func (r *ChannelRepo) GetChannelsByBot(ctx context.Context, botID uuid.UUID, cur
 			&c.PaidUntil, &c.LinkedChatID, &c.SlowModeDelay, &c.AutoDeleteTime, &c.SignMessages, &c.ProtectContent,
 			&c.CreatedAt, &c.UpdatedAt,
 		); err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		channels = append(channels, c)
 	}
 
+	if err := rows.Err(); err != nil {
+		return nil, nil, nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
 	var nextCursor *time.Time
+	var nextCursorID *uuid.UUID
 	if len(channels) == limit && limit > 0 {
 		lastChannel := channels[len(channels)-1]
 		nextCursor = &lastChannel.CreatedAt
+		nextCursorID = &lastChannel.ID
 	}
 
-	return channels, nextCursor, nil
+	return channels, nextCursor, nextCursorID, nil
 }
 
-func (r *ChannelRepo) GetChannelsByOwner(ctx context.Context, ownerUserID int64, cursor *time.Time, limit int) ([]ManagedChannel, *time.Time, error) {
+func (r *ChannelRepo) GetChannelsByOwner(ctx context.Context, ownerUserID int64, cursor *time.Time, cursorID *uuid.UUID, limit int) ([]ManagedChannel, *time.Time, *uuid.UUID, error) {
 	if r.db == nil || r.db.Pool == nil {
-		return nil, nil, fmt.Errorf("database pool is not initialized")
+		return nil, nil, nil, fmt.Errorf("database pool is not initialized")
 	}
 
 	var query string
@@ -148,25 +154,25 @@ func (r *ChannelRepo) GetChannelsByOwner(ctx context.Context, ownerUserID int64,
 		limit = 20
 	}
 
-	if cursor != nil {
+	if cursor != nil && cursorID != nil {
 		query = `SELECT c.id, c.bot_id, c.chat_id, c.chat_title, c.subscribers_count, c.subscription_status, c.trial_ends_at, c.paid_until, c.linked_chat_id, c.slow_mode_delay, c.auto_delete_time, c.sign_messages, c.protect_content, c.created_at, c.updated_at
 			FROM managed_channels c
 			JOIN managed_bots b ON c.bot_id = b.id
-			WHERE b.owner_user_id = $1 AND c.created_at < $2 
-			ORDER BY c.created_at DESC LIMIT $3`
-		args = []interface{}{ownerUserID, *cursor, limit}
+			WHERE b.owner_user_id = $1 AND (c.created_at < $2 OR (c.created_at = $2 AND c.id < $3)) 
+			ORDER BY c.created_at DESC, c.id DESC LIMIT $4`
+		args = []interface{}{ownerUserID, *cursor, *cursorID, limit}
 	} else {
 		query = `SELECT c.id, c.bot_id, c.chat_id, c.chat_title, c.subscribers_count, c.subscription_status, c.trial_ends_at, c.paid_until, c.linked_chat_id, c.slow_mode_delay, c.auto_delete_time, c.sign_messages, c.protect_content, c.created_at, c.updated_at
 			FROM managed_channels c
 			JOIN managed_bots b ON c.bot_id = b.id
 			WHERE b.owner_user_id = $1 
-			ORDER BY c.created_at DESC LIMIT $2`
+			ORDER BY c.created_at DESC, c.id DESC LIMIT $2`
 		args = []interface{}{ownerUserID, limit}
 	}
 	
 	rows, err := r.db.Pool.Query(ctx, query, args...)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	defer rows.Close()
 
@@ -178,18 +184,24 @@ func (r *ChannelRepo) GetChannelsByOwner(ctx context.Context, ownerUserID int64,
 			&c.PaidUntil, &c.LinkedChatID, &c.SlowModeDelay, &c.AutoDeleteTime, &c.SignMessages, &c.ProtectContent,
 			&c.CreatedAt, &c.UpdatedAt,
 		); err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		channels = append(channels, c)
 	}
 
+	if err := rows.Err(); err != nil {
+		return nil, nil, nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
 	var nextCursor *time.Time
+	var nextCursorID *uuid.UUID
 	if len(channels) == limit && limit > 0 {
 		lastChannel := channels[len(channels)-1]
 		nextCursor = &lastChannel.CreatedAt
+		nextCursorID = &lastChannel.ID
 	}
 
-	return channels, nextCursor, nil
+	return channels, nextCursor, nextCursorID, nil
 }
 
 func (r *ChannelRepo) GetChannelByID(ctx context.Context, id uuid.UUID) (*ManagedChannel, error) {
@@ -311,35 +323,17 @@ func (r *ChannelRepo) UpdateChannelSettingsCategory(ctx context.Context, channel
 		return nil, fmt.Errorf("database pool is not initialized")
 	}
 
-	var query string
+	var column string
 	switch category {
-	case "general":
-		query = `UPDATE channel_settings SET general = $1, version = version + 1, updated_at = now(), updated_by = $2
-			WHERE channel_id = $3 AND version = $4
-			RETURNING version, updated_at`
-	case "posting":
-		query = `UPDATE channel_settings SET posting = $1, version = version + 1, updated_at = now(), updated_by = $2
-			WHERE channel_id = $3 AND version = $4
-			RETURNING version, updated_at`
-	case "forwarding":
-		query = `UPDATE channel_settings SET forwarding = $1, version = version + 1, updated_at = now(), updated_by = $2
-			WHERE channel_id = $3 AND version = $4
-			RETURNING version, updated_at`
-	case "inline_buttons":
-		query = `UPDATE channel_settings SET inline_buttons = $1, version = version + 1, updated_at = now(), updated_by = $2
-			WHERE channel_id = $3 AND version = $4
-			RETURNING version, updated_at`
-	case "dynamic_bio":
-		query = `UPDATE channel_settings SET dynamic_bio = $1, version = version + 1, updated_at = now(), updated_by = $2
-			WHERE channel_id = $3 AND version = $4
-			RETURNING version, updated_at`
-	case "auto_responder":
-		query = `UPDATE channel_settings SET auto_responder = $1, version = version + 1, updated_at = now(), updated_by = $2
-			WHERE channel_id = $3 AND version = $4
-			RETURNING version, updated_at`
+	case "general", "posting", "forwarding", "inline_buttons", "dynamic_bio", "auto_responder":
+		column = category
 	default:
 		return nil, fmt.Errorf("invalid channel settings category: %s", category)
 	}
+
+	query := fmt.Sprintf(`UPDATE channel_settings SET %s = $1, version = version + 1, updated_at = now(), updated_by = $2
+		WHERE channel_id = $3 AND version = $4
+		RETURNING version, updated_at`, column)
 
 	var version int
 	var updatedAt time.Time
@@ -356,16 +350,7 @@ func (r *ChannelRepo) UpdateChannelSettingsCategory(ctx context.Context, channel
 		r.cache.Client.Del(ctx, cacheKey)
 	}
 
-	res, err := r.GetChannelSettings(ctx, channelID)
-	if err == nil && r.cache != nil {
-		cacheKey := fmt.Sprintf("channel_settings:%s", channelID.String())
-		// Double delete/evict to guarantee cache consistency
-		r.cache.Client.Del(ctx, cacheKey)
-		
-		dataBytes, _ := json.Marshal(res)
-		r.cache.Client.Set(ctx, cacheKey, dataBytes, 1*time.Hour)
-	}
-	return res, err
+	return r.GetChannelSettings(ctx, channelID)
 }
 
 type ChannelAuditLog struct {
@@ -408,16 +393,34 @@ func (r *ChannelRepo) LogAudit(ctx context.Context, log *ChannelAuditLog) error 
 	).Scan(&log.ID, &log.CreatedAt)
 }
 
-// GetAuditLogs loads paginated audit logs for a specific channel
-func (r *ChannelRepo) GetAuditLogs(ctx context.Context, channelID uuid.UUID, limit, offset int) ([]ChannelAuditLog, error) {
+// GetAuditLogs loads paginated audit logs for a specific channel using high-performance cursor-based pagination
+func (r *ChannelRepo) GetAuditLogs(ctx context.Context, channelID uuid.UUID, cursor *time.Time, cursorID *uuid.UUID, limit int) ([]ChannelAuditLog, error) {
 	if r.db == nil || r.db.Pool == nil {
 		return nil, fmt.Errorf("database pool is not initialized")
 	}
 
-	query := `SELECT id, channel_id, actor_id, action, target_type, target_id, old_value, new_value, metadata, created_at
-		FROM channel_audit_logs WHERE channel_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`
-	
-	rows, err := r.db.Pool.Query(ctx, query, channelID, limit, offset)
+	if limit <= 0 {
+		limit = 20
+	}
+
+	var query string
+	var args []interface{}
+
+	if cursor != nil && cursorID != nil {
+		query = `SELECT id, channel_id, actor_id, action, target_type, target_id, old_value, new_value, metadata, created_at
+			FROM channel_audit_logs 
+			WHERE channel_id = $1 AND (created_at < $2 OR (created_at = $2 AND id < $3)) 
+			ORDER BY created_at DESC, id DESC LIMIT $4`
+		args = []interface{}{channelID, *cursor, *cursorID, limit}
+	} else {
+		query = `SELECT id, channel_id, actor_id, action, target_type, target_id, old_value, new_value, metadata, created_at
+			FROM channel_audit_logs 
+			WHERE channel_id = $1 
+			ORDER BY created_at DESC, id DESC LIMIT $2`
+		args = []interface{}{channelID, limit}
+	}
+
+	rows, err := r.db.Pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -433,6 +436,11 @@ func (r *ChannelRepo) GetAuditLogs(ctx context.Context, channelID uuid.UUID, lim
 		}
 		logs = append(logs, l)
 	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
 	return logs, nil
 }
 
@@ -485,6 +493,9 @@ func (r *ChannelRepo) GetAnalyticsTimeline(ctx context.Context, channelID uuid.U
 		s.SnapshotDate = t
 		snapshots = append(snapshots, s)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
 	return snapshots, nil
 }
 
@@ -530,6 +541,9 @@ func (r *ChannelRepo) GetScheduledPosts(ctx context.Context) ([]ChannelPost, err
 		}
 		posts = append(posts, p)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
 	return posts, nil
 }
 
@@ -571,6 +585,9 @@ func (r *ChannelRepo) GetAllChannels(ctx context.Context) ([]ManagedChannel, err
 		}
 		channels = append(channels, c)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
 	return channels, nil
 }
 
@@ -584,6 +601,145 @@ func (r *ChannelRepo) UpdateChannelSubscribers(ctx context.Context, channelID uu
 	_, err := r.db.Pool.Exec(ctx, query, subscribersCount, channelID)
 	return err
 }
+
+type ChannelWithBotDetail struct {
+	ChannelID          uuid.UUID
+	BotID              uuid.UUID
+	ChatID             int64
+	ChatTitle          string
+	SubscribersCount   int
+	SubscriptionStatus string
+	TrialEndsAt        time.Time
+	PaidUntil          *time.Time
+	BotTokenEncrypted  []byte
+	CreatedAt          time.Time
+}
+
+// GetAllChannelsWithBots retrieves all active managed channels joined with bot decrypted tokens (for background tasks)
+func (r *ChannelRepo) GetAllChannelsWithBots(ctx context.Context) ([]ChannelWithBotDetail, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, fmt.Errorf("database pool is not initialized")
+	}
+
+	query := `SELECT c.id, c.bot_id, c.chat_id, c.chat_title, c.subscribers_count, c.subscription_status, c.trial_ends_at, c.paid_until, b.bot_token_encrypted
+		FROM managed_channels c
+		JOIN managed_bots b ON c.bot_id = b.id`
+
+	rows, err := r.db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var details []ChannelWithBotDetail
+	for rows.Next() {
+		var d ChannelWithBotDetail
+		if err := rows.Scan(
+			&d.ChannelID, &d.BotID, &d.ChatID, &d.ChatTitle, &d.SubscribersCount, &d.SubscriptionStatus, &d.TrialEndsAt,
+			&d.PaidUntil, &d.BotTokenEncrypted,
+		); err != nil {
+			return nil, err
+		}
+		details = append(details, d)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	return details, nil
+}
+
+// GetChannelsWithBotsPaged retrieves managed channels joined with bot decrypted tokens in paged batches to prevent OOM in background tasks, using keyset pagination.
+func (r *ChannelRepo) GetChannelsWithBotsPaged(ctx context.Context, limit int, cursor *time.Time, cursorID *uuid.UUID) ([]ChannelWithBotDetail, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, fmt.Errorf("database pool is not initialized")
+	}
+
+	var query string
+	var args []interface{}
+
+	if cursor != nil && cursorID != nil {
+		query = `SELECT c.id, c.bot_id, c.chat_id, c.chat_title, c.subscribers_count, c.subscription_status, c.trial_ends_at, c.paid_until, b.bot_token_encrypted, c.created_at
+			FROM managed_channels c
+			JOIN managed_bots b ON c.bot_id = b.id
+			WHERE c.created_at > $1 OR (c.created_at = $1 AND c.id > $2)
+			ORDER BY c.created_at ASC, c.id ASC LIMIT $3`
+		args = []interface{}{*cursor, *cursorID, limit}
+	} else {
+		query = `SELECT c.id, c.bot_id, c.chat_id, c.chat_title, c.subscribers_count, c.subscription_status, c.trial_ends_at, c.paid_until, b.bot_token_encrypted, c.created_at
+			FROM managed_channels c
+			JOIN managed_bots b ON c.bot_id = b.id
+			ORDER BY c.created_at ASC, c.id ASC LIMIT $1`
+		args = []interface{}{limit}
+	}
+
+	rows, err := r.db.Pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var details []ChannelWithBotDetail
+	for rows.Next() {
+		var d ChannelWithBotDetail
+		if err := rows.Scan(
+			&d.ChannelID, &d.BotID, &d.ChatID, &d.ChatTitle, &d.SubscribersCount, &d.SubscriptionStatus, &d.TrialEndsAt,
+			&d.PaidUntil, &d.BotTokenEncrypted, &d.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		details = append(details, d)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	return details, nil
+}
+
+// SaveSnapshotAndUpdateSubscribers persists the daily analytics snapshot and updates the channel's subscribers count inside an atomic transaction.
+func (r *ChannelRepo) SaveSnapshotAndUpdateSubscribers(ctx context.Context, snapshot *ChannelAnalytics, count int) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("database pool is not initialized")
+	}
+
+	tx, err := r.db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Step 1: Save Analytics Snapshot
+	querySnapshot := `INSERT INTO channel_analytics (channel_id, snapshot_date, subscribers_count, new_subscribers, views_count, reactions_count, posts_count)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (channel_id, snapshot_date) DO UPDATE SET
+			subscribers_count = EXCLUDED.subscribers_count,
+			new_subscribers = EXCLUDED.new_subscribers,
+			views_count = EXCLUDED.views_count,
+			reactions_count = EXCLUDED.reactions_count,
+			posts_count = EXCLUDED.posts_count
+		RETURNING id, created_at`
+	
+	err = tx.QueryRow(ctx, querySnapshot,
+		snapshot.ChannelID, snapshot.SnapshotDate.Format("2006-01-02"), snapshot.SubscribersCount, snapshot.NewSubscribers,
+		snapshot.ViewsCount, snapshot.ReactionsCount, snapshot.PostsCount,
+	).Scan(&snapshot.ID, &snapshot.CreatedAt)
+	if err != nil {
+		return err
+	}
+
+	// Step 2: Update Channel Subscribers count
+	querySubscribers := `UPDATE managed_channels SET subscribers_count = $1, updated_at = now() WHERE id = $2`
+	_, err = tx.Exec(ctx, querySubscribers, count, snapshot.ChannelID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
 
 type ChannelForwardingRule struct {
 	ID             uuid.UUID       `json:"id"`
@@ -667,6 +823,9 @@ func (r *ChannelRepo) GetForwardingRules(ctx context.Context, channelID uuid.UUI
 		}
 		rules = append(rules, rl)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
 	return rules, nil
 }
 
@@ -723,10 +882,13 @@ func (r *ChannelRepo) GetActiveForwardingRulesBySource(ctx context.Context, targ
 		}
 		rules = append(rules, rl)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
 	return rules, nil
 }
 
-// SyncChannelAdmins synchronizes Telegram administrators list locally
+// SyncChannelAdmins synchronizes Telegram administrators list locally using high-performance batching
 func (r *ChannelRepo) SyncChannelAdmins(ctx context.Context, channelID uuid.UUID, admins []ChannelAdmin) error {
 	if r.db == nil || r.db.Pool == nil {
 		return fmt.Errorf("database pool is not initialized")
@@ -738,33 +900,30 @@ func (r *ChannelRepo) SyncChannelAdmins(ctx context.Context, channelID uuid.UUID
 	}
 	defer tx.Rollback(ctx)
 
-	// Step 1: Insert/Update active admins
-	var activeIDs []int64
-	for _, admin := range admins {
-		activeIDs = append(activeIDs, admin.TelegramID)
-		query := `INSERT INTO channel_admins (channel_id, telegram_id, username, first_name, custom_title, is_owner)
+	if len(admins) > 0 {
+		batch := &pgx.Batch{}
+		query := `INSERT INTO channel_admins (channel_id, telegram_id, username, first_name, custom_title, is_owner) 
 			VALUES ($1, $2, $3, $4, $5, $6)
-			ON CONFLICT (channel_id, telegram_id) DO UPDATE SET
-				username = EXCLUDED.username,
-				first_name = EXCLUDED.first_name,
-				custom_title = EXCLUDED.custom_title,
-				is_owner = EXCLUDED.is_owner`
-		_, err = tx.Exec(ctx, query, channelID, admin.TelegramID, admin.Username, admin.FirstName, admin.CustomTitle, admin.IsOwner)
-		if err != nil {
-			return err
-		}
-	}
+			ON CONFLICT (channel_id, telegram_id) 
+			DO UPDATE SET username = EXCLUDED.username, first_name = EXCLUDED.first_name, custom_title = EXCLUDED.custom_title, is_owner = EXCLUDED.is_owner`
 
-	// Step 2: Delete inactive local admins
-	if len(activeIDs) > 0 {
-		query := `DELETE FROM channel_admins WHERE channel_id = $1 AND telegram_id != ALL($2)`
-		_, err = tx.Exec(ctx, query, channelID, activeIDs)
+		activeIDs := make([]int64, 0, len(admins))
+		for _, admin := range admins {
+			batch.Queue(query, channelID, admin.TelegramID, admin.Username, admin.FirstName, admin.CustomTitle, admin.IsOwner)
+			activeIDs = append(activeIDs, admin.TelegramID)
+		}
+
+		br := tx.SendBatch(ctx, batch)
+		if err := br.Close(); err != nil {
+			return fmt.Errorf("failed to execute admin sync batch: %w", err)
+		}
+
+		_, err = tx.Exec(ctx, `DELETE FROM channel_admins WHERE channel_id = $1 AND telegram_id != ALL($2)`, channelID, activeIDs)
 		if err != nil {
 			return err
 		}
 	} else {
-		query := `DELETE FROM channel_admins WHERE channel_id = $1`
-		_, err = tx.Exec(ctx, query, channelID)
+		_, err = tx.Exec(ctx, `DELETE FROM channel_admins WHERE channel_id = $1`, channelID)
 		if err != nil {
 			return err
 		}
@@ -798,10 +957,13 @@ func (r *ChannelRepo) GetChannelAdmins(ctx context.Context, channelID uuid.UUID)
 		}
 		admins = append(admins, a)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
 	return admins, nil
 }
 
-// SaveChannelButtons synchronizes interactive inline buttons for a channel
+// SaveChannelButtons synchronizes interactive inline buttons for a channel, preserving existing statistics (click counts) and button IDs to avoid breaking callback queries.
 func (r *ChannelRepo) SaveChannelButtons(ctx context.Context, channelID uuid.UUID, buttons []ChannelInlineButton) error {
 	if r.db == nil || r.db.Pool == nil {
 		return fmt.Errorf("database pool is not initialized")
@@ -813,17 +975,70 @@ func (r *ChannelRepo) SaveChannelButtons(ctx context.Context, channelID uuid.UUI
 	}
 	defer tx.Rollback(ctx)
 
-	// Step 1: Delete all current buttons
-	_, err = tx.Exec(ctx, `DELETE FROM channel_inline_buttons WHERE channel_id = $1`, channelID)
+	// 1. Fetch existing buttons inside the transaction to identify matches
+	queryExisting := `SELECT id, channel_id, title, value, type, style, emoji, click_count, created_at
+		FROM channel_inline_buttons WHERE channel_id = $1 ORDER BY created_at ASC`
+	rows, err := tx.Query(ctx, queryExisting, channelID)
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 
-	// Step 2: Insert new ones
+	var existing []ChannelInlineButton
+	for rows.Next() {
+		var b ChannelInlineButton
+		if err := rows.Scan(
+			&b.ID, &b.ChannelID, &b.Title, &b.Value, &b.Type, &b.Style, &b.Emoji, &b.ClickCount, &b.CreatedAt,
+		); err != nil {
+			return err
+		}
+		existing = append(existing, b)
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	existingMap := make(map[string]ChannelInlineButton)
+	for _, btn := range existing {
+		key := fmt.Sprintf("%s:%s:%s", btn.Title, btn.Value, btn.Type)
+		existingMap[key] = btn
+	}
+
+	var keepIDs []uuid.UUID
+
+	// 2. Insert or update each button, keeping IDs intact
 	for _, btn := range buttons {
-		query := `INSERT INTO channel_inline_buttons (channel_id, title, value, type, style, emoji, click_count)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)`
-		_, err = tx.Exec(ctx, query, channelID, btn.Title, btn.Value, btn.Type, btn.Style, btn.Emoji, btn.ClickCount)
+		key := fmt.Sprintf("%s:%s:%s", btn.Title, btn.Value, btn.Type)
+		if exist, ok := existingMap[key]; ok {
+			// Update styling but keep existing ID and click counts
+			query := `UPDATE channel_inline_buttons SET style = $1, emoji = $2 WHERE id = $3`
+			_, err = tx.Exec(ctx, query, btn.Style, btn.Emoji, exist.ID)
+			if err != nil {
+				return err
+			}
+			keepIDs = append(keepIDs, exist.ID)
+		} else {
+			// Insert new button
+			newID := uuid.New()
+			query := `INSERT INTO channel_inline_buttons (id, channel_id, title, value, type, style, emoji, click_count)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, 0)`
+			_, err = tx.Exec(ctx, query, newID, channelID, btn.Title, btn.Value, btn.Type, btn.Style, btn.Emoji)
+			if err != nil {
+				return err
+			}
+			keepIDs = append(keepIDs, newID)
+		}
+	}
+
+	// 3. Delete any removed buttons
+	if len(keepIDs) > 0 {
+		query := `DELETE FROM channel_inline_buttons WHERE channel_id = $1 AND id != ALL($2)`
+		_, err = tx.Exec(ctx, query, channelID, keepIDs)
+		if err != nil {
+			return err
+		}
+	} else {
+		_, err = tx.Exec(ctx, `DELETE FROM channel_inline_buttons WHERE channel_id = $1`, channelID)
 		if err != nil {
 			return err
 		}
@@ -856,6 +1071,9 @@ func (r *ChannelRepo) GetChannelButtons(ctx context.Context, channelID uuid.UUID
 			return nil, err
 		}
 		buttons = append(buttons, b)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
 	}
 	return buttons, nil
 }

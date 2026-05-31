@@ -61,6 +61,11 @@ func CSRF(next http.Handler) http.Handler {
 				http.Error(w, "Forbidden: CSRF Origin/Referer validation failed", http.StatusForbidden)
 				return
 			}
+		} else if os.Getenv("APP_ENV") == "production" {
+			// P0-S2: In production, block state-changing requests without Origin/Referer
+			slog.Warn("CSRF block: missing Origin/Referer header in production", "path", r.URL.Path, "method", method)
+			http.Error(w, "Forbidden: Origin or Referer header required", http.StatusForbidden)
+			return
 		}
 
 		next.ServeHTTP(w, r)

@@ -18,7 +18,5 @@ CREATE INDEX IF NOT EXISTS idx_users_telegram_id ON users (telegram_id); -- B-Tr
 -- 3. Create optimized conditional index for active ban checks
 CREATE INDEX IF NOT EXISTS idx_user_bans_active ON user_bans (user_id) WHERE expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP;
 
--- 4. Seed default super admin user (Telegram ID: 12345)
-INSERT INTO owner_roles (telegram_user_id, role, totp_secret, ip_whitelist)
-VALUES (12345, 'super_admin', 'ORXW233SMUXW633X', '{}')
-ON CONFLICT (telegram_user_id) DO NOTHING;
+-- 4. Clean up any stale backdoor default super admin user (Telegram ID: 12345)
+DELETE FROM owner_roles WHERE telegram_user_id = 12345;

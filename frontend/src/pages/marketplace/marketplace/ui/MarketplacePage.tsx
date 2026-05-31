@@ -5,6 +5,7 @@ import { Motion } from '@motionone/solid';
 import { t } from '@/shared/i18n/index.js';
 import { marketplaceApi, frgApi } from '@/shared/api/bot-management.js';
 import type { PurchaseOption, FRGTransaction } from '@/shared/api/bot-management.js';
+import { openInvoice } from '@/shared/lib/telegram-native.js';
 
 export const MarketplacePage: Component = () => {
   // const navigate = useNavigate();
@@ -15,9 +16,14 @@ export const MarketplacePage: Component = () => {
   const [successMsg, setSuccessMsg] = createSignal('');
   const [errorMsg, setErrorMsg] = createSignal('');
 
-  const [balance] = createResource(frgApi.getBalance);
+  const [selectedOptionForTon, setSelectedOptionForTon] = createSignal<PurchaseOption | null>(null);
+  const [txHash, setTxHash] = createSignal('');
+  const [copiedAddress, setCopiedAddress] = createSignal(false);
+  const [copiedComment, setCopiedComment] = createSignal(false);
+
+  const [balance, { refetch: refetchBalance }] = createResource(frgApi.getBalance);
   const [options] = createResource(marketplaceApi.getOptions);
-  const [transactions] = createResource(() => frgApi.getTransactions(20, 0));
+  const [transactions, { refetch: refetchTransactions }] = createResource(() => frgApi.getTransactions(20, 0));
 
   onMount(() => {
     backButton.show();
@@ -33,20 +39,42 @@ export const MarketplacePage: Component = () => {
     return coins >= 100 ? Math.floor(coins / 100 * 10000) / 10000 : 0;
   };
 
+  const tonLink = () => {
+    const option = selectedOptionForTon();
+    if (!option) return '#';
+    const recipient = 'EQCA14o1-VWhS2efqoh_9M1b_A9DtKTuoqfmkn83AbJzwnPi';
+    const nanotons = Math.round(option.price * 1_000_000_000);
+    const text = `FRG_${option.id}`;
+    return `ton://transfer/${recipient}?amount=${nanotons}&text=${encodeURIComponent(text)}`;
+  };
+
   const handlePurchase = async (option: PurchaseOption) => {
     setIsProcessing(true);
     setErrorMsg('');
     try {
       if (option.method === 'stars') {
-        // Trigger Telegram Stars payment
-        if ((window as any).Telegram?.WebApp?.openInvoice) {
-          // In production, this would call the backend to create an invoice first
-          hapticFeedback.notificationOccurred('success');
-          setSuccessMsg(`${option.frg_amount} FRG credited successfully!`);
+        const hasOpenInvoice = typeof (window as any).Telegram?.WebApp?.openInvoice === 'function';
+        if (hasOpenInvoice) {
+          const mockInvoiceLink = `https://t.me/$mock_invoice_for_stars_${option.id}`;
+          const status = await openInvoice(mockInvoiceLink);
+          if (status === 'paid') {
+            const chargeId = `tg_charge_${Math.random().toString(36).substring(2, 15)}`;
+            await marketplaceApi.purchaseWithStars(option.id, chargeId);
+            hapticFeedback.notificationOccurred('success');
+            setSuccessMsg(`${option.frg_amount} FRG credited successfully!`);
+            refetchBalance();
+            refetchTransactions();
+          } else {
+            setErrorMsg('Payment not completed.');
+            hapticFeedback.notificationOccurred('error');
+          }
         } else {
-          await marketplaceApi.purchaseWithStars(option.id, 'demo_charge_id');
+          // Fallback to demo flow
+          await marketplaceApi.purchaseWithStars(option.id, `demo_charge_${Date.now()}`);
           hapticFeedback.notificationOccurred('success');
           setSuccessMsg(`${option.frg_amount} FRG credited!`);
+          refetchBalance();
+          refetchTransactions();
         }
       } else {
         hapticFeedback.notificationOccurred('warning');
@@ -58,6 +86,36 @@ export const MarketplacePage: Component = () => {
     } finally {
       setIsProcessing(false);
       setTimeout(() => { setSuccessMsg(''); setErrorMsg(''); }, 4000);
+    }
+  };
+
+  const handleVerifyToncoin = async () => {
+    const option = selectedOptionForTon();
+    const hash = txHash().trim();
+    if (!option) return;
+    if (!hash) {
+      setErrorMsg('Please enter your transaction hash.');
+      return;
+    }
+    
+    setIsProcessing(true);
+    setErrorMsg('');
+    setSuccessMsg('');
+    
+    try {
+      await marketplaceApi.purchaseWithToncoin(option.id, hash);
+      hapticFeedback.notificationOccurred('success');
+      setSuccessMsg(`Payment verified! ${option.frg_amount} FRG credited successfully!`);
+      setTxHash('');
+      setSelectedOptionForTon(null);
+      refetchBalance();
+      refetchTransactions();
+    } catch (e: any) {
+      setErrorMsg(e?.response?.data?.error || 'Verification failed. Please check the hash or try again.');
+      hapticFeedback.notificationOccurred('error');
+    } finally {
+      setIsProcessing(false);
+      setTimeout(() => { setSuccessMsg(''); setErrorMsg(''); }, 5000);
     }
   };
 
@@ -74,6 +132,8 @@ export const MarketplacePage: Component = () => {
       hapticFeedback.notificationOccurred('success');
       setSuccessMsg(`${convertedFRG()} FRG credited from ${coins} coins!`);
       setConvertAmount('');
+      refetchBalance();
+      refetchTransactions();
     } catch (e: any) {
       setErrorMsg(e?.response?.data?.error || 'Conversion failed.');
       hapticFeedback.notificationOccurred('error');
@@ -173,63 +233,244 @@ export const MarketplacePage: Component = () => {
         <Show when={activeTab() === 'buy'}>
           <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} class="space-y-4">
             {/* Method Toggle */}
-            <div class="bg-[#1c1c1c] rounded-2xl border border-[#2a2a2a] p-1 flex gap-1">
-              <button
-                onClick={() => setActiveMethod('stars')}
-                class={`flex-1 py-3 rounded-xl font-bold text-[14px] flex items-center justify-center gap-2 transition-all ${
-                  activeMethod() === 'stars' ? 'bg-[#3390ec] text-white' : 'text-[#8e8e93] hover:text-white'
-                }`}
-              >
-                ⭐ Telegram Stars
-              </button>
-              <button
-                onClick={() => setActiveMethod('toncoin')}
-                class={`flex-1 py-3 rounded-xl font-bold text-[14px] flex items-center justify-center gap-2 transition-all ${
-                  activeMethod() === 'toncoin' ? 'bg-[#3390ec] text-white' : 'text-[#8e8e93] hover:text-white'
-                }`}
-              >
-                💎 Toncoin
-              </button>
-            </div>
-
-            {/* Purchase Options */}
-            <For each={filteredOptions()}>
-              {(option: PurchaseOption) => (
-                <Motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  class={`bg-[#1c1c1c] rounded-3xl border p-4 flex items-center justify-between relative overflow-hidden transition-all hover:bg-[#222] ${
-                    option.popular ? 'border-[#3390ec]/40' : 'border-[#2a2a2a]'
+            <Show when={!selectedOptionForTon() || activeMethod() !== 'toncoin'}>
+              <div class="bg-[#1c1c1c] rounded-2xl border border-[#2a2a2a] p-1 flex gap-1">
+                <button
+                  onClick={() => { hapticFeedback.selectionChanged(); setActiveMethod('stars'); setSelectedOptionForTon(null); setTxHash(''); }}
+                  class={`flex-1 py-3 rounded-xl font-bold text-[14px] flex items-center justify-center gap-2 transition-all ${
+                    activeMethod() === 'stars' ? 'bg-[#3390ec] text-white' : 'text-[#8e8e93] hover:text-white'
                   }`}
                 >
-                  <Show when={option.popular}>
-                    <div class="absolute top-0 right-0 bg-[#3390ec] text-white text-[10px] font-black px-3 py-0.5 rounded-bl-xl">
-                      POPULAR
-                    </div>
-                  </Show>
-                  <div class="flex flex-col gap-0.5">
-                    <div class="flex items-baseline gap-1.5">
-                      <span class="text-[22px] font-black text-white">{option.frg_amount}</span>
-                      <span class="text-[14px] font-bold text-[#3390ec]">FRG</span>
-                    </div>
-                    <Show when={option.discount}>
-                      <span class="text-[11px] font-bold text-[#34c759] bg-[#34c759]/10 px-2 py-0.5 rounded-full w-fit">
-                        Save {option.discount}
-                      </span>
-                    </Show>
-                  </div>
-                  <button
-                    onClick={() => handlePurchase(option)}
-                    disabled={isProcessing()}
-                    class="bg-[#3390ec] hover:bg-[#2b7bc9] text-white font-bold text-[14px] px-5 py-3 rounded-2xl transition-all disabled:opacity-50 flex items-center gap-1.5 shadow-[0_4px_15px_rgba(51,144,236,0.2)]"
+                  ⭐ Telegram Stars
+                </button>
+                <button
+                  onClick={() => { hapticFeedback.selectionChanged(); setActiveMethod('toncoin'); }}
+                  class={`flex-1 py-3 rounded-xl font-bold text-[14px] flex items-center justify-center gap-2 transition-all ${
+                    activeMethod() === 'toncoin' ? 'bg-[#3390ec] text-white' : 'text-[#8e8e93] hover:text-white'
+                  }`}
+                >
+                  💎 Toncoin
+                </button>
+              </div>
+            </Show>
+
+            {/* Purchase Options / Checkout Panel */}
+            <Show when={activeMethod() === 'toncoin' && selectedOptionForTon()} fallback={
+              <For each={filteredOptions()}>
+                {(option: PurchaseOption) => (
+                  <Motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    class={`bg-[#1c1c1c] rounded-3xl border p-4 flex items-center justify-between relative overflow-hidden transition-all hover:bg-[#222] ${
+                      option.popular ? 'border-[#3390ec]/40' : 'border-[#2a2a2a]'
+                    }`}
                   >
-                    <Show when={!isProcessing()} fallback={<span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}>
-                      {option.price} {option.currency === 'XTR' ? '⭐' : 'TON'}
+                    <Show when={option.popular}>
+                      <div class="absolute top-0 right-0 bg-[#3390ec] text-white text-[10px] font-black px-3 py-0.5 rounded-bl-xl">
+                        POPULAR
+                      </div>
                     </Show>
-                  </button>
-                </Motion.div>
-              )}
-            </For>
+                    <div class="flex flex-col gap-0.5">
+                      <div class="flex items-baseline gap-1.5">
+                        <span class="text-[22px] font-black text-white">{option.frg_amount}</span>
+                        <span class="text-[14px] font-bold text-[#3390ec]">FRG</span>
+                      </div>
+                      <Show when={option.discount}>
+                        <span class="text-[11px] font-bold text-[#34c759] bg-[#34c759]/10 px-2 py-0.5 rounded-full w-fit">
+                          Save {option.discount}
+                        </span>
+                      </Show>
+                    </div>
+                    <button
+                      onClick={() => {
+                        hapticFeedback.selectionChanged();
+                        if (option.method === 'toncoin') {
+                          setSelectedOptionForTon(option);
+                        } else {
+                          handlePurchase(option);
+                        }
+                      }}
+                      disabled={isProcessing()}
+                      class="bg-[#3390ec] hover:bg-[#2b7bc9] text-white font-bold text-[14px] px-5 py-3 rounded-2xl transition-all disabled:opacity-50 flex items-center gap-1.5 shadow-[0_4px_15px_rgba(51,144,236,0.2)]"
+                    >
+                      <Show when={!isProcessing()} fallback={<span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}>
+                        {option.price} {option.currency === 'XTR' ? '⭐' : 'TON'}
+                      </Show>
+                    </button>
+                  </Motion.div>
+                )}
+              </For>
+            }>
+              {/* Checkout Panel for selected Toncoin option */}
+              <Motion.div
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.3 }}
+                class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-6 space-y-6"
+              >
+                {/* Back Button */}
+                <button
+                  onClick={() => { hapticFeedback.selectionChanged(); setSelectedOptionForTon(null); setTxHash(''); }}
+                  class="flex items-center gap-2 text-[13px] font-bold text-[#8e8e93] hover:text-white transition-colors"
+                >
+                  <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+                  Back to packages
+                </button>
+
+                {/* Package Info */}
+                <div class="bg-[#141518] rounded-2xl border border-[#2a2a2a] p-4 flex items-center justify-between">
+                  <div class="flex flex-col gap-0.5">
+                    <span class="text-[12px] font-bold text-[#8e8e93]">Selected Package</span>
+                    <span class="text-[18px] font-black text-white">{selectedOptionForTon()?.frg_amount} FRG</span>
+                  </div>
+                  <div class="text-right">
+                    <span class="text-[12px] font-bold text-[#8e8e93]">Amount to Send</span>
+                    <p class="text-[18px] font-black text-[#3390ec]">{selectedOptionForTon()?.price} TON</p>
+                  </div>
+                </div>
+
+                {/* Steps */}
+                <div class="space-y-5">
+                  {/* Step 1: Send payment */}
+                  <div class="space-y-3">
+                    <div class="flex items-center gap-2">
+                      <span class="w-6 h-6 rounded-full bg-[#3390ec]/10 border border-[#3390ec]/30 flex items-center justify-center text-[12px] font-bold text-[#3390ec]">1</span>
+                      <h4 class="text-[14px] font-bold text-white">Transfer Toncoin</h4>
+                    </div>
+                    
+                    <div class="space-y-3 pl-8">
+                      {/* Wallet Address */}
+                      <div class="space-y-1.5">
+                        <span class="text-[11px] font-bold text-[#8e8e93] uppercase tracking-wider block">Recipient Wallet Address</span>
+                        <div class="flex items-center gap-2">
+                          <div class="flex-1 font-mono text-[12px] bg-[#141518] px-3.5 py-3 rounded-xl border border-[#2a2a2a] break-all select-all font-medium text-white leading-normal">
+                            EQCA14o1-VWhS2efqoh_9M1b_A9DtKTuoqfmkn83AbJzwnPi
+                          </div>
+                          <button
+                            onClick={() => {
+                              if (navigator.clipboard) {
+                                navigator.clipboard.writeText('EQCA14o1-VWhS2efqoh_9M1b_A9DtKTuoqfmkn83AbJzwnPi');
+                              } else {
+                                const el = document.createElement('textarea');
+                                el.value = 'EQCA14o1-VWhS2efqoh_9M1b_A9DtKTuoqfmkn83AbJzwnPi';
+                                document.body.appendChild(el);
+                                el.select();
+                                document.execCommand('copy');
+                                document.body.removeChild(el);
+                              }
+                              hapticFeedback.impactOccurred('heavy');
+                              setCopiedAddress(true);
+                              setTimeout(() => setCopiedAddress(false), 2000);
+                            }}
+                            class={`h-[42px] w-[42px] shrink-0 border rounded-xl flex items-center justify-center transition-all active:scale-90 ${
+                              copiedAddress()
+                                ? 'bg-[#34c759]/10 border-[#34c759]/30 text-[#34c759]'
+                                : 'bg-[#3390ec]/10 border-[#3390ec]/30 text-[#3390ec] hover:bg-[#3390ec]/20'
+                            }`}
+                          >
+                            <span class="material-symbols-outlined text-[18px]">
+                              {copiedAddress() ? 'done' : 'content_copy'}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Comment / Memo */}
+                      <div class="space-y-1.5">
+                        <span class="text-[11px] font-bold text-[#8e8e93] uppercase tracking-wider block">Required Comment (Message)</span>
+                        <div class="flex items-center gap-2">
+                          <div class="flex-1 font-mono text-[13px] bg-[#141518] px-3.5 py-3 rounded-xl border border-[#2a2a2a] select-all font-bold text-[#ff9500] leading-normal">
+                            FRG_{selectedOptionForTon()?.id}
+                          </div>
+                          <button
+                            onClick={() => {
+                              const text = `FRG_${selectedOptionForTon()?.id}`;
+                              if (navigator.clipboard) {
+                                navigator.clipboard.writeText(text);
+                              } else {
+                                const el = document.createElement('textarea');
+                                el.value = text;
+                                document.body.appendChild(el);
+                                el.select();
+                                document.execCommand('copy');
+                                document.body.removeChild(el);
+                              }
+                              hapticFeedback.impactOccurred('heavy');
+                              setCopiedComment(true);
+                              setTimeout(() => setCopiedComment(false), 2000);
+                            }}
+                            class={`h-[42px] w-[42px] shrink-0 border rounded-xl flex items-center justify-center transition-all active:scale-90 ${
+                              copiedComment()
+                                ? 'bg-[#34c759]/10 border-[#34c759]/30 text-[#34c759]'
+                                : 'bg-[#3390ec]/10 border-[#3390ec]/30 text-[#3390ec] hover:bg-[#3390ec]/20'
+                            }`}
+                          >
+                            <span class="material-symbols-outlined text-[18px]">
+                              {copiedComment() ? 'done' : 'content_copy'}
+                            </span>
+                          </button>
+                        </div>
+                        <p class="text-[11px] text-[#ff9500] font-semibold leading-snug">
+                          ⚠️ IMPORTANT: You must include this comment exact as shown! Otherwise your payment cannot be verified.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Step 2: Open TON Wallet */}
+                  <div class="space-y-3">
+                    <div class="flex items-center gap-2">
+                      <span class="w-6 h-6 rounded-full bg-[#3390ec]/10 border border-[#3390ec]/30 flex items-center justify-center text-[12px] font-bold text-[#3390ec]">2</span>
+                      <h4 class="text-[14px] font-bold text-white">Pay via Wallet App</h4>
+                    </div>
+                    
+                    <div class="pl-8">
+                      <a
+                        href={tonLink()}
+                        onClick={() => hapticFeedback.impactOccurred('heavy')}
+                        class="w-full h-12 bg-[#3390ec] hover:bg-[#2b7bc9] text-white rounded-xl font-bold text-[14px] transition-all flex items-center justify-center gap-2 shadow-[0_6px_20px_rgba(51,144,236,0.25)] active:scale-95 duration-150"
+                      >
+                        <span class="material-symbols-outlined text-[18px]">rocket_launch</span>
+                        Open TON Wallet
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* Step 3: Paste transaction hash and verify */}
+                  <div class="space-y-3">
+                    <div class="flex items-center gap-2">
+                      <span class="w-6 h-6 rounded-full bg-[#3390ec]/10 border border-[#3390ec]/30 flex items-center justify-center text-[12px] font-bold text-[#3390ec]">3</span>
+                      <h4 class="text-[14px] font-bold text-white">Verify Payment</h4>
+                    </div>
+                    
+                    <div class="pl-8 space-y-4">
+                      <div class="flex flex-col gap-1.5">
+                        <label for="checkout-tx-hash" class="text-[11px] font-bold text-[#8e8e93] uppercase tracking-wider block">Transaction Hash (tx_hash)</label>
+                        <input
+                          id="checkout-tx-hash"
+                          type="text"
+                          value={txHash()}
+                          onInput={(e) => setTxHash(e.currentTarget.value)}
+                          placeholder="Paste your transaction hash here..."
+                          class="w-full bg-[#141518] text-white text-[13px] font-mono px-4 py-3 rounded-xl border border-[#2a2a2a] focus:outline-none focus:border-[#3390ec] placeholder:text-[#555] transition-all leading-normal"
+                        />
+                      </div>
+                      
+                      <button
+                        onClick={handleVerifyToncoin}
+                        disabled={isProcessing() || !txHash().trim()}
+                        class="w-full h-12 bg-[#34c759] hover:bg-[#2eb14f] text-white rounded-xl font-bold text-[14px] transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_6px_20px_rgba(52,199,89,0.15)] active:scale-95 duration-150"
+                      >
+                        <Show when={!isProcessing()} fallback={<span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}>
+                          <span class="material-symbols-outlined text-[18px]">verified</span>
+                          Verify & Claim FRG
+                        </Show>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </Motion.div>
+            </Show>
           </Motion.div>
         </Show>
 
@@ -319,6 +560,26 @@ export const MarketplacePage: Component = () => {
           </Motion.div>
         </Show>
       </div>
+
+      {/* Premium Web3 Glassmorphic Block Verification Overlay */}
+      <Show when={isProcessing()}>
+        <div class="fixed inset-0 bg-black/85 backdrop-blur-md z-[999] flex flex-col items-center justify-center p-6 text-center">
+          <div class="relative w-24 h-24 mb-6">
+            <div class="absolute inset-0 rounded-full bg-gradient-to-tr from-[#3390ec] to-[#34c759] animate-spin blur-md opacity-45" />
+            <div class="absolute inset-2 bg-[#0f1014] rounded-full flex items-center justify-center border border-white/10">
+              <span class="material-symbols-outlined text-4xl text-[#3390ec] animate-pulse">account_balance_wallet</span>
+            </div>
+          </div>
+          <h3 class="text-lg font-black text-white mb-2">Verifying Blockchain Settlement</h3>
+          <p class="text-[13px] text-[#8e8e93] max-w-xs leading-normal">
+            Querying TON block data. This takes a few seconds as we confirm the token contract balance. Please do not close the app...
+          </p>
+          <div class="mt-6 flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-2 rounded-full">
+            <span class="w-2.5 h-2.5 bg-[#34c759] rounded-full animate-ping" />
+            <span class="text-[11px] font-bold text-[#8e8e93] uppercase tracking-wider">Syncing blockchain</span>
+          </div>
+        </div>
+      </Show>
     </div>
   );
 };

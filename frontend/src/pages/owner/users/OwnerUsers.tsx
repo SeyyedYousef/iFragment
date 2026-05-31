@@ -70,10 +70,10 @@ export const OwnerUsers: Component = () => {
       const { token } = resp.data;
       if (token) {
         try { hapticFeedback.notificationOccurred('success'); } catch {}
-        // Save the impersonation token
-        localStorage.setItem('owner_impersonation_token', token);
-        localStorage.setItem('impersonated_user_id', String(user.telegram_id));
-        localStorage.setItem('impersonated_username', user.username || String(user.telegram_id));
+        // Save the impersonation token in sessionStorage for transient security
+        sessionStorage.setItem('owner_impersonation_token', token);
+        sessionStorage.setItem('impersonated_user_id', String(user.telegram_id));
+        sessionStorage.setItem('impersonated_username', user.username || String(user.telegram_id));
         // Redirect user back to home/dashboard under impersonation
         navigate('/');
         // Trigger page refresh to reload auth interceptor

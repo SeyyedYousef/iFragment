@@ -16,27 +16,29 @@ export const TapView: Component = () => {
   const [isPressed, setIsPressed] = createSignal(false);
   const [isShaking, setIsShaking] = createSignal(false);
 
+  const activeTimers = new Set<ReturnType<typeof setTimeout>>();
+
+  onCleanup(() => {
+    for (const timer of activeTimers) {
+      clearTimeout(timer);
+    }
+    activeTimers.clear();
+  });
+
   const MAX_PARTICLES = 30;
   let particleIdCounter = 0;
-  let cleanupRaf: number | undefined;
   let lastHapticAt = 0;
-
-  const scheduleCleanup = () => {
-    if (cleanupRaf) return;
-    cleanupRaf = requestAnimationFrame(() => {
-      const now = performance.now();
-      setParticles(prev => prev.filter(p => now - p.createdAt < 900));
-      cleanupRaf = undefined;
-      if (particles().length > 0) scheduleCleanup();
-    });
-  };
 
   const handleTap = (e: PointerEvent) => {
     e.preventDefault();
     if (energy() <= 0) {
       try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
       setIsShaking(true);
-      setTimeout(() => setIsShaking(false), 300);
+      const shakeTimer = setTimeout(() => {
+        setIsShaking(false);
+        activeTimers.delete(shakeTimer);
+      }, 300);
+      activeTimers.add(shakeTimer);
       return;
     }
 
@@ -55,16 +57,24 @@ export const TapView: Component = () => {
       const next = [...prev, { id, x: e.clientX, y: e.clientY, value: power, createdAt: performance.now() }];
       return next.length > MAX_PARTICLES ? next.slice(-MAX_PARTICLES) : next;
     });
-    scheduleCleanup();
+
+    // Lightweight individual particle cleanup after 900ms fade-out transition
+    const particleTimer = setTimeout(() => {
+      setParticles(prev => prev.filter(p => p.id !== id));
+      activeTimers.delete(particleTimer);
+    }, 900);
+    activeTimers.add(particleTimer);
 
     // Coin press animation
     setIsPressed(true);
-    setTimeout(() => setIsPressed(false), 80);
+    const pressTimer = setTimeout(() => {
+      setIsPressed(false);
+      activeTimers.delete(pressTimer);
+    }, 80);
+    activeTimers.add(pressTimer);
   };
 
-  onCleanup(() => {
-    if (cleanupRaf) cancelAnimationFrame(cleanupRaf);
-  });
+
 
   return (
     <div class="flex-1 flex flex-col items-center relative overflow-hidden px-4 pt-2 pb-6">

@@ -17,26 +17,10 @@ func NewClanHandler(s *service.ClanService) *ClanHandler {
 	return &ClanHandler{clanService: s}
 }
 
-func (h *ClanHandler) getUserID(r *http.Request) (int64, bool) {
-	tgUser, ok := r.Context().Value(middleware.UserContextKey).(map[string]interface{})
-	if !ok {
-		return 0, false
-	}
-	var userID int64
-	if v, ok := tgUser["id"].(float64); ok {
-		userID = int64(v)
-	} else if v, ok := tgUser["id"].(int64); ok {
-		userID = v
-	} else if v, ok := tgUser["id"].(int); ok {
-		userID = int64(v)
-	}
-	return userID, userID != 0
-}
-
 func (h *ClanHandler) GetClanDetails(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.getUserID(r)
-	if !ok {
-		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+	userID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
 		return
 	}
 
@@ -48,7 +32,9 @@ func (h *ClanHandler) GetClanDetails(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(details)
+	if err := json.NewEncoder(w).Encode(details); err != nil {
+		slog.Error("failed to encode clan details response", "error", err)
+	}
 }
 
 type JoinClanRequest struct {
@@ -56,9 +42,9 @@ type JoinClanRequest struct {
 }
 
 func (h *ClanHandler) JoinClan(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.getUserID(r)
-	if !ok {
-		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+	userID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
 		return
 	}
 
@@ -92,17 +78,19 @@ func (h *ClanHandler) JoinClan(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(clan)
+	if err := json.NewEncoder(w).Encode(clan); err != nil {
+		slog.Error("failed to encode join clan response", "error", err)
+	}
 }
 
 func (h *ClanHandler) LeaveClan(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.getUserID(r)
-	if !ok {
-		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+	userID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
 		return
 	}
 
-	err := h.clanService.LeaveClan(r.Context(), userID)
+	err = h.clanService.LeaveClan(r.Context(), userID)
 	if err != nil {
 		slog.Error("LeaveClan failed", "user_id", userID, "error", err)
 		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
@@ -121,5 +109,7 @@ func (h *ClanHandler) GetTopClans(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(clans)
+	if err := json.NewEncoder(w).Encode(clans); err != nil {
+		slog.Error("failed to encode top clans response", "error", err)
+	}
 }

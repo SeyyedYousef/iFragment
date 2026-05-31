@@ -1,8 +1,10 @@
 package middleware
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -16,6 +18,26 @@ import (
 	"github.com/redis/go-redis/v9"
 	"ifragment-backend/internal/repository"
 )
+
+var slidingWindowScript = redis.NewScript(`
+	local key = KEYS[1]
+	local now = tonumber(ARGV[1])
+	local clearBefore = tonumber(ARGV[2])
+	local limit = tonumber(ARGV[3])
+	local ttl = tonumber(ARGV[4])
+	local member = ARGV[5]
+
+	redis.call("ZREMRANGEBYSCORE", key, "-inf", clearBefore)
+	local count = redis.call("ZCARD", key)
+
+	if count < limit then
+		redis.call("ZADD", key, now, member)
+		redis.call("EXPIRE", key, ttl)
+		return {count + 1, 1}
+	else
+		return {count, 0}
+	end
+`)
 
 type rateLimiter struct {
 	ips map[string][]time.Time
@@ -76,30 +98,83 @@ func getUserID(r *http.Request) string {
 }
 
 func getRealIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		parts := strings.Split(xff, ",")
-		if len(parts) > 0 {
-			ip := strings.TrimSpace(parts[0])
-			if ip != "" {
-				return ip
+	remoteIP, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		remoteIP = r.RemoteAddr
+	}
+
+	// Only trust headers if direct RemoteIP is loopback or in TRUSTED_PROXIES list
+	isTrusted := remoteIP == "127.0.0.1" || remoteIP == "::1"
+	if !isTrusted {
+		proxiesStr := os.Getenv("TRUSTED_PROXIES")
+		if proxiesStr != "" {
+			for _, p := range strings.Split(proxiesStr, ",") {
+				p = strings.TrimSpace(p)
+				if p == remoteIP {
+					isTrusted = true
+					break
+				}
+				if _, ipNet, err := net.ParseCIDR(p); err == nil {
+					if ip := net.ParseIP(remoteIP); ip != nil && ipNet.Contains(ip) {
+						isTrusted = true
+						break
+					}
+				}
 			}
 		}
 	}
-	if xrip := r.Header.Get("X-Real-IP"); xrip != "" {
-		return strings.TrimSpace(xrip)
+
+	if isTrusted {
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			parts := strings.Split(xff, ",")
+			if len(parts) > 0 {
+				ip := strings.TrimSpace(parts[0])
+				if ip != "" {
+					return ip
+				}
+			}
+		}
+		if xrip := r.Header.Get("X-Real-IP"); xrip != "" {
+			return strings.TrimSpace(xrip)
+		}
 	}
-	ip := r.RemoteAddr
-	if idx := strings.LastIndex(ip, ":"); idx != -1 {
-		ip = ip[:idx]
-	}
-	return ip
+
+	return remoteIP
 }
 
-func NewRateLimiter(cache *repository.Cache) func(http.Handler) http.Handler {
+func NewRateLimiter(ctx context.Context, cache *repository.Cache) func(http.Handler) http.Handler {
 	rl := &rateLimiter{
 		ips: make(map[string][]time.Time),
 	}
 
+	// P1-P3: Background cleanup every 5 minutes linked to context cancellation to prevent memory leaks
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				rl.mu.Lock()
+				now := time.Now()
+				for ip, times := range rl.ips {
+					var valid []time.Time
+					for _, t := range times {
+						if now.Sub(t) < time.Minute {
+							valid = append(valid, t)
+						}
+					}
+					if len(valid) == 0 {
+						delete(rl.ips, ip)
+					} else {
+						rl.ips[ip] = valid
+					}
+				}
+				rl.mu.Unlock()
+			}
+		}
+	}()
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ip := getRealIP(r)
@@ -118,9 +193,13 @@ func NewRateLimiter(cache *repository.Cache) func(http.Handler) http.Handler {
 					limit = 30
 				}
 
-				count, err := cache.Client.Incr(ctx, key).Result()
+				pipe := cache.Client.TxPipeline()
+				incrCmd := pipe.Incr(ctx, key)
+				ttlCmd := pipe.TTL(ctx, key)
+				_, err := pipe.Exec(ctx)
 				if err == nil {
-					if count == 1 {
+					count := incrCmd.Val()
+					if ttlCmd.Val() < 0 {
 						cache.Client.Expire(ctx, key, time.Minute)
 					}
 					if count > limit {
@@ -179,33 +258,39 @@ func NewChannelRateLimiter(cache *repository.Cache) func(http.Handler) http.Hand
 				now := time.Now()
 				nowMs := now.UnixNano() / int64(time.Millisecond)
 				clearBefore := now.Add(-window).UnixNano() / int64(time.Millisecond)
+				uniqueMember := fmt.Sprintf("%d:%d", nowMs, now.UnixNano())
 
-				// Sliding window using sorted sets: ZADD, ZREMRANGEBYSCORE, ZCARD
-				pipe := cache.Client.Pipeline()
-				pipe.ZRemRangeByScore(ctx, key, "-inf", fmt.Sprintf("%d", clearBefore))
-				pipe.ZAdd(ctx, key, redis.Z{Score: float64(nowMs), Member: fmt.Sprintf("%d", nowMs)})
-				cardCmd := pipe.ZCard(ctx, key)
-				pipe.Expire(ctx, key, 65*time.Second)
-
-				_, err := pipe.Exec(ctx)
+				res, err := slidingWindowScript.Run(ctx, cache.Client, []string{key}, nowMs, clearBefore, limit, 65, uniqueMember).Result()
 				if err == nil {
-					count := cardCmd.Val()
-					remaining := limit - count
-					if remaining < 0 {
-						remaining = 0
-					}
-					w.Header().Set("X-RateLimit-Remaining", fmt.Sprintf("%d", remaining))
+					resSlice, ok := res.([]interface{})
+					if ok && len(resSlice) == 2 {
+						var count int64
+						var allowed int64
 
-					if count > limit {
-						slog.Warn("Channel rate limit exceeded (Redis sliding window)", "key", key, "count", count)
-						w.Header().Set("Retry-After", "60")
-						http.Error(w, "Rate limit exceeded. Please try again in a minute.", http.StatusTooManyRequests)
+						if val, ok := resSlice[0].(int64); ok {
+							count = val
+						}
+						if val, ok := resSlice[1].(int64); ok {
+							allowed = val
+						}
+
+						remaining := limit - count
+						if remaining < 0 {
+							remaining = 0
+						}
+						w.Header().Set("X-RateLimit-Remaining", fmt.Sprintf("%d", remaining))
+
+						if allowed == 0 {
+							slog.Warn("Channel rate limit exceeded (Redis sliding window)", "key", key, "count", count)
+							w.Header().Set("Retry-After", "60")
+							http.Error(w, "Rate limit exceeded. Please try again in a minute.", http.StatusTooManyRequests)
+							return
+						}
+						next.ServeHTTP(w, r)
 						return
 					}
-					next.ServeHTTP(w, r)
-					return
 				} else {
-					slog.Warn("Redis rate limit pipeline error", "error", err)
+					slog.Warn("Redis rate limit Lua script error", "error", err)
 				}
 			}
 

@@ -14,7 +14,7 @@ export const apiClient: AxiosInstance = axios.create({
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     // Attempt to retrieve a valid JWT token (Prefer impersonation session token if active)
-    const impersonationToken = localStorage.getItem('owner_impersonation_token');
+    const impersonationToken = sessionStorage.getItem('owner_impersonation_token');
     const token = impersonationToken || localStorage.getItem('jwt_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -73,10 +73,28 @@ apiClient.interceptors.response.use(
       }
     }
 
-    // If unauthorized, could trigger a re-auth flow here
+    // P1-F4: Silent token refresh when JWT expires
     if (error.response?.status === 401 && !originalRequest._retryCount) {
-      originalRequest._retryCount = 1; // prevent infinite loops
-      // Trigger token refresh logic or redirect
+      originalRequest._retryCount = 1;
+      try {
+        const initData = (window as any).Telegram?.WebApp?.initData;
+        if (initData) {
+          const refreshResponse = await axios.post(
+            `${API_CONFIG.BASE_URL}/api/v1/auth/token`,
+            {},
+            { headers: { 'X-Telegram-Init-Data': initData } }
+          );
+          if (refreshResponse.data?.token) {
+            localStorage.setItem('jwt_token', refreshResponse.data.token);
+            originalRequest.headers.Authorization = `Bearer ${refreshResponse.data.token}`;
+            return apiClient(originalRequest);
+          }
+        }
+      } catch (refreshErr) {
+        console.warn('[API] Token refresh failed, clearing session', refreshErr);
+        localStorage.removeItem('jwt_token');
+        sessionStorage.removeItem('owner_impersonation_token');
+      }
     }
 
     return Promise.reject(error);

@@ -85,13 +85,25 @@ async function startApp() {
 
   } catch (e) {
     console.error('Startup Error:', e);
-    root.innerHTML = `
-      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #0f1014; color: white; font-family: sans-serif; text-align: center; padding: 20px;">
-        <h1 style="font-size: 20px;">Failed to initialize</h1>
-        <p style="color: #a0a4ad; font-size: 14px;">${e instanceof Error ? e.message : 'Unknown error'}</p>
-        <button onclick="location.reload()" style="margin-top: 20px; padding: 10px 20px; background: #0088CC; border: none; border-radius: 20px; color: white; cursor: pointer;">Reload</button>
-      </div>
-    `;
+    // P0-F1: Use DOM API instead of innerHTML to prevent XSS from error messages
+    const errorContainer = document.createElement('div');
+    errorContainer.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#0f1014;color:white;font-family:sans-serif;text-align:center;padding:20px;';
+    
+    const title = document.createElement('h1');
+    title.style.fontSize = '20px';
+    title.textContent = 'Failed to initialize';
+    
+    const msg = document.createElement('p');
+    msg.style.cssText = 'color:#a0a4ad;font-size:14px;';
+    msg.textContent = e instanceof Error ? e.message : 'Unknown error';
+    
+    const btn = document.createElement('button');
+    btn.textContent = 'Reload';
+    btn.onclick = () => location.reload();
+    btn.style.cssText = 'margin-top:20px;padding:10px 20px;background:#0088CC;border:none;border-radius:20px;color:white;cursor:pointer;';
+    
+    errorContainer.append(title, msg, btn);
+    root.appendChild(errorContainer);
   }
 }
 
@@ -124,8 +136,22 @@ if ('serviceWorker' in navigator && !import.meta.env.DEV) {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!refreshing) {
       refreshing = true;
-      console.info('[SW] Controller changed, refreshing page immediately...');
-      window.location.reload();
+      // P1-UX2: Show non-intrusive update banner instead of abrupt reload
+      const banner = document.createElement('div');
+      banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;padding:12px 16px;background:linear-gradient(135deg,#3390ec,#2b7bc9);color:white;text-align:center;z-index:9999;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 -4px 20px rgba(0,0,0,0.3);';
+      
+      const text = document.createElement('span');
+      text.textContent = '🚀 A new version is available';
+      
+      const btn = document.createElement('button');
+      btn.textContent = 'Update Now';
+      btn.style.cssText = 'background:white;color:#3390ec;border:none;padding:6px 16px;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;transition:transform 0.1s;';
+      btn.onmousedown = () => { btn.style.transform = 'scale(0.95)'; };
+      btn.onmouseup = () => { btn.style.transform = 'scale(1)'; };
+      btn.onclick = () => window.location.reload();
+      
+      banner.append(text, btn);
+      document.body.appendChild(banner);
     }
   });
 }

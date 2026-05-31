@@ -1,4 +1,4 @@
-import { Component, createEffect, onCleanup, Show } from 'solid-js';
+import { Component, createEffect, onCleanup, Show, For } from 'solid-js';
 import { Motion } from '@motionone/solid';
 import { backButton } from '@tma.js/sdk-solid';
 import { useNavigate } from '@solidjs/router';
@@ -125,17 +125,19 @@ export const CollectionStatsPage: Component = () => {
             empty="No sale leaderboard data available yet."
             hasData={topSales().length > 0 || metric('highestSale') > 0}
           >
-            {(topSales().length > 0 ? topSales() : [{ username: 'highest_sale', price: metric('highestSale'), date: '' }]).slice(0, 5).map((sale) => (
-              <div class="flex items-center justify-between p-3 rounded-2xl bg-[#1c1c1c] border border-[#2a2a2a]">
-                <span class="text-sm font-black text-white">{sale.username.startsWith('@') ? sale.username : `@${sale.username}`}</span>
-                <div class="text-right">
-                  <div class="font-black text-[#34c759] text-xs">{normalizeTon(sale.price).toLocaleString()} TON</div>
-                  <Show when={sale.date}>
-                    <div class="text-[10px] text-[#a6a6ad] font-bold">{new Date(sale.date).toLocaleDateString()}</div>
-                  </Show>
+            <For each={(topSales().length > 0 ? topSales() : [{ username: 'highest_sale', price: metric('highestSale'), date: '' }]).slice(0, 5)}>
+              {(sale) => (
+                <div class="flex items-center justify-between p-3 rounded-2xl bg-[#1c1c1c] border border-[#2a2a2a]">
+                  <span class="text-sm font-black text-white">{sale.username.startsWith('@') ? sale.username : `@${sale.username}`}</span>
+                  <div class="text-right">
+                    <div class="font-black text-[#34c759] text-xs">{normalizeTon(sale.price).toLocaleString()} TON</div>
+                    <Show when={sale.date}>
+                      <div class="text-[10px] text-[#a6a6ad] font-bold">{new Date(sale.date).toLocaleDateString()}</div>
+                    </Show>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )}
+            </For>
           </Leaderboard>
         </div>
 
@@ -193,15 +195,17 @@ const Leaderboard: Component<{ title: string; icon: string; accent: string; empt
 
 const ForHolders: Component<{ holders: Array<{ address: string; count: number }> }> = (props) => (
   <Show when={props.holders.length > 0} fallback={<p class="text-xs font-bold text-[#a6a6ad]">No holder data available yet.</p>}>
-    {props.holders.slice(0, 5).map((holder, idx) => (
-      <div class="flex items-center justify-between p-3 rounded-2xl bg-[#1c1c1c] border border-[#2a2a2a]">
-        <div class="flex items-center gap-3">
-          <div class="w-6 h-6 rounded-full bg-[#3390ec]/20 text-[#3390ec] flex items-center justify-center text-xs font-black">{idx + 1}</div>
-          <span class="text-xs font-bold text-white font-mono">{holder.address.slice(0, 6)}...{holder.address.slice(-4)}</span>
+    <For each={props.holders.slice(0, 5)}>
+      {(holder, idx) => (
+        <div class="flex items-center justify-between p-3 rounded-2xl bg-[#1c1c1c] border border-[#2a2a2a]">
+          <div class="flex items-center gap-3">
+            <div class="w-6 h-6 rounded-full bg-[#3390ec]/20 text-[#3390ec] flex items-center justify-center text-xs font-black">{idx() + 1}</div>
+            <span class="text-xs font-bold text-white font-mono">{holder.address.slice(0, 6)}...{holder.address.slice(-4)}</span>
+          </div>
+          <div class="text-xs font-black text-white">{holder.count.toLocaleString()}</div>
         </div>
-        <div class="text-xs font-black text-white">{holder.count.toLocaleString()}</div>
-      </div>
-    ))}
+      )}
+    </For>
   </Show>
 );
 

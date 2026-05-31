@@ -528,11 +528,12 @@ func (db *Database) RecordCosmeticPurchase(ctx context.Context, userID int64, co
 // EquipCosmetic equips the border or skin for the user
 func (db *Database) EquipCosmetic(ctx context.Context, userID int64, cosmeticID string, cosmeticType string) error {
 	var query string
-	if cosmeticType == "border" {
+	switch cosmeticType {
+	case "border":
 		query = "UPDATE user_stats SET equipped_border = $1 WHERE user_id = $2"
-	} else if cosmeticType == "skin" {
+	case "skin":
 		query = "UPDATE user_stats SET equipped_skin = $1 WHERE user_id = $2"
-	} else {
+	default:
 		return fmt.Errorf("invalid cosmetic type: %s", cosmeticType)
 	}
 	_, err := db.Pool.Exec(ctx, query, cosmeticID, userID)

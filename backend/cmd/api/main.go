@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
@@ -56,6 +55,25 @@ func main() {
 	if os.Getenv("APP_ENV") != "production" {
 		if err := godotenv.Load(); err != nil {
 			slog.Info("No .env file found, using system environment variables")
+		}
+	}
+
+	// P0-S1: Validate critical secrets at startup (fail-fast)
+	isProd := os.Getenv("APP_ENV") == "production"
+	if jwtSecret := os.Getenv("JWT_SECRET"); len(jwtSecret) < 32 {
+		if isProd {
+			slog.Error("FATAL: JWT_SECRET must be at least 32 characters for production")
+			os.Exit(1)
+		}
+		slog.Warn("JWT_SECRET is too short (< 32 chars), using anyway in non-production")
+	}
+	if isProd {
+		requiredSecrets := []string{"WEBHOOK_SECRET_TOKEN", "BOT_TOKEN", "DATABASE_URL"}
+		for _, s := range requiredSecrets {
+			if os.Getenv(s) == "" {
+				slog.Error("FATAL: Required secret is missing in production", "secret", s)
+				os.Exit(1)
+			}
 		}
 	}
 
@@ -121,19 +139,21 @@ func main() {
 			}
 			w.Header().Set("X-Request-ID", reqID)
 			ctx := context.WithValue(r.Context(), logger.RequestIDKey, reqID)
-			logger := slog.With("request_id", reqID, "path", r.URL.Path)
-			ctx = context.WithValue(ctx, "logger", logger)
+			reqLogger := slog.With("request_id", reqID, "path", r.URL.Path)
+			ctx = context.WithValue(ctx, logger.LoggerKey, reqLogger)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	})
 	r.Use(chiMiddleware.Logger)
 
-	// Sentry Initialization
-	sentry.Init(sentry.ClientOptions{
+	// Sentry Initialization (P0-S3: Handle init error)
+	if err := sentry.Init(sentry.ClientOptions{
 		Dsn:              os.Getenv("SENTRY_DSN"),
 		TracesSampleRate: 0.1,
 		Environment:      os.Getenv("APP_ENV"),
-	})
+	}); err != nil {
+		slog.Error("Failed to initialize Sentry", "error", err)
+	}
 	defer sentry.Flush(2 * time.Second)
 
 	allowedOrigins := strings.Split(os.Getenv("ALLOWED_ORIGINS"), ",")
@@ -168,12 +188,27 @@ func main() {
 		})
 	})
 
-	r.Use(middleware.NewRateLimiter(cache))
+	r.Use(middleware.NewRateLimiter(ctx, cache))
 	r.Use(sentryhttp.New(sentryhttp.Options{Repanic: true}).Handle)
 	r.Use(middleware.CSRF)
 
-	// Prometheus Metrics
-	r.Handle("/metrics", promhttp.Handler())
+	// Prometheus Metrics (P1-S4: Protected with bearer token)
+	r.Group(func(r chi.Router) {
+		r.Use(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				metricsToken := os.Getenv("METRICS_TOKEN")
+				if metricsToken != "" {
+					auth := r.Header.Get("Authorization")
+					if auth != "Bearer "+metricsToken {
+						w.WriteHeader(http.StatusUnauthorized)
+						return
+					}
+				}
+				next.ServeHTTP(w, r)
+			})
+		})
+		r.Handle("/metrics", promhttp.Handler())
+	})
 
 	// Initialize Clients
 	tonClient := tonapi.NewClient()
@@ -279,8 +314,10 @@ func main() {
 			tgClient := &http.Client{Timeout: 5 * time.Second}
 			tgResp, err := tgClient.Get("https://api.telegram.org")
 			if err != nil {
+				// P1-S5: Do not leak internal error details to client
+				slog.Error("Telegram API health check failed", "error", err)
 				w.WriteHeader(http.StatusServiceUnavailable)
-				w.Write([]byte(fmt.Sprintf(`{"status": "unhealthy", "error": %q}`, err.Error())))
+				w.Write([]byte(`{"status": "unhealthy", "telegram_api": "unreachable"}`))
 				return
 			}
 			tgResp.Body.Close()

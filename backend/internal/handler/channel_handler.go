@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -17,6 +18,9 @@ import (
 	"ifragment-backend/internal/service/channelmgmt"
 )
 
+// maxBodySize limits request body to 1MB to prevent OOM denial-of-service
+const maxBodySize = 1 << 20
+
 type ChannelHandler struct {
 	svc *channelmgmt.ChannelService
 }
@@ -26,24 +30,8 @@ func NewChannelHandler(svc *channelmgmt.ChannelService) *ChannelHandler {
 }
 
 func (h *ChannelHandler) getUserID(r *http.Request) int64 {
-	user, ok := r.Context().Value(middleware.UserContextKey).(map[string]interface{})
-	if !ok {
-		return 0
-	}
-	idVal, ok := user["id"]
-	if !ok {
-		return 0
-	}
-	switch v := idVal.(type) {
-	case float64:
-		return int64(v)
-	case int64:
-		return v
-	case int:
-		return int64(v)
-	default:
-		return 0
-	}
+	id, _ := middleware.GetUserID(r.Context())
+	return id
 }
 
 func (h *ChannelHandler) ListChannels(w http.ResponseWriter, r *http.Request) {
@@ -68,9 +56,20 @@ func (h *ChannelHandler) ListChannels(w http.ResponseWriter, r *http.Request) {
 	cursorStr := r.URL.Query().Get("cursor")
 
 	var cursor *time.Time
+	var cursorID *uuid.UUID
 	if cursorStr != "" {
-		if t, err := time.Parse(time.RFC3339, cursorStr); err == nil {
-			cursor = &t
+		parts := strings.Split(cursorStr, "_")
+		if len(parts) == 2 {
+			if t, err := time.Parse(time.RFC3339, parts[0]); err == nil {
+				cursor = &t
+			}
+			if u, err := uuid.Parse(parts[1]); err == nil {
+				cursorID = &u
+			}
+		} else {
+			if t, err := time.Parse(time.RFC3339, cursorStr); err == nil {
+				cursor = &t
+			}
 		}
 	}
 
@@ -84,19 +83,19 @@ func (h *ChannelHandler) ListChannels(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	channels, nextCursor, err := h.svc.ListChannels(r.Context(), userID, botID, cursor, limit)
+	channels, nextCursor, nextCursorID, err := h.svc.ListChannels(r.Context(), userID, botID, cursor, cursorID, limit)
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, "failed to list channels", err)
 		return
 	}
 
 	var nextCursorStr *string
-	if nextCursor != nil {
-		s := nextCursor.Format(time.RFC3339)
+	if nextCursor != nil && nextCursorID != nil {
+		s := fmt.Sprintf("%s_%s", nextCursor.Format(time.RFC3339), nextCursorID.String())
 		nextCursorStr = &s
 	}
 
-	respondJSON(w, http.StatusOK, map[string]interface{}{
+	RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"data":        channels,
 		"next_cursor": nextCursorStr,
 	})
@@ -114,6 +113,7 @@ func (h *ChannelHandler) ConnectChannel(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
 	var req ConnectChannelRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
@@ -128,11 +128,11 @@ func (h *ChannelHandler) ConnectChannel(w http.ResponseWriter, r *http.Request) 
 
 	ch, err := h.svc.ConnectChannel(r.Context(), userID, botID, req.Username)
 	if err != nil {
-		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		h.respondServerError(w, r, "failed to connect channel", err)
 		return
 	}
 
-	respondJSON(w, http.StatusCreated, ch)
+	RespondJSON(w, http.StatusCreated, ch)
 }
 
 func (h *ChannelHandler) GetChannel(w http.ResponseWriter, r *http.Request) {
@@ -155,7 +155,7 @@ func (h *ChannelHandler) GetChannel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondJSON(w, http.StatusOK, ch)
+	RespondJSON(w, http.StatusOK, ch)
 }
 
 func (h *ChannelHandler) DisconnectChannel(w http.ResponseWriter, r *http.Request) {
@@ -177,7 +177,7 @@ func (h *ChannelHandler) DisconnectChannel(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	respondJSON(w, http.StatusOK, map[string]string{"status": "disconnected"})
+	RespondJSON(w, http.StatusOK, map[string]string{"status": "disconnected"})
 }
 
 func (h *ChannelHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
@@ -200,7 +200,7 @@ func (h *ChannelHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondJSON(w, http.StatusOK, settings)
+	RespondJSON(w, http.StatusOK, settings)
 }
 
 type UpdateChannelSettingsRequest struct {
@@ -223,6 +223,7 @@ func (h *ChannelHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
 	var req UpdateChannelSettingsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
@@ -239,7 +240,7 @@ func (h *ChannelHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	respondJSON(w, http.StatusOK, settings)
+	RespondJSON(w, http.StatusOK, settings)
 }
 
 func (h *ChannelHandler) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
@@ -257,26 +258,54 @@ func (h *ChannelHandler) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	limit := 20
-	offset := 0
-
 	if qLimit := r.URL.Query().Get("limit"); qLimit != "" {
 		if val, err := strconv.Atoi(qLimit); err == nil {
 			limit = val
-		}
-	}
-	if qOffset := r.URL.Query().Get("offset"); qOffset != "" {
-		if val, err := strconv.Atoi(qOffset); err == nil {
-			offset = val
+			if limit <= 0 {
+				limit = 20
+			}
+			if limit > 100 {
+				limit = 100
+			}
 		}
 	}
 
-	logs, err := h.svc.GetAuditLogs(r.Context(), userID, channelID, limit, offset)
+	cursorStr := r.URL.Query().Get("cursor")
+	var cursor *time.Time
+	var cursorID *uuid.UUID
+	if cursorStr != "" {
+		parts := strings.Split(cursorStr, "_")
+		if len(parts) == 2 {
+			if t, err := time.Parse(time.RFC3339, parts[0]); err == nil {
+				cursor = &t
+			}
+			if u, err := uuid.Parse(parts[1]); err == nil {
+				cursorID = &u
+			}
+		} else {
+			if t, err := time.Parse(time.RFC3339, cursorStr); err == nil {
+				cursor = &t
+			}
+		}
+	}
+
+	logs, err := h.svc.GetAuditLogs(r.Context(), userID, channelID, cursor, cursorID, limit)
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, "failed to get audit logs", err)
 		return
 	}
 
-	respondJSON(w, http.StatusOK, logs)
+	var nextCursorStr *string
+	if len(logs) == limit && limit > 0 {
+		lastLog := logs[len(logs)-1]
+		s := fmt.Sprintf("%s_%s", lastLog.CreatedAt.Format(time.RFC3339), lastLog.ID.String())
+		nextCursorStr = &s
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]interface{}{
+		"data":        logs,
+		"next_cursor": nextCursorStr,
+	})
 }
 
 func (h *ChannelHandler) GetAnalytics(w http.ResponseWriter, r *http.Request) {
@@ -297,6 +326,12 @@ func (h *ChannelHandler) GetAnalytics(w http.ResponseWriter, r *http.Request) {
 	if qDays := r.URL.Query().Get("days"); qDays != "" {
 		if val, err := strconv.Atoi(qDays); err == nil {
 			days = val
+			if days <= 0 {
+				days = 7
+			}
+			if days > 365 {
+				days = 365
+			}
 		}
 	}
 
@@ -306,7 +341,7 @@ func (h *ChannelHandler) GetAnalytics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondJSON(w, http.StatusOK, analytics)
+	RespondJSON(w, http.StatusOK, analytics)
 }
 
 type CreatePostRequest struct {
@@ -328,12 +363,17 @@ func (h *ChannelHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
 	var req CreatePostRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
 		return
 	}
 
+	if strings.TrimSpace(req.Text) == "" {
+		RespondError(w, r, http.StatusBadRequest, "post text cannot be empty", nil)
+		return
+	}
 	if len(req.Text) > 4096 {
 		RespondError(w, r, http.StatusBadRequest, "post text length exceeds Telegram's 4096 character limit", nil)
 		return
@@ -347,11 +387,11 @@ func (h *ChannelHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
 
 	err = h.svc.CreatePost(r.Context(), userID, post)
 	if err != nil {
-		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		h.respondServerError(w, r, "failed to create post", err)
 		return
 	}
 
-	respondJSON(w, http.StatusCreated, post)
+	RespondJSON(w, http.StatusCreated, post)
 }
 
 func (h *ChannelHandler) GetForwardingRules(w http.ResponseWriter, r *http.Request) {
@@ -374,7 +414,7 @@ func (h *ChannelHandler) GetForwardingRules(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	respondJSON(w, http.StatusOK, rules)
+	RespondJSON(w, http.StatusOK, rules)
 }
 
 func (h *ChannelHandler) CreateForwardingRule(w http.ResponseWriter, r *http.Request) {
@@ -391,6 +431,7 @@ func (h *ChannelHandler) CreateForwardingRule(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
 	var rule repository.ChannelForwardingRule
 	if err := json.NewDecoder(r.Body).Decode(&rule); err != nil {
 		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
@@ -401,11 +442,11 @@ func (h *ChannelHandler) CreateForwardingRule(w http.ResponseWriter, r *http.Req
 
 	err = h.svc.CreateForwardingRule(r.Context(), userID, &rule)
 	if err != nil {
-		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		h.respondServerError(w, r, "failed to create forwarding rule", err)
 		return
 	}
 
-	respondJSON(w, http.StatusCreated, rule)
+	RespondJSON(w, http.StatusCreated, rule)
 }
 
 func (h *ChannelHandler) UpdateForwardingRule(w http.ResponseWriter, r *http.Request) {
@@ -429,6 +470,7 @@ func (h *ChannelHandler) UpdateForwardingRule(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
 	var rule repository.ChannelForwardingRule
 	if err := json.NewDecoder(r.Body).Decode(&rule); err != nil {
 		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
@@ -440,11 +482,11 @@ func (h *ChannelHandler) UpdateForwardingRule(w http.ResponseWriter, r *http.Req
 
 	err = h.svc.UpdateForwardingRule(r.Context(), userID, &rule)
 	if err != nil {
-		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		h.respondServerError(w, r, "failed to update forwarding rule", err)
 		return
 	}
 
-	respondJSON(w, http.StatusOK, rule)
+	RespondJSON(w, http.StatusOK, rule)
 }
 
 func (h *ChannelHandler) DeleteForwardingRule(w http.ResponseWriter, r *http.Request) {
@@ -470,11 +512,11 @@ func (h *ChannelHandler) DeleteForwardingRule(w http.ResponseWriter, r *http.Req
 
 	err = h.svc.DeleteForwardingRule(r.Context(), userID, channelID, ruleID)
 	if err != nil {
-		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		h.respondServerError(w, r, "failed to delete forwarding rule", err)
 		return
 	}
 
-	respondJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+	RespondJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
 func (h *ChannelHandler) SyncAdmins(w http.ResponseWriter, r *http.Request) {
@@ -493,11 +535,11 @@ func (h *ChannelHandler) SyncAdmins(w http.ResponseWriter, r *http.Request) {
 
 	err = h.svc.SyncAdmins(r.Context(), userID, channelID)
 	if err != nil {
-		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		h.respondServerError(w, r, "failed to synchronize channel administrators", err)
 		return
 	}
 
-	respondJSON(w, http.StatusOK, map[string]string{"status": "synchronized"})
+	RespondJSON(w, http.StatusOK, map[string]string{"status": "synchronized"})
 }
 
 func (h *ChannelHandler) GetAdmins(w http.ResponseWriter, r *http.Request) {
@@ -516,11 +558,11 @@ func (h *ChannelHandler) GetAdmins(w http.ResponseWriter, r *http.Request) {
 
 	admins, err := h.svc.GetAdmins(r.Context(), userID, channelID)
 	if err != nil {
-		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		h.respondServerError(w, r, "failed to fetch channel administrators", err)
 		return
 	}
 
-	respondJSON(w, http.StatusOK, admins)
+	RespondJSON(w, http.StatusOK, admins)
 }
 
 func (h *ChannelHandler) GetButtons(w http.ResponseWriter, r *http.Request) {
@@ -539,11 +581,11 @@ func (h *ChannelHandler) GetButtons(w http.ResponseWriter, r *http.Request) {
 
 	buttons, err := h.svc.GetButtons(r.Context(), userID, channelID)
 	if err != nil {
-		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		h.respondServerError(w, r, "failed to fetch channel inline buttons", err)
 		return
 	}
 
-	respondJSON(w, http.StatusOK, buttons)
+	RespondJSON(w, http.StatusOK, buttons)
 }
 
 func (h *ChannelHandler) SaveButtons(w http.ResponseWriter, r *http.Request) {
@@ -560,17 +602,44 @@ func (h *ChannelHandler) SaveButtons(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
 	var buttons []repository.ChannelInlineButton
 	if err := json.NewDecoder(r.Body).Decode(&buttons); err != nil {
 		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
 		return
 	}
 
-	for _, btn := range buttons {
-		if btn.Type == "url" {
+	for i, btn := range buttons {
+		buttons[i].Title = strings.TrimSpace(btn.Title)
+		if len(buttons[i].Title) == 0 {
+			RespondError(w, r, http.StatusBadRequest, "button title cannot be empty", nil)
+			return
+		}
+		if len(buttons[i].Title) > 64 {
+			RespondError(w, r, http.StatusBadRequest, "button title cannot exceed 64 characters to avoid Telegram truncation", nil)
+			return
+		}
+
+		// Strictly validate button types to prevent injection
+		btnType := strings.ToLower(btn.Type)
+		if btnType != "url" && btnType != "callback" && btnType != "share" && btnType != "webapp" && btnType != "payment" {
+			RespondError(w, r, http.StatusBadRequest, "invalid button type: must be url, callback, share, webapp, or payment", nil)
+			return
+		}
+
+		if btnType == "url" {
 			u, err := url.ParseRequestURI(btn.Value)
 			if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
 				RespondError(w, r, http.StatusBadRequest, "invalid URL in buttons: must be a valid http or https address", err)
+				return
+			}
+		}
+
+		// Webapp buttons MUST use secure https protocol according to Telegram specifications
+		if btnType == "webapp" {
+			u, err := url.ParseRequestURI(btn.Value)
+			if err != nil || u.Scheme != "https" {
+				RespondError(w, r, http.StatusBadRequest, "invalid WebApp URL: must be a secure https address", err)
 				return
 			}
 		}
@@ -578,11 +647,29 @@ func (h *ChannelHandler) SaveButtons(w http.ResponseWriter, r *http.Request) {
 
 	err = h.svc.SaveButtons(r.Context(), userID, channelID, buttons)
 	if err != nil {
-		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		h.respondServerError(w, r, "failed to save channel inline buttons", err)
 		return
 	}
 
-	respondJSON(w, http.StatusOK, buttons)
+	RespondJSON(w, http.StatusOK, buttons)
+}
+
+func (h *ChannelHandler) respondServerError(w http.ResponseWriter, r *http.Request, publicMsg string, err error) {
+	errStr := err.Error()
+	if strings.Contains(errStr, "unauthorized") || strings.Contains(errStr, "access denied") {
+		RespondError(w, r, http.StatusForbidden, errStr, err)
+		return
+	}
+	// Check for specific, safe-to-expose business validation and PV start messages
+	if strings.Contains(errStr, "bot must be an administrator") || 
+	   strings.Contains(errStr, "located chat is not a channel") || 
+	   strings.Contains(errStr, "لطفاً ابتدا ربات را") ||
+	   strings.Contains(errStr, "not found") {
+		RespondError(w, r, http.StatusBadRequest, errStr, err)
+		return
+	}
+	// Return a secure localized/generic message for internal exceptions, preventing db structure leaks
+	RespondError(w, r, http.StatusInternalServerError, publicMsg, err)
 }
 
 

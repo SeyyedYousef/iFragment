@@ -15,8 +15,11 @@ export const ChannelAnalyticsPage: Component = () => {
   const [isComparing, setIsComparing] = createSignal(false);
 
   const [analytics] = createResource(
-    () => params.id,
-    (channelId) => channelApi.getAnalytics(channelId, 30)
+    () => ({ id: params.id, range: timeRange() }),
+    ({ id, range }) => {
+      const days = range === '7d' ? 7 : range === '90d' ? 90 : 30;
+      return channelApi.getAnalytics(id, days);
+    }
   );
 
   onMount(() => {
@@ -244,7 +247,7 @@ export const ChannelAnalyticsPage: Component = () => {
                       onClick={() => {
                          hapticFeedback.impactOccurred('light');
                          setIsComparing(true);
-                         setTimeout(() => setIsComparing(false), 1000);
+                         setTimeout(() => setIsComparing(false), 150);
                       }}
                       disabled={!competitorInput().trim() || isComparing()}
                       class="px-5 bg-[#32ade6] text-black font-bold rounded-xl hover:bg-[#2b96c8] disabled:opacity-50 transition-colors flex items-center justify-center"

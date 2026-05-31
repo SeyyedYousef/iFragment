@@ -10,6 +10,7 @@ export const BoostsPage: Component = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [message, setMessage] = createSignal<{ text: string; error: boolean } | null>(null);
+  let messageTimeout: any;
 
   const boostsQuery = createQuery(() => ({
     queryKey: ['profile', 'boosts'],
@@ -32,10 +33,14 @@ export const BoostsPage: Component = () => {
       queryClient.invalidateQueries({ queryKey: ['profile', 'stats'] });
       try { hapticFeedback.notificationOccurred('success'); } catch {}
       setMessage({ text: t('gamification.upgradedSuccess'), error: false });
+      if (messageTimeout) clearTimeout(messageTimeout);
+      messageTimeout = setTimeout(() => setMessage(null), 4000);
     },
     onError: (err: any) => {
       try { hapticFeedback.notificationOccurred('error'); } catch {}
       setMessage({ text: err.message || t('gamification.upgradeFailed'), error: true });
+      if (messageTimeout) clearTimeout(messageTimeout);
+      messageTimeout = setTimeout(() => setMessage(null), 4000);
     }
   }));
 
@@ -49,6 +54,7 @@ export const BoostsPage: Component = () => {
       onCleanup(() => {
         off();
         try { backButton.hide(); } catch {}
+        if (messageTimeout) clearTimeout(messageTimeout);
       });
     } catch {}
   });
@@ -58,6 +64,8 @@ export const BoostsPage: Component = () => {
     if (statsVal && statsVal.frgBalance < price) {
       try { hapticFeedback.notificationOccurred('error'); } catch {}
       setMessage({ text: t('gamification.insufficientFrg').replace('{price}', price.toLocaleString()), error: true });
+      if (messageTimeout) clearTimeout(messageTimeout);
+      messageTimeout = setTimeout(() => setMessage(null), 4000);
       return;
     }
 
@@ -150,7 +158,7 @@ export const BoostsPage: Component = () => {
                     <Show when={!boost.max_level}>
                       <button
                         onClick={() => handleUpgrade(boost.type, boost.price_frg)}
-                        disabled={upgradeMutation.isPending && upgradeMutation.variables?.type === boost.type}
+                        disabled={upgradeMutation.isPending}
                         class="px-4 py-2 bg-[#3390ec] active:scale-95 disabled:opacity-50 text-[10px] font-black text-white rounded-xl uppercase tracking-wider transition-all"
                       >
                         {upgradeMutation.isPending && upgradeMutation.variables?.type === boost.type ? t('gamification.upgradingBtn') : t('gamification.upgradeBtn')}

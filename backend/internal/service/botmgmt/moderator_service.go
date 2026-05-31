@@ -16,10 +16,16 @@ import (
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/repository"
 
-	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/singleflight"
 	"log/slog"
 	"net/http"
+)
+
+var (
+	linkRegex        = regexp.MustCompile(`(?i)(https?://|t\.me/|t\.co/|tg://|www\.)`)
+	domainRegex      = regexp.MustCompile(`(?i)\b[\w-]+\.(com|net|org|co|info|biz|me|io|tv|cc|us|uk|ca|de|fr|ir|xyz|site|online|tech|app|top|link|club|store|ru|cn|in|gov|edu)\b`)
+	usernameRegex    = regexp.MustCompile(`(?i)(^|\s)@[a-z][a-z0-9_]{3,24}\b`)
+	phoneNumberRegex = regexp.MustCompile(`(?i)(?:(?:\+\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\+\d{7,15}|09\d{9})`)
 )
 
 // ModeratorService handles real-time group moderation logic.
@@ -393,6 +399,12 @@ func (s *ModeratorService) GetTelegramClient(ctx context.Context, bot *repositor
 	return client, nil
 }
 
+// EvictStaleBotClient removes a bot client from the memory cache when its token is rotated or when it is deleted
+func (s *ModeratorService) EvictStaleBotClient(botID uuid.UUID) {
+	s.clientCache.Delete(botID)
+	slog.Info("Successfully evicted stale client from moderator client cache", "bot_id", botID)
+}
+
 // ─── Quiet Hours ──────────────────────────────────────────
 
 func (s *ModeratorService) isQuietHours(q repository.SettingsQuietHours, tz string) bool {
@@ -526,15 +538,15 @@ func (s *ModeratorService) checkAllContent(c repository.SettingsContentRestricti
 	}
 
 	// ── Links & IDs ──
-	if v := check(c.RemoveLinks, regexp.MustCompile(`(?i)(https?://|t\.me/|t\.co/|tg://|www\.)`).MatchString(text), "link", "Links are not allowed"); v != nil {
+	if v := check(c.RemoveLinks, linkRegex.MatchString(text), "link", "Links are not allowed"); v != nil {
 		return v
 	}
 
-	if v := check(c.BlockDomains, regexp.MustCompile(`(?i)\b[\w-]+\.(com|net|org|co|info|biz|me|io|tv|cc|us|uk|ca|de|fr|ir|xyz|site|online|tech|app|top|link|club|store|ru|cn|in|gov|edu)\b`).MatchString(text), "domain", "Domains are not allowed"); v != nil {
+	if v := check(c.BlockDomains, domainRegex.MatchString(text), "domain", "Domains are not allowed"); v != nil {
 		return v
 	}
 
-	if v := check(c.BlockUsernames, regexp.MustCompile(`(?i)(^|\s)@[a-z][a-z0-9_]{3,24}\b`).MatchString(text), "username", "Usernames are not allowed"); v != nil {
+	if v := check(c.BlockUsernames, usernameRegex.MatchString(text), "username", "Usernames are not allowed"); v != nil {
 		return v
 	}
 
@@ -542,7 +554,7 @@ func (s *ModeratorService) checkAllContent(c repository.SettingsContentRestricti
 		return v
 	}
 
-	if v := check(c.BlockPhoneNumbers, regexp.MustCompile(`(?i)(?:(?:\+\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\+\d{7,15}|09\d{9})`).MatchString(text), "phone", "Phone numbers are not allowed"); v != nil {
+	if v := check(c.BlockPhoneNumbers, phoneNumberRegex.MatchString(text), "phone", "Phone numbers are not allowed"); v != nil {
 		return v
 	}
 
@@ -929,6 +941,3 @@ func containsScriptRatio(text string, rangeTable *unicode.RangeTable, threshold 
 	}
 	return float64(matched)/float64(total) >= threshold
 }
-
-// Ensure redis import is used
-var _ redis.Client

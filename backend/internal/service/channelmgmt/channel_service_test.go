@@ -3,6 +3,7 @@ package channelmgmt
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -24,7 +25,6 @@ func TestProcessChannelPostAutoResponder(t *testing.T) {
 
 	// Test Scenario 1: Responder disabled
 	disabledSettings := &repository.ChannelSettings{
-		ChannelID:     uuid.New(),
 		AutoResponder: json.RawMessage(`{"enabled":false,"rules":[{"trigger":"hi","response":"hello","type":"exact"}]}`),
 	}
 
@@ -48,7 +48,6 @@ func TestProcessChannelPostAutoResponder(t *testing.T) {
 
 	// Test Scenario 2: Responder exact match
 	exactSettings := &repository.ChannelSettings{
-		ChannelID:     uuid.New(),
 		AutoResponder: json.RawMessage(`{"enabled":true,"rules":[{"trigger":"price","response":"The price is 10 FRG","type":"exact"}]}`),
 	}
 
@@ -72,7 +71,6 @@ func TestProcessChannelPostAutoResponder(t *testing.T) {
 
 	// Test Scenario 3: Responder contains match
 	containsSettings := &repository.ChannelSettings{
-		ChannelID:     uuid.New(),
 		AutoResponder: json.RawMessage(`{"enabled":true,"rules":[{"trigger":"support","response":"Contact admin at @support","type":"contains"}]}`),
 	}
 
@@ -111,7 +109,7 @@ func TestChannelServiceNewFeatures(t *testing.T) {
 	ownerUserID := int64(12345)
 
 	// Test GetAuditLogs (since db is nil, it correctly returns db pool initialization error)
-	_, err := s.GetAuditLogs(ctx, ownerUserID, channelID, 10, 0)
+	_, err := s.GetAuditLogs(ctx, ownerUserID, channelID, nil, nil, 10)
 	if err == nil || err.Error() != "database pool is not initialized" {
 		t.Fatalf("Expected 'database pool is not initialized' error, got: %v", err)
 	}
@@ -139,5 +137,71 @@ func TestChannelServiceNewFeatures(t *testing.T) {
 	workerCtx, cancel := context.WithCancel(context.Background())
 	s.StartBackgroundTasks(workerCtx)
 	cancel() // instantly stop to prevent long run
+}
+
+func TestRemoveHashtagsHelper(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"Hello #world this is #Go", "Hello this is"},
+		{"#only_hash", ""},
+		{"no hash here", "no hash here"},
+		{"multiple    #spaces #here", "multiple"},
+	}
+
+	for _, tc := range tests {
+		result := removeHashtagsHelper(tc.input)
+		if result != tc.expected {
+			t.Errorf("removeHashtagsHelper(%q) = %q; expected %q", tc.input, result, tc.expected)
+		}
+	}
+}
+
+func TestRemoveLinksHelper(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"Visit https://ifragment.com for more", "Visit  for more"},
+		{"Check my channel t.me/ifragment_bot", "Check my channel "},
+		{"Visit google.com or buy.org now", "Visit  or  now"},
+		{"No link here", "No link here"},
+	}
+
+	for _, tc := range tests {
+		result := removeLinksHelper(tc.input)
+		// Clean double spaces to compare basic content
+		resultClean := strings.Join(strings.Fields(result), " ")
+		expectedClean := strings.Join(strings.Fields(tc.expected), " ")
+		if resultClean != expectedClean {
+			t.Errorf("removeLinksHelper(%q) = %q; expected %q", tc.input, resultClean, expectedClean)
+		}
+	}
+}
+
+func TestDynamicParaphrase(t *testing.T) {
+	input := "Hello, I want to buy and sell at a good price with support."
+	result := dynamicParaphrase(input)
+
+	// Result should contain the paraphrased prefix
+	if !strings.HasPrefix(result, "🤖 [iFragment AI Paraphrased]") {
+		t.Errorf("Expected result to have paraphrased prefix, got: %q", result)
+	}
+
+	// Hello should be replaced by greetings
+	if !strings.Contains(strings.ToLower(result), "greetings") {
+		t.Errorf("Expected result to contain 'greetings', got: %q", result)
+	}
+
+	// Buy should be replaced by purchase
+	if !strings.Contains(strings.ToLower(result), "purchase") {
+		t.Errorf("Expected result to contain 'purchase', got: %q", result)
+	}
+
+	// Empty string check
+	if dynamicParaphrase("") != "" {
+		t.Errorf("Expected empty string to return empty string")
+	}
 }
 

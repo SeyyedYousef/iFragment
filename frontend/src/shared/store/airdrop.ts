@@ -39,7 +39,7 @@ const savedState = loadState() || {};
 export const [userClan, setUserClan] = createSignal<Clan | null>(null);
 export const [balance, setBalance] = createSignal(0);
 export const [totalTaps, setTotalTaps] = createSignal(0);
-export const [energy, setEnergy] = createSignal(savedState.energy !== undefined ? Math.min(savedState.energy, 500) : 500);
+export const [energy, setEnergy] = createSignal(savedState.energy !== undefined ? Math.min(savedState.energy, savedState.maxEnergy || 500) : 500);
 export const [maxEnergy, setMaxEnergy] = createSignal(savedState.maxEnergy || 500);
 export const [tapPower, setTapPower] = createSignal(savedState.tapPower || 1);
 export const [energyRecovery, setEnergyRecovery] = createSignal(savedState.energyRecovery || 1);
@@ -155,7 +155,7 @@ export const syncDailyRewardStatus = async () => {
   }
 };
 
-export const DAILY_REWARDS = [500, 1000, 2500, 5000, 10000, 25000, 50000];
+export const DAILY_REWARDS = [500, 1000, 2500, 5000, 10000, 15000, 25000];
 
 export const claimDailyReward = async () => {
   try {

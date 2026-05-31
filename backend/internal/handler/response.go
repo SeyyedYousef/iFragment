@@ -30,3 +30,12 @@ func RespondError(w http.ResponseWriter, r *http.Request, code int, publicMsg st
 		RequestID: reqID,
 	})
 }
+
+// RespondJSON sends a JSON response with status code and payload, logging any serialization errors.
+func RespondJSON(w http.ResponseWriter, status int, payload interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		slog.Error("failed to encode JSON response", "error", err)
+	}
+}

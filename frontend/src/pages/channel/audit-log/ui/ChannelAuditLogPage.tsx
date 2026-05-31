@@ -46,7 +46,7 @@ export const ChannelAuditLogPage: Component = () => {
   };
 
   const filteredLogs = () => {
-    const list = auditLogsData() || [];
+    const list = auditLogsData()?.data || [];
     return list.filter((log: any) => {
        const searchStr = searchQuery().toLowerCase();
        const actionMatch = actionFilter() === 'all' || log.action.toLowerCase().includes(actionFilter().toLowerCase());

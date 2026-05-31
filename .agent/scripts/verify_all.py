@@ -46,16 +46,16 @@ def print_header(text: str):
     print(f"{Colors.BOLD}{Colors.CYAN}{'='*70}{Colors.ENDC}\n")
 
 def print_step(text: str):
-    print(f"{Colors.BOLD}{Colors.BLUE}🔄 {text}{Colors.ENDC}")
+    print(f"{Colors.BOLD}{Colors.BLUE}>> {text}{Colors.ENDC}")
 
 def print_success(text: str):
-    print(f"{Colors.GREEN}✅ {text}{Colors.ENDC}")
+    print(f"{Colors.GREEN}[OK] {text}{Colors.ENDC}")
 
 def print_warning(text: str):
-    print(f"{Colors.YELLOW}⚠️  {text}{Colors.ENDC}")
+    print(f"{Colors.YELLOW}!! {text}{Colors.ENDC}")
 
 def print_error(text: str):
-    print(f"{Colors.RED}❌ {text}{Colors.ENDC}")
+    print(f"{Colors.RED}[FAIL] {text}{Colors.ENDC}")
 
 # Complete verification suite
 VERIFICATION_SUITE = [
@@ -203,7 +203,7 @@ def print_final_report(results: List[dict], start_time: datetime):
     """Print comprehensive final report"""
     total_duration = (datetime.now() - start_time).total_seconds()
     
-    print_header("📊 FULL VERIFICATION REPORT")
+    print_header("FULL VERIFICATION REPORT")
     
     # Statistics
     total = len(results)
@@ -283,7 +283,7 @@ Examples:
         print_error(f"Project path does not exist: {project_path}")
         sys.exit(1)
     
-    print_header("🚀 ANTIGRAVITY KIT - FULL VERIFICATION SUITE")
+    print_header("ANTIGRAVITY KIT - FULL VERIFICATION SUITE")
     print(f"Project: {project_path}")
     print(f"URL: {args.url}")
     print(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -304,7 +304,7 @@ Examples:
         if args.no_e2e and category == "E2E Testing":
             continue
         
-        print_header(f"📋 {category.upper()}")
+        print_header(f"{category.upper()}")
         
         for name, script_path, required in suite["checks"]:
             script = project_path / script_path

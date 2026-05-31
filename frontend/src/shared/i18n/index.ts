@@ -1,4 +1,4 @@
-import { createSignal, createContext, useContext, createEffect } from 'solid-js';
+import { createSignal, createContext, useContext, createEffect, createRoot } from 'solid-js';
 import * as i18n from '@solid-primitives/i18n';
 import { initData } from '@tma.js/sdk-solid';
 
@@ -44,21 +44,23 @@ const getInitialLocale = (): Locale => {
 export const [locale, setLocale] = createSignal<Locale>(getInitialLocale());
 export const isRtl = () => RTL_LOCALES.includes(locale());
 
-// Reactively detect language from Telegram SDK after it initializes
-createEffect(() => {
-  if (localStorage.getItem('locale')) return;
-  const user = initData.user();
-  if (user?.language_code) {
-    setLocale(mapLanguageCode(user.language_code));
-  }
-});
+createRoot(() => {
+  // Reactively detect language from Telegram SDK after it initializes
+  createEffect(() => {
+    if (localStorage.getItem('locale')) return;
+    const user = initData.user();
+    if (user?.language_code) {
+      setLocale(mapLanguageCode(user.language_code));
+    }
+  });
 
-// Keep HTML lang attribute in sync, handle RTL
-createEffect(() => {
-  const currentLocale = locale();
-  localStorage.setItem('locale', currentLocale);
-  document.documentElement.dir = RTL_LOCALES.includes(currentLocale) ? 'rtl' : 'ltr';
-  document.documentElement.lang = currentLocale;
+  // Keep HTML lang attribute in sync, handle RTL
+  createEffect(() => {
+    const currentLocale = locale();
+    localStorage.setItem('locale', currentLocale);
+    document.documentElement.dir = RTL_LOCALES.includes(currentLocale) ? 'rtl' : 'ltr';
+    document.documentElement.lang = currentLocale;
+  });
 });
 
 // Auto-generate all valid translation key paths from the dictionary structure

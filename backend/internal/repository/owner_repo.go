@@ -387,19 +387,16 @@ func (r *OwnerRepo) RedeemPromoCodeTx(ctx context.Context, code string, userID i
 		return err
 	}
 
-	// Credit the user with FRG
+	// Atomic upsert with write locking to prevent race conditions and connection leaks
 	var balanceBefore float64
-	err = tx.QueryRow(ctx,
-		`SELECT balance FROM frg_balances WHERE user_id = $1 FOR UPDATE`, userID,
-	).Scan(&balanceBefore)
-	if err == pgx.ErrNoRows {
-		// Initialize balance row
-		_, initErr := tx.Exec(ctx, `INSERT INTO frg_balances (user_id) VALUES ($1) ON CONFLICT DO NOTHING`, userID)
-		if initErr != nil {
-			return initErr
-		}
-		balanceBefore = 0
-	} else if err != nil {
+	err = tx.QueryRow(ctx, `
+		INSERT INTO frg_balances (user_id, balance, total_earned, updated_at)
+		VALUES ($1, 0.0, 0.0, now())
+		ON CONFLICT (user_id) 
+		DO UPDATE SET updated_at = now()
+		RETURNING balance
+	`, userID).Scan(&balanceBefore)
+	if err != nil {
 		return err
 	}
 

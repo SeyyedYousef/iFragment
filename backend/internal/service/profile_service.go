@@ -154,7 +154,33 @@ func (s *ProfileService) SetReferralCode(ctx context.Context, userID int64, refe
 	err = s.db.Pool.QueryRow(ctx, "SELECT telegram_id FROM users WHERE referral_code = $1", referrerCode).Scan(&referrerID)
 	if err == nil {
 		meta, _ := json.Marshal(map[string]interface{}{"referred_user_id": userID})
-		_, _ = s.frgRepo.Credit(ctx, referrerID, 10000.0, "admin_credit", meta)
+
+		// Enforce caps on referral rewards
+		const (
+			MaxReferralRewardPerDay = 50000.0
+			MaxReferralRewardTotal  = 500000.0
+		)
+
+		var totalReferralEarned float64
+		sumQuery := `SELECT COALESCE(SUM(amount), 0) FROM frg_transactions WHERE user_id = $1 AND type = 'admin_credit' AND metadata->>'referred_user_id' IS NOT NULL`
+		_ = s.db.Pool.QueryRow(ctx, sumQuery, referrerID).Scan(&totalReferralEarned)
+
+		if totalReferralEarned < MaxReferralRewardTotal {
+			allowed := true
+			if s.cache != nil && s.cache.Client != nil {
+				todayKey := fmt.Sprintf("referral:daily:%d:%s", referrerID, time.Now().Format("2006-01-02"))
+				dailyTotal, errIncr := s.cache.Client.IncrByFloat(ctx, todayKey, 10000.0).Result()
+				if errIncr == nil {
+					s.cache.Client.Expire(ctx, todayKey, 24*time.Hour)
+					if dailyTotal > MaxReferralRewardPerDay {
+						allowed = false
+					}
+				}
+			}
+			if allowed {
+				_, _ = s.frgRepo.Credit(ctx, referrerID, 10000.0, "admin_credit", meta)
+			}
+		}
 	}
 
 	// Reward the referred user with 5,000 FRG tokens as a welcome bonus!
@@ -427,10 +453,40 @@ func (s *ProfileService) SetEmojiStatus(ctx context.Context, userID int64, emoji
 }
 
 func (s *ProfileService) DeleteUserDataGDPR(ctx context.Context, userID int64) error {
-	query := `DELETE FROM users WHERE telegram_id = $1`
-	_, err := s.db.Pool.Exec(ctx, query, userID)
+	tx, err := s.db.Pool.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to wipe physical user database records: %w", err)
+		return fmt.Errorf("failed to begin GDPR deletion tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	tables := []struct {
+		table  string
+		column string
+	}{
+		{"user_cosmetics", "user_id"},
+		{"user_boosts", "user_id"},
+		{"user_tasks", "user_id"},
+		{"user_daily_claims", "user_id"},
+		{"user_achievements", "user_id"},
+		{"clan_members", "user_id"},
+		{"user_bans", "user_id"},
+		{"frg_transactions", "user_id"},
+		{"frg_balances", "user_id"},
+		{"promo_redemptions", "user_id"},
+		{"search_logs", "user_id"},
+		{"user_stats", "user_id"},
+		{"users", "telegram_id"},
+	}
+
+	for _, t := range tables {
+		_, err = tx.Exec(ctx, fmt.Sprintf("DELETE FROM %s WHERE %s = $1", t.table, t.column), userID)
+		if err != nil {
+			return fmt.Errorf("GDPR: failed to delete from %s: %w", t.table, err)
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("GDPR deletion commit failed: %w", err)
 	}
 
 	if s.cache != nil && s.cache.Client != nil {

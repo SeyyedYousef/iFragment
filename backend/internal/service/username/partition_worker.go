@@ -45,6 +45,17 @@ func (w *PartitionWorker) Start(ctx context.Context) {
 }
 
 func (w *PartitionWorker) runMaintenance(ctx context.Context) {
+	// Try to acquire distributed advisory lock (ID: 847294) to prevent concurrent execution on horizontally scaled instances
+	var acquired bool
+	err := w.db.Pool.QueryRow(ctx, "SELECT pg_try_advisory_lock(847294)").Scan(&acquired)
+	if err != nil || !acquired {
+		slog.Info("[PartitionWorker] Partition maintenance skipped: lock held by another cluster instance")
+		return
+	}
+	defer func() {
+		_, _ = w.db.Pool.Exec(context.Background(), "SELECT pg_advisory_unlock(847294)")
+	}()
+
 	slog.Info("[PartitionWorker] Starting maintenance cycle...")
 
 	// 1. Create partitions for current and next 2 months

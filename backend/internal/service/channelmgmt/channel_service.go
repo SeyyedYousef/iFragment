@@ -8,14 +8,16 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
+	"runtime/debug"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,9 +28,15 @@ import (
 )
 
 type ChannelService struct {
-	channelRepo   *repository.ChannelRepo
-	botRepo       *repository.BotRepo
-	auditRepo     *repository.AuditRepo
+	channelRepo          *repository.ChannelRepo
+	botRepo              *repository.BotRepo
+	auditRepo            *repository.AuditRepo
+	wg                   sync.WaitGroup
+	httpClient           *http.Client // Shared thread-safe HTTP client
+
+	// Feature flags — loaded once at startup to avoid per-request os.Getenv overhead
+	featureForwarding    bool
+	featureAutoResponder bool
 }
 
 func NewChannelService(
@@ -37,10 +45,17 @@ func NewChannelService(
 	auditRepo *repository.AuditRepo,
 ) *ChannelService {
 	return &ChannelService{
-		channelRepo: channelRepo,
-		botRepo:     botRepo,
-		auditRepo:   auditRepo,
+		channelRepo:          channelRepo,
+		botRepo:              botRepo,
+		auditRepo:            auditRepo,
+		httpClient:           SafeHTTPClient(10 * time.Second),
+		featureForwarding:    os.Getenv("FEATURE_FLAG_FORWARDING") != "false",
+		featureAutoResponder: os.Getenv("FEATURE_FLAG_AUTORESPONDER") != "false",
 	}
+}
+
+func (s *ChannelService) GetChannelRepo() *repository.ChannelRepo {
+	return s.channelRepo
 }
 
 // Channel Connection & Management
@@ -48,7 +63,7 @@ func NewChannelService(
 func (s *ChannelService) ConnectChannel(ctx context.Context, ownerUserID int64, botID uuid.UUID, channelUsernameOrID string) (*repository.ManagedChannel, error) {
 	var metricStatus = "failed"
 	defer func() {
-		telemetry.RecordChannelConnect(metricStatus)
+		go telemetry.RecordChannelConnect(metricStatus)
 	}()
 
 	// 1. Get bot
@@ -122,11 +137,13 @@ func (s *ChannelService) ConnectChannel(ctx context.Context, ownerUserID int64, 
 
 	// 8. Log audit log
 	slog.Info("Channel connected successfully", "channel_id", ch.ID, "title", chat.Title)
-	_ = s.auditRepo.Log(ctx, &repository.AuditLog{
+	if err := s.auditRepo.Log(ctx, &repository.AuditLog{
 		ActorID:    ownerUserID,
 		Action:     "channel.connect",
 		TargetID:   &channelUsernameOrID,
-	})
+	}); err != nil {
+		slog.Warn("failed to write audit log", "action", "channel.connect", "error", err)
+	}
 
 	metricStatus = "success"
 	return ch, nil
@@ -143,29 +160,31 @@ func (s *ChannelService) DisconnectChannel(ctx context.Context, ownerUserID int6
 	}
 
 	target := channelID.String()
-	_ = s.auditRepo.Log(ctx, &repository.AuditLog{
+	if err := s.auditRepo.Log(ctx, &repository.AuditLog{
 		ActorID:    ownerUserID,
 		Action:     "channel.disconnect",
 		TargetID:   &target,
-	})
+	}); err != nil {
+		slog.Warn("failed to write audit log", "action", "channel.disconnect", "error", err)
+	}
 	return nil
 }
 
-func (s *ChannelService) ListChannels(ctx context.Context, ownerUserID int64, botID uuid.UUID, cursor *time.Time, limit int) ([]repository.ManagedChannel, *time.Time, error) {
+func (s *ChannelService) ListChannels(ctx context.Context, ownerUserID int64, botID uuid.UUID, cursor *time.Time, cursorID *uuid.UUID, limit int) ([]repository.ManagedChannel, *time.Time, *uuid.UUID, error) {
 	if botID == uuid.Nil {
-		return s.channelRepo.GetChannelsByOwner(ctx, ownerUserID, cursor, limit)
+		return s.channelRepo.GetChannelsByOwner(ctx, ownerUserID, cursor, cursorID, limit)
 	}
 
 	// Verify bot ownership
 	bot, err := s.botRepo.GetBotByID(ctx, botID)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if bot.OwnerUserID != ownerUserID {
-		return nil, nil, fmt.Errorf("unauthorized")
+		return nil, nil, nil, fmt.Errorf("unauthorized")
 	}
 
-	return s.channelRepo.GetChannelsByBot(ctx, botID, cursor, limit)
+	return s.channelRepo.GetChannelsByBot(ctx, botID, cursor, cursorID, limit)
 }
 
 type Role string
@@ -176,16 +195,16 @@ const (
 	RoleViewer Role = "viewer"
 )
 
-func (s *ChannelService) GetUserRole(ctx context.Context, userID int64, channelID uuid.UUID) (Role, error) {
+func (s *ChannelService) GetUserRole(ctx context.Context, userID int64, channelID uuid.UUID) (Role, *repository.ManagedChannel, error) {
 	ch, err := s.channelRepo.GetChannelByID(ctx, channelID)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	// 1. Check if they are the bot owner
 	bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
 	if err == nil && bot.OwnerUserID == userID {
-		return RoleOwner, nil
+		return RoleOwner, ch, nil
 	}
 
 	// 2. Check channel_admins table
@@ -194,21 +213,22 @@ func (s *ChannelService) GetUserRole(ctx context.Context, userID int64, channelI
 		for _, admin := range admins {
 			if admin.TelegramID == userID {
 				if admin.IsOwner {
-					return RoleOwner, nil
+					return RoleOwner, ch, nil
 				}
-				if admin.CustomTitle != nil && strings.Contains(strings.ToLower(*admin.CustomTitle), "viewer") {
-					return RoleViewer, nil
+				// Require exact case-insensitive match to avoid demoting administrators whose title simply contains "viewer"
+				if admin.CustomTitle != nil && strings.ToLower(strings.TrimSpace(*admin.CustomTitle)) == "viewer" {
+					return RoleViewer, ch, nil
 				}
-				return RoleAdmin, nil
+				return RoleAdmin, ch, nil
 			}
 		}
 	}
 
-	return "", fmt.Errorf("unauthorized")
+	return "", nil, fmt.Errorf("unauthorized")
 }
 
 func (s *ChannelService) verifyAccess(ctx context.Context, userID int64, channelID uuid.UUID, allowedRoles ...Role) error {
-	role, err := s.GetUserRole(ctx, userID, channelID)
+	role, ch, err := s.GetUserRole(ctx, userID, channelID)
 	if err != nil {
 		return err
 	}
@@ -224,12 +244,7 @@ func (s *ChannelService) verifyAccess(ctx context.Context, userID int64, channel
 		return fmt.Errorf("unauthorized: role %s not allowed", role)
 	}
 
-	// Verify subscription status (Issue 7)
-	ch, err := s.channelRepo.GetChannelByID(ctx, channelID)
-	if err != nil {
-		return err
-	}
-
+	// Verify subscription status (Issue 7) using the already loaded channel object
 	if ch.SubscriptionStatus == "expired" {
 		return fmt.Errorf("unauthorized: channel subscription has expired")
 	}
@@ -259,8 +274,22 @@ func (s *ChannelService) GetSettings(ctx context.Context, ownerUserID int64, cha
 	return s.channelRepo.GetChannelSettings(ctx, channelID)
 }
 
+// GetChannelSettingsDirect retrieves channel settings without checking ownerUserID permissions, for background webhook tasks
+func (s *ChannelService) GetChannelSettingsDirect(ctx context.Context, channelID uuid.UUID) (*repository.ChannelSettings, error) {
+	return s.channelRepo.GetChannelSettings(ctx, channelID)
+}
+
 func (s *ChannelService) UpdateSettings(ctx context.Context, ownerUserID int64, channelID uuid.UUID, category string, data json.RawMessage, version int) (*repository.ChannelSettings, error) {
-	oldSettings, err := s.GetSettings(ctx, ownerUserID, channelID)
+	if err := ValidateSettingsCategory(category, data); err != nil {
+		return nil, fmt.Errorf("settings validation failed: %w", err)
+	}
+
+	// Verify write access (restrict to RoleOwner and RoleAdmin)
+	if err := s.verifyAccess(ctx, ownerUserID, channelID, RoleOwner, RoleAdmin); err != nil {
+		return nil, err
+	}
+
+	oldSettings, err := s.channelRepo.GetChannelSettings(ctx, channelID)
 	if err != nil {
 		return nil, err
 	}
@@ -287,12 +316,14 @@ func (s *ChannelService) UpdateSettings(ctx context.Context, ownerUserID int64, 
 		oldVal = oldSettings.AutoResponder
 	}
 
-	_ = s.auditRepo.Log(ctx, &repository.AuditLog{
+	if err := s.auditRepo.Log(ctx, &repository.AuditLog{
 		ActorID:  ownerUserID,
 		Action:   "channel.settings.update." + category,
 		OldValue: oldVal,
 		NewValue: data,
-	})
+	}); err != nil {
+		slog.Warn("failed to write audit log", "action", "channel.settings.update."+category, "error", err)
+	}
 
 	return newSettings, nil
 }
@@ -300,17 +331,40 @@ func (s *ChannelService) UpdateSettings(ctx context.Context, ownerUserID int64, 
 // Webhook & Interactive Handlers
 
 func (s *ChannelService) ProcessChannelPost(ctx context.Context, chatID int64, messageID int, postText string, replyMarkup json.RawMessage) error {
-	if cache := s.channelRepo.GetCache(); cache != nil && cache.Client != nil {
-		textHash := fmt.Sprintf("%x", sha256.Sum256([]byte(postText)))
-		loopKey := fmt.Sprintf("forward_loop:%s", textHash)
-		locked, err := cache.Client.SetNX(ctx, loopKey, "active", 5*time.Minute).Result()
-		if err == nil && !locked {
-			slog.Warn("Forward loop or duplication detected, skipping", "text", postText)
-			return nil
+	// Skip duplicate/loop protection for empty-caption posts (e.g. photos/stickers)
+	// and make the textHash lock key channel-specific to prevent cross-channel conflicts.
+	if len(strings.TrimSpace(postText)) > 0 {
+		if cache := s.channelRepo.GetCache(); cache != nil && cache.Client != nil {
+			textHash := fmt.Sprintf("%x", sha256.Sum256([]byte(postText)))
+			loopKey := fmt.Sprintf("forward_loop:%d:%s", chatID, textHash)
+			locked, err := cache.Client.SetNX(ctx, loopKey, "active", 5*time.Minute).Result()
+			if err == nil && !locked {
+				preview := postText
+				if len(preview) > 30 {
+					preview = preview[:30] + "..."
+				}
+				slog.Warn("Forward loop or duplication detected, skipping", "chat_id", chatID, "text_snippet", preview, "hash", textHash)
+				return nil
+			}
 		}
 	}
+
+	// Dispatch processing to background goroutine to unblock Telegram webhook instantly
+	s.wg.Add(1)
+	GoSafe(func() {
+		defer s.wg.Done()
+		bgCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+		defer cancel()
+		_ = s.processChannelPostAsync(bgCtx, chatID, messageID, postText, replyMarkup)
+	})
+
+	return nil
+}
+
+func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int64, messageID int, postText string, replyMarkup json.RawMessage) error {
+	_ = replyMarkup // Silence unused parameter warning
 	// 1. Inbound Forwarding Rules (Inbound copy/forward from other channels into ours)
-	if os.Getenv("FEATURE_FLAG_FORWARDING") != "false" {
+	if s.featureForwarding {
 		inboundRules, err := s.channelRepo.GetActiveForwardingRulesBySource(ctx, strconv.FormatInt(chatID, 10))
 		if err == nil && len(inboundRules) > 0 {
 			for _, rule := range inboundRules {
@@ -335,25 +389,20 @@ func (s *ChannelService) ProcessChannelPost(ctx context.Context, chatID int64, m
 
 				tg := telegram.NewBotAPIClient(token)
 				if rule.Mode == "forward" {
-					_ = tg.ForwardMessage(ctx, destChan.ChatID, chatID, messageID)
+					if err := tg.ForwardMessage(ctx, destChan.ChatID, chatID, messageID); err != nil {
+						slog.Error("Failed to forward message via inbound rule", "rule_id", rule.ID, "chat_id", chatID, "message_id", messageID, "error", err)
+					}
 				} else {
-					text := postText
-					if rule.Mode == "ai" {
-						text = dynamicParaphrase(text)
+					text := ApplyTextFilters(postText, ChannelPostFilter{
+						Mode:           rule.Mode,
+						Watermark:      rule.Watermark,
+						RemoveAds:      rule.RemoveAds,
+						RemoveHashtags: rule.RemoveHashtags,
+						RemoveLinks:    rule.RemoveLinks,
+					})
+					if err := tg.SendMessage(ctx, destChan.ChatID, text, nil, nil); err != nil {
+						slog.Error("Failed to send inbound message copy", "rule_id", rule.ID, "dest_chat_id", destChan.ChatID, "error", err)
 					}
-					if rule.Watermark != "" {
-						text = text + "\n\n" + rule.Watermark
-					}
-					if rule.RemoveAds {
-						text = strings.ReplaceAll(text, "#ad", "")
-					}
-					if rule.RemoveHashtags {
-						text = removeHashtagsHelper(text)
-					}
-					if rule.RemoveLinks {
-						text = removeLinksHelper(text)
-					}
-					_ = tg.SendMessage(ctx, destChan.ChatID, text, nil, nil)
 				}
 			}
 		}
@@ -371,7 +420,7 @@ func (s *ChannelService) ProcessChannelPost(ctx context.Context, chatID int64, m
 	}
 
 	// 2. Outbound Forwarding Rules (Copy/forward from our managed channel to other channels/webhooks)
-	if os.Getenv("FEATURE_FLAG_FORWARDING") != "false" {
+	if s.featureForwarding {
 		outboundRules, err := s.channelRepo.GetForwardingRules(ctx, ch.ID)
 		if err == nil && len(outboundRules) > 0 {
 			for _, rule := range outboundRules {
@@ -391,7 +440,8 @@ func (s *ChannelService) ProcessChannelPost(ctx context.Context, chatID int64, m
 
 				tg := telegram.NewBotAPIClient(token)
 
-				if rule.TargetType == "telegram" {
+				switch rule.TargetType {
+				case "telegram":
 					var finalChatID int64
 					if val, err := strconv.ParseInt(rule.Target, 10, 64); err == nil {
 						finalChatID = val
@@ -407,22 +457,13 @@ func (s *ChannelService) ProcessChannelPost(ctx context.Context, chatID int64, m
 					}
 
 					if finalChatID != 0 {
-						text := postText
-						if rule.Mode == "ai" {
-							text = dynamicParaphrase(text)
-						}
-						if rule.Watermark != "" {
-							text = text + "\n\n" + rule.Watermark
-						}
-						if rule.RemoveAds {
-							text = strings.ReplaceAll(text, "#ad", "")
-						}
-						if rule.RemoveHashtags {
-							text = removeHashtagsHelper(text)
-						}
-						if rule.RemoveLinks {
-							text = removeLinksHelper(text)
-						}
+						text := ApplyTextFilters(postText, ChannelPostFilter{
+							Mode:           rule.Mode,
+							Watermark:      rule.Watermark,
+							RemoveAds:      rule.RemoveAds,
+							RemoveHashtags: rule.RemoveHashtags,
+							RemoveLinks:    rule.RemoveLinks,
+						})
 
 						// Fetch default buttons for the channel
 						buttons, _ := s.GetChannelButtonsByChannelID(ctx, ch.ID)
@@ -477,62 +518,37 @@ func (s *ChannelService) ProcessChannelPost(ctx context.Context, chatID int64, m
 							text,
 						)
 
-						_, _ = tg.SendMessageWithMarkup(ctx, bot.OwnerUserID, previewText, markup, nil)
+						if _, err := tg.SendMessageWithMarkup(ctx, bot.OwnerUserID, previewText, markup, nil); err != nil {
+							slog.Error("Failed to send outbound approval preview to bot owner", "owner_id", bot.OwnerUserID, "error", err)
+						}
 					}
-				} else if rule.TargetType == "webhook" {
-					go func(targetURL string, msgText string) {
-						safe, err := IsSafeURL(targetURL)
-						if !safe || err != nil {
-							slog.Warn("SSRF Blocked: webhook target URL is unsafe", "url", targetURL, "error", err)
-							return
-						}
-
-						secret := os.Getenv("OUTBOUND_WEBHOOK_SECRET")
-						if secret == "" {
-							secret = os.Getenv("WEBHOOK_SECRET_TOKEN")
-						}
+				case "webhook":
+					s.wg.Add(1)
+					GoSafe(func() {
+						defer s.wg.Done()
+						secret := s.getDynamicWebhookSecret(ch.ID)
 
 						payload := map[string]interface{}{
 							"channel_id":   ch.ID,
 							"chat_id":      chatID,
 							"message_id":   messageID,
-							"text":         msgText,
+							"text":         postText,
 							"timestamp":    time.Now().Unix(),
 						}
 						body, _ := json.Marshal(payload)
 
-						req, err := http.NewRequest("POST", targetURL, bytes.NewBuffer(body))
-						if err != nil {
-							return
-						}
-						req.Header.Set("Content-Type", "application/json")
-
-						if secret != "" {
-							mac := hmac.New(sha256.New, []byte(secret))
-							mac.Write(body)
-							signature := hex.EncodeToString(mac.Sum(nil))
-							req.Header.Set("X-iFragment-Signature", signature)
-						}
-
 						ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 						defer cancel()
 
-						req = req.WithContext(ctx)
-						client := &http.Client{}
-						resp, err := client.Do(req)
-						if err == nil {
-							defer resp.Body.Close()
-						} else {
-							slog.Error("Webhook forwarding failed", "url", targetURL, "error", err)
-						}
-					}(rule.Target, postText)
+						s.sendOutboundWebhookPayload(ctx, rule.Target, body, secret)
+					})
 				}
 			}
 		}
 	}
 
 	// 3. Auto-Responder logic
-	if os.Getenv("FEATURE_FLAG_AUTORESPONDER") != "false" {
+	if s.featureAutoResponder {
 		var responderConfig struct {
 			Enabled bool `json:"enabled"`
 			Rules   []struct {
@@ -554,9 +570,17 @@ func (s *ChannelService) ProcessChannelPost(ctx context.Context, chatID int64, m
 					// Send auto response message back to channel
 					bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
 					if err == nil {
-						token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+						token, decryptErr := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+						if decryptErr != nil {
+							slog.Error("Failed to decrypt bot token for auto responder", "bot_id", bot.ID, "error", decryptErr)
+							break
+						}
 						tg := telegram.NewBotAPIClient(token)
-						_ = tg.SendMessage(ctx, chatID, rule.Response, nil, nil)
+						if err := tg.SendMessage(ctx, chatID, rule.Response, nil, nil); err != nil {
+							slog.Error("Failed to send auto-response message", "chat_id", chatID, "error", err)
+						}
+					} else {
+						slog.Error("Failed to fetch bot for auto responder", "bot_id", ch.BotID, "error", err)
 					}
 					break
 				}
@@ -567,8 +591,8 @@ func (s *ChannelService) ProcessChannelPost(ctx context.Context, chatID int64, m
 	return nil
 }
 
-// GetAuditLogs fetches paginated audit logs for a managed channel
-func (s *ChannelService) GetAuditLogs(ctx context.Context, ownerUserID int64, channelID uuid.UUID, limit, offset int) ([]repository.ChannelAuditLog, error) {
+// GetAuditLogs fetches paginated audit logs for a managed channel using cursor-based pagination
+func (s *ChannelService) GetAuditLogs(ctx context.Context, ownerUserID int64, channelID uuid.UUID, cursor *time.Time, cursorID *uuid.UUID, limit int) ([]repository.ChannelAuditLog, error) {
 	// Verify ownership first
 	if _, err := s.GetChannel(ctx, ownerUserID, channelID); err != nil {
 		return nil, err
@@ -577,11 +601,8 @@ func (s *ChannelService) GetAuditLogs(ctx context.Context, ownerUserID int64, ch
 	if limit <= 0 {
 		limit = 20
 	}
-	if offset < 0 {
-		offset = 0
-	}
 
-	return s.channelRepo.GetAuditLogs(ctx, channelID, limit, offset)
+	return s.channelRepo.GetAuditLogs(ctx, channelID, cursor, cursorID, limit)
 }
 
 // GetAnalytics fetches daily analytics timeline snapshots for a managed channel
@@ -600,8 +621,11 @@ func (s *ChannelService) GetAnalytics(ctx context.Context, ownerUserID int64, ch
 
 // CreatePost creates a new post which will be either published immediately or scheduled for later
 func (s *ChannelService) CreatePost(ctx context.Context, ownerUserID int64, post *repository.ChannelPost) error {
-	// Verify ownership
-	ch, err := s.GetChannel(ctx, ownerUserID, post.ChannelID)
+	// Verify write access (restrict to RoleOwner and RoleAdmin)
+	if err := s.verifyAccess(ctx, ownerUserID, post.ChannelID, RoleOwner, RoleAdmin); err != nil {
+		return err
+	}
+	ch, err := s.channelRepo.GetChannelByID(ctx, post.ChannelID)
 	if err != nil {
 		return err
 	}
@@ -627,12 +651,14 @@ func (s *ChannelService) CreatePost(ctx context.Context, ownerUserID int64, post
 
 	// Audit Log
 	meta, _ := json.Marshal(map[string]interface{}{"post_id": post.ID})
-	_ = s.channelRepo.LogAudit(ctx, &repository.ChannelAuditLog{
+	if auditErr := s.channelRepo.LogAudit(ctx, &repository.ChannelAuditLog{
 		ChannelID: ch.ID,
 		ActorID:   ownerUserID,
 		Action:    "channel.post.create_scheduled",
 		Metadata:  meta,
-	})
+	}); auditErr != nil {
+		slog.Warn("failed to write channel audit log", "action", "channel.post.create_scheduled", "error", auditErr)
+	}
 
 	return nil
 }
@@ -640,9 +666,35 @@ func (s *ChannelService) CreatePost(ctx context.Context, ownerUserID int64, post
 // StartBackgroundTasks initializes the concurrent background routines for post scheduling and daily analytics
 func (s *ChannelService) StartBackgroundTasks(ctx context.Context) {
 	slog.Info("Starting Channel background workers...")
-	go s.scheduledPostWorker(ctx)
-	go s.analyticsSnapshotWorker(ctx)
+
+	s.wg.Add(3)
+	GoSafe(func() {
+		defer s.wg.Done()
+		s.scheduledPostWorker(ctx)
+	})
+	GoSafe(func() {
+		defer s.wg.Done()
+		s.analyticsSnapshotWorker(ctx)
+	})
+	GoSafe(func() {
+		defer s.wg.Done()
+		s.startDLQAlertingWorker(ctx)
+	})
 }
+
+// WaitForShutdown blocks until all background workers have stopped.
+func (s *ChannelService) WaitForShutdown() {
+	s.wg.Wait()
+	slog.Info("All Channel background workers stopped.")
+}
+
+const releaseLockLua = `
+if redis.call("get", KEYS[1]) == ARGV[1] then
+    return redis.call("del", KEYS[1])
+else
+    return 0
+end
+`
 
 func (s *ChannelService) scheduledPostWorker(ctx context.Context) {
 	ticker := time.NewTicker(30 * time.Second)
@@ -654,68 +706,125 @@ func (s *ChannelService) scheduledPostWorker(ctx context.Context) {
 			slog.Info("Scheduled Post Worker stopped due to context cancellation")
 			return
 		case <-ticker.C:
-			cache := s.channelRepo.GetCache()
-			if cache != nil && cache.Client != nil {
-				locked, err := cache.Client.SetNX(ctx, "lock:scheduled_posts_worker", "locked", 25*time.Second).Result()
-				if err != nil || !locked {
-					continue
-				}
-			}
-			posts, err := s.channelRepo.GetScheduledPosts(ctx)
-			if err != nil {
-				slog.Error("Failed to fetch scheduled posts in worker", "error", err)
-				continue
-			}
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						slog.Error("Recovered from panic inside scheduledPostWorker loop iteration",
+							"panic", r,
+							"stack", string(debug.Stack()),
+						)
+					}
+				}()
 
-			for _, post := range posts {
-				ch, err := s.channelRepo.GetChannelByID(ctx, post.ChannelID)
+				cache := s.channelRepo.GetCache()
+				hasLock := false
+				lockVal := uuid.New().String() // Unique session token for this worker run
+				
+				if cache != nil && cache.Client != nil {
+					locked, err := cache.Client.SetNX(ctx, "lock:scheduled_posts_worker", lockVal, 25*time.Second).Result()
+					if err != nil || !locked {
+						return
+					}
+					hasLock = true
+				}
+				defer func() {
+					if hasLock && cache != nil && cache.Client != nil {
+						// Safe Lock Release: atomically verify ownership using Lua before deleting
+						_ = cache.Client.Eval(ctx, releaseLockLua, []string{"lock:scheduled_posts_worker"}, lockVal).Err()
+					}
+				}()
+
+				posts, err := s.channelRepo.GetScheduledPosts(ctx)
 				if err != nil {
-					slog.Error("Failed to fetch channel for scheduled post", "post_id", post.ID, "error", err)
-					continue
+					slog.Error("Failed to fetch scheduled posts in worker", "error", err)
+					return
 				}
 
-				bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
-				if err != nil {
-					slog.Error("Failed to fetch bot for scheduled post", "post_id", post.ID, "error", err)
-					continue
+				for _, post := range posts {
+					// P0/P1 distributed locking per post to prevent double posting across multiple worker nodes
+					if cache != nil && cache.Client != nil {
+						postLockKey := fmt.Sprintf("lock:post:%s", post.ID.String())
+						acquired, err := cache.Client.SetNX(ctx, postLockKey, "locked", 5*time.Minute).Result()
+						if err != nil || !acquired {
+							// Post is already being processed or published by another node
+							continue
+						}
+					}
+
+					ch, err := s.channelRepo.GetChannelByID(ctx, post.ChannelID)
+					if err != nil {
+						slog.Error("Failed to fetch channel for scheduled post", "post_id", post.ID, "error", err)
+						continue
+					}
+
+					bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
+					if err != nil {
+						slog.Error("Failed to fetch bot for scheduled post", "post_id", post.ID, "error", err)
+						continue
+					}
+
+					token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+					if err != nil {
+						slog.Error("Failed to decrypt bot token in scheduled post worker", "post_id", post.ID, "error", err)
+						continue
+					}
+
+					tg := telegram.NewBotAPIClient(token)
+					res, err := tg.SendMessageWithResult(ctx, ch.ChatID, post.Text, nil, nil)
+					if err != nil {
+						slog.Error("Failed to send scheduled message via telegram in worker", "post_id", post.ID, "error", err)
+						if cache != nil && cache.Client != nil {
+							retryKey := fmt.Sprintf("post_retries:%s", post.ID.String())
+							retries, _ := cache.Client.Incr(ctx, retryKey).Result()
+							if retries >= 3 {
+								slog.Error("Max retries exceeded for scheduled post. Marking as failed.", "post_id", post.ID)
+								_ = s.channelRepo.MarkPostAsPublished(ctx, post.ID, -1) // -1 denotes failure
+								cache.Client.Del(ctx, retryKey)
+							}
+						}
+						continue
+					}
+
+					err = s.channelRepo.MarkPostAsPublished(ctx, post.ID, int64(res.MessageID))
+					if err != nil {
+						slog.Error("Failed to mark scheduled post as published in db", "post_id", post.ID, "error", err)
+						continue
+					}
+
+					// Log background audit
+					meta, _ := json.Marshal(map[string]interface{}{"post_id": post.ID, "message_id": res.MessageID})
+					if auditErr := s.channelRepo.LogAudit(ctx, &repository.ChannelAuditLog{
+						ChannelID: ch.ID,
+						ActorID:   bot.OwnerUserID,
+						Action:    "channel.post.published_scheduled",
+						Metadata:  meta,
+					}); auditErr != nil {
+						slog.Warn("failed to write channel audit log", "action", "channel.post.published_scheduled", "error", auditErr)
+					}
+
+					slog.Info("Successfully published scheduled post", "post_id", post.ID, "channel_id", ch.ID)
 				}
-
-				token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-				if err != nil {
-					slog.Error("Failed to decrypt bot token in scheduled post worker", "post_id", post.ID, "error", err)
-					continue
-				}
-
-				tg := telegram.NewBotAPIClient(token)
-				res, err := tg.SendMessageWithResult(ctx, ch.ChatID, post.Text, nil, nil)
-				if err != nil {
-					slog.Error("Failed to send scheduled message via telegram in worker", "post_id", post.ID, "error", err)
-					continue
-				}
-
-				err = s.channelRepo.MarkPostAsPublished(ctx, post.ID, int64(res.MessageID))
-				if err != nil {
-					slog.Error("Failed to mark scheduled post as published in db", "post_id", post.ID, "error", err)
-					continue
-				}
-
-				// Log background audit
-				meta, _ := json.Marshal(map[string]interface{}{"post_id": post.ID, "message_id": res.MessageID})
-				_ = s.channelRepo.LogAudit(ctx, &repository.ChannelAuditLog{
-					ChannelID: ch.ID,
-					ActorID:   bot.OwnerUserID,
-					Action:    "channel.post.published_scheduled",
-					Metadata:  meta,
-				})
-
-				slog.Info("Successfully published scheduled post", "post_id", post.ID, "channel_id", ch.ID)
-			}
+			}()
 		}
 	}
 }
 
 func (s *ChannelService) analyticsSnapshotWorker(ctx context.Context) {
-	s.runAnalyticsSnapshot(ctx)
+	// Delay first run to avoid API overload during startup
+	select {
+	case <-ctx.Done():
+		slog.Info("Daily Analytics Worker stopped before first run")
+		return
+	case <-time.After(5 * time.Minute):
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					slog.Error("Recovered from panic in runAnalyticsSnapshot initial run", "panic", r, "stack", string(debug.Stack()))
+				}
+			}()
+			s.runAnalyticsSnapshot(ctx)
+		}()
+	}
 
 	ticker := time.NewTicker(1 * time.Hour)
 	defer ticker.Stop()
@@ -730,73 +839,140 @@ func (s *ChannelService) analyticsSnapshotWorker(ctx context.Context) {
 		case <-ticker.C:
 			currentDay := time.Now().YearDay()
 			if currentDay != lastRunDay {
-				s.runAnalyticsSnapshot(ctx)
-				lastRunDay = currentDay
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							slog.Error("Recovered from panic in runAnalyticsSnapshot hourly ticker run", "panic", r, "stack", string(debug.Stack()))
+						}
+					}()
+					s.runAnalyticsSnapshot(ctx)
+					lastRunDay = currentDay
+				}()
 			}
 		}
 	}
 }
 
 func (s *ChannelService) runAnalyticsSnapshot(ctx context.Context) {
+	cache := s.channelRepo.GetCache()
+	if cache != nil && cache.Client != nil {
+		todayStr := time.Now().Format("2006-01-02")
+		lockKey := fmt.Sprintf("lock:analytics:%s", todayStr)
+		
+		// Acquire Redis Lock for 23 hours to prevent multi-replica execution collisions
+		acquired, err := cache.Client.SetNX(ctx, lockKey, "locked", 23*time.Hour).Result()
+		if err != nil || !acquired {
+			slog.Info("Daily analytics snapshot already processed by another replica for day", "date", todayStr)
+			return
+		}
+	}
+
 	slog.Info("Running daily channel analytics snapshot generation...")
-	channels, err := s.channelRepo.GetAllChannels(ctx)
-	if err != nil {
-		slog.Error("Failed to retrieve channels for daily analytics", "error", err)
-		return
+
+	limit := 100
+	var cursor *time.Time
+	var cursorID *uuid.UUID
+	sem := make(chan struct{}, 5)
+
+	// Safe spacing ticker (100ms interval) to respect Telegram API limits
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		batch, err := s.channelRepo.GetChannelsWithBotsPaged(ctx, limit, cursor, cursorID)
+		if err != nil {
+			slog.Error("Failed to retrieve paged channels for daily analytics", "error", err)
+			break
+		}
+		if len(batch) == 0 {
+			break
+		}
+
+		for _, cb := range batch {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				// Tick received, safe to launch next Telegram request
+			}
+
+			select {
+			case <-ctx.Done():
+				return
+			case sem <- struct{}{}:
+				// Acquired concurrency ticket
+			}
+
+			item := cb
+			GoSafe(func() {
+				defer func() { <-sem }() // Release concurrency ticket
+
+				token, err := botmgmt.DecryptToken(item.BotTokenEncrypted)
+				if err != nil {
+					slog.Error("Failed to decrypt bot token for analytics", "channel_id", item.ChannelID, "error", err)
+					return
+				}
+
+				tg := telegram.NewBotAPIClient(token)
+				currentCount, err := tg.GetChatMemberCount(ctx, item.ChatID)
+				if err != nil {
+					slog.Error("Failed to fetch current telegram subscriber count for analytics", "channel_id", item.ChannelID, "error", err)
+					return
+				}
+
+				newSubscribers := currentCount - item.SubscribersCount
+				if newSubscribers < 0 {
+					newSubscribers = 0
+				}
+
+				// Save Snapshot date as truncated to midnight
+				now := time.Now()
+				snapshotDate := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+				snapshot := &repository.ChannelAnalytics{
+					ChannelID:        item.ChannelID,
+					SnapshotDate:     snapshotDate,
+					SubscribersCount: currentCount,
+					NewSubscribers:   newSubscribers,
+					ViewsCount:       0,
+					ReactionsCount:   0,
+					PostsCount:       0,
+				}
+
+				err = s.channelRepo.SaveSnapshotAndUpdateSubscribers(ctx, snapshot, currentCount)
+				if err != nil {
+					slog.Error("Failed to save analytics snapshot and update subscribers", "channel_id", item.ChannelID, "error", err)
+					return
+				}
+
+				slog.Info("Completed daily analytics snapshot for channel", "channel_id", item.ChannelID, "subscribers", currentCount)
+			})
+		}
+
+		lastItem := batch[len(batch)-1]
+		cursor = &lastItem.CreatedAt
+		cursorID = &lastItem.ChannelID
 	}
 
-	for _, ch := range channels {
-		bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
-		if err != nil {
-			slog.Error("Failed to fetch bot for analytics channel", "channel_id", ch.ID, "error", err)
-			continue
-		}
-
-		token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-		if err != nil {
-			slog.Error("Failed to decrypt bot token for analytics", "channel_id", ch.ID, "error", err)
-			continue
-		}
-
-		tg := telegram.NewBotAPIClient(token)
-		currentCount, err := tg.GetChatMemberCount(ctx, ch.ChatID)
-		if err != nil {
-			slog.Error("Failed to fetch current telegram subscriber count for analytics", "channel_id", ch.ID, "error", err)
-			continue
-		}
-
-		newSubscribers := currentCount - ch.SubscribersCount
-		if newSubscribers < 0 {
-			newSubscribers = 0
-		}
-
-		// Save Snapshot date as truncated to midnight
-		now := time.Now()
-		snapshotDate := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-
-		snapshot := &repository.ChannelAnalytics{
-			ChannelID:        ch.ID,
-			SnapshotDate:     snapshotDate,
-			SubscribersCount: currentCount,
-			NewSubscribers:   newSubscribers,
-			ViewsCount:       0,
-			ReactionsCount:   0,
-			PostsCount:       0,
-		}
-
-		err = s.channelRepo.SaveAnalyticsSnapshot(ctx, snapshot)
-		if err != nil {
-			slog.Error("Failed to save analytics snapshot", "channel_id", ch.ID, "error", err)
-			continue
-		}
-
-		err = s.channelRepo.UpdateChannelSubscribers(ctx, ch.ID, currentCount)
-		if err != nil {
-			slog.Error("Failed to update channel cached subscriber count", "channel_id", ch.ID, "error", err)
-		}
-
-		slog.Info("Completed daily analytics snapshot for channel", "channel_id", ch.ID, "subscribers", currentCount)
+	// Drain semaphore channel to verify all workers have finished before returning
+	for i := 0; i < 5; i++ {
+		sem <- struct{}{}
 	}
+}
+
+func (s *ChannelService) getDynamicWebhookSecret(channelID uuid.UUID) string {
+	salt := os.Getenv("OUTBOUND_WEBHOOK_SECRET")
+	if salt == "" {
+		salt = os.Getenv("WEBHOOK_SECRET_TOKEN")
+	}
+	if salt == "" {
+		// Strict Security Alert: Fail loudly in logs during production to guide operators
+		slog.Error("CRITICAL SECURITY ALERT: Webhook sign secret missing! Please configure OUTBOUND_WEBHOOK_SECRET.")
+		salt = "fallback_temporary_non_prod_secret_do_not_use_in_production_12903!"
+	}
+	mac := hmac.New(sha256.New, []byte(salt))
+	mac.Write([]byte(channelID.String()))
+	return hex.EncodeToString(mac.Sum(nil))
 }
 
 // GetForwardingRules fetches all forwarding rules for a channel
@@ -811,8 +987,11 @@ func (s *ChannelService) GetForwardingRules(ctx context.Context, ownerUserID int
 
 // CreateForwardingRule creates a new channel forwarding rule
 func (s *ChannelService) CreateForwardingRule(ctx context.Context, ownerUserID int64, rule *repository.ChannelForwardingRule) error {
-	// Verify ownership first
-	ch, err := s.GetChannel(ctx, ownerUserID, rule.ChannelID)
+	// Verify write access (restrict to RoleOwner and RoleAdmin)
+	if err := s.verifyAccess(ctx, ownerUserID, rule.ChannelID, RoleOwner, RoleAdmin); err != nil {
+		return err
+	}
+	ch, err := s.channelRepo.GetChannelByID(ctx, rule.ChannelID)
 	if err != nil {
 		return err
 	}
@@ -824,20 +1003,25 @@ func (s *ChannelService) CreateForwardingRule(ctx context.Context, ownerUserID i
 
 	// Audit Log
 	meta, _ := json.Marshal(map[string]interface{}{"rule_id": rule.ID, "target": rule.Target})
-	_ = s.channelRepo.LogAudit(ctx, &repository.ChannelAuditLog{
+	if auditErr := s.channelRepo.LogAudit(ctx, &repository.ChannelAuditLog{
 		ChannelID: ch.ID,
 		ActorID:   ownerUserID,
 		Action:    "channel.forwarding.rule.create",
 		Metadata:  meta,
-	})
+	}); auditErr != nil {
+		slog.Warn("failed to write channel audit log", "action", "channel.forwarding.rule.create", "error", auditErr)
+	}
 
 	return nil
 }
 
 // UpdateForwardingRule updates an existing forwarding rule
 func (s *ChannelService) UpdateForwardingRule(ctx context.Context, ownerUserID int64, rule *repository.ChannelForwardingRule) error {
-	// Verify ownership first
-	ch, err := s.GetChannel(ctx, ownerUserID, rule.ChannelID)
+	// Verify write access (restrict to RoleOwner and RoleAdmin)
+	if err := s.verifyAccess(ctx, ownerUserID, rule.ChannelID, RoleOwner, RoleAdmin); err != nil {
+		return err
+	}
+	ch, err := s.channelRepo.GetChannelByID(ctx, rule.ChannelID)
 	if err != nil {
 		return err
 	}
@@ -849,20 +1033,22 @@ func (s *ChannelService) UpdateForwardingRule(ctx context.Context, ownerUserID i
 
 	// Audit Log
 	meta, _ := json.Marshal(map[string]interface{}{"rule_id": rule.ID, "target": rule.Target})
-	_ = s.channelRepo.LogAudit(ctx, &repository.ChannelAuditLog{
+	if auditErr := s.channelRepo.LogAudit(ctx, &repository.ChannelAuditLog{
 		ChannelID: ch.ID,
 		ActorID:   ownerUserID,
 		Action:    "channel.forwarding.rule.update",
 		Metadata:  meta,
-	})
+	}); auditErr != nil {
+		slog.Warn("failed to write channel audit log", "action", "channel.forwarding.rule.update", "error", auditErr)
+	}
 
 	return nil
 }
 
 // DeleteForwardingRule deletes a forwarding rule
 func (s *ChannelService) DeleteForwardingRule(ctx context.Context, ownerUserID int64, channelID uuid.UUID, ruleID uuid.UUID) error {
-	// Verify ownership first
-	if _, err := s.GetChannel(ctx, ownerUserID, channelID); err != nil {
+	// Verify write access (restrict to RoleOwner and RoleAdmin)
+	if err := s.verifyAccess(ctx, ownerUserID, channelID, RoleOwner, RoleAdmin); err != nil {
 		return err
 	}
 
@@ -873,19 +1059,25 @@ func (s *ChannelService) DeleteForwardingRule(ctx context.Context, ownerUserID i
 
 	// Audit Log
 	meta, _ := json.Marshal(map[string]interface{}{"rule_id": ruleID})
-	_ = s.channelRepo.LogAudit(ctx, &repository.ChannelAuditLog{
+	if auditErr := s.channelRepo.LogAudit(ctx, &repository.ChannelAuditLog{
 		ChannelID: channelID,
 		ActorID:   ownerUserID,
 		Action:    "channel.forwarding.rule.delete",
 		Metadata:  meta,
-	})
+	}); auditErr != nil {
+		slog.Warn("failed to write channel audit log", "action", "channel.forwarding.rule.delete", "error", auditErr)
+	}
 
 	return nil
 }
 
 // SyncAdmins synchronizes Telegram administrators list locally
 func (s *ChannelService) SyncAdmins(ctx context.Context, ownerUserID int64, channelID uuid.UUID) error {
-	ch, err := s.GetChannel(ctx, ownerUserID, channelID)
+	// Verify write access (restrict to RoleOwner and RoleAdmin)
+	if err := s.verifyAccess(ctx, ownerUserID, channelID, RoleOwner, RoleAdmin); err != nil {
+		return err
+	}
+	ch, err := s.channelRepo.GetChannelByID(ctx, channelID)
 	if err != nil {
 		return err
 	}
@@ -926,11 +1118,13 @@ func (s *ChannelService) SyncAdmins(ctx context.Context, ownerUserID int64, chan
 	}
 
 	// Audit Log
-	_ = s.channelRepo.LogAudit(ctx, &repository.ChannelAuditLog{
+	if auditErr := s.channelRepo.LogAudit(ctx, &repository.ChannelAuditLog{
 		ChannelID: channelID,
 		ActorID:   ownerUserID,
 		Action:    "channel.admins.sync",
-	})
+	}); auditErr != nil {
+		slog.Warn("failed to write channel audit log", "action", "channel.admins.sync", "error", auditErr)
+	}
 
 	return nil
 }
@@ -957,8 +1151,8 @@ func (s *ChannelService) GetButtons(ctx context.Context, ownerUserID int64, chan
 
 // SaveButtons synchronizes interactive inline buttons for a channel
 func (s *ChannelService) SaveButtons(ctx context.Context, ownerUserID int64, channelID uuid.UUID, buttons []repository.ChannelInlineButton) error {
-	// Verify ownership first
-	if _, err := s.GetChannel(ctx, ownerUserID, channelID); err != nil {
+	// Verify write access (restrict to RoleOwner and RoleAdmin)
+	if err := s.verifyAccess(ctx, ownerUserID, channelID, RoleOwner, RoleAdmin); err != nil {
 		return err
 	}
 
@@ -973,11 +1167,13 @@ func (s *ChannelService) SaveButtons(ctx context.Context, ownerUserID int64, cha
 	}
 
 	// Audit Log
-	_ = s.channelRepo.LogAudit(ctx, &repository.ChannelAuditLog{
+	if auditErr := s.channelRepo.LogAudit(ctx, &repository.ChannelAuditLog{
 		ChannelID: channelID,
 		ActorID:   ownerUserID,
 		Action:    "channel.buttons.update",
-	})
+	}); auditErr != nil {
+		slog.Warn("failed to write channel audit log", "action", "channel.buttons.update", "error", auditErr)
+	}
 
 	return nil
 }
@@ -988,6 +1184,35 @@ func (s *ChannelService) RegisterButtonClick(ctx context.Context, buttonID uuid.
 }
 
 // Helper Functions
+
+type ChannelPostFilter struct {
+	Mode           string
+	Watermark      string
+	RemoveAds      bool
+	RemoveHashtags bool
+	RemoveLinks    bool
+}
+
+func ApplyTextFilters(text string, filter ChannelPostFilter) string {
+	processed := text
+	if filter.Mode == "ai" {
+		processed = dynamicParaphrase(processed)
+	}
+	if filter.RemoveAds {
+		processed = strings.ReplaceAll(processed, "#ad", "")
+		processed = strings.ReplaceAll(processed, "#spon", "")
+	}
+	if filter.RemoveHashtags {
+		processed = removeHashtagsHelper(processed)
+	}
+	if filter.RemoveLinks {
+		processed = removeLinksHelper(processed)
+	}
+	if filter.Watermark != "" {
+		processed = processed + "\n\n" + filter.Watermark
+	}
+	return processed
+}
 
 func removeHashtagsHelper(text string) string {
 	words := strings.Fields(text)
@@ -1031,33 +1256,54 @@ func (s *ChannelService) GetChannelButtonsByChannelID(ctx context.Context, chann
 }
 
 
-func IsSafeURL(targetURL string) (bool, error) {
-	u, err := url.Parse(targetURL)
-	if err != nil {
-		return false, err
+func SafeHTTPClient(timeout time.Duration) *http.Client {
+	dialer := &net.Dialer{
+		Timeout:   3 * time.Second,
+		KeepAlive: 30 * time.Second,
 	}
 
-	if u.Scheme != "http" && u.Scheme != "https" {
-		return false, fmt.Errorf("invalid scheme: %s", u.Scheme)
+	transport := &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			host, port, err := net.SplitHostPort(addr)
+			if err != nil {
+				host = addr
+				port = "80"
+			}
+
+			ips, err := net.DefaultResolver.LookupIP(ctx, "ip", host)
+			if err != nil {
+				return nil, err
+			}
+
+			if len(ips) == 0 {
+				return nil, fmt.Errorf("DNS lookup returned no IP addresses for host: %s", host)
+			}
+
+			for _, ip := range ips {
+				// P0 Security: Normalize IPv4-mapped IPv6 address (e.g. ::ffff:127.0.0.1) to clean IPv4 before checks
+				if ipv4 := ip.To4(); ipv4 != nil {
+					ip = ipv4
+				}
+				if ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
+					return nil, fmt.Errorf("SSRF Blocked: unsafe IP address resolved: %s", ip.String())
+				}
+			}
+
+			// Pin connection directly to the safe resolved IP to eliminate TOCTOU DNS Rebinding!
+			safeAddr := net.JoinHostPort(ips[0].String(), port)
+			return dialer.DialContext(ctx, network, safeAddr)
+		},
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
 	}
 
-	host, _, err := net.SplitHostPort(u.Host)
-	if err != nil {
-		host = u.Host
+	return &http.Client{
+		Transport: transport,
+		Timeout:   timeout,
 	}
-
-	ips, err := net.LookupIP(host)
-	if err != nil {
-		return false, err
-	}
-
-	for _, ip := range ips {
-		if ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
-			return false, fmt.Errorf("unsafe IP address: %s", ip.String())
-		}
-	}
-
-	return true, nil
 }
 
 func dynamicParaphrase(text string) string {
@@ -1184,4 +1430,44 @@ func (s *ChannelService) RequestApprovalForPost(ctx context.Context, ch *reposit
 	}
 
 	return nil
+}
+
+func (s *ChannelService) sendOutboundWebhookPayload(ctx context.Context, targetURL string, payloadBytes []byte, secret string) {
+	req, err := http.NewRequestWithContext(ctx, "POST", targetURL, bytes.NewReader(payloadBytes))
+	if err != nil {
+		slog.Error("Failed to create outbound webhook request", "error", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	if secret != "" {
+		mac := hmac.New(sha256.New, []byte(secret))
+		mac.Write(payloadBytes)
+		signature := hex.EncodeToString(mac.Sum(nil))
+		req.Header.Set("X-iFragment-Signature", signature)
+	}
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		slog.Error("Outbound webhook HTTP delivery failed", "url", targetURL, "error", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	// Read and discard to enable HTTP Keep-Alive connection reuse
+	_, _ = io.Copy(io.Discard, resp.Body)
+}
+
+func GoSafe(fn func()) {
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("CRITICAL: Recovered from panic in background goroutine",
+					"panic", r,
+					"stack", string(debug.Stack()),
+				)
+			}
+		}()
+		fn()
+	}()
 }

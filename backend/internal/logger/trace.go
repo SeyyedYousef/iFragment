@@ -10,6 +10,7 @@ import (
 type LoggerContextKey string
 
 const RequestIDKey LoggerContextKey = "request_id"
+const LoggerKey LoggerContextKey = "logger"
 
 // TracingHandler wraps an existing slog.Handler and injects trace_id and request_id
 // from context if they exist.

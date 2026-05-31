@@ -52,7 +52,6 @@ export const ChannelForwardingPage: Component = () => {
   
   const [rules, setRules] = createSignal<ForwardRule[]>([]);
 
-  const [isDirty, setIsDirty] = createSignal(false);
   const [isSaving, setIsSaving] = createSignal(false);
 
   const [settings] = createResource(
@@ -101,23 +100,32 @@ export const ChannelForwardingPage: Component = () => {
     }
   });
 
-  let isInitialized = false;
-  createEffect(() => {
-    contentTypes();
-    removeAds();
-    removeHashtags();
-    removeLinks();
-    watermark();
-    delay();
-    rules();
+  const isDirty = createMemo(() => {
+    const data = settings();
+    if (!data) return false;
 
-    if (!settings.loading) {
-      if (!isInitialized) {
-        isInitialized = true;
-      } else {
-        setIsDirty(true);
-      }
-    }
+    let originalFwd: any = {};
+    try {
+      originalFwd = typeof data.forwarding === 'string' ? JSON.parse(data.forwarding) : data.forwarding;
+    } catch (e) { originalFwd = {}; }
+
+    const currentPayload = {
+      contentTypes: contentTypes(),
+      removeAds: removeAds(),
+      removeHashtags: removeHashtags(),
+      removeLinks: removeLinks(),
+      watermark: watermark(),
+      delay: delay(),
+    };
+
+    return JSON.stringify(currentPayload) !== JSON.stringify({
+      contentTypes: originalFwd?.contentTypes || { text: true, photos: true, videos: true, files: true, voice: true },
+      removeAds: !!originalFwd?.removeAds,
+      removeHashtags: !!originalFwd?.removeHashtags,
+      removeLinks: !!originalFwd?.removeLinks,
+      watermark: originalFwd?.watermark || '',
+      delay: originalFwd?.delay || '',
+    });
   });
 
   const handleSave = async () => {
@@ -136,7 +144,6 @@ export const ChannelForwardingPage: Component = () => {
 
     try {
       await channelApi.updateSettings(params.id, 'forwarding', payload, currentVersion);
-      setIsDirty(false);
       navigate(`/channel/${params.id}`);
     } catch (e: any) {
       console.error("Failed to save forwarding settings:", e);

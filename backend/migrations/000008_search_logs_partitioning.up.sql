@@ -24,8 +24,7 @@ CREATE TABLE search_logs_y2026m06 PARTITION OF search_logs
 CREATE TABLE search_logs_y2026m07 PARTITION OF search_logs
     FOR VALUES FROM ('2026-07-01 00:00:00+00') TO ('2026-08-01 00:00:00+00');
 
--- Default partition for safety
-CREATE TABLE search_logs_default PARTITION OF search_logs DEFAULT;
+-- No default partition to prevent locking partition worker creations.
 
 -- 4. Copy existing data into the partitioned table
 INSERT INTO search_logs (id, username, user_id, created_at)

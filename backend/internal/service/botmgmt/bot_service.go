@@ -5,6 +5,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -64,6 +65,8 @@ func (s *BotService) StartBackgroundTasks(ctx context.Context) {
 	expiryTicker := time.NewTicker(10 * time.Minute)
 	qhTicker := time.NewTicker(1 * time.Minute)
 	go func() {
+		defer expiryTicker.Stop()
+		defer qhTicker.Stop()
 		for {
 			select {
 			case <-ctx.Done():
@@ -97,37 +100,52 @@ func (s *BotService) CheckExpirations(ctx context.Context) {
 		s.mu.Unlock()
 	}
 
+	const maxConcurrency = 15
+	sem := make(chan struct{}, maxConcurrency)
+	var wg sync.WaitGroup
+
 	for _, g := range groups {
-		var expiry *time.Time
-		if g.SubscriptionStatus == "trial" {
-			expiry = &g.TrialEndsAt
-		} else if g.SubscriptionStatus == "paid" && g.PaidUntil != nil {
-			expiry = g.PaidUntil
-		}
+		sem <- struct{}{}
+		wg.Add(1)
+		go func(g repository.ManagedGroup) {
+			defer wg.Done()
+			defer func() { <-sem }()
 
-		if expiry == nil {
-			continue
-		}
+			groupCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			defer cancel()
 
-		// 1. Check for actual expiration
-		if now.After(*expiry) {
-			_ = s.botRepo.UpdateGroupSubscription(ctx, g.ID, "expired", nil)
-			s.sendExpirationNotice(ctx, g, "service_ended", map[string]interface{}{"group": g.ChatTitle})
-			continue
-		}
-
-		// 2. Check for alerts (3 days and 1 day before)
-		if shouldAlert {
-			daysLeft := int(expiry.Sub(now).Hours() / 24)
-			if daysLeft == 3 || daysLeft == 1 {
-				template := "expiry_3d"
-				if daysLeft == 1 {
-					template = "expiry_24h"
-				}
-				s.sendExpirationNotice(ctx, g, template, map[string]interface{}{"group": g.ChatTitle})
+			var expiry *time.Time
+			if g.SubscriptionStatus == "trial" {
+				expiry = &g.TrialEndsAt
+			} else if g.SubscriptionStatus == "paid" && g.PaidUntil != nil {
+				expiry = g.PaidUntil
 			}
-		}
+
+			if expiry == nil {
+				return
+			}
+
+			// 1. Check for actual expiration
+			if now.After(*expiry) {
+				_ = s.botRepo.UpdateGroupSubscription(groupCtx, g.ID, "expired", nil)
+				s.sendExpirationNotice(groupCtx, g, "service_ended", map[string]interface{}{"group": g.ChatTitle})
+				return
+			}
+
+			// 2. Check for alerts (3 days and 1 day before)
+			if shouldAlert {
+				daysLeft := int(expiry.Sub(now).Hours() / 24)
+				if daysLeft == 3 || daysLeft == 1 {
+					template := "expiry_3d"
+					if daysLeft == 1 {
+						template = "expiry_24h"
+					}
+					s.sendExpirationNotice(groupCtx, g, template, map[string]interface{}{"group": g.ChatTitle})
+				}
+			}
+		}(g)
 	}
+	wg.Wait()
 }
 
 func (s *BotService) sendExpirationNotice(ctx context.Context, g repository.ManagedGroup, template string, vars map[string]interface{}) {
@@ -174,13 +192,20 @@ func (s *BotService) RegisterBot(ctx context.Context, ownerID int64, token, user
 		return nil, fmt.Errorf("failed to encrypt token: %w", err)
 	}
 
+	secretBytes := make([]byte, 32)
+	if _, err := rand.Read(secretBytes); err != nil {
+		return nil, fmt.Errorf("failed to generate webhook secret: %w", err)
+	}
+	secretHex := hex.EncodeToString(secretBytes)
+
 	bot := &repository.ManagedBot{
-		OwnerUserID:       ownerID,
-		BotTokenEncrypted: encrypted,
+		OwnerUserID:        ownerID,
+		BotTokenEncrypted:  encrypted,
 		BotUsername:        username,
-		BotName:           name,
-		BotID:             botID,
-		Status:            "active",
+		BotName:            name,
+		BotID:              botID,
+		Status:             "active",
+		WebhookSecretToken: secretHex,
 	}
 
 	if err := s.botRepo.CreateBot(ctx, bot); err != nil {
@@ -478,48 +503,79 @@ func (s *BotService) CheckQuietHoursTransitions(ctx context.Context) {
 		return
 	}
 
-	now := time.Now()
-	for _, g := range groups {
-		settings, err := s.settingsRepo.GetSettings(ctx, g.ID)
-		if err != nil {
-			continue
-		}
-
-		var general repository.SettingsGeneral
-		var quiet repository.SettingsQuietHours
-		var customTexts repository.SettingsCustomTexts
-
-		if json.Unmarshal(settings.General, &general) != nil {
-			continue
-		}
-		if json.Unmarshal(settings.QuietHours, &quiet) != nil {
-			continue
-		}
-		if json.Unmarshal(settings.CustomTexts, &customTexts) != nil {
-			continue
-		}
-
-		if len(quiet.Periods) == 0 || !quiet.SendNotifications {
-			continue
-		}
-
-		loc, err := time.LoadLocation(general.Timezone)
-		if err != nil {
-			loc = time.UTC
-		}
-
-		nowInTZ := now.In(loc)
-		currentTimeStr := nowInTZ.Format("15:04") // HH:MM
-
-		for _, p := range quiet.Periods {
-			if p.Start == currentTimeStr {
-				s.sendQHNotice(ctx, g, "start", customTexts.SilenceStartText, currentTimeStr)
-			}
-			if p.End == currentTimeStr {
-				s.sendQHNotice(ctx, g, "end", customTexts.SilenceEndText, currentTimeStr)
-			}
-		}
+	groupIDs := make([]uuid.UUID, len(groups))
+	for i, g := range groups {
+		groupIDs[i] = g.ID
 	}
+
+	// Bulk load settings in a single bulk operation using Redis MGET pipeline!
+	bulkSettings, err := s.settingsRepo.GetMultipleSettings(ctx, groupIDs)
+	if err != nil {
+		bulkSettings = make(map[uuid.UUID]*repository.GroupSettings)
+	}
+
+	now := time.Now()
+	const maxConcurrency = 15
+	sem := make(chan struct{}, maxConcurrency)
+	var wg sync.WaitGroup
+
+	for _, g := range groups {
+		sem <- struct{}{}
+		wg.Add(1)
+		go func(g repository.ManagedGroup) {
+			defer wg.Done()
+			defer func() { <-sem }()
+
+			groupCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+
+			settings, ok := bulkSettings[g.ID]
+			if !ok {
+				// Fallback to single-fetch if not preloaded
+				var err error
+				settings, err = s.settingsRepo.GetSettings(groupCtx, g.ID)
+				if err != nil {
+					return
+				}
+			}
+
+			var general repository.SettingsGeneral
+			var quiet repository.SettingsQuietHours
+			var customTexts repository.SettingsCustomTexts
+
+			if json.Unmarshal(settings.General, &general) != nil {
+				return
+			}
+			if json.Unmarshal(settings.QuietHours, &quiet) != nil {
+				return
+			}
+			if json.Unmarshal(settings.CustomTexts, &customTexts) != nil {
+				return
+			}
+
+			if len(quiet.Periods) == 0 || !quiet.SendNotifications {
+				return
+			}
+
+			loc, err := time.LoadLocation(general.Timezone)
+			if err != nil {
+				loc = time.UTC
+			}
+
+			nowInTZ := now.In(loc)
+			currentTimeStr := nowInTZ.Format("15:04") // HH:MM
+
+			for _, p := range quiet.Periods {
+				if p.Start == currentTimeStr {
+					s.sendQHNotice(groupCtx, g, "start", customTexts.SilenceStartText, currentTimeStr)
+				}
+				if p.End == currentTimeStr {
+					s.sendQHNotice(groupCtx, g, "end", customTexts.SilenceEndText, currentTimeStr)
+				}
+			}
+		}(g)
+	}
+	wg.Wait()
 }
 
 func (s *BotService) sendQHNotice(ctx context.Context, g repository.ManagedGroup, action string, customText string, timeStr string) {

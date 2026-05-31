@@ -26,8 +26,7 @@ CREATE TABLE group_events_y2026m06 PARTITION OF group_events
 
 CREATE TABLE group_events_y2026m07 PARTITION OF group_events
     FOR VALUES FROM ('2026-07-01 00:00:00+00') TO ('2026-08-01 00:00:00+00');
-
-CREATE TABLE group_events_default PARTITION OF group_events DEFAULT;
+-- No default partition to prevent locking partition worker creations.
 
 -- 5. Copy data
 INSERT INTO group_events (id, group_id, event_type, user_id, payload, created_at)

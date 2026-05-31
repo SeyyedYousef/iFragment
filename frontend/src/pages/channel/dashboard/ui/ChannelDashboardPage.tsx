@@ -290,10 +290,10 @@ export const ChannelDashboardPage: Component = () => {
           </h2>
           
           <div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-2 flex flex-col">
-            <For each={auditLogs() || []} fallback={<div class="py-10 text-center text-[#8e8e93] text-[13px]">{t('channelDashboard.noRecentActivity')}</div>}>
+            <For each={auditLogs()?.data || []} fallback={<div class="py-10 text-center text-[#8e8e93] text-[13px]">{t('channelDashboard.noRecentActivity')}</div>}>
               {(log, index) => {
                 return (
-                  <div class={`flex items-start gap-3 p-3 ${index() !== (auditLogs()?.length || 0) - 1 ? 'border-b border-[#2a2a2a]' : ''}`}>
+                  <div class={`flex items-start gap-3 p-3 ${index() !== (auditLogs()?.data?.length || 0) - 1 ? 'border-b border-[#2a2a2a]' : ''}`}>
                     <div class="w-8 h-8 shrink-0 rounded-full flex items-center justify-center bg-[#bf5af2]/10 text-[#bf5af2]">
                       <span class="material-symbols-outlined text-[16px]">edit_document</span>
                     </div>

@@ -26,3 +26,11 @@ func (db *Database) UpsertUser(ctx context.Context, u User) error {
 	_, err := db.Pool.Exec(ctx, query, u.TelegramID, u.Username, u.FirstName, u.LastName, u.LanguageCode)
 	return err
 }
+
+// GetUserLanguage retrieves the preferred language code for a user by telegram ID
+func (db *Database) GetUserLanguage(ctx context.Context, telegramID int64) (string, error) {
+	var lang string
+	query := `SELECT language_code FROM users WHERE telegram_id = $1`
+	err := db.Pool.QueryRow(ctx, query, telegramID).Scan(&lang)
+	return lang, err
+}

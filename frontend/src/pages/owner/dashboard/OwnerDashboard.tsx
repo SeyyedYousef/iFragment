@@ -41,10 +41,10 @@ export const OwnerDashboard: Component = () => {
   const handleLogout = () => {
     try { hapticFeedback.impactOccurred('medium'); } catch {}
     // Restore original user token if available
-    const originalToken = localStorage.getItem('owner_original_user_token');
+    const originalToken = sessionStorage.getItem('owner_original_user_token');
     if (originalToken) {
       localStorage.setItem('jwt_token', originalToken);
-      localStorage.removeItem('owner_original_user_token');
+      sessionStorage.removeItem('owner_original_user_token');
     } else {
       localStorage.removeItem('jwt_token');
     }

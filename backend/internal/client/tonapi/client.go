@@ -23,6 +23,7 @@ type Client struct {
 	APIKeys  []string
 	keyIndex uint64
 	HTTP     *http.Client
+	Limiters []*rate.Limiter
 	Limiter  *rate.Limiter
 }
 
@@ -38,9 +39,15 @@ func NewClient() *Client {
 		apiKeys = []string{singleKey}
 	}
 
+	limiters := make([]*rate.Limiter, len(apiKeys))
+	for i := 0; i < len(apiKeys); i++ {
+		limiters[i] = rate.NewLimiter(rate.Limit(8), 1)
+	}
+
 	return &Client{
-		BaseURL: "https://tonapi.io/v2",
-		APIKeys: apiKeys,
+		BaseURL:  "https://tonapi.io/v2",
+		APIKeys:  apiKeys,
+		Limiters: limiters,
 		HTTP: &http.Client{
 			Timeout: 10 * time.Second,
 			Transport: &http.Transport{
@@ -59,6 +66,35 @@ func (c *Client) getAPIKey() string {
 	}
 	idx := atomic.AddUint64(&c.keyIndex, 1) % uint64(len(c.APIKeys))
 	return c.APIKeys[idx]
+}
+
+func (c *Client) getAPIKeyAndLimit(ctx context.Context) (string, error) {
+	if len(c.APIKeys) == 0 {
+		if c.Limiter != nil {
+			if err := c.Limiter.Wait(ctx); err != nil {
+				return "", err
+			}
+		}
+		return "", nil
+	}
+
+	numKeys := len(c.APIKeys)
+	startIdx := atomic.AddUint64(&c.keyIndex, 1)
+
+	// Attempt to find a key that is immediately available without blocking
+	for i := 0; i < numKeys; i++ {
+		idx := (startIdx + uint64(i)) % uint64(numKeys)
+		if c.Limiters[idx].Allow() {
+			return c.APIKeys[idx], nil
+		}
+	}
+
+	// If none are immediately available, block on the next round-robin key's limiter
+	idx := startIdx % uint64(numKeys)
+	if err := c.Limiters[idx].Wait(ctx); err != nil {
+		return "", err
+	}
+	return c.APIKeys[idx], nil
 }
 
 const UsernamesCollectionAddr = "EQCA14o1-VWhS2efqoh_9M1b_A9DtKTuoqfmkn83AbJzwnPi"
@@ -118,16 +154,14 @@ type TransferHistory struct {
 }
 
 func (c *Client) doRequest(ctx context.Context, url string) (*http.Response, error) {
-	if c.Limiter != nil {
-		if err := c.Limiter.Wait(ctx); err != nil {
-			return nil, err
-		}
+	key, err := c.getAPIKeyAndLimit(ctx)
+	if err != nil {
+		return nil, err
 	}
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
-	key := c.getAPIKey()
 	if key != "" {
 		req.Header.Set("Authorization", "Bearer "+key)
 	}
@@ -152,6 +186,8 @@ func (c *Client) doRequest(ctx context.Context, url string) (*http.Response, err
 		method = "GetWalletInfo"
 	} else if strings.Contains(url, "/rates") {
 		method = "GetRates"
+	} else if strings.Contains(url, "/blockchain/transactions/") {
+		method = "GetTransaction"
 	}
 
 	telemetry.RecordTonAPILatency(method, statusCode, duration)
@@ -472,43 +508,150 @@ func (c *Client) StreamAccountEvents(ctx context.Context, accounts []string, onE
 	accountsStr := strings.Join(accounts, ",")
 	url := fmt.Sprintf("https://tonapi.io/v2/sse/accounts/transactions?accounts=%s", accountsStr)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return err
-	}
-	key := c.getAPIKey()
-	if key != "" {
-		req.Header.Set("Authorization", "Bearer "+key)
-	}
-	req.Header.Set("Accept", "text/event-stream")
-	req.Header.Set("Cache-Control", "no-cache")
-	req.Header.Set("Connection", "keep-alive")
+	baseBackoff := 1 * time.Second
+	maxBackoff := 60 * time.Second
+	currentBackoff := baseBackoff
 
-	resp, err := c.HTTP.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("sse connection failed: %s", resp.Status)
-	}
-
-	reader := bufio.NewReader(resp.Body)
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			line, err := reader.ReadBytes('\n')
+		}
+
+		err := func() error {
+			req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 			if err != nil {
 				return err
 			}
-			if bytes.HasPrefix(line, []byte("data: ")) {
-				data := bytes.TrimPrefix(line, []byte("data: "))
-				data = bytes.TrimSpace(data)
-				onEvent(data)
+			key := c.getAPIKey()
+			if key != "" {
+				req.Header.Set("Authorization", "Bearer "+key)
+			}
+			req.Header.Set("Accept", "text/event-stream")
+			req.Header.Set("Cache-Control", "no-cache")
+			req.Header.Set("Connection", "keep-alive")
+
+			resp, err := c.HTTP.Do(req)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				return fmt.Errorf("sse connection failed: %s", resp.Status)
+			}
+
+			connectedTime := time.Now()
+			reader := bufio.NewReader(resp.Body)
+			for {
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				default:
+				}
+
+				line, err := reader.ReadBytes('\n')
+				if err != nil {
+					return err
+				}
+
+				if time.Since(connectedTime) > 10*time.Second {
+					currentBackoff = baseBackoff
+				}
+
+				if bytes.HasPrefix(line, []byte("data: ")) {
+					data := bytes.TrimPrefix(line, []byte("data: "))
+					data = bytes.TrimSpace(data)
+					currentBackoff = baseBackoff
+					onEvent(data)
+				}
+			}
+		}()
+
+		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(currentBackoff):
+			}
+
+			currentBackoff *= 2
+			if currentBackoff > maxBackoff {
+				currentBackoff = maxBackoff
 			}
 		}
 	}
+}
+
+type TransactionInfo struct {
+	Hash    string `json:"hash"`
+	Success bool   `json:"success"`
+	Utime   int64  `json:"utime"`
+	InMsg   *struct {
+		Source *struct {
+			Address string `json:"address"`
+		} `json:"source,omitempty"`
+		Destination *struct {
+			Address string `json:"address"`
+		} `json:"destination,omitempty"`
+		Value int64 `json:"value"` // in nanotons
+	} `json:"in_msg,omitempty"`
+}
+
+func (c *Client) GetTransaction(ctx context.Context, txHash string) (*TransactionInfo, error) {
+	url := fmt.Sprintf("%s/blockchain/transactions/%s", c.BaseURL, txHash)
+	backoffs := []time.Duration{1 * time.Second, 2 * time.Second, 4 * time.Second, 8 * time.Second, 16 * time.Second}
+	var lastErr error
+	var isNotFound bool
+
+	for attempt := 0; attempt < 5; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
+		resp, err := c.doRequest(ctx, url)
+		if err != nil {
+			lastErr = err
+			isNotFound = false
+		} else {
+			if resp.StatusCode == http.StatusOK {
+				var tx TransactionInfo
+				decodeErr := json.NewDecoder(resp.Body).Decode(&tx)
+				resp.Body.Close()
+				if decodeErr != nil {
+					return nil, decodeErr
+				}
+				return &tx, nil
+			}
+
+			if resp.StatusCode == http.StatusNotFound {
+				isNotFound = true
+				lastErr = fmt.Errorf("tonapi transaction error: %s (status %d)", resp.Status, resp.StatusCode)
+			} else {
+				isNotFound = false
+				lastErr = fmt.Errorf("tonapi transaction error: %s (status %d)", resp.Status, resp.StatusCode)
+			}
+			resp.Body.Close()
+		}
+
+		if attempt == 4 {
+			break
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(backoffs[attempt]):
+		}
+	}
+
+	if isNotFound {
+		return nil, nil
+	}
+	return nil, lastErr
 }

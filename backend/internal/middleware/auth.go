@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -62,7 +63,8 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		secret := os.Getenv("JWT_SECRET")
 		if secret == "" {
-			http.Error(w, "Internal Server Error: Missing JWT Secret", http.StatusInternalServerError)
+			slog.Error("JWT_SECRET environment variable is not configured")
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 

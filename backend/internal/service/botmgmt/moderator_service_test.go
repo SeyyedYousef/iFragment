@@ -420,17 +420,18 @@ func TestValidateMessageIntegration(t *testing.T) {
 
 	botID := uuid.New()
 	bot := &repository.ManagedBot{
-		ID:                botID,
-		OwnerUserID:       999999,
-		BotUsername:       "mock_bot",
-		BotName:           "Mock Bot",
-		BotID:             123456,
-		Status:            "active",
-		BotTokenEncrypted: []byte("mock_token"),
+		ID:                 botID,
+		OwnerUserID:        999999,
+		BotUsername:        "mock_bot",
+		BotName:            "Mock Bot",
+		BotID:              123456,
+		Status:             "active",
+		BotTokenEncrypted:  []byte("mock_token"),
+		WebhookSecretToken: "mock_webhook_secret",
 	}
-	_, _ = db.Pool.Exec(ctx, `INSERT INTO managed_bots (id, owner_user_id, bot_token_encrypted, bot_username, bot_name, bot_id, status) 
-		VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING`,
-		bot.ID, bot.OwnerUserID, bot.BotTokenEncrypted, bot.BotUsername, bot.BotName, bot.BotID, bot.Status,
+	_, _ = db.Pool.Exec(ctx, `INSERT INTO managed_bots (id, owner_user_id, bot_token_encrypted, bot_username, bot_name, bot_id, status, webhook_secret_token) 
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING`,
+		bot.ID, bot.OwnerUserID, bot.BotTokenEncrypted, bot.BotUsername, bot.BotName, bot.BotID, bot.Status, bot.WebhookSecretToken,
 	)
 
 	group := &repository.ManagedGroup{

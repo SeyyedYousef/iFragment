@@ -58,7 +58,7 @@ func (h *BotMgmtHandler) ListBots(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondJSON(w, http.StatusOK, bots)
+	RespondJSON(w, http.StatusOK, bots)
 }
 
 type RegisterBotRequest struct {
@@ -92,11 +92,15 @@ func (h *BotMgmtHandler) RegisterBot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondJSON(w, http.StatusCreated, bot)
+	RespondJSON(w, http.StatusCreated, bot)
 }
 
 func (h *BotMgmtHandler) GetBot(w http.ResponseWriter, r *http.Request) {
 	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
 	botID, err := uuid.Parse(chi.URLParam(r, "botID"))
 	if err != nil {
 		RespondError(w, r, http.StatusBadRequest, "invalid bot ID", err)
@@ -109,11 +113,15 @@ func (h *BotMgmtHandler) GetBot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondJSON(w, http.StatusOK, bot)
+	RespondJSON(w, http.StatusOK, bot)
 }
 
 func (h *BotMgmtHandler) RevokeBot(w http.ResponseWriter, r *http.Request) {
 	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
 	botID, err := uuid.Parse(chi.URLParam(r, "botID"))
 	if err != nil {
 		RespondError(w, r, http.StatusBadRequest, "invalid bot ID", err)
@@ -125,13 +133,17 @@ func (h *BotMgmtHandler) RevokeBot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondJSON(w, http.StatusOK, map[string]string{"status": "revoked"})
+	RespondJSON(w, http.StatusOK, map[string]string{"status": "revoked"})
 }
 
 // ─── Groups ───────────────────────────────────────────────
 
 func (h *BotMgmtHandler) ListGroups(w http.ResponseWriter, r *http.Request) {
 	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
 	botID, err := uuid.Parse(chi.URLParam(r, "botID"))
 	if err != nil {
 		RespondError(w, r, http.StatusBadRequest, "invalid bot ID", err)
@@ -144,11 +156,15 @@ func (h *BotMgmtHandler) ListGroups(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondJSON(w, http.StatusOK, groups)
+	RespondJSON(w, http.StatusOK, groups)
 }
 
 func (h *BotMgmtHandler) GetGroup(w http.ResponseWriter, r *http.Request) {
 	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
 	groupID, err := uuid.Parse(chi.URLParam(r, "groupID"))
 	if err != nil {
 		RespondError(w, r, http.StatusBadRequest, "invalid group ID", err)
@@ -159,13 +175,17 @@ func (h *BotMgmtHandler) GetGroup(w http.ResponseWriter, r *http.Request) {
 		RespondError(w, r, http.StatusForbidden, "access denied", err)
 		return
 	}
-	respondJSON(w, http.StatusOK, group)
+	RespondJSON(w, http.StatusOK, group)
 }
 
 // ─── Settings ─────────────────────────────────────────────
 
 func (h *BotMgmtHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
 	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
 	groupID, err := uuid.Parse(chi.URLParam(r, "groupID"))
 	if err != nil {
 		RespondError(w, r, http.StatusBadRequest, "invalid group ID", err)
@@ -176,7 +196,7 @@ func (h *BotMgmtHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
 		RespondError(w, r, http.StatusForbidden, "access denied", err)
 		return
 	}
-	respondJSON(w, http.StatusOK, settings)
+	RespondJSON(w, http.StatusOK, settings)
 }
 
 type UpdateSettingsRequest struct {
@@ -187,6 +207,10 @@ type UpdateSettingsRequest struct {
 
 func (h *BotMgmtHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
 	groupID, err := uuid.Parse(chi.URLParam(r, "groupID"))
 	if err != nil {
 		RespondError(w, r, http.StatusBadRequest, "invalid group ID", err)
@@ -209,13 +233,13 @@ func (h *BotMgmtHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	respondJSON(w, http.StatusOK, settings)
+	RespondJSON(w, http.StatusOK, settings)
 }
 
 // ─── Subscription ─────────────────────────────────────────
 
 func (h *BotMgmtHandler) GetPackages(w http.ResponseWriter, r *http.Request) {
-	respondJSON(w, http.StatusOK, h.svc.GetPackages())
+	RespondJSON(w, http.StatusOK, h.svc.GetPackages())
 }
 
 type SubscribeRequest struct {
@@ -225,6 +249,10 @@ type SubscribeRequest struct {
 
 func (h *BotMgmtHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
 	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
 	var req SubscribeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
@@ -242,13 +270,17 @@ func (h *BotMgmtHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondJSON(w, http.StatusOK, map[string]string{"status": "subscribed"})
+	RespondJSON(w, http.StatusOK, map[string]string{"status": "subscribed"})
 }
 
 // ─── Analytics ────────────────────────────────────────────
 
 func (h *BotMgmtHandler) GetAnalytics(w http.ResponseWriter, r *http.Request) {
 	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
 	groupID, err := uuid.Parse(chi.URLParam(r, "groupID"))
 	if err != nil {
 		RespondError(w, r, http.StatusBadRequest, "invalid group ID", err)
@@ -268,7 +300,7 @@ func (h *BotMgmtHandler) GetAnalytics(w http.ResponseWriter, r *http.Request) {
 	}
 	growth, _ := h.svc.GetGrowthTimeline(r.Context(), groupID, days)
 	activity, _ := h.svc.GetActivityTimeline(r.Context(), groupID, days)
-	respondJSON(w, http.StatusOK, map[string]interface{}{
+	RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"summary":  summary,
 		"growth":   growth,
 		"activity": activity,
@@ -279,16 +311,24 @@ func (h *BotMgmtHandler) GetAnalytics(w http.ResponseWriter, r *http.Request) {
 
 func (h *BotMgmtHandler) GetFRGBalance(w http.ResponseWriter, r *http.Request) {
 	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
 	balance, err := h.svc.GetFRGBalance(r.Context(), userID)
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, "failed to get balance", err)
 		return
 	}
-	respondJSON(w, http.StatusOK, balance)
+	RespondJSON(w, http.StatusOK, balance)
 }
 
 func (h *BotMgmtHandler) GetFRGTransactions(w http.ResponseWriter, r *http.Request) {
 	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
 	limit := 20
 	offset := 0
 	if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && l > 0 && l <= 100 {
@@ -303,13 +343,13 @@ func (h *BotMgmtHandler) GetFRGTransactions(w http.ResponseWriter, r *http.Reque
 		RespondError(w, r, http.StatusInternalServerError, "failed to get transactions", err)
 		return
 	}
-	respondJSON(w, http.StatusOK, txs)
+	RespondJSON(w, http.StatusOK, txs)
 }
 
 // ─── Marketplace ──────────────────────────────────────────
 
 func (h *BotMgmtHandler) GetPurchaseOptions(w http.ResponseWriter, r *http.Request) {
-	respondJSON(w, http.StatusOK, h.marketplace.GetPurchaseOptions())
+	RespondJSON(w, http.StatusOK, h.marketplace.GetPurchaseOptions())
 }
 
 type PurchaseStarsRequest struct {
@@ -319,6 +359,10 @@ type PurchaseStarsRequest struct {
 
 func (h *BotMgmtHandler) PurchaseWithStars(w http.ResponseWriter, r *http.Request) {
 	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
 	var req PurchaseStarsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
@@ -330,7 +374,7 @@ func (h *BotMgmtHandler) PurchaseWithStars(w http.ResponseWriter, r *http.Reques
 		RespondError(w, r, http.StatusPaymentRequired, err.Error(), err)
 		return
 	}
-	respondJSON(w, http.StatusOK, tx)
+	RespondJSON(w, http.StatusOK, tx)
 }
 
 type PurchaseToncoinRequest struct {
@@ -340,6 +384,10 @@ type PurchaseToncoinRequest struct {
 
 func (h *BotMgmtHandler) PurchaseWithToncoin(w http.ResponseWriter, r *http.Request) {
 	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
 	var req PurchaseToncoinRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
@@ -351,7 +399,7 @@ func (h *BotMgmtHandler) PurchaseWithToncoin(w http.ResponseWriter, r *http.Requ
 		RespondError(w, r, http.StatusPaymentRequired, err.Error(), err)
 		return
 	}
-	respondJSON(w, http.StatusOK, tx)
+	RespondJSON(w, http.StatusOK, tx)
 }
 
 type ConvertAirdropRequest struct {
@@ -360,6 +408,10 @@ type ConvertAirdropRequest struct {
 
 func (h *BotMgmtHandler) ConvertAirdropCoins(w http.ResponseWriter, r *http.Request) {
 	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
 	var req ConvertAirdropRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
@@ -371,13 +423,17 @@ func (h *BotMgmtHandler) ConvertAirdropCoins(w http.ResponseWriter, r *http.Requ
 		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
 		return
 	}
-	respondJSON(w, http.StatusOK, tx)
+	RespondJSON(w, http.StatusOK, tx)
 }
 
 // ─── Audit Logs ───────────────────────────────────────────
 
 func (h *BotMgmtHandler) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
 	groupID, err := uuid.Parse(chi.URLParam(r, "groupID"))
 	if err != nil {
 		RespondError(w, r, http.StatusBadRequest, "invalid group ID", err)
@@ -396,13 +452,5 @@ func (h *BotMgmtHandler) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 		RespondError(w, r, http.StatusForbidden, "access denied", err)
 		return
 	}
-	respondJSON(w, http.StatusOK, logs)
-}
-
-// ─── Helpers ──────────────────────────────────────────────
-
-func respondJSON(w http.ResponseWriter, code int, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(data)
+	RespondJSON(w, http.StatusOK, logs)
 }

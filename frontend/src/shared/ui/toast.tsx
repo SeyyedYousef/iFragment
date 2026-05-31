@@ -1,4 +1,4 @@
-import { Component, createSignal, For, onMount } from 'solid-js';
+import { Component, createSignal, For, onMount, onCleanup } from 'solid-js';
 import { Motion } from '@motionone/solid';
 
 interface ToastProps {
@@ -10,7 +10,7 @@ interface ToastProps {
 export const Toast: Component<ToastProps> = (props) => {
   onMount(() => {
     const timer = setTimeout(props.onClose, 4000);
-    return () => clearTimeout(timer);
+    onCleanup(() => clearTimeout(timer));
   });
 
   const bgClass = () => {

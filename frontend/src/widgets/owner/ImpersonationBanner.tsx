@@ -9,7 +9,7 @@ export const ImpersonationBanner: Component = () => {
 
   onMount(() => {
     // Check if impersonation session is active
-    const activeSessionUser = localStorage.getItem('impersonated_username');
+    const activeSessionUser = sessionStorage.getItem('impersonated_username');
     if (activeSessionUser) {
       setImpersonatedUser(activeSessionUser);
     }
@@ -19,15 +19,15 @@ export const ImpersonationBanner: Component = () => {
     try { hapticFeedback.notificationOccurred('warning'); } catch {}
     
     // 1. Remove impersonation variables
-    localStorage.removeItem('owner_impersonation_token');
-    localStorage.removeItem('impersonated_user_id');
-    localStorage.removeItem('impersonated_username');
+    sessionStorage.removeItem('owner_impersonation_token');
+    sessionStorage.removeItem('impersonated_user_id');
+    sessionStorage.removeItem('impersonated_username');
 
     // 2. Restore original owner token
-    const originalOwnerToken = localStorage.getItem('owner_original_user_token');
+    const originalOwnerToken = sessionStorage.getItem('owner_original_user_token');
     if (originalOwnerToken) {
       localStorage.setItem('jwt_token', originalOwnerToken);
-      localStorage.removeItem('owner_original_user_token');
+      sessionStorage.removeItem('owner_original_user_token');
     }
 
     // 3. Clear state

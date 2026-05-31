@@ -5,11 +5,12 @@ services:
     build: 
       context: ./backend
       dockerfile: Dockerfile
+    env_file:
+      - .env
     environment:
       - APP_ENV=production
-      - DATABASE_URL=postgres://user:pass@db:5432/ifragment?sslmode=disable
-      - REDIS_URL=dragonfly:6379
-      - DRAGONFLY_ADDR=dragonfly:6379
+      - DATABASE_URL=postgres://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-pass}@db:5432/${POSTGRES_DB:-ifragment}?sslmode=disable
+      - DRAGONFLY_URL=redis://dragonfly:6379/0
     ports:
       - "8080:8080"
     depends_on:
@@ -19,9 +20,9 @@ services:
   db:
     image: postgres:15-alpine
     environment:
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=pass
-      - POSTGRES_DB=ifragment
+      - POSTGRES_USER=${POSTGRES_USER:-user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-pass}
+      - POSTGRES_DB=${POSTGRES_DB:-ifragment}
     volumes:
       - pgdata:/var/lib/postgresql/data
 

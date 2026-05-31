@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/service"
+	"log/slog"
 	"net/http"
 )
 
@@ -17,26 +18,10 @@ func NewGamificationHandler(s *service.GamificationService) *GamificationHandler
 	}
 }
 
-func (h *GamificationHandler) getUserID(r *http.Request) (int64, bool) {
-	tgUser, ok := r.Context().Value(middleware.UserContextKey).(map[string]interface{})
-	if !ok {
-		return 0, false
-	}
-	var userID int64
-	if v, ok := tgUser["id"].(float64); ok {
-		userID = int64(v)
-	} else if v, ok := tgUser["id"].(int64); ok {
-		userID = v
-	} else if v, ok := tgUser["id"].(int); ok {
-		userID = int64(v)
-	}
-	return userID, userID != 0
-}
-
 func (h *GamificationHandler) GetDailyStatus(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.getUserID(r)
-	if !ok {
-		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+	userID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
 		return
 	}
 
@@ -47,13 +32,15 @@ func (h *GamificationHandler) GetDailyStatus(w http.ResponseWriter, r *http.Requ
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(status)
+	if err := json.NewEncoder(w).Encode(status); err != nil {
+		slog.Error("failed to encode daily status response", "error", err)
+	}
 }
 
 func (h *GamificationHandler) ClaimDailyReward(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.getUserID(r)
-	if !ok {
-		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+	userID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
 		return
 	}
 
@@ -64,13 +51,15 @@ func (h *GamificationHandler) ClaimDailyReward(w http.ResponseWriter, r *http.Re
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(status)
+	if err := json.NewEncoder(w).Encode(status); err != nil {
+		slog.Error("failed to encode claim reward response", "error", err)
+	}
 }
 
 func (h *GamificationHandler) GetTasksStatus(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.getUserID(r)
-	if !ok {
-		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+	userID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
 		return
 	}
 
@@ -81,7 +70,9 @@ func (h *GamificationHandler) GetTasksStatus(w http.ResponseWriter, r *http.Requ
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(tasks)
+	if err := json.NewEncoder(w).Encode(tasks); err != nil {
+		slog.Error("failed to encode tasks status response", "error", err)
+	}
 }
 
 type CompleteTaskRequest struct {
@@ -89,9 +80,9 @@ type CompleteTaskRequest struct {
 }
 
 func (h *GamificationHandler) CompleteTask(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.getUserID(r)
-	if !ok {
-		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+	userID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
 		return
 	}
 
@@ -113,13 +104,15 @@ func (h *GamificationHandler) CompleteTask(w http.ResponseWriter, r *http.Reques
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(status)
+	if err := json.NewEncoder(w).Encode(status); err != nil {
+		slog.Error("failed to encode complete task response", "error", err)
+	}
 }
 
 func (h *GamificationHandler) GetBoostsStatus(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.getUserID(r)
-	if !ok {
-		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+	userID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
 		return
 	}
 
@@ -130,7 +123,9 @@ func (h *GamificationHandler) GetBoostsStatus(w http.ResponseWriter, r *http.Req
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(boosts)
+	if err := json.NewEncoder(w).Encode(boosts); err != nil {
+		slog.Error("failed to encode boosts status response", "error", err)
+	}
 }
 
 type UpgradeBoostRequest struct {
@@ -138,9 +133,9 @@ type UpgradeBoostRequest struct {
 }
 
 func (h *GamificationHandler) UpgradeBoost(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.getUserID(r)
-	if !ok {
-		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+	userID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
 		return
 	}
 
@@ -162,7 +157,9 @@ func (h *GamificationHandler) UpgradeBoost(w http.ResponseWriter, r *http.Reques
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(updated)
+	if err := json.NewEncoder(w).Encode(updated); err != nil {
+		slog.Error("failed to encode upgrade boost response", "error", err)
+	}
 }
 
 func (h *GamificationHandler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
@@ -173,5 +170,7 @@ func (h *GamificationHandler) GetLeaderboard(w http.ResponseWriter, r *http.Requ
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(leaderboard)
+	if err := json.NewEncoder(w).Encode(leaderboard); err != nil {
+		slog.Error("failed to encode leaderboard response", "error", err)
+	}
 }

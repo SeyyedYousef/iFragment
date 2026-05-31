@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"ifragment-backend/internal/repository"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -17,8 +18,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/redis/go-redis/v9"
 )
 
 // ValidateTelegramInitData is a middleware that validates Telegram Mini App InitData
@@ -43,49 +42,33 @@ func ValidateTelegramInitData(cache *repository.Cache) func(http.Handler) http.H
 				return
 			}
 
-			ip := r.RemoteAddr
-			var userID string
-			values, parseErr := url.ParseQuery(initData)
-			if parseErr == nil {
-				userData := values.Get("user")
-				if userData != "" {
-					var user struct {
-						ID int64 `json:"id"`
-					}
-					if json.Unmarshal([]byte(userData), &user) == nil && user.ID != 0 {
-						userID = strconv.FormatInt(user.ID, 10)
-					}
-				}
+			// Clean IP extraction without dynamic ports (for both IPv4 & IPv6)
+			ip, _, err := net.SplitHostPort(r.RemoteAddr)
+			if err != nil {
+				ip = r.RemoteAddr
 			}
 
 			ctx := r.Context()
 			if cache != nil && cache.Client != nil {
-				// Check IP lock
+				// Check IP lock first (prevents brute force of signatures)
 				if exists, _ := cache.Client.Exists(ctx, "brute_lock:ip:"+ip).Result(); exists > 0 {
 					http.Error(w, "Too many failed authentication attempts. IP temporarily locked.", http.StatusTooManyRequests)
 					return
 				}
-				// Check User lock
-				if userID != "" {
-					if exists, _ := cache.Client.Exists(ctx, "brute_lock:user:"+userID).Result(); exists > 0 {
-						http.Error(w, "Too many failed authentication attempts. User temporarily locked.", http.StatusTooManyRequests)
-						return
-					}
-				}
 			}
 
+			// Development bypass check
 			if allowDevBypass && initData == "dev-user" {
-				// Bypass for local testing
 				ctx := context.WithValue(r.Context(), UserContextKey, map[string]interface{}{"id": int64(12345), "username": "testuser"})
 				next.ServeHTTP(w, r.WithContext(ctx))
 				return
 			}
 
+			// Perform Cryptographic Verification FIRST before reading untrusted parameters
 			if err := validate(initData, botToken); err != nil {
-				// S8: failed login auditing
-				slog.Warn("SECURITY EVENT: Telegram InitData authentication failed",
+				// Failed signature verification: lock IP ONLY
+				slog.Warn("SECURITY EVENT: Telegram InitData signature check failed",
 					"ip", ip,
-					"user_id", userID,
 					"error", err.Error(),
 					"user_agent", r.UserAgent(),
 				)
@@ -95,35 +78,47 @@ func ValidateTelegramInitData(cache *repository.Cache) func(http.Handler) http.H
 					ipFailKey := "brute_fail:ip:" + ip
 					incrIP := pipe.Incr(ctx, ipFailKey)
 					pipe.Expire(ctx, ipFailKey, 1*time.Hour)
-
-					var incrUser *redis.IntCmd
-					var userFailKey string
-					if userID != "" {
-						userFailKey = "brute_fail:user:" + userID
-						incrUser = pipe.Incr(ctx, userFailKey)
-						pipe.Expire(ctx, userFailKey, 1*time.Hour)
-					}
-
 					_, _ = pipe.Exec(ctx)
 
 					fails, _ := incrIP.Result()
 					if fails >= 10 {
 						cache.Client.Set(ctx, "brute_lock:ip:"+ip, "locked", 24*time.Hour)
 					}
-
-					if incrUser != nil {
-						ufails, _ := incrUser.Result()
-						if ufails >= 10 {
-							cache.Client.Set(ctx, "brute_lock:user:"+userID, "locked", 24*time.Hour)
-						}
-					}
 				}
 
-				http.Error(w, fmt.Sprintf("Unauthorized: %v", err), http.StatusUnauthorized)
+				http.Error(w, "Unauthorized: Signature verification failed", http.StatusUnauthorized)
 				return
 			}
 
-			// Validation succeeded: reset failed counters
+			// SECURE PARAMETER EXTRACTION: Parse query values ONLY after signature is verified
+			values, _ := url.ParseQuery(initData)
+			var userID string
+			var userObj map[string]interface{}
+			userData := values.Get("user")
+			if userData != "" {
+				if err := json.Unmarshal([]byte(userData), &userObj); err == nil {
+					if idVal, ok := userObj["id"]; ok {
+						switch v := idVal.(type) {
+						case float64:
+							userID = strconv.FormatInt(int64(v), 10)
+						case int64:
+							userID = strconv.FormatInt(v, 10)
+						case int:
+							userID = strconv.FormatInt(int64(v), 10)
+						}
+					}
+				}
+			}
+
+			// Check verified user lockout in Redis
+			if userID != "" && cache != nil && cache.Client != nil {
+				if exists, _ := cache.Client.Exists(ctx, "brute_lock:user:"+userID).Result(); exists > 0 {
+					http.Error(w, "Too many failed authentication attempts. User temporarily locked.", http.StatusTooManyRequests)
+					return
+				}
+			}
+
+			// Authentication succeeded: reset failed counters
 			if cache != nil && cache.Client != nil {
 				pipe := cache.Client.Pipeline()
 				pipe.Del(ctx, "brute_fail:ip:"+ip)
@@ -133,13 +128,9 @@ func ValidateTelegramInitData(cache *repository.Cache) func(http.Handler) http.H
 				_, _ = pipe.Exec(ctx)
 			}
 
-			// Inject user data into context
-			userData := values.Get("user")
-			if userData != "" {
-				var user map[string]interface{}
-				if err := json.Unmarshal([]byte(userData), &user); err == nil {
-					ctx = context.WithValue(ctx, UserContextKey, user)
-				}
+			// Inject user into context
+			if userObj != nil {
+				ctx = context.WithValue(ctx, UserContextKey, userObj)
 			}
 
 			next.ServeHTTP(w, r.WithContext(ctx))
@@ -190,13 +181,16 @@ func validate(initData, botToken string) error {
 
 	// Check auth_date for replay attacks (max 24h)
 	authDateStr := values.Get("auth_date")
-	if authDateStr != "" {
-		var authDate int64
-		fmt.Sscanf(authDateStr, "%d", &authDate)
-		now := time.Now().Unix()
-		if now-authDate > 86400 {
-			return fmt.Errorf("init data expired")
-		}
+	if authDateStr == "" {
+		return fmt.Errorf("missing auth_date")
+	}
+	var authDate int64
+	if _, err := fmt.Sscanf(authDateStr, "%d", &authDate); err != nil {
+		return fmt.Errorf("invalid auth_date")
+	}
+	now := time.Now().Unix()
+	if now-authDate > 86400 || authDate-now > 300 {
+		return fmt.Errorf("init data expired or invalid clock skew")
 	}
 
 	return nil
