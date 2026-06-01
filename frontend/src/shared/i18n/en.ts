@@ -1458,5 +1458,42 @@ To enable me to delete malicious messages and restrict violating users, please a
     userAgent: 'User Agent:',
     payloadChanges: 'State Payload Changes:',
     loadMore: 'Load More Records'
+  },
+  owner: {
+    tabs: {
+      overview: 'Overview',
+      users: 'Users',
+      auditLogs: 'Audit Logs',
+      quests: 'Quest Manager'
+    },
+    quests: {
+      title: 'Quest Management',
+      subtitle: 'Create, update, and manage dynamic system quests and rewards.',
+      createBtn: 'Create Quest',
+      key: 'Quest Key',
+      questTitle: 'Quest Title',
+      type: 'Quest Type',
+      rewardFrg: 'FRG Reward',
+      rewardXp: 'XP Reward',
+      status: 'Status',
+      actions: 'Actions',
+      active: 'Active',
+      inactive: 'Inactive',
+      edit: 'Edit',
+      delete: 'Delete',
+      deleteConfirm: 'Are you sure you want to delete this quest?',
+      expired: 'Expired',
+      noExpiry: 'No Expiry',
+      expiry: 'Expiration',
+      config: 'JSON Configuration',
+      channelUsername: 'Telegram Channel (@Username)',
+      quizQuestion: 'Quiz Question',
+      quizAnswer: 'Quiz Answer (Hashed on Server)',
+      saveSuccess: 'Quest saved successfully.',
+      deleteSuccess: 'Quest deleted successfully.',
+      saveError: 'Failed to save quest.',
+      deleteError: 'Failed to delete quest.'
+    }
   }
 };
+

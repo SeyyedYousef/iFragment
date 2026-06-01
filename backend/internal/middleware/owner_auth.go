@@ -21,6 +21,7 @@ const (
 	PermPromoManage   Permission = "promo:manage"
 	PermPromoView     Permission = "promo:view"
 	PermAuditView     Permission = "audit:view"
+	PermQuestManage   Permission = "quests:manage"
 )
 
 var rolePermissions = map[string]map[Permission]bool{
@@ -43,6 +44,7 @@ var rolePermissions = map[string]map[Permission]bool{
 		PermPromoManage:   true,
 		PermPromoView:     true,
 		PermAuditView:     true,
+		PermQuestManage:   true,
 	},
 	"super_admin": {
 		PermViewDashboard: true,
@@ -53,6 +55,7 @@ var rolePermissions = map[string]map[Permission]bool{
 		PermPromoView:     true,
 		PermAuditView:     true,
 		PermImpersonate:   true,
+		PermQuestManage:   true,
 	},
 }
 
@@ -84,7 +87,7 @@ func RequirePermission(p Permission) func(http.Handler) http.Handler {
 					"user_id", user["id"],
 					"role", role,
 					"required_permission", p,
-					"ip", getRealIP(r),
+					"ip", GetRealIP(r),
 				)
 				http.Error(w, "Forbidden: Insufficient privileges to perform this action", http.StatusForbidden)
 				return
@@ -111,13 +114,19 @@ func ValidateOwnerAdmin(next http.Handler) http.Handler {
 		}
 
 		role, _ := user["role"].(string)
-		if role == "" || (role != "super_admin" && role != "admin" && role != "moderator" && role != "support") {
-			slog.Warn("SECURITY ALERT: Non-owner attempted to access owner endpoint",
+		tokenType, _ := user["token_type"].(string)
+		mfaVerified, _ := user["mfa_verified"].(bool)
+
+		if role == "" || (role != "super_admin" && role != "admin" && role != "moderator" && role != "support") || tokenType != "owner" || !mfaVerified {
+			slog.Warn("SECURITY ALERT: Non-owner or unverified MFA attempted to access owner endpoint",
 				"user_id", user["id"],
 				"username", user["username"],
-				"ip", getRealIP(r),
+				"role", role,
+				"token_type", tokenType,
+				"mfa_verified", mfaVerified,
+				"ip", GetRealIP(r),
 			)
-			http.Error(w, "Forbidden: Owner access denied", http.StatusForbidden)
+			http.Error(w, "Forbidden: Owner access denied. MFA verification required.", http.StatusForbidden)
 			return
 		}
 
@@ -188,7 +197,7 @@ func HoneypotMiddleware(repo *repository.OwnerRepo) func(http.Handler) http.Hand
 			}
 
 			// NOT an owner! Honeypot triggered! Auto-ban the user with 24 hours expiry!
-			clientIP := getRealIP(r)
+			clientIP := GetRealIP(r)
 			slog.Warn("🚨 HONEYPOT TRIGGERED! 24-hour automated ban initiated",
 				"user_id", userID,
 				"username", user["username"],
@@ -207,21 +216,43 @@ func HoneypotMiddleware(repo *repository.OwnerRepo) func(http.Handler) http.Hand
 				ExpiresAt: &expiresAt,
 			}
 
-			_ = repo.SetUserBan(r.Context(), ban)
-
-			// Clean up audit logs
-			payload, _ := json.Marshal(map[string]string{
-				"triggered_path": r.URL.Path,
-				"action":         "automated_24h_ban",
-			})
-			_ = repo.LogOwnerAudit(r.Context(), &model.OwnerAuditLog{
-				OwnerID:      0, // Security System (stored as NULL via SetUserBan)
-				Action:       "honeypot_ban",
-				TargetUserID: &userID,
-				Payload:      payload,
-				IPAddress:    clientIP,
-				UserAgent:    r.UserAgent(),
-			})
+			// Wrap Honeypot Ban and Logging inside a single atomic transaction to avoid data discrepancy
+			tx, txErr := repo.DB().Pool.Begin(r.Context())
+			if txErr == nil {
+				defer tx.Rollback(r.Context())
+				if err := repo.SetUserBanTx(r.Context(), tx, ban); err == nil {
+					payload, _ := json.Marshal(map[string]string{
+						"triggered_path": r.URL.Path,
+						"action":         "automated_24h_ban",
+					})
+					auditLog := &model.OwnerAuditLog{
+						OwnerID:      0, // Security System (stored as NULL via SetUserBan)
+						Action:       "honeypot_ban",
+						TargetUserID: &userID,
+						Payload:      payload,
+						IPAddress:    clientIP,
+						UserAgent:    r.UserAgent(),
+					}
+					if err := repo.LogOwnerAuditTx(r.Context(), tx, auditLog); err == nil {
+						_ = tx.Commit(r.Context())
+					}
+				}
+			} else {
+				// Fallback to non-tx if transaction failed to begin
+				_ = repo.SetUserBan(r.Context(), ban)
+				payload, _ := json.Marshal(map[string]string{
+					"triggered_path": r.URL.Path,
+					"action":         "automated_24h_ban",
+				})
+				_ = repo.LogOwnerAudit(r.Context(), &model.OwnerAuditLog{
+					OwnerID:      0,
+					Action:       "honeypot_ban",
+					TargetUserID: &userID,
+					Payload:      payload,
+					IPAddress:    clientIP,
+					UserAgent:    r.UserAgent(),
+				})
+			}
 
 			http.Error(w, "Forbidden: Security violation. Temporary 24-hour ban initiated.", http.StatusForbidden)
 		})

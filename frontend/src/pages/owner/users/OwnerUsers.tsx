@@ -2,6 +2,8 @@ import { Component, createSignal, Show, For } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { hapticFeedback } from '@tma.js/sdk-solid';
 import { apiClient } from '@/shared/api/axios.js';
+import { OwnerTabs } from '@/widgets/owner/OwnerTabs.js';
+import { t } from '@/shared/i18n/index.js';
 
 interface SearchedUser {
   telegram_id: number;
@@ -16,6 +18,28 @@ interface SearchedUser {
 
 export const OwnerUsers: Component = () => {
   const navigate = useNavigate();
+
+  const showTmaAlert = (message: string) => {
+    const tg = (window as any).Telegram?.WebApp;
+    if (tg?.showAlert) {
+      tg.showAlert(message);
+    } else {
+      alert(message);
+    }
+  };
+
+  const showTmaConfirm = (message: string, onConfirm: () => void) => {
+    const tg = (window as any).Telegram?.WebApp;
+    if (tg?.showConfirm) {
+      tg.showConfirm(message, (ok: boolean) => {
+        if (ok) onConfirm();
+      });
+    } else {
+      if (confirm(message)) {
+        onConfirm();
+      }
+    }
+  };
   const [query, setQuery] = createSignal('');
   const [users, setUsers] = createSignal<SearchedUser[]>([]);
   const [loading, setLoading] = createSignal(false);
@@ -59,30 +83,32 @@ export const OwnerUsers: Component = () => {
     }
   };
 
-  const handleImpersonate = async (user: SearchedUser) => {
+  const handleImpersonate = (user: SearchedUser) => {
     try { hapticFeedback.impactOccurred('medium'); } catch {}
-    if (!confirm(`Are you sure you want to impersonate @${user.username || user.telegram_id}? You will enter read-only simulation mode.`)) {
-      return;
-    }
-
-    try {
-      const resp = await apiClient.post('/owner/users/impersonate', { user_id: user.telegram_id });
-      const { token } = resp.data;
-      if (token) {
-        try { hapticFeedback.notificationOccurred('success'); } catch {}
-        // Save the impersonation token in sessionStorage for transient security
-        sessionStorage.setItem('owner_impersonation_token', token);
-        sessionStorage.setItem('impersonated_user_id', String(user.telegram_id));
-        sessionStorage.setItem('impersonated_username', user.username || String(user.telegram_id));
-        // Redirect user back to home/dashboard under impersonation
-        navigate('/');
-        // Trigger page refresh to reload auth interceptor
-        window.location.reload();
+    
+    showTmaConfirm(
+      `Are you sure you want to impersonate @${user.username || user.telegram_id}? You will enter read-only simulation mode.`,
+      async () => {
+        try {
+          const resp = await apiClient.post('/owner/users/impersonate', { user_id: user.telegram_id });
+          const { token } = resp.data;
+          if (token) {
+            try { hapticFeedback.notificationOccurred('success'); } catch {}
+            // Save the impersonation token in sessionStorage for transient security
+            sessionStorage.setItem('owner_impersonation_token', token);
+            sessionStorage.setItem('impersonated_user_id', String(user.telegram_id));
+            sessionStorage.setItem('impersonated_username', user.username || String(user.telegram_id));
+            // Redirect user back to home/dashboard under impersonation
+            navigate('/');
+            // Trigger page refresh to reload auth interceptor
+            window.location.reload();
+          }
+        } catch (err: any) {
+          showTmaAlert(err.response?.data?.error || 'Failed to initialize impersonation session.');
+          try { hapticFeedback.notificationOccurred('error'); } catch {}
+        }
       }
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to initialize impersonation session.');
-      try { hapticFeedback.notificationOccurred('error'); } catch {}
-    }
+    );
   };
 
   const handleOpenFrgModal = (user: SearchedUser) => {
@@ -126,7 +152,7 @@ export const OwnerUsers: Component = () => {
         setShowFrgModal(false);
       }
     } catch (err: any) {
-      alert(err.response?.data?.error || 'FRG adjustment failed.');
+      showTmaAlert(err.response?.data?.error || 'FRG adjustment failed.');
       try { hapticFeedback.notificationOccurred('error'); } catch {}
     } finally {
       setFrgLoading(false);
@@ -152,29 +178,31 @@ export const OwnerUsers: Component = () => {
         setShowBanModal(false);
       }
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Account suspension failed.');
+      showTmaAlert(err.response?.data?.error || 'Account suspension failed.');
       try { hapticFeedback.notificationOccurred('error'); } catch {}
     } finally {
       setBanLoading(false);
     }
   };
 
-  const handleUnban = async (user: SearchedUser) => {
+  const handleUnban = (user: SearchedUser) => {
     try { hapticFeedback.impactOccurred('medium'); } catch {}
-    if (!confirm(`Are you sure you want to remove all suspensions for user ${user.username || user.telegram_id}?`)) {
-      return;
-    }
-
-    try {
-      const resp = await apiClient.post('/owner/users/unban', { user_id: user.telegram_id });
-      if (resp.data.success) {
-        try { hapticFeedback.notificationOccurred('success'); } catch {}
-        alert('All bans and locks successfully lifted.');
+    
+    showTmaConfirm(
+      `Are you sure you want to remove all suspensions for user ${user.username || user.telegram_id}?`,
+      async () => {
+        try {
+          const resp = await apiClient.post('/owner/users/unban', { user_id: user.telegram_id });
+          if (resp.data.success) {
+            try { hapticFeedback.notificationOccurred('success'); } catch {}
+            showTmaAlert('All bans and locks successfully lifted.');
+          }
+        } catch (err: any) {
+          showTmaAlert(err.response?.data?.error || 'Failed to remove bans.');
+          try { hapticFeedback.notificationOccurred('error'); } catch {}
+        }
       }
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to remove bans.');
-      try { hapticFeedback.notificationOccurred('error'); } catch {}
-    }
+    );
   };
 
   const handleNav = (path: string) => {
@@ -204,28 +232,7 @@ export const OwnerUsers: Component = () => {
       </div>
 
       {/* Sub tabs */}
-      <div class="px-6 py-3 flex gap-2 overflow-x-auto relative z-10 border-b border-white/5 bg-[#0f1016]/40 backdrop-blur-sm">
-        <button 
-          onClick={() => handleNav('/owner/dashboard')}
-          class="h-8 px-4 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-1.5 border border-white/5"
-        >
-          <span class="material-symbols-outlined text-[14px]">dashboard</span>
-          Overview
-        </button>
-        <button 
-          class="h-8 px-4 bg-[#3390ec] text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-[#3390ec]/15 flex items-center gap-1.5"
-        >
-          <span class="material-symbols-outlined text-[14px]">group</span>
-          Users
-        </button>
-        <button 
-          onClick={() => handleNav('/owner/audit-logs')}
-          class="h-8 px-4 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-1.5 border border-white/5"
-        >
-          <span class="material-symbols-outlined text-[14px]">receipt_long</span>
-          Audit Logs
-        </button>
-      </div>
+      <OwnerTabs active="users" />
 
       {/* Main Area */}
       <div class="px-6 mt-6 relative z-10">

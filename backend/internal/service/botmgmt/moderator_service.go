@@ -179,6 +179,12 @@ func (s *ModeratorService) checkAntiRaid(ctx context.Context, groupID uuid.UUID)
 	count, _ := s.cache.Client.Incr(ctx, key).Result()
 	if count == 1 {
 		s.cache.Client.Expire(ctx, key, 1*time.Minute)
+	} else {
+		// Recovery check: if key somehow lost its TTL due to a Redis glitch, restore it
+		ttl, _ := s.cache.Client.TTL(ctx, key).Result()
+		if ttl == -1 {
+			s.cache.Client.Expire(ctx, key, 1*time.Minute)
+		}
 	}
 
 	if int(count) >= gen.AntiRaidThreshold {
@@ -448,10 +454,13 @@ func (s *ModeratorService) ValidateMessage(ctx context.Context, mc *MessageConte
 }
 
 func (s *ModeratorService) checkCAS(ctx context.Context, userID int64) bool {
-	// Cache CAS results for 24h
+	// Cache CAS results for 24h (or 10m on API outage)
 	cacheKey := fmt.Sprintf("cas:%d", userID)
 	if s.cache != nil && s.cache.Client != nil {
 		if val, _ := s.cache.Client.Get(ctx, cacheKey).Result(); val != "" {
+			if val == "failed_bypass" {
+				return false
+			}
 			return val == "banned"
 		}
 	}
@@ -463,6 +472,10 @@ func (s *ModeratorService) checkCAS(ctx context.Context, userID int64) bool {
 	}
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
+		// Negative caching: Cache failures for 10 minutes to protect pool from thread starvation DoS
+		if s.cache != nil && s.cache.Client != nil {
+			s.cache.Client.Set(ctx, cacheKey, "failed_bypass", 10*time.Minute)
+		}
 		return false
 	}
 	defer resp.Body.Close()
@@ -477,6 +490,11 @@ func (s *ModeratorService) checkCAS(ctx context.Context, userID int64) bool {
 			s.cache.Client.Set(ctx, cacheKey, status, 24*time.Hour)
 		}
 		return result.OK
+	} else {
+		// Cache malformed payload response as failed bypass as well
+		if s.cache != nil && s.cache.Client != nil {
+			s.cache.Client.Set(ctx, cacheKey, "failed_bypass", 10*time.Minute)
+		}
 	}
 	return false
 }
@@ -619,8 +637,12 @@ func (s *ModeratorService) GetChatMemberCached(ctx context.Context, tg *telegram
 		return "", err
 	}
 
-	// Cache for 5 minutes
-	s.cache.Client.Set(ctx, key, status, 5*time.Minute)
+	// High-privilege admin/owner statuses cached for only 15 seconds to mitigate demotion exploit window
+	ttl := 5 * time.Minute
+	if status == "administrator" || status == "creator" {
+		ttl = 15 * time.Second
+	}
+	s.cache.Client.Set(ctx, key, status, ttl)
 	return status, nil
 }
 
@@ -781,9 +803,9 @@ func (s *ModeratorService) checkAllContent(c repository.SettingsContentRestricti
 		}
 
 		// Keywords
-		lowerText := strings.ToLower(text)
+		cleanedText := cleanTextForComparison(text)
 		for _, kw := range c.BannedKeywords {
-			if strings.Contains(lowerText, strings.ToLower(kw)) {
+			if strings.Contains(cleanedText, cleanTextForComparison(kw)) {
 				return &Violation{Type: "banned_keyword", Message: fmt.Sprintf("Banned keyword: %s", kw), Action: s.ResolveAction(general.DefaultPenalty)}
 			}
 		}
@@ -791,7 +813,7 @@ func (s *ModeratorService) checkAllContent(c repository.SettingsContentRestricti
 		if len(c.RequiredKeywords) > 0 {
 			found := false
 			for _, kw := range c.RequiredKeywords {
-				if strings.Contains(lowerText, strings.ToLower(kw)) {
+				if strings.Contains(cleanedText, cleanTextForComparison(kw)) {
 					found = true
 					break
 				}
@@ -1054,4 +1076,32 @@ func containsScriptRatio(text string, rangeTable *unicode.RangeTable, threshold 
 		return false
 	}
 	return float64(matched)/float64(total) >= threshold
+}
+
+func cleanTextForComparison(text string) string {
+	// Strip zero-width and control characters
+	r := strings.NewReplacer(
+		"\u200b", "", // Zero-width space
+		"\u200c", "", // Zero-width non-joiner
+		"\u200d", "", // Zero-width joiner
+		"\ufeff", "", // Byte order mark
+	)
+	text = r.Replace(text)
+
+	// Convert common lookalike homoglyphs to latin equivalents for comparison
+	// Cyrillic homoglyphs: а, е, о, р, с, х
+	homoglyphs := map[rune]rune{
+		'а': 'a', 'е': 'e', 'о': 'o', 'р': 'p', 'с': 'c', 'х': 'x',
+		'А': 'a', 'Е': 'e', 'О': 'o', 'Р': 'p', 'С': 'c', 'Х': 'x',
+		'a': 'a', 'e': 'e', 'o': 'o', 'p': 'p', 'c': 'c', 'x': 'x',
+	}
+	var buf strings.Builder
+	for _, char := range text {
+		if repl, exists := homoglyphs[char]; exists {
+			buf.WriteRune(repl)
+		} else {
+			buf.WriteRune(unicode.ToLower(char))
+		}
+	}
+	return buf.String()
 }

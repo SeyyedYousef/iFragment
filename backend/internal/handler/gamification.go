@@ -77,6 +77,7 @@ func (h *GamificationHandler) GetTasksStatus(w http.ResponseWriter, r *http.Requ
 
 type CompleteTaskRequest struct {
 	TaskKey string `json:"taskKey"`
+	Answer  string `json:"answer,omitempty"`
 }
 
 func (h *GamificationHandler) CompleteTask(w http.ResponseWriter, r *http.Request) {
@@ -97,7 +98,7 @@ func (h *GamificationHandler) CompleteTask(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	status, err := h.gamificationService.CompleteTask(r.Context(), userID, req.TaskKey)
+	status, err := h.gamificationService.CompleteTask(r.Context(), userID, req.TaskKey, req.Answer)
 	if err != nil {
 		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
 		return

@@ -13,9 +13,19 @@ export const apiClient: AxiosInstance = axios.create({
 // Request Interceptor
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    // Attempt to retrieve a valid JWT token (Prefer impersonation session token if active)
+    // Attempt to retrieve a valid JWT token (Prefer impersonation session token if active, then owner token if administrative path, then standard user token)
     const impersonationToken = sessionStorage.getItem('owner_impersonation_token');
-    const token = impersonationToken || localStorage.getItem('jwt_token');
+    const isOwnerRequest = config.url?.includes('/owner/');
+    const ownerToken = isOwnerRequest ? sessionStorage.getItem('owner_token') : null;
+    
+    // STRICT TOKEN SEPARATION: administrative requests only send owner token, standard requests only send standard token
+    let token = null;
+    if (isOwnerRequest) {
+      token = impersonationToken || ownerToken;
+    } else {
+      token = impersonationToken || localStorage.getItem('jwt_token');
+    }
+    
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -73,8 +83,9 @@ apiClient.interceptors.response.use(
       }
     }
 
-    // P1-F4: Silent token refresh when JWT expires
-    if (error.response?.status === 401 && !originalRequest._retryCount) {
+    // P1-F4: Silent token refresh when JWT expires (Bypassed for administrative owner requests which require MFA)
+    const isOwnerRequest = originalRequest.url?.includes('/owner/');
+    if (error.response?.status === 401 && !originalRequest._retryCount && !isOwnerRequest) {
       originalRequest._retryCount = 1;
       try {
         const initData = (window as any).Telegram?.WebApp?.initData;

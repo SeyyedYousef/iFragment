@@ -15,9 +15,11 @@ import (
 )
 
 type JWTClaims struct {
-	UserID   int64  `json:"uid"`
-	Username string `json:"username"`
-	Role     string `json:"role,omitempty"`
+	UserID      int64  `json:"uid"`
+	Username    string `json:"username"`
+	Role        string `json:"role,omitempty"`
+	TokenType   string `json:"typ,omitempty"`  // "owner" or "user"
+	MFAVerified bool   `json:"mfa,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -96,6 +98,8 @@ func AuthMiddleware(next http.Handler) http.Handler {
 				"username":     claims.Username,
 				"role":         claims.Role,
 				"impersonated": claims.ID != "", // If ID exists, this is an impersonation session
+				"token_type":   claims.TokenType,
+				"mfa_verified": claims.MFAVerified,
 			}
 			ctx := context.WithValue(r.Context(), UserContextKey, user)
 			next.ServeHTTP(w, r.WithContext(ctx))

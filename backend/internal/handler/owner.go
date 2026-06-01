@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"ifragment-backend/internal/middleware"
+	"ifragment-backend/internal/model"
 	"ifragment-backend/internal/service"
 )
 
@@ -25,8 +26,8 @@ func NewOwnerHandler(srv *service.OwnerService) *OwnerHandler {
 
 func (h *OwnerHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		TelegramUserID int64  `json:"telegram_user_id"`
-		Code           string `json:"code"`
+		InitData string `json:"init_data"`
+		Code     string `json:"code"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -34,15 +35,21 @@ func (h *OwnerHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.TelegramUserID == 0 || req.Code == "" {
-		RespondError(w, r, http.StatusBadRequest, "telegram_user_id and code are required", nil)
+	if req.InitData == "" || req.Code == "" {
+		RespondError(w, r, http.StatusBadRequest, "init_data and code are required", nil)
 		return
 	}
 
-	ip := r.RemoteAddr
+	tgUserID, err := middleware.VerifyInitDataAndExtractUserID(req.InitData)
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, "Invalid Telegram authentication data: "+err.Error(), err)
+		return
+	}
+
+	ip := middleware.GetRealIP(r)
 	ua := r.UserAgent()
 
-	token, err := h.srv.Authenticate(r.Context(), req.TelegramUserID, req.Code, ip, ua)
+	token, err := h.srv.Authenticate(r.Context(), tgUserID, req.Code, ip, ua)
 	if err != nil {
 		RespondError(w, r, http.StatusUnauthorized, err.Error(), err)
 		return
@@ -86,7 +93,7 @@ func (h *OwnerHandler) AdjustFrg(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newBalance, err := h.srv.AdjustFRG(r.Context(), ownerID, req.UserID, req.Amount, req.Reason, r.RemoteAddr, r.UserAgent())
+	newBalance, err := h.srv.AdjustFRG(r.Context(), ownerID, req.UserID, req.Amount, req.Reason, middleware.GetRealIP(r), r.UserAgent())
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
 		return
@@ -120,7 +127,7 @@ func (h *OwnerHandler) Impersonate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := h.srv.ImpersonateUser(r.Context(), ownerID, req.UserID, r.RemoteAddr, r.UserAgent())
+	token, err := h.srv.ImpersonateUser(r.Context(), ownerID, req.UserID, middleware.GetRealIP(r), r.UserAgent())
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
 		return
@@ -156,7 +163,7 @@ func (h *OwnerHandler) BanUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.srv.SetUserBan(r.Context(), ownerID, req.UserID, req.BanType, req.Reason, req.DurationSeconds, r.RemoteAddr, r.UserAgent())
+	err = h.srv.SetUserBan(r.Context(), ownerID, req.UserID, req.BanType, req.Reason, req.DurationSeconds, middleware.GetRealIP(r), r.UserAgent())
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
 		return
@@ -187,7 +194,7 @@ func (h *OwnerHandler) UnbanUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.srv.RemoveUserBan(r.Context(), ownerID, req.UserID, r.RemoteAddr, r.UserAgent())
+	err = h.srv.RemoveUserBan(r.Context(), ownerID, req.UserID, middleware.GetRealIP(r), r.UserAgent())
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
 		return
@@ -304,7 +311,7 @@ func (h *OwnerHandler) CreatePromo(w http.ResponseWriter, r *http.Request) {
 		expiresAt = &exp
 	}
 
-	err = h.srv.CreatePromoCode(r.Context(), ownerID, req.Code, req.RewardAmount, req.MaxUses, expiresAt, r.RemoteAddr, r.UserAgent())
+	err = h.srv.CreatePromoCode(r.Context(), ownerID, req.Code, req.RewardAmount, req.MaxUses, expiresAt, middleware.GetRealIP(r), r.UserAgent())
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
 		return
@@ -327,7 +334,7 @@ func (h *OwnerHandler) DeletePromo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.srv.DeletePromoCode(r.Context(), ownerID, code, r.RemoteAddr, r.UserAgent())
+	err = h.srv.DeletePromoCode(r.Context(), ownerID, code, middleware.GetRealIP(r), r.UserAgent())
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
 		return
@@ -381,3 +388,84 @@ func (h *OwnerHandler) RedeemPromo(w http.ResponseWriter, r *http.Request) {
 		"message": "Promo code redeemed successfully! Check your FRG balance.",
 	})
 }
+
+func (h *OwnerHandler) ListQuests(w http.ResponseWriter, r *http.Request) {
+	list, err := h.srv.ListAllQuests(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "Failed to retrieve quests", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(list)
+}
+
+func (h *OwnerHandler) CreateQuest(w http.ResponseWriter, r *http.Request) {
+	ownerID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, err.Error(), err)
+		return
+	}
+
+	var req model.Quest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "Invalid request payload", err)
+		return
+	}
+
+	err = h.srv.CreateQuest(r.Context(), ownerID, req, middleware.GetRealIP(r), r.UserAgent())
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+func (h *OwnerHandler) UpdateQuest(w http.ResponseWriter, r *http.Request) {
+	ownerID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, err.Error(), err)
+		return
+	}
+
+	var req model.Quest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "Invalid request payload", err)
+		return
+	}
+
+	err = h.srv.UpdateQuest(r.Context(), ownerID, req, middleware.GetRealIP(r), r.UserAgent())
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+func (h *OwnerHandler) DeleteQuest(w http.ResponseWriter, r *http.Request) {
+	ownerID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, err.Error(), err)
+		return
+	}
+
+	key := r.URL.Query().Get("key")
+	if key == "" {
+		RespondError(w, r, http.StatusBadRequest, "Query parameter 'key' is required", errors.New("missing key"))
+		return
+	}
+
+	err = h.srv.DeleteQuest(r.Context(), ownerID, key, middleware.GetRealIP(r), r.UserAgent())
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+

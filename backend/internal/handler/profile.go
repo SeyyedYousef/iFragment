@@ -134,6 +134,18 @@ func (h *ProfileHandler) SetReferrerCode(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Alphanumeric, 4 to 16 characters validation (SEC-07)
+	if len(req.ReferrerCode) < 4 || len(req.ReferrerCode) > 16 {
+		RespondError(w, r, http.StatusBadRequest, "referrerCode must be between 4 and 16 characters", nil)
+		return
+	}
+	for _, char := range req.ReferrerCode {
+		if !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9')) {
+			RespondError(w, r, http.StatusBadRequest, "referrerCode must be alphanumeric", nil)
+			return
+		}
+	}
+
 	err := h.profileService.SetReferralCode(r.Context(), userID, req.ReferrerCode)
 	if err != nil {
 		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
@@ -161,9 +173,9 @@ func (h *ProfileHandler) AddTaps(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// P1-B5: Validate tap count to prevent score manipulation
-	if req.Taps <= 0 || req.Taps > 100 {
-		RespondError(w, r, http.StatusBadRequest, "taps must be between 1 and 100", nil)
+	// SEC-08: Validate tap count to prevent score manipulation (synchronized max taps = 50)
+	if req.Taps <= 0 || req.Taps > 50 {
+		RespondError(w, r, http.StatusBadRequest, "taps must be between 1 and 50", nil)
 		return
 	}
 

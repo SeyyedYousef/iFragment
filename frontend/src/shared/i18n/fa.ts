@@ -1434,5 +1434,41 @@ export const dict = {
     "userAgent": "مرورگر کاربر (User Agent):",
     "payloadChanges": "تغییرات دیتای وضعیت:",
     "loadMore": "بارگذاری رکوردهای بیشتر"
+  },
+  "owner": {
+    "tabs": {
+      "overview": "بررسی اجمالی",
+      "users": "مدیریت کاربران",
+      "auditLogs": "گزارش‌های ممیزی",
+      "quests": "مدیریت تسک‌ها"
+    },
+    "quests": {
+      "title": "مدیریت تسک‌های پویا",
+      "subtitle": "ساخت، ویرایش و مدیریت تسک‌های پلیمورفیک سیستم و جوایز آن.",
+      "createBtn": "ساخت تسک جدید",
+      "key": "کلید شناسایی",
+      "questTitle": "عنوان تسک",
+      "type": "نوع تسک",
+      "rewardFrg": "پاداش کوین (FRG)",
+      "rewardXp": "پاداش تجربه (XP)",
+      "status": "وضعیت",
+      "actions": "عملیات",
+      "active": "فعال",
+      "inactive": "غیرفعال",
+      "edit": "ویرایش",
+      "delete": "حذف",
+      "deleteConfirm": "آیا از حذف این تسک اطمینان دارید؟",
+      "expired": "منقضی شده",
+      "noExpiry": "بدون تاریخ انقضا",
+      "expiry": "تاریخ انقضا",
+      "config": "پیکربندی (JSON)",
+      "channelUsername": "یوزرنیم کانال تلگرام (با @)",
+      "quizQuestion": "سوال معما",
+      "quizAnswer": "پاسخ معما (سمت سرور هش می‌شود)",
+      "saveSuccess": "تسک با موفقیت ذخیره شد.",
+      "deleteSuccess": "تسک با موفقیت حذف شد.",
+      "saveError": "خطا در ذخیره‌سازی تسک.",
+      "deleteError": "خطا در حذف تسک."
+    }
   }
 };

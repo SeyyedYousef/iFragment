@@ -23,20 +23,13 @@ export const ImpersonationBanner: Component = () => {
     sessionStorage.removeItem('impersonated_user_id');
     sessionStorage.removeItem('impersonated_username');
 
-    // 2. Restore original owner token
-    const originalOwnerToken = sessionStorage.getItem('owner_original_user_token');
-    if (originalOwnerToken) {
-      localStorage.setItem('jwt_token', originalOwnerToken);
-      sessionStorage.removeItem('owner_original_user_token');
-    }
-
-    // 3. Clear state
+    // 2. Clear state
     setImpersonatedUser(null);
 
-    // 4. Redirect back to users manager page
+    // 3. Redirect back to users manager page
     navigate('/owner/users');
 
-    // 5. Hard refresh to reset all queries and auth interceptor states securely
+    // 4. Hard refresh to reset all queries and auth interceptor states securely
     window.location.reload();
   };
 

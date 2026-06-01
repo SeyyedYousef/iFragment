@@ -4,4 +4,6 @@ ALTER TABLE user_stats
     ADD COLUMN IF NOT EXISTS energy INTEGER NOT NULL DEFAULT 500,
     ADD COLUMN IF NOT EXISTS energy_updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
 
+CREATE INDEX IF NOT EXISTS idx_users_referred_by ON users(referred_by) WHERE referred_by IS NOT NULL;
+
 COMMIT;

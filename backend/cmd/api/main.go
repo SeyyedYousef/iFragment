@@ -256,6 +256,22 @@ func main() {
 	webhookHandler := handler.NewWebhookHandler(db, moderatorService, botRepo, channelService)
 	botMgmtHandler := handler.NewBotMgmtHandler(botService, marketplaceService)
 	profileService := service.NewProfileService(db, cache)
+	// 🚀 Warm up Redis leaderboard at startup and periodically
+	go func() {
+		_ = profileService.WarmLeaderboard(context.Background())
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				ctxWarm, cancelWarm := context.WithTimeout(context.Background(), 60*time.Second)
+				_ = profileService.WarmLeaderboard(ctxWarm)
+				cancelWarm()
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 	profileHandler := handler.NewProfileHandler(profileService, paymentService)
 	gamificationService := service.NewGamificationService(db, cache)
 	gamificationHandler := handler.NewGamificationHandler(gamificationService)
@@ -486,6 +502,12 @@ func main() {
 				r.With(middleware.RequirePermission(middleware.PermPromoManage)).Post("/promos", ownerHandler.CreatePromo)
 				r.With(middleware.RequirePermission(middleware.PermPromoManage)).Delete("/promos", ownerHandler.DeletePromo)
 				r.With(middleware.RequirePermission(middleware.PermPromoView)).Get("/promos", ownerHandler.ListPromos)
+
+				// Dynamic Quest management
+				r.With(middleware.RequirePermission(middleware.PermQuestManage)).Get("/quests", ownerHandler.ListQuests)
+				r.With(middleware.RequirePermission(middleware.PermQuestManage)).Post("/quests", ownerHandler.CreateQuest)
+				r.With(middleware.RequirePermission(middleware.PermQuestManage)).Put("/quests", ownerHandler.UpdateQuest)
+				r.With(middleware.RequirePermission(middleware.PermQuestManage)).Delete("/quests", ownerHandler.DeleteQuest)
 			})
 		})
 	})

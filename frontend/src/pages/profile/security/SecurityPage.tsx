@@ -8,6 +8,7 @@ import {
   showConfirm, 
   disableClosingConfirmation 
 } from '@/shared/lib/telegram-native.js';
+import { deleteAccountGDPR } from '@/shared/api/profile.js';
 
 export const SecurityPage: Component = () => {
   const [biometricsAvailable, setBiometricsAvailable] = createSignal(false);
@@ -58,13 +59,23 @@ export const SecurityPage: Component = () => {
   const handleDeleteAccount = async () => {
     try { hapticFeedback.notificationOccurred('warning'); } catch {}
     const confirmed = await showConfirm(
-      t('security.deleteConfirm') || 'Are you sure you want to delete your account? This will erase all local settings and cannot be undone.'
+      t('security.deleteConfirm') || 'Are you sure you want to PERMANENTLY delete your iFragment account, balance, achievements, and cosmetics on the server? This cannot be undone.'
     );
-    if (confirmed) {
+    if (!confirmed) return;
+
+    try {
+      // 1. Server-side wipe
+      await deleteAccountGDPR();
+      
+      // 2. Local cleanup
       try { hapticFeedback.notificationOccurred('success'); } catch {}
       const profileKeys = ['profile-settings', 'kyc_verified', 'profile-cache'];
       profileKeys.forEach(k => localStorage.removeItem(k));
+      await showAlert(t('security.deleteSuccess' as any) || 'Account permanently deleted.');
       window.location.reload();
+    } catch (e: any) {
+      try { hapticFeedback.notificationOccurred('error'); } catch {}
+      await showAlert(t('security.deleteFailed' as any) || `Deletion failed: ${e?.message || 'unknown error'}`);
     }
   };
 

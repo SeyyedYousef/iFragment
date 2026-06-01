@@ -97,7 +97,7 @@ func getUserID(r *http.Request) string {
 	return ""
 }
 
-func getRealIP(r *http.Request) string {
+func GetRealIP(r *http.Request) string {
 	remoteIP, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		remoteIP = r.RemoteAddr
@@ -177,7 +177,7 @@ func NewRateLimiter(ctx context.Context, cache *repository.Cache) func(http.Hand
 	}()
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ip := getRealIP(r)
+			ip := GetRealIP(r)
 			userID := getUserID(r)
 
 			// Try Redis-based rate limiting first
@@ -240,7 +240,7 @@ func NewRateLimiter(ctx context.Context, cache *repository.Cache) func(http.Hand
 func NewChannelRateLimiter(cache *repository.Cache) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ip := getRealIP(r)
+			ip := GetRealIP(r)
 			userID := getUserID(r)
 
 			if cache != nil && cache.Client != nil {

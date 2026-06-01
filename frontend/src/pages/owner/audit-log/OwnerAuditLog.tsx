@@ -3,6 +3,7 @@ import { useNavigate } from '@solidjs/router';
 import { hapticFeedback } from '@tma.js/sdk-solid';
 import { apiClient } from '@/shared/api/axios.js';
 import { t } from '@/shared/i18n/index.js';
+import { OwnerTabs } from '@/widgets/owner/OwnerTabs.js';
 
 interface AuditLog {
   id: string;
@@ -78,29 +79,7 @@ export const OwnerAuditLog: Component = () => {
         </div>
       </div>
 
-      {/* Sub tabs */}
-      <div class="px-6 py-3 flex gap-2 overflow-x-auto relative z-10 border-b border-white/5 bg-[#0f1016]/40 backdrop-blur-sm">
-        <button 
-          onClick={() => handleNav('/owner/dashboard')}
-          class="h-8 px-4 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-1.5 border border-white/5"
-        >
-          <span class="material-symbols-outlined text-[14px]">dashboard</span>
-          {t('ownerAuditLog.overview')}
-        </button>
-        <button 
-          onClick={() => handleNav('/owner/users')}
-          class="h-8 px-4 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-1.5 border border-white/5"
-        >
-          <span class="material-symbols-outlined text-[14px]">group</span>
-          {t('ownerAuditLog.users')}
-        </button>
-        <button 
-          class="h-8 px-4 bg-[#3390ec] text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-[#3390ec]/15 flex items-center gap-1.5"
-        >
-          <span class="material-symbols-outlined text-[14px]">receipt_long</span>
-          {t('ownerAuditLog.title')}
-        </button>
-      </div>
+      <OwnerTabs active="audit-logs" />
 
       {/* Content */}
       <div class="px-6 mt-6 relative z-10">

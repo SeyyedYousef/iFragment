@@ -3,6 +3,9 @@ import { useNavigate } from '@solidjs/router';
 import { hapticFeedback } from '@tma.js/sdk-solid';
 import { apiClient } from '@/shared/api/axios.js';
 
+import { OwnerTabs } from '@/widgets/owner/OwnerTabs.js';
+import { t } from '@/shared/i18n/index.js';
+
 interface DashboardStats {
   dau: number;
   mau: number;
@@ -40,15 +43,8 @@ export const OwnerDashboard: Component = () => {
 
   const handleLogout = () => {
     try { hapticFeedback.impactOccurred('medium'); } catch {}
-    // Restore original user token if available
-    const originalToken = sessionStorage.getItem('owner_original_user_token');
-    if (originalToken) {
-      localStorage.setItem('jwt_token', originalToken);
-      sessionStorage.removeItem('owner_original_user_token');
-    } else {
-      localStorage.removeItem('jwt_token');
-    }
-    localStorage.removeItem('owner_telegram_id');
+    sessionStorage.removeItem('owner_token');
+    sessionStorage.removeItem('owner_telegram_id');
     navigate('/profile');
   };
 
@@ -84,28 +80,7 @@ export const OwnerDashboard: Component = () => {
       </div>
 
       {/* Tabs / Navigation Subheader */}
-      <div class="px-6 py-3 flex gap-2 overflow-x-auto relative z-10 border-b border-white/5 bg-[#0f1016]/40 backdrop-blur-sm">
-        <button 
-          class="h-8 px-4 bg-[#3390ec] text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-[#3390ec]/15 flex items-center gap-1.5"
-        >
-          <span class="material-symbols-outlined text-[14px]">dashboard</span>
-          Overview
-        </button>
-        <button 
-          onClick={() => handleNav('/owner/users')}
-          class="h-8 px-4 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-1.5 border border-white/5"
-        >
-          <span class="material-symbols-outlined text-[14px]">group</span>
-          Users
-        </button>
-        <button 
-          onClick={() => handleNav('/owner/audit-logs')}
-          class="h-8 px-4 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-1.5 border border-white/5"
-        >
-          <span class="material-symbols-outlined text-[14px]">receipt_long</span>
-          Audit Logs
-        </button>
-      </div>
+      <OwnerTabs active="dashboard" />
 
       {/* Main Content Area */}
       <div class="px-6 mt-6 relative z-10">

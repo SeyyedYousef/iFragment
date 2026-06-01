@@ -120,6 +120,94 @@ func (r *FRGRepo) Credit(ctx context.Context, userID int64, amount float64, txTy
 	return &t, nil
 }
 
+func (r *FRGRepo) CreditTx(ctx context.Context, tx pgx.Tx, userID int64, amount float64, txType string, metadata []byte) (*FRGTransaction, error) {
+	// Atomic upsert with write locking to prevent race conditions and connection leaks
+	var balanceBefore float64
+	err := tx.QueryRow(ctx, `
+		INSERT INTO frg_balances (user_id, balance, total_earned, updated_at)
+		VALUES ($1, 0.0, 0.0, now())
+		ON CONFLICT (user_id) 
+		DO UPDATE SET updated_at = now()
+		RETURNING balance
+	`, userID).Scan(&balanceBefore)
+	if err != nil {
+		return nil, err
+	}
+
+	balanceAfter := balanceBefore + amount
+
+	_, err = tx.Exec(ctx,
+		`UPDATE frg_balances SET balance = $1, total_earned = total_earned + $2, updated_at = now() WHERE user_id = $3`,
+		balanceAfter, amount, userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var t FRGTransaction
+	err = tx.QueryRow(ctx,
+		`INSERT INTO frg_transactions (user_id, type, amount, balance_before, balance_after, metadata)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, created_at`,
+		userID, txType, amount, balanceBefore, balanceAfter, metadata,
+	).Scan(&t.ID, &t.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+
+	t.UserID = userID
+	t.Type = txType
+	t.Amount = amount
+	t.BalanceBefore = balanceBefore
+	t.BalanceAfter = balanceAfter
+	t.Metadata = metadata
+	return &t, nil
+}
+
+// DebitTx performs a balance debit inside an active database transaction.
+func (r *FRGRepo) DebitTx(ctx context.Context, tx pgx.Tx, userID int64, amount float64, txType string, metadata []byte) (*FRGTransaction, error) {
+	var balanceBefore float64
+	err := tx.QueryRow(ctx,
+		`SELECT balance FROM frg_balances WHERE user_id = $1 FOR UPDATE`, userID,
+	).Scan(&balanceBefore)
+	if err != nil {
+		return nil, err
+	}
+
+	if balanceBefore < amount {
+		return nil, fmt.Errorf("insufficient FRG balance: have %.4f, need %.4f", balanceBefore, amount)
+	}
+
+	balanceAfter := balanceBefore - amount
+
+	_, err = tx.Exec(ctx,
+		`UPDATE frg_balances SET balance = $1, total_spent = total_spent + $2, updated_at = now() WHERE user_id = $3`,
+		balanceAfter, amount, userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var t FRGTransaction
+	err = tx.QueryRow(ctx,
+		`INSERT INTO frg_transactions (user_id, type, amount, balance_before, balance_after, metadata)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, created_at`,
+		userID, txType, -amount, balanceBefore, balanceAfter, metadata,
+	).Scan(&t.ID, &t.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+
+	t.UserID = userID
+	t.Type = txType
+	t.Amount = -amount
+	t.BalanceBefore = balanceBefore
+	t.BalanceAfter = balanceAfter
+	t.Metadata = metadata
+	return &t, nil
+}
+
 func (r *FRGRepo) Debit(ctx context.Context, userID int64, amount float64, txType string, metadata []byte) (*FRGTransaction, error) {
 	tx, err := r.db.Pool.Begin(ctx)
 	if err != nil {

@@ -195,3 +195,42 @@ func validate(initData, botToken string) error {
 
 	return nil
 }
+
+// VerifyInitDataAndExtractUserID cryptographically validates Telegram's initData signature using BOT_TOKEN and returns the user ID.
+func VerifyInitDataAndExtractUserID(initData string) (int64, error) {
+	// Development bypass check
+	if allowDevBypass && initData == "dev-user" {
+		return 12345, nil
+	}
+
+	botToken := os.Getenv("BOT_TOKEN")
+	if botToken == "" {
+		botToken = os.Getenv("TELEGRAM_BOT_TOKEN")
+	}
+	if botToken == "" {
+		return 0, fmt.Errorf("security configuration missing: BOT_TOKEN or TELEGRAM_BOT_TOKEN not set")
+	}
+
+	if err := validate(initData, botToken); err != nil {
+		return 0, err
+	}
+
+	values, err := url.ParseQuery(initData)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse init data query parameters")
+	}
+
+	userData := values.Get("user")
+	if userData == "" {
+		return 0, fmt.Errorf("missing user block in init data")
+	}
+
+	var user struct {
+		ID int64 `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(userData), &user); err != nil || user.ID == 0 {
+		return 0, fmt.Errorf("invalid user structure in init data")
+	}
+
+	return user.ID, nil
+}

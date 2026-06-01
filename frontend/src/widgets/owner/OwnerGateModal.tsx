@@ -67,32 +67,37 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 
     const totpCode = pin().join('');
     
-    // Get Telegram ID (Fallback to a default in dev/bypass mode)
-    let telegramID = 0;
-    try {
-      const tgUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
-      if (tgUser?.id) {
-        telegramID = tgUser.id;
-      } else {
-        // Fallback for local testing
-        telegramID = 12345;
-      }
-    } catch {
-      telegramID = 12345;
+    // Get Telegram InitData securely
+    const tgUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
+    let initData = (window as any).Telegram?.WebApp?.initData;
+
+    // Support dev environment bypass for local testing velocity
+    if (!initData && import.meta.env.DEV) {
+      initData = "dev-user";
+    }
+
+    if (!initData) {
+      setErrorMsg('This secure administrative panel can only be accessed inside the Telegram Mini App.');
+      setLoading(false);
+      return;
     }
 
     try {
       const resp = await apiClient.post('/owner/auth/totp', {
-        telegram_user_id: telegramID,
+        init_data: initData,
         code: totpCode,
       });
 
       const { token } = resp.data;
       if (token) {
         try { hapticFeedback.notificationOccurred('success'); } catch {}
-        sessionStorage.setItem('owner_original_user_token', localStorage.getItem('jwt_token') || '');
-        localStorage.setItem('jwt_token', token);
-        localStorage.setItem('owner_telegram_id', String(telegramID));
+        // Securely store administrative token in sessionStorage (tab-scoped, neutralizes XSS persistence)
+        sessionStorage.setItem('owner_token', token);
+        if (tgUser?.id) {
+          sessionStorage.setItem('owner_telegram_id', String(tgUser.id));
+        } else if (import.meta.env.DEV) {
+          sessionStorage.setItem('owner_telegram_id', '12345');
+        }
         
         props.onClose();
         navigate('/owner/dashboard');

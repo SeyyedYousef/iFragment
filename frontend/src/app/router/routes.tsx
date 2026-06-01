@@ -45,6 +45,7 @@ const PremiumReportPage = lazy(() => import('@/pages/username/premium-report/ind
 const OwnerDashboardPage = lazy(() => import('@/pages/owner/dashboard/index.js').then(m => ({ default: m.OwnerDashboardPage })));
 const OwnerUsersPage = lazy(() => import('@/pages/owner/users/index.js').then(m => ({ default: m.OwnerUsersPage })));
 const OwnerAuditLogPage = lazy(() => import('@/pages/owner/audit-log/index.js').then(m => ({ default: m.OwnerAuditLogPage })));
+const OwnerQuestsPage = lazy(() => import('@/pages/owner/quests/index.js').then(m => ({ default: m.OwnerQuests })));
 
 interface Route {
   path: string;
@@ -92,4 +93,5 @@ export const routes: Route[] = [
   { path: '/owner/dashboard', Component: OwnerDashboardPage },
   { path: '/owner/users', Component: OwnerUsersPage },
   { path: '/owner/audit-logs', Component: OwnerAuditLogPage },
+  { path: '/owner/quests', Component: OwnerQuestsPage },
 ];

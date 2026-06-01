@@ -1,7 +1,8 @@
-import { Component, createSignal, onMount, onCleanup, For, Show, createMemo } from 'solid-js';
+import { Component, createSignal, onMount, onCleanup, For, Show, createMemo, createResource } from 'solid-js';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Motion } from '@motionone/solid';
 import { createQuery } from '@tanstack/solid-query';
+import QRCode from 'qrcode';
 import { t, formatNumber } from '@/shared/i18n/index.js';
 import { getReferralInfo } from '@/shared/api/profile.js';
 import { copyToClipboard, shareToStory, switchInlineQuery, showScanQrPopup, showAlert } from '@/shared/lib/telegram-native.js';
@@ -32,8 +33,20 @@ export const ReferralPage: Component = () => {
     return `https://t.me/iFragmentBot?start=${code}`;
   });
 
-  const qrCodeUrl = createMemo(() => {
-    return `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(referralLink())}&color=ffffff&bgcolor=1c1c1c`;
+  const [qrCodeUrl] = createResource(referralLink, async (link) => {
+    try {
+      return await QRCode.toDataURL(link, {
+        margin: 1,
+        width: 250,
+        color: {
+          dark: '#1c1c1c',
+          light: '#ffffff',
+        },
+      });
+    } catch (err) {
+      console.error('Failed to generate QR code', err);
+      return '';
+    }
   });
 
   const handleCopyLink = async () => {
@@ -47,7 +60,7 @@ export const ReferralPage: Component = () => {
   const handleShareStory = () => {
     try { hapticFeedback.impactOccurred('medium'); } catch {}
     shareToStory(
-      'https://raw.githubusercontent.com/Telegram-Mini-Apps/telegram-ui/main/assets/banner.png',
+      window.location.origin + '/promo_banner.png',
       {
         text: 'Join me on iFragment and get free FRG tokens! 💎🚀',
         widget_link: {

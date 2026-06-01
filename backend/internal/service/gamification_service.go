@@ -2,13 +2,17 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"ifragment-backend/internal/client/telegram"
+	"ifragment-backend/internal/model"
 	"ifragment-backend/internal/repository"
 	"log/slog"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -160,6 +164,16 @@ func (s *GamificationService) ClaimDailyReward(ctx context.Context, userID int64
 	}
 	defer tx.Rollback(ctx)
 
+	// Ensure row exists inside transaction first so FOR UPDATE successfully locks it
+	_, err = tx.Exec(ctx, `
+		INSERT INTO user_daily_claims (user_id, last_claimed_at, streak)
+		VALUES ($1, NULL, 0)
+		ON CONFLICT (user_id) DO NOTHING
+	`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to ensure daily claim record: %w", err)
+	}
+
 	// 2. Lock user's daily claims row to serialize concurrent claims
 	var lastClaimedAt *time.Time
 	var streak int
@@ -289,21 +303,8 @@ func (s *GamificationService) ClaimDailyReward(ctx context.Context, userID int64
 	}, nil
 }
 
-type TaskConfig struct {
-	Key       string  `json:"key"`
-	Title     string  `json:"title"`
-	RewardFrg float64 `json:"reward_frg"`
-	RewardXp  int     `json:"reward_xp"`
-}
-
-var tasksConfig = []TaskConfig{
-	{Key: "join_ifragment_channel", Title: "Join iFragment Official Channel", RewardFrg: 10000, RewardXp: 100},
-	{Key: "first_username_scan", Title: "Scan your first Username", RewardFrg: 5000, RewardXp: 50},
-	{Key: "register_first_bot", Title: "Register a Telegram Bot", RewardFrg: 15000, RewardXp: 150},
-}
-
 type UserTaskStatus struct {
-	TaskConfig
+	model.Quest
 	Completed bool `json:"completed"`
 }
 
@@ -319,20 +320,38 @@ func (s *GamificationService) GetTasksStatus(ctx context.Context, userID int64) 
 		completedMap[t.TaskKey] = t.Completed
 	}
 
+	ownerRepo := repository.NewOwnerRepo(s.db)
+	activeQuests, err := ownerRepo.GetActiveQuests(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	var results []UserTaskStatus
-	for _, conf := range tasksConfig {
+	for _, q := range activeQuests {
 		results = append(results, UserTaskStatus{
-			TaskConfig: conf,
-			Completed:  completedMap[conf.Key],
+			Quest:     q,
+			Completed: completedMap[q.Key],
 		})
 	}
 	return results, nil
 }
 
 // CompleteTask verifies and completes a quest safely under a database transaction with row locks
-func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, taskKey string) (*UserTaskStatus, error) {
+func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, taskKey string, answer string) (*UserTaskStatus, error) {
 	if s.db.Pool == nil {
 		return nil, fmt.Errorf("database pool is nil")
+	}
+
+	ownerRepo := repository.NewOwnerRepo(s.db)
+	target, err := ownerRepo.GetQuestByKey(ctx, taskKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch quest: %w", err)
+	}
+	if target == nil {
+		return nil, fmt.Errorf("invalid quest key")
+	}
+	if !target.IsActive || (target.ExpiresAt != nil && target.ExpiresAt.Before(time.Now())) {
+		return nil, fmt.Errorf("quest is inactive or expired")
 	}
 
 	// 1. Begin single unified transaction
@@ -341,6 +360,16 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback(ctx)
+
+	// Ensure task row exists first inside transaction so FOR UPDATE successfully locks it
+	_, err = tx.Exec(ctx, `
+		INSERT INTO user_tasks (user_id, task_key, completed)
+		VALUES ($1, $2, false)
+		ON CONFLICT (user_id, task_key) DO NOTHING
+	`, userID, taskKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to ensure task record: %w", err)
+	}
 
 	// 2. Lock user task record to prevent concurrent claims
 	var completed bool
@@ -357,20 +386,8 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 		return nil, fmt.Errorf("task already completed")
 	}
 
-	// Fetch task target config
-	var target *TaskConfig
-	for i := range tasksConfig {
-		if tasksConfig[i].Key == taskKey {
-			target = &tasksConfig[i]
-			break
-		}
-	}
-	if target == nil {
-		return nil, fmt.Errorf("invalid task key")
-	}
-
 	// 3. Dynamic backend verification checks
-	switch taskKey {
+	switch target.Type {
 	case "first_username_scan":
 		var count int
 		_ = tx.QueryRow(ctx, "SELECT COUNT(*) FROM search_logs WHERE user_id = $1", userID).Scan(&count)
@@ -383,21 +400,48 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 		if count == 0 {
 			return nil, fmt.Errorf("you must register at least one managed bot first")
 		}
-	case "join_ifragment_channel":
-		// Cyber security check: Query live Telegram Bot API to check if user is a member
+	case "channel_join":
+		var config struct {
+			ChannelUsername string `json:"channel_username"`
+		}
+		_ = json.Unmarshal(target.Config, &config)
+		channelName := config.ChannelUsername
+		if channelName == "" {
+			channelName = "@ifragment_channel" // fallback
+		}
+
+		// Query live Telegram Bot API to check if user is a member
 		tgClient := s.getBotAPIClient()
 		if tgClient == nil {
 			if os.Getenv("APP_ENV") == "production" {
 				return nil, fmt.Errorf("official Telegram Bot Token not configured (fail-closed)")
 			}
 		} else {
-			status, err := tgClient.GetChatMember(ctx, "@ifragment_channel", userID)
+			status, err := tgClient.GetChatMember(ctx, channelName, userID)
 			if err != nil {
 				return nil, fmt.Errorf("failed to verify official channel membership: %w", err)
 			}
 			if status == "left" || status == "kicked" {
-				return nil, fmt.Errorf("you must join our official Telegram channel first")
+				return nil, fmt.Errorf("you must join official Telegram channel %s first", channelName)
 			}
+		}
+	case "quiz":
+		var config struct {
+			QuizAnswerHash string `json:"quiz_answer_hash"`
+		}
+		_ = json.Unmarshal(target.Config, &config)
+		if config.QuizAnswerHash == "" {
+			return nil, fmt.Errorf("quiz quest is misconfigured on the server")
+		}
+
+		// Cryptographic check: compare SHA256 of cleaned user input
+		cleanedInput := strings.ToLower(strings.TrimSpace(answer))
+		hash := sha256.New()
+		hash.Write([]byte(cleanedInput))
+		userHash := hex.EncodeToString(hash.Sum(nil))
+
+		if userHash != config.QuizAnswerHash {
+			return nil, fmt.Errorf("incorrect quiz answer")
 		}
 	}
 
@@ -475,8 +519,8 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 	}
 
 	return &UserTaskStatus{
-		TaskConfig: *target,
-		Completed:  true,
+		Quest:     *target,
+		Completed: true,
 	}, nil
 }
 

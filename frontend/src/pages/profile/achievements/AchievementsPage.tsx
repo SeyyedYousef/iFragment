@@ -90,7 +90,7 @@ export const AchievementsPage: Component = () => {
     const storyText = `I unlocked the "${ach.title}" achievement on iFragment! 🏆`;
     // Share with bot referral link widget
     shareToStory(
-      'https://raw.githubusercontent.com/Telegram-Mini-Apps/telegram-ui/main/assets/banner.png', // Fallback banner or dynamic generation
+      window.location.origin + '/promo_banner.png',
       {
         text: storyText,
         widget_link: {

@@ -39,10 +39,10 @@ export const ProfileStatsSchema = z.object({
 
 export const AchievementSchema = z.object({
   id: z.string(),
-  category: z.enum(['onboarding', 'mining', 'analysis', 'social', 'management', 'streaks', 'special']),
-  icon: z.string(),
+  category: z.enum(['onboarding', 'mining', 'analysis', 'social', 'management', 'streaks', 'special']).optional(),
+  icon: z.string().optional(),
   unlocked: z.boolean(),
-  unlockedAt: z.string().optional(),
+  unlockedAt: z.string().nullable().optional(),
   progress: z.number().nonnegative(),
   target: z.number().positive(),
 });
@@ -256,5 +256,11 @@ export const leaveClan = (): Promise<any> =>
   });
 
 export const getTopClans = (): Promise<Clan[]> => 
-
   validatedFetch('/profile/clan/top', z.array(ClanSchema));
+
+export const deleteAccountGDPR = (): Promise<{ status: string; message: string }> =>
+  validatedFetch(
+    '/profile/gdpr',
+    z.object({ status: z.string(), message: z.string() }),
+    { method: 'DELETE' }
+  );

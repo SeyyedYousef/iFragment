@@ -7,10 +7,10 @@ import { createSignal, createEffect, createRoot, onCleanup } from 'solid-js';
 // ─── Types ───
 export interface Achievement {
   id: string;
-  category: 'onboarding' | 'mining' | 'analysis' | 'social' | 'management' | 'streaks' | 'special';
-  icon: string;
+  category?: 'onboarding' | 'mining' | 'analysis' | 'social' | 'management' | 'streaks' | 'special';
+  icon?: string;
   unlocked: boolean;
-  unlockedAt?: string;
+  unlockedAt?: string | null;
   progress: number;
   target: number;
 }
@@ -60,13 +60,46 @@ export interface ProfileSettings {
   biometricEnabled: boolean;
 }
 
+import { z } from 'zod';
+
+const ProfileSettingsSchema = z.object({
+  notifications: z.object({
+    mining: z.boolean(),
+    referral: z.boolean(),
+    community: z.boolean(),
+    promotions: z.boolean(),
+  }).partial().optional(),
+  hapticEnabled: z.boolean().optional(),
+  soundEnabled: z.boolean().optional(),
+  autoPlayAnimations: z.boolean().optional(),
+  biometricEnabled: z.boolean().optional(),
+});
+
+const STORAGE_KEY = 'profile-settings';
+const STORAGE_VERSION = 2;
+
 // ─── Load State ───
 const loadProfileState = (): Partial<ProfileSettings> => {
   try {
-    const data = localStorage.getItem('profile-settings');
-    if (data) return JSON.parse(data);
-  } catch {}
-  return {};
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (parsed?._v !== STORAGE_VERSION) {
+      localStorage.removeItem(STORAGE_KEY);
+      return {};
+    }
+    const result = ProfileSettingsSchema.safeParse(parsed.data);
+    if (!result.success) {
+      console.warn('[profile-store] corrupted localStorage, wiping');
+      localStorage.removeItem(STORAGE_KEY);
+      return {};
+    }
+    return result.data as Partial<ProfileSettings>;
+  } catch (e) {
+    console.warn('[profile-store] load failed', e);
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    return {};
+  }
 };
 
 const saved = loadProfileState();
@@ -152,16 +185,18 @@ export const ACHIEVEMENT_DEFS: Omit<Achievement, 'unlocked' | 'unlockedAt' | 'pr
 ];
 
 // ─── Persist Settings ───
-let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let _disposeFn: (() => void) | null = null;
 
 export const initProfileSync = () => {
-  return createRoot(dispose => {
+  if (_disposeFn) return _disposeFn; // idempotent
+  _disposeFn = createRoot(dispose => {
+    let saveTimer: ReturnType<typeof setTimeout> | null = null;
     createEffect(() => {
       const state = profileSettings();
       if (saveTimer) clearTimeout(saveTimer);
       saveTimer = setTimeout(() => {
         try {
-          localStorage.setItem('profile-settings', JSON.stringify(state));
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({ _v: STORAGE_VERSION, data: state }));
         } catch (e) {
           console.warn('localStorage write failed', e);
         }
@@ -172,5 +207,13 @@ export const initProfileSync = () => {
     });
     return dispose;
   });
+  return _disposeFn;
+};
+
+export const teardownProfileSync = () => {
+  if (_disposeFn) {
+    _disposeFn();
+    _disposeFn = null;
+  }
 };
 

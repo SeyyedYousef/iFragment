@@ -140,76 +140,94 @@ func (s *ProfileService) GetReferralData(ctx context.Context, userID int64) (*mo
 }
 
 func (s *ProfileService) SetReferralCode(ctx context.Context, userID int64, referrerCode string) error {
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// 1) Resolve referrer + self/circular checks atomically WITH LOCK
 	var referrerID int64
-	err := s.db.Pool.QueryRow(ctx, "SELECT telegram_id FROM users WHERE referral_code = $1", referrerCode).Scan(&referrerID)
+	var referrerReferredBy *int64
+	err = tx.QueryRow(ctx, `
+		SELECT telegram_id, referred_by
+		FROM users
+		WHERE referral_code = $1
+		FOR UPDATE`, referrerCode).Scan(&referrerID, &referrerReferredBy)
 	if err != nil {
 		return fmt.Errorf("invalid referral code")
 	}
-
-	// 1) Prevent self-referral
 	if referrerID == userID {
 		return fmt.Errorf("cannot refer yourself")
 	}
-
-	// 2) Prevent circular referral A -> B -> A
-	var referrerReferredBy *int64
-	_ = s.db.Pool.QueryRow(ctx, "SELECT referred_by FROM users WHERE telegram_id = $1", referrerID).Scan(&referrerReferredBy)
 	if referrerReferredBy != nil && *referrerReferredBy == userID {
 		return fmt.Errorf("circular referral not allowed")
 	}
 
-	// Register the referrer connection
-	updated, err := s.db.SetReferredBy(ctx, userID, referrerCode)
+	// 2) Set referred_by only if NULL — atomic
+	cmdTag, err := tx.Exec(ctx, `
+		UPDATE users SET referred_by = $1
+		WHERE telegram_id = $2 AND referred_by IS NULL`,
+		referrerID, userID,
+	)
 	if err != nil {
 		return err
 	}
-	if !updated {
+	if cmdTag.RowsAffected() != 1 {
 		return fmt.Errorf("referral already set")
 	}
 
-	// Reward the referrer with 10,000 FRG tokens!
-	meta, _ := json.Marshal(map[string]interface{}{"referred_user_id": userID})
+	// 3) Daily/total caps — using *atomic* counter with rollback-on-deny
+	const (
+		MaxReferralRewardPerDay = 50000.0
+		MaxReferralRewardTotal  = 500000.0
+		ReferrerReward          = 10000.0
+		ReferredReward          = 5000.0
+	)
+	var totalEarned float64
+	_ = tx.QueryRow(ctx, `
+		SELECT COALESCE(SUM(amount), 0) FROM frg_transactions
+		WHERE user_id = $1 AND type = 'admin_credit'
+		  AND metadata->>'referred_user_id' IS NOT NULL`, referrerID).Scan(&totalEarned)
 
-		// Enforce caps on referral rewards
-		const (
-			MaxReferralRewardPerDay = 50000.0
-			MaxReferralRewardTotal  = 500000.0
-		)
-
-		var totalReferralEarned float64
-		sumQuery := `SELECT COALESCE(SUM(amount), 0) FROM frg_transactions WHERE user_id = $1 AND type = 'admin_credit' AND metadata->>'referred_user_id' IS NOT NULL`
-		_ = s.db.Pool.QueryRow(ctx, sumQuery, referrerID).Scan(&totalReferralEarned)
-
-		if totalReferralEarned < MaxReferralRewardTotal {
-			allowed := true
-			if s.cache != nil && s.cache.Client != nil {
-				todayKey := fmt.Sprintf("referral:daily:%d:%s", referrerID, time.Now().Format("2006-01-02"))
-				dailyTotal, errIncr := s.cache.Client.IncrByFloat(ctx, todayKey, 10000.0).Result()
-				if errIncr == nil {
-					s.cache.Client.Expire(ctx, todayKey, 24*time.Hour)
-					if dailyTotal > MaxReferralRewardPerDay {
-						allowed = false
-					}
-				}
-			}
-			if allowed {
-				_, _ = s.frgRepo.Credit(ctx, referrerID, 10000.0, "admin_credit", meta)
+	rewardReferrer := totalEarned < MaxReferralRewardTotal
+	if rewardReferrer && s.cache != nil && s.cache.Client != nil {
+		todayKey := fmt.Sprintf("referral:daily:%d:%s", referrerID, time.Now().UTC().Format("2006-01-02"))
+		// ✅ check-first pattern: GET-then-INCR, with rollback if over cap
+		dailyTotal, errIncr := s.cache.Client.IncrByFloat(ctx, todayKey, ReferrerReward).Result()
+		if errIncr == nil {
+			s.cache.Client.Expire(ctx, todayKey, 24*time.Hour)
+			if dailyTotal > MaxReferralRewardPerDay {
+				// rollback the increment so future callers see correct state
+				s.cache.Client.IncrByFloat(ctx, todayKey, -ReferrerReward)
+				rewardReferrer = false
 			}
 		}
+	}
 
-	// Reward the referred user with 5,000 FRG tokens as a welcome bonus!
-	metaUser, _ := json.Marshal(map[string]interface{}{"referrer_code": referrerCode})
-	_, _ = s.frgRepo.Credit(ctx, userID, 5000.0, "admin_credit", metaUser)
+	// 4) Issue rewards INSIDE tx via shared connection
+	if rewardReferrer {
+		metaR, _ := json.Marshal(map[string]interface{}{"referred_user_id": userID})
+		if _, err = s.frgRepo.CreditTx(ctx, tx, referrerID, ReferrerReward, "admin_credit", metaR); err != nil {
+			return err
+		}
+	}
+	metaU, _ := json.Marshal(map[string]interface{}{"referrer_code": referrerCode})
+	if _, err = s.frgRepo.CreditTx(ctx, tx, userID, ReferredReward, "admin_credit", metaU); err != nil {
+		return err
+	}
 
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	// cache invalidation post-commit
 	if s.cache != nil && s.cache.Client != nil {
 		pipe := s.cache.Client.Pipeline()
 		pipe.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
-		if err == nil {
-			pipe.Del(ctx, fmt.Sprintf("profile:stats:%d", referrerID))
-		}
+		pipe.Del(ctx, fmt.Sprintf("profile:stats:%d", referrerID))
 		_, _ = pipe.Exec(ctx)
 	}
-
 	return nil
 }
 
@@ -218,7 +236,7 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int) (*
 		return nil, fmt.Errorf("invalid tap count")
 	}
 
-	const maxTapsPerRequest = 200
+	const maxTapsPerRequest = 50 // SEC-08: Synchronized tap limit count
 	if taps > maxTapsPerRequest {
 		return nil, fmt.Errorf("tap count exceeds maximum limit per request")
 	}
@@ -432,25 +450,57 @@ func (s *ProfileService) PurchaseCosmetic(ctx context.Context, userID int64, cos
 }
 
 func (s *ProfileService) EquipCosmetic(ctx context.Context, userID int64, cosmeticID string, cosmeticType string) error {
-	if cosmeticID != "" {
-		has, err := s.db.HasCosmetic(ctx, userID, cosmeticID)
-		if err != nil {
-			return err
-		}
-		if !has {
-			return fmt.Errorf("cosmetic not owned")
-		}
+	// 1. Validate type whitelist
+	if cosmeticType != "border" && cosmeticType != "skin" {
+		return fmt.Errorf("invalid cosmetic type: must be 'border' or 'skin'")
 	}
 
-	err := s.db.EquipCosmetic(ctx, userID, cosmeticID, cosmeticType)
+	// 2. Unequip path: empty cosmeticID + valid type is allowed
+	if cosmeticID == "" {
+		if err := s.db.EquipCosmetic(ctx, userID, "", cosmeticType); err != nil {
+			return err
+		}
+		s.invalidateProfileCache(ctx, userID)
+		return nil
+	}
+
+	// 3. Validate cosmetic exists AND its declared type matches request
+	var def *model.CosmeticItem
+	for _, it := range repository.PredefinedCosmetics {
+		if it.ID == cosmeticID {
+			it := it
+			def = &it
+			break
+		}
+	}
+	if def == nil {
+		return fmt.Errorf("cosmetic %s not found", cosmeticID)
+	}
+	if def.Type != cosmeticType {
+		// 🛡️ blocks SEC-01: skin → border type confusion
+		return fmt.Errorf("type mismatch: cosmetic %s is %q, not %q", cosmeticID, def.Type, cosmeticType)
+	}
+
+	// 4. Ownership check
+	has, err := s.db.HasCosmetic(ctx, userID, cosmeticID)
 	if err != nil {
 		return err
 	}
+	if !has {
+		return fmt.Errorf("cosmetic not owned")
+	}
 
+	if err := s.db.EquipCosmetic(ctx, userID, cosmeticID, cosmeticType); err != nil {
+		return err
+	}
+	s.invalidateProfileCache(ctx, userID)
+	return nil
+}
+
+func (s *ProfileService) invalidateProfileCache(ctx context.Context, userID int64) {
 	if s.cache != nil && s.cache.Client != nil {
 		s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
 	}
-	return nil
 }
 
 func (s *ProfileService) SetEmojiStatus(ctx context.Context, userID int64, emoji string) error {

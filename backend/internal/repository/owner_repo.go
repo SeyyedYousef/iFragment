@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,6 +19,10 @@ type OwnerRepo struct {
 
 func NewOwnerRepo(db *Database) *OwnerRepo {
 	return &OwnerRepo{db: db}
+}
+
+func (r *OwnerRepo) DB() *Database {
+	return r.db
 }
 
 func (r *OwnerRepo) GetOwnerRole(ctx context.Context, tgID int64) (*model.OwnerRole, error) {
@@ -59,9 +64,69 @@ func (r *OwnerRepo) LogOwnerAudit(ctx context.Context, log *model.OwnerAuditLog)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id, created_at
 	`
+	var ownerID *int64
+	if log.OwnerID != 0 {
+		ownerID = &log.OwnerID
+	}
 	err := r.db.Pool.QueryRow(ctx, query,
-		log.OwnerID, log.Action, log.TargetUserID, log.Payload, log.IPAddress, log.UserAgent,
+		ownerID, log.Action, log.TargetUserID, log.Payload, log.IPAddress, log.UserAgent,
 	).Scan(&log.ID, &log.CreatedAt)
+	return err
+}
+
+func (r *OwnerRepo) LogOwnerAuditTx(ctx context.Context, tx pgx.Tx, log *model.OwnerAuditLog) error {
+	query := `
+		INSERT INTO owner_audit_logs (owner_id, action, target_user_id, payload, ip_address, user_agent)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, created_at
+	`
+	var ownerID *int64
+	if log.OwnerID != 0 {
+		ownerID = &log.OwnerID
+	}
+	err := tx.QueryRow(ctx, query,
+		ownerID, log.Action, log.TargetUserID, log.Payload, log.IPAddress, log.UserAgent,
+	).Scan(&log.ID, &log.CreatedAt)
+	return err
+}
+
+func (r *OwnerRepo) SetUserBanTx(ctx context.Context, tx pgx.Tx, ban *model.UserBan) error {
+	query := `
+		INSERT INTO user_bans (user_id, ban_type, reason, banned_by, expires_at)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (user_id) DO UPDATE SET
+			ban_type = EXCLUDED.ban_type,
+			reason = EXCLUDED.reason,
+			banned_by = EXCLUDED.banned_by,
+			banned_at = CURRENT_TIMESTAMP,
+			expires_at = EXCLUDED.expires_at
+	`
+	var bannedBy *int64
+	if ban.BannedBy != 0 {
+		bannedBy = &ban.BannedBy
+	}
+	_, err := tx.Exec(ctx, query, ban.UserID, ban.BanType, ban.Reason, bannedBy, ban.ExpiresAt)
+	return err
+}
+
+func (r *OwnerRepo) RemoveUserBanTx(ctx context.Context, tx pgx.Tx, userID int64) error {
+	query := `DELETE FROM user_bans WHERE user_id = $1`
+	_, err := tx.Exec(ctx, query, userID)
+	return err
+}
+
+func (r *OwnerRepo) CreatePromoCodeTx(ctx context.Context, tx pgx.Tx, p model.PromoCode) error {
+	query := `
+		INSERT INTO promo_codes (code, reward_amount, max_uses, expires_at)
+		VALUES ($1, $2, $3, $4)
+	`
+	_, err := tx.Exec(ctx, query, strings.ToUpper(p.Code), p.RewardAmount, p.MaxUses, p.ExpiresAt)
+	return err
+}
+
+func (r *OwnerRepo) DeletePromoCodeTx(ctx context.Context, tx pgx.Tx, code string) error {
+	query := `DELETE FROM promo_codes WHERE code = $1`
+	_, err := tx.Exec(ctx, query, strings.ToUpper(code))
 	return err
 }
 
@@ -232,18 +297,55 @@ type SearchUserResult struct {
 }
 
 func (r *OwnerRepo) SearchUsers(ctx context.Context, searchQuery string) ([]SearchUserResult, error) {
-	query := `
-		SELECT u.telegram_id, COALESCE(u.username, ''), COALESCE(u.first_name, ''), COALESCE(u.last_name, ''), COALESCE(u.language_code, ''), u.created_at, COALESCE(fb.balance, 0.0), u.is_premium
-		FROM users u
-		LEFT JOIN frg_balances fb ON u.telegram_id = fb.user_id
-		WHERE u.username ILIKE '%' || $1 || '%'
-		   OR u.first_name ILIKE '%' || $1 || '%'
-		   OR u.last_name ILIKE '%' || $1 || '%'
-		   OR u.telegram_id::text = $1
-		ORDER BY u.created_at DESC
-		LIMIT 50
-	`
-	rows, err := r.db.Pool.Query(ctx, query, searchQuery)
+	// Trim whitespace
+	searchQuery = strings.TrimSpace(searchQuery)
+	if searchQuery == "" {
+		return nil, nil
+	}
+
+	// Check if the query is a numeric ID
+	isNumeric := true
+	for _, c := range searchQuery {
+		if c < '0' || c > '9' {
+			isNumeric = false
+			break
+		}
+	}
+
+	var query string
+	var args []interface{}
+
+	if isNumeric {
+		// If query is numeric, search strictly by Telegram ID using B-tree index
+		id, err := strconv.ParseInt(searchQuery, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		query = `
+			SELECT u.telegram_id, COALESCE(u.username, ''), COALESCE(u.first_name, ''), COALESCE(u.last_name, ''), COALESCE(u.language_code, ''), u.created_at, COALESCE(fb.balance, 0.0), u.is_premium
+			FROM users u
+			LEFT JOIN frg_balances fb ON u.telegram_id = fb.user_id
+			WHERE u.telegram_id = $1
+			ORDER BY u.created_at DESC
+			LIMIT 50
+		`
+		args = []interface{}{id}
+	} else {
+		// If query is text, search by trigram matches using GIN indexes without type casting
+		query = `
+			SELECT u.telegram_id, COALESCE(u.username, ''), COALESCE(u.first_name, ''), COALESCE(u.last_name, ''), COALESCE(u.language_code, ''), u.created_at, COALESCE(fb.balance, 0.0), u.is_premium
+			FROM users u
+			LEFT JOIN frg_balances fb ON u.telegram_id = fb.user_id
+			WHERE u.username ILIKE '%' || $1 || '%'
+			   OR u.first_name ILIKE '%' || $1 || '%'
+			   OR u.last_name ILIKE '%' || $1 || '%'
+			ORDER BY u.created_at DESC
+			LIMIT 50
+		`
+		args = []interface{}{searchQuery}
+	}
+
+	rows, err := r.db.Pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -421,5 +523,103 @@ func (r *OwnerRepo) RedeemPromoCodeTx(ctx context.Context, code string, userID i
 
 	return tx.Commit(ctx)
 }
+
+func (r *OwnerRepo) GetQuests(ctx context.Context) ([]model.Quest, error) {
+	query := `
+		SELECT key, title, type, reward_frg, reward_xp, config, is_active, expires_at, created_at
+		FROM quests
+		ORDER BY created_at DESC
+	`
+	rows, err := r.db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []model.Quest
+	for rows.Next() {
+		var q model.Quest
+		err := rows.Scan(
+			&q.Key, &q.Title, &q.Type, &q.RewardFrg, &q.RewardXp, &q.Config, &q.IsActive, &q.ExpiresAt, &q.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, q)
+	}
+	return list, nil
+}
+
+func (r *OwnerRepo) GetActiveQuests(ctx context.Context) ([]model.Quest, error) {
+	query := `
+		SELECT key, title, type, reward_frg, reward_xp, config, is_active, expires_at, created_at
+		FROM quests
+		WHERE is_active = true AND (expires_at IS NULL OR expires_at > now())
+		ORDER BY created_at DESC
+	`
+	rows, err := r.db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []model.Quest
+	for rows.Next() {
+		var q model.Quest
+		err := rows.Scan(
+			&q.Key, &q.Title, &q.Type, &q.RewardFrg, &q.RewardXp, &q.Config, &q.IsActive, &q.ExpiresAt, &q.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, q)
+	}
+	return list, nil
+}
+
+func (r *OwnerRepo) GetQuestByKey(ctx context.Context, key string) (*model.Quest, error) {
+	query := `
+		SELECT key, title, type, reward_frg, reward_xp, config, is_active, expires_at, created_at
+		FROM quests
+		WHERE key = $1
+	`
+	var q model.Quest
+	err := r.db.Pool.QueryRow(ctx, query, key).Scan(
+		&q.Key, &q.Title, &q.Type, &q.RewardFrg, &q.RewardXp, &q.Config, &q.IsActive, &q.ExpiresAt, &q.CreatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &q, nil
+}
+
+func (r *OwnerRepo) CreateQuestTx(ctx context.Context, tx pgx.Tx, q model.Quest) error {
+	query := `
+		INSERT INTO quests (key, title, type, reward_frg, reward_xp, config, is_active, expires_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`
+	_, err := tx.Exec(ctx, query, q.Key, q.Title, q.Type, q.RewardFrg, q.RewardXp, q.Config, q.IsActive, q.ExpiresAt)
+	return err
+}
+
+func (r *OwnerRepo) UpdateQuestTx(ctx context.Context, tx pgx.Tx, q model.Quest) error {
+	query := `
+		UPDATE quests
+		SET title = $1, type = $2, reward_frg = $3, reward_xp = $4, config = $5, is_active = $6, expires_at = $7
+		WHERE key = $8
+	`
+	_, err := tx.Exec(ctx, query, q.Title, q.Type, q.RewardFrg, q.RewardXp, q.Config, q.IsActive, q.ExpiresAt, q.Key)
+	return err
+}
+
+func (r *OwnerRepo) DeleteQuestTx(ctx context.Context, tx pgx.Tx, key string) error {
+	query := `DELETE FROM quests WHERE key = $1`
+	_, err := tx.Exec(ctx, query, key)
+	return err
+}
+
 
 
