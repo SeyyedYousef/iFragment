@@ -196,7 +196,6 @@ func (s *ProfileService) SetReferralCode(ctx context.Context, userID int64, refe
 				_, _ = s.frgRepo.Credit(ctx, referrerID, 10000.0, "admin_credit", meta)
 			}
 		}
-	}
 
 	// Reward the referred user with 5,000 FRG tokens as a welcome bonus!
 	metaUser, _ := json.Marshal(map[string]interface{}{"referrer_code": referrerCode})
