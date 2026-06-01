@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/google/uuid"
 	"ifragment-backend/internal/client/telegram"
+	"ifragment-backend/internal/i18n"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/botmgmt"
 	"ifragment-backend/internal/telemetry"
@@ -258,6 +260,35 @@ func (s *ChannelService) verifyAccess(ctx context.Context, userID int64, channel
 	return nil
 }
 
+func (s *ChannelService) validateForwardingTarget(rule *repository.ChannelForwardingRule) error {
+	targetType := strings.ToLower(rule.TargetType)
+	if targetType != "webhook" && targetType != "telegram" {
+		return fmt.Errorf("invalid target type: must be telegram or webhook")
+	}
+
+	if targetType == "webhook" {
+		u, err := url.Parse(rule.Target)
+		if err != nil {
+			return fmt.Errorf("invalid webhook URL: %w", err)
+		}
+		if u.Scheme != "https" {
+			return fmt.Errorf("invalid webhook URL: must be a secure https address")
+		}
+		hostname := u.Hostname()
+		lowerHost := strings.ToLower(hostname)
+		if lowerHost == "localhost" || strings.HasSuffix(lowerHost, ".local") {
+			return fmt.Errorf("private/loopback IPs are not allowed as webhook targets")
+		}
+		ip := net.ParseIP(hostname)
+		if ip != nil {
+			if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsUnspecified() {
+				return fmt.Errorf("private/loopback IPs are not allowed as webhook targets")
+			}
+		}
+	}
+	return nil
+}
+
 func (s *ChannelService) GetChannel(ctx context.Context, ownerUserID int64, channelID uuid.UUID) (*repository.ManagedChannel, error) {
 	if err := s.verifyAccess(ctx, ownerUserID, channelID, RoleOwner, RoleAdmin, RoleViewer); err != nil {
 		return nil, err
@@ -353,7 +384,7 @@ func (s *ChannelService) ProcessChannelPost(ctx context.Context, chatID int64, m
 	s.wg.Add(1)
 	GoSafe(func() {
 		defer s.wg.Done()
-		bgCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+		bgCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Minute)
 		defer cancel()
 		_ = s.processChannelPostAsync(bgCtx, chatID, messageID, postText, replyMarkup)
 	})
@@ -485,26 +516,32 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 							_ = cache.Client.Set(ctx, cacheKey, pendingJSON, 24*time.Hour).Err()
 						}
 
+						lang := "en"
+						var general GeneralSettingsSchema
+						if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
+							lang = general.Language
+						}
+
 						// Prepare inline buttons for PV message
 						markup := map[string]interface{}{
 							"inline_keyboard": [][]map[string]interface{}{
 								{
 									{
-										"text":          "✅ تایید و ارسال",
+										"text":          i18n.T(lang, "channel.approve_btn"),
 										"callback_data": fmt.Sprintf("approve:%s", pendingID.String()),
 									},
 									{
-										"text":          "❌ رد کردن",
+										"text":          i18n.T(lang, "channel.reject_btn"),
 										"callback_data": fmt.Sprintf("reject:%s", pendingID.String()),
 									},
 								},
 								{
 									{
-										"text":          "✏️ ویرایش متن",
+										"text":          i18n.T(lang, "channel.edit_text_btn"),
 										"callback_data": fmt.Sprintf("edit_text:%s", pendingID.String()),
 									},
 									{
-										"text":          "🔗 ویرایش دکمه‌ها",
+										"text":          i18n.T(lang, "channel.edit_btn_btn"),
 										"callback_data": fmt.Sprintf("edit_btn:%s", pendingID.String()),
 									},
 								},
@@ -512,11 +549,10 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 						}
 
 						// Format preview text
-						previewText := fmt.Sprintf(
-							"📢 **پیش‌نویس پست جدید حاصل از AutoForward برای کانال «%s»**\n\n%s\n\n---\n⏳ **وضعیت:** در انتظار تایید",
-							ch.ChatTitle,
-							text,
-						)
+						previewText := i18n.T(lang, "channel.draft_autoforward_pending", map[string]interface{}{
+							"channel": ch.ChatTitle,
+							"text":    text,
+						})
 
 						if _, err := tg.SendMessageWithMarkup(ctx, bot.OwnerUserID, previewText, markup, nil); err != nil {
 							slog.Error("Failed to send outbound approval preview to bot owner", "owner_id", bot.OwnerUserID, "error", err)
@@ -991,6 +1027,9 @@ func (s *ChannelService) CreateForwardingRule(ctx context.Context, ownerUserID i
 	if err := s.verifyAccess(ctx, ownerUserID, rule.ChannelID, RoleOwner, RoleAdmin); err != nil {
 		return err
 	}
+	if err := s.validateForwardingTarget(rule); err != nil {
+		return err
+	}
 	ch, err := s.channelRepo.GetChannelByID(ctx, rule.ChannelID)
 	if err != nil {
 		return err
@@ -1019,6 +1058,9 @@ func (s *ChannelService) CreateForwardingRule(ctx context.Context, ownerUserID i
 func (s *ChannelService) UpdateForwardingRule(ctx context.Context, ownerUserID int64, rule *repository.ChannelForwardingRule) error {
 	// Verify write access (restrict to RoleOwner and RoleAdmin)
 	if err := s.verifyAccess(ctx, ownerUserID, rule.ChannelID, RoleOwner, RoleAdmin); err != nil {
+		return err
+	}
+	if err := s.validateForwardingTarget(rule); err != nil {
 		return err
 	}
 	ch, err := s.channelRepo.GetChannelByID(ctx, rule.ChannelID)
@@ -1225,7 +1267,7 @@ func removeHashtagsHelper(text string) string {
 	return strings.Join(out, " ")
 }
 
-var linkRegex = regexp.MustCompile(`(?i)\b(https?://[^\s]+|t\.me/[^\s]+|[\w-]+\.(com|org|net|io|ir|co|me|info|biz|edu|gov|xyz|link|online)[^\s]*)\b`)
+var linkRegex = regexp.MustCompile(`(?i)\b(https?://[^\s]+|www\.[^\s]+|t\.me/[^\s]+|telegram\.me/[^\s]+)\b`)
 
 func removeLinksHelper(text string) string {
 	return linkRegex.ReplaceAllString(text, "")
@@ -1310,6 +1352,16 @@ func dynamicParaphrase(text string) string {
 	if len(text) == 0 {
 		return text
 	}
+
+	apiKey := os.Getenv("GEMINI_API_KEY")
+	if apiKey != "" {
+		paraphrased, err := callGeminiParaphrase(text, apiKey)
+		if err == nil && paraphrased != "" {
+			return paraphrased
+		}
+		slog.Warn("Gemini API paraphraser failed, falling back to local paraphrasing", "error", err)
+	}
+
 	replacements := map[string]string{
 		"hello":   "greetings",
 		"hi":      "hey there",
@@ -1328,6 +1380,73 @@ func dynamicParaphrase(text string) string {
 		}
 	}
 	return "🤖 [iFragment AI Paraphrased] " + strings.Join(words, " ") + "\n\n✨ Content updated via iFragment Paraphraser."
+}
+
+func callGeminiParaphrase(text, apiKey string) (string, error) {
+	promptText := "Paraphrase the following text in a professional tone, returning ONLY the paraphrased text without any explanations or intro:\n\n" + text
+	
+	reqPayload := map[string]interface{}{
+		"contents": []interface{}{
+			map[string]interface{}{
+				"parts": []interface{}{
+					map[string]interface{}{
+						"text": promptText,
+					},
+				},
+			},
+		},
+	}
+	
+	jsonData, err := json.Marshal(reqPayload)
+	if err != nil {
+		return "", err
+	}
+	
+	apiURL := "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey
+	
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	
+	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("Gemini API returned status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+	
+	var geminiResp struct {
+		Candidates []struct {
+			Content struct {
+				Parts []struct {
+					Text string `json:"text"`
+				} `json:"parts"`
+			} `json:"content"`
+		} `json:"candidates"`
+	}
+	
+	if err := json.NewDecoder(resp.Body).Decode(&geminiResp); err != nil {
+		return "", err
+	}
+	
+	if len(geminiResp.Candidates) > 0 && len(geminiResp.Candidates[0].Content.Parts) > 0 {
+		result := strings.TrimSpace(geminiResp.Candidates[0].Content.Parts[0].Text)
+		if result != "" {
+			return result, nil
+		}
+	}
+	
+	return "", fmt.Errorf("no paraphrase content returned in response")
 }
 
 func (s *ChannelService) startDLQAlertingWorker(ctx context.Context) {
@@ -1373,6 +1492,16 @@ func (s *ChannelService) RequestApprovalForPost(ctx context.Context, ch *reposit
 
 	tg := telegram.NewBotAPIClient(token)
 
+	// Fetch language from channel settings
+	lang := "en"
+	settings, err := s.channelRepo.GetChannelSettings(ctx, ch.ID)
+	if err == nil && settings != nil {
+		var general GeneralSettingsSchema
+		if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
+			lang = general.Language
+		}
+	}
+
 	// Save pending post draft in cache
 	pendingID := uuid.New()
 	pending := repository.PendingPost{
@@ -1395,21 +1524,21 @@ func (s *ChannelService) RequestApprovalForPost(ctx context.Context, ch *reposit
 		"inline_keyboard": [][]map[string]interface{}{
 			{
 				{
-					"text":          "✅ تایید و ارسال",
+					"text":          i18n.T(lang, "channel.approve_btn"),
 					"callback_data": fmt.Sprintf("approve:%s", pendingID.String()),
 				},
 				{
-					"text":          "❌ رد کردن",
+					"text":          i18n.T(lang, "channel.reject_btn"),
 					"callback_data": fmt.Sprintf("reject:%s", pendingID.String()),
 				},
 			},
 			{
 				{
-					"text":          "✏️ ویرایش متن",
+					"text":          i18n.T(lang, "channel.edit_text_btn"),
 					"callback_data": fmt.Sprintf("edit_text:%s", pendingID.String()),
 				},
 				{
-					"text":          "🔗 ویرایش دکمه‌ها",
+					"text":          i18n.T(lang, "channel.edit_btn_btn"),
 					"callback_data": fmt.Sprintf("edit_btn:%s", pendingID.String()),
 				},
 			},
@@ -1417,16 +1546,16 @@ func (s *ChannelService) RequestApprovalForPost(ctx context.Context, ch *reposit
 	}
 
 	// Format preview text
-	previewText := fmt.Sprintf(
-		"📢 **پیش‌نویس پست جدید برای کانال «%s»**\n\n%s\n\n---\n⏳ **وضعیت:** در انتظار تایید",
-		ch.ChatTitle,
-		text,
-	)
+	previewText := i18n.T(lang, "channel.draft_status_pending", map[string]interface{}{
+		"channel": ch.ChatTitle,
+		"text":    text,
+	})
 
 	_, err = tg.SendMessageWithMarkup(ctx, bot.OwnerUserID, previewText, markup, nil)
 	if err != nil {
 		slog.Warn("Failed to send post approval to owner PV", "owner_id", bot.OwnerUserID, "error", err)
-		return fmt.Errorf("لطفاً ابتدا ربات را در پی‌وی خود استارت کنید (امکان ارسال پیام خصوصی به شما وجود ندارد): %w", err)
+		startBotErr := i18n.T(lang, "channel.start_bot_error", map[string]interface{}{"err": err.Error()})
+		return fmt.Errorf("%s: %w", startBotErr, err)
 	}
 
 	return nil

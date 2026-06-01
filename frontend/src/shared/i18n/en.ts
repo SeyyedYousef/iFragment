@@ -1238,7 +1238,7 @@ To enable me to delete malicious messages and restrict violating users, please a
     guideTitle: 'Guide to Inline Buttons',
     guide1: 'First, choose a preset template or manually build custom buttons using the builder form above.',
     guide2: 'When you publish a post to the channel, our system scans the post automatically.',
-    guide3: 'A draft of the post containing the glass buttons is sent to your personal chat (PV) for verification.',
+    guide3: "A draft of the post containing the glass buttons is strictly sent to the Bot Owner's private chat (PV) for verification.",
     guide4: 'Once you confirm the preview, the post inside the channel is edited immediately to attach the buttons.',
     presetLikeTitle: 'Like & Reactions',
     presetLikeDesc: 'Collect audience feedback on posts',

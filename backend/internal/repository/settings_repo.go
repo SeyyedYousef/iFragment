@@ -255,6 +255,19 @@ func (r *SettingsRepo) UpdateCategory(ctx context.Context, groupID uuid.UUID, ca
 	return r.GetSettings(ctx, groupID)
 }
 
+func (r *SettingsRepo) ForceUpdateQuietHours(ctx context.Context, groupID uuid.UUID, data json.RawMessage) error {
+	if r.db == nil || r.db.Pool == nil {
+		return nil
+	}
+	query := `UPDATE group_settings SET quiet_hours = $1, version = version + 1, updated_at = now() WHERE group_id = $2`
+	_, err := r.db.Pool.Exec(ctx, query, data, groupID)
+	if err == nil && r.cache != nil && r.cache.Client != nil {
+		cacheKey := fmt.Sprintf("settings:%s", groupID.String())
+		r.cache.Client.Del(ctx, cacheKey)
+	}
+	return err
+}
+
 func (r *SettingsRepo) GetMultipleSettings(ctx context.Context, groupIDs []uuid.UUID) (map[uuid.UUID]*GroupSettings, error) {
 	result := make(map[uuid.UUID]*GroupSettings)
 	if len(groupIDs) == 0 {

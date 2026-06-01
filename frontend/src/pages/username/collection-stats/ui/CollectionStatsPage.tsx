@@ -24,8 +24,7 @@ export const CollectionStatsPage: Component = () => {
 
   const normalizeTon = (value: string | number | undefined) => {
     const parsed = typeof value === 'string' ? Number(value) : value;
-    if (!Number.isFinite(parsed || 0)) return 0;
-    return (parsed || 0) > 1_000_000_000 ? (parsed || 0) / 1e9 : (parsed || 0);
+    return Number.isFinite(parsed) ? (parsed as number) : 0;
   };
 
   const metric = (key: 'totalSupply' | 'holders' | 'floorPrice' | 'totalVolume' | 'volume24h' | 'activeAuctions' | 'salesCount' | 'highestSale' | 'listedRatio') => {

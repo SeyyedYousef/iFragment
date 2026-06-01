@@ -140,6 +140,24 @@ func (s *ProfileService) GetReferralData(ctx context.Context, userID int64) (*mo
 }
 
 func (s *ProfileService) SetReferralCode(ctx context.Context, userID int64, referrerCode string) error {
+	var referrerID int64
+	err := s.db.Pool.QueryRow(ctx, "SELECT telegram_id FROM users WHERE referral_code = $1", referrerCode).Scan(&referrerID)
+	if err != nil {
+		return fmt.Errorf("invalid referral code")
+	}
+
+	// 1) Prevent self-referral
+	if referrerID == userID {
+		return fmt.Errorf("cannot refer yourself")
+	}
+
+	// 2) Prevent circular referral A -> B -> A
+	var referrerReferredBy *int64
+	_ = s.db.Pool.QueryRow(ctx, "SELECT referred_by FROM users WHERE telegram_id = $1", referrerID).Scan(&referrerReferredBy)
+	if referrerReferredBy != nil && *referrerReferredBy == userID {
+		return fmt.Errorf("circular referral not allowed")
+	}
+
 	// Register the referrer connection
 	updated, err := s.db.SetReferredBy(ctx, userID, referrerCode)
 	if err != nil {
@@ -150,10 +168,7 @@ func (s *ProfileService) SetReferralCode(ctx context.Context, userID int64, refe
 	}
 
 	// Reward the referrer with 10,000 FRG tokens!
-	var referrerID int64
-	err = s.db.Pool.QueryRow(ctx, "SELECT telegram_id FROM users WHERE referral_code = $1", referrerCode).Scan(&referrerID)
-	if err == nil {
-		meta, _ := json.Marshal(map[string]interface{}{"referred_user_id": userID})
+	meta, _ := json.Marshal(map[string]interface{}{"referred_user_id": userID})
 
 		// Enforce caps on referral rewards
 		const (
@@ -213,70 +228,77 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int) (*
 		return nil, err
 	}
 
-	var lastActive time.Time
-	useDBFallback := true
-
-	if s.cache != nil && s.cache.Client != nil {
-		cacheKey := fmt.Sprintf("profile:taps:last_active:%d", userID)
-		val, err := s.cache.Client.Get(ctx, cacheKey).Result()
-		if err == nil {
-			var ts int64
-			ts, err = strconv.ParseInt(val, 10, 64)
-			if err == nil {
-				lastActive = time.Unix(0, ts)
-				useDBFallback = false
-			}
-		}
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
 	}
+	defer tx.Rollback(ctx)
 
-	if useDBFallback {
-		err := s.db.Pool.QueryRow(ctx, "SELECT last_active_at FROM user_stats WHERE user_id = $1", userID).Scan(&lastActive)
-		if err != nil {
-			// If not found in DB, default to current time minus safety duration so request passes
-			lastActive = time.Now().Add(-5 * time.Second)
-		}
+	// Lock user's stats row + read energy, energy_updated_at, multitap, energy limit level
+	var energy, multitapLevel, energyLimitLevel int
+	var energyUpdatedAt time.Time
+	err = tx.QueryRow(ctx, `
+		SELECT us.energy, us.energy_updated_at,
+		       COALESCE(b.multitap_level, 1), COALESCE(b.energy_limit_level, 1)
+		FROM user_stats us
+		LEFT JOIN user_boosts b ON b.user_id = us.user_id
+		WHERE us.user_id = $1
+		FOR UPDATE OF us`, userID).
+		Scan(&energy, &energyUpdatedAt, &multitapLevel, &energyLimitLevel)
+	if err != nil {
+		return nil, fmt.Errorf("failed to lock user energy: %w", err)
 	}
 
-	elapsed := time.Since(lastActive)
-	if elapsed < 0 {
-		elapsed = 0
-	}
-	minRequiredDuration := time.Duration(taps) * (time.Second / 15) - 200*time.Millisecond
-	if elapsed < minRequiredDuration {
-		return nil, fmt.Errorf("tapping rate too high (rate limit exceeded)")
+	// Server-side source of truth for maximum energy capacity & recovery
+	maxEnergy := 500 + (energyLimitLevel-1)*250
+	const recoveryPerSec = 1
+	regen := int(time.Since(energyUpdatedAt).Seconds()) * recoveryPerSec
+	if regen > 0 {
+		energy = min(maxEnergy, energy+regen)
 	}
 
-	// Get Multitap boost level to calculate coins earned
-	boosts, err := s.db.GetUserBoosts(ctx, userID)
-	multitapLevel := 1
-	if err == nil && boosts != nil {
-		multitapLevel = boosts.MultitapLevel
+	// Dynamic energy verification prevents infinite tap farming
+	if taps > energy {
+		taps = energy // only accept taps up to available energy
 	}
+	if taps <= 0 {
+		return nil, fmt.Errorf("not enough energy")
+	}
+
 	coinsEarned := float64(taps) * float64(multitapLevel)
+	newEnergy := energy - taps
 
-	// Award XP (2 XP per tap) and credit airdrop_coins
-	_, err = s.db.Pool.Exec(ctx, `
-		UPDATE user_stats 
-		SET total_taps = total_taps + $1, 
-		    xp = xp + $2, 
-		    airdrop_coins = airdrop_coins + $3, 
-		    last_active_at = CURRENT_TIMESTAMP 
-		WHERE user_id = $4
-	`, taps, taps*2, coinsEarned, userID)
+	_, err = tx.Exec(ctx, `
+		UPDATE user_stats
+		SET total_taps = total_taps + $1,
+		    xp = xp + $2,
+		    airdrop_coins = airdrop_coins + $3,
+		    energy = $4,
+		    energy_updated_at = now(),
+		    last_active_at = now()
+		WHERE user_id = $5`,
+		taps, taps*2, coinsEarned, newEnergy, userID,
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	if s.cache != nil && s.cache.Client != nil {
-		cacheKey := fmt.Sprintf("profile:taps:last_active:%d", userID)
-		s.cache.Client.Set(ctx, cacheKey, strconv.FormatInt(time.Now().UnixNano(), 10), 30*time.Second)
-	}
-
+	// Retrieve updated XP and Level inside same transaction to prevent read-modify-write lost update
 	var xp, oldLevel int
-	_ = s.db.Pool.QueryRow(ctx, "SELECT xp, level FROM user_stats WHERE user_id = $1", userID).Scan(&xp, &oldLevel)
+	err = tx.QueryRow(ctx, "SELECT xp, level FROM user_stats WHERE user_id = $1 FOR UPDATE", userID).Scan(&xp, &oldLevel)
+	if err != nil {
+		return nil, err
+	}
 	newLevel := repository.GetLevelFromXP(xp)
 	if newLevel > oldLevel {
-		_, _ = s.db.Pool.Exec(ctx, "UPDATE user_stats SET level = $1 WHERE user_id = $2", newLevel, userID)
+		_, err = tx.Exec(ctx, "UPDATE user_stats SET level = $1 WHERE user_id = $2", newLevel, userID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
 	}
 
 	if s.cache != nil && s.cache.Client != nil {
@@ -503,5 +525,12 @@ func (s *ProfileService) DeleteUserDataGDPR(ctx context.Context, userID int64) e
 	}
 
 	return nil
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 

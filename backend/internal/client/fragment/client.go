@@ -3,6 +3,7 @@ package fragment
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -23,11 +24,21 @@ const (
 )
 
 type Client struct {
-	BaseURL string
-	HTTP    *http.Client
+	BaseURL    string
+	HTTP       *http.Client
+	fragmentCB *gobreaker.CircuitBreaker
 }
 
 func NewClient() *Client {
+	cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{
+		Name:        "fragment-scraper",
+		MaxRequests: 3,
+		Interval:    60 * time.Second,
+		Timeout:     30 * time.Second,
+		ReadyToTrip: func(c gobreaker.Counts) bool {
+			return c.ConsecutiveFailures > 5
+		},
+	})
 	return &Client{
 		BaseURL: "https://fragment.com",
 		HTTP: &http.Client{
@@ -38,21 +49,12 @@ func NewClient() *Client {
 				IdleConnTimeout:     90 * time.Second,
 			},
 		},
+		fragmentCB: cb,
 	}
 }
 
-var fragmentCB = gobreaker.NewCircuitBreaker(gobreaker.Settings{
-	Name:        "fragment-scraper",
-	MaxRequests: 3,
-	Interval:    60 * time.Second,
-	Timeout:     30 * time.Second,
-	ReadyToTrip: func(c gobreaker.Counts) bool {
-		return c.ConsecutiveFailures > 5
-	},
-})
-
 func (c *Client) CheckUsername(ctx context.Context, username string) (Status, error) {
-	res, err := fragmentCB.Execute(func() (any, error) {
+	res, err := c.fragmentCB.Execute(func() (any, error) {
 		return c.checkInternal(ctx, username)
 	})
 	if err != nil {
@@ -81,7 +83,9 @@ func (c *Client) checkInternal(ctx context.Context, username string) (Status, er
 		return StatusAvailable, nil
 	}
 
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	// Limit reader to 2MB to protect memory
+	limitReader := io.LimitReader(resp.Body, 2*1024*1024)
+	doc, err := goquery.NewDocumentFromReader(limitReader)
 	if err != nil {
 		return StatusUnknown, err
 	}
@@ -109,6 +113,21 @@ func (c *Client) checkInternal(ctx context.Context, username string) (Status, er
 	}
 	if strings.Contains(statusLabel, "sold") || strings.Contains(statusLabel, "taken") {
 		return StatusSold, nil
+	}
+
+	// 5. Fallback strings.Contains checks on full text if selectors did not match
+	fullText := strings.ToLower(doc.Text())
+	if strings.Contains(fullText, "bid") || strings.Contains(fullText, "auction") || strings.Contains(fullText, "ends in") {
+		return StatusAuction, nil
+	}
+	if strings.Contains(fullText, "buy now") || strings.Contains(fullText, "for sale") || strings.Contains(fullText, "fixed price") {
+		return StatusSale, nil
+	}
+	if strings.Contains(fullText, "owner") || strings.Contains(fullText, "taken") || strings.Contains(fullText, "sold") {
+		return StatusSold, nil
+	}
+	if strings.Contains(fullText, "available") {
+		return StatusAvailable, nil
 	}
 
 	// If we get here on an HTTP 200, the scraper could not parse any known DOM selectors.

@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"ifragment-backend/internal/middleware"
@@ -65,7 +67,14 @@ func (h *PremiumHandler) RequestPremiumReport(w http.ResponseWriter, r *http.Req
 		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
 		return
 	}
-	payload := fmt.Sprintf("report_pay:%d:%s", userID, req.Username)
+	
+	nonceBytes := make([]byte, 4)
+	if _, err := rand.Read(nonceBytes); err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to generate secure nonce", err)
+		return
+	}
+	nonce := hex.EncodeToString(nonceBytes)
+	payload := fmt.Sprintf("report_pay:%d:%s:%s", userID, req.Username, nonce)
 
 	link, err := h.paymentService.CreateInvoiceLink(
 		"Premium Username Report",

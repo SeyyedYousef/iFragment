@@ -3,6 +3,7 @@ package channelmgmt
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -165,8 +166,9 @@ func TestRemoveLinksHelper(t *testing.T) {
 	}{
 		{"Visit https://ifragment.com for more", "Visit  for more"},
 		{"Check my channel t.me/ifragment_bot", "Check my channel "},
-		{"Visit google.com or buy.org now", "Visit  or  now"},
+		{"Visit www.google.com or buy.org now", "Visit  or buy.org now"},
 		{"No link here", "No link here"},
+		{"Please contact Company X.Y or write to info.txt", "Please contact Company X.Y or write to info.txt"},
 	}
 
 	for _, tc := range tests {
@@ -202,6 +204,295 @@ func TestDynamicParaphrase(t *testing.T) {
 	// Empty string check
 	if dynamicParaphrase("") != "" {
 		t.Errorf("Expected empty string to return empty string")
+	}
+}
+
+func TestDynamicParaphraseFallback(t *testing.T) {
+	// Arrange: set up environments
+	originalKey, exists := os.LookupEnv("GEMINI_API_KEY")
+	defer func() {
+		if exists {
+			os.Setenv("GEMINI_API_KEY", originalKey)
+		} else {
+			os.Unsetenv("GEMINI_API_KEY")
+		}
+	}()
+
+	// Scenario 1: GEMINI_API_KEY is empty -> immediately falls back to local replacements
+	os.Unsetenv("GEMINI_API_KEY")
+	input := "Hello support hi"
+	resultEmptyKey := dynamicParaphrase(input)
+	if !strings.HasPrefix(resultEmptyKey, "🤖 [iFragment AI Paraphrased]") {
+		t.Errorf("Expected fallback prefix when GEMINI_API_KEY is empty, got: %q", resultEmptyKey)
+	}
+	if !strings.Contains(resultEmptyKey, "greetings") || !strings.Contains(resultEmptyKey, "assistance") {
+		t.Errorf("Expected words to be locally replaced, got: %q", resultEmptyKey)
+	}
+
+	// Scenario 2: GEMINI_API_KEY is set but invalid -> calls API, fails, falls back gracefully
+	os.Setenv("GEMINI_API_KEY", "invalid_key_for_testing_purposes")
+	resultInvalidKey := dynamicParaphrase(input)
+	if !strings.HasPrefix(resultInvalidKey, "🤖 [iFragment AI Paraphrased]") {
+		t.Errorf("Expected fallback prefix when Gemini API fails, got: %q", resultInvalidKey)
+	}
+	if !strings.Contains(resultInvalidKey, "greetings") || !strings.Contains(resultInvalidKey, "assistance") {
+		t.Errorf("Expected words to be locally replaced, got: %q", resultInvalidKey)
+	}
+}
+
+func TestValidateForwardingTarget(t *testing.T) {
+	s := &ChannelService{}
+
+	tests := []struct {
+		name      string
+		rule      *repository.ChannelForwardingRule
+		expectErr bool
+		errText   string
+	}{
+		{
+			name: "Valid Telegram type",
+			rule: &repository.ChannelForwardingRule{
+				TargetType: "telegram",
+				Target:     "@ifragment_channel",
+			},
+			expectErr: false,
+		},
+		{
+			name: "Valid Webhook type",
+			rule: &repository.ChannelForwardingRule{
+				TargetType: "webhook",
+				Target:     "https://safe-external-webhook.com/api",
+			},
+			expectErr: false,
+		},
+		{
+			name: "Invalid target type",
+			rule: &repository.ChannelForwardingRule{
+				TargetType: "email",
+				Target:     "test@example.com",
+			},
+			expectErr: true,
+			errText:   "invalid target type: must be telegram or webhook",
+		},
+		{
+			name: "Non-HTTPS Webhook",
+			rule: &repository.ChannelForwardingRule{
+				TargetType: "webhook",
+				Target:     "http://example.com/webhook",
+			},
+			expectErr: true,
+			errText:   "invalid webhook URL: must be a secure https address",
+		},
+		{
+			name: "Invalid URL format",
+			rule: &repository.ChannelForwardingRule{
+				TargetType: "webhook",
+				Target:     "://invalid-url",
+			},
+			expectErr: true,
+			errText:   "invalid webhook URL",
+		},
+		{
+			name: "Localhost webhook target",
+			rule: &repository.ChannelForwardingRule{
+				TargetType: "webhook",
+				Target:     "https://localhost/api",
+			},
+			expectErr: true,
+			errText:   "private/loopback IPs are not allowed as webhook targets",
+		},
+		{
+			name: "Local hostname webhook target",
+			rule: &repository.ChannelForwardingRule{
+				TargetType: "webhook",
+				Target:     "https://test.local/api",
+			},
+			expectErr: true,
+			errText:   "private/loopback IPs are not allowed as webhook targets",
+		},
+		{
+			name: "Loopback IPv4 webhook target",
+			rule: &repository.ChannelForwardingRule{
+				TargetType: "webhook",
+				Target:     "https://127.0.0.1/webhook",
+			},
+			expectErr: true,
+			errText:   "private/loopback IPs are not allowed as webhook targets",
+		},
+		{
+			name: "Private IPv4 webhook target 192.168.x.x",
+			rule: &repository.ChannelForwardingRule{
+				TargetType: "webhook",
+				Target:     "https://192.168.1.1/webhook",
+			},
+			expectErr: true,
+			errText:   "private/loopback IPs are not allowed as webhook targets",
+		},
+		{
+			name: "Private IPv4 webhook target 10.x.x.x",
+			rule: &repository.ChannelForwardingRule{
+				TargetType: "webhook",
+				Target:     "https://10.0.0.1/webhook",
+			},
+			expectErr: true,
+			errText:   "private/loopback IPs are not allowed as webhook targets",
+		},
+		{
+			name: "Loopback IPv6 webhook target",
+			rule: &repository.ChannelForwardingRule{
+				TargetType: "webhook",
+				Target:     "https://[::1]/webhook",
+			},
+			expectErr: true,
+			errText:   "private/loopback IPs are not allowed as webhook targets",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := s.validateForwardingTarget(tc.rule)
+			if tc.expectErr {
+				if err == nil {
+					t.Fatalf("Expected error but got nil")
+				}
+				if tc.errText != "" && !strings.Contains(err.Error(), tc.errText) {
+					t.Errorf("Expected error containing %q, got: %v", tc.errText, err)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("Expected no error, got: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateSettingsCategoryInlineButtons(t *testing.T) {
+	tests := []struct {
+		name      string
+		jsonData  string
+		expectErr bool
+		errText   string
+	}{
+		{
+			name: "Allow counter buttons",
+			jsonData: `{
+				"buttons": [
+					{
+						"title": "Like",
+						"value": "like_counter",
+						"type": "counter",
+						"style": "primary"
+					}
+				]
+			}`,
+			expectErr: false,
+		},
+		{
+			name: "Allow HTTP URL buttons",
+			jsonData: `{
+				"buttons": [
+					{
+						"title": "HTTP Link",
+						"value": "http://example.com",
+						"type": "url",
+						"style": "link"
+					}
+				]
+			}`,
+			expectErr: false,
+		},
+		{
+			name: "Allow HTTPS URL buttons",
+			jsonData: `{
+				"buttons": [
+					{
+						"title": "HTTPS Link",
+						"value": "https://example.com",
+						"type": "url",
+						"style": "link"
+					}
+				]
+			}`,
+			expectErr: false,
+		},
+		{
+			name: "Disallow non-http/https URL buttons",
+			jsonData: `{
+				"buttons": [
+					{
+						"title": "FTP Link",
+						"value": "ftp://example.com",
+						"type": "url",
+						"style": "link"
+					}
+				]
+			}`,
+			expectErr: true,
+			errText:   "invalid URL: must be a valid http or https address",
+		},
+		{
+			name: "Disallow webapp buttons with http",
+			jsonData: `{
+				"buttons": [
+					{
+						"title": "Insecure WebApp",
+						"value": "http://app.ifragment.com",
+						"type": "webapp",
+						"style": "primary"
+					}
+				]
+			}`,
+			expectErr: true,
+			errText:   "invalid WebApp URL: must be a secure https address",
+		},
+		{
+			name: "Allow webapp buttons with secure https",
+			jsonData: `{
+				"buttons": [
+					{
+						"title": "Secure WebApp",
+						"value": "https://app.ifragment.com",
+						"type": "webapp",
+						"style": "primary"
+					}
+				]
+			}`,
+			expectErr: false,
+		},
+		{
+			name: "Disallow invalid button type",
+			jsonData: `{
+				"buttons": [
+					{
+						"title": "Invalid Type",
+						"value": "test",
+						"type": "invalid_type_here",
+						"style": "primary"
+					}
+				]
+			}`,
+			expectErr: true,
+			errText:   "invalid button type",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateSettingsCategory("inline_buttons", json.RawMessage(tc.jsonData))
+			if tc.expectErr {
+				if err == nil {
+					t.Fatalf("Expected error but got nil")
+				}
+				if tc.errText != "" && !strings.Contains(err.Error(), tc.errText) {
+					t.Errorf("Expected error containing %q, got: %v", tc.errText, err)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("Expected no error, got: %v", err)
+				}
+			}
+		})
 	}
 }
 

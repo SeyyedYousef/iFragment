@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type FRGBalance struct {
@@ -26,6 +27,8 @@ type FRGTransaction struct {
 	BalanceBefore float64   `json:"balance_before"`
 	BalanceAfter  float64   `json:"balance_after"`
 	Metadata      []byte    `json:"metadata,omitempty"`
+	ChargeID      *string   `json:"charge_id,omitempty"`
+	TxHash        *string   `json:"tx_hash,omitempty"`
 	CreatedAt     time.Time `json:"created_at"`
 }
 
@@ -171,7 +174,7 @@ func (r *FRGRepo) Debit(ctx context.Context, userID int64, amount float64, txTyp
 }
 
 func (r *FRGRepo) GetTransactions(ctx context.Context, userID int64, limit, offset int) ([]FRGTransaction, error) {
-	query := `SELECT id, user_id, type, amount, balance_before, balance_after, metadata, created_at
+	query := `SELECT id, user_id, type, amount, balance_before, balance_after, metadata, charge_id, tx_hash, created_at
 		FROM frg_transactions WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`
 	rows, err := r.db.Pool.Query(ctx, query, userID, limit, offset)
 	if err != nil {
@@ -182,7 +185,7 @@ func (r *FRGRepo) GetTransactions(ctx context.Context, userID int64, limit, offs
 	var txs []FRGTransaction
 	for rows.Next() {
 		var t FRGTransaction
-		if err := rows.Scan(&t.ID, &t.UserID, &t.Type, &t.Amount, &t.BalanceBefore, &t.BalanceAfter, &t.Metadata, &t.CreatedAt); err != nil {
+		if err := rows.Scan(&t.ID, &t.UserID, &t.Type, &t.Amount, &t.BalanceBefore, &t.BalanceAfter, &t.Metadata, &t.ChargeID, &t.TxHash, &t.CreatedAt); err != nil {
 			return nil, err
 		}
 		txs = append(txs, t)
@@ -192,7 +195,7 @@ func (r *FRGRepo) GetTransactions(ctx context.Context, userID int64, limit, offs
 
 func (r *FRGRepo) TransactionExistsByChargeID(ctx context.Context, chargeID string) (bool, error) {
 	var exists bool
-	query := `SELECT EXISTS(SELECT 1 FROM frg_transactions WHERE metadata->>'telegram_charge_id' = $1)`
+	query := `SELECT EXISTS(SELECT 1 FROM frg_transactions WHERE charge_id = $1)`
 	err := r.db.Pool.QueryRow(ctx, query, chargeID).Scan(&exists)
 	return exists, err
 }
@@ -204,9 +207,17 @@ func (r *FRGRepo) CreditWithIdempotency(ctx context.Context, userID int64, amoun
 	}
 	defer tx.Rollback(ctx)
 
-	// Check idempotency inside transaction
+	// Acquire advisory transaction-scoped lock to prevent concurrent double-credit race condition
+	h := fnv.New64a()
+	h.Write([]byte("stars:" + chargeID))
+	lockID := int64(h.Sum64())
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, lockID); err != nil {
+		return nil, err
+	}
+
+	// Check idempotency inside transaction using dedicated charge_id column
 	var exists bool
-	err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM frg_transactions WHERE metadata->>'telegram_charge_id' = $1)`, chargeID).Scan(&exists)
+	err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM frg_transactions WHERE charge_id = $1)`, chargeID).Scan(&exists)
 	if err != nil {
 		return nil, err
 	}
@@ -239,12 +250,15 @@ func (r *FRGRepo) CreditWithIdempotency(ctx context.Context, userID int64, amoun
 
 	var t FRGTransaction
 	err = tx.QueryRow(ctx,
-		`INSERT INTO frg_transactions (user_id, type, amount, balance_before, balance_after, metadata)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		`INSERT INTO frg_transactions (user_id, type, amount, balance_before, balance_after, metadata, charge_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id, created_at`,
-		userID, txType, amount, balanceBefore, balanceAfter, metadata,
+		userID, txType, amount, balanceBefore, balanceAfter, metadata, chargeID,
 	).Scan(&t.ID, &t.CreatedAt)
 	if err != nil {
+		if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == "23505" {
+			return nil, fmt.Errorf("transaction with charge id %s already processed", chargeID)
+		}
 		return nil, err
 	}
 
@@ -258,6 +272,7 @@ func (r *FRGRepo) CreditWithIdempotency(ctx context.Context, userID int64, amoun
 	t.BalanceBefore = balanceBefore
 	t.BalanceAfter = balanceAfter
 	t.Metadata = metadata
+	t.ChargeID = &chargeID
 	return &t, nil
 }
 
@@ -276,9 +291,9 @@ func (r *FRGRepo) CreditWithToncoinIdempotency(ctx context.Context, userID int64
 		return nil, err
 	}
 
-	// Check idempotency inside transaction
+	// Check idempotency inside transaction using dedicated tx_hash column
 	var exists bool
-	err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM frg_transactions WHERE metadata->>'tx_hash' = $1)`, txHash).Scan(&exists)
+	err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM frg_transactions WHERE tx_hash = $1)`, txHash).Scan(&exists)
 	if err != nil {
 		return nil, err
 	}
@@ -311,12 +326,15 @@ func (r *FRGRepo) CreditWithToncoinIdempotency(ctx context.Context, userID int64
 
 	var t FRGTransaction
 	err = tx.QueryRow(ctx,
-		`INSERT INTO frg_transactions (user_id, type, amount, balance_before, balance_after, metadata)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		`INSERT INTO frg_transactions (user_id, type, amount, balance_before, balance_after, metadata, tx_hash)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id, created_at`,
-		userID, txType, amount, balanceBefore, balanceAfter, metadata,
+		userID, txType, amount, balanceBefore, balanceAfter, metadata, txHash,
 	).Scan(&t.ID, &t.CreatedAt)
 	if err != nil {
+		if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == "23505" {
+			return nil, fmt.Errorf("transaction with tx hash %s already processed", txHash)
+		}
 		return nil, err
 	}
 
@@ -330,5 +348,6 @@ func (r *FRGRepo) CreditWithToncoinIdempotency(ctx context.Context, userID int64
 	t.BalanceBefore = balanceBefore
 	t.BalanceAfter = balanceAfter
 	t.Metadata = metadata
+	t.TxHash = &txHash
 	return &t, nil
 }

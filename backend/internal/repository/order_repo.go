@@ -9,10 +9,10 @@ import (
 // ... existing methods ...
 
 func (db *Database) HasPaidForReport(ctx context.Context, userID int64, username string) (bool, error) {
-	payload := fmt.Sprintf("report_pay:%d:%s", userID, username)
-	query := `SELECT EXISTS(SELECT 1 FROM orders WHERE payload = $1 AND status = 'paid')`
+	prefix := fmt.Sprintf("report_pay:%d:%s:", userID, username)
+	query := `SELECT EXISTS(SELECT 1 FROM orders WHERE starts_with(payload, $1) AND status = 'paid')`
 	var exists bool
-	err := db.Pool.QueryRow(ctx, query, payload).Scan(&exists)
+	err := db.Pool.QueryRow(ctx, query, prefix).Scan(&exists)
 	return exists, err
 }
 

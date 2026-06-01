@@ -52,9 +52,13 @@ export const TapView: Component = () => {
     const power = tapPower();
     recordTaps(1);
 
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
     const id = ++particleIdCounter;
     setParticles(prev => {
-      const next = [...prev, { id, x: e.clientX, y: e.clientY, value: power, createdAt: performance.now() }];
+      const next = [...prev, { id, x, y, value: power, createdAt: performance.now() }];
       return next.length > MAX_PARTICLES ? next.slice(-MAX_PARTICLES) : next;
     });
 
@@ -127,8 +131,8 @@ export const TapView: Component = () => {
         <For each={particles()}>
           {(p) => (
             <div
-              class="fixed pointer-events-none z-50 animate-float-up"
-              style={{ left: `${p.x - 15}px`, top: `${p.y - 30}px` }}
+              class="absolute pointer-events-none z-50 animate-float-up"
+              style={{ left: `${p.x - 15}px`, top: `${p.y - 30}px`, 'will-change': 'transform, opacity' }}
             >
               <span class="text-3xl font-black text-white" style={{ 'text-shadow': `0 0 15px ${currentLeague().color}` }}>+{p.value}</span>
             </div>

@@ -34,7 +34,13 @@ export const PremiumReportPage: Component = () => {
   const [paymentError, setPaymentError] = createSignal('');
   
   const report = usePremiumReport(username);
-  const isPaymentRequired = () => (report.error as ApiError | null)?.response?.status === 402;
+  const isPaymentRequired = () => {
+    const err = report.error as ApiError | null;
+    if (!err) return false;
+    const status = err.response?.status;
+    const message = err.response?.data?.message || err.message || '';
+    return status === 402 || /payment[_ ]required/i.test(message);
+  };
 
   createEffect(() => {
     backButton.show();
@@ -193,7 +199,7 @@ export const PremiumReportPage: Component = () => {
                    report.data?.status === 'on_auction' || report.data?.status === 'on_sale' ? 'bg-[#ff9500]/10 text-[#ff9500] border-[#ff9500]/20' : 
                    'bg-[#ff3b30]/10 text-[#ff3b30] border-[#ff3b30]/20'
                  }`}>
-                   {report.data?.status === 'purchase_available' ? 'Purchase Available' : report.data?.status.replace('_', ' ')}
+                    {report.data?.status === 'purchase_available' ? 'Purchase Available' : report.data?.status?.replace('_', ' ') || ''}
                  </span>
                  <Show when={report.data?.peer_type && report.data.peer_type !== 'unknown'}>
                     <span class="px-3 py-1.5 rounded-lg text-xs font-black uppercase border bg-[#1c1c1c] text-[#8e8e93] border-[#2a2a2a]">
@@ -351,7 +357,7 @@ export const PremiumReportPage: Component = () => {
               <div class="grid grid-cols-2 gap-4 border-b border-[#2a2a2a] pb-4">
                 <div class="flex flex-col gap-1">
                   <span class="text-[10px] text-[#8e8e93] font-bold uppercase">Market Status</span>
-                  <span class="text-sm font-black text-[#ff9500] uppercase">{report.data?.sale_status.replace('_', ' ')}</span>
+                  <span class="text-sm font-black text-[#ff9500] uppercase">{report.data?.sale_status?.replace('_', ' ') || ''}</span>
                 </div>
                 <Show when={report.data?.mint_date}>
                   <div class="flex flex-col gap-1">

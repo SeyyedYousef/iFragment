@@ -28,11 +28,12 @@ var (
 )
 
 type ClanService struct {
-	db *repository.Database
+	db    *repository.Database
+	cache *repository.Cache
 }
 
-func NewClanService(db *repository.Database) *ClanService {
-	return &ClanService{db: db}
+func NewClanService(db *repository.Database, cache *repository.Cache) *ClanService {
+	return &ClanService{db: db, cache: cache}
 }
 
 func (s *ClanService) getBotAPIClient(ctx context.Context) (*telegram.BotAPIClient, error) {
@@ -117,8 +118,8 @@ func (s *ClanService) LeaveClan(ctx context.Context, userID int64) error {
 		return err
 	}
 
-	// Decrement members count
-	_, err = tx.Exec(ctx, "UPDATE clans SET members_count = GREATEST(0, members_count - 1) WHERE id = $1", clanID)
+	// Reconcile members count by direct recount to prevent drift
+	_, err = tx.Exec(ctx, "UPDATE clans c SET members_count = (SELECT COUNT(*) FROM clan_members WHERE clan_id = c.id) WHERE c.id = $1", clanID)
 	if err != nil {
 		return err
 	}
@@ -143,6 +144,15 @@ func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, usern
 	// 1. Strict Username Validation
 	if !telegramUsernameRegex.MatchString(normalized) {
 		return nil, ErrInvalidUsername
+	}
+
+	// Dynamic Redis 10-minute cooldown on clan switching/joining
+	if s.cache != nil && s.cache.Client != nil {
+		key := fmt.Sprintf("clan:join:cooldown:%d", userID)
+		ok, _ := s.cache.Client.SetNX(ctx, key, 1, 10*time.Minute).Result()
+		if !ok {
+			return nil, fmt.Errorf("please wait before switching clans again")
+		}
 	}
 
 	// 2. Look up if clan already exists in DB *before* calling external Telegram HTTP calls
@@ -233,7 +243,8 @@ func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, usern
 		if err != nil {
 			return nil, err
 		}
-		_, err = tx.Exec(ctx, "UPDATE clans SET members_count = GREATEST(0, members_count - 1) WHERE id = $1", currentClanID)
+		// Recount and reconcile members count for left clan
+		_, err = tx.Exec(ctx, "UPDATE clans c SET members_count = (SELECT COUNT(*) FROM clan_members WHERE clan_id = c.id) WHERE c.id = $1", currentClanID)
 		if err != nil {
 			return nil, err
 		}
@@ -246,7 +257,7 @@ func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, usern
 		newClanID := uuid.NewString()
 		insertQuery := `
 			INSERT INTO clans (id, telegram_channel_id, channel_username, channel_photo, chat_title, members_count)
-			VALUES ($1, $2, $3, $4, $5, 1)
+			VALUES ($1, $2, $3, $4, $5, 0)
 			RETURNING id, telegram_channel_id, channel_username, COALESCE(channel_photo, '') as channel_photo, chat_title, members_count, created_at
 		`
 		var channelPhoto sql.NullString
@@ -258,18 +269,24 @@ func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, usern
 		}
 		finalClan.ChannelPhoto = channelPhoto.String
 	} else {
-		// Clan exists, increment members count
-		_, err = tx.Exec(ctx, "UPDATE clans SET members_count = members_count + 1 WHERE id = $1", existingClan.ID)
-		if err != nil {
-			return nil, err
-		}
 		finalClan = existingClan
-		finalClan.MembersCount++
 		finalClan.ChannelPhoto = existingChannelPhoto.String
 	}
 
 	// Add membership record
 	_, err = tx.Exec(ctx, "INSERT INTO clan_members (clan_id, user_id) VALUES ($1, $2)", finalClan.ID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Recount and reconcile members count for joined clan
+	_, err = tx.Exec(ctx, "UPDATE clans c SET members_count = (SELECT COUNT(*) FROM clan_members WHERE clan_id = c.id) WHERE c.id = $1", finalClan.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Reload final clan members count to return correct data
+	err = tx.QueryRow(ctx, "SELECT members_count FROM clans WHERE id = $1", finalClan.ID).Scan(&finalClan.MembersCount)
 	if err != nil {
 		return nil, err
 	}

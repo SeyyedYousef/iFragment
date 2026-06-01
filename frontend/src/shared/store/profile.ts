@@ -36,6 +36,8 @@ export interface ProfileStats {
   equippedBorder: string;
   equippedSkin: string;
   airdropCoins?: number;
+  energy?: number;
+  energyUpdatedAt?: string;
 }
 
 export interface ReferralInfo {

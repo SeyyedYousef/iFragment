@@ -32,9 +32,17 @@ export function useUpdateChannelSettings(channelId: () => string) {
   return createMutation(() => ({
     mutationFn: (variables: { category: string; data: any; version: number }) =>
       channelApi.updateSettings(channelId(), variables.category, variables.data, variables.version),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       // Invalidate target settings category query key to trigger background sync
       queryClient.invalidateQueries({ queryKey: channelKeys.settings(channelId()) });
+
+      // Check variables.category, and if it is "inline_buttons", automatically invalidate the channel buttons query
+      if (variables.category === 'inline_buttons') {
+        queryClient.invalidateQueries({ queryKey: channelKeys.buttons(channelId()) });
+      }
+
+      // Invalidate the channel detail query to refresh overall stats dashboards
+      queryClient.invalidateQueries({ queryKey: channelKeys.detail(channelId()) });
     },
   }));
 }

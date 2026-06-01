@@ -138,8 +138,9 @@ type Message struct {
 
 type MessageEntity struct {
 	Type   string `json:"type"`
-	Offset int    `json:"offset"`
-	Length int    `json:"length"`
+	Offset int `json:"offset"`
+	Length int `json:"length"`
+	URL    string `json:"url,omitempty"`
 }
 
 type User struct {
@@ -592,6 +593,16 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 				updatedJSON, _ := json.Marshal(pending)
 				_ = cache.Client.Set(ctx, pendingKey, updatedJSON, 24*time.Hour).Err()
 
+				lang := "en"
+				if settings, err := h.channelService.GetChannelSettingsDirect(ctx, pending.ChannelID); err == nil && settings != nil {
+					var general struct {
+						Language string `json:"language"`
+					}
+					if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
+						lang = general.Language
+					}
+				}
+
 				token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 				tg := telegram.NewBotAPIClient(token)
 
@@ -599,31 +610,30 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 					"inline_keyboard": [][]map[string]interface{}{
 						{
 							{
-								"text":          "✅ تایید و ارسال",
+								"text":          i18n.T(lang, "channel.approve_btn"),
 								"callback_data": fmt.Sprintf("approve:%s", pending.ID.String()),
 							},
 							{
-								"text":          "❌ رد کردن",
+								"text":          i18n.T(lang, "channel.reject_btn"),
 								"callback_data": fmt.Sprintf("reject:%s", pending.ID.String()),
 							},
 						},
 						{
 							{
-								"text":          "✏️ ویرایش متن",
+								"text":          i18n.T(lang, "channel.edit_text_btn"),
 								"callback_data": fmt.Sprintf("edit_text:%s", pending.ID.String()),
 							},
 							{
-								"text":          "🔗 ویرایش دکمه‌ها",
+								"text":          i18n.T(lang, "channel.edit_btn_btn"),
 								"callback_data": fmt.Sprintf("edit_btn:%s", pending.ID.String()),
 							},
 						},
 					},
 				}
 
-				previewText := fmt.Sprintf(
-					"📢 **پیش‌نویس پست ویرایش‌شده جدید**\n\n%s\n\n---\n⏳ **وضعیت:** در انتظار تایید",
-					pending.Text,
-				)
+				previewText := i18n.T(lang, "channel.draft_status_edited_pending", map[string]interface{}{
+					"text": pending.Text,
+				})
 				_, _ = tg.SendMessageWithMarkup(ctx, msg.Chat.ID, previewText, markup, nil)
 			}
 			return
@@ -663,6 +673,16 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 				updatedJSON, _ := json.Marshal(pending)
 				_ = cache.Client.Set(ctx, pendingKey, updatedJSON, 24*time.Hour).Err()
 
+				lang := "en"
+				if settings, err := h.channelService.GetChannelSettingsDirect(ctx, pending.ChannelID); err == nil && settings != nil {
+					var general struct {
+						Language string `json:"language"`
+					}
+					if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
+						lang = general.Language
+					}
+				}
+
 				token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 				tg := telegram.NewBotAPIClient(token)
 
@@ -670,31 +690,30 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 					"inline_keyboard": [][]map[string]interface{}{
 						{
 							{
-								"text":          "✅ تایید و ارسال",
+								"text":          i18n.T(lang, "channel.approve_btn"),
 								"callback_data": fmt.Sprintf("approve:%s", pending.ID.String()),
 							},
 							{
-								"text":          "❌ رد کردن",
+								"text":          i18n.T(lang, "channel.reject_btn"),
 								"callback_data": fmt.Sprintf("reject:%s", pending.ID.String()),
 							},
 						},
 						{
 							{
-								"text":          "✏️ ویرایش متن",
+								"text":          i18n.T(lang, "channel.edit_text_btn"),
 								"callback_data": fmt.Sprintf("edit_text:%s", pending.ID.String()),
 							},
 							{
-								"text":          "🔗 ویرایش دکمه‌ها",
+								"text":          i18n.T(lang, "channel.edit_btn_btn"),
 								"callback_data": fmt.Sprintf("edit_btn:%s", pending.ID.String()),
 							},
 						},
 					},
 				}
 
-				previewText := fmt.Sprintf(
-					"📢 **پیش‌نویس پست ویرایش‌شده جدید (همراه دکمه‌های جدید)**\n\n%s\n\n---\n⏳ **وضعیت:** در انتظار تایید",
-					pending.Text,
-				)
+				previewText := i18n.T(lang, "channel.draft_status_edited_btn_pending", map[string]interface{}{
+					"text": pending.Text,
+				})
 				_, _ = tg.SendMessageWithMarkup(ctx, msg.Chat.ID, previewText, markup, nil)
 			}
 			return
@@ -771,6 +790,15 @@ func (h *WebhookHandler) mapToModeratorContext(m *Message) *botmgmt.MessageConte
 		return len(raw) > 0 && string(raw) != "null"
 	}
 
+	hasTextLinks := false
+	var textLinks []string
+	for _, ent := range m.Entities {
+		if ent.Type == "text_link" && ent.URL != "" {
+			hasTextLinks = true
+			textLinks = append(textLinks, ent.URL)
+		}
+	}
+
 	return &botmgmt.MessageContext{
 		ChatID:             m.Chat.ID,
 		UserID:             m.From.ID,
@@ -796,6 +824,8 @@ func (h *WebhookHandler) mapToModeratorContext(m *Message) *botmgmt.MessageConte
 		HasViaBot:          m.ViaBot != nil,
 		IsCommand:          isCommand,
 		Username:           m.From.Username,
+		HasTextLinks:       hasTextLinks,
+		TextLinks:          textLinks,
 	}
 }
 
@@ -1080,7 +1110,8 @@ func (h *WebhookHandler) handleWelcomeMessage(ctx context.Context, m *Message) {
 		if user.Username != "" {
 			name = "@" + user.Username
 		}
-		userLinks = append(userLinks, fmt.Sprintf("[%s](tg://user?id=%d)", name, user.ID))
+		// Fix markdown formatting to proper Telegram HTML <a> tag and escape the user name
+		userLinks = append(userLinks, fmt.Sprintf(`<a href="tg://user?id=%d">%s</a>`, user.ID, telegram.EscapeHTML(name)))
 	}
 	if len(userLinks) == 0 {
 		return
@@ -1097,12 +1128,12 @@ func (h *WebhookHandler) handleWelcomeMessage(ctx context.Context, m *Message) {
 		}
 	}
 
-	// Format welcome text with placeholders
+	// Format welcome text with placeholders, escaping dynamic inputs
 	text := ct.WelcomeText
 	usersStr := strings.Join(userLinks, ", ")
 	text = strings.ReplaceAll(text, "{user}", usersStr)
-	text = strings.ReplaceAll(text, "{group}", m.Chat.Title)
-	text = strings.ReplaceAll(text, "{chat_title}", m.Chat.Title)
+	text = strings.ReplaceAll(text, "{group}", telegram.EscapeHTML(m.Chat.Title))
+	text = strings.ReplaceAll(text, "{chat_title}", telegram.EscapeHTML(m.Chat.Title))
 
 	// Member count placeholder
 	count := 0
@@ -1378,8 +1409,9 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 			}
 		}
 	} else if strings.HasPrefix(cq.Data, "approve:") {
+		userLang := i18n.DetectLanguage(cq.From.LanguageCode)
 		if cq.From.ID != bot.OwnerUserID {
-			_ = h.moderator.AnswerCallbackQuery(ctx, bot, cq.ID, "دسترسی غیرمجاز: این اکشن مختص به مالک ربات است.", true)
+			_ = h.moderator.AnswerCallbackQuery(ctx, bot, cq.ID, i18n.T(userLang, "channel.owner_only_error"), true)
 			return
 		}
 		parts := strings.Split(cq.Data, ":")
@@ -1392,7 +1424,7 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 		cacheKey := fmt.Sprintf("pending_post:%s", pendingIDStr)
 		pendingVal, err := cache.Client.Get(ctx, cacheKey).Result()
 		if err != nil {
-			_ = h.moderator.AnswerCallbackQuery(ctx, bot, cq.ID, "Post draft expired or not found!", true)
+			_ = h.moderator.AnswerCallbackQuery(ctx, bot, cq.ID, i18n.T(userLang, "channel.draft_expired"), true)
 			return
 		}
 
@@ -1403,6 +1435,18 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 		if err != nil { return }
 
 		tg := telegram.NewBotAPIClient(token)
+		
+		// Fetch language from channel settings
+		lang := userLang
+		settings, err := h.channelService.GetChannelSettingsDirect(ctx, pending.ChannelID)
+		if err == nil && settings != nil {
+			var general struct {
+				Language string `json:"language"`
+			}
+			if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
+				lang = general.Language
+			}
+		}
 		
 		// Construct reply markup for the channel post
 		markup := buildReplyMarkupFromButtons(pending.Buttons)
@@ -1410,7 +1454,7 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 		// Send message to final channel
 		_, err = tg.SendMessageWithMarkup(ctx, pending.ChatID, pending.Text, markup, nil)
 		if err != nil {
-			_ = tg.AnswerCallbackQuery(ctx, cq.ID, "Failed to publish: "+err.Error(), true)
+			_ = tg.AnswerCallbackQuery(ctx, cq.ID, i18n.T(lang, "channel.failed_publish", map[string]interface{}{"err": err.Error()}), true)
 			return
 		}
 
@@ -1418,19 +1462,19 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 		cache.Client.Del(ctx, cacheKey)
 
 		// Answer callback query
-		_ = tg.AnswerCallbackQuery(ctx, cq.ID, "Post successfully published!", false)
+		_ = tg.AnswerCallbackQuery(ctx, cq.ID, i18n.T(lang, "channel.success_publish"), false)
 
 		// Edit original message in PV to show success
-		previewText := fmt.Sprintf(
-			"📢 **پیش‌نویس پست جدید برای کانال «%s»**\n\n%s\n\n---\n✅ **وضعیت:** با موفقیت در کانال منتشر شد!",
-			cq.Message.Chat.Title,
-			pending.Text,
-		)
+		previewText := i18n.T(lang, "channel.draft_status_approved", map[string]interface{}{
+			"channel": cq.Message.Chat.Title,
+			"text":    pending.Text,
+		})
 		_ = tg.EditMessageText(ctx, cq.Message.Chat.ID, cq.Message.MessageID, previewText)
 
 	} else if strings.HasPrefix(cq.Data, "reject:") {
+		userLang := i18n.DetectLanguage(cq.From.LanguageCode)
 		if cq.From.ID != bot.OwnerUserID {
-			_ = h.moderator.AnswerCallbackQuery(ctx, bot, cq.ID, "دسترسی غیرمجاز: این اکشن مختص به مالک ربات است.", true)
+			_ = h.moderator.AnswerCallbackQuery(ctx, bot, cq.ID, i18n.T(userLang, "channel.owner_only_error"), true)
 			return
 		}
 		parts := strings.Split(cq.Data, ":")
@@ -1443,7 +1487,7 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 		cacheKey := fmt.Sprintf("pending_post:%s", pendingIDStr)
 		pendingVal, err := cache.Client.Get(ctx, cacheKey).Result()
 		if err != nil {
-			_ = h.moderator.AnswerCallbackQuery(ctx, bot, cq.ID, "Post draft expired or not found!", true)
+			_ = h.moderator.AnswerCallbackQuery(ctx, bot, cq.ID, i18n.T(userLang, "channel.draft_expired"), true)
 			return
 		}
 
@@ -1454,22 +1498,34 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 		if err != nil { return }
 		tg := telegram.NewBotAPIClient(token)
 
+		// Fetch language from channel settings
+		lang := userLang
+		settings, err := h.channelService.GetChannelSettingsDirect(ctx, pending.ChannelID)
+		if err == nil && settings != nil {
+			var general struct {
+				Language string `json:"language"`
+			}
+			if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
+				lang = general.Language
+			}
+		}
+
 		// Delete pending post in Redis
 		cache.Client.Del(ctx, cacheKey)
 
-		_ = tg.AnswerCallbackQuery(ctx, cq.ID, "Post rejected and deleted.", false)
+		_ = tg.AnswerCallbackQuery(ctx, cq.ID, i18n.T(lang, "channel.post_rejected"), false)
 
 		// Edit original message in PV to show rejected status
-		previewText := fmt.Sprintf(
-			"📢 **پیش‌نویس پست جدید برای کانال «%s»**\n\n%s\n\n---\n❌ **وضعیت:** این پست توسط شما رد و حذف گردید.",
-			cq.Message.Chat.Title,
-			pending.Text,
-		)
+		previewText := i18n.T(lang, "channel.draft_status_rejected", map[string]interface{}{
+			"channel": cq.Message.Chat.Title,
+			"text":    pending.Text,
+		})
 		_ = tg.EditMessageText(ctx, cq.Message.Chat.ID, cq.Message.MessageID, previewText)
 
 	} else if strings.HasPrefix(cq.Data, "edit_text:") {
+		userLang := i18n.DetectLanguage(cq.From.LanguageCode)
 		if cq.From.ID != bot.OwnerUserID {
-			_ = h.moderator.AnswerCallbackQuery(ctx, bot, cq.ID, "دسترسی غیرمجاز: این اکشن مختص به مالک ربات است.", true)
+			_ = h.moderator.AnswerCallbackQuery(ctx, bot, cq.ID, i18n.T(userLang, "channel.owner_only_error"), true)
 			return
 		}
 		parts := strings.Split(cq.Data, ":")
@@ -1478,6 +1534,25 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 
 		cache := h.moderator.GetCache()
 		if cache == nil || cache.Client == nil { return }
+
+		// Fetch pending draft to check channel language
+		lang := userLang
+		cacheKey := fmt.Sprintf("pending_post:%s", pendingIDStr)
+		pendingVal, err := cache.Client.Get(ctx, cacheKey).Result()
+		if err == nil {
+			var pending repository.PendingPost
+			if json.Unmarshal([]byte(pendingVal), &pending) == nil {
+				settings, err := h.channelService.GetChannelSettingsDirect(ctx, pending.ChannelID)
+				if err == nil && settings != nil {
+					var general struct {
+						Language string `json:"language"`
+					}
+					if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
+						lang = general.Language
+					}
+				}
+			}
+		}
 
 		// Set user edit text state
 		stateKey := fmt.Sprintf("edit_state:%d", cq.From.ID)
@@ -1487,25 +1562,26 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 		if err != nil { return }
 		tg := telegram.NewBotAPIClient(token)
 
-		_ = tg.AnswerCallbackQuery(ctx, cq.ID, "Please send the new text", false)
+		_ = tg.AnswerCallbackQuery(ctx, cq.ID, i18n.T(lang, "channel.send_text_prompt"), false)
 
 		markup := map[string]interface{}{
 			"inline_keyboard": [][]map[string]interface{}{
 				{
 					{
-						"text":          "↩️ انصراف و بازگشت",
+						"text":          i18n.T(lang, "channel.cancel_btn"),
 						"callback_data": fmt.Sprintf("cancel_edit:%s", pendingIDStr),
 					},
 				},
 			},
 		}
 
-		instruction := "📝 **لطفاً متن جدید پست را ارسال کنید یا بنویسید (در صورت تمایل می‌توانید پیام پیش‌نویس اصلی را ریپلای کنید):**"
+		instruction := i18n.T(lang, "channel.edit_text_instruction")
 		_, _ = tg.SendMessageWithMarkup(ctx, cq.Message.Chat.ID, instruction, markup, nil)
 
 	} else if strings.HasPrefix(cq.Data, "edit_btn:") {
+		userLang := i18n.DetectLanguage(cq.From.LanguageCode)
 		if cq.From.ID != bot.OwnerUserID {
-			_ = h.moderator.AnswerCallbackQuery(ctx, bot, cq.ID, "دسترسی غیرمجاز: این اکشن مختص به مالک ربات است.", true)
+			_ = h.moderator.AnswerCallbackQuery(ctx, bot, cq.ID, i18n.T(userLang, "channel.owner_only_error"), true)
 			return
 		}
 		parts := strings.Split(cq.Data, ":")
@@ -1515,6 +1591,25 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 		cache := h.moderator.GetCache()
 		if cache == nil || cache.Client == nil { return }
 
+		// Fetch pending draft to check channel language
+		lang := userLang
+		cacheKey := fmt.Sprintf("pending_post:%s", pendingIDStr)
+		pendingVal, err := cache.Client.Get(ctx, cacheKey).Result()
+		if err == nil {
+			var pending repository.PendingPost
+			if json.Unmarshal([]byte(pendingVal), &pending) == nil {
+				settings, err := h.channelService.GetChannelSettingsDirect(ctx, pending.ChannelID)
+				if err == nil && settings != nil {
+					var general struct {
+						Language string `json:"language"`
+					}
+					if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
+						lang = general.Language
+					}
+				}
+			}
+		}
+
 		// Set user edit buttons state
 		stateKey := fmt.Sprintf("edit_btn_state:%d", cq.From.ID)
 		_ = cache.Client.Set(ctx, stateKey, pendingIDStr, 10*time.Minute).Err()
@@ -1523,29 +1618,31 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 		if err != nil { return }
 		tg := telegram.NewBotAPIClient(token)
 
-		_ = tg.AnswerCallbackQuery(ctx, cq.ID, "Please send button configuration", false)
+		_ = tg.AnswerCallbackQuery(ctx, cq.ID, i18n.T(lang, "channel.send_btn_prompt"), false)
 
 		markup := map[string]interface{}{
 			"inline_keyboard": [][]map[string]interface{}{
 				{
 					{
-						"text":          "↩️ انصراف و بازگشت",
+						"text":          i18n.T(lang, "channel.cancel_btn"),
 						"callback_data": fmt.Sprintf("cancel_edit:%s", pendingIDStr),
 					},
 				},
 			},
 		}
 
-		instruction := "🔗 **لطفاً دکمه‌های شیشه‌ای جدید را با فرمت زیر ارسال کنید (هر دکمه در یک خط):**\n\n`عنوان دکمه - لینک دکمه`\n\n*مثال:*\n`گوگل - https://google.com`\n`پشتیبانی - https://t.me/support`"
+		instruction := i18n.T(lang, "channel.edit_btn_instruction")
 		_, _ = tg.SendMessageWithMarkup(ctx, cq.Message.Chat.ID, instruction, markup, nil)
 
 	} else if strings.HasPrefix(cq.Data, "cancel_edit:") {
+		userLang := i18n.DetectLanguage(cq.From.LanguageCode)
 		if cq.From.ID != bot.OwnerUserID {
-			_ = h.moderator.AnswerCallbackQuery(ctx, bot, cq.ID, "دسترسی غیرمجاز: این اکشن مختص به مالک ربات است.", true)
+			_ = h.moderator.AnswerCallbackQuery(ctx, bot, cq.ID, i18n.T(userLang, "channel.owner_only_error"), true)
 			return
 		}
 		parts := strings.Split(cq.Data, ":")
 		if len(parts) < 2 { return }
+		pendingIDStr := parts[1]
 
 		cache := h.moderator.GetCache()
 		if cache != nil && cache.Client != nil {
@@ -1553,10 +1650,29 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 			cache.Client.Del(ctx, fmt.Sprintf("edit_btn_state:%d", cq.From.ID))
 		}
 
+		// Fetch pending draft to check channel language
+		lang := userLang
+		cacheKey := fmt.Sprintf("pending_post:%s", pendingIDStr)
+		pendingVal, err := cache.Client.Get(ctx, cacheKey).Result()
+		if err == nil {
+			var pending repository.PendingPost
+			if json.Unmarshal([]byte(pendingVal), &pending) == nil {
+				settings, err := h.channelService.GetChannelSettingsDirect(ctx, pending.ChannelID)
+				if err == nil && settings != nil {
+					var general struct {
+						Language string `json:"language"`
+					}
+					if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
+						lang = general.Language
+					}
+				}
+			}
+		}
+
 		token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 		if err == nil {
 			tg := telegram.NewBotAPIClient(token)
-			_ = tg.AnswerCallbackQuery(ctx, cq.ID, "Editing cancelled.", false)
+			_ = tg.AnswerCallbackQuery(ctx, cq.ID, i18n.T(lang, "channel.edit_cancelled"), false)
 			_ = tg.DeleteMessage(ctx, cq.Message.Chat.ID, cq.Message.MessageID)
 		}
 	}

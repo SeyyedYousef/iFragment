@@ -33,6 +33,8 @@ export const ProfileStatsSchema = z.object({
   equippedBorder: z.string(),
   equippedSkin: z.string(),
   airdropCoins: z.number().optional(),
+  energy: z.number().int().nonnegative().optional(),
+  energyUpdatedAt: z.string().optional(),
 });
 
 export const AchievementSchema = z.object({

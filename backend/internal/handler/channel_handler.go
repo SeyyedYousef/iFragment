@@ -622,8 +622,8 @@ func (h *ChannelHandler) SaveButtons(w http.ResponseWriter, r *http.Request) {
 
 		// Strictly validate button types to prevent injection
 		btnType := strings.ToLower(btn.Type)
-		if btnType != "url" && btnType != "callback" && btnType != "share" && btnType != "webapp" && btnType != "payment" {
-			RespondError(w, r, http.StatusBadRequest, "invalid button type: must be url, callback, share, webapp, or payment", nil)
+		if btnType != "url" && btnType != "callback" && btnType != "share" && btnType != "webapp" && btnType != "payment" && btnType != "counter" {
+			RespondError(w, r, http.StatusBadRequest, "invalid button type: must be url, callback, share, webapp, payment, or counter", nil)
 			return
 		}
 

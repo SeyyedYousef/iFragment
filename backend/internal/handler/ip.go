@@ -3,6 +3,8 @@ package handler
 import (
 	"net"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 )
 
@@ -11,10 +13,20 @@ import (
 func ClientIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 		// X-Forwarded-For can contain multiple IPs separated by comma.
-		// The first one is the original client IP.
 		parts := strings.Split(xff, ",")
-		if len(parts) > 0 {
-			if ip := strings.TrimSpace(parts[0]); ip != "" {
+		n := len(parts)
+		if n > 0 {
+			trustedProxyCount := 1
+			if envVal := os.Getenv("TRUSTED_PROXY_COUNT"); envVal != "" {
+				if parsed, err := strconv.Atoi(envVal); err == nil && parsed >= 0 {
+					trustedProxyCount = parsed
+				}
+			}
+			idx := n - trustedProxyCount
+			if idx < 0 {
+				idx = 0
+			}
+			if ip := strings.TrimSpace(parts[idx]); ip != "" {
 				return ip
 			}
 		}

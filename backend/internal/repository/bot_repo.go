@@ -88,24 +88,30 @@ func (r *BotRepo) GetBotsByOwner(ctx context.Context, ownerID int64) ([]ManagedB
 	}
 
 	query := `SELECT b.id, b.owner_user_id, b.bot_username, b.bot_name, b.bot_id, b.status, b.created_at, b.updated_at, b.webhook_secret_token,
-		       (SELECT COUNT(*) FROM managed_groups g WHERE g.bot_id = b.id) as managed_groups_count,
-		       COALESCE(
-		           (SELECT bs.package_id FROM billing_subscriptions bs
-		            JOIN managed_groups g ON bs.group_id = g.id
-		            WHERE g.bot_id = b.id AND bs.status = 'active'
-		            ORDER BY CASE bs.package_id
-		                WHEN 'business' THEN 4
-		                WHEN 'pro' THEN 3
-		                WHEN 'basic' THEN 2
-		                WHEN 'starter' THEN 1
-		                ELSE 0
-		            END DESC LIMIT 1),
-		           (SELECT g.subscription_status FROM managed_groups g 
-		            WHERE g.bot_id = b.id AND g.subscription_status = 'trial' 
-		            LIMIT 1),
-		           'free'
-		       ) as subscription_status
-		FROM managed_bots b WHERE b.owner_user_id = $1 ORDER BY b.created_at DESC`
+		       COALESCE(mg.groups_count, 0) as managed_groups_count,
+		       COALESCE(sub.subscription_status, 'free') as subscription_status
+		FROM managed_bots b
+		LEFT JOIN LATERAL (
+			SELECT COUNT(*) as groups_count FROM managed_groups g WHERE g.bot_id = b.id
+		) mg ON true
+		LEFT JOIN LATERAL (
+			SELECT COALESCE(
+				(SELECT bs.package_id FROM billing_subscriptions bs
+				 JOIN managed_groups g ON bs.group_id = g.id
+				 WHERE g.bot_id = b.id AND bs.status = 'active'
+				 ORDER BY CASE bs.package_id
+					 WHEN 'business' THEN 4
+					 WHEN 'pro' THEN 3
+					 WHEN 'basic' THEN 2
+					 WHEN 'starter' THEN 1
+					 ELSE 0
+				 END DESC LIMIT 1),
+				(SELECT g.subscription_status FROM managed_groups g 
+				 WHERE g.bot_id = b.id AND g.subscription_status = 'trial' 
+				 LIMIT 1)
+			) as subscription_status
+		) sub ON true
+		WHERE b.owner_user_id = $1 ORDER BY b.created_at DESC`
 	rows, err := r.db.Pool.Query(ctx, query, ownerID)
 	if err != nil {
 		return nil, err
@@ -145,24 +151,30 @@ func (r *BotRepo) GetBotByID(ctx context.Context, id uuid.UUID) (*ManagedBot, er
 	}
 
 	query := `SELECT b.id, b.owner_user_id, b.bot_token_encrypted, b.bot_username, b.bot_name, b.bot_id, b.status, b.created_at, b.updated_at, b.webhook_secret_token,
-		       (SELECT COUNT(*) FROM managed_groups g WHERE g.bot_id = b.id) as managed_groups_count,
-		       COALESCE(
-		           (SELECT bs.package_id FROM billing_subscriptions bs
-		            JOIN managed_groups g ON bs.group_id = g.id
-		            WHERE g.bot_id = b.id AND bs.status = 'active'
-		            ORDER BY CASE bs.package_id
-		                WHEN 'business' THEN 4
-		                WHEN 'pro' THEN 3
-		                WHEN 'basic' THEN 2
-		                WHEN 'starter' THEN 1
-		                ELSE 0
-		            END DESC LIMIT 1),
-		           (SELECT g.subscription_status FROM managed_groups g 
-		            WHERE g.bot_id = b.id AND g.subscription_status = 'trial' 
-		            LIMIT 1),
-		           'free'
-		       ) as subscription_status
-		FROM managed_bots b WHERE b.id = $1`
+		       COALESCE(mg.groups_count, 0) as managed_groups_count,
+		       COALESCE(sub.subscription_status, 'free') as subscription_status
+		FROM managed_bots b
+		LEFT JOIN LATERAL (
+			SELECT COUNT(*) as groups_count FROM managed_groups g WHERE g.bot_id = b.id
+		) mg ON true
+		LEFT JOIN LATERAL (
+			SELECT COALESCE(
+				(SELECT bs.package_id FROM billing_subscriptions bs
+				 JOIN managed_groups g ON bs.group_id = g.id
+				 WHERE g.bot_id = b.id AND bs.status = 'active'
+				 ORDER BY CASE bs.package_id
+					 WHEN 'business' THEN 4
+					 WHEN 'pro' THEN 3
+					 WHEN 'basic' THEN 2
+					 WHEN 'starter' THEN 1
+					 ELSE 0
+				 END DESC LIMIT 1),
+				(SELECT g.subscription_status FROM managed_groups g 
+				 WHERE g.bot_id = b.id AND g.subscription_status = 'trial' 
+				 LIMIT 1)
+			) as subscription_status
+		) sub ON true
+		WHERE b.id = $1`
 	var b ManagedBot
 	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
 		&b.ID, &b.OwnerUserID, &b.BotTokenEncrypted, &b.BotUsername, &b.BotName, &b.BotID, &b.Status, &b.CreatedAt, &b.UpdatedAt, &b.WebhookSecretToken,

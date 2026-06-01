@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -227,6 +228,10 @@ func (h *BotMgmtHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		if err == repository.ErrOptimisticLockConflict {
 			RespondError(w, r, http.StatusConflict, "version_mismatch", err)
+			return
+		}
+		if strings.Contains(err.Error(), "validation failed") {
+			RespondError(w, r, http.StatusBadRequest, err.Error(), err)
 			return
 		}
 		RespondError(w, r, http.StatusInternalServerError, "failed to update settings", err)

@@ -381,7 +381,11 @@ type QuickCheck struct {
 
 func (s *ReportService) LogSearch(ctx context.Context, username string, userID int64) {
 	if s.db != nil {
-		go s.db.LogSearch(context.WithoutCancel(ctx), username, userID)
+		go func() {
+			logCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			defer cancel()
+			s.db.LogSearch(logCtx, username, userID)
+		}()
 	}
 }
 
@@ -436,8 +440,11 @@ func (s *ReportService) GenerateDeepReport(ctx context.Context, userID int64, us
 	}
 
 	val, err, _ := s.sfGroup.Do(cacheKey, func() (interface{}, error) {
+		detachedCtx, cancelDetached := context.WithTimeout(context.WithoutCancel(ctx), 12*time.Second)
+		defer cancelDetached()
+
 		if s.cache != nil {
-			val, err := s.cache.Client.Get(ctx, cacheKey).Result()
+			val, err := s.cache.Client.Get(detachedCtx, cacheKey).Result()
 			if err == nil {
 				var cached FullReport
 				if json.Unmarshal([]byte(val), &cached) == nil {
@@ -446,13 +453,13 @@ func (s *ReportService) GenerateDeepReport(ctx context.Context, userID int64, us
 			}
 		}
 
-		report, err := s.generateDeepReport(ctx, userID, username)
+		report, err := s.generateDeepReport(detachedCtx, userID, username)
 		if err != nil {
 			return nil, err
 		}
 		if s.cache != nil {
 			data, _ := json.Marshal(report)
-			s.cache.Client.Set(ctx, cacheKey, data, 24*time.Hour)
+			s.cache.Client.Set(detachedCtx, cacheKey, data, 24*time.Hour)
 		}
 		return report, nil
 	})
@@ -483,7 +490,7 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 
 	// Log search
 	if s.db != nil {
-		go s.db.LogSearch(context.WithoutCancel(ctx), username, userID)
+		s.LogSearch(ctx, username, userID)
 	}
 
 	// Search popularity
@@ -854,86 +861,154 @@ func calculateLinguisticScore(u string) float64 {
 	return score
 }
 
-func estimateValue(r *FullReport, cfg PricingHeuristicsConfig) *PriceEstimate {
-	var value float64
+func heuristicBaseline(r *FullReport, cfg PricingHeuristicsConfig) (float64, []string) {
 	var signals []string
 
 	// Base value from rarity
-	value = float64(r.RarityScore) * cfg.BaseValueMultiplier
+	base := float64(r.RarityScore) * cfg.BaseValueMultiplier
 
 	// Length premium
+	lengthPremium := 0.0
 	switch {
 	case r.Length == 4:
-		value += cfg.Length4Bonus
-		value *= cfg.Length4Multiplier
+		lengthPremium += cfg.Length4Bonus
+		base *= cfg.Length4Multiplier
 		signals = append(signals, "short_4_char")
 	case r.Length == 5:
-		value += cfg.Length5Bonus
-		value *= cfg.Length5Multiplier
+		lengthPremium += cfg.Length5Bonus
+		base *= cfg.Length5Multiplier
 		signals = append(signals, "short_5_char")
 	case r.Length <= 7:
-		value += cfg.Length7Bonus
+		lengthPremium += cfg.Length7Bonus
 	case r.Length <= 10:
-		value += cfg.Length10Bonus
+		lengthPremium += cfg.Length10Bonus
 	}
+	base += lengthPremium
 
-	// Dictionary word premium
+	var qualityScore float64
+
+	// Dictionary word
 	if r.IsDictionaryWord {
-		value *= dictionaryPremium(r.Username)
+		dp := dictionaryPremium(r.Username)
+		qualityScore += (dp - 1.0)
 		signals = append(signals, "dictionary_word")
 	}
 
 	// Linguistic bonus
 	if r.LinguisticScore > cfg.PronounceableThreshold {
-		value *= cfg.PronounceableMultiplier + (r.LinguisticScore-cfg.PronounceableThreshold)/200
+		lp := (cfg.PronounceableMultiplier - 1.0) + (r.LinguisticScore-cfg.PronounceableThreshold)/200
+		qualityScore += lp
 		signals = append(signals, "pronounceable")
 	}
 
+	// Brand / Market keywords
 	if isBrandLikeKeyword(r.Username) {
-		value *= cfg.BrandKeywordMultiplier
+		qualityScore += (cfg.BrandKeywordMultiplier - 1.0)
 		signals = append(signals, "brand_keyword")
 	}
 	if isHighValueMarketKeyword(r.Username) {
-		value *= cfg.MarketKeywordMultiplier
+		qualityScore += (cfg.MarketKeywordMultiplier - 1.0)
 		signals = append(signals, "market_keyword")
 	}
+
+	// Search and audience signals
 	if r.SearchPopularity > 0 {
-		value *= 1 + math.Min(math.Log1p(float64(r.SearchPopularity))/cfg.SearchPopularityScale, cfg.SearchPopularityMax)
+		sp := math.Min(math.Log1p(float64(r.SearchPopularity))/cfg.SearchPopularityScale, cfg.SearchPopularityMax)
+		qualityScore += sp
 		signals = append(signals, "search_popularity")
 	}
 	if r.ParticipantsCount > 0 {
-		value *= 1 + math.Min(math.Log1p(float64(r.ParticipantsCount))/cfg.AudienceScale, cfg.AudienceMax)
+		ac := math.Min(math.Log1p(float64(r.ParticipantsCount))/cfg.AudienceScale, cfg.AudienceMax)
+		qualityScore += ac
 		signals = append(signals, "telegram_audience")
 	}
 	if r.OwnerWalletBalance > 0 {
-		value *= 1 + math.Min(math.Log1p(r.OwnerWalletBalance)/cfg.WalletDepthScale, cfg.WalletDepthMax)
+		wb := math.Min(math.Log1p(r.OwnerWalletBalance)/cfg.WalletDepthScale, cfg.WalletDepthMax)
+		qualityScore += wb
 		signals = append(signals, "owner_wallet_depth")
 	}
 	if r.OwnerOtherAssets > 0 {
-		value *= 1 + math.Min(math.Log1p(float64(r.OwnerOtherAssets))/cfg.CollectionDepthScale, cfg.CollectionDepthMax)
+		od := math.Min(math.Log1p(float64(r.OwnerOtherAssets))/cfg.CollectionDepthScale, cfg.CollectionDepthMax)
+		qualityScore += od
 		signals = append(signals, "owner_collection_depth")
 	}
 	if len(r.PreviousOwners) > 0 {
-		value *= 1 + math.Min(float64(len(r.PreviousOwners))*cfg.TransferHistoryScale, cfg.TransferHistoryMax)
+		th := math.Min(float64(len(r.PreviousOwners))*cfg.TransferHistoryScale, cfg.TransferHistoryMax)
+		qualityScore += th
 		signals = append(signals, "transfer_history")
 	}
 
-	// If there are paid past sales, use the median as the market anchor.
-	if medianSale, ok := medianPositiveSale(r.PastSales); ok {
-		value = medianSale*cfg.PastSalesMedianWeight + value*cfg.PastSalesHeuristicWeight
-		signals = append(signals, "past_sales_median")
+	// Use logarithmic scaling on the total accumulated qualityScore to prevent runaway compounding
+	qualityFactor := 1.0 + math.Log1p(qualityScore)
+	const maxQualityFactor = 5.0
+	if qualityFactor > maxQualityFactor {
+		qualityFactor = maxQualityFactor
 	}
 
-	// If on auction and has bids, use highest bid as floor
-	if r.SaleStatus == "on_auction" && r.HighestBid > value {
-		value = r.HighestBid * cfg.AuctionBidFloorMultiplier
-		signals = append(signals, "auction_bid_floor")
+	value := base * qualityFactor
+
+	// Strict absolute ceiling
+	const absoluteCeiling = 50000.0
+	if value > absoluteCeiling {
+		value = absoluteCeiling
+		signals = append(signals, "ceiling_cap")
+	}
+
+	return value, signals
+}
+
+func estimateValue(r *FullReport, cfg PricingHeuristicsConfig) *PriceEstimate {
+	var signals []string
+
+	// Calculate qualitative heuristics using our new helper
+	heuristicVal, heuristicSignals := heuristicBaseline(r, cfg)
+	signals = append(signals, heuristicSignals...)
+
+	var marketVal float64
+	var hasMarketData bool
+
+	// Determine real market data value: past sales, auction bids, or buy-now price
+	var marketDataPoints []float64
+	if medianSale, ok := medianPositiveSale(r.PastSales); ok {
+		marketDataPoints = append(marketDataPoints, medianSale)
+	}
+	if r.SaleStatus == "on_auction" && r.HighestBid > 0 {
+		marketDataPoints = append(marketDataPoints, r.HighestBid)
+	}
+	if r.BuyNowPrice > 0 {
+		marketDataPoints = append(marketDataPoints, r.BuyNowPrice)
+	}
+
+	if len(marketDataPoints) > 0 {
+		hasMarketData = true
+		sum := 0.0
+		for _, p := range marketDataPoints {
+			sum += p
+		}
+		marketVal = sum / float64(len(marketDataPoints))
+	}
+
+	var value float64
+	if hasMarketData {
+		// 80% weight given to real market data and 20% to qualitative heuristics
+		value = marketVal*0.8 + heuristicVal*0.2
+		signals = append(signals, "market_anchored")
+	} else {
+		// Fallback entirely to qualitative heuristics
+		value = heuristicVal
 	}
 
 	// If buy now price exists, cap estimate below it
 	if r.BuyNowPrice > 0 && value > r.BuyNowPrice*0.9 {
 		value = r.BuyNowPrice * cfg.BuyNowCapMultiplier
 		signals = append(signals, "buy_now_cap")
+	}
+
+	// Strict absolute ceiling
+	const absoluteCeiling = 50000.0
+	if value > absoluteCeiling {
+		value = absoluteCeiling
+		signals = append(signals, "ceiling_cap")
 	}
 
 	confidence := estimateConfidence(r, cfg)
@@ -1023,6 +1098,9 @@ func (s *ReportService) CalculateRarity(u string) int {
 		score += s.rarityConfig.DictionaryBonus
 	}
 
+	if score > 10000 {
+		score = 10000
+	}
 	return score
 }
 

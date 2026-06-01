@@ -386,7 +386,11 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 	case "join_ifragment_channel":
 		// Cyber security check: Query live Telegram Bot API to check if user is a member
 		tgClient := s.getBotAPIClient()
-		if tgClient != nil {
+		if tgClient == nil {
+			if os.Getenv("APP_ENV") == "production" {
+				return nil, fmt.Errorf("official Telegram Bot Token not configured (fail-closed)")
+			}
+		} else {
 			status, err := tgClient.GetChatMember(ctx, "@ifragment_channel", userID)
 			if err != nil {
 				return nil, fmt.Errorf("failed to verify official channel membership: %w", err)

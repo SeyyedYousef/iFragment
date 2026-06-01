@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 )
 
 type DBReport struct {
@@ -20,11 +21,16 @@ func (db *Database) SaveReport(ctx context.Context, userID int64, username strin
 	if err != nil {
 		return err
 	}
+	prefix := fmt.Sprintf("report_pay:%d:%s:", userID, username)
 	query := `
-		INSERT INTO username_reports (user_id, username, status, rarity_score, report_data)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO username_reports (user_id, username, status, rarity_score, report_data, order_id)
+		VALUES ($1, $2, $3, $4, $5, (
+			SELECT id FROM orders
+			WHERE starts_with(payload, $6) AND status = 'paid'
+			ORDER BY created_at DESC LIMIT 1
+		))
 	`
-	_, err = db.Pool.Exec(ctx, query, userID, username, status, score, jsonData)
+	_, err = db.Pool.Exec(ctx, query, userID, username, status, score, jsonData, prefix)
 	return err
 }
 

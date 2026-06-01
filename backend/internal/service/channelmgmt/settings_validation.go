@@ -3,6 +3,7 @@ package channelmgmt
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -152,8 +153,20 @@ func ValidateSettingsCategory(category string, data json.RawMessage) error {
 				return fmt.Errorf("button value cannot be empty")
 			}
 			btnType := strings.ToLower(btn.Type)
-			if btnType != "url" && btnType != "callback" && btnType != "share" && btnType != "webapp" && btnType != "payment" {
+			if btnType != "url" && btnType != "callback" && btnType != "share" && btnType != "webapp" && btnType != "payment" && btnType != "counter" {
 				return fmt.Errorf("invalid button type: %s", btn.Type)
+			}
+			if btnType == "url" {
+				u, err := url.Parse(btn.Value)
+				if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+					return fmt.Errorf("invalid URL: must be a valid http or https address")
+				}
+			}
+			if btnType == "webapp" {
+				u, err := url.Parse(btn.Value)
+				if err != nil || u.Scheme != "https" {
+					return fmt.Errorf("invalid WebApp URL: must be a secure https address")
+				}
 			}
 		}
 

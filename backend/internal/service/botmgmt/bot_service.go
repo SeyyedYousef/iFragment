@@ -286,6 +286,10 @@ func (s *BotService) GetSettings(ctx context.Context, groupID uuid.UUID, ownerID
 }
 
 func (s *BotService) UpdateSettings(ctx context.Context, groupID uuid.UUID, category string, data json.RawMessage, userID int64, version int) (*repository.GroupSettings, error) {
+	if err := ValidateSettingsCategory(category, data); err != nil {
+		return nil, fmt.Errorf("validation failed: %w", err)
+	}
+
 	oldSettings, err := s.GetSettings(ctx, groupID, userID)
 	if err != nil {
 		return nil, err

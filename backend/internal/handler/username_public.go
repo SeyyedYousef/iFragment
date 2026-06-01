@@ -320,22 +320,33 @@ func (h *UsernameHandler) StreamQuickAnalysis(w http.ResponseWriter, r *http.Req
 	defer ticker.Stop()
 
 	// Initial fetch
-	h.sendSSEUpdate(w, flusher, ctx, u)
+	if err := h.sendSSEUpdate(w, flusher, ctx, u); err != nil {
+		return
+	}
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			h.sendSSEUpdate(w, flusher, ctx, u)
+			// Send ping heartbeat first to detect client disconnection
+			if _, err := fmt.Fprint(w, ": ping\n\n"); err != nil {
+				return
+			}
+			flusher.Flush()
+
+			// Send the actual update
+			if err := h.sendSSEUpdate(w, flusher, ctx, u); err != nil {
+				return
+			}
 		}
 	}
 }
 
-func (h *UsernameHandler) sendSSEUpdate(w http.ResponseWriter, flusher http.Flusher, ctx context.Context, u string) {
+func (h *UsernameHandler) sendSSEUpdate(w http.ResponseWriter, flusher http.Flusher, ctx context.Context, u string) error {
 	result, err := h.reportService.QuickAnalysis(ctx, u, 0)
 	if err != nil {
-		return
+		return nil
 	}
 
 	mtStatus, err := h.mtprotoClient.CheckUsername(ctx, u)
@@ -366,11 +377,14 @@ func (h *UsernameHandler) sendSSEUpdate(w http.ResponseWriter, flusher http.Flus
 
 	data, err := json.Marshal(result)
 	if err != nil {
-		return
+		return nil
 	}
 
-	fmt.Fprintf(w, "data: %s\n\n", string(data))
+	if _, err := fmt.Fprintf(w, "data: %s\n\n", string(data)); err != nil {
+		return err
+	}
 	flusher.Flush()
+	return nil
 }
 
 func (h *UsernameHandler) jsonResponse(w http.ResponseWriter, u string, status string) {

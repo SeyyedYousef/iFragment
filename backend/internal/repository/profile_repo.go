@@ -18,8 +18,8 @@ import (
 // EnsureStatsExists inserts default stats for the user if they don't exist
 func (db *Database) EnsureStatsExists(ctx context.Context, userID int64) error {
 	query := `
-		INSERT INTO user_stats (user_id, days_active, current_streak, total_taps, xp, level, last_active_at)
-		VALUES ($1, 1, 1, 0, 0, 1, CURRENT_TIMESTAMP)
+		INSERT INTO user_stats (user_id, days_active, current_streak, total_taps, xp, level, last_active_at, energy, energy_updated_at)
+		VALUES ($1, 1, 1, 0, 0, 1, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP)
 		ON CONFLICT (user_id) DO NOTHING
 	`
 	_, err := db.Pool.Exec(ctx, query, userID)
@@ -54,7 +54,9 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 			       COALESCE(emoji_status, '') as emoji_status,
 			       COALESCE(equipped_border, '') as equipped_border,
 			       COALESCE(equipped_skin, '') as equipped_skin,
-			       airdrop_coins
+			       airdrop_coins,
+			       energy,
+			       energy_updated_at
 			FROM user_stats WHERE user_id = $1
 		)
 		SELECT 
@@ -76,7 +78,9 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 			si.emoji_status,
 			si.equipped_border,
 			si.equipped_skin,
-			si.airdrop_coins
+			si.airdrop_coins,
+			si.energy,
+			si.energy_updated_at
 		FROM stats_info si
 		CROSS JOIN user_info ui
 		CROSS JOIN reports_count rc
@@ -93,15 +97,32 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 	var premiumUntil *time.Time
 	var emojiStatus, equippedBorder, equippedSkin string
 	var airdropCoins float64
+	var energy int
+	var energyUpdatedAt time.Time
 
 	err := db.Pool.QueryRow(ctx, query, userID).Scan(
 		&memberSince, &usernamesAnalyzed, &groupsManaged, &channelsManaged,
 		&frgBalance, &totalFrgEarned, &totalFrgSpent,
 		&daysActive, &currentStreak, &totalTaps, &xp, &level, &lastActiveAt,
 		&isPremium, &premiumUntil, &emojiStatus, &equippedBorder, &equippedSkin, &airdropCoins,
+		&energy, &energyUpdatedAt,
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	boosts, _ := db.GetUserBoosts(ctx, userID)
+	energyLimitLevel := 1
+	if boosts != nil {
+		energyLimitLevel = boosts.EnergyLimitLevel
+	}
+	maxEnergy := 500 + (energyLimitLevel-1)*250
+	regen := int(time.Since(energyUpdatedAt).Seconds())
+	if regen > 0 {
+		energy += regen
+		if energy > maxEnergy {
+			energy = maxEnergy
+		}
 	}
 
 	return &model.ProfileStats{
@@ -125,6 +146,8 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 		EquippedBorder:    equippedBorder,
 		EquippedSkin:      equippedSkin,
 		AirdropCoins:      airdropCoins,
+		Energy:            energy,
+		EnergyUpdatedAt:   energyUpdatedAt,
 	}, nil
 }
 

@@ -215,6 +215,7 @@ export const syncPendingTaps = async () => {
     const stats = await addTaps(tapsToSend);
     if (stats) {
       setBalance(stats.airdropCoins || 0);
+      setEnergy(stats.energy !== undefined ? stats.energy : energy());
       setFrgBalance(stats.frgBalance || 0);
       setTotalTaps(stats.totalTaps || 0);
       
@@ -226,6 +227,8 @@ export const syncPendingTaps = async () => {
       }
     }
   } catch (e) {
+    // Optimistic rollback: synchronize local state back to server truth on failure
+    await syncProfileStats();
     console.error("Failed to sync taps with server:", e);
   }
 };
@@ -254,6 +257,7 @@ export const syncProfileStats = async () => {
       setBalance(stats.airdropCoins || 0);
       setFrgBalance(stats.frgBalance || 0);
       setTotalTaps(stats.totalTaps || 0);
+      setEnergy(stats.energy !== undefined ? stats.energy : energy());
     }
   } catch (e) {
     console.error("Failed to sync profile stats:", e);
