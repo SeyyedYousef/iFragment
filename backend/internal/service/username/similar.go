@@ -191,19 +191,22 @@ func levenshtein(a, b []rune) int {
 			if a[i-1] != b[j-1] {
 				cost = 1
 			}
-			curr[j] = minInt(curr[j-1]+1, prev[j]+1, prev[j-1]+cost)
+			curr[j] = minThree(curr[j-1]+1, prev[j]+1, prev[j-1]+cost)
 		}
 		prev, curr = curr, prev
 	}
 	return prev[len(b)]
 }
 
-func minInt(values ...int) int {
-	min := values[0]
-	for _, value := range values[1:] {
-		if value < min {
-			min = value
+func minThree(a, b, c int) int {
+	if a < b {
+		if a < c {
+			return a
 		}
+		return c
 	}
-	return min
+	if b < c {
+		return b
+	}
+	return c
 }

@@ -40,3 +40,4 @@ CREATE INDEX IF NOT EXISTS idx_username_reports_user_generated ON username_repor
 CREATE INDEX IF NOT EXISTS idx_username_reports_data_gin ON username_reports USING GIN (report_data);
 CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id);
 CREATE INDEX IF NOT EXISTS idx_orders_payload_status ON orders(payload, status);
+CREATE INDEX IF NOT EXISTS idx_orders_payload_pattern ON orders(payload text_pattern_ops, status);

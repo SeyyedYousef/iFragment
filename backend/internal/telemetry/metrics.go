@@ -39,9 +39,9 @@ var (
 		prometheus.HistogramOpts{
 			Name:    "channel_webhook_latency_seconds",
 			Help:    "Latency of channel webhook update processing.",
-			Buckets: prometheus.DefBuckets,
+			Buckets: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10},
 		},
-		[]string{"bot_id", "status"},
+		[]string{"status"},
 	)
 
 	// AutoresponderMatchTotal counts autoresponder keyword matches
@@ -71,7 +71,7 @@ func RecordChannelConnect(status string) {
 
 // RecordChannelWebhookLatency records the latency of a webhook request
 func RecordChannelWebhookLatency(botID string, status string, duration float64) {
-	ChannelWebhookLatencySeconds.WithLabelValues(botID, status).Observe(duration)
+	ChannelWebhookLatencySeconds.WithLabelValues(status).Observe(duration)
 }
 
 // RecordAutoresponderMatch records an autoresponder match event

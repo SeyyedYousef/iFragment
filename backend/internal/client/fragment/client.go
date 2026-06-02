@@ -82,6 +82,9 @@ func (c *Client) checkInternal(ctx context.Context, username string) (Status, er
 	if resp.StatusCode == http.StatusNotFound {
 		return StatusAvailable, nil
 	}
+	if resp.StatusCode != http.StatusOK {
+		return StatusUnknown, fmt.Errorf("fragment scraper returned status %d: %s", resp.StatusCode, resp.Status)
+	}
 
 	// Limit reader to 2MB to protect memory
 	limitReader := io.LimitReader(resp.Body, 2*1024*1024)

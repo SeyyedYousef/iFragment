@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"os"
 	"time"
@@ -13,6 +14,7 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.opentelemetry.io/otel/trace"
+	"google.golang.org/grpc/credentials"
 )
 
 var Tracer trace.Tracer
@@ -24,12 +26,20 @@ func InitTracer(ctx context.Context, serviceName string) (func(context.Context) 
 		endpoint = "localhost:4317"
 	}
 
-	// Create OTLP gRPC trace exporter
-	exporter, err := otlptracegrpc.New(ctx,
-		otlptracegrpc.WithInsecure(),
+	// Determine TLS config based on environment
+	isProd := os.Getenv("APP_ENV") == "production"
+	grpcOpts := []otlptracegrpc.Option{
 		otlptracegrpc.WithEndpoint(endpoint),
-		otlptracegrpc.WithTimeout(5*time.Second),
-	)
+		otlptracegrpc.WithTimeout(5 * time.Second),
+	}
+	if isProd {
+		grpcOpts = append(grpcOpts, otlptracegrpc.WithTLSCredentials(credentials.NewTLS(&tls.Config{})))
+	} else {
+		grpcOpts = append(grpcOpts, otlptracegrpc.WithInsecure())
+	}
+
+	// Create OTLP gRPC trace exporter
+	exporter, err := otlptracegrpc.New(ctx, grpcOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OTLP trace exporter: %w", err)
 	}
@@ -44,10 +54,18 @@ func InitTracer(ctx context.Context, serviceName string) (func(context.Context) 
 		return nil, fmt.Errorf("failed to create telemetry resource: %w", err)
 	}
 
+	// Use probabilistic sampler in production (10% of traces)
+	var sampler sdktrace.Sampler
+	if isProd {
+		sampler = sdktrace.ParentBased(sdktrace.TraceIDRatioBased(0.1))
+	} else {
+		sampler = sdktrace.AlwaysSample()
+	}
+
 	// Create Tracer Provider
 	bsp := sdktrace.NewBatchSpanProcessor(exporter)
 	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+		sdktrace.WithSampler(sampler),
 		sdktrace.WithSpanProcessor(bsp),
 		sdktrace.WithResource(res),
 	)

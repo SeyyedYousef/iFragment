@@ -22,11 +22,18 @@ const (
 )
 
 type MarketplaceService struct {
-	frgRepo *repository.FRGRepo
+	frgRepo   *repository.FRGRepo
+	tonClient *tonapi.Client
 }
 
-func NewMarketplaceService(frgRepo *repository.FRGRepo) *MarketplaceService {
-	return &MarketplaceService{frgRepo: frgRepo}
+func NewMarketplaceService(frgRepo *repository.FRGRepo, tonClient *tonapi.Client) *MarketplaceService {
+	if tonClient == nil {
+		tonClient = tonapi.NewClient()
+	}
+	return &MarketplaceService{
+		frgRepo:   frgRepo,
+		tonClient: tonClient,
+	}
 }
 
 type PurchaseOption struct {
@@ -166,8 +173,7 @@ func (s *MarketplaceService) PurchaseWithToncoin(ctx context.Context, userID int
 	// 1. Verification with TON Blockchain via TonAPI (only if not local/development)
 	isProd := os.Getenv("APP_ENV") == "production"
 	if isProd {
-		tonClient := tonapi.NewClient()
-		txInfo, err := tonClient.GetTransaction(ctx, txHash)
+		txInfo, err := s.tonClient.GetTransaction(ctx, txHash)
 		if err != nil {
 			return nil, fmt.Errorf("failed to verify Toncoin transaction: %w", err)
 		}

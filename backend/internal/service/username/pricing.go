@@ -320,7 +320,7 @@ func paidSaleStats(sales []marketapp.SaleRecord) saleStats {
 	var lastSaleAt time.Time
 
 	for _, sale := range sales {
-		if sale.Price <= 0 {
+		if sale.Price <= 1.0 {
 			continue
 		}
 		prices = append(prices, sale.Price)
@@ -347,7 +347,8 @@ func paidSaleStats(sales []marketapp.SaleRecord) saleStats {
 }
 
 func estimatedLiquidityScore(r *FullReport, paidSalesCount int) float64 {
-	score := math.Log1p(float64(r.SearchPopularity))*8 + float64(paidSalesCount)*12 + float64(len(r.PreviousOwners))*4
+	// Fixed: Removed logarithmic dampening to allow linear scale up to 100
+	score := (float64(r.SearchPopularity) * 0.5) + float64(paidSalesCount)*12 + float64(len(r.PreviousOwners))*4
 	if r.BuyNowPrice > 0 || r.HighestBid > 0 {
 		score += 15
 	}

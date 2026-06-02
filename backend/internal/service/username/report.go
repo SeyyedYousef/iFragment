@@ -1159,7 +1159,7 @@ func isHighValueMarketKeyword(u string) bool {
 func medianPositiveSale(sales []marketapp.SaleRecord) (float64, bool) {
 	prices := make([]float64, 0, len(sales))
 	for _, sale := range sales {
-		if sale.Price > 0 {
+		if sale.Price > 1.0 {
 			prices = append(prices, sale.Price)
 		}
 	}

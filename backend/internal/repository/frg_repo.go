@@ -278,6 +278,9 @@ func (r *FRGRepo) GetTransactions(ctx context.Context, userID int64, limit, offs
 		}
 		txs = append(txs, t)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return txs, nil
 }
 

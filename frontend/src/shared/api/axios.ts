@@ -26,12 +26,17 @@ apiClient.interceptors.request.use(
       token = impersonationToken || localStorage.getItem('jwt_token');
     }
     
-    if (token) {
+    // Prevent token leakage to third-party domains
+    const url = config.url || '';
+    const isAbsoluteUrl = url.startsWith('http://') || url.startsWith('https://');
+    const isInternalUrl = !isAbsoluteUrl || url.startsWith(API_CONFIG.BASE_URL);
+
+    if (token && isInternalUrl) {
       config.headers.Authorization = `Bearer ${token}`;
     }
 
     // Pass Telegram InitData for authentication handshake if available
-    if ((window as any).Telegram?.WebApp?.initData) {
+    if ((window as any).Telegram?.WebApp?.initData && isInternalUrl) {
       config.headers['X-Telegram-Init-Data'] = (window as any).Telegram.WebApp.initData;
     }
 
@@ -102,7 +107,7 @@ apiClient.interceptors.response.use(
           }
         }
       } catch (refreshErr) {
-        console.warn('[API] Token refresh failed, clearing session', refreshErr);
+        console.warn('[API] Token refresh failed, clearing session');
         localStorage.removeItem('jwt_token');
         sessionStorage.removeItem('owner_impersonation_token');
       }

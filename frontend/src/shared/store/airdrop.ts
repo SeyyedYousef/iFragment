@@ -210,26 +210,33 @@ let syncTimeout: ReturnType<typeof setTimeout> | undefined;
 
 export const syncPendingTaps = async () => {
   if (pendingTaps <= 0) return;
-  const tapsToSend = pendingTaps;
-  try {
-    const stats = await addTaps(tapsToSend);
-    if (stats) {
-      setBalance(stats.airdropCoins || 0);
-      setEnergy(stats.energy !== undefined ? stats.energy : energy());
-      setFrgBalance(stats.frgBalance || 0);
-      setTotalTaps(stats.totalTaps || 0);
-      
-      pendingTaps = Math.max(0, pendingTaps - tapsToSend);
-      if (pendingTaps === 0) {
-        localStorage.removeItem('airdrop-pending-taps');
+  
+  // Process and send in chunks of max 50 taps to satisfy backend SEC-08 limit
+  while (pendingTaps > 0) {
+    const tapsToSend = Math.min(pendingTaps, 50);
+    try {
+      const stats = await addTaps(tapsToSend);
+      if (stats) {
+        setBalance(stats.airdropCoins || 0);
+        setEnergy(stats.energy !== undefined ? stats.energy : energy());
+        setFrgBalance(stats.frgBalance || 0);
+        setTotalTaps(stats.totalTaps || 0);
+        
+        pendingTaps = Math.max(0, pendingTaps - tapsToSend);
+        if (pendingTaps === 0) {
+          localStorage.removeItem('airdrop-pending-taps');
+        } else {
+          localStorage.setItem('airdrop-pending-taps', pendingTaps.toString());
+        }
       } else {
-        localStorage.setItem('airdrop-pending-taps', pendingTaps.toString());
+        break;
       }
+    } catch (e) {
+      // Optimistic rollback: synchronize local state back to server truth on failure
+      await syncProfileStats();
+      console.error("Failed to sync taps with server:", e);
+      break;
     }
-  } catch (e) {
-    // Optimistic rollback: synchronize local state back to server truth on failure
-    await syncProfileStats();
-    console.error("Failed to sync taps with server:", e);
   }
 };
 

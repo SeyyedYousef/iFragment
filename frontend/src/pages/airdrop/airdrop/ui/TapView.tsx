@@ -1,33 +1,83 @@
-import { Component, createSignal, For, onCleanup } from 'solid-js';
+import { Component, createSignal, onCleanup, onMount } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 import { hapticFeedback } from '@tma.js/sdk-solid';
 import { balance, energy, maxEnergy, tapPower, currentLeague, recordTaps } from '@/shared/store/airdrop.js';
 
-interface Particle {
-  id: number;
+interface CanvasParticle {
   x: number;
   y: number;
   value: number;
-  createdAt: number;
+  alpha: number;
+  scale: number;
+  velocity: number;
 }
 
 export const TapView: Component = () => {
-  const [particles, setParticles] = createSignal<Particle[]>([]);
   const [isPressed, setIsPressed] = createSignal(false);
   const [isShaking, setIsShaking] = createSignal(false);
-
+  let canvasRef!: HTMLCanvasElement;
+  let buttonRef!: HTMLButtonElement;
+  let animationFrameId: number;
   const activeTimers = new Set<ReturnType<typeof setTimeout>>();
+  const particles: CanvasParticle[] = [];
+  let lastHapticAt = 0;
+  let cachedRect = { left: 0, top: 0, width: 340, height: 340 };
+
+  onMount(() => {
+    if (buttonRef) {
+      const ro = new ResizeObserver(() => {
+        const rect = buttonRef.getBoundingClientRect();
+        cachedRect = { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+        if (canvasRef.width !== rect.width || canvasRef.height !== rect.height) {
+          canvasRef.width = rect.width;
+          canvasRef.height = rect.height;
+        }
+      });
+      ro.observe(buttonRef);
+      onCleanup(() => ro.disconnect());
+    }
+
+    const ctx = canvasRef.getContext('2d');
+    if (!ctx) return;
+
+    const updateAndDraw = () => {
+      ctx.clearRect(0, 0, canvasRef.width, canvasRef.height);
+      
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.y -= p.velocity;
+        p.alpha -= 0.015; // smooth fade out
+        p.scale += 0.005; // slight enlargement
+        
+        if (p.alpha <= 0) {
+          particles.splice(i, 1);
+          continue;
+        }
+        
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.font = `900 ${Math.round(28 * p.scale)}px Inter, sans-serif`;
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = currentLeague().color;
+        ctx.shadowBlur = 15;
+        ctx.textAlign = 'center';
+        ctx.fillText(`+${p.value}`, p.x, p.y);
+        ctx.restore();
+      }
+      
+      animationFrameId = requestAnimationFrame(updateAndDraw);
+    };
+    
+    updateAndDraw();
+  });
 
   onCleanup(() => {
+    cancelAnimationFrame(animationFrameId);
     for (const timer of activeTimers) {
       clearTimeout(timer);
     }
     activeTimers.clear();
   });
-
-  const MAX_PARTICLES = 30;
-  let particleIdCounter = 0;
-  let lastHapticAt = 0;
 
   const handleTap = (e: PointerEvent) => {
     e.preventDefault();
@@ -52,22 +102,18 @@ export const TapView: Component = () => {
     const power = tapPower();
     recordTaps(1);
 
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const x = e.clientX - cachedRect.left;
+    const y = e.clientY - cachedRect.top;
 
-    const id = ++particleIdCounter;
-    setParticles(prev => {
-      const next = [...prev, { id, x, y, value: power, createdAt: performance.now() }];
-      return next.length > MAX_PARTICLES ? next.slice(-MAX_PARTICLES) : next;
+    // Push new particle into zero-allocation thread safe Canvas rendering pipeline
+    particles.push({
+      x,
+      y,
+      value: power,
+      alpha: 1.0,
+      scale: 1.0,
+      velocity: 2.0 + Math.random() * 1.5,
     });
-
-    // Lightweight individual particle cleanup after 900ms fade-out transition
-    const particleTimer = setTimeout(() => {
-      setParticles(prev => prev.filter(p => p.id !== id));
-      activeTimers.delete(particleTimer);
-    }, 900);
-    activeTimers.add(particleTimer);
 
     // Coin press animation
     setIsPressed(true);
@@ -77,8 +123,6 @@ export const TapView: Component = () => {
     }, 80);
     activeTimers.add(pressTimer);
   };
-
-
 
   return (
     <div class="flex-1 flex flex-col items-center relative overflow-hidden px-4 pt-2 pb-6">
@@ -103,6 +147,7 @@ export const TapView: Component = () => {
         
         {/* Main Coin Button */}
         <button
+          ref={buttonRef}
           onPointerDown={handleTap}
           class={`relative w-full h-full rounded-full transition-all duration-75 select-none active:scale-[0.92] group ${
             isPressed() ? 'scale-95' : ''
@@ -127,17 +172,11 @@ export const TapView: Component = () => {
           </div>
         </button>
 
-        {/* Floating particles */}
-        <For each={particles()}>
-          {(p) => (
-            <div
-              class="absolute pointer-events-none z-50 animate-float-up"
-              style={{ left: `${p.x - 15}px`, top: `${p.y - 30}px`, 'will-change': 'transform, opacity' }}
-            >
-              <span class="text-3xl font-black text-white" style={{ 'text-shadow': `0 0 15px ${currentLeague().color}` }}>+{p.value}</span>
-            </div>
-          )}
-        </For>
+        {/* Floating GPU-accelerated canvas particles layer */}
+        <canvas
+          ref={canvasRef}
+          class="absolute inset-0 pointer-events-none z-50"
+        />
       </div>
 
       {/* Energy bar Section - Integrated into bottom */}

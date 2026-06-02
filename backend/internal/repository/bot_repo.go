@@ -129,6 +129,9 @@ func (r *BotRepo) GetBotsByOwner(ctx context.Context, ownerID int64) ([]ManagedB
 		}
 		bots = append(bots, b)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return bots, nil
 }
 
@@ -246,6 +249,9 @@ func (r *BotRepo) GetGroupsByBot(ctx context.Context, botID uuid.UUID) ([]Manage
 			return nil, err
 		}
 		groups = append(groups, g)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return groups, nil
 }
@@ -393,6 +399,9 @@ func (r *BotRepo) GetAllActiveGroups(ctx context.Context) ([]ManagedGroup, error
 			continue
 		}
 		groups = append(groups, g)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return groups, nil
 }

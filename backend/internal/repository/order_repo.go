@@ -3,7 +3,10 @@ package repository
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 // ... existing methods ...
@@ -59,4 +62,47 @@ func (db *Database) GetOrderByPayload(ctx context.Context, payload string) (*Ord
 		return nil, err
 	}
 	return &o, nil
+}
+
+// CompleteStarsPremiumPayment atomically marks order as paid AND grants premium to the user.
+func (db *Database) CompleteStarsPremiumPayment(ctx context.Context, payload string, chargeID string, userID int64, duration time.Duration) error {
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Update order status to paid
+	queryOrder := `
+		UPDATE orders
+		SET status = 'paid', telegram_payment_charge_id = $1, updated_at = CURRENT_TIMESTAMP
+		WHERE payload = $2 AND status != 'paid'
+	`
+	cmdTag, err := tx.Exec(ctx, queryOrder, chargeID, payload)
+	if err != nil {
+		return fmt.Errorf("update order status: %w", err)
+	}
+	if cmdTag.RowsAffected() == 0 {
+		// Order might already be paid (idempotency), which is fine but we should proceed to grant premium if somehow not set.
+	}
+
+	// 2. Fetch current premium_until
+	var currentPremiumUntil *time.Time
+	err = tx.QueryRow(ctx, "SELECT premium_until FROM users WHERE telegram_id = $1 FOR UPDATE").Scan(&currentPremiumUntil)
+	if err != nil && err != pgx.ErrNoRows {
+		return fmt.Errorf("fetch premium_until: %w", err)
+	}
+
+	newUntil := time.Now().Add(duration)
+	if currentPremiumUntil != nil && currentPremiumUntil.After(time.Now()) {
+		newUntil = currentPremiumUntil.Add(duration)
+	}
+
+	// 3. Grant premium
+	_, err = tx.Exec(ctx, "UPDATE users SET is_premium = TRUE, premium_until = $1, updated_at = CURRENT_TIMESTAMP WHERE telegram_id = $2", newUntil, userID)
+	if err != nil {
+		return fmt.Errorf("grant premium: %w", err)
+	}
+
+	return tx.Commit(ctx)
 }

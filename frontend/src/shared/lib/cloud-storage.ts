@@ -11,7 +11,7 @@ export const cloudStorage = {
       try {
         const cs = getCloudStorage();
         if (!cs) {
-          localStorage.setItem(key, value);
+          try { localStorage.setItem(key, value); } catch {}
           resolve(true);
           return;
         }
@@ -19,8 +19,8 @@ export const cloudStorage = {
           resolve(!error && success);
         });
       } catch {
-        localStorage.setItem(key, value);
-        resolve(true);
+        try { localStorage.setItem(key, value); resolve(true); }
+        catch { resolve(false); }
       }
     });
   },
@@ -30,7 +30,7 @@ export const cloudStorage = {
       try {
         const cs = getCloudStorage();
         if (!cs) {
-          resolve(localStorage.getItem(key));
+          try { resolve(localStorage.getItem(key)); } catch { resolve(null); }
           return;
         }
         cs.getItem(key, (error: any, value: string) => {
@@ -38,7 +38,8 @@ export const cloudStorage = {
           else resolve(value || null);
         });
       } catch {
-        resolve(localStorage.getItem(key));
+        try { resolve(localStorage.getItem(key)); }
+        catch { resolve(null); }
       }
     });
   },
@@ -48,23 +49,31 @@ export const cloudStorage = {
       try {
         const cs = getCloudStorage();
         if (!cs) {
-          const res: Record<string, string> = {};
+          const res: Record<string, string> = Object.create(null);
           keys.forEach(k => {
-            const v = localStorage.getItem(k);
-            if (v !== null) res[k] = v;
+            try {
+              const v = localStorage.getItem(k);
+              if (v !== null) res[k] = v;
+            } catch {}
           });
           resolve(res);
           return;
         }
         cs.getItems(keys, (error: any, values: Record<string, string>) => {
           if (error) resolve({});
-          else resolve(values || {});
+          else {
+            const safeValues = Object.create(null);
+            if (values) Object.keys(values).forEach(k => safeValues[k] = values[k]);
+            resolve(safeValues);
+          }
         });
       } catch {
-        const res: Record<string, string> = {};
+        const res: Record<string, string> = Object.create(null);
         keys.forEach(k => {
-          const v = localStorage.getItem(k);
-          if (v !== null) res[k] = v;
+          try {
+            const v = localStorage.getItem(k);
+            if (v !== null) res[k] = v;
+          } catch {}
         });
         resolve(res);
       }
@@ -76,7 +85,7 @@ export const cloudStorage = {
       try {
         const cs = getCloudStorage();
         if (!cs) {
-          localStorage.removeItem(key);
+          try { localStorage.removeItem(key); } catch {}
           resolve(true);
           return;
         }
@@ -84,8 +93,8 @@ export const cloudStorage = {
           resolve(!error && success);
         });
       } catch {
-        localStorage.removeItem(key);
-        resolve(true);
+        try { localStorage.removeItem(key); resolve(true); }
+        catch { resolve(false); }
       }
     });
   },
@@ -95,7 +104,7 @@ export const cloudStorage = {
       try {
         const cs = getCloudStorage();
         if (!cs) {
-          keys.forEach(k => localStorage.removeItem(k));
+          keys.forEach(k => { try { localStorage.removeItem(k); } catch {} });
           resolve(true);
           return;
         }
@@ -103,7 +112,7 @@ export const cloudStorage = {
           resolve(!error && success);
         });
       } catch {
-        keys.forEach(k => localStorage.removeItem(k));
+        keys.forEach(k => { try { localStorage.removeItem(k); } catch {} });
         resolve(true);
       }
     });
@@ -114,7 +123,7 @@ export const cloudStorage = {
       try {
         const cs = getCloudStorage();
         if (!cs) {
-          resolve(Object.keys(localStorage));
+          try { resolve(Object.keys(localStorage)); } catch { resolve([]); }
           return;
         }
         cs.getKeys((error: any, keys: string[]) => {
@@ -122,7 +131,7 @@ export const cloudStorage = {
           else resolve(keys || []);
         });
       } catch {
-        resolve(Object.keys(localStorage));
+        try { resolve(Object.keys(localStorage)); } catch { resolve([]); }
       }
     });
   }

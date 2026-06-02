@@ -190,7 +190,13 @@ func HoneypotMiddleware(repo *repository.OwnerRepo) func(http.Handler) http.Hand
 
 			// Check if they are actually an owner in the database
 			o, err := repo.GetOwnerRole(r.Context(), userID)
-			if err == nil && o != nil {
+			if err != nil {
+				slog.Error("Honeypot DB error checking owner role", "error", err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+			
+			if o != nil {
 				// They are an actual owner! Let them pass
 				next.ServeHTTP(w, r)
 				return

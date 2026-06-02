@@ -81,12 +81,23 @@ type apiResponse struct {
 	} `json:"parameters,omitempty"`
 }
 
-func (c *BotAPIClient) request(ctx context.Context, method string, payload interface{}) (json.RawMessage, error) {
+func (c *BotAPIClient) maskTokenInError(err error) error {
+	if err == nil {
+		return nil
+	}
+	errStr := err.Error()
+	if c.token != "" && strings.Contains(errStr, c.token) {
+		return fmt.Errorf("%s", strings.ReplaceAll(errStr, c.token, "xxxx_masked_token"))
+	}
+	return err
+}
+
+func (c *BotAPIClient) Request(ctx context.Context, method string, payload interface{}) (json.RawMessage, error) {
 	result, err := c.cb.Execute(func() (interface{}, error) {
 		return c.doRequestWithRetry(ctx, method, payload)
 	})
 	if err != nil {
-		return nil, err
+		return nil, c.maskTokenInError(err)
 	}
 	return result.(json.RawMessage), nil
 }
@@ -125,7 +136,7 @@ func (c *BotAPIClient) doRequestWithRetry(ctx context.Context, method string, pa
 			if attempt < maxRetries-1 {
 				continue
 			}
-			return nil, fmt.Errorf("telegram api network error after %d attempts: %w", maxRetries, err)
+			return nil, c.maskTokenInError(fmt.Errorf("telegram api network error after %d attempts: %w", maxRetries, err))
 		}
 
 		var result apiResponse
@@ -174,7 +185,7 @@ func (c *BotAPIClient) doRequestWithRetry(ctx context.Context, method string, pa
 }
 
 func (c *BotAPIClient) DeleteMessage(ctx context.Context, chatID int64, messageID int) error {
-	_, err := c.request(ctx, "deleteMessage", map[string]interface{}{
+	_, err := c.Request(ctx, "deleteMessage", map[string]interface{}{
 		"chat_id":    chatID,
 		"message_id": messageID,
 	})
@@ -202,7 +213,7 @@ func (c *BotAPIClient) SendMessageWithResult(ctx context.Context, chatID int64, 
 	if threadID != nil {
 		payload["message_thread_id"] = *threadID
 	}
-	resp, err := c.request(ctx, "sendMessage", payload)
+	resp, err := c.Request(ctx, "sendMessage", payload)
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +225,7 @@ func (c *BotAPIClient) SendMessageWithResult(ctx context.Context, chatID int64, 
 }
 
 func (c *BotAPIClient) GetChatMember(ctx context.Context, chatID interface{}, userID int64) (string, error) {
-	resp, err := c.request(ctx, "getChatMember", map[string]interface{}{
+	resp, err := c.Request(ctx, "getChatMember", map[string]interface{}{
 		"chat_id": chatID,
 		"user_id": userID,
 	})
@@ -231,7 +242,7 @@ func (c *BotAPIClient) GetChatMember(ctx context.Context, chatID interface{}, us
 }
 
 func (c *BotAPIClient) ApproveChatJoinRequest(ctx context.Context, chatID interface{}, userID int64) error {
-	_, err := c.request(ctx, "approveChatJoinRequest", map[string]interface{}{
+	_, err := c.Request(ctx, "approveChatJoinRequest", map[string]interface{}{
 		"chat_id": chatID,
 		"user_id": userID,
 	})
@@ -239,7 +250,7 @@ func (c *BotAPIClient) ApproveChatJoinRequest(ctx context.Context, chatID interf
 }
 
 func (c *BotAPIClient) RestrictChatMember(ctx context.Context, chatID int64, userID int64, untilDate int64) error {
-	_, err := c.request(ctx, "restrictChatMember", map[string]interface{}{
+	_, err := c.Request(ctx, "restrictChatMember", map[string]interface{}{
 		"chat_id": chatID,
 		"user_id": userID,
 		"permissions": map[string]bool{
@@ -251,7 +262,7 @@ func (c *BotAPIClient) RestrictChatMember(ctx context.Context, chatID int64, use
 }
 
 func (c *BotAPIClient) BanChatMember(ctx context.Context, chatID int64, userID int64, untilDate int64, revokeMessages bool) error {
-	_, err := c.request(ctx, "banChatMember", map[string]interface{}{
+	_, err := c.Request(ctx, "banChatMember", map[string]interface{}{
 		"chat_id":         chatID,
 		"user_id":         userID,
 		"until_date":      untilDate,
@@ -261,7 +272,7 @@ func (c *BotAPIClient) BanChatMember(ctx context.Context, chatID int64, userID i
 }
 
 func (c *BotAPIClient) UnbanChatMember(ctx context.Context, chatID int64, userID int64, onlyIfBanned bool) error {
-	_, err := c.request(ctx, "unbanChatMember", map[string]interface{}{
+	_, err := c.Request(ctx, "unbanChatMember", map[string]interface{}{
 		"chat_id":        chatID,
 		"user_id":        userID,
 		"only_if_banned": onlyIfBanned,
@@ -270,7 +281,7 @@ func (c *BotAPIClient) UnbanChatMember(ctx context.Context, chatID int64, userID
 }
 
 func (c *BotAPIClient) UnrestrictChatMember(ctx context.Context, chatID int64, userID int64) error {
-	_, err := c.request(ctx, "restrictChatMember", map[string]interface{}{
+	_, err := c.Request(ctx, "restrictChatMember", map[string]interface{}{
 		"chat_id":    chatID,
 		"user_id":    userID,
 		"permissions": map[string]bool{
@@ -296,7 +307,7 @@ func (c *BotAPIClient) SendMessageWithMarkup(ctx context.Context, chatID int64, 
 	if threadID != nil {
 		payload["message_thread_id"] = *threadID
 	}
-	resp, err := c.request(ctx, "sendMessage", payload)
+	resp, err := c.Request(ctx, "sendMessage", payload)
 	if err != nil {
 		return nil, err
 	}
@@ -308,7 +319,7 @@ func (c *BotAPIClient) SendMessageWithMarkup(ctx context.Context, chatID int64, 
 }
 
 func (c *BotAPIClient) AnswerCallbackQuery(ctx context.Context, queryID string, text string, showAlert bool) error {
-	_, err := c.request(ctx, "answerCallbackQuery", map[string]interface{}{
+	_, err := c.Request(ctx, "answerCallbackQuery", map[string]interface{}{
 		"callback_query_id": queryID,
 		"text":              text,
 		"show_alert":        showAlert,
@@ -317,7 +328,7 @@ func (c *BotAPIClient) AnswerCallbackQuery(ctx context.Context, queryID string, 
 }
 
 func (c *BotAPIClient) PinChatMessage(ctx context.Context, chatID int64, messageID int) error {
-	_, err := c.request(ctx, "pinChatMessage", map[string]interface{}{
+	_, err := c.Request(ctx, "pinChatMessage", map[string]interface{}{
 		"chat_id":    chatID,
 		"message_id": messageID,
 	})
@@ -332,7 +343,7 @@ type User struct {
 }
 
 func (c *BotAPIClient) GetMe(ctx context.Context) (*User, error) {
-	resp, err := c.request(ctx, "getMe", nil)
+	resp, err := c.Request(ctx, "getMe", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -344,7 +355,7 @@ func (c *BotAPIClient) GetMe(ctx context.Context) (*User, error) {
 }
 
 func (c *BotAPIClient) GetChatMemberCount(ctx context.Context, chatID interface{}) (int, error) {
-	resp, err := c.request(ctx, "getChatMemberCount", map[string]interface{}{
+	resp, err := c.Request(ctx, "getChatMemberCount", map[string]interface{}{
 		"chat_id": chatID,
 	})
 	if err != nil {
@@ -362,7 +373,7 @@ type ChatResult struct {
 }
 
 func (c *BotAPIClient) GetChat(ctx context.Context, chatID interface{}) (*ChatResult, error) {
-	resp, err := c.request(ctx, "getChat", map[string]interface{}{
+	resp, err := c.Request(ctx, "getChat", map[string]interface{}{
 		"chat_id": chatID,
 	})
 	if err != nil {
@@ -377,7 +388,7 @@ func (c *BotAPIClient) GetChat(ctx context.Context, chatID interface{}) (*ChatRe
 
 // ForwardMessage forwards a Telegram message from one chat to another
 func (c *BotAPIClient) ForwardMessage(ctx context.Context, targetChatID interface{}, fromChatID int64, messageID int) error {
-	_, err := c.request(ctx, "forwardMessage", map[string]interface{}{
+	_, err := c.Request(ctx, "forwardMessage", map[string]interface{}{
 		"chat_id":              targetChatID,
 		"from_chat_id":         fromChatID,
 		"message_id":           messageID,
@@ -393,7 +404,7 @@ type ChatMemberAdmin struct {
 
 // GetChatAdministrators retrieves a list of administrators for a Telegram chat
 func (c *BotAPIClient) GetChatAdministrators(ctx context.Context, chatID interface{}) ([]ChatMemberAdmin, error) {
-	resp, err := c.request(ctx, "getChatAdministrators", map[string]interface{}{
+	resp, err := c.Request(ctx, "getChatAdministrators", map[string]interface{}{
 		"chat_id": chatID,
 	})
 	if err != nil {
@@ -406,7 +417,7 @@ func (c *BotAPIClient) GetChatAdministrators(ctx context.Context, chatID interfa
 
 // EditMessageReplyMarkup edits the reply markup of a message
 func (c *BotAPIClient) EditMessageReplyMarkup(ctx context.Context, chatID interface{}, messageID int, markup interface{}) error {
-	_, err := c.request(ctx, "editMessageReplyMarkup", map[string]interface{}{
+	_, err := c.Request(ctx, "editMessageReplyMarkup", map[string]interface{}{
 		"chat_id":      chatID,
 		"message_id":   messageID,
 		"reply_markup": markup,
@@ -416,7 +427,7 @@ func (c *BotAPIClient) EditMessageReplyMarkup(ctx context.Context, chatID interf
 
 // EditMessageText edits the text of a message
 func (c *BotAPIClient) EditMessageText(ctx context.Context, chatID interface{}, messageID int, text string) error {
-	_, err := c.request(ctx, "editMessageText", map[string]interface{}{
+	_, err := c.Request(ctx, "editMessageText", map[string]interface{}{
 		"chat_id":    chatID,
 		"message_id": messageID,
 		"text":       text,
@@ -427,7 +438,7 @@ func (c *BotAPIClient) EditMessageText(ctx context.Context, chatID interface{}, 
 
 // EditMessageTextWithMarkup edits both text and markup of a message
 func (c *BotAPIClient) EditMessageTextWithMarkup(ctx context.Context, chatID interface{}, messageID int, text string, markup interface{}) error {
-	_, err := c.request(ctx, "editMessageText", map[string]interface{}{
+	_, err := c.Request(ctx, "editMessageText", map[string]interface{}{
 		"chat_id":      chatID,
 		"message_id":   messageID,
 		"text":         text,
@@ -455,7 +466,7 @@ type StarTransactions struct {
 }
 
 func (c *BotAPIClient) GetStarTransactions(ctx context.Context) (*StarTransactions, error) {
-	resp, err := c.request(ctx, "getStarTransactions", nil)
+	resp, err := c.Request(ctx, "getStarTransactions", nil)
 	if err != nil {
 		return nil, err
 	}

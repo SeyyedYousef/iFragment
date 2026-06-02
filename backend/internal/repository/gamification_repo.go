@@ -53,6 +53,7 @@ func (db *Database) ClaimDailyReward(ctx context.Context, userID int64, streak i
 		VALUES ($1, CURRENT_TIMESTAMP, $2)
 		ON CONFLICT (user_id) DO UPDATE
 		SET last_claimed_at = CURRENT_TIMESTAMP, streak = $2
+		WHERE (user_daily_claims.streak = $2 - 1) OR ($2 = 1)
 	`
 	_, err := db.Pool.Exec(ctx, query, userID, streak)
 	return err
@@ -87,17 +88,23 @@ func (db *Database) UpgradeUserBoost(ctx context.Context, userID int64, boostTyp
 	var query string
 	switch boostType {
 	case "multitap":
-		query = "UPDATE user_boosts SET multitap_level = $1 WHERE user_id = $2"
+		query = "UPDATE user_boosts SET multitap_level = $1 WHERE user_id = $2 AND multitap_level = $1 - 1"
 	case "energy_limit":
-		query = "UPDATE user_boosts SET energy_limit_level = $1 WHERE user_id = $2"
+		query = "UPDATE user_boosts SET energy_limit_level = $1 WHERE user_id = $2 AND energy_limit_level = $1 - 1"
 	case "tap_bot":
-		query = "UPDATE user_boosts SET tap_bot_level = $1 WHERE user_id = $2"
+		query = "UPDATE user_boosts SET tap_bot_level = $1 WHERE user_id = $2 AND tap_bot_level = $1 - 1"
 	default:
 		return pgx.ErrNoRows
 	}
 
-	_, err := db.Pool.Exec(ctx, query, nextLevel, userID)
-	return err
+	cmd, err := db.Pool.Exec(ctx, query, nextLevel, userID)
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return fmt.Errorf("optimistic lock conflict: level mismatch or concurrent update")
+	}
+	return nil
 }
 
 // GetUserTasks returns all completed and active tasks for a user

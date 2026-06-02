@@ -154,6 +154,9 @@ func (r *OwnerRepo) GetOwnerAuditLogs(ctx context.Context, limit, offset int) ([
 		}
 		logs = append(logs, l)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return logs, nil
 }
 
@@ -360,6 +363,9 @@ func (r *OwnerRepo) SearchUsers(ctx context.Context, searchQuery string) ([]Sear
 		}
 		results = append(results, s)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return results, nil
 }
 
@@ -417,6 +423,9 @@ func (r *OwnerRepo) ListPromoCodes(ctx context.Context) ([]model.PromoCode, erro
 			return nil, err
 		}
 		list = append(list, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return list, nil
 }
@@ -547,6 +556,9 @@ func (r *OwnerRepo) GetQuests(ctx context.Context) ([]model.Quest, error) {
 		}
 		list = append(list, q)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return list, nil
 }
 
@@ -573,6 +585,9 @@ func (r *OwnerRepo) GetActiveQuests(ctx context.Context) ([]model.Quest, error) 
 			return nil, err
 		}
 		list = append(list, q)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return list, nil
 }

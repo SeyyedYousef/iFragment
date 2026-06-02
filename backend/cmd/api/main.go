@@ -230,7 +230,7 @@ func main() {
 	analyticsRepo := repository.NewAnalyticsRepo(db)
 
 	botService := botmgmt.NewBotService(botRepo, settingsRepo, auditRepo, frgRepo, analyticsRepo)
-	marketplaceService := botmgmt.NewMarketplaceService(frgRepo)
+	marketplaceService := botmgmt.NewMarketplaceService(frgRepo, nil)
 	moderatorService := botmgmt.NewModeratorService(settingsRepo, botRepo, auditRepo, analyticsRepo, cache)
 
 	// 🚀 Start Background Expiration Worker

@@ -14,6 +14,9 @@ import (
 // ValidateTOTP validates a 6-digit TOTP code against a secret key with a window of drift allowed.
 func ValidateTOTP(code string, secret string) bool {
 	secret = strings.TrimSpace(secret)
+	if secret == "" {
+		return false
+	}
 	// Base32 decoding
 	key, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(strings.ToUpper(secret))
 	if err != nil {

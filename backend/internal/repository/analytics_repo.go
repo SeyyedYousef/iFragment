@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -45,7 +47,33 @@ type AnalyticsRepo struct {
 	db *Database
 }
 
+var (
+	eventChan chan *GroupEvent
+	startOnce sync.Once
+)
+
+func startAsyncWorkers(db *Database) {
+	eventChan = make(chan *GroupEvent, 5000)
+	for i := 0; i < 4; i++ {
+		go func() {
+			for event := range eventChan {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				query := `INSERT INTO group_events (group_id, event_type, user_id, payload)
+					VALUES ($1, $2, $3, $4)`
+				_, err := db.Pool.Exec(ctx, query, event.GroupID, event.EventType, event.UserID, event.Payload)
+				if err != nil {
+					slog.Error("Failed to log analytics event async", "error", err, "event_type", event.EventType)
+				}
+				cancel()
+			}
+		}()
+	}
+}
+
 func NewAnalyticsRepo(db *Database) *AnalyticsRepo {
+	startOnce.Do(func() {
+		startAsyncWorkers(db)
+	})
 	return &AnalyticsRepo{db: db}
 }
 
@@ -54,6 +82,20 @@ func (r *AnalyticsRepo) LogEvent(ctx context.Context, event *GroupEvent) error {
 		VALUES ($1, $2, $3, $4) RETURNING id, created_at`
 	return r.db.Pool.QueryRow(ctx, query, event.GroupID, event.EventType, event.UserID, event.Payload).
 		Scan(&event.ID, &event.CreatedAt)
+}
+
+// LogEventAsync queues the event for async insertion, decoupling webhook latency from DB writes.
+// Uses a buffered channel internally so callers never block.
+func (r *AnalyticsRepo) LogEventAsync(event *GroupEvent) {
+	if eventChan == nil {
+		slog.Warn("Analytics async worker not initialized, dropping event", "event_type", event.EventType)
+		return
+	}
+	select {
+	case eventChan <- event:
+	default:
+		slog.Warn("Analytics event channel full, dropping event", "event_type", event.EventType)
+	}
 }
 
 // GetSummary retrieves analytics summary for a group.

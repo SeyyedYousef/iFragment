@@ -1,4 +1,4 @@
-import { Component, createEffect, createSignal, onCleanup, Show, For } from 'solid-js';
+import { Component, createEffect, createSignal, onCleanup, Show, For, createMemo, onMount } from 'solid-js';
 import { Motion } from '@motionone/solid';
 import { backButton, openTelegramLink, openLink } from '@tma.js/sdk-solid';
 import { useNavigate, useSearchParams } from '@solidjs/router';
@@ -42,7 +42,7 @@ export const PremiumReportPage: Component = () => {
     return status === 402 || /payment[_ ]required/i.test(message);
   };
 
-  createEffect(() => {
+  onMount(() => {
     backButton.show();
     const unsubscribe = backButton.onClick(() => {
       if (window.history.length > 1) navigate(-1);
@@ -106,21 +106,27 @@ export const PremiumReportPage: Component = () => {
     return (ton * rate).toFixed(2);
   };
 
-  const paidSales = () => {
+  const paidSales = createMemo(() => {
     const sales = report.data?.past_sales || [];
     return sales
       .filter((sale): sale is SaleRecord => Number(sale.price) > 0 && !!sale.date)
       .slice()
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  };
+  });
 
-  const chartPoints = () => {
+  const priceStats = createMemo(() => {
     const sales = paidSales();
-    if (sales.length === 0) return '';
+    if (sales.length === 0) return { min: 0, max: 0, span: 1 };
     const prices = sales.map((sale) => sale.price);
     const min = Math.min(...prices);
     const max = Math.max(...prices);
-    const span = max - min || 1;
+    return { min, max, span: max - min || 1 };
+  });
+
+  const chartPoints = createMemo(() => {
+    const sales = paidSales();
+    if (sales.length === 0) return '';
+    const { min, span } = priceStats();
     return sales
       .map((sale, index) => {
         const x = sales.length === 1 ? 160 : 16 + (index / (sales.length - 1)) * 288;
@@ -128,7 +134,7 @@ export const PremiumReportPage: Component = () => {
         return `${x},${y}`;
       })
       .join(' ');
-  };
+  });
 
   const confidencePercent = () => Math.round((report.data?.value_estimate?.confidence || 0) * 100);
 
@@ -432,10 +438,7 @@ export const PremiumReportPage: Component = () => {
                       <For each={paidSales()}>
                         {(sale, index) => {
                           const sales = paidSales();
-                          const prices = sales.map((item) => item.price);
-                          const min = Math.min(...prices);
-                          const max = Math.max(...prices);
-                          const span = max - min || 1;
+                          const { min, span } = priceStats();
                           const x = sales.length === 1 ? 160 : 16 + (index() / (sales.length - 1)) * 288;
                           const y = 112 - ((sale.price - min) / span) * 88;
                           return <circle cx={x} cy={y} r="4" fill="#34c759" stroke="#0a0b0e" stroke-width="2" />;

@@ -777,68 +777,72 @@ func (s *ChannelService) scheduledPostWorker(ctx context.Context) {
 				}
 
 				for _, post := range posts {
-					// P0/P1 distributed locking per post to prevent double posting across multiple worker nodes
-					if cache != nil && cache.Client != nil {
-						postLockKey := fmt.Sprintf("lock:post:%s", post.ID.String())
-						acquired, err := cache.Client.SetNX(ctx, postLockKey, "locked", 5*time.Minute).Result()
-						if err != nil || !acquired {
-							// Post is already being processed or published by another node
-							continue
-						}
-					}
-
-					ch, err := s.channelRepo.GetChannelByID(ctx, post.ChannelID)
-					if err != nil {
-						slog.Error("Failed to fetch channel for scheduled post", "post_id", post.ID, "error", err)
-						continue
-					}
-
-					bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
-					if err != nil {
-						slog.Error("Failed to fetch bot for scheduled post", "post_id", post.ID, "error", err)
-						continue
-					}
-
-					token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-					if err != nil {
-						slog.Error("Failed to decrypt bot token in scheduled post worker", "post_id", post.ID, "error", err)
-						continue
-					}
-
-					tg := telegram.NewBotAPIClient(token)
-					res, err := tg.SendMessageWithResult(ctx, ch.ChatID, post.Text, nil, nil)
-					if err != nil {
-						slog.Error("Failed to send scheduled message via telegram in worker", "post_id", post.ID, "error", err)
+					func(post repository.ChannelPost) {
 						if cache != nil && cache.Client != nil {
-							retryKey := fmt.Sprintf("post_retries:%s", post.ID.String())
-							retries, _ := cache.Client.Incr(ctx, retryKey).Result()
-							if retries >= 3 {
-								slog.Error("Max retries exceeded for scheduled post. Marking as failed.", "post_id", post.ID)
-								_ = s.channelRepo.MarkPostAsPublished(ctx, post.ID, -1) // -1 denotes failure
-								cache.Client.Del(ctx, retryKey)
+							postLockKey := fmt.Sprintf("lock:post:%s", post.ID.String())
+							lockVal := uuid.New().String()
+							acquired, err := cache.Client.SetNX(ctx, postLockKey, lockVal, 5*time.Minute).Result()
+							if err != nil || !acquired {
+								return
 							}
+							defer func() {
+								_ = cache.Client.Eval(ctx, releaseLockLua, []string{postLockKey}, lockVal).Err()
+							}()
 						}
-						continue
-					}
 
-					err = s.channelRepo.MarkPostAsPublished(ctx, post.ID, int64(res.MessageID))
-					if err != nil {
-						slog.Error("Failed to mark scheduled post as published in db", "post_id", post.ID, "error", err)
-						continue
-					}
+						ch, err := s.channelRepo.GetChannelByID(ctx, post.ChannelID)
+						if err != nil {
+							slog.Error("Failed to fetch channel for scheduled post", "post_id", post.ID, "error", err)
+							return
+						}
 
-					// Log background audit
-					meta, _ := json.Marshal(map[string]interface{}{"post_id": post.ID, "message_id": res.MessageID})
-					if auditErr := s.channelRepo.LogAudit(ctx, &repository.ChannelAuditLog{
-						ChannelID: ch.ID,
-						ActorID:   bot.OwnerUserID,
-						Action:    "channel.post.published_scheduled",
-						Metadata:  meta,
-					}); auditErr != nil {
-						slog.Warn("failed to write channel audit log", "action", "channel.post.published_scheduled", "error", auditErr)
-					}
+						bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
+						if err != nil {
+							slog.Error("Failed to fetch bot for scheduled post", "post_id", post.ID, "error", err)
+							return
+						}
 
-					slog.Info("Successfully published scheduled post", "post_id", post.ID, "channel_id", ch.ID)
+						token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+						if err != nil {
+							slog.Error("Failed to decrypt bot token in scheduled post worker", "post_id", post.ID, "error", err)
+							return
+						}
+
+						tg := telegram.NewBotAPIClient(token)
+						res, err := tg.SendMessageWithResult(ctx, ch.ChatID, post.Text, nil, nil)
+						if err != nil {
+							slog.Error("Failed to send scheduled message via telegram in worker", "post_id", post.ID, "error", err)
+							if cache != nil && cache.Client != nil {
+								retryKey := fmt.Sprintf("post_retries:%s", post.ID.String())
+								retries, _ := cache.Client.Incr(ctx, retryKey).Result()
+								if retries >= 3 {
+									slog.Error("Max retries exceeded for scheduled post. Marking as failed.", "post_id", post.ID)
+									_ = s.channelRepo.MarkPostAsPublished(ctx, post.ID, -1) // -1 denotes failure
+									cache.Client.Del(ctx, retryKey)
+								}
+							}
+							return
+						}
+
+						err = s.channelRepo.MarkPostAsPublished(ctx, post.ID, int64(res.MessageID))
+						if err != nil {
+							slog.Error("Failed to mark scheduled post as published in db", "post_id", post.ID, "error", err)
+							return
+						}
+
+						// Log background audit
+						meta, _ := json.Marshal(map[string]interface{}{"post_id": post.ID, "message_id": res.MessageID})
+						if auditErr := s.channelRepo.LogAudit(ctx, &repository.ChannelAuditLog{
+							ChannelID: ch.ID,
+							ActorID:   bot.OwnerUserID,
+							Action:    "channel.post.published_scheduled",
+							Metadata:  meta,
+						}); auditErr != nil {
+							slog.Warn("failed to write channel audit log", "action", "channel.post.published_scheduled", "error", auditErr)
+						}
+
+						slog.Info("Successfully published scheduled post", "post_id", post.ID, "channel_id", ch.ID)
+					}(post)
 				}
 			}()
 		}

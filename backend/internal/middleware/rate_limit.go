@@ -64,24 +64,6 @@ func getUserID(r *http.Request) string {
 						return fmt.Sprintf("%d", claims.UserID)
 					}
 				}
-			}
-		}
-		// Try to parse from X-Telegram-Init-Data header
-		initData := r.Header.Get("X-Telegram-Init-Data")
-		if initData != "" {
-			values, err := url.ParseQuery(initData)
-			if err == nil {
-				userData := values.Get("user")
-				if userData != "" {
-					var user struct {
-						ID int64 `json:"id"`
-					}
-					if err := json.Unmarshal([]byte(userData), &user); err == nil && user.ID != 0 {
-						return fmt.Sprintf("%d", user.ID)
-					}
-				}
-			}
-		}
 		return ""
 	}
 
@@ -125,17 +107,17 @@ func GetRealIP(r *http.Request) string {
 	}
 
 	if isTrusted {
+		if xrip := r.Header.Get("X-Real-IP"); xrip != "" {
+			return strings.TrimSpace(xrip)
+		}
 		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 			parts := strings.Split(xff, ",")
 			if len(parts) > 0 {
-				ip := strings.TrimSpace(parts[0])
+				ip := strings.TrimSpace(parts[len(parts)-1])
 				if ip != "" {
 					return ip
 				}
 			}
-		}
-		if xrip := r.Header.Get("X-Real-IP"); xrip != "" {
-			return strings.TrimSpace(xrip)
 		}
 	}
 

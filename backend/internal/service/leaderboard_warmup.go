@@ -27,11 +27,17 @@ func (s *ProfileService) WarmLeaderboard(ctx context.Context) error {
 
 	const batchSize = 1000
 	batch := make([]redis.Z, 0, batchSize)
+	tempKey := "leaderboard:tmp"
+
+	if s.cache != nil && s.cache.Client != nil {
+		s.cache.Client.Del(ctx, tempKey)
+	}
+
 	flush := func() error {
 		if len(batch) == 0 {
 			return nil
 		}
-		return s.cache.Client.ZAdd(ctx, "leaderboard", batch...).Err()
+		return s.cache.Client.ZAdd(ctx, tempKey, batch...).Err()
 	}
 	for rows.Next() {
 		var uid int64
@@ -50,6 +56,7 @@ func (s *ProfileService) WarmLeaderboard(ctx context.Context) error {
 	if err := flush(); err != nil {
 		return err
 	}
+	s.cache.Client.Rename(ctx, tempKey, "leaderboard")
 	// stamp last-warmed for diagnostics
 	s.cache.Client.Set(ctx, "leaderboard:warmed_at", time.Now().Unix(), 0)
 	return nil

@@ -306,9 +306,12 @@ func (s *ClanService) GetTopClans(ctx context.Context, limit int) ([]model.Clan,
 	}
 
 	query := `
-		SELECT id, telegram_channel_id, channel_username, COALESCE(channel_photo, '') as channel_photo, chat_title, members_count, created_at
-		FROM clans
-		ORDER BY members_count DESC, chat_title ASC
+		SELECT c.id, c.telegram_channel_id, c.channel_username, COALESCE(c.channel_photo, '') as channel_photo, c.chat_title, c.members_count, COALESCE(SUM(b.balance), 0) as total_score, c.created_at
+		FROM clans c
+		LEFT JOIN clan_members cm ON c.id = cm.clan_id
+		LEFT JOIN frg_balances b ON cm.user_id = b.user_id
+		GROUP BY c.id
+		ORDER BY total_score DESC, c.members_count DESC, c.chat_title ASC
 		LIMIT $1
 	`
 	rows, err := s.db.Pool.Query(ctx, query, limit)
@@ -321,7 +324,7 @@ func (s *ClanService) GetTopClans(ctx context.Context, limit int) ([]model.Clan,
 	for rows.Next() {
 		var c model.Clan
 		var channelPhoto sql.NullString
-		err := rows.Scan(&c.ID, &c.TelegramChannelID, &c.ChannelUsername, &channelPhoto, &c.ChatTitle, &c.MembersCount, &c.CreatedAt)
+		err := rows.Scan(&c.ID, &c.TelegramChannelID, &c.ChannelUsername, &channelPhoto, &c.ChatTitle, &c.MembersCount, &c.TotalScore, &c.CreatedAt)
 		if err != nil {
 			return nil, err
 		}

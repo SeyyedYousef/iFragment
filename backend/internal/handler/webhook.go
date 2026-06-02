@@ -167,10 +167,97 @@ type InlineKeyboardMarkup struct {
 	InlineKeyboard [][]InlineKeyboardButton `json:"inline_keyboard"`
 }
 
+// Central Worker Pool configuration for asynchronous webhook execution
+type WebhookJob struct {
+	ctx    context.Context
+	bot    *repository.ManagedBot
+	update *TelegramUpdate
+}
+
+var (
+	jobQueue   chan WebhookJob
+	queueOnce  sync.Once
+	maxWorkers = 50 // Handles extremely high concurrent webhook updates
+)
+
+func initWorkerPool(db *repository.Database, mod *botmgmt.ModeratorService, botRepo *repository.BotRepo, chanServ *channelmgmt.ChannelService) {
+	queueOnce.Do(func() {
+		jobQueue = make(chan WebhookJob, 10000)
+		handler := NewWebhookHandler(db, mod, botRepo, chanServ)
+		for i := 0; i < maxWorkers; i++ {
+			go func() {
+				for job := range jobQueue {
+					func() {
+						defer func() {
+							if r := recover(); r != nil {
+								slog.Error("Worker panic recovered during async webhook execution", "panic", r, "stack", string(debug.Stack()))
+							}
+						}()
+						handler.processUpdateAsync(job.ctx, job.bot, job.update)
+					}()
+				}
+			}()
+		}
+	})
+}
+
+func (h *WebhookHandler) processUpdateAsync(parentCtx context.Context, bot *repository.ManagedBot, update *TelegramUpdate) {
+	defer func() {
+		*update = TelegramUpdate{}
+		telegramUpdatePool.Put(update)
+	}()
+	// Fix Deadlock: Apply strict timeout to background worker
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	cache := h.moderator.GetCache()
+	botIDStr := bot.ID.String()
+	cacheKey := fmt.Sprintf("update:%s:%d", botIDStr, update.UpdateID)
+
+	// Delegate processing to respective sub-handlers in the background worker thread
+	if update.CallbackQuery != nil {
+		h.handleCallbackQuery(ctx, bot, update.CallbackQuery)
+	} else if update.MyChatMember != nil {
+		// Dummy response writer since HTTP transaction already completed
+		dummyWriter := &dummyResponseWriter{}
+		h.handleMyChatMemberUpdate(ctx, bot, update.MyChatMember, dummyWriter)
+	} else if update.ChannelPost != nil {
+		h.handleChannelPost(ctx, bot, update.ChannelPost)
+	} else if update.EditedChannelPost != nil {
+		h.handleChannelPost(ctx, bot, update.EditedChannelPost)
+	} else if update.ChatJoinRequest != nil {
+		h.handleChatJoinRequest(ctx, bot, update.ChatJoinRequest)
+	} else if update.Message != nil {
+		if update.Message.SuccessfulPayment != nil {
+			h.handleSuccessfulPaymentUpdate(ctx, bot, update.Message)
+		} else if len(update.Message.NewChatMembers) > 0 || update.Message.LeftChatMember != nil {
+			h.handleJoinLeaveUpdate(ctx, bot, update.Message)
+		} else {
+			h.handleRegularMessageUpdate(ctx, bot, update.Message)
+		}
+	} else if update.EditedMessage != nil {
+		h.handleRegularMessageUpdate(ctx, bot, update.EditedMessage)
+	}
+
+	// Complete idempotency lock safely post-execution
+	if cache != nil && cache.Client != nil {
+		cache.Client.Set(context.Background(), cacheKey, "processed", 10*time.Minute)
+	}
+}
+
+type dummyResponseWriter struct{}
+func (d *dummyResponseWriter) Header() http.Header { return make(http.Header) }
+func (d *dummyResponseWriter) Write(b []byte) (int, error) { return len(b), nil }
+func (d *dummyResponseWriter) WriteHeader(statusCode int) {}
+
 func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Request) {
+	// Initialize the worker pool exactly once dynamically
+	initWorkerPool(h.db, h.moderator, h.botRepo, h.channelService)
+
 	startTime := time.Now()
 	var webhookStatus = "failed"
 	botIDStr := chi.URLParam(r, "botID")
+	var cacheKey string
 
 	botID, err := uuid.Parse(botIDStr)
 	if err != nil {
@@ -178,8 +265,11 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	// Enforce 25-second hard deadline so Telegram never times out (60s limit).
+	ctx, cancel := context.WithTimeout(r.Context(), 25*time.Second)
+	defer cancel()
+
 	// Verify bot exists (with negative caching and pre-auth token cache checking)
-	ctx := r.Context()
 	cache := h.moderator.GetCache()
 	var bot *repository.ManagedBot
 	var cachedSecret string
@@ -212,7 +302,10 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 			return
 		}
 		if cachedSecret != "" {
-			if len(secretToken) != len(cachedSecret) || subtle.ConstantTimeCompare([]byte(secretToken), []byte(cachedSecret)) != 1 {
+			expectedHash := sha256.Sum256([]byte(cachedSecret))
+			tokenHash := sha256.Sum256([]byte(secretToken))
+			
+			if subtle.ConstantTimeCompare(tokenHash[:], expectedHash[:]) != 1 {
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
@@ -247,7 +340,10 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 			return
 		}
 		if expectedSecret != "" {
-			if len(secretToken) != len(expectedSecret) || subtle.ConstantTimeCompare([]byte(secretToken), []byte(expectedSecret)) != 1 {
+			expectedHash := sha256.Sum256([]byte(expectedSecret))
+			tokenHash := sha256.Sum256([]byte(secretToken))
+			
+			if subtle.ConstantTimeCompare(tokenHash[:], expectedHash[:]) != 1 {
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
@@ -265,16 +361,22 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 	// Central panic recovery and latency telemetry
 	defer func() {
 		duration := time.Since(startTime).Seconds()
-		telemetry.RecordChannelWebhookLatency(botIDStr, webhookStatus, duration)
 
 		if rec := recover(); rec != nil {
 			webhookStatus = "failed"
 			slog.Error("CRITICAL: Panic during webhook processing. Sending to DLQ.", "panic", rec, "bot_id", botIDStr)
+
+			// Release idempotency lock on panic so message can be retried
+			if cacheKey != "" && cache != nil && cache.Client != nil {
+				cache.Client.Del(context.Background(), cacheKey)
+			}
+
 			// Push raw payload to Redis Stream webhook:dlq
 			if cache := h.moderator.GetCache(); cache != nil && cache.Client != nil {
 				errStr := fmt.Sprintf("%v", rec)
 				_, errX := cache.Client.XAdd(context.Background(), &redis.XAddArgs{
 					Stream: "webhook:dlq",
+					MaxLen: 10000,
 					Values: map[string]interface{}{
 						"bot_id":    botIDStr,
 						"payload":   string(bodyBytes),
@@ -288,13 +390,11 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 			}
 			w.WriteHeader(http.StatusInternalServerError)
 		}
+
+		telemetry.RecordChannelWebhookLatency(botIDStr, webhookStatus, duration)
 	}()
 
 	update := telegramUpdatePool.Get().(*TelegramUpdate)
-	defer func() {
-		*update = TelegramUpdate{}
-		telegramUpdatePool.Put(update)
-	}()
 
 	if err := json.Unmarshal(bodyBytes, update); err != nil {
 		slog.Error("Error decoding update", "error", err)
@@ -333,7 +433,7 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 	webhookStatus = "success"
 
 	// 0. Idempotency Check (BUG #16 - Hardened & Improved)
-	cacheKey := fmt.Sprintf("update:%s:%d", botIDStr, update.UpdateID)
+	cacheKey = fmt.Sprintf("update:%s:%d", botIDStr, update.UpdateID)
 	if cache != nil && cache.Client != nil {
 		// Use SETNX as a "processing" lock with 10 minutes TTL to protect long actions
 		locked, err := cache.Client.SetNX(ctx, cacheKey, "processing", 10*time.Minute).Result()
@@ -351,45 +451,23 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 			w.WriteHeader(http.StatusTooManyRequests) // HTTP 429 tells Telegram to retry later
 			return
 		}
-		defer func() {
-			if r := recover(); r != nil {
-				slog.Error("Recovered from panic during webhook processing, releasing idempotency lock", "panic", r, "update_id", update.UpdateID, "bot_id", botIDStr)
-				cache.Client.Del(context.Background(), cacheKey)
-				panic(r)
-			}
-		}()
 	}
 
-	// Delegate processing to respective sub-handlers
-	if update.CallbackQuery != nil {
-		h.handleCallbackQuery(ctx, bot, update.CallbackQuery)
-	} else if update.PreCheckoutQuery != nil {
+	// Process PreCheckout synchronously since Telegram demands an immediate validation return code
+	if update.PreCheckoutQuery != nil {
 		h.handlePreCheckoutUpdate(ctx, bot, update.PreCheckoutQuery)
-	} else if update.MyChatMember != nil {
-		h.handleMyChatMemberUpdate(ctx, bot, update.MyChatMember, w)
-	} else if update.ChannelPost != nil {
-		h.handleChannelPost(ctx, bot, update.ChannelPost)
-	} else if update.EditedChannelPost != nil {
-		h.handleChannelPost(ctx, bot, update.EditedChannelPost)
-	} else if update.ChatJoinRequest != nil {
-		h.handleChatJoinRequest(ctx, bot, update.ChatJoinRequest)
-	} else if update.Message != nil {
-		if update.Message.SuccessfulPayment != nil {
-			h.handleSuccessfulPaymentUpdate(ctx, bot, update.Message)
-		} else if len(update.Message.NewChatMembers) > 0 || update.Message.LeftChatMember != nil {
-			h.handleJoinLeaveUpdate(ctx, bot, update.Message)
-		} else {
-			h.handleRegularMessageUpdate(ctx, bot, update.Message)
-		}
-	} else if update.EditedMessage != nil {
-		h.handleRegularMessageUpdate(ctx, bot, update.EditedMessage)
+		w.WriteHeader(http.StatusOK)
+		return
 	}
 
-	// If everything succeeded, mark as processed
-	if cache != nil && cache.Client != nil {
-		cache.Client.Set(context.Background(), cacheKey, "processed", 10*time.Minute)
+	// Offload all heavy/API-interacting webhooks to our Async Job Queue Worker Pool
+	select {
+	case jobQueue <- WebhookJob{ctx: context.WithoutCancel(ctx), bot: bot, update: update}:
+		w.WriteHeader(http.StatusOK)
+	default:
+		slog.Error("CRITICAL: Webhook job queue full! Webhook dropped.")
+		w.WriteHeader(http.StatusServiceUnavailable)
 	}
-	w.WriteHeader(http.StatusOK)
 }
 
 func (h *WebhookHandler) handlePreCheckoutUpdate(ctx context.Context, bot *repository.ManagedBot, pq *PreCheckoutQuery) {
@@ -440,12 +518,12 @@ func (h *WebhookHandler) handleMyChatMemberUpdate(ctx context.Context, bot *repo
 
 		if newStatus == "left" || newStatus == "kicked" {
 			msg := i18n.T(lang, "notifications.bot_removed", map[string]interface{}{"group": chat.Title})
-			_ = tg.SendMessage(ctx, bot.OwnerUserID, msg, nil, nil)
+			logIfErr(tg.SendMessage(ctx, bot.OwnerUserID, msg, nil, nil), "Failed to send owner bot_removed notification", "owner_id", bot.OwnerUserID)
 		} else if newStatus == "member" && (oldStatus == "administrator" || oldStatus == "creator") {
 			msg := i18n.T(lang, "notifications.admin_revoked_group")
-			_ = tg.SendMessage(ctx, chat.ID, msg, nil, nil)
+			logIfErr(tg.SendMessage(ctx, chat.ID, msg, nil, nil), "Failed to send admin_revoked group message", "chat_id", chat.ID)
 			ownerMsg := i18n.T(lang, "notifications.admin_revoked", map[string]interface{}{"group": chat.Title})
-			_ = tg.SendMessage(ctx, bot.OwnerUserID, ownerMsg, nil, nil)
+			logIfErr(tg.SendMessage(ctx, bot.OwnerUserID, ownerMsg, nil, nil), "Failed to send admin_revoked owner notification", "owner_id", bot.OwnerUserID)
 		}
 	}
 }
@@ -453,60 +531,68 @@ func (h *WebhookHandler) handleMyChatMemberUpdate(ctx context.Context, bot *repo
 func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot *repository.ManagedBot, msg *Message) {
 	pay := msg.SuccessfulPayment
 	slog.Info("Successful payment received for payload", "payload", pay.InvoicePayload)
-	err := h.db.UpdateOrderStatus(ctx, pay.InvoicePayload, "paid", pay.TelegramPaymentChargeID)
-	if err == nil {
-		if strings.HasPrefix(pay.InvoicePayload, "stars_premium_1m:") {
-			parts := strings.Split(pay.InvoicePayload, ":")
-			if len(parts) == 2 {
-				userID, parseErr := strconv.ParseInt(parts[1], 10, 64)
-				if parseErr == nil {
-					_ = h.db.UpdateUserPremium(ctx, userID, 30*24*time.Hour)
-					slog.Info("Granted 30-day Premium access to User via Stars Webhook", "user_id", userID)
 
-					auditRepo := repository.NewAuditRepo(h.db)
-					targetType := "user"
-					targetID := strconv.FormatInt(userID, 10)
-					_ = auditRepo.Log(ctx, &repository.AuditLog{
-						ActorID:    userID,
-						Action:     "premium.grant",
-						TargetType: &targetType,
-						TargetID:   &targetID,
-					})
+	if strings.HasPrefix(pay.InvoicePayload, "stars_premium_1m:") {
+		parts := strings.Split(pay.InvoicePayload, ":")
+		if len(parts) == 2 {
+			userID, parseErr := strconv.ParseInt(parts[1], 10, 64)
+			if parseErr == nil {
+				err := h.db.CompleteStarsPremiumPayment(ctx, pay.InvoicePayload, pay.TelegramPaymentChargeID, userID, 30*24*time.Hour)
+				if err != nil {
+					slog.Error("CRITICAL: Failed to complete Stars premium payment atomically", "error", err, "user_id", userID, "payload", pay.InvoicePayload)
+					return
 				}
+				slog.Info("Granted 30-day Premium access to User via Stars Webhook", "user_id", userID)
+
+				auditRepo := repository.NewAuditRepo(h.db)
+				targetType := "user"
+				targetID := strconv.FormatInt(userID, 10)
+				_ = auditRepo.Log(ctx, &repository.AuditLog{
+					ActorID:    userID,
+					Action:     "premium.grant",
+					TargetType: &targetType,
+					TargetID:   &targetID,
+				})
 			}
-		} else if strings.HasPrefix(pay.InvoicePayload, "report_pay:") {
-			parts := strings.Split(pay.InvoicePayload, ":")
-			if len(parts) == 3 {
-				userID, parseErr := strconv.ParseInt(parts[1], 10, 64)
-				username := parts[2]
-				if parseErr == nil && username != "" {
-					auditRepo := repository.NewAuditRepo(h.db)
-					targetType := "username"
-					_ = auditRepo.Log(ctx, &repository.AuditLog{
-						ActorID:    userID,
-						Action:     "report.payment.success",
-						TargetType: &targetType,
-						TargetID:   &username,
-					})
-					appURL := os.Getenv("APP_URL")
-					if appURL == "" {
-						appURL = "https://t.me/ifragment_bot/app"
-					}
-					reportURL := fmt.Sprintf("%s?startapp=username_%s", appURL, username)
-					tg, _ := h.moderator.GetTelegramClient(ctx, bot)
-					_ = tg.SendMessage(ctx, userID, fmt.Sprintf("Payment received. Your @%s report is unlocked:\n%s", username, reportURL), nil, nil)
-				}
-			}
-		} else {
-			// Payment Notification
-			ownerLang, _ := h.db.GetUserLanguage(ctx, bot.OwnerUserID)
-			lang := i18n.DetectLanguage(ownerLang)
-			tg, _ := h.moderator.GetTelegramClient(ctx, bot)
-			msgText := i18n.T(lang, "notifications.payment_success", map[string]interface{}{"date": time.Now().Add(30 * 24 * time.Hour).Format("2006-01-02")})
-			_ = tg.SendMessage(ctx, bot.OwnerUserID, msgText, nil, nil)
 		}
 	} else {
-		slog.Error("Failed to update order status", "error", err)
+		// Non-premium payments: update order status normally
+		err := h.db.UpdateOrderStatus(ctx, pay.InvoicePayload, "paid", pay.TelegramPaymentChargeID)
+		if err == nil {
+			if strings.HasPrefix(pay.InvoicePayload, "report_pay:") {
+				parts := strings.Split(pay.InvoicePayload, ":")
+				if len(parts) == 3 {
+					userID, parseErr := strconv.ParseInt(parts[1], 10, 64)
+					username := parts[2]
+					if parseErr == nil && username != "" {
+						auditRepo := repository.NewAuditRepo(h.db)
+						targetType := "username"
+						_ = auditRepo.Log(ctx, &repository.AuditLog{
+							ActorID:    userID,
+							Action:     "report.payment.success",
+							TargetType: &targetType,
+							TargetID:   &username,
+						})
+						appURL := os.Getenv("APP_URL")
+						if appURL == "" {
+							appURL = "https://t.me/ifragment_bot/app"
+						}
+						reportURL := fmt.Sprintf("%s?startapp=username_%s", appURL, username)
+						tg, _ := h.moderator.GetTelegramClient(ctx, bot)
+						_ = tg.SendMessage(ctx, userID, fmt.Sprintf("Payment received. Your @%s report is unlocked:\n%s", username, reportURL), nil, nil)
+					}
+				}
+			} else {
+				// Payment Notification
+				ownerLang, _ := h.db.GetUserLanguage(ctx, bot.OwnerUserID)
+				lang := i18n.DetectLanguage(ownerLang)
+				tg, _ := h.moderator.GetTelegramClient(ctx, bot)
+				msgText := i18n.T(lang, "notifications.payment_success", map[string]interface{}{"date": time.Now().Add(30 * 24 * time.Hour).Format("2006-01-02")})
+				_ = tg.SendMessage(ctx, bot.OwnerUserID, msgText, nil, nil)
+			}
+		} else {
+			slog.Error("Failed to update order status", "error", err)
+		}
 	}
 }
 
@@ -554,7 +640,11 @@ func (h *WebhookHandler) handleJoinLeaveUpdate(ctx context.Context, bot *reposit
 
 			if nonBotCount > 0 && msg.From != nil && h.moderator.GetCache() != nil && h.moderator.GetCache().Client != nil {
 				key := fmt.Sprintf("invites:%s:%d", group.ID, msg.From.ID)
-				h.moderator.GetCache().Client.IncrBy(ctx, key, int64(nonBotCount))
+				cacheClient := h.moderator.GetCache().Client
+				total, _ := cacheClient.IncrBy(ctx, key, int64(nonBotCount)).Result()
+				if total == int64(nonBotCount) {
+					cacheClient.Expire(ctx, key, 30*24*time.Hour)
+				}
 			}
 
 			h.handleWelcomeMessage(ctx, msg)
@@ -766,6 +856,9 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 	if cache != nil && cache.Client != nil {
 		totalKey := fmt.Sprintf("total_msgs:%d", msg.Chat.ID)
 		total, _ := cache.Client.Incr(ctx, totalKey).Result()
+		if total == 1 {
+			cache.Client.Expire(ctx, totalKey, 90*24*time.Hour)
+		}
 		if total == 1000 || total == 10000 || total == 100000 {
 			botToken, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 			tg := telegram.NewBotAPIClient(botToken)
@@ -884,14 +977,26 @@ func (h *WebhookHandler) executeViolationAction(ctx context.Context, chatID int6
 	switch {
 	case strings.HasPrefix(violation.Action, "mute"):
 		_ = tgClient.RestrictChatMember(ctx, chatID, userID, until)
-		h.sendBotMessage(ctx, tgClient, chatID, fmt.Sprintf("🔇 User restricted for %s due to: %s", durationText, penaltyMsg), nil, threadID, general)
+		msg := i18n.T(lang, "penalty.mute", map[string]interface{}{"duration": durationText, "reason": penaltyMsg})
+		if msg == "" || msg == "penalty.mute" {
+			msg = fmt.Sprintf("🔇 User restricted for %s due to: %s", durationText, penaltyMsg)
+		}
+		h.sendBotMessage(ctx, tgClient, chatID, msg, nil, threadID, general)
 	case violation.Action == "kick":
 		_ = tgClient.BanChatMember(ctx, chatID, userID, time.Now().Add(30*time.Second).Unix(), false)
 		_ = tgClient.UnbanChatMember(ctx, chatID, userID, true)
-		h.sendBotMessage(ctx, tgClient, chatID, fmt.Sprintf("👢 User kicked due to: %s", penaltyMsg), nil, threadID, general)
+		msg := i18n.T(lang, "penalty.kick", map[string]interface{}{"reason": penaltyMsg})
+		if msg == "" || msg == "penalty.kick" {
+			msg = fmt.Sprintf("👢 User kicked due to: %s", penaltyMsg)
+		}
+		h.sendBotMessage(ctx, tgClient, chatID, msg, nil, threadID, general)
 	case violation.Action == "ban":
 		_ = tgClient.BanChatMember(ctx, chatID, userID, 0, false)
-		h.sendBotMessage(ctx, tgClient, chatID, fmt.Sprintf("🚫 User banned due to: %s", penaltyMsg), nil, threadID, general)
+		msg := i18n.T(lang, "penalty.ban", map[string]interface{}{"reason": penaltyMsg})
+		if msg == "" || msg == "penalty.ban" {
+			msg = fmt.Sprintf("🚫 User banned due to: %s", penaltyMsg)
+		}
+		h.sendBotMessage(ctx, tgClient, chatID, msg, nil, threadID, general)
 	case violation.Action == "delete":
 		if violation.CurrentWarnings > 0 && general.WarningMessage {
 			h.sendBotMessage(ctx, tgClient, chatID, fmt.Sprintf("⚠️ %s", penaltyMsg), nil, threadID, general)
@@ -900,8 +1005,7 @@ func (h *WebhookHandler) executeViolationAction(ctx context.Context, chatID int6
 }
 
 func (h *WebhookHandler) answerPreCheckout(botToken string, id string, ok bool, errorMessage string) {
-	url := fmt.Sprintf("https://api.telegram.org/bot%s/answerPreCheckoutQuery", botToken)
-
+	tg := telegram.NewBotAPIClient(botToken)
 	payload := map[string]interface{}{
 		"pre_checkout_query_id": id,
 		"ok":                    ok,
@@ -909,15 +1013,12 @@ func (h *WebhookHandler) answerPreCheckout(botToken string, id string, ok bool, 
 	if !ok {
 		payload["error_message"] = errorMessage
 	}
-
-	jsonBody, _ := json.Marshal(payload)
-	resp, err := webhookHTTPClient.Post(url, "application/json", bytes.NewBuffer(jsonBody))
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	_, err := tg.Request(ctx, "answerPreCheckoutQuery", payload)
 	if err != nil {
-		slog.Error("Failed to answer pre-checkout", "error", err)
-		return
+		slog.Error("CRITICAL: Failed to answer pre-checkout query", "error", err, "query_id", id)
 	}
-	defer resp.Body.Close()
-	_, _ = io.Copy(io.Discard, resp.Body)
 }
 
 func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *repository.ManagedBot, m *Message) {
@@ -932,6 +1033,17 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 		parts := strings.Split(m.Text, " ")
 		if len(parts) > 1 {
 			startParam = parts[1]
+		}
+
+		// Sanitize startParam: allow only alphanumeric, underscore, hyphen (Telegram spec)
+		if startParam != "" {
+			sanitized := make([]byte, 0, len(startParam))
+			for _, char := range []byte(startParam) {
+				if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') || char == '_' || char == '-' {
+					sanitized = append(sanitized, char)
+				}
+			}
+			startParam = string(sanitized)
 		}
 
 		targetURL := appURL
@@ -1065,11 +1177,16 @@ func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *reposit
 			msg3, _ := tg.SendMessageWithResult(ctx, chat.ID, setupMsg, nil, nil)
 			if msg3 != nil { msgIDs = append(msgIDs, msg3.MessageID) }
 
-			// Auto-delete after 2 minutes (P3-B2)
-			time.Sleep(2 * time.Minute)
-			for _, mid := range msgIDs {
-				_ = tg.DeleteMessage(ctx, chat.ID, mid)
-			}
+			// Auto-delete after 2 minutes without blocking the goroutine or holding the semaphore
+			chatID := chat.ID
+			capturedMsgIDs := make([]int, len(msgIDs))
+			copy(capturedMsgIDs, msgIDs)
+			time.AfterFunc(2*time.Minute, func() {
+				bgCtx := context.Background()
+				for _, mid := range capturedMsgIDs {
+					_ = tg.DeleteMessage(bgCtx, chatID, mid)
+				}
+			})
 		})
 		return true
 	default:
@@ -1326,7 +1443,7 @@ func (h *WebhookHandler) adminRules(ctx context.Context, tg *telegram.BotAPIClie
 }
 
 func (h *WebhookHandler) adminReport(ctx context.Context, tg *telegram.BotAPIClient, m *Message, ownerID int64) bool {
-	if m.ReplyToMessage == nil { return false }
+	if m.ReplyToMessage == nil || m.ReplyToMessage.From == nil { return false }
 	
 	reportMsg := fmt.Sprintf("🚨 *Report Received*\n\nGroup: %s\nReporter: %d\nOffender: %d\nMessage: [Link](https://t.me/c/%s/%d)", 
 		m.Chat.Title, m.From.ID, m.ReplyToMessage.From.ID, strings.TrimPrefix(fmt.Sprintf("%d", m.Chat.ID), "-100"), m.ReplyToMessage.MessageID)
@@ -1780,17 +1897,31 @@ func (h *WebhookHandler) handleJoinCaptcha(ctx context.Context, m *Message, user
 	// 1. Restrict member
 	_ = tg.RestrictChatMember(ctx, m.Chat.ID, user.ID, 0)
 
+	// Detect language from group settings
+	lang := "en"
+	if general.Language != "" {
+		lang = general.Language
+	}
+
+	btnText := i18n.T(lang, "captcha.verify_button")
+	if btnText == "" || btnText == "captcha.verify_button" {
+		btnText = "✅ I am not a robot"
+	}
+
 	// 2. Send Captcha
 	markup := map[string]interface{}{
 		"inline_keyboard": [][]map[string]interface{}{
 			{{
-				"text":          "✅ I am not a robot",
+				"text":          btnText,
 				"callback_data": fmt.Sprintf("captcha:%d", user.ID),
 			}},
 		},
 	}
 	
-	welcome := fmt.Sprintf("👋 Welcome [%s](tg://user?id=%d)!\n\nPlease click the button below to verify you are human.", user.FirstName, user.ID)
+	welcome := i18n.T(lang, "captcha.welcome_msg", map[string]interface{}{"name": user.FirstName, "id": user.ID})
+	if welcome == "" || welcome == "captcha.welcome_msg" {
+		welcome = fmt.Sprintf("👋 Welcome [%s](tg://user?id=%d)!\n\nPlease click the button below to verify you are human.", user.FirstName, user.ID)
+	}
 	captchaMsg, sendErr := tg.SendMessageWithMarkup(ctx, m.Chat.ID, welcome, markup, m.MessageThreadID)
 	if sendErr == nil && captchaMsg != nil {
 		cache := h.moderator.GetCache()
@@ -2083,8 +2214,11 @@ func (h *WebhookHandler) handleChatJoinRequest(ctx context.Context, bot *reposit
 		// Premium requirement notification (Enhancing User Experience)
 		tg, err := h.moderator.GetTelegramClient(ctx, bot)
 		if err == nil {
-			// Notify user in direct message about requirements to join
-			rejectMsg := fmt.Sprintf("⚠️ درخواست عضویت شما در کانال %s به دلیل عدم داشتن اکانت Premium پذیرفته نشد. لطفاً شرایط کانال را مجدداً بررسی کنید.", ch.ChatTitle)
+			userLang := i18n.DetectLanguage(req.From.LanguageCode)
+			rejectMsg := i18n.T(userLang, "channel.join_request_rejected_premium", map[string]interface{}{"channel": ch.ChatTitle})
+			if rejectMsg == "" || rejectMsg == "channel.join_request_rejected_premium" {
+				rejectMsg = fmt.Sprintf("⚠️ درخواست عضویت شما در کانال %s به دلیل عدم داشتن اکانت Premium پذیرفته نشد. لطفاً شرایط کانال را مجدداً بررسی کنید.", ch.ChatTitle)
+			}
 			_ = tg.SendMessage(ctx, req.From.ID, rejectMsg, nil, nil)
 		}
 		
@@ -2128,4 +2262,12 @@ func GoSafe(fn func()) {
 		}()
 		fn()
 	}()
+}
+
+// logIfErr logs non-nil errors at warn level to avoid silent swallowing.
+func logIfErr(err error, msg string, args ...interface{}) {
+	if err != nil {
+		allArgs := append([]interface{}{"error", err}, args...)
+		slog.Warn(msg, allArgs...)
+	}
 }

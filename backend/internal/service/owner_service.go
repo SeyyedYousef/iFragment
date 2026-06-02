@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"os"
 	"regexp"
@@ -65,14 +66,20 @@ func (s *OwnerService) Authenticate(ctx context.Context, telegramUserID int64, c
 		ipLockKey := fmt.Sprintf("owner:login:attempts:ip:%s", ip)
 		userLockKey := fmt.Sprintf("owner:login:attempts:user:%d", telegramUserID)
 
-		attemptsIP, _ := s.cache.Client.Get(ctx, ipLockKey).Int64()
-		if attemptsIP >= 5 {
-			return "", errors.New("too many login attempts from this IP; locked temporarily for 15 minutes")
-		}
-
-		attemptsUser, _ := s.cache.Client.Get(ctx, userLockKey).Int64()
-		if attemptsUser >= 5 {
-			return "", errors.New("too many login attempts for this account; locked temporarily for 15 minutes")
+		pipe := s.cache.Client.Pipeline()
+		ipIncr := pipe.Incr(ctx, ipLockKey)
+		pipe.Expire(ctx, ipLockKey, 15*time.Minute)
+		userIncr := pipe.Incr(ctx, userLockKey)
+		pipe.Expire(ctx, userLockKey, 15*time.Minute)
+		_, err := pipe.Exec(ctx)
+		
+		if err == nil {
+			if ipIncr.Val() > 5 {
+				return "", errors.New("too many login attempts from this IP; locked temporarily for 15 minutes")
+			}
+			if userIncr.Val() > 5 {
+				return "", errors.New("too many login attempts for this account; locked temporarily for 15 minutes")
+			}
 		}
 	}
 
@@ -117,18 +124,6 @@ func (s *OwnerService) Authenticate(ctx context.Context, telegramUserID int64, c
 
 	// 5. Verify TOTP Code
 	if !totp.ValidateTOTP(code, o.TotpSecret) {
-		// Increment failed login counters on failure
-		if s.cache != nil && s.cache.Client != nil {
-			ipLockKey := fmt.Sprintf("owner:login:attempts:ip:%s", ip)
-			userLockKey := fmt.Sprintf("owner:login:attempts:user:%d", telegramUserID)
-
-			pipe := s.cache.Client.Pipeline()
-			pipe.Incr(ctx, ipLockKey)
-			pipe.Expire(ctx, ipLockKey, 15*time.Minute)
-			pipe.Incr(ctx, userLockKey)
-			pipe.Expire(ctx, userLockKey, 15*time.Minute)
-			_, _ = pipe.Exec(ctx)
-		}
 		return "", errors.New("invalid TOTP code")
 	}
 
@@ -233,6 +228,10 @@ func (s *OwnerService) AdjustFRG(ctx context.Context, ownerID int64, targetUserI
 	}
 	if ownerRole == nil {
 		return 0, errors.New("unauthorized: caller is not a registered owner")
+	}
+
+	if math.IsNaN(amount) || math.IsInf(amount, 0) {
+		return 0, errors.New("invalid adjustment amount")
 	}
 
 	var maxLimit float64
@@ -470,8 +469,8 @@ func (s *OwnerService) CreatePromoCode(ctx context.Context, ownerID int64, code 
 	if !promoCodeRe.MatchString(strings.ToUpper(code)) {
 		return errors.New("code must be 4-20 alphanumeric characters")
 	}
-	if amount <= 0 || amount > 100000 {
-		return errors.New("reward_amount must be between 0 and 100000")
+	if math.IsNaN(amount) || math.IsInf(amount, 0) || amount <= 0 || amount > 100000 {
+		return errors.New("reward_amount must be valid and between 0 and 100000")
 	}
 	if maxUses <= 0 || maxUses > 1000000 {
 		return errors.New("max_uses must be between 0 and 1000000")

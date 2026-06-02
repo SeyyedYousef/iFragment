@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"ifragment-backend/internal/repository"
 	"log/slog"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -42,11 +41,8 @@ func ValidateTelegramInitData(cache *repository.Cache) func(http.Handler) http.H
 				return
 			}
 
-			// Clean IP extraction without dynamic ports (for both IPv4 & IPv6)
-			ip, _, err := net.SplitHostPort(r.RemoteAddr)
-			if err != nil {
-				ip = r.RemoteAddr
-			}
+			// Standardize using secure trusted proxy ClientIP extraction
+			ip := GetRealIP(r)
 
 			ctx := r.Context()
 			if cache != nil && cache.Client != nil {
@@ -58,7 +54,8 @@ func ValidateTelegramInitData(cache *repository.Cache) func(http.Handler) http.H
 			}
 
 			// Development bypass check
-			if allowDevBypass && initData == "dev-user" {
+			isDevEnv := os.Getenv("APP_ENV") != "production"
+			if allowDevBypass && isDevEnv && initData == "dev-user" {
 				ctx := context.WithValue(r.Context(), UserContextKey, map[string]interface{}{"id": int64(12345), "username": "testuser"})
 				next.ServeHTTP(w, r.WithContext(ctx))
 				return
@@ -189,8 +186,8 @@ func validate(initData, botToken string) error {
 		return fmt.Errorf("invalid auth_date")
 	}
 	now := time.Now().Unix()
-	if now-authDate > 86400 || authDate-now > 300 {
-		return fmt.Errorf("init data expired or invalid clock skew")
+	if now-authDate > 7200 || authDate-now > 300 {
+		return fmt.Errorf("init data expired (max 2h) or invalid clock skew")
 	}
 
 	return nil
@@ -199,7 +196,8 @@ func validate(initData, botToken string) error {
 // VerifyInitDataAndExtractUserID cryptographically validates Telegram's initData signature using BOT_TOKEN and returns the user ID.
 func VerifyInitDataAndExtractUserID(initData string) (int64, error) {
 	// Development bypass check
-	if allowDevBypass && initData == "dev-user" {
+	isDevEnv := os.Getenv("APP_ENV") != "production"
+	if allowDevBypass && isDevEnv && initData == "dev-user" {
 		return 12345, nil
 	}
 
