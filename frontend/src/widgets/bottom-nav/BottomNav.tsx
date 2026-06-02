@@ -20,12 +20,24 @@ export const BottomNav: Component = () => {
       >
         <div class={`w-18 h-18 rounded-full backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.3)] border-[3px] flex items-center justify-center overflow-hidden transition-all bg-[#1c1c1c]/90 ${isActive('/profile') ? 'border-[#3390ec]' : 'border-[#2a2a2a]'} `}>
           {initData.user()?.photo_url ? (
-            <img 
-              alt="Profile" 
-              class="w-full h-full object-cover" 
-              src={initData.user()!.photo_url} 
-              loading="lazy"
-            />
+            <>
+              <img 
+                alt="Profile" 
+                class="w-full h-full object-cover" 
+                src={initData.user()!.photo_url} 
+                loading="lazy"
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  if (e.currentTarget.nextElementSibling) {
+                    (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+                  }
+                }}
+              />
+              <div class="w-full h-full hidden items-center justify-center bg-gradient-to-br from-[#3390ec] to-[#34c759] text-white font-black text-xl">
+                {initData.user()?.first_name ? initData.user()!.first_name[0].toUpperCase() : 'U'}
+              </div>
+            </>
           ) : (
             <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#3390ec] to-[#34c759] text-white font-black text-xl">
               {initData.user()?.first_name ? initData.user()!.first_name[0].toUpperCase() : 'U'}

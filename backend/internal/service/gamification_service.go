@@ -88,13 +88,13 @@ var dailyRewards = map[int]struct {
 	Frg float64
 	Xp  int
 }{
-	1: {Frg: 500, Xp: 10},
-	2: {Frg: 1000, Xp: 20},
-	3: {Frg: 2500, Xp: 50},
-	4: {Frg: 5000, Xp: 100},
-	5: {Frg: 10000, Xp: 200},
-	6: {Frg: 15000, Xp: 300},
-	7: {Frg: 25000, Xp: 500},
+	1: {Frg: 0.5, Xp: 10},
+	2: {Frg: 1.0, Xp: 20},
+	3: {Frg: 2.5, Xp: 50},
+	4: {Frg: 5.0, Xp: 100},
+	5: {Frg: 10.0, Xp: 200},
+	6: {Frg: 15.0, Xp: 300},
+	7: {Frg: 25.0, Xp: 500},
 }
 
 // GetDailyStatus returns status of daily calendar claims
@@ -540,17 +540,17 @@ func (s *GamificationService) GetBoostsStatus(ctx context.Context, userID int64)
 		return nil, err
 	}
 
-	// Multi-tap pricing: Level * 2000 FRG. Max Level: 10
+	// Multi-tap pricing: Level * 2.0 FRG. Max Level: 10
 	mtMax := boosts.MultitapLevel >= 10
-	mtPrice := float64(boosts.MultitapLevel) * 2000.0
+	mtPrice := float64(boosts.MultitapLevel) * 2.0
 
-	// Energy Limit pricing: Level * 1500 FRG. Max Level: 10
+	// Energy Limit pricing: Level * 1.5 FRG. Max Level: 10
 	elMax := boosts.EnergyLimitLevel >= 10
-	elPrice := float64(boosts.EnergyLimitLevel) * 1500.0
+	elPrice := float64(boosts.EnergyLimitLevel) * 1.5
 
 	// Tap Bot: Level 0 (not bought) to 1 (bought). Max Level: 1
 	tbMax := boosts.TapBotLevel >= 1
-	tbPrice := 20000.0
+	tbPrice := 20.0
 
 	return []BoostInfo{
 		{
@@ -631,15 +631,15 @@ func (s *GamificationService) UpgradeBoost(ctx context.Context, userID int64, bo
 	switch boostType {
 	case "multitap":
 		nextLevel = boosts.MultitapLevel + 1
-		priceFrg = float64(boosts.MultitapLevel) * 2000.0
+		priceFrg = float64(boosts.MultitapLevel) * 2.0
 		maxLevel = boosts.MultitapLevel >= 10
 	case "energy_limit":
 		nextLevel = boosts.EnergyLimitLevel + 1
-		priceFrg = float64(boosts.EnergyLimitLevel) * 1500.0
+		priceFrg = float64(boosts.EnergyLimitLevel) * 1.5
 		maxLevel = boosts.EnergyLimitLevel >= 10
 	case "tap_bot":
 		nextLevel = boosts.TapBotLevel + 1
-		priceFrg = 20000.0
+		priceFrg = 20.0
 		maxLevel = boosts.TapBotLevel >= 1
 	default:
 		return nil, fmt.Errorf("invalid boost type")

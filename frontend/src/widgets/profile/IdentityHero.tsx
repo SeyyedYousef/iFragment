@@ -116,7 +116,22 @@ export const IdentityHero: Component<Props> = (props) => {
                   {user?.first_name ? user.first_name[0].toUpperCase() : 'U'}
                 </div>
               }>
-                <img src={user!.photo_url!} alt="Profile" class="w-full h-full rounded-full object-cover" loading="lazy" />
+                <img 
+                  src={user!.photo_url!} 
+                  alt="Profile" 
+                  class="w-full h-full rounded-full object-cover" 
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    if (e.currentTarget.nextElementSibling) {
+                      (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+                    }
+                  }}
+                />
+                <div class="w-full h-full rounded-full hidden items-center justify-center bg-gradient-to-br from-[#3390ec] to-[#34c759] text-white font-black text-3xl">
+                  {user?.first_name ? user.first_name[0].toUpperCase() : 'U'}
+                </div>
               </Show>
             </div>
           </div>

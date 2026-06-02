@@ -480,7 +480,7 @@ export const MarketplacePage: Component = () => {
             <div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-5 space-y-4">
               <div class="flex flex-col gap-1">
                 <span class="text-[15px] font-bold text-white">🪂 Convert Airdrop Coins</span>
-                <span class="text-[12px] text-[#8e8e93]">Convert your mined coins to FRG tokens. Rate: 100 coins = 1 FRG ($1)</span>
+                <span class="text-[12px] text-[#8e8e93]">Convert your mined coins to FRG tokens. Rate: 1,000 coins = 1 FRG ($1)</span>
               </div>
 
               <div class="bg-[#2c2c2e] rounded-2xl p-4 flex items-center gap-3">

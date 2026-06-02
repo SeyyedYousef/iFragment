@@ -406,7 +406,7 @@ func (db *Database) GetReferralData(ctx context.Context, userID int64) (*model.R
 					Earned:   earned,
 				})
 				totalInvited++
-				totalEarned += 10000 // referrer gets 10000 FRG per friend
+				totalEarned += 10.0 // referrer gets 10 FRG per friend visually for metrics
 			}
 		}
 		return nil
@@ -504,11 +504,11 @@ func GetXPToNextLevel(level int) int {
 
 // PredefinedCosmetics holds all profile cosmetic shop items
 var PredefinedCosmetics = []model.CosmeticItem{
-	{ID: "gold_shimmer", Type: "border", Name: "Gold Shimmer", Cost: 10000, BorderClass: "border-gold-shimmer"},
-	{ID: "cyber_glow", Type: "border", Name: "Cyber Glow", Cost: 25000, BorderClass: "border-cyber-glow"},
-	{ID: "rainbow_wave", Type: "border", Name: "Rainbow Wave", Cost: 50000, BorderClass: "border-rainbow-wave"},
-	{ID: "cosmic_void", Type: "skin", Name: "Cosmic Void", Cost: 20000, SkinClass: "bg-cosmic-void"},
-	{ID: "neon_matrix", Type: "skin", Name: "Neon Matrix", Cost: 35000, SkinClass: "bg-neon-matrix"},
+	{ID: "gold_shimmer", Type: "border", Name: "Gold Shimmer", Cost: 10.0, BorderClass: "border-gold-shimmer"},
+	{ID: "cyber_glow", Type: "border", Name: "Cyber Glow", Cost: 25.0, BorderClass: "border-cyber-glow"},
+	{ID: "rainbow_wave", Type: "border", Name: "Rainbow Wave", Cost: 50.0, BorderClass: "border-rainbow-wave"},
+	{ID: "cosmic_void", Type: "skin", Name: "Cosmic Void", Cost: 20.0, SkinClass: "bg-cosmic-void"},
+	{ID: "neon_matrix", Type: "skin", Name: "Neon Matrix", Cost: 35.0, SkinClass: "bg-neon-matrix"},
 }
 
 // GetCosmetics gets all cosmetics indicating which ones are purchased by the user

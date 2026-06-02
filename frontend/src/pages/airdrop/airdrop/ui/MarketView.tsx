@@ -10,7 +10,7 @@ const isRtl = () => locale() === 'fa';
 export const MarketView: Component = () => {
   const [amount, setAmount] = createSignal('');
   const [loading, setLoading] = createSignal(false);
-  const RATE = 100000;
+  const RATE = 1000;
 
   const frgAmount = () => {
     const num = parseInt(amount());

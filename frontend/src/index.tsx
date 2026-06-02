@@ -136,22 +136,7 @@ if ('serviceWorker' in navigator && !import.meta.env.DEV) {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!refreshing) {
       refreshing = true;
-      // P1-UX2: Show non-intrusive update banner instead of abrupt reload
-      const banner = document.createElement('div');
-      banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;padding:12px 16px;background:linear-gradient(135deg,#3390ec,#2b7bc9);color:white;text-align:center;z-index:9999;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 -4px 20px rgba(0,0,0,0.3);';
-      
-      const text = document.createElement('span');
-      text.textContent = '🚀 A new version is available';
-      
-      const btn = document.createElement('button');
-      btn.textContent = 'Update Now';
-      btn.style.cssText = 'background:white;color:#3390ec;border:none;padding:6px 16px;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;transition:transform 0.1s;';
-      btn.onmousedown = () => { btn.style.transform = 'scale(0.95)'; };
-      btn.onmouseup = () => { btn.style.transform = 'scale(1)'; };
-      btn.onclick = () => window.location.reload();
-      
-      banner.append(text, btn);
-      document.body.appendChild(banner);
+      window.location.reload();
     }
   });
 }
