@@ -2,11 +2,9 @@ package middleware
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -64,6 +62,8 @@ func getUserID(r *http.Request) string {
 						return fmt.Sprintf("%d", claims.UserID)
 					}
 				}
+			}
+		}
 		return ""
 	}
 
