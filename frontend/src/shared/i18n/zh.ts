@@ -339,7 +339,18 @@ export const dict = {
       "members": "成员",
       "pool": "挖掘池",
       "weeklyBattle": "每周部落战",
-      "clanBonus": "部落奖金"
+      "clanBonus": "部落奖金",
+      "channelPrompt": "输入您的 Telegram 频道用户名或目标频道（例如：@durov 或 durov）：",
+      "searchAndJoin": "搜索并加入",
+      "leaveClan": "退出公会",
+      "noClans": "暂无已注册的公会。",
+      "membersLabel": "成员",
+      "clanStatus": "公会状态",
+      "active": "活跃",
+      "joinFailed": "搜索/加入公会失败",
+      "noClanTitle": "无部落（点击加入）",
+      "noClanDesc": "创建或加入部落进行团队挖掘！",
+      "myClan": "我的部落"
     },
     "leaderboard": {
       "label": "顶级矿工",

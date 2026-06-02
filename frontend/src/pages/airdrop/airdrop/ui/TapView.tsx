@@ -21,13 +21,11 @@ export const TapView: Component = () => {
   const activeTimers = new Set<ReturnType<typeof setTimeout>>();
   const particles: CanvasParticle[] = [];
   let lastHapticAt = 0;
-  let cachedRect = { left: 0, top: 0, width: 340, height: 340 };
 
   onMount(() => {
     if (buttonRef) {
       const ro = new ResizeObserver(() => {
         const rect = buttonRef.getBoundingClientRect();
-        cachedRect = { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
         if (canvasRef.width !== rect.width || canvasRef.height !== rect.height) {
           canvasRef.width = rect.width;
           canvasRef.height = rect.height;
@@ -102,8 +100,9 @@ export const TapView: Component = () => {
     const power = tapPower();
     recordTaps(1);
 
-    const x = e.clientX - cachedRect.left;
-    const y = e.clientY - cachedRect.top;
+    const rect = buttonRef.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
 
     // Push new particle into zero-allocation thread safe Canvas rendering pipeline
     particles.push({

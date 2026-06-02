@@ -55,19 +55,26 @@ export const ChannelDashboardPage: Component = () => {
     <div class="min-h-screen bg-[#0f1014] pb-24 relative overflow-x-hidden text-white">
       {/* Header */}
       <div class="px-5 pt-6 pb-4 flex items-center justify-between relative z-30 bg-[#0f1014] sticky top-0 border-b border-[#1c1c1c]">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] relative">
+        <div class="flex items-center gap-2 overflow-hidden">
+          <button 
+            onClick={() => { hapticFeedback.impactOccurred('light'); window.history.back(); }}
+            class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-90 transition-all shrink-0"
+            aria-label="Back"
+          >
+            <span class="material-symbols-outlined text-white text-[20px] rtl:-scale-x-100">arrow_back</span>
+          </button>
+          <div class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] relative shrink-0">
             <span class="text-sm font-bold text-[#32ade6]">{channel()?.chat_title?.charAt(0) || 'C'}</span>
             <div class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-[#34c759] border-2 border-[#0f1014] rounded-full"></div>
           </div>
-          <div class="flex flex-col">
+          <div class="flex flex-col overflow-hidden">
             <div class="flex items-center gap-2">
-              <h1 class="text-[16px] font-bold text-white leading-tight truncate max-w-[130px]">
+              <h1 class="text-[15px] font-bold text-white leading-tight truncate max-w-[100px]">
                 {channel.loading ? t('channelDashboard.loading') : channel()?.chat_title || t('channelMenu.dashboard')}
               </h1>
-              <span class="text-[9px] bg-[#34c759]/10 text-[#34c759] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide">{t('channelDashboard.connected')}</span>
+              <span class="text-[8px] bg-[#34c759]/10 text-[#34c759] px-1 py-0.5 rounded-full font-bold uppercase tracking-wide shrink-0">{t('channelDashboard.connected')}</span>
             </div>
-            <span class={`text-[10px] font-bold uppercase tracking-wider ${
+            <span class={`text-[9px] font-bold uppercase tracking-wider ${
               channel()?.subscription_status === 'paid' ? 'text-[#34c759]' : 'text-[#ff3b30]'
             }`}>
               {channel()?.subscription_status || t('channelDashboard.loading')}

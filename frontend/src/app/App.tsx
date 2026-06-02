@@ -32,8 +32,12 @@ const PageErrorFallback = (err: any, reset: () => void) => {
 const RouteWrapper = (props: { component: any; [key: string]: any }) => {
   return (
     <ErrorBoundary fallback={(err, reset) => PageErrorFallback(err, reset)}>
-      <Suspense fallback={<div class="min-h-screen bg-[#0f1014] flex items-center justify-center"><div class="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div></div>}>
-        <ImpersonationBanner />
+      <ImpersonationBanner />
+      <Suspense fallback={
+        <div class="min-h-screen bg-[#0f1014] flex items-center justify-center">
+          <span class="w-8 h-8 border-4 border-t-[#3390ec] border-[#3390ec]/20 rounded-full animate-spin" />
+        </div>
+      }>
         <props.component {...props} />
       </Suspense>
     </ErrorBoundary>

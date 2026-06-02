@@ -23,7 +23,7 @@ const mapLanguageCode = (code?: string): Locale => {
 export const RTL_LOCALES: Locale[] = ['fa'];
 
 const getInitialLocale = (): Locale => {
-  const saved = localStorage.getItem('locale');
+  const saved = localStorage.getItem('user_selected_locale');
   if (saved && (saved === 'en' || saved === 'fa' || saved === 'ru' || saved === 'zh')) {
     return saved as Locale;
   }
@@ -41,23 +41,29 @@ const getInitialLocale = (): Locale => {
   return mapLanguageCode(navigator.language);
 };
 
-export const [locale, setLocale] = createSignal<Locale>(getInitialLocale());
-export const isRtl = () => RTL_LOCALES.includes(locale());
+const [getLocale, rawSetLocale] = createSignal<Locale>(getInitialLocale());
+export { getLocale as locale };
+
+export const setLocale = (newLocale: Locale) => {
+  localStorage.setItem('user_selected_locale', newLocale);
+  rawSetLocale(newLocale);
+};
+
+export const isRtl = () => RTL_LOCALES.includes(getLocale());
 
 createRoot(() => {
   // Reactively detect language from Telegram SDK after it initializes
   createEffect(() => {
-    if (localStorage.getItem('locale')) return;
+    if (localStorage.getItem('user_selected_locale')) return;
     const user = initData.user();
     if (user?.language_code) {
-      setLocale(mapLanguageCode(user.language_code));
+      rawSetLocale(mapLanguageCode(user.language_code));
     }
   });
 
   // Keep HTML lang attribute in sync, handle RTL
   createEffect(() => {
-    const currentLocale = locale();
-    localStorage.setItem('locale', currentLocale);
+    const currentLocale = getLocale();
     document.documentElement.dir = RTL_LOCALES.includes(currentLocale) ? 'rtl' : 'ltr';
     document.documentElement.lang = currentLocale;
   });
@@ -82,7 +88,7 @@ const flattenedDicts = {
 
 // Flatten dictionary for performance with 'en' fallback for missing keys
 export const getDict = () => {
-  const currentLocale = locale();
+  const currentLocale = getLocale();
   if (currentLocale === 'en') return flattenedDicts.en;
   return { ...flattenedDicts.en, ...flattenedDicts[currentLocale] };
 };
@@ -92,8 +98,8 @@ export const t = i18n.translator(getDict) as (key: DictPaths) => string;
 
 // Helper to format numbers based on active locale (Farsi digits for Persian)
 export const formatNumber = (num: number): string => {
-  return num.toLocaleString(locale() === 'fa' ? 'fa-IR' : 'en-US');
+  return num.toLocaleString(getLocale() === 'fa' ? 'fa-IR' : 'en-US');
 };
 
-export const I18nContext = createContext({ t, locale, setLocale, isRtl, formatNumber });
+export const I18nContext = createContext({ t, locale: getLocale, setLocale, isRtl, formatNumber });
 export const useI18n = () => useContext(I18nContext);

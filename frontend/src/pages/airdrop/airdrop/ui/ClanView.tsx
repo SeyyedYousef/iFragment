@@ -28,7 +28,7 @@ export const ClanView: Component = () => {
       setUserClan(clanDetails);
       setUsernameInput('');
     } catch (e: any) {
-      setErrorMsg(e.message || "Failed to search/join clan");
+      setErrorMsg(e.message || t('airdrop.clan.joinFailed'));
       hapticFeedback.notificationOccurred('error');
     } finally {
       setLoading(false);
@@ -58,8 +58,8 @@ export const ClanView: Component = () => {
         when={userClan()}
         fallback={
           <div class="bg-[#1c1c1e]/80 backdrop-blur-lg rounded-2xl p-5 border border-white/[0.06] mb-5">
-            <h3 class="text-white font-bold text-sm mb-3">عضویت در کلن</h3>
-            <p class="text-[#8e8e93] text-xs mb-4 font-medium leading-relaxed">آدرس عمومی کانال تلگرامی خود یا کانال مورد نظر را وارد کنید (مثال: @durov یا durov):</p>
+            <h3 class="text-white font-bold text-sm mb-3">{t('airdrop.clan.joinClanBtn')}</h3>
+            <p class="text-[#8e8e93] text-xs mb-4 font-medium leading-relaxed">{t('airdrop.clan.channelPrompt')}</p>
             <div class="flex gap-2">
               <input
                 type="text"
@@ -77,7 +77,7 @@ export const ClanView: Component = () => {
                     : 'bg-[#2c2c2e] text-[#555]'
                 }`}
               >
-                {loading() ? '...' : 'جستجو و عضویت'}
+                {loading() ? '...' : t('airdrop.clan.searchAndJoin')}
               </button>
             </div>
             {errorMsg() && <div class="text-red-500 text-[11px] font-bold mt-2.5 px-1">{errorMsg()}</div>}
@@ -97,11 +97,11 @@ export const ClanView: Component = () => {
             <div class="grid grid-cols-2 gap-3 bg-[#2c2c2e]/40 rounded-xl p-3 mb-5 border border-white/[0.02]">
               <div class="text-center border-r border-white/5">
                 <div class="text-white font-black text-sm">{clan().members_count.toLocaleString()}</div>
-                <div class="text-[#8e8e93] text-[9px] uppercase tracking-wider mt-0.5">اعضا</div>
+                <div class="text-[#8e8e93] text-[9px] uppercase tracking-wider mt-0.5">{t('airdrop.clan.membersLabel')}</div>
               </div>
               <div class="text-center">
-                <div class="text-amber-400 font-black text-sm">فعال</div>
-                <div class="text-[#8e8e93] text-[9px] uppercase tracking-wider mt-0.5">وضعیت کلن</div>
+                <div class="text-amber-400 font-black text-sm">{t('airdrop.clan.active')}</div>
+                <div class="text-[#8e8e93] text-[9px] uppercase tracking-wider mt-0.5">{t('airdrop.clan.clanStatus')}</div>
               </div>
             </div>
 
@@ -110,7 +110,7 @@ export const ClanView: Component = () => {
               disabled={loading()}
               class="w-full bg-red-500/10 border border-red-500/20 text-red-500 font-bold py-3.5 rounded-xl active:scale-[0.98] transition-transform text-xs"
             >
-              {loading() ? '...' : 'خروج از کلن'}
+              {loading() ? '...' : t('airdrop.clan.leaveClan')}
             </button>
           </div>
         )}
@@ -137,7 +137,7 @@ export const ClanView: Component = () => {
           </div>
         }>
           <For each={topClans() || []} fallback={
-            <div class="text-[#8e8e93] text-xs text-center py-8">هیچ کلنی در حال حاضر ثبت نشده است.</div>
+            <div class="text-[#8e8e93] text-xs text-center py-8">{t('airdrop.clan.noClans')}</div>
           }>
             {(clan, i) => (
               <div class={`flex items-center justify-between px-4 py-3.5 ${i() < (topClans()?.length || 0) - 1 ? 'border-b border-white/[0.04]' : ''}`}>

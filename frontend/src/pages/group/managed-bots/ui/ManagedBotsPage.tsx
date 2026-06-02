@@ -71,11 +71,20 @@ export const ManagedBotsPage: Component = () => {
   return (
     <div class="min-h-screen bg-[#0f1014] pb-24 relative text-white">
       {/* Header */}
-      <div class="px-6 pt-8 pb-6 sticky top-0 bg-[#0f1014]/90 backdrop-blur-xl z-30 border-b border-[#1c1c1c] flex flex-col gap-1">
-        <h1 class="text-2xl font-black text-white tracking-tight">{t('managedBots.title')}</h1>
-        <p class="text-[13px] font-medium text-[#8e8e93] leading-snug max-w-[90%]">
-          {t('managedBots.description')}
-        </p>
+      <div class="px-6 pt-6 pb-5 sticky top-0 bg-[#0f1014]/90 backdrop-blur-xl z-30 border-b border-[#1c1c1c] flex items-center gap-3">
+        <button 
+          onClick={() => { hapticFeedback.impactOccurred('light'); navigate('/dashboard'); }}
+          class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-90 transition-all shrink-0"
+          aria-label="Back"
+        >
+          <span class="material-symbols-outlined text-white text-[20px] rtl:-scale-x-100">arrow_back</span>
+        </button>
+        <div class="flex flex-col gap-0.5 min-w-0">
+          <h1 class="text-xl font-black text-white tracking-tight truncate">{t('managedBots.title')}</h1>
+          <p class="text-[11px] font-medium text-[#8e8e93] leading-snug truncate">
+            {t('managedBots.description')}
+          </p>
+        </div>
       </div>
 
       <div class="px-5 mt-6 space-y-6">

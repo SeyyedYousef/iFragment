@@ -1,15 +1,15 @@
-import { Component, createSignal, Match, Switch, For, Show, createEffect, onCleanup, lazy, Suspense } from 'solid-js';
+import { Component, createSignal, Match, Switch, For, Show, createEffect, onCleanup, Suspense } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 
 import { hapticFeedback, backButton } from '@tma.js/sdk-solid';
 import { checkedInToday, currentLeague, userClan } from '@/shared/store/airdrop.js';
-const TapView = lazy(() => import('./TapView.js').then(m => ({ default: m.TapView })));
-const TasksView = lazy(() => import('./TasksView.js').then(m => ({ default: m.TasksView })));
-const LeaderboardView = lazy(() => import('./LeaderboardView.js').then(m => ({ default: m.LeaderboardView })));
-const BoostersView = lazy(() => import('./BoostersView.js').then(m => ({ default: m.BoostersView })));
-const DailyRewardView = lazy(() => import('./DailyRewardView.js').then(m => ({ default: m.DailyRewardView })));
-const ClanView = lazy(() => import('./ClanView.js').then(m => ({ default: m.ClanView })));
-const MarketView = lazy(() => import('./MarketView.js').then(m => ({ default: m.MarketView })));
+import { TapView } from './TapView.js';
+import { TasksView } from './TasksView.js';
+import { LeaderboardView } from './LeaderboardView.js';
+import { BoostersView } from './BoostersView.js';
+import { DailyRewardView } from './DailyRewardView.js';
+import { ClanView } from './ClanView.js';
+import { MarketView } from './MarketView.js';
 import { BottomNav } from '@/widgets/bottom-nav/index.js';
 
 type ModalType = 'tasks' | 'leaderboard' | 'boosters' | 'daily' | 'clan' | 'market';
@@ -124,8 +124,8 @@ export const AirdropPage: Component = () => {
               <div class="flex items-center gap-2.5">
                 <div class="w-8 h-8 rounded-xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20 text-sm">🛡️</div>
                 <div class="text-left">
-                  <div class="text-white font-bold text-xs">بدون کلن (کلیک کنید)</div>
-                  <div class="text-[#8e8e93] text-[10px]">برای کار تیمی و استخر استخراج کلن بسازید یا عضو شوید</div>
+                  <div class="text-white font-bold text-xs">{t('airdrop.clan.noClanTitle')}</div>
+                  <div class="text-[#8e8e93] text-[10px]">{t('airdrop.clan.noClanDesc')}</div>
                 </div>
               </div>
               <span class="material-symbols-outlined text-[#8e8e93] text-sm">chevron_right</span>
@@ -143,7 +143,7 @@ export const AirdropPage: Component = () => {
                   <div class="text-white font-black text-xs">{clan().chat_title}</div>
                   <div class="text-red-400 font-bold text-[10px] flex items-center gap-1 mt-0.5">
                     <span class="material-symbols-outlined text-[10px]" style={{ 'font-variation-settings': '"FILL" 1' }}>shield</span>
-                    کلن من • {clan().members_count.toLocaleString()} عضو
+                    {t('airdrop.clan.myClan')} • {clan().members_count.toLocaleString()} {t('airdrop.clan.members')}
                   </div>
                 </div>
               </div>

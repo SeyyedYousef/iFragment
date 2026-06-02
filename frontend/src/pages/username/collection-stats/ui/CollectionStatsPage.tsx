@@ -1,4 +1,4 @@
-import { Component, createEffect, onCleanup, Show, For } from 'solid-js';
+import { Component, createEffect, onCleanup, Show, For, createSignal } from 'solid-js';
 import { Motion } from '@motionone/solid';
 import { backButton } from '@tma.js/sdk-solid';
 import { useNavigate } from '@solidjs/router';
@@ -8,7 +8,8 @@ import { useI18n } from '@/shared/i18n/index.js';
 export const CollectionStatsPage: Component = () => {
   const navigate = useNavigate();
   const stats = useCollectionStats();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const [timeText, setTimeText] = createSignal('');
 
   createEffect(() => {
     backButton.show();
@@ -20,6 +21,34 @@ export const CollectionStatsPage: Component = () => {
       unsubscribe();
       backButton.hide();
     });
+  });
+
+  createEffect(() => {
+    const updateTime = () => {
+      const data = stats.data;
+      if (!data || !data.last_updated_at || !data.next_update_at) {
+        setTimeText('');
+        return;
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+      const elapsedSec = now - data.last_updated_at;
+      const remainingSec = data.next_update_at - now;
+
+      const elapsedMin = Math.max(0, Math.floor(elapsedSec / 60));
+      const remainingMin = Math.max(0, Math.ceil(remainingSec / 60));
+
+      const isFa = locale() === 'fa';
+      if (isFa) {
+        setTimeText(`آخرین آپدیت: ${elapsedMin} دقیقه پیش • آپدیت بعدی: ${remainingMin} دقیقه دیگر`);
+      } else {
+        setTimeText(`Last updated: ${elapsedMin}m ago • Next update in: ${remainingMin}m`);
+      }
+    };
+
+    updateTime();
+    const interval = setInterval(updateTime, 30000);
+    onCleanup(() => clearInterval(interval));
   });
 
   const normalizeTon = (value: string | number | undefined) => {
@@ -75,9 +104,15 @@ export const CollectionStatsPage: Component = () => {
           <h1 class="text-3xl font-black tracking-tight text-white mb-2">
             {t('action.username.collection_stats_title')}
           </h1>
-          <p class="text-[#a6a6ad] text-sm font-medium">
+          <p class="text-[#a6a6ad] text-sm font-medium mb-3">
             {t('action.username.collection_stats_subtitle')}
           </p>
+          <Show when={timeText()}>
+            <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/60 text-[10px] font-bold">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#34c759] animate-pulse" />
+              {timeText()}
+            </div>
+          </Show>
         </div>
 
         <div class="grid grid-cols-2 gap-3 mb-4">

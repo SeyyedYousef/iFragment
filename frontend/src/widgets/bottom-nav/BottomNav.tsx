@@ -13,7 +13,47 @@ export const BottomNav: Component = () => {
   };
 
   return (
-    <div class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 flex items-center justify-between gap-3 px-margin-main pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+    <div class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 flex items-center justify-between gap-3 px-margin-main pb-[max(1.5rem,env(safe-area-inset-bottom))]" dir="ltr">
+      <div class="flex-1 backdrop-blur-md rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.3)] flex items-center justify-between px-2 py-2 border h-18 transition-colors bg-[#1c1c1c]/90 border-[#2a2a2a]" dir="ltr">
+        <A 
+          href="/"
+          class={`h-full aspect-square rounded-full flex flex-col items-center justify-center cursor-pointer shadow-sm transition-all ${
+            isActive('/') ? 'bg-white/10 scale-110' : 'hover:bg-white/5 hover:scale-105'
+          }`}
+        >
+          <span class={`material-symbols-outlined text-2xl ${
+            isActive('/') ? 'text-white' : 'text-[#8e8e93]'
+          }`} style={{ 'font-variation-settings': isActive('/') ? '"FILL" 1' : '"FILL" 0' }}>home</span>
+          <span class={`text-[10px] font-black mt-0.5 ${
+            isActive('/') ? 'text-white' : 'text-[#8e8e93]'
+          }`}>{t('bottomNav.home')}</span>
+        </A>
+        
+        <A 
+          href="/dashboard"
+          class={`flex flex-col items-center gap-1 cursor-pointer group px-2 transition-all ${isActive('/dashboard') ? 'scale-110' : 'hover:scale-105'}`}
+        >
+          <span class={`material-symbols-outlined transition-colors text-2xl ${
+            isActive('/dashboard') ? 'text-white' : 'text-[#8e8e93] group-hover:text-white'
+          }`} style={isActive('/dashboard') ? { 'font-variation-settings': '"FILL" 1' } : {}}>dashboard</span>
+          <span class={`text-[10px] font-bold transition-colors ${
+            isActive('/dashboard') ? 'text-white' : 'text-[#8e8e93] group-hover:text-white'
+          }`}>{t('bottomNav.dashboard')}</span>
+        </A>
+        
+        <A 
+          href="/airdrop"
+          class={`flex flex-col items-center gap-1 cursor-pointer group px-4 transition-all ${isActive('/airdrop') ? 'scale-110' : 'hover:scale-105'}`}
+        >
+          <span class={`material-symbols-outlined transition-colors text-2xl ${
+            isActive('/airdrop') ? 'text-white' : 'text-[#8e8e93] group-hover:text-white'
+          }`} style={isActive('/airdrop') ? { 'font-variation-settings': '"FILL" 1' } : {}}>card_giftcard</span>
+          <span class={`text-[10px] font-bold transition-colors ${
+            isActive('/airdrop') ? 'text-white' : 'text-[#8e8e93] group-hover:text-white'
+          }`}>{t('bottomNav.airdrop')}</span>
+        </A>
+      </div>
+
       <A 
         href="/profile"
         class={`flex flex-col items-center cursor-pointer transition-all ${isActive('/profile') ? 'scale-110' : 'hover:scale-105'}`}
@@ -22,7 +62,7 @@ export const BottomNav: Component = () => {
           {initData.user()?.photo_url ? (
             <>
               <img 
-                alt="Profile" 
+                alt="" 
                 class="w-full h-full object-cover" 
                 src={initData.user()!.photo_url} 
                 loading="lazy"
@@ -45,45 +85,6 @@ export const BottomNav: Component = () => {
           )}
         </div>
       </A>
-      <div class="flex-1 backdrop-blur-md rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.3)] flex items-center justify-between px-2 py-2 border h-18 transition-colors bg-[#1c1c1c]/90 border-[#2a2a2a]">
-        <A 
-          href="/airdrop"
-          class={`flex flex-col items-center gap-1 cursor-pointer group px-4 transition-all ${isActive('/airdrop') ? 'scale-110' : 'hover:scale-105'}`}
-        >
-          <span class={`material-symbols-outlined transition-colors text-2xl ${
-            isActive('/airdrop') ? 'text-white' : 'text-[#8e8e93] group-hover:text-white'
-          }`} style={isActive('/airdrop') ? { 'font-variation-settings': '"FILL" 1' } : {}}>card_giftcard</span>
-          <span class={`text-[10px] font-bold transition-colors ${
-            isActive('/airdrop') ? 'text-white' : 'text-[#8e8e93] group-hover:text-white'
-          }`}>{t('bottomNav.airdrop')}</span>
-        </A>
-        
-        <A 
-          href="/dashboard"
-          class={`flex flex-col items-center gap-1 cursor-pointer group px-2 transition-all ${isActive('/dashboard') ? 'scale-110' : 'hover:scale-105'}`}
-        >
-          <span class={`material-symbols-outlined transition-colors text-2xl ${
-            isActive('/dashboard') ? 'text-white' : 'text-[#8e8e93] group-hover:text-white'
-          }`} style={isActive('/dashboard') ? { 'font-variation-settings': '"FILL" 1' } : {}}>dashboard</span>
-          <span class={`text-[10px] font-bold transition-colors ${
-            isActive('/dashboard') ? 'text-white' : 'text-[#8e8e93] group-hover:text-white'
-          }`}>{t('bottomNav.dashboard')}</span>
-        </A>
-        
-        <A 
-          href="/"
-          class={`h-full aspect-square rounded-full flex flex-col items-center justify-center cursor-pointer shadow-sm transition-all ${
-            isActive('/') ? 'bg-white/10 scale-110' : 'hover:bg-white/5 hover:scale-105'
-          }`}
-        >
-          <span class={`material-symbols-outlined text-2xl ${
-            isActive('/') ? 'text-white' : 'text-[#8e8e93]'
-          }`} style={{ 'font-variation-settings': isActive('/') ? '"FILL" 1' : '"FILL" 0' }}>home</span>
-          <span class={`text-[10px] font-black mt-0.5 ${
-            isActive('/') ? 'text-white' : 'text-[#8e8e93]'
-          }`}>{t('bottomNav.home')}</span>
-        </A>
-      </div>
     </div>
   );
 };

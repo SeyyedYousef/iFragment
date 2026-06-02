@@ -175,15 +175,32 @@ export const ChannelAutoResponderPage: Component = () => {
   return (
     <div class="min-h-screen bg-[#0f1014] pb-28 relative overflow-x-hidden text-white">
       {/* Header */}
-      <div class="px-5 pt-6 pb-4 bg-[#0f1014] sticky top-0 z-30 border-b border-[#1c1c1c] flex items-center justify-between">
-        <div class="flex flex-col">
-          <h1 class="text-[20px] font-black text-white leading-tight">{t('channelAutoResponder.title') || 'Auto Responder'}</h1>
-          <span class="text-[12px] text-on-surface-variant">{t('channelAutoResponder.subtitle') || 'Manage automated replies & comments'}</span>
+      <div class="px-5 pt-6 pb-4 bg-[#0f1014]/80 backdrop-blur-md sticky top-0 z-30 border-b border-[#1c1c1c] flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2 overflow-hidden flex-1">
+          <button 
+            onClick={() => {
+              hapticFeedback.impactOccurred('light');
+              if (isCreating()) {
+                setIsCreating(false);
+              } else {
+                navigate(`/channel/${params.id}`);
+              }
+            }}
+            class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-90 transition-all shrink-0"
+            aria-label="Back"
+          >
+            <span class="material-symbols-outlined text-white text-[20px] rtl:-scale-x-100">arrow_back</span>
+          </button>
+          <div class="flex flex-col overflow-hidden">
+            <h1 class="text-[18px] font-black text-white leading-tight truncate">{t('channelAutoResponder.title') || 'Auto Responder'}</h1>
+            <span class="text-[12px] text-on-surface-variant truncate">{t('channelAutoResponder.subtitle') || 'Manage automated replies & comments'}</span>
+          </div>
         </div>
         
         <button 
           onClick={() => setIsMenuOpen(true)}
           class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-95 transition-all shrink-0"
+          aria-label="Open menu"
         >
           <span class="material-symbols-outlined text-white text-[20px]">menu</span>
         </button>

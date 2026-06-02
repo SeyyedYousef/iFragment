@@ -154,25 +154,34 @@ export const ContentRestrictionsPage: Component = () => {
       {/* Header */}
       <div class="pt-6 pb-2 px-5 sticky top-0 bg-[#0f1014]/90 backdrop-blur-md z-20 border-b border-[#2a2a2a] flex flex-col gap-4">
         <div class="flex items-center justify-between">
-          <Motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            class="flex flex-col gap-1"
-          >
-            <div class="flex items-center gap-2">
-              <h1 class="text-2xl font-black text-white">{t('contentRestrictions.title')}</h1>
-              <Show when={isDirty()}>
-                <span class="w-2.5 h-2.5 rounded-full bg-[#ff9f0a] animate-pulse" />
-              </Show>
-            </div>
-            <p class="text-[13px] text-[#8e8e93] font-medium leading-snug">
-              {t('contentRestrictions.subtitle')}
-            </p>
-          </Motion.div>
+          <div class="flex items-center gap-2 overflow-hidden flex-1">
+            <button 
+              onClick={() => { hapticFeedback.impactOccurred('light'); window.history.back(); }}
+              class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-90 transition-all shrink-0"
+              aria-label="Back"
+            >
+              <span class="material-symbols-outlined text-white text-[20px] rtl:-scale-x-100">arrow_back</span>
+            </button>
+            <Motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              class="flex flex-col gap-1 min-w-0"
+            >
+              <div class="flex items-center gap-2">
+                <h1 class="text-[18px] font-black text-white leading-tight truncate">{t('contentRestrictions.title')}</h1>
+                <Show when={isDirty()}>
+                  <span class="w-2.5 h-2.5 rounded-full bg-[#ff9f0a] animate-pulse shrink-0" />
+                </Show>
+              </div>
+              <p class="text-[12px] text-[#8e8e93] font-medium leading-snug truncate">
+                {t('contentRestrictions.subtitle')}
+              </p>
+            </Motion.div>
+          </div>
 
           <button 
             onClick={() => setIsMenuOpen(true)}
-            class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] transition-colors shrink-0"
+            class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] transition-colors shrink-0 ml-2"
           >
             <span class="material-symbols-outlined text-white text-[20px]">menu</span>
           </button>

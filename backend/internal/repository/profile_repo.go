@@ -54,9 +54,9 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 			       COALESCE(emoji_status, '') as emoji_status,
 			       COALESCE(equipped_border, '') as equipped_border,
 			       COALESCE(equipped_skin, '') as equipped_skin,
-			       airdrop_coins,
-			       energy,
-			       energy_updated_at
+			       COALESCE(airdrop_coins, 0) as airdrop_coins,
+			       COALESCE(energy, 500) as energy,
+			       COALESCE(energy_updated_at, CURRENT_TIMESTAMP) as energy_updated_at
 			FROM user_stats WHERE user_id = $1
 		)
 		SELECT 

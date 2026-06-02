@@ -98,20 +98,29 @@ export const ChannelAdminsPage: Component = () => {
   return (
     <div class="min-h-screen bg-[#0f1014] pb-28 relative overflow-x-hidden text-white">
       {/* Header */}
-      <div class="px-5 pt-6 pb-4 bg-[#0f1014]/80 backdrop-blur-md sticky top-0 z-30 border-b border-[#1c1c1c] flex items-center justify-between">
-        <div class="flex flex-col">
-          <div class="flex items-center gap-2">
-            <h1 class="text-[20px] font-black text-white leading-tight">{t('channelAdmins.adminsAndPermissions')}</h1>
-            <span class="bg-[#1c1c1c] border border-[#2a2a2a] text-[#8e8e93] text-[10px] font-bold px-2 py-0.5 rounded-md">
-              {channelData()?.members_count?.toLocaleString() || '0'} {t('channelAdmins.members')}
-            </span>
+      <div class="px-5 pt-6 pb-4 bg-[#0f1014]/80 backdrop-blur-md sticky top-0 z-30 border-b border-[#1c1c1c] flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2 overflow-hidden flex-1">
+          <button 
+            onClick={() => { hapticFeedback.impactOccurred('light'); window.history.back(); }}
+            class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-90 transition-all shrink-0"
+            aria-label="Back"
+          >
+            <span class="material-symbols-outlined text-white text-[20px] rtl:-scale-x-100">arrow_back</span>
+          </button>
+          <div class="flex flex-col overflow-hidden">
+            <div class="flex items-center gap-2">
+              <h1 class="text-[18px] font-black text-white leading-tight truncate">{t('channelAdmins.adminsAndPermissions')}</h1>
+              <span class="bg-[#1c1c1c] border border-[#2a2a2a] text-[#8e8e93] text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0">
+                {channelData()?.members_count?.toLocaleString() || '0'}
+              </span>
+            </div>
+            <span class="text-[12px] text-on-surface-variant truncate">{t('channelAdmins.manageWhoCanPost')}</span>
           </div>
-          <span class="text-[12px] text-on-surface-variant">{t('channelAdmins.manageWhoCanPost')}</span>
         </div>
         
         <button 
           onClick={() => setIsMenuOpen(true)}
-          class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 active:scale-95 transition-all shrink-0 shadow-sm"
+          class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-95 transition-all shrink-0"
           aria-label="Open menu"
         >
           <span class="material-symbols-outlined text-white text-[20px]">menu</span>

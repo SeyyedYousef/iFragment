@@ -339,7 +339,18 @@ export const dict = {
       members: 'members',
       pool: 'Mining Pool',
       weeklyBattle: 'Weekly Clan Battle',
-      clanBonus: 'Clan Bonus'
+      clanBonus: 'Clan Bonus',
+      channelPrompt: 'Enter your Telegram channel username or target channel (e.g. @durov or durov):',
+      searchAndJoin: 'Search & Join',
+      leaveClan: 'Leave Clan',
+      noClans: 'No clans registered yet.',
+      membersLabel: 'Members',
+      clanStatus: 'Clan Status',
+      active: 'Active',
+      joinFailed: 'Failed to search/join clan',
+      noClanTitle: 'No Clan (Click to join)',
+      noClanDesc: 'Create or join a clan to mine as a team!',
+      myClan: 'My Clan'
     },
     leaderboard: {
       label: 'Top Miners',

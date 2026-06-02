@@ -44,7 +44,7 @@ func (h *ChannelHandler) ListChannels(w http.ResponseWriter, r *http.Request) {
 	botIDStr := r.URL.Query().Get("bot_id")
 	var botID uuid.UUID
 	var err error
-	if botIDStr != "" && !strings.HasPrefix(botIDStr, "guest") && !strings.HasPrefix(botIDStr, "mock") {
+	if botIDStr != "" && botIDStr != "all" && !strings.HasPrefix(botIDStr, "guest") && !strings.HasPrefix(botIDStr, "mock") {
 		botID, err = uuid.Parse(botIDStr)
 		if err != nil {
 			RespondError(w, r, http.StatusBadRequest, "invalid bot_id", err)

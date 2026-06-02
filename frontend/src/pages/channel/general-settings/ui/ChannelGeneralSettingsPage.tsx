@@ -115,24 +115,27 @@ export const ChannelGeneralSettingsPage: Component = () => {
     }
   );
 
-  onMount(() => {
-    backButton.show();
-    const off = backButton.onClick(async () => {
-      if (isDirty()) {
-        hapticFeedback.notificationOccurred('warning');
-        const confirmDiscard = await showConfirm(
-          locale() === 'fa'
-            ? 'تغییرات ذخیره نشده‌ای دارید. آیا مطمئن هستید که می‌خواهید خارج شوید؟'
-            : 'You have unsaved changes. Are you sure you want to exit?'
-        );
-        if (confirmDiscard) {
-          setIsDirty(false); // Reset state to allow clean navigation
-          window.history.back();
-        }
-      } else {
+  const handleBack = async () => {
+    hapticFeedback.impactOccurred('light');
+    if (isDirty()) {
+      hapticFeedback.notificationOccurred('warning');
+      const confirmDiscard = await showConfirm(
+        locale() === 'fa'
+          ? 'تغییرات ذخیره نشده‌ای دارید. آیا مطمئن هستید که می‌خواهید خارج شوید؟'
+          : 'You have unsaved changes. Are you sure you want to exit?'
+      );
+      if (confirmDiscard) {
+        setIsDirty(false); // Reset state to allow clean navigation
         window.history.back();
       }
-    });
+    } else {
+      window.history.back();
+    }
+  };
+
+  onMount(() => {
+    backButton.show();
+    const off = backButton.onClick(handleBack);
     onCleanup(() => off());
   });
 
@@ -177,15 +180,24 @@ export const ChannelGeneralSettingsPage: Component = () => {
   return (
     <div class="min-h-screen bg-[#0f1014] pb-28 relative overflow-x-hidden text-white">
       {/* Header */}
-      <div class="px-5 pt-6 pb-4 bg-[#0f1014] sticky top-0 z-30 border-b border-[#1c1c1c] flex items-center justify-between">
-        <div class="flex flex-col">
-          <div class="flex items-center gap-2">
-            <h1 class="text-[20px] font-black text-white leading-tight">{t('channelSettings.generalSettings')}</h1>
-            <Show when={isDirty()}>
-              <span class="w-2.5 h-2.5 rounded-full bg-[#32ade6] animate-pulse" title={t('channelSettings.unsavedChangesTooltip')} />
-            </Show>
+      <div class="px-5 pt-6 pb-4 bg-[#0f1014] sticky top-0 z-30 border-b border-[#1c1c1c] flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2 overflow-hidden flex-1">
+          <button 
+            onClick={handleBack}
+            class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-90 transition-all shrink-0"
+            aria-label="Back"
+          >
+            <span class="material-symbols-outlined text-white text-[20px] rtl:-scale-x-100">arrow_back</span>
+          </button>
+          <div class="flex flex-col overflow-hidden">
+            <div class="flex items-center gap-2">
+              <h1 class="text-[18px] font-black text-white leading-tight truncate">{t('channelSettings.generalSettings')}</h1>
+              <Show when={isDirty()}>
+                <span class="w-2.5 h-2.5 rounded-full bg-[#32ade6] animate-pulse shrink-0" title={t('channelSettings.unsavedChangesTooltip')} />
+              </Show>
+            </div>
+            <span class="text-[12px] text-on-surface-variant truncate">{t('channelSettings.manageCoreConfig')}</span>
           </div>
-          <span class="text-[12px] text-on-surface-variant">{t('channelSettings.manageCoreConfig')}</span>
         </div>
         
         <button 

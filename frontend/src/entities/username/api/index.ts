@@ -23,6 +23,8 @@ export interface CollectionStats {
     whale: number;
     total_uniq: number;
   };
+  last_updated_at?: number;
+  next_update_at?: number;
 }
 
 export interface AvailabilityStatus {

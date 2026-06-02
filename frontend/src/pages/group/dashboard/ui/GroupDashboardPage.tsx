@@ -100,15 +100,22 @@ export const GroupDashboardPage: Component = () => {
     <div class="min-h-screen bg-[#0f1014] pb-24 relative overflow-x-hidden text-white">
       {/* Header */}
       <div class="px-5 pt-6 pb-4 flex items-center justify-between relative z-30 bg-[#0f1014] sticky top-0 border-b border-[#1c1c1c]">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a]">
+        <div class="flex items-center gap-2 overflow-hidden">
+          <button 
+            onClick={() => { hapticFeedback.impactOccurred('light'); window.history.back(); }}
+            class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-90 transition-all shrink-0"
+            aria-label="Back"
+          >
+            <span class="material-symbols-outlined text-white text-[20px] rtl:-scale-x-100">arrow_back</span>
+          </button>
+          <div class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] shrink-0">
             <span class="text-sm font-bold text-[#3390ec]">{group()?.chat_title?.charAt(0) || 'G'}</span>
           </div>
-          <div class="flex flex-col">
-            <h1 class="text-[16px] font-bold text-white leading-tight truncate max-w-[150px]">
+          <div class="flex flex-col overflow-hidden">
+            <h1 class="text-[15px] font-bold text-white leading-tight truncate max-w-[130px]">
               {group.loading ? '...' : group()?.chat_title || 'Group Dashboard'}
             </h1>
-            <span class={`text-[10px] font-bold uppercase tracking-wider ${
+            <span class={`text-[9px] font-bold uppercase tracking-wider ${
               group()?.subscription_status === 'paid' ? 'text-[#34c759]' : group()?.subscription_status === 'trial' ? 'text-[#ffcc00]' : 'text-[#ff3b30]'
             }`}>
               {group()?.subscription_status || 'LOADING'}

@@ -339,7 +339,18 @@ export const dict = {
       "members": "عضو",
       "pool": "استخر استخراج",
       "weeklyBattle": "نبرد هفتگی کلن‌ها",
-      "clanBonus": "بونوس کلنی"
+      "clanBonus": "بونوس کلنی",
+      "channelPrompt": "آدرس عمومی کانال تلگرامی خود یا کانال مورد نظر را وارد کنید (مثال: @durov یا durov):",
+      "searchAndJoin": "جستجو و عضویت",
+      "leaveClan": "خروج از کلن",
+      "noClans": "هیچ کلنی در حال حاضر ثبت نشده است.",
+      "membersLabel": "اعضا",
+      "clanStatus": "وضعیت کلن",
+      "active": "فعال",
+      "joinFailed": "خطا در جستجو و عضویت در کلن",
+      "noClanTitle": "بدون کلن (کلیک کنید)",
+      "noClanDesc": "برای کار تیمی و استخر استخراج کلن بسازید یا عضو شوید",
+      "myClan": "کلن من"
     },
     "leaderboard": {
       "label": "برترین‌ها",

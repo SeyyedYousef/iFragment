@@ -26,28 +26,76 @@ export const ProfilePage: Component = () => {
   const [showHomePrompt, setShowHomePrompt] = createSignal(false);
   const [showPromoModal, setShowPromoModal] = createSignal(false);
 
+  const getCachedStats = () => {
+    try {
+      const raw = localStorage.getItem('cached_profile_stats');
+      return raw ? JSON.parse(raw) : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+
+  const getCachedAchievements = () => {
+    try {
+      const raw = localStorage.getItem('cached_profile_achievements');
+      return raw ? JSON.parse(raw) : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+
+  const getCachedReferral = () => {
+    try {
+      const raw = localStorage.getItem('cached_profile_referral');
+      return raw ? JSON.parse(raw) : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+
   const statsQuery = createQuery(() => ({
     queryKey: ['profile', 'stats'],
-    queryFn: getProfileStats,
+    queryFn: async () => {
+      const res = await getProfileStats();
+      try {
+        localStorage.setItem('cached_profile_stats', JSON.stringify(res));
+      } catch {}
+      return res;
+    },
+    initialData: getCachedStats(),
     staleTime: 15000,
     refetchOnWindowFocus: false,
   }));
 
   const achievementsQuery = createQuery(() => ({
     queryKey: ['profile', 'achievements'],
-    queryFn: getProfileAchievements,
+    queryFn: async () => {
+      const res = await getProfileAchievements();
+      try {
+        localStorage.setItem('cached_profile_achievements', JSON.stringify(res));
+      } catch {}
+      return res;
+    },
+    initialData: getCachedAchievements(),
     staleTime: 30000,
     refetchOnWindowFocus: false,
   }));
 
   const referralQuery = createQuery(() => ({
     queryKey: ['profile', 'referral'],
-    queryFn: getReferralInfo,
+    queryFn: async () => {
+      const res = await getReferralInfo();
+      try {
+        localStorage.setItem('cached_profile_referral', JSON.stringify(res));
+      } catch {}
+      return res;
+    },
+    initialData: getCachedReferral(),
     staleTime: 60000,
     refetchOnWindowFocus: false,
   }));
 
-  // Parallelize loading: only above-the-fold stats block the initial screen
+  // Parallelize loading: only above-the-fold stats block the initial screen (bypassed if cache exists)
   const loading = () => statsQuery.isLoading;
   const stats = () => statsQuery.data || null;
   const achievements = () => achievementsQuery.data || [];

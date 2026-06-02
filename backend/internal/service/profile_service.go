@@ -287,9 +287,9 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int) (*
 
 	_, err = tx.Exec(ctx, `
 		UPDATE user_stats
-		SET total_taps = total_taps + $1,
-		    xp = xp + $2,
-		    airdrop_coins = airdrop_coins + $3,
+		SET total_taps = COALESCE(total_taps, 0) + $1,
+		    xp = COALESCE(xp, 0) + $2,
+		    airdrop_coins = COALESCE(airdrop_coins, 0) + $3,
 		    energy = $4,
 		    energy_updated_at = now(),
 		    last_active_at = now()

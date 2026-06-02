@@ -29,7 +29,16 @@ import { Clan } from '@/shared/api/bot-management.js';
 const loadState = () => {
   try {
     const data = localStorage.getItem('airdrop-state');
-    if (data) return JSON.parse(data);
+    if (data) {
+      const parsed = JSON.parse(data);
+      if (parsed && parsed.savedAt) {
+        const elapsedSec = Math.floor((Date.now() - parsed.savedAt) / 1000);
+        const recoveryRate = parsed.energyRecovery || 1;
+        const maxE = parsed.maxEnergy || 500;
+        parsed.energy = Math.min(maxE, (parsed.energy || 0) + elapsedSec * recoveryRate);
+      }
+      return parsed;
+    }
   } catch (e) {}
   return null;
 };
@@ -188,7 +197,10 @@ export const initEnergyRegen = () => {
     if (elapsed >= 1.0) {
       const recoveryAmount = Math.floor(elapsed * energyRecovery());
       if (recoveryAmount > 0) {
-        setEnergy(e => Math.min(maxEnergy(), e + recoveryAmount));
+        setEnergy(e => {
+          if (e >= maxEnergy()) return e; // Prevent energy chop-down if maxEnergy is not synced yet
+          return Math.min(maxEnergy(), e + recoveryAmount);
+        });
         lastRegenTime = now;
       }
     }
@@ -271,6 +283,21 @@ export const syncProfileStats = async () => {
   }
 };
 
+export const syncAllData = async () => {
+  try {
+    // 1. Sync boosters status first to know correct maxEnergy & tapPower
+    await syncBoostersStatus();
+    // 2. Sync pending taps to update server balance with local taps
+    await syncPendingTaps();
+    // 3. Sync profile stats to get latest correct balance and energy
+    await syncProfileStats();
+    // 4. Sync daily reward status
+    await syncDailyRewardStatus();
+  } catch (e) {
+    console.error("Failed to sync all data sequentially:", e);
+  }
+};
+
 // Sync to local storage with throttle
 let pendingSave: ReturnType<typeof setTimeout> | undefined;
 
@@ -279,11 +306,8 @@ export const initStorageSync = () => {
     // Energy regen in store root
     initEnergyRegen();
 
-    // Fetch initial user clan and sync profile stats from server
-    syncProfileStats();
-    syncDailyRewardStatus();
-    syncBoostersStatus();
-    syncPendingTaps();
+    // Fetch initial data sequentially to prevent race conditions
+    syncAllData();
 
     getClan().then(res => {
       if (res && res.is_member && res.clan) {
@@ -298,6 +322,7 @@ export const initStorageSync = () => {
         maxEnergy: maxEnergy(),
         tapPower: tapPower(),
         energyRecovery: energyRecovery(),
+        savedAt: Date.now(), // Save exact timestamp
       };
 
       if (pendingSave) clearTimeout(pendingSave);
