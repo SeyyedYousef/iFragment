@@ -15,8 +15,8 @@ CREATE INDEX IF NOT EXISTS idx_users_first_name_trgm ON users USING gin (first_n
 CREATE INDEX IF NOT EXISTS idx_users_last_name_trgm  ON users USING gin (last_name gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_users_telegram_id ON users (telegram_id); -- B-Tree index for Telegram ID search
 
--- 3. Create optimized conditional index for active ban checks
-CREATE INDEX IF NOT EXISTS idx_user_bans_active ON user_bans (user_id) WHERE expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP;
+-- 3. Create optimized composite index for active ban checks (bypasses CURRENT_TIMESTAMP immutable restriction in Postgres)
+CREATE INDEX IF NOT EXISTS idx_user_bans_active ON user_bans (user_id, expires_at);
 
 -- 4. Clean up any stale backdoor default super admin user (Telegram ID: 12345)
 DELETE FROM owner_roles WHERE telegram_user_id = 12345;
