@@ -149,7 +149,7 @@ export const OwnerQuests: Component = () => {
   };
 
   const handleDelete = (questKey: string) => {
-    try { hapticFeedback.impactOccurred('warning'); } catch {}
+    try { hapticFeedback.notificationOccurred('warning'); } catch {}
 
     const deleteAction = async () => {
       setLoading(true);

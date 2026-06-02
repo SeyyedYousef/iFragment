@@ -3,7 +3,6 @@ import { useNavigate } from '@solidjs/router';
 import { hapticFeedback } from '@tma.js/sdk-solid';
 import { apiClient } from '@/shared/api/axios.js';
 import { OwnerTabs } from '@/widgets/owner/OwnerTabs.js';
-import { t } from '@/shared/i18n/index.js';
 
 interface SearchedUser {
   telegram_id: number;

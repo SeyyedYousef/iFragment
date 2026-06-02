@@ -1,4 +1,4 @@
-import { Component, createEffect, createSignal, onCleanup, Show, For, createMemo, onMount } from 'solid-js';
+import { Component, createSignal, onCleanup, Show, For, createMemo, onMount } from 'solid-js';
 import { Motion } from '@motionone/solid';
 import { backButton, openTelegramLink, openLink } from '@tma.js/sdk-solid';
 import { useNavigate, useSearchParams } from '@solidjs/router';
