@@ -445,41 +445,43 @@ func main() {
 		r.Route("/profile", func(r chi.Router) {
 			r.Get("/avatar/{userID}", profileHandler.GetAvatar)
 
-			r.Use(middleware.AuthMiddleware)
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.AuthMiddleware)
 
-			r.Delete("/gdpr", profileHandler.DeleteUserDataGDPR)
-			r.Get("/stats", profileHandler.GetStats)
-			r.Get("/achievements", profileHandler.GetAchievements)
-			r.Get("/achievements/defs", profileHandler.GetAchievementDefs)
-			r.Get("/referral", profileHandler.GetReferralData)
-			r.Post("/referral", profileHandler.SetReferrerCode)
-			r.Post("/tap", profileHandler.AddTaps)
+				r.Delete("/gdpr", profileHandler.DeleteUserDataGDPR)
+				r.Get("/stats", profileHandler.GetStats)
+				r.Get("/achievements", profileHandler.GetAchievements)
+				r.Get("/achievements/defs", profileHandler.GetAchievementDefs)
+				r.Get("/referral", profileHandler.GetReferralData)
+				r.Post("/referral", profileHandler.SetReferrerCode)
+				r.Post("/tap", profileHandler.AddTaps)
 
-			// Cosmetics & Premium routes
-			r.Get("/cosmetics", profileHandler.GetCosmetics)
-			r.Post("/cosmetics/purchase", profileHandler.PurchaseCosmetic)
-			r.Post("/cosmetics/equip", profileHandler.EquipCosmetic)
-			r.Post("/emoji-status", profileHandler.SetEmojiStatus)
-			r.Post("/premium/checkout", profileHandler.CreatePremiumCheckout)
+				// Cosmetics & Premium routes
+				r.Get("/cosmetics", profileHandler.GetCosmetics)
+				r.Post("/cosmetics/purchase", profileHandler.PurchaseCosmetic)
+				r.Post("/cosmetics/equip", profileHandler.EquipCosmetic)
+				r.Post("/emoji-status", profileHandler.SetEmojiStatus)
+				r.Post("/premium/checkout", profileHandler.CreatePremiumCheckout)
 
-			// Gamification routes
-			r.Get("/daily", gamificationHandler.GetDailyStatus)
-			r.Post("/daily/claim", gamificationHandler.ClaimDailyReward)
-			r.Get("/tasks", gamificationHandler.GetTasksStatus)
-			r.Post("/tasks/complete", gamificationHandler.CompleteTask)
-			r.Get("/boosts", gamificationHandler.GetBoostsStatus)
-			r.Post("/boosts/upgrade", gamificationHandler.UpgradeBoost)
-			r.Get("/leaderboard", gamificationHandler.GetLeaderboard)
+				// Gamification routes
+				r.Get("/daily", gamificationHandler.GetDailyStatus)
+				r.Post("/daily/claim", gamificationHandler.ClaimDailyReward)
+				r.Get("/tasks", gamificationHandler.GetTasksStatus)
+				r.Post("/tasks/complete", gamificationHandler.CompleteTask)
+				r.Get("/boosts", gamificationHandler.GetBoostsStatus)
+				r.Post("/boosts/upgrade", gamificationHandler.UpgradeBoost)
+				r.Get("/leaderboard", gamificationHandler.GetLeaderboard)
 
-			// Clan routes
-			r.Get("/clan", clanHandler.GetClanDetails)
-			r.Post("/clan/join", clanHandler.JoinClan)
-			r.Post("/clan/leave", clanHandler.LeaveClan)
-			r.Get("/clan/top", clanHandler.GetTopClans)
-			r.Get("/clans/top", clanHandler.GetTopClans)
+				// Clan routes
+				r.Get("/clan", clanHandler.GetClanDetails)
+				r.Post("/clan/join", clanHandler.JoinClan)
+				r.Post("/clan/leave", clanHandler.LeaveClan)
+				r.Get("/clan/top", clanHandler.GetTopClans)
+				r.Get("/clans/top", clanHandler.GetTopClans)
 
-			// Promo Code redemption
-			r.Post("/promo/redeem", ownerHandler.RedeemPromo)
+				// Promo Code redemption
+				r.Post("/promo/redeem", ownerHandler.RedeemPromo)
+			})
 		})
 
 		}) // Close protected /api/v1 routes group

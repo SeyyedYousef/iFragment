@@ -443,11 +443,22 @@ func getCryptoKey() []byte {
 	cryptoOnce.Do(func() {
 		keyStr := os.Getenv("BOT_TOKEN_KEY")
 		if keyStr == "" {
-			panic("CRITICAL: BOT_TOKEN_KEY environment variable is not set")
+			if os.Getenv("APP_ENV") != "production" {
+				keyStr = "dev_bot_token_key_32_characters_"
+			} else {
+				panic("CRITICAL: BOT_TOKEN_KEY environment variable is not set")
+			}
 		}
 		key := []byte(keyStr)
 		if len(key) != 32 {
-			panic("CRITICAL: BOT_TOKEN_KEY must be exactly 32 bytes/characters long")
+			if os.Getenv("APP_ENV") != "production" {
+				// Pad or truncate to 32 bytes for dev
+				temp := make([]byte, 32)
+				copy(temp, key)
+				key = temp
+			} else {
+				panic("CRITICAL: BOT_TOKEN_KEY must be exactly 32 bytes/characters long")
+			}
 		}
 		cryptoKey = key
 	})
