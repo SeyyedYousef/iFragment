@@ -21,7 +21,6 @@ import { QuietHoursPage } from '@/pages/group/quiet-hours/index.js';
 import { MandatoryPage } from '@/pages/group/mandatory/index.js';
 import { CustomTextsPage } from '@/pages/group/custom-texts/index.js';
 import { AnalyticsPage } from '@/pages/group/analytics/index.js';
-import { MarketplacePage } from '@/pages/marketplace/marketplace/index.js';
 
 import { ChannelDashboardPage } from '@/pages/channel/dashboard/index.js';
 import { ChannelGeneralSettingsPage } from '@/pages/channel/general-settings/index.js';
@@ -86,7 +85,6 @@ export const routes: Route[] = [
   { path: '/channel/:id/dynamic-bio', Component: ChannelDynamicBioPage },
   { path: '/channel/:id/auto-responder', Component: ChannelAutoResponderPage },
   { path: '/channel/:id/audit-log', Component: ChannelAuditLogPage },
-  { path: '/marketplace', Component: MarketplacePage },
   { path: '/owner/dashboard', Component: OwnerDashboardPage },
   { path: '/owner/users', Component: OwnerUsersPage },
   { path: '/owner/audit-logs', Component: OwnerAuditLogPage },

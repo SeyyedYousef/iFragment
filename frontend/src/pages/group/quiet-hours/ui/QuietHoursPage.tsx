@@ -211,7 +211,7 @@ export const QuietHoursPage: Component = () => {
         activeTab="quiet" 
       />
 
-      <Suspense fallback={<div class="flex items-center justify-center py-20"><span class="w-6 h-6 border-2 border-[#3390ec]/30 border-t-[#3390ec] rounded-full animate-spin" /></div>}>
+      <Suspense fallback={null}>
         <div class="p-5 flex flex-col gap-5">
           
           {/* Current Status Preview */}

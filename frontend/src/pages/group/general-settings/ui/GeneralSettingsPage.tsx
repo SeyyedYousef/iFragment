@@ -62,7 +62,7 @@ export const GeneralSettingsPage: Component = () => {
 
   const [config, setConfig] = createStore<GeneralConfig>({ ...defaultConfig });
   
-  const [settingsData] = createResource(
+  createResource(
     () => params.id,
     async (groupId) => {
       const settings = await groupApi.getSettings(groupId);
@@ -144,245 +144,237 @@ export const GeneralSettingsPage: Component = () => {
 
       <HamburgerMenu isOpen={isMenuOpen()} onClose={() => setIsMenuOpen(false)} groupId={params.id} activeTab="general" />
 
-      <Show when={settingsData.loading}>
-        <div class="flex items-center justify-center py-20">
-          <span class="w-6 h-6 border-2 border-[#3390ec]/30 border-t-[#3390ec] rounded-full animate-spin" />
-        </div>
-      </Show>
+      <div class="px-5 pt-6 flex flex-col gap-6">
+        
+        {/* Bot Language */}
+        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.02 }}>
+          <SelectField 
+            label="Bot Language"
+            value={config.language}
+            onChange={(v) => updateField('language', v)}
+            options={[
+              { value: 'en', label: 'English' },
+              { value: 'fa', label: 'فارسی (Persian)' },
+              { value: 'ru', label: 'Русский (Russian)' },
+              { value: 'zh', label: '中文 (Chinese)' },
+            ]}
+          />
+          <p class="mt-2 text-[11px] text-on-surface-variant px-1">
+            Select the language the bot will use for all group notifications and responses.
+          </p>
+        </Motion.div>
 
-      <Show when={!settingsData.loading}>
-        <div class="px-5 pt-6 flex flex-col gap-6">
-          
-          {/* Bot Language */}
-          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.02 }}>
-            <SelectField 
-              label="Bot Language"
-              value={config.language}
-              onChange={(v) => updateField('language', v)}
-              options={[
-                { value: 'en', label: 'English' },
-                { value: 'fa', label: 'فارسی (Persian)' },
-                { value: 'ru', label: 'Русский (Russian)' },
-                { value: 'zh', label: '中文 (Chinese)' },
-              ]}
-            />
-            <p class="mt-2 text-[11px] text-on-surface-variant px-1">
-              Select the language the bot will use for all group notifications and responses.
-            </p>
-          </Motion.div>
+        {/* Time Zone */}
+        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+          <SelectField 
+            label={t('generalSettings.timeZone')}
+            value={config.timezone}
+            onChange={(v) => updateField('timezone', v)}
+            options={[
+              { value: 'UTC', label: 'UTC (GMT+0)' },
+              { value: 'Europe/Moscow', label: 'Europe/Moscow (GMT+3)' },
+              { value: 'Asia/Tehran', label: 'Asia/Tehran (GMT+3:30)' },
+              { value: 'Asia/Dubai', label: 'Asia/Dubai (GMT+4)' },
+              { value: 'Asia/Shanghai', label: 'Asia/Shanghai (GMT+8)' },
+              { value: 'Europe/London', label: 'Europe/London (GMT+1)' },
+              { value: 'America/New_York', label: 'America/New York (GMT-4)' }
+            ]}
+            description={t('generalSettings.timeZoneDesc')}
+          />
+        </Motion.div>
 
-          {/* Time Zone */}
-          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-            <SelectField 
-              label={t('generalSettings.timeZone')}
-              value={config.timezone}
-              onChange={(v) => updateField('timezone', v)}
-              options={[
-                { value: 'UTC', label: 'UTC (GMT+0)' },
-                { value: 'Europe/Moscow', label: 'Europe/Moscow (GMT+3)' },
-                { value: 'Asia/Tehran', label: 'Asia/Tehran (GMT+3:30)' },
-                { value: 'Asia/Dubai', label: 'Asia/Dubai (GMT+4)' },
-                { value: 'Asia/Shanghai', label: 'Asia/Shanghai (GMT+8)' },
-                { value: 'Europe/London', label: 'Europe/London (GMT+1)' },
-                { value: 'America/New_York', label: 'America/New York (GMT-4)' }
-              ]}
-              description={t('generalSettings.timeZoneDesc')}
-            />
-          </Motion.div>
+        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          <SettingsSection
+            title={t('generalSettings.welcomeMessage')}
+            description={t('generalSettings.welcomeMessageDesc')}
+            enabled={config.welcomeMessage}
+            onToggle={(v) => updateField('welcomeMessage', v)}
+            hasEditText={true}
+            onEditText={() => navigate(`/group/${params.id}/settings/custom-texts`)}
+          />
+        </Motion.div>
 
-          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-            <SettingsSection
-              title={t('generalSettings.welcomeMessage')}
-              description={t('generalSettings.welcomeMessageDesc')}
-              enabled={config.welcomeMessage}
-              onToggle={(v) => updateField('welcomeMessage', v)}
-              hasEditText={true}
-              onEditText={() => navigate(`/group/${params.id}/settings/custom-texts`)}
-            />
-          </Motion.div>
+        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+          <SettingsSection
+            title={t('generalSettings.warningMessage')}
+            description={t('generalSettings.warningMessageDesc')}
+            enabled={config.warningMessage}
+            onToggle={(v) => updateField('warningMessage', v)}
+            hasEditText={true}
+            onEditText={() => navigate(`/group/${params.id}/settings/custom-texts`)}
+          />
+        </Motion.div>
 
-          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-            <SettingsSection
-              title={t('generalSettings.warningMessage')}
-              description={t('generalSettings.warningMessageDesc')}
-              enabled={config.warningMessage}
-              onToggle={(v) => updateField('warningMessage', v)}
-              hasEditText={true}
-              onEditText={() => navigate(`/group/${params.id}/settings/custom-texts`)}
-            />
-          </Motion.div>
-
-          {/* Auto-delete bot messages */}
-          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-3">
-            <div class="flex items-center justify-between gap-3">
-              <div class="flex flex-col flex-1 min-w-0">
-                <span class="text-[15px] font-bold text-white">{t('generalSettings.autoDeleteBot')}</span>
-                <span class="text-[12px] text-on-surface-variant leading-snug">{t('generalSettings.autoDeleteBotDesc')}</span>
-              </div>
-              <ToggleSwitch checked={config.autoDeleteBot} onChange={(v) => updateField('autoDeleteBot', v)} />
+        {/* Auto-delete bot messages */}
+        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-3">
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex flex-col flex-1 min-w-0">
+              <span class="text-[15px] font-bold text-white">{t('generalSettings.autoDeleteBot')}</span>
+              <span class="text-[12px] text-on-surface-variant leading-snug">{t('generalSettings.autoDeleteBotDesc')}</span>
             </div>
-            <Show when={config.autoDeleteBot}>
-              <div class="flex items-center gap-3 mt-2">
-                  <input 
-                    type="number" inputMode="numeric" min="0" value={config.autoDeleteDelay} 
-                    onInput={(e) => updateField('autoDeleteDelay', parseInt(e.currentTarget.value) || 0)}
-                    class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-2 w-24 text-center focus:outline-none focus:ring-2 focus:ring-[#3390ec] placeholder-[#a0a4ad]"
-                  />
-                  <span class="text-[14px] font-bold text-[#a0a4ad]">{t('generalSettings.seconds')}</span>
-              </div>
-            </Show>
-          </Motion.div>
-
-          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} class="flex flex-col gap-2">
-            <SettingsSection
-              title={t('generalSettings.trackAdmin')}
-              description={t('generalSettings.trackAdminDesc')}
-              enabled={config.trackAdmin}
-              onToggle={(v) => updateField('trackAdmin', v)}
-            />
-          </Motion.div>
-
-          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-            <SettingsSection
-              title={t('generalSettings.verifyMembers')}
-              description={t('generalSettings.verifyMembersDesc')}
-              enabled={config.verifyMembers}
-              onToggle={(v) => updateField('verifyMembers', v)}
-            />
-          </Motion.div>
-
-          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-            <SettingsSection
-              title={t('generalSettings.publicCommands')}
-              description={t('generalSettings.publicCommandsDesc')}
-              enabled={config.publicCommands}
-              onToggle={(v) => updateField('publicCommands', v)}
-            />
-          </Motion.div>
-
-          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-            <SettingsSection
-              title={t('generalSettings.hideJoinLeave')}
-              description={t('generalSettings.hideJoinLeaveDesc')}
-              enabled={config.hideJoinLeave}
-              onToggle={(v) => updateField('hideJoinLeave', v)}
-            />
-          </Motion.div>
-
-          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
-            <SelectField 
-              label={t('generalSettings.defaultPenalty')}
-              value={config.defaultPenalty}
-              onChange={(v) => updateField('defaultPenalty', v)}
-              options={[
-                { value: 'delete', label: t('generalSettings.optDelete') },
-                { value: 'mute_1h', label: t('generalSettings.optMute1h') },
-                { value: 'mute_24h', label: t('generalSettings.optMute24h') },
-                { value: 'kick', label: t('generalSettings.optKick') },
-                { value: 'ban', label: t('generalSettings.optBan') }
-              ]}
-              description={t('generalSettings.defaultPenaltyDesc')}
-            />
-          </Motion.div>
-
-          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-3">
-            <div class="flex items-center justify-between gap-3">
-              <div class="flex flex-col flex-1 min-w-0">
-                <span class="text-[15px] font-bold text-white">{t('generalSettings.autoWarning')}</span>
-                <span class="text-[12px] text-[#a0a4ad] leading-snug">{t('generalSettings.autoWarningDesc')}</span>
-              </div>
-              <ToggleSwitch checked={config.autoWarning} onChange={(v) => updateField('autoWarning', v)} />
-            </div>
-            
-            <Show when={config.autoWarning}>
-              <div class="h-[1px] bg-[#2a2a2a] w-full my-2"></div>
-              <div class="grid grid-cols-2 gap-4">
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-[13px] font-bold text-white">{t('generalSettings.threshold')}</label>
-                  <div class="relative">
-                    <input 
-                      type="number" inputMode="numeric" min="1" value={config.warningThreshold} onInput={(e) => updateField('warningThreshold', parseInt(e.currentTarget.value) || 3)}
-                      class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-[#3390ec]"
-                    />
-                  </div>
-                </div>
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-[13px] font-bold text-white">{t('generalSettings.retention')}</label>
-                  <div class="relative">
-                    <input 
-                      type="number" inputMode="numeric" min="1" value={config.warningRetention} onInput={(e) => updateField('warningRetention', parseInt(e.currentTarget.value) || 7)}
-                      class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-[#3390ec]"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div class="mt-2">
-                <SelectField 
-                  label={t('generalSettings.finalPenalty')}
-                  value={config.warningFinalPenalty}
-                  onChange={(v) => updateField('warningFinalPenalty', v)}
-                  options={[
-                    { value: 'mute_24h', label: t('generalSettings.optMute24h') },
-                    { value: 'kick', label: t('generalSettings.optKick') },
-                    { value: 'ban', label: t('generalSettings.optBan') }
-                  ]}
+            <ToggleSwitch checked={config.autoDeleteBot} onChange={(v) => updateField('autoDeleteBot', v)} />
+          </div>
+          <Show when={config.autoDeleteBot}>
+            <div class="flex items-center gap-3 mt-2">
+                <input 
+                  type="number" inputMode="numeric" min="0" value={config.autoDeleteDelay} 
+                  onInput={(e) => updateField('autoDeleteDelay', parseInt(e.currentTarget.value) || 0)}
+                  class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-2 w-24 text-center focus:outline-none focus:ring-2 focus:ring-[#3390ec] placeholder-[#a0a4ad]"
                 />
-              </div>
-            </Show>
-          </Motion.div>
-          
-          <div class="h-[1px] bg-[#2a2a2a] w-full my-1"></div>
-
-          {/* CAS Protection */}
-          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
-            <SettingsSection
-              title={t('generalSettings.casProtection')}
-              description={t('generalSettings.casProtectionDesc')}
-              enabled={config.casEnabled}
-              onToggle={(v) => updateField('casEnabled', v)}
-            />
-          </Motion.div>
-
-          {/* Anti-Raid Section */}
-          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-3">
-            <div class="flex items-center justify-between gap-3">
-              <div class="flex flex-col flex-1 min-w-0">
-                <span class="text-[15px] font-bold text-white">{t('generalSettings.antiRaid')}</span>
-                <span class="text-[12px] text-[#a0a4ad] leading-snug">{t('generalSettings.antiRaidDesc')}</span>
-              </div>
+                <span class="text-[14px] font-bold text-[#a0a4ad]">{t('generalSettings.seconds')}</span>
             </div>
-            
-            <div class="h-[1px] bg-[#2a2a2a] w-full my-1"></div>
-            
+          </Show>
+        </Motion.div>
+
+        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} class="flex flex-col gap-2">
+          <SettingsSection
+            title={t('generalSettings.trackAdmin')}
+            description={t('generalSettings.trackAdminDesc')}
+            enabled={config.trackAdmin}
+            onToggle={(v) => updateField('trackAdmin', v)}
+          />
+        </Motion.div>
+
+        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+          <SettingsSection
+            title={t('generalSettings.verifyMembers')}
+            description={t('generalSettings.verifyMembersDesc')}
+            enabled={config.verifyMembers}
+            onToggle={(v) => updateField('verifyMembers', v)}
+          />
+        </Motion.div>
+
+        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+          <SettingsSection
+            title={t('generalSettings.publicCommands')}
+            description={t('generalSettings.publicCommandsDesc')}
+            enabled={config.publicCommands}
+            onToggle={(v) => updateField('publicCommands', v)}
+          />
+        </Motion.div>
+
+        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+          <SettingsSection
+            title={t('generalSettings.hideJoinLeave')}
+            description={t('generalSettings.hideJoinLeaveDesc')}
+            enabled={config.hideJoinLeave}
+            onToggle={(v) => updateField('hideJoinLeave', v)}
+          />
+        </Motion.div>
+
+        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
+          <SelectField 
+            label={t('generalSettings.defaultPenalty')}
+            value={config.defaultPenalty}
+            onChange={(v) => updateField('defaultPenalty', v)}
+            options={[
+              { value: 'delete', label: t('generalSettings.optDelete') },
+              { value: 'mute_1h', label: t('generalSettings.optMute1h') },
+              { value: 'mute_24h', label: t('generalSettings.optMute24h') },
+              { value: 'kick', label: t('generalSettings.optKick') },
+              { value: 'ban', label: t('generalSettings.optBan') }
+            ]}
+            description={t('generalSettings.defaultPenaltyDesc')}
+          />
+        </Motion.div>
+
+        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-3">
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex flex-col flex-1 min-w-0">
+              <span class="text-[15px] font-bold text-white">{t('generalSettings.autoWarning')}</span>
+              <span class="text-[12px] text-[#a0a4ad] leading-snug">{t('generalSettings.autoWarningDesc')}</span>
+            </div>
+            <ToggleSwitch checked={config.autoWarning} onChange={(v) => updateField('autoWarning', v)} />
+          </div>
+          
+          <Show when={config.autoWarning}>
+            <div class="h-[1px] bg-[#2a2a2a] w-full my-2"></div>
             <div class="grid grid-cols-2 gap-4">
               <div class="flex flex-col gap-1.5">
-                <label class="text-[13px] font-bold text-white">{t('generalSettings.antiRaidThreshold')}</label>
-                <input 
-                  type="number" inputMode="numeric" min="0" 
-                  value={config.antiRaidThreshold} 
-                  onInput={(e) => updateField('antiRaidThreshold', parseInt(e.currentTarget.value) || 0)}
-                  placeholder="Joins / min"
-                  class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-[#3390ec]"
-                />
+                <label class="text-[13px] font-bold text-white">{t('generalSettings.threshold')}</label>
+                <div class="relative">
+                  <input 
+                    type="number" inputMode="numeric" min="1" value={config.warningThreshold} onInput={(e) => updateField('warningThreshold', parseInt(e.currentTarget.value) || 3)}
+                    class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-[#3390ec]"
+                  />
+                </div>
               </div>
               <div class="flex flex-col gap-1.5">
-                <label class="text-[13px] font-bold text-white">{t('generalSettings.antiRaidAction')}</label>
-                <select 
-                  value={config.antiRaidAction} 
-                  onChange={(e) => updateField('antiRaidAction', e.currentTarget.value)}
-                  class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-[#3390ec] appearance-none"
-                >
-                  <option value="none">{t('generalSettings.antiRaidOff')}</option>
-                  <option value="lockdown">{t('generalSettings.antiRaidLockdown')}</option>
-                  <option value="alert">{t('generalSettings.antiRaidAlert')}</option>
-                </select>
+                <label class="text-[13px] font-bold text-white">{t('generalSettings.retention')}</label>
+                <div class="relative">
+                  <input 
+                    type="number" inputMode="numeric" min="1" value={config.warningRetention} onInput={(e) => updateField('warningRetention', parseInt(e.currentTarget.value) || 7)}
+                    class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-[#3390ec]"
+                  />
+                </div>
               </div>
             </div>
-            <span class="text-[11px] text-[#a0a4ad]">{t('generalSettings.antiRaidNote')}</span>
-          </Motion.div>
-        </div>
-      </Show>
+
+            <div class="mt-2">
+              <SelectField 
+                label={t('generalSettings.finalPenalty')}
+                value={config.warningFinalPenalty}
+                onChange={(v) => updateField('warningFinalPenalty', v)}
+                options={[
+                  { value: 'mute_24h', label: t('generalSettings.optMute24h') },
+                  { value: 'kick', label: t('generalSettings.optKick') },
+                  { value: 'ban', label: t('generalSettings.optBan') }
+                ]}
+              />
+            </div>
+          </Show>
+        </Motion.div>
+        
+        <div class="h-[1px] bg-[#2a2a2a] w-full my-1"></div>
+
+        {/* CAS Protection */}
+        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
+          <SettingsSection
+            title={t('generalSettings.casProtection')}
+            description={t('generalSettings.casProtectionDesc')}
+            enabled={config.casEnabled}
+            onToggle={(v) => updateField('casEnabled', v)}
+          />
+        </Motion.div>
+
+        {/* Anti-Raid Section */}
+        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-3">
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex flex-col flex-1 min-w-0">
+              <span class="text-[15px] font-bold text-white">{t('generalSettings.antiRaid')}</span>
+              <span class="text-[12px] text-[#a0a4ad] leading-snug">{t('generalSettings.antiRaidDesc')}</span>
+            </div>
+          </div>
+          
+          <div class="h-[1px] bg-[#2a2a2a] w-full my-1"></div>
+          
+          <div class="grid grid-cols-2 gap-4">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-[13px] font-bold text-white">{t('generalSettings.antiRaidThreshold')}</label>
+              <input 
+                type="number" inputMode="numeric" min="0" 
+                value={config.antiRaidThreshold} 
+                onInput={(e) => updateField('antiRaidThreshold', parseInt(e.currentTarget.value) || 0)}
+                placeholder="Joins / min"
+                class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-[#3390ec]"
+              />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-[13px] font-bold text-white">{t('generalSettings.antiRaidAction')}</label>
+              <select 
+                value={config.antiRaidAction} 
+                onChange={(e) => updateField('antiRaidAction', e.currentTarget.value)}
+                class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-[#3390ec] appearance-none"
+              >
+                <option value="none">{t('generalSettings.antiRaidOff')}</option>
+                <option value="lockdown">{t('generalSettings.antiRaidLockdown')}</option>
+                <option value="alert">{t('generalSettings.antiRaidAlert')}</option>
+              </select>
+            </div>
+          </div>
+          <span class="text-[11px] text-[#a0a4ad]">{t('generalSettings.antiRaidNote')}</span>
+        </Motion.div>
+      </div>
 
       {/* Save Button */}
       <Show when={isDirty()}>

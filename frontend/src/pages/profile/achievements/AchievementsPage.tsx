@@ -95,7 +95,7 @@ export const AchievementsPage: Component = () => {
         text: storyText,
         widget_link: {
           url: `https://t.me/iFragmentBot?start=ach_${ach.id}`,
-          name: t('profile.goToMarket') || 'Marketplace'
+          name: 'iFragment'
         }
       }
     );

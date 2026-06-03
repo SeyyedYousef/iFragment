@@ -46,13 +46,13 @@ const savedState = loadState() || {};
 
 // --- Core State ---
 export const [userClan, setUserClan] = createSignal<Clan | null>(null);
-export const [balance, setBalance] = createSignal(0);
-export const [totalTaps, setTotalTaps] = createSignal(0);
+export const [balance, setBalance] = createSignal(savedState.balance || 0);
+export const [totalTaps, setTotalTaps] = createSignal(savedState.totalTaps || 0);
 export const [energy, setEnergy] = createSignal(savedState.energy !== undefined ? Math.min(savedState.energy, savedState.maxEnergy || 500) : 500);
 export const [maxEnergy, setMaxEnergy] = createSignal(savedState.maxEnergy || 500);
 export const [tapPower, setTapPower] = createSignal(savedState.tapPower || 1);
 export const [energyRecovery, setEnergyRecovery] = createSignal(savedState.energyRecovery || 1);
-export const [frgBalance, setFrgBalance] = createSignal(0);
+export const [frgBalance, setFrgBalance] = createSignal(savedState.frgBalance || 0);
 
 // --- Boosters ---
 export interface Booster {
@@ -318,6 +318,9 @@ export const initStorageSync = () => {
     createEffect(() => {
       // Access only UI signals to persist them securely
       const state = {
+        balance: balance(),
+        totalTaps: totalTaps(),
+        frgBalance: frgBalance(),
         energy: energy(),
         maxEnergy: maxEnergy(),
         tapPower: tapPower(),

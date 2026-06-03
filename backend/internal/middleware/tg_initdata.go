@@ -55,10 +55,25 @@ func ValidateTelegramInitData(cache *repository.Cache) func(http.Handler) http.H
 
 			// Development bypass check
 			isDevEnv := os.Getenv("APP_ENV") != "production"
-			if allowDevBypass && isDevEnv && initData == "dev-user" {
-				ctx := context.WithValue(r.Context(), UserContextKey, map[string]interface{}{"id": int64(12345), "username": "testuser"})
-				next.ServeHTTP(w, r.WithContext(ctx))
-				return
+			if allowDevBypass && isDevEnv {
+				// Attempt to parse query parameters directly in dev environment.
+				// This allows using mock, clock-skewed, or expired user data without failing cryptographic validation.
+				if values, err := url.ParseQuery(initData); err == nil {
+					userData := values.Get("user")
+					if userData != "" {
+						var userObj map[string]interface{}
+						if err := json.Unmarshal([]byte(userData), &userObj); err == nil {
+							ctx := context.WithValue(r.Context(), UserContextKey, userObj)
+							next.ServeHTTP(w, r.WithContext(ctx))
+							return
+						}
+					}
+				}
+				if initData == "dev-user" {
+					ctx := context.WithValue(r.Context(), UserContextKey, map[string]interface{}{"id": int64(12345), "username": "testuser"})
+					next.ServeHTTP(w, r.WithContext(ctx))
+					return
+				}
 			}
 
 			// Perform Cryptographic Verification FIRST before reading untrusted parameters
@@ -197,8 +212,21 @@ func validate(initData, botToken string) error {
 func VerifyInitDataAndExtractUserID(initData string) (int64, error) {
 	// Development bypass check
 	isDevEnv := os.Getenv("APP_ENV") != "production"
-	if allowDevBypass && isDevEnv && initData == "dev-user" {
-		return 12345, nil
+	if allowDevBypass && isDevEnv {
+		if values, err := url.ParseQuery(initData); err == nil {
+			userData := values.Get("user")
+			if userData != "" {
+				var user struct {
+					ID int64 `json:"id"`
+				}
+				if err := json.Unmarshal([]byte(userData), &user); err == nil && user.ID != 0 {
+					return user.ID, nil
+				}
+			}
+		}
+		if initData == "dev-user" {
+			return 12345, nil
+		}
 	}
 
 	botToken := os.Getenv("BOT_TOKEN")

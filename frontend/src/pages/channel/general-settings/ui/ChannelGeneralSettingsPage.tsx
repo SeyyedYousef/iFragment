@@ -79,7 +79,7 @@ export const ChannelGeneralSettingsPage: Component = () => {
 
   const [config, setConfig] = createStore<ChannelConfig>({ ...defaultConfig });
   
-  const [settingsData] = createResource(
+  createResource(
     () => params.id,
     async (channelId) => {
       const settings = await channelApi.getSettings(channelId);
@@ -211,180 +211,171 @@ export const ChannelGeneralSettingsPage: Component = () => {
 
       <ChannelHamburgerMenu isOpen={isMenuOpen()} onClose={() => setIsMenuOpen(false)} channelId={params.id} activeTab="general" />
 
-      <Show when={settingsData.loading}>
-        <div class="flex items-center justify-center py-20">
-          <span class="w-6 h-6 border-2 border-[#32ade6]/30 border-t-[#32ade6] rounded-full animate-spin" />
-        </div>
-      </Show>
-
-      <Show when={!settingsData.loading}>
-        <div class="px-5 pt-6 flex flex-col gap-6">
+      <div class="px-5 pt-6 flex flex-col gap-6">
+        
+        {/* Identity Section - RESTRICTED TO NAME AND PHOTO ONLY */}
+        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.02 }} class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-4">
+          <h2 class="text-[16px] font-bold text-white flex items-center gap-2"><span class="material-symbols-outlined text-[#32ade6] text-[20px]">badge</span> {t('channelSettings.channelIdentity')}</h2>
           
-          {/* Identity Section - RESTRICTED TO NAME AND PHOTO ONLY */}
-          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.02 }} class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-4">
-            <h2 class="text-[16px] font-bold text-white flex items-center gap-2"><span class="material-symbols-outlined text-[#32ade6] text-[20px]">badge</span> {t('channelSettings.channelIdentity')}</h2>
-            
-            <div class="flex items-center gap-4">
-              <div class="w-16 h-16 rounded-full bg-[#2c2c2e] flex items-center justify-center relative overflow-hidden group cursor-pointer shrink-0">
-                <Show when={config.channelPhotoUrl} fallback={<span class="material-symbols-outlined text-[#a0a4ad] text-[24px]">add_photo_alternate</span>}>
-                   <img src={config.channelPhotoUrl} alt="Channel" class="w-full h-full object-cover" />
-                </Show>
-                <div class="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center transition-all">
-                  <span class="material-symbols-outlined text-white text-[20px]">upload</span>
-                </div>
-              </div>
-              <div class="flex flex-col gap-1 flex-1 min-w-0">
-                <label class="text-[12px] text-on-surface-variant ml-1">{t('channelSettings.channelName')}</label>
-                <input 
-                  type="text" value={config.channelName} 
-                  onInput={(e) => updateField('channelName', e.currentTarget.value)}
-                  placeholder={t('channelSettings.channelNamePlaceholder')}
-                  class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-2.5 w-full focus:outline-none focus:ring-2 focus:ring-[#32ade6] placeholder-[#a0a4ad]"
-                />
+          <div class="flex items-center gap-4">
+            <div class="w-16 h-16 rounded-full bg-[#2c2c2e] flex items-center justify-center relative overflow-hidden group cursor-pointer shrink-0">
+              <Show when={config.channelPhotoUrl} fallback={<span class="material-symbols-outlined text-[#a0a4ad] text-[24px]">add_photo_alternate</span>}>
+                 <img src={config.channelPhotoUrl} alt="Channel" class="w-full h-full object-cover" />
+              </Show>
+              <div class="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center transition-all">
+                <span class="material-symbols-outlined text-white text-[20px]">upload</span>
               </div>
             </div>
-          </Motion.div>
-
-          {/* Time Zone Section */}
-          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-            <SelectField 
-              label={t('channelSettings.timeZone')}
-              value={config.timezone}
-              onChange={(v) => updateField('timezone', v)}
-              options={[
-                { value: 'UTC', label: 'UTC (GMT+0)' },
-                { value: 'Europe/Moscow', label: 'Europe/Moscow (GMT+3)' },
-                { value: 'Asia/Tehran', label: 'Asia/Tehran (GMT+3:30)' },
-              ]}
-              description={t('channelSettings.timeZoneDesc')}
-            />
-          </Motion.div>
-
-          {/* Bot Language Section - RELOCATED LOWER WITH IMPROVED LAYOUT */}
-          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
-            <SelectField 
-              label={t('channelSettings.botLanguage')}
-              value={config.language}
-              onChange={(v) => updateField('language', v)}
-              options={[
-                { value: 'en', label: 'English' },
-                { value: 'fa', label: 'فارسی (Persian)' },
-                { value: 'ru', label: 'Русский (Russian)' },
-                { value: 'zh', label: '简体中文 (Chinese)' },
-              ]}
-            />
-            <p class="mt-2 text-[11px] text-on-surface-variant px-1 leading-normal">
-              {t('channelSettings.botLanguageDesc')}
-            </p>
-          </Motion.div>
-
-          {/* Sign Messages & Custom Signature (With signature input length not restricted) */}
-          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-4">
-            <SettingsSection
-              title={t('channelSettings.signMessages')}
-              description={t('channelSettings.signMessagesDesc')}
-              enabled={config.signMessages}
-              onToggle={(v) => updateField('signMessages', v)}
-            />
-            <Show when={config.signMessages}>
-              <div class="mt-1 flex flex-col gap-1.5 pl-3 border-l-2 border-[#32ade6]/30">
-                <label class="text-[12px] text-on-surface-variant ml-1 font-semibold">{t('channelSettings.customSignature')}</label>
-                <input 
-                  type="text" value={config.customSignature || ''} 
-                  onInput={(e) => updateField('customSignature', e.currentTarget.value)}
-                  placeholder={t('channelSettings.customSignaturePlaceholder')}
-                  class="bg-[#2c2c2e] text-white text-[14px] rounded-xl px-4 py-2.5 w-full focus:outline-none focus:ring-2 focus:ring-[#32ade6] placeholder-[#a0a4ad] transition-all border border-[#3a3a3c] focus:border-[#32ade6]"
-                />
-              </div>
-            </Show>
-          </Motion.div>
-
-          {/* Auto Forward Section */}
-          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.16 }} class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-3">
-            <div class="flex items-center justify-between gap-3">
-              <div class="flex flex-col flex-1 min-w-0">
-                <span class="text-[15px] font-bold text-white">{t('channelSettings.autoForwarding')}</span>
-                <span class="text-[12px] text-on-surface-variant leading-snug">{t('channelSettings.autoForwardingDesc')}</span>
-              </div>
-              <ToggleSwitch checked={config.autoForward} onChange={(v) => updateField('autoForward', v)} />
+            <div class="flex flex-col gap-1 flex-1 min-w-0">
+              <label class="text-[12px] text-on-surface-variant ml-1">{t('channelSettings.channelName')}</label>
+              <input 
+                type="text" value={config.channelName} 
+                onInput={(e) => updateField('channelName', e.currentTarget.value)}
+                placeholder={t('channelSettings.channelNamePlaceholder')}
+                class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-2.5 w-full focus:outline-none focus:ring-2 focus:ring-[#32ade6] placeholder-[#a0a4ad]"
+              />
             </div>
-            <Show when={config.autoForward}>
-              <div class="flex flex-col gap-2 mt-2">
-                  <label class="text-[13px] font-bold text-white">{t('channelSettings.destinationChatId')}</label>
-                  <input 
-                    type="text" value={config.forwardDestination} 
-                    onInput={(e) => updateField('forwardDestination', e.currentTarget.value)}
-                    placeholder={t('channelSettings.targetChannelPlaceholder')}
-                    class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-[#32ade6] placeholder-[#a0a4ad]"
-                  />
-              </div>
-            </Show>
-          </Motion.div>
+          </div>
+        </Motion.div>
 
-          {/* Invite Links */}
-          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-3">
-             <div class="flex items-center justify-between gap-3">
-              <div class="flex flex-col flex-1 min-w-0">
-                <span class="text-[15px] font-bold text-white flex items-center gap-2"><span class="material-symbols-outlined text-[#bf5af2] text-[20px]">link</span> {t('channelSettings.inviteLinks')}</span>
-              </div>
-              <button class="bg-[#bf5af2]/20 text-[#bf5af2] rounded-xl px-3 py-1.5 font-bold text-[13px] hover:bg-[#bf5af2]/30 transition-all flex items-center gap-1">
-                <span class="material-symbols-outlined text-[16px]">add</span> {t('channelSettings.createInviteLink')}
-              </button>
+        {/* Time Zone Section */}
+        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+          <SelectField 
+            label={t('channelSettings.timeZone')}
+            value={config.timezone}
+            onChange={(v) => updateField('timezone', v)}
+            options={[
+              { value: 'UTC', label: 'UTC (GMT+0)' },
+              { value: 'Europe/Moscow', label: 'Europe/Moscow (GMT+3)' },
+              { value: 'Asia/Tehran', label: 'Asia/Tehran (GMT+3:30)' },
+            ]}
+            description={t('channelSettings.timeZoneDesc')}
+          />
+        </Motion.div>
+
+        {/* Bot Language Section - RELOCATED LOWER WITH IMPROVED LAYOUT */}
+        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
+          <SelectField 
+            label={t('channelSettings.botLanguage')}
+            value={config.language}
+            onChange={(v) => updateField('language', v)}
+            options={[
+              { value: 'en', label: 'English' },
+              { value: 'fa', label: 'فارسی (Persian)' },
+              { value: 'ru', label: 'Русский (Russian)' },
+              { value: 'zh', label: '简体中文 (Chinese)' },
+            ]}
+          />
+          <p class="mt-2 text-[11px] text-on-surface-variant px-1 leading-normal">
+            {t('channelSettings.botLanguageDesc')}
+          </p>
+        </Motion.div>
+
+        {/* Sign Messages & Custom Signature (With signature input length not restricted) */}
+        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-4">
+          <SettingsSection
+            title={t('channelSettings.signMessages')}
+            description={t('channelSettings.signMessagesDesc')}
+            enabled={config.signMessages}
+            onToggle={(v) => updateField('signMessages', v)}
+          />
+          <Show when={config.signMessages}>
+            <div class="mt-1 flex flex-col gap-1.5 pl-3 border-l-2 border-[#32ade6]/30">
+              <label class="text-[12px] text-on-surface-variant ml-1 font-semibold">{t('channelSettings.customSignature')}</label>
+              <input 
+                type="text" value={config.customSignature || ''} 
+                onInput={(e) => updateField('customSignature', e.currentTarget.value)}
+                placeholder={t('channelSettings.customSignaturePlaceholder')}
+                class="bg-[#2c2c2e] text-white text-[14px] rounded-xl px-4 py-2.5 w-full focus:outline-none focus:ring-2 focus:ring-[#32ade6] placeholder-[#a0a4ad] transition-all border border-[#3a3a3c] focus:border-[#32ade6]"
+              />
             </div>
-            
+          </Show>
+        </Motion.div>
+
+        {/* Auto Forward Section */}
+        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.16 }} class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-3">
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex flex-col flex-1 min-w-0">
+              <span class="text-[15px] font-bold text-white">{t('channelSettings.autoForwarding')}</span>
+              <span class="text-[12px] text-on-surface-variant leading-snug">{t('channelSettings.autoForwardingDesc')}</span>
+            </div>
+            <ToggleSwitch checked={config.autoForward} onChange={(v) => updateField('autoForward', v)} />
+          </div>
+          <Show when={config.autoForward}>
             <div class="flex flex-col gap-2 mt-2">
-                <div class="bg-[#2c2c2e] rounded-xl p-3 flex flex-col gap-2 border border-[#3a3a3c]">
-                  <div class="flex items-center justify-between">
-                     <span class="text-[14px] font-bold text-white">VIP Campaign</span>
-                     <span class="text-[11px] text-[#34c759] bg-[#34c759]/10 px-2 py-0.5 rounded-full font-medium">Active</span>
-                  </div>
-                  <div class="flex items-center gap-2 text-[12px] text-on-surface-variant">
-                    <span class="material-symbols-outlined text-[14px]">group</span> 45/100
-                    <span class="w-1 h-1 rounded-full bg-[#555] mx-1"></span>
-                    <span class="material-symbols-outlined text-[14px]">event</span> Expires in 3d
-                  </div>
-                  <div class="flex gap-2 mt-1">
-                    <button class="flex-1 bg-[#1c1c1c] text-white rounded-lg py-1.5 text-[12px] font-medium flex items-center justify-center gap-1 border border-[#3a3a3c] hover:bg-[#3a3a3c]">
-                      <span class="material-symbols-outlined text-[14px]">content_copy</span> {t('channelSettings.copyLink')}
-                    </button>
-                    <button class="flex-1 bg-[#ff3b30]/10 text-[#ff3b30] rounded-lg py-1.5 text-[12px] font-medium flex items-center justify-center gap-1 hover:bg-[#ff3b30]/20">
-                      <span class="material-symbols-outlined text-[14px]">block</span> {t('channelSettings.revokeLink')}
-                    </button>
-                  </div>
+                <label class="text-[13px] font-bold text-white">{t('channelSettings.destinationChatId')}</label>
+                <input 
+                  type="text" value={config.forwardDestination} 
+                  onInput={(e) => updateField('forwardDestination', e.currentTarget.value)}
+                  placeholder={t('channelSettings.targetChannelPlaceholder')}
+                  class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-[#32ade6] placeholder-[#a0a4ad]"
+                />
+            </div>
+          </Show>
+        </Motion.div>
+
+        {/* Invite Links */}
+        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-3">
+           <div class="flex items-center justify-between gap-3">
+            <div class="flex flex-col flex-1 min-w-0">
+              <span class="text-[15px] font-bold text-white flex items-center gap-2"><span class="material-symbols-outlined text-[#bf5af2] text-[20px]">link</span> {t('channelSettings.inviteLinks')}</span>
+            </div>
+            <button class="bg-[#bf5af2]/20 text-[#bf5af2] rounded-xl px-3 py-1.5 font-bold text-[13px] hover:bg-[#bf5af2]/30 transition-all flex items-center gap-1">
+              <span class="material-symbols-outlined text-[16px]">add</span> {t('channelSettings.createInviteLink')}
+            </button>
+          </div>
+          
+          <div class="flex flex-col gap-2 mt-2">
+              <div class="bg-[#2c2c2e] rounded-xl p-3 flex flex-col gap-2 border border-[#3a3a3c]">
+                <div class="flex items-center justify-between">
+                   <span class="text-[14px] font-bold text-white">VIP Campaign</span>
+                   <span class="text-[11px] text-[#34c759] bg-[#34c759]/10 px-2 py-0.5 rounded-full font-medium">Active</span>
                 </div>
-            </div>
-          </Motion.div>
-
-          {/* Join Requests Section */}
-          <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-3">
-            <div class="flex items-center justify-between gap-3">
-              <div class="flex flex-col flex-1 min-w-0">
-                <span class="text-[15px] font-bold text-white flex items-center gap-2"><span class="material-symbols-outlined text-[#ff9f0a] text-[20px]">person_add</span> {t('channelSettings.joinRequests')}</span>
-                <span class="text-[12px] text-on-surface-variant leading-snug mt-1">{t('channelSettings.joinRequestsDesc')}</span>
+                <div class="flex items-center gap-2 text-[12px] text-on-surface-variant">
+                  <span class="material-symbols-outlined text-[14px]">group</span> 45/100
+                  <span class="w-1 h-1 rounded-full bg-[#555] mx-1"></span>
+                  <span class="material-symbols-outlined text-[14px]">event</span> Expires in 3d
+                </div>
+                <div class="flex gap-2 mt-1">
+                  <button class="flex-1 bg-[#1c1c1c] text-white rounded-lg py-1.5 text-[12px] font-medium flex items-center justify-center gap-1 border border-[#3a3a3c] hover:bg-[#3a3a3c]">
+                    <span class="material-symbols-outlined text-[14px]">content_copy</span> {t('channelSettings.copyLink')}
+                  </button>
+                  <button class="flex-1 bg-[#ff3b30]/10 text-[#ff3b30] rounded-lg py-1.5 text-[12px] font-medium flex items-center justify-center gap-1 hover:bg-[#ff3b30]/20">
+                    <span class="material-symbols-outlined text-[14px]">block</span> {t('channelSettings.revokeLink')}
+                  </button>
+                </div>
               </div>
-              <ToggleSwitch checked={config.joinRequestsEnabled} onChange={(v) => updateField('joinRequestsEnabled', v)} />
+          </div>
+        </Motion.div>
+
+        {/* Join Requests Section */}
+        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-3">
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex flex-col flex-1 min-w-0">
+              <span class="text-[15px] font-bold text-white flex items-center gap-2"><span class="material-symbols-outlined text-[#ff9f0a] text-[20px]">person_add</span> {t('channelSettings.joinRequests')}</span>
+              <span class="text-[12px] text-on-surface-variant leading-snug mt-1">{t('channelSettings.joinRequestsDesc')}</span>
             </div>
+            <ToggleSwitch checked={config.joinRequestsEnabled} onChange={(v) => updateField('joinRequestsEnabled', v)} />
+          </div>
+          
+          <Show when={config.joinRequestsEnabled}>
+            <div class="h-[1px] bg-[#2a2a2a] w-full my-1"></div>
             
-            <Show when={config.joinRequestsEnabled}>
-              <div class="h-[1px] bg-[#2a2a2a] w-full my-1"></div>
-              
-              <div class="flex items-center justify-between gap-3 mt-1">
-                <span class="text-[14px] text-white flex items-center gap-2"><span class="material-symbols-outlined text-[#32ade6] text-[18px]">verified</span> {t('channelSettings.filterByPremium')}</span>
-                <ToggleSwitch checked={config.approvePremium} onChange={(v) => updateField('approvePremium', v)} />
-              </div>
-              <div class="flex items-center justify-between gap-3 mt-1">
-                <span class="text-[14px] text-white flex items-center gap-2"><span class="material-symbols-outlined text-[#ff9f0a] text-[18px]">featured_seasonal_and_gifts</span> {t('channelSettings.filterByGifts')}</span>
-                <ToggleSwitch checked={config.approveGifts} onChange={(v) => updateField('approveGifts', v)} />
-              </div>
-              <div class="flex items-center justify-between gap-3 mt-1">
-                <span class="text-[14px] text-white flex items-center gap-2"><span class="material-symbols-outlined text-[#34c759] text-[18px]">account_circle</span> {t('channelSettings.filterByProfilePhoto')}</span>
-                <ToggleSwitch checked={config.approveProfilePhoto} onChange={(v) => updateField('approveProfilePhoto', v)} />
-              </div>
-            </Show>
-          </Motion.div>
-
-        </div>
-      </Show>
+            <div class="flex items-center justify-between gap-3 mt-1">
+              <span class="text-[14px] text-white flex items-center gap-2"><span class="material-symbols-outlined text-[#32ade6] text-[18px]">verified</span> {t('channelSettings.filterByPremium')}</span>
+              <ToggleSwitch checked={config.approvePremium} onChange={(v) => updateField('approvePremium', v)} />
+            </div>
+            <div class="flex items-center justify-between gap-3 mt-1">
+              <span class="text-[14px] text-white flex items-center gap-2"><span class="material-symbols-outlined text-[#ff9f0a] text-[18px]">featured_seasonal_and_gifts</span> {t('channelSettings.filterByGifts')}</span>
+              <ToggleSwitch checked={config.approveGifts} onChange={(v) => updateField('approveGifts', v)} />
+            </div>
+            <div class="flex items-center justify-between gap-3 mt-1">
+              <span class="text-[14px] text-white flex items-center gap-2"><span class="material-symbols-outlined text-[#34c759] text-[18px]">account_circle</span> {t('channelSettings.filterByProfilePhoto')}</span>
+              <ToggleSwitch checked={config.approveProfilePhoto} onChange={(v) => updateField('approveProfilePhoto', v)} />
+            </div>
+          </Show>
+        </Motion.div>
+      </div>
 
       {/* Save Button */}
       <Show when={isDirty()}>

@@ -51,7 +51,7 @@ export const ContentRestrictionsPage: Component = () => {
   const [newBannedKeyword, setNewBannedKeyword] = createSignal('');
   const [newRequiredKeyword, setNewRequiredKeyword] = createSignal('');
 
-  const [settingsData] = createResource(
+  createResource(
     () => params.id,
     async (groupId) => {
       const data = await groupApi.getSettings(groupId);
@@ -217,169 +217,161 @@ export const ContentRestrictionsPage: Component = () => {
         activeTab="content" 
       />
 
-      <Show when={settingsData.loading}>
-        <div class="flex items-center justify-center py-20">
-          <span class="w-6 h-6 border-2 border-[#3390ec]/30 border-t-[#3390ec] rounded-full animate-spin" />
-        </div>
-      </Show>
+      <div class="p-5 flex flex-col gap-4">
+        
+        <Show when={activeTab() === 'links'}>
+          <Motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} class="flex flex-col gap-4">
+            <div class="flex items-center justify-between px-1 mb-1">
+              <span class="text-[12px] text-[#8e8e93] font-medium uppercase tracking-wider">{t('contentRestrictions.tabLinks')}</span>
+              <button 
+                onClick={() => {
+                  settingKeys.links.forEach(k => setSettings(k, 'enabled', true));
+                  setIsDirty(true);
+                  hapticFeedback.impactOccurred('medium');
+                  showToast('All link blockers enabled', 'success');
+                }}
+                class="text-[12px] text-[#3390ec] font-bold hover:underline"
+              >
+                Quick Enable All
+              </button>
+            </div>
+            {renderSetting('removeLinks', 'removeLinks', 'removeLinksDesc')}
+            {renderSetting('blockBots', 'blockBots', 'blockBotsDesc')}
+            {renderSetting('removeBotInviters', 'removeBotInviters', 'removeBotInvitersDesc')}
+            {renderSetting('blockDomains', 'blockDomains', 'blockDomainsDesc')}
+            {renderSetting('blockUsernames', 'blockUsernames', 'blockUsernamesDesc')}
+          </Motion.div>
+        </Show>
 
-      <Show when={!settingsData.loading}>
-        <div class="p-5 flex flex-col gap-4">
-          
-          <Show when={activeTab() === 'links'}>
-            <Motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} class="flex flex-col gap-4">
-              <div class="flex items-center justify-between px-1 mb-1">
-                <span class="text-[12px] text-[#8e8e93] font-medium uppercase tracking-wider">{t('contentRestrictions.tabLinks')}</span>
-                <button 
-                  onClick={() => {
-                    settingKeys.links.forEach(k => setSettings(k, 'enabled', true));
-                    setIsDirty(true);
-                    hapticFeedback.impactOccurred('medium');
-                    showToast('All link blockers enabled', 'success');
-                  }}
-                  class="text-[12px] text-[#3390ec] font-bold hover:underline"
-                >
-                  Quick Enable All
+        <Show when={activeTab() === 'text'}>
+          <Motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} class="flex flex-col gap-4">
+            {renderSetting('blockHashtags', 'blockHashtags', 'blockHashtagsDesc')}
+            {renderSetting('blockTextPatterns', 'blockTextPatterns', 'blockTextPatternsDesc')}
+            {renderSetting('blockEmojis', 'blockEmojis', 'blockEmojisDesc')}
+            {renderSetting('blockEmojiOnly', 'blockEmojiOnly', 'blockEmojiOnlyDesc')}
+            {renderSetting('blockPhoneNumbers', 'blockPhoneNumbers', 'blockPhoneNumbersDesc')}
+          </Motion.div>
+        </Show>
+
+        <Show when={activeTab() === 'media'}>
+          <Motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} class="flex flex-col gap-4">
+            {renderSetting('blockPhotos', 'blockPhotos', 'blockPhotosDesc')}
+            {renderSetting('blockStickers', 'blockStickers', 'blockStickersDesc')}
+            {renderSetting('blockLocations', 'blockLocations', 'blockLocationsDesc')}
+            {renderSetting('blockAudio', 'blockAudio', 'blockAudioDesc')}
+            {renderSetting('blockVoiceMessages', 'blockVoiceMessages', 'blockVoiceMessagesDesc')}
+            {renderSetting('blockFiles', 'blockFiles', 'blockFilesDesc')}
+            {renderSetting('blockGifs', 'blockGifs', 'blockGifsDesc')}
+            {renderSetting('blockCaptionless', 'blockCaptionless', 'blockCaptionlessDesc')}
+          </Motion.div>
+        </Show>
+
+        <Show when={activeTab() === 'interactions'}>
+          <Motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} class="flex flex-col gap-4">
+            {renderSetting('blockForwards', 'blockForwards', 'blockForwardsDesc')}
+            {renderSetting('restrictChannelForwards', 'restrictChannelForwards', 'restrictChannelForwardsDesc')}
+            {renderSetting('blockAppMessages', 'blockAppMessages', 'blockAppMessagesDesc')}
+            {renderSetting('blockPolls', 'blockPolls', 'blockPollsDesc')}
+            {renderSetting('blockInlineKeyboards', 'blockInlineKeyboards', 'blockInlineKeyboardsDesc')}
+            {renderSetting('blockGames', 'blockGames', 'blockGamesDesc')}
+            {renderSetting('blockSlashCommands', 'blockSlashCommands', 'blockSlashCommandsDesc')}
+            {renderSetting('blockUserReplies', 'blockUserReplies', 'blockUserRepliesDesc')}
+            {renderSetting('blockCrossChatReplies', 'blockCrossChatReplies', 'blockCrossChatRepliesDesc')}
+          </Motion.div>
+        </Show>
+
+        <Show when={activeTab() === 'languages'}>
+          <Motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} class="flex flex-col gap-4">
+            {renderSetting('blockLatinLetters', 'blockLatinLetters', 'blockLatinLettersDesc')}
+            {renderSetting('blockPersianArabicLetters', 'blockPersianArabicLetters', 'blockPersianArabicLettersDesc')}
+            {renderSetting('blockCyrillicLetters', 'blockCyrillicLetters', 'blockCyrillicLettersDesc')}
+            {renderSetting('blockChineseCharacters', 'blockChineseCharacters', 'blockChineseCharactersDesc')}
+          </Motion.div>
+        </Show>
+
+        <Show when={activeTab() === 'keywords'}>
+          <Motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} class="flex flex-col gap-6">
+            
+            {/* Banned Keywords */}
+            <div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-4">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-[#ff3b30]">block</span>
+                <div class="flex flex-col">
+                  <span class="text-[15px] font-bold text-white">{t('contentRestrictions.bannedKeywords')}</span>
+                  <span class="text-[12px] text-[#8e8e93] leading-snug">{t('contentRestrictions.bannedKeywordsDesc')}</span>
+                </div>
+              </div>
+
+              <div class="flex flex-wrap gap-2">
+                <For each={bannedKeywords()}>
+                  {(kw) => (
+                    <span class="bg-[#ff3b30]/10 text-[#ff3b30] px-3 py-1.5 rounded-xl text-[13px] font-bold flex items-center gap-1.5">
+                      {kw}
+                      <button onClick={() => { setBannedKeywords(bannedKeywords().filter(k => k !== kw)); setIsDirty(true); }} class="hover:opacity-70">
+                        <span class="material-symbols-outlined text-[16px]">close</span>
+                      </button>
+                    </span>
+                  )}
+                </For>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <input 
+                  type="text" 
+                  value={newBannedKeyword()}
+                  onInput={(e) => setNewBannedKeyword(e.currentTarget.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addBannedKeyword()}
+                  placeholder={t('contentRestrictions.addKeyword')}
+                  class="flex-1 bg-[#2c2c2e] text-white text-[14px] rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#3390ec]"
+                />
+                <button onClick={addBannedKeyword} class="w-10 h-10 rounded-xl bg-[#3390ec] text-white flex items-center justify-center shrink-0">
+                  <span class="material-symbols-outlined">add</span>
                 </button>
               </div>
-              {renderSetting('removeLinks', 'removeLinks', 'removeLinksDesc')}
-              {renderSetting('blockBots', 'blockBots', 'blockBotsDesc')}
-              {renderSetting('removeBotInviters', 'removeBotInviters', 'removeBotInvitersDesc')}
-              {renderSetting('blockDomains', 'blockDomains', 'blockDomainsDesc')}
-              {renderSetting('blockUsernames', 'blockUsernames', 'blockUsernamesDesc')}
-            </Motion.div>
-          </Show>
+            </div>
 
-          <Show when={activeTab() === 'text'}>
-            <Motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} class="flex flex-col gap-4">
-              {renderSetting('blockHashtags', 'blockHashtags', 'blockHashtagsDesc')}
-              {renderSetting('blockTextPatterns', 'blockTextPatterns', 'blockTextPatternsDesc')}
-              {renderSetting('blockEmojis', 'blockEmojis', 'blockEmojisDesc')}
-              {renderSetting('blockEmojiOnly', 'blockEmojiOnly', 'blockEmojiOnlyDesc')}
-              {renderSetting('blockPhoneNumbers', 'blockPhoneNumbers', 'blockPhoneNumbersDesc')}
-            </Motion.div>
-          </Show>
-
-          <Show when={activeTab() === 'media'}>
-            <Motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} class="flex flex-col gap-4">
-              {renderSetting('blockPhotos', 'blockPhotos', 'blockPhotosDesc')}
-              {renderSetting('blockStickers', 'blockStickers', 'blockStickersDesc')}
-              {renderSetting('blockLocations', 'blockLocations', 'blockLocationsDesc')}
-              {renderSetting('blockAudio', 'blockAudio', 'blockAudioDesc')}
-              {renderSetting('blockVoiceMessages', 'blockVoiceMessages', 'blockVoiceMessagesDesc')}
-              {renderSetting('blockFiles', 'blockFiles', 'blockFilesDesc')}
-              {renderSetting('blockGifs', 'blockGifs', 'blockGifsDesc')}
-              {renderSetting('blockCaptionless', 'blockCaptionless', 'blockCaptionlessDesc')}
-            </Motion.div>
-          </Show>
-
-          <Show when={activeTab() === 'interactions'}>
-            <Motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} class="flex flex-col gap-4">
-              {renderSetting('blockForwards', 'blockForwards', 'blockForwardsDesc')}
-              {renderSetting('restrictChannelForwards', 'restrictChannelForwards', 'restrictChannelForwardsDesc')}
-              {renderSetting('blockAppMessages', 'blockAppMessages', 'blockAppMessagesDesc')}
-              {renderSetting('blockPolls', 'blockPolls', 'blockPollsDesc')}
-              {renderSetting('blockInlineKeyboards', 'blockInlineKeyboards', 'blockInlineKeyboardsDesc')}
-              {renderSetting('blockGames', 'blockGames', 'blockGamesDesc')}
-              {renderSetting('blockSlashCommands', 'blockSlashCommands', 'blockSlashCommandsDesc')}
-              {renderSetting('blockUserReplies', 'blockUserReplies', 'blockUserRepliesDesc')}
-              {renderSetting('blockCrossChatReplies', 'blockCrossChatReplies', 'blockCrossChatRepliesDesc')}
-            </Motion.div>
-          </Show>
-
-          <Show when={activeTab() === 'languages'}>
-            <Motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} class="flex flex-col gap-4">
-              {renderSetting('blockLatinLetters', 'blockLatinLetters', 'blockLatinLettersDesc')}
-              {renderSetting('blockPersianArabicLetters', 'blockPersianArabicLetters', 'blockPersianArabicLettersDesc')}
-              {renderSetting('blockCyrillicLetters', 'blockCyrillicLetters', 'blockCyrillicLettersDesc')}
-              {renderSetting('blockChineseCharacters', 'blockChineseCharacters', 'blockChineseCharactersDesc')}
-            </Motion.div>
-          </Show>
-
-          <Show when={activeTab() === 'keywords'}>
-            <Motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} class="flex flex-col gap-6">
-              
-              {/* Banned Keywords */}
-              <div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-4">
-                <div class="flex items-center gap-2">
-                  <span class="material-symbols-outlined text-[#ff3b30]">block</span>
-                  <div class="flex flex-col">
-                    <span class="text-[15px] font-bold text-white">{t('contentRestrictions.bannedKeywords')}</span>
-                    <span class="text-[12px] text-[#8e8e93] leading-snug">{t('contentRestrictions.bannedKeywordsDesc')}</span>
-                  </div>
-                </div>
-
-                <div class="flex flex-wrap gap-2">
-                  <For each={bannedKeywords()}>
-                    {(kw) => (
-                      <span class="bg-[#ff3b30]/10 text-[#ff3b30] px-3 py-1.5 rounded-xl text-[13px] font-bold flex items-center gap-1.5">
-                        {kw}
-                        <button onClick={() => { setBannedKeywords(bannedKeywords().filter(k => k !== kw)); setIsDirty(true); }} class="hover:opacity-70">
-                          <span class="material-symbols-outlined text-[16px]">close</span>
-                        </button>
-                      </span>
-                    )}
-                  </For>
-                </div>
-
-                <div class="flex items-center gap-2">
-                  <input 
-                    type="text" 
-                    value={newBannedKeyword()}
-                    onInput={(e) => setNewBannedKeyword(e.currentTarget.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && addBannedKeyword()}
-                    placeholder={t('contentRestrictions.addKeyword')}
-                    class="flex-1 bg-[#2c2c2e] text-white text-[14px] rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#3390ec]"
-                  />
-                  <button onClick={addBannedKeyword} class="w-10 h-10 rounded-xl bg-[#3390ec] text-white flex items-center justify-center shrink-0">
-                    <span class="material-symbols-outlined">add</span>
-                  </button>
+            {/* Required Keywords */}
+            <div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-4">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-[#34c759]">fact_check</span>
+                <div class="flex flex-col">
+                  <span class="text-[15px] font-bold text-white">{t('contentRestrictions.requiredKeywords')}</span>
+                  <span class="text-[12px] text-[#8e8e93] leading-snug">{t('contentRestrictions.requiredKeywordsDesc')}</span>
                 </div>
               </div>
 
-              {/* Required Keywords */}
-              <div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-4">
-                <div class="flex items-center gap-2">
-                  <span class="material-symbols-outlined text-[#34c759]">fact_check</span>
-                  <div class="flex flex-col">
-                    <span class="text-[15px] font-bold text-white">{t('contentRestrictions.requiredKeywords')}</span>
-                    <span class="text-[12px] text-[#8e8e93] leading-snug">{t('contentRestrictions.requiredKeywordsDesc')}</span>
-                  </div>
-                </div>
-
-                <div class="flex flex-wrap gap-2">
-                  <For each={requiredKeywords()}>
-                    {(kw) => (
-                      <span class="bg-[#34c759]/10 text-[#34c759] px-3 py-1.5 rounded-xl text-[13px] font-bold flex items-center gap-1.5">
-                        {kw}
-                        <button onClick={() => { setRequiredKeywords(requiredKeywords().filter(k => k !== kw)); setIsDirty(true); }} class="hover:opacity-70">
-                          <span class="material-symbols-outlined text-[16px]">close</span>
-                        </button>
-                      </span>
-                    )}
-                  </For>
-                </div>
-
-                <div class="flex items-center gap-2">
-                  <input 
-                    type="text" 
-                    value={newRequiredKeyword()}
-                    onInput={(e) => setNewRequiredKeyword(e.currentTarget.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && addRequiredKeyword()}
-                    placeholder={t('contentRestrictions.addKeyword')}
-                    class="flex-1 bg-[#2c2c2e] text-white text-[14px] rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#3390ec]"
-                  />
-                  <button onClick={addRequiredKeyword} class="w-10 h-10 rounded-xl bg-[#3390ec] text-white flex items-center justify-center shrink-0">
-                    <span class="material-symbols-outlined">add</span>
-                  </button>
-                </div>
+              <div class="flex flex-wrap gap-2">
+                <For each={requiredKeywords()}>
+                  {(kw) => (
+                    <span class="bg-[#34c759]/10 text-[#34c759] px-3 py-1.5 rounded-xl text-[13px] font-bold flex items-center gap-1.5">
+                      {kw}
+                      <button onClick={() => { setRequiredKeywords(requiredKeywords().filter(k => k !== kw)); setIsDirty(true); }} class="hover:opacity-70">
+                        <span class="material-symbols-outlined text-[16px]">close</span>
+                      </button>
+                    </span>
+                  )}
+                </For>
               </div>
 
-            </Motion.div>
-          </Show>
+              <div class="flex items-center gap-2">
+                <input 
+                  type="text" 
+                  value={newRequiredKeyword()}
+                  onInput={(e) => setNewRequiredKeyword(e.currentTarget.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addRequiredKeyword()}
+                  placeholder={t('contentRestrictions.addKeyword')}
+                  class="flex-1 bg-[#2c2c2e] text-white text-[14px] rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#3390ec]"
+                />
+                <button onClick={addRequiredKeyword} class="w-10 h-10 rounded-xl bg-[#3390ec] text-white flex items-center justify-center shrink-0">
+                  <span class="material-symbols-outlined">add</span>
+                </button>
+              </div>
+            </div>
 
-        </div>
-      </Show>
+          </Motion.div>
+        </Show>
+
+      </div>
 
       {/* Floating Save Button */}
       <div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#0f1014] via-[#0f1014]/90 to-transparent z-30">

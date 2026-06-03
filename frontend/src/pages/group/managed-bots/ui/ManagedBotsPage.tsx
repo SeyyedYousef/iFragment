@@ -122,15 +122,7 @@ export const ManagedBotsPage: Component = () => {
             </Show>
           </div>
 
-          <Show when={bots.loading}>
-            <div class="flex flex-col items-center justify-center py-20 gap-4">
-              <div class="relative w-12 h-12">
-                <div class="absolute inset-0 border-4 border-[#3390ec]/20 rounded-full"></div>
-                <div class="absolute inset-0 border-4 border-[#3390ec] border-t-transparent rounded-full animate-spin"></div>
-              </div>
-              <span class="text-[13px] font-bold text-[#8e8e93] animate-pulse">Synchronizing with Telegram...</span>
-            </div>
-          </Show>
+
 
           <Show when={!bots.loading && (!bots() || bots()!.length === 0)}>
             <Motion.div

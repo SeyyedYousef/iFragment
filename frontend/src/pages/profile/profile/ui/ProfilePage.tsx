@@ -6,7 +6,6 @@ import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { t, isRtl } from '@/shared/i18n/index.js';
 import { BottomNav } from '@/widgets/bottom-nav/index.js';
 import { IdentityHero } from '@/widgets/profile/IdentityHero.js';
-import { FrgWalletCard } from '@/widgets/profile/FrgWalletCard.js';
 import { StatsDashboard } from '@/widgets/profile/StatsDashboard.js';
 import { AchievementPreview } from '@/widgets/profile/AchievementPreview.js';
 import { ReferralPreview } from '@/widgets/profile/ReferralPreview.js';
@@ -168,8 +167,7 @@ export const ProfilePage: Component = () => {
               <IdentityHero stats={stats()} />
             </div>
 
-            {/* Wallet Card */}
-            <FrgWalletCard stats={stats()} />
+
 
             {/* Stats Grid */}
             <StatsDashboard stats={stats()} />

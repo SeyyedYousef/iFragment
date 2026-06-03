@@ -117,7 +117,7 @@ export const MandatoryPage: Component = () => {
         activeTab="mandatory" 
       />
 
-      <Suspense fallback={<div class="flex justify-center py-20"><span class="w-8 h-8 border-2 border-[#3390ec] border-t-transparent rounded-full animate-spin"></span></div>}>
+      <Suspense fallback={null}>
         <div class="p-5 flex flex-col gap-5">
           {/* Forced Add */}
           <Motion.div 

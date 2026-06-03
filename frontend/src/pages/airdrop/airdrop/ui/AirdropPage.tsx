@@ -9,15 +9,13 @@ import { LeaderboardView } from './LeaderboardView.js';
 import { BoostersView } from './BoostersView.js';
 import { DailyRewardView } from './DailyRewardView.js';
 import { ClanView } from './ClanView.js';
-import { MarketView } from './MarketView.js';
 import { BottomNav } from '@/widgets/bottom-nav/index.js';
 
-type ModalType = 'tasks' | 'leaderboard' | 'boosters' | 'daily' | 'clan' | 'market';
+type ModalType = 'tasks' | 'leaderboard' | 'boosters' | 'daily' | 'clan';
 
 const ACTION_BUTTONS: { id: ModalType; icon: string; labelKey: string; color: string }[] = [
   { id: 'tasks',       icon: 'assignment',        labelKey: 'airdrop.tasks.label', color: '#3390ec' },
   { id: 'boosters',    icon: 'rocket_launch',     labelKey: 'airdrop.boosters.label', color: '#f59e0b' },
-  { id: 'market',      icon: 'currency_exchange',  labelKey: 'airdrop.market.label', color: '#14b8a6' },
   { id: 'clan',        icon: 'shield',            labelKey: 'airdrop.clan.label', color: '#ef4444' },
   { id: 'leaderboard', icon: 'emoji_events',      labelKey: 'airdrop.leaderboard.label', color: '#cd7f32' },
 ];
@@ -209,7 +207,6 @@ export const AirdropPage: Component = () => {
                 <Match when={activeModal() === 'boosters'}><BoostersView /></Match>
                 <Match when={activeModal() === 'daily'}><DailyRewardView /></Match>
                 <Match when={activeModal() === 'clan'}><ClanView /></Match>
-                <Match when={activeModal() === 'market'}><MarketView /></Match>
               </Switch>
             </Suspense>
           </div>

@@ -1,5 +1,5 @@
 import { Navigate, Route, HashRouter, useNavigate } from '@solidjs/router';
-import { For, Suspense, ErrorBoundary, createEffect } from 'solid-js';
+import { For, ErrorBoundary, createEffect } from 'solid-js';
 import * as Sentry from '@sentry/browser';
 import { t } from '@/shared/i18n/index.js';
 import { retrieveLaunchParams } from '@tma.js/sdk-solid';
@@ -33,13 +33,7 @@ const RouteWrapper = (props: { component: any; [key: string]: any }) => {
   return (
     <ErrorBoundary fallback={(err, reset) => PageErrorFallback(err, reset)}>
       <ImpersonationBanner />
-      <Suspense fallback={
-        <div class="min-h-screen bg-[#0f1014] flex items-center justify-center">
-          <span class="w-8 h-8 border-4 border-t-[#3390ec] border-[#3390ec]/20 rounded-full animate-spin" />
-        </div>
-      }>
-        <props.component {...props} />
-      </Suspense>
+      <props.component {...props} />
     </ErrorBoundary>
   );
 };

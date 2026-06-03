@@ -1,13 +1,7 @@
 @import "tailwindcss";
 @source "../../**/*.{js,ts,jsx,tsx}";
 
-@font-face {
-  font-family: 'Material Symbols Outlined';
-  font-style: normal;
-  font-weight: 400;
-  src: url('/material-symbols-outlined.woff2') format('woff2');
-  font-display: block;
-}
+/* Material Symbols Outlined is now loaded via Google CDN in index.html */
 
 @theme {
   --animate-progress-sweep: progress-sweep 1.5s ease-out infinite;

@@ -141,10 +141,6 @@ const validatedFetch = async <T extends z.ZodTypeAny>(
   schema: T,
   options?: RequestInit
 ): Promise<z.infer<T>> => {
-  if (import.meta.env.DEV) {
-    // Keep simulation delay for smooth dev transitions
-    await new Promise(resolve => setTimeout(resolve, 500));
-  }
   const raw = await apiFetch<unknown>(endpoint, options);
   const result = schema.safeParse(raw);
   if (!result.success) {

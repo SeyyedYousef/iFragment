@@ -69,7 +69,7 @@ export const ChannelPostingPage: Component = () => {
   const [connectionStatus, setConnectionStatus] = createSignal<'idle' | 'testing' | 'success' | 'failed'>('idle');
   const [isGenerating, setIsGenerating] = createSignal(false);
 
-  const [settingsData] = createResource(
+  createResource(
     () => params.id,
     async (channelId) => {
       const settings = await channelApi.getSettings(channelId);
@@ -198,13 +198,7 @@ export const ChannelPostingPage: Component = () => {
 
       <ChannelHamburgerMenu isOpen={isMenuOpen()} onClose={() => setIsMenuOpen(false)} channelId={params.id} activeTab="posting" />
 
-      <Show when={settingsData.loading}>
-        <div class="flex items-center justify-center py-20">
-          <span class="w-6 h-6 border-2 border-[#32ade6]/30 border-t-[#32ade6] rounded-full animate-spin" />
-        </div>
-      </Show>
 
-      <Show when={!settingsData.loading}>
         <div class="px-5 pt-6 flex flex-col gap-6">
           
           {/* Smart Editor Core Activation Settings */}
@@ -438,7 +432,6 @@ export const ChannelPostingPage: Component = () => {
           </Motion.div>
 
         </div>
-      </Show>
 
       {/* Save Button */}
       <Show when={isDirty()}>

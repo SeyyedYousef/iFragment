@@ -138,42 +138,38 @@ export const AnalyticsPage: Component = () => {
       </div>
       <HamburgerMenu isOpen={isMenuOpen()} onClose={()=>setIsMenuOpen(false)} groupId={params.id} activeTab="analytics"/>
 
-      <Show when={data.loading}><div class="flex items-center justify-center py-20"><span class="w-6 h-6 border-2 border-[#3390ec]/30 border-t-[#3390ec] rounded-full animate-spin"/></div></Show>
-
-      <Show when={!data.loading}>
-        <div class="px-5 mt-4 space-y-4">
-          {/* Stats Grid */}
-          <div class="grid grid-cols-2 gap-3">
-            <For each={statCards()}>{(stat,i)=>(
-              <Motion.div initial={{opacity:0,y:15}} animate={{opacity:1,y:0}} transition={{duration:0.3,delay:i()*0.05}}
-                class="bg-[#1c1c1c] rounded-2xl border border-[#2a2a2a] p-4 flex flex-col gap-1">
-                <div class="flex items-center gap-1.5">
-                  <span class="material-symbols-outlined text-[16px]" style={{color:stat.color}}>{stat.icon}</span>
-                  <span class="text-[11px] font-bold text-[#8e8e93] uppercase">{stat.label}</span>
-                </div>
-                <span class="text-[22px] font-black text-white">{stat.value.toLocaleString()}</span>
-                <Show when={stat.change!==0}>
-                  <span class={`text-[11px] font-bold ${stat.change>0?'text-[#34c759]':'text-[#ff3b30]'}`}>
-                    {stat.change>0?'↑':'↓'} {Math.abs(stat.change)} {stat.change>0?t('analyticsSettings.trendUp'):t('analyticsSettings.trendDown')}
-                  </span>
-                </Show>
-              </Motion.div>
-            )}</For>
-          </div>
-
-          {/* Growth Chart */}
-          <Motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{duration:0.4,delay:0.2}}
-            class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4">
-            {renderChart(data()?.growth || [], '#34c759', t('analyticsSettings.growthChart'))}
-          </Motion.div>
-
-          {/* Activity Chart */}
-          <Motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{duration:0.4,delay:0.3}}
-            class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4">
-            {renderChart(data()?.activity || [], '#3390ec', t('analyticsSettings.activityChart'))}
-          </Motion.div>
+      <div class="px-5 mt-4 space-y-4">
+        {/* Stats Grid */}
+        <div class="grid grid-cols-2 gap-3">
+          <For each={statCards()}>{(stat,i)=>(
+            <Motion.div initial={{opacity:0,y:15}} animate={{opacity:1,y:0}} transition={{duration:0.3,delay:i()*0.05}}
+              class="bg-[#1c1c1c] rounded-2xl border border-[#2a2a2a] p-4 flex flex-col gap-1">
+              <div class="flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-[16px]" style={{color:stat.color}}>{stat.icon}</span>
+                <span class="text-[11px] font-bold text-[#8e8e93] uppercase">{stat.label}</span>
+              </div>
+              <span class="text-[22px] font-black text-white">{stat.value.toLocaleString()}</span>
+              <Show when={stat.change!==0}>
+                <span class={`text-[11px] font-bold ${stat.change>0?'text-[#34c759]':'text-[#ff3b30]'}`}>
+                  {stat.change>0?'↑':'↓'} {Math.abs(stat.change)} {stat.change>0?t('analyticsSettings.trendUp'):t('analyticsSettings.trendDown')}
+                </span>
+              </Show>
+            </Motion.div>
+          )}</For>
         </div>
-      </Show>
+
+        {/* Growth Chart */}
+        <Motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{duration:0.4,delay:0.2}}
+          class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4">
+          {renderChart(data()?.growth || [], '#34c759', t('analyticsSettings.growthChart'))}
+        </Motion.div>
+
+        {/* Activity Chart */}
+        <Motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{duration:0.4,delay:0.3}}
+          class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4">
+          {renderChart(data()?.activity || [], '#3390ec', t('analyticsSettings.activityChart'))}
+        </Motion.div>
+      </div>
     </div>
   );
 };

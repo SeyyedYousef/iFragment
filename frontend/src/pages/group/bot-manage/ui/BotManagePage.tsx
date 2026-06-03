@@ -126,16 +126,7 @@ export const BotManagePage: Component = () => {
       </div>
 
       <div class="p-5 flex flex-col gap-8 max-w-md mx-auto">
-        <Show when={bot.loading}>
-           <div class="flex flex-col items-center justify-center py-20 gap-4">
-              <div class="relative w-12 h-12">
-                <div class="absolute inset-0 border-4 border-[#3390ec]/20 rounded-full"></div>
-                <div class="absolute inset-0 border-4 border-[#3390ec] border-t-transparent rounded-full animate-spin"></div>
-              </div>
-            </div>
-        </Show>
-
-        <Show when={!bot.loading && bot()}>
+        <Show when={bot()}>
           {/* Status Messages */}
           <Show when={successMsg()}>
             <Motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
@@ -216,11 +207,7 @@ export const BotManagePage: Component = () => {
             </h2>
             
             <div class="flex flex-col gap-3">
-              <Show when={groups.loading}>
-                <div class="flex items-center justify-center py-12">
-                  <span class="w-6 h-6 border-2 border-[#3390ec]/30 border-t-[#3390ec] rounded-full animate-spin" />
-                </div>
-              </Show>
+
 
               <Show when={!groups.loading && (!groups() || groups()!.length === 0)}>
                 <div class="bg-[#1c1c1c] rounded-[2rem] p-10 border border-[#2a2a2a] flex flex-col items-center justify-center text-center gap-3 shadow-inner">
@@ -300,11 +287,7 @@ export const BotManagePage: Component = () => {
             </h2>
             
             <div class="flex flex-col gap-3">
-              <Show when={channels.loading}>
-                <div class="flex items-center justify-center py-12">
-                  <span class="w-6 h-6 border-2 border-[#32ade6]/30 border-t-[#32ade6] rounded-full animate-spin" />
-                </div>
-              </Show>
+
 
               <Show when={!channels.loading && (!channels() || channels()!.length === 0)}>
                 <div class="bg-[#1c1c1c] rounded-[2rem] p-10 border border-[#2a2a2a] flex flex-col items-center justify-center text-center gap-3 shadow-inner">

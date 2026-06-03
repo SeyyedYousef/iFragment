@@ -56,11 +56,7 @@ export const ManagedChannelsPage: Component = () => {
         </button>
 
         {/* Channel List */}
-        <Show when={channels.loading}>
-          <div class="flex items-center justify-center py-10">
-             <span class="w-6 h-6 border-2 border-[#32ade6]/30 border-t-[#32ade6] rounded-full animate-spin" />
-          </div>
-        </Show>
+
 
         <Show 
           when={channels() && channels()!.length > 0} 
