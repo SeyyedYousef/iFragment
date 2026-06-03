@@ -4,12 +4,25 @@ import { Motion } from '@motionone/solid';
 import { t, locale, setLocale, formatNumber } from '@/shared/i18n/index.js';
 import { copyToClipboard } from '@/shared/lib/telegram-native.js';
 import type { ProfileStats } from '@/shared/store/profile.js';
-import { getLevelInfo } from '@/shared/store/profile.js';
+import { getLevelInfo, profilePhotoUrl } from '@/shared/store/profile.js';
 import { getBorderClass, getSkinClass } from '@/shared/lib/cosmetics.js';
+import { API_CONFIG } from '@/shared/api/config.js';
 
 interface Props { stats: ProfileStats | null }
 
 export const IdentityHero: Component<Props> = (props) => {
+  const avatarUrl = () => {
+    const user = initData.user();
+    if (user?.photo_url) return user.photo_url;
+    const statsPhoto = profilePhotoUrl();
+    if (statsPhoto) {
+      if (statsPhoto.startsWith('http')) return statsPhoto;
+      const base = API_CONFIG.BASE_URL.endsWith('/') ? API_CONFIG.BASE_URL.slice(0, -1) : API_CONFIG.BASE_URL;
+      const cleanPath = statsPhoto.startsWith('/') ? statsPhoto : `/${statsPhoto}`;
+      return `${base}${cleanPath}`;
+    }
+    return undefined;
+  };
   const user = initData.user();
   const [copied, setCopied] = createSignal<string | null>(null);
   const [langOpen, setLangOpen] = createSignal(false);
@@ -111,13 +124,13 @@ export const IdentityHero: Component<Props> = (props) => {
             animation: 'spin 4s linear infinite',
           } : undefined}>
             <div class="w-full h-full rounded-full bg-[#0f1014] p-[3px]">
-              <Show when={user?.photo_url} fallback={
+              <Show when={avatarUrl()} fallback={
                 <div class="w-full h-full rounded-full flex items-center justify-center bg-gradient-to-br from-[#3390ec] to-[#34c759] text-white font-black text-3xl">
                   {user?.first_name ? user.first_name[0].toUpperCase() : 'U'}
                 </div>
               }>
                 <img 
-                  src={user!.photo_url!} 
+                  src={avatarUrl()!} 
                   alt="Profile" 
                   class="w-full h-full rounded-full object-cover" 
                   loading="lazy"

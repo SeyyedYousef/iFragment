@@ -3,12 +3,16 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/model"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service"
 	"ifragment-backend/internal/service/payment"
 	"net/http"
+	"strconv"
+
+	"github.com/go-chi/chi/v5"
 )
 
 type ProfileHandler struct {
@@ -366,4 +370,28 @@ func (h *ProfileHandler) DeleteUserDataGDPR(w http.ResponseWriter, r *http.Reque
 	}
 
 	RespondJSON(w, http.StatusOK, map[string]string{"status": "ok", "message": "all user data successfully deleted under GDPR right to be forgotten"})
+}
+
+func (h *ProfileHandler) GetAvatar(w http.ResponseWriter, r *http.Request) {
+	userIDStr := chi.URLParam(r, "userID")
+	userID, err := strconv.ParseInt(userIDStr, 10, 64)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid user id", err)
+		return
+	}
+
+	body, contentType, contentLength, err := h.profileService.GetAvatarStream(r.Context(), userID)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	defer body.Close()
+
+	w.Header().Set("Content-Type", contentType)
+	if contentLength > 0 {
+		w.Header().Set("Content-Length", strconv.FormatInt(contentLength, 10))
+	}
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+
+	_, _ = io.Copy(w, body)
 }

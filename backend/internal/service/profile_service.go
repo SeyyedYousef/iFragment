@@ -4,10 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"ifragment-backend/internal/model"
-	"ifragment-backend/internal/repository"
+	"io"
+	"net/http"
+	"os"
 	"strconv"
 	"time"
+
+	"ifragment-backend/internal/client/telegram"
+	"ifragment-backend/internal/model"
+	"ifragment-backend/internal/repository"
+	"ifragment-backend/internal/service/botmgmt"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/redis/go-redis/v9"
@@ -63,6 +69,101 @@ func (s *ProfileService) getGlobalRank(ctx context.Context, userID int64, xp int
 	return int(rank) + 1
 }
 
+func (s *ProfileService) getBotAPIClient(ctx context.Context) (*telegram.BotAPIClient, error) {
+	if s.db == nil || s.db.Pool == nil {
+		return nil, fmt.Errorf("no database connection")
+	}
+
+	var encryptedToken []byte
+	err := s.db.Pool.QueryRow(ctx, "SELECT bot_token_encrypted FROM managed_bots WHERE status = 'active' LIMIT 1").Scan(&encryptedToken)
+	if err == nil && len(encryptedToken) > 0 {
+		token, err := botmgmt.DecryptToken(encryptedToken)
+		if err == nil {
+			return telegram.NewBotAPIClient(token), nil
+		}
+	}
+
+	token := os.Getenv("TELEGRAM_BOT_TOKEN")
+	if token == "" {
+		token = os.Getenv("BOT_TOKEN")
+	}
+	if token != "" {
+		return telegram.NewBotAPIClient(token), nil
+	}
+
+	return nil, fmt.Errorf("no active telegram bot client found or configured")
+}
+
+func (s *ProfileService) GetUserProfilePhotoPath(ctx context.Context, userID int64) (string, error) {
+	cacheKey := fmt.Sprintf("user:avatar:path:%d", userID)
+	if s.cache != nil && s.cache.Client != nil {
+		path, err := s.cache.Client.Get(ctx, cacheKey).Result()
+		if err == nil {
+			if path == "none" {
+				return "", nil
+			}
+			return path, nil
+		}
+	}
+
+	tg, err := s.getBotAPIClient(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	path, err := tg.GetUserProfilePhotoURL(ctx, userID)
+	if err != nil {
+		return "", err
+	}
+
+	cacheVal := path
+	if cacheVal == "" {
+		cacheVal = "none"
+	}
+
+	if s.cache != nil && s.cache.Client != nil {
+		s.cache.Client.Set(ctx, cacheKey, cacheVal, 1*time.Hour)
+	}
+
+	return path, nil
+}
+
+func (s *ProfileService) GetAvatarStream(ctx context.Context, userID int64) (io.ReadCloser, string, int64, error) {
+	path, err := s.GetUserProfilePhotoPath(ctx, userID)
+	if err != nil {
+		return nil, "", 0, err
+	}
+	if path == "" {
+		return nil, "", 0, fmt.Errorf("no avatar found")
+	}
+
+	tg, err := s.getBotAPIClient(ctx)
+	if err != nil {
+		return nil, "", 0, err
+	}
+
+	fileURL := fmt.Sprintf("%s/file/bot%s/%s", tg.BaseURL(), tg.Token(), path)
+	
+	client := &http.Client{Timeout: 5 * time.Second}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fileURL, nil)
+	if err != nil {
+		return nil, "", 0, err
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, "", 0, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		return nil, "", 0, fmt.Errorf("telegram returned status %d", resp.StatusCode)
+	}
+
+	contentLength, _ := strconv.ParseInt(resp.Header.Get("Content-Length"), 10, 64)
+	return resp.Body, resp.Header.Get("Content-Type"), contentLength, nil
+}
+
 func (s *ProfileService) GetStats(ctx context.Context, userID int64) (*model.ProfileStats, error) {
 	cacheKey := fmt.Sprintf("profile:stats:%d", userID)
 
@@ -73,6 +174,10 @@ func (s *ProfileService) GetStats(ctx context.Context, userID int64) (*model.Pro
 			if json.Unmarshal([]byte(val), &stats) == nil {
 				stats.GlobalRank = s.getGlobalRank(ctx, userID, stats.XP)
 				stats.ServerNow = time.Now().UnixNano() / int64(time.Millisecond)
+				avatarPath, err := s.GetUserProfilePhotoPath(ctx, userID)
+				if err == nil && avatarPath != "" {
+					stats.PhotoURL = fmt.Sprintf("/api/v1/profile/avatar/%d", userID)
+				}
 				return &stats, nil
 			}
 		}
@@ -87,6 +192,11 @@ func (s *ProfileService) GetStats(ctx context.Context, userID int64) (*model.Pro
 	}
 
 	stats.GlobalRank = s.getGlobalRank(ctx, userID, stats.XP)
+
+	avatarPath, err := s.GetUserProfilePhotoPath(ctx, userID)
+	if err == nil && avatarPath != "" {
+		stats.PhotoURL = fmt.Sprintf("/api/v1/profile/avatar/%d", userID)
+	}
 
 	if s.cache != nil && s.cache.Client != nil {
 		data, err := json.Marshal(stats)

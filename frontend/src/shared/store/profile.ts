@@ -38,6 +38,7 @@ export interface ProfileStats {
   airdropCoins?: number;
   energy?: number;
   energyUpdatedAt?: string;
+  photoUrl?: string;
 }
 
 export interface ReferralInfo {
@@ -103,6 +104,19 @@ const loadProfileState = (): Partial<ProfileSettings> => {
 };
 
 const saved = loadProfileState();
+
+const loadCachedPhotoUrl = (): string => {
+  try {
+    const raw = localStorage.getItem('cached_profile_stats');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return parsed?.photoUrl || '';
+    }
+  } catch {}
+  return '';
+};
+
+export const [profilePhotoUrl, setProfilePhotoUrl] = createSignal<string>(loadCachedPhotoUrl());
 
 // ─── Settings Signals ───
 export const [profileSettings, setProfileSettings] = createSignal<ProfileSettings>({

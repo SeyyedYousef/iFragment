@@ -1,5 +1,6 @@
 import { apiFetch } from './base.js';
 import type { Achievement, ProfileStats, ReferralInfo } from '@/shared/store/profile.js';
+import { setProfilePhotoUrl } from '@/shared/store/profile.js';
 import { z } from 'zod';
 
 // ─── Zod Schemas ───
@@ -35,6 +36,7 @@ export const ProfileStatsSchema = z.object({
   airdropCoins: z.number().optional(),
   energy: z.number().int().nonnegative().optional(),
   energyUpdatedAt: z.string().optional(),
+  photoUrl: z.string().optional(),
 });
 
 export const AchievementSchema = z.object({
@@ -151,8 +153,11 @@ const validatedFetch = async <T extends z.ZodTypeAny>(
 };
 
 // ─── Validated API Exports ───
-export const getProfileStats = (): Promise<ProfileStats> => 
-  validatedFetch('/profile/stats', ProfileStatsSchema);
+export const getProfileStats = async (): Promise<ProfileStats> => {
+  const stats = await validatedFetch('/profile/stats', ProfileStatsSchema);
+  setProfilePhotoUrl(stats.photoUrl || '');
+  return stats;
+};
 
 export const getProfileAchievements = (): Promise<Achievement[]> => 
   validatedFetch('/profile/achievements', z.array(AchievementSchema));
@@ -231,11 +236,14 @@ export const createPremiumCheckout = (): Promise<{ invoice_link: string }> =>
     method: 'POST'
   });
 
-export const addTaps = (taps: number): Promise<ProfileStats> => 
-  validatedFetch('/profile/tap', ProfileStatsSchema, {
+export const addTaps = async (taps: number): Promise<ProfileStats> => {
+  const stats = await validatedFetch('/profile/tap', ProfileStatsSchema, {
     method: 'POST',
     body: JSON.stringify({ taps })
   });
+  setProfilePhotoUrl(stats.photoUrl || '');
+  return stats;
+};
 
 export const getClan = (): Promise<UserClanDetails> => 
   validatedFetch('/profile/clan', UserClanDetailsSchema);

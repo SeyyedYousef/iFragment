@@ -443,6 +443,8 @@ func main() {
 		})
 
 		r.Route("/profile", func(r chi.Router) {
+			r.Get("/avatar/{userID}", profileHandler.GetAvatar)
+
 			r.Use(middleware.AuthMiddleware)
 
 			r.Delete("/gdpr", profileHandler.DeleteUserDataGDPR)

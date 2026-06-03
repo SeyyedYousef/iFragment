@@ -1,10 +1,26 @@
-import { Component } from 'solid-js';
+import { Component, Show } from 'solid-js';
 import { A, useLocation } from '@solidjs/router';
 import { initData } from '@tma.js/sdk-solid';
 import { t } from '@/shared/i18n/index.js';
+import { profilePhotoUrl } from '@/shared/store/profile.js';
+import { API_CONFIG } from '@/shared/api/config.js';
 
 export const BottomNav: Component = () => {
   const location = useLocation();
+  const user = initData.user();
+  
+  const avatarUrl = () => {
+    const user = initData.user();
+    if (user?.photo_url) return user.photo_url;
+    const statsPhoto = profilePhotoUrl();
+    if (statsPhoto) {
+      if (statsPhoto.startsWith('http')) return statsPhoto;
+      const base = API_CONFIG.BASE_URL.endsWith('/') ? API_CONFIG.BASE_URL.slice(0, -1) : API_CONFIG.BASE_URL;
+      const cleanPath = statsPhoto.startsWith('/') ? statsPhoto : `/${statsPhoto}`;
+      return `${base}${cleanPath}`;
+    }
+    return undefined;
+  };
   
   const isActive = (path: string) => {
     if (path === '/' && location.pathname === '/') return true;
@@ -59,30 +75,28 @@ export const BottomNav: Component = () => {
         class={`flex flex-col items-center cursor-pointer transition-all ${isActive('/profile') ? 'scale-110' : 'hover:scale-105'}`}
       >
         <div class={`w-18 h-18 rounded-full backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.3)] border-[3px] flex items-center justify-center overflow-hidden transition-all bg-[#1c1c1c]/90 ${isActive('/profile') ? 'border-[#3390ec]' : 'border-[#2a2a2a]'} `}>
-          {initData.user()?.photo_url ? (
-            <>
-              <img 
-                alt="" 
-                class="w-full h-full object-cover" 
-                src={initData.user()!.photo_url} 
-                loading="lazy"
-                referrerPolicy="no-referrer"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                  if (e.currentTarget.nextElementSibling) {
-                    (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
-                  }
-                }}
-              />
-              <div class="w-full h-full hidden items-center justify-center bg-gradient-to-br from-[#3390ec] to-[#34c759] text-white font-black text-xl">
-                {initData.user()?.first_name ? initData.user()!.first_name[0].toUpperCase() : 'U'}
-              </div>
-            </>
-          ) : (
+          <Show when={avatarUrl()} fallback={
             <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#3390ec] to-[#34c759] text-white font-black text-xl">
-              {initData.user()?.first_name ? initData.user()!.first_name[0].toUpperCase() : 'U'}
+              {user?.first_name ? user.first_name[0].toUpperCase() : 'U'}
             </div>
-          )}
+          }>
+            <img 
+              alt="" 
+              class="w-full h-full object-cover" 
+              src={avatarUrl()!} 
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                if (e.currentTarget.nextElementSibling) {
+                  (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+                }
+              }}
+            />
+            <div class="w-full h-full hidden items-center justify-center bg-gradient-to-br from-[#3390ec] to-[#34c759] text-white font-black text-xl">
+              {user?.first_name ? user.first_name[0].toUpperCase() : 'U'}
+            </div>
+          </Show>
         </div>
       </A>
     </div>

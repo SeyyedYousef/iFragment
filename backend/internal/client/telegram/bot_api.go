@@ -342,6 +342,56 @@ type User struct {
 	Username  string `json:"username,omitempty"`
 }
 
+func (c *BotAPIClient) BaseURL() string {
+	return c.baseURL
+}
+
+func (c *BotAPIClient) Token() string {
+	return c.token
+}
+
+func (c *BotAPIClient) GetUserProfilePhotoURL(ctx context.Context, userID int64) (string, error) {
+	resp, err := c.Request(ctx, "getUserProfilePhotos", map[string]interface{}{
+		"user_id": userID,
+		"limit":   1,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	var photosResult struct {
+		TotalCount int `json:"total_count"`
+		Photos     [][]struct {
+			FileID string `json:"file_id"`
+		} `json:"photos"`
+	}
+	if err := json.Unmarshal(resp, &photosResult); err != nil {
+		return "", err
+	}
+
+	if photosResult.TotalCount == 0 || len(photosResult.Photos) == 0 || len(photosResult.Photos[0]) == 0 {
+		return "", nil
+	}
+
+	fileID := photosResult.Photos[0][0].FileID
+
+	fileResp, err := c.Request(ctx, "getFile", map[string]interface{}{
+		"file_id": fileID,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	var fileResult struct {
+		FilePath string `json:"file_path"`
+	}
+	if err := json.Unmarshal(fileResp, &fileResult); err != nil {
+		return "", err
+	}
+
+	return fileResult.FilePath, nil
+}
+
 func (c *BotAPIClient) GetMe(ctx context.Context) (*User, error) {
 	resp, err := c.Request(ctx, "getMe", nil)
 	if err != nil {

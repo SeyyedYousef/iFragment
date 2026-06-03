@@ -26,6 +26,7 @@ type ProfileStats struct {
 	Energy            int        `json:"energy"`
 	EnergyUpdatedAt   time.Time  `json:"energyUpdatedAt"`
 	ServerNow         int64      `json:"serverNow"`
+	PhotoURL          string     `json:"photoUrl,omitempty"`
 }
 
 type UserAchievement struct {
