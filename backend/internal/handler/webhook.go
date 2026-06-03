@@ -424,8 +424,8 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 		now := time.Now().Unix()
 		diff := now - int64(updateDate)
 		if diff < -90 || diff > 90 {
-			slog.Warn("Rejected replay attack webhook payload", "update_id", update.UpdateID, "date", updateDate, "server_time", now)
-			w.WriteHeader(http.StatusForbidden)
+			slog.Warn("Rejected replay attack webhook payload: dropping stale message", "update_id", update.UpdateID, "date", updateDate, "server_time", now)
+			w.WriteHeader(http.StatusOK) // Return 200 OK so Telegram drops the stale update from its retry queue
 			return
 		}
 	}
