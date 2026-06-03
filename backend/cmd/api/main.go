@@ -586,7 +586,8 @@ func AutoRegisterMainBot(ctx context.Context, db *repository.Database, botServic
 	ownerIDStr := os.Getenv("OWNER_TELEGRAM_ID")
 	ownerID, err := strconv.ParseInt(ownerIDStr, 10, 64)
 	if err != nil {
-		ownerID = 5076130392 // fallback owner ID
+		slog.Error("AutoRegisterMainBot: OWNER_TELEGRAM_ID is not set or invalid, skipping webhook registration", "error", err)
+		return
 	}
 
 	// Parse bot ID from token
