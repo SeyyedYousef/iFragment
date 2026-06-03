@@ -2,11 +2,16 @@ package main
 
 import (
 	"context"
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
 	"log"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"github.com/getsentry/sentry-go"
@@ -18,6 +23,7 @@ import (
 
 	"ifragment-backend/internal/client/marketapp"
 	"ifragment-backend/internal/client/mtproto"
+	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/client/tonapi"
 	"ifragment-backend/internal/handler"
 	"ifragment-backend/internal/middleware"
@@ -230,6 +236,7 @@ func main() {
 	analyticsRepo := repository.NewAnalyticsRepo(db)
 
 	botService := botmgmt.NewBotService(botRepo, settingsRepo, auditRepo, frgRepo, analyticsRepo)
+	AutoRegisterMainBot(ctx, db, botService)
 	marketplaceService := botmgmt.NewMarketplaceService(frgRepo, nil)
 	moderatorService := botmgmt.NewModeratorService(settingsRepo, botRepo, auditRepo, analyticsRepo, cache)
 
@@ -558,4 +565,98 @@ func main() {
 	}
 
 	slog.Info("Server exiting")
+}
+
+func AutoRegisterMainBot(ctx context.Context, db *repository.Database, botService *botmgmt.BotService) {
+	token := os.Getenv("TELEGRAM_BOT_TOKEN")
+	if token == "" {
+		token = os.Getenv("BOT_TOKEN")
+	}
+	if token == "" {
+		slog.Warn("AutoRegisterMainBot: TELEGRAM_BOT_TOKEN/BOT_TOKEN is not set")
+		return
+	}
+
+	appURL := os.Getenv("APP_URL")
+	if appURL == "" {
+		slog.Warn("AutoRegisterMainBot: APP_URL is not set, skipping webhook registration")
+		return
+	}
+
+	ownerIDStr := os.Getenv("OWNER_TELEGRAM_ID")
+	ownerID, err := strconv.ParseInt(ownerIDStr, 10, 64)
+	if err != nil {
+		ownerID = 5076130392 // fallback owner ID
+	}
+
+	// Parse bot ID from token
+	parts := strings.Split(token, ":")
+	if len(parts) < 2 {
+		slog.Error("AutoRegisterMainBot: invalid bot token format")
+		return
+	}
+	botID, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil {
+		slog.Error("AutoRegisterMainBot: failed to parse bot ID from token", "error", err)
+		return
+	}
+
+	// Check if bot exists in database
+	var dbID string
+	var secretToken string
+	err = db.Pool.QueryRow(ctx, "SELECT id, webhook_secret_token FROM managed_bots WHERE bot_id = $1", botID).Scan(&dbID, &secretToken)
+
+	var botUUID uuid.UUID
+	if err != nil {
+		// Bot doesn't exist, register it
+		slog.Info("AutoRegisterMainBot: main bot not found in DB, registering...", "bot_id", botID)
+		tgClient := telegram.NewBotAPIClient(token)
+		me, err := tgClient.GetMe(ctx)
+		if err != nil {
+			slog.Error("AutoRegisterMainBot: failed to verify bot token with Telegram", "error", err)
+			return
+		}
+
+		bot, err := botService.RegisterBot(ctx, ownerID, token, me.Username, me.FirstName, botID)
+		if err != nil {
+			slog.Error("AutoRegisterMainBot: failed to register bot in database", "error", err)
+			return
+		}
+		botUUID = bot.ID
+		secretToken = bot.WebhookSecretToken
+		slog.Info("AutoRegisterMainBot: main bot registered successfully", "id", bot.ID)
+	} else {
+		botUUID, err = uuid.Parse(dbID)
+		if err != nil {
+			slog.Error("AutoRegisterMainBot: failed to parse bot UUID", "error", err)
+			return
+		}
+		slog.Info("AutoRegisterMainBot: main bot found in DB", "id", botUUID)
+	}
+
+	// Register webhook with Telegram
+	webhookURL := fmt.Sprintf("%s/api/v1/webhook/telegram/%s", strings.TrimSuffix(appURL, "/"), botUUID.String())
+	slog.Info("AutoRegisterMainBot: setting webhook URL", "url", webhookURL)
+
+	tgWebhookURL := fmt.Sprintf("https://api.telegram.org/bot%s/setWebhook", token)
+	payload := map[string]interface{}{
+		"url":          webhookURL,
+		"secret_token": secretToken,
+	}
+	body, _ := json.Marshal(payload)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Post(tgWebhookURL, "application/json", bytes.NewBuffer(body))
+	if err != nil {
+		slog.Error("AutoRegisterMainBot: failed to set webhook on Telegram", "error", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		slog.Error("AutoRegisterMainBot: Telegram returned error when setting webhook", "status", resp.StatusCode, "body", string(respBody))
+	} else {
+		slog.Info("AutoRegisterMainBot: webhook set successfully on Telegram", "response", string(respBody))
+	}
 }
