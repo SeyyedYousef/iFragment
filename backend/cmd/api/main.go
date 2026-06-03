@@ -608,6 +608,19 @@ func AutoRegisterMainBot(ctx context.Context, db *repository.Database, botServic
 
 	var botUUID uuid.UUID
 	if err != nil {
+		// Ensure owner user exists in database to prevent foreign key violation
+		err = db.UpsertUser(ctx, repository.User{
+			TelegramID:   ownerID,
+			Username:     "owner",
+			FirstName:    "Owner",
+			LastName:     "Admin",
+			LanguageCode: "en",
+		})
+		if err != nil {
+			slog.Error("AutoRegisterMainBot: failed to upsert owner user in DB", "error", err)
+			return
+		}
+
 		// Bot doesn't exist, register it
 		slog.Info("AutoRegisterMainBot: main bot not found in DB, registering...", "bot_id", botID)
 		tgClient := telegram.NewBotAPIClient(token)
