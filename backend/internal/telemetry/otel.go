@@ -20,10 +20,14 @@ import (
 var Tracer trace.Tracer
 
 // InitTracer initializes OpenTelemetry tracing and returns a shutdown function.
+// If OTEL_EXPORTER_OTLP_ENDPOINT is not set, a no-op tracer is used to avoid
+// constant "connection refused" error spam in environments without an OTEL collector.
 func InitTracer(ctx context.Context, serviceName string) (func(context.Context) error, error) {
 	endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 	if endpoint == "" {
-		endpoint = "localhost:4317"
+		// No OTEL collector configured — use no-op tracer to avoid error spam
+		Tracer = otel.Tracer(serviceName)
+		return func(_ context.Context) error { return nil }, nil
 	}
 
 	// Determine TLS config based on environment

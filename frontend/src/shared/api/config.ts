@@ -8,7 +8,7 @@ export const API_CONFIG = {
   IS_PRODUCTION: import.meta.env.PROD,
   
   // Base URL for real API
-  BASE_URL: import.meta.env.VITE_API_URL || 'https://api.ifragment.app/api/v1',
+  BASE_URL: import.meta.env.VITE_API_URL || 'https://ifragment-api.onrender.com/api/v1',
   
   // Should we use mocks? 
   // Safety: NEVER use mocks in production unless explicitly forced for demo

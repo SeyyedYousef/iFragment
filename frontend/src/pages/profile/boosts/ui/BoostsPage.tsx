@@ -61,7 +61,7 @@ export const BoostsPage: Component = () => {
 
   const handleUpgrade = async (type: string, price: number) => {
     const statsVal = myStats();
-    if (statsVal && statsVal.frgBalance < price) {
+    if (statsVal && (statsVal.airdropCoins || 0) < price) {
       try { hapticFeedback.notificationOccurred('error'); } catch {}
       setMessage({ text: t('gamification.insufficientFrg').replace('{price}', price.toLocaleString()), error: true });
       if (messageTimeout) clearTimeout(messageTimeout);
@@ -115,7 +115,7 @@ export const BoostsPage: Component = () => {
         <div class="bg-gradient-to-r from-[#1c1c24] to-[#15161d] border border-[#2a2a2a] rounded-3xl p-5 flex items-center justify-between">
           <div class="flex flex-col gap-1">
             <span class="text-[10px] text-[#a0a4ad] font-black uppercase tracking-wider">{t('gamification.yourFrgBalance')}</span>
-            <span class="text-xl font-black text-[#3390ec]">{myStats()?.frgBalance.toLocaleString() || '0'} <span class="text-[10px] text-white font-bold tracking-widest uppercase">FRG</span></span>
+            <span class="text-xl font-black text-[#3390ec]">{myStats()?.airdropCoins?.toLocaleString() || '0'} <span class="text-[10px] text-white font-bold tracking-widest uppercase">{t('airdrop.boosters.currency')}</span></span>
           </div>
           <div class="w-10 h-10 rounded-2xl bg-[#3390ec]/10 border border-[#3390ec]/20 flex items-center justify-center text-[#3390ec]">
             <span class="material-symbols-outlined text-[20px]">account_balance_wallet</span>
@@ -175,7 +175,7 @@ export const BoostsPage: Component = () => {
                     <Show 
                       when={boost.max_level}
                       fallback={
-                        <span class="text-xs font-black text-white">{boost.price_frg.toLocaleString()} FRG</span>
+                        <span class="text-xs font-black text-white">{boost.price_frg.toLocaleString()} {t('airdrop.boosters.currency')}</span>
                       }
                     >
                       <span class="text-[10px] font-black text-[#34c759] uppercase tracking-wider">{t('gamification.maxLevel')}</span>

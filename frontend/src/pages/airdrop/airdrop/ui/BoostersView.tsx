@@ -1,7 +1,7 @@
 import { Component, For, createSignal } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 import { hapticFeedback } from '@tma.js/sdk-solid';
-import { boosters, upgradeBooster, getBoosterCost, frgBalance } from '@/shared/store/airdrop.js';
+import { boosters, upgradeBooster, getBoosterCost, balance } from '@/shared/store/airdrop.js';
 import { SectionHeader } from '@/shared/ui/section-header.js';
 
 const BOOSTER_META: Record<string, { nameKey: string; descKey: string; icon: string; color: string }> = {
@@ -34,7 +34,7 @@ export const BoostersView: Component = () => {
             const meta = BOOSTER_META[id];
             const cost = () => getBoosterCost(booster);
             const isMaxed = () => booster.level >= booster.maxLevel;
-            const canAfford = () => frgBalance() >= cost();
+            const canAfford = () => balance() >= cost();
 
             return (
               <div class={`bg-[#1c1c1e]/80 backdrop-blur-lg rounded-2xl p-4 border transition-all ${animatingId() === id ? 'scale-[1.02]' : 'border-white/[0.04]'}`}
@@ -68,7 +68,7 @@ export const BoostersView: Component = () => {
                       <div class="flex flex-col items-center gap-0.5">
                         <span>{t('airdrop.boosters.upgradeBtn')}</span>
                         <span class="flex items-center gap-0.5 text-[10px] opacity-80 font-black text-amber-400">
-                          {cost().toLocaleString()} FRG
+                          {cost().toLocaleString()} {t('airdrop.boosters.currency')}
                         </span>
                       </div>
                     )}

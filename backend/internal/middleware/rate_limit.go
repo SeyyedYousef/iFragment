@@ -159,6 +159,12 @@ func NewRateLimiter(ctx context.Context, cache *repository.Cache) func(http.Hand
 	}()
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Skip rate limiting for webhook endpoints (Telegram sends many updates from same IP)
+			if strings.HasPrefix(r.URL.Path, "/api/v1/webhook/") {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			ip := GetRealIP(r)
 			userID := getUserID(r)
 

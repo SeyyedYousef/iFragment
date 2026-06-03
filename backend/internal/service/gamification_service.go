@@ -85,16 +85,16 @@ type DailyRewardInfo struct {
 }
 
 var dailyRewards = map[int]struct {
-	Frg float64
+	Frg float64 // Labeled Frg for JSON compatibility, actually represents Coins
 	Xp  int
 }{
-	1: {Frg: 0.5, Xp: 10},
-	2: {Frg: 1.0, Xp: 20},
-	3: {Frg: 2.5, Xp: 50},
-	4: {Frg: 5.0, Xp: 100},
-	5: {Frg: 10.0, Xp: 200},
-	6: {Frg: 15.0, Xp: 300},
-	7: {Frg: 25.0, Xp: 500},
+	1: {Frg: 500, Xp: 10},
+	2: {Frg: 1000, Xp: 20},
+	3: {Frg: 2500, Xp: 50},
+	4: {Frg: 5000, Xp: 100},
+	5: {Frg: 10000, Xp: 200},
+	6: {Frg: 15000, Xp: 300},
+	7: {Frg: 25000, Xp: 500},
 }
 
 // GetDailyStatus returns status of daily calendar claims
@@ -229,54 +229,38 @@ func (s *GamificationService) ClaimDailyReward(ctx context.Context, userID int64
 		return nil, fmt.Errorf("failed to update daily claim state: %w", err)
 	}
 
-	// 4. Credit FRG in transaction
-	var balanceBefore float64
-	err = tx.QueryRow(ctx, `SELECT balance FROM frg_balances WHERE user_id = $1 FOR UPDATE`, userID).Scan(&balanceBefore)
-	if err != nil && err != pgx.ErrNoRows {
-		return nil, fmt.Errorf("failed to lock user balance: %w", err)
-	}
-
-	var balanceAfter float64
-	if err == pgx.ErrNoRows {
-		balanceBefore = 0
-		balanceAfter = reward.Frg
-		_, err = tx.Exec(ctx, `INSERT INTO frg_balances (user_id, balance, total_earned) VALUES ($1, $2, $2)`, userID, reward.Frg)
-	} else {
-		balanceAfter = balanceBefore + reward.Frg
-		_, err = tx.Exec(ctx, `UPDATE frg_balances SET balance = balance + $1, total_earned = total_earned + $1, updated_at = now() WHERE user_id = $2`, reward.Frg, userID)
-	}
+	// 4. Update user stats: ensure row exists, then credit Coins (airdrop_coins), award XP, update streak, and last_active_at.
+	_, err = tx.Exec(ctx, `
+		INSERT INTO user_stats (user_id, xp, level, current_streak, last_active_at, energy, energy_updated_at, airdrop_coins)
+		VALUES ($1, 0, 1, 0, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, 0.0)
+		ON CONFLICT (user_id) DO NOTHING
+	`, userID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update balance: %w", err)
+		return nil, fmt.Errorf("failed to ensure user stats: %w", err)
 	}
 
-	// Insert transaction log
-	meta, _ := json.Marshal(map[string]interface{}{"streak_day": nextStreak})
-	_, err = tx.Exec(ctx,
-		`INSERT INTO frg_transactions (user_id, type, amount, balance_before, balance_after, metadata)
-		VALUES ($1, $2, $3, $4, $5, $6)`,
-		userID, "daily_claim", reward.Frg, balanceBefore, balanceAfter, meta,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to log transaction: %w", err)
-	}
-
-	// 5. Award XP in transaction
-	ensureQuery := `
-		INSERT INTO user_stats (user_id, xp, level, current_streak, last_active_at)
-		VALUES ($1, $2, 1, $3, CURRENT_TIMESTAMP)
-		ON CONFLICT (user_id) DO UPDATE
-		SET xp = user_stats.xp + $2, current_streak = $3, last_active_at = CURRENT_TIMESTAMP
+	var xp, oldLevel int
+	updateStatsQuery := `
+		UPDATE user_stats
+		SET airdrop_coins = airdrop_coins + $1,
+		    xp = xp + $2,
+		    current_streak = $3,
+		    last_active_at = CURRENT_TIMESTAMP
+		WHERE user_id = $4
+		RETURNING xp, level
 	`
-	_, err = tx.Exec(ctx, ensureQuery, userID, reward.Xp, nextStreak)
+	err = tx.QueryRow(ctx, updateStatsQuery, reward.Frg, reward.Xp, nextStreak, userID).Scan(&xp, &oldLevel)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update user stats: %w", err)
 	}
-	
-	var xp, oldLevel int
-	_ = tx.QueryRow(ctx, "SELECT xp, level FROM user_stats WHERE user_id = $1", userID).Scan(&xp, &oldLevel)
+
+	// Handle level up
 	newLevel := repository.GetLevelFromXP(xp)
 	if newLevel > oldLevel {
-		_, _ = tx.Exec(ctx, "UPDATE user_stats SET level = $1 WHERE user_id = $2", newLevel, userID)
+		_, err = tx.Exec(ctx, "UPDATE user_stats SET level = $1 WHERE user_id = $2", newLevel, userID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to update user level: %w", err)
+		}
 	}
 
 	// Commit transaction
@@ -456,53 +440,37 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 		return nil, fmt.Errorf("failed to complete task: %w", err)
 	}
 
-	// 5. Credit FRG reward in transaction
-	var balanceBefore float64
-	err = tx.QueryRow(ctx, `SELECT balance FROM frg_balances WHERE user_id = $1 FOR UPDATE`, userID).Scan(&balanceBefore)
-	if err != nil && err != pgx.ErrNoRows {
-		return nil, fmt.Errorf("failed to lock user balance for task reward: %w", err)
-	}
-
-	var balanceAfter float64
-	if err == pgx.ErrNoRows {
-		balanceBefore = 0
-		balanceAfter = target.RewardFrg
-		_, err = tx.Exec(ctx, `INSERT INTO frg_balances (user_id, balance, total_earned) VALUES ($1, $2, $2)`, userID, target.RewardFrg)
-	} else {
-		balanceAfter = balanceBefore + target.RewardFrg
-		_, err = tx.Exec(ctx, `UPDATE frg_balances SET balance = balance + $1, total_earned = total_earned + $1, updated_at = now() WHERE user_id = $2`, target.RewardFrg, userID)
-	}
+	// 5. Update user stats: ensure row exists, then credit Coins (airdrop_coins) and XP.
+	_, err = tx.Exec(ctx, `
+		INSERT INTO user_stats (user_id, xp, level, current_streak, last_active_at, energy, energy_updated_at, airdrop_coins)
+		VALUES ($1, 0, 1, 0, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, 0.0)
+		ON CONFLICT (user_id) DO NOTHING
+	`, userID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to credit task reward balance: %w", err)
-	}
-
-	// Insert transaction log
-	meta, _ := json.Marshal(map[string]interface{}{"task_key": taskKey})
-	_, err = tx.Exec(ctx,
-		`INSERT INTO frg_transactions (user_id, type, amount, balance_before, balance_after, metadata)
-		VALUES ($1, $2, $3, $4, $5, $6)`,
-		userID, "task_reward", target.RewardFrg, balanceBefore, balanceAfter, meta,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to log task transaction: %w", err)
-	}
-
-	// 6. Award XP in transaction
-	statsEnsure := `
-		INSERT INTO user_stats (user_id, xp, level, last_active_at)
-		VALUES ($1, $2, 1, CURRENT_TIMESTAMP)
-		ON CONFLICT (user_id) DO UPDATE SET xp = user_stats.xp + $2, last_active_at = CURRENT_TIMESTAMP
-	`
-	_, err = tx.Exec(ctx, statsEnsure, userID, target.RewardXp)
-	if err != nil {
-		return nil, fmt.Errorf("failed to award task xp: %w", err)
+		return nil, fmt.Errorf("failed to ensure user stats: %w", err)
 	}
 
 	var xp, oldLevel int
-	_ = tx.QueryRow(ctx, "SELECT xp, level FROM user_stats WHERE user_id = $1", userID).Scan(&xp, &oldLevel)
+	updateStatsQuery := `
+		UPDATE user_stats
+		SET airdrop_coins = airdrop_coins + $1,
+		    xp = xp + $2,
+		    last_active_at = CURRENT_TIMESTAMP
+		WHERE user_id = $3
+		RETURNING xp, level
+	`
+	err = tx.QueryRow(ctx, updateStatsQuery, target.RewardFrg, target.RewardXp, userID).Scan(&xp, &oldLevel)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update user stats: %w", err)
+	}
+
+	// Handle level up
 	newLevel := repository.GetLevelFromXP(xp)
 	if newLevel > oldLevel {
-		_, _ = tx.Exec(ctx, "UPDATE user_stats SET level = $1 WHERE user_id = $2", newLevel, userID)
+		_, err = tx.Exec(ctx, "UPDATE user_stats SET level = $1 WHERE user_id = $2", newLevel, userID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to update user level: %w", err)
+		}
 	}
 
 	// Commit transaction
@@ -540,17 +508,17 @@ func (s *GamificationService) GetBoostsStatus(ctx context.Context, userID int64)
 		return nil, err
 	}
 
-	// Multi-tap pricing: Level * 2.0 FRG. Max Level: 10
+	// Multi-tap pricing: Level * 2000.0 Coins. Max Level: 10
 	mtMax := boosts.MultitapLevel >= 10
-	mtPrice := float64(boosts.MultitapLevel) * 2.0
+	mtPrice := float64(boosts.MultitapLevel) * 2000.0
 
-	// Energy Limit pricing: Level * 1.5 FRG. Max Level: 10
+	// Energy Limit pricing: Level * 1500.0 Coins. Max Level: 10
 	elMax := boosts.EnergyLimitLevel >= 10
-	elPrice := float64(boosts.EnergyLimitLevel) * 1.5
+	elPrice := float64(boosts.EnergyLimitLevel) * 1500.0
 
 	// Tap Bot: Level 0 (not bought) to 1 (bought). Max Level: 1
 	tbMax := boosts.TapBotLevel >= 1
-	tbPrice := 20.0
+	tbPrice := 20000.0
 
 	return []BoostInfo{
 		{
@@ -580,7 +548,7 @@ func (s *GamificationService) GetBoostsStatus(ctx context.Context, userID int64)
 	}, nil
 }
 
-// UpgradeBoost purchases a boost upgrade with FRG
+// UpgradeBoost purchases a boost upgrade with Coins
 func (s *GamificationService) UpgradeBoost(ctx context.Context, userID int64, boostType string) (*repository.UserBoosts, error) {
 	if s.db.Pool == nil {
 		return &repository.UserBoosts{UserID: userID}, fmt.Errorf("database pool is nil")
@@ -623,23 +591,23 @@ func (s *GamificationService) UpgradeBoost(ctx context.Context, userID int64, bo
 		}
 	}
 
-	// 3. Validation and pricing calculation using locked state values
+	// 3. Validation and pricing calculation using locked state values (in Coins)
 	var nextLevel int
-	var priceFrg float64
+	var priceCoins float64
 	var maxLevel bool
 
 	switch boostType {
 	case "multitap":
 		nextLevel = boosts.MultitapLevel + 1
-		priceFrg = float64(boosts.MultitapLevel) * 2.0
+		priceCoins = float64(boosts.MultitapLevel) * 2000.0
 		maxLevel = boosts.MultitapLevel >= 10
 	case "energy_limit":
 		nextLevel = boosts.EnergyLimitLevel + 1
-		priceFrg = float64(boosts.EnergyLimitLevel) * 1.5
+		priceCoins = float64(boosts.EnergyLimitLevel) * 1500.0
 		maxLevel = boosts.EnergyLimitLevel >= 10
 	case "tap_bot":
 		nextLevel = boosts.TapBotLevel + 1
-		priceFrg = 20.0
+		priceCoins = 20000.0
 		maxLevel = boosts.TapBotLevel >= 1
 	default:
 		return nil, fmt.Errorf("invalid boost type")
@@ -649,37 +617,37 @@ func (s *GamificationService) UpgradeBoost(ctx context.Context, userID int64, bo
 		return nil, fmt.Errorf("boost level already at maximum")
 	}
 
-	// 4. Debit user balance inside the same transaction
-	var balanceBefore float64
-	err = tx.QueryRow(ctx, `SELECT balance FROM frg_balances WHERE user_id = $1 FOR UPDATE`, userID).Scan(&balanceBefore)
+	// 4. Lock user_stats row and debit coins inside the same transaction
+	var currentCoins float64
+	err = tx.QueryRow(ctx, `SELECT airdrop_coins FROM user_stats WHERE user_id = $1 FOR UPDATE`, userID).Scan(&currentCoins)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch balance with lock: %w", err)
+		if err == pgx.ErrNoRows {
+			// Initialize user stats if not exists
+			_, err = tx.Exec(ctx, `
+				INSERT INTO user_stats (user_id, xp, level, current_streak, last_active_at, energy, energy_updated_at, airdrop_coins)
+				VALUES ($1, 0, 1, 0, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, 0.0)
+				ON CONFLICT (user_id) DO NOTHING
+			`, userID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to initialize user stats for upgrade: %w", err)
+			}
+			currentCoins = 0.0
+		} else {
+			return nil, fmt.Errorf("failed to fetch user stats for update: %w", err)
+		}
 	}
 
-	if balanceBefore < priceFrg {
-		return nil, fmt.Errorf("insufficient FRG balance: have %.4f, need %.4f", balanceBefore, priceFrg)
+	if currentCoins < priceCoins {
+		return nil, fmt.Errorf("insufficient Coin balance: have %.2f, need %.2f", currentCoins, priceCoins)
 	}
 
-	balanceAfter := balanceBefore - priceFrg
-
-	// Update balance
+	// Update user stats with new coin balance
 	_, err = tx.Exec(ctx,
-		`UPDATE frg_balances SET balance = $1, total_spent = total_spent + $2, updated_at = now() WHERE user_id = $3`,
-		balanceAfter, priceFrg, userID,
+		`UPDATE user_stats SET airdrop_coins = airdrop_coins - $1, last_active_at = CURRENT_TIMESTAMP WHERE user_id = $2`,
+		priceCoins, userID,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update user balance: %w", err)
-	}
-
-	// Insert transaction log
-	meta, _ := json.Marshal(map[string]interface{}{"boost_type": boostType, "target_level": nextLevel})
-	_, err = tx.Exec(ctx,
-		`INSERT INTO frg_transactions (user_id, type, amount, balance_before, balance_after, metadata)
-		VALUES ($1, $2, $3, $4, $5, $6)`,
-		userID, "boost_purchase", -priceFrg, balanceBefore, balanceAfter, meta,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to log transaction: %w", err)
+		return nil, fmt.Errorf("failed to update user coins balance: %w", err)
 	}
 
 	// 5. Update user_boosts inside transaction
@@ -700,13 +668,6 @@ func (s *GamificationService) UpgradeBoost(ctx context.Context, userID int64, bo
 	// Commit transaction
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	// 6. Post-commit background task queued to fixed size workers
-	select {
-	case s.referralQueue <- referralJob{spenderID: userID, amountSpent: priceFrg}:
-	default:
-		slog.Warn("Referral payout queue is full, dropping job", "user_id", userID)
 	}
 
 	if s.cache != nil && s.cache.Client != nil {
