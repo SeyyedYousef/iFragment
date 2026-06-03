@@ -24,6 +24,12 @@ func CSRF(next http.Handler) http.Handler {
 			return
 		}
 
+		// Skip CSRF check for webhook endpoints (Telegram/TonAPI webhooks)
+		if strings.HasPrefix(r.URL.Path, "/api/v1/webhook/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		// Retrieve allowed origins
 		allowedStr := os.Getenv("ALLOWED_ORIGINS")
 		allowedOrigins := strings.Split(allowedStr, ",")

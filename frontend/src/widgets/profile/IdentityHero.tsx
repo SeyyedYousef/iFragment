@@ -17,7 +17,7 @@ export const IdentityHero: Component<Props> = (props) => {
     const statsPhoto = profilePhotoUrl();
     if (statsPhoto) {
       if (statsPhoto.startsWith('http')) return statsPhoto;
-      const base = API_CONFIG.BASE_URL.endsWith('/') ? API_CONFIG.BASE_URL.slice(0, -1) : API_CONFIG.BASE_URL;
+      const base = API_CONFIG.BASE_URL.replace(/\/api\/v1\/?$/, '');
       const cleanPath = statsPhoto.startsWith('/') ? statsPhoto : `/${statsPhoto}`;
       return `${base}${cleanPath}`;
     }

@@ -95,8 +95,9 @@ apiClient.interceptors.response.use(
       try {
         const initData = (window as any).Telegram?.WebApp?.initData;
         if (initData) {
+          const tokenUrl = API_CONFIG.BASE_URL.replace(/\/api\/v1\/?$/, '') + '/api/v1/auth/token';
           const refreshResponse = await axios.post(
-            `${API_CONFIG.BASE_URL}/api/v1/auth/token`,
+            tokenUrl,
             {},
             { headers: { 'X-Telegram-Init-Data': initData } }
           );
