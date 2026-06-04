@@ -1,0 +1,17 @@
+{
+  "name": "iFragment — Fragment Analytics",
+  "short_name": "iFragment",
+  "description": "Professional rarity analysis and marketplace intelligence for Telegram usernames.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1014",
+  "theme_color": "#0f1014",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

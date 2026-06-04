@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Offline page for iFragment channel and bot management application.">
+  <meta property="og:title" content="Offline - iFragment">
+  <meta property="og:description" content="Offline page for iFragment channel and bot management application.">
+  <title>Offline - iFragment</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #0f1014;
+      color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      text-align: center;
+      box-sizing: border-box;
+    }
+    .container {
+      padding: 24px;
+      max-width: 320px;
+    }
+    .icon {
+      width: 80px;
+      height: 80px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 24px;
+      margin-left: auto;
+      margin-right: auto;
+      animation: pulse 2s infinite ease-in-out;
+    }
+    .icon svg {
+      width: 40px;
+      height: 40px;
+      fill: #8e8e93;
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 700;
+      margin: 0 0 10px 0;
+    }
+    p {
+      font-size: 14px;
+      color: #8e8e93;
+      margin: 0 0 24px 0;
+      line-height: 1.5;
+    }
+    button {
+      background-color: #3390ec;
+      color: #ffffff;
+      border: none;
+      padding: 12px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background-color 0.2s, transform 0.1s;
+      width: 100%;
+    }
+    button:hover {
+      background-color: #2b7bc9;
+    }
+    button:active {
+      transform: scale(0.98);
+    }
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.1);
+      }
+      70% {
+        transform: scale(1.05);
+        box-shadow: 0 0 0 10px rgba(255, 255, 255, 0);
+      }
+      100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">
+      <svg viewBox="0 0 24 24">
+        <path d="M23.64 8.19c-.44-.34-5.41-4.19-11.64-4.19C5.77 4 1 .8 1 .8c-.44.34.05.07.05.07l10.95 13.64c.26.33.72.33.98 0L24 8.26c-.01-.01-.36-.07-.36-.07zm-11.64 12.3c-.63 0-1.14-.51-1.14-1.14 0-.63.51-1.14 1.14-1.14s1.14.51 1.14 1.14c0 .63-.51 1.14-1.14 1.14z"/>
+      </svg>
+    </div>
+    <h1>No Connection</h1>
+    <p>Please check your internet settings. You can try reloading the page when you are back online.</p>
+    <button onclick="window.location.reload()">Retry Connection</button>
+  </div>
+</body>
+</html>
