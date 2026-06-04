@@ -1,0 +1,2610 @@
+EN keys:
+channelDashboard
+channelDashboard.,
+    excellent: 
+channelDashboard.,
+    status: 
+channelDashboard.Activity
+channelDashboard.Engagement
+channelDashboard.Poor
+channelDashboard.Reach
+channelDashboard.Today
+channelDashboard.Week
+channelDashboard.lost
+channelDynamicBio.,
+    addRotatingText: 
+channelDynamicBio.,
+    addRotatingTextPlaceholder: 
+channelDynamicBio.,
+    guide2: 
+channelDynamicBio.,
+    matchType: 
+channelDynamicBio.,
+    requiresDiscussionGroup: 
+channelDynamicBio.,
+    selectButtonSet: 
+channelDynamicBio.,
+    styleSuccess: 
+channelDynamicBio.,
+    useAi: 
+channelDynamicBio.,
+    varTon: 
+channelDynamicBio.,
+    welcomeText: 
+channelDynamicBio.AI
+channelDynamicBio.Admin
+channelDynamicBio.Admins
+channelDynamicBio.Analysis
+channelDynamicBio.App
+channelDynamicBio.Both
+channelDynamicBio.Button
+channelDynamicBio.Buttons
+channelDynamicBio.Changes
+channelDynamicBio.Channels
+channelDynamicBio.Chat
+channelDynamicBio.Comment
+channelDynamicBio.Competitor
+channelDynamicBio.Contains
+channelDynamicBio.Custom
+channelDynamicBio.Days
+channelDynamicBio.Delete
+channelDynamicBio.Emoji
+channelDynamicBio.Engage
+channelDynamicBio.First
+channelDynamicBio.In
+channelDynamicBio.Index
+channelDynamicBio.Info
+channelDynamicBio.Interval
+channelDynamicBio.Link
+channelDynamicBio.Members
+channelDynamicBio.Messages
+channelDynamicBio.Name
+channelDynamicBio.Overview
+channelDynamicBio.Permissions
+channelDynamicBio.Post
+channelDynamicBio.Posts
+channelDynamicBio.Preview
+channelDynamicBio.Replies
+channelDynamicBio.Row
+channelDynamicBio.Rules
+channelDynamicBio.Set
+channelDynamicBio.Sets
+channelDynamicBio.Share
+channelDynamicBio.Shares
+channelDynamicBio.Site
+channelDynamicBio.Text
+channelDynamicBio.Title
+channelDynamicBio.User
+channelDynamicBio.Variables
+channelDynamicBio.characters
+channelDynamicBio.data
+channelDynamicBio.found
+channelDynamicBio.g
+channelDynamicBio.min
+channelDynamicBio.price
+channelDynamicBio.text
+channelDynamicBio.timer
+channelDynamicBio.you
+channelMenu
+channelMenu.,
+    autoForwarding: 
+channelMenu.,
+    createRule: 
+channelMenu.,
+    customSkillInstructionsPlaceholder: 
+channelMenu.,
+    filterByPremium: 
+channelMenu.,
+    generateBtn: 
+channelMenu.,
+    hideMemberList: 
+channelMenu.,
+    modeForwardLabel: 
+channelMenu.,
+    outboundDesc: 
+channelMenu.,
+    queueStatusPending: 
+channelMenu.,
+    ruleDirection: 
+channelMenu.,
+    signMessages: 
+channelMenu.,
+    slowModeOff: 
+channelMenu.,
+    watermarkText: 
+channelMenu.,
+    webhookDesc: 
+channelMenu.100xxx
+channelMenu.After
+channelMenu.Available
+channelMenu.Buttons
+channelMenu.Cancel
+channelMenu.Channel
+channelMenu.Collectibles
+channelMenu.Composer
+channelMenu.Connected
+channelMenu.Copywriter
+channelMenu.Dashboard
+channelMenu.Description
+channelMenu.Direct
+channelMenu.Disable
+channelMenu.Forward
+channelMenu.Friendly
+channelMenu.From
+channelMenu.Hashtags
+channelMenu.Hour
+channelMenu.ID
+channelMenu.Identity
+channelMenu.Key
+channelMenu.Language
+channelMenu.Limit
+channelMenu.Links
+channelMenu.Log
+channelMenu.Mode
+channelMenu.Month
+channelMenu.Mutators
+channelMenu.Name
+channelMenu.Off
+channelMenu.Options
+channelMenu.Outbound
+channelMenu.Output
+channelMenu.Photo
+channelMenu.Photos
+channelMenu.Post
+channelMenu.Posting
+channelMenu.Profiles
+channelMenu.Responder
+channelMenu.Revoke
+channelMenu.Rewrite
+channelMenu.Rule
+channelMenu.Schedule
+channelMenu.Signature
+channelMenu.Spam
+channelMenu.Status
+channelMenu.Tag
+channelMenu.Text
+channelMenu.Time
+channelMenu.Translate
+channelMenu.Type
+channelMenu.Types
+channelMenu.URL
+channelMenu.Verify
+channelMenu.Words
+channelMenu.changes
+channelMenu.forwarded
+channelMenu.hour
+channelMenu.minute
+dict
+dict.common
+dict.common.Back
+dict.common.Save
+groupDashboard
+groupDashboard.
+  },
+  limitsSettings: {
+    title: 
+groupDashboard.,
+    antiRaid: 
+groupDashboard.,
+    bannedKeywords: 
+groupDashboard.,
+    blockAudio: 
+groupDashboard.,
+    blockBots: 
+groupDashboard.,
+    blockEmojis: 
+groupDashboard.,
+    blockGifs: 
+groupDashboard.,
+    blockInlineKeyboards: 
+groupDashboard.,
+    blockPersianArabicLetters: 
+groupDashboard.,
+    blockPhotos: 
+groupDashboard.,
+    blockUserReplies: 
+groupDashboard.,
+    blockUsernames: 
+groupDashboard.,
+    optLog: 
+groupDashboard.,
+    optMute24h: 
+groupDashboard.,
+    restrictChannelForwards: 
+groupDashboard.,
+    verifyMembers: 
+groupDashboard.,
+    welcomeMessage: 
+groupDashboard.Active
+groupDashboard.Activity
+groupDashboard.Admins
+groupDashboard.Commands
+groupDashboard.Dashboard
+groupDashboard.Games
+groupDashboard.Hashtags
+groupDashboard.Health
+groupDashboard.Inviters
+groupDashboard.Keywords
+groupDashboard.Languages
+groupDashboard.Letters
+groupDashboard.Limits
+groupDashboard.Locked
+groupDashboard.Message
+groupDashboard.Messages
+groupDashboard.PDF
+groupDashboard.Penalty
+groupDashboard.Permanently
+groupDashboard.Posts
+groupDashboard.Replies
+groupDashboard.Restrict Users
+groupDashboard.Restrictions
+groupDashboard.Retention
+groupDashboard.Settings
+groupDashboard.Stickers
+groupDashboard.Symbols
+groupDashboard.Threshold
+groupDashboard.Users
+groupDashboard.ZIP
+groupDashboard.Zero
+groupDashboard.com
+groupDashboard.found
+groupDashboard.g
+groupDashboard.history
+groupDashboard.http
+groupDashboard.length
+groupDashboard.messages
+groupDashboard.offenders
+groupDashboard.permissions
+groupDashboard.repetitive
+groupDashboard.violations
+hero
+hero.
+  },
+  botManage: {
+    title: 
+hero.,
+    choosePackage: 
+hero.,
+    inviteBtn: 
+hero.,
+    promoBadge: 
+hero.,
+    trialPrice: 
+hero.ASSET
+hero.Admin
+hero.Coin
+hero.Coins
+hero.Expired
+hero.Groups
+hero.Manage
+hero.Marketplace
+hero.PROMOTION
+hero.Stars
+hero.Usernames
+hero.group
+hero.haven
+hero.history
+hero.numbers
+hero.scarcity
+hero.trial
+hero.usernames
+notifications
+notifications.,
+    payment_success: 
+notifications.,
+    service_ended: 
+notifications.Channels
+
+FA keys:
+dict.cancel
+dict.close
+dict.errorVersionMismatch
+dict.تنظیمات
+dict.تنظیمات.
+    }
+  },
+  
+dict.تنظیمات.
+    }
+  },
+  .analyzeBtn
+dict.تنظیمات.
+    }
+  },
+  .asset3d
+dict.تنظیمات.
+    }
+  },
+  .collection_stats_subtitle
+dict.تنظیمات.
+    }
+  },
+  .dist6_24
+dict.تنظیمات.
+    }
+  },
+  .floorPrice
+dict.تنظیمات.
+    }
+  },
+  .holdersDistribution
+dict.تنظیمات.
+    }
+  },
+  .items
+dict.تنظیمات.
+    }
+  },
+  .listedRatio
+dict.تنظیمات.
+    }
+  },
+  .marketAnalysisDesc
+dict.تنظیمات.
+    }
+  },
+  .marketCap
+dict.تنظیمات.
+    }
+  },
+  .mintRate
+dict.تنظیمات.
+    }
+  },
+  .promoBadge
+dict.تنظیمات.
+    }
+  },
+  .title
+dict.تنظیمات.
+    }
+  },
+  .volume24h
+dict.تنظیمات.
+    }
+  },
+  .whaleWatch
+dict.تنظیمات.
+    }
+  },
+  .روزه
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .addButton
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .addButtonForm
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .addRow
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .applyToPrevious
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .boostsSubtitle
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .buttonEmoji
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .buttonRules
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .claimReward
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .claimedSuccess
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .clear_emoji
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .dailyCalendarTitle
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .dailyLogin
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .guide3
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .guideTitle
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .insufficientFrg
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .ipAddress
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .leaderboardSubtitle
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .levelXpLabel
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .loadingUpgrades
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .maxLevel
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .multipliersBots
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .noButtons
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .noButtonsMock
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .presetBuyTitle
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .presetCustomDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .presetEngage
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .presetLikeDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .presetLinkShare
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .presetSelectorTitle
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .questHub
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .questsSubtitle
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .retrieveError
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .setNamePlaceholder
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .styleDanger
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .systemSecurity
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .tapBotDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .taskCompletedSuccess
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .triggerPlaceholder
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .typeUrl
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .typeWebApp
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .viewSiteBtn
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.add
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.afterExpiry
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.afterExpiryText
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.attachInlineBtn
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.btnNone
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.commaSeparated
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.commentText
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.countdown
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.createRule
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.currentBio
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.displayBio
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.equipping
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.eventNamePlaceholder
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.firstCommentMode
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.insufficient_frg
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.interval1h
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.live_preview
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.locked_emojis_desc
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.matchExact
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.modeAi
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.replyText
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.subtab_borders
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.subtitle
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.success
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.targetMikeRights
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.title
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.triggerKey
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.updateIntervalDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.upgrade_btn
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.upgrade_title
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.useAiDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.useName
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.varDayName
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.varMembers
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.varTime
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.varTon
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.welcomeMessage
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.welcomeTextPlaceholder
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.مصنوعی
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.مصنوعی.actEdited
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.مصنوعی.actPromoted
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.مصنوعی.dateToday
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.مصنوعی.exportLogs
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.مصنوعی.filterAction
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.مصنوعی.noLogs
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.مصنوعی.searchPlaceholder
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.مصنوعی.systemBot
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .تنظیمات.مصنوعی.targetAutoForward
+dict.تنظیمات.
+    }
+  },
+  .روزه.
+  },
+  .سطح
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .
+  },
+  
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .achievements
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .addHomeTitle
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .analyticsAndStats
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .bestPostingTime
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .ciDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .competitorPlaceholder
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .contentAnalysisDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .description
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .earned
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .emojiStatus
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .errRate
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .followersGrowth
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .freeInfoHighlight
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .geoIran
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .geoUK
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .goToMarket
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .home
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .id
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .impersonationBanner
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .last30Days
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .mentionsOut
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .no
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .noResults
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .range30d
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .statsDaysActive
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .statsGroups
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .story
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .termsDescription
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .topActiveMembers
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .wallet
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .walletHub
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.adminsAndPermissions
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.allMembers
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.completed
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.currentAdmins
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.customTitle
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.delete
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.from
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.inviteBtn
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.label
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.noFriends
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.perTap
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.permCanEditInfo
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.permCanPin
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.permCanPost
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.progress
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.promoteToAdmin
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.searchMembers
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.tapToMine
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.timeLeft
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.unbanUser
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.videoChat
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.yourReferrals
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.بگیر
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.بگیر.claimed
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.بگیر.followTwitter
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.بگیر.joinChannel
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.بگیر.partners
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.بگیر.subtitle
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.بگیر.tapMilestone
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.بگیر.title
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.بگیر.verifyBtn
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  .
+  },
+  
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  .
+  },
+  .connectNew
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  .activityChart
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  .autoResponder
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  .average
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  .avgPerDay
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  .bot_removed
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  .dashboard
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  .expiry_24h
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  .filters
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  .growth
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  .inlineButtons
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  .loading
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  .manageSettings
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  .memberLoss
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  .membersToday
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  .noPostsData
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  .payment_success
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  .range90d
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  .statusVerified
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  .subscribers
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  .totalViews
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  .weekly
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  .welcome_group_1
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  .شما
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  .عطف
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.
+  },
+  .گروه
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.active
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.adminProfileDisplayDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.advancedOptions
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.aiComposerDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.allowedContentTypesDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.auditLog
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.autoDelete1d
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.autoDeleteTimer
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.autoForwarding
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.autoWatermark
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.bestTimeToPost
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.blacklist
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.botLanguageDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.channelBioPlaceholder
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.channelName
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.channelPrompt
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.channelUsername
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.connectionSuccess
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.copyLink
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.createRule
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.customSignaturePlaceholder
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.delayHelp
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.deleteRule
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.destinationWebhook
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.disableLinkPreview
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.discussionGroup
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.duplicatePosts
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.energyCap
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.excludedUsersDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.filterByAccountAge
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.filterByPremium
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.filterPhoto
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.forceJoinTextDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.freeKeyGuide
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.generalSettings
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.generatedPreview
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.hideMemberList
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.hours
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.inlineButtons
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.inviteLinkNamePlaceholder
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.inviteLinkUsageLimitPlaceholder
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.inviteLinks
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.joinClanBtn
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.lastForward
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.logCopied
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.manageScheduledPosts
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.modeCopy
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.modeCopyAi
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.modeForwardLabel
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.noClanDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.noClans
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.onceAWeek
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.outboundDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.phAdded
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.phCount
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.phTime
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.phUser
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.pool
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.postingInterval
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.postingQueue
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.prompt
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.queueStatusSent
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.recoveryDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.removeHashtags
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.removeLinks
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.ruleActive
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.ruleDirection
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.rulesText
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.saveSettings
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.sendNow
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.signMessages
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.silenceStartTextDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.skillCrypto
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.skillCustom
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.slowMode5m
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.slowModeOff
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.subtitle
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.targetChannelPlaceholder
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.targetChatIdPlaceholder
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.telegram
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.telegramAntiSpamDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.title
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.toneFriendly
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.translateBtn
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.uniqueInboundWebhookHelp
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.upgradeBtn
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.usernameTaken
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.verifyChannel
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.verifyGroup
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.warningText
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.watermarkDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.watermarkPlaceholder
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.watermarkTag
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.webServiceKey
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.webhookDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.welcomeText
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.wordReplaceFrom
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.balance
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.claimCombo
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.forcedAddCount
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.lockGroup
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.menu
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.menuContent
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.menuMandatory
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.minimumAmount
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.msgs
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.msgsToday
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.noData
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.reqChannels
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.sendMessagesDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.subtitle
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.title
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.tooltip
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.verificationDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.yourPosition
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.addPeriod
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.adminOverride
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.antiRaidAlert
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.antiRaidThreshold
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.autoWarningDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.bannedKeywords
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.blockAppMessagesDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.blockAudio
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.blockBots
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.blockCaptionlessDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.blockCrossChatRepliesDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.blockCyrillicLettersDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.blockEmojiOnlyDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.blockEmojis
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.blockGamesDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.blockGifs
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.blockHashtagsDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.blockInlineKeyboards
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.blockPersianArabicLetters
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.blockPhotos
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.blockStickersDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.blockUserReplies
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.blockUsernames
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.blockVoiceMessagesDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.casProtectionDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.defaultPenalty
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.description
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.dupCountDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.endTime
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.floodMsgs
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.floodWinDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.maxLen
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.messageLength
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.optAlways
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.optBan
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.optIgnore
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.optMute1h
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.penalty
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.publicCommandsDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.removeBotInvitersDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.requiredKeywordsDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.restrictChannelForwards
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.retention
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.saveSettings
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.seconds
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.subtitle
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.tabKeywords
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.tabMedia
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.verifyMembers
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.warningMessageDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.نشد.welcomeMessage
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کاربران
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کاربران.rate
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کاربران.subtitle
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کاربران.utilGiftsDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کاربران.utilServices
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کاربران.utilUsernames
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کاربران.تلگرام
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.
+  },
+  
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.
+  },
+  .addToGroupDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.
+  },
+  .connectedGroups
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.
+  },
+  .expired
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.
+  },
+  .manage
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.
+  },
+  .managedGroups
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.
+  },
+  .step1Title
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.
+  },
+  .step2Desc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.
+  },
+  .subscriptionSuccess
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.
+  },
+  .trialSuffix
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.,
+      
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.,
+      .onChain
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.buyWithTon
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.channelDesc
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.consecutiveUnderscores
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.convertAirdrop
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.description
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.exportPdf
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.formatValue
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.goToMarketplace
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.insufficientAirdrop
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.manage
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.maxLength
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.noHistory
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.paymentNotCompleted
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.paymentRequired
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.scarcityIndex
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.statusInactive
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.taken
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.title
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.بین
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.شود
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .سازی.دوست.من.کن.شود.groupMgmt
+dict.تنظیمات.
+    }
+  },
+  .روزه.,
+    .۱
+dict.تنظیمات.
+    }
+  },
+  .روزه.active
+dict.تنظیمات.
+    }
+  },
+  .روزه.analyzeBtn
+dict.تنظیمات.
+    }
+  },
+  .روزه.channelUsername
+dict.تنظیمات.
+    }
+  },
+  .روزه.compare
+dict.تنظیمات.
+    }
+  },
+  .روزه.delete
+dict.تنظیمات.
+    }
+  },
+  .روزه.errorEmpty
+dict.تنظیمات.
+    }
+  },
+  .روزه.loadMore
+dict.تنظیمات.
+    }
+  },
+  .روزه.noExpiry
+dict.تنظیمات.
+    }
+  },
+  .روزه.questTitle
+dict.تنظیمات.
+    }
+  },
+  .روزه.rewardXp
+dict.تنظیمات.
+    }
+  },
+  .روزه.saveSuccess
+dict.تنظیمات.
+    }
+  },
+  .روزه.step1Desc
+dict.تنظیمات.
+    }
+  },
+  .روزه.step2Desc
+dict.تنظیمات.
+    }
+  },
+  .روزه.subtitle
+dict.تنظیمات.
+    }
+  },
+  .روزه.title
+dict.تنظیمات.
+    }
+  },
+  .روزه.users
+dict.تنظیمات.
+    }
+  },
+  .روزه.ترندها
+dict.تنظیمات.
+    }
+  },
+  .روزه.ترندها.description
+dict.تنظیمات.
+    }
+  },
+  .روزه.ترندها.title
+dict.تنظیمات.
+    }
+  },
+  .کنید
+dict.تنظیمات.
+    }
+  },
+  .کنید.premiumReport
