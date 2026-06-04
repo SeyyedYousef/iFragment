@@ -431,6 +431,28 @@ func (h *BotMgmtHandler) ConvertAirdropCoins(w http.ResponseWriter, r *http.Requ
 	RespondJSON(w, http.StatusOK, tx)
 }
 
+func (h *BotMgmtHandler) CreateStarsInvoice(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+	var req struct {
+		OptionID string `json:"option_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
+	link, err := h.marketplace.CreateStarsInvoice(r.Context(), userID, req.OptionID)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		return
+	}
+	RespondJSON(w, http.StatusOK, map[string]string{"invoice_link": link})
+}
+
 // ─── Audit Logs ───────────────────────────────────────────
 
 func (h *BotMgmtHandler) GetAuditLogs(w http.ResponseWriter, r *http.Request) {

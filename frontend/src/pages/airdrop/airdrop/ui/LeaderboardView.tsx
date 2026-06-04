@@ -35,7 +35,7 @@ export const LeaderboardView: Component = () => {
           <div class="w-9 h-9 rounded-full bg-[#3390ec]/20 flex items-center justify-center text-[#3390ec] font-black text-sm">#{userPosition()}</div>
           <div>
             <div class="text-[11px] text-[#3390ec] font-semibold uppercase">{t('airdrop.leaderboard.yourPosition')}</div>
-            <div class="text-white font-black text-sm">{userScore().toLocaleString()} XP</div>
+            <div class="text-white font-black text-sm">{userScore().toLocaleString('en-US')} XP</div>
           </div>
         </div>
         <span class="text-[#8e8e93] text-[11px] font-semibold">{t('airdrop.leaderboard.totalMiners')}</span>
@@ -70,7 +70,7 @@ export const LeaderboardView: Component = () => {
                     <div class="text-[11px] font-semibold" style={{ color: getLeagueColor(entry.league) }}>{entry.league}</div>
                   </div>
                 </div>
-                <div class="text-amber-400 font-black text-sm tabular-nums">{entry.score.toLocaleString()}</div>
+                <div class="text-amber-400 font-black text-sm tabular-nums">{entry.score.toLocaleString('en-US')}</div>
               </div>
             )}
           </For>

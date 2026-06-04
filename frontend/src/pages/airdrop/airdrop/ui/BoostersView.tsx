@@ -68,7 +68,7 @@ export const BoostersView: Component = () => {
                       <div class="flex flex-col items-center gap-0.5">
                         <span>{t('airdrop.boosters.upgradeBtn')}</span>
                         <span class="flex items-center gap-0.5 text-[10px] opacity-80 font-black text-amber-400">
-                          {cost().toLocaleString()} {t('airdrop.boosters.currency')}
+                          {cost().toLocaleString('en-US')} {t('airdrop.boosters.currency')}
                         </span>
                       </div>
                     )}

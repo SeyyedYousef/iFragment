@@ -223,6 +223,11 @@ export const marketplaceApi = {
   getOptions: () =>
     apiClient.get<PurchaseOption[]>('/marketplace/options').then((r: any) => r.data),
 
+  createStarsInvoice: (optionId: string) =>
+    apiClient.post<{ invoice_link: string }>('/marketplace/purchase/stars/invoice', {
+      option_id: optionId,
+    }).then((r: any) => r.data),
+
   purchaseWithStars: (optionId: string, telegramChargeId: string) =>
     apiClient.post<FRGTransaction>('/marketplace/purchase/stars', {
       option_id: optionId,

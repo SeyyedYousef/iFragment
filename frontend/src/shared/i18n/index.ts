@@ -96,9 +96,9 @@ export const getDict = () => {
 // Type-safe translator: wrong keys cause a compile-time error
 export const t = i18n.translator(getDict) as (key: DictPaths) => string;
 
-// Helper to format numbers based on active locale (Farsi digits for Persian)
+// Helper to format numbers based on active locale (Always use en-US to force Latin/English digits)
 export const formatNumber = (num: number): string => {
-  return num.toLocaleString(getLocale() === 'fa' ? 'fa-IR' : 'en-US');
+  return num.toLocaleString('en-US');
 };
 
 export const I18nContext = createContext({ t, locale: getLocale, setLocale, isRtl, formatNumber });

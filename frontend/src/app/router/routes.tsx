@@ -2,6 +2,7 @@ import type { Component } from 'solid-js';
 
 import { IndexPage } from '@/pages/home/home/index.js';
 import { AirdropPage } from '@/pages/airdrop/airdrop/index.js';
+import { MarketplacePage } from '@/pages/marketplace/index.js';
 import { DashboardPage } from '@/pages/dashboard/dashboard/index.js';
 import { ProfilePage } from '@/pages/profile/profile/index.js';
 import { AchievementsPage } from '@/pages/profile/achievements/index.js';
@@ -54,6 +55,7 @@ export const routes: Route[] = [
   { path: '/username/stats', Component: CollectionStatsPage },
   { path: '/username/report', Component: PremiumReportPage },
   { path: '/airdrop', Component: AirdropPage },
+  { path: '/marketplace', Component: MarketplacePage },
   { path: '/dashboard', Component: DashboardPage },
   { path: '/profile', Component: ProfilePage },
   { path: '/profile/achievements', Component: AchievementsPage },

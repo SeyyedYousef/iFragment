@@ -2,6 +2,8 @@ package middleware
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -16,6 +18,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -26,7 +29,65 @@ const (
 	UserContextKey ContextKey = "tg_user"
 )
 
-func ValidateTelegramInitData(cache *repository.Cache) func(http.Handler) http.Handler {
+var (
+	cryptoKey  []byte
+	cryptoOnce sync.Once
+)
+
+func getCryptoKey() []byte {
+	cryptoOnce.Do(func() {
+		keyStr := os.Getenv("BOT_TOKEN_KEY")
+		if keyStr == "" {
+			if os.Getenv("APP_ENV") != "production" {
+				keyStr = "dev_bot_token_key_32_characters_"
+			} else {
+				panic("CRITICAL: BOT_TOKEN_KEY environment variable is not set")
+			}
+		}
+		key := []byte(keyStr)
+		if len(key) != 32 {
+			if os.Getenv("APP_ENV") != "production" {
+				// Pad or truncate to 32 bytes for dev
+				temp := make([]byte, 32)
+				copy(temp, key)
+				key = temp
+			} else {
+				panic("CRITICAL: BOT_TOKEN_KEY must be exactly 32 bytes/characters long")
+			}
+		}
+		cryptoKey = key
+	})
+	return cryptoKey
+}
+
+func DecryptTokenHelper(ciphertext []byte) (string, error) {
+	key := getCryptoKey()
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", err
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", err
+	}
+
+	if len(ciphertext) < gcm.NonceSize() {
+		return "", fmt.Errorf("ciphertext too short")
+	}
+
+	nonceSize := gcm.NonceSize()
+	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
+
+	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return "", err
+	}
+
+	return string(plaintext), nil
+}
+
+func ValidateTelegramInitData(db *repository.Database, cache *repository.Cache) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			initData := r.Header.Get("X-Telegram-Init-Data")
@@ -77,29 +138,54 @@ func ValidateTelegramInitData(cache *repository.Cache) func(http.Handler) http.H
 			}
 
 			// Perform Cryptographic Verification FIRST before reading untrusted parameters
-			if err := validate(initData, botToken); err != nil {
-				// Failed signature verification: lock IP ONLY
-				slog.Warn("SECURITY EVENT: Telegram InitData signature check failed",
-					"ip", ip,
-					"error", err.Error(),
-					"user_agent", r.UserAgent(),
-				)
-
-				if cache != nil && cache.Client != nil {
-					pipe := cache.Client.Pipeline()
-					ipFailKey := "brute_fail:ip:" + ip
-					incrIP := pipe.Incr(ctx, ipFailKey)
-					pipe.Expire(ctx, ipFailKey, 1*time.Hour)
-					_, _ = pipe.Exec(ctx)
-
-					fails, _ := incrIP.Result()
-					if fails >= 10 {
-						cache.Client.Set(ctx, "brute_lock:ip:"+ip, "locked", 24*time.Hour)
+			err := validate(initData, botToken)
+			if err != nil {
+				// Try custom bots fallback if main verification fails
+				customBotsSuccess := false
+				if db != nil && db.Pool != nil {
+					rows, queryErr := db.Pool.Query(ctx, "SELECT bot_token_encrypted FROM managed_bots WHERE status = 'active'")
+					if queryErr == nil {
+						defer rows.Close()
+						for rows.Next() {
+							var encryptedToken []byte
+							if scanErr := rows.Scan(&encryptedToken); scanErr == nil && len(encryptedToken) > 0 {
+								token, decryptErr := DecryptTokenHelper(encryptedToken)
+								if decryptErr == nil && token != "" {
+									if validate(initData, token) == nil {
+										customBotsSuccess = true
+										err = nil // Clear the error since validation succeeded
+										break
+									}
+								}
+							}
+						}
 					}
 				}
 
-				http.Error(w, fmt.Sprintf("Unauthorized: Signature verification failed (%s)", err.Error()), http.StatusUnauthorized)
-				return
+				if !customBotsSuccess {
+					// Failed signature verification: lock IP ONLY
+					slog.Warn("SECURITY EVENT: Telegram InitData signature check failed",
+						"ip", ip,
+						"error", err.Error(),
+						"user_agent", r.UserAgent(),
+					)
+
+					if cache != nil && cache.Client != nil {
+						pipe := cache.Client.Pipeline()
+						ipFailKey := "brute_fail:ip:" + ip
+						incrIP := pipe.Incr(ctx, ipFailKey)
+						pipe.Expire(ctx, ipFailKey, 1*time.Hour)
+						_, _ = pipe.Exec(ctx)
+
+						fails, _ := incrIP.Result()
+						if fails >= 10 {
+							cache.Client.Set(ctx, "brute_lock:ip:"+ip, "locked", 24*time.Hour)
+						}
+					}
+
+					http.Error(w, fmt.Sprintf("Unauthorized: Signature verification failed (%s)", err.Error()), http.StatusUnauthorized)
+					return
+				}
 			}
 
 			// SECURE PARAMETER EXTRACTION: Parse query values ONLY after signature is verified

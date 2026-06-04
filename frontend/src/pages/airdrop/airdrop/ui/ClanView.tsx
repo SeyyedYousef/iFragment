@@ -96,7 +96,7 @@ export const ClanView: Component = () => {
 
             <div class="grid grid-cols-2 gap-3 bg-[#2c2c2e]/40 rounded-xl p-3 mb-5 border border-white/[0.02]">
               <div class="text-center border-r border-white/5">
-                <div class="text-white font-black text-sm">{clan().members_count.toLocaleString()}</div>
+                <div class="text-white font-black text-sm">{clan().members_count.toLocaleString('en-US')}</div>
                 <div class="text-[#8e8e93] text-[9px] uppercase tracking-wider mt-0.5">{t('airdrop.clan.membersLabel')}</div>
               </div>
               <div class="text-center">
@@ -152,7 +152,7 @@ export const ClanView: Component = () => {
                   )}
                   <div>
                     <div class="text-white font-bold text-[13px]">{clan.chat_title}</div>
-                    <div class="text-[11px] text-[#8e8e93]">{clan.members_count.toLocaleString()} {t('airdrop.clan.members')}</div>
+                    <div class="text-[11px] text-[#8e8e93]">{clan.members_count.toLocaleString('en-US')} {t('airdrop.clan.members')}</div>
                   </div>
                 </div>
                 <div class="text-right">

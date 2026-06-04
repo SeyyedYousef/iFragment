@@ -95,48 +95,90 @@ func (s *ProfileService) getBotAPIClient(ctx context.Context) (*telegram.BotAPIC
 	return nil, fmt.Errorf("no active telegram bot client found or configured")
 }
 
-func (s *ProfileService) GetUserProfilePhotoPath(ctx context.Context, userID int64) (string, error) {
+type CachedAvatar struct {
+	Path     string `json:"path"`
+	BotToken string `json:"bot_token"`
+}
+
+func (s *ProfileService) cacheAvatar(ctx context.Context, cacheKey, path, token string) {
+	if s.cache == nil || s.cache.Client == nil {
+		return
+	}
+	cached := CachedAvatar{
+		Path:     path,
+		BotToken: token,
+	}
+	if data, err := json.Marshal(cached); err == nil {
+		s.cache.Client.Set(ctx, cacheKey, string(data), 1*time.Hour)
+	}
+}
+
+func (s *ProfileService) GetUserProfilePhotoPath(ctx context.Context, userID int64) (string, string, error) {
 	cacheKey := fmt.Sprintf("user:avatar:path:%d", userID)
 	if s.cache != nil && s.cache.Client != nil {
-		path, err := s.cache.Client.Get(ctx, cacheKey).Result()
+		val, err := s.cache.Client.Get(ctx, cacheKey).Result()
 		if err == nil {
-			if path == "none" {
+			if val == "none" {
 				log.Printf("[GetUserProfilePhotoPath] Cache hit 'none' for user %d", userID)
-				return "", nil
+				return "", "", nil
 			}
-			log.Printf("[GetUserProfilePhotoPath] Cache hit path '%s' for user %d", path, userID)
-			return path, nil
+			var cached CachedAvatar
+			if err := json.Unmarshal([]byte(val), &cached); err == nil {
+				log.Printf("[GetUserProfilePhotoPath] Cache hit path '%s' for user %d", cached.Path, userID)
+				return cached.Path, cached.BotToken, nil
+			}
 		}
 	}
 
-	tg, err := s.getBotAPIClient(ctx)
-	if err != nil {
-		log.Printf("[GetUserProfilePhotoPath] getBotAPIClient failed for user %d: %v", userID, err)
-		return "", err
+	// 1. Try main bot first
+	mainToken := os.Getenv("TELEGRAM_BOT_TOKEN")
+	if mainToken == "" {
+		mainToken = os.Getenv("BOT_TOKEN")
 	}
 
-	path, err := tg.GetUserProfilePhotoURL(ctx, userID)
-	if err != nil {
-		log.Printf("[GetUserProfilePhotoPath] tg.GetUserProfilePhotoURL failed for user %d: %v", userID, err)
-		return "", err
+	if mainToken != "" {
+		tg := telegram.NewBotAPIClient(mainToken)
+		path, err := tg.GetUserProfilePhotoURL(ctx, userID)
+		if err == nil && path != "" {
+			s.cacheAvatar(ctx, cacheKey, path, mainToken)
+			log.Printf("[GetUserProfilePhotoPath] Successfully retrieved path '%s' via main bot for user %d", path, userID)
+			return path, mainToken, nil
+		}
 	}
 
-	cacheVal := path
-	if cacheVal == "" {
-		cacheVal = "none"
+	// 2. Try custom bots fallback
+	if s.db != nil && s.db.Pool != nil {
+		rows, err := s.db.Pool.Query(ctx, "SELECT bot_token_encrypted FROM managed_bots WHERE status = 'active'")
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var encryptedToken []byte
+				if err := rows.Scan(&encryptedToken); err == nil && len(encryptedToken) > 0 {
+					token, decryptErr := botmgmt.DecryptToken(encryptedToken)
+					if decryptErr == nil && token != "" {
+						tgCustom := telegram.NewBotAPIClient(token)
+						path, err := tgCustom.GetUserProfilePhotoURL(ctx, userID)
+						if err == nil && path != "" {
+							s.cacheAvatar(ctx, cacheKey, path, token)
+							log.Printf("[GetUserProfilePhotoPath] Successfully retrieved path '%s' via custom bot for user %d", path, userID)
+							return path, token, nil
+						}
+					}
+				}
+			}
+		}
 	}
 
 	if s.cache != nil && s.cache.Client != nil {
-		s.cache.Client.Set(ctx, cacheKey, cacheVal, 1*time.Hour)
+		s.cache.Client.Set(ctx, cacheKey, "none", 1*time.Hour)
 	}
-
-	log.Printf("[GetUserProfilePhotoPath] Successfully retrieved path '%s' for user %d", path, userID)
-	return path, nil
+	log.Printf("[GetUserProfilePhotoPath] No avatar path found for user %d", userID)
+	return "", "", nil
 }
 
 func (s *ProfileService) GetAvatarStream(ctx context.Context, userID int64) (io.ReadCloser, string, int64, error) {
 	log.Printf("[GetAvatarStream] Starting avatar stream download for user %d", userID)
-	path, err := s.GetUserProfilePhotoPath(ctx, userID)
+	path, botToken, err := s.GetUserProfilePhotoPath(ctx, userID)
 	if err != nil {
 		log.Printf("[GetAvatarStream] GetUserProfilePhotoPath failed for user %d: %v", userID, err)
 		return nil, "", 0, err
@@ -146,11 +188,7 @@ func (s *ProfileService) GetAvatarStream(ctx context.Context, userID int64) (io.
 		return nil, "", 0, fmt.Errorf("no avatar found")
 	}
 
-	tg, err := s.getBotAPIClient(ctx)
-	if err != nil {
-		log.Printf("[GetAvatarStream] getBotAPIClient failed for user %d: %v", userID, err)
-		return nil, "", 0, err
-	}
+	tg := telegram.NewBotAPIClient(botToken)
 
 	fileURL := fmt.Sprintf("%s/file/bot%s/%s", tg.BaseURL(), tg.Token(), path)
 	log.Printf("[GetAvatarStream] Downloading from Telegram: %s/file/bot<masked>/%s", tg.BaseURL(), path)
@@ -188,7 +226,7 @@ func (s *ProfileService) GetStats(ctx context.Context, userID int64) (*model.Pro
 			if json.Unmarshal([]byte(val), &stats) == nil {
 				stats.GlobalRank = s.getGlobalRank(ctx, userID, stats.XP)
 				stats.ServerNow = time.Now().UnixNano() / int64(time.Millisecond)
-				avatarPath, err := s.GetUserProfilePhotoPath(ctx, userID)
+				avatarPath, _, err := s.GetUserProfilePhotoPath(ctx, userID)
 				if err == nil && avatarPath != "" {
 					stats.PhotoURL = fmt.Sprintf("/api/v1/profile/avatar/%d", userID)
 				}
@@ -207,7 +245,7 @@ func (s *ProfileService) GetStats(ctx context.Context, userID int64) (*model.Pro
 
 	stats.GlobalRank = s.getGlobalRank(ctx, userID, stats.XP)
 
-	avatarPath, err := s.GetUserProfilePhotoPath(ctx, userID)
+	avatarPath, _, err := s.GetUserProfilePhotoPath(ctx, userID)
 	if err == nil && avatarPath != "" {
 		stats.PhotoURL = fmt.Sprintf("/api/v1/profile/avatar/%d", userID)
 	}

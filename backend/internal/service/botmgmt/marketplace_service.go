@@ -308,3 +308,58 @@ func (s *MarketplaceService) GetTransactions(ctx context.Context, userID int64, 
 	return s.frgRepo.GetTransactions(ctx, userID, limit, offset)
 }
 
+func (s *MarketplaceService) CreateStarsInvoice(ctx context.Context, userID int64, optionID string) (string, error) {
+	options := s.GetPurchaseOptions()
+	var opt *PurchaseOption
+	for _, o := range options {
+		if o.ID == optionID && o.Method == "stars" {
+			opt = &o
+			break
+		}
+	}
+	if opt == nil {
+		return "", fmt.Errorf("invalid purchase option: %s", optionID)
+	}
+
+	tg, err := s.getBotAPIClient(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to load telegram bot client: %w", err)
+	}
+
+	payload := fmt.Sprintf("marketplace_purchase:%d:%s", userID, optionID)
+	title := fmt.Sprintf("Purchase %g FRG", opt.FRGAmount)
+	desc := fmt.Sprintf("Buy %g FRG coins using Telegram Stars.", opt.FRGAmount)
+
+	resp, err := tg.Request(ctx, "createInvoiceLink", map[string]interface{}{
+		"title":       title,
+		"description": desc,
+		"payload":     payload,
+		"currency":    "XTR",
+		"prices": []map[string]interface{}{
+			{"label": title, "amount": int(opt.Price)},
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("telegram invoice error: %w", err)
+	}
+
+	var link string
+	if err := json.Unmarshal(resp, &link); err != nil {
+		return "", fmt.Errorf("failed to parse telegram invoice response: %w", err)
+	}
+
+	// Create a pending order in the database
+	_, err = s.frgRepo.DB().CreateOrder(ctx, repository.Order{
+		UserID:  userID,
+		Amount:  int(opt.Price),
+		Status:  "pending",
+		Payload: payload,
+	})
+	if err != nil {
+		fmt.Printf("Failed to create pending marketplace order: %v\n", err)
+	}
+
+	return link, nil
+}
+
+

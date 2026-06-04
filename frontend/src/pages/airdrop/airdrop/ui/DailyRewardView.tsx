@@ -76,7 +76,7 @@ export const DailyRewardView: Component = () => {
                   isPast() || (isCurrent() && checkedInToday()) ? 'text-[#34c759]' :
                   isClaimable() ? 'text-white' : 'text-[#8e8e93]'
                 }`}>
-                  {isPast() || (isCurrent() && checkedInToday()) ? t('airdrop.daily.claimed') : `+${reward.toLocaleString()}`}
+                  {isPast() || (isCurrent() && checkedInToday()) ? t('airdrop.daily.claimed') : `+${reward.toLocaleString('en-US')}`}
                 </span>
 
                 {isLocked() && (
@@ -103,7 +103,7 @@ export const DailyRewardView: Component = () => {
             <span class="flex items-center justify-center gap-2">
               <span class="material-symbols-outlined text-lg" style={{ 'font-variation-settings': '"FILL" 1' }}>card_giftcard</span>
               {t('airdrop.daily.claimBtn')}
-              <span class="text-amber-300 font-black">+{safeReward().toLocaleString()}</span>
+              <span class="text-amber-300 font-black">+{safeReward().toLocaleString('en-US')}</span>
             </span>
           )}
         </button>

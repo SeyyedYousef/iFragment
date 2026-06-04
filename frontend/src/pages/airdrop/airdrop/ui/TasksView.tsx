@@ -158,7 +158,7 @@ export const TasksView: Component = () => {
                           <span class="text-[#8e8e93] text-[10px] truncate mt-0.5">{details.desc}</span>
                           <span class="text-amber-400 font-bold text-xs flex items-center gap-1 mt-0.5">
                             <span class="material-symbols-outlined text-[13px]" style={{ 'font-variation-settings': '"FILL" 1' }}>monetization_on</span>
-                            +{task.reward_frg.toLocaleString()} سکه
+                            +{task.reward_frg.toLocaleString('en-US')} سکه
                           </span>
                         </div>
                       </div>

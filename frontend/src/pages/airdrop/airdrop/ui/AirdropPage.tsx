@@ -141,7 +141,7 @@ export const AirdropPage: Component = () => {
                   <div class="text-white font-black text-xs">{clan().chat_title}</div>
                   <div class="text-red-400 font-bold text-[10px] flex items-center gap-1 mt-0.5">
                     <span class="material-symbols-outlined text-[10px]" style={{ 'font-variation-settings': '"FILL" 1' }}>shield</span>
-                    {t('airdrop.clan.myClan')} • {clan().members_count.toLocaleString()} {t('airdrop.clan.members')}
+                    {t('airdrop.clan.myClan')} • {clan().members_count.toLocaleString('en-US')} {t('airdrop.clan.members')}
                   </div>
                 </div>
               </div>

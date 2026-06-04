@@ -555,6 +555,51 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 				})
 			}
 		}
+	} else if strings.HasPrefix(pay.InvoicePayload, "marketplace_purchase:") {
+		parts := strings.Split(pay.InvoicePayload, ":")
+		if len(parts) == 3 {
+			userID, parseErr := strconv.ParseInt(parts[1], 10, 64)
+			optionID := parts[2]
+			if parseErr == nil {
+				var frgAmount float64
+				var price float64
+				switch optionID {
+				case "stars_5":
+					frgAmount = 5
+					price = 385
+				case "stars_10":
+					frgAmount = 10
+					price = 750
+				case "stars_25":
+					frgAmount = 25
+					price = 1800
+				case "stars_50":
+					frgAmount = 50
+					price = 3400
+				}
+
+				if frgAmount > 0 {
+					frgRepo := repository.NewFRGRepo(h.db)
+					meta, _ := json.Marshal(map[string]interface{}{
+						"option_id":          optionID,
+						"method":             "stars",
+						"stars_amount":       price,
+						"telegram_charge_id": pay.TelegramPaymentChargeID,
+					})
+					_, err := frgRepo.CreditWithIdempotency(ctx, userID, frgAmount, "purchase_stars", meta, pay.TelegramPaymentChargeID)
+					if err != nil {
+						slog.Error("Failed to credit FRG coins via Stars payment webhook", "error", err, "user_id", userID)
+					} else {
+						slog.Info("Successfully credited FRG coins via Stars payment webhook", "user_id", userID, "amount", frgAmount)
+						_ = h.db.UpdateOrderStatus(ctx, pay.InvoicePayload, "paid", pay.TelegramPaymentChargeID)
+						tg, tgErr := h.moderator.GetTelegramClient(ctx, bot)
+						if tgErr == nil {
+							_ = tg.SendMessage(ctx, userID, fmt.Sprintf("Payment successful! Credited %g Coins (FRG) to your balance.", frgAmount), nil, nil)
+						}
+					}
+				}
+			}
+		}
 	} else {
 		// Non-premium payments: update order status normally
 		err := h.db.UpdateOrderStatus(ctx, pay.InvoicePayload, "paid", pay.TelegramPaymentChargeID)

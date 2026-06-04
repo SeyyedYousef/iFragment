@@ -356,7 +356,7 @@ func main() {
 
 			r.Post("/webhook/telegram/{botID}", webhookHandler.HandleTelegramWebhook)
 			r.Post("/webhook/tonapi", webhookHandler.HandleTonAPIWebhook)
-			r.With(middleware.ValidateTelegramInitData(cache)).Post("/auth/token", authHandler.IssueToken)
+			r.With(middleware.ValidateTelegramInitData(db, cache)).Post("/auth/token", authHandler.IssueToken)
 
 		r.Route("/usernames", func(r chi.Router) {
 			r.Get("/collection/stats", usernameHandler.GetCollectionStats)
@@ -445,6 +445,7 @@ func main() {
 
 			r.Get("/options", botMgmtHandler.GetPurchaseOptions)
 			r.Post("/purchase/stars", botMgmtHandler.PurchaseWithStars)
+			r.Post("/purchase/stars/invoice", botMgmtHandler.CreateStarsInvoice)
 			r.Post("/purchase/toncoin", botMgmtHandler.PurchaseWithToncoin)
 			r.Post("/convert/airdrop", botMgmtHandler.ConvertAirdropCoins)
 		})

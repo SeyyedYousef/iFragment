@@ -135,7 +135,7 @@ export const TapView: Component = () => {
           <div class="w-10 h-10 rounded-full bg-amber-400/10 flex items-center justify-center border border-amber-400/20">
             <span class="material-symbols-outlined text-amber-400 text-2xl" style={{ 'font-variation-settings': '"FILL" 1' }}>monetization_on</span>
           </div>
-          <span class="text-white text-5xl font-black tabular-nums leading-none tracking-tighter">{balance().toLocaleString()}</span>
+          <span class="text-white text-5xl font-black tabular-nums leading-none tracking-tighter">{balance().toLocaleString('en-US')}</span>
         </div>
         <div class="text-amber-400/60 text-[10px] font-black mt-3 uppercase tracking-[0.15em]">{t('airdrop.tap.tapToMine')}</div>
       </div>
