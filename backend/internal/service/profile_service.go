@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -100,19 +101,23 @@ func (s *ProfileService) GetUserProfilePhotoPath(ctx context.Context, userID int
 		path, err := s.cache.Client.Get(ctx, cacheKey).Result()
 		if err == nil {
 			if path == "none" {
+				log.Printf("[GetUserProfilePhotoPath] Cache hit 'none' for user %d", userID)
 				return "", nil
 			}
+			log.Printf("[GetUserProfilePhotoPath] Cache hit path '%s' for user %d", path, userID)
 			return path, nil
 		}
 	}
 
 	tg, err := s.getBotAPIClient(ctx)
 	if err != nil {
+		log.Printf("[GetUserProfilePhotoPath] getBotAPIClient failed for user %d: %v", userID, err)
 		return "", err
 	}
 
 	path, err := tg.GetUserProfilePhotoURL(ctx, userID)
 	if err != nil {
+		log.Printf("[GetUserProfilePhotoPath] tg.GetUserProfilePhotoURL failed for user %d: %v", userID, err)
 		return "", err
 	}
 
@@ -125,24 +130,30 @@ func (s *ProfileService) GetUserProfilePhotoPath(ctx context.Context, userID int
 		s.cache.Client.Set(ctx, cacheKey, cacheVal, 1*time.Hour)
 	}
 
+	log.Printf("[GetUserProfilePhotoPath] Successfully retrieved path '%s' for user %d", path, userID)
 	return path, nil
 }
 
 func (s *ProfileService) GetAvatarStream(ctx context.Context, userID int64) (io.ReadCloser, string, int64, error) {
+	log.Printf("[GetAvatarStream] Starting avatar stream download for user %d", userID)
 	path, err := s.GetUserProfilePhotoPath(ctx, userID)
 	if err != nil {
+		log.Printf("[GetAvatarStream] GetUserProfilePhotoPath failed for user %d: %v", userID, err)
 		return nil, "", 0, err
 	}
 	if path == "" {
+		log.Printf("[GetAvatarStream] No photo path returned for user %d (user has no photo or restricted visibility)", userID)
 		return nil, "", 0, fmt.Errorf("no avatar found")
 	}
 
 	tg, err := s.getBotAPIClient(ctx)
 	if err != nil {
+		log.Printf("[GetAvatarStream] getBotAPIClient failed for user %d: %v", userID, err)
 		return nil, "", 0, err
 	}
 
 	fileURL := fmt.Sprintf("%s/file/bot%s/%s", tg.BaseURL(), tg.Token(), path)
+	log.Printf("[GetAvatarStream] Downloading from Telegram: %s/file/bot<masked>/%s", tg.BaseURL(), path)
 	
 	client := &http.Client{Timeout: 5 * time.Second}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fileURL, nil)
@@ -152,15 +163,18 @@ func (s *ProfileService) GetAvatarStream(ctx context.Context, userID int64) (io.
 
 	resp, err := client.Do(req)
 	if err != nil {
+		log.Printf("[GetAvatarStream] Telegram request failed for user %d: %v", userID, err)
 		return nil, "", 0, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		resp.Body.Close()
+		log.Printf("[GetAvatarStream] Telegram file server returned HTTP %d for user %d", resp.StatusCode, userID)
 		return nil, "", 0, fmt.Errorf("telegram returned status %d", resp.StatusCode)
 	}
 
 	contentLength, _ := strconv.ParseInt(resp.Header.Get("Content-Length"), 10, 64)
+	log.Printf("[GetAvatarStream] Stream initialized for user %d, size: %d bytes, Content-Type: %s", userID, contentLength, resp.Header.Get("Content-Type"))
 	return resp.Body, resp.Header.Get("Content-Type"), contentLength, nil
 }
 

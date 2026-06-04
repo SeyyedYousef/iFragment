@@ -10,8 +10,6 @@ export const BottomNav: Component = () => {
   const user = initData.user();
   
   const avatarUrl = () => {
-    const user = initData.user();
-    if (user?.photo_url) return user.photo_url;
     const statsPhoto = profilePhotoUrl();
     if (statsPhoto) {
       if (statsPhoto.startsWith('http')) return statsPhoto;
@@ -19,6 +17,8 @@ export const BottomNav: Component = () => {
       const cleanPath = statsPhoto.startsWith('/') ? statsPhoto : `/${statsPhoto}`;
       return `${base}${cleanPath}`;
     }
+    const user = initData.user();
+    if (user?.photo_url) return user.photo_url;
     return undefined;
   };
   

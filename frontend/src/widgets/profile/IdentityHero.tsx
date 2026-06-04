@@ -12,8 +12,6 @@ interface Props { stats: ProfileStats | null }
 
 export const IdentityHero: Component<Props> = (props) => {
   const avatarUrl = () => {
-    const user = initData.user();
-    if (user?.photo_url) return user.photo_url;
     const statsPhoto = profilePhotoUrl();
     if (statsPhoto) {
       if (statsPhoto.startsWith('http')) return statsPhoto;
@@ -21,6 +19,8 @@ export const IdentityHero: Component<Props> = (props) => {
       const cleanPath = statsPhoto.startsWith('/') ? statsPhoto : `/${statsPhoto}`;
       return `${base}${cleanPath}`;
     }
+    const user = initData.user();
+    if (user?.photo_url) return user.photo_url;
     return undefined;
   };
   const user = initData.user();
