@@ -70,6 +70,14 @@ func (s *ProfileService) getGlobalRank(ctx context.Context, userID int64, xp int
 }
 
 func (s *ProfileService) getBotAPIClient(ctx context.Context) (*telegram.BotAPIClient, error) {
+	token := os.Getenv("TELEGRAM_BOT_TOKEN")
+	if token == "" {
+		token = os.Getenv("BOT_TOKEN")
+	}
+	if token != "" {
+		return telegram.NewBotAPIClient(token), nil
+	}
+
 	if s.db == nil || s.db.Pool == nil {
 		return nil, fmt.Errorf("no database connection")
 	}
@@ -81,14 +89,6 @@ func (s *ProfileService) getBotAPIClient(ctx context.Context) (*telegram.BotAPIC
 		if err == nil {
 			return telegram.NewBotAPIClient(token), nil
 		}
-	}
-
-	token := os.Getenv("TELEGRAM_BOT_TOKEN")
-	if token == "" {
-		token = os.Getenv("BOT_TOKEN")
-	}
-	if token != "" {
-		return telegram.NewBotAPIClient(token), nil
 	}
 
 	return nil, fmt.Errorf("no active telegram bot client found or configured")

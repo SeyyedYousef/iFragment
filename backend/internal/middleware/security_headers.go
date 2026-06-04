@@ -8,7 +8,7 @@ func SecurityHeaders(next http.Handler) http.Handler {
 		h.Set("Content-Security-Policy",
 			"default-src 'self'; script-src 'self' https://telegram.org; "+
 				"style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; "+
-				"connect-src 'self' https://api.ifragment.app https://*.cloudflare.com https://tonapi.io")
+				"connect-src 'self' https://api.ifragment.app https://*.onrender.com https://*.tonapi.io https://bridge.tonapi.io wss://*.tonconnect.org https://*.cloudflare.com")
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")

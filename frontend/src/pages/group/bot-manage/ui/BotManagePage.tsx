@@ -376,7 +376,7 @@ export const BotManagePage: Component = () => {
                   <span class="text-3xl font-black text-white">
                     {balance.loading ? '...' : (balance()?.balance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
-                  <span class="text-[14px] font-black text-[#3390ec]">FRG</span>
+                  <span class="text-[14px] font-black text-[#3390ec]">{t('boosters.currency')}</span>
                 </div>
               </div>
               <button
@@ -419,7 +419,7 @@ export const BotManagePage: Component = () => {
                     </div>
                     <div class="flex items-baseline gap-1.5">
                       <span class="text-2xl font-black text-white">{pkg.price_frg}</span>
-                      <span class="text-[13px] font-black text-[#3390ec]">FRG</span>
+                      <span class="text-[13px] font-black text-[#3390ec]">{t('boosters.currency')}</span>
                     </div>
                   </button>
                 )}
@@ -438,7 +438,7 @@ export const BotManagePage: Component = () => {
               </Show>
             </button>
             <p class="text-[11px] text-[#555] text-center mt-4 font-medium px-6">
-              By activating, you agree to our Terms of Service. Payments are processed instantly via FRG balance.
+              By activating, you agree to our Terms of Service. Payments are processed instantly via Coins balance.
             </p>
           </Motion.div>
         </Motion.div>

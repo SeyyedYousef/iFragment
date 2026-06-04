@@ -8,12 +8,15 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"ifragment-backend/internal/middleware"
+	"ifragment-backend/internal/repository"
 )
 
-type AuthHandler struct{}
+type AuthHandler struct {
+	db *repository.Database
+}
 
-func NewAuthHandler() *AuthHandler {
-	return &AuthHandler{}
+func NewAuthHandler(db *repository.Database) *AuthHandler {
+	return &AuthHandler{db: db}
 }
 
 func (h *AuthHandler) IssueToken(w http.ResponseWriter, r *http.Request) {
@@ -46,12 +49,28 @@ func (h *AuthHandler) IssueToken(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	username, _ := user["username"].(string)
+	firstName, _ := user["first_name"].(string)
+	lastName, _ := user["last_name"].(string)
+	languageCode, _ := user["language_code"].(string)
+
+	// Synchronize user profile in the database
+	err := h.db.UpsertUser(r.Context(), repository.User{
+		TelegramID:   int64(idFloat),
+		Username:     username,
+		FirstName:    firstName,
+		LastName:     lastName,
+		LanguageCode: languageCode,
+	})
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "Failed to synchronize user profile", err)
+		return
+	}
 
 	claims := middleware.JWTClaims{
 		UserID:   int64(idFloat),
 		Username: username,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

@@ -285,7 +285,7 @@ func main() {
 	clanService := service.NewClanService(db, cache)
 	clanHandler := handler.NewClanHandler(clanService)
 
-	authHandler := handler.NewAuthHandler()
+	authHandler := handler.NewAuthHandler(db)
 
 	// Initialize Owner components
 	ownerRepo := repository.NewOwnerRepo(db)

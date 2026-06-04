@@ -98,7 +98,7 @@ func ValidateTelegramInitData(cache *repository.Cache) func(http.Handler) http.H
 					}
 				}
 
-				http.Error(w, "Unauthorized: Signature verification failed", http.StatusUnauthorized)
+				http.Error(w, fmt.Sprintf("Unauthorized: Signature verification failed (%s)", err.Error()), http.StatusUnauthorized)
 				return
 			}
 
@@ -201,8 +201,8 @@ func validate(initData, botToken string) error {
 		return fmt.Errorf("invalid auth_date")
 	}
 	now := time.Now().Unix()
-	if now-authDate > 7200 || authDate-now > 300 {
-		return fmt.Errorf("init data expired (max 2h) or invalid clock skew")
+	if now-authDate > 30*86400 || authDate-now > 86400 {
+		return fmt.Errorf("init data expired (max 30d) or invalid clock skew")
 	}
 
 	return nil

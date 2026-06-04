@@ -298,9 +298,9 @@ export const OwnerUsers: Component = () => {
                     </div>
 
                     <div class="flex flex-col items-end">
-                      <span class="text-[10px] text-[#a0a4ad] font-black uppercase tracking-wider">FRG Balance</span>
+                      <span class="text-[10px] text-[#a0a4ad] font-black uppercase tracking-wider">Coins Balance</span>
                       <span class="text-sm font-black text-[#ffcc00] mt-0.5">
-                        {Math.round(user.balance).toLocaleString()} FRG
+                        {Math.round(user.balance).toLocaleString()} Coins
                       </span>
                     </div>
                   </div>
@@ -320,7 +320,7 @@ export const OwnerUsers: Component = () => {
                       class="h-8 px-3 bg-[#ffcc00]/10 hover:bg-[#ffcc00]/20 border border-[#ffcc00]/30 text-[9px] font-black uppercase tracking-wider text-[#ffcc00] rounded-xl active:scale-95 transition-all flex items-center gap-1"
                     >
                       <span class="material-symbols-outlined text-[12px]">account_balance_wallet</span>
-                      Adjust FRG
+                      Adjust Coins
                     </button>
 
                     <button 
@@ -358,14 +358,14 @@ export const OwnerUsers: Component = () => {
               <span class="material-symbols-outlined text-[18px] text-white/70">close</span>
             </button>
 
-            <h2 class="text-sm font-black uppercase tracking-wider text-white mb-4">Adjust FRG Token Balance</h2>
+            <h2 class="text-sm font-black uppercase tracking-wider text-white mb-4">Adjust Coins Balance</h2>
             <p class="text-[10px] text-[#a0a4ad] font-bold mb-4">
               Adding positive values increases user's balance. Negative values decrease balance. Reason is strictly audited.
             </p>
 
             <form onSubmit={submitFrgAdjustment} class="flex flex-col gap-4">
               <div class="flex flex-col gap-1.5">
-                <label class="text-[9px] text-[#a0a4ad] font-black uppercase tracking-wider">Adjustment Amount (FRG)</label>
+                <label class="text-[9px] text-[#a0a4ad] font-black uppercase tracking-wider">Adjustment Amount (Coins)</label>
                 <input 
                   type="number"
                   placeholder="e.g. 50000 or -20000"

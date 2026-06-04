@@ -1,6 +1,15 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosError, AxiosResponse } from 'axios';
+import { retrieveLaunchParams } from '@tma.js/sdk-solid';
 import { mockApiLogic } from './mock-api.js';
 import { API_CONFIG } from './config.js';
+
+const getInitData = (): string => {
+  try {
+    return (retrieveLaunchParams().initDataRaw as string) || '';
+  } catch (e) {
+    return (window as any).Telegram?.WebApp?.initData || '';
+  }
+};
 
 export const apiClient: AxiosInstance = axios.create({
   baseURL: API_CONFIG.BASE_URL,
@@ -36,8 +45,9 @@ apiClient.interceptors.request.use(
     }
 
     // Pass Telegram InitData for authentication handshake if available
-    if ((window as any).Telegram?.WebApp?.initData && isInternalUrl) {
-      config.headers['X-Telegram-Init-Data'] = (window as any).Telegram.WebApp.initData;
+    const initData = getInitData();
+    if (initData && isInternalUrl) {
+      config.headers['X-Telegram-Init-Data'] = initData;
     }
 
     return config;
@@ -93,7 +103,7 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retryCount && !isOwnerRequest) {
       originalRequest._retryCount = 1;
       try {
-        const initData = (window as any).Telegram?.WebApp?.initData;
+        const initData = getInitData();
         if (initData) {
           const tokenUrl = API_CONFIG.BASE_URL.replace(/\/api\/v1\/?$/, '') + '/api/v1/auth/token';
           const refreshResponse = await axios.post(

@@ -47,7 +47,7 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 			WHERE mb.owner_user_id = $1
 		),
 		frg_info AS (
-			SELECT balance, total_earned, total_spent FROM frg_balances WHERE user_id = $1
+			SELECT COALESCE(airdrop_coins, 0) as balance, 0.0 as total_earned, 0.0 as total_spent FROM user_stats WHERE user_id = $1
 		),
 		stats_info AS (
 			SELECT days_active, current_streak, total_taps, xp, level, last_active_at,

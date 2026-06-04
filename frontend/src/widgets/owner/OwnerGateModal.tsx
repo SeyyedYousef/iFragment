@@ -1,6 +1,6 @@
 import { Component, createSignal, For, Show, onMount } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
-import { hapticFeedback } from '@tma.js/sdk-solid';
+import { hapticFeedback, retrieveLaunchParams } from '@tma.js/sdk-solid';
 import { apiClient } from '@/shared/api/axios.js';
 
 interface OwnerGateModalProps {
@@ -68,8 +68,15 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
     const totpCode = pin().join('');
     
     // Get Telegram InitData securely
-    const tgUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
+    let tgUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
     let initData = (window as any).Telegram?.WebApp?.initData;
+    try {
+      const lp = retrieveLaunchParams();
+      initData = lp.initDataRaw || initData;
+      tgUser = (lp.initData as any)?.user || tgUser;
+    } catch (e) {
+      // ignore
+    }
 
     // Support dev environment bypass for local testing velocity
     if (!initData && import.meta.env.DEV) {

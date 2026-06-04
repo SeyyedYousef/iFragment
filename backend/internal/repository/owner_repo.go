@@ -262,7 +262,7 @@ func (r *OwnerRepo) GetDashboardStats(ctx context.Context) (*model.OwnerDashboar
 				(SELECT COUNT(DISTINCT user_id) FROM user_stats WHERE last_active_at > now() - interval '24 hours') AS dau,
 				(SELECT COUNT(DISTINCT user_id) FROM user_stats WHERE last_active_at > now() - interval '30 days')  AS mau,
 				(SELECT COUNT(*) FROM users) AS total_users,
-				(SELECT COALESCE(SUM(balance), 0.0) FROM frg_balances) AS frg_circulation,
+				(SELECT COALESCE(SUM(airdrop_coins), 0.0) FROM user_stats) AS frg_circulation,
 				(SELECT COALESCE(SUM(amount), 0.0) FROM orders WHERE status = 'paid') AS stars_volume
 		)
 		SELECT dau, mau, total_users, frg_circulation, stars_volume FROM counts;
@@ -325,9 +325,9 @@ func (r *OwnerRepo) SearchUsers(ctx context.Context, searchQuery string) ([]Sear
 			return nil, err
 		}
 		query = `
-			SELECT u.telegram_id, COALESCE(u.username, ''), COALESCE(u.first_name, ''), COALESCE(u.last_name, ''), COALESCE(u.language_code, ''), u.created_at, COALESCE(fb.balance, 0.0), u.is_premium
+			SELECT u.telegram_id, COALESCE(u.username, ''), COALESCE(u.first_name, ''), COALESCE(u.last_name, ''), COALESCE(u.language_code, ''), u.created_at, COALESCE(us.airdrop_coins, 0.0), u.is_premium
 			FROM users u
-			LEFT JOIN frg_balances fb ON u.telegram_id = fb.user_id
+			LEFT JOIN user_stats us ON u.telegram_id = us.user_id
 			WHERE u.telegram_id = $1
 			ORDER BY u.created_at DESC
 			LIMIT 50
@@ -336,9 +336,9 @@ func (r *OwnerRepo) SearchUsers(ctx context.Context, searchQuery string) ([]Sear
 	} else {
 		// If query is text, search by trigram matches using GIN indexes without type casting
 		query = `
-			SELECT u.telegram_id, COALESCE(u.username, ''), COALESCE(u.first_name, ''), COALESCE(u.last_name, ''), COALESCE(u.language_code, ''), u.created_at, COALESCE(fb.balance, 0.0), u.is_premium
+			SELECT u.telegram_id, COALESCE(u.username, ''), COALESCE(u.first_name, ''), COALESCE(u.last_name, ''), COALESCE(u.language_code, ''), u.created_at, COALESCE(us.airdrop_coins, 0.0), u.is_premium
 			FROM users u
-			LEFT JOIN frg_balances fb ON u.telegram_id = fb.user_id
+			LEFT JOIN user_stats us ON u.telegram_id = us.user_id
 			WHERE u.username ILIKE '%' || $1 || '%'
 			   OR u.first_name ILIKE '%' || $1 || '%'
 			   OR u.last_name ILIKE '%' || $1 || '%'
@@ -499,22 +499,24 @@ func (r *OwnerRepo) RedeemPromoCodeTx(ctx context.Context, code string, userID i
 	}
 
 	// Atomic upsert with write locking to prevent race conditions and connection leaks
+	queryInsert := `INSERT INTO user_stats (user_id, days_active, current_streak, total_taps, xp, level, last_active_at, energy, energy_updated_at, airdrop_coins)
+		VALUES ($1, 1, 1, 0, 0, 1, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, 0.0)
+		ON CONFLICT (user_id) DO NOTHING`
+	_, err = tx.Exec(ctx, queryInsert, userID)
+	if err != nil {
+		return err
+	}
+
 	var balanceBefore float64
-	err = tx.QueryRow(ctx, `
-		INSERT INTO frg_balances (user_id, balance, total_earned, updated_at)
-		VALUES ($1, 0.0, 0.0, now())
-		ON CONFLICT (user_id) 
-		DO UPDATE SET updated_at = now()
-		RETURNING balance
-	`, userID).Scan(&balanceBefore)
+	err = tx.QueryRow(ctx, `SELECT COALESCE(airdrop_coins, 0) FROM user_stats WHERE user_id = $1 FOR UPDATE`, userID).Scan(&balanceBefore)
 	if err != nil {
 		return err
 	}
 
 	balanceAfter := balanceBefore + rewardAmount
 	_, err = tx.Exec(ctx,
-		`UPDATE frg_balances SET balance = $1, total_earned = total_earned + $2, updated_at = now() WHERE user_id = $3`,
-		balanceAfter, rewardAmount, userID,
+		`UPDATE user_stats SET airdrop_coins = $1 WHERE user_id = $2`,
+		balanceAfter, userID,
 	)
 	if err != nil {
 		return err
