@@ -5,10 +5,20 @@ import { API_CONFIG } from './config.js';
 
 const getInitData = (): string => {
   try {
-    return (retrieveLaunchParams().initDataRaw as string) || '';
+    const raw = retrieveLaunchParams().initDataRaw as string;
+    if (raw) return raw;
   } catch (e) {
-    return (window as any).Telegram?.WebApp?.initData || '';
+    // Ignore error
   }
+  
+  const tgData = (window as any).Telegram?.WebApp?.initData;
+  if (tgData) return tgData;
+  
+  if (import.meta.env.DEV) {
+    return 'dev-user';
+  }
+  
+  return '';
 };
 
 export const apiClient: AxiosInstance = axios.create({
