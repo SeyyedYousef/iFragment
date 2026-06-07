@@ -3,17 +3,27 @@ import { retrieveLaunchParams } from '@tma.js/sdk-solid';
 import { API_CONFIG } from './config.js';
 
 const getInitData = (): string => {
+  let initDataStr = '';
+
   try {
     const raw = retrieveLaunchParams().initDataRaw as string;
-    if (raw) return raw;
+    if (raw) initDataStr = raw;
   } catch (e) {
     // Ignore error
   }
   
-  const tgData = (window as any).Telegram?.WebApp?.initData;
-  if (tgData) return tgData;
+  if (!initDataStr) {
+    const tgData = (window as any).Telegram?.WebApp?.initData;
+    if (tgData) initDataStr = tgData;
+  }
   
-  return '';
+  // Cache in sessionStorage to survive path changes where hash is lost
+  if (initDataStr) {
+    try { sessionStorage.setItem('cached_tg_init_data', initDataStr); } catch(e) {}
+    return initDataStr;
+  }
+  
+  return sessionStorage.getItem('cached_tg_init_data') || '';
 };
 
 export const apiClient: AxiosInstance = axios.create({

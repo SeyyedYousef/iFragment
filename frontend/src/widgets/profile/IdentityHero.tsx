@@ -19,8 +19,8 @@ export const IdentityHero: Component<Props> = (props) => {
       const cleanPath = statsPhoto.startsWith('/') ? statsPhoto : `/${statsPhoto}`;
       return `${base}${cleanPath}`;
     }
-    const user = initData.user();
-    if (user?.photo_url) return user.photo_url;
+    const user = initData.user() as any;
+    if (user?.photoUrl || user?.photo_url) return user.photoUrl || user.photo_url;
     return undefined;
   };
   const user = initData.user();

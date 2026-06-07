@@ -2,15 +2,15 @@ import { Component, Show, createSignal, createEffect } from 'solid-js';
 import { A, useLocation } from '@solidjs/router';
 import { initData } from '@tma.js/sdk-solid';
 import { t } from '@/shared/i18n/index.js';
-import { profilePhotoUrl } from '@/shared/store/profile.js';
+import { profilePhotoUrl, profileStats } from '@/shared/store/profile.js';
 import { API_CONFIG } from '@/shared/api/config.js';
 
 export const BottomNav: Component = () => {
   const location = useLocation();
-  const user = () => initData.user();
+  const user = () => initData.user() as any;
   
   const avatarUrl = () => {
-    const statsPhoto = profilePhotoUrl();
+    const statsPhoto = profileStats()?.photoUrl;
     if (statsPhoto) {
       if (statsPhoto.startsWith('http')) return statsPhoto;
       const base = API_CONFIG.BASE_URL.replace(/\/api\/v1\/?$/, '');
@@ -18,7 +18,7 @@ export const BottomNav: Component = () => {
       return `${base}${cleanPath}`;
     }
     const u = user();
-    if (u?.photo_url) return u.photo_url;
+    if (u?.photoUrl || u?.photo_url) return u.photoUrl || u.photo_url;
     return undefined;
   };
 
