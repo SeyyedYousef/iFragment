@@ -123,14 +123,15 @@ func (c *PricingClient) Predict(ctx context.Context, features PriceFeatures) (*P
 
 		resp, err := c.http.Do(req)
 		if err == nil {
-			defer resp.Body.Close()
 			if resp.StatusCode >= 200 && resp.StatusCode <= 299 {
+				defer resp.Body.Close()
 				var estimate PriceEstimate
 				if err := json.NewDecoder(resp.Body).Decode(&estimate); err != nil {
 					return nil, fmt.Errorf("pricing response decode failed: %w", err)
 				}
 				return &estimate, nil
 			}
+			resp.Body.Close()
 			lastErr = fmt.Errorf("pricing model returned %s", resp.Status)
 		} else {
 			lastErr = err

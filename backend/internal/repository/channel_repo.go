@@ -1021,6 +1021,7 @@ func (r *ChannelRepo) SaveChannelButtons(ctx context.Context, channelID uuid.UUI
 	if err := rows.Err(); err != nil {
 		return fmt.Errorf("rows iteration error: %w", err)
 	}
+	rows.Close()
 
 	existingMap := make(map[string]ChannelInlineButton)
 	for _, btn := range existing {

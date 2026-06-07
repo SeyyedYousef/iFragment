@@ -45,20 +45,17 @@ func (r *FRGRepo) DB() *Database {
 }
 
 func (r *FRGRepo) GetBalance(ctx context.Context, userID int64) (*FRGBalance, error) {
-	query := `SELECT user_id, COALESCE(airdrop_coins, 0) as balance, 
-		COALESCE((SELECT SUM(amount) FROM frg_transactions WHERE user_id = $1 AND amount > 0), 0.0) as total_earned, 
-		COALESCE((SELECT SUM(ABS(amount)) FROM frg_transactions WHERE user_id = $1 AND amount < 0), 0.0) as total_spent, 
-		energy_updated_at FROM user_stats WHERE user_id = $1`
+	query := `SELECT user_id, balance, total_earned, total_spent, updated_at FROM frg_balances WHERE user_id = $1`
 	var b FRGBalance
-	var updatedAt time.Time
-	err := r.db.Pool.QueryRow(ctx, query, userID).Scan(&b.UserID, &b.Balance, &b.TotalEarned, &b.TotalSpent, &updatedAt)
+	err := r.db.Pool.QueryRow(ctx, query, userID).Scan(&b.UserID, &b.Balance, &b.TotalEarned, &b.TotalSpent, &b.UpdatedAt)
 	if err == pgx.ErrNoRows {
-		if err := r.db.EnsureStatsExists(ctx, userID); err != nil {
+		// Insert default balance record
+		_, err = r.db.Pool.Exec(ctx, `INSERT INTO frg_balances (user_id, balance, total_earned, total_spent, updated_at) VALUES ($1, 0.0, 0.0, 0.0, now()) ON CONFLICT (user_id) DO NOTHING`, userID)
+		if err != nil {
 			return nil, err
 		}
-		err = r.db.Pool.QueryRow(ctx, query, userID).Scan(&b.UserID, &b.Balance, &b.TotalEarned, &b.TotalSpent, &updatedAt)
+		err = r.db.Pool.QueryRow(ctx, query, userID).Scan(&b.UserID, &b.Balance, &b.TotalEarned, &b.TotalSpent, &b.UpdatedAt)
 	}
-	b.UpdatedAt = updatedAt
 	return &b, err
 }
 
@@ -77,8 +74,8 @@ func (r *FRGRepo) Credit(ctx context.Context, userID int64, amount float64, txTy
 	}
 	defer tx.Rollback(ctx)
 
-	queryInsert := `INSERT INTO user_stats (user_id, days_active, current_streak, total_taps, xp, level, last_active_at, energy, energy_updated_at, airdrop_coins)
-		VALUES ($1, 1, 1, 0, 0, 1, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, 0.0)
+	queryInsert := `INSERT INTO frg_balances (user_id, balance, total_earned, total_spent, updated_at)
+		VALUES ($1, 0.0, 0.0, 0.0, now())
 		ON CONFLICT (user_id) DO NOTHING`
 	_, err = tx.Exec(ctx, queryInsert, userID)
 	if err != nil {
@@ -86,7 +83,7 @@ func (r *FRGRepo) Credit(ctx context.Context, userID int64, amount float64, txTy
 	}
 
 	var balanceBefore float64
-	err = tx.QueryRow(ctx, `SELECT COALESCE(airdrop_coins, 0) FROM user_stats WHERE user_id = $1 FOR UPDATE`, userID).Scan(&balanceBefore)
+	err = tx.QueryRow(ctx, `SELECT balance FROM frg_balances WHERE user_id = $1 FOR UPDATE`, userID).Scan(&balanceBefore)
 	if err != nil {
 		return nil, err
 	}
@@ -94,8 +91,8 @@ func (r *FRGRepo) Credit(ctx context.Context, userID int64, amount float64, txTy
 	balanceAfter := balanceBefore + amount
 
 	_, err = tx.Exec(ctx,
-		`UPDATE user_stats SET airdrop_coins = $1 WHERE user_id = $2`,
-		balanceAfter, userID,
+		`UPDATE frg_balances SET balance = $1, total_earned = total_earned + $2, updated_at = now() WHERE user_id = $3`,
+		balanceAfter, amount, userID,
 	)
 	if err != nil {
 		return nil, err
@@ -130,8 +127,8 @@ func (r *FRGRepo) CreditTx(ctx context.Context, tx pgx.Tx, userID int64, amount 
 		return nil, fmt.Errorf("amount must be positive")
 	}
 
-	queryInsert := `INSERT INTO user_stats (user_id, days_active, current_streak, total_taps, xp, level, last_active_at, energy, energy_updated_at, airdrop_coins)
-		VALUES ($1, 1, 1, 0, 0, 1, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, 0.0)
+	queryInsert := `INSERT INTO frg_balances (user_id, balance, total_earned, total_spent, updated_at)
+		VALUES ($1, 0.0, 0.0, 0.0, now())
 		ON CONFLICT (user_id) DO NOTHING`
 	_, err := tx.Exec(ctx, queryInsert, userID)
 	if err != nil {
@@ -139,7 +136,7 @@ func (r *FRGRepo) CreditTx(ctx context.Context, tx pgx.Tx, userID int64, amount 
 	}
 
 	var balanceBefore float64
-	err = tx.QueryRow(ctx, `SELECT COALESCE(airdrop_coins, 0) FROM user_stats WHERE user_id = $1 FOR UPDATE`, userID).Scan(&balanceBefore)
+	err = tx.QueryRow(ctx, `SELECT balance FROM frg_balances WHERE user_id = $1 FOR UPDATE`, userID).Scan(&balanceBefore)
 	if err != nil {
 		return nil, err
 	}
@@ -147,8 +144,8 @@ func (r *FRGRepo) CreditTx(ctx context.Context, tx pgx.Tx, userID int64, amount 
 	balanceAfter := balanceBefore + amount
 
 	_, err = tx.Exec(ctx,
-		`UPDATE user_stats SET airdrop_coins = $1 WHERE user_id = $2`,
-		balanceAfter, userID,
+		`UPDATE frg_balances SET balance = $1, total_earned = total_earned + $2, updated_at = now() WHERE user_id = $3`,
+		balanceAfter, amount, userID,
 	)
 	if err != nil {
 		return nil, err
@@ -179,8 +176,8 @@ func (r *FRGRepo) DebitTx(ctx context.Context, tx pgx.Tx, userID int64, amount f
 		return nil, fmt.Errorf("amount must be positive")
 	}
 
-	queryInsert := `INSERT INTO user_stats (user_id, days_active, current_streak, total_taps, xp, level, last_active_at, energy, energy_updated_at, airdrop_coins)
-		VALUES ($1, 1, 1, 0, 0, 1, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, 0.0)
+	queryInsert := `INSERT INTO frg_balances (user_id, balance, total_earned, total_spent, updated_at)
+		VALUES ($1, 0.0, 0.0, 0.0, now())
 		ON CONFLICT (user_id) DO NOTHING`
 	if _, err := tx.Exec(ctx, queryInsert, userID); err != nil {
 		return nil, err
@@ -188,7 +185,7 @@ func (r *FRGRepo) DebitTx(ctx context.Context, tx pgx.Tx, userID int64, amount f
 
 	var balanceBefore float64
 	err := tx.QueryRow(ctx,
-		`SELECT COALESCE(airdrop_coins, 0) FROM user_stats WHERE user_id = $1 FOR UPDATE`, userID,
+		`SELECT balance FROM frg_balances WHERE user_id = $1 FOR UPDATE`, userID,
 	).Scan(&balanceBefore)
 	if err != nil {
 		return nil, err
@@ -201,8 +198,8 @@ func (r *FRGRepo) DebitTx(ctx context.Context, tx pgx.Tx, userID int64, amount f
 	balanceAfter := balanceBefore - amount
 
 	_, err = tx.Exec(ctx,
-		`UPDATE user_stats SET airdrop_coins = $1 WHERE user_id = $2`,
-		balanceAfter, userID,
+		`UPDATE frg_balances SET balance = $1, total_spent = total_spent + $2, updated_at = now() WHERE user_id = $3`,
+		balanceAfter, amount, userID,
 	)
 	if err != nil {
 		return nil, err
@@ -239,8 +236,8 @@ func (r *FRGRepo) Debit(ctx context.Context, userID int64, amount float64, txTyp
 	}
 	defer tx.Rollback(ctx)
 
-	queryInsert := `INSERT INTO user_stats (user_id, days_active, current_streak, total_taps, xp, level, last_active_at, energy, energy_updated_at, airdrop_coins)
-		VALUES ($1, 1, 1, 0, 0, 1, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, 0.0)
+	queryInsert := `INSERT INTO frg_balances (user_id, balance, total_earned, total_spent, updated_at)
+		VALUES ($1, 0.0, 0.0, 0.0, now())
 		ON CONFLICT (user_id) DO NOTHING`
 	if _, err = tx.Exec(ctx, queryInsert, userID); err != nil {
 		return nil, err
@@ -248,7 +245,7 @@ func (r *FRGRepo) Debit(ctx context.Context, userID int64, amount float64, txTyp
 
 	var balanceBefore float64
 	err = tx.QueryRow(ctx,
-		`SELECT COALESCE(airdrop_coins, 0) FROM user_stats WHERE user_id = $1 FOR UPDATE`, userID,
+		`SELECT balance FROM frg_balances WHERE user_id = $1 FOR UPDATE`, userID,
 	).Scan(&balanceBefore)
 	if err != nil {
 		return nil, err
@@ -261,8 +258,8 @@ func (r *FRGRepo) Debit(ctx context.Context, userID int64, amount float64, txTyp
 	balanceAfter := balanceBefore - amount
 
 	_, err = tx.Exec(ctx,
-		`UPDATE user_stats SET airdrop_coins = $1 WHERE user_id = $2`,
-		balanceAfter, userID,
+		`UPDATE frg_balances SET balance = $1, total_spent = total_spent + $2, updated_at = now() WHERE user_id = $3`,
+		balanceAfter, amount, userID,
 	)
 	if err != nil {
 		return nil, err
@@ -349,8 +346,8 @@ func (r *FRGRepo) CreditWithIdempotency(ctx context.Context, userID int64, amoun
 		return nil, fmt.Errorf("transaction with charge id %s already processed", chargeID)
 	}
 
-	queryInsert := `INSERT INTO user_stats (user_id, days_active, current_streak, total_taps, xp, level, last_active_at, energy, energy_updated_at, airdrop_coins)
-		VALUES ($1, 1, 1, 0, 0, 1, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, 0.0)
+	queryInsert := `INSERT INTO frg_balances (user_id, balance, total_earned, total_spent, updated_at)
+		VALUES ($1, 0.0, 0.0, 0.0, now())
 		ON CONFLICT (user_id) DO NOTHING`
 	_, err = tx.Exec(ctx, queryInsert, userID)
 	if err != nil {
@@ -358,7 +355,7 @@ func (r *FRGRepo) CreditWithIdempotency(ctx context.Context, userID int64, amoun
 	}
 
 	var balanceBefore float64
-	err = tx.QueryRow(ctx, `SELECT COALESCE(airdrop_coins, 0) FROM user_stats WHERE user_id = $1 FOR UPDATE`, userID).Scan(&balanceBefore)
+	err = tx.QueryRow(ctx, `SELECT balance FROM frg_balances WHERE user_id = $1 FOR UPDATE`, userID).Scan(&balanceBefore)
 	if err != nil {
 		return nil, err
 	}
@@ -366,8 +363,8 @@ func (r *FRGRepo) CreditWithIdempotency(ctx context.Context, userID int64, amoun
 	balanceAfter := balanceBefore + amount
 
 	_, err = tx.Exec(ctx,
-		`UPDATE user_stats SET airdrop_coins = $1 WHERE user_id = $2`,
-		balanceAfter, userID,
+		`UPDATE frg_balances SET balance = $1, total_earned = total_earned + $2, updated_at = now() WHERE user_id = $3`,
+		balanceAfter, amount, userID,
 	)
 	if err != nil {
 		return nil, err
@@ -428,8 +425,8 @@ func (r *FRGRepo) CreditWithToncoinIdempotency(ctx context.Context, userID int64
 		return nil, fmt.Errorf("transaction with tx hash %s already processed", txHash)
 	}
 
-	queryInsert := `INSERT INTO user_stats (user_id, days_active, current_streak, total_taps, xp, level, last_active_at, energy, energy_updated_at, airdrop_coins)
-		VALUES ($1, 1, 1, 0, 0, 1, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, 0.0)
+	queryInsert := `INSERT INTO frg_balances (user_id, balance, total_earned, total_spent, updated_at)
+		VALUES ($1, 0.0, 0.0, 0.0, now())
 		ON CONFLICT (user_id) DO NOTHING`
 	_, err = tx.Exec(ctx, queryInsert, userID)
 	if err != nil {
@@ -437,7 +434,7 @@ func (r *FRGRepo) CreditWithToncoinIdempotency(ctx context.Context, userID int64
 	}
 
 	var balanceBefore float64
-	err = tx.QueryRow(ctx, `SELECT COALESCE(airdrop_coins, 0) FROM user_stats WHERE user_id = $1 FOR UPDATE`, userID).Scan(&balanceBefore)
+	err = tx.QueryRow(ctx, `SELECT balance FROM frg_balances WHERE user_id = $1 FOR UPDATE`, userID).Scan(&balanceBefore)
 	if err != nil {
 		return nil, err
 	}
@@ -445,8 +442,8 @@ func (r *FRGRepo) CreditWithToncoinIdempotency(ctx context.Context, userID int64
 	balanceAfter := balanceBefore + amount
 
 	_, err = tx.Exec(ctx,
-		`UPDATE user_stats SET airdrop_coins = $1 WHERE user_id = $2`,
-		balanceAfter, userID,
+		`UPDATE frg_balances SET balance = $1, total_earned = total_earned + $2, updated_at = now() WHERE user_id = $3`,
+		balanceAfter, amount, userID,
 	)
 	if err != nil {
 		return nil, err

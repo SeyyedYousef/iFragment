@@ -88,7 +88,7 @@ func (db *Database) CompleteStarsPremiumPayment(ctx context.Context, payload str
 
 	// 2. Fetch current premium_until
 	var currentPremiumUntil *time.Time
-	err = tx.QueryRow(ctx, "SELECT premium_until FROM users WHERE telegram_id = $1 FOR UPDATE").Scan(&currentPremiumUntil)
+	err = tx.QueryRow(ctx, "SELECT premium_until FROM users WHERE telegram_id = $1 FOR UPDATE", userID).Scan(&currentPremiumUntil)
 	if err != nil && err != pgx.ErrNoRows {
 		return fmt.Errorf("fetch premium_until: %w", err)
 	}

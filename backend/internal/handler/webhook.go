@@ -600,7 +600,7 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 		if err == nil {
 			if strings.HasPrefix(pay.InvoicePayload, "report_pay:") {
 				parts := strings.Split(pay.InvoicePayload, ":")
-				if len(parts) == 3 {
+				if len(parts) >= 3 {
 					userID, parseErr := strconv.ParseInt(parts[1], 10, 64)
 					username := parts[2]
 					if parseErr == nil && username != "" {

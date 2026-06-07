@@ -369,13 +369,23 @@ func (s *ProfileService) SetReferralCode(ctx context.Context, userID int64, refe
 
 	// 4) Issue rewards INSIDE tx via shared connection
 	if rewardReferrer {
-		metaR, _ := json.Marshal(map[string]interface{}{"referred_user_id": userID})
-		if _, err = s.frgRepo.CreditTx(ctx, tx, referrerID, ReferrerReward, "admin_credit", metaR); err != nil {
+		_, err = tx.Exec(ctx, `
+			INSERT INTO user_stats (user_id, days_active, current_streak, total_taps, xp, level, last_active_at, energy, energy_updated_at, airdrop_coins)
+			VALUES ($1, 1, 1, 0, 0, 1, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, $2)
+			ON CONFLICT (user_id) DO UPDATE SET airdrop_coins = COALESCE(user_stats.airdrop_coins, 0.0) + $2`,
+			referrerID, ReferrerReward,
+		)
+		if err != nil {
 			return err
 		}
 	}
-	metaU, _ := json.Marshal(map[string]interface{}{"referrer_code": referrerCode})
-	if _, err = s.frgRepo.CreditTx(ctx, tx, userID, ReferredReward, "admin_credit", metaU); err != nil {
+	_, err = tx.Exec(ctx, `
+		INSERT INTO user_stats (user_id, days_active, current_streak, total_taps, xp, level, last_active_at, energy, energy_updated_at, airdrop_coins)
+		VALUES ($1, 1, 1, 0, 0, 1, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, $2)
+		ON CONFLICT (user_id) DO UPDATE SET airdrop_coins = COALESCE(user_stats.airdrop_coins, 0.0) + $2`,
+		userID, ReferredReward,
+	)
+	if err != nil {
 		return err
 	}
 

@@ -230,3 +230,67 @@ func (db *Database) CreditReferrerShare(ctx context.Context, spenderID int64, am
 
 	return tx.Commit(ctx)
 }
+
+// CreditReferrerShareCoins handles Tier 1 & Tier 2 lifetime commissions on user in-game Coins spending.
+// Tier 1 receives 10%, Tier 2 receives 3% of spender's spend.
+func (db *Database) CreditReferrerShareCoins(ctx context.Context, spenderID int64, amountSpent float64) error {
+	if db.Pool == nil || amountSpent <= 0 {
+		return nil
+	}
+
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Get spender's Tier 1 referrer ID
+	var t1ReferrerID *int64
+	err = tx.QueryRow(ctx, "SELECT referred_by FROM users WHERE telegram_id = $1", spenderID).Scan(&t1ReferrerID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil
+		}
+		return fmt.Errorf("failed to get t1 referrer: %w", err)
+	}
+	if t1ReferrerID == nil || *t1ReferrerID == 0 {
+		return nil
+	}
+
+	// Credit 10% in Coins to Tier 1
+	t1Commission := amountSpent * 0.10
+	_, err = tx.Exec(ctx, `
+		INSERT INTO user_stats (user_id, xp, level, current_streak, last_active_at, energy, energy_updated_at, airdrop_coins)
+		VALUES ($1, 0, 1, 0, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, $2)
+		ON CONFLICT (user_id) DO UPDATE SET airdrop_coins = COALESCE(user_stats.airdrop_coins, 0.0) + $2
+	`, *t1ReferrerID, t1Commission)
+	if err != nil {
+		return fmt.Errorf("failed to credit t1 coins commission: %w", err)
+	}
+
+	// 2. Get Tier 1's referrer ID
+	var t2ReferrerID *int64
+	err = tx.QueryRow(ctx, "SELECT referred_by FROM users WHERE telegram_id = $1", *t1ReferrerID).Scan(&t2ReferrerID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return tx.Commit(ctx)
+		}
+		return fmt.Errorf("failed to get t2 referrer: %w", err)
+	}
+	if t2ReferrerID == nil || *t2ReferrerID == 0 {
+		return tx.Commit(ctx)
+	}
+
+	// Credit 3% in Coins to Tier 2
+	t2Commission := amountSpent * 0.03
+	_, err = tx.Exec(ctx, `
+		INSERT INTO user_stats (user_id, xp, level, current_streak, last_active_at, energy, energy_updated_at, airdrop_coins)
+		VALUES ($1, 0, 1, 0, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, $2)
+		ON CONFLICT (user_id) DO UPDATE SET airdrop_coins = COALESCE(user_stats.airdrop_coins, 0.0) + $2
+	`, *t2ReferrerID, t2Commission)
+	if err != nil {
+		return fmt.Errorf("failed to credit t2 coins commission: %w", err)
+	}
+
+	return tx.Commit(ctx)
+}

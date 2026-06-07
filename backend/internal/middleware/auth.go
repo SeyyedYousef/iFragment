@@ -32,6 +32,7 @@ var (
 // InitAuthMiddleware initializes the repository used by AuthMiddleware for revocation checks
 func InitAuthMiddleware(repo *repository.OwnerRepo) {
 	ownerRepo = repo
+	cachedJWTSecret = os.Getenv("JWT_SECRET")
 }
 
 // GetUserID parses user ID from request context safely
@@ -70,14 +71,9 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		secret := cachedJWTSecret
 
 		if secret == "" {
-			// Fallback check in case it was set late
-			secret = os.Getenv("JWT_SECRET")
-			if secret == "" {
-				slog.Error("JWT_SECRET environment variable is not configured")
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-				return
-			}
-			cachedJWTSecret = secret
+			slog.Error("JWT_SECRET environment variable is not configured")
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
 		}
 
 		token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {

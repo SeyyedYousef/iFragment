@@ -93,6 +93,11 @@ func (h *OwnerHandler) AdjustFrg(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Amount < -1000000 || req.Amount > 1000000 {
+		RespondError(w, r, http.StatusBadRequest, "amount must be between -1,000,000 and 1,000,000", errors.New("invalid amount bounds"))
+		return
+	}
+
 	newBalance, err := h.srv.AdjustFRG(r.Context(), ownerID, req.UserID, req.Amount, req.Reason, middleware.GetRealIP(r), r.UserAgent())
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
@@ -160,6 +165,11 @@ func (h *OwnerHandler) BanUser(w http.ResponseWriter, r *http.Request) {
 
 	if req.UserID == 0 || req.BanType == "" {
 		RespondError(w, r, http.StatusBadRequest, "user_id and ban_type are required", nil)
+		return
+	}
+
+	if req.DurationSeconds < 0 || req.DurationSeconds > 3153600000 {
+		RespondError(w, r, http.StatusBadRequest, "duration_seconds must be between 0 and 3,153,600,000 (100 years)", errors.New("invalid duration bounds"))
 		return
 	}
 

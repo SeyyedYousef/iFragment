@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -100,14 +101,38 @@ func (m *maskedError) Unwrap() error {
 	return m.err
 }
 
+func (c *BotAPIClient) sanitizeError(err error) error {
+	if err == nil {
+		return nil
+	}
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) {
+		redactedURL := urlErr.URL
+		if c.token != "" {
+			redactedURL = strings.ReplaceAll(urlErr.URL, c.token, "xxxx_masked_token")
+		}
+		return &url.Error{
+			Op:  urlErr.Op,
+			URL: redactedURL,
+			Err: c.sanitizeError(urlErr.Err),
+		}
+	}
+	errMsg := err.Error()
+	if c.token != "" && strings.Contains(errMsg, c.token) {
+		return errors.New(strings.ReplaceAll(errMsg, c.token, "xxxx_masked_token"))
+	}
+	return err
+}
+
 func (c *BotAPIClient) maskTokenInError(err error) error {
 	if err == nil {
 		return nil
 	}
-	if c.token != "" && strings.Contains(err.Error(), c.token) {
-		return &maskedError{err: err, token: c.token}
+	sanitized := c.sanitizeError(err)
+	if c.token != "" && (strings.Contains(err.Error(), c.token) || strings.Contains(sanitized.Error(), "xxxx_masked_token")) {
+		return &maskedError{err: sanitized, token: c.token}
 	}
-	return err
+	return sanitized
 }
 
 func (c *BotAPIClient) Request(ctx context.Context, method string, payload interface{}) (json.RawMessage, error) {

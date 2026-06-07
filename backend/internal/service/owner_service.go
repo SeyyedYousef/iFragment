@@ -67,35 +67,48 @@ func (s *OwnerService) Authenticate(ctx context.Context, telegramUserID int64, c
 		userLockKey := fmt.Sprintf("owner:login:attempts:user:%d", telegramUserID)
 
 		pipe := s.cache.Client.Pipeline()
-		ipIncr := pipe.Incr(ctx, ipLockKey)
-		pipe.Expire(ctx, ipLockKey, 15*time.Minute)
-		userIncr := pipe.Incr(ctx, userLockKey)
-		pipe.Expire(ctx, userLockKey, 15*time.Minute)
-		_, err := pipe.Exec(ctx)
-		
-		if err == nil {
-			if ipIncr.Val() > 5 {
-				return "", errors.New("too many login attempts from this IP; locked temporarily for 15 minutes")
-			}
-			if userIncr.Val() > 5 {
-				return "", errors.New("too many login attempts for this account; locked temporarily for 15 minutes")
-			}
+		ipGet := pipe.Get(ctx, ipLockKey)
+		userGet := pipe.Get(ctx, userLockKey)
+		_, _ = pipe.Exec(ctx)
+
+		if val, err := ipGet.Int(); err == nil && val >= 5 {
+			return "", errors.New("too many login attempts from this IP; locked temporarily for 15 minutes")
+		}
+		if val, err := userGet.Int(); err == nil && val >= 5 {
+			return "", errors.New("too many login attempts for this account; locked temporarily for 15 minutes")
+		}
+	}
+
+	incrLoginAttempts := func() {
+		if s.cache != nil && s.cache.Client != nil {
+			ipLockKey := fmt.Sprintf("owner:login:attempts:ip:%s", ip)
+			userLockKey := fmt.Sprintf("owner:login:attempts:user:%d", telegramUserID)
+
+			pipe := s.cache.Client.Pipeline()
+			pipe.Incr(ctx, ipLockKey)
+			pipe.Expire(ctx, ipLockKey, 15*time.Minute)
+			pipe.Incr(ctx, userLockKey)
+			pipe.Expire(ctx, userLockKey, 15*time.Minute)
+			_, _ = pipe.Exec(ctx)
 		}
 	}
 
 	// 2. Throw critical configuration error if OWNER_TOTP_SECRET env is missing (no fallback secret)
 	totpSecret := os.Getenv("OWNER_TOTP_SECRET")
 	if totpSecret == "" {
+		incrLoginAttempts()
 		return "", errors.New("OWNER_TOTP_SECRET is not configured on the server; refusing to authenticate")
 	}
 
 	// 3. Fetch owner role (throw error if role is not pre-registered in DB - no auto-seeding)
 	o, err := s.repo.GetOwnerRole(ctx, telegramUserID)
 	if err != nil {
+		incrLoginAttempts()
 		return "", err
 	}
 
 	if o == nil {
+		incrLoginAttempts()
 		return "", errors.New("owner role not provisioned in database; contact security team")
 	}
 
@@ -118,6 +131,7 @@ func (s *OwnerService) Authenticate(ctx context.Context, telegramUserID int64, c
 			}
 		}
 		if !allowed {
+			incrLoginAttempts()
 			return "", errors.New("IP address not allowed by IP whitelist")
 		}
 	}
@@ -128,6 +142,7 @@ func (s *OwnerService) Authenticate(ctx context.Context, telegramUserID int64, c
 		secretToUse = totpSecret
 	}
 	if !totp.ValidateTOTP(code, secretToUse) {
+		incrLoginAttempts()
 		return "", errors.New("invalid TOTP code")
 	}
 
@@ -136,6 +151,7 @@ func (s *OwnerService) Authenticate(ctx context.Context, telegramUserID int64, c
 		replayKey := fmt.Sprintf("totp:used:%d:%s", telegramUserID, code)
 		locked, err := s.cache.Client.SetNX(ctx, replayKey, "used", 90*time.Second).Result()
 		if err != nil || !locked {
+			incrLoginAttempts()
 			return "", errors.New("TOTP code already used; potential replay attack blocked")
 		}
 		

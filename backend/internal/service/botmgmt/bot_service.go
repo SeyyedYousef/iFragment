@@ -394,7 +394,13 @@ func (s *BotService) Subscribe(ctx context.Context, userID int64, groupID uuid.U
 		"group_id": groupID.String(),
 	})
 
-	_, err = s.frgRepo.Debit(ctx, userID, pkg.PriceFRG, "subscription_payment", meta)
+	tx, err := s.frgRepo.DB().Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	_, err = s.frgRepo.DebitTx(ctx, tx, userID, pkg.PriceFRG, "subscription_payment", meta)
 	if err != nil {
 		return fmt.Errorf("payment failed: %w", err)
 	}
@@ -405,14 +411,12 @@ func (s *BotService) Subscribe(ctx context.Context, userID int64, groupID uuid.U
 	}
 	paidUntil := base.Add(30 * 24 * time.Hour)
 
-	if err := s.botRepo.UpdateGroupSubscription(ctx, groupID, "paid", &paidUntil); err != nil {
-		// Refund on failure
-		_, _ = s.frgRepo.Credit(ctx, userID, pkg.PriceFRG, "refund", meta)
+	if err := s.botRepo.UpdateGroupSubscriptionTx(ctx, tx, groupID, "paid", &paidUntil); err != nil {
 		return fmt.Errorf("failed to activate subscription: %w", err)
 	}
 
 	// Create billing subscription record
-	err = s.botRepo.CreateBillingSubscription(ctx, &repository.BillingSubscription{
+	err = s.botRepo.CreateBillingSubscriptionTx(ctx, tx, &repository.BillingSubscription{
 		UserID:      userID,
 		GroupID:     groupID,
 		PackageID:   packageID,
@@ -424,10 +428,11 @@ func (s *BotService) Subscribe(ctx context.Context, userID int64, groupID uuid.U
 		ExpiresAt:   paidUntil,
 	})
 	if err != nil {
-		// Rollback on failure
-		_ = s.botRepo.UpdateGroupSubscription(ctx, groupID, group.SubscriptionStatus, group.PaidUntil)
-		_, _ = s.frgRepo.Credit(ctx, userID, pkg.PriceFRG, "refund", meta)
 		return fmt.Errorf("failed to create billing subscription: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit subscription transaction: %w", err)
 	}
 
 	// Trigger tiered lifetime referral commissions (10% Tier 1, 3% Tier 2)

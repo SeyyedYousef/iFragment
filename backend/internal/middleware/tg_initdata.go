@@ -39,7 +39,7 @@ func getCryptoKey() ([]byte, error) {
 	cryptoOnce.Do(func() {
 		keyStr := os.Getenv("BOT_TOKEN_KEY")
 		if keyStr == "" {
-			if os.Getenv("APP_ENV") != "production" {
+			if allowDevBypass && os.Getenv("APP_ENV") != "production" {
 				keyStr = "dev_bot_token_key_32_characters_"
 			} else {
 				cryptoErr = fmt.Errorf("CRITICAL: BOT_TOKEN_KEY environment variable is not set")
@@ -48,7 +48,7 @@ func getCryptoKey() ([]byte, error) {
 		}
 		key := []byte(keyStr)
 		if len(key) != 32 {
-			if os.Getenv("APP_ENV") != "production" {
+			if allowDevBypass && os.Getenv("APP_ENV") != "production" {
 				// Pad or truncate to 32 bytes for dev
 				temp := make([]byte, 32)
 				copy(temp, key)
@@ -125,8 +125,7 @@ func ValidateTelegramInitData(db *repository.Database, cache *repository.Cache) 
 			}
 
 			// Development bypass check
-			isDevEnv := os.Getenv("APP_ENV") != "production"
-			if isDevEnv {
+			if allowDevBypass && os.Getenv("APP_ENV") != "production" {
 				// Attempt to parse query parameters directly in dev environment.
 				// This allows using mock, clock-skewed, or expired user data without failing cryptographic validation.
 				if values, err := url.ParseQuery(initData); err == nil {
@@ -153,21 +152,39 @@ func ValidateTelegramInitData(db *repository.Database, cache *repository.Cache) 
 				// Try custom bots fallback if main verification fails
 				customBotsSuccess := false
 				if db != nil && db.Pool != nil {
-					rows, queryErr := db.Pool.Query(ctx, "SELECT bot_token_encrypted FROM managed_bots WHERE status = 'active'")
-					if queryErr == nil {
-						defer rows.Close()
-						for rows.Next() {
-							var encryptedToken []byte
-							if scanErr := rows.Scan(&encryptedToken); scanErr == nil && len(encryptedToken) > 0 {
-								token, decryptErr := DecryptTokenHelper(encryptedToken)
-								if decryptErr == nil && token != "" {
-									if validate(initData, token) == nil {
-										customBotsSuccess = true
-										err = nil // Clear the error since validation succeeded
-										break
+					var botTokens []string
+					cacheKey := "cached_active_bot_tokens"
+					if cache != nil && cache.Client != nil {
+						if cachedVal, err := cache.Client.Get(ctx, cacheKey).Result(); err == nil && cachedVal != "" {
+							_ = json.Unmarshal([]byte(cachedVal), &botTokens)
+						}
+					}
+
+					if len(botTokens) == 0 {
+						rows, queryErr := db.Pool.Query(ctx, "SELECT bot_token_encrypted FROM managed_bots WHERE status = 'active'")
+						if queryErr == nil {
+							defer rows.Close()
+							for rows.Next() {
+								var encryptedToken []byte
+								if scanErr := rows.Scan(&encryptedToken); scanErr == nil && len(encryptedToken) > 0 {
+									token, decryptErr := DecryptTokenHelper(encryptedToken)
+									if decryptErr == nil && token != "" {
+										botTokens = append(botTokens, token)
 									}
 								}
 							}
+							if cache != nil && cache.Client != nil && len(botTokens) > 0 {
+								tokensJSON, _ := json.Marshal(botTokens)
+								cache.Client.Set(ctx, cacheKey, string(tokensJSON), 10*time.Minute)
+							}
+						}
+					}
+
+					for _, token := range botTokens {
+						if validate(initData, token) == nil {
+							customBotsSuccess = true
+							err = nil // Clear the error since validation succeeded
+							break
 						}
 					}
 				}
@@ -296,6 +313,9 @@ func validate(initData, botToken string) error {
 	if _, err := fmt.Sscanf(authDateStr, "%d", &authDate); err != nil {
 		return fmt.Errorf("invalid auth_date")
 	}
+	if authDate <= 0 {
+		return fmt.Errorf("invalid auth_date value")
+	}
 	now := time.Now().Unix()
 	if now-authDate > 86400 || authDate-now > 86400 {
 		return fmt.Errorf("init data expired (max 24h) or invalid clock skew")
@@ -307,8 +327,7 @@ func validate(initData, botToken string) error {
 // VerifyInitDataAndExtractUserID cryptographically validates Telegram's initData signature using BOT_TOKEN and returns the user ID.
 func VerifyInitDataAndExtractUserID(initData string) (int64, error) {
 	// Development bypass check
-	isDevEnv := os.Getenv("APP_ENV") != "production"
-	if isDevEnv {
+	if allowDevBypass && os.Getenv("APP_ENV") != "production" {
 		if values, err := url.ParseQuery(initData); err == nil {
 			userData := values.Get("user")
 			if userData != "" {

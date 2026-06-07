@@ -3,12 +3,12 @@ import { Motion } from '@motionone/solid';
 import { backButton } from '@tma.js/sdk-solid';
 import { useNavigate } from '@solidjs/router';
 import { useCollectionStats } from '@/entities/username/api/index.js';
-import { useI18n } from '@/shared/i18n/index.js';
+import { useI18n, formatNumber } from '@/shared/i18n/index.js';
 
 export const CollectionStatsPage: Component = () => {
   const navigate = useNavigate();
   const stats = useCollectionStats();
-  const { t, locale } = useI18n();
+   const { t, locale } = useI18n();
   const [timeText, setTimeText] = createSignal('');
 
   createEffect(() => {
@@ -126,19 +126,19 @@ export const CollectionStatsPage: Component = () => {
             </div>
 
             <MetricCard label={t('action.username.floorPrice')} value={`${metric('floorPrice').toFixed(2)} TON`} />
-            <MetricCard label={t('action.username.volume24h')} value={`${metric('volume24h').toLocaleString()} TON`} />
+            <MetricCard label={t('action.username.volume24h')} value={`${formatNumber(metric('volume24h'))} TON`} />
             <MetricCard label={t('action.username.totalVolume')} value={`${(metric('totalVolume') / 1e6).toFixed(1)}M TON`} />
-            <MetricCard label={t('action.username.activeAuctions')} value={metric('activeAuctions').toLocaleString()} accent="text-orange-400" />
+            <MetricCard label={t('action.username.activeAuctions')} value={formatNumber(metric('activeAuctions'))} accent="text-orange-400" />
           </div>
 
           <div class="bg-[#141518] border border-[#2a2a2a] p-5 rounded-[24px] mb-4 space-y-4">
             <h3 class="text-[#a6a6ad] text-xs font-black uppercase tracking-widest flex items-center gap-2 border-b border-[#2a2a2a] pb-3">
               <span class="material-symbols-outlined text-[16px]">database</span> Supply & Activity
             </h3>
-            <Row label={t('action.username.totalSupply')} value={metric('totalSupply').toLocaleString()} />
-            <Row label={t('action.username.holders')} value={metric('holders').toLocaleString()} />
+            <Row label={t('action.username.totalSupply')} value={formatNumber(metric('totalSupply'))} />
+            <Row label={t('action.username.holders')} value={formatNumber(metric('holders'))} />
             <Row label={t('action.username.listedRatio')} value={`${(metric('listedRatio') * 100).toFixed(2)}%`} accent="text-[#3390ec]" />
-            <Row label={t('action.username.totalSales')} value={metric('salesCount').toLocaleString()} />
+            <Row label={t('action.username.totalSales')} value={formatNumber(metric('salesCount'))} />
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -164,9 +164,9 @@ export const CollectionStatsPage: Component = () => {
                   <div class="flex items-center justify-between p-3 rounded-2xl bg-[#1c1c1c] border border-[#2a2a2a]">
                     <span class="text-sm font-black text-white">{sale.username ? (sale.username.startsWith('@') ? sale.username : `@${sale.username}`) : 'Anonymous'}</span>
                     <div class="text-right">
-                      <div class="font-black text-[#34c759] text-xs">{Number(sale.price || 0).toLocaleString()} TON</div>
+                      <div class="font-black text-[#34c759] text-xs">{formatNumber(Number(sale.price || 0))} TON</div>
                       <Show when={sale.date}>
-                        <div class="text-[10px] text-[#a6a6ad] font-bold">{new Date(typeof sale.date === 'number' && sale.date < 10000000000 ? sale.date * 1000 : sale.date).toLocaleDateString()}</div>
+                        <div class="text-[10px] text-[#a6a6ad] font-bold">{new Date(typeof sale.date === 'number' && sale.date < 10000000000 ? sale.date * 1000 : sale.date).toLocaleDateString('en-US')}</div>
                       </Show>
                     </div>
                   </div>
@@ -236,7 +236,7 @@ const ForHolders: Component<{ holders: Array<{ address: string; count: number }>
           <div class="w-6 h-6 rounded-full bg-[#3390ec]/20 text-[#3390ec] flex items-center justify-center text-xs font-black">{idx() + 1}</div>
           <span class="text-xs font-bold text-white font-mono">{holder.address ? `${holder.address.slice(0, 6)}...${holder.address.slice(-4)}` : 'Unknown'}</span>
         </div>
-        <div class="text-xs font-black text-white">{Number(holder.count || 0).toLocaleString()}</div>
+        <div class="text-xs font-black text-white">{formatNumber(Number(holder.count || 0))}</div>
       </div>
     )}
   </For>

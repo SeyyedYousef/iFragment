@@ -59,7 +59,7 @@ func (s *GamificationService) startReferralWorker() {
 			}()
 			bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			s.db.CreditReferrerShare(bgCtx, job.spenderID, job.amountSpent, s.frgRepo)
+			s.db.CreditReferrerShareCoins(bgCtx, job.spenderID, job.amountSpent)
 		}()
 	}
 }

@@ -4,7 +4,7 @@ import { backButton, openTelegramLink, openLink } from '@tma.js/sdk-solid';
 import { useNavigate, useSearchParams } from '@solidjs/router';
 import { requestPremiumReport, usePremiumReport } from '@/entities/username/api/index.js';
 import type { SaleRecord } from '@/entities/username/api/index.js';
-import { useI18n } from '@/shared/i18n/index.js';
+import { useI18n, formatNumber } from '@/shared/i18n/index.js';
 import { openInvoice } from '@/shared/lib/telegram-native.js';
 
 type ApiError = Error & { response?: { status?: number; data?: { message?: string } } };
@@ -353,7 +353,7 @@ export const PremiumReportPage: Component = () => {
                   </div>
                   <div class="mt-3">
                     <span class="text-[10px] text-[#8e8e93] font-medium block mb-1">Participants</span>
-                    <span class="text-sm font-black text-white">{report.data?.participants_count ? report.data.participants_count.toLocaleString() : 'N/A'}</span>
+                    <span class="text-sm font-black text-white">{report.data?.participants_count ? formatNumber(report.data.participants_count) : 'N/A'}</span>
                   </div>
                </div>
             </div>
@@ -372,7 +372,7 @@ export const PremiumReportPage: Component = () => {
                 <Show when={report.data?.mint_date}>
                   <div class="flex flex-col gap-1">
                     <span class="text-[10px] text-[#8e8e93] font-bold uppercase">Mint Date</span>
-                    <span class="text-sm font-bold text-white">{new Date(report.data!.mint_date!).toLocaleDateString()}</span>
+                    <span class="text-sm font-bold text-white">{new Date(report.data!.mint_date!).toLocaleDateString('en-US')}</span>
                   </div>
                 </Show>
               </div>
@@ -399,7 +399,7 @@ export const PremiumReportPage: Component = () => {
                 <Show when={report.data?.end_time}>
                   <div class="flex items-center justify-between py-2 border-b border-[#2a2a2a]">
                     <span class="text-sm font-bold text-[#8e8e93]">Auction Ends</span>
-                    <span class="text-sm font-bold text-[#ff3b30]">{new Date(report.data!.end_time!).toLocaleString()}</span>
+                    <span class="text-sm font-bold text-[#ff3b30]">{new Date(report.data!.end_time!).toLocaleString('en-US')}</span>
                   </div>
                 </Show>
               </Show>
@@ -450,7 +450,7 @@ export const PremiumReportPage: Component = () => {
                       </For>
                     </svg>
                     <div class="flex justify-between text-[10px] text-[#8e8e93] font-bold px-1">
-                      <span>{new Date(paidSales()[0].date).toLocaleDateString()}</span>
+                      <span>{new Date(paidSales()[0].date).toLocaleDateString('en-US')}</span>
                       <span>{paidSales()[paidSales().length - 1].price} TON</span>
                     </div>
                   </div>
@@ -458,7 +458,7 @@ export const PremiumReportPage: Component = () => {
                     <For each={paidSales()}>
                       {(sale) => (
                         <div class="flex items-center justify-between bg-[#1c1c1c] p-2.5 rounded-lg border border-[#2a2a2a]">
-                          <span class="text-xs text-white/60">{new Date(sale.date).toLocaleDateString()}</span>
+                          <span class="text-xs text-white/60">{new Date(sale.date).toLocaleDateString('en-US')}</span>
                           <span class="text-xs font-black text-white">{sale.price} TON</span>
                         </div>
                       )}
@@ -489,7 +489,7 @@ export const PremiumReportPage: Component = () => {
             </div>
             
             <p class="text-center text-[#8e8e93] text-[10px] mt-6 font-medium tracking-wide">
-              Data generated at {new Date(report.data!.generated_at).toLocaleString()}
+              Data generated at {new Date(report.data!.generated_at).toLocaleString('en-US')}
             </p>
           </Motion.div>
         </Show>

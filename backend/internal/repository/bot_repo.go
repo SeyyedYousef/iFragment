@@ -274,6 +274,22 @@ func (r *BotRepo) UpdateGroupSubscription(ctx context.Context, groupID uuid.UUID
 	return tx.Commit(ctx)
 }
 
+func (r *BotRepo) UpdateGroupSubscriptionTx(ctx context.Context, tx pgx.Tx, groupID uuid.UUID, status string, paidUntil *time.Time) error {
+	query1 := `UPDATE managed_groups SET subscription_status = $1, paid_until = $2, updated_at = now() WHERE id = $3`
+	if _, err := tx.Exec(ctx, query1, status, paidUntil, groupID); err != nil {
+		return err
+	}
+
+	if status == "expired" {
+		query2 := `UPDATE billing_subscriptions SET status = 'expired' WHERE group_id = $1 AND status = 'active'`
+		if _, err := tx.Exec(ctx, query2, groupID); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (r *BotRepo) CreateBillingSubscription(ctx context.Context, sub *BillingSubscription) error {
 	if r.db == nil || r.db.Pool == nil {
 		return fmt.Errorf("no database connection")
@@ -301,6 +317,25 @@ func (r *BotRepo) CreateBillingSubscription(ctx context.Context, sub *BillingSub
 	}
 
 	return tx.Commit(ctx)
+}
+
+func (r *BotRepo) CreateBillingSubscriptionTx(ctx context.Context, tx pgx.Tx, sub *BillingSubscription) error {
+	// Deactivate any existing active subscriptions for this group
+	query1 := `UPDATE billing_subscriptions SET status = 'expired' WHERE group_id = $1 AND status = 'active'`
+	if _, err := tx.Exec(ctx, query1, sub.GroupID); err != nil {
+		return err
+	}
+
+	query2 := `
+		INSERT INTO billing_subscriptions (user_id, group_id, package_id, groups_limit, amount_frg, period, status, starts_at, expires_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		RETURNING id
+	`
+	if err := tx.QueryRow(ctx, query2, sub.UserID, sub.GroupID, sub.PackageID, sub.GroupsLimit, sub.AmountFRG, sub.Period, sub.Status, sub.StartsAt, sub.ExpiresAt).Scan(&sub.ID); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *BotRepo) GetGroup(ctx context.Context, botID uuid.UUID, chatID int64) (*ManagedGroup, error) {

@@ -46,14 +46,21 @@ func (w *PartitionWorker) Start(ctx context.Context) {
 
 func (w *PartitionWorker) runMaintenance(ctx context.Context) {
 	// Try to acquire distributed advisory lock (ID: 847294) to prevent concurrent execution on horizontally scaled instances
+	conn, err := w.db.Pool.Acquire(ctx)
+	if err != nil {
+		slog.Error("[PartitionWorker] Failed to acquire database connection for maintenance", "error", err)
+		return
+	}
+	defer conn.Release()
+
 	var acquired bool
-	err := w.db.Pool.QueryRow(ctx, "SELECT pg_try_advisory_lock(847294)").Scan(&acquired)
+	err = conn.QueryRow(ctx, "SELECT pg_try_advisory_lock(847294)").Scan(&acquired)
 	if err != nil || !acquired {
 		slog.Info("[PartitionWorker] Partition maintenance skipped: lock held by another cluster instance")
 		return
 	}
 	defer func() {
-		_, _ = w.db.Pool.Exec(context.Background(), "SELECT pg_advisory_unlock(847294)")
+		_, _ = conn.Exec(context.Background(), "SELECT pg_advisory_unlock(847294)")
 	}()
 
 	slog.Info("[PartitionWorker] Starting maintenance cycle...")

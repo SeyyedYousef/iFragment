@@ -67,7 +67,7 @@ func (h *UsernameHandler) CheckAvailability(w http.ResponseWriter, r *http.Reque
 
 	// Rate Limiting
 	if h.cache != nil {
-		ip := ClientIP(r)
+		ip := middleware.GetRealIP(r)
 		rlKey := "rate_limit:check:" + ip
 		count, _ := h.cache.Client.Incr(ctx, rlKey).Result()
 		if count == 1 {
@@ -177,7 +177,7 @@ func (h *UsernameHandler) QuickAnalysis(w http.ResponseWriter, r *http.Request) 
 
 	// Rate limit
 	if h.cache != nil {
-		ip := ClientIP(r)
+		ip := middleware.GetRealIP(r)
 		rlKey := "rate_limit:quick:" + ip
 		count, _ := h.cache.Client.Incr(ctx, rlKey).Result()
 		if count == 1 {
@@ -282,7 +282,7 @@ func (h *UsernameHandler) StreamQuickAnalysis(w http.ResponseWriter, r *http.Req
 
 	// Rate limit check for stream creation
 	if h.cache != nil {
-		ip := ClientIP(r)
+		ip := middleware.GetRealIP(r)
 		rlKey := "rate_limit:stream:" + ip
 		count, _ := h.cache.Client.Incr(ctx, rlKey).Result()
 		if count == 1 {

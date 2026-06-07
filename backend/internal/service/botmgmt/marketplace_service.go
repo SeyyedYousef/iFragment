@@ -213,6 +213,9 @@ func (s *MarketplaceService) PurchaseWithToncoin(ctx context.Context, userID int
 }
 
 func (s *MarketplaceService) ConvertAirdropCoins(ctx context.Context, userID int64, coins float64) (*repository.FRGTransaction, error) {
+	if math.IsNaN(coins) || math.IsInf(coins, 0) {
+		return nil, fmt.Errorf("invalid coin value")
+	}
 	if coins < AirdropToFRGRate {
 		return nil, fmt.Errorf("minimum conversion is %.0f coins (= 1 FRG)", AirdropToFRGRate)
 	}

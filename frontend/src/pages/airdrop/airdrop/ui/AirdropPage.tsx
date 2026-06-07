@@ -136,12 +136,12 @@ export const AirdropPage: Component = () => {
               class="w-full flex items-center justify-between bg-[#1c1c1e]/80 backdrop-blur-lg border border-red-500/20 p-3 rounded-2xl active:scale-[0.98] transition-transform"
             >
               <div class="flex items-center gap-2.5">
-                <img src={clan().channel_photo || "https://telegram.org/img/t_logo.png"} alt={clan().chat_title} class="w-8 h-8 rounded-xl object-cover border border-white/10" />
+                <img src={clan.channel_photo || "https://telegram.org/img/t_logo.png"} alt={clan.chat_title} class="w-8 h-8 rounded-xl object-cover border border-white/10" />
                 <div class="text-left">
-                  <div class="text-white font-black text-xs">{clan().chat_title}</div>
+                  <div class="text-white font-black text-xs">{clan.chat_title}</div>
                   <div class="text-red-400 font-bold text-[10px] flex items-center gap-1 mt-0.5">
                     <span class="material-symbols-outlined text-[10px]" style={{ 'font-variation-settings': '"FILL" 1' }}>shield</span>
-                    {t('airdrop.clan.myClan')} • {clan().members_count.toLocaleString('en-US')} {t('airdrop.clan.members')}
+                    {t('airdrop.clan.myClan')} • {clan.members_count.toLocaleString('en-US')} {t('airdrop.clan.members')}
                   </div>
                 </div>
               </div>

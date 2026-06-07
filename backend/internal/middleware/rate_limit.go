@@ -37,6 +37,17 @@ var slidingWindowScript = redis.NewScript(`
 	end
 `)
 
+var incrExpireScript = redis.NewScript(`
+	local key = KEYS[1]
+	local limit = tonumber(ARGV[1])
+	local ttl = tonumber(ARGV[2])
+	local current = redis.call("INCR", key)
+	if current == 1 then
+		redis.call("EXPIRE", key, ttl)
+	end
+	return current
+`)
+
 type rateLimiter struct {
 	ips map[string][]time.Time
 	mu  sync.Mutex
@@ -144,7 +155,7 @@ func GetRealIP(r *http.Request) string {
 		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 			parts := strings.Split(xff, ",")
 			if len(parts) > 0 {
-				ip := strings.TrimSpace(parts[len(parts)-1])
+				ip := strings.TrimSpace(parts[0])
 				if ip != "" {
 					return ip
 				}
@@ -212,17 +223,8 @@ func NewRateLimiter(ctx context.Context, cache *repository.Cache) func(http.Hand
 					limit = 30
 				}
 
-				count, err := cache.Client.Incr(ctx, key).Result()
+				count, err := incrExpireScript.Run(ctx, cache.Client, []string{key}, limit, 60).Int64()
 				if err == nil {
-					if count == 1 {
-						cache.Client.Expire(ctx, key, time.Minute)
-					}
-					// Double check TTL to prevent permanent lockout
-					ttl, _ := cache.Client.TTL(ctx, key).Result()
-					if ttl < 0 {
-						cache.Client.Expire(ctx, key, time.Minute)
-					}
-
 					if count > limit {
 						slog.Warn("Rate limit exceeded (Redis)", "key", key, "count", count)
 						http.Error(w, "Rate limit exceeded. Please try again later.", http.StatusTooManyRequests)

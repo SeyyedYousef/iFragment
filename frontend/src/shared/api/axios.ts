@@ -17,7 +17,7 @@ const getInitData = (): string => {
     if (tgData) initDataStr = tgData;
   }
   
-  // Cache in sessionStorage to survive path changes where hash is lost
+// Cache in sessionStorage to survive path changes where hash is lost
   if (initDataStr) {
     try { sessionStorage.setItem('cached_tg_init_data', initDataStr); } catch(e) {}
     return initDataStr;
@@ -25,6 +25,9 @@ const getInitData = (): string => {
   
   return sessionStorage.getItem('cached_tg_init_data') || '';
 };
+
+// Reset failed initData cache on app load/reload to allow re-authentication attempts
+try { sessionStorage.removeItem('failed_init_data'); } catch (e) {}
 
 export const apiClient: AxiosInstance = axios.create({
   baseURL: API_CONFIG.BASE_URL,

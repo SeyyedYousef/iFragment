@@ -149,8 +149,8 @@ func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, usern
 	// Dynamic Redis 10-minute cooldown on clan switching/joining
 	if s.cache != nil && s.cache.Client != nil {
 		key := fmt.Sprintf("clan:join:cooldown:%d", userID)
-		ok, _ := s.cache.Client.SetNX(ctx, key, 1, 10*time.Minute).Result()
-		if !ok {
+		exists, _ := s.cache.Client.Exists(ctx, key).Result()
+		if exists > 0 {
 			return nil, fmt.Errorf("please wait before switching clans again")
 		}
 	}
@@ -294,6 +294,11 @@ func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, usern
 	err = tx.Commit(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	if s.cache != nil && s.cache.Client != nil {
+		key := fmt.Sprintf("clan:join:cooldown:%d", userID)
+		_ = s.cache.Client.Set(ctx, key, 1, 10*time.Minute).Err()
 	}
 
 	return &finalClan, nil

@@ -87,16 +87,16 @@ export const ClanView: Component = () => {
         {(clan) => (
           <div class="bg-[#1c1c1e]/80 backdrop-blur-lg rounded-2xl p-5 border border-red-500/20 mb-5 relative overflow-hidden">
             <div class="flex items-center gap-4 mb-5">
-              <img src={clan().channel_photo || "https://telegram.org/img/t_logo.png"} alt={clan().chat_title} class="w-14 h-14 rounded-2xl object-cover border border-white/10" />
+              <img src={clan.channel_photo || "https://telegram.org/img/t_logo.png"} alt={clan.chat_title} class="w-14 h-14 rounded-2xl object-cover border border-white/10" />
               <div>
-                <h4 class="text-white font-black text-base">{clan().chat_title}</h4>
-                <div class="text-red-400 font-bold text-xs mt-0.5">@{clan().channel_username}</div>
+                <h4 class="text-white font-black text-base">{clan.chat_title}</h4>
+                <div class="text-red-400 font-bold text-xs mt-0.5">@{clan.channel_username}</div>
               </div>
             </div>
 
             <div class="grid grid-cols-2 gap-3 bg-[#2c2c2e]/40 rounded-xl p-3 mb-5 border border-white/[0.02]">
               <div class="text-center border-r border-white/5">
-                <div class="text-white font-black text-sm">{clan().members_count.toLocaleString('en-US')}</div>
+                <div class="text-white font-black text-sm">{clan.members_count.toLocaleString('en-US')}</div>
                 <div class="text-[#8e8e93] text-[9px] uppercase tracking-wider mt-0.5">{t('airdrop.clan.membersLabel')}</div>
               </div>
               <div class="text-center">

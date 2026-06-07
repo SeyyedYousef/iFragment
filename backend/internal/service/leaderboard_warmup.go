@@ -33,10 +33,12 @@ func (s *ProfileService) WarmLeaderboard(ctx context.Context) error {
 		s.cache.Client.Del(ctx, tempKey)
 	}
 
+	hasWrote := false
 	flush := func() error {
 		if len(batch) == 0 {
 			return nil
 		}
+		hasWrote = true
 		return s.cache.Client.ZAdd(ctx, tempKey, batch...).Err()
 	}
 	for rows.Next() {
@@ -56,7 +58,11 @@ func (s *ProfileService) WarmLeaderboard(ctx context.Context) error {
 	if err := flush(); err != nil {
 		return err
 	}
-	s.cache.Client.Rename(ctx, tempKey, "leaderboard")
+	if hasWrote {
+		s.cache.Client.Rename(ctx, tempKey, "leaderboard")
+	} else {
+		s.cache.Client.Del(ctx, "leaderboard")
+	}
 	// stamp last-warmed for diagnostics
 	s.cache.Client.Set(ctx, "leaderboard:warmed_at", time.Now().Unix(), 0)
 	return nil
