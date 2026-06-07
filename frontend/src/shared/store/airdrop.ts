@@ -330,10 +330,14 @@ export const syncAllData = async () => {
 // Sync to local storage with throttle
 let pendingSave: ReturnType<typeof setTimeout> | undefined;
 
+let _disposeAirdropFn: (() => void) | null = null;
+
 export const initStorageSync = () => {
-  createRoot(() => {
+  if (_disposeAirdropFn) return _disposeAirdropFn;
+
+  _disposeAirdropFn = createRoot(dispose => {
     // Energy regen in store root
-    initEnergyRegen();
+    const cleanupEnergy = initEnergyRegen();
 
     // Fetch initial data sequentially to prevent race conditions
     syncAllData();
@@ -368,5 +372,17 @@ export const initStorageSync = () => {
         pendingSave = undefined;
       }, 1000); // 1 second debounce/throttle for persistence
     });
+
+    onCleanup(() => {
+      cleanupEnergy();
+      if (pendingSave) clearTimeout(pendingSave);
+    });
+
+    return () => {
+      dispose();
+      cleanupEnergy();
+      if (pendingSave) clearTimeout(pendingSave);
+    };
   });
+  return _disposeAirdropFn;
 };

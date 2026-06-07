@@ -74,12 +74,16 @@ func main() {
 		slog.Warn("JWT_SECRET is too short (< 32 chars), using anyway in non-production")
 	}
 	if isProd {
-		requiredSecrets := []string{"WEBHOOK_SECRET_TOKEN", "BOT_TOKEN", "DATABASE_URL"}
+		requiredSecrets := []string{"WEBHOOK_SECRET_TOKEN", "DATABASE_URL"}
 		for _, s := range requiredSecrets {
 			if os.Getenv(s) == "" {
 				slog.Error("FATAL: Required secret is missing in production", "secret", s)
 				os.Exit(1)
 			}
+		}
+		if os.Getenv("BOT_TOKEN") == "" && os.Getenv("TELEGRAM_BOT_TOKEN") == "" {
+			slog.Error("FATAL: Required secret is missing in production", "secret", "BOT_TOKEN or TELEGRAM_BOT_TOKEN")
+			os.Exit(1)
 		}
 	}
 
@@ -162,10 +166,15 @@ func main() {
 	}
 	defer sentry.Flush(2 * time.Second)
 
-	allowedOrigins := strings.Split(os.Getenv("ALLOWED_ORIGINS"), ",")
-	if len(allowedOrigins) == 1 && allowedOrigins[0] == "" {
-		allowedOrigins = []string{"http://localhost:5173", "http://127.0.0.1:5173"} // fallback for dev
+	allowedOriginsStr := os.Getenv("ALLOWED_ORIGINS")
+	if allowedOriginsStr == "" {
+		if appUrl := os.Getenv("APP_URL"); appUrl != "" {
+			allowedOriginsStr = appUrl
+		} else {
+			allowedOriginsStr = "http://localhost:5173,http://127.0.0.1:5173" // fallback for dev
+		}
 	}
+	allowedOrigins := strings.Split(allowedOriginsStr, ",")
 	allowCreds := true
 	for _, o := range allowedOrigins {
 		if o == "*" {

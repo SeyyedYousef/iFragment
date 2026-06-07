@@ -113,7 +113,8 @@ apiClient.interceptors.response.use(
         (originalRequest as any)._isRetryForAuth = true;
         try {
           const initData = getInitData();
-          if (initData) {
+          const failedInitData = sessionStorage.getItem('failed_init_data');
+          if (initData && initData !== failedInitData) {
             if (!refreshPromise) {
               const tokenUrl = API_CONFIG.BASE_URL.replace(/\/api\/v1\/?$/, '') + '/api/v1/auth/token';
               refreshPromise = axios.post(
@@ -138,9 +139,17 @@ apiClient.interceptors.response.use(
             console.warn('[API] No initData available for token refresh');
             localStorage.removeItem('jwt_token');
           }
-        } catch (refreshErr) {
+        } catch (refreshErr: any) {
           console.warn('[API] Token refresh failed, clearing session');
           localStorage.removeItem('jwt_token');
+          
+          const status = refreshErr.response?.status;
+          if (status && status >= 400 && status < 500) {
+            const currentInitData = getInitData();
+            if (currentInitData) {
+              sessionStorage.setItem('failed_init_data', currentInitData);
+            }
+          }
         }
       }
     }

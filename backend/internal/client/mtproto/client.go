@@ -65,7 +65,10 @@ func NewRealClient(ctx context.Context) (Client, error) {
 	}
 	botToken := os.Getenv("BOT_TOKEN")
 	if botToken == "" {
-		return nil, fmt.Errorf("BOT_TOKEN is required")
+		botToken = os.Getenv("TELEGRAM_BOT_TOKEN")
+	}
+	if botToken == "" {
+		return nil, fmt.Errorf("BOT_TOKEN or TELEGRAM_BOT_TOKEN is required")
 	}
 
 	client := telegram.NewClient(appID, appHash, telegram.Options{

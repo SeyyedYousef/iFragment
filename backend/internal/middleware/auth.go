@@ -27,7 +27,6 @@ type JWTClaims struct {
 var (
 	ownerRepo       *repository.OwnerRepo
 	cachedJWTSecret string
-	jwtSecretOnce   sync.Once
 )
 
 // InitAuthMiddleware initializes the repository used by AuthMiddleware for revocation checks
@@ -68,11 +67,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		var secret string
-		jwtSecretOnce.Do(func() {
-			cachedJWTSecret = os.Getenv("JWT_SECRET")
-		})
-		secret = cachedJWTSecret
+		secret := cachedJWTSecret
 
 		if secret == "" {
 			// Fallback check in case it was set late
@@ -82,6 +77,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 				return
 			}
+			cachedJWTSecret = secret
 		}
 
 		token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {

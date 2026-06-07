@@ -32,16 +32,18 @@ const (
 var (
 	cryptoKey  []byte
 	cryptoOnce sync.Once
+	cryptoErr  error
 )
 
-func getCryptoKey() []byte {
+func getCryptoKey() ([]byte, error) {
 	cryptoOnce.Do(func() {
 		keyStr := os.Getenv("BOT_TOKEN_KEY")
 		if keyStr == "" {
 			if os.Getenv("APP_ENV") != "production" {
 				keyStr = "dev_bot_token_key_32_characters_"
 			} else {
-				panic("CRITICAL: BOT_TOKEN_KEY environment variable is not set")
+				cryptoErr = fmt.Errorf("CRITICAL: BOT_TOKEN_KEY environment variable is not set")
+				return
 			}
 		}
 		key := []byte(keyStr)
@@ -52,16 +54,21 @@ func getCryptoKey() []byte {
 				copy(temp, key)
 				key = temp
 			} else {
-				panic("CRITICAL: BOT_TOKEN_KEY must be exactly 32 bytes/characters long")
+				cryptoErr = fmt.Errorf("CRITICAL: BOT_TOKEN_KEY must be exactly 32 bytes/characters long")
+				return
 			}
 		}
 		cryptoKey = key
 	})
-	return cryptoKey
+	return cryptoKey, cryptoErr
 }
 
+// DecryptTokenHelper is a public helper to decrypt a token using the AES key
 func DecryptTokenHelper(ciphertext []byte) (string, error) {
-	key := getCryptoKey()
+	key, err := getCryptoKey()
+	if err != nil {
+		return "", err
+	}
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return "", err

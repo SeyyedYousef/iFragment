@@ -19,8 +19,8 @@ export default defineConfig({
     // Creates a custom SSL certificate valid for the local machine.
     // Using this plugin requires admin rights on the first dev-mode launch.
     // https://www.npmjs.com/package/vite-plugin-mkcert
-    process.env.HTTPS && mkcert(),
-    process.env.VITE_SENTRY_AUTH_TOKEN && sentryVitePlugin({
+    process.env.HTTPS === 'true' ? mkcert() : undefined,
+    process.env.VITE_SENTRY_AUTH_TOKEN ? sentryVitePlugin({
       org: "ifragment",
       project: "ifragment-frontend",
       authToken: process.env.VITE_SENTRY_AUTH_TOKEN,
