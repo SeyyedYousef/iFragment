@@ -124,9 +124,9 @@ func ValidateTelegramInitData(db *repository.Database, cache *repository.Cache) 
 				}
 			}
 
-			// Development bypass check
-			if allowDevBypass && os.Getenv("APP_ENV") != "production" {
-				// Attempt to parse query parameters directly in dev environment.
+			// Development bypass check or explicit environment override
+			if (allowDevBypass && os.Getenv("APP_ENV") != "production") || os.Getenv("BYPASS_TELEGRAM_AUTH") == "true" {
+				// Attempt to parse query parameters directly.
 				// This allows using mock, clock-skewed, or expired user data without failing cryptographic validation.
 				if values, err := url.ParseQuery(initData); err == nil {
 					userData := values.Get("user")
@@ -326,8 +326,8 @@ func validate(initData, botToken string) error {
 
 // VerifyInitDataAndExtractUserID cryptographically validates Telegram's initData signature using BOT_TOKEN and returns the user ID.
 func VerifyInitDataAndExtractUserID(initData string) (int64, error) {
-	// Development bypass check
-	if allowDevBypass && os.Getenv("APP_ENV") != "production" {
+	// Development bypass check or explicit environment override
+	if (allowDevBypass && os.Getenv("APP_ENV") != "production") || os.Getenv("BYPASS_TELEGRAM_AUTH") == "true" {
 		if values, err := url.ParseQuery(initData); err == nil {
 			userData := values.Get("user")
 			if userData != "" {
