@@ -52,7 +52,7 @@ export const AchievementsPage: Component = () => {
       const serverDef = serverDefs.find(d => d.id === localDef.id);
       const serverData = serverAchs.find(a => a.id === localDef.id);
       
-      const target = serverDef ? serverDef.target : localDef.target;
+      const target = serverDef ? serverDef.target : (localDef as any).target || 1;
       const title = t(`achievements.${localDef.id}_title` as any) || localDef.id;
       const desc = t(`achievements.${localDef.id}_desc` as any) || '';
 

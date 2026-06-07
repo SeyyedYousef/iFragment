@@ -38,55 +38,57 @@ export async function init(options: {
   if (import.meta.env.DEV && !(await isTMA()) && !realParams) {
     console.info('TMA Mock Environment enabled for local development.');
     mockTelegramEnv({
-      themeParams: {
-        accentTextColor: '#6ab2f2',
-        bgColor: '#17212b',
-        buttonColor: '#5288c1',
-        buttonTextColor: '#ffffff',
-        destructiveTextColor: '#ec3942',
-        headerBgColor: '#17212b',
-        hintColor: '#708499',
-        linkColor: '#6ab3f3',
-        secondaryBgColor: '#232e3c',
-        sectionBgColor: '#17212b',
-        sectionHeaderTextColor: '#6ab3f3',
-        subtitleTextColor: '#708499',
-        textColor: '#f5f5f5',
-      },
-      initData: {
-        user: {
-          id: 99281932,
-          firstName: 'Andrew',
-          lastName: 'Rogue',
-          username: 'rogue',
-          languageCode: 'en',
-          isPremium: true,
-          allowsWriteToPm: true,
+      launchParams: {
+        themeParams: {
+          accentTextColor: '#6ab2f2',
+          bgColor: '#17212b',
+          buttonColor: '#5288c1',
+          buttonTextColor: '#ffffff',
+          destructiveTextColor: '#ec3942',
+          headerBgColor: '#17212b',
+          hintColor: '#708499',
+          linkColor: '#6ab3f3',
+          secondaryBgColor: '#232e3c',
+          sectionBgColor: '#17212b',
+          sectionHeaderTextColor: '#6ab3f3',
+          subtitleTextColor: '#708499',
+          textColor: '#f5f5f5',
         },
-        hash: '89d6079ad6762351f38c6dbbc41bb53048019256a9443988af7a48bcad16ba31',
-        authDate: new Date(1716922846000),
-        startParam: 'debug',
-        chatType: 'sender',
-        chatInstance: '8428209589180549439',
-      },
-      initDataRaw: new URLSearchParams([
-        ['user', JSON.stringify({
-          id: 99281932,
-          firstName: 'Andrew',
-          lastName: 'Rogue',
-          username: 'rogue',
-          languageCode: 'en',
-          isPremium: true,
-          allowsWriteToPm: true,
-        })],
-        ['hash', '89d6079ad6762351f38c6dbbc41bb53048019256a9443988af7a48bcad16ba31'],
-        ['auth_date', '1716922846'],
-        ['start_param', 'debug'],
-        ['chat_type', 'sender'],
-        ['chat_instance', '8428209589180549439'],
-      ]).toString(),
-      version: '8',
-      platform: 'tdesktop',
+        initData: {
+          user: {
+            id: 99281932,
+            firstName: 'Andrew',
+            lastName: 'Rogue',
+            username: 'rogue',
+            languageCode: 'en',
+            isPremium: true,
+            allowsWriteToPm: true,
+          },
+          hash: '89d6079ad6762351f38c6dbbc41bb53048019256a9443988af7a48bcad16ba31',
+          authDate: new Date(1716922846000),
+          startParam: 'debug',
+          chatType: 'sender',
+          chatInstance: '8428209589180549439',
+        },
+        initDataRaw: new URLSearchParams([
+          ['user', JSON.stringify({
+            id: 99281932,
+            firstName: 'Andrew',
+            lastName: 'Rogue',
+            username: 'rogue',
+            languageCode: 'en',
+            isPremium: true,
+            allowsWriteToPm: true,
+          })],
+          ['hash', '89d6079ad6762351f38c6dbbc41bb53048019256a9443988af7a48bcad16ba31'],
+          ['auth_date', '1716922846'],
+          ['start_param', 'debug'],
+          ['chat_type', 'sender'],
+          ['chat_instance', '8428209589180549439'],
+        ]).toString(),
+        version: '8',
+        platform: 'tdesktop',
+      } as any
     });
   }
 
@@ -115,7 +117,7 @@ export async function init(options: {
     // We must pass the existing launchParams to avoid resetting user session
     // when we mock the environment for the macOS bug workaround!
     mockTelegramEnv({
-      launchParams: currentParams,
+      launchParams: currentParams as any,
       onEvent(event, next) {
         if (event.name === 'web_app_request_theme') {
           let tp: ThemeParams = {};
@@ -146,8 +148,8 @@ export async function init(options: {
   
   try {
     if (backButton && typeof backButton.mount === 'function') {
-      const mountResult = backButton.mount();
-      if (mountResult instanceof Promise) await mountResult;
+      const mountResult = backButton.mount() as any;
+      if (mountResult && typeof mountResult.then === 'function') await mountResult;
     }
   } catch (e) {
     console.warn('BackButton mount failed', e);
@@ -163,12 +165,12 @@ export async function init(options: {
 
   try {
     if (miniApp && typeof miniApp.mount === 'function') {
-      const mountResult = miniApp.mount();
-      if (mountResult instanceof Promise) await mountResult;
+      const mountResult = miniApp.mount() as any;
+      if (mountResult && typeof mountResult.then === 'function') await mountResult;
     }
     if (themeParams && typeof themeParams.mount === 'function') {
-      const mountResult = themeParams.mount();
-      if (mountResult instanceof Promise) await mountResult;
+      const mountResult = themeParams.mount() as any;
+      if (mountResult && typeof mountResult.then === 'function') await mountResult;
     }
     if (themeParams && typeof themeParams.bindCssVars === 'function') {
       themeParams.bindCssVars();

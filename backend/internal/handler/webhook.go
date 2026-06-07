@@ -1133,7 +1133,7 @@ func (h *WebhookHandler) handleGroupSettingsCommand(ctx context.Context, bot *re
 		return
 	}
 
-	bot, _ := h.botRepo.GetBotByID(ctx, group.BotID)
+	bot, _ = h.botRepo.GetBotByID(ctx, group.BotID)
 	tg, _ := h.moderator.GetTelegramClient(ctx, bot)
 
 	status, _ := h.moderator.GetChatMemberCached(ctx, tg, m.Chat.ID, m.From.ID)
@@ -1243,7 +1243,7 @@ func (h *WebhookHandler) handleWelcomeMessage(ctx context.Context, bot *reposito
 		return
 	}
 
-	bot, _ := h.botRepo.GetBotByID(ctx, group.BotID)
+	bot, _ = h.botRepo.GetBotByID(ctx, group.BotID)
 	tg, _ := h.moderator.GetTelegramClient(ctx, bot)
 
 	// Gather all non-bot users
@@ -1378,7 +1378,7 @@ func (h *WebhookHandler) handleGroupAdminCommand(ctx context.Context, bot *repos
 	case "/unmute":
 		return h.adminUnmute(ctx, tg, m, lang, group.ID)
 	case "/warn":
-		return h.adminWarn(ctx, tg, m, lang, group.ID)
+		return h.adminWarn(ctx, bot, m, lang, group.ID)
 	case "/rules":
 		return h.adminRules(ctx, tg, m, group.ID)
 	case "/report":
@@ -1435,7 +1435,7 @@ func (h *WebhookHandler) adminUnmute(ctx context.Context, tg *telegram.BotAPICli
 	return true
 }
 
-func (h *WebhookHandler) adminWarn(ctx context.Context, _ *telegram.BotAPIClient, m *Message, _ string, _ uuid.UUID) bool {
+func (h *WebhookHandler) adminWarn(ctx context.Context, bot *repository.ManagedBot, m *Message, _ string, _ uuid.UUID) bool {
 	targetID, _ := h.getTarget(m)
 	if targetID == 0 { return false }
 
@@ -1914,7 +1914,7 @@ func (h *WebhookHandler) handleJoinCaptcha(ctx context.Context, bot *repository.
 	
 	if !mm.VerificationEnabled && !general.VerifyMembers { return }
 
-	bot, _ := h.botRepo.GetBotByID(ctx, group.BotID)
+	bot, _ = h.botRepo.GetBotByID(ctx, group.BotID)
 	tg, _ := h.moderator.GetTelegramClient(ctx, bot)
 
 	// 1. Restrict member

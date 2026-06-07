@@ -227,7 +227,7 @@ export const OwnerDashboard: Component = () => {
 
               <div class="flex flex-col gap-3">
                 <Show 
-                  when={stats()?.recent_activity && stats()?.recent_activity.length > 0}
+                  when={(stats()?.recent_activity?.length ?? 0) > 0}
                   fallback={
                     <div class="text-center py-6 text-xs text-[#a0a4ad] font-bold">
                       No security audit logs found. System is clean.

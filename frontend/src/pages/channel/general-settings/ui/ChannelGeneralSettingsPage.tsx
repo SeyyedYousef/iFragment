@@ -325,7 +325,7 @@ export const ChannelGeneralSettingsPage: Component = () => {
               <span class="text-[15px] font-bold text-white flex items-center gap-2"><span class="material-symbols-outlined text-[#bf5af2] text-[20px]">link</span> {t('channelSettings.inviteLinks')}</span>
             </div>
             <button 
-              onClick={() => showToast(t('channelSettings.comingSoon', 'Coming Soon'), 'info')}
+              onClick={() => showToast(t('channelSettings.comingSoon'), 'info')}
               class="bg-[#bf5af2]/20 text-[#bf5af2] rounded-xl px-3 py-1.5 font-bold text-[13px] hover:bg-[#bf5af2]/30 transition-all flex items-center gap-1">
               <span class="material-symbols-outlined text-[16px]">add</span> {t('channelSettings.createInviteLink')}
             </button>
@@ -334,9 +334,9 @@ export const ChannelGeneralSettingsPage: Component = () => {
           <div class="flex flex-col gap-2 mt-2">
               <div class="bg-[#2c2c2e] rounded-xl p-6 flex flex-col items-center justify-center gap-2 border border-[#3a3a3c]">
                 <span class="material-symbols-outlined text-[#a0a4ad] text-[32px]">construction</span>
-                <span class="text-[14px] font-medium text-white">{t('channelSettings.featureComingSoon', 'Feature Coming Soon')}</span>
+                <span class="text-[14px] font-medium text-white">{t('channelSettings.featureComingSoon')}</span>
                 <span class="text-[12px] text-on-surface-variant text-center max-w-[200px]">
-                  {t('channelSettings.inviteLinksComingSoonDesc', 'Invite link management will be available in a future update.')}
+                  {t('channelSettings.inviteLinksComingSoonDesc')}
                 </span>
               </div>
           </div>

@@ -111,7 +111,7 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
     try {
       const lp = retrieveLaunchParams();
       if (lp.initDataRaw) initData = lp.initDataRaw;
-      if (lp.initData?.user) tgUser = lp.initData.user;
+      if ((lp.initData as any)?.user) tgUser = (lp.initData as any).user;
     } catch (e) {
       // ignore
     }

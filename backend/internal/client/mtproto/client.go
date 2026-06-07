@@ -144,7 +144,7 @@ func (c *RealClient) CheckUsername(ctx context.Context, username string) (Status
 }
 
 func (c *RealClient) ResolveUsername(ctx context.Context, username string) (*tg.ContactsResolvedPeer, error) {
-	peer, err := c.api.ContactsResolveUsername(ctx, username)
+	peer, err := c.api.ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{Username: username})
 	if err != nil {
 		return nil, err
 	}

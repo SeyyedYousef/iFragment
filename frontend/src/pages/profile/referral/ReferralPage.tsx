@@ -5,7 +5,7 @@ import { createQuery } from '@tanstack/solid-query';
 import QRCode from 'qrcode';
 import { t, formatNumber } from '@/shared/i18n/index.js';
 import { getReferralInfo } from '@/shared/api/profile.js';
-import { copyToClipboard, shareToStory, switchInlineQuery, showScanQrPopup, showAlert, openTelegramLink } from '@/shared/lib/telegram-native.js';
+import { copyToClipboard, shareToStory, switchInlineQuery, showScanQrPopup, openTelegramLink } from '@/shared/lib/telegram-native.js';
 
 export const ReferralPage: Component = () => {
   const [showQrModal, setShowQrModal] = createSignal(false);

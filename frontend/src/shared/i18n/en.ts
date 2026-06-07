@@ -8,6 +8,7 @@ export const dict = {
     toggle: 'Toggle',
     errorVersionMismatch: 'Settings were updated by another user. Please refresh.',
     errorUpdateFailed: 'Failed to update settings',
+    unsavedChangesConfirm: 'You have unsaved changes. Are you sure you want to discard them?',
     errors: {
       generic: 'Something went wrong. Please try again.'
     }
@@ -883,6 +884,9 @@ To enable me to delete malicious messages and restrict violating users, please a
   channelSettings: {
     generalSettings: 'General Settings',
     manageCoreConfig: 'Manage your channel core config',
+    comingSoon: 'Coming Soon',
+    featureComingSoon: 'Feature Coming Soon',
+    inviteLinksComingSoonDesc: 'Invite link management will be available in a future update.',
     botLanguage: 'Bot Language',
     botLanguageDesc: 'Select the language for bot notifications sent to you (does not affect channel posts).',
     timeZone: 'Time Zone',
@@ -965,6 +969,8 @@ To enable me to delete malicious messages and restrict violating users, please a
     manageScheduledPosts: 'AI-powered content creation & scheduling',
     enableAutoPosting: 'Enable Auto-Posting',
     enableAutoPostingDesc: 'Automatically fetch and post content based on your queues.',
+    connectionError: 'Connection error while contacting AI service.',
+    missingApiKey: 'Please provide a valid API key to use BYOK.',
     postingInterval: 'Posting Interval',
     everyHour: 'Every Hour',
     onceADay: 'Once a Day',
@@ -1273,6 +1279,7 @@ To enable me to delete malicious messages and restrict violating users, please a
     manageWhoCanPost: 'Manage admin roles and permissions',
     addNewAdmin: 'Add New Admin',
     currentAdmins: 'Current Admins',
+    saving: 'Saving...',
     post: 'Post',
     edit: 'Edit',
     delete: 'Delete',
@@ -1415,6 +1422,8 @@ To enable me to delete malicious messages and restrict violating users, please a
     dailyLogin: 'Daily Login',
     claimAvailable: 'Claim Available',
     dayClaimed: 'Day {day} Claimed',
+    noTasksTitle: 'No Active Tasks',
+    noTasksSubtitle: 'Check back later for more tasks.',
     questHub: 'Quest Hub',
     earnFrgXp: 'Earn FRG & XP',
     boosts: 'Boosts',
