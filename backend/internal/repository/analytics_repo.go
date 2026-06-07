@@ -163,6 +163,9 @@ func (r *AnalyticsRepo) GetTopUsers(ctx context.Context, groupID uuid.UUID, days
 		}
 		users = append(users, u)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return users, nil
 }
 
@@ -185,6 +188,9 @@ func (r *AnalyticsRepo) GetGrowthTimeline(ctx context.Context, groupID uuid.UUID
 		}
 		metrics = append(metrics, m)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return metrics, nil
 }
 
@@ -206,6 +212,9 @@ func (r *AnalyticsRepo) GetActivityTimeline(ctx context.Context, groupID uuid.UU
 			return nil, err
 		}
 		metrics = append(metrics, m)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return metrics, nil
 }

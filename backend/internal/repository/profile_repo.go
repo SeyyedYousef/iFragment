@@ -212,6 +212,9 @@ func (db *Database) GetAchievements(ctx context.Context, userID int64) ([]model.
 			}
 		}
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 
 	achievementsList := []model.UserAchievement{}
 	keys := make([]string, 0, len(PredefinedAchievements))
@@ -408,6 +411,9 @@ func (db *Database) GetReferralData(ctx context.Context, userID int64) (*model.R
 				totalInvited++
 			}
 		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
 		return nil
 	})
 
@@ -532,6 +538,9 @@ func (db *Database) GetCosmetics(ctx context.Context, userID int64) ([]model.Cos
 		if err := rows.Scan(&cid); err == nil {
 			purchased[cid] = true
 		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	result := make([]model.CosmeticItem, len(PredefinedCosmetics))

@@ -56,5 +56,8 @@ func (r *AuditRepo) GetByGroup(ctx context.Context, groupID uuid.UUID, limit, of
 		}
 		logs = append(logs, l)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return logs, nil
 }

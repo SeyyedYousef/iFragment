@@ -24,7 +24,7 @@ export default defineConfig({
       org: "ifragment",
       project: "ifragment-frontend",
       authToken: process.env.VITE_SENTRY_AUTH_TOKEN,
-    }),
+    }) : undefined,
     visualizer({
       open: false,
       filename: 'dist/bundle-analysis.html',
