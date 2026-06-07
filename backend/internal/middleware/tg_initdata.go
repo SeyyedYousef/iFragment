@@ -116,7 +116,7 @@ func ValidateTelegramInitData(db *repository.Database, cache *repository.Cache) 
 
 			// Development bypass check
 			isDevEnv := os.Getenv("APP_ENV") != "production"
-			if allowDevBypass && isDevEnv {
+			if isDevEnv {
 				// Attempt to parse query parameters directly in dev environment.
 				// This allows using mock, clock-skewed, or expired user data without failing cryptographic validation.
 				if values, err := url.ParseQuery(initData); err == nil {
@@ -287,8 +287,8 @@ func validate(initData, botToken string) error {
 		return fmt.Errorf("invalid auth_date")
 	}
 	now := time.Now().Unix()
-	if now-authDate > 30*86400 || authDate-now > 86400 {
-		return fmt.Errorf("init data expired (max 30d) or invalid clock skew")
+	if now-authDate > 86400 || authDate-now > 86400 {
+		return fmt.Errorf("init data expired (max 24h) or invalid clock skew")
 	}
 
 	return nil
@@ -298,7 +298,7 @@ func validate(initData, botToken string) error {
 func VerifyInitDataAndExtractUserID(initData string) (int64, error) {
 	// Development bypass check
 	isDevEnv := os.Getenv("APP_ENV") != "production"
-	if allowDevBypass && isDevEnv {
+	if isDevEnv {
 		if values, err := url.ParseQuery(initData); err == nil {
 			userData := values.Get("user")
 			if userData != "" {

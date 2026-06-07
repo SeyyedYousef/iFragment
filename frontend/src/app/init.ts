@@ -28,24 +28,66 @@ export async function init(options: {
 }): Promise<void> {
   // 1. First, handle environment mocking if we're not in Telegram
   // This must happen BEFORE initSDK to prevent hanging
-  if (import.meta.env.DEV && !(await isTMA())) {
-    // Basic mock for local browser testing
+  let realParams;
+  try {
+    realParams = retrieveLaunchParams();
+  } catch (e) {
+    // ignore
+  }
+
+  if (import.meta.env.DEV && !(await isTMA()) && !realParams) {
+    console.info('TMA Mock Environment enabled for local development.');
     mockTelegramEnv({
-      launchParams: new URLSearchParams([
-        ['tgWebAppData', 'query_id=AAHdJuE0AAAAAN0i4TR&user=' + encodeURIComponent(JSON.stringify({
-          id: 12345,
-          first_name: 'Test',
-          last_name: 'User',
-          username: 'testuser',
-          language_code: 'en',
-          is_premium: true,
-        })) + '&auth_date=1716674690&hash=e8248c8b417e2e31ef78f0b72a0834ba7d8cf1f1a511394f71a4f7e2739fa41c'],
-        ['tgWebAppThemeParams', JSON.stringify({ bg_color: '#0f1014', text_color: '#ffffff' })],
-        ['tgWebAppPlatform', 'tdesktop'],
-        ['tgWebAppVersion', '7.0'],
-      ]),
+      themeParams: {
+        accentTextColor: '#6ab2f2',
+        bgColor: '#17212b',
+        buttonColor: '#5288c1',
+        buttonTextColor: '#ffffff',
+        destructiveTextColor: '#ec3942',
+        headerBgColor: '#17212b',
+        hintColor: '#708499',
+        linkColor: '#6ab3f3',
+        secondaryBgColor: '#232e3c',
+        sectionBgColor: '#17212b',
+        sectionHeaderTextColor: '#6ab3f3',
+        subtitleTextColor: '#708499',
+        textColor: '#f5f5f5',
+      },
+      initData: {
+        user: {
+          id: 99281932,
+          firstName: 'Andrew',
+          lastName: 'Rogue',
+          username: 'rogue',
+          languageCode: 'en',
+          isPremium: true,
+          allowsWriteToPm: true,
+        },
+        hash: '89d6079ad6762351f38c6dbbc41bb53048019256a9443988af7a48bcad16ba31',
+        authDate: new Date(1716922846000),
+        startParam: 'debug',
+        chatType: 'sender',
+        chatInstance: '8428209589180549439',
+      },
+      initDataRaw: new URLSearchParams([
+        ['user', JSON.stringify({
+          id: 99281932,
+          firstName: 'Andrew',
+          lastName: 'Rogue',
+          username: 'rogue',
+          languageCode: 'en',
+          isPremium: true,
+          allowsWriteToPm: true,
+        })],
+        ['hash', '89d6079ad6762351f38c6dbbc41bb53048019256a9443988af7a48bcad16ba31'],
+        ['auth_date', '1716922846'],
+        ['start_param', 'debug'],
+        ['chat_type', 'sender'],
+        ['chat_instance', '8428209589180549439'],
+      ]).toString(),
+      version: '8',
+      platform: 'tdesktop',
     });
-    console.warn('TMA Mock Environment active');
   }
 
   // 2. Now initialize the SDK
@@ -65,15 +107,27 @@ export async function init(options: {
   // event for the "web_app_request_safe_area" method.
   if (options.mockForMacOS) {
     let firstThemeSent = false;
+    let currentParams;
+    try {
+      currentParams = retrieveLaunchParams();
+    } catch(e) {}
+    
+    // We must pass the existing launchParams to avoid resetting user session
+    // when we mock the environment for the macOS bug workaround!
     mockTelegramEnv({
+      launchParams: currentParams,
       onEvent(event, next) {
         if (event.name === 'web_app_request_theme') {
           let tp: ThemeParams = {};
           if (firstThemeSent) {
-            tp = themeParams.state();
+            try {
+              tp = themeParams.state();
+            } catch(e) {}
           } else {
             firstThemeSent = true;
-            tp ||= retrieveLaunchParams().tgWebAppThemeParams;
+            try {
+              tp = retrieveLaunchParams().tgWebAppThemeParams || {};
+            } catch(e) {}
           }
           return emitEvent('theme_changed', { theme_params: tp });
         }
@@ -91,23 +145,32 @@ export async function init(options: {
   // We use try-catch for each component to prevent the entire app from crashing.
   
   try {
-    // @ts-ignore - SDK components have different mount structures
-    if (backButton.mount && typeof backButton.mount.isAvailable === 'function' && backButton.mount.isAvailable()) {
-      backButton.mount();
-    } else if (typeof backButton.mount === 'function') {
-      backButton.mount();
+    if (backButton && typeof backButton.mount === 'function') {
+      const mountResult = backButton.mount();
+      if (mountResult instanceof Promise) await mountResult;
     }
   } catch (e) {
     console.warn('BackButton mount failed', e);
   }
   
-  initData.restore();
+  try {
+    if (initData && typeof initData.restore === 'function') {
+      initData.restore();
+    }
+  } catch(e) {
+    console.warn('initData restore failed', e);
+  }
 
   try {
-    // @ts-ignore
-    if (miniApp.mount && typeof miniApp.mount.isAvailable === 'function' && miniApp.mount.isAvailable()) {
-      miniApp.mount();
-      themeParams.mount();
+    if (miniApp && typeof miniApp.mount === 'function') {
+      const mountResult = miniApp.mount();
+      if (mountResult instanceof Promise) await mountResult;
+    }
+    if (themeParams && typeof themeParams.mount === 'function') {
+      const mountResult = themeParams.mount();
+      if (mountResult instanceof Promise) await mountResult;
+    }
+    if (themeParams && typeof themeParams.bindCssVars === 'function') {
       themeParams.bindCssVars();
     }
   } catch (e) {
@@ -115,20 +178,21 @@ export async function init(options: {
   }
 
   try {
-    // @ts-ignore
-    if (viewport.mount && typeof viewport.mount.isAvailable === 'function' && viewport.mount.isAvailable()) {
-      viewport.mount().then(() => {
-        viewport.bindCssVars();
-        viewport.expand();
-      }).catch(e => console.warn('Viewport expansion failed', e));
+    if (viewport && typeof viewport.mount === 'function') {
+      const mountResult = viewport.mount();
+      if (mountResult instanceof Promise) {
+        await mountResult;
+      }
+      if (typeof viewport.bindCssVars === 'function') viewport.bindCssVars();
+      if (typeof viewport.expand === 'function') viewport.expand();
     }
   } catch (e) {
-    console.warn('Viewport mount failed', e);
+    console.warn('Viewport mount or expansion failed', e);
   }
 
   // Set default theme colors if available
   try {
-    if (miniApp.isMounted()) {
+    if (miniApp && typeof miniApp.isMounted === 'function' && miniApp.isMounted()) {
       if (typeof miniApp.setHeaderColor === 'function') {
         miniApp.setHeaderColor('#0f1014');
       }
@@ -147,27 +211,29 @@ export async function init(options: {
   // Wrap hapticFeedback methods to respect user preferences
   try {
     const hf = hapticFeedback as any;
-    const originalImpact = hf.impactOccurred;
-    const originalNotification = hf.notificationOccurred;
-    const originalSelection = hf.selectionChanged;
+    if (hf && typeof hf.impactOccurred === 'function') {
+      const originalImpact = hf.impactOccurred;
+      const originalNotification = hf.notificationOccurred;
+      const originalSelection = hf.selectionChanged;
 
-    hf.impactOccurred = (style: any) => {
-      if (profileSettings().hapticEnabled) {
-        originalImpact.call(hf, style);
-      }
-    };
+      hf.impactOccurred = (style: any) => {
+        if (profileSettings()?.hapticEnabled !== false) {
+          originalImpact.call(hf, style);
+        }
+      };
 
-    hf.notificationOccurred = (type: any) => {
-      if (profileSettings().hapticEnabled) {
-        originalNotification.call(hf, type);
-      }
-    };
+      hf.notificationOccurred = (type: any) => {
+        if (profileSettings()?.hapticEnabled !== false) {
+          originalNotification.call(hf, type);
+        }
+      };
 
-    hf.selectionChanged = () => {
-      if (profileSettings().hapticEnabled) {
-        originalSelection.call(hf);
-      }
-    };
+      hf.selectionChanged = () => {
+        if (profileSettings()?.hapticEnabled !== false) {
+          originalSelection.call(hf);
+        }
+      };
+    }
   } catch (e) {
     console.warn('Failed to wrap hapticFeedback', e);
   }

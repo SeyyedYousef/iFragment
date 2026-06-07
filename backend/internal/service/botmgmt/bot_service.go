@@ -7,11 +7,15 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"sync"
 	"time"
+	"net/http"
+	"bytes"
 
 	"github.com/google/uuid"
 	"ifragment-backend/internal/client/telegram"
@@ -134,7 +138,9 @@ func (s *BotService) CheckExpirations(ctx context.Context) {
 
 			// 2. Check for alerts (3 days and 1 day before)
 			if shouldAlert {
-				daysLeft := int(expiry.Sub(now).Hours() / 24)
+				targetDate := time.Date(expiry.Year(), expiry.Month(), expiry.Day(), 0, 0, 0, 0, expiry.Location())
+				nowDate := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+				daysLeft := int(targetDate.Sub(nowDate).Hours() / 24)
 				if daysLeft == 3 || daysLeft == 1 {
 					template := "expiry_3d"
 					if daysLeft == 1 {
@@ -181,6 +187,9 @@ func (s *BotService) RegisterBot(ctx context.Context, ownerID int64, token, user
 	tgClient := telegram.NewBotAPIClient(token)
 	me, err := tgClient.GetMe(ctx)
 	if err != nil {
+		if errors.Is(err, telegram.ErrUnauthorized) || errors.Is(err, telegram.ErrNotFound) {
+			return nil, fmt.Errorf("validation failed: bot token verification failed: %w", err)
+		}
 		return nil, fmt.Errorf("bot token verification failed: %w", err)
 	}
 	if me.ID != botID || me.Username != username {
@@ -212,6 +221,24 @@ func (s *BotService) RegisterBot(ctx context.Context, ownerID int64, token, user
 		return nil, err
 	}
 
+	// Register webhook with Telegram
+	appURL := os.Getenv("APP_URL")
+	if appURL != "" {
+		webhookURL := fmt.Sprintf("%s/api/v1/webhook/telegram/%s", strings.TrimSuffix(appURL, "/"), bot.ID.String())
+		tgWebhookURL := fmt.Sprintf("https://api.telegram.org/bot%s/setWebhook", token)
+		payload := map[string]interface{}{
+			"url":                  webhookURL,
+			"secret_token":         secretHex,
+			"drop_pending_updates": true,
+		}
+		body, _ := json.Marshal(payload)
+
+		client := &http.Client{Timeout: 10 * time.Second}
+		if resp, err := client.Post(tgWebhookURL, "application/json", bytes.NewBuffer(body)); err == nil {
+			resp.Body.Close()
+		}
+	}
+
 	return bot, nil
 }
 
@@ -235,7 +262,18 @@ func (s *BotService) RevokeBot(ctx context.Context, botID uuid.UUID, ownerID int
 	if err != nil {
 		return err
 	}
-	return s.botRepo.UpdateBotStatus(ctx, bot.ID, "revoked")
+	err = s.botRepo.UpdateBotStatus(ctx, bot.ID, "revoked")
+	if err == nil {
+		token, decErr := DecryptToken(bot.BotTokenEncrypted)
+		if decErr == nil {
+			tgWebhookURL := fmt.Sprintf("https://api.telegram.org/bot%s/deleteWebhook", token)
+			client := &http.Client{Timeout: 10 * time.Second}
+			if resp, reqErr := client.Post(tgWebhookURL, "application/json", nil); reqErr == nil {
+				resp.Body.Close()
+			}
+		}
+	}
+	return err
 }
 
 // Group Operations
@@ -374,7 +412,7 @@ func (s *BotService) Subscribe(ctx context.Context, userID int64, groupID uuid.U
 	}
 
 	// Create billing subscription record
-	_ = s.botRepo.CreateBillingSubscription(ctx, &repository.BillingSubscription{
+	err = s.botRepo.CreateBillingSubscription(ctx, &repository.BillingSubscription{
 		UserID:      userID,
 		GroupID:     groupID,
 		PackageID:   packageID,
@@ -385,6 +423,12 @@ func (s *BotService) Subscribe(ctx context.Context, userID int64, groupID uuid.U
 		StartsAt:    time.Now(),
 		ExpiresAt:   paidUntil,
 	})
+	if err != nil {
+		// Rollback on failure
+		_ = s.botRepo.UpdateGroupSubscription(ctx, groupID, group.SubscriptionStatus, group.PaidUntil)
+		_, _ = s.frgRepo.Credit(ctx, userID, pkg.PriceFRG, "refund", meta)
+		return fmt.Errorf("failed to create billing subscription: %w", err)
+	}
 
 	// Trigger tiered lifetime referral commissions (10% Tier 1, 3% Tier 2)
 	go func() {
@@ -558,14 +602,14 @@ func (s *BotService) CheckQuietHoursTransitions(ctx context.Context) {
 			var quiet repository.SettingsQuietHours
 			var customTexts repository.SettingsCustomTexts
 
-			if json.Unmarshal(settings.General, &general) != nil {
-				return
+			if len(settings.General) > 0 {
+				_ = json.Unmarshal(settings.General, &general)
 			}
-			if json.Unmarshal(settings.QuietHours, &quiet) != nil {
-				return
+			if len(settings.QuietHours) > 0 {
+				_ = json.Unmarshal(settings.QuietHours, &quiet)
 			}
-			if json.Unmarshal(settings.CustomTexts, &customTexts) != nil {
-				return
+			if len(settings.CustomTexts) > 0 {
+				_ = json.Unmarshal(settings.CustomTexts, &customTexts)
 			}
 
 			if len(quiet.Periods) == 0 || !quiet.SendNotifications {
@@ -580,12 +624,16 @@ func (s *BotService) CheckQuietHoursTransitions(ctx context.Context) {
 			nowInTZ := now.In(loc)
 			currentTimeStr := nowInTZ.Format("15:04") // HH:MM
 
+			lang := general.Language
+			if lang == "" {
+				lang = "en"
+			}
 			for _, p := range quiet.Periods {
 				if p.Start == currentTimeStr {
-					s.sendQHNotice(groupCtx, g, "start", customTexts.SilenceStartText, currentTimeStr)
+					s.sendQHNotice(groupCtx, g, "start", customTexts.SilenceStartText, currentTimeStr, lang)
 				}
 				if p.End == currentTimeStr {
-					s.sendQHNotice(groupCtx, g, "end", customTexts.SilenceEndText, currentTimeStr)
+					s.sendQHNotice(groupCtx, g, "end", customTexts.SilenceEndText, currentTimeStr, lang)
 				}
 			}
 		}(g)
@@ -593,7 +641,7 @@ func (s *BotService) CheckQuietHoursTransitions(ctx context.Context) {
 	wg.Wait()
 }
 
-func (s *BotService) sendQHNotice(ctx context.Context, g repository.ManagedGroup, action string, customText string, timeStr string) {
+func (s *BotService) sendQHNotice(ctx context.Context, g repository.ManagedGroup, action string, customText string, timeStr string, lang string) {
 	key := fmt.Sprintf("%s:%s:%s", g.ID, action, timeStr)
 	s.mu.Lock()
 	if s.qhNotifications == nil {
@@ -625,9 +673,16 @@ func (s *BotService) sendQHNotice(ctx context.Context, g repository.ManagedGroup
 	msg := customText
 	if msg == "" {
 		if action == "start" {
-			msg = "🔒 *Quiet hours have started.* The group is now muted."
+			msg = i18n.T(lang, "notifications.qh_start", nil)
 		} else {
-			msg = "🔓 *Quiet hours have ended.* You can now send messages."
+			msg = i18n.T(lang, "notifications.qh_end", nil)
+		}
+		if msg == "" || msg == "notifications.qh_start" || msg == "notifications.qh_end" {
+			if action == "start" {
+				msg = "🔒 *Quiet hours have started.* The group is now muted."
+			} else {
+				msg = "🔓 *Quiet hours have ended.* You can now send messages."
+			}
 		}
 	}
 

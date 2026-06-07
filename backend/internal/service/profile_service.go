@@ -431,21 +431,33 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int) (*
 	// Server-side source of truth for maximum energy capacity & recovery
 	maxEnergy := 500 + (energyLimitLevel-1)*250
 	const recoveryPerSec = 1
-	regen := int(time.Since(energyUpdatedAt).Seconds()) * recoveryPerSec
+	now := time.Now()
+	regen := int(now.Sub(energyUpdatedAt).Seconds()) * recoveryPerSec
+	
+	newUpdatedAt := energyUpdatedAt
 	if regen > 0 {
 		energy = min(maxEnergy, energy+regen)
+		newUpdatedAt = energyUpdatedAt.Add(time.Duration(regen/recoveryPerSec) * time.Second)
+	}
+	if energy >= maxEnergy {
+		newUpdatedAt = now
 	}
 
+	energyCost := taps * multitapLevel
 	// Dynamic energy verification prevents infinite tap farming
-	if taps > energy {
-		taps = energy // only accept taps up to available energy
+	if energyCost > energy {
+		energyCost = energy
+		taps = energyCost / multitapLevel
+		if taps == 0 && energyCost > 0 {
+			taps = 1
+		}
 	}
-	if taps <= 0 {
+	if energyCost <= 0 {
 		return nil, fmt.Errorf("not enough energy")
 	}
 
-	coinsEarned := float64(taps) * float64(multitapLevel)
-	newEnergy := energy - taps
+	coinsEarned := float64(energyCost)
+	newEnergy := energy - energyCost
 
 	_, err = tx.Exec(ctx, `
 		UPDATE user_stats
@@ -453,10 +465,10 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int) (*
 		    xp = COALESCE(xp, 0) + $2,
 		    airdrop_coins = COALESCE(airdrop_coins, 0) + $3,
 		    energy = $4,
-		    energy_updated_at = now(),
+		    energy_updated_at = $5,
 		    last_active_at = now()
-		WHERE user_id = $5`,
-		taps, taps*2, coinsEarned, newEnergy, userID,
+		WHERE user_id = $6`,
+		taps, taps*2, coinsEarned, newEnergy, newUpdatedAt, userID,
 	)
 	if err != nil {
 		return nil, err

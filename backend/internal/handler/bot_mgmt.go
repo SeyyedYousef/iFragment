@@ -39,6 +39,9 @@ func (h *BotMgmtHandler) getUserID(r *http.Request) int64 {
 		return v
 	case int:
 		return int64(v)
+	case string:
+		id, _ := strconv.ParseInt(v, 10, 64)
+		return id
 	default:
 		return 0
 	}
@@ -303,8 +306,16 @@ func (h *BotMgmtHandler) GetAnalytics(w http.ResponseWriter, r *http.Request) {
 		RespondError(w, r, http.StatusForbidden, "access denied", err)
 		return
 	}
-	growth, _ := h.svc.GetGrowthTimeline(r.Context(), groupID, days)
-	activity, _ := h.svc.GetActivityTimeline(r.Context(), groupID, days)
+	growth, err := h.svc.GetGrowthTimeline(r.Context(), groupID, days)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to get growth timeline", err)
+		return
+	}
+	activity, err := h.svc.GetActivityTimeline(r.Context(), groupID, days)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to get activity timeline", err)
+		return
+	}
 	RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"summary":  summary,
 		"growth":   growth,

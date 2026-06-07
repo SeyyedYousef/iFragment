@@ -72,8 +72,12 @@ export const PremiumReportPage: Component = () => {
       const status = await openInvoice(invoice_link);
       if (status === 'paid') {
         for (let attempt = 0; attempt < 5; attempt += 1) {
-          const result = await report.refetch();
-          if (result.data) return;
+          try {
+            await report.refetch();
+          } catch (e) {
+            // Ignore fetch errors during polling
+          }
+          if (report.data) return;
           await new Promise((resolve) => setTimeout(resolve, 800));
         }
         setPaymentError(t('pages.premiumReport.unlockPending'));
@@ -102,14 +106,14 @@ export const PremiumReportPage: Component = () => {
 
   const usdValue = (ton?: number) => {
     const rate = report.data?.exchange_rate;
-    if (!ton || !rate) return '';
+    if (ton === undefined || !rate) return '';
     return (ton * rate).toFixed(2);
   };
 
   const paidSales = createMemo(() => {
     const sales = report.data?.past_sales || [];
     return sales
-      .filter((sale): sale is SaleRecord => Number(sale.price) > 0 && !!sale.date)
+      .filter((sale): sale is SaleRecord => Number(sale.price) > 0 && !!sale.date && !isNaN(new Date(sale.date).getTime()))
       .slice()
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   });
@@ -201,11 +205,11 @@ export const PremiumReportPage: Component = () => {
               
               <div class="flex flex-wrap items-center justify-center gap-2">
                  <span class={`px-3 py-1.5 rounded-lg text-xs font-black uppercase border shadow-sm ${
-                   report.data?.status === 'available' ? 'bg-[#34c759]/10 text-[#34c759] border-[#34c759]/20' : 
+                   report.data?.status === 'available' || report.data?.status === 'purchase_available' ? 'bg-[#34c759]/10 text-[#34c759] border-[#34c759]/20' : 
                    report.data?.status === 'on_auction' || report.data?.status === 'on_sale' ? 'bg-[#ff9500]/10 text-[#ff9500] border-[#ff9500]/20' : 
                    'bg-[#ff3b30]/10 text-[#ff3b30] border-[#ff3b30]/20'
                  }`}>
-                    {report.data?.status === 'purchase_available' ? 'Purchase Available' : report.data?.status?.replace('_', ' ') || ''}
+                    {report.data?.status === 'purchase_available' ? 'Purchase Available' : report.data?.status?.replace(/_/g, ' ') || ''}
                  </span>
                  <Show when={report.data?.peer_type && report.data.peer_type !== 'unknown'}>
                     <span class="px-3 py-1.5 rounded-lg text-xs font-black uppercase border bg-[#1c1c1c] text-[#8e8e93] border-[#2a2a2a]">
@@ -265,7 +269,7 @@ export const PremiumReportPage: Component = () => {
                     <span class="text-3xl font-black text-white">{report.data?.estimated_value?.toFixed(1) || 'N/A'}</span>
                     <span class="text-sm text-[#3390ec] font-bold">TON</span>
                   </div>
-                  <Show when={report.data?.estimated_value && report.data?.exchange_rate}>
+                  <Show when={report.data?.estimated_value !== undefined && report.data?.exchange_rate !== undefined}>
                     <span class="text-[11px] font-bold text-[#8e8e93] mt-0.5">
                       ~${(report.data!.estimated_value! * report.data!.exchange_rate!).toFixed(2)}
                     </span>
@@ -363,7 +367,7 @@ export const PremiumReportPage: Component = () => {
               <div class="grid grid-cols-2 gap-4 border-b border-[#2a2a2a] pb-4">
                 <div class="flex flex-col gap-1">
                   <span class="text-[10px] text-[#8e8e93] font-bold uppercase">Market Status</span>
-                  <span class="text-sm font-black text-[#ff9500] uppercase">{report.data?.sale_status?.replace('_', ' ') || ''}</span>
+                  <span class="text-sm font-black text-[#ff9500] uppercase">{report.data?.sale_status?.replace(/_/g, ' ') || ''}</span>
                 </div>
                 <Show when={report.data?.mint_date}>
                   <div class="flex flex-col gap-1">
@@ -377,7 +381,7 @@ export const PremiumReportPage: Component = () => {
                 <div class="flex items-center justify-between py-2 border-b border-[#2a2a2a]">
                   <span class="text-sm font-bold text-[#8e8e93]">Highest Bid</span>
                   <div class="text-right">
-                    <span class="text-sm font-black text-white">{report.data?.highest_bid || 0} TON</span>
+                    <span class="text-sm font-black text-white">{report.data?.highest_bid !== undefined ? report.data.highest_bid : 0} TON</span>
                     <Show when={usdValue(report.data?.highest_bid)}>
                       <span class="text-[10px] text-[#8e8e93] font-bold block">~${usdValue(report.data?.highest_bid)}</span>
                     </Show>
@@ -386,7 +390,7 @@ export const PremiumReportPage: Component = () => {
                 <div class="flex items-center justify-between py-2 border-b border-[#2a2a2a]">
                   <span class="text-sm font-bold text-[#8e8e93]">Buy Now</span>
                   <div class="text-right">
-                    <span class="text-sm font-black text-white">{report.data?.buy_now_price || 'N/A'} TON</span>
+                    <span class="text-sm font-black text-white">{report.data?.buy_now_price !== undefined ? report.data.buy_now_price : 'N/A'} TON</span>
                     <Show when={usdValue(report.data?.buy_now_price)}>
                       <span class="text-[10px] text-[#8e8e93] font-bold block">~${usdValue(report.data?.buy_now_price)}</span>
                     </Show>

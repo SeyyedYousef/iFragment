@@ -1,11 +1,11 @@
 import { Component, createSignal, onMount, onCleanup, For, Show, createMemo } from 'solid-js';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import { Motion } from '@motionone/solid';
 import { createQuery } from '@tanstack/solid-query';
 import { t, locale, formatNumber } from '@/shared/i18n/index.js';
 import { getProfileAchievements, getAchievementDefs } from '@/shared/api/profile.js';
 import { ACHIEVEMENT_DEFS } from '@/shared/store/profile.js';
-import { shareToStory, switchInlineQuery } from '@/shared/lib/telegram-native.js';
+import { shareToStory, switchInlineQuery, haptic } from '@/shared/lib/telegram-native.js';
 
 export const AchievementsPage: Component = () => {
   const [activeCategory, setActiveCategory] = createSignal<string>('all');
@@ -79,14 +79,14 @@ export const AchievementsPage: Component = () => {
   });
 
   const handleCardClick = (ach: any) => {
-    try { hapticFeedback.impactOccurred('light'); } catch {}
+    haptic.impact('light');
     setSelectedAch(ach);
   };
 
   const handleShareToStory = () => {
     const ach = selectedAch();
     if (!ach) return;
-    try { hapticFeedback.impactOccurred('medium'); } catch {}
+    haptic.impact('medium');
     const storyText = `I unlocked the "${ach.title}" achievement on iFragment! 🏆`;
     // Share with bot referral link widget
     shareToStory(
@@ -104,7 +104,7 @@ export const AchievementsPage: Component = () => {
   const handleShareToChat = () => {
     const ach = selectedAch();
     if (!ach) return;
-    try { hapticFeedback.impactOccurred('medium'); } catch {}
+    haptic.impact('medium');
     const query = `Check out my unlocked achievement: ${ach.icon} ${ach.title} - ${ach.desc}`;
     switchInlineQuery(query, ['users', 'groups']);
   };
@@ -126,7 +126,7 @@ export const AchievementsPage: Component = () => {
             </div>
           </div>
           <div class="w-16 h-16 rounded-full border-4 border-[#2a2a2a] relative flex items-center justify-center font-black text-sm text-[#3390ec]">
-            {Math.round((unlockedCount() / mergedAchievements().length) * 100)}%
+            {mergedAchievements().length ? Math.round((unlockedCount() / mergedAchievements().length) * 100) : 0}%
           </div>
         </div>
       </div>
@@ -137,7 +137,7 @@ export const AchievementsPage: Component = () => {
           {(cat) => (
             <button
               onClick={() => {
-                try { hapticFeedback.selectionChanged(); } catch {}
+                haptic.selection();
                 setActiveCategory(cat.id);
               }}
               class={`px-4 py-2 rounded-full font-bold text-xs shrink-0 border transition-all ${
@@ -229,7 +229,7 @@ export const AchievementsPage: Component = () => {
 
               {/* Category tag */}
               <span class="px-3 py-1 rounded-full bg-[#0f1014] border border-[#2a2a2a] text-[9px] font-bold text-[#3390ec] uppercase tracking-wider mb-2">
-                {ach().category}
+                {ach().category ? t(`achievements.categories.${ach().category}` as any) || ach().category : ''}
               </span>
 
               {/* Title & Desc */}

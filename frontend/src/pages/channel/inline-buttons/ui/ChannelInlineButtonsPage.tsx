@@ -15,6 +15,7 @@ interface InlineBtn {
   type: string;
   style: string;
   emoji: string;
+  click_count?: number;
 }
 
 export const ChannelInlineButtonsPage: Component = () => {
@@ -28,11 +29,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 
   
   // Active Glass Buttons List
-  // Pre-load with a gorgeous Like/Dislike setup so the page looks alive out of the box
-  const [buttons, setButtons] = createSignal<InlineBtn[]>([
-    { id: 'p1', title: t('channelInlineButtons.likeBtn') || 'Like', value: 'like', type: 'counter', style: 'success', emoji: '👍' },
-    { id: 'p2', title: t('channelInlineButtons.dislikeBtn') || 'Dislike', value: 'dislike', type: 'counter', style: 'danger', emoji: '👎' }
-  ]);
+  const [buttons, setButtons] = createSignal<InlineBtn[]>([]);
   
   // State for adding a new button
   const [btnTitle, setBtnTitle] = createSignal('');
@@ -64,7 +61,8 @@ export const ChannelInlineButtonsPage: Component = () => {
         value: b.value,
         type: b.type,
         style: b.style,
-        emoji: b.emoji || ''
+        emoji: b.emoji || '',
+        click_count: b.click_count || 0
       })));
     }
   });
@@ -114,12 +112,13 @@ export const ChannelInlineButtonsPage: Component = () => {
       } : b));
     } else {
       setButtons([...buttons(), {
-        id: Date.now().toString(),
+        id: `local_${Date.now()}`,
         title: btnTitle().trim(),
         value: btnValue().trim(),
         type: btnType(),
         style: btnStyle(),
-        emoji: btnEmoji().trim()
+        emoji: btnEmoji().trim(),
+        click_count: 0
       }]);
     }
     
@@ -168,17 +167,17 @@ export const ChannelInlineButtonsPage: Component = () => {
     setActivePreset(preset as any);
     if (preset === 'like') {
       setButtons([
-        { id: 'p1', title: t('channelInlineButtons.likeBtn') || 'Like', value: 'like', type: 'counter', style: 'success', emoji: '👍' },
-        { id: 'p2', title: t('channelInlineButtons.dislikeBtn') || 'Dislike', value: 'dislike', type: 'counter', style: 'danger', emoji: '👎' }
+        { id: 'p1', title: t('channelInlineButtons.likeBtn') || 'Like', value: 'like', type: 'counter', style: 'success', emoji: '👍', click_count: 0 },
+        { id: 'p2', title: t('channelInlineButtons.dislikeBtn') || 'Dislike', value: 'dislike', type: 'counter', style: 'danger', emoji: '👎', click_count: 0 }
       ]);
     } else if (preset === 'link_share') {
       setButtons([
-        { id: 'p1', title: t('channelInlineButtons.viewSiteBtn') || 'View Site', value: 'https://site.com', type: 'url', style: 'primary', emoji: '📎' },
-        { id: 'p2', title: t('channelInlineButtons.shareBtn') || 'Share', value: 'share', type: 'share', style: 'default', emoji: '📢' }
+        { id: 'p1', title: t('channelInlineButtons.viewSiteBtn') || 'View Site', value: 'https://site.com', type: 'url', style: 'primary', emoji: '📎', click_count: 0 },
+        { id: 'p2', title: t('channelInlineButtons.shareBtn') || 'Share', value: 'share', type: 'share', style: 'default', emoji: '📢', click_count: 0 }
       ]);
     } else if (preset === 'buy') {
       setButtons([
-        { id: 'p1', title: t('channelInlineButtons.buyNowBtn') || 'Buy Now', value: 'payment_id', type: 'payment', style: 'primary', emoji: '🛒' }
+        { id: 'p1', title: t('channelInlineButtons.buyNowBtn') || 'Buy Now', value: 'payment_id', type: 'payment', style: 'primary', emoji: '🛒', click_count: 0 }
       ]);
     } else if (preset === 'custom') {
       setButtons([]);
@@ -196,15 +195,21 @@ export const ChannelInlineButtonsPage: Component = () => {
       preset: activePreset()
     };
 
-    const buttonsPayload = buttons().map(b => ({
-      channel_id: params.id,
-      title: b.title,
-      value: b.value,
-      type: b.type as any,
-      style: b.style,
-      emoji: b.emoji,
-      click_count: 0
-    }));
+    const buttonsPayload = buttons().map(b => {
+      const payload: any = {
+        channel_id: params.id,
+        title: b.title,
+        value: b.value,
+        type: b.type as any,
+        style: b.style,
+        emoji: b.emoji,
+        click_count: b.click_count || 0
+      };
+      if (b.id && !b.id.startsWith('p') && !b.id.startsWith('local_')) {
+        payload.id = b.id;
+      }
+      return payload;
+    });
 
     try {
       await channelApi.updateSettings(params.id, 'inline_buttons', settingsPayload, currentVersion);

@@ -74,18 +74,17 @@ export const GeneralSettingsPage: Component = () => {
     }
   );
 
+  const handleBack = () => {
+    if (isDirty()) {
+      const confirmDiscard = window.confirm(t('common.unsavedChangesConfirm') || 'You have unsaved changes. Are you sure you want to discard them?');
+      if (!confirmDiscard) return;
+    }
+    window.history.back();
+  };
+
   onMount(() => {
     backButton.show();
-    const off = backButton.onClick(() => {
-      if (isDirty()) {
-        showToast('You have unsaved changes', 'info');
-        // In a real app, we'd use a custom Modal here. For now, we'll just toast and prevent if dirty, 
-        // but the user clicked back so we usually let them go or show a modal.
-        window.history.back();
-      } else {
-        window.history.back();
-      }
-    });
+    const off = backButton.onClick(handleBack);
     onCleanup(() => off());
   });
 
@@ -96,15 +95,17 @@ export const GeneralSettingsPage: Component = () => {
 
   const handleSave = async () => {
     if (!isDirty()) return;
-    hapticFeedback.notificationOccurred('success');
     setIsSaving(true);
     try {
       const result = await groupApi.updateSettings(params.id, 'general', config as any, settingsVersion());
       setSettingsVersion(result.version);
       setIsDirty(false);
+      hapticFeedback.notificationOccurred('success');
+      showToast('Settings saved successfully', 'success');
       navigate(`/group/${params.id}`);
     } catch (e: any) {
       hapticFeedback.notificationOccurred('error');
+      showToast(t('common.errorUpdateFailed') || 'Failed to update settings', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -116,7 +117,7 @@ export const GeneralSettingsPage: Component = () => {
       <div class="px-5 pt-6 pb-4 bg-[#0f1014] sticky top-0 z-30 border-b border-[#1c1c1c] flex items-center justify-between gap-3">
         <div class="flex items-center gap-2 overflow-hidden flex-1">
           <button 
-            onClick={() => { hapticFeedback.impactOccurred('light'); window.history.back(); }}
+            onClick={() => { hapticFeedback.impactOccurred('light'); handleBack(); }}
             class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-90 transition-all shrink-0"
             aria-label="Back"
           >
@@ -380,7 +381,7 @@ export const GeneralSettingsPage: Component = () => {
       <Show when={isDirty()}>
         <div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#0f1014] via-[#0f1014]/90 to-transparent z-40 flex gap-3">
           <button 
-            onClick={() => navigate(`/group/${params.id}`)}
+            onClick={() => handleBack()}
             disabled={isSaving()}
             class="flex-1 h-14 bg-[#1c1c1c] text-[#ff3b30] border border-[#ff3b30]/20 rounded-2xl font-bold text-[15px] transition-all flex items-center justify-center gap-2 hover:bg-[#ff3b30]/10"
           >

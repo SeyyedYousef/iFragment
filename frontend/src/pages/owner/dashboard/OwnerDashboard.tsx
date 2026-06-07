@@ -112,7 +112,7 @@ export const OwnerDashboard: Component = () => {
                   <span class="text-[10px] text-[#a0a4ad] font-black uppercase tracking-wider">Active Today (DAU)</span>
                   <div class="w-6 h-6 rounded-lg bg-[#34c759]/10 flex items-center justify-center text-[#34c759] text-xs">⚡</div>
                 </div>
-                <span class="text-2xl font-black text-white">{stats()!.dau.toLocaleString()}</span>
+                <span class="text-2xl font-black text-white">{(stats()?.dau ?? 0).toLocaleString()}</span>
                 <span class="text-[9px] text-[#34c759] font-bold mt-1">Live active user sessions</span>
               </div>
 
@@ -122,7 +122,7 @@ export const OwnerDashboard: Component = () => {
                   <span class="text-[10px] text-[#a0a4ad] font-black uppercase tracking-wider">Active Monthly (MAU)</span>
                   <div class="w-6 h-6 rounded-lg bg-[#3390ec]/10 flex items-center justify-center text-[#3390ec] text-xs">📊</div>
                 </div>
-                <span class="text-2xl font-black text-white">{stats()!.mau.toLocaleString()}</span>
+                <span class="text-2xl font-black text-white">{(stats()?.mau ?? 0).toLocaleString()}</span>
                 <span class="text-[9px] text-[#3390ec] font-bold mt-1">30 days retention rate</span>
               </div>
 
@@ -132,7 +132,7 @@ export const OwnerDashboard: Component = () => {
                   <span class="text-[10px] text-[#a0a4ad] font-black uppercase tracking-wider">Total Registered</span>
                   <div class="w-6 h-6 rounded-lg bg-[#5856d6]/10 flex items-center justify-center text-[#5856d6] text-xs">👥</div>
                 </div>
-                <span class="text-2xl font-black text-white">{stats()!.total_users.toLocaleString()}</span>
+                <span class="text-2xl font-black text-white">{(stats()?.total_users ?? 0).toLocaleString()}</span>
                 <span class="text-[9px] text-[#a0a4ad] font-bold mt-1">Total database users</span>
               </div>
 
@@ -142,7 +142,7 @@ export const OwnerDashboard: Component = () => {
                   <span class="text-[10px] text-[#a0a4ad] font-black uppercase tracking-wider">FRG Circulation</span>
                   <div class="w-6 h-6 rounded-lg bg-[#ffcc00]/10 flex items-center justify-center text-[#ffcc00] text-xs">🪙</div>
                 </div>
-                <span class="text-lg font-black text-white truncate">{Math.round(stats()!.frg_circulation).toLocaleString()} FRG</span>
+                <span class="text-lg font-black text-white truncate">{Math.round(stats()?.frg_circulation ?? 0).toLocaleString()} FRG</span>
                 <span class="text-[9px] text-[#ffcc00] font-bold mt-1">Total tokens circulated</span>
               </div>
             </div>
@@ -151,7 +151,7 @@ export const OwnerDashboard: Component = () => {
             <div class="w-full bg-gradient-to-r from-[#0088cc]/20 to-[#0088cc]/5 border border-[#0088cc]/30 rounded-3xl p-5 mb-6 hover:scale-[1.01] transition-all duration-300 flex justify-between items-center">
               <div>
                 <span class="text-[10px] text-[#0088cc] font-black uppercase tracking-widest block mb-1">TON Stars Volume</span>
-                <h3 class="text-2xl font-black text-white">{stats()!.ton_volume.toFixed(2)} TON</h3>
+                <h3 class="text-2xl font-black text-white">{Number(stats()?.ton_volume ?? 0).toFixed(2)} TON</h3>
                 <span class="text-[9px] text-white/50 font-bold block mt-0.5">Approximate gross revenue from Star checkout transactions</span>
               </div>
               <div class="text-4xl">💎</div>
@@ -227,14 +227,14 @@ export const OwnerDashboard: Component = () => {
 
               <div class="flex flex-col gap-3">
                 <Show 
-                  when={stats()!.recent_activity && stats()!.recent_activity.length > 0}
+                  when={stats()?.recent_activity && stats()?.recent_activity.length > 0}
                   fallback={
                     <div class="text-center py-6 text-xs text-[#a0a4ad] font-bold">
                       No security audit logs found. System is clean.
                     </div>
                   }
                 >
-                  <For each={stats()!.recent_activity}>
+                  <For each={stats()?.recent_activity ?? []}>
                     {(log) => (
                       <div class="p-3 bg-[#0f1014]/60 border border-[#2a2c35]/20 rounded-2xl flex items-center justify-between gap-3 text-xs">
                         <div class="flex flex-col gap-1 min-w-0">
@@ -254,7 +254,7 @@ export const OwnerDashboard: Component = () => {
                         </div>
                         <div class="flex flex-col items-end gap-1 flex-shrink-0">
                           <span class="text-[9px] text-[#a0a4ad] font-bold">
-                            {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {log.created_at ? new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Unknown'}
                           </span>
                           <span class="text-[8px] text-[#3390ec] font-bold">
                             {log.ip_address || 'Server'}

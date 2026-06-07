@@ -21,10 +21,6 @@ interface PostingConfig {
   aiProvider: string;
   apiKey: string;
   tone: string;
-  prompt: string;
-  generatedOutput: string;
-  sendMode: 'now' | 'schedule';
-  scheduledTime: string;
   pinPost: boolean;
   disableLinkPreview: boolean;
   
@@ -44,10 +40,6 @@ const defaultConfig: PostingConfig = {
   aiProvider: 'gemini',
   apiKey: '',
   tone: 'friendly',
-  prompt: '',
-  generatedOutput: '',
-  sendMode: 'now',
-  scheduledTime: '',
   pinPost: false,
   disableLinkPreview: false,
   
@@ -68,6 +60,8 @@ export const ChannelPostingPage: Component = () => {
   
   const [connectionStatus, setConnectionStatus] = createSignal<'idle' | 'testing' | 'success' | 'failed'>('idle');
   const [isGenerating, setIsGenerating] = createSignal(false);
+  const [simulatorPrompt, setSimulatorPrompt] = createSignal('');
+  const [simulatorOutput, setSimulatorOutput] = createSignal('');
 
   createResource(
     () => params.id,
@@ -108,31 +102,75 @@ export const ChannelPostingPage: Component = () => {
     if (!config.apiKey) return;
     setConnectionStatus('testing');
     hapticFeedback.impactOccurred('medium');
-    await new Promise(r => setTimeout(r, 200));
-    setConnectionStatus('success');
-    hapticFeedback.notificationOccurred('success');
+    
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${config.apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: 'Hello' }] }]
+        })
+      });
+      if (res.ok) {
+        setConnectionStatus('success');
+        hapticFeedback.notificationOccurred('success');
+        showToast(t('channelPosting.connectionSuccess') || 'Connection successful!', 'success');
+      } else {
+        setConnectionStatus('failed');
+        hapticFeedback.notificationOccurred('error');
+        showToast(t('channelPosting.connectionFailed') || 'Invalid API key or connection failed.', 'error');
+      }
+    } catch (e) {
+      setConnectionStatus('failed');
+      hapticFeedback.notificationOccurred('error');
+      showToast(t('channelPosting.connectionError') || 'Network error occurred.', 'error');
+    }
   };
 
   const handleGenerate = async (action: string) => {
-    if (!config.prompt && action !== 'suggestHashtags') return;
+    const textPrompt = simulatorPrompt();
+    if (!textPrompt && action !== 'suggestHashtags') return;
+    
+    if (!config.apiKey) {
+      showToast(t('channelPosting.missingApiKey') || 'Please enter your API key first.', 'error');
+      return;
+    }
+
     setIsGenerating(true);
     hapticFeedback.impactOccurred('light');
-    await new Promise(r => setTimeout(r, 300));
     
-    let mockResult = '';
+    let instruction = '';
     const skillName = config.selectedSkill === 'custom' ? 'Custom Skill' : config.selectedSkill;
-    if (action === 'generate' || action === 'rewrite') {
-      mockResult = `🚀 **${config.prompt || 'Generated Post'}**\n\nThis is an AI-generated post using the smart publishing pipeline under the "${skillName}" skill mode. It is optimized to perfectly engage your subscribers!`;
-    } else if (action === 'translate') {
-      mockResult = `🚀 **${config.prompt || 'Translated Post'}**\n\nاین یک پست ترجمه شده با هوش مصنوعی است.`;
-    } else if (action === 'summarize') {
-      mockResult = `TL;DR: A brief summary of the provided text.`;
+    if (config.selectedSkill === 'custom') {
+      instruction = `You are a smart editor. Act as a ${skillName}. Here are your custom instructions: ${config.customSkillPrompt}. Please rewrite and improve the following text for a Telegram channel: ${textPrompt}`;
+    } else {
+      instruction = `You are a smart editor acting as a ${skillName}. Rewrite the following post for a Telegram channel. Make it engaging: ${textPrompt}`;
     }
-    
-    setConfig('generatedOutput', mockResult);
-    setIsDirty(true);
-    setIsGenerating(false);
-    hapticFeedback.notificationOccurred('success');
+
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${config.apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: instruction }] }]
+        })
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        setSimulatorOutput(text);
+        hapticFeedback.notificationOccurred('success');
+      } else {
+        setSimulatorOutput(`❌ Error generating text. Please check your API key.`);
+        hapticFeedback.notificationOccurred('error');
+      }
+    } catch (e) {
+      setSimulatorOutput(`❌ Error connecting to AI provider.`);
+      hapticFeedback.notificationOccurred('error');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
 
@@ -351,8 +389,8 @@ export const ChannelPostingPage: Component = () => {
              <div class="flex flex-col gap-2">
                 <label class="text-[13px] font-bold text-white">متن خام ارسالی شما در کانال تلگرام:</label>
                 <textarea 
-                  value={config.prompt} 
-                  onInput={(e) => updateField('prompt', e.currentTarget.value)}
+                  value={simulatorPrompt()} 
+                  onInput={(e) => setSimulatorPrompt(e.currentTarget.value)}
                   placeholder="مثال: قیمت بیت کوین در ۲۴ ساعت گذشته با ۵ درصد افزایش به ۶۷ هزار دلار رسید..."
                   class="bg-[#0f1014] text-white text-[14px] rounded-xl px-4 py-3 w-full min-h-[90px] focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-[#2a2a2a] placeholder-[#555] resize-y"
                 />
@@ -360,7 +398,7 @@ export const ChannelPostingPage: Component = () => {
              
              <button 
                onClick={() => handleGenerate('generate')} 
-               disabled={isGenerating() || !config.prompt} 
+               disabled={isGenerating() || !simulatorPrompt()} 
                class="h-11 bg-[#3390ec] hover:bg-[#2b7bc9] text-white rounded-xl font-bold text-[14px] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:hover:bg-[#3390ec]"
              >
                 <Show when={isGenerating()} fallback={<><span class="material-symbols-outlined text-[18px]">play_circle</span> پردازش و تولید پیش‌نمایش نهایی</>}>
@@ -379,7 +417,7 @@ export const ChannelPostingPage: Component = () => {
                    <div class="flex flex-col max-w-[90%] relative z-10 self-start">
                       {/* Telegram Message Bubble */}
                       <div class="bg-[#182533] text-white rounded-2xl rounded-bl-none p-3.5 shadow-lg text-[14px] leading-relaxed whitespace-pre-wrap">
-                         {config.generatedOutput || config.prompt || "متن خام خود را در بالا وارد کرده و روی دکمه پردازش کلیک کنید تا معجزهٔ ربات ویرایشگر را به صورت زنده ببینید..."}
+                         {simulatorOutput() || simulatorPrompt() || "متن خام خود را در بالا وارد کرده و روی دکمه پردازش کلیک کنید تا معجزهٔ ربات ویرایشگر را به صورت زنده ببینید..."}
                          
                          {/* Signature simulated dynamically if set */}
                          <div class="mt-3 pt-1 border-t border-white/10 text-[12px] text-[#32ade6] font-bold flex items-center gap-1">

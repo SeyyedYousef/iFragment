@@ -220,7 +220,11 @@ func main() {
 	tonClient := tonapi.NewClient()
 
 	fragClient := fragment.NewClient()
-	mtprotoClient := mtproto.InitClient(ctx)
+	mtprotoClient, err := mtproto.InitClient(ctx)
+	if err != nil {
+		slog.Error("FATAL: Failed to initialize MTProto client", "error", err)
+		os.Exit(1)
+	}
 	marketappClient := marketapp.NewClient()
 
 	// Initialize Services

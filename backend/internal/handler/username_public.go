@@ -193,6 +193,7 @@ func (h *UsernameHandler) QuickAnalysis(w http.ResponseWriter, r *http.Request) 
 	cacheKey := "quick:" + u
 	if h.cache != nil {
 		if val, err := h.cache.Client.Get(ctx, cacheKey).Result(); err == nil {
+			h.reportService.LogSearch(ctx, u, userID)
 			w.Header().Set("Content-Type", "application/json")
 			w.Write([]byte(val))
 			return
@@ -294,11 +295,11 @@ func (h *UsernameHandler) StreamQuickAnalysis(w http.ResponseWriter, r *http.Req
 	}
 
 	// Concurrent connections limit
-	if h.activeStreams.Load() >= 500 {
+	if h.activeStreams.Add(1) > 500 {
+		h.activeStreams.Add(-1)
 		RespondError(w, r, http.StatusServiceUnavailable, "stream capacity reached", nil)
 		return
 	}
-	h.activeStreams.Add(1)
 	defer h.activeStreams.Add(-1)
 
 	// Set headers for Server-Sent Events
@@ -401,7 +402,8 @@ func (h *UsernameHandler) GetTrending(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	list, err := h.service.GetTrendingUsernames(ctx)
 	if err != nil {
-		list = []string{"news", "auto", "bank", "crypto"}
+		RespondError(w, r, http.StatusInternalServerError, "failed to get trending usernames", err)
+		return
 	}
 
 	w.Header().Set("Cache-Control", "public, max-age=180")
@@ -414,7 +416,8 @@ func (h *UsernameHandler) GetRates(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	rateUSD, err := h.reportService.GetTONRate(ctx)
 	if err != nil {
-		rateUSD = 7.25
+		RespondError(w, r, http.StatusInternalServerError, "failed to get ton rate", err)
+		return
 	}
 
 	w.Header().Set("Cache-Control", "public, max-age=60")

@@ -113,8 +113,8 @@ export const useCollectionStats = () => {
 
 
 
-export const useUsernameQuickAnalysis = (username: () => string) => {
-  const [debouncedUsername, setDebouncedUsername] = createSignal(username());
+export const useUsernameQuickAnalysis = (username: () => string | undefined | null) => {
+  const [debouncedUsername, setDebouncedUsername] = createSignal<string | undefined | null>(username());
 
   createEffect(() => {
     const val = username();
@@ -124,26 +124,39 @@ export const useUsernameQuickAnalysis = (username: () => string) => {
     onCleanup(() => clearTimeout(timeout));
   });
 
-  return createQuery(() => ({
-    queryKey: ['username', 'quick', debouncedUsername()],
-    queryFn: () => apiFetch<QuickCheck>(`/usernames/quick?u=${encodeURIComponent(debouncedUsername())}`),
-    enabled: !!debouncedUsername() && debouncedUsername().length >= 4,
-    staleTime: 3 * 60 * 1000, // 3 minutes
-  }));
+  return createQuery(() => {
+    const u = debouncedUsername();
+    return {
+      queryKey: ['username', 'quick', u],
+      queryFn: async () => {
+        if (!u) throw new Error('Username is required');
+        return apiFetch<QuickCheck>(`/usernames/quick?u=${encodeURIComponent(u)}`);
+      },
+      enabled: !!u && u.length >= 4,
+      staleTime: 3 * 60 * 1000, // 3 minutes
+    };
+  });
 };
 
 
 
-export const usePremiumReport = (username: () => string) => {
-  return createQuery(() => ({
-    queryKey: ['username', 'report', username()],
-    queryFn: () => apiFetch<PremiumReport>(`/usernames/report/view?u=${encodeURIComponent(username())}`),
-    enabled: !!username(),
-    staleTime: 24 * 60 * 60 * 1000, // 24 hours
-  }));
+export const usePremiumReport = (username: () => string | undefined | null) => {
+  return createQuery(() => {
+    const u = username();
+    return {
+      queryKey: ['username', 'report', u],
+      queryFn: async () => {
+        if (!u) throw new Error('Username is required');
+        return apiFetch<PremiumReport>(`/usernames/report/view?u=${encodeURIComponent(u)}`);
+      },
+      enabled: !!u,
+      staleTime: 24 * 60 * 60 * 1000, // 24 hours
+    };
+  });
 };
 
-export const requestPremiumReport = (username: string) => {
+export const requestPremiumReport = async (username: string) => {
+  if (!username) throw new Error('Username is required');
   return apiFetch<{ invoice_link: string }>('/usernames/report/request', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

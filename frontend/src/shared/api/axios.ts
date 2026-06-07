@@ -1,6 +1,5 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosError, AxiosResponse } from 'axios';
 import { retrieveLaunchParams } from '@tma.js/sdk-solid';
-import { mockApiLogic } from './mock-api.js';
 import { API_CONFIG } from './config.js';
 
 const getInitData = (): string => {
@@ -14,10 +13,6 @@ const getInitData = (): string => {
   const tgData = (window as any).Telegram?.WebApp?.initData;
   if (tgData) return tgData;
   
-  if (import.meta.env.DEV) {
-    return 'dev-user';
-  }
-  
   return '';
 };
 
@@ -29,25 +24,28 @@ export const apiClient: AxiosInstance = axios.create({
   },
 });
 
+const isOwnerPath = (url?: string) => url ? /\/owner(\/|\?|#|$)/.test(url) : false;
+let refreshPromise: Promise<string> | null = null;
+
 // Request Interceptor
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     // Attempt to retrieve a valid JWT token (Prefer impersonation session token if active, then owner token if administrative path, then standard user token)
     const impersonationToken = sessionStorage.getItem('owner_impersonation_token');
-    const isOwnerRequest = config.url?.includes('/owner/');
+    const isOwnerRequest = isOwnerPath(config.url);
     const ownerToken = isOwnerRequest ? sessionStorage.getItem('owner_token') : null;
     
     // STRICT TOKEN SEPARATION: administrative requests only send owner token, standard requests only send standard token
     let token = null;
     if (isOwnerRequest) {
-      token = impersonationToken || ownerToken;
+      token = ownerToken;
     } else {
       token = impersonationToken || localStorage.getItem('jwt_token');
     }
     
     // Prevent token leakage to third-party domains
     const url = config.url || '';
-    const isAbsoluteUrl = url.startsWith('http://') || url.startsWith('https://');
+    const isAbsoluteUrl = /^(?:[a-z]+:)?\/\//i.test(url);
     const isInternalUrl = !isAbsoluteUrl || url.startsWith(API_CONFIG.BASE_URL);
 
     if (token && isInternalUrl) {
@@ -91,46 +89,49 @@ apiClient.interceptors.response.use(
       return apiClient(originalRequest);
     }
 
-    // Fallback to MOCK data ONLY if enabled in config (Dev/Forced) and retries failed
-    if (API_CONFIG.USE_MOCKS && (!error.response || error.response.status >= 500)) {
-      console.warn('⚠️ Backend unreachable or errored, using MOCK data for:', originalRequest.url);
-      try {
-        const mockData = mockApiLogic(originalRequest.method, originalRequest.url, originalRequest.data);
-        return {
-          data: mockData,
-          status: 200,
-          statusText: 'OK',
-          headers: {},
-          config: originalRequest,
-        } as AxiosResponse;
-      } catch (mockErr) {
-        // If no mock exists, just pass the original error
-      }
-    }
-
     // P1-F4: Silent token refresh when JWT expires (Bypassed for administrative owner requests which require MFA)
-    const isOwnerRequest = originalRequest.url?.includes('/owner/');
-    if (error.response?.status === 401 && !originalRequest._retryCount && !isOwnerRequest) {
-      originalRequest._retryCount = 1;
-      try {
-        const initData = getInitData();
-        if (initData) {
-          const tokenUrl = API_CONFIG.BASE_URL.replace(/\/api\/v1\/?$/, '') + '/api/v1/auth/token';
-          const refreshResponse = await axios.post(
-            tokenUrl,
-            {},
-            { headers: { 'X-Telegram-Init-Data': initData } }
-          );
-          if (refreshResponse.data?.token) {
-            localStorage.setItem('jwt_token', refreshResponse.data.token);
-            originalRequest.headers.Authorization = `Bearer ${refreshResponse.data.token}`;
-            return apiClient(originalRequest);
-          }
-        }
-      } catch (refreshErr) {
-        console.warn('[API] Token refresh failed, clearing session');
-        localStorage.removeItem('jwt_token');
+    const isOwnerRequest = isOwnerPath(originalRequest.url);
+    const isImpersonating = !isOwnerRequest && !!sessionStorage.getItem('owner_impersonation_token');
+
+    if (error.response?.status === 401 && !(originalRequest as any)._isRetryForAuth) {
+      if (isOwnerRequest) {
+        // Owner tokens are not silently refreshed via Telegram initData
+      } else if (isImpersonating) {
+        console.warn('[API] Impersonation token expired, clearing');
         sessionStorage.removeItem('owner_impersonation_token');
+      } else {
+        (originalRequest as any)._isRetryForAuth = true;
+        try {
+          const initData = getInitData();
+          if (initData) {
+            if (!refreshPromise) {
+              const tokenUrl = API_CONFIG.BASE_URL.replace(/\/api\/v1\/?$/, '') + '/api/v1/auth/token';
+              refreshPromise = axios.post(
+                tokenUrl,
+                {},
+                { headers: { 'X-Telegram-Init-Data': initData } }
+              ).then(refreshResponse => {
+                if (refreshResponse.data?.token) {
+                  localStorage.setItem('jwt_token', refreshResponse.data.token);
+                  return refreshResponse.data.token as string;
+                }
+                throw new Error('No token in refresh response');
+              }).finally(() => {
+                refreshPromise = null;
+              });
+            }
+            
+            const newToken = await refreshPromise;
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            return apiClient(originalRequest);
+          } else {
+            console.warn('[API] No initData available for token refresh');
+            localStorage.removeItem('jwt_token');
+          }
+        } catch (refreshErr) {
+          console.warn('[API] Token refresh failed, clearing session');
+          localStorage.removeItem('jwt_token');
+        }
       }
     }
 

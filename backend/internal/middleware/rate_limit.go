@@ -79,6 +79,27 @@ func getUserID(r *http.Request) string {
 	return ""
 }
 
+var (
+	trustedProxies     []string
+	trustedProxyCIDRs  []*net.IPNet
+	trustedProxiesOnce sync.Once
+)
+
+func initTrustedProxies() {
+	proxiesStr := os.Getenv("TRUSTED_PROXIES")
+	if proxiesStr == "" || proxiesStr == "*" {
+		return
+	}
+	for _, p := range strings.Split(proxiesStr, ",") {
+		p = strings.TrimSpace(p)
+		if _, ipNet, err := net.ParseCIDR(p); err == nil {
+			trustedProxyCIDRs = append(trustedProxyCIDRs, ipNet)
+		} else if p != "" {
+			trustedProxies = append(trustedProxies, p)
+		}
+	}
+}
+
 func GetRealIP(r *http.Request) string {
 	remoteIP, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
@@ -89,20 +110,30 @@ func GetRealIP(r *http.Request) string {
 	isTrusted := remoteIP == "127.0.0.1" || remoteIP == "::1"
 	if !isTrusted {
 		proxiesStr := os.Getenv("TRUSTED_PROXIES")
-		if proxiesStr != "" {
-			for _, p := range strings.Split(proxiesStr, ",") {
-				p = strings.TrimSpace(p)
+		if proxiesStr == "*" {
+			isTrusted = true
+		} else if proxiesStr != "" {
+			trustedProxiesOnce.Do(initTrustedProxies)
+			for _, p := range trustedProxies {
 				if p == remoteIP {
 					isTrusted = true
 					break
 				}
-				if _, ipNet, err := net.ParseCIDR(p); err == nil {
-					if ip := net.ParseIP(remoteIP); ip != nil && ipNet.Contains(ip) {
-						isTrusted = true
-						break
+			}
+			if !isTrusted {
+				if ip := net.ParseIP(remoteIP); ip != nil {
+					for _, ipNet := range trustedProxyCIDRs {
+						if ipNet.Contains(ip) {
+							isTrusted = true
+							break
+						}
 					}
 				}
 			}
+		} else if os.Getenv("APP_ENV") == "production" {
+			// Fallback: If in production and TRUSTED_PROXIES is entirely unset, 
+			// we assume we are behind a cloud load balancer (like Render/Heroku)
+			isTrusted = true
 		}
 	}
 
@@ -181,15 +212,17 @@ func NewRateLimiter(ctx context.Context, cache *repository.Cache) func(http.Hand
 					limit = 30
 				}
 
-				pipe := cache.Client.TxPipeline()
-				incrCmd := pipe.Incr(ctx, key)
-				ttlCmd := pipe.TTL(ctx, key)
-				_, err := pipe.Exec(ctx)
+				count, err := cache.Client.Incr(ctx, key).Result()
 				if err == nil {
-					count := incrCmd.Val()
-					if ttlCmd.Val() < 0 {
+					if count == 1 {
 						cache.Client.Expire(ctx, key, time.Minute)
 					}
+					// Double check TTL to prevent permanent lockout
+					ttl, _ := cache.Client.TTL(ctx, key).Result()
+					if ttl < 0 {
+						cache.Client.Expire(ctx, key, time.Minute)
+					}
+
 					if count > limit {
 						slog.Warn("Rate limit exceeded (Redis)", "key", key, "count", count)
 						http.Error(w, "Rate limit exceeded. Please try again later.", http.StatusTooManyRequests)
@@ -202,7 +235,11 @@ func NewRateLimiter(ctx context.Context, cache *repository.Cache) func(http.Hand
 
 			// In-memory fallback (per-IP rate limiting)
 			rl.mu.Lock()
-			defer rl.mu.Unlock()
+
+			// Safety net: prevent OOM if flooded with unique IPs
+			if len(rl.ips) > 100000 {
+				rl.ips = make(map[string][]time.Time)
+			}
 
 			now := time.Now()
 			// Clean old requests
@@ -214,12 +251,15 @@ func NewRateLimiter(ctx context.Context, cache *repository.Cache) func(http.Hand
 			}
 
 			if len(valid) >= 30 {
+				rl.mu.Unlock()
 				slog.Warn("Rate limit exceeded (Memory)", "ip", ip)
 				http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
 				return
 			}
 
 			rl.ips[ip] = append(valid, now)
+			rl.mu.Unlock()
+
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -246,7 +286,8 @@ func NewChannelRateLimiter(cache *repository.Cache) func(http.Handler) http.Hand
 				now := time.Now()
 				nowMs := now.UnixNano() / int64(time.Millisecond)
 				clearBefore := now.Add(-window).UnixNano() / int64(time.Millisecond)
-				uniqueMember := fmt.Sprintf("%d:%d", nowMs, now.UnixNano())
+				// Use pointer address to ensure uniqueness if UnixNano collides
+				uniqueMember := fmt.Sprintf("%d:%p:%s", now.UnixNano(), r, ip)
 
 				res, err := slidingWindowScript.Run(ctx, cache.Client, []string{key}, nowMs, clearBefore, limit, 65, uniqueMember).Result()
 				if err == nil {

@@ -4,7 +4,7 @@ import { t, locale } from '@/shared/i18n/index.js';
 import { hapticFeedback, openTelegramLink } from '@tma.js/sdk-solid';
 import { syncProfileStats } from '@/shared/store/airdrop.js';
 import { SectionHeader } from '@/shared/ui/section-header.js';
-import { getTasksStatus, completeTask, TaskStatus } from '@/shared/api/profile.js';
+import { getTasksStatus, completeTask, TaskStatus, getReferralInfo } from '@/shared/api/profile.js';
 
 const isRtl = () => locale() === 'fa';
 
@@ -16,6 +16,13 @@ export const TasksView: Component = () => {
     queryKey: ['tasks-status'],
     queryFn: getTasksStatus,
     staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  }));
+
+  const referralQuery = createQuery(() => ({
+    queryKey: ['referral-info'],
+    queryFn: getReferralInfo,
+    staleTime: 60_000,
     refetchOnWindowFocus: false,
   }));
 
@@ -117,7 +124,8 @@ export const TasksView: Component = () => {
         <button 
           onClick={() => {
             try { hapticFeedback.impactOccurred('light'); } catch (_) {}
-            const link = 'https://t.me/iFragmentBot?start=ref_abc123';
+            const code = referralQuery.data?.referralCode || 'ref_fallback';
+            const link = `https://t.me/iFragmentBot?start=${code}`;
             openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(t('airdrop.friends.subtitle'))}`);
           }}
           class="w-full bg-[#3390ec] text-white font-bold py-3 rounded-xl active:scale-95 transition-transform text-sm shadow-[0_2px_10px_rgba(51,144,236,0.3)]"

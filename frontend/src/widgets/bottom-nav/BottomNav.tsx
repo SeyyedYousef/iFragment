@@ -1,4 +1,4 @@
-import { Component, Show } from 'solid-js';
+import { Component, Show, createSignal, createEffect } from 'solid-js';
 import { A, useLocation } from '@solidjs/router';
 import { initData } from '@tma.js/sdk-solid';
 import { t } from '@/shared/i18n/index.js';
@@ -7,7 +7,7 @@ import { API_CONFIG } from '@/shared/api/config.js';
 
 export const BottomNav: Component = () => {
   const location = useLocation();
-  const user = initData.user();
+  const user = () => initData.user();
   
   const avatarUrl = () => {
     const statsPhoto = profilePhotoUrl();
@@ -17,15 +17,21 @@ export const BottomNav: Component = () => {
       const cleanPath = statsPhoto.startsWith('/') ? statsPhoto : `/${statsPhoto}`;
       return `${base}${cleanPath}`;
     }
-    const user = initData.user();
-    if (user?.photo_url) return user.photo_url;
+    const u = user();
+    if (u?.photo_url) return u.photo_url;
     return undefined;
   };
+
+  const [imgError, setImgError] = createSignal(false);
+
+  createEffect(() => {
+    avatarUrl();
+    setImgError(false);
+  });
   
   const isActive = (path: string) => {
-    if (path === '/' && location.pathname === '/') return true;
-    if (path !== '/' && location.pathname.startsWith(path)) return true;
-    return false;
+    if (path === '/') return location.pathname === '/';
+    return location.pathname === path || location.pathname.startsWith(`${path}/`);
   };
 
   return (
@@ -75,9 +81,9 @@ export const BottomNav: Component = () => {
         class={`flex flex-col items-center cursor-pointer transition-all ${isActive('/profile') ? 'scale-110' : 'hover:scale-105'}`}
       >
         <div class={`w-18 h-18 rounded-full backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.3)] border-[3px] flex items-center justify-center overflow-hidden transition-all bg-[#1c1c1c]/90 ${isActive('/profile') ? 'border-[#3390ec]' : 'border-[#2a2a2a]'} `}>
-          <Show when={avatarUrl()} fallback={
+          <Show when={avatarUrl() && !imgError()} fallback={
             <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#3390ec] to-[#34c759] text-white font-black text-xl">
-              {user?.first_name ? user.first_name[0].toUpperCase() : 'U'}
+              {user()?.first_name ? user()?.first_name?.[0]?.toUpperCase() : 'U'}
             </div>
           }>
             <img 
@@ -86,16 +92,8 @@ export const BottomNav: Component = () => {
               src={avatarUrl()!} 
               loading="lazy"
               referrerPolicy="no-referrer"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-                if (e.currentTarget.nextElementSibling) {
-                  (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
-                }
-              }}
+              onError={() => setImgError(true)}
             />
-            <div class="w-full h-full hidden items-center justify-center bg-gradient-to-br from-[#3390ec] to-[#34c759] text-white font-black text-xl">
-              {user?.first_name ? user.first_name[0].toUpperCase() : 'U'}
-            </div>
           </Show>
         </div>
       </A>

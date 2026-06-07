@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 
 	"ifragment-backend/internal/repository"
 
@@ -23,7 +24,11 @@ type JWTClaims struct {
 	jwt.RegisteredClaims
 }
 
-var ownerRepo *repository.OwnerRepo
+var (
+	ownerRepo       *repository.OwnerRepo
+	cachedJWTSecret string
+	jwtSecretOnce   sync.Once
+)
 
 // InitAuthMiddleware initializes the repository used by AuthMiddleware for revocation checks
 func InitAuthMiddleware(repo *repository.OwnerRepo) {
@@ -63,11 +68,20 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		secret := os.Getenv("JWT_SECRET")
+		var secret string
+		jwtSecretOnce.Do(func() {
+			cachedJWTSecret = os.Getenv("JWT_SECRET")
+		})
+		secret = cachedJWTSecret
+
 		if secret == "" {
-			slog.Error("JWT_SECRET environment variable is not configured")
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			return
+			// Fallback check in case it was set late
+			secret = os.Getenv("JWT_SECRET")
+			if secret == "" {
+				slog.Error("JWT_SECRET environment variable is not configured")
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
 		}
 
 		token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
@@ -78,18 +92,20 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		})
 
 		if err != nil || !token.Valid {
-			errMsg := "Invalid token"
-			if err != nil {
-				errMsg = err.Error()
-			}
-			http.Error(w, fmt.Sprintf("Unauthorized: Invalid token (%s)", errMsg), http.StatusUnauthorized)
+			slog.Warn("JWT validation failed", "error", err)
+			http.Error(w, "Unauthorized: Invalid token", http.StatusUnauthorized)
 			return
 		}
 
 		if claims, ok := token.Claims.(*JWTClaims); ok {
 			// If this is an impersonated token (RegisteredClaims.ID is set to session ID),
 			// verify that the impersonation session is still active in the database (ended_at is NULL).
-			if claims.ID != "" && ownerRepo != nil {
+			if claims.ID != "" {
+				if ownerRepo == nil {
+					slog.Error("AuthMiddleware: ownerRepo is nil, cannot verify impersonation session")
+					http.Error(w, "Unauthorized: Revocation check unavailable", http.StatusUnauthorized)
+					return
+				}
 				sess, sessErr := ownerRepo.GetImpersonationSession(r.Context(), claims.ID)
 				if sessErr != nil || sess == nil || sess.EndedAt != nil {
 					http.Error(w, "Unauthorized: Impersonation session has been revoked or ended", http.StatusUnauthorized)

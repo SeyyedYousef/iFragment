@@ -12,7 +12,9 @@ export const GamificationHub: Component = () => {
   const [showModal, setShowModal] = createSignal(false);
   const [claimSuccess, setClaimSuccess] = createSignal(false);
   const [timeLeft, setTimeLeft] = createSignal<number>(0);
-  let timerInterval: any;
+
+  let successTimeout: ReturnType<typeof setTimeout>;
+  onCleanup(() => clearTimeout(successTimeout));
 
   const dailyQuery = createQuery(() => ({
     queryKey: ['profile', 'daily'],
@@ -26,7 +28,8 @@ export const GamificationHub: Component = () => {
       queryClient.invalidateQueries({ queryKey: ['profile', 'stats'] });
       setClaimSuccess(true);
       try { hapticFeedback.notificationOccurred('success'); } catch {}
-      setTimeout(() => {
+      clearTimeout(successTimeout);
+      successTimeout = setTimeout(() => {
         setClaimSuccess(false);
         setShowModal(false);
       }, 2000);
@@ -44,29 +47,26 @@ export const GamificationHub: Component = () => {
   createEffect(() => {
     const data = daily();
     if (data && !data.can_claim && data.time_left_seconds) {
+      const endTime = Date.now() + data.time_left_seconds * 1000;
       setTimeLeft(Math.floor(data.time_left_seconds));
-      if (timerInterval) clearInterval(timerInterval);
-      timerInterval = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
-            clearInterval(timerInterval);
-            queryClient.invalidateQueries({ queryKey: ['profile', 'daily'] });
-            return 0;
-          }
-          return prev - 1;
-        });
+      
+      const interval = setInterval(() => {
+        const remaining = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
+        if (remaining <= 0) {
+          clearInterval(interval);
+          queryClient.invalidateQueries({ queryKey: ['profile', 'daily'] });
+        }
+        setTimeLeft(remaining);
       }, 1000);
+      
+      onCleanup(() => clearInterval(interval));
     } else {
       setTimeLeft(0);
-      if (timerInterval) clearInterval(timerInterval);
     }
   });
 
-  onCleanup(() => {
-    if (timerInterval) clearInterval(timerInterval);
-  });
-
   const formatTimeLeft = (sec: number) => {
+    if (!sec || sec < 0 || isNaN(sec)) return '00:00:00';
     const h = Math.floor(sec / 3600);
     const m = Math.floor((sec % 3600) / 60);
     const s = Math.floor(sec % 60);
@@ -74,6 +74,7 @@ export const GamificationHub: Component = () => {
   };
 
   const handleClaim = async () => {
+    if (claiming() || !daily()?.can_claim) return;
     try {
       try { hapticFeedback.impactOccurred('heavy'); } catch {}
       claimDailyMutation.mutate();
@@ -177,15 +178,30 @@ export const GamificationHub: Component = () => {
             <div class="grid grid-cols-4 gap-2 w-full mb-6">
               <For each={daysArray}>
                 {(day) => {
-                  const isCurrent = daily() ? (daily()!.streak % 7) + 1 === day && daily()!.can_claim : false;
-                  const isClaimed = daily() ? day <= daily()!.streak : false;
+                  const claimedInCycle = () => {
+                    const data = daily();
+                    if (!data) return 0;
+                    return (data.streak > 0 && data.streak % 7 === 0 && !data.can_claim)
+                      ? 7
+                      : data.streak % 7;
+                  };
+                  
+                  const isCurrent = () => {
+                    const data = daily();
+                    return data ? (data.can_claim && day === claimedInCycle() + 1) : false;
+                  };
+                  
+                  const isClaimed = () => {
+                    const data = daily();
+                    return data ? (day <= claimedInCycle()) : false;
+                  };
                   
                   return (
                     <div 
                       class={`flex flex-col items-center justify-center p-2 rounded-2xl border text-center transition-all ${
-                        isCurrent 
+                        isCurrent() 
                           ? 'bg-[#3390ec]/15 border-[#3390ec]/50 text-[#3390ec] shadow-[0_0_8px_rgba(51,144,236,0.2)]'
-                          : isClaimed
+                          : isClaimed()
                             ? 'bg-[#34c759]/10 border-[#34c759]/30 text-[#34c759]'
                             : 'bg-[#1c1c24] border-[#222] text-[#a0a4ad]'
                       }`}
@@ -193,7 +209,7 @@ export const GamificationHub: Component = () => {
                       <span class="text-[9px] font-black uppercase tracking-wider">
                         {t('gamification.dayLabel')?.replace('{day}', day.toString()) || `Day ${day}`}
                       </span>
-                      <span class="text-[10px] font-black mt-1 text-white">{PROFILE_CONFIG.DAILY_REWARDS[day-1].toLocaleString()}</span>
+                      <span class="text-[10px] font-black mt-1 text-white">{(PROFILE_CONFIG.DAILY_REWARDS?.[day-1] || 0).toLocaleString()}</span>
                       <span class="text-[8px] text-[#a0a4ad] font-bold">FRG</span>
                     </div>
                   );

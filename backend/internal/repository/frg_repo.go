@@ -45,7 +45,10 @@ func (r *FRGRepo) DB() *Database {
 }
 
 func (r *FRGRepo) GetBalance(ctx context.Context, userID int64) (*FRGBalance, error) {
-	query := `SELECT user_id, COALESCE(airdrop_coins, 0) as balance, 0.0 as total_earned, 0.0 as total_spent, energy_updated_at FROM user_stats WHERE user_id = $1`
+	query := `SELECT user_id, COALESCE(airdrop_coins, 0) as balance, 
+		COALESCE((SELECT SUM(amount) FROM frg_transactions WHERE user_id = $1 AND amount > 0), 0.0) as total_earned, 
+		COALESCE((SELECT SUM(ABS(amount)) FROM frg_transactions WHERE user_id = $1 AND amount < 0), 0.0) as total_spent, 
+		energy_updated_at FROM user_stats WHERE user_id = $1`
 	var b FRGBalance
 	var updatedAt time.Time
 	err := r.db.Pool.QueryRow(ctx, query, userID).Scan(&b.UserID, &b.Balance, &b.TotalEarned, &b.TotalSpent, &updatedAt)
@@ -64,6 +67,10 @@ func (r *FRGRepo) initBalance(ctx context.Context, userID int64) (*FRGBalance, e
 }
 
 func (r *FRGRepo) Credit(ctx context.Context, userID int64, amount float64, txType string, metadata []byte) (*FRGTransaction, error) {
+	if amount <= 0 {
+		return nil, fmt.Errorf("amount must be positive")
+	}
+
 	tx, err := r.db.Pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -119,6 +126,10 @@ func (r *FRGRepo) Credit(ctx context.Context, userID int64, amount float64, txTy
 }
 
 func (r *FRGRepo) CreditTx(ctx context.Context, tx pgx.Tx, userID int64, amount float64, txType string, metadata []byte) (*FRGTransaction, error) {
+	if amount <= 0 {
+		return nil, fmt.Errorf("amount must be positive")
+	}
+
 	queryInsert := `INSERT INTO user_stats (user_id, days_active, current_streak, total_taps, xp, level, last_active_at, energy, energy_updated_at, airdrop_coins)
 		VALUES ($1, 1, 1, 0, 0, 1, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, 0.0)
 		ON CONFLICT (user_id) DO NOTHING`
@@ -164,6 +175,17 @@ func (r *FRGRepo) CreditTx(ctx context.Context, tx pgx.Tx, userID int64, amount 
 }
 
 func (r *FRGRepo) DebitTx(ctx context.Context, tx pgx.Tx, userID int64, amount float64, txType string, metadata []byte) (*FRGTransaction, error) {
+	if amount <= 0 {
+		return nil, fmt.Errorf("amount must be positive")
+	}
+
+	queryInsert := `INSERT INTO user_stats (user_id, days_active, current_streak, total_taps, xp, level, last_active_at, energy, energy_updated_at, airdrop_coins)
+		VALUES ($1, 1, 1, 0, 0, 1, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, 0.0)
+		ON CONFLICT (user_id) DO NOTHING`
+	if _, err := tx.Exec(ctx, queryInsert, userID); err != nil {
+		return nil, err
+	}
+
 	var balanceBefore float64
 	err := tx.QueryRow(ctx,
 		`SELECT COALESCE(airdrop_coins, 0) FROM user_stats WHERE user_id = $1 FOR UPDATE`, userID,
@@ -173,7 +195,7 @@ func (r *FRGRepo) DebitTx(ctx context.Context, tx pgx.Tx, userID int64, amount f
 	}
 
 	if balanceBefore < amount {
-		return nil, fmt.Errorf("insufficient Coins balance: have %.4f, need %.4f", balanceBefore, amount)
+		return nil, fmt.Errorf("insufficient FRG balance: have %.4f, need %.4f", balanceBefore, amount)
 	}
 
 	balanceAfter := balanceBefore - amount
@@ -207,11 +229,22 @@ func (r *FRGRepo) DebitTx(ctx context.Context, tx pgx.Tx, userID int64, amount f
 }
 
 func (r *FRGRepo) Debit(ctx context.Context, userID int64, amount float64, txType string, metadata []byte) (*FRGTransaction, error) {
+	if amount <= 0 {
+		return nil, fmt.Errorf("amount must be positive")
+	}
+
 	tx, err := r.db.Pool.Begin(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
+
+	queryInsert := `INSERT INTO user_stats (user_id, days_active, current_streak, total_taps, xp, level, last_active_at, energy, energy_updated_at, airdrop_coins)
+		VALUES ($1, 1, 1, 0, 0, 1, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, 0.0)
+		ON CONFLICT (user_id) DO NOTHING`
+	if _, err = tx.Exec(ctx, queryInsert, userID); err != nil {
+		return nil, err
+	}
 
 	var balanceBefore float64
 	err = tx.QueryRow(ctx,
@@ -222,7 +255,7 @@ func (r *FRGRepo) Debit(ctx context.Context, userID int64, amount float64, txTyp
 	}
 
 	if balanceBefore < amount {
-		return nil, fmt.Errorf("insufficient Coins balance: have %.4f, need %.4f", balanceBefore, amount)
+		return nil, fmt.Errorf("insufficient FRG balance: have %.4f, need %.4f", balanceBefore, amount)
 	}
 
 	balanceAfter := balanceBefore - amount
@@ -290,6 +323,10 @@ func (r *FRGRepo) TransactionExistsByChargeID(ctx context.Context, chargeID stri
 }
 
 func (r *FRGRepo) CreditWithIdempotency(ctx context.Context, userID int64, amount float64, txType string, metadata []byte, chargeID string) (*FRGTransaction, error) {
+	if amount <= 0 {
+		return nil, fmt.Errorf("amount must be positive")
+	}
+
 	tx, err := r.db.Pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -297,7 +334,7 @@ func (r *FRGRepo) CreditWithIdempotency(ctx context.Context, userID int64, amoun
 	defer tx.Rollback(ctx)
 
 	h := fnv.New64a()
-	h.Write([]byte("stars:" + chargeID))
+	h.Write([]byte("frg:" + chargeID))
 	lockID := int64(h.Sum64())
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, lockID); err != nil {
 		return nil, err
@@ -365,6 +402,10 @@ func (r *FRGRepo) CreditWithIdempotency(ctx context.Context, userID int64, amoun
 }
 
 func (r *FRGRepo) CreditWithToncoinIdempotency(ctx context.Context, userID int64, amount float64, txType string, metadata []byte, txHash string) (*FRGTransaction, error) {
+	if amount <= 0 {
+		return nil, fmt.Errorf("amount must be positive")
+	}
+
 	tx, err := r.db.Pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -372,7 +413,7 @@ func (r *FRGRepo) CreditWithToncoinIdempotency(ctx context.Context, userID int64
 	defer tx.Rollback(ctx)
 
 	h := fnv.New64a()
-	h.Write([]byte(txHash))
+	h.Write([]byte("frg:" + txHash))
 	lockID := int64(h.Sum64())
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, lockID); err != nil {
 		return nil, err

@@ -244,16 +244,11 @@ type MessageContext struct {
 }
 
 // ValidateMessage checks a message against all configured rules.
-func (s *ModeratorService) ValidateMessage(ctx context.Context, mc *MessageContext) (*Violation, error) {
+func (s *ModeratorService) ValidateMessage(ctx context.Context, bot *repository.ManagedBot, mc *MessageContext) (*Violation, error) {
 	// 1. Resolve internal group and bot
-	group, err := s.botRepo.GetGroupByChatID(ctx, mc.ChatID)
+	group, err := s.botRepo.GetGroup(ctx, bot.ID, mc.ChatID)
 	if err != nil {
 		return nil, nil // Group not managed
-	}
-
-	bot, err := s.botRepo.GetBotByID(ctx, group.BotID)
-	if err != nil {
-		return nil, err
 	}
 
 	tgClient, err := s.GetTelegramClient(ctx, bot)

@@ -24,35 +24,39 @@ export const LEAGUES: League[] = [
   { name: 'Legendary', icon: 'auto_awesome',  minScore: 5_000_000,  color: '#ff6b35' },
 ];
 
-import { Clan } from '@/shared/api/bot-management.js';
+import { Clan } from '@/shared/api/profile.js';
 
 const loadState = () => {
   try {
     const data = localStorage.getItem('airdrop-state');
     if (data) {
       const parsed = JSON.parse(data);
-      if (parsed && parsed.savedAt) {
+      if (parsed && typeof parsed.savedAt === 'number') {
         const elapsedSec = Math.floor((Date.now() - parsed.savedAt) / 1000);
-        const recoveryRate = parsed.energyRecovery || 1;
-        const maxE = parsed.maxEnergy || 500;
-        parsed.energy = Math.min(maxE, (parsed.energy || 0) + elapsedSec * recoveryRate);
+        const validElapsed = Math.max(0, elapsedSec);
+        const recoveryRate = typeof parsed.energyRecovery === 'number' ? parsed.energyRecovery : 1;
+        const maxE = typeof parsed.maxEnergy === 'number' ? parsed.maxEnergy : 500;
+        const currentE = typeof parsed.energy === 'number' ? parsed.energy : 0;
+        parsed.energy = Math.min(maxE, currentE + validElapsed * recoveryRate);
       }
       return parsed;
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error("Failed to parse airdrop state:", e);
+  }
   return null;
 };
 const savedState = loadState() || {};
 
 // --- Core State ---
 export const [userClan, setUserClan] = createSignal<Clan | null>(null);
-export const [balance, setBalance] = createSignal(savedState.balance || 0);
-export const [totalTaps, setTotalTaps] = createSignal(savedState.totalTaps || 0);
-export const [energy, setEnergy] = createSignal(savedState.energy !== undefined ? Math.min(savedState.energy, savedState.maxEnergy || 500) : 500);
-export const [maxEnergy, setMaxEnergy] = createSignal(savedState.maxEnergy || 500);
-export const [tapPower, setTapPower] = createSignal(savedState.tapPower || 1);
-export const [energyRecovery, setEnergyRecovery] = createSignal(savedState.energyRecovery || 1);
-export const [frgBalance, setFrgBalance] = createSignal(savedState.frgBalance || 0);
+export const [balance, setBalance] = createSignal(typeof savedState.balance === 'number' ? savedState.balance : 0);
+export const [totalTaps, setTotalTaps] = createSignal(typeof savedState.totalTaps === 'number' ? savedState.totalTaps : 0);
+export const [energy, setEnergy] = createSignal(typeof savedState.energy === 'number' ? Math.min(savedState.energy, savedState.maxEnergy || 500) : 500);
+export const [maxEnergy, setMaxEnergy] = createSignal(typeof savedState.maxEnergy === 'number' ? savedState.maxEnergy : 500);
+export const [tapPower, setTapPower] = createSignal(typeof savedState.tapPower === 'number' ? savedState.tapPower : 1);
+export const [energyRecovery, setEnergyRecovery] = createSignal(typeof savedState.energyRecovery === 'number' ? savedState.energyRecovery : 1);
+export const [frgBalance, setFrgBalance] = createSignal(typeof savedState.frgBalance === 'number' ? savedState.frgBalance : 0);
 
 // --- Boosters ---
 export interface Booster {
@@ -74,20 +78,21 @@ import { upgradeBoost as apiUpgradeBoost, getBoostsStatus } from '@/shared/api/p
 export const syncBoostersStatus = async () => {
   try {
     const backendBoosts = await getBoostsStatus();
-    if (backendBoosts) {
+    if (Array.isArray(backendBoosts)) {
       setBoosters(prev => {
         const next = { ...prev };
         for (const b of backendBoosts) {
-          if (b.type === "multitap") {
-            next.tapPower = { id: 'tapPower', level: b.current_level, maxLevel: 10, baseCost: b.price_frg };
+          if (b && b.type === "multitap") {
+            next.tapPower = { id: 'tapPower', level: b.current_level, maxLevel: b.max_level ? b.current_level : Math.max(10, b.current_level + 1), baseCost: b.price_frg };
             setTapPower(b.current_level);
-          } else if (b.type === "energy_limit") {
-            next.energyCap = { id: 'energyCap', level: b.current_level, maxLevel: 10, baseCost: b.price_frg };
+          } else if (b && b.type === "energy_limit") {
+            next.energyCap = { id: 'energyCap', level: b.current_level, maxLevel: b.max_level ? b.current_level : Math.max(10, b.current_level + 1), baseCost: b.price_frg };
             setMaxEnergy(500 + (b.current_level - 1) * 250);
           }
         }
         return next;
       });
+      setEnergy(e => Math.min(e, maxEnergy()));
     }
   } catch (e) {
     console.error("Failed to sync boosters status:", e);
@@ -187,21 +192,20 @@ export const REFERRAL_REWARD = 10000;
 
 // --- Leaderboard functionality has been moved to LeaderboardView.tsx using TanStack Query ---
 
-// Energy regeneration timer using high-resolution monotonic performance clock
-let lastRegenTime = performance.now();
-
 export const initEnergyRegen = () => {
+  let lastRegenTime = Date.now();
   const timer = setInterval(() => {
-    const now = performance.now();
+    const now = Date.now();
     const elapsed = (now - lastRegenTime) / 1000;
     if (elapsed >= 1.0) {
-      const recoveryAmount = Math.floor(elapsed * energyRecovery());
+      const recoveryRate = Math.max(0, energyRecovery() || 1);
+      const recoveryAmount = Math.floor(elapsed * recoveryRate);
       if (recoveryAmount > 0) {
         setEnergy(e => {
           if (e >= maxEnergy()) return e; // Prevent energy chop-down if maxEnergy is not synced yet
           return Math.min(maxEnergy(), e + recoveryAmount);
         });
-        lastRegenTime = now;
+        lastRegenTime += (recoveryAmount / recoveryRate) * 1000;
       }
     }
   }, 1000);
@@ -214,45 +218,66 @@ let pendingTaps = 0;
 try {
   const savedPending = localStorage.getItem('airdrop-pending-taps');
   if (savedPending) {
-    pendingTaps = parseInt(savedPending, 10) || 0;
+    const parsed = parseInt(savedPending, 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      pendingTaps = parsed;
+    }
   }
-} catch (e) {}
+} catch (e) {
+  console.error("Failed to load pending taps:", e);
+}
 
 let syncTimeout: ReturnType<typeof setTimeout> | undefined;
 
+let isSyncing = false;
+
 export const syncPendingTaps = async () => {
-  if (pendingTaps <= 0) return;
+  if (pendingTaps <= 0 || isSyncing) return;
+  isSyncing = true;
   
-  // Process and send in chunks of max 50 taps to satisfy backend SEC-08 limit
-  while (pendingTaps > 0) {
-    const tapsToSend = Math.min(pendingTaps, 50);
-    try {
-      const stats = await addTaps(tapsToSend);
-      if (stats) {
-        setBalance(stats.airdropCoins || 0);
-        setEnergy(stats.energy !== undefined ? stats.energy : energy());
-        setFrgBalance(stats.frgBalance || 0);
-        setTotalTaps(stats.totalTaps || 0);
-        
-        pendingTaps = Math.max(0, pendingTaps - tapsToSend);
-        if (pendingTaps === 0) {
-          localStorage.removeItem('airdrop-pending-taps');
+  try {
+    // Process and send in chunks of max 50 taps to satisfy backend SEC-08 limit
+    while (pendingTaps > 0) {
+      const tapsToSend = Math.min(pendingTaps, 50);
+      try {
+        const stats = await addTaps(tapsToSend);
+        if (stats) {
+          const unsyncedTaps = Math.max(0, pendingTaps - tapsToSend);
+          
+          setBalance((typeof stats.airdropCoins === 'number' ? stats.airdropCoins : 0) + unsyncedTaps * tapPower());
+          if (typeof stats.energy === 'number') {
+            setEnergy(Math.max(0, stats.energy - unsyncedTaps));
+          }
+          setFrgBalance(typeof stats.frgBalance === 'number' ? stats.frgBalance : 0);
+          setTotalTaps((typeof stats.totalTaps === 'number' ? stats.totalTaps : 0) + unsyncedTaps);
+          
+          pendingTaps = unsyncedTaps;
+          try {
+            if (pendingTaps === 0) {
+              localStorage.removeItem('airdrop-pending-taps');
+            } else {
+              localStorage.setItem('airdrop-pending-taps', pendingTaps.toString());
+            }
+          } catch (e) {
+            console.error("Failed to save pending taps:", e);
+          }
         } else {
-          localStorage.setItem('airdrop-pending-taps', pendingTaps.toString());
+          break;
         }
-      } else {
+      } catch (e) {
+        // Optimistic rollback: synchronize local state back to server truth on failure
+        await syncProfileStats();
+        console.error("Failed to sync taps with server:", e);
         break;
       }
-    } catch (e) {
-      // Optimistic rollback: synchronize local state back to server truth on failure
-      await syncProfileStats();
-      console.error("Failed to sync taps with server:", e);
-      break;
     }
+  } finally {
+    isSyncing = false;
   }
 };
 
 export const recordTaps = (count: number) => {
+  if (typeof count !== 'number' || !Number.isInteger(count) || count <= 0) return;
   if (energy() < count) return;
   setEnergy(e => Math.max(0, e - count));
   setBalance(b => b + count * tapPower());
@@ -261,7 +286,9 @@ export const recordTaps = (count: number) => {
   pendingTaps += count;
   try {
     localStorage.setItem('airdrop-pending-taps', pendingTaps.toString());
-  } catch (e) {}
+  } catch (e) {
+    console.error("Failed to save pending taps:", e);
+  }
 
   if (syncTimeout) clearTimeout(syncTimeout);
   syncTimeout = setTimeout(async () => {
@@ -273,10 +300,12 @@ export const syncProfileStats = async () => {
   try {
     const stats = await getProfileStats();
     if (stats) {
-      setBalance(stats.airdropCoins || 0);
-      setFrgBalance(stats.frgBalance || 0);
-      setTotalTaps(stats.totalTaps || 0);
-      setEnergy(stats.energy !== undefined ? stats.energy : energy());
+      setBalance((typeof stats.airdropCoins === 'number' ? stats.airdropCoins : 0) + pendingTaps * tapPower());
+      setFrgBalance(typeof stats.frgBalance === 'number' ? stats.frgBalance : 0);
+      setTotalTaps((typeof stats.totalTaps === 'number' ? stats.totalTaps : 0) + pendingTaps);
+      if (typeof stats.energy === 'number') {
+        setEnergy(Math.max(0, stats.energy - pendingTaps));
+      }
     }
   } catch (e) {
     console.error("Failed to sync profile stats:", e);
@@ -311,7 +340,7 @@ export const initStorageSync = () => {
 
     getClan().then(res => {
       if (res && res.is_member && res.clan) {
-        setUserClan(res.clan as any);
+        setUserClan(res.clan as Clan);
       }
     }).catch(e => console.error("Failed to load user clan:", e));
 
@@ -331,7 +360,11 @@ export const initStorageSync = () => {
       if (pendingSave) clearTimeout(pendingSave);
       
       pendingSave = setTimeout(() => {
-        localStorage.setItem('airdrop-state', JSON.stringify(state));
+        try {
+          localStorage.setItem('airdrop-state', JSON.stringify(state));
+        } catch (e) {
+          console.error("Failed to save state:", e);
+        }
         pendingSave = undefined;
       }, 1000); // 1 second debounce/throttle for persistence
     });

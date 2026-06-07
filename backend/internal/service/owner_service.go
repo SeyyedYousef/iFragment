@@ -123,7 +123,11 @@ func (s *OwnerService) Authenticate(ctx context.Context, telegramUserID int64, c
 	}
 
 	// 5. Verify TOTP Code
-	if !totp.ValidateTOTP(code, o.TotpSecret) {
+	secretToUse := o.TotpSecret
+	if secretToUse == "" {
+		secretToUse = totpSecret
+	}
+	if !totp.ValidateTOTP(code, secretToUse) {
 		return "", errors.New("invalid TOTP code")
 	}
 
@@ -178,13 +182,15 @@ func (s *OwnerService) Authenticate(ctx context.Context, telegramUserID int64, c
 
 	// 9. Log Audit Event
 	payload, _ := json.Marshal(map[string]interface{}{"ip": ip, "user_agent": ua})
-	_ = s.repo.LogOwnerAudit(ctx, &model.OwnerAuditLog{
+	if err := s.repo.LogOwnerAudit(ctx, &model.OwnerAuditLog{
 		OwnerID:   telegramUserID,
 		Action:    "login",
 		Payload:   payload,
 		IPAddress: ip,
 		UserAgent: ua,
-	})
+	}); err != nil {
+		return "", fmt.Errorf("failed to log login audit: %v", err)
+	}
 
 	return signed, nil
 }
@@ -230,7 +236,7 @@ func (s *OwnerService) AdjustFRG(ctx context.Context, ownerID int64, targetUserI
 		return 0, errors.New("unauthorized: caller is not a registered owner")
 	}
 
-	if math.IsNaN(amount) || math.IsInf(amount, 0) {
+	if math.IsNaN(amount) || math.IsInf(amount, 0) || amount == 0 {
 		return 0, errors.New("invalid adjustment amount")
 	}
 
@@ -444,14 +450,16 @@ func (s *OwnerService) ImpersonateUser(ctx context.Context, ownerID int64, targe
 
 	// Log Audit Event
 	payload, _ := json.Marshal(map[string]interface{}{"session_id": sessionID})
-	_ = s.repo.LogOwnerAudit(ctx, &model.OwnerAuditLog{
+	if err := s.repo.LogOwnerAudit(ctx, &model.OwnerAuditLog{
 		OwnerID:      ownerID,
 		Action:       "impersonate",
 		TargetUserID: &targetUserID,
 		Payload:      payload,
 		IPAddress:    ip,
 		UserAgent:    ua,
-	})
+	}); err != nil {
+		return "", fmt.Errorf("failed to log impersonation audit: %v", err)
+	}
 
 	return signed, nil
 }
@@ -465,8 +473,9 @@ func (s *OwnerService) SearchUsers(ctx context.Context, query string) ([]reposit
 }
 
 func (s *OwnerService) CreatePromoCode(ctx context.Context, ownerID int64, code string, amount float64, maxUses int, expiresAt *time.Time, ip string, ua string) error {
+	code = strings.ToUpper(code)
 	// Domain bounds validation for promo code reward and usage limits (Defense-in-Depth)
-	if !promoCodeRe.MatchString(strings.ToUpper(code)) {
+	if !promoCodeRe.MatchString(code) {
 		return errors.New("code must be 4-20 alphanumeric characters")
 	}
 	if math.IsNaN(amount) || math.IsInf(amount, 0) || amount <= 0 || amount > 100000 {
@@ -516,6 +525,7 @@ func (s *OwnerService) CreatePromoCode(ctx context.Context, ownerID int64, code 
 }
 
 func (s *OwnerService) DeletePromoCode(ctx context.Context, ownerID int64, code string, ip string, ua string) error {
+	code = strings.ToUpper(code)
 	// Begin atomic transaction
 	tx, err := s.frgRepo.DB().Pool.Begin(ctx)
 	if err != nil {
@@ -548,6 +558,7 @@ func (s *OwnerService) ListPromoCodes(ctx context.Context) ([]model.PromoCode, e
 }
 
 func (s *OwnerService) RedeemPromoCode(ctx context.Context, userID int64, code string) error {
+	code = strings.ToUpper(code)
 	return s.repo.RedeemPromoCodeTx(ctx, code, userID, s.frgRepo)
 }
 
@@ -577,18 +588,16 @@ func (s *OwnerService) CreateQuest(ctx context.Context, ownerID int64, q model.Q
 
 	// For quiz types, if raw answer is passed in config, let's hash it on the server
 	if q.Type == "quiz" {
-		var config struct {
-			Answer         string `json:"answer,omitempty"`
-			QuizAnswerHash string `json:"quiz_answer_hash,omitempty"`
-		}
-		_ = json.Unmarshal(q.Config, &config)
-		if config.Answer != "" {
-			cleaned := strings.ToLower(strings.TrimSpace(config.Answer))
-			hash := sha256.New()
-			hash.Write([]byte(cleaned))
-			config.QuizAnswerHash = hex.EncodeToString(hash.Sum(nil))
-			config.Answer = "" // clear raw answer for security
-			q.Config, _ = json.Marshal(config)
+		var config map[string]interface{}
+		if err := json.Unmarshal(q.Config, &config); err == nil {
+			if answer, ok := config["answer"].(string); ok && answer != "" {
+				cleaned := strings.ToLower(strings.TrimSpace(answer))
+				hash := sha256.New()
+				hash.Write([]byte(cleaned))
+				config["quiz_answer_hash"] = hex.EncodeToString(hash.Sum(nil))
+				delete(config, "answer") // clear raw answer for security
+				q.Config, _ = json.Marshal(config)
+			}
 		}
 	}
 
@@ -649,18 +658,16 @@ func (s *OwnerService) UpdateQuest(ctx context.Context, ownerID int64, q model.Q
 
 	// For quiz types, if raw answer is passed in config, let's hash it on the server
 	if q.Type == "quiz" {
-		var config struct {
-			Answer         string `json:"answer,omitempty"`
-			QuizAnswerHash string `json:"quiz_answer_hash,omitempty"`
-		}
-		_ = json.Unmarshal(q.Config, &config)
-		if config.Answer != "" {
-			cleaned := strings.ToLower(strings.TrimSpace(config.Answer))
-			hash := sha256.New()
-			hash.Write([]byte(cleaned))
-			config.QuizAnswerHash = hex.EncodeToString(hash.Sum(nil))
-			config.Answer = "" // clear raw answer for security
-			q.Config, _ = json.Marshal(config)
+		var config map[string]interface{}
+		if err := json.Unmarshal(q.Config, &config); err == nil {
+			if answer, ok := config["answer"].(string); ok && answer != "" {
+				cleaned := strings.ToLower(strings.TrimSpace(answer))
+				hash := sha256.New()
+				hash.Write([]byte(cleaned))
+				config["quiz_answer_hash"] = hex.EncodeToString(hash.Sum(nil))
+				delete(config, "answer") // clear raw answer for security
+				q.Config, _ = json.Marshal(config)
+			}
 		}
 	}
 

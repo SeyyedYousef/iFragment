@@ -9,7 +9,7 @@ export const AchievementPreview: Component<Props> = (props) => {
   const merged = createMemo(() => {
     return ACHIEVEMENT_DEFS.map(def => {
       const data = props.achievements.find(a => a.id === def.id);
-      return { ...def, unlocked: data?.unlocked ?? false, progress: data?.progress ?? 0, unlockedAt: data?.unlockedAt };
+      return { ...def, target: data?.target ?? 1, unlocked: data?.unlocked ?? false, progress: data?.progress ?? 0, unlockedAt: data?.unlockedAt };
     });
   });
 

@@ -9,6 +9,8 @@ export interface ManagedBot {
   bot_name: string;
   bot_id: number;
   status: 'active' | 'inactive' | 'revoked';
+  managed_groups_count?: number;
+  subscription_status?: string;
   created_at: string;
   updated_at: string;
 }
@@ -217,6 +219,8 @@ export const clanApi = {
     apiClient.post<Clan>('/profile/clan/join', { username }).then((r: any) => r.data),
   leaveClan: () =>
     apiClient.post('/profile/clan/leave').then((r: any) => r.data),
+  getTopClans: () =>
+    apiClient.get<Clan[]>('/profile/clan/top').then((r: any) => r.data),
 };
 
 export const marketplaceApi = {

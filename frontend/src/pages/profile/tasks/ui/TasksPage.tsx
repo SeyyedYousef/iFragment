@@ -56,12 +56,13 @@ export const TasksPage: Component = () => {
       
       // If joining telegram channel, redirect user to the link first
       if (key === 'join_ifragment_channel') {
-        openTelegramLink('https://t.me/iFragment_Official');
+        try { openTelegramLink('https://t.me/ifragment_net'); } catch {}
+        await new Promise(resolve => setTimeout(resolve, 800));
       }
 
       completeTaskMutation.mutate({ key });
     } catch (e: any) {
-      console.error(e);
+      console.error('Failed to complete task:', e);
     }
   };
 
@@ -104,44 +105,55 @@ export const TasksPage: Component = () => {
             <SkeletonTask />
           </div>
         ) : (
-          <div class="flex flex-col gap-3">
-            <For each={tasks()}>
-              {(task) => (
-                <div class={`flex items-center justify-between border rounded-3xl p-5 bg-[#15161d]/60 border-[#222]/80 transition-all ${task.completed ? 'opacity-60' : 'hover:border-[#3390ec]/30'}`}>
-                  <div class="flex flex-col gap-1 max-w-[65%]">
-                    <span class="text-xs font-black text-white">{task.title}</span>
-                    <div class="flex items-center gap-2 mt-1">
-                      <span class="px-2 py-0.5 rounded-lg bg-[#3390ec]/10 border border-[#3390ec]/20 text-[9px] font-black text-[#3390ec]">
-                        +{task.reward_frg.toLocaleString()} FRG
-                      </span>
-                      <span class="px-2 py-0.5 rounded-lg bg-[#34c759]/10 border border-[#34c759]/20 text-[9px] font-black text-[#34c759]">
-                        +{task.reward_xp} XP
-                      </span>
+          <Show 
+            when={tasks().length > 0} 
+            fallback={
+              <div class="flex flex-col items-center justify-center py-12 text-center bg-[#15161d]/60 border border-[#222]/80 rounded-3xl">
+                <span class="material-symbols-outlined text-4xl text-[#3390ec] mb-3">assignment_turned_in</span>
+                <p class="text-sm font-bold text-white mb-1">{t('gamification.noTasksTitle') || 'All Caught Up!'}</p>
+                <p class="text-xs text-[#a0a4ad]">{t('gamification.noTasksSubtitle') || 'Check back later for more quests.'}</p>
+              </div>
+            }
+          >
+            <div class="flex flex-col gap-3">
+              <For each={tasks()}>
+                {(task) => (
+                  <div class={`flex items-center justify-between border rounded-3xl p-5 bg-[#15161d]/60 border-[#222]/80 transition-all ${task.completed ? 'opacity-60' : 'hover:border-[#3390ec]/30'}`}>
+                    <div class="flex flex-col gap-1 max-w-[65%]">
+                      <span class="text-xs font-black text-white">{task.title}</span>
+                      <div class="flex items-center gap-2 mt-1">
+                        <span class="px-2 py-0.5 rounded-lg bg-[#3390ec]/10 border border-[#3390ec]/20 text-[9px] font-black text-[#3390ec]">
+                          +{(task.reward_frg ?? 0).toLocaleString()} FRG
+                        </span>
+                        <span class="px-2 py-0.5 rounded-lg bg-[#34c759]/10 border border-[#34c759]/20 text-[9px] font-black text-[#34c759]">
+                          +{(task.reward_xp ?? 0).toLocaleString()} XP
+                        </span>
+                      </div>
+                    </div>
+  
+                    <div>
+                      <Show 
+                        when={task.completed}
+                        fallback={
+                          <button
+                            onClick={() => handleComplete(task.key)}
+                            disabled={completeTaskMutation.isPending && completeTaskMutation.variables?.key === task.key}
+                            class="px-4 py-2 bg-[#3390ec] active:scale-95 disabled:opacity-50 text-[10px] font-black text-white rounded-xl uppercase tracking-wider transition-all"
+                          >
+                            {completeTaskMutation.isPending && completeTaskMutation.variables?.key === task.key ? (t('gamification.verifying') || 'Verifying...') : (t('gamification.claim') || 'Claim')}
+                          </button>
+                        }
+                      >
+                        <div class="w-8 h-8 rounded-full bg-[#34c759]/10 border border-[#34c759]/20 flex items-center justify-center text-[#34c759]">
+                          <span class="material-symbols-outlined text-[16px]">check</span>
+                        </div>
+                      </Show>
                     </div>
                   </div>
-
-                  <div>
-                    <Show 
-                      when={task.completed}
-                      fallback={
-                        <button
-                          onClick={() => handleComplete(task.key)}
-                          disabled={completeTaskMutation.isPending && completeTaskMutation.variables?.key === task.key}
-                          class="px-4 py-2 bg-[#3390ec] active:scale-95 disabled:opacity-50 text-[10px] font-black text-white rounded-xl uppercase tracking-wider transition-all"
-                        >
-                          {completeTaskMutation.isPending && completeTaskMutation.variables?.key === task.key ? (t('gamification.verifying') || 'Verifying...') : (t('gamification.claim') || 'Claim')}
-                        </button>
-                      }
-                    >
-                      <div class="w-8 h-8 rounded-full bg-[#34c759]/10 border border-[#34c759]/20 flex items-center justify-center text-[#34c759]">
-                        <span class="material-symbols-outlined text-[16px]">check</span>
-                      </div>
-                    </Show>
-                  </div>
-                </div>
-              )}
-            </For>
-          </div>
+                )}
+              </For>
+            </div>
+          </Show>
         )}
       </div>
     </div>

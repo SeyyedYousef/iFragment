@@ -129,6 +129,11 @@ export const UserClanDetailsSchema = z.object({
   joined_at: z.string().optional(),
 });
 
+export const SuccessResponseSchema = z.object({
+  status: z.string().optional(),
+  message: z.string().optional()
+}).catchall(z.unknown());
+
 // Infer and export types
 export type DailyStatus = z.infer<typeof DailyStatusSchema>;
 export type TaskStatus = z.infer<typeof TaskStatusSchema>;
@@ -136,6 +141,7 @@ export type BoostStatus = z.infer<typeof BoostStatusSchema>;
 export type LeaderboardMember = z.infer<typeof LeaderboardMemberSchema>;
 export type Clan = z.infer<typeof ClanSchema>;
 export type UserClanDetails = z.infer<typeof UserClanDetailsSchema>;
+export type SuccessResponse = z.infer<typeof SuccessResponseSchema>;
 
 // ─── Validated Fetch Helper ───
 const validatedFetch = async <T extends z.ZodTypeAny>(
@@ -155,7 +161,9 @@ const validatedFetch = async <T extends z.ZodTypeAny>(
 // ─── Validated API Exports ───
 export const getProfileStats = async (): Promise<ProfileStats> => {
   const stats = await validatedFetch('/profile/stats', ProfileStatsSchema);
-  setProfilePhotoUrl(stats.photoUrl || '');
+  if (stats.photoUrl !== undefined) {
+    setProfilePhotoUrl(stats.photoUrl);
+  }
   return stats;
 };
 
@@ -213,20 +221,20 @@ export interface CosmeticItem {
 export const getCosmetics = (): Promise<CosmeticItem[]> => 
   validatedFetch('/profile/cosmetics', z.array(CosmeticItemSchema));
 
-export const purchaseCosmetic = (cosmeticId: string): Promise<any> => 
-  validatedFetch('/profile/cosmetics/purchase', z.any(), {
+export const purchaseCosmetic = (cosmeticId: string): Promise<SuccessResponse> => 
+  validatedFetch('/profile/cosmetics/purchase', SuccessResponseSchema, {
     method: 'POST',
     body: JSON.stringify({ cosmeticId })
   });
 
-export const equipCosmetic = (cosmeticId: string, type: 'border' | 'skin'): Promise<any> => 
-  validatedFetch('/profile/cosmetics/equip', z.any(), {
+export const equipCosmetic = (cosmeticId: string, type: 'border' | 'skin'): Promise<SuccessResponse> => 
+  validatedFetch('/profile/cosmetics/equip', SuccessResponseSchema, {
     method: 'POST',
     body: JSON.stringify({ cosmeticId, type })
   });
 
-export const setEmojiStatus = (emoji: string): Promise<any> => 
-  validatedFetch('/profile/emoji-status', z.any(), {
+export const setEmojiStatus = (emoji: string): Promise<SuccessResponse> => 
+  validatedFetch('/profile/emoji-status', SuccessResponseSchema, {
     method: 'POST',
     body: JSON.stringify({ emoji })
   });
@@ -241,21 +249,23 @@ export const addTaps = async (taps: number): Promise<ProfileStats> => {
     method: 'POST',
     body: JSON.stringify({ taps })
   });
-  setProfilePhotoUrl(stats.photoUrl || '');
+  if (stats.photoUrl !== undefined) {
+    setProfilePhotoUrl(stats.photoUrl);
+  }
   return stats;
 };
 
 export const getClan = (): Promise<UserClanDetails> => 
   validatedFetch('/profile/clan', UserClanDetailsSchema);
 
-export const joinClan = (username: string): Promise<any> => 
-  validatedFetch('/profile/clan/join', z.any(), {
+export const joinClan = (username: string): Promise<Clan> => 
+  validatedFetch('/profile/clan/join', ClanSchema, {
     method: 'POST',
     body: JSON.stringify({ username })
   });
 
-export const leaveClan = (): Promise<any> => 
-  validatedFetch('/profile/clan/leave', z.any(), {
+export const leaveClan = (): Promise<SuccessResponse> => 
+  validatedFetch('/profile/clan/leave', SuccessResponseSchema, {
     method: 'POST'
   });
 

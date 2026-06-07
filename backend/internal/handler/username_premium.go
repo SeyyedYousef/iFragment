@@ -9,8 +9,10 @@ import (
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/payment"
 	"ifragment-backend/internal/service/username"
+	"log/slog"
 	"net/http"
-	"os"
+	"strconv"
+	"strings"
 )
 
 type PremiumHandler struct {
@@ -29,6 +31,8 @@ type ReportRequest struct {
 	Username string `json:"username"`
 }
 
+const premiumReportPrice = 100
+
 func extractTelegramUserID(ctx map[string]interface{}) (int64, bool) {
 	switch v := ctx["id"].(type) {
 	case float64:
@@ -37,6 +41,12 @@ func extractTelegramUserID(ctx map[string]interface{}) (int64, bool) {
 		return v, true
 	case int:
 		return int64(v), true
+	case string:
+		id, err := strconv.ParseInt(v, 10, 64)
+		if err == nil {
+			return id, true
+		}
+		return 0, false
 	default:
 		return 0, false
 	}
@@ -56,6 +66,8 @@ func (h *PremiumHandler) RequestPremiumReport(w http.ResponseWriter, r *http.Req
 		RespondError(w, r, http.StatusBadRequest, "invalid request", err)
 		return
 	}
+
+	req.Username = strings.ToLower(req.Username)
 
 	if !username.ValidateUsername(req.Username) {
 		RespondError(w, r, http.StatusBadRequest, "invalid username format", nil)
@@ -80,7 +92,7 @@ func (h *PremiumHandler) RequestPremiumReport(w http.ResponseWriter, r *http.Req
 		"Premium Username Report",
 		"Detailed analysis for @"+req.Username,
 		payload,
-		100,
+		premiumReportPrice,
 	)
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, "failed to create invoice", err)
@@ -89,7 +101,7 @@ func (h *PremiumHandler) RequestPremiumReport(w http.ResponseWriter, r *http.Req
 
 	_, err = h.paymentService.DB.CreateOrder(r.Context(), repository.Order{
 		UserID:  userID,
-		Amount:  100,
+		Amount:  premiumReportPrice,
 		Status:  "pending",
 		Payload: payload,
 	})
@@ -100,12 +112,14 @@ func (h *PremiumHandler) RequestPremiumReport(w http.ResponseWriter, r *http.Req
 
 	auditRepo := repository.NewAuditRepo(h.paymentService.DB)
 	targetType := "username"
-	_ = auditRepo.Log(r.Context(), &repository.AuditLog{
+	if err := auditRepo.Log(r.Context(), &repository.AuditLog{
 		ActorID:    userID,
 		Action:     "report.request",
 		TargetType: &targetType,
 		TargetID:   &req.Username,
-	})
+	}); err != nil {
+		slog.Error("Failed to audit log report.request", "error", err)
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
@@ -120,6 +134,8 @@ func (h *PremiumHandler) GetReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	u = strings.ToLower(u)
+
 	if !username.ValidateUsername(u) {
 		RespondError(w, r, http.StatusBadRequest, "invalid username format", nil)
 		return
@@ -131,17 +147,15 @@ func (h *PremiumHandler) GetReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !allowUnpaidReports() {
-		hasPaid, err := h.reportService.CheckPayment(r.Context(), userID, u)
-		if err != nil {
-			RespondError(w, r, http.StatusInternalServerError, "database error", err)
-			return
-		}
+	hasPaid, err := h.reportService.CheckPayment(r.Context(), userID, u)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "database error", err)
+		return
+	}
 
-		if !hasPaid {
-			RespondError(w, r, http.StatusPaymentRequired, "Payment required for this report", nil)
-			return
-		}
+	if !hasPaid {
+		RespondError(w, r, http.StatusPaymentRequired, "Payment required for this report", nil)
+		return
 	}
 
 	report, err := h.reportService.GenerateDeepReport(r.Context(), userID, u)
@@ -154,12 +168,14 @@ func (h *PremiumHandler) GetReport(w http.ResponseWriter, r *http.Request) {
 
 	auditRepo := repository.NewAuditRepo(h.paymentService.DB)
 	targetType := "username"
-	_ = auditRepo.Log(r.Context(), &repository.AuditLog{
+	if err := auditRepo.Log(r.Context(), &repository.AuditLog{
 		ActorID:    userID,
 		Action:     "report.generate",
 		TargetType: &targetType,
 		TargetID:   &u,
-	})
+	}); err != nil {
+		slog.Error("Failed to audit log report.generate", "error", err)
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(report)
@@ -180,8 +196,4 @@ func (h *PremiumHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(reports)
-}
-
-func allowUnpaidReports() bool {
-	return os.Getenv("APP_ENV") != "production" && os.Getenv("IFRAGMENT_ALLOW_UNPAID_REPORTS") == "true"
 }

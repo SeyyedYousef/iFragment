@@ -36,7 +36,7 @@ func (db *Database) SaveReport(ctx context.Context, userID int64, username strin
 
 func (db *Database) GetUserReports(ctx context.Context, userID int64) ([]DBReport, error) {
 	query := `
-		SELECT id, user_id, username, status, rarity_score, report_data, generated_at
+		SELECT id, user_id, username, status, rarity_score, report_data, generated_at::text
 		FROM username_reports
 		WHERE user_id = $1
 		ORDER BY generated_at DESC
@@ -48,7 +48,7 @@ func (db *Database) GetUserReports(ctx context.Context, userID int64) ([]DBRepor
 	}
 	defer rows.Close()
 
-	var reports []DBReport
+	reports := make([]DBReport, 0)
 	for rows.Next() {
 		var r DBReport
 		if err := rows.Scan(&r.ID, &r.UserID, &r.TargetUsername, &r.Status, &r.RarityScore, &r.ReportData, &r.CreatedAt); err != nil {
@@ -56,5 +56,10 @@ func (db *Database) GetUserReports(ctx context.Context, userID int64) ([]DBRepor
 		}
 		reports = append(reports, r)
 	}
+	
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	
 	return reports, nil
 }

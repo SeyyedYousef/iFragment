@@ -280,7 +280,18 @@ func (s *ChannelService) validateForwardingTarget(rule *repository.ChannelForwar
 			return fmt.Errorf("private/loopback IPs are not allowed as webhook targets")
 		}
 		ip := net.ParseIP(hostname)
-		if ip != nil {
+		if ip == nil {
+			ips, err := net.LookupIP(hostname)
+			if err != nil || len(ips) == 0 {
+				return fmt.Errorf("failed to resolve webhook hostname")
+			}
+			// Check all resolved IPs
+			for _, resolvedIP := range ips {
+				if resolvedIP.IsLoopback() || resolvedIP.IsPrivate() || resolvedIP.IsLinkLocalUnicast() || resolvedIP.IsUnspecified() {
+					return fmt.Errorf("private/loopback IPs are not allowed as webhook targets")
+				}
+			}
+		} else {
 			if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsUnspecified() {
 				return fmt.Errorf("private/loopback IPs are not allowed as webhook targets")
 			}
@@ -562,7 +573,11 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 					s.wg.Add(1)
 					GoSafe(func() {
 						defer s.wg.Done()
-						secret := s.getDynamicWebhookSecret(ch.ID)
+						secret, err := s.getDynamicWebhookSecret(ch.ID)
+						if err != nil {
+							slog.Error("Webhook signing aborted", "error", err)
+							return
+						}
 
 						payload := map[string]interface{}{
 							"channel_id":   ch.ID,
@@ -676,8 +691,8 @@ func (s *ChannelService) CreatePost(ctx context.Context, ownerUserID int64, post
 			return err
 		}
 
-		err = s.channelRepo.CreatePost(ctx, post)
-		return err
+		// Do not save to DB here; the approval callback will handle saving it once published.
+		return nil
 	}
 
 	err = s.channelRepo.CreatePost(ctx, post)
@@ -1000,7 +1015,7 @@ func (s *ChannelService) runAnalyticsSnapshot(ctx context.Context) {
 	}
 }
 
-func (s *ChannelService) getDynamicWebhookSecret(channelID uuid.UUID) string {
+func (s *ChannelService) getDynamicWebhookSecret(channelID uuid.UUID) (string, error) {
 	salt := os.Getenv("OUTBOUND_WEBHOOK_SECRET")
 	if salt == "" {
 		salt = os.Getenv("WEBHOOK_SECRET_TOKEN")
@@ -1008,11 +1023,11 @@ func (s *ChannelService) getDynamicWebhookSecret(channelID uuid.UUID) string {
 	if salt == "" {
 		// Strict Security Alert: Fail loudly in logs during production to guide operators
 		slog.Error("CRITICAL SECURITY ALERT: Webhook sign secret missing! Please configure OUTBOUND_WEBHOOK_SECRET.")
-		salt = "fallback_temporary_non_prod_secret_do_not_use_in_production_12903!"
+		return "", fmt.Errorf("webhook signing secret is not configured")
 	}
 	mac := hmac.New(sha256.New, []byte(salt))
 	mac.Write([]byte(channelID.String()))
-	return hex.EncodeToString(mac.Sum(nil))
+	return hex.EncodeToString(mac.Sum(nil)), nil
 }
 
 // GetForwardingRules fetches all forwarding rules for a channel
@@ -1366,24 +1381,9 @@ func dynamicParaphrase(text string) string {
 		slog.Warn("Gemini API paraphraser failed, falling back to local paraphrasing", "error", err)
 	}
 
-	replacements := map[string]string{
-		"hello":   "greetings",
-		"hi":      "hey there",
-		"buy":     "purchase",
-		"sell":    "market",
-		"price":   "cost",
-		"support": "assistance",
-	}
-	words := strings.Fields(text)
-	for i, w := range words {
-		cleanW := strings.Trim(w, ".,!?;:")
-		lowerW := strings.ToLower(cleanW)
-		if repl, ok := replacements[lowerW]; ok {
-			suffix := w[len(cleanW):]
-			words[i] = repl + suffix
-		}
-	}
-	return "🤖 [iFragment AI Paraphrased] " + strings.Join(words, " ") + "\n\n✨ Content updated via iFragment Paraphraser."
+	// Mock local paraphraser removed.
+	// We should just return the original text if the API fails or is not available.
+	return text
 }
 
 func callGeminiParaphrase(text, apiKey string) (string, error) {

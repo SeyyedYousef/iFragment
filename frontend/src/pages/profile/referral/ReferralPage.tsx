@@ -5,7 +5,7 @@ import { createQuery } from '@tanstack/solid-query';
 import QRCode from 'qrcode';
 import { t, formatNumber } from '@/shared/i18n/index.js';
 import { getReferralInfo } from '@/shared/api/profile.js';
-import { copyToClipboard, shareToStory, switchInlineQuery, showScanQrPopup, showAlert } from '@/shared/lib/telegram-native.js';
+import { copyToClipboard, shareToStory, switchInlineQuery, showScanQrPopup, showAlert, openTelegramLink } from '@/shared/lib/telegram-native.js';
 
 export const ReferralPage: Component = () => {
   const [showQrModal, setShowQrModal] = createSignal(false);
@@ -29,11 +29,13 @@ export const ReferralPage: Component = () => {
   });
 
   const referralLink = createMemo(() => {
-    const code = refInfo()?.referralCode || 'ref_code';
+    const code = refInfo()?.referralCode;
+    if (!code) return '';
     return `https://t.me/iFragmentBot?start=${code}`;
   });
 
   const [qrCodeUrl] = createResource(referralLink, async (link) => {
+    if (!link) return '';
     try {
       return await QRCode.toDataURL(link, {
         margin: 1,
@@ -50,7 +52,9 @@ export const ReferralPage: Component = () => {
   });
 
   const handleCopyLink = async () => {
-    const success = await copyToClipboard(referralLink());
+    const link = referralLink();
+    if (!link) return;
+    const success = await copyToClipboard(link);
     if (success) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -58,13 +62,15 @@ export const ReferralPage: Component = () => {
   };
 
   const handleShareStory = () => {
+    const link = referralLink();
+    if (!link) return;
     try { hapticFeedback.impactOccurred('medium'); } catch {}
     shareToStory(
       window.location.origin + '/promo_banner.png',
       {
         text: 'Join me on iFragment and get free FRG tokens! 💎🚀',
         widget_link: {
-          url: referralLink(),
+          url: link,
           name: t('profile.share') || 'Join Now'
         }
       }
@@ -72,8 +78,10 @@ export const ReferralPage: Component = () => {
   };
 
   const handleShareChat = () => {
+    const link = referralLink();
+    if (!link) return;
     try { hapticFeedback.impactOccurred('medium'); } catch {}
-    const query = `Join me on iFragment! Use my link to claim free FRG: ${referralLink()}`;
+    const query = `Join me on iFragment! Use my link to claim free FRG: ${link}`;
     switchInlineQuery(query, ['users', 'groups']);
   };
 
@@ -82,7 +90,12 @@ export const ReferralPage: Component = () => {
     const scannedData = await showScanQrPopup(t('profile.scanReferralQr') || 'Scan referral QR code');
     if (scannedData) {
       try { hapticFeedback.notificationOccurred('success'); } catch {}
-      showAlert(`Successfully scanned referral: ${scannedData}`);
+      if (scannedData.includes('t.me/') || scannedData.startsWith('https://')) {
+        openTelegramLink(scannedData);
+      } else {
+        // If it's just a raw code
+        openTelegramLink(`https://t.me/iFragmentBot?start=${scannedData}`);
+      }
     }
   };
 
@@ -114,7 +127,7 @@ export const ReferralPage: Component = () => {
           <h2 class="text-sm font-black text-white">{t('referral.referralLink') || 'Your Referral Link'}</h2>
           
           <div class="bg-[#0f1014] border border-[#2a2a2a] rounded-2xl px-4 py-3 flex items-center justify-between gap-3">
-            <span class="text-xs text-[#a0a4ad] truncate select-all">{referralLink()}</span>
+            <span class="text-xs text-[#a0a4ad] truncate select-all">{referralLink() || 'Loading...'}</span>
             <button
               onClick={handleCopyLink}
               class={`px-3 py-1.5 rounded-xl font-bold text-xs shrink-0 transition-colors ${
@@ -142,6 +155,7 @@ export const ReferralPage: Component = () => {
             </button>
             <button
               onClick={() => {
+                if (!referralLink()) return;
                 try { hapticFeedback.impactOccurred('light'); } catch {}
                 setShowQrModal(true);
               }}
@@ -226,7 +240,7 @@ export const ReferralPage: Component = () => {
 
             {/* Sub-label */}
             <span class="text-[10px] text-[#3390ec] font-black uppercase tracking-widest font-mono select-all">
-              {refInfo()?.referralCode || 'ref_code'}
+              {refInfo()?.referralCode || '...'}
             </span>
           </Motion.div>
         </div>

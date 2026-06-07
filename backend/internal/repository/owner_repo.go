@@ -32,14 +32,18 @@ func (r *OwnerRepo) GetOwnerRole(ctx context.Context, tgID int64) (*model.OwnerR
 		WHERE telegram_user_id = $1
 	`
 	var o model.OwnerRole
+	var totpSecret *string
 	err := r.db.Pool.QueryRow(ctx, query, tgID).Scan(
-		&o.ID, &o.TelegramUserID, &o.Role, &o.TotpSecret, &o.IPWhitelist, &o.CreatedAt, &o.LastLoginAt,
+		&o.ID, &o.TelegramUserID, &o.Role, &totpSecret, &o.IPWhitelist, &o.CreatedAt, &o.LastLoginAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
+	}
+	if totpSecret != nil {
+		o.TotpSecret = *totpSecret
 	}
 	return &o, nil
 }
@@ -146,16 +150,30 @@ func (r *OwnerRepo) GetOwnerAuditLogs(ctx context.Context, limit, offset int) ([
 	var logs []model.OwnerAuditLog
 	for rows.Next() {
 		var l model.OwnerAuditLog
+		var ownerID *int64
+		var ipAddress, userAgent *string
 		err := rows.Scan(
-			&l.ID, &l.OwnerID, &l.Action, &l.TargetUserID, &l.Payload, &l.IPAddress, &l.UserAgent, &l.CreatedAt,
+			&l.ID, &ownerID, &l.Action, &l.TargetUserID, &l.Payload, &ipAddress, &userAgent, &l.CreatedAt,
 		)
 		if err != nil {
 			return nil, err
+		}
+		if ownerID != nil {
+			l.OwnerID = *ownerID
+		}
+		if ipAddress != nil {
+			l.IPAddress = *ipAddress
+		}
+		if userAgent != nil {
+			l.UserAgent = *userAgent
 		}
 		logs = append(logs, l)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
+	}
+	if logs == nil {
+		logs = make([]model.OwnerAuditLog, 0)
 	}
 	return logs, nil
 }
@@ -186,14 +204,22 @@ func (r *OwnerRepo) GetUserBan(ctx context.Context, userID int64) (*model.UserBa
 		WHERE user_id = $1 AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
 	`
 	var b model.UserBan
+	var bannedBy *int64
+	var reason *string
 	err := r.db.Pool.QueryRow(ctx, query, userID).Scan(
-		&b.UserID, &b.BanType, &b.Reason, &b.BannedBy, &b.BannedAt, &b.ExpiresAt,
+		&b.UserID, &b.BanType, &reason, &bannedBy, &b.BannedAt, &b.ExpiresAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
+	}
+	if bannedBy != nil {
+		b.BannedBy = *bannedBy
+	}
+	if reason != nil {
+		b.Reason = *reason
 	}
 	return &b, nil
 }
@@ -279,10 +305,10 @@ func (r *OwnerRepo) GetDashboardStats(ctx context.Context) (*model.OwnerDashboar
 
 	// Get Recent Owner Activities (last 5)
 	recentLogs, err := r.GetOwnerAuditLogs(ctx, 5, 0)
-	if err == nil {
+	if err == nil && recentLogs != nil {
 		stats.RecentActivity = recentLogs
 	} else {
-		stats.RecentActivity = []model.OwnerAuditLog{}
+		stats.RecentActivity = make([]model.OwnerAuditLog, 0)
 	}
 
 	return &stats, nil
@@ -303,7 +329,7 @@ func (r *OwnerRepo) SearchUsers(ctx context.Context, searchQuery string) ([]Sear
 	// Trim whitespace
 	searchQuery = strings.TrimSpace(searchQuery)
 	if searchQuery == "" {
-		return nil, nil
+		return make([]SearchUserResult, 0), nil
 	}
 
 	// Check if the query is a numeric ID
@@ -322,10 +348,10 @@ func (r *OwnerRepo) SearchUsers(ctx context.Context, searchQuery string) ([]Sear
 		// If query is numeric, search strictly by Telegram ID using B-tree index
 		id, err := strconv.ParseInt(searchQuery, 10, 64)
 		if err != nil {
-			return nil, err
+			return make([]SearchUserResult, 0), nil
 		}
 		query = `
-			SELECT u.telegram_id, COALESCE(u.username, ''), COALESCE(u.first_name, ''), COALESCE(u.last_name, ''), COALESCE(u.language_code, ''), u.created_at, COALESCE(us.airdrop_coins, 0.0), u.is_premium
+			SELECT u.telegram_id, COALESCE(u.username, ''), COALESCE(u.first_name, ''), COALESCE(u.last_name, ''), COALESCE(u.language_code, ''), u.created_at, COALESCE(us.airdrop_coins, 0.0), COALESCE(u.is_premium, false)
 			FROM users u
 			LEFT JOIN user_stats us ON u.telegram_id = us.user_id
 			WHERE u.telegram_id = $1
@@ -334,9 +360,14 @@ func (r *OwnerRepo) SearchUsers(ctx context.Context, searchQuery string) ([]Sear
 		`
 		args = []interface{}{id}
 	} else {
+		// Escape wildcards for ILIKE
+		escapedQuery := strings.ReplaceAll(searchQuery, "\\", "\\\\")
+		escapedQuery = strings.ReplaceAll(escapedQuery, "%", "\\%")
+		escapedQuery = strings.ReplaceAll(escapedQuery, "_", "\\_")
+
 		// If query is text, search by trigram matches using GIN indexes without type casting
 		query = `
-			SELECT u.telegram_id, COALESCE(u.username, ''), COALESCE(u.first_name, ''), COALESCE(u.last_name, ''), COALESCE(u.language_code, ''), u.created_at, COALESCE(us.airdrop_coins, 0.0), u.is_premium
+			SELECT u.telegram_id, COALESCE(u.username, ''), COALESCE(u.first_name, ''), COALESCE(u.last_name, ''), COALESCE(u.language_code, ''), u.created_at, COALESCE(us.airdrop_coins, 0.0), COALESCE(u.is_premium, false)
 			FROM users u
 			LEFT JOIN user_stats us ON u.telegram_id = us.user_id
 			WHERE u.username ILIKE '%' || $1 || '%'
@@ -345,7 +376,7 @@ func (r *OwnerRepo) SearchUsers(ctx context.Context, searchQuery string) ([]Sear
 			ORDER BY u.created_at DESC
 			LIMIT 50
 		`
-		args = []interface{}{searchQuery}
+		args = []interface{}{escapedQuery}
 	}
 
 	rows, err := r.db.Pool.Query(ctx, query, args...)
@@ -365,6 +396,9 @@ func (r *OwnerRepo) SearchUsers(ctx context.Context, searchQuery string) ([]Sear
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
+	}
+	if results == nil {
+		results = make([]SearchUserResult, 0)
 	}
 	return results, nil
 }
@@ -427,6 +461,9 @@ func (r *OwnerRepo) ListPromoCodes(ctx context.Context) ([]model.PromoCode, erro
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+	if list == nil {
+		list = make([]model.PromoCode, 0)
+	}
 	return list, nil
 }
 
@@ -437,7 +474,7 @@ func (r *OwnerRepo) HasUserRedeemedPromo(ctx context.Context, code string, userI
 	return exists, err
 }
 
-func (r *OwnerRepo) RedeemPromoCodeTx(ctx context.Context, code string, userID int64, frgRepo *FRGRepo) error {
+func (r *OwnerRepo) RedeemPromoCodeTx(ctx context.Context, code string, userID int64, _ *FRGRepo) error {
 	tx, err := r.db.Pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -463,7 +500,7 @@ func (r *OwnerRepo) RedeemPromoCodeTx(ctx context.Context, code string, userID i
 	}
 
 	// Validation
-	if expiresAt != nil && expiresAt.Before(time.Now()) {
+	if expiresAt != nil && expiresAt.Before(time.Now().UTC()) {
 		return errors.New("promo code has expired")
 	}
 
@@ -561,6 +598,9 @@ func (r *OwnerRepo) GetQuests(ctx context.Context) ([]model.Quest, error) {
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+	if list == nil {
+		list = make([]model.Quest, 0)
+	}
 	return list, nil
 }
 
@@ -590,6 +630,9 @@ func (r *OwnerRepo) GetActiveQuests(ctx context.Context) ([]model.Quest, error) 
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
+	}
+	if list == nil {
+		list = make([]model.Quest, 0)
 	}
 	return list, nil
 }

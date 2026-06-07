@@ -457,7 +457,7 @@ func TestValidateMessageIntegration(t *testing.T) {
 		IsCommand: false,
 	}
 
-	violation, err := moderator.ValidateMessage(ctx, mc)
+	violation, err := moderator.ValidateMessage(ctx, bot, mc)
 	if err != nil {
 		t.Fatalf("ValidateMessage failed: %v", err)
 	}
@@ -474,7 +474,7 @@ func TestValidateMessageIntegration(t *testing.T) {
 	}
 
 	// User has 0 invites, should fail validation with forced_add
-	v, err := moderator.ValidateMessage(ctx, mc)
+	v, err := moderator.ValidateMessage(ctx, bot, mc)
 	if err != nil {
 		t.Fatalf("ValidateMessage failed: %v", err)
 	}
@@ -492,7 +492,7 @@ func TestValidateMessageIntegration(t *testing.T) {
 	}
 
 	mc.Text = "Spam link: http://google.com"
-	v, err = moderator.ValidateMessage(ctx, mc)
+	v, err = moderator.ValidateMessage(ctx, bot, mc)
 	if err != nil {
 		t.Fatalf("ValidateMessage failed: %v", err)
 	}

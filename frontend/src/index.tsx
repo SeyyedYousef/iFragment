@@ -32,29 +32,76 @@ async function startApp() {
   });
 
   try {
-    // 1. Check environment and mock if necessary BEFORE anything else
-    const isTelegram = await isTMA();
-    
-    if (!isTelegram && import.meta.env.DEV) {
-      mockTelegramEnv({
-        launchParams: new URLSearchParams([
-          ['tgWebAppData', 'query_id=AAHdJuE0AAAAAN0i4TR&user=' + encodeURIComponent(JSON.stringify({
-            id: 12345,
-            first_name: 'Test',
-            last_name: 'User',
-            username: 'testuser',
-            language_code: 'en',
-            is_premium: true,
-          })) + '&auth_date=1716674690&hash=e8248c8b417e2e31ef78f0b72a0834ba7d8cf1f1a511394f71a4f7e2739fa41c'],
-          ['tgWebAppThemeParams', JSON.stringify({ bg_color: '#0f1014', text_color: '#ffffff' })],
-          ['tgWebAppPlatform', 'tdesktop'],
-          ['tgWebAppVersion', '7.0'],
-        ]),
-      });
-      console.info('TMA Mock Environment active');
+    // 1. Check if we already have real launch params (e.g. from URL or Session Storage)
+    let realParams;
+    try {
+      realParams = retrieveLaunchParams();
+    } catch (e) {
+      // ignore
     }
 
-    // 2. Now it's safe to retrieve params
+    // 2. Check environment and mock if necessary BEFORE anything else
+    const isTelegram = await isTMA();
+    
+    if (!isTelegram && !realParams) {
+      if (import.meta.env.DEV) {
+        mockTelegramEnv({
+          themeParams: {
+            accentTextColor: '#6ab2f2',
+            bgColor: '#17212b',
+            buttonColor: '#5288c1',
+            buttonTextColor: '#ffffff',
+            destructiveTextColor: '#ec3942',
+            headerBgColor: '#17212b',
+            hintColor: '#708499',
+            linkColor: '#6ab3f3',
+            secondaryBgColor: '#232e3c',
+            sectionBgColor: '#17212b',
+            sectionHeaderTextColor: '#6ab3f3',
+            subtitleTextColor: '#708499',
+            textColor: '#f5f5f5',
+          },
+          initData: {
+            user: {
+              id: 99281932,
+              firstName: 'Andrew',
+              lastName: 'Rogue',
+              username: 'rogue',
+              languageCode: 'en',
+              isPremium: true,
+              allowsWriteToPm: true,
+            },
+            hash: '89d6079ad6762351f38c6dbbc41bb53048019256a9443988af7a48bcad16ba31',
+            signature: '5O_G2H_wXgI32v2G-w0y-W_O3G_4G',
+            authDate: new Date(1716922846000),
+            canSendAfter: 10000,
+            queryId: 'AAHdF60pAAAAANYXrSkW1',
+          },
+          initDataRaw: new URLSearchParams([
+            ['user', JSON.stringify({
+              id: 99281932,
+              first_name: 'Andrew',
+              last_name: 'Rogue',
+              username: 'rogue',
+              language_code: 'en',
+              is_premium: true,
+              allows_write_to_pm: true,
+            })],
+            ['hash', '89d6079ad6762351f38c6dbbc41bb53048019256a9443988af7a48bcad16ba31'],
+            ['signature', '5O_G2H_wXgI32v2G-w0y-W_O3G_4G'],
+            ['auth_date', '1716922846'],
+            ['query_id', 'AAHdF60pAAAAANYXrSkW1'],
+          ]).toString(),
+          version: '7.2',
+          platform: 'tdesktop',
+        });
+      } else {
+        console.warn('Running outside Telegram without launch params. Mock environment disabled as per user request.');
+        throw new Error('Please open this application inside Telegram.');
+      }
+    }
+
+    // 3. Now it's safe to retrieve params
     const launchParams = retrieveLaunchParams();
     const debug = (launchParams.tgWebAppStartParam || '').includes('debug')
       || localStorage.getItem('debug') === 'true'
@@ -69,14 +116,14 @@ async function startApp() {
       }
     }
 
-    // 3. Initialize App logic
+    // 4. Initialize App logic
     await init({
       debug,
       eruda: false,
       mockForMacOS: launchParams.tgWebAppPlatform === 'macos',
     });
 
-    // 4. Final Render
+    // 5. Final Render
     render(() => (
       <ErrorBoundary>
         <Root />
@@ -103,7 +150,7 @@ async function startApp() {
     btn.style.cssText = 'margin-top:20px;padding:10px 20px;background:#0088CC;border:none;border-radius:20px;color:white;cursor:pointer;';
     
     errorContainer.append(title, msg, btn);
-    root.appendChild(errorContainer);
+    root.replaceChildren(errorContainer);
   }
 }
 

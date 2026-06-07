@@ -44,7 +44,7 @@ func (h *ChannelHandler) ListChannels(w http.ResponseWriter, r *http.Request) {
 	botIDStr := r.URL.Query().Get("bot_id")
 	var botID uuid.UUID
 	var err error
-	if botIDStr != "" && botIDStr != "all" && !strings.HasPrefix(botIDStr, "guest") && !strings.HasPrefix(botIDStr, "mock") {
+	if botIDStr != "" && botIDStr != "all" {
 		botID, err = uuid.Parse(botIDStr)
 		if err != nil {
 			RespondError(w, r, http.StatusBadRequest, "invalid bot_id", err)
@@ -85,7 +85,7 @@ func (h *ChannelHandler) ListChannels(w http.ResponseWriter, r *http.Request) {
 
 	channels, nextCursor, nextCursorID, err := h.svc.ListChannels(r.Context(), userID, botID, cursor, cursorID, limit)
 	if err != nil {
-		RespondError(w, r, http.StatusInternalServerError, "failed to list channels", err)
+		h.respondServerError(w, r, "failed to list channels", err)
 		return
 	}
 
@@ -151,7 +151,7 @@ func (h *ChannelHandler) GetChannel(w http.ResponseWriter, r *http.Request) {
 
 	ch, err := h.svc.GetChannel(r.Context(), userID, channelID)
 	if err != nil {
-		RespondError(w, r, http.StatusNotFound, "channel not found", err)
+		h.respondServerError(w, r, "failed to get channel", err)
 		return
 	}
 
@@ -173,7 +173,7 @@ func (h *ChannelHandler) DisconnectChannel(w http.ResponseWriter, r *http.Reques
 	}
 
 	if err := h.svc.DisconnectChannel(r.Context(), userID, channelID); err != nil {
-		RespondError(w, r, http.StatusInternalServerError, "failed to disconnect channel", err)
+		h.respondServerError(w, r, "failed to disconnect channel", err)
 		return
 	}
 
@@ -196,7 +196,7 @@ func (h *ChannelHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
 
 	settings, err := h.svc.GetSettings(r.Context(), userID, channelID)
 	if err != nil {
-		RespondError(w, r, http.StatusForbidden, "access denied", err)
+		h.respondServerError(w, r, "failed to get settings", err)
 		return
 	}
 
@@ -236,7 +236,7 @@ func (h *ChannelHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) 
 			RespondError(w, r, http.StatusConflict, "optimistic lock conflict: settings have been updated by another admin", err)
 			return
 		}
-		RespondError(w, r, http.StatusInternalServerError, "failed to update settings", err)
+		h.respondServerError(w, r, "failed to update settings", err)
 		return
 	}
 
@@ -291,7 +291,7 @@ func (h *ChannelHandler) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 
 	logs, err := h.svc.GetAuditLogs(r.Context(), userID, channelID, cursor, cursorID, limit)
 	if err != nil {
-		RespondError(w, r, http.StatusInternalServerError, "failed to get audit logs", err)
+		h.respondServerError(w, r, "failed to get audit logs", err)
 		return
 	}
 
@@ -337,7 +337,7 @@ func (h *ChannelHandler) GetAnalytics(w http.ResponseWriter, r *http.Request) {
 
 	analytics, err := h.svc.GetAnalytics(r.Context(), userID, channelID, days)
 	if err != nil {
-		RespondError(w, r, http.StatusInternalServerError, "failed to get analytics data", err)
+		h.respondServerError(w, r, "failed to get analytics data", err)
 		return
 	}
 
@@ -410,7 +410,7 @@ func (h *ChannelHandler) GetForwardingRules(w http.ResponseWriter, r *http.Reque
 
 	rules, err := h.svc.GetForwardingRules(r.Context(), userID, channelID)
 	if err != nil {
-		RespondError(w, r, http.StatusInternalServerError, "failed to get forwarding rules", err)
+		h.respondServerError(w, r, "failed to get forwarding rules", err)
 		return
 	}
 
@@ -622,6 +622,7 @@ func (h *ChannelHandler) SaveButtons(w http.ResponseWriter, r *http.Request) {
 
 		// Strictly validate button types to prevent injection
 		btnType := strings.ToLower(btn.Type)
+		buttons[i].Type = btnType
 		if btnType != "url" && btnType != "callback" && btnType != "share" && btnType != "webapp" && btnType != "payment" && btnType != "counter" {
 			RespondError(w, r, http.StatusBadRequest, "invalid button type: must be url, callback, share, webapp, payment, or counter", nil)
 			return

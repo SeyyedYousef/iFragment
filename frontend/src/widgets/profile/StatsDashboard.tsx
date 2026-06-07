@@ -23,17 +23,21 @@ const STAT_TEMPLATES: StatItemTemplate[] = [
 ];
 
 export const StatsDashboard: Component<Props> = (props) => {
-  const formatVal = (v: number) => {
+  const formatVal = (v: number | undefined | null) => {
+    const num = Number(v);
+    const validNum = isNaN(num) ? 0 : num;
+    const absNum = Math.abs(validNum);
     const isFa = locale() === 'fa';
-    if (v >= 1_000_000) {
-      const val = (v / 1_000_000).toFixed(1);
+    
+    if (absNum >= 1_000_000) {
+      const val = (validNum / 1_000_000).toFixed(1).replace(/\.0$/, '');
       return (isFa ? parseFloat(val).toLocaleString('fa-IR') : val) + (isFa ? ' میلیون' : 'M');
     }
-    if (v >= 1_000) {
-      const val = (v / 1_000).toFixed(1);
+    if (absNum >= 1_000) {
+      const val = (validNum / 1_000).toFixed(1).replace(/\.0$/, '');
       return (isFa ? parseFloat(val).toLocaleString('fa-IR') : val) + (isFa ? ' هزار' : 'K');
     }
-    return v.toLocaleString(isFa ? 'fa-IR' : 'en-US');
+    return validNum.toLocaleString(isFa ? 'fa-IR' : 'en-US');
   };
 
   return (

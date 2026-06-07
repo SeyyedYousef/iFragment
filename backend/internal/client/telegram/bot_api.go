@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math"
@@ -13,6 +14,11 @@ import (
 	"time"
 
 	"github.com/sony/gobreaker"
+)
+
+var (
+	ErrUnauthorized = errors.New("telegram api: unauthorized (invalid token)")
+	ErrNotFound     = errors.New("telegram api: not found (invalid token format or endpoint)")
 )
 
 type BotAPIClient struct {
@@ -81,13 +87,25 @@ type apiResponse struct {
 	} `json:"parameters,omitempty"`
 }
 
+type maskedError struct {
+	err   error
+	token string
+}
+
+func (m *maskedError) Error() string {
+	return strings.ReplaceAll(m.err.Error(), m.token, "xxxx_masked_token")
+}
+
+func (m *maskedError) Unwrap() error {
+	return m.err
+}
+
 func (c *BotAPIClient) maskTokenInError(err error) error {
 	if err == nil {
 		return nil
 	}
-	errStr := err.Error()
-	if c.token != "" && strings.Contains(errStr, c.token) {
-		return fmt.Errorf("%s", strings.ReplaceAll(errStr, c.token, "xxxx_masked_token"))
+	if c.token != "" && strings.Contains(err.Error(), c.token) {
+		return &maskedError{err: err, token: c.token}
 	}
 	return err
 }
@@ -136,7 +154,7 @@ func (c *BotAPIClient) doRequestWithRetry(ctx context.Context, method string, pa
 			if attempt < maxRetries-1 {
 				continue
 			}
-			return nil, c.maskTokenInError(fmt.Errorf("telegram api network error after %d attempts: %w", maxRetries, err))
+			return nil, fmt.Errorf("telegram api network error after %d attempts: %w", maxRetries, err)
 		}
 
 		var result apiResponse
@@ -178,6 +196,12 @@ func (c *BotAPIClient) doRequestWithRetry(ctx context.Context, method string, pa
 		}
 
 		// Non-retryable error (4xx except 429)
+		if result.ErrorCode == 401 {
+			return nil, fmt.Errorf("%w: %s", ErrUnauthorized, result.Description)
+		}
+		if result.ErrorCode == 404 {
+			return nil, fmt.Errorf("%w: %s", ErrNotFound, result.Description)
+		}
 		return nil, fmt.Errorf("telegram api error [%d]: %s", result.ErrorCode, result.Description)
 	}
 

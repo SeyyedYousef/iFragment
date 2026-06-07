@@ -1,9 +1,11 @@
 package middleware
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"ifragment-backend/internal/model"
@@ -76,8 +78,14 @@ func RequirePermission(p Permission) func(http.Handler) http.Handler {
 			}
 
 			role, _ := user["role"].(string)
+			tokenType, _ := user["token_type"].(string)
+			
 			if role == "" {
 				http.Error(w, "Forbidden: Role not assigned", http.StatusForbidden)
+				return
+			}
+			if tokenType != "owner" {
+				http.Error(w, "Forbidden: Owner token required", http.StatusForbidden)
 				return
 			}
 
@@ -191,9 +199,13 @@ func HoneypotMiddleware(repo *repository.OwnerRepo) func(http.Handler) http.Hand
 			// Check if they are actually an owner in the database
 			o, err := repo.GetOwnerRole(r.Context(), userID)
 			if err != nil {
-				slog.Error("Honeypot DB error checking owner role", "error", err)
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-				return
+				if strings.Contains(err.Error(), "no rows") {
+					o = nil
+				} else {
+					slog.Error("Honeypot DB error checking owner role", "error", err)
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					return
+				}
 			}
 			
 			if o != nil {
@@ -224,40 +236,32 @@ func HoneypotMiddleware(repo *repository.OwnerRepo) func(http.Handler) http.Hand
 
 			// Wrap Honeypot Ban and Logging inside a single atomic transaction to avoid data discrepancy
 			tx, txErr := repo.DB().Pool.Begin(r.Context())
-			if txErr == nil {
-				defer tx.Rollback(r.Context())
-				if err := repo.SetUserBanTx(r.Context(), tx, ban); err == nil {
-					payload, _ := json.Marshal(map[string]string{
-						"triggered_path": r.URL.Path,
-						"action":         "automated_24h_ban",
-					})
-					auditLog := &model.OwnerAuditLog{
-						OwnerID:      0, // Security System (stored as NULL via SetUserBan)
-						Action:       "honeypot_ban",
-						TargetUserID: &userID,
-						Payload:      payload,
-						IPAddress:    clientIP,
-						UserAgent:    r.UserAgent(),
-					}
-					if err := repo.LogOwnerAuditTx(r.Context(), tx, auditLog); err == nil {
-						_ = tx.Commit(r.Context())
-					}
-				}
-			} else {
-				// Fallback to non-tx if transaction failed to begin
-				_ = repo.SetUserBan(r.Context(), ban)
+			if txErr != nil {
+				slog.Error("Failed to begin transaction for honeypot", "error", txErr)
+				http.Error(w, "Forbidden", http.StatusForbidden)
+				return
+			}
+			defer tx.Rollback(context.Background())
+			if err := repo.SetUserBanTx(r.Context(), tx, ban); err == nil {
 				payload, _ := json.Marshal(map[string]string{
 					"triggered_path": r.URL.Path,
 					"action":         "automated_24h_ban",
 				})
-				_ = repo.LogOwnerAudit(r.Context(), &model.OwnerAuditLog{
-					OwnerID:      0,
+				auditLog := &model.OwnerAuditLog{
+					OwnerID:      0, // Security System (stored as NULL via SetUserBan)
 					Action:       "honeypot_ban",
 					TargetUserID: &userID,
 					Payload:      payload,
 					IPAddress:    clientIP,
 					UserAgent:    r.UserAgent(),
-				})
+				}
+				if err := repo.LogOwnerAuditTx(r.Context(), tx, auditLog); err == nil {
+					if commitErr := tx.Commit(context.Background()); commitErr != nil {
+						slog.Error("Failed to commit honeypot transaction", "error", commitErr)
+					}
+				} else {
+					slog.Error("Failed to log owner audit in honeypot", "error", err)
+				}
 			}
 
 			http.Error(w, "Forbidden: Security violation. Temporary 24-hour ban initiated.", http.StatusForbidden)
@@ -288,11 +292,25 @@ func UserBanCheckMiddleware(repo *repository.OwnerRepo) func(http.Handler) http.
 				userID = v
 			case float64:
 				userID = int64(v)
+			default:
+				http.Error(w, "Unauthorized: Invalid user ID format", http.StatusUnauthorized)
+				return
 			}
 
 			if userID != 0 {
 				ban, err := repo.GetUserBan(r.Context(), userID)
-				if err == nil && ban != nil {
+				if err != nil {
+					slog.Error("UserBanCheckMiddleware: Failed to check ban status", "error", err, "user_id", userID)
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					return
+				}
+				if ban != nil {
+					if ban.ExpiresAt != nil && time.Now().After(*ban.ExpiresAt) {
+						// Ban has expired, allow the request to proceed
+						next.ServeHTTP(w, r)
+						return
+					}
+
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusForbidden)
 					_ = json.NewEncoder(w).Encode(map[string]interface{}{

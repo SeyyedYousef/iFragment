@@ -56,9 +56,11 @@ export const ProfilePage: Component = () => {
     queryKey: ['profile', 'stats'],
     queryFn: async () => {
       const res = await getProfileStats();
-      try {
-        localStorage.setItem('cached_profile_stats', JSON.stringify(res));
-      } catch {}
+      if (res) {
+        try {
+          localStorage.setItem('cached_profile_stats', JSON.stringify(res));
+        } catch {}
+      }
       return res;
     },
     initialData: getCachedStats(),
@@ -70,9 +72,11 @@ export const ProfilePage: Component = () => {
     queryKey: ['profile', 'achievements'],
     queryFn: async () => {
       const res = await getProfileAchievements();
-      try {
-        localStorage.setItem('cached_profile_achievements', JSON.stringify(res));
-      } catch {}
+      if (res) {
+        try {
+          localStorage.setItem('cached_profile_achievements', JSON.stringify(res));
+        } catch {}
+      }
       return res;
     },
     initialData: getCachedAchievements(),
@@ -84,9 +88,11 @@ export const ProfilePage: Component = () => {
     queryKey: ['profile', 'referral'],
     queryFn: async () => {
       const res = await getReferralInfo();
-      try {
-        localStorage.setItem('cached_profile_referral', JSON.stringify(res));
-      } catch {}
+      if (res) {
+        try {
+          localStorage.setItem('cached_profile_referral', JSON.stringify(res));
+        } catch {}
+      }
       return res;
     },
     initialData: getCachedReferral(),
@@ -139,12 +145,21 @@ export const ProfilePage: Component = () => {
               <span class="text-[9px] text-[#a0a4ad] font-bold">{t('profile.addHomeDesc') || 'Fast access & claim +1,000 FRG reward!'}</span>
             </div>
           </div>
-          <button 
-            onClick={handleAddHome}
-            class="px-3.5 py-1.5 bg-[#3390ec] hover:bg-[#2b7ec9] text-[9px] font-black text-white rounded-xl uppercase tracking-wider transition-all"
-          >
-            {t('profile.addBtn') || 'Add'}
-          </button>
+          <div class="flex items-center gap-2">
+            <button 
+              onClick={handleAddHome}
+              class="px-3.5 py-1.5 bg-[#3390ec] hover:bg-[#2b7ec9] text-[9px] font-black text-white rounded-xl uppercase tracking-wider transition-all flex-shrink-0"
+            >
+              {t('profile.addBtn') || 'Add'}
+            </button>
+            <button 
+              onClick={() => setShowHomePrompt(false)}
+              class="w-6 h-6 flex items-center justify-center bg-black/20 hover:bg-black/40 rounded-full text-[#a0a4ad] transition-all flex-shrink-0"
+              aria-label="Dismiss"
+            >
+              <span class="material-symbols-outlined text-[14px]">close</span>
+            </button>
+          </div>
         </div>
       </Show>
 
@@ -160,6 +175,7 @@ export const ProfilePage: Component = () => {
             <div 
               onTouchStart={secretTrigger.onLogoPressStart}
               onTouchEnd={secretTrigger.onLogoPressEnd}
+              onTouchCancel={secretTrigger.onLogoPressEnd}
               onMouseDown={secretTrigger.onLogoPressStart}
               onMouseUp={secretTrigger.onLogoPressEnd}
               onMouseLeave={secretTrigger.onLogoPressEnd}
@@ -176,7 +192,10 @@ export const ProfilePage: Component = () => {
             <GamificationHub />
 
             {/* Achievements Preview */}
-            <div class="relative group cursor-pointer">
+            <div 
+              class="relative group cursor-pointer"
+              onClick={() => handleNavigate('/profile/achievements')}
+            >
               <Show 
                 when={!achievementsQuery.isLoading} 
                 fallback={
@@ -194,15 +213,17 @@ export const ProfilePage: Component = () => {
                 <AchievementPreview achievements={achievements()} />
               </Show>
               <button
-                onClick={() => handleNavigate('/profile/achievements')}
-                class="absolute top-9 end-10 w-8 h-8 rounded-full bg-[#0f1014]/40 border border-[#2a2a2a] flex items-center justify-center active:scale-95 transition-all"
+                class="absolute top-9 end-10 w-8 h-8 rounded-full bg-[#0f1014]/40 border border-[#2a2a2a] flex items-center justify-center group-active:scale-95 transition-all"
               >
                 <span class={`material-symbols-outlined text-[16px] text-white transition-transform ${isRtl() ? 'rotate-180' : ''}`}>chevron_right</span>
               </button>
             </div>
 
             {/* Referral Preview */}
-            <div class="relative group cursor-pointer">
+            <div 
+              class="relative group cursor-pointer"
+              onClick={() => handleNavigate('/profile/referral')}
+            >
               <Show 
                 when={!referralQuery.isLoading} 
                 fallback={
@@ -219,8 +240,7 @@ export const ProfilePage: Component = () => {
                 <ReferralPreview referral={referral()} />
               </Show>
               <button
-                onClick={() => handleNavigate('/profile/referral')}
-                class="absolute top-9 end-10 w-8 h-8 rounded-full bg-[#0f1014]/40 border border-[#2a2a2a] flex items-center justify-center active:scale-95 transition-all"
+                class="absolute top-9 end-10 w-8 h-8 rounded-full bg-[#0f1014]/40 border border-[#2a2a2a] flex items-center justify-center group-active:scale-95 transition-all"
               >
                 <span class={`material-symbols-outlined text-[16px] text-white transition-transform ${isRtl() ? 'rotate-180' : ''}`}>chevron_right</span>
               </button>

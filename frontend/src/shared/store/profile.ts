@@ -3,6 +3,7 @@
  * Uses localStorage for persistence (same pattern as airdrop store)
  */
 import { createSignal, createEffect, createRoot, onCleanup } from 'solid-js';
+import { z } from 'zod';
 
 // ─── Types ───
 export interface Achievement {
@@ -61,8 +62,6 @@ export interface ProfileSettings {
   biometricEnabled: boolean;
 }
 
-import { z } from 'zod';
-
 const ProfileSettingsSchema = z.object({
   notifications: z.object({
     mining: z.boolean(),
@@ -81,6 +80,7 @@ const STORAGE_VERSION = 2;
 
 // ─── Load State ───
 const loadProfileState = (): Partial<ProfileSettings> => {
+  if (typeof window === 'undefined' || !window.localStorage) return {};
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return {};
@@ -106,11 +106,12 @@ const loadProfileState = (): Partial<ProfileSettings> => {
 const saved = loadProfileState();
 
 const loadCachedPhotoUrl = (): string => {
+  if (typeof window === 'undefined' || !window.localStorage) return '';
   try {
     const raw = localStorage.getItem('cached_profile_stats');
     if (raw) {
       const parsed = JSON.parse(raw);
-      return parsed?.photoUrl || '';
+      return typeof parsed?.photoUrl === 'string' ? parsed.photoUrl : '';
     }
   } catch {}
   return '';
@@ -139,8 +140,23 @@ export const updateSetting = <K extends keyof ProfileSettings>(key: K, value: Pr
 export const updateNotification = (key: keyof ProfileSettings['notifications'], value: boolean) => {
   setProfileSettings(prev => ({
     ...prev,
-    notifications: { ...prev.notifications, [key]: value },
+    notifications: { ...(prev.notifications || {}), [key]: value },
   }));
+};
+
+export const resetProfileSettings = () => {
+  setProfileSettings({
+    notifications: {
+      mining: true,
+      referral: true,
+      community: true,
+      promotions: false,
+    },
+    hapticEnabled: true,
+    soundEnabled: true,
+    autoPlayAnimations: true,
+    biometricEnabled: false,
+  });
 };
 
 // ─── Levels ───
@@ -159,7 +175,8 @@ export const LEVELS = [
   { level: 12, title: 'Mythic', xpRequired: 200000 },
 ];
 
-export const getLevelInfo = (xp: number) => {
+export const getLevelInfo = (rawXp: number) => {
+  const xp = Number.isFinite(rawXp) && rawXp >= 0 ? rawXp : 0;
   let current = LEVELS[0];
   let next = LEVELS[1];
   for (let i = 0; i < LEVELS.length; i++) {
@@ -175,27 +192,27 @@ export const getLevelInfo = (xp: number) => {
 };
 
 // ─── Achievement Definitions ───
-export const ACHIEVEMENT_DEFS: Omit<Achievement, 'unlocked' | 'unlockedAt' | 'progress'>[] = [
-  { id: 'first_steps', category: 'onboarding', icon: '🐣', target: 1 },
-  { id: 'home_base', category: 'onboarding', icon: '🏠', target: 1 },
-  { id: 'tap_novice', category: 'mining', icon: '⛏️', target: 1000 },
-  { id: 'mining_machine', category: 'mining', icon: '🤖', target: 100000 },
-  { id: 'frg_millionaire', category: 'mining', icon: '💎', target: 1000000 },
-  { id: 'first_scan', category: 'analysis', icon: '🔬', target: 1 },
-  { id: 'whale_hunter', category: 'analysis', icon: '🐋', target: 100 },
-  { id: 'data_scientist', category: 'analysis', icon: '🧪', target: 500 },
-  { id: 'social_butterfly', category: 'social', icon: '🦋', target: 5 },
-  { id: 'army_builder', category: 'social', icon: '🪖', target: 50 },
-  { id: 'network_king', category: 'social', icon: '👑', target: 200 },
-  { id: 'group_guardian', category: 'management', icon: '🛡️', target: 1 },
-  { id: 'channel_commander', category: 'management', icon: '📡', target: 1 },
-  { id: 'empire_builder', category: 'management', icon: '🏰', target: 10 },
-  { id: 'week_warrior', category: 'streaks', icon: '🗓️', target: 7 },
-  { id: 'month_master', category: 'streaks', icon: '📅', target: 30 },
-  { id: 'legendary', category: 'streaks', icon: '🌟', target: 100 },
-  { id: 'early_adopter', category: 'special', icon: '🎖️', target: 1 },
-  { id: 'premium_user', category: 'special', icon: '💫', target: 1 },
-  { id: 'bug_hunter', category: 'special', icon: '🐛', target: 1 },
+export const ACHIEVEMENT_DEFS: Omit<Achievement, 'unlocked' | 'unlockedAt' | 'progress' | 'target'>[] = [
+  { id: 'first_steps', category: 'onboarding', icon: '🐣' },
+  { id: 'home_base', category: 'onboarding', icon: '🏠' },
+  { id: 'tap_novice', category: 'mining', icon: '⛏️' },
+  { id: 'mining_machine', category: 'mining', icon: '🤖' },
+  { id: 'frg_millionaire', category: 'mining', icon: '💎' },
+  { id: 'first_scan', category: 'analysis', icon: '🔬' },
+  { id: 'whale_hunter', category: 'analysis', icon: '🐋' },
+  { id: 'data_scientist', category: 'analysis', icon: '🧪' },
+  { id: 'social_butterfly', category: 'social', icon: '🦋' },
+  { id: 'army_builder', category: 'social', icon: '🪖' },
+  { id: 'network_king', category: 'social', icon: '👑' },
+  { id: 'group_guardian', category: 'management', icon: '🛡️' },
+  { id: 'channel_commander', category: 'management', icon: '📡' },
+  { id: 'empire_builder', category: 'management', icon: '🏰' },
+  { id: 'week_warrior', category: 'streaks', icon: '🗓️' },
+  { id: 'month_master', category: 'streaks', icon: '📅' },
+  { id: 'legendary', category: 'streaks', icon: '🌟' },
+  { id: 'early_adopter', category: 'special', icon: '🎖️' },
+  { id: 'premium_user', category: 'special', icon: '💫' },
+  { id: 'bug_hunter', category: 'special', icon: '🐛' },
 ];
 
 // ─── Persist Settings ───
@@ -205,20 +222,32 @@ export const initProfileSync = () => {
   if (_disposeFn) return _disposeFn; // idempotent
   _disposeFn = createRoot(dispose => {
     let saveTimer: ReturnType<typeof setTimeout> | null = null;
+    
+    const flushSave = (state: ProfileSettings) => {
+      if (typeof window === 'undefined' || !window.localStorage) return;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ _v: STORAGE_VERSION, data: state }));
+      } catch (e) {
+        console.warn('localStorage write failed', e);
+      }
+    };
+
     createEffect(() => {
       const state = profileSettings();
       if (saveTimer) clearTimeout(saveTimer);
       saveTimer = setTimeout(() => {
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify({ _v: STORAGE_VERSION, data: state }));
-        } catch (e) {
-          console.warn('localStorage write failed', e);
-        }
+        flushSave(state);
+        saveTimer = null;
       }, 500);
     });
+
     onCleanup(() => {
-      if (saveTimer) clearTimeout(saveTimer);
+      if (saveTimer) {
+        clearTimeout(saveTimer);
+        flushSave(profileSettings());
+      }
     });
+
     return dispose;
   });
   return _disposeFn;

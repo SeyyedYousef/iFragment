@@ -1,4 +1,4 @@
-import { Component, Show, createSignal } from 'solid-js';
+import { Component, Show, createSignal, createEffect } from 'solid-js';
 import { initData, hapticFeedback } from '@tma.js/sdk-solid';
 import { Motion } from '@motionone/solid';
 import { t, locale, setLocale, formatNumber } from '@/shared/i18n/index.js';
@@ -26,6 +26,13 @@ export const IdentityHero: Component<Props> = (props) => {
   const user = initData.user();
   const [copied, setCopied] = createSignal<string | null>(null);
   const [langOpen, setLangOpen] = createSignal(false);
+  const [imgError, setImgError] = createSignal(false);
+
+  createEffect(() => {
+    // Reset error state when avatarUrl changes
+    avatarUrl();
+    setImgError(false);
+  });
 
   const levelInfo = () => props.stats ? getLevelInfo(props.stats.xp) : null;
 
@@ -124,7 +131,7 @@ export const IdentityHero: Component<Props> = (props) => {
             animation: 'spin 4s linear infinite',
           } : undefined}>
             <div class="w-full h-full rounded-full bg-[#0f1014] p-[3px]">
-              <Show when={avatarUrl()} fallback={
+              <Show when={avatarUrl() && !imgError()} fallback={
                 <div class="w-full h-full rounded-full flex items-center justify-center bg-gradient-to-br from-[#3390ec] to-[#34c759] text-white font-black text-3xl">
                   {user?.first_name ? user.first_name[0].toUpperCase() : 'U'}
                 </div>
@@ -135,16 +142,8 @@ export const IdentityHero: Component<Props> = (props) => {
                   class="w-full h-full rounded-full object-cover" 
                   loading="lazy"
                   referrerPolicy="no-referrer"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                    if (e.currentTarget.nextElementSibling) {
-                      (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
-                    }
-                  }}
+                  onError={() => setImgError(true)}
                 />
-                <div class="w-full h-full rounded-full hidden items-center justify-center bg-gradient-to-br from-[#3390ec] to-[#34c759] text-white font-black text-3xl">
-                  {user?.first_name ? user.first_name[0].toUpperCase() : 'U'}
-                </div>
               </Show>
             </div>
           </div>

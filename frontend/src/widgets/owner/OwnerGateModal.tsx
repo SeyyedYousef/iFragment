@@ -57,10 +57,48 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
         setPin(newPin);
       }
       e.preventDefault();
+    } else if (e.key === 'ArrowLeft' && index > 0) {
+      inputRefs[index - 1].focus();
+      e.preventDefault();
+    } else if (e.key === 'ArrowRight' && index < 5) {
+      inputRefs[index + 1].focus();
+      e.preventDefault();
+    } else if (e.key === 'Enter') {
+      if (pin().every(slot => slot !== '')) {
+        handleSubmit();
+      }
+    }
+  };
+
+  const handlePaste = (e: ClipboardEvent) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData?.getData('text');
+    if (!pastedData) return;
+
+    const digits = pastedData.replace(/\D/g, '').split('').slice(0, 6);
+    if (digits.length === 0) return;
+
+    const newPin = [...pin()];
+    for (let i = 0; i < digits.length; i++) {
+      newPin[i] = digits[i];
+    }
+    setPin(newPin);
+
+    // Focus appropriate input
+    const nextIndex = Math.min(digits.length, 5);
+    if (inputRefs[nextIndex]) {
+      inputRefs[nextIndex].focus();
+    } else if (inputRefs[5]) {
+      inputRefs[5].focus();
+    }
+
+    if (newPin.every(slot => slot !== '')) {
+      handleSubmit();
     }
   };
 
   const handleSubmit = async () => {
+    if (loading()) return;
     setErrorMsg('');
     setLoading(true);
     try { hapticFeedback.impactOccurred('medium'); } catch {}
@@ -68,19 +106,14 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
     const totpCode = pin().join('');
     
     // Get Telegram InitData securely
-    let tgUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
-    let initData = (window as any).Telegram?.WebApp?.initData;
+    let tgUser = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp?.initDataUnsafe?.user : undefined;
+    let initData = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp?.initData : undefined;
     try {
       const lp = retrieveLaunchParams();
-      initData = lp.initDataRaw || initData;
-      tgUser = (lp.initData as any)?.user || tgUser;
+      if (lp.initDataRaw) initData = lp.initDataRaw;
+      if (lp.initData?.user) tgUser = lp.initData.user;
     } catch (e) {
       // ignore
-    }
-
-    // Support dev environment bypass for local testing velocity
-    if (!initData && import.meta.env.DEV) {
-      initData = "dev-user";
     }
 
     if (!initData) {
@@ -102,8 +135,6 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
         sessionStorage.setItem('owner_token', token);
         if (tgUser?.id) {
           sessionStorage.setItem('owner_telegram_id', String(tgUser.id));
-        } else if (import.meta.env.DEV) {
-          sessionStorage.setItem('owner_telegram_id', '12345');
         }
         
         props.onClose();
@@ -165,6 +196,7 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
                     ref={(el) => (inputRefs[index()] = el)}
                     onInput={(e) => handleInput(e.currentTarget.value, index())}
                     onKeyDown={(e) => handleKeyDown(e, index())}
+                    onPaste={handlePaste}
                     class="w-12 h-14 bg-[#0f1014] border border-[#2a2c35] focus:border-[#3390ec] text-white text-xl font-bold text-center rounded-2xl shadow-inner focus:outline-none transition-all"
                     disabled={loading()}
                   />

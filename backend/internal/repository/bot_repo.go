@@ -60,6 +60,10 @@ func NewBotRepo(db *Database) *BotRepo {
 }
 
 func (r *BotRepo) CreateBot(ctx context.Context, bot *ManagedBot) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("no database connection")
+	}
+
 	query := `INSERT INTO managed_bots (owner_user_id, bot_token_encrypted, bot_username, bot_name, bot_id, status, webhook_secret_token)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id, created_at, updated_at`
@@ -70,21 +74,7 @@ func (r *BotRepo) CreateBot(ctx context.Context, bot *ManagedBot) error {
 
 func (r *BotRepo) GetBotsByOwner(ctx context.Context, ownerID int64) ([]ManagedBot, error) {
 	if r.db == nil || r.db.Pool == nil {
-		return []ManagedBot{
-			{
-				ID: uuid.New(),
-				OwnerUserID: ownerID,
-				BotUsername: "mocked_bot",
-				BotName: "Mocked Bot",
-				BotID: 123456789,
-				Status: "active",
-				CreatedAt: time.Now(),
-				UpdatedAt: time.Now(),
-				ManagedGroupsCount: 2,
-				SubscriptionStatus: "pro",
-				WebhookSecretToken: "mock_webhook_secret",
-			},
-		}, nil
+		return nil, fmt.Errorf("no database connection")
 	}
 
 	query := `SELECT b.id, b.owner_user_id, b.bot_username, b.bot_name, b.bot_id, b.status, b.created_at, b.updated_at, b.webhook_secret_token,
@@ -137,20 +127,7 @@ func (r *BotRepo) GetBotsByOwner(ctx context.Context, ownerID int64) ([]ManagedB
 
 func (r *BotRepo) GetBotByID(ctx context.Context, id uuid.UUID) (*ManagedBot, error) {
 	if r.db == nil || r.db.Pool == nil {
-		return &ManagedBot{
-			ID:                 id,
-			OwnerUserID:        12345,
-			BotTokenEncrypted:  []byte("mock_token"),
-			BotUsername:        "mock_bot",
-			BotName:            "Mock Bot",
-			BotID:              987654321,
-			Status:             "active",
-			CreatedAt:          time.Now(),
-			UpdatedAt:          time.Now(),
-			ManagedGroupsCount: 0,
-			SubscriptionStatus: "free",
-			WebhookSecretToken: "mock_webhook_secret",
-		}, nil
+		return nil, fmt.Errorf("no database connection")
 	}
 
 	query := `SELECT b.id, b.owner_user_id, b.bot_token_encrypted, b.bot_username, b.bot_name, b.bot_id, b.status, b.created_at, b.updated_at, b.webhook_secret_token,
@@ -190,12 +167,20 @@ func (r *BotRepo) GetBotByID(ctx context.Context, id uuid.UUID) (*ManagedBot, er
 }
 
 func (r *BotRepo) UpdateBotStatus(ctx context.Context, id uuid.UUID, status string) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("no database connection")
+	}
+
 	query := `UPDATE managed_bots SET status = $1, updated_at = now() WHERE id = $2`
 	_, err := r.db.Pool.Exec(ctx, query, status, id)
 	return err
 }
 
 func (r *BotRepo) DeleteBot(ctx context.Context, id uuid.UUID) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("no database connection")
+	}
+
 	query := `DELETE FROM managed_bots WHERE id = $1`
 	_, err := r.db.Pool.Exec(ctx, query, id)
 	return err
@@ -204,33 +189,22 @@ func (r *BotRepo) DeleteBot(ctx context.Context, id uuid.UUID) error {
 // Groups
 
 func (r *BotRepo) CreateGroup(ctx context.Context, group *ManagedGroup) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("no database connection")
+	}
+
 	query := `INSERT INTO managed_groups (bot_id, chat_id, chat_title, chat_type, members_count, subscription_status, trial_ends_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (bot_id, chat_id) DO UPDATE SET chat_title = EXCLUDED.chat_title, members_count = EXCLUDED.members_count, updated_at = now()
-		RETURNING id, created_at, updated_at, trial_ends_at`
+		RETURNING id, subscription_status, trial_ends_at, paid_until, created_at, updated_at`
 	return r.db.Pool.QueryRow(ctx, query,
 		group.BotID, group.ChatID, group.ChatTitle, group.ChatType, group.MembersCount, group.SubscriptionStatus, group.TrialEndsAt,
-	).Scan(&group.ID, &group.CreatedAt, &group.UpdatedAt, &group.TrialEndsAt)
+	).Scan(&group.ID, &group.SubscriptionStatus, &group.TrialEndsAt, &group.PaidUntil, &group.CreatedAt, &group.UpdatedAt)
 }
 
 func (r *BotRepo) GetGroupsByBot(ctx context.Context, botID uuid.UUID) ([]ManagedGroup, error) {
 	if r.db == nil || r.db.Pool == nil {
-		pu := time.Now().Add(30 * 24 * time.Hour)
-		return []ManagedGroup{
-			{
-				ID: uuid.New(),
-				BotID: botID,
-				ChatID: -100123456,
-				ChatTitle: "Mocked Group",
-				ChatType: "supergroup",
-				MembersCount: 42,
-				SubscriptionStatus: "trial",
-				TrialEndsAt: time.Now().Add(72 * time.Hour),
-				PaidUntil: &pu,
-				CreatedAt: time.Now(),
-				UpdatedAt: time.Now(),
-			},
-		}, nil
+		return nil, fmt.Errorf("no database connection")
 	}
 
 	query := `SELECT id, bot_id, chat_id, chat_title, chat_type, members_count, subscription_status, trial_ends_at, paid_until, created_at, updated_at
@@ -258,20 +232,7 @@ func (r *BotRepo) GetGroupsByBot(ctx context.Context, botID uuid.UUID) ([]Manage
 
 func (r *BotRepo) GetGroupByID(ctx context.Context, id uuid.UUID) (*ManagedGroup, error) {
 	if r.db == nil || r.db.Pool == nil {
-		pu := time.Now().Add(30 * 24 * time.Hour)
-		return &ManagedGroup{
-			ID: id,
-			BotID: uuid.New(),
-			ChatID: -100123456,
-			ChatTitle: "Mocked Group",
-			ChatType: "supergroup",
-			MembersCount: 42,
-			SubscriptionStatus: "trial",
-			TrialEndsAt: time.Now().Add(72 * time.Hour),
-			PaidUntil: &pu,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		}, nil
+		return nil, fmt.Errorf("no database connection")
 	}
 
 	query := `SELECT id, bot_id, chat_id, chat_title, chat_type, members_count, subscription_status, trial_ends_at, paid_until, created_at, updated_at
@@ -289,7 +250,7 @@ func (r *BotRepo) GetGroupByID(ctx context.Context, id uuid.UUID) (*ManagedGroup
 
 func (r *BotRepo) UpdateGroupSubscription(ctx context.Context, groupID uuid.UUID, status string, paidUntil *time.Time) error {
 	if r.db == nil || r.db.Pool == nil {
-		return nil
+		return fmt.Errorf("no database connection")
 	}
 
 	tx, err := r.db.Pool.Begin(ctx)
@@ -315,7 +276,7 @@ func (r *BotRepo) UpdateGroupSubscription(ctx context.Context, groupID uuid.UUID
 
 func (r *BotRepo) CreateBillingSubscription(ctx context.Context, sub *BillingSubscription) error {
 	if r.db == nil || r.db.Pool == nil {
-		return nil
+		return fmt.Errorf("no database connection")
 	}
 
 	tx, err := r.db.Pool.Begin(ctx)
@@ -333,22 +294,23 @@ func (r *BotRepo) CreateBillingSubscription(ctx context.Context, sub *BillingSub
 	query2 := `
 		INSERT INTO billing_subscriptions (user_id, group_id, package_id, groups_limit, amount_frg, period, status, starts_at, expires_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		RETURNING id
 	`
-	if _, err := tx.Exec(ctx, query2, sub.UserID, sub.GroupID, sub.PackageID, sub.GroupsLimit, sub.AmountFRG, sub.Period, sub.Status, sub.StartsAt, sub.ExpiresAt); err != nil {
+	if err := tx.QueryRow(ctx, query2, sub.UserID, sub.GroupID, sub.PackageID, sub.GroupsLimit, sub.AmountFRG, sub.Period, sub.Status, sub.StartsAt, sub.ExpiresAt).Scan(&sub.ID); err != nil {
 		return err
 	}
 
 	return tx.Commit(ctx)
 }
 
-func (r *BotRepo) GetGroupByChatID(ctx context.Context, chatID int64) (*ManagedGroup, error) {
+func (r *BotRepo) GetGroup(ctx context.Context, botID uuid.UUID, chatID int64) (*ManagedGroup, error) {
 	if r.db == nil || r.db.Pool == nil {
 		return nil, fmt.Errorf("no database connection")
 	}
 	query := `SELECT id, bot_id, chat_id, chat_title, chat_type, members_count, subscription_status, trial_ends_at, paid_until, created_at, updated_at
-		FROM managed_groups WHERE chat_id = $1`
+		FROM managed_groups WHERE bot_id = $1 AND chat_id = $2`
 	var g ManagedGroup
-	err := r.db.Pool.QueryRow(ctx, query, chatID).Scan(
+	err := r.db.Pool.QueryRow(ctx, query, botID, chatID).Scan(
 		&g.ID, &g.BotID, &g.ChatID, &g.ChatTitle, &g.ChatType, &g.MembersCount,
 		&g.SubscriptionStatus, &g.TrialEndsAt, &g.PaidUntil, &g.CreatedAt, &g.UpdatedAt,
 	)
@@ -358,27 +320,11 @@ func (r *BotRepo) GetGroupByChatID(ctx context.Context, chatID int64) (*ManagedG
 	return &g, err
 }
 
-func (r *BotRepo) GetBotByChatID(ctx context.Context, chatID int64) (*ManagedBot, error) {
-	if r.db == nil || r.db.Pool == nil {
-		return nil, fmt.Errorf("no database connection")
-	}
-	query := `SELECT b.id, b.owner_user_id, b.bot_token_encrypted, b.bot_username, b.bot_name, b.bot_id, b.status, b.created_at, b.updated_at, b.webhook_secret_token
-		FROM managed_bots b
-		JOIN managed_groups g ON g.bot_id = b.id
-		WHERE g.chat_id = $1`
-	var b ManagedBot
-	err := r.db.Pool.QueryRow(ctx, query, chatID).Scan(
-		&b.ID, &b.OwnerUserID, &b.BotTokenEncrypted, &b.BotUsername, &b.BotName, &b.BotID, &b.Status, &b.CreatedAt, &b.UpdatedAt, &b.WebhookSecretToken,
-	)
-	if err == pgx.ErrNoRows {
-		return nil, fmt.Errorf("bot not found for group")
-	}
-	return &b, err
-}
+
 
 func (r *BotRepo) GetAllActiveGroups(ctx context.Context) ([]ManagedGroup, error) {
 	if r.db == nil || r.db.Pool == nil {
-		return nil, nil
+		return nil, fmt.Errorf("no database connection")
 	}
 	query := `SELECT id, bot_id, chat_id, chat_title, chat_type, members_count, subscription_status, trial_ends_at, paid_until, created_at, updated_at
 		FROM managed_groups`
@@ -396,7 +342,7 @@ func (r *BotRepo) GetAllActiveGroups(ctx context.Context) ([]ManagedGroup, error
 			&g.SubscriptionStatus, &g.TrialEndsAt, &g.PaidUntil, &g.CreatedAt, &g.UpdatedAt,
 		)
 		if err != nil {
-			continue
+			return nil, err
 		}
 		groups = append(groups, g)
 	}

@@ -3,8 +3,10 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"ifragment-backend/internal/client/fragment"
@@ -12,10 +14,22 @@ import (
 	"ifragment-backend/internal/service/username"
 )
 
+type mockRoundTripper struct{}
+
+func (m mockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(`<div class="tm-section-buy"></div>`)),
+		Header:     make(http.Header),
+	}, nil
+}
+
 func TestCheckAvailability(t *testing.T) {
 	// Setup dependencies
 	mockMTProto := mtproto.NewMockClient()
-	fragClient := fragment.NewClient() // Using real/mock fragment
+	fragClient := fragment.NewClient()
+	fragClient.HTTP.Transport = mockRoundTripper{} // Prevent network requests
+
 	aggService := username.NewAggregatorService(nil, nil, nil)
 	reportService := username.NewReportService(context.Background(), nil, nil, nil, nil, nil, mockMTProto)
 
@@ -45,10 +59,8 @@ func TestCheckAvailability(t *testing.T) {
 	w = httptest.NewRecorder()
 	h.CheckAvailability(w, req)
 
-	// Note: It might return 500 if Fragment scraping fails due to network,
-	// but the handler logic paths should be tested. We just ensure it doesn't crash here.
-	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
-		t.Errorf("Unexpected status code %d", w.Code)
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected 200 OK, got %d", w.Code)
 	}
 }
 

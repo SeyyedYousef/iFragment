@@ -1,4 +1,4 @@
-import { Component, createSignal, createResource, createMemo, createEffect, onCleanup, onMount, Show, For } from 'solid-js';
+import { Component, createSignal, createResource, createEffect, onCleanup, onMount, Show, For } from 'solid-js';
 import { useParams, useNavigate } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Motion } from '@motionone/solid';
@@ -42,6 +42,8 @@ export const ChannelForwardingPage: Component = () => {
     text: true, photos: true, videos: true, files: true, voice: true
   });
   
+  const [inboundWebhookUrl] = createSignal(`${import.meta.env.VITE_API_URL || 'https://api.ifragment.app'}/wh/${params.id}/${Math.random().toString(36).substring(2, 15)}`);
+  
   // Advanced Options State
   const [showAdvanced, setShowAdvanced] = createSignal(false);
   const [removeAds, setRemoveAds] = createSignal(false);
@@ -52,16 +54,14 @@ export const ChannelForwardingPage: Component = () => {
   
   const [rules, setRules] = createSignal<ForwardRule[]>([]);
 
-  const [isSaving, setIsSaving] = createSignal(false);
-
-  const [settings] = createResource(
-    () => params.id,
-    (id) => channelApi.getSettings(id)
-  );
-
   const [rulesData, { refetch: refetchRules }] = createResource(
     () => params.id,
     (id) => channelApi.getForwardingRules(id)
+  );
+
+  const [logsData] = createResource(
+    () => params.id,
+    (id) => channelApi.getForwardingLogs(id)
   );
 
   createEffect(() => {
@@ -78,91 +78,16 @@ export const ChannelForwardingPage: Component = () => {
     }
   });
 
-  createEffect(() => {
-    const data = settings();
-    if (data) {
-      try {
-        let fwd = data.forwarding;
-        if (typeof fwd === 'string') {
-          fwd = JSON.parse(fwd);
-        }
-        if (fwd && typeof fwd === 'object') {
-          if ('contentTypes' in fwd) setContentTypes(fwd.contentTypes);
-          if ('removeAds' in fwd) setRemoveAds(fwd.removeAds);
-          if ('removeHashtags' in fwd) setRemoveHashtags(fwd.removeHashtags);
-          if ('removeLinks' in fwd) setRemoveLinks(fwd.removeLinks);
-          if ('watermark' in fwd) setWatermark(fwd.watermark);
-          if ('delay' in fwd) setDelay(fwd.delay);
-        }
-      } catch (e) {
-        console.error("Failed to parse forwarding settings:", e);
-      }
-    }
-  });
-
-  const isDirty = createMemo(() => {
-    const data = settings();
-    if (!data) return false;
-
-    let originalFwd: any = {};
-    try {
-      originalFwd = typeof data.forwarding === 'string' ? JSON.parse(data.forwarding) : data.forwarding;
-    } catch (e) { originalFwd = {}; }
-
-    const currentPayload = {
-      contentTypes: contentTypes(),
-      removeAds: removeAds(),
-      removeHashtags: removeHashtags(),
-      removeLinks: removeLinks(),
-      watermark: watermark(),
-      delay: delay(),
-    };
-
-    return JSON.stringify(currentPayload) !== JSON.stringify({
-      contentTypes: originalFwd?.contentTypes || { text: true, photos: true, videos: true, files: true, voice: true },
-      removeAds: !!originalFwd?.removeAds,
-      removeHashtags: !!originalFwd?.removeHashtags,
-      removeLinks: !!originalFwd?.removeLinks,
-      watermark: originalFwd?.watermark || '',
-      delay: originalFwd?.delay || '',
-    });
-  });
-
-  const handleSave = async () => {
-    hapticFeedback.notificationOccurred('success');
-    setIsSaving(true);
-    
-    const currentVersion = settings()?.version ?? 1;
-    const payload = {
-      contentTypes: contentTypes(),
-      removeAds: removeAds(),
-      removeHashtags: removeHashtags(),
-      removeLinks: removeLinks(),
-      watermark: watermark(),
-      delay: delay(),
-    };
-
-    try {
-      await channelApi.updateSettings(params.id, 'forwarding', payload, currentVersion);
-      navigate(`/channel/${params.id}`);
-    } catch (e: any) {
-      console.error("Failed to save forwarding settings:", e);
-      if (e?.status === 409) {
-        showToast(t('common.errorVersionMismatch') || 'Settings have been updated by another administrator. Please try again.', 'error');
-      } else {
-        showToast(t('channelPosting.failedToSaveSettings') || 'Failed to save forwarding settings', 'error');
-      }
-      navigate(`/channel/${params.id}`);
-    } finally {
-      setIsSaving(false);
-    }
+  const forwardLog = () => {
+    const logs = logsData();
+    if (!logs || !Array.isArray(logs)) return [];
+    return logs.map((l: any, idx: number) => ({
+      id: l.id || idx,
+      text: l.message || l.text || (t('channelForwarding.logReceived') || 'Forwarded successfully'),
+      time: l.created_at ? new Date(l.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
+      status: l.status || 'success'
+    }));
   };
-
-  // Mock Forward Log
-  const forwardLog = () => [
-    { id: 1, text: t('channelForwarding.logCopied').replace('{id}', '402').replace('{target}', '@backup_ch'), time: '10:42 AM', status: 'success' },
-    { id: 2, text: t('channelForwarding.logReceived'), time: 'Yesterday', status: 'success' },
-  ];
 
   const getLocalizedMode = (mode: string) => {
     if (mode === 'forward') return t('channelForwarding.modeForwardLabel') || 'Forward';
@@ -189,20 +114,18 @@ export const ChannelForwardingPage: Component = () => {
     onCleanup(() => off());
   });
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     if (!targetChat().trim()) return;
     hapticFeedback.impactOccurred('medium');
     setIsVerified(null);
-    setTimeout(() => {
-      // Mock verify
-      if (targetChat().length > 3) {
-        setIsVerified(true);
-        hapticFeedback.notificationOccurred('success');
-      } else {
-        setIsVerified(false);
-        hapticFeedback.notificationOccurred('error');
-      }
-    }, 800);
+    try {
+      await channelApi.verifyForwardingTarget(params.id, targetChat());
+      setIsVerified(true);
+      hapticFeedback.notificationOccurred('success');
+    } catch (err) {
+      setIsVerified(false);
+      hapticFeedback.notificationOccurred('error');
+    }
   };
 
   const handleSaveRule = async () => {
@@ -211,7 +134,7 @@ export const ChannelForwardingPage: Component = () => {
 
     if (targetType() === 'webhook') {
        if (direction() === 'inbound') {
-         finalTarget = 'Incoming Webhook';
+         finalTarget = inboundWebhookUrl();
          isReadyToSave = true;
        } else if (finalTarget.trim() && isVerified() === true) {
          isReadyToSave = true;
@@ -391,7 +314,8 @@ export const ChannelForwardingPage: Component = () => {
             </Show>
 
             {/* Forward Log */}
-             <div class="mt-6 flex flex-col gap-3">
+            <Show when={forwardLog().length > 0}>
+              <div class="mt-6 flex flex-col gap-3">
                 <h2 class="text-[16px] font-bold text-white flex items-center gap-2">
                    <span class="material-symbols-outlined text-[#8e8e93]">history</span>
                    {t('channelForwarding.recentActivity')}
@@ -409,7 +333,8 @@ export const ChannelForwardingPage: Component = () => {
                       )}
                    </For>
                 </div>
-             </div>
+              </div>
+            </Show>
 
            </Motion.div>
          </Show>
@@ -554,14 +479,15 @@ export const ChannelForwardingPage: Component = () => {
                    <div class="flex gap-2">
                       <input 
                         type="text" 
-                        value={`${import.meta.env.VITE_API_URL || 'https://api.ifragment.app'}/wh/${params.id}/in_${Date.now().toString().slice(-6)}`} 
+                        value={inboundWebhookUrl()} 
                         readonly
                         class="bg-[#2c2c2e] text-[#8e8e93] text-[13px] rounded-xl px-4 py-3 w-full focus:outline-none"
                       />
                       <button 
                         onClick={() => {
                            hapticFeedback.selectionChanged();
-                           // mock copy
+                           navigator.clipboard.writeText(inboundWebhookUrl());
+                           showToast('Copied to clipboard', 'success');
                         }}
                         class="w-[48px] shrink-0 bg-[#2c2c2e] hover:bg-[#3a3a3c] text-white rounded-xl flex items-center justify-center transition-colors"
                       >
@@ -735,29 +661,7 @@ export const ChannelForwardingPage: Component = () => {
          </Show>
       </div>
 
-      {/* Footer Actions (Save button fixed bar) */}
-      <Show when={isDirty()}>
-        <div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#0f1014] via-[#0f1014]/90 to-transparent z-40 flex gap-3">
-          <button 
-            onClick={() => navigate(`/channel/${params.id}`)}
-            disabled={isSaving()}
-            class="flex-1 h-14 bg-[#1c1c1c] text-[#ff3b30] border border-[#ff3b30]/20 rounded-2xl font-bold text-[15px] transition-all flex items-center justify-center gap-2 hover:bg-[#ff3b30]/10"
-          >
-            {t('common.cancel') || 'Cancel'}
-            <span class="material-symbols-outlined text-[18px]">close</span>
-          </button>
-          <button 
-            onClick={handleSave}
-            disabled={isSaving()}
-            class="flex-[2] h-14 bg-[#32ade6] hover:bg-[#2b96c8] text-black rounded-2xl font-bold text-[16px] shadow-[0_10px_25px_rgba(50,173,230,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-40"
-          >
-            <Show when={!isSaving()} fallback={<span class="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin"></span>}>
-              {t('common.save') || 'Save Changes'}
-              <span class="material-symbols-outlined text-[20px]">save</span>
-            </Show>
-          </button>
-        </div>
-      </Show>
+
     </div>
   );
 };

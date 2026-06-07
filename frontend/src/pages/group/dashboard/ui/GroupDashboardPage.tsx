@@ -55,15 +55,15 @@ export const GroupDashboardPage: Component = () => {
   });
 
   const toggleGroupLock = async () => {
-    if (isLocking()) return;
+    if (isLocking() || !settings()) return;
     const current = isGroupLocked();
     hapticFeedback.impactOccurred('medium');
     setIsLocking(true);
     try {
       const qh = { ...(settings()?.quiet_hours as any || {}), emergencyLock: !current };
       const res = await groupApi.updateSettings(params.id, 'quiet_hours', qh, settingsVersion());
-      setSettingsVersion(res.version);
-      mutate(res); // Update local cache
+      if (res?.version) setSettingsVersion(res.version);
+      mutate((prev: any) => prev ? { ...prev, quiet_hours: qh } : { quiet_hours: qh }); // Safely update local cache
       hapticFeedback.notificationOccurred('success');
     } catch (e) {
       hapticFeedback.notificationOccurred('error');
@@ -81,9 +81,9 @@ export const GroupDashboardPage: Component = () => {
 
   const healthScore = () => {
     const data = analytics();
-    if (!data) return 98;
-    const spam = data.summary.spam_blocked;
-    const total = data.summary.total_messages;
+    if (!data || !data.summary) return 100;
+    const spam = data.summary.spam_blocked || 0;
+    const total = data.summary.total_messages || 0;
     if (total === 0) return 100;
     return Math.max(0, Math.round(100 - (spam / total * 100)));
   };
@@ -94,6 +94,13 @@ export const GroupDashboardPage: Component = () => {
     if (score >= 70) return 'Safe';
     if (score >= 50) return 'Needs Attention';
     return 'Critical';
+  };
+
+  const healthColorClass = () => {
+    const score = healthScore();
+    if (score >= 90) return 'text-[#34c759]';
+    if (score >= 70) return 'text-[#ffcc00]';
+    return 'text-[#ff3b30]';
   };
 
   return (
@@ -116,9 +123,11 @@ export const GroupDashboardPage: Component = () => {
               {group.loading ? '...' : group()?.chat_title || 'Group Dashboard'}
             </h1>
             <span class={`text-[9px] font-bold uppercase tracking-wider ${
-              group()?.subscription_status === 'paid' ? 'text-[#34c759]' : group()?.subscription_status === 'trial' ? 'text-[#ffcc00]' : 'text-[#ff3b30]'
+              group.loading ? 'text-[#8e8e93]' :
+              group()?.subscription_status === 'paid' ? 'text-[#34c759]' : 
+              group()?.subscription_status === 'trial' ? 'text-[#ffcc00]' : 'text-[#ff3b30]'
             }`}>
-              {group()?.subscription_status || 'LOADING'}
+              {group.loading ? 'LOADING' : group()?.subscription_status}
             </span>
           </div>
         </div>
@@ -165,19 +174,19 @@ export const GroupDashboardPage: Component = () => {
         {/* Status Indicators */}
         <div class="grid grid-cols-3 gap-3">
           <div class="bg-[#1c1c1c] rounded-2xl border border-[#2a2a2a] p-3 flex flex-col items-center gap-1">
-            <span class="material-symbols-outlined text-[#34c759] text-[18px]">cloud_done</span>
-            <span class="text-[10px] text-[#8e8e93] font-medium uppercase tracking-wider">Webhook</span>
-            <span class="text-[12px] font-bold text-white">Active</span>
+            <span class="material-symbols-outlined text-[#34c759] text-[18px]">forum</span>
+            <span class="text-[10px] text-[#8e8e93] font-medium uppercase tracking-wider">Type</span>
+            <span class="text-[12px] font-bold text-white capitalize">{group()?.chat_type || 'Group'}</span>
           </div>
           <div class="bg-[#1c1c1c] rounded-2xl border border-[#2a2a2a] p-3 flex flex-col items-center gap-1">
-            <span class="material-symbols-outlined text-[#3390ec] text-[18px]">history</span>
-            <span class="text-[10px] text-[#8e8e93] font-medium uppercase tracking-wider">Activity</span>
-            <span class="text-[12px] font-bold text-white">Live</span>
+            <span class="material-symbols-outlined text-[#3390ec] text-[18px]">verified_user</span>
+            <span class="text-[10px] text-[#8e8e93] font-medium uppercase tracking-wider">Status</span>
+            <span class="text-[12px] font-bold text-white">Managed</span>
           </div>
           <div class="bg-[#1c1c1c] rounded-2xl border border-[#2a2a2a] p-3 flex flex-col items-center gap-1">
             <span class="material-symbols-outlined text-[#ffcc00] text-[18px]">stars</span>
             <span class="text-[10px] text-[#8e8e93] font-medium uppercase tracking-wider">Plan</span>
-            <span class="text-[12px] font-bold text-white">{group()?.subscription_status === 'paid' ? 'Pro' : 'Free'}</span>
+            <span class="text-[12px] font-bold text-white capitalize">{group()?.subscription_status === 'paid' ? 'Pro' : group()?.subscription_status || 'Free'}</span>
           </div>
         </div>
 
@@ -188,17 +197,21 @@ export const GroupDashboardPage: Component = () => {
         >
           {/* Health Card */}
           <div class="flex-1 bg-gradient-to-br from-[#1c1c1c] to-[#0f1014] p-4 rounded-3xl border border-[#2a2a2a] flex items-center gap-4 relative overflow-hidden">
-            <div class="absolute right-0 top-0 w-24 h-24 bg-[#34c759]/10 rounded-full blur-2xl"></div>
-            <div class="w-14 h-14 shrink-0 rounded-full border-[4px] border-[#34c759]/30 flex items-center justify-center relative">
+            <div class={`absolute right-0 top-0 w-24 h-24 rounded-full blur-2xl ${
+              healthScore() >= 90 ? 'bg-[#34c759]/10' : healthScore() >= 70 ? 'bg-[#ffcc00]/10' : 'bg-[#ff3b30]/10'
+            }`}></div>
+            <div class={`w-14 h-14 shrink-0 rounded-full border-[4px] flex items-center justify-center relative ${
+              healthScore() >= 90 ? 'border-[#34c759]/30' : healthScore() >= 70 ? 'border-[#ffcc00]/30' : 'border-[#ff3b30]/30'
+            }`}>
                <svg class="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 36 36">
-                 <path class="text-[#34c759]" stroke-dasharray={`${healthScore()}, 100`} stroke-width="3.5" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" stroke="currentColor"/>
+                 <path class={healthColorClass()} stroke-dasharray={`${healthScore()}, 100`} stroke-width="3.5" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" stroke="currentColor"/>
                </svg>
                <span class="font-black text-white text-[14px]">{healthScore()}%</span>
             </div>
             <div class="flex flex-col z-10">
               <span class="text-[12px] text-[#8e8e93] font-bold uppercase tracking-wider">{t('groupDashboard.health')}</span>
-              <span class="text-[15px] font-black text-[#34c759]">{healthLabel()}</span>
-              <span class="text-[10px] text-[#8e8e93] font-medium mt-0.5">{analytics()?.summary.spam_blocked || 0} {t('groupDashboard.spamBlocked')}</span>
+              <span class={`text-[15px] font-black ${healthColorClass()}`}>{healthLabel()}</span>
+              <span class="text-[10px] text-[#8e8e93] font-medium mt-0.5">{analytics()?.summary?.spam_blocked || 0} {t('groupDashboard.spamBlocked')}</span>
             </div>
           </div>
 
@@ -236,9 +249,12 @@ export const GroupDashboardPage: Component = () => {
               <path d="M0 40 Q 20 30, 40 35 T 80 15 T 100 20" fill="none" stroke="#3390ec" stroke-width="2"/>
             </svg>
             <span class="material-symbols-outlined text-[#8e8e93] text-[20px] mb-1 relative z-10">group</span>
-            <h3 class="text-2xl font-black text-white relative z-10">{group()?.members_count || analytics()?.summary.total_members || 0}</h3>
+            <h3 class="text-2xl font-black text-white relative z-10">{group()?.members_count || analytics()?.summary?.total_members || 0}</h3>
             <p class="text-[11px] text-[#8e8e93] font-medium flex items-center gap-1 relative z-10">
-              {t('groupDashboard.totalMembers')} <span class="text-[#34c759]">+{analytics()?.summary.new_members || 0}</span>
+              {t('groupDashboard.totalMembers')} 
+              <span class={(analytics()?.summary?.members_change || 0) >= 0 ? "text-[#34c759]" : "text-[#ff3b30]"}>
+                {(analytics()?.summary?.members_change || 0) > 0 ? '+' : ''}{analytics()?.summary?.members_change || 0}
+              </span>
             </p>
           </Motion.div>
 
@@ -252,9 +268,12 @@ export const GroupDashboardPage: Component = () => {
               <path d="M0 40 Q 20 20, 40 25 T 80 10 T 100 5" fill="none" stroke="#ffcc00" stroke-width="2"/>
             </svg>
             <span class="material-symbols-outlined text-[#8e8e93] text-[20px] mb-1 relative z-10">forum</span>
-            <h3 class="text-2xl font-black text-white relative z-10">{analytics()?.summary.total_messages || 0}</h3>
+            <h3 class="text-2xl font-black text-white relative z-10">{analytics()?.summary?.total_messages || 0}</h3>
             <p class="text-[11px] text-[#8e8e93] font-medium flex items-center gap-1 relative z-10">
-              {t('groupDashboard.msgsToday')} <span class="text-[#ffcc00]">Active</span>
+              {t('groupDashboard.msgsToday')} 
+              <span class={(analytics()?.summary?.messages_change_pct || 0) >= 0 ? "text-[#34c759]" : "text-[#ff3b30]"}>
+                {(analytics()?.summary?.messages_change_pct || 0) > 0 ? '+' : ''}{analytics()?.summary?.messages_change_pct || 0}%
+              </span>
             </p>
           </Motion.div>
         </div>
@@ -273,7 +292,7 @@ export const GroupDashboardPage: Component = () => {
           </h2>
           
           <div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-3 flex items-center justify-around gap-2">
-            <For each={analytics()?.summary.top_users || []} fallback={<div class="py-4 text-[#8e8e93] text-[12px]">{t('groupDashboard.noData')}</div>}>
+            <For each={analytics()?.summary?.top_users || []} fallback={<div class="py-4 text-[#8e8e93] text-[12px]">{t('groupDashboard.noData')}</div>}>
               {(user, i) => (
                 <div class="flex flex-col items-center gap-1.5 w-1/3">
                   <div class="relative">
@@ -282,7 +301,7 @@ export const GroupDashboardPage: Component = () => {
                       i() === 1 ? 'bg-[#e0e0e0]/10 border-[#e0e0e0] text-[#e0e0e0]' : 
                       'bg-[#cd7f32]/10 border-[#cd7f32] text-[#cd7f32]'
                     }`}>
-                      {user.name.startsWith('User ') ? user.name.split(' ')[1].charAt(0) : user.name.charAt(0)}
+                      {user?.name?.startsWith('User ') ? (user.name.split(' ')[1]?.charAt(0) || 'U') : (user?.name?.charAt(0) || 'U')}
                     </div>
                     <div class={`absolute -bottom-1 ${isRtl() ? '-left-1' : '-right-1'} w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-[#0f1014] ${
                       i() === 0 ? 'bg-[#ffcc00] text-black' : 
@@ -292,8 +311,8 @@ export const GroupDashboardPage: Component = () => {
                       {i() + 1}
                     </div>
                   </div>
-                  <span class="text-[12px] font-bold text-white truncate w-full text-center mt-1">{user.name}</span>
-                  <span class="text-[10px] text-[#8e8e93] font-medium leading-none">{user.msgs} {t('groupDashboard.msgs')}</span>
+                  <span class="text-[12px] font-bold text-white truncate w-full text-center mt-1">{user?.name || 'Unknown'}</span>
+                  <span class="text-[10px] text-[#8e8e93] font-medium leading-none">{user?.msgs || 0} {t('groupDashboard.msgs')}</span>
                 </div>
               )}
             </For>
@@ -313,7 +332,7 @@ export const GroupDashboardPage: Component = () => {
           <div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-2 flex flex-col">
             <For each={auditLogs() || []} fallback={<div class="py-10 text-center text-[#8e8e93] text-[13px]">{t('groupDashboard.noActivity')}</div>}>
               {(log, index) => {
-                const type = log.action.includes('delete') ? 'delete' : log.action.includes('warn') ? 'warn' : 'info';
+                const type = log.action?.includes('delete') ? 'delete' : log.action?.includes('warn') ? 'warn' : 'info';
                 return (
                   <div class={`flex items-start gap-3 p-3 ${index() !== (auditLogs()?.length || 0) - 1 ? 'border-b border-[#2a2a2a]' : ''}`}>
                     <div class={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center ${
@@ -328,7 +347,7 @@ export const GroupDashboardPage: Component = () => {
                     <div class="flex flex-col flex-1">
                       <div class="flex items-center justify-between mb-0.5">
                         <span class="text-[13px] font-bold text-white">
-                          {log.actor_name || (log.actor_id === 0 ? 'System' : `User ${log.actor_id}`)}
+                          {(log as any).actor_name || (log.actor_id === 0 ? 'System' : `User ${log.actor_id}`)}
                         </span>
                         <span class="text-[10px] text-[#8e8e93] font-medium">{new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>

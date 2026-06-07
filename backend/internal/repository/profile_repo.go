@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math/big"
+	"sort"
 	"strings"
 	"time"
 
@@ -47,7 +48,8 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 			WHERE mb.owner_user_id = $1
 		),
 		frg_info AS (
-			SELECT COALESCE(airdrop_coins, 0) as balance, 0.0 as total_earned, 0.0 as total_spent FROM user_stats WHERE user_id = $1
+			SELECT balance, total_earned, total_spent
+			FROM frg_balances WHERE user_id = $1
 		),
 		stats_info AS (
 			SELECT days_active, current_streak, total_taps, xp, level, last_active_at,
@@ -125,13 +127,15 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 		}
 	}
 
+	globalRank, _ := db.GetGlobalRankFromDB(ctx, xp)
+
 	return &model.ProfileStats{
 		UsernamesAnalyzed: usernamesAnalyzed,
 		GroupsManaged:     groupsManaged,
 		ChannelsManaged:   channelsManaged,
 		DaysActive:        daysActive,
 		CurrentStreak:     currentStreak,
-		GlobalRank:        0,
+		GlobalRank:        globalRank,
 		TotalTaps:         totalTaps,
 		TotalFrgEarned:    totalFrgEarned,
 		TotalFrgSpent:     totalFrgSpent,
@@ -210,13 +214,11 @@ func (db *Database) GetAchievements(ctx context.Context, userID int64) ([]model.
 	}
 
 	achievementsList := []model.UserAchievement{}
-	// Order by achievement name to match frontend mock expectations
-	keys := []string{
-		"first_steps", "home_base", "tap_novice", "mining_machine", "frg_millionaire",
-		"first_scan", "whale_hunter", "data_scientist", "social_butterfly", "army_builder",
-		"network_king", "group_guardian", "channel_commander", "empire_builder", "week_warrior",
-		"month_master", "legendary", "early_adopter", "premium_user", "bug_hunter",
+	keys := make([]string, 0, len(PredefinedAchievements))
+	for k := range PredefinedAchievements {
+		keys = append(keys, k)
 	}
+	sort.Strings(keys)
 
 	for _, k := range keys {
 		if ach, exists := userProgress[k]; exists {
@@ -268,18 +270,16 @@ func (db *Database) MaintainUserStats(ctx context.Context, userID int64) error {
 	query := `
 		UPDATE user_stats SET
 			current_streak = CASE
-				WHEN now() - last_active_at > interval '48 hours' THEN 1
-				WHEN now() - last_active_at > interval '24 hours' THEN current_streak + 1
+				WHEN CURRENT_DATE - last_active_at::DATE > 1 THEN 1
+				WHEN CURRENT_DATE - last_active_at::DATE = 1 THEN current_streak + 1
 				ELSE current_streak
 			END,
 			days_active = CASE
-				WHEN now() - last_active_at > interval '24 hours'
-				THEN days_active + 1
+				WHEN CURRENT_DATE - last_active_at::DATE > 0 THEN days_active + 1
 				ELSE days_active
 			END,
 			last_active_at = CASE
-				WHEN now() - last_active_at > interval '24 hours'
-				THEN now()
+				WHEN CURRENT_DATE - last_active_at::DATE > 0 THEN now()
 				ELSE last_active_at
 			END
 		WHERE user_id = $1
@@ -406,8 +406,15 @@ func (db *Database) GetReferralData(ctx context.Context, userID int64) (*model.R
 					Earned:   earned,
 				})
 				totalInvited++
-				totalEarned += 10.0 // referrer gets 10 FRG per friend visually for metrics
 			}
+		}
+		return nil
+	})
+
+	g.Go(func() error {
+		err := db.Pool.QueryRow(ctx, "SELECT COALESCE(SUM(amount), 0) FROM frg_transactions WHERE user_id = $1 AND type IN ('referral_payout', 'referral_revenue')", userID).Scan(&totalEarned)
+		if err != nil && err != pgx.ErrNoRows {
+			return err
 		}
 		return nil
 	})

@@ -26,8 +26,12 @@ export const useUsernameSearch = () => {
   const [isCollectibleOnly, setIsCollectibleOnly] = createSignal<boolean>(false);
 
   const validate = (val: string) => {
+    // Ensure val is a string to prevent runtime errors from unexpected inputs (e.g., event objects)
+    const safeVal = typeof val === 'string' ? val : '';
+    
     // Remove @ if present
-    const cleanVal = val.startsWith('@') ? val.substring(1) : val;
+    const cleanVal = safeVal.startsWith('@') ? safeVal.substring(1) : safeVal;
+    
     const result = v.safeParse(UsernameSchema, cleanVal);
     if (!result.success) {
       setSearchError(result.issues[0].message);
@@ -36,11 +40,7 @@ export const useUsernameSearch = () => {
     }
 
     // Check if it's strictly collectible length (4 chars)
-    if (cleanVal.length === 4) {
-      setIsCollectibleOnly(true);
-    } else {
-      setIsCollectibleOnly(false);
-    }
+    setIsCollectibleOnly(cleanVal.length === 4);
 
     setSearchError(null);
     return true;

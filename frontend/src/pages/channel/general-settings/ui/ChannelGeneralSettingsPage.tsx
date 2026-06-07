@@ -108,6 +108,10 @@ export const ChannelGeneralSettingsPage: Component = () => {
         discussionGroup: apiGeneral.discussionGroupId || '',
         approveAccountAge: apiGeneral.joinReqAge > 0,
         approveProfilePhoto: apiGeneral.joinReqPhoto ?? defaultConfig.approveProfilePhoto,
+        joinRequestsEnabled: (apiGeneral as any).joinRequestsEnabled ?? defaultConfig.joinRequestsEnabled,
+        approvePremium: (apiGeneral as any).approvePremium ?? defaultConfig.approvePremium,
+        approveGifts: (apiGeneral as any).approveGifts ?? defaultConfig.approveGifts,
+        approveCollectibles: (apiGeneral as any).approveCollectibles ?? defaultConfig.approveCollectibles,
       };
       
       setConfig(reconcile(merged));
@@ -320,30 +324,20 @@ export const ChannelGeneralSettingsPage: Component = () => {
             <div class="flex flex-col flex-1 min-w-0">
               <span class="text-[15px] font-bold text-white flex items-center gap-2"><span class="material-symbols-outlined text-[#bf5af2] text-[20px]">link</span> {t('channelSettings.inviteLinks')}</span>
             </div>
-            <button class="bg-[#bf5af2]/20 text-[#bf5af2] rounded-xl px-3 py-1.5 font-bold text-[13px] hover:bg-[#bf5af2]/30 transition-all flex items-center gap-1">
+            <button 
+              onClick={() => showToast(t('channelSettings.comingSoon', 'Coming Soon'), 'info')}
+              class="bg-[#bf5af2]/20 text-[#bf5af2] rounded-xl px-3 py-1.5 font-bold text-[13px] hover:bg-[#bf5af2]/30 transition-all flex items-center gap-1">
               <span class="material-symbols-outlined text-[16px]">add</span> {t('channelSettings.createInviteLink')}
             </button>
           </div>
           
           <div class="flex flex-col gap-2 mt-2">
-              <div class="bg-[#2c2c2e] rounded-xl p-3 flex flex-col gap-2 border border-[#3a3a3c]">
-                <div class="flex items-center justify-between">
-                   <span class="text-[14px] font-bold text-white">VIP Campaign</span>
-                   <span class="text-[11px] text-[#34c759] bg-[#34c759]/10 px-2 py-0.5 rounded-full font-medium">Active</span>
-                </div>
-                <div class="flex items-center gap-2 text-[12px] text-on-surface-variant">
-                  <span class="material-symbols-outlined text-[14px]">group</span> 45/100
-                  <span class="w-1 h-1 rounded-full bg-[#555] mx-1"></span>
-                  <span class="material-symbols-outlined text-[14px]">event</span> Expires in 3d
-                </div>
-                <div class="flex gap-2 mt-1">
-                  <button class="flex-1 bg-[#1c1c1c] text-white rounded-lg py-1.5 text-[12px] font-medium flex items-center justify-center gap-1 border border-[#3a3a3c] hover:bg-[#3a3a3c]">
-                    <span class="material-symbols-outlined text-[14px]">content_copy</span> {t('channelSettings.copyLink')}
-                  </button>
-                  <button class="flex-1 bg-[#ff3b30]/10 text-[#ff3b30] rounded-lg py-1.5 text-[12px] font-medium flex items-center justify-center gap-1 hover:bg-[#ff3b30]/20">
-                    <span class="material-symbols-outlined text-[14px]">block</span> {t('channelSettings.revokeLink')}
-                  </button>
-                </div>
+              <div class="bg-[#2c2c2e] rounded-xl p-6 flex flex-col items-center justify-center gap-2 border border-[#3a3a3c]">
+                <span class="material-symbols-outlined text-[#a0a4ad] text-[32px]">construction</span>
+                <span class="text-[14px] font-medium text-white">{t('channelSettings.featureComingSoon', 'Feature Coming Soon')}</span>
+                <span class="text-[12px] text-on-surface-variant text-center max-w-[200px]">
+                  {t('channelSettings.inviteLinksComingSoonDesc', 'Invite link management will be available in a future update.')}
+                </span>
               </div>
           </div>
         </Motion.div>
@@ -381,7 +375,10 @@ export const ChannelGeneralSettingsPage: Component = () => {
       <Show when={isDirty()}>
         <div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#0f1014] via-[#0f1014]/90 to-transparent z-40 flex gap-3">
           <button 
-            onClick={() => navigate(`/channel/${params.id}`)}
+            onClick={() => {
+              setIsDirty(false);
+              navigate(`/channel/${params.id}`);
+            }}
             disabled={isSaving()}
             class="flex-1 h-14 bg-[#1c1c1c] text-[#ff3b30] border border-[#ff3b30]/20 rounded-2xl font-bold text-[15px] transition-all flex items-center justify-center gap-2 hover:bg-[#ff3b30]/10"
           >

@@ -2,12 +2,15 @@ package mtproto
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+
 	"github.com/gotd/td/session"
 	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/tg"
@@ -41,34 +44,72 @@ func NewRealClient(ctx context.Context) (Client, error) {
 	if sessionDir == "" {
 		sessionDir = "./sessions"
 	}
-	os.MkdirAll(sessionDir, 0755)
-	
+	if err := os.MkdirAll(sessionDir, 0700); err != nil {
+		return nil, fmt.Errorf("failed to create session directory: %w", err)
+	}
+
 	storage := &session.FileStorage{Path: filepath.Join(sessionDir, "bot.session")}
 
-	appID, _ := strconv.Atoi(os.Getenv("TG_APP_ID"))
+	appIDStr := os.Getenv("TG_APP_ID")
+	if appIDStr == "" {
+		return nil, fmt.Errorf("TG_APP_ID is required")
+	}
+	appID, err := strconv.Atoi(appIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid TG_APP_ID: %w", err)
+	}
+
 	appHash := os.Getenv("TG_APP_HASH")
+	if appHash == "" {
+		return nil, fmt.Errorf("TG_APP_HASH is required")
+	}
 	botToken := os.Getenv("BOT_TOKEN")
+	if botToken == "" {
+		return nil, fmt.Errorf("BOT_TOKEN is required")
+	}
 
 	client := telegram.NewClient(appID, appHash, telegram.Options{
 		SessionStorage: storage,
 	})
 
+	initDone := make(chan struct{})
+	initErr := make(chan error, 1)
+	var closeOnce sync.Once
+
 	// Run client in background
 	go func() {
-		err := client.Run(ctx, func(ctx context.Context) error {
-			if botToken != "" {
-				if _, authErr := client.Auth().Bot(ctx, botToken); authErr != nil {
+		err := client.Run(ctx, func(runCtx context.Context) error {
+			status, err := client.Auth().Status(runCtx)
+			if err != nil {
+				return err
+			}
+			if !status.Authorized {
+				if _, authErr := client.Auth().Bot(runCtx, botToken); authErr != nil {
 					slog.Error("MTProto Bot Auth failed", "err", authErr)
 					return authErr
 				}
 			}
-			<-ctx.Done()
-			return ctx.Err()
+			closeOnce.Do(func() { close(initDone) })
+			<-runCtx.Done()
+			return runCtx.Err()
 		})
-		if err != nil {
+		if err != nil && !errors.Is(err, context.Canceled) {
 			slog.Error("MTProto client run failed", "err", err)
+			select {
+			case initErr <- err:
+			default:
+			}
 		}
 	}()
+
+	select {
+	case err := <-initErr:
+		return nil, fmt.Errorf("failed to start mtproto client: %w", err)
+	case <-initDone:
+		// Client is connected and authenticated
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 
 	return &RealClient{
 		client: client,
@@ -103,7 +144,7 @@ func (c *RealClient) CheckUsername(ctx context.Context, username string) (Status
 }
 
 func (c *RealClient) ResolveUsername(ctx context.Context, username string) (*tg.ContactsResolvedPeer, error) {
-	peer, err := c.api.ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{Username: username})
+	peer, err := c.api.ContactsResolveUsername(ctx, username)
 	if err != nil {
 		return nil, err
 	}
@@ -119,12 +160,12 @@ func NewMockClient() *MockClient {
 
 func (m *MockClient) CheckUsername(ctx context.Context, username string) (Status, error) {
 	slog.Warn("Using MOCK MTProto Client for CheckUsername", "username", username)
-	
+
 	// Basic RFC/Telegram username checks
 	if len(username) < 4 || len(username) > 32 {
 		return StatusInvalid, nil
 	}
-	
+
 	// Character validation: must start with letter, contain only a-z, 0-9, _
 	// Check first char
 	first := username[0]
@@ -138,12 +179,16 @@ func (m *MockClient) CheckUsername(ctx context.Context, username string) (Status
 			return StatusInvalid, nil
 		}
 	}
-	
+
+	if strings.Contains(username, "__") || username[len(username)-1] == '_' {
+		return StatusInvalid, nil
+	}
+
 	// Under 5 chars (exactly 4) is always collectible (StatusPurchase)
 	if len(username) == 4 {
 		return StatusPurchase, nil
 	}
-	
+
 	// Special cases
 	if username == "admin" || username == "telegram" || username == "durov" {
 		return StatusOccupied, nil
@@ -151,25 +196,50 @@ func (m *MockClient) CheckUsername(ctx context.Context, username string) (Status
 	if username == "bank" || username == "auto" {
 		return StatusPurchase, nil
 	}
-	
+
 	return StatusAvailable, nil
 }
 
 func (m *MockClient) ResolveUsername(ctx context.Context, username string) (*tg.ContactsResolvedPeer, error) {
-	return nil, fmt.Errorf("mock does not resolve")
+	slog.Warn("Using MOCK MTProto Client for ResolveUsername", "username", username)
+	
+	status, _ := m.CheckUsername(ctx, username)
+	if status == StatusOccupied || status == StatusPurchase {
+		return &tg.ContactsResolvedPeer{
+			Peer: &tg.PeerUser{UserID: 12345},
+			Users: []tg.UserClass{
+				&tg.User{
+					ID:       12345,
+					Username: username,
+				},
+			},
+		}, nil
+	}
+	
+	// Simulated error for username not found
+	return nil, tgerr.New(400, "USERNAME_NOT_OCCUPIED")
 }
 
 // InitClient returns either a real or mock MTProto client based on env
-func InitClient(ctx context.Context) Client {
-	if os.Getenv("TG_APP_ID") != "" && os.Getenv("BOT_TOKEN") != "" {
+func InitClient(ctx context.Context) (Client, error) {
+	appID := os.Getenv("TG_APP_ID")
+	botToken := os.Getenv("BOT_TOKEN")
+
+	if appID != "" && botToken != "" {
 		c, err := NewRealClient(ctx)
 		if err == nil {
 			slog.Info("Real MTProto client initialized")
-			return c
+			return c, nil
+		}
+		if os.Getenv("APP_ENV") == "production" {
+			return nil, fmt.Errorf("failed to initialize real MTProto client in production: %w", err)
 		}
 		slog.Error("MTProto init failed, falling back to mock", "err", err)
 	} else {
+		if os.Getenv("APP_ENV") == "production" {
+			return nil, fmt.Errorf("MTProto credentials (TG_APP_ID, BOT_TOKEN) are missing in production")
+		}
 		slog.Info("MTProto credentials missing, using MockClient")
 	}
-	return NewMockClient()
+	return NewMockClient(), nil
 }

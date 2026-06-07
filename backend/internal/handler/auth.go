@@ -1,9 +1,9 @@
 package handler
 
 import (
-	"encoding/json"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -32,20 +32,30 @@ func (h *AuthHandler) IssueToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	idFloat, ok := user["id"].(float64)
-	if !ok {
-		idInt, ok := user["id"].(int64)
-		if !ok {
-			idInt32, ok := user["id"].(int32)
-			if ok {
-				idFloat = float64(idInt32)
-			} else {
-				RespondError(w, r, http.StatusInternalServerError, "Invalid user ID format", nil)
-				return
-			}
-		} else {
-			idFloat = float64(idInt)
+	var telegramID int64
+	switch v := user["id"].(type) {
+	case float64:
+		telegramID = int64(v)
+	case int64:
+		telegramID = v
+	case int32:
+		telegramID = int64(v)
+	case int:
+		telegramID = int64(v)
+	case string:
+		var err error
+		if telegramID, err = strconv.ParseInt(v, 10, 64); err != nil {
+			RespondError(w, r, http.StatusUnauthorized, "Invalid user ID format (string)", err)
+			return
 		}
+	default:
+		RespondError(w, r, http.StatusUnauthorized, "Invalid user ID format", nil)
+		return
+	}
+	
+	if telegramID <= 0 {
+		RespondError(w, r, http.StatusUnauthorized, "Invalid Telegram user ID", nil)
+		return
 	}
 	
 	username, _ := user["username"].(string)
@@ -55,7 +65,7 @@ func (h *AuthHandler) IssueToken(w http.ResponseWriter, r *http.Request) {
 
 	// Synchronize user profile in the database
 	err := h.db.UpsertUser(r.Context(), repository.User{
-		TelegramID:   int64(idFloat),
+		TelegramID:   telegramID,
 		Username:     username,
 		FirstName:    firstName,
 		LastName:     lastName,
@@ -67,19 +77,28 @@ func (h *AuthHandler) IssueToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	claims := middleware.JWTClaims{
-		UserID:   int64(idFloat),
-		Username: username,
+		UserID:    telegramID,
+		Username:  username,
+		TokenType: "user",
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			NotBefore: jwt.NewNumericDate(time.Now()),
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signed, err := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
+	
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		RespondError(w, r, http.StatusInternalServerError, "JWT configuration error", nil)
+		return
+	}
+
+	signed, err := token.SignedString([]byte(jwtSecret))
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, "Failed to sign token", err)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"token": signed})
+	RespondJSON(w, http.StatusOK, map[string]string{"token": signed})
 }

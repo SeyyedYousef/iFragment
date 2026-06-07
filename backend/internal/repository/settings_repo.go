@@ -150,18 +150,7 @@ func NewSettingsRepo(db *Database, cache *Cache) *SettingsRepo {
 
 func (r *SettingsRepo) GetSettings(ctx context.Context, groupID uuid.UUID) (*GroupSettings, error) {
 	if r.db == nil || r.db.Pool == nil {
-		empty := json.RawMessage(`{}`)
-		return &GroupSettings{
-			GroupID: groupID,
-			General: empty,
-			ContentRestrictions: empty,
-			Limits: empty,
-			QuietHours: empty,
-			MandatoryMembership: empty,
-			CustomTexts: empty,
-			Version: 1,
-			UpdatedAt: time.Now(),
-		}, nil
+		return nil, fmt.Errorf("database connection not available")
 	}
 
 	// 1. Try cache
@@ -187,7 +176,7 @@ func (r *SettingsRepo) GetSettings(ctx context.Context, groupID uuid.UUID) (*Gro
 		return r.initSettings(ctx, groupID)
 	}
 
-	if err == nil && r.cache != nil {
+	if err == nil && r.cache != nil && r.cache.Client != nil {
 		// Set cache
 		cacheKey := fmt.Sprintf("settings:%s", groupID.String())
 		data, _ := json.Marshal(s)
@@ -230,7 +219,7 @@ func (r *SettingsRepo) UpdateCategory(ctx context.Context, groupID uuid.UUID, ca
 	}
 
 	if r.db == nil || r.db.Pool == nil {
-		return r.GetSettings(ctx, groupID)
+		return nil, fmt.Errorf("database connection not available")
 	}
 
 	query := fmt.Sprintf(`UPDATE group_settings SET %s = $1, version = version + 1, updated_at = now(), updated_by = $2
@@ -247,7 +236,7 @@ func (r *SettingsRepo) UpdateCategory(ctx context.Context, groupID uuid.UUID, ca
 		return nil, err
 	}
 
-	if r.cache != nil {
+	if r.cache != nil && r.cache.Client != nil {
 		cacheKey := fmt.Sprintf("settings:%s", groupID.String())
 		r.cache.Client.Del(ctx, cacheKey)
 	}
@@ -257,7 +246,7 @@ func (r *SettingsRepo) UpdateCategory(ctx context.Context, groupID uuid.UUID, ca
 
 func (r *SettingsRepo) ForceUpdateQuietHours(ctx context.Context, groupID uuid.UUID, data json.RawMessage) error {
 	if r.db == nil || r.db.Pool == nil {
-		return nil
+		return fmt.Errorf("database connection not available")
 	}
 	query := `UPDATE group_settings SET quiet_hours = $1, version = version + 1, updated_at = now() WHERE group_id = $2`
 	_, err := r.db.Pool.Exec(ctx, query, data, groupID)
@@ -306,10 +295,48 @@ func (r *SettingsRepo) GetMultipleSettings(ctx context.Context, groupIDs []uuid.
 
 	// 2. Load misses from DB
 	if len(cacheMisses) > 0 {
+		if r.db == nil || r.db.Pool == nil {
+			return nil, fmt.Errorf("database connection not available")
+		}
+
+		query := `SELECT group_id, general, content_restrictions, limits, quiet_hours, mandatory_membership, custom_texts, version, updated_at, updated_by
+			FROM group_settings WHERE group_id = ANY($1)`
+		
+		rows, err := r.db.Pool.Query(ctx, query, cacheMisses)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+
+		foundMap := make(map[uuid.UUID]bool)
+		for rows.Next() {
+			var s GroupSettings
+			err := rows.Scan(
+				&s.GroupID, &s.General, &s.ContentRestrictions, &s.Limits, &s.QuietHours,
+				&s.MandatoryMembership, &s.CustomTexts, &s.Version, &s.UpdatedAt, &s.UpdatedBy,
+			)
+			if err == nil {
+				result[s.GroupID] = &s
+				foundMap[s.GroupID] = true
+				if r.cache != nil && r.cache.Client != nil {
+					cacheKey := fmt.Sprintf("settings:%s", s.GroupID.String())
+					data, _ := json.Marshal(s)
+					r.cache.Client.Set(ctx, cacheKey, data, 1*time.Hour)
+				}
+			}
+		}
+
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+
+		// Init missing from DB (if they don't exist yet)
 		for _, id := range cacheMisses {
-			s, err := r.GetSettings(ctx, id)
-			if err == nil && s != nil {
-				result[id] = s
+			if !foundMap[id] {
+				s, err := r.GetSettings(ctx, id)
+				if err == nil && s != nil {
+					result[id] = s
+				}
 			}
 		}
 	}

@@ -64,6 +64,18 @@ func (s *GamificationService) startReferralWorker() {
 	}
 }
 
+// QueueReferralReward safely queues a background job to credit the referrer
+func (s *GamificationService) QueueReferralReward(spenderID int64, amountSpent float64) {
+	select {
+	case s.referralQueue <- referralJob{
+		spenderID:   spenderID,
+		amountSpent: amountSpent,
+	}:
+	default:
+		slog.Warn("referralQueue is full, dropping referral reward job", "spenderID", spenderID)
+	}
+}
+
 func (s *GamificationService) getBotAPIClient() *telegram.BotAPIClient {
 	token := os.Getenv("TELEGRAM_BOT_TOKEN")
 	if token == "" {
@@ -310,7 +322,7 @@ func (s *GamificationService) GetTasksStatus(ctx context.Context, userID int64) 
 		return nil, err
 	}
 
-	var results []UserTaskStatus
+	results := make([]UserTaskStatus, 0, len(activeQuests))
 	for _, q := range activeQuests {
 		results = append(results, UserTaskStatus{
 			Quest:     q,
@@ -338,49 +350,17 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 		return nil, fmt.Errorf("quest is inactive or expired")
 	}
 
-	// 1. Begin single unified transaction
-	tx, err := s.db.Pool.Begin(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
-	// Ensure task row exists first inside transaction so FOR UPDATE successfully locks it
-	_, err = tx.Exec(ctx, `
-		INSERT INTO user_tasks (user_id, task_key, completed)
-		VALUES ($1, $2, false)
-		ON CONFLICT (user_id, task_key) DO NOTHING
-	`, userID, taskKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to ensure task record: %w", err)
-	}
-
-	// 2. Lock user task record to prevent concurrent claims
-	var completed bool
-	queryTask := `
-		SELECT completed FROM user_tasks 
-		WHERE user_id = $1 AND task_key = $2 FOR UPDATE
-	`
-	err = tx.QueryRow(ctx, queryTask, userID, taskKey).Scan(&completed)
-	if err != nil && err != pgx.ErrNoRows {
-		return nil, fmt.Errorf("failed to lock user task status: %w", err)
-	}
-
-	if completed {
-		return nil, fmt.Errorf("task already completed")
-	}
-
-	// 3. Dynamic backend verification checks
+	// 1. Dynamic backend verification checks (done BEFORE transaction to prevent pool starvation)
 	switch target.Type {
 	case "first_username_scan":
 		var count int
-		_ = tx.QueryRow(ctx, "SELECT COUNT(*) FROM search_logs WHERE user_id = $1", userID).Scan(&count)
+		_ = s.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM search_logs WHERE user_id = $1", userID).Scan(&count)
 		if count == 0 {
 			return nil, fmt.Errorf("you must search/scan at least one username first")
 		}
 	case "register_first_bot":
 		var count int
-		_ = tx.QueryRow(ctx, "SELECT COUNT(*) FROM managed_bots WHERE owner_user_id = $1", userID).Scan(&count)
+		_ = s.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM managed_bots WHERE owner_user_id = $1", userID).Scan(&count)
 		if count == 0 {
 			return nil, fmt.Errorf("you must register at least one managed bot first")
 		}
@@ -427,6 +407,38 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 		if userHash != config.QuizAnswerHash {
 			return nil, fmt.Errorf("incorrect quiz answer")
 		}
+	}
+
+	// 2. Begin single unified transaction
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Ensure task row exists first inside transaction so FOR UPDATE successfully locks it
+	_, err = tx.Exec(ctx, `
+		INSERT INTO user_tasks (user_id, task_key, completed)
+		VALUES ($1, $2, false)
+		ON CONFLICT (user_id, task_key) DO NOTHING
+	`, userID, taskKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to ensure task record: %w", err)
+	}
+
+	// 3. Lock user task record to prevent concurrent claims
+	var completed bool
+	queryTask := `
+		SELECT completed FROM user_tasks 
+		WHERE user_id = $1 AND task_key = $2 FOR UPDATE
+	`
+	err = tx.QueryRow(ctx, queryTask, userID, taskKey).Scan(&completed)
+	if err != nil && err != pgx.ErrNoRows {
+		return nil, fmt.Errorf("failed to lock user task status: %w", err)
+	}
+
+	if completed {
+		return nil, fmt.Errorf("task already completed")
 	}
 
 	// 4. Update task completion in transaction
@@ -561,6 +573,16 @@ func (s *GamificationService) UpgradeBoost(ctx context.Context, userID int64, bo
 	}
 	defer tx.Rollback(ctx)
 
+	// Ensure user boosts row exists first inside transaction so FOR UPDATE successfully locks it
+	_, err = tx.Exec(ctx, `
+		INSERT INTO user_boosts (user_id, multitap_level, energy_limit_level, tap_bot_level)
+		VALUES ($1, 1, 1, 0)
+		ON CONFLICT (user_id) DO NOTHING
+	`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to ensure user boosts: %w", err)
+	}
+
 	// 2. Lock user's boost row inside the transaction to prevent concurrent race conditions
 	var boosts repository.UserBoosts
 	query := `
@@ -570,25 +592,7 @@ func (s *GamificationService) UpgradeBoost(ctx context.Context, userID int64, bo
 	`
 	err = tx.QueryRow(ctx, query, userID).Scan(&boosts.UserID, &boosts.MultitapLevel, &boosts.EnergyLimitLevel, &boosts.TapBotLevel)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			// Initialize row if not exists
-			ensureQuery := `
-				INSERT INTO user_boosts (user_id, multitap_level, energy_limit_level, tap_bot_level)
-				VALUES ($1, 1, 1, 0)
-				ON CONFLICT (user_id) DO NOTHING
-			`
-			_, err = tx.Exec(ctx, ensureQuery, userID)
-			if err != nil {
-				return nil, fmt.Errorf("failed to initialize user boosts: %w", err)
-			}
-			// Read again with lock
-			err = tx.QueryRow(ctx, query, userID).Scan(&boosts.UserID, &boosts.MultitapLevel, &boosts.EnergyLimitLevel, &boosts.TapBotLevel)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, fmt.Errorf("failed to fetch user boosts with lock: %w", err)
-		}
+		return nil, fmt.Errorf("failed to lock user boosts: %w", err)
 	}
 
 	// 3. Validation and pricing calculation using locked state values (in Coins)
@@ -618,23 +622,19 @@ func (s *GamificationService) UpgradeBoost(ctx context.Context, userID int64, bo
 	}
 
 	// 4. Lock user_stats row and debit coins inside the same transaction
+	_, err = tx.Exec(ctx, `
+		INSERT INTO user_stats (user_id, xp, level, current_streak, last_active_at, energy, energy_updated_at, airdrop_coins)
+		VALUES ($1, 0, 1, 0, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, 0.0)
+		ON CONFLICT (user_id) DO NOTHING
+	`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to ensure user stats for upgrade: %w", err)
+	}
+
 	var currentCoins float64
 	err = tx.QueryRow(ctx, `SELECT airdrop_coins FROM user_stats WHERE user_id = $1 FOR UPDATE`, userID).Scan(&currentCoins)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			// Initialize user stats if not exists
-			_, err = tx.Exec(ctx, `
-				INSERT INTO user_stats (user_id, xp, level, current_streak, last_active_at, energy, energy_updated_at, airdrop_coins)
-				VALUES ($1, 0, 1, 0, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, 0.0)
-				ON CONFLICT (user_id) DO NOTHING
-			`, userID)
-			if err != nil {
-				return nil, fmt.Errorf("failed to initialize user stats for upgrade: %w", err)
-			}
-			currentCoins = 0.0
-		} else {
-			return nil, fmt.Errorf("failed to fetch user stats for update: %w", err)
-		}
+		return nil, fmt.Errorf("failed to lock user stats: %w", err)
 	}
 
 	if currentCoins < priceCoins {
@@ -669,6 +669,9 @@ func (s *GamificationService) UpgradeBoost(ctx context.Context, userID int64, bo
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
+
+	// Queue referral reward for the spent coins
+	s.QueueReferralReward(userID, priceCoins)
 
 	if s.cache != nil && s.cache.Client != nil {
 		s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
@@ -737,11 +740,13 @@ func (s *GamificationService) GetLeaderboard(ctx context.Context) ([]Leaderboard
 				}
 
 				// Sort according to redis order
-				var result []LeaderboardMember
-				for idx, id := range ids {
+				result := make([]LeaderboardMember, 0, len(ids))
+				rank := 1
+				for _, id := range ids {
 					if m, exists := memberMap[id]; exists {
-						m.Rank = idx + 1
+						m.Rank = rank
 						result = append(result, m)
+						rank++
 					}
 				}
 				return result, nil
@@ -763,8 +768,9 @@ func (s *GamificationService) GetLeaderboard(ctx context.Context) ([]Leaderboard
 	}
 	defer rows.Close()
 
-	var result []LeaderboardMember
+	result := make([]LeaderboardMember, 0, 100)
 	rank := 1
+	var zsetMembers []redis.Z
 	for rows.Next() {
 		var m LeaderboardMember
 		err := rows.Scan(&m.UserID, &m.FirstName, &m.Username, &m.XP, &m.Level)
@@ -773,6 +779,10 @@ func (s *GamificationService) GetLeaderboard(ctx context.Context) ([]Leaderboard
 		}
 		m.Rank = rank
 		result = append(result, m)
+		zsetMembers = append(zsetMembers, redis.Z{
+			Score:  float64(m.XP),
+			Member: strconv.FormatInt(m.UserID, 10),
+		})
 		rank++
 	}
 
@@ -780,6 +790,9 @@ func (s *GamificationService) GetLeaderboard(ctx context.Context) ([]Leaderboard
 	if s.cache != nil && s.cache.Client != nil && len(result) > 0 {
 		if data, err := json.Marshal(result); err == nil {
 			s.cache.Client.Set(ctx, "leaderboard_cached_fallback", data, 60*time.Second)
+		}
+		if len(zsetMembers) > 0 {
+			s.cache.Client.ZAdd(ctx, "leaderboard", zsetMembers...)
 		}
 	}
 

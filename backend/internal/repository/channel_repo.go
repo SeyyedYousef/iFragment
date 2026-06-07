@@ -218,10 +218,13 @@ func (r *ChannelRepo) GetChannelByID(ctx context.Context, id uuid.UUID) (*Manage
 		&c.PaidUntil, &c.LinkedChatID, &c.SlowModeDelay, &c.AutoDeleteTime, &c.SignMessages, &c.ProtectContent,
 		&c.CreatedAt, &c.UpdatedAt,
 	)
-	if err == pgx.ErrNoRows {
-		return nil, fmt.Errorf("channel not found")
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("channel not found")
+		}
+		return nil, err
 	}
-	return &c, err
+	return &c, nil
 }
 
 func (r *ChannelRepo) GetChannelByChatID(ctx context.Context, chatID int64) (*ManagedChannel, error) {
@@ -238,10 +241,13 @@ func (r *ChannelRepo) GetChannelByChatID(ctx context.Context, chatID int64) (*Ma
 		&c.PaidUntil, &c.LinkedChatID, &c.SlowModeDelay, &c.AutoDeleteTime, &c.SignMessages, &c.ProtectContent,
 		&c.CreatedAt, &c.UpdatedAt,
 	)
-	if err == pgx.ErrNoRows {
-		return nil, fmt.Errorf("channel not found")
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("channel not found")
+		}
+		return nil, err
 	}
-	return &c, err
+	return &c, nil
 }
 
 func (r *ChannelRepo) DeleteChannel(ctx context.Context, id uuid.UUID) error {
@@ -280,17 +286,20 @@ func (r *ChannelRepo) GetChannelSettings(ctx context.Context, channelID uuid.UUI
 		&s.ChannelID, &s.General, &s.Posting, &s.Forwarding, &s.InlineButtons, &s.DynamicBio, &s.AutoResponder,
 		&s.Version, &s.UpdatedAt, &s.UpdatedBy,
 	)
-	if err == pgx.ErrNoRows {
-		return r.InitChannelSettings(ctx, channelID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return r.InitChannelSettings(ctx, channelID)
+		}
+		return nil, err
 	}
 
-	if err == nil && r.cache != nil {
+	if r.cache != nil && r.cache.Client != nil {
 		cacheKey := fmt.Sprintf("channel_settings:%s", channelID.String())
 		data, _ := json.Marshal(s)
 		r.cache.Client.Set(ctx, cacheKey, data, 1*time.Hour)
 	}
 
-	return &s, err
+	return &s, nil
 }
 
 func (r *ChannelRepo) InitChannelSettings(ctx context.Context, channelID uuid.UUID) (*ChannelSettings, error) {
@@ -312,10 +321,13 @@ func (r *ChannelRepo) InitChannelSettings(ctx context.Context, channelID uuid.UU
 		RETURNING updated_at`
 	
 	err := r.db.Pool.QueryRow(ctx, query, channelID, empty, empty, empty, empty, empty, empty).Scan(&s.UpdatedAt)
-	if err == pgx.ErrNoRows {
-		return r.GetChannelSettings(ctx, channelID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return r.GetChannelSettings(ctx, channelID)
+		}
+		return nil, err
 	}
-	return s, err
+	return s, nil
 }
 
 func (r *ChannelRepo) UpdateChannelSettingsCategory(ctx context.Context, channelID uuid.UUID, category string, data json.RawMessage, userID int64, currentVersion int) (*ChannelSettings, error) {
@@ -345,7 +357,7 @@ func (r *ChannelRepo) UpdateChannelSettingsCategory(ctx context.Context, channel
 		return nil, err
 	}
 
-	if r.cache != nil {
+	if r.cache != nil && r.cache.Client != nil {
 		cacheKey := fmt.Sprintf("channel_settings:%s", channelID.String())
 		r.cache.Client.Del(ctx, cacheKey)
 	}
@@ -473,7 +485,13 @@ func (r *ChannelRepo) GetAnalyticsTimeline(ctx context.Context, channelID uuid.U
 	}
 
 	query := `SELECT id, channel_id, snapshot_date, subscribers_count, new_subscribers, views_count, reactions_count, posts_count, created_at
-		FROM channel_analytics WHERE channel_id = $1 ORDER BY snapshot_date ASC LIMIT $2`
+		FROM (
+			SELECT id, channel_id, snapshot_date, subscribers_count, new_subscribers, views_count, reactions_count, posts_count, created_at
+			FROM channel_analytics 
+			WHERE channel_id = $1 
+			ORDER BY snapshot_date DESC LIMIT $2
+		) AS recent
+		ORDER BY snapshot_date ASC`
 	
 	rows, err := r.db.Pool.Query(ctx, query, channelID, days)
 	if err != nil {
@@ -914,8 +932,14 @@ func (r *ChannelRepo) SyncChannelAdmins(ctx context.Context, channelID uuid.UUID
 		}
 
 		br := tx.SendBatch(ctx, batch)
+		for i := 0; i < len(admins); i++ {
+			if _, err := br.Exec(); err != nil {
+				br.Close()
+				return fmt.Errorf("failed to execute admin sync batch: %w", err)
+			}
+		}
 		if err := br.Close(); err != nil {
-			return fmt.Errorf("failed to execute admin sync batch: %w", err)
+			return fmt.Errorf("failed to close admin sync batch: %w", err)
 		}
 
 		_, err = tx.Exec(ctx, `DELETE FROM channel_admins WHERE channel_id = $1 AND telegram_id != ALL($2)`, channelID, activeIDs)
@@ -1102,10 +1126,13 @@ func (r *ChannelRepo) GetButtonByID(ctx context.Context, buttonID uuid.UUID) (*C
 	err := r.db.Pool.QueryRow(ctx, query, buttonID).Scan(
 		&b.ID, &b.ChannelID, &b.Title, &b.Value, &b.Type, &b.Style, &b.Emoji, &b.ClickCount, &b.CreatedAt,
 	)
-	if err == pgx.ErrNoRows {
-		return nil, fmt.Errorf("button not found")
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("button not found")
+		}
+		return nil, err
 	}
-	return &b, err
+	return &b, nil
 }
 
 func (r *ChannelRepo) GetCache() *Cache {

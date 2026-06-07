@@ -54,33 +54,46 @@ export const ChannelAdminsPage: Component = () => {
     const list = adminsData() || [];
     return list.map((a: any) => ({
       id: a.id || a.telegram_id.toString(),
-      name: a.first_name,
+      name: a.first_name || a.name || 'Unknown',
       role: a.is_owner ? 'Owner' : (a.username && a.username.toLowerCase().includes('bot') ? 'Bot' : 'Admin'),
       customTitle: a.custom_title || '',
       username: a.username ? '@' + a.username : '',
-      perms: { post: true, edit: true, delete: true, pin: true, invite: true }
+      perms: a.permissions || { post: true, edit: true, delete: true, pin: true, invite: true, videoChat: false, editInfo: false, manageTags: false }
     }));
   });
 
-  // Mock Members List
-  const [allMembers] = createSignal([
-    { id: '10', name: 'John Doe', username: '@johndoe', joined: '2 days ago', status: 'active' },
-    { id: '11', name: 'Alice Smith', username: '@alices', joined: '1 week ago', status: 'restricted' },
-    { id: '12', name: 'Spam Bot', username: '@spambot99', joined: '1 hour ago', status: 'banned' },
-  ]);
+  const [membersData, { refetch: refetchMembers }] = createResource(
+    () => params.id,
+    (channelId) => channelApi.getMembers(channelId)
+  );
+
+  const allMembers = createMemo(() => {
+    const list = membersData() || [];
+    return list.map((m: any) => ({
+      id: m.id || m.telegram_id?.toString(),
+      name: m.first_name || m.name || 'Unknown',
+      username: m.username ? '@' + m.username : '',
+      joined: m.joined_at || '',
+      status: m.status || 'active'
+    }));
+  });
 
   const filteredItems = createMemo(() => {
     const q = searchQuery().toLowerCase();
     if (activeTab() === 'admins') {
       return allAdmins().filter((a: any) => a.name.toLowerCase().includes(q) || a.role.toLowerCase().includes(q) || a.customTitle.toLowerCase().includes(q));
     } else {
-      return allMembers().filter(m => m.name.toLowerCase().includes(q) || m.username.toLowerCase().includes(q));
+      return allMembers().filter((m: any) => m.name.toLowerCase().includes(q) || m.username.toLowerCase().includes(q));
     }
   });
 
   const openAdminModal = (admin: any = null) => {
     if (admin) {
-      setEditingAdmin(JSON.parse(JSON.stringify(admin)));
+      const adminCopy = JSON.parse(JSON.stringify(admin));
+      if (!adminCopy.perms) {
+        adminCopy.perms = { post: true, edit: true, delete: false, pin: false, invite: false, videoChat: false, editInfo: false, manageTags: false };
+      }
+      setEditingAdmin(adminCopy);
     } else {
       setEditingAdmin({
         id: Date.now().toString(), name: 'New Admin', role: 'Admin', customTitle: '',
@@ -91,8 +104,49 @@ export const ChannelAdminsPage: Component = () => {
     hapticFeedback.impactOccurred('light');
   };
 
-  const saveAdmin = () => {
-    setShowModal(false);
+  const [isSaving, setIsSaving] = createSignal(false);
+
+  const saveAdmin = async () => {
+    if (!editingAdmin()) return;
+    try {
+      setIsSaving(true);
+      await channelApi.updateAdmin(params.id, editingAdmin().id, {
+        custom_title: editingAdmin().customTitle,
+        permissions: editingAdmin().perms
+      });
+      hapticFeedback.notificationOccurred('success');
+      setShowModal(false);
+      refetch();
+    } catch (err) {
+      console.error(err);
+      hapticFeedback.notificationOccurred('error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleRestrict = async (userId: string) => {
+    try {
+      hapticFeedback.impactOccurred('medium');
+      await channelApi.restrictMember(params.id, userId);
+      hapticFeedback.notificationOccurred('success');
+      refetchMembers();
+    } catch (err) {
+      console.error(err);
+      hapticFeedback.notificationOccurred('error');
+    }
+  };
+
+  const handleBan = async (userId: string) => {
+    try {
+      hapticFeedback.impactOccurred('medium');
+      await channelApi.banMember(params.id, userId);
+      hapticFeedback.notificationOccurred('success');
+      refetchMembers();
+    } catch (err) {
+      console.error(err);
+      hapticFeedback.notificationOccurred('error');
+    }
   };
 
   return (
@@ -227,14 +281,14 @@ export const ChannelAdminsPage: Component = () => {
                         <Show when={activeTab() === 'admins'} fallback={
                            <div class="flex items-center gap-1.5">
                              <button 
-                               onClick={() => hapticFeedback.impactOccurred('light')} 
+                               onClick={() => handleRestrict(item.id)} 
                                class="w-9 h-9 rounded-xl bg-[#ff9f0a]/5 border border-[#ff9f0a]/10 hover:bg-[#ff9f0a]/15 hover:border-[#ff9f0a]/25 text-[#ff9f0a] flex items-center justify-center active:scale-95 transition-all shadow-sm" 
                                title={t('channelAdmins.restrictUser')}
                              >
                                <span class="material-symbols-outlined text-[16px]">do_not_disturb_on</span>
                              </button>
                              <button 
-                               onClick={() => hapticFeedback.impactOccurred('light')} 
+                               onClick={() => handleBan(item.id)} 
                                class="w-9 h-9 rounded-xl bg-[#ff3b30]/5 border border-[#ff3b30]/10 hover:bg-[#ff3b30]/15 hover:border-[#ff3b30]/25 text-[#ff3b30] flex items-center justify-center active:scale-95 transition-all shadow-sm" 
                                title={t('channelAdmins.banUser')}
                              >
@@ -338,8 +392,8 @@ export const ChannelAdminsPage: Component = () => {
             </div>
             
             <div class="p-5 border-t border-[#2a2a2a] bg-[#1c1c1c] sticky bottom-0">
-              <button onClick={saveAdmin} class="w-full bg-[#32ade6] text-black font-bold text-[16px] py-4 rounded-2xl shadow-[0_4px_15px_rgba(50,173,230,0.35)] hover:bg-[#2b96c8] active:scale-[0.98] transition-all">
-                {t('channelAdmins.saveAdmin')}
+              <button onClick={saveAdmin} disabled={isSaving()} class="w-full bg-[#32ade6] text-black font-bold text-[16px] py-4 rounded-2xl shadow-[0_4px_15px_rgba(50,173,230,0.35)] hover:bg-[#2b96c8] active:scale-[0.98] transition-all disabled:opacity-50">
+                {isSaving() ? t('channelAdmins.saving') || 'Saving...' : t('channelAdmins.saveAdmin')}
               </button>
             </div>
           </Motion.div>

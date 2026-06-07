@@ -100,6 +100,8 @@ type PreCheckoutQuery struct {
 	ID               string `json:"id"`
 	InvoicePayload   string `json:"invoice_payload"`
 	TotalAmount      int    `json:"total_amount"`
+	Currency         string `json:"currency"`
+	From             *User  `json:"from"`
 }
 
 type Chat struct {
@@ -153,6 +155,8 @@ type User struct {
 }
 
 type SuccessfulPayment struct {
+	Currency                 string `json:"currency"`
+	TotalAmount              int    `json:"total_amount"`
 	InvoicePayload           string `json:"invoice_payload"`
 	TelegramPaymentChargeID  string `json:"telegram_payment_charge_id"`
 }
@@ -218,9 +222,7 @@ func (h *WebhookHandler) processUpdateAsync(parentCtx context.Context, bot *repo
 	if update.CallbackQuery != nil {
 		h.handleCallbackQuery(ctx, bot, update.CallbackQuery)
 	} else if update.MyChatMember != nil {
-		// Dummy response writer since HTTP transaction already completed
-		dummyWriter := &dummyResponseWriter{}
-		h.handleMyChatMemberUpdate(ctx, bot, update.MyChatMember, dummyWriter)
+		h.handleMyChatMemberUpdate(ctx, bot, update.MyChatMember)
 	} else if update.ChannelPost != nil {
 		h.handleChannelPost(ctx, bot, update.ChannelPost)
 	} else if update.EditedChannelPost != nil {
@@ -245,10 +247,7 @@ func (h *WebhookHandler) processUpdateAsync(parentCtx context.Context, bot *repo
 	}
 }
 
-type dummyResponseWriter struct{}
-func (d *dummyResponseWriter) Header() http.Header { return make(http.Header) }
-func (d *dummyResponseWriter) Write(b []byte) (int, error) { return len(b), nil }
-func (d *dummyResponseWriter) WriteHeader(statusCode int) {}
+
 
 func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Request) {
 	// Initialize the worker pool exactly once dynamically
@@ -423,8 +422,8 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 	if updateDate > 0 {
 		now := time.Now().Unix()
 		diff := now - int64(updateDate)
-		if diff < -300 || diff > 300 {
-			slog.Warn("Rejected replay attack webhook payload: dropping stale message", "update_id", update.UpdateID, "date", updateDate, "server_time", now, "diff_seconds", diff)
+		if diff < -300 || diff > 86400*2 {
+			slog.Warn("Rejected replay attack webhook payload: dropping extremely stale message", "update_id", update.UpdateID, "date", updateDate, "server_time", now, "diff_seconds", diff)
 			w.WriteHeader(http.StatusOK) // Return 200 OK so Telegram drops the stale update from its retry queue
 			return
 		}
@@ -476,15 +475,24 @@ func (h *WebhookHandler) handlePreCheckoutUpdate(ctx context.Context, bot *repos
 	if err != nil {
 		slog.Warn("Pre-checkout failed: Order not found for payload", "payload", pq.InvoicePayload)
 		h.answerPreCheckout(botToken, pq.ID, false, "Order verification failed")
+	} else if order.Status == "paid" {
+		slog.Warn("Pre-checkout failed: Order already paid", "payload", pq.InvoicePayload)
+		h.answerPreCheckout(botToken, pq.ID, false, "Order already paid")
+	} else if pq.Currency != "XTR" {
+		slog.Warn("Pre-checkout failed: Invalid currency", "expected", "XTR", "got", pq.Currency)
+		h.answerPreCheckout(botToken, pq.ID, false, "Invalid currency")
 	} else if order.Amount != pq.TotalAmount {
 		slog.Warn("Pre-checkout failed: Amount mismatch", "expected", order.Amount, "got", pq.TotalAmount)
 		h.answerPreCheckout(botToken, pq.ID, false, "Price mismatch")
+	} else if pq.From == nil || pq.From.ID != order.UserID {
+		slog.Warn("Pre-checkout failed: User mismatch", "payload", pq.InvoicePayload)
+		h.answerPreCheckout(botToken, pq.ID, false, "User mismatch")
 	} else {
 		h.answerPreCheckout(botToken, pq.ID, true, "")
 	}
 }
 
-func (h *WebhookHandler) handleMyChatMemberUpdate(ctx context.Context, bot *repository.ManagedBot, mcm *ChatMemberUpdated, w http.ResponseWriter) {
+func (h *WebhookHandler) handleMyChatMemberUpdate(ctx context.Context, bot *repository.ManagedBot, mcm *ChatMemberUpdated) {
 	chat := mcm.Chat
 	newStatus := mcm.NewChatMember.Status
 	oldStatus := mcm.OldChatMember.Status
@@ -492,20 +500,15 @@ func (h *WebhookHandler) handleMyChatMemberUpdate(ctx context.Context, bot *repo
 	if newStatus == "administrator" || newStatus == "member" {
 		slog.Info("Bot added to group", "chat_id", chat.ID, "chat_type", chat.Type)
 		// Trigger onboarding flow
-		ok := h.handleBotAddedToGroup(ctx, bot, &chat, mcm.From.ID)
-		if !ok {
-			w.Header().Set("Retry-After", "120")
-			w.WriteHeader(http.StatusTooManyRequests)
-			return
-		}
+		h.handleBotAddedToGroup(ctx, bot, &chat, mcm.From.ID)
 	}
 
-	_, err := h.botRepo.GetGroupByChatID(ctx, chat.ID)
+	_, err := h.botRepo.GetGroup(ctx, bot.ID, chat.ID)
 	if err == nil {
 		tg, _ := h.moderator.GetTelegramClient(ctx, bot)
 		
 		lang := "en"
-		managedGroup, err := h.botRepo.GetGroupByChatID(ctx, chat.ID)
+		managedGroup, err := h.botRepo.GetGroup(ctx, bot.ID, chat.ID)
 		if err == nil {
 			settings, _ := h.moderator.GetSettings(ctx, managedGroup.ID)
 			if settings != nil {
@@ -562,20 +565,11 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 			optionID := parts[2]
 			if parseErr == nil {
 				var frgAmount float64
-				var price float64
-				switch optionID {
-				case "stars_5":
-					frgAmount = 5
-					price = 385
-				case "stars_10":
-					frgAmount = 10
-					price = 750
-				case "stars_25":
-					frgAmount = 25
-					price = 1800
-				case "stars_50":
-					frgAmount = 50
-					price = 3400
+				if strings.HasPrefix(optionID, "stars_") {
+					frgStr := strings.TrimPrefix(optionID, "stars_")
+					if val, err := strconv.ParseFloat(frgStr, 64); err == nil {
+						frgAmount = val
+					}
 				}
 
 				if frgAmount > 0 {
@@ -583,7 +577,7 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 					meta, _ := json.Marshal(map[string]interface{}{
 						"option_id":          optionID,
 						"method":             "stars",
-						"stars_amount":       price,
+						"stars_amount":       pay.TotalAmount,
 						"telegram_charge_id": pay.TelegramPaymentChargeID,
 					})
 					_, err := frgRepo.CreditWithIdempotency(ctx, userID, frgAmount, "purchase_stars", meta, pay.TelegramPaymentChargeID)
@@ -642,7 +636,7 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 }
 
 func (h *WebhookHandler) handleJoinLeaveUpdate(ctx context.Context, bot *repository.ManagedBot, msg *Message) {
-	group, err := h.botRepo.GetGroupByChatID(ctx, msg.Chat.ID)
+	group, err := h.botRepo.GetGroup(ctx, bot.ID, msg.Chat.ID)
 	if err == nil {
 		settings, _ := h.moderator.GetSettings(ctx, group.ID)
 		var content repository.SettingsContentRestrictions
@@ -669,14 +663,14 @@ func (h *WebhookHandler) handleJoinLeaveUpdate(ctx context.Context, bot *reposit
 								Message: "Adding bots is not allowed",
 								Action:  h.moderator.ResolveAction(penalty),
 							}
-							h.executeViolationAction(ctx, msg.Chat.ID, msg.From.ID, msg.MessageID, msg.MessageThreadID, violation)
+							h.executeViolationAction(ctx, bot, msg.Chat.ID, msg.From.ID, msg.MessageID, msg.MessageThreadID, violation)
 						}
 					}
 					continue
 				}
 
 				h.moderator.LogMemberEvent(ctx, group.ID, "member_join", &user.ID)
-				h.handleJoinCaptcha(ctx, msg, &user)
+				h.handleJoinCaptcha(ctx, bot, msg, &user)
 
 				if !user.IsBot && msg.From != nil && user.ID != msg.From.ID {
 					nonBotCount++
@@ -692,7 +686,7 @@ func (h *WebhookHandler) handleJoinLeaveUpdate(ctx context.Context, bot *reposit
 				}
 			}
 
-			h.handleWelcomeMessage(ctx, msg)
+			h.handleWelcomeMessage(ctx, bot, msg)
 		}
 		if msg.LeftChatMember != nil {
 			h.moderator.LogMemberEvent(ctx, group.ID, "member_leave", &msg.LeftChatMember.ID)
@@ -700,7 +694,7 @@ func (h *WebhookHandler) handleJoinLeaveUpdate(ctx context.Context, bot *reposit
 
 		if settings != nil {
 			if general.HideJoinLeave {
-				h.deleteMessage(ctx, msg.Chat.ID, msg.MessageID)
+				h.deleteMessage(ctx, bot, msg.Chat.ID, msg.MessageID)
 			}
 		}
 	}
@@ -862,23 +856,28 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 			h.handlePrivateCommand(ctx, bot, msg)
 			return
 		} else if strings.HasPrefix(mc.Text, "/settings") {
-			h.handleGroupSettingsCommand(ctx, msg)
+			h.handleGroupSettingsCommand(ctx, bot, msg)
 			return
 		} else {
-			handled := h.handleGroupAdminCommand(ctx, msg)
+			handled := h.handleGroupAdminCommand(ctx, bot, msg)
 			if handled {
 				return
 			}
 		}
 	}
 
+	// Skip moderation for private chats
+	if msg.Chat.Type == "private" {
+		return
+	}
+
 	// Regular Moderation
-	violation, err := h.moderator.ValidateMessage(ctx, mc)
+	violation, err := h.moderator.ValidateMessage(ctx, bot, mc)
 	if err != nil {
 		slog.Warn("Moderation error", "error", err)
 	} else if violation != nil {
 		slog.Info("Violation detected", "type", violation.Type, "chat_id", msg.Chat.ID, "user_id", msg.From.ID)
-		h.executeViolationAction(ctx, msg.Chat.ID, msg.From.ID, msg.MessageID, msg.MessageThreadID, violation)
+		h.executeViolationAction(ctx, bot, msg.Chat.ID, msg.From.ID, msg.MessageID, msg.MessageThreadID, violation)
 
 		// Spam Attack Detector (>10 violations in 1 minute)
 		if cache != nil && cache.Client != nil {
@@ -889,7 +888,7 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 			}
 			if count == 10 {
 				tg, _ := h.moderator.GetTelegramClient(ctx, bot)
-				group, _ := h.botRepo.GetGroupByChatID(ctx, msg.Chat.ID)
+				group, _ := h.botRepo.GetGroup(ctx, bot.ID, msg.Chat.ID)
 				lang := i18n.DetectLanguage("")
 				alert := i18n.T(lang, "notifications.mass_spam", map[string]interface{}{"group": group.ChatTitle})
 				_ = tg.SendMessage(ctx, bot.OwnerUserID, alert, nil, nil)
@@ -967,11 +966,7 @@ func (h *WebhookHandler) mapToModeratorContext(m *Message) *botmgmt.MessageConte
 	}
 }
 
-func (h *WebhookHandler) executeViolationAction(ctx context.Context, chatID int64, userID int64, messageID int, threadID *int, violation *botmgmt.Violation) {
-	bot, err := h.botRepo.GetBotByChatID(ctx, chatID)
-	if err != nil {
-		return
-	}
+func (h *WebhookHandler) executeViolationAction(ctx context.Context, bot *repository.ManagedBot, chatID int64, userID int64, messageID int, threadID *int, violation *botmgmt.Violation) {
 	tgClient, err := h.moderator.GetTelegramClient(ctx, bot)
 	if err != nil {
 		return
@@ -1004,7 +999,7 @@ func (h *WebhookHandler) executeViolationAction(ctx context.Context, chatID int6
 	// 3. Execute Penalty
 	lang := "en"
 	var general repository.SettingsGeneral
-	group, err := h.botRepo.GetGroupByChatID(ctx, chatID)
+	group, err := h.botRepo.GetGroup(ctx, bot.ID, chatID)
 	if err == nil {
 		settings, _ := h.moderator.GetSettings(ctx, group.ID)
 		if settings != nil {
@@ -1132,8 +1127,8 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 	}
 }
 
-func (h *WebhookHandler) handleGroupSettingsCommand(ctx context.Context, m *Message) {
-	group, err := h.botRepo.GetGroupByChatID(ctx, m.Chat.ID)
+func (h *WebhookHandler) handleGroupSettingsCommand(ctx context.Context, bot *repository.ManagedBot, m *Message) {
+	group, err := h.botRepo.GetGroup(ctx, bot.ID, m.Chat.ID)
 	if err != nil {
 		return
 	}
@@ -1154,11 +1149,8 @@ func (h *WebhookHandler) handleGroupSettingsCommand(ctx context.Context, m *Mess
 	_ = tg.SendMessage(ctx, m.Chat.ID, msg, &m.MessageID, m.MessageThreadID)
 }
 
-// P0-P1: Semaphore to limit concurrent onboarding goroutines (prevent goroutine leak)
-var onboardingSemaphore = make(chan struct{}, 50)
-
-func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *repository.ManagedBot, chat *Chat, _ int64) bool {
-	managedGroup, err := h.botRepo.GetGroupByChatID(ctx, chat.ID)
+func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *repository.ManagedBot, chat *Chat, _ int64) {
+	managedGroup, err := h.botRepo.GetGroup(ctx, bot.ID, chat.ID)
 	if err != nil {
 		managedGroup = &repository.ManagedGroup{
 			BotID:              bot.ID,
@@ -1171,7 +1163,7 @@ func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *reposit
 		err = h.botRepo.CreateGroup(ctx, managedGroup)
 		if err != nil {
 			slog.Error("Failed to auto-create group in DB", "error", err)
-			return false
+			return
 		}
 	}
 
@@ -1179,17 +1171,14 @@ func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *reposit
 	tg := telegram.NewBotAPIClient(token)
 
 	// Sequence of onboarding messages (BUG #8 - Fixed with premium Persian flow)
-	select {
-	case onboardingSemaphore <- struct{}{}:
-		GoSafe(func() {
-			defer func() { <-onboardingSemaphore }()
-			var msgIDs []int
-			ctx := context.Background()
+	GoSafe(func() {
+		var msgIDs []int
+		ctx := context.Background()
 
 			// Try to detect language from group settings
 			lang := "en"
 			// We need to fetch the group to get its ID (UUID)
-			managedGroup, err := h.botRepo.GetGroupByChatID(ctx, chat.ID)
+			managedGroup, err := h.botRepo.GetGroup(ctx, bot.ID, chat.ID)
 			if err == nil {
 				settings, _ := h.moderator.GetSettings(ctx, managedGroup.ID)
 				if settings != nil {
@@ -1232,16 +1221,11 @@ func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *reposit
 					_ = tg.DeleteMessage(bgCtx, chatID, mid)
 				}
 			})
-		})
-		return true
-	default:
-		slog.Warn("Onboarding goroutine pool full, skipping", "chat_id", chat.ID)
-		return false
-	}
+	})
 }
 
-func (h *WebhookHandler) handleWelcomeMessage(ctx context.Context, m *Message) {
-	group, err := h.botRepo.GetGroupByChatID(ctx, m.Chat.ID)
+func (h *WebhookHandler) handleWelcomeMessage(ctx context.Context, bot *repository.ManagedBot, m *Message) {
+	group, err := h.botRepo.GetGroup(ctx, bot.ID, m.Chat.ID)
 	if err != nil {
 		return
 	}
@@ -1335,17 +1319,13 @@ func (h *WebhookHandler) handleWelcomeMessage(ctx context.Context, m *Message) {
 	h.sendBotMessage(ctx, tg, m.Chat.ID, text, markup, m.MessageThreadID, general)
 }
 
-func (h *WebhookHandler) deleteMessage(ctx context.Context, chatID int64, messageID int) {
-	bot, err := h.botRepo.GetBotByChatID(ctx, chatID)
-	if err != nil {
-		return
-	}
+func (h *WebhookHandler) deleteMessage(ctx context.Context, bot *repository.ManagedBot, chatID int64, messageID int) {
 	token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 	tg := telegram.NewBotAPIClient(token)
 	_ = tg.DeleteMessage(ctx, chatID, messageID)
 }
 
-func (h *WebhookHandler) handleGroupAdminCommand(ctx context.Context, m *Message) bool {
+func (h *WebhookHandler) handleGroupAdminCommand(ctx context.Context, bot *repository.ManagedBot, m *Message) bool {
 	if m.From == nil || m.Chat == nil { return false }
 	
 	// Command check
@@ -1359,10 +1339,8 @@ func (h *WebhookHandler) handleGroupAdminCommand(ctx context.Context, m *Message
 	}
 	if cmd == "" { return false }
 
-	group, err := h.botRepo.GetGroupByChatID(ctx, m.Chat.ID)
+	group, err := h.botRepo.GetGroup(ctx, bot.ID, m.Chat.ID)
 	if err != nil { return false }
-
-	bot, _ := h.botRepo.GetBotByID(ctx, group.BotID)
 	tg, _ := h.moderator.GetTelegramClient(ctx, bot)
 
 	// 1. Get Group Settings for publicCommands flag
@@ -1467,7 +1445,7 @@ func (h *WebhookHandler) adminWarn(ctx context.Context, _ *telegram.BotAPIClient
 		Action: "warn",
 		Message: "Warned by administrator",
 	}
-	h.executeViolationAction(ctx, m.Chat.ID, targetID, m.MessageID, m.MessageThreadID, violation)
+	h.executeViolationAction(ctx, bot, m.Chat.ID, targetID, m.MessageID, m.MessageThreadID, violation)
 	return true
 }
 
@@ -1518,7 +1496,7 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 		if len(parts) < 2 { return }
 		expectedUserID := parts[1]
 		
-		_, err := h.botRepo.GetGroupByChatID(ctx, cq.Message.Chat.ID)
+		_, err := h.botRepo.GetGroup(ctx, bot.ID, cq.Message.Chat.ID)
 		if err != nil { return }
 
 		if fmt.Sprintf("%d", cq.From.ID) != expectedUserID {
@@ -1922,8 +1900,8 @@ func (h *WebhookHandler) getForwardID(m *Message) int64 {
 	return 0
 }
 
-func (h *WebhookHandler) handleJoinCaptcha(ctx context.Context, m *Message, user *User) {
-	group, err := h.botRepo.GetGroupByChatID(ctx, m.Chat.ID)
+func (h *WebhookHandler) handleJoinCaptcha(ctx context.Context, bot *repository.ManagedBot, m *Message, user *User) {
+	group, err := h.botRepo.GetGroup(ctx, bot.ID, m.Chat.ID)
 	if err != nil { return }
 	
 	settings, _ := h.moderator.GetSettings(ctx, group.ID)
