@@ -234,15 +234,9 @@ func InitClient(ctx context.Context) (Client, error) {
 			slog.Info("Real MTProto client initialized")
 			return c, nil
 		}
-		if os.Getenv("APP_ENV") == "production" {
-			return nil, fmt.Errorf("failed to initialize real MTProto client in production: %w", err)
-		}
-		slog.Error("MTProto init failed, falling back to mock", "err", err)
+		slog.Error("Failed to initialize real MTProto client, falling back to MockClient", "err", err)
 	} else {
-		if os.Getenv("APP_ENV") == "production" {
-			return nil, fmt.Errorf("MTProto credentials (TG_APP_ID, BOT_TOKEN) are missing in production")
-		}
-		slog.Info("MTProto credentials missing, using MockClient")
+		slog.Warn("MTProto credentials (TG_APP_ID, BOT_TOKEN) are missing. Falling back to MockClient (Not Recommended for production!)")
 	}
 	return NewMockClient(), nil
 }
