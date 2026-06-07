@@ -98,7 +98,10 @@ func ValidateTelegramInitData(db *repository.Database, cache *repository.Cache) 
 
 			botToken := os.Getenv("BOT_TOKEN")
 			if botToken == "" {
-				http.Error(w, "Internal Server Error: Security configuration missing", http.StatusInternalServerError)
+				botToken = os.Getenv("TELEGRAM_BOT_TOKEN")
+			}
+			if botToken == "" {
+				http.Error(w, "Internal Server Error: Security configuration missing (BOT_TOKEN)", http.StatusInternalServerError)
 				return
 			}
 

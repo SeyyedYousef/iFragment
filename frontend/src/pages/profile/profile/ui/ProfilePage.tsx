@@ -12,6 +12,7 @@ import { ReferralPreview } from '@/widgets/profile/ReferralPreview.js';
 import { QuickActions } from '@/widgets/profile/QuickActions.js';
 import { GamificationHub } from '@/widgets/profile/GamificationHub.js';
 import { getProfileStats, getProfileAchievements, getReferralInfo } from '@/shared/api/profile.js';
+import { setProfilePhotoUrl } from '@/shared/store/profile.js';
 import { checkHomeScreenStatus, addToHomeScreen } from '@/shared/lib/telegram-native.js';
 import { SkeletonProfile } from '@/shared/ui/Skeleton.js';
 import { ErrorFallback } from '@/shared/ui/ErrorFallback.js';
@@ -59,6 +60,9 @@ export const ProfilePage: Component = () => {
       if (res) {
         try {
           localStorage.setItem('cached_profile_stats', JSON.stringify(res));
+          if (res.photoUrl) {
+            setProfilePhotoUrl(res.photoUrl);
+          }
         } catch {}
       }
       return res;
