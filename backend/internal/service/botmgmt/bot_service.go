@@ -18,6 +18,7 @@ import (
 	"bytes"
 
 	"github.com/google/uuid"
+	"crypto/sha256"
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/i18n"
 	"ifragment-backend/internal/repository"
@@ -498,10 +499,16 @@ func getCryptoKey() []byte {
 	cryptoOnce.Do(func() {
 		keyStr := os.Getenv("BOT_TOKEN_KEY")
 		if keyStr == "" {
+			jwtSecret := os.Getenv("JWT_SECRET")
+			if jwtSecret != "" {
+				hash := sha256.Sum256([]byte(jwtSecret))
+				cryptoKey = hash[:]
+				return
+			}
 			if os.Getenv("APP_ENV") != "production" {
 				keyStr = "dev_bot_token_key_32_characters_"
 			} else {
-				panic("CRITICAL: BOT_TOKEN_KEY environment variable is not set")
+				panic("CRITICAL: BOT_TOKEN_KEY and JWT_SECRET environment variables are not set")
 			}
 		}
 		key := []byte(keyStr)

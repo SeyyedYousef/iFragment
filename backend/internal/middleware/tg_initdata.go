@@ -39,10 +39,16 @@ func getCryptoKey() ([]byte, error) {
 	cryptoOnce.Do(func() {
 		keyStr := os.Getenv("BOT_TOKEN_KEY")
 		if keyStr == "" {
+			jwtSecret := os.Getenv("JWT_SECRET")
+			if jwtSecret != "" {
+				hash := sha256.Sum256([]byte(jwtSecret))
+				cryptoKey = hash[:]
+				return
+			}
 			if allowDevBypass && os.Getenv("APP_ENV") != "production" {
 				keyStr = "dev_bot_token_key_32_characters_"
 			} else {
-				cryptoErr = fmt.Errorf("CRITICAL: BOT_TOKEN_KEY environment variable is not set")
+				cryptoErr = fmt.Errorf("CRITICAL: BOT_TOKEN_KEY and JWT_SECRET environment variables are not set")
 				return
 			}
 		}

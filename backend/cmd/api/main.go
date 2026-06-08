@@ -598,6 +598,12 @@ func AutoRegisterMainBot(ctx context.Context, db *repository.Database, botServic
 	}
 
 	ownerIDStr := os.Getenv("OWNER_TELEGRAM_ID")
+	if ownerIDStr == "" {
+		ownerIDStr = os.Getenv("OWNER_TELEGRAM_IDS")
+	}
+	if strings.Contains(ownerIDStr, ",") {
+		ownerIDStr = strings.TrimSpace(strings.Split(ownerIDStr, ",")[0])
+	}
 	ownerID, err := strconv.ParseInt(ownerIDStr, 10, 64)
 	if err != nil {
 		slog.Error("AutoRegisterMainBot: OWNER_TELEGRAM_ID is not set or invalid, skipping webhook registration", "error", err)
