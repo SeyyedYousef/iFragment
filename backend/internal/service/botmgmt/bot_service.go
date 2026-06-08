@@ -221,10 +221,16 @@ func (s *BotService) RegisterBot(ctx context.Context, ownerID int64, token, user
 		return nil, err
 	}
 
-	// Register webhook with Telegram
-	appURL := os.Getenv("APP_URL")
-	if appURL != "" {
-		webhookURL := fmt.Sprintf("%s/api/v1/webhook/telegram/%s", strings.TrimSuffix(appURL, "/"), bot.ID.String())
+	// Register webhook with Telegram using the backend API address
+	backendURL := os.Getenv("BACKEND_URL")
+	if backendURL == "" {
+		backendURL = os.Getenv("API_URL")
+	}
+	if backendURL == "" {
+		backendURL = os.Getenv("APP_URL")
+	}
+	if backendURL != "" {
+		webhookURL := fmt.Sprintf("%s/api/v1/webhook/telegram/%s", strings.TrimSuffix(backendURL, "/"), bot.ID.String())
 		tgWebhookURL := fmt.Sprintf("https://api.telegram.org/bot%s/setWebhook", token)
 		payload := map[string]interface{}{
 			"url":                  webhookURL,

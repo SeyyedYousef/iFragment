@@ -663,7 +663,14 @@ func AutoRegisterMainBot(ctx context.Context, db *repository.Database, botServic
 	}
 
 	// Register webhook with Telegram
-	webhookURL := fmt.Sprintf("%s/api/v1/webhook/telegram/%s", strings.TrimSuffix(appURL, "/"), botUUID.String())
+	backendURL := os.Getenv("BACKEND_URL")
+	if backendURL == "" {
+		backendURL = os.Getenv("API_URL")
+	}
+	if backendURL == "" {
+		backendURL = appURL
+	}
+	webhookURL := fmt.Sprintf("%s/api/v1/webhook/telegram/%s", strings.TrimSuffix(backendURL, "/"), botUUID.String())
 	slog.Info("AutoRegisterMainBot: setting webhook URL", "url", webhookURL)
 
 	tgWebhookURL := fmt.Sprintf("https://api.telegram.org/bot%s/setWebhook", token)
