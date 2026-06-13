@@ -66,6 +66,14 @@ func (r *BotRepo) CreateBot(ctx context.Context, bot *ManagedBot) error {
 
 	query := `INSERT INTO managed_bots (owner_user_id, bot_token_encrypted, bot_username, bot_name, bot_id, status, webhook_secret_token)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (bot_id) DO UPDATE SET
+			owner_user_id = EXCLUDED.owner_user_id,
+			bot_token_encrypted = EXCLUDED.bot_token_encrypted,
+			bot_username = EXCLUDED.bot_username,
+			bot_name = EXCLUDED.bot_name,
+			status = 'active',
+			webhook_secret_token = EXCLUDED.webhook_secret_token,
+			updated_at = now()
 		RETURNING id, created_at, updated_at`
 	return r.db.Pool.QueryRow(ctx, query,
 		bot.OwnerUserID, bot.BotTokenEncrypted, bot.BotUsername, bot.BotName, bot.BotID, bot.Status, bot.WebhookSecretToken,

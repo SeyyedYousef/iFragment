@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"math"
 	"net/http"
@@ -147,7 +148,15 @@ func (c *BotAPIClient) Request(ctx context.Context, method string, payload inter
 
 func (c *BotAPIClient) doRequestWithRetry(ctx context.Context, method string, payload interface{}) (json.RawMessage, error) {
 	url := fmt.Sprintf("%s/bot%s/%s", c.baseURL, c.token, method)
-	body, _ := json.Marshal(payload)
+
+	var bodyReader io.Reader
+	if payload != nil {
+		body, err := json.Marshal(payload)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal payload: %w", err)
+		}
+		bodyReader = bytes.NewBuffer(body)
+	}
 
 	const maxRetries = 3
 
@@ -167,7 +176,7 @@ func (c *BotAPIClient) doRequestWithRetry(ctx context.Context, method string, pa
 			}
 		}
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(body))
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bodyReader)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}

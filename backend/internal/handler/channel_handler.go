@@ -120,10 +120,14 @@ func (h *ChannelHandler) ConnectChannel(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	botID, err := uuid.Parse(req.BotID)
-	if err != nil {
-		RespondError(w, r, http.StatusBadRequest, "invalid bot_id", err)
-		return
+	var botID uuid.UUID
+	if req.BotID != "auto" && req.BotID != "" {
+		var err error
+		botID, err = uuid.Parse(req.BotID)
+		if err != nil {
+			RespondError(w, r, http.StatusBadRequest, "invalid bot_id", err)
+			return
+		}
 	}
 
 	ch, err := h.svc.ConnectChannel(r.Context(), userID, botID, req.Username)

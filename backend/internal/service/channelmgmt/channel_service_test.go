@@ -3,6 +3,7 @@ package channelmgmt
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"os"
 	"strings"
 	"testing"
@@ -241,7 +242,14 @@ func TestDynamicParaphraseFallback(t *testing.T) {
 }
 
 func TestValidateForwardingTarget(t *testing.T) {
-	s := &ChannelService{}
+	s := &ChannelService{
+		dnsLookup: func(host string) ([]net.IP, error) {
+			if host == "safe-external-webhook.com" {
+				return []net.IP{net.ParseIP("8.8.8.8")}, nil
+			}
+			return net.LookupIP(host)
+		},
+	}
 
 	tests := []struct {
 		name      string
