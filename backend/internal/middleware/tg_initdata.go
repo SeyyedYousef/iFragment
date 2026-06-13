@@ -280,20 +280,25 @@ func validate(initData, botToken string) error {
 		return fmt.Errorf("missing hash")
 	}
 
-	// Create data-check-string
-	var keys []string
-	for k := range values {
-		if k != "hash" {
-			keys = append(keys, k)
+	// Create data-check-string from raw initData pairs for encoding robustness.
+	// url.ParseQuery() silently converts '+' to spaces which can break hash verification
+	// when user data contains '+' characters. Instead, split raw pairs and decode explicitly.
+	rawPairs := strings.Split(initData, "&")
+	var filteredPairs []string
+	for _, pair := range rawPairs {
+		eqIdx := strings.Index(pair, "=")
+		if eqIdx == -1 {
+			continue
 		}
+		key, _ := url.QueryUnescape(pair[:eqIdx])
+		if key == "hash" {
+			continue
+		}
+		val, _ := url.QueryUnescape(pair[eqIdx+1:])
+		filteredPairs = append(filteredPairs, key+"="+val)
 	}
-	sort.Strings(keys)
-
-	var dataCheckArr []string
-	for _, k := range keys {
-		dataCheckArr = append(dataCheckArr, fmt.Sprintf("%s=%s", k, values.Get(k)))
-	}
-	dataCheckString := strings.Join(dataCheckArr, "\n")
+	sort.Strings(filteredPairs)
+	dataCheckString := strings.Join(filteredPairs, "\n")
 
 	// HMAC-SHA256 validation
 	// 1. Secret Key = HMAC-SHA256("WebAppData", BotToken)

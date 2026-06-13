@@ -125,6 +125,10 @@ async function startApp() {
       mockForMacOS: launchParams.tgWebAppPlatform === 'macos',
     });
 
+    // 4.5. Proactively obtain JWT before any API calls to avoid 401→refresh loops
+    const { bootstrapAuth } = await import('@/shared/api/axios.js');
+    await bootstrapAuth();
+
     // 5. Final Render
     render(() => (
       <ErrorBoundary>

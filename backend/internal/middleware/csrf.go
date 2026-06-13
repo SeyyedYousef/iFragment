@@ -30,6 +30,14 @@ func CSRF(next http.Handler) http.Handler {
 			return
 		}
 
+		// Skip CSRF for auth token bootstrap (protected by Telegram initData HMAC, not cookies)
+		// This endpoint creates the JWT — by definition no Bearer token exists yet,
+		// so the Authorization-based exemption above cannot apply.
+		if r.URL.Path == "/api/v1/auth/token" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		// Retrieve allowed origins
 		allowedStr := os.Getenv("ALLOWED_ORIGINS")
 		allowedOrigins := strings.Split(allowedStr, ",")

@@ -119,11 +119,11 @@ apiClient.interceptors.response.use(
           const failedInitData = sessionStorage.getItem('failed_init_data');
           if (initData && initData !== failedInitData) {
             if (!refreshPromise) {
-              const tokenUrl = API_CONFIG.BASE_URL.replace(/\/api\/v1\/?$/, '') + '/api/v1/auth/token';
-              refreshPromise = axios.post(
-                tokenUrl,
+              // Use apiClient (not raw axios) so request interceptor attaches
+              // X-Telegram-Init-Data and Content-Type headers automatically
+              refreshPromise = apiClient.post(
+                '/auth/token',
                 {},
-                { headers: { 'X-Telegram-Init-Data': initData } }
               ).then(refreshResponse => {
                 if (refreshResponse.data?.token) {
                   localStorage.setItem('jwt_token', refreshResponse.data.token);
@@ -160,3 +160,25 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+/**
+ * Proactive auth bootstrap — call at app startup to obtain a JWT
+ * before any API request triggers a reactive 401 → refresh loop.
+ * Safe to call multiple times; no-ops if a token already exists.
+ */
+export async function bootstrapAuth(): Promise<void> {
+  const existingToken = localStorage.getItem('jwt_token');
+  if (existingToken) return; // Already authenticated
+
+  const initData = getInitData();
+  if (!initData) return; // No Telegram context available
+
+  try {
+    const response = await apiClient.post('/auth/token', {});
+    if (response.data?.token) {
+      localStorage.setItem('jwt_token', response.data.token);
+    }
+  } catch (err) {
+    console.warn('[Auth] Proactive bootstrap failed:', err);
+  }
+}
