@@ -167,10 +167,11 @@ apiClient.interceptors.response.use(
  * Safe to call multiple times; no-ops if a token already exists.
  */
 export async function bootstrapAuth(): Promise<void> {
+  const initData = getInitData();
+  
   const existingToken = localStorage.getItem('jwt_token');
   if (existingToken) return; // Already authenticated
 
-  const initData = getInitData();
   if (!initData) return; // No Telegram context available
 
   try {
