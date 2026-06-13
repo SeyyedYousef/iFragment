@@ -683,6 +683,16 @@ func AutoRegisterMainBot(ctx context.Context, db *repository.Database, botServic
 	payload := map[string]interface{}{
 		"url":          webhookURL,
 		"secret_token": secretToken,
+		"allowed_updates": []string{
+			"message",
+			"edited_message",
+			"callback_query",
+			"channel_post",
+			"edited_channel_post",
+			"my_chat_member",
+			"chat_join_request",
+			"pre_checkout_query",
+		},
 	}
 	body, _ := json.Marshal(payload)
 

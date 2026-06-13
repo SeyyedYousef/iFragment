@@ -637,6 +637,27 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 
 func (h *WebhookHandler) handleJoinLeaveUpdate(ctx context.Context, bot *repository.ManagedBot, msg *Message) {
 	group, err := h.botRepo.GetGroup(ctx, bot.ID, msg.Chat.ID)
+	if err != nil {
+		// Fallback: If group is not in DB, check if the bot itself was added in this update
+		botWasAdded := false
+		for _, user := range msg.NewChatMembers {
+			if user.ID == bot.BotID {
+				botWasAdded = true
+				break
+			}
+		}
+		if botWasAdded {
+			slog.Info("Bot detected its own addition to group via new_chat_members", "chat_id", msg.Chat.ID, "chat_type", msg.Chat.Type)
+			var inviterID int64
+			if msg.From != nil {
+				inviterID = msg.From.ID
+			}
+			h.handleBotAddedToGroup(ctx, bot, msg.Chat, inviterID)
+			// Retrieve the group again after creation
+			group, err = h.botRepo.GetGroup(ctx, bot.ID, msg.Chat.ID)
+		}
+	}
+
 	if err == nil {
 		settings, _ := h.moderator.GetSettings(ctx, group.ID)
 		var content repository.SettingsContentRestrictions

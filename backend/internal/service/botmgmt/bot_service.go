@@ -193,8 +193,13 @@ func (s *BotService) RegisterBot(ctx context.Context, ownerID int64, token, user
 		}
 		return nil, fmt.Errorf("bot token verification failed: %w", err)
 	}
-	if me.ID != botID || me.Username != username {
+	if me.ID != botID {
 		return nil, fmt.Errorf("bot token verification details mismatch")
+	}
+
+	actualName := me.FirstName
+	if actualName == "" {
+		actualName = name
 	}
 
 	encrypted, err := EncryptToken(token)
@@ -211,9 +216,9 @@ func (s *BotService) RegisterBot(ctx context.Context, ownerID int64, token, user
 	bot := &repository.ManagedBot{
 		OwnerUserID:        ownerID,
 		BotTokenEncrypted:  encrypted,
-		BotUsername:        username,
-		BotName:            name,
-		BotID:              botID,
+		BotUsername:        me.Username,
+		BotName:            actualName,
+		BotID:              me.ID,
 		Status:             "active",
 		WebhookSecretToken: secretHex,
 	}
@@ -237,6 +242,16 @@ func (s *BotService) RegisterBot(ctx context.Context, ownerID int64, token, user
 			"url":                  webhookURL,
 			"secret_token":         secretHex,
 			"drop_pending_updates": true,
+			"allowed_updates": []string{
+				"message",
+				"edited_message",
+				"callback_query",
+				"channel_post",
+				"edited_channel_post",
+				"my_chat_member",
+				"chat_join_request",
+				"pre_checkout_query",
+			},
 		}
 		body, _ := json.Marshal(payload)
 
