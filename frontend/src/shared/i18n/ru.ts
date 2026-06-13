@@ -716,6 +716,7 @@ export const dict = {
     "username": {
       "validation": {
         "minLength": "Минимум 4 символа",
+        "minLengthStandard": "Минимум 5 символов",
         "maxLength": "Максимум 32 символа",
         "invalidChars": "Только буквы, цифры и подчеркивания",
         "consecutiveUnderscores": "Нельзя два подчеркивания подряд",

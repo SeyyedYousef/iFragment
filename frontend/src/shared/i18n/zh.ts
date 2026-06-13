@@ -716,8 +716,9 @@ export const dict = {
     "username": {
       "validation": {
         "minLength": "最少 4 个字符",
+        "minLengthStandard": "最少 5 个字符",
         "maxLength": "最多 32 个字符",
-        "invalidChars": "仅限字母、数字和下划线",
+        "invalidChars": "仅限字母、数字和下划线", // Wait, let's keep the original: 仅限字母、数字和下划线
         "consecutiveUnderscores": "不能包含连续下划线",
         "startWithChar": "必须以字母开头",
         "endWithUnderscore": "不能以下划线结尾",

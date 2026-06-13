@@ -105,7 +105,12 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 		if s.tonClient == nil {
 			return
 		}
-		coll, err := s.tonClient.GetCollection(ctx, addr)
+		var coll *tonapi.NFTCollection
+		err := retryWithBackoff(ctx, 3, 100*time.Millisecond, 1*time.Second, func() error {
+			var rErr error
+			coll, rErr = s.tonClient.GetCollection(ctx, addr)
+			return rErr
+		})
 		if err == nil && coll != nil {
 			mu.Lock()
 			summary.TotalSupply = coll.NextItemIndex
@@ -122,7 +127,12 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 		if s.marketappClient == nil {
 			return
 		}
-		stats, err := s.marketappClient.GetCollection(ctx)
+		var stats *marketapp.CollectionData
+		err := retryWithBackoff(ctx, 3, 100*time.Millisecond, 1*time.Second, func() error {
+			var rErr error
+			stats, rErr = s.marketappClient.GetCollection(ctx)
+			return rErr
+		})
 		if err == nil && stats != nil {
 			mu.Lock()
 			summary.FloorPrice = fmt.Sprintf("%.2f", stats.FloorPrice)
@@ -177,10 +187,16 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 			}
 		}
 
-		// Fetch from TonAPI — scan up to 5000 items for distribution analysis
-		topHolders, ownerCounts, err := s.tonClient.GetTopHolders(ctx, addr, 5000)
+		// Fetch from TonAPI — scan up to 5000 items for distribution analysis with retries
+		var topHolders []tonapi.HolderInfo
+		var ownerCounts map[string]int
+		err := retryWithBackoff(ctx, 3, 200*time.Millisecond, 2*time.Second, func() error {
+			var rErr error
+			topHolders, ownerCounts, rErr = s.tonClient.GetTopHolders(ctx, addr, 5000)
+			return rErr
+		})
 		if err != nil {
-			slog.Warn("Failed to fetch top holders", "error", err)
+			slog.Warn("Failed to fetch top holders after retries", "error", err)
 			return
 		}
 
@@ -368,4 +384,29 @@ func (s *AggregatorService) GetTrendingUsernames(ctx context.Context) ([]string,
 	}
 
 	return list, nil
+}
+
+// retryWithBackoff executes a function with exponential backoff retries.
+func retryWithBackoff(ctx context.Context, maxRetries int, baseDelay time.Duration, maxDelay time.Duration, fn func() error) error {
+	var err error
+	delay := baseDelay
+	for i := 0; i < maxRetries; i++ {
+		err = fn()
+		if err == nil {
+			return nil
+		}
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(delay):
+		}
+		delay *= 2
+		if delay > maxDelay {
+			delay = maxDelay
+		}
+	}
+	return err
 }

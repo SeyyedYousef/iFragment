@@ -52,7 +52,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
   const handleAnalyze = async () => {
     if (analyzeState() !== 'idle' || !searchQuery()) return;
-    if (validate(searchQuery())) {
+    if (validate(searchQuery(), props.activeTab)) {
       try { hapticFeedback.impactOccurred('medium'); } catch { }
       setAnalyzeState('loading');
       try {

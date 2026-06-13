@@ -396,6 +396,7 @@ export const dict = {
     "username": {
       "validation": {
         "minLength": "نام کاربری باید حداقل ۴ کاراکتر باشد",
+        "minLengthStandard": "نام کاربری باید حداقل ۵ کاراکتر باشد",
         "maxLength": "نام کاربری خیلی طولانی است",
         "startLetter": "نام کاربری باید با یک حرف شروع شود",
         "invalidChars": "فقط حروف، اعداد و زیرخط (underscore) مجاز هستند",

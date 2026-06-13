@@ -500,6 +500,10 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 	}
 
 	// Parallel data fetching
+	var (
+		mtStatus mtproto.Status
+		frStatus fragment.Status
+	)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
@@ -523,16 +527,7 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 		status, err := s.mtprotoClient.CheckUsername(subCtx, username)
 		if err == nil {
 			mu.Lock()
-			switch status {
-			case mtproto.StatusAvailable:
-				report.Status = "available"
-			case mtproto.StatusOccupied:
-				report.Status = "taken"
-			case mtproto.StatusPurchase:
-				report.Status = "purchase_available"
-			default:
-				report.Status = string(status)
-			}
+			mtStatus = status
 			mu.Unlock()
 		}
 
@@ -718,34 +713,76 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 		defer cancel()
 
 		fragStatus, err := s.fragmentClient.CheckUsername(subCtx, username)
-		if err != nil {
-			return
+		if err == nil {
+			mu.Lock()
+			frStatus = fragStatus
+			mu.Unlock()
 		}
-		mu.Lock()
-		switch fragStatus {
-		case fragment.StatusAuction:
-			report.SaleStatus = "on_auction"
-			if report.Status == "unknown" {
-				report.Status = "on_auction"
-			}
-		case fragment.StatusSale:
-			report.SaleStatus = "on_sale"
-			if report.Status == "unknown" {
-				report.Status = "on_sale"
-			}
-		case fragment.StatusAvailable:
-			if report.Status == "unknown" {
-				report.Status = "available"
-			}
-		case fragment.StatusSold:
-			if report.Status == "unknown" {
-				report.Status = "taken"
-			}
-		}
-		mu.Unlock()
 	}()
 
 	wg.Wait()
+
+	mu.Lock()
+	// Deterministic State Resolution
+	switch frStatus {
+	case fragment.StatusAuction:
+		report.SaleStatus = "on_auction"
+	case fragment.StatusSale:
+		report.SaleStatus = "on_sale"
+	default:
+		// Preserve sale status from TON blockchain if it was set to on_sale/on_auction
+		if report.SaleStatus != "on_sale" && report.SaleStatus != "on_auction" {
+			report.SaleStatus = "not_for_sale"
+		}
+	}
+
+	if frStatus == fragment.StatusAuction {
+		report.Status = "on_auction"
+	} else if frStatus == fragment.StatusSale {
+		report.Status = "on_sale"
+	} else if report.SaleStatus == "on_sale" {
+		report.Status = "on_sale"
+	} else if report.SaleStatus == "on_auction" {
+		report.Status = "on_auction"
+	} else if mtStatus == mtproto.StatusPurchase {
+		report.Status = "purchase_available"
+	} else if mtStatus == mtproto.StatusOccupied {
+		report.Status = "taken"
+	} else if frStatus == fragment.StatusSold {
+		report.Status = "taken"
+	} else if mtStatus == mtproto.StatusAvailable && frStatus == fragment.StatusAvailable {
+		report.Status = "available"
+	} else if mtStatus == mtproto.StatusAvailable {
+		report.Status = "available"
+	} else if frStatus == fragment.StatusAvailable {
+		if len(username) == 4 {
+			report.Status = "purchase_available"
+		} else {
+			report.Status = "available"
+		}
+	} else {
+		// Fallbacks if one or both checks failed/unknown
+		if mtStatus != "" {
+			switch mtStatus {
+			case mtproto.StatusAvailable:
+				report.Status = "available"
+			case mtproto.StatusOccupied:
+				report.Status = "taken"
+			case mtproto.StatusPurchase:
+				report.Status = "purchase_available"
+			}
+		} else if frStatus != "" {
+			switch frStatus {
+			case fragment.StatusAvailable:
+				report.Status = "available"
+			case fragment.StatusSold:
+				report.Status = "taken"
+			}
+		} else {
+			report.Status = "unknown"
+		}
+	}
+	mu.Unlock()
 
 	if tonapiOwner != "" {
 		report.OwnerAddress = tonapiOwner

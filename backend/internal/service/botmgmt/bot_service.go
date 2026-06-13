@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"bytes"
 	"log/slog"
+	"strconv"
 
 	"github.com/google/uuid"
 	"crypto/sha256"
@@ -277,8 +278,40 @@ func (s *BotService) RegisterBot(ctx context.Context, ownerID int64, token, user
 	return bot, nil
 }
 
+func getMainBotID() int64 {
+	token := os.Getenv("TELEGRAM_BOT_TOKEN")
+	if token == "" {
+		token = os.Getenv("BOT_TOKEN")
+	}
+	if token == "" {
+		return 0
+	}
+	parts := strings.Split(token, ":")
+	if len(parts) < 2 {
+		return 0
+	}
+	botID, _ := strconv.ParseInt(parts[0], 10, 64)
+	return botID
+}
+
 func (s *BotService) ListBots(ctx context.Context, ownerID int64) ([]repository.ManagedBot, error) {
-	return s.botRepo.GetBotsByOwner(ctx, ownerID)
+	bots, err := s.botRepo.GetBotsByOwner(ctx, ownerID)
+	if err != nil {
+		return nil, err
+	}
+
+	mainBotID := getMainBotID()
+	if mainBotID == 0 {
+		return bots, nil
+	}
+
+	filtered := make([]repository.ManagedBot, 0, len(bots))
+	for _, b := range bots {
+		if b.BotID != mainBotID {
+			filtered = append(filtered, b)
+		}
+	}
+	return filtered, nil
 }
 
 func (s *BotService) GetBot(ctx context.Context, botID uuid.UUID, ownerID int64) (*repository.ManagedBot, error) {

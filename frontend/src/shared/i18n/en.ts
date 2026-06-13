@@ -398,6 +398,7 @@ export const dict = {
     username: {
       validation: {
         minLength: 'Username must be at least 4 characters',
+        minLengthStandard: 'Username must be at least 5 characters',
         maxLength: 'Username is too long',
         startLetter: 'Username must start with a letter',
         invalidChars: 'Only letters, numbers and underscores allowed',

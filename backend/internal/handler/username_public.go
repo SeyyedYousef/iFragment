@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -94,17 +95,21 @@ func (h *UsernameHandler) CheckAvailability(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
-	// Singleflight to merge concurrent checks
-	val, err, _ := h.sfGroup.Do("check:"+u, func() (interface{}, error) {
+	// Singleflight to merge concurrent checks using DoChan to handle client disconnection
+	ch := h.sfGroup.DoChan("check:"+u, func() (interface{}, error) {
 		// Double check cache
 		if h.cache != nil {
-			if cachedVal, err := h.cache.Client.Get(ctx, cacheKey).Result(); err == nil {
+			if cachedVal, err := h.cache.Client.Get(context.Background(), cacheKey).Result(); err == nil {
 				return cachedVal, nil
 			}
 		}
 
 		var finalStatus string
-		mtStatus, err := h.mtprotoClient.CheckUsername(ctx, u)
+		// Use detached context for backend queries in singleflight so client cancellation does not fail concurrent requests
+		detachedCtx, cancelDetached := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancelDetached()
+
+		mtStatus, err := h.mtprotoClient.CheckUsername(detachedCtx, u)
 		if err != nil {
 			return "", err
 		}
@@ -119,7 +124,7 @@ func (h *UsernameHandler) CheckAvailability(w http.ResponseWriter, r *http.Reque
 		case mtproto.StatusOccupied:
 			finalStatus = "taken"
 		case mtproto.StatusPurchase:
-			fragStatus, _ := h.fragmentClient.CheckUsername(ctx, u)
+			fragStatus, _ := h.fragmentClient.CheckUsername(detachedCtx, u)
 			switch fragStatus {
 			case fragment.StatusAuction:
 				finalStatus = "on_auction"
@@ -134,19 +139,131 @@ func (h *UsernameHandler) CheckAvailability(w http.ResponseWriter, r *http.Reque
 
 		// Save to cache
 		if h.cache != nil {
-			h.cache.Client.Set(ctx, cacheKey, finalStatus, 5*time.Minute)
+			h.cache.Client.Set(context.Background(), cacheKey, finalStatus, 5*time.Minute)
 		}
 
 		return finalStatus, nil
 	})
 
-	if err != nil {
-		slog.Error("MTProto check failed", "username", u, "error", err)
-		RespondError(w, r, http.StatusInternalServerError, "failed to check username", err)
+	var res singleflight.Result
+	select {
+	case <-ctx.Done():
+		// Release HTTP handler immediately on client disconnect/context cancel
+		return
+	case res = <-ch:
+	}
+
+	if res.Err != nil {
+		slog.Error("MTProto check failed", "username", u, "error", res.Err)
+		RespondError(w, r, http.StatusInternalServerError, "failed to check username", res.Err)
 		return
 	}
 
-	h.jsonResponse(w, u, val.(string))
+	h.jsonResponse(w, u, res.Val.(string))
+}
+
+// getQuickAnalysisCachedOrFetch — Helper method to safely query QuickAnalysis with caching and singleflight
+func (h *UsernameHandler) getQuickAnalysisCachedOrFetch(ctx context.Context, u string) ([]byte, error) {
+	cacheKey := "quick:" + u
+	if h.cache != nil {
+		if val, err := h.cache.Client.Get(ctx, cacheKey).Result(); err == nil {
+			return []byte(val), nil
+		}
+	}
+
+	ch := h.sfGroup.DoChan("quick:"+u, func() (interface{}, error) {
+		// Double check cache
+		if h.cache != nil {
+			if cachedVal, err := h.cache.Client.Get(context.Background(), cacheKey).Result(); err == nil {
+				return []byte(cachedVal), nil
+			}
+		}
+
+		detachedCtx, cancelDetached := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancelDetached()
+
+		result, err := h.reportService.QuickAnalysis(detachedCtx, u, 0)
+		if err != nil {
+			return nil, err
+		}
+
+		var mtStatus mtproto.Status
+		var frStatus fragment.Status
+
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			status, err := h.mtprotoClient.CheckUsername(detachedCtx, u)
+			if err == nil {
+				mtStatus = status
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			status, err := h.fragmentClient.CheckUsername(detachedCtx, u)
+			if err == nil {
+				frStatus = status
+			}
+		}()
+		wg.Wait()
+
+		// Resolve status deterministically
+		if frStatus == fragment.StatusAuction {
+			result.Status = "on_auction"
+		} else if frStatus == fragment.StatusSale {
+			result.Status = "on_sale"
+		} else if mtStatus == mtproto.StatusPurchase {
+			result.Status = "purchase_available"
+		} else if mtStatus == mtproto.StatusOccupied {
+			result.Status = "taken"
+		} else if frStatus == fragment.StatusSold {
+			result.Status = "taken"
+		} else if mtStatus == mtproto.StatusAvailable && frStatus == fragment.StatusAvailable {
+			if username.IsBasicEligible(u) {
+				result.Status = "available"
+			} else {
+				result.Status = "purchase_available"
+			}
+		} else if mtStatus == mtproto.StatusAvailable {
+			if username.IsBasicEligible(u) {
+				result.Status = "available"
+			} else {
+				result.Status = "purchase_available"
+			}
+		} else if frStatus == fragment.StatusAvailable {
+			if len(u) == 4 {
+				result.Status = "purchase_available"
+			} else {
+				result.Status = "available"
+			}
+		} else {
+			result.Status = "taken"
+		}
+
+		data, err := json.Marshal(result)
+		if err != nil {
+			return nil, err
+		}
+
+		if h.cache != nil {
+			h.cache.Client.Set(context.Background(), cacheKey, data, 3*time.Minute)
+		}
+
+		return data, nil
+	})
+
+	var res singleflight.Result
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case res = <-ch:
+	}
+
+	if res.Err != nil {
+		return nil, res.Err
+	}
+	return res.Val.([]byte), nil
 }
 
 // QuickAnalysis — Free endpoint returning rich preview data for ActionArea
@@ -189,71 +306,7 @@ func (h *UsernameHandler) QuickAnalysis(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	// Cache check
-	cacheKey := "quick:" + u
-	if h.cache != nil {
-		if val, err := h.cache.Client.Get(ctx, cacheKey).Result(); err == nil {
-			h.reportService.LogSearch(ctx, u, userID)
-			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(val))
-			return
-		}
-	}
-
-	// Singleflight to merge concurrent quick analysis fetches
-	val, err, _ := h.sfGroup.Do("quick:"+u, func() (interface{}, error) {
-		// Double check cache
-		if h.cache != nil {
-			if cachedVal, err := h.cache.Client.Get(ctx, cacheKey).Result(); err == nil {
-				return []byte(cachedVal), nil
-			}
-		}
-
-		result, err := h.reportService.QuickAnalysis(ctx, u, 0)
-		if err != nil {
-			return nil, err
-		}
-
-		// Also set the status from MTProto check
-		mtStatus, err := h.mtprotoClient.CheckUsername(ctx, u)
-		if err == nil {
-			switch mtStatus {
-			case mtproto.StatusAvailable:
-				if username.IsBasicEligible(u) {
-					result.Status = "available"
-				} else {
-					result.Status = "purchase_available"
-				}
-			case mtproto.StatusOccupied:
-				result.Status = "taken"
-			case mtproto.StatusPurchase:
-				fragStatus, _ := h.fragmentClient.CheckUsername(ctx, u)
-				switch fragStatus {
-				case fragment.StatusAuction:
-					result.Status = "on_auction"
-				case fragment.StatusSale:
-					result.Status = "on_sale"
-				default:
-					result.Status = "purchase_available"
-				}
-			default:
-				result.Status = string(mtStatus)
-			}
-		}
-
-		data, err := json.Marshal(result)
-		if err != nil {
-			return nil, err
-		}
-
-		// Cache result for 3 minutes
-		if h.cache != nil {
-			h.cache.Client.Set(ctx, cacheKey, data, 3*time.Minute)
-		}
-
-		return data, nil
-	})
-
+	val, err := h.getQuickAnalysisCachedOrFetch(ctx, u)
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, "failed to perform quick analysis", err)
 		return
@@ -262,7 +315,7 @@ func (h *UsernameHandler) QuickAnalysis(w http.ResponseWriter, r *http.Request) 
 	h.reportService.LogSearch(ctx, u, userID)
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(val.([]byte))
+	w.Write(val)
 }
 
 // StreamQuickAnalysis — SSE endpoint for real-time price and status updates
@@ -345,43 +398,12 @@ func (h *UsernameHandler) StreamQuickAnalysis(w http.ResponseWriter, r *http.Req
 }
 
 func (h *UsernameHandler) sendSSEUpdate(w http.ResponseWriter, flusher http.Flusher, ctx context.Context, u string) error {
-	result, err := h.reportService.QuickAnalysis(ctx, u, 0)
+	val, err := h.getQuickAnalysisCachedOrFetch(ctx, u)
 	if err != nil {
-		return nil
+		return err
 	}
 
-	mtStatus, err := h.mtprotoClient.CheckUsername(ctx, u)
-	if err == nil {
-		switch mtStatus {
-		case mtproto.StatusAvailable:
-			if username.IsBasicEligible(u) {
-				result.Status = "available"
-			} else {
-				result.Status = "purchase_available"
-			}
-		case mtproto.StatusOccupied:
-			result.Status = "taken"
-		case mtproto.StatusPurchase:
-			fragStatus, _ := h.fragmentClient.CheckUsername(ctx, u)
-			switch fragStatus {
-			case fragment.StatusAuction:
-				result.Status = "on_auction"
-			case fragment.StatusSale:
-				result.Status = "on_sale"
-			default:
-				result.Status = "purchase_available"
-			}
-		default:
-			result.Status = string(mtStatus)
-		}
-	}
-
-	data, err := json.Marshal(result)
-	if err != nil {
-		return nil
-	}
-
-	if _, err := fmt.Fprintf(w, "data: %s\n\n", string(data)); err != nil {
+	if _, err := fmt.Fprintf(w, "data: %s\n\n", string(val)); err != nil {
 		return err
 	}
 	flusher.Flush()

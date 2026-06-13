@@ -126,19 +126,75 @@ export const ManagedBotsPage: Component = () => {
 
           <Show when={!bots.loading && (!bots() || bots()!.length === 0)}>
             <Motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              class="bg-[#1c1c1c] rounded-[2rem] border border-[#2a2a2a] p-10 flex flex-col items-center justify-center text-center gap-4"
+              transition={{ duration: 0.5, easing: [0.22, 1, 0.36, 1] }}
+              class="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-[#1c1c1c] to-[#0d0e12] border border-[#2a2a2a] p-8 flex flex-col items-center text-center gap-6 shadow-2xl"
             >
-              <div class="w-20 h-20 rounded-full bg-[#2c2c2e] flex items-center justify-center border border-[#3a3a3c]">
-                <span class="material-symbols-outlined text-[48px] text-[#3a3a3c]">smart_toy</span>
+              {/* Subtle background glow */}
+              <div class="absolute -top-16 -left-16 w-32 h-32 bg-[#3390ec]/10 rounded-full blur-3xl pointer-events-none" />
+              <div class="absolute -bottom-16 -right-16 w-32 h-32 bg-[#34c759]/5 rounded-full blur-3xl pointer-events-none" />
+
+              <div class="relative w-24 h-24 rounded-3xl bg-gradient-to-tr from-[#3390ec]/20 to-[#3390ec]/5 flex items-center justify-center border border-[#3390ec]/20 shadow-inner group">
+                <div class="absolute inset-0 bg-[#3390ec]/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl" />
+                <span class="material-symbols-outlined text-[54px] text-[#3390ec]" style={{ 'font-variation-settings': '"FILL" 1' }}>smart_toy</span>
               </div>
-              <div class="flex flex-col gap-1">
-                <p class="text-[17px] text-white font-black">{t('managedBots.noBots')}</p>
-                <p class="text-[13px] text-[#8e8e93] font-medium leading-relaxed max-w-[200px]">
-                  Create your first bot to start managing Telegram groups professionally
+
+              <div class="flex flex-col gap-2 max-w-xs">
+                <p class="text-xl font-black text-white leading-tight">
+                  {isRtl() ? 'ربات برند اختصاصی خود را بسازید' : 'Create Your Custom Bot'}
+                </p>
+                <p class="text-[13px] text-[#8e8e93] font-medium leading-relaxed">
+                  {isRtl() 
+                    ? 'ربات اختصاصی خود را با نام و لوگوی دلخواه وصل کنید تا امکانات پیشرفته مدیریت گروه فعال شود و درآمد کسب کنید.'
+                    : 'Connect your custom brand bot to access powerful group/channel tools and get exclusive developer benefits.'}
                 </p>
               </div>
+
+              {/* Feature highlights */}
+              <div class="w-full grid grid-cols-1 gap-2.5 text-start px-2">
+                <div class="flex items-center gap-3 bg-white/5 rounded-2xl p-3 border border-white/[0.03]">
+                  <span class="material-symbols-outlined text-[#3390ec] text-[20px]">brand_family</span>
+                  <div class="flex flex-col">
+                    <span class="text-[13px] font-black text-white">{isRtl() ? 'نام و لوگوی اختصاصی' : 'Custom Brand & Logo'}</span>
+                    <span class="text-[11px] text-[#8e8e93]">{isRtl() ? 'ربات با برند، تصویر و بیوگرافی شخصی شما اجرا می‌شود.' : 'Your own bot name, photo, and bio.'}</span>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3 bg-white/5 rounded-2xl p-3 border border-white/[0.03]">
+                  <span class="material-symbols-outlined text-[#34c759] text-[20px]">security</span>
+                  <div class="flex flex-col">
+                    <span class="text-[13px] font-black text-white">{isRtl() ? 'مدیریت و امنیت کامل' : 'Full Group Protection'}</span>
+                    <span class="text-[11px] text-[#8e8e93]">{isRtl() ? 'ضد اسپم، مدیریت ساعت سکوت و محدودیت‌های رسانه.' : 'Spam blocker, quiet hours & restrictions.'}</span>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3 bg-white/5 rounded-2xl p-3 border border-white/[0.03]">
+                  <span class="material-symbols-outlined text-[#ffcc00] text-[20px]">monetization_on</span>
+                  <div class="flex flex-col">
+                    <span class="text-[13px] font-black text-white">{isRtl() ? 'کسب درآمد و کارمزد توکن' : 'Earn FRG Commissions'}</span>
+                    <span class="text-[11px] text-[#8e8e93]">{isRtl() ? 'از فروش بسته‌های ارتقای گروه پورسانت بگیرید.' : 'Get paid from group package upgrades.'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  hapticFeedback.impactOccurred('medium');
+                  const link = "https://t.me/BotFather";
+                  try {
+                    if ((window as any).Telegram?.WebApp?.openTelegramLink) {
+                      (window as any).Telegram.WebApp.openTelegramLink(link);
+                    } else {
+                      window.open(link, "_blank");
+                    }
+                  } catch (e) {
+                    window.open(link, "_blank");
+                  }
+                }}
+                class="w-full h-12 bg-[#3390ec] hover:bg-[#2b7bc9] active:scale-95 text-white rounded-2xl font-black text-[14px] transition-all flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(51,144,236,0.2)]"
+              >
+                <span class="material-symbols-outlined text-[18px]">open_in_new</span>
+                {isRtl() ? 'ورود به BotFather@ و ساخت ربات' : 'Create Bot via @BotFather'}
+              </button>
             </Motion.div>
           </Show>
 

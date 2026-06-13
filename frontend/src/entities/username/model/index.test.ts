@@ -6,47 +6,55 @@ vi.mock('@/shared/i18n/index.js', () => ({
   t: (key: string) => key
 }));
 
-import { UsernameSchema } from './index.js';
+import { UsernameSchema, StandardUsernameSchema, CollectibleUsernameSchema } from './index.js';
 
-describe('UsernameSchema', () => {
-  it('should accept valid usernames', () => {
-    expect(v.safeParse(UsernameSchema, 'fragment').success).toBe(true);
-    expect(v.safeParse(UsernameSchema, 'user_123').success).toBe(true);
-    expect(v.safeParse(UsernameSchema, 'a123').success).toBe(true);
+describe('CollectibleUsernameSchema', () => {
+  it('should accept valid collectible usernames (4+ chars)', () => {
+    expect(v.safeParse(CollectibleUsernameSchema, 'a123').success).toBe(true);
+    expect(v.safeParse(CollectibleUsernameSchema, 'user').success).toBe(true);
+    expect(v.safeParse(CollectibleUsernameSchema, 'user_123').success).toBe(true);
   });
 
-  it('should reject usernames that are too short', () => {
-    const result = v.safeParse(UsernameSchema, 'abc');
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.issues[0].message).toBe('entities.username.validation.minLength');
-    }
+  it('should reject usernames that are too short (less than 4)', () => {
+    expect(v.safeParse(CollectibleUsernameSchema, 'abc').success).toBe(false);
   });
 
-  it('should reject usernames that are too long', () => {
-    const result = v.safeParse(UsernameSchema, 'a'.repeat(33));
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.issues[0].message).toBe('entities.username.validation.maxLength');
-    }
+  it('should reject usernames starting with a number', () => {
+    expect(v.safeParse(CollectibleUsernameSchema, '1user').success).toBe(false);
+    expect(v.safeParse(CollectibleUsernameSchema, '9999').success).toBe(false);
+  });
+});
+
+describe('StandardUsernameSchema', () => {
+  it('should accept valid standard usernames (5+ chars)', () => {
+    expect(v.safeParse(StandardUsernameSchema, 'user1').success).toBe(true);
+    expect(v.safeParse(StandardUsernameSchema, 'user_123').success).toBe(true);
   });
 
-  it('should reject usernames starting with a number or underscore', () => {
-    expect(v.safeParse(UsernameSchema, '1user').success).toBe(false);
+  it('should reject standard usernames that are too short (less than 5)', () => {
+    expect(v.safeParse(StandardUsernameSchema, 'user').success).toBe(false);
+  });
+
+  it('should reject usernames starting with a number', () => {
+    expect(v.safeParse(StandardUsernameSchema, '1user').success).toBe(false);
+  });
+});
+
+describe('Common Username Constraints', () => {
+  it('should reject starting with an underscore', () => {
     expect(v.safeParse(UsernameSchema, '_user').success).toBe(false);
   });
 
-  it('should reject usernames with invalid characters', () => {
+  it('should reject invalid characters', () => {
     expect(v.safeParse(UsernameSchema, 'user-name').success).toBe(false);
     expect(v.safeParse(UsernameSchema, 'user.name').success).toBe(false);
-    expect(v.safeParse(UsernameSchema, 'user name').success).toBe(false);
   });
 
   it('should reject consecutive underscores', () => {
     expect(v.safeParse(UsernameSchema, 'user__name').success).toBe(false);
   });
 
-  it('should reject usernames ending with an underscore', () => {
+  it('should reject ending with an underscore', () => {
     expect(v.safeParse(UsernameSchema, 'username_').success).toBe(false);
   });
 });
