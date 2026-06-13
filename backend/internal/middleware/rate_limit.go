@@ -214,7 +214,7 @@ func NewRateLimiter(ctx context.Context, cache *repository.Cache) func(http.Hand
 			if cache != nil && cache.Client != nil {
 				ctx := r.Context()
 				var key string
-				var limit int64 = 45
+				var limit int64 = 180
 
 				if userID != "" {
 					key = "rate_limit:user:" + userID
