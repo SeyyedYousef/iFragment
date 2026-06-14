@@ -67,7 +67,7 @@ func ValidateSettingsCategory(category string, raw json.RawMessage) error {
 						return fmt.Errorf("invalid custom window time format (HH:MM expected): start=%s, end=%s", r.Start, r.End)
 					}
 				}
-				validPenalties := map[string]bool{"none": true, "delete": true, "warn": true, "mute_1h": true, "mute_24h": true, "kick": true, "ban": true}
+				validPenalties := map[string]bool{"default": true, "none": true, "delete": true, "warn": true, "mute_1h": true, "mute_24h": true, "kick": true, "ban": true}
 				if r.Penalty != "" && !validPenalties[r.Penalty] {
 					return fmt.Errorf("invalid restriction penalty: %s", r.Penalty)
 				}

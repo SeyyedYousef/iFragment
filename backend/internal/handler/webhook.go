@@ -1288,8 +1288,8 @@ func (h *WebhookHandler) executeViolationAction(ctx context.Context, bot *reposi
 		} else {
 			slog.Warn("Skipped ban: bot lacks can_restrict_members", "chat_id", chatID)
 		}
-	case violation.Action == "delete":
-		if violation.CurrentWarnings > 0 && general.WarningMessage {
+	case violation.Action == "delete" || violation.Action == "warn":
+		if (violation.Action == "warn" || violation.CurrentWarnings > 0) && general.WarningMessage {
 			h.sendBotMessage(ctx, tgClient, chatID, fmt.Sprintf("⚠️ %s", penaltyMsg), nil, threadID, general)
 		} else if violation.Type == "mandatory_membership" || violation.Type == "forced_add" || violation.Type == "quiet_hours" {
 			h.sendBotMessage(ctx, tgClient, chatID, fmt.Sprintf("❌ %s", penaltyMsg), nil, threadID, general)
@@ -2476,8 +2476,7 @@ func (h *WebhookHandler) sendBotMessage(ctx context.Context, tg *telegram.BotAPI
 	}
 
 	if err == nil && msg != nil && general.AutoDeleteBot && general.AutoDeleteDelay > 0 {
-		GoSafe(func() {
-			time.Sleep(time.Duration(general.AutoDeleteDelay) * time.Second)
+		time.AfterFunc(time.Duration(general.AutoDeleteDelay)*time.Second, func() {
 			_ = tg.DeleteMessage(context.Background(), chatID, msg.MessageID)
 		})
 	}

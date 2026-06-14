@@ -101,15 +101,26 @@ func (s *ChannelService) ConnectChannel(ctx context.Context, ownerUserID int64, 
 	tg := telegram.NewBotAPIClient(token)
 
 	// 3. Normalize username or chat ID
+	input := strings.TrimSpace(channelUsernameOrID)
+	input = strings.TrimPrefix(input, "https://")
+	input = strings.TrimPrefix(input, "http://")
+	input = strings.TrimPrefix(input, "t.me/")
+	input = strings.TrimPrefix(input, "telegram.me/")
+	input = strings.TrimRight(input, "/")
+
+	if strings.HasPrefix(input, "+") || strings.Contains(input, "joinchat") {
+		return nil, fmt.Errorf("لطفاً از یوزرنیم عمومی کانال استفاده کنید. لینک‌های دعوت خصوصی (مانند t.me/+) پشتیبانی نمی‌شوند. در صورت پرایوت بودن کانال، از آیدی عددی کانال (با پیشوند -100) استفاده کنید")
+	}
+
 	var targetChat string
-	if !strings.HasPrefix(channelUsernameOrID, "@") && !strings.HasPrefix(channelUsernameOrID, "-100") {
-		if _, err := fmt.Sscan(channelUsernameOrID, new(int64)); err == nil {
-			targetChat = channelUsernameOrID
+	if !strings.HasPrefix(input, "@") && !strings.HasPrefix(input, "-100") {
+		if _, err := fmt.Sscan(input, new(int64)); err == nil {
+			targetChat = input
 		} else {
-			targetChat = "@" + channelUsernameOrID
+			targetChat = "@" + input
 		}
 	} else {
-		targetChat = channelUsernameOrID
+		targetChat = input
 	}
 
 	// 4. Get chat details from Telegram
@@ -742,43 +753,98 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 			} `json:"rules"`
 		}
 		if err := json.Unmarshal(settings.AutoResponder, &responderConfig); err == nil && responderConfig.Enabled {
+			// Prevent infinite loops: check if the post text exactly matches any of our own configured responses.
+			isOwnResponse := false
 			for _, rule := range responderConfig.Rules {
-				matched := false
-				if rule.Type == "exact" && strings.EqualFold(strings.TrimSpace(postText), strings.TrimSpace(rule.Trigger)) {
-					matched = true
-				} else if rule.Type == "contains" && strings.Contains(strings.ToLower(postText), strings.ToLower(rule.Trigger)) {
-					matched = true
+				if strings.TrimSpace(postText) == strings.TrimSpace(rule.Response) {
+					isOwnResponse = true
+					break
 				}
-				if matched {
-					telemetry.RecordAutoresponderMatch(rule.Type)
-					// Send auto response message back to channel
-					bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
-					if err == nil {
-						token, decryptErr := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-						if decryptErr != nil {
-							slog.Error("Failed to decrypt bot token for auto responder", "bot_id", bot.ID, "error", decryptErr)
-							break
+			}
+
+			if !isOwnResponse {
+				for _, rule := range responderConfig.Rules {
+					matched := false
+					switch rule.Type {
+					case "exact":
+						if strings.EqualFold(strings.TrimSpace(postText), strings.TrimSpace(rule.Trigger)) {
+							matched = true
 						}
-						tg := telegram.NewBotAPIClient(token)
-						if err := tg.SendMessage(ctx, chatID, rule.Response, nil, nil); err != nil {
-							slog.Error("Failed to send auto-response message", "chat_id", chatID, "error", err)
-							
-							lowerErr := strings.ToLower(err.Error())
-							if strings.Contains(lowerErr, "forbidden") || strings.Contains(lowerErr, "kicked") || strings.Contains(lowerErr, "not a member") || strings.Contains(lowerErr, "not a participant") || strings.Contains(lowerErr, "chat not found") {
-								slog.Warn("Bot was kicked from channel detected during auto-responder, disconnecting it", "channel_id", ch.ID)
-								_ = s.channelRepo.DeleteChannel(ctx, ch.ID)
-								targetStr := ch.ID.String()
-								_ = s.auditRepo.Log(ctx, &repository.AuditLog{
-									ActorID:  bot.OwnerUserID,
-									Action:   "channel.kicked",
-									TargetID: &targetStr,
-								})
+					case "contains":
+						if strings.Contains(strings.ToLower(postText), strings.ToLower(rule.Trigger)) {
+							matched = true
+						}
+					case "regex":
+						if re, err := regexp.Compile("(?i)" + rule.Trigger); err == nil {
+							if re.MatchString(postText) {
+								matched = true
 							}
 						}
-					} else {
-						slog.Error("Failed to fetch bot for auto responder", "bot_id", ch.BotID, "error", err)
+					case "keyword":
+						// Use \s and \p{P} for word boundaries that natively support Persian characters
+						pattern := `(?i)(^|[\s\p{P}])` + regexp.QuoteMeta(rule.Trigger) + `([\s\p{P}]|$)`
+						if re, err := regexp.Compile(pattern); err == nil {
+							if re.MatchString(postText) {
+								matched = true
+							}
+						}
 					}
-					break
+
+					if matched {
+						// Rate limiting to prevent spam triggers
+						if cache := s.channelRepo.GetCache(); cache != nil && cache.Client != nil {
+							rlKey := fmt.Sprintf("auto_responder_rl:%d", chatID)
+							count, _ := cache.Client.Incr(ctx, rlKey).Result()
+							if count == 1 {
+								cache.Client.Expire(ctx, rlKey, 1*time.Minute)
+							}
+							if count > 5 {
+								slog.Warn("Auto-Responder rate limit exceeded", "chat_id", chatID)
+								break
+							}
+						}
+
+						telemetry.RecordAutoresponderMatch(rule.Type)
+						// Send auto response message back to channel
+						bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
+						if err == nil {
+							token, decryptErr := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+							if decryptErr != nil {
+								slog.Error("Failed to decrypt bot token for auto responder", "bot_id", bot.ID, "error", decryptErr)
+								break
+							}
+							tg := telegram.NewBotAPIClient(token)
+							res, err := tg.SendMessageWithResult(ctx, chatID, rule.Response, nil, nil)
+							if err != nil {
+								slog.Error("Failed to send auto-response message", "chat_id", chatID, "error", err)
+								
+								lowerErr := strings.ToLower(err.Error())
+								if strings.Contains(lowerErr, "forbidden") || strings.Contains(lowerErr, "kicked") || strings.Contains(lowerErr, "not a member") || strings.Contains(lowerErr, "not a participant") || strings.Contains(lowerErr, "chat not found") {
+									slog.Warn("Bot was kicked from channel detected during auto-responder, disconnecting it", "channel_id", ch.ID)
+									_ = s.channelRepo.DeleteChannel(ctx, ch.ID)
+									targetStr := ch.ID.String()
+									_ = s.auditRepo.Log(ctx, &repository.AuditLog{
+										ActorID:  bot.OwnerUserID,
+										Action:   "channel.kicked",
+										TargetID: &targetStr,
+									})
+								}
+							} else if res != nil {
+								var general repository.SettingsGeneral
+								if len(settings.General) > 0 {
+									_ = json.Unmarshal(settings.General, &general)
+								}
+								if general.AutoDeleteBot && general.AutoDeleteDelay > 0 {
+									time.AfterFunc(time.Duration(general.AutoDeleteDelay)*time.Second, func() {
+										_ = tg.DeleteMessage(context.Background(), chatID, res.MessageID)
+									})
+								}
+							}
+						} else {
+							slog.Error("Failed to fetch bot for auto responder", "bot_id", ch.BotID, "error", err)
+						}
+						break
+					}
 				}
 			}
 		}
@@ -893,7 +959,7 @@ end
 `
 
 func (s *ChannelService) scheduledPostWorker(ctx context.Context) {
-	ticker := time.NewTicker(30 * time.Second)
+	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -950,29 +1016,73 @@ func (s *ChannelService) scheduledPostWorker(ctx context.Context) {
 							}()
 						}
 
+						// Timezone handling
+						settings, err := s.channelRepo.GetChannelSettings(ctx, post.ChannelID)
+						if err != nil {
+							slog.Error("Failed to fetch settings for timezone evaluation", "post_id", post.ID, "error", err)
+							return
+						}
+						var general GeneralSettingsSchema
+						if err := json.Unmarshal(settings.General, &general); err != nil {
+							slog.Error("Failed to unmarshal general settings", "post_id", post.ID, "error", err)
+							return
+						}
+						loc, err := time.LoadLocation(general.Timezone)
+						if err != nil {
+							loc = time.UTC
+						}
+
+						y, m, d := post.ScheduledAt.Date()
+						H, M, S := post.ScheduledAt.Clock()
+						scheduledLocal := time.Date(y, m, d, H, M, S, 0, loc)
+
+						if time.Now().Before(scheduledLocal) {
+							// Not time yet!
+							return
+						}
+
+						// Crash duplicate prevention
+						var processingKey string
+						if cache != nil && cache.Client != nil {
+							processingKey = fmt.Sprintf("post_processing:%s", post.ID.String())
+							acquiredProcessing, err := cache.Client.SetNX(ctx, processingKey, "1", 24*time.Hour).Result()
+							if err != nil || !acquiredProcessing {
+								return // Processing, processed, or crashed
+							}
+						}
+
 						ch, err := s.channelRepo.GetChannelByID(ctx, post.ChannelID)
 						if err != nil {
+							if processingKey != "" { cache.Client.Del(ctx, processingKey) }
 							slog.Error("Failed to fetch channel for scheduled post", "post_id", post.ID, "error", err)
 							return
 						}
 
 						bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
 						if err != nil {
+							if processingKey != "" { cache.Client.Del(ctx, processingKey) }
 							slog.Error("Failed to fetch bot for scheduled post", "post_id", post.ID, "error", err)
 							return
 						}
 
 						token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 						if err != nil {
+							if processingKey != "" { cache.Client.Del(ctx, processingKey) }
 							slog.Error("Failed to decrypt bot token in scheduled post worker", "post_id", post.ID, "error", err)
 							return
 						}
 
+						buttons, _ := s.GetChannelButtonsByChannelID(ctx, ch.ID)
+						markup := BuildInlineKeyboard(buttons)
+
 						tg := telegram.NewBotAPIClient(token)
-						res, err := tg.SendMessageWithResult(ctx, ch.ChatID, post.Text, nil, nil)
+						res, err := tg.SendMessageWithResult(ctx, ch.ChatID, post.Text, markup, nil)
 						if err != nil {
 							slog.Error("Failed to send scheduled message via telegram in worker", "post_id", post.ID, "error", err)
 							
+							// Normal failure: delete processing key so it can be retried
+							if processingKey != "" { cache.Client.Del(ctx, processingKey) }
+
 							lowerErr := strings.ToLower(err.Error())
 							if strings.Contains(lowerErr, "forbidden") || strings.Contains(lowerErr, "kicked") || strings.Contains(lowerErr, "not a member") || strings.Contains(lowerErr, "not a participant") || strings.Contains(lowerErr, "chat not found") {
 								slog.Warn("Bot was kicked from channel during scheduled post, disconnecting it", "channel_id", ch.ID)
@@ -1396,8 +1506,14 @@ func (s *ChannelService) SaveButtons(ctx context.Context, ownerUserID int64, cha
 		return err
 	}
 
-	// Make sure channel ID is bound
+	// Make sure channel ID is bound and validate URL
 	for i := range buttons {
+		if strings.ToLower(buttons[i].Type) == "url" {
+			u, err := url.ParseRequestURI(buttons[i].Value)
+			if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+				return fmt.Errorf("invalid URL for button '%s': must be a valid HTTP/HTTPS address", buttons[i].Title)
+			}
+		}
 		buttons[i].ChannelID = channelID
 	}
 
@@ -1421,6 +1537,53 @@ func (s *ChannelService) SaveButtons(ctx context.Context, ownerUserID int64, cha
 // RegisterButtonClick increments click count of an inline button
 func (s *ChannelService) RegisterButtonClick(ctx context.Context, buttonID uuid.UUID) error {
 	return s.channelRepo.IncrementButtonClicks(ctx, buttonID)
+}
+
+// BuildInlineKeyboard constructs a valid map[string]interface{} for Telegram's InlineKeyboardMarkup
+// It safely ignores buttons with broken URLs to avoid BUTTON_DATA_INVALID 400 errors.
+func BuildInlineKeyboard(buttons []repository.ChannelInlineButton) interface{} {
+	if len(buttons) == 0 {
+		return nil
+	}
+
+	var row []map[string]interface{}
+	for _, btn := range buttons {
+		text := ""
+		if btn.Emoji != "" {
+			text += btn.Emoji + " "
+		}
+		text += btn.Title
+
+		ikb := map[string]interface{}{"text": text}
+
+		if strings.ToLower(btn.Type) == "url" {
+			u, err := url.ParseRequestURI(btn.Value)
+			if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+				continue // Skip invalid URLs to avoid BUTTON_DATA_INVALID 400
+			}
+			ikb["url"] = btn.Value
+		} else {
+			ikb["callback_data"] = fmt.Sprintf("btn_click:%s", btn.ID.String())
+		}
+		row = append(row, ikb)
+	}
+
+	if len(row) == 0 {
+		return nil
+	}
+
+	var keyboard [][]map[string]interface{}
+	for i := 0; i < len(row); i += 2 {
+		end := i + 2
+		if end > len(row) {
+			end = len(row)
+		}
+		keyboard = append(keyboard, row[i:end])
+	}
+
+	return map[string]interface{}{
+		"inline_keyboard": keyboard,
+	}
 }
 
 // Helper Functions

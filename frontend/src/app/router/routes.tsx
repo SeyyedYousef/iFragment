@@ -1,94 +1,90 @@
 import type { Component } from 'solid-js';
-
-import { IndexPage } from '@/pages/home/home/index.js';
 import { AirdropPage } from '@/pages/airdrop/airdrop/index.js';
-import { MarketplacePage } from '@/pages/marketplace/index.js';
-import { DashboardPage } from '@/pages/dashboard/dashboard/index.js';
-import { ProfilePage } from '@/pages/profile/profile/index.js';
-import { AchievementsPage } from '@/pages/profile/achievements/index.js';
-import { ReferralPage } from '@/pages/profile/referral/index.js';
-import { SettingsPage } from '@/pages/profile/settings/index.js';
-import { SecurityPage } from '@/pages/profile/security/index.js';
-import { LeaderboardPage } from '@/pages/profile/leaderboard/index.js';
-import { TasksPage } from '@/pages/profile/tasks/index.js';
-import { BoostsPage } from '@/pages/profile/boosts/index.js';
-import { ManagedBotsPage } from '@/pages/group/managed-bots/index.js';
-import { BotManagePage } from '@/pages/group/bot-manage/index.js';
-import { GroupDashboardPage } from '@/pages/group/dashboard/index.js';
-import { GeneralSettingsPage } from '@/pages/group/general-settings/index.js';
-import { ContentRestrictionsPage } from '@/pages/group/content-restrictions/index.js';
-import { LimitsPage } from '@/pages/group/limits/index.js';
-import { QuietHoursPage } from '@/pages/group/quiet-hours/index.js';
-import { MandatoryPage } from '@/pages/group/mandatory/index.js';
-import { CustomTextsPage } from '@/pages/group/custom-texts/index.js';
-import { AnalyticsPage } from '@/pages/group/analytics/index.js';
-
-import { ChannelDashboardPage } from '@/pages/channel/dashboard/index.js';
-import { ChannelGeneralSettingsPage } from '@/pages/channel/general-settings/index.js';
-import { ChannelPostingPage } from '@/pages/channel/posting/index.js';
-import { ChannelForwardingPage } from '@/pages/channel/forwarding/index.js';
 import { ChannelAdminsPage } from '@/pages/channel/admins/index.js';
 import { ChannelAnalyticsPage } from '@/pages/channel/analytics/index.js';
-import { ChannelInlineButtonsPage } from '@/pages/channel/inline-buttons/index.js';
-import { ChannelDynamicBioPage } from '@/pages/channel/dynamic-bio/index.js';
-import { ChannelAutoResponderPage } from '@/pages/channel/auto-responder/index.js';
 import { ChannelAuditLogPage } from '@/pages/channel/audit-log/index.js';
-import { ManagedChannelsPage } from '@/pages/channel/managed-channels/index.js';
+import { ChannelAutoResponderPage } from '@/pages/channel/auto-responder/index.js';
 import { ConnectChannelPage } from '@/pages/channel/connect-channel/index.js';
-
+import { ChannelDashboardPage } from '@/pages/channel/dashboard/index.js';
+import { ChannelDynamicBioPage } from '@/pages/channel/dynamic-bio/index.js';
+import { ChannelForwardingPage } from '@/pages/channel/forwarding/index.js';
+import { ChannelGeneralSettingsPage } from '@/pages/channel/general-settings/index.js';
+import { ChannelInlineButtonsPage } from '@/pages/channel/inline-buttons/index.js';
+import { ManagedChannelsPage } from '@/pages/channel/managed-channels/index.js';
+import { ChannelPostingPage } from '@/pages/channel/posting/index.js';
+import { DashboardPage } from '@/pages/dashboard/dashboard/index.js';
+import { AnalyticsPage } from '@/pages/group/analytics/index.js';
+import { BotManagePage } from '@/pages/group/bot-manage/index.js';
+import { ContentRestrictionsPage } from '@/pages/group/content-restrictions/index.js';
+import { CustomTextsPage } from '@/pages/group/custom-texts/index.js';
+import { GroupDashboardPage } from '@/pages/group/dashboard/index.js';
+import { GeneralSettingsPage } from '@/pages/group/general-settings/index.js';
+import { LimitsPage } from '@/pages/group/limits/index.js';
+import { ManagedBotsPage } from '@/pages/group/managed-bots/index.js';
+import { MandatoryPage } from '@/pages/group/mandatory/index.js';
+import { QuietHoursPage } from '@/pages/group/quiet-hours/index.js';
+import { IndexPage } from '@/pages/home/home/index.js';
+import { MarketplacePage } from '@/pages/marketplace/index.js';
+import { OwnerAuditLogPage } from '@/pages/owner/audit-log/index.js';
+import { OwnerDashboardPage } from '@/pages/owner/dashboard/index.js';
+import { OwnerQuests } from '@/pages/owner/quests/index.js';
+import { OwnerUsersPage } from '@/pages/owner/users/index.js';
+import { AchievementsPage } from '@/pages/profile/achievements/index.js';
+import { BoostsPage } from '@/pages/profile/boosts/index.js';
+import { LeaderboardPage } from '@/pages/profile/leaderboard/index.js';
+import { ProfilePage } from '@/pages/profile/profile/index.js';
+import { ReferralPage } from '@/pages/profile/referral/index.js';
+import { SecurityPage } from '@/pages/profile/security/index.js';
+import { SettingsPage } from '@/pages/profile/settings/index.js';
+import { TasksPage } from '@/pages/profile/tasks/index.js';
 import { CollectionStatsPage } from '@/pages/username/collection-stats/index.js';
 import { PremiumReportPage } from '@/pages/username/premium-report/index.js';
 
-import { OwnerDashboardPage } from '@/pages/owner/dashboard/index.js';
-import { OwnerUsersPage } from '@/pages/owner/users/index.js';
-import { OwnerAuditLogPage } from '@/pages/owner/audit-log/index.js';
-import { OwnerQuests } from '@/pages/owner/quests/index.js';
-
 interface Route {
-  path: string;
-  Component: Component;
-  title?: string;
+	path: string;
+	Component: Component;
+	title?: string;
 }
 
 export const routes: Route[] = [
-  { path: '/', Component: IndexPage },
-  { path: '/username/stats', Component: CollectionStatsPage },
-  { path: '/username/report', Component: PremiumReportPage },
-  { path: '/airdrop', Component: AirdropPage },
-  { path: '/marketplace', Component: MarketplacePage },
-  { path: '/dashboard', Component: DashboardPage },
-  { path: '/profile', Component: ProfilePage },
-  { path: '/profile/achievements', Component: AchievementsPage },
-  { path: '/profile/referral', Component: ReferralPage },
-  { path: '/profile/settings', Component: SettingsPage },
-  { path: '/profile/security', Component: SecurityPage },
-  { path: '/profile/leaderboard', Component: LeaderboardPage },
-  { path: '/profile/tasks', Component: TasksPage },
-  { path: '/profile/boosts', Component: BoostsPage },
-  { path: '/managed-bots', Component: ManagedBotsPage },
-  { path: '/bot/:botId/manage', Component: BotManagePage },
-  { path: '/group/:id', Component: GroupDashboardPage },
-  { path: '/group/:id/settings', Component: GeneralSettingsPage },
-  { path: '/group/:id/content', Component: ContentRestrictionsPage },
-  { path: '/group/:id/limits', Component: LimitsPage },
-  { path: '/group/:id/quiet', Component: QuietHoursPage },
-  { path: '/group/:id/mandatory', Component: MandatoryPage },
-  { path: '/group/:id/settings/custom-texts', Component: CustomTextsPage },
-  { path: '/group/:id/analytics', Component: AnalyticsPage },
-  { path: '/managed-channels', Component: ManagedChannelsPage },
-  { path: '/channel/connect', Component: ConnectChannelPage },
-  { path: '/channel/:id', Component: ChannelDashboardPage },
-  { path: '/channel/:id/settings', Component: ChannelGeneralSettingsPage },
-  { path: '/channel/:id/posting', Component: ChannelPostingPage },
-  { path: '/channel/:id/forwarding', Component: ChannelForwardingPage },
-  { path: '/channel/:id/admins', Component: ChannelAdminsPage },
-  { path: '/channel/:id/analytics', Component: ChannelAnalyticsPage },
-  { path: '/channel/:id/inline-buttons', Component: ChannelInlineButtonsPage },
-  { path: '/channel/:id/dynamic-bio', Component: ChannelDynamicBioPage },
-  { path: '/channel/:id/auto-responder', Component: ChannelAutoResponderPage },
-  { path: '/channel/:id/audit-log', Component: ChannelAuditLogPage },
-  { path: '/owner/dashboard', Component: OwnerDashboardPage },
-  { path: '/owner/users', Component: OwnerUsersPage },
-  { path: '/owner/audit-logs', Component: OwnerAuditLogPage },
-  { path: '/owner/quests', Component: OwnerQuests },
+	{ path: '/', Component: IndexPage },
+	{ path: '/username/stats', Component: CollectionStatsPage },
+	{ path: '/username/report', Component: PremiumReportPage },
+	{ path: '/airdrop', Component: AirdropPage },
+	{ path: '/marketplace', Component: MarketplacePage },
+	{ path: '/dashboard', Component: DashboardPage },
+	{ path: '/profile', Component: ProfilePage },
+	{ path: '/profile/achievements', Component: AchievementsPage },
+	{ path: '/profile/referral', Component: ReferralPage },
+	{ path: '/profile/settings', Component: SettingsPage },
+	{ path: '/profile/security', Component: SecurityPage },
+	{ path: '/profile/leaderboard', Component: LeaderboardPage },
+	{ path: '/profile/tasks', Component: TasksPage },
+	{ path: '/profile/boosts', Component: BoostsPage },
+	{ path: '/managed-bots', Component: ManagedBotsPage },
+	{ path: '/bot/:botId/manage', Component: BotManagePage },
+	{ path: '/group/:id', Component: GroupDashboardPage },
+	{ path: '/group/:id/settings', Component: GeneralSettingsPage },
+	{ path: '/group/:id/content', Component: ContentRestrictionsPage },
+	{ path: '/group/:id/limits', Component: LimitsPage },
+	{ path: '/group/:id/quiet', Component: QuietHoursPage },
+	{ path: '/group/:id/mandatory', Component: MandatoryPage },
+	{ path: '/group/:id/settings/custom-texts', Component: CustomTextsPage },
+	{ path: '/group/:id/analytics', Component: AnalyticsPage },
+	{ path: '/managed-channels', Component: ManagedChannelsPage },
+	{ path: '/channel/connect', Component: ConnectChannelPage },
+	{ path: '/channel/:id', Component: ChannelDashboardPage },
+	{ path: '/channel/:id/settings', Component: ChannelGeneralSettingsPage },
+	{ path: '/channel/:id/posting', Component: ChannelPostingPage },
+	{ path: '/channel/:id/forwarding', Component: ChannelForwardingPage },
+	{ path: '/channel/:id/admins', Component: ChannelAdminsPage },
+	{ path: '/channel/:id/analytics', Component: ChannelAnalyticsPage },
+	{ path: '/channel/:id/inline-buttons', Component: ChannelInlineButtonsPage },
+	{ path: '/channel/:id/dynamic-bio', Component: ChannelDynamicBioPage },
+	{ path: '/channel/:id/auto-responder', Component: ChannelAutoResponderPage },
+	{ path: '/channel/:id/audit-log', Component: ChannelAuditLogPage },
+	{ path: '/owner/dashboard', Component: OwnerDashboardPage },
+	{ path: '/owner/users', Component: OwnerUsersPage },
+	{ path: '/owner/audit-logs', Component: OwnerAuditLogPage },
+	{ path: '/owner/quests', Component: OwnerQuests },
 ];

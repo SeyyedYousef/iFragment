@@ -573,7 +573,23 @@ func (s *GamificationService) UpgradeBoost(ctx context.Context, userID int64, bo
 	}
 	defer tx.Rollback(ctx)
 
-	// Ensure user boosts row exists first inside transaction so FOR UPDATE successfully locks it
+	// 2. Lock user_stats row first to prevent concurrent balance deductions
+	_, err = tx.Exec(ctx, `
+		INSERT INTO user_stats (user_id, xp, level, current_streak, last_active_at, energy, energy_updated_at, airdrop_coins)
+		VALUES ($1, 0, 1, 0, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, 0.0)
+		ON CONFLICT (user_id) DO NOTHING
+	`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to ensure user stats for upgrade: %w", err)
+	}
+
+	var currentCoins float64
+	err = tx.QueryRow(ctx, `SELECT COALESCE(airdrop_coins, 0) FROM user_stats WHERE user_id = $1 FOR UPDATE`, userID).Scan(&currentCoins)
+	if err != nil {
+		return nil, fmt.Errorf("failed to lock user stats: %w", err)
+	}
+
+	// 3. Ensure user boosts row exists and lock it
 	_, err = tx.Exec(ctx, `
 		INSERT INTO user_boosts (user_id, multitap_level, energy_limit_level, tap_bot_level)
 		VALUES ($1, 1, 1, 0)
@@ -583,7 +599,6 @@ func (s *GamificationService) UpgradeBoost(ctx context.Context, userID int64, bo
 		return nil, fmt.Errorf("failed to ensure user boosts: %w", err)
 	}
 
-	// 2. Lock user's boost row inside the transaction to prevent concurrent race conditions
 	var boosts repository.UserBoosts
 	query := `
 		SELECT user_id, multitap_level, energy_limit_level, tap_bot_level 
@@ -595,7 +610,7 @@ func (s *GamificationService) UpgradeBoost(ctx context.Context, userID int64, bo
 		return nil, fmt.Errorf("failed to lock user boosts: %w", err)
 	}
 
-	// 3. Validation and pricing calculation using locked state values (in Coins)
+	// 4. Validation and pricing calculation using locked state values (in Coins)
 	var nextLevel int
 	var priceCoins float64
 	var maxLevel bool
@@ -603,11 +618,11 @@ func (s *GamificationService) UpgradeBoost(ctx context.Context, userID int64, bo
 	switch boostType {
 	case "multitap":
 		nextLevel = boosts.MultitapLevel + 1
-		priceCoins = float64(boosts.MultitapLevel) * 2000.0
+		priceCoins = float64(max(1, boosts.MultitapLevel)) * 2000.0
 		maxLevel = boosts.MultitapLevel >= 10
 	case "energy_limit":
 		nextLevel = boosts.EnergyLimitLevel + 1
-		priceCoins = float64(boosts.EnergyLimitLevel) * 1500.0
+		priceCoins = float64(max(1, boosts.EnergyLimitLevel)) * 1500.0
 		maxLevel = boosts.EnergyLimitLevel >= 10
 	case "tap_bot":
 		nextLevel = boosts.TapBotLevel + 1
@@ -621,36 +636,24 @@ func (s *GamificationService) UpgradeBoost(ctx context.Context, userID int64, bo
 		return nil, fmt.Errorf("boost level already at maximum")
 	}
 
-	// 4. Lock user_stats row and debit coins inside the same transaction
-	_, err = tx.Exec(ctx, `
-		INSERT INTO user_stats (user_id, xp, level, current_streak, last_active_at, energy, energy_updated_at, airdrop_coins)
-		VALUES ($1, 0, 1, 0, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, 0.0)
-		ON CONFLICT (user_id) DO NOTHING
-	`, userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to ensure user stats for upgrade: %w", err)
-	}
-
-	var currentCoins float64
-	err = tx.QueryRow(ctx, `SELECT airdrop_coins FROM user_stats WHERE user_id = $1 FOR UPDATE`, userID).Scan(&currentCoins)
-	if err != nil {
-		return nil, fmt.Errorf("failed to lock user stats: %w", err)
-	}
-
+	// 5. Verify balance
 	if currentCoins < priceCoins {
 		return nil, fmt.Errorf("insufficient Coin balance: have %.2f, need %.2f", currentCoins, priceCoins)
 	}
 
 	// Update user stats with new coin balance
-	_, err = tx.Exec(ctx,
-		`UPDATE user_stats SET airdrop_coins = airdrop_coins - $1, last_active_at = CURRENT_TIMESTAMP WHERE user_id = $2`,
+	res, err := tx.Exec(ctx,
+		`UPDATE user_stats SET airdrop_coins = airdrop_coins - $1, last_active_at = CURRENT_TIMESTAMP WHERE user_id = $2 AND COALESCE(airdrop_coins, 0) >= $1`,
 		priceCoins, userID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update user coins balance: %w", err)
 	}
+	if res.RowsAffected() == 0 {
+		return nil, fmt.Errorf("insufficient Coin balance during final deduction")
+	}
 
-	// 5. Update user_boosts inside transaction
+	// 6. Update user_boosts inside transaction
 	var updateQuery string
 	switch boostType {
 	case "multitap":

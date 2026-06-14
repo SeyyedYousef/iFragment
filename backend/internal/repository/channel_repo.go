@@ -541,7 +541,7 @@ func (r *ChannelRepo) GetScheduledPosts(ctx context.Context) ([]ChannelPost, err
 	}
 
 	query := `SELECT id, channel_id, telegram_message_id, author_user_id, text, has_media, views_count, reactions_count, forwards_count, is_pinned, scheduled_at, posted_at, created_at
-		FROM channel_posts WHERE scheduled_at <= now() AND posted_at IS NULL`
+		FROM channel_posts WHERE posted_at IS NULL AND scheduled_at IS NOT NULL`
 	
 	rows, err := r.db.Pool.Query(ctx, query)
 	if err != nil {

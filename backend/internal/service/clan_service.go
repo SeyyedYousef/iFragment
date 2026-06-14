@@ -325,7 +325,7 @@ func (s *ClanService) GetTopClans(ctx context.Context, limit int) ([]model.Clan,
 	}
 	defer rows.Close()
 
-	var clans []model.Clan
+	clans := []model.Clan{}
 	for rows.Next() {
 		var c model.Clan
 		var channelPhoto sql.NullString

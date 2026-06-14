@@ -1,36 +1,36 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@solidjs/testing-library';
-import { ContentRestrictionsPage } from './ContentRestrictionsPage.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { groupApi } from '@/shared/api/bot-management.js';
+import { ContentRestrictionsPage } from './ContentRestrictionsPage.js';
 
 vi.mock('@solidjs/router', () => ({
-  useParams: () => ({ id: 'g1' }),
-  useNavigate: () => vi.fn(),
+	useParams: () => ({ id: 'g1' }),
+	useNavigate: () => vi.fn(),
 }));
 
 vi.mock('@/shared/api/bot-management.js', () => ({
-  groupApi: {
-    getSettings: vi.fn(),
-    updateSettings: vi.fn(),
-  }
+	groupApi: {
+		getSettings: vi.fn(),
+		updateSettings: vi.fn(),
+	},
 }));
 
 describe('ContentRestrictionsPage', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    (groupApi.getSettings as any).mockResolvedValue({
-      content_restrictions: {},
-      version: 1,
-    });
-  });
+	beforeEach(() => {
+		vi.clearAllMocks();
+		(groupApi.getSettings as any).mockResolvedValue({
+			content_restrictions: {},
+			version: 1,
+		});
+	});
 
-  it('renders content restrictions title', async () => {
-    render(() => <ContentRestrictionsPage />);
-    expect(await screen.findByText('contentRestrictions.title')).toBeInTheDocument();
-  });
+	it('renders content restrictions title', async () => {
+		render(() => <ContentRestrictionsPage />);
+		expect(await screen.findByText('contentRestrictions.title')).toBeInTheDocument();
+	});
 
-  it('renders subtitle', async () => {
-    render(() => <ContentRestrictionsPage />);
-    expect(await screen.findByText('contentRestrictions.subtitle')).toBeInTheDocument();
-  });
+	it('renders subtitle', async () => {
+		render(() => <ContentRestrictionsPage />);
+		expect(await screen.findByText('contentRestrictions.subtitle')).toBeInTheDocument();
+	});
 });

@@ -717,10 +717,10 @@ func (s *BotService) CheckQuietHoursTransitions(ctx context.Context) {
 			}
 			for _, p := range quiet.Periods {
 				if p.Start == currentTimeStr {
-					s.sendQHNotice(groupCtx, g, "start", customTexts.SilenceStartText, currentTimeStr, lang)
+					s.sendQHNotice(groupCtx, g, "start", customTexts.SilenceStartText, currentTimeStr, lang, general)
 				}
 				if p.End == currentTimeStr {
-					s.sendQHNotice(groupCtx, g, "end", customTexts.SilenceEndText, currentTimeStr, lang)
+					s.sendQHNotice(groupCtx, g, "end", customTexts.SilenceEndText, currentTimeStr, lang, general)
 				}
 			}
 		}(g)
@@ -728,7 +728,7 @@ func (s *BotService) CheckQuietHoursTransitions(ctx context.Context) {
 	wg.Wait()
 }
 
-func (s *BotService) sendQHNotice(ctx context.Context, g repository.ManagedGroup, action string, customText string, timeStr string, lang string) {
+func (s *BotService) sendQHNotice(ctx context.Context, g repository.ManagedGroup, action string, customText string, timeStr string, lang string, general repository.SettingsGeneral) {
 	key := fmt.Sprintf("%s:%s:%s", g.ID, action, timeStr)
 	s.mu.Lock()
 	if s.qhNotifications == nil {
@@ -773,5 +773,10 @@ func (s *BotService) sendQHNotice(ctx context.Context, g repository.ManagedGroup
 		}
 	}
 
-	_ = tg.SendMessage(ctx, g.ChatID, msg, nil, nil)
+	res, _ := tg.SendMessageWithResult(ctx, g.ChatID, msg, nil, nil)
+	if res != nil && general.AutoDeleteBot && general.AutoDeleteDelay > 0 {
+		time.AfterFunc(time.Duration(general.AutoDeleteDelay)*time.Second, func() {
+			_ = tg.DeleteMessage(context.Background(), g.ChatID, res.MessageID)
+		})
+	}
 }
