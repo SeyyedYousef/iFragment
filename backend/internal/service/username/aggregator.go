@@ -66,6 +66,8 @@ type CollectionSummary struct {
 	Distribution   *HolderDistribution `json:"distribution,omitempty"`
 	LastUpdatedAt  int64               `json:"last_updated_at"`
 	NextUpdateAt   int64               `json:"next_update_at"`
+	IsStale        bool                `json:"is_stale,omitempty"`
+	DataSource     string              `json:"data_source,omitempty"`
 }
 
 // cachedHolderData stores pre-computed holder analytics
@@ -77,6 +79,7 @@ type cachedHolderData struct {
 func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 	addr := tonapi.UsernamesCollectionAddr
 	cacheKey := "collection:stats_summary"
+	staleCacheKey := "collection:stats_summary:stale"
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -103,10 +106,14 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 	go func() {
 		defer wg.Done()
 		if s.tonClient == nil {
+			mu.Lock()
+			errTon = fmt.Errorf("tonClient is nil — TonAPI client not initialized")
+			mu.Unlock()
+			slog.Error("STATS_FETCH_ERROR: TonAPI client is nil", "component", "GetCollectionStats")
 			return
 		}
 		var coll *tonapi.NFTCollection
-		err := retryWithBackoff(ctx, 3, 100*time.Millisecond, 1*time.Second, func() error {
+		err := retryWithBackoff(ctx, 3, 500*time.Millisecond, 2*time.Second, func() error {
 			var rErr error
 			coll, rErr = s.tonClient.GetCollection(ctx, addr)
 			return rErr
@@ -115,6 +122,13 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 			mu.Lock()
 			summary.TotalSupply = coll.NextItemIndex
 			mu.Unlock()
+		}
+		if err != nil {
+			slog.Error("STATS_FETCH_ERROR: TonAPI collection fetch failed",
+				"error", err,
+				"collection_addr", addr,
+				"retry_count", 3,
+			)
 		}
 		mu.Lock()
 		errTon = err
@@ -125,10 +139,14 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 	go func() {
 		defer wg.Done()
 		if s.marketappClient == nil {
+			mu.Lock()
+			errMapp = fmt.Errorf("marketappClient is nil — MarketApp client not initialized")
+			mu.Unlock()
+			slog.Error("STATS_FETCH_ERROR: MarketApp client is nil", "component", "GetCollectionStats")
 			return
 		}
 		var stats *marketapp.CollectionData
-		err := retryWithBackoff(ctx, 3, 100*time.Millisecond, 1*time.Second, func() error {
+		err := retryWithBackoff(ctx, 3, 500*time.Millisecond, 2*time.Second, func() error {
 			var rErr error
 			stats, rErr = s.marketappClient.GetCollection(ctx)
 			return rErr
@@ -157,6 +175,12 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 				})
 			}
 			mu.Unlock()
+		}
+		if err != nil {
+			slog.Error("STATS_FETCH_ERROR: MarketApp collection fetch failed",
+				"error", err,
+				"retry_count", 3,
+			)
 		}
 		mu.Lock()
 		errMapp = err
@@ -239,69 +263,59 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 	select {
 	case <-c:
 	case <-ctx.Done():
-		slog.Warn("External APIs timeout in GetCollectionStats, falling back to premium data")
+		slog.Warn("External APIs timeout in GetCollectionStats", "timeout", "15s")
 	}
 
-	// Handle partial responses and failures
-	if errTon != nil || errMapp != nil {
-		slog.Warn("Partial or total failure while fetching collection stats",
+	// Determine if we got any real data
+	allFailed := errTon != nil && errMapp != nil
+	partialFailure := errTon != nil || errMapp != nil
+
+	// Handle failures
+	if partialFailure {
+		slog.Warn("STATS_FETCH_RESULT: Partial or total failure while fetching collection stats",
 			"errTon", errTon,
 			"errMapp", errMapp,
+			"all_failed", allFailed,
 		)
 	}
 
-	// Fill mock data for missing fields to ensure UI always looks excellent
-	if summary.TotalSupply <= 0 {
-		summary.TotalSupply = 3150000
-	}
-	if summary.FloorPrice == "" || summary.FloorPrice == "0.00" {
-		summary.FloorPrice = "3.50"
-		summary.TotalVolume = "120500000.00"
-		if summary.Holders <= 0 {
-			summary.Holders = 1250000
+	// If ALL data fetches failed, try stale cache before returning error
+	if allFailed {
+		if s.cache != nil {
+			staleVal, err := s.cache.Client.Get(ctx, staleCacheKey).Result()
+			if err == nil {
+				var stale CollectionSummary
+				if json.Unmarshal([]byte(staleVal), &stale) == nil {
+					stale.IsStale = true
+					stale.DataSource = "stale_cache"
+					slog.Info("STATS_FETCH_RESULT: Serving stale cached data due to total API failure",
+						"last_updated_at", stale.LastUpdatedAt,
+					)
+					return &stale, nil
+				}
+			}
 		}
-		summary.ActiveAuctions = 12500
-		summary.DailyVolume = 15000.00
-		summary.SalesCount = 2500000
-		summary.HighestSale = 1000000.00
-		summary.ListedRatio = 0.05
-		summary.TopSales = []TopSale{
-			{Username: "news", Price: 994000, Date: "2022-11-18T10:00:00Z"},
-			{Username: "auto", Price: 900000, Date: "2022-11-10T12:00:00Z"},
-			{Username: "bank", Price: 850000, Date: "2022-11-05T08:00:00Z"},
-			{Username: "avia", Price: 800000, Date: "2022-11-20T08:00:00Z"},
-			{Username: "chat", Price: 700000, Date: "2022-12-05T08:00:00Z"},
-		}
-	}
-	if len(summary.TopHolders) == 0 {
-		summary.TopHolders = []TopHolder{
-			{Address: "EQCA14o1-VWhS...wnPi", Count: 15000},
-			{Address: "EQB...def", Count: 8500},
-			{Address: "EQC...ghi", Count: 6200},
-			{Address: "EQE...jkl", Count: 5100},
-			{Address: "EQF...mno", Count: 4200},
-		}
-		summary.Distribution = &HolderDistribution{
-			Single:    85.5,
-			Small:     10.2,
-			Medium:    3.1,
-			Large:     0.9,
-			Whale:     0.3,
-			TotalUniq: summary.Holders,
-		}
+		// No stale cache available — return actual error instead of fake data
+		return nil, fmt.Errorf("all external API fetches failed: tonapi=%v, marketapp=%v", errTon, errMapp)
 	}
 
-	if summary.LastUpdatedAt == 0 {
-		nowSec := time.Now().Unix()
-		summary.LastUpdatedAt = nowSec
-		summary.NextUpdateAt = nowSec + 3600 // 1 hour later
+	// We have at least partial real data — set timestamps
+	nowSec := time.Now().Unix()
+	summary.LastUpdatedAt = nowSec
+	summary.NextUpdateAt = nowSec + 3600 // 1 hour later
+	summary.DataSource = "live"
+	if partialFailure {
+		summary.DataSource = "partial_live"
 	}
 
-	// Cache successful response (only if no errors occurred)
-	if s.cache != nil && errTon == nil && errMapp == nil {
+	// Cache successful response: fresh cache (1h) + stale cache (24h)
+	if s.cache != nil {
 		cBytes, err := json.Marshal(summary)
 		if err == nil {
+			// Fresh cache with standard TTL
 			s.cache.Client.Set(ctx, cacheKey, cBytes, 1*time.Hour)
+			// Stale cache with long TTL as safety net
+			s.cache.Client.Set(ctx, staleCacheKey, cBytes, 24*time.Hour)
 		}
 	}
 
@@ -345,13 +359,52 @@ func computeDistribution(ownerCounts map[string]int) *HolderDistribution {
 
 // GetTrendingUsernames fetches collection items and extracts usernames
 func (s *AggregatorService) GetTrendingUsernames(ctx context.Context) ([]string, error) {
+	trendingCacheKey := "collection:trending_usernames"
+	trendingStaleCacheKey := "collection:trending_usernames:stale"
+
+	// Try fresh cache first
+	if s.cache != nil {
+		val, err := s.cache.Client.Get(ctx, trendingCacheKey).Result()
+		if err == nil {
+			var cached []string
+			if json.Unmarshal([]byte(val), &cached) == nil && len(cached) > 0 {
+				return cached, nil
+			}
+		}
+	}
+
 	if s.tonClient == nil {
-		return []string{"news", "auto", "bank", "crypto"}, nil
+		slog.Error("STATS_FETCH_ERROR: tonClient is nil in GetTrendingUsernames")
+		// Try stale cache
+		if s.cache != nil {
+			val, err := s.cache.Client.Get(ctx, trendingStaleCacheKey).Result()
+			if err == nil {
+				var cached []string
+				if json.Unmarshal([]byte(val), &cached) == nil && len(cached) > 0 {
+					return cached, nil
+				}
+			}
+		}
+		return nil, fmt.Errorf("tonClient is nil and no cached trending data available")
 	}
 
 	items, err := s.tonClient.GetCollectionItems(ctx, tonapi.UsernamesCollectionAddr, 10, 0)
 	if err != nil {
-		return []string{"news", "auto", "bank", "crypto"}, nil
+		slog.Error("STATS_FETCH_ERROR: Failed to fetch trending usernames from TonAPI",
+			"error", err,
+		)
+		// Try stale cache on API failure
+		if s.cache != nil {
+			val, cacheErr := s.cache.Client.Get(ctx, trendingStaleCacheKey).Result()
+			if cacheErr == nil {
+				var cached []string
+				if json.Unmarshal([]byte(val), &cached) == nil && len(cached) > 0 {
+					slog.Info("STATS_FETCH_RESULT: Serving stale trending data due to API failure")
+					return cached, nil
+				}
+			}
+		}
+		return nil, fmt.Errorf("failed to fetch trending usernames: %w", err)
 	}
 
 	var list []string
@@ -362,24 +415,27 @@ func (s *AggregatorService) GetTrendingUsernames(ctx context.Context) ([]string,
 		}
 	}
 
-	// Fallback if empty or not enough items
-	if len(list) < 4 {
-		fallback := []string{"news", "auto", "bank", "crypto"}
-		for _, f := range fallback {
-			if len(list) >= 10 {
-				break
-			}
-			// Only add if not already in list
-			found := false
-			for _, l := range list {
-				if l == f {
-					found = true
-					break
+	if len(list) == 0 {
+		slog.Warn("STATS_FETCH_RESULT: TonAPI returned 0 trending usernames")
+		// Try stale cache
+		if s.cache != nil {
+			val, cacheErr := s.cache.Client.Get(ctx, trendingStaleCacheKey).Result()
+			if cacheErr == nil {
+				var cached []string
+				if json.Unmarshal([]byte(val), &cached) == nil && len(cached) > 0 {
+					return cached, nil
 				}
 			}
-			if !found {
-				list = append(list, f)
-			}
+		}
+		return nil, fmt.Errorf("no trending usernames available from API or cache")
+	}
+
+	// Cache the results: fresh (10min) + stale (24h)
+	if s.cache != nil {
+		cBytes, marshalErr := json.Marshal(list)
+		if marshalErr == nil {
+			s.cache.Client.Set(ctx, trendingCacheKey, cBytes, 10*time.Minute)
+			s.cache.Client.Set(ctx, trendingStaleCacheKey, cBytes, 24*time.Hour)
 		}
 	}
 

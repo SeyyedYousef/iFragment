@@ -7,17 +7,14 @@ import (
 )
 
 func TestAggregatorService(t *testing.T) {
-	// A proper test would mock tonClient and ggClient
-	// Here we just ensure the service initializes correctly
+	// Ensure the service initializes correctly
 	service := NewAggregatorService(nil, nil, nil)
 	if service == nil {
 		t.Fatal("Expected service to be initialized")
 	}
 
-	// Fast path test for context cancellation
-	_, cancel := context.WithCancel(context.Background())
-	cancel() // Cancel immediately
-
+	// With nil clients and no cache, GetCollectionStats should return an error
+	// (no more silent mock-data fallback)
 	errCh := make(chan error, 1)
 	go func() {
 		_, err := service.GetCollectionStats()
@@ -25,9 +22,22 @@ func TestAggregatorService(t *testing.T) {
 	}()
 
 	select {
-	case <-errCh:
-		// Expected to return error or empty because of nil clients, but shouldn't panic
-	case <-time.After(time.Second * 2):
+	case err := <-errCh:
+		if err == nil {
+			t.Fatal("Expected error from GetCollectionStats with nil clients, got nil")
+		}
+		t.Logf("Got expected error: %v", err)
+	case <-time.After(time.Second * 20):
 		t.Fatal("Test timed out")
 	}
+}
+
+func TestGetTrendingUsernames_NilClients(t *testing.T) {
+	service := NewAggregatorService(nil, nil, nil)
+
+	_, err := service.GetTrendingUsernames(context.Background())
+	if err == nil {
+		t.Fatal("Expected error from GetTrendingUsernames with nil tonClient, got nil")
+	}
+	t.Logf("Got expected error: %v", err)
 }

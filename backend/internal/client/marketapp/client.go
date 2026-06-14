@@ -1,9 +1,12 @@
 package marketapp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -30,6 +33,12 @@ func NewClient() *Client {
 		}
 	} else if singleToken := os.Getenv("MARKETAPP_TOKEN"); singleToken != "" {
 		tokens = []string{singleToken}
+	}
+
+	if len(tokens) == 0 {
+		slog.Warn("MARKETAPP_TOKEN/MARKETAPP_TOKENS not set — MarketApp API requests will be unauthenticated")
+	} else {
+		slog.Info("MarketApp client initialized", "token_count", len(tokens))
 	}
 
 	return &Client{
@@ -109,6 +118,7 @@ func (c *Client) doRequest(ctx context.Context, url string) (*http.Response, err
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "iFragment/1.0 (Telegram Mini App)")
 	return c.HTTP.Do(req)
 }
 
@@ -122,7 +132,17 @@ func (c *Client) GetCollection(ctx context.Context) (*CollectionData, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("marketapp collection error: %s", resp.Status)
+		// Read response body to diagnose rejection reason
+		bodyPreview, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		slog.Error("MARKETAPP_REQUEST_FAILED",
+			"url", url,
+			"status", resp.StatusCode,
+			"body", string(bodyPreview),
+			"authenticated", c.getToken() != "",
+		)
+		// Reconstruct body for caller
+		resp.Body = io.NopCloser(bytes.NewReader(bodyPreview))
+		return nil, fmt.Errorf("marketapp collection error: status %d, body: %s", resp.StatusCode, string(bodyPreview))
 	}
 
 	var data CollectionData

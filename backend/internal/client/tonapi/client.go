@@ -6,6 +6,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"sort"
@@ -37,6 +39,12 @@ func NewClient() *Client {
 		}
 	} else if singleKey := os.Getenv("TONAPI_KEY"); singleKey != "" {
 		apiKeys = []string{singleKey}
+	}
+
+	if len(apiKeys) == 0 {
+		slog.Warn("TONAPI_KEY/TONAPI_KEYS not set — requests will be unauthenticated and heavily rate-limited")
+	} else {
+		slog.Info("TonAPI client initialized", "key_count", len(apiKeys))
 	}
 
 	limiters := make([]*rate.Limiter, len(apiKeys))
@@ -165,6 +173,7 @@ func (c *Client) doRequest(ctx context.Context, url string) (*http.Response, err
 	if key != "" {
 		req.Header.Set("Authorization", "Bearer "+key)
 	}
+	req.Header.Set("User-Agent", "iFragment/1.0 (Telegram Mini App)")
 
 	start := time.Now()
 	resp, err := c.HTTP.Do(req)
@@ -191,6 +200,23 @@ func (c *Client) doRequest(ctx context.Context, url string) (*http.Response, err
 	}
 
 	telemetry.RecordTonAPILatency(method, statusCode, duration)
+
+	// Log non-success responses with body preview for debugging
+	if err == nil && resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound {
+		bodyPreview, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		resp.Body.Close()
+		slog.Error("TONAPI_REQUEST_FAILED",
+			"method", method,
+			"url", url,
+			"status", resp.StatusCode,
+			"body", string(bodyPreview),
+			"duration_sec", duration,
+			"authenticated", key != "",
+		)
+		// Reconstruct the body so callers can still read/decode it
+		resp.Body = io.NopCloser(bytes.NewReader(bodyPreview))
+	}
+
 	return resp, err
 }
 
