@@ -88,6 +88,19 @@ func (h *PremiumHandler) RequestPremiumReport(w http.ResponseWriter, r *http.Req
 	nonce := hex.EncodeToString(nonceBytes)
 	payload := fmt.Sprintf("report_pay:%d:%s:%s", userID, req.Username, nonce)
 
+	// First, create the local order in the DB
+	_, err := h.paymentService.DB.CreateOrder(r.Context(), repository.Order{
+		UserID:  userID,
+		Amount:  premiumReportPrice,
+		Status:  "pending",
+		Payload: payload,
+	})
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to create order", err)
+		return
+	}
+
+	// Then, create the invoice link using the provider
 	link, err := h.paymentService.CreateInvoiceLink(
 		"Premium Username Report",
 		"Detailed analysis for @"+req.Username,
@@ -95,16 +108,11 @@ func (h *PremiumHandler) RequestPremiumReport(w http.ResponseWriter, r *http.Req
 		premiumReportPrice,
 	)
 	if err != nil {
+		// Attempt to rollback or mark failed if invoice fails
+		h.paymentService.DB.UpdateOrderStatus(r.Context(), payload, "failed", "")
 		RespondError(w, r, http.StatusInternalServerError, "failed to create invoice", err)
 		return
 	}
-
-	_, err = h.paymentService.DB.CreateOrder(r.Context(), repository.Order{
-		UserID:  userID,
-		Amount:  premiumReportPrice,
-		Status:  "pending",
-		Payload: payload,
-	})
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, "failed to create order", err)
 		return
@@ -147,11 +155,12 @@ func (h *PremiumHandler) GetReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TEMPORARY: Bypassing payment check for premium reports during testing
-	slog.Info("TEMPORARY: Bypassing payment requirement for premium report", "user_id", userID, "username", u)
-	hasPaid := true
-	var err error
-	_ = err
+	// Check if user has paid for this report
+	hasPaid, err := h.reportService.CheckPayment(r.Context(), userID, u)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to verify payment status", err)
+		return
+	}
 
 	if !hasPaid {
 		RespondError(w, r, http.StatusPaymentRequired, "Payment required for this report", nil)

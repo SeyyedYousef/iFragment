@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -64,7 +65,7 @@ func (c *Client) CheckUsername(ctx context.Context, username string) (Status, er
 }
 
 func (c *Client) checkInternal(ctx context.Context, username string) (Status, error) {
-	url := fmt.Sprintf("%s/username/%s", c.BaseURL, username)
+	url := fmt.Sprintf("%s/username/%s", c.BaseURL, url.PathEscape(username))
 	
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -80,9 +81,11 @@ func (c *Client) checkInternal(ctx context.Context, username string) (Status, er
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
+		io.Copy(io.Discard, resp.Body)
 		return StatusAvailable, nil
 	}
 	if resp.StatusCode != http.StatusOK {
+		io.Copy(io.Discard, resp.Body)
 		return StatusUnknown, fmt.Errorf("fragment scraper returned status %d: %s", resp.StatusCode, resp.Status)
 	}
 
@@ -118,7 +121,25 @@ func (c *Client) checkInternal(ctx context.Context, username string) (Status, er
 		return StatusSold, nil
 	}
 
-	// 5. Fallback strings.Contains checks on full text if selectors did not match
+	// 5. Fallback using OpenGraph meta tags (often more stable than UI layout)
+	metaDesc, _ := doc.Find("meta[property='og:description']").Attr("content")
+	metaTitle, _ := doc.Find("meta[property='og:title']").Attr("content")
+	metaText := strings.ToLower(metaDesc + " " + metaTitle)
+
+	if strings.Contains(metaText, "bid") || strings.Contains(metaText, "auction") {
+		return StatusAuction, nil
+	}
+	if strings.Contains(metaText, "buy now") || strings.Contains(metaText, "for sale") {
+		return StatusSale, nil
+	}
+	if strings.Contains(metaText, "owner") || strings.Contains(metaText, "taken") || strings.Contains(metaText, "sold") {
+		return StatusSold, nil
+	}
+	if strings.Contains(metaText, "available") {
+		return StatusAvailable, nil
+	}
+
+	// 6. Last resort Fallback strings.Contains checks on full text if selectors and meta did not match
 	fullText := strings.ToLower(doc.Text())
 	if strings.Contains(fullText, "bid") || strings.Contains(fullText, "auction") || strings.Contains(fullText, "ends in") {
 		return StatusAuction, nil
@@ -146,8 +167,9 @@ func (c *Client) checkInternal(ctx context.Context, username string) (Status, er
 
 func truncateString(s string, maxLen int) string {
 	cleaned := strings.Join(strings.Fields(s), " ")
-	if len(cleaned) <= maxLen {
+	runes := []rune(cleaned)
+	if len(runes) <= maxLen {
 		return cleaned
 	}
-	return cleaned[:maxLen] + "..."
+	return string(runes[:maxLen]) + "..."
 }

@@ -76,25 +76,27 @@ func (s *ReportService) FindSimilarUsernames(ctx context.Context, username strin
 
 func similarCandidatePool(username string) []string {
 	candidates := []string{
-		"news", "dailynews", "thenews", "worldnews", "newshub",
-		"auto", "autos", "cars", "carhub", "autohub",
-		"crypto", "bitcoin", "ton", "wallet", "money", "bank",
-		"apple", "tesla", "nike", "meta", "google", "amazon",
+		"meta", "crypto", "bitcoin", "ton", "news",
+		"bank", "wallet", "money", "auto", "cars",
+		"apple", "tesla", "google", "ai", "tech",
+		"game", "bet", "shop", "pay", "coin",
 	}
 
-	suffixes := []string{"app", "bot", "hub", "hq", "io", "pro", "ton", "vip", "x"}
-	prefixes := []string{"get", "go", "my", "the", "try"}
-	for _, suffix := range suffixes {
+	highValueSuffixes := []string{"app", "bot", "pro", "x", "ai", "tech", "pay", "coin", "news"}
+	highValuePrefixes := []string{"the", "my", "get", "go", "crypto", "meta", "ton"}
+
+	for _, suffix := range highValueSuffixes {
 		candidates = append(candidates, username+suffix)
 	}
-	for _, prefix := range prefixes {
+	for _, prefix := range highValuePrefixes {
 		candidates = append(candidates, prefix+username)
 	}
-	if len(username) > 4 {
-		candidates = append(candidates, username[:len(username)-1], username[:len(username)-1]+"x")
+
+	if len(username) >= 4 {
+		candidates = append(candidates, username[:len(username)-1], username[:len(username)-1]+"x", username[:len(username)-1]+"pro")
 	}
 	if len(username) >= 4 {
-		candidates = append(candidates, username+"s", username+"1")
+		candidates = append(candidates, username+"s", username+"hq", username+"vip")
 	}
 	return candidates
 }
@@ -114,11 +116,14 @@ func similarityScore(base, candidate string) (float64, string) {
 
 	switch {
 	case isHighValueMarketKeyword(base) && isHighValueMarketKeyword(candidate):
-		keywordScore = 0.28
+		keywordScore = 0.35
 		reason = "same_market_category"
 	case isBrandLikeKeyword(base) && isBrandLikeKeyword(candidate):
-		keywordScore = 0.24
+		keywordScore = 0.30
 		reason = "brand_keyword"
+	case strings.HasSuffix(candidate, "ai") || strings.HasSuffix(candidate, "bot") || strings.HasSuffix(candidate, "pro"):
+		keywordScore = 0.25
+		reason = "premium_suffix"
 	case strings.Contains(candidate, base) || strings.Contains(base, candidate):
 		keywordScore = 0.2
 		reason = "contains_root"

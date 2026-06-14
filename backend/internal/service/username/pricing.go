@@ -151,6 +151,9 @@ func (c *PricingClient) Predict(ctx context.Context, features PriceFeatures) (*P
 }
 
 func buildPricingFeatures(r *FullReport) PriceFeatures {
+	if r == nil {
+		return PriceFeatures{}
+	}
 	text := analyzeUsernameText(r.Username)
 	stats := paidSaleStats(r.PastSales)
 
@@ -348,6 +351,9 @@ func paidSaleStats(sales []marketapp.SaleRecord) saleStats {
 }
 
 func estimatedLiquidityScore(r *FullReport, paidSalesCount int) float64 {
+	if r == nil {
+		return 0
+	}
 	// Fixed: Removed logarithmic dampening to allow linear scale up to 100
 	score := (float64(r.SearchPopularity) * 0.5) + float64(paidSalesCount)*12 + float64(len(r.PreviousOwners))*4
 	if r.BuyNowPrice > 0 || r.HighestBid > 0 {
@@ -404,7 +410,11 @@ func palindromeScore(runes []rune) float64 {
 	if len(runes) == 1 {
 		return 1
 	}
-	return float64(matches*2) / float64(len(runes))
+	totalMatches := matches * 2
+	if len(runes)%2 != 0 {
+		totalMatches++
+	}
+	return float64(totalMatches) / float64(len(runes))
 }
 
 func isASCIIVowel(r rune) bool {

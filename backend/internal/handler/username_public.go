@@ -72,7 +72,7 @@ func (h *UsernameHandler) CheckAvailability(w http.ResponseWriter, r *http.Reque
 		rlKey := "rate_limit:check:" + ip
 		count, _ := h.cache.Client.Incr(ctx, rlKey).Result()
 		if count == 1 {
-			h.cache.Client.Expire(ctx, rlKey, time.Minute)
+			h.cache.Client.Expire(context.Background(), rlKey, time.Minute)
 		}
 		if count > 20 {
 			RespondError(w, r, http.StatusTooManyRequests, "Too many requests. Please try again later.", nil)
@@ -97,18 +97,18 @@ func (h *UsernameHandler) CheckAvailability(w http.ResponseWriter, r *http.Reque
 
 	// Singleflight to merge concurrent checks using DoChan to handle client disconnection
 	ch := h.sfGroup.DoChan("check:"+u, func() (interface{}, error) {
+		// Use detached context for backend queries in singleflight so client cancellation does not fail concurrent requests
+		detachedCtx, cancelDetached := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancelDetached()
+
 		// Double check cache
 		if h.cache != nil {
-			if cachedVal, err := h.cache.Client.Get(context.Background(), cacheKey).Result(); err == nil {
+			if cachedVal, err := h.cache.Client.Get(detachedCtx, cacheKey).Result(); err == nil {
 				return cachedVal, nil
 			}
 		}
 
 		var finalStatus string
-		// Use detached context for backend queries in singleflight so client cancellation does not fail concurrent requests
-		detachedCtx, cancelDetached := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancelDetached()
-
 		mtStatus, err := h.mtprotoClient.CheckUsername(detachedCtx, u)
 		if err != nil {
 			return "", err
@@ -139,7 +139,7 @@ func (h *UsernameHandler) CheckAvailability(w http.ResponseWriter, r *http.Reque
 
 		// Save to cache
 		if h.cache != nil {
-			h.cache.Client.Set(context.Background(), cacheKey, finalStatus, 5*time.Minute)
+			h.cache.Client.Set(detachedCtx, cacheKey, finalStatus, 5*time.Minute)
 		}
 
 		return finalStatus, nil
@@ -154,6 +154,10 @@ func (h *UsernameHandler) CheckAvailability(w http.ResponseWriter, r *http.Reque
 	}
 
 	if res.Err != nil {
+		if res.Err == context.Canceled {
+			w.WriteHeader(499)
+			return
+		}
 		slog.Error("MTProto check failed", "username", u, "error", res.Err)
 		RespondError(w, r, http.StatusInternalServerError, "failed to check username", res.Err)
 		return
@@ -172,15 +176,15 @@ func (h *UsernameHandler) getQuickAnalysisCachedOrFetch(ctx context.Context, u s
 	}
 
 	ch := h.sfGroup.DoChan("quick:"+u, func() (interface{}, error) {
+		detachedCtx, cancelDetached := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancelDetached()
+
 		// Double check cache
 		if h.cache != nil {
-			if cachedVal, err := h.cache.Client.Get(context.Background(), cacheKey).Result(); err == nil {
+			if cachedVal, err := h.cache.Client.Get(detachedCtx, cacheKey).Result(); err == nil {
 				return []byte(cachedVal), nil
 			}
 		}
-
-		detachedCtx, cancelDetached := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancelDetached()
 
 		result, err := h.reportService.QuickAnalysis(detachedCtx, u, 0)
 		if err != nil {
@@ -247,7 +251,7 @@ func (h *UsernameHandler) getQuickAnalysisCachedOrFetch(ctx context.Context, u s
 		}
 
 		if h.cache != nil {
-			h.cache.Client.Set(context.Background(), cacheKey, data, 3*time.Minute)
+			h.cache.Client.Set(detachedCtx, cacheKey, data, 3*time.Minute)
 		}
 
 		return data, nil
@@ -298,7 +302,7 @@ func (h *UsernameHandler) QuickAnalysis(w http.ResponseWriter, r *http.Request) 
 		rlKey := "rate_limit:quick:" + ip
 		count, _ := h.cache.Client.Incr(ctx, rlKey).Result()
 		if count == 1 {
-			h.cache.Client.Expire(ctx, rlKey, time.Minute)
+			h.cache.Client.Expire(context.Background(), rlKey, time.Minute)
 		}
 		if count > 15 {
 			RespondError(w, r, http.StatusTooManyRequests, "Too many requests", nil)
@@ -308,6 +312,10 @@ func (h *UsernameHandler) QuickAnalysis(w http.ResponseWriter, r *http.Request) 
 
 	val, err := h.getQuickAnalysisCachedOrFetch(ctx, u)
 	if err != nil {
+		if err == context.Canceled {
+			w.WriteHeader(499)
+			return
+		}
 		RespondError(w, r, http.StatusInternalServerError, "failed to perform quick analysis", err)
 		return
 	}
@@ -339,7 +347,7 @@ func (h *UsernameHandler) StreamQuickAnalysis(w http.ResponseWriter, r *http.Req
 		rlKey := "rate_limit:stream:" + ip
 		count, _ := h.cache.Client.Incr(ctx, rlKey).Result()
 		if count == 1 {
-			h.cache.Client.Expire(ctx, rlKey, time.Minute)
+			h.cache.Client.Expire(context.Background(), rlKey, time.Minute)
 		}
 		if count > 10 {
 			RespondError(w, r, http.StatusTooManyRequests, "Too many streaming requests. Please try again later.", nil)
@@ -375,6 +383,7 @@ func (h *UsernameHandler) StreamQuickAnalysis(w http.ResponseWriter, r *http.Req
 
 	// Initial fetch
 	if err := h.sendSSEUpdate(w, flusher, ctx, u); err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "stream start failed", err)
 		return
 	}
 

@@ -119,7 +119,7 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 		defer wg.Done()
 		if s.tonClient == nil {
 			mu.Lock()
-			errTon = fmt.Errorf("tonClient is nil — TonAPI client not initialized")
+			errTon = ErrTonAPIUnavailable
 			mu.Unlock()
 			slog.Error("STATS_FETCH_ERROR: TonAPI client is nil", "component", "GetCollectionStats")
 			return
@@ -152,7 +152,7 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 		defer wg.Done()
 		if s.marketappClient == nil {
 			mu.Lock()
-			errMapp = fmt.Errorf("marketappClient is nil — MarketApp client not initialized")
+			errMapp = ErrMarketAppUnavailable
 			mu.Unlock()
 			slog.Error("STATS_FETCH_ERROR: MarketApp client is nil", "component", "GetCollectionStats")
 			return
@@ -276,6 +276,20 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 	case <-c:
 	case <-ctx.Done():
 		slog.Warn("External APIs timeout in GetCollectionStats", "timeout", "15s")
+		if s.cache != nil {
+			staleCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			staleVal, err := s.cache.Client.Get(staleCtx, staleCacheKey).Result()
+			if err == nil {
+				var stale CollectionSummary
+				if json.Unmarshal([]byte(staleVal), &stale) == nil {
+					stale.IsStale = true
+					stale.DataSource = "stale_cache"
+					return &stale, nil
+				}
+			}
+		}
+		return nil, fmt.Errorf("external APIs timeout and no stale cache")
 	}
 
 	// Determine if we got any real data
@@ -294,7 +308,9 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 	// If ALL data fetches failed, try stale cache before returning error
 	if allFailed {
 		if s.cache != nil {
-			staleVal, err := s.cache.Client.Get(ctx, staleCacheKey).Result()
+			staleCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			staleVal, err := s.cache.Client.Get(staleCtx, staleCacheKey).Result()
 			if err == nil {
 				var stale CollectionSummary
 				if json.Unmarshal([]byte(staleVal), &stale) == nil {
@@ -308,7 +324,7 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 			}
 		}
 		// No stale cache available — return actual error instead of fake data
-		return nil, fmt.Errorf("all external API fetches failed: tonapi=%v, marketapp=%v", errTon, errMapp)
+		return nil, fmt.Errorf("all external API fetches failed: %w, %w", errTon, errMapp)
 	}
 
 	// We have at least partial real data — set timestamps
@@ -426,10 +442,12 @@ func (s *AggregatorService) GetTrendingUsernames(ctx context.Context) ([]string,
 	}
 
 	var list []string
-	for _, item := range items.Items {
-		if item.DNS != "" {
-			name := strings.TrimSuffix(item.DNS, ".t.me")
-			list = append(list, name)
+	if items != nil {
+		for _, item := range items.Items {
+			if item.DNS != "" {
+				name := strings.TrimSuffix(item.DNS, ".t.me")
+				list = append(list, name)
+			}
 		}
 	}
 

@@ -291,6 +291,9 @@ func (s *ReportService) worker(ctx context.Context) {
 			if !ok {
 				return
 			}
+			if task.Report == nil {
+				continue
+			}
 			var err error
 			for i := 0; i < 3; i++ {
 				err = s.db.SaveReport(ctx, task.UserID, task.Username, string(task.Report.Status), task.Report.RarityScore, task.Report)
@@ -755,7 +758,7 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 	} else if mtStatus == mtproto.StatusAvailable {
 		report.Status = "available"
 	} else if frStatus == fragment.StatusAvailable {
-		if len(username) == 4 {
+		if usernameLength(username) == 4 {
 			report.Status = "purchase_available"
 		} else {
 			report.Status = "available"
@@ -907,7 +910,7 @@ func heuristicBaseline(r *FullReport, cfg PricingHeuristicsConfig) (float64, []s
 	// Length premium
 	lengthPremium := 0.0
 	switch {
-	case r.Length == 4:
+	case r.Length <= 4:
 		lengthPremium += cfg.Length4Bonus
 		base *= cfg.Length4Multiplier
 		signals = append(signals, "short_4_char")
@@ -975,21 +978,14 @@ func heuristicBaseline(r *FullReport, cfg PricingHeuristicsConfig) (float64, []s
 		signals = append(signals, "transfer_history")
 	}
 
-	// Use logarithmic scaling on the total accumulated qualityScore to prevent runaway compounding
-	qualityFactor := 1.0 + math.Log1p(qualityScore)
-	const maxQualityFactor = 5.0
+	// Dynamic value scaling curve instead of rigid log1p to prevent runaway compounding but allow smoother high-end scaling
+	qualityFactor := 1.0 + (qualityScore*1.5)/(1.0+qualityScore*0.15)
+	const maxQualityFactor = 10.0
 	if qualityFactor > maxQualityFactor {
 		qualityFactor = maxQualityFactor
 	}
 
 	value := base * qualityFactor
-
-	// Strict absolute ceiling
-	const absoluteCeiling = 50000.0
-	if value > absoluteCeiling {
-		value = absoluteCeiling
-		signals = append(signals, "ceiling_cap")
-	}
 
 	return value, signals
 }
@@ -1005,24 +1001,28 @@ func estimateValue(r *FullReport, cfg PricingHeuristicsConfig) *PriceEstimate {
 	var hasMarketData bool
 
 	// Determine real market data value: past sales, auction bids, or buy-now price
-	var marketDataPoints []float64
+	// Determine real market data value with weighted formulas instead of linear averaging
+	var totalWeight float64
+	var weightedSum float64
+
 	if medianSale, ok := medianPositiveSale(r.PastSales); ok {
-		marketDataPoints = append(marketDataPoints, medianSale)
+		weightedSum += medianSale * 2.0 // Actual past sales carry the heaviest weight
+		totalWeight += 2.0
+		hasMarketData = true
 	}
 	if r.SaleStatus == "on_auction" && r.HighestBid > 0 {
-		marketDataPoints = append(marketDataPoints, r.HighestBid)
+		weightedSum += r.HighestBid * 1.5 // Actual active bids carry medium-high weight
+		totalWeight += 1.5
+		hasMarketData = true
 	}
 	if r.BuyNowPrice > 0 {
-		marketDataPoints = append(marketDataPoints, r.BuyNowPrice)
+		weightedSum += r.BuyNowPrice * 0.5 // Speculative seller asking prices carry low weight
+		totalWeight += 0.5
+		hasMarketData = true
 	}
 
-	if len(marketDataPoints) > 0 {
-		hasMarketData = true
-		sum := 0.0
-		for _, p := range marketDataPoints {
-			sum += p
-		}
-		marketVal = sum / float64(len(marketDataPoints))
+	if totalWeight > 0 {
+		marketVal = weightedSum / totalWeight
 	}
 
 	var value float64
@@ -1041,12 +1041,7 @@ func estimateValue(r *FullReport, cfg PricingHeuristicsConfig) *PriceEstimate {
 		signals = append(signals, "buy_now_cap")
 	}
 
-	// Strict absolute ceiling
-	const absoluteCeiling = 50000.0
-	if value > absoluteCeiling {
-		value = absoluteCeiling
-		signals = append(signals, "ceiling_cap")
-	}
+	// Removed absolute ceiling limit to allow dynamic value scaling
 
 	confidence := estimateConfidence(r, cfg)
 	spread := 0.75 - confidence*0.35
@@ -1106,7 +1101,7 @@ func (s *ReportService) CalculateRarity(u string) int {
 		score += s.rarityConfig.LengthOtherBonus
 	}
 
-	isNumeric := true
+	isNumeric := length > 0
 	for _, char := range u {
 		if char < '0' || char > '9' {
 			isNumeric = false
@@ -1163,16 +1158,24 @@ func dictionaryPremium(u string) float64 {
 
 func isBrandLikeKeyword(u string) bool {
 	brands := map[string]bool{
-		"apple":  true,
-		"amazon": true,
-		"bank":   true,
-		"boss":   true,
-		"google": true,
-		"meta":   true,
-		"nike":   true,
-		"pavel":  true,
-		"tesla":  true,
-		"visa":   true,
+		"apple":     true,
+		"amazon":    true,
+		"bank":      true,
+		"boss":      true,
+		"google":    true,
+		"meta":      true,
+		"nike":      true,
+		"pavel":     true,
+		"tesla":     true,
+		"visa":      true,
+		"samsung":   true,
+		"microsoft": true,
+		"telegram":  true,
+		"twitter":   true,
+		"netflix":   true,
+		"paypal":    true,
+		"disney":    true,
+		"mcdonalds": true,
 	}
 	return brands[strings.ToLower(u)]
 }
@@ -1189,6 +1192,15 @@ func isHighValueMarketKeyword(u string) bool {
 		"nft":     true,
 		"ton":     true,
 		"wallet":  true,
+		"eth":     true,
+		"solana":  true,
+		"buy":     true,
+		"trade":   true,
+		"game":    true,
+		"bet":     true,
+		"gold":    true,
+		"sport":   true,
+		"shop":    true,
 	}
 	return keywords[strings.ToLower(u)]
 }

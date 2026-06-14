@@ -632,7 +632,7 @@ func AutoRegisterMainBot(ctx context.Context, db *repository.Database, botServic
 		// Ensure owner user exists in database to prevent foreign key violation
 		err = db.UpsertUser(ctx, repository.User{
 			TelegramID:   ownerID,
-			Username:     "owner",
+			Username:     fmt.Sprintf("owner_%d", ownerID),
 			FirstName:    "Owner",
 			LastName:     "Admin",
 			LanguageCode: "en",

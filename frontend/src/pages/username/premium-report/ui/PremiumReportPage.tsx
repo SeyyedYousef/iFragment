@@ -163,7 +163,7 @@ export const PremiumReportPage: Component = () => {
                 </p>
                 <button
                   class="px-6 py-3 bg-[#3390ec] active:scale-95 transition-all rounded-xl font-black uppercase tracking-wider"
-                  onClick={() => report.refetch()}
+                  onClick={() => report.refetch().catch(() => {})}
                   aria-label="Retry connection"
                 >
                   Retry Connection
@@ -440,13 +440,13 @@ export const PremiumReportPage: Component = () => {
                       <line x1="16" y1="24" x2="16" y2="112" stroke="#2a2a2a" stroke-width="2" />
                       <polyline points={chartPoints()} fill="none" stroke="#3390ec" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
                       <For each={paidSales()}>
-                        {(sale, index) => {
-                          const sales = paidSales();
-                          const { min, span } = priceStats();
-                          const x = sales.length === 1 ? 160 : 16 + (index() / (sales.length - 1)) * 288;
-                          const y = 112 - ((sale.price - min) / span) * 88;
-                          return <circle cx={x} cy={y} r="4" fill="#34c759" stroke="#0a0b0e" stroke-width="2" />;
-                        }}
+                        {(sale, index) => (
+                          <circle 
+                            cx={paidSales().length === 1 ? 160 : 16 + (index() / (paidSales().length - 1)) * 288} 
+                            cy={112 - ((sale.price - priceStats().min) / priceStats().span) * 88} 
+                            r="4" fill="#34c759" stroke="#0a0b0e" stroke-width="2" 
+                          />
+                        )}
                       </For>
                     </svg>
                     <div class="flex justify-between text-[10px] text-[#8e8e93] font-bold px-1">
