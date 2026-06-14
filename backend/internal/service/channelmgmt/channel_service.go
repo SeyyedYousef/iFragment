@@ -163,6 +163,11 @@ func (s *ChannelService) ConnectChannel(ctx context.Context, ownerUserID int64, 
 		slog.Warn("failed to write audit log", "action", "channel.connect", "error", err)
 	}
 
+	// 9. Sync administrators immediately to map roles correctly and handle ownership
+	if syncErr := s.SyncAdmins(ctx, ownerUserID, ch.ID); syncErr != nil {
+		slog.Warn("failed to sync admins immediately after channel connect", "channel_id", ch.ID, "error", syncErr)
+	}
+
 	metricStatus = "success"
 	return ch, nil
 }
@@ -316,6 +321,112 @@ func (s *ChannelService) validateForwardingTarget(rule *repository.ChannelForwar
 	return nil
 }
 
+func (s *ChannelService) VerifyChannel(ctx context.Context, ownerUserID int64, channelID uuid.UUID) (map[string]interface{}, error) {
+	if err := s.verifyAccess(ctx, ownerUserID, channelID, RoleOwner, RoleAdmin, RoleViewer); err != nil {
+		return nil, err
+	}
+
+	ch, err := s.channelRepo.GetChannelByID(ctx, channelID)
+	if err != nil {
+		return nil, err
+	}
+
+	bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
+	if err != nil {
+		return nil, err
+	}
+
+	token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+	if err != nil {
+		return nil, err
+	}
+
+	tg := telegram.NewBotAPIClient(token)
+	adminsTG, err := tg.GetChatAdministrators(ctx, ch.ChatID)
+	if err != nil {
+		lowerErr := strings.ToLower(err.Error())
+		if strings.Contains(lowerErr, "forbidden") || strings.Contains(lowerErr, "kicked") || strings.Contains(lowerErr, "not a member") || strings.Contains(lowerErr, "not a participant") || strings.Contains(lowerErr, "chat not found") {
+			_ = s.channelRepo.DeleteChannel(ctx, channelID)
+			
+			targetStr := channelID.String()
+			_ = s.auditRepo.Log(ctx, &repository.AuditLog{
+				ActorID:  bot.OwnerUserID,
+				Action:   "channel.kicked",
+				TargetID: &targetStr,
+			})
+			return map[string]interface{}{
+				"status": "kicked",
+				"message": "Bot was kicked or removed from the channel. The channel has been disconnected.",
+			}, nil
+		}
+		return nil, fmt.Errorf("failed to verify admins with telegram: %w", err)
+	}
+
+	botIsAdmin := false
+	for _, a := range adminsTG {
+		if a.User.ID == bot.BotID {
+			botIsAdmin = true
+			break
+		}
+	}
+
+	if !botIsAdmin {
+		_ = s.channelRepo.DeleteChannel(ctx, channelID)
+		
+		targetStr := channelID.String()
+		_ = s.auditRepo.Log(ctx, &repository.AuditLog{
+			ActorID:  bot.OwnerUserID,
+			Action:   "channel.demoted",
+			TargetID: &targetStr,
+		})
+		return map[string]interface{}{
+			"status": "demoted",
+			"message": "Bot is no longer an administrator. The channel has been disconnected.",
+		}, nil
+	}
+
+	var admins []repository.ChannelAdmin
+	for _, a := range adminsTG {
+		usernameCopy := a.User.Username
+		customTitleCopy := a.CustomTitle
+		admins = append(admins, repository.ChannelAdmin{
+			ChannelID:   channelID,
+			TelegramID:  a.User.ID,
+			Username:    &usernameCopy,
+			FirstName:   a.User.FirstName,
+			CustomTitle: &customTitleCopy,
+			IsOwner:     a.Status == "creator",
+		})
+	}
+
+	if err := s.channelRepo.SyncChannelAdmins(ctx, channelID, admins); err != nil {
+		return nil, fmt.Errorf("failed to sync admins during verification: %w", err)
+	}
+
+	role, _, roleErr := s.GetUserRole(ctx, ownerUserID, channelID)
+	
+	if auditErr := s.channelRepo.LogAudit(ctx, &repository.ChannelAuditLog{
+		ChannelID: channelID,
+		ActorID:   ownerUserID,
+		Action:    "channel.verify",
+	}); auditErr != nil {
+		slog.Warn("failed to write channel audit log", "action", "channel.verify", "error", auditErr)
+	}
+
+	if roleErr != nil {
+		return map[string]interface{}{
+			"status": "access_lost",
+			"message": "Your access to this channel has been revoked. Ownership may have been transferred or your admin rights were removed.",
+		}, nil
+	}
+
+	return map[string]interface{}{
+		"status": "active",
+		"role":   role,
+		"message": "Channel verified successfully.",
+	}, nil
+}
+
 func (s *ChannelService) GetChannel(ctx context.Context, ownerUserID int64, channelID uuid.UUID) (*repository.ManagedChannel, error) {
 	if err := s.verifyAccess(ctx, ownerUserID, channelID, RoleOwner, RoleAdmin, RoleViewer); err != nil {
 		return nil, err
@@ -388,7 +499,7 @@ func (s *ChannelService) UpdateSettings(ctx context.Context, ownerUserID int64, 
 
 // Webhook & Interactive Handlers
 
-func (s *ChannelService) ProcessChannelPost(ctx context.Context, chatID int64, messageID int, postText string, replyMarkup json.RawMessage) error {
+func (s *ChannelService) ProcessChannelPost(ctx context.Context, chatID int64, messageID int, postText string, replyMarkup json.RawMessage, isEdit bool) error {
 	// Skip duplicate/loop protection for empty-caption posts (e.g. photos/stickers)
 	// and make the textHash lock key channel-specific to prevent cross-channel conflicts.
 	if len(strings.TrimSpace(postText)) > 0 {
@@ -413,16 +524,16 @@ func (s *ChannelService) ProcessChannelPost(ctx context.Context, chatID int64, m
 		defer s.wg.Done()
 		bgCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Minute)
 		defer cancel()
-		_ = s.processChannelPostAsync(bgCtx, chatID, messageID, postText, replyMarkup)
+		_ = s.processChannelPostAsync(bgCtx, chatID, messageID, postText, replyMarkup, isEdit)
 	})
 
 	return nil
 }
 
-func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int64, messageID int, postText string, replyMarkup json.RawMessage) error {
+func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int64, messageID int, postText string, replyMarkup json.RawMessage, isEdit bool) error {
 	_ = replyMarkup // Silence unused parameter warning
 	// 1. Inbound Forwarding Rules (Inbound copy/forward from other channels into ours)
-	if s.featureForwarding {
+	if s.featureForwarding && !isEdit {
 		inboundRules, err := s.channelRepo.GetActiveForwardingRulesBySource(ctx, strconv.FormatInt(chatID, 10))
 		if err == nil && len(inboundRules) > 0 {
 			for _, rule := range inboundRules {
@@ -595,12 +706,18 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 							return
 						}
 
+						event := "post"
+						if isEdit {
+							event = "edit"
+						}
+						
 						payload := map[string]interface{}{
 							"channel_id":   ch.ID,
 							"chat_id":      chatID,
 							"message_id":   messageID,
 							"text":         postText,
 							"timestamp":    time.Now().Unix(),
+							"event":        event,
 						}
 						body, _ := json.Marshal(payload)
 
@@ -615,7 +732,7 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 	}
 
 	// 3. Auto-Responder logic
-	if s.featureAutoResponder {
+	if s.featureAutoResponder && !isEdit {
 		var responderConfig struct {
 			Enabled bool `json:"enabled"`
 			Rules   []struct {
@@ -645,6 +762,18 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 						tg := telegram.NewBotAPIClient(token)
 						if err := tg.SendMessage(ctx, chatID, rule.Response, nil, nil); err != nil {
 							slog.Error("Failed to send auto-response message", "chat_id", chatID, "error", err)
+							
+							lowerErr := strings.ToLower(err.Error())
+							if strings.Contains(lowerErr, "forbidden") || strings.Contains(lowerErr, "kicked") || strings.Contains(lowerErr, "not a member") || strings.Contains(lowerErr, "not a participant") || strings.Contains(lowerErr, "chat not found") {
+								slog.Warn("Bot was kicked from channel detected during auto-responder, disconnecting it", "channel_id", ch.ID)
+								_ = s.channelRepo.DeleteChannel(ctx, ch.ID)
+								targetStr := ch.ID.String()
+								_ = s.auditRepo.Log(ctx, &repository.AuditLog{
+									ActorID:  bot.OwnerUserID,
+									Action:   "channel.kicked",
+									TargetID: &targetStr,
+								})
+							}
 						}
 					} else {
 						slog.Error("Failed to fetch bot for auto responder", "bot_id", ch.BotID, "error", err)
@@ -843,6 +972,21 @@ func (s *ChannelService) scheduledPostWorker(ctx context.Context) {
 						res, err := tg.SendMessageWithResult(ctx, ch.ChatID, post.Text, nil, nil)
 						if err != nil {
 							slog.Error("Failed to send scheduled message via telegram in worker", "post_id", post.ID, "error", err)
+							
+							lowerErr := strings.ToLower(err.Error())
+							if strings.Contains(lowerErr, "forbidden") || strings.Contains(lowerErr, "kicked") || strings.Contains(lowerErr, "not a member") || strings.Contains(lowerErr, "not a participant") || strings.Contains(lowerErr, "chat not found") {
+								slog.Warn("Bot was kicked from channel during scheduled post, disconnecting it", "channel_id", ch.ID)
+								_ = s.channelRepo.DeleteChannel(ctx, ch.ID)
+								targetStr := ch.ID.String()
+								_ = s.auditRepo.Log(ctx, &repository.AuditLog{
+									ActorID:  bot.OwnerUserID,
+									Action:   "channel.kicked",
+									TargetID: &targetStr,
+								})
+								_ = s.channelRepo.MarkPostAsPublished(ctx, post.ID, -1)
+								return
+							}
+
 							if cache != nil && cache.Client != nil {
 								retryKey := fmt.Sprintf("post_retries:%s", post.ID.String())
 								retries, _ := cache.Client.Incr(ctx, retryKey).Result()
@@ -988,6 +1132,14 @@ func (s *ChannelService) runAnalyticsSnapshot(ctx context.Context) {
 				currentCount, err := tg.GetChatMemberCount(ctx, item.ChatID)
 				if err != nil {
 					slog.Error("Failed to fetch current telegram subscriber count for analytics", "channel_id", item.ChannelID, "error", err)
+					
+					lowerErr := strings.ToLower(err.Error())
+					if strings.Contains(lowerErr, "forbidden") || strings.Contains(lowerErr, "kicked") || strings.Contains(lowerErr, "not a member") || strings.Contains(lowerErr, "not a participant") || strings.Contains(lowerErr, "chat not found") {
+						slog.Warn("Bot was kicked from channel detected during analytics, disconnecting it", "channel_id", item.ChannelID)
+						_ = s.channelRepo.DeleteChannel(ctx, item.ChannelID)
+						// Log audit using system user or skip since it's background
+					}
+					
 					return
 				}
 
@@ -1172,6 +1324,17 @@ func (s *ChannelService) SyncAdmins(ctx context.Context, ownerUserID int64, chan
 	tg := telegram.NewBotAPIClient(token)
 	adminsTG, err := tg.GetChatAdministrators(ctx, ch.ChatID)
 	if err != nil {
+		lowerErr := strings.ToLower(err.Error())
+		if strings.Contains(lowerErr, "forbidden") || strings.Contains(lowerErr, "kicked") || strings.Contains(lowerErr, "not a member") || strings.Contains(lowerErr, "not a participant") || strings.Contains(lowerErr, "chat not found") {
+			_ = s.channelRepo.DeleteChannel(ctx, channelID)
+			targetStr := channelID.String()
+			_ = s.auditRepo.Log(ctx, &repository.AuditLog{
+				ActorID:  bot.OwnerUserID,
+				Action:   "channel.kicked",
+				TargetID: &targetStr,
+			})
+			return fmt.Errorf("bot was kicked from the channel. The channel has been disconnected")
+		}
 		return err
 	}
 

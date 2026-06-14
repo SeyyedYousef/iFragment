@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -44,6 +45,7 @@ type SettingsGeneral struct {
 	CasEnabled          bool   `json:"casEnabled"`
 	AntiRaidThreshold   int    `json:"antiRaidThreshold"` // Joins per minute
 	AntiRaidAction      string `json:"antiRaidAction"`    // lockdown, alert
+	BotEnabled          *bool  `json:"botEnabled"`
 }
 
 type RestrictionDetail struct {
@@ -140,17 +142,29 @@ type SettingsCustomTexts struct {
 }
 
 type SettingsRepo struct {
-	db    *Database
-	cache *Cache
+	db         *Database
+	cache      *Cache
+	localCache sync.Map
 }
 
 func NewSettingsRepo(db *Database, cache *Cache) *SettingsRepo {
-	return &SettingsRepo{db: db, cache: cache}
+	return &SettingsRepo{db: db, cache: cache, localCache: sync.Map{}}
+}
+
+func (r *SettingsRepo) ClearCacheKey(ctx context.Context, key string) {
+	if r.cache != nil && r.cache.Client != nil {
+		r.cache.Client.Del(ctx, key)
+	}
 }
 
 func (r *SettingsRepo) GetSettings(ctx context.Context, groupID uuid.UUID) (*GroupSettings, error) {
 	if r.db == nil || r.db.Pool == nil {
 		return nil, fmt.Errorf("database connection not available")
+	}
+
+	// 0. Try local memory cache first for zero-latency
+	if val, ok := r.localCache.Load(groupID); ok {
+		return val.(*GroupSettings), nil
 	}
 
 	// 1. Try cache
@@ -160,6 +174,7 @@ func (r *SettingsRepo) GetSettings(ctx context.Context, groupID uuid.UUID) (*Gro
 		if err == nil {
 			var s GroupSettings
 			if json.Unmarshal([]byte(val), &s) == nil {
+				r.localCache.Store(groupID, &s)
 				return &s, nil
 			}
 		}
@@ -176,11 +191,14 @@ func (r *SettingsRepo) GetSettings(ctx context.Context, groupID uuid.UUID) (*Gro
 		return r.initSettings(ctx, groupID)
 	}
 
-	if err == nil && r.cache != nil && r.cache.Client != nil {
-		// Set cache
-		cacheKey := fmt.Sprintf("settings:%s", groupID.String())
-		data, _ := json.Marshal(s)
-		r.cache.Client.Set(ctx, cacheKey, data, 1*time.Hour)
+	if err == nil {
+		r.localCache.Store(groupID, &s)
+		if r.cache != nil && r.cache.Client != nil {
+			// Set cache
+			cacheKey := fmt.Sprintf("settings:%s", groupID.String())
+			data, _ := json.Marshal(s)
+			r.cache.Client.Set(ctx, cacheKey, data, 1*time.Hour)
+		}
 	}
 
 	return &s, err
@@ -205,6 +223,9 @@ func (r *SettingsRepo) initSettings(ctx context.Context, groupID uuid.UUID) (*Gr
 	err := r.db.Pool.QueryRow(ctx, query, groupID, empty, empty, empty, empty, empty, empty).Scan(&s.UpdatedAt)
 	if err == pgx.ErrNoRows {
 		return r.GetSettings(ctx, groupID)
+	}
+	if err == nil {
+		r.localCache.Store(groupID, s)
 	}
 	return s, err
 }
@@ -240,6 +261,7 @@ func (r *SettingsRepo) UpdateCategory(ctx context.Context, groupID uuid.UUID, ca
 		cacheKey := fmt.Sprintf("settings:%s", groupID.String())
 		r.cache.Client.Del(ctx, cacheKey)
 	}
+	r.localCache.Delete(groupID)
 
 	return r.GetSettings(ctx, groupID)
 }
@@ -250,9 +272,12 @@ func (r *SettingsRepo) ForceUpdateQuietHours(ctx context.Context, groupID uuid.U
 	}
 	query := `UPDATE group_settings SET quiet_hours = $1, version = version + 1, updated_at = now() WHERE group_id = $2`
 	_, err := r.db.Pool.Exec(ctx, query, data, groupID)
-	if err == nil && r.cache != nil && r.cache.Client != nil {
-		cacheKey := fmt.Sprintf("settings:%s", groupID.String())
-		r.cache.Client.Del(ctx, cacheKey)
+	if err == nil {
+		if r.cache != nil && r.cache.Client != nil {
+			cacheKey := fmt.Sprintf("settings:%s", groupID.String())
+			r.cache.Client.Del(ctx, cacheKey)
+		}
+		r.localCache.Delete(groupID)
 	}
 	return err
 }
@@ -263,38 +288,53 @@ func (r *SettingsRepo) GetMultipleSettings(ctx context.Context, groupIDs []uuid.
 		return result, nil
 	}
 
-	keys := make([]string, len(groupIDs))
-	for i, id := range groupIDs {
+	// 0. Try local cache first
+	var cacheMisses []uuid.UUID
+	for _, id := range groupIDs {
+		if val, ok := r.localCache.Load(id); ok {
+			result[id] = val.(*GroupSettings)
+		} else {
+			cacheMisses = append(cacheMisses, id)
+		}
+	}
+
+	if len(cacheMisses) == 0 {
+		return result, nil
+	}
+
+	keys := make([]string, len(cacheMisses))
+	for i, id := range cacheMisses {
 		keys[i] = fmt.Sprintf("settings:%s", id.String())
 	}
 
 	// 1. Try cache (Redis MGET)
-	var cacheMisses []uuid.UUID
+	var redisMisses []uuid.UUID
 	if r.cache != nil && r.cache.Client != nil {
 		vals, err := r.cache.Client.MGet(ctx, keys...).Result()
 		if err == nil {
 			for i, v := range vals {
-				gID := groupIDs[i]
+				gID := cacheMisses[i]
 				if v != nil {
 					if str, ok := v.(string); ok {
 						var s GroupSettings
 						if json.Unmarshal([]byte(str), &s) == nil {
+							r.localCache.Store(gID, &s)
 							result[gID] = &s
 							continue
 						}
 					}
 				}
-				cacheMisses = append(cacheMisses, gID)
+				redisMisses = append(redisMisses, gID)
 			}
 		} else {
-			cacheMisses = groupIDs
+			redisMisses = cacheMisses
 		}
 	} else {
-		cacheMisses = groupIDs
+		redisMisses = cacheMisses
 	}
 
 	// 2. Load misses from DB
-	if len(cacheMisses) > 0 {
+	if len(redisMisses) > 0 {
 		if r.db == nil || r.db.Pool == nil {
 			return nil, fmt.Errorf("database connection not available")
 		}
@@ -302,7 +342,7 @@ func (r *SettingsRepo) GetMultipleSettings(ctx context.Context, groupIDs []uuid.
 		query := `SELECT group_id, general, content_restrictions, limits, quiet_hours, mandatory_membership, custom_texts, version, updated_at, updated_by
 			FROM group_settings WHERE group_id = ANY($1)`
 		
-		rows, err := r.db.Pool.Query(ctx, query, cacheMisses)
+		rows, err := r.db.Pool.Query(ctx, query, redisMisses)
 		if err != nil {
 			return nil, err
 		}
@@ -318,6 +358,7 @@ func (r *SettingsRepo) GetMultipleSettings(ctx context.Context, groupIDs []uuid.
 			if err == nil {
 				result[s.GroupID] = &s
 				foundMap[s.GroupID] = true
+				r.localCache.Store(s.GroupID, &s)
 				if r.cache != nil && r.cache.Client != nil {
 					cacheKey := fmt.Sprintf("settings:%s", s.GroupID.String())
 					data, _ := json.Marshal(s)
@@ -331,7 +372,7 @@ func (r *SettingsRepo) GetMultipleSettings(ctx context.Context, groupIDs []uuid.
 		}
 
 		// Init missing from DB (if they don't exist yet)
-		for _, id := range cacheMisses {
+		for _, id := range redisMisses {
 			if !foundMap[id] {
 				s, err := r.GetSettings(ctx, id)
 				if err == nil && s != nil {

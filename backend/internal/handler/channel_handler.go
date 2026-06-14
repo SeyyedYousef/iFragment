@@ -184,6 +184,29 @@ func (h *ChannelHandler) DisconnectChannel(w http.ResponseWriter, r *http.Reques
 	RespondJSON(w, http.StatusOK, map[string]string{"status": "disconnected"})
 }
 
+func (h *ChannelHandler) VerifyChannel(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	channelIDStr := chi.URLParam(r, "channelID")
+	channelID, err := uuid.Parse(channelIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	res, err := h.svc.VerifyChannel(r.Context(), userID, channelID)
+	if err != nil {
+		h.respondServerError(w, r, "failed to verify channel", err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, res)
+}
+
 func (h *ChannelHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
 	userID := h.getUserID(r)
 	if userID == 0 {
@@ -661,7 +684,7 @@ func (h *ChannelHandler) SaveButtons(w http.ResponseWriter, r *http.Request) {
 
 func (h *ChannelHandler) respondServerError(w http.ResponseWriter, r *http.Request, publicMsg string, err error) {
 	errStr := err.Error()
-	if strings.Contains(errStr, "unauthorized") || strings.Contains(errStr, "access denied") {
+	if strings.Contains(errStr, "unauthorized") || strings.Contains(errStr, "access denied") || strings.Contains(errStr, "telegram api error [403]") {
 		RespondError(w, r, http.StatusForbidden, errStr, err)
 		return
 	}
@@ -669,7 +692,8 @@ func (h *ChannelHandler) respondServerError(w http.ResponseWriter, r *http.Reque
 	if strings.Contains(errStr, "bot must be an administrator") || 
 	   strings.Contains(errStr, "located chat is not a channel") || 
 	   strings.Contains(errStr, "لطفاً ابتدا ربات را") ||
-	   strings.Contains(errStr, "not found") {
+	   strings.Contains(errStr, "not found") ||
+	   strings.Contains(errStr, "telegram api error [400]") {
 		RespondError(w, r, http.StatusBadRequest, errStr, err)
 		return
 	}

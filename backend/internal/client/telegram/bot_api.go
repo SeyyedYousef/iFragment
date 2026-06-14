@@ -19,9 +19,20 @@ import (
 )
 
 var (
-	ErrUnauthorized = errors.New("telegram api: unauthorized (invalid token)")
-	ErrNotFound     = errors.New("telegram api: not found (invalid token format or endpoint)")
+	ErrUnauthorized    = errors.New("telegram api: unauthorized (invalid token)")
+	ErrNotFound        = errors.New("telegram api: not found (invalid token format or endpoint)")
+	ErrForbidden       = errors.New("telegram api: forbidden (bot was blocked or removed)")
+	ErrMessageNotFound = errors.New("telegram api: message to delete not found")
 )
+
+type APIError struct {
+	Code    int
+	Message string
+}
+
+func (e *APIError) Error() string {
+	return fmt.Sprintf("telegram api error [%d]: %s", e.Code, e.Message)
+}
 
 type BotAPIClient struct {
 	token   string
@@ -50,6 +61,21 @@ func NewBotAPIClient(token string) *BotAPIClient {
 				"from", from.String(),
 				"to", to.String(),
 			)
+		},
+		IsSuccessful: func(err error) bool {
+			if err == nil {
+				return true
+			}
+			if errors.Is(err, ErrUnauthorized) || errors.Is(err, ErrNotFound) || errors.Is(err, ErrForbidden) || errors.Is(err, ErrMessageNotFound) {
+				return true
+			}
+			var apiErr *APIError
+			if errors.As(err, &apiErr) {
+				if apiErr.Code >= 400 && apiErr.Code < 500 {
+					return true
+				}
+			}
+			return false
 		},
 	}
 
@@ -149,19 +175,25 @@ func (c *BotAPIClient) Request(ctx context.Context, method string, payload inter
 func (c *BotAPIClient) doRequestWithRetry(ctx context.Context, method string, payload interface{}) (json.RawMessage, error) {
 	url := fmt.Sprintf("%s/bot%s/%s", c.baseURL, c.token, method)
 
-	var bodyReader io.Reader
+	var body []byte
 	if payload != nil {
-		body, err := json.Marshal(payload)
+		var err error
+		body, err = json.Marshal(payload)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal payload: %w", err)
 		}
-		bodyReader = bytes.NewBuffer(body)
 	}
 
 	const maxRetries = 3
+	skipNextBackoff := false
 
 	for attempt := 0; attempt < maxRetries; attempt++ {
-		if attempt > 0 {
+		var bodyReader io.Reader
+		if body != nil {
+			bodyReader = bytes.NewBuffer(body)
+		}
+
+		if attempt > 0 && !skipNextBackoff {
 			// Exponential backoff: 500ms, 1s, 2s
 			backoff := time.Duration(500*math.Pow(2, float64(attempt-1))) * time.Millisecond
 			slog.Info("Retrying Telegram API request",
@@ -175,6 +207,7 @@ func (c *BotAPIClient) doRequestWithRetry(ctx context.Context, method string, pa
 			case <-time.After(backoff):
 			}
 		}
+		skipNextBackoff = false
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bodyReader)
 		if err != nil {
@@ -207,20 +240,28 @@ func (c *BotAPIClient) doRequestWithRetry(ctx context.Context, method string, pa
 			return result.Result, nil
 		}
 
-		// Handle 429 Too Many Requests — respect retry_after
-		if result.ErrorCode == 429 && result.Parameters != nil && result.Parameters.RetryAfter > 0 {
-			retryAfter := time.Duration(result.Parameters.RetryAfter) * time.Second
-			slog.Warn("Telegram rate limit hit, waiting retry_after",
-				"method", method,
-				"retry_after_seconds", result.Parameters.RetryAfter,
-			)
-			if attempt < maxRetries-1 {
-				select {
-				case <-ctx.Done():
-					return nil, ctx.Err()
-				case <-time.After(retryAfter):
+		// Handle 429 Too Many Requests
+		if result.ErrorCode == 429 {
+			if result.Parameters != nil && result.Parameters.RetryAfter > 0 {
+				retryAfter := time.Duration(result.Parameters.RetryAfter) * time.Second
+				slog.Warn("Telegram rate limit hit, waiting retry_after",
+					"method", method,
+					"retry_after_seconds", result.Parameters.RetryAfter,
+				)
+				if attempt < maxRetries-1 {
+					select {
+					case <-ctx.Done():
+						return nil, ctx.Err()
+					case <-time.After(retryAfter):
+					}
+					skipNextBackoff = true
+					continue
 				}
-				continue
+			} else {
+				slog.Warn("Telegram rate limit hit (no retry_after), will use exponential backoff", "method", method)
+				if attempt < maxRetries-1 {
+					continue
+				}
 			}
 		}
 
@@ -233,10 +274,16 @@ func (c *BotAPIClient) doRequestWithRetry(ctx context.Context, method string, pa
 		if result.ErrorCode == 401 {
 			return nil, fmt.Errorf("%w: %s", ErrUnauthorized, result.Description)
 		}
+		if result.ErrorCode == 403 {
+			return nil, fmt.Errorf("%w: %s", ErrForbidden, result.Description)
+		}
 		if result.ErrorCode == 404 {
 			return nil, fmt.Errorf("%w: %s", ErrNotFound, result.Description)
 		}
-		return nil, fmt.Errorf("telegram api error [%d]: %s", result.ErrorCode, result.Description)
+		if result.ErrorCode == 400 && strings.Contains(strings.ToLower(result.Description), "message to delete not found") {
+			return nil, fmt.Errorf("%w: %s", ErrMessageNotFound, result.Description)
+		}
+		return nil, &APIError{Code: result.ErrorCode, Message: result.Description}
 	}
 
 	return nil, fmt.Errorf("telegram api: max retries exceeded for method %s", method)
@@ -312,8 +359,18 @@ func (c *BotAPIClient) RestrictChatMember(ctx context.Context, chatID int64, use
 		"chat_id": chatID,
 		"user_id": userID,
 		"permissions": map[string]bool{
-			"can_send_messages": false,
+			"can_send_messages":       false,
+			"can_send_audios":         false,
+			"can_send_documents":      false,
+			"can_send_photos":         false,
+			"can_send_videos":         false,
+			"can_send_video_notes":    false,
+			"can_send_voice_notes":    false,
+			"can_send_polls":          false,
+			"can_send_other_messages": false,
+			"can_add_web_page_previews": false,
 		},
+		"use_independent_chat_permissions": true,
 		"until_date": untilDate,
 	})
 	return err

@@ -28,6 +28,7 @@ interface GeneralConfig {
   casEnabled: boolean;
   antiRaidThreshold: number;
   antiRaidAction: string;
+  botEnabled: boolean;
 }
 
 const defaultConfig: GeneralConfig = {
@@ -49,6 +50,7 @@ const defaultConfig: GeneralConfig = {
   casEnabled: false,
   antiRaidThreshold: 0,
   antiRaidAction: 'none',
+  botEnabled: true,
 };
 
 export const GeneralSettingsPage: Component = () => {
@@ -163,6 +165,16 @@ export const GeneralSettingsPage: Component = () => {
           <p class="mt-2 text-[11px] text-on-surface-variant px-1">
             Select the language the bot will use for all group notifications and responses.
           </p>
+        </Motion.div>
+
+        {/* Bot Enabled */}
+        <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.03 }}>
+          <SettingsSection
+            title={t('generalSettings.botEnabled') || 'Bot Enabled'}
+            description={t('generalSettings.botEnabledDesc') || 'Turn off to completely disable the bot in this group without kicking it.'}
+            enabled={config.botEnabled}
+            onToggle={(v) => updateField('botEnabled', v)}
+          />
         </Motion.div>
 
         {/* Time Zone */}

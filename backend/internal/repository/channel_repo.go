@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -73,7 +74,7 @@ func (r *ChannelRepo) CreateChannel(ctx context.Context, ch *ManagedChannel) err
 
 	query := `INSERT INTO managed_channels (bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-		ON CONFLICT (bot_id, chat_id) DO UPDATE SET chat_title = EXCLUDED.chat_title, subscribers_count = EXCLUDED.subscribers_count, updated_at = now()
+		ON CONFLICT (bot_id, chat_id) DO UPDATE SET chat_title = EXCLUDED.chat_title, subscribers_count = EXCLUDED.subscribers_count, updated_at = now(), deleted_at = NULL
 		RETURNING id, created_at, updated_at, trial_ends_at`
 	
 	return r.db.Pool.QueryRow(ctx, query,
@@ -729,7 +730,14 @@ func (r *ChannelRepo) SaveSnapshotAndUpdateSubscribers(ctx context.Context, snap
 	}
 	defer tx.Rollback(ctx)
 
-	// Step 1: Save Analytics Snapshot
+	// Step 1: Update Channel Subscribers count (Lock parent first to prevent deadlocks)
+	querySubscribers := `UPDATE managed_channels SET subscribers_count = $1, updated_at = now() WHERE id = $2`
+	_, err = tx.Exec(ctx, querySubscribers, count, snapshot.ChannelID)
+	if err != nil {
+		return err
+	}
+
+	// Step 2: Save Analytics Snapshot
 	querySnapshot := `INSERT INTO channel_analytics (channel_id, snapshot_date, subscribers_count, new_subscribers, views_count, reactions_count, posts_count)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (channel_id, snapshot_date) DO UPDATE SET
@@ -744,13 +752,6 @@ func (r *ChannelRepo) SaveSnapshotAndUpdateSubscribers(ctx context.Context, snap
 		snapshot.ChannelID, snapshot.SnapshotDate.Format("2006-01-02"), snapshot.SubscribersCount, snapshot.NewSubscribers,
 		snapshot.ViewsCount, snapshot.ReactionsCount, snapshot.PostsCount,
 	).Scan(&snapshot.ID, &snapshot.CreatedAt)
-	if err != nil {
-		return err
-	}
-
-	// Step 2: Update Channel Subscribers count
-	querySubscribers := `UPDATE managed_channels SET subscribers_count = $1, updated_at = now() WHERE id = $2`
-	_, err = tx.Exec(ctx, querySubscribers, count, snapshot.ChannelID)
 	if err != nil {
 		return err
 	}
@@ -919,6 +920,11 @@ func (r *ChannelRepo) SyncChannelAdmins(ctx context.Context, channelID uuid.UUID
 	defer tx.Rollback(ctx)
 
 	if len(admins) > 0 {
+		// Sort admins by TelegramID to prevent deadlocks on concurrent upserts
+		sort.Slice(admins, func(i, j int) bool {
+			return admins[i].TelegramID < admins[j].TelegramID
+		})
+
 		batch := &pgx.Batch{}
 		query := `INSERT INTO channel_admins (channel_id, telegram_id, username, first_name, custom_title, is_owner) 
 			VALUES ($1, $2, $3, $4, $5, $6)
@@ -1030,6 +1036,13 @@ func (r *ChannelRepo) SaveChannelButtons(ctx context.Context, channelID uuid.UUI
 	}
 
 	var keepIDs []uuid.UUID
+	
+	// Sort buttons deterministically to prevent deadlocks on concurrent updates
+	sort.Slice(buttons, func(i, j int) bool {
+		keyI := fmt.Sprintf("%s:%s:%s", buttons[i].Title, buttons[i].Value, buttons[i].Type)
+		keyJ := fmt.Sprintf("%s:%s:%s", buttons[j].Title, buttons[j].Value, buttons[j].Type)
+		return keyI < keyJ
+	})
 
 	// 2. Insert or update each button, keeping IDs intact
 	for _, btn := range buttons {

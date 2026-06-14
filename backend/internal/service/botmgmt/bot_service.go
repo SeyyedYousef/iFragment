@@ -431,6 +431,14 @@ func (s *BotService) UpdateSettings(ctx context.Context, groupID uuid.UUID, cate
 		NewValue: data,
 	})
 
+	if category == "general" {
+		group, err := s.botRepo.GetGroupByID(ctx, groupID)
+		if err == nil {
+			cacheKey := fmt.Sprintf("bot_enabled:%s:%d", group.BotID.String(), group.ChatID)
+			s.settingsRepo.ClearCacheKey(ctx, cacheKey)
+		}
+	}
+
 	return newSettings, nil
 }
 

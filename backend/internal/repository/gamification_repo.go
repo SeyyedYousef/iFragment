@@ -193,39 +193,49 @@ func (db *Database) CreditReferrerShare(ctx context.Context, spenderID int64, am
 		return nil // Spender has no referrer
 	}
 
-	// Credit 10% to Tier 1
+	// 2. Get Tier 1's referrer ID (referred_by is BIGINT telegram_id of Tier 1's referrer)
+	var t2ReferrerID *int64
+	err = tx.QueryRow(ctx, "SELECT referred_by FROM users WHERE telegram_id = $1", *t1ReferrerID).Scan(&t2ReferrerID)
+	if err != nil && err != pgx.ErrNoRows {
+		return fmt.Errorf("failed to get t2 referrer: %w", err)
+	}
+
 	t1Commission := amountSpent * 0.10
 	metaT1, _ := json.Marshal(map[string]interface{}{
 		"commission_tier": 1,
 		"spender_id":      spenderID,
 		"amount_spent":    amountSpent,
 	})
-	if _, err := frgRepo.CreditTx(ctx, tx, *t1ReferrerID, t1Commission, "referral_payout", metaT1); err != nil {
-		return fmt.Errorf("failed to credit t1 commission: %w", err)
+
+	hasT2 := t2ReferrerID != nil && *t2ReferrerID != 0
+	var t2Commission float64
+	var metaT2 []byte
+	if hasT2 {
+		t2Commission = amountSpent * 0.03
+		metaT2, _ = json.Marshal(map[string]interface{}{
+			"commission_tier": 2,
+			"spender_id":      spenderID,
+			"amount_spent":    amountSpent,
+		})
 	}
 
-	// 2. Get Tier 1's referrer ID (referred_by is BIGINT telegram_id of Tier 1's referrer)
-	var t2ReferrerID *int64
-	err = tx.QueryRow(ctx, "SELECT referred_by FROM users WHERE telegram_id = $1", *t1ReferrerID).Scan(&t2ReferrerID)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return tx.Commit(ctx) // It's fine if no tier 2, still commit tier 1
+	// Execute in ID order to prevent deadlocks
+	if hasT2 && *t1ReferrerID > *t2ReferrerID {
+		if _, err := frgRepo.CreditTx(ctx, tx, *t2ReferrerID, t2Commission, "referral_payout", metaT2); err != nil {
+			return fmt.Errorf("failed to credit t2 commission: %w", err)
 		}
-		return fmt.Errorf("failed to get t2 referrer: %w", err)
-	}
-	if t2ReferrerID == nil || *t2ReferrerID == 0 {
-		return tx.Commit(ctx) // No Tier 2 referrer
-	}
-
-	// Credit 3% to Tier 2
-	t2Commission := amountSpent * 0.03
-	metaT2, _ := json.Marshal(map[string]interface{}{
-		"commission_tier": 2,
-		"spender_id":      spenderID,
-		"amount_spent":    amountSpent,
-	})
-	if _, err := frgRepo.CreditTx(ctx, tx, *t2ReferrerID, t2Commission, "referral_payout", metaT2); err != nil {
-		return fmt.Errorf("failed to credit t2 commission: %w", err)
+		if _, err := frgRepo.CreditTx(ctx, tx, *t1ReferrerID, t1Commission, "referral_payout", metaT1); err != nil {
+			return fmt.Errorf("failed to credit t1 commission: %w", err)
+		}
+	} else {
+		if _, err := frgRepo.CreditTx(ctx, tx, *t1ReferrerID, t1Commission, "referral_payout", metaT1); err != nil {
+			return fmt.Errorf("failed to credit t1 commission: %w", err)
+		}
+		if hasT2 {
+			if _, err := frgRepo.CreditTx(ctx, tx, *t2ReferrerID, t2Commission, "referral_payout", metaT2); err != nil {
+				return fmt.Errorf("failed to credit t2 commission: %w", err)
+			}
+		}
 	}
 
 	return tx.Commit(ctx)
@@ -257,39 +267,49 @@ func (db *Database) CreditReferrerShareCoins(ctx context.Context, spenderID int6
 		return nil
 	}
 
-	// Credit 10% in Coins to Tier 1
-	t1Commission := amountSpent * 0.10
-	_, err = tx.Exec(ctx, `
-		INSERT INTO user_stats (user_id, xp, level, current_streak, last_active_at, energy, energy_updated_at, airdrop_coins)
-		VALUES ($1, 0, 1, 0, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, $2)
-		ON CONFLICT (user_id) DO UPDATE SET airdrop_coins = COALESCE(user_stats.airdrop_coins, 0.0) + $2
-	`, *t1ReferrerID, t1Commission)
-	if err != nil {
-		return fmt.Errorf("failed to credit t1 coins commission: %w", err)
-	}
-
 	// 2. Get Tier 1's referrer ID
 	var t2ReferrerID *int64
 	err = tx.QueryRow(ctx, "SELECT referred_by FROM users WHERE telegram_id = $1", *t1ReferrerID).Scan(&t2ReferrerID)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return tx.Commit(ctx)
-		}
+	if err != nil && err != pgx.ErrNoRows {
 		return fmt.Errorf("failed to get t2 referrer: %w", err)
 	}
-	if t2ReferrerID == nil || *t2ReferrerID == 0 {
-		return tx.Commit(ctx)
+
+	t1Commission := amountSpent * 0.10
+	hasT2 := t2ReferrerID != nil && *t2ReferrerID != 0
+	var t2Commission float64
+	if hasT2 {
+		t2Commission = amountSpent * 0.03
 	}
 
-	// Credit 3% in Coins to Tier 2
-	t2Commission := amountSpent * 0.03
-	_, err = tx.Exec(ctx, `
-		INSERT INTO user_stats (user_id, xp, level, current_streak, last_active_at, energy, energy_updated_at, airdrop_coins)
-		VALUES ($1, 0, 1, 0, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, $2)
-		ON CONFLICT (user_id) DO UPDATE SET airdrop_coins = COALESCE(user_stats.airdrop_coins, 0.0) + $2
-	`, *t2ReferrerID, t2Commission)
-	if err != nil {
-		return fmt.Errorf("failed to credit t2 coins commission: %w", err)
+	creditCoins := func(userID int64, commission float64, tier int) error {
+		_, err := tx.Exec(ctx, `
+			INSERT INTO user_stats (user_id, xp, level, current_streak, last_active_at, energy, energy_updated_at, airdrop_coins)
+			VALUES ($1, 0, 1, 0, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, $2)
+			ON CONFLICT (user_id) DO UPDATE SET airdrop_coins = COALESCE(user_stats.airdrop_coins, 0.0) + $2
+		`, userID, commission)
+		if err != nil {
+			return fmt.Errorf("failed to credit t%d coins commission: %w", tier, err)
+		}
+		return nil
+	}
+
+	// Execute in ID order to prevent deadlocks
+	if hasT2 && *t1ReferrerID > *t2ReferrerID {
+		if err := creditCoins(*t2ReferrerID, t2Commission, 2); err != nil {
+			return err
+		}
+		if err := creditCoins(*t1ReferrerID, t1Commission, 1); err != nil {
+			return err
+		}
+	} else {
+		if err := creditCoins(*t1ReferrerID, t1Commission, 1); err != nil {
+			return err
+		}
+		if hasT2 {
+			if err := creditCoins(*t2ReferrerID, t2Commission, 2); err != nil {
+				return err
+			}
+		}
 	}
 
 	return tx.Commit(ctx)

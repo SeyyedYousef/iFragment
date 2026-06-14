@@ -423,6 +423,7 @@ func main() {
 			r.Get("/{channelID}/audit", channelHandler.GetAuditLogs)
 			r.Get("/{channelID}/analytics", channelHandler.GetAnalytics)
 			r.Post("/{channelID}/posts", channelHandler.CreatePost)
+			r.Post("/{channelID}/verify", channelHandler.VerifyChannel)
 
 			// Forwarding Rules
 			r.Get("/{channelID}/forwarding/rules", channelHandler.GetForwardingRules)

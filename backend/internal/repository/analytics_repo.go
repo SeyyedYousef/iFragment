@@ -94,14 +94,17 @@ func (r *AnalyticsRepo) LogEventAsync(event *GroupEvent) {
 	select {
 	case eventChan <- event:
 	default:
-		slog.Warn("Analytics event channel full, dropping event", "event_type", event.EventType)
+		// Ensure 100% accuracy in high-traffic: do not drop events.
+		go func(e *GroupEvent) {
+			eventChan <- e
+		}(event)
 	}
 }
 
 // GetSummary retrieves analytics summary for a group.
 // Optimization: Ensure composite index on (group_id, event_type, created_at) exists in DB.
 func (r *AnalyticsRepo) GetSummary(ctx context.Context, groupID uuid.UUID, days int) (*AnalyticsSummary, error) {
-	since := time.Now().AddDate(0, 0, -days)
+	since := time.Now().UTC().Truncate(24 * time.Hour).AddDate(0, 0, -days)
 	summary := &AnalyticsSummary{}
 
 	query := `
@@ -132,7 +135,7 @@ func (r *AnalyticsRepo) GetSummary(ctx context.Context, groupID uuid.UUID, days 
 }
 
 func (r *AnalyticsRepo) GetTopUsers(ctx context.Context, groupID uuid.UUID, days int, limit int) ([]TopUser, error) {
-	since := time.Now().AddDate(0, 0, -days)
+	since := time.Now().UTC().Truncate(24 * time.Hour).AddDate(0, 0, -days)
 	query := `SELECT user_id, COUNT(*) as msgs, MAX(payload)
 		FROM group_events 
 		WHERE group_id = $1 AND event_type = 'message' AND created_at >= $2 AND user_id IS NOT NULL
@@ -170,10 +173,10 @@ func (r *AnalyticsRepo) GetTopUsers(ctx context.Context, groupID uuid.UUID, days
 }
 
 func (r *AnalyticsRepo) GetGrowthTimeline(ctx context.Context, groupID uuid.UUID, days int) ([]DailyMetric, error) {
-	since := time.Now().AddDate(0, 0, -days)
-	query := `SELECT to_char(created_at::date, 'YYYY-MM-DD') as day, COUNT(*)
+	since := time.Now().UTC().Truncate(24 * time.Hour).AddDate(0, 0, -days)
+	query := `SELECT to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') as day, COUNT(*)
 		FROM group_events WHERE group_id = $1 AND event_type = 'member_join' AND created_at >= $2
-		GROUP BY created_at::date ORDER BY created_at::date`
+		GROUP BY to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') ORDER BY day`
 	rows, err := r.db.Pool.Query(ctx, query, groupID, since)
 	if err != nil {
 		return nil, err
@@ -195,10 +198,10 @@ func (r *AnalyticsRepo) GetGrowthTimeline(ctx context.Context, groupID uuid.UUID
 }
 
 func (r *AnalyticsRepo) GetActivityTimeline(ctx context.Context, groupID uuid.UUID, days int) ([]DailyMetric, error) {
-	since := time.Now().AddDate(0, 0, -days)
-	query := `SELECT to_char(created_at::date, 'YYYY-MM-DD') as day, COUNT(*)
+	since := time.Now().UTC().Truncate(24 * time.Hour).AddDate(0, 0, -days)
+	query := `SELECT to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') as day, COUNT(*)
 		FROM group_events WHERE group_id = $1 AND event_type = 'message' AND created_at >= $2
-		GROUP BY created_at::date ORDER BY created_at::date`
+		GROUP BY to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') ORDER BY day`
 	rows, err := r.db.Pool.Query(ctx, query, groupID, since)
 	if err != nil {
 		return nil, err
@@ -219,7 +222,7 @@ func (r *AnalyticsRepo) GetActivityTimeline(ctx context.Context, groupID uuid.UU
 	return metrics, nil
 }
 func (r *AnalyticsRepo) GetUserWarningsCount(ctx context.Context, groupID uuid.UUID, userID int64, days int) (int, error) {
-	since := time.Now().AddDate(0, 0, -days)
+	since := time.Now().UTC().Truncate(24 * time.Hour).AddDate(0, 0, -days)
 	var count int
 	err := r.db.Pool.QueryRow(ctx,
 		`SELECT COUNT(*) FROM group_events 

@@ -501,3 +501,151 @@ func TestValidateMessageIntegration(t *testing.T) {
 	}
 }
 
+// 5. Test Link Deletion with Realistic Raw Telegram JSON Payloads
+func TestLinkDeletionWithRawPayloads(t *testing.T) {
+	// We simulate the raw JSON payload coming from Telegram
+	scenarios := []struct {
+		name      string
+		rawJSON   string
+		expected  bool // Should it be blocked?
+		violation string
+	}{
+		{
+			name: "Standard https link in text",
+			rawJSON: `{
+				"message_id": 100,
+				"from": {"id": 111, "is_bot": false},
+				"chat": {"id": -1001, "type": "supergroup"},
+				"date": 1600000000,
+				"text": "Hey guys, join my site: https://crypto-scam.com",
+				"entities": [{"type": "url", "offset": 24, "length": 23}]
+			}`,
+			expected:  true,
+			violation: "link",
+		},
+		{
+			name: "Hidden text_link entity",
+			rawJSON: `{
+				"message_id": 101,
+				"from": {"id": 111, "is_bot": false},
+				"chat": {"id": -1001, "type": "supergroup"},
+				"date": 1600000000,
+				"text": "Click here to win",
+				"entities": [{"type": "text_link", "offset": 0, "length": 10, "url": "https://malicious.net"}]
+			}`,
+			expected:  true,
+			violation: "link",
+		},
+		{
+			name: "Domain without protocol (checked by domainRegex)",
+			rawJSON: `{
+				"message_id": 102,
+				"from": {"id": 111, "is_bot": false},
+				"chat": {"id": -1001, "type": "supergroup"},
+				"date": 1600000000,
+				"text": "Visit google.com for info"
+			}`,
+			expected:  true,
+			violation: "domain",
+		},
+		{
+			name: "t.me link without protocol",
+			rawJSON: `{
+				"message_id": 103,
+				"from": {"id": 111, "is_bot": false},
+				"chat": {"id": -1001, "type": "supergroup"},
+				"date": 1600000000,
+				"text": "Join my channel t.me/my_spam_channel"
+			}`,
+			expected:  true,
+			violation: "link",
+		},
+		{
+			name: "Hidden text_link in caption",
+			rawJSON: `{
+				"message_id": 104,
+				"from": {"id": 111, "is_bot": false},
+				"chat": {"id": -1001, "type": "supergroup"},
+				"date": 1600000000,
+				"photo": [{"file_id": "abc"}],
+				"caption": "Nice pic, buy here",
+				"caption_entities": [{"type": "text_link", "offset": 10, "length": 8, "url": "http://spam.io"}]
+			}`,
+			expected:  true,
+			violation: "link",
+		},
+		{
+			name: "Benign text, no links",
+			rawJSON: `{
+				"message_id": 105,
+				"from": {"id": 111, "is_bot": false},
+				"chat": {"id": -1001, "type": "supergroup"},
+				"date": 1600000000,
+				"text": "Hello world, how are you doing?"
+			}`,
+			expected: false,
+		},
+	}
+
+	// We simulate the mapping logic from webhook handler locally since we can't import handler here.
+	type Entity struct {
+		Type   string `json:"type"`
+		URL    string `json:"url,omitempty"`
+	}
+	type Payload struct {
+		Text            string   `json:"text"`
+		Caption         string   `json:"caption"`
+		Entities        []Entity `json:"entities"`
+		CaptionEntities []Entity `json:"caption_entities"`
+	}
+
+	s := &ModeratorService{}
+	contentSettings := repository.SettingsContentRestrictions{
+		RemoveLinks:  repository.RestrictionDetail{Enabled: true},
+		BlockDomains: repository.RestrictionDetail{Enabled: true},
+	}
+
+	for _, tc := range scenarios {
+		t.Run(tc.name, func(t *testing.T) {
+			var p Payload
+			if err := json.Unmarshal([]byte(tc.rawJSON), &p); err != nil {
+				t.Fatalf("Failed to parse JSON: %v", err)
+			}
+
+			// Simulate webhook handler's extraction of text_links
+			hasTextLinks := false
+			var textLinks []string
+
+			for _, ent := range p.Entities {
+				if ent.Type == "text_link" && ent.URL != "" {
+					hasTextLinks = true
+					textLinks = append(textLinks, ent.URL)
+				}
+			}
+			for _, ent := range p.CaptionEntities {
+				if ent.Type == "text_link" && ent.URL != "" {
+					hasTextLinks = true
+					textLinks = append(textLinks, ent.URL)
+				}
+			}
+
+			mc := &MessageContext{
+				Text:         p.Text,
+				Caption:      p.Caption,
+				HasTextLinks: hasTextLinks,
+				TextLinks:    textLinks,
+			}
+
+			violation := s.checkAllContent(contentSettings, repository.SettingsQuietHours{}, repository.SettingsGeneral{Timezone: "UTC"}, mc)
+			actual := violation != nil
+
+			if actual != tc.expected {
+				t.Errorf("Expected violation=%v, got %v for payload %s", tc.expected, actual, tc.rawJSON)
+			}
+			if actual && violation.Type != tc.violation {
+				t.Errorf("Expected violation type %q, got %q", tc.violation, violation.Type)
+			}
+		})
+	}
+}
+

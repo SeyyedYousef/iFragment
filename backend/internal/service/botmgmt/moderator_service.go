@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	_ "time/tzdata"
 	"unicode"
 	"unicode/utf8"
 
@@ -216,8 +217,10 @@ type MessageContext struct {
 	ChatID       int64
 	UserID       int64
 	MessageID    int
+	Date         int // Unix timestamp of the message
 	Text         string
 	Username     string // @username
+	FirstName    string // user's first name
 	IsBot        bool
 	HasPhoto     bool
 	HasSticker   bool
@@ -263,7 +266,8 @@ func (s *ModeratorService) ValidateMessage(ctx context.Context, bot *repository.
 
 	// 2.2 Check Subscription (BUG #9)
 	if !s.isSubscriptionValid(group) {
-		return nil, nil // Subscription expired
+		slog.Warn("Group subscription expired, falling back to basic features", "group_id", group.ID)
+		// Proceed without returning early to allow basic features to remain active
 	}
 
 	// 3. Fetch settings (cached via SettingsRepo)
@@ -294,6 +298,10 @@ func (s *ModeratorService) ValidateMessage(ctx context.Context, bot *repository.
 	if err := json.Unmarshal(settings.General, &general); err != nil {
 		general = repository.SettingsGeneral{}
 	}
+	var customTexts repository.SettingsCustomTexts
+	if err := json.Unmarshal(settings.CustomTexts, &customTexts); err != nil {
+		customTexts = repository.SettingsCustomTexts{}
+	}
 
 	// 4. Log message event for analytics
 	s.logEvent(ctx, group.ID, "message", &mc.UserID, mc.Username)
@@ -314,7 +322,26 @@ func (s *ModeratorService) ValidateMessage(ctx context.Context, bot *repository.
 	}
 
 	checkFreshAdmin := func(v *Violation, err error) (*Violation, error) {
-		if err != nil || v == nil || isAdmin {
+		if err != nil || v == nil {
+			return v, err
+		}
+		
+		if v.Message != "" {
+			v.Message = strings.ReplaceAll(v.Message, "{first_name}", telegram.EscapeHTML(mc.FirstName))
+			if mc.Username != "" {
+				v.Message = strings.ReplaceAll(v.Message, "{username}", "@"+telegram.EscapeHTML(mc.Username))
+			} else {
+				v.Message = strings.ReplaceAll(v.Message, "{username}", telegram.EscapeHTML(mc.FirstName))
+			}
+			
+			rulesText := customTexts.RulesText
+			if rulesText == "" {
+				rulesText = "Be respectful and follow standard group rules."
+			}
+			v.Message = strings.ReplaceAll(v.Message, "{rules}", rulesText)
+		}
+
+		if isAdmin {
 			return v, err
 		}
 		freshStatus, errFresh := tgClient.GetChatMember(ctx, mc.ChatID, mc.UserID)
@@ -373,7 +400,7 @@ func (s *ModeratorService) ValidateMessage(ctx context.Context, bot *repository.
 	}
 
 	// 7. Emergency Lock / Quiet Hours
-	if s.isQuietHours(quiet, general.Timezone) {
+	if s.isQuietHours(quiet, general.Timezone, mc.Date) {
 		vAction := s.ResolveAction(general.DefaultPenalty)
 		if isAdmin {
 			vAction = "delete"
@@ -435,7 +462,9 @@ func (s *ModeratorService) ValidateMessage(ctx context.Context, bot *repository.
 	// 10. Limits — length, flood, duplicates
 	if v := s.checkAllLimits(ctx, limits, mc, group.ID.String()); v != nil {
 		s.logEvent(ctx, group.ID, "spam_blocked", &mc.UserID, mc.Username)
-		v.Action = s.ResolveAction(general.DefaultPenalty)
+		if v.Action == "" {
+			v.Action = s.ResolveAction(general.DefaultPenalty)
+		}
 		var ct repository.SettingsCustomTexts
 		json.Unmarshal(settings.CustomTexts, &ct)
 		resViolation, err := s.handleAutoWarning(ctx, group.ID, mc.UserID, general, ct, v)
@@ -536,7 +565,7 @@ func parseHHMM(s string) (int, bool) {
 	return h*60 + m, true
 }
 
-func (s *ModeratorService) isQuietHours(q repository.SettingsQuietHours, tz string) bool {
+func (s *ModeratorService) isQuietHours(q repository.SettingsQuietHours, tz string, msgDate int) bool {
 	if q.EmergencyLock {
 		return true
 	}
@@ -549,7 +578,13 @@ func (s *ModeratorService) isQuietHours(q repository.SettingsQuietHours, tz stri
 		loc = time.UTC
 	}
 
-	now := time.Now().In(loc)
+	var now time.Time
+	if msgDate > 0 {
+		now = time.Unix(int64(msgDate), 0).In(loc)
+	} else {
+		now = time.Now().In(loc)
+	}
+
 	nowMinutes := now.Hour()*60 + now.Minute()
 
 	for _, p := range q.Periods {
@@ -600,7 +635,12 @@ func (s *ModeratorService) checkMandatoryMembership(ctx context.Context, tg *tel
 		}
 
 		status, err := s.GetChatMemberCached(ctx, tg, channelID, mc.UserID)
-		if err != nil || status == "left" || status == "kicked" || status == "" {
+		if err != nil {
+			slog.Warn("Failed to check mandatory membership, failing open", "channel", channelID, "user", mc.UserID, "error", err)
+			continue
+		}
+
+		if status == "left" || status == "kicked" || status == "" {
 			msg := ct.ForceJoinText
 			if msg == "" {
 				msg = fmt.Sprintf("You must join %s first", channel)
@@ -636,6 +676,9 @@ func (s *ModeratorService) GetChatMemberCached(ctx context.Context, tg *telegram
 	ttl := 5 * time.Minute
 	if status == "administrator" || status == "creator" {
 		ttl = 15 * time.Second
+	} else if status == "left" || status == "kicked" || status == "" {
+		// Short TTL for non-members so they aren't blocked for 5 minutes after joining
+		ttl = 15 * time.Second
 	}
 	s.cache.Client.Set(ctx, key, status, ttl)
 	return status, nil
@@ -654,7 +697,7 @@ func (s *ModeratorService) checkAllContent(c repository.SettingsContentRestricti
 		if !violated {
 			return nil
 		}
-		if s.shouldBlock(rd, quiet, general.Timezone) {
+		if s.shouldBlock(rd, quiet, general.Timezone, mc.Date) {
 			penalty := rd.Penalty
 			if penalty == "" || penalty == "default" {
 				penalty = general.DefaultPenalty
@@ -736,12 +779,7 @@ func (s *ModeratorService) checkAllContent(c repository.SettingsContentRestricti
 		hasViolatedLink = linkRegex.MatchString(text)
 	}
 	if !hasViolatedLink && mc.HasTextLinks {
-		for _, url := range mc.TextLinks {
-			if linkRegex.MatchString(url) {
-				hasViolatedLink = true
-				break
-			}
-		}
+		hasViolatedLink = true
 	}
 	if v := check(c.RemoveLinks, hasViolatedLink, "link", "Links are not allowed"); v != nil {
 		return v
@@ -822,7 +860,7 @@ func (s *ModeratorService) checkAllContent(c repository.SettingsContentRestricti
 	return nil
 }
 
-func (s *ModeratorService) shouldBlock(rd repository.RestrictionDetail, quiet repository.SettingsQuietHours, tz string) bool {
+func (s *ModeratorService) shouldBlock(rd repository.RestrictionDetail, quiet repository.SettingsQuietHours, tz string, msgDate int) bool {
 	if !rd.Enabled {
 		return false
 	}
@@ -830,15 +868,15 @@ func (s *ModeratorService) shouldBlock(rd repository.RestrictionDetail, quiet re
 	case "Always":
 		return true
 	case "QuietHours":
-		return s.isQuietHours(quiet, tz)
+		return s.isQuietHours(quiet, tz, msgDate)
 	case "Custom":
-		return s.isInCustomWindow(rd.Start, rd.End, tz)
+		return s.isInCustomWindow(rd.Start, rd.End, tz, msgDate)
 	default:
 		return true
 	}
 }
 
-func (s *ModeratorService) isInCustomWindow(start, end, tz string) bool {
+func (s *ModeratorService) isInCustomWindow(start, end, tz string, msgDate int) bool {
 	if start == "" || end == "" {
 		return false
 	}
@@ -846,7 +884,14 @@ func (s *ModeratorService) isInCustomWindow(start, end, tz string) bool {
 	if err != nil {
 		loc = time.UTC
 	}
-	now := time.Now().In(loc)
+	
+	var now time.Time
+	if msgDate > 0 {
+		now = time.Unix(int64(msgDate), 0).In(loc)
+	} else {
+		now = time.Now().In(loc)
+	}
+
 	nowMin := now.Hour()*60 + now.Minute()
 
 	startMin, ok1 := parseHHMM(start)
@@ -883,12 +928,22 @@ func (s *ModeratorService) checkAllLimits(ctx context.Context, l repository.Sett
 		floodKey := fmt.Sprintf("flood:%s:%d", groupID, mc.UserID)
 		pipe := s.cache.Client.Pipeline()
 		incr := pipe.Incr(ctx, floodKey)
-		pipe.ExpireNX(ctx, floodKey, time.Duration(l.FloodWin)*time.Minute)
-		_, _ = pipe.Exec(ctx)
-		count, _ := incr.Result()
+		ttl := pipe.TTL(ctx, floodKey)
+		_, err := pipe.Exec(ctx)
+		count := incr.Val()
+
+		if err == nil && (count == 1 || ttl.Val() == -1) {
+			s.cache.Client.Expire(ctx, floodKey, time.Duration(l.FloodWin)*time.Minute)
+		}
 
 		if int(count) > l.FloodMsgs {
-			return &Violation{Type: "flood", Message: fmt.Sprintf("Flood detected (%d msgs in %d min)", l.FloodMsgs, l.FloodWin)}
+			action := ""
+			if int(count) >= l.FloodMsgs+5 {
+				action = "ban"
+			} else if int(count) >= l.FloodMsgs+2 {
+				action = "mute"
+			}
+			return &Violation{Type: "flood", Message: fmt.Sprintf("Flood detected (%d msgs in %d min)", l.FloodMsgs, l.FloodWin), Action: action}
 		}
 	}
 
@@ -898,11 +953,22 @@ func (s *ModeratorService) checkAllLimits(ctx context.Context, l repository.Sett
 		dupKey := fmt.Sprintf("dup:%s:%d:%s", groupID, mc.UserID, hash[:16])
 		pipe := s.cache.Client.Pipeline()
 		incr := pipe.Incr(ctx, dupKey)
-		pipe.ExpireNX(ctx, dupKey, time.Duration(l.DupWin)*time.Minute)
-		if _, err := pipe.Exec(ctx); err == nil {
-			if count, _ := incr.Result(); int(count) > l.DupCount {
-				return &Violation{Type: "duplicate", Message: "Duplicate message detected"}
+		ttl := pipe.TTL(ctx, dupKey)
+		_, err := pipe.Exec(ctx)
+		count := incr.Val()
+
+		if err == nil && (count == 1 || ttl.Val() == -1) {
+			s.cache.Client.Expire(ctx, dupKey, time.Duration(l.DupWin)*time.Minute)
+		}
+
+		if int(count) > l.DupCount {
+			action := ""
+			if int(count) >= l.DupCount+5 {
+				action = "ban"
+			} else if int(count) >= l.DupCount+2 {
+				action = "mute"
 			}
+			return &Violation{Type: "duplicate", Message: "Duplicate message detected", Action: action}
 		}
 	}
 
@@ -931,8 +997,28 @@ func (s *ModeratorService) handleAutoWarning(ctx context.Context, groupID uuid.U
 	// Log warning event
 	s.logEvent(ctx, groupID, "member_warned", &userID, "")
 
-	// Check count
-	count, _ := s.analyticsRepo.GetUserWarningsCount(ctx, groupID, userID, gen.WarningRetention)
+	// Check count atomically to prevent fast-repeat bypasses
+	var count int
+	if s.cache != nil && s.cache.Client != nil {
+		warnKey := fmt.Sprintf("warn_count:%s:%d", groupID, userID)
+		c, err := s.cache.Client.Incr(ctx, warnKey).Result()
+		if err == nil {
+			if c == 1 {
+				dbCount, _ := s.analyticsRepo.GetUserWarningsCount(ctx, groupID, userID, gen.WarningRetention)
+				if dbCount > 1 {
+					s.cache.Client.IncrBy(ctx, warnKey, int64(dbCount-1))
+					c += int64(dbCount - 1)
+				}
+				s.cache.Client.Expire(ctx, warnKey, time.Duration(gen.WarningRetention)*time.Minute)
+			}
+			count = int(c)
+		} else {
+			count, _ = s.analyticsRepo.GetUserWarningsCount(ctx, groupID, userID, gen.WarningRetention)
+		}
+	} else {
+		count, _ = s.analyticsRepo.GetUserWarningsCount(ctx, groupID, userID, gen.WarningRetention)
+	}
+
 	v.CurrentWarnings = count
 	v.WarningThreshold = gen.WarningThreshold
 
