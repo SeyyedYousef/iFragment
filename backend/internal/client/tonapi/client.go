@@ -125,7 +125,10 @@ type NFTItem struct {
 
 type NFTSale struct {
 	Address    string `json:"address"`
-	Market     string `json:"market"`
+	Market     struct {
+		Address string `json:"address"`
+		Name    string `json:"name"`
+	} `json:"market"`
 	Price      Price  `json:"price"`
 	MarketFee  int64  `json:"market_fee"`
 	NetworkFee int64  `json:"network_fee"`
