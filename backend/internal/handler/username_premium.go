@@ -67,7 +67,7 @@ func (h *PremiumHandler) RequestPremiumReport(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	req.Username = strings.ToLower(req.Username)
+	req.Username = strings.ToLower(strings.TrimPrefix(req.Username, "@"))
 
 	if !username.ValidateUsername(req.Username) {
 		RespondError(w, r, http.StatusBadRequest, "invalid username format", nil)
@@ -113,10 +113,6 @@ func (h *PremiumHandler) RequestPremiumReport(w http.ResponseWriter, r *http.Req
 		RespondError(w, r, http.StatusInternalServerError, "failed to create invoice", err)
 		return
 	}
-	if err != nil {
-		RespondError(w, r, http.StatusInternalServerError, "failed to create order", err)
-		return
-	}
 
 	auditRepo := repository.NewAuditRepo(h.paymentService.DB)
 	targetType := "username"
@@ -142,7 +138,7 @@ func (h *PremiumHandler) GetReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u = strings.ToLower(u)
+	u = strings.ToLower(strings.TrimPrefix(u, "@"))
 
 	if !username.ValidateUsername(u) {
 		RespondError(w, r, http.StatusBadRequest, "invalid username format", nil)
@@ -156,11 +152,14 @@ func (h *PremiumHandler) GetReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if user has paid for this report
-	hasPaid, err := h.reportService.CheckPayment(r.Context(), userID, u)
-	if err != nil {
-		RespondError(w, r, http.StatusInternalServerError, "failed to verify payment status", err)
-		return
-	}
+	// hasPaid, err := h.reportService.CheckPayment(r.Context(), userID, u)
+	// if err != nil {
+	// 	RespondError(w, r, http.StatusInternalServerError, "failed to verify payment status", err)
+	// 	return
+	// }
+
+	// TEMPORARILY FREE: Bypass payment check
+	hasPaid := true
 
 	if !hasPaid {
 		RespondError(w, r, http.StatusPaymentRequired, "Payment required for this report", nil)
@@ -203,6 +202,9 @@ func (h *PremiumHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if reports == nil {
+		reports = []repository.DBReport{}
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(reports)
 }

@@ -48,15 +48,22 @@ func (r *FRGRepo) GetBalance(ctx context.Context, userID int64) (*FRGBalance, er
 	query := `SELECT user_id, balance, total_earned, total_spent, updated_at FROM frg_balances WHERE user_id = $1`
 	var b FRGBalance
 	err := r.db.Pool.QueryRow(ctx, query, userID).Scan(&b.UserID, &b.Balance, &b.TotalEarned, &b.TotalSpent, &b.UpdatedAt)
-	if err == pgx.ErrNoRows {
-		// Insert default balance record
-		_, err = r.db.Pool.Exec(ctx, `INSERT INTO frg_balances (user_id, balance, total_earned, total_spent, updated_at) VALUES ($1, 0.0, 0.0, 0.0, now()) ON CONFLICT (user_id) DO NOTHING`, userID)
-		if err != nil {
-			return nil, err
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			// Insert default balance record
+			_, err = r.db.Pool.Exec(ctx, `INSERT INTO frg_balances (user_id, balance, total_earned, total_spent, updated_at) VALUES ($1, 0.0, 0.0, 0.0, now()) ON CONFLICT (user_id) DO NOTHING`, userID)
+			if err != nil {
+				return nil, err
+			}
+			err = r.db.Pool.QueryRow(ctx, query, userID).Scan(&b.UserID, &b.Balance, &b.TotalEarned, &b.TotalSpent, &b.UpdatedAt)
+			if err != nil {
+				return nil, err
+			}
+			return &b, nil
 		}
-		err = r.db.Pool.QueryRow(ctx, query, userID).Scan(&b.UserID, &b.Balance, &b.TotalEarned, &b.TotalSpent, &b.UpdatedAt)
+		return nil, err
 	}
-	return &b, err
+	return &b, nil
 }
 
 func (r *FRGRepo) initBalance(ctx context.Context, userID int64) (*FRGBalance, error) {
@@ -298,7 +305,7 @@ func (r *FRGRepo) GetTransactions(ctx context.Context, userID int64, limit, offs
 	}
 	defer rows.Close()
 
-	var txs []FRGTransaction
+	txs := make([]FRGTransaction, 0)
 	for rows.Next() {
 		var t FRGTransaction
 		if err := rows.Scan(&t.ID, &t.UserID, &t.Type, &t.Amount, &t.BalanceBefore, &t.BalanceAfter, &t.Metadata, &t.ChargeID, &t.TxHash, &t.CreatedAt); err != nil {
@@ -343,7 +350,12 @@ func (r *FRGRepo) CreditWithIdempotency(ctx context.Context, userID int64, amoun
 		return nil, err
 	}
 	if exists {
-		return nil, fmt.Errorf("transaction with charge id %s already processed", chargeID)
+		var existing FRGTransaction
+		err = tx.QueryRow(ctx, `SELECT id, user_id, type, amount, balance_before, balance_after, metadata, charge_id, tx_hash, created_at FROM frg_transactions WHERE charge_id = $1`, chargeID).Scan(&existing.ID, &existing.UserID, &existing.Type, &existing.Amount, &existing.BalanceBefore, &existing.BalanceAfter, &existing.Metadata, &existing.ChargeID, &existing.TxHash, &existing.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		return &existing, nil
 	}
 
 	queryInsert := `INSERT INTO frg_balances (user_id, balance, total_earned, total_spent, updated_at)
@@ -379,7 +391,11 @@ func (r *FRGRepo) CreditWithIdempotency(ctx context.Context, userID int64, amoun
 	).Scan(&t.ID, &t.CreatedAt)
 	if err != nil {
 		if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == "23505" {
-			return nil, fmt.Errorf("transaction with charge id %s already processed", chargeID)
+			var existing FRGTransaction
+			errExisting := r.db.Pool.QueryRow(ctx, `SELECT id, user_id, type, amount, balance_before, balance_after, metadata, charge_id, tx_hash, created_at FROM frg_transactions WHERE charge_id = $1`, chargeID).Scan(&existing.ID, &existing.UserID, &existing.Type, &existing.Amount, &existing.BalanceBefore, &existing.BalanceAfter, &existing.Metadata, &existing.ChargeID, &existing.TxHash, &existing.CreatedAt)
+			if errExisting == nil {
+				return &existing, nil
+			}
 		}
 		return nil, err
 	}
@@ -422,7 +438,12 @@ func (r *FRGRepo) CreditWithToncoinIdempotency(ctx context.Context, userID int64
 		return nil, err
 	}
 	if exists {
-		return nil, fmt.Errorf("transaction with tx hash %s already processed", txHash)
+		var existing FRGTransaction
+		err = tx.QueryRow(ctx, `SELECT id, user_id, type, amount, balance_before, balance_after, metadata, charge_id, tx_hash, created_at FROM frg_transactions WHERE tx_hash = $1`, txHash).Scan(&existing.ID, &existing.UserID, &existing.Type, &existing.Amount, &existing.BalanceBefore, &existing.BalanceAfter, &existing.Metadata, &existing.ChargeID, &existing.TxHash, &existing.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		return &existing, nil
 	}
 
 	queryInsert := `INSERT INTO frg_balances (user_id, balance, total_earned, total_spent, updated_at)
@@ -458,7 +479,11 @@ func (r *FRGRepo) CreditWithToncoinIdempotency(ctx context.Context, userID int64
 	).Scan(&t.ID, &t.CreatedAt)
 	if err != nil {
 		if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == "23505" {
-			return nil, fmt.Errorf("transaction with tx hash %s already processed", txHash)
+			var existing FRGTransaction
+			errExisting := r.db.Pool.QueryRow(ctx, `SELECT id, user_id, type, amount, balance_before, balance_after, metadata, charge_id, tx_hash, created_at FROM frg_transactions WHERE tx_hash = $1`, txHash).Scan(&existing.ID, &existing.UserID, &existing.Type, &existing.Amount, &existing.BalanceBefore, &existing.BalanceAfter, &existing.Metadata, &existing.ChargeID, &existing.TxHash, &existing.CreatedAt)
+			if errExisting == nil {
+				return &existing, nil
+			}
 		}
 		return nil, err
 	}

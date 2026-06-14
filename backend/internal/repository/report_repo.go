@@ -30,7 +30,7 @@ func (db *Database) SaveReport(ctx context.Context, userID int64, username strin
 			ORDER BY created_at DESC LIMIT 1
 		))
 	`
-	_, err = db.Pool.Exec(ctx, query, userID, username, status, score, jsonData, prefix)
+	_, err = db.Pool.Exec(ctx, query, userID, username, status, score, string(jsonData), prefix)
 	return err
 }
 
@@ -51,9 +51,11 @@ func (db *Database) GetUserReports(ctx context.Context, userID int64) ([]DBRepor
 	reports := make([]DBReport, 0)
 	for rows.Next() {
 		var r DBReport
-		if err := rows.Scan(&r.ID, &r.UserID, &r.TargetUsername, &r.Status, &r.RarityScore, &r.ReportData, &r.CreatedAt); err != nil {
+		var reportDataStr string
+		if err := rows.Scan(&r.ID, &r.UserID, &r.TargetUsername, &r.Status, &r.RarityScore, &reportDataStr, &r.CreatedAt); err != nil {
 			return nil, err
 		}
+		r.ReportData = json.RawMessage(reportDataStr)
 		reports = append(reports, r)
 	}
 	

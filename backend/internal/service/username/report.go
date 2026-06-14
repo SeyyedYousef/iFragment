@@ -291,7 +291,7 @@ func (s *ReportService) worker(ctx context.Context) {
 			if !ok {
 				return
 			}
-			if task.Report == nil {
+			if task.Report == nil || s.db == nil {
 				continue
 			}
 			var err error
@@ -399,6 +399,7 @@ func (s *ReportService) QuickAnalysis(ctx context.Context, username string, user
 		RarityScore:     s.CalculateRarity(username),
 		FragmentURL:     fmt.Sprintf("https://fragment.com/username/%s", username),
 		LinguisticScore: calculateLinguisticScore(username),
+		SaleStatus:      "not_for_sale",
 	}
 
 	// Get search popularity
@@ -753,11 +754,7 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 		report.Status = "taken"
 	} else if frStatus == fragment.StatusSold {
 		report.Status = "taken"
-	} else if mtStatus == mtproto.StatusAvailable && frStatus == fragment.StatusAvailable {
-		report.Status = "available"
-	} else if mtStatus == mtproto.StatusAvailable {
-		report.Status = "available"
-	} else if frStatus == fragment.StatusAvailable {
+	} else if mtStatus == mtproto.StatusAvailable || frStatus == fragment.StatusAvailable {
 		if usernameLength(username) == 4 {
 			report.Status = "purchase_available"
 		} else {

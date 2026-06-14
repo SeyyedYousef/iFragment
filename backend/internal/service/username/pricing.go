@@ -285,12 +285,8 @@ func analyzeUsernameText(username string) usernameTextStats {
 		entropy -= p * math.Log2(p)
 	}
 
-	alphaTotal := vowels + consonants
-	var vowelRatio, consonantRatio float64
-	if alphaTotal > 0 {
-		vowelRatio = float64(vowels) / float64(alphaTotal)
-		consonantRatio = float64(consonants) / float64(alphaTotal)
-	}
+	vowelRatio := float64(vowels) / float64(length)
+	consonantRatio := float64(consonants) / float64(length)
 
 	return usernameTextStats{
 		isNumeric:         isNumeric,
@@ -340,7 +336,22 @@ func paidSaleStats(sales []marketapp.SaleRecord) saleStats {
 		return saleStats{}
 	}
 
-	median, _ := medianPositiveSale(sales)
+	for i := 0; i < len(prices); i++ {
+		for j := i + 1; j < len(prices); j++ {
+			if prices[i] > prices[j] {
+				prices[i], prices[j] = prices[j], prices[i]
+			}
+		}
+	}
+	var median float64
+	if len(prices) > 0 {
+		mid := len(prices) / 2
+		if len(prices)%2 == 0 {
+			median = (prices[mid-1] + prices[mid]) / 2.0
+		} else {
+			median = prices[mid]
+		}
+	}
 	return saleStats{
 		count:      len(prices),
 		average:    total / float64(len(prices)),
@@ -388,7 +399,7 @@ func ageDays(raw string) float64 {
 
 func daysSince(t time.Time) float64 {
 	if t.IsZero() {
-		return 0
+		return -1.0
 	}
 	days := time.Since(t).Hours() / 24
 	if days < 0 {

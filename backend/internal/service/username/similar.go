@@ -85,18 +85,33 @@ func similarCandidatePool(username string) []string {
 	highValueSuffixes := []string{"app", "bot", "pro", "x", "ai", "tech", "pay", "coin", "news"}
 	highValuePrefixes := []string{"the", "my", "get", "go", "crypto", "meta", "ton"}
 
-	for _, suffix := range highValueSuffixes {
-		candidates = append(candidates, username+suffix)
-	}
-	for _, prefix := range highValuePrefixes {
-		candidates = append(candidates, prefix+username)
+	appendSafe := func(base, ext string) string {
+		if len(base)+len(ext) <= 32 {
+			return base + ext
+		}
+		return base[:32-len(ext)] + ext
 	}
 
-	if len(username) >= 4 {
-		candidates = append(candidates, username[:len(username)-1], username[:len(username)-1]+"x", username[:len(username)-1]+"pro")
+	for _, suffix := range highValueSuffixes {
+		candidates = append(candidates, appendSafe(username, suffix))
+	}
+	for _, prefix := range highValuePrefixes {
+		cand := prefix + username
+		if len(cand) > 32 {
+			cand = prefix + username[:32-len(prefix)]
+		}
+		candidates = append(candidates, cand)
+	}
+
+	if len(username) > 4 {
+		candidates = append(candidates, username[:len(username)-1])
 	}
 	if len(username) >= 4 {
-		candidates = append(candidates, username+"s", username+"hq", username+"vip")
+		trunc := username[:len(username)-1]
+		candidates = append(candidates, appendSafe(trunc, "x"), appendSafe(trunc, "pro"))
+	}
+	if len(username) >= 4 {
+		candidates = append(candidates, appendSafe(username, "s"), appendSafe(username, "hq"), appendSafe(username, "vip"))
 	}
 	return candidates
 }
@@ -155,7 +170,11 @@ func commonPrefixScore(a, b []rune) float64 {
 		}
 		matches++
 	}
-	return float64(matches) / float64(limit)
+	maxLen := len(a)
+	if len(b) > maxLen {
+		maxLen = len(b)
+	}
+	return float64(matches) / float64(maxLen)
 }
 
 func levenshtein(a, b []rune) int {

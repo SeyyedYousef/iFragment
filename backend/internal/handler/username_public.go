@@ -193,12 +193,14 @@ func (h *UsernameHandler) getQuickAnalysisCachedOrFetch(ctx context.Context, u s
 
 		var mtStatus mtproto.Status
 		var frStatus fragment.Status
+		var mtErr error
 
 		var wg sync.WaitGroup
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
 			status, err := h.mtprotoClient.CheckUsername(detachedCtx, u)
+			mtErr = err
 			if err == nil {
 				mtStatus = status
 			}
@@ -211,6 +213,10 @@ func (h *UsernameHandler) getQuickAnalysisCachedOrFetch(ctx context.Context, u s
 			}
 		}()
 		wg.Wait()
+
+		if mtErr != nil {
+			return nil, fmt.Errorf("mtproto check failed: %w", mtErr)
+		}
 
 		// Resolve status deterministically
 		if frStatus == fragment.StatusAuction {
@@ -363,16 +369,16 @@ func (h *UsernameHandler) StreamQuickAnalysis(w http.ResponseWriter, r *http.Req
 	}
 	defer h.activeStreams.Add(-1)
 
-	// Set headers for Server-Sent Events
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		RespondError(w, r, http.StatusInternalServerError, "streaming unsupported", nil)
 		return
 	}
+
+	// Set headers for Server-Sent Events
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
 
 	// Cap total connection lifetime to 5 minutes to prevent zombie leaks
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
@@ -424,6 +430,7 @@ func (h *UsernameHandler) jsonResponse(w http.ResponseWriter, u string, status s
 		"username": u,
 		"status":   status,
 	}
+	w.Header().Set("Cache-Control", "public, max-age=300")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(res)
 }
@@ -483,6 +490,7 @@ func (h *UsernameHandler) GetSimilar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Cache-Control", "public, max-age=3600")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(results)
 }
