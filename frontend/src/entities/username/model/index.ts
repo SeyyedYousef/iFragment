@@ -47,8 +47,8 @@ export const useUsernameSearch = () => {
     // Remove @ if present
     const cleanVal = safeVal.startsWith('@') ? safeVal.substring(1) : safeVal;
     
-    // Select correct schema based on tab context
-    const schema = tab === 'username' ? StandardUsernameSchema : CollectibleUsernameSchema;
+    // Select correct schema based on tab context (use CollectibleUsernameSchema if length is 4 since 4-char usernames must be collectibles)
+    const schema = (tab === 'username' && cleanVal.length !== 4) ? StandardUsernameSchema : CollectibleUsernameSchema;
     
     const result = v.safeParse(schema, cleanVal);
     if (!result.success) {

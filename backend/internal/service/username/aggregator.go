@@ -20,6 +20,18 @@ type AggregatorService struct {
 }
 
 func NewAggregatorService(ton *tonapi.Client, mapp *marketapp.Client, cache *repository.Cache) *AggregatorService {
+	// Clear standard cache on startup so that new deployments get fresh API data immediately 
+	// instead of using cached empty/partial stats from prior failed/unauthenticated attempts.
+	if cache != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := cache.Client.Del(ctx, "collection:stats_summary", "collection:trending_usernames").Err(); err != nil {
+			slog.Warn("AggregatorService: failed to clear startup cache keys", "error", err)
+		} else {
+			slog.Info("AggregatorService: cleared collection stats and trending cache on startup")
+		}
+	}
+
 	return &AggregatorService{
 		tonClient:       ton,
 		marketappClient: mapp,
@@ -308,14 +320,20 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 		summary.DataSource = "partial_live"
 	}
 
-	// Cache successful response: fresh cache (1h) + stale cache (24h)
+	// Cache response: if it was a partial failure, only cache for 1 minute so we recover fast.
+	// Only write to the stale backup cache if we had a 100% successful fetch.
 	if s.cache != nil {
 		cBytes, err := json.Marshal(summary)
 		if err == nil {
-			// Fresh cache with standard TTL
-			s.cache.Client.Set(ctx, cacheKey, cBytes, 1*time.Hour)
-			// Stale cache with long TTL as safety net
-			s.cache.Client.Set(ctx, staleCacheKey, cBytes, 24*time.Hour)
+			ttl := 1 * time.Hour
+			if partialFailure {
+				ttl = 1 * time.Minute
+			}
+			s.cache.Client.Set(ctx, cacheKey, cBytes, ttl)
+
+			if !partialFailure {
+				s.cache.Client.Set(ctx, staleCacheKey, cBytes, 24*time.Hour)
+			}
 		}
 	}
 
