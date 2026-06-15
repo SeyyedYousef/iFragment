@@ -1076,7 +1076,7 @@ func (s *ChannelService) scheduledPostWorker(ctx context.Context) {
 						markup := BuildInlineKeyboard(buttons)
 
 						tg := telegram.NewBotAPIClient(token)
-						res, err := tg.SendMessageWithResult(ctx, ch.ChatID, post.Text, markup, nil)
+						res, err := tg.SendMessageWithMarkup(ctx, ch.ChatID, post.Text, markup, nil)
 						if err != nil {
 							slog.Error("Failed to send scheduled message via telegram in worker", "post_id", post.ID, "error", err)
 							
