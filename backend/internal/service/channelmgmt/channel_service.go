@@ -71,6 +71,12 @@ func (s *ChannelService) ConnectChannel(ctx context.Context, ownerUserID int64, 
 		go telemetry.RecordChannelConnect(metricStatus)
 	}()
 
+	var bot repository.ManagedBot
+	var token string
+	var tg *telegram.BotAPIClient
+	var member string
+	var chatDetail *telegram.ChatResult
+
 	if botID == uuid.Nil {
 		// Resolve bot ID automatically from owner's bots
 		bots, err := s.botRepo.GetBotsByOwner(ctx, ownerUserID)
@@ -80,69 +86,140 @@ func (s *ChannelService) ConnectChannel(ctx context.Context, ownerUserID int64, 
 		if len(bots) == 0 {
 			return nil, fmt.Errorf("no active bots found: please create a bot first")
 		}
-		// Use the first active/created bot
-		botID = bots[0].ID
-	}
 
-	// 1. Get bot
-	bot, err := s.botRepo.GetBotByID(ctx, botID)
-	if err != nil {
-		return nil, fmt.Errorf("bot not found: %w", err)
-	}
-	if bot.OwnerUserID != ownerUserID {
-		return nil, fmt.Errorf("unauthorized to use this bot")
-	}
+		// 3. Normalize username or chat ID
+		input := strings.TrimSpace(channelUsernameOrID)
+		input = strings.TrimPrefix(input, "https://")
+		input = strings.TrimPrefix(input, "http://")
+		input = strings.TrimPrefix(input, "t.me/")
+		input = strings.TrimPrefix(input, "telegram.me/")
+		input = strings.TrimRight(input, "/")
 
-	// 2. Initialize Telegram Client
-	token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt bot token: %w", err)
-	}
-	tg := telegram.NewBotAPIClient(token)
-
-	// 3. Normalize username or chat ID
-	input := strings.TrimSpace(channelUsernameOrID)
-	input = strings.TrimPrefix(input, "https://")
-	input = strings.TrimPrefix(input, "http://")
-	input = strings.TrimPrefix(input, "t.me/")
-	input = strings.TrimPrefix(input, "telegram.me/")
-	input = strings.TrimRight(input, "/")
-
-	if strings.HasPrefix(input, "+") || strings.Contains(input, "joinchat") {
-		return nil, fmt.Errorf("لطفاً از یوزرنیم عمومی کانال استفاده کنید. لینک‌های دعوت خصوصی (مانند t.me/+) پشتیبانی نمی‌شوند. در صورت پرایوت بودن کانال، از آیدی عددی کانال (با پیشوند -100) استفاده کنید")
-	}
-
-	var targetChat string
-	if !strings.HasPrefix(input, "@") && !strings.HasPrefix(input, "-100") {
-		if _, err := fmt.Sscan(input, new(int64)); err == nil {
-			targetChat = input
-		} else {
-			targetChat = "@" + input
+		if strings.HasPrefix(input, "+") || strings.Contains(input, "joinchat") {
+			return nil, fmt.Errorf("لطفاً از یوزرنیم عمومی کانال استفاده کنید. لینک‌های دعوت خصوصی (مانند t.me/+) پشتیبانی نمی‌شوند. در صورت پرایوت بودن کانال، از آیدی عددی کانال (با پیشوند -100) استفاده کنید")
 		}
+
+		var targetChat string
+		if !strings.HasPrefix(input, "@") && !strings.HasPrefix(input, "-100") {
+			if _, err := fmt.Sscan(input, new(int64)); err == nil {
+				targetChat = input
+			} else {
+				targetChat = "@" + input
+			}
+		} else {
+			targetChat = input
+		}
+
+		// Iterate to find which bot can access the channel and is an administrator
+		var activeBot *repository.ManagedBot
+		var activeMember string
+		var activeChatDetail *telegram.ChatResult
+		var lastErr error
+
+		for i := range bots {
+			b := &bots[i]
+			bToken, err := botmgmt.DecryptToken(b.BotTokenEncrypted)
+			if err != nil {
+				continue
+			}
+			tgCheck := telegram.NewBotAPIClient(bToken)
+			
+			// Try to get chat with this bot
+			chat, err := tgCheck.GetChat(ctx, targetChat)
+			if err != nil {
+				lastErr = err
+				continue
+			}
+			if chat.Type != "channel" {
+				lastErr = fmt.Errorf("located chat is not a channel: type=%s", chat.Type)
+				continue
+			}
+
+			// Try to get chat member status
+			member, err := tgCheck.GetChatMember(ctx, chat.ID, b.BotID)
+			if err == nil && (member == "administrator" || member == "creator") {
+				activeBot = b
+				activeMember = member
+				activeChatDetail = chat
+				lastErr = nil
+				break
+			} else if err != nil {
+				lastErr = err
+			}
+		}
+
+		if activeBot == nil {
+			if lastErr != nil {
+				return nil, fmt.Errorf("bot must be an administrator in the channel (هیچ‌یک از ربات‌های شما ادمین این کانال نیستند): %v", lastErr)
+			}
+			return nil, fmt.Errorf("bot must be an administrator in the channel (هیچ‌یک از ربات‌های شما ادمین این کانال نیستند)")
+		}
+
+		botID = activeBot.ID
+		bot = *activeBot
+		token, _ = botmgmt.DecryptToken(activeBot.BotTokenEncrypted)
+		tg = telegram.NewBotAPIClient(token)
+		member = activeMember
+		chatDetail = activeChatDetail
 	} else {
-		targetChat = input
-	}
+		// Specific bot ID provided
+		botData, err := s.botRepo.GetBotByID(ctx, botID)
+		if err != nil {
+			return nil, fmt.Errorf("bot not found: %w", err)
+		}
+		if botData.OwnerUserID != ownerUserID {
+			return nil, fmt.Errorf("unauthorized to use this bot")
+		}
+		bot = *botData
 
-	// 4. Get chat details from Telegram
-	chat, err := tg.GetChat(ctx, targetChat)
-	if err != nil {
-		return nil, fmt.Errorf("failed to locate channel: %w", err)
-	}
-	if chat.Type != "channel" {
-		return nil, fmt.Errorf("located chat is not a channel: type=%s", chat.Type)
-	}
+		token, err = botmgmt.DecryptToken(bot.BotTokenEncrypted)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decrypt bot token: %w", err)
+		}
+		tg = telegram.NewBotAPIClient(token)
 
-	// 5. Verify Bot is an administrator in the channel
-	member, err := tg.GetChatMember(ctx, chat.ID, bot.BotID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to verify bot membership status: %w", err)
-	}
-	if member != "administrator" && member != "creator" {
-		return nil, fmt.Errorf("bot must be an administrator in the channel")
+		// Normalize input
+		input := strings.TrimSpace(channelUsernameOrID)
+		input = strings.TrimPrefix(input, "https://")
+		input = strings.TrimPrefix(input, "http://")
+		input = strings.TrimPrefix(input, "t.me/")
+		input = strings.TrimPrefix(input, "telegram.me/")
+		input = strings.TrimRight(input, "/")
+
+		if strings.HasPrefix(input, "+") || strings.Contains(input, "joinchat") {
+			return nil, fmt.Errorf("لطفاً از یوزرنیم عمومی کانال استفاده کنید. لینک‌های دعوت خصوصی (مانند t.me/+) پشتیبانی نمی‌شوند. در صورت پرایوت بودن کانال، از آیدی عددی کانال (با پیشوند -100) استفاده کنید")
+		}
+
+		var targetChat string
+		if !strings.HasPrefix(input, "@") && !strings.HasPrefix(input, "-100") {
+			if _, err := fmt.Sscan(input, new(int64)); err == nil {
+				targetChat = input
+			} else {
+				targetChat = "@" + input
+			}
+		} else {
+			targetChat = input
+		}
+
+		chatDetail, err = tg.GetChat(ctx, targetChat)
+		if err != nil {
+			return nil, fmt.Errorf("failed to locate channel: %w", err)
+		}
+		if chatDetail.Type != "channel" {
+			return nil, fmt.Errorf("located chat is not a channel: type=%s", chatDetail.Type)
+		}
+
+		member, err = tg.GetChatMember(ctx, chatDetail.ID, bot.BotID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to verify bot membership status: %w", err)
+		}
+		if member != "administrator" && member != "creator" {
+			return nil, fmt.Errorf("bot must be an administrator in the channel")
+		}
 	}
 
 	// 6. Get subscribers count
-	count, err := tg.GetChatMemberCount(ctx, chat.ID)
+	count, err := tg.GetChatMemberCount(ctx, chatDetail.ID)
 	if err != nil {
 		count = 0
 	}
@@ -150,8 +227,8 @@ func (s *ChannelService) ConnectChannel(ctx context.Context, ownerUserID int64, 
 	// 7. Save channel to DB
 	ch := &repository.ManagedChannel{
 		BotID:              bot.ID,
-		ChatID:             chat.ID,
-		ChatTitle:          chat.Title,
+		ChatID:             chatDetail.ID,
+		ChatTitle:          chatDetail.Title,
 		SubscribersCount:   count,
 		SubscriptionStatus: "trial",
 		TrialEndsAt:        time.Now().Add(72 * time.Hour),
@@ -165,7 +242,7 @@ func (s *ChannelService) ConnectChannel(ctx context.Context, ownerUserID int64, 
 	}
 
 	// 8. Log audit log
-	slog.Info("Channel connected successfully", "channel_id", ch.ID, "title", chat.Title)
+	slog.Info("Channel connected successfully", "channel_id", ch.ID, "title", chatDetail.Title)
 	if err := s.auditRepo.Log(ctx, &repository.AuditLog{
 		ActorID:    ownerUserID,
 		Action:     "channel.connect",
