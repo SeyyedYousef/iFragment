@@ -145,9 +145,16 @@ func ValidateSettingsCategory(category string, data json.RawMessage) error {
 		if err := json.Unmarshal(data, &s); err != nil {
 			return fmt.Errorf("invalid inline_buttons settings structure: %w", err)
 		}
+		if len(s.Buttons) > 15 {
+			return fmt.Errorf("maximum 15 inline buttons allowed")
+		}
 		for _, btn := range s.Buttons {
+			btn.Title = strings.TrimSpace(btn.Title)
 			if btn.Title == "" {
 				return fmt.Errorf("button title cannot be empty")
+			}
+			if len(btn.Title) > 64 {
+				return fmt.Errorf("button title must not exceed 64 characters")
 			}
 			if btn.Value == "" {
 				return fmt.Errorf("button value cannot be empty")

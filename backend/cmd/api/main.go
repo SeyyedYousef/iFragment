@@ -651,6 +651,14 @@ func AutoRegisterMainBot(ctx context.Context, db *repository.Database, botServic
 			return
 		}
 
+		// Rename any incorrectly registered bot with the same username but different ID.
+		// This happens if the bot username was reclaimed or transferred on Telegram.
+		// We rename the old bot to avoid dropping all its associated groups and analytics via cascade deletion.
+		_, err = db.Pool.Exec(ctx, "UPDATE managed_bots SET bot_username = bot_username || '_conflict_' || bot_id WHERE LOWER(bot_username) = LOWER($1) AND bot_id != $2", me.Username, botID)
+		if err != nil {
+			slog.Warn("AutoRegisterMainBot: failed to rename conflicting bot_username", "error", err)
+		}
+
 		bot, err := botService.RegisterBot(ctx, ownerID, token, me.Username, me.FirstName, botID)
 		if err != nil {
 			slog.Error("AutoRegisterMainBot: failed to register bot in database", "error", err)
@@ -696,6 +704,7 @@ func AutoRegisterMainBot(ctx context.Context, db *repository.Database, botServic
 			"channel_post",
 			"edited_channel_post",
 			"my_chat_member",
+			"chat_member",
 			"chat_join_request",
 			"pre_checkout_query",
 		},

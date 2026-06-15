@@ -79,45 +79,53 @@ export const ChannelGeneralSettingsPage: Component = () => {
 
 	const [config, setConfig] = createStore<ChannelConfig>({ ...defaultConfig });
 
-	createResource(
+	const [settingsData] = createResource(
 		() => params.id,
 		async (channelId) => {
-			const settings = await channelApi.getSettings(channelId);
-			setSettingsVersion(settings.version);
-			const apiGeneral = settings.general || {};
+			try {
+				const settings = await channelApi.getSettings(channelId);
+				setSettingsVersion(settings.version || 1);
+				const apiGeneral = settings.general || {};
 
-			const merged: ChannelConfig = {
-				...defaultConfig,
-				language: apiGeneral.language || defaultConfig.language,
-				timezone: apiGeneral.timezone || defaultConfig.timezone,
-				signMessages: apiGeneral.signMessages ?? defaultConfig.signMessages,
-				customSignature: apiGeneral.customSignature || defaultConfig.customSignature,
-				autoForward: apiGeneral.autoForward ?? defaultConfig.autoForward,
-				forwardDestination: apiGeneral.forwardDestination || defaultConfig.forwardDestination,
-				disableReactions: apiGeneral.disableReactions ?? defaultConfig.disableReactions,
-				channelName: apiGeneral.name || defaultConfig.channelName,
-				channelBio: apiGeneral.description || defaultConfig.channelBio,
-				channelPhotoUrl: apiGeneral.photo || defaultConfig.channelPhotoUrl,
-				channelUsername: apiGeneral.username || defaultConfig.channelUsername,
-				adminProfileDisplay: apiGeneral.showAdminProfile ?? defaultConfig.adminProfileDisplay,
-				hideHistory: apiGeneral.hideChatHistory ?? defaultConfig.hideHistory,
-				hideMemberList: apiGeneral.hideMemberList ?? defaultConfig.hideMemberList,
-				telegramAntiSpam: apiGeneral.antiSpam ?? defaultConfig.telegramAntiSpam,
-				slowMode: String(apiGeneral.slowMode || 0),
-				autoDeleteTimer: String(apiGeneral.autoDelete || 0),
-				discussionGroup: apiGeneral.discussionGroupId || '',
-				approveAccountAge: apiGeneral.joinReqAge > 0,
-				approveProfilePhoto: apiGeneral.joinReqPhoto ?? defaultConfig.approveProfilePhoto,
-				joinRequestsEnabled:
-					(apiGeneral as any).joinRequestsEnabled ?? defaultConfig.joinRequestsEnabled,
-				approvePremium: (apiGeneral as any).approvePremium ?? defaultConfig.approvePremium,
-				approveGifts: (apiGeneral as any).approveGifts ?? defaultConfig.approveGifts,
-				approveCollectibles:
-					(apiGeneral as any).approveCollectibles ?? defaultConfig.approveCollectibles,
-			};
+				const merged: ChannelConfig = {
+					...defaultConfig,
+					language: apiGeneral.language || defaultConfig.language,
+					timezone: apiGeneral.timezone || defaultConfig.timezone,
+					signMessages: apiGeneral.signMessages ?? defaultConfig.signMessages,
+					customSignature: apiGeneral.customSignature || defaultConfig.customSignature,
+					autoForward: apiGeneral.autoForward ?? defaultConfig.autoForward,
+					forwardDestination: apiGeneral.forwardDestination || defaultConfig.forwardDestination,
+					disableReactions: apiGeneral.disableReactions ?? defaultConfig.disableReactions,
+					channelName: apiGeneral.name || defaultConfig.channelName,
+					channelBio: apiGeneral.description || defaultConfig.channelBio,
+					channelPhotoUrl: apiGeneral.photo || defaultConfig.channelPhotoUrl,
+					channelUsername: apiGeneral.username || defaultConfig.channelUsername,
+					adminProfileDisplay: apiGeneral.showAdminProfile ?? defaultConfig.adminProfileDisplay,
+					hideHistory: apiGeneral.hideChatHistory ?? defaultConfig.hideHistory,
+					hideMemberList: apiGeneral.hideMemberList ?? defaultConfig.hideMemberList,
+					telegramAntiSpam: apiGeneral.antiSpam ?? defaultConfig.telegramAntiSpam,
+					slowMode: String(apiGeneral.slowMode || 0),
+					autoDeleteTimer: String(apiGeneral.autoDelete || 0),
+					discussionGroup: apiGeneral.discussionGroupId || '',
+					approveAccountAge: apiGeneral.joinReqAge > 0,
+					approveProfilePhoto: apiGeneral.joinReqPhoto ?? defaultConfig.approveProfilePhoto,
+					joinRequestsEnabled:
+						(apiGeneral as any).joinRequestsEnabled ?? defaultConfig.joinRequestsEnabled,
+					approvePremium: (apiGeneral as any).approvePremium ?? defaultConfig.approvePremium,
+					approveGifts: (apiGeneral as any).approveGifts ?? defaultConfig.approveGifts,
+					approveCollectibles:
+						(apiGeneral as any).approveCollectibles ?? defaultConfig.approveCollectibles,
+				};
 
-			setConfig(reconcile(merged));
-			return settings;
+				setConfig(reconcile(merged));
+				return settings;
+			} catch (error) {
+				showToast(
+					locale() === 'fa' ? 'خطا در بارگیری تنظیمات' : 'Failed to load settings',
+					'error'
+				);
+				throw error;
+			}
 		},
 	);
 
@@ -132,10 +140,10 @@ export const ChannelGeneralSettingsPage: Component = () => {
 			);
 			if (confirmDiscard) {
 				setIsDirty(false); // Reset state to allow clean navigation
-				window.history.back();
+				navigate(-1);
 			}
 		} else {
-			window.history.back();
+			navigate(-1);
 		}
 	};
 
@@ -152,7 +160,6 @@ export const ChannelGeneralSettingsPage: Component = () => {
 
 	const handleSave = async () => {
 		if (!isDirty()) return;
-		hapticFeedback.notificationOccurred('success');
 		setIsSaving(true);
 		try {
 			const result = await channelApi.updateSettings(
@@ -163,6 +170,7 @@ export const ChannelGeneralSettingsPage: Component = () => {
 			);
 			setSettingsVersion(result.version);
 			setIsDirty(false);
+			hapticFeedback.notificationOccurred('success');
 			showToast(t('common.settingsSaved') || 'Settings saved successfully', 'success');
 			navigate(`/channel/${params.id}`);
 		} catch (e: any) {
@@ -234,7 +242,15 @@ export const ChannelGeneralSettingsPage: Component = () => {
 			/>
 
 			<div class="px-5 pt-6 flex flex-col gap-6">
-				{/* Identity Section - RESTRICTED TO NAME AND PHOTO ONLY */}
+				<Show
+					when={!settingsData.loading}
+					fallback={
+						<div class="flex justify-center items-center py-10">
+							<span class="w-8 h-8 border-4 border-[#32ade6]/30 border-t-[#32ade6] rounded-full animate-spin"></span>
+						</div>
+					}
+				>
+					{/* Identity Section - RESTRICTED TO NAME AND PHOTO ONLY */}
 				<Motion.div
 					initial={{ opacity: 0, y: 10 }}
 					animate={{ opacity: 1, y: 0 }}
@@ -486,6 +502,7 @@ export const ChannelGeneralSettingsPage: Component = () => {
 						</div>
 					</Show>
 				</Motion.div>
+				</Show>
 			</div>
 
 			{/* Save Button */}

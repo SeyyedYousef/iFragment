@@ -6,6 +6,7 @@ import (
 	"ifragment-backend/internal/repository"
 	"net/url"
 	"regexp"
+	"strings"
 )
 
 var hhmmRegex = regexp.MustCompile(`^(?:[01]\d|2[0-3]):[0-5]\d$`)
@@ -150,8 +151,15 @@ func ValidateSettingsCategory(category string, raw json.RawMessage) error {
 			return fmt.Errorf("cannot configure more than 10 inline buttons")
 		}
 		for _, b := range c.InlineButtons {
+			b.Title = strings.TrimSpace(b.Title)
+			if b.Title == "" {
+				return fmt.Errorf("inline button title cannot be empty")
+			}
 			if len(b.Title) > 64 {
 				return fmt.Errorf("inline button title must not exceed 64 characters")
+			}
+			if b.URL == "" {
+				return fmt.Errorf("inline button URL cannot be empty")
 			}
 			if len(b.URL) > 512 {
 				return fmt.Errorf("inline button URL must not exceed 512 characters")

@@ -683,20 +683,32 @@ func (h *ChannelHandler) SaveButtons(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ChannelHandler) respondServerError(w http.ResponseWriter, r *http.Request, publicMsg string, err error) {
+	if err == nil {
+		RespondError(w, r, http.StatusInternalServerError, publicMsg, nil)
+		return
+	}
+	
 	errStr := err.Error()
 	if strings.Contains(errStr, "unauthorized") || strings.Contains(errStr, "access denied") || strings.Contains(errStr, "telegram api error [403]") {
 		RespondError(w, r, http.StatusForbidden, errStr, err)
 		return
 	}
+	
+	if strings.Contains(errStr, "not found") {
+		RespondError(w, r, http.StatusNotFound, errStr, err)
+		return
+	}
+
 	// Check for specific, safe-to-expose business validation and PV start messages
 	if strings.Contains(errStr, "bot must be an administrator") || 
 	   strings.Contains(errStr, "located chat is not a channel") || 
-	   strings.Contains(errStr, "لطفاً ابتدا ربات را") ||
-	   strings.Contains(errStr, "not found") ||
+	   strings.Contains(errStr, "لطفاً") ||
+	   strings.Contains(errStr, "لطفا") ||
 	   strings.Contains(errStr, "telegram api error [400]") {
 		RespondError(w, r, http.StatusBadRequest, errStr, err)
 		return
 	}
+	
 	// Return a secure localized/generic message for internal exceptions, preventing db structure leaks
 	RespondError(w, r, http.StatusInternalServerError, publicMsg, err)
 }

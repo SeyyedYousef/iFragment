@@ -263,6 +263,7 @@ func (s *BotService) RegisterBot(ctx context.Context, ownerID int64, token, user
 				"channel_post",
 				"edited_channel_post",
 				"my_chat_member",
+				"chat_member",
 				"chat_join_request",
 				"pre_checkout_query",
 			},

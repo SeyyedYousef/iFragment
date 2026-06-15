@@ -13,7 +13,7 @@ export const ConnectChannelPage: Component = () => {
 
 	onMount(() => {
 		backButton.show();
-		const off = backButton.onClick(() => window.history.back());
+		const off = backButton.onClick(() => navigate(-1));
 		onCleanup(() => off());
 	});
 
@@ -62,7 +62,7 @@ export const ConnectChannelPage: Component = () => {
 				<button
 					onClick={() => {
 						hapticFeedback.impactOccurred('light');
-						window.history.back();
+						navigate(-1);
 					}}
 					class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-90 transition-all shrink-0"
 					aria-label="Back"

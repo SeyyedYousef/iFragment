@@ -266,8 +266,19 @@ func (s *ModeratorService) ValidateMessage(ctx context.Context, bot *repository.
 
 	// 2.2 Check Subscription (BUG #9)
 	if !s.isSubscriptionValid(group) {
-		slog.Warn("Group subscription expired, falling back to basic features", "group_id", group.ID)
-		// Proceed without returning early to allow basic features to remain active
+		slog.Warn("Group subscription expired, pausing moderation", "group_id", group.ID)
+		
+		// Fix silent failure: Notify the group that moderation is paused due to expired subscription.
+		// Use Redis to rate-limit this notification to once per 24 hours to avoid spamming the chat.
+		if s.cache != nil && s.cache.Client != nil {
+			notifyKey := fmt.Sprintf("subscription_expired_notify:%s", group.ID)
+			if set, _ := s.cache.Client.SetNX(ctx, notifyKey, "1", 24*time.Hour).Result(); set {
+				msg := "⚠️ <b>Group Subscription Expired</b>\n\nModeration features are currently paused because the group's subscription has expired. Please renew the subscription in the dashboard to resume protection."
+				_ = tgClient.SendMessage(ctx, mc.ChatID, msg, nil, nil)
+			}
+		}
+		
+		return nil, nil // Halt moderation; don't give premium features for free
 	}
 
 	// 3. Fetch settings (cached via SettingsRepo)

@@ -67,22 +67,35 @@ func (r *BotRepo) GetMainBot(ctx context.Context) (*ManagedBot, error) {
 		return nil, fmt.Errorf("no database connection")
 	}
 
-	token := os.Getenv("TELEGRAM_BOT_TOKEN")
+	token := strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN"))
 	if token == "" {
-		token = os.Getenv("BOT_TOKEN")
+		token = strings.TrimSpace(os.Getenv("BOT_TOKEN"))
 	}
 	if token == "" {
 		return nil, fmt.Errorf("main bot token not configured")
 	}
 
-	parts := strings.Split(token, ":")
+	if strings.HasPrefix(strings.ToLower(token), "bot") {
+		token = token[3:]
+	}
+
+	parts := strings.SplitN(token, ":", 2)
 	if len(parts) < 2 {
-		return nil, fmt.Errorf("invalid main bot token")
+		return nil, fmt.Errorf("invalid main bot token: missing colon")
 	}
 	
-	botID, err := strconv.ParseInt(parts[0], 10, 64)
+	idStr := strings.TrimSpace(parts[0])
+	if idStr == "" || strings.TrimSpace(parts[1]) == "" {
+		return nil, fmt.Errorf("invalid main bot token: empty id or secret")
+	}
+
+	botID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		return nil, fmt.Errorf("invalid main bot id format")
+		return nil, fmt.Errorf("invalid main bot id format: %w", err)
+	}
+
+	if botID <= 0 {
+		return nil, fmt.Errorf("invalid main bot id: must be positive")
 	}
 
 	query := `SELECT id, owner_user_id, bot_username, bot_name, bot_id, status, created_at, updated_at, webhook_secret_token, bot_token_encrypted

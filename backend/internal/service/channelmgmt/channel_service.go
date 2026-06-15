@@ -65,6 +65,52 @@ func (s *ChannelService) GetChannelRepo() *repository.ChannelRepo {
 
 // Channel Connection & Management
 
+func normalizeChannelInput(input string) (string, error) {
+	input = strings.TrimSpace(input)
+	input = strings.TrimPrefix(input, "https://")
+	input = strings.TrimPrefix(input, "http://")
+	input = strings.TrimPrefix(input, "t.me/")
+	input = strings.TrimPrefix(input, "telegram.me/")
+	input = strings.TrimRight(input, "/")
+
+	if strings.HasPrefix(input, "+") || strings.Contains(input, "joinchat") {
+		return "", fmt.Errorf("لطفاً از یوزرنیم عمومی کانال استفاده کنید. لینک‌های دعوت خصوصی (مانند t.me/+) پشتیبانی نمی‌شوند. در صورت پرایوت بودن کانال، از آیدی عددی کانال (با پیشوند -100) استفاده کنید")
+	}
+
+	if strings.HasPrefix(input, "c/") {
+		parts := strings.Split(strings.TrimPrefix(input, "c/"), "/")
+		if len(parts) > 0 && parts[0] != "" {
+			input = parts[0]
+			if !strings.HasPrefix(input, "-100") {
+				return "-100" + input, nil
+			}
+			return input, nil
+		}
+	}
+
+	parts := strings.Split(input, "/")
+	if len(parts) > 0 {
+		input = parts[0]
+	}
+
+	var targetChat string
+	if !strings.HasPrefix(input, "@") && !strings.HasPrefix(input, "-100") {
+		if _, err := strconv.ParseInt(input, 10, 64); err == nil {
+			if strings.HasPrefix(input, "-") {
+				targetChat = "-100" + strings.TrimPrefix(input, "-")
+			} else {
+				targetChat = "-100" + input
+			}
+		} else {
+			targetChat = "@" + input
+		}
+	} else {
+		targetChat = input
+	}
+
+	return targetChat, nil
+}
+
 func (s *ChannelService) ConnectChannel(ctx context.Context, ownerUserID int64, botID uuid.UUID, channelUsernameOrID string) (*repository.ManagedChannel, error) {
 	var metricStatus = "failed"
 	defer func() {
@@ -89,26 +135,9 @@ func (s *ChannelService) ConnectChannel(ctx context.Context, ownerUserID int64, 
 		tg = telegram.NewBotAPIClient(token)
 
 		// 3. Normalize username or chat ID
-		input := strings.TrimSpace(channelUsernameOrID)
-		input = strings.TrimPrefix(input, "https://")
-		input = strings.TrimPrefix(input, "http://")
-		input = strings.TrimPrefix(input, "t.me/")
-		input = strings.TrimPrefix(input, "telegram.me/")
-		input = strings.TrimRight(input, "/")
-
-		if strings.HasPrefix(input, "+") || strings.Contains(input, "joinchat") {
-			return nil, fmt.Errorf("لطفاً از یوزرنیم عمومی کانال استفاده کنید. لینک‌های دعوت خصوصی (مانند t.me/+) پشتیبانی نمی‌شوند. در صورت پرایوت بودن کانال، از آیدی عددی کانال (با پیشوند -100) استفاده کنید")
-		}
-
-		var targetChat string
-		if !strings.HasPrefix(input, "@") && !strings.HasPrefix(input, "-100") {
-			if _, err := fmt.Sscan(input, new(int64)); err == nil {
-				targetChat = input
-			} else {
-				targetChat = "@" + input
-			}
-		} else {
-			targetChat = input
+		targetChat, err := normalizeChannelInput(channelUsernameOrID)
+		if err != nil {
+			return nil, err
 		}
 
 		// Get chat details
@@ -123,10 +152,14 @@ func (s *ChannelService) ConnectChannel(ctx context.Context, ownerUserID int64, 
 		// Try to get chat member status
 		member, err = tg.GetChatMember(ctx, chatDetail.ID, bot.BotID)
 		if err != nil {
+			lowerErr := strings.ToLower(err.Error())
+			if strings.Contains(lowerErr, "member list is inaccessible") || strings.Contains(lowerErr, "not a member") || strings.Contains(lowerErr, "not found") {
+				return nil, fmt.Errorf("لطفا ابتدا ربات اصلی را در کانال خود ادمین کنید")
+			}
 			return nil, fmt.Errorf("failed to verify bot membership status: %w", err)
 		}
 		if member != "administrator" && member != "creator" {
-			return nil, fmt.Errorf("bot must be an administrator in the channel (لطفا ابتدا ربات را در کانال ادمین کنید)")
+			return nil, fmt.Errorf("لطفا ابتدا ربات اصلی را در کانال خود ادمین کنید")
 		}
 	} else {
 		// Specific bot ID provided
@@ -146,26 +179,9 @@ func (s *ChannelService) ConnectChannel(ctx context.Context, ownerUserID int64, 
 		tg = telegram.NewBotAPIClient(token)
 
 		// Normalize input
-		input := strings.TrimSpace(channelUsernameOrID)
-		input = strings.TrimPrefix(input, "https://")
-		input = strings.TrimPrefix(input, "http://")
-		input = strings.TrimPrefix(input, "t.me/")
-		input = strings.TrimPrefix(input, "telegram.me/")
-		input = strings.TrimRight(input, "/")
-
-		if strings.HasPrefix(input, "+") || strings.Contains(input, "joinchat") {
-			return nil, fmt.Errorf("لطفاً از یوزرنیم عمومی کانال استفاده کنید. لینک‌های دعوت خصوصی (مانند t.me/+) پشتیبانی نمی‌شوند. در صورت پرایوت بودن کانال، از آیدی عددی کانال (با پیشوند -100) استفاده کنید")
-		}
-
-		var targetChat string
-		if !strings.HasPrefix(input, "@") && !strings.HasPrefix(input, "-100") {
-			if _, err := fmt.Sscan(input, new(int64)); err == nil {
-				targetChat = input
-			} else {
-				targetChat = "@" + input
-			}
-		} else {
-			targetChat = input
+		targetChat, err := normalizeChannelInput(channelUsernameOrID)
+		if err != nil {
+			return nil, err
 		}
 
 		chatDetail, err = tg.GetChat(ctx, targetChat)
@@ -183,6 +199,36 @@ func (s *ChannelService) ConnectChannel(ctx context.Context, ownerUserID int64, 
 		if member != "administrator" && member != "creator" {
 			return nil, fmt.Errorf("bot must be an administrator in the channel")
 		}
+	}
+
+	// Check if channel already exists
+	existingCh, err := s.channelRepo.GetChannelByChatID(ctx, chatDetail.ID)
+	if err == nil && existingCh != nil {
+		adminsTG, errTg := tg.GetChatAdministrators(ctx, chatDetail.ID)
+		if errTg == nil {
+			var admins []repository.ChannelAdmin
+			for _, a := range adminsTG {
+				usernameCopy := a.User.Username
+				customTitleCopy := a.CustomTitle
+				admins = append(admins, repository.ChannelAdmin{
+					ChannelID:   existingCh.ID,
+					TelegramID:  a.User.ID,
+					Username:    &usernameCopy,
+					FirstName:   a.User.FirstName,
+					CustomTitle: &customTitleCopy,
+					IsOwner:     a.Status == "creator",
+				})
+			}
+			_ = s.channelRepo.SyncChannelAdmins(ctx, existingCh.ID, admins)
+		}
+		
+		_, _, roleErr := s.GetUserRole(ctx, ownerUserID, existingCh.ID)
+		if roleErr != nil {
+			return nil, fmt.Errorf("این کانال قبلا متصل شده است و شما در تلگرام دسترسی ادمین ندارید")
+		}
+		
+		metricStatus = "success"
+		return existingCh, nil
 	}
 
 	// 6. Get subscribers count
@@ -219,8 +265,26 @@ func (s *ChannelService) ConnectChannel(ctx context.Context, ownerUserID int64, 
 	}
 
 	// 9. Sync administrators immediately to map roles correctly and handle ownership
-	if syncErr := s.SyncAdmins(ctx, ownerUserID, ch.ID); syncErr != nil {
-		slog.Warn("failed to sync admins immediately after channel connect", "channel_id", ch.ID, "error", syncErr)
+	adminsTG, errTg := tg.GetChatAdministrators(ctx, chatDetail.ID)
+	if errTg == nil {
+		var admins []repository.ChannelAdmin
+		for _, a := range adminsTG {
+			usernameCopy := a.User.Username
+			customTitleCopy := a.CustomTitle
+			admins = append(admins, repository.ChannelAdmin{
+				ChannelID:   ch.ID,
+				TelegramID:  a.User.ID,
+				Username:    &usernameCopy,
+				FirstName:   a.User.FirstName,
+				CustomTitle: &customTitleCopy,
+				IsOwner:     a.Status == "creator",
+			})
+		}
+		if err := s.channelRepo.SyncChannelAdmins(ctx, ch.ID, admins); err != nil {
+			slog.Warn("failed to sync admins immediately after channel connect", "channel_id", ch.ID, "error", err)
+		}
+	} else {
+		slog.Warn("failed to fetch chat administrators from telegram", "channel_id", ch.ID, "error", errTg)
 	}
 
 	metricStatus = "success"
@@ -306,7 +370,7 @@ func (s *ChannelService) GetUserRole(ctx context.Context, userID int64, channelI
 }
 
 func (s *ChannelService) verifyAccess(ctx context.Context, userID int64, channelID uuid.UUID, allowedRoles ...Role) error {
-	role, ch, err := s.GetUserRole(ctx, userID, channelID)
+	role, _, err := s.GetUserRole(ctx, userID, channelID)
 	if err != nil {
 		return err
 	}
@@ -322,7 +386,10 @@ func (s *ChannelService) verifyAccess(ctx context.Context, userID int64, channel
 		return fmt.Errorf("unauthorized: role %s not allowed", role)
 	}
 
-	// Verify subscription status (Issue 7) using the already loaded channel object
+	return nil
+}
+
+func (s *ChannelService) checkSubscription(ch *repository.ManagedChannel) error {
 	if ch.SubscriptionStatus == "expired" {
 		return fmt.Errorf("unauthorized: channel subscription has expired")
 	}
@@ -332,7 +399,6 @@ func (s *ChannelService) verifyAccess(ctx context.Context, userID int64, channel
 	if ch.SubscriptionStatus == "paid" && ch.PaidUntil != nil && ch.PaidUntil.Before(time.Now()) {
 		return fmt.Errorf("unauthorized: channel paid subscription has expired")
 	}
-
 	return nil
 }
 
@@ -517,6 +583,13 @@ func (s *ChannelService) UpdateSettings(ctx context.Context, ownerUserID int64, 
 	if err != nil {
 		return nil, err
 	}
+	
+	ch, err := s.channelRepo.GetChannelByID(ctx, channelID)
+	if err == nil {
+		if err := s.checkSubscription(ch); err != nil {
+			return nil, err
+		}
+	}
 
 	newSettings, err := s.channelRepo.UpdateChannelSettingsCategory(ctx, channelID, category, data, ownerUserID, version)
 	if err != nil {
@@ -600,6 +673,9 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 				if err != nil {
 					continue
 				}
+				if err := s.checkSubscription(destChan); err != nil {
+					continue
+				}
 
 				bot, err := s.botRepo.GetBotByID(ctx, destChan.BotID)
 				if err != nil {
@@ -636,6 +712,9 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 	ch, err := s.channelRepo.GetChannelByChatID(ctx, chatID)
 	if err != nil {
 		return nil // Not managed directly, skip outbound/responder
+	}
+	if err := s.checkSubscription(ch); err != nil {
+		return nil // Do not process forwarding/auto-responder for expired channels
 	}
 
 	settings, err := s.channelRepo.GetChannelSettings(ctx, ch.ID)
@@ -935,6 +1014,9 @@ func (s *ChannelService) CreatePost(ctx context.Context, ownerUserID int64, post
 	if err != nil {
 		return err
 	}
+	if err := s.checkSubscription(ch); err != nil {
+		return err
+	}
 
 	post.AuthorUserID = &ownerUserID
 
@@ -1099,6 +1181,11 @@ func (s *ChannelService) scheduledPostWorker(ctx context.Context) {
 						if err != nil {
 							if processingKey != "" { cache.Client.Del(ctx, processingKey) }
 							slog.Error("Failed to fetch channel for scheduled post", "post_id", post.ID, "error", err)
+							return
+						}
+						if err := s.checkSubscription(ch); err != nil {
+							if processingKey != "" { cache.Client.Del(ctx, processingKey) }
+							slog.Warn("Channel subscription expired, skipping scheduled post", "post_id", post.ID, "channel_id", ch.ID)
 							return
 						}
 
@@ -1375,6 +1462,9 @@ func (s *ChannelService) CreateForwardingRule(ctx context.Context, ownerUserID i
 	if err != nil {
 		return err
 	}
+	if err := s.checkSubscription(ch); err != nil {
+		return err
+	}
 
 	err = s.channelRepo.CreateForwardingRule(ctx, rule)
 	if err != nil {
@@ -1406,6 +1496,9 @@ func (s *ChannelService) UpdateForwardingRule(ctx context.Context, ownerUserID i
 	}
 	ch, err := s.channelRepo.GetChannelByID(ctx, rule.ChannelID)
 	if err != nil {
+		return err
+	}
+	if err := s.checkSubscription(ch); err != nil {
 		return err
 	}
 
@@ -1549,19 +1642,43 @@ func (s *ChannelService) SaveButtons(ctx context.Context, ownerUserID int64, cha
 	if err := s.verifyAccess(ctx, ownerUserID, channelID, RoleOwner, RoleAdmin); err != nil {
 		return err
 	}
+	ch, err := s.channelRepo.GetChannelByID(ctx, channelID)
+	if err == nil {
+		if err := s.checkSubscription(ch); err != nil {
+			return err
+		}
+	}
+
+	if len(buttons) > 15 {
+		return fmt.Errorf("cannot configure more than 15 inline buttons")
+	}
 
 	// Make sure channel ID is bound and validate URL
 	for i := range buttons {
+		buttons[i].Title = strings.TrimSpace(buttons[i].Title)
+		if buttons[i].Title == "" {
+			return fmt.Errorf("button title cannot be empty")
+		}
+		if len(buttons[i].Title) > 64 {
+			return fmt.Errorf("button title must not exceed 64 characters")
+		}
+
 		if strings.ToLower(buttons[i].Type) == "url" {
+			if buttons[i].Value == "" {
+				return fmt.Errorf("URL cannot be empty for button '%s'", buttons[i].Title)
+			}
 			u, err := url.ParseRequestURI(buttons[i].Value)
 			if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
 				return fmt.Errorf("invalid URL for button '%s': must be a valid HTTP/HTTPS address", buttons[i].Title)
 			}
+		} else {
+			// default or callback type
+			buttons[i].Type = "callback"
 		}
 		buttons[i].ChannelID = channelID
 	}
 
-	err := s.channelRepo.SaveChannelButtons(ctx, channelID, buttons)
+	err = s.channelRepo.SaveChannelButtons(ctx, channelID, buttons)
 	if err != nil {
 		return err
 	}
@@ -1617,12 +1734,30 @@ func BuildInlineKeyboard(buttons []repository.ChannelInlineButton) interface{} {
 	}
 
 	var keyboard [][]map[string]interface{}
-	for i := 0; i < len(row); i += 2 {
-		end := i + 2
-		if end > len(row) {
-			end = len(row)
+	var currentRow []map[string]interface{}
+
+	for _, ikb := range row {
+		btnText := ikb["text"].(string)
+
+		// Dynamic layout: if text is long, it gets its own row.
+		// Otherwise, we group up to 2 short buttons per row.
+		if len(btnText) > 20 {
+			if len(currentRow) > 0 {
+				keyboard = append(keyboard, currentRow)
+				currentRow = nil
+			}
+			keyboard = append(keyboard, []map[string]interface{}{ikb})
+		} else {
+			currentRow = append(currentRow, ikb)
+			if len(currentRow) == 2 {
+				keyboard = append(keyboard, currentRow)
+				currentRow = nil
+			}
 		}
-		keyboard = append(keyboard, row[i:end])
+	}
+
+	if len(currentRow) > 0 {
+		keyboard = append(keyboard, currentRow)
 	}
 
 	return map[string]interface{}{

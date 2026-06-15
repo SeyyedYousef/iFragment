@@ -251,7 +251,8 @@ func (c *BotAPIClient) doRequestWithRetry(ctx context.Context, method string, pa
 				if attempt < maxRetries-1 {
 					select {
 					case <-ctx.Done():
-						return nil, ctx.Err()
+						// Return 429 error instead of ctx.Err() so circuit breaker doesn't trip on context timeouts during rate limits
+						return nil, &APIError{Code: 429, Message: fmt.Sprintf("rate limit hit, context cancelled while waiting: %v", ctx.Err())}
 					case <-time.After(retryAfter):
 					}
 					skipNextBackoff = true
@@ -580,6 +581,26 @@ func (c *BotAPIClient) GetChatAdministrators(ctx context.Context, chatID interfa
 	return admins, err
 }
 
+// handleEditError ignores non-critical errors during message edits in channels.
+func handleEditError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, ErrForbidden) {
+		return nil
+	}
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		if apiErr.Code == 429 {
+			return nil
+		}
+		if apiErr.Code == 400 && strings.Contains(strings.ToLower(apiErr.Message), "message is not modified") {
+			return nil
+		}
+	}
+	return err
+}
+
 // EditMessageReplyMarkup edits the reply markup of a message
 func (c *BotAPIClient) EditMessageReplyMarkup(ctx context.Context, chatID interface{}, messageID int, markup interface{}) error {
 	_, err := c.Request(ctx, "editMessageReplyMarkup", map[string]interface{}{
@@ -587,7 +608,7 @@ func (c *BotAPIClient) EditMessageReplyMarkup(ctx context.Context, chatID interf
 		"message_id":   messageID,
 		"reply_markup": markup,
 	})
-	return err
+	return handleEditError(err)
 }
 
 // EditMessageText edits the text of a message
@@ -598,7 +619,7 @@ func (c *BotAPIClient) EditMessageText(ctx context.Context, chatID interface{}, 
 		"text":       text,
 		"parse_mode": "HTML",
 	})
-	return err
+	return handleEditError(err)
 }
 
 // EditMessageTextWithMarkup edits both text and markup of a message
@@ -610,7 +631,7 @@ func (c *BotAPIClient) EditMessageTextWithMarkup(ctx context.Context, chatID int
 		"parse_mode":   "HTML",
 		"reply_markup": markup,
 	})
-	return err
+	return handleEditError(err)
 }
 
 type StarTransaction struct {

@@ -1557,16 +1557,36 @@ func (h *WebhookHandler) handleWelcomeMessage(ctx context.Context, bot *reposito
 	var markup map[string]interface{}
 	if len(ct.InlineButtons) > 0 {
 		var inlineKeyboard [][]map[string]interface{}
+		var currentRow []map[string]interface{}
 		for _, btn := range ct.InlineButtons {
-			inlineKeyboard = append(inlineKeyboard, []map[string]interface{}{
-				{
-					"text": btn.Title,
-					"url":  btn.URL,
-				},
-			})
+			if btn.Title == "" || btn.URL == "" {
+				continue
+			}
+			ikb := map[string]interface{}{
+				"text": btn.Title,
+				"url":  btn.URL,
+			}
+			if len(btn.Title) > 20 {
+				if len(currentRow) > 0 {
+					inlineKeyboard = append(inlineKeyboard, currentRow)
+					currentRow = nil
+				}
+				inlineKeyboard = append(inlineKeyboard, []map[string]interface{}{ikb})
+			} else {
+				currentRow = append(currentRow, ikb)
+				if len(currentRow) == 2 {
+					inlineKeyboard = append(inlineKeyboard, currentRow)
+					currentRow = nil
+				}
+			}
 		}
-		markup = map[string]interface{}{
-			"inline_keyboard": inlineKeyboard,
+		if len(currentRow) > 0 {
+			inlineKeyboard = append(inlineKeyboard, currentRow)
+		}
+		if len(inlineKeyboard) > 0 {
+			markup = map[string]interface{}{
+				"inline_keyboard": inlineKeyboard,
+			}
 		}
 	}
 
@@ -2254,13 +2274,20 @@ func (h *WebhookHandler) handleJoinCaptcha(ctx context.Context, bot *repository.
 	if welcome == "" || welcome == "captcha.welcome_msg" {
 		welcome = fmt.Sprintf("👋 Welcome [%s](tg://user?id=%d)!\n\nPlease click the button below to verify you are human.", user.FirstName, user.ID)
 	}
-	captchaMsg, sendErr := tg.SendMessageWithMarkup(ctx, m.Chat.ID, welcome, markup, m.MessageThreadID)
-	if sendErr == nil && captchaMsg != nil {
-		cache := h.moderator.GetCache()
-		if cache != nil && cache.Client != nil {
-			pendingKey := fmt.Sprintf("captcha_pending:%d:%d", m.Chat.ID, user.ID)
-			cache.Client.Set(ctx, pendingKey, captchaMsg.MessageID, 10*time.Minute)
 
+	cache := h.moderator.GetCache()
+	var pendingKey string
+	if cache != nil && cache.Client != nil {
+		pendingKey = fmt.Sprintf("captcha_pending:%d:%d", m.Chat.ID, user.ID)
+		// Pre-set placeholder to prevent race condition if clicked instantly
+		cache.Client.Set(ctx, pendingKey, "pending", 10*time.Minute)
+	}
+
+	captchaMsg, sendErr := tg.SendMessageWithMarkup(ctx, m.Chat.ID, welcome, markup, m.MessageThreadID)
+	if sendErr == nil && captchaMsg != nil && cache != nil && cache.Client != nil {
+		// Only update if the key still exists (meaning the user hasn't solved it yet)
+		updated, _ := cache.Client.SetXX(ctx, pendingKey, captchaMsg.MessageID, 10*time.Minute).Result()
+		if updated {
 			time.AfterFunc(5*time.Minute, func() {
 				bgCtx := context.Background()
 				val, err := cache.Client.Get(bgCtx, pendingKey).Result()
@@ -2483,7 +2510,6 @@ func (h *WebhookHandler) sendBotMessage(ctx context.Context, tg *telegram.BotAPI
 }
 
 func (h *WebhookHandler) handleChannelPost(ctx context.Context, bot *repository.ManagedBot, m *Message, isEdit bool) {
-	_ = bot
 	if m == nil || m.Chat == nil {
 		return
 	}
@@ -2508,6 +2534,19 @@ func (h *WebhookHandler) handleChannelPost(ctx context.Context, bot *repository.
 	err := h.channelService.ProcessChannelPost(ctx, m.Chat.ID, m.MessageID, text, m.ReplyMarkup, isEdit)
 	if err != nil {
 		slog.Error("Failed to process channel post in service", "error", err)
+	}
+
+	// Append inline buttons to channel posts
+	ch, err := h.channelService.GetChannelByChatID(ctx, m.Chat.ID)
+	if err == nil && ch != nil {
+		markup, buildErr := h.buildChannelInlineKeyboard(ctx, ch.ID)
+		if buildErr == nil && markup != nil {
+			tg, tgErr := h.moderator.GetTelegramClient(ctx, bot)
+			if tgErr == nil {
+				// Use EditMessageReplyMarkup to safely append buttons without crashing on media posts (photos/videos with no text)
+				_ = tg.EditMessageReplyMarkup(ctx, m.Chat.ID, m.MessageID, markup)
+			}
+		}
 	}
 }
 
