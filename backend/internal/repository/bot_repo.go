@@ -3,6 +3,9 @@ package repository
 import (
 	"context"
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -57,6 +60,43 @@ type BotRepo struct {
 
 func NewBotRepo(db *Database) *BotRepo {
 	return &BotRepo{db: db}
+}
+
+func (r *BotRepo) GetMainBot(ctx context.Context) (*ManagedBot, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, fmt.Errorf("no database connection")
+	}
+
+	token := os.Getenv("TELEGRAM_BOT_TOKEN")
+	if token == "" {
+		token = os.Getenv("BOT_TOKEN")
+	}
+	if token == "" {
+		return nil, fmt.Errorf("main bot token not configured")
+	}
+
+	parts := strings.Split(token, ":")
+	if len(parts) < 2 {
+		return nil, fmt.Errorf("invalid main bot token")
+	}
+	
+	botID, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid main bot id format")
+	}
+
+	query := `SELECT id, owner_user_id, bot_username, bot_name, bot_id, status, created_at, updated_at, webhook_secret_token, bot_token_encrypted
+		FROM managed_bots WHERE bot_id = $1 LIMIT 1`
+	
+	var bot ManagedBot
+	err = r.db.Pool.QueryRow(ctx, query, botID).Scan(
+		&bot.ID, &bot.OwnerUserID, &bot.BotUsername, &bot.BotName, &bot.BotID, &bot.Status, &bot.CreatedAt, &bot.UpdatedAt, &bot.WebhookSecretToken, &bot.BotTokenEncrypted,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("main bot not found in db: %w", err)
+	}
+
+	return &bot, nil
 }
 
 func (r *BotRepo) CreateBot(ctx context.Context, bot *ManagedBot) error {

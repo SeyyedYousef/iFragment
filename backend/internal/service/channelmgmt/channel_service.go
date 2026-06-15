@@ -76,16 +76,17 @@ func (s *ChannelService) ConnectChannel(ctx context.Context, ownerUserID int64, 
 	var tg *telegram.BotAPIClient
 	var member string
 	var chatDetail *telegram.ChatResult
-
 	if botID == uuid.Nil {
-		// Resolve bot ID automatically from owner's bots
-		bots, err := s.botRepo.GetBotsByOwner(ctx, ownerUserID)
+		// Fetch the Main Bot for Channel connections
+		mainBot, err := s.botRepo.GetMainBot(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch owner bots: %w", err)
+			return nil, fmt.Errorf("failed to locate main bot: %w", err)
 		}
-		if len(bots) == 0 {
-			return nil, fmt.Errorf("no active bots found: please create a bot first")
-		}
+
+		botID = mainBot.ID
+		bot = *mainBot
+		token, _ = botmgmt.DecryptToken(mainBot.BotTokenEncrypted)
+		tg = telegram.NewBotAPIClient(token)
 
 		// 3. Normalize username or chat ID
 		input := strings.TrimSpace(channelUsernameOrID)
@@ -110,57 +111,23 @@ func (s *ChannelService) ConnectChannel(ctx context.Context, ownerUserID int64, 
 			targetChat = input
 		}
 
-		// Iterate to find which bot can access the channel and is an administrator
-		var activeBot *repository.ManagedBot
-		var activeMember string
-		var activeChatDetail *telegram.ChatResult
-		var lastErr error
-
-		for i := range bots {
-			b := &bots[i]
-			bToken, err := botmgmt.DecryptToken(b.BotTokenEncrypted)
-			if err != nil {
-				continue
-			}
-			tgCheck := telegram.NewBotAPIClient(bToken)
-			
-			// Try to get chat with this bot
-			chat, err := tgCheck.GetChat(ctx, targetChat)
-			if err != nil {
-				lastErr = err
-				continue
-			}
-			if chat.Type != "channel" {
-				lastErr = fmt.Errorf("located chat is not a channel: type=%s", chat.Type)
-				continue
-			}
-
-			// Try to get chat member status
-			member, err := tgCheck.GetChatMember(ctx, chat.ID, b.BotID)
-			if err == nil && (member == "administrator" || member == "creator") {
-				activeBot = b
-				activeMember = member
-				activeChatDetail = chat
-				lastErr = nil
-				break
-			} else if err != nil {
-				lastErr = err
-			}
+		// Get chat details
+		chatDetail, err = tg.GetChat(ctx, targetChat)
+		if err != nil {
+			return nil, fmt.Errorf("failed to locate channel: %w", err)
+		}
+		if chatDetail.Type != "channel" {
+			return nil, fmt.Errorf("located chat is not a channel: type=%s", chatDetail.Type)
 		}
 
-		if activeBot == nil {
-			if lastErr != nil {
-				return nil, fmt.Errorf("bot must be an administrator in the channel (هیچ‌یک از ربات‌های شما ادمین این کانال نیستند): %v", lastErr)
-			}
-			return nil, fmt.Errorf("bot must be an administrator in the channel (هیچ‌یک از ربات‌های شما ادمین این کانال نیستند)")
+		// Try to get chat member status
+		member, err = tg.GetChatMember(ctx, chatDetail.ID, bot.BotID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to verify bot membership status: %w", err)
 		}
-
-		botID = activeBot.ID
-		bot = *activeBot
-		token, _ = botmgmt.DecryptToken(activeBot.BotTokenEncrypted)
-		tg = telegram.NewBotAPIClient(token)
-		member = activeMember
-		chatDetail = activeChatDetail
+		if member != "administrator" && member != "creator" {
+			return nil, fmt.Errorf("bot must be an administrator in the channel (لطفا ابتدا ربات را در کانال ادمین کنید)")
+		}
 	} else {
 		// Specific bot ID provided
 		botData, err := s.botRepo.GetBotByID(ctx, botID)

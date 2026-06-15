@@ -3,7 +3,6 @@ import { useNavigate } from '@solidjs/router';
 import { backButton, hapticFeedback, openTelegramLink } from '@tma.js/sdk-solid';
 import { Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { channelApi } from '@/shared/api/channel-management.js';
-import { botApi } from '@/shared/api/bot-management.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { showToast } from '@/shared/ui/toast.js';
 
@@ -11,20 +10,10 @@ export const ConnectChannelPage: Component = () => {
 	const navigate = useNavigate();
 	const [channelInput, setChannelInput] = createSignal('');
 	const [isVerifying, setIsVerifying] = createSignal(false);
-	const [botUsername, setBotUsername] = createSignal('iFragmentBot');
 
 	onMount(() => {
 		backButton.show();
 		const off = backButton.onClick(() => window.history.back());
-
-		botApi.listBots().then((bots: any) => {
-			if (bots && bots.length > 0) {
-				setBotUsername(bots[0].bot_username);
-			}
-		}).catch((err: any) => {
-			console.warn('Failed to fetch user bots:', err);
-		});
-
 		onCleanup(() => off());
 	});
 
@@ -61,7 +50,7 @@ export const ConnectChannelPage: Component = () => {
 
 	const handleOpenTelegram = () => {
 		hapticFeedback.impactOccurred('light');
-		openTelegramLink(`https://t.me/${botUsername()}?startchannel=true`);
+		openTelegramLink('https://t.me/iFragmentBot?startchannel=true');
 	};
 
 	return (
