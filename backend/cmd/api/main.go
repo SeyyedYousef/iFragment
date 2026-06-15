@@ -594,8 +594,7 @@ func AutoRegisterMainBot(ctx context.Context, db *repository.Database, botServic
 
 	appURL := os.Getenv("APP_URL")
 	if appURL == "" {
-		slog.Warn("AutoRegisterMainBot: APP_URL is not set, skipping webhook registration")
-		return
+		slog.Warn("AutoRegisterMainBot: APP_URL is not set, but continuing with DB registration")
 	}
 
 	ownerIDStr := os.Getenv("OWNER_TELEGRAM_ID")
@@ -677,6 +676,12 @@ func AutoRegisterMainBot(ctx context.Context, db *repository.Database, botServic
 	if backendURL == "" {
 		backendURL = appURL
 	}
+	
+	if backendURL == "" {
+		slog.Warn("AutoRegisterMainBot: cannot set webhook because BACKEND_URL, API_URL, and APP_URL are all empty")
+		return
+	}
+
 	webhookURL := fmt.Sprintf("%s/api/v1/webhook/telegram/%s", strings.TrimSuffix(backendURL, "/"), botUUID.String())
 	slog.Info("AutoRegisterMainBot: setting webhook URL", "url", webhookURL)
 
