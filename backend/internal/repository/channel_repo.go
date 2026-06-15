@@ -1005,6 +1005,12 @@ func (r *ChannelRepo) SaveChannelButtons(ctx context.Context, channelID uuid.UUI
 	}
 	defer tx.Rollback(ctx)
 
+	// Acquire row-level lock on the channel to prevent race conditions that could bypass button limits
+	_, err = tx.Exec(ctx, `SELECT 1 FROM managed_channels WHERE id = $1 FOR NO KEY UPDATE`, channelID)
+	if err != nil {
+		return err
+	}
+
 	// 1. Fetch existing buttons inside the transaction to identify matches
 	queryExisting := `SELECT id, channel_id, title, value, type, style, emoji, click_count, created_at
 		FROM channel_inline_buttons WHERE channel_id = $1 ORDER BY created_at ASC`
@@ -1029,10 +1035,10 @@ func (r *ChannelRepo) SaveChannelButtons(ctx context.Context, channelID uuid.UUI
 	}
 	rows.Close()
 
-	existingMap := make(map[string]ChannelInlineButton)
+	existingMap := make(map[string][]ChannelInlineButton)
 	for _, btn := range existing {
 		key := fmt.Sprintf("%s:%s:%s", btn.Title, btn.Value, btn.Type)
-		existingMap[key] = btn
+		existingMap[key] = append(existingMap[key], btn)
 	}
 
 	var keepIDs []uuid.UUID
@@ -1047,7 +1053,9 @@ func (r *ChannelRepo) SaveChannelButtons(ctx context.Context, channelID uuid.UUI
 	// 2. Insert or update each button, keeping IDs intact
 	for _, btn := range buttons {
 		key := fmt.Sprintf("%s:%s:%s", btn.Title, btn.Value, btn.Type)
-		if exist, ok := existingMap[key]; ok {
+		if exists := existingMap[key]; len(exists) > 0 {
+			exist := exists[0]
+			existingMap[key] = exists[1:]
 			// Update styling but keep existing ID and click counts
 			query := `UPDATE channel_inline_buttons SET style = $1, emoji = $2 WHERE id = $3`
 			_, err = tx.Exec(ctx, query, btn.Style, btn.Emoji, exist.ID)

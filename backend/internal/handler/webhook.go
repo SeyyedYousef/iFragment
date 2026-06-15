@@ -2144,6 +2144,14 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 	}
 }
 
+func truncateButtonText(s string, maxRunes int) string {
+	runes := []rune(s)
+	if len(runes) > maxRunes {
+		return string(runes[:maxRunes-1]) + "…"
+	}
+	return s
+}
+
 func (h *WebhookHandler) buildChannelInlineKeyboard(ctx context.Context, channelID uuid.UUID) (interface{}, error) {
 	buttons, err := h.channelService.GetChannelButtonsByChannelID(ctx, channelID)
 	if err != nil {
@@ -2165,10 +2173,13 @@ func (h *WebhookHandler) buildChannelInlineKeyboard(ctx context.Context, channel
 		}
 
 		ikb := InlineKeyboardButton{
-			Text: text,
+			Text: truncateButtonText(text, 64),
 		}
 		if btn.Type == "url" {
-			ikb.URL = btn.Value
+			ikb.URL = strings.TrimSpace(btn.Value)
+			if !strings.HasPrefix(ikb.URL, "http://") && !strings.HasPrefix(ikb.URL, "https://") && !strings.HasPrefix(ikb.URL, "tg://") {
+				ikb.URL = "https://" + ikb.URL
+			}
 		} else {
 			// Callback query click button
 			ikb.CallbackData = fmt.Sprintf("btn_click:%s", btn.ID.String())
@@ -2200,9 +2211,12 @@ func buildReplyMarkupFromButtons(buttons []repository.ChannelInlineButton) inter
 		}
 		text += btn.Title
 		
-		ikb := InlineKeyboardButton{Text: text}
+		ikb := InlineKeyboardButton{Text: truncateButtonText(text, 64)}
 		if btn.Type == "url" {
-			ikb.URL = btn.Value
+			ikb.URL = strings.TrimSpace(btn.Value)
+			if !strings.HasPrefix(ikb.URL, "http://") && !strings.HasPrefix(ikb.URL, "https://") && !strings.HasPrefix(ikb.URL, "tg://") {
+				ikb.URL = "https://" + ikb.URL
+			}
 		} else {
 			ikb.CallbackData = fmt.Sprintf("btn_click:%s", btn.ID.String())
 		}
@@ -2544,7 +2558,15 @@ func (h *WebhookHandler) handleChannelPost(ctx context.Context, bot *repository.
 			tg, tgErr := h.moderator.GetTelegramClient(ctx, bot)
 			if tgErr == nil {
 				// Use EditMessageReplyMarkup to safely append buttons without crashing on media posts (photos/videos with no text)
-				_ = tg.EditMessageReplyMarkup(ctx, m.Chat.ID, m.MessageID, markup)
+				errMarkup := tg.EditMessageReplyMarkup(ctx, m.Chat.ID, m.MessageID, markup)
+				if errMarkup != nil {
+					slog.Error("Failed to append inline buttons to channel post", "error", errMarkup, "channel_id", ch.ID, "message_id", m.MessageID)
+					// If the API rejected the markup due to invalid URL or similar (400), try to recover by removing the reply markup
+					// to ensure the post isn't left in a broken state if it was an edit.
+					if isEdit {
+						_ = tg.EditMessageReplyMarkup(ctx, m.Chat.ID, m.MessageID, nil)
+					}
+				}
 			}
 		}
 	}
@@ -2586,20 +2608,43 @@ func (h *WebhookHandler) handleChatJoinRequest(ctx context.Context, bot *reposit
 
 	// 3. Evaluate active join policies
 	shouldApprove := true
+	reason := ""
+	
 	if config.ApprovePremium && !req.From.IsPremium {
 		shouldApprove = false
+		reason = "premium"
 		slog.Info("Failed join request auto-approval check: user does not have premium status", "user_id", req.From.ID, "channel_id", ch.ID)
+	}
+
+	if shouldApprove && config.ApproveProfilePhoto {
+		tgClient, err := h.moderator.GetTelegramClient(ctx, bot)
+		if err == nil {
+			photoURL, _ := tgClient.GetUserProfilePhotoURL(ctx, req.From.ID)
+			if photoURL == "" {
+				shouldApprove = false
+				reason = "photo"
+				slog.Info("Failed join request auto-approval check: user does not have a profile photo", "user_id", req.From.ID)
+			}
+		}
 	}
 
 	// Decline or wait for manual evaluation (let's keep for manual review on mismatch)
 	if !shouldApprove {
-		// Premium requirement notification (Enhancing User Experience)
 		tg, err := h.moderator.GetTelegramClient(ctx, bot)
 		if err == nil {
 			userLang := i18n.DetectLanguage(req.From.LanguageCode)
-			rejectMsg := i18n.T(userLang, "channel.join_request_rejected_premium", map[string]interface{}{"channel": ch.ChatTitle})
-			if rejectMsg == "" || rejectMsg == "channel.join_request_rejected_premium" {
-				rejectMsg = fmt.Sprintf("⚠️ درخواست عضویت شما در کانال %s به دلیل عدم داشتن اکانت Premium پذیرفته نشد. لطفاً شرایط کانال را مجدداً بررسی کنید.", ch.ChatTitle)
+			rejectMsg := ""
+			
+			if reason == "premium" {
+				rejectMsg = i18n.T(userLang, "channel.join_request_rejected_premium", map[string]interface{}{"channel": ch.ChatTitle})
+				if rejectMsg == "" || rejectMsg == "channel.join_request_rejected_premium" {
+					rejectMsg = fmt.Sprintf("⚠️ درخواست عضویت شما در کانال %s به دلیل عدم داشتن اکانت Premium پذیرفته نشد. لطفاً شرایط کانال را مجدداً بررسی کنید.", ch.ChatTitle)
+				}
+			} else if reason == "photo" {
+				rejectMsg = i18n.T(userLang, "channel.join_request_rejected_photo", map[string]interface{}{"channel": ch.ChatTitle})
+				if rejectMsg == "" || rejectMsg == "channel.join_request_rejected_photo" {
+					rejectMsg = fmt.Sprintf("⚠️ درخواست عضویت شما در کانال %s پذیرفته نشد زیرا شما تصویر پروفایل ندارید.", ch.ChatTitle)
+				}
 			}
 			_ = tg.SendMessage(ctx, req.From.ID, rejectMsg, nil, nil)
 		}
@@ -2607,7 +2652,7 @@ func (h *WebhookHandler) handleChatJoinRequest(ctx context.Context, bot *reposit
 		// Log specific event to DB Audit Log for dashboard visibility
 		meta, _ := json.Marshal(map[string]interface{}{
 			"user_id": req.From.ID,
-			"reason":  "Premium status required",
+			"reason":  reason,
 		})
 		_ = h.channelService.GetChannelRepo().LogAudit(ctx, &repository.ChannelAuditLog{
 			ChannelID: ch.ID,

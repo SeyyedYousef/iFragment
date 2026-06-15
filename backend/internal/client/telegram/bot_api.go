@@ -532,10 +532,26 @@ func (c *BotAPIClient) GetChatMemberCount(ctx context.Context, chatID interface{
 	return count, err
 }
 
+type ChatPhoto struct {
+	SmallFileID       string `json:"small_file_id"`
+	SmallFileUniqueID string `json:"small_file_unique_id"`
+	BigFileID         string `json:"big_file_id"`
+	BigFileUniqueID   string `json:"big_file_unique_id"`
+}
+
 type ChatResult struct {
-	ID    int64  `json:"id"`
-	Type  string `json:"type"`
-	Title string `json:"title,omitempty"`
+	ID          int64      `json:"id"`
+	Type        string     `json:"type"`
+	Title       string     `json:"title,omitempty"`
+	Description string     `json:"description,omitempty"`
+	Photo       *ChatPhoto `json:"photo,omitempty"`
+}
+
+type FileResult struct {
+	FileID       string `json:"file_id"`
+	FileUniqueID string `json:"file_unique_id"`
+	FileSize     int    `json:"file_size,omitempty"`
+	FilePath     string `json:"file_path,omitempty"`
 }
 
 func (c *BotAPIClient) GetChat(ctx context.Context, chatID interface{}) (*ChatResult, error) {
@@ -550,6 +566,64 @@ func (c *BotAPIClient) GetChat(ctx context.Context, chatID interface{}) (*ChatRe
 		return nil, err
 	}
 	return &res, nil
+}
+
+// GetFile retrieves file info from Telegram
+func (c *BotAPIClient) GetFile(ctx context.Context, fileID string) (*FileResult, error) {
+	resp, err := c.Request(ctx, "getFile", map[string]interface{}{
+		"file_id": fileID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var res FileResult
+	if err := json.Unmarshal(resp, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+// GetChatPhotoURL retrieves the direct download URL for a chat's profile photo
+func (c *BotAPIClient) GetChatPhotoURL(ctx context.Context, chatID interface{}) (string, error) {
+	chat, err := c.GetChat(ctx, chatID)
+	if err != nil {
+		return "", err
+	}
+	if chat.Photo == nil || chat.Photo.BigFileID == "" {
+		return "", nil // No photo
+	}
+	
+	fileRes, err := c.GetFile(ctx, chat.Photo.BigFileID)
+	if err != nil {
+		return "", err
+	}
+	
+	if fileRes.FilePath == "" {
+		return "", fmt.Errorf("file_path is empty")
+	}
+	
+	// Construct the URL. The client struct needs the token, which it uses internally.
+	// We can access c.token.
+	url := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", c.token, fileRes.FilePath)
+	return url, nil
+}
+
+// SetChatTitle sets a new title for the chat
+func (c *BotAPIClient) SetChatTitle(ctx context.Context, chatID interface{}, title string) error {
+	_, err := c.Request(ctx, "setChatTitle", map[string]interface{}{
+		"chat_id": chatID,
+		"title":   title,
+	})
+	return err
+}
+
+// SetChatDescription sets a new description for the chat
+func (c *BotAPIClient) SetChatDescription(ctx context.Context, chatID interface{}, description string) error {
+	_, err := c.Request(ctx, "setChatDescription", map[string]interface{}{
+		"chat_id":     chatID,
+		"description": description,
+	})
+	return err
 }
 
 // ForwardMessage forwards a Telegram message from one chat to another
@@ -624,14 +698,44 @@ func (c *BotAPIClient) EditMessageText(ctx context.Context, chatID interface{}, 
 
 // EditMessageTextWithMarkup edits both text and markup of a message
 func (c *BotAPIClient) EditMessageTextWithMarkup(ctx context.Context, chatID interface{}, messageID int, text string, markup interface{}) error {
-	_, err := c.Request(ctx, "editMessageText", map[string]interface{}{
-		"chat_id":      chatID,
-		"message_id":   messageID,
-		"text":         text,
-		"parse_mode":   "HTML",
-		"reply_markup": markup,
-	})
+	payload := map[string]interface{}{
+		"chat_id":    chatID,
+		"message_id": messageID,
+		"text":       text,
+	}
+	if markup != nil {
+		payload["reply_markup"] = markup
+	}
+	_, err := c.Request(ctx, "editMessageText", payload)
 	return handleEditError(err)
+}
+
+// EditMessageCaptionWithMarkup edits the caption of a media message
+func (c *BotAPIClient) EditMessageCaptionWithMarkup(ctx context.Context, chatID interface{}, messageID int, caption string, markup interface{}) error {
+	payload := map[string]interface{}{
+		"chat_id":    chatID,
+		"message_id": messageID,
+		"caption":    caption,
+	}
+	if markup != nil {
+		payload["reply_markup"] = markup
+	}
+	_, err := c.Request(ctx, "editMessageCaption", payload)
+	return handleEditError(err)
+}
+
+// CopyMessage copies messages of any kind
+func (c *BotAPIClient) CopyMessage(ctx context.Context, targetChatID interface{}, fromChatID interface{}, messageID int, markup interface{}) error {
+	payload := map[string]interface{}{
+		"chat_id":      targetChatID,
+		"from_chat_id": fromChatID,
+		"message_id":   messageID,
+	}
+	if markup != nil {
+		payload["reply_markup"] = markup
+	}
+	_, err := c.Request(ctx, "copyMessage", payload)
+	return err
 }
 
 type StarTransaction struct {

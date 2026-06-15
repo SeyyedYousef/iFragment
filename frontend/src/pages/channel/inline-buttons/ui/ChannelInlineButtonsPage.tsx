@@ -15,6 +15,7 @@ import { channelApi } from '@/shared/api/channel-management.js';
 import { t } from '@/shared/i18n/index.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SelectField, SettingsSection } from '@/shared/ui/settings-controls.js';
+import { useToast } from '@/shared/ui/toast-manager.js';
 
 interface InlineBtn {
 	id: string;
@@ -29,6 +30,7 @@ interface InlineBtn {
 export const ChannelInlineButtonsPage: Component = () => {
 	const params = useParams();
 	const navigate = useNavigate();
+	const { addToast } = useToast();
 	const [isMenuOpen, setIsMenuOpen] = createSignal(false);
 
 	// Settings Config State
@@ -189,7 +191,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 			setButtons([
 				{
 					id: 'p1',
-					title: t('channelInlineButtons.likeBtn') || 'Like',
+					title: t('channelInlineButtons.likeBtn'),
 					value: 'like',
 					type: 'counter',
 					style: 'success',
@@ -198,7 +200,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 				},
 				{
 					id: 'p2',
-					title: t('channelInlineButtons.dislikeBtn') || 'Dislike',
+					title: t('channelInlineButtons.dislikeBtn'),
 					value: 'dislike',
 					type: 'counter',
 					style: 'danger',
@@ -210,7 +212,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 			setButtons([
 				{
 					id: 'p1',
-					title: t('channelInlineButtons.viewSiteBtn') || 'View Site',
+					title: t('channelInlineButtons.viewSiteBtn'),
 					value: 'https://site.com',
 					type: 'url',
 					style: 'primary',
@@ -219,7 +221,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 				},
 				{
 					id: 'p2',
-					title: t('channelInlineButtons.shareBtn') || 'Share',
+					title: t('channelInlineButtons.shareBtn'),
 					value: 'share',
 					type: 'share',
 					style: 'default',
@@ -231,7 +233,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 			setButtons([
 				{
 					id: 'p1',
-					title: t('channelInlineButtons.buyNowBtn') || 'Buy Now',
+					title: t('channelInlineButtons.buyNowBtn'),
 					value: 'payment_id',
 					type: 'payment',
 					style: 'primary',
@@ -275,11 +277,16 @@ export const ChannelInlineButtonsPage: Component = () => {
 			await channelApi.updateSettings(params.id, 'inline_buttons', settingsPayload, currentVersion);
 			await channelApi.saveButtons(params.id, buttonsPayload);
 			setIsDirty(false);
+			addToast({ title: 'Success', description: 'Settings saved successfully', type: 'success' });
 			navigate(`/channel/${params.id}`);
 		} catch (e) {
 			console.error('Failed to save inline buttons to server:', e);
-			setIsDirty(false);
-			navigate(`/channel/${params.id}`);
+			hapticFeedback.notificationOccurred('error');
+			addToast({
+				title: 'Error',
+				description: 'Failed to save settings. Try again.',
+				type: 'error',
+			});
 		} finally {
 			setIsSaving(false);
 		}
@@ -478,7 +485,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 							<Show when={buttons().length > 0}>
 								<div class="flex flex-col gap-2">
 									<For each={buttons()}>
-										{(btn) => {
+										{(btn, index) => {
 											const styleClass =
 												btn.style === 'primary'
 													? 'bg-[#3390ec]/10 text-[#3390ec] border-[#3390ec]/30'
@@ -504,6 +511,46 @@ export const ChannelInlineButtonsPage: Component = () => {
 														</div>
 													</div>
 													<div class="flex items-center gap-1">
+														<Show when={index() > 0}>
+															<button
+																onClick={() => {
+																	hapticFeedback.impactOccurred('light');
+																	const newBtns = [...buttons()];
+																	[newBtns[index() - 1], newBtns[index()]] = [
+																		newBtns[index()],
+																		newBtns[index() - 1],
+																	];
+																	setButtons(newBtns);
+																	setIsDirty(true);
+																}}
+																class="w-8 h-8 bg-black/20 hover:bg-white/20 rounded-full flex items-center justify-center text-white/70 transition-colors border border-transparent"
+																title="Move Up"
+															>
+																<span class="material-symbols-outlined text-[18px]">
+																	arrow_upward
+																</span>
+															</button>
+														</Show>
+														<Show when={index() < buttons().length - 1}>
+															<button
+																onClick={() => {
+																	hapticFeedback.impactOccurred('light');
+																	const newBtns = [...buttons()];
+																	[newBtns[index() + 1], newBtns[index()]] = [
+																		newBtns[index()],
+																		newBtns[index() + 1],
+																	];
+																	setButtons(newBtns);
+																	setIsDirty(true);
+																}}
+																class="w-8 h-8 bg-black/20 hover:bg-white/20 rounded-full flex items-center justify-center text-white/70 transition-colors border border-transparent"
+																title="Move Down"
+															>
+																<span class="material-symbols-outlined text-[18px]">
+																	arrow_downward
+																</span>
+															</button>
+														</Show>
 														<button
 															onClick={() => handleEditButton(btn.id)}
 															class="w-8 h-8 bg-black/20 hover:bg-[#32ade6]/20 rounded-full flex items-center justify-center text-white/70 hover:text-[#32ade6] transition-colors border border-transparent hover:border-[#32ade6]/30"
@@ -546,7 +593,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 										type="text"
 										value={btnEmoji()}
 										onInput={(e) => setBtnEmoji(e.currentTarget.value)}
-										placeholder={t('channelInlineButtons.buttonEmoji') || 'Emoji'}
+										placeholder={t('channelInlineButtons.buttonEmoji')}
 										class="w-full bg-[#1c1c1c] text-white text-[15px] text-center rounded-xl px-2 py-3 focus:outline-none focus:ring-2 focus:ring-[#32ade6] border border-[#2a2a2a] placeholder-[#555]"
 									/>
 								</div>

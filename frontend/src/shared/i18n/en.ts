@@ -1078,6 +1078,24 @@ To enable me to delete malicious messages and restrict violating users, please a
 		sendNow: 'Send Now',
 		schedulePost: 'Schedule',
 		pinPost: 'Pin Post',
+		aiSkillTitle: 'AI Skill / Editor Agent Role',
+		simulatorTitle: 'Processing Simulator & Inline Buttons',
+		simulatorDescription:
+			'Enter the raw text you send in your Telegram channel in the box below to live test how it is rewritten, signature added, and inline buttons placed!',
+		rawTextInputLabel: 'Your raw text sent to the Telegram channel:',
+		rawTextInputPlaceholder:
+			'Example: Bitcoin price increased by 5% to $67K in the last 24 hours...',
+		processPreviewBtn: 'Process & Generate Final Preview',
+		finalPostLabel: 'Your final edited post in the Telegram channel:',
+		simulatorMockupDefault:
+			"Enter your raw text above and click process to see the editor bot's magic live...",
+		signatureMockup: '— Official iFragment Channel (Your Signature)',
+		likeMockup: 'Like 14',
+		dislikeMockup: 'Dislike 2',
+		viewDetailsMockup: 'View details on site',
+		shareMockup: 'Share',
+		glassButtonsInfo:
+			'💡 Inline buttons will be dynamically added below the edited channel post exactly according to the patterns and sets you configure in the "Inline Buttons" section of the channel menu.',
 		disableLinkPreview: 'Disable Link Preview',
 		scheduledTime: 'Scheduled Time',
 		livePreview: 'Live Preview',

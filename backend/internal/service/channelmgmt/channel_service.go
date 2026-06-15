@@ -390,6 +390,9 @@ func (s *ChannelService) verifyAccess(ctx context.Context, userID int64, channel
 }
 
 func (s *ChannelService) checkSubscription(ch *repository.ManagedChannel) error {
+	if ch == nil {
+		return fmt.Errorf("unauthorized: channel is nil")
+	}
 	if ch.SubscriptionStatus == "expired" {
 		return fmt.Errorf("unauthorized: channel subscription has expired")
 	}
@@ -558,10 +561,49 @@ func (s *ChannelService) GetChannel(ctx context.Context, ownerUserID int64, chan
 // Settings CRUD
 
 func (s *ChannelService) GetSettings(ctx context.Context, ownerUserID int64, channelID uuid.UUID) (*repository.ChannelSettings, error) {
-	if _, err := s.GetChannel(ctx, ownerUserID, channelID); err != nil {
+	ch, err := s.GetChannel(ctx, ownerUserID, channelID)
+	if err != nil {
 		return nil, err
 	}
-	return s.channelRepo.GetChannelSettings(ctx, channelID)
+	
+	settings, err := s.channelRepo.GetChannelSettings(ctx, channelID)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Dynamically inject live Telegram Channel info
+	bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
+	if err == nil && bot != nil && bot.BotTokenDecrypted != "" {
+		tg := telegram.NewBotAPIClient(bot.BotTokenDecrypted)
+		chatRes, tgErr := tg.GetChat(ctx, ch.ChatID)
+		if tgErr == nil && chatRes != nil {
+			var genMap map[string]interface{}
+			if err := json.Unmarshal(settings.General, &genMap); err == nil {
+				genMap["name"] = chatRes.Title
+				if chatRes.Description != "" {
+					genMap["description"] = chatRes.Description
+				}
+				if chatRes.Username != nil {
+					genMap["username"] = *chatRes.Username
+				}
+				
+				// Try to fetch photo URL
+				photoURL, pErr := tg.GetChatPhotoURL(ctx, ch.ChatID)
+				if pErr == nil && photoURL != "" {
+					genMap["photo"] = photoURL
+				} else if pErr == nil && photoURL == "" {
+					genMap["photo"] = "" // explicit empty if no photo
+				}
+				
+				// Re-marshal
+				if updated, mErr := json.Marshal(genMap); mErr == nil {
+					settings.General = updated
+				}
+			}
+		}
+	}
+	
+	return settings, nil
 }
 
 // GetChannelSettingsDirect retrieves channel settings without checking ownerUserID permissions, for background webhook tasks
@@ -594,6 +636,34 @@ func (s *ChannelService) UpdateSettings(ctx context.Context, ownerUserID int64, 
 	newSettings, err := s.channelRepo.UpdateChannelSettingsCategory(ctx, channelID, category, data, ownerUserID, version)
 	if err != nil {
 		return nil, err
+	}
+
+	// Sync changes back to Telegram if 'general' category is updated
+	if category == "general" {
+		var oldGen, newGen map[string]interface{}
+		_ = json.Unmarshal(oldSettings.General, &oldGen)
+		_ = json.Unmarshal(newSettings.General, &newGen)
+
+		oldName, _ := oldGen["name"].(string)
+		newName, _ := newGen["name"].(string)
+		oldBio, _ := oldGen["description"].(string)
+		newBio, _ := newGen["description"].(string)
+
+		// Get the bot associated with the channel to make Telegram API calls
+		bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
+		if err == nil && bot != nil && bot.BotTokenDecrypted != "" {
+			tg := telegram.NewBotAPIClient(bot.BotTokenDecrypted)
+			
+			// Change title if changed
+			if newName != "" && newName != oldName {
+				_ = tg.SetChatTitle(ctx, ch.ChatID, newName)
+			}
+			
+			// Change bio if changed
+			if newBio != oldBio {
+				_ = tg.SetChatDescription(ctx, ch.ChatID, newBio)
+			}
+		}
 	}
 
 	// Audit Log
@@ -710,7 +780,7 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 
 	// Look up connected channel to see if it is managed directly (for Outbound/Auto-Responder)
 	ch, err := s.channelRepo.GetChannelByChatID(ctx, chatID)
-	if err != nil {
+	if err != nil || ch == nil {
 		return nil // Not managed directly, skip outbound/responder
 	}
 	if err := s.checkSubscription(ch); err != nil {
@@ -720,6 +790,43 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 	settings, err := s.channelRepo.GetChannelSettings(ctx, ch.ID)
 	if err != nil {
 		return err
+	}
+
+	var general GeneralSettingsSchema
+	_ = json.Unmarshal(settings.General, &general)
+
+	// General Settings: Sign Messages
+	if general.SignMessages && general.CustomSignature != "" && !isEdit {
+		bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
+		if err == nil {
+			token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+			if err == nil {
+				tg := telegram.NewBotAPIClient(token)
+				newText := postText + "\n\n✍️ " + general.CustomSignature
+				// Telegram edit requires either text or caption depending on message type
+				_ = tg.EditMessageTextWithMarkup(ctx, chatID, messageID, newText, replyMarkup)
+				_ = tg.EditMessageCaptionWithMarkup(ctx, chatID, messageID, newText, replyMarkup)
+			}
+		}
+	}
+
+	// General Settings: Auto Forward
+	if general.AutoForward && general.ForwardDestination != "" {
+		bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
+		if err == nil {
+			token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+			if err == nil {
+				tg := telegram.NewBotAPIClient(token)
+				// ForwardDestination might be "@username" or "12345"
+				target := general.ForwardDestination
+				if !strings.HasPrefix(target, "@") && !strings.HasPrefix(target, "-100") {
+					target = "@" + target
+				}
+				
+				// CopyMessage keeps the channel clean without "Forwarded from" tags
+				_ = tg.CopyMessage(ctx, target, chatID, messageID, replyMarkup)
+			}
+		}
 	}
 
 	// 2. Outbound Forwarding Rules (Copy/forward from our managed channel to other channels/webhooks)
@@ -1142,27 +1249,7 @@ func (s *ChannelService) scheduledPostWorker(ctx context.Context) {
 							}()
 						}
 
-						// Timezone handling
-						settings, err := s.channelRepo.GetChannelSettings(ctx, post.ChannelID)
-						if err != nil {
-							slog.Error("Failed to fetch settings for timezone evaluation", "post_id", post.ID, "error", err)
-							return
-						}
-						var general GeneralSettingsSchema
-						if err := json.Unmarshal(settings.General, &general); err != nil {
-							slog.Error("Failed to unmarshal general settings", "post_id", post.ID, "error", err)
-							return
-						}
-						loc, err := time.LoadLocation(general.Timezone)
-						if err != nil {
-							loc = time.UTC
-						}
-
-						y, m, d := post.ScheduledAt.Date()
-						H, M, S := post.ScheduledAt.Clock()
-						scheduledLocal := time.Date(y, m, d, H, M, S, 0, loc)
-
-						if time.Now().Before(scheduledLocal) {
+						if post.ScheduledAt == nil || time.Now().Before(*post.ScheduledAt) {
 							// Not time yet!
 							return
 						}
@@ -1185,7 +1272,9 @@ func (s *ChannelService) scheduledPostWorker(ctx context.Context) {
 						}
 						if err := s.checkSubscription(ch); err != nil {
 							if processingKey != "" { cache.Client.Del(ctx, processingKey) }
-							slog.Warn("Channel subscription expired, skipping scheduled post", "post_id", post.ID, "channel_id", ch.ID)
+							var chID string
+							if ch != nil { chID = ch.ID.String() }
+							slog.Warn("Channel subscription expired or invalid, skipping scheduled post", "post_id", post.ID, "channel_id", chID)
 							return
 						}
 
@@ -1663,16 +1752,25 @@ func (s *ChannelService) SaveButtons(ctx context.Context, ownerUserID int64, cha
 			return fmt.Errorf("button title must not exceed 64 characters")
 		}
 
-		if strings.ToLower(buttons[i].Type) == "url" {
+		btnType := strings.ToLower(buttons[i].Type)
+		if btnType == "url" || btnType == "share" {
 			if buttons[i].Value == "" {
 				return fmt.Errorf("URL cannot be empty for button '%s'", buttons[i].Title)
 			}
 			u, err := url.ParseRequestURI(buttons[i].Value)
-			if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
-				return fmt.Errorf("invalid URL for button '%s': must be a valid HTTP/HTTPS address", buttons[i].Title)
+			if err != nil || (u.Scheme != "http" && u.Scheme != "https" && u.Scheme != "tg") || ((u.Scheme == "http" || u.Scheme == "https") && u.Host == "") {
+				return fmt.Errorf("invalid URL for button '%s': must be a valid HTTP/HTTPS or tg:// address", buttons[i].Title)
 			}
-		} else {
-			// default or callback type
+		} else if btnType == "webapp" {
+			if buttons[i].Value == "" {
+				return fmt.Errorf("URL cannot be empty for webapp button '%s'", buttons[i].Title)
+			}
+			u, err := url.ParseRequestURI(buttons[i].Value)
+			if err != nil || u.Scheme != "https" || u.Host == "" {
+				return fmt.Errorf("invalid URL for webapp button '%s': must be a secure https address", buttons[i].Title)
+			}
+		} else if btnType != "callback" && btnType != "payment" && btnType != "counter" {
+			// fallback to callback for unknown types
 			buttons[i].Type = "callback"
 		}
 		buttons[i].ChannelID = channelID
@@ -1717,13 +1815,23 @@ func BuildInlineKeyboard(buttons []repository.ChannelInlineButton) interface{} {
 
 		ikb := map[string]interface{}{"text": text}
 
-		if strings.ToLower(btn.Type) == "url" {
+		btnType := strings.ToLower(btn.Type)
+		if btnType == "url" || btnType == "share" {
 			u, err := url.ParseRequestURI(btn.Value)
-			if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+			if err != nil || (u.Scheme != "http" && u.Scheme != "https" && u.Scheme != "tg") || ((u.Scheme == "http" || u.Scheme == "https") && u.Host == "") {
 				continue // Skip invalid URLs to avoid BUTTON_DATA_INVALID 400
 			}
 			ikb["url"] = btn.Value
+		} else if btnType == "webapp" {
+			u, err := url.ParseRequestURI(btn.Value)
+			if err != nil || u.Scheme != "https" || u.Host == "" {
+				continue
+			}
+			ikb["web_app"] = map[string]string{"url": btn.Value}
+		} else if btnType == "payment" {
+			ikb["pay"] = true
 		} else {
+			// callback, counter, or default
 			ikb["callback_data"] = fmt.Sprintf("btn_click:%s", btn.ID.String())
 		}
 		row = append(row, ikb)
@@ -1914,9 +2022,9 @@ func dynamicParaphrase(text string) string {
 	
 	processed := text
 	for oldWord, newWord := range replacements {
-		if strings.Contains(lowerText, oldWord) {
+		re := regexp.MustCompile(`(?i)\b` + regexp.QuoteMeta(oldWord) + `\b`)
+		if re.MatchString(processed) {
 			hasReplacements = true
-			re := regexp.MustCompile("(?i)" + regexp.QuoteMeta(oldWord))
 			processed = re.ReplaceAllString(processed, newWord)
 		}
 	}

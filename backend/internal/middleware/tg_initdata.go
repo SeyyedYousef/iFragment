@@ -145,8 +145,15 @@ func ValidateTelegramInitData(db *repository.Database, cache *repository.Cache) 
 						}
 					}
 				}
-				if initData == "dev-user" {
-					ctx := context.WithValue(r.Context(), UserContextKey, map[string]interface{}{"id": int64(12345), "username": "testuser"})
+				if strings.HasPrefix(initData, "dev-user") {
+					idPart := strings.TrimPrefix(initData, "dev-user-")
+					id := int64(12345) // default owner
+					if idPart != "" && idPart != "dev-user" {
+						if parsed, err := strconv.ParseInt(idPart, 10, 64); err == nil {
+							id = parsed
+						}
+					}
+					ctx := context.WithValue(r.Context(), UserContextKey, map[string]interface{}{"id": id, "username": fmt.Sprintf("testuser_%d", id)})
 					next.ServeHTTP(w, r.WithContext(ctx))
 					return
 				}

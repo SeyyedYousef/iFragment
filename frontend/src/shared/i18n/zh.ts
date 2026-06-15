@@ -1021,6 +1021,23 @@ export const dict = {
 		sendNow: '立即发送',
 		schedulePost: '定时发布',
 		pinPost: '置顶帖子',
+		aiSkillTitle: 'AI技能 / 编辑器代理角色',
+		simulatorTitle: '处理模拟器和内联按钮',
+		simulatorDescription:
+			'在下面的文本框中输入您在Telegram频道中发送的原始文本，以实时测试它是如何被重写、添加签名和放置内联按钮的！',
+		rawTextInputLabel: '您发送到Telegram频道的原始文本：',
+		rawTextInputPlaceholder: '示例：过去24小时内比特币价格上涨了5%，达到6.7万美元...',
+		processPreviewBtn: '处理并生成最终预览',
+		finalPostLabel: '您在Telegram频道中的最终编辑帖子：',
+		simulatorMockupDefault:
+			'在上方输入您的原始文本，然后单击处理按钮以实时查看编辑器机器人的魔力...',
+		signatureMockup: '— iFragment官方频道（您的签名）',
+		likeMockup: '赞 14',
+		dislikeMockup: '踩 2',
+		viewDetailsMockup: '在网站上查看详情',
+		shareMockup: '分享',
+		glassButtonsInfo:
+			'💡 内联按钮将完全按照您在频道菜单的“内联按钮”部分中配置的模式和集合，动态添加到编辑后的频道帖子下方。',
 		disableLinkPreview: '停用链接预览',
 		scheduledTime: '定时发布时间',
 		livePreview: '实时预览',

@@ -12,7 +12,9 @@ export const apiFetch = async <T>(endpoint: string, options: RequestInit = {}): 
 
 	// Fallback for dev mode if needed
 	if (import.meta.env.DEV && !initDataRaw && !(window as any).Telegram?.WebApp?.initData) {
-		apiClient.defaults.headers.common['X-Telegram-Init-Data'] = 'dev-user';
+		const devMockId = localStorage.getItem('dev_mock_user_id');
+		const devPayload = devMockId ? `dev-user-${devMockId}` : 'dev-user';
+		apiClient.defaults.headers.common['X-Telegram-Init-Data'] = devPayload;
 	}
 
 	const response = await apiClient({

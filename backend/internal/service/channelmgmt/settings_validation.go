@@ -41,6 +41,17 @@ type GeneralSettingsSchema struct {
 	DiscussionGroup     string `json:"discussionGroup"`
 	ApproveAccountAge   bool   `json:"approveAccountAge"`
 	ApproveProfilePhoto bool   `json:"approveProfilePhoto"`
+
+	// Missing General Settings Phase 2 UI properties
+	SignMessages       bool   `json:"signMessages"`
+	CustomSignature    string `json:"customSignature"`
+	AutoForward        bool   `json:"autoForward"`
+	ForwardDestination string `json:"forwardDestination"`
+
+	// Join requests UI properties
+	JoinRequestsEnabled bool `json:"joinRequestsEnabled"`
+	ApprovePremium      bool `json:"approvePremium"`
+	ApproveGifts        bool `json:"approveGifts"`
 }
 
 type PostingSettingsSchema struct {

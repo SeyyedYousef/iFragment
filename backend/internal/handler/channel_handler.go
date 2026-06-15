@@ -655,10 +655,10 @@ func (h *ChannelHandler) SaveButtons(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if btnType == "url" {
+		if btnType == "url" || btnType == "share" {
 			u, err := url.ParseRequestURI(btn.Value)
-			if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
-				RespondError(w, r, http.StatusBadRequest, "invalid URL in buttons: must be a valid http or https address", err)
+			if err != nil || (u.Scheme != "http" && u.Scheme != "https" && u.Scheme != "tg") || ((u.Scheme == "http" || u.Scheme == "https") && u.Host == "") {
+				RespondError(w, r, http.StatusBadRequest, "invalid URL in buttons: must be a valid http, https, or tg address", err)
 				return
 			}
 		}
@@ -666,7 +666,7 @@ func (h *ChannelHandler) SaveButtons(w http.ResponseWriter, r *http.Request) {
 		// Webapp buttons MUST use secure https protocol according to Telegram specifications
 		if btnType == "webapp" {
 			u, err := url.ParseRequestURI(btn.Value)
-			if err != nil || u.Scheme != "https" {
+			if err != nil || u.Scheme != "https" || u.Host == "" {
 				RespondError(w, r, http.StatusBadRequest, "invalid WebApp URL: must be a secure https address", err)
 				return
 			}
