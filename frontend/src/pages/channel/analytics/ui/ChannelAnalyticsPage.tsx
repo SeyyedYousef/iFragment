@@ -136,9 +136,9 @@ export const ChannelAnalyticsPage: Component = () => {
 							trending_up
 						</span>
 						<h3
-							class={`text-2xl font-black ${getErrColor(analytics()?.summary.engagement_rate || 6.2)}`}
+							class={`text-2xl font-black ${getErrColor(analytics()?.summary?.engagement_rate ?? 0)}`}
 						>
-							{analytics()?.summary.engagement_rate || 6.2}%
+							{analytics()?.summary?.engagement_rate ?? 0}%
 						</h3>
 						<p class="text-[11px] text-[#8e8e93] font-medium">
 							{t('channelAnalytics.avgEngagement') || 'Engagement Rate'}
@@ -152,7 +152,7 @@ export const ChannelAnalyticsPage: Component = () => {
 							workspace_premium
 						</span>
 						<div class="flex items-end gap-2">
-							<h3 class="text-2xl font-black text-white">A+</h3>
+							<h3 class="text-2xl font-black text-white">{analytics()?.summary?.citation_index || 'A+'}</h3>
 							<span class="text-[12px] font-bold text-[#bf5af2] mb-1">Top 5%</span>
 						</div>
 						<p class="text-[11px] text-[#8e8e93] font-medium">
@@ -168,8 +168,12 @@ export const ChannelAnalyticsPage: Component = () => {
 									{t('channelAnalytics.followersGrowth') || 'Member Growth'}
 								</span>
 								<div class="flex items-end gap-2">
-									<h3 class="text-2xl font-black text-white">+845</h3>
-									<span class="text-[12px] font-bold text-[#34c759] mb-1">↑ 12%</span>
+									<h3 class="text-2xl font-black text-white">+{analytics()?.summary?.new_members || 0}</h3>
+									<Show when={analytics()?.summary?.new_members_today}>
+										<span class="text-[12px] font-bold text-[#34c759] mb-1">
+											+{analytics()?.summary?.new_members_today} today
+										</span>
+									</Show>
 								</div>
 							</div>
 							<span class="material-symbols-outlined text-[#34c759] text-[20px]">groups</span>
@@ -199,7 +203,9 @@ export const ChannelAnalyticsPage: Component = () => {
 								<span class="text-[11px] text-[#8e8e93] font-medium">
 									{t('channelAnalytics.viewsPerPostAvg') || 'Views Per Post (Avg)'}
 								</span>
-								<h3 class="text-2xl font-black text-white">1,240</h3>
+								<h3 class="text-2xl font-black text-white">
+									{analytics()?.summary?.total_views || 0}
+								</h3>
 							</div>
 							<span class="material-symbols-outlined text-[#32ade6] text-[20px]">visibility</span>
 						</div>
