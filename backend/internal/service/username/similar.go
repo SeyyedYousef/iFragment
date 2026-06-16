@@ -16,11 +16,12 @@ var levenshteinPool = sync.Pool{
 }
 
 type SimilarUsername struct {
-	Username    string  `json:"username"`
-	Score       float64 `json:"score"`
-	Reason      string  `json:"reason"`
-	RarityScore int     `json:"rarity_score"`
-	FragmentURL string  `json:"fragment_url"`
+	Username     string  `json:"username"`
+	Score        float64 `json:"score"`
+	Reason       string  `json:"reason"`
+	RarityScore  int     `json:"rarity_score"`
+	FragmentURL  string  `json:"fragment_url"`
+	OwnerAddress string  `json:"owner_address,omitempty"`
 }
 
 func (s *ReportService) FindSimilarUsernames(ctx context.Context, username string, limit int) ([]SimilarUsername, error) {
@@ -71,6 +72,22 @@ func (s *ReportService) FindSimilarUsernames(ctx context.Context, username strin
 	if len(results) > limit {
 		results = results[:limit]
 	}
+
+	if s.tonClient != nil {
+		var wg sync.WaitGroup
+		for i := range results {
+			wg.Add(1)
+			go func(idx int) {
+				defer wg.Done()
+				nft, err := s.tonClient.GetNFTByDNS(ctx, results[idx].Username)
+				if err == nil && nft != nil && nft.Owner.Address != "" {
+					results[idx].OwnerAddress = nft.Owner.Address
+				}
+			}(i)
+		}
+		wg.Wait()
+	}
+
 	return results, nil
 }
 

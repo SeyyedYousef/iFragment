@@ -19,9 +19,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"ifragment-backend/internal/client/fragment"
-
-	"ifragment-backend/internal/client/marketapp"
 	"ifragment-backend/internal/client/mtproto"
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/client/tonapi"
@@ -228,18 +225,16 @@ func main() {
 	// Initialize Clients
 	tonClient := tonapi.NewClient()
 
-	fragClient := fragment.NewClient()
 	mtprotoClient, err := mtproto.InitClient(ctx)
 	if err != nil {
 		slog.Error("FATAL: Failed to initialize MTProto client", "error", err)
 		os.Exit(1)
 	}
-	marketappClient := marketapp.NewClient()
 
 	// Initialize Services
-	aggregatorService := username.NewAggregatorService(tonClient, marketappClient, cache)
+	aggregatorService := username.NewAggregatorService(tonClient, cache)
 	paymentService := payment.NewStarsService(db)
-	reportService := username.NewReportService(ctx, db, cache, tonClient, fragClient, marketappClient, mtprotoClient)
+	reportService := username.NewReportService(ctx, db, cache, tonClient, mtprotoClient)
 
 	// Initialize Bot Management repos & services
 	botRepo := repository.NewBotRepo(db)
@@ -271,7 +266,7 @@ func main() {
 
 	channelHandler := handler.NewChannelHandler(channelService)
 
-	usernameHandler := handler.NewUsernameHandler(aggregatorService, reportService, fragClient, mtprotoClient, cache)
+	usernameHandler := handler.NewUsernameHandler(aggregatorService, reportService, mtprotoClient, cache)
 	premiumHandler := handler.NewPremiumHandler(reportService, paymentService)
 	webhookHandler := handler.NewWebhookHandler(db, moderatorService, botRepo, channelService)
 	botMgmtHandler := handler.NewBotMgmtHandler(botService, marketplaceService)

@@ -3,21 +3,21 @@ import solidPlugin from 'vite-plugin-solid';
 import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
-  plugins: [solidPlugin({ hot: false }), tsconfigPaths()],
-  test: {
-    environment: 'jsdom',
-    globals: true,
-    setupFiles: ['./src/test-setup.tsx'],
-    exclude: [...configDefaults.exclude, 'e2e-tests/**/*'],
-    deps: {
-      optimizer: {
-        web: {
-          include: ['solid-js'],
-        },
-      },
-    },
-  },
-  resolve: {
-    conditions: ['browser'],
-  },
+	plugins: [solidPlugin({ hot: false }), tsconfigPaths()],
+	test: {
+		environment: 'jsdom',
+		globals: true,
+		setupFiles: ['./src/test-setup.tsx'],
+		exclude: [...configDefaults.exclude, 'e2e-tests/**/*'],
+		deps: {
+			optimizer: {
+				web: {
+					include: ['solid-js'],
+				},
+			},
+		},
+	},
+	resolve: {
+		conditions: ['browser'],
+	},
 });

@@ -7,6 +7,60 @@ import { requestPremiumReport, usePremiumReport } from '@/entities/username/api/
 import { formatNumber, useI18n } from '@/shared/i18n/index.js';
 import { openInvoice } from '@/shared/lib/telegram-native.js';
 
+const tooltipDict = {
+	wallet_portfolio: {
+		en: 'Total value of all assets held in the owner\'s wallet',
+		fa: 'ارزش کل دارایی‌های موجود در کیف پول مالک',
+		ru: 'Общая стоимость всех активов в кошельке владельца',
+		ar: 'القيمة الإجمالية لجميع الأصول الموجودة في محفظة المالك',
+		zh: '所有者钱包中持有的所有资产的总价值'
+	},
+	has_ton_synergy: {
+		en: 'Indicates if the username aligns well with the TON ecosystem',
+		fa: 'نشان می‌دهد که آیا نام کاربری با اکوسیستم TON همسو است یا خیر',
+		ru: 'Указывает, хорошо ли имя пользователя согласуется с экосистемой TON',
+		ar: 'يشير إلى ما إذا كان اسم المستخدم يتماشى جيدًا مع نظام TON البيئي',
+		zh: '指示用户名是否与 TON 生态系统良好契合'
+	},
+	roi_percentage: {
+		en: 'Estimated Return on Investment based on historical sales',
+		fa: 'بازده تخمینی سرمایه‌گذاری بر اساس فروش‌های گذشته',
+		ru: 'Предполагаемая рентабельность инвестиций на основе исторических продаж',
+		ar: 'العائد المقدر على الاستثمار بناءً على المبيعات التاريخية',
+		zh: '基于历史销售情况的预计投资回报率'
+	},
+	channel_empire_reach: {
+		en: 'Potential audience reach if used for a Telegram channel',
+		fa: 'دسترسی بالقوه به مخاطبان در صورت استفاده برای کانال تلگرام',
+		ru: 'Потенциальный охват аудитории при использовании для Telegram-канала',
+		ar: 'الوصول المحتمل للجمهور إذا تم استخدامه لقناة تيليجرام',
+		zh: '如果用于 Telegram 频道的潜在受众范围'
+	},
+	potential_buyers: {
+		en: 'List of wallets with high balance that might be interested',
+		fa: 'لیست کیف پول‌های با موجودی بالا که ممکن است علاقه‌مند باشند',
+		ru: 'Список кошельков с высоким балансом, которые могут быть заинтересованы',
+		ar: 'قائمة المحافظ ذات الرصيد المرتفع التي قد تكون مهتمة',
+		zh: '可能感兴趣的高余额钱包列表'
+	}
+};
+
+const Tooltip: Component<{ textKey: keyof typeof tooltipDict; locale: string }> = (props) => {
+	const currentLocale = () => (['en', 'fa', 'ru', 'ar', 'zh'].includes(props.locale) ? props.locale : 'en') as 'en' | 'fa' | 'ru' | 'ar' | 'zh';
+	const text = () => tooltipDict[props.textKey][currentLocale()];
+	const isRtl = () => currentLocale() === 'fa' || currentLocale() === 'ar';
+
+	return (
+		<div class="group relative flex items-center justify-center cursor-help ml-1">
+			<span class="material-symbols-outlined text-[#8e8e93] text-[14px]">info</span>
+			<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-48 p-2 bg-[#1c1c1c] text-white text-[10px] rounded-lg shadow-xl border border-[#2a2a2a] z-50 pointer-events-none" dir={isRtl() ? 'rtl' : 'ltr'}>
+				{text()}
+				<div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#1c1c1c]"></div>
+			</div>
+		</div>
+	);
+};
+
 type ApiError = Error & { response?: { status?: number; data?: { message?: string } } };
 
 const Skeleton: Component = () => (
@@ -28,7 +82,7 @@ const Skeleton: Component = () => (
 export const PremiumReportPage: Component = () => {
 	const [searchParams] = useSearchParams();
 	const navigate = useNavigate();
-	const { t } = useI18n();
+	const { t, locale } = useI18n();
 	const username = () => searchParams.u || '';
 	const [isPaying, setIsPaying] = createSignal(false);
 	const [paymentError, setPaymentError] = createSignal('');
@@ -575,6 +629,92 @@ export const PremiumReportPage: Component = () => {
 								</div>
 							</Show>
 						</div>
+
+						{/* ── PHASE 3 & ADVANCED METRICS ── */}
+						<Show when={report.data?.wallet_portfolio !== undefined || report.data?.has_ton_synergy !== undefined || report.data?.roi_percentage !== undefined || report.data?.channel_empire_reach !== undefined || (report.data?.potential_buyers && report.data?.potential_buyers.length > 0)}>
+							<div class="bg-[#141518] border border-[#2a2a2a] p-5 rounded-none border-l-4 border-l-[#3390ec] mb-4 space-y-4 relative overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+								<h3 class="text-[#8e8e93] text-xs font-black uppercase tracking-widest flex items-center gap-2">
+									<span class="material-symbols-outlined text-[16px]">insights</span> Advanced Intelligence
+								</h3>
+
+								<div class="grid grid-cols-2 gap-4 border-b border-[#2a2a2a] pb-4">
+									<Show when={report.data?.wallet_portfolio !== undefined}>
+										<div class="flex flex-col gap-1">
+											<div class="flex items-center gap-1">
+												<span class="text-[10px] text-[#8e8e93] font-bold uppercase">Wallet Portfolio</span>
+												<Tooltip textKey="wallet_portfolio" locale={locale()} />
+											</div>
+											<span class="text-sm font-black text-white">{report.data!.wallet_portfolio} TON</span>
+										</div>
+									</Show>
+									
+									<Show when={report.data?.has_ton_synergy !== undefined}>
+										<div class="flex flex-col gap-1">
+											<div class="flex items-center gap-1">
+												<span class="text-[10px] text-[#8e8e93] font-bold uppercase">TON Synergy</span>
+												<Tooltip textKey="has_ton_synergy" locale={locale()} />
+											</div>
+											<span class={`text-sm font-black uppercase ${report.data!.has_ton_synergy ? 'text-[#34c759]' : 'text-[#ff3b30]'}`}>
+												{report.data!.has_ton_synergy ? 'High' : 'Low'}
+											</span>
+										</div>
+									</Show>
+
+									<Show when={report.data?.roi_percentage !== undefined}>
+										<div class="flex flex-col gap-1">
+											<div class="flex items-center gap-1">
+												<span class="text-[10px] text-[#8e8e93] font-bold uppercase">Est. ROI</span>
+												<Tooltip textKey="roi_percentage" locale={locale()} />
+											</div>
+											<span class="text-sm font-black text-[#ff9500]">+{report.data!.roi_percentage}%</span>
+										</div>
+									</Show>
+
+									<Show when={report.data?.channel_empire_reach !== undefined}>
+										<div class="flex flex-col gap-1">
+											<div class="flex items-center gap-1">
+												<span class="text-[10px] text-[#8e8e93] font-bold uppercase">Empire Reach</span>
+												<Tooltip textKey="channel_empire_reach" locale={locale()} />
+											</div>
+											<span class="text-sm font-black text-[#3390ec]">{formatNumber(report.data!.channel_empire_reach!)}</span>
+										</div>
+									</Show>
+								</div>
+
+								<Show when={report.data?.potential_buyers && report.data?.potential_buyers.length > 0}>
+									<div class="pt-2">
+										<div class="flex items-center gap-1 mb-3">
+											<span class="text-[11px] font-bold text-[#8e8e93] uppercase tracking-wider">Potential Buyers</span>
+											<Tooltip textKey="potential_buyers" locale={locale()} />
+										</div>
+										<div class="bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl overflow-hidden max-h-[200px] overflow-y-auto">
+											<table class="w-full text-left text-xs">
+												<thead class="bg-[#2a2a2a] text-[#8e8e93] sticky top-0 z-10">
+													<tr>
+														<th class="px-3 py-2 font-bold uppercase">Address</th>
+														<th class="px-3 py-2 font-bold uppercase text-right">Balance</th>
+													</tr>
+												</thead>
+												<tbody class="divide-y divide-[#2a2a2a]">
+													<For each={report.data!.potential_buyers}>
+														{(buyer) => (
+															<tr class="hover:bg-[#2a2a2a]/50 transition-colors">
+																<td class="px-3 py-2 font-mono text-[#3390ec] max-w-[120px] truncate" title={buyer.owner_address}>
+																	{buyer.owner_address.slice(0, 4)}...{buyer.owner_address.slice(-4)}
+																</td>
+																<td class="px-3 py-2 font-black text-white text-right">
+																	{buyer.balance !== undefined ? buyer.balance.toFixed(1) : 'N/A'} TON
+																</td>
+															</tr>
+														)}
+													</For>
+												</tbody>
+											</table>
+										</div>
+									</div>
+								</Show>
+							</div>
+						</Show>
 
 						{/* ── ACTION BUTTONS ── */}
 						<div class="mt-8 space-y-3">

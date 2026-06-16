@@ -185,7 +185,10 @@ export const ChannelInlineButtonsPage: Component = () => {
 
 	const applyPreset = (preset: string) => {
 		if (buttons().length > 0) {
-			const confirmed = window.confirm(t('channelInlineButtons.presetWarning') || 'Applying a preset will overwrite your existing buttons. Are you sure?');
+			const confirmed = window.confirm(
+				t('channelInlineButtons.presetWarning') ||
+					'Applying a preset will overwrite your existing buttons. Are you sure?',
+			);
 			if (!confirmed) return;
 		}
 		hapticFeedback.impactOccurred('medium');
@@ -286,7 +289,10 @@ export const ChannelInlineButtonsPage: Component = () => {
 		} catch (e) {
 			console.error('Failed to save inline buttons to server:', e);
 			hapticFeedback.notificationOccurred('error');
-			showToast(t('channelInlineButtons.saveFailed') || 'Failed to save settings. Try again.', 'error');
+			showToast(
+				t('channelInlineButtons.saveFailed') || 'Failed to save settings. Try again.',
+				'error',
+			);
 		} finally {
 			setIsSaving(false);
 		}

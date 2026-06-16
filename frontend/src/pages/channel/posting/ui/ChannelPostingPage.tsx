@@ -103,7 +103,10 @@ export const ChannelPostingPage: Component = () => {
 				setConfig(reconcile(merged));
 				return settings;
 			} catch (e) {
-				showToast((t as any)('channelPosting.failedToLoadSettings') || 'Failed to load settings', 'error');
+				showToast(
+					(t as any)('channelPosting.failedToLoadSettings') || 'Failed to load settings',
+					'error',
+				);
 				throw e;
 			}
 		},
@@ -158,7 +161,10 @@ export const ChannelPostingPage: Component = () => {
 			} else if (res.status === 429) {
 				setConnectionStatus('failed');
 				hapticFeedback.notificationOccurred('error');
-				showToast((t as any)('channelPosting.rateLimitExceeded') || 'Rate limit exceeded. Try again later.', 'error');
+				showToast(
+					(t as any)('channelPosting.rateLimitExceeded') || 'Rate limit exceeded. Try again later.',
+					'error',
+				);
 			} else {
 				const errorData = await res.json().catch(() => null);
 				setConnectionStatus('failed');
@@ -205,10 +211,16 @@ export const ChannelPostingPage: Component = () => {
 			if (e.name === 'AbortError') return;
 			const errMessage = e.response?.data?.message || e.message;
 			if (errMessage.includes('blocked due to safety')) {
-				showToast(t('channelPosting.simSafetyBlocked') || '❌ Content blocked due to safety reasons.', 'error');
+				showToast(
+					t('channelPosting.simSafetyBlocked') || '❌ Content blocked due to safety reasons.',
+					'error',
+				);
 				hapticFeedback.notificationOccurred('error');
 			} else {
-				showToast(t('channelPosting.simError') || '❌ Failed to generate content. Try again.', 'error');
+				showToast(
+					t('channelPosting.simError') || '❌ Failed to generate content. Try again.',
+					'error',
+				);
 				hapticFeedback.notificationOccurred('error');
 			}
 			console.error('Gemini generation failed:', e);
@@ -304,13 +316,18 @@ export const ChannelPostingPage: Component = () => {
 				>
 					<div class="flex items-center gap-2 mb-1">
 						<span class="material-symbols-outlined text-[#ff9f0a] text-[20px]">bolt</span>
-						<h2 class="text-[16px] font-bold text-white">{t('channelPosting.smartBotSettings') || 'Smart Editor Bot Settings'}</h2>
+						<h2 class="text-[16px] font-bold text-white">
+							{t('channelPosting.smartBotSettings') || 'Smart Editor Bot Settings'}
+						</h2>
 					</div>
 
 					<div class="flex flex-col gap-3">
 						<SettingsSection
-							title={t('channelPosting.enableSmartEditor') || "Enable Smart Editor"}
-							description={t('channelPosting.enableSmartEditorDesc') || "When you send a post in your channel, the bot automatically receives, processes, and edits it."}
+							title={t('channelPosting.enableSmartEditor') || 'Enable Smart Editor'}
+							description={
+								t('channelPosting.enableSmartEditorDesc') ||
+								'When you send a post in your channel, the bot automatically receives, processes, and edits it.'
+							}
 							enabled={config.aiComposerEnabled}
 							onToggle={(v) => updateField('aiComposerEnabled', v)}
 						/>
@@ -318,8 +335,11 @@ export const ChannelPostingPage: Component = () => {
 						<div class="h-[1px] bg-[#2a2a2a] w-full my-1"></div>
 
 						<SettingsSection
-							title={t('channelPosting.confirmBeforeEdit') || "Confirm before editing (Bot DM)"}
-							description={t('channelPosting.confirmBeforeEditDesc') || "The bot will send the final version to your DM first. After your approval, the channel post is edited."}
+							title={t('channelPosting.confirmBeforeEdit') || 'Confirm before editing (Bot DM)'}
+							description={
+								t('channelPosting.confirmBeforeEditDesc') ||
+								'The bot will send the final version to your DM first. After your approval, the channel post is edited.'
+							}
 							enabled={config.aiConfirmBeforeEdit}
 							onToggle={(v) => updateField('aiConfirmBeforeEdit', v)}
 						/>
@@ -379,7 +399,9 @@ export const ChannelPostingPage: Component = () => {
 								<Show when={connectionStatus() === 'testing'}>
 									<span class="w-4 h-4 border-2 border-[#3390ec]/30 border-t-[#3390ec] rounded-full animate-spin"></span>
 								</Show>
-								<Show when={connectionStatus() === 'idle'}>{t('channelPosting.testConnection') || 'Test'}</Show>
+								<Show when={connectionStatus() === 'idle'}>
+									{t('channelPosting.testConnection') || 'Test'}
+								</Show>
 								<Show when={connectionStatus() === 'success'}>
 									<span class="w-2.5 h-2.5 bg-[#34c759] rounded-full shadow-[0_0_8px_#34c759]"></span>
 								</Show>

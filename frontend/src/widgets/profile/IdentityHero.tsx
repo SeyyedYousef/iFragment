@@ -227,10 +227,50 @@ export const IdentityHero: Component<Props> = (props) => {
 					class="flex items-center gap-1 mt-1 px-3 py-1 rounded-full hover:bg-white/5 transition-colors"
 				>
 					<span class="text-[#a0a4ad] font-medium text-sm">@{user?.username || 'Guest'}</span>
+					<Show when={user?.is_verified || (user as any)?.isVerified}>
+						<span
+							class="material-symbols-outlined text-[14px] text-[#3390ec]"
+							style={{ 'font-variation-settings': '"FILL" 1' }}
+							title="Verified"
+						>
+							verified
+						</span>
+					</Show>
+					<Show when={user?.is_scam || (user as any)?.isScam}>
+						<span
+							class="material-symbols-outlined text-[14px] text-red-500"
+							style={{ 'font-variation-settings': '"FILL" 1' }}
+							title="Scam"
+						>
+							warning
+						</span>
+					</Show>
 					<span class="material-symbols-outlined text-[14px] text-[#a0a4ad]">
 						{copied() === 'username' ? 'check' : 'content_copy'}
 					</span>
 				</button>
+
+				{/* Bio & Bot Info */}
+				<Show when={(user as any)?.bio || ((user as any)?.is_bot && (user as any)?.bot_info)}>
+					<div class="mt-3 flex flex-col items-center gap-2 w-full max-w-sm px-4">
+						<Show when={(user as any)?.bio}>
+							<p class="text-white/80 text-sm leading-relaxed text-center whitespace-pre-wrap font-medium">
+								{(user as any)?.bio}
+							</p>
+						</Show>
+						<Show when={(user as any)?.is_bot && (user as any)?.bot_info}>
+							<div class="bg-[#3390ec]/10 border border-[#3390ec]/20 rounded-xl p-3 w-full text-center mt-1">
+								<div class="flex items-center justify-center gap-1 mb-1">
+									<span class="material-symbols-outlined text-[14px] text-[#3390ec]">smart_toy</span>
+									<span class="text-[#3390ec] text-[10px] font-black uppercase tracking-widest">Bot Info</span>
+								</div>
+								<p class="text-white/70 text-xs leading-relaxed whitespace-pre-wrap">
+									{(user as any)?.bot_info}
+								</p>
+							</div>
+						</Show>
+					</div>
+				</Show>
 
 				{/* Level badge */}
 				<Show when={levelInfo()}>

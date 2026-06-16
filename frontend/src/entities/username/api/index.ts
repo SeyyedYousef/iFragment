@@ -25,6 +25,8 @@ export interface CollectionStats {
 	};
 	last_updated_at?: number;
 	next_update_at?: number;
+	is_stale?: boolean;
+	data_source?: string;
 }
 
 export interface AvailabilityStatus {
@@ -58,8 +60,8 @@ export interface PriceEstimate {
 export interface SaleRecord {
 	price: number;
 	date: string;
-	from?: string;
-	to?: string;
+	from: string;
+	to: string;
 }
 
 export interface PremiumReport {
@@ -92,6 +94,12 @@ export interface PremiumReport {
 	owner_wallet_balance?: number;
 	owner_other_assets?: number;
 
+	wallet_portfolio?: number | string;
+	potential_buyers?: Array<{ owner_address: string; balance?: number; other_assets?: number }>;
+	has_ton_synergy?: boolean;
+	roi_percentage?: number;
+	channel_empire_reach?: number;
+
 	rarity_score: number;
 	linguistic_score: number;
 	estimated_value?: number;
@@ -99,6 +107,10 @@ export interface PremiumReport {
 	search_popularity: number;
 	fragment_url: string;
 	exchange_rate?: number;
+
+	bio?: string;
+	bot_info?: string;
+	profile_photo_id?: number;
 
 	generated_at: string;
 }
@@ -118,6 +130,10 @@ export const useUsernameQuickAnalysis = (username: () => string | undefined | nu
 
 	createEffect(() => {
 		const val = username();
+		if (!val || val.length < 4) {
+			setDebouncedUsername(val);
+			return;
+		}
 		const timeout = setTimeout(() => {
 			setDebouncedUsername(val);
 		}, 450); // 450ms debounce
@@ -160,6 +176,24 @@ export const requestPremiumReport = async (username: string) => {
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ username }),
 	});
+};
+
+export interface ReportHistoryItem {
+	id: string;
+	user_id: number;
+	username: string;
+	status: string;
+	rarity_score: number;
+	report_data: PremiumReport;
+	created_at: string;
+}
+
+export const usePremiumReportHistory = () => {
+	return createQuery(() => ({
+		queryKey: ['username', 'report', 'history'],
+		queryFn: () => apiFetch<ReportHistoryItem[]>('/usernames/report/history'),
+		staleTime: 5 * 60 * 1000, // 5 minutes
+	}));
 };
 
 export const useTrendingUsernames = () => {

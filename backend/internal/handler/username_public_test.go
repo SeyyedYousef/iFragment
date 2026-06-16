@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"ifragment-backend/internal/client/fragment"
 	"ifragment-backend/internal/client/mtproto"
 	"ifragment-backend/internal/service/username"
 )
@@ -27,17 +26,15 @@ func (m mockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 func TestCheckAvailability(t *testing.T) {
 	// Setup dependencies
 	mockMTProto := mtproto.NewMockClient()
-	fragClient := fragment.NewClient()
-	fragClient.HTTP.Transport = mockRoundTripper{} // Prevent network requests
 
-	aggService := username.NewAggregatorService(nil, nil, nil)
-	reportService := username.NewReportService(context.Background(), nil, nil, nil, nil, nil, mockMTProto)
+	aggService := username.NewAggregatorService(nil, nil)
+	reportService := username.NewReportService(context.Background(), nil, nil, nil, mockMTProto)
 
 	// Inject MTProto Mock
-	h := NewUsernameHandler(aggService, reportService, fragClient, mockMTProto, nil)
+	h := NewUsernameHandler(aggService, reportService, mockMTProto, nil)
 
-	// Test case: Invalid username (too short)
-	req := httptest.NewRequest("GET", "/api/v1/usernames/check?u=ab", nil)
+	// Test case: Invalid username (invalid format)
+	req := httptest.NewRequest("GET", "/api/v1/usernames/check?u=invalid!chars", nil)
 	w := httptest.NewRecorder()
 	h.CheckAvailability(w, req)
 
@@ -66,9 +63,9 @@ func TestCheckAvailability(t *testing.T) {
 
 func TestGetSimilar(t *testing.T) {
 	mockMTProto := mtproto.NewMockClient()
-	aggService := username.NewAggregatorService(nil, nil, nil)
-	reportService := username.NewReportService(context.Background(), nil, nil, nil, nil, nil, mockMTProto)
-	h := NewUsernameHandler(aggService, reportService, nil, mockMTProto, nil)
+	aggService := username.NewAggregatorService(nil, nil)
+	reportService := username.NewReportService(context.Background(), nil, nil, nil, mockMTProto)
+	h := NewUsernameHandler(aggService, reportService, mockMTProto, nil)
 
 	req := httptest.NewRequest("GET", "/api/v1/usernames/similar?u=news&limit=3", nil)
 	w := httptest.NewRecorder()

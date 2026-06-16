@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"ifragment-backend/internal/client/marketapp"
 	"math"
 	"net/http"
 	"net/url"
@@ -314,7 +313,7 @@ type saleStats struct {
 	lastSaleAt time.Time
 }
 
-func paidSaleStats(sales []marketapp.SaleRecord) saleStats {
+func paidSaleStats(sales []SaleRecord) saleStats {
 	prices := make([]float64, 0, len(sales))
 	var total, highest float64
 	var lastSaleAt time.Time
@@ -370,6 +369,11 @@ func estimatedLiquidityScore(r *FullReport, paidSalesCount int) float64 {
 	if r.BuyNowPrice > 0 || r.HighestBid > 0 {
 		score += 15
 	}
+	
+	if r.ParticipantsCount > 10000 || r.IsVerified || r.IsPremium {
+		score += 50
+	}
+
 	if score > 100 {
 		return 100
 	}

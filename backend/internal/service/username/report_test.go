@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"ifragment-backend/internal/client/marketapp"
 )
 
 func TestUsernameLengthCountsRunes(t *testing.T) {
@@ -17,7 +15,7 @@ func TestUsernameLengthCountsRunes(t *testing.T) {
 }
 
 func TestCalculateRarityUsesRuneLength(t *testing.T) {
-	service := NewReportService(context.Background(), nil, nil, nil, nil, nil, nil)
+	service := NewReportService(context.Background(), nil, nil, nil, nil)
 	got := service.CalculateRarity("\u0627\u0628\u062c\u062d")
 
 	want := DefaultRarityConfig.Length4Bonus + DefaultRarityConfig.Unique5Bonus + DefaultRarityConfig.NoUnderscoreBonus
@@ -37,7 +35,7 @@ func TestEstimateValueUsesMarketAndReportSignals(t *testing.T) {
 		OwnerWalletBalance: 5000,
 		OwnerOtherAssets:   12,
 		PreviousOwners:     []string{"a", "b", "c"},
-		PastSales: []marketapp.SaleRecord{
+		PastSales: []SaleRecord{
 			{Price: 1000},
 			{Price: 9000},
 			{Price: 5000},
@@ -68,7 +66,7 @@ func TestEstimateValueIgnoresZeroPriceTransferHistoryAsSaleAnchor(t *testing.T) 
 		Length:          5,
 		RarityScore:     1700,
 		LinguisticScore: 75,
-		PastSales: []marketapp.SaleRecord{
+		PastSales: []SaleRecord{
 			{Price: 0},
 			{Price: 0},
 		},
@@ -97,7 +95,7 @@ func TestBuildPricingFeaturesIncludesMarketTextAndOwnerSignals(t *testing.T) {
 		OwnerOtherAssets:   3,
 		PreviousOwners:     []string{"a", "b"},
 		MintDate:           "2025-01-01",
-		PastSales: []marketapp.SaleRecord{
+		PastSales: []SaleRecord{
 			{Price: 100, Date: "2025-02-01"},
 			{Price: 300, Date: "2025-03-01"},
 		},
@@ -141,7 +139,7 @@ func TestReportServiceUsesExternalPricingModelWhenConfigured(t *testing.T) {
 	}))
 	defer server.Close()
 
-	service := NewReportService(context.Background(), nil, nil, nil, nil, nil, nil)
+	service := NewReportService(context.Background(), nil, nil, nil, nil)
 	service.pricingClient = NewPricingClient(server.URL)
 
 	estimate := service.estimateValue(context.Background(), &FullReport{
@@ -157,7 +155,7 @@ func TestReportServiceUsesExternalPricingModelWhenConfigured(t *testing.T) {
 }
 
 func TestFindSimilarUsernamesReturnsRankedCandidates(t *testing.T) {
-	service := NewReportService(context.Background(), nil, nil, nil, nil, nil, nil)
+	service := NewReportService(context.Background(), nil, nil, nil, nil)
 
 	results, err := service.FindSimilarUsernames(context.Background(), "news", 5)
 	if err != nil {

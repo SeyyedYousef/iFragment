@@ -152,7 +152,9 @@ export const ChannelAnalyticsPage: Component = () => {
 							workspace_premium
 						</span>
 						<div class="flex items-end gap-2">
-							<h3 class="text-2xl font-black text-white">{analytics()?.summary?.citation_index || 'A+'}</h3>
+							<h3 class="text-2xl font-black text-white">
+								{analytics()?.summary?.citation_index || 'A+'}
+							</h3>
 							<span class="text-[12px] font-bold text-[#bf5af2] mb-1">Top 5%</span>
 						</div>
 						<p class="text-[11px] text-[#8e8e93] font-medium">
@@ -168,7 +170,9 @@ export const ChannelAnalyticsPage: Component = () => {
 									{t('channelAnalytics.followersGrowth') || 'Member Growth'}
 								</span>
 								<div class="flex items-end gap-2">
-									<h3 class="text-2xl font-black text-white">+{analytics()?.summary?.new_members || 0}</h3>
+									<h3 class="text-2xl font-black text-white">
+										+{analytics()?.summary?.new_members || 0}
+									</h3>
 									<Show when={analytics()?.summary?.new_members_today}>
 										<span class="text-[12px] font-bold text-[#34c759] mb-1">
 											+{analytics()?.summary?.new_members_today} today

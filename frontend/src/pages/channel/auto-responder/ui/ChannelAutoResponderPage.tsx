@@ -30,7 +30,9 @@ export const ChannelAutoResponderPage: Component = () => {
 	const [matchType, setMatchType] = createSignal('contains');
 	const [replyText, setReplyText] = createSignal('');
 	const [useAi, setUseAi] = createSignal(false);
-	const [rules, setRules] = createSignal<{ id: string; keys: string; match: string; replyText: string }[]>([]);
+	const [rules, setRules] = createSignal<
+		{ id: string; keys: string; match: string; replyText: string }[]
+	>([]);
 
 	// Top-Level State
 	const [autoFirstComment, setAutoFirstComment] = createSignal(false);
@@ -134,7 +136,10 @@ export const ChannelAutoResponderPage: Component = () => {
 	const handleSaveRule = () => {
 		if (keywords().trim() && replyText().trim()) {
 			hapticFeedback.notificationOccurred('success');
-			setRules([...rules(), { id: Date.now().toString(), keys: keywords(), match: matchType(), replyText: replyText() }]);
+			setRules([
+				...rules(),
+				{ id: Date.now().toString(), keys: keywords(), match: matchType(), replyText: replyText() },
+			]);
 			setIsCreating(false);
 			setKeywords('');
 			setReplyText('');
@@ -263,7 +268,9 @@ export const ChannelAutoResponderPage: Component = () => {
 								<span class="text-[15px] font-bold text-white">
 									{t('channelAutoResponder.title') || 'Auto-Responder Engine'}
 								</span>
-								<span class="text-[11px] text-[#8e8e93]">Automatically reply to comments and messages</span>
+								<span class="text-[11px] text-[#8e8e93]">
+									Automatically reply to comments and messages
+								</span>
 							</div>
 							<ToggleSwitch checked={enabled()} onChange={setEnabled} />
 						</div>
@@ -278,336 +285,346 @@ export const ChannelAutoResponderPage: Component = () => {
 								class="flex flex-col gap-6"
 							>
 								{/* Auto First Comment */}
-						<div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-5 flex flex-col gap-4">
-							<SettingsSection
-								title={t('channelAutoResponder.firstComment') || 'Auto First Comment'}
-								description={
-									t('channelAutoResponder.firstCommentDesc') ||
-									'Automatically comment on your own posts.'
-								}
-								enabled={autoFirstComment()}
-								onToggle={setAutoFirstComment}
-							/>
-
-							<Show when={autoFirstComment()}>
-								<div class="flex flex-col gap-4 pt-4 border-t border-[#2a2a2a]">
-									<SelectField
-										label={t('channelAutoResponder.firstCommentMode') || 'Comment Mode'}
-										value={commentMode()}
-										onChange={setCommentMode}
-										options={[
-											{
-												value: 'fixed',
-												label: t('channelAutoResponder.modeFixed') || 'Fixed Text',
-											},
-											{
-												value: 'rotating',
-												label: t('channelAutoResponder.modeRotating') || 'Rotating Texts (Random)',
-											},
-											{
-												value: 'ai',
-												label: t('channelAutoResponder.modeAi') || 'AI Generated (Context Aware)',
-											},
-										]}
+								<div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-5 flex flex-col gap-4">
+									<SettingsSection
+										title={t('channelAutoResponder.firstComment') || 'Auto First Comment'}
+										description={
+											t('channelAutoResponder.firstCommentDesc') ||
+											'Automatically comment on your own posts.'
+										}
+										enabled={autoFirstComment()}
+										onToggle={setAutoFirstComment}
 									/>
 
-									<Show when={commentMode() === 'fixed'}>
-										<div class="flex flex-col gap-2">
-											<label class="text-[13px] font-bold text-white">
-												{t('channelAutoResponder.commentText') || 'Comment Text'}
-											</label>
-											<textarea
-												value={fixedComment()}
-												onInput={(e) => setFixedComment(e.currentTarget.value)}
-												placeholder={
-													t('channelAutoResponder.commentTextPlaceholder') ||
-													'e.g. Let us know what you think!'
-												}
-												class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-3 w-full min-h-[80px] focus:outline-none focus:ring-2 focus:ring-[#32ade6] resize-none"
+									<Show when={autoFirstComment()}>
+										<div class="flex flex-col gap-4 pt-4 border-t border-[#2a2a2a]">
+											<SelectField
+												label={t('channelAutoResponder.firstCommentMode') || 'Comment Mode'}
+												value={commentMode()}
+												onChange={setCommentMode}
+												options={[
+													{
+														value: 'fixed',
+														label: t('channelAutoResponder.modeFixed') || 'Fixed Text',
+													},
+													{
+														value: 'rotating',
+														label:
+															t('channelAutoResponder.modeRotating') || 'Rotating Texts (Random)',
+													},
+													{
+														value: 'ai',
+														label:
+															t('channelAutoResponder.modeAi') || 'AI Generated (Context Aware)',
+													},
+												]}
 											/>
-										</div>
-									</Show>
 
-									<Show when={commentMode() === 'rotating'}>
-										<div class="flex flex-col gap-3">
-											<label class="text-[13px] font-bold text-white">
-												{t('channelAutoResponder.rotatingTexts') || 'Rotating Texts'}
-											</label>
-											<div class="flex flex-col gap-2">
-												<For each={rotatingTexts()}>
-													{(text, i) => (
-														<div class="flex items-center justify-between bg-[#2c2c2e] px-3 py-2 rounded-lg border border-[#3a3a3c]">
-															<span class="text-[14px]">{text}</span>
-															<button
-																onClick={() => handleRemoveRotatingText(i())}
-																class="w-6 h-6 flex items-center justify-center text-[#ff3b30] bg-[#ff3b30]/10 rounded-full"
-															>
-																<span class="material-symbols-outlined text-[14px]">close</span>
-															</button>
-														</div>
-													)}
-												</For>
-											</div>
-											<div class="flex gap-2">
-												<input
-													type="text"
-													value={newRotatingText()}
-													onInput={(e) => setNewRotatingText(e.currentTarget.value)}
-													placeholder={
-														t('channelAutoResponder.addRotatingTextPlaceholder') ||
-														'Add new text...'
-													}
-													class="bg-[#2c2c2e] text-white text-[14px] rounded-lg px-3 py-2 flex-1 focus:outline-none focus:ring-2 focus:ring-[#32ade6]"
-												/>
-												<button
-													onClick={handleAddRotatingText}
-													disabled={!newRotatingText().trim()}
-													class="px-4 bg-[#32ade6] text-black font-bold rounded-lg hover:bg-[#2b96c8] disabled:opacity-50"
-												>
-													{t('channelAutoResponder.add') || 'Add'}
-												</button>
-											</div>
-										</div>
-									</Show>
+											<Show when={commentMode() === 'fixed'}>
+												<div class="flex flex-col gap-2">
+													<label class="text-[13px] font-bold text-white">
+														{t('channelAutoResponder.commentText') || 'Comment Text'}
+													</label>
+													<textarea
+														value={fixedComment()}
+														onInput={(e) => setFixedComment(e.currentTarget.value)}
+														placeholder={
+															t('channelAutoResponder.commentTextPlaceholder') ||
+															'e.g. Let us know what you think!'
+														}
+														class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-3 w-full min-h-[80px] focus:outline-none focus:ring-2 focus:ring-[#32ade6] resize-none"
+													/>
+												</div>
+											</Show>
 
-									<Show when={commentMode() === 'ai'}>
-										<div class="bg-gradient-to-r from-[#32ade6]/10 to-transparent p-3 rounded-xl border border-[#32ade6]/30 flex flex-col gap-1">
-											<span class="text-[14px] font-bold text-[#32ade6] flex items-center gap-1.5">
-												<span class="material-symbols-outlined text-[18px]">auto_awesome</span>
-												{t('channelAutoResponder.aiAutoComment') || 'AI Auto-Comment'}
-											</span>
-											<span class="text-[12px] text-on-surface-variant">
-												{t('channelAutoResponder.aiAutoCommentDesc') ||
-													'The AI will read your post and generate a highly relevant first comment automatically.'}
-											</span>
-										</div>
-									</Show>
+											<Show when={commentMode() === 'rotating'}>
+												<div class="flex flex-col gap-3">
+													<label class="text-[13px] font-bold text-white">
+														{t('channelAutoResponder.rotatingTexts') || 'Rotating Texts'}
+													</label>
+													<div class="flex flex-col gap-2">
+														<For each={rotatingTexts()}>
+															{(text, i) => (
+																<div class="flex items-center justify-between bg-[#2c2c2e] px-3 py-2 rounded-lg border border-[#3a3a3c]">
+																	<span class="text-[14px]">{text}</span>
+																	<button
+																		onClick={() => handleRemoveRotatingText(i())}
+																		class="w-6 h-6 flex items-center justify-center text-[#ff3b30] bg-[#ff3b30]/10 rounded-full"
+																	>
+																		<span class="material-symbols-outlined text-[14px]">close</span>
+																	</button>
+																</div>
+															)}
+														</For>
+													</div>
+													<div class="flex gap-2">
+														<input
+															type="text"
+															value={newRotatingText()}
+															onInput={(e) => setNewRotatingText(e.currentTarget.value)}
+															placeholder={
+																t('channelAutoResponder.addRotatingTextPlaceholder') ||
+																'Add new text...'
+															}
+															class="bg-[#2c2c2e] text-white text-[14px] rounded-lg px-3 py-2 flex-1 focus:outline-none focus:ring-2 focus:ring-[#32ade6]"
+														/>
+														<button
+															onClick={handleAddRotatingText}
+															disabled={!newRotatingText().trim()}
+															class="px-4 bg-[#32ade6] text-black font-bold rounded-lg hover:bg-[#2b96c8] disabled:opacity-50"
+														>
+															{t('channelAutoResponder.add') || 'Add'}
+														</button>
+													</div>
+												</div>
+											</Show>
 
-									{/* Attach Inline Buttons */}
-									<div class="flex flex-col gap-2 pt-2 border-t border-[#2a2a2a]">
-										<SelectField
-											label={t('channelAutoResponder.attachInlineBtn') || 'Attach Inline Buttons'}
-											value={attachButton()}
-											onChange={setAttachButton}
-											options={[
-												{ value: '', label: t('channelAutoResponder.btnNone') || 'None' },
-												{
-													value: 'like_set',
-													label: t('channelAutoResponder.btnLikeSet') || '👍👎 Like/Dislike Set',
-												},
-												{
-													value: 'share_set',
-													label: t('channelAutoResponder.btnShareSet') || 'Share Set',
-												},
-											]}
-										/>
-									</div>
-								</div>
-							</Show>
-						</div>
-
-						{/* New Member Welcome */}
-						<div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-5 flex flex-col gap-4">
-							<SettingsSection
-								title={t('channelAutoResponder.welcomeMessage') || 'New Member Welcome'}
-								description={
-									t('channelAutoResponder.welcomeMessageDesc') ||
-									'Send a message when someone joins the discussion group.'
-								}
-								enabled={newMemberWelcome()}
-								onToggle={setNewMemberWelcome}
-							/>
-							<Show when={newMemberWelcome()}>
-								<div class="flex flex-col gap-4 pt-4 border-t border-[#2a2a2a]">
-									<div class="flex gap-2">
-										<div class="flex-1 flex flex-col gap-2">
-											<label class="text-[13px] font-bold text-white">
-												{t('channelAutoResponder.welcomeDelay') || 'Delay (Seconds)'}
-											</label>
-											<input
-												type="number"
-												value={welcomeDelay()}
-												onInput={(e) => setWelcomeDelay(e.currentTarget.value)}
-												placeholder="0"
-												class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-3 w-full focus:outline-none focus:ring-2 focus:ring-[#32ade6]"
-											/>
-										</div>
-									</div>
-									<div class="flex flex-col gap-2">
-										<label class="text-[13px] font-bold text-white flex justify-between">
-											{t('channelAutoResponder.welcomeText') || 'Message Template'}
-											<span class="text-[#32ade6] text-[11px] font-normal">
-												{t('channelAutoResponder.useName') || 'Use $name'}
-											</span>
-										</label>
-										<textarea
-											value={welcomeText()}
-											onInput={(e) => setWelcomeText(e.currentTarget.value)}
-											placeholder={
-												t('channelAutoResponder.welcomeTextPlaceholder') ||
-												'Welcome $name to the group!'
-											}
-											class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-3 w-full min-h-[80px] focus:outline-none focus:ring-2 focus:ring-[#32ade6] resize-none"
-										/>
-									</div>
-								</div>
-							</Show>
-						</div>
-
-						{/* Keyword Rules */}
-						<div class="flex flex-col gap-3">
-							<h2 class="text-[16px] font-bold text-white flex items-center justify-between">
-								{t('channelAutoResponder.keywordAutoReplies') || 'Keyword Auto-Replies'}
-								<span class="bg-[#32ade6] text-black px-2 py-0.5 rounded-md text-[11px]">
-									{rules().length}
-								</span>
-							</h2>
-							<Show when={rules().length === 0}>
-								<div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-5 flex flex-col items-center text-center gap-3">
-									<div class="w-16 h-16 rounded-full bg-[#32ade6]/10 text-[#32ade6] flex items-center justify-center mb-2">
-										<span class="material-symbols-outlined text-[32px]">quickreply</span>
-									</div>
-									<h2 class="text-[16px] font-bold text-white">
-										{t('channelAutoResponder.noRules') || 'No Rules'}
-									</h2>
-									<p class="text-[13px] text-[#8e8e93]">
-										{t('channelAutoResponder.keywordRepliesDesc') ||
-											'Auto-reply to specific words in the comments.'}
-									</p>
-								</div>
-							</Show>
-
-							<Show when={rules().length > 0}>
-								<div class="flex flex-col gap-3">
-									<For each={rules()}>
-										{(rule) => (
-											<div class="bg-[#1c1c1c] rounded-2xl border border-[#2a2a2a] p-4 flex items-center justify-between gap-3">
-												<div class="flex flex-col flex-1 min-w-0">
-													<span class="text-[15px] font-bold text-white truncate">{rule.keys}</span>
-													<span class="text-[12px] text-[#32ade6] uppercase tracking-wide font-bold">
-														{getLocalizedMatch(rule.match)}
+											<Show when={commentMode() === 'ai'}>
+												<div class="bg-gradient-to-r from-[#32ade6]/10 to-transparent p-3 rounded-xl border border-[#32ade6]/30 flex flex-col gap-1">
+													<span class="text-[14px] font-bold text-[#32ade6] flex items-center gap-1.5">
+														<span class="material-symbols-outlined text-[18px]">auto_awesome</span>
+														{t('channelAutoResponder.aiAutoComment') || 'AI Auto-Comment'}
+													</span>
+													<span class="text-[12px] text-on-surface-variant">
+														{t('channelAutoResponder.aiAutoCommentDesc') ||
+															'The AI will read your post and generate a highly relevant first comment automatically.'}
 													</span>
 												</div>
-												<button
-													onClick={() => {
-														hapticFeedback.impactOccurred('light');
-														setRules(rules().filter((r) => r.id !== rule.id));
-													}}
-													class="w-8 h-8 rounded-full bg-[#ff3b30]/10 text-[#ff3b30] flex items-center justify-center transition-colors hover:bg-[#ff3b30]/20"
-												>
-													<span class="material-symbols-outlined text-[16px]">delete</span>
-												</button>
+											</Show>
+
+											{/* Attach Inline Buttons */}
+											<div class="flex flex-col gap-2 pt-2 border-t border-[#2a2a2a]">
+												<SelectField
+													label={
+														t('channelAutoResponder.attachInlineBtn') || 'Attach Inline Buttons'
+													}
+													value={attachButton()}
+													onChange={setAttachButton}
+													options={[
+														{ value: '', label: t('channelAutoResponder.btnNone') || 'None' },
+														{
+															value: 'like_set',
+															label:
+																t('channelAutoResponder.btnLikeSet') || '👍👎 Like/Dislike Set',
+														},
+														{
+															value: 'share_set',
+															label: t('channelAutoResponder.btnShareSet') || 'Share Set',
+														},
+													]}
+												/>
 											</div>
-										)}
-									</For>
+										</div>
+									</Show>
 								</div>
-							</Show>
-							<button
-								onClick={() => setIsCreating(true)}
-								class="mt-2 h-12 bg-[#32ade6] text-black font-bold rounded-xl hover:bg-[#2b96c8] transition-colors flex items-center justify-center gap-2"
-							>
-								<span class="material-symbols-outlined text-[18px]">add</span>
-								{t('channelAutoResponder.addRule') || 'Add Keyword Rule'}
-							</button>
-						</div>
-					</Motion.div>
-				</Show>
 
-				<Show when={isCreating()}>
-					<Motion.div
-						initial={{ opacity: 0, scale: 0.95 }}
-						animate={{ opacity: 1, scale: 1 }}
-						class="flex flex-col gap-4"
-					>
-						<div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-5 flex flex-col gap-4">
-							<div class="flex items-center justify-between">
-								<h2 class="text-[16px] font-bold text-white">
-									{t('channelAutoResponder.addRule') || 'Add Keyword Rule'}
-								</h2>
-								<ToggleSwitch checked={isRuleEnabled()} onChange={setIsRuleEnabled} />
-							</div>
+								{/* New Member Welcome */}
+								<div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-5 flex flex-col gap-4">
+									<SettingsSection
+										title={t('channelAutoResponder.welcomeMessage') || 'New Member Welcome'}
+										description={
+											t('channelAutoResponder.welcomeMessageDesc') ||
+											'Send a message when someone joins the discussion group.'
+										}
+										enabled={newMemberWelcome()}
+										onToggle={setNewMemberWelcome}
+									/>
+									<Show when={newMemberWelcome()}>
+										<div class="flex flex-col gap-4 pt-4 border-t border-[#2a2a2a]">
+											<div class="flex gap-2">
+												<div class="flex-1 flex flex-col gap-2">
+													<label class="text-[13px] font-bold text-white">
+														{t('channelAutoResponder.welcomeDelay') || 'Delay (Seconds)'}
+													</label>
+													<input
+														type="number"
+														value={welcomeDelay()}
+														onInput={(e) => setWelcomeDelay(e.currentTarget.value)}
+														placeholder="0"
+														class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-3 w-full focus:outline-none focus:ring-2 focus:ring-[#32ade6]"
+													/>
+												</div>
+											</div>
+											<div class="flex flex-col gap-2">
+												<label class="text-[13px] font-bold text-white flex justify-between">
+													{t('channelAutoResponder.welcomeText') || 'Message Template'}
+													<span class="text-[#32ade6] text-[11px] font-normal">
+														{t('channelAutoResponder.useName') || 'Use $name'}
+													</span>
+												</label>
+												<textarea
+													value={welcomeText()}
+													onInput={(e) => setWelcomeText(e.currentTarget.value)}
+													placeholder={
+														t('channelAutoResponder.welcomeTextPlaceholder') ||
+														'Welcome $name to the group!'
+													}
+													class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-3 w-full min-h-[80px] focus:outline-none focus:ring-2 focus:ring-[#32ade6] resize-none"
+												/>
+											</div>
+										</div>
+									</Show>
+								</div>
 
-							<div class="flex flex-col gap-2">
-								<label class="text-[13px] font-bold text-white">
-									{t('channelAutoResponder.triggerKey') || 'Keywords'}
-								</label>
-								<p class="text-[11px] text-on-surface-variant -mt-1">
-									{t('channelAutoResponder.commaSeparated') || 'Comma separated'}
-								</p>
-								<input
-									type="text"
-									value={keywords()}
-									onInput={(e) => setKeywords(e.currentTarget.value)}
-									placeholder="price, buy, cost"
-									class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-3 w-full focus:outline-none focus:ring-2 focus:ring-[#32ade6]"
-								/>
-							</div>
-
-							<SelectField
-								label={t('channelAutoResponder.matchType') || 'Match Type'}
-								value={matchType()}
-								onChange={setMatchType}
-								options={[
-									{ value: 'exact', label: t('channelAutoResponder.matchExact') || 'Exact Match' },
-									{
-										value: 'contains',
-										label: t('channelAutoResponder.matchContains') || 'Contains',
-									},
-									{ value: 'regex', label: t('channelAutoResponder.matchRegex') || 'Regex' },
-								]}
-							/>
-						</div>
-
-						<div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-5 flex flex-col gap-4">
-							<div class="flex flex-col gap-2">
-								<label class="text-[13px] font-bold text-white">
-									{t('channelAutoResponder.replyText') || 'Reply Text'}
-								</label>
-								<textarea
-									value={replyText()}
-									onInput={(e) => setReplyText(e.currentTarget.value)}
-									placeholder={
-										t('channelAutoResponder.replyPlaceholder') ||
-										'Type your automated reply here...'
-									}
-									class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-3 w-full min-h-[100px] focus:outline-none focus:ring-2 focus:ring-[#32ade6] resize-none"
-								/>
-							</div>
-
-							<div class="flex items-center justify-between gap-3 bg-gradient-to-r from-[#32ade6]/10 to-transparent p-3 rounded-xl border border-[#32ade6]/20">
-								<div class="flex flex-col flex-1 min-w-0">
-									<span class="text-[14px] font-bold text-white flex items-center gap-2">
-										<span class="material-symbols-outlined text-[#32ade6] text-[18px]">
-											auto_awesome
+								{/* Keyword Rules */}
+								<div class="flex flex-col gap-3">
+									<h2 class="text-[16px] font-bold text-white flex items-center justify-between">
+										{t('channelAutoResponder.keywordAutoReplies') || 'Keyword Auto-Replies'}
+										<span class="bg-[#32ade6] text-black px-2 py-0.5 rounded-md text-[11px]">
+											{rules().length}
 										</span>
-										{t('channelAutoResponder.enhanceWithAi') || 'Enhance with AI'}
-									</span>
-									<span class="text-[11px] text-[#8e8e93] leading-snug mt-1">
-										{t('channelAutoResponder.useAiDesc') ||
-											'Allow AI to slightly tweak the response for a natural tone.'}
-									</span>
-								</div>
-								<ToggleSwitch checked={useAi()} onChange={setUseAi} />
-							</div>
-						</div>
+									</h2>
+									<Show when={rules().length === 0}>
+										<div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-5 flex flex-col items-center text-center gap-3">
+											<div class="w-16 h-16 rounded-full bg-[#32ade6]/10 text-[#32ade6] flex items-center justify-center mb-2">
+												<span class="material-symbols-outlined text-[32px]">quickreply</span>
+											</div>
+											<h2 class="text-[16px] font-bold text-white">
+												{t('channelAutoResponder.noRules') || 'No Rules'}
+											</h2>
+											<p class="text-[13px] text-[#8e8e93]">
+												{t('channelAutoResponder.keywordRepliesDesc') ||
+													'Auto-reply to specific words in the comments.'}
+											</p>
+										</div>
+									</Show>
 
-						<div class="flex gap-3 mt-2">
-							<button
-								onClick={() => setIsCreating(false)}
-								class="flex-1 h-12 bg-[#2c2c2e] text-white rounded-xl font-bold hover:bg-[#3a3a3c] transition-colors"
+									<Show when={rules().length > 0}>
+										<div class="flex flex-col gap-3">
+											<For each={rules()}>
+												{(rule) => (
+													<div class="bg-[#1c1c1c] rounded-2xl border border-[#2a2a2a] p-4 flex items-center justify-between gap-3">
+														<div class="flex flex-col flex-1 min-w-0">
+															<span class="text-[15px] font-bold text-white truncate">
+																{rule.keys}
+															</span>
+															<span class="text-[12px] text-[#32ade6] uppercase tracking-wide font-bold">
+																{getLocalizedMatch(rule.match)}
+															</span>
+														</div>
+														<button
+															onClick={() => {
+																hapticFeedback.impactOccurred('light');
+																setRules(rules().filter((r) => r.id !== rule.id));
+															}}
+															class="w-8 h-8 rounded-full bg-[#ff3b30]/10 text-[#ff3b30] flex items-center justify-center transition-colors hover:bg-[#ff3b30]/20"
+														>
+															<span class="material-symbols-outlined text-[16px]">delete</span>
+														</button>
+													</div>
+												)}
+											</For>
+										</div>
+									</Show>
+									<button
+										onClick={() => setIsCreating(true)}
+										class="mt-2 h-12 bg-[#32ade6] text-black font-bold rounded-xl hover:bg-[#2b96c8] transition-colors flex items-center justify-center gap-2"
+									>
+										<span class="material-symbols-outlined text-[18px]">add</span>
+										{t('channelAutoResponder.addRule') || 'Add Keyword Rule'}
+									</button>
+								</div>
+							</Motion.div>
+						</Show>
+
+						<Show when={isCreating()}>
+							<Motion.div
+								initial={{ opacity: 0, scale: 0.95 }}
+								animate={{ opacity: 1, scale: 1 }}
+								class="flex flex-col gap-4"
 							>
-								{t('common.cancel') || 'Cancel'}
-							</button>
-							<button
-								onClick={handleSaveRule}
-								disabled={!keywords().trim() || !replyText().trim()}
-								class="flex-[2] h-12 bg-[#32ade6] text-black rounded-xl font-bold hover:bg-[#2b96c8] disabled:opacity-50 transition-colors"
-							>
-								{t('common.save') || 'Save'}
-							</button>
-						</div>
-					</Motion.div>
-				</Show>
+								<div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-5 flex flex-col gap-4">
+									<div class="flex items-center justify-between">
+										<h2 class="text-[16px] font-bold text-white">
+											{t('channelAutoResponder.addRule') || 'Add Keyword Rule'}
+										</h2>
+										<ToggleSwitch checked={isRuleEnabled()} onChange={setIsRuleEnabled} />
+									</div>
+
+									<div class="flex flex-col gap-2">
+										<label class="text-[13px] font-bold text-white">
+											{t('channelAutoResponder.triggerKey') || 'Keywords'}
+										</label>
+										<p class="text-[11px] text-on-surface-variant -mt-1">
+											{t('channelAutoResponder.commaSeparated') || 'Comma separated'}
+										</p>
+										<input
+											type="text"
+											value={keywords()}
+											onInput={(e) => setKeywords(e.currentTarget.value)}
+											placeholder="price, buy, cost"
+											class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-3 w-full focus:outline-none focus:ring-2 focus:ring-[#32ade6]"
+										/>
+									</div>
+
+									<SelectField
+										label={t('channelAutoResponder.matchType') || 'Match Type'}
+										value={matchType()}
+										onChange={setMatchType}
+										options={[
+											{
+												value: 'exact',
+												label: t('channelAutoResponder.matchExact') || 'Exact Match',
+											},
+											{
+												value: 'contains',
+												label: t('channelAutoResponder.matchContains') || 'Contains',
+											},
+											{ value: 'regex', label: t('channelAutoResponder.matchRegex') || 'Regex' },
+										]}
+									/>
+								</div>
+
+								<div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-5 flex flex-col gap-4">
+									<div class="flex flex-col gap-2">
+										<label class="text-[13px] font-bold text-white">
+											{t('channelAutoResponder.replyText') || 'Reply Text'}
+										</label>
+										<textarea
+											value={replyText()}
+											onInput={(e) => setReplyText(e.currentTarget.value)}
+											placeholder={
+												t('channelAutoResponder.replyPlaceholder') ||
+												'Type your automated reply here...'
+											}
+											class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-3 w-full min-h-[100px] focus:outline-none focus:ring-2 focus:ring-[#32ade6] resize-none"
+										/>
+									</div>
+
+									<div class="flex items-center justify-between gap-3 bg-gradient-to-r from-[#32ade6]/10 to-transparent p-3 rounded-xl border border-[#32ade6]/20">
+										<div class="flex flex-col flex-1 min-w-0">
+											<span class="text-[14px] font-bold text-white flex items-center gap-2">
+												<span class="material-symbols-outlined text-[#32ade6] text-[18px]">
+													auto_awesome
+												</span>
+												{t('channelAutoResponder.enhanceWithAi') || 'Enhance with AI'}
+											</span>
+											<span class="text-[11px] text-[#8e8e93] leading-snug mt-1">
+												{t('channelAutoResponder.useAiDesc') ||
+													'Allow AI to slightly tweak the response for a natural tone.'}
+											</span>
+										</div>
+										<ToggleSwitch checked={useAi()} onChange={setUseAi} />
+									</div>
+								</div>
+
+								<div class="flex gap-3 mt-2">
+									<button
+										onClick={() => setIsCreating(false)}
+										class="flex-1 h-12 bg-[#2c2c2e] text-white rounded-xl font-bold hover:bg-[#3a3a3c] transition-colors"
+									>
+										{t('common.cancel') || 'Cancel'}
+									</button>
+									<button
+										onClick={handleSaveRule}
+										disabled={!keywords().trim() || !replyText().trim()}
+										class="flex-[2] h-12 bg-[#32ade6] text-black rounded-xl font-bold hover:bg-[#2b96c8] disabled:opacity-50 transition-colors"
+									>
+										{t('common.save') || 'Save'}
+									</button>
+								</div>
+							</Motion.div>
+						</Show>
 					</Show>
 				</Show>
 			</div>

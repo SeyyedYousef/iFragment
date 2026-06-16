@@ -60,6 +60,9 @@ func DetectLanguage(code string) string {
 	if strings.HasPrefix(code, "zh") {
 		return "zh"
 	}
+	if strings.HasPrefix(code, "ar") {
+		return "ar"
+	}
 	return "en"
 }
 
@@ -71,6 +74,8 @@ func getDict(lang string) map[string]interface{} {
 		return ruDict
 	case "zh":
 		return zhDict
+	case "ar":
+		return arDict
 	default:
 		return enDict
 	}
@@ -138,6 +143,11 @@ var enDict = map[string]interface{}{
 		"edit_cancelled": "Editing cancelled.",
 		"post_rejected": "Post rejected and deleted.",
 	},
+	"tooltip_portfolio":   "Your complete asset overview and performance metrics.",
+	"tooltip_buyer_radar": "Identify potential buyers based on their interest and wallet activity.",
+	"tooltip_synergy":     "Analyze how different assets perform together to maximize value.",
+	"tooltip_roi":         "Calculate your Return on Investment across your entire collection.",
+	"tooltip_empire":      "Track your total net worth, influence, and overall market presence.",
 }
 
 var faDict = map[string]interface{}{
@@ -200,6 +210,11 @@ var faDict = map[string]interface{}{
 		"edit_cancelled": "ویرایش لغو شد.",
 		"post_rejected": "پست رد و حذف شد.",
 	},
+	"tooltip_portfolio":   "نمای کلی دارایی‌ها و معیارهای عملکرد شما.",
+	"tooltip_buyer_radar": "شناسایی خریداران بالقوه بر اساس علاقه و فعالیت کیف پول آن‌ها.",
+	"tooltip_synergy":     "تحلیل نحوه عملکرد مشترک دارایی‌های مختلف برای به حداکثر رساندن ارزش.",
+	"tooltip_roi":         "محاسبه بازگشت سرمایه (ROI) در کل مجموعه شما.",
+	"tooltip_empire":      "پیگیری کل دارایی خالص، نفوذ و حضور کلی شما در بازار.",
 }
 
 var ruDict = map[string]interface{}{
@@ -261,6 +276,11 @@ var ruDict = map[string]interface{}{
 		"edit_cancelled": "Редактирование отменено.",
 		"post_rejected": "Пост отклонен и удален.",
 	},
+	"tooltip_portfolio":   "Полный обзор ваших активов и показателей эффективности.",
+	"tooltip_buyer_radar": "Определение потенциальных покупателей на основе их интересов и активности кошельков.",
+	"tooltip_synergy":     "Анализ совместной работы различных активов для максимизации стоимости.",
+	"tooltip_roi":         "Расчет окупаемости инвестиций (ROI) по всей вашей коллекции.",
+	"tooltip_empire":      "Отслеживание вашего общего состояния, влияния и присутствия на рынке.",
 }
 
 var zhDict = map[string]interface{}{
@@ -322,4 +342,12 @@ var zhDict = map[string]interface{}{
 		"edit_cancelled": "编辑已取消。",
 		"post_rejected": "帖子已被拒绝并删除。",
 	},
+}
+
+var arDict = map[string]interface{}{
+	"tooltip_portfolio":   "نظرة عامة كاملة على أصولك ومقاييس الأداء.",
+	"tooltip_buyer_radar": "تحديد المشترين المحتملين بناءً على اهتماماتهم ونشاط محافظهم.",
+	"tooltip_synergy":     "تحليل كيفية أداء الأصول المختلفة معًا لزيادة القيمة إلى أقصى حد.",
+	"tooltip_roi":         "حساب العائد على الاستثمار (ROI) عبر مجموعتك بأكملها.",
+	"tooltip_empire":      "تتبع إجمالي ثروتك وتأثيرك ووجودك العام في السوق.",
 }

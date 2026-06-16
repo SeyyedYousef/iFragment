@@ -5,24 +5,24 @@ import { dict as zh } from './src/shared/i18n/zh.js';
 import fs from 'fs';
 
 function getMissingKeysObj(base: any, target: any) {
-  let missing: any = {};
-  for (const key in base) {
-    if (typeof base[key] === 'object' && base[key] !== null && !Array.isArray(base[key])) {
-      if (!target[key]) {
-        missing[key] = base[key];
-      } else {
-        const sub = getMissingKeysObj(base[key], target[key]);
-        if (Object.keys(sub).length > 0) {
-          missing[key] = sub;
-        }
-      }
-    } else {
-      if (target[key] === undefined) {
-        missing[key] = base[key];
-      }
-    }
-  }
-  return missing;
+	let missing: any = {};
+	for (const key in base) {
+		if (typeof base[key] === 'object' && base[key] !== null && !Array.isArray(base[key])) {
+			if (!target[key]) {
+				missing[key] = base[key];
+			} else {
+				const sub = getMissingKeysObj(base[key], target[key]);
+				if (Object.keys(sub).length > 0) {
+					missing[key] = sub;
+				}
+			}
+		} else {
+			if (target[key] === undefined) {
+				missing[key] = base[key];
+			}
+		}
+	}
+	return missing;
 }
 
 const faMissing = getMissingKeysObj(en, fa);

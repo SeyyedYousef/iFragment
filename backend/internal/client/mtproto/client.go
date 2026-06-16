@@ -31,6 +31,8 @@ const (
 type Client interface {
 	CheckUsername(ctx context.Context, username string) (Status, error)
 	ResolveUsername(ctx context.Context, username string) (*tg.ContactsResolvedPeer, error)
+	GetFullUser(ctx context.Context, inputUser tg.InputUserClass) (*tg.UsersUserFull, error)
+	GetFullChannel(ctx context.Context, inputChannel tg.InputChannelClass) (*tg.MessagesChatFull, error)
 }
 
 type RealClient struct {
@@ -154,6 +156,14 @@ func (c *RealClient) ResolveUsername(ctx context.Context, username string) (*tg.
 	return peer, nil
 }
 
+func (c *RealClient) GetFullUser(ctx context.Context, inputUser tg.InputUserClass) (*tg.UsersUserFull, error) {
+	return c.api.UsersGetFullUser(ctx, inputUser)
+}
+
+func (c *RealClient) GetFullChannel(ctx context.Context, inputChannel tg.InputChannelClass) (*tg.MessagesChatFull, error) {
+	return c.api.ChannelsGetFullChannel(ctx, inputChannel)
+}
+
 // MockClient for local dev when no MTProto credentials are provided
 type MockClient struct{}
 
@@ -221,6 +231,14 @@ func (m *MockClient) ResolveUsername(ctx context.Context, username string) (*tg.
 	
 	// Simulated error for username not found
 	return nil, tgerr.New(400, "USERNAME_NOT_OCCUPIED")
+}
+
+func (m *MockClient) GetFullUser(ctx context.Context, inputUser tg.InputUserClass) (*tg.UsersUserFull, error) {
+	return nil, fmt.Errorf("not implemented in mock")
+}
+
+func (m *MockClient) GetFullChannel(ctx context.Context, inputChannel tg.InputChannelClass) (*tg.MessagesChatFull, error) {
+	return nil, fmt.Errorf("not implemented in mock")
 }
 
 // InitClient returns either a real or mock MTProto client based on env

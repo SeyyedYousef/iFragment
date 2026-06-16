@@ -4,15 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"ifragment-backend/internal/client/fragment"
 	"ifragment-backend/internal/client/mtproto"
+	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/username"
-	"ifragment-backend/internal/middleware"
 	"log/slog"
 	"net/http"
 	"strconv"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -22,7 +20,6 @@ import (
 type UsernameHandler struct {
 	service        *username.AggregatorService
 	reportService  *username.ReportService
-	fragmentClient *fragment.Client
 	mtprotoClient  mtproto.Client
 	cache          *repository.Cache
 	sfGroup        singleflight.Group
@@ -32,16 +29,14 @@ type UsernameHandler struct {
 func NewUsernameHandler(
 	s *username.AggregatorService,
 	rs *username.ReportService,
-	f *fragment.Client,
 	m mtproto.Client,
 	c *repository.Cache,
 ) *UsernameHandler {
 	return &UsernameHandler{
-		service:        s,
-		reportService:  rs,
-		fragmentClient: f,
-		mtprotoClient:  m,
-		cache:          c,
+		service:       s,
+		reportService: rs,
+		mtprotoClient: m,
+		cache:         c,
 	}
 }
 
@@ -108,29 +103,21 @@ func (h *UsernameHandler) CheckAvailability(w http.ResponseWriter, r *http.Reque
 			}
 		}
 
-		var finalStatus string
-		mtStatus, err := h.mtprotoClient.CheckUsername(detachedCtx, u)
-		if err != nil {
-			return "", err
+		mtStatus, mtErr := h.mtprotoClient.CheckUsername(detachedCtx, u)
+		if mtErr != nil {
+			return "", mtErr
 		}
 
+		var finalStatus string
 		switch mtStatus {
+		case mtproto.StatusOccupied:
+			finalStatus = "taken"
+		case mtproto.StatusPurchase:
+			finalStatus = "purchase_available"
 		case mtproto.StatusAvailable:
 			if username.IsBasicEligible(u) {
 				finalStatus = "available"
 			} else {
-				finalStatus = "purchase_available"
-			}
-		case mtproto.StatusOccupied:
-			finalStatus = "taken"
-		case mtproto.StatusPurchase:
-			fragStatus, _ := h.fragmentClient.CheckUsername(detachedCtx, u)
-			switch fragStatus {
-			case fragment.StatusAuction:
-				finalStatus = "on_auction"
-			case fragment.StatusSale:
-				finalStatus = "on_sale"
-			default:
 				finalStatus = "purchase_available"
 			}
 		default:
@@ -191,61 +178,21 @@ func (h *UsernameHandler) getQuickAnalysisCachedOrFetch(ctx context.Context, u s
 			return nil, err
 		}
 
-		var mtStatus mtproto.Status
-		var frStatus fragment.Status
-		var mtErr error
-
-		var wg sync.WaitGroup
-		wg.Add(2)
-		go func() {
-			defer wg.Done()
-			status, err := h.mtprotoClient.CheckUsername(detachedCtx, u)
-			mtErr = err
-			if err == nil {
-				mtStatus = status
-			}
-		}()
-		go func() {
-			defer wg.Done()
-			status, err := h.fragmentClient.CheckUsername(detachedCtx, u)
-			if err == nil {
-				frStatus = status
-			}
-		}()
-		wg.Wait()
-
+		mtStatus, mtErr := h.mtprotoClient.CheckUsername(detachedCtx, u)
 		if mtErr != nil {
 			return nil, fmt.Errorf("mtproto check failed: %w", mtErr)
 		}
 
 		// Resolve status deterministically
-		if frStatus == fragment.StatusAuction {
-			result.Status = "on_auction"
-		} else if frStatus == fragment.StatusSale {
-			result.Status = "on_sale"
-		} else if mtStatus == mtproto.StatusPurchase {
+		if mtStatus == mtproto.StatusPurchase {
 			result.Status = "purchase_available"
 		} else if mtStatus == mtproto.StatusOccupied {
 			result.Status = "taken"
-		} else if frStatus == fragment.StatusSold {
-			result.Status = "taken"
-		} else if mtStatus == mtproto.StatusAvailable && frStatus == fragment.StatusAvailable {
-			if username.IsBasicEligible(u) {
-				result.Status = "available"
-			} else {
-				result.Status = "purchase_available"
-			}
 		} else if mtStatus == mtproto.StatusAvailable {
 			if username.IsBasicEligible(u) {
 				result.Status = "available"
 			} else {
 				result.Status = "purchase_available"
-			}
-		} else if frStatus == fragment.StatusAvailable {
-			if len(u) == 4 {
-				result.Status = "purchase_available"
-			} else {
-				result.Status = "available"
 			}
 		} else {
 			result.Status = "taken"
