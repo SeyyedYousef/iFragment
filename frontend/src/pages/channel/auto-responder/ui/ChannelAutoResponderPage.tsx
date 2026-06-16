@@ -608,6 +608,7 @@ export const ChannelAutoResponderPage: Component = () => {
 						</div>
 					</Motion.div>
 				</Show>
+					</Show>
 				</Show>
 			</div>
 
