@@ -220,12 +220,10 @@ export const channelApi = {
 			.then((r: any) => r.data?.data?.text || r.data?.text),
 
 	getFunnel: (channelId: string) =>
-		apiClient
-			.get<any>(`/channels/${channelId}/funnel`)
-			.then((r: any) => {
-				const data = r.data?.data || r.data;
-				return data?.funnel === null ? null : data;
-			}),
+		apiClient.get<any>(`/channels/${channelId}/funnel`).then((r: any) => {
+			const data = r.data?.data || r.data;
+			return data?.funnel === null ? null : data;
+		}),
 
 	createFunnel: (channelId: string, inputChannelId: string) =>
 		apiClient
@@ -233,9 +231,7 @@ export const channelApi = {
 			.then((r: any) => r.data?.data || r.data),
 
 	deleteFunnel: (channelId: string) =>
-		apiClient
-			.delete(`/channels/${channelId}/funnel`)
-			.then((r: any) => r.data?.data || r.data),
+		apiClient.delete(`/channels/${channelId}/funnel`).then((r: any) => r.data?.data || r.data),
 };
 
 export interface ChannelFunnel {

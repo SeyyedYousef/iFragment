@@ -98,7 +98,10 @@ export const BotManagePage: Component = () => {
 		setIsProcessing(true);
 		setErrorMsg('');
 		try {
-			const res = await subscriptionApi.createSubscriptionStarsInvoice(selectedGroup(), selectedPkg());
+			const res = await subscriptionApi.createSubscriptionStarsInvoice(
+				selectedGroup(),
+				selectedPkg(),
+			);
 			if (res.invoice_link) {
 				const tg = (window as any).Telegram?.WebApp;
 				if (tg && tg.openInvoice) {
@@ -371,8 +374,6 @@ export const BotManagePage: Component = () => {
 							</For>
 						</div>
 					</div>
-
-
 				</Show>
 			</div>
 
@@ -394,7 +395,6 @@ export const BotManagePage: Component = () => {
 					>
 						{/* Handle */}
 						<div class="w-12 h-1.5 bg-[#3a3a3a] rounded-full mx-auto mb-6" />
-
 
 						{paymentStep() === 'package' ? (
 							<>
@@ -465,7 +465,7 @@ export const BotManagePage: Component = () => {
 						) : (
 							<>
 								<div class="flex items-center gap-4 mb-6">
-									<button 
+									<button
 										onClick={() => setPaymentStep('package')}
 										class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center hover:bg-[#2a2a2a]"
 									>
@@ -475,9 +475,7 @@ export const BotManagePage: Component = () => {
 										<h3 class="text-[20px] font-black text-white leading-tight">
 											Select Payment Method
 										</h3>
-										<p class="text-[13px] font-medium text-[#8e8e93]">
-											Choose how you want to pay
-										</p>
+										<p class="text-[13px] font-medium text-[#8e8e93]">Choose how you want to pay</p>
 									</div>
 								</div>
 
@@ -510,7 +508,9 @@ export const BotManagePage: Component = () => {
 										<div class="absolute right-[-20px] top-[-20px] w-24 h-24 bg-[#3390ec]/10 rounded-full blur-2xl group-hover:bg-[#3390ec]/20 transition-all" />
 										<div class="relative flex items-center gap-4 z-10">
 											<div class="w-12 h-12 rounded-full bg-[#3390ec]/10 flex items-center justify-center border border-[#3390ec]/20 shadow-inner">
-												<span class="material-symbols-outlined text-[#3390ec] text-[24px]">toll</span>
+												<span class="material-symbols-outlined text-[#3390ec] text-[24px]">
+													toll
+												</span>
 											</div>
 											<div class="flex-1">
 												<h4 class="text-[17px] font-black text-white mb-0.5">Airdrop Coins</h4>

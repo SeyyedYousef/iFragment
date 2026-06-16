@@ -868,14 +868,20 @@ To enable me to delete malicious messages and restrict violating users, please a
 ⏱ These three messages will be automatically deleted in 2 minutes.`,
 	},
 	notifications: {
-		expiry_3d: "⚠️ <b>Subscription Alert</b>\n\nThe premium subscription for '{group}' will expire in 3 days. To maintain uninterrupted access to our advanced management and security features, please renew your subscription soon.",
-		expiry_24h: '⏳ <b>Final Notice</b>\n\nOnly 24 hours remain until the premium services for \'{group}\' are suspended. Renew now to ensure continuous protection.',
-		service_ended: "🔒 <b>Service Suspended</b>\n\nThe premium service for '{group}' has expired and is currently disabled. All automated management and protection features are paused. Please renew the subscription to reactivate the bot.",
-		mass_spam: "🚨 <b>Security Alert: Mass Spam Detected</b>\n\nGroup '{group}' is currently under a mass spam attack! Our systems are actively mitigating the threat.",
+		expiry_3d:
+			"⚠️ <b>Subscription Alert</b>\n\nThe premium subscription for '{group}' will expire in 3 days. To maintain uninterrupted access to our advanced management and security features, please renew your subscription soon.",
+		expiry_24h:
+			"⏳ <b>Final Notice</b>\n\nOnly 24 hours remain until the premium services for '{group}' are suspended. Renew now to ensure continuous protection.",
+		service_ended:
+			"🔒 <b>Service Suspended</b>\n\nThe premium service for '{group}' has expired and is currently disabled. All automated management and protection features are paused. Please renew the subscription to reactivate the bot.",
+		mass_spam:
+			"🚨 <b>Security Alert: Mass Spam Detected</b>\n\nGroup '{group}' is currently under a mass spam attack! Our systems are actively mitigating the threat.",
 		bot_removed:
 			"😢 <b>Bot Removed</b>\n\nThe bot was removed from group '{group}'. If this was a mistake, please add it back to restore management capabilities.",
-		admin_revoked: "⚠️ <b>Admin Privileges Revoked</b>\n\nThe bot was demoted from admin in group '{group}'. Full functionality requires admin privileges.",
-		admin_revoked_group: '⚠️ <b>Critical Alert</b>\n\nI am no longer an admin. I cannot protect the group or enforce rules until my privileges are restored.',
+		admin_revoked:
+			"⚠️ <b>Admin Privileges Revoked</b>\n\nThe bot was demoted from admin in group '{group}'. Full functionality requires admin privileges.",
+		admin_revoked_group:
+			'⚠️ <b>Critical Alert</b>\n\nI am no longer an admin. I cannot protect the group or enforce rules until my privileges are restored.',
 		payment_success: '✅ Payment received. Subscription extended until {date}. Thank you!',
 		milestone: '🎉 Group has reached the milestone of {n} messages!',
 	},

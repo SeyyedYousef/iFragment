@@ -106,7 +106,9 @@ export const CollectionStatsPage: Component = () => {
 
 				<Show when={stats.isError || (!stats.isLoading && !stats.data)}>
 					<div class="bg-orange-500/10 border border-orange-500/20 text-orange-400 p-3 rounded-xl text-xs text-center font-bold mb-6">
-						{locale() === 'fa' ? 'آمارهای مجموعه موقتاً در دسترس نیستند.' : 'Collection stats are temporarily unavailable.'}
+						{locale() === 'fa'
+							? 'آمارهای مجموعه موقتاً در دسترس نیستند.'
+							: 'Collection stats are temporarily unavailable.'}
 					</div>
 				</Show>
 
@@ -167,7 +169,8 @@ export const CollectionStatsPage: Component = () => {
 
 					<div class="bg-[#141518] border border-[#2a2a2a] p-5 rounded-[24px] mb-4 space-y-4">
 						<h3 class="text-[#a6a6ad] text-xs font-black uppercase tracking-widest flex items-center gap-2 border-b border-[#2a2a2a] pb-3">
-							<span class="material-symbols-outlined text-[16px]">database</span> {locale() === 'fa' ? 'عرضه و فعالیت' : 'Supply & Activity'}
+							<span class="material-symbols-outlined text-[16px]">database</span>{' '}
+							{locale() === 'fa' ? 'عرضه و فعالیت' : 'Supply & Activity'}
 						</h3>
 						<Row
 							label={t('action.username.totalSupply')}
@@ -190,7 +193,11 @@ export const CollectionStatsPage: Component = () => {
 							title={t('action.username.whaleWatch')}
 							icon="account_balance_wallet"
 							accent="text-[#3390ec]"
-							empty={locale() === 'fa' ? 'هنوز داده‌ای برای هولدرها ثبت نشده است.' : 'No holder data available yet.'}
+							empty={
+								locale() === 'fa'
+									? 'هنوز داده‌ای برای هولدرها ثبت نشده است.'
+									: 'No holder data available yet.'
+							}
 							hasData={topHolders().length > 0}
 						>
 							<ForHolders holders={topHolders()} />
@@ -200,7 +207,11 @@ export const CollectionStatsPage: Component = () => {
 							title={t('action.username.allTimeHigh')}
 							icon="military_tech"
 							accent="text-[#34c759]"
-							empty={locale() === 'fa' ? 'هنوز داده‌ای برای جدول فروش‌ها ثبت نشده است.' : 'No sale leaderboard data available yet.'}
+							empty={
+								locale() === 'fa'
+									? 'هنوز داده‌ای برای جدول فروش‌ها ثبت نشده است.'
+									: 'No sale leaderboard data available yet.'
+							}
 							hasData={topSales().length > 0}
 						>
 							<For each={topSales().slice(0, 5)}>
@@ -211,7 +222,9 @@ export const CollectionStatsPage: Component = () => {
 												? sale.username.startsWith('@')
 													? sale.username
 													: `@${sale.username}`
-												: (locale() === 'fa' ? 'ناشناس' : 'Anonymous')}
+												: locale() === 'fa'
+													? 'ناشناس'
+													: 'Anonymous'}
 										</span>
 										<div class="text-right">
 											<div class="font-black text-[#34c759] text-xs">

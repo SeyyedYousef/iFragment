@@ -261,8 +261,12 @@ export const IdentityHero: Component<Props> = (props) => {
 						<Show when={(user as any)?.is_bot && (user as any)?.bot_info}>
 							<div class="bg-[#3390ec]/10 border border-[#3390ec]/20 rounded-xl p-3 w-full text-center mt-1">
 								<div class="flex items-center justify-center gap-1 mb-1">
-									<span class="material-symbols-outlined text-[14px] text-[#3390ec]">smart_toy</span>
-									<span class="text-[#3390ec] text-[10px] font-black uppercase tracking-widest">Bot Info</span>
+									<span class="material-symbols-outlined text-[14px] text-[#3390ec]">
+										smart_toy
+									</span>
+									<span class="text-[#3390ec] text-[10px] font-black uppercase tracking-widest">
+										Bot Info
+									</span>
 								</div>
 								<p class="text-white/70 text-xs leading-relaxed whitespace-pre-wrap">
 									{(user as any)?.bot_info}

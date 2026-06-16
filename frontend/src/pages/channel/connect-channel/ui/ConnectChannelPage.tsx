@@ -66,16 +66,10 @@ export const ConnectChannelPage: Component = () => {
 			setIsVerifying(true);
 
 			try {
-				showToast(
-					isRtl() ? 'در حال تایید کانال ورودی...' : 'Verifying input channel...',
-					'info',
-				);
+				showToast(isRtl() ? 'در حال تایید کانال ورودی...' : 'Verifying input channel...', 'info');
 				const inChan = await channelApi.connectChannel('auto', inputChannel().trim());
 
-				showToast(
-					isRtl() ? 'در حال تایید کانال خروجی...' : 'Verifying output channel...',
-					'info',
-				);
+				showToast(isRtl() ? 'در حال تایید کانال خروجی...' : 'Verifying output channel...', 'info');
 				const outChan = await channelApi.connectChannel('auto', outputChannel().trim());
 
 				showToast(
@@ -85,7 +79,9 @@ export const ConnectChannelPage: Component = () => {
 				await channelApi.createFunnel(outChan.id, inChan.id);
 
 				showToast(
-					isRtl() ? 'قیف انتشار دو کاناله با موفقیت متصل شد!' : 'Channel funnel connected successfully!',
+					isRtl()
+						? 'قیف انتشار دو کاناله با موفقیت متصل شد!'
+						: 'Channel funnel connected successfully!',
 					'success',
 				);
 				hapticFeedback.notificationOccurred('success');
@@ -209,8 +205,10 @@ export const ConnectChannelPage: Component = () => {
 						</div>
 						<h2 class="text-[16px] font-bold text-white">
 							{connectMode() === 'single'
-								? (t('connectChannel.step2Title') || 'Submit Channel Link')
-								: (isRtl() ? 'ثبت اطلاعات قیف کانال' : 'Submit Funnel Channels')}
+								? t('connectChannel.step2Title') || 'Submit Channel Link'
+								: isRtl()
+									? 'ثبت اطلاعات قیف کانال'
+									: 'Submit Funnel Channels'}
 						</h2>
 					</div>
 
@@ -272,7 +270,9 @@ export const ConnectChannelPage: Component = () => {
 						onClick={handleConnect}
 						disabled={
 							isVerifying() ||
-							(connectMode() === 'single' ? !channelInput().trim() : (!inputChannel().trim() || !outputChannel().trim()))
+							(connectMode() === 'single'
+								? !channelInput().trim()
+								: !inputChannel().trim() || !outputChannel().trim())
 						}
 						class="mt-3 w-full bg-[#32ade6] text-black disabled:bg-[#32ade6]/40 disabled:text-black/50 rounded-xl py-3.5 flex items-center justify-center gap-2 font-bold transition-all text-[15px]"
 					>
@@ -283,8 +283,10 @@ export const ConnectChannelPage: Component = () => {
 							}
 						>
 							{connectMode() === 'single'
-								? (t('connectChannel.connectBtn') || 'Verify & Onboard Channel')
-								: (isRtl() ? 'تایید و ساخت قیف انتشار' : 'Verify & Create Funnel')}
+								? t('connectChannel.connectBtn') || 'Verify & Onboard Channel'
+								: isRtl()
+									? 'تایید و ساخت قیف انتشار'
+									: 'Verify & Create Funnel'}
 						</Show>
 					</button>
 				</Motion.div>

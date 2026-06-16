@@ -9,51 +9,60 @@ import { openInvoice } from '@/shared/lib/telegram-native.js';
 
 const tooltipDict = {
 	wallet_portfolio: {
-		en: 'Total value of all assets held in the owner\'s wallet',
+		en: "Total value of all assets held in the owner's wallet",
 		fa: 'ارزش کل دارایی‌های موجود در کیف پول مالک',
 		ru: 'Общая стоимость всех активов в кошельке владельца',
 		ar: 'القيمة الإجمالية لجميع الأصول الموجودة في محفظة المالك',
-		zh: '所有者钱包中持有的所有资产的总价值'
+		zh: '所有者钱包中持有的所有资产的总价值',
 	},
 	has_ton_synergy: {
 		en: 'Indicates if the username aligns well with the TON ecosystem',
 		fa: 'نشان می‌دهد که آیا نام کاربری با اکوسیستم TON همسو است یا خیر',
 		ru: 'Указывает, хорошо ли имя пользователя согласуется с экосистемой TON',
 		ar: 'يشير إلى ما إذا كان اسم المستخدم يتماشى جيدًا مع نظام TON البيئي',
-		zh: '指示用户名是否与 TON 生态系统良好契合'
+		zh: '指示用户名是否与 TON 生态系统良好契合',
 	},
 	roi_percentage: {
 		en: 'Estimated Return on Investment based on historical sales',
 		fa: 'بازده تخمینی سرمایه‌گذاری بر اساس فروش‌های گذشته',
 		ru: 'Предполагаемая рентабельность инвестиций на основе исторических продаж',
 		ar: 'العائد المقدر على الاستثمار بناءً على المبيعات التاريخية',
-		zh: '基于历史销售情况的预计投资回报率'
+		zh: '基于历史销售情况的预计投资回报率',
 	},
 	channel_empire_reach: {
 		en: 'Potential audience reach if used for a Telegram channel',
 		fa: 'دسترسی بالقوه به مخاطبان در صورت استفاده برای کانال تلگرام',
 		ru: 'Потенциальный охват аудитории при использовании для Telegram-канала',
 		ar: 'الوصول المحتمل للجمهور إذا تم استخدامه لقناة تيليجرام',
-		zh: '如果用于 Telegram 频道的潜在受众范围'
+		zh: '如果用于 Telegram 频道的潜在受众范围',
 	},
 	potential_buyers: {
 		en: 'List of wallets with high balance that might be interested',
 		fa: 'لیست کیف پول‌های با موجودی بالا که ممکن است علاقه‌مند باشند',
 		ru: 'Список кошельков с высоким балансом, которые могут быть заинтересованы',
 		ar: 'قائمة المحافظ ذات الرصيد المرتفع التي قد تكون مهتمة',
-		zh: '可能感兴趣的高余额钱包列表'
-	}
+		zh: '可能感兴趣的高余额钱包列表',
+	},
 };
 
 const Tooltip: Component<{ textKey: keyof typeof tooltipDict; locale: string }> = (props) => {
-	const currentLocale = () => (['en', 'fa', 'ru', 'ar', 'zh'].includes(props.locale) ? props.locale : 'en') as 'en' | 'fa' | 'ru' | 'ar' | 'zh';
+	const currentLocale = () =>
+		(['en', 'fa', 'ru', 'ar', 'zh'].includes(props.locale) ? props.locale : 'en') as
+			| 'en'
+			| 'fa'
+			| 'ru'
+			| 'ar'
+			| 'zh';
 	const text = () => tooltipDict[props.textKey][currentLocale()];
 	const isRtl = () => currentLocale() === 'fa' || currentLocale() === 'ar';
 
 	return (
 		<div class="group relative flex items-center justify-center cursor-help ml-1">
 			<span class="material-symbols-outlined text-[#8e8e93] text-[14px]">info</span>
-			<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-48 p-2 bg-[#1c1c1c] text-white text-[10px] rounded-lg shadow-xl border border-[#2a2a2a] z-50 pointer-events-none" dir={isRtl() ? 'rtl' : 'ltr'}>
+			<div
+				class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-48 p-2 bg-[#1c1c1c] text-white text-[10px] rounded-lg shadow-xl border border-[#2a2a2a] z-50 pointer-events-none"
+				dir={isRtl() ? 'rtl' : 'ltr'}
+			>
 				{text()}
 				<div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#1c1c1c]"></div>
 			</div>
@@ -285,13 +294,23 @@ export const PremiumReportPage: Component = () => {
 									}`}
 								>
 									{report.data?.status === 'purchase_available'
-										? (locale() === 'fa' ? 'موجود برای خرید' : 'Purchase Available')
-										: (report.data?.status ? t(('pages.premiumReport.status.' + report.data.status) as any) : '')}
+										? locale() === 'fa'
+											? 'موجود برای خرید'
+											: 'Purchase Available'
+										: report.data?.status
+											? t(('pages.premiumReport.status.' + report.data.status) as any)
+											: ''}
 								</span>
 								<Show when={report.data?.peer_type && report.data.peer_type !== 'unknown'}>
 									<span class="px-3 py-1.5 rounded-lg text-xs font-black uppercase border bg-[#1c1c1c] text-[#8e8e93] border-[#2a2a2a]">
 										{locale() === 'fa'
-											? (report.data?.peer_type === 'user' ? 'کاربر' : report.data?.peer_type === 'channel' ? 'کانال' : report.data?.peer_type === 'bot' ? 'ربات' : 'نامشخص')
+											? report.data?.peer_type === 'user'
+												? 'کاربر'
+												: report.data?.peer_type === 'channel'
+													? 'کانال'
+													: report.data?.peer_type === 'bot'
+														? 'ربات'
+														: 'نامشخص'
 											: report.data?.peer_type}
 									</span>
 								</Show>
@@ -301,22 +320,26 @@ export const PremiumReportPage: Component = () => {
 							<div class="flex flex-wrap items-center justify-center gap-2 mt-3">
 								<Show when={report.data?.is_verified}>
 									<span class="flex items-center gap-1 px-2.5 py-1 bg-blue-500/20 border border-blue-500/30 text-blue-400 rounded-md text-[10px] font-bold uppercase">
-										<span class="material-symbols-outlined text-[12px]">verified</span> {locale() === 'fa' ? 'تایید شده' : 'Verified'}
+										<span class="material-symbols-outlined text-[12px]">verified</span>{' '}
+										{locale() === 'fa' ? 'تایید شده' : 'Verified'}
 									</span>
 								</Show>
 								<Show when={report.data?.is_premium}>
 									<span class="flex items-center gap-1 px-2.5 py-1 bg-blue-600/20 border border-blue-600/30 text-blue-400 rounded-md text-[10px] font-bold uppercase">
-										<span class="material-symbols-outlined text-[12px]">star</span> {locale() === 'fa' ? 'پرمیوم' : 'Premium'}
+										<span class="material-symbols-outlined text-[12px]">star</span>{' '}
+										{locale() === 'fa' ? 'پرمیوم' : 'Premium'}
 									</span>
 								</Show>
 								<Show when={report.data?.is_scam}>
 									<span class="flex items-center gap-1 px-2.5 py-1 bg-red-500/20 border border-red-500/30 text-red-400 rounded-md text-[10px] font-bold uppercase">
-										<span class="material-symbols-outlined text-[12px]">warning</span> {locale() === 'fa' ? 'کلاهبرداری' : 'Scam'}
+										<span class="material-symbols-outlined text-[12px]">warning</span>{' '}
+										{locale() === 'fa' ? 'کلاهبرداری' : 'Scam'}
 									</span>
 								</Show>
 								<Show when={report.data?.is_fake}>
 									<span class="flex items-center gap-1 px-2.5 py-1 bg-orange-500/20 border border-orange-500/30 text-orange-400 rounded-md text-[10px] font-bold uppercase">
-										<span class="material-symbols-outlined text-[12px]">report</span> {locale() === 'fa' ? 'جعلی (Fake)' : 'Fake'}
+										<span class="material-symbols-outlined text-[12px]">report</span>{' '}
+										{locale() === 'fa' ? 'جعلی (Fake)' : 'Fake'}
 									</span>
 								</Show>
 							</div>
@@ -333,7 +356,8 @@ export const PremiumReportPage: Component = () => {
 							<div class="grid grid-cols-2 gap-4 items-center">
 								<div class="flex flex-col items-center border-r border-[#2a2a2a] pr-4">
 									<span class="text-[10px] text-[#8e8e93] font-black uppercase tracking-widest mb-2 flex items-center gap-1">
-										<span class="material-symbols-outlined text-[14px]">stars</span> {locale() === 'fa' ? 'کمیابی' : 'Rarity'}
+										<span class="material-symbols-outlined text-[14px]">stars</span>{' '}
+										{locale() === 'fa' ? 'کمیابی' : 'Rarity'}
 									</span>
 									<div class="flex items-baseline gap-1">
 										<span class="text-4xl font-black text-[#3390ec]">
@@ -348,7 +372,8 @@ export const PremiumReportPage: Component = () => {
 
 								<div class="flex flex-col items-center pl-4">
 									<span class="text-[10px] text-[#8e8e93] font-black uppercase tracking-widest mb-2 flex items-center gap-1">
-										<span class="material-symbols-outlined text-[14px]">query_stats</span> {locale() === 'fa' ? 'ارزش تخمینی' : 'Est. Value'}
+										<span class="material-symbols-outlined text-[14px]">query_stats</span>{' '}
+										{locale() === 'fa' ? 'ارزش تخمینی' : 'Est. Value'}
 									</span>
 									<div class="flex items-baseline gap-1">
 										<span class="text-3xl font-black text-white">
@@ -373,7 +398,8 @@ export const PremiumReportPage: Component = () => {
 										</span>
 									</Show>
 									<span class="text-[10px] font-bold text-[#34c759] mt-1.5 flex items-center gap-1 bg-[#34c759]/10 px-2 py-0.5 rounded">
-										<span class="material-symbols-outlined text-[12px]">trending_up</span> {locale() === 'fa' ? 'دارایی قوی' : 'Strong Asset'}
+										<span class="material-symbols-outlined text-[12px]">trending_up</span>{' '}
+										{locale() === 'fa' ? 'دارایی قوی' : 'Strong Asset'}
 									</span>
 								</div>
 							</div>
@@ -383,7 +409,8 @@ export const PremiumReportPage: Component = () => {
 							<div class="bg-[#141518] border border-[#2a2a2a] p-5 rounded-[24px] mb-4">
 								<div class="flex items-center justify-between mb-4">
 									<h3 class="text-[#8e8e93] text-xs font-black uppercase tracking-widest flex items-center gap-2">
-										<span class="material-symbols-outlined text-[16px]">analytics</span> {locale() === 'fa' ? 'مدل قیمت‌گذاری' : 'Price Model'}
+										<span class="material-symbols-outlined text-[16px]">analytics</span>{' '}
+										{locale() === 'fa' ? 'مدل قیمت‌گذاری' : 'Price Model'}
 									</h3>
 									<span class="text-[10px] font-black text-[#34c759] bg-[#34c759]/10 border border-[#34c759]/20 px-2.5 py-1 rounded-lg">
 										{confidencePercent()}% {locale() === 'fa' ? 'اطمینان' : 'confidence'}
@@ -397,7 +424,9 @@ export const PremiumReportPage: Component = () => {
 										</div>
 									</div>
 									<div class="bg-[#1c1c1c] rounded-xl border border-[#3390ec]/30 p-3">
-										<span class="text-[9px] text-[#3390ec] font-black uppercase">{locale() === 'fa' ? 'میانه' : 'Median'}</span>
+										<span class="text-[9px] text-[#3390ec] font-black uppercase">
+											{locale() === 'fa' ? 'میانه' : 'Median'}
+										</span>
 										<div class="text-sm font-black text-white mt-1">
 											{report.data!.value_estimate!.p50_ton.toFixed(1)}
 										</div>
@@ -427,7 +456,8 @@ export const PremiumReportPage: Component = () => {
 						<div class="grid grid-cols-2 gap-3 mb-4">
 							<div class="bg-[#141518] border border-[#2a2a2a] p-4 rounded-[24px]">
 								<span class="text-[10px] text-[#8e8e93] font-black uppercase tracking-widest flex items-center gap-1">
-									<span class="material-symbols-outlined text-[14px]">spellcheck</span> {locale() === 'fa' ? 'زبان‌شناسی' : 'Linguistic'}
+									<span class="material-symbols-outlined text-[14px]">spellcheck</span>{' '}
+									{locale() === 'fa' ? 'زبان‌شناسی' : 'Linguistic'}
 								</span>
 								<div class="flex items-end justify-between mt-3">
 									<span class="text-2xl font-black text-white">
@@ -454,7 +484,8 @@ export const PremiumReportPage: Component = () => {
 
 							<div class="bg-[#141518] border border-[#2a2a2a] p-4 rounded-[24px]">
 								<span class="text-[10px] text-[#8e8e93] font-black uppercase tracking-widest flex items-center gap-1">
-									<span class="material-symbols-outlined text-[14px]">public</span> {locale() === 'fa' ? 'حجم جستجو' : 'Search Vol'}
+									<span class="material-symbols-outlined text-[14px]">public</span>{' '}
+									{locale() === 'fa' ? 'حجم جستجو' : 'Search Vol'}
 								</span>
 								<div class="flex items-end justify-between mt-3">
 									<span class="text-2xl font-black text-white">
@@ -483,14 +514,18 @@ export const PremiumReportPage: Component = () => {
 
 							<div class="grid grid-cols-2 gap-4 border-b border-[#2a2a2a] pb-4">
 								<div class="flex flex-col gap-1">
-									<span class="text-[10px] text-[#8e8e93] font-bold uppercase">{locale() === 'fa' ? 'وضعیت بازار' : 'Market Status'}</span>
+									<span class="text-[10px] text-[#8e8e93] font-bold uppercase">
+										{locale() === 'fa' ? 'وضعیت بازار' : 'Market Status'}
+									</span>
 									<span class="text-sm font-black text-[#ff9500] uppercase">
 										{report.data?.sale_status?.replace(/_/g, ' ') || ''}
 									</span>
 								</div>
 								<Show when={report.data?.mint_date}>
 									<div class="flex flex-col gap-1">
-										<span class="text-[10px] text-[#8e8e93] font-bold uppercase">{locale() === 'fa' ? 'تاریخ ثبت' : 'Mint Date'}</span>
+										<span class="text-[10px] text-[#8e8e93] font-bold uppercase">
+											{locale() === 'fa' ? 'تاریخ ثبت' : 'Mint Date'}
+										</span>
 										<span class="text-sm font-bold text-white">
 											{new Date(report.data!.mint_date!).toLocaleDateString('en-US')}
 										</span>
@@ -500,7 +535,9 @@ export const PremiumReportPage: Component = () => {
 
 							<Show when={report.data?.sale_status !== 'not_for_sale'}>
 								<div class="flex items-center justify-between py-2 border-b border-[#2a2a2a]">
-									<span class="text-sm font-bold text-[#8e8e93]">{locale() === 'fa' ? 'بالاترین پیشنهاد' : 'Highest Bid'}</span>
+									<span class="text-sm font-bold text-[#8e8e93]">
+										{locale() === 'fa' ? 'بالاترین پیشنهاد' : 'Highest Bid'}
+									</span>
 									<div class="text-right">
 										<span class="text-sm font-black text-white">
 											{report.data?.highest_bid !== undefined ? report.data.highest_bid : 0} TON
@@ -513,7 +550,9 @@ export const PremiumReportPage: Component = () => {
 									</div>
 								</div>
 								<div class="flex items-center justify-between py-2 border-b border-[#2a2a2a]">
-									<span class="text-sm font-bold text-[#8e8e93]">{locale() === 'fa' ? 'خرید فوری' : 'Buy Now'}</span>
+									<span class="text-sm font-bold text-[#8e8e93]">
+										{locale() === 'fa' ? 'خرید فوری' : 'Buy Now'}
+									</span>
 									<div class="text-right">
 										<span class="text-sm font-black text-white">
 											{report.data?.buy_now_price !== undefined ? report.data.buy_now_price : 'N/A'}{' '}
@@ -528,7 +567,9 @@ export const PremiumReportPage: Component = () => {
 								</div>
 								<Show when={report.data?.end_time}>
 									<div class="flex items-center justify-between py-2 border-b border-[#2a2a2a]">
-										<span class="text-sm font-bold text-[#8e8e93]">{locale() === 'fa' ? 'پایان حراجی' : 'Auction Ends'}</span>
+										<span class="text-sm font-bold text-[#8e8e93]">
+											{locale() === 'fa' ? 'پایان حراجی' : 'Auction Ends'}
+										</span>
 										<span class="text-sm font-bold text-[#ff3b30]">
 											{new Date(report.data!.end_time!).toLocaleString('en-US')}
 										</span>
@@ -551,7 +592,8 @@ export const PremiumReportPage: Component = () => {
 								<Show when={report.data?.owner_wallet_balance !== undefined}>
 									<div class="flex items-center justify-between py-3 mt-2 bg-[#1c1c1c] rounded-xl px-4 border border-[#2a2a2a]">
 										<span class="text-[11px] font-black text-[#8e8e93] uppercase tracking-wider flex items-center gap-1.5">
-											<span class="material-symbols-outlined text-[14px]">water</span> {locale() === 'fa' ? 'وضعیت نهنگ' : 'Whale Status'}
+											<span class="material-symbols-outlined text-[14px]">water</span>{' '}
+											{locale() === 'fa' ? 'وضعیت نهنگ' : 'Whale Status'}
 										</span>
 										<div class="text-right">
 											<div class="text-sm font-black text-white">
@@ -563,7 +605,8 @@ export const PremiumReportPage: Component = () => {
 												</div>
 											</Show>
 											<div class="text-[10px] font-bold text-[#8e8e93] mt-0.5">
-												{report.data?.owner_other_assets} {locale() === 'fa' ? 'یوزرنیم‌های دیگر' : 'other NFTs'}
+												{report.data?.owner_other_assets}{' '}
+												{locale() === 'fa' ? 'یوزرنیم‌های دیگر' : 'other NFTs'}
 											</div>
 										</div>
 									</div>
@@ -632,31 +675,54 @@ export const PremiumReportPage: Component = () => {
 						</div>
 
 						{/* ── PHASE 3 & ADVANCED METRICS ── */}
-						<Show when={report.data?.wallet_portfolio !== undefined || report.data?.has_ton_synergy !== undefined || report.data?.roi_percentage !== undefined || report.data?.channel_empire_reach !== undefined || (report.data?.potential_buyers && report.data?.potential_buyers.length > 0)}>
+						<Show
+							when={
+								report.data?.wallet_portfolio !== undefined ||
+								report.data?.has_ton_synergy !== undefined ||
+								report.data?.roi_percentage !== undefined ||
+								report.data?.channel_empire_reach !== undefined ||
+								(report.data?.potential_buyers && report.data?.potential_buyers.length > 0)
+							}
+						>
 							<div class="bg-[#141518] border border-[#2a2a2a] p-5 rounded-none border-l-4 border-l-[#3390ec] mb-4 space-y-4 relative overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
 								<h3 class="text-[#8e8e93] text-xs font-black uppercase tracking-widest flex items-center gap-2">
-									<span class="material-symbols-outlined text-[16px]">insights</span> {locale() === 'fa' ? 'اطلاعات هوشمند پیشرفته' : 'Advanced Intelligence'}
+									<span class="material-symbols-outlined text-[16px]">insights</span>{' '}
+									{locale() === 'fa' ? 'اطلاعات هوشمند پیشرفته' : 'Advanced Intelligence'}
 								</h3>
 
 								<div class="grid grid-cols-2 gap-4 border-b border-[#2a2a2a] pb-4">
 									<Show when={report.data?.wallet_portfolio !== undefined}>
 										<div class="flex flex-col gap-1">
 											<div class="flex items-center gap-1">
-												<span class="text-[10px] text-[#8e8e93] font-bold uppercase">{locale() === 'fa' ? 'کل دارایی کیف پول' : 'Wallet Portfolio'}</span>
+												<span class="text-[10px] text-[#8e8e93] font-bold uppercase">
+													{locale() === 'fa' ? 'کل دارایی کیف پول' : 'Wallet Portfolio'}
+												</span>
 												<Tooltip textKey="wallet_portfolio" locale={locale()} />
 											</div>
-											<span class="text-sm font-black text-white">{report.data!.wallet_portfolio} TON</span>
+											<span class="text-sm font-black text-white">
+												{report.data!.wallet_portfolio} TON
+											</span>
 										</div>
 									</Show>
-									
+
 									<Show when={report.data?.has_ton_synergy !== undefined}>
 										<div class="flex flex-col gap-1">
 											<div class="flex items-center gap-1">
-												<span class="text-[10px] text-[#8e8e93] font-bold uppercase">{locale() === 'fa' ? 'هم‌افزایی با شبکه TON' : 'TON Synergy'}</span>
+												<span class="text-[10px] text-[#8e8e93] font-bold uppercase">
+													{locale() === 'fa' ? 'هم‌افزایی با شبکه TON' : 'TON Synergy'}
+												</span>
 												<Tooltip textKey="has_ton_synergy" locale={locale()} />
 											</div>
-											<span class={`text-sm font-black uppercase ${report.data!.has_ton_synergy ? 'text-[#34c759]' : 'text-[#ff3b30]'}`}>
-												{report.data!.has_ton_synergy ? (locale() === 'fa' ? 'بالا' : 'High') : (locale() === 'fa' ? 'پایین' : 'Low')}
+											<span
+												class={`text-sm font-black uppercase ${report.data!.has_ton_synergy ? 'text-[#34c759]' : 'text-[#ff3b30]'}`}
+											>
+												{report.data!.has_ton_synergy
+													? locale() === 'fa'
+														? 'بالا'
+														: 'High'
+													: locale() === 'fa'
+														? 'پایین'
+														: 'Low'}
 											</span>
 										</div>
 									</Show>
@@ -664,47 +730,68 @@ export const PremiumReportPage: Component = () => {
 									<Show when={report.data?.roi_percentage !== undefined}>
 										<div class="flex flex-col gap-1">
 											<div class="flex items-center gap-1">
-												<span class="text-[10px] text-[#8e8e93] font-bold uppercase">{locale() === 'fa' ? 'بازده تخمینی سرمایه' : 'Est. ROI'}</span>
+												<span class="text-[10px] text-[#8e8e93] font-bold uppercase">
+													{locale() === 'fa' ? 'بازده تخمینی سرمایه' : 'Est. ROI'}
+												</span>
 												<Tooltip textKey="roi_percentage" locale={locale()} />
 											</div>
-											<span class="text-sm font-black text-[#ff9500]">+{report.data!.roi_percentage}%</span>
+											<span class="text-sm font-black text-[#ff9500]">
+												+{report.data!.roi_percentage}%
+											</span>
 										</div>
 									</Show>
 
 									<Show when={report.data?.channel_empire_reach !== undefined}>
 										<div class="flex flex-col gap-1">
 											<div class="flex items-center gap-1">
-												<span class="text-[10px] text-[#8e8e93] font-bold uppercase">{locale() === 'fa' ? 'بازدید مخاطبان' : 'Empire Reach'}</span>
+												<span class="text-[10px] text-[#8e8e93] font-bold uppercase">
+													{locale() === 'fa' ? 'بازدید مخاطبان' : 'Empire Reach'}
+												</span>
 												<Tooltip textKey="channel_empire_reach" locale={locale()} />
 											</div>
-											<span class="text-sm font-black text-[#3390ec]">{formatNumber(report.data!.channel_empire_reach!)}</span>
+											<span class="text-sm font-black text-[#3390ec]">
+												{formatNumber(report.data!.channel_empire_reach!)}
+											</span>
 										</div>
 									</Show>
 								</div>
 
-								<Show when={report.data?.potential_buyers && report.data?.potential_buyers.length > 0}>
+								<Show
+									when={report.data?.potential_buyers && report.data?.potential_buyers.length > 0}
+								>
 									<div class="pt-2">
 										<div class="flex items-center gap-1 mb-3">
-											<span class="text-[11px] font-bold text-[#8e8e93] uppercase tracking-wider">{locale() === 'fa' ? 'خریداران احتمالی' : 'Potential Buyers'}</span>
+											<span class="text-[11px] font-bold text-[#8e8e93] uppercase tracking-wider">
+												{locale() === 'fa' ? 'خریداران احتمالی' : 'Potential Buyers'}
+											</span>
 											<Tooltip textKey="potential_buyers" locale={locale()} />
 										</div>
 										<div class="bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl overflow-hidden max-h-[200px] overflow-y-auto">
 											<table class="w-full text-left text-xs">
 												<thead class="bg-[#2a2a2a] text-[#8e8e93] sticky top-0 z-10">
 													<tr>
-														<th class="px-3 py-2 font-bold uppercase text-left">{locale() === 'fa' ? 'آدرس' : 'Address'}</th>
-														<th class="px-3 py-2 font-bold uppercase text-right">{locale() === 'fa' ? 'موجودی' : 'Balance'}</th>
+														<th class="px-3 py-2 font-bold uppercase text-left">
+															{locale() === 'fa' ? 'آدرس' : 'Address'}
+														</th>
+														<th class="px-3 py-2 font-bold uppercase text-right">
+															{locale() === 'fa' ? 'موجودی' : 'Balance'}
+														</th>
 													</tr>
 												</thead>
 												<tbody class="divide-y divide-[#2a2a2a]">
 													<For each={report.data!.potential_buyers}>
 														{(buyer) => (
 															<tr class="hover:bg-[#2a2a2a]/50 transition-colors">
-																<td class="px-3 py-2 font-mono text-[#3390ec] max-w-[120px] truncate" title={buyer.owner_address}>
-																	{buyer.owner_address.slice(0, 4)}...{buyer.owner_address.slice(-4)}
+																<td
+																	class="px-3 py-2 font-mono text-[#3390ec] max-w-[120px] truncate"
+																	title={buyer.owner_address}
+																>
+																	{buyer.owner_address.slice(0, 4)}...
+																	{buyer.owner_address.slice(-4)}
 																</td>
 																<td class="px-3 py-2 font-black text-white text-right">
-																	{buyer.balance !== undefined ? buyer.balance.toFixed(1) : 'N/A'} TON
+																	{buyer.balance !== undefined ? buyer.balance.toFixed(1) : 'N/A'}{' '}
+																	TON
 																</td>
 															</tr>
 														)}
@@ -738,7 +825,8 @@ export const PremiumReportPage: Component = () => {
 						</div>
 
 						<p class="text-center text-[#8e8e93] text-[10px] mt-6 font-medium tracking-wide">
-							{locale() === 'fa' ? 'تاریخ ثبت گزارش:' : 'Data generated at'} {new Date(report.data!.generated_at).toLocaleString('en-US')}
+							{locale() === 'fa' ? 'تاریخ ثبت گزارش:' : 'Data generated at'}{' '}
+							{new Date(report.data!.generated_at).toLocaleString('en-US')}
 						</p>
 					</Motion.div>
 				</Show>
