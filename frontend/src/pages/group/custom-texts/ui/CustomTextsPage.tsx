@@ -30,13 +30,13 @@ interface CustomTextsConfig {
 }
 
 const defaults: CustomTextsConfig = {
-	welcomeText: '',
-	warningText: '',
-	silenceStartText: '',
-	silenceEndText: '',
-	rulesText: '',
-	forceJoinText: '',
-	forceAddText: '',
+	welcomeText: '👋 Welcome to {group}, {user}!\n\nWe are delighted to have you join our community. To ensure a professional and respectful environment, please take a moment to review our group guidelines.\n\n🕒 Joined on: {time}\n👤 User ID: {id}\n\nThank you for being part of our network.',
+	warningText: '⚠️ <b>Official Warning</b>\n\nUser: {user} ({id})\nReason: {reason}\nRule Violated: {rule}\n\nThis is warning {count} out of {threshold}. Please strictly adhere to the group rules to avoid further administrative actions.',
+	silenceStartText: '🔒 <b>Group Lockdown Initiated</b>\n\nThe group {group} is currently in a scheduled quiet period or emergency lockdown. Standard members cannot send messages at this time. We appreciate your patience and cooperation.\n\n🕒 Time: {time}',
+	silenceEndText: '🔓 <b>Group Lockdown Lifted</b>\n\nThe quiet period for {group} has concluded. The chat is now open for normal communication. Thank you for your patience.\n\n🕒 Time: {time}',
+	rulesText: '📜 <b>Community Guidelines for {group}</b>\n\n1️⃣ Treat all members with utmost respect and professionalism.\n2️⃣ No spam, unauthorized links, or unsolicited advertisements.\n3️⃣ Keep discussions constructive and relevant to the group\'s core topic.\n4️⃣ Follow the instructions of the administrative team.\n\nFailure to comply may result in warnings or removal. Thank you for maintaining a high-quality environment.',
+	forceJoinText: '📢 <b>Action Required: Channel Membership</b>\n\nHello {user}, to participate in {group}, you are required to join our official channels:\n\n{channel_names}\n\nPlease join them to instantly unlock your chat privileges.',
+	forceAddText: '👥 <b>Action Required: Community Contribution</b>\n\nHello {user}, to send messages in {group}, you must invite members to our community.\n\n📊 Progress: {added} / {number} members added.\n⏳ Remaining: {remainadd} members.\n\nPlease complete this requirement to unlock your chat privileges.',
 	inlineButtons: [],
 };
 

@@ -136,6 +136,8 @@ type Message struct {
 	ForwardFrom       *User              `json:"forward_from,omitempty"`
 	ForwardFromChat   *Chat              `json:"forward_from_chat"`
 	ViaBot            *User              `json:"via_bot"`
+	MediaGroupID      string             `json:"media_group_id,omitempty"`
+	AuthorSignature   string             `json:"author_signature,omitempty"`
 	ReplyMarkup       json.RawMessage    `json:"reply_markup,omitempty"`
 	SuccessfulPayment *SuccessfulPayment `json:"successful_payment"`
 	NewChatMembers    []User             `json:"new_chat_members"`
@@ -584,6 +586,16 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 
 func (h *WebhookHandler) handlePreCheckoutUpdate(ctx context.Context, bot *repository.ManagedBot, pq *PreCheckoutQuery) {
 	botToken, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+	if strings.HasPrefix(pq.InvoicePayload, "sub_stars_") {
+		// Accept the payment for subscription
+		if pq.Currency != "XTR" {
+			h.answerPreCheckout(botToken, pq.ID, false, "Invalid currency")
+			return
+		}
+		h.answerPreCheckout(botToken, pq.ID, true, "")
+		return
+	}
+
 	order, err := h.db.GetOrderByPayload(ctx, pq.InvoicePayload)
 	if err != nil {
 		slog.Warn("Pre-checkout failed: Order not found for payload", "payload", pq.InvoicePayload)
@@ -719,6 +731,22 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 					TargetType: &targetType,
 					TargetID:   &targetID,
 				})
+			}
+		}
+	} else if strings.HasPrefix(pay.InvoicePayload, "sub_stars_") {
+		parts := strings.Split(strings.TrimPrefix(pay.InvoicePayload, "sub_stars_"), "_")
+		if len(parts) == 2 {
+			groupIDStr := parts[0]
+			packageID := parts[1]
+			groupID, err := uuid.Parse(groupIDStr)
+			if err == nil {
+				botSvc := botmgmt.NewBotService(h.botRepo, repository.NewSettingsRepo(h.db, nil), repository.NewAuditRepo(h.db), repository.NewFRGRepo(h.db), repository.NewAnalyticsRepo(h.db))
+				err = botSvc.ActivateSubscriptionFromStars(ctx, msg.From.ID, groupID, packageID)
+				if err != nil {
+					slog.Error("Failed to activate subscription from Stars webhook", "error", err, "payload", pay.InvoicePayload)
+				} else {
+					slog.Info("Successfully activated subscription via Stars Webhook", "group_id", groupIDStr, "package_id", packageID)
+				}
 			}
 		}
 	} else if strings.HasPrefix(pay.InvoicePayload, "marketplace_purchase:") {
@@ -899,6 +927,14 @@ func (h *WebhookHandler) handleJoinLeaveUpdate(ctx context.Context, bot *reposit
 func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *repository.ManagedBot, msg *Message) {
 	if msg.Chat == nil || msg.From == nil {
 		return
+	}
+
+	// Intercept owner/admin private messages for Channel Funnel caption editing
+	if msg.Chat.Type == "private" {
+		handled, err := h.channelService.HandleFunnelTextReply(ctx, bot, msg.From.ID, msg.Chat.ID, msg.Text)
+		if err == nil && handled {
+			return
+		}
 	}
 
 	cache := h.moderator.GetCache()
@@ -1810,6 +1846,22 @@ func (h *WebhookHandler) getTarget(m *Message) (int64, string) {
 	return 0, ""
 }
 func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repository.ManagedBot, cq *CallbackQuery) {
+	if strings.HasPrefix(cq.Data, "f_") {
+		err := h.channelService.HandleFunnelCallback(ctx, channelmgmt.FunnelCallbackData{
+			QueryID:          cq.ID,
+			Data:             cq.Data,
+			FromID:           cq.From.ID,
+			FromLanguageCode: cq.From.LanguageCode,
+			ChatID:           cq.Message.Chat.ID,
+			ChatTitle:        cq.Message.Chat.Title,
+			MessageID:        cq.Message.MessageID,
+		}, bot)
+		if err != nil {
+			slog.Error("Failed to handle channel funnel callback query", "error", err)
+		}
+		return
+	}
+
 	if strings.HasPrefix(cq.Data, "captcha:") {
 		parts := strings.Split(cq.Data, ":")
 		if len(parts) < 2 { return }
@@ -2532,6 +2584,72 @@ func (h *WebhookHandler) handleChannelPost(ctx context.Context, bot *repository.
 	text := m.Text
 	if text == "" {
 		text = m.Caption
+	}
+
+	// Intercept for Channel Funnel System
+	if !isEdit {
+		var mediaItems []repository.FunnelMediaItem
+		if len(m.Photo) > 0 {
+			if photoMap, ok := m.Photo[len(m.Photo)-1].(map[string]interface{}); ok {
+				if fileID, ok := photoMap["file_id"].(string); ok {
+					mediaItems = append(mediaItems, repository.FunnelMediaItem{
+						FileID: fileID,
+						Type:   "photo",
+					})
+				}
+			}
+		} else if m.Video != nil {
+			var videoMap map[string]interface{}
+			videoBytes, _ := json.Marshal(m.Video)
+			if json.Unmarshal(videoBytes, &videoMap) == nil {
+				if fileID, ok := videoMap["file_id"].(string); ok {
+					mediaItems = append(mediaItems, repository.FunnelMediaItem{
+						FileID: fileID,
+						Type:   "video",
+					})
+				}
+			}
+		} else if m.Document != nil {
+			var docMap map[string]interface{}
+			docBytes, _ := json.Marshal(m.Document)
+			if json.Unmarshal(docBytes, &docMap) == nil {
+				if fileID, ok := docMap["file_id"].(string); ok {
+					mediaItems = append(mediaItems, repository.FunnelMediaItem{
+						FileID: fileID,
+						Type:   "document",
+					})
+				}
+			}
+		} else if m.Audio != nil {
+			var audioMap map[string]interface{}
+			audioBytes, _ := json.Marshal(m.Audio)
+			if json.Unmarshal(audioBytes, &audioMap) == nil {
+				if fileID, ok := audioMap["file_id"].(string); ok {
+					mediaItems = append(mediaItems, repository.FunnelMediaItem{
+						FileID: fileID,
+						Type:   "audio",
+					})
+				}
+			}
+		}
+
+		var authorID *int64
+		var authorName string
+		if m.From != nil {
+			authorID = &m.From.ID
+			authorName = m.From.FirstName
+			if m.From.Username != "" {
+				authorName = authorName + " (@" + m.From.Username + ")"
+			}
+		} else if m.AuthorSignature != "" {
+			authorName = m.AuthorSignature
+		}
+
+		handled, funnelErr := h.channelService.ProcessChannelPostForFunnel(ctx, bot, m.Chat.ID, m.MessageID, text, mediaItems, m.MediaGroupID, m.ReplyMarkup, authorID, authorName)
+		if funnelErr == nil && handled {
+			slog.Info("Post handled by Funnel System; stopping normal pipeline execution", "chat_id", m.Chat.ID, "message_id", m.MessageID)
+			return
+		}
 	}
 
 	if isEdit && h.db != nil && h.db.Pool != nil {

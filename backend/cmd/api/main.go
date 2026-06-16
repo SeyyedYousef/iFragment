@@ -449,6 +449,8 @@ func main() {
 
 			r.Get("/packages", botMgmtHandler.GetPackages)
 			r.Post("/subscribe", botMgmtHandler.Subscribe)
+			r.Post("/subscribe-airdrop", botMgmtHandler.SubscribeWithAirdrop)
+			r.Post("/subscribe-stars-invoice", botMgmtHandler.CreateSubscriptionStarsInvoice)
 		})
 
 		r.Route("/frg", func(r chi.Router) {

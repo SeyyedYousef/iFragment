@@ -1,0 +1,6 @@
+BEGIN;
+
+DROP TABLE IF EXISTS pending_funnel_posts CASCADE;
+DROP TABLE IF EXISTS channel_funnels CASCADE;
+
+COMMIT;

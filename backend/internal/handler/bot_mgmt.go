@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -279,6 +280,68 @@ func (h *BotMgmtHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	RespondJSON(w, http.StatusOK, map[string]string{"status": "subscribed"})
+}
+
+func (h *BotMgmtHandler) SubscribeWithAirdrop(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+	var req SubscribeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
+	groupID, err := uuid.Parse(req.GroupID)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid group ID", err)
+		return
+	}
+
+	if err := h.svc.SubscribeWithAirdrop(r.Context(), userID, groupID, req.PackageID); err != nil {
+		RespondError(w, r, http.StatusPaymentRequired, err.Error(), err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]string{"status": "subscribed_via_airdrop"})
+}
+
+func (h *BotMgmtHandler) CreateSubscriptionStarsInvoice(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+	var req SubscribeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
+	groupID, err := uuid.Parse(req.GroupID)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid group ID", err)
+		return
+	}
+
+	pkg := h.svc.GetPackageByID(req.PackageID)
+	if pkg == nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid package", nil)
+		return
+	}
+
+	// 1 FRG = 75 Stars
+	starsPrice := int(pkg.PriceFRG * 75)
+	payload := fmt.Sprintf("sub_stars_%s_%s", groupID.String(), req.PackageID)
+	
+	link, err := h.marketplace.CreateCustomStarsInvoice(r.Context(), userID, "Subscription: "+pkg.Name, fmt.Sprintf("Subscription for %s package", pkg.Name), payload, starsPrice)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		return
+	}
+	RespondJSON(w, http.StatusOK, map[string]string{"invoice_link": link})
 }
 
 // ─── Analytics ────────────────────────────────────────────

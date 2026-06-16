@@ -365,4 +365,42 @@ func (s *MarketplaceService) CreateStarsInvoice(ctx context.Context, userID int6
 	return link, nil
 }
 
+func (s *MarketplaceService) CreateCustomStarsInvoice(ctx context.Context, userID int64, title, desc, payload string, amount int) (string, error) {
+	tg, err := s.getBotAPIClient(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to load telegram bot client: %w", err)
+	}
+
+	resp, err := tg.Request(ctx, "createInvoiceLink", map[string]interface{}{
+		"title":       title,
+		"description": desc,
+		"payload":     payload,
+		"currency":    "XTR",
+		"prices": []map[string]interface{}{
+			{"label": title, "amount": amount},
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("telegram invoice error: %w", err)
+	}
+
+	var link string
+	if err := json.Unmarshal(resp, &link); err != nil {
+		return "", fmt.Errorf("failed to parse telegram invoice response: %w", err)
+	}
+
+	// Create a pending order in the database
+	_, err = s.frgRepo.DB().CreateOrder(ctx, repository.Order{
+		UserID:  userID,
+		Amount:  amount,
+		Status:  "pending",
+		Payload: payload,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to create order: %w", err)
+	}
+
+	return link, nil
+}
+
 

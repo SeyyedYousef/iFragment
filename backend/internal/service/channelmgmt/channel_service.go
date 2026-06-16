@@ -1291,6 +1291,12 @@ func (s *ChannelService) scheduledPostWorker(ctx context.Context) {
 					}
 				}()
 
+				// Process Funnel Scheduled Posts
+				funnelErr := s.PublishScheduledFunnelPosts(ctx)
+				if funnelErr != nil {
+					slog.Error("Failed to process scheduled funnel posts in worker", "error", funnelErr)
+				}
+
 				posts, err := s.channelRepo.GetScheduledPosts(ctx)
 				if err != nil {
 					slog.Error("Failed to fetch scheduled posts in worker", "error", err)

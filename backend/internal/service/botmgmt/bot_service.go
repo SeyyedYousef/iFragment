@@ -21,6 +21,7 @@ import (
 
 	"github.com/google/uuid"
 	"crypto/sha256"
+	"github.com/jackc/pgx/v5"
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/i18n"
 	"ifragment-backend/internal/repository"
@@ -178,9 +179,7 @@ func (s *BotService) sendExpirationNotice(ctx context.Context, g repository.Mana
 
 	msg := i18n.T(lang, "notifications."+template, vars)
 	
-	// Send to group
-	_ = tg.SendMessage(ctx, g.ChatID, msg, nil, nil)
-	// Send to owner PV
+	// Send to owner PV ONLY
 	_ = tg.SendMessage(ctx, bot.OwnerUserID, msg, nil, nil)
 }
 
@@ -482,6 +481,32 @@ func (s *BotService) Subscribe(ctx context.Context, userID int64, groupID uuid.U
 		return fmt.Errorf("payment failed: %w", err)
 	}
 
+	if err := s.internalActivateSubscriptionTx(ctx, tx, userID, groupID, packageID, group, pkg); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit subscription transaction: %w", err)
+	}
+
+	bot, _ := s.botRepo.GetBotByID(ctx, group.BotID)
+	botUsername := ""
+	if bot != nil {
+		botUsername = bot.BotUsername
+	}
+	s.notifyOwnerOnSubscription(context.Background(), botUsername, group.ChatTitle, pkg.Name, "FRG", userID)
+
+	// Trigger tiered lifetime referral commissions (10% Tier 1, 3% Tier 2)
+	go func() {
+		bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		s.frgRepo.DB().CreditReferrerShare(bgCtx, userID, pkg.PriceFRG, s.frgRepo)
+	}()
+
+	return nil
+}
+
+func (s *BotService) internalActivateSubscriptionTx(ctx context.Context, tx pgx.Tx, userID int64, groupID uuid.UUID, packageID string, group *repository.ManagedGroup, pkg *SubscriptionPackage) error {
 	base := time.Now()
 	if group.SubscriptionStatus == "paid" && group.PaidUntil != nil && group.PaidUntil.After(base) {
 		base = *group.PaidUntil
@@ -493,7 +518,7 @@ func (s *BotService) Subscribe(ctx context.Context, userID int64, groupID uuid.U
 	}
 
 	// Create billing subscription record
-	err = s.botRepo.CreateBillingSubscriptionTx(ctx, tx, &repository.BillingSubscription{
+	err := s.botRepo.CreateBillingSubscriptionTx(ctx, tx, &repository.BillingSubscription{
 		UserID:      userID,
 		GroupID:     groupID,
 		PackageID:   packageID,
@@ -507,12 +532,76 @@ func (s *BotService) Subscribe(ctx context.Context, userID int64, groupID uuid.U
 	if err != nil {
 		return fmt.Errorf("failed to create billing subscription: %w", err)
 	}
+	return nil
+}
 
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("failed to commit subscription transaction: %w", err)
+func (s *BotService) notifyOwnerOnSubscription(ctx context.Context, botUsername string, groupTitle string, packageName string, paymentMethod string, userID int64) {
+	owners := os.Getenv("OWNER_TELEGRAM_IDS")
+	if owners == "" {
+		return
+	}
+	
+	msg := fmt.Sprintf("🔔 <b>New Subscription Purchased!</b>\nBot: @%s\nGroup: %s\nPackage: %s\nMethod: %s\nUser ID: %d",
+		botUsername, groupTitle, packageName, paymentMethod, userID)
+	
+	botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
+	if botToken == "" {
+		botToken = os.Getenv("BOT_TOKEN")
 	}
 
-	// Trigger tiered lifetime referral commissions (10% Tier 1, 3% Tier 2)
+	for _, idStr := range strings.Split(owners, ",") {
+		idStr = strings.TrimSpace(idStr)
+		if idStr == "" {
+			continue
+		}
+		adminID, err := strconv.ParseInt(idStr, 10, 64)
+		if err == nil {
+			go telegram.NewBotAPIClient(botToken).SendMessage(context.Background(), adminID, msg, nil, nil)
+		}
+	}
+}
+
+func (s *BotService) GetPackageByID(packageID string) *SubscriptionPackage {
+	for _, p := range Packages {
+		if p.ID == packageID {
+			return &p
+		}
+	}
+	return nil
+}
+
+func (s *BotService) ActivateSubscriptionFromStars(ctx context.Context, userID int64, groupID uuid.UUID, packageID string) error {
+	group, err := s.botRepo.GetGroupByID(ctx, groupID)
+	if err != nil {
+		return err
+	}
+	pkg := s.GetPackageByID(packageID)
+	if pkg == nil {
+		return fmt.Errorf("invalid package")
+	}
+	
+	tx, err := s.frgRepo.DB().Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if err := s.internalActivateSubscriptionTx(ctx, tx, userID, groupID, packageID, group, pkg); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	
+	bot, _ := s.botRepo.GetBotByID(ctx, group.BotID)
+	botUsername := ""
+	if bot != nil {
+		botUsername = bot.BotUsername
+	}
+	s.notifyOwnerOnSubscription(context.Background(), botUsername, group.ChatTitle, pkg.Name, "Telegram Stars", userID)
+
+	// Credit referrer share as well
 	go func() {
 		bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
@@ -521,6 +610,69 @@ func (s *BotService) Subscribe(ctx context.Context, userID int64, groupID uuid.U
 
 	return nil
 }
+
+func (s *BotService) SubscribeWithAirdrop(ctx context.Context, userID int64, groupID uuid.UUID, packageID string) error {
+	group, err := s.GetGroup(ctx, groupID, userID)
+	if err != nil {
+		return fmt.Errorf("unauthorized or invalid group: %w", err)
+	}
+
+	pkg := s.GetPackageByID(packageID)
+	if pkg == nil {
+		return fmt.Errorf("invalid package: %s", packageID)
+	}
+
+	// 1 FRG = 100,000 Coins
+	requiredCoins := pkg.PriceFRG * 100000.0
+
+	tx, err := s.frgRepo.DB().Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Lock and check user_stats for airdrop_coins
+	var currentCoins float64
+	err = tx.QueryRow(ctx, `SELECT airdrop_coins FROM user_stats WHERE user_id = $1 FOR UPDATE`, userID).Scan(&currentCoins)
+	if err != nil {
+		return fmt.Errorf("failed to get user airdrop coins: %w", err)
+	}
+
+	if currentCoins < requiredCoins {
+		return fmt.Errorf("insufficient airdrop coins: need %.0f, have %.0f", requiredCoins, currentCoins)
+	}
+
+	// Deduct coins
+	_, err = tx.Exec(ctx, `UPDATE user_stats SET airdrop_coins = airdrop_coins - $1 WHERE user_id = $2`, requiredCoins, userID)
+	if err != nil {
+		return fmt.Errorf("failed to deduct airdrop coins: %w", err)
+	}
+
+	if err := s.internalActivateSubscriptionTx(ctx, tx, userID, groupID, packageID, group, pkg); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit subscription transaction: %w", err)
+	}
+	
+	bot, _ := s.botRepo.GetBotByID(ctx, group.BotID)
+	botUsername := ""
+	if bot != nil {
+		botUsername = bot.BotUsername
+	}
+	s.notifyOwnerOnSubscription(context.Background(), botUsername, group.ChatTitle, pkg.Name, "Airdrop Coins", userID)
+
+	// Credit referrer share 
+	go func() {
+		bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		s.frgRepo.DB().CreditReferrerShare(bgCtx, userID, pkg.PriceFRG, s.frgRepo)
+	}()
+
+	return nil
+}
+
 
 // Analytics
 

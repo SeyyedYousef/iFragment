@@ -1171,3 +1171,216 @@ type PendingPost struct {
 	Text      string                `json:"text"`
 	Buttons   []ChannelInlineButton `json:"buttons"`
 }
+
+// Channel Funnel System Types & Methods
+
+type ChannelFunnel struct {
+	ID           uuid.UUID `json:"id"`
+	BotID        uuid.UUID `json:"bot_id"`
+	InputChatID  int64     `json:"input_chat_id"`
+	OutputChatID int64     `json:"output_chat_id"`
+	OwnerUserID  int64     `json:"owner_user_id"`
+	IsActive     bool      `json:"is_active"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+type FunnelMediaItem struct {
+	FileID  string `json:"file_id"`
+	Type    string `json:"type"` // "photo", "video", "document", "audio"
+	Caption string `json:"caption,omitempty"`
+}
+
+type PendingFunnelPost struct {
+	ID                     uuid.UUID         `json:"id"`
+	FunnelID               uuid.UUID         `json:"funnel_id"`
+	InputMessageID         int64             `json:"input_message_id"`
+	OriginalAuthorID       *int64            `json:"original_author_id,omitempty"`
+	OriginalAuthorName     string            `json:"original_author_name,omitempty"`
+	MediaGroupID           *string           `json:"media_group_id,omitempty"`
+	MediaPayload           []FunnelMediaItem `json:"media_payload"`
+	DraftText              string            `json:"draft_text"`
+	DraftButtons           json.RawMessage   `json:"draft_buttons"`
+	AiVariations           []string          `json:"ai_variations"`
+	SelectedVariationIndex int               `json:"selected_variation_index"`
+	Status                 string            `json:"status"` // "pending", "approved", "rejected", "scheduled"
+	ScheduledAt            *time.Time        `json:"scheduled_at,omitempty"`
+	PublishedMessageID     *int64            `json:"published_message_id,omitempty"`
+	CreatedAt              time.Time         `json:"created_at"`
+	UpdatedAt              time.Time         `json:"updated_at"`
+}
+
+func (r *ChannelRepo) CreateChannelFunnel(ctx context.Context, f *ChannelFunnel) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("database pool is not initialized")
+	}
+	query := `INSERT INTO channel_funnels (bot_id, input_chat_id, output_chat_id, owner_user_id, is_active)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (bot_id, input_chat_id) DO UPDATE SET output_chat_id = EXCLUDED.output_chat_id, is_active = EXCLUDED.is_active, updated_at = now()
+		RETURNING id, created_at, updated_at`
+	return r.db.Pool.QueryRow(ctx, query, f.BotID, f.InputChatID, f.OutputChatID, f.OwnerUserID, f.IsActive).
+		Scan(&f.ID, &f.CreatedAt, &f.UpdatedAt)
+}
+
+func (r *ChannelRepo) GetFunnelByInputChatID(ctx context.Context, botID uuid.UUID, inputChatID int64) (*ChannelFunnel, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, fmt.Errorf("database pool is not initialized")
+	}
+	query := `SELECT id, bot_id, input_chat_id, output_chat_id, owner_user_id, is_active, created_at, updated_at
+		FROM channel_funnels WHERE bot_id = $1 AND input_chat_id = $2`
+	var f ChannelFunnel
+	err := r.db.Pool.QueryRow(ctx, query, botID, inputChatID).Scan(
+		&f.ID, &f.BotID, &f.InputChatID, &f.OutputChatID, &f.OwnerUserID, &f.IsActive, &f.CreatedAt, &f.UpdatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil // Not found
+		}
+		return nil, err
+	}
+	return &f, nil
+}
+
+func (r *ChannelRepo) GetFunnelByID(ctx context.Context, id uuid.UUID) (*ChannelFunnel, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, fmt.Errorf("database pool is not initialized")
+	}
+	query := `SELECT id, bot_id, input_chat_id, output_chat_id, owner_user_id, is_active, created_at, updated_at
+		FROM channel_funnels WHERE id = $1`
+	var f ChannelFunnel
+	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
+		&f.ID, &f.BotID, &f.InputChatID, &f.OutputChatID, &f.OwnerUserID, &f.IsActive, &f.CreatedAt, &f.UpdatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("funnel not found")
+		}
+		return nil, err
+	}
+	return &f, nil
+}
+
+func (r *ChannelRepo) SavePendingFunnelPost(ctx context.Context, p *PendingFunnelPost) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("database pool is not initialized")
+	}
+	mediaPayloadJSON, err := json.Marshal(p.MediaPayload)
+	if err != nil {
+		return err
+	}
+	aiVariationsJSON, err := json.Marshal(p.AiVariations)
+	if err != nil {
+		return err
+	}
+
+	query := `INSERT INTO pending_funnel_posts (funnel_id, input_message_id, original_author_id, original_author_name, media_group_id, media_payload, draft_text, draft_buttons, ai_variations, selected_variation_index, status, scheduled_at, published_message_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		ON CONFLICT (funnel_id, input_message_id) DO UPDATE SET media_payload = EXCLUDED.media_payload, draft_text = EXCLUDED.draft_text, draft_buttons = EXCLUDED.draft_buttons, ai_variations = EXCLUDED.ai_variations, selected_variation_index = EXCLUDED.selected_variation_index, status = EXCLUDED.status, scheduled_at = EXCLUDED.scheduled_at, published_message_id = EXCLUDED.published_message_id, updated_at = now()
+		RETURNING id, created_at, updated_at`
+	return r.db.Pool.QueryRow(ctx, query, p.FunnelID, p.InputMessageID, p.OriginalAuthorID, p.OriginalAuthorName, p.MediaGroupID, mediaPayloadJSON, p.DraftText, p.DraftButtons, aiVariationsJSON, p.SelectedVariationIndex, p.Status, p.ScheduledAt, p.PublishedMessageID).
+		Scan(&p.ID, &p.CreatedAt, &p.UpdatedAt)
+}
+
+func (r *ChannelRepo) GetPendingFunnelPostByID(ctx context.Context, id uuid.UUID) (*PendingFunnelPost, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, fmt.Errorf("database pool is not initialized")
+	}
+	query := `SELECT id, funnel_id, input_message_id, original_author_id, original_author_name, media_group_id, media_payload, draft_text, draft_buttons, ai_variations, selected_variation_index, status, scheduled_at, published_message_id, created_at, updated_at
+		FROM pending_funnel_posts WHERE id = $1`
+	var p PendingFunnelPost
+	var mediaPayloadRaw, aiVariationsRaw []byte
+	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
+		&p.ID, &p.FunnelID, &p.InputMessageID, &p.OriginalAuthorID, &p.OriginalAuthorName, &p.MediaGroupID, &mediaPayloadRaw, &p.DraftText, &p.DraftButtons, &aiVariationsRaw, &p.SelectedVariationIndex, &p.Status, &p.ScheduledAt, &p.PublishedMessageID, &p.CreatedAt, &p.UpdatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("pending post not found")
+		}
+		return nil, err
+	}
+	_ = json.Unmarshal(mediaPayloadRaw, &p.MediaPayload)
+	_ = json.Unmarshal(aiVariationsRaw, &p.AiVariations)
+	return &p, nil
+}
+
+func (r *ChannelRepo) GetPendingFunnelPostByMessageID(ctx context.Context, funnelID uuid.UUID, inputMsgID int64) (*PendingFunnelPost, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, fmt.Errorf("database pool is not initialized")
+	}
+	query := `SELECT id, funnel_id, input_message_id, original_author_id, original_author_name, media_group_id, media_payload, draft_text, draft_buttons, ai_variations, selected_variation_index, status, scheduled_at, published_message_id, created_at, updated_at
+		FROM pending_funnel_posts WHERE funnel_id = $1 AND input_message_id = $2`
+	var p PendingFunnelPost
+	var mediaPayloadRaw, aiVariationsRaw []byte
+	err := r.db.Pool.QueryRow(ctx, query, funnelID, inputMsgID).Scan(
+		&p.ID, &p.FunnelID, &p.InputMessageID, &p.OriginalAuthorID, &p.OriginalAuthorName, &p.MediaGroupID, &mediaPayloadRaw, &p.DraftText, &p.DraftButtons, &aiVariationsRaw, &p.SelectedVariationIndex, &p.Status, &p.ScheduledAt, &p.PublishedMessageID, &p.CreatedAt, &p.UpdatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil // Not found
+		}
+		return nil, err
+	}
+	_ = json.Unmarshal(mediaPayloadRaw, &p.MediaPayload)
+	_ = json.Unmarshal(aiVariationsRaw, &p.AiVariations)
+	return &p, nil
+}
+
+func (r *ChannelRepo) UpdatePendingFunnelPost(ctx context.Context, p *PendingFunnelPost) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("database pool is not initialized")
+	}
+	mediaPayloadJSON, err := json.Marshal(p.MediaPayload)
+	if err != nil {
+		return err
+	}
+	aiVariationsJSON, err := json.Marshal(p.AiVariations)
+	if err != nil {
+		return err
+	}
+
+	query := `UPDATE pending_funnel_posts SET
+		media_payload = $1,
+		draft_text = $2,
+		draft_buttons = $3,
+		ai_variations = $4,
+		selected_variation_index = $5,
+		status = $6,
+		scheduled_at = $7,
+		published_message_id = $8,
+		updated_at = now()
+		WHERE id = $9`
+	_, err = r.db.Pool.Exec(ctx, query, mediaPayloadJSON, p.DraftText, p.DraftButtons, aiVariationsJSON, p.SelectedVariationIndex, p.Status, p.ScheduledAt, p.PublishedMessageID, p.ID)
+	return err
+}
+
+func (r *ChannelRepo) GetScheduledFunnelPosts(ctx context.Context) ([]PendingFunnelPost, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, fmt.Errorf("database pool is not initialized")
+	}
+	query := `SELECT id, funnel_id, input_message_id, original_author_id, original_author_name, media_group_id, media_payload, draft_text, draft_buttons, ai_variations, selected_variation_index, status, scheduled_at, published_message_id, created_at, updated_at
+		FROM pending_funnel_posts
+		WHERE status = 'scheduled' AND scheduled_at <= now()`
+	
+	rows, err := r.db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []PendingFunnelPost
+	for rows.Next() {
+		var p PendingFunnelPost
+		var mediaPayloadRaw, aiVariationsRaw []byte
+		err := rows.Scan(
+			&p.ID, &p.FunnelID, &p.InputMessageID, &p.OriginalAuthorID, &p.OriginalAuthorName, &p.MediaGroupID, &mediaPayloadRaw, &p.DraftText, &p.DraftButtons, &aiVariationsRaw, &p.SelectedVariationIndex, &p.Status, &p.ScheduledAt, &p.PublishedMessageID, &p.CreatedAt, &p.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		_ = json.Unmarshal(mediaPayloadRaw, &p.MediaPayload)
+		_ = json.Unmarshal(aiVariationsRaw, &p.AiVariations)
+		posts = append(posts, p)
+	}
+	return posts, nil
+}
+

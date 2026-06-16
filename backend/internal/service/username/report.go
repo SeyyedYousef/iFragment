@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"ifragment-backend/internal/client/marketapp"
 	"ifragment-backend/internal/client/mtproto"
 	"ifragment-backend/internal/client/tonapi"
 	"ifragment-backend/internal/repository"
@@ -315,6 +316,12 @@ type SaleRecord struct {
 	Username string  `json:"username"`
 }
 
+type PotentialBuyer struct {
+	OwnerAddress string  `json:"owner_address"`
+	Balance      float64 `json:"balance,omitempty"`
+	OtherAssets  int     `json:"other_assets,omitempty"`
+}
+
 type FullReport struct {
 	// ─ Text Analysis ─
 	Username         string `json:"username"`
@@ -355,16 +362,18 @@ type FullReport struct {
 	PastSales      []SaleRecord `json:"past_sales,omitempty"`
 
 	// ─ Wallet Intel ─
-	OwnerWalletBalance  float64 `json:"owner_wallet_balance,omitempty"` // in TON
-	OwnerOtherAssets    int     `json:"owner_other_assets,omitempty"`   // count of other username NFTs
-	HasTonDomainSynergy bool    `json:"has_ton_domain_synergy,omitempty"`
+	OwnerWalletBalance  float64          `json:"owner_wallet_balance,omitempty"` // in TON
+	OwnerOtherAssets    int              `json:"owner_other_assets,omitempty"`   // count of other username NFTs
+	HasTonDomainSynergy bool             `json:"has_ton_synergy,omitempty"`
+	WalletPortfolio     float64          `json:"wallet_portfolio,omitempty"`
+	PotentialBuyers     []PotentialBuyer `json:"potential_buyers,omitempty"`
 
 	// ─ iFragment Analytics ─
 	RarityScore      int            `json:"rarity_score"`
 	LinguisticScore  float64        `json:"linguistic_score"`
 	EstimatedValue   float64        `json:"estimated_value,omitempty"` // in TON
 	ValueEstimate    *PriceEstimate `json:"value_estimate,omitempty"`
-	ROI              float64        `json:"roi,omitempty"`
+	ROI              float64        `json:"roi_percentage,omitempty"`
 	SearchPopularity int            `json:"search_popularity"`
 	FragmentURL      string         `json:"fragment_url"`
 
@@ -576,11 +585,16 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 			peer, err := s.mtprotoClient.ResolveUsername(subCtx, username)
 			if err == nil && peer != nil {
 				if len(peer.Users) > 0 {
-					mu.Lock()
-					report.PeerType = "user"
 					var u *tg.User
 					var isUser bool
-					if u, isUser = peer.Users[0].(*tg.User); isUser {
+					u, isUser = peer.Users[0].(*tg.User)
+					mu.Lock()
+					if isUser && u.Bot {
+						report.PeerType = "bot"
+					} else {
+						report.PeerType = "user"
+					}
+					if isUser {
 						report.IsVerified = u.Verified
 						report.IsPremium = u.Premium
 						report.IsScam = u.Scam
@@ -648,6 +662,53 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 					s.cache.Client.Set(subCtx, mtCacheKey, cBytes, 24*time.Hour)
 				}
 			}
+		}
+	}()
+
+	// ─ MarketApp Data ─
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		marketClient := marketapp.NewClient()
+		subCtx, cancel := context.WithTimeout(ctx, 6*time.Second)
+		defer cancel()
+		itemData, mErr := marketClient.GetItem(subCtx, username)
+		if mErr == nil && itemData != nil {
+			mu.Lock()
+			if len(itemData.PastSales) > 0 {
+				var sales []SaleRecord
+				for _, sale := range itemData.PastSales {
+					sales = append(sales, SaleRecord{
+						Date:     sale.Date,
+						Price:    sale.Price,
+						Currency: "TON",
+						Username: username,
+					})
+				}
+				report.PastSales = sales
+			}
+			if itemData.BuyNowPrice > 0 {
+				report.BuyNowPrice = itemData.BuyNowPrice
+			}
+			if itemData.HighestBid > 0 {
+				report.HighestBid = itemData.HighestBid
+			}
+			if itemData.EndTime != "" {
+				report.EndTime = itemData.EndTime
+			}
+			if itemData.SaleStatus != "" {
+				report.SaleStatus = itemData.SaleStatus
+			}
+			if itemData.MintDate != "" {
+				report.MintDate = itemData.MintDate
+			}
+			if len(itemData.PreviousOwners) > 0 {
+				report.PreviousOwners = itemData.PreviousOwners
+			}
+			if itemData.OwnerAddress != "" {
+				tonapiOwner = itemData.OwnerAddress
+			}
+			mu.Unlock()
 		}
 	}()
 
@@ -840,6 +901,47 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 		report.OwnerAddress = dnsOwner
 	}
 
+	// ─ Advanced Metrics & Analytics ─
+	if report.OwnerAddress != "" {
+		portfolio, err := s.GetWalletPortfolio(ctx, report.OwnerAddress)
+		if err == nil && portfolio != nil {
+			report.WalletPortfolio = portfolio.TotalValue
+
+			// Empire Reach (ChannelEmpireReach)
+			reach, rErr := s.CalculateChannelEmpire(ctx, portfolio.UsernamesList)
+			if rErr == nil {
+				report.ChannelEmpireReach = reach
+			}
+		}
+	}
+
+	// Resolve PotentialBuyers (similar owners)
+	similarUsernames, err := s.FindSimilarUsernames(ctx, username, 5)
+	if err == nil && len(similarUsernames) > 0 {
+		var buyers []PotentialBuyer
+		seenBuyers := make(map[string]bool)
+		for _, sim := range similarUsernames {
+			owner := sim.OwnerAddress
+			if owner == "" || owner == report.OwnerAddress || seenBuyers[owner] {
+				continue
+			}
+			seenBuyers[owner] = true
+
+			// Fetch balance of this owner
+			balance := 0.0
+			walletInfo, wErr := s.tonClient.GetWalletInfo(ctx, owner)
+			if wErr == nil && walletInfo != nil {
+				balance = float64(walletInfo.Balance) / 1e9 // nanoTON to TON
+			}
+
+			buyers = append(buyers, PotentialBuyer{
+				OwnerAddress: owner,
+				Balance:      balance,
+			})
+		}
+		report.PotentialBuyers = buyers
+	}
+
 	// ─ Estimated Value (AI/Algorithm) –
 	report.ValueEstimate = s.estimateValue(ctx, report)
 	if report.ValueEstimate != nil {
@@ -911,7 +1013,7 @@ func (s *ReportService) GetWalletPortfolio(ctx context.Context, ownerAddr string
 					RarityScore:      s.CalculateRarity(username),
 					LinguisticScore:  calculateLinguisticScore(username),
 				}
-				estimate := s.estimateValue(ctx, r)
+				estimate := estimateValue(r, s.pricingConfig)
 				if estimate != nil {
 					portfolio.TotalValue += estimate.P50
 				}
@@ -1379,11 +1481,51 @@ func (s *ReportService) CalculateChannelEmpire(ctx context.Context, usernames []
 		return 0, fmt.Errorf("mtproto client is not initialized")
 	}
 
-	for _, username := range usernames {
-		peer, err := s.mtprotoClient.ResolveUsername(ctx, username)
+	type mtCacheData struct {
+		Status            mtproto.Status `json:"status"`
+		PeerType          string         `json:"peer_type"`
+		IsVerified        bool           `json:"is_verified"`
+		IsPremium         bool           `json:"is_premium"`
+		IsScam            bool           `json:"is_scam"`
+		IsFake            bool           `json:"is_fake"`
+		Bio               string         `json:"bio"`
+		BotInfo           string         `json:"bot_info"`
+		ProfilePhotoID    int64          `json:"profile_photo_id"`
+		ParticipantsCount int            `json:"participants_count"`
+	}
+
+	for _, u := range usernames {
+		cacheKey := fmt.Sprintf("mtproto:%s", u)
+		if s.cache != nil {
+			val, err := s.cache.Client.Get(ctx, cacheKey).Result()
+			if err == nil {
+				var cached mtCacheData
+				if json.Unmarshal([]byte(val), &cached) == nil {
+					if cached.PeerType == "channel" {
+						totalParticipants += cached.ParticipantsCount
+					}
+					continue
+				}
+			}
+		}
+
+		peer, err := s.mtprotoClient.ResolveUsername(ctx, u)
 		if err == nil && peer != nil && len(peer.Chats) > 0 {
 			if c, isChannel := peer.Chats[0].(*tg.Channel); isChannel {
 				totalParticipants += c.ParticipantsCount
+
+				if s.cache != nil {
+					cData := mtCacheData{
+						PeerType:          "channel",
+						IsVerified:        c.Verified,
+						IsScam:            c.Scam,
+						IsFake:            c.Fake,
+						ParticipantsCount: c.ParticipantsCount,
+					}
+					if cBytes, mErr := json.Marshal(cData); mErr == nil {
+						s.cache.Client.Set(ctx, cacheKey, cBytes, 24*time.Hour)
+					}
+				}
 			}
 		}
 	}

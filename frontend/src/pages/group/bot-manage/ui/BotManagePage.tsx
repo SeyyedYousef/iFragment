@@ -13,6 +13,7 @@ export const BotManagePage: Component = () => {
 	const botId = params.botId;
 
 	const [showSubscription, setShowSubscription] = createSignal(false);
+	const [paymentStep, setPaymentStep] = createSignal<'package' | 'method'>('package');
 	const [selectedGroup, setSelectedGroup] = createSignal<string>('');
 	const [selectedPkg, setSelectedPkg] = createSignal<string>('');
 	const [isProcessing, setIsProcessing] = createSignal(false);
@@ -61,16 +62,17 @@ export const BotManagePage: Component = () => {
 
 	const openSubscription = (groupId: string) => {
 		setSelectedGroup(groupId);
+		setPaymentStep('package');
 		setShowSubscription(true);
 		hapticFeedback.impactOccurred('light');
 	};
 
-	const handleSubscribe = async () => {
+	const handleSubscribeAirdrop = async () => {
 		if (!selectedPkg() || !selectedGroup()) return;
 		setIsProcessing(true);
 		setErrorMsg('');
 		try {
-			await subscriptionApi.subscribe(selectedGroup(), selectedPkg());
+			await subscriptionApi.subscribeWithAirdrop(selectedGroup(), selectedPkg());
 			hapticFeedback.notificationOccurred('success');
 			setSuccessMsg(
 				t('botManage.subscriptionSuccess' as any) || 'Subscription activated successfully!',
@@ -80,6 +82,39 @@ export const BotManagePage: Component = () => {
 			refetchBalance();
 		} catch (e: any) {
 			const msg = e?.response?.data?.error || 'Payment failed';
+			setErrorMsg(msg);
+			hapticFeedback.notificationOccurred('error');
+		} finally {
+			setIsProcessing(false);
+			setTimeout(() => {
+				setSuccessMsg('');
+				setErrorMsg('');
+			}, 4000);
+		}
+	};
+
+	const handleSubscribeStars = async () => {
+		if (!selectedPkg() || !selectedGroup()) return;
+		setIsProcessing(true);
+		setErrorMsg('');
+		try {
+			const res = await subscriptionApi.createSubscriptionStarsInvoice(selectedGroup(), selectedPkg());
+			if (res.invoice_link) {
+				const tg = (window as any).Telegram?.WebApp;
+				if (tg && tg.openInvoice) {
+					tg.openInvoice(res.invoice_link, (status: string) => {
+						if (status === 'paid') {
+							hapticFeedback.notificationOccurred('success');
+							setShowSubscription(false);
+							refetchGroups();
+						}
+					});
+				} else {
+					openTelegramLink(res.invoice_link);
+				}
+			}
+		} catch (e: any) {
+			const msg = e?.response?.data?.error || 'Failed to create invoice';
 			setErrorMsg(msg);
 			hapticFeedback.notificationOccurred('error');
 		} finally {
@@ -337,98 +372,7 @@ export const BotManagePage: Component = () => {
 						</div>
 					</div>
 
-					{/* Connected Channels Section */}
-					<div class="flex flex-col gap-4 mt-6">
-						<h2 class="text-xl font-black text-white px-2 flex items-center gap-3">
-							<span class="w-1.5 h-6 bg-[#32ade6] rounded-full"></span>
-							Connected Channels
-						</h2>
 
-						<div class="flex flex-col gap-3">
-							<Show when={!channels.loading && (!channels() || channels()!.length === 0)}>
-								<div class="bg-[#1c1c1c] rounded-[2rem] p-10 border border-[#2a2a2a] flex flex-col items-center justify-center text-center gap-3 shadow-inner">
-									<div class="w-16 h-16 rounded-full bg-[#2c2c2e] flex items-center justify-center border border-[#3a3a3c]">
-										<span class="material-symbols-outlined text-[#3a3a3c] text-[32px]">
-											campaign
-										</span>
-									</div>
-									<p class="text-[#8e8e93] text-sm font-bold">No channels connected yet</p>
-								</div>
-							</Show>
-
-							<For each={channels() || []}>
-								{(channel: any, i) => {
-									const endDateStr =
-										channel.subscription_status === 'trial'
-											? channel.trial_ends_at
-											: channel.paid_until;
-									return (
-										<Motion.div
-											initial={{ opacity: 0, x: -10 }}
-											animate={{ opacity: 1, x: 0 }}
-											transition={{ delay: 0.1 + i() * 0.08, duration: 0.4 }}
-											class="bg-[#1c1c1c] rounded-[1.75rem] p-4 border border-[#2a2a2a] flex flex-col gap-4 group hover:border-[#32ade6]/30 transition-all shadow-lg active:scale-[0.99]"
-										>
-											<div class="flex items-center justify-between">
-												<div class="flex items-center gap-4 overflow-hidden">
-													<div class="w-12 h-12 shrink-0 rounded-2xl bg-gradient-to-br from-[#32ade6]/10 to-transparent flex items-center justify-center border border-[#32ade6]/20">
-														<span class="text-lg font-black text-[#32ade6]">
-															{channel.title.charAt(0)}
-														</span>
-													</div>
-													<div class="flex flex-col overflow-hidden">
-														<h3 class="text-[16px] font-black text-white leading-tight mb-0.5 truncate">
-															{channel.title}
-														</h3>
-														<span class="text-[12px] text-[#8e8e93] font-bold">
-															{channel.members} subscribers
-														</span>
-													</div>
-												</div>
-
-												<div class="flex flex-col items-end shrink-0">
-													<span
-														class={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${
-															channel.subscription_status === 'paid'
-																? 'text-[#34c759] border-[#34c759]/20 bg-[#34c759]/5'
-																: channel.subscription_status === 'trial'
-																	? 'text-[#ff9f0a] border-[#ff9f0a]/20 bg-[#ff9f0a]/5'
-																	: 'text-[#ff3b30] border-[#ff3b30]/20 bg-[#ff3b30]/5'
-														}`}
-													>
-														{channel.subscription_status === 'paid'
-															? 'Active'
-															: channel.subscription_status === 'trial'
-																? 'Trial'
-																: 'Expired'}
-													</span>
-													<Show when={endDateStr && channel.subscription_status !== 'expired'}>
-														<span class="text-[10px] text-[#8e8e93] font-medium mt-1 whitespace-nowrap">
-															{formatTimeRemaining(endDateStr!)}
-														</span>
-													</Show>
-												</div>
-											</div>
-
-											<div class="flex gap-2 w-full">
-												<Show when={channel.subscription_status !== 'expired'}>
-													<button
-														onClick={() => {
-															hapticFeedback.impactOccurred('light');
-															navigate(`/channel/${channel.id}`);
-														}}
-														class="flex-1 h-11 rounded-xl text-[13px] font-black transition-all bg-[#2c2c2e] text-white border border-[#3a3a3c] hover:bg-[#3a3a3c]"
-													>
-														Manage Channel
-													</button>
-												</Show>
-											</div>
-										</Motion.div>
-									);
-								}}
-							</For>
-						</div>
-					</div>
 				</Show>
 			</div>
 
@@ -451,103 +395,140 @@ export const BotManagePage: Component = () => {
 						{/* Handle */}
 						<div class="w-12 h-1.5 bg-[#3a3a3a] rounded-full mx-auto mb-6" />
 
-						{/* FRG Balance Banner */}
-						<div class="bg-gradient-to-br from-[#3390ec]/20 to-[#3390ec]/5 border border-[#3390ec]/20 rounded-3xl p-5 flex items-center justify-between mb-6 shadow-inner">
-							<div class="flex flex-col">
-								<span class="text-[11px] font-black text-[#8e8e93] uppercase tracking-widest mb-1">
-									Your Balance
-								</span>
-								<div class="flex items-baseline gap-1.5">
-									<span class="text-3xl font-black text-white">
-										{balance.loading
-											? '...'
-											: (balance()?.balance ?? 0).toLocaleString(undefined, {
-													minimumFractionDigits: 2,
-												})}
-									</span>
-									<span class="text-[14px] font-black text-[#3390ec]">
-										{t('airdrop.boosters.currency')}
-									</span>
-								</div>
-							</div>
-							<button
-								onClick={() => navigate('/marketplace')}
-								class="w-12 h-12 rounded-2xl bg-[#3390ec] text-white flex items-center justify-center hover:scale-105 transition-all shadow-[0_8px_15px_rgba(51,144,236,0.3)]"
-							>
-								<span class="material-symbols-outlined text-[24px]">add</span>
-							</button>
-						</div>
 
-						<h3 class="text-[20px] font-black text-white mb-2 leading-tight">
-							{t('botManage.choosePackage' as any) || 'Choose Subscription'}
-						</h3>
-						<p class="text-[13px] font-medium text-[#8e8e93] mb-6">
-							Select a premium package for your group
-						</p>
+						{paymentStep() === 'package' ? (
+							<>
+								<h3 class="text-[20px] font-black text-white mb-2 leading-tight">
+									{t('botManage.choosePackage' as any) || 'Choose Subscription'}
+								</h3>
+								<p class="text-[13px] font-medium text-[#8e8e93] mb-6">
+									Select a premium package for your group
+								</p>
 
-						{/* Package Cards */}
-						<div class="space-y-3">
-							<For each={packages() || []}>
-								{(pkg: SubscriptionPackage) => (
-									<button
-										onClick={() => {
-											setSelectedPkg(pkg.id);
-											hapticFeedback.selectionChanged();
-										}}
-										class={`w-full rounded-3xl p-5 flex items-center justify-between border-2 transition-all active:scale-[0.98] ${
-											selectedPkg() === pkg.id
-												? 'border-[#3390ec] bg-[#3390ec]/10 shadow-lg'
-												: 'border-[#2a2a2a] bg-[#242426] hover:border-[#3a3a3a]'
-										}`}
-									>
-										<div class="flex flex-col items-start gap-1">
-											<div class="flex items-center gap-2">
-												<span
-													class={`text-[16px] font-black ${selectedPkg() === pkg.id ? 'text-white' : 'text-white/90'}`}
-												>
-													{pkg.name}
-												</span>
-												<Show when={pkg.discount}>
-													<span class="text-[10px] font-black text-[#34c759] bg-[#34c759]/10 px-2.5 py-1 rounded-full uppercase">
-														-{pkg.discount}
+								{/* Package Cards */}
+								<div class="space-y-3">
+									<For each={packages() || []}>
+										{(pkg: SubscriptionPackage) => (
+											<button
+												onClick={() => {
+													setSelectedPkg(pkg.id);
+													hapticFeedback.selectionChanged();
+												}}
+												class={`w-full rounded-3xl p-5 flex items-center justify-between border-2 transition-all active:scale-[0.98] ${
+													selectedPkg() === pkg.id
+														? 'border-[#3390ec] bg-[#3390ec]/10 shadow-lg'
+														: 'border-[#2a2a2a] bg-[#242426] hover:border-[#3a3a3a]'
+												}`}
+											>
+												<div class="flex flex-col items-start gap-1">
+													<div class="flex items-center gap-2">
+														<span
+															class={`text-[16px] font-black ${selectedPkg() === pkg.id ? 'text-white' : 'text-white/90'}`}
+														>
+															{pkg.name}
+														</span>
+														<Show when={pkg.discount}>
+															<span class="text-[10px] font-black text-[#34c759] bg-[#34c759]/10 px-2.5 py-1 rounded-full uppercase">
+																-{pkg.discount}
+															</span>
+														</Show>
+													</div>
+													<span class="text-[12px] font-bold text-[#8e8e93]">
+														{pkg.groups_limit} Group Management
 													</span>
-												</Show>
+												</div>
+												<div class="flex items-baseline gap-1.5">
+													<span class="text-2xl font-black text-white">
+														{(pkg.price_frg * 100000).toLocaleString()}
+													</span>
+													<span class="text-[13px] font-black text-[#3390ec]">
+														{t('airdrop.boosters.currency')}
+													</span>
+												</div>
+											</button>
+										)}
+									</For>
+								</div>
+
+								{/* Continue Button */}
+								<button
+									onClick={() => {
+										hapticFeedback.impactOccurred('medium');
+										setPaymentStep('method');
+									}}
+									disabled={!selectedPkg()}
+									class="w-full h-16 bg-[#3390ec] hover:bg-[#2b7bc9] text-white rounded-[1.5rem] font-black text-[17px] mt-8 transition-all disabled:opacity-40 flex items-center justify-center gap-3 shadow-[0_20px_40px_rgba(51,144,236,0.3)] active:scale-95"
+								>
+									Continue to Payment
+								</button>
+							</>
+						) : (
+							<>
+								<div class="flex items-center gap-4 mb-6">
+									<button 
+										onClick={() => setPaymentStep('package')}
+										class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center hover:bg-[#2a2a2a]"
+									>
+										<span class="material-symbols-outlined text-[20px]">arrow_back</span>
+									</button>
+									<div>
+										<h3 class="text-[20px] font-black text-white leading-tight">
+											Select Payment Method
+										</h3>
+										<p class="text-[13px] font-medium text-[#8e8e93]">
+											Choose how you want to pay
+										</p>
+									</div>
+								</div>
+
+								<div class="space-y-4 mt-8">
+									{/* Telegram Stars Button */}
+									<button
+										onClick={handleSubscribeStars}
+										disabled={isProcessing()}
+										class="w-full relative group overflow-hidden bg-gradient-to-r from-[#2c2d30] to-[#1c1d20] border border-[#ffb900]/30 rounded-[1.5rem] p-5 text-left transition-all active:scale-[0.98] hover:border-[#ffb900]/60"
+									>
+										<div class="absolute right-[-20px] top-[-20px] w-24 h-24 bg-[#ffb900]/10 rounded-full blur-2xl group-hover:bg-[#ffb900]/20 transition-all" />
+										<div class="relative flex items-center gap-4 z-10">
+											<div class="w-12 h-12 rounded-full bg-[#ffb900]/10 flex items-center justify-center border border-[#ffb900]/20 shadow-inner">
+												<span class="text-[24px]">⭐</span>
 											</div>
-											<span class="text-[12px] font-bold text-[#8e8e93]">
-												{pkg.groups_limit} Group Management
-											</span>
-										</div>
-										<div class="flex items-baseline gap-1.5">
-											<span class="text-2xl font-black text-white">{pkg.price_frg}</span>
-											<span class="text-[13px] font-black text-[#3390ec]">
-												{t('airdrop.boosters.currency')}
-											</span>
+											<div class="flex-1">
+												<h4 class="text-[17px] font-black text-white mb-0.5">Telegram Stars</h4>
+												<p class="text-[13px] font-medium text-[#8e8e93]">Fast & native payment</p>
+											</div>
+											<span class="material-symbols-outlined text-[#ffb900]">chevron_right</span>
 										</div>
 									</button>
-								)}
-							</For>
-						</div>
 
-						{/* Subscribe Button */}
-						<button
-							onClick={handleSubscribe}
-							disabled={!selectedPkg() || isProcessing()}
-							class="w-full h-16 bg-[#3390ec] hover:bg-[#2b7bc9] text-white rounded-[1.5rem] font-black text-[17px] mt-8 transition-all disabled:opacity-40 flex items-center justify-center gap-3 shadow-[0_20px_40px_rgba(51,144,236,0.3)] active:scale-95"
-						>
-							<Show
-								when={!isProcessing()}
-								fallback={
-									<span class="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-								}
-							>
-								<span class="material-symbols-outlined text-[24px]">shopping_bag</span>
-								{t('botManage.buySubscription' as any) || 'Activate Pro'}
-							</Show>
-						</button>
-						<p class="text-[11px] text-[#555] text-center mt-4 font-medium px-6">
-							By activating, you agree to our Terms of Service. Payments are processed instantly via
-							Coins balance.
-						</p>
+									{/* Airdrop Coins Button */}
+									<button
+										onClick={handleSubscribeAirdrop}
+										disabled={isProcessing()}
+										class="w-full relative group overflow-hidden bg-gradient-to-r from-[#2c2d30] to-[#1c1d20] border border-[#3390ec]/30 rounded-[1.5rem] p-5 text-left transition-all active:scale-[0.98] hover:border-[#3390ec]/60"
+									>
+										<div class="absolute right-[-20px] top-[-20px] w-24 h-24 bg-[#3390ec]/10 rounded-full blur-2xl group-hover:bg-[#3390ec]/20 transition-all" />
+										<div class="relative flex items-center gap-4 z-10">
+											<div class="w-12 h-12 rounded-full bg-[#3390ec]/10 flex items-center justify-center border border-[#3390ec]/20 shadow-inner">
+												<span class="material-symbols-outlined text-[#3390ec] text-[24px]">toll</span>
+											</div>
+											<div class="flex-1">
+												<h4 class="text-[17px] font-black text-white mb-0.5">Airdrop Coins</h4>
+												<p class="text-[13px] font-medium text-[#8e8e93]">Use earned balance</p>
+											</div>
+											<span class="material-symbols-outlined text-[#3390ec]">chevron_right</span>
+										</div>
+									</button>
+								</div>
+							</>
+						)}
+
+						{isProcessing() && (
+							<div class="absolute inset-0 bg-[#0f1014]/80 backdrop-blur-sm z-20 flex flex-col items-center justify-center rounded-t-[2.5rem]">
+								<span class="w-10 h-10 border-4 border-[#3390ec]/30 border-t-[#3390ec] rounded-full animate-spin mb-4" />
+								<span class="text-[15px] font-bold text-white animate-pulse">Processing...</span>
+							</div>
+						)}
 					</Motion.div>
 				</Motion.div>
 			</Show>
