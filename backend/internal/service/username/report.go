@@ -711,8 +711,9 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 		mu.Unlock()
 
 		// Fetch transfers and history
-		transfers, trErr := s.tonClient.GetNFTTransfers(subCtx, nft.Address)
-		if trErr == nil && transfers != nil {
+		if nft.Address != "" {
+			transfers, trErr := s.tonClient.GetNFTTransfers(subCtx, nft.Address)
+			if trErr == nil && transfers != nil {
 			var tonapiOwners []string
 			for _, tr := range transfers.Transfers {
 				if tr.From.Address != "" {
@@ -730,6 +731,7 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 				// avoiding skewing average/median prices in the analytics.
 			}
 			mu.Unlock()
+			}
 		}
 
 		// Get wallet info for the owner
