@@ -218,7 +218,37 @@ export const channelApi = {
 		apiClient
 			.post(`/channels/${channelId}/simulate`, { text, action })
 			.then((r: any) => r.data?.data?.text || r.data?.text),
+
+	getFunnel: (channelId: string) =>
+		apiClient
+			.get<any>(`/channels/${channelId}/funnel`)
+			.then((r: any) => {
+				const data = r.data?.data || r.data;
+				return data?.funnel === null ? null : data;
+			}),
+
+	createFunnel: (channelId: string, inputChannelId: string) =>
+		apiClient
+			.post<any>(`/channels/${channelId}/funnel`, { input_channel_id: inputChannelId })
+			.then((r: any) => r.data?.data || r.data),
+
+	deleteFunnel: (channelId: string) =>
+		apiClient
+			.delete(`/channels/${channelId}/funnel`)
+			.then((r: any) => r.data?.data || r.data),
 };
+
+export interface ChannelFunnel {
+	id: string;
+	bot_id: string;
+	input_chat_id: number;
+	output_chat_id: number;
+	owner_user_id: number;
+	is_active: boolean;
+	created_at?: string;
+	updated_at?: string;
+	input_title?: string;
+}
 
 export interface ForwardingRule {
 	id?: string;

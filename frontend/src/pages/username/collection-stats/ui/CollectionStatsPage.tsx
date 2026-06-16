@@ -106,13 +106,13 @@ export const CollectionStatsPage: Component = () => {
 
 				<Show when={stats.isError || (!stats.isLoading && !stats.data)}>
 					<div class="bg-orange-500/10 border border-orange-500/20 text-orange-400 p-3 rounded-xl text-xs text-center font-bold mb-6">
-						Collection stats are temporarily unavailable.
+						{locale() === 'fa' ? 'آمارهای مجموعه موقتاً در دسترس نیستند.' : 'Collection stats are temporarily unavailable.'}
 					</div>
 				</Show>
 
 				<div class="text-center mb-8 relative">
 					<div class="inline-block px-4 py-1.5 rounded-full bg-[#3390ec]/10 border border-[#3390ec]/20 text-[#3390ec] text-[10px] font-black uppercase tracking-widest mb-4">
-						Global Analytics
+						{locale() === 'fa' ? 'آنالیز جهانی' : 'Global Analytics'}
 					</div>
 					<h1 class="text-3xl font-black tracking-tight text-white mb-2">
 						{t('action.username.collection_stats_title')}
@@ -167,7 +167,7 @@ export const CollectionStatsPage: Component = () => {
 
 					<div class="bg-[#141518] border border-[#2a2a2a] p-5 rounded-[24px] mb-4 space-y-4">
 						<h3 class="text-[#a6a6ad] text-xs font-black uppercase tracking-widest flex items-center gap-2 border-b border-[#2a2a2a] pb-3">
-							<span class="material-symbols-outlined text-[16px]">database</span> Supply & Activity
+							<span class="material-symbols-outlined text-[16px]">database</span> {locale() === 'fa' ? 'عرضه و فعالیت' : 'Supply & Activity'}
 						</h3>
 						<Row
 							label={t('action.username.totalSupply')}
@@ -190,7 +190,7 @@ export const CollectionStatsPage: Component = () => {
 							title={t('action.username.whaleWatch')}
 							icon="account_balance_wallet"
 							accent="text-[#3390ec]"
-							empty="No holder data available yet."
+							empty={locale() === 'fa' ? 'هنوز داده‌ای برای هولدرها ثبت نشده است.' : 'No holder data available yet.'}
 							hasData={topHolders().length > 0}
 						>
 							<ForHolders holders={topHolders()} />
@@ -200,7 +200,7 @@ export const CollectionStatsPage: Component = () => {
 							title={t('action.username.allTimeHigh')}
 							icon="military_tech"
 							accent="text-[#34c759]"
-							empty="No sale leaderboard data available yet."
+							empty={locale() === 'fa' ? 'هنوز داده‌ای برای جدول فروش‌ها ثبت نشده است.' : 'No sale leaderboard data available yet.'}
 							hasData={topSales().length > 0}
 						>
 							<For each={topSales().slice(0, 5)}>
@@ -211,7 +211,7 @@ export const CollectionStatsPage: Component = () => {
 												? sale.username.startsWith('@')
 													? sale.username
 													: `@${sale.username}`
-												: 'Anonymous'}
+												: (locale() === 'fa' ? 'ناشناس' : 'Anonymous')}
 										</span>
 										<div class="text-right">
 											<div class="font-black text-[#34c759] text-xs">
@@ -241,27 +241,27 @@ export const CollectionStatsPage: Component = () => {
 							<div
 								class="h-full bg-[#3390ec]"
 								style={{ width: `${Number(distribution()?.single || 0)}%` }}
-								title="1 Item"
+								title={locale() === 'fa' ? '۱ دارایی' : '1 Item'}
 							/>
 							<div
 								class="h-full bg-blue-600"
 								style={{ width: `${Number(distribution()?.small || 0)}%` }}
-								title="2-5 Items"
+								title={locale() === 'fa' ? '۲ تا ۵ دارایی' : '2-5 Items'}
 							/>
 							<div
 								class="h-full bg-cyan-500"
 								style={{ width: `${Number(distribution()?.medium || 0)}%` }}
-								title="6-24 Items"
+								title={locale() === 'fa' ? '۶ تا ۲۴ دارایی' : '6-24 Items'}
 							/>
 							<div
 								class="h-full bg-teal-500"
 								style={{ width: `${Number(distribution()?.large || 0)}%` }}
-								title="25-50 Items"
+								title={locale() === 'fa' ? '۲۵ تا ۵۰ دارایی' : '25-50 Items'}
 							/>
 							<div
 								class="h-full bg-orange-500"
 								style={{ width: `${Number(distribution()?.whale || 0)}%` }}
-								title="50+ Items"
+								title={locale() === 'fa' ? 'نهنگ‌ها (۵۰+)' : '50+ Items'}
 							/>
 						</div>
 						<div class="grid grid-cols-2 gap-2 text-[10px] font-bold">

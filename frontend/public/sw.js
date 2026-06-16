@@ -49,6 +49,32 @@ self.addEventListener('fetch', (event) => {
 		return;
 	}
 
+	// For HTML/navigation requests, use Network-First strategy to ensure instant updates.
+	// Fall back to cached files only if network is offline or unreachable.
+	if (
+		event.request.mode === 'navigate' ||
+		requestUrl.pathname === '/' ||
+		requestUrl.pathname === '/index.html'
+	) {
+		event.respondWith(
+			fetch(event.request)
+				.then((networkResponse) => {
+					if (networkResponse && networkResponse.status === 200) {
+						const responseToCache = networkResponse.clone();
+						caches.open(CACHE_NAME).then((cache) => {
+							cache.put(event.request, responseToCache);
+						});
+					}
+					return networkResponse;
+				})
+				.catch(() => {
+					return caches.match('/offline.html') || caches.match('/index.html');
+				})
+		);
+		return;
+	}
+
+	// For all other static assets, use Stale-While-Revalidate caching strategy.
 	event.respondWith(
 		caches.match(event.request).then((cachedResponse) => {
 			if (cachedResponse) {
@@ -83,10 +109,6 @@ self.addEventListener('fetch', (event) => {
 					return networkResponse;
 				})
 				.catch((error) => {
-					// If offline and requesting navigation, serve offline fallback
-					if (event.request.mode === 'navigate') {
-						return caches.match('/offline.html') || caches.match('/index.html');
-					}
 					return Promise.reject(error);
 				});
 		}),

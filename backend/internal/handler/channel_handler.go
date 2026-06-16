@@ -889,6 +889,114 @@ func (h *ChannelHandler) SaveButtons(w http.ResponseWriter, r *http.Request) {
 	RespondJSON(w, http.StatusOK, buttons)
 }
 
+type CreateFunnelRequest struct {
+	InputChannelID string `json:"input_channel_id"`
+}
+
+func (h *ChannelHandler) CreateFunnel(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	channelIDStr := chi.URLParam(r, "channelID")
+	channelID, err := uuid.Parse(channelIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid output channel ID", err)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
+	var req CreateFunnelRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
+	inputChannelID, err := uuid.Parse(req.InputChannelID)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid input channel ID", err)
+		return
+	}
+
+	funnel, err := h.svc.CreateFunnel(r.Context(), userID, channelID, inputChannelID)
+	if err != nil {
+		h.respondServerError(w, r, "failed to create funnel", err)
+		return
+	}
+
+	RespondJSON(w, http.StatusCreated, funnel)
+}
+
+func (h *ChannelHandler) GetFunnel(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	channelIDStr := chi.URLParam(r, "channelID")
+	channelID, err := uuid.Parse(channelIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	funnel, err := h.svc.GetFunnelByOutputChannel(r.Context(), userID, channelID)
+	if err != nil {
+		h.respondServerError(w, r, "failed to get funnel", err)
+		return
+	}
+
+	if funnel == nil {
+		RespondJSON(w, http.StatusOK, map[string]interface{}{"funnel": nil})
+		return
+	}
+
+	// Also retrieve input channel details to make the response rich for UI
+	inChan, err := h.svc.GetChannelByChatID(r.Context(), funnel.InputChatID)
+	var inputTitle string
+	if err == nil && inChan != nil {
+		inputTitle = inChan.ChatTitle
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]interface{}{
+		"id":              funnel.ID,
+		"bot_id":          funnel.BotID,
+		"input_chat_id":   funnel.InputChatID,
+		"output_chat_id":  funnel.OutputChatID,
+		"owner_user_id":   funnel.OwnerUserID,
+		"is_active":       funnel.IsActive,
+		"created_at":      funnel.CreatedAt,
+		"updated_at":      funnel.UpdatedAt,
+		"input_title":     inputTitle,
+	})
+}
+
+func (h *ChannelHandler) DeleteFunnel(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	channelIDStr := chi.URLParam(r, "channelID")
+	channelID, err := uuid.Parse(channelIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	err = h.svc.DeleteFunnel(r.Context(), userID, channelID)
+	if err != nil {
+		h.respondServerError(w, r, "failed to delete funnel", err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
 func (h *ChannelHandler) respondServerError(w http.ResponseWriter, r *http.Request, publicMsg string, err error) {
 	if err == nil {
 		RespondError(w, r, http.StatusInternalServerError, publicMsg, nil)

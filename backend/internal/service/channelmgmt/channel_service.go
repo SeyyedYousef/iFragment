@@ -312,6 +312,94 @@ func (s *ChannelService) DisconnectChannel(ctx context.Context, ownerUserID int6
 	return nil
 }
 
+func (s *ChannelService) CreateFunnel(ctx context.Context, ownerUserID int64, outputChannelID uuid.UUID, inputChannelID uuid.UUID) (*repository.ChannelFunnel, error) {
+	if err := s.verifyAccess(ctx, ownerUserID, outputChannelID, RoleOwner); err != nil {
+		return nil, fmt.Errorf("access denied to output channel: %w", err)
+	}
+	if err := s.verifyAccess(ctx, ownerUserID, inputChannelID, RoleOwner); err != nil {
+		return nil, fmt.Errorf("access denied to input channel: %w", err)
+	}
+
+	outChan, err := s.channelRepo.GetChannelByID(ctx, outputChannelID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get output channel: %w", err)
+	}
+
+	inChan, err := s.channelRepo.GetChannelByID(ctx, inputChannelID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get input channel: %w", err)
+	}
+
+	if outChan.BotID != inChan.BotID {
+		return nil, fmt.Errorf("both channels must belong to the same bot")
+	}
+
+	f := &repository.ChannelFunnel{
+		BotID:        outChan.BotID,
+		InputChatID:  inChan.ChatID,
+		OutputChatID: outChan.ChatID,
+		OwnerUserID:  ownerUserID,
+		IsActive:     true,
+	}
+
+	err = s.channelRepo.CreateChannelFunnel(ctx, f)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create funnel: %w", err)
+	}
+
+	target := f.ID.String()
+	_ = s.auditRepo.Log(ctx, &repository.AuditLog{
+		ActorID:    ownerUserID,
+		Action:     "channel.funnel_create",
+		TargetID:   &target,
+	})
+
+	return f, nil
+}
+
+func (s *ChannelService) GetFunnelByOutputChannel(ctx context.Context, ownerUserID int64, outputChannelID uuid.UUID) (*repository.ChannelFunnel, error) {
+	if err := s.verifyAccess(ctx, ownerUserID, outputChannelID, RoleViewer); err != nil {
+		return nil, fmt.Errorf("access denied: %w", err)
+	}
+
+	outChan, err := s.channelRepo.GetChannelByID(ctx, outputChannelID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get output channel: %w", err)
+	}
+
+	return s.channelRepo.GetFunnelByOutputChatID(ctx, outChan.BotID, outChan.ChatID)
+}
+
+func (s *ChannelService) DeleteFunnel(ctx context.Context, ownerUserID int64, outputChannelID uuid.UUID) error {
+	if err := s.verifyAccess(ctx, ownerUserID, outputChannelID, RoleOwner); err != nil {
+		return fmt.Errorf("access denied: %w", err)
+	}
+
+	outChan, err := s.channelRepo.GetChannelByID(ctx, outputChannelID)
+	if err != nil {
+		return fmt.Errorf("failed to get output channel: %w", err)
+	}
+
+	funnel, err := s.channelRepo.GetFunnelByOutputChatID(ctx, outChan.BotID, outChan.ChatID)
+	if err != nil || funnel == nil {
+		return fmt.Errorf("funnel not found")
+	}
+
+	err = s.channelRepo.DeleteChannelFunnel(ctx, funnel.ID)
+	if err != nil {
+		return fmt.Errorf("failed to delete funnel: %w", err)
+	}
+
+	target := funnel.ID.String()
+	_ = s.auditRepo.Log(ctx, &repository.AuditLog{
+		ActorID:    ownerUserID,
+		Action:     "channel.funnel_delete",
+		TargetID:   &target,
+	})
+
+	return nil
+}
+
 func (s *ChannelService) ListChannels(ctx context.Context, ownerUserID int64, botID uuid.UUID, cursor *time.Time, cursorID *uuid.UUID, limit int) ([]repository.ManagedChannel, *time.Time, *uuid.UUID, error) {
 	if botID == uuid.Nil {
 		return s.channelRepo.GetChannelsByOwner(ctx, ownerUserID, cursor, cursorID, limit)

@@ -28,6 +28,11 @@ export const ChannelDashboardPage: Component = () => {
 		(id) => channelApi.getAuditLogs(id, 5),
 	);
 
+	const [funnel] = createResource(
+		() => params.id,
+		(id) => channelApi.getFunnel(id),
+	);
+
 	onMount(() => {
 		backButton.show();
 		const off = backButton.onClick(() => window.history.back());
@@ -202,6 +207,30 @@ export const ChannelDashboardPage: Component = () => {
 						</button>
 					</div>
 				</Motion.div>
+
+				{/* Funnel Info Card */}
+				<Show when={funnel()}>
+					<Motion.div
+						initial={{ opacity: 0, scale: 0.95 }}
+						animate={{ opacity: 1, scale: 1 }}
+						class="bg-[#32ade6]/10 border border-[#32ade6]/30 rounded-2xl p-4 flex items-start gap-3 relative overflow-hidden"
+					>
+						<div class="absolute right-0 top-0 w-24 h-24 bg-[#32ade6]/10 rounded-full blur-2xl translate-x-1/2 -translate-y-1/2"></div>
+						<span class="material-symbols-outlined text-[#32ade6] mt-0.5 relative z-10">
+							filter_alt
+						</span>
+						<div class="flex flex-col relative z-10">
+							<span class="text-[14px] font-bold text-white leading-tight">
+								{isRtl() ? 'قیف انتشار فعال است' : 'Active Publishing Funnel'}
+							</span>
+							<span class="text-[12px] text-[#32ade6] leading-snug mt-1">
+								{isRtl()
+									? `پست‌های خام فرستاده شده در "${funnel().input_title || 'کانال ورودی'}" ابتدا به پی‌وی شما برای بررسی ارسال می‌شوند.`
+									: `Raw posts dropped in "${funnel().input_title || 'Input Channel'}" are sent to your Review DM before publishing.`}
+							</span>
+						</div>
+					</Motion.div>
+				</Show>
 
 				{/* Health Alert Card (T1.9) */}
 				<Show when={(analytics()?.summary?.new_members || 0) < 0}>

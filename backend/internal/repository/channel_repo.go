@@ -1241,6 +1241,25 @@ func (r *ChannelRepo) GetFunnelByInputChatID(ctx context.Context, botID uuid.UUI
 	return &f, nil
 }
 
+func (r *ChannelRepo) GetFunnelByOutputChatID(ctx context.Context, botID uuid.UUID, outputChatID int64) (*ChannelFunnel, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, fmt.Errorf("database pool is not initialized")
+	}
+	query := `SELECT id, bot_id, input_chat_id, output_chat_id, owner_user_id, is_active, created_at, updated_at
+		FROM channel_funnels WHERE bot_id = $1 AND output_chat_id = $2`
+	var f ChannelFunnel
+	err := r.db.Pool.QueryRow(ctx, query, botID, outputChatID).Scan(
+		&f.ID, &f.BotID, &f.InputChatID, &f.OutputChatID, &f.OwnerUserID, &f.IsActive, &f.CreatedAt, &f.UpdatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil // Not found
+		}
+		return nil, err
+	}
+	return &f, nil
+}
+
 func (r *ChannelRepo) GetFunnelByID(ctx context.Context, id uuid.UUID) (*ChannelFunnel, error) {
 	if r.db == nil || r.db.Pool == nil {
 		return nil, fmt.Errorf("database pool is not initialized")
@@ -1258,6 +1277,15 @@ func (r *ChannelRepo) GetFunnelByID(ctx context.Context, id uuid.UUID) (*Channel
 		return nil, err
 	}
 	return &f, nil
+}
+
+func (r *ChannelRepo) DeleteChannelFunnel(ctx context.Context, id uuid.UUID) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("database pool is not initialized")
+	}
+	query := `DELETE FROM channel_funnels WHERE id = $1`
+	_, err := r.db.Pool.Exec(ctx, query, id)
+	return err
 }
 
 func (r *ChannelRepo) SavePendingFunnelPost(ctx context.Context, p *PendingFunnelPost) error {

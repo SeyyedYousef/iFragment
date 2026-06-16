@@ -108,18 +108,28 @@ func main() {
 		defer db.Close()
 
 		// Run Migrations with retry
+		var migrationSuccess bool
 		for i := 0; i < 5; i++ {
 			m, mErr := migrate.New("file://migrations", os.Getenv("DATABASE_URL"))
 			if mErr == nil {
 				if upErr := m.Up(); upErr != nil && upErr != migrate.ErrNoChange {
+					if isProd {
+						slog.Error("FATAL: Database migration failed in production", "error", upErr)
+						os.Exit(1)
+					}
 					slog.Warn("Database migration warning", "error", upErr)
 				} else {
 					slog.Info("Database migrations applied successfully")
 				}
+				migrationSuccess = true
 				break
 			}
 			slog.Info("Waiting for database to be ready for migrations...", "attempt", i+1)
 			time.Sleep(2 * time.Second)
+		}
+		if !migrationSuccess && isProd {
+			slog.Error("FATAL: Database migration initialization failed in production")
+			os.Exit(1)
 		}
 	}
 
@@ -420,6 +430,11 @@ func main() {
 			r.Post("/{channelID}/posts", channelHandler.CreatePost)
 			r.Post("/{channelID}/simulate", channelHandler.SimulateAI)
 			r.Post("/{channelID}/verify", channelHandler.VerifyChannel)
+
+			// Funnel System
+			r.Get("/{channelID}/funnel", channelHandler.GetFunnel)
+			r.Post("/{channelID}/funnel", channelHandler.CreateFunnel)
+			r.Delete("/{channelID}/funnel", channelHandler.DeleteFunnel)
 
 			// Forwarding Rules
 			r.Get("/{channelID}/forwarding/rules", channelHandler.GetForwardingRules)
