@@ -15,7 +15,7 @@ import { channelApi } from '@/shared/api/channel-management.js';
 import { t } from '@/shared/i18n/index.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SelectField, SettingsSection } from '@/shared/ui/settings-controls.js';
-import { useToast } from '@/shared/ui/toast-manager.js';
+import { showToast } from '@/shared/ui/toast.js';
 
 interface InlineBtn {
 	id: string;
@@ -30,7 +30,7 @@ interface InlineBtn {
 export const ChannelInlineButtonsPage: Component = () => {
 	const params = useParams();
 	const navigate = useNavigate();
-	const { addToast } = useToast();
+
 	const [isMenuOpen, setIsMenuOpen] = createSignal(false);
 
 	// Settings Config State
@@ -277,16 +277,12 @@ export const ChannelInlineButtonsPage: Component = () => {
 			await channelApi.updateSettings(params.id, 'inline_buttons', settingsPayload, currentVersion);
 			await channelApi.saveButtons(params.id, buttonsPayload);
 			setIsDirty(false);
-			addToast({ title: 'Success', description: 'Settings saved successfully', type: 'success' });
+			showToast('Settings saved successfully', 'success');
 			navigate(`/channel/${params.id}`);
 		} catch (e) {
 			console.error('Failed to save inline buttons to server:', e);
 			hapticFeedback.notificationOccurred('error');
-			addToast({
-				title: 'Error',
-				description: 'Failed to save settings. Try again.',
-				type: 'error',
-			});
+			showToast('Failed to save settings. Try again.', 'error');
 		} finally {
 			setIsSaving(false);
 		}

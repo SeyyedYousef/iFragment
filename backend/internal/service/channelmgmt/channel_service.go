@@ -573,11 +573,13 @@ func (s *ChannelService) GetSettings(ctx context.Context, ownerUserID int64, cha
 	
 	// Dynamically inject live Telegram Channel info
 	bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
-	if err == nil && bot != nil && bot.BotTokenDecrypted != "" {
-		tg := telegram.NewBotAPIClient(bot.BotTokenDecrypted)
-		chatRes, tgErr := tg.GetChat(ctx, ch.ChatID)
-		if tgErr == nil && chatRes != nil {
-			var genMap map[string]interface{}
+	if err == nil && bot != nil {
+		token, decErr := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+		if decErr == nil && token != "" {
+			tg := telegram.NewBotAPIClient(token)
+			chatRes, tgErr := tg.GetChat(ctx, ch.ChatID)
+			if tgErr == nil && chatRes != nil {
+				var genMap map[string]interface{}
 			if err := json.Unmarshal(settings.General, &genMap); err == nil {
 				genMap["name"] = chatRes.Title
 				if chatRes.Description != "" {
@@ -595,9 +597,10 @@ func (s *ChannelService) GetSettings(ctx context.Context, ownerUserID int64, cha
 					genMap["photo"] = "" // explicit empty if no photo
 				}
 				
-				// Re-marshal
-				if updated, mErr := json.Marshal(genMap); mErr == nil {
-					settings.General = updated
+					// Re-marshal
+					if updated, mErr := json.Marshal(genMap); mErr == nil {
+						settings.General = updated
+					}
 				}
 			}
 		}
@@ -651,10 +654,12 @@ func (s *ChannelService) UpdateSettings(ctx context.Context, ownerUserID int64, 
 
 		// Get the bot associated with the channel to make Telegram API calls
 		bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
-		if err == nil && bot != nil && bot.BotTokenDecrypted != "" {
-			tg := telegram.NewBotAPIClient(bot.BotTokenDecrypted)
-			
-			// Change title if changed
+		if err == nil && bot != nil {
+			token, decErr := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+			if decErr == nil && token != "" {
+				tg := telegram.NewBotAPIClient(token)
+				
+				// Change title if changed
 			if newName != "" && newName != oldName {
 				_ = tg.SetChatTitle(ctx, ch.ChatID, newName)
 			}
@@ -665,6 +670,7 @@ func (s *ChannelService) UpdateSettings(ctx context.Context, ownerUserID int64, 
 			}
 		}
 	}
+}
 
 	// Audit Log
 	var oldVal []byte
@@ -2011,7 +2017,6 @@ func dynamicParaphrase(text string) string {
 	}
 
 	// Local fallback paraphrasing (Issue 1)
-	lowerText := strings.ToLower(text)
 	hasReplacements := false
 	replacements := map[string]string{
 		"hello":   "greetings",

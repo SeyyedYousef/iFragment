@@ -543,6 +543,7 @@ type ChatResult struct {
 	ID          int64      `json:"id"`
 	Type        string     `json:"type"`
 	Title       string     `json:"title,omitempty"`
+	Username    *string    `json:"username,omitempty"`
 	Description string     `json:"description,omitempty"`
 	Photo       *ChatPhoto `json:"photo,omitempty"`
 }
