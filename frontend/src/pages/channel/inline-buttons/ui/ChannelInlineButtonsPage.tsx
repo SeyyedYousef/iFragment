@@ -184,6 +184,10 @@ export const ChannelInlineButtonsPage: Component = () => {
 	};
 
 	const applyPreset = (preset: string) => {
+		if (buttons().length > 0) {
+			const confirmed = window.confirm(t('channelInlineButtons.presetWarning') || 'Applying a preset will overwrite your existing buttons. Are you sure?');
+			if (!confirmed) return;
+		}
 		hapticFeedback.impactOccurred('medium');
 		setIsDirty(true);
 		setActivePreset(preset as any);
@@ -277,12 +281,12 @@ export const ChannelInlineButtonsPage: Component = () => {
 			await channelApi.updateSettings(params.id, 'inline_buttons', settingsPayload, currentVersion);
 			await channelApi.saveButtons(params.id, buttonsPayload);
 			setIsDirty(false);
-			showToast('Settings saved successfully', 'success');
+			showToast(t('channelInlineButtons.saveSuccess') || 'Settings saved successfully', 'success');
 			navigate(`/channel/${params.id}`);
 		} catch (e) {
 			console.error('Failed to save inline buttons to server:', e);
 			hapticFeedback.notificationOccurred('error');
-			showToast('Failed to save settings. Try again.', 'error');
+			showToast(t('channelInlineButtons.saveFailed') || 'Failed to save settings. Try again.', 'error');
 		} finally {
 			setIsSaving(false);
 		}
@@ -676,9 +680,10 @@ export const ChannelInlineButtonsPage: Component = () => {
 							</label>
 
 							{/* Premium Mockup Telegram Desktop/Mobile Wallpaper */}
-							<div class="bg-[url('https://i.pinimg.com/1200x/8c/98/99/8c98994518b575bfd8c949e91d20548b.jpg')] bg-cover bg-center rounded-2xl p-4 min-h-[160px] flex flex-col justify-end relative overflow-hidden border border-[#2a2a2a]">
-								<div class="absolute inset-0 bg-black/45"></div>
-
+							<div class="bg-[#111a22] rounded-2xl p-4 min-h-[160px] flex flex-col justify-end relative overflow-hidden border border-[#2a2a2a] relative">
+								{/* Soft gradient background instead of unowned external image */}
+								<div class="absolute inset-0 bg-gradient-to-br from-[#1a2b3c] via-[#111a22] to-[#0a0f14]"></div>
+								<div class="absolute inset-0 bg-black/30"></div>
 								<div class="flex flex-col w-full gap-3.5 relative z-10">
 									{/* Telegram Message Bubble */}
 									<div class="flex flex-col max-w-[90%] self-end w-full">

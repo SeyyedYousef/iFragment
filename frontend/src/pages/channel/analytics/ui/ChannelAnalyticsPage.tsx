@@ -28,9 +28,18 @@ export const ChannelAnalyticsPage: Component = () => {
 		onCleanup(() => off());
 	});
 
-	// Mock data for charts
-	const growthData = [10, 20, 15, 30, 45, 40, 60, 55, 70, 85, 80, 100];
-	const postViewsData = [500, 800, 650, 1200, 900, 1500, 1100];
+	const timeline = createMemo(() => analytics()?.timeline || []);
+
+	const growthData = createMemo(() => {
+		const arr = timeline().map((t: any) => t.subscribers_count);
+		return arr.length > 0 ? arr : [0];
+	});
+
+	const postViewsData = createMemo(() => {
+		const arr = timeline().map((t: any) => t.views_count);
+		return arr.length > 0 ? arr : [0];
+	});
+
 	const geoDistribution = [
 		{ country: 'Iran', percent: 65, color: '#34c759' },
 		{ country: 'USA', percent: 15, color: '#32ade6' },
@@ -51,8 +60,8 @@ export const ChannelAnalyticsPage: Component = () => {
 		return 'text-[#ff3b30]';
 	};
 
-	const maxGrowth = Math.max(...growthData);
-	const maxViews = Math.max(...postViewsData);
+	const maxGrowth = createMemo(() => Math.max(1, ...growthData()));
+	const maxViews = createMemo(() => Math.max(1, ...postViewsData()));
 
 	return (
 		<div class="min-h-screen bg-[#0f1014] pb-28 relative overflow-x-hidden text-white">
@@ -167,11 +176,11 @@ export const ChannelAnalyticsPage: Component = () => {
 						</div>
 
 						<div class="h-16 w-full flex items-end gap-1 mt-2">
-							<For each={growthData}>
+							<For each={growthData()}>
 								{(point) => (
 									<div
 										class="flex-1 bg-[#34c759]/20 hover:bg-[#34c759] transition-colors rounded-t-sm"
-										style={{ height: `${(point / maxGrowth) * 100}%` }}
+										style={{ height: `${(point / maxGrowth()) * 100}%` }}
 									></div>
 								)}
 							</For>
@@ -196,13 +205,17 @@ export const ChannelAnalyticsPage: Component = () => {
 						</div>
 
 						<div class="h-24 w-full flex items-end gap-2 justify-between mt-2">
-							<For each={postViewsData}>
+							<For each={postViewsData()}>
 								{(views, idx) => (
-									<div class="w-full flex flex-col items-center justify-end h-full gap-1 group">
+									<div class="flex flex-col items-center gap-1 flex-1">
 										<div
-											class={`w-full rounded-t-md transition-all ${idx() === 5 ? 'bg-[#32ade6] shadow-[0_0_10px_rgba(50,173,230,0.3)]' : 'bg-[#2a2a2a] group-hover:bg-[#3a3a3c]'}`}
-											style={{ height: `${(views / maxViews) * 100}%` }}
-										></div>
+											class="w-full bg-[#32ade6]/20 hover:bg-[#32ade6] transition-colors rounded-t-sm relative group"
+											style={{ height: `${(views / maxViews()) * 100}%` }}
+										>
+											<div class="absolute -top-6 left-1/2 -translate-x-1/2 bg-[#2c2c2e] px-2 py-0.5 rounded text-[10px] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+												{views} views
+											</div>
+										</div>
 									</div>
 								)}
 							</For>

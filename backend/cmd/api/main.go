@@ -423,17 +423,26 @@ func main() {
 			r.Get("/{channelID}/audit", channelHandler.GetAuditLogs)
 			r.Get("/{channelID}/analytics", channelHandler.GetAnalytics)
 			r.Post("/{channelID}/posts", channelHandler.CreatePost)
+			r.Post("/{channelID}/simulate", channelHandler.SimulateAI)
 			r.Post("/{channelID}/verify", channelHandler.VerifyChannel)
 
 			// Forwarding Rules
 			r.Get("/{channelID}/forwarding/rules", channelHandler.GetForwardingRules)
+			r.Get("/{channelID}/forwarding/logs", channelHandler.GetForwardingLogs)
+			r.Get("/{channelID}/forwarding/verify", channelHandler.VerifyForwardingTarget)
 			r.Post("/{channelID}/forwarding/rules", channelHandler.CreateForwardingRule)
 			r.Put("/{channelID}/forwarding/rules/{ruleID}", channelHandler.UpdateForwardingRule)
 			r.Delete("/{channelID}/forwarding/rules/{ruleID}", channelHandler.DeleteForwardingRule)
 
-			// Sync Admins
+			// Admins
 			r.Post("/{channelID}/admins/sync", channelHandler.SyncAdmins)
 			r.Get("/{channelID}/admins", channelHandler.GetAdmins)
+			r.Put("/{channelID}/admins/{adminID}", channelHandler.UpdateAdmin)
+
+			// Members
+			r.Get("/{channelID}/members", channelHandler.GetMembers)
+			r.Post("/{channelID}/members/{memberID}/ban", channelHandler.BanMember)
+			r.Post("/{channelID}/members/{memberID}/restrict", channelHandler.RestrictMember)
 
 			// Custom Inline Buttons
 			r.Get("/{channelID}/buttons", channelHandler.GetButtons)

@@ -421,6 +421,40 @@ func (h *ChannelHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
 	RespondJSON(w, http.StatusCreated, post)
 }
 
+type SimulateAIRequest struct {
+	Text   string `json:"text"`
+	Action string `json:"action"`
+}
+
+func (h *ChannelHandler) SimulateAI(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	channelIDStr := chi.URLParam(r, "channelID")
+	channelID, err := uuid.Parse(channelIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	var req SimulateAIRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
+	result, err := h.svc.SimulateAIPost(r.Context(), userID, channelID, req.Text, req.Action)
+	if err != nil {
+		h.respondServerError(w, r, "AI generation failed", err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]string{"text": result})
+}
+
 func (h *ChannelHandler) GetForwardingRules(w http.ResponseWriter, r *http.Request) {
 	userID := h.getUserID(r)
 	if userID == 0 {
@@ -442,6 +476,58 @@ func (h *ChannelHandler) GetForwardingRules(w http.ResponseWriter, r *http.Reque
 	}
 
 	RespondJSON(w, http.StatusOK, rules)
+}
+
+func (h *ChannelHandler) GetForwardingLogs(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	channelIDStr := chi.URLParam(r, "channelID")
+	channelID, err := uuid.Parse(channelIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	logs, err := h.svc.GetForwardingLogs(r.Context(), userID, channelID)
+	if err != nil {
+		h.respondServerError(w, r, "failed to get forwarding logs", err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, logs)
+}
+
+func (h *ChannelHandler) VerifyForwardingTarget(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	channelIDStr := chi.URLParam(r, "channelID")
+	channelID, err := uuid.Parse(channelIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	target := r.URL.Query().Get("target")
+	if target == "" {
+		RespondError(w, r, http.StatusBadRequest, "target is required", nil)
+		return
+	}
+
+	chatResult, err := h.svc.VerifyForwardingTarget(r.Context(), userID, channelID, target)
+	if err != nil {
+		h.respondServerError(w, r, "failed to verify target", err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, chatResult)
 }
 
 func (h *ChannelHandler) CreateForwardingRule(w http.ResponseWriter, r *http.Request) {
@@ -591,6 +677,127 @@ func (h *ChannelHandler) GetAdmins(w http.ResponseWriter, r *http.Request) {
 
 	RespondJSON(w, http.StatusOK, admins)
 }
+
+func (h *ChannelHandler) GetMembers(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	channelIDStr := chi.URLParam(r, "channelID")
+	channelID, err := uuid.Parse(channelIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	members, err := h.svc.GetMembers(r.Context(), userID, channelID)
+	if err != nil {
+		h.respondServerError(w, r, "failed to fetch members", err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, members)
+}
+
+func (h *ChannelHandler) UpdateAdmin(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	channelIDStr := chi.URLParam(r, "channelID")
+	channelID, err := uuid.Parse(channelIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	adminIDStr := chi.URLParam(r, "adminID")
+	adminID, err := strconv.ParseInt(adminIDStr, 10, 64)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid admin ID", err)
+		return
+	}
+
+	var req struct {
+		CustomTitle string          `json:"custom_title"`
+		Permissions map[string]bool `json:"permissions"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid JSON body", err)
+		return
+	}
+
+	err = h.svc.UpdateAdmin(r.Context(), userID, channelID, adminID, req.CustomTitle, req.Permissions)
+	if err != nil {
+		h.respondServerError(w, r, "failed to update admin", err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]string{"status": "updated"})
+}
+
+func (h *ChannelHandler) BanMember(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	channelIDStr := chi.URLParam(r, "channelID")
+	channelID, err := uuid.Parse(channelIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	memberIDStr := chi.URLParam(r, "memberID")
+	memberID, err := strconv.ParseInt(memberIDStr, 10, 64)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid member ID", err)
+		return
+	}
+
+	if err := h.svc.BanMember(r.Context(), userID, channelID, memberID); err != nil {
+		h.respondServerError(w, r, "failed to ban member", err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]string{"status": "banned"})
+}
+
+func (h *ChannelHandler) RestrictMember(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	channelIDStr := chi.URLParam(r, "channelID")
+	channelID, err := uuid.Parse(channelIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	memberIDStr := chi.URLParam(r, "memberID")
+	memberID, err := strconv.ParseInt(memberIDStr, 10, 64)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid member ID", err)
+		return
+	}
+
+	if err := h.svc.RestrictMember(r.Context(), userID, channelID, memberID); err != nil {
+		h.respondServerError(w, r, "failed to restrict member", err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]string{"status": "restricted"})
+}
+
 
 func (h *ChannelHandler) GetButtons(w http.ResponseWriter, r *http.Request) {
 	userID := h.getUserID(r)

@@ -213,6 +213,11 @@ export const channelApi = {
 		apiClient
 			.post(`/channels/${channelId}/buttons`, buttons)
 			.then((r: any) => r.data?.data || r.data),
+
+	simulateAIPost: (channelId: string, text: string, action: string) =>
+		apiClient
+			.post(`/channels/${channelId}/simulate`, { text, action })
+			.then((r: any) => r.data?.data?.text || r.data?.text),
 };
 
 export interface ForwardingRule {

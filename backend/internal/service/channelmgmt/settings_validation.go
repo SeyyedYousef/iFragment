@@ -55,10 +55,18 @@ type GeneralSettingsSchema struct {
 }
 
 type PostingSettingsSchema struct {
-	Signature       string `json:"signature,omitempty"`
-	WatermarkEnabled bool   `json:"watermarkEnabled"`
-	WatermarkText   string `json:"watermarkText,omitempty"`
-	CleanInterval   int    `json:"cleanInterval,omitempty"`
+	Signature           string `json:"signature,omitempty"`
+	WatermarkEnabled    bool   `json:"watermarkEnabled"`
+	WatermarkText       string `json:"watermarkText,omitempty"`
+	CleanInterval       int    `json:"cleanInterval,omitempty"`
+
+	AiProvider          string `json:"aiProvider,omitempty"`
+	ApiKey              string `json:"apiKey,omitempty"`
+	Tone                string `json:"tone,omitempty"`
+	AiConfirmBeforeEdit bool   `json:"aiConfirmBeforeEdit,omitempty"`
+	AiComposerEnabled   bool   `json:"aiComposerEnabled,omitempty"`
+	SelectedSkill       string `json:"selectedSkill,omitempty"`
+	CustomSkillPrompt   string `json:"customSkillPrompt,omitempty"`
 }
 
 type ForwardingSettingsSchema struct {
@@ -174,10 +182,14 @@ func ValidateSettingsCategory(category string, data json.RawMessage) error {
 			if btnType != "url" && btnType != "callback" && btnType != "share" && btnType != "webapp" && btnType != "payment" && btnType != "counter" {
 				return fmt.Errorf("invalid button type: %s", btn.Type)
 			}
-			if btnType == "url" {
-				u, err := url.Parse(btn.Value)
-				if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
-					return fmt.Errorf("invalid URL: must be a valid http or https address")
+			if btnType == "url" || btnType == "share" {
+				if btnType == "share" && btn.Value == "share" {
+					// Allowed literal value for share presets
+				} else {
+					u, err := url.Parse(btn.Value)
+					if err != nil || (u.Scheme != "http" && u.Scheme != "https" && u.Scheme != "tg") {
+						return fmt.Errorf("invalid URL: must be a valid http or https address")
+					}
 				}
 			}
 			if btnType == "webapp" {

@@ -330,7 +330,7 @@ export const ChannelGeneralSettingsPage: Component = () => {
 								{ value: 'en', label: 'English' },
 								{ value: 'fa', label: 'فارسی (Persian)' },
 								{ value: 'ru', label: 'Русский (Russian)' },
-								{ value: 'zh', label: '简体中文 (Chinese)' },
+								{ value: 'ar', label: 'العربية (Arabic)' },
 							]}
 						/>
 						<p class="mt-2 text-[11px] text-on-surface-variant px-1 leading-normal">

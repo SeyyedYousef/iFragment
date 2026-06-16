@@ -25,11 +25,12 @@ export const ChannelAutoResponderPage: Component = () => {
 	const [isCreating, setIsCreating] = createSignal(false);
 
 	// Keyword Rules State
+	const [enabled, setEnabled] = createSignal(true);
 	const [keywords, setKeywords] = createSignal('');
 	const [matchType, setMatchType] = createSignal('contains');
 	const [replyText, setReplyText] = createSignal('');
 	const [useAi, setUseAi] = createSignal(false);
-	const [rules, setRules] = createSignal<{ id: string; keys: string; match: string }[]>([]);
+	const [rules, setRules] = createSignal<{ id: string; keys: string; match: string; replyText: string }[]>([]);
 
 	// Top-Level State
 	const [autoFirstComment, setAutoFirstComment] = createSignal(false);
@@ -61,6 +62,7 @@ export const ChannelAutoResponderPage: Component = () => {
 					ar = JSON.parse(ar);
 				}
 				if (ar && typeof ar === 'object') {
+					if ('enabled' in ar) setEnabled(ar.enabled);
 					if ('autoFirstComment' in ar) setAutoFirstComment(ar.autoFirstComment);
 					if ('commentMode' in ar) setCommentMode(ar.commentMode);
 					if ('fixedComment' in ar) setFixedComment(ar.fixedComment);
@@ -93,6 +95,7 @@ export const ChannelAutoResponderPage: Component = () => {
 		}
 
 		const currentPayload = {
+			enabled: enabled(),
 			autoFirstComment: autoFirstComment(),
 			commentMode: commentMode(),
 			fixedComment: fixedComment(),
@@ -107,6 +110,7 @@ export const ChannelAutoResponderPage: Component = () => {
 		return (
 			JSON.stringify(currentPayload) !==
 			JSON.stringify({
+				enabled: originalAR?.enabled ?? true,
 				autoFirstComment: !!originalAR?.autoFirstComment,
 				commentMode: originalAR?.commentMode || 'fixed',
 				fixedComment: originalAR?.fixedComment || '',
@@ -130,7 +134,7 @@ export const ChannelAutoResponderPage: Component = () => {
 	const handleSaveRule = () => {
 		if (keywords().trim() && replyText().trim()) {
 			hapticFeedback.notificationOccurred('success');
-			setRules([...rules(), { id: Date.now().toString(), keys: keywords(), match: matchType() }]);
+			setRules([...rules(), { id: Date.now().toString(), keys: keywords(), match: matchType(), replyText: replyText() }]);
 			setIsCreating(false);
 			setKeywords('');
 			setReplyText('');
@@ -157,6 +161,7 @@ export const ChannelAutoResponderPage: Component = () => {
 
 		const currentVersion = settings()?.version ?? 1;
 		const payload = {
+			enabled: enabled(),
 			autoFirstComment: autoFirstComment(),
 			commentMode: commentMode(),
 			fixedComment: fixedComment(),
@@ -239,14 +244,40 @@ export const ChannelAutoResponderPage: Component = () => {
 			/>
 
 			<div class="px-5 pt-6 flex flex-col gap-6 pb-24">
-				<Show when={!isCreating()}>
+				<Show when={settings.loading}>
+					<div class="flex flex-col gap-4 animate-pulse">
+						<div class="h-40 bg-[#1c1c1c] rounded-3xl"></div>
+						<div class="h-40 bg-[#1c1c1c] rounded-3xl"></div>
+					</div>
+				</Show>
+
+				<Show when={settings()}>
 					<Motion.div
 						initial={{ opacity: 0, y: 10 }}
 						animate={{ opacity: 1, y: 0 }}
 						transition={{ delay: 0.05 }}
-						class="flex flex-col gap-6"
+						class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-4 mb-4"
 					>
-						{/* Auto First Comment */}
+						<div class="flex items-center justify-between gap-3">
+							<div class="flex flex-col flex-1 min-w-0">
+								<span class="text-[15px] font-bold text-white">
+									{t('channelAutoResponder.title') || 'Auto-Responder Engine'}
+								</span>
+								<span class="text-[11px] text-[#8e8e93]">Automatically reply to comments and messages</span>
+							</div>
+							<ToggleSwitch checked={enabled()} onChange={setEnabled} />
+						</div>
+					</Motion.div>
+
+					<Show when={enabled()}>
+						<Show when={!isCreating()}>
+							<Motion.div
+								initial={{ opacity: 0, y: 10 }}
+								animate={{ opacity: 1, y: 0 }}
+								transition={{ delay: 0.05 }}
+								class="flex flex-col gap-6"
+							>
+								{/* Auto First Comment */}
 						<div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-5 flex flex-col gap-4">
 							<SettingsSection
 								title={t('channelAutoResponder.firstComment') || 'Auto First Comment'}
@@ -489,9 +520,12 @@ export const ChannelAutoResponderPage: Component = () => {
 						class="flex flex-col gap-4"
 					>
 						<div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-5 flex flex-col gap-4">
-							<h2 class="text-[16px] font-bold text-white">
-								{t('channelAutoResponder.addRule') || 'Add Keyword Rule'}
-							</h2>
+							<div class="flex items-center justify-between">
+								<h2 class="text-[16px] font-bold text-white">
+									{t('channelAutoResponder.addRule') || 'Add Keyword Rule'}
+								</h2>
+								<ToggleSwitch checked={isRuleEnabled()} onChange={setIsRuleEnabled} />
+							</div>
 
 							<div class="flex flex-col gap-2">
 								<label class="text-[13px] font-bold text-white">
@@ -573,6 +607,7 @@ export const ChannelAutoResponderPage: Component = () => {
 							</button>
 						</div>
 					</Motion.div>
+				</Show>
 				</Show>
 			</div>
 

@@ -159,14 +159,14 @@ func (r *ChannelRepo) GetChannelsByOwner(ctx context.Context, ownerUserID int64,
 		query = `SELECT c.id, c.bot_id, c.chat_id, c.chat_title, c.subscribers_count, c.subscription_status, c.trial_ends_at, c.paid_until, c.linked_chat_id, c.slow_mode_delay, c.auto_delete_time, c.sign_messages, c.protect_content, c.created_at, c.updated_at
 			FROM managed_channels c
 			JOIN managed_bots b ON c.bot_id = b.id
-			WHERE b.owner_user_id = $1 AND (c.created_at < $2 OR (c.created_at = $2 AND c.id < $3)) 
+			WHERE (b.owner_user_id = $1 OR EXISTS (SELECT 1 FROM channel_admins ca WHERE ca.channel_id = c.id AND ca.telegram_id = $1)) AND (c.created_at < $2 OR (c.created_at = $2 AND c.id < $3)) 
 			ORDER BY c.created_at DESC, c.id DESC LIMIT $4`
 		args = []interface{}{ownerUserID, *cursor, *cursorID, limit}
 	} else {
 		query = `SELECT c.id, c.bot_id, c.chat_id, c.chat_title, c.subscribers_count, c.subscription_status, c.trial_ends_at, c.paid_until, c.linked_chat_id, c.slow_mode_delay, c.auto_delete_time, c.sign_messages, c.protect_content, c.created_at, c.updated_at
 			FROM managed_channels c
 			JOIN managed_bots b ON c.bot_id = b.id
-			WHERE b.owner_user_id = $1 
+			WHERE b.owner_user_id = $1 OR EXISTS (SELECT 1 FROM channel_admins ca WHERE ca.channel_id = c.id AND ca.telegram_id = $1)
 			ORDER BY c.created_at DESC, c.id DESC LIMIT $2`
 		args = []interface{}{ownerUserID, limit}
 	}
@@ -797,6 +797,7 @@ type ChannelInlineButton struct {
 	Style      string    `json:"style"`
 	Emoji      string    `json:"emoji"`
 	ClickCount int       `json:"click_count"`
+	OrderIndex int       `json:"order_index"`
 	CreatedAt  time.Time `json:"created_at"`
 }
 
@@ -1012,8 +1013,8 @@ func (r *ChannelRepo) SaveChannelButtons(ctx context.Context, channelID uuid.UUI
 	}
 
 	// 1. Fetch existing buttons inside the transaction to identify matches
-	queryExisting := `SELECT id, channel_id, title, value, type, style, emoji, click_count, created_at
-		FROM channel_inline_buttons WHERE channel_id = $1 ORDER BY created_at ASC`
+	queryExisting := `SELECT id, channel_id, title, value, type, style, emoji, click_count, order_index, created_at
+		FROM channel_inline_buttons WHERE channel_id = $1 ORDER BY order_index ASC, created_at ASC`
 	rows, err := tx.Query(ctx, queryExisting, channelID)
 	if err != nil {
 		return err
@@ -1024,7 +1025,7 @@ func (r *ChannelRepo) SaveChannelButtons(ctx context.Context, channelID uuid.UUI
 	for rows.Next() {
 		var b ChannelInlineButton
 		if err := rows.Scan(
-			&b.ID, &b.ChannelID, &b.Title, &b.Value, &b.Type, &b.Style, &b.Emoji, &b.ClickCount, &b.CreatedAt,
+			&b.ID, &b.ChannelID, &b.Title, &b.Value, &b.Type, &b.Style, &b.Emoji, &b.ClickCount, &b.OrderIndex, &b.CreatedAt,
 		); err != nil {
 			return err
 		}
@@ -1035,45 +1036,38 @@ func (r *ChannelRepo) SaveChannelButtons(ctx context.Context, channelID uuid.UUI
 	}
 	rows.Close()
 
-	existingMap := make(map[string][]ChannelInlineButton)
+	existingMap := make(map[uuid.UUID]ChannelInlineButton)
 	for _, btn := range existing {
-		key := fmt.Sprintf("%s:%s:%s", btn.Title, btn.Value, btn.Type)
-		existingMap[key] = append(existingMap[key], btn)
+		existingMap[btn.ID] = btn
 	}
 
 	var keepIDs []uuid.UUID
 	
-	// Sort buttons deterministically to prevent deadlocks on concurrent updates
-	sort.Slice(buttons, func(i, j int) bool {
-		keyI := fmt.Sprintf("%s:%s:%s", buttons[i].Title, buttons[i].Value, buttons[i].Type)
-		keyJ := fmt.Sprintf("%s:%s:%s", buttons[j].Title, buttons[j].Value, buttons[j].Type)
-		return keyI < keyJ
-	})
-
 	// 2. Insert or update each button, keeping IDs intact
-	for _, btn := range buttons {
-		key := fmt.Sprintf("%s:%s:%s", btn.Title, btn.Value, btn.Type)
-		if exists := existingMap[key]; len(exists) > 0 {
-			exist := exists[0]
-			existingMap[key] = exists[1:]
-			// Update styling but keep existing ID and click counts
-			query := `UPDATE channel_inline_buttons SET style = $1, emoji = $2 WHERE id = $3`
-			_, err = tx.Exec(ctx, query, btn.Style, btn.Emoji, exist.ID)
-			if err != nil {
-				return err
+	for i, btn := range buttons {
+		// If ID is nil/empty or not in existing, it's a new button
+		if btn.ID != uuid.Nil {
+			if _, exists := existingMap[btn.ID]; exists {
+				// Update all fields (including title/value/type) but keep click count intact
+				query := `UPDATE channel_inline_buttons SET title = $1, value = $2, type = $3, style = $4, emoji = $5, order_index = $6 WHERE id = $7`
+				_, err = tx.Exec(ctx, query, btn.Title, btn.Value, btn.Type, btn.Style, btn.Emoji, i, btn.ID)
+				if err != nil {
+					return err
+				}
+				keepIDs = append(keepIDs, btn.ID)
+				continue
 			}
-			keepIDs = append(keepIDs, exist.ID)
-		} else {
-			// Insert new button
-			newID := uuid.New()
-			query := `INSERT INTO channel_inline_buttons (id, channel_id, title, value, type, style, emoji, click_count)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, 0)`
-			_, err = tx.Exec(ctx, query, newID, channelID, btn.Title, btn.Value, btn.Type, btn.Style, btn.Emoji)
-			if err != nil {
-				return err
-			}
-			keepIDs = append(keepIDs, newID)
 		}
+
+		// Insert new button
+		newID := uuid.New()
+		query := `INSERT INTO channel_inline_buttons (id, channel_id, title, value, type, style, emoji, click_count, order_index)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8)`
+		_, err = tx.Exec(ctx, query, newID, channelID, btn.Title, btn.Value, btn.Type, btn.Style, btn.Emoji, i)
+		if err != nil {
+			return err
+		}
+		keepIDs = append(keepIDs, newID)
 	}
 
 	// 3. Delete any removed buttons
@@ -1099,8 +1093,8 @@ func (r *ChannelRepo) GetChannelButtons(ctx context.Context, channelID uuid.UUID
 		return nil, fmt.Errorf("database pool is not initialized")
 	}
 
-	query := `SELECT id, channel_id, title, value, type, style, emoji, click_count, created_at
-		FROM channel_inline_buttons WHERE channel_id = $1 ORDER BY created_at ASC`
+	query := `SELECT id, channel_id, title, value, type, style, emoji, click_count, order_index, created_at
+		FROM channel_inline_buttons WHERE channel_id = $1 ORDER BY order_index ASC, created_at ASC`
 	
 	rows, err := r.db.Pool.Query(ctx, query, channelID)
 	if err != nil {
@@ -1112,7 +1106,7 @@ func (r *ChannelRepo) GetChannelButtons(ctx context.Context, channelID uuid.UUID
 	for rows.Next() {
 		var b ChannelInlineButton
 		if err := rows.Scan(
-			&b.ID, &b.ChannelID, &b.Title, &b.Value, &b.Type, &b.Style, &b.Emoji, &b.ClickCount, &b.CreatedAt,
+			&b.ID, &b.ChannelID, &b.Title, &b.Value, &b.Type, &b.Style, &b.Emoji, &b.ClickCount, &b.OrderIndex, &b.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

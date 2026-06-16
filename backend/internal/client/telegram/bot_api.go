@@ -413,6 +413,27 @@ func (c *BotAPIClient) UnrestrictChatMember(ctx context.Context, chatID int64, u
 	return err
 }
 
+func (c *BotAPIClient) PromoteChatMember(ctx context.Context, chatID int64, userID int64, perms map[string]bool) error {
+	payload := map[string]interface{}{
+		"chat_id": chatID,
+		"user_id": userID,
+	}
+	for k, v := range perms {
+		payload[k] = v
+	}
+	_, err := c.Request(ctx, "promoteChatMember", payload)
+	return err
+}
+
+func (c *BotAPIClient) SetChatAdministratorCustomTitle(ctx context.Context, chatID int64, userID int64, title string) error {
+	_, err := c.Request(ctx, "setChatAdministratorCustomTitle", map[string]interface{}{
+		"chat_id":      chatID,
+		"user_id":      userID,
+		"custom_title": title,
+	})
+	return err
+}
+
 func (c *BotAPIClient) SendMessageWithMarkup(ctx context.Context, chatID int64, text string, markup interface{}, threadID *int) (*MessageResult, error) {
 	payload := map[string]interface{}{
 		"chat_id":      chatID,
