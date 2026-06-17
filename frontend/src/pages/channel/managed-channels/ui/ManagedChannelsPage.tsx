@@ -1,7 +1,7 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
-import { Component, createResource, For, onCleanup, onMount, Show } from 'solid-js';
+import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { channelApi } from '@/shared/api/channel-management.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 
@@ -9,10 +9,30 @@ export const ManagedChannelsPage: Component = () => {
 	const navigate = useNavigate();
 
 	// Fetch all channels for the logged-in user
-	const [channels] = createResource(
+	const [channels, { refetch }] = createResource(
 		() => true,
 		() => channelApi.getUserChannels('all'),
 	);
+
+	const [channelToDelete, setChannelToDelete] = createSignal<any | null>(null);
+	const [isDeleting, setIsDeleting] = createSignal(false);
+
+	const handleDeleteChannel = async () => {
+		const channel = channelToDelete();
+		if (!channel) return;
+
+		setIsDeleting(true);
+		try {
+			await channelApi.disconnectChannel(channel.id);
+			hapticFeedback.notificationOccurred('success');
+			setChannelToDelete(null);
+			refetch();
+		} catch (e: any) {
+			hapticFeedback.notificationOccurred('error');
+		} finally {
+			setIsDeleting(false);
+		}
+	};
 
 	onMount(() => {
 		backButton.show();
@@ -105,12 +125,25 @@ export const ManagedChannelsPage: Component = () => {
 											{channel.members} {t('managedChannels.subscribers')}
 										</span>
 									</div>
-									<div class="w-10 h-10 rounded-full bg-[#2a2a2a] group-hover:bg-[#32ade6] flex items-center justify-center transition-colors">
-										<span
-											class={`material-symbols-outlined text-[#8e8e93] group-hover:text-black transition-colors ${isRtl() ? 'rotate-180' : ''}`}
+									<div class="flex items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+										<button
+											onClick={(e) => {
+												e.stopPropagation();
+												hapticFeedback.impactOccurred('medium');
+												setChannelToDelete(channel);
+											}}
+											class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[#ff3b30]/10 text-[#555] hover:text-[#ff3b30] transition-all"
+											aria-label={t('managedChannels.delete' as any) || 'Delete'}
 										>
-											chevron_right
-										</span>
+											<span class="material-symbols-outlined text-[22px]">delete</span>
+										</button>
+										<div class="w-10 h-10 rounded-full bg-[#2a2a2a] group-hover:bg-[#32ade6] flex items-center justify-center transition-colors">
+											<span
+												class={`material-symbols-outlined text-[#8e8e93] group-hover:text-black transition-colors ${isRtl() ? 'rotate-180' : ''}`}
+											>
+												chevron_right
+											</span>
+										</div>
 									</div>
 								</Motion.div>
 							)}
@@ -118,6 +151,60 @@ export const ManagedChannelsPage: Component = () => {
 					</div>
 				</Show>
 			</div>
+
+			{/* Delete Channel Modal */}
+			<Show when={channelToDelete()}>
+				<Motion.div
+					initial={{ opacity: 0 }}
+					animate={{ opacity: 1 }}
+					class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center px-5"
+					onClick={(e) => {
+						if (e.target === e.currentTarget && !isDeleting()) setChannelToDelete(null);
+					}}
+				>
+					<Motion.div
+						initial={{ scale: 0.9, opacity: 0 }}
+						animate={{ scale: 1, opacity: 1 }}
+						transition={{ duration: 0.2, easing: [0.32, 0.72, 0, 1] }}
+						class="w-full max-w-sm bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-6 flex flex-col items-center text-center"
+					>
+						<div class="w-16 h-16 rounded-full bg-[#ff3b30]/10 flex items-center justify-center mb-4">
+							<span class="material-symbols-outlined text-[#ff3b30] text-[32px]">delete_forever</span>
+						</div>
+						
+						<h3 class="text-[20px] font-black text-white mb-2">
+							{t('managedChannels.deleteConfirmTitle' as any)}
+						</h3>
+						<p class="text-[14px] text-[#8e8e93] mb-6 leading-relaxed">
+							{t('managedChannels.deleteConfirmDesc' as any)}
+						</p>
+
+						<div class="w-full flex gap-3">
+							<button
+								onClick={() => setChannelToDelete(null)}
+								disabled={isDeleting()}
+								class="flex-1 h-12 rounded-2xl font-bold text-[15px] bg-[#2a2a2a] text-white hover:bg-[#333] transition-all disabled:opacity-50"
+							>
+								{t('common.cancel')}
+							</button>
+							<button
+								onClick={handleDeleteChannel}
+								disabled={isDeleting()}
+								class="flex-1 h-12 rounded-2xl font-bold text-[15px] bg-[#ff3b30] text-white hover:bg-[#ff453a] transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(255,59,48,0.2)]"
+							>
+								<Show
+									when={!isDeleting()}
+									fallback={
+										<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+									}
+								>
+									{t('managedChannels.delete' as any)}
+								</Show>
+							</button>
+						</div>
+					</Motion.div>
+				</Motion.div>
+			</Show>
 		</div>
 	);
 };

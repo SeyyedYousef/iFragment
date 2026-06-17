@@ -13,6 +13,8 @@ export const ManagedBotsPage: Component = () => {
 	const [isCreating, setIsCreating] = createSignal(false);
 	const [errorMsg, setErrorMsg] = createSignal('');
 
+	const [botToDelete, setBotToDelete] = createSignal<ManagedBot | null>(null);
+	const [isDeleting, setIsDeleting] = createSignal(false);
 	const [bots, { refetch }] = createResource(botApi.listBots);
 
 	onMount(() => {
@@ -65,6 +67,23 @@ export const ManagedBotsPage: Component = () => {
 			hapticFeedback.notificationOccurred('error');
 		} finally {
 			setIsCreating(false);
+		}
+	};
+
+	const handleDeleteBot = async () => {
+		const bot = botToDelete();
+		if (!bot) return;
+
+		setIsDeleting(true);
+		try {
+			await botApi.revokeBot(bot.id);
+			hapticFeedback.notificationOccurred('success');
+			setBotToDelete(null);
+			refetch();
+		} catch (e: any) {
+			hapticFeedback.notificationOccurred('error');
+		} finally {
+			setIsDeleting(false);
 		}
 	};
 
@@ -283,15 +302,28 @@ export const ManagedBotsPage: Component = () => {
 										<span class="text-[13px] font-bold text-[#8e8e93]">@{bot.bot_username}</span>
 									</div>
 
-									{/* Manage Button */}
-									<div
-										class={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-											isRtl() ? 'rotate-180' : ''
-										} group-hover:bg-[#3390ec]/10 group-hover:translate-x-1`}
-									>
-										<span class="material-symbols-outlined text-[#3390ec] text-[24px]">
-											chevron_right
-										</span>
+									{/* Actions */}
+									<div class="flex items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+										<button
+											onClick={(e) => {
+												e.stopPropagation();
+												hapticFeedback.impactOccurred('medium');
+												setBotToDelete(bot);
+											}}
+											class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[#ff3b30]/10 text-[#555] hover:text-[#ff3b30] transition-all"
+											aria-label={t('managedBots.delete' as any) || 'Delete'}
+										>
+											<span class="material-symbols-outlined text-[22px]">delete</span>
+										</button>
+										<div
+											class={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+												isRtl() ? 'rotate-180' : ''
+											} group-hover:bg-[#3390ec]/10 group-hover:translate-x-1`}
+										>
+											<span class="material-symbols-outlined text-[#3390ec] text-[24px]">
+												chevron_right
+											</span>
+										</div>
 									</div>
 								</Motion.div>
 							)}
@@ -384,6 +416,60 @@ export const ManagedBotsPage: Component = () => {
 								Connect Bot
 							</Show>
 						</button>
+					</Motion.div>
+				</Motion.div>
+			</Show>
+
+			{/* Delete Bot Modal */}
+			<Show when={botToDelete()}>
+				<Motion.div
+					initial={{ opacity: 0 }}
+					animate={{ opacity: 1 }}
+					class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center px-5"
+					onClick={(e) => {
+						if (e.target === e.currentTarget && !isDeleting()) setBotToDelete(null);
+					}}
+				>
+					<Motion.div
+						initial={{ scale: 0.9, opacity: 0 }}
+						animate={{ scale: 1, opacity: 1 }}
+						transition={{ duration: 0.2, easing: [0.32, 0.72, 0, 1] }}
+						class="w-full max-w-sm bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-6 flex flex-col items-center text-center"
+					>
+						<div class="w-16 h-16 rounded-full bg-[#ff3b30]/10 flex items-center justify-center mb-4">
+							<span class="material-symbols-outlined text-[#ff3b30] text-[32px]">delete_forever</span>
+						</div>
+						
+						<h3 class="text-[20px] font-black text-white mb-2">
+							{t('managedBots.deleteConfirmTitle' as any)}
+						</h3>
+						<p class="text-[14px] text-[#8e8e93] mb-6 leading-relaxed">
+							{t('managedBots.deleteConfirmDesc' as any)}
+						</p>
+
+						<div class="w-full flex gap-3">
+							<button
+								onClick={() => setBotToDelete(null)}
+								disabled={isDeleting()}
+								class="flex-1 h-12 rounded-2xl font-bold text-[15px] bg-[#2a2a2a] text-white hover:bg-[#333] transition-all disabled:opacity-50"
+							>
+								{t('common.cancel')}
+							</button>
+							<button
+								onClick={handleDeleteBot}
+								disabled={isDeleting()}
+								class="flex-1 h-12 rounded-2xl font-bold text-[15px] bg-[#ff3b30] text-white hover:bg-[#ff453a] transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(255,59,48,0.2)]"
+							>
+								<Show
+									when={!isDeleting()}
+									fallback={
+										<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+									}
+								>
+									{t('managedBots.delete' as any)}
+								</Show>
+							</button>
+						</div>
 					</Motion.div>
 				</Motion.div>
 			</Show>

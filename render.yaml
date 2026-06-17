@@ -31,7 +31,7 @@ services:
     name: ifragment-webapp
     env: static
     rootDirectory: frontend
-    buildCommand: pnpm install && pnpm run build
+    buildCommand: npm install -g pnpm && pnpm install && pnpm run build
     publishPath: dist
     envVars:
       - key: VITE_API_URL
