@@ -109,8 +109,9 @@ func main() {
 
 		// Run Migrations with retry
 		var migrationSuccess bool
+		var lastMigrationErr error
 		for i := 0; i < 5; i++ {
-			m, mErr := migrate.New("file://migrations", os.Getenv("DATABASE_URL"))
+			m, mErr := migrate.New("file://./migrations", os.Getenv("DATABASE_URL"))
 			if mErr == nil {
 				if upErr := m.Up(); upErr != nil && upErr != migrate.ErrNoChange {
 					if isProd {
@@ -124,11 +125,12 @@ func main() {
 				migrationSuccess = true
 				break
 			}
-			slog.Info("Waiting for database to be ready for migrations...", "attempt", i+1)
+			lastMigrationErr = mErr
+			slog.Info("Waiting for database to be ready for migrations...", "attempt", i+1, "error", mErr)
 			time.Sleep(2 * time.Second)
 		}
 		if !migrationSuccess && isProd {
-			slog.Error("FATAL: Database migration initialization failed in production")
+			slog.Error("FATAL: Database migration initialization failed in production", "error", lastMigrationErr)
 			os.Exit(1)
 		}
 	}

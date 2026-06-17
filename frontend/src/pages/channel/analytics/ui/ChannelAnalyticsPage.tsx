@@ -225,7 +225,7 @@ export const ChannelAnalyticsPage: Component = () => {
 
 						<div class="h-24 w-full flex items-end gap-2 justify-between mt-2">
 							<For each={postViewsData()}>
-								{(views, idx) => (
+								{(views, _idx) => (
 									<div class="flex flex-col items-center gap-1 flex-1">
 										<div
 											class="w-full bg-[#32ade6]/20 hover:bg-[#32ade6] transition-colors rounded-t-sm relative group"

@@ -298,7 +298,7 @@ export const PremiumReportPage: Component = () => {
 											? 'موجود برای خرید'
 											: 'Purchase Available'
 										: report.data?.status
-											? t(('pages.premiumReport.status.' + report.data.status) as any)
+											? t(`pages.premiumReport.status.${report.data.status}` as any)
 											: ''}
 								</span>
 								<Show when={report.data?.peer_type && report.data.peer_type !== 'unknown'}>

@@ -25,7 +25,7 @@ export const IdentityHero: Component<Props> = (props) => {
 		if (user?.photoUrl || user?.photo_url) return user.photoUrl || user.photo_url;
 		return undefined;
 	};
-	const user = initData.user();
+	const user = initData.user() as any;
 	const [copied, setCopied] = createSignal<string | null>(null);
 	const [langOpen, setLangOpen] = createSignal(false);
 	const [imgError, setImgError] = createSignal(false);

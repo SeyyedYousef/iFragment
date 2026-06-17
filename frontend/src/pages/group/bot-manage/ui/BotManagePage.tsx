@@ -30,13 +30,13 @@ export const BotManagePage: Component = () => {
 		(id) => botApi.listGroups(id),
 	);
 
-	const [channels] = createResource(
+	const [_channels] = createResource(
 		() => botId,
 		(id) => channelApi.getUserChannels(id),
 	);
 
 	const [packages] = createResource(subscriptionApi.getPackages);
-	const [balance, { refetch: refetchBalance }] = createResource(frgApi.getBalance);
+	const [_balance, { refetch: refetchBalance }] = createResource(frgApi.getBalance);
 
 	onMount(() => {
 		backButton.show();
@@ -104,7 +104,7 @@ export const BotManagePage: Component = () => {
 			);
 			if (res.invoice_link) {
 				const tg = (window as any).Telegram?.WebApp;
-				if (tg && tg.openInvoice) {
+				if (tg?.openInvoice) {
 					tg.openInvoice(res.invoice_link, (status: string) => {
 						if (status === 'paid') {
 							hapticFeedback.notificationOccurred('success');

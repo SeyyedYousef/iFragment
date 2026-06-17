@@ -313,6 +313,10 @@ export const dict = {
 				default: 'شرایط انجام این ماموریت هنوز برقرار نیست',
 				scan: 'ابتدا باید حداقل یک یوزرنیم تلگرام را جستجو/اسکن کنید',
 				bot: 'ابتدا باید حداقل یک ربات مدیریت کانال ثبت کنید',
+			
+				network: 'خطای اتصال به شبکه. لطفاً دوباره تلاش کنید.',
+				server: 'خطای پاسخ سرور. لطفاً بعداً دوباره تلاش کنید.',
+				fetchFailed: 'بارگذاری ماموریت‌ها ناموفق بود. لطفاً دوباره تلاش کنید.',
 			},
 			items: {
 				joinChannel: {
@@ -333,6 +337,7 @@ export const dict = {
 				},
 			},
 			buttons: {
+				retry: 'تلاش مجدد',
 				join: 'عضویت و بررسی',
 				check: 'بررسی و انجام',
 			},
@@ -577,6 +582,9 @@ export const dict = {
 		tryAgain: 'تلاش مجدد',
 	},
 	generalSettings: {
+		botEnabled: 'ربات فعال',
+		botEnabledDesc: 'برای غیرفعال کردن کامل ربات در این گروه بدون اخراج آن، این گزینه را خاموش کنید.',
+		
 		title: 'تنظیمات عمومی',
 		description: 'پیکربندی رفتارهای اصلی بات',
 		timeZone: 'منطقه زمانی',
@@ -981,6 +989,18 @@ export const dict = {
 		unsavedChangesTooltip: 'تغییرات ذخیره‌نشده',
 	},
 	channelPosting: {
+		simNoApiKey: '❌ لطفاً ابتدا کلید API خود را وارد کنید.',
+		simGenerating: 'در حال تولید محتوا... ⏳',
+		simSafetyBlocked: '❌ محتوا به دلیل مسائل ایمنی مسدود شد.',
+		simError: '❌ تولید محتوا ناموفق بود. دوباره تلاش کنید.',
+		smartEditorTitle: 'ویرایشگر هوشمند',
+		smartEditorDesc: 'بررسی و ویرایش پست‌های تولید شده توسط ایجنت هوش مصنوعی.',
+		smartBotSettings: 'تنظیمات ربات هوشمند',
+		enableSmartEditor: 'فعال‌سازی ویرایشگر هوشمند',
+		enableSmartEditorDesc: 'فعال‌سازی ویرایش بصری و شخصی‌سازی برای پست‌های خودکار.',
+		confirmBeforeEdit: 'تایید قبل از انتشار',
+		confirmBeforeEditDesc: 'نیاز به بررسی و تایید دستی قبل از ارسال پست توسط ربات به کانال شما.',
+		
 		autoPosting: 'ارسال خودکار',
 		manageScheduledPosts: 'پست‌های زمان‌بندی شده و خودکار را مدیریت کنید',
 		enableAutoPosting: 'فعال‌سازی ارسال خودکار',
@@ -1255,6 +1275,10 @@ export const dict = {
 		success: 'کانال با موفقیت متصل شد!',
 	},
 	channelInlineButtons: {
+		presetWarning: 'این قالب دکمه‌های فعلی شما را بازنویسی می‌کند. ادامه می‌دهید؟',
+		saveSuccess: 'مجموعه دکمه‌ها با موفقیت ذخیره شد!',
+		saveFailed: 'ذخیره مجموعه دکمه‌ها ناموفق بود.',
+		
 		title: 'دکمه‌های شیشه‌ای',
 		subtitle: 'افزودن دکمه‌های تعاملی به پست‌ها',
 		noButtons: 'هنوز دکمه‌ای تنظیم نشده است.',

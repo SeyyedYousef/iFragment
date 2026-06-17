@@ -7,17 +7,17 @@ const hapticFeedback = {
 	impactOccurred: (style: any) => {
 		try {
 			nativeHaptic.impactOccurred(style);
-		} catch (e) {}
+		} catch (_e) {}
 	},
 	notificationOccurred: (type: any) => {
 		try {
 			nativeHaptic.notificationOccurred(type);
-		} catch (e) {}
+		} catch (_e) {}
 	},
 	selectionChanged: () => {
 		try {
 			nativeHaptic.selectionChanged();
-		} catch (e) {}
+		} catch (_e) {}
 	},
 };
 

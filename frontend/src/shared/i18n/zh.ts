@@ -308,6 +308,10 @@ export const dict = {
 				default: '此任务的要求尚未满足。',
 				scan: '您必须先搜索/扫描至少一个Telegram用户名。',
 				bot: '您必须先注册至少一个频道管理机器人。',
+			
+				network: '网络连接错误。请重试。',
+				server: '服务器响应错误。请稍后再试。',
+				fetchFailed: '加载任务失败。请重试。',
 			},
 			items: {
 				joinChannel: {
@@ -328,6 +332,7 @@ export const dict = {
 				},
 			},
 			buttons: {
+				retry: '重试',
 				join: '加入并检查',
 				check: '检查并完成',
 			},
@@ -506,6 +511,9 @@ export const dict = {
 		tryAgain: '重试',
 	},
 	generalSettings: {
+		botEnabled: '机器人已启用',
+		botEnabledDesc: '关闭以完全在此群组中禁用机器人，而无需将其踢出。',
+		
 		title: '常规设置',
 		description: '配置核心机器人行为',
 		timeZone: '时区',
@@ -966,6 +974,18 @@ export const dict = {
 		groupVerified: '群组验证成功',
 	},
 	channelPosting: {
+		simNoApiKey: '❌ 请先输入您的 API 密钥。',
+		simGenerating: '正在生成内容... ⏳',
+		simSafetyBlocked: '❌ 内容因安全原因被拦截。',
+		simError: '❌ 生成内容失败。请重试。',
+		smartEditorTitle: '智能编辑器',
+		smartEditorDesc: '查看并编辑 AI 代理生成的帖子。',
+		smartBotSettings: '智能机器人设置',
+		enableSmartEditor: '启用智能编辑器',
+		enableSmartEditorDesc: '启用自动帖子的可视化编辑 and 自定义。',
+		confirmBeforeEdit: '发布前确认',
+		confirmBeforeEditDesc: '在机器人发布到您的频道之前需要手动审核和批准。',
+		
 		autoPosting: 'Auto Posting',
 		manageScheduledPosts: 'Manage scheduled & automated posts',
 		enableAutoPosting: 'Enable Auto-Posting',
@@ -1342,6 +1362,10 @@ export const dict = {
 		enhanceWithAi: '使用 AI 增强',
 	},
 	channelInlineButtons: {
+		presetWarning: '此预设将覆盖您当前 lobby 按钮。是否继续？',
+		saveSuccess: '按钮组保存成功！',
+		saveFailed: '保存按钮组失败。',
+		
 		title: '内联按钮',
 		subtitle: '可视化的帖子按钮构建器',
 		noButtons: '暂无按钮组',

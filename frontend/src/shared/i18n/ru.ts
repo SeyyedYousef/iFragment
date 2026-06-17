@@ -318,6 +318,10 @@ export const dict = {
 				default: 'Требования для этой миссии еще не выполнены.',
 				scan: 'Сначала вы должны найти/отсканировать хотя бы одно имя пользователя Telegram.',
 				bot: 'Сначала вы должны зарегистрировать хотя бы одного бота для управления каналом.',
+			
+				network: 'Ошибка сетевого соединения. Пожалуйста, попробуйте еще раз.',
+				server: 'Ошибка ответа сервера. Пожалуйста, попробуйте позже.',
+				fetchFailed: 'Не удалось загрузить миссии. Пожалуйста, попробуйте еще раз.',
 			},
 			items: {
 				joinChannel: {
@@ -338,6 +342,7 @@ export const dict = {
 				},
 			},
 			buttons: {
+				retry: 'Повторить',
 				join: 'Присоединиться и проверить',
 				check: 'Проверить и завершить',
 			},
@@ -515,6 +520,9 @@ export const dict = {
 		tryAgain: 'Попробовать снова',
 	},
 	generalSettings: {
+		botEnabled: 'Бот включен',
+		botEnabledDesc: 'Выключите, чтобы полностью отключить бота в этой группе без его удаления.',
+		
 		title: 'Общие настройки',
 		description: 'Настройка основных функций бота',
 		timeZone: 'Часовой пояс',
@@ -984,6 +992,18 @@ export const dict = {
 		groupVerified: 'Группа проверена',
 	},
 	channelPosting: {
+		simNoApiKey: '❌ Пожалуйста, сначала введите ваш API ключ.',
+		simGenerating: 'Генерация контента... ⏳',
+		simSafetyBlocked: '❌ Контент заблокирован по соображениям безопасности.',
+		simError: '❌ Не удалось сгенерировать контент. Попробуйте еще раз.',
+		smartEditorTitle: 'Умный редактор',
+		smartEditorDesc: 'Просмотр и редактирование сообщений, созданных ИИ-агентом.',
+		smartBotSettings: 'Настройки умного бота',
+		enableSmartEditor: 'Включить умный редактор',
+		enableSmartEditorDesc: 'Включить визуальное редактирование и настройку для автоматических публикаций.',
+		confirmBeforeEdit: 'Подтверждать перед публикацией',
+		confirmBeforeEditDesc: 'Требовать ручную модерацию перед публикацией бота в канал.',
+		
 		autoPosting: 'Auto Posting',
 		manageScheduledPosts: 'Manage scheduled & automated posts',
 		enableAutoPosting: 'Enable Auto-Posting',
@@ -1367,6 +1387,10 @@ export const dict = {
 		enhanceWithAi: 'Улучшить с помощью ИИ',
 	},
 	channelInlineButtons: {
+		presetWarning: 'Этот шаблон перезапишет ваши текущие кнопки. Продолжить?',
+		saveSuccess: 'Набор кнопок успешно сохранен!',
+		saveFailed: 'Не удалось сохранить набор кнопок.',
+		
 		title: 'Инлайн-кнопки',
 		subtitle: 'Визуальный конструктор кнопок для ваших постов',
 		noButtons: 'Нет наборов кнопок',

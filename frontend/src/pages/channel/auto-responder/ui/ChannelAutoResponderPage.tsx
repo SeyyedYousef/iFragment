@@ -26,6 +26,7 @@ export const ChannelAutoResponderPage: Component = () => {
 
 	// Keyword Rules State
 	const [enabled, setEnabled] = createSignal(true);
+	const [isRuleEnabled, setIsRuleEnabled] = createSignal(true);
 	const [keywords, setKeywords] = createSignal('');
 	const [matchType, setMatchType] = createSignal('contains');
 	const [replyText, setReplyText] = createSignal('');
