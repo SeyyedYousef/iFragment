@@ -301,15 +301,15 @@ func (s *BotService) ListBots(ctx context.Context, ownerID int64) ([]repository.
 	}
 
 	mainBotID := getMainBotID()
-	if mainBotID == 0 {
-		return bots, nil
-	}
-
 	filtered := make([]repository.ManagedBot, 0, len(bots))
 	for _, b := range bots {
-		if b.BotID != mainBotID {
-			filtered = append(filtered, b)
+		if b.Status == "revoked" {
+			continue
 		}
+		if mainBotID != 0 && b.BotID == mainBotID {
+			continue
+		}
+		filtered = append(filtered, b)
 	}
 	return filtered, nil
 }

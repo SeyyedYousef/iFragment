@@ -313,10 +313,10 @@ func (s *ChannelService) DisconnectChannel(ctx context.Context, ownerUserID int6
 }
 
 func (s *ChannelService) CreateFunnel(ctx context.Context, ownerUserID int64, outputChannelID uuid.UUID, inputChannelID uuid.UUID) (*repository.ChannelFunnel, error) {
-	if err := s.verifyAccess(ctx, ownerUserID, outputChannelID, RoleOwner); err != nil {
+	if err := s.verifyAccess(ctx, ownerUserID, outputChannelID, RoleOwner, RoleAdmin); err != nil {
 		return nil, fmt.Errorf("access denied to output channel: %w", err)
 	}
-	if err := s.verifyAccess(ctx, ownerUserID, inputChannelID, RoleOwner); err != nil {
+	if err := s.verifyAccess(ctx, ownerUserID, inputChannelID, RoleOwner, RoleAdmin); err != nil {
 		return nil, fmt.Errorf("access denied to input channel: %w", err)
 	}
 
@@ -358,7 +358,7 @@ func (s *ChannelService) CreateFunnel(ctx context.Context, ownerUserID int64, ou
 }
 
 func (s *ChannelService) GetFunnelByOutputChannel(ctx context.Context, ownerUserID int64, outputChannelID uuid.UUID) (*repository.ChannelFunnel, error) {
-	if err := s.verifyAccess(ctx, ownerUserID, outputChannelID, RoleViewer); err != nil {
+	if err := s.verifyAccess(ctx, ownerUserID, outputChannelID, RoleOwner, RoleAdmin, RoleViewer); err != nil {
 		return nil, fmt.Errorf("access denied: %w", err)
 	}
 
@@ -371,7 +371,7 @@ func (s *ChannelService) GetFunnelByOutputChannel(ctx context.Context, ownerUser
 }
 
 func (s *ChannelService) DeleteFunnel(ctx context.Context, ownerUserID int64, outputChannelID uuid.UUID) error {
-	if err := s.verifyAccess(ctx, ownerUserID, outputChannelID, RoleOwner); err != nil {
+	if err := s.verifyAccess(ctx, ownerUserID, outputChannelID, RoleOwner, RoleAdmin); err != nil {
 		return fmt.Errorf("access denied: %w", err)
 	}
 
