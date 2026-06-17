@@ -15,6 +15,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"strconv"
 
 	"golang.org/x/time/rate"
 	"ifragment-backend/internal/telemetry"
@@ -49,7 +50,7 @@ func NewClient() *Client {
 
 	limiters := make([]*rate.Limiter, len(apiKeys))
 	for i := 0; i < len(apiKeys); i++ {
-		limiters[i] = rate.NewLimiter(rate.Limit(8), 1)
+		limiters[i] = rate.NewLimiter(rate.Limit(8), 8)
 	}
 
 	return &Client{
@@ -64,7 +65,7 @@ func NewClient() *Client {
 				IdleConnTimeout:     90 * time.Second,
 			},
 		},
-		Limiter: rate.NewLimiter(rate.Limit(8), 1),
+		Limiter: rate.NewLimiter(rate.Limit(8), 8),
 	}
 }
 
@@ -165,22 +166,47 @@ type TransferHistory struct {
 }
 
 func (c *Client) doRequest(ctx context.Context, url string) (*http.Response, error) {
-	key, err := c.getAPIKeyAndLimit(ctx)
-	if err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	if key != "" {
-		req.Header.Set("Authorization", "Bearer "+key)
-	}
-	req.Header.Set("User-Agent", "iFragment/1.0 (Telegram Mini App)")
+	var resp *http.Response
+	var err error
+	var duration float64
 
-	start := time.Now()
-	resp, err := c.HTTP.Do(req)
-	duration := time.Since(start).Seconds()
+	for attempt := 0; attempt < 3; attempt++ {
+		key, errLimit := c.getAPIKeyAndLimit(ctx)
+		if errLimit != nil {
+			return nil, errLimit
+		}
+		req, reqErr := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if reqErr != nil {
+			return nil, reqErr
+		}
+		if key != "" {
+			req.Header.Set("Authorization", "Bearer "+key)
+		}
+		
+		version := os.Getenv("APP_VERSION")
+		if version == "" {
+			version = "1.0"
+		}
+		req.Header.Set("User-Agent", fmt.Sprintf("iFragment/%s (Telegram Mini App)", version))
+
+		start := time.Now()
+		resp, err = c.HTTP.Do(req)
+		duration = time.Since(start).Seconds()
+
+		if err == nil && resp.StatusCode == http.StatusTooManyRequests {
+			retryAfter := resp.Header.Get("Retry-After")
+			if delaySec, atoiErr := strconv.Atoi(retryAfter); atoiErr == nil && delaySec > 0 && delaySec <= 10 {
+				resp.Body.Close()
+				select {
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				case <-time.After(time.Duration(delaySec) * time.Second):
+				}
+				continue
+			}
+		}
+		break
+	}
 
 	statusCode := "error"
 	if err == nil {
@@ -206,18 +232,24 @@ func (c *Client) doRequest(ctx context.Context, url string) (*http.Response, err
 
 	// Log non-success responses with body preview for debugging
 	if err == nil && resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound {
-		bodyPreview, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		bodyBytes, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
+		
+		bodyPreview := string(bodyBytes)
+		if len(bodyPreview) > 512 {
+			bodyPreview = bodyPreview[:512] + "..."
+		}
+		
 		slog.Error("TONAPI_REQUEST_FAILED",
 			"method", method,
 			"url", url,
 			"status", resp.StatusCode,
-			"body", string(bodyPreview),
+			"body", bodyPreview,
 			"duration_sec", duration,
-			"authenticated", key != "",
+			"authenticated", true, // simplified since we looped
 		)
-		// Reconstruct the body so callers can still read/decode it
-		resp.Body = io.NopCloser(bytes.NewReader(bodyPreview))
+		// Reconstruct the body so callers can still read/decode it fully
+		resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 	}
 
 	return resp, err
@@ -396,6 +428,7 @@ func (c *Client) GetTopHolders(ctx context.Context, collectionAddr string, maxIt
 
 	results := make([]pageResult, pagesCount)
 	var wg sync.WaitGroup
+	var mu sync.Mutex
 
 	// Concurrency semaphore (worker pool with max 5 concurrent workers)
 	sem := make(chan struct{}, 5)
@@ -415,10 +448,14 @@ func (c *Client) GetTopHolders(ctx context.Context, collectionAddr string, maxIt
 
 			itemsResp, err := c.GetCollectionItems(ctx, collectionAddr, l, off)
 			if err != nil {
+				mu.Lock()
 				results[pageIdx] = pageResult{err: err}
+				mu.Unlock()
 				return
 			}
+			mu.Lock()
 			results[pageIdx] = pageResult{items: itemsResp.Items}
+			mu.Unlock()
 		}(i, limit, offset)
 	}
 
@@ -592,7 +629,6 @@ func (c *Client) StreamAccountEvents(ctx context.Context, accounts []string, onE
 				if bytes.HasPrefix(line, []byte("data: ")) {
 					data := bytes.TrimPrefix(line, []byte("data: "))
 					data = bytes.TrimSpace(data)
-					currentBackoff = baseBackoff
 					onEvent(data)
 				}
 			}

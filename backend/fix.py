@@ -46,7 +46,7 @@ def fix_moderator(filepath):
     with open(filepath, 'w', encoding='utf-8') as f:
         f.write(content)
 
-fix_webhook(r'c:\Users\DEll\Desktop\iFragment\backend\internal\handler\webhook.go')
-fix_moderator(r'c:\Users\DEll\Desktop\iFragment\backend\internal\service\botmgmt\moderator_service.go')
+fix_webhook('./internal/handler/webhook.go')
+fix_moderator('./internal/service/botmgmt/moderator_service.go')
 
 print("Done")

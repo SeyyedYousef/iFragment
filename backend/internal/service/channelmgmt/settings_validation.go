@@ -205,8 +205,8 @@ func ValidateSettingsCategory(category string, data json.RawMessage) error {
 		if err := json.Unmarshal(data, &s); err != nil {
 			return fmt.Errorf("invalid dynamic_bio settings structure: %w", err)
 		}
-		if s.Template != "" && len(s.Template) > 70 {
-			return fmt.Errorf("bio template too long (Telegram limit: 70 chars)")
+		if s.Template != "" && len(s.Template) > 255 {
+			return fmt.Errorf("bio template too long (Telegram limit: 255 chars)")
 		}
 		if s.Interval < 0 || s.Interval > 1440 {
 			return fmt.Errorf("interval must be 0-1440 minutes")

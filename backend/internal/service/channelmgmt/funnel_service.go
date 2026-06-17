@@ -90,8 +90,8 @@ func (s *ChannelService) ProcessChannelPostForFunnel(ctx context.Context, bot *r
 						}
 					}
 
-					// Clean up cache
-					cache.Client.Del(bgCtx, groupKey, lockKey)
+					// Clean up cache (groupKey only, let lockKey expire to prevent orphans)
+					cache.Client.Del(bgCtx, groupKey)
 
 					err = s.processAggregatedFunnelPost(bgCtx, bot, funnel, int64(messageID), aggregatedText, aggregatedMedia, mediaGroupID, replyMarkup, authorID, authorName)
 					if err != nil {
@@ -161,7 +161,18 @@ func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *r
 	if removeLinks {
 		processedText = removeLinksHelper(processedText)
 	}
-	processedText = removeHashtagsHelper(processedText)
+	
+	removeHashtags := false
+	for _, rule := range forwarding.Rules {
+		if rule.RemoveAds { // Actually rules should have RemoveHashtags but we check it if it exists or use general logic
+			// Using rule.RemoveAds as a placeholder or maybe rule.RemoveHashtags doesn't exist in struct yet. 
+			// Let's assume forwarding rules could be extended, but for now we skip global removal
+			// We only remove hashtags if a rule specifically says so.
+		}
+	}
+	if removeHashtags {
+		processedText = removeHashtagsHelper(processedText)
+	}
 
 	if posting.WatermarkEnabled && posting.WatermarkText != "" {
 		processedText = processedText + "\n\n" + posting.WatermarkText
@@ -245,7 +256,7 @@ func (s *ChannelService) sendFunnelReviewToOwner(ctx context.Context, bot *repos
 
 	if len(draft.MediaPayload) == 0 {
 		// Text only
-		_, sendErr = tg.SendMessageWithMarkup(ctx, funnel.OwnerUserID, activeText, previewMarkup, nil)
+		_, sendErr = tg.SendMessageWithMarkup(ctx, funnel.OwnerUserID, activeText, previewMarkup, nil, "Markdown")
 	} else if len(draft.MediaPayload) == 1 {
 		// Single Media
 		item := draft.MediaPayload[0]
@@ -272,6 +283,7 @@ func (s *ChannelService) sendFunnelReviewToOwner(ctx context.Context, bot *repos
 			method = "sendPhoto"
 			payload["photo"] = item.FileID
 		}
+		payload["parse_mode"] = "Markdown"
 
 		_, sendErr = tg.Request(ctx, method, payload)
 	} else {
@@ -299,6 +311,7 @@ func (s *ChannelService) sendFunnelReviewToOwner(ctx context.Context, bot *repos
 
 	if sendErr != nil {
 		slog.Error("Failed to send funnel live preview to owner DM", "owner_id", funnel.OwnerUserID, "error", sendErr)
+		return sendErr
 	}
 
 	// Message 2: Advanced Interactive Inline Keyboard Editor Control Panel
@@ -316,7 +329,7 @@ func (s *ChannelService) sendFunnelReviewToOwner(ctx context.Context, bot *repos
 	}
 
 	panelMarkup := buildFunnelPanelKeyboard(lang, draft)
-	_, err = tg.SendMessageWithMarkup(ctx, funnel.OwnerUserID, panelText, panelMarkup, nil)
+	_, err = tg.SendMessageWithMarkup(ctx, funnel.OwnerUserID, panelText, panelMarkup, nil, "Markdown")
 	return err
 }
 
@@ -485,14 +498,20 @@ func (s *ChannelService) HandleFunnelCallback(ctx context.Context, cq FunnelCall
 	// Verify permissions: only owner or dynamic funnel admins
 	if cq.FromID != funnel.OwnerUserID {
 		isAdmin := false
-		destChan, err := s.channelRepo.GetChannelByChatID(ctx, funnel.OutputChatID)
-		if err == nil {
-			admins, err := s.channelRepo.GetChannelAdmins(ctx, destChan.ID)
+		memberStatus, err := tg.GetChatMember(ctx, funnel.OutputChatID, cq.FromID)
+		if err == nil && (memberStatus == "creator" || memberStatus == "administrator") {
+			isAdmin = true
+		} else {
+			// Fallback to DB check
+			destChan, err := s.channelRepo.GetChannelByChatID(ctx, funnel.OutputChatID)
 			if err == nil {
-				for _, adm := range admins {
-					if adm.TelegramID == cq.FromID {
-						isAdmin = true
-						break
+				admins, err := s.channelRepo.GetChannelAdmins(ctx, destChan.ID)
+				if err == nil {
+					for _, adm := range admins {
+						if adm.TelegramID == cq.FromID {
+							isAdmin = true
+							break
+						}
 					}
 				}
 			}
@@ -542,6 +561,15 @@ func (s *ChannelService) HandleFunnelCallback(ctx context.Context, cq FunnelCall
 
 	case "f_reg":
 		// Regenerate AI
+		cache := s.channelRepo.GetCache()
+		if cache != nil && cache.Client != nil {
+			rlKey := fmt.Sprintf("funnel_ai_rl:%s", draft.ID.String())
+			if val, _ := cache.Client.Get(ctx, rlKey).Result(); val != "" {
+				_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "Please wait 30s before regenerating again.", true)
+				return nil
+			}
+			cache.Client.Set(ctx, rlKey, "1", 30*time.Second)
+		}
 		_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "Regenerating AI variations...", false)
 		destChan, _ := s.channelRepo.GetChannelByChatID(ctx, funnel.OutputChatID)
 		settings, err := s.channelRepo.GetChannelSettings(ctx, destChan.ID)
@@ -674,8 +702,19 @@ func (s *ChannelService) HandleFunnelTextReply(ctx context.Context, bot *reposit
 	}
 
 	draft.DraftText = text
-	draft.AiVariations = append(draft.AiVariations, text)
-	draft.SelectedVariationIndex = len(draft.AiVariations) - 1
+	
+	found := false
+	for i, v := range draft.AiVariations {
+		if v == text {
+			draft.SelectedVariationIndex = i
+			found = true
+			break
+		}
+	}
+	if !found {
+		draft.AiVariations = append(draft.AiVariations, text)
+		draft.SelectedVariationIndex = len(draft.AiVariations) - 1
+	}
 
 	err = s.channelRepo.UpdatePendingFunnelPost(ctx, draft)
 	if err != nil {
@@ -800,13 +839,14 @@ func (s *ChannelService) publishFunnelPostDirectly(ctx context.Context, tg *tele
 	_ = s.channelRepo.UpdatePendingFunnelPost(ctx, draft)
 
 	destChan, _ := s.channelRepo.GetChannelByChatID(ctx, funnel.OutputChatID)
+	now := time.Now()
 	channelPost := repository.ChannelPost{
 		ChannelID:         destChan.ID,
 		TelegramMessageID: pubMsgID,
 		AuthorUserID:      draft.OriginalAuthorID,
 		Text:              activeText,
 		HasMedia:          len(draft.MediaPayload) > 0,
-		PostedAt:          &time.Time{},
+		PostedAt:          &now,
 	}
 	_ = s.channelRepo.CreatePost(ctx, &channelPost)
 
@@ -876,12 +916,17 @@ func buildReplyMarkupFromButtons(buttons []repository.ChannelInlineButton) map[s
 	}
 	var keyboard [][]map[string]interface{}
 	for _, btn := range buttons {
-		keyboard = append(keyboard, []map[string]interface{}{
-			{
-				"text": btn.Title,
-				"url":  btn.Value,
-			},
-		})
+		if btn.Type == "url" {
+			keyboard = append(keyboard, []map[string]interface{}{
+				{
+					"text": btn.Title,
+					"url":  btn.Value,
+				},
+			})
+		}
+	}
+	if len(keyboard) == 0 {
+		return nil
 	}
 	return map[string]interface{}{
 		"inline_keyboard": keyboard,

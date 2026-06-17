@@ -42,6 +42,12 @@ export const ChannelHamburgerMenu: Component<ChannelHamburgerMenuProps> = (props
 			path: `/channel/${props.channelId}/posting`,
 		},
 		{
+			id: 'funnel',
+			icon: 'filter_alt',
+			label: 'Funnel Settings',
+			path: `/channel/${props.channelId}/funnel`,
+		},
+		{
 			id: 'inline-buttons',
 			icon: 'smart_button',
 			label: t('channelMenu.inlineButtons'),

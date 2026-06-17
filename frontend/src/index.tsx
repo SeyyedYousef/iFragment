@@ -41,7 +41,7 @@ async function startApp() {
 		const isTelegram = await isTMA();
 
 		if (!isTelegram && !realParams) {
-			if (import.meta.env.DEV) {
+			if (import.meta.env.DEV && import.meta.env.VITE_USE_MOCKS === 'true') {
 				mockTelegramEnv({
 					launchParams: {
 						themeParams: {

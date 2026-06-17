@@ -26,7 +26,7 @@ func NewAggregatorService(ton *tonapi.Client, cache *repository.Cache) *Aggregat
 	if cache != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := cache.Client.Del(ctx, "collection:stats_summary", "collection:trending_usernames").Err(); err != nil {
+		if err := cache.Client.Del(ctx, "collection:stats_summary:v2", "collection:trending_usernames:v2").Err(); err != nil {
 			slog.Warn("AggregatorService: failed to clear startup cache keys", "error", err)
 		} else {
 			slog.Info("AggregatorService: cleared collection stats and trending cache on startup")
@@ -90,8 +90,8 @@ type cachedHolderData struct {
 
 func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 	addr := tonapi.UsernamesCollectionAddr
-	cacheKey := "collection:stats_summary"
-	staleCacheKey := "collection:stats_summary:stale"
+	cacheKey := "collection:stats_summary:v2"
+	staleCacheKey := "collection:stats_summary:stale:v2"
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -146,10 +146,10 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 				"retry_count", 3,
 			)
 		}
-		// If NextItemIndex is -1 or 0, provide a fallback estimate for Usernames
+		// If NextItemIndex is -1 or 0, we leave it as 0 instead of fake data
 		mu.Lock()
 		if summary.TotalSupply <= 0 {
-			summary.TotalSupply = 1500000 // Approximate total supply of Usernames
+			summary.TotalSupply = 0
 		}
 		errTon = err
 		mu.Unlock()
@@ -163,16 +163,7 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 		if err != nil {
 			mu.Lock()
 			errGetGems = err
-			// Fallback values in case GetGems fails
-			if summary.FloorPrice == "" {
-				summary.FloorPrice = "2.30"
-			}
-			if summary.TotalVolume == "" {
-				summary.TotalVolume = "55000000.00"
-			}
-			if summary.DailyVolume == 0 {
-				summary.DailyVolume = 45000.0
-			}
+			// Fallback values removed to avoid fake data injection
 			mu.Unlock()
 			slog.Warn("STATS_FETCH_ERROR: GetGems stats fetch failed", "error", err)
 			return
@@ -181,23 +172,15 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 		mu.Lock()
 		if floor != "" && floor != "0.00" {
 			summary.FloorPrice = floor
-		} else {
-			summary.FloorPrice = "2.30"
 		}
 		
 		if vol != "" && vol != "0.00" {
 			summary.TotalVolume = vol
-		} else {
-			summary.TotalVolume = "55000000.00"
 		}
 		
 		if sales > 0 {
 			summary.SalesCount = sales
-		} else {
-			summary.SalesCount = 1200000
 		}
-		
-		summary.DailyVolume = 45000.0 // Approximated fallback
 		mu.Unlock()
 	}()
 
@@ -208,7 +191,7 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 			return
 		}
 
-		holderCacheKey := "collection:holder_analytics"
+		holderCacheKey := "collection:holder_analytics:v2"
 
 		// Try cache first (valid for 30 minutes)
 		if s.cache != nil {
@@ -294,14 +277,6 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 		// Return hardcoded fallback on timeout if no stale cache
 		nowSec := time.Now().Unix()
 		return &CollectionSummary{
-			TotalSupply:    1500000,
-			FloorPrice:     "2.30",
-			TotalVolume:    "55000000.00",
-			SalesCount:     1200000,
-			DailyVolume:    45000.0,
-			ActiveAuctions: 5000,
-			ListedRatio:    0.05,
-			HighestSale:    500000.0,
 			DataSource:     "fallback",
 			IsStale:        true,
 			LastUpdatedAt:  nowSec,
@@ -414,8 +389,8 @@ func computeDistribution(ownerCounts map[string]int) *HolderDistribution {
 
 // GetTrendingUsernames fetches collection items and extracts usernames
 func (s *AggregatorService) GetTrendingUsernames(ctx context.Context) ([]string, error) {
-	trendingCacheKey := "collection:trending_usernames"
-	trendingStaleCacheKey := "collection:trending_usernames:stale"
+	trendingCacheKey := "collection:trending_usernames:v2"
+	trendingStaleCacheKey := "collection:trending_usernames:stale:v2"
 
 	// Try fresh cache first
 	if s.cache != nil {

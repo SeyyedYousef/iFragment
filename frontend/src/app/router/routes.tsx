@@ -12,6 +12,7 @@ import { ChannelGeneralSettingsPage } from '@/pages/channel/general-settings/ind
 import { ChannelInlineButtonsPage } from '@/pages/channel/inline-buttons/index.js';
 import { ManagedChannelsPage } from '@/pages/channel/managed-channels/index.js';
 import { ChannelPostingPage } from '@/pages/channel/posting/index.js';
+import { ChannelFunnelPage } from '@/pages/channel/funnel/index.js';
 import { DashboardPage } from '@/pages/dashboard/dashboard/index.js';
 import { AnalyticsPage } from '@/pages/group/analytics/index.js';
 import { BotManagePage } from '@/pages/group/bot-manage/index.js';
@@ -76,6 +77,7 @@ export const routes: Route[] = [
 	{ path: '/channel/:id', Component: ChannelDashboardPage },
 	{ path: '/channel/:id/settings', Component: ChannelGeneralSettingsPage },
 	{ path: '/channel/:id/posting', Component: ChannelPostingPage },
+	{ path: '/channel/:id/funnel', Component: ChannelFunnelPage },
 	{ path: '/channel/:id/forwarding', Component: ChannelForwardingPage },
 	{ path: '/channel/:id/admins', Component: ChannelAdminsPage },
 	{ path: '/channel/:id/analytics', Component: ChannelAnalyticsPage },

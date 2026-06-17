@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
@@ -119,12 +119,12 @@ func (s *ProfileService) GetUserProfilePhotoPath(ctx context.Context, userID int
 		val, err := s.cache.Client.Get(ctx, cacheKey).Result()
 		if err == nil {
 			if val == "none" {
-				log.Printf("[GetUserProfilePhotoPath] Cache hit 'none' for user %d", userID)
+				slog.Debug("[GetUserProfilePhotoPath] Cache hit 'none'", "user_id", userID)
 				return "", "", nil
 			}
 			var cached CachedAvatar
 			if err := json.Unmarshal([]byte(val), &cached); err == nil {
-				log.Printf("[GetUserProfilePhotoPath] Cache hit path '%s' for user %d", cached.Path, userID)
+				slog.Debug("[GetUserProfilePhotoPath] Cache hit path", "path", cached.Path, "user_id", userID)
 				return cached.Path, cached.BotToken, nil
 			}
 		}
@@ -141,7 +141,7 @@ func (s *ProfileService) GetUserProfilePhotoPath(ctx context.Context, userID int
 		path, err := tg.GetUserProfilePhotoURL(ctx, userID)
 		if err == nil && path != "" {
 			s.cacheAvatar(ctx, cacheKey, path, mainToken)
-			log.Printf("[GetUserProfilePhotoPath] Successfully retrieved path '%s' via main bot for user %d", path, userID)
+			slog.Debug("[GetUserProfilePhotoPath] Successfully retrieved path via main bot", "path", path, "user_id", userID)
 			return path, mainToken, nil
 		}
 	}
@@ -160,7 +160,7 @@ func (s *ProfileService) GetUserProfilePhotoPath(ctx context.Context, userID int
 						path, err := tgCustom.GetUserProfilePhotoURL(ctx, userID)
 						if err == nil && path != "" {
 							s.cacheAvatar(ctx, cacheKey, path, token)
-							log.Printf("[GetUserProfilePhotoPath] Successfully retrieved path '%s' via custom bot for user %d", path, userID)
+							slog.Debug("[GetUserProfilePhotoPath] Successfully retrieved path via custom bot", "path", path, "user_id", userID)
 							return path, token, nil
 						}
 					}
@@ -172,26 +172,26 @@ func (s *ProfileService) GetUserProfilePhotoPath(ctx context.Context, userID int
 	if s.cache != nil && s.cache.Client != nil {
 		s.cache.Client.Set(ctx, cacheKey, "none", 1*time.Hour)
 	}
-	log.Printf("[GetUserProfilePhotoPath] No avatar path found for user %d", userID)
+	slog.Debug("[GetUserProfilePhotoPath] No avatar path found", "user_id", userID)
 	return "", "", nil
 }
 
 func (s *ProfileService) GetAvatarStream(ctx context.Context, userID int64) (io.ReadCloser, string, int64, error) {
-	log.Printf("[GetAvatarStream] Starting avatar stream download for user %d", userID)
+	slog.Debug("[GetAvatarStream] Starting avatar stream download", "user_id", userID)
 	path, botToken, err := s.GetUserProfilePhotoPath(ctx, userID)
 	if err != nil {
-		log.Printf("[GetAvatarStream] GetUserProfilePhotoPath failed for user %d: %v", userID, err)
+		slog.Debug("[GetAvatarStream] GetUserProfilePhotoPath failed", "user_id", userID, "error", err)
 		return nil, "", 0, err
 	}
 	if path == "" {
-		log.Printf("[GetAvatarStream] No photo path returned for user %d (user has no photo or restricted visibility)", userID)
+		slog.Debug("[GetAvatarStream] No photo path returned (user has no photo or restricted visibility)", "user_id", userID)
 		return nil, "", 0, fmt.Errorf("no avatar found")
 	}
 
 	tg := telegram.NewBotAPIClient(botToken)
 
 	fileURL := fmt.Sprintf("%s/file/bot%s/%s", tg.BaseURL(), tg.Token(), path)
-	log.Printf("[GetAvatarStream] Downloading from Telegram: %s/file/bot<masked>/%s", tg.BaseURL(), path)
+	slog.Debug("[GetAvatarStream] Downloading from Telegram", "base_url", tg.BaseURL(), "path", path)
 	
 	client := &http.Client{Timeout: 5 * time.Second}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fileURL, nil)
@@ -201,18 +201,18 @@ func (s *ProfileService) GetAvatarStream(ctx context.Context, userID int64) (io.
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("[GetAvatarStream] Telegram request failed for user %d: %v", userID, err)
+		slog.Debug("[GetAvatarStream] Telegram request failed", "user_id", userID, "error", err)
 		return nil, "", 0, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		resp.Body.Close()
-		log.Printf("[GetAvatarStream] Telegram file server returned HTTP %d for user %d", resp.StatusCode, userID)
+		slog.Debug("[GetAvatarStream] Telegram file server returned error", "status_code", resp.StatusCode, "user_id", userID)
 		return nil, "", 0, fmt.Errorf("telegram returned status %d", resp.StatusCode)
 	}
 
 	contentLength, _ := strconv.ParseInt(resp.Header.Get("Content-Length"), 10, 64)
-	log.Printf("[GetAvatarStream] Stream initialized for user %d, size: %d bytes, Content-Type: %s", userID, contentLength, resp.Header.Get("Content-Type"))
+	slog.Debug("[GetAvatarStream] Stream initialized", "user_id", userID, "size_bytes", contentLength, "content_type", resp.Header.Get("Content-Type"))
 	return resp.Body, resp.Header.Get("Content-Type"), contentLength, nil
 }
 
@@ -353,17 +353,25 @@ func (s *ProfileService) SetReferralCode(ctx context.Context, userID int64, refe
 		  AND metadata->>'referred_user_id' IS NOT NULL`, referrerID).Scan(&totalEarned)
 
 	rewardReferrer := totalEarned < MaxReferralRewardTotal
-	if rewardReferrer && s.cache != nil && s.cache.Client != nil {
-		todayKey := fmt.Sprintf("referral:daily:%d:%s", referrerID, time.Now().UTC().Format("2006-01-02"))
-		// ✅ check-first pattern: GET-then-INCR, with rollback if over cap
-		dailyTotal, errIncr := s.cache.Client.IncrByFloat(ctx, todayKey, ReferrerReward).Result()
-		if errIncr == nil {
-			s.cache.Client.Expire(ctx, todayKey, 24*time.Hour)
-			if dailyTotal > MaxReferralRewardPerDay {
-				// rollback the increment so future callers see correct state
-				s.cache.Client.IncrByFloat(ctx, todayKey, -ReferrerReward)
+	if rewardReferrer {
+		if s.cache != nil && s.cache.Client != nil {
+			todayKey := fmt.Sprintf("referral:daily:%d:%s", referrerID, time.Now().UTC().Format("2006-01-02"))
+			// ✅ check-first pattern: GET-then-INCR, with rollback if over cap
+			dailyTotal, errIncr := s.cache.Client.IncrByFloat(ctx, todayKey, ReferrerReward).Result()
+			if errIncr == nil {
+				s.cache.Client.Expire(ctx, todayKey, 24*time.Hour)
+				if dailyTotal > MaxReferralRewardPerDay {
+					// rollback the increment so future callers see correct state
+					s.cache.Client.IncrByFloat(ctx, todayKey, -ReferrerReward)
+					rewardReferrer = false
+				}
+			} else {
+				// Failed to increment cache, deny reward
 				rewardReferrer = false
 			}
+		} else {
+			// Cache is down, deny reward to prevent exploit
+			rewardReferrer = false
 		}
 	}
 
@@ -758,12 +766,5 @@ func (s *ProfileService) DeleteUserDataGDPR(ctx context.Context, userID int64) e
 	}
 
 	return nil
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 

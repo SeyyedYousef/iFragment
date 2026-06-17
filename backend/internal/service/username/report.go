@@ -253,7 +253,7 @@ func (s *ReportService) getCachedSearchPopularity(ctx context.Context, username 
 		return 0, fmt.Errorf("database not available")
 	}
 
-	cacheKey := fmt.Sprintf("popularity:%s", username)
+	cacheKey := fmt.Sprintf("popularity:v2:%s", username)
 	if s.cache != nil {
 		val, err := s.cache.Client.Get(ctx, cacheKey).Result()
 		if err == nil {
@@ -443,12 +443,15 @@ func (s *ReportService) GenerateDeepReport(ctx context.Context, userID int64, us
 	ctx, cancel := context.WithTimeout(ctx, 12*time.Second)
 	defer cancel()
 
-	cacheKey := fmt.Sprintf("report:%s", username)
+	cacheKey := fmt.Sprintf("report:v2:%s", username)
 	if s.cache != nil {
 		val, err := s.cache.Client.Get(ctx, cacheKey).Result()
 		if err == nil {
 			var cached FullReport
 			if json.Unmarshal([]byte(val), &cached) == nil {
+				if rateUSD, err := s.GetTONRate(ctx); err == nil && rateUSD > 0 {
+					cached.ExchangeRate = rateUSD
+				}
 				return &cached, nil
 			}
 		}
@@ -463,6 +466,9 @@ func (s *ReportService) GenerateDeepReport(ctx context.Context, userID int64, us
 			if err == nil {
 				var cached FullReport
 				if json.Unmarshal([]byte(val), &cached) == nil {
+					if rateUSD, err := s.GetTONRate(detachedCtx); err == nil && rateUSD > 0 {
+						cached.ExchangeRate = rateUSD
+					}
 					return &cached, nil
 				}
 			}
@@ -474,7 +480,7 @@ func (s *ReportService) GenerateDeepReport(ctx context.Context, userID int64, us
 		}
 		if s.cache != nil {
 			data, _ := json.Marshal(report)
-			s.cache.Client.Set(detachedCtx, cacheKey, data, 24*time.Hour)
+			s.cache.Client.Set(detachedCtx, cacheKey, data, 2*time.Hour)
 		}
 		return report, nil
 	})
@@ -535,7 +541,7 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 		defer cancel()
 
 		var mtCached bool
-		mtCacheKey := fmt.Sprintf("mtproto:%s", username)
+		mtCacheKey := fmt.Sprintf("mtproto:v2:%s", username)
 
 		type mtCacheData struct {
 			Status            mtproto.Status `json:"status"`
@@ -1495,7 +1501,7 @@ func (s *ReportService) CalculateChannelEmpire(ctx context.Context, usernames []
 	}
 
 	for _, u := range usernames {
-		cacheKey := fmt.Sprintf("mtproto:%s", u)
+		cacheKey := fmt.Sprintf("mtproto:v2:%s", u)
 		if s.cache != nil {
 			val, err := s.cache.Client.Get(ctx, cacheKey).Result()
 			if err == nil {

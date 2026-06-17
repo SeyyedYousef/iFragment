@@ -1,0 +1,22 @@
+{
+  "name": "ifragment",
+  "version": "1.0.0",
+  "description": "این مخزن کد مربوط به اپلیکیشن **iFragment** (نسخه مینی‌اپ تلگرام) است. در زیر معماری کامل و ساختار تکنولوژی‌های به کار رفته در این پروژه تشریح شده است.",
+  "main": "index.js",
+  "scripts": {
+    "test": "cypress run",
+    "cypress:open": "cypress open"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SeyyedYousef/iFragment.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/SeyyedYousef/iFragment/issues"
+  },
+  "homepage": "https://github.com/SeyyedYousef/iFragment#readme"
+}

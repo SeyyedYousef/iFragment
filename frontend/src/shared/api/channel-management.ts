@@ -108,15 +108,15 @@ export const channelApi = {
 			const viewsToday = latest ? latest.views_count || 0 : 0;
 			const postsToday = latest ? latest.posts_count || 0 : 0;
 			// Calculate a basic citation index (e.g. based on engagement) or fallback to 'N/A' if API doesn't provide
-			const ciScore = latest?.citation_index || 'A+';
+			const ciScore = totalMembers < 10 && postsToday === 0 ? 'N/A' : (latest?.citation_index || 'A+');
+			const engagementRate = totalMembers > 10 ? Math.round(((newMembers + totalViews) / totalMembers) * 100) : (totalMembers > 0 ? 100 : 0);
 
 			return {
 				summary: {
 					total_members: totalMembers,
 					new_members: newMembers,
 					total_views: totalViews,
-					engagement_rate:
-						totalMembers > 0 ? Math.round(((newMembers + totalViews) / totalMembers) * 100) : 0,
+					engagement_rate: engagementRate,
 					top_posts: r.data?.summary?.top_posts || [],
 					new_members_today: newMembersToday,
 					views_today: viewsToday,

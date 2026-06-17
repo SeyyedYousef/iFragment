@@ -307,11 +307,17 @@ type MessageResult struct {
 	MessageID int `json:"message_id"`
 }
 
-func (c *BotAPIClient) SendMessageWithResult(ctx context.Context, chatID int64, text string, replyToID *int, threadID *int) (*MessageResult, error) {
+func (c *BotAPIClient) SendMessageWithResult(ctx context.Context, chatID int64, text string, replyToID *int, threadID *int, parseMode ...string) (*MessageResult, error) {
+	mode := "HTML"
+	if len(parseMode) > 0 {
+		mode = parseMode[0]
+	}
 	payload := map[string]interface{}{
 		"chat_id":    chatID,
 		"text":       text,
-		"parse_mode": "HTML",
+	}
+	if mode != "" {
+		payload["parse_mode"] = mode
 	}
 	if replyToID != nil {
 		payload["reply_to_message_id"] = *replyToID
@@ -434,12 +440,18 @@ func (c *BotAPIClient) SetChatAdministratorCustomTitle(ctx context.Context, chat
 	return err
 }
 
-func (c *BotAPIClient) SendMessageWithMarkup(ctx context.Context, chatID int64, text string, markup interface{}, threadID *int) (*MessageResult, error) {
+func (c *BotAPIClient) SendMessageWithMarkup(ctx context.Context, chatID int64, text string, markup interface{}, threadID *int, parseMode ...string) (*MessageResult, error) {
+	mode := "HTML"
+	if len(parseMode) > 0 {
+		mode = parseMode[0]
+	}
 	payload := map[string]interface{}{
 		"chat_id":      chatID,
 		"text":         text,
-		"parse_mode":   "HTML",
 		"reply_markup": markup,
+	}
+	if mode != "" {
+		payload["parse_mode"] = mode
 	}
 	if threadID != nil {
 		payload["message_thread_id"] = *threadID
@@ -708,22 +720,36 @@ func (c *BotAPIClient) EditMessageReplyMarkup(ctx context.Context, chatID interf
 }
 
 // EditMessageText edits the text of a message
-func (c *BotAPIClient) EditMessageText(ctx context.Context, chatID interface{}, messageID int, text string) error {
-	_, err := c.Request(ctx, "editMessageText", map[string]interface{}{
-		"chat_id":    chatID,
-		"message_id": messageID,
-		"text":       text,
-		"parse_mode": "HTML",
-	})
-	return handleEditError(err)
-}
-
-// EditMessageTextWithMarkup edits both text and markup of a message
-func (c *BotAPIClient) EditMessageTextWithMarkup(ctx context.Context, chatID interface{}, messageID int, text string, markup interface{}) error {
+func (c *BotAPIClient) EditMessageText(ctx context.Context, chatID interface{}, messageID int, text string, parseMode ...string) error {
+	mode := "HTML"
+	if len(parseMode) > 0 {
+		mode = parseMode[0]
+	}
 	payload := map[string]interface{}{
 		"chat_id":    chatID,
 		"message_id": messageID,
 		"text":       text,
+	}
+	if mode != "" {
+		payload["parse_mode"] = mode
+	}
+	_, err := c.Request(ctx, "editMessageText", payload)
+	return handleEditError(err)
+}
+
+// EditMessageTextWithMarkup edits both text and markup of a message
+func (c *BotAPIClient) EditMessageTextWithMarkup(ctx context.Context, chatID interface{}, messageID int, text string, markup interface{}, parseMode ...string) error {
+	mode := "HTML"
+	if len(parseMode) > 0 {
+		mode = parseMode[0]
+	}
+	payload := map[string]interface{}{
+		"chat_id":    chatID,
+		"message_id": messageID,
+		"text":       text,
+	}
+	if mode != "" {
+		payload["parse_mode"] = mode
 	}
 	if markup != nil {
 		payload["reply_markup"] = markup

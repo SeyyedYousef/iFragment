@@ -65,6 +65,7 @@ func (s *ChannelService) processDynamicBios(ctx context.Context) {
 		}
 
 		s.updateChannelDynamicBio(ctx, &ch, config)
+		time.Sleep(1 * time.Second) // Prevent Telegram Rate Limit (30 req/sec)
 	}
 }
 
