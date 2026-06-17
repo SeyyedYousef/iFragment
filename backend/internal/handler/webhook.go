@@ -2648,6 +2648,10 @@ func (h *WebhookHandler) handleChannelPost(ctx context.Context, bot *repository.
 		handled, funnelErr := h.channelService.ProcessChannelPostForFunnel(ctx, bot, m.Chat.ID, m.MessageID, text, mediaItems, m.MediaGroupID, m.ReplyMarkup, authorID, authorName)
 		if funnelErr == nil && handled {
 			slog.Info("Post handled by Funnel System; stopping normal pipeline execution", "chat_id", m.Chat.ID, "message_id", m.MessageID)
+			tg, err := h.moderator.GetTelegramClient(ctx, bot)
+			if err == nil {
+				_ = tg.DeleteMessage(ctx, m.Chat.ID, m.MessageID)
+			}
 			return
 		}
 	}
