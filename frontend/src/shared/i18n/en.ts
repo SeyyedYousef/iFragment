@@ -313,7 +313,7 @@ export const dict = {
 				default: 'The requirements for this mission are not met yet.',
 				scan: 'You must first search/scan at least one Telegram username.',
 				bot: 'You must register at least one channel management bot first.',
-			
+
 				network: 'Network connection error. Please try again.',
 				server: 'Server response error. Please try again later.',
 				fetchFailed: 'Failed to load missions. Please try again.',
@@ -583,7 +583,7 @@ export const dict = {
 	generalSettings: {
 		botEnabled: 'Bot Enabled',
 		botEnabledDesc: 'Turn off to completely disable the bot in this group without kicking it.',
-		
+
 		title: 'General Settings',
 		description: 'Configure core bot behaviors',
 		timeZone: 'Time Zone',
@@ -1040,8 +1040,9 @@ To enable me to delete malicious messages and restrict violating users, please a
 		enableSmartEditor: 'Enable Smart Editor',
 		enableSmartEditorDesc: 'Enable visual editing and customization for automated posts.',
 		confirmBeforeEdit: 'Confirm Before Publishing',
-		confirmBeforeEditDesc: 'Require manual review and approval before the bot posts to your channel.',
-		
+		confirmBeforeEditDesc:
+			'Require manual review and approval before the bot posts to your channel.',
+
 		autoPosting: 'AI Post Composer',
 		manageScheduledPosts: 'AI-powered content creation & scheduling',
 		enableAutoPosting: 'Enable Auto-Posting',
@@ -1313,7 +1314,7 @@ To enable me to delete malicious messages and restrict violating users, please a
 		presetWarning: 'This preset will overwrite your current buttons. Continue?',
 		saveSuccess: 'Button set saved successfully!',
 		saveFailed: 'Failed to save button set.',
-		
+
 		title: 'Inline Buttons',
 		subtitle: 'Visual button builder for your posts',
 		noButtons: 'No Button Sets',

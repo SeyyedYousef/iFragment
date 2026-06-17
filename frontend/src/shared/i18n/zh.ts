@@ -308,7 +308,7 @@ export const dict = {
 				default: '此任务的要求尚未满足。',
 				scan: '您必须先搜索/扫描至少一个Telegram用户名。',
 				bot: '您必须先注册至少一个频道管理机器人。',
-			
+
 				network: '网络连接错误。请重试。',
 				server: '服务器响应错误。请稍后再试。',
 				fetchFailed: '加载任务失败。请重试。',
@@ -513,7 +513,7 @@ export const dict = {
 	generalSettings: {
 		botEnabled: '机器人已启用',
 		botEnabledDesc: '关闭以完全在此群组中禁用机器人，而无需将其踢出。',
-		
+
 		title: '常规设置',
 		description: '配置核心机器人行为',
 		timeZone: '时区',
@@ -985,7 +985,7 @@ export const dict = {
 		enableSmartEditorDesc: '启用自动帖子的可视化编辑 and 自定义。',
 		confirmBeforeEdit: '发布前确认',
 		confirmBeforeEditDesc: '在机器人发布到您的频道之前需要手动审核和批准。',
-		
+
 		autoPosting: 'Auto Posting',
 		manageScheduledPosts: 'Manage scheduled & automated posts',
 		enableAutoPosting: 'Enable Auto-Posting',
@@ -1365,7 +1365,7 @@ export const dict = {
 		presetWarning: '此预设将覆盖您当前 lobby 按钮。是否继续？',
 		saveSuccess: '按钮组保存成功！',
 		saveFailed: '保存按钮组失败。',
-		
+
 		title: '内联按钮',
 		subtitle: '可视化的帖子按钮构建器',
 		noButtons: '暂无按钮组',
