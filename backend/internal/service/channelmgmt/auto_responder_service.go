@@ -150,9 +150,6 @@ func (s *AutoResponderService) ProcessNewMember(ctx context.Context, tg *telegra
 
 	// Just welcome the first new member in the list to avoid spamming for bulk adds
 	memberName := newMembers[0].FirstName
-	if newMembers[0].LastName != "" {
-		memberName += " " + newMembers[0].LastName
-	}
 
 	replyText := strings.ReplaceAll(schema.WelcomeText, "$name", memberName)
 

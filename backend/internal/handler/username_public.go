@@ -184,17 +184,18 @@ func (h *UsernameHandler) getQuickAnalysisCachedOrFetch(ctx context.Context, u s
 		}
 
 		// Resolve status deterministically
-		if mtStatus == mtproto.StatusPurchase {
+		switch mtStatus {
+		case mtproto.StatusPurchase:
 			result.Status = "purchase_available"
-		} else if mtStatus == mtproto.StatusOccupied {
+		case mtproto.StatusOccupied:
 			result.Status = "taken"
-		} else if mtStatus == mtproto.StatusAvailable {
+		case mtproto.StatusAvailable:
 			if username.IsBasicEligible(u) {
 				result.Status = "available"
 			} else {
 				result.Status = "purchase_available"
 			}
-		} else {
+		default:
 			result.Status = "taken"
 		}
 

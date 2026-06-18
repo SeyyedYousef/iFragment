@@ -97,30 +97,30 @@ export const ChannelGeneralSettingsPage: Component = () => {
 					autoForward: apiGeneral.autoForward ?? defaultConfig.autoForward,
 					forwardDestination: apiGeneral.forwardDestination || defaultConfig.forwardDestination,
 					disableReactions: apiGeneral.disableReactions ?? defaultConfig.disableReactions,
-					channelName: apiGeneral.name || apiGeneral.channelName || defaultConfig.channelName,
-					channelBio: apiGeneral.description || apiGeneral.channelBio || defaultConfig.channelBio,
+					channelName: apiGeneral.name || (apiGeneral as any).channelName || defaultConfig.channelName,
+					channelBio: apiGeneral.description || (apiGeneral as any).channelBio || defaultConfig.channelBio,
 					channelPhotoUrl:
-						apiGeneral.photo || apiGeneral.channelPhotoUrl || defaultConfig.channelPhotoUrl,
+						apiGeneral.photo || (apiGeneral as any).channelPhotoUrl || defaultConfig.channelPhotoUrl,
 					channelUsername:
-						apiGeneral.username || apiGeneral.channelUsername || defaultConfig.channelUsername,
+						apiGeneral.username || (apiGeneral as any).channelUsername || defaultConfig.channelUsername,
 					adminProfileDisplay:
 						apiGeneral.showAdminProfile ??
-						apiGeneral.adminProfileDisplay ??
+						(apiGeneral as any).adminProfileDisplay ??
 						defaultConfig.adminProfileDisplay,
-					hideHistory: apiGeneral.hideChatHistory ?? apiGeneral.hideHistory ?? defaultConfig.hideHistory,
+					hideHistory: apiGeneral.hideChatHistory ?? (apiGeneral as any).hideHistory ?? defaultConfig.hideHistory,
 					hideMemberList: apiGeneral.hideMemberList ?? defaultConfig.hideMemberList,
 					telegramAntiSpam:
-						apiGeneral.antiSpam ?? apiGeneral.telegramAntiSpam ?? defaultConfig.telegramAntiSpam,
+						apiGeneral.antiSpam ?? (apiGeneral as any).telegramAntiSpam ?? defaultConfig.telegramAntiSpam,
 					slowMode: String(apiGeneral.slowMode ?? 0),
-					autoDeleteTimer: String(apiGeneral.autoDelete ?? apiGeneral.autoDeleteTimer ?? 0),
-					discussionGroup: apiGeneral.discussionGroupId || apiGeneral.discussionGroup || '',
+					autoDeleteTimer: String(apiGeneral.autoDelete ?? (apiGeneral as any).autoDeleteTimer ?? 0),
+					discussionGroup: apiGeneral.discussionGroupId || (apiGeneral as any).discussionGroup || '',
 					approveAccountAge:
 						(apiGeneral.joinReqAge ?? 0) > 0 ||
-						apiGeneral.approveAccountAge ||
+						(apiGeneral as any).approveAccountAge ||
 						defaultConfig.approveAccountAge,
 					approveProfilePhoto:
 						apiGeneral.joinReqPhoto ??
-						apiGeneral.approveProfilePhoto ??
+						(apiGeneral as any).approveProfilePhoto ??
 						defaultConfig.approveProfilePhoto,
 					joinRequestsEnabled:
 						(apiGeneral as any).joinRequestsEnabled ?? defaultConfig.joinRequestsEnabled,
@@ -384,7 +384,7 @@ export const ChannelGeneralSettingsPage: Component = () => {
 							{/* Premium Avatar Upload Component */}
 							<div class="flex flex-col gap-1.5 mt-2">
 								<label class="text-[12px] text-on-surface-variant ml-1">
-									{t('channelSettings.channelPhotoUrl') || 'Channel Avatar'}
+									{t('channelSettings.channelPhotoUrl' as any) || 'Channel Avatar'}
 								</label>
 								<div class="flex items-center gap-4 bg-[#2c2c2e] p-3 rounded-2xl border border-[#3a3a3c]">
 									<div class="relative w-16 h-16 rounded-full overflow-hidden bg-gradient-to-br from-[#32ade6]/20 to-[#2b96c8]/20 flex items-center justify-center border-2 border-[#2a2a2a] shrink-0 group cursor-pointer">
@@ -423,17 +423,17 @@ export const ChannelGeneralSettingsPage: Component = () => {
 									</div>
 									<div class="flex flex-col flex-1 min-w-0">
 										<span class="text-[14px] font-bold text-white mb-0.5">
-											{t('channelSettings.uploadNewPhoto') || 'Upload new photo'}
+											{t('channelSettings.uploadNewPhoto' as any) || 'Upload new photo'}
 										</span>
 										<span class="text-[11px] text-[#8e8e93]">
-											{t('channelSettings.photoSizeHint') || 'Recommended 512x512px. Max 2MB.'}
+											{t('channelSettings.photoSizeHint' as any) || 'Recommended 512x512px. Max 2MB.'}
 										</span>
 									</div>
 									<Show when={config.channelPhotoUrl}>
 										<button
 											onClick={() => updateField('channelPhotoUrl', '')}
 											class="w-10 h-10 rounded-full bg-[#ff3b30]/10 text-[#ff3b30] flex items-center justify-center hover:bg-[#ff3b30]/20 active:scale-95 transition-all shrink-0"
-											title={t('common.delete') || 'Delete'}
+											title={t('common.delete' as any) || 'Delete'}
 										>
 											<span class="material-symbols-outlined text-[20px]">delete</span>
 										</button>

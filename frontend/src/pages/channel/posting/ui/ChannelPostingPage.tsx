@@ -170,7 +170,7 @@ export const ChannelPostingPage: Component = () => {
 
 		if (isDirty()) {
 			showToast(
-				t('channelPosting.saveBeforePreview') ||
+				t('channelPosting.saveBeforePreview' as any) ||
 					'Save the AI settings before generating a preview.',
 				'info',
 			);

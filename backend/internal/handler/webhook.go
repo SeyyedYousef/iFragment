@@ -228,8 +228,8 @@ func (h *WebhookHandler) processUpdateAsync(parentCtx context.Context, bot *repo
 		*update = TelegramUpdate{}
 		telegramUpdatePool.Put(update)
 	}()
-	// Fix Deadlock: Apply strict timeout to background worker
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	// Fix Deadlock: Apply strict timeout to background worker using parentCtx
+	ctx, cancel := context.WithTimeout(parentCtx, 60*time.Second)
 	defer cancel()
 
 	cache := h.moderator.GetCache()
@@ -710,8 +710,14 @@ func (h *WebhookHandler) handleChatMemberUpdate(ctx context.Context, bot *reposi
 		ch, err := h.channelService.GetChannelByChatID(ctx, cmu.Chat.ID)
 		if err == nil && ch != nil {
 			tg, _ := h.moderator.GetTelegramClient(ctx, bot)
-			// Pass a slice of length 1 containing the new member
-			_, _ = h.channelService.ProcessNewMember(ctx, tg, ch.ID, cmu.Chat.ID, []User{cmu.NewChatMember.User})
+			// Pass a slice of length 1 containing the new member mapped to telegram.User
+			tgUser := telegram.User{
+				ID:        cmu.NewChatMember.User.ID,
+				IsBot:     cmu.NewChatMember.User.IsBot,
+				FirstName: cmu.NewChatMember.User.FirstName,
+				Username:  cmu.NewChatMember.User.Username,
+			}
+			_, _ = h.channelService.ProcessNewMember(ctx, tg, ch.ID, cmu.Chat.ID, []telegram.User{tgUser})
 		}
 	}
 }
@@ -2865,12 +2871,13 @@ func (h *WebhookHandler) handleChatJoinRequest(ctx context.Context, bot *reposit
 			userLang := i18n.DetectLanguage(req.From.LanguageCode)
 			rejectMsg := ""
 
-			if reason == "premium" {
+			switch reason {
+			case "premium":
 				rejectMsg = i18n.T(userLang, "channel.join_request_rejected_premium", map[string]interface{}{"channel": ch.ChatTitle})
 				if rejectMsg == "" || rejectMsg == "channel.join_request_rejected_premium" {
 					rejectMsg = fmt.Sprintf("⚠️ درخواست عضویت شما در کانال %s به دلیل عدم داشتن اکانت Premium پذیرفته نشد. لطفاً شرایط کانال را مجدداً بررسی کنید.", ch.ChatTitle)
 				}
-			} else if reason == "photo" {
+			case "photo":
 				rejectMsg = i18n.T(userLang, "channel.join_request_rejected_photo", map[string]interface{}{"channel": ch.ChatTitle})
 				if rejectMsg == "" || rejectMsg == "channel.join_request_rejected_photo" {
 					rejectMsg = fmt.Sprintf("⚠️ درخواست عضویت شما در کانال %s پذیرفته نشد زیرا شما تصویر پروفایل ندارید.", ch.ChatTitle)

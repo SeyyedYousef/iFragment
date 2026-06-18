@@ -3,7 +3,7 @@ import { useNavigate } from '@solidjs/router';
 import createFocusTrap from 'solid-focus-trap';
 import { Component, createResource, For, Show } from 'solid-js';
 import { channelApi } from '@/shared/api/channel-management.js';
-import { isRtl, locale, t } from '@/shared/i18n/index.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 
 interface ChannelHamburgerMenuProps {
 	isOpen: boolean;
