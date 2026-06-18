@@ -142,14 +142,20 @@ func (s *ChannelService) runAnalyticsSnapshot(ctx context.Context) {
 				now := time.Now()
 				snapshotDate := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 
+				postsCount, viewsCount, reactionsCount, err := s.channelRepo.GetDailyPostStats(ctx, item.ChannelID, now)
+				if err != nil {
+					slog.Warn("Failed to get daily post stats, defaulting to 0", "channel_id", item.ChannelID, "error", err)
+					postsCount, viewsCount, reactionsCount = 0, 0, 0
+				}
+
 				snapshot := &repository.ChannelAnalytics{
 					ChannelID:        item.ChannelID,
 					SnapshotDate:     snapshotDate,
 					SubscribersCount: currentCount,
 					NewSubscribers:   newSubscribers,
-					ViewsCount:       0,
-					ReactionsCount:   0,
-					PostsCount:       0,
+					ViewsCount:       viewsCount,
+					ReactionsCount:   reactionsCount,
+					PostsCount:       postsCount,
 				}
 
 				err = s.channelRepo.SaveSnapshotAndUpdateSubscribers(ctx, snapshot, currentCount)

@@ -12,7 +12,7 @@ import {
 	Show,
 } from 'solid-js';
 import { channelApi } from '@/shared/api/channel-management.js';
-import { t } from '@/shared/i18n/index.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 
@@ -187,7 +187,7 @@ export const ChannelAnalyticsPage: Component = () => {
 									</h3>
 									<Show when={analytics()?.summary?.new_members_today}>
 										<span class="text-[12px] font-bold text-[#34c759] mb-1">
-											+{analytics()?.summary?.new_members_today} today
+											+{analytics()?.summary?.new_members_today} {isRtl() ? 'امروز' : 'today'}
 										</span>
 									</Show>
 								</div>
@@ -259,7 +259,7 @@ export const ChannelAnalyticsPage: Component = () => {
 									{t('channelAnalytics.bestPostingTimeDesc')}
 								</span>
 							</div>
-							<div class="ml-auto text-[18px] font-black text-white">18:30</div>
+							<div class="ml-auto text-[18px] font-black text-white">{analytics()?.summary?.best_time || '18:30'}</div>
 						</div>
 					</div>
 
@@ -282,14 +282,14 @@ export const ChannelAnalyticsPage: Component = () => {
 						<span class="material-symbols-outlined text-[#34c759] text-[20px] mb-1">
 							alternate_email
 						</span>
-						<h3 class="text-2xl font-black text-white">142</h3>
+						<h3 class="text-2xl font-black text-white">{analytics()?.summary?.mentions_in || 0}</h3>
 						<p class="text-[11px] text-[#8e8e93] font-medium">{t('channelAnalytics.mentionsIn')}</p>
 					</div>
 					<div class="bg-[#1c1c1c] p-4 rounded-3xl border border-[#2a2a2a] flex flex-col gap-1">
 						<span class="material-symbols-outlined text-[#ff3b30] text-[20px] mb-1">
 							forward_to_inbox
 						</span>
-						<h3 class="text-2xl font-black text-white">28</h3>
+						<h3 class="text-2xl font-black text-white">{analytics()?.summary?.mentions_out || 0}</h3>
 						<p class="text-[11px] text-[#8e8e93] font-medium">
 							{t('channelAnalytics.mentionsOut')}
 						</p>
@@ -300,6 +300,7 @@ export const ChannelAnalyticsPage: Component = () => {
 						<h3 class="text-[15px] font-bold text-white flex items-center gap-2">
 							<span class="material-symbols-outlined text-[#8e8e93]">public</span>
 							{t('channelAnalytics.geoDistribution')}
+							<span class="ml-auto text-[9px] font-black bg-[#ffcc00]/20 text-[#ffcc00] px-2 py-0.5 rounded-full uppercase tracking-wider border border-[#ffcc00]/30">{isRtl() ? 'آزمایشی' : 'DEMO'}</span>
 						</h3>
 						<div class="flex flex-col gap-3">
 							<For each={geoDistribution}>
@@ -371,6 +372,7 @@ export const ChannelAnalyticsPage: Component = () => {
 						<h3 class="text-[15px] font-bold text-white flex items-center gap-2">
 							<span class="material-symbols-outlined text-[#8e8e93]">diversity_3</span>
 							{t('channelAnalytics.similarChannels')}
+							<span class="ml-auto text-[9px] font-black bg-[#ffcc00]/20 text-[#ffcc00] px-2 py-0.5 rounded-full uppercase tracking-wider border border-[#ffcc00]/30">{isRtl() ? 'آزمایشی' : 'DEMO'}</span>
 						</h3>
 						<div class="flex flex-col gap-2">
 							<For each={similarChannels}>

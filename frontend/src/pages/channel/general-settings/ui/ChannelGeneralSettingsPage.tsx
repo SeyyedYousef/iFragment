@@ -366,7 +366,7 @@ export const ChannelGeneralSettingsPage: Component = () => {
 							<span class="text-[11px] text-[#8e8e93] ml-1">{config.channelBio.length} / 255</span>
 						</div>
 
-						<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+						<div class="grid grid-cols-1 gap-3">
 							<div class="flex flex-col gap-1.5">
 								<label class="text-[12px] text-on-surface-variant ml-1">
 									{t('channelSettings.channelUsername') || 'Username'}
@@ -380,18 +380,65 @@ export const ChannelGeneralSettingsPage: Component = () => {
 									dir="ltr"
 								/>
 							</div>
-							<div class="flex flex-col gap-1.5">
+							
+							{/* Premium Avatar Upload Component */}
+							<div class="flex flex-col gap-1.5 mt-2">
 								<label class="text-[12px] text-on-surface-variant ml-1">
-									{t('channelSettings.channelPhotoUrl') || 'Photo URL'}
+									{t('channelSettings.channelPhotoUrl') || 'Channel Avatar'}
 								</label>
-								<input
-									type="url"
-									value={config.channelPhotoUrl}
-									onInput={(e) => updateField('channelPhotoUrl', e.currentTarget.value)}
-									placeholder="https://..."
-									class="bg-[#2c2c2e] text-white text-[14px] rounded-xl px-4 py-2.5 w-full focus:outline-none focus:ring-2 focus:ring-[#32ade6] placeholder-[#a0a4ad]"
-									dir="ltr"
-								/>
+								<div class="flex items-center gap-4 bg-[#2c2c2e] p-3 rounded-2xl border border-[#3a3a3c]">
+									<div class="relative w-16 h-16 rounded-full overflow-hidden bg-gradient-to-br from-[#32ade6]/20 to-[#2b96c8]/20 flex items-center justify-center border-2 border-[#2a2a2a] shrink-0 group cursor-pointer">
+										<Show
+											when={config.channelPhotoUrl}
+											fallback={
+												<span class="text-[24px] font-black text-[#32ade6]">
+													{config.channelName.charAt(0) || '?'}
+												</span>
+											}
+										>
+											<img src={config.channelPhotoUrl} class="w-full h-full object-cover" alt="Avatar" />
+										</Show>
+										{/* Hover Overlay */}
+										<div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+											<span class="material-symbols-outlined text-white text-[24px]">photo_camera</span>
+										</div>
+										<input
+											type="file"
+											accept="image/png, image/jpeg, image/jpg"
+											class="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+											onChange={(e) => {
+												const file = e.currentTarget.files?.[0];
+												if (file) {
+													const reader = new FileReader();
+													reader.onload = (event) => {
+														if (event.target?.result) {
+															updateField('channelPhotoUrl', event.target.result as string);
+															hapticFeedback.notificationOccurred('success');
+														}
+													};
+													reader.readAsDataURL(file);
+												}
+											}}
+										/>
+									</div>
+									<div class="flex flex-col flex-1 min-w-0">
+										<span class="text-[14px] font-bold text-white mb-0.5">
+											{t('channelSettings.uploadNewPhoto') || 'Upload new photo'}
+										</span>
+										<span class="text-[11px] text-[#8e8e93]">
+											{t('channelSettings.photoSizeHint') || 'Recommended 512x512px. Max 2MB.'}
+										</span>
+									</div>
+									<Show when={config.channelPhotoUrl}>
+										<button
+											onClick={() => updateField('channelPhotoUrl', '')}
+											class="w-10 h-10 rounded-full bg-[#ff3b30]/10 text-[#ff3b30] flex items-center justify-center hover:bg-[#ff3b30]/20 active:scale-95 transition-all shrink-0"
+											title={t('common.delete') || 'Delete'}
+										>
+											<span class="material-symbols-outlined text-[20px]">delete</span>
+										</button>
+									</Show>
+								</div>
 							</div>
 						</div>
 					</Motion.div>
@@ -503,43 +550,6 @@ export const ChannelGeneralSettingsPage: Component = () => {
 						</Show>
 					</Motion.div>
 
-					{/* Invite Links */}
-					<Motion.div
-						initial={{ opacity: 0, y: 10 }}
-						animate={{ opacity: 1, y: 0 }}
-						transition={{ delay: 0.18 }}
-						class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-3"
-					>
-						<div class="flex items-center justify-between gap-3">
-							<div class="flex flex-col flex-1 min-w-0">
-								<span class="text-[15px] font-bold text-white flex items-center gap-2">
-									<span class="material-symbols-outlined text-[#bf5af2] text-[20px]">link</span>{' '}
-									{t('channelSettings.inviteLinks')}
-								</span>
-							</div>
-							<button
-								onClick={() => showToast(t('channelSettings.comingSoon'), 'info')}
-								class="bg-[#bf5af2]/20 text-[#bf5af2] rounded-xl px-3 py-1.5 font-bold text-[13px] hover:bg-[#bf5af2]/30 transition-all flex items-center gap-1"
-							>
-								<span class="material-symbols-outlined text-[16px]">add</span>{' '}
-								{t('channelSettings.createInviteLink')}
-							</button>
-						</div>
-
-						<div class="flex flex-col gap-2 mt-2">
-							<div class="bg-[#2c2c2e] rounded-xl p-6 flex flex-col items-center justify-center gap-2 border border-[#3a3a3c]">
-								<span class="material-symbols-outlined text-[#a0a4ad] text-[32px]">
-									construction
-								</span>
-								<span class="text-[14px] font-medium text-white">
-									{t('channelSettings.featureComingSoon')}
-								</span>
-								<span class="text-[12px] text-on-surface-variant text-center max-w-[200px]">
-									{t('channelSettings.inviteLinksComingSoonDesc')}
-								</span>
-							</div>
-						</div>
-					</Motion.div>
 
 					{/* Join Requests Section */}
 					<Motion.div

@@ -3,9 +3,7 @@ import { useNavigate } from '@solidjs/router';
 import createFocusTrap from 'solid-focus-trap';
 import { Component, createResource, For, Show } from 'solid-js';
 import { channelApi } from '@/shared/api/channel-management.js';
-import { locale, t } from '@/shared/i18n/index.js';
-
-const isRtl = () => locale() === 'fa';
+import { isRtl, locale, t } from '@/shared/i18n/index.js';
 
 interface ChannelHamburgerMenuProps {
 	isOpen: boolean;
@@ -20,12 +18,41 @@ export const ChannelHamburgerMenu: Component<ChannelHamburgerMenuProps> = (props
 		() => props.channelId,
 		(id) => channelApi.getChannel(id),
 	);
+	const [settings] = createResource(
+		() => props.channelId,
+		(id) => channelApi.getSettings(id).catch(() => null),
+	);
+	const [funnel] = createResource(
+		() => props.channelId,
+		(id) => channelApi.getFunnel(id).catch(() => null),
+	);
 	let drawerRef: HTMLDivElement | undefined;
 
 	createFocusTrap({
 		element: () => drawerRef || null,
 		enabled: () => props.isOpen,
 	});
+
+	const getFeatureStatus = (id: string): 'on' | 'off' | null => {
+		const s = settings();
+		if (!s) return null;
+		switch (id) {
+			case 'auto-responder': {
+				let ar = s.auto_responder;
+				if (typeof ar === 'string') try { ar = JSON.parse(ar); } catch { return null; }
+				return ar?.enabled ? 'on' : 'off';
+			}
+			case 'dynamic-bio': {
+				let db = s.dynamic_bio;
+				if (typeof db === 'string') try { db = JSON.parse(db); } catch { return null; }
+				return db?.enabled ? 'on' : 'off';
+			}
+			case 'funnel':
+				return funnel() ? 'on' : 'off';
+			default:
+				return null;
+		}
+	};
 
 	const menuItems = () => [
 		{
@@ -49,7 +76,7 @@ export const ChannelHamburgerMenu: Component<ChannelHamburgerMenuProps> = (props
 		{
 			id: 'funnel',
 			icon: 'filter_alt',
-			label: 'Funnel Settings',
+			label: isRtl() ? 'تنظیمات قیف' : 'Funnel Settings',
 			path: `/channel/${props.channelId}/funnel`,
 		},
 		{
@@ -155,24 +182,38 @@ export const ChannelHamburgerMenu: Component<ChannelHamburgerMenuProps> = (props
 							</div>
 							<div class="flex flex-col gap-1">
 								<For each={menuItems()}>
-									{(item) => (
-										<button
-											onClick={() => {
-												props.onClose();
-												navigate(item.path);
-											}}
-											class={`flex items-center gap-3 p-3.5 rounded-2xl transition-colors w-full ${
-												props.activeTab === item.id
-													? 'bg-[#3390ec]/10 text-[#3390ec]'
-													: 'text-white hover:bg-[#2a2a2a]'
-											}`}
-										>
-											<span class="material-symbols-outlined text-[22px] opacity-80">
-												{item.icon}
-											</span>
-											<span class="text-[14px] font-bold">{item.label}</span>
-										</button>
-									)}
+									{(item) => {
+										const status = () => getFeatureStatus(item.id);
+										return (
+											<button
+												onClick={() => {
+													props.onClose();
+													navigate(item.path);
+												}}
+												class={`flex items-center gap-3 p-3.5 rounded-2xl transition-colors w-full ${
+													props.activeTab === item.id
+														? 'bg-[#3390ec]/10 text-[#3390ec]'
+														: 'text-white hover:bg-[#2a2a2a]'
+												}`}
+											>
+												<span class="material-symbols-outlined text-[22px] opacity-80">
+													{item.icon}
+												</span>
+												<span class="text-[14px] font-bold flex-1 text-start">{item.label}</span>
+												<Show when={status() !== null}>
+													<span
+														class={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md border shrink-0 ${
+															status() === 'on'
+																? 'bg-[#34c759]/10 border-[#34c759]/25 text-[#34c759]'
+																: 'bg-[#8e8e93]/10 border-[#8e8e93]/25 text-[#8e8e93]'
+														}`}
+													>
+														{status() === 'on' ? 'ON' : 'OFF'}
+													</span>
+												</Show>
+											</button>
+										);
+									}}
 								</For>
 							</div>
 						</div>

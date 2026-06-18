@@ -1,5 +1,6 @@
 import { Component, createResource, Show } from 'solid-js';
 import { channelApi, type ManagedChannel } from '@/shared/api/channel-management.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 
 interface ChannelContextBarProps {
 	channelId: string;
@@ -37,14 +38,17 @@ export const ChannelContextBar: Component<ChannelContextBarProps> = (props) => {
 			</div>
 			<div class="flex flex-col min-w-0 flex-1">
 				<span class="text-[12px] font-bold uppercase tracking-wide text-[#8e8e93]">
-					Current channel
+					{isRtl() ? 'کانال فعال' : 'Current channel'}
 				</span>
 				<span class="text-[14px] font-black text-white truncate">
-					{channel.loading ? 'Loading channel...' : channelLabel(channel())}
+					{channel.loading
+						? (isRtl() ? 'در حال بارگیری...' : 'Loading channel...')
+						: channelLabel(channel())}
 				</span>
 				<Show when={!channel.loading && channel()}>
 					<span class="text-[11px] text-[#8e8e93] truncate" dir="ltr">
-						ID {channel()?.chat_id} · {formatCount(channel()?.subscribers_count)} subscribers
+						{formatCount(channel()?.subscribers_count)} {isRtl() ? 'عضو' : 'subscribers'}
+						{channel()?.chat_id ? ` · ID ${channel()?.chat_id}` : ''}
 					</span>
 				</Show>
 			</div>

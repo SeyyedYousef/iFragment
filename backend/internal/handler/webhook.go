@@ -139,9 +139,11 @@ type Message struct {
 	MediaGroupID      string             `json:"media_group_id,omitempty"`
 	AuthorSignature   string             `json:"author_signature,omitempty"`
 	ReplyMarkup       json.RawMessage    `json:"reply_markup,omitempty"`
-	SuccessfulPayment *SuccessfulPayment `json:"successful_payment"`
-	NewChatMembers    []User             `json:"new_chat_members"`
-	LeftChatMember    *User              `json:"left_chat_member"`
+	SuccessfulPayment  *SuccessfulPayment `json:"successful_payment"`
+	NewChatMembers     []User             `json:"new_chat_members"`
+	LeftChatMember     *User              `json:"left_chat_member"`
+	IsAutomaticForward bool               `json:"is_automatic_forward,omitempty"`
+	SenderChat         *Chat              `json:"sender_chat,omitempty"`
 }
 
 type MessageEntity struct {
@@ -702,6 +704,16 @@ func (h *WebhookHandler) handleChatMemberUpdate(ctx context.Context, bot *reposi
 			cache.Client.Set(ctx, key, newStatus, ttl)
 		}
 	}
+
+	// Trigger New Member Welcome for Channels
+	if cmu.Chat.Type == "channel" && (cmu.NewChatMember.Status == "member" || cmu.NewChatMember.Status == "administrator") && (cmu.OldChatMember.Status == "left" || cmu.OldChatMember.Status == "kicked" || cmu.OldChatMember.Status == "") {
+		ch, err := h.channelService.GetChannelByChatID(ctx, cmu.Chat.ID)
+		if err == nil && ch != nil {
+			tg, _ := h.moderator.GetTelegramClient(ctx, bot)
+			// Pass a slice of length 1 containing the new member
+			_, _ = h.channelService.ProcessNewMember(ctx, tg, ch.ID, cmu.Chat.ID, []User{cmu.NewChatMember.User})
+		}
+	}
 }
 
 func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot *repository.ManagedBot, msg *Message) {
@@ -1136,6 +1148,16 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 			if handled {
 				return // Stop processing further if auto-response triggered
 			}
+		}
+	}
+
+	// Auto First Comment (When a channel post is forwarded to a discussion group)
+	if msg.Chat.Type == "supergroup" && msg.IsAutomaticForward && msg.SenderChat != nil && msg.SenderChat.Type == "channel" {
+		channelChatID := msg.SenderChat.ID
+		ch, err := h.channelService.GetChannelByChatID(ctx, channelChatID)
+		if err == nil && ch != nil {
+			tg, _ := h.moderator.GetTelegramClient(ctx, bot)
+			_, _ = h.channelService.ProcessAutoFirstComment(ctx, tg, ch.ID, msg.Chat.ID, msg.MessageID)
 		}
 	}
 

@@ -144,6 +144,8 @@ export const channelApi = {
 	getAnalytics: (id: string, days: number = 7) =>
 		apiClient.get<any>(`/channels/${id}/analytics`, { params: { days } }).then((r: any) => {
 			const list = Array.isArray(r.data) ? r.data : r.data?.data || [];
+			const topPosts = r.data?.summary?.top_posts || [];
+			
 			const latest = list[list.length - 1];
 			const totalMembers = latest ? latest.subscribers_count : 0;
 			const newMembers = list.reduce((sum: number, item: any) => sum + item.new_subscribers, 0);
@@ -152,9 +154,19 @@ export const channelApi = {
 			const newMembersToday = latest ? latest.new_subscribers || 0 : 0;
 			const viewsToday = latest ? latest.views_count || 0 : 0;
 			const postsToday = latest ? latest.posts_count || 0 : 0;
-			// Calculate a basic citation index (e.g. based on engagement) or fallback to 'N/A' if API doesn't provide
-			const ciScore = totalMembers < 10 && postsToday === 0 ? 'N/A' : (latest?.citation_index || 'A+');
-			const engagementRate = totalMembers > 10 ? Math.round(((newMembers + totalViews) / totalMembers) * 100) : (totalMembers > 0 ? 100 : 0);
+			
+			// Calculate Citation Index based on views per member ratio
+			let ciScore = 'N/A';
+			if (totalMembers > 0 && totalViews > 0) {
+				const ratio = totalViews / totalMembers;
+				if (ratio > 2.0) ciScore = 'A+';
+				else if (ratio > 1.0) ciScore = 'A';
+				else if (ratio > 0.5) ciScore = 'B';
+				else if (ratio > 0.2) ciScore = 'C';
+				else ciScore = 'D';
+			}
+
+			const engagementRate = totalMembers > 0 ? Math.min(100, Math.round(((viewsToday + newMembersToday) / totalMembers) * 100)) : 0;
 
 			return {
 				summary: {
@@ -162,7 +174,7 @@ export const channelApi = {
 					new_members: newMembers,
 					total_views: totalViews,
 					engagement_rate: engagementRate,
-					top_posts: r.data?.summary?.top_posts || [],
+					top_posts: topPosts,
 					new_members_today: newMembersToday,
 					views_today: viewsToday,
 					posts_today: postsToday,

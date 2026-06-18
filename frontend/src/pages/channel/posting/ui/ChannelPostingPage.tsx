@@ -144,46 +144,24 @@ export const ChannelPostingPage: Component = () => {
 		testAbortController = new AbortController();
 
 		try {
-			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${config.apiKey}`,
-				{
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						contents: [{ parts: [{ text: 'Hello' }] }],
-					}),
-					signal: testAbortController.signal,
-				},
-			);
-			if (res.ok) {
-				setConnectionStatus('success');
-				hapticFeedback.notificationOccurred('success');
-				showToast(t('channelPosting.connectionSuccess') || 'Connection successful!', 'success');
-			} else if (res.status === 429) {
-				setConnectionStatus('failed');
-				hapticFeedback.notificationOccurred('error');
-				showToast(
-					(t as any)('channelPosting.rateLimitExceeded') || 'Rate limit exceeded. Try again later.',
-					'error',
-				);
-			} else {
-				const errorData = await res.json().catch(() => null);
-				setConnectionStatus('failed');
-				hapticFeedback.notificationOccurred('error');
-				showToast(
-					errorData?.error?.message ||
-						t('channelPosting.connectionFailed') ||
-						'Invalid API key or connection failed.',
-					'error',
-				);
-			}
+			// Route through backend — never expose API key directly from browser
+			await channelApi.simulateAIPost(params.id, 'Hello, test connection.', 'test');
+			setConnectionStatus('success');
+			hapticFeedback.notificationOccurred('success');
+			showToast(t('channelPosting.connectionSuccess') || 'Connection successful!', 'success');
 		} catch (e: any) {
 			if (e.name === 'AbortError') return;
 			setConnectionStatus('failed');
 			hapticFeedback.notificationOccurred('error');
-			showToast(t('channelPosting.connectionError') || 'Network error occurred.', 'error');
+			const errMsg =
+				e?.response?.data?.error ||
+				e?.response?.data?.message ||
+				t('channelPosting.connectionFailed') ||
+				'Invalid API key or connection failed.';
+			showToast(errMsg, 'error');
 		}
 	};
+
 
 	const handleGenerate = async (action: string) => {
 		const textPrompt = simulatorPrompt();

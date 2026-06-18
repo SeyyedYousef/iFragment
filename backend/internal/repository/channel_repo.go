@@ -98,13 +98,16 @@ func (r *ChannelRepo) GetChannelsByBot(ctx context.Context, botID uuid.UUID, cur
 	if cursor != nil && cursorID != nil {
 		query = `SELECT id, bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, paid_until, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content, created_at, updated_at
 			FROM managed_channels 
-			WHERE bot_id = $1 AND (created_at < $2 OR (created_at = $2 AND id < $3)) 
+			WHERE bot_id = $1 
+			AND chat_id NOT IN (SELECT input_chat_id FROM channel_funnels WHERE bot_id = $1)
+			AND (created_at < $2 OR (created_at = $2 AND id < $3)) 
 			ORDER BY created_at DESC, id DESC LIMIT $4`
 		args = []interface{}{botID, *cursor, *cursorID, limit}
 	} else {
 		query = `SELECT id, bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, paid_until, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content, created_at, updated_at
 			FROM managed_channels 
 			WHERE bot_id = $1 
+			AND chat_id NOT IN (SELECT input_chat_id FROM channel_funnels WHERE bot_id = $1)
 			ORDER BY created_at DESC, id DESC LIMIT $2`
 		args = []interface{}{botID, limit}
 	}
@@ -159,14 +162,17 @@ func (r *ChannelRepo) GetChannelsByOwner(ctx context.Context, ownerUserID int64,
 		query = `SELECT c.id, c.bot_id, c.chat_id, c.chat_title, c.subscribers_count, c.subscription_status, c.trial_ends_at, c.paid_until, c.linked_chat_id, c.slow_mode_delay, c.auto_delete_time, c.sign_messages, c.protect_content, c.created_at, c.updated_at
 			FROM managed_channels c
 			JOIN managed_bots b ON c.bot_id = b.id
-			WHERE (b.owner_user_id = $1 OR EXISTS (SELECT 1 FROM channel_admins ca WHERE ca.channel_id = c.id AND ca.telegram_id = $1)) AND (c.created_at < $2 OR (c.created_at = $2 AND c.id < $3)) 
+			WHERE (b.owner_user_id = $1 OR EXISTS (SELECT 1 FROM channel_admins ca WHERE ca.channel_id = c.id AND ca.telegram_id = $1)) 
+			AND c.chat_id NOT IN (SELECT input_chat_id FROM channel_funnels WHERE owner_user_id = $1)
+			AND (c.created_at < $2 OR (c.created_at = $2 AND c.id < $3)) 
 			ORDER BY c.created_at DESC, c.id DESC LIMIT $4`
 		args = []interface{}{ownerUserID, *cursor, *cursorID, limit}
 	} else {
 		query = `SELECT c.id, c.bot_id, c.chat_id, c.chat_title, c.subscribers_count, c.subscription_status, c.trial_ends_at, c.paid_until, c.linked_chat_id, c.slow_mode_delay, c.auto_delete_time, c.sign_messages, c.protect_content, c.created_at, c.updated_at
 			FROM managed_channels c
 			JOIN managed_bots b ON c.bot_id = b.id
-			WHERE b.owner_user_id = $1 OR EXISTS (SELECT 1 FROM channel_admins ca WHERE ca.channel_id = c.id AND ca.telegram_id = $1)
+			WHERE (b.owner_user_id = $1 OR EXISTS (SELECT 1 FROM channel_admins ca WHERE ca.channel_id = c.id AND ca.telegram_id = $1))
+			AND c.chat_id NOT IN (SELECT input_chat_id FROM channel_funnels WHERE owner_user_id = $1)
 			ORDER BY c.created_at DESC, c.id DESC LIMIT $2`
 		args = []interface{}{ownerUserID, limit}
 	}
@@ -489,6 +495,64 @@ func (r *ChannelRepo) SaveAnalyticsSnapshot(ctx context.Context, snapshot *Chann
 }
 
 // GetAnalyticsTimeline retrieves a history timeline of daily snapshots
+// GetDailyPostStats aggregates the total posts, views, and reactions for a channel on a specific date
+func (r *ChannelRepo) GetDailyPostStats(ctx context.Context, channelID uuid.UUID, date time.Time) (postsCount int, viewsCount int, reactionsCount int, err error) {
+	if r.db == nil || r.db.Pool == nil {
+		return 0, 0, 0, fmt.Errorf("database pool is not initialized")
+	}
+
+	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
+	endOfDay := startOfDay.Add(24 * time.Hour)
+
+	query := `
+		SELECT COUNT(id), COALESCE(SUM(views_count), 0), COALESCE(SUM(reactions_count), 0)
+		FROM channel_posts
+		WHERE channel_id = $1 AND created_at >= $2 AND created_at < $3
+	`
+
+	err = r.db.Pool.QueryRow(ctx, query, channelID, startOfDay, endOfDay).Scan(&postsCount, &viewsCount, &reactionsCount)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+
+	return postsCount, viewsCount, reactionsCount, nil
+}
+
+// GetTopPosts retrieves the most viewed posts in the specified date range
+func (r *ChannelRepo) GetTopPosts(ctx context.Context, channelID uuid.UUID, since time.Time, limit int) ([]ChannelPost, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, fmt.Errorf("database pool is not initialized")
+	}
+
+	query := `
+		SELECT id, channel_id, telegram_message_id, author_user_id, text, has_media, views_count, reactions_count, forwards_count, is_pinned, scheduled_at, posted_at, created_at
+		FROM channel_posts
+		WHERE channel_id = $1 AND created_at >= $2
+		ORDER BY views_count DESC
+		LIMIT $3
+	`
+
+	rows, err := r.db.Pool.Query(ctx, query, channelID, since, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []ChannelPost
+	for rows.Next() {
+		var p ChannelPost
+		if err := rows.Scan(
+			&p.ID, &p.ChannelID, &p.TelegramMessageID, &p.AuthorUserID, &p.Text, &p.HasMedia,
+			&p.ViewsCount, &p.ReactionsCount, &p.ForwardsCount, &p.IsPinned, &p.ScheduledAt, &p.PostedAt, &p.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		posts = append(posts, p)
+	}
+
+	return posts, nil
+}
+
 func (r *ChannelRepo) GetAnalyticsTimeline(ctx context.Context, channelID uuid.UUID, days int) ([]ChannelAnalytics, error) {
 	if r.db == nil || r.db.Pool == nil {
 		return nil, fmt.Errorf("database pool is not initialized")

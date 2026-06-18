@@ -134,8 +134,16 @@ type AutoResponderRuleSchema struct {
 }
 
 type AutoResponderSchema struct {
-	Enabled bool                      `json:"enabled"`
-	Rules   []AutoResponderRuleSchema `json:"rules"`
+	Enabled          bool                      `json:"enabled"`
+	AutoFirstComment bool                      `json:"autoFirstComment,omitempty"`
+	CommentMode      string                    `json:"commentMode,omitempty"`
+	FixedComment     string                    `json:"fixedComment,omitempty"`
+	RotatingTexts    []string                  `json:"rotatingTexts,omitempty"`
+	AttachButton     string                    `json:"attachButton,omitempty"`
+	NewMemberWelcome bool                      `json:"newMemberWelcome,omitempty"`
+	WelcomeDelay     string                    `json:"welcomeDelay,omitempty"`
+	WelcomeText      string                    `json:"welcomeText,omitempty"`
+	Rules            []AutoResponderRuleSchema `json:"rules"`
 }
 
 func firstNonEmpty(values ...string) string {

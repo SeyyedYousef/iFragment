@@ -91,19 +91,84 @@ export const ManagedChannelsPage: Component = () => {
 					when={channels() && channels()!.length > 0}
 					fallback={
 						!channels.loading ? (
-							<div class="bg-[#1c1c1c] rounded-3xl p-8 flex flex-col items-center justify-center text-center gap-3 border border-[#2a2a2a]">
-								<div class="w-16 h-16 rounded-full bg-[#2a2a2a] flex items-center justify-center mb-2">
-									<span class="material-symbols-outlined text-[#8e8e93] text-3xl">campaign</span>
-								</div>
-								<h3 class="text-white font-bold text-[16px]">{t('managedChannels.noChannels')}</h3>
+						<Motion.div
+							initial={{ opacity: 0, y: 15 }}
+							animate={{ opacity: 1, y: 0 }}
+							class="bg-[#1c1c1c] rounded-3xl p-6 flex flex-col items-center justify-center text-center gap-4 border border-[#2a2a2a]"
+						>
+							<div class="w-16 h-16 rounded-full bg-[#32ade6]/10 flex items-center justify-center mb-1">
+								<span class="material-symbols-outlined text-[#32ade6] text-[32px]">campaign</span>
 							</div>
-						) : null
+							<h3 class="text-white font-black text-[18px]">{t('managedChannels.noChannels')}</h3>
+							<p class="text-[13px] text-[#8e8e93] leading-relaxed max-w-[280px]">
+								{isRtl()
+									? 'هنوز کانالی متصل نشده. با ۳ مرحله ساده شروع کنید:'
+									: 'No channels connected yet. Get started in 3 simple steps:'}
+							</p>
+
+							<div class="w-full flex flex-col gap-2.5 mt-2 text-start">
+								<div class="flex items-center gap-3 bg-[#0f1014] rounded-xl p-3 border border-[#2a2a2a]">
+									<div class="w-8 h-8 rounded-full bg-[#32ade6] text-black font-black flex items-center justify-center text-[14px] shrink-0">1</div>
+									<span class="text-[13px] text-white">
+										{isRtl()
+											? 'ربات @iFragmentBot را به کانال‌های خود به عنوان مدیر اضافه کنید'
+											: 'Add @iFragmentBot to your channels as admin'}
+									</span>
+								</div>
+								<div class="flex items-center gap-3 bg-[#0f1014] rounded-xl p-3 border border-[#2a2a2a]">
+									<div class="w-8 h-8 rounded-full bg-[#32ade6] text-black font-black flex items-center justify-center text-[14px] shrink-0">2</div>
+									<span class="text-[13px] text-white">
+										{isRtl()
+											? 'آدرس کانال‌های ورودی و خروجی را وارد کنید'
+											: 'Enter your input and output channel addresses'}
+									</span>
+								</div>
+								<div class="flex items-center gap-3 bg-[#0f1014] rounded-xl p-3 border border-[#2a2a2a]">
+									<div class="w-8 h-8 rounded-full bg-[#34c759] text-black font-black flex items-center justify-center text-[14px] shrink-0">✓</div>
+									<span class="text-[13px] text-white">
+										{isRtl()
+											? 'از تمام قابلیت‌ها مثل هوش مصنوعی، قیف و پاسخگوی خودکار لذت ببرید!'
+											: 'Enjoy AI posting, funnels, auto-responder and more!'}
+									</span>
+								</div>
+							</div>
+
+							<button
+								onClick={handleConnectNew}
+								class="mt-3 w-full h-12 bg-[#32ade6] text-black font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-[#2b96c8] transition-all active:scale-95"
+							>
+								<span class="material-symbols-outlined text-[20px]">add</span>
+								{isRtl() ? 'اتصال اولین کانال' : 'Connect Your First Channel'}
+							</button>
+						</Motion.div>
+					) : (
+						<div class="flex flex-col gap-3">
+							<div class="flex items-center justify-between mb-1 pl-2">
+								<div class="h-4 w-32 bg-[#2a2a2a] rounded animate-pulse"></div>
+							</div>
+							<For each={[1, 2, 3]}>
+								{() => (
+									<div class="bg-[#1c1c1c] rounded-3xl p-4 border border-[#2a2a2a] flex items-center gap-4">
+										<div class="w-14 h-14 rounded-full bg-[#2a2a2a] animate-pulse shrink-0"></div>
+										<div class="flex-1 flex flex-col gap-2">
+											<div class="h-4 w-1/2 bg-[#2a2a2a] rounded animate-pulse"></div>
+											<div class="h-3 w-1/3 bg-[#2a2a2a] rounded animate-pulse"></div>
+										</div>
+										<div class="w-10 h-10 rounded-full bg-[#2a2a2a] animate-pulse shrink-0"></div>
+									</div>
+								)}
+							</For>
+						</div>
+					)
 					}
 				>
 					<div class="flex flex-col gap-3">
-						<h2 class="text-[14px] font-bold text-[#8e8e93] uppercase tracking-wider pl-2 mb-1">
-							{t('managedChannels.yourChannels')}
-						</h2>
+						<div class="flex items-center justify-between mb-1 pl-2">
+							<h2 class="text-[14px] font-bold text-[#8e8e93] uppercase tracking-wider">
+								{t('managedChannels.yourChannels')}
+							</h2>
+						</div>
+
 						<For each={channels()}>
 							{(channel, i) => (
 								<Motion.div

@@ -127,3 +127,99 @@ func (s *AutoResponderService) ProcessMessage(ctx context.Context, tg *telegram.
 
 	return false, nil
 }
+
+// ProcessNewMember sends a welcome message to newly joined members if enabled
+func (s *AutoResponderService) ProcessNewMember(ctx context.Context, tg *telegram.BotAPIClient, channelID uuid.UUID, chatID int64, newMembers []telegram.User) (bool, error) {
+	if len(newMembers) == 0 {
+		return false, nil
+	}
+
+	settings, err := s.channelRepo.GetChannelSettings(ctx, channelID)
+	if err != nil || settings == nil || len(settings.AutoResponder) == 0 {
+		return false, err
+	}
+
+	var schema AutoResponderSchema
+	if err := json.Unmarshal(settings.AutoResponder, &schema); err != nil {
+		return false, err
+	}
+
+	if !schema.Enabled || !schema.NewMemberWelcome || schema.WelcomeText == "" {
+		return false, nil
+	}
+
+	// Just welcome the first new member in the list to avoid spamming for bulk adds
+	memberName := newMembers[0].FirstName
+	if newMembers[0].LastName != "" {
+		memberName += " " + newMembers[0].LastName
+	}
+
+	replyText := strings.ReplaceAll(schema.WelcomeText, "$name", memberName)
+
+	delaySeconds := 0
+	if schema.WelcomeDelay != "" {
+		fmt.Sscanf(schema.WelcomeDelay, "%d", &delaySeconds)
+	}
+
+	// Send message
+	if delaySeconds > 0 {
+		time.AfterFunc(time.Duration(delaySeconds)*time.Second, func() {
+			_, err := tg.SendMessageWithResult(context.Background(), chatID, replyText, nil, nil)
+			if err != nil {
+				slog.Error("Failed to send delayed welcome message", "error", err, "chat_id", chatID)
+			}
+		})
+	} else {
+		_, err := tg.SendMessageWithResult(ctx, chatID, replyText, nil, nil)
+		if err != nil {
+			slog.Error("Failed to send welcome message", "error", err, "chat_id", chatID)
+			return false, err
+		}
+	}
+
+	return true, nil
+}
+
+// ProcessAutoFirstComment leaves an automatic first comment on a linked discussion group
+func (s *AutoResponderService) ProcessAutoFirstComment(ctx context.Context, tg *telegram.BotAPIClient, channelID uuid.UUID, chatID int64, messageID int) (bool, error) {
+	settings, err := s.channelRepo.GetChannelSettings(ctx, channelID)
+	if err != nil || settings == nil || len(settings.AutoResponder) == 0 {
+		return false, err
+	}
+
+	var schema AutoResponderSchema
+	if err := json.Unmarshal(settings.AutoResponder, &schema); err != nil {
+		return false, err
+	}
+
+	if !schema.Enabled || !schema.AutoFirstComment {
+		return false, nil
+	}
+
+	var replyText string
+	switch schema.CommentMode {
+	case "fixed":
+		replyText = schema.FixedComment
+	case "rotating":
+		if len(schema.RotatingTexts) > 0 {
+			replyText = schema.RotatingTexts[time.Now().UnixNano()%int64(len(schema.RotatingTexts))]
+		}
+	case "ai":
+		replyText = "💡 " // We can fallback to an empty string or a standard message since full AI is not requested here yet
+		if len(schema.RotatingTexts) > 0 {
+			replyText = schema.RotatingTexts[0]
+		}
+	}
+
+	if replyText == "" {
+		return false, nil
+	}
+
+	_, err = tg.SendMessageWithResult(ctx, chatID, replyText, nil, &messageID)
+	if err != nil {
+		slog.Error("failed to send auto first comment", "error", err, "chat_id", chatID, "message_id", messageID)
+		return false, err
+	}
+
+	return true, nil
+}

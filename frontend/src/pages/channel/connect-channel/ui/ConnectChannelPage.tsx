@@ -145,7 +145,7 @@ export const ConnectChannelPage: Component = () => {
 							{isRtl() ? 'ثبت اطلاعات کانال / قیف' : 'Submit Channel / Funnel Information'}
 						</h2>
 					</div>
-						<p class="text-[13px] text-[#8e8e93] leading-relaxed mb-2">
+						<p class="text-[13px] text-[#8e8e93] leading-relaxed mb-3">
 							{isRtl()
 								? 'آدرس کانال ورودی (برای فرستادن پست‌های خام) و کانال خروجی (برای انتشار نسخه نهایی و تایید شده) را وارد کنید.'
 								: 'Enter both your Input Channel (where raw posts are dropped) and Output Channel (where reviewed posts are published).'}

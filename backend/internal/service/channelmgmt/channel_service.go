@@ -432,6 +432,20 @@ func (s *ChannelService) ProcessAutoResponder(ctx context.Context, tg *telegram.
 	return s.autoResponderService.ProcessMessage(ctx, tg, channelID, chatID, messageID, text)
 }
 
+func (s *ChannelService) ProcessAutoFirstComment(ctx context.Context, tg *telegram.BotAPIClient, channelID uuid.UUID, chatID int64, messageID int) (bool, error) {
+	if !s.featureAutoResponder {
+		return false, nil
+	}
+	return s.autoResponderService.ProcessAutoFirstComment(ctx, tg, channelID, chatID, messageID)
+}
+
+func (s *ChannelService) ProcessNewMember(ctx context.Context, tg *telegram.BotAPIClient, channelID uuid.UUID, chatID int64, newMembers []telegram.User) (bool, error) {
+	if !s.featureAutoResponder {
+		return false, nil
+	}
+	return s.autoResponderService.ProcessNewMember(ctx, tg, channelID, chatID, newMembers)
+}
+
 func (s *ChannelService) checkSubscription(ch *repository.ManagedChannel) error {
 	if ch == nil {
 		return fmt.Errorf("unauthorized: channel is nil")
@@ -978,7 +992,14 @@ func (s *ChannelService) GetAuditLogs(ctx context.Context, ownerUserID int64, ch
 }
 
 // GetAnalytics fetches daily analytics timeline snapshots for a managed channel
-func (s *ChannelService) GetAnalytics(ctx context.Context, ownerUserID int64, channelID uuid.UUID, days int) ([]repository.ChannelAnalytics, error) {
+type ChannelAnalyticsResponse struct {
+	Timeline []repository.ChannelAnalytics `json:"data"`
+	Summary  struct {
+		TopPosts []repository.ChannelPost `json:"top_posts"`
+	} `json:"summary"`
+}
+
+func (s *ChannelService) GetAnalytics(ctx context.Context, ownerUserID int64, channelID uuid.UUID, days int) (*ChannelAnalyticsResponse, error) {
 	// Verify ownership first
 	if _, err := s.GetChannel(ctx, ownerUserID, channelID); err != nil {
 		return nil, err
@@ -988,7 +1009,25 @@ func (s *ChannelService) GetAnalytics(ctx context.Context, ownerUserID int64, ch
 		days = 7
 	}
 
-	return s.channelRepo.GetAnalyticsTimeline(ctx, channelID, days)
+	timeline, err := s.channelRepo.GetAnalyticsTimeline(ctx, channelID, days)
+	if err != nil {
+		return nil, err
+	}
+
+	since := time.Now().AddDate(0, 0, -days)
+	topPosts, _ := s.channelRepo.GetTopPosts(ctx, channelID, since, 5)
+	if topPosts == nil {
+		topPosts = []repository.ChannelPost{}
+	}
+
+	return &ChannelAnalyticsResponse{
+		Timeline: timeline,
+		Summary: struct {
+			TopPosts []repository.ChannelPost `json:"top_posts"`
+		}{
+			TopPosts: topPosts,
+		},
+	}, nil
 }
 
 // CreatePost creates a new post which will be either published immediately or scheduled for later
