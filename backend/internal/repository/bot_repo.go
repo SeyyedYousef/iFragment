@@ -83,7 +83,7 @@ func (r *BotRepo) GetMainBot(ctx context.Context) (*ManagedBot, error) {
 	if len(parts) < 2 {
 		return nil, fmt.Errorf("invalid main bot token: missing colon")
 	}
-	
+
 	idStr := strings.TrimSpace(parts[0])
 	if idStr == "" || strings.TrimSpace(parts[1]) == "" {
 		return nil, fmt.Errorf("invalid main bot token: empty id or secret")
@@ -100,7 +100,7 @@ func (r *BotRepo) GetMainBot(ctx context.Context) (*ManagedBot, error) {
 
 	query := `SELECT id, owner_user_id, bot_username, bot_name, bot_id, status, created_at, updated_at, webhook_secret_token, bot_token_encrypted
 		FROM managed_bots WHERE bot_id = $1 LIMIT 1`
-	
+
 	var bot ManagedBot
 	err = r.db.Pool.QueryRow(ctx, query, botID).Scan(
 		&bot.ID, &bot.OwnerUserID, &bot.BotUsername, &bot.BotName, &bot.BotID, &bot.Status, &bot.CreatedAt, &bot.UpdatedAt, &bot.WebhookSecretToken, &bot.BotTokenEncrypted,
@@ -420,8 +420,6 @@ func (r *BotRepo) GetGroup(ctx context.Context, botID uuid.UUID, chatID int64) (
 	}
 	return &g, err
 }
-
-
 
 func (r *BotRepo) GetAllActiveGroups(ctx context.Context) ([]ManagedGroup, error) {
 	if r.db == nil || r.db.Pool == nil {

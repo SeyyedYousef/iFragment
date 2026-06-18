@@ -93,7 +93,7 @@ func (s *ChannelService) ProcessChannelPostForFunnel(ctx context.Context, bot *r
 					// Clean up cache (groupKey only, let lockKey expire to prevent orphans)
 					cache.Client.Del(bgCtx, groupKey)
 
-					err = s.processAggregatedFunnelPost(bgCtx, bot, funnel, int64(messageID), aggregatedText, aggregatedMedia, mediaGroupID, replyMarkup, authorID, authorName)
+					err = s.processAggregatedFunnelPost(bgCtx, bot, funnel, int64(messageID), aggregatedText, aggregatedMedia, mediaGroupID, authorID, authorName)
 					if err != nil {
 						slog.Error("Failed to process aggregated funnel post", "error", err)
 					}
@@ -110,7 +110,7 @@ func (s *ChannelService) ProcessChannelPostForFunnel(ctx context.Context, bot *r
 		defer s.wg.Done()
 		bgCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
-		err := s.processAggregatedFunnelPost(bgCtx, bot, funnel, int64(messageID), text, media, "", replyMarkup, authorID, authorName)
+		err := s.processAggregatedFunnelPost(bgCtx, bot, funnel, int64(messageID), text, media, "", authorID, authorName)
 		if err != nil {
 			slog.Error("Failed to process single funnel post", "error", err)
 		}
@@ -119,7 +119,7 @@ func (s *ChannelService) ProcessChannelPostForFunnel(ctx context.Context, bot *r
 	return true, nil
 }
 
-func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *repository.ManagedBot, funnel *repository.ChannelFunnel, inputMsgID int64, text string, media []repository.FunnelMediaItem, mediaGroupID string, replyMarkup json.RawMessage, authorID *int64, authorName string) error {
+func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *repository.ManagedBot, funnel *repository.ChannelFunnel, inputMsgID int64, text string, media []repository.FunnelMediaItem, mediaGroupID string, authorID *int64, authorName string) error {
 	// 1. Load Output Channel settings to apply features
 	destChan, err := s.channelRepo.GetChannelByChatID(ctx, funnel.OutputChatID)
 	if err != nil {
@@ -161,11 +161,11 @@ func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *r
 	if removeLinks {
 		processedText = removeLinksHelper(processedText)
 	}
-	
+
 	removeHashtags := false
 	for _, rule := range forwarding.Rules {
 		if rule.RemoveAds { // Actually rules should have RemoveHashtags but we check it if it exists or use general logic
-			// Using rule.RemoveAds as a placeholder or maybe rule.RemoveHashtags doesn't exist in struct yet. 
+			// Using rule.RemoveAds as a placeholder or maybe rule.RemoveHashtags doesn't exist in struct yet.
 			// Let's assume forwarding rules could be extended, but for now we skip global removal
 			// We only remove hashtags if a rule specifically says so.
 		}
@@ -184,7 +184,7 @@ func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *r
 	// 3. AI Post Composer A/B Testing generation
 	var aiVariations []string
 	if posting.AiComposerEnabled && posting.ApiKey != "" && len(strings.TrimSpace(processedText)) > 0 {
-		variations, err := generateAIBVariations(ctx, processedText, posting.ApiKey, posting.SelectedSkill, posting.CustomSkillPrompt)
+		variations, err := generateAIBVariations(ctx, processedText, posting.ApiKey)
 		if err == nil && len(variations) > 0 {
 			aiVariations = variations
 		} else {
@@ -328,16 +328,17 @@ func (s *ChannelService) sendFunnelReviewToOwner(ctx context.Context, bot *repos
 		panelText = fmt.Sprintf("🎛️ **Channel Funnel Control Panel**\n\nDestination: **%s**\nOriginal Author: **%s**\nStatus: **%s**", destTitle, authorStr, strings.ToUpper(draft.Status))
 	}
 
-	panelMarkup := buildFunnelPanelKeyboard(lang, draft)
+	panelMarkup := buildFunnelPanelKeyboard(draft)
 	_, err = tg.SendMessageWithMarkup(ctx, funnel.OwnerUserID, panelText, panelMarkup, nil, "Markdown")
 	return err
 }
 
-func buildFunnelPanelKeyboard(lang string, draft *repository.PendingFunnelPost) map[string]interface{} {
+func buildFunnelPanelKeyboard(draft *repository.PendingFunnelPost) map[string]interface{} {
 	styleLabel := "Standard"
-	if draft.SelectedVariationIndex == 1 {
+	switch draft.SelectedVariationIndex {
+	case 1:
 		styleLabel = "Promo/Hype"
-	} else if draft.SelectedVariationIndex == 2 {
+	case 2:
 		styleLabel = "Short/Punchy"
 	}
 
@@ -378,7 +379,7 @@ func buildFunnelPanelKeyboard(lang string, draft *repository.PendingFunnelPost) 
 }
 
 // generateAIBVariations fetches 3 separate caption style options from Gemini API.
-func generateAIBVariations(ctx context.Context, text, apiKey, skill, customPrompt string) ([]string, error) {
+func generateAIBVariations(ctx context.Context, text, apiKey string) ([]string, error) {
 	systemPrompt := "You are an elite copywriting assistant. Generate exactly 3 variations of the text provided inside the <TEXT> tags. Output a JSON object with a single key \"variations\" containing an array of 3 strings. Format details:\n" +
 		"- Variation 0: Standard, engaging rewrite preserving the original content.\n" +
 		"- Variation 1: Bold, hype-focused, promotional version designed to grab attention.\n" +
@@ -552,7 +553,7 @@ func (s *ChannelService) HandleFunnelCallback(ctx context.Context, cq FunnelCall
 		_ = s.channelRepo.UpdatePendingFunnelPost(ctx, draft)
 		_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "Style variation updated", false)
 
-		panelMarkup := buildFunnelPanelKeyboard("en", draft)
+		panelMarkup := buildFunnelPanelKeyboard(draft)
 		panelText := fmt.Sprintf("🎛️ **Channel Funnel Control Panel**\n\nDestination Funnel ID: %s\nActive Caption Style: %d\nAuthor: %s\nStatus: %s",
 			draft.FunnelID, draft.SelectedVariationIndex, draft.OriginalAuthorName, strings.ToUpper(draft.Status))
 		_ = tg.EditMessageTextWithMarkup(ctx, cq.ChatID, cq.MessageID, panelText, panelMarkup)
@@ -577,7 +578,7 @@ func (s *ChannelService) HandleFunnelCallback(ctx context.Context, cq FunnelCall
 			var posting PostingSettingsSchema
 			_ = json.Unmarshal(settings.Posting, &posting)
 			if posting.ApiKey != "" {
-				vars, err := generateAIBVariations(ctx, draft.DraftText, posting.ApiKey, posting.SelectedSkill, posting.CustomSkillPrompt)
+				vars, err := generateAIBVariations(ctx, draft.DraftText, posting.ApiKey)
 				if err == nil {
 					draft.AiVariations = vars
 					draft.SelectedVariationIndex = 0
@@ -702,7 +703,7 @@ func (s *ChannelService) HandleFunnelTextReply(ctx context.Context, bot *reposit
 	}
 
 	draft.DraftText = text
-	
+
 	found := false
 	for i, v := range draft.AiVariations {
 		if v == text {

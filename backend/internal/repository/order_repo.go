@@ -20,11 +20,11 @@ func (db *Database) HasPaidForReport(ctx context.Context, userID int64, username
 }
 
 type Order struct {
-	ID                     uuid.UUID
-	UserID                 int64
-	Amount                 int
-	Status                 string
-	Payload                string
+	ID                      uuid.UUID
+	UserID                  int64
+	Amount                  int
+	Status                  string
+	Payload                 string
 	TelegramPaymentChargeID string
 }
 

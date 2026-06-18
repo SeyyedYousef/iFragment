@@ -14,6 +14,10 @@ export interface ChannelConfig {
 		description: string;
 		photo: string;
 		username: string;
+		channelName?: string;
+		channelBio?: string;
+		channelPhotoUrl?: string;
+		channelUsername?: string;
 		showAdminProfile: boolean;
 		hideChatHistory: boolean;
 		hideMemberList: boolean;
@@ -31,7 +35,20 @@ export interface ChannelConfig {
 		watermarkText: string;
 		silentPosting: boolean;
 		deleteAfter: number;
+		aiProvider?: string;
+		apiKey?: string;
+		tone?: string;
+		aiConfirmBeforeEdit?: boolean;
+		aiComposerEnabled?: boolean;
+		selectedSkill?: string;
+		customSkillPrompt?: string;
 	};
+	forwarding?: Record<string, unknown>;
+	inline_buttons?: Record<string, unknown>;
+	dynamic_bio?: Record<string, unknown>;
+	auto_responder?: Record<string, unknown>;
+	version: number;
+	updated_at?: string;
 }
 
 export interface ManagedChannel {
@@ -52,10 +69,38 @@ export interface ManagedChannel {
 	updated_at: string;
 }
 
+const unwrapApiData = (payload: any) => payload?.data?.data || payload?.data || payload;
+
+const normalizeJsonObject = (value: any) => {
+	if (!value) return {};
+	if (typeof value === 'string') {
+		try {
+			return JSON.parse(value);
+		} catch (_err) {
+			return {};
+		}
+	}
+	return typeof value === 'object' ? value : {};
+};
+
+const normalizeSettings = (raw: any): ChannelConfig => {
+	const data = raw || {};
+	return {
+		...data,
+		general: normalizeJsonObject(data.general),
+		posting: normalizeJsonObject(data.posting),
+		forwarding: normalizeJsonObject(data.forwarding),
+		inline_buttons: normalizeJsonObject(data.inline_buttons),
+		dynamic_bio: normalizeJsonObject(data.dynamic_bio),
+		auto_responder: normalizeJsonObject(data.auto_responder),
+		version: data.version || 1,
+	};
+};
+
 export const channelApi = {
 	getChannel: (id: string) =>
 		apiClient.get<ManagedChannel>(`/channels/${id}`).then((r: any) => {
-			const data = r.data?.data || r.data;
+			const data = unwrapApiData(r);
 			return {
 				...data,
 				members_count: data?.subscribers_count || 0,
@@ -89,7 +134,7 @@ export const channelApi = {
 	getSettings: (id: string) =>
 		apiClient
 			.get<ChannelConfig>(`/channels/${id}/settings`)
-			.then((r: any) => r.data?.data || r.data),
+			.then((r: any) => normalizeSettings(unwrapApiData(r))),
 
 	updateSettings: (id: string, category: string, data: any, version: number) =>
 		apiClient

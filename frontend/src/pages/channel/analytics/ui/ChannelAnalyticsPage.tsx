@@ -13,6 +13,7 @@ import {
 } from 'solid-js';
 import { channelApi } from '@/shared/api/channel-management.js';
 import { t } from '@/shared/i18n/index.js';
+import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 
 export const ChannelAnalyticsPage: Component = () => {
@@ -115,6 +116,8 @@ export const ChannelAnalyticsPage: Component = () => {
 			/>
 
 			<div class="px-5 pt-6 flex flex-col gap-6">
+				<ChannelContextBar channelId={params.id} />
+
 				{/* Time Range Selector */}
 				<div class="flex bg-[#1c1c1c] p-1 rounded-xl border border-[#2a2a2a]">
 					<For each={['7d', '30d', '90d', 'Custom']}>

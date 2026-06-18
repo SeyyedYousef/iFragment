@@ -45,11 +45,11 @@ type ImpersonationSession struct {
 }
 
 type OwnerDashboardStats struct {
-	DAU            int            `json:"dau"`
-	MAU            int            `json:"mau"`
-	TotalUsers     int            `json:"total_users"`
-	FrgCirculation float64        `json:"frg_circulation"`
-	TonVolume      float64        `json:"ton_volume"`
+	DAU            int             `json:"dau"`
+	MAU            int             `json:"mau"`
+	TotalUsers     int             `json:"total_users"`
+	FrgCirculation float64         `json:"frg_circulation"`
+	TonVolume      float64         `json:"ton_volume"`
 	RecentActivity []OwnerAuditLog `json:"recent_activity"`
 }
 

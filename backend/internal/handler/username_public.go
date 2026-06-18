@@ -18,12 +18,12 @@ import (
 )
 
 type UsernameHandler struct {
-	service        *username.AggregatorService
-	reportService  *username.ReportService
-	mtprotoClient  mtproto.Client
-	cache          *repository.Cache
-	sfGroup        singleflight.Group
-	activeStreams  atomic.Int64
+	service       *username.AggregatorService
+	reportService *username.ReportService
+	mtprotoClient mtproto.Client
+	cache         *repository.Cache
+	sfGroup       singleflight.Group
+	activeStreams atomic.Int64
 }
 
 func NewUsernameHandler(

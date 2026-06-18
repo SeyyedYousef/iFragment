@@ -4,8 +4,10 @@ import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { channelApi } from '@/shared/api/channel-management.js';
 import { t } from '@/shared/i18n/index.js';
+import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SelectField } from '@/shared/ui/settings-controls.js';
+import { showToast } from '@/shared/ui/toast.js';
 
 export const ChannelAuditLogPage: Component = () => {
 	const params = useParams();
@@ -68,9 +70,44 @@ export const ChannelAuditLogPage: Component = () => {
 		});
 	};
 
+	const escapeCsv = (value: unknown) => {
+		const text = String(value ?? '');
+		return `"${text.replace(/"/g, '""')}"`;
+	};
+
 	const handleExport = (format: 'csv' | 'json') => {
+		const rows = filteredLogs();
+		if (rows.length === 0) {
+			showToast(t('channelAuditLog.noLogs') || 'No logs match your search criteria.', 'info');
+			return;
+		}
+
+		const content =
+			format === 'json'
+				? JSON.stringify(rows, null, 2)
+				: [
+						['id', 'actor_name', 'action', 'created_at']
+							.map(escapeCsv)
+							.join(','),
+						...rows.map((log: any) =>
+							[log.id, log.actor_name, log.action, log.created_at]
+								.map(escapeCsv)
+								.join(','),
+						),
+					].join('\n');
+		const blob = new Blob([content], {
+			type: format === 'json' ? 'application/json;charset=utf-8' : 'text/csv;charset=utf-8',
+		});
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `channel-audit-${params.id}.${format}`;
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+		URL.revokeObjectURL(url);
 		hapticFeedback.notificationOccurred('success');
-		console.log(`Exporting logs as ${format.toUpperCase()}`);
+		showToast(t('channelAuditLog.exported') || 'Audit log exported', 'success');
 	};
 
 	onMount(() => {
@@ -123,6 +160,8 @@ export const ChannelAuditLogPage: Component = () => {
 			/>
 
 			<div class="px-5 pt-6 flex flex-col gap-5 pb-10">
+				<ChannelContextBar channelId={params.id} />
+
 				<Motion.div
 					initial={{ opacity: 0, y: 10 }}
 					animate={{ opacity: 1, y: 0 }}

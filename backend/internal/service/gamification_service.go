@@ -88,12 +88,12 @@ func (s *GamificationService) getBotAPIClient() *telegram.BotAPIClient {
 }
 
 type DailyRewardInfo struct {
-	Streak     int     `json:"streak"`
-	FrgReward  float64 `json:"frg_reward"`
-	XpReward   int     `json:"xp_reward"`
-	Claimed    bool    `json:"claimed"`
-	CanClaim   bool    `json:"can_claim"`
-	TimeLeft   float64 `json:"time_left_seconds,omitempty"`
+	Streak    int     `json:"streak"`
+	FrgReward float64 `json:"frg_reward"`
+	XpReward  int     `json:"xp_reward"`
+	Claimed   bool    `json:"claimed"`
+	CanClaim  bool    `json:"can_claim"`
+	TimeLeft  float64 `json:"time_left_seconds,omitempty"`
 }
 
 var dailyRewards = map[int]struct {
@@ -191,7 +191,7 @@ func (s *GamificationService) ClaimDailyReward(ctx context.Context, userID int64
 	var streak int
 	query := "SELECT last_claimed_at, streak FROM user_daily_claims WHERE user_id = $1 FOR UPDATE"
 	err = tx.QueryRow(ctx, query, userID).Scan(&lastClaimedAt, &streak)
-	
+
 	if err != nil && err != pgx.ErrNoRows {
 		return nil, fmt.Errorf("failed to lock daily claim state: %w", err)
 	}

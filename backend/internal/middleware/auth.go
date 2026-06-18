@@ -9,7 +9,6 @@ import (
 	"os"
 	"strings"
 
-
 	"ifragment-backend/internal/repository"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -19,7 +18,7 @@ type JWTClaims struct {
 	UserID      int64  `json:"uid"`
 	Username    string `json:"username"`
 	Role        string `json:"role,omitempty"`
-	TokenType   string `json:"typ,omitempty"`  // "owner" or "user"
+	TokenType   string `json:"typ,omitempty"` // "owner" or "user"
 	MFAVerified bool   `json:"mfa,omitempty"`
 	jwt.RegisteredClaims
 }
@@ -121,4 +120,3 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		http.Error(w, "Unauthorized: Invalid claims", http.StatusUnauthorized)
 	})
 }
-

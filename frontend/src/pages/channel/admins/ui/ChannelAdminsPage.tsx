@@ -13,8 +13,10 @@ import {
 } from 'solid-js';
 import { channelApi } from '@/shared/api/channel-management.js';
 import { t } from '@/shared/i18n/index.js';
+import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { ToggleSwitch } from '@/shared/ui/settings-controls.js';
+import { showToast } from '@/shared/ui/toast.js';
 
 export const ChannelAdminsPage: Component = () => {
 	const params = useParams();
@@ -51,9 +53,11 @@ export const ChannelAdminsPage: Component = () => {
 			await channelApi.syncAdmins(params.id);
 			await refetch();
 			hapticFeedback.notificationOccurred('success');
+			showToast(t('channelAdmins.syncSuccess') || 'Admins synced from Telegram', 'success');
 		} catch (err) {
 			console.error(err);
 			hapticFeedback.notificationOccurred('error');
+			showToast(t('channelAdmins.syncFailed') || 'Failed to sync admins', 'error');
 		} finally {
 			setIsSyncing(false);
 		}
@@ -62,7 +66,7 @@ export const ChannelAdminsPage: Component = () => {
 	const allAdmins = createMemo(() => {
 		const list = adminsData() || [];
 		return list.map((a: any) => ({
-			id: a.id || a.telegram_id.toString(),
+			id: a.telegram_id?.toString() || a.id || '',
 			name: a.first_name || a.name || 'Unknown',
 			role: a.is_owner ? 'Owner' : a.username?.toLowerCase().includes('bot') ? 'Bot' : 'Admin',
 			customTitle: a.custom_title || '',
@@ -88,7 +92,7 @@ export const ChannelAdminsPage: Component = () => {
 	const allMembers = createMemo(() => {
 		const list = membersData() || [];
 		return list.map((m: any) => ({
-			id: m.id || m.telegram_id?.toString(),
+			id: m.telegram_id?.toString() || m.id || '',
 			name: m.first_name || m.name || 'Unknown',
 			username: m.username ? `@${m.username}` : '',
 			joined: m.joined_at || '',
@@ -163,9 +167,11 @@ export const ChannelAdminsPage: Component = () => {
 			hapticFeedback.notificationOccurred('success');
 			setShowModal(false);
 			refetch();
+			showToast(t('channelAdmins.saveSuccess') || 'Admin permissions saved', 'success');
 		} catch (err) {
 			console.error(err);
 			hapticFeedback.notificationOccurred('error');
+			showToast(t('channelAdmins.saveFailed') || 'Failed to save admin permissions', 'error');
 		} finally {
 			setIsSaving(false);
 		}
@@ -244,6 +250,8 @@ export const ChannelAdminsPage: Component = () => {
 			/>
 
 			<div class="px-5 pt-4 flex flex-col gap-5">
+				<ChannelContextBar channelId={params.id} />
+
 				{/* Tabs */}
 				<div class="bg-[#1c1c1c]/60 backdrop-blur-md p-1 rounded-2xl flex items-center w-full border border-white/5">
 					<button
@@ -291,6 +299,22 @@ export const ChannelAdminsPage: Component = () => {
 								Syncing...
 							</Show>
 						</button>
+					</Show>
+
+					<Show when={activeTab() === 'members'}>
+						<div class="bg-[#ff9f0a]/10 border border-[#ff9f0a]/25 rounded-2xl p-3 flex items-start gap-2">
+							<span class="material-symbols-outlined text-[#ff9f0a] text-[20px] shrink-0 mt-0.5">
+								info
+							</span>
+							<div class="flex flex-col gap-1">
+								<span class="text-[13px] font-bold text-[#ff9f0a]">
+									Member list is limited
+								</span>
+								<span class="text-[12px] text-white/75 leading-relaxed">
+									Telegram does not expose the full member list for channels through the bot API. Admin sync and admin permissions are available here.
+								</span>
+							</div>
+						</div>
 					</Show>
 
 					{/* Search Bar */}

@@ -119,7 +119,7 @@ func TestIsQuietHours(t *testing.T) {
 			if err != nil {
 				loc = time.UTC
 			}
-			
+
 			var h, m int
 			fmt.Sscanf(tc.testTime, "%d:%d", &h, &m)
 			now := time.Now().In(loc)
@@ -180,10 +180,10 @@ func TestCheckAllContent(t *testing.T) {
 			violation: "bot_blocked",
 		},
 		{
-			name:      "Bot blocked - negative",
-			content:   repository.SettingsContentRestrictions{BlockBots: repository.RestrictionDetail{Enabled: true}},
-			isBot:     false,
-			expected:  false,
+			name:     "Bot blocked - negative",
+			content:  repository.SettingsContentRestrictions{BlockBots: repository.RestrictionDetail{Enabled: true}},
+			isBot:    false,
+			expected: false,
 		},
 		{
 			name:      "Links blocked - https",
@@ -200,10 +200,10 @@ func TestCheckAllContent(t *testing.T) {
 			violation: "link",
 		},
 		{
-			name:      "Links blocked - no links",
-			content:   repository.SettingsContentRestrictions{RemoveLinks: repository.RestrictionDetail{Enabled: true}},
-			text:      "Hello world!",
-			expected:  false,
+			name:     "Links blocked - no links",
+			content:  repository.SettingsContentRestrictions{RemoveLinks: repository.RestrictionDetail{Enabled: true}},
+			text:     "Hello world!",
+			expected: false,
 		},
 		{
 			name:      "Domains blocked - positive .com",
@@ -220,10 +220,10 @@ func TestCheckAllContent(t *testing.T) {
 			violation: "domain",
 		},
 		{
-			name:      "Domains blocked - negative main.go (should NOT block code files)",
-			content:   repository.SettingsContentRestrictions{BlockDomains: repository.RestrictionDetail{Enabled: true}},
-			text:      "Check out main.go in codebase",
-			expected:  false,
+			name:     "Domains blocked - negative main.go (should NOT block code files)",
+			content:  repository.SettingsContentRestrictions{BlockDomains: repository.RestrictionDetail{Enabled: true}},
+			text:     "Check out main.go in codebase",
+			expected: false,
 		},
 		{
 			name:      "Usernames blocked - positive",
@@ -233,10 +233,10 @@ func TestCheckAllContent(t *testing.T) {
 			violation: "username",
 		},
 		{
-			name:      "Usernames blocked - negative email",
-			content:   repository.SettingsContentRestrictions{BlockUsernames: repository.RestrictionDetail{Enabled: true}},
-			text:      "My email is test@example.com",
-			expected:  false,
+			name:     "Usernames blocked - negative email",
+			content:  repository.SettingsContentRestrictions{BlockUsernames: repository.RestrictionDetail{Enabled: true}},
+			text:     "My email is test@example.com",
+			expected: false,
 		},
 		{
 			name:      "Hashtags blocked - positive",
@@ -267,10 +267,10 @@ func TestCheckAllContent(t *testing.T) {
 			violation: "phone",
 		},
 		{
-			name:      "Phone numbers - negative ID (should NOT block large digit strings)",
-			content:   repository.SettingsContentRestrictions{BlockPhoneNumbers: repository.RestrictionDetail{Enabled: true}},
-			text:      "ID: 9812456",
-			expected:  false,
+			name:     "Phone numbers - negative ID (should NOT block large digit strings)",
+			content:  repository.SettingsContentRestrictions{BlockPhoneNumbers: repository.RestrictionDetail{Enabled: true}},
+			text:     "ID: 9812456",
+			expected: false,
 		},
 		{
 			name:      "Emojis blocked - positive",
@@ -287,10 +287,10 @@ func TestCheckAllContent(t *testing.T) {
 			violation: "emoji_only",
 		},
 		{
-			name:      "Emoji-only blocked - negative with text",
-			content:   repository.SettingsContentRestrictions{BlockEmojiOnly: repository.RestrictionDetail{Enabled: true}},
-			text:      "👍 Good job!",
-			expected:  false,
+			name:     "Emoji-only blocked - negative with text",
+			content:  repository.SettingsContentRestrictions{BlockEmojiOnly: repository.RestrictionDetail{Enabled: true}},
+			text:     "👍 Good job!",
+			expected: false,
 		},
 	}
 
@@ -301,7 +301,7 @@ func TestCheckAllContent(t *testing.T) {
 				Caption: tc.caption,
 				IsBot:   tc.isBot,
 			}
-			
+
 			violation := s.checkAllContent(tc.content, repository.SettingsQuietHours{}, repository.SettingsGeneral{Timezone: "UTC"}, mc)
 			actual := violation != nil
 
@@ -359,7 +359,7 @@ func TestCheckAllLimits(t *testing.T) {
 			mc := &MessageContext{
 				Text: tc.text,
 			}
-			
+
 			violation := s.checkAllLimits(context.Background(), tc.limits, mc, "test-group")
 			actual := violation != nil
 
@@ -382,12 +382,12 @@ func TestValidateMessageIntegration(t *testing.T) {
 
 	mockTelegram := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		
+
 		if r.URL.Path == "/botmock_token/getMe" {
 			w.Write([]byte(`{"ok":true,"result":{"id":123456,"is_bot":true,"first_name":"Mock Bot","username":"mock_bot"}}`))
 			return
 		}
-		
+
 		if r.URL.Path == "/botmock_token/getChatMemberCount" {
 			w.Write([]byte(`{"ok":true,"result":150}`))
 			return
@@ -590,8 +590,8 @@ func TestLinkDeletionWithRawPayloads(t *testing.T) {
 
 	// We simulate the mapping logic from webhook handler locally since we can't import handler here.
 	type Entity struct {
-		Type   string `json:"type"`
-		URL    string `json:"url,omitempty"`
+		Type string `json:"type"`
+		URL  string `json:"url,omitempty"`
 	}
 	type Payload struct {
 		Text            string   `json:"text"`
@@ -649,4 +649,3 @@ func TestLinkDeletionWithRawPayloads(t *testing.T) {
 		})
 	}
 }
-

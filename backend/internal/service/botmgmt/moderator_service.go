@@ -166,15 +166,21 @@ func (s *ModeratorService) LogMemberEvent(ctx context.Context, groupID uuid.UUID
 
 func (s *ModeratorService) checkAntiRaid(ctx context.Context, groupID uuid.UUID) {
 	group, err := s.botRepo.GetGroupByID(ctx, groupID)
-	if err != nil { return }
+	if err != nil {
+		return
+	}
 	if !s.isSubscriptionValid(group) {
 		return
 	}
 
 	settings, err := s.settingsRepo.GetSettings(ctx, groupID)
-	if err != nil { return }
+	if err != nil {
+		return
+	}
 	var gen repository.SettingsGeneral
-	if json.Unmarshal(settings.General, &gen) != nil || gen.AntiRaidThreshold <= 0 { return }
+	if json.Unmarshal(settings.General, &gen) != nil || gen.AntiRaidThreshold <= 0 {
+		return
+	}
 
 	key := fmt.Sprintf("joins_per_min:%s", groupID)
 	count, _ := s.cache.Client.Incr(ctx, key).Result()
@@ -205,35 +211,35 @@ func (s *ModeratorService) checkAntiRaid(ctx context.Context, groupID uuid.UUID)
 
 // Violation represents a detected rule violation.
 type Violation struct {
-	Type            string
-	Message         string
-	Action          string // delete, mute, kick, ban
-	CurrentWarnings int
+	Type             string
+	Message          string
+	Action           string // delete, mute, kick, ban
+	CurrentWarnings  int
 	WarningThreshold int
 }
 
 // MessageContext holds all Telegram message metadata needed for moderation.
 type MessageContext struct {
-	ChatID       int64
-	UserID       int64
-	MessageID    int
-	Date         int // Unix timestamp of the message
-	Text         string
-	Username     string // @username
-	FirstName    string // user's first name
-	IsBot        bool
-	HasPhoto     bool
-	HasSticker   bool
-	HasLocation  bool
-	HasAudio     bool
-	HasVoice     bool
-	HasDocument  bool
-	HasAnimation bool // GIF
-	HasVideo     bool
-	HasPoll      bool
-	HasGame      bool
-	HasCaption   bool
-	Caption      string
+	ChatID             int64
+	UserID             int64
+	MessageID          int
+	Date               int // Unix timestamp of the message
+	Text               string
+	Username           string // @username
+	FirstName          string // user's first name
+	IsBot              bool
+	HasPhoto           bool
+	HasSticker         bool
+	HasLocation        bool
+	HasAudio           bool
+	HasVoice           bool
+	HasDocument        bool
+	HasAnimation       bool // GIF
+	HasVideo           bool
+	HasPoll            bool
+	HasGame            bool
+	HasCaption         bool
+	Caption            string
 	IsForward          bool
 	ForwardFromChannel bool
 	ForwardFromChatID  int64
@@ -267,7 +273,7 @@ func (s *ModeratorService) ValidateMessage(ctx context.Context, bot *repository.
 	// 2.2 Check Subscription (BUG #9)
 	if !s.isSubscriptionValid(group) {
 		slog.Warn("Group subscription expired, pausing moderation", "group_id", group.ID)
-		
+
 		// Fix silent failure: Notify the group that moderation is paused due to expired subscription.
 		// Use Redis to rate-limit this notification to once per 24 hours to avoid spamming the chat.
 		if s.cache != nil && s.cache.Client != nil {
@@ -277,7 +283,7 @@ func (s *ModeratorService) ValidateMessage(ctx context.Context, bot *repository.
 				_ = tgClient.SendMessage(ctx, mc.ChatID, msg, nil, nil)
 			}
 		}
-		
+
 		return nil, nil // Halt moderation; don't give premium features for free
 	}
 
@@ -336,7 +342,7 @@ func (s *ModeratorService) ValidateMessage(ctx context.Context, bot *repository.
 		if err != nil || v == nil {
 			return v, err
 		}
-		
+
 		if v.Message != "" {
 			v.Message = strings.ReplaceAll(v.Message, "{first_name}", telegram.EscapeHTML(mc.FirstName))
 			if mc.Username != "" {
@@ -344,7 +350,7 @@ func (s *ModeratorService) ValidateMessage(ctx context.Context, bot *repository.
 			} else {
 				v.Message = strings.ReplaceAll(v.Message, "{username}", telegram.EscapeHTML(mc.FirstName))
 			}
-			
+
 			rulesText := customTexts.RulesText
 			if rulesText == "" {
 				rulesText = "Be respectful and follow standard group rules."
@@ -441,14 +447,14 @@ func (s *ModeratorService) ValidateMessage(ctx context.Context, bot *repository.
 		if inviteCount < mandatory.ForcedAddCount {
 			var ct repository.SettingsCustomTexts
 			_ = json.Unmarshal(settings.CustomTexts, &ct)
-			
+
 			forceAddMsg := ct.ForceAddText
 			if forceAddMsg == "" {
 				forceAddMsg = fmt.Sprintf("You must add %d members to the group before you can send messages.", mandatory.ForcedAddCount)
 			} else {
 				forceAddMsg = strings.ReplaceAll(forceAddMsg, "{count}", fmt.Sprintf("%d", mandatory.ForcedAddCount))
 			}
-			
+
 			vAction := "delete"
 			return checkFreshAdmin(&Violation{
 				Type:    "forced_add",
@@ -520,7 +526,9 @@ func (s *ModeratorService) checkCAS(ctx context.Context, userID int64) bool {
 	}
 	if json.NewDecoder(resp.Body).Decode(&result) == nil {
 		status := "ok"
-		if result.OK { status = "banned" }
+		if result.OK {
+			status = "banned"
+		}
 		if s.cache != nil && s.cache.Client != nil {
 			s.cache.Client.Set(ctx, cacheKey, status, 24*time.Hour)
 		}
@@ -895,7 +903,7 @@ func (s *ModeratorService) isInCustomWindow(start, end, tz string, msgDate int) 
 	if err != nil {
 		loc = time.UTC
 	}
-	
+
 	var now time.Time
 	if msgDate > 0 {
 		now = time.Unix(int64(msgDate), 0).In(loc)
@@ -1059,14 +1067,30 @@ func (s *ModeratorService) logEvent(ctx context.Context, groupID uuid.UUID, even
 
 func containsEmoji(text string) bool {
 	for _, r := range text {
-		if r >= 0x1F600 && r <= 0x1F64F { return true } // Emoticons
-		if r >= 0x1F300 && r <= 0x1F5FF { return true } // Symbols
-		if r >= 0x1F680 && r <= 0x1F6FF { return true } // Transport
-		if r >= 0x1F900 && r <= 0x1F9FF { return true } // Supplemental
-		if r >= 0x2600 && r <= 0x26FF { return true }   // Misc
-		if r >= 0x2700 && r <= 0x27BF { return true }   // Dingbats
-		if r >= 0xFE00 && r <= 0xFE0F { return true }   // Variation
-		if r >= 0x200D && r <= 0x200D { continue }       // ZWJ
+		if r >= 0x1F600 && r <= 0x1F64F {
+			return true
+		} // Emoticons
+		if r >= 0x1F300 && r <= 0x1F5FF {
+			return true
+		} // Symbols
+		if r >= 0x1F680 && r <= 0x1F6FF {
+			return true
+		} // Transport
+		if r >= 0x1F900 && r <= 0x1F9FF {
+			return true
+		} // Supplemental
+		if r >= 0x2600 && r <= 0x26FF {
+			return true
+		} // Misc
+		if r >= 0x2700 && r <= 0x27BF {
+			return true
+		} // Dingbats
+		if r >= 0xFE00 && r <= 0xFE0F {
+			return true
+		} // Variation
+		if r >= 0x200D && r <= 0x200D {
+			continue
+		} // ZWJ
 	}
 	return false
 }

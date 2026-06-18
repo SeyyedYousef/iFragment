@@ -1,8 +1,8 @@
 package main
 
 import (
-	"context"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -23,8 +23,8 @@ import (
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/client/tonapi"
 	"ifragment-backend/internal/handler"
-	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/logger"
+	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service"
 	"ifragment-backend/internal/service/botmgmt"
@@ -272,7 +272,7 @@ func main() {
 	// Initialize Handlers
 	channelRepo := repository.NewChannelRepo(db, cache)
 	channelService := channelmgmt.NewChannelService(channelRepo, botRepo, auditRepo)
-	
+
 	// 🚀 Start Channel Background Workers (Post scheduler & daily analytics snapshots)
 	channelService.StartBackgroundTasks(ctx)
 
@@ -378,156 +378,156 @@ func main() {
 			r.Post("/webhook/tonapi", webhookHandler.HandleTonAPIWebhook)
 			r.With(middleware.ValidateTelegramInitData(db, cache)).Post("/auth/token", authHandler.IssueToken)
 
-		r.Route("/usernames", func(r chi.Router) {
-			r.Get("/collection/stats", usernameHandler.GetCollectionStats)
-			r.Get("/check", usernameHandler.CheckAvailability)
-			r.Get("/quick", usernameHandler.QuickAnalysis)
-			r.Get("/quick/stream", usernameHandler.StreamQuickAnalysis)
-			r.Get("/trending", usernameHandler.GetTrending)
-			r.Get("/rates", usernameHandler.GetRates)
-			r.Get("/similar", usernameHandler.GetSimilar)
+			r.Route("/usernames", func(r chi.Router) {
+				r.Get("/collection/stats", usernameHandler.GetCollectionStats)
+				r.Get("/check", usernameHandler.CheckAvailability)
+				r.Get("/quick", usernameHandler.QuickAnalysis)
+				r.Get("/quick/stream", usernameHandler.StreamQuickAnalysis)
+				r.Get("/trending", usernameHandler.GetTrending)
+				r.Get("/rates", usernameHandler.GetRates)
+				r.Get("/similar", usernameHandler.GetSimilar)
 
-			// Protected Routes (Require JWT)
-			r.Group(func(r chi.Router) {
-				// r.Use(middleware.AuthMiddleware)
-				r.Post("/report/request", premiumHandler.RequestPremiumReport)
-				r.Get("/report/view", premiumHandler.GetReport)
-				r.Get("/report/history", premiumHandler.GetHistory)
+				// Protected Routes (Require JWT)
+				r.Group(func(r chi.Router) {
+					// r.Use(middleware.AuthMiddleware)
+					r.Post("/report/request", premiumHandler.RequestPremiumReport)
+					r.Get("/report/view", premiumHandler.GetReport)
+					r.Get("/report/history", premiumHandler.GetHistory)
+				})
 			})
-		})
 
-		// ─── Bot Management API ─────────────────────────
-		r.Route("/bots", func(r chi.Router) {
-			r.Use(middleware.AuthMiddleware)
-
-			r.Get("/", botMgmtHandler.ListBots)
-			r.Post("/", botMgmtHandler.RegisterBot)
-			r.Get("/{botID}", botMgmtHandler.GetBot)
-			r.Delete("/{botID}", botMgmtHandler.RevokeBot)
-			r.Get("/{botID}/groups", botMgmtHandler.ListGroups)
-		})
-
-		r.Route("/groups", func(r chi.Router) {
-			r.Use(middleware.AuthMiddleware)
-
-			r.Get("/{groupID}", botMgmtHandler.GetGroup)
-			r.Get("/{groupID}/settings", botMgmtHandler.GetSettings)
-			r.Put("/{groupID}/settings", botMgmtHandler.UpdateSettings)
-			r.Get("/{groupID}/analytics", botMgmtHandler.GetAnalytics)
-			r.Get("/{groupID}/audit", botMgmtHandler.GetAuditLogs)
-		})
-
-		r.Route("/channels", func(r chi.Router) {
-			r.Use(middleware.AuthMiddleware)
-			r.Use(middleware.NewChannelRateLimiter(cache))
-
-			r.Get("/", channelHandler.ListChannels)
-			r.Post("/connect", channelHandler.ConnectChannel)
-			r.Get("/{channelID}", channelHandler.GetChannel)
-			r.Delete("/{channelID}", channelHandler.DisconnectChannel)
-			r.Get("/{channelID}/settings", channelHandler.GetSettings)
-			r.Put("/{channelID}/settings", channelHandler.UpdateSettings)
-			r.Get("/{channelID}/audit", channelHandler.GetAuditLogs)
-			r.Get("/{channelID}/analytics", channelHandler.GetAnalytics)
-			r.Post("/{channelID}/posts", channelHandler.CreatePost)
-			r.Post("/{channelID}/simulate", channelHandler.SimulateAI)
-			r.Post("/{channelID}/verify", channelHandler.VerifyChannel)
-
-			// Funnel System
-			r.Get("/{channelID}/funnel", channelHandler.GetFunnel)
-			r.Post("/{channelID}/funnel", channelHandler.CreateFunnel)
-			r.Delete("/{channelID}/funnel", channelHandler.DeleteFunnel)
-
-			// Forwarding Rules
-			r.Get("/{channelID}/forwarding/rules", channelHandler.GetForwardingRules)
-			r.Get("/{channelID}/forwarding/logs", channelHandler.GetForwardingLogs)
-			r.Get("/{channelID}/forwarding/verify", channelHandler.VerifyForwardingTarget)
-			r.Post("/{channelID}/forwarding/rules", channelHandler.CreateForwardingRule)
-			r.Put("/{channelID}/forwarding/rules/{ruleID}", channelHandler.UpdateForwardingRule)
-			r.Delete("/{channelID}/forwarding/rules/{ruleID}", channelHandler.DeleteForwardingRule)
-
-			// Admins
-			r.Post("/{channelID}/admins/sync", channelHandler.SyncAdmins)
-			r.Get("/{channelID}/admins", channelHandler.GetAdmins)
-			r.Put("/{channelID}/admins/{adminID}", channelHandler.UpdateAdmin)
-
-			// Members
-			r.Get("/{channelID}/members", channelHandler.GetMembers)
-			r.Post("/{channelID}/members/{memberID}/ban", channelHandler.BanMember)
-			r.Post("/{channelID}/members/{memberID}/restrict", channelHandler.RestrictMember)
-
-			// Custom Inline Buttons
-			r.Get("/{channelID}/buttons", channelHandler.GetButtons)
-			r.Post("/{channelID}/buttons", channelHandler.SaveButtons)
-		})
-
-		r.Route("/subscription", func(r chi.Router) {
-			r.Use(middleware.AuthMiddleware)
-
-			r.Get("/packages", botMgmtHandler.GetPackages)
-			r.Post("/subscribe", botMgmtHandler.Subscribe)
-			r.Post("/subscribe-airdrop", botMgmtHandler.SubscribeWithAirdrop)
-			r.Post("/subscribe-stars-invoice", botMgmtHandler.CreateSubscriptionStarsInvoice)
-		})
-
-		r.Route("/frg", func(r chi.Router) {
-			r.Use(middleware.AuthMiddleware)
-
-			r.Get("/balance", botMgmtHandler.GetFRGBalance)
-			r.Get("/transactions", botMgmtHandler.GetFRGTransactions)
-		})
-
-		r.Route("/marketplace", func(r chi.Router) {
-			r.Use(middleware.AuthMiddleware)
-
-			r.Get("/options", botMgmtHandler.GetPurchaseOptions)
-			r.Post("/purchase/stars", botMgmtHandler.PurchaseWithStars)
-			r.Post("/purchase/stars/invoice", botMgmtHandler.CreateStarsInvoice)
-			r.Post("/purchase/toncoin", botMgmtHandler.PurchaseWithToncoin)
-			r.Post("/convert/airdrop", botMgmtHandler.ConvertAirdropCoins)
-		})
-
-		r.Route("/profile", func(r chi.Router) {
-			r.Get("/avatar/{userID}", profileHandler.GetAvatar)
-
-			r.Group(func(r chi.Router) {
+			// ─── Bot Management API ─────────────────────────
+			r.Route("/bots", func(r chi.Router) {
 				r.Use(middleware.AuthMiddleware)
 
-				r.Delete("/gdpr", profileHandler.DeleteUserDataGDPR)
-				r.Get("/stats", profileHandler.GetStats)
-				r.Get("/achievements", profileHandler.GetAchievements)
-				r.Get("/achievements/defs", profileHandler.GetAchievementDefs)
-				r.Get("/referral", profileHandler.GetReferralData)
-				r.Post("/referral", profileHandler.SetReferrerCode)
-				r.Post("/tap", profileHandler.AddTaps)
-
-				// Cosmetics & Premium routes
-				r.Get("/cosmetics", profileHandler.GetCosmetics)
-				r.Post("/cosmetics/purchase", profileHandler.PurchaseCosmetic)
-				r.Post("/cosmetics/equip", profileHandler.EquipCosmetic)
-				r.Post("/emoji-status", profileHandler.SetEmojiStatus)
-				r.Post("/premium/checkout", profileHandler.CreatePremiumCheckout)
-
-				// Gamification routes
-				r.Get("/daily", gamificationHandler.GetDailyStatus)
-				r.Post("/daily/claim", gamificationHandler.ClaimDailyReward)
-				r.Get("/tasks", gamificationHandler.GetTasksStatus)
-				r.Post("/tasks/complete", gamificationHandler.CompleteTask)
-				r.Get("/boosts", gamificationHandler.GetBoostsStatus)
-				r.Post("/boosts/upgrade", gamificationHandler.UpgradeBoost)
-				r.Get("/leaderboard", gamificationHandler.GetLeaderboard)
-
-				// Clan routes
-				r.Get("/clan", clanHandler.GetClanDetails)
-				r.Post("/clan/join", clanHandler.JoinClan)
-				r.Post("/clan/leave", clanHandler.LeaveClan)
-				r.Get("/clan/top", clanHandler.GetTopClans)
-				r.Get("/clans/top", clanHandler.GetTopClans)
-
-				// Promo Code redemption
-				r.Post("/promo/redeem", ownerHandler.RedeemPromo)
+				r.Get("/", botMgmtHandler.ListBots)
+				r.Post("/", botMgmtHandler.RegisterBot)
+				r.Get("/{botID}", botMgmtHandler.GetBot)
+				r.Delete("/{botID}", botMgmtHandler.RevokeBot)
+				r.Get("/{botID}/groups", botMgmtHandler.ListGroups)
 			})
-		})
+
+			r.Route("/groups", func(r chi.Router) {
+				r.Use(middleware.AuthMiddleware)
+
+				r.Get("/{groupID}", botMgmtHandler.GetGroup)
+				r.Get("/{groupID}/settings", botMgmtHandler.GetSettings)
+				r.Put("/{groupID}/settings", botMgmtHandler.UpdateSettings)
+				r.Get("/{groupID}/analytics", botMgmtHandler.GetAnalytics)
+				r.Get("/{groupID}/audit", botMgmtHandler.GetAuditLogs)
+			})
+
+			r.Route("/channels", func(r chi.Router) {
+				r.Use(middleware.AuthMiddleware)
+				r.Use(middleware.NewChannelRateLimiter(cache))
+
+				r.Get("/", channelHandler.ListChannels)
+				r.Post("/connect", channelHandler.ConnectChannel)
+				r.Get("/{channelID}", channelHandler.GetChannel)
+				r.Delete("/{channelID}", channelHandler.DisconnectChannel)
+				r.Get("/{channelID}/settings", channelHandler.GetSettings)
+				r.Put("/{channelID}/settings", channelHandler.UpdateSettings)
+				r.Get("/{channelID}/audit", channelHandler.GetAuditLogs)
+				r.Get("/{channelID}/analytics", channelHandler.GetAnalytics)
+				r.Post("/{channelID}/posts", channelHandler.CreatePost)
+				r.Post("/{channelID}/simulate", channelHandler.SimulateAI)
+				r.Post("/{channelID}/verify", channelHandler.VerifyChannel)
+
+				// Funnel System
+				r.Get("/{channelID}/funnel", channelHandler.GetFunnel)
+				r.Post("/{channelID}/funnel", channelHandler.CreateFunnel)
+				r.Delete("/{channelID}/funnel", channelHandler.DeleteFunnel)
+
+				// Forwarding Rules
+				r.Get("/{channelID}/forwarding/rules", channelHandler.GetForwardingRules)
+				r.Get("/{channelID}/forwarding/logs", channelHandler.GetForwardingLogs)
+				r.Get("/{channelID}/forwarding/verify", channelHandler.VerifyForwardingTarget)
+				r.Post("/{channelID}/forwarding/rules", channelHandler.CreateForwardingRule)
+				r.Put("/{channelID}/forwarding/rules/{ruleID}", channelHandler.UpdateForwardingRule)
+				r.Delete("/{channelID}/forwarding/rules/{ruleID}", channelHandler.DeleteForwardingRule)
+
+				// Admins
+				r.Post("/{channelID}/admins/sync", channelHandler.SyncAdmins)
+				r.Get("/{channelID}/admins", channelHandler.GetAdmins)
+				r.Put("/{channelID}/admins/{adminID}", channelHandler.UpdateAdmin)
+
+				// Members
+				r.Get("/{channelID}/members", channelHandler.GetMembers)
+				r.Post("/{channelID}/members/{memberID}/ban", channelHandler.BanMember)
+				r.Post("/{channelID}/members/{memberID}/restrict", channelHandler.RestrictMember)
+
+				// Custom Inline Buttons
+				r.Get("/{channelID}/buttons", channelHandler.GetButtons)
+				r.Post("/{channelID}/buttons", channelHandler.SaveButtons)
+			})
+
+			r.Route("/subscription", func(r chi.Router) {
+				r.Use(middleware.AuthMiddleware)
+
+				r.Get("/packages", botMgmtHandler.GetPackages)
+				r.Post("/subscribe", botMgmtHandler.Subscribe)
+				r.Post("/subscribe-airdrop", botMgmtHandler.SubscribeWithAirdrop)
+				r.Post("/subscribe-stars-invoice", botMgmtHandler.CreateSubscriptionStarsInvoice)
+			})
+
+			r.Route("/frg", func(r chi.Router) {
+				r.Use(middleware.AuthMiddleware)
+
+				r.Get("/balance", botMgmtHandler.GetFRGBalance)
+				r.Get("/transactions", botMgmtHandler.GetFRGTransactions)
+			})
+
+			r.Route("/marketplace", func(r chi.Router) {
+				r.Use(middleware.AuthMiddleware)
+
+				r.Get("/options", botMgmtHandler.GetPurchaseOptions)
+				r.Post("/purchase/stars", botMgmtHandler.PurchaseWithStars)
+				r.Post("/purchase/stars/invoice", botMgmtHandler.CreateStarsInvoice)
+				r.Post("/purchase/toncoin", botMgmtHandler.PurchaseWithToncoin)
+				r.Post("/convert/airdrop", botMgmtHandler.ConvertAirdropCoins)
+			})
+
+			r.Route("/profile", func(r chi.Router) {
+				r.Get("/avatar/{userID}", profileHandler.GetAvatar)
+
+				r.Group(func(r chi.Router) {
+					r.Use(middleware.AuthMiddleware)
+
+					r.Delete("/gdpr", profileHandler.DeleteUserDataGDPR)
+					r.Get("/stats", profileHandler.GetStats)
+					r.Get("/achievements", profileHandler.GetAchievements)
+					r.Get("/achievements/defs", profileHandler.GetAchievementDefs)
+					r.Get("/referral", profileHandler.GetReferralData)
+					r.Post("/referral", profileHandler.SetReferrerCode)
+					r.Post("/tap", profileHandler.AddTaps)
+
+					// Cosmetics & Premium routes
+					r.Get("/cosmetics", profileHandler.GetCosmetics)
+					r.Post("/cosmetics/purchase", profileHandler.PurchaseCosmetic)
+					r.Post("/cosmetics/equip", profileHandler.EquipCosmetic)
+					r.Post("/emoji-status", profileHandler.SetEmojiStatus)
+					r.Post("/premium/checkout", profileHandler.CreatePremiumCheckout)
+
+					// Gamification routes
+					r.Get("/daily", gamificationHandler.GetDailyStatus)
+					r.Post("/daily/claim", gamificationHandler.ClaimDailyReward)
+					r.Get("/tasks", gamificationHandler.GetTasksStatus)
+					r.Post("/tasks/complete", gamificationHandler.CompleteTask)
+					r.Get("/boosts", gamificationHandler.GetBoostsStatus)
+					r.Post("/boosts/upgrade", gamificationHandler.UpgradeBoost)
+					r.Get("/leaderboard", gamificationHandler.GetLeaderboard)
+
+					// Clan routes
+					r.Get("/clan", clanHandler.GetClanDetails)
+					r.Post("/clan/join", clanHandler.JoinClan)
+					r.Post("/clan/leave", clanHandler.LeaveClan)
+					r.Get("/clan/top", clanHandler.GetTopClans)
+					r.Get("/clans/top", clanHandler.GetTopClans)
+
+					// Promo Code redemption
+					r.Post("/promo/redeem", ownerHandler.RedeemPromo)
+				})
+			})
 
 		}) // Close protected /api/v1 routes group
 
@@ -707,7 +707,7 @@ func AutoRegisterMainBot(ctx context.Context, db *repository.Database, botServic
 	if backendURL == "" {
 		backendURL = appURL
 	}
-	
+
 	if backendURL == "" {
 		slog.Warn("AutoRegisterMainBot: cannot set webhook because BACKEND_URL, API_URL, and APP_URL are all empty")
 		return

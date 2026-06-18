@@ -163,26 +163,26 @@ func (db *Database) GetGlobalRankFromDB(ctx context.Context, xp int) (int, error
 }
 
 var PredefinedAchievements = map[string]int{
-	"first_steps":        1,
-	"home_base":          1,
-	"tap_novice":         1000,
-	"mining_machine":     100000,
-	"frg_millionaire":    1000000,
-	"first_scan":         1,
-	"whale_hunter":       100,
-	"data_scientist":     500,
-	"social_butterfly":   5,
-	"army_builder":       50,
-	"network_king":       200,
-	"group_guardian":     1,
-	"channel_commander":  1,
-	"empire_builder":     10,
-	"week_warrior":       7,
-	"month_master":       30,
-	"legendary":          100,
-	"early_adopter":      1,
-	"premium_user":       1,
-	"bug_hunter":         1,
+	"first_steps":       1,
+	"home_base":         1,
+	"tap_novice":        1000,
+	"mining_machine":    100000,
+	"frg_millionaire":   1000000,
+	"first_scan":        1,
+	"whale_hunter":      100,
+	"data_scientist":    500,
+	"social_butterfly":  5,
+	"army_builder":      50,
+	"network_king":      200,
+	"group_guardian":    1,
+	"channel_commander": 1,
+	"empire_builder":    10,
+	"week_warrior":      7,
+	"month_master":      30,
+	"legendary":         100,
+	"early_adopter":     1,
+	"premium_user":      1,
+	"bug_hunter":        1,
 }
 
 func (db *Database) GetAchievements(ctx context.Context, userID int64) ([]model.UserAchievement, error) {
@@ -627,4 +627,3 @@ func (db *Database) GetReferralChain(ctx context.Context, userID int64) (int64, 
 	}
 	return referrerID, grandparentID, nil
 }
-

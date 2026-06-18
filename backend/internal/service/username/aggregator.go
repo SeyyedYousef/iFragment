@@ -16,12 +16,12 @@ import (
 )
 
 type AggregatorService struct {
-	tonClient       *tonapi.Client
-	cache           *repository.Cache
+	tonClient *tonapi.Client
+	cache     *repository.Cache
 }
 
 func NewAggregatorService(ton *tonapi.Client, cache *repository.Cache) *AggregatorService {
-	// Clear standard cache on startup so that new deployments get fresh API data immediately 
+	// Clear standard cache on startup so that new deployments get fresh API data immediately
 	// instead of using cached empty/partial stats from prior failed/unauthenticated attempts.
 	if cache != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -34,8 +34,8 @@ func NewAggregatorService(ton *tonapi.Client, cache *repository.Cache) *Aggregat
 	}
 
 	return &AggregatorService{
-		tonClient:       ton,
-		cache:           cache,
+		tonClient: ton,
+		cache:     cache,
 	}
 }
 
@@ -158,7 +158,7 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 	// ── Goroutine 2: GetGems Collection Stats ──
 	go func() {
 		defer wg.Done()
-		
+
 		floor, vol, sales, err := fetchGetGemsCollectionStats(ctx)
 		if err != nil {
 			mu.Lock()
@@ -168,16 +168,16 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 			slog.Warn("STATS_FETCH_ERROR: GetGems stats fetch failed", "error", err)
 			return
 		}
-		
+
 		mu.Lock()
 		if floor != "" && floor != "0.00" {
 			summary.FloorPrice = floor
 		}
-		
+
 		if vol != "" && vol != "0.00" {
 			summary.TotalVolume = vol
 		}
-		
+
 		if sales > 0 {
 			summary.SalesCount = sales
 		}
@@ -277,10 +277,10 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 		// Return hardcoded fallback on timeout if no stale cache
 		nowSec := time.Now().Unix()
 		return &CollectionSummary{
-			DataSource:     "fallback",
-			IsStale:        true,
-			LastUpdatedAt:  nowSec,
-			NextUpdateAt:   nowSec + 3600,
+			DataSource:    "fallback",
+			IsStale:       true,
+			LastUpdatedAt: nowSec,
+			NextUpdateAt:  nowSec + 3600,
 		}, nil
 	}
 
@@ -323,7 +323,7 @@ func (s *AggregatorService) GetCollectionStats() (*CollectionSummary, error) {
 	nowSec := time.Now().Unix()
 	summary.LastUpdatedAt = nowSec
 	summary.NextUpdateAt = nowSec + 3600 // 1 hour later
-	
+
 	if allFailed {
 		summary.DataSource = "fallback"
 	} else if partialFailure {
@@ -514,7 +514,7 @@ func fetchGetGemsCollectionStats(ctx context.Context) (floor string, volume stri
 		return "", "", 0, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {

@@ -58,10 +58,10 @@ func (db *Database) GetUserReports(ctx context.Context, userID int64) ([]DBRepor
 		r.ReportData = json.RawMessage(reportDataStr)
 		reports = append(reports, r)
 	}
-	
+
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	
+
 	return reports, nil
 }

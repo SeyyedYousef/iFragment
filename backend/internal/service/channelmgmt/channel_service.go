@@ -15,9 +15,9 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"runtime/debug"
 	"strconv"
 	"strings"
-	"runtime/debug"
 	"sync"
 	"time"
 
@@ -30,15 +30,17 @@ import (
 )
 
 type ChannelService struct {
-	channelRepo          *repository.ChannelRepo
-	botRepo              *repository.BotRepo
-	auditRepo            *repository.AuditRepo
-	wg                   sync.WaitGroup
-	httpClient           *http.Client // Shared thread-safe HTTP client
+	channelRepo *repository.ChannelRepo
+	botRepo     *repository.BotRepo
+	auditRepo   *repository.AuditRepo
+	wg          sync.WaitGroup
+	httpClient  *http.Client // Shared thread-safe HTTP client
 
 	// Feature flags — loaded once at startup to avoid per-request os.Getenv overhead
 	featureForwarding    bool
 	featureAutoResponder bool
+
+	autoResponderService *AutoResponderService
 
 	dnsLookup func(host string) ([]net.IP, error)
 }
@@ -55,6 +57,7 @@ func NewChannelService(
 		httpClient:           SafeHTTPClient(10 * time.Second),
 		featureForwarding:    os.Getenv("FEATURE_FLAG_FORWARDING") != "false",
 		featureAutoResponder: os.Getenv("FEATURE_FLAG_AUTORESPONDER") != "false",
+		autoResponderService: NewAutoResponderService(channelRepo),
 		dnsLookup:            net.LookupIP,
 	}
 }
@@ -221,12 +224,12 @@ func (s *ChannelService) ConnectChannel(ctx context.Context, ownerUserID int64, 
 			}
 			_ = s.channelRepo.SyncChannelAdmins(ctx, existingCh.ID, admins)
 		}
-		
+
 		_, _, roleErr := s.GetUserRole(ctx, ownerUserID, existingCh.ID)
 		if roleErr != nil {
 			return nil, fmt.Errorf("این کانال قبلا متصل شده است و شما در تلگرام دسترسی ادمین ندارید")
 		}
-		
+
 		metricStatus = "success"
 		return existingCh, nil
 	}
@@ -257,9 +260,9 @@ func (s *ChannelService) ConnectChannel(ctx context.Context, ownerUserID int64, 
 	// 8. Log audit log
 	slog.Info("Channel connected successfully", "channel_id", ch.ID, "title", chatDetail.Title)
 	if err := s.auditRepo.Log(ctx, &repository.AuditLog{
-		ActorID:    ownerUserID,
-		Action:     "channel.connect",
-		TargetID:   &channelUsernameOrID,
+		ActorID:  ownerUserID,
+		Action:   "channel.connect",
+		TargetID: &channelUsernameOrID,
 	}); err != nil {
 		slog.Warn("failed to write audit log", "action", "channel.connect", "error", err)
 	}
@@ -303,9 +306,9 @@ func (s *ChannelService) DisconnectChannel(ctx context.Context, ownerUserID int6
 
 	target := channelID.String()
 	if err := s.auditRepo.Log(ctx, &repository.AuditLog{
-		ActorID:    ownerUserID,
-		Action:     "channel.disconnect",
-		TargetID:   &target,
+		ActorID:  ownerUserID,
+		Action:   "channel.disconnect",
+		TargetID: &target,
 	}); err != nil {
 		slog.Warn("failed to write audit log", "action", "channel.disconnect", "error", err)
 	}
@@ -349,9 +352,9 @@ func (s *ChannelService) CreateFunnel(ctx context.Context, ownerUserID int64, ou
 
 	target := f.ID.String()
 	_ = s.auditRepo.Log(ctx, &repository.AuditLog{
-		ActorID:    ownerUserID,
-		Action:     "channel.funnel_create",
-		TargetID:   &target,
+		ActorID:  ownerUserID,
+		Action:   "channel.funnel_create",
+		TargetID: &target,
 	})
 
 	return f, nil
@@ -392,9 +395,9 @@ func (s *ChannelService) DeleteFunnel(ctx context.Context, ownerUserID int64, ou
 
 	target := funnel.ID.String()
 	_ = s.auditRepo.Log(ctx, &repository.AuditLog{
-		ActorID:    ownerUserID,
-		Action:     "channel.funnel_delete",
-		TargetID:   &target,
+		ActorID:  ownerUserID,
+		Action:   "channel.funnel_delete",
+		TargetID: &target,
 	})
 
 	return nil
@@ -417,64 +420,16 @@ func (s *ChannelService) ListChannels(ctx context.Context, ownerUserID int64, bo
 	return s.channelRepo.GetChannelsByBot(ctx, botID, cursor, cursorID, limit)
 }
 
-type Role string
-
-const (
-	RoleOwner  Role = "owner"
-	RoleAdmin  Role = "admin"
-	RoleViewer Role = "viewer"
-)
-
-func (s *ChannelService) GetUserRole(ctx context.Context, userID int64, channelID uuid.UUID) (Role, *repository.ManagedChannel, error) {
-	ch, err := s.channelRepo.GetChannelByID(ctx, channelID)
-	if err != nil {
-		return "", nil, err
-	}
-
-	// 1. Check if they are the bot owner
-	bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
-	if err == nil && bot.OwnerUserID == userID {
-		return RoleOwner, ch, nil
-	}
-
-	// 2. Check channel_admins table
-	admins, err := s.channelRepo.GetChannelAdmins(ctx, channelID)
-	if err == nil {
-		for _, admin := range admins {
-			if admin.TelegramID == userID {
-				if admin.IsOwner {
-					return RoleOwner, ch, nil
-				}
-				// Require exact case-insensitive match to avoid demoting administrators whose title simply contains "viewer"
-				if admin.CustomTitle != nil && strings.ToLower(strings.TrimSpace(*admin.CustomTitle)) == "viewer" {
-					return RoleViewer, ch, nil
-				}
-				return RoleAdmin, ch, nil
-			}
-		}
-	}
-
-	return "", nil, fmt.Errorf("unauthorized")
+func (s *ChannelService) CleanupChannel(ctx context.Context, bot *repository.ManagedBot, channelID uuid.UUID) {
+	// Removes channel configuration, posts, and analytics
+	_ = s.channelRepo.DeleteChannel(ctx, channelID)
 }
 
-func (s *ChannelService) verifyAccess(ctx context.Context, userID int64, channelID uuid.UUID, allowedRoles ...Role) error {
-	role, _, err := s.GetUserRole(ctx, userID, channelID)
-	if err != nil {
-		return err
+func (s *ChannelService) ProcessAutoResponder(ctx context.Context, tg *telegram.BotAPIClient, channelID uuid.UUID, chatID int64, messageID int, text string) (bool, error) {
+	if !s.featureAutoResponder {
+		return false, nil
 	}
-
-	matched := false
-	for _, allowed := range allowedRoles {
-		if role == allowed {
-			matched = true
-			break
-		}
-	}
-	if !matched {
-		return fmt.Errorf("unauthorized: role %s not allowed", role)
-	}
-
-	return nil
+	return s.autoResponderService.ProcessMessage(ctx, tg, channelID, chatID, messageID, text)
 }
 
 func (s *ChannelService) checkSubscription(ch *repository.ManagedChannel) error {
@@ -559,7 +514,7 @@ func (s *ChannelService) VerifyChannel(ctx context.Context, ownerUserID int64, c
 		lowerErr := strings.ToLower(err.Error())
 		if strings.Contains(lowerErr, "forbidden") || strings.Contains(lowerErr, "kicked") || strings.Contains(lowerErr, "not a member") || strings.Contains(lowerErr, "not a participant") || strings.Contains(lowerErr, "chat not found") {
 			_ = s.channelRepo.DeleteChannel(ctx, channelID)
-			
+
 			targetStr := channelID.String()
 			_ = s.auditRepo.Log(ctx, &repository.AuditLog{
 				ActorID:  bot.OwnerUserID,
@@ -567,7 +522,7 @@ func (s *ChannelService) VerifyChannel(ctx context.Context, ownerUserID int64, c
 				TargetID: &targetStr,
 			})
 			return map[string]interface{}{
-				"status": "kicked",
+				"status":  "kicked",
 				"message": "Bot was kicked or removed from the channel. The channel has been disconnected.",
 			}, nil
 		}
@@ -584,7 +539,7 @@ func (s *ChannelService) VerifyChannel(ctx context.Context, ownerUserID int64, c
 
 	if !botIsAdmin {
 		_ = s.channelRepo.DeleteChannel(ctx, channelID)
-		
+
 		targetStr := channelID.String()
 		_ = s.auditRepo.Log(ctx, &repository.AuditLog{
 			ActorID:  bot.OwnerUserID,
@@ -592,7 +547,7 @@ func (s *ChannelService) VerifyChannel(ctx context.Context, ownerUserID int64, c
 			TargetID: &targetStr,
 		})
 		return map[string]interface{}{
-			"status": "demoted",
+			"status":  "demoted",
 			"message": "Bot is no longer an administrator. The channel has been disconnected.",
 		}, nil
 	}
@@ -616,7 +571,7 @@ func (s *ChannelService) VerifyChannel(ctx context.Context, ownerUserID int64, c
 	}
 
 	role, _, roleErr := s.GetUserRole(ctx, ownerUserID, channelID)
-	
+
 	if auditErr := s.channelRepo.LogAudit(ctx, &repository.ChannelAuditLog{
 		ChannelID: channelID,
 		ActorID:   ownerUserID,
@@ -627,14 +582,14 @@ func (s *ChannelService) VerifyChannel(ctx context.Context, ownerUserID int64, c
 
 	if roleErr != nil {
 		return map[string]interface{}{
-			"status": "access_lost",
+			"status":  "access_lost",
 			"message": "Your access to this channel has been revoked. Ownership may have been transferred or your admin rights were removed.",
 		}, nil
 	}
 
 	return map[string]interface{}{
-		"status": "active",
-		"role":   role,
+		"status":  "active",
+		"role":    role,
 		"message": "Channel verified successfully.",
 	}, nil
 }
@@ -653,12 +608,12 @@ func (s *ChannelService) GetSettings(ctx context.Context, ownerUserID int64, cha
 	if err != nil {
 		return nil, err
 	}
-	
+
 	settings, err := s.channelRepo.GetChannelSettings(ctx, channelID)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Dynamically inject live Telegram Channel info
 	bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
 	if err == nil && bot != nil {
@@ -668,23 +623,23 @@ func (s *ChannelService) GetSettings(ctx context.Context, ownerUserID int64, cha
 			chatRes, tgErr := tg.GetChat(ctx, ch.ChatID)
 			if tgErr == nil && chatRes != nil {
 				var genMap map[string]interface{}
-			if err := json.Unmarshal(settings.General, &genMap); err == nil {
-				genMap["name"] = chatRes.Title
-				if chatRes.Description != "" {
-					genMap["description"] = chatRes.Description
-				}
-				if chatRes.Username != nil {
-					genMap["username"] = *chatRes.Username
-				}
-				
-				// Try to fetch photo URL
-				photoURL, pErr := tg.GetChatPhotoURL(ctx, ch.ChatID)
-				if pErr == nil && photoURL != "" {
-					genMap["photo"] = photoURL
-				} else if pErr == nil && photoURL == "" {
-					genMap["photo"] = "" // explicit empty if no photo
-				}
-				
+				if err := json.Unmarshal(settings.General, &genMap); err == nil {
+					genMap["name"] = chatRes.Title
+					if chatRes.Description != "" {
+						genMap["description"] = chatRes.Description
+					}
+					if chatRes.Username != nil {
+						genMap["username"] = *chatRes.Username
+					}
+
+					// Try to fetch photo URL
+					photoURL, pErr := tg.GetChatPhotoURL(ctx, ch.ChatID)
+					if pErr == nil && photoURL != "" {
+						genMap["photo"] = photoURL
+					} else if pErr == nil && photoURL == "" {
+						genMap["photo"] = "" // explicit empty if no photo
+					}
+
 					// Re-marshal
 					if updated, mErr := json.Marshal(genMap); mErr == nil {
 						settings.General = updated
@@ -693,7 +648,7 @@ func (s *ChannelService) GetSettings(ctx context.Context, ownerUserID int64, cha
 			}
 		}
 	}
-	
+
 	return settings, nil
 }
 
@@ -716,7 +671,7 @@ func (s *ChannelService) UpdateSettings(ctx context.Context, ownerUserID int64, 
 	if err != nil {
 		return nil, err
 	}
-	
+
 	ch, err := s.channelRepo.GetChannelByID(ctx, channelID)
 	if err == nil {
 		if err := s.checkSubscription(ch); err != nil {
@@ -735,10 +690,33 @@ func (s *ChannelService) UpdateSettings(ctx context.Context, ownerUserID int64, 
 		_ = json.Unmarshal(oldSettings.General, &oldGen)
 		_ = json.Unmarshal(newSettings.General, &newGen)
 
-		oldName, _ := oldGen["name"].(string)
-		newName, _ := newGen["name"].(string)
-		oldBio, _ := oldGen["description"].(string)
-		newBio, _ := newGen["description"].(string)
+		stringSettingValue := func(m map[string]interface{}, keys ...string) (string, bool) {
+			for _, k := range keys {
+				if v, ok := m[k].(string); ok {
+					return v, true
+				}
+			}
+			return "", false
+		}
+
+		oldName, _ := stringSettingValue(oldGen, "name", "channelName")
+		newName, hasNewName := stringSettingValue(newGen, "name", "channelName")
+		oldBio, _ := stringSettingValue(oldGen, "description", "channelBio")
+		newBio, hasNewBio := stringSettingValue(newGen, "description", "channelBio")
+		oldPhoto, _ := stringSettingValue(oldGen, "photo", "channelPhotoUrl")
+		newPhoto, hasNewPhoto := stringSettingValue(newGen, "photo", "channelPhotoUrl")
+
+		// Sync SignMessages and ProtectContent
+		var signMessages, protectContent bool
+		if sm, ok := newGen["signMessages"].(bool); ok {
+			signMessages = sm
+		}
+		if pc, ok := newGen["protectContent"].(bool); ok {
+			protectContent = pc
+		}
+		if (signMessages != ch.SignMessages) || (protectContent != ch.ProtectContent) {
+			_ = s.channelRepo.UpdateChannelFlags(ctx, ch.ID, signMessages, protectContent)
+		}
 
 		// Get the bot associated with the channel to make Telegram API calls
 		bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
@@ -746,19 +724,45 @@ func (s *ChannelService) UpdateSettings(ctx context.Context, ownerUserID int64, 
 			token, decErr := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 			if decErr == nil && token != "" {
 				tg := telegram.NewBotAPIClient(token)
-				
-				// Change title if changed
-			if newName != "" && newName != oldName {
-				_ = tg.SetChatTitle(ctx, ch.ChatID, newName)
-			}
-			
-			// Change bio if changed
-			if newBio != oldBio {
-				_ = tg.SetChatDescription(ctx, ch.ChatID, newBio)
+
+				if hasNewName && newName != "" && newName != oldName {
+					_ = tg.SetChatTitle(ctx, ch.ChatID, newName)
+				}
+
+				if hasNewBio && newBio != oldBio {
+					_ = tg.SetChatDescription(ctx, ch.ChatID, newBio)
+				}
+
+				if hasNewPhoto && newPhoto != oldPhoto {
+					if newPhoto == "" {
+						_ = tg.DeleteChatPhoto(ctx, ch.ChatID)
+					} else {
+						_ = tg.SetChatPhoto(ctx, ch.ChatID, newPhoto)
+					}
+				}
 			}
 		}
 	}
-}
+
+	// Sync inline buttons with the separate database table
+	if category == "inline_buttons" {
+		var inlineData InlineButtonsSettingsSchema
+		if err := json.Unmarshal(data, &inlineData); err == nil {
+			var repoBtns []repository.ChannelInlineButton
+			for _, b := range inlineData.Buttons {
+				repoBtns = append(repoBtns, repository.ChannelInlineButton{
+					Title: b.Title,
+					Value: b.Value,
+					Type:  b.Type,
+					Style: b.Style,
+					Emoji: b.Emoji,
+				})
+			}
+			if err := s.channelRepo.SaveChannelButtons(ctx, ch.ID, repoBtns); err != nil {
+				slog.Warn("failed to sync inline buttons to repo", "channel_id", ch.ID, "error", err)
+			}
+		}
+	}
 
 	// Audit Log
 	var oldVal []byte
@@ -949,279 +953,9 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 				if !strings.HasPrefix(target, "@") && !strings.HasPrefix(target, "-100") {
 					target = "@" + target
 				}
-				
+
 				// CopyMessage keeps the channel clean without "Forwarded from" tags
 				_ = tg.CopyMessage(ctx, target, chatID, messageID, replyMarkup)
-			}
-		}
-	}
-
-	// 2. Outbound Forwarding Rules (Copy/forward from our managed channel to other channels/webhooks)
-	if s.featureForwarding {
-		outboundRules, err := s.channelRepo.GetForwardingRules(ctx, ch.ID)
-		if err == nil && len(outboundRules) > 0 {
-			for _, rule := range outboundRules {
-				if !rule.IsActive || rule.Direction != "outbound" {
-					continue
-				}
-
-				bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
-				if err != nil {
-					continue
-				}
-
-				token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-				if err != nil {
-					continue
-				}
-
-				tg := telegram.NewBotAPIClient(token)
-
-				switch rule.TargetType {
-				case "telegram":
-					var finalChatID int64
-					if val, err := strconv.ParseInt(rule.Target, 10, 64); err == nil {
-						finalChatID = val
-					} else {
-						targetUser := rule.Target
-						if !strings.HasPrefix(targetUser, "@") {
-							targetUser = "@" + targetUser
-						}
-						chatRes, err := tg.GetChat(ctx, targetUser)
-						if err == nil && chatRes != nil {
-							finalChatID = chatRes.ID
-						}
-					}
-
-					if finalChatID != 0 {
-						text := ApplyTextFilters(postText, ChannelPostFilter{
-							Mode:           rule.Mode,
-							Watermark:      rule.Watermark,
-							RemoveAds:      rule.RemoveAds,
-							RemoveHashtags: rule.RemoveHashtags,
-							RemoveLinks:    rule.RemoveLinks,
-						})
-
-						// Fetch default buttons for the channel
-						buttons, _ := s.GetChannelButtonsByChannelID(ctx, ch.ID)
-
-						// Send to owner PV for approval instead of publishing directly
-						pendingID := uuid.New()
-						pending := repository.PendingPost{
-							ID:        pendingID,
-							ChannelID: ch.ID,
-							ChatID:    finalChatID,
-							Text:      text,
-							Buttons:   buttons,
-						}
-
-						cache := s.channelRepo.GetCache()
-						if cache != nil && cache.Client != nil {
-							pendingJSON, _ := json.Marshal(pending)
-							cacheKey := fmt.Sprintf("pending_post:%s", pendingID.String())
-							_ = cache.Client.Set(ctx, cacheKey, pendingJSON, 24*time.Hour).Err()
-						}
-
-						lang := "en"
-						var general GeneralSettingsSchema
-						if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
-							lang = general.Language
-						}
-
-						// Prepare inline buttons for PV message
-						markup := map[string]interface{}{
-							"inline_keyboard": [][]map[string]interface{}{
-								{
-									{
-										"text":          i18n.T(lang, "channel.approve_btn"),
-										"callback_data": fmt.Sprintf("approve:%s", pendingID.String()),
-									},
-									{
-										"text":          i18n.T(lang, "channel.reject_btn"),
-										"callback_data": fmt.Sprintf("reject:%s", pendingID.String()),
-									},
-								},
-								{
-									{
-										"text":          i18n.T(lang, "channel.edit_text_btn"),
-										"callback_data": fmt.Sprintf("edit_text:%s", pendingID.String()),
-									},
-									{
-										"text":          i18n.T(lang, "channel.edit_btn_btn"),
-										"callback_data": fmt.Sprintf("edit_btn:%s", pendingID.String()),
-									},
-								},
-							},
-						}
-
-						// Format preview text
-						previewText := i18n.T(lang, "channel.draft_autoforward_pending", map[string]interface{}{
-							"channel": ch.ChatTitle,
-							"text":    text,
-						})
-
-						if _, err := tg.SendMessageWithMarkup(ctx, bot.OwnerUserID, previewText, markup, nil); err != nil {
-							slog.Error("Failed to send outbound approval preview to bot owner", "owner_id", bot.OwnerUserID, "error", err)
-						}
-					}
-				case "webhook":
-					s.wg.Add(1)
-					GoSafe(func() {
-						defer s.wg.Done()
-						secret, err := s.getDynamicWebhookSecret(ch.ID)
-						if err != nil {
-							slog.Error("Webhook signing aborted", "error", err)
-							return
-						}
-
-						event := "post"
-						if isEdit {
-							event = "edit"
-						}
-						
-						payload := map[string]interface{}{
-							"channel_id":   ch.ID,
-							"chat_id":      chatID,
-							"message_id":   messageID,
-							"text":         postText,
-							"timestamp":    time.Now().Unix(),
-							"event":        event,
-						}
-						body, _ := json.Marshal(payload)
-
-						ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-						defer cancel()
-
-						s.sendOutboundWebhookPayload(ctx, rule.Target, body, secret)
-					})
-				}
-			}
-		}
-	}
-
-	// 3. Auto-Responder logic
-	if s.featureAutoResponder && !isEdit {
-		var responderConfig struct {
-			Enabled bool `json:"enabled"`
-			Rules   []struct {
-				Keys      string `json:"keys"`
-				ReplyText string `json:"replyText"`
-				Match     string `json:"match"`
-			} `json:"rules"`
-		}
-		if err := json.Unmarshal(settings.AutoResponder, &responderConfig); err == nil && responderConfig.Enabled {
-			// Prevent infinite loops: check if the post text exactly matches any of our own configured responses.
-			isOwnResponse := false
-			for _, rule := range responderConfig.Rules {
-				if strings.TrimSpace(postText) == strings.TrimSpace(rule.ReplyText) {
-					isOwnResponse = true
-					break
-				}
-			}
-
-			if !isOwnResponse {
-				for _, rule := range responderConfig.Rules {
-					matched := false
-					
-					// Split keys by comma if multiple keywords are provided
-					keysList := strings.Split(rule.Keys, ",")
-					for _, keyRaw := range keysList {
-						key := strings.TrimSpace(keyRaw)
-						if key == "" {
-							continue
-						}
-						
-						switch rule.Match {
-						case "exact":
-							if strings.EqualFold(strings.TrimSpace(postText), key) {
-								matched = true
-							}
-						case "contains":
-							if strings.Contains(strings.ToLower(postText), strings.ToLower(key)) {
-								matched = true
-							}
-						case "regex":
-							if re, err := regexp.Compile("(?i)" + key); err == nil {
-								if re.MatchString(postText) {
-									matched = true
-								}
-							}
-						case "keyword":
-							// Use \s and \p{P} for word boundaries that natively support Persian characters
-							pattern := `(?i)(^|[\s\p{P}])` + regexp.QuoteMeta(key) + `([\s\p{P}]|$)`
-							if re, err := regexp.Compile(pattern); err == nil {
-								if re.MatchString(postText) {
-									matched = true
-								}
-							}
-						default:
-							// Default fallback to contains
-							if strings.Contains(strings.ToLower(postText), strings.ToLower(key)) {
-								matched = true
-							}
-						}
-						
-						if matched {
-							break
-						}
-					}
-
-					if matched {
-						// Rate limiting to prevent spam triggers
-						if cache := s.channelRepo.GetCache(); cache != nil && cache.Client != nil {
-							rlKey := fmt.Sprintf("auto_responder_rl:%d", chatID)
-							count, _ := cache.Client.Incr(ctx, rlKey).Result()
-							if count == 1 {
-								cache.Client.Expire(ctx, rlKey, 1*time.Minute)
-							}
-							if count > 5 {
-								slog.Warn("Auto-Responder rate limit exceeded", "chat_id", chatID)
-								break
-							}
-						}
-
-						telemetry.RecordAutoresponderMatch(rule.Match)
-						// Send auto response message back to channel
-						bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
-						if err == nil {
-							token, decryptErr := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-							if decryptErr != nil {
-								slog.Error("Failed to decrypt bot token for auto responder", "bot_id", bot.ID, "error", decryptErr)
-								break
-							}
-							tg := telegram.NewBotAPIClient(token)
-							res, err := tg.SendMessageWithResult(ctx, chatID, rule.ReplyText, nil, nil)
-							if err != nil {
-								slog.Error("Failed to send auto-response message", "chat_id", chatID, "error", err)
-								
-								lowerErr := strings.ToLower(err.Error())
-								if strings.Contains(lowerErr, "forbidden") || strings.Contains(lowerErr, "kicked") || strings.Contains(lowerErr, "not a member") || strings.Contains(lowerErr, "not a participant") || strings.Contains(lowerErr, "chat not found") {
-									slog.Warn("Bot was kicked from channel detected during auto-responder, disconnecting it", "channel_id", ch.ID)
-									_ = s.channelRepo.DeleteChannel(ctx, ch.ID)
-									targetStr := ch.ID.String()
-									_ = s.auditRepo.Log(ctx, &repository.AuditLog{
-										ActorID:  bot.OwnerUserID,
-										Action:   "channel.kicked",
-										TargetID: &targetStr,
-									})
-								}
-							} else if res != nil {
-								var general repository.SettingsGeneral
-								if len(settings.General) > 0 {
-									_ = json.Unmarshal(settings.General, &general)
-								}
-								if general.AutoDeleteBot && general.AutoDeleteDelay > 0 {
-									time.AfterFunc(time.Duration(general.AutoDeleteDelay)*time.Second, func() {
-										_ = tg.DeleteMessage(context.Background(), chatID, res.MessageID)
-									})
-								}
-							}
-						} else {
-							slog.Error("Failed to fetch bot for auto responder", "bot_id", ch.BotID, "error", err)
-						}
-						break
-					}
-				}
 			}
 		}
 	}
@@ -1364,7 +1098,7 @@ func (s *ChannelService) scheduledPostWorker(ctx context.Context) {
 				cache := s.channelRepo.GetCache()
 				hasLock := false
 				lockVal := uuid.New().String() // Unique session token for this worker run
-				
+
 				if cache != nil && cache.Client != nil {
 					locked, err := cache.Client.SetNX(ctx, "lock:scheduled_posts_worker", lockVal, 25*time.Second).Result()
 					if err != nil || !locked {
@@ -1424,28 +1158,38 @@ func (s *ChannelService) scheduledPostWorker(ctx context.Context) {
 
 						ch, err := s.channelRepo.GetChannelByID(ctx, post.ChannelID)
 						if err != nil {
-							if processingKey != "" { cache.Client.Del(ctx, processingKey) }
+							if processingKey != "" {
+								cache.Client.Del(ctx, processingKey)
+							}
 							slog.Error("Failed to fetch channel for scheduled post", "post_id", post.ID, "error", err)
 							return
 						}
 						if err := s.checkSubscription(ch); err != nil {
-							if processingKey != "" { cache.Client.Del(ctx, processingKey) }
+							if processingKey != "" {
+								cache.Client.Del(ctx, processingKey)
+							}
 							var chID string
-							if ch != nil { chID = ch.ID.String() }
+							if ch != nil {
+								chID = ch.ID.String()
+							}
 							slog.Warn("Channel subscription expired or invalid, skipping scheduled post", "post_id", post.ID, "channel_id", chID)
 							return
 						}
 
 						bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
 						if err != nil {
-							if processingKey != "" { cache.Client.Del(ctx, processingKey) }
+							if processingKey != "" {
+								cache.Client.Del(ctx, processingKey)
+							}
 							slog.Error("Failed to fetch bot for scheduled post", "post_id", post.ID, "error", err)
 							return
 						}
 
 						token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 						if err != nil {
-							if processingKey != "" { cache.Client.Del(ctx, processingKey) }
+							if processingKey != "" {
+								cache.Client.Del(ctx, processingKey)
+							}
 							slog.Error("Failed to decrypt bot token in scheduled post worker", "post_id", post.ID, "error", err)
 							return
 						}
@@ -1457,9 +1201,11 @@ func (s *ChannelService) scheduledPostWorker(ctx context.Context) {
 						res, err := tg.SendMessageWithMarkup(ctx, ch.ChatID, post.Text, markup, nil)
 						if err != nil {
 							slog.Error("Failed to send scheduled message via telegram in worker", "post_id", post.ID, "error", err)
-							
+
 							// Normal failure: delete processing key so it can be retried
-							if processingKey != "" { cache.Client.Del(ctx, processingKey) }
+							if processingKey != "" {
+								cache.Client.Del(ctx, processingKey)
+							}
 
 							lowerErr := strings.ToLower(err.Error())
 							if strings.Contains(lowerErr, "forbidden") || strings.Contains(lowerErr, "kicked") || strings.Contains(lowerErr, "not a member") || strings.Contains(lowerErr, "not a participant") || strings.Contains(lowerErr, "chat not found") {
@@ -1509,165 +1255,6 @@ func (s *ChannelService) scheduledPostWorker(ctx context.Context) {
 				}
 			}()
 		}
-	}
-}
-
-func (s *ChannelService) analyticsSnapshotWorker(ctx context.Context) {
-	// Delay first run to avoid API overload during startup
-	select {
-	case <-ctx.Done():
-		slog.Info("Daily Analytics Worker stopped before first run")
-		return
-	case <-time.After(5 * time.Minute):
-		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					slog.Error("Recovered from panic in runAnalyticsSnapshot initial run", "panic", r, "stack", string(debug.Stack()))
-				}
-			}()
-			s.runAnalyticsSnapshot(ctx)
-		}()
-	}
-
-	ticker := time.NewTicker(1 * time.Hour)
-	defer ticker.Stop()
-
-	lastRunDay := time.Now().YearDay()
-
-	for {
-		select {
-		case <-ctx.Done():
-			slog.Info("Daily Analytics Worker stopped due to context cancellation")
-			return
-		case <-ticker.C:
-			currentDay := time.Now().YearDay()
-			if currentDay != lastRunDay {
-				func() {
-					defer func() {
-						if r := recover(); r != nil {
-							slog.Error("Recovered from panic in runAnalyticsSnapshot hourly ticker run", "panic", r, "stack", string(debug.Stack()))
-						}
-					}()
-					s.runAnalyticsSnapshot(ctx)
-					lastRunDay = currentDay
-				}()
-			}
-		}
-	}
-}
-
-func (s *ChannelService) runAnalyticsSnapshot(ctx context.Context) {
-	cache := s.channelRepo.GetCache()
-	if cache != nil && cache.Client != nil {
-		todayStr := time.Now().Format("2006-01-02")
-		lockKey := fmt.Sprintf("lock:analytics:%s", todayStr)
-		
-		// Acquire Redis Lock for 23 hours to prevent multi-replica execution collisions
-		acquired, err := cache.Client.SetNX(ctx, lockKey, "locked", 23*time.Hour).Result()
-		if err != nil || !acquired {
-			slog.Info("Daily analytics snapshot already processed by another replica for day", "date", todayStr)
-			return
-		}
-	}
-
-	slog.Info("Running daily channel analytics snapshot generation...")
-
-	limit := 100
-	var cursor *time.Time
-	var cursorID *uuid.UUID
-	sem := make(chan struct{}, 5)
-
-	// Safe spacing ticker (100ms interval) to respect Telegram API limits
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
-
-	for {
-		batch, err := s.channelRepo.GetChannelsWithBotsPaged(ctx, limit, cursor, cursorID)
-		if err != nil {
-			slog.Error("Failed to retrieve paged channels for daily analytics", "error", err)
-			break
-		}
-		if len(batch) == 0 {
-			break
-		}
-
-		for _, cb := range batch {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				// Tick received, safe to launch next Telegram request
-			}
-
-			select {
-			case <-ctx.Done():
-				return
-			case sem <- struct{}{}:
-				// Acquired concurrency ticket
-			}
-
-			item := cb
-			GoSafe(func() {
-				defer func() { <-sem }() // Release concurrency ticket
-
-				token, err := botmgmt.DecryptToken(item.BotTokenEncrypted)
-				if err != nil {
-					slog.Error("Failed to decrypt bot token for analytics", "channel_id", item.ChannelID, "error", err)
-					return
-				}
-
-				tg := telegram.NewBotAPIClient(token)
-				currentCount, err := tg.GetChatMemberCount(ctx, item.ChatID)
-				if err != nil {
-					slog.Error("Failed to fetch current telegram subscriber count for analytics", "channel_id", item.ChannelID, "error", err)
-					
-					lowerErr := strings.ToLower(err.Error())
-					if strings.Contains(lowerErr, "forbidden") || strings.Contains(lowerErr, "kicked") || strings.Contains(lowerErr, "not a member") || strings.Contains(lowerErr, "not a participant") || strings.Contains(lowerErr, "chat not found") {
-						slog.Warn("Bot was kicked from channel detected during analytics, disconnecting it", "channel_id", item.ChannelID)
-						_ = s.channelRepo.DeleteChannel(ctx, item.ChannelID)
-						// Log audit using system user or skip since it's background
-					}
-					
-					return
-				}
-
-				newSubscribers := currentCount - item.SubscribersCount
-				if newSubscribers < 0 {
-					newSubscribers = 0
-				}
-
-				// Save Snapshot date as truncated to midnight
-				now := time.Now()
-				snapshotDate := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-
-				snapshot := &repository.ChannelAnalytics{
-					ChannelID:        item.ChannelID,
-					SnapshotDate:     snapshotDate,
-					SubscribersCount: currentCount,
-					NewSubscribers:   newSubscribers,
-					ViewsCount:       0,
-					ReactionsCount:   0,
-					PostsCount:       0,
-				}
-
-				err = s.channelRepo.SaveSnapshotAndUpdateSubscribers(ctx, snapshot, currentCount)
-				if err != nil {
-					slog.Error("Failed to save analytics snapshot and update subscribers", "channel_id", item.ChannelID, "error", err)
-					return
-				}
-
-				slog.Info("Completed daily analytics snapshot for channel", "channel_id", item.ChannelID, "subscribers", currentCount)
-			})
-		}
-
-		lastItem := batch[len(batch)-1]
-		cursor = &lastItem.CreatedAt
-		cursorID = &lastItem.ChannelID
-	}
-
-	// Drain semaphore channel to verify all workers have finished before returning
-	for i := 0; i < 5; i++ {
-		sem <- struct{}{}
 	}
 }
 
@@ -1726,7 +1313,7 @@ func (s *ChannelService) VerifyForwardingTarget(ctx context.Context, ownerUserID
 	}
 
 	tg := telegram.NewBotAPIClient(token)
-	
+
 	parsedTarget := parseChatIDOrUsername(target)
 	chatResult, err := tg.GetChat(ctx, parsedTarget)
 	if err != nil {
@@ -1815,7 +1402,7 @@ func (s *ChannelService) DeleteForwardingRule(ctx context.Context, ownerUserID i
 		return err
 	}
 
-	err := s.channelRepo.DeleteForwardingRule(ctx, ruleID)
+	err := s.channelRepo.DeleteForwardingRule(ctx, channelID, ruleID)
 	if err != nil {
 		return err
 	}
@@ -1993,7 +1580,6 @@ func (s *ChannelService) RestrictMember(ctx context.Context, ownerUserID int64, 
 	tg := telegram.NewBotAPIClient(token)
 	return tg.RestrictChatMember(ctx, ch.ChatID, memberID, 0)
 }
-
 
 // GetButtons returns inline buttons list for a channel
 func (s *ChannelService) GetButtons(ctx context.Context, ownerUserID int64, channelID uuid.UUID) ([]repository.ChannelInlineButton, error) {
@@ -2235,7 +1821,6 @@ func (s *ChannelService) GetChannelButtonsByChannelID(ctx context.Context, chann
 	return s.channelRepo.GetChannelButtons(ctx, channelID)
 }
 
-
 func SafeHTTPClient(timeout time.Duration) *http.Client {
 	dialer := &net.Dialer{
 		Timeout:   3 * time.Second,
@@ -2308,7 +1893,7 @@ func dynamicParaphrase(text string) string {
 		"buy":     "purchase",
 		"support": "assistance",
 	}
-	
+
 	processed := text
 	for oldWord, newWord := range replacements {
 		re := regexp.MustCompile(`(?i)\b` + regexp.QuoteMeta(oldWord) + `\b`)
@@ -2326,7 +1911,7 @@ func dynamicParaphrase(text string) string {
 
 func callGeminiParaphrase(text, apiKey string) (string, error) {
 	promptText := "Paraphrase the following text in a professional tone, returning ONLY the paraphrased text without any explanations or intro:\n\n" + text
-	
+
 	reqPayload := map[string]interface{}{
 		"contents": []interface{}{
 			map[string]interface{}{
@@ -2338,35 +1923,35 @@ func callGeminiParaphrase(text, apiKey string) (string, error) {
 			},
 		},
 	}
-	
+
 	jsonData, err := json.Marshal(reqPayload)
 	if err != nil {
 		return "", err
 	}
-	
+
 	apiURL := "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	
+
 	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	client := &http.Client{Timeout: 3 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		return "", fmt.Errorf("Gemini API returned status %d: %s", resp.StatusCode, string(bodyBytes))
 	}
-	
+
 	var geminiResp struct {
 		Candidates []struct {
 			Content struct {
@@ -2376,18 +1961,18 @@ func callGeminiParaphrase(text, apiKey string) (string, error) {
 			} `json:"content"`
 		} `json:"candidates"`
 	}
-	
+
 	if err := json.NewDecoder(resp.Body).Decode(&geminiResp); err != nil {
 		return "", err
 	}
-	
+
 	if len(geminiResp.Candidates) > 0 && len(geminiResp.Candidates[0].Content.Parts) > 0 {
 		result := strings.TrimSpace(geminiResp.Candidates[0].Content.Parts[0].Text)
 		if result != "" {
 			return result, nil
 		}
 	}
-	
+
 	return "", fmt.Errorf("no paraphrase content returned in response")
 }
 

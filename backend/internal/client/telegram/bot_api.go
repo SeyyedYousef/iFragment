@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"math"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
@@ -313,8 +314,8 @@ func (c *BotAPIClient) SendMessageWithResult(ctx context.Context, chatID int64, 
 		mode = parseMode[0]
 	}
 	payload := map[string]interface{}{
-		"chat_id":    chatID,
-		"text":       text,
+		"chat_id": chatID,
+		"text":    text,
 	}
 	if mode != "" {
 		payload["parse_mode"] = mode
@@ -366,19 +367,19 @@ func (c *BotAPIClient) RestrictChatMember(ctx context.Context, chatID int64, use
 		"chat_id": chatID,
 		"user_id": userID,
 		"permissions": map[string]bool{
-			"can_send_messages":       false,
-			"can_send_audios":         false,
-			"can_send_documents":      false,
-			"can_send_photos":         false,
-			"can_send_videos":         false,
-			"can_send_video_notes":    false,
-			"can_send_voice_notes":    false,
-			"can_send_polls":          false,
-			"can_send_other_messages": false,
+			"can_send_messages":         false,
+			"can_send_audios":           false,
+			"can_send_documents":        false,
+			"can_send_photos":           false,
+			"can_send_videos":           false,
+			"can_send_video_notes":      false,
+			"can_send_voice_notes":      false,
+			"can_send_polls":            false,
+			"can_send_other_messages":   false,
 			"can_add_web_page_previews": false,
 		},
 		"use_independent_chat_permissions": true,
-		"until_date": untilDate,
+		"until_date":                       untilDate,
 	})
 	return err
 }
@@ -404,16 +405,16 @@ func (c *BotAPIClient) UnbanChatMember(ctx context.Context, chatID int64, userID
 
 func (c *BotAPIClient) UnrestrictChatMember(ctx context.Context, chatID int64, userID int64) error {
 	_, err := c.Request(ctx, "restrictChatMember", map[string]interface{}{
-		"chat_id":    chatID,
-		"user_id":    userID,
+		"chat_id": chatID,
+		"user_id": userID,
 		"permissions": map[string]bool{
-			"can_send_messages":       true,
-			"can_send_media_messages": true,
-			"can_send_polls":          true,
-			"can_send_other_messages": true,
+			"can_send_messages":         true,
+			"can_send_media_messages":   true,
+			"can_send_polls":            true,
+			"can_send_other_messages":   true,
 			"can_add_web_page_previews": true,
-			"can_invite_users":        true,
-			"can_pin_messages":        true,
+			"can_invite_users":          true,
+			"can_pin_messages":          true,
 		},
 	})
 	return err
@@ -626,16 +627,16 @@ func (c *BotAPIClient) GetChatPhotoURL(ctx context.Context, chatID interface{}) 
 	if chat.Photo == nil || chat.Photo.BigFileID == "" {
 		return "", nil // No photo
 	}
-	
+
 	fileRes, err := c.GetFile(ctx, chat.Photo.BigFileID)
 	if err != nil {
 		return "", err
 	}
-	
+
 	if fileRes.FilePath == "" {
 		return "", fmt.Errorf("file_path is empty")
 	}
-	
+
 	// Construct the URL. The client struct needs the token, which it uses internally.
 	// We can access c.token.
 	url := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", c.token, fileRes.FilePath)
@@ -660,12 +661,86 @@ func (c *BotAPIClient) SetChatDescription(ctx context.Context, chatID interface{
 	return err
 }
 
+// DeleteChatPhoto deletes the chat photo
+func (c *BotAPIClient) DeleteChatPhoto(ctx context.Context, chatID interface{}) error {
+	_, err := c.Request(ctx, "deleteChatPhoto", map[string]interface{}{
+		"chat_id": chatID,
+	})
+	return err
+}
+
+// SetChatPhoto downloads a photo from URL and sets it as the chat profile photo
+func (c *BotAPIClient) SetChatPhoto(ctx context.Context, chatID interface{}, photoURL string) error {
+	// 1. Download the photo
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, photoURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create download request for photo: %w", err)
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to download photo: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to download photo: status code %d", resp.StatusCode)
+	}
+
+	// 2. Prepare multipart/form-data
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	// Add chat_id field
+	chatIDStr := fmt.Sprintf("%v", chatID)
+	_ = writer.WriteField("chat_id", chatIDStr)
+
+	// Add photo field
+	part, err := writer.CreateFormFile("photo", "photo.jpg")
+	if err != nil {
+		return fmt.Errorf("failed to create form file: %w", err)
+	}
+
+	if _, err = io.Copy(part, resp.Body); err != nil {
+		return fmt.Errorf("failed to copy photo data: %w", err)
+	}
+
+	if err = writer.Close(); err != nil {
+		return fmt.Errorf("failed to close multipart writer: %w", err)
+	}
+
+	// 3. Send to Telegram
+	tgURL := fmt.Sprintf("%s/bot%s/setChatPhoto", c.baseURL, c.token)
+	tgReq, err := http.NewRequestWithContext(ctx, http.MethodPost, tgURL, body)
+	if err != nil {
+		return fmt.Errorf("failed to create telegram request: %w", err)
+	}
+	tgReq.Header.Set("Content-Type", writer.FormDataContentType())
+
+	tgResp, err := c.client.Do(tgReq)
+	if err != nil {
+		return fmt.Errorf("telegram setChatPhoto request failed: %w", err)
+	}
+	defer tgResp.Body.Close()
+
+	var tgResult apiResponse
+	if err := json.NewDecoder(tgResp.Body).Decode(&tgResult); err != nil {
+		return fmt.Errorf("failed to decode setChatPhoto response: %w", err)
+	}
+
+	if !tgResult.OK {
+		return fmt.Errorf("setChatPhoto failed: %s", tgResult.Description)
+	}
+
+	return nil
+}
+
 // ForwardMessage forwards a Telegram message from one chat to another
 func (c *BotAPIClient) ForwardMessage(ctx context.Context, targetChatID interface{}, fromChatID int64, messageID int) error {
 	_, err := c.Request(ctx, "forwardMessage", map[string]interface{}{
-		"chat_id":              targetChatID,
-		"from_chat_id":         fromChatID,
-		"message_id":           messageID,
+		"chat_id":      targetChatID,
+		"from_chat_id": fromChatID,
+		"message_id":   messageID,
 	})
 	return err
 }

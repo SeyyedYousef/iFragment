@@ -503,4 +503,3 @@ func TestValidateSettingsCategoryInlineButtons(t *testing.T) {
 		})
 	}
 }
-

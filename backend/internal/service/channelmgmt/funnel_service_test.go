@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"ifragment-backend/internal/repository"
 )
 
@@ -62,11 +61,9 @@ func TestChannelFunnelDeBounceAndLogic(t *testing.T) {
 
 func TestFunnelStateSelection(t *testing.T) {
 	draft := &repository.PendingFunnelPost{
-		ID:                     uuid.New(),
 		DraftText:              "Original caption",
 		AiVariations:           []string{"Standard rewrite", "Bold promotional rewrite", "Short description"},
 		SelectedVariationIndex: 0,
-		Status:                 "pending",
 	}
 
 	// Simulation: Owner selects Promo variation (Index 1)

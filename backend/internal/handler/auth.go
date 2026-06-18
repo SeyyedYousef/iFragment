@@ -52,12 +52,12 @@ func (h *AuthHandler) IssueToken(w http.ResponseWriter, r *http.Request) {
 		RespondError(w, r, http.StatusUnauthorized, "Invalid user ID format", nil)
 		return
 	}
-	
+
 	if telegramID <= 0 {
 		RespondError(w, r, http.StatusUnauthorized, "Invalid Telegram user ID", nil)
 		return
 	}
-	
+
 	username, _ := user["username"].(string)
 	firstName, _ := user["first_name"].(string)
 	lastName, _ := user["last_name"].(string)
@@ -87,7 +87,7 @@ func (h *AuthHandler) IssueToken(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	
+
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
 		RespondError(w, r, http.StatusInternalServerError, "JWT configuration error", nil)

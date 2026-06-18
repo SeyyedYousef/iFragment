@@ -324,6 +324,33 @@ export const mockApiLogic = (method: string = 'GET', url: string = '', _data: an
 	// ─── CHANNEL MANAGEMENT MOCKS ────────────────────────────
 	if (path.includes('/channels')) {
 		const methodUp = (method || 'GET').toUpperCase();
+		const channelId = path.match(/\/channels\/([^/]+)/)?.[1] || 'mock-ch-1';
+		const channelProfiles: Record<string, any> = {
+			'mock-ch-1': {
+				name: 'iFragment Channel',
+				description: 'Official iFragment channel',
+				username: 'ifragment_channel',
+				timezone: 'Asia/Tehran',
+				signature: 'iFragment',
+				watermark: '@ifragment_channel',
+			},
+			'mock-ch-2': {
+				name: 'Tech News FA',
+				description: 'Daily Persian tech updates',
+				username: 'tech_news_fa',
+				timezone: 'Asia/Kabul',
+				signature: 'Tech News FA',
+				watermark: '@tech_news_fa',
+			},
+		};
+		const channelProfile = channelProfiles[channelId] || {
+			name: 'Unknown Channel',
+			description: '',
+			username: '',
+			timezone: 'UTC',
+			signature: '',
+			watermark: '',
+		};
 
 		// POST /channels/connect
 		if (path.endsWith('/connect') && methodUp === 'POST') {
@@ -346,7 +373,7 @@ export const mockApiLogic = (method: string = 'GET', url: string = '', _data: an
 				return [
 					{
 						id: 'rule-1',
-						channel_id: 'mock-ch-1',
+						channel_id: channelId,
 						direction: 'inbound',
 						target_type: 'telegram',
 						target: '@target_channel',
@@ -381,7 +408,7 @@ export const mockApiLogic = (method: string = 'GET', url: string = '', _data: an
 			return [
 				{
 					id: 'admin-1',
-					channel_id: 'mock-ch-1',
+					channel_id: channelId,
 					telegram_id: 123456,
 					username: 'admin_user',
 					first_name: 'Admin',
@@ -391,7 +418,7 @@ export const mockApiLogic = (method: string = 'GET', url: string = '', _data: an
 				},
 				{
 					id: 'admin-2',
-					channel_id: 'mock-ch-1',
+					channel_id: channelId,
 					telegram_id: 789012,
 					username: 'editor_user',
 					first_name: 'Editor',
@@ -410,7 +437,7 @@ export const mockApiLogic = (method: string = 'GET', url: string = '', _data: an
 			return [
 				{
 					id: 'btn-1',
-					channel_id: 'mock-ch-1',
+					channel_id: channelId,
 					title: '🔗 وبسایت ما',
 					value: 'https://example.com',
 					type: 'url',
@@ -421,7 +448,7 @@ export const mockApiLogic = (method: string = 'GET', url: string = '', _data: an
 				},
 				{
 					id: 'btn-2',
-					channel_id: 'mock-ch-1',
+					channel_id: channelId,
 					title: '❤️ لایک',
 					value: 'like',
 					type: 'counter',
@@ -450,35 +477,35 @@ export const mockApiLogic = (method: string = 'GET', url: string = '', _data: an
 			return [
 				{
 					id: 'audit-1',
-					channel_id: 'mock-ch-1',
+					channel_id: channelId,
 					actor_id: 123456,
 					action: 'تنظیمات فوروارد تغییر کرد',
 					created_at: new Date(Date.now() - 2 * 3600000).toISOString(),
 				},
 				{
 					id: 'audit-2',
-					channel_id: 'mock-ch-1',
+					channel_id: channelId,
 					actor_id: 123456,
 					action: 'پست جدید ارسال شد',
 					created_at: new Date(Date.now() - 5 * 3600000).toISOString(),
 				},
 				{
 					id: 'audit-3',
-					channel_id: 'mock-ch-1',
+					channel_id: channelId,
 					actor_id: 0,
 					action: 'پاسخ خودکار فعال شد',
 					created_at: new Date(Date.now() - 12 * 3600000).toISOString(),
 				},
 				{
 					id: 'audit-4',
-					channel_id: 'mock-ch-1',
+					channel_id: channelId,
 					actor_id: 789012,
 					action: 'ادمین جدید اضافه شد',
 					created_at: new Date(Date.now() - 24 * 3600000).toISOString(),
 				},
 				{
 					id: 'audit-5',
-					channel_id: 'mock-ch-1',
+					channel_id: channelId,
 					actor_id: 123456,
 					action: 'دکمه شیشه‌ای جدید ساخته شد',
 					created_at: new Date(Date.now() - 48 * 3600000).toISOString(),
@@ -492,19 +519,19 @@ export const mockApiLogic = (method: string = 'GET', url: string = '', _data: an
 				return { version: (_data?.version || 1) + 1, updated_at: new Date().toISOString() };
 			}
 			return {
-				channel_id: 'mock-ch-1',
+				channel_id: channelId,
 				general: {
 					language: 'fa',
-					timezone: 'Asia/Tehran',
+					timezone: channelProfile.timezone,
 					signMessages: true,
-					customSignature: '📢 iFragment',
+					customSignature: channelProfile.signature,
 					autoForward: false,
 					forwardDestination: '',
 					disableReactions: false,
-					name: 'iFragment Channel',
-					description: 'کانال رسمی آیفرگمنت',
+					name: channelProfile.name,
+					description: channelProfile.description,
 					photo: '',
-					username: 'ifragment_channel',
+					username: channelProfile.username,
 					showAdminProfile: true,
 					hideChatHistory: false,
 					hideMemberList: false,
@@ -519,9 +546,22 @@ export const mockApiLogic = (method: string = 'GET', url: string = '', _data: an
 					autoPostEnabled: false,
 					postInterval: '1h',
 					watermarkEnabled: true,
-					watermarkText: '@ifragment_channel',
+					watermarkText: channelProfile.watermark,
 					silentPosting: false,
 					deleteAfter: 0,
+				},
+				inline_buttons: { enabled: true, preset: 'like' },
+				forwarding: { enabled: true },
+				dynamic_bio: {
+					enabled: false,
+					bioTemplate: `${channelProfile.name} | Members: $members`,
+					displayInName: false,
+					nameTemplate: '',
+					interval: '10m',
+				},
+				auto_responder: {
+					enabled: true,
+					rules: [],
 				},
 				version: 1,
 				updated_at: new Date().toISOString(),

@@ -335,7 +335,7 @@ func (h *BotMgmtHandler) CreateSubscriptionStarsInvoice(w http.ResponseWriter, r
 	// 1 FRG = 75 Stars
 	starsPrice := int(pkg.PriceFRG * 75)
 	payload := fmt.Sprintf("sub_stars_%s_%s", groupID.String(), req.PackageID)
-	
+
 	link, err := h.marketplace.CreateCustomStarsInvoice(r.Context(), userID, "Subscription: "+pkg.Name, fmt.Sprintf("Subscription for %s package", pkg.Name), payload, starsPrice)
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)

@@ -21,11 +21,11 @@ import (
 type Status string
 
 const (
-	StatusAvailable        Status = "available"
-	StatusOccupied         Status = "occupied"
-	StatusPurchase         Status = "purchase_available"
-	StatusInvalid          Status = "invalid"
-	StatusUnknown          Status = "unknown"
+	StatusAvailable Status = "available"
+	StatusOccupied  Status = "occupied"
+	StatusPurchase  Status = "purchase_available"
+	StatusInvalid   Status = "invalid"
+	StatusUnknown   Status = "unknown"
 )
 
 type Client interface {
@@ -215,7 +215,7 @@ func (m *MockClient) CheckUsername(ctx context.Context, username string) (Status
 
 func (m *MockClient) ResolveUsername(ctx context.Context, username string) (*tg.ContactsResolvedPeer, error) {
 	slog.Warn("Using MOCK MTProto Client for ResolveUsername", "username", username)
-	
+
 	status, _ := m.CheckUsername(ctx, username)
 	if status == StatusOccupied || status == StatusPurchase {
 		return &tg.ContactsResolvedPeer{
@@ -228,7 +228,7 @@ func (m *MockClient) ResolveUsername(ctx context.Context, username string) (*tg.
 			},
 		}, nil
 	}
-	
+
 	// Simulated error for username not found
 	return nil, tgerr.New(400, "USERNAME_NOT_OCCUPIED")
 }

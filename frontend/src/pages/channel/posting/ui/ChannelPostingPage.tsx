@@ -24,6 +24,7 @@ const hapticFeedback = {
 import { createStore, reconcile, unwrap } from 'solid-js/store';
 import { channelApi } from '@/shared/api/channel-management.js';
 import { t } from '@/shared/i18n/index.js';
+import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SettingsSection } from '@/shared/ui/settings-controls.js';
 import { showToast } from '@/shared/ui/toast.js';
@@ -189,6 +190,15 @@ export const ChannelPostingPage: Component = () => {
 		if (!textPrompt && action !== 'suggestHashtags') return;
 		if (isGenerating()) return;
 
+		if (isDirty()) {
+			showToast(
+				t('channelPosting.saveBeforePreview') ||
+					'Save the AI settings before generating a preview.',
+				'info',
+			);
+			return;
+		}
+
 		if (!config.apiKey) {
 			showToast(t('channelPosting.missingApiKey') || 'Please enter your API key first.', 'error');
 			setSimulatorOutput(t('channelPosting.simNoApiKey') || '❌ Please enter your API key first.');
@@ -242,6 +252,7 @@ export const ChannelPostingPage: Component = () => {
 			setSettingsVersion(result.version);
 			setIsDirty(false);
 			hapticFeedback.notificationOccurred('success');
+			showToast(t('common.settingsSaved') || 'Settings saved successfully', 'success');
 			navigate(`/channel/${params.id}`);
 		} catch (_e: any) {
 			hapticFeedback.notificationOccurred('error');
@@ -308,6 +319,8 @@ export const ChannelPostingPage: Component = () => {
 			/>
 
 			<div class="px-5 pt-6 flex flex-col gap-6">
+				<ChannelContextBar channelId={params.id} />
+
 				{/* Smart Editor Core Activation Settings */}
 				<Motion.div
 					initial={{ opacity: 0, y: 10 }}

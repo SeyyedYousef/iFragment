@@ -13,6 +13,7 @@ import {
 } from 'solid-js';
 import { channelApi } from '@/shared/api/channel-management.js';
 import { t } from '@/shared/i18n/index.js';
+import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SelectField, SettingsSection } from '@/shared/ui/settings-controls.js';
 import { showToast } from '@/shared/ui/toast.js';
@@ -254,7 +255,6 @@ export const ChannelInlineButtonsPage: Component = () => {
 	};
 
 	const handleSave = async () => {
-		hapticFeedback.notificationOccurred('success');
 		setIsSaving(true);
 
 		// Save to server
@@ -284,6 +284,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 			await channelApi.updateSettings(params.id, 'inline_buttons', settingsPayload, currentVersion);
 			await channelApi.saveButtons(params.id, buttonsPayload);
 			setIsDirty(false);
+			hapticFeedback.notificationOccurred('success');
 			showToast(t('channelInlineButtons.saveSuccess') || 'Settings saved successfully', 'success');
 			navigate(`/channel/${params.id}`);
 		} catch (e) {
@@ -347,6 +348,8 @@ export const ChannelInlineButtonsPage: Component = () => {
 			/>
 
 			<div class="px-5 pt-6 flex flex-col gap-6 pb-24">
+				<ChannelContextBar channelId={params.id} />
+
 				{/* Enable / Disable Glass Buttons */}
 				<Motion.div
 					initial={{ opacity: 0, y: 10 }}

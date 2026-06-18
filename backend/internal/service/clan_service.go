@@ -140,7 +140,7 @@ func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, usern
 	}
 
 	normalized := strings.TrimPrefix(strings.TrimSpace(username), "@")
-	
+
 	// 1. Strict Username Validation
 	if !telegramUsernameRegex.MatchString(normalized) {
 		return nil, ErrInvalidUsername
@@ -165,7 +165,7 @@ func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, usern
 	err := s.db.Pool.QueryRow(ctx, queryExists, normalized).Scan(
 		&existingClan.ID, &existingClan.TelegramChannelID, &existingClan.ChannelUsername, &existingChannelPhoto, &existingClan.ChatTitle, &existingClan.MembersCount, &existingClan.CreatedAt,
 	)
-	
+
 	var channelID int64
 	var chatTitle string
 	var photoURL string
@@ -203,7 +203,7 @@ func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, usern
 			if chat.Type != "channel" {
 				return nil, ErrChannelNotFound
 			}
-			
+
 			// Verify that the user is actually a member/admin of this channel (C2)
 			status, err := tg.GetChatMember(ctx, chat.ID, userID)
 			if err != nil {

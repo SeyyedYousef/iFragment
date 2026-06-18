@@ -680,6 +680,3 @@ func (r *OwnerRepo) DeleteQuestTx(ctx context.Context, tx pgx.Tx, key string) er
 	_, err := tx.Exec(ctx, query, key)
 	return err
 }
-
-
-

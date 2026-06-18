@@ -192,7 +192,7 @@ func (s *ProfileService) GetAvatarStream(ctx context.Context, userID int64) (io.
 
 	fileURL := fmt.Sprintf("%s/file/bot%s/%s", tg.BaseURL(), tg.Token(), path)
 	slog.Debug("[GetAvatarStream] Downloading from Telegram", "base_url", tg.BaseURL(), "path", path)
-	
+
 	client := &http.Client{Timeout: 5 * time.Second}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fileURL, nil)
 	if err != nil {
@@ -451,7 +451,7 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int) (*
 	const recoveryPerSec = 1
 	now := time.Now()
 	regen := int(now.Sub(energyUpdatedAt).Seconds()) * recoveryPerSec
-	
+
 	newUpdatedAt := energyUpdatedAt
 	if regen > 0 {
 		energy = min(maxEnergy, energy+regen)
@@ -767,4 +767,3 @@ func (s *ProfileService) DeleteUserDataGDPR(ctx context.Context, userID int64) e
 
 	return nil
 }
-

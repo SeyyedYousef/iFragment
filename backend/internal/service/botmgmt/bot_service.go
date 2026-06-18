@@ -1,6 +1,7 @@
 package botmgmt
 
 import (
+	"bytes"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
@@ -10,17 +11,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
+	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
-	"net/http"
-	"bytes"
-	"log/slog"
-	"strconv"
 
-	"github.com/google/uuid"
 	"crypto/sha256"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/i18n"
@@ -163,7 +163,7 @@ func (s *BotService) sendExpirationNotice(ctx context.Context, g repository.Mana
 	if err != nil {
 		return
 	}
-	
+
 	// Get Language
 	lang := "en"
 	settings, _ := s.settingsRepo.GetSettings(ctx, g.ID)
@@ -178,7 +178,7 @@ func (s *BotService) sendExpirationNotice(ctx context.Context, g repository.Mana
 	tg := telegram.NewBotAPIClient(token)
 
 	msg := i18n.T(lang, "notifications."+template, vars)
-	
+
 	// Send to owner PV ONLY
 	_ = tg.SendMessage(ctx, bot.OwnerUserID, msg, nil, nil)
 }
@@ -466,7 +466,7 @@ func (s *BotService) Subscribe(ctx context.Context, userID int64, groupID uuid.U
 	}
 
 	meta, _ := json.Marshal(map[string]interface{}{
-		"package": packageID,
+		"package":  packageID,
 		"group_id": groupID.String(),
 	})
 
@@ -540,10 +540,10 @@ func (s *BotService) notifyOwnerOnSubscription(ctx context.Context, botUsername 
 	if owners == "" {
 		return
 	}
-	
+
 	msg := fmt.Sprintf("🔔 <b>New Subscription Purchased!</b>\nBot: @%s\nGroup: %s\nPackage: %s\nMethod: %s\nUser ID: %d",
 		botUsername, groupTitle, packageName, paymentMethod, userID)
-	
+
 	botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
 	if botToken == "" {
 		botToken = os.Getenv("BOT_TOKEN")
@@ -579,7 +579,7 @@ func (s *BotService) ActivateSubscriptionFromStars(ctx context.Context, userID i
 	if pkg == nil {
 		return fmt.Errorf("invalid package")
 	}
-	
+
 	tx, err := s.frgRepo.DB().Pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -593,7 +593,7 @@ func (s *BotService) ActivateSubscriptionFromStars(ctx context.Context, userID i
 	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
-	
+
 	bot, _ := s.botRepo.GetBotByID(ctx, group.BotID)
 	botUsername := ""
 	if bot != nil {
@@ -655,7 +655,7 @@ func (s *BotService) SubscribeWithAirdrop(ctx context.Context, userID int64, gro
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("failed to commit subscription transaction: %w", err)
 	}
-	
+
 	bot, _ := s.botRepo.GetBotByID(ctx, group.BotID)
 	botUsername := ""
 	if bot != nil {
@@ -663,7 +663,7 @@ func (s *BotService) SubscribeWithAirdrop(ctx context.Context, userID int64, gro
 	}
 	s.notifyOwnerOnSubscription(context.Background(), botUsername, group.ChatTitle, pkg.Name, "Airdrop Coins", userID)
 
-	// Credit referrer share 
+	// Credit referrer share
 	go func() {
 		bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
@@ -672,7 +672,6 @@ func (s *BotService) SubscribeWithAirdrop(ctx context.Context, userID int64, gro
 
 	return nil
 }
-
 
 // Analytics
 

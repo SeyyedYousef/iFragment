@@ -144,11 +144,11 @@ func (db *Database) GetUserTasks(ctx context.Context, userID int64) ([]UserTask,
 		}
 		tasks = append(tasks, t)
 	}
-	
+
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	
+
 	return tasks, nil
 }
 

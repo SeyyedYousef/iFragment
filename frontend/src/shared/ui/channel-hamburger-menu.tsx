@@ -1,7 +1,8 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
 import createFocusTrap from 'solid-focus-trap';
-import { Component, For, Show } from 'solid-js';
+import { Component, createResource, For, Show } from 'solid-js';
+import { channelApi } from '@/shared/api/channel-management.js';
 import { locale, t } from '@/shared/i18n/index.js';
 
 const isRtl = () => locale() === 'fa';
@@ -15,6 +16,10 @@ interface ChannelHamburgerMenuProps {
 
 export const ChannelHamburgerMenu: Component<ChannelHamburgerMenuProps> = (props) => {
 	const navigate = useNavigate();
+	const [channel] = createResource(
+		() => props.channelId,
+		(id) => channelApi.getChannel(id),
+	);
 	let drawerRef: HTMLDivElement | undefined;
 
 	createFocusTrap({
@@ -127,6 +132,27 @@ export const ChannelHamburgerMenu: Component<ChannelHamburgerMenuProps> = (props
 						</div>
 
 						<div class="flex-1 overflow-y-auto no-scrollbar p-3 pb-8">
+							<div class="mb-3 rounded-2xl border border-[#2a2a2a] bg-[#15161a] p-3 flex items-center gap-3">
+								<div class="w-10 h-10 rounded-xl bg-[#24262d] border border-[#30323a] flex items-center justify-center shrink-0 text-[#32ade6] font-black">
+									<Show
+										when={!channel.loading}
+										fallback={<span class="w-5 h-5 border-2 border-[#32ade6]/25 border-t-[#32ade6] rounded-full animate-spin" />}
+									>
+										{channel()?.chat_title?.charAt(0)?.toUpperCase() || 'C'}
+									</Show>
+								</div>
+								<div class="flex flex-col min-w-0">
+									<span class="text-[13px] font-black text-white truncate">
+										{channel.loading ? 'Loading channel...' : channel()?.chat_title || props.channelId}
+									</span>
+									<span class="text-[11px] text-[#8e8e93] truncate" dir="ltr">
+										{channel()?.chat_id ? `ID ${channel()?.chat_id}` : props.channelId}
+										<Show when={channel()?.subscription_status}>
+											{' '}· {channel()?.subscription_status}
+										</Show>
+									</span>
+								</div>
+							</div>
 							<div class="flex flex-col gap-1">
 								<For each={menuItems()}>
 									{(item) => (

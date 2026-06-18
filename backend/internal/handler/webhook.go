@@ -18,9 +18,9 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"runtime/debug"
 	"strconv"
 	"strings"
-	"runtime/debug"
 	"sync"
 	"time"
 	"unicode/utf16"
@@ -99,11 +99,11 @@ type ChatInviteLink struct {
 }
 
 type PreCheckoutQuery struct {
-	ID               string `json:"id"`
-	InvoicePayload   string `json:"invoice_payload"`
-	TotalAmount      int    `json:"total_amount"`
-	Currency         string `json:"currency"`
-	From             *User  `json:"from"`
+	ID             string `json:"id"`
+	InvoicePayload string `json:"invoice_payload"`
+	TotalAmount    int    `json:"total_amount"`
+	Currency       string `json:"currency"`
+	From           *User  `json:"from"`
 }
 
 type Chat struct {
@@ -146,8 +146,8 @@ type Message struct {
 
 type MessageEntity struct {
 	Type   string `json:"type"`
-	Offset int `json:"offset"`
-	Length int `json:"length"`
+	Offset int    `json:"offset"`
+	Length int    `json:"length"`
 	URL    string `json:"url,omitempty"`
 }
 
@@ -161,7 +161,6 @@ type BotPermissions struct {
 	CanPinMessages     bool   `json:"can_pin_messages"`
 }
 
-
 type User struct {
 	ID           int64  `json:"id"`
 	IsBot        bool   `json:"is_bot"`
@@ -172,10 +171,10 @@ type User struct {
 }
 
 type SuccessfulPayment struct {
-	Currency                 string `json:"currency"`
-	TotalAmount              int    `json:"total_amount"`
-	InvoicePayload           string `json:"invoice_payload"`
-	TelegramPaymentChargeID  string `json:"telegram_payment_charge_id"`
+	Currency                string `json:"currency"`
+	TotalAmount             int    `json:"total_amount"`
+	InvoicePayload          string `json:"invoice_payload"`
+	TelegramPaymentChargeID string `json:"telegram_payment_charge_id"`
 }
 
 type InlineKeyboardButton struct {
@@ -258,7 +257,7 @@ func (h *WebhookHandler) processUpdateAsync(parentCtx context.Context, bot *repo
 	if chatID < 0 {
 		botEnabled := true
 		botEnabledCacheKey := fmt.Sprintf("bot_enabled:%s:%d", botIDStr, chatID)
-		
+
 		if cache != nil && cache.Client != nil {
 			val, err := cache.Client.Get(ctx, botEnabledCacheKey).Result()
 			if err == nil {
@@ -363,7 +362,6 @@ func (h *WebhookHandler) getBotPermissionsCached(ctx context.Context, tg *telegr
 	return &perms, nil
 }
 
-
 func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Request) {
 	// Initialize the worker pool exactly once dynamically
 	initWorkerPool(h.db, h.moderator, h.botRepo, h.channelService)
@@ -418,7 +416,7 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 		if cachedSecret != "" {
 			expectedHash := sha256.Sum256([]byte(cachedSecret))
 			tokenHash := sha256.Sum256([]byte(secretToken))
-			
+
 			if subtle.ConstantTimeCompare(tokenHash[:], expectedHash[:]) != 1 {
 				w.WriteHeader(http.StatusUnauthorized)
 				return
@@ -456,7 +454,7 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 		if expectedSecret != "" {
 			expectedHash := sha256.Sum256([]byte(expectedSecret))
 			tokenHash := sha256.Sum256([]byte(secretToken))
-			
+
 			if subtle.ConstantTimeCompare(tokenHash[:], expectedHash[:]) != 1 {
 				w.WriteHeader(http.StatusUnauthorized)
 				return
@@ -634,7 +632,7 @@ func (h *WebhookHandler) handleMyChatMemberUpdate(ctx context.Context, bot *repo
 			if newStatus == "left" || newStatus == "kicked" || (newStatus == "member" && oldStatus == "administrator") {
 				slog.Warn("Bot was kicked or demoted from channel via webhook", "channel_id", ch.ID)
 				_ = h.channelService.GetChannelRepo().DeleteChannel(ctx, ch.ID)
-				
+
 				tg, _ := h.moderator.GetTelegramClient(ctx, bot)
 				msg := i18n.T("en", "notifications.bot_removed_channel", map[string]interface{}{"channel": chat.Title})
 				logIfErr(tg.SendMessage(ctx, bot.OwnerUserID, msg, nil, nil), "Failed to send owner bot_removed_channel notification", "owner_id", bot.OwnerUserID)
@@ -652,7 +650,7 @@ func (h *WebhookHandler) handleMyChatMemberUpdate(ctx context.Context, bot *repo
 		cache := h.moderator.GetCache()
 		if cache != nil && cache.Client != nil {
 			cache.Client.Del(ctx, fmt.Sprintf("bot_perms:%d:%d", chat.ID, bot.BotID))
-			
+
 			// Also perfectly sync the bot's standard chat member status
 			key := fmt.Sprintf("chat_member:%d:%d", chat.ID, bot.BotID)
 			if newStatus == "left" || newStatus == "kicked" {
@@ -661,7 +659,7 @@ func (h *WebhookHandler) handleMyChatMemberUpdate(ctx context.Context, bot *repo
 				cache.Client.Set(ctx, key, newStatus, 1*time.Hour)
 			}
 		}
-		
+
 		lang := "en"
 		managedGroup, err := h.botRepo.GetGroup(ctx, bot.ID, chat.ID)
 		if err == nil {
@@ -689,7 +687,7 @@ func (h *WebhookHandler) handleMyChatMemberUpdate(ctx context.Context, bot *repo
 func (h *WebhookHandler) handleChatMemberUpdate(ctx context.Context, bot *repository.ManagedBot, cmu *ChatMemberUpdated) {
 	// Sync admin lists perfectly by updating Redis cache on user chat member updates
 	slog.Info("Chat member update received", "chat_id", cmu.Chat.ID, "user_id", cmu.From.ID, "new_status", cmu.NewChatMember.Status)
-	
+
 	cache := h.moderator.GetCache()
 	if cache != nil && cache.Client != nil {
 		key := fmt.Sprintf("chat_member:%d:%d", cmu.Chat.ID, cmu.NewChatMember.User.ID)
@@ -1128,6 +1126,19 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 		}
 	}
 
+	// Channel Auto Responder (for comments in linked discussion groups)
+	if msg.Chat.Type == "supergroup" && msg.ReplyToMessage != nil && msg.ReplyToMessage.ForwardFromChat != nil && msg.ReplyToMessage.ForwardFromChat.Type == "channel" {
+		channelChatID := msg.ReplyToMessage.ForwardFromChat.ID
+		ch, err := h.channelService.GetChannelByChatID(ctx, channelChatID)
+		if err == nil && ch != nil {
+			tg, _ := h.moderator.GetTelegramClient(ctx, bot)
+			handled, _ := h.channelService.ProcessAutoResponder(ctx, tg, ch.ID, msg.Chat.ID, msg.MessageID, msg.Text)
+			if handled {
+				return // Stop processing further if auto-response triggered
+			}
+		}
+	}
+
 	// Milestones
 	if cache != nil && cache.Client != nil {
 		totalKey := fmt.Sprintf("total_msgs:%d", msg.Chat.ID)
@@ -1144,7 +1155,6 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 		}
 	}
 }
-
 
 func (h *WebhookHandler) mapToModeratorContext(m *Message) *botmgmt.MessageContext {
 	isCommand := false
@@ -1177,12 +1187,12 @@ func (h *WebhookHandler) mapToModeratorContext(m *Message) *botmgmt.MessageConte
 			} else if ent.Type == "url" {
 				// Telegram gives offset/length based on UTF-16 code units, but in Go strings are UTF-8.
 				// For a reliable extraction we can just let regex catch plain URLs or extract via runes safely if ASCII.
-				// However, since we already run Regex on the entire text in `checkAllContent`, 
+				// However, since we already run Regex on the entire text in `checkAllContent`,
 				// any plain URL in text is already caught by regex.
 				// Let's still extract it based on UTF-16 if we want to be exact, but it's simpler to append it.
-				// Actually, Telegram's offset/length are in UTF-16 code units. It's safer to just rely on regex for plain URLs 
+				// Actually, Telegram's offset/length are in UTF-16 code units. It's safer to just rely on regex for plain URLs
 				// and `text_link` for hidden URLs, or decode it properly.
-				
+
 				// Let's decode UTF-16 offset/length
 				// Actually, doing this correctly:
 				utf16text := utf16.Encode([]rune(sourceText))
@@ -1356,7 +1366,7 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 		if appURL == "" {
 			appURL = "https://t.me/ifragment_bot/app"
 		}
-		
+
 		// Extract deep linking parameter
 		var startParam string
 		parts := strings.Split(m.Text, " ")
@@ -1393,7 +1403,7 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 		} else {
 			welcome = i18n.T(lang, "onboarding.welcome_public", userName)
 		}
-		
+
 		token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 		tg := telegram.NewBotAPIClient(token)
 
@@ -1431,9 +1441,11 @@ func (h *WebhookHandler) handleGroupSettingsCommand(ctx context.Context, bot *re
 	}
 
 	appURL := os.Getenv("APP_URL")
-	if appURL == "" { appURL = "https://t.me/ifragment_bot/app" }
+	if appURL == "" {
+		appURL = "https://t.me/ifragment_bot/app"
+	}
 	dashboardURL := fmt.Sprintf("%s?startapp=group_%s", appURL, group.ID)
-	
+
 	msg := fmt.Sprintf("⚙️ *Group Settings*\n\nYou can manage this group's settings via the dashboard:\n\n🔗 [Manage Group](%s)", dashboardURL)
 	_ = tg.SendMessage(ctx, m.Chat.ID, msg, &m.MessageID, m.MessageThreadID)
 }
@@ -1464,52 +1476,58 @@ func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *reposit
 		var msgIDs []int
 		ctx := context.Background()
 
-			// Try to detect language from group settings
-			lang := "en"
-			// We need to fetch the group to get its ID (UUID)
-			managedGroup, err := h.botRepo.GetGroup(ctx, bot.ID, chat.ID)
-			if err == nil {
-				settings, _ := h.moderator.GetSettings(ctx, managedGroup.ID)
-				if settings != nil {
-					var general repository.SettingsGeneral
-					if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
-						lang = general.Language
-					}
+		// Try to detect language from group settings
+		lang := "en"
+		// We need to fetch the group to get its ID (UUID)
+		managedGroup, err := h.botRepo.GetGroup(ctx, bot.ID, chat.ID)
+		if err == nil {
+			settings, _ := h.moderator.GetSettings(ctx, managedGroup.ID)
+			if settings != nil {
+				var general repository.SettingsGeneral
+				if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
+					lang = general.Language
 				}
 			}
+		}
 
-			// 1. Thank you message
-			welcome := i18n.T(lang, "onboarding.thanks", chat.Title)
-			msg1, _ := tg.SendMessageWithResult(ctx, chat.ID, welcome, nil, nil)
-			if msg1 != nil { msgIDs = append(msgIDs, msg1.MessageID) }
+		// 1. Thank you message
+		welcome := i18n.T(lang, "onboarding.thanks", chat.Title)
+		msg1, _ := tg.SendMessageWithResult(ctx, chat.ID, welcome, nil, nil)
+		if msg1 != nil {
+			msgIDs = append(msgIDs, msg1.MessageID)
+		}
 
-			time.Sleep(1 * time.Second)
-			// 2. Admin request
-			adminMsg := i18n.T(lang, "onboarding.admin_req")
-			msg2, _ := tg.SendMessageWithResult(ctx, chat.ID, adminMsg, nil, nil)
-			if msg2 != nil { msgIDs = append(msgIDs, msg2.MessageID) }
+		time.Sleep(1 * time.Second)
+		// 2. Admin request
+		adminMsg := i18n.T(lang, "onboarding.admin_req")
+		msg2, _ := tg.SendMessageWithResult(ctx, chat.ID, adminMsg, nil, nil)
+		if msg2 != nil {
+			msgIDs = append(msgIDs, msg2.MessageID)
+		}
 
-			time.Sleep(2 * time.Second)
-			// 3. Default features
-			appURL := os.Getenv("APP_URL")
-			if appURL == "" {
-				appURL = "https://t.me/ifragment_bot/app"
+		time.Sleep(2 * time.Second)
+		// 3. Default features
+		appURL := os.Getenv("APP_URL")
+		if appURL == "" {
+			appURL = "https://t.me/ifragment_bot/app"
+		}
+		dashboardURL := fmt.Sprintf("%s?startapp=group_%s", appURL, bot.ID)
+		setupMsg := i18n.T(lang, "onboarding.features", dashboardURL)
+		msg3, _ := tg.SendMessageWithResult(ctx, chat.ID, setupMsg, nil, nil)
+		if msg3 != nil {
+			msgIDs = append(msgIDs, msg3.MessageID)
+		}
+
+		// Auto-delete after 2 minutes without blocking the goroutine or holding the semaphore
+		chatID := chat.ID
+		capturedMsgIDs := make([]int, len(msgIDs))
+		copy(capturedMsgIDs, msgIDs)
+		time.AfterFunc(2*time.Minute, func() {
+			bgCtx := context.Background()
+			for _, mid := range capturedMsgIDs {
+				_ = tg.DeleteMessage(bgCtx, chatID, mid)
 			}
-			dashboardURL := fmt.Sprintf("%s?startapp=group_%s", appURL, bot.ID)
-			setupMsg := i18n.T(lang, "onboarding.features", dashboardURL)
-			msg3, _ := tg.SendMessageWithResult(ctx, chat.ID, setupMsg, nil, nil)
-			if msg3 != nil { msgIDs = append(msgIDs, msg3.MessageID) }
-
-			// Auto-delete after 2 minutes without blocking the goroutine or holding the semaphore
-			chatID := chat.ID
-			capturedMsgIDs := make([]int, len(msgIDs))
-			copy(capturedMsgIDs, msgIDs)
-			time.AfterFunc(2*time.Minute, func() {
-				bgCtx := context.Background()
-				for _, mid := range capturedMsgIDs {
-					_ = tg.DeleteMessage(bgCtx, chatID, mid)
-				}
-			})
+		})
 	})
 }
 
@@ -1547,7 +1565,7 @@ func (h *WebhookHandler) handleWelcomeMessage(ctx context.Context, bot *reposito
 		firstNames = append(firstNames, telegram.EscapeHTML(user.FirstName))
 		if user.Username != "" {
 			name = "@" + user.Username
-			usernames = append(usernames, "@" + telegram.EscapeHTML(user.Username))
+			usernames = append(usernames, "@"+telegram.EscapeHTML(user.Username))
 		} else {
 			usernames = append(usernames, telegram.EscapeHTML(user.FirstName))
 		}
@@ -1632,19 +1650,21 @@ func (h *WebhookHandler) handleWelcomeMessage(ctx context.Context, bot *reposito
 func (h *WebhookHandler) deleteMessage(ctx context.Context, bot *repository.ManagedBot, chatID int64, messageID int) {
 	token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 	tg := telegram.NewBotAPIClient(token)
-	
+
 	perms, err := h.getBotPermissionsCached(ctx, tg, chatID, bot.BotID)
 	if err == nil && perms != nil && !perms.CanDeleteMessages {
 		slog.Warn("Skipping delete message: bot lacks can_delete_messages", "chat_id", chatID)
 		return
 	}
-	
+
 	_ = tg.DeleteMessage(ctx, chatID, messageID)
 }
 
 func (h *WebhookHandler) handleGroupAdminCommand(ctx context.Context, bot *repository.ManagedBot, m *Message) bool {
-	if m.From == nil || m.Chat == nil { return false }
-	
+	if m.From == nil || m.Chat == nil {
+		return false
+	}
+
 	// Command check
 	cmd := ""
 	for _, ent := range m.Entities {
@@ -1654,10 +1674,14 @@ func (h *WebhookHandler) handleGroupAdminCommand(ctx context.Context, bot *repos
 			break
 		}
 	}
-	if cmd == "" { return false }
+	if cmd == "" {
+		return false
+	}
 
 	group, err := h.botRepo.GetGroup(ctx, bot.ID, m.Chat.ID)
-	if err != nil { return false }
+	if err != nil {
+		return false
+	}
 	tg, _ := h.moderator.GetTelegramClient(ctx, bot)
 
 	// 1. Get Group Settings for publicCommands flag
@@ -1720,8 +1744,10 @@ func (h *WebhookHandler) isAdmin(ctx context.Context, tg *telegram.BotAPIClient,
 
 func (h *WebhookHandler) adminBan(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, _ string, _ uuid.UUID) bool {
 	targetID, targetName := h.getTarget(m)
-	if targetID == 0 { return false }
-	
+	if targetID == 0 {
+		return false
+	}
+
 	if perms, err := h.getBotPermissionsCached(ctx, tg, m.Chat.ID, bot.BotID); err == nil && perms != nil && !perms.CanRestrictMembers {
 		_ = tg.SendMessage(ctx, m.Chat.ID, "❌ I don't have permission to ban users.", &m.MessageID, m.MessageThreadID)
 		return true
@@ -1734,7 +1760,9 @@ func (h *WebhookHandler) adminBan(ctx context.Context, bot *repository.ManagedBo
 
 func (h *WebhookHandler) adminUnban(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, _ string, _ uuid.UUID) bool {
 	targetID, targetName := h.getTarget(m)
-	if targetID == 0 { return false }
+	if targetID == 0 {
+		return false
+	}
 
 	if perms, err := h.getBotPermissionsCached(ctx, tg, m.Chat.ID, bot.BotID); err == nil && perms != nil && !perms.CanRestrictMembers {
 		_ = tg.SendMessage(ctx, m.Chat.ID, "❌ I don't have permission to unban users.", &m.MessageID, m.MessageThreadID)
@@ -1748,7 +1776,9 @@ func (h *WebhookHandler) adminUnban(ctx context.Context, bot *repository.Managed
 
 func (h *WebhookHandler) adminMute(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, _ string, _ uuid.UUID) bool {
 	targetID, targetName := h.getTarget(m)
-	if targetID == 0 { return false }
+	if targetID == 0 {
+		return false
+	}
 
 	if perms, err := h.getBotPermissionsCached(ctx, tg, m.Chat.ID, bot.BotID); err == nil && perms != nil && !perms.CanRestrictMembers {
 		_ = tg.SendMessage(ctx, m.Chat.ID, "❌ I don't have permission to mute users.", &m.MessageID, m.MessageThreadID)
@@ -1763,8 +1793,10 @@ func (h *WebhookHandler) adminMute(ctx context.Context, bot *repository.ManagedB
 
 func (h *WebhookHandler) adminUnmute(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, _ string, _ uuid.UUID) bool {
 	targetID, targetName := h.getTarget(m)
-	if targetID == 0 { return false }
-	
+	if targetID == 0 {
+		return false
+	}
+
 	if perms, err := h.getBotPermissionsCached(ctx, tg, m.Chat.ID, bot.BotID); err == nil && perms != nil && !perms.CanRestrictMembers {
 		_ = tg.SendMessage(ctx, m.Chat.ID, "❌ I don't have permission to unmute users.", &m.MessageID, m.MessageThreadID)
 		return true
@@ -1777,12 +1809,14 @@ func (h *WebhookHandler) adminUnmute(ctx context.Context, bot *repository.Manage
 
 func (h *WebhookHandler) adminWarn(ctx context.Context, bot *repository.ManagedBot, m *Message, _ string, _ uuid.UUID) bool {
 	targetID, _ := h.getTarget(m)
-	if targetID == 0 { return false }
+	if targetID == 0 {
+		return false
+	}
 
 	// Use existing moderation logic for warning
 	violation := &botmgmt.Violation{
-		Type: "admin_warn",
-		Action: "warn",
+		Type:    "admin_warn",
+		Action:  "warn",
 		Message: "Warned by administrator",
 	}
 	h.executeViolationAction(ctx, bot, m.Chat.ID, targetID, m.MessageID, m.MessageThreadID, violation)
@@ -1791,16 +1825,18 @@ func (h *WebhookHandler) adminWarn(ctx context.Context, bot *repository.ManagedB
 
 func (h *WebhookHandler) adminRules(ctx context.Context, tg *telegram.BotAPIClient, m *Message, groupID uuid.UUID) bool {
 	settings, _ := h.moderator.GetSettings(ctx, groupID)
-	if settings == nil { return false }
-	
+	if settings == nil {
+		return false
+	}
+
 	var ct repository.SettingsCustomTexts
 	json.Unmarshal(settings.CustomTexts, &ct)
-	
+
 	if ct.RulesText == "" {
 		_ = tg.SendMessage(ctx, m.Chat.ID, "⚠️ Rules are not set for this group.", &m.MessageID, m.MessageThreadID)
 		return true
 	}
-	
+
 	rulesText := ct.RulesText
 	if m.From != nil {
 		rulesText = strings.ReplaceAll(rulesText, "{first_name}", telegram.EscapeHTML(m.From.FirstName))
@@ -1815,19 +1851,23 @@ func (h *WebhookHandler) adminRules(ctx context.Context, tg *telegram.BotAPIClie
 }
 
 func (h *WebhookHandler) adminReport(ctx context.Context, tg *telegram.BotAPIClient, m *Message, ownerID int64) bool {
-	if m.ReplyToMessage == nil || m.ReplyToMessage.From == nil { return false }
-	
-	reportMsg := fmt.Sprintf("🚨 *Report Received*\n\nGroup: %s\nReporter: %d\nOffender: %d\nMessage: [Link](https://t.me/c/%s/%d)", 
+	if m.ReplyToMessage == nil || m.ReplyToMessage.From == nil {
+		return false
+	}
+
+	reportMsg := fmt.Sprintf("🚨 *Report Received*\n\nGroup: %s\nReporter: %d\nOffender: %d\nMessage: [Link](https://t.me/c/%s/%d)",
 		m.Chat.Title, m.From.ID, m.ReplyToMessage.From.ID, strings.TrimPrefix(fmt.Sprintf("%d", m.Chat.ID), "-100"), m.ReplyToMessage.MessageID)
-	
+
 	_ = tg.SendMessage(ctx, ownerID, reportMsg, nil, nil)
 	_ = tg.SendMessage(ctx, m.Chat.ID, "✅ Report sent to administrators.", &m.MessageID, m.MessageThreadID)
 	return true
 }
 
 func (h *WebhookHandler) adminPin(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message) bool {
-	if m.ReplyToMessage == nil { return false }
-	
+	if m.ReplyToMessage == nil {
+		return false
+	}
+
 	if perms, err := h.getBotPermissionsCached(ctx, tg, m.Chat.ID, bot.BotID); err == nil && perms != nil && !perms.CanPinMessages {
 		_ = tg.SendMessage(ctx, m.Chat.ID, "❌ I don't have permission to pin messages.", &m.MessageID, m.MessageThreadID)
 		return true
@@ -1840,7 +1880,9 @@ func (h *WebhookHandler) adminPin(ctx context.Context, bot *repository.ManagedBo
 func (h *WebhookHandler) getTarget(m *Message) (int64, string) {
 	if m.ReplyToMessage != nil && m.ReplyToMessage.From != nil {
 		name := m.ReplyToMessage.From.FirstName
-		if m.ReplyToMessage.From.Username != "" { name = "@" + m.ReplyToMessage.From.Username }
+		if m.ReplyToMessage.From.Username != "" {
+			name = "@" + m.ReplyToMessage.From.Username
+		}
 		return m.ReplyToMessage.From.ID, name
 	}
 	return 0, ""
@@ -1864,11 +1906,15 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 
 	if strings.HasPrefix(cq.Data, "captcha:") {
 		parts := strings.Split(cq.Data, ":")
-		if len(parts) < 2 { return }
+		if len(parts) < 2 {
+			return
+		}
 		expectedUserID := parts[1]
-		
+
 		_, err := h.botRepo.GetGroup(ctx, bot.ID, cq.Message.Chat.ID)
-		if err != nil { return }
+		if err != nil {
+			return
+		}
 
 		if fmt.Sprintf("%d", cq.From.ID) != expectedUserID {
 			_ = h.moderator.AnswerCallbackQuery(ctx, bot, cq.ID, "This is not for you!", false)
@@ -1896,10 +1942,14 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 		h.handleWelcomeMessage(ctx, bot, cq.Message.Chat, cq.Message.MessageThreadID, []User{cq.From})
 	} else if strings.HasPrefix(cq.Data, "btn_click:") {
 		parts := strings.Split(cq.Data, ":")
-		if len(parts) < 2 { return }
+		if len(parts) < 2 {
+			return
+		}
 		buttonIDStr := parts[1]
 		buttonID, err := uuid.Parse(buttonIDStr)
-		if err != nil { return }
+		if err != nil {
+			return
+		}
 
 		err = h.channelService.RegisterButtonClick(ctx, buttonID)
 		if err != nil {
@@ -1933,11 +1983,15 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 			return
 		}
 		parts := strings.Split(cq.Data, ":")
-		if len(parts) < 2 { return }
+		if len(parts) < 2 {
+			return
+		}
 		pendingIDStr := parts[1]
 
 		cache := h.moderator.GetCache()
-		if cache == nil || cache.Client == nil { return }
+		if cache == nil || cache.Client == nil {
+			return
+		}
 
 		cacheKey := fmt.Sprintf("pending_post:%s", pendingIDStr)
 		pendingVal, err := cache.Client.Get(ctx, cacheKey).Result()
@@ -1947,13 +2001,17 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 		}
 
 		var pending repository.PendingPost
-		if err := json.Unmarshal([]byte(pendingVal), &pending); err != nil { return }
+		if err := json.Unmarshal([]byte(pendingVal), &pending); err != nil {
+			return
+		}
 
 		token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-		if err != nil { return }
+		if err != nil {
+			return
+		}
 
 		tg := telegram.NewBotAPIClient(token)
-		
+
 		// Fetch language from channel settings
 		lang := userLang
 		settings, err := h.channelService.GetChannelSettingsDirect(ctx, pending.ChannelID)
@@ -1965,10 +2023,10 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 				lang = general.Language
 			}
 		}
-		
+
 		// Construct reply markup for the channel post
 		markup := buildReplyMarkupFromButtons(pending.Buttons)
-		
+
 		// Send message to final channel
 		_, err = tg.SendMessageWithMarkup(ctx, pending.ChatID, pending.Text, markup, nil)
 		if err != nil {
@@ -1996,11 +2054,15 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 			return
 		}
 		parts := strings.Split(cq.Data, ":")
-		if len(parts) < 2 { return }
+		if len(parts) < 2 {
+			return
+		}
 		pendingIDStr := parts[1]
 
 		cache := h.moderator.GetCache()
-		if cache == nil || cache.Client == nil { return }
+		if cache == nil || cache.Client == nil {
+			return
+		}
 
 		cacheKey := fmt.Sprintf("pending_post:%s", pendingIDStr)
 		pendingVal, err := cache.Client.Get(ctx, cacheKey).Result()
@@ -2010,10 +2072,14 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 		}
 
 		var pending repository.PendingPost
-		if err := json.Unmarshal([]byte(pendingVal), &pending); err != nil { return }
+		if err := json.Unmarshal([]byte(pendingVal), &pending); err != nil {
+			return
+		}
 
 		token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-		if err != nil { return }
+		if err != nil {
+			return
+		}
 		tg := telegram.NewBotAPIClient(token)
 
 		// Fetch language from channel settings
@@ -2047,11 +2113,15 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 			return
 		}
 		parts := strings.Split(cq.Data, ":")
-		if len(parts) < 2 { return }
+		if len(parts) < 2 {
+			return
+		}
 		pendingIDStr := parts[1]
 
 		cache := h.moderator.GetCache()
-		if cache == nil || cache.Client == nil { return }
+		if cache == nil || cache.Client == nil {
+			return
+		}
 
 		// Fetch pending draft to check channel language
 		lang := userLang
@@ -2077,7 +2147,9 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 		_ = cache.Client.Set(ctx, stateKey, pendingIDStr, 10*time.Minute).Err()
 
 		token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-		if err != nil { return }
+		if err != nil {
+			return
+		}
 		tg := telegram.NewBotAPIClient(token)
 
 		_ = tg.AnswerCallbackQuery(ctx, cq.ID, i18n.T(lang, "channel.send_text_prompt"), false)
@@ -2103,11 +2175,15 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 			return
 		}
 		parts := strings.Split(cq.Data, ":")
-		if len(parts) < 2 { return }
+		if len(parts) < 2 {
+			return
+		}
 		pendingIDStr := parts[1]
 
 		cache := h.moderator.GetCache()
-		if cache == nil || cache.Client == nil { return }
+		if cache == nil || cache.Client == nil {
+			return
+		}
 
 		// Fetch pending draft to check channel language
 		lang := userLang
@@ -2133,7 +2209,9 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 		_ = cache.Client.Set(ctx, stateKey, pendingIDStr, 10*time.Minute).Err()
 
 		token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-		if err != nil { return }
+		if err != nil {
+			return
+		}
 		tg := telegram.NewBotAPIClient(token)
 
 		_ = tg.AnswerCallbackQuery(ctx, cq.ID, i18n.T(lang, "channel.send_btn_prompt"), false)
@@ -2159,7 +2237,9 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 			return
 		}
 		parts := strings.Split(cq.Data, ":")
-		if len(parts) < 2 { return }
+		if len(parts) < 2 {
+			return
+		}
 		pendingIDStr := parts[1]
 
 		cache := h.moderator.GetCache()
@@ -2262,7 +2342,7 @@ func buildReplyMarkupFromButtons(buttons []repository.ChannelInlineButton) inter
 			text += btn.Emoji + " "
 		}
 		text += btn.Title
-		
+
 		ikb := InlineKeyboardButton{Text: truncateButtonText(text, 64)}
 		if btn.Type == "url" {
 			ikb.URL = strings.TrimSpace(btn.Value)
@@ -2297,17 +2377,23 @@ func (h *WebhookHandler) getForwardID(m *Message) int64 {
 
 func (h *WebhookHandler) handleJoinCaptcha(ctx context.Context, bot *repository.ManagedBot, m *Message, user *User) bool {
 	group, err := h.botRepo.GetGroup(ctx, bot.ID, m.Chat.ID)
-	if err != nil { return false }
-	
+	if err != nil {
+		return false
+	}
+
 	settings, _ := h.moderator.GetSettings(ctx, group.ID)
-	if settings == nil { return false }
-	
+	if settings == nil {
+		return false
+	}
+
 	var mm repository.SettingsMandatoryMembership
 	var general repository.SettingsGeneral
 	json.Unmarshal(settings.MandatoryMembership, &mm)
 	json.Unmarshal(settings.General, &general)
-	
-	if !mm.VerificationEnabled && !general.VerifyMembers { return false }
+
+	if !mm.VerificationEnabled && !general.VerifyMembers {
+		return false
+	}
 
 	bot, _ = h.botRepo.GetBotByID(ctx, group.BotID)
 	tg, _ := h.moderator.GetTelegramClient(ctx, bot)
@@ -2335,7 +2421,7 @@ func (h *WebhookHandler) handleJoinCaptcha(ctx context.Context, bot *repository.
 			}},
 		},
 	}
-	
+
 	welcome := i18n.T(lang, "captcha.welcome_msg", map[string]interface{}{"name": user.FirstName, "id": user.ID})
 	if welcome == "" || welcome == "captcha.welcome_msg" {
 		welcome = fmt.Sprintf("👋 Welcome [%s](tg://user?id=%d)!\n\nPlease click the button below to verify you are human.", user.FirstName, user.ID)
@@ -2406,7 +2492,7 @@ func (h *WebhookHandler) HandleTonAPIWebhook(w http.ResponseWriter, r *http.Requ
 		mac := hmac.New(sha256.New, []byte(secret))
 		mac.Write(bodyBytes)
 		expectedMAC := mac.Sum(nil)
-		
+
 		sigBytes, err := hex.DecodeString(sigHeader)
 		if err != nil || subtle.ConstantTimeCompare(sigBytes, expectedMAC) != 1 {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -2731,7 +2817,7 @@ func (h *WebhookHandler) handleChatJoinRequest(ctx context.Context, bot *reposit
 	// 3. Evaluate active join policies
 	shouldApprove := true
 	reason := ""
-	
+
 	if config.ApprovePremium && !req.From.IsPremium {
 		shouldApprove = false
 		reason = "premium"
@@ -2756,7 +2842,7 @@ func (h *WebhookHandler) handleChatJoinRequest(ctx context.Context, bot *reposit
 		if err == nil {
 			userLang := i18n.DetectLanguage(req.From.LanguageCode)
 			rejectMsg := ""
-			
+
 			if reason == "premium" {
 				rejectMsg = i18n.T(userLang, "channel.join_request_rejected_premium", map[string]interface{}{"channel": ch.ChatTitle})
 				if rejectMsg == "" || rejectMsg == "channel.join_request_rejected_premium" {
@@ -2770,7 +2856,7 @@ func (h *WebhookHandler) handleChatJoinRequest(ctx context.Context, bot *reposit
 			}
 			_ = tg.SendMessage(ctx, req.From.ID, rejectMsg, nil, nil)
 		}
-		
+
 		// Log specific event to DB Audit Log for dashboard visibility
 		meta, _ := json.Marshal(map[string]interface{}{
 			"user_id": req.From.ID,

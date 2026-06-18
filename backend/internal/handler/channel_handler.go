@@ -798,7 +798,6 @@ func (h *ChannelHandler) RestrictMember(w http.ResponseWriter, r *http.Request) 
 	RespondJSON(w, http.StatusOK, map[string]string{"status": "restricted"})
 }
 
-
 func (h *ChannelHandler) GetButtons(w http.ResponseWriter, r *http.Request) {
 	userID := h.getUserID(r)
 	if userID == 0 {
@@ -863,10 +862,14 @@ func (h *ChannelHandler) SaveButtons(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if btnType == "url" || btnType == "share" {
-			u, err := url.ParseRequestURI(btn.Value)
-			if err != nil || (u.Scheme != "http" && u.Scheme != "https" && u.Scheme != "tg") || ((u.Scheme == "http" || u.Scheme == "https") && u.Host == "") {
-				RespondError(w, r, http.StatusBadRequest, "invalid URL in buttons: must be a valid http, https, or tg address", err)
-				return
+			if btnType == "share" && btn.Value == "share" {
+				// Share preset uses a literal value; the service turns it into Telegram share behavior.
+			} else {
+				u, err := url.ParseRequestURI(btn.Value)
+				if err != nil || (u.Scheme != "http" && u.Scheme != "https" && u.Scheme != "tg") || ((u.Scheme == "http" || u.Scheme == "https") && u.Host == "") {
+					RespondError(w, r, http.StatusBadRequest, "invalid URL in buttons: must be a valid http, https, or tg address", err)
+					return
+				}
 			}
 		}
 
@@ -962,15 +965,15 @@ func (h *ChannelHandler) GetFunnel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	RespondJSON(w, http.StatusOK, map[string]interface{}{
-		"id":              funnel.ID,
-		"bot_id":          funnel.BotID,
-		"input_chat_id":   funnel.InputChatID,
-		"output_chat_id":  funnel.OutputChatID,
-		"owner_user_id":   funnel.OwnerUserID,
-		"is_active":       funnel.IsActive,
-		"created_at":      funnel.CreatedAt,
-		"updated_at":      funnel.UpdatedAt,
-		"input_title":     inputTitle,
+		"id":             funnel.ID,
+		"bot_id":         funnel.BotID,
+		"input_chat_id":  funnel.InputChatID,
+		"output_chat_id": funnel.OutputChatID,
+		"owner_user_id":  funnel.OwnerUserID,
+		"is_active":      funnel.IsActive,
+		"created_at":     funnel.CreatedAt,
+		"updated_at":     funnel.UpdatedAt,
+		"input_title":    inputTitle,
 	})
 }
 
@@ -1002,30 +1005,29 @@ func (h *ChannelHandler) respondServerError(w http.ResponseWriter, r *http.Reque
 		RespondError(w, r, http.StatusInternalServerError, publicMsg, nil)
 		return
 	}
-	
+
 	errStr := err.Error()
 	if strings.Contains(errStr, "unauthorized") || strings.Contains(errStr, "access denied") || strings.Contains(errStr, "telegram api error [403]") {
 		RespondError(w, r, http.StatusForbidden, errStr, err)
 		return
 	}
-	
+
 	if strings.Contains(errStr, "not found") {
 		RespondError(w, r, http.StatusNotFound, errStr, err)
 		return
 	}
 
 	// Check for specific, safe-to-expose business validation and PV start messages
-	if strings.Contains(errStr, "bot must be an administrator") || 
-	   strings.Contains(errStr, "located chat is not a channel") || 
-	   strings.Contains(errStr, "لطفاً") ||
-	   strings.Contains(errStr, "لطفا") ||
-	   strings.Contains(errStr, "telegram api error [400]") {
+	if strings.Contains(errStr, "settings validation failed") ||
+		strings.Contains(errStr, "bot must be an administrator") ||
+		strings.Contains(errStr, "located chat is not a channel") ||
+		strings.Contains(errStr, "لطفاً") ||
+		strings.Contains(errStr, "لطفا") ||
+		strings.Contains(errStr, "telegram api error [400]") {
 		RespondError(w, r, http.StatusBadRequest, errStr, err)
 		return
 	}
-	
+
 	// Return a secure localized/generic message for internal exceptions, preventing db structure leaks
 	RespondError(w, r, http.StatusInternalServerError, publicMsg, err)
 }
-
-

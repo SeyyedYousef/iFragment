@@ -43,19 +43,19 @@ type ChannelSettings struct {
 }
 
 type ChannelPost struct {
-	ID                 uuid.UUID  `json:"id"`
-	ChannelID          uuid.UUID  `json:"channel_id"`
-	TelegramMessageID  int64      `json:"telegram_message_id"`
-	AuthorUserID       *int64     `json:"author_user_id,omitempty"`
-	Text               string     `json:"text"`
-	HasMedia           bool       `json:"has_media"`
-	ViewsCount         int        `json:"views_count"`
-	ReactionsCount     int        `json:"reactions_count"`
-	ForwardsCount      int        `json:"forwards_count"`
-	IsPinned           bool       `json:"is_pinned"`
-	ScheduledAt        *time.Time `json:"scheduled_at,omitempty"`
-	PostedAt           *time.Time `json:"posted_at,omitempty"`
-	CreatedAt          time.Time  `json:"created_at"`
+	ID                uuid.UUID  `json:"id"`
+	ChannelID         uuid.UUID  `json:"channel_id"`
+	TelegramMessageID int64      `json:"telegram_message_id"`
+	AuthorUserID      *int64     `json:"author_user_id,omitempty"`
+	Text              string     `json:"text"`
+	HasMedia          bool       `json:"has_media"`
+	ViewsCount        int        `json:"views_count"`
+	ReactionsCount    int        `json:"reactions_count"`
+	ForwardsCount     int        `json:"forwards_count"`
+	IsPinned          bool       `json:"is_pinned"`
+	ScheduledAt       *time.Time `json:"scheduled_at,omitempty"`
+	PostedAt          *time.Time `json:"posted_at,omitempty"`
+	CreatedAt         time.Time  `json:"created_at"`
 }
 
 type ChannelRepo struct {
@@ -76,7 +76,7 @@ func (r *ChannelRepo) CreateChannel(ctx context.Context, ch *ManagedChannel) err
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		ON CONFLICT (bot_id, chat_id) DO UPDATE SET chat_title = EXCLUDED.chat_title, subscribers_count = EXCLUDED.subscribers_count, updated_at = now(), deleted_at = NULL
 		RETURNING id, created_at, updated_at, trial_ends_at`
-	
+
 	return r.db.Pool.QueryRow(ctx, query,
 		ch.BotID, ch.ChatID, ch.ChatTitle, ch.SubscribersCount, ch.SubscriptionStatus, ch.TrialEndsAt,
 		ch.LinkedChatID, ch.SlowModeDelay, ch.AutoDeleteTime, ch.SignMessages, ch.ProtectContent,
@@ -90,7 +90,7 @@ func (r *ChannelRepo) GetChannelsByBot(ctx context.Context, botID uuid.UUID, cur
 
 	var query string
 	var args []interface{}
-	
+
 	if limit <= 0 {
 		limit = 20
 	}
@@ -108,7 +108,7 @@ func (r *ChannelRepo) GetChannelsByBot(ctx context.Context, botID uuid.UUID, cur
 			ORDER BY created_at DESC, id DESC LIMIT $2`
 		args = []interface{}{botID, limit}
 	}
-	
+
 	rows, err := r.db.Pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, nil, nil, err
@@ -170,7 +170,7 @@ func (r *ChannelRepo) GetChannelsByOwner(ctx context.Context, ownerUserID int64,
 			ORDER BY c.created_at DESC, c.id DESC LIMIT $2`
 		args = []interface{}{ownerUserID, limit}
 	}
-	
+
 	rows, err := r.db.Pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, nil, nil, err
@@ -212,7 +212,7 @@ func (r *ChannelRepo) GetChannelByID(ctx context.Context, id uuid.UUID) (*Manage
 
 	query := `SELECT id, bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, paid_until, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content, created_at, updated_at
 		FROM managed_channels WHERE id = $1`
-	
+
 	var c ManagedChannel
 	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
 		&c.ID, &c.BotID, &c.ChatID, &c.ChatTitle, &c.SubscribersCount, &c.SubscriptionStatus, &c.TrialEndsAt,
@@ -235,7 +235,7 @@ func (r *ChannelRepo) GetChannelByChatID(ctx context.Context, chatID int64) (*Ma
 
 	query := `SELECT id, bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, paid_until, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content, created_at, updated_at
 		FROM managed_channels WHERE chat_id = $1`
-	
+
 	var c ManagedChannel
 	err := r.db.Pool.QueryRow(ctx, query, chatID).Scan(
 		&c.ID, &c.BotID, &c.ChatID, &c.ChatTitle, &c.SubscribersCount, &c.SubscriptionStatus, &c.TrialEndsAt,
@@ -249,6 +249,15 @@ func (r *ChannelRepo) GetChannelByChatID(ctx context.Context, chatID int64) (*Ma
 		return nil, err
 	}
 	return &c, nil
+}
+
+func (r *ChannelRepo) UpdateChannelFlags(ctx context.Context, id uuid.UUID, signMessages bool, protectContent bool) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("database pool is not initialized")
+	}
+	query := `UPDATE managed_channels SET sign_messages = $1, protect_content = $2, updated_at = now() WHERE id = $3`
+	_, err := r.db.Pool.Exec(ctx, query, signMessages, protectContent, id)
+	return err
 }
 
 func (r *ChannelRepo) DeleteChannel(ctx context.Context, id uuid.UUID) error {
@@ -281,7 +290,7 @@ func (r *ChannelRepo) GetChannelSettings(ctx context.Context, channelID uuid.UUI
 
 	query := `SELECT channel_id, general, posting, forwarding, inline_buttons, dynamic_bio, auto_responder, version, updated_at, updated_by
 		FROM channel_settings WHERE channel_id = $1`
-	
+
 	var s ChannelSettings
 	err := r.db.Pool.QueryRow(ctx, query, channelID).Scan(
 		&s.ChannelID, &s.General, &s.Posting, &s.Forwarding, &s.InlineButtons, &s.DynamicBio, &s.AutoResponder,
@@ -320,7 +329,7 @@ func (r *ChannelRepo) InitChannelSettings(ctx context.Context, channelID uuid.UU
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (channel_id) DO NOTHING
 		RETURNING updated_at`
-	
+
 	err := r.db.Pool.QueryRow(ctx, query, channelID, empty, empty, empty, empty, empty, empty).Scan(&s.UpdatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -400,7 +409,7 @@ func (r *ChannelRepo) LogAudit(ctx context.Context, log *ChannelAuditLog) error 
 	query := `INSERT INTO channel_audit_logs (channel_id, actor_id, action, target_type, target_id, old_value, new_value, metadata)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id, created_at`
-	
+
 	return r.db.Pool.QueryRow(ctx, query,
 		log.ChannelID, log.ActorID, log.Action, log.TargetType, log.TargetID, log.OldValue, log.NewValue, log.Metadata,
 	).Scan(&log.ID, &log.CreatedAt)
@@ -472,7 +481,7 @@ func (r *ChannelRepo) SaveAnalyticsSnapshot(ctx context.Context, snapshot *Chann
 			reactions_count = EXCLUDED.reactions_count,
 			posts_count = EXCLUDED.posts_count
 		RETURNING id, created_at`
-	
+
 	return r.db.Pool.QueryRow(ctx, query,
 		snapshot.ChannelID, snapshot.SnapshotDate.Format("2006-01-02"), snapshot.SubscribersCount, snapshot.NewSubscribers,
 		snapshot.ViewsCount, snapshot.ReactionsCount, snapshot.PostsCount,
@@ -493,7 +502,7 @@ func (r *ChannelRepo) GetAnalyticsTimeline(ctx context.Context, channelID uuid.U
 			ORDER BY snapshot_date DESC LIMIT $2
 		) AS recent
 		ORDER BY snapshot_date ASC`
-	
+
 	rows, err := r.db.Pool.Query(ctx, query, channelID, days)
 	if err != nil {
 		return nil, err
@@ -527,7 +536,7 @@ func (r *ChannelRepo) CreatePost(ctx context.Context, post *ChannelPost) error {
 	query := `INSERT INTO channel_posts (channel_id, telegram_message_id, author_user_id, text, has_media, views_count, reactions_count, forwards_count, is_pinned, scheduled_at, posted_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id, created_at`
-	
+
 	return r.db.Pool.QueryRow(ctx, query,
 		post.ChannelID, post.TelegramMessageID, post.AuthorUserID, post.Text, post.HasMedia, post.ViewsCount,
 		post.ReactionsCount, post.ForwardsCount, post.IsPinned, post.ScheduledAt, post.PostedAt,
@@ -542,7 +551,7 @@ func (r *ChannelRepo) GetScheduledPosts(ctx context.Context) ([]ChannelPost, err
 
 	query := `SELECT id, channel_id, telegram_message_id, author_user_id, text, has_media, views_count, reactions_count, forwards_count, is_pinned, scheduled_at, posted_at, created_at
 		FROM channel_posts WHERE posted_at IS NULL AND scheduled_at IS NOT NULL`
-	
+
 	rows, err := r.db.Pool.Query(ctx, query)
 	if err != nil {
 		return nil, err
@@ -585,7 +594,7 @@ func (r *ChannelRepo) GetAllChannels(ctx context.Context) ([]ManagedChannel, err
 
 	query := `SELECT id, bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, paid_until, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content, created_at, updated_at
 		FROM managed_channels`
-	
+
 	rows, err := r.db.Pool.Query(ctx, query)
 	if err != nil {
 		return nil, err
@@ -747,7 +756,7 @@ func (r *ChannelRepo) SaveSnapshotAndUpdateSubscribers(ctx context.Context, snap
 			reactions_count = EXCLUDED.reactions_count,
 			posts_count = EXCLUDED.posts_count
 		RETURNING id, created_at`
-	
+
 	err = tx.QueryRow(ctx, querySnapshot,
 		snapshot.ChannelID, snapshot.SnapshotDate.Format("2006-01-02"), snapshot.SubscribersCount, snapshot.NewSubscribers,
 		snapshot.ViewsCount, snapshot.ReactionsCount, snapshot.PostsCount,
@@ -758,7 +767,6 @@ func (r *ChannelRepo) SaveSnapshotAndUpdateSubscribers(ctx context.Context, snap
 
 	return tx.Commit(ctx)
 }
-
 
 type ChannelForwardingRule struct {
 	ID             uuid.UUID       `json:"id"`
@@ -810,7 +818,7 @@ func (r *ChannelRepo) CreateForwardingRule(ctx context.Context, rule *ChannelFor
 	query := `INSERT INTO channel_forwarding_rules (channel_id, direction, target_type, target, mode, delay, is_active, content_types, remove_ads, remove_hashtags, remove_links, watermark)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		RETURNING id, created_at`
-	
+
 	return r.db.Pool.QueryRow(ctx, query,
 		rule.ChannelID, rule.Direction, rule.TargetType, rule.Target, rule.Mode, rule.Delay, rule.IsActive,
 		rule.ContentTypes, rule.RemoveAds, rule.RemoveHashtags, rule.RemoveLinks, rule.Watermark,
@@ -825,7 +833,7 @@ func (r *ChannelRepo) GetForwardingRules(ctx context.Context, channelID uuid.UUI
 
 	query := `SELECT id, channel_id, direction, target_type, target, mode, delay, is_active, content_types, remove_ads, remove_hashtags, remove_links, watermark, created_at
 		FROM channel_forwarding_rules WHERE channel_id = $1 ORDER BY created_at ASC`
-	
+
 	rows, err := r.db.Pool.Query(ctx, query, channelID)
 	if err != nil {
 		return nil, err
@@ -856,24 +864,36 @@ func (r *ChannelRepo) UpdateForwardingRule(ctx context.Context, rule *ChannelFor
 	}
 
 	query := `UPDATE channel_forwarding_rules SET direction = $1, target_type = $2, target = $3, mode = $4, delay = $5, is_active = $6, content_types = $7, remove_ads = $8, remove_hashtags = $9, remove_links = $10, watermark = $11
-		WHERE id = $12`
-	
-	_, err := r.db.Pool.Exec(ctx, query,
+		WHERE id = $12 AND channel_id = $13`
+
+	tag, err := r.db.Pool.Exec(ctx, query,
 		rule.Direction, rule.TargetType, rule.Target, rule.Mode, rule.Delay, rule.IsActive,
-		rule.ContentTypes, rule.RemoveAds, rule.RemoveHashtags, rule.RemoveLinks, rule.Watermark, rule.ID,
+		rule.ContentTypes, rule.RemoveAds, rule.RemoveHashtags, rule.RemoveLinks, rule.Watermark, rule.ID, rule.ChannelID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("forwarding rule not found")
+	}
+	return nil
 }
 
 // DeleteForwardingRule deletes a forwarding rule
-func (r *ChannelRepo) DeleteForwardingRule(ctx context.Context, ruleID uuid.UUID) error {
+func (r *ChannelRepo) DeleteForwardingRule(ctx context.Context, channelID uuid.UUID, ruleID uuid.UUID) error {
 	if r.db == nil || r.db.Pool == nil {
 		return fmt.Errorf("database pool is not initialized")
 	}
 
-	query := `DELETE FROM channel_forwarding_rules WHERE id = $1`
-	_, err := r.db.Pool.Exec(ctx, query, ruleID)
-	return err
+	query := `DELETE FROM channel_forwarding_rules WHERE id = $1 AND channel_id = $2`
+	tag, err := r.db.Pool.Exec(ctx, query, ruleID, channelID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("forwarding rule not found")
+	}
+	return nil
 }
 
 // GetActiveForwardingRulesBySource retrieves active rules (inbound or outbound) by a target username or ID
@@ -884,7 +904,7 @@ func (r *ChannelRepo) GetActiveForwardingRulesBySource(ctx context.Context, targ
 
 	query := `SELECT id, channel_id, direction, target_type, target, mode, delay, is_active, content_types, remove_ads, remove_hashtags, remove_links, watermark, created_at
 		FROM channel_forwarding_rules WHERE target = $1 AND is_active = true`
-	
+
 	rows, err := r.db.Pool.Query(ctx, query, target)
 	if err != nil {
 		return nil, err
@@ -971,7 +991,7 @@ func (r *ChannelRepo) GetChannelAdmins(ctx context.Context, channelID uuid.UUID)
 
 	query := `SELECT id, channel_id, telegram_id, username, first_name, custom_title, is_owner, created_at
 		FROM channel_admins WHERE channel_id = $1 ORDER BY is_owner DESC, first_name ASC`
-	
+
 	rows, err := r.db.Pool.Query(ctx, query, channelID)
 	if err != nil {
 		return nil, err
@@ -1042,7 +1062,7 @@ func (r *ChannelRepo) SaveChannelButtons(ctx context.Context, channelID uuid.UUI
 	}
 
 	var keepIDs []uuid.UUID
-	
+
 	// 2. Insert or update each button, keeping IDs intact
 	for i, btn := range buttons {
 		// If ID is nil/empty or not in existing, it's a new button
@@ -1095,7 +1115,7 @@ func (r *ChannelRepo) GetChannelButtons(ctx context.Context, channelID uuid.UUID
 
 	query := `SELECT id, channel_id, title, value, type, style, emoji, click_count, order_index, created_at
 		FROM channel_inline_buttons WHERE channel_id = $1 ORDER BY order_index ASC, created_at ASC`
-	
+
 	rows, err := r.db.Pool.Query(ctx, query, channelID)
 	if err != nil {
 		return nil, err
@@ -1388,7 +1408,7 @@ func (r *ChannelRepo) GetScheduledFunnelPosts(ctx context.Context) ([]PendingFun
 	query := `SELECT id, funnel_id, input_message_id, original_author_id, original_author_name, media_group_id, media_payload, draft_text, draft_buttons, ai_variations, selected_variation_index, status, scheduled_at, published_message_id, created_at, updated_at
 		FROM pending_funnel_posts
 		WHERE status = 'scheduled' AND scheduled_at <= now()`
-	
+
 	rows, err := r.db.Pool.Query(ctx, query)
 	if err != nil {
 		return nil, err
@@ -1411,4 +1431,3 @@ func (r *ChannelRepo) GetScheduledFunnelPosts(ctx context.Context) ([]PendingFun
 	}
 	return posts, nil
 }
-

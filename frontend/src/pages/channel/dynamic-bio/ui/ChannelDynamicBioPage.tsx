@@ -4,8 +4,10 @@ import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createEffect, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { useChannelSettings, useUpdateChannelSettings } from '@/shared/api/queries.js';
 import { t } from '@/shared/i18n/index.js';
+import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SelectField, SettingsSection, ToggleSwitch } from '@/shared/ui/settings-controls.js';
+import { showToast } from '@/shared/ui/toast.js';
 
 export const ChannelDynamicBioPage: Component = () => {
 	const params = useParams();
@@ -72,7 +74,6 @@ export const ChannelDynamicBioPage: Component = () => {
 	];
 
 	const handleSave = async () => {
-		hapticFeedback.notificationOccurred('success');
 		setIsSaving(true);
 
 		const currentVersion = settingsQuery.data?.version ?? 1;
@@ -95,10 +96,13 @@ export const ChannelDynamicBioPage: Component = () => {
 				data: payload,
 				version: currentVersion,
 			});
+			hapticFeedback.notificationOccurred('success');
+			showToast(t('common.settingsSaved') || 'Settings saved successfully', 'success');
 			navigate(`/channel/${params.id}`);
 		} catch (e) {
 			console.error('Failed to save dynamic bio settings:', e);
-			navigate(`/channel/${params.id}`);
+			hapticFeedback.notificationOccurred('error');
+			showToast(t('common.saveFailed') || 'Failed to save settings', 'error');
 		} finally {
 			setIsSaving(false);
 		}
@@ -154,6 +158,8 @@ export const ChannelDynamicBioPage: Component = () => {
 			/>
 
 			<div class="px-5 pt-6 flex flex-col gap-6">
+				<ChannelContextBar channelId={params.id} />
+
 				<Show when={settingsQuery.isLoading}>
 					<div class="flex flex-col gap-4 animate-pulse">
 						<div class="h-40 bg-[#1c1c1c] rounded-3xl"></div>

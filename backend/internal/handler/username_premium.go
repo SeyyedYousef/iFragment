@@ -79,7 +79,7 @@ func (h *PremiumHandler) RequestPremiumReport(w http.ResponseWriter, r *http.Req
 		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
 		return
 	}
-	
+
 	nonceBytes := make([]byte, 4)
 	if _, err := rand.Read(nonceBytes); err != nil {
 		RespondError(w, r, http.StatusInternalServerError, "failed to generate secure nonce", err)

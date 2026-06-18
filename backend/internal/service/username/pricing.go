@@ -369,7 +369,7 @@ func estimatedLiquidityScore(r *FullReport, paidSalesCount int) float64 {
 	if r.BuyNowPrice > 0 || r.HighestBid > 0 {
 		score += 15
 	}
-	
+
 	if r.ParticipantsCount > 10000 || r.IsVerified || r.IsPremium {
 		score += 50
 	}

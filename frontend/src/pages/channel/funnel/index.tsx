@@ -4,7 +4,9 @@ import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { channelApi } from '@/shared/api/channel-management.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
+import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
+import { showToast } from '@/shared/ui/toast.js';
 
 export const ChannelFunnelPage: Component = () => {
 	const params = useParams();
@@ -42,6 +44,7 @@ export const ChannelFunnelPage: Component = () => {
 		try {
 			await channelApi.createFunnel(params.id, selectedInputChannel());
 			hapticFeedback.notificationOccurred('success');
+			showToast('Funnel enabled', 'success');
 			mutateFunnel({
 				input_chat_id: Number(selectedInputChannel()),
 				output_chat_id: channel()?.chat_id,
@@ -49,6 +52,7 @@ export const ChannelFunnelPage: Component = () => {
 			});
 		} catch (error) {
 			hapticFeedback.notificationOccurred('error');
+			showToast('Failed to enable funnel', 'error');
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -60,9 +64,11 @@ export const ChannelFunnelPage: Component = () => {
 		try {
 			await channelApi.deleteFunnel(params.id);
 			hapticFeedback.notificationOccurred('success');
+			showToast('Funnel disabled', 'success');
 			mutateFunnel(null);
 		} catch (error) {
 			hapticFeedback.notificationOccurred('error');
+			showToast('Failed to disable funnel', 'error');
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -101,6 +107,8 @@ export const ChannelFunnelPage: Component = () => {
 			</div>
 
 			<div class="px-5 pt-6 flex flex-col gap-6">
+				<ChannelContextBar channelId={params.id} />
+
 				<Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
 					<div class="bg-[#1c1c1c] border border-[#2a2a2a] rounded-2xl p-5 flex flex-col gap-4">
 						<div class="flex items-center gap-3">

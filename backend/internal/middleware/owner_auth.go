@@ -79,7 +79,7 @@ func RequirePermission(p Permission) func(http.Handler) http.Handler {
 
 			role, _ := user["role"].(string)
 			tokenType, _ := user["token_type"].(string)
-			
+
 			if role == "" {
 				http.Error(w, "Forbidden: Role not assigned", http.StatusForbidden)
 				return
@@ -207,7 +207,7 @@ func HoneypotMiddleware(repo *repository.OwnerRepo) func(http.Handler) http.Hand
 					return
 				}
 			}
-			
+
 			if o != nil {
 				// They are an actual owner! Let them pass
 				next.ServeHTTP(w, r)

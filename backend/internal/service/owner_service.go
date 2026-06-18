@@ -154,7 +154,7 @@ func (s *OwnerService) Authenticate(ctx context.Context, telegramUserID int64, c
 			incrLoginAttempts()
 			return "", errors.New("TOTP code already used; potential replay attack blocked")
 		}
-		
+
 		// Reset login failure attempts on successful authentication
 		ipLockKey := fmt.Sprintf("owner:login:attempts:ip:%s", ip)
 		userLockKey := fmt.Sprintf("owner:login:attempts:user:%d", telegramUserID)
@@ -320,7 +320,7 @@ func (s *OwnerService) AdjustFRG(ctx context.Context, ownerID int64, targetUserI
 		"balance_before": bal.Balance,
 		"balance_after":  frgTx.BalanceAfter,
 	})
-	
+
 	auditLog := &model.OwnerAuditLog{
 		OwnerID:      ownerID,
 		Action:       "frg_adjust",
@@ -369,11 +369,11 @@ func (s *OwnerService) SetUserBan(ctx context.Context, ownerID int64, targetUser
 
 	// Log Audit Event INSIDE the same transaction
 	payload, _ := json.Marshal(map[string]interface{}{
-		"ban_type":  banType,
-		"reason":    reason,
-		"expires":   expiresAt,
+		"ban_type": banType,
+		"reason":   reason,
+		"expires":  expiresAt,
 	})
-	
+
 	auditLog := &model.OwnerAuditLog{
 		OwnerID:      ownerID,
 		Action:       "ban_user",
@@ -525,7 +525,7 @@ func (s *OwnerService) CreatePromoCode(ctx context.Context, ownerID int64, code 
 		"max_uses":      maxUses,
 		"expires_at":    expiresAt,
 	})
-	
+
 	auditLog := &model.OwnerAuditLog{
 		OwnerID:   ownerID,
 		Action:    "create_promo",
@@ -554,7 +554,7 @@ func (s *OwnerService) DeletePromoCode(ctx context.Context, ownerID int64, code 
 	}
 
 	payload, _ := json.Marshal(map[string]string{"code": code})
-	
+
 	auditLog := &model.OwnerAuditLog{
 		OwnerID:   ownerID,
 		Action:    "delete_promo",
@@ -592,11 +592,11 @@ func (s *OwnerService) CreateQuest(ctx context.Context, ownerID int64, q model.Q
 
 	// Validate type
 	validTypes := map[string]bool{
-		"channel_join":         true,
-		"quiz":                 true,
-		"referral":             true,
+		"channel_join":        true,
+		"quiz":                true,
+		"referral":            true,
 		"first_username_scan": true,
-		"register_first_bot":   true,
+		"register_first_bot":  true,
 	}
 	if !validTypes[q.Type] {
 		return fmt.Errorf("invalid quest type: %s", q.Type)
@@ -662,11 +662,11 @@ func (s *OwnerService) UpdateQuest(ctx context.Context, ownerID int64, q model.Q
 
 	// Validate type
 	validTypes := map[string]bool{
-		"channel_join":         true,
-		"quiz":                 true,
-		"referral":             true,
+		"channel_join":        true,
+		"quiz":                true,
+		"referral":            true,
 		"first_username_scan": true,
-		"register_first_bot":   true,
+		"register_first_bot":  true,
 	}
 	if !validTypes[q.Type] {
 		return fmt.Errorf("invalid quest type: %s", q.Type)
@@ -757,6 +757,3 @@ func (s *OwnerService) DeleteQuest(ctx context.Context, ownerID int64, key strin
 
 	return tx.Commit(ctx)
 }
-
-
-

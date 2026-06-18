@@ -135,7 +135,7 @@ func (w *PartitionWorker) createFuturePartitions(ctx context.Context) error {
 					return fmt.Errorf("failed to begin tx for partition %s: %w", partitionName, txErr)
 				}
 				defer tx.Rollback(ctx)
-				
+
 				_, err = tx.Exec(ctx, "SET LOCAL lock_timeout = '100ms';")
 				if err == nil {
 					createStmt := fmt.Sprintf(
@@ -186,7 +186,7 @@ func (w *PartitionWorker) createFuturePartitions(ctx context.Context) error {
 					return fmt.Errorf("failed to begin tx for partition %s: %w", partitionName, txErr)
 				}
 				defer tx.Rollback(ctx)
-				
+
 				_, err = tx.Exec(ctx, "SET LOCAL lock_timeout = '100ms';")
 				if err == nil {
 					createStmt := fmt.Sprintf(

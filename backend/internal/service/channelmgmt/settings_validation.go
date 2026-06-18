@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
+	"time"
 )
 
 type GeneralSettingsSchema struct {
@@ -28,6 +30,17 @@ type GeneralSettingsSchema struct {
 	AntiRaidAction      string `json:"antiRaidAction"`
 
 	// Phase 1 Identity & Channel Moderation Config parameters
+	Name                string `json:"name"`
+	Description         string `json:"description"`
+	Photo               string `json:"photo"`
+	Username            string `json:"username"`
+	ShowAdminProfile    bool   `json:"showAdminProfile"`
+	HideChatHistory     bool   `json:"hideChatHistory"`
+	AntiSpam            bool   `json:"antiSpam"`
+	AutoDelete          int    `json:"autoDelete"`
+	DiscussionGroupID   string `json:"discussionGroupId"`
+	JoinReqAge          int    `json:"joinReqAge"`
+	JoinReqPhoto        bool   `json:"joinReqPhoto"`
 	ChannelName         string `json:"channelName"`
 	ChannelBio          string `json:"channelBio"`
 	ChannelPhotoUrl     string `json:"channelPhotoUrl"`
@@ -44,6 +57,7 @@ type GeneralSettingsSchema struct {
 
 	// Missing General Settings Phase 2 UI properties
 	SignMessages       bool   `json:"signMessages"`
+	ProtectContent     bool   `json:"protectContent"`
 	CustomSignature    string `json:"customSignature"`
 	AutoForward        bool   `json:"autoForward"`
 	ForwardDestination string `json:"forwardDestination"`
@@ -52,13 +66,14 @@ type GeneralSettingsSchema struct {
 	JoinRequestsEnabled bool `json:"joinRequestsEnabled"`
 	ApprovePremium      bool `json:"approvePremium"`
 	ApproveGifts        bool `json:"approveGifts"`
+	ApproveCollectibles bool `json:"approveCollectibles"`
 }
 
 type PostingSettingsSchema struct {
-	Signature           string `json:"signature,omitempty"`
-	WatermarkEnabled    bool   `json:"watermarkEnabled"`
-	WatermarkText       string `json:"watermarkText,omitempty"`
-	CleanInterval       int    `json:"cleanInterval,omitempty"`
+	Signature        string `json:"signature,omitempty"`
+	WatermarkEnabled bool   `json:"watermarkEnabled"`
+	WatermarkText    string `json:"watermarkText,omitempty"`
+	CleanInterval    int    `json:"cleanInterval,omitempty"`
 
 	AiProvider          string `json:"aiProvider,omitempty"`
 	ApiKey              string `json:"apiKey,omitempty"`
@@ -80,6 +95,8 @@ type ForwardingSettingsSchema struct {
 }
 
 type InlineButtonsSettingsSchema struct {
+	Enabled *bool  `json:"enabled,omitempty"`
+	Preset  string `json:"preset,omitempty"`
 	Buttons []struct {
 		Title string `json:"title"`
 		Value string `json:"value"`
@@ -90,21 +107,71 @@ type InlineButtonsSettingsSchema struct {
 }
 
 type DynamicBioSettingsSchema struct {
-	Enabled  bool     `json:"enabled"`
-	Template string   `json:"template"`
-	Interval int      `json:"interval"`
-	Fields   []string `json:"fields,omitempty"`
+	Enabled           bool        `json:"enabled"`
+	Template          string      `json:"template"`
+	BioTemplate       string      `json:"bioTemplate"`
+	DisplayInName     bool        `json:"displayInName"`
+	NameTemplate      string      `json:"nameTemplate"`
+	Interval          interface{} `json:"interval"`
+	EnableCountdown   bool        `json:"enableCountdown"`
+	EventName         string      `json:"eventName"`
+	TargetDate        string      `json:"targetDate"`
+	CountdownLocation string      `json:"countdownLocation"`
+	PostExpiryText    string      `json:"postExpiryText"`
+	Fields            []string    `json:"fields,omitempty"`
 }
 
 type AutoResponderRuleSchema struct {
-	Trigger  string `json:"trigger"`
-	Response string `json:"response"`
-	Type     string `json:"type"`
+	ID        string `json:"id,omitempty"`
+	Keys      string `json:"keys"`
+	ReplyText string `json:"replyText"`
+	Match     string `json:"match"`
+	Enabled   *bool  `json:"enabled,omitempty"`
+	UseAI     bool   `json:"useAi,omitempty"`
+	Trigger   string `json:"trigger"`
+	Response  string `json:"response"`
+	Type      string `json:"type"`
 }
 
 type AutoResponderSchema struct {
 	Enabled bool                      `json:"enabled"`
 	Rules   []AutoResponderRuleSchema `json:"rules"`
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func normalizeDynamicBioInterval(value interface{}) (int, error) {
+	if value == nil {
+		return 0, nil
+	}
+	switch v := value.(type) {
+	case float64:
+		return int(v), nil
+	case int:
+		return v, nil
+	case string:
+		trimmed := strings.TrimSpace(v)
+		if trimmed == "" {
+			return 0, nil
+		}
+		if minutes, err := strconv.Atoi(trimmed); err == nil {
+			return minutes, nil
+		}
+		duration, err := time.ParseDuration(trimmed)
+		if err != nil {
+			return 0, fmt.Errorf("invalid interval: %s", trimmed)
+		}
+		return int(duration.Minutes()), nil
+	default:
+		return 0, fmt.Errorf("invalid interval type")
+	}
 }
 
 // ValidateSettingsCategory strictly validates settings JSON against defined schemas
@@ -125,13 +192,16 @@ func ValidateSettingsCategory(category string, data json.RawMessage) error {
 		if s.Language != "" && s.Language != "fa" && s.Language != "en" && s.Language != "ru" && s.Language != "zh" {
 			return fmt.Errorf("invalid language selection: %s", s.Language)
 		}
-		if len(s.ChannelName) > 128 {
+		channelName := firstNonEmpty(s.Name, s.ChannelName)
+		channelBio := firstNonEmpty(s.Description, s.ChannelBio)
+		channelUsername := firstNonEmpty(s.Username, s.ChannelUsername)
+		if len(channelName) > 128 {
 			return fmt.Errorf("channel name cannot exceed 128 characters")
 		}
-		if len(s.ChannelBio) > 255 {
+		if len(channelBio) > 255 {
 			return fmt.Errorf("channel bio cannot exceed 255 characters")
 		}
-		if len(s.ChannelUsername) > 32 {
+		if len(channelUsername) > 32 {
 			return fmt.Errorf("channel username cannot exceed 32 characters")
 		}
 
@@ -205,10 +275,18 @@ func ValidateSettingsCategory(category string, data json.RawMessage) error {
 		if err := json.Unmarshal(data, &s); err != nil {
 			return fmt.Errorf("invalid dynamic_bio settings structure: %w", err)
 		}
-		if s.Template != "" && len(s.Template) > 255 {
+		bioTemplate := firstNonEmpty(s.BioTemplate, s.Template)
+		if bioTemplate != "" && len(bioTemplate) > 255 {
 			return fmt.Errorf("bio template too long (Telegram limit: 255 chars)")
 		}
-		if s.Interval < 0 || s.Interval > 1440 {
+		if s.NameTemplate != "" && len(s.NameTemplate) > 128 {
+			return fmt.Errorf("name template too long (Telegram limit: 128 chars)")
+		}
+		interval, err := normalizeDynamicBioInterval(s.Interval)
+		if err != nil {
+			return err
+		}
+		if interval < 0 || interval > 1440 {
 			return fmt.Errorf("interval must be 0-1440 minutes")
 		}
 
@@ -221,17 +299,23 @@ func ValidateSettingsCategory(category string, data json.RawMessage) error {
 			return fmt.Errorf("maximum 50 auto-responder rules allowed")
 		}
 		for _, rule := range s.Rules {
-			if rule.Trigger == "" || rule.Response == "" {
+			if rule.Enabled != nil && !*rule.Enabled {
+				continue
+			}
+			trigger := firstNonEmpty(rule.Keys, rule.Trigger)
+			response := firstNonEmpty(rule.ReplyText, rule.Response)
+			match := firstNonEmpty(rule.Match, rule.Type)
+			if trigger == "" || response == "" {
 				return fmt.Errorf("trigger and response cannot be empty")
 			}
-			if len(rule.Trigger) > 200 {
+			if len(trigger) > 200 {
 				return fmt.Errorf("trigger text too long (max 200 chars)")
 			}
-			if len(rule.Response) > 4096 {
+			if len(response) > 4096 {
 				return fmt.Errorf("response text too long (max 4096 chars)")
 			}
-			if rule.Type != "exact" && rule.Type != "contains" {
-				return fmt.Errorf("rule type must be 'exact' or 'contains'")
+			if match != "" && match != "exact" && match != "contains" && match != "regex" && match != "keyword" {
+				return fmt.Errorf("rule type must be 'exact', 'contains', 'regex', or 'keyword'")
 			}
 		}
 

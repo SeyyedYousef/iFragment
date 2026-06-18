@@ -66,7 +66,7 @@ func (c *Client) CheckUsername(ctx context.Context, username string) (Status, er
 
 func (c *Client) checkInternal(ctx context.Context, username string) (Status, error) {
 	url := fmt.Sprintf("%s/username/%s", c.BaseURL, url.PathEscape(username))
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return StatusUnknown, err
@@ -101,7 +101,7 @@ func (c *Client) checkInternal(ctx context.Context, username string) (Status, er
 	if doc.Find(".tm-section-bid, .tm-auction-active").Length() > 0 {
 		return StatusAuction, nil
 	}
-	
+
 	// 2. Check for Sale (Fixed Price)
 	if doc.Find(".tm-section-buy, .tm-buy-fixed").Length() > 0 {
 		return StatusSale, nil
@@ -156,8 +156,8 @@ func (c *Client) checkInternal(ctx context.Context, username string) (Status, er
 
 	// If we get here on an HTTP 200, the scraper could not parse any known DOM selectors.
 	// This might indicate a change in Fragment's UI layout, which is highly critical to log.
-	slog.Warn("Fragment scraper failed to determine status from DOM selectors on valid HTTP response", 
-		"username", username, 
+	slog.Warn("Fragment scraper failed to determine status from DOM selectors on valid HTTP response",
+		"username", username,
 		"status_code", resp.StatusCode,
 		"html_preview", truncateString(doc.Text(), 200),
 	)

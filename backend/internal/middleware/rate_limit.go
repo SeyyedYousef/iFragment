@@ -142,7 +142,7 @@ func GetRealIP(r *http.Request) string {
 				}
 			}
 		} else if os.Getenv("APP_ENV") == "production" {
-			// Fallback: If in production and TRUSTED_PROXIES is entirely unset, 
+			// Fallback: If in production and TRUSTED_PROXIES is entirely unset,
 			// we assume we are behind a cloud load balancer (like Render/Heroku)
 			isTrusted = true
 		}

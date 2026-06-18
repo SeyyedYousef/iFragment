@@ -50,9 +50,9 @@ type SettingsGeneral struct {
 
 type RestrictionDetail struct {
 	Enabled bool   `json:"enabled"`
-	Window  string `json:"window"` // Always, QuietHours, Custom
-	Start   string `json:"start"`  // HH:mm
-	End     string `json:"end"`    // HH:mm
+	Window  string `json:"window"`  // Always, QuietHours, Custom
+	Start   string `json:"start"`   // HH:mm
+	End     string `json:"end"`     // HH:mm
 	Penalty string `json:"penalty"` // delete, mute_1h, mute_24h, kick, ban
 }
 
@@ -109,19 +109,19 @@ type QuietPeriod struct {
 }
 
 type SettingsQuietHours struct {
-	EmergencyLock    bool           `json:"emergencyLock"`
-	AdminOverride    bool           `json:"adminOverride"`
+	EmergencyLock     bool          `json:"emergencyLock"`
+	AdminOverride     bool          `json:"adminOverride"`
 	SendNotifications bool          `json:"sendNotifications"`
-	Periods          []QuietPeriod  `json:"periods"`
+	Periods           []QuietPeriod `json:"periods"`
 }
 
 type SettingsMandatoryMembership struct {
-	ForcedAddEnabled   bool     `json:"forced_add_enabled"`
-	ForcedAddCount     int      `json:"forced_add_count"`
-	ForceJoinEnabled   bool     `json:"force_join_enabled"`
-	RequiredChannels   []string `json:"required_channels"`
+	ForcedAddEnabled    bool     `json:"forced_add_enabled"`
+	ForcedAddCount      int      `json:"forced_add_count"`
+	ForceJoinEnabled    bool     `json:"force_join_enabled"`
+	RequiredChannels    []string `json:"required_channels"`
 	VerificationEnabled bool     `json:"verification_enabled"`
-	Exemptions         []string `json:"exemptions"`
+	Exemptions          []string `json:"exemptions"`
 }
 
 type InlineButton struct {
@@ -341,7 +341,7 @@ func (r *SettingsRepo) GetMultipleSettings(ctx context.Context, groupIDs []uuid.
 
 		query := `SELECT group_id, general, content_restrictions, limits, quiet_hours, mandatory_membership, custom_texts, version, updated_at, updated_by
 			FROM group_settings WHERE group_id = ANY($1)`
-		
+
 		rows, err := r.db.Pool.Query(ctx, query, redisMisses)
 		if err != nil {
 			return nil, err

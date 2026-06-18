@@ -32,10 +32,10 @@ func NewStarsService(db *repository.Database) *StarsService {
 }
 
 type InvoiceRequest struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	Payload     string `json:"payload"`
-	Currency    string `json:"currency"` // Must be "XTR" for Stars
+	Title       string  `json:"title"`
+	Description string  `json:"description"`
+	Payload     string  `json:"payload"`
+	Currency    string  `json:"currency"` // Must be "XTR" for Stars
 	Prices      []Price `json:"prices"`
 }
 

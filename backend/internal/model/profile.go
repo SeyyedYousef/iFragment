@@ -65,4 +65,3 @@ type CosmeticItem struct {
 	BorderClass string  `json:"borderClass,omitempty"` // CSS class name for styling
 	SkinClass   string  `json:"skinClass,omitempty"`   // CSS class name for styling
 }
-

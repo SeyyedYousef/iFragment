@@ -2,10 +2,11 @@ import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, onCleanup, onMount, Show } from 'solid-js';
-import { createStore, reconcile, unwrap } from 'solid-js/store';
+import { createStore, reconcile } from 'solid-js/store';
 import { channelApi } from '@/shared/api/channel-management.js';
 import { locale, t } from '@/shared/i18n/index.js';
 import { showConfirm } from '@/shared/lib/telegram-native.js';
+import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SelectField, SettingsSection, ToggleSwitch } from '@/shared/ui/settings-controls.js';
 import { showToast } from '@/shared/ui/toast.js';
@@ -96,19 +97,31 @@ export const ChannelGeneralSettingsPage: Component = () => {
 					autoForward: apiGeneral.autoForward ?? defaultConfig.autoForward,
 					forwardDestination: apiGeneral.forwardDestination || defaultConfig.forwardDestination,
 					disableReactions: apiGeneral.disableReactions ?? defaultConfig.disableReactions,
-					channelName: apiGeneral.name || defaultConfig.channelName,
-					channelBio: apiGeneral.description || defaultConfig.channelBio,
-					channelPhotoUrl: apiGeneral.photo || defaultConfig.channelPhotoUrl,
-					channelUsername: apiGeneral.username || defaultConfig.channelUsername,
-					adminProfileDisplay: apiGeneral.showAdminProfile ?? defaultConfig.adminProfileDisplay,
-					hideHistory: apiGeneral.hideChatHistory ?? defaultConfig.hideHistory,
+					channelName: apiGeneral.name || apiGeneral.channelName || defaultConfig.channelName,
+					channelBio: apiGeneral.description || apiGeneral.channelBio || defaultConfig.channelBio,
+					channelPhotoUrl:
+						apiGeneral.photo || apiGeneral.channelPhotoUrl || defaultConfig.channelPhotoUrl,
+					channelUsername:
+						apiGeneral.username || apiGeneral.channelUsername || defaultConfig.channelUsername,
+					adminProfileDisplay:
+						apiGeneral.showAdminProfile ??
+						apiGeneral.adminProfileDisplay ??
+						defaultConfig.adminProfileDisplay,
+					hideHistory: apiGeneral.hideChatHistory ?? apiGeneral.hideHistory ?? defaultConfig.hideHistory,
 					hideMemberList: apiGeneral.hideMemberList ?? defaultConfig.hideMemberList,
-					telegramAntiSpam: apiGeneral.antiSpam ?? defaultConfig.telegramAntiSpam,
-					slowMode: String(apiGeneral.slowMode || 0),
-					autoDeleteTimer: String(apiGeneral.autoDelete || 0),
-					discussionGroup: apiGeneral.discussionGroupId || '',
-					approveAccountAge: apiGeneral.joinReqAge > 0,
-					approveProfilePhoto: apiGeneral.joinReqPhoto ?? defaultConfig.approveProfilePhoto,
+					telegramAntiSpam:
+						apiGeneral.antiSpam ?? apiGeneral.telegramAntiSpam ?? defaultConfig.telegramAntiSpam,
+					slowMode: String(apiGeneral.slowMode ?? 0),
+					autoDeleteTimer: String(apiGeneral.autoDelete ?? apiGeneral.autoDeleteTimer ?? 0),
+					discussionGroup: apiGeneral.discussionGroupId || apiGeneral.discussionGroup || '',
+					approveAccountAge:
+						(apiGeneral.joinReqAge ?? 0) > 0 ||
+						apiGeneral.approveAccountAge ||
+						defaultConfig.approveAccountAge,
+					approveProfilePhoto:
+						apiGeneral.joinReqPhoto ??
+						apiGeneral.approveProfilePhoto ??
+						defaultConfig.approveProfilePhoto,
 					joinRequestsEnabled:
 						(apiGeneral as any).joinRequestsEnabled ?? defaultConfig.joinRequestsEnabled,
 					approvePremium: (apiGeneral as any).approvePremium ?? defaultConfig.approvePremium,
@@ -158,6 +171,50 @@ export const ChannelGeneralSettingsPage: Component = () => {
 		setIsDirty(true);
 	};
 
+	const buildGeneralPayload = () => {
+		const username = config.channelUsername.replace(/^@/, '').trim();
+		const slowMode = Number(config.slowMode) || 0;
+		const autoDelete = Number(config.autoDeleteTimer) || 0;
+
+		return {
+			language: config.language,
+			timezone: config.timezone,
+			signMessages: config.signMessages,
+			customSignature: config.customSignature,
+			autoForward: config.autoForward,
+			forwardDestination: config.forwardDestination.trim(),
+			disableReactions: config.disableReactions,
+			name: config.channelName.trim(),
+			description: config.channelBio.trim(),
+			photo: config.channelPhotoUrl.trim(),
+			username,
+			showAdminProfile: config.adminProfileDisplay,
+			hideChatHistory: config.hideHistory,
+			hideMemberList: config.hideMemberList,
+			antiSpam: config.telegramAntiSpam,
+			slowMode,
+			autoDelete,
+			discussionGroupId: config.discussionGroup.trim() || null,
+			joinReqAge: config.approveAccountAge ? 1 : 0,
+			joinReqPhoto: config.approveProfilePhoto,
+			joinRequestsEnabled: config.joinRequestsEnabled,
+			approvePremium: config.approvePremium,
+			approveGifts: config.approveGifts,
+			approveCollectibles: config.approveCollectibles,
+			channelName: config.channelName.trim(),
+			channelBio: config.channelBio.trim(),
+			channelPhotoUrl: config.channelPhotoUrl.trim(),
+			channelUsername: username,
+			adminProfileDisplay: config.adminProfileDisplay,
+			hideHistory: config.hideHistory,
+			telegramAntiSpam: config.telegramAntiSpam,
+			autoDeleteTimer: String(autoDelete),
+			discussionGroup: config.discussionGroup.trim(),
+			approveAccountAge: config.approveAccountAge,
+			approveProfilePhoto: config.approveProfilePhoto,
+		};
+	};
+
 	const handleSave = async () => {
 		if (!isDirty()) return;
 		setIsSaving(true);
@@ -165,7 +222,7 @@ export const ChannelGeneralSettingsPage: Component = () => {
 			const result = await channelApi.updateSettings(
 				params.id,
 				'general',
-				unwrap(config),
+				buildGeneralPayload(),
 				settingsVersion(),
 			);
 			setSettingsVersion(result.version);
@@ -242,6 +299,8 @@ export const ChannelGeneralSettingsPage: Component = () => {
 			/>
 
 			<div class="px-5 pt-6 flex flex-col gap-6">
+				<ChannelContextBar channelId={params.id} />
+
 				<Show
 					when={!settingsData.loading}
 					fallback={
@@ -278,9 +337,6 @@ export const ChannelGeneralSettingsPage: Component = () => {
 										class="w-full h-full object-cover"
 									/>
 								</Show>
-								<div class="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center transition-all">
-									<span class="material-symbols-outlined text-white text-[20px]">upload</span>
-								</div>
 							</div>
 							<div class="flex flex-col gap-1 flex-1 min-w-0">
 								<label class="text-[12px] text-on-surface-variant ml-1">
@@ -292,6 +348,49 @@ export const ChannelGeneralSettingsPage: Component = () => {
 									onInput={(e) => updateField('channelName', e.currentTarget.value)}
 									placeholder={t('channelSettings.channelNamePlaceholder')}
 									class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-2.5 w-full focus:outline-none focus:ring-2 focus:ring-[#32ade6] placeholder-[#a0a4ad]"
+								/>
+							</div>
+						</div>
+
+						<div class="flex flex-col gap-1.5">
+							<label class="text-[12px] text-on-surface-variant ml-1">
+								{t('channelSettings.channelBio') || 'Channel bio'}
+							</label>
+							<textarea
+								value={config.channelBio}
+								onInput={(e) => updateField('channelBio', e.currentTarget.value)}
+								placeholder={t('channelSettings.channelBioPlaceholder') || 'Channel description'}
+								maxLength={255}
+								class="bg-[#2c2c2e] text-white text-[14px] rounded-xl px-4 py-3 w-full min-h-[86px] focus:outline-none focus:ring-2 focus:ring-[#32ade6] placeholder-[#a0a4ad] resize-none"
+							/>
+							<span class="text-[11px] text-[#8e8e93] ml-1">{config.channelBio.length} / 255</span>
+						</div>
+
+						<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+							<div class="flex flex-col gap-1.5">
+								<label class="text-[12px] text-on-surface-variant ml-1">
+									{t('channelSettings.channelUsername') || 'Username'}
+								</label>
+								<input
+									type="text"
+									value={config.channelUsername}
+									onInput={(e) => updateField('channelUsername', e.currentTarget.value)}
+									placeholder="@channel"
+									class="bg-[#2c2c2e] text-white text-[14px] rounded-xl px-4 py-2.5 w-full focus:outline-none focus:ring-2 focus:ring-[#32ade6] placeholder-[#a0a4ad]"
+									dir="ltr"
+								/>
+							</div>
+							<div class="flex flex-col gap-1.5">
+								<label class="text-[12px] text-on-surface-variant ml-1">
+									{t('channelSettings.channelPhotoUrl') || 'Photo URL'}
+								</label>
+								<input
+									type="url"
+									value={config.channelPhotoUrl}
+									onInput={(e) => updateField('channelPhotoUrl', e.currentTarget.value)}
+									placeholder="https://..."
+									class="bg-[#2c2c2e] text-white text-[14px] rounded-xl px-4 py-2.5 w-full focus:outline-none focus:ring-2 focus:ring-[#32ade6] placeholder-[#a0a4ad]"
+									dir="ltr"
 								/>
 							</div>
 						</div>

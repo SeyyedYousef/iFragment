@@ -11,11 +11,11 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
-	"strconv"
 
 	"golang.org/x/time/rate"
 	"ifragment-backend/internal/telemetry"
@@ -125,19 +125,19 @@ type NFTItem struct {
 }
 
 type NFTSale struct {
-	Address    string `json:"address"`
-	Market     struct {
+	Address string `json:"address"`
+	Market  struct {
 		Address string `json:"address"`
 		Name    string `json:"name"`
 	} `json:"market"`
-	Price      Price  `json:"price"`
-	MarketFee  int64  `json:"market_fee"`
-	NetworkFee int64  `json:"network_fee"`
+	Price      Price `json:"price"`
+	MarketFee  int64 `json:"market_fee"`
+	NetworkFee int64 `json:"network_fee"`
 }
 
 type Price struct {
-	Value      string `json:"value"`
-	TokenName  string `json:"token_name"`
+	Value     string `json:"value"`
+	TokenName string `json:"token_name"`
 }
 
 type WalletInfo struct {
@@ -182,7 +182,7 @@ func (c *Client) doRequest(ctx context.Context, url string) (*http.Response, err
 		if key != "" {
 			req.Header.Set("Authorization", "Bearer "+key)
 		}
-		
+
 		version := os.Getenv("APP_VERSION")
 		if version == "" {
 			version = "1.0"
@@ -234,12 +234,12 @@ func (c *Client) doRequest(ctx context.Context, url string) (*http.Response, err
 	if err == nil && resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound {
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
-		
+
 		bodyPreview := string(bodyBytes)
 		if len(bodyPreview) > 512 {
 			bodyPreview = bodyPreview[:512] + "..."
 		}
-		
+
 		slog.Error("TONAPI_REQUEST_FAILED",
 			"method", method,
 			"url", url,
@@ -482,7 +482,7 @@ func (c *Client) GetTopHolders(ctx context.Context, collectionAddr string, maxIt
 	for k, v := range ownerCounts {
 		sorted = append(sorted, kv{k, v})
 	}
-	
+
 	// Standard sort.Slice descending
 	sort.Slice(sorted, func(i, j int) bool {
 		return sorted[i].Value > sorted[j].Value

@@ -153,45 +153,45 @@ type PricingHeuristicsConfig struct {
 	BuyNowCapMultiplier       float64 `json:"buy_now_cap_multiplier"`
 
 	// Confidence calculation parameters.
-	BaseConfidence            float64 `json:"base_confidence"`
-	PastSalesConfidenceBonus  float64 `json:"past_sales_confidence_bonus"`
-	ActiveSalesConfidenceBonus float64 `json:"active_sales_confidence_bonus"`
-	PopularityConfidenceBonus float64 `json:"popularity_confidence_bonus"`
-	DepthConfidenceBonus      float64 `json:"depth_confidence_bonus"`
+	BaseConfidence              float64 `json:"base_confidence"`
+	PastSalesConfidenceBonus    float64 `json:"past_sales_confidence_bonus"`
+	ActiveSalesConfidenceBonus  float64 `json:"active_sales_confidence_bonus"`
+	PopularityConfidenceBonus   float64 `json:"popularity_confidence_bonus"`
+	DepthConfidenceBonus        float64 `json:"depth_confidence_bonus"`
 	ExchangeRateConfidenceBonus float64 `json:"exchange_rate_confidence_bonus"`
 }
 
 var DefaultPricingHeuristicsConfig = PricingHeuristicsConfig{
-	BaseValueMultiplier:       0.5,
-	Length4Bonus:              500.0,
-	Length4Multiplier:         2.2,
-	Length5Bonus:              100.0,
-	Length5Multiplier:         1.45,
-	Length7Bonus:              30.0,
-	Length10Bonus:             10.0,
-	PronounceableThreshold:    70.0,
-	PronounceableMultiplier:   1.15,
-	BrandKeywordMultiplier:    3.5,
-	MarketKeywordMultiplier:   2.4,
-	SearchPopularityScale:     18.0,
-	SearchPopularityMax:       0.7,
-	AudienceScale:             24.0,
-	AudienceMax:               0.5,
-	WalletDepthScale:          40.0,
-	WalletDepthMax:            0.35,
-	CollectionDepthScale:      30.0,
-	CollectionDepthMax:        0.25,
-	TransferHistoryScale:      0.025,
-	TransferHistoryMax:        0.25,
-	PastSalesMedianWeight:     0.75,
-	PastSalesHeuristicWeight:  0.25,
-	AuctionBidFloorMultiplier: 1.1,
-	BuyNowCapMultiplier:       0.85,
-	BaseConfidence:            0.25,
-	PastSalesConfidenceBonus:  0.35,
-	ActiveSalesConfidenceBonus: 0.18,
-	PopularityConfidenceBonus: 0.08,
-	DepthConfidenceBonus:      0.08,
+	BaseValueMultiplier:         0.5,
+	Length4Bonus:                500.0,
+	Length4Multiplier:           2.2,
+	Length5Bonus:                100.0,
+	Length5Multiplier:           1.45,
+	Length7Bonus:                30.0,
+	Length10Bonus:               10.0,
+	PronounceableThreshold:      70.0,
+	PronounceableMultiplier:     1.15,
+	BrandKeywordMultiplier:      3.5,
+	MarketKeywordMultiplier:     2.4,
+	SearchPopularityScale:       18.0,
+	SearchPopularityMax:         0.7,
+	AudienceScale:               24.0,
+	AudienceMax:                 0.5,
+	WalletDepthScale:            40.0,
+	WalletDepthMax:              0.35,
+	CollectionDepthScale:        30.0,
+	CollectionDepthMax:          0.25,
+	TransferHistoryScale:        0.025,
+	TransferHistoryMax:          0.25,
+	PastSalesMedianWeight:       0.75,
+	PastSalesHeuristicWeight:    0.25,
+	AuctionBidFloorMultiplier:   1.1,
+	BuyNowCapMultiplier:         0.85,
+	BaseConfidence:              0.25,
+	PastSalesConfidenceBonus:    0.35,
+	ActiveSalesConfidenceBonus:  0.18,
+	PopularityConfidenceBonus:   0.08,
+	DepthConfidenceBonus:        0.08,
 	ExchangeRateConfidenceBonus: 0.04,
 }
 
@@ -202,15 +202,15 @@ type ReportTask struct {
 }
 
 type ReportService struct {
-	db              *repository.Database
-	cache           *repository.Cache
-	tonClient       *tonapi.Client
-	mtprotoClient   mtproto.Client
-	saveQueue       chan ReportTask
-	rarityConfig    RarityConfig
-	pricingConfig   PricingHeuristicsConfig
-	pricingClient   *PricingClient
-	sfGroup         singleflight.Group
+	db            *repository.Database
+	cache         *repository.Cache
+	tonClient     *tonapi.Client
+	mtprotoClient mtproto.Client
+	saveQueue     chan ReportTask
+	rarityConfig  RarityConfig
+	pricingConfig PricingHeuristicsConfig
+	pricingClient *PricingClient
+	sfGroup       singleflight.Group
 }
 
 func NewReportService(
@@ -221,14 +221,14 @@ func NewReportService(
 	mtp mtproto.Client,
 ) *ReportService {
 	s := &ReportService{
-		db:              db,
-		cache:           cache,
-		tonClient:       ton,
-		mtprotoClient:   mtp,
-		saveQueue:       make(chan ReportTask, 1000),
-		rarityConfig:    DefaultRarityConfig,
-		pricingConfig:   DefaultPricingHeuristicsConfig,
-		pricingClient:   NewPricingClientFromEnv(),
+		db:            db,
+		cache:         cache,
+		tonClient:     ton,
+		mtprotoClient: mtp,
+		saveQueue:     make(chan ReportTask, 1000),
+		rarityConfig:  DefaultRarityConfig,
+		pricingConfig: DefaultPricingHeuristicsConfig,
+		pricingClient: NewPricingClientFromEnv(),
 	}
 	go s.worker(ctx)
 	return s
@@ -526,8 +526,8 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 	var mu sync.Mutex
 
 	var (
-		tonapiOwner    string
-		dnsOwner       string
+		tonapiOwner string
+		dnsOwner    string
 	)
 
 	// ─ MTProto Data ─
@@ -781,23 +781,23 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 		if nft.Address != "" {
 			transfers, trErr := s.tonClient.GetNFTTransfers(subCtx, nft.Address)
 			if trErr == nil && transfers != nil {
-			var tonapiOwners []string
-			for _, tr := range transfers.Transfers {
-				if tr.From.Address != "" {
-					tonapiOwners = append(tonapiOwners, tr.From.Address)
+				var tonapiOwners []string
+				for _, tr := range transfers.Transfers {
+					if tr.From.Address != "" {
+						tonapiOwners = append(tonapiOwners, tr.From.Address)
+					}
 				}
-			}
 
-			mu.Lock()
-			if len(report.PreviousOwners) == 0 && len(tonapiOwners) > 0 {
-				report.PreviousOwners = tonapiOwners
-			}
-			// If we don't have sales from marketapp/fragment, map them from transfers
-			if len(report.PastSales) == 0 {
-				// We omit mapping pure transfers to PastSales as sales because they have no price,
-				// avoiding skewing average/median prices in the analytics.
-			}
-			mu.Unlock()
+				mu.Lock()
+				if len(report.PreviousOwners) == 0 && len(tonapiOwners) > 0 {
+					report.PreviousOwners = tonapiOwners
+				}
+				// If we don't have sales from marketapp/fragment, map them from transfers
+				if len(report.PastSales) == 0 {
+					// We omit mapping pure transfers to PastSales as sales because they have no price,
+					// avoiding skewing average/median prices in the analytics.
+				}
+				mu.Unlock()
 			}
 		}
 
@@ -858,8 +858,6 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 			}
 		}
 	}()
-
-
 
 	wg.Wait()
 

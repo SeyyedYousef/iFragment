@@ -14,7 +14,7 @@ type errResp struct {
 // RespondError wraps errors securely. Internal errors are logged, publicMsg is sent to the client.
 func RespondError(w http.ResponseWriter, r *http.Request, code int, publicMsg string, internalErr error) {
 	reqID := r.Header.Get("X-Request-ID")
-	
+
 	// Structured logging for the internal error
 	slog.Error("handler error",
 		"request_id", reqID,
@@ -22,7 +22,7 @@ func RespondError(w http.ResponseWriter, r *http.Request, code int, publicMsg st
 		"code", code,
 		"err", internalErr,
 	)
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	json.NewEncoder(w).Encode(errResp{

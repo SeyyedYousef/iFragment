@@ -37,13 +37,13 @@ func NewMarketplaceService(frgRepo *repository.FRGRepo, tonClient *tonapi.Client
 }
 
 type PurchaseOption struct {
-	ID          string  `json:"id"`
-	Method      string  `json:"method"`
-	FRGAmount   float64 `json:"frg_amount"`
-	Price       float64 `json:"price"`
-	Currency    string  `json:"currency"`
-	Discount    string  `json:"discount,omitempty"`
-	Popular     bool    `json:"popular,omitempty"`
+	ID        string  `json:"id"`
+	Method    string  `json:"method"`
+	FRGAmount float64 `json:"frg_amount"`
+	Price     float64 `json:"price"`
+	Currency  string  `json:"currency"`
+	Discount  string  `json:"discount,omitempty"`
+	Popular   bool    `json:"popular,omitempty"`
 }
 
 func (s *MarketplaceService) GetPurchaseOptions() []PurchaseOption {
@@ -114,12 +114,12 @@ func (s *MarketplaceService) PurchaseWithStars(ctx context.Context, userID int64
 		if err != nil {
 			return nil, fmt.Errorf("failed to load telegram bot client for verification: %w", err)
 		}
-		
+
 		txs, err := tg.GetStarTransactions(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to retrieve star transactions: %w", err)
 		}
-		
+
 		var verifiedTx *telegram.StarTransaction
 		for _, tx := range txs.Transactions {
 			if tx.ID == telegramChargeID {
@@ -127,15 +127,15 @@ func (s *MarketplaceService) PurchaseWithStars(ctx context.Context, userID int64
 				break
 			}
 		}
-		
+
 		if verifiedTx == nil {
 			return nil, fmt.Errorf("stars payment charge %s not found on Telegram", telegramChargeID)
 		}
-		
+
 		if verifiedTx.Source.User == nil || verifiedTx.Source.User.ID != userID {
 			return nil, fmt.Errorf("stars payment user mismatch")
 		}
-		
+
 		expectedAmount := int(opt.Price)
 		if verifiedTx.Amount != expectedAmount {
 			return nil, fmt.Errorf("stars payment amount mismatch: expected %d, got %d", expectedAmount, verifiedTx.Amount)
@@ -402,5 +402,3 @@ func (s *MarketplaceService) CreateCustomStarsInvoice(ctx context.Context, userI
 
 	return link, nil
 }
-
-

@@ -14,8 +14,19 @@ import {
 } from 'solid-js';
 import { channelApi } from '@/shared/api/channel-management.js';
 import { t } from '@/shared/i18n/index.js';
+import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SelectField, SettingsSection, ToggleSwitch } from '@/shared/ui/settings-controls.js';
+import { showToast } from '@/shared/ui/toast.js';
+
+interface AutoResponderRule {
+	id: string;
+	keys: string;
+	match: string;
+	replyText: string;
+	enabled: boolean;
+	useAi: boolean;
+}
 
 export const ChannelAutoResponderPage: Component = () => {
 	const params = useParams();
@@ -31,9 +42,7 @@ export const ChannelAutoResponderPage: Component = () => {
 	const [matchType, setMatchType] = createSignal('contains');
 	const [replyText, setReplyText] = createSignal('');
 	const [useAi, setUseAi] = createSignal(false);
-	const [rules, setRules] = createSignal<
-		{ id: string; keys: string; match: string; replyText: string }[]
-	>([]);
+	const [rules, setRules] = createSignal<AutoResponderRule[]>([]);
 
 	// Top-Level State
 	const [autoFirstComment, setAutoFirstComment] = createSignal(false);
@@ -55,6 +64,15 @@ export const ChannelAutoResponderPage: Component = () => {
 		(id) => channelApi.getSettings(id),
 	);
 
+	const normalizeRule = (rule: any, index = 0): AutoResponderRule => ({
+		id: String(rule?.id || `rule_${index}`),
+		keys: rule?.keys || rule?.trigger || '',
+		match: rule?.match || rule?.type || 'contains',
+		replyText: rule?.replyText || rule?.response || '',
+		enabled: rule?.enabled ?? true,
+		useAi: rule?.useAi ?? false,
+	});
+
 	// Parse settings on load
 	createEffect(() => {
 		const data = settings();
@@ -75,7 +93,7 @@ export const ChannelAutoResponderPage: Component = () => {
 					if ('newMemberWelcome' in ar) setNewMemberWelcome(ar.newMemberWelcome);
 					if ('welcomeDelay' in ar) setWelcomeDelay(ar.welcomeDelay);
 					if ('welcomeText' in ar) setWelcomeText(ar.welcomeText);
-					if ('rules' in ar && Array.isArray(ar.rules)) setRules(ar.rules);
+					if ('rules' in ar && Array.isArray(ar.rules)) setRules(ar.rules.map(normalizeRule));
 				}
 			} catch (e) {
 				console.error('Failed to parse auto_responder settings:', e);
@@ -122,7 +140,9 @@ export const ChannelAutoResponderPage: Component = () => {
 				newMemberWelcome: !!originalAR?.newMemberWelcome,
 				welcomeDelay: originalAR?.welcomeDelay || '0',
 				welcomeText: originalAR?.welcomeText || '',
-				rules: originalAR?.rules || [],
+				rules: Array.isArray(originalAR?.rules)
+					? originalAR.rules.map(normalizeRule)
+					: [],
 			})
 		);
 	});
@@ -139,11 +159,19 @@ export const ChannelAutoResponderPage: Component = () => {
 			hapticFeedback.notificationOccurred('success');
 			setRules([
 				...rules(),
-				{ id: Date.now().toString(), keys: keywords(), match: matchType(), replyText: replyText() },
+				{
+					id: Date.now().toString(),
+					keys: keywords().trim(),
+					match: matchType(),
+					replyText: replyText().trim(),
+					enabled: isRuleEnabled(),
+					useAi: useAi(),
+				},
 			]);
 			setIsCreating(false);
 			setKeywords('');
 			setReplyText('');
+			setIsRuleEnabled(true);
 			setUseAi(false);
 		}
 	};
@@ -162,7 +190,6 @@ export const ChannelAutoResponderPage: Component = () => {
 	};
 
 	const handleSave = async () => {
-		hapticFeedback.notificationOccurred('success');
 		setIsSaving(true);
 
 		const currentVersion = settings()?.version ?? 1;
@@ -181,10 +208,13 @@ export const ChannelAutoResponderPage: Component = () => {
 
 		try {
 			await channelApi.updateSettings(params.id, 'auto_responder', payload, currentVersion);
+			hapticFeedback.notificationOccurred('success');
+			showToast(t('common.settingsSaved') || 'Settings saved successfully', 'success');
 			navigate(`/channel/${params.id}`);
 		} catch (e) {
 			console.error('Failed to save auto responder settings:', e);
-			navigate(`/channel/${params.id}`);
+			hapticFeedback.notificationOccurred('error');
+			showToast(t('common.saveFailed') || 'Failed to save settings', 'error');
 		} finally {
 			setIsSaving(false);
 		}
@@ -250,6 +280,8 @@ export const ChannelAutoResponderPage: Component = () => {
 			/>
 
 			<div class="px-5 pt-6 flex flex-col gap-6 pb-24">
+				<ChannelContextBar channelId={params.id} />
+
 				<Show when={settings.loading}>
 					<div class="flex flex-col gap-4 animate-pulse">
 						<div class="h-40 bg-[#1c1c1c] rounded-3xl"></div>
@@ -499,9 +531,16 @@ export const ChannelAutoResponderPage: Component = () => {
 															<span class="text-[15px] font-bold text-white truncate">
 																{rule.keys}
 															</span>
-															<span class="text-[12px] text-[#32ade6] uppercase tracking-wide font-bold">
-																{getLocalizedMatch(rule.match)}
-															</span>
+															<div class="flex items-center gap-2 mt-0.5">
+																<span class="text-[12px] text-[#32ade6] uppercase tracking-wide font-bold">
+																	{getLocalizedMatch(rule.match)}
+																</span>
+																<Show when={!rule.enabled}>
+																	<span class="text-[10px] font-black uppercase text-[#ff9f0a] bg-[#ff9f0a]/10 border border-[#ff9f0a]/20 rounded-md px-1.5 py-0.5">
+																		Disabled
+																	</span>
+																</Show>
+															</div>
 														</div>
 														<button
 															onClick={() => {
