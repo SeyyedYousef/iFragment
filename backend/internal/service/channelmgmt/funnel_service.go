@@ -174,12 +174,7 @@ func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *r
 		processedText = removeHashtagsHelper(processedText)
 	}
 
-	if posting.WatermarkEnabled && posting.WatermarkText != "" {
-		processedText = processedText + "\n\n" + posting.WatermarkText
-	}
-	if general.SignMessages && general.CustomSignature != "" {
-		processedText = processedText + "\n\n✍️ " + general.CustomSignature
-	}
+
 
 	// 3. AI Post Composer A/B Testing generation
 	var aiVariations []string
@@ -238,16 +233,18 @@ func (s *ChannelService) sendFunnelReviewToOwner(ctx context.Context, bot *repos
 	tg := telegram.NewBotAPIClient(token)
 
 	lang := "en"
-	settings, err := s.channelRepo.GetChannelSettings(ctx, draft.FunnelID)
-	if err == nil && settings != nil {
-		var general GeneralSettingsSchema
-		if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
-			lang = general.Language
+	activeText := draft.DraftText
+	destChan, err := s.channelRepo.GetChannelByChatID(ctx, funnel.OutputChatID)
+	if err == nil && destChan != nil {
+		activeText = s.applyWatermarkAndSignature(ctx, draft.DraftText, destChan.ID)
+		settings, err := s.channelRepo.GetChannelSettings(ctx, destChan.ID)
+		if err == nil && settings != nil {
+			var general GeneralSettingsSchema
+			if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
+				lang = general.Language
+			}
 		}
 	}
-
-	// Message 1: Live Preview
-	activeText := draft.DraftText
 	var buttonsList []repository.ChannelInlineButton
 	_ = json.Unmarshal(draft.DraftButtons, &buttonsList)
 	previewMarkup := buildReplyMarkupFromButtons(buttonsList)
@@ -298,6 +295,7 @@ func (s *ChannelService) sendFunnelReviewToOwner(ctx context.Context, bot *repos
 			}
 			if i == 0 {
 				mItem["caption"] = activeText
+				mItem["parse_mode"] = "Markdown"
 			}
 			mediaItemsPayload[i] = mItem
 		}
@@ -535,14 +533,14 @@ func (s *ChannelService) HandleFunnelCallback(ctx context.Context, cq FunnelCall
 			return err
 		}
 
-		_ = tg.EditMessageText(ctx, cq.ChatID, cq.MessageID, "✅ **Post Approved & Published successfully!**")
+		_ = tg.EditMessageText(ctx, cq.ChatID, cq.MessageID, "✅ **Post Approved & Published successfully!**", "Markdown")
 
 	case "f_rej":
 		// Reject
 		draft.Status = "rejected"
 		_ = s.channelRepo.UpdatePendingFunnelPost(ctx, draft)
 		_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "Post Draft Rejected", false)
-		_ = tg.EditMessageText(ctx, cq.ChatID, cq.MessageID, "🗑️ **Post Draft Rejected & Deleted.**")
+		_ = tg.EditMessageText(ctx, cq.ChatID, cq.MessageID, "🗑️ **Post Draft Rejected & Deleted.**", "Markdown")
 
 	case "f_var":
 		// Cycle styles (0 -> 1 -> 2 -> 0)
@@ -558,9 +556,9 @@ func (s *ChannelService) HandleFunnelCallback(ctx context.Context, cq FunnelCall
 		panelMarkup := buildFunnelPanelKeyboard(draft)
 		panelText := fmt.Sprintf("🎛️ **Channel Funnel Control Panel**\n\nDestination Funnel ID: %s\nActive Caption Style: %d\nAuthor: %s\nStatus: %s",
 			draft.FunnelID, draft.SelectedVariationIndex, draft.OriginalAuthorName, strings.ToUpper(draft.Status))
-		_ = tg.EditMessageTextWithMarkup(ctx, cq.ChatID, cq.MessageID, panelText, panelMarkup)
+		_ = tg.EditMessageTextWithMarkup(ctx, cq.ChatID, cq.MessageID, panelText, panelMarkup, "Markdown")
 
-		_ = tg.SendMessage(ctx, cq.ChatID, fmt.Sprintf("🤖 Switched style to variant %d. Caption preview:\n\n%s", draft.SelectedVariationIndex, draft.DraftText), nil, nil)
+		_, _ = tg.SendMessageWithResult(ctx, cq.ChatID, fmt.Sprintf("🤖 Switched style to variant %d. Caption preview:\n\n%s", draft.SelectedVariationIndex, draft.DraftText), nil, nil, "Markdown")
 
 	case "f_reg":
 		// Regenerate AI
@@ -586,7 +584,7 @@ func (s *ChannelService) HandleFunnelCallback(ctx context.Context, cq FunnelCall
 					draft.SelectedVariationIndex = 0
 					draft.DraftText = vars[0]
 					_ = s.channelRepo.UpdatePendingFunnelPost(ctx, draft)
-					_ = tg.SendMessage(ctx, cq.ChatID, fmt.Sprintf("🔄 AI variations regenerated. Caption preview:\n\n%s", draft.DraftText), nil, nil)
+					_, _ = tg.SendMessageWithResult(ctx, cq.ChatID, fmt.Sprintf("🔄 AI variations regenerated. Caption preview:\n\n%s", draft.DraftText), nil, nil, "Markdown")
 				}
 			}
 		}
@@ -727,7 +725,7 @@ func (s *ChannelService) HandleFunnelTextReply(ctx context.Context, bot *reposit
 	token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 	tg := telegram.NewBotAPIClient(token)
 
-	_ = tg.SendMessage(ctx, chatID, fmt.Sprintf("✍️ **Caption updated draft!**\n\nNew caption preview:\n\n%s", text), nil, nil)
+	_, _ = tg.SendMessageWithResult(ctx, chatID, fmt.Sprintf("✍️ **Caption updated draft!**\n\nNew caption preview:\n\n%s", text), nil, nil, "Markdown")
 
 	funnel, err := s.channelRepo.GetFunnelByID(ctx, draft.FunnelID)
 	if err == nil {
@@ -742,6 +740,10 @@ func (s *ChannelService) publishFunnelPostDirectly(ctx context.Context, tg *tele
 	_ = json.Unmarshal(draft.DraftButtons, &buttonsList)
 
 	activeText := draft.DraftText
+	destChan, err := s.channelRepo.GetChannelByChatID(ctx, funnel.OutputChatID)
+	if err == nil && destChan != nil {
+		activeText = s.applyWatermarkAndSignature(ctx, activeText, destChan.ID)
+	}
 	var previewMarkup interface{}
 	if len(draft.MediaPayload) > 1 && len(buttonsList) > 0 {
 		var linkTexts []string
@@ -760,7 +762,7 @@ func (s *ChannelService) publishFunnelPostDirectly(ctx context.Context, tg *tele
 	var pubMsgID int64
 
 	if len(draft.MediaPayload) == 0 {
-		res, err := tg.SendMessageWithMarkup(ctx, funnel.OutputChatID, activeText, previewMarkup, nil)
+		res, err := tg.SendMessageWithMarkup(ctx, funnel.OutputChatID, activeText, previewMarkup, nil, "Markdown")
 		if err != nil {
 			return err
 		}
@@ -768,8 +770,9 @@ func (s *ChannelService) publishFunnelPostDirectly(ctx context.Context, tg *tele
 	} else if len(draft.MediaPayload) == 1 {
 		item := draft.MediaPayload[0]
 		payload := map[string]interface{}{
-			"chat_id": funnel.OutputChatID,
-			"caption": activeText,
+			"chat_id":    funnel.OutputChatID,
+			"caption":    activeText,
+			"parse_mode": "Markdown",
 		}
 		if !telegram.IsNil(previewMarkup) {
 			payload["reply_markup"] = previewMarkup
@@ -840,8 +843,6 @@ func (s *ChannelService) publishFunnelPostDirectly(ctx context.Context, tg *tele
 	draft.Status = "approved"
 	draft.PublishedMessageID = &pubMsgID
 	_ = s.channelRepo.UpdatePendingFunnelPost(ctx, draft)
-
-	destChan, _ := s.channelRepo.GetChannelByChatID(ctx, funnel.OutputChatID)
 	now := time.Now()
 	channelPost := repository.ChannelPost{
 		ChannelID:         destChan.ID,
@@ -869,7 +870,7 @@ func (s *ChannelService) publishFunnelPostDirectly(ctx context.Context, tg *tele
 	auditLog.Metadata = meta
 	_ = s.channelRepo.LogAudit(ctx, &auditLog)
 
-	_ = tg.SendMessage(ctx, funnel.OwnerUserID, fmt.Sprintf("🚀 **Post successfully published to the channel!**\n\n🔑 **Unique Post ID:** `%s`\nUse this key to edit or update the live post caption in the future.", draft.ID.String()), nil, nil)
+	_, _ = tg.SendMessageWithResult(ctx, funnel.OwnerUserID, fmt.Sprintf("🚀 **Post successfully published to the channel!**\n\n🔑 **Unique Post ID:** `%s`\nUse this key to edit or update the live post caption in the future.", draft.ID.String()), nil, nil, "Markdown")
 
 	return nil
 }
@@ -934,4 +935,32 @@ func buildReplyMarkupFromButtons(buttons []repository.ChannelInlineButton) inter
 	return map[string]interface{}{
 		"inline_keyboard": keyboard,
 	}
+}
+
+func (s *ChannelService) applyWatermarkAndSignature(ctx context.Context, text string, destChannelID uuid.UUID) string {
+	settings, err := s.channelRepo.GetChannelSettings(ctx, destChannelID)
+	if err != nil {
+		return text
+	}
+
+	var posting PostingSettingsSchema
+	_ = json.Unmarshal(settings.Posting, &posting)
+
+	var general GeneralSettingsSchema
+	_ = json.Unmarshal(settings.General, &general)
+
+	processedText := text
+	if posting.WatermarkEnabled && posting.WatermarkText != "" {
+		watermarkStr := "\n\n" + posting.WatermarkText
+		if !strings.Contains(processedText, watermarkStr) {
+			processedText = processedText + watermarkStr
+		}
+	}
+	if general.SignMessages && general.CustomSignature != "" {
+		signatureStr := "\n\n✍️ " + general.CustomSignature
+		if !strings.Contains(processedText, signatureStr) {
+			processedText = processedText + signatureStr
+		}
+	}
+	return processedText
 }

@@ -49,8 +49,8 @@ type GeneralSettingsSchema struct {
 	HideHistory         bool   `json:"hideHistory"`
 	HideMemberList      bool   `json:"hideMemberList"`
 	TelegramAntiSpam    bool   `json:"telegramAntiSpam"`
-	SlowMode            string `json:"slowMode"`
-	AutoDeleteTimer     string `json:"autoDeleteTimer"`
+	SlowMode            interface{} `json:"slowMode"`
+	AutoDeleteTimer     interface{} `json:"autoDeleteTimer"`
 	DiscussionGroup     string `json:"discussionGroup"`
 	ApproveAccountAge   bool   `json:"approveAccountAge"`
 	ApproveProfilePhoto bool   `json:"approveProfilePhoto"`

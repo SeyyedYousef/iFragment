@@ -942,15 +942,18 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 
 	// General Settings: Sign Messages
 	if general.SignMessages && general.CustomSignature != "" && !isEdit {
-		bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
-		if err == nil {
-			token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+		signatureStr := "\n\n✍️ " + general.CustomSignature
+		if !strings.Contains(postText, signatureStr) {
+			bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
 			if err == nil {
-				tg := telegram.NewBotAPIClient(token)
-				newText := postText + "\n\n✍️ " + general.CustomSignature
-				// Telegram edit requires either text or caption depending on message type
-				_ = tg.EditMessageTextWithMarkup(ctx, chatID, messageID, newText, replyMarkup)
-				_ = tg.EditMessageCaptionWithMarkup(ctx, chatID, messageID, newText, replyMarkup)
+				token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+				if err == nil {
+					tg := telegram.NewBotAPIClient(token)
+					newText := postText + signatureStr
+					// Telegram edit requires either text or caption depending on message type
+					_ = tg.EditMessageTextWithMarkup(ctx, chatID, messageID, newText, replyMarkup)
+					_ = tg.EditMessageCaptionWithMarkup(ctx, chatID, messageID, newText, replyMarkup)
+				}
 			}
 		}
 	}
