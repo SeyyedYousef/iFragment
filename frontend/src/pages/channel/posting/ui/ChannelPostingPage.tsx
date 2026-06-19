@@ -2,6 +2,7 @@ import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton, hapticFeedback as nativeHaptic } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import { showConfirm } from '@/shared/lib/telegram-native.js';
 
 const hapticFeedback = {
 	impactOccurred: (style: any) => {
@@ -115,10 +116,17 @@ export const ChannelPostingPage: Component = () => {
 
 	onMount(() => {
 		backButton.show();
-		const off = backButton.onClick(() => {
+		const off = backButton.onClick(async () => {
 			if (isDirty()) {
-				showToast(t('channelSettings.unsavedChanges'), 'info');
-				window.history.back();
+				hapticFeedback.notificationOccurred('warning');
+				const confirmDiscard = await showConfirm(
+					(t as any)('channelPosting.unsavedChangesConfirm') ||
+						'You have unsaved changes. Are you sure you want to exit?',
+				);
+				if (confirmDiscard) {
+					setIsDirty(false);
+					window.history.back();
+				}
 			} else {
 				window.history.back();
 			}
@@ -133,6 +141,10 @@ export const ChannelPostingPage: Component = () => {
 	const updateField = <K extends keyof PostingConfig>(key: K, value: PostingConfig[K]) => {
 		setConfig(key, value);
 		setIsDirty(true);
+		// Reset connection status when API key changes
+		if (key === 'apiKey') {
+			setConnectionStatus('idle');
+		}
 	};
 
 	const handleTestConnection = async () => {
@@ -247,14 +259,21 @@ export const ChannelPostingPage: Component = () => {
 				<div class="flex items-center gap-2 overflow-hidden flex-1">
 					<button
 						onClick={() => {
-							hapticFeedback.impactOccurred('light');
-							if (isDirty()) {
-								showToast(t('channelSettings.unsavedChanges'), 'info');
-								window.history.back();
-							} else {
-								window.history.back();
-							}
-						}}
+						hapticFeedback.impactOccurred('light');
+						if (isDirty()) {
+							showConfirm(
+								(t as any)('channelPosting.unsavedChangesConfirm') ||
+									'You have unsaved changes. Are you sure you want to exit?',
+							).then((confirmed: boolean) => {
+								if (confirmed) {
+									setIsDirty(false);
+									window.history.back();
+								}
+							});
+						} else {
+							window.history.back();
+						}
+					}}
 						class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-90 transition-all shrink-0"
 						aria-label="Back"
 					>
@@ -630,7 +649,7 @@ export const ChannelPostingPage: Component = () => {
 					<button
 						onClick={handleSave}
 						disabled={isSaving()}
-						class="flex-[2] h-14 bg-[#32ade6] hover:bg-[#2b96c8] text-black rounded-2xl font-bold text-[16px] shadow-[0_10px_25px_rgba(255,159,10,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-40"
+						class="flex-[2] h-14 bg-[#32ade6] hover:bg-[#2b96c8] text-black rounded-2xl font-bold text-[16px] shadow-[0_10px_25px_rgba(50,173,230,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-40"
 					>
 						<Show
 							when={!isSaving()}

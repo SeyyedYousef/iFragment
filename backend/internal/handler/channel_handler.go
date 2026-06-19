@@ -960,20 +960,23 @@ func (h *ChannelHandler) GetFunnel(w http.ResponseWriter, r *http.Request) {
 	// Also retrieve input channel details to make the response rich for UI
 	inChan, err := h.svc.GetChannelByChatID(r.Context(), funnel.InputChatID)
 	var inputTitle string
+	var inputChannelID string
 	if err == nil && inChan != nil {
 		inputTitle = inChan.ChatTitle
+		inputChannelID = inChan.ID.String()
 	}
 
 	RespondJSON(w, http.StatusOK, map[string]interface{}{
-		"id":             funnel.ID,
-		"bot_id":         funnel.BotID,
-		"input_chat_id":  funnel.InputChatID,
-		"output_chat_id": funnel.OutputChatID,
-		"owner_user_id":  funnel.OwnerUserID,
-		"is_active":      funnel.IsActive,
-		"created_at":     funnel.CreatedAt,
-		"updated_at":     funnel.UpdatedAt,
-		"input_title":    inputTitle,
+		"id":               funnel.ID,
+		"bot_id":           funnel.BotID,
+		"input_chat_id":    funnel.InputChatID,
+		"output_chat_id":   funnel.OutputChatID,
+		"owner_user_id":    funnel.OwnerUserID,
+		"is_active":        funnel.IsActive,
+		"created_at":       funnel.CreatedAt,
+		"updated_at":       funnel.UpdatedAt,
+		"input_title":      inputTitle,
+		"input_channel_id": inputChannelID,
 	})
 }
 

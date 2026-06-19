@@ -232,6 +232,27 @@ export const ChannelDashboardPage: Component = () => {
 					</Motion.div>
 				</Show>
 
+				{/* Analytics Error State */}
+				<Show when={analytics.error}>
+					<Motion.div
+						initial={{ opacity: 0, scale: 0.95 }}
+						animate={{ opacity: 1, scale: 1 }}
+						class="bg-[#ff3b30]/10 border border-[#ff3b30]/30 rounded-2xl p-4 flex items-start gap-3 relative overflow-hidden"
+					>
+						<span class="material-symbols-outlined text-[#ff3b30] mt-0.5 relative z-10">
+							error
+						</span>
+						<div class="flex flex-col relative z-10">
+							<span class="text-[14px] font-bold text-white leading-tight">
+								{isRtl() ? 'خطا در بارگذاری آمار' : 'Analytics Load Error'}
+							</span>
+							<span class="text-[12px] text-[#ff3b30] leading-snug mt-1">
+								{isRtl() ? 'متأسفانه نتوانستیم آمار کانال را دریافت کنیم.' : 'Failed to load channel analytics data.'}
+							</span>
+						</div>
+					</Motion.div>
+				</Show>
+
 				{/* Health Alert Card (T1.9) */}
 				<Show when={(analytics()?.summary?.new_members || 0) < 0}>
 					<Motion.div

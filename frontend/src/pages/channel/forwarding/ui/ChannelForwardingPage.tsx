@@ -13,6 +13,7 @@ import {
 } from 'solid-js';
 import { channelApi } from '@/shared/api/channel-management.js';
 import { t } from '@/shared/i18n/index.js';
+import { showConfirm } from '@/shared/lib/telegram-native.js';
 import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SelectField, SettingsSection } from '@/shared/ui/settings-controls.js';
@@ -362,11 +363,16 @@ export const ChannelForwardingPage: Component = () => {
 													<button
 														onClick={async () => {
 															hapticFeedback.selectionChanged();
-															const r = rulesData()?.find((x: any) => x.id === rule.id);
-															if (r) {
-																const updated = { ...r, is_active: !r.is_active };
-																await channelApi.updateForwardingRule(params.id, r.id!, updated);
-																refetchRules();
+															try {
+																const r = rulesData()?.find((x: any) => x.id === rule.id);
+																if (r) {
+																	const updated = { ...r, is_active: !r.is_active };
+																	await channelApi.updateForwardingRule(params.id, r.id!, updated);
+																	refetchRules();
+																}
+															} catch (err) {
+																hapticFeedback.notificationOccurred('error');
+																showToast(t('channelForwarding.toggleFailed') || 'Failed to update rule', 'error');
 															}
 														}}
 														class={`w-12 h-7 rounded-full relative transition-colors ${rule.active ? 'bg-[#34c759]' : 'bg-[#3a3a3c]'}`}
@@ -378,9 +384,20 @@ export const ChannelForwardingPage: Component = () => {
 
 													<button
 														onClick={async () => {
-															hapticFeedback.impactOccurred('medium');
-															await channelApi.deleteForwardingRule(params.id, rule.id);
-															refetchRules();
+															const confirmed = await showConfirm(
+																t('channelForwarding.deleteRuleConfirm') ||
+																	'Are you sure you want to delete this forwarding rule?',
+															);
+															if (!confirmed) return;
+															try {
+																hapticFeedback.impactOccurred('medium');
+																await channelApi.deleteForwardingRule(params.id, rule.id);
+																refetchRules();
+																showToast(t('channelForwarding.ruleDeleted') || 'Rule deleted', 'success');
+															} catch (err) {
+																hapticFeedback.notificationOccurred('error');
+																showToast(t('channelForwarding.deleteRuleFailed') || 'Failed to delete rule', 'error');
+															}
 														}}
 														class="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 text-red-500 flex items-center justify-center transition-all shadow-sm shrink-0"
 													>

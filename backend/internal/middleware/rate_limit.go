@@ -276,7 +276,7 @@ func NewChannelRateLimiter(cache *repository.Cache) func(http.Handler) http.Hand
 			if cache != nil && cache.Client != nil {
 				ctx := r.Context()
 				var key string
-				limit := int64(60)
+				limit := int64(300)
 				window := 60 * time.Second
 
 				if userID != "" {

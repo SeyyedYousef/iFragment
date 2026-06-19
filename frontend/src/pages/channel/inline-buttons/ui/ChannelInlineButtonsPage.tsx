@@ -13,6 +13,7 @@ import {
 } from 'solid-js';
 import { channelApi } from '@/shared/api/channel-management.js';
 import { t } from '@/shared/i18n/index.js';
+import { showConfirm } from '@/shared/lib/telegram-native.js';
 import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SelectField, SettingsSection } from '@/shared/ui/settings-controls.js';
@@ -184,9 +185,9 @@ export const ChannelInlineButtonsPage: Component = () => {
 		setActivePreset('custom');
 	};
 
-	const applyPreset = (preset: string) => {
+	const applyPreset = async (preset: string) => {
 		if (buttons().length > 0) {
-			const confirmed = window.confirm(
+			const confirmed = await showConfirm(
 				t('channelInlineButtons.presetWarning') ||
 					'Applying a preset will overwrite your existing buttons. Are you sure?',
 			);

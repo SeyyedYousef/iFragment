@@ -4,8 +4,6 @@
   "description": "این مخزن کد مربوط به اپلیکیشن **iFragment** (نسخه مینی‌اپ تلگرام) است. در زیر معماری کامل و ساختار تکنولوژی‌های به کار رفته در این پروژه تشریح شده است.",
   "main": "index.js",
   "scripts": {
-    "test": "cypress run",
-    "cypress:open": "cypress open"
   },
   "repository": {
     "type": "git",

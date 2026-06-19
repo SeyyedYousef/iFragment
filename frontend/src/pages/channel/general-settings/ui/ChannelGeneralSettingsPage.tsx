@@ -4,7 +4,7 @@ import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { createStore, reconcile } from 'solid-js/store';
 import { channelApi } from '@/shared/api/channel-management.js';
-import { locale, t } from '@/shared/i18n/index.js';
+import { isRtl, locale, t } from '@/shared/i18n/index.js';
 import { showConfirm } from '@/shared/lib/telegram-native.js';
 import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
@@ -39,6 +39,13 @@ interface ChannelConfig {
 	discussionGroup: string;
 	approveAccountAge: boolean;
 	approveProfilePhoto: boolean;
+
+	// Input Channel
+	inputChannelId: string;
+	inputChannelName: string;
+	inputChannelBio: string;
+	inputChannelPhotoUrl: string;
+	inputChannelUsername: string;
 }
 
 const defaultConfig: ChannelConfig = {
@@ -67,6 +74,12 @@ const defaultConfig: ChannelConfig = {
 	discussionGroup: '',
 	approveAccountAge: false,
 	approveProfilePhoto: false,
+	
+	inputChannelId: '',
+	inputChannelName: '',
+	inputChannelBio: '',
+	inputChannelPhotoUrl: '',
+	inputChannelUsername: '',
 };
 
 export const ChannelGeneralSettingsPage: Component = () => {
@@ -87,6 +100,19 @@ export const ChannelGeneralSettingsPage: Component = () => {
 				const settings = await channelApi.getSettings(channelId);
 				setSettingsVersion(settings.version || 1);
 				const apiGeneral = settings.general || {};
+
+				let inputGeneral: any = {};
+				let inputChannelId = '';
+				try {
+					const funnel = await channelApi.getFunnel(channelId);
+					if (funnel && funnel.input_channel_id) {
+						inputChannelId = funnel.input_channel_id;
+						const inputSettings = await channelApi.getSettings(funnel.input_channel_id);
+						inputGeneral = inputSettings.general || {};
+					}
+				} catch (err) {
+					console.warn('Failed to fetch funnel/input channel settings', err);
+				}
 
 				const merged: ChannelConfig = {
 					...defaultConfig,
@@ -128,6 +154,12 @@ export const ChannelGeneralSettingsPage: Component = () => {
 					approveGifts: (apiGeneral as any).approveGifts ?? defaultConfig.approveGifts,
 					approveCollectibles:
 						(apiGeneral as any).approveCollectibles ?? defaultConfig.approveCollectibles,
+						
+					inputChannelId,
+					inputChannelName: inputGeneral.name || inputGeneral.channelName || '',
+					inputChannelBio: inputGeneral.description || inputGeneral.channelBio || '',
+					inputChannelPhotoUrl: inputGeneral.photo || inputGeneral.channelPhotoUrl || '',
+					inputChannelUsername: inputGeneral.username || inputGeneral.channelUsername || '',
 				};
 
 				setConfig(reconcile(merged));
@@ -219,13 +251,37 @@ export const ChannelGeneralSettingsPage: Component = () => {
 		if (!isDirty()) return;
 		setIsSaving(true);
 		try {
-			const result = await channelApi.updateSettings(
+			await channelApi.updateSettings(
 				params.id,
 				'general',
 				buildGeneralPayload(),
 				settingsVersion(),
 			);
-			setSettingsVersion(result.version);
+
+			if (config.inputChannelId) {
+				const inputUsername = config.inputChannelUsername.replace(/^@/, '').trim();
+				const inputPayload = {
+					name: config.inputChannelName.trim(),
+					description: config.inputChannelBio.trim(),
+					photo: config.inputChannelPhotoUrl.trim(),
+					username: inputUsername,
+					channelName: config.inputChannelName.trim(),
+					channelBio: config.inputChannelBio.trim(),
+					channelPhotoUrl: config.inputChannelPhotoUrl.trim(),
+					channelUsername: inputUsername,
+				};
+				await channelApi.updateSettings(
+					config.inputChannelId,
+					'general',
+					inputPayload,
+					1, // We might not have the correct version for the input channel, but it's usually fine
+				);
+			}
+
+			// We need to fetch the new version
+			const freshSettings = await channelApi.getSettings(params.id);
+			setSettingsVersion(freshSettings.version || 1);
+			
 			setIsDirty(false);
 			hapticFeedback.notificationOccurred('success');
 			showToast(t('common.settingsSaved') || 'Settings saved successfully', 'success');
@@ -309,6 +365,139 @@ export const ChannelGeneralSettingsPage: Component = () => {
 						</div>
 					}
 				>
+					<Show when={config.inputChannelId}>
+						<Motion.div
+							initial={{ opacity: 0, y: 10 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{ delay: 0.01 }}
+							class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-4 mb-2"
+						>
+							<h2 class="text-[16px] font-bold text-white flex items-center gap-2">
+								<span class="material-symbols-outlined text-[#32ade6] text-[20px]">input</span>{' '}
+								{isRtl() ? 'هویت کانال ورودی' : 'Input Channel Identity'}
+							</h2>
+
+							<div class="flex items-center gap-4">
+								<div class="w-16 h-16 rounded-full bg-[#2c2c2e] flex items-center justify-center relative overflow-hidden group cursor-pointer shrink-0">
+									<Show
+										when={config.inputChannelPhotoUrl}
+										fallback={
+											<span class="material-symbols-outlined text-[#a0a4ad] text-[24px]">
+												add_photo_alternate
+											</span>
+										}
+									>
+										<img
+											src={config.inputChannelPhotoUrl}
+											alt="Input Channel"
+											class="w-full h-full object-cover"
+										/>
+									</Show>
+								</div>
+								<div class="flex flex-col gap-1 flex-1 min-w-0">
+									<label class="text-[12px] text-on-surface-variant ml-1">
+										{t('channelSettings.channelName')}
+									</label>
+									<input
+										type="text"
+										value={config.inputChannelName}
+										onInput={(e) => updateField('inputChannelName', e.currentTarget.value)}
+										placeholder={t('channelSettings.channelNamePlaceholder')}
+										class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-2.5 w-full focus:outline-none focus:ring-2 focus:ring-[#32ade6] placeholder-[#a0a4ad]"
+									/>
+								</div>
+							</div>
+
+							<div class="flex flex-col gap-1.5">
+								<label class="text-[12px] text-on-surface-variant ml-1">
+									{t('channelSettings.channelBio') || 'Channel bio'}
+								</label>
+								<textarea
+									value={config.inputChannelBio}
+									onInput={(e) => updateField('inputChannelBio', e.currentTarget.value)}
+									placeholder={t('channelSettings.channelBioPlaceholder') || 'Channel description'}
+									maxLength={255}
+									class="bg-[#2c2c2e] text-white text-[14px] rounded-xl px-4 py-3 w-full min-h-[86px] focus:outline-none focus:ring-2 focus:ring-[#32ade6] placeholder-[#a0a4ad] resize-none"
+								/>
+								<span class="text-[11px] text-[#8e8e93] ml-1">{config.inputChannelBio.length} / 255</span>
+							</div>
+
+							<div class="grid grid-cols-1 gap-3">
+								<div class="flex flex-col gap-1.5">
+									<label class="text-[12px] text-on-surface-variant ml-1">
+										{t('channelSettings.channelUsername') || 'Username'}
+									</label>
+									<input
+										type="text"
+										value={config.inputChannelUsername}
+										onInput={(e) => updateField('inputChannelUsername', e.currentTarget.value)}
+										placeholder="@channel"
+										class="bg-[#2c2c2e] text-white text-[14px] rounded-xl px-4 py-2.5 w-full focus:outline-none focus:ring-2 focus:ring-[#32ade6] placeholder-[#a0a4ad]"
+										dir="ltr"
+									/>
+								</div>
+								
+								<div class="flex flex-col gap-1.5 mt-2">
+									<label class="text-[12px] text-on-surface-variant ml-1">
+										{t('channelSettings.channelPhotoUrl' as any) || 'Channel Avatar'}
+									</label>
+									<div class="flex items-center gap-4 bg-[#2c2c2e] p-3 rounded-2xl border border-[#3a3a3c]">
+										<div class="relative w-16 h-16 rounded-full overflow-hidden bg-gradient-to-br from-[#32ade6]/20 to-[#2b96c8]/20 flex items-center justify-center border-2 border-[#2a2a2a] shrink-0 group cursor-pointer">
+											<Show
+												when={config.inputChannelPhotoUrl}
+												fallback={
+													<span class="text-[24px] font-black text-[#32ade6]">
+														{config.inputChannelName.charAt(0) || '?'}
+													</span>
+												}
+											>
+												<img src={config.inputChannelPhotoUrl} class="w-full h-full object-cover" alt="Avatar" />
+											</Show>
+											<div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+												<span class="material-symbols-outlined text-white text-[24px]">photo_camera</span>
+											</div>
+											<input
+												type="file"
+												accept="image/png, image/jpeg, image/jpg"
+												class="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+												onChange={(e) => {
+													const file = e.currentTarget.files?.[0];
+													if (file) {
+														const reader = new FileReader();
+														reader.onload = (event) => {
+															if (event.target?.result) {
+																updateField('inputChannelPhotoUrl', event.target.result as string);
+																hapticFeedback.notificationOccurred('success');
+															}
+														};
+														reader.readAsDataURL(file);
+													}
+												}}
+											/>
+										</div>
+										<div class="flex flex-col flex-1 min-w-0">
+											<span class="text-[14px] font-bold text-white mb-0.5">
+												{t('channelSettings.uploadNewPhoto' as any) || 'Upload new photo'}
+											</span>
+											<span class="text-[11px] text-[#8e8e93]">
+												{t('channelSettings.photoSizeHint' as any) || 'Recommended 512x512px. Max 2MB.'}
+											</span>
+										</div>
+										<Show when={config.inputChannelPhotoUrl}>
+											<button
+												onClick={() => updateField('inputChannelPhotoUrl', '')}
+												class="w-10 h-10 rounded-full bg-[#ff3b30]/10 text-[#ff3b30] flex items-center justify-center hover:bg-[#ff3b30]/20 active:scale-95 transition-all shrink-0"
+												title={t('common.delete' as any) || 'Delete'}
+											>
+												<span class="material-symbols-outlined text-[20px]">delete</span>
+											</button>
+										</Show>
+									</div>
+								</div>
+							</div>
+						</Motion.div>
+					</Show>
+
 					{/* Identity Section - RESTRICTED TO NAME AND PHOTO ONLY */}
 					<Motion.div
 						initial={{ opacity: 0, y: 10 }}
@@ -317,8 +506,8 @@ export const ChannelGeneralSettingsPage: Component = () => {
 						class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-4"
 					>
 						<h2 class="text-[16px] font-bold text-white flex items-center gap-2">
-							<span class="material-symbols-outlined text-[#32ade6] text-[20px]">badge</span>{' '}
-							{t('channelSettings.channelIdentity')}
+							<span class="material-symbols-outlined text-[#32ade6] text-[20px]">output</span>{' '}
+							{isRtl() ? 'هویت کانال خروجی' : 'Output Channel Identity'}
 						</h2>
 
 						<div class="flex items-center gap-4">
