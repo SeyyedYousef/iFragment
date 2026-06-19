@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 type GeneralSettingsSchema struct {
@@ -203,13 +204,13 @@ func ValidateSettingsCategory(category string, data json.RawMessage) error {
 		channelName := firstNonEmpty(s.Name, s.ChannelName)
 		channelBio := firstNonEmpty(s.Description, s.ChannelBio)
 		channelUsername := firstNonEmpty(s.Username, s.ChannelUsername)
-		if len(channelName) > 128 {
+		if utf8.RuneCountInString(channelName) > 128 {
 			return fmt.Errorf("channel name cannot exceed 128 characters")
 		}
-		if len(channelBio) > 255 {
+		if utf8.RuneCountInString(channelBio) > 255 {
 			return fmt.Errorf("channel bio cannot exceed 255 characters")
 		}
-		if len(channelUsername) > 32 {
+		if utf8.RuneCountInString(channelUsername) > 32 {
 			return fmt.Errorf("channel username cannot exceed 32 characters")
 		}
 
@@ -218,10 +219,10 @@ func ValidateSettingsCategory(category string, data json.RawMessage) error {
 		if err := json.Unmarshal(data, &s); err != nil {
 			return fmt.Errorf("invalid posting settings structure: %w", err)
 		}
-		if s.Signature != "" && len(s.Signature) > 200 {
+		if s.Signature != "" && utf8.RuneCountInString(s.Signature) > 200 {
 			return fmt.Errorf("signature too long (max 200 chars)")
 		}
-		if s.WatermarkText != "" && len(s.WatermarkText) > 100 {
+		if s.WatermarkText != "" && utf8.RuneCountInString(s.WatermarkText) > 100 {
 			return fmt.Errorf("watermark text too long (max 100 chars)")
 		}
 		if s.CleanInterval < 0 || s.CleanInterval > 168 {
@@ -250,7 +251,7 @@ func ValidateSettingsCategory(category string, data json.RawMessage) error {
 			if btn.Title == "" {
 				return fmt.Errorf("button title cannot be empty")
 			}
-			if len(btn.Title) > 64 {
+			if utf8.RuneCountInString(btn.Title) > 64 {
 				return fmt.Errorf("button title must not exceed 64 characters")
 			}
 			if btn.Value == "" {
@@ -284,10 +285,10 @@ func ValidateSettingsCategory(category string, data json.RawMessage) error {
 			return fmt.Errorf("invalid dynamic_bio settings structure: %w", err)
 		}
 		bioTemplate := firstNonEmpty(s.BioTemplate, s.Template)
-		if bioTemplate != "" && len(bioTemplate) > 255 {
+		if bioTemplate != "" && utf8.RuneCountInString(bioTemplate) > 255 {
 			return fmt.Errorf("bio template too long (Telegram limit: 255 chars)")
 		}
-		if s.NameTemplate != "" && len(s.NameTemplate) > 128 {
+		if s.NameTemplate != "" && utf8.RuneCountInString(s.NameTemplate) > 128 {
 			return fmt.Errorf("name template too long (Telegram limit: 128 chars)")
 		}
 		interval, err := normalizeDynamicBioInterval(s.Interval)
@@ -316,10 +317,10 @@ func ValidateSettingsCategory(category string, data json.RawMessage) error {
 			if trigger == "" || response == "" {
 				return fmt.Errorf("trigger and response cannot be empty")
 			}
-			if len(trigger) > 200 {
+			if utf8.RuneCountInString(trigger) > 200 {
 				return fmt.Errorf("trigger text too long (max 200 chars)")
 			}
-			if len(response) > 4096 {
+			if utf8.RuneCountInString(response) > 4096 {
 				return fmt.Errorf("response text too long (max 4096 chars)")
 			}
 			if match != "" && match != "exact" && match != "contains" && match != "regex" && match != "keyword" {
