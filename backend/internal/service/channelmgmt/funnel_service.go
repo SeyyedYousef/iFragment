@@ -263,7 +263,9 @@ func (s *ChannelService) sendFunnelReviewToOwner(ctx context.Context, bot *repos
 		payload := map[string]interface{}{
 			"chat_id":      funnel.OwnerUserID,
 			"caption":      activeText,
-			"reply_markup": previewMarkup,
+		}
+		if !telegram.IsNil(previewMarkup) {
+			payload["reply_markup"] = previewMarkup
 		}
 		var method string
 		switch item.Type {
@@ -740,7 +742,7 @@ func (s *ChannelService) publishFunnelPostDirectly(ctx context.Context, tg *tele
 	_ = json.Unmarshal(draft.DraftButtons, &buttonsList)
 
 	activeText := draft.DraftText
-	var previewMarkup map[string]interface{}
+	var previewMarkup interface{}
 	if len(draft.MediaPayload) > 1 && len(buttonsList) > 0 {
 		var linkTexts []string
 		for _, btn := range buttonsList {
@@ -769,7 +771,7 @@ func (s *ChannelService) publishFunnelPostDirectly(ctx context.Context, tg *tele
 			"chat_id": funnel.OutputChatID,
 			"caption": activeText,
 		}
-		if previewMarkup != nil {
+		if !telegram.IsNil(previewMarkup) {
 			payload["reply_markup"] = previewMarkup
 		}
 		var method string
@@ -911,7 +913,7 @@ func (s *ChannelService) PublishScheduledFunnelPosts(ctx context.Context) error 
 	return nil
 }
 
-func buildReplyMarkupFromButtons(buttons []repository.ChannelInlineButton) map[string]interface{} {
+func buildReplyMarkupFromButtons(buttons []repository.ChannelInlineButton) interface{} {
 	if len(buttons) == 0 {
 		return nil
 	}

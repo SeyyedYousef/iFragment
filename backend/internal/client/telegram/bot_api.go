@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 
@@ -105,6 +106,19 @@ func EscapeHTML(text string) string {
 	return r.Replace(text)
 }
 
+// IsNil checks if an interface is nil, including typed nil pointers, maps, slices, or channels.
+func IsNil(i interface{}) bool {
+	if i == nil {
+		return true
+	}
+	v := reflect.ValueOf(i)
+	switch v.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Map, reflect.Pointer, reflect.UnsafePointer, reflect.Interface, reflect.Slice:
+		return v.IsNil()
+	}
+	return false
+}
+
 // apiResponse represents the standard Telegram Bot API response.
 type apiResponse struct {
 	OK          bool            `json:"ok"`
@@ -177,7 +191,7 @@ func (c *BotAPIClient) doRequestWithRetry(ctx context.Context, method string, pa
 	url := fmt.Sprintf("%s/bot%s/%s", c.baseURL, c.token, method)
 
 	var body []byte
-	if payload != nil {
+	if !IsNil(payload) {
 		var err error
 		body, err = json.Marshal(payload)
 		if err != nil {
@@ -449,7 +463,9 @@ func (c *BotAPIClient) SendMessageWithMarkup(ctx context.Context, chatID int64, 
 	payload := map[string]interface{}{
 		"chat_id":      chatID,
 		"text":         text,
-		"reply_markup": markup,
+	}
+	if !IsNil(markup) {
+		payload["reply_markup"] = markup
 	}
 	if mode != "" {
 		payload["parse_mode"] = mode
@@ -786,11 +802,18 @@ func handleEditError(err error) error {
 
 // EditMessageReplyMarkup edits the reply markup of a message
 func (c *BotAPIClient) EditMessageReplyMarkup(ctx context.Context, chatID interface{}, messageID int, markup interface{}) error {
-	_, err := c.Request(ctx, "editMessageReplyMarkup", map[string]interface{}{
-		"chat_id":      chatID,
-		"message_id":   messageID,
-		"reply_markup": markup,
-	})
+	payload := map[string]interface{}{
+		"chat_id":    chatID,
+		"message_id": messageID,
+	}
+	if !IsNil(markup) {
+		payload["reply_markup"] = markup
+	} else {
+		payload["reply_markup"] = map[string]interface{}{
+			"inline_keyboard": [][]interface{}{},
+		}
+	}
+	_, err := c.Request(ctx, "editMessageReplyMarkup", payload)
 	return handleEditError(err)
 }
 
@@ -826,7 +849,7 @@ func (c *BotAPIClient) EditMessageTextWithMarkup(ctx context.Context, chatID int
 	if mode != "" {
 		payload["parse_mode"] = mode
 	}
-	if markup != nil {
+	if !IsNil(markup) {
 		payload["reply_markup"] = markup
 	}
 	_, err := c.Request(ctx, "editMessageText", payload)
@@ -840,7 +863,7 @@ func (c *BotAPIClient) EditMessageCaptionWithMarkup(ctx context.Context, chatID 
 		"message_id": messageID,
 		"caption":    caption,
 	}
-	if markup != nil {
+	if !IsNil(markup) {
 		payload["reply_markup"] = markup
 	}
 	_, err := c.Request(ctx, "editMessageCaption", payload)
@@ -854,7 +877,7 @@ func (c *BotAPIClient) CopyMessage(ctx context.Context, targetChatID interface{}
 		"from_chat_id": fromChatID,
 		"message_id":   messageID,
 	}
-	if markup != nil {
+	if !IsNil(markup) {
 		payload["reply_markup"] = markup
 	}
 	_, err := c.Request(ctx, "copyMessage", payload)
