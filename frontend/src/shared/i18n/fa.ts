@@ -1103,6 +1103,9 @@ export const dict = {
 		livePreview: 'پیش‌نمایش زنده',
 	},
 	channelForwarding: {
+		enableAutoForward: 'فعالسازی فوروارد خودکار',
+		enableAutoForwardDesc:
+			'کپی، آینه‌سازی یا بازنویسی خودکار پست‌های جدید از کانال‌های دیگر.',
 		autoForward: 'آینه و فوروارد',
 		duplicatePosts: 'تکثیر پست‌ها به چت‌های دیگر',
 		noForwardingRules: 'هنوز هیچ قانون فورواردی وجود ندارد',

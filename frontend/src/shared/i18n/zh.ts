@@ -1085,6 +1085,9 @@ export const dict = {
 		livePreview: '实时预览',
 	},
 	channelForwarding: {
+		enableAutoForward: '启用自动转发',
+		enableAutoForwardDesc:
+			'自动复制、镜像或重写来自其他频道的新帖子。',
 		autoForward: '镜像与转发',
 		duplicatePosts: '自动同步与镜像帖子',
 		noForwardingRules: '暂无转发规则',

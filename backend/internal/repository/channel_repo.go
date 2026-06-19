@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type ManagedChannel struct {
@@ -1494,4 +1495,62 @@ func (r *ChannelRepo) GetScheduledFunnelPosts(ctx context.Context) ([]PendingFun
 		posts = append(posts, p)
 	}
 	return posts, nil
+}
+
+// RegisterPostButtonClick registers a user click on an inline button for a specific message
+func (r *ChannelRepo) RegisterPostButtonClick(ctx context.Context, channelID uuid.UUID, telegramMessageID int64, buttonID uuid.UUID, userID int64) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("database pool is not initialized")
+	}
+
+	query := `INSERT INTO channel_post_clicks (channel_id, telegram_message_id, button_id, user_id)
+		VALUES ($1, $2, $3, $4)`
+	_, err := r.db.Pool.Exec(ctx, query, channelID, telegramMessageID, buttonID, userID)
+	if err != nil {
+		if pgErr, ok := err.(*pgconn.PgError); ok {
+			if pgErr.Code == "23505" {
+				return fmt.Errorf("already clicked")
+			}
+		}
+		return err
+	}
+	return nil
+}
+
+// GetChannelButtonsWithCounts returns inline buttons list for a channel with counts for a specific message
+func (r *ChannelRepo) GetChannelButtonsWithCounts(ctx context.Context, channelID uuid.UUID, telegramMessageID int64) ([]ChannelInlineButton, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, fmt.Errorf("database pool is not initialized")
+	}
+
+	query := `SELECT b.id, b.channel_id, b.title, b.value, b.type, b.style, b.emoji, 
+		COALESCE((SELECT COUNT(*) FROM channel_post_clicks c 
+		          WHERE c.channel_id = b.channel_id 
+		            AND c.telegram_message_id = $2 
+		            AND c.button_id = b.id), 0) AS click_count,
+		b.order_index, b.created_at
+		FROM channel_inline_buttons b 
+		WHERE b.channel_id = $1 
+		ORDER BY b.order_index ASC, b.created_at ASC`
+
+	rows, err := r.db.Pool.Query(ctx, query, channelID, telegramMessageID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var buttons []ChannelInlineButton
+	for rows.Next() {
+		var b ChannelInlineButton
+		if err := rows.Scan(
+			&b.ID, &b.ChannelID, &b.Title, &b.Value, &b.Type, &b.Style, &b.Emoji, &b.ClickCount, &b.OrderIndex, &b.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		buttons = append(buttons, b)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+	return buttons, nil
 }

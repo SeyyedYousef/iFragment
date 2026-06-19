@@ -1632,10 +1632,10 @@ func (s *ChannelService) SaveButtons(ctx context.Context, ownerUserID int64, cha
 var ErrAlreadyClicked = errors.New("already clicked")
 
 // RegisterButtonClick increments click count of an inline button if user hasn't clicked it already
-func (s *ChannelService) RegisterButtonClick(ctx context.Context, buttonID uuid.UUID, userID int64) error {
+func (s *ChannelService) RegisterButtonClick(ctx context.Context, channelID uuid.UUID, telegramMessageID int64, buttonID uuid.UUID, userID int64) error {
 	cache := s.channelRepo.GetCache()
 	if cache != nil && cache.Client != nil {
-		clickKey := fmt.Sprintf("btn_clicked:%s:%d", buttonID.String(), userID)
+		clickKey := fmt.Sprintf("msg_btn_clicked:%s:%d:%s:%d", channelID.String(), telegramMessageID, buttonID.String(), userID)
 		// Atomic check and set, expires in 30 days
 		set, err := cache.Client.SetNX(ctx, clickKey, "1", 30*24*time.Hour).Result()
 		if err != nil {
@@ -1644,11 +1644,9 @@ func (s *ChannelService) RegisterButtonClick(ctx context.Context, buttonID uuid.
 		if !set {
 			return ErrAlreadyClicked
 		}
-	} else {
-		slog.Warn("Redis cache not available, skipping click rate limit", "button_id", buttonID, "user_id", userID)
 	}
 
-	return s.channelRepo.IncrementButtonClicks(ctx, buttonID)
+	return s.channelRepo.RegisterPostButtonClick(ctx, channelID, telegramMessageID, buttonID, userID)
 }
 
 // BuildInlineKeyboard constructs a valid map[string]interface{} for Telegram's InlineKeyboardMarkup
@@ -1801,6 +1799,10 @@ func (s *ChannelService) GetButtonByID(ctx context.Context, buttonID uuid.UUID) 
 
 func (s *ChannelService) GetChannelButtonsByChannelID(ctx context.Context, channelID uuid.UUID) ([]repository.ChannelInlineButton, error) {
 	return s.channelRepo.GetChannelButtons(ctx, channelID)
+}
+
+func (s *ChannelService) GetChannelButtonsWithCounts(ctx context.Context, channelID uuid.UUID, telegramMessageID int64) ([]repository.ChannelInlineButton, error) {
+	return s.channelRepo.GetChannelButtonsWithCounts(ctx, channelID, telegramMessageID)
 }
 
 func SafeHTTPClient(timeout time.Duration) *http.Client {

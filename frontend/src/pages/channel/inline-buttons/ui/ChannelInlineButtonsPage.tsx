@@ -351,6 +351,44 @@ export const ChannelInlineButtonsPage: Component = () => {
 			<div class="px-5 pt-6 flex flex-col gap-6 pb-24">
 				<ChannelContextBar channelId={params.id} />
 
+				{/* Information Card (Breathtaking Premium Banner) */}
+				<Motion.div
+					initial={{ opacity: 0, y: 10 }}
+					animate={{ opacity: 1, y: 0 }}
+					transition={{ delay: 0.05 }}
+					class="bg-[#1c1c1c] rounded-3xl border border-[#32ade6]/30 p-4 flex flex-col gap-3 relative overflow-hidden"
+				>
+					<div class="absolute -top-10 -right-10 w-36 h-36 bg-[#32ade6]/10 rounded-full blur-3xl"></div>
+					<div class="flex items-start gap-3 relative z-10 w-full">
+						<span class="material-symbols-outlined text-[#32ade6] text-[24px] shrink-0 mt-0.5 ml-1">
+							lightbulb
+						</span>
+						<div class="flex flex-col gap-2 w-full">
+							<h3 class="text-[14px] font-black text-[#32ade6]">
+								{t('channelInlineButtons.guideTitle')}
+							</h3>
+							<ul class="text-[12px] text-white/90 leading-relaxed space-y-2 list-none p-0 m-0">
+								<li class="flex items-start gap-1.5">
+									<span class="text-[#32ade6] mt-0.5 font-bold">•</span>
+									<span>{t('channelInlineButtons.guide1')}</span>
+								</li>
+								<li class="flex items-start gap-1.5">
+									<span class="text-[#32ade6] mt-0.5 font-bold">•</span>
+									<span>{t('channelInlineButtons.guide2')}</span>
+								</li>
+								<li class="flex items-start gap-1.5">
+									<span class="text-[#32ade6] mt-0.5 font-bold">•</span>
+									<span>{t('channelInlineButtons.guide3')}</span>
+								</li>
+								<li class="flex items-start gap-1.5">
+									<span class="text-[#32ade6] mt-0.5 font-bold">•</span>
+									<span>{t('channelInlineButtons.guide4')}</span>
+								</li>
+							</ul>
+						</div>
+					</div>
+				</Motion.div>
+
 				{/* Enable / Disable Glass Buttons */}
 				<Motion.div
 					initial={{ opacity: 0, y: 10 }}
@@ -752,44 +790,6 @@ export const ChannelInlineButtonsPage: Component = () => {
 										</div>
 									</div>
 								</div>
-							</div>
-						</div>
-					</Motion.div>
-
-					{/* Information Card (Breathtaking Premium Banner) */}
-					<Motion.div
-						initial={{ opacity: 0, y: 10 }}
-						animate={{ opacity: 1, y: 0 }}
-						transition={{ delay: 0.15 }}
-						class="bg-[#1c1c1c] rounded-3xl border border-[#32ade6]/30 p-4 flex flex-col gap-3 relative overflow-hidden mt-4"
-					>
-						<div class="absolute -top-10 -right-10 w-36 h-36 bg-[#32ade6]/10 rounded-full blur-3xl"></div>
-						<div class="flex items-start gap-3 relative z-10 w-full">
-							<span class="material-symbols-outlined text-[#32ade6] text-[24px] shrink-0 mt-0.5 ml-1">
-								lightbulb
-							</span>
-							<div class="flex flex-col gap-2 w-full">
-								<h3 class="text-[14px] font-black text-[#32ade6]">
-									{t('channelInlineButtons.guideTitle')}
-								</h3>
-								<ul class="text-[12px] text-white/90 leading-relaxed space-y-2 list-none p-0 m-0">
-									<li class="flex items-start gap-1.5">
-										<span class="text-[#32ade6] mt-0.5 font-bold">•</span>
-										<span>{t('channelInlineButtons.guide1')}</span>
-									</li>
-									<li class="flex items-start gap-1.5">
-										<span class="text-[#32ade6] mt-0.5 font-bold">•</span>
-										<span>{t('channelInlineButtons.guide2')}</span>
-									</li>
-									<li class="flex items-start gap-1.5">
-										<span class="text-[#32ade6] mt-0.5 font-bold">•</span>
-										<span>{t('channelInlineButtons.guide3')}</span>
-									</li>
-									<li class="flex items-start gap-1.5">
-										<span class="text-[#32ade6] mt-0.5 font-bold">•</span>
-										<span>{t('channelInlineButtons.guide4')}</span>
-									</li>
-								</ul>
 							</div>
 						</div>
 					</Motion.div>

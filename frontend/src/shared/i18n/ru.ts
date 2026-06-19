@@ -1107,6 +1107,9 @@ export const dict = {
 		livePreview: 'Предпросмотр',
 	},
 	channelForwarding: {
+		enableAutoForward: 'Включить автопересылку',
+		enableAutoForwardDesc:
+			'Автоматически дублировать, зеркалировать или переписывать новые посты из других каналов.',
 		autoForward: 'Зеркалирование и форвард',
 		duplicatePosts: 'Синхронизация и зеркалирование постов',
 		noForwardingRules: 'Нет активных правил форварда',

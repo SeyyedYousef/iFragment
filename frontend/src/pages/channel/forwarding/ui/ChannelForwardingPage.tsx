@@ -71,6 +71,9 @@ export const ChannelForwardingPage: Component = () => {
 	const [delay, setDelay] = createSignal('');
 
 	const [rules, setRules] = createSignal<ForwardRule[]>([]);
+	const [isForwardingEnabled, setIsForwardingEnabled] = createSignal(
+		localStorage.getItem(`forwarding_enabled_${params.id}`) !== 'false',
+	);
 
 	const [rulesData, { refetch: refetchRules }] = createResource(
 		() => params.id,
@@ -284,166 +287,190 @@ export const ChannelForwardingPage: Component = () => {
 						transition={{ delay: 0.05 }}
 						class="flex flex-col gap-4"
 					>
-						<div class="bg-gradient-to-r from-[#3390ec]/20 to-transparent border-l-2 border-[#3390ec] p-4 rounded-r-2xl mb-2">
-							<h3 class="text-[14px] font-bold text-white flex items-center gap-2 mb-1">
-								<span class="material-symbols-outlined text-[#3390ec] text-[18px]">lightbulb</span>
-								{t('channelForwarding.howForwardingWorks')}
-							</h3>
-							<p class="text-[13px] text-[#8e8e93] leading-relaxed">
-								{t('channelForwarding.howForwardingWorksDesc')}
-							</p>
+						{/* Guide Banner */}
+						<div class="bg-[#1c1c1c] rounded-3xl border border-[#3390ec]/30 p-4 flex flex-col gap-3 relative overflow-hidden">
+							<div class="absolute -top-10 -right-10 w-36 h-36 bg-[#3390ec]/10 rounded-full blur-3xl"></div>
+							<div class="flex items-start gap-3 relative z-10 w-full">
+								<span class="material-symbols-outlined text-[#3390ec] text-[24px] shrink-0 mt-0.5 ml-1">
+									lightbulb
+								</span>
+								<div class="flex flex-col gap-1.5 w-full">
+									<h3 class="text-[14px] font-black text-[#3390ec]">
+										{t('channelForwarding.howForwardingWorks')}
+									</h3>
+									<p class="text-[12px] text-white/90 leading-relaxed">
+										{t('channelForwarding.howForwardingWorksDesc')}
+									</p>
+								</div>
+							</div>
 						</div>
 
-						<Show when={rules().length === 0}>
-							<div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-5 flex flex-col items-center text-center gap-3">
-								<div class="w-16 h-16 rounded-full bg-[#3390ec]/10 text-[#3390ec] flex items-center justify-center mb-2">
-									<span class="material-symbols-outlined text-[32px]">call_split</span>
+						{/* Master Toggle */}
+						<div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-3">
+							<SettingsSection
+								title={t('channelForwarding.enableAutoForward') || 'Enable Auto Forwarding'}
+								description={t('channelForwarding.enableAutoForwardDesc') || 'Automatically duplicate, mirror or rewrite new posts from other channels.'}
+								enabled={isForwardingEnabled()}
+								onToggle={(v) => {
+									setIsForwardingEnabled(v);
+									localStorage.setItem(`forwarding_enabled_${params.id}`, String(v));
+									hapticFeedback.selectionChanged();
+								}}
+							/>
+						</div>
+
+						<Show when={isForwardingEnabled()}>
+							<Show when={rules().length === 0}>
+								<div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-5 flex flex-col items-center text-center gap-3">
+									<div class="w-16 h-16 rounded-full bg-[#3390ec]/10 text-[#3390ec] flex items-center justify-center mb-2">
+										<span class="material-symbols-outlined text-[32px]">call_split</span>
+									</div>
+									<h2 class="text-[16px] font-bold text-white">
+										{t('channelForwarding.noForwardingRules') || 'No Forwarding Rules'}
+									</h2>
+									<p class="text-[13px] text-[#8e8e93]">
+										{t('channelForwarding.noForwardingRulesDesc') ||
+											'Set up automatic forwarding to other channels.'}
+									</p>
+									<button
+										onClick={() => setIsCreating(true)}
+										class="mt-4 px-6 py-3 bg-[#3390ec] text-white font-bold rounded-full hover:bg-[#2b7bc9] transition-colors shadow-[0_4px_15px_rgba(51,144,236,0.2)]"
+									>
+										{t('channelForwarding.createRule') || 'Create Rule'}
+									</button>
 								</div>
-								<h2 class="text-[16px] font-bold text-white">
-									{t('channelForwarding.noForwardingRules') || 'No Forwarding Rules'}
-								</h2>
-								<p class="text-[13px] text-[#8e8e93]">
-									{t('channelForwarding.noForwardingRulesDesc') ||
-										'Set up automatic forwarding to other channels.'}
-								</p>
-								<button
-									onClick={() => setIsCreating(true)}
-									class="mt-4 px-6 py-3 bg-[#3390ec] text-white font-bold rounded-full hover:bg-[#2b7bc9] transition-colors shadow-[0_4px_15px_rgba(51,144,236,0.2)]"
-								>
-									{t('channelForwarding.createRule') || 'Create Rule'}
-								</button>
-							</div>
-						</Show>
+							</Show>
 
-						<Show when={rules().length > 0}>
-							<div class="flex items-center justify-between">
-								<h2 class="text-[16px] font-bold text-white">
-									{t('channelForwarding.activeRules') || 'Active Rules'}
-								</h2>
-							</div>
-							<div class="flex flex-col gap-3">
-								<For each={rules()}>
-									{(rule) => (
-										<div class="bg-[#1c1c1c] rounded-2xl border border-[#2a2a2a] p-4 flex flex-col gap-3">
-											<div class="flex items-center justify-between">
-												<div class="flex items-center gap-3">
-													<div
-														class={`w-10 h-10 rounded-full flex items-center justify-center ${rule.direction === 'inbound' ? 'bg-[#34c759]/20 text-[#34c759]' : 'bg-[#3390ec]/20 text-[#3390ec]'}`}
-													>
-														<span class="material-symbols-outlined text-[20px]">
-															{rule.targetType === 'webhook'
-																? 'webhook'
-																: rule.direction === 'inbound'
-																	? 'download'
-																	: 'upload'}
-														</span>
-													</div>
-													<div class="flex flex-col">
-														<span class="text-[15px] font-bold text-white max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap">
-															{rule.targetType === 'webhook'
-																? rule.direction === 'inbound'
-																	? rule.target
-																	: `${t('channelForwarding.to')} ${rule.target}`
-																: rule.direction === 'inbound'
-																	? `${t('channelForwarding.from')} ${formatTelegramTarget(rule.target)}`
-																	: `${t('channelForwarding.to')} ${formatTelegramTarget(rule.target)}`}
-														</span>
-														<span class="text-[12px] text-on-surface-variant uppercase tracking-wider flex items-center gap-1">
-															<Show when={rule.targetType === 'webhook'}>
-																<span class="material-symbols-outlined text-[12px] text-[#ff2a5f]">
-																	webhook
-																</span>
-															</Show>
-															{getLocalizedMode(rule.mode)} •{' '}
-															{getLocalizedDirection(rule.direction)}
-														</span>
-													</div>
-												</div>
-												<div class="flex items-center gap-3">
-													<button
-														onClick={async () => {
-															hapticFeedback.selectionChanged();
-															try {
-																const r = rulesData()?.find((x: any) => x.id === rule.id);
-																if (r) {
-																	const updated = { ...r, is_active: !r.is_active };
-																	await channelApi.updateForwardingRule(params.id, r.id!, updated);
-																	refetchRules();
-																}
-															} catch (err) {
-																hapticFeedback.notificationOccurred('error');
-																showToast(t('channelForwarding.toggleFailed') || 'Failed to update rule', 'error');
-															}
-														}}
-														class={`w-12 h-7 rounded-full relative transition-colors ${rule.active ? 'bg-[#34c759]' : 'bg-[#3a3a3c]'}`}
-													>
+							<Show when={rules().length > 0}>
+								<div class="flex items-center justify-between">
+									<h2 class="text-[16px] font-bold text-white">
+										{t('channelForwarding.activeRules') || 'Active Rules'}
+									</h2>
+								</div>
+								<div class="flex flex-col gap-3">
+									<For each={rules()}>
+										{(rule) => (
+											<div class="bg-[#1c1c1c] rounded-2xl border border-[#2a2a2a] p-4 flex flex-col gap-3">
+												<div class="flex items-center justify-between">
+													<div class="flex items-center gap-3">
 														<div
-															class={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full transition-transform ${rule.active ? 'translate-x-5' : 'translate-x-0'}`}
-														></div>
-													</button>
+															class={`w-10 h-10 rounded-full flex items-center justify-center ${rule.direction === 'inbound' ? 'bg-[#34c759]/20 text-[#34c759]' : 'bg-[#3390ec]/20 text-[#3390ec]'}`}
+														>
+															<span class="material-symbols-outlined text-[20px]">
+																{rule.targetType === 'webhook'
+																	? 'webhook'
+																	: rule.direction === 'inbound'
+																		? 'download'
+																		: 'upload'}
+															</span>
+														</div>
+														<div class="flex flex-col">
+															<span class="text-[15px] font-bold text-white max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap">
+																{rule.targetType === 'webhook'
+																	? rule.direction === 'inbound'
+																		? rule.target
+																		: `${t('channelForwarding.to')} ${rule.target}`
+																	: rule.direction === 'inbound'
+																		? `${t('channelForwarding.from')} ${formatTelegramTarget(rule.target)}`
+																		: `${t('channelForwarding.to')} ${formatTelegramTarget(rule.target)}`}
+															</span>
+															<span class="text-[12px] text-on-surface-variant uppercase tracking-wider flex items-center gap-1">
+																<Show when={rule.targetType === 'webhook'}>
+																	<span class="material-symbols-outlined text-[12px] text-[#ff2a5f]">
+																		webhook
+																	</span>
+																</Show>
+																{getLocalizedMode(rule.mode)} •{' '}
+																{getLocalizedDirection(rule.direction)}
+															</span>
+														</div>
+													</div>
+													<div class="flex items-center gap-3">
+														<button
+															onClick={async () => {
+																hapticFeedback.selectionChanged();
+																try {
+																	const r = rulesData()?.find((x: any) => x.id === rule.id);
+																	if (r) {
+																		const updated = { ...r, is_active: !r.is_active };
+																		await channelApi.updateForwardingRule(params.id, r.id!, updated);
+																		refetchRules();
+																	}
+																} catch (err) {
+																	hapticFeedback.notificationOccurred('error');
+																	showToast(t('channelForwarding.toggleFailed') || 'Failed to update rule', 'error');
+																}
+															}}
+															class={`w-12 h-7 rounded-full relative transition-colors ${rule.active ? 'bg-[#34c759]' : 'bg-[#3a3a3c]'}`}
+														>
+															<div
+																class={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full transition-transform ${rule.active ? 'translate-x-5' : 'translate-x-0'}`}
+															></div>
+														</button>
 
-													<button
-														onClick={async () => {
-															const confirmed = await showConfirm(
-																t('channelForwarding.deleteRuleConfirm') ||
-																	'Are you sure you want to delete this forwarding rule?',
-															);
-															if (!confirmed) return;
-															try {
-																hapticFeedback.impactOccurred('medium');
-																await channelApi.deleteForwardingRule(params.id, rule.id);
-																refetchRules();
-																showToast(t('channelForwarding.ruleDeleted') || 'Rule deleted', 'success');
-															} catch (err) {
-																hapticFeedback.notificationOccurred('error');
-																showToast(t('channelForwarding.deleteRuleFailed') || 'Failed to delete rule', 'error');
-															}
-														}}
-														class="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 text-red-500 flex items-center justify-center transition-all shadow-sm shrink-0"
-													>
-														<span class="material-symbols-outlined text-[16px]">delete</span>
-													</button>
-												</div>
-											</div>
-										</div>
-									)}
-								</For>
-							</div>
-
-							<button
-								onClick={() => setIsCreating(true)}
-								class="h-12 bg-[#2c2c2e] text-white font-bold rounded-xl hover:bg-[#3a3a3c] transition-colors flex items-center justify-center gap-2 mt-2 border border-[#3a3a3c]"
-							>
-								<span class="material-symbols-outlined text-[18px]">add</span>
-								{t('channelForwarding.addNewRule') || 'Add New Rule'}
-							</button>
-						</Show>
-
-						{/* Forward Log */}
-						<Show when={forwardLog().length > 0}>
-							<div class="mt-6 flex flex-col gap-3">
-								<h2 class="text-[16px] font-bold text-white flex items-center gap-2">
-									<span class="material-symbols-outlined text-[#8e8e93]">history</span>
-									{t('channelForwarding.recentActivity')}
-								</h2>
-								<div class="bg-[#1c1c1c] rounded-2xl border border-[#2a2a2a] overflow-hidden">
-									<For each={forwardLog()}>
-										{(log, index) => (
-											<div
-												class={`p-3 flex items-start gap-3 ${index() !== forwardLog().length - 1 ? 'border-b border-[#2a2a2a]' : ''}`}
-											>
-												<span class="material-symbols-outlined text-[#34c759] text-[18px] mt-0.5">
-													check_circle
-												</span>
-												<div class="flex flex-col flex-1">
-													<span class="text-[13px] text-white">{log.text}</span>
-													<span class="text-[11px] text-[#8e8e93]">{log.time}</span>
+														<button
+															onClick={async () => {
+																const confirmed = await showConfirm(
+																	t('channelForwarding.deleteRuleConfirm') ||
+																		'Are you sure you want to delete this forwarding rule?',
+																);
+																if (!confirmed) return;
+																try {
+																	hapticFeedback.impactOccurred('medium');
+																	await channelApi.deleteForwardingRule(params.id, rule.id);
+																	refetchRules();
+																	showToast(t('channelForwarding.ruleDeleted') || 'Rule deleted', 'success');
+																} catch (err) {
+																	hapticFeedback.notificationOccurred('error');
+																	showToast(t('channelForwarding.deleteRuleFailed') || 'Failed to delete rule', 'error');
+																}
+															}}
+															class="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 text-red-500 flex items-center justify-center transition-all shadow-sm shrink-0"
+														>
+															<span class="material-symbols-outlined text-[16px]">delete</span>
+														</button>
+													</div>
 												</div>
 											</div>
 										)}
 									</For>
 								</div>
-							</div>
+
+								<button
+									onClick={() => setIsCreating(true)}
+									class="h-12 bg-[#2c2c2e] text-white font-bold rounded-xl hover:bg-[#3a3a3c] transition-colors flex items-center justify-center gap-2 mt-2 border border-[#3a3a3c] w-full"
+								>
+									<span class="material-symbols-outlined text-[18px]">add</span>
+									{t('channelForwarding.addNewRule') || 'Add New Rule'}
+								</button>
+							</Show>
+
+							{/* Forward Log */}
+							<Show when={forwardLog().length > 0}>
+								<div class="mt-6 flex flex-col gap-3">
+									<h2 class="text-[16px] font-bold text-white flex items-center gap-2">
+										<span class="material-symbols-outlined text-[#8e8e93]">history</span>
+										{t('channelForwarding.recentActivity')}
+									</h2>
+									<div class="bg-[#1c1c1c] rounded-2xl border border-[#2a2a2a] overflow-hidden">
+										<For each={forwardLog()}>
+											{(log, index) => (
+												<div
+													class={`p-3 flex items-start gap-3 ${index() !== forwardLog().length - 1 ? 'border-b border-[#2a2a2a]' : ''}`}
+												>
+													<span class="material-symbols-outlined text-[#34c759] text-[18px] mt-0.5">
+														check_circle
+													</span>
+													<div class="flex flex-col flex-1">
+														<span class="text-[13px] text-white">{log.text}</span>
+														<span class="text-[11px] text-[#8e8e93]">{log.time}</span>
+													</div>
+												</div>
+											)}
+										</For>
+									</div>
+								</div>
+							</Show>
 						</Show>
 					</Motion.div>
 				</Show>

@@ -1980,14 +1980,19 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 			return
 		}
 
-		err = h.channelService.RegisterButtonClick(ctx, buttonID, cq.From.ID)
-
 		// Retrieve button info to find channel_id
 		button, errButton := h.channelService.GetButtonByID(ctx, buttonID)
 		if errButton != nil {
 			slog.Error("Failed to find button by ID", "button_id", buttonID, "error", errButton)
 			return
 		}
+
+		var msgID int64
+		if cq.Message != nil {
+			msgID = int64(cq.Message.MessageID)
+		}
+
+		err = h.channelService.RegisterButtonClick(ctx, button.ChannelID, msgID, buttonID, cq.From.ID)
 
 		token, errToken := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 		if errToken == nil {
@@ -2015,7 +2020,7 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 
 			// Automatically update the message reply markup
 			if cq.Message != nil {
-				markup, errMarkup := h.buildChannelInlineKeyboard(ctx, button.ChannelID)
+				markup, errMarkup := h.buildChannelInlineKeyboard(ctx, button.ChannelID, msgID)
 				if errMarkup == nil && markup != nil {
 					_ = tg.EditMessageReplyMarkup(ctx, cq.Message.Chat.ID, cq.Message.MessageID, markup)
 				}
@@ -2329,8 +2334,8 @@ func truncateButtonText(s string, maxRunes int) string {
 	return s
 }
 
-func (h *WebhookHandler) buildChannelInlineKeyboard(ctx context.Context, channelID uuid.UUID) (interface{}, error) {
-	buttons, err := h.channelService.GetChannelButtonsByChannelID(ctx, channelID)
+func (h *WebhookHandler) buildChannelInlineKeyboard(ctx context.Context, channelID uuid.UUID, telegramMessageID int64) (interface{}, error) {
+	buttons, err := h.channelService.GetChannelButtonsWithCounts(ctx, channelID, telegramMessageID)
 	if err != nil {
 		return nil, err
 	}

@@ -1146,6 +1146,9 @@ To enable me to delete malicious messages and restrict violating users, please a
 		failedToSaveSettings: 'Failed to save settings',
 	},
 	channelForwarding: {
+		enableAutoForward: 'Enable Auto Forwarding',
+		enableAutoForwardDesc:
+			'Automatically duplicate, mirror or rewrite new posts from other channels.',
 		autoForward: 'Mirror & Forward',
 		duplicatePosts: 'Auto-forward posts between channels',
 		noForwardingRules: 'No Forwarding Rules',
