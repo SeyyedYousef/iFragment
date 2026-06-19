@@ -914,24 +914,54 @@ func (s *ChannelService) PublishScheduledFunnelPosts(ctx context.Context) error 
 	return nil
 }
 
+func truncateButtonText(s string, maxRunes int) string {
+	runes := []rune(s)
+	if len(runes) > maxRunes {
+		return string(runes[:maxRunes-1]) + "…"
+	}
+	return s
+}
+
 func buildReplyMarkupFromButtons(buttons []repository.ChannelInlineButton) interface{} {
 	if len(buttons) == 0 {
 		return nil
 	}
-	var keyboard [][]map[string]interface{}
+	var row []map[string]interface{}
 	for _, btn := range buttons {
-		if btn.Type == "url" {
-			keyboard = append(keyboard, []map[string]interface{}{
-				{
-					"text": btn.Title,
-					"url":  btn.Value,
-				},
-			})
+		text := ""
+		if btn.Emoji != "" {
+			text += btn.Emoji + " "
 		}
+		text += btn.Title
+		if btn.Type == "counter" && btn.ClickCount > 0 {
+			text += fmt.Sprintf(" (%d)", btn.ClickCount)
+		}
+
+		ikb := map[string]interface{}{
+			"text": truncateButtonText(text, 64),
+		}
+
+		if btn.Type == "url" {
+			urlStr := strings.TrimSpace(btn.Value)
+			if !strings.HasPrefix(urlStr, "http://") && !strings.HasPrefix(urlStr, "https://") && !strings.HasPrefix(urlStr, "tg://") {
+				urlStr = "https://" + urlStr
+			}
+			ikb["url"] = urlStr
+		} else {
+			ikb["callback_data"] = fmt.Sprintf("btn_click:%s", btn.ID.String())
+		}
+		row = append(row, ikb)
 	}
-	if len(keyboard) == 0 {
-		return nil
+
+	var keyboard [][]map[string]interface{}
+	for i := 0; i < len(row); i += 2 {
+		end := i + 2
+		if end > len(row) {
+			end = len(row)
+		}
+		keyboard = append(keyboard, row[i:end])
 	}
+
 	return map[string]interface{}{
 		"inline_keyboard": keyboard,
 	}

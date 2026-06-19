@@ -8,6 +8,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/i18n"
@@ -1979,27 +1980,43 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 			return
 		}
 
-		err = h.channelService.RegisterButtonClick(ctx, buttonID)
-		if err != nil {
-			slog.Error("Failed to register button click", "button_id", buttonID, "error", err)
-		}
+		err = h.channelService.RegisterButtonClick(ctx, buttonID, cq.From.ID)
 
 		// Retrieve button info to find channel_id
-		button, err := h.channelService.GetButtonByID(ctx, buttonID)
-		if err != nil {
-			slog.Error("Failed to find button by ID", "button_id", buttonID, "error", err)
+		button, errButton := h.channelService.GetButtonByID(ctx, buttonID)
+		if errButton != nil {
+			slog.Error("Failed to find button by ID", "button_id", buttonID, "error", errButton)
 			return
 		}
 
-		token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-		if err == nil {
+		token, errToken := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+		if errToken == nil {
 			tg := telegram.NewBotAPIClient(token)
+			
+			if errors.Is(err, channelmgmt.ErrAlreadyClicked) {
+				userLang := i18n.DetectLanguage(cq.From.LanguageCode)
+				msg := "You have already voted!"
+				if userLang == "fa" {
+					msg = "شما قبلاً رأی داده‌اید!"
+				} else if userLang == "ru" {
+					msg = "Вы уже проголосовали!"
+				} else if userLang == "ar" {
+					msg = "لقد قمت بالتصويت بالفعل!"
+				}
+				_ = tg.AnswerCallbackQuery(ctx, cq.ID, msg, true) // true = show alert popup
+				return
+			} else if err != nil {
+				slog.Error("Failed to register button click", "button_id", buttonID, "error", err)
+				_ = tg.AnswerCallbackQuery(ctx, cq.ID, "Failed to register click", false)
+				return
+			}
+
 			_ = tg.AnswerCallbackQuery(ctx, cq.ID, "Click registered!", false)
 
 			// Automatically update the message reply markup
 			if cq.Message != nil {
-				markup, err := h.buildChannelInlineKeyboard(ctx, button.ChannelID)
-				if err == nil && markup != nil {
+				markup, errMarkup := h.buildChannelInlineKeyboard(ctx, button.ChannelID)
+				if errMarkup == nil && markup != nil {
 					_ = tg.EditMessageReplyMarkup(ctx, cq.Message.Chat.ID, cq.Message.MessageID, markup)
 				}
 			}
@@ -2786,26 +2803,7 @@ func (h *WebhookHandler) handleChannelPost(ctx context.Context, bot *repository.
 		slog.Error("Failed to process channel post in service", "error", err)
 	}
 
-	// Append inline buttons to channel posts
-	ch, err := h.channelService.GetChannelByChatID(ctx, m.Chat.ID)
-	if err == nil && ch != nil {
-		markup, buildErr := h.buildChannelInlineKeyboard(ctx, ch.ID)
-		if buildErr == nil && markup != nil {
-			tg, tgErr := h.moderator.GetTelegramClient(ctx, bot)
-			if tgErr == nil {
-				// Use EditMessageReplyMarkup to safely append buttons without crashing on media posts (photos/videos with no text)
-				errMarkup := tg.EditMessageReplyMarkup(ctx, m.Chat.ID, m.MessageID, markup)
-				if errMarkup != nil {
-					slog.Error("Failed to append inline buttons to channel post", "error", errMarkup, "channel_id", ch.ID, "message_id", m.MessageID)
-					// If the API rejected the markup due to invalid URL or similar (400), try to recover by removing the reply markup
-					// to ensure the post isn't left in a broken state if it was an edit.
-					if isEdit {
-						_ = tg.EditMessageReplyMarkup(ctx, m.Chat.ID, m.MessageID, nil)
-					}
-				}
-			}
-		}
-	}
+
 }
 
 func (h *WebhookHandler) handleChatJoinRequest(ctx context.Context, bot *repository.ManagedBot, req *ChatJoinRequest) {

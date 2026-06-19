@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -899,84 +900,6 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 		return nil // Do not process forwarding/auto-responder for expired channels
 	}
 
-	settings, err := s.channelRepo.GetChannelSettings(ctx, ch.ID)
-	if err != nil {
-		return err
-	}
-
-	var posting PostingSettingsSchema
-	_ = json.Unmarshal(settings.Posting, &posting)
-
-	var general GeneralSettingsSchema
-	_ = json.Unmarshal(settings.General, &general)
-
-	// AI Composer: Rewrite post if enabled
-	if posting.AiComposerEnabled && posting.ApiKey != "" && !isEdit {
-		rewritten, err := callGeminiComposer(ctx, postText, posting.ApiKey, posting.SelectedSkill, posting.CustomSkillPrompt)
-		if err == nil && rewritten != "" {
-			if len(rewritten) > 4096 {
-				rewritten = rewritten[:4096]
-			}
-			if posting.AiConfirmBeforeEdit {
-				// Request approval before editing
-				_ = s.RequestApprovalForPost(ctx, ch, rewritten, nil)
-				// We don't overwrite postText here because we wait for approval
-			} else {
-				// Auto-apply
-				bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
-				if err == nil {
-					token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-					if err == nil {
-						tg := telegram.NewBotAPIClient(token)
-						_ = tg.EditMessageTextWithMarkup(ctx, chatID, messageID, rewritten, replyMarkup)
-						_ = tg.EditMessageCaptionWithMarkup(ctx, chatID, messageID, rewritten, replyMarkup)
-						postText = rewritten // update for subsequent steps like SignMessages
-					}
-				}
-			}
-		} else {
-			slog.Error("AI Composer failed or returned empty", "error", err)
-			// fallback: post original, maybe notify admin
-		}
-	}
-
-	// General Settings: Sign Messages
-	if general.SignMessages && general.CustomSignature != "" && !isEdit {
-		signatureStr := "\n\n✍️ " + general.CustomSignature
-		if !strings.Contains(postText, signatureStr) {
-			bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
-			if err == nil {
-				token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-				if err == nil {
-					tg := telegram.NewBotAPIClient(token)
-					newText := postText + signatureStr
-					// Telegram edit requires either text or caption depending on message type
-					_ = tg.EditMessageTextWithMarkup(ctx, chatID, messageID, newText, replyMarkup)
-					_ = tg.EditMessageCaptionWithMarkup(ctx, chatID, messageID, newText, replyMarkup)
-				}
-			}
-		}
-	}
-
-	// General Settings: Auto Forward
-	if general.AutoForward && general.ForwardDestination != "" {
-		bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
-		if err == nil {
-			token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-			if err == nil {
-				tg := telegram.NewBotAPIClient(token)
-				// ForwardDestination might be "@username" or "12345"
-				target := general.ForwardDestination
-				if !strings.HasPrefix(target, "@") && !strings.HasPrefix(target, "-100") {
-					target = "@" + target
-				}
-
-				// CopyMessage keeps the channel clean without "Forwarded from" tags
-				_ = tg.CopyMessage(ctx, target, chatID, messageID, replyMarkup)
-			}
-		}
-	}
-
 	return nil
 }
 
@@ -1706,8 +1629,25 @@ func (s *ChannelService) SaveButtons(ctx context.Context, ownerUserID int64, cha
 	return nil
 }
 
-// RegisterButtonClick increments click count of an inline button
-func (s *ChannelService) RegisterButtonClick(ctx context.Context, buttonID uuid.UUID) error {
+var ErrAlreadyClicked = errors.New("already clicked")
+
+// RegisterButtonClick increments click count of an inline button if user hasn't clicked it already
+func (s *ChannelService) RegisterButtonClick(ctx context.Context, buttonID uuid.UUID, userID int64) error {
+	cache := s.channelRepo.GetCache()
+	if cache != nil && cache.Client != nil {
+		clickKey := fmt.Sprintf("btn_clicked:%s:%d", buttonID.String(), userID)
+		// Atomic check and set, expires in 30 days
+		set, err := cache.Client.SetNX(ctx, clickKey, "1", 30*24*time.Hour).Result()
+		if err != nil {
+			return err
+		}
+		if !set {
+			return ErrAlreadyClicked
+		}
+	} else {
+		slog.Warn("Redis cache not available, skipping click rate limit", "button_id", buttonID, "user_id", userID)
+	}
+
 	return s.channelRepo.IncrementButtonClicks(ctx, buttonID)
 }
 
