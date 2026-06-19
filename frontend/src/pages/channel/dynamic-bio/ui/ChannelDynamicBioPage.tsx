@@ -43,16 +43,17 @@ export const ChannelDynamicBioPage: Component = () => {
 					dbio = JSON.parse(dbio);
 				}
 				if (dbio && typeof dbio === 'object') {
-					if ('enabled' in dbio) setEnabled(dbio.enabled);
-					if ('bioTemplate' in dbio) setBioTemplate(dbio.bioTemplate);
-					if ('displayInName' in dbio) setDisplayInName(dbio.displayInName);
-					if ('nameTemplate' in dbio) setNameTemplate(dbio.nameTemplate);
-					if ('interval' in dbio) setIntervalVal(dbio.interval);
-					if ('enableCountdown' in dbio) setEnableCountdown(dbio.enableCountdown);
-					if ('eventName' in dbio) setEventName(dbio.eventName);
-					if ('targetDate' in dbio) setTargetDate(dbio.targetDate);
-					if ('countdownLocation' in dbio) setCountdownLocation(dbio.countdownLocation);
-					if ('postExpiryText' in dbio) setPostExpiryText(dbio.postExpiryText);
+					const obj = dbio as Record<string, any>;
+					if ('enabled' in obj) setEnabled(!!obj.enabled);
+					if ('bioTemplate' in obj) setBioTemplate(String(obj.bioTemplate || ''));
+					if ('displayInName' in obj) setDisplayInName(!!obj.displayInName);
+					if ('nameTemplate' in obj) setNameTemplate(String(obj.nameTemplate || ''));
+					if ('interval' in obj) setIntervalVal(String(obj.interval || ''));
+					if ('enableCountdown' in obj) setEnableCountdown(!!obj.enableCountdown);
+					if ('eventName' in obj) setEventName(String(obj.eventName || ''));
+					if ('targetDate' in obj) setTargetDate(String(obj.targetDate || ''));
+					if ('countdownLocation' in obj) setCountdownLocation(String(obj.countdownLocation || ''));
+					if ('postExpiryText' in obj) setPostExpiryText(String(obj.postExpiryText || ''));
 				}
 			} catch (e) {
 				console.error('Failed to parse dynamic_bio settings:', e);

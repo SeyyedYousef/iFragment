@@ -83,17 +83,18 @@ export const ChannelAutoResponderPage: Component = () => {
 					ar = JSON.parse(ar);
 				}
 				if (ar && typeof ar === 'object') {
-					if ('enabled' in ar) setEnabled(ar.enabled);
-					if ('autoFirstComment' in ar) setAutoFirstComment(ar.autoFirstComment);
-					if ('commentMode' in ar) setCommentMode(ar.commentMode);
-					if ('fixedComment' in ar) setFixedComment(ar.fixedComment);
-					if ('rotatingTexts' in ar && Array.isArray(ar.rotatingTexts))
-						setRotatingTexts(ar.rotatingTexts);
-					if ('attachButton' in ar) setAttachButton(ar.attachButton);
-					if ('newMemberWelcome' in ar) setNewMemberWelcome(ar.newMemberWelcome);
-					if ('welcomeDelay' in ar) setWelcomeDelay(ar.welcomeDelay);
-					if ('welcomeText' in ar) setWelcomeText(ar.welcomeText);
-					if ('rules' in ar && Array.isArray(ar.rules)) setRules(ar.rules.map(normalizeRule));
+					const obj = ar as Record<string, any>;
+					if ('enabled' in obj) setEnabled(!!obj.enabled);
+					if ('autoFirstComment' in obj) setAutoFirstComment(!!obj.autoFirstComment);
+					if ('commentMode' in obj) setCommentMode(String(obj.commentMode || ''));
+					if ('fixedComment' in obj) setFixedComment(String(obj.fixedComment || ''));
+					if ('rotatingTexts' in obj && Array.isArray(obj.rotatingTexts))
+						setRotatingTexts(obj.rotatingTexts.map(String));
+					if ('attachButton' in obj) setAttachButton(String(obj.attachButton || ''));
+					if ('newMemberWelcome' in obj) setNewMemberWelcome(!!obj.newMemberWelcome);
+					if ('welcomeDelay' in obj) setWelcomeDelay(String(obj.welcomeDelay || '0'));
+					if ('welcomeText' in obj) setWelcomeText(String(obj.welcomeText || ''));
+					if ('rules' in obj && Array.isArray(obj.rules)) setRules(obj.rules.map(normalizeRule));
 				}
 			} catch (e) {
 				console.error('Failed to parse auto_responder settings:', e);

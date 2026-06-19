@@ -38,7 +38,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 	// Settings Config State
 	const [isButtonsEnabled, setIsButtonsEnabled] = createSignal(true);
 	const [activePreset, setActivePreset] = createSignal<'like' | 'link_share' | 'buy' | 'custom'>(
-		'like',
+		'custom',
 	);
 
 	// Active Glass Buttons List
@@ -92,7 +92,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 				}
 				if (inlineButtonsVal && typeof inlineButtonsVal === 'object') {
 					if ('enabled' in inlineButtonsVal) {
-						setIsButtonsEnabled(inlineButtonsVal.enabled);
+						setIsButtonsEnabled(!!(inlineButtonsVal as any).enabled);
 					}
 					if ('preset' in inlineButtonsVal) {
 						setActivePreset(inlineButtonsVal.preset as any);

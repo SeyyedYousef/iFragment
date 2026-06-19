@@ -154,6 +154,9 @@ export const channelApi = {
 			const newMembersToday = latest ? latest.new_subscribers || 0 : 0;
 			const viewsToday = latest ? latest.views_count || 0 : 0;
 			const postsToday = latest ? latest.posts_count || 0 : 0;
+			const mentionsIn = r.data?.summary?.mentions_in || 0;
+			const mentionsOut = r.data?.summary?.mentions_out || 0;
+			const bestTime = r.data?.summary?.best_time || '18:30';
 			
 			// Calculate Citation Index based on views per member ratio
 			let ciScore = 'N/A';
@@ -179,6 +182,9 @@ export const channelApi = {
 					views_today: viewsToday,
 					posts_today: postsToday,
 					citation_index: ciScore,
+					mentions_in: mentionsIn,
+					mentions_out: mentionsOut,
+					best_time: bestTime,
 				},
 				timeline: list,
 			};
