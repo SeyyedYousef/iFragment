@@ -1041,6 +1041,10 @@ To enable me to delete malicious messages and restrict violating users, please a
 		unsavedChangesTooltip: 'Unsaved changes',
 	},
 	channelPosting: {
+		aiSmartEditorGuideTitle: 'Smart AI Post Editor',
+		aiSmartEditorGuideDesc: 'By enabling this feature, any post published in your input channel will be captured, processed, and beautified by AI using your custom rules before being published to the output channel.',
+		aiSkillGuide: 'Choose one of our ready-made professional prompt templates below, or select "Custom Skill" to enter your own system instructions. As soon as a new post is published in your input channel, it will be automatically processed using this configuration.',
+		enableAiSmartEditor: 'Enable AI Smart Editor',
 		simNoApiKey: '❌ Please enter your API key first.',
 		simGenerating: 'Generating content... ⏳',
 		simSafetyBlocked: '❌ Content blocked due to safety reasons.',

@@ -61,7 +61,7 @@ const defaultConfig: PostingConfig = {
 	aiProvider: 'gemini',
 	apiKey: '',
 	tone: 'friendly',
-	aiConfirmBeforeEdit: false,
+	aiConfirmBeforeEdit: true,
 	aiComposerEnabled: false,
 
 	selectedSkill: 'journalist',
@@ -99,6 +99,7 @@ export const ChannelPostingPage: Component = () => {
 				const merged = {
 					...defaultConfig,
 					...postingConfig,
+					aiConfirmBeforeEdit: true,
 					selectedSkill: postingConfig.selectedSkill || 'journalist',
 					customSkillPrompt: postingConfig.customSkillPrompt || '',
 				};
@@ -318,51 +319,46 @@ export const ChannelPostingPage: Component = () => {
 			<div class="px-5 pt-6 flex flex-col gap-6">
 				<ChannelContextBar channelId={params.id} />
 
-				{/* Smart Editor Core Activation Settings */}
+				{/* Smart Editor Guide & Activation Card */}
 				<Motion.div
 					initial={{ opacity: 0, y: 10 }}
 					animate={{ opacity: 1, y: 0 }}
-					class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-4"
+					class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-5 flex flex-col gap-4"
 				>
-					<div class="flex items-center gap-2 mb-1">
-						<span class="material-symbols-outlined text-[#ff9f0a] text-[20px]">bolt</span>
-						<h2 class="text-[16px] font-bold text-white">
-							{t('channelPosting.smartBotSettings') || 'Smart Editor Bot Settings'}
-						</h2>
+					{/* Guide Header */}
+					<div class="flex items-start gap-3">
+						<div class="w-10 h-10 rounded-xl bg-[#3390ec]/10 border border-[#3390ec]/20 flex items-center justify-center shrink-0 text-[#3390ec]">
+							<span class="material-symbols-outlined text-[24px]">psychology</span>
+						</div>
+						<div class="flex flex-col gap-1">
+							<h2 class="text-[16px] font-bold text-white leading-tight">
+								{t('channelPosting.aiSmartEditorGuideTitle') || 'Smart AI Post Editor'}
+							</h2>
+							<p class="text-[12px] text-on-surface-variant leading-relaxed mt-1">
+								{t('channelPosting.aiSmartEditorGuideDesc')}
+							</p>
+						</div>
 					</div>
 
-					<div class="flex flex-col gap-3">
-						<SettingsSection
-							title={t('channelPosting.enableSmartEditor') || 'Enable Smart Editor'}
-							description={
-								t('channelPosting.enableSmartEditorDesc') ||
-								'When you send a post in your channel, the bot automatically receives, processes, and edits it.'
-							}
-							enabled={config.aiComposerEnabled}
-							onToggle={(v) => updateField('aiComposerEnabled', v)}
-						/>
+					<div class="h-[1px] bg-[#2a2a2a] w-full my-1"></div>
 
-						<div class="h-[1px] bg-[#2a2a2a] w-full my-1"></div>
-
-						<SettingsSection
-							title={t('channelPosting.confirmBeforeEdit') || 'Confirm before editing (Bot DM)'}
-							description={
-								t('channelPosting.confirmBeforeEditDesc') ||
-								'The bot will send the final version to your DM first. After your approval, the channel post is edited.'
-							}
-							enabled={config.aiConfirmBeforeEdit}
-							onToggle={(v) => updateField('aiConfirmBeforeEdit', v)}
-						/>
-					</div>
+					{/* Master Toggle */}
+					<SettingsSection
+						title={t('channelPosting.enableAiSmartEditor') || 'Enable AI Smart Editor'}
+						description=""
+						enabled={config.aiComposerEnabled}
+						onToggle={(v) => updateField('aiComposerEnabled', v)}
+					/>
 				</Motion.div>
 
-				{/* AI Settings - BYOK MODEL */}
-				<Motion.div
-					initial={{ opacity: 0, y: 10 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ delay: 0.05 }}
-					class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-4"
-				>
+				<Show when={config.aiComposerEnabled}>
+					{/* AI Settings - BYOK MODEL */}
+					<Motion.div
+						initial={{ opacity: 0, y: 10 }}
+						animate={{ opacity: 1, y: 0 }}
+						transition={{ delay: 0.05 }}
+						class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-4"
+					>
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-2">
 							<span class="material-symbols-outlined text-[#3390ec] text-[20px]">psychology</span>
@@ -436,6 +432,10 @@ export const ChannelPostingPage: Component = () => {
 						<span class="material-symbols-outlined text-[#3390ec] text-[20px]">auto_awesome</span>
 						<h2 class="text-[16px] font-bold text-white">{t('channelPosting.aiSkillTitle')}</h2>
 					</div>
+
+					<p class="text-[12px] text-on-surface-variant leading-relaxed relative z-10">
+						{t('channelPosting.aiSkillGuide')}
+					</p>
 
 					{/* Skill System Selector */}
 					<div class="flex flex-col gap-2 relative z-10">
@@ -633,6 +633,7 @@ export const ChannelPostingPage: Component = () => {
 						</div>
 					</div>
 				</Motion.div>
+				</Show>
 			</div>
 
 			{/* Save Button */}

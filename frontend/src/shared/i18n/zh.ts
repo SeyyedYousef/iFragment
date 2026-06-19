@@ -983,6 +983,10 @@ export const dict = {
 		groupVerified: '群组验证成功',
 	},
 	channelPosting: {
+		aiSmartEditorGuideTitle: '智能 AI 帖子编辑器',
+		aiSmartEditorGuideDesc: '启用此功能后，您在输入频道发布的任何帖子都将被自动捕获，并根据您设置的规则使用 AI 进行改写和美化，然后发布到输出频道。',
+		aiSkillGuide: '从下方选择我们为您准备的专业提示词模板，或选择“自定义技能”来输入您自己的系统指令。一旦输入频道发布新帖子，它将自动使用此配置进行处理。',
+		enableAiSmartEditor: '启用 AI 智能编辑器',
 		simNoApiKey: '❌ 请先输入您的 API 密钥。',
 		simGenerating: '正在生成内容... ⏳',
 		simSafetyBlocked: '❌ 内容因安全原因被拦截。',
