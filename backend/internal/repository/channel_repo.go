@@ -1641,3 +1641,110 @@ func (r *ChannelRepo) GetChannelButtonsWithCounts(ctx context.Context, channelID
 	}
 	return buttons, nil
 }
+
+type ChannelBillingSubscription struct {
+	ID            uuid.UUID
+	UserID        int64
+	ChannelID     uuid.UUID
+	PackageID     string
+	ChannelsLimit int
+	AmountFRG     float64
+	Period        string
+	Status        string
+	StartsAt      time.Time
+	ExpiresAt     time.Time
+}
+
+func (r *ChannelRepo) DB() *Database {
+	return r.db
+}
+
+func (r *ChannelRepo) UpdateChannelSubscription(ctx context.Context, channelID uuid.UUID, status string, paidUntil *time.Time) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("no database connection")
+	}
+
+	tx, err := r.db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	query1 := `UPDATE managed_channels SET subscription_status = $1, paid_until = $2, updated_at = now() WHERE id = $3`
+	if _, err := tx.Exec(ctx, query1, status, paidUntil, channelID); err != nil {
+		return err
+	}
+
+	if status == "expired" {
+		query2 := `UPDATE channel_billing_subscriptions SET status = 'expired' WHERE channel_id = $1 AND status = 'active'`
+		if _, err := tx.Exec(ctx, query2, channelID); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (r *ChannelRepo) UpdateChannelSubscriptionTx(ctx context.Context, tx pgx.Tx, channelID uuid.UUID, status string, paidUntil *time.Time) error {
+	query1 := `UPDATE managed_channels SET subscription_status = $1, paid_until = $2, updated_at = now() WHERE id = $3`
+	if _, err := tx.Exec(ctx, query1, status, paidUntil, channelID); err != nil {
+		return err
+	}
+
+	if status == "expired" {
+		query2 := `UPDATE channel_billing_subscriptions SET status = 'expired' WHERE channel_id = $1 AND status = 'active'`
+		if _, err := tx.Exec(ctx, query2, channelID); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *ChannelRepo) CreateChannelBillingSubscription(ctx context.Context, sub *ChannelBillingSubscription) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("no database connection")
+	}
+
+	tx, err := r.db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Deactivate any existing active subscriptions for this channel
+	query1 := `UPDATE channel_billing_subscriptions SET status = 'expired' WHERE channel_id = $1 AND status = 'active'`
+	if _, err := tx.Exec(ctx, query1, sub.ChannelID); err != nil {
+		return err
+	}
+
+	query2 := `
+		INSERT INTO channel_billing_subscriptions (user_id, channel_id, package_id, channels_limit, amount_frg, period, status, starts_at, expires_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		RETURNING id
+	`
+	if err := tx.QueryRow(ctx, query2, sub.UserID, sub.ChannelID, sub.PackageID, sub.ChannelsLimit, sub.AmountFRG, sub.Period, sub.Status, sub.StartsAt, sub.ExpiresAt).Scan(&sub.ID); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (r *ChannelRepo) CreateChannelBillingSubscriptionTx(ctx context.Context, tx pgx.Tx, sub *ChannelBillingSubscription) error {
+	// Deactivate any existing active subscriptions for this channel
+	query1 := `UPDATE channel_billing_subscriptions SET status = 'expired' WHERE channel_id = $1 AND status = 'active'`
+	if _, err := tx.Exec(ctx, query1, sub.ChannelID); err != nil {
+		return err
+	}
+
+	query2 := `
+		INSERT INTO channel_billing_subscriptions (user_id, channel_id, package_id, channels_limit, amount_frg, period, status, starts_at, expires_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		RETURNING id
+	`
+	if err := tx.QueryRow(ctx, query2, sub.UserID, sub.ChannelID, sub.PackageID, sub.ChannelsLimit, sub.AmountFRG, sub.Period, sub.Status, sub.StartsAt, sub.ExpiresAt).Scan(&sub.ID); err != nil {
+		return err
+	}
+
+	return nil
+}

@@ -468,6 +468,10 @@ func main() {
 				r.Post("/subscribe", botMgmtHandler.Subscribe)
 				r.Post("/subscribe-airdrop", botMgmtHandler.SubscribeWithAirdrop)
 				r.Post("/subscribe-stars-invoice", botMgmtHandler.CreateSubscriptionStarsInvoice)
+
+				r.Post("/channel/subscribe", botMgmtHandler.SubscribeChannel)
+				r.Post("/channel/subscribe-airdrop", botMgmtHandler.SubscribeChannelWithAirdrop)
+				r.Post("/channel/subscribe-stars-invoice", botMgmtHandler.CreateChannelSubscriptionStarsInvoice)
 			})
 
 			r.Route("/frg", func(r chi.Router) {

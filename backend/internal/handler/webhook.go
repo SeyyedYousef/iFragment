@@ -587,7 +587,7 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 
 func (h *WebhookHandler) handlePreCheckoutUpdate(ctx context.Context, bot *repository.ManagedBot, pq *PreCheckoutQuery) {
 	botToken, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-	if strings.HasPrefix(pq.InvoicePayload, "sub_stars_") {
+	if strings.HasPrefix(pq.InvoicePayload, "sub_stars_") || strings.HasPrefix(pq.InvoicePayload, "sub_chan_stars_") {
 		// Accept the payment for subscription
 		if pq.Currency != "XTR" {
 			h.answerPreCheckout(botToken, pq.ID, false, "Invalid currency")
@@ -763,6 +763,22 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 					slog.Error("Failed to activate subscription from Stars webhook", "error", err, "payload", pay.InvoicePayload)
 				} else {
 					slog.Info("Successfully activated subscription via Stars Webhook", "group_id", groupIDStr, "package_id", packageID)
+				}
+			}
+		}
+	} else if strings.HasPrefix(pay.InvoicePayload, "sub_chan_stars_") {
+		parts := strings.Split(strings.TrimPrefix(pay.InvoicePayload, "sub_chan_stars_"), "_")
+		if len(parts) == 2 {
+			channelIDStr := parts[0]
+			packageID := parts[1]
+			channelID, err := uuid.Parse(channelIDStr)
+			if err == nil {
+				botSvc := botmgmt.NewBotService(h.botRepo, repository.NewSettingsRepo(h.db, nil), repository.NewAuditRepo(h.db), repository.NewFRGRepo(h.db), repository.NewAnalyticsRepo(h.db))
+				err = botSvc.ActivateChannelSubscriptionFromStars(ctx, msg.From.ID, channelID, packageID)
+				if err != nil {
+					slog.Error("Failed to activate channel subscription from Stars webhook", "error", err, "payload", pay.InvoicePayload)
+				} else {
+					slog.Info("Successfully activated channel subscription via Stars Webhook", "channel_id", channelIDStr, "package_id", packageID)
 				}
 			}
 		}

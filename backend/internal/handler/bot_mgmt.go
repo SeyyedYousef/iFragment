@@ -344,6 +344,99 @@ func (h *BotMgmtHandler) CreateSubscriptionStarsInvoice(w http.ResponseWriter, r
 	RespondJSON(w, http.StatusOK, map[string]string{"invoice_link": link})
 }
 
+type ChannelSubscribeRequest struct {
+	ChannelID string `json:"channel_id"`
+	PackageID string `json:"package_id"`
+}
+
+func (h *BotMgmtHandler) SubscribeChannel(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+	var req ChannelSubscribeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
+	channelID, err := uuid.Parse(req.ChannelID)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	if err := h.svc.SubscribeChannel(r.Context(), userID, channelID, req.PackageID); err != nil {
+		RespondError(w, r, http.StatusPaymentRequired, err.Error(), err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]string{"status": "subscribed"})
+}
+
+func (h *BotMgmtHandler) SubscribeChannelWithAirdrop(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+	var req ChannelSubscribeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
+	channelID, err := uuid.Parse(req.ChannelID)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	if err := h.svc.SubscribeChannelWithAirdrop(r.Context(), userID, channelID, req.PackageID); err != nil {
+		RespondError(w, r, http.StatusPaymentRequired, err.Error(), err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]string{"status": "subscribed_via_airdrop"})
+}
+
+func (h *BotMgmtHandler) CreateChannelSubscriptionStarsInvoice(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+	var req ChannelSubscribeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
+	channelID, err := uuid.Parse(req.ChannelID)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	pkg := h.svc.GetPackageByID(req.PackageID)
+	if pkg == nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid package", nil)
+		return
+	}
+
+	// 1 FRG = 75 Stars
+	starsPrice := int(pkg.PriceFRG * 75)
+	payload := fmt.Sprintf("sub_chan_stars_%s_%s", channelID.String(), req.PackageID)
+
+	link, err := h.marketplace.CreateCustomStarsInvoice(r.Context(), userID, "Subscription: "+pkg.Name, fmt.Sprintf("Subscription for %s package", pkg.Name), payload, starsPrice)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		return
+	}
+	RespondJSON(w, http.StatusOK, map[string]string{"invoice_link": link})
+}
+
 // ─── Analytics ────────────────────────────────────────────
 
 func (h *BotMgmtHandler) GetAnalytics(w http.ResponseWriter, r *http.Request) {

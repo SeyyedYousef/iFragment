@@ -932,3 +932,191 @@ func (s *BotService) sendQHNotice(ctx context.Context, g repository.ManagedGroup
 		})
 	}
 }
+
+func (s *BotService) SubscribeChannel(ctx context.Context, userID int64, channelID uuid.UUID, packageID string) error {
+	channelRepo := repository.NewChannelRepo(s.frgRepo.DB(), nil)
+	ch, err := channelRepo.GetChannelByID(ctx, channelID)
+	if err != nil {
+		return fmt.Errorf("channel not found: %w", err)
+	}
+
+	bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
+	if err != nil {
+		return fmt.Errorf("unauthorized or invalid bot: %w", err)
+	}
+	if bot.OwnerUserID != userID {
+		return fmt.Errorf("unauthorized: not bot owner")
+	}
+
+	pkg := s.GetPackageByID(packageID)
+	if pkg == nil {
+		return fmt.Errorf("invalid package: %s", packageID)
+	}
+
+	meta, _ := json.Marshal(map[string]interface{}{
+		"package":    packageID,
+		"channel_id": channelID.String(),
+	})
+
+	tx, err := s.frgRepo.DB().Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	_, err = s.frgRepo.DebitTx(ctx, tx, userID, pkg.PriceFRG, "subscription_payment", meta)
+	if err != nil {
+		return fmt.Errorf("payment failed: %w", err)
+	}
+
+	if err := s.internalActivateChannelSubscriptionTx(ctx, tx, userID, channelID, packageID, ch, pkg); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit subscription transaction: %w", err)
+	}
+
+	s.notifyOwnerOnSubscription(context.Background(), bot.BotUsername, ch.ChatTitle, pkg.Name, "FRG (Channel)", userID)
+
+	go func() {
+		bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		s.frgRepo.DB().CreditReferrerShare(bgCtx, userID, pkg.PriceFRG, s.frgRepo)
+	}()
+
+	return nil
+}
+
+func (s *BotService) internalActivateChannelSubscriptionTx(ctx context.Context, tx pgx.Tx, userID int64, channelID uuid.UUID, packageID string, ch *repository.ManagedChannel, pkg *SubscriptionPackage) error {
+	base := time.Now()
+	if ch.SubscriptionStatus == "paid" && ch.PaidUntil != nil && ch.PaidUntil.After(base) {
+		base = *ch.PaidUntil
+	}
+	paidUntil := base.Add(30 * 24 * time.Hour)
+
+	channelRepo := repository.NewChannelRepo(s.frgRepo.DB(), nil)
+	if err := channelRepo.UpdateChannelSubscriptionTx(ctx, tx, channelID, "paid", &paidUntil); err != nil {
+		return fmt.Errorf("failed to activate subscription: %w", err)
+	}
+
+	err := channelRepo.CreateChannelBillingSubscriptionTx(ctx, tx, &repository.ChannelBillingSubscription{
+		UserID:        userID,
+		ChannelID:     channelID,
+		PackageID:     packageID,
+		ChannelsLimit: pkg.GroupsLimit,
+		AmountFRG:     pkg.PriceFRG,
+		Period:        "monthly",
+		Status:        "active",
+		StartsAt:      time.Now(),
+		ExpiresAt:     paidUntil,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create billing subscription: %w", err)
+	}
+	return nil
+}
+
+func (s *BotService) SubscribeChannelWithAirdrop(ctx context.Context, userID int64, channelID uuid.UUID, packageID string) error {
+	channelRepo := repository.NewChannelRepo(s.frgRepo.DB(), nil)
+	ch, err := channelRepo.GetChannelByID(ctx, channelID)
+	if err != nil {
+		return fmt.Errorf("channel not found: %w", err)
+	}
+
+	bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
+	if err != nil {
+		return fmt.Errorf("unauthorized or invalid bot: %w", err)
+	}
+	if bot.OwnerUserID != userID {
+		return fmt.Errorf("unauthorized: not bot owner")
+	}
+
+	pkg := s.GetPackageByID(packageID)
+	if pkg == nil {
+		return fmt.Errorf("invalid package: %s", packageID)
+	}
+
+	requiredCoins := pkg.PriceFRG * 100000.0
+
+	tx, err := s.frgRepo.DB().Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	var currentCoins float64
+	err = tx.QueryRow(ctx, `SELECT airdrop_coins FROM user_stats WHERE user_id = $1 FOR UPDATE`, userID).Scan(&currentCoins)
+	if err != nil {
+		return fmt.Errorf("failed to get user airdrop coins: %w", err)
+	}
+
+	if currentCoins < requiredCoins {
+		return fmt.Errorf("insufficient airdrop coins: need %.0f, have %.0f", requiredCoins, currentCoins)
+	}
+
+	_, err = tx.Exec(ctx, `UPDATE user_stats SET airdrop_coins = airdrop_coins - $1 WHERE user_id = $2`, requiredCoins, userID)
+	if err != nil {
+		return fmt.Errorf("failed to deduct airdrop coins: %w", err)
+	}
+
+	if err := s.internalActivateChannelSubscriptionTx(ctx, tx, userID, channelID, packageID, ch, pkg); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit subscription transaction: %w", err)
+	}
+
+	s.notifyOwnerOnSubscription(context.Background(), bot.BotUsername, ch.ChatTitle, pkg.Name, "Airdrop Coins (Channel)", userID)
+
+	go func() {
+		bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		s.frgRepo.DB().CreditReferrerShare(bgCtx, userID, pkg.PriceFRG, s.frgRepo)
+	}()
+
+	return nil
+}
+
+func (s *BotService) ActivateChannelSubscriptionFromStars(ctx context.Context, userID int64, channelID uuid.UUID, packageID string) error {
+	channelRepo := repository.NewChannelRepo(s.frgRepo.DB(), nil)
+	ch, err := channelRepo.GetChannelByID(ctx, channelID)
+	if err != nil {
+		return err
+	}
+
+	bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
+	if err != nil {
+		return err
+	}
+
+	pkg := s.GetPackageByID(packageID)
+	if pkg == nil {
+		return fmt.Errorf("invalid package")
+	}
+
+	tx, err := s.frgRepo.DB().Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if err := s.internalActivateChannelSubscriptionTx(ctx, tx, userID, channelID, packageID, ch, pkg); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	s.notifyOwnerOnSubscription(context.Background(), bot.BotUsername, ch.ChatTitle, pkg.Name, "Telegram Stars (Channel)", userID)
+
+	go func() {
+		bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		s.frgRepo.DB().CreditReferrerShare(bgCtx, userID, pkg.PriceFRG, s.frgRepo)
+	}()
+
+	return nil
+}

@@ -199,6 +199,21 @@ export const subscriptionApi = {
 		apiClient
 			.post('/subscription/subscribe-stars-invoice', { group_id: groupId, package_id: packageId })
 			.then((r: any) => r.data),
+
+	subscribeChannel: (channelId: string, packageId: string) =>
+		apiClient
+			.post('/subscription/channel/subscribe', { channel_id: channelId, package_id: packageId })
+			.then((r: any) => r.data),
+
+	subscribeChannelWithAirdrop: (channelId: string, packageId: string) =>
+		apiClient
+			.post('/subscription/channel/subscribe-airdrop', { channel_id: channelId, package_id: packageId })
+			.then((r: any) => r.data),
+
+	createChannelSubscriptionStarsInvoice: (channelId: string, packageId: string) =>
+		apiClient
+			.post('/subscription/channel/subscribe-stars-invoice', { channel_id: channelId, package_id: packageId })
+			.then((r: any) => r.data),
 };
 
 // ─── FRG Token API ────────────────────────────────────────
