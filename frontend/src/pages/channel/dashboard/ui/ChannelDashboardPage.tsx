@@ -174,10 +174,10 @@ export const ChannelDashboardPage: Component = () => {
 					<div class="absolute -right-4 -top-4 w-24 h-24 bg-[#32ade6]/20 rounded-full blur-2xl"></div>
 					<div class="flex items-center gap-3 mb-2 relative z-10">
 						<span class="material-symbols-outlined text-[#32ade6] text-[24px]">rocket_launch</span>
-						<h2 class="text-[16px] font-black text-white">Channel Command Center</h2>
+						<h2 class="text-[16px] font-black text-white">{t('channelDashboard.commandCenter')}</h2>
 					</div>
 					<p class="text-[12px] text-white/80 leading-relaxed relative z-10">
-						Your all-in-one management suite. Monitor real-time analytics, configure auto-posting bots, manage administrator permissions, and automate your channel workflow seamlessly.
+						{t('channelDashboard.commandCenterDesc')}
 					</p>
 				</Motion.div>
 
@@ -236,25 +236,25 @@ export const ChannelDashboardPage: Component = () => {
 						<div class="flex items-center gap-2 relative z-10">
 							<span class="material-symbols-outlined text-[#bf5af2] text-[20px]">account_tree</span>
 							<span class="text-[14px] font-black text-white">
-								Approval Workflow (Funnel)
+								{t('channelDashboard.funnelTitle')}
 							</span>
 						</div>
 						
 						<p class="text-[12px] text-white/80 leading-relaxed relative z-10 mb-1">
-							All draft posts must be sent to the Input Channel first. They will be held for your approval before being officially published to the Output Channel.
+							{t('channelDashboard.funnelDesc')}
 						</p>
 
 						<div class="flex items-center gap-2 relative z-10 bg-[#1c1c1c]/60 p-3 rounded-2xl border border-[#2a2a2a]">
 							<div class="flex flex-col flex-1 min-w-0">
-								<span class="text-[10px] text-[#8e8e93] font-bold uppercase tracking-wider mb-0.5">Input (Drafts)</span>
-								<span class="text-[13px] font-bold text-white truncate">{funnel()?.input_title || 'Input Channel'}</span>
+								<span class="text-[10px] text-[#8e8e93] font-bold uppercase tracking-wider mb-0.5">{t('channelDashboard.inputDrafts')}</span>
+								<span class="text-[13px] font-bold text-white truncate">{funnel()?.input_title || t('channelDashboard.inputChannel')}</span>
 							</div>
 							<div class="flex flex-col items-center justify-center shrink-0 px-2">
 								<span class="material-symbols-outlined text-[#bf5af2] opacity-70">arrow_forward</span>
 							</div>
 							<div class="flex flex-col flex-1 min-w-0 text-start">
-								<span class="text-[10px] text-[#34c759] font-bold uppercase tracking-wider mb-0.5">Output (Public)</span>
-								<span class="text-[13px] font-bold text-white truncate">{channel()?.chat_title || 'Main Channel'}</span>
+								<span class="text-[10px] text-[#34c759] font-bold uppercase tracking-wider mb-0.5">{t('channelDashboard.outputPublic')}</span>
+								<span class="text-[13px] font-bold text-white truncate">{channel()?.chat_title || t('channelDashboard.mainChannel')}</span>
 							</div>
 						</div>
 					</Motion.div>
@@ -272,10 +272,10 @@ export const ChannelDashboardPage: Component = () => {
 						</span>
 						<div class="flex flex-col relative z-10">
 							<span class="text-[16px] font-bold text-white">
-								{t('channelDashboard.analyticsError') || 'Analytics Load Error'}
+								{t('channelDashboard.analyticsError')}
 							</span>
 							<span class="text-[12px] text-[#8e8e93]">
-								{t('channelDashboard.analyticsErrorDesc') || 'Failed to load channel analytics data.'}
+								{t('channelDashboard.analyticsErrorDesc')}
 							</span>
 						</div>
 					</Motion.div>
