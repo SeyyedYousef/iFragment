@@ -1499,12 +1499,23 @@ func (h *WebhookHandler) handleGroupSettingsCommand(ctx context.Context, bot *re
 func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *repository.ManagedBot, chat *Chat, _ int64) {
 	managedGroup, err := h.botRepo.GetGroup(ctx, bot.ID, chat.ID)
 	if err != nil {
+		status := "trial"
+		
+		hasHadTrial, _ := h.botRepo.HasChatHadTrial(ctx, chat.ID)
+		activeTrials, _ := h.botRepo.GetActiveTrialsCount(ctx, bot.OwnerUserID)
+		
+		if hasHadTrial || activeTrials >= 3 {
+			status = "expired"
+		} else {
+			_ = h.botRepo.RecordTrial(ctx, chat.ID)
+		}
+
 		managedGroup = &repository.ManagedGroup{
 			BotID:              bot.ID,
 			ChatID:             chat.ID,
 			ChatTitle:          chat.Title,
 			ChatType:           chat.Type,
-			SubscriptionStatus: "trial",
+			SubscriptionStatus: status,
 			TrialEndsAt:        time.Now().Add(72 * time.Hour),
 		}
 		err = h.botRepo.CreateGroup(ctx, managedGroup)

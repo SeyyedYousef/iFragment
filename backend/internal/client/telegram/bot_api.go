@@ -800,6 +800,14 @@ func handleEditError(err error) error {
 	return err
 }
 
+// LeaveChat makes the bot leave a group or channel
+func (c *BotAPIClient) LeaveChat(ctx context.Context, chatID interface{}) error {
+	_, err := c.Request(ctx, "leaveChat", map[string]interface{}{
+		"chat_id": chatID,
+	})
+	return err
+}
+
 // EditMessageReplyMarkup edits the reply markup of a message
 func (c *BotAPIClient) EditMessageReplyMarkup(ctx context.Context, chatID interface{}, messageID int, markup interface{}) error {
 	payload := map[string]interface{}{

@@ -66,12 +66,12 @@ export const GroupDynamicBioPage: Component = () => {
 	});
 
 	const variables = [
-		{ tag: '$members', desc: t('channelDynamicBio.varMembers') || 'تعداد اعضا', val: '45,102' },
-		{ tag: '$btc', desc: t('channelDynamicBio.varBtc') || 'قیمت بیت‌کوین', val: '$64,200' },
-		{ tag: '$Gram', desc: 'قیمت Gram', val: '$5.50' },
-		{ tag: '$time', desc: t('channelDynamicBio.varTime') || 'زمان فعلی', val: '14:30' },
-		{ tag: '$date', desc: 'تاریخ', val: '12 May 2026' },
-		{ tag: '$day_name', desc: 'روز هفته', val: 'Tuesday' },
+		{ tag: '$members', desc: t('channelDynamicBio.varMembers') || 'Members', val: '45,102' },
+		{ tag: '$btc', desc: t('channelDynamicBio.varBtc') || 'Bitcoin Price', val: '$64,200' },
+		{ tag: '$Gram', desc: t('channelDynamicBio.varGram') || 'Gram Price', val: '$5.50' },
+		{ tag: '$time', desc: t('channelDynamicBio.varTime') || 'Current Time', val: '14:30' },
+		{ tag: '$date', desc: t('channelDynamicBio.varDate') || 'Date', val: '12 May 2026' },
+		{ tag: '$day_name', desc: t('channelDynamicBio.varDayName') || 'Day of week', val: 'Tuesday' },
 	];
 
 	const handleSave = async () => {
@@ -132,10 +132,10 @@ export const GroupDynamicBioPage: Component = () => {
 					</button>
 					<div class="flex flex-col overflow-hidden">
 						<h1 class="text-[18px] font-black text-white leading-tight truncate">
-							{t('channelDynamicBio.title') || 'بیوگرافی و نام زنده'}
+							{t('channelDynamicBio.title') || 'Dynamic Bio & Name'}
 						</h1>
 						<span class="text-[12px] text-on-surface-variant truncate">
-							{t('channelDynamicBio.subtitle') || 'آپدیت زنده مشخصات گروه'}
+							{t('channelDynamicBio.subtitle') || 'Live updates for group info'}
 						</span>
 					</div>
 				</div>
@@ -188,18 +188,18 @@ export const GroupDynamicBioPage: Component = () => {
 						<div class="flex items-center justify-between gap-3">
 							<div class="flex flex-col flex-1 min-w-0">
 								<span class="text-[15px] font-bold text-white">
-									{t('channelDynamicBio.title') || 'بیوگرافی و نام زنده'}
+									{t('channelDynamicBio.title') || 'Dynamic Bio & Name'}
 								</span>
-								<span class="text-[11px] text-[#8e8e93]">آپدیت لحظه‌ای اطلاعات گروه با متغیرها</span>
+								<span class="text-[11px] text-[#8e8e93]">{t('channelDynamicBio.subtitle2') || 'Real-time info updates'}</span>
 							</div>
 							<ToggleSwitch checked={enabled()} onChange={setEnabled} />
 						</div>
 
 						<Show when={!enabled()}>
 							<div class="mt-2 p-4 bg-[#32ade6]/10 border border-[#32ade6]/30 rounded-xl flex flex-col gap-2">
-								<span class="text-[14px] font-bold text-[#32ade6]">راهنمای بیوگرافی و نام زنده</span>
+								<span class="text-[14px] font-bold text-[#32ade6]">{t('channelDynamicBio.guideTitleGroup') || 'Dynamic Bio Guide'}</span>
 								<p class="text-[13px] text-white/80 leading-relaxed">
-									با فعال‌سازی این بخش، می‌توانید نام و بیوگرافی گروه خود را به صورت زنده و خودکار با اطلاعاتی نظیر زمان، تاریخ و قیمت‌های لحظه‌ای رمزارزها (مثل بیت‌کوین و گرام) به‌روزرسانی کنید. کافیست این گزینه را روشن کنید تا به تنظیمات قالب و متغیرها دسترسی داشته باشید.
+									{t('channelDynamicBio.guideDescGroup') || 'By enabling this section, you can automatically update your group name and bio.'}
 								</p>
 							</div>
 						</Show>
@@ -209,10 +209,10 @@ export const GroupDynamicBioPage: Component = () => {
 
 							{/* Current Telegram Info Info */}
 							<div class="bg-[#2c2c2e] p-3 rounded-xl border border-[#3a3a3c] flex flex-col gap-3 mb-2">
-								<span class="text-[13px] font-bold text-[#8e8e93]">وضعیت فعلی در تلگرام:</span>
+								<span class="text-[13px] font-bold text-[#8e8e93]">{t('channelDynamicBio.currentStatusTelegram') || 'Current status in Telegram:'}</span>
 								<div class="flex flex-col gap-1">
-									<span class="text-[12px] text-white/60">نام فعلی: <span class="text-white">{currentName() || 'در حال دریافت...'}</span></span>
-									<span class="text-[12px] text-white/60">بیوگرافی فعلی: <span class="text-white">{currentBio() || 'در حال دریافت...'}</span></span>
+									<span class="text-[12px] text-white/60">{t('channelDynamicBio.currentNameLabel') || 'Current Name: '}<span class="text-white">{currentName() || t('common.loading')}</span></span>
+									<span class="text-[12px] text-white/60">{t('channelDynamicBio.currentBioLabel') || 'Current Bio: '}<span class="text-white">{currentBio() || t('common.loading')}</span></span>
 								</div>
 							</div>
 
@@ -240,9 +240,9 @@ export const GroupDynamicBioPage: Component = () => {
 							<div class="mt-2 bg-[#2c2c2e] p-3 rounded-xl border border-[#3a3a3c] flex flex-col gap-3">
 								<div class="flex items-center justify-between">
 									<div class="flex flex-col flex-1 min-w-0">
-										<span class="text-[13px] font-bold text-white">Display in Group Name</span>
+										<span class="text-[13px] font-bold text-white">{t('channelDynamicBio.displayInName') || 'Display in Group Name'}</span>
 										<span class="text-[11px] text-[#8e8e93]">
-											Add dynamic tags to the group name
+											{t('channelDynamicBio.displayInNameDesc') || 'Add dynamic tags to the group name'}
 										</span>
 									</div>
 									<ToggleSwitch checked={displayInName()} onChange={setDisplayInName} />
@@ -315,7 +315,7 @@ export const GroupDynamicBioPage: Component = () => {
 							<div class="absolute -top-10 -right-10 w-32 h-32 bg-[#32ade6]/10 rounded-full blur-2xl"></div>
 							<span class="text-[13px] font-bold text-[#32ade6] flex items-center gap-2 relative z-10">
 								<span class="material-symbols-outlined text-[16px]">visibility</span>
-								{t('channelDynamicBio.preview') || 'پیش‌نمایش زنده'}
+								{t('channelDynamicBio.preview') || 'Live Preview'}
 							</span>
 							<div class="bg-[#0f1014] rounded-xl p-4 border border-[#2a2a2a] relative z-10 flex flex-col gap-2">
 								<Show when={displayInName() && nameTemplate()}>

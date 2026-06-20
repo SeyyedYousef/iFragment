@@ -180,12 +180,10 @@ export const ManagedBotsPage: Component = () => {
 
 							<div class="flex flex-col gap-2 max-w-xs">
 								<p class="text-xl font-black text-white leading-tight">
-									{isRtl() ? 'ربات برند اختصاصی خود را بسازید' : 'Create Your Custom Bot'}
+									{t('managedBots.createCustomBotTitle') || 'Create Your Custom Bot'}
 								</p>
 								<p class="text-[13px] text-[#8e8e93] font-medium leading-relaxed">
-									{isRtl()
-										? 'ربات اختصاصی خود را با نام و لوگوی دلخواه وصل کنید تا امکانات پیشرفته مدیریت گروه فعال شود و درآمد کسب کنید.'
-										: 'Connect your custom brand bot to access powerful group/channel tools and get exclusive developer benefits.'}
+									{t('managedBots.createCustomBotDesc') || 'Connect your custom brand bot to access powerful group/channel tools and get exclusive developer benefits.'}
 								</p>
 							</div>
 
@@ -197,12 +195,10 @@ export const ManagedBotsPage: Component = () => {
 									</span>
 									<div class="flex flex-col">
 										<span class="text-[13px] font-black text-white">
-											{isRtl() ? 'نام و لوگوی اختصاصی' : 'Custom Brand & Logo'}
+											{t('managedBots.featureBrandTitle') || 'Custom Brand & Logo'}
 										</span>
 										<span class="text-[11px] text-[#8e8e93]">
-											{isRtl()
-												? 'ربات با برند، تصویر و بیوگرافی شخصی شما اجرا می‌شود.'
-												: 'Your own bot name, photo, and bio.'}
+											{t('managedBots.featureBrandDesc') || 'Your own bot name, photo, and bio.'}
 										</span>
 									</div>
 								</div>
@@ -210,12 +206,10 @@ export const ManagedBotsPage: Component = () => {
 									<span class="material-symbols-outlined text-[#34c759] text-[20px]">security</span>
 									<div class="flex flex-col">
 										<span class="text-[13px] font-black text-white">
-											{isRtl() ? 'مدیریت و امنیت کامل' : 'Full Group Protection'}
+											{t('managedBots.featureProtectTitle') || 'Full Group Protection'}
 										</span>
 										<span class="text-[11px] text-[#8e8e93]">
-											{isRtl()
-												? 'ضد اسپم، مدیریت ساعت سکوت و محدودیت‌های رسانه.'
-												: 'Spam blocker, quiet hours & restrictions.'}
+											{t('managedBots.featureProtectDesc') || 'Spam blocker, quiet hours & restrictions.'}
 										</span>
 									</div>
 								</div>
@@ -225,12 +219,10 @@ export const ManagedBotsPage: Component = () => {
 									</span>
 									<div class="flex flex-col">
 										<span class="text-[13px] font-black text-white">
-											{isRtl() ? 'کسب درآمد و کارمزد توکن' : 'Earn FRG Commissions'}
+											{t('managedBots.featureEarnTitle') || 'Earn FRG Commissions'}
 										</span>
 										<span class="text-[11px] text-[#8e8e93]">
-											{isRtl()
-												? 'از فروش بسته‌های ارتقای گروه پورسانت بگیرید.'
-												: 'Get paid from group package upgrades.'}
+											{t('managedBots.featureEarnDesc') || 'Get paid from group package upgrades.'}
 										</span>
 									</div>
 								</div>
@@ -253,7 +245,7 @@ export const ManagedBotsPage: Component = () => {
 								class="w-full h-12 bg-[#3390ec] hover:bg-[#2b7bc9] active:scale-95 text-white rounded-2xl font-black text-[14px] transition-all flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(51,144,236,0.2)]"
 							>
 								<span class="material-symbols-outlined text-[18px]">open_in_new</span>
-								{isRtl() ? 'ورود به BotFather@ و ساخت ربات' : 'Create Bot via @BotFather'}
+								{t('managedBots.botFatherBtn') || 'Create Bot via @BotFather'}
 							</button>
 						</Motion.div>
 					</Show>

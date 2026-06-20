@@ -461,3 +461,52 @@ func (r *BotRepo) DeleteGroup(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+// Anti-Abuse and Limits
+func (r *BotRepo) GetBotCountByOwner(ctx context.Context, ownerID int64) (int, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return 0, fmt.Errorf("no database connection")
+	}
+	var count int
+	err := r.db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM managed_bots WHERE owner_user_id = $1`, ownerID).Scan(&count)
+	return count, err
+}
+
+func (r *BotRepo) GetActiveTrialsCount(ctx context.Context, ownerID int64) (int, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return 0, fmt.Errorf("no database connection")
+	}
+	var groupCount int
+	err := r.db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM managed_groups g JOIN managed_bots b ON g.bot_id = b.id WHERE b.owner_user_id = $1 AND g.subscription_status = 'trial'`, ownerID).Scan(&groupCount)
+	if err != nil {
+		return 0, err
+	}
+	var channelCount int
+	err = r.db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM managed_channels c JOIN managed_bots b ON c.bot_id = b.id WHERE b.owner_user_id = $1 AND c.subscription_status = 'trial'`, ownerID).Scan(&channelCount)
+	if err != nil {
+		// Ignore error if table doesn't exist yet in tests, etc.
+		channelCount = 0
+	}
+	return groupCount + channelCount, nil
+}
+
+func (r *BotRepo) HasChatHadTrial(ctx context.Context, chatID int64) (bool, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return false, fmt.Errorf("no database connection")
+	}
+	var exists bool
+	err := r.db.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM chat_trial_history WHERE chat_id = $1)`, chatID).Scan(&exists)
+	if err != nil {
+		// Ignore if table doesn't exist yet before migrations run
+		return false, nil
+	}
+	return exists, nil
+}
+
+func (r *BotRepo) RecordTrial(ctx context.Context, chatID int64) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("no database connection")
+	}
+	_, err := r.db.Pool.Exec(ctx, `INSERT INTO chat_trial_history (chat_id) VALUES ($1) ON CONFLICT DO NOTHING`, chatID)
+	return err
+}
+

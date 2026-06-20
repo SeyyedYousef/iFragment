@@ -252,13 +252,23 @@ func (s *ChannelService) ConnectChannel(ctx context.Context, ownerUserID int64, 
 		count = 0
 	}
 
+	status := "trial"
+	hasHadTrial, _ := s.botRepo.HasChatHadTrial(ctx, chatDetail.ID)
+	activeTrials, _ := s.botRepo.GetActiveTrialsCount(ctx, ownerUserID)
+
+	if hasHadTrial || activeTrials >= 3 {
+		status = "expired"
+	} else {
+		_ = s.botRepo.RecordTrial(ctx, chatDetail.ID)
+	}
+
 	// 7. Save channel to DB
 	ch := &repository.ManagedChannel{
 		BotID:              bot.ID,
 		ChatID:             chatDetail.ID,
 		ChatTitle:          chatDetail.Title,
 		SubscribersCount:   count,
-		SubscriptionStatus: "trial",
+		SubscriptionStatus: status,
 		TrialEndsAt:        time.Now().Add(72 * time.Hour),
 		SignMessages:       false,
 		ProtectContent:     false,
@@ -1050,6 +1060,11 @@ func (s *ChannelService) StartBackgroundTasks(ctx context.Context) {
 	GoSafe(func() {
 		defer s.wg.Done()
 		s.startDLQAlertingWorker(ctx)
+	})
+	s.wg.Add(1)
+	GoSafe(func() {
+		defer s.wg.Done()
+		s.expirationWorker(ctx)
 	})
 }
 
@@ -2281,4 +2296,64 @@ func GoSafe(fn func()) {
 		}()
 		fn()
 	}()
+}
+
+func (s *ChannelService) expirationWorker(ctx context.Context) {
+	ticker := time.NewTicker(10 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.CheckExpirations(ctx)
+		}
+	}
+}
+
+func (s *ChannelService) CheckExpirations(ctx context.Context) {
+	channels, err := s.channelRepo.GetAllChannels(ctx)
+	if err != nil {
+		return
+	}
+
+	now := time.Now()
+
+	for _, c := range channels {
+		var expiry *time.Time
+		if c.SubscriptionStatus == "trial" {
+			expiry = &c.TrialEndsAt
+		} else if c.SubscriptionStatus == "paid" && c.PaidUntil != nil {
+			expiry = c.PaidUntil
+		}
+
+		if expiry == nil {
+			continue
+		}
+
+		// 1. Check for actual expiration
+		if c.SubscriptionStatus != "expired" && now.After(*expiry) {
+			_ = s.channelRepo.UpdateChannelSubscription(ctx, c.ID, "expired", nil)
+		}
+
+		// 2. Auto-leave if expired for > 7 days
+		if c.SubscriptionStatus == "expired" && now.After(expiry.Add(7*24*time.Hour)) {
+			bot, err := s.botRepo.GetBotByID(ctx, c.BotID)
+			if err == nil {
+				token, decErr := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+				if decErr == nil {
+					tg := telegram.NewBotAPIClient(token)
+					_ = tg.LeaveChat(ctx, c.ChatID)
+					
+					// Send notification to owner
+					lang := i18n.DetectLanguage("")
+					msg := i18n.T(lang, "notifications.channel_auto_left", map[string]interface{}{"channel": c.ChatTitle})
+					_ = tg.SendMessage(ctx, bot.OwnerUserID, msg, nil, nil)
+				}
+			}
+			// Delete channel record to clean up completely
+			_ = s.channelRepo.DeleteChannel(ctx, c.ID)
+		}
+	}
 }

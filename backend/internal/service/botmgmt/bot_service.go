@@ -136,10 +136,10 @@ func (s *BotService) CheckExpirations(ctx context.Context) {
 			defer cancel()
 
 			var expiry *time.Time
-			if g.SubscriptionStatus == "trial" {
-				expiry = &g.TrialEndsAt
-			} else if g.SubscriptionStatus == "paid" && g.PaidUntil != nil {
+			if g.PaidUntil != nil {
 				expiry = g.PaidUntil
+			} else {
+				expiry = &g.TrialEndsAt
 			}
 
 			if expiry == nil {
@@ -147,9 +147,31 @@ func (s *BotService) CheckExpirations(ctx context.Context) {
 			}
 
 			// 1. Check for actual expiration
-			if now.After(*expiry) {
+			if g.SubscriptionStatus != "expired" && now.After(*expiry) {
 				_ = s.botRepo.UpdateGroupSubscription(groupCtx, g.ID, "expired", nil)
 				s.sendExpirationNotice(groupCtx, g, "service_ended", map[string]interface{}{"group": g.ChatTitle})
+				return
+			}
+
+			// 2. Auto-leave if expired for > 7 days
+			if g.SubscriptionStatus == "expired" && now.After(expiry.Add(7*24*time.Hour)) {
+				bot, err := s.botRepo.GetBotByID(groupCtx, g.BotID)
+				if err == nil {
+					token, decErr := DecryptToken(bot.BotTokenEncrypted)
+					if decErr == nil {
+						tg := telegram.NewBotAPIClient(token)
+						_ = tg.LeaveChat(groupCtx, g.ChatID)
+						
+						lang := i18n.DetectLanguage("")
+						msg := i18n.T(lang, "notifications.group_auto_left", map[string]interface{}{"group": g.ChatTitle})
+						_ = tg.SendMessage(groupCtx, bot.OwnerUserID, msg, nil, nil)
+					}
+				}
+				_ = s.botRepo.DeleteGroup(groupCtx, g.ID)
+				return
+			}
+
+			if g.SubscriptionStatus == "expired" {
 				return
 			}
 
@@ -221,6 +243,11 @@ func (s *BotService) RegisterBot(ctx context.Context, ownerID int64, token, user
 	}
 	if me.ID != botID {
 		return nil, fmt.Errorf("bot token verification details mismatch")
+	}
+
+	botCount, _ := s.botRepo.GetBotCountByOwner(ctx, ownerID)
+	if botCount >= 3 {
+		return nil, fmt.Errorf("you have reached the maximum limit of 3 bots")
 	}
 
 	actualName := me.FirstName

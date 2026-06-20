@@ -179,7 +179,7 @@ export const ChannelHamburgerMenu: Component<ChannelHamburgerMenuProps> = (props
 											<button
 												onClick={() => {
 													props.onClose();
-													navigate(item.path);
+													navigate(item.path, { replace: props.activeTab !== 'dashboard' });
 												}}
 												class={`flex items-center gap-3 p-3.5 rounded-2xl transition-colors w-full ${
 													props.activeTab === item.id
