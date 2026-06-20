@@ -12,7 +12,7 @@ import {
 	Show,
 } from 'solid-js';
 import { channelApi } from '@/shared/api/channel-management.js';
-import { isRtl, t } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
 import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 
@@ -21,8 +21,6 @@ export const ChannelAnalyticsPage: Component = () => {
 	const [isMenuOpen, setIsMenuOpen] = createSignal(false);
 
 	const [timeRange, setTimeRange] = createSignal('30d');
-	const [competitorInput, setCompetitorInput] = createSignal('');
-	const [isComparing, setIsComparing] = createSignal(false);
 
 	const [analytics] = createResource(
 		() => ({ id: params.id, range: timeRange() }),
@@ -50,19 +48,6 @@ export const ChannelAnalyticsPage: Component = () => {
 		return arr.length > 0 ? arr : [0];
 	});
 
-	const geoDistribution = [
-		{ country: 'Iran', percent: 65, color: '#34c759' },
-		{ country: 'USA', percent: 15, color: '#32ade6' },
-		{ country: 'Germany', percent: 10, color: '#ffcc00' },
-		{ country: 'UK', percent: 6, color: '#ff3b30' },
-		{ country: 'Other', percent: 4, color: '#8e8e93' },
-	];
-
-	const similarChannels = [
-		{ name: 'Tech Daily', members: '120k', match: '95%' },
-		{ name: 'Crypto News', members: '85k', match: '88%' },
-		{ name: 'Web Dev Pro', members: '40k', match: '82%' },
-	];
 
 	const getErrColor = (err: number) => {
 		if (err > 5) return 'text-[#34c759]';
@@ -187,7 +172,7 @@ export const ChannelAnalyticsPage: Component = () => {
 									</h3>
 									<Show when={analytics()?.summary?.new_members_today}>
 										<span class="text-[12px] font-bold text-[#34c759] mb-1">
-											+{analytics()?.summary?.new_members_today} {isRtl() ? 'امروز' : 'today'}
+											+{analytics()?.summary?.new_members_today} today
 										</span>
 									</Show>
 								</div>
@@ -244,24 +229,6 @@ export const ChannelAnalyticsPage: Component = () => {
 						</div>
 					</Motion.div>
 
-					{/* Best Posting Time */}
-					<div class="bg-[#1c1c1c] p-4 rounded-3xl border border-[#2a2a2a] flex flex-col gap-1 col-span-2 relative overflow-hidden">
-						<div class="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-[#32ade6]/10 to-transparent pointer-events-none"></div>
-						<div class="flex items-center gap-3">
-							<div class="w-10 h-10 rounded-full bg-[#32ade6]/20 flex items-center justify-center text-[#32ade6] shrink-0">
-								<span class="material-symbols-outlined">schedule</span>
-							</div>
-							<div class="flex flex-col">
-								<span class="text-[13px] font-bold text-white">
-									{t('channelAnalytics.bestPostingTime')}
-								</span>
-								<span class="text-[11px] text-[#8e8e93]">
-									{t('channelAnalytics.bestPostingTimeDesc')}
-								</span>
-							</div>
-							<div class="ml-auto text-[18px] font-black text-white">{analytics()?.summary?.best_time || '18:30'}</div>
-						</div>
-					</div>
 
 					{/* AI Content Analysis */}
 					<div class="bg-gradient-to-br from-[#32ade6]/10 to-transparent p-4 rounded-3xl border border-[#32ade6]/30 flex flex-col gap-2 col-span-2">
@@ -277,123 +244,7 @@ export const ChannelAnalyticsPage: Component = () => {
 						/>
 					</div>
 
-					{/* Mentions */}
-					<div class="bg-[#1c1c1c] p-4 rounded-3xl border border-[#2a2a2a] flex flex-col gap-1">
-						<span class="material-symbols-outlined text-[#34c759] text-[20px] mb-1">
-							alternate_email
-						</span>
-						<h3 class="text-2xl font-black text-white">{analytics()?.summary?.mentions_in || 0}</h3>
-						<p class="text-[11px] text-[#8e8e93] font-medium">{t('channelAnalytics.mentionsIn')}</p>
-					</div>
-					<div class="bg-[#1c1c1c] p-4 rounded-3xl border border-[#2a2a2a] flex flex-col gap-1">
-						<span class="material-symbols-outlined text-[#ff3b30] text-[20px] mb-1">
-							forward_to_inbox
-						</span>
-						<h3 class="text-2xl font-black text-white">{analytics()?.summary?.mentions_out || 0}</h3>
-						<p class="text-[11px] text-[#8e8e93] font-medium">
-							{t('channelAnalytics.mentionsOut')}
-						</p>
-					</div>
 
-					{/* Geographic Distribution */}
-					<div class="bg-[#1c1c1c] p-4 rounded-3xl border border-[#2a2a2a] flex flex-col gap-4 col-span-2 mt-2">
-						<h3 class="text-[15px] font-bold text-white flex items-center gap-2">
-							<span class="material-symbols-outlined text-[#8e8e93]">public</span>
-							{t('channelAnalytics.geoDistribution')}
-							<span class="ml-auto text-[9px] font-black bg-[#ffcc00]/20 text-[#ffcc00] px-2 py-0.5 rounded-full uppercase tracking-wider border border-[#ffcc00]/30">{isRtl() ? 'آزمایشی' : 'DEMO'}</span>
-						</h3>
-						<div class="flex flex-col gap-3">
-							<For each={geoDistribution}>
-								{(geo) => (
-									<div class="flex items-center gap-3">
-										<span class="text-[13px] font-medium text-white w-16">
-											{geo.country === 'Iran'
-												? t('channelAnalytics.geoIran')
-												: geo.country === 'USA'
-													? t('channelAnalytics.geoUSA')
-													: geo.country === 'Germany'
-														? t('channelAnalytics.geoGermany')
-														: geo.country === 'UK'
-															? t('channelAnalytics.geoUK')
-															: t('channelAnalytics.geoOther')}
-										</span>
-										<div class="flex-1 h-2 bg-[#2a2a2a] rounded-full overflow-hidden">
-											<div
-												class="h-full rounded-full"
-												style={{ width: `${geo.percent}%`, 'background-color': geo.color }}
-											></div>
-										</div>
-										<span class="text-[12px] font-bold text-[#8e8e93] w-8 text-right">
-											{geo.percent}%
-										</span>
-									</div>
-								)}
-							</For>
-						</div>
-					</div>
-
-					{/* Competitor Compare */}
-					<div class="bg-[#1c1c1c] p-4 rounded-3xl border border-[#2a2a2a] flex flex-col gap-3 col-span-2 mt-2">
-						<h3 class="text-[15px] font-bold text-white flex items-center gap-2">
-							<span class="material-symbols-outlined text-[#8e8e93]">compare_arrows</span>
-							{t('channelAnalytics.compareCompetitor')}
-						</h3>
-						<div class="flex gap-2">
-							<input
-								type="text"
-								value={competitorInput()}
-								onInput={(e) => setCompetitorInput(e.currentTarget.value)}
-								placeholder={t('channelAnalytics.competitorPlaceholder')}
-								class="bg-[#2c2c2e] text-white text-[14px] rounded-xl px-4 py-3 flex-1 focus:outline-none focus:ring-2 focus:ring-[#32ade6]"
-							/>
-							<button
-								onClick={() => {
-									hapticFeedback.impactOccurred('light');
-									setIsComparing(true);
-									setTimeout(() => setIsComparing(false), 150);
-								}}
-								disabled={!competitorInput().trim() || isComparing()}
-								class="px-5 bg-[#32ade6] text-black font-bold rounded-xl hover:bg-[#2b96c8] disabled:opacity-50 transition-colors flex items-center justify-center"
-							>
-								<Show
-									when={!isComparing()}
-									fallback={
-										<span class="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-									}
-								>
-									{t('channelAnalytics.compare') || 'Compare'}
-								</Show>
-							</button>
-						</div>
-					</div>
-
-					{/* Similar Channels */}
-					<div class="bg-[#1c1c1c] p-4 rounded-3xl border border-[#2a2a2a] flex flex-col gap-3 col-span-2 mt-2">
-						<h3 class="text-[15px] font-bold text-white flex items-center gap-2">
-							<span class="material-symbols-outlined text-[#8e8e93]">diversity_3</span>
-							{t('channelAnalytics.similarChannels')}
-							<span class="ml-auto text-[9px] font-black bg-[#ffcc00]/20 text-[#ffcc00] px-2 py-0.5 rounded-full uppercase tracking-wider border border-[#ffcc00]/30">{isRtl() ? 'آزمایشی' : 'DEMO'}</span>
-						</h3>
-						<div class="flex flex-col gap-2">
-							<For each={similarChannels}>
-								{(channel) => (
-									<div class="flex items-center justify-between p-3 bg-[#2c2c2e] rounded-xl border border-[#3a3a3c]">
-										<div class="flex flex-col">
-											<span class="text-[14px] font-bold text-white">{channel.name}</span>
-											<span class="text-[11px] text-[#8e8e93]">
-												{channel.members} {t('channelAdmins.members') || 'members'}
-											</span>
-										</div>
-										<div class="flex flex-col items-end">
-											<span class="text-[12px] font-bold text-[#32ade6]">
-												{channel.match} {t('channelAnalytics.match') || 'Match'}
-											</span>
-										</div>
-									</div>
-								)}
-							</For>
-						</div>
-					</div>
 				</div>
 			</div>
 		</div>

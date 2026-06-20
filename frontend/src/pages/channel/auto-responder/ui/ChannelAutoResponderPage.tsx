@@ -334,8 +334,8 @@ export const ChannelAutoResponderPage: Component = () => {
 												<span class="material-symbols-outlined text-[#32ade6] text-[14px]">forum</span>
 											</div>
 											<div class="flex flex-col">
-												<span class="text-[14px] font-bold text-white">کامنت اول خودکار</span>
-												<span class="text-[12px] text-[#8e8e93]">به محض ارسال پست در کانال، ربات اولین کامنت را زیر آن ثبت می‌کند.</span>
+												<span class="text-[14px] font-bold text-white">{t('channelAutoResponder.featFirstCommentTitle') || 'Auto First Comment'}</span>
+												<span class="text-[12px] text-[#8e8e93]">{t('channelAutoResponder.featFirstCommentDesc') || 'Registers the first comment instantly when a post is published.'}</span>
 											</div>
 										</li>
 										<li class="flex items-start gap-2">
@@ -343,8 +343,8 @@ export const ChannelAutoResponderPage: Component = () => {
 												<span class="material-symbols-outlined text-[#32ade6] text-[14px]">waving_hand</span>
 											</div>
 											<div class="flex flex-col">
-												<span class="text-[14px] font-bold text-white">پیام خوش‌آمدگویی</span>
-												<span class="text-[12px] text-[#8e8e93]">ورود اعضای جدید به گروه بحث را با پیامی سفارشی تبریک می‌گوید.</span>
+												<span class="text-[14px] font-bold text-white">{t('channelAutoResponder.featWelcomeTitle') || 'Welcome Message'}</span>
+												<span class="text-[12px] text-[#8e8e93]">{t('channelAutoResponder.featWelcomeDesc') || 'Greets new members with a custom message.'}</span>
 											</div>
 										</li>
 										<li class="flex items-start gap-2">
@@ -352,8 +352,8 @@ export const ChannelAutoResponderPage: Component = () => {
 												<span class="material-symbols-outlined text-[#32ade6] text-[14px]">smart_toy</span>
 											</div>
 											<div class="flex flex-col">
-												<span class="text-[14px] font-bold text-white">پاسخ‌های کلمه‌ای (Keyword)</span>
-												<span class="text-[12px] text-[#8e8e93]">با تنظیم کلمات کلیدی، ربات به صورت خودکار به سوالات پرتکرار کاربران پاسخ می‌دهد.</span>
+												<span class="text-[14px] font-bold text-white">{t('channelAutoResponder.featKeywordTitle') || 'Keyword Replies'}</span>
+												<span class="text-[12px] text-[#8e8e93]">{t('channelAutoResponder.featKeywordDesc') || 'Automatically replies to common questions.'}</span>
 											</div>
 										</li>
 									</ul>

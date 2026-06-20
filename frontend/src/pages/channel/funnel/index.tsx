@@ -3,7 +3,7 @@ import { useNavigate, useParams } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { channelApi } from '@/shared/api/channel-management.js';
-import { isRtl } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
 import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { showToast } from '@/shared/ui/toast.js';
@@ -45,7 +45,7 @@ export const ChannelFunnelPage: Component = () => {
 		try {
 			await channelApi.createFunnel(params.id, selectedInputChannel(), inputIdentifier());
 			hapticFeedback.notificationOccurred('success');
-			showToast(isRtl() ? 'قیف فعال شد' : 'Funnel enabled', 'success');
+			showToast(t('channelFunnel.enabled') || 'Funnel enabled', 'success');
 			mutateFunnel({
 				input_chat_id: Number(selectedInputChannel()),
 				output_chat_id: channel()?.chat_id,
@@ -53,7 +53,7 @@ export const ChannelFunnelPage: Component = () => {
 			});
 		} catch (error) {
 			hapticFeedback.notificationOccurred('error');
-			showToast(isRtl() ? 'خطا در فعال‌سازی قیف' : 'Failed to enable funnel', 'error');
+			showToast(t('channelFunnel.enableError') || 'Failed to enable funnel', 'error');
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -65,11 +65,11 @@ export const ChannelFunnelPage: Component = () => {
 		try {
 			await channelApi.deleteFunnel(params.id);
 			hapticFeedback.notificationOccurred('success');
-			showToast(isRtl() ? 'قیف غیرفعال شد' : 'Funnel disabled', 'success');
+			showToast(t('channelFunnel.disabled') || 'Funnel disabled', 'success');
 			mutateFunnel(null);
 		} catch (error) {
 			hapticFeedback.notificationOccurred('error');
-			showToast(isRtl() ? 'خطا در غیرفعال‌سازی قیف' : 'Failed to disable funnel', 'error');
+			showToast(t('channelFunnel.disableError') || 'Failed to disable funnel', 'error');
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -92,8 +92,8 @@ export const ChannelFunnelPage: Component = () => {
 						</span>
 					</button>
 					<div class="flex flex-col">
-						<h1 class="text-[16px] font-bold">{isRtl() ? 'قیف / تأیید پست‌ها' : 'Funnel / Approvals'}</h1>
-						<span class="text-[11px] text-[#8e8e93]">{isRtl() ? 'بررسی پست‌ها قبل از انتشار' : 'Review posts before publishing'}</span>
+						<h1 class="text-[16px] font-bold">{t('channelFunnel.title') || 'Funnel / Approvals'}</h1>
+						<span class="text-[11px] text-[#8e8e93]">{t('channelFunnel.subtitle') || 'Review posts before publishing'}</span>
 					</div>
 				</div>
 				<button
@@ -117,9 +117,9 @@ export const ChannelFunnelPage: Component = () => {
 								<span class="material-symbols-outlined text-[20px]">filter_alt</span>
 							</div>
 							<div class="flex flex-col">
-							<h2 class="text-[15px] font-bold text-white">{isRtl() ? 'قیف انتشار' : 'Publishing Funnel'}</h2>
+							<h2 class="text-[15px] font-bold text-white">{t('channelFunnel.publishingFunnel') || 'Publishing Funnel'}</h2>
 								<span class="text-[12px] text-[#8e8e93]">
-									{isRtl() ? 'پست‌های خام را از کانال مخفی به پنل بررسی شما هدایت کنید.' : 'Route raw posts from a hidden channel to your review panel.'}
+									{t('channelFunnel.publishingFunnelDesc') || 'Route raw posts from a hidden channel to your review panel.'}
 								</span>
 							</div>
 						</div>
@@ -129,9 +129,9 @@ export const ChannelFunnelPage: Component = () => {
 							fallback={
 								<div class="flex flex-col gap-4 mt-2">
 									<div class="bg-[#34c759]/10 border border-[#34c759]/30 rounded-xl p-3 flex flex-col gap-1">
-										<span class="text-[13px] font-bold text-[#34c759]">{isRtl() ? 'فعال' : 'Active'}</span>
+										<span class="text-[13px] font-bold text-[#34c759]">{t('channelFunnel.active') || 'Active'}</span>
 										<span class="text-[11px] text-white/70">
-											{isRtl() ? 'پست‌های ارسالی به کانال ورودی شما رهگیری و برای تأیید به پیام خصوصی شما ارسال می‌شوند.' : 'Posts sent to your input channel are being intercepted and routed to your DM for approval.'}
+											{t('channelFunnel.activeDesc') || 'Posts sent to your input channel are being intercepted and routed to your DM for approval.'}
 										</span>
 									</div>
 									<button
@@ -142,20 +142,20 @@ export const ChannelFunnelPage: Component = () => {
 										<Show when={isSubmitting()} fallback={<span class="material-symbols-outlined">delete</span>}>
 											<span class="material-symbols-outlined animate-spin">refresh</span>
 										</Show>
-										{isRtl() ? 'غیرفعال کردن قیف' : 'Disable Funnel'}
+										{t('channelFunnel.disableFunnel') || 'Disable Funnel'}
 									</button>
 								</div>
 							}
 						>
 							<div class="flex flex-col gap-3 mt-2">
-								<label class="text-[12px] font-bold text-[#8e8e93]">{isRtl() ? 'انتخاب کانال ورودی (پست‌های خام)' : 'Select Input Channel (Raw Posts)'}</label>
+								<label class="text-[12px] font-bold text-[#8e8e93]">{t('channelFunnel.selectInputChannel') || 'Select Input Channel (Raw Posts)'}</label>
 								<div class="relative">
 									<select
 										class="w-full h-12 bg-[#0f1014] border border-[#2a2a2a] rounded-xl px-4 text-[14px] text-white appearance-none outline-none focus:border-[#32ade6] transition-colors"
 										value={selectedInputChannel()}
 										onChange={(e) => setSelectedInputChannel(e.currentTarget.value)}
 									>
-										<option value="" disabled>{isRtl() ? '-- انتخاب کانال --' : '-- Select Channel --'}</option>
+										<option value="" disabled>{t('channelFunnel.selectChannelOption') || '-- Select Channel --'}</option>
 										<For each={userChannels()?.filter((c: any) => c.chat_id !== channel()?.chat_id)}>
 											{(c) => <option value={c.chat_id}>{c.title}</option>}
 										</For>
@@ -165,7 +165,7 @@ export const ChannelFunnelPage: Component = () => {
 									</span>
 								</div>
 
-								<label class="text-[12px] font-bold text-[#8e8e93] mt-2">{isRtl() ? 'آیدی کانال ورودی (برای جوین خودکار ربات)' : 'Input Channel Username (for Auto-Join)'}</label>
+								<label class="text-[12px] font-bold text-[#8e8e93] mt-2">{t('channelFunnel.inputChannelUsername') || 'Input Channel Username (for Auto-Join)'}</label>
 								<input
 									type="text"
 									class="w-full h-12 bg-[#0f1014] border border-[#2a2a2a] rounded-xl px-4 text-[14px] text-white outline-none focus:border-[#32ade6] transition-colors"
@@ -183,7 +183,7 @@ export const ChannelFunnelPage: Component = () => {
 									<Show when={isSubmitting()} fallback={<span class="material-symbols-outlined">add</span>}>
 										<span class="material-symbols-outlined animate-spin">refresh</span>
 									</Show>
-									{isRtl() ? 'فعال کردن قیف' : 'Enable Funnel'}
+									{t('channelFunnel.enableFunnelBtn') || 'Enable Funnel'}
 								</button>
 							</div>
 						</Show>

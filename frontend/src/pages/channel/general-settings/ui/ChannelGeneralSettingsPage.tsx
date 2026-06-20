@@ -4,7 +4,7 @@ import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { createStore, reconcile } from 'solid-js/store';
 import { channelApi } from '@/shared/api/channel-management.js';
-import { isRtl, locale, t } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
 import { showConfirm } from '@/shared/lib/telegram-native.js';
 import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
@@ -166,7 +166,7 @@ export const ChannelGeneralSettingsPage: Component = () => {
 				return settings;
 			} catch (error) {
 				showToast(
-					locale() === 'fa' ? 'خطا در بارگیری تنظیمات' : 'Failed to load settings',
+					t('channelSettings.loadError') || 'Failed to load settings',
 					'error',
 				);
 				throw error;
@@ -179,9 +179,7 @@ export const ChannelGeneralSettingsPage: Component = () => {
 		if (isDirty()) {
 			hapticFeedback.notificationOccurred('warning');
 			const confirmDiscard = await showConfirm(
-				locale() === 'fa'
-					? 'تغییرات ذخیره نشده‌ای دارید. آیا مطمئن هستید که می‌خواهید خارج شوید؟'
-					: 'You have unsaved changes. Are you sure you want to exit?',
+				t('channelSettings.unsavedChangesConfirm') || 'You have unsaved changes. Are you sure you want to exit?'
 			);
 			if (confirmDiscard) {
 				setIsDirty(false); // Reset state to allow clean navigation
@@ -290,14 +288,12 @@ export const ChannelGeneralSettingsPage: Component = () => {
 			hapticFeedback.notificationOccurred('error');
 			if (e.status === 409 || (e.response && e.response.status === 409)) {
 				showToast(
-					locale() === 'fa'
-						? 'خطای تداخل همزمانی: این تنظیمات قبلاً توسط یکی دیگر از مدیران به‌روز شده است. لطفاً صفحه را مجدداً لود کنید.'
-						: 'Conflict: These settings have been updated by another admin. Please refresh the page.',
+					t('channelSettings.concurrencyError') || 'Conflict: These settings have been updated by another admin. Please refresh the page.',
 					'error',
 				);
 			} else {
 				showToast(
-					locale() === 'fa' ? 'خطا در ذخیره‌سازی تنظیمات.' : 'Failed to save settings.',
+					t('channelSettings.saveError') || 'Failed to save settings.',
 					'error',
 				);
 			}
@@ -374,7 +370,7 @@ export const ChannelGeneralSettingsPage: Component = () => {
 						>
 							<h2 class="text-[16px] font-bold text-white flex items-center gap-2">
 								<span class="material-symbols-outlined text-[#32ade6] text-[20px]">input</span>{' '}
-								{isRtl() ? 'هویت کانال ورودی' : 'Input Channel Identity'}
+								{t('channelSettings.inputChannelIdentity') || 'Input Channel Identity'}
 							</h2>
 
 							<div class="flex items-start gap-4">
@@ -465,7 +461,7 @@ export const ChannelGeneralSettingsPage: Component = () => {
 					>
 						<h2 class="text-[16px] font-bold text-white flex items-center gap-2">
 							<span class="material-symbols-outlined text-[#32ade6] text-[20px]">output</span>{' '}
-							{isRtl() ? 'هویت کانال خروجی' : 'Output Channel Identity'}
+							{t('channelSettings.outputChannelIdentity') || 'Output Channel Identity'}
 						</h2>
 
 						<div class="flex items-start gap-4">

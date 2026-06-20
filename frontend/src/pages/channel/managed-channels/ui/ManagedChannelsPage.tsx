@@ -193,34 +193,26 @@ export const ManagedChannelsPage: Component = () => {
 							</div>
 							<h3 class="text-white font-black text-[18px]">{t('managedChannels.noChannels')}</h3>
 							<p class="text-[13px] text-[#8e8e93] leading-relaxed max-w-[280px]">
-								{isRtl()
-									? 'هنوز کانالی متصل نشده. با ۳ مرحله ساده شروع کنید:'
-									: 'No channels connected yet. Get started in 3 simple steps:'}
+								{t('managedChannels.noChannelsDesc') || 'No channels connected yet. Get started in 3 simple steps:'}
 							</p>
 
 							<div class="w-full flex flex-col gap-2.5 mt-2 text-start">
 								<div class="flex items-center gap-3 bg-[#0f1014] rounded-xl p-3 border border-[#2a2a2a]">
 									<div class="w-8 h-8 rounded-full bg-[#32ade6] text-black font-black flex items-center justify-center text-[14px] shrink-0">1</div>
 									<span class="text-[13px] text-white">
-										{isRtl()
-											? 'ربات @iFragmentBot را به کانال‌های خود به عنوان مدیر اضافه کنید'
-											: 'Add @iFragmentBot to your channels as admin'}
+										{t('managedChannels.step1') || 'Add @iFragmentBot to your channels as admin'}
 									</span>
 								</div>
 								<div class="flex items-center gap-3 bg-[#0f1014] rounded-xl p-3 border border-[#2a2a2a]">
 									<div class="w-8 h-8 rounded-full bg-[#32ade6] text-black font-black flex items-center justify-center text-[14px] shrink-0">2</div>
 									<span class="text-[13px] text-white">
-										{isRtl()
-											? 'آدرس کانال‌های ورودی و خروجی را وارد کنید'
-											: 'Enter your input and output channel addresses'}
+										{t('managedChannels.step2') || 'Enter your input and output channel addresses'}
 									</span>
 								</div>
 								<div class="flex items-center gap-3 bg-[#0f1014] rounded-xl p-3 border border-[#2a2a2a]">
 									<div class="w-8 h-8 rounded-full bg-[#34c759] text-black font-black flex items-center justify-center text-[14px] shrink-0">✓</div>
 									<span class="text-[13px] text-white">
-										{isRtl()
-											? 'از تمام قابلیت‌ها مثل هوش مصنوعی، قیف و پاسخگوی خودکار لذت ببرید!'
-											: 'Enjoy AI posting, funnels, auto-responder and more!'}
+										{t('managedChannels.step3') || 'Enjoy AI posting, funnels, auto-responder and more!'}
 									</span>
 								</div>
 							</div>
@@ -230,7 +222,7 @@ export const ManagedChannelsPage: Component = () => {
 								class="mt-3 w-full h-12 bg-[#32ade6] text-black font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-[#2b96c8] transition-all active:scale-95"
 							>
 								<span class="material-symbols-outlined text-[20px]">add</span>
-								{isRtl() ? 'اتصال اولین کانال' : 'Connect Your First Channel'}
+								{t('managedChannels.connectFirst') || 'Connect Your First Channel'}
 							</button>
 						</Motion.div>
 					) : (

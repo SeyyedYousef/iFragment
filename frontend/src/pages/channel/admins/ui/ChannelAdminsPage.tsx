@@ -22,7 +22,6 @@ export const ChannelAdminsPage: Component = () => {
 	const params = useParams();
 	const [isMenuOpen, setIsMenuOpen] = createSignal(false);
 	const [searchQuery, setSearchQuery] = createSignal('');
-	const [activeTab, setActiveTab] = createSignal<'admins' | 'members'>('admins');
 
 	// Modal state
 	const [editingAdmin, setEditingAdmin] = createSignal<any>(null);
@@ -80,40 +79,45 @@ export const ChannelAdminsPage: Component = () => {
 				videoChat: false,
 				editInfo: false,
 				manageTags: false,
+				anonymous: false,
+				promote: false,
+				postStories: false,
+				editStories: false,
+				deleteStories: false,
 			},
 		}));
 	});
 
-	const [membersData, { refetch: refetchMembers }] = createResource(
-		() => params.id,
-		(channelId) => channelApi.getMembers(channelId),
-	);
-
-	const allMembers = createMemo(() => {
-		const list = membersData() || [];
-		return list.map((m: any) => ({
-			id: m.telegram_id?.toString() || m.id || '',
-			name: m.first_name || m.name || 'Unknown',
-			username: m.username ? `@${m.username}` : '',
-			joined: m.joined_at || '',
-			status: m.status || 'active',
-		}));
+	const filteredAdmins = createMemo(() => {
+		const q = searchQuery().toLowerCase();
+		return allAdmins().filter(
+			(a: any) =>
+				a.name.toLowerCase().includes(q) ||
+				a.role.toLowerCase().includes(q) ||
+				(a.customTitle && a.customTitle.toLowerCase().includes(q)),
+		);
 	});
 
-	const filteredItems = createMemo(() => {
-		const q = searchQuery().toLowerCase();
-		if (activeTab() === 'admins') {
-			return allAdmins().filter(
-				(a: any) =>
-					a.name.toLowerCase().includes(q) ||
-					a.role.toLowerCase().includes(q) ||
-					a.customTitle.toLowerCase().includes(q),
-			);
-		} else {
-			return allMembers().filter(
-				(m: any) => m.name.toLowerCase().includes(q) || m.username.toLowerCase().includes(q),
-			);
-		}
+	const groupedAdmins = createMemo(() => {
+		const admins = filteredAdmins();
+		const owners = admins.filter((a: any) => a.role === 'Owner');
+		const bots = admins.filter((a: any) => a.role === 'Bot');
+		
+		const regularAdmins = admins.filter((a: any) => a.role !== 'Owner' && a.role !== 'Bot');
+		// ادمین‌های خروجی (محتوا)
+		const contentAdmins = regularAdmins.filter((a: any) => a.perms.post || a.perms.edit || a.perms.postStories);
+		// ادمین‌های ورودی (عضوگیری و مدیریت)
+		const inviteAdmins = regularAdmins.filter((a: any) => (a.perms.invite || a.perms.promote) && !contentAdmins.includes(a));
+		// سایر ادمین‌ها
+		const otherAdmins = regularAdmins.filter((a: any) => !contentAdmins.includes(a) && !inviteAdmins.includes(a));
+
+		return [
+			{ title: t('channelAdmins.owners') || 'Owners', items: owners },
+			{ title: t('channelAdmins.contentAdmins') || 'Content Admins (Output)', items: contentAdmins },
+			{ title: t('channelAdmins.inviteAdmins') || 'Community Admins (Input)', items: inviteAdmins },
+			{ title: t('channelAdmins.otherAdmins') || 'Other Admins', items: otherAdmins },
+			{ title: 'Bots', items: bots },
+		].filter(g => g.items.length > 0);
 	});
 
 	const openAdminModal = (admin: any = null) => {
@@ -129,6 +133,11 @@ export const ChannelAdminsPage: Component = () => {
 					videoChat: false,
 					editInfo: false,
 					manageTags: false,
+					anonymous: false,
+					promote: false,
+					postStories: false,
+					editStories: false,
+					deleteStories: false,
 				};
 			}
 			setEditingAdmin(adminCopy);
@@ -147,6 +156,11 @@ export const ChannelAdminsPage: Component = () => {
 					videoChat: false,
 					editInfo: false,
 					manageTags: false,
+					anonymous: false,
+					promote: false,
+					postStories: false,
+					editStories: false,
+					deleteStories: false,
 				},
 			});
 		}
@@ -177,29 +191,7 @@ export const ChannelAdminsPage: Component = () => {
 		}
 	};
 
-	const handleRestrict = async (userId: string) => {
-		try {
-			hapticFeedback.impactOccurred('medium');
-			await channelApi.restrictMember(params.id, userId);
-			hapticFeedback.notificationOccurred('success');
-			refetchMembers();
-		} catch (err) {
-			console.error(err);
-			hapticFeedback.notificationOccurred('error');
-		}
-	};
 
-	const handleBan = async (userId: string) => {
-		try {
-			hapticFeedback.impactOccurred('medium');
-			await channelApi.banMember(params.id, userId);
-			hapticFeedback.notificationOccurred('success');
-			refetchMembers();
-		} catch (err) {
-			console.error(err);
-			hapticFeedback.notificationOccurred('error');
-		}
-	};
 
 	return (
 		<div class="min-h-screen bg-[#0f1014] pb-28 relative overflow-x-hidden text-white">
@@ -252,27 +244,7 @@ export const ChannelAdminsPage: Component = () => {
 			<div class="px-5 pt-4 flex flex-col gap-5">
 				<ChannelContextBar channelId={params.id} />
 
-				{/* Tabs */}
-				<div class="bg-[#1c1c1c]/60 backdrop-blur-md p-1 rounded-2xl flex items-center w-full border border-white/5">
-					<button
-						onClick={() => {
-							setActiveTab('admins');
-							setSearchQuery('');
-						}}
-						class={`flex-1 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-300 ${activeTab() === 'admins' ? 'bg-[#2c2c2e] text-white shadow-sm border border-white/5' : 'text-[#8e8e93] hover:text-white'}`}
-					>
-						{t('channelAdmins.currentAdmins')}
-					</button>
-					<button
-						onClick={() => {
-							setActiveTab('members');
-							setSearchQuery('');
-						}}
-						class={`flex-1 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-300 ${activeTab() === 'members' ? 'bg-[#2c2c2e] text-white shadow-sm border border-white/5' : 'text-[#8e8e93] hover:text-white'}`}
-					>
-						{t('channelAdmins.allMembers')}
-					</button>
-				</div>
+				{/* Removing Members tab entirely as it doesn't work well due to Telegram API limitations */}
 
 				<Motion.div
 					initial={{ opacity: 0, y: 10 }}
@@ -280,42 +252,24 @@ export const ChannelAdminsPage: Component = () => {
 					transition={{ delay: 0.05 }}
 					class="flex flex-col gap-3"
 				>
-					<Show when={activeTab() === 'admins'}>
-						<button
-							onClick={handleSync}
-							disabled={isSyncing()}
-							class="w-full bg-[#32ade6]/10 border border-[#32ade6]/20 hover:bg-[#32ade6]/15 active:scale-[0.98] text-[#32ade6] rounded-2xl py-3.5 flex items-center justify-center gap-2 font-bold transition-all shadow-sm disabled:opacity-50"
+					<button
+						onClick={handleSync}
+						disabled={isSyncing()}
+						class="w-full bg-[#32ade6]/10 border border-[#32ade6]/20 hover:bg-[#32ade6]/15 active:scale-[0.98] text-[#32ade6] rounded-2xl py-3.5 flex items-center justify-center gap-2 font-bold transition-all shadow-sm disabled:opacity-50"
+					>
+						<Show
+							when={isSyncing()}
+							fallback={
+								<>
+									<span class="material-symbols-outlined text-[20px]">sync</span>
+									Sync from Telegram
+								</>
+							}
 						>
-							<Show
-								when={isSyncing()}
-								fallback={
-									<>
-										<span class="material-symbols-outlined text-[20px]">sync</span>
-										Sync from Telegram
-									</>
-								}
-							>
-								<span class="material-symbols-outlined text-[20px] animate-spin">sync</span>
-								Syncing...
-							</Show>
-						</button>
-					</Show>
-
-					<Show when={activeTab() === 'members'}>
-						<div class="bg-[#ff9f0a]/10 border border-[#ff9f0a]/25 rounded-2xl p-3 flex items-start gap-2">
-							<span class="material-symbols-outlined text-[#ff9f0a] text-[20px] shrink-0 mt-0.5">
-								info
-							</span>
-							<div class="flex flex-col gap-1">
-								<span class="text-[13px] font-bold text-[#ff9f0a]">
-									Member list is limited
-								</span>
-								<span class="text-[12px] text-white/75 leading-relaxed">
-									Telegram does not expose the full member list for channels through the bot API. Admin sync and admin permissions are available here.
-								</span>
-							</div>
-						</div>
-					</Show>
+							<span class="material-symbols-outlined text-[20px] animate-spin">sync</span>
+							Syncing...
+						</Show>
+					</button>
 
 					{/* Search Bar */}
 					<div class="relative">
@@ -326,11 +280,7 @@ export const ChannelAdminsPage: Component = () => {
 							type="text"
 							value={searchQuery()}
 							onInput={(e) => setSearchQuery(e.currentTarget.value)}
-							placeholder={
-								activeTab() === 'admins'
-									? t('channelAdmins.searchAdminsPlaceholder') || 'Search admins...'
-									: t('channelAdmins.searchPlaceholder') || 'Search members...'
-							}
+							placeholder={t('channelAdmins.searchAdminsPlaceholder') || 'Search admins...'}
 							class="bg-[#1c1c1c]/50 border border-white/5 text-white text-[15px] rounded-2xl pl-12 pr-4 py-3.5 w-full focus:outline-none focus:ring-2 focus:ring-[#32ade6]/40 placeholder-[#8e8e93] transition-all shadow-sm"
 						/>
 					</div>
@@ -338,7 +288,7 @@ export const ChannelAdminsPage: Component = () => {
 
 				<div class="flex flex-col gap-3 pb-6">
 					<Show
-						when={filteredItems().length > 0}
+						when={filteredAdmins().length > 0}
 						fallback={
 							<div class="bg-[#1c1c1c]/50 rounded-3xl border border-white/5 py-12 flex flex-col items-center justify-center gap-3 shadow-inner">
 								<span class="material-symbols-outlined text-[#8e8e93] text-[36px] opacity-80">
@@ -350,134 +300,120 @@ export const ChannelAdminsPage: Component = () => {
 							</div>
 						}
 					>
-						<div class="bg-[#1c1c1c]/60 backdrop-blur-md rounded-3xl border border-white/5 flex flex-col overflow-hidden shadow-md">
-							<For each={filteredItems()}>
-								{(item: any, i) => (
-									<Motion.div
-										initial={{ opacity: 0, y: 10 }}
-										animate={{ opacity: 1, y: 0 }}
-										transition={{ delay: 0.05 + i() * 0.05 }}
-										class={`flex flex-col p-4.5 ${i() !== filteredItems().length - 1 ? 'border-b border-white/5' : ''}`}
-									>
-										<div class="flex items-center justify-between mb-2">
-											<div class="flex items-center gap-3.5">
-												<div class="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center font-bold text-[18px] text-[#32ade6] relative shadow-inner shrink-0">
-													{item.name.charAt(0)}
-													<Show when={item.role === 'Owner'}>
-														<div class="absolute -bottom-1 -right-1 w-5 h-5 bg-[#ff9f0a] rounded-lg border border-[#0f1014] flex items-center justify-center shadow-md">
-															<span class="material-symbols-outlined text-[12px] text-black font-black">
-																star
-															</span>
+						<For each={groupedAdmins()}>
+							{(group) => (
+								<div class="flex flex-col gap-2">
+									<h2 class="text-[13px] font-bold text-[#8e8e93] px-2 pt-2 uppercase tracking-wider">{group.title}</h2>
+									<div class="bg-[#1c1c1c]/60 backdrop-blur-md rounded-3xl border border-white/5 flex flex-col overflow-hidden shadow-md">
+										<For each={group.items}>
+											{(item: any, i) => (
+												<Motion.div
+													initial={{ opacity: 0, y: 10 }}
+													animate={{ opacity: 1, y: 0 }}
+													transition={{ delay: 0.05 + i() * 0.05 }}
+													class={`flex flex-col p-4.5 ${i() !== group.items.length - 1 ? 'border-b border-white/5' : ''}`}
+												>
+													<div class="flex items-center justify-between mb-2">
+														<div class="flex items-center gap-3.5">
+															<div class="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center font-bold text-[18px] text-[#32ade6] relative shadow-inner shrink-0">
+																{item.name.charAt(0)}
+																<Show when={item.role === 'Owner'}>
+																	<div class="absolute -bottom-1 -right-1 w-5 h-5 bg-[#ff9f0a] rounded-lg border border-[#0f1014] flex items-center justify-center shadow-md">
+																		<span class="material-symbols-outlined text-[12px] text-black font-black">
+																			star
+																		</span>
+																	</div>
+																</Show>
+																<Show when={item.role === 'Bot'}>
+																	<div class="absolute -bottom-1 -right-1 w-5 h-5 bg-[#bf5af2] rounded-lg border border-[#0f1014] flex items-center justify-center shadow-md">
+																		<span class="material-symbols-outlined text-[12px] text-white">
+																			smart_toy
+																		</span>
+																	</div>
+																</Show>
+															</div>
+															<div class="flex flex-col min-w-0">
+																<div class="flex items-center gap-2 flex-wrap">
+																	<span class="text-[15px] font-bold text-white truncate max-w-[120px]">
+																		{item.name}
+																	</span>
+																	<Show when={item.customTitle}>
+																		<span class="bg-[#32ade6]/10 text-[#32ade6] text-[10px] px-2 py-0.5 rounded-full border border-[#32ade6]/20 font-bold tracking-wide">
+																			{item.customTitle}
+																		</span>
+																	</Show>
+																</div>
+																<span class="text-[12px] text-[#8e8e93] truncate mt-0.5">
+																	{item.username ||
+																		(item.role === 'Owner'
+																			? t('channelAdmins.customTitle')
+																			: item.role === 'Bot'
+																				? 'Bot'
+																				: 'Admin')}
+																</span>
+															</div>
 														</div>
-													</Show>
-													<Show when={item.role === 'Bot'}>
-														<div class="absolute -bottom-1 -right-1 w-5 h-5 bg-[#bf5af2] rounded-lg border border-[#0f1014] flex items-center justify-center shadow-md">
-															<span class="material-symbols-outlined text-[12px] text-white">
-																smart_toy
+
+														<button
+															onClick={() => openAdminModal(item)}
+															class="w-9 h-9 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 active:scale-95 flex items-center justify-center transition-all shadow-sm"
+															aria-label={t('channelAdmins.edit')}
+														>
+															<span class="material-symbols-outlined text-[18px] text-[#8e8e93]">
+																edit
 															</span>
-														</div>
-													</Show>
-												</div>
-												<div class="flex flex-col min-w-0">
-													<div class="flex items-center gap-2 flex-wrap">
-														<span class="text-[15px] font-bold text-white truncate max-w-[120px]">
-															{item.name}
-														</span>
-														<Show when={item.customTitle}>
-															<span class="bg-[#32ade6]/10 text-[#32ade6] text-[10px] px-2 py-0.5 rounded-full border border-[#32ade6]/20 font-bold tracking-wide">
-																{item.customTitle}
+														</button>
+													</div>
+
+													<div class="flex flex-wrap gap-1.5 mt-2">
+														<Show when={item.perms.post}>
+															<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all bg-[#34c759]/5 border-[#34c759]/20 text-[#34c759] shadow-[0_2px_8px_rgba(52,199,89,0.05)]">
+																{t('channelAdmins.post') || 'Post'}
+															</span>
+														</Show>
+														<Show when={item.perms.edit}>
+															<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all bg-[#34c759]/5 border-[#34c759]/20 text-[#34c759] shadow-[0_2px_8px_rgba(52,199,89,0.05)]">
+																{t('channelAdmins.edit') || 'Edit'}
+															</span>
+														</Show>
+														<Show when={item.perms.delete}>
+															<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all bg-[#34c759]/5 border-[#34c759]/20 text-[#34c759] shadow-[0_2px_8px_rgba(52,199,89,0.05)]">
+																{t('channelAdmins.delete') || 'Delete'}
+															</span>
+														</Show>
+														<Show when={item.perms.invite}>
+															<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all bg-[#32ade6]/5 border-[#32ade6]/20 text-[#32ade6] shadow-[0_2px_8px_rgba(50,173,230,0.05)]">
+																{t('channelAdmins.invite') || 'Invite'}
+															</span>
+														</Show>
+														<Show when={item.perms.promote}>
+															<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all bg-[#ff9f0a]/5 border-[#ff9f0a]/20 text-[#ff9f0a] shadow-[0_2px_8px_rgba(255,159,10,0.05)]">
+																{t('channelAdmins.promote') || 'Promote'}
+															</span>
+														</Show>
+														<Show when={item.perms.postStories}>
+															<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all bg-[#bf5af2]/5 border-[#bf5af2]/20 text-[#bf5af2] shadow-[0_2px_8px_rgba(191,90,242,0.05)]">
+																{t('channelAdmins.stories') || 'Stories'}
+															</span>
+														</Show>
+														<Show when={item.perms.anonymous}>
+															<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all bg-white/5 border-white/10 text-white/80">
+																{t('channelAdmins.anonymous') || 'Anonymous'}
+															</span>
+														</Show>
+														<Show when={!item.perms.post && !item.perms.edit && !item.perms.delete && !item.perms.invite && !item.perms.promote && !item.perms.postStories && !item.perms.anonymous}>
+															<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all bg-white/5 border-white/10 text-[#8e8e93]">
+																{t('channelAdmins.noSpecialPerms') || 'Read Only'}
 															</span>
 														</Show>
 													</div>
-													<span class="text-[12px] text-[#8e8e93] truncate mt-0.5">
-														{item.username ||
-															(item.role === 'Owner'
-																? t('channelAdmins.customTitle')
-																: item.role === 'Bot'
-																	? 'Bot'
-																	: 'Admin')}
-													</span>
-												</div>
-											</div>
-
-											<Show
-												when={activeTab() === 'admins'}
-												fallback={
-													<div class="flex items-center gap-1.5">
-														<button
-															onClick={() => handleRestrict(item.id)}
-															class="w-9 h-9 rounded-xl bg-[#ff9f0a]/5 border border-[#ff9f0a]/10 hover:bg-[#ff9f0a]/15 hover:border-[#ff9f0a]/25 text-[#ff9f0a] flex items-center justify-center active:scale-95 transition-all shadow-sm"
-															title={t('channelAdmins.restrictUser')}
-														>
-															<span class="material-symbols-outlined text-[16px]">
-																do_not_disturb_on
-															</span>
-														</button>
-														<button
-															onClick={() => handleBan(item.id)}
-															class="w-9 h-9 rounded-xl bg-[#ff3b30]/5 border border-[#ff3b30]/10 hover:bg-[#ff3b30]/15 hover:border-[#ff3b30]/25 text-[#ff3b30] flex items-center justify-center active:scale-95 transition-all shadow-sm"
-															title={t('channelAdmins.banUser')}
-														>
-															<span class="material-symbols-outlined text-[16px]">block</span>
-														</button>
-														<button
-															onClick={() => openAdminModal(item)}
-															class="w-9 h-9 rounded-xl bg-[#34c759]/5 border border-[#34c759]/10 hover:bg-[#34c759]/15 hover:border-[#34c759]/25 text-[#34c759] flex items-center justify-center active:scale-95 transition-all shadow-sm"
-															title={t('channelAdmins.promoteToAdmin')}
-														>
-															<span class="material-symbols-outlined text-[16px]">
-																keyboard_double_arrow_up
-															</span>
-														</button>
-													</div>
-												}
-											>
-												<button
-													onClick={() => openAdminModal(item)}
-													class="w-9 h-9 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 active:scale-95 flex items-center justify-center transition-all shadow-sm"
-													aria-label={t('channelAdmins.edit')}
-												>
-													<span class="material-symbols-outlined text-[18px] text-[#8e8e93]">
-														edit
-													</span>
-												</button>
-											</Show>
-										</div>
-
-										{/* Beautiful Glassmorphic Permissions Badges for Admins */}
-										<Show when={activeTab() === 'admins'}>
-											<div class="flex flex-wrap gap-1.5 mt-2">
-												<span
-													class={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all ${item.perms.post ? 'bg-[#34c759]/5 border-[#34c759]/20 text-[#34c759] shadow-[0_2px_8px_rgba(52,199,89,0.05)]' : 'bg-[#ff3b30]/5 border-[#ff3b30]/15 text-[#ff3b30]/80'}`}
-												>
-													{t('channelAdmins.post')}
-												</span>
-												<span
-													class={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all ${item.perms.edit ? 'bg-[#34c759]/5 border-[#34c759]/20 text-[#34c759] shadow-[0_2px_8px_rgba(52,199,89,0.05)]' : 'bg-[#ff3b30]/5 border-[#ff3b30]/15 text-[#ff3b30]/80'}`}
-												>
-													{t('channelAdmins.edit')}
-												</span>
-												<span
-													class={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all ${item.perms.delete ? 'bg-[#34c759]/5 border-[#34c759]/20 text-[#34c759] shadow-[0_2px_8px_rgba(52,199,89,0.05)]' : 'bg-[#ff3b30]/5 border-[#ff3b30]/15 text-[#ff3b30]/80'}`}
-												>
-													{t('channelAdmins.delete')}
-												</span>
-												<span
-													class={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all ${item.perms.pin ? 'bg-[#34c759]/5 border-[#34c759]/20 text-[#34c759] shadow-[0_2px_8px_rgba(52,199,89,0.05)]' : 'bg-white/5 border-white/10 text-[#8e8e93]'}`}
-												>
-													{t('channelAdmins.pin')}
-												</span>
-												<span
-													class={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all ${item.perms.invite ? 'bg-[#34c759]/5 border-[#34c759]/20 text-[#34c759] shadow-[0_2px_8px_rgba(52,199,89,0.05)]' : 'bg-white/5 border-white/10 text-[#8e8e93]'}`}
-												>
-													{t('channelAdmins.invite')}
-												</span>
-											</div>
-										</Show>
-									</Motion.div>
-								)}
-							</For>
-						</div>
+												</Motion.div>
+											)}
+										</For>
+									</div>
+								</div>
+							)}
+						</For>
 					</Show>
 				</div>
 			</div>
@@ -524,19 +460,23 @@ export const ChannelAdminsPage: Component = () => {
 								<div class="bg-[#2c2c2e]/60 rounded-2xl p-1.5 flex flex-col border border-white/5 shadow-inner">
 									<For
 										each={[
-											{ key: 'post', label: t('channelAdmins.permCanPost') },
-											{ key: 'edit', label: t('channelAdmins.permCanEdit') },
-											{ key: 'delete', label: t('channelAdmins.permCanDelete') },
-											{ key: 'pin', label: t('channelAdmins.permCanPin') },
-											{ key: 'invite', label: t('channelAdmins.permCanInvite') },
-											{ key: 'videoChat', label: t('channelAdmins.permCanManageVC') },
-											{ key: 'editInfo', label: t('channelAdmins.permCanEditInfo') },
-											{ key: 'manageTags', label: t('channelAdmins.permCanManageTags') },
+											{ key: 'post', label: t('channelAdmins.permCanPost') || 'Post Messages' },
+											{ key: 'edit', label: t('channelAdmins.permCanEdit') || 'Edit Messages' },
+											{ key: 'delete', label: t('channelAdmins.permCanDelete') || 'Delete Messages' },
+											{ key: 'pin', label: t('channelAdmins.permCanPin') || 'Pin Messages' },
+											{ key: 'invite', label: t('channelAdmins.permCanInvite') || 'Invite Users via Link' },
+											{ key: 'postStories', label: t('channelAdmins.permCanPostStories') || 'Post Stories' },
+											{ key: 'editStories', label: t('channelAdmins.permCanEditStories') || 'Edit Stories' },
+											{ key: 'deleteStories', label: t('channelAdmins.permCanDeleteStories') || 'Delete Stories' },
+											{ key: 'videoChat', label: t('channelAdmins.permCanManageVC') || 'Manage Video Chats' },
+											{ key: 'editInfo', label: t('channelAdmins.permCanEditInfo') || 'Edit Channel Info' },
+											{ key: 'promote', label: t('channelAdmins.permCanPromote') || 'Add New Admins' },
+											{ key: 'anonymous', label: t('channelAdmins.permAnonymous') || 'Remain Anonymous' },
 										]}
 									>
 										{(perm, index) => (
 											<div
-												class={`flex items-center justify-between p-3.5 ${index() !== 7 ? 'border-b border-[#3a3a3c]/55' : ''}`}
+												class={`flex items-center justify-between p-3.5 ${index() !== 11 ? 'border-b border-[#3a3a3c]/55' : ''}`}
 											>
 												<span class="text-[15px] font-medium text-white">{perm.label}</span>
 												<ToggleSwitch

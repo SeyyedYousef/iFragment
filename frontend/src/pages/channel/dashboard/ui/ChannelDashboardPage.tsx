@@ -221,13 +221,11 @@ export const ChannelDashboardPage: Component = () => {
 						</span>
 						<div class="flex flex-col relative z-10">
 							<span class="text-[14px] font-bold text-white leading-tight">
-								{isRtl() ? 'قیف انتشار فعال است' : 'Active Publishing Funnel'}
+								{t('channelDashboard.activeFunnel') || 'Active Publishing Funnel'}
 							</span>
-							<span class="text-[12px] text-[#32ade6] leading-snug mt-1">
-								{isRtl()
-									? `پست‌های خام فرستاده شده در "${funnel().input_title || 'کانال ورودی'}" ابتدا به پی‌وی شما برای بررسی ارسال می‌شوند.`
-									: `Raw posts dropped in "${funnel().input_title || 'Input Channel'}" are sent to your Review DM before publishing.`}
-							</span>
+							<p class="text-[12px] text-white/80 leading-relaxed mt-1">
+								{(t('channelDashboard.activeFunnelDesc') || '').replace('{channelName}', funnel()?.input_title || t('channelDashboard.inputChannelFallback') || 'Input Channel')}
+							</p>
 						</div>
 					</Motion.div>
 				</Show>
@@ -243,11 +241,11 @@ export const ChannelDashboardPage: Component = () => {
 							error
 						</span>
 						<div class="flex flex-col relative z-10">
-							<span class="text-[14px] font-bold text-white leading-tight">
-								{isRtl() ? 'خطا در بارگذاری آمار' : 'Analytics Load Error'}
+							<span class="text-[16px] font-bold text-white">
+								{t('channelDashboard.analyticsError') || 'Analytics Load Error'}
 							</span>
-							<span class="text-[12px] text-[#ff3b30] leading-snug mt-1">
-								{isRtl() ? 'متأسفانه نتوانستیم آمار کانال را دریافت کنیم.' : 'Failed to load channel analytics data.'}
+							<span class="text-[12px] text-[#8e8e93]">
+								{t('channelDashboard.analyticsErrorDesc') || 'Failed to load channel analytics data.'}
 							</span>
 						</div>
 					</Motion.div>

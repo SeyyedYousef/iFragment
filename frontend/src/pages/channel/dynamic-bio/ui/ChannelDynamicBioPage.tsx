@@ -188,16 +188,16 @@ export const ChannelDynamicBioPage: Component = () => {
 								<span class="text-[15px] font-bold text-white">
 									{t('channelDynamicBio.title') || 'بیوگرافی و نام زنده'}
 								</span>
-								<span class="text-[11px] text-[#8e8e93]">آپدیت لحظه‌ای اطلاعات کانال با متغیرها</span>
+								<span class="text-[11px] text-[#8e8e93]">{t('channelDynamicBio.subtitle') || 'Live channel info update'}</span>
 							</div>
 							<ToggleSwitch checked={enabled()} onChange={setEnabled} />
 						</div>
 
 						<Show when={!enabled()}>
 							<div class="mt-2 p-4 bg-[#32ade6]/10 border border-[#32ade6]/30 rounded-xl flex flex-col gap-2">
-								<span class="text-[14px] font-bold text-[#32ade6]">راهنمای بیوگرافی و نام زنده</span>
+								<span class="text-[14px] font-bold text-[#32ade6]">{t('channelDynamicBio.guideTitle') || 'Live Bio & Name Guide'}</span>
 								<p class="text-[13px] text-white/80 leading-relaxed">
-									با فعال‌سازی این بخش، می‌توانید نام و بیوگرافی کانال خود را به صورت زنده و خودکار با اطلاعاتی نظیر زمان، تاریخ و قیمت‌های لحظه‌ای رمزارزها (مثل بیت‌کوین و گرام) به‌روزرسانی کنید. کافیست این گزینه را روشن کنید تا به تنظیمات قالب و متغیرها دسترسی داشته باشید.
+									{t('channelDynamicBio.guideDesc') || 'By enabling this section, you can automatically update your channel bio...'}
 								</p>
 							</div>
 						</Show>
@@ -207,10 +207,10 @@ export const ChannelDynamicBioPage: Component = () => {
 
 							{/* Current Telegram Info Info */}
 							<div class="bg-[#2c2c2e] p-3 rounded-xl border border-[#3a3a3c] flex flex-col gap-3 mb-2">
-								<span class="text-[13px] font-bold text-[#8e8e93]">وضعیت فعلی در تلگرام:</span>
+								<span class="text-[13px] font-bold text-[#8e8e93]">{t('channelDynamicBio.currentStatus') || 'Current Status in Telegram:'}</span>
 								<div class="flex flex-col gap-1">
-									<span class="text-[12px] text-white/60">نام فعلی: <span class="text-white">{currentName() || 'در حال دریافت...'}</span></span>
-									<span class="text-[12px] text-white/60">بیوگرافی فعلی: <span class="text-white">{currentBio() || 'در حال دریافت...'}</span></span>
+									<span class="text-[12px] text-white/60">{t('channelDynamicBio.currentName') || 'Current Name:'} <span class="text-white">{currentName() || t('channelDynamicBio.fetching') || 'Fetching...'}</span></span>
+									<span class="text-[12px] text-white/60">{t('channelDynamicBio.currentBioReal') || 'Current Bio:'} <span class="text-white">{currentBio() || t('channelDynamicBio.fetching') || 'Fetching...'}</span></span>
 								</div>
 							</div>
 

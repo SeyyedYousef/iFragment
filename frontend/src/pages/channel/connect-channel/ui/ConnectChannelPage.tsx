@@ -21,9 +21,7 @@ export const ConnectChannelPage: Component = () => {
 	const handleConnect = async () => {
 		if (!inputChannel().trim() || !outputChannel().trim()) {
 			showToast(
-				isRtl()
-					? 'لطفاً هم کانال ورودی و هم کانال خروجی را مشخص کنید (اگر یک کانال دارید، نام آن را در هر دو فیلد وارد کنید)'
-					: 'Please specify both input and output channels (if you only have one, enter it in both fields)',
+				t('connectChannel.validationError') || 'Please specify both input and output channels',
 				'error',
 			);
 			hapticFeedback.notificationOccurred('error');
@@ -34,22 +32,20 @@ export const ConnectChannelPage: Component = () => {
 		setIsVerifying(true);
 
 		try {
-			showToast(isRtl() ? 'در حال تایید کانال ورودی...' : 'Verifying input channel...', 'info');
+			showToast(t('connectChannel.verifyingInput') || 'Verifying input channel...', 'info');
 			const inChan = await channelApi.connectChannel('auto', inputChannel().trim());
 
-			showToast(isRtl() ? 'در حال تایید کانال خروجی...' : 'Verifying output channel...', 'info');
+			showToast(t('connectChannel.verifyingOutput') || 'Verifying output channel...', 'info');
 			const outChan = await channelApi.connectChannel('auto', outputChannel().trim());
 
 			showToast(
-				isRtl() ? 'در حال برقراری کانال...' : 'Creating channel connection...',
+				t('connectChannel.creatingConnection') || 'Creating channel connection...',
 				'info',
 			);
 			await channelApi.createFunnel(outChan.id, inChan.id);
 
 			showToast(
-				isRtl()
-					? 'کانال با موفقیت متصل شد!'
-					: 'Channel connected successfully!',
+				t('connectChannel.success') || 'Channel connected successfully!',
 				'success',
 			);
 			hapticFeedback.notificationOccurred('success');
@@ -117,9 +113,7 @@ export const ConnectChannelPage: Component = () => {
 						</h2>
 					</div>
 					<p class="text-[13px] text-[#8e8e93] leading-relaxed">
-						{isRtl()
-							? 'ربات رسمی ما را به عنوان مدیر (Administrator) با دسترسی ارسال پیام در کانال‌های خود عضو کنید.'
-							: 'Add our official bot to your Telegram channel(s) as an administrator with post/edit permissions.'}
+						{t('connectChannel.step1Desc') || 'Add our official bot as an Administrator with post sending rights to your channels.'}
 					</p>
 					<button
 						onClick={handleOpenTelegram}
@@ -142,19 +136,17 @@ export const ConnectChannelPage: Component = () => {
 							2
 						</div>
 						<h2 class="text-[16px] font-bold text-white">
-							{isRtl() ? 'ثبت اطلاعات کانال / قیف' : 'Submit Channel / Funnel Information'}
+							{t('connectChannel.step2Title') || 'Submit Channel / Funnel Information'}
 						</h2>
 					</div>
 						<p class="text-[13px] text-[#8e8e93] leading-relaxed mb-3">
-							{isRtl()
-								? 'آدرس کانال ورودی (برای فرستادن پست‌های خام) و کانال خروجی (برای انتشار نسخه نهایی و تایید شده) را وارد کنید.'
-								: 'Enter both your Input Channel (where raw posts are dropped) and Output Channel (where reviewed posts are published).'}
+							{t('connectChannel.step2Desc') || 'Enter the input channel address (for sending raw posts) and output channel address (for publishing final approved posts).'}
 						</p>
 
 						<div class="flex flex-col gap-3">
 							<div>
 								<label class="block text-[11px] uppercase tracking-wider text-[#8e8e93] font-bold mb-1.5 pl-1">
-									{isRtl() ? 'کانال ورودی (Input Channel)' : 'Input Channel'}
+									{t('connectChannel.inputChannelLabel') || 'Input Channel'}
 								</label>
 								<input
 									type="text"
@@ -167,7 +159,7 @@ export const ConnectChannelPage: Component = () => {
 
 							<div>
 								<label class="block text-[11px] uppercase tracking-wider text-[#8e8e93] font-bold mb-1.5 pl-1">
-									{isRtl() ? 'کانال خروجی (Output Channel)' : 'Output Channel'}
+									{t('connectChannel.outputChannelLabel') || 'Output Channel'}
 								</label>
 								<input
 									type="text"
@@ -190,7 +182,7 @@ export const ConnectChannelPage: Component = () => {
 								<span class="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin"></span>
 							}
 						>
-							{isRtl() ? 'تایید و اتصال کانال' : 'Verify & Connect Channel'}
+							{t('connectChannel.verifyConnectBtn') || 'Verify & Connect Channel'}
 						</Show>
 					</button>
 				</Motion.div>
