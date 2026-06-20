@@ -601,7 +601,16 @@ export const ManagedChannelsPage: Component = () => {
 													{t('botManage.airdropPayDesc' as any) || 'Use your earned coin balance'}
 												</p>
 											</div>
-											<span class="material-symbols-outlined text-[#32ade6]">chevron_right</span>
+											<Show when={packages() && selectedPkg()}>
+												{(() => {
+													const pkg = (packages() || []).find((p: SubscriptionPackage) => p.id === selectedPkg());
+													return pkg ? (
+														<span class="text-[15px] font-black text-[#32ade6]">
+															{(pkg.price_coins).toLocaleString()}
+														</span>
+													) : null;
+												})()}
+											</Show>
 										</div>
 									</button>
 								</div>

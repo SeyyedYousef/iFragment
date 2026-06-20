@@ -144,10 +144,10 @@ export const mockApiLogic = (method: string = 'GET', url: string = '', _data: an
 
 	if (path.includes('/packages')) {
 		return [
-			{ id: '1_month', name: '1 Month', duration_months: 1, price_usd: 1.99, price_per_month: 1.99, price_stars: 150, price_frg: 1.99 },
-			{ id: '3_months', name: '3 Months', duration_months: 3, price_usd: 4.49, price_per_month: 1.49, price_stars: 350, price_frg: 4.49, discount: '25%', badge: 'popular' },
-			{ id: '6_months', name: '6 Months', duration_months: 6, price_usd: 7.49, price_per_month: 1.29, price_stars: 575, price_frg: 7.49, discount: '35%' },
-			{ id: '12_months', name: '12 Months', duration_months: 12, price_usd: 11.99, price_per_month: 1.00, price_stars: 925, price_frg: 11.99, discount: '50%', badge: 'best_value' },
+			{ id: '1_month', name: '1 Month', duration_months: 1, price_usd: 1.99, price_per_month: 1.99, price_stars: 150, price_coins: 250000, price_frg: 1.99 },
+			{ id: '3_months', name: '3 Months', duration_months: 3, price_usd: 4.49, price_per_month: 1.49, price_stars: 350, price_coins: 600000, price_frg: 4.49, discount: '25%', badge: 'popular' },
+			{ id: '6_months', name: '6 Months', duration_months: 6, price_usd: 7.49, price_per_month: 1.29, price_stars: 575, price_coins: 1000000, price_frg: 7.49, discount: '35%' },
+			{ id: '12_months', name: '12 Months', duration_months: 12, price_usd: 11.99, price_per_month: 1.00, price_stars: 925, price_coins: 1500000, price_frg: 11.99, discount: '50%', badge: 'best_value' },
 		];
 	}
 
