@@ -62,9 +62,13 @@ interface GroupSettings {
 export interface SubscriptionPackage {
 	id: string;
 	name: string;
-	groups_limit: number;
+	duration_months: number;
+	price_usd: number;
+	price_per_month: number;
+	price_stars: number;
 	price_frg: number;
 	discount?: string;
+	badge?: 'popular' | 'best_value';
 }
 
 interface FRGBalance {

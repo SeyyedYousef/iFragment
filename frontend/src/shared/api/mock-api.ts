@@ -144,9 +144,10 @@ export const mockApiLogic = (method: string = 'GET', url: string = '', _data: an
 
 	if (path.includes('/packages')) {
 		return [
-			{ id: 'trial', name: 'تست 24 ساعته', groups_limit: 1, price_frg: 0 },
-			{ id: '1_group_monthly', name: '1 گروه - 1 ماه', groups_limit: 1, price_frg: 1.5 },
-			{ id: '5_group_monthly', name: '5 گروه - 1 ماه', groups_limit: 5, price_frg: 5.0 },
+			{ id: '1_month', name: '1 Month', duration_months: 1, price_usd: 1.99, price_per_month: 1.99, price_stars: 150, price_frg: 1.99 },
+			{ id: '3_months', name: '3 Months', duration_months: 3, price_usd: 4.49, price_per_month: 1.49, price_stars: 350, price_frg: 4.49, discount: '25%', badge: 'popular' },
+			{ id: '6_months', name: '6 Months', duration_months: 6, price_usd: 7.49, price_per_month: 1.29, price_stars: 575, price_frg: 7.49, discount: '35%' },
+			{ id: '12_months', name: '12 Months', duration_months: 12, price_usd: 11.99, price_per_month: 1.00, price_stars: 925, price_frg: 11.99, discount: '50%', badge: 'best_value' },
 		];
 	}
 

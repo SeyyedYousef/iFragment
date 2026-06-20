@@ -165,6 +165,22 @@ export const ChannelDashboardPage: Component = () => {
 
 			{/* Main Content Area */}
 			<div class="px-5 pt-6 flex flex-col gap-6">
+				{/* Welcome Banner */}
+				<Motion.div
+					initial={{ opacity: 0, y: 10 }}
+					animate={{ opacity: 1, y: 0 }}
+					class="bg-gradient-to-br from-[#32ade6]/20 to-[#3390ec]/5 border border-[#32ade6]/30 rounded-3xl p-5 relative overflow-hidden"
+				>
+					<div class="absolute -right-4 -top-4 w-24 h-24 bg-[#32ade6]/20 rounded-full blur-2xl"></div>
+					<div class="flex items-center gap-3 mb-2 relative z-10">
+						<span class="material-symbols-outlined text-[#32ade6] text-[24px]">rocket_launch</span>
+						<h2 class="text-[16px] font-black text-white">Channel Command Center</h2>
+					</div>
+					<p class="text-[12px] text-white/80 leading-relaxed relative z-10">
+						Your all-in-one management suite. Monitor real-time analytics, configure auto-posting bots, manage administrator permissions, and automate your channel workflow seamlessly.
+					</p>
+				</Motion.div>
+
 				{/* Quick Actions */}
 				<Motion.div
 					initial={{ opacity: 0, y: 10 }}
@@ -213,19 +229,33 @@ export const ChannelDashboardPage: Component = () => {
 					<Motion.div
 						initial={{ opacity: 0, scale: 0.95 }}
 						animate={{ opacity: 1, scale: 1 }}
-						class="bg-[#32ade6]/10 border border-[#32ade6]/30 rounded-2xl p-4 flex items-start gap-3 relative overflow-hidden"
+						class="bg-[#bf5af2]/10 border border-[#bf5af2]/30 rounded-3xl p-4 flex flex-col gap-3 relative overflow-hidden"
 					>
-						<div class="absolute right-0 top-0 w-24 h-24 bg-[#32ade6]/10 rounded-full blur-2xl translate-x-1/2 -translate-y-1/2"></div>
-						<span class="material-symbols-outlined text-[#32ade6] mt-0.5 relative z-10">
-							filter_alt
-						</span>
-						<div class="flex flex-col relative z-10">
-							<span class="text-[14px] font-bold text-white leading-tight">
-								{t('channelDashboard.activeFunnel') || 'Active Publishing Funnel'}
+						<div class="absolute right-0 top-0 w-32 h-32 bg-[#bf5af2]/10 rounded-full blur-2xl translate-x-1/2 -translate-y-1/2"></div>
+						
+						<div class="flex items-center gap-2 relative z-10">
+							<span class="material-symbols-outlined text-[#bf5af2] text-[20px]">account_tree</span>
+							<span class="text-[14px] font-black text-white">
+								Approval Workflow (Funnel)
 							</span>
-							<p class="text-[12px] text-white/80 leading-relaxed mt-1">
-								{(t('channelDashboard.activeFunnelDesc') || '').replace('{channelName}', funnel()?.input_title || t('channelDashboard.inputChannelFallback') || 'Input Channel')}
-							</p>
+						</div>
+						
+						<p class="text-[12px] text-white/80 leading-relaxed relative z-10 mb-1">
+							All draft posts must be sent to the Input Channel first. They will be held for your approval before being officially published to the Output Channel.
+						</p>
+
+						<div class="flex items-center gap-2 relative z-10 bg-[#1c1c1c]/60 p-3 rounded-2xl border border-[#2a2a2a]">
+							<div class="flex flex-col flex-1 min-w-0">
+								<span class="text-[10px] text-[#8e8e93] font-bold uppercase tracking-wider mb-0.5">Input (Drafts)</span>
+								<span class="text-[13px] font-bold text-white truncate">{funnel()?.input_title || 'Input Channel'}</span>
+							</div>
+							<div class="flex flex-col items-center justify-center shrink-0 px-2">
+								<span class="material-symbols-outlined text-[#bf5af2] opacity-70">arrow_forward</span>
+							</div>
+							<div class="flex flex-col flex-1 min-w-0 text-start">
+								<span class="text-[10px] text-[#34c759] font-bold uppercase tracking-wider mb-0.5">Output (Public)</span>
+								<span class="text-[13px] font-bold text-white truncate">{channel()?.chat_title || 'Main Channel'}</span>
+							</div>
 						</div>
 					</Motion.div>
 				</Show>

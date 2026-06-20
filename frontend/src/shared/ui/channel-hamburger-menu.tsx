@@ -22,10 +22,7 @@ export const ChannelHamburgerMenu: Component<ChannelHamburgerMenuProps> = (props
 		() => props.channelId,
 		(id) => channelApi.getSettings(id).catch(() => null),
 	);
-	const [funnel] = createResource(
-		() => props.channelId,
-		(id) => channelApi.getFunnel(id).catch(() => null),
-	);
+
 	let drawerRef: HTMLDivElement | undefined;
 
 	createFocusTrap({
@@ -47,8 +44,7 @@ export const ChannelHamburgerMenu: Component<ChannelHamburgerMenuProps> = (props
 				if (typeof db === 'string') try { db = JSON.parse(db); } catch { return null; }
 				return db?.enabled ? 'on' : 'off';
 			}
-			case 'funnel':
-				return funnel() ? 'on' : 'off';
+
 			default:
 				return null;
 		}
@@ -73,12 +69,7 @@ export const ChannelHamburgerMenu: Component<ChannelHamburgerMenuProps> = (props
 			label: t('channelMenu.autoPosting'),
 			path: `/channel/${props.channelId}/posting`,
 		},
-		{
-			id: 'funnel',
-			icon: 'filter_alt',
-			label: isRtl() ? 'تنظیمات قیف' : 'Funnel Settings',
-			path: `/channel/${props.channelId}/funnel`,
-		},
+
 		{
 			id: 'inline-buttons',
 			icon: 'smart_button',

@@ -433,14 +433,15 @@ export const ManagedChannelsPage: Component = () => {
 
 						{paymentStep() === 'package' ? (
 							<>
-								<h3 class="text-[20px] font-black text-white mb-2 leading-tight">
-									{t('botManage.choosePackage' as any) || 'Choose Subscription'}
+								<h3 class="text-[20px] font-black text-white mb-1 leading-tight">
+									{t('botManage.choosePackage' as any) || 'Choose a Plan'}
 								</h3>
 								<p class="text-[13px] font-medium text-[#8e8e93] mb-6">
-									Select a premium package for your channel
+									{t('botManage.selectPlan' as any) || 'Select a monthly plan for your'}{' '}
+									{t('botManage.channelService' as any) || 'channel'}
 								</p>
 
-								{/* Package Cards */}
+								{/* Plan Cards */}
 								<div class="space-y-3">
 									<For each={packages() || []}>
 										{(pkg: SubscriptionPackage) => (
@@ -449,36 +450,49 @@ export const ManagedChannelsPage: Component = () => {
 													setSelectedPkg(pkg.id);
 													hapticFeedback.selectionChanged();
 												}}
-												class={`w-full rounded-3xl p-5 flex items-center justify-between border-2 transition-all active:scale-[0.98] ${
+												class={`w-full rounded-3xl p-4 flex items-center justify-between border-2 transition-all active:scale-[0.98] relative overflow-hidden ${
 													selectedPkg() === pkg.id
 														? 'border-[#32ade6] bg-[#32ade6]/10 shadow-lg'
 														: 'border-[#2a2a2a] bg-[#242426] hover:border-[#3a3a3a]'
 												}`}
 											>
-												<div class="flex flex-col items-start gap-1">
+												{/* Badge */}
+												<Show when={pkg.badge}>
+													<div class={`absolute top-0 ${isRtl() ? 'left-0 rounded-bl-xl rounded-tr-2xl' : 'right-0 rounded-br-xl rounded-tl-2xl'} px-2.5 py-1 text-[9px] font-black uppercase tracking-wider ${
+														pkg.badge === 'best_value'
+															? 'bg-[#ff9f0a] text-black'
+															: 'bg-[#32ade6] text-white'
+													}`}>
+														{pkg.badge === 'best_value'
+															? (t('botManage.bestValue' as any) || 'Best Value')
+															: (t('botManage.popular' as any) || 'Popular')}
+													</div>
+												</Show>
+
+												<div class="flex flex-col items-start gap-0.5">
 													<div class="flex items-center gap-2">
-														<span
-															class={`text-[16px] font-black ${selectedPkg() === pkg.id ? 'text-white' : 'text-white/90'}`}
-														>
+														<span class={`text-[16px] font-black ${selectedPkg() === pkg.id ? 'text-white' : 'text-white/90'}`}>
 															{pkg.name}
 														</span>
 														<Show when={pkg.discount}>
-															<span class="text-[10px] font-black text-[#34c759] bg-[#34c759]/10 px-2.5 py-1 rounded-full uppercase">
+															<span class="text-[10px] font-black text-[#34c759] bg-[#34c759]/10 px-2 py-0.5 rounded-full">
 																-{pkg.discount}
 															</span>
 														</Show>
 													</div>
-													<span class="text-[12px] font-bold text-[#8e8e93]">
-														Premium Channel Services
+													<span class="text-[11px] font-medium text-[#8e8e93]">
+														{t('botManage.totalPrice' as any) || 'Total'}: ${pkg.price_usd.toFixed(2)} · {pkg.price_stars} ⭐
 													</span>
 												</div>
-												<div class="flex items-baseline gap-1.5">
-													<span class="text-2xl font-black text-white">
-														{(pkg.price_frg * 100000).toLocaleString()}
-													</span>
-													<span class="text-[13px] font-black text-[#32ade6]">
-														{t('airdrop.boosters.currency')}
-													</span>
+												<div class="flex flex-col items-end gap-0.5">
+													<div class="flex items-baseline gap-0.5">
+														<span class="text-[22px] font-black text-white">
+															${pkg.price_per_month.toFixed(2)}
+														</span>
+														<span class="text-[12px] font-bold text-[#8e8e93]">
+															{t('botManage.perMonth' as any) || '/mo'}
+														</span>
+													</div>
 												</div>
 											</button>
 										)}
@@ -494,7 +508,7 @@ export const ManagedChannelsPage: Component = () => {
 									disabled={!selectedPkg()}
 									class="w-full h-16 bg-[#32ade6] hover:bg-[#2b96c8] text-black rounded-[1.5rem] font-black text-[17px] mt-8 transition-all disabled:opacity-40 flex items-center justify-center gap-3 shadow-[0_20px_40px_rgba(50,173,230,0.3)] active:scale-95"
 								>
-									Continue to Payment
+									{t('botManage.continuePayment' as any) || 'Continue to Payment'}
 								</button>
 							</>
 						) : (
@@ -508,13 +522,34 @@ export const ManagedChannelsPage: Component = () => {
 									</button>
 									<div>
 										<h3 class="text-[20px] font-black text-white leading-tight">
-											Select Payment Method
+											{t('botManage.paymentMethodTitle' as any) || 'Payment Method'}
 										</h3>
-										<p class="text-[13px] font-medium text-[#8e8e93]">Choose how you want to pay</p>
+										<p class="text-[13px] font-medium text-[#8e8e93]">
+											{t('botManage.paymentMethodDesc' as any) || 'Choose how you want to pay'}
+										</p>
 									</div>
 								</div>
 
-								<div class="space-y-4 mt-8">
+								{/* Selected plan summary */}
+								<Show when={packages() && selectedPkg()}>
+									{(() => {
+										const pkg = (packages() || []).find((p: SubscriptionPackage) => p.id === selectedPkg());
+										return pkg ? (
+											<div class="bg-[#242426] rounded-2xl p-4 mb-6 border border-[#2a2a2a] flex items-center justify-between">
+												<div class="flex flex-col gap-0.5">
+													<span class="text-[15px] font-black text-white">{pkg.name}</span>
+													<span class="text-[12px] text-[#8e8e93]">${pkg.price_per_month.toFixed(2)}{t('botManage.perMonth' as any) || '/mo'}</span>
+												</div>
+												<div class="flex flex-col items-end">
+													<span class="text-[17px] font-black text-white">${pkg.price_usd.toFixed(2)}</span>
+													<span class="text-[11px] text-[#8e8e93]">{pkg.price_stars} ⭐</span>
+												</div>
+											</div>
+										) : null;
+									})()}
+								</Show>
+
+								<div class="space-y-4">
 									{/* Telegram Stars Button */}
 									<button
 										onClick={handleSubscribeStars}
@@ -527,10 +562,21 @@ export const ManagedChannelsPage: Component = () => {
 												<span class="text-[24px]">⭐</span>
 											</div>
 											<div class="flex-1">
-												<h4 class="text-[17px] font-black text-white mb-0.5">Telegram Stars</h4>
-												<p class="text-[13px] font-medium text-[#8e8e93]">Fast & native payment</p>
+												<h4 class="text-[17px] font-black text-white mb-0.5">
+													{t('botManage.starsPayTitle' as any) || 'Telegram Stars'}
+												</h4>
+												<p class="text-[13px] font-medium text-[#8e8e93]">
+													{t('botManage.starsPayDesc' as any) || 'Fast & native Telegram payment'}
+												</p>
 											</div>
-											<span class="material-symbols-outlined text-[#ffb900]">chevron_right</span>
+											<Show when={packages() && selectedPkg()}>
+												{(() => {
+													const pkg = (packages() || []).find((p: SubscriptionPackage) => p.id === selectedPkg());
+													return pkg ? (
+														<span class="text-[15px] font-black text-[#ffb900]">{pkg.price_stars} ⭐</span>
+													) : null;
+												})()}
+											</Show>
 										</div>
 									</button>
 
@@ -548,8 +594,12 @@ export const ManagedChannelsPage: Component = () => {
 												</span>
 											</div>
 											<div class="flex-1">
-												<h4 class="text-[17px] font-black text-white mb-0.5">Airdrop Coins</h4>
-												<p class="text-[13px] font-medium text-[#8e8e93]">Use earned balance</p>
+												<h4 class="text-[17px] font-black text-white mb-0.5">
+													{t('botManage.airdropPayTitle' as any) || 'Airdrop Coins'}
+												</h4>
+												<p class="text-[13px] font-medium text-[#8e8e93]">
+													{t('botManage.airdropPayDesc' as any) || 'Use your earned coin balance'}
+												</p>
 											</div>
 											<span class="material-symbols-outlined text-[#32ade6]">chevron_right</span>
 										</div>
