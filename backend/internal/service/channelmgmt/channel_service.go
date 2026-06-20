@@ -1633,20 +1633,30 @@ var ErrAlreadyClicked = errors.New("already clicked")
 
 // RegisterButtonClick increments click count of an inline button if user hasn't clicked it already
 func (s *ChannelService) RegisterButtonClick(ctx context.Context, channelID uuid.UUID, telegramMessageID int64, buttonID uuid.UUID, userID int64) error {
+	action, oldBtnID, err := s.channelRepo.RegisterPostButtonClick(ctx, channelID, telegramMessageID, buttonID, userID)
+	if err != nil {
+		if err.Error() == "already clicked" {
+			return ErrAlreadyClicked
+		}
+		return err
+	}
+
 	cache := s.channelRepo.GetCache()
 	if cache != nil && cache.Client != nil {
 		clickKey := fmt.Sprintf("msg_btn_clicked:%s:%d:%s:%d", channelID.String(), telegramMessageID, buttonID.String(), userID)
-		// Atomic check and set, expires in 30 days
-		set, err := cache.Client.SetNX(ctx, clickKey, "1", 30*24*time.Hour).Result()
-		if err != nil {
-			return err
-		}
-		if !set {
-			return ErrAlreadyClicked
+		switch action {
+		case "inserted":
+			_ = cache.Client.Set(ctx, clickKey, "1", 30*24*time.Hour).Err()
+		case "deleted":
+			_ = cache.Client.Del(ctx, clickKey).Err()
+		case "swapped":
+			oldClickKey := fmt.Sprintf("msg_btn_clicked:%s:%d:%s:%d", channelID.String(), telegramMessageID, oldBtnID.String(), userID)
+			_ = cache.Client.Del(ctx, oldClickKey).Err()
+			_ = cache.Client.Set(ctx, clickKey, "1", 30*24*time.Hour).Err()
 		}
 	}
 
-	return s.channelRepo.RegisterPostButtonClick(ctx, channelID, telegramMessageID, buttonID, userID)
+	return nil
 }
 
 // BuildInlineKeyboard constructs a valid map[string]interface{} for Telegram's InlineKeyboardMarkup

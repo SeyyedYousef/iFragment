@@ -955,9 +955,6 @@ func buildReplyMarkupFromButtons(buttons []repository.ChannelInlineButton) inter
 			text += btn.Emoji + " "
 		}
 		text += btn.Title
-		if btn.Type == "counter" && btn.ClickCount > 0 {
-			text += fmt.Sprintf(" (%d)", btn.ClickCount)
-		}
 
 		ikb := map[string]interface{}{
 			"text": truncateButtonText(text, 64),

@@ -1497,24 +1497,111 @@ func (r *ChannelRepo) GetScheduledFunnelPosts(ctx context.Context) ([]PendingFun
 	return posts, nil
 }
 
-// RegisterPostButtonClick registers a user click on an inline button for a specific message
-func (r *ChannelRepo) RegisterPostButtonClick(ctx context.Context, channelID uuid.UUID, telegramMessageID int64, buttonID uuid.UUID, userID int64) error {
+// RegisterPostButtonClick registers a user click on an inline button for a specific message.
+// It supports toggling and mutual exclusivity for counter buttons.
+// Returns action ("inserted", "deleted", "swapped"), oldButtonID (if swapped), and error.
+func (r *ChannelRepo) RegisterPostButtonClick(ctx context.Context, channelID uuid.UUID, telegramMessageID int64, buttonID uuid.UUID, userID int64) (string, uuid.UUID, error) {
 	if r.db == nil || r.db.Pool == nil {
-		return fmt.Errorf("database pool is not initialized")
+		return "", uuid.Nil, fmt.Errorf("database pool is not initialized")
 	}
 
-	query := `INSERT INTO channel_post_clicks (channel_id, telegram_message_id, button_id, user_id)
-		VALUES ($1, $2, $3, $4)`
-	_, err := r.db.Pool.Exec(ctx, query, channelID, telegramMessageID, buttonID, userID)
+	tx, err := r.db.Pool.Begin(ctx)
+	if err != nil {
+		return "", uuid.Nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Get the clicked button type
+	var btnType string
+	err = tx.QueryRow(ctx, `SELECT type FROM channel_inline_buttons WHERE id = $1`, buttonID).Scan(&btnType)
+	if err != nil {
+		return "", uuid.Nil, err
+	}
+
+	if btnType == "counter" {
+		// 2. Find all counter buttons for this channel
+		rows, err := tx.Query(ctx, `SELECT id FROM channel_inline_buttons WHERE channel_id = $1 AND type = 'counter'`, channelID)
+		if err != nil {
+			return "", uuid.Nil, err
+		}
+		var counterBtnIDs []uuid.UUID
+		for rows.Next() {
+			var id uuid.UUID
+			if err := rows.Scan(&id); err == nil {
+				counterBtnIDs = append(counterBtnIDs, id)
+			}
+		}
+		rows.Close()
+
+		if len(counterBtnIDs) > 0 {
+			// 3. Find if the user has clicked any of these counter buttons for this message
+			var existingClickedBtnID uuid.UUID
+			err = tx.QueryRow(ctx, `
+				SELECT button_id FROM channel_post_clicks 
+				WHERE channel_id = $1 AND telegram_message_id = $2 AND user_id = $3 AND button_id = ANY($4)
+			`, channelID, telegramMessageID, userID, counterBtnIDs).Scan(&existingClickedBtnID)
+
+			if err == nil {
+				// Case A: User has already clicked the SAME button -> Toggle OFF (delete the click)
+				if existingClickedBtnID == buttonID {
+					_, err = tx.Exec(ctx, `
+						DELETE FROM channel_post_clicks 
+						WHERE channel_id = $1 AND telegram_message_id = $2 AND user_id = $3 AND button_id = $4
+					`, channelID, telegramMessageID, userID, buttonID)
+					if err != nil {
+						return "", uuid.Nil, err
+					}
+					if err := tx.Commit(ctx); err != nil {
+						return "", uuid.Nil, err
+					}
+					return "deleted", uuid.Nil, nil
+				}
+
+				// Case B: User has clicked a DIFFERENT counter button -> Switch vote (delete old click, insert new one)
+				_, err = tx.Exec(ctx, `
+					DELETE FROM channel_post_clicks 
+					WHERE channel_id = $1 AND telegram_message_id = $2 AND user_id = $3 AND button_id = $4
+				`, channelID, telegramMessageID, userID, existingClickedBtnID)
+				if err != nil {
+					return "", uuid.Nil, err
+				}
+
+				_, err = tx.Exec(ctx, `
+					INSERT INTO channel_post_clicks (channel_id, telegram_message_id, button_id, user_id)
+					VALUES ($1, $2, $3, $4)
+				`, channelID, telegramMessageID, buttonID, userID)
+				if err != nil {
+					return "", uuid.Nil, err
+				}
+
+				if err := tx.Commit(ctx); err != nil {
+					return "", uuid.Nil, err
+				}
+				return "swapped", existingClickedBtnID, nil
+			} else if err != pgx.ErrNoRows {
+				return "", uuid.Nil, err
+			}
+		}
+	}
+
+	// Case C: No existing click or not a counter button. Let's do standard insert.
+	_, err = tx.Exec(ctx, `
+		INSERT INTO channel_post_clicks (channel_id, telegram_message_id, button_id, user_id)
+		VALUES ($1, $2, $3, $4)
+	`, channelID, telegramMessageID, buttonID, userID)
 	if err != nil {
 		if pgErr, ok := err.(*pgconn.PgError); ok {
 			if pgErr.Code == "23505" {
-				return fmt.Errorf("already clicked")
+				return "", uuid.Nil, fmt.Errorf("already clicked")
 			}
 		}
-		return err
+		return "", uuid.Nil, err
 	}
-	return nil
+
+	if err := tx.Commit(ctx); err != nil {
+		return "", uuid.Nil, err
+	}
+	return "inserted", uuid.Nil, nil
 }
 
 // GetChannelButtonsWithCounts returns inline buttons list for a channel with counts for a specific message
