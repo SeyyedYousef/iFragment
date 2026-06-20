@@ -590,6 +590,18 @@ func (s *ChannelService) HandleFunnelCallback(ctx context.Context, cq FunnelCall
 		return err
 	}
 
+	lang := "en"
+	destChan, err := s.channelRepo.GetChannelByChatID(ctx, funnel.OutputChatID)
+	if err == nil && destChan != nil {
+		settings, err := s.channelRepo.GetChannelSettings(ctx, destChan.ID)
+		if err == nil && settings != nil {
+			var general GeneralSettingsSchema
+			if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
+				lang = general.Language
+			}
+		}
+	}
+
 	// Verify permissions: only owner or dynamic funnel admins
 	if cq.FromID != funnel.OwnerUserID {
 		isAdmin := false
@@ -623,7 +635,7 @@ func (s *ChannelService) HandleFunnelCallback(ctx context.Context, cq FunnelCall
 		_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "Publishing post...", false)
 		err = s.publishFunnelPostDirectly(ctx, tg, funnel, draft)
 		if err != nil {
-			_ = tg.SendMessage(ctx, cq.ChatID, fmt.Sprintf("❌ Failed to publish: %v", err), nil, nil)
+			_ = tg.SendMessage(ctx, cq.ChatID, i18n.T(lang, "funnel.failed", map[string]interface{}{"err": err}), nil, nil)
 			return err
 		}
 
@@ -652,7 +664,7 @@ func (s *ChannelService) HandleFunnelCallback(ctx context.Context, cq FunnelCall
 			draft.FunnelID, draft.SelectedVariationIndex, draft.OriginalAuthorName, strings.ToUpper(draft.Status))
 		_ = tg.EditMessageTextWithMarkup(ctx, cq.ChatID, cq.MessageID, panelText, panelMarkup, "Markdown")
 
-		_, _ = tg.SendMessageWithResult(ctx, cq.ChatID, fmt.Sprintf("🤖 Switched style to variant %d. Caption preview:\n\n%s", draft.SelectedVariationIndex, draft.DraftText), nil, nil, "Markdown")
+		_, _ = tg.SendMessageWithResult(ctx, cq.ChatID, i18n.T(lang, "funnel.switched_style", map[string]interface{}{"index": draft.SelectedVariationIndex, "text": draft.DraftText}), nil, nil, "HTML")
 
 	case "f_reg":
 		// Regenerate AI
@@ -678,7 +690,7 @@ func (s *ChannelService) HandleFunnelCallback(ctx context.Context, cq FunnelCall
 					draft.SelectedVariationIndex = 0
 					draft.DraftText = vars[0]
 					_ = s.channelRepo.UpdatePendingFunnelPost(ctx, draft)
-					_, _ = tg.SendMessageWithResult(ctx, cq.ChatID, fmt.Sprintf("🔄 AI variations regenerated. Caption preview:\n\n%s", draft.DraftText), nil, nil, "Markdown")
+					_, _ = tg.SendMessageWithResult(ctx, cq.ChatID, i18n.T(lang, "funnel.regenerated", map[string]interface{}{"text": draft.DraftText}), nil, nil, "HTML")
 				}
 			}
 		}
@@ -701,7 +713,7 @@ func (s *ChannelService) HandleFunnelCallback(ctx context.Context, cq FunnelCall
 					},
 				},
 			}
-			_, _ = tg.SendMessageWithMarkup(ctx, cq.ChatID, "✍️ **Send the new text below. It will overwrite the current caption draft.**", cancelMarkup, nil)
+			_, _ = tg.SendMessageWithMarkup(ctx, cq.ChatID, i18n.T(lang, "funnel.send_new"), cancelMarkup, nil, "HTML")
 		}
 
 	case "f_sch":
@@ -723,7 +735,7 @@ func (s *ChannelService) HandleFunnelCallback(ctx context.Context, cq FunnelCall
 				},
 			},
 		}
-		_, _ = tg.SendMessageWithMarkup(ctx, cq.ChatID, "📅 **Select a delay time to schedule this post:**", quickScheduleMarkup, nil)
+		_, _ = tg.SendMessageWithMarkup(ctx, cq.ChatID, i18n.T(lang, "funnel.select_delay"), quickScheduleMarkup, nil, "HTML")
 		_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "Schedule menu opened", false)
 
 	case "f_time":
@@ -819,7 +831,7 @@ func (s *ChannelService) HandleFunnelTextReply(ctx context.Context, bot *reposit
 	token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 	tg := telegram.NewBotAPIClient(token)
 
-	_, _ = tg.SendMessageWithResult(ctx, chatID, fmt.Sprintf("✍️ **Caption updated draft!**\n\nNew caption preview:\n\n%s", text), nil, nil, "Markdown")
+	_, _ = tg.SendMessageWithResult(ctx, chatID, i18n.T("en", "funnel.updated", map[string]interface{}{"text": text}), nil, nil, "HTML")
 
 	funnel, err := s.channelRepo.GetFunnelByID(ctx, draft.FunnelID)
 	if err == nil {
@@ -964,7 +976,15 @@ func (s *ChannelService) publishFunnelPostDirectly(ctx context.Context, tg *tele
 	auditLog.Metadata = meta
 	_ = s.channelRepo.LogAudit(ctx, &auditLog)
 
-	_, _ = tg.SendMessageWithResult(ctx, funnel.OwnerUserID, fmt.Sprintf("🚀 **Post successfully published to the channel!**\n\n🔑 **Unique Post ID:** `%s`\nUse this key to edit or update the live post caption in the future.", draft.ID.String()), nil, nil, "Markdown")
+	lang := "en"
+	settings, err := s.channelRepo.GetChannelSettings(ctx, destChan.ID)
+	if err == nil && settings != nil {
+		var general GeneralSettingsSchema
+		if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
+			lang = general.Language
+		}
+	}
+	_, _ = tg.SendMessageWithResult(ctx, funnel.OwnerUserID, i18n.T(lang, "funnel.published", map[string]interface{}{"id": draft.ID.String()}), nil, nil, "HTML")
 
 	return nil
 }

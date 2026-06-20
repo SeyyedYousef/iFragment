@@ -624,7 +624,7 @@ func (h *WebhookHandler) handleMyChatMemberUpdate(ctx context.Context, bot *repo
 	newStatus := mcm.NewChatMember.Status
 	oldStatus := mcm.OldChatMember.Status
 
-	if newStatus == "administrator" || newStatus == "member" {
+	if (newStatus == "administrator" || newStatus == "member") && chat.Type != "channel" {
 		slog.Info("Bot added to group", "chat_id", chat.ID, "chat_type", chat.Type)
 		// Trigger onboarding flow
 		h.handleBotAddedToGroup(ctx, bot, &chat, mcm.From.ID)
@@ -1778,9 +1778,9 @@ func (h *WebhookHandler) handleGroupAdminCommand(ctx context.Context, bot *repos
 	case "/warn":
 		return h.adminWarn(ctx, bot, m, lang, group.ID)
 	case "/rules":
-		return h.adminRules(ctx, tg, m, group.ID)
+		return h.adminRules(ctx, tg, m, lang, group.ID)
 	case "/report":
-		return h.adminReport(ctx, tg, m, bot.OwnerUserID)
+		return h.adminReport(ctx, tg, m, lang, bot.OwnerUserID)
 	case "/pin":
 		return h.adminPin(ctx, bot, tg, m)
 	case "/info":
@@ -1799,68 +1799,68 @@ func (h *WebhookHandler) isAdmin(ctx context.Context, tg *telegram.BotAPIClient,
 	return status == "administrator" || status == "creator"
 }
 
-func (h *WebhookHandler) adminBan(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, _ string, _ uuid.UUID) bool {
+func (h *WebhookHandler) adminBan(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, lang string, _ uuid.UUID) bool {
 	targetID, targetName := h.getTarget(m)
 	if targetID == 0 {
 		return false
 	}
 
 	if perms, err := h.getBotPermissionsCached(ctx, tg, m.Chat.ID, bot.BotID); err == nil && perms != nil && !perms.CanRestrictMembers {
-		_ = tg.SendMessage(ctx, m.Chat.ID, "❌ I don't have permission to ban users.", &m.MessageID, m.MessageThreadID)
+		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.no_ban_perm"), &m.MessageID, m.MessageThreadID)
 		return true
 	}
 
 	_ = tg.BanChatMember(ctx, m.Chat.ID, targetID, 0, false)
-	_ = tg.SendMessage(ctx, m.Chat.ID, fmt.Sprintf("🚫 *User Banned*\n\nUser: [%s](tg://user?id=%d)", targetName, targetID), &m.MessageID, m.MessageThreadID)
+	_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.user_banned", map[string]interface{}{"id": targetID, "name": targetName}), &m.MessageID, m.MessageThreadID)
 	return true
 }
 
-func (h *WebhookHandler) adminUnban(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, _ string, _ uuid.UUID) bool {
+func (h *WebhookHandler) adminUnban(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, lang string, _ uuid.UUID) bool {
 	targetID, targetName := h.getTarget(m)
 	if targetID == 0 {
 		return false
 	}
 
 	if perms, err := h.getBotPermissionsCached(ctx, tg, m.Chat.ID, bot.BotID); err == nil && perms != nil && !perms.CanRestrictMembers {
-		_ = tg.SendMessage(ctx, m.Chat.ID, "❌ I don't have permission to unban users.", &m.MessageID, m.MessageThreadID)
+		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.no_unban_perm"), &m.MessageID, m.MessageThreadID)
 		return true
 	}
 
 	_ = tg.UnbanChatMember(ctx, m.Chat.ID, targetID, false)
-	_ = tg.SendMessage(ctx, m.Chat.ID, fmt.Sprintf("✅ *User Unbanned*\n\nUser: [%s](tg://user?id=%d)", targetName, targetID), &m.MessageID, m.MessageThreadID)
+	_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.user_unbanned", map[string]interface{}{"id": targetID, "name": targetName}), &m.MessageID, m.MessageThreadID)
 	return true
 }
 
-func (h *WebhookHandler) adminMute(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, _ string, _ uuid.UUID) bool {
+func (h *WebhookHandler) adminMute(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, lang string, _ uuid.UUID) bool {
 	targetID, targetName := h.getTarget(m)
 	if targetID == 0 {
 		return false
 	}
 
 	if perms, err := h.getBotPermissionsCached(ctx, tg, m.Chat.ID, bot.BotID); err == nil && perms != nil && !perms.CanRestrictMembers {
-		_ = tg.SendMessage(ctx, m.Chat.ID, "❌ I don't have permission to mute users.", &m.MessageID, m.MessageThreadID)
+		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.no_mute_perm"), &m.MessageID, m.MessageThreadID)
 		return true
 	}
 
 	until := time.Now().Add(24 * time.Hour).Unix()
 	_ = tg.RestrictChatMember(ctx, m.Chat.ID, targetID, until)
-	_ = tg.SendMessage(ctx, m.Chat.ID, fmt.Sprintf("🔇 *User Muted (24h)*\n\nUser: [%s](tg://user?id=%d)", targetName, targetID), &m.MessageID, m.MessageThreadID)
+	_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.user_muted", map[string]interface{}{"id": targetID, "name": targetName}), &m.MessageID, m.MessageThreadID)
 	return true
 }
 
-func (h *WebhookHandler) adminUnmute(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, _ string, _ uuid.UUID) bool {
+func (h *WebhookHandler) adminUnmute(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, lang string, _ uuid.UUID) bool {
 	targetID, targetName := h.getTarget(m)
 	if targetID == 0 {
 		return false
 	}
 
 	if perms, err := h.getBotPermissionsCached(ctx, tg, m.Chat.ID, bot.BotID); err == nil && perms != nil && !perms.CanRestrictMembers {
-		_ = tg.SendMessage(ctx, m.Chat.ID, "❌ I don't have permission to unmute users.", &m.MessageID, m.MessageThreadID)
+		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.no_unmute_perm"), &m.MessageID, m.MessageThreadID)
 		return true
 	}
 
-	_ = tg.UnrestrictChatMember(ctx, m.Chat.ID, targetID)
-	_ = tg.SendMessage(ctx, m.Chat.ID, fmt.Sprintf("🔊 *User Unmuted*\n\nUser: [%s](tg://user?id=%d)", targetName, targetID), &m.MessageID, m.MessageThreadID)
+	_ = tg.RestrictChatMember(ctx, m.Chat.ID, targetID, 0)
+	_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.user_unmuted", map[string]interface{}{"id": targetID, "name": targetName}), &m.MessageID, m.MessageThreadID)
 	return true
 }
 
@@ -1880,17 +1880,18 @@ func (h *WebhookHandler) adminWarn(ctx context.Context, bot *repository.ManagedB
 	return true
 }
 
-func (h *WebhookHandler) adminRules(ctx context.Context, tg *telegram.BotAPIClient, m *Message, groupID uuid.UUID) bool {
-	settings, _ := h.moderator.GetSettings(ctx, groupID)
-	if settings == nil {
-		return false
+func (h *WebhookHandler) adminRules(ctx context.Context, tg *telegram.BotAPIClient, m *Message, lang string, groupID uuid.UUID) bool {
+	settings, err := h.moderator.GetSettings(ctx, groupID)
+	if err != nil || settings == nil {
+		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.no_rules"), &m.MessageID, m.MessageThreadID)
+		return true
 	}
 
 	var ct repository.SettingsCustomTexts
 	json.Unmarshal(settings.CustomTexts, &ct)
 
 	if ct.RulesText == "" {
-		_ = tg.SendMessage(ctx, m.Chat.ID, "⚠️ Rules are not set for this group.", &m.MessageID, m.MessageThreadID)
+		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.no_rules"), &m.MessageID, m.MessageThreadID)
 		return true
 	}
 
@@ -1903,11 +1904,12 @@ func (h *WebhookHandler) adminRules(ctx context.Context, tg *telegram.BotAPIClie
 			rulesText = strings.ReplaceAll(rulesText, "{username}", telegram.EscapeHTML(m.From.FirstName))
 		}
 	}
-	_ = tg.SendMessage(ctx, m.Chat.ID, fmt.Sprintf("📜 <b>Group Rules</b>\n\n%s", rulesText), &m.MessageID, m.MessageThreadID)
+
+	_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.rules_title", map[string]interface{}{"rules": rulesText}), &m.MessageID, m.MessageThreadID)
 	return true
 }
 
-func (h *WebhookHandler) adminReport(ctx context.Context, tg *telegram.BotAPIClient, m *Message, ownerID int64) bool {
+func (h *WebhookHandler) adminReport(ctx context.Context, tg *telegram.BotAPIClient, m *Message, lang string, ownerID int64) bool {
 	if m.ReplyToMessage == nil || m.ReplyToMessage.From == nil {
 		return false
 	}
