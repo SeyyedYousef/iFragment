@@ -29,18 +29,23 @@ import (
 )
 
 type SubscriptionPackage struct {
-	ID          string  `json:"id"`
-	Name        string  `json:"name"`
-	GroupsLimit int     `json:"groups_limit"`
-	PriceFRG    float64 `json:"price_frg"`
-	Discount    string  `json:"discount,omitempty"`
+	ID             string  `json:"id"`
+	Name           string  `json:"name"`
+	DurationMonths int     `json:"duration_months"`
+	PriceUSD       float64 `json:"price_usd"`
+	PricePerMonth  float64 `json:"price_per_month"`
+	PriceStars     int     `json:"price_stars"`
+	GroupsLimit    int     `json:"groups_limit"`
+	PriceFRG       float64 `json:"price_frg"`
+	Discount       string  `json:"discount,omitempty"`
+	Badge          string  `json:"badge,omitempty"`
 }
 
 var Packages = []SubscriptionPackage{
-	{ID: "starter", Name: "Starter", GroupsLimit: 1, PriceFRG: 1.5, Discount: ""},
-	{ID: "basic", Name: "Basic", GroupsLimit: 3, PriceFRG: 3.0, Discount: "~33%"},
-	{ID: "pro", Name: "Pro", GroupsLimit: 5, PriceFRG: 5.0, Discount: "~33%"},
-	{ID: "business", Name: "Business", GroupsLimit: 10, PriceFRG: 8.0, Discount: "~47%"},
+	{ID: "1_month", Name: "1 Month", DurationMonths: 1, PriceUSD: 1.99, PricePerMonth: 1.99, PriceStars: 150, GroupsLimit: 1, PriceFRG: 1.99, Discount: "", Badge: ""},
+	{ID: "3_months", Name: "3 Months", DurationMonths: 3, PriceUSD: 4.49, PricePerMonth: 1.49, PriceStars: 350, GroupsLimit: 1, PriceFRG: 4.49, Discount: "25%", Badge: "popular"},
+	{ID: "6_months", Name: "6 Months", DurationMonths: 6, PriceUSD: 7.49, PricePerMonth: 1.29, PriceStars: 575, GroupsLimit: 1, PriceFRG: 7.49, Discount: "35%", Badge: ""},
+	{ID: "12_months", Name: "12 Months", DurationMonths: 12, PriceUSD: 11.99, PricePerMonth: 1.00, PriceStars: 925, GroupsLimit: 1, PriceFRG: 11.99, Discount: "50%", Badge: "best_value"},
 }
 
 type BotService struct {
@@ -567,7 +572,12 @@ func (s *BotService) internalActivateSubscriptionTx(ctx context.Context, tx pgx.
 	if group.SubscriptionStatus == "paid" && group.PaidUntil != nil && group.PaidUntil.After(base) {
 		base = *group.PaidUntil
 	}
-	paidUntil := base.Add(30 * 24 * time.Hour)
+	
+	months := pkg.DurationMonths
+	if months <= 0 {
+		months = 1
+	}
+	paidUntil := base.Add(time.Duration(months) * 30 * 24 * time.Hour)
 
 	if err := s.botRepo.UpdateGroupSubscriptionTx(ctx, tx, groupID, "paid", &paidUntil); err != nil {
 		return fmt.Errorf("failed to activate subscription: %w", err)
