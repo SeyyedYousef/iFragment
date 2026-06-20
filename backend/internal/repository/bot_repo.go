@@ -450,3 +450,14 @@ func (r *BotRepo) GetAllActiveGroups(ctx context.Context) ([]ManagedGroup, error
 	}
 	return groups, nil
 }
+
+func (r *BotRepo) DeleteGroup(ctx context.Context, id uuid.UUID) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("no database connection")
+	}
+
+	query := `DELETE FROM managed_groups WHERE id = $1`
+	_, err := r.db.Pool.Exec(ctx, query, id)
+	return err
+}
+

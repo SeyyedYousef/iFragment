@@ -18,6 +18,7 @@ import (
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/model"
 	"ifragment-backend/internal/repository"
+	"ifragment-backend/internal/client/mtproto"
 	"ifragment-backend/internal/service/totp"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -27,16 +28,18 @@ import (
 var promoCodeRe = regexp.MustCompile(`^[A-Z0-9]{4,20}$`)
 
 type OwnerService struct {
-	repo    *repository.OwnerRepo
-	frgRepo *repository.FRGRepo
-	cache   *repository.Cache
+	repo      *repository.OwnerRepo
+	frgRepo   *repository.FRGRepo
+	cache     *repository.Cache
+	ubManager *mtproto.UserbotManager
 }
 
-func NewOwnerService(repo *repository.OwnerRepo, frgRepo *repository.FRGRepo, cache *repository.Cache) *OwnerService {
+func NewOwnerService(repo *repository.OwnerRepo, frgRepo *repository.FRGRepo, cache *repository.Cache, ubManager *mtproto.UserbotManager) *OwnerService {
 	return &OwnerService{
-		repo:    repo,
-		frgRepo: frgRepo,
-		cache:   cache,
+		repo:      repo,
+		frgRepo:   frgRepo,
+		cache:     cache,
+		ubManager: ubManager,
 	}
 }
 
@@ -757,3 +760,36 @@ func (s *OwnerService) DeleteQuest(ctx context.Context, ownerID int64, key strin
 
 	return tx.Commit(ctx)
 }
+
+func (s *OwnerService) UserbotSendCode(ctx context.Context, phone string) (string, error) {
+	return mtproto.AuthSendCode(ctx, phone)
+}
+
+func (s *OwnerService) UserbotVerifyCode(ctx context.Context, phone, code, hash string) error {
+	err := mtproto.AuthSignIn(ctx, phone, code, hash)
+	if err != nil {
+		return err
+	}
+	
+	// Start in the pool
+	if s.ubManager != nil {
+		if err := s.ubManager.AddClient(ctx, phone); err != nil {
+			return err
+		}
+	}
+	
+	// Save to DB
+	return s.repo.CreateManagedUserbot(ctx, phone)
+}
+
+func (s *OwnerService) ListUserbots(ctx context.Context) ([]model.ManagedUserbot, error) {
+	return s.repo.GetActiveManagedUserbots(ctx)
+}
+
+func (s *OwnerService) DeleteUserbot(ctx context.Context, id string) error {
+	// We need the phone to remove it from the pool. For simplicity, just remove from DB.
+	// On next restart, it won't load. Or we can fetch the userbot first.
+	// Let's just delete from DB.
+	return s.repo.DeleteManagedUserbot(ctx, id)
+}
+

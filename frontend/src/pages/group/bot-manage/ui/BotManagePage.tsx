@@ -3,7 +3,7 @@ import { useNavigate, useParams } from '@solidjs/router';
 import { backButton, hapticFeedback, openTelegramLink } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import type { ManagedGroup, SubscriptionPackage } from '@/shared/api/bot-management.js';
-import { botApi, frgApi, subscriptionApi } from '@/shared/api/bot-management.js';
+import { botApi, frgApi, subscriptionApi, groupApi } from '@/shared/api/bot-management.js';
 import { channelApi } from '@/shared/api/channel-management.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 
@@ -19,6 +19,9 @@ export const BotManagePage: Component = () => {
 	const [isProcessing, setIsProcessing] = createSignal(false);
 	const [successMsg, setSuccessMsg] = createSignal('');
 	const [errorMsg, setErrorMsg] = createSignal('');
+
+	const [groupToDelete, setGroupToDelete] = createSignal<ManagedGroup | null>(null);
+	const [isDeletingGroup, setIsDeletingGroup] = createSignal(false);
 
 	const [bot] = createResource(
 		() => botId,
@@ -90,6 +93,23 @@ export const BotManagePage: Component = () => {
 				setSuccessMsg('');
 				setErrorMsg('');
 			}, 4000);
+		}
+	};
+
+	const handleDeleteGroup = async () => {
+		const group = groupToDelete();
+		if (!group) return;
+
+		setIsDeletingGroup(true);
+		try {
+			await groupApi.revokeGroup(group.id);
+			hapticFeedback.notificationOccurred('success');
+			setGroupToDelete(null);
+			refetchGroups();
+		} catch (e: any) {
+			hapticFeedback.notificationOccurred('error');
+		} finally {
+			setIsDeletingGroup(false);
 		}
 	};
 
@@ -320,6 +340,17 @@ export const BotManagePage: Component = () => {
 												</div>
 
 												<div class="flex flex-col items-end shrink-0">
+													<button
+														onClick={(e) => {
+															e.stopPropagation();
+															hapticFeedback.impactOccurred('medium');
+															setGroupToDelete(group);
+														}}
+														class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#ff3b30]/10 text-[#555] hover:text-[#ff3b30] transition-all mb-1"
+														aria-label={t('managedBots.delete' as any) || 'Delete'}
+													>
+														<span class="material-symbols-outlined text-[20px]">delete</span>
+													</button>
 													<span
 														class={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${
 															group.subscription_status === 'paid'
@@ -529,6 +560,60 @@ export const BotManagePage: Component = () => {
 								<span class="text-[15px] font-bold text-white animate-pulse">Processing...</span>
 							</div>
 						)}
+					</Motion.div>
+				</Motion.div>
+			</Show>
+
+			{/* Delete Group Modal */}
+			<Show when={groupToDelete()}>
+				<Motion.div
+					initial={{ opacity: 0 }}
+					animate={{ opacity: 1 }}
+					class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150] flex items-center justify-center px-5"
+					onClick={(e) => {
+						if (e.target === e.currentTarget && !isDeletingGroup()) setGroupToDelete(null);
+					}}
+				>
+					<Motion.div
+						initial={{ scale: 0.9, opacity: 0 }}
+						animate={{ scale: 1, opacity: 1 }}
+						transition={{ duration: 0.2, easing: [0.32, 0.72, 0, 1] }}
+						class="w-full max-w-sm bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-6 flex flex-col items-center text-center"
+					>
+						<div class="w-16 h-16 rounded-full bg-[#ff3b30]/10 flex items-center justify-center mb-4">
+							<span class="material-symbols-outlined text-[#ff3b30] text-[32px]">delete_forever</span>
+						</div>
+						
+						<h3 class="text-[20px] font-black text-white mb-2">
+							{t('botManage.deleteConfirmTitle' as any) || 'Remove Group'}
+						</h3>
+						<p class="text-[14px] text-[#8e8e93] mb-6 leading-relaxed">
+							{t('botManage.deleteConfirmDesc' as any) || 'Are you sure you want to remove this group? All settings will be lost and bot management will be disabled.'}
+						</p>
+
+						<div class="w-full flex gap-3">
+							<button
+								onClick={() => setGroupToDelete(null)}
+								disabled={isDeletingGroup()}
+								class="flex-1 h-12 rounded-2xl font-bold text-[15px] bg-[#2a2a2a] text-white hover:bg-[#333] transition-all disabled:opacity-50"
+							>
+								{t('common.cancel')}
+							</button>
+							<button
+								onClick={handleDeleteGroup}
+								disabled={isDeletingGroup()}
+								class="flex-1 h-12 rounded-2xl font-bold text-[15px] bg-[#ff3b30] text-white hover:bg-[#ff453a] transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(255,59,48,0.2)]"
+							>
+								<Show
+									when={!isDeletingGroup()}
+									fallback={
+										<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+									}
+								>
+									{t('managedBots.delete' as any) || 'Delete'}
+								</Show>
+							</button>
+						</div>
 					</Motion.div>
 				</Motion.div>
 			</Show>

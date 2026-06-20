@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/model"
 	"ifragment-backend/internal/service"
@@ -478,3 +480,77 @@ func (h *OwnerHandler) DeleteQuest(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
+
+// UserbotSendCode initiates the MTProto Userbot login process
+func (h *OwnerHandler) UserbotSendCode(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Phone string `json:"phone"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "Invalid request payload", err)
+		return
+	}
+	if req.Phone == "" {
+		RespondError(w, r, http.StatusBadRequest, "phone is required", nil)
+		return
+	}
+
+	hash, err := h.srv.UserbotSendCode(r.Context(), req.Phone)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"phone_code_hash": hash})
+}
+
+// UserbotVerifyCode completes the MTProto Userbot login process
+func (h *OwnerHandler) UserbotVerifyCode(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Phone         string `json:"phone"`
+		Code          string `json:"code"`
+		PhoneCodeHash string `json:"phone_code_hash"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "Invalid request payload", err)
+		return
+	}
+	if req.Phone == "" || req.Code == "" || req.PhoneCodeHash == "" {
+		RespondError(w, r, http.StatusBadRequest, "phone, code, and phone_code_hash are required", nil)
+		return
+	}
+
+	err := h.srv.UserbotVerifyCode(r.Context(), req.Phone, req.Code, req.PhoneCodeHash)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+func (h *OwnerHandler) ListUserbots(w http.ResponseWriter, r *http.Request) {
+	bots, err := h.srv.ListUserbots(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		return
+	}
+	RespondJSON(w, http.StatusOK, bots)
+}
+
+func (h *OwnerHandler) DeleteUserbot(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		RespondError(w, r, http.StatusBadRequest, "Missing ID", nil)
+		return
+	}
+	if err := h.srv.DeleteUserbot(r.Context(), id); err != nil {
+		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+

@@ -8,10 +8,12 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gotd/td/tg"
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/i18n"
 	"ifragment-backend/internal/repository"
@@ -117,6 +119,76 @@ func (s *ChannelService) ProcessChannelPostForFunnel(ctx context.Context, bot *r
 	})
 
 	return true, nil
+}
+
+// ProcessChannelPostForUserbot is called by the MTProto Userbot listener when a new message appears in any channel.
+func (s *ChannelService) ProcessChannelPostForUserbot(ctx context.Context, e tg.Entities, msg *tg.Message) {
+	// The peer is a channel
+	peer, ok := msg.PeerID.(*tg.PeerChannel)
+	if !ok {
+		return
+	}
+	
+	// Convert raw channel ID to -100 format
+	chatID := int64(-1000000000000) - int64(peer.ChannelID)
+	
+	// 1. Get all funnels that use this channel as input
+	funnels, err := s.channelRepo.GetFunnelsByInputChatID(ctx, chatID)
+	if err != nil {
+		slog.Error("Userbot failed to check input chat funnels", "error", err)
+	}
+	
+	// 2. Get all inbound forwarding rules that use this channel as source
+	inboundRules, err := s.channelRepo.GetActiveForwardingRulesBySource(ctx, strconv.FormatInt(chatID, 10))
+	if err != nil {
+		slog.Error("Userbot failed to check input chat forwarding rules", "error", err)
+	}
+
+	if len(funnels) == 0 && len(inboundRules) == 0 {
+		return // Not an input channel for any active funnel or forwarding rule
+	}
+	
+	slog.Info("Userbot intercepted post", "input_chat_id", chatID, "message_id", msg.ID)
+	
+	// Extract basic data
+	text := msg.Message
+	var mediaGroupID string
+	if msg.GroupedID != 0 {
+		mediaGroupID = fmt.Sprintf("%d", msg.GroupedID)
+	}
+
+	// We don't have a bot reference initially, so we loop over funnels
+	for _, funnel := range funnels {
+		bot, err := s.botRepo.GetBotByID(ctx, funnel.BotID)
+		if err != nil {
+			continue
+		}
+		
+		// Map MTProto media to our internal structure 
+		// Note: MTProto media mapping requires extensive logic. For now, we capture Text correctly.
+		// If media is present, we handle it generally (Userbots can download/forward via their own mechanism,
+		// but since we relay via bot, we can use the original post link or text).
+		var media []repository.FunnelMediaItem // TODO: Implement MTProto -> Telegram API Media mapping if needed
+		
+		var replyMarkup json.RawMessage
+		var authorID *int64
+		authorName := ""
+		
+		// If it's a single post or album, we pass it to the existing pipeline
+		_, _ = s.ProcessChannelPostForFunnel(ctx, bot, chatID, msg.ID, text, media, mediaGroupID, replyMarkup, authorID, authorName)
+	}
+
+	// 4. Trigger Forwarding Rules pipeline if there are any rules
+	if len(inboundRules) > 0 {
+		s.wg.Add(1)
+		GoSafe(func() {
+			defer s.wg.Done()
+			bgCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			defer cancel()
+			// trigger the mirroring pipeline
+			_ = s.processChannelPostAsync(bgCtx, chatID, msg.ID, text, nil, false)
+		})
+	}
 }
 
 func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *repository.ManagedBot, funnel *repository.ChannelFunnel, inputMsgID int64, text string, media []repository.FunnelMediaItem, mediaGroupID string, authorID *int64, authorName string) error {

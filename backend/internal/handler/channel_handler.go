@@ -893,7 +893,8 @@ func (h *ChannelHandler) SaveButtons(w http.ResponseWriter, r *http.Request) {
 }
 
 type CreateFunnelRequest struct {
-	InputChannelID string `json:"input_channel_id"`
+	InputChannelID         string `json:"input_channel_id"`
+	InputChannelIdentifier string `json:"input_channel_identifier,omitempty"` // @username or invite link for userbot auto-join
 }
 
 func (h *ChannelHandler) CreateFunnel(w http.ResponseWriter, r *http.Request) {
@@ -923,7 +924,7 @@ func (h *ChannelHandler) CreateFunnel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	funnel, err := h.svc.CreateFunnel(r.Context(), userID, channelID, inputChannelID)
+	funnel, err := h.svc.CreateFunnel(r.Context(), userID, channelID, inputChannelID, req.InputChannelIdentifier)
 	if err != nil {
 		h.respondServerError(w, r, "failed to create funnel", err)
 		return

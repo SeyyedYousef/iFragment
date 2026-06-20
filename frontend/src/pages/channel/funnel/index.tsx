@@ -14,6 +14,7 @@ export const ChannelFunnelPage: Component = () => {
 
 	const [isMenuOpen, setIsMenuOpen] = createSignal(false);
 	const [selectedInputChannel, setSelectedInputChannel] = createSignal<string>('');
+	const [inputIdentifier, setInputIdentifier] = createSignal<string>('');
 	const [isSubmitting, setIsSubmitting] = createSignal(false);
 
 	const [channel] = createResource(
@@ -42,7 +43,7 @@ export const ChannelFunnelPage: Component = () => {
 		setIsSubmitting(true);
 		hapticFeedback.impactOccurred('medium');
 		try {
-			await channelApi.createFunnel(params.id, selectedInputChannel());
+			await channelApi.createFunnel(params.id, selectedInputChannel(), inputIdentifier());
 			hapticFeedback.notificationOccurred('success');
 			showToast(isRtl() ? 'قیف فعال شد' : 'Funnel enabled', 'success');
 			mutateFunnel({
@@ -163,6 +164,16 @@ export const ChannelFunnelPage: Component = () => {
 										expand_more
 									</span>
 								</div>
+
+								<label class="text-[12px] font-bold text-[#8e8e93] mt-2">{isRtl() ? 'آیدی کانال ورودی (برای جوین خودکار ربات)' : 'Input Channel Username (for Auto-Join)'}</label>
+								<input
+									type="text"
+									class="w-full h-12 bg-[#0f1014] border border-[#2a2a2a] rounded-xl px-4 text-[14px] text-white outline-none focus:border-[#32ade6] transition-colors"
+									value={inputIdentifier()}
+									onInput={(e) => setInputIdentifier(e.currentTarget.value)}
+									placeholder="@channel_username"
+									dir="ltr"
+								/>
 
 								<button
 									onClick={handleCreateFunnel}

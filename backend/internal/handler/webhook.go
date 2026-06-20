@@ -184,6 +184,7 @@ type InlineKeyboardButton struct {
 	Text         string `json:"text"`
 	URL          string `json:"url,omitempty"`
 	CallbackData string `json:"callback_data,omitempty"`
+	Style        string `json:"style,omitempty"`
 }
 
 type InlineKeyboardMarkup struct {

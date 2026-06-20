@@ -160,6 +160,9 @@ export const groupApi = {
 	getGroup: (groupId: string) =>
 		apiClient.get<ManagedGroup>(`/groups/${groupId}`).then((r: any) => r.data),
 
+	revokeGroup: (groupId: string) =>
+		apiClient.delete(`/groups/${groupId}`).then((r: any) => r.data),
+
 	getSettings: (groupId: string) =>
 		apiClient.get<GroupSettings>(`/groups/${groupId}/settings`).then((r: any) => r.data),
 

@@ -538,6 +538,8 @@ export const dict = {
 		choosePackage: 'Choose a Package',
 		buySubscription: 'Buy Subscription',
 		goToMarketplace: 'Go to Coins Marketplace',
+		deleteConfirmTitle: 'Remove Group',
+		deleteConfirmDesc: 'Are you sure you want to remove this group? All settings will be lost and bot management will be disabled.',
 	},
 	marketplace: {
 		title: 'Coins Marketplace',
@@ -1290,6 +1292,8 @@ To enable me to delete malicious messages and restrict violating users, please a
 		charCount: 'characters',
 	},
 	channelAutoResponder: {
+		guideTitle: 'Auto-Responder Features Guide',
+		guideDesc: 'When enabled, the bot activates in your linked Discuss Group and provides the following features:',
 		title: 'Auto-Responder',
 		subtitle: 'Automated replies & first comments',
 		noRules: 'No Auto-Reply Rules',

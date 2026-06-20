@@ -24,6 +24,7 @@ const (
 	PermPromoView     Permission = "promo:view"
 	PermAuditView     Permission = "audit:view"
 	PermQuestManage   Permission = "quests:manage"
+	PermUserbotManage Permission = "userbot:manage"
 )
 
 var rolePermissions = map[string]map[Permission]bool{
@@ -58,6 +59,7 @@ var rolePermissions = map[string]map[Permission]bool{
 		PermAuditView:     true,
 		PermImpersonate:   true,
 		PermQuestManage:   true,
+		PermUserbotManage: true,
 	},
 }
 

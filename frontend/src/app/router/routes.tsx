@@ -20,6 +20,7 @@ import { ContentRestrictionsPage } from '@/pages/group/content-restrictions/inde
 import { CustomTextsPage } from '@/pages/group/custom-texts/index.js';
 import { GroupDashboardPage } from '@/pages/group/dashboard/index.js';
 import { GeneralSettingsPage } from '@/pages/group/general-settings/index.js';
+import { GroupDynamicBioPage } from '@/pages/group/dynamic-bio/index.js';
 import { LimitsPage } from '@/pages/group/limits/index.js';
 import { ManagedBotsPage } from '@/pages/group/managed-bots/index.js';
 import { MandatoryPage } from '@/pages/group/mandatory/index.js';
@@ -29,6 +30,7 @@ import { MarketplacePage } from '@/pages/marketplace/index.js';
 import { OwnerAuditLogPage } from '@/pages/owner/audit-log/index.js';
 import { OwnerDashboardPage } from '@/pages/owner/dashboard/index.js';
 import { OwnerQuests } from '@/pages/owner/quests/index.js';
+import { OwnerUserbot } from '@/pages/owner/userbot/index.js';
 import { OwnerUsersPage } from '@/pages/owner/users/index.js';
 import { AchievementsPage } from '@/pages/profile/achievements/index.js';
 import { BoostsPage } from '@/pages/profile/boosts/index.js';
@@ -72,6 +74,7 @@ export const routes: Route[] = [
 	{ path: '/group/:id/mandatory', Component: MandatoryPage },
 	{ path: '/group/:id/settings/custom-texts', Component: CustomTextsPage },
 	{ path: '/group/:id/analytics', Component: AnalyticsPage },
+	{ path: '/group/:id/dynamic-bio', Component: GroupDynamicBioPage },
 	{ path: '/managed-channels', Component: ManagedChannelsPage },
 	{ path: '/channel/connect', Component: ConnectChannelPage },
 	{ path: '/channel/:id', Component: ChannelDashboardPage },
@@ -89,4 +92,5 @@ export const routes: Route[] = [
 	{ path: '/owner/users', Component: OwnerUsersPage },
 	{ path: '/owner/audit-logs', Component: OwnerAuditLogPage },
 	{ path: '/owner/quests', Component: OwnerQuests },
+	{ path: '/owner/userbot', Component: OwnerUserbot },
 ];

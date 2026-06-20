@@ -318,6 +318,47 @@ export const ChannelAutoResponderPage: Component = () => {
 								transition={{ delay: 0.05 }}
 								class="flex flex-col gap-6"
 							>
+								{/* Features Guide Banner */}
+								<div class="bg-gradient-to-br from-[#32ade6]/20 to-[#0f1014] border border-[#32ade6]/30 rounded-3xl p-5 flex flex-col gap-3 relative overflow-hidden">
+									<div class="absolute -right-4 -top-4 w-24 h-24 bg-[#32ade6]/20 rounded-full blur-2xl"></div>
+									<div class="flex items-center gap-2 mb-1">
+										<span class="material-symbols-outlined text-[#32ade6] text-[24px]">lightbulb</span>
+										<h2 class="text-[16px] font-bold text-white">{t('channelAutoResponder.guideTitle') || 'راهنمای قابلیت‌های پاسخگوی خودکار'}</h2>
+									</div>
+									<p class="text-[13px] text-on-surface-variant leading-relaxed">
+										{t('channelAutoResponder.guideDesc') || 'با روشن شدن این بخش، ربات در گروه متصل به کانال شما (Discuss Group) فعال می‌شود. قابلیت‌های زیر در اختیار شماست:'}
+									</p>
+									<ul class="flex flex-col gap-3 mt-1">
+										<li class="flex items-start gap-2">
+											<div class="w-6 h-6 rounded-full bg-[#32ade6]/20 flex items-center justify-center shrink-0 mt-0.5">
+												<span class="material-symbols-outlined text-[#32ade6] text-[14px]">forum</span>
+											</div>
+											<div class="flex flex-col">
+												<span class="text-[14px] font-bold text-white">کامنت اول خودکار</span>
+												<span class="text-[12px] text-[#8e8e93]">به محض ارسال پست در کانال، ربات اولین کامنت را زیر آن ثبت می‌کند.</span>
+											</div>
+										</li>
+										<li class="flex items-start gap-2">
+											<div class="w-6 h-6 rounded-full bg-[#32ade6]/20 flex items-center justify-center shrink-0 mt-0.5">
+												<span class="material-symbols-outlined text-[#32ade6] text-[14px]">waving_hand</span>
+											</div>
+											<div class="flex flex-col">
+												<span class="text-[14px] font-bold text-white">پیام خوش‌آمدگویی</span>
+												<span class="text-[12px] text-[#8e8e93]">ورود اعضای جدید به گروه بحث را با پیامی سفارشی تبریک می‌گوید.</span>
+											</div>
+										</li>
+										<li class="flex items-start gap-2">
+											<div class="w-6 h-6 rounded-full bg-[#32ade6]/20 flex items-center justify-center shrink-0 mt-0.5">
+												<span class="material-symbols-outlined text-[#32ade6] text-[14px]">smart_toy</span>
+											</div>
+											<div class="flex flex-col">
+												<span class="text-[14px] font-bold text-white">پاسخ‌های کلمه‌ای (Keyword)</span>
+												<span class="text-[12px] text-[#8e8e93]">با تنظیم کلمات کلیدی، ربات به صورت خودکار به سوالات پرتکرار کاربران پاسخ می‌دهد.</span>
+											</div>
+										</li>
+									</ul>
+								</div>
+
 								{/* Auto First Comment */}
 								<div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-5 flex flex-col gap-4">
 									<SettingsSection

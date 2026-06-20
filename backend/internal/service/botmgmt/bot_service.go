@@ -25,6 +25,7 @@ import (
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/i18n"
 	"ifragment-backend/internal/repository"
+	"ifragment-backend/internal/service/crypto"
 )
 
 type SubscriptionPackage struct {
@@ -48,9 +49,11 @@ type BotService struct {
 	auditRepo            *repository.AuditRepo
 	frgRepo              *repository.FRGRepo
 	analyticsRepo        *repository.AnalyticsRepo
-	mu                   sync.Mutex
 	lastNotificationDate string               // format: YYYY-MM-DD
 	qhNotifications      map[string]time.Time // key: groupID:action:HH:MM, val: time
+	lastBioUpdate        sync.Map             // map[uuid.UUID]time.Time
+	cryptoService        *crypto.CryptoService
+	mu                   sync.Mutex
 }
 
 func NewBotService(
@@ -66,6 +69,7 @@ func NewBotService(
 		auditRepo:     auditRepo,
 		frgRepo:       frgRepo,
 		analyticsRepo: analyticsRepo,
+		cryptoService: crypto.NewCryptoService(),
 	}
 }
 
@@ -86,6 +90,9 @@ func (s *BotService) StartBackgroundTasks(ctx context.Context) {
 			}
 		}
 	}()
+
+	// Start group dynamic bio worker
+	go s.dynamicBioWorker(ctx)
 }
 
 func (s *BotService) CheckExpirations(ctx context.Context) {
@@ -382,13 +389,62 @@ func (s *BotService) GetGroup(ctx context.Context, groupID uuid.UUID, ownerID in
 	return group, nil
 }
 
+func (s *BotService) DeleteGroup(ctx context.Context, groupID uuid.UUID, ownerID int64) error {
+	if _, err := s.GetGroup(ctx, groupID, ownerID); err != nil {
+		return err
+	}
+	return s.botRepo.DeleteGroup(ctx, groupID)
+}
+
+
 // Settings Operations
 
 func (s *BotService) GetSettings(ctx context.Context, groupID uuid.UUID, ownerID int64) (*repository.GroupSettings, error) {
-	if _, err := s.GetGroup(ctx, groupID, ownerID); err != nil {
+	group, err := s.GetGroup(ctx, groupID, ownerID)
+	if err != nil {
 		return nil, err
 	}
-	return s.settingsRepo.GetSettings(ctx, groupID)
+	settings, err := s.settingsRepo.GetSettings(ctx, groupID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Dynamically inject live Telegram Group info
+	bot, err := s.botRepo.GetBotByID(ctx, group.BotID)
+	if err == nil && bot != nil {
+		token, decErr := DecryptToken(bot.BotTokenEncrypted)
+		if decErr == nil && token != "" {
+			tg := telegram.NewBotAPIClient(token)
+			chatRes, tgErr := tg.GetChat(ctx, group.ChatID)
+			if tgErr == nil && chatRes != nil {
+				var genMap map[string]interface{}
+				if err := json.Unmarshal(settings.General, &genMap); err == nil {
+					genMap["name"] = chatRes.Title
+					if chatRes.Description != "" {
+						genMap["description"] = chatRes.Description
+					}
+					if chatRes.Username != nil {
+						genMap["username"] = *chatRes.Username
+					}
+
+					// Try to fetch photo URL
+					photoURL, pErr := tg.GetChatPhotoURL(ctx, group.ChatID)
+					if pErr == nil && photoURL != "" {
+						genMap["photo"] = photoURL
+					} else if pErr == nil && photoURL == "" {
+						genMap["photo"] = "" // explicit empty if no photo
+					}
+
+					// Re-marshal
+					if updated, mErr := json.Marshal(genMap); mErr == nil {
+						settings.General = updated
+					}
+				}
+			}
+		}
+	}
+
+	return settings, nil
 }
 
 func (s *BotService) UpdateSettings(ctx context.Context, groupID uuid.UUID, category string, data json.RawMessage, userID int64, version int) (*repository.GroupSettings, error) {

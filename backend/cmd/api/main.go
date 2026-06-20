@@ -276,6 +276,24 @@ func main() {
 	// 🚀 Start Channel Background Workers (Post scheduler & daily analytics snapshots)
 	channelService.StartBackgroundTasks(ctx)
 
+	// Initialize UserbotManager
+	appIDStr := os.Getenv("TG_APP_ID")
+	appID, _ := strconv.Atoi(appIDStr)
+	appHash := os.Getenv("TG_APP_HASH")
+	
+	userbotManager := mtproto.NewUserbotManager(appID, appHash, channelService.ProcessChannelPostForUserbot)
+	channelService.SetUserbotJoiner(userbotManager.JoinChannel)
+
+	// Fetch active userbots and start them
+	bgCtx := context.Background()
+	ownerRepo := repository.NewOwnerRepo(db)
+	activeBots, _ := ownerRepo.GetActiveManagedUserbots(bgCtx)
+	for _, b := range activeBots {
+		if err := userbotManager.AddClient(bgCtx, b.PhoneNumber); err != nil {
+			slog.Warn("Failed to start userbot on init", "phone", b.PhoneNumber, "err", err)
+		}
+	}
+
 	channelHandler := handler.NewChannelHandler(channelService)
 
 	usernameHandler := handler.NewUsernameHandler(aggregatorService, reportService, mtprotoClient, cache)
@@ -308,9 +326,8 @@ func main() {
 	authHandler := handler.NewAuthHandler(db)
 
 	// Initialize Owner components
-	ownerRepo := repository.NewOwnerRepo(db)
 	middleware.InitAuthMiddleware(ownerRepo)
-	ownerService := service.NewOwnerService(ownerRepo, frgRepo, cache)
+	ownerService := service.NewOwnerService(ownerRepo, frgRepo, cache, userbotManager)
 	ownerHandler := handler.NewOwnerHandler(ownerService)
 
 	// Public Routes
@@ -411,6 +428,7 @@ func main() {
 				r.Use(middleware.AuthMiddleware)
 
 				r.Get("/{groupID}", botMgmtHandler.GetGroup)
+				r.Delete("/{groupID}", botMgmtHandler.DeleteGroup)
 				r.Get("/{groupID}/settings", botMgmtHandler.GetSettings)
 				r.Put("/{groupID}/settings", botMgmtHandler.UpdateSettings)
 				r.Get("/{groupID}/analytics", botMgmtHandler.GetAnalytics)
@@ -561,6 +579,12 @@ func main() {
 				r.With(middleware.RequirePermission(middleware.PermQuestManage)).Post("/quests", ownerHandler.CreateQuest)
 				r.With(middleware.RequirePermission(middleware.PermQuestManage)).Put("/quests", ownerHandler.UpdateQuest)
 				r.With(middleware.RequirePermission(middleware.PermQuestManage)).Delete("/quests", ownerHandler.DeleteQuest)
+
+				// Userbot Connection management
+				r.With(middleware.RequirePermission(middleware.PermUserbotManage)).Get("/userbots", ownerHandler.ListUserbots)
+				r.With(middleware.RequirePermission(middleware.PermUserbotManage)).Delete("/userbots/{id}", ownerHandler.DeleteUserbot)
+				r.With(middleware.RequirePermission(middleware.PermUserbotManage)).Post("/userbot/send-code", ownerHandler.UserbotSendCode)
+				r.With(middleware.RequirePermission(middleware.PermUserbotManage)).Post("/userbot/verify-code", ownerHandler.UserbotVerifyCode)
 			})
 		})
 	})

@@ -288,9 +288,12 @@ export const channelApi = {
 			return data?.funnel === null ? null : data;
 		}),
 
-	createFunnel: (channelId: string, inputChannelId: string) =>
+	createFunnel: (channelId: string, inputChannelId: string, inputChannelIdentifier?: string) =>
 		apiClient
-			.post<any>(`/channels/${channelId}/funnel`, { input_channel_id: inputChannelId })
+			.post<any>(`/channels/${channelId}/funnel`, { 
+				input_channel_id: inputChannelId,
+				input_channel_identifier: inputChannelIdentifier 
+			})
 			.then((r: any) => r.data?.data || r.data),
 
 	deleteFunnel: (channelId: string) =>

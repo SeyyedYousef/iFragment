@@ -1,15 +1,14 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
-import { Component, createEffect, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
-import { useChannelSettings, useUpdateChannelSettings } from '@/shared/api/queries.js';
+import { Component, createResource, createSignal, createEffect, For, onCleanup, onMount, Show } from 'solid-js';
+import { groupApi } from '@/shared/api/bot-management.js';
 import { t } from '@/shared/i18n/index.js';
-import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
-import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
+import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 import { SelectField, ToggleSwitch } from '@/shared/ui/settings-controls.js';
 import { showToast } from '@/shared/ui/toast.js';
 
-export const ChannelDynamicBioPage: Component = () => {
+export const GroupDynamicBioPage: Component = () => {
 	const params = useParams();
 	const navigate = useNavigate();
 	const [isMenuOpen, setIsMenuOpen] = createSignal(false);
@@ -23,12 +22,19 @@ export const ChannelDynamicBioPage: Component = () => {
 	const [displayInName, setDisplayInName] = createSignal(false);
 
 	const [isSaving, setIsSaving] = createSignal(false);
+	const [settingsVersion, setSettingsVersion] = createSignal(1);
 
-	const settingsQuery = useChannelSettings(() => params.id!);
-	const updateSettingsMutation = useUpdateChannelSettings(() => params.id!);
+	const [settings, { mutate }] = createResource(
+		() => params.id,
+		async (id) => {
+			const s = await groupApi.getSettings(id);
+			setSettingsVersion(s.version);
+			return s;
+		},
+	);
 
 	createEffect(() => {
-		const data = settingsQuery.data;
+		const data = settings();
 		if (data) {
 			try {
 				let dbio = data.dynamic_bio;
@@ -71,7 +77,6 @@ export const ChannelDynamicBioPage: Component = () => {
 	const handleSave = async () => {
 		setIsSaving(true);
 
-		const currentVersion = settingsQuery.data?.version ?? 1;
 		const payload = {
 			enabled: enabled(),
 			bioTemplate: bioTemplate(),
@@ -81,14 +86,18 @@ export const ChannelDynamicBioPage: Component = () => {
 		};
 
 		try {
-			await updateSettingsMutation.mutateAsync({
-				category: 'dynamic_bio',
-				data: payload,
-				version: currentVersion,
-			});
+			const res = await groupApi.updateSettings(
+				params.id,
+				'dynamic_bio',
+				payload,
+				settingsVersion(),
+			);
+			if (res?.version) setSettingsVersion(res.version);
+			mutate((prev: any) => (prev ? { ...prev, dynamic_bio: payload } : { dynamic_bio: payload }));
+
 			hapticFeedback.notificationOccurred('success');
 			showToast(t('common.settingsSaved') || 'Settings saved successfully', 'success');
-			navigate(`/channel/${params.id}`);
+			navigate(`/group/${params.id}`);
 		} catch (e) {
 			console.error('Failed to save dynamic bio settings:', e);
 			hapticFeedback.notificationOccurred('error');
@@ -100,7 +109,7 @@ export const ChannelDynamicBioPage: Component = () => {
 
 	onMount(() => {
 		backButton.show();
-		const off = backButton.onClick(() => navigate(`/channel/${params.id}`));
+		const off = backButton.onClick(() => navigate(`/group/${params.id}`));
 		onCleanup(() => off());
 	});
 
@@ -112,7 +121,7 @@ export const ChannelDynamicBioPage: Component = () => {
 					<button
 						onClick={() => {
 							hapticFeedback.impactOccurred('light');
-							navigate(`/channel/${params.id}`);
+							navigate(`/group/${params.id}`);
 						}}
 						class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-90 transition-all shrink-0"
 						aria-label="Back"
@@ -126,7 +135,7 @@ export const ChannelDynamicBioPage: Component = () => {
 							{t('channelDynamicBio.title') || 'بیوگرافی و نام زنده'}
 						</h1>
 						<span class="text-[12px] text-on-surface-variant truncate">
-							{t('channelDynamicBio.subtitle') || 'آپدیت زنده مشخصات کانال'}
+							{t('channelDynamicBio.subtitle') || 'آپدیت زنده مشخصات گروه'}
 						</span>
 					</div>
 				</div>
@@ -140,17 +149,16 @@ export const ChannelDynamicBioPage: Component = () => {
 				</button>
 			</div>
 
-			<ChannelHamburgerMenu
+			<HamburgerMenu
 				isOpen={isMenuOpen()}
 				onClose={() => setIsMenuOpen(false)}
-				channelId={params.id}
+				groupId={params.id}
 				activeTab="dynamic-bio"
 			/>
 
 			<div class="px-5 pt-6 flex flex-col gap-6">
-				<ChannelContextBar channelId={params.id} />
 
-				<Show when={settingsQuery.isLoading}>
+				<Show when={settings.loading}>
 					<div class="flex flex-col gap-4 animate-pulse">
 						<div class="h-40 bg-[#1c1c1c] rounded-3xl"></div>
 						<div class="h-32 bg-[#1c1c1c] rounded-3xl"></div>
@@ -158,7 +166,7 @@ export const ChannelDynamicBioPage: Component = () => {
 					</div>
 				</Show>
 
-				<Show when={settingsQuery.isError}>
+				<Show when={settings.error}>
 					<div class="bg-[#1c1c1c] rounded-3xl border border-[#ff3b30]/30 p-6 flex flex-col gap-4 items-center text-center">
 						<span class="material-symbols-outlined text-[48px] text-[#ff3b30]">error</span>
 						<div class="flex flex-col gap-1">
@@ -167,16 +175,10 @@ export const ChannelDynamicBioPage: Component = () => {
 								Please check your internet connection and try again.
 							</span>
 						</div>
-						<button
-							onClick={() => settingsQuery.refetch()}
-							class="px-5 py-2.5 bg-[#32ade6] hover:bg-[#2b96c8] text-black rounded-xl font-bold text-[14px]"
-						>
-							Retry
-						</button>
 					</div>
 				</Show>
 
-				<Show when={settingsQuery.data}>
+				<Show when={settings()}>
 					<Motion.div
 						initial={{ opacity: 0, y: 10 }}
 						animate={{ opacity: 1, y: 0 }}
@@ -188,7 +190,7 @@ export const ChannelDynamicBioPage: Component = () => {
 								<span class="text-[15px] font-bold text-white">
 									{t('channelDynamicBio.title') || 'بیوگرافی و نام زنده'}
 								</span>
-								<span class="text-[11px] text-[#8e8e93]">آپدیت لحظه‌ای اطلاعات کانال با متغیرها</span>
+								<span class="text-[11px] text-[#8e8e93]">آپدیت لحظه‌ای اطلاعات گروه با متغیرها</span>
 							</div>
 							<ToggleSwitch checked={enabled()} onChange={setEnabled} />
 						</div>
@@ -197,7 +199,7 @@ export const ChannelDynamicBioPage: Component = () => {
 							<div class="mt-2 p-4 bg-[#32ade6]/10 border border-[#32ade6]/30 rounded-xl flex flex-col gap-2">
 								<span class="text-[14px] font-bold text-[#32ade6]">راهنمای بیوگرافی و نام زنده</span>
 								<p class="text-[13px] text-white/80 leading-relaxed">
-									با فعال‌سازی این بخش، می‌توانید نام و بیوگرافی کانال خود را به صورت زنده و خودکار با اطلاعاتی نظیر زمان، تاریخ و قیمت‌های لحظه‌ای رمزارزها (مثل بیت‌کوین و گرام) به‌روزرسانی کنید. کافیست این گزینه را روشن کنید تا به تنظیمات قالب و متغیرها دسترسی داشته باشید.
+									با فعال‌سازی این بخش، می‌توانید نام و بیوگرافی گروه خود را به صورت زنده و خودکار با اطلاعاتی نظیر زمان، تاریخ و قیمت‌های لحظه‌ای رمزارزها (مثل بیت‌کوین و گرام) به‌روزرسانی کنید. کافیست این گزینه را روشن کنید تا به تنظیمات قالب و متغیرها دسترسی داشته باشید.
 								</p>
 							</div>
 						</Show>
@@ -229,7 +231,7 @@ export const ChannelDynamicBioPage: Component = () => {
 									value={bioTemplate()}
 									onInput={(e) => setBioTemplate(e.currentTarget.value)}
 									class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-3 w-full min-h-[80px] focus:outline-none focus:ring-2 focus:ring-[#32ade6] border border-transparent placeholder-[#a0a4ad] resize-none"
-									placeholder="Official Channel | Members: $members"
+									placeholder="Official Group | Members: $members"
 									maxLength={255}
 								/>
 							</div>
@@ -238,9 +240,9 @@ export const ChannelDynamicBioPage: Component = () => {
 							<div class="mt-2 bg-[#2c2c2e] p-3 rounded-xl border border-[#3a3a3c] flex flex-col gap-3">
 								<div class="flex items-center justify-between">
 									<div class="flex flex-col flex-1 min-w-0">
-										<span class="text-[13px] font-bold text-white">Display in Channel Name</span>
+										<span class="text-[13px] font-bold text-white">Display in Group Name</span>
 										<span class="text-[11px] text-[#8e8e93]">
-											Add dynamic tags to the channel name
+											Add dynamic tags to the group name
 										</span>
 									</div>
 									<ToggleSwitch checked={displayInName()} onChange={setDisplayInName} />
@@ -251,7 +253,7 @@ export const ChannelDynamicBioPage: Component = () => {
 										type="text"
 										value={nameTemplate()}
 										onInput={(e) => setNameTemplate(e.currentTarget.value)}
-										placeholder="iFragment News $time"
+										placeholder="iFragment Chat $time"
 										class="w-full bg-[#1c1c1c] text-white text-[14px] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#32ade6]"
 										maxLength={128}
 									/>
@@ -297,7 +299,7 @@ export const ChannelDynamicBioPage: Component = () => {
 								]}
 								description={
 									t('channelDynamicBio.updateIntervalDesc') ||
-									'How often the channel info refreshes.'
+									'How often the group info refreshes.'
 								}
 							/>
 						</Show>

@@ -21,6 +21,7 @@ type GroupSettings struct {
 	QuietHours          json.RawMessage `json:"quiet_hours"`
 	MandatoryMembership json.RawMessage `json:"mandatory_membership"`
 	CustomTexts         json.RawMessage `json:"custom_texts"`
+	DynamicBio          json.RawMessage `json:"dynamic_bio"`
 	Version             int             `json:"version"`
 	UpdatedAt           time.Time       `json:"updated_at"`
 	UpdatedBy           *int64          `json:"updated_by,omitempty"`
@@ -180,12 +181,12 @@ func (r *SettingsRepo) GetSettings(ctx context.Context, groupID uuid.UUID) (*Gro
 		}
 	}
 
-	query := `SELECT group_id, general, content_restrictions, limits, quiet_hours, mandatory_membership, custom_texts, version, updated_at, updated_by
+	query := `SELECT group_id, general, content_restrictions, limits, quiet_hours, mandatory_membership, custom_texts, dynamic_bio, version, updated_at, updated_by
 		FROM group_settings WHERE group_id = $1`
 	var s GroupSettings
 	err := r.db.Pool.QueryRow(ctx, query, groupID).Scan(
 		&s.GroupID, &s.General, &s.ContentRestrictions, &s.Limits, &s.QuietHours,
-		&s.MandatoryMembership, &s.CustomTexts, &s.Version, &s.UpdatedAt, &s.UpdatedBy,
+		&s.MandatoryMembership, &s.CustomTexts, &s.DynamicBio, &s.Version, &s.UpdatedAt, &s.UpdatedBy,
 	)
 	if err == pgx.ErrNoRows {
 		return r.initSettings(ctx, groupID)
@@ -214,13 +215,14 @@ func (r *SettingsRepo) initSettings(ctx context.Context, groupID uuid.UUID) (*Gr
 		QuietHours:          empty,
 		MandatoryMembership: empty,
 		CustomTexts:         empty,
+		DynamicBio:          empty,
 		Version:             1,
 	}
-	query := `INSERT INTO group_settings (group_id, general, content_restrictions, limits, quiet_hours, mandatory_membership, custom_texts)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	query := `INSERT INTO group_settings (group_id, general, content_restrictions, limits, quiet_hours, mandatory_membership, custom_texts, dynamic_bio)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		ON CONFLICT (group_id) DO NOTHING
 		RETURNING updated_at`
-	err := r.db.Pool.QueryRow(ctx, query, groupID, empty, empty, empty, empty, empty, empty).Scan(&s.UpdatedAt)
+	err := r.db.Pool.QueryRow(ctx, query, groupID, empty, empty, empty, empty, empty, empty, empty).Scan(&s.UpdatedAt)
 	if err == pgx.ErrNoRows {
 		return r.GetSettings(ctx, groupID)
 	}
@@ -234,6 +236,7 @@ func (r *SettingsRepo) UpdateCategory(ctx context.Context, groupID uuid.UUID, ca
 	validCategories := map[string]bool{
 		"general": true, "content_restrictions": true, "limits": true,
 		"quiet_hours": true, "mandatory_membership": true, "custom_texts": true,
+		"dynamic_bio": true,
 	}
 	if !validCategories[category] {
 		return nil, fmt.Errorf("invalid settings category: %s", category)
@@ -339,7 +342,7 @@ func (r *SettingsRepo) GetMultipleSettings(ctx context.Context, groupIDs []uuid.
 			return nil, fmt.Errorf("database connection not available")
 		}
 
-		query := `SELECT group_id, general, content_restrictions, limits, quiet_hours, mandatory_membership, custom_texts, version, updated_at, updated_by
+		query := `SELECT group_id, general, content_restrictions, limits, quiet_hours, mandatory_membership, custom_texts, dynamic_bio, version, updated_at, updated_by
 			FROM group_settings WHERE group_id = ANY($1)`
 
 		rows, err := r.db.Pool.Query(ctx, query, redisMisses)
@@ -353,7 +356,7 @@ func (r *SettingsRepo) GetMultipleSettings(ctx context.Context, groupIDs []uuid.
 			var s GroupSettings
 			err := rows.Scan(
 				&s.GroupID, &s.General, &s.ContentRestrictions, &s.Limits, &s.QuietHours,
-				&s.MandatoryMembership, &s.CustomTexts, &s.Version, &s.UpdatedAt, &s.UpdatedBy,
+				&s.MandatoryMembership, &s.CustomTexts, &s.DynamicBio, &s.Version, &s.UpdatedAt, &s.UpdatedBy,
 			)
 			if err == nil {
 				result[s.GroupID] = &s

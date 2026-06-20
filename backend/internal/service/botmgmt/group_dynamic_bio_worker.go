@@ -1,4 +1,4 @@
-package channelmgmt
+package botmgmt
 
 import (
 	"context"
@@ -10,10 +10,9 @@ import (
 
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/repository"
-	"ifragment-backend/internal/service/botmgmt"
 )
 
-type DynamicBioConfig struct {
+type GroupDynamicBioConfig struct {
 	Enabled       bool   `json:"enabled"`
 	BioTemplate   string `json:"bioTemplate"`
 	DisplayInName bool   `json:"displayInName"`
@@ -21,36 +20,36 @@ type DynamicBioConfig struct {
 	Interval      string `json:"interval"` // "10m", "30m", "1h", "24h"
 }
 
-func (s *ChannelService) dynamicBioWorker(ctx context.Context) {
+func (s *BotService) dynamicBioWorker(ctx context.Context) {
 	ticker := time.NewTicker(1 * time.Minute) // Check every minute
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			slog.Info("Dynamic Bio Worker stopped due to context cancellation")
+			slog.Info("Group Dynamic Bio Worker stopped due to context cancellation")
 			return
 		case <-ticker.C:
-			s.processDynamicBios(ctx)
+			s.processGroupDynamicBios(ctx)
 		}
 	}
 }
 
-func (s *ChannelService) processDynamicBios(ctx context.Context) {
-	// Fetch all connected channels
-	channels, err := s.channelRepo.GetAllChannels(ctx)
+func (s *BotService) processGroupDynamicBios(ctx context.Context) {
+	// Fetch all active groups
+	groups, err := s.botRepo.GetAllActiveGroups(ctx)
 	if err != nil {
-		slog.Error("Failed to list channels for dynamic bio", "error", err)
+		slog.Error("Failed to list groups for dynamic bio", "error", err)
 		return
 	}
 
-	for _, ch := range channels {
-		settings, err := s.channelRepo.GetChannelSettings(ctx, ch.ID)
+	for _, g := range groups {
+		settings, err := s.settingsRepo.GetSettings(ctx, g.ID)
 		if err != nil || settings == nil {
 			continue
 		}
 
-		var config DynamicBioConfig
+		var config GroupDynamicBioConfig
 		if err := json.Unmarshal(settings.DynamicBio, &config); err != nil {
 			continue
 		}
@@ -72,7 +71,7 @@ func (s *ChannelService) processDynamicBios(ctx context.Context) {
 			intervalDuration = 24 * time.Hour
 		}
 
-		lastUpdateVal, ok := s.lastBioUpdate.Load(ch.ID)
+		lastUpdateVal, ok := s.lastBioUpdate.Load(g.ID)
 		if ok {
 			lastUpdate := lastUpdateVal.(time.Time)
 			if time.Since(lastUpdate) < intervalDuration {
@@ -80,19 +79,19 @@ func (s *ChannelService) processDynamicBios(ctx context.Context) {
 			}
 		}
 
-		s.updateChannelDynamicBio(ctx, &ch, config)
-		s.lastBioUpdate.Store(ch.ID, time.Now())
-		time.Sleep(1 * time.Second) // Prevent Telegram Rate Limit (30 req/sec)
+		s.updateGroupDynamicBio(ctx, &g, config)
+		s.lastBioUpdate.Store(g.ID, time.Now())
+		time.Sleep(1 * time.Second) // Prevent Telegram Rate Limit
 	}
 }
 
-func (s *ChannelService) updateChannelDynamicBio(ctx context.Context, ch *repository.ManagedChannel, config DynamicBioConfig) {
-	bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
+func (s *BotService) updateGroupDynamicBio(ctx context.Context, g *repository.ManagedGroup, config GroupDynamicBioConfig) {
+	bot, err := s.botRepo.GetBotByID(ctx, g.BotID)
 	if err != nil {
 		return
 	}
 
-	token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+	token, err := DecryptToken(bot.BotTokenEncrypted)
 	if err != nil {
 		return
 	}
@@ -101,7 +100,7 @@ func (s *ChannelService) updateChannelDynamicBio(ctx context.Context, ch *reposi
 
 	// Fetch variables
 	memberCount := "0"
-	if count, err := tg.GetChatMemberCount(ctx, ch.ChatID); err == nil {
+	if count, err := tg.GetChatMemberCount(ctx, g.ChatID); err == nil {
 		memberCount = fmt.Sprintf("%d", count)
 	}
 
@@ -127,11 +126,11 @@ func (s *ChannelService) updateChannelDynamicBio(ctx context.Context, ch *reposi
 
 	if config.BioTemplate != "" {
 		newBio := replaceVars(config.BioTemplate)
-		_ = tg.SetChatDescription(ctx, ch.ChatID, newBio)
+		_ = tg.SetChatDescription(ctx, g.ChatID, newBio)
 	}
 
 	if config.DisplayInName && config.NameTemplate != "" {
 		newName := replaceVars(config.NameTemplate)
-		_ = tg.SetChatTitle(ctx, ch.ChatID, newName)
+		_ = tg.SetChatTitle(ctx, g.ChatID, newName)
 	}
 }

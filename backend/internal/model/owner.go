@@ -68,3 +68,13 @@ type PromoRedemption struct {
 	UserID     int64     `json:"user_id"`
 	RedeemedAt time.Time `json:"redeemed_at"`
 }
+
+type ManagedUserbot struct {
+	ID            string    `json:"id"`
+	PhoneNumber   string    `json:"phone_number"`
+	Status        string    `json:"status"`
+	ChannelsCount int       `json:"channels_count"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+

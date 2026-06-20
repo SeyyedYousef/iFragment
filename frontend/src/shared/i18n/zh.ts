@@ -1344,6 +1344,8 @@ export const dict = {
 		charCount: '字符',
 	},
 	channelAutoResponder: {
+		guideTitle: '自动回复功能指南',
+		guideDesc: '启用后，机器人在您链接的讨论组中激活，并提供以下功能：',
 		title: '自动回复',
 		subtitle: '自动回复和抢沙发评论',
 		noRules: '暂无自动回复规则',

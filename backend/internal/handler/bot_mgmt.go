@@ -183,6 +183,27 @@ func (h *BotMgmtHandler) GetGroup(w http.ResponseWriter, r *http.Request) {
 	RespondJSON(w, http.StatusOK, group)
 }
 
+func (h *BotMgmtHandler) DeleteGroup(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+	groupID, err := uuid.Parse(chi.URLParam(r, "groupID"))
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid group ID", err)
+		return
+	}
+
+	if err := h.svc.DeleteGroup(r.Context(), groupID, userID); err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to delete group", err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+
 // ─── Settings ─────────────────────────────────────────────
 
 func (h *BotMgmtHandler) GetSettings(w http.ResponseWriter, r *http.Request) {

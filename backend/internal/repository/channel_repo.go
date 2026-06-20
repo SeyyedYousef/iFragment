@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -1178,7 +1179,7 @@ func (r *ChannelRepo) GetChannelButtons(ctx context.Context, channelID uuid.UUID
 		return nil, fmt.Errorf("database pool is not initialized")
 	}
 
-	query := `SELECT id, channel_id, title, value, type, style, emoji, click_count, order_index, created_at
+	query := `SELECT id, channel_id, title, value, type, style, emoji, 0 as click_count, order_index, created_at
 		FROM channel_inline_buttons WHERE channel_id = $1 ORDER BY order_index ASC, created_at ASC`
 
 	rows, err := r.db.Pool.Query(ctx, query, channelID)
@@ -1324,6 +1325,29 @@ func (r *ChannelRepo) GetFunnelByInputChatID(ctx context.Context, botID uuid.UUI
 		return nil, err
 	}
 	return &f, nil
+}
+
+func (r *ChannelRepo) GetFunnelsByInputChatID(ctx context.Context, inputChatID int64) ([]*ChannelFunnel, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, fmt.Errorf("database pool is not initialized")
+	}
+	query := `SELECT id, bot_id, input_chat_id, output_chat_id, owner_user_id, is_active, created_at, updated_at
+		FROM channel_funnels WHERE input_chat_id = $1 AND is_active = true`
+	rows, err := r.db.Pool.Query(ctx, query, inputChatID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var funnels []*ChannelFunnel
+	for rows.Next() {
+		var f ChannelFunnel
+		if err := rows.Scan(&f.ID, &f.BotID, &f.InputChatID, &f.OutputChatID, &f.OwnerUserID, &f.IsActive, &f.CreatedAt, &f.UpdatedAt); err != nil {
+			return nil, err
+		}
+		funnels = append(funnels, &f)
+	}
+	return funnels, nil
 }
 
 func (r *ChannelRepo) GetFunnelByOutputChatID(ctx context.Context, botID uuid.UUID, outputChatID int64) (*ChannelFunnel, error) {
@@ -1510,6 +1534,13 @@ func (r *ChannelRepo) RegisterPostButtonClick(ctx context.Context, channelID uui
 		return "", uuid.Nil, err
 	}
 	defer tx.Rollback(ctx)
+
+	// Acquire advisory lock to prevent concurrent click race conditions for the same user + message
+	lockID := int64(binary.LittleEndian.Uint64(channelID[:8])) ^ telegramMessageID ^ userID
+	_, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, lockID)
+	if err != nil {
+		return "", uuid.Nil, err
+	}
 
 	// 1. Get the clicked button type
 	var btnType string

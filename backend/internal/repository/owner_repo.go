@@ -680,3 +680,32 @@ func (r *OwnerRepo) DeleteQuestTx(ctx context.Context, tx pgx.Tx, key string) er
 	_, err := tx.Exec(ctx, query, key)
 	return err
 }
+
+func (r *OwnerRepo) CreateManagedUserbot(ctx context.Context, phone string) error {
+	_, err := r.db.Pool.Exec(ctx, "INSERT INTO managed_userbots (phone_number, status) VALUES (, 'active') ON CONFLICT (phone_number) DO UPDATE SET status = 'active', updated_at = NOW()", phone)
+	return err
+}
+
+func (r *OwnerRepo) GetActiveManagedUserbots(ctx context.Context) ([]model.ManagedUserbot, error) {
+	rows, err := r.db.Pool.Query(ctx, "SELECT id, phone_number, status, channels_count, created_at, updated_at FROM managed_userbots WHERE status = 'active'")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var bots []model.ManagedUserbot
+	for rows.Next() {
+		var b model.ManagedUserbot
+		if err := rows.Scan(&b.ID, &b.PhoneNumber, &b.Status, &b.ChannelsCount, &b.CreatedAt, &b.UpdatedAt); err != nil {
+			return nil, err
+		}
+		bots = append(bots, b)
+	}
+	return bots, nil
+}
+
+func (r *OwnerRepo) DeleteManagedUserbot(ctx context.Context, id string) error {
+	_, err := r.db.Pool.Exec(ctx, "DELETE FROM managed_userbots WHERE id = ", id)
+	return err
+}
+

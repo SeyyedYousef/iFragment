@@ -22,11 +22,12 @@ import (
 	"sync"
 	"time"
 
+	"ifragment-backend/internal/i18n"
 	"github.com/google/uuid"
 	"ifragment-backend/internal/client/telegram"
-	"ifragment-backend/internal/i18n"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/botmgmt"
+	"ifragment-backend/internal/service/crypto"
 	"ifragment-backend/internal/telemetry"
 )
 
@@ -42,8 +43,12 @@ type ChannelService struct {
 	featureAutoResponder bool
 
 	autoResponderService *AutoResponderService
+	cryptoService        *crypto.CryptoService
 
-	dnsLookup func(host string) ([]net.IP, error)
+	lastBioUpdate sync.Map // map[uuid.UUID]time.Time
+
+	dnsLookup     func(host string) ([]net.IP, error)
+	userbotJoiner func(ctx context.Context, identifier string) error
 }
 
 func NewChannelService(
@@ -59,8 +64,14 @@ func NewChannelService(
 		featureForwarding:    os.Getenv("FEATURE_FLAG_FORWARDING") != "false",
 		featureAutoResponder: os.Getenv("FEATURE_FLAG_AUTORESPONDER") != "false",
 		autoResponderService: NewAutoResponderService(channelRepo),
+		cryptoService:        crypto.NewCryptoService(),
 		dnsLookup:            net.LookupIP,
 	}
+}
+
+// SetUserbotJoiner sets the callback for joining channels via the Userbot
+func (s *ChannelService) SetUserbotJoiner(joiner func(ctx context.Context, identifier string) error) {
+	s.userbotJoiner = joiner
 }
 
 func (s *ChannelService) GetChannelRepo() *repository.ChannelRepo {
@@ -316,7 +327,7 @@ func (s *ChannelService) DisconnectChannel(ctx context.Context, ownerUserID int6
 	return nil
 }
 
-func (s *ChannelService) CreateFunnel(ctx context.Context, ownerUserID int64, outputChannelID uuid.UUID, inputChannelID uuid.UUID) (*repository.ChannelFunnel, error) {
+func (s *ChannelService) CreateFunnel(ctx context.Context, ownerUserID int64, outputChannelID uuid.UUID, inputChannelID uuid.UUID, inputChannelIdentifier string) (*repository.ChannelFunnel, error) {
 	if err := s.verifyAccess(ctx, ownerUserID, outputChannelID, RoleOwner, RoleAdmin); err != nil {
 		return nil, fmt.Errorf("access denied to output channel: %w", err)
 	}
@@ -349,6 +360,22 @@ func (s *ChannelService) CreateFunnel(ctx context.Context, ownerUserID int64, ou
 	err = s.channelRepo.CreateChannelFunnel(ctx, f)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create funnel: %w", err)
+	}
+	
+	// Auto-join logic for Userbot
+	if s.userbotJoiner != nil && inputChannelIdentifier != "" {
+		// Do this asynchronously to not block the response
+		s.wg.Add(1)
+		GoSafe(func() {
+			defer s.wg.Done()
+			bgCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			if err := s.userbotJoiner(bgCtx, inputChannelIdentifier); err != nil {
+				slog.Warn("Userbot failed to auto-join funnel input channel", "channel", inputChannelIdentifier, "error", err)
+			} else {
+				slog.Info("Userbot successfully joined funnel input channel", "channel", inputChannelIdentifier)
+			}
+		})
 	}
 
 	target := f.ID.String()
@@ -1310,6 +1337,19 @@ func (s *ChannelService) CreateForwardingRule(ctx context.Context, ownerUserID i
 		return err
 	}
 
+	// If it's an inbound rule targeting a telegram channel, have the userbot join it
+	if rule.Direction == "inbound" && rule.TargetType == "telegram" {
+		if s.userbotJoiner != nil {
+			go func() {
+				bgCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+				defer cancel()
+				if joinErr := s.userbotJoiner(bgCtx, rule.Target); joinErr != nil {
+					slog.Warn("Failed to auto-join userbot to inbound forwarding channel", "chat_id", rule.Target, "error", joinErr)
+				}
+			}()
+		}
+	}
+
 	// Audit Log
 	meta, _ := json.Marshal(map[string]interface{}{"rule_id": rule.ID, "target": rule.Target})
 	if auditErr := s.channelRepo.LogAudit(ctx, &repository.ChannelAuditLog{
@@ -1675,6 +1715,10 @@ func BuildInlineKeyboard(buttons []repository.ChannelInlineButton) interface{} {
 		text += btn.Title
 
 		ikb := map[string]interface{}{"text": text}
+
+		if btn.Style != "" && btn.Style != "default" {
+			ikb["style"] = btn.Style
+		}
 
 		btnType := strings.ToLower(btn.Type)
 		if btnType == "url" || btnType == "share" {
