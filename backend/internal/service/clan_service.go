@@ -11,11 +11,13 @@ import (
 	"strings"
 	"time"
 
-	"ifragment-backend/internal/client/telegram"
+	"ifragment-backend/internal/client/mtproto"
 	"ifragment-backend/internal/model"
 	"ifragment-backend/internal/repository"
-	"ifragment-backend/internal/service/botmgmt"
 
+	"github.com/PuerkitoBio/goquery"
+	"net/http"
+	"github.com/gotd/td/tg"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -28,36 +30,36 @@ var (
 )
 
 type ClanService struct {
-	db    *repository.Database
-	cache *repository.Cache
+	db            *repository.Database
+	cache         *repository.Cache
+	mtprotoClient mtproto.Client
 }
 
-func NewClanService(db *repository.Database, cache *repository.Cache) *ClanService {
-	return &ClanService{db: db, cache: cache}
+func NewClanService(db *repository.Database, cache *repository.Cache, mtprotoClient mtproto.Client) *ClanService {
+	return &ClanService{db: db, cache: cache, mtprotoClient: mtprotoClient}
 }
 
-func (s *ClanService) getBotAPIClient(ctx context.Context) (*telegram.BotAPIClient, error) {
-	if s.db == nil || s.db.Pool == nil {
-		return nil, fmt.Errorf("no database connection")
+// scrapeChannelPhoto tries to get the photo URL from public telegram web preview
+func scrapeChannelPhoto(username string) string {
+	defaultPhoto := fmt.Sprintf("https://t.me/i/userpic/320/%s.jpg", username)
+	
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get("https://t.me/" + username)
+	if err != nil {
+		return defaultPhoto
+	}
+	defer resp.Body.Close()
+
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		return defaultPhoto
 	}
 
-	// Try first from DB
-	var encryptedToken []byte
-	err := s.db.Pool.QueryRow(ctx, "SELECT bot_token_encrypted FROM managed_bots WHERE status = 'active' LIMIT 1").Scan(&encryptedToken)
-	if err == nil && len(encryptedToken) > 0 {
-		token, err := botmgmt.DecryptToken(encryptedToken)
-		if err == nil {
-			return telegram.NewBotAPIClient(token), nil
-		}
+	if img, exists := doc.Find("meta[property='og:image']").Attr("content"); exists {
+		return img
 	}
 
-	// Try from env variable
-	token := os.Getenv("TELEGRAM_BOT_TOKEN")
-	if token != "" {
-		return telegram.NewBotAPIClient(token), nil
-	}
-
-	return nil, fmt.Errorf("no active telegram bot client found or configured")
+	return defaultPhoto
 }
 
 // GetClanDetails returns user's clan details (if any)
@@ -130,7 +132,7 @@ func (s *ClanService) LeaveClan(ctx context.Context, userID int64) error {
 	return tx.Commit(ctx)
 }
 
-var telegramUsernameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]{4,31}$`)
+var telegramUsernameRegex = regexp.MustCompile(`^[a-zA-Z0-9_]{3,32}$`)
 
 // SearchAndJoinClan searches a clan by Telegram username (e.g. @durov).
 // If found in DB, joins it. If not, queries Telegram API to auto-create and join.
@@ -139,7 +141,11 @@ func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, usern
 		return nil, fmt.Errorf("no database connection")
 	}
 
-	normalized := strings.TrimPrefix(strings.TrimSpace(username), "@")
+	normalized := strings.TrimSpace(username)
+	normalized = strings.TrimPrefix(normalized, "https://t.me/")
+	normalized = strings.TrimPrefix(normalized, "http://t.me/")
+	normalized = strings.TrimPrefix(normalized, "t.me/")
+	normalized = strings.TrimPrefix(normalized, "@")
 
 	// 1. Strict Username Validation
 	if !telegramUsernameRegex.MatchString(normalized) {
@@ -172,55 +178,46 @@ func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, usern
 	clanExists := (err == nil)
 
 	if !clanExists {
-		// Clan does not exist, fetch from Telegram Bot API OUTSIDE database transaction to prevent long locks (C9)
-		tg, tgErr := s.getBotAPIClient(ctx)
 		isProd := os.Getenv("APP_ENV") == "production"
 
-		if tgErr != nil {
-			if isProd {
-				return nil, ErrChannelNotFound
-			}
-			// Only allow mock fallback in development
-			slog.Warn("Using mock clan in non-prod environment due to client error", "username", normalized, "error", tgErr)
-			if strings.EqualFold(normalized, "durov") || strings.EqualFold(normalized, "telegram") || strings.EqualFold(normalized, "ifragment") {
-				channelID = 123456789
-				chatTitle = "Durov's Clan"
-				photoURL = "https://telegram.org/img/t_logo.png"
-				if strings.EqualFold(normalized, "telegram") {
-					chatTitle = "Telegram Official Clan"
-				} else if strings.EqualFold(normalized, "ifragment") {
-					chatTitle = "iFragment Clan"
-				}
-			} else {
-				return nil, ErrChannelNotFound
+		// In development, mock known usernames immediately without calling API to avoid errors
+		if !isProd && (strings.EqualFold(normalized, "durov") || strings.EqualFold(normalized, "telegram") || strings.EqualFold(normalized, "ifragment")) {
+			channelID = 123456789
+			chatTitle = "Durov's Clan"
+			photoURL = "https://telegram.org/img/t_logo.png"
+			if strings.EqualFold(normalized, "telegram") {
+				chatTitle = "Telegram Official Clan"
+			} else if strings.EqualFold(normalized, "ifragment") {
+				chatTitle = "iFragment Clan"
 			}
 		} else {
-			// Query live Telegram Chat
-			chat, err := tg.GetChat(ctx, "@"+normalized)
-			if err != nil {
+			// Clan does not exist, use MTProto mirror client
+			if s.mtprotoClient == nil {
+				return nil, fmt.Errorf("mtproto client is not configured")
+			}
+
+			peer, err := s.mtprotoClient.ResolveUsername(ctx, normalized)
+			if err != nil || len(peer.Chats) == 0 {
+				slog.Error("ResolveUsername failed", "username", normalized, "error", err)
 				return nil, ErrChannelNotFound
 			}
-			if chat.Type != "channel" {
+
+			var channel *tg.Channel
+			for _, chat := range peer.Chats {
+				if ch, ok := chat.(*tg.Channel); ok {
+					channel = ch
+					break
+				}
+			}
+
+			if channel == nil {
+				slog.Error("Resolved peer is not a channel", "username", normalized)
 				return nil, ErrChannelNotFound
 			}
 
-			// Verify that the user is actually a member/admin of this channel (C2)
-			status, err := tg.GetChatMember(ctx, chat.ID, userID)
-			if err != nil {
-				return nil, ErrNotChannelMember
-			}
-			if status == "left" || status == "kicked" {
-				return nil, ErrNotChannelMember
-			}
-
-			channelID = chat.ID
-			chatTitle = chat.Title
-			photoURL = "https://telegram.org/img/t_logo.png" // Default fallback
-
-			// Fetch exact member count to populate the clan
-			if _, err := tg.GetChatMemberCount(ctx, chat.ID); err == nil {
-				photoURL = "https://telegram.org/img/t_logo.png"
-			}
+			channelID = channel.ID
+			chatTitle = channel.Title
+			photoURL = scrapeChannelPhoto(normalized)
 		}
 	}
 
@@ -338,3 +335,82 @@ func (s *ClanService) GetTopClans(ctx context.Context, limit int) ([]model.Clan,
 	}
 	return clans, nil
 }
+
+// StartWeeklyUpdater runs a background worker that updates clan names and photos once a week.
+func (s *ClanService) StartWeeklyUpdater(ctx context.Context) {
+	if s.db == nil || s.mtprotoClient == nil {
+		slog.Warn("Cannot start ClanService Weekly Updater: db or mtprotoClient missing")
+		return
+	}
+
+	// Run once initially (after a small delay to not block startup) and then weekly
+	ticker := time.NewTicker(7 * 24 * time.Hour)
+	go func() {
+		// Initial delay
+		select {
+		case <-time.After(5 * time.Minute):
+			s.updateAllClans(ctx)
+		case <-ctx.Done():
+			ticker.Stop()
+			return
+		}
+
+		for {
+			select {
+			case <-ticker.C:
+				s.updateAllClans(ctx)
+			case <-ctx.Done():
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+}
+
+func (s *ClanService) updateAllClans(ctx context.Context) {
+	slog.Info("Starting weekly clan info update")
+
+	rows, err := s.db.Pool.Query(ctx, "SELECT id, channel_username FROM clans")
+	if err != nil {
+		slog.Error("Failed to fetch clans for update", "error", err)
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id string
+		var username string
+		if err := rows.Scan(&id, &username); err != nil {
+			continue
+		}
+
+		// Avoid spamming MTProto API
+		time.Sleep(2 * time.Second)
+
+		peer, err := s.mtprotoClient.ResolveUsername(ctx, username)
+		if err != nil || len(peer.Chats) == 0 {
+			continue
+		}
+
+		var channel *tg.Channel
+		for _, chat := range peer.Chats {
+			if ch, ok := chat.(*tg.Channel); ok {
+				channel = ch
+				break
+			}
+		}
+
+		if channel == nil {
+			continue
+		}
+
+		photoURL := scrapeChannelPhoto(username)
+
+		_, err = s.db.Pool.Exec(ctx, "UPDATE clans SET chat_title = $1, channel_photo = $2 WHERE id = $3", channel.Title, photoURL, id)
+		if err != nil {
+			slog.Error("Failed to update clan", "clan_id", id, "error", err)
+		}
+	}
+	slog.Info("Finished weekly clan info update")
+}
+

@@ -123,6 +123,7 @@ export const ClanSchema = z.object({
 	channel_photo: z.string().optional(),
 	chat_title: z.string(),
 	members_count: z.number().int().nonnegative(),
+	total_score: z.number().nonnegative().optional(),
 });
 
 export const UserClanDetailsSchema = z.object({

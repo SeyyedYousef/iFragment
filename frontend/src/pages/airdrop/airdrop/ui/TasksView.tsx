@@ -117,7 +117,7 @@ export const TasksView: Component = () => {
 	};
 
 	return (
-		<div class="flex-1 overflow-y-auto px-4 pt-4 pb-8 animate-fade-in no-scrollbar">
+		<div class="flex-1 overflow-y-auto px-4 pt-6 pb-36 animate-fade-in no-scrollbar" style={{ background: '#000' }}>
 			<SectionHeader
 				icon="assignment"
 				title={t('airdrop.tasks.title')}

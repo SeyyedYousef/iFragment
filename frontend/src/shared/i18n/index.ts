@@ -9,7 +9,7 @@ import { dict as zh } from './zh.js';
 
 const dictionaries = { en, fa, ru, zh };
 export type Locale = keyof typeof dictionaries;
-export type Dictionary = typeof en & typeof fa & typeof ru & typeof zh;
+export type Dictionary = typeof en;
 
 const mapLanguageCode = (code?: string): Locale => {
 	if (!code) return 'en';

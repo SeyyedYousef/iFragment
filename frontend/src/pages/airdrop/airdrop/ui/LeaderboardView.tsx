@@ -1,12 +1,13 @@
 import { createQuery } from '@tanstack/solid-query';
-import { Component, For, Show } from 'solid-js';
+import { Component, createSignal, For, Show } from 'solid-js';
 import { fetchLeaderboard } from '@/shared/api/airdrop.js';
 import { getProfileStats } from '@/shared/api/profile.js';
-import { t } from '@/shared/i18n/index.js';
 import { LEAGUES } from '@/shared/store/airdrop.js';
-import { SectionHeader } from '@/shared/ui/section-header.js';
+import { t } from '@/shared/i18n/index.js';
 
 export const LeaderboardView: Component = () => {
+	const [selectedLeague, setSelectedLeague] = createSignal<string | null>(null);
+
 	const leaderboardQuery = createQuery(() => ({
 		queryKey: ['leaderboard'],
 		queryFn: fetchLeaderboard,
@@ -25,109 +26,159 @@ export const LeaderboardView: Component = () => {
 	const userScore = () => statsQuery.data?.xp ?? 0;
 	const getLeagueColor = (name: string) => LEAGUES.find((l) => l.name === name)?.color || '#8e8e93';
 
-	return (
-		<div class="flex-1 overflow-y-auto px-4 pt-4 pb-8 animate-fade-in no-scrollbar">
-			<SectionHeader
-				icon="emoji_events"
-				title={t('airdrop.leaderboard.title')}
-				subtitle={t('airdrop.leaderboard.subtitle')}
-				gradient="#f59e0b, #d97706"
-				shadowColor="rgba(245,158,11,0.3)"
-			/>
+	const filteredLeaderboard = () => {
+		const data = leaderboardQuery.data || [];
+		const league = selectedLeague();
+		if (!league) return data;
+		return data.filter((e) => e.league === league);
+	};
 
-			{/* Your Position */}
-			<Show
-				when={!statsQuery.isLoading}
-				fallback={
-					<div class="bg-[#3390ec]/10 border border-[#3390ec]/20 rounded-2xl p-4 mb-4 flex items-center justify-center min-h-[74px]">
-						<div class="w-6 h-6 border-2 border-[#3390ec] border-t-transparent rounded-full animate-spin"></div>
-					</div>
-				}
-			>
-				<div class="bg-[#3390ec]/10 border border-[#3390ec]/20 rounded-2xl p-4 mb-4 flex items-center justify-between">
+	return (
+		<div 
+			class="flex-1 overflow-y-auto no-scrollbar animate-fade-in pb-8" 
+			style={{ background: '#000' }}
+			dir={t('dir') === 'rtl' ? 'rtl' : 'ltr'}
+		>
+			{/* League Filter Pills */}
+			<div class="px-4 pt-4 pb-3 overflow-x-auto no-scrollbar">
+				<div class="flex gap-2 min-w-max">
+					<button
+						onClick={() => setSelectedLeague(null)}
+						class={`px-4 py-2 rounded-full text-[13px] font-semibold transition-all shrink-0 ${
+							selectedLeague() === null
+								? 'bg-white text-black'
+								: 'bg-[#1c1c1e] text-[#8e8e93] active:bg-white/10'
+						}`}
+					>
+						{t('airdrop.leaderboard.all')}
+					</button>
+					<For each={LEAGUES}>
+						{(league) => (
+							<button
+								onClick={() => setSelectedLeague(league.name === selectedLeague() ? null : league.name)}
+								class={`px-4 py-2 rounded-full text-[13px] font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
+									selectedLeague() === league.name
+										? 'text-black'
+										: 'bg-[#1c1c1e] text-[#8e8e93] active:bg-white/10'
+								}`}
+								style={selectedLeague() === league.name ? { background: league.color } : {}}
+							>
+								<span
+									class="material-symbols-outlined text-[16px]"
+									style={{
+										'font-variation-settings': '"FILL" 1',
+										color: selectedLeague() === league.name ? 'inherit' : league.color,
+									}}
+								>
+									{league.icon}
+								</span>
+								{league.name}
+							</button>
+						)}
+					</For>
+				</div>
+			</div>
+
+			{/* Your Position (Sticky) */}
+			<Show when={!statsQuery.isLoading && !selectedLeague()}>
+				<div class="mx-4 mb-3 bg-[#3390ec]/10 border border-[#3390ec]/20 rounded-2xl p-4 flex items-center justify-between">
 					<div class="flex items-center gap-3">
-						<div class="px-2 min-w-[36px] h-9 rounded-full bg-[#3390ec]/20 flex items-center justify-center text-[#3390ec] font-black text-sm">
-							#{userPosition() !== '?' ? Number(userPosition()).toLocaleString('en-US') : '?'}
+						<div class="w-10 h-10 rounded-full bg-[#3390ec]/20 flex items-center justify-center text-[#3390ec] font-bold text-[14px]">
+							#{typeof userPosition() === 'number' ? userPosition().toLocaleString('en-US') : '?'}
 						</div>
 						<div>
-							<div class="text-[11px] text-[#3390ec] font-semibold uppercase">
-								{t('airdrop.leaderboard.yourPosition')}
-							</div>
-							<div class="text-white font-black text-sm">
-								{userScore().toLocaleString('en-US')} XP
-							</div>
+							<div class="text-[#3390ec] text-[12px] font-semibold uppercase">{t('airdrop.leaderboard.yourPosition')}</div>
+							<div class="text-white font-bold text-[16px] tabular-nums">{userScore().toLocaleString('en-US')} XP</div>
 						</div>
 					</div>
 				</div>
 			</Show>
 
-			{/* List */}
-			<div class="bg-[#1c1c1e]/80 backdrop-blur-lg rounded-2xl overflow-hidden border border-white/[0.04] min-h-[300px] flex flex-col">
-				<Show
-					when={!leaderboardQuery.isLoading}
-					fallback={
-						<div class="flex-1 flex items-center justify-center py-10">
-							<div class="w-8 h-8 border-4 border-[#3390ec] border-t-transparent rounded-full animate-spin"></div>
-						</div>
-					}
-				>
+			{/* Leaderboard List */}
+			<div class="mx-4">
+				<div class="bg-[#1c1c1e] rounded-[24px] overflow-hidden min-h-[200px]">
 					<Show
-						when={leaderboardQuery.data && leaderboardQuery.data.length > 0}
+						when={!leaderboardQuery.isLoading}
 						fallback={
-							<div class="flex-1 flex flex-col items-center justify-center py-10 text-[#8e8e93]">
-								<span class="material-symbols-outlined text-4xl mb-2 opacity-50">
-									sentiment_dissatisfied
-								</span>
-								<span class="text-sm font-medium">No miners found</span>
+							<div class="flex items-center justify-center py-16">
+								<div class="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
 							</div>
 						}
 					>
-						<For each={leaderboardQuery.data}>
-							{(entry, i) => (
-								<div
-									class={`flex items-center justify-between px-4 py-3.5 ${i() < (leaderboardQuery.data?.length || 0) - 1 ? 'border-b border-white/[0.04]' : ''}`}
-								>
-									<div class="flex items-center gap-3">
-										<div
-											class={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs ${
-												entry.rank === 1
-													? 'bg-amber-400 text-black shadow-[0_0_10px_rgba(251,191,36,0.4)]'
-													: entry.rank === 2
-														? 'bg-gray-300 text-black'
-														: entry.rank === 3
-															? 'bg-[#cd7f32] text-white'
-															: 'bg-[#2c2c2e] text-[#8e8e93]'
-											}`}
-										>
-											{entry.rank <= 3 ? (
-												<span
-													class="material-symbols-outlined text-sm"
-													style={{ 'font-variation-settings': '"FILL" 1' }}
-												>
-													emoji_events
-												</span>
-											) : (
-												entry.rank
-											)}
-										</div>
-										<div>
-											<div class="text-white font-bold text-[13px]">{entry.name}</div>
+						<Show
+							when={filteredLeaderboard().length > 0}
+							fallback={
+								<div class="flex flex-col items-center justify-center py-16 text-[#8e8e93]">
+									<span class="material-symbols-outlined text-4xl mb-2 opacity-40">sentiment_dissatisfied</span>
+									<span class="text-[14px]">{t('airdrop.leaderboard.empty')}</span>
+								</div>
+							}
+						>
+							<For each={filteredLeaderboard()}>
+								{(entry, i) => (
+									<div
+										class={`flex items-center justify-between px-4 py-3.5 ${
+											i() < filteredLeaderboard().length - 1 ? 'border-b border-white/5' : ''
+										}`}
+									>
+										<div class="flex items-center gap-3">
+											{/* Rank */}
 											<div
-												class="text-[11px] font-semibold"
-												style={{ color: getLeagueColor(entry.league) }}
+												class={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-[13px] shrink-0 ${
+													entry.rank === 1
+														? 'bg-amber-400 text-black'
+														: entry.rank === 2
+															? 'bg-gray-300 text-black'
+															: entry.rank === 3
+																? 'bg-[#cd7f32] text-white'
+																: 'bg-[#2c2c2e] text-[#8e8e93]'
+												}`}
 											>
-												{entry.league}
+												{entry.rank <= 3 ? (
+													<span class="material-symbols-outlined text-[16px]" style={{ 'font-variation-settings': '"FILL" 1' }}>
+														emoji_events
+													</span>
+												) : (
+													entry.rank
+												)}
+											</div>
+
+											{/* Name & League */}
+											<div>
+												<div class="text-white font-medium text-[15px]">{entry.name}</div>
+												<div class="text-[#8e8e93] text-[13px] mt-0.5">{entry.level} {t('boosters.lvl')}</div>
+												<div class="flex items-center gap-1.5 mt-0.5">
+													<span
+														class="material-symbols-outlined text-[12px]"
+														style={{ color: getLeagueColor(entry.league), 'font-variation-settings': '"FILL" 1' }}
+													>
+														{LEAGUES.find((l) => l.name === entry.league)?.icon || 'star'}
+													</span>
+													<span class="text-[12px] font-medium" style={{ color: getLeagueColor(entry.league) }}>
+														{entry.league}
+													</span>
+												</div>
 											</div>
 										</div>
+
+										{/* Score */}
+										<div class="flex items-center gap-1.5 shrink-0">
+											<span
+												class="material-symbols-outlined text-amber-400 text-[14px]"
+												style={{ 'font-variation-settings': '"FILL" 1' }}
+											>
+												monetization_on
+											</span>
+											<span class="text-amber-400 font-bold text-[14px] tabular-nums">
+												{entry.score.toLocaleString('en-US')}
+											</span>
+										</div>
 									</div>
-									<div class="text-amber-400 font-black text-sm tabular-nums">
-										{entry.score.toLocaleString('en-US')}
-									</div>
-								</div>
-							)}
-						</For>
+								)}
+							</For>
+						</Show>
 					</Show>
-				</Show>
+				</div>
 			</div>
 		</div>
 	);

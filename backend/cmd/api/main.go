@@ -320,7 +320,8 @@ func main() {
 	profileHandler := handler.NewProfileHandler(profileService, paymentService)
 	gamificationService := service.NewGamificationService(db, cache)
 	gamificationHandler := handler.NewGamificationHandler(gamificationService)
-	clanService := service.NewClanService(db, cache)
+	clanService := service.NewClanService(db, cache, mtprotoClient)
+	clanService.StartWeeklyUpdater(ctx)
 	clanHandler := handler.NewClanHandler(clanService)
 
 	authHandler := handler.NewAuthHandler(db)

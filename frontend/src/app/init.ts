@@ -198,10 +198,10 @@ export async function init(options: {
 	try {
 		if (miniApp && typeof miniApp.isMounted === 'function' && miniApp.isMounted()) {
 			if (typeof miniApp.setHeaderColor === 'function') {
-				miniApp.setHeaderColor('#0f1014');
+				miniApp.setHeaderColor('#000000');
 			}
 			if (typeof (miniApp as any).setBackgroundColor === 'function') {
-				(miniApp as any).setBackgroundColor('#0f1014');
+				(miniApp as any).setBackgroundColor('#000000');
 			}
 		}
 	} catch (e) {

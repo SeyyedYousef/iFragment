@@ -429,9 +429,9 @@ export const ChannelGeneralSettingsPage: Component = () => {
 										<input
 											type="text"
 											value={config.inputChannelName}
-											onInput={(e) => updateField('inputChannelName', e.currentTarget.value)}
+											readOnly
 											placeholder={t('channelSettings.channelNamePlaceholder')}
-											class="bg-[#2c2c2e] text-white text-[14px] rounded-xl px-3 py-1.5 w-full focus:outline-none focus:ring-2 focus:ring-[#32ade6] placeholder-[#a0a4ad]"
+											class="bg-[#2c2c2e] text-white/60 text-[14px] rounded-xl px-3 py-1.5 w-full focus:outline-none placeholder-[#a0a4ad] cursor-not-allowed opacity-70"
 										/>
 									</div>
 									<div class="flex flex-col gap-1">
@@ -441,9 +441,9 @@ export const ChannelGeneralSettingsPage: Component = () => {
 										<input
 											type="text"
 											value={config.inputChannelUsername}
-											onInput={(e) => updateField('inputChannelUsername', e.currentTarget.value)}
+											readOnly
 											placeholder="@channel"
-											class="bg-[#2c2c2e] text-white text-[14px] rounded-xl px-3 py-1.5 w-full focus:outline-none focus:ring-2 focus:ring-[#32ade6] placeholder-[#a0a4ad]"
+											class="bg-[#2c2c2e] text-white/60 text-[14px] rounded-xl px-3 py-1.5 w-full focus:outline-none placeholder-[#a0a4ad] cursor-not-allowed opacity-70"
 											dir="ltr"
 										/>
 									</div>
@@ -520,9 +520,9 @@ export const ChannelGeneralSettingsPage: Component = () => {
 									<input
 										type="text"
 										value={config.channelName}
-										onInput={(e) => updateField('channelName', e.currentTarget.value)}
+										readOnly
 										placeholder={t('channelSettings.channelNamePlaceholder')}
-										class="bg-[#2c2c2e] text-white text-[14px] rounded-xl px-3 py-1.5 w-full focus:outline-none focus:ring-2 focus:ring-[#32ade6] placeholder-[#a0a4ad]"
+										class="bg-[#2c2c2e] text-white/60 text-[14px] rounded-xl px-3 py-1.5 w-full focus:outline-none placeholder-[#a0a4ad] cursor-not-allowed opacity-70"
 									/>
 								</div>
 								<div class="flex flex-col gap-1">
@@ -532,9 +532,9 @@ export const ChannelGeneralSettingsPage: Component = () => {
 									<input
 										type="text"
 										value={config.channelUsername}
-										onInput={(e) => updateField('channelUsername', e.currentTarget.value)}
+										readOnly
 										placeholder="@channel"
-										class="bg-[#2c2c2e] text-white text-[14px] rounded-xl px-3 py-1.5 w-full focus:outline-none focus:ring-2 focus:ring-[#32ade6] placeholder-[#a0a4ad]"
+										class="bg-[#2c2c2e] text-white/60 text-[14px] rounded-xl px-3 py-1.5 w-full focus:outline-none placeholder-[#a0a4ad] cursor-not-allowed opacity-70"
 										dir="ltr"
 									/>
 								</div>
