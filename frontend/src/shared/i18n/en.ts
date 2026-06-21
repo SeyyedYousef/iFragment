@@ -1828,7 +1828,7 @@ To enable me to delete malicious messages and restrict violating users, please a
 	},
 	airdropTabs: {
 		mine: 'Mine',
-		earn: 'Rewards',
+		earn: 'Tasks',
 		clan: 'Squads',
 		boost: 'Upgrades',
 		shop: 'Services',

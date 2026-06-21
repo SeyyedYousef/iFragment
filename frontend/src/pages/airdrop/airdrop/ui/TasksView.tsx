@@ -3,7 +3,7 @@ import { hapticFeedback, openTelegramLink } from '@tma.js/sdk-solid';
 import { Component, createSignal, For, Show } from 'solid-js';
 import { completeTask, getReferralInfo, getTasksStatus, TaskStatus } from '@/shared/api/profile.js';
 import { locale, t } from '@/shared/i18n/index.js';
-import { syncProfileStats } from '@/shared/store/airdrop.js';
+import { syncProfileStats, currentLeague } from '@/shared/store/airdrop.js';
 import { SectionHeader } from '@/shared/ui/section-header.js';
 
 const isRtl = () => locale() === 'fa';
@@ -12,16 +12,16 @@ export const TasksView: Component = () => {
 	const [taskErrors, setTaskErrors] = createSignal<Record<string, string>>({});
 	const [loadingKeys, setLoadingKeys] = createSignal<Record<string, boolean>>({});
 
-	const tasksQuery = createQuery(() => ({
+	const tasksQuery = createQuery<TaskStatus[]>(() => ({
 		queryKey: ['tasks-status'],
-		queryFn: getTasksStatus,
+		queryFn: getTasksStatus as () => Promise<TaskStatus[]>,
 		staleTime: 30_000,
 		refetchOnWindowFocus: false,
 	}));
 
-	const referralQuery = createQuery(() => ({
+	const referralQuery = createQuery<{ referralCode: string }>(() => ({
 		queryKey: ['referral-info'],
-		queryFn: getReferralInfo,
+		queryFn: getReferralInfo as () => Promise<{ referralCode: string }>,
 		staleTime: 60_000,
 		refetchOnWindowFocus: false,
 	}));
@@ -117,8 +117,19 @@ export const TasksView: Component = () => {
 	};
 
 	return (
-		<div class="flex-1 overflow-y-auto px-4 pt-6 pb-36 animate-fade-in no-scrollbar" style={{ background: '#000' }}>
-			<SectionHeader
+		<div class="flex-1 overflow-y-auto px-4 pt-6 pb-36 animate-fade-in no-scrollbar relative" style={{ background: '#000' }}>
+			{/* Ambient Mild Glow */}
+			<div
+				class="absolute top-0 right-0 w-[500px] h-[500px] rounded-full pointer-events-none transition-colors duration-500"
+				style={{
+					background: 'radial-gradient(circle, ' + currentLeague().color + '10 0%, transparent 60%)',
+					filter: 'blur(50px)',
+					transform: 'translate(30%, -30%)'
+				}}
+			></div>
+
+			<div class="relative z-10">
+				<SectionHeader
 				icon="assignment"
 				title={t('airdrop.tasks.title')}
 				subtitle={t('airdrop.tasks.subtitle')}
@@ -129,7 +140,7 @@ export const TasksView: Component = () => {
 			{/* Referral Card */}
 			<div class="bg-gradient-to-br from-[#1c1c1e] to-[#2c2c2e] rounded-2xl p-5 mb-6 border border-white/[0.06] relative overflow-hidden">
 				<div
-					class={`absolute top-0 ${isRtl() ? 'left-0' : 'right-0'} w-32 h-32 bg-[#3390ec]/20 blur-[50px] rounded-full pointer-events-none`}
+					class={'absolute top-0 ' + (isRtl() ? 'left-0' : 'right-0') + ' w-32 h-32 bg-[#3390ec]/20 blur-[50px] rounded-full pointer-events-none'}
 				></div>
 				<div class="relative z-10 flex items-center justify-between mb-4">
 					<div>
@@ -167,7 +178,7 @@ export const TasksView: Component = () => {
 							`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(t('airdropNew.friends.subtitle'))}`,
 						);
 					}}
-					class={`w-full text-white font-bold py-3 rounded-xl active:scale-95 transition-transform text-sm shadow-[0_2px_10px_rgba(51,144,236,0.3)] ${referralQuery.isLoading ? 'bg-[#3390ec]/70 cursor-not-allowed' : 'bg-[#3390ec]'}`}
+					class={'w-full text-white font-bold py-3 rounded-xl active:scale-95 transition-transform text-sm shadow-[0_2px_10px_rgba(51,144,236,0.3)] ' + (referralQuery.isLoading ? 'bg-[#3390ec]/70 cursor-not-allowed' : 'bg-[#3390ec]')}
 					disabled={referralQuery.isLoading}
 				>
 					{referralQuery.isLoading ? (
@@ -229,7 +240,7 @@ export const TasksView: Component = () => {
 										const details = getTaskDetails(task.key);
 										return (
 											<div
-												class={`flex flex-col px-4 py-3.5 ${i() < (tasksQuery.data?.length || 0) - 1 ? 'border-b border-white/[0.04]' : ''}`}
+												class={'flex flex-col px-4 py-3.5 ' + (i() !== (tasksQuery.data?.length || 0) - 1 ? 'border-b border-white/[0.04]' : '')}
 											>
 												<div class="flex items-center justify-between">
 													<div class="flex items-center gap-3 flex-1 min-w-0">
@@ -263,13 +274,13 @@ export const TasksView: Component = () => {
 													<button
 														onClick={() => handleTaskClick(task)}
 														disabled={task.completed || loadingKeys()[task.key]}
-														class={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ml-3 ${
+														class={'px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ml-3 ' + (
 															task.completed
 																? 'bg-[#34c759]/15 text-[#34c759]'
 																: loadingKeys()[task.key]
 																	? 'bg-[#2c2c2e] text-[#8e8e93]'
 																	: 'bg-[#3390ec] text-white active:scale-95 shadow-[0_2px_10px_rgba(51,144,236,0.3)]'
-														}`}
+														)}
 													>
 														{task.completed ? (
 															<span
@@ -303,6 +314,7 @@ export const TasksView: Component = () => {
 						</Show>
 					</Show>
 				</div>
+			</div>
 			</div>
 		</div>
 	);

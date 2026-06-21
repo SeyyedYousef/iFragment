@@ -1787,7 +1787,7 @@ export const dict = {
 	},
 	airdropTabs: {
 		mine: 'Добыча',
-		earn: 'Награды',
+		earn: 'Задания',
 		clan: 'Отряды',
 		boost: 'Улучшения',
 		shop: 'Услуги',

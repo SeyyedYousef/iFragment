@@ -1,6 +1,6 @@
 import { hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createSignal, For } from 'solid-js';
-import { balance, boosters, getBoosterCost, upgradeBooster, turboCount, fullEnergyCount, spawnRocket, activateFullEnergy } from '@/shared/store/airdrop.js';
+import { balance, boosters, getBoosterCost, upgradeBooster, turboCount, fullEnergyCount, spawnRocket, activateFullEnergy, currentLeague } from '@/shared/store/airdrop.js';
 import { t } from '@/shared/i18n/index.js';
 
 export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) => {
@@ -32,13 +32,22 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 
 	return (
 		<div 
-			class="flex-1 overflow-y-auto px-4 pt-6 pb-36 animate-fade-in no-scrollbar h-full" 
+			class="flex-1 overflow-y-auto px-4 pt-6 pb-36 animate-fade-in no-scrollbar h-full relative" 
 			style={{ background: '#000' }}
 			dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
 		>
-			
+			{/* Ambient Mild Glow */}
+			<div
+				class="absolute top-0 right-0 w-[500px] h-[500px] rounded-full pointer-events-none transition-colors duration-500"
+				style={{
+					background: `radial-gradient(circle, ${currentLeague().color}10 0%, transparent 60%)`,
+					filter: 'blur(50px)',
+					transform: 'translate(30%, -30%)'
+				}}
+			></div>
+
 			{/* Free daily boosters */}
-			<div class="mb-6">
+			<div class="mb-6 relative z-10">
 				<h2 class="text-[22px] font-bold text-white mb-4 tracking-tight text-start">{t('boosters.freeDaily')}</h2>
 				<div class="grid grid-cols-2 gap-3">
 					<button 
@@ -51,7 +60,7 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 					>
 						<div class="flex flex-col gap-1 items-start mb-1 w-full relative">
 							<span class="text-white font-medium text-[15px] max-w-[70%] leading-tight">{t('boosters.turbo')}</span>
-							<span class="text-[#8e8e93] text-[13px]">{t('boosters.available', { count: `${turboCount()}/3` })}</span>
+							<span class="text-[#8e8e93] text-[13px]">{t('boosters.available' as any).replace('{count}', `${turboCount()}/3`)}</span>
 							<span class="text-2xl absolute end-0 top-0">🚀</span>
 						</div>
 					</button>
@@ -65,7 +74,7 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 					>
 						<div class="flex flex-col gap-1 items-start mb-1 w-full relative">
 							<span class="text-white font-medium text-[15px] max-w-[70%] leading-tight">{t('boosters.fullEnergy')}</span>
-							<span class="text-[#8e8e93] text-[13px]">{t('boosters.available', { count: `${fullEnergyCount()}/3` })}</span>
+							<span class="text-[#8e8e93] text-[13px]">{t('boosters.available' as any).replace('{count}', `${fullEnergyCount()}/3`)}</span>
 							<span class="text-2xl absolute end-0 top-0">⚡</span>
 						</div>
 					</button>
@@ -73,7 +82,7 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 			</div>
 
 			{/* Boosters */}
-			<div>
+			<div class="relative z-10">
 				<h2 class="text-[22px] font-bold text-white mb-4 tracking-tight flex items-center gap-1">
 					{t('boosters.boostersTitle')}
 					<span class="text-[14px]">✨</span>
@@ -95,8 +104,8 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 								tapBot: '🤖',
 							};
 							
-							const metaName = t(`boosters.meta.${id}.name`);
-							const metaDesc = t(`boosters.meta.${id}.desc`);
+							const metaName = t(`boosters.meta.${id}.name` as any);
+							const metaDesc = t(`boosters.meta.${id}.desc` as any);
 
 							return (
 								<button
@@ -147,19 +156,7 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 						}}
 					</For>
 
-					{/* Hardcoded Recharging Speed (for demo matching screenshot) */}
-					<button class="flex items-center p-4 transition-all active:bg-white/5 border-t border-white/5 opacity-60">
-						<div class="w-14 h-14 bg-white/5 rounded-2xl flex items-center justify-center shrink-0 me-4">
-							<span class="text-3xl text-amber-400">⚡</span>
-						</div>
-						<div class="flex-1 flex flex-col items-start text-start min-w-0 justify-center">
-							<span class="text-white font-medium text-[17px] tracking-tight">{t('boosters.rechargingSpeed')}</span>
-							<span class="text-[#8e8e93] text-[15px] mt-0.5">{t('boosters.maxLevelReached')}</span>
-						</div>
-						<div class="shrink-0 ms-2">
-							<span class="material-symbols-outlined text-white/40 text-[24px]">check</span>
-						</div>
-					</button>
+
 				</div>
 			</div>
 		</div>

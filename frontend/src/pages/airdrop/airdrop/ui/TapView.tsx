@@ -14,6 +14,7 @@ import {
 	isTurboActive,
 	isRocketSpawned,
 	activateTurbo,
+	userClan,
 } from '@/shared/store/airdrop.js';
 
 interface CanvasParticle {
@@ -29,6 +30,7 @@ export const TapView: Component<{
 	onLeagueClick?: () => void;
 	onClanClick?: () => void;
 	onShopClick?: () => void;
+	onActionClick?: (tabId: string) => void;
 }> = (props) => {
 	const [isPressed, setIsPressed] = createSignal(false);
 	const [showShopCoachmark, setShowShopCoachmark] = createSignal(
@@ -177,8 +179,7 @@ export const TapView: Component<{
 	return (
 		<div
 			ref={containerRef}
-			class="flex-1 flex flex-col items-center relative overflow-hidden px-4 pt-6 pb-28"
-			style={{ background: 'linear-gradient(180deg, #000000 0%, #1a1a1a 40%, rgba(251,191,36,0.3) 100%)' }}
+			class="flex-1 flex flex-col items-center relative overflow-hidden px-4 pt-2 pb-6 bg-[#000000]"
 		>
 			{/* Flying Rocket for Turbo */}
 			<Show when={isRocketSpawned()}>
@@ -194,17 +195,80 @@ export const TapView: Component<{
 			{/* Floating GPU-accelerated canvas particles layer */}
 			<canvas ref={canvasRef} class="absolute inset-0 w-full h-full pointer-events-none z-50" />
 
-			{/* Ambient glow */}
-			<div
-				class={`absolute bottom-[-10%] left-1/2 -translate-x-1/2 w-[800px] h-[800px] rounded-full pointer-events-none transition-colors duration-500`}
-				style={{
-					background: `radial-gradient(circle, ${isTurboActive() ? '#ef4444' : currentLeague().color}40 0%, transparent 60%)`,
-					filter: 'blur(60px)',
-				}}
-			></div>
+			{/* Clan Bar */}
+			<div class="w-full px-4 mt-0 mb-3 z-10 flex justify-center">
+				<button
+					onClick={() => props.onClanClick?.()}
+					class="w-full bg-[#1a1a1c]/90 border border-white/5 backdrop-blur-md rounded-2xl flex items-center justify-between p-3 shadow-lg active:scale-95 transition-transform"
+				>
+					<Show when={userClan()} fallback={
+						<div class="flex items-center justify-between w-full">
+							<div class="flex items-center gap-3">
+								<div class="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+									<span class="text-white/50 text-[18px]">🛡️</span>
+								</div>
+								<span class="text-white font-bold text-[14px]">{t('airdropFinal.tap.joinClan')}</span>
+							</div>
+							<span class="material-symbols-outlined text-white/40">chevron_right</span>
+						</div>
+					}>
+						{(clan) => (
+							<>
+								<div class="flex items-center gap-3">
+									<div class="w-10 h-10 rounded-xl bg-black/50 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
+										<Show when={clan().channel_photo} fallback={<span class="text-white/50 text-[10px] font-bold">logo</span>}>
+											<img src={clan().channel_photo} alt={clan().chat_title} class="w-full h-full object-cover" />
+										</Show>
+									</div>
+									<div class="flex flex-col items-start min-w-0">
+										<span class="text-white font-bold text-[14px] truncate w-full text-left">{clan().chat_title}</span>
+										<div class="flex items-center gap-1 mt-0.5">
+											<span class="material-symbols-outlined text-[#FFC107] text-[12px]" style={{ 'font-variation-settings': '"FILL" 1' }}>monetization_on</span>
+											<span class="text-white/60 text-[12px] tabular-nums font-medium">
+												{(clan().total_score || clan().members_count * 1500).toLocaleString('en-US')}
+											</span>
+										</div>
+									</div>
+								</div>
+								<div class="flex items-center gap-1.5 opacity-80 shrink-0 ml-2">
+									<span class="material-symbols-outlined text-[#C0C0C0] text-[18px]" style={{ color: currentLeague().color, 'font-variation-settings': '"FILL" 1' }}>emoji_events</span>
+									<span class="text-white font-bold text-[13px]" style={{ color: currentLeague().color }}>{currentLeague().name}</span>
+								</div>
+							</>
+						)}
+					</Show>
+				</button>
+			</div>
+
+			{/* Action Buttons (Tasks, Frens, Boost) */}
+			<div class="w-full px-4 mb-6 z-10 flex items-center justify-center gap-2 mx-auto">
+				<button
+					onClick={() => props.onActionClick?.('earn')}
+					class="flex items-center justify-center gap-1.5 flex-1 bg-[#1c1c1e] border border-white/5 rounded-[16px] h-[52px] active:scale-95 transition-transform"
+				>
+					<span class="material-symbols-outlined text-[20px] text-white" style={{ 'font-variation-settings': '"FILL" 1' }}>assignment</span>
+					<span class="text-[13px] font-bold text-white tracking-tight">{t('airdropTabs.earn' as any) || 'تسک‌ها'}</span>
+				</button>
+
+				<button
+					onClick={() => props.onActionClick?.('frens')}
+					class="flex items-center justify-center gap-1.5 flex-1 bg-[#1c1c1e] border border-white/5 rounded-[16px] h-[52px] active:scale-95 transition-transform"
+				>
+					<span class="material-symbols-outlined text-[20px] text-white" style={{ 'font-variation-settings': '"FILL" 1' }}>group</span>
+					<span class="text-[13px] font-bold text-white tracking-tight">Frens</span>
+				</button>
+
+				<button
+					onClick={() => props.onActionClick?.('boost')}
+					class="flex items-center justify-center gap-1.5 flex-1 bg-[#1c1c1e] border border-white/5 rounded-[16px] h-[52px] active:scale-95 transition-transform"
+				>
+					<span class="material-symbols-outlined text-[20px] text-white">rocket_launch</span>
+					<span class="text-[13px] font-bold text-white tracking-tight">{t('airdropTabs.boost' as any) || 'ارتقا'}</span>
+				</button>
+			</div>
 
 			{/* Top Mining Info */}
-			<div class="text-center z-10 w-full flex flex-col items-center mt-2 mb-8" dir="ltr">
+			<div class="text-center z-10 w-full flex flex-col items-center mb-2 mt-2" dir="ltr">
 				<button 
 					onClick={() => {
 						if (showShopCoachmark()) {
@@ -213,7 +277,7 @@ export const TapView: Component<{
 						}
 						setShowShopModal(true);
 					}}
-					class="flex items-center justify-center gap-3 active:scale-95 transition-transform relative"
+					class="flex items-center justify-center gap-2 active:scale-95 transition-transform relative"
 				>
 					{showShopCoachmark() && (
 						<div class="absolute -top-12 left-1/2 -translate-x-1/2 bg-[#3390ec] text-white text-[12px] font-bold px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap animate-bounce z-50 after:content-[''] after:absolute after:-bottom-1.5 after:left-1/2 after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-[#3390ec]">
@@ -234,102 +298,102 @@ export const TapView: Component<{
 				</button>
 				<button
 					onClick={() => props.onLeagueClick?.()}
-					class="flex items-center justify-center gap-1.5 mt-2.5 cursor-pointer active:scale-95 transition-transform"
+					class="flex items-center justify-center gap-2 mt-1 cursor-pointer active:scale-95 transition-transform"
 				>
-					<Show when={statsQuery.data?.globalRank}>
-						<span class="text-white/80 text-[13px] font-medium tracking-tight">#{statsQuery.data?.globalRank.toLocaleString('en-US')}</span>
-						<span class="text-white/30 text-[10px] mx-1">•</span>
+					<Show 
+						when={statsQuery.data?.globalRank}
+						fallback={
+							<>
+								<div class="flex items-center gap-0.5">
+									<span class="text-white/30 text-[20px] font-thin leading-none">{'{'}</span>
+									<span class="text-[#FFD700] text-[14px] font-black tracking-[0.15em] drop-shadow-[0_0_15px_rgba(255,215,0,0.8)] uppercase px-1">125TH</span>
+									<span class="text-white/30 text-[20px] font-thin leading-none">{'}'}</span>
+								</div>
+								<span class="text-white/20 text-[10px] mx-1.5">•</span>
+							</>
+						}
+					>
+						{(() => {
+							const rank = statsQuery.data?.globalRank || 0;
+							const j = rank % 10;
+							const k = rank % 100;
+							let suffix = 'TH';
+							if (j === 1 && k !== 11) suffix = 'ST';
+							else if (j === 2 && k !== 12) suffix = 'ND';
+							else if (j === 3 && k !== 13) suffix = 'RD';
+							return (
+								<>
+									<div class="flex items-center gap-0.5">
+										<span class="text-white/30 text-[20px] font-thin leading-none">{'{'}</span>
+										<span class="text-[#FFD700] text-[14px] font-black tracking-[0.15em] drop-shadow-[0_0_15px_rgba(255,215,0,0.8)] uppercase px-1">{rank.toLocaleString('en-US')}{suffix}</span>
+										<span class="text-white/30 text-[20px] font-thin leading-none">{'}'}</span>
+									</div>
+									<span class="text-white/20 text-[10px] mx-1.5">•</span>
+								</>
+							);
+						})()}
 					</Show>
 					<span
-						class="material-symbols-outlined text-[16px]"
+						class="material-symbols-outlined text-[18px]"
 						style={{ color: currentLeague().color, 'font-variation-settings': '"FILL" 1' }}
 					>
 						{currentLeague().icon}
 					</span>
-					<span class="text-[13px] font-semibold" style={{ color: currentLeague().color }}>{currentLeague().name}</span>
+					<span class="text-[15px] font-bold" style={{ color: currentLeague().color }}>{currentLeague().name}</span>
 					<span class="material-symbols-outlined text-[16px] text-white/40">chevron_right</span>
 				</button>
 			</div>
+			{/* Main Coin Section */}
+			<div class="flex flex-col items-center justify-center w-full mt-8 mb-auto relative z-10">
+				{/* Main Coin Container */}
+				<div class="relative flex items-center justify-center w-full max-w-[340px] aspect-square">
+					{/* Main Coin Button with Direct Glow (No margins/borders) */}
+					<button
+						ref={buttonRef}
+						onPointerDown={handleTap}
+						class={`relative w-full h-full rounded-full transition-transform duration-75 select-none active:scale-[0.96] group bg-[#000000] border-none outline-none ${
+							isPressed() ? 'scale-95' : ''
+						} ${isShaking() ? 'animate-[shake_0.3s_ease-in-out]' : ''}`}
+						style={{
+							// Multi-layered box-shadow directly on the coin creates a perfect, seamless, borderless bloom
+							'box-shadow': isTurboActive() 
+								? '0 0 60px 15px rgba(239,68,68,0.5), 0 0 120px 30px rgba(239,68,68,0.3)'
+								: '0 0 40px 5px rgba(255,255,255,0.4), 0 0 90px 20px rgba(255,255,255,0.25), 0 0 150px 40px rgba(255,255,255,0.1)',
+						}}
+					>
+						{/* Content Container (Pure black, no borders) */}
+						<div class="absolute inset-0 rounded-full flex flex-col items-center justify-center overflow-hidden pointer-events-none bg-[#000000]">
+							{/* Triangle Logo */}
+							<svg
+								viewBox="0 0 100 100"
+								class="w-[45%] h-[45%] -mt-6"
+								style={{ filter: 'drop-shadow(0px 0px 8px rgba(255,255,255,0.6))' }}
+							>
+								<path 
+									d="M 50 15 L 15 80 L 85 80 Z" 
+									fill="none" 
+									stroke="white" 
+									stroke-width="12" 
+									stroke-linejoin="round" 
+									stroke-linecap="round"
+								/>
+								<path 
+									d="M 50 15 L 50 80" 
+									fill="none" 
+									stroke="white" 
+									stroke-width="12" 
+									stroke-linecap="round"
+								/>
+							</svg>
 
-			{/* Main Coin Container */}
-			<div class="relative z-10 mt-auto mb-auto flex items-center justify-center w-full max-w-[360px] aspect-square">
-				{/* Main Coin Button */}
-				<button
-					ref={buttonRef}
-					onPointerDown={handleTap}
-					class={`relative w-full h-full rounded-full transition-all duration-75 select-none active:scale-[0.92] group ${
-						isPressed() ? 'scale-95' : ''
-					} ${isShaking() ? 'animate-[shake_0.3s_ease-in-out]' : ''}`}
-					style={{
-						'box-shadow': `0 20px 50px rgba(0,0,0,0.5), 0 0 100px ${currentLeague().color}40`,
-					}}
-				>
-					{/* Dark Metallic Fragment Coin */}
-					<div class={`absolute inset-0 rounded-full flex items-center justify-center overflow-hidden pointer-events-none bg-black/40 backdrop-blur-sm border-[4px] ${isTurboActive() ? 'border-red-500/50 shadow-[0_0_30px_rgba(239,68,68,0.5)]' : 'border-white/5'}`} style={{ 'box-shadow': 'inset 0 10px 40px rgba(255,255,255,0.1)' }}>
-						<svg
-							viewBox="0 0 200 200"
-							class="w-[65%] h-[65%] drop-shadow-[0_15px_30px_rgba(0,0,0,0.8)]"
-						>
-							<defs>
-								<linearGradient id="fragGlow" x1="0%" y1="0%" x2="100%" y2="100%">
-									<stop offset="0%" stop-color="#FFFFFF" />
-									<stop offset="100%" stop-color="#808080" />
-								</linearGradient>
-								<filter id="neonShadow" x="-20%" y="-20%" width="140%" height="140%">
-									<feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#ffffff" flood-opacity="0.3" />
-								</filter>
-							</defs>
-
-							{/* Clean Fragment Diamond Logo */}
-							<g filter="url(#neonShadow)" transform="translate(15, 10)">
-								{/* Top Left */}
-								<path d="M85 20 L85 85 L20 85 Z" fill="#FFFFFF" />
-								{/* Top Right */}
-								<path d="M85 20 L150 85 L85 85 Z" fill="#E0E0E0" />
-								{/* Bottom Left */}
-								<path d="M20 85 L85 85 L85 170 Z" fill="#A0A0A0" />
-								{/* Bottom Right */}
-								<path d="M150 85 L85 85 L85 170 Z" fill="#606060" />
-							</g>
-						</svg>
-					</div>
-
-					{/* Glass Shine */}
-					<div class="absolute inset-0 rounded-full overflow-hidden pointer-events-none opacity-20">
-						<div
-							class="w-full h-full"
-							style={{
-								background:
-									'linear-gradient(135deg, rgba(255,255,255,0.6) 0%, transparent 40%, transparent 60%, rgba(255,255,255,0.2) 100%)',
-							}}
-						></div>
-					</div>
-				</button>
-			</div>
-
-			{/* Energy Section - Minimalist Notcoin Style */}
-			<div class="w-full z-10 mt-auto mb-2 px-2" dir="ltr">
-				<div class="flex items-center gap-3">
-					<div class="flex items-center gap-1">
-						<span
-							class="material-symbols-outlined text-white text-[24px]"
-							style={{ 'font-variation-settings': '"FILL" 1' }}
-						>
-							bolt
-						</span>
-						<span class="text-white font-bold text-xl leading-none tabular-nums">
-							{energy()}
-						</span>
-					</div>
-					<div class="flex-1 h-3.5 bg-white/20 rounded-full overflow-hidden">
-						<div
-							class="h-full rounded-full transition-all duration-300"
-							style={{
-								width: `${(energy() / maxEnergy()) * 100}%`,
-								background: 'linear-gradient(90deg, #ffc107, #ff9800)',
-							}}
-						></div>
-					</div>
+							{/* Energy Counter Inside Coin */}
+							<div class="absolute bottom-[14%] left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-[#1c1c1e]/80 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/5 shadow-lg pointer-events-none">
+								<span class="text-white/50 font-bold text-[14px] tabular-nums">{energy()} /</span>
+								<span class="text-white font-bold text-[16px] tabular-nums">{maxEnergy()}</span>
+								<span class="material-symbols-outlined text-[#FFC107] text-[18px]" style={{ 'font-variation-settings': '"FILL" 1' }}>bolt</span>
+							</div>
+						</div>
+					</button>
 				</div>
 			</div>
 
@@ -337,20 +401,20 @@ export const TapView: Component<{
 			<Show when={showShopModal()}>
 				<div class="fixed inset-0 z-[100] flex flex-col justify-end">
 					{/* Backdrop */}
-					<div 
+					<div
 						class="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in"
 						onClick={() => setShowShopModal(false)}
 					/>
-					
+
 					{/* Sheet Content */}
 					<div class="relative w-full h-[85vh] bg-[#0f0f13] rounded-t-3xl border-t border-white/10 flex flex-col animate-slide-up shadow-[0_-10px_40px_rgba(0,0,0,0.5)] overflow-hidden">
 						{/* Drag handle */}
 						<div class="w-full flex justify-center py-3 shrink-0" onClick={() => setShowShopModal(false)}>
 							<div class="w-12 h-1.5 rounded-full bg-white/20" />
 						</div>
-						
+
 						{/* Close button */}
-						<button 
+						<button
 							onClick={() => setShowShopModal(false)}
 							class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/10 text-white/50 hover:bg-white/20 hover:text-white transition-colors"
 						>

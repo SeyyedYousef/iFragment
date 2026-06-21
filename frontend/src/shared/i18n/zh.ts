@@ -82,7 +82,7 @@ export const dict: Record<string, any> = {
 	},
 	airdropTabs: {
 		mine: '矿山',
-		earn: '奖励',
+		earn: '任务',
 		clan: '团队',
 		boost: '升级',
 		shop: '服务',

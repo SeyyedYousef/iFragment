@@ -1,7 +1,7 @@
 import { hapticFeedback, openTelegramLink } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, Show } from 'solid-js';
 import { getTopClans, joinClan, leaveClan } from '@/shared/api/profile.js';
-import { setUserClan, userClan } from '@/shared/store/airdrop.js';
+import { setUserClan, userClan, currentLeague } from '@/shared/store/airdrop.js';
 import { t } from '@/shared/i18n/index.js';
 
 export const ClanView: Component = () => {
@@ -56,13 +56,13 @@ export const ClanView: Component = () => {
 		if (!clan) return;
 		const link = `https://t.me/iFragmentBot?start=clan_${clan.channel_username}`;
 		openTelegramLink(
-			`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(t('airdropNew.clan.inviteText', { title: clan.chat_title }))}`,
+			`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(t('airdropFinal.clan.inviteText', { title: clan.chat_title }))}`,
 		);
 	};
 
 	return (
 		<div 
-			class="flex-1 overflow-y-auto no-scrollbar animate-fade-in pb-36" 
+			class="flex-1 overflow-y-auto no-scrollbar animate-fade-in pb-36 relative" 
 			style={{ background: '#000' }}
 			dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
 		>
@@ -70,18 +70,28 @@ export const ClanView: Component = () => {
 				when={userClan()}
 				fallback={
 					/* === NOT IN A CLAN === */
-					<div class="px-5 pt-6">
+					<div class="px-5 pt-6 relative z-10 min-h-full">
+						{/* Ambient Mild Glow */}
+						<div
+							class="absolute top-0 right-0 w-[500px] h-[500px] rounded-full pointer-events-none transition-colors duration-500 z-[-1]"
+							style={{
+								background: `radial-gradient(circle, ${currentLeague().color}10 0%, transparent 60%)`,
+								filter: 'blur(50px)',
+								transform: 'translate(30%, -30%)'
+							}}
+						></div>
+
 						{/* Header */}
-						<h1 class="text-[28px] font-bold text-white tracking-tight">{t('airdropNew.clan.title')}</h1>
-						<p class="text-[#8e8e93] text-[15px] mt-1">{t('airdropNew.clan.subtitle')}</p>
+						<h1 class="text-[28px] font-bold text-white tracking-tight">{t('airdropFinal.clan.title')}</h1>
+						<p class="text-[#8e8e93] text-[15px] mt-1">{t('airdropFinal.clan.subtitle')}</p>
 
 						{/* How it works */}
 						<button class="w-full mt-4 bg-[#1c1c1e] rounded-2xl p-4 flex items-center justify-between active:bg-white/5 transition-all">
 							<div class="flex items-center gap-3">
 								<span class="text-2xl">💡</span>
 								<div class="text-start">
-									<div class="text-white font-medium text-[15px]">{t('airdropNew.clan.howItWorks')}</div>
-									<div class="text-[#8e8e93] text-[13px]">{t('airdropNew.clan.howItWorksDesc')}</div>
+									<div class="text-white font-medium text-[15px]">{t('airdropFinal.clan.howItWorks')}</div>
+									<div class="text-[#8e8e93] text-[13px]">{t('airdropFinal.clan.howItWorksDesc')}</div>
 								</div>
 							</div>
 							<span class="material-symbols-outlined text-white/40 text-[20px]">chevron_right</span>
@@ -89,8 +99,8 @@ export const ClanView: Component = () => {
 
 						{/* Search to Join */}
 						<div class="mt-5 bg-[#1c1c1e] rounded-2xl p-4">
-							<h3 class="text-white font-semibold text-[17px] mb-3">{t('airdropNew.clan.joinTitle')}</h3>
-							<p class="text-[#8e8e93] text-[13px] mb-3">{t('airdropNew.clan.joinDesc')}</p>
+							<h3 class="text-white font-semibold text-[17px] mb-3">{t('airdropFinal.clan.joinTitle')}</h3>
+							<p class="text-[#8e8e93] text-[13px] mb-3">{t('airdropFinal.clan.joinDesc')}</p>
 							<div class="flex gap-2">
 								<input
 									type="text"
@@ -108,7 +118,7 @@ export const ClanView: Component = () => {
 											: 'bg-[#2c2c2e] text-[#555]'
 									}`}
 								>
-									{loading() ? '...' : t('airdropNew.clan.joinBtn')}
+									{loading() ? '...' : t('airdropFinal.clan.joinBtn')}
 								</button>
 							</div>
 							{errorMsg() && (
@@ -118,7 +128,7 @@ export const ClanView: Component = () => {
 
 						{/* Popular Squads */}
 						<div class="mt-6">
-							<h2 class="text-[20px] font-bold text-white mb-3 tracking-tight">{t('airdropNew.clan.popularSquads')}</h2>
+							<h2 class="text-[20px] font-bold text-white mb-3 tracking-tight">{t('airdropFinal.clan.popularSquads')}</h2>
 							<div class="bg-[#1c1c1e] rounded-[24px] overflow-hidden">
 								<Show
 									when={!topClans.loading}
@@ -131,7 +141,7 @@ export const ClanView: Component = () => {
 									<For
 										each={topClans() || []}
 										fallback={
-											<div class="text-[#8e8e93] text-[14px] text-center py-8">{t('airdropNew.clan.noSquads')}</div>
+											<div class="text-[#8e8e93] text-[14px] text-center py-8">{t('airdropFinal.clan.noSquads')}</div>
 										}
 									>
 										{(clan, i) => (
@@ -174,7 +184,7 @@ export const ClanView: Component = () => {
 												<div class="flex-1 min-w-0">
 													<div class="text-white font-medium text-[16px] truncate">{clan.chat_title}</div>
 													<div class="text-[#8e8e93] text-[13px] mt-0.5">
-														{clan.members_count.toLocaleString('en-US')} {t('airdropNew.clan.members')}
+														{clan.members_count.toLocaleString('en-US')} {t('airdropFinal.clan.members')}
 													</div>
 												</div>
 
@@ -202,141 +212,129 @@ export const ClanView: Component = () => {
 				}
 			>
 				{/* === IN A CLAN === */}
-				{(clan) => (
-					<div class="px-5 pt-6">
-						{/* Clan Header */}
-						<div class="text-center mb-6">
-							<h1 class="text-[24px] font-bold text-white tracking-tight">{t('airdropNew.clan.title')}</h1>
+				{(clan) => {
+					const currentLeagueName = 'Gold'; 
+					const currentRank = '3rd';
 
-							{/* Clan Card */}
-							<div class="mt-4 bg-[#1c1c1e] rounded-3xl p-5 relative overflow-hidden">
-								{/* Ambient glow */}
-								<div
-									class="absolute top-0 end-0 w-40 h-40 rounded-full pointer-events-none"
-									style={{ background: 'radial-gradient(circle, rgba(239,68,68,0.15) 0%, transparent 70%)' }}
-								></div>
+					return (
+						<div class="min-h-full flex flex-col relative w-full" style={{
+							background: 'linear-gradient(180deg, #d97d26 0%, #4a2c13 40%, #000000 60%, #000000 100%)'
+						}}>
+							<div class="relative z-10 flex flex-col items-center pt-8 px-4 w-full max-w-md mx-auto">
+								{/* Top Icon Box (Partially cut off at top) */}
+								<div class="w-[100px] h-[100px] bg-black rounded-[32px] flex items-center justify-center mb-6 shadow-xl border border-white/5 -mt-10 relative overflow-hidden">
+									{clan().channel_photo ? (
+										<img src={clan().channel_photo} class="w-full h-full object-cover" />
+									) : (
+										<svg viewBox="0 0 100 100" class="w-[50%] h-[50%]">
+											<path d="M 50 15 L 15 80 L 85 80 Z" fill="none" stroke="white" stroke-width="12" stroke-linejoin="round" stroke-linecap="round"/>
+											<path d="M 50 15 L 50 80" fill="none" stroke="white" stroke-width="12" stroke-linecap="round"/>
+										</svg>
+									)}
+								</div>
 
-								<div class="relative z-10">
-									<div class="flex items-center gap-4 mb-4">
-										<img
-											src={clan().channel_photo || 'https://telegram.org/img/t_logo.png'}
-											alt={clan().chat_title}
-											class="w-16 h-16 rounded-2xl object-cover border-2 border-white/10"
-										/>
-										<div class="text-start flex-1 min-w-0">
-											<h2 class="text-white font-bold text-[20px] truncate">{clan().chat_title}</h2>
-											<div class="text-[#8e8e93] text-[14px]">@{clan().channel_username}</div>
-										</div>
+								{/* Clan Title & Link */}
+								<button 
+									onClick={() => openTelegramLink(`https://t.me/${clan().channel_username}`)}
+									class="flex items-center justify-center gap-2 text-white font-black text-[30px] tracking-tight active:scale-95 transition-transform"
+								>
+									{clan().chat_title}
+									<span class="material-symbols-outlined text-[22px] text-white/50">open_in_new</span>
+								</button>
+
+								{/* Rank & League */}
+								<button class="flex items-center gap-2 mt-2 active:scale-95 transition-transform">
+									<div class="flex items-center gap-1.5">
+										<span class="text-white/40 text-[15px]">🌾</span>
+										<span class="text-white/90 font-bold text-[16px]">{currentRank}</span>
+										<span class="text-white/40 text-[15px]">🌾</span>
 									</div>
+									<span class="text-white/30 text-[10px]">•</span>
+									<span class="text-[16px]">🏆</span>
+									<span class="text-amber-400 font-bold text-[16px] flex items-center gap-0.5">
+										{currentLeagueName}
+										<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+									</span>
+								</button>
 
-									{/* Stats Row */}
-									<div class="grid grid-cols-2 gap-3 mb-4">
-										<div class="bg-white/5 rounded-xl p-3 text-center">
-											<div class="text-white font-bold text-[18px]">{clan().members_count.toLocaleString('en-US')}</div>
-											<div class="text-[#8e8e93] text-[12px]">{t('airdropNew.clan.membersLabel')}</div>
-										</div>
-										<div class="bg-white/5 rounded-xl p-3 text-center">
-											<div class="text-amber-400 font-bold text-[18px]">
-												{formatScore(clan().total_score || clan().members_count * 1500)}
+								{/* How it works */}
+								<button class="mt-6 text-white font-bold text-[15px] active:opacity-70 transition-opacity">
+									{t('airdropFinal.clan.howItWorks')}
+								</button>
+
+								{/* Description Text */}
+								<p class="text-center text-white/90 font-medium text-[14px] mt-4 max-w-[320px] leading-relaxed">
+									{t('airdropFinal.clan.howItWorksDesc')}
+								</p>
+
+								{/* Action Card */}
+								<div class="w-full bg-[#1c1c1e] rounded-[28px] mt-8 p-5 flex flex-col gap-4 border border-white/5 shadow-2xl">
+									{/* Score & Invite Stats */}
+									<div class="w-full flex justify-between items-center mb-1">
+										<div class="flex flex-col items-start">
+											<div class="flex items-center gap-1.5">
+												<span class="text-[#ffcc00] text-[20px]">🟡</span>
+												<span class="text-white font-bold text-[22px] tracking-tight">
+													{formatScore(clan().total_score || clan().members_count * 1500)}
+												</span>
 											</div>
-											<div class="text-[#8e8e93] text-[12px]">{t('airdropNew.clan.scoreLabel')}</div>
+											<span class="text-[#8e8e93] text-[13px] ml-7 font-medium">{t('airdropFinal.clan.totalScore', { defaultValue: 'Total score' })}</span>
+										</div>
+										
+										<div class="flex flex-col items-end">
+											<span class="text-white font-bold text-[17px]">{t('airdropFinal.clan.inviteToSquad', { defaultValue: 'Invite to squad' })}</span>
+											<span class="text-[#8e8e93] text-[13px] font-medium">{t('airdropFinal.clan.getMoreCoins', { defaultValue: 'Get more Coins' })}</span>
 										</div>
 									</div>
 
-									{/* Actions */}
+									{/* Action Buttons */}
 									<button
 										onClick={handleInvite}
-										class="w-full bg-[#3390ec] text-white font-bold py-3.5 rounded-xl active:scale-[0.98] transition-transform text-[15px] mb-2"
+										class="w-full bg-[#007aff] text-white font-bold py-4 rounded-[18px] active:scale-[0.98] transition-transform text-[17px]"
 									>
-										{t('airdropNew.clan.invite')}
+										{t('airdropFinal.friends.inviteBtn')}
 									</button>
 									<button
 										onClick={handleLeave}
 										disabled={loading()}
-										class="w-full bg-white/5 border border-white/10 text-white/70 font-medium py-3 rounded-xl active:scale-[0.98] transition-transform text-[14px]"
+										class="w-full bg-[#2c2c2e] text-white/90 font-bold py-4 rounded-[18px] active:scale-[0.98] transition-transform text-[17px]"
 									>
-										{loading() ? '...' : t('airdropNew.clan.leave')}
+										{loading() ? '...' : t('airdropFinal.clan.leaveClan', { defaultValue: 'Leave squad' })}
 									</button>
+								</div>
+
+								{/* Static Leaderboard Bottom Panel */}
+								<div class="w-full mt-6 flex flex-col pb-32">
+									{/* Tabs */}
+									<div class="flex relative border-b border-[#2c2c2e]">
+										<button class="flex-1 pb-3 text-[#8e8e93] font-bold text-[15px] active:text-white transition-colors">Day</button>
+										<button class="flex-1 pb-3 text-white font-bold text-[15px] relative">
+											Week
+											<div class="absolute bottom-0 left-0 right-0 h-[2px] bg-white rounded-t-full"></div>
+										</button>
+									</div>
+									
+									{/* User Row */}
+									<div class="w-full mt-2 p-4 flex items-center justify-between active:bg-white/5 transition-colors rounded-2xl cursor-pointer">
+										<div class="flex items-center gap-4">
+											<div class="text-[#8e8e93] font-bold text-[15px] w-6">28</div>
+											<div class="w-12 h-12 rounded-full bg-gradient-to-br from-gray-700 to-gray-600 flex items-center justify-center text-xl overflow-hidden border border-white/10">
+												<img src="https://api.dicebear.com/7.x/avataaars/svg?seed=CryptoPie" class="w-full h-full object-cover" />
+											</div>
+											<div class="flex flex-col">
+												<span class="text-white font-bold text-[16px]">CryptoPie</span>
+												<span class="text-white/80 text-[14px] font-medium flex items-center gap-1 mt-0.5">
+													<span class="text-[#ffcc00] text-[12px]">🟡</span> 672,811
+												</span>
+											</div>
+										</div>
+										<span class="text-white font-bold text-[15px]">You</span>
+									</div>
 								</div>
 							</div>
 						</div>
-
-						{/* Global Squads Leaderboard */}
-						<div>
-							<h2 class="text-[20px] font-bold text-white mb-3 tracking-tight">{t('airdropNew.clan.topSquads')}</h2>
-							<div class="bg-[#1c1c1e] rounded-[24px] overflow-hidden">
-								<Show
-									when={!topClans.loading}
-									fallback={
-										<div class="flex items-center justify-center py-10">
-											<div class="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-										</div>
-									}
-								>
-									<For each={topClans() || []}>
-										{(c, i) => {
-											const isMySquad = () => c.id === clan().id;
-											return (
-												<div
-													class={`flex items-center p-4 ${i() !== 0 ? 'border-t border-white/5' : ''} ${
-														isMySquad() ? 'bg-[#3390ec]/10' : ''
-													}`}
-												>
-													<div
-														class={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-[13px] shrink-0 mr-3 ${
-															i() === 0
-																? 'bg-amber-400 text-black'
-																: i() === 1
-																	? 'bg-gray-300 text-black'
-																	: i() === 2
-																		? 'bg-[#cd7f32] text-white'
-																		: 'bg-[#2c2c2e] text-[#8e8e93]'
-														}`}
-													>
-														{i() + 1}
-													</div>
-													{c.channel_photo ? (
-														<img
-															src={c.channel_photo}
-															alt={c.chat_title}
-															class="w-10 h-10 rounded-xl object-cover border border-white/10 shrink-0 mr-3"
-														/>
-													) : (
-														<div class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center shrink-0 mr-3 text-lg">
-															🛡️
-														</div>
-													)}
-													<div class="flex-1 min-w-0">
-														<div class="flex items-center gap-2">
-															<span class="text-white font-medium text-[15px] truncate">{c.chat_title}</span>
-															{isMySquad() && (
-																<span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#3390ec]/20 text-[#3390ec]">{t('airdropNew.clan.you')}</span>
-															)}
-														</div>
-														<div class="text-[#8e8e93] text-[13px]">
-															{c.members_count.toLocaleString('en-US')} {t('airdropNew.clan.members')}
-														</div>
-													</div>
-													<div class="flex items-center gap-1 shrink-0 ms-2">
-														<span
-															class="material-symbols-outlined text-amber-400 text-[14px]"
-															style={{ 'font-variation-settings': '"FILL" 1' }}
-														>
-															monetization_on
-														</span>
-														<span class="text-amber-400 font-bold text-[14px]">
-															{formatScore(c.total_score || c.members_count * 1500)}
-														</span>
-													</div>
-												</div>
-											);
-										}}
-									</For>
-								</Show>
-							</div>
-						</div>
-					</div>
-				)}
+					);
+				}}
 			</Show>
 		</div>
 	);

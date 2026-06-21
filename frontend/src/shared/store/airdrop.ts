@@ -468,6 +468,8 @@ export const initStorageSync = () => {
 			.then((res) => {
 				if (res?.is_member && res.clan) {
 					setUserClan(res.clan as Clan);
+				} else {
+					setUserClan(null);
 				}
 			})
 			.catch((e) => console.error('Failed to load user clan:', e));

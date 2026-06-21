@@ -2,17 +2,18 @@ import { Component, createSignal, Match, Switch } from 'solid-js';
 import { BottomNav } from '@/widgets/bottom-nav/index.js';
 import { BoostersView } from './BoostersView.js';
 import { ClanView } from './ClanView.js';
+import { FrensView } from './FrensView.js';
 import { LeaderboardView } from './LeaderboardView.js';
 import { ShopView } from './ShopView.js';
 import { TapView } from './TapView.js';
 import { TasksView } from './TasksView.js';
 import { t } from '@/shared/i18n/index.js';
 
-type AirdropTab = 'mine' | 'earn' | 'clan' | 'boost' | 'shop';
+type AirdropTab = 'mine' | 'earn' | 'clan' | 'frens' | 'boost' | 'shop';
 
 const getTabs = () => [
 	{ id: 'earn' as AirdropTab, icon: 'assignment', label: t('airdropTabs.earn') },
-	{ id: 'clan' as AirdropTab, icon: 'shield', label: t('airdropTabs.clan') },
+	{ id: 'frens' as AirdropTab, icon: 'group', label: 'Frens' },
 	{ id: 'boost' as AirdropTab, icon: 'rocket_launch', label: t('airdropTabs.boost') },
 ];
 
@@ -35,48 +36,20 @@ export const AirdropPage: Component = () => {
 			style={{ 'min-height': 'var(--tg-viewport-stable-height, 100vh)' }}
 		>
 			{/* Main Content */}
-			<div class="flex-1 overflow-hidden relative flex flex-col pt-16">
-				{/* Internal Airdrop Tab Bar at TOP */}
-				<div class="absolute top-0 left-0 right-0 z-[60] bg-black/60 backdrop-blur-xl border-b border-white/5" dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}>
-					<div class="flex items-center px-3 py-2 max-w-md mx-auto relative">
-						{/* Close button to go back to Mine if not on Mine */}
-						{activeTab() !== 'mine' && (
+			<div class="flex-1 overflow-hidden relative flex flex-col pt-0">
+				{/* Header for sub-pages */}
+				<Show when={activeTab() !== 'mine' && activeTab() !== 'shop'}>
+					<div class="absolute top-0 left-0 right-0 z-[60] bg-transparent pb-2 pt-2" dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}>
+						<div class="flex items-center px-4 max-w-md mx-auto">
 							<button 
 								onClick={() => handleTabChange('mine')} 
-								class="absolute left-3 w-10 h-10 flex items-center justify-center text-white/50 active:text-white shrink-0 bg-white/5 rounded-full active:bg-white/10 transition-all z-10"
-								style={t('dir' as any) === 'rtl' ? { right: '0.75rem', left: 'auto' } : {}}
+								class="w-10 h-10 flex items-center justify-center text-white/70 active:text-white shrink-0 bg-white/10 rounded-full active:bg-white/20 transition-all shadow-lg backdrop-blur-md"
 							>
 								<span class="material-symbols-outlined text-[20px]">close</span>
 							</button>
-						)}
-						<div class="flex items-center justify-around flex-1">
-							{getTabs().map((tab) => (
-								<button
-									onClick={() => handleTabChange(tab.id)}
-									class={`flex items-center gap-1.5 py-2 px-3 rounded-xl transition-all ${
-										activeTab() === tab.id
-											? 'bg-white/10 text-white'
-											: 'text-[#8e8e93] active:scale-95'
-									}`}
-								>
-									<span
-										class="material-symbols-outlined text-[18px]"
-										style={{
-											'font-variation-settings': activeTab() === tab.id ? '"FILL" 1' : '"FILL" 0',
-										}}
-									>
-										{tab.icon}
-									</span>
-									<span class={`text-[12px] font-bold tracking-tight ${
-										activeTab() === tab.id ? 'text-white' : 'text-[#8e8e93]'
-									}`}>
-										{tab.label}
-									</span>
-								</button>
-							))}
 						</div>
 					</div>
-				</div>
+				</Show>
 
 				<Switch>
 					<Match when={activeTab() === 'mine'}>
@@ -84,6 +57,7 @@ export const AirdropPage: Component = () => {
 							onLeagueClick={() => setShowLeaderboard(true)} 
 							onClanClick={() => handleTabChange('clan')}
 							onShopClick={() => handleTabChange('shop')}
+							onActionClick={(tabId) => handleTabChange(tabId as any)}
 						/>
 					</Match>
 					<Match when={activeTab() === 'earn'}>
@@ -91,6 +65,9 @@ export const AirdropPage: Component = () => {
 					</Match>
 					<Match when={activeTab() === 'clan'}>
 						<ClanView />
+					</Match>
+					<Match when={activeTab() === 'frens'}>
+						<FrensView />
 					</Match>
 					<Match when={activeTab() === 'boost'}>
 						<BoostersView onTurboClick={() => handleTabChange('mine')} />
