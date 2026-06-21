@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -167,79 +166,7 @@ func (db *Database) CompleteUserTask(ctx context.Context, userID int64, taskKey 
 	return err
 }
 
-// CreditReferrerShare handles Tier 1 & Tier 2 lifetime commissions on user spending.
-// Tier 1 receives 10%, Tier 2 receives 3% of spender's spend.
-func (db *Database) CreditReferrerShare(ctx context.Context, spenderID int64, amountSpent float64, frgRepo *FRGRepo) error {
-	if db.Pool == nil || amountSpent <= 0 {
-		return nil
-	}
 
-	tx, err := db.Pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to begin tx: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
-	// 1. Get spender's Tier 1 referrer ID directly (referred_by is BIGINT telegram_id)
-	var t1ReferrerID *int64
-	err = tx.QueryRow(ctx, "SELECT referred_by FROM users WHERE telegram_id = $1", spenderID).Scan(&t1ReferrerID)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil
-		}
-		return fmt.Errorf("failed to get t1 referrer: %w", err)
-	}
-	if t1ReferrerID == nil || *t1ReferrerID == 0 {
-		return nil // Spender has no referrer
-	}
-
-	// 2. Get Tier 1's referrer ID (referred_by is BIGINT telegram_id of Tier 1's referrer)
-	var t2ReferrerID *int64
-	err = tx.QueryRow(ctx, "SELECT referred_by FROM users WHERE telegram_id = $1", *t1ReferrerID).Scan(&t2ReferrerID)
-	if err != nil && err != pgx.ErrNoRows {
-		return fmt.Errorf("failed to get t2 referrer: %w", err)
-	}
-
-	t1Commission := amountSpent * 0.10
-	metaT1, _ := json.Marshal(map[string]interface{}{
-		"commission_tier": 1,
-		"spender_id":      spenderID,
-		"amount_spent":    amountSpent,
-	})
-
-	hasT2 := t2ReferrerID != nil && *t2ReferrerID != 0
-	var t2Commission float64
-	var metaT2 []byte
-	if hasT2 {
-		t2Commission = amountSpent * 0.03
-		metaT2, _ = json.Marshal(map[string]interface{}{
-			"commission_tier": 2,
-			"spender_id":      spenderID,
-			"amount_spent":    amountSpent,
-		})
-	}
-
-	// Execute in ID order to prevent deadlocks
-	if hasT2 && *t1ReferrerID > *t2ReferrerID {
-		if _, err := frgRepo.CreditTx(ctx, tx, *t2ReferrerID, t2Commission, "referral_payout", metaT2); err != nil {
-			return fmt.Errorf("failed to credit t2 commission: %w", err)
-		}
-		if _, err := frgRepo.CreditTx(ctx, tx, *t1ReferrerID, t1Commission, "referral_payout", metaT1); err != nil {
-			return fmt.Errorf("failed to credit t1 commission: %w", err)
-		}
-	} else {
-		if _, err := frgRepo.CreditTx(ctx, tx, *t1ReferrerID, t1Commission, "referral_payout", metaT1); err != nil {
-			return fmt.Errorf("failed to credit t1 commission: %w", err)
-		}
-		if hasT2 {
-			if _, err := frgRepo.CreditTx(ctx, tx, *t2ReferrerID, t2Commission, "referral_payout", metaT2); err != nil {
-				return fmt.Errorf("failed to credit t2 commission: %w", err)
-			}
-		}
-	}
-
-	return tx.Commit(ctx)
-}
 
 // CreditReferrerShareCoins handles Tier 1 & Tier 2 lifetime commissions on user in-game Coins spending.
 // Tier 1 receives 10%, Tier 2 receives 3% of spender's spend.
@@ -313,4 +240,153 @@ func (db *Database) CreditReferrerShareCoins(ctx context.Context, spenderID int6
 	}
 
 	return tx.Commit(ctx)
+}
+
+// GetTodayCipher returns today's daily cipher
+func (db *Database) GetTodayCipher(ctx context.Context) (string, float64, error) {
+	if db.Pool == nil {
+		return "", 0, fmt.Errorf("no database connection")
+	}
+
+	var morseCode string
+	var rewardCoins float64
+	query := "SELECT morse_code, reward_coins FROM daily_ciphers WHERE cipher_date = CURRENT_DATE"
+	err := db.Pool.QueryRow(ctx, query).Scan(&morseCode, &rewardCoins)
+	
+	if err == pgx.ErrNoRows {
+		// Return a default fallback if none is set by admin
+		return "HELLO", 1000000.00, nil
+	}
+	return morseCode, rewardCoins, err
+}
+
+// ClaimDailyCipher records a cipher claim and rewards the user
+func (db *Database) ClaimDailyCipher(ctx context.Context, userID int64, morseCode string) (float64, error) {
+	if db.Pool == nil {
+		return 0, fmt.Errorf("no database connection")
+	}
+
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+
+	// Check if already claimed
+	var exists bool
+	checkQuery := "SELECT EXISTS(SELECT 1 FROM user_cipher_claims WHERE user_id = $1 AND cipher_date = CURRENT_DATE)"
+	err = tx.QueryRow(ctx, checkQuery, userID).Scan(&exists)
+	if err != nil {
+		return 0, err
+	}
+	if exists {
+		return 0, fmt.Errorf("already claimed today")
+	}
+
+	// Verify the cipher
+	var actualMorse string
+	var rewardCoins float64
+	query := "SELECT morse_code, reward_coins FROM daily_ciphers WHERE cipher_date = CURRENT_DATE"
+	err = tx.QueryRow(ctx, query).Scan(&actualMorse, &rewardCoins)
+	if err == pgx.ErrNoRows {
+		actualMorse = "HELLO"
+		rewardCoins = 1000000.00
+	} else if err != nil {
+		return 0, err
+	}
+
+	if actualMorse != morseCode {
+		return 0, fmt.Errorf("invalid cipher code")
+	}
+
+	// Insert claim
+	insertQuery := "INSERT INTO user_cipher_claims (user_id, cipher_date, reward_amount) VALUES ($1, CURRENT_DATE, $2)"
+	_, err = tx.Exec(ctx, insertQuery, userID, rewardCoins)
+	if err != nil {
+		return 0, err
+	}
+
+	// Credit airdrop coins
+	creditQuery := "UPDATE user_stats SET airdrop_coins = COALESCE(airdrop_coins, 0) + $1 WHERE user_id = $2"
+	_, err = tx.Exec(ctx, creditQuery, rewardCoins, userID)
+	if err != nil {
+		return 0, err
+	}
+
+	return rewardCoins, tx.Commit(ctx)
+}
+
+// GetGlobalClans returns the top 100 clans sorted by total score
+func (db *Database) GetGlobalClans(ctx context.Context) ([]map[string]interface{}, error) {
+	if db.Pool == nil {
+		return nil, fmt.Errorf("no database connection")
+	}
+
+	query := `
+		SELECT c.id, c.name, c.total_score, COUNT(u.user_id) as member_count
+		FROM clans c
+		LEFT JOIN user_stats u ON c.id = u.clan_id
+		GROUP BY c.id
+		ORDER BY c.total_score DESC
+		LIMIT 100
+	`
+	rows, err := db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var clans []map[string]interface{}
+	for rows.Next() {
+		var id int64
+		var name string
+		var score float64
+		var members int
+		if err := rows.Scan(&id, &name, &score, &members); err != nil {
+			continue
+		}
+		clans = append(clans, map[string]interface{}{
+			"id": id,
+			"name": name,
+			"total_score": score,
+			"member_count": members,
+		})
+	}
+	return clans, nil
+}
+
+// GetActiveQuests returns quests that are active (not expired)
+func (db *Database) GetActiveQuests(ctx context.Context, userID int64) ([]map[string]interface{}, error) {
+	if db.Pool == nil {
+		return nil, fmt.Errorf("no database connection")
+	}
+
+	query := `
+		SELECT key, description, reward_amount, type, group_id
+		FROM tasks
+		WHERE is_active = true AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+	`
+	rows, err := db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tasks []map[string]interface{}
+	for rows.Next() {
+		var key, desc, tType string
+		var reward float64
+		var groupID *string
+		if err := rows.Scan(&key, &desc, &reward, &tType, &groupID); err != nil {
+			continue
+		}
+		tasks = append(tasks, map[string]interface{}{
+			"key": key,
+			"description": desc,
+			"reward": reward,
+			"type": tType,
+			"group_id": groupID,
+		})
+	}
+	return tasks, nil
 }

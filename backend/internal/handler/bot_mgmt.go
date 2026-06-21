@@ -2,8 +2,7 @@ package handler
 
 import (
 	"encoding/json"
-	"fmt"
-	"net/http"
+		"net/http"
 	"strconv"
 	"strings"
 
@@ -17,11 +16,11 @@ import (
 
 type BotMgmtHandler struct {
 	svc         *botmgmt.BotService
-	marketplace *botmgmt.MarketplaceService
+	
 }
 
-func NewBotMgmtHandler(svc *botmgmt.BotService, marketplace *botmgmt.MarketplaceService) *BotMgmtHandler {
-	return &BotMgmtHandler{svc: svc, marketplace: marketplace}
+func NewBotMgmtHandler(svc *botmgmt.BotService, ) *BotMgmtHandler {
+	return &BotMgmtHandler{svc: svc, }
 }
 
 func (h *BotMgmtHandler) getUserID(r *http.Request) int64 {
@@ -329,41 +328,7 @@ func (h *BotMgmtHandler) SubscribeWithAirdrop(w http.ResponseWriter, r *http.Req
 	RespondJSON(w, http.StatusOK, map[string]string{"status": "subscribed_via_airdrop"})
 }
 
-func (h *BotMgmtHandler) CreateSubscriptionStarsInvoice(w http.ResponseWriter, r *http.Request) {
-	userID := h.getUserID(r)
-	if userID == 0 {
-		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
-		return
-	}
-	var req SubscribeRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
-		return
-	}
 
-	groupID, err := uuid.Parse(req.GroupID)
-	if err != nil {
-		RespondError(w, r, http.StatusBadRequest, "invalid group ID", err)
-		return
-	}
-
-	pkg := h.svc.GetPackageByID(req.PackageID)
-	if pkg == nil {
-		RespondError(w, r, http.StatusBadRequest, "invalid package", nil)
-		return
-	}
-
-	// 1 FRG = 75 Stars
-	starsPrice := int(pkg.PriceFRG * 75)
-	payload := fmt.Sprintf("sub_stars_%s_%s", groupID.String(), req.PackageID)
-
-	link, err := h.marketplace.CreateCustomStarsInvoice(r.Context(), userID, "Subscription: "+pkg.Name, fmt.Sprintf("Subscription for %s package", pkg.Name), payload, starsPrice)
-	if err != nil {
-		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
-		return
-	}
-	RespondJSON(w, http.StatusOK, map[string]string{"invoice_link": link})
-}
 
 type ChannelSubscribeRequest struct {
 	ChannelID string `json:"channel_id"`
@@ -422,41 +387,7 @@ func (h *BotMgmtHandler) SubscribeChannelWithAirdrop(w http.ResponseWriter, r *h
 	RespondJSON(w, http.StatusOK, map[string]string{"status": "subscribed_via_airdrop"})
 }
 
-func (h *BotMgmtHandler) CreateChannelSubscriptionStarsInvoice(w http.ResponseWriter, r *http.Request) {
-	userID := h.getUserID(r)
-	if userID == 0 {
-		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
-		return
-	}
-	var req ChannelSubscribeRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
-		return
-	}
 
-	channelID, err := uuid.Parse(req.ChannelID)
-	if err != nil {
-		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
-		return
-	}
-
-	pkg := h.svc.GetPackageByID(req.PackageID)
-	if pkg == nil {
-		RespondError(w, r, http.StatusBadRequest, "invalid package", nil)
-		return
-	}
-
-	// 1 FRG = 75 Stars
-	starsPrice := int(pkg.PriceFRG * 75)
-	payload := fmt.Sprintf("sub_chan_stars_%s_%s", channelID.String(), req.PackageID)
-
-	link, err := h.marketplace.CreateCustomStarsInvoice(r.Context(), userID, "Subscription: "+pkg.Name, fmt.Sprintf("Subscription for %s package", pkg.Name), payload, starsPrice)
-	if err != nil {
-		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
-		return
-	}
-	RespondJSON(w, http.StatusOK, map[string]string{"invoice_link": link})
-}
 
 // ─── Analytics ────────────────────────────────────────────
 
@@ -502,144 +433,35 @@ func (h *BotMgmtHandler) GetAnalytics(w http.ResponseWriter, r *http.Request) {
 
 // ─── FRG Balance ──────────────────────────────────────────
 
-func (h *BotMgmtHandler) GetFRGBalance(w http.ResponseWriter, r *http.Request) {
-	userID := h.getUserID(r)
-	if userID == 0 {
-		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
-		return
-	}
-	balance, err := h.svc.GetFRGBalance(r.Context(), userID)
-	if err != nil {
-		RespondError(w, r, http.StatusInternalServerError, "failed to get balance", err)
-		return
-	}
-	RespondJSON(w, http.StatusOK, balance)
-}
 
-func (h *BotMgmtHandler) GetFRGTransactions(w http.ResponseWriter, r *http.Request) {
-	userID := h.getUserID(r)
-	if userID == 0 {
-		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
-		return
-	}
-	limit := 20
-	offset := 0
-	if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && l > 0 && l <= 100 {
-		limit = l
-	}
-	if o, err := strconv.Atoi(r.URL.Query().Get("offset")); err == nil && o >= 0 {
-		offset = o
-	}
 
-	txs, err := h.svc.GetFRGTransactions(r.Context(), userID, limit, offset)
-	if err != nil {
-		RespondError(w, r, http.StatusInternalServerError, "failed to get transactions", err)
-		return
-	}
-	RespondJSON(w, http.StatusOK, txs)
-}
+
 
 // ─── Marketplace ──────────────────────────────────────────
 
-func (h *BotMgmtHandler) GetPurchaseOptions(w http.ResponseWriter, r *http.Request) {
-	RespondJSON(w, http.StatusOK, h.marketplace.GetPurchaseOptions())
-}
+
 
 type PurchaseStarsRequest struct {
 	OptionID         string `json:"option_id"`
 	TelegramChargeID string `json:"telegram_charge_id"`
 }
 
-func (h *BotMgmtHandler) PurchaseWithStars(w http.ResponseWriter, r *http.Request) {
-	userID := h.getUserID(r)
-	if userID == 0 {
-		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
-		return
-	}
-	var req PurchaseStarsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
-		return
-	}
 
-	tx, err := h.marketplace.PurchaseWithStars(r.Context(), userID, req.OptionID, req.TelegramChargeID)
-	if err != nil {
-		RespondError(w, r, http.StatusPaymentRequired, err.Error(), err)
-		return
-	}
-	RespondJSON(w, http.StatusOK, tx)
-}
 
 type PurchaseToncoinRequest struct {
 	OptionID string `json:"option_id"`
 	TxHash   string `json:"tx_hash"`
 }
 
-func (h *BotMgmtHandler) PurchaseWithToncoin(w http.ResponseWriter, r *http.Request) {
-	userID := h.getUserID(r)
-	if userID == 0 {
-		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
-		return
-	}
-	var req PurchaseToncoinRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
-		return
-	}
 
-	tx, err := h.marketplace.PurchaseWithToncoin(r.Context(), userID, req.OptionID, req.TxHash)
-	if err != nil {
-		RespondError(w, r, http.StatusPaymentRequired, err.Error(), err)
-		return
-	}
-	RespondJSON(w, http.StatusOK, tx)
-}
 
 type ConvertAirdropRequest struct {
 	Coins float64 `json:"coins"`
 }
 
-func (h *BotMgmtHandler) ConvertAirdropCoins(w http.ResponseWriter, r *http.Request) {
-	userID := h.getUserID(r)
-	if userID == 0 {
-		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
-		return
-	}
-	var req ConvertAirdropRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
-		return
-	}
 
-	tx, err := h.marketplace.ConvertAirdropCoins(r.Context(), userID, req.Coins)
-	if err != nil {
-		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
-		return
-	}
-	RespondJSON(w, http.StatusOK, tx)
-}
 
-func (h *BotMgmtHandler) CreateStarsInvoice(w http.ResponseWriter, r *http.Request) {
-	userID := h.getUserID(r)
-	if userID == 0 {
-		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
-		return
-	}
-	var req struct {
-		OptionID string `json:"option_id"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
-		return
-	}
 
-	link, err := h.marketplace.CreateStarsInvoice(r.Context(), userID, req.OptionID)
-	if err != nil {
-		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
-		return
-	}
-	RespondJSON(w, http.StatusOK, map[string]string{"invoice_link": link})
-}
 
 // ─── Audit Logs ───────────────────────────────────────────
 

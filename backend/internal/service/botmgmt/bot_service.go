@@ -53,7 +53,6 @@ type BotService struct {
 	botRepo              *repository.BotRepo
 	settingsRepo         *repository.SettingsRepo
 	auditRepo            *repository.AuditRepo
-	frgRepo              *repository.FRGRepo
 	analyticsRepo        *repository.AnalyticsRepo
 	lastNotificationDate string               // format: YYYY-MM-DD
 	qhNotifications      map[string]time.Time // key: groupID:action:HH:MM, val: time
@@ -66,14 +65,12 @@ func NewBotService(
 	botRepo *repository.BotRepo,
 	settingsRepo *repository.SettingsRepo,
 	auditRepo *repository.AuditRepo,
-	frgRepo *repository.FRGRepo,
 	analyticsRepo *repository.AnalyticsRepo,
 ) *BotService {
 	return &BotService{
 		botRepo:       botRepo,
 		settingsRepo:  settingsRepo,
 		auditRepo:     auditRepo,
-		frgRepo:       frgRepo,
 		analyticsRepo: analyticsRepo,
 		cryptoService: crypto.NewCryptoService(),
 	}
@@ -554,21 +551,11 @@ func (s *BotService) Subscribe(ctx context.Context, userID int64, groupID uuid.U
 		return fmt.Errorf("invalid package: %s", packageID)
 	}
 
-	meta, _ := json.Marshal(map[string]interface{}{
-		"package":  packageID,
-		"group_id": groupID.String(),
-	})
-
-	tx, err := s.frgRepo.DB().Pool.Begin(ctx)
+	tx, err := s.botRepo.DB().Pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
-
-	_, err = s.frgRepo.DebitTx(ctx, tx, userID, pkg.PriceFRG, "subscription_payment", meta)
-	if err != nil {
-		return fmt.Errorf("payment failed: %w", err)
-	}
 
 	if err := s.internalActivateSubscriptionTx(ctx, tx, userID, groupID, packageID, group, pkg); err != nil {
 		return err
@@ -584,13 +571,6 @@ func (s *BotService) Subscribe(ctx context.Context, userID int64, groupID uuid.U
 		botUsername = bot.BotUsername
 	}
 	s.notifyOwnerOnSubscription(context.Background(), botUsername, group.ChatTitle, pkg.Name, "FRG", userID)
-
-	// Trigger tiered lifetime referral commissions (10% Tier 1, 3% Tier 2)
-	go func() {
-		bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		s.frgRepo.DB().CreditReferrerShare(bgCtx, userID, pkg.PriceFRG, s.frgRepo)
-	}()
 
 	return nil
 }
@@ -674,7 +654,7 @@ func (s *BotService) ActivateSubscriptionFromStars(ctx context.Context, userID i
 		return fmt.Errorf("invalid package")
 	}
 
-	tx, err := s.frgRepo.DB().Pool.Begin(ctx)
+	tx, err := s.botRepo.DB().Pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -695,13 +675,6 @@ func (s *BotService) ActivateSubscriptionFromStars(ctx context.Context, userID i
 	}
 	s.notifyOwnerOnSubscription(context.Background(), botUsername, group.ChatTitle, pkg.Name, "Telegram Stars", userID)
 
-	// Credit referrer share as well
-	go func() {
-		bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		s.frgRepo.DB().CreditReferrerShare(bgCtx, userID, pkg.PriceFRG, s.frgRepo)
-	}()
-
 	return nil
 }
 
@@ -721,7 +694,7 @@ func (s *BotService) SubscribeWithAirdrop(ctx context.Context, userID int64, gro
 		requiredCoins = pkg.PriceFRG * 100000.0
 	}
 
-	tx, err := s.frgRepo.DB().Pool.Begin(ctx)
+	tx, err := s.botRepo.DB().Pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -759,13 +732,6 @@ func (s *BotService) SubscribeWithAirdrop(ctx context.Context, userID int64, gro
 	}
 	s.notifyOwnerOnSubscription(context.Background(), botUsername, group.ChatTitle, pkg.Name, "Airdrop Coins", userID)
 
-	// Credit referrer share
-	go func() {
-		bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		s.frgRepo.DB().CreditReferrerShare(bgCtx, userID, pkg.PriceFRG, s.frgRepo)
-	}()
-
 	return nil
 }
 
@@ -795,15 +761,7 @@ func (s *BotService) GetAuditLog(ctx context.Context, groupID uuid.UUID, ownerID
 	return s.auditRepo.GetByGroup(ctx, groupID, limit, offset)
 }
 
-// FRG Balance
 
-func (s *BotService) GetFRGBalance(ctx context.Context, userID int64) (*repository.FRGBalance, error) {
-	return s.frgRepo.GetBalance(ctx, userID)
-}
-
-func (s *BotService) GetFRGTransactions(ctx context.Context, userID int64, limit, offset int) ([]repository.FRGTransaction, error) {
-	return s.frgRepo.GetTransactions(ctx, userID, limit, offset)
-}
 
 // Token encryption
 
@@ -1030,7 +988,7 @@ func (s *BotService) sendQHNotice(ctx context.Context, g repository.ManagedGroup
 }
 
 func (s *BotService) SubscribeChannel(ctx context.Context, userID int64, channelID uuid.UUID, packageID string) error {
-	channelRepo := repository.NewChannelRepo(s.frgRepo.DB(), nil)
+	channelRepo := repository.NewChannelRepo(s.botRepo.DB(), nil)
 	ch, err := channelRepo.GetChannelByID(ctx, channelID)
 	if err != nil {
 		return fmt.Errorf("channel not found: %w", err)
@@ -1049,21 +1007,12 @@ func (s *BotService) SubscribeChannel(ctx context.Context, userID int64, channel
 		return fmt.Errorf("invalid package: %s", packageID)
 	}
 
-	meta, _ := json.Marshal(map[string]interface{}{
-		"package":    packageID,
-		"channel_id": channelID.String(),
-	})
-
-	tx, err := s.frgRepo.DB().Pool.Begin(ctx)
+	
+	tx, err := s.botRepo.DB().Pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
-
-	_, err = s.frgRepo.DebitTx(ctx, tx, userID, pkg.PriceFRG, "subscription_payment", meta)
-	if err != nil {
-		return fmt.Errorf("payment failed: %w", err)
-	}
 
 	if err := s.internalActivateChannelSubscriptionTx(ctx, tx, userID, channelID, packageID, ch, pkg); err != nil {
 		return err
@@ -1076,9 +1025,8 @@ func (s *BotService) SubscribeChannel(ctx context.Context, userID int64, channel
 	s.notifyOwnerOnSubscription(context.Background(), bot.BotUsername, ch.ChatTitle, pkg.Name, "FRG (Channel)", userID)
 
 	go func() {
-		bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		s.frgRepo.DB().CreditReferrerShare(bgCtx, userID, pkg.PriceFRG, s.frgRepo)
+		
+		
 	}()
 
 	return nil
@@ -1091,7 +1039,7 @@ func (s *BotService) internalActivateChannelSubscriptionTx(ctx context.Context, 
 	}
 	paidUntil := base.Add(30 * 24 * time.Hour)
 
-	channelRepo := repository.NewChannelRepo(s.frgRepo.DB(), nil)
+	channelRepo := repository.NewChannelRepo(s.botRepo.DB(), nil)
 	if err := channelRepo.UpdateChannelSubscriptionTx(ctx, tx, channelID, "paid", &paidUntil); err != nil {
 		return fmt.Errorf("failed to activate subscription: %w", err)
 	}
@@ -1114,7 +1062,7 @@ func (s *BotService) internalActivateChannelSubscriptionTx(ctx context.Context, 
 }
 
 func (s *BotService) SubscribeChannelWithAirdrop(ctx context.Context, userID int64, channelID uuid.UUID, packageID string) error {
-	channelRepo := repository.NewChannelRepo(s.frgRepo.DB(), nil)
+	channelRepo := repository.NewChannelRepo(s.botRepo.DB(), nil)
 	ch, err := channelRepo.GetChannelByID(ctx, channelID)
 	if err != nil {
 		return fmt.Errorf("channel not found: %w", err)
@@ -1138,7 +1086,7 @@ func (s *BotService) SubscribeChannelWithAirdrop(ctx context.Context, userID int
 		requiredCoins = pkg.PriceFRG * 100000.0
 	}
 
-	tx, err := s.frgRepo.DB().Pool.Begin(ctx)
+	tx, err := s.botRepo.DB().Pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -1170,16 +1118,15 @@ func (s *BotService) SubscribeChannelWithAirdrop(ctx context.Context, userID int
 	s.notifyOwnerOnSubscription(context.Background(), bot.BotUsername, ch.ChatTitle, pkg.Name, "Airdrop Coins (Channel)", userID)
 
 	go func() {
-		bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		s.frgRepo.DB().CreditReferrerShare(bgCtx, userID, pkg.PriceFRG, s.frgRepo)
+		
+		
 	}()
 
 	return nil
 }
 
 func (s *BotService) ActivateChannelSubscriptionFromStars(ctx context.Context, userID int64, channelID uuid.UUID, packageID string) error {
-	channelRepo := repository.NewChannelRepo(s.frgRepo.DB(), nil)
+	channelRepo := repository.NewChannelRepo(s.botRepo.DB(), nil)
 	ch, err := channelRepo.GetChannelByID(ctx, channelID)
 	if err != nil {
 		return err
@@ -1195,7 +1142,7 @@ func (s *BotService) ActivateChannelSubscriptionFromStars(ctx context.Context, u
 		return fmt.Errorf("invalid package")
 	}
 
-	tx, err := s.frgRepo.DB().Pool.Begin(ctx)
+	tx, err := s.botRepo.DB().Pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -1212,9 +1159,8 @@ func (s *BotService) ActivateChannelSubscriptionFromStars(ctx context.Context, u
 	s.notifyOwnerOnSubscription(context.Background(), bot.BotUsername, ch.ChatTitle, pkg.Name, "Telegram Stars (Channel)", userID)
 
 	go func() {
-		bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		s.frgRepo.DB().CreditReferrerShare(bgCtx, userID, pkg.PriceFRG, s.frgRepo)
+		
+		
 	}()
 
 	return nil

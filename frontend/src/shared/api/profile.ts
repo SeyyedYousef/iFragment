@@ -252,15 +252,21 @@ export const createPremiumCheckout = (): Promise<{ invoice_link: string }> =>
 		method: 'POST',
 	});
 
-export const addTaps = async (taps: number): Promise<ProfileStats> => {
+export const addTaps = async (taps: number, multiplier: number, nonce: string, clientTS: number, sig: string): Promise<ProfileStats> => {
 	const stats = await validatedFetch('/profile/tap', ProfileStatsSchema, {
 		method: 'POST',
-		body: JSON.stringify({ taps }),
+		body: JSON.stringify({ taps, multiplier, nonce, client_ts: clientTS, sig }),
 	});
 	if (stats.photoUrl !== undefined) {
 		setProfilePhotoUrl(stats.photoUrl);
 	}
 	return stats;
+};
+
+export const collectOfflineMining = async (): Promise<{ earned: number }> => {
+	return validatedFetch('/profile/bot/collect', z.object({ earned: z.number() }), {
+		method: 'POST',
+	});
 };
 
 export const getClan = (): Promise<UserClanDetails> =>
@@ -284,3 +290,13 @@ export const deleteAccountGDPR = (): Promise<{ status: string; message: string }
 	validatedFetch('/profile/gdpr', z.object({ status: z.string(), message: z.string() }), {
 		method: 'DELETE',
 	});
+
+
+// --- Gamification Daily Cipher ---
+export const claimDailyCipher = async (morseCode: string): Promise<{status: string; reward: number}> => {
+	if (USE_MOCK_API) {
+		return { status: 'success', reward: 1000000 };
+	}
+	const response = await api.post('/gamification/cipher/claim', { morse_code: morseCode });
+	return response.data;
+};

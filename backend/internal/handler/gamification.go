@@ -175,3 +175,81 @@ func (h *GamificationHandler) GetLeaderboard(w http.ResponseWriter, r *http.Requ
 		slog.Error("failed to encode leaderboard response", "error", err)
 	}
 }
+
+// GetDailyCipher returns the daily cipher info
+func (h *GamificationHandler) GetDailyCipher(w http.ResponseWriter, r *http.Request) {
+	userID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	info, err := h.gamificationService.GetDailyCipherInfo(r.Context(), userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(info)
+}
+
+// ClaimDailyCipher handles user's cipher submission
+func (h *GamificationHandler) ClaimDailyCipher(w http.ResponseWriter, r *http.Request) {
+	userID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req struct {
+		MorseCode string `json:"morse_code"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	reward, err := h.gamificationService.ClaimDailyCipher(r.Context(), userID, req.MorseCode)
+	if err != nil {
+		if err.Error() == "already claimed today" {
+			http.Error(w, "Already claimed", http.StatusConflict)
+		} else if err.Error() == "invalid cipher code" {
+			http.Error(w, "Invalid code", http.StatusForbidden)
+		} else {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status": "success",
+		"reward": reward,
+	})
+}
+
+func (h *GamificationHandler) GetGlobalClans(w http.ResponseWriter, r *http.Request) {
+	clans, err := h.gamificationService.GetGlobalClans(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(clans)
+}
+
+func (h *GamificationHandler) GetActiveQuests(w http.ResponseWriter, r *http.Request) {
+	userID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	quests, err := h.gamificationService.GetActiveQuests(r.Context(), userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(quests)
+}

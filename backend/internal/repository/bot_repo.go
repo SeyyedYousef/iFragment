@@ -62,6 +62,10 @@ func NewBotRepo(db *Database) *BotRepo {
 	return &BotRepo{db: db}
 }
 
+func (r *BotRepo) DB() *Database {
+	return r.db
+}
+
 func (r *BotRepo) GetMainBot(ctx context.Context) (*ManagedBot, error) {
 	if r.db == nil || r.db.Pool == nil {
 		return nil, fmt.Errorf("no database connection")

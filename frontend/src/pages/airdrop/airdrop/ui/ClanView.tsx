@@ -1,7 +1,7 @@
 import { hapticFeedback, openTelegramLink } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, Show } from 'solid-js';
 import { getTopClans, joinClan, leaveClan } from '@/shared/api/profile.js';
-import { setUserClan, userClan, currentLeague } from '@/shared/store/airdrop.js';
+import { setUserClan, userClan, currentLeague, LEAGUES } from '@/shared/store/airdrop.js';
 import { t } from '@/shared/i18n/index.js';
 
 export const ClanView: Component = () => {
@@ -213,8 +213,17 @@ export const ClanView: Component = () => {
 			>
 				{/* === IN A CLAN === */}
 				{(clan) => {
-					const currentLeagueName = 'Gold'; 
-					const currentRank = '3rd';
+					const getClanLeague = () => {
+						const score = clan().total_score || clan().members_count * 1500;
+						let l = LEAGUES[0];
+						for (const league of LEAGUES) {
+							if (score >= league.minScore) l = league;
+						}
+						return l.name;
+					};
+
+					const currentLeagueName = getClanLeague(); 
+					const currentRank = clan().members_count > 100 ? 'Top 100' : 'Unranked';
 
 					return (
 						<div class="min-h-full flex flex-col relative w-full" style={{

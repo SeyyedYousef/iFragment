@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"log/slog"
+
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -72,46 +74,6 @@ func (h *OwnerHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(stats)
 }
 
-func (h *OwnerHandler) AdjustFrg(w http.ResponseWriter, r *http.Request) {
-	ownerID, err := middleware.GetUserID(r.Context())
-	if err != nil {
-		RespondError(w, r, http.StatusUnauthorized, err.Error(), err)
-		return
-	}
-
-	var req struct {
-		UserID int64   `json:"user_id"`
-		Amount float64 `json:"amount"`
-		Reason string  `json:"reason"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		RespondError(w, r, http.StatusBadRequest, "Invalid request payload", err)
-		return
-	}
-
-	if req.UserID == 0 || req.Amount == 0 || req.Reason == "" {
-		RespondError(w, r, http.StatusBadRequest, "user_id, amount, and reason are required", nil)
-		return
-	}
-
-	if req.Amount < -1000000 || req.Amount > 1000000 {
-		RespondError(w, r, http.StatusBadRequest, "amount must be between -1,000,000 and 1,000,000", errors.New("invalid amount bounds"))
-		return
-	}
-
-	newBalance, err := h.srv.AdjustFRG(r.Context(), ownerID, req.UserID, req.Amount, req.Reason, middleware.GetRealIP(r), r.UserAgent())
-	if err != nil {
-		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success":     true,
-		"new_balance": newBalance,
-	})
-}
 
 func (h *OwnerHandler) Impersonate(w http.ResponseWriter, r *http.Request) {
 	ownerID, err := middleware.GetUserID(r.Context())
@@ -554,3 +516,22 @@ func (h *OwnerHandler) DeleteUserbot(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
+
+// AdjustAirdropCoins Handler
+func (h *OwnerHandler) AdjustAirdropCoins(w http.ResponseWriter, r *http.Request) {
+	var req service.AdjustAirdropCoinsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	err := h.srv.AdjustAirdropCoins(r.Context(), req)
+	if err != nil {
+		slog.Error("Failed to adjust airdrop coins", "error", err)
+		http.Error(w, "Failed to adjust airdrop coins", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"status":"success"}`))
+}

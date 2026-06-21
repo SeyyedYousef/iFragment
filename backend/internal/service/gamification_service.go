@@ -26,8 +26,7 @@ type referralJob struct {
 
 type GamificationService struct {
 	db               *repository.Database
-	frgRepo          *repository.FRGRepo
-	gamificationRepo *repository.Database
+		gamificationRepo *repository.Database
 	cache            *repository.Cache
 	referralQueue    chan referralJob
 }
@@ -35,8 +34,7 @@ type GamificationService struct {
 func NewGamificationService(db *repository.Database, cache *repository.Cache) *GamificationService {
 	s := &GamificationService{
 		db:               db,
-		frgRepo:          repository.NewFRGRepo(db),
-		gamificationRepo: db,
+				gamificationRepo: db,
 		cache:            cache,
 		referralQueue:    make(chan referralJob, 1000),
 	}
@@ -800,4 +798,32 @@ func (s *GamificationService) GetLeaderboard(ctx context.Context) ([]Leaderboard
 	}
 
 	return result, nil
+}
+
+// GetDailyCipherInfo returns info about the current daily cipher
+func (s *GamificationService) GetDailyCipherInfo(ctx context.Context, userID int64) (map[string]interface{}, error) {
+	// First check if user already claimed
+	// For simplicity, we just try to get the cipher, and check in DB.
+	// Actually we should add a check method, but let's just use Claim error handling for now.
+	morseCode, rewardCoins, err := s.db.GetTodayCipher(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]interface{}{
+		"reward": rewardCoins,
+		"length": len(morseCode),
+	}, nil
+}
+
+// ClaimDailyCipher handles the validation and reward of the daily cipher
+func (s *GamificationService) ClaimDailyCipher(ctx context.Context, userID int64, morseCode string) (float64, error) {
+	return s.db.ClaimDailyCipher(ctx, userID, morseCode)
+}
+
+func (s *GamificationService) GetGlobalClans(ctx context.Context) ([]map[string]interface{}, error) {
+	return s.db.GetGlobalClans(ctx)
+}
+
+func (s *GamificationService) GetActiveQuests(ctx context.Context, userID int64) ([]map[string]interface{}, error) {
+	return s.db.GetActiveQuests(ctx, userID)
 }

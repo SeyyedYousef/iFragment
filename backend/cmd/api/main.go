@@ -252,12 +252,10 @@ func main() {
 	botRepo := repository.NewBotRepo(db)
 	settingsRepo := repository.NewSettingsRepo(db, cache)
 	auditRepo := repository.NewAuditRepo(db)
-	frgRepo := repository.NewFRGRepo(db)
 	analyticsRepo := repository.NewAnalyticsRepo(db)
 
-	botService := botmgmt.NewBotService(botRepo, settingsRepo, auditRepo, frgRepo, analyticsRepo)
+	botService := botmgmt.NewBotService(botRepo, settingsRepo, auditRepo, analyticsRepo)
 	AutoRegisterMainBot(ctx, db, botService)
-	marketplaceService := botmgmt.NewMarketplaceService(frgRepo, nil)
 	moderatorService := botmgmt.NewModeratorService(settingsRepo, botRepo, auditRepo, analyticsRepo, cache)
 
 	// 🚀 Start Background Expiration Worker
@@ -280,7 +278,7 @@ func main() {
 	appIDStr := os.Getenv("TG_APP_ID")
 	appID, _ := strconv.Atoi(appIDStr)
 	appHash := os.Getenv("TG_APP_HASH")
-	
+
 	userbotManager := mtproto.NewUserbotManager(appID, appHash, channelService.ProcessChannelPostForUserbot)
 	channelService.SetUserbotJoiner(userbotManager.JoinChannel)
 
@@ -299,7 +297,7 @@ func main() {
 	usernameHandler := handler.NewUsernameHandler(aggregatorService, reportService, mtprotoClient, cache)
 	premiumHandler := handler.NewPremiumHandler(reportService, paymentService)
 	webhookHandler := handler.NewWebhookHandler(db, moderatorService, botRepo, channelService)
-	botMgmtHandler := handler.NewBotMgmtHandler(botService, marketplaceService)
+	botMgmtHandler := handler.NewBotMgmtHandler(botService)
 	profileService := service.NewProfileService(db, cache)
 	// 🚀 Warm up Redis leaderboard at startup and periodically
 	go func() {
@@ -328,7 +326,7 @@ func main() {
 
 	// Initialize Owner components
 	middleware.InitAuthMiddleware(ownerRepo)
-	ownerService := service.NewOwnerService(ownerRepo, frgRepo, cache, userbotManager)
+	ownerService := service.NewOwnerService(ownerRepo, cache, userbotManager)
 	ownerHandler := handler.NewOwnerHandler(ownerService)
 
 	// Public Routes
@@ -486,29 +484,12 @@ func main() {
 				r.Get("/packages", botMgmtHandler.GetPackages)
 				r.Post("/subscribe", botMgmtHandler.Subscribe)
 				r.Post("/subscribe-airdrop", botMgmtHandler.SubscribeWithAirdrop)
-				r.Post("/subscribe-stars-invoice", botMgmtHandler.CreateSubscriptionStarsInvoice)
 
 				r.Post("/channel/subscribe", botMgmtHandler.SubscribeChannel)
 				r.Post("/channel/subscribe-airdrop", botMgmtHandler.SubscribeChannelWithAirdrop)
-				r.Post("/channel/subscribe-stars-invoice", botMgmtHandler.CreateChannelSubscriptionStarsInvoice)
 			})
 
-			r.Route("/frg", func(r chi.Router) {
-				r.Use(middleware.AuthMiddleware)
 
-				r.Get("/balance", botMgmtHandler.GetFRGBalance)
-				r.Get("/transactions", botMgmtHandler.GetFRGTransactions)
-			})
-
-			r.Route("/marketplace", func(r chi.Router) {
-				r.Use(middleware.AuthMiddleware)
-
-				r.Get("/options", botMgmtHandler.GetPurchaseOptions)
-				r.Post("/purchase/stars", botMgmtHandler.PurchaseWithStars)
-				r.Post("/purchase/stars/invoice", botMgmtHandler.CreateStarsInvoice)
-				r.Post("/purchase/toncoin", botMgmtHandler.PurchaseWithToncoin)
-				r.Post("/convert/airdrop", botMgmtHandler.ConvertAirdropCoins)
-			})
 
 			r.Route("/profile", func(r chi.Router) {
 				r.Get("/avatar/{userID}", profileHandler.GetAvatar)
@@ -564,7 +545,6 @@ func main() {
 
 				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/dashboard/stats", ownerHandler.GetStats)
 				r.With(middleware.RequirePermission(middleware.PermSearchUsers)).Get("/users/search", ownerHandler.SearchUsers)
-				r.With(middleware.RequirePermission(middleware.PermAdjustFRG)).Post("/users/adjust-frg", ownerHandler.AdjustFrg)
 				r.With(middleware.RequirePermission(middleware.PermImpersonate)).Post("/users/impersonate", ownerHandler.Impersonate)
 				r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/ban", ownerHandler.BanUser)
 				r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/unban", ownerHandler.UnbanUser)

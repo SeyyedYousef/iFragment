@@ -474,7 +474,7 @@ func (r *OwnerRepo) HasUserRedeemedPromo(ctx context.Context, code string, userI
 	return exists, err
 }
 
-func (r *OwnerRepo) RedeemPromoCodeTx(ctx context.Context, code string, userID int64, _ *FRGRepo) error {
+func (r *OwnerRepo) RedeemPromoCodeTx(ctx context.Context, code string, userID int64) error {
 	tx, err := r.db.Pool.Begin(ctx)
 	if err != nil {
 		return err

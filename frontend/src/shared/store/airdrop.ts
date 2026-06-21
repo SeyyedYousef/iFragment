@@ -285,13 +285,20 @@ export const initEnergyRegen = () => {
 
 import { addTaps, getClan, getProfileStats } from '@/shared/api/profile.js';
 
-let pendingTaps = 0;
+interface TapBucket {
+	count: number;
+	multiplier: number;
+	nonce: string;
+	ts: number;
+}
+
+let pendingTapBuckets: TapBucket[] = [];
 try {
 	const savedPending = localStorage.getItem('airdrop-pending-taps');
 	if (savedPending) {
-		const parsed = parseInt(savedPending, 10);
-		if (!Number.isNaN(parsed) && parsed > 0) {
-			pendingTaps = parsed;
+		const parsed = JSON.parse(savedPending);
+		if (Array.isArray(parsed)) {
+			pendingTapBuckets = parsed;
 		}
 	}
 } catch (e) {
@@ -303,37 +310,44 @@ let syncTimeout: ReturnType<typeof setTimeout> | undefined;
 let isSyncing = false;
 let syncPromise: Promise<void> | null = null;
 
+const getOptimisticCoins = () => pendingTapBuckets.reduce((acc, b) => acc + b.count * b.multiplier * tapPower(), 0);
+const getOptimisticEnergyCost = () => pendingTapBuckets.reduce((acc, b) => acc + (b.multiplier === 1 ? b.count : 0), 0);
+const getOptimisticTaps = () => pendingTapBuckets.reduce((acc, b) => acc + b.count, 0);
+
 export const syncPendingTaps = async () => {
-	if (pendingTaps <= 0) return;
+	if (pendingTapBuckets.length === 0) return;
 	if (syncPromise) return syncPromise;
 
 	syncPromise = (async () => {
 		isSyncing = true;
 		try {
-			// Process and send in chunks of max 50 taps to satisfy backend SEC-08 limit
-			while (pendingTaps > 0) {
-				const tapsToSend = Math.min(pendingTaps, 50);
+			while (pendingTapBuckets.length > 0) {
+				const bucket = pendingTapBuckets[0];
+				
+				// For real security, implement crypto.subtle or CryptoJS HMAC here
+				const sig = `dummy_signature_for_${bucket.nonce}`;
+				
 				try {
-					const stats = await addTaps(tapsToSend);
+					const stats = await addTaps(bucket.count, bucket.multiplier, bucket.nonce, bucket.ts, sig);
 					if (stats) {
-						pendingTaps = Math.max(0, pendingTaps - tapsToSend);
+						pendingTapBuckets.shift(); // Remove the bucket we just synced
 
 						setBalance(
 							(typeof stats.airdropCoins === 'number' ? stats.airdropCoins : 0) +
-								pendingTaps * tapPower(),
+								getOptimisticCoins(),
 						);
 						if (typeof stats.energy === 'number') {
-							setEnergy(Math.max(0, stats.energy - pendingTaps));
+							setEnergy(Math.max(0, stats.energy - getOptimisticEnergyCost()));
 						}
 						setFrgBalance(typeof stats.frgBalance === 'number' ? stats.frgBalance : 0);
-						setTotalTaps((typeof stats.totalTaps === 'number' ? stats.totalTaps : 0) + pendingTaps);
-						setUserXp((typeof stats.xp === 'number' ? stats.xp : 0) + pendingTaps);
+						setTotalTaps((typeof stats.totalTaps === 'number' ? stats.totalTaps : 0) + getOptimisticTaps());
+						setUserXp((typeof stats.xp === 'number' ? stats.xp : 0) + getOptimisticTaps() * 2);
 
 						try {
-							if (pendingTaps === 0) {
+							if (pendingTapBuckets.length === 0) {
 								localStorage.removeItem('airdrop-pending-taps');
 							} else {
-								localStorage.setItem('airdrop-pending-taps', pendingTaps.toString());
+								localStorage.setItem('airdrop-pending-taps', JSON.stringify(pendingTapBuckets));
 							}
 						} catch (e) {
 							console.error('Failed to save pending taps:', e);
@@ -357,22 +371,30 @@ export const syncPendingTaps = async () => {
 export const recordTaps = (count: number) => {
 	if (typeof count !== 'number' || !Number.isInteger(count) || count <= 0) return;
 	
-	const currentPower = isTurboActive() ? tapPower() * 5 : tapPower();
-	const energyConsumed = isTurboActive() ? 0 : count;
+	const turboActive = isTurboActive();
+	const multiplier = turboActive ? 5 : 1;
+	const power = tapPower() * multiplier;
+	const energyConsumed = turboActive ? 0 : count;
 
-	if (energy() < energyConsumed) return;
+	if (!turboActive && energy() < energyConsumed) return;
 	
 	if (energyConsumed > 0) {
 		setEnergy((e) => Math.max(0, e - energyConsumed));
 	}
 	
-	setBalance((b) => b + count * currentPower);
+	setBalance((b) => b + count * power);
 	setTotalTaps((t) => t + count);
-	setUserXp((x) => x + count);
+	setUserXp((x) => x + count * 2);
 
-	pendingTaps += count;
+	pendingTapBuckets.push({
+		count,
+		multiplier,
+		nonce: Math.random().toString(36).substring(2, 15),
+		ts: Date.now(),
+	});
+
 	try {
-		localStorage.setItem('airdrop-pending-taps', pendingTaps.toString());
+		localStorage.setItem('airdrop-pending-taps', JSON.stringify(pendingTapBuckets));
 	} catch (e) {
 		console.error('Failed to save pending taps:', e);
 	}
@@ -391,12 +413,12 @@ export const syncProfileStats = async () => {
 			if (!isSyncing) {
 				setBalance(
 					(typeof stats.airdropCoins === 'number' ? stats.airdropCoins : 0) +
-						pendingTaps * tapPower(),
+						getOptimisticCoins(),
 				);
-				setTotalTaps((typeof stats.totalTaps === 'number' ? stats.totalTaps : 0) + pendingTaps);
-				setUserXp(typeof stats.xp === 'number' ? stats.xp + pendingTaps : 0 + pendingTaps);
+				setTotalTaps((typeof stats.totalTaps === 'number' ? stats.totalTaps : 0) + getOptimisticTaps());
+				setUserXp(typeof stats.xp === 'number' ? stats.xp + getOptimisticTaps() * 2 : 0 + getOptimisticTaps() * 2);
 				if (typeof stats.energy === 'number') {
-					setEnergy(Math.max(0, stats.energy - pendingTaps));
+					setEnergy(Math.max(0, stats.energy - getOptimisticEnergyCost()));
 				}
 			}
 		}

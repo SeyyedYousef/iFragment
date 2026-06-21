@@ -1,6 +1,7 @@
 import { Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { ShopView } from './ShopView.js';
+import { Coin3D } from './Coin3D.js';
 import { createQuery } from '@tanstack/solid-query';
 import { getProfileStats } from '@/shared/api/profile.js';
 import { t } from '@/shared/i18n/index.js';
@@ -45,8 +46,6 @@ export const TapView: Component<{
 	}));
 
 	let canvasRef!: HTMLCanvasElement;
-	let buttonRef!: HTMLButtonElement;
-	let containerRef!: HTMLDivElement;
 	let animationFrameId: number;
 	let shakeTimerId: ReturnType<typeof setTimeout> | undefined;
 	let pressTimerId: ReturnType<typeof setTimeout> | undefined;
@@ -54,17 +53,19 @@ export const TapView: Component<{
 	let isAnimating = false;
 	let lastHapticAt = 0;
 	let updateAndDrawFn: (() => void) | null = null;
+	const activePointers = new Set<number>();
 
 	onMount(() => {
-		if (containerRef) {
+		const container = canvasRef.parentElement;
+		if (container) {
 			const ro = new ResizeObserver(() => {
-				const rect = containerRef.getBoundingClientRect();
+				const rect = container.getBoundingClientRect();
 				if (canvasRef.width !== rect.width || canvasRef.height !== rect.height) {
 					canvasRef.width = rect.width;
 					canvasRef.height = rect.height;
 				}
 			});
-			ro.observe(containerRef);
+			ro.observe(container);
 			onCleanup(() => ro.disconnect());
 		}
 
@@ -124,10 +125,17 @@ export const TapView: Component<{
 		if (pressTimerId) clearTimeout(pressTimerId);
 	});
 
-	const handleTap = (e: PointerEvent) => {
-		e.preventDefault();
+	const handleTap = (e: PointerEvent | MouseEvent) => {
+		// Prevent default browser behavior
+		if (e.cancelable) e.preventDefault();
+		
+		const pointerId = (e as PointerEvent).pointerId ?? 1;
+		if (activePointers.has(pointerId)) return;
+		activePointers.add(pointerId);
+
 		const isTurbo = isTurboActive();
 		if (energy() <= 0 && !isTurbo) {
+			activePointers.delete(pointerId);
 			haptic.notify('error');
 			setIsShaking(true);
 			if (shakeTimerId) clearTimeout(shakeTimerId);
@@ -149,8 +157,8 @@ export const TapView: Component<{
 		recordTaps(1);
 
 		const rect = canvasRef.getBoundingClientRect();
-		const x = e.clientX - rect.left;
-		const y = e.clientY - rect.top;
+		const x = (e as PointerEvent).clientX - rect.left;
+		const y = (e as PointerEvent).clientY - rect.top;
 
 		// Push new particle into zero-allocation thread safe Canvas rendering pipeline
 		particles.push({
@@ -176,9 +184,23 @@ export const TapView: Component<{
 		}, 80);
 	};
 
+	const handlePointerUp = (e: PointerEvent | MouseEvent) => {
+		activePointers.delete((e as PointerEvent).pointerId ?? 1);
+	};
+
+	
+	const shareToStory = () => {
+		if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.shareToStory) {
+			window.Telegram.WebApp.shareToStory('https://t.me/iFragment_bot', {
+				text: `I just earned ${energy()} energy on iFragment! Join my squad.`,
+			});
+		} else {
+			alert("Telegram Stories API is only available inside Telegram Mobile App.");
+		}
+	};
+
 	return (
 		<div
-			ref={containerRef}
 			class="flex-1 flex flex-col items-center relative overflow-hidden px-4 pt-2 pb-6 bg-[#000000]"
 		>
 			{/* Flying Rocket for Turbo */}
@@ -321,7 +343,18 @@ export const TapView: Component<{
 							if (j === 1 && k !== 11) suffix = 'ST';
 							else if (j === 2 && k !== 12) suffix = 'ND';
 							else if (j === 3 && k !== 13) suffix = 'RD';
-							return (
+							
+	const shareToStory = () => {
+		if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.shareToStory) {
+			window.Telegram.WebApp.shareToStory('https://t.me/iFragment_bot', {
+				text: `I just earned ${energy()} energy on iFragment! Join my squad.`,
+			});
+		} else {
+			alert("Telegram Stories API is only available inside Telegram Mobile App.");
+		}
+	};
+
+	return (
 								<>
 									<div class="flex items-center gap-0.5">
 										<span class="text-white/30 text-[20px] font-thin leading-none">{'{'}</span>
@@ -343,31 +376,71 @@ export const TapView: Component<{
 					<span class="material-symbols-outlined text-[16px] text-white/40">chevron_right</span>
 				</button>
 			</div>
+
 			{/* Main Coin Section */}
 			<div class="flex flex-col items-center justify-center w-full mt-8 mb-auto relative z-10">
-				{/* Main Coin Container */}
-				<div class="relative flex items-center justify-center w-full max-w-[340px] aspect-square">
-					{/* Main Coin Button with Direct Glow (No margins/borders) */}
-					<button
-						ref={buttonRef}
-						onPointerDown={handleTap}
-						class={`relative w-full h-full rounded-full transition-transform duration-75 select-none active:scale-[0.96] group bg-[#000000] border-none outline-none ${
-							isPressed() ? 'scale-95' : ''
-						} ${isShaking() ? 'animate-[shake_0.3s_ease-in-out]' : ''}`}
+				<div class="relative flex items-center justify-center w-full max-w-[420px] aspect-square">
+					
+					{/* ═══════════ LAYER 4: Outer Bloom (پخش گسترده) ═══════════ */}
+					<div
+						class="absolute inset-0 rounded-full pointer-events-none transition-colors duration-500 will-change-transform"
 						style={{
-							// Multi-layered box-shadow directly on the coin creates a perfect, seamless, borderless bloom
-							'box-shadow': isTurboActive() 
-								? '0 0 60px 15px rgba(239,68,68,0.5), 0 0 120px 30px rgba(239,68,68,0.3)'
-								: '0 0 40px 5px rgba(255,255,255,0.4), 0 0 90px 20px rgba(255,255,255,0.25), 0 0 150px 40px rgba(255,255,255,0.1)',
+							background: isTurboActive()
+								? 'radial-gradient(circle, rgba(239,68,68,0.35) 0%, rgba(239,68,68,0.18) 25%, rgba(239,68,68,0.06) 50%, transparent 70%)'
+								: 'radial-gradient(circle, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.15) 25%, rgba(255,255,255,0.05) 50%, transparent 70%)',
+							filter: 'blur(40px)',
+							transform: 'scale(1.4)',
+							animation: 'aura-breathe 4s ease-in-out infinite',
 						}}
-					>
-						{/* Content Container (Pure black, no borders) */}
-						<div class="absolute inset-0 rounded-full flex flex-col items-center justify-center overflow-hidden pointer-events-none bg-[#000000]">
-							{/* Triangle Logo */}
+					/>
+
+					{/* ═══════════ LAYER 3: Mid Aura (هاله متوسط) ═══════════ */}
+					<div
+						class="absolute inset-0 rounded-full pointer-events-none transition-colors duration-500 will-change-transform"
+						style={{
+							background: isTurboActive()
+								? 'radial-gradient(circle, rgba(255,180,180,0.55) 0%, rgba(239,68,68,0.35) 30%, rgba(239,68,68,0.1) 55%, transparent 75%)'
+								: 'radial-gradient(circle, rgba(255,255,255,0.55) 0%, rgba(220,225,235,0.30) 30%, rgba(180,185,200,0.08) 55%, transparent 75%)',
+							filter: 'blur(22px)',
+							transform: 'scale(1.18)',
+						}}
+					/>
+
+					{/* ═══════════ THE COIN BUTTON (سکه واقعی 3D) ═══════════ */}
+					<div class="relative w-[78%] h-[78%] rounded-full z-20">
+						<Coin3D 
+							onTap={handleTap} 
+							isPressed={isPressed()} 
+							isTurboActive={isTurboActive()} 
+						/>
+						{/* Glow/Shadow under the 3D coin for Eclipse effect */}
+						<div class="absolute inset-0 rounded-full pointer-events-none" style={{
+							'box-shadow': isTurboActive()
+								? `
+									0 0 0 1.5px rgba(255,255,255,0.95),
+									0 0 4px 2px rgba(255,220,220,0.9),
+									0 0 12px 4px rgba(255,150,150,0.7),
+									0 0 30px 8px rgba(239,68,68,0.5),
+									inset 0 0 0 1px rgba(255,255,255,0.1)
+								`
+								: `
+									0 0 0 1.5px rgba(255,255,255,0.95),
+									0 0 4px 2px rgba(255,255,255,0.85),
+									0 0 12px 4px rgba(255,255,255,0.6),
+									0 0 30px 8px rgba(230,235,245,0.4),
+									inset 0 0 0 1px rgba(255,255,255,0.08)
+								`
+						}}></div>
+						<div class="absolute inset-0 rounded-full flex flex-col items-center justify-center overflow-hidden pointer-events-none">
+							{/* Triangle Logo with subtle glow */}
 							<svg
 								viewBox="0 0 100 100"
 								class="w-[45%] h-[45%] -mt-6"
-								style={{ filter: 'drop-shadow(0px 0px 8px rgba(255,255,255,0.6))' }}
+								style={{ 
+									filter: isTurboActive()
+										? 'drop-shadow(0px 0px 12px rgba(255,200,200,0.9)) drop-shadow(0px 0px 4px rgba(255,255,255,1))'
+										: 'drop-shadow(0px 0px 10px rgba(255,255,255,0.7)) drop-shadow(0px 0px 3px rgba(255,255,255,1))'
+								}}
 							>
 								<path 
 									d="M 50 15 L 15 80 L 85 80 Z" 
@@ -393,11 +466,34 @@ export const TapView: Component<{
 								<span class="material-symbols-outlined text-[#FFC107] text-[18px]" style={{ 'font-variation-settings': '"FILL" 1' }}>bolt</span>
 							</div>
 						</div>
-					</button>
+					</div>
 				</div>
 			</div>
 
-			{/* Shop Modal / Bottom Sheet */}
+						{/* Shop Modal / Bottom Sheet */}
+			<Show when={showAutoTapModal()}>
+				<div class="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in px-4">
+					<div class="bg-[#1c1c1e] border border-[#ffb000]/30 rounded-3xl p-6 w-full max-w-[340px] flex flex-col items-center shadow-[0_0_50px_rgba(255,176,0,0.2)] animate-scale-up">
+						<div class="w-20 h-20 mb-4 bg-gradient-to-br from-[#ffb000] to-[#ff8000] rounded-full flex items-center justify-center shadow-lg">
+							<span class="material-symbols-outlined text-4xl text-white">smart_toy</span>
+						</div>
+						<h2 class="text-2xl font-bold text-white mb-2 text-center">Auto-Tap Bot</h2>
+						<p class="text-white/60 text-center text-sm mb-6">
+							The bot was mining while you were sleeping! Here is what it collected in the last 12 hours.
+						</p>
+						<div class="flex items-center gap-2 mb-8">
+							<span class="material-symbols-outlined text-[#FFC107] text-[28px]" style={{ 'font-variation-settings': '"FILL" 1' }}>toll</span>
+							<span class="text-4xl font-extrabold text-[#FFC107] tabular-nums">+{offlineEarnings().toLocaleString()}</span>
+						</div>
+						<button 
+							onClick={() => setShowAutoTapModal(false)}
+							class="w-full bg-[#ffb000] hover:bg-[#ff9000] text-black font-bold py-4 rounded-xl text-lg transition-colors shadow-[0_0_20px_rgba(255,176,0,0.4)]"
+						>
+							Claim Coins
+						</button>
+					</div>
+				</div>
+			</Show>
 			<Show when={showShopModal()}>
 				<div class="fixed inset-0 z-[100] flex flex-col justify-end">
 					{/* Backdrop */}

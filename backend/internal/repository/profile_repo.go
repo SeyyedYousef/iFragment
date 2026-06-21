@@ -627,3 +627,20 @@ func (db *Database) GetReferralChain(ctx context.Context, userID int64) (int64, 
 	}
 	return referrerID, grandparentID, nil
 }
+
+// AdjustAirdropCoins increments or decrements the user's airdrop_coins directly
+func (db *Database) AdjustAirdropCoins(ctx context.Context, userID int64, amount float64) error {
+	if db.Pool == nil {
+		return fmt.Errorf("no database connection")
+	}
+	
+	// Create user_stats if missing, then adjust
+	query := `
+		INSERT INTO user_stats (user_id, xp, level, current_streak, last_active_at, energy, energy_updated_at, airdrop_coins)
+		VALUES ($1, 0, 1, 0, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, $2)
+		ON CONFLICT (user_id) DO UPDATE 
+		SET airdrop_coins = COALESCE(user_stats.airdrop_coins, 0.0) + $2
+	`
+	_, err := db.Pool.Exec(ctx, query, userID, amount)
+	return err
+}

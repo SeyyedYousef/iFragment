@@ -1,6 +1,8 @@
 package service
 
 import (
+	"log/slog"
+
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -29,16 +31,14 @@ var promoCodeRe = regexp.MustCompile(`^[A-Z0-9]{4,20}$`)
 
 type OwnerService struct {
 	repo      *repository.OwnerRepo
-	frgRepo   *repository.FRGRepo
-	cache     *repository.Cache
+		cache     *repository.Cache
 	ubManager *mtproto.UserbotManager
 }
 
-func NewOwnerService(repo *repository.OwnerRepo, frgRepo *repository.FRGRepo, cache *repository.Cache, ubManager *mtproto.UserbotManager) *OwnerService {
+func NewOwnerService(repo *repository.OwnerRepo, cache *repository.Cache, ubManager *mtproto.UserbotManager) *OwnerService {
 	return &OwnerService{
 		repo:      repo,
-		frgRepo:   frgRepo,
-		cache:     cache,
+				cache:     cache,
 		ubManager: ubManager,
 	}
 }
@@ -241,107 +241,7 @@ func (s *OwnerService) GetDashboardStats(ctx context.Context) (*model.OwnerDashb
 	return stats, nil
 }
 
-func (s *OwnerService) AdjustFRG(ctx context.Context, ownerID int64, targetUserID int64, amount float64, reason string, ip string, ua string) (float64, error) {
-	if reason == "" {
-		return 0, errors.New("reason is required for audit logs")
-	}
 
-	// Fetch owner's role to enforce role limits
-	ownerRole, err := s.repo.GetOwnerRole(ctx, ownerID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to fetch owner role: %v", err)
-	}
-	if ownerRole == nil {
-		return 0, errors.New("unauthorized: caller is not a registered owner")
-	}
-
-	if math.IsNaN(amount) || math.IsInf(amount, 0) || amount == 0 {
-		return 0, errors.New("invalid adjustment amount")
-	}
-
-	var maxLimit float64
-	switch ownerRole.Role {
-	case "support":
-		maxLimit = 100.0
-	case "moderator":
-		maxLimit = 1000.0
-	case "admin":
-		maxLimit = 100000.0
-	case "super_admin":
-		maxLimit = 10000000.0
-	default:
-		return 0, errors.New("forbidden: invalid owner role")
-	}
-
-	absAmount := amount
-	if absAmount < 0 {
-		absAmount = -amount
-	}
-
-	if absAmount > maxLimit {
-		return 0, fmt.Errorf("adjustment amount %.2f exceeds maximum limit %.2f for role %s", absAmount, maxLimit, ownerRole.Role)
-	}
-
-	// Double approval rule for adjustments > 2/3 of the role limits (bypassed for super_admin as they are the supreme owner)
-	if ownerRole.Role != "super_admin" && absAmount > (2.0/3.0)*maxLimit {
-		return 0, fmt.Errorf("adjustment amount %.2f exceeds role safety limit (%.2f); dual approval required", absAmount, (2.0/3.0)*maxLimit)
-	}
-
-	// Begin atomic transaction
-	tx, err := s.frgRepo.DB().Pool.Begin(ctx)
-	if err != nil {
-		return 0, err
-	}
-	defer tx.Rollback(ctx)
-
-	// Fetch current balance to compute diff in audit log
-	bal, err := s.frgRepo.GetBalance(ctx, targetUserID)
-	if err != nil {
-		return 0, err
-	}
-
-	var frgTx *repository.FRGTransaction
-	meta, _ := json.Marshal(map[string]interface{}{
-		"adjusted_by": ownerID,
-		"reason":      reason,
-	})
-
-	if amount >= 0 {
-		frgTx, err = s.frgRepo.CreditTx(ctx, tx, targetUserID, amount, "admin_adjustment", meta)
-	} else {
-		frgTx, err = s.frgRepo.DebitTx(ctx, tx, targetUserID, -amount, "admin_adjustment", meta)
-	}
-
-	if err != nil {
-		return 0, err
-	}
-
-	// Log Audit Event INSIDE the same transaction
-	payload, _ := json.Marshal(map[string]interface{}{
-		"amount":         amount,
-		"reason":         reason,
-		"balance_before": bal.Balance,
-		"balance_after":  frgTx.BalanceAfter,
-	})
-
-	auditLog := &model.OwnerAuditLog{
-		OwnerID:      ownerID,
-		Action:       "frg_adjust",
-		TargetUserID: &targetUserID,
-		Payload:      payload,
-		IPAddress:    ip,
-		UserAgent:    ua,
-	}
-	if err := s.repo.LogOwnerAuditTx(ctx, tx, auditLog); err != nil {
-		return 0, err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return 0, err
-	}
-
-	return frgTx.BalanceAfter, nil
-}
 
 func (s *OwnerService) SetUserBan(ctx context.Context, ownerID int64, targetUserID int64, banType string, reason string, durationSeconds int64, ip string, ua string) error {
 	var expiresAt *time.Time
@@ -360,7 +260,7 @@ func (s *OwnerService) SetUserBan(ctx context.Context, ownerID int64, targetUser
 	}
 
 	// Begin atomic transaction
-	tx, err := s.frgRepo.DB().Pool.Begin(ctx)
+	tx, err := s.repo.DB().Pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -394,7 +294,7 @@ func (s *OwnerService) SetUserBan(ctx context.Context, ownerID int64, targetUser
 
 func (s *OwnerService) RemoveUserBan(ctx context.Context, ownerID int64, targetUserID int64, ip string, ua string) error {
 	// Begin atomic transaction
-	tx, err := s.frgRepo.DB().Pool.Begin(ctx)
+	tx, err := s.repo.DB().Pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -512,7 +412,7 @@ func (s *OwnerService) CreatePromoCode(ctx context.Context, ownerID int64, code 
 	}
 
 	// Begin atomic transaction
-	tx, err := s.frgRepo.DB().Pool.Begin(ctx)
+	tx, err := s.repo.DB().Pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -546,7 +446,7 @@ func (s *OwnerService) CreatePromoCode(ctx context.Context, ownerID int64, code 
 func (s *OwnerService) DeletePromoCode(ctx context.Context, ownerID int64, code string, ip string, ua string) error {
 	code = strings.ToUpper(code)
 	// Begin atomic transaction
-	tx, err := s.frgRepo.DB().Pool.Begin(ctx)
+	tx, err := s.repo.DB().Pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -578,7 +478,7 @@ func (s *OwnerService) ListPromoCodes(ctx context.Context) ([]model.PromoCode, e
 
 func (s *OwnerService) RedeemPromoCode(ctx context.Context, userID int64, code string) error {
 	code = strings.ToUpper(code)
-	return s.repo.RedeemPromoCodeTx(ctx, code, userID, s.frgRepo)
+	return s.repo.RedeemPromoCodeTx(ctx, code, userID)
 }
 
 func (s *OwnerService) ListAllQuests(ctx context.Context) ([]model.Quest, error) {
@@ -621,7 +521,7 @@ func (s *OwnerService) CreateQuest(ctx context.Context, ownerID int64, q model.Q
 	}
 
 	// Begin atomic transaction
-	tx, err := s.frgRepo.DB().Pool.Begin(ctx)
+	tx, err := s.repo.DB().Pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -691,7 +591,7 @@ func (s *OwnerService) UpdateQuest(ctx context.Context, ownerID int64, q model.Q
 	}
 
 	// Begin atomic transaction
-	tx, err := s.frgRepo.DB().Pool.Begin(ctx)
+	tx, err := s.repo.DB().Pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -727,7 +627,7 @@ func (s *OwnerService) UpdateQuest(ctx context.Context, ownerID int64, q model.Q
 
 func (s *OwnerService) DeleteQuest(ctx context.Context, ownerID int64, key string, ip string, ua string) error {
 	// Begin atomic transaction
-	tx, err := s.frgRepo.DB().Pool.Begin(ctx)
+	tx, err := s.repo.DB().Pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -793,3 +693,22 @@ func (s *OwnerService) DeleteUserbot(ctx context.Context, id string) error {
 	return s.repo.DeleteManagedUserbot(ctx, id)
 }
 
+
+// AdjustAirdropCoins allows the owner to change user's airdrop coins
+func (s *OwnerService) AdjustAirdropCoins(ctx context.Context, req AdjustAirdropCoinsRequest) error {
+	// Re-using AdjustFrgRequest struct for simplicity, assuming it has UserID and Amount
+	err := s.repo.DB().AdjustAirdropCoins(ctx, req.UserID, req.Amount)
+	if err != nil {
+		return err
+	}
+	
+	// Audit log
+	slog.Info("Owner adjusted user airdrop coins", "user_id", req.UserID, "amount", req.Amount)
+	return nil
+}
+
+
+type AdjustAirdropCoinsRequest struct {
+	UserID int64   `json:"user_id"`
+	Amount float64 `json:"amount"`
+}

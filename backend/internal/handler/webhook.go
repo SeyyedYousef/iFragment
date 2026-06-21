@@ -758,7 +758,7 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 			packageID := parts[1]
 			groupID, err := uuid.Parse(groupIDStr)
 			if err == nil {
-				botSvc := botmgmt.NewBotService(h.botRepo, repository.NewSettingsRepo(h.db, nil), repository.NewAuditRepo(h.db), repository.NewFRGRepo(h.db), repository.NewAnalyticsRepo(h.db))
+				botSvc := botmgmt.NewBotService(h.botRepo, repository.NewSettingsRepo(h.db, nil), repository.NewAuditRepo(h.db), repository.NewAnalyticsRepo(h.db))
 				err = botSvc.ActivateSubscriptionFromStars(ctx, msg.From.ID, groupID, packageID)
 				if err != nil {
 					slog.Error("Failed to activate subscription from Stars webhook", "error", err, "payload", pay.InvoicePayload)
@@ -774,7 +774,7 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 			packageID := parts[1]
 			channelID, err := uuid.Parse(channelIDStr)
 			if err == nil {
-				botSvc := botmgmt.NewBotService(h.botRepo, repository.NewSettingsRepo(h.db, nil), repository.NewAuditRepo(h.db), repository.NewFRGRepo(h.db), repository.NewAnalyticsRepo(h.db))
+				botSvc := botmgmt.NewBotService(h.botRepo, repository.NewSettingsRepo(h.db, nil), repository.NewAuditRepo(h.db), repository.NewAnalyticsRepo(h.db))
 				err = botSvc.ActivateChannelSubscriptionFromStars(ctx, msg.From.ID, channelID, packageID)
 				if err != nil {
 					slog.Error("Failed to activate channel subscription from Stars webhook", "error", err, "payload", pay.InvoicePayload)
@@ -783,42 +783,7 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 				}
 			}
 		}
-	} else if strings.HasPrefix(pay.InvoicePayload, "marketplace_purchase:") {
-		parts := strings.Split(pay.InvoicePayload, ":")
-		if len(parts) == 3 {
-			userID, parseErr := strconv.ParseInt(parts[1], 10, 64)
-			optionID := parts[2]
-			if parseErr == nil {
-				var frgAmount float64
-				if strings.HasPrefix(optionID, "stars_") {
-					frgStr := strings.TrimPrefix(optionID, "stars_")
-					if val, err := strconv.ParseFloat(frgStr, 64); err == nil {
-						frgAmount = val
-					}
-				}
 
-				if frgAmount > 0 {
-					frgRepo := repository.NewFRGRepo(h.db)
-					meta, _ := json.Marshal(map[string]interface{}{
-						"option_id":          optionID,
-						"method":             "stars",
-						"stars_amount":       pay.TotalAmount,
-						"telegram_charge_id": pay.TelegramPaymentChargeID,
-					})
-					_, err := frgRepo.CreditWithIdempotency(ctx, userID, frgAmount, "purchase_stars", meta, pay.TelegramPaymentChargeID)
-					if err != nil {
-						slog.Error("Failed to credit FRG coins via Stars payment webhook", "error", err, "user_id", userID)
-					} else {
-						slog.Info("Successfully credited FRG coins via Stars payment webhook", "user_id", userID, "amount", frgAmount)
-						_ = h.db.UpdateOrderStatus(ctx, pay.InvoicePayload, "paid", pay.TelegramPaymentChargeID)
-						tg, tgErr := h.moderator.GetTelegramClient(ctx, bot)
-						if tgErr == nil {
-							_ = tg.SendMessage(ctx, userID, fmt.Sprintf("Payment successful! Credited %g Coins (FRG) to your balance.", frgAmount), nil, nil)
-						}
-					}
-				}
-			}
-		}
 	} else {
 		// Non-premium payments: update order status normally
 		err := h.db.UpdateOrderStatus(ctx, pay.InvoicePayload, "paid", pay.TelegramPaymentChargeID)

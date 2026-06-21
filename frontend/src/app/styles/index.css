@@ -543,3 +543,31 @@
   animation: rocket-fly 4s ease-in-out infinite alternate;
 }
 
+/* ═════════════ Eclipse Aura Animations ═════════════ */
+
+/* انیمیشن "نفس کشیدن" آرام برای outer bloom - حس زنده بودن */
+@keyframes aura-breathe {
+    0%, 100% {
+        transform: scale(1.4);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.48);
+        opacity: 0.85;
+    }
+}
+
+/* shake موجود را اگر ندارید اضافه کنید */
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-6px); }
+    20%, 40%, 60%, 80% { transform: translateX(6px); }
+}
+
+/* بهینهسازی پرفورمنس روی GPU */
+.will-change-transform {
+    will-change: transform, opacity;
+    transform: translateZ(0);  /* GPU layer */
+    backface-visibility: hidden;
+}
+

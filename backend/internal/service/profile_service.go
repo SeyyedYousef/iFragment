@@ -22,15 +22,13 @@ import (
 
 type ProfileService struct {
 	db      *repository.Database
-	frgRepo *repository.FRGRepo
-	cache   *repository.Cache
+		cache   *repository.Cache
 }
 
 func NewProfileService(db *repository.Database, cache *repository.Cache) *ProfileService {
 	return &ProfileService{
 		db:      db,
-		frgRepo: repository.NewFRGRepo(db),
-		cache:   cache,
+				cache:   cache,
 	}
 }
 
@@ -614,12 +612,12 @@ func (s *ProfileService) PurchaseCosmetic(ctx context.Context, userID int64, cos
 		t1, t2, refErr := s.db.GetReferralChain(bgCtx, userID)
 		if refErr == nil {
 			if t1 != 0 {
-				metaT1, _ := json.Marshal(map[string]interface{}{"ref_type": "tier1", "from_user_id": userID, "cosmetic_id": cosmeticID})
-				_, _ = s.frgRepo.Credit(bgCtx, t1, item.Cost*0.1, "referral_revenue", metaT1)
+				
+				
 			}
 			if t2 != 0 {
-				metaT2, _ := json.Marshal(map[string]interface{}{"ref_type": "tier2", "from_user_id": userID, "cosmetic_id": cosmeticID})
-				_, _ = s.frgRepo.Credit(bgCtx, t2, item.Cost*0.02, "referral_revenue", metaT2)
+				
+				
 			}
 		}
 
