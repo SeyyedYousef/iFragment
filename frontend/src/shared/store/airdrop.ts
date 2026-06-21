@@ -58,6 +58,9 @@ export const [balance, setBalance] = createSignal(
 export const [totalTaps, setTotalTaps] = createSignal(
 	typeof savedState.totalTaps === 'number' ? savedState.totalTaps : 0,
 );
+export const [userXp, setUserXp] = createSignal(
+	typeof savedState.userXp === 'number' ? savedState.userXp : 0,
+);
 export const [energy, setEnergy] = createSignal(
 	typeof savedState.energy === 'number'
 		? Math.min(savedState.energy, savedState.maxEnergy || 500)
@@ -75,6 +78,62 @@ export const [energyRecovery, setEnergyRecovery] = createSignal(
 export const [frgBalance, setFrgBalance] = createSignal(
 	typeof savedState.frgBalance === 'number' ? savedState.frgBalance : 0,
 );
+export const [turboCount, setTurboCount] = createSignal(
+	typeof savedState.turboCount === 'number' ? savedState.turboCount : 3,
+);
+export const [fullEnergyCount, setFullEnergyCount] = createSignal(
+	typeof savedState.fullEnergyCount === 'number' ? savedState.fullEnergyCount : 3,
+);
+export const [isRocketSpawned, setIsRocketSpawned] = createSignal(false);
+export const [isTurboActive, setIsTurboActive] = createSignal(false);
+export const [turboExpiresAt, setTurboExpiresAt] = createSignal(0);
+
+export const spawnRocket = () => {
+	if (turboCount() > 0 && !isTurboActive() && !isRocketSpawned()) {
+		setTurboCount((c) => c - 1);
+		setIsRocketSpawned(true);
+		
+		// Optional: Despawn if they don't click it within 10 seconds
+		setTimeout(() => {
+			if (isRocketSpawned()) {
+				setIsRocketSpawned(false);
+			}
+		}, 10000);
+	}
+};
+
+export const activateTurbo = () => {
+	if (!isTurboActive()) {
+		setIsRocketSpawned(false);
+		setIsTurboActive(true);
+		setTurboExpiresAt(Date.now() + 15000); // 15 seconds
+		setTimeout(() => {
+			if (Date.now() >= turboExpiresAt()) {
+				setIsTurboActive(false);
+			}
+		}, 15000);
+	}
+};
+
+export const activateFullEnergy = () => {
+	if (fullEnergyCount() > 0) {
+		setFullEnergyCount((c) => c - 1);
+		setEnergy(maxEnergy());
+	}
+};
+
+export const [lastBoosterResetDate, setLastBoosterResetDate] = createSignal<string | null>(
+	typeof savedState.lastBoosterResetDate === 'string' ? savedState.lastBoosterResetDate : null,
+);
+
+export const checkDailyBoosterReset = () => {
+	const today = new Date().toISOString().split('T')[0];
+	if (lastBoosterResetDate() !== today) {
+		setTurboCount(3);
+		setFullEnergyCount(3);
+		setLastBoosterResetDate(today);
+	}
+};
 
 // --- Boosters ---
 export interface Booster {
@@ -135,12 +194,11 @@ export const syncBoostersStatus = async () => {
 	}
 };
 
-// --- League ---
 export const currentLeague = createMemo(() => {
-	const b = balance();
+	const currentXp = userXp();
 	let league = LEAGUES[0];
 	for (const l of LEAGUES) {
-		if (b >= l.minScore) league = l;
+		if (currentXp >= l.minScore) league = l;
 	}
 	return league;
 });
@@ -155,7 +213,7 @@ export const leagueProgress = createMemo(() => {
 	const next = nextLeague();
 	if (!next) return 100;
 	const range = next.minScore - current.minScore;
-	const progress = balance() - current.minScore;
+	const progress = userXp() - current.minScore;
 	return Math.min(100, Math.max(0, Math.floor((progress / range) * 100)));
 });
 
@@ -269,6 +327,7 @@ export const syncPendingTaps = async () => {
 						}
 						setFrgBalance(typeof stats.frgBalance === 'number' ? stats.frgBalance : 0);
 						setTotalTaps((typeof stats.totalTaps === 'number' ? stats.totalTaps : 0) + pendingTaps);
+						setUserXp((typeof stats.xp === 'number' ? stats.xp : 0) + pendingTaps);
 
 						try {
 							if (pendingTaps === 0) {
@@ -297,10 +356,19 @@ export const syncPendingTaps = async () => {
 
 export const recordTaps = (count: number) => {
 	if (typeof count !== 'number' || !Number.isInteger(count) || count <= 0) return;
-	if (energy() < count) return;
-	setEnergy((e) => Math.max(0, e - count));
-	setBalance((b) => b + count * tapPower());
+	
+	const currentPower = isTurboActive() ? tapPower() * 5 : tapPower();
+	const energyConsumed = isTurboActive() ? 0 : count;
+
+	if (energy() < energyConsumed) return;
+	
+	if (energyConsumed > 0) {
+		setEnergy((e) => Math.max(0, e - energyConsumed));
+	}
+	
+	setBalance((b) => b + count * currentPower);
 	setTotalTaps((t) => t + count);
+	setUserXp((x) => x + count);
 
 	pendingTaps += count;
 	try {
@@ -326,6 +394,7 @@ export const syncProfileStats = async () => {
 						pendingTaps * tapPower(),
 				);
 				setTotalTaps((typeof stats.totalTaps === 'number' ? stats.totalTaps : 0) + pendingTaps);
+				setUserXp(typeof stats.xp === 'number' ? stats.xp + pendingTaps : 0 + pendingTaps);
 				if (typeof stats.energy === 'number') {
 					setEnergy(Math.max(0, stats.energy - pendingTaps));
 				}
@@ -393,6 +462,7 @@ export const initStorageSync = () => {
 
 		// Fetch initial data sequentially to prevent race conditions
 		syncAllData();
+		checkDailyBoosterReset();
 
 		getClan()
 			.then((res) => {
@@ -412,6 +482,9 @@ export const initStorageSync = () => {
 				maxEnergy: maxEnergy(),
 				tapPower: tapPower(),
 				energyRecovery: energyRecovery(),
+				turboCount: turboCount(),
+				fullEnergyCount: fullEnergyCount(),
+				lastBoosterResetDate: lastBoosterResetDate(),
 				savedAt: Date.now(), // Save exact timestamp
 			};
 

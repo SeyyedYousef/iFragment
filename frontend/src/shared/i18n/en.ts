@@ -1760,7 +1760,7 @@ To enable me to delete malicious messages and restrict violating users, please a
 			tapBot: { name: 'Auto Tap bot', desc: "Taps when you're asleep" }
 		}
 	},
-	airdrop: {
+	airdropNew: {
 		tasks: {
 			title: 'Quest Hub',
 			subtitle: 'Complete specialized tasks to earn Coins and XP',

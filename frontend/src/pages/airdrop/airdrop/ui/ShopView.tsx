@@ -6,7 +6,7 @@ export const ShopView: Component = () => {
 		<div
 			class="flex-1 overflow-y-auto px-5 pt-8 pb-36 animate-fade-in no-scrollbar"
 			style={{ background: '#000' }}
-			dir={t('dir') === 'rtl' ? 'rtl' : 'ltr'}
+			dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
 		>
 			{/* Header Icon */}
 			<div class="flex justify-center mb-6">

@@ -1,9 +1,9 @@
 import { hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createSignal, For } from 'solid-js';
-import { balance, boosters, getBoosterCost, upgradeBooster } from '@/shared/store/airdrop.js';
+import { balance, boosters, getBoosterCost, upgradeBooster, turboCount, fullEnergyCount, spawnRocket, activateFullEnergy } from '@/shared/store/airdrop.js';
 import { t } from '@/shared/i18n/index.js';
 
-export const BoostersView: Component = () => {
+export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) => {
 	const [animatingId, setAnimatingId] = createSignal<string | null>(null);
 
 	const triggerHaptic = (type: 'impact' | 'success' | 'error') => {
@@ -34,24 +34,38 @@ export const BoostersView: Component = () => {
 		<div 
 			class="flex-1 overflow-y-auto px-4 pt-6 pb-36 animate-fade-in no-scrollbar h-full" 
 			style={{ background: '#000' }}
-			dir={t('dir') === 'rtl' ? 'rtl' : 'ltr'}
+			dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
 		>
 			
 			{/* Free daily boosters */}
 			<div class="mb-6">
 				<h2 class="text-[22px] font-bold text-white mb-4 tracking-tight text-start">{t('boosters.freeDaily')}</h2>
 				<div class="grid grid-cols-2 gap-3">
-					<button class="bg-[#1c1c1e] rounded-3xl p-4 flex flex-col gap-1.5 items-start active:scale-95 transition-all text-start">
+					<button 
+						onClick={() => {
+							spawnRocket();
+							props.onTurboClick?.();
+						}} 
+						disabled={turboCount() === 0}
+						class={`bg-[#1c1c1e] rounded-3xl p-4 flex flex-col gap-1.5 items-start transition-all text-start ${turboCount() > 0 ? 'active:scale-95' : 'opacity-50'}`}
+					>
 						<div class="flex flex-col gap-1 items-start mb-1 w-full relative">
 							<span class="text-white font-medium text-[15px] max-w-[70%] leading-tight">{t('boosters.turbo')}</span>
-							<span class="text-[#8e8e93] text-[13px]">{t('boosters.available', { count: '2/3' })}</span>
+							<span class="text-[#8e8e93] text-[13px]">{t('boosters.available', { count: `${turboCount()}/3` })}</span>
 							<span class="text-2xl absolute end-0 top-0">🚀</span>
 						</div>
 					</button>
-					<button class="bg-[#1c1c1e] rounded-3xl p-4 flex flex-col gap-1.5 items-start active:scale-95 transition-all text-start">
+					<button 
+						onClick={() => {
+							activateFullEnergy();
+							props.onTurboClick?.();
+						}} 
+						disabled={fullEnergyCount() === 0}
+						class={`bg-[#1c1c1e] rounded-3xl p-4 flex flex-col gap-1.5 items-start transition-all text-start ${fullEnergyCount() > 0 ? 'active:scale-95' : 'opacity-50'}`}
+					>
 						<div class="flex flex-col gap-1 items-start mb-1 w-full relative">
 							<span class="text-white font-medium text-[15px] max-w-[70%] leading-tight">{t('boosters.fullEnergy')}</span>
-							<span class="text-[#8e8e93] text-[13px]">{t('boosters.available', { count: '3/3' })}</span>
+							<span class="text-[#8e8e93] text-[13px]">{t('boosters.available', { count: `${fullEnergyCount()}/3` })}</span>
 							<span class="text-2xl absolute end-0 top-0">⚡</span>
 						</div>
 					</button>

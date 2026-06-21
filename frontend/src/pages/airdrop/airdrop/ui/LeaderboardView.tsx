@@ -37,7 +37,7 @@ export const LeaderboardView: Component = () => {
 		<div 
 			class="flex-1 overflow-y-auto no-scrollbar animate-fade-in pb-8" 
 			style={{ background: '#000' }}
-			dir={t('dir') === 'rtl' ? 'rtl' : 'ltr'}
+			dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
 		>
 			{/* League Filter Pills */}
 			<div class="px-4 pt-4 pb-3 overflow-x-auto no-scrollbar">
@@ -50,7 +50,7 @@ export const LeaderboardView: Component = () => {
 								: 'bg-[#1c1c1e] text-[#8e8e93] active:bg-white/10'
 						}`}
 					>
-						{t('airdrop.leaderboard.all')}
+						{t('airdropNew.leaderboard.all')}
 					</button>
 					<For each={LEAGUES}>
 						{(league) => (
@@ -87,7 +87,7 @@ export const LeaderboardView: Component = () => {
 							#{typeof userPosition() === 'number' ? userPosition().toLocaleString('en-US') : '?'}
 						</div>
 						<div>
-							<div class="text-[#3390ec] text-[12px] font-semibold uppercase">{t('airdrop.leaderboard.yourPosition')}</div>
+							<div class="text-[#3390ec] text-[12px] font-semibold uppercase">{t('airdropNew.leaderboard.yourPosition')}</div>
 							<div class="text-white font-bold text-[16px] tabular-nums">{userScore().toLocaleString('en-US')} XP</div>
 						</div>
 					</div>
@@ -110,7 +110,7 @@ export const LeaderboardView: Component = () => {
 							fallback={
 								<div class="flex flex-col items-center justify-center py-16 text-[#8e8e93]">
 									<span class="material-symbols-outlined text-4xl mb-2 opacity-40">sentiment_dissatisfied</span>
-									<span class="text-[14px]">{t('airdrop.leaderboard.empty')}</span>
+									<span class="text-[14px]">{t('airdropNew.leaderboard.empty')}</span>
 								</div>
 							}
 						>

@@ -1719,7 +1719,7 @@ export const dict = {
 			tapBot: { name: 'Авто-бот', desc: 'Добывает пока вы спите' }
 		}
 	},
-	airdrop: {
+	airdropNew: {
 		tasks: {
 			title: 'Задания',
 			subtitle: 'Выполняйте задания для получения монет',

@@ -140,9 +140,9 @@ export const TasksView: Component = () => {
 							>
 								people
 							</span>
-							{t('airdrop.friends.title')}
+							{t('airdropNew.friends.title')}
 						</h3>
-						<p class="text-[#8e8e93] text-xs max-w-[180px]">{t('airdrop.friends.subtitle')}</p>
+						<p class="text-[#8e8e93] text-xs max-w-[180px]">{t('airdropNew.friends.subtitle')}</p>
 					</div>
 					<div class="w-12 h-12 rounded-xl bg-[#3390ec]/10 flex items-center justify-center">
 						<span
@@ -164,7 +164,7 @@ export const TasksView: Component = () => {
 						const code = referralQuery.data?.referralCode || 'ref_fallback';
 						const link = `https://t.me/iFragmentBot?start=${code}`;
 						openTelegramLink(
-							`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(t('airdrop.friends.subtitle'))}`,
+							`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(t('airdropNew.friends.subtitle'))}`,
 						);
 					}}
 					class={`w-full text-white font-bold py-3 rounded-xl active:scale-95 transition-transform text-sm shadow-[0_2px_10px_rgba(51,144,236,0.3)] ${referralQuery.isLoading ? 'bg-[#3390ec]/70 cursor-not-allowed' : 'bg-[#3390ec]'}`}
@@ -175,7 +175,7 @@ export const TasksView: Component = () => {
 							progress_activity
 						</span>
 					) : (
-						t('airdrop.friends.inviteBtn')
+						t('airdropNew.friends.inviteBtn')
 					)}
 				</button>
 			</div>

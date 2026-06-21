@@ -11,11 +11,9 @@ import { t } from '@/shared/i18n/index.js';
 type AirdropTab = 'mine' | 'earn' | 'clan' | 'boost' | 'shop';
 
 const getTabs = () => [
-	{ id: 'mine' as AirdropTab, icon: 'touch_app', label: t('airdropTabs.mine') },
 	{ id: 'earn' as AirdropTab, icon: 'assignment', label: t('airdropTabs.earn') },
 	{ id: 'clan' as AirdropTab, icon: 'shield', label: t('airdropTabs.clan') },
 	{ id: 'boost' as AirdropTab, icon: 'rocket_launch', label: t('airdropTabs.boost') },
-	{ id: 'shop' as AirdropTab, icon: 'storefront', label: t('airdropTabs.shop') },
 ];
 
 export const AirdropPage: Component = () => {
@@ -39,32 +37,44 @@ export const AirdropPage: Component = () => {
 			{/* Main Content */}
 			<div class="flex-1 overflow-hidden relative flex flex-col pt-16">
 				{/* Internal Airdrop Tab Bar at TOP */}
-				<div class="absolute top-0 left-0 right-0 z-[60] bg-black/60 backdrop-blur-xl border-b border-white/5" dir="ltr">
-					<div class="flex items-center justify-around px-2 py-2 max-w-md mx-auto">
-						{getTabs().map((tab) => (
-							<button
-								onClick={() => handleTabChange(tab.id)}
-								class={`flex items-center gap-1.5 py-2 px-3 rounded-xl transition-all ${
-									activeTab() === tab.id
-										? 'bg-white/10 text-white'
-										: 'text-[#8e8e93] active:scale-95'
-								}`}
+				<div class="absolute top-0 left-0 right-0 z-[60] bg-black/60 backdrop-blur-xl border-b border-white/5" dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}>
+					<div class="flex items-center px-3 py-2 max-w-md mx-auto relative">
+						{/* Close button to go back to Mine if not on Mine */}
+						{activeTab() !== 'mine' && (
+							<button 
+								onClick={() => handleTabChange('mine')} 
+								class="absolute left-3 w-10 h-10 flex items-center justify-center text-white/50 active:text-white shrink-0 bg-white/5 rounded-full active:bg-white/10 transition-all z-10"
+								style={t('dir' as any) === 'rtl' ? { right: '0.75rem', left: 'auto' } : {}}
 							>
-								<span
-									class="material-symbols-outlined text-[18px]"
-									style={{
-										'font-variation-settings': activeTab() === tab.id ? '"FILL" 1' : '"FILL" 0',
-									}}
-								>
-									{tab.icon}
-								</span>
-								<span class={`text-[12px] font-bold tracking-tight ${
-									activeTab() === tab.id ? 'text-white' : 'text-[#8e8e93]'
-								}`}>
-									{tab.label}
-								</span>
+								<span class="material-symbols-outlined text-[20px]">close</span>
 							</button>
-						))}
+						)}
+						<div class="flex items-center justify-around flex-1">
+							{getTabs().map((tab) => (
+								<button
+									onClick={() => handleTabChange(tab.id)}
+									class={`flex items-center gap-1.5 py-2 px-3 rounded-xl transition-all ${
+										activeTab() === tab.id
+											? 'bg-white/10 text-white'
+											: 'text-[#8e8e93] active:scale-95'
+									}`}
+								>
+									<span
+										class="material-symbols-outlined text-[18px]"
+										style={{
+											'font-variation-settings': activeTab() === tab.id ? '"FILL" 1' : '"FILL" 0',
+										}}
+									>
+										{tab.icon}
+									</span>
+									<span class={`text-[12px] font-bold tracking-tight ${
+										activeTab() === tab.id ? 'text-white' : 'text-[#8e8e93]'
+									}`}>
+										{tab.label}
+									</span>
+								</button>
+							))}
+						</div>
 					</div>
 				</div>
 
@@ -73,6 +83,7 @@ export const AirdropPage: Component = () => {
 						<TapView 
 							onLeagueClick={() => setShowLeaderboard(true)} 
 							onClanClick={() => handleTabChange('clan')}
+							onShopClick={() => handleTabChange('shop')}
 						/>
 					</Match>
 					<Match when={activeTab() === 'earn'}>
@@ -82,7 +93,7 @@ export const AirdropPage: Component = () => {
 						<ClanView />
 					</Match>
 					<Match when={activeTab() === 'boost'}>
-						<BoostersView />
+						<BoostersView onTurboClick={() => handleTabChange('mine')} />
 					</Match>
 					<Match when={activeTab() === 'shop'}>
 						<ShopView />

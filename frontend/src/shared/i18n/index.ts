@@ -95,7 +95,7 @@ export const getDict = () => {
 };
 
 // Type-safe translator: wrong keys cause a compile-time error
-export const t = i18n.translator(getDict) as (key: DictPaths) => string;
+export const t = i18n.translator(getDict, i18n.resolveTemplate) as (key: DictPaths, args?: Record<string, any>) => string;
 
 // Helper to format numbers based on active locale (Always use en-US to force Latin/English digits)
 export const formatNumber = (num: number): string => {

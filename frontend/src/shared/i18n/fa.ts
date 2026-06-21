@@ -1681,7 +1681,7 @@ export const dict = {
 			tapBot: { name: 'ربات استخراج', desc: 'استخراج در زمان خواب' }
 		}
 	},
-	airdrop: {
+	airdropNew: {
 		tasks: {
 			title: 'ماموریت‌ها',
 			subtitle: 'با انجام ماموریت‌ها سکه و تجربه کسب کنید',

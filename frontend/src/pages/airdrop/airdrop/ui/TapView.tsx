@@ -1,5 +1,6 @@
-import { Component, createSignal, onCleanup, onMount } from 'solid-js';
+import { Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { haptic } from '@/shared/lib/haptic.js';
+import { ShopView } from './ShopView.js';
 import { createQuery } from '@tanstack/solid-query';
 import { getProfileStats } from '@/shared/api/profile.js';
 import { t } from '@/shared/i18n/index.js';
@@ -10,9 +11,10 @@ import {
 	maxEnergy,
 	recordTaps,
 	tapPower,
-	userClan,
+	isTurboActive,
+	isRocketSpawned,
+	activateTurbo,
 } from '@/shared/store/airdrop.js';
-import { Show } from 'solid-js';
 
 interface CanvasParticle {
 	x: number;
@@ -26,8 +28,13 @@ interface CanvasParticle {
 export const TapView: Component<{
 	onLeagueClick?: () => void;
 	onClanClick?: () => void;
+	onShopClick?: () => void;
 }> = (props) => {
 	const [isPressed, setIsPressed] = createSignal(false);
+	const [showShopCoachmark, setShowShopCoachmark] = createSignal(
+		!localStorage.getItem('airdrop-shop-coachmark-seen'),
+	);
+	const [showShopModal, setShowShopModal] = createSignal(false);
 	const [isShaking, setIsShaking] = createSignal(false);
 	const statsQuery = createQuery(() => ({
 		queryKey: ['profile-stats-tap'],
@@ -117,7 +124,8 @@ export const TapView: Component<{
 
 	const handleTap = (e: PointerEvent) => {
 		e.preventDefault();
-		if (energy() <= 0) {
+		const isTurbo = isTurboActive();
+		if (energy() <= 0 && !isTurbo) {
 			haptic.notify('error');
 			setIsShaking(true);
 			if (shakeTimerId) clearTimeout(shakeTimerId);
@@ -135,7 +143,7 @@ export const TapView: Component<{
 			lastHapticAt = nowTime;
 		}
 
-		const power = tapPower();
+		const power = isTurbo ? tapPower() * 5 : tapPower();
 		recordTaps(1);
 
 		const rect = canvasRef.getBoundingClientRect();
@@ -172,21 +180,46 @@ export const TapView: Component<{
 			class="flex-1 flex flex-col items-center relative overflow-hidden px-4 pt-6 pb-28"
 			style={{ background: 'linear-gradient(180deg, #000000 0%, #1a1a1a 40%, rgba(251,191,36,0.3) 100%)' }}
 		>
+			{/* Flying Rocket for Turbo */}
+			<Show when={isRocketSpawned()}>
+				<button
+					onClick={() => activateTurbo()}
+					class="absolute z-[70] text-[56px] drop-shadow-[0_0_20px_rgba(239,68,68,0.8)] animate-rocket-fly"
+					style={{ top: '10%', left: '10%' }}
+				>
+					🚀
+				</button>
+			</Show>
+
 			{/* Floating GPU-accelerated canvas particles layer */}
 			<canvas ref={canvasRef} class="absolute inset-0 w-full h-full pointer-events-none z-50" />
 
 			{/* Ambient glow */}
 			<div
-				class="absolute bottom-[-10%] left-1/2 -translate-x-1/2 w-[800px] h-[800px] rounded-full pointer-events-none"
+				class={`absolute bottom-[-10%] left-1/2 -translate-x-1/2 w-[800px] h-[800px] rounded-full pointer-events-none transition-colors duration-500`}
 				style={{
-					background: `radial-gradient(circle, ${currentLeague().color}40 0%, transparent 60%)`,
+					background: `radial-gradient(circle, ${isTurboActive() ? '#ef4444' : currentLeague().color}40 0%, transparent 60%)`,
 					filter: 'blur(60px)',
 				}}
 			></div>
 
 			{/* Top Mining Info */}
 			<div class="text-center z-10 w-full flex flex-col items-center mt-2 mb-8" dir="ltr">
-				<div class="flex items-center justify-center gap-3">
+				<button 
+					onClick={() => {
+						if (showShopCoachmark()) {
+							setShowShopCoachmark(false);
+							localStorage.setItem('airdrop-shop-coachmark-seen', 'true');
+						}
+						setShowShopModal(true);
+					}}
+					class="flex items-center justify-center gap-3 active:scale-95 transition-transform relative"
+				>
+					{showShopCoachmark() && (
+						<div class="absolute -top-12 left-1/2 -translate-x-1/2 bg-[#3390ec] text-white text-[12px] font-bold px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap animate-bounce z-50 after:content-[''] after:absolute after:-bottom-1.5 after:left-1/2 after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-[#3390ec]">
+							{t('shopInfo.coachmark' as any)}
+						</div>
+					)}
 					<div class="w-12 h-12 rounded-full flex items-center justify-center drop-shadow-[0_0_15px_rgba(251,191,36,0.6)]">
 						<span
 							class="material-symbols-outlined text-[#FFC107] text-[48px]"
@@ -198,7 +231,7 @@ export const TapView: Component<{
 					<span class="text-white text-[56px] font-bold tabular-nums leading-none tracking-tighter">
 						{balance().toLocaleString('en-US')}
 					</span>
-				</div>
+				</button>
 				<button
 					onClick={() => props.onLeagueClick?.()}
 					class="flex items-center justify-center gap-1.5 mt-2.5 cursor-pointer active:scale-95 transition-transform"
@@ -232,7 +265,7 @@ export const TapView: Component<{
 					}}
 				>
 					{/* Dark Metallic Fragment Coin */}
-					<div class="absolute inset-0 rounded-full flex items-center justify-center overflow-hidden pointer-events-none bg-black/40 backdrop-blur-sm border-[4px] border-white/5" style={{ 'box-shadow': 'inset 0 10px 40px rgba(255,255,255,0.1)' }}>
+					<div class={`absolute inset-0 rounded-full flex items-center justify-center overflow-hidden pointer-events-none bg-black/40 backdrop-blur-sm border-[4px] ${isTurboActive() ? 'border-red-500/50 shadow-[0_0_30px_rgba(239,68,68,0.5)]' : 'border-white/5'}`} style={{ 'box-shadow': 'inset 0 10px 40px rgba(255,255,255,0.1)' }}>
 						<svg
 							viewBox="0 0 200 200"
 							class="w-[65%] h-[65%] drop-shadow-[0_15px_30px_rgba(0,0,0,0.8)]"
@@ -299,6 +332,37 @@ export const TapView: Component<{
 					</div>
 				</div>
 			</div>
+
+			{/* Shop Modal / Bottom Sheet */}
+			<Show when={showShopModal()}>
+				<div class="fixed inset-0 z-[100] flex flex-col justify-end">
+					{/* Backdrop */}
+					<div 
+						class="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in"
+						onClick={() => setShowShopModal(false)}
+					/>
+					
+					{/* Sheet Content */}
+					<div class="relative w-full h-[85vh] bg-[#0f0f13] rounded-t-3xl border-t border-white/10 flex flex-col animate-slide-up shadow-[0_-10px_40px_rgba(0,0,0,0.5)] overflow-hidden">
+						{/* Drag handle */}
+						<div class="w-full flex justify-center py-3 shrink-0" onClick={() => setShowShopModal(false)}>
+							<div class="w-12 h-1.5 rounded-full bg-white/20" />
+						</div>
+						
+						{/* Close button */}
+						<button 
+							onClick={() => setShowShopModal(false)}
+							class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/10 text-white/50 hover:bg-white/20 hover:text-white transition-colors"
+						>
+							<span class="material-symbols-outlined text-[20px]">close</span>
+						</button>
+
+						<div class="flex-1 overflow-hidden relative">
+							<ShopView />
+						</div>
+					</div>
+				</div>
+			</Show>
 		</div>
 	);
 };

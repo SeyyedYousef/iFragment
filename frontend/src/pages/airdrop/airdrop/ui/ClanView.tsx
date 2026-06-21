@@ -56,7 +56,7 @@ export const ClanView: Component = () => {
 		if (!clan) return;
 		const link = `https://t.me/iFragmentBot?start=clan_${clan.channel_username}`;
 		openTelegramLink(
-			`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(t('airdrop.clan.inviteText', { title: clan.chat_title }))}`,
+			`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(t('airdropNew.clan.inviteText', { title: clan.chat_title }))}`,
 		);
 	};
 
@@ -64,7 +64,7 @@ export const ClanView: Component = () => {
 		<div 
 			class="flex-1 overflow-y-auto no-scrollbar animate-fade-in pb-36" 
 			style={{ background: '#000' }}
-			dir={t('dir') === 'rtl' ? 'rtl' : 'ltr'}
+			dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
 		>
 			<Show
 				when={userClan()}
@@ -72,16 +72,16 @@ export const ClanView: Component = () => {
 					/* === NOT IN A CLAN === */
 					<div class="px-5 pt-6">
 						{/* Header */}
-						<h1 class="text-[28px] font-bold text-white tracking-tight">{t('airdrop.clan.title')}</h1>
-						<p class="text-[#8e8e93] text-[15px] mt-1">{t('airdrop.clan.subtitle')}</p>
+						<h1 class="text-[28px] font-bold text-white tracking-tight">{t('airdropNew.clan.title')}</h1>
+						<p class="text-[#8e8e93] text-[15px] mt-1">{t('airdropNew.clan.subtitle')}</p>
 
 						{/* How it works */}
 						<button class="w-full mt-4 bg-[#1c1c1e] rounded-2xl p-4 flex items-center justify-between active:bg-white/5 transition-all">
 							<div class="flex items-center gap-3">
 								<span class="text-2xl">💡</span>
 								<div class="text-start">
-									<div class="text-white font-medium text-[15px]">{t('airdrop.clan.howItWorks')}</div>
-									<div class="text-[#8e8e93] text-[13px]">{t('airdrop.clan.howItWorksDesc')}</div>
+									<div class="text-white font-medium text-[15px]">{t('airdropNew.clan.howItWorks')}</div>
+									<div class="text-[#8e8e93] text-[13px]">{t('airdropNew.clan.howItWorksDesc')}</div>
 								</div>
 							</div>
 							<span class="material-symbols-outlined text-white/40 text-[20px]">chevron_right</span>
@@ -89,8 +89,8 @@ export const ClanView: Component = () => {
 
 						{/* Search to Join */}
 						<div class="mt-5 bg-[#1c1c1e] rounded-2xl p-4">
-							<h3 class="text-white font-semibold text-[17px] mb-3">{t('airdrop.clan.joinTitle')}</h3>
-							<p class="text-[#8e8e93] text-[13px] mb-3">{t('airdrop.clan.joinDesc')}</p>
+							<h3 class="text-white font-semibold text-[17px] mb-3">{t('airdropNew.clan.joinTitle')}</h3>
+							<p class="text-[#8e8e93] text-[13px] mb-3">{t('airdropNew.clan.joinDesc')}</p>
 							<div class="flex gap-2">
 								<input
 									type="text"
@@ -108,7 +108,7 @@ export const ClanView: Component = () => {
 											: 'bg-[#2c2c2e] text-[#555]'
 									}`}
 								>
-									{loading() ? '...' : t('airdrop.clan.joinBtn')}
+									{loading() ? '...' : t('airdropNew.clan.joinBtn')}
 								</button>
 							</div>
 							{errorMsg() && (
@@ -118,7 +118,7 @@ export const ClanView: Component = () => {
 
 						{/* Popular Squads */}
 						<div class="mt-6">
-							<h2 class="text-[20px] font-bold text-white mb-3 tracking-tight">{t('airdrop.clan.popularSquads')}</h2>
+							<h2 class="text-[20px] font-bold text-white mb-3 tracking-tight">{t('airdropNew.clan.popularSquads')}</h2>
 							<div class="bg-[#1c1c1e] rounded-[24px] overflow-hidden">
 								<Show
 									when={!topClans.loading}
@@ -131,7 +131,7 @@ export const ClanView: Component = () => {
 									<For
 										each={topClans() || []}
 										fallback={
-											<div class="text-[#8e8e93] text-[14px] text-center py-8">{t('airdrop.clan.noSquads')}</div>
+											<div class="text-[#8e8e93] text-[14px] text-center py-8">{t('airdropNew.clan.noSquads')}</div>
 										}
 									>
 										{(clan, i) => (
@@ -174,7 +174,7 @@ export const ClanView: Component = () => {
 												<div class="flex-1 min-w-0">
 													<div class="text-white font-medium text-[16px] truncate">{clan.chat_title}</div>
 													<div class="text-[#8e8e93] text-[13px] mt-0.5">
-														{clan.members_count.toLocaleString('en-US')} {t('airdrop.clan.members')}
+														{clan.members_count.toLocaleString('en-US')} {t('airdropNew.clan.members')}
 													</div>
 												</div>
 
@@ -206,7 +206,7 @@ export const ClanView: Component = () => {
 					<div class="px-5 pt-6">
 						{/* Clan Header */}
 						<div class="text-center mb-6">
-							<h1 class="text-[24px] font-bold text-white tracking-tight">{t('airdrop.clan.title')}</h1>
+							<h1 class="text-[24px] font-bold text-white tracking-tight">{t('airdropNew.clan.title')}</h1>
 
 							{/* Clan Card */}
 							<div class="mt-4 bg-[#1c1c1e] rounded-3xl p-5 relative overflow-hidden">
@@ -233,13 +233,13 @@ export const ClanView: Component = () => {
 									<div class="grid grid-cols-2 gap-3 mb-4">
 										<div class="bg-white/5 rounded-xl p-3 text-center">
 											<div class="text-white font-bold text-[18px]">{clan().members_count.toLocaleString('en-US')}</div>
-											<div class="text-[#8e8e93] text-[12px]">{t('airdrop.clan.membersLabel')}</div>
+											<div class="text-[#8e8e93] text-[12px]">{t('airdropNew.clan.membersLabel')}</div>
 										</div>
 										<div class="bg-white/5 rounded-xl p-3 text-center">
 											<div class="text-amber-400 font-bold text-[18px]">
 												{formatScore(clan().total_score || clan().members_count * 1500)}
 											</div>
-											<div class="text-[#8e8e93] text-[12px]">{t('airdrop.clan.scoreLabel')}</div>
+											<div class="text-[#8e8e93] text-[12px]">{t('airdropNew.clan.scoreLabel')}</div>
 										</div>
 									</div>
 
@@ -248,14 +248,14 @@ export const ClanView: Component = () => {
 										onClick={handleInvite}
 										class="w-full bg-[#3390ec] text-white font-bold py-3.5 rounded-xl active:scale-[0.98] transition-transform text-[15px] mb-2"
 									>
-										{t('airdrop.clan.invite')}
+										{t('airdropNew.clan.invite')}
 									</button>
 									<button
 										onClick={handleLeave}
 										disabled={loading()}
 										class="w-full bg-white/5 border border-white/10 text-white/70 font-medium py-3 rounded-xl active:scale-[0.98] transition-transform text-[14px]"
 									>
-										{loading() ? '...' : t('airdrop.clan.leave')}
+										{loading() ? '...' : t('airdropNew.clan.leave')}
 									</button>
 								</div>
 							</div>
@@ -263,7 +263,7 @@ export const ClanView: Component = () => {
 
 						{/* Global Squads Leaderboard */}
 						<div>
-							<h2 class="text-[20px] font-bold text-white mb-3 tracking-tight">{t('airdrop.clan.topSquads')}</h2>
+							<h2 class="text-[20px] font-bold text-white mb-3 tracking-tight">{t('airdropNew.clan.topSquads')}</h2>
 							<div class="bg-[#1c1c1e] rounded-[24px] overflow-hidden">
 								<Show
 									when={!topClans.loading}
@@ -310,11 +310,11 @@ export const ClanView: Component = () => {
 														<div class="flex items-center gap-2">
 															<span class="text-white font-medium text-[15px] truncate">{c.chat_title}</span>
 															{isMySquad() && (
-																<span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#3390ec]/20 text-[#3390ec]">{t('airdrop.clan.you')}</span>
+																<span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#3390ec]/20 text-[#3390ec]">{t('airdropNew.clan.you')}</span>
 															)}
 														</div>
 														<div class="text-[#8e8e93] text-[13px]">
-															{c.members_count.toLocaleString('en-US')} {t('airdrop.clan.members')}
+															{c.members_count.toLocaleString('en-US')} {t('airdropNew.clan.members')}
 														</div>
 													</div>
 													<div class="flex items-center gap-1 shrink-0 ms-2">
