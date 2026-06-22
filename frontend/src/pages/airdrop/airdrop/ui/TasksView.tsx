@@ -3,8 +3,7 @@ import { hapticFeedback, openTelegramLink } from '@tma.js/sdk-solid';
 import { Component, createSignal, For, Show } from 'solid-js';
 import { completeTask, getTasksStatus, TaskStatus } from '@/shared/api/profile.js';
 import { t } from '@/shared/i18n/index.js';
-import { syncProfileStats, currentLeague } from '@/shared/store/airdrop.js';
-import { SectionHeader } from '@/shared/ui/section-header.js';
+import { syncProfileStats } from '@/shared/store/airdrop.js';
 
 export const TasksView: Component = () => {
 	const [taskErrors, setTaskErrors] = createSignal<Record<string, string>>({});
@@ -16,7 +15,6 @@ export const TasksView: Component = () => {
 		staleTime: 30_000,
 		refetchOnWindowFocus: false,
 	}));
-
 
 	const handleTaskClick = async (task: TaskStatus) => {
 		if (task.completed) return;
@@ -50,20 +48,23 @@ export const TasksView: Component = () => {
 			}
 		} catch (e: any) {
 			console.error('Failed to complete task:', e);
-			let errorMessage = t('airdrop.tasks.errors.default');
+			let errorMessage = t('airdrop.tasks.errors.default') || 'Failed to verify task';
 			if (e?.message) {
 				const msg = e.message.toLowerCase();
-				if (msg.includes('search/scan')) {
-					errorMessage = t('airdrop.tasks.errors.scan');
-				} else if (msg.includes('managed bot')) {
-					errorMessage = t('airdrop.tasks.errors.bot');
-				} else if (msg.includes('network') || msg.includes('fetch') || msg.includes('disconnect')) {
-					errorMessage = t('airdrop.tasks.errors.network');
-				} else if (msg.includes('empty_response') || msg.includes('invalid json')) {
-					errorMessage = t('airdrop.tasks.errors.server');
-				} else {
-					// Prevent bleeding raw server errors to user, use fallback
-					errorMessage = t('airdrop.tasks.errors.default');
+				if (msg.includes('gold league')) {
+					errorMessage = 'You need to reach Gold league first.';
+				} else if (msg.includes('join a clan')) {
+					errorMessage = 'You need to join a clan first.';
+				} else if (msg.includes('invite at least')) {
+					errorMessage = e.message; // Let backend message pass through
+				} else if (msg.includes('total taps')) {
+					errorMessage = "Keep tapping! You haven't reached the goal yet.";
+				} else if (msg.includes('telegram premium')) {
+					errorMessage = 'You need an active Telegram Premium subscription.';
+				} else if (msg.includes('join official telegram channel')) {
+					errorMessage = 'Please join the channel first.';
+				} else if (msg.includes('network') || msg.includes('fetch')) {
+					errorMessage = t('airdrop.tasks.errors.network') || 'Network error.';
 				}
 			}
 			setTaskErrors((prev) => ({ ...prev, [key]: errorMessage }));
@@ -77,90 +78,73 @@ export const TasksView: Component = () => {
 
 	const getTaskDetails = (key: string) => {
 		switch (key) {
+			case 'league_gold':
+				return { title: 'Reach Gold League', icon: '🏆' };
+			case 'join_clan':
+				return { title: 'Join a Clan', icon: '🛡️' };
+			case 'invite_1_fren':
+				return { title: 'Invite 1 Fren', icon: '🤝' };
+			case 'invite_3_frens':
+				return { title: 'Invite 3 Frens', icon: '👥' };
+			case 'invite_10_frens':
+				return { title: 'Invite 10 Frens', icon: '💎' };
+			case 'taps_100k':
+				return { title: 'Reach 100,000 Taps', icon: '👆' };
+			case 'telegram_premium':
+				return { title: 'Telegram Premium', icon: '⭐️' };
 			case 'join_ifragment_channel':
-				return {
-					title: t('airdrop.tasks.items.joinChannel.title'),
-					desc: t('airdrop.tasks.items.joinChannel.desc'),
-					icon: 'campaign',
-					color: '#3390ec',
-				};
-			case 'first_username_scan':
-				return {
-					title: t('airdrop.tasks.items.firstScan.title'),
-					desc: t('airdrop.tasks.items.firstScan.desc'),
-					icon: 'search',
-					color: '#fbbf24',
-				};
-			case 'register_first_bot':
-				return {
-					title: t('airdrop.tasks.items.registerBot.title'),
-					desc: t('airdrop.tasks.items.registerBot.desc'),
-					icon: 'smart_toy',
-					color: '#34c759',
-				};
+				return { title: 'Join Official Channel', icon: '📣' };
 			default:
-				return {
-					title: t('airdrop.tasks.items.default.title'),
-					desc: t('airdrop.tasks.items.default.desc'),
-					icon: 'assignment_turned_in',
-					color: '#06b6d4',
-				};
+				return { title: 'Special Task', icon: '🎁' };
 		}
 	};
 
+	const formatCoins = (coins: number) => {
+		if (coins >= 1000) return `+${coins / 1000}k`;
+		return `+${coins}`;
+	};
+
 	return (
-		<div class="flex-1 overflow-y-auto px-4 pt-6 pb-36 animate-fade-in no-scrollbar relative" style={{ background: '#000' }}>
-			{/* Ambient Mild Glow */}
-			<div
-				class="absolute top-0 right-0 w-[500px] h-[500px] rounded-full pointer-events-none transition-colors duration-500"
-				style={{
-					background: 'radial-gradient(circle, ' + currentLeague().color + '10 0%, transparent 60%)',
-					filter: 'blur(50px)',
-					transform: 'translate(30%, -30%)'
-				}}
-			></div>
+		<div class="flex-1 overflow-y-auto no-scrollbar bg-black text-white flex flex-col font-sans pb-28 relative">
+			{/* Clean Header */}
+			<div class="px-5 pt-14 pb-4 flex flex-col items-center">
+				<div class="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center mb-4">
+					<svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+						<circle cx="12" cy="12" r="10" fill="#F5A623"/>
+						<circle cx="12" cy="12" r="7" fill="#F5A623" stroke="#FFF7D6" stroke-width="1.5" stroke-opacity="0.5"/>
+						<path d="M11 8V16M8 10H16M8 14H16" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+					</svg>
+				</div>
+				<h1 class="text-[40px] font-bold tracking-tight mb-2 text-center text-white">
+					Earn
+				</h1>
+				<p class="text-[#8e8e93] text-[15px] text-center font-normal">
+					More coins for you
+				</p>
+			</div>
 
-			<div class="relative z-10">
-				<SectionHeader
-				icon="assignment"
-				title={t('airdrop.tasks.title')}
-				subtitle={t('airdrop.tasks.subtitle')}
-				gradient="#3390ec, #1a6fcc"
-				shadowColor="rgba(51,144,236,0.3)"
-			/>
-
-
-			{/* System Tasks Section */}
-			<div>
-				<h2 class="text-white font-bold text-sm mb-2.5 flex items-center gap-2 px-1">
-					<span
-						class="material-symbols-outlined text-lg text-amber-400"
-						style={{ 'font-variation-settings': '"FILL" 1' }}
-					>
-						military_tech
-					</span>
-					{t('airdrop.tasks.activeTasks')}
+			{/* Tasks List */}
+			<div class="px-5 mt-6 flex flex-col">
+				<h2 class="text-[17px] font-semibold text-white mb-4">
+					Tasks
 				</h2>
-				<div class="bg-[#1c1c1e]/80 backdrop-blur-lg rounded-2xl overflow-hidden border border-white/[0.04] min-h-[150px] flex flex-col">
+
+				<div class="bg-[#1c1c1e] rounded-[24px] px-4 py-2 overflow-hidden flex flex-col">
 					<Show
 						when={!tasksQuery.isLoading}
 						fallback={
-							<div class="flex-1 flex items-center justify-center py-12">
-								<div class="w-8 h-8 border-2 border-[#3390ec] border-t-transparent rounded-full animate-spin"></div>
+							<div class="w-full py-12 flex justify-center">
+								<div class="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" />
 							</div>
 						}
 					>
 						<Show
 							when={!tasksQuery.isError}
 							fallback={
-								<div class="flex-1 flex flex-col items-center justify-center py-8 text-red-400 text-xs text-center px-4">
-									<span class="material-symbols-outlined text-3xl mb-2 opacity-80">wifi_off</span>
-									<span>{t('airdrop.tasks.errors.fetchFailed')}</span>
-									<button
-										onClick={() => tasksQuery.refetch()}
-										class="mt-3 px-4 py-1.5 bg-red-400/20 text-red-400 rounded-lg active:scale-95 transition-transform font-semibold"
-									>
-										{t('airdrop.tasks.buttons.retry')}
+								<div class="py-8 text-center flex flex-col items-center">
+									<span class="text-[#8e8e93] text-[15px]">Failed to load tasks.</span>
+									<button onClick={() => tasksQuery.refetch()} class="mt-4 px-6 py-2 bg-white text-black rounded-full font-semibold">
+										Retry
 									</button>
 								</div>
 							}
@@ -168,80 +152,48 @@ export const TasksView: Component = () => {
 							<Show
 								when={tasksQuery.data && tasksQuery.data.length > 0}
 								fallback={
-									<div class="flex-1 flex flex-col items-center justify-center py-8 text-[#8e8e93] text-xs text-center px-4">
-										<span class="material-symbols-outlined text-3xl mb-2 opacity-50">inbox</span>
-										<span>{t('airdrop.tasks.empty')}</span>
+									<div class="py-8 text-center text-[#8e8e93] text-[15px]">
+										No tasks available right now.
 									</div>
 								}
 							>
 								<For each={tasksQuery.data}>
-									{(task, i) => {
+									{(task, index) => {
 										const details = getTaskDetails(task.key);
+										const isLast = index() === (tasksQuery.data?.length || 0) - 1;
 										return (
-											<div
-												class={'flex flex-col px-4 py-3.5 ' + (i() !== (tasksQuery.data?.length || 0) - 1 ? 'border-b border-white/[0.04]' : '')}
-											>
-												<div class="flex items-center justify-between">
-													<div class="flex items-center gap-3 flex-1 min-w-0">
-														<div class="w-10 h-10 rounded-xl bg-[#2c2c2e] flex items-center justify-center shrink-0">
-															<span
-																class="material-symbols-outlined text-xl"
-																style={{ color: details.color }}
-															>
-																{details.icon}
-															</span>
+											<div class={`flex flex-col ${!isLast ? 'border-b border-white/5' : ''}`}>
+												<button
+													onClick={() => handleTaskClick(task)}
+													disabled={task.completed || loadingKeys()[task.key]}
+													class="w-full flex items-center justify-between py-4 text-left active:opacity-70 transition-opacity disabled:opacity-100"
+												>
+													<div class="flex items-center gap-4 min-w-0 flex-1">
+														<div class="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center shrink-0">
+															<span class="text-[24px]">{details.icon}</span>
 														</div>
-														<div class="flex flex-col min-w-0">
-															<span class="text-white font-semibold text-[13px] truncate">
+														<div class="flex flex-col min-w-0 pr-4">
+															<span class="text-white font-medium text-[16px] truncate leading-tight mb-1">
 																{details.title}
 															</span>
-															<span class="text-[#8e8e93] text-[10px] truncate mt-0.5">
-																{details.desc}
-															</span>
-															<span class="text-amber-400 font-bold text-xs flex items-center gap-1 mt-0.5">
-																<span
-																	class="material-symbols-outlined text-[13px]"
-																	style={{ 'font-variation-settings': '"FILL" 1' }}
-																>
-																	monetization_on
-																</span>
-																+{task.reward_frg.toLocaleString('en-US')}{' '}
-																{t('airdrop.tasks.coins')}
+															<span class="text-[#8e8e93] text-[14px] flex items-center gap-1">
+																<span class="text-[#F5A623] text-[12px]">🟡</span>
+																{formatCoins(task.reward_frg)}
 															</span>
 														</div>
 													</div>
-													<button
-														onClick={() => handleTaskClick(task)}
-														disabled={task.completed || loadingKeys()[task.key]}
-														class={'px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ml-3 ' + (
-															task.completed
-																? 'bg-[#34c759]/15 text-[#34c759]'
-																: loadingKeys()[task.key]
-																	? 'bg-[#2c2c2e] text-[#8e8e93]'
-																	: 'bg-[#3390ec] text-white active:scale-95 shadow-[0_2px_10px_rgba(51,144,236,0.3)]'
-														)}
-													>
+													<div class="shrink-0 flex items-center justify-center pl-2">
 														{task.completed ? (
-															<span
-																class="material-symbols-outlined text-sm"
-																style={{ 'font-variation-settings': '"FILL" 1' }}
-															>
-																check_circle
-															</span>
+															<span class="material-symbols-outlined text-[#34c759] text-[28px]" style={{ 'font-variation-settings': '"FILL" 1' }}>check_circle</span>
 														) : loadingKeys()[task.key] ? (
-															<span class="material-symbols-outlined text-sm animate-spin">
-																progress_activity
-															</span>
-														) : task.key === 'join_ifragment_channel' ? (
-															t('airdrop.tasks.buttons.join')
+															<span class="material-symbols-outlined animate-spin text-[24px] text-[#8e8e93]">progress_activity</span>
 														) : (
-															t('airdrop.tasks.buttons.check')
+															<span class="material-symbols-outlined text-[24px] text-[#8e8e93]">chevron_right</span>
 														)}
-													</button>
-												</div>
+													</div>
+												</button>
 												{taskErrors()[task.key] && (
-													<div class="text-red-500 font-semibold text-[10px] mt-2 px-1 flex items-center gap-1">
-														<span class="material-symbols-outlined text-xs">warning</span>
+													<div class="text-[#ff453a] font-normal text-[13px] pb-3 px-1 text-center">
 														{taskErrors()[task.key]}
 													</div>
 												)}
@@ -253,7 +205,6 @@ export const TasksView: Component = () => {
 						</Show>
 					</Show>
 				</div>
-			</div>
 			</div>
 		</div>
 	);

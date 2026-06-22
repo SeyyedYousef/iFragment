@@ -57,6 +57,8 @@ export const ReferralFriendSchema = z.object({
 	avatar: z.string().optional(),
 	joinedAt: z.string(),
 	earned: z.number().nonnegative(),
+	airdropCoins: z.number().nonnegative().optional().default(0),
+	frensCount: z.number().int().nonnegative().optional().default(0),
 });
 
 export const ReferralInfoSchema = z.object({
@@ -296,13 +298,3 @@ export const deleteAccountGDPR = (): Promise<{ status: string; message: string }
 	validatedFetch('/profile/gdpr', z.object({ status: z.string(), message: z.string() }), {
 		method: 'DELETE',
 	});
-
-
-// --- Gamification Daily Cipher ---
-export const claimDailyCipher = async (morseCode: string): Promise<{status: string; reward: number}> => {
-	if (USE_MOCK_API) {
-		return { status: 'success', reward: 1000000 };
-	}
-	const response = await api.post('/gamification/cipher/claim', { morse_code: morseCode });
-	return response.data;
-};

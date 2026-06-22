@@ -414,7 +414,7 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 		return nil, fmt.Errorf("invalid tap count")
 	}
 
-	const maxTapsPerRequest = 50 // SEC-08: Synchronized tap limit count
+	const maxTapsPerRequest = 500 // SEC-08: Synchronized tap limit count
 	if taps > maxTapsPerRequest {
 		return nil, fmt.Errorf("tap count exceeds maximum limit per request")
 	}
@@ -429,17 +429,19 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 	}
 	defer tx.Rollback(ctx)
 
-	// Lock user's stats row + read energy, energy_updated_at, multitap, energy limit level
 	var energy, multitapLevel, energyLimitLevel int
 	var energyUpdatedAt time.Time
+	var turboExpiresAt *time.Time
 	err = tx.QueryRow(ctx, `
 		SELECT us.energy, us.energy_updated_at,
-		       COALESCE(b.multitap_level, 1), COALESCE(b.energy_limit_level, 1)
+		       COALESCE(b.multitap_level, 1), COALESCE(b.energy_limit_level, 1),
+		       db.turbo_expires_at
 		FROM user_stats us
 		LEFT JOIN user_boosts b ON b.user_id = us.user_id
+		LEFT JOIN user_daily_boosts db ON db.user_id = us.user_id AND db.day = CURRENT_DATE
 		WHERE us.user_id = $1
 		FOR UPDATE OF us`, userID).
-		Scan(&energy, &energyUpdatedAt, &multitapLevel, &energyLimitLevel)
+		Scan(&energy, &energyUpdatedAt, &multitapLevel, &energyLimitLevel, &turboExpiresAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to lock user energy: %w", err)
 	}
@@ -461,8 +463,14 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 
 	energyCost := taps * multitapLevel
 	if multiplier == 5 {
-		energyCost = 0 // Turbo active: no energy cost
-	} else {
+		if turboExpiresAt != nil && now.Before(*turboExpiresAt) {
+			energyCost = 0 // Turbo active and valid: no energy cost
+		} else {
+			multiplier = 1 // Fraudulent or expired turbo! Revert to normal.
+		}
+	}
+	
+	if multiplier != 5 {
 		// Dynamic energy verification prevents infinite tap farming
 		if energyCost > energy {
 			energyCost = energy

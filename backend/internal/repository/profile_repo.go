@@ -383,11 +383,15 @@ func (db *Database) GetReferralData(ctx context.Context, userID int64) (*model.R
 
 	g.Go(func() error {
 		friendsQuery := `
-			SELECT u.telegram_id, COALESCE(u.username, u.first_name), u.created_at, COALESCE(fb.total_earned, 0)
+			SELECT u.telegram_id, COALESCE(u.username, u.first_name), u.created_at,
+			       COALESCE(fb.total_earned, 0),
+			       COALESCE(us.airdrop_coins, 0),
+			       (SELECT COUNT(*) FROM users u2 WHERE u2.referred_by = u.telegram_id) as frens_count
 			FROM users u
 			LEFT JOIN frg_balances fb ON u.telegram_id = fb.user_id
+			LEFT JOIN user_stats us ON u.telegram_id = us.user_id
 			WHERE u.referred_by = $1
-			ORDER BY u.created_at DESC
+			ORDER BY us.airdrop_coins DESC NULLS LAST
 		`
 		rows, err := db.Pool.Query(ctx, friendsQuery, userID)
 		if err != nil {
@@ -401,12 +405,16 @@ func (db *Database) GetReferralData(ctx context.Context, userID int64) (*model.R
 			var name string
 			var joinedAt time.Time
 			var earned float64
-			if err := rows.Scan(&friendID, &name, &joinedAt, &earned); err == nil {
+			var airdropCoins float64
+			var frensCount int
+			if err := rows.Scan(&friendID, &name, &joinedAt, &earned, &airdropCoins, &frensCount); err == nil {
 				friends = append(friends, model.ReferralFriend{
-					ID:       friendID,
-					Name:     name,
-					JoinedAt: joinedAt,
-					Earned:   earned,
+					ID:           friendID,
+					Name:         name,
+					JoinedAt:     joinedAt,
+					Earned:       earned,
+					AirdropCoins: airdropCoins,
+					FrensCount:   frensCount,
 				})
 				totalInvited++
 			}

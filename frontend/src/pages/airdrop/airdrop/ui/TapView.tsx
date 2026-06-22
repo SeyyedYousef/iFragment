@@ -305,30 +305,42 @@ export const TapView: Component<{
 							<span class="material-symbols-outlined text-white/30">chevron_right</span>
 						</div>
 					}>
-						{(clan) => (
-							<div class="flex items-center justify-between w-full">
-								<div class="flex items-center gap-3 min-w-0">
-									<div class="w-10 h-10 rounded-xl bg-black border border-white/10 flex items-center justify-center overflow-hidden shrink-0 relative">
-										<Show when={clan().channel_photo} fallback={<span class="text-white/50 text-[10px] font-bold">Clan</span>}>
-											<img src={clan().channel_photo} alt={clan().chat_title} class="w-full h-full object-cover" />
-										</Show>
+						{(clan) => {
+							const currentRank = clan().members_count > 100 ? 'Top 100' : '31st'; // Dynamic rank placeholder
+
+							return (
+								<div class="flex items-center justify-between w-full py-0.5">
+									<div class="flex items-center gap-3.5 min-w-0">
+										{/* Squircle Profile Image */}
+										<div class="w-11 h-11 bg-black border-2 border-white/5 flex items-center justify-center overflow-hidden shrink-0 relative shadow-sm" style={{ 'border-radius': '14px' }}>
+											<Show when={clan().channel_photo} fallback={<div class="w-full h-full bg-gradient-to-br from-amber-300 to-amber-500"></div>}>
+												<img src={clan().channel_photo} alt={clan().chat_title} class="w-full h-full object-cover" />
+											</Show>
+										</div>
+										<div class="flex flex-col items-start min-w-0">
+											<span class="font-black text-[17px] truncate w-full text-left text-white tracking-tight leading-none mb-1.5">{clan().chat_title}</span>
+											<div class="flex items-center gap-1.5">
+												<span class="text-[#ffcc00] text-[14px] leading-none">🟡</span>
+												<span class="text-white font-bold text-[14px] tabular-nums leading-none drop-shadow-sm">
+													{(clan().total_score || clan().members_count * 1500).toLocaleString('en-US')}
+												</span>
+											</div>
+										</div>
 									</div>
-									<div class="flex flex-col items-start min-w-0">
-										<span class="font-bold text-[14px] truncate w-full text-left text-white/90">{clan().chat_title}</span>
-										<div class="flex items-center gap-1 mt-0.5">
-											<div class="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-[#FFC107] to-[#FF9800] border border-black" />
-											<span class="text-white/80 text-[12px] tabular-nums font-bold">
-												{(clan().total_score || clan().members_count * 1500).toLocaleString('en-US')}
-											</span>
+									<div class="flex flex-col items-end gap-1.5 shrink-0 ml-2">
+										<div class="flex items-center gap-1 opacity-90 leading-none">
+											<span class="text-white/40 text-[15px] font-light">{'{'}</span>
+											<span class="text-white font-bold text-[13px] tracking-wide">{currentRank}</span>
+											<span class="text-white/40 text-[15px] font-light">{'}'}</span>
+										</div>
+										<div class="flex items-center gap-1.5 opacity-90 leading-none">
+											<span class="text-[14px]" style={{ color: currentLeague().color }}>🏆</span>
+											<span class="font-bold text-[13px] text-white/90">{currentLeague().name}</span>
 										</div>
 									</div>
 								</div>
-								<div class="flex items-center gap-1.5 opacity-90 shrink-0 ml-2">
-									<span class="text-[18px]" style={{ color: currentLeague().color }}>🏆</span>
-									<span class="font-bold text-[13px] text-white/80">{currentLeague().name}</span>
-								</div>
-							</div>
-						)}
+							);
+						}}
 					</Show>
 				</button>
 			</div>
@@ -369,7 +381,9 @@ export const TapView: Component<{
 					when={statsQuery.data?.globalRank}
 					fallback={
 						<div class="flex items-center gap-1">
-							<span class="text-white/60 text-[14px]">🌾 125th 🌾</span>
+							<span class="text-white/40 text-[18px] font-light">{'{'}</span>
+							<span class="text-white/80 text-[14px] font-bold tracking-wide">125th</span>
+							<span class="text-white/40 text-[18px] font-light">{'}'}</span>
 						</div>
 					}
 				>
@@ -384,7 +398,11 @@ export const TapView: Component<{
 
 						return (
 							<div class="flex items-center gap-1">
-								<span class="text-white/60 text-[14px] font-medium tracking-wide">🌾 {rank.toLocaleString('en-US')}{suffix} 🌾</span>
+								<span class="text-white/40 text-[18px] font-light">{'{'}</span>
+								<span class="text-white/80 text-[15px] font-black tracking-wide drop-shadow-md">
+									{rank.toLocaleString('en-US')}{suffix}
+								</span>
+								<span class="text-white/40 text-[18px] font-light">{'}'}</span>
 							</div>
 						);
 					})()}
@@ -493,26 +511,41 @@ export const TapView: Component<{
 				<div class="flex items-center bg-[#1c1c1e]/80 backdrop-blur-md rounded-[20px] p-1 border border-white/5 pointer-events-auto">
 					<button
 						onClick={() => props.onActionClick?.('frens')}
-						class="flex flex-col items-center justify-center w-[72px] py-2 rounded-[16px] hover:bg-white/10 active:scale-95 transition-all group"
+						class="flex flex-col items-center justify-center min-w-[76px] py-2 rounded-[16px] hover:bg-white/10 active:scale-95 transition-all group"
 					>
-						<span class="text-[20px] mb-1 opacity-90 group-active:scale-110 transition-transform drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">🐻</span>
-						<span class="text-white/80 text-[11px] font-medium tracking-wide">{t('airdropTabs.frens' as any) || 'Frens'}</span>
+						<span 
+							class="material-symbols-outlined text-[24px] mb-1 text-[#3b82f6] opacity-90 group-active:scale-110 transition-transform drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]"
+							style={{ 'font-variation-settings': '"FILL" 1' }}
+						>
+							group
+						</span>
+						<span class="text-white/90 text-[11px] font-bold tracking-wide">{t('airdropTabs.frens' as any) || 'Frens'}</span>
 					</button>
 
 					<button
 						onClick={() => props.onActionClick?.('earn')}
-						class="flex flex-col items-center justify-center w-[72px] py-2 rounded-[16px] hover:bg-white/10 active:scale-95 transition-all group"
+						class="flex flex-col items-center justify-center min-w-[76px] py-2 rounded-[16px] hover:bg-white/10 active:scale-95 transition-all group"
 					>
-						<span class="text-[20px] mb-1 opacity-90 group-active:scale-110 transition-transform drop-shadow-[0_0_8px_rgba(59,130,246,0.4)]">📋</span>
-						<span class="text-white/80 text-[11px] font-medium tracking-wide">{t('airdropTabs.earn' as any) || 'Earn'}</span>
+						<span 
+							class="material-symbols-outlined text-[24px] mb-1 text-[#10b981] opacity-90 group-active:scale-110 transition-transform drop-shadow-[0_0_8px_rgba(16,185,129,0.6)]"
+							style={{ 'font-variation-settings': '"FILL" 1' }}
+						>
+							task_alt
+						</span>
+						<span class="text-white/90 text-[11px] font-bold tracking-wide">{t('airdropTabs.earn' as any) || 'Earn'}</span>
 					</button>
 
 					<button
 						onClick={() => props.onActionClick?.('boost')}
-						class="flex flex-col items-center justify-center w-[72px] py-2 rounded-[16px] hover:bg-white/10 active:scale-95 transition-all group"
+						class="flex flex-col items-center justify-center min-w-[76px] py-2 rounded-[16px] hover:bg-white/10 active:scale-95 transition-all group"
 					>
-						<span class="text-[20px] mb-1 opacity-90 group-active:scale-110 transition-transform drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]">🚀</span>
-						<span class="text-white/80 text-[11px] font-medium tracking-wide">{t('airdropTabs.boost' as any) || 'Boosts'}</span>
+						<span 
+							class="material-symbols-outlined text-[24px] mb-1 text-[#f59e0b] opacity-90 group-active:scale-110 transition-transform drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]"
+							style={{ 'font-variation-settings': '"FILL" 1' }}
+						>
+							rocket_launch
+						</span>
+						<span class="text-white/90 text-[11px] font-bold tracking-wide">{t('airdropTabs.boost' as any) || 'Boosts'}</span>
 					</button>
 				</div>
 			</div>

@@ -1,0 +1,3 @@
+BEGIN;
+ALTER TABLE user_daily_boosts ADD COLUMN IF NOT EXISTS turbo_expires_at TIMESTAMP WITH TIME ZONE;
+COMMIT;

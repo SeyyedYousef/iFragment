@@ -1,0 +1,6 @@
+BEGIN;
+
+DROP TABLE IF EXISTS user_cipher_claims CASCADE;
+DROP TABLE IF EXISTS daily_ciphers CASCADE;
+
+COMMIT;

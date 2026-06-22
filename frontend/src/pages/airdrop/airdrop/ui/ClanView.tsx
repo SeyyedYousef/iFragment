@@ -227,11 +227,11 @@ export const ClanView: Component = () => {
 
 					return (
 						<div class="min-h-full flex flex-col relative w-full" style={{
-							background: 'linear-gradient(180deg, #d97d26 0%, #4a2c13 40%, #000000 60%, #000000 100%)'
+							background: 'linear-gradient(180deg, #c77b28 0%, #a25c1a 30%, #1a1a1a 60%, #000000 100%)'
 						}}>
-							<div class="relative z-10 flex flex-col items-center pt-8 px-4 w-full max-w-md mx-auto">
+							<div class="relative z-10 flex flex-col items-center pt-0 px-4 w-full max-w-md mx-auto">
 								{/* Top Icon Box (Partially cut off at top) */}
-								<div class="w-[100px] h-[100px] bg-black rounded-[32px] flex items-center justify-center mb-6 shadow-xl border border-white/5 -mt-10 relative overflow-hidden">
+								<div class="w-[100px] h-[100px] bg-black rounded-[32px] flex items-center justify-center mb-6 shadow-xl relative overflow-hidden shrink-0 mt-[-20px]">
 									{clan().channel_photo ? (
 										<img src={clan().channel_photo} class="w-full h-full object-cover" />
 									) : (
@@ -245,24 +245,24 @@ export const ClanView: Component = () => {
 								{/* Clan Title & Link */}
 								<button 
 									onClick={() => openTelegramLink(`https://t.me/${clan().channel_username}`)}
-									class="flex items-center justify-center gap-2 text-white font-black text-[30px] tracking-tight active:scale-95 transition-transform"
+									class="flex items-center justify-center gap-1.5 text-white font-black text-[28px] tracking-tight active:scale-95 transition-transform"
 								>
 									{clan().chat_title}
-									<span class="material-symbols-outlined text-[22px] text-white/50">open_in_new</span>
+									<span class="material-symbols-outlined text-[20px] text-white/50 mb-1">open_in_new</span>
 								</button>
 
 								{/* Rank & League */}
-								<button class="flex items-center gap-2 mt-2 active:scale-95 transition-transform">
-									<div class="flex items-center gap-1.5">
-										<span class="text-white/40 text-[15px]">🌾</span>
-										<span class="text-white/90 font-bold text-[16px]">{currentRank}</span>
-										<span class="text-white/40 text-[15px]">🌾</span>
+								<button class="flex items-center gap-1.5 mt-2 active:scale-95 transition-transform">
+									<div class="flex items-center gap-1">
+										<span class="text-white/40 text-[16px] font-light">{'{'}</span>
+										<span class="text-white/90 font-bold text-[14px]">{currentRank}</span>
+										<span class="text-white/40 text-[16px] font-light">{'}'}</span>
 									</div>
-									<span class="text-white/30 text-[10px]">•</span>
-									<span class="text-[16px]">🏆</span>
-									<span class="text-amber-400 font-bold text-[16px] flex items-center gap-0.5">
+									<span class="text-white/30 text-[14px] mx-1">•</span>
+									<span class="text-[14px]">🏆</span>
+									<span class="text-amber-400 font-bold text-[14px] flex items-center gap-0.5">
 										{currentLeagueName}
-										<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+										<span class="material-symbols-outlined text-[16px] text-white/40">chevron_right</span>
 									</span>
 								</button>
 
@@ -277,14 +277,14 @@ export const ClanView: Component = () => {
 								</p>
 
 								{/* Action Card */}
-								<div class="w-full bg-[#1c1c1e] rounded-[28px] mt-8 p-5 flex flex-col gap-4 border border-white/5 shadow-2xl">
+								<div class="w-full bg-[#1c1c1e]/90 backdrop-blur-md rounded-[28px] mt-6 p-5 flex flex-col gap-4 border border-white/5 shadow-2xl">
 									{/* Score & Invite Stats */}
-									<div class="w-full flex justify-between items-center mb-1">
+									<div class="w-full flex justify-between items-start mb-2 px-1">
 										<div class="flex flex-col items-start">
 											<div class="flex items-center gap-1.5">
 												<span class="text-[#ffcc00] text-[20px]">🟡</span>
-												<span class="text-white font-bold text-[22px] tracking-tight">
-													{formatScore(clan().total_score || clan().members_count * 1500)}
+												<span class="text-white font-bold text-[24px] tracking-tight">
+													{(clan().total_score || clan().members_count * 1500).toLocaleString('en-US')}
 												</span>
 											</div>
 											<span class="text-[#8e8e93] text-[13px] ml-7 font-medium">{t('airdropFinal.clan.totalScore', { defaultValue: 'Total score' })}</span>
@@ -292,14 +292,14 @@ export const ClanView: Component = () => {
 										
 										<div class="flex flex-col items-end">
 											<span class="text-white font-bold text-[17px]">{t('airdropFinal.clan.inviteToSquad', { defaultValue: 'Invite to squad' })}</span>
-											<span class="text-[#8e8e93] text-[13px] font-medium">{t('airdropFinal.clan.getMoreCoins', { defaultValue: 'Get more Coins' })}</span>
+											<span class="text-[#8e8e93] text-[13px] font-medium">{t('airdropFinal.clan.getMoreCoins', { defaultValue: 'Get more Notcoin' })}</span>
 										</div>
 									</div>
 
 									{/* Action Buttons */}
 									<button
 										onClick={handleInvite}
-										class="w-full bg-[#007aff] text-white font-bold py-4 rounded-[18px] active:scale-[0.98] transition-transform text-[17px]"
+										class="w-full bg-[#007aff] text-white font-bold py-4 rounded-[18px] active:scale-[0.98] transition-transform text-[17px] mt-2"
 									>
 										{t('airdropFinal.friends.inviteBtn')}
 									</button>
@@ -324,20 +324,20 @@ export const ClanView: Component = () => {
 									</div>
 									
 									{/* User Row */}
-									<div class="w-full mt-2 p-4 flex items-center justify-between active:bg-white/5 transition-colors rounded-2xl cursor-pointer">
-										<div class="flex items-center gap-4">
-											<div class="text-[#8e8e93] font-bold text-[15px] w-6">28</div>
-											<div class="w-12 h-12 rounded-full bg-gradient-to-br from-gray-700 to-gray-600 flex items-center justify-center text-xl overflow-hidden border border-white/10">
+									<div class="w-full mt-2 p-3 flex items-center justify-between active:bg-white/5 transition-colors rounded-2xl cursor-pointer">
+										<div class="flex items-center gap-3">
+											<div class="text-[#8e8e93] font-bold text-[14px] w-5 text-center">28</div>
+											<div class="w-11 h-11 rounded-full bg-gradient-to-br from-gray-700 to-gray-600 flex items-center justify-center text-xl overflow-hidden border border-white/10">
 												<img src="https://api.dicebear.com/7.x/avataaars/svg?seed=CryptoPie" class="w-full h-full object-cover" />
 											</div>
 											<div class="flex flex-col">
-												<span class="text-white font-bold text-[16px]">CryptoPie</span>
-												<span class="text-white/80 text-[14px] font-medium flex items-center gap-1 mt-0.5">
-													<span class="text-[#ffcc00] text-[12px]">🟡</span> 672,811
+												<span class="text-white font-bold text-[15px]">CryptoPie</span>
+												<span class="text-white/80 text-[13px] font-medium flex items-center gap-1 mt-0.5">
+													<span class="text-[#ffcc00] text-[12px] leading-none">🟡</span> 672,811
 												</span>
 											</div>
 										</div>
-										<span class="text-white font-bold text-[15px]">You</span>
+										<span class="text-white font-bold text-[14px]">You</span>
 									</div>
 								</div>
 							</div>

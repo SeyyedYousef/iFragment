@@ -38,10 +38,12 @@ type UserAchievement struct {
 }
 
 type ReferralFriend struct {
-	ID       int64     `json:"id"`
-	Name     string    `json:"name"`
-	JoinedAt time.Time `json:"joinedAt"`
-	Earned   float64   `json:"earned"`
+	ID           int64     `json:"id"`
+	Name         string    `json:"name"`
+	JoinedAt     time.Time `json:"joinedAt"`
+	Earned       float64   `json:"earned"`
+	AirdropCoins float64   `json:"airdropCoins"`
+	FrensCount   int       `json:"frensCount"`
 }
 
 type ReferralHubData struct {

@@ -412,12 +412,19 @@ export const recordTaps = (count: number) => {
 	setTotalTaps((t) => t + count);
 	setUserXp((x) => x + count * 2);
 
-	pendingTapBuckets.push({
-		count,
-		multiplier,
-		nonce: Math.random().toString(36).substring(2, 15),
-		ts: Date.now(),
-	});
+	const lastBucket = pendingTapBuckets[pendingTapBuckets.length - 1];
+	// Aggregate if it's the same multiplier and under the safe limit (max 500 on backend, let's use 400 to be safe)
+	if (lastBucket && lastBucket.multiplier === multiplier && lastBucket.count + count <= 400) {
+		lastBucket.count += count;
+		lastBucket.ts = Date.now();
+	} else {
+		pendingTapBuckets.push({
+			count,
+			multiplier,
+			nonce: Math.random().toString(36).substring(2, 15),
+			ts: Date.now(),
+		});
+	}
 
 	try {
 		localStorage.setItem('airdrop-pending-taps', JSON.stringify(pendingTapBuckets));

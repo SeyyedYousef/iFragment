@@ -350,17 +350,41 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 
 	// 1. Dynamic backend verification checks (done BEFORE transaction to prevent pool starvation)
 	switch target.Type {
-	case "first_username_scan":
-		var count int
-		_ = s.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM search_logs WHERE user_id = $1", userID).Scan(&count)
-		if count == 0 {
-			return nil, fmt.Errorf("you must search/scan at least one username first")
+	case "league_gold":
+		var level int
+		_ = s.db.Pool.QueryRow(ctx, "SELECT level FROM user_stats WHERE user_id = $1", userID).Scan(&level)
+		if level < 3 { // Assuming level 3 is Gold
+			return nil, fmt.Errorf("you must reach Gold league first")
 		}
-	case "register_first_bot":
+	case "join_clan":
 		var count int
-		_ = s.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM managed_bots WHERE owner_user_id = $1", userID).Scan(&count)
+		_ = s.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM clan_members WHERE user_id = $1", userID).Scan(&count)
 		if count == 0 {
-			return nil, fmt.Errorf("you must register at least one managed bot first")
+			return nil, fmt.Errorf("you must join a clan first")
+		}
+	case "invite_1_fren", "invite_3_frens", "invite_10_frens":
+		var frens int
+		_ = s.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM users WHERE referred_by = $1", userID).Scan(&frens)
+		required := 1
+		if target.Type == "invite_3_frens" {
+			required = 3
+		} else if target.Type == "invite_10_frens" {
+			required = 10
+		}
+		if frens < required {
+			return nil, fmt.Errorf("you must invite at least %d frens", required)
+		}
+	case "taps_100k":
+		var taps int
+		_ = s.db.Pool.QueryRow(ctx, "SELECT COALESCE(total_taps, 0) FROM user_stats WHERE user_id = $1", userID).Scan(&taps)
+		if taps < 100000 {
+			return nil, fmt.Errorf("you must reach 100,000 total taps")
+		}
+	case "telegram_premium":
+		var isPremium bool
+		_ = s.db.Pool.QueryRow(ctx, "SELECT COALESCE(is_premium, false) FROM users WHERE telegram_id = $1", userID).Scan(&isPremium)
+		if !isPremium {
+			return nil, fmt.Errorf("you must have Telegram Premium")
 		}
 	case "channel_join":
 		var config struct {
@@ -800,25 +824,7 @@ func (s *GamificationService) GetLeaderboard(ctx context.Context) ([]Leaderboard
 	return result, nil
 }
 
-// GetDailyCipherInfo returns info about the current daily cipher
-func (s *GamificationService) GetDailyCipherInfo(ctx context.Context, userID int64) (map[string]interface{}, error) {
-	// First check if user already claimed
-	// For simplicity, we just try to get the cipher, and check in DB.
-	// Actually we should add a check method, but let's just use Claim error handling for now.
-	morseCode, rewardCoins, err := s.db.GetTodayCipher(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return map[string]interface{}{
-		"reward": rewardCoins,
-		"length": len(morseCode),
-	}, nil
-}
 
-// ClaimDailyCipher handles the validation and reward of the daily cipher
-func (s *GamificationService) ClaimDailyCipher(ctx context.Context, userID int64, morseCode string) (float64, error) {
-	return s.db.ClaimDailyCipher(ctx, userID, morseCode)
-}
 
 func (s *GamificationService) GetGlobalClans(ctx context.Context) ([]map[string]interface{}, error) {
 	return s.db.GetGlobalClans(ctx)
@@ -929,7 +935,7 @@ func (s *GamificationService) ApplyTurbo(ctx context.Context, userID int64) erro
 		return fmt.Errorf("daily turbo limit reached")
 	}
 
-	_, err = tx.Exec(ctx, `UPDATE user_daily_boosts SET turbo_used = turbo_used + 1 WHERE user_id = $1 AND day = CURRENT_DATE`, userID)
+	_, err = tx.Exec(ctx, `UPDATE user_daily_boosts SET turbo_used = turbo_used + 1, turbo_expires_at = CURRENT_TIMESTAMP + INTERVAL '20 seconds' WHERE user_id = $1 AND day = CURRENT_DATE`, userID)
 	if err != nil {
 		return fmt.Errorf("failed to update turbo usage: %w", err)
 	}

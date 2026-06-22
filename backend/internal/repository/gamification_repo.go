@@ -242,79 +242,7 @@ func (db *Database) CreditReferrerShareCoins(ctx context.Context, spenderID int6
 	return tx.Commit(ctx)
 }
 
-// GetTodayCipher returns today's daily cipher
-func (db *Database) GetTodayCipher(ctx context.Context) (string, float64, error) {
-	if db.Pool == nil {
-		return "", 0, fmt.Errorf("no database connection")
-	}
 
-	var morseCode string
-	var rewardCoins float64
-	query := "SELECT morse_code, reward_coins FROM daily_ciphers WHERE cipher_date = CURRENT_DATE"
-	err := db.Pool.QueryRow(ctx, query).Scan(&morseCode, &rewardCoins)
-	
-	if err == pgx.ErrNoRows {
-		// Return a default fallback if none is set by admin
-		return "HELLO", 1000000.00, nil
-	}
-	return morseCode, rewardCoins, err
-}
-
-// ClaimDailyCipher records a cipher claim and rewards the user
-func (db *Database) ClaimDailyCipher(ctx context.Context, userID int64, morseCode string) (float64, error) {
-	if db.Pool == nil {
-		return 0, fmt.Errorf("no database connection")
-	}
-
-	tx, err := db.Pool.Begin(ctx)
-	if err != nil {
-		return 0, err
-	}
-	defer tx.Rollback(ctx)
-
-	// Check if already claimed
-	var exists bool
-	checkQuery := "SELECT EXISTS(SELECT 1 FROM user_cipher_claims WHERE user_id = $1 AND cipher_date = CURRENT_DATE)"
-	err = tx.QueryRow(ctx, checkQuery, userID).Scan(&exists)
-	if err != nil {
-		return 0, err
-	}
-	if exists {
-		return 0, fmt.Errorf("already claimed today")
-	}
-
-	// Verify the cipher
-	var actualMorse string
-	var rewardCoins float64
-	query := "SELECT morse_code, reward_coins FROM daily_ciphers WHERE cipher_date = CURRENT_DATE"
-	err = tx.QueryRow(ctx, query).Scan(&actualMorse, &rewardCoins)
-	if err == pgx.ErrNoRows {
-		actualMorse = "HELLO"
-		rewardCoins = 1000000.00
-	} else if err != nil {
-		return 0, err
-	}
-
-	if actualMorse != morseCode {
-		return 0, fmt.Errorf("invalid cipher code")
-	}
-
-	// Insert claim
-	insertQuery := "INSERT INTO user_cipher_claims (user_id, cipher_date, reward_amount) VALUES ($1, CURRENT_DATE, $2)"
-	_, err = tx.Exec(ctx, insertQuery, userID, rewardCoins)
-	if err != nil {
-		return 0, err
-	}
-
-	// Credit airdrop coins
-	creditQuery := "UPDATE user_stats SET airdrop_coins = COALESCE(airdrop_coins, 0) + $1 WHERE user_id = $2"
-	_, err = tx.Exec(ctx, creditQuery, rewardCoins, userID)
-	if err != nil {
-		return 0, err
-	}
-
-	return rewardCoins, tx.Commit(ctx)
-}
 
 // GetGlobalClans returns the top 100 clans sorted by total score
 func (db *Database) GetGlobalClans(ctx context.Context) ([]map[string]interface{}, error) {
@@ -323,11 +251,12 @@ func (db *Database) GetGlobalClans(ctx context.Context) ([]map[string]interface{
 	}
 
 	query := `
-		SELECT c.id, c.name, c.total_score, COUNT(u.user_id) as member_count
+		SELECT c.id, c.chat_title, COALESCE(SUM(us.airdrop_coins), 0) as total_score, COUNT(cm.user_id) as member_count
 		FROM clans c
-		LEFT JOIN user_stats u ON c.id = u.clan_id
+		LEFT JOIN clan_members cm ON cm.clan_id = c.id
+		LEFT JOIN user_stats us ON us.user_id = cm.user_id
 		GROUP BY c.id
-		ORDER BY c.total_score DESC
+		ORDER BY total_score DESC
 		LIMIT 100
 	`
 	rows, err := db.Pool.Query(ctx, query)
@@ -338,7 +267,7 @@ func (db *Database) GetGlobalClans(ctx context.Context) ([]map[string]interface{
 
 	var clans []map[string]interface{}
 	for rows.Next() {
-		var id int64
+		var id string
 		var name string
 		var score float64
 		var members int
