@@ -25,6 +25,7 @@
 	},
 	"dependencies": {
 		"@fontsource/manrope": "^5.2.8",
+		"@fontsource/noto-sans-sc": "^5.2.9",
 		"@fontsource/vazirmatn": "^5.2.8",
 		"@motionone/solid": "^10.16.4",
 		"@sentry/browser": "^10.52.0",
@@ -35,6 +36,7 @@
 		"@types/three": "^0.184.1",
 		"axios": "^1.16.0",
 		"eruda": "^3.0.1",
+		"material-symbols": "^0.45.2",
 		"qrcode": "^1.5.4",
 		"solid-focus-trap": "^0.1.9",
 		"solid-js": "^1.9.9",
