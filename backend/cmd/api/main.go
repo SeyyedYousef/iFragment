@@ -107,6 +107,11 @@ func main() {
 	} else {
 		defer db.Close()
 
+		// Force clean the dirty state to prevent migration deadlocks
+		if db.Pool != nil {
+			_, _ = db.Pool.Exec(ctx, "UPDATE schema_migrations SET dirty = false")
+		}
+
 		// Run Migrations with retry
 		var migrationSuccess bool
 		var lastMigrationErr error
