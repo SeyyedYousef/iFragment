@@ -1,9 +1,8 @@
 import { Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { ShopView } from './ShopView.js';
-import { Coin3D } from './Coin3D.js';
 import { createQuery } from '@tanstack/solid-query';
-import { getProfileStats } from '@/shared/api/profile.js';
+import { getProfileStats, collectOfflineMining } from '@/shared/api/profile.js';
 import { t } from '@/shared/i18n/index.js';
 import {
 	balance,
@@ -39,6 +38,28 @@ export const TapView: Component<{
 	);
 	const [showShopModal, setShowShopModal] = createSignal(false);
 	const [isShaking, setIsShaking] = createSignal(false);
+	
+	// Micro-interactions
+	const [comboCount, setComboCount] = createSignal(0);
+	const [showCombo, setShowCombo] = createSignal(false);
+	let comboTimerId: ReturnType<typeof setTimeout> | undefined;
+
+	// Auto-Tap Bot State
+	const [showAutoTapModal, setShowAutoTapModal] = createSignal(false);
+	const [offlineEarnings, setOfflineEarnings] = createSignal(0);
+	const [offlineDuration, setOfflineDuration] = createSignal(0);
+	
+	onMount(() => {
+		collectOfflineMining().then(res => {
+			if (res.earned > 0) {
+				setOfflineEarnings(res.earned);
+				setOfflineDuration(res.durationSeconds);
+				setShowAutoTapModal(true);
+			}
+		}).catch(e => {
+			console.log('No offline mining to collect', e);
+		});
+	});
 	const statsQuery = createQuery(() => ({
 		queryKey: ['profile-stats-tap'],
 		queryFn: getProfileStats,
@@ -82,24 +103,23 @@ export const TapView: Component<{
 				if (p.alpha <= 0) continue;
 
 				p.y -= p.velocity;
-				p.alpha -= 0.015; // smooth fade out
-				p.scale += 0.005; // slight enlargement
+				p.alpha -= 0.02;
+				p.scale += 0.005;
 
 				if (p.alpha > 0) {
 					activeParticles++;
 					ctx.save();
-					ctx.globalAlpha = p.alpha;
-					ctx.font = `900 ${Math.round(28 * p.scale)}px Inter, sans-serif`;
+					ctx.globalAlpha = Math.max(0, p.alpha);
+					ctx.font = `900 ${Math.round(36 * p.scale)}px Inter, sans-serif`;
 					ctx.fillStyle = '#ffffff';
-					ctx.shadowColor = currentLeague().color;
-					ctx.shadowBlur = 15;
+					ctx.shadowColor = 'rgba(0,0,0,0.5)';
+					ctx.shadowBlur = 4;
 					ctx.textAlign = 'center';
 					ctx.fillText(`+${p.value}`, p.x, p.y);
 					ctx.restore();
 				}
 			}
 
-			// Cleanup dead particles (swap & pop to avoid splice array shift cost)
 			for (let i = particles.length - 1; i >= 0; i--) {
 				if (particles[i].alpha <= 0) {
 					const last = particles.pop();
@@ -123,10 +143,32 @@ export const TapView: Component<{
 		if (animationFrameId) cancelAnimationFrame(animationFrameId);
 		if (shakeTimerId) clearTimeout(shakeTimerId);
 		if (pressTimerId) clearTimeout(pressTimerId);
+		if (comboTimerId) clearTimeout(comboTimerId);
 	});
 
+	const spawnFragment = (x: number, y: number) => {
+		for (let i = 0; i < 2; i++) {
+			const frag = document.createElement('div');
+			frag.className = 'absolute pointer-events-none z-50';
+			const angle = Math.random() * 360;
+			const dist = 60 + Math.random() * 60;
+			frag.style.cssText = `
+				left:${x}px; top:${y}px;
+				width:0; height:0;
+				border-left:5px solid transparent;
+				border-right:5px solid transparent;
+				border-bottom:12px solid rgba(255,255,255,0.85);
+				transform: rotate(${angle}deg);
+				animation: fragmentFly 800ms cubic-bezier(.2,.7,.2,1) forwards;
+				--dx: ${Math.cos(angle * Math.PI / 180) * dist}px;
+				--dy: ${Math.sin(angle * Math.PI / 180) * dist}px;
+			`;
+			document.body.appendChild(frag);
+			setTimeout(() => frag.remove(), 800);
+		}
+	};
+
 	const handleTap = (e: PointerEvent | MouseEvent) => {
-		// Prevent default browser behavior
 		if (e.cancelable) e.preventDefault();
 		
 		const pointerId = (e as PointerEvent).pointerId ?? 1;
@@ -146,10 +188,9 @@ export const TapView: Component<{
 			return;
 		}
 
-		// Throttle haptic triggers to avoid overlapping (50ms)
 		const nowTime = performance.now();
 		if (nowTime - lastHapticAt > 50) {
-			haptic.impact('heavy');
+			haptic.impact('medium');
 			lastHapticAt = nowTime;
 		}
 
@@ -160,20 +201,30 @@ export const TapView: Component<{
 		const x = (e as PointerEvent).clientX - rect.left;
 		const y = (e as PointerEvent).clientY - rect.top;
 
-		// Push new particle into zero-allocation thread safe Canvas rendering pipeline
 		particles.push({
 			x,
 			y,
 			value: power,
 			alpha: 1.0,
 			scale: 1.0,
-			velocity: 2.0 + Math.random() * 1.5,
+			velocity: 3.0 + Math.random() * 2.0,
 		});
+
+		spawnFragment((e as PointerEvent).clientX, (e as PointerEvent).clientY);
 
 		if (!isAnimating && updateAndDrawFn) {
 			isAnimating = true;
 			animationFrameId = requestAnimationFrame(updateAndDrawFn);
 		}
+
+		// Combo system
+		setComboCount(c => c + 1);
+		setShowCombo(true);
+		if (comboTimerId) clearTimeout(comboTimerId);
+		comboTimerId = setTimeout(() => {
+			setShowCombo(false);
+			setTimeout(() => setComboCount(0), 300); // fade out time
+		}, 1000);
 
 		// Coin press animation
 		setIsPressed(true);
@@ -181,28 +232,49 @@ export const TapView: Component<{
 		pressTimerId = setTimeout(() => {
 			setIsPressed(false);
 			pressTimerId = undefined;
-		}, 80);
+		}, 80); // Quick snap back
 	};
 
 	const handlePointerUp = (e: PointerEvent | MouseEvent) => {
 		activePointers.delete((e as PointerEvent).pointerId ?? 1);
 	};
 
-	
-	const shareToStory = () => {
-		if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.shareToStory) {
-			window.Telegram.WebApp.shareToStory('https://t.me/iFragment_bot', {
-				text: `I just earned ${energy()} energy on iFragment! Join my squad.`,
-			});
-		} else {
-			alert("Telegram Stories API is only available inside Telegram Mobile App.");
-		}
-	};
-
 	return (
-		<div
-			class="flex-1 flex flex-col items-center relative overflow-hidden px-4 pt-2 pb-6 bg-[#000000]"
-		>
+		<div class="flex-1 flex flex-col items-center relative overflow-hidden bg-[#000000] text-white">
+			<style>{`
+				@keyframes fragmentFly {
+					to {
+						transform: translate(var(--dx), var(--dy)) rotate(720deg);
+						opacity: 0;
+					}
+				}
+				@keyframes spinSlow {
+					from { transform: rotate(0deg); }
+					to { transform: rotate(360deg); }
+				}
+				@keyframes idleBreathing {
+					0%, 100% { transform: scale(1); }
+					50% { transform: scale(1.02); }
+				}
+				.tab-num {
+					font-feature-settings: "tnum";
+					font-variant-numeric: tabular-nums;
+				}
+				.coin-wrapper {
+					animation: idleBreathing 4s ease-in-out infinite;
+				}
+			`}</style>
+
+			{/* THE MASSIVE WHITE AURA (Background Z-0) */}
+			<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[160vw] h-[160vw] pointer-events-none z-0"
+				style={{
+					background: isTurboActive()
+						? 'radial-gradient(circle at 50% 50%, rgba(255,60,60,0.8) 0%, rgba(255,40,40,0.3) 30%, transparent 60%)'
+						: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.2) 35%, transparent 65%)',
+					filter: 'blur(40px)',
+				}} 
+			/>
+
 			{/* Flying Rocket for Turbo */}
 			<Show when={isRocketSpawned()}>
 				<button
@@ -214,309 +286,319 @@ export const TapView: Component<{
 				</button>
 			</Show>
 
-			{/* Floating GPU-accelerated canvas particles layer */}
 			<canvas ref={canvasRef} class="absolute inset-0 w-full h-full pointer-events-none z-50" />
 
-			{/* Clan Bar */}
-			<div class="w-full px-4 mt-0 mb-3 z-10 flex justify-center">
+			{/* 1. Clan Bar (Top - Z-20) */}
+			<div class="w-full px-4 mt-4 relative z-20" dir="ltr">
 				<button
 					onClick={() => props.onClanClick?.()}
-					class="w-full bg-[#1a1a1c]/90 border border-white/5 backdrop-blur-md rounded-2xl flex items-center justify-between p-3 shadow-lg active:scale-95 transition-transform"
+					class="w-full bg-[#121214] border border-white/10 rounded-2xl flex items-center justify-between p-3 active:scale-95 transition-all shadow-md"
 				>
 					<Show when={userClan()} fallback={
-						<div class="flex items-center justify-between w-full">
-							<div class="flex items-center gap-3">
-								<div class="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
-									<span class="text-white/50 text-[18px]">🛡️</span>
-								</div>
-								<span class="text-white font-bold text-[14px]">{t('airdropFinal.tap.joinClan')}</span>
+						<div class="flex items-center gap-3 w-full">
+							<div class="w-10 h-10 rounded-xl bg-[#1c1c1e] flex items-center justify-center shrink-0 border border-white/10">
+								<span class="text-white/60 text-[20px]">🛡️</span>
 							</div>
-							<span class="material-symbols-outlined text-white/40">chevron_right</span>
+							<div class="flex flex-col items-start flex-1">
+								<span class="font-bold text-[15px] text-white">{t('tapView.joinClan' as any) || 'Join a Clan'}</span>
+							</div>
+							<span class="material-symbols-outlined text-white/30">chevron_right</span>
 						</div>
 					}>
 						{(clan) => (
-							<>
-								<div class="flex items-center gap-3">
-									<div class="w-10 h-10 rounded-xl bg-black/50 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
-										<Show when={clan().channel_photo} fallback={<span class="text-white/50 text-[10px] font-bold">logo</span>}>
+							<div class="flex items-center justify-between w-full">
+								<div class="flex items-center gap-3 min-w-0">
+									<div class="w-10 h-10 rounded-xl bg-black border border-white/10 flex items-center justify-center overflow-hidden shrink-0 relative">
+										<Show when={clan().channel_photo} fallback={<span class="text-white/50 text-[10px] font-bold">Clan</span>}>
 											<img src={clan().channel_photo} alt={clan().chat_title} class="w-full h-full object-cover" />
 										</Show>
 									</div>
 									<div class="flex flex-col items-start min-w-0">
-										<span class="text-white font-bold text-[14px] truncate w-full text-left">{clan().chat_title}</span>
+										<span class="font-bold text-[14px] truncate w-full text-left text-white/90">{clan().chat_title}</span>
 										<div class="flex items-center gap-1 mt-0.5">
-											<span class="material-symbols-outlined text-[#FFC107] text-[12px]" style={{ 'font-variation-settings': '"FILL" 1' }}>monetization_on</span>
-											<span class="text-white/60 text-[12px] tabular-nums font-medium">
+											<div class="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-[#FFC107] to-[#FF9800] border border-black" />
+											<span class="text-white/80 text-[12px] tabular-nums font-bold">
 												{(clan().total_score || clan().members_count * 1500).toLocaleString('en-US')}
 											</span>
 										</div>
 									</div>
 								</div>
-								<div class="flex items-center gap-1.5 opacity-80 shrink-0 ml-2">
-									<span class="material-symbols-outlined text-[#C0C0C0] text-[18px]" style={{ color: currentLeague().color, 'font-variation-settings': '"FILL" 1' }}>emoji_events</span>
-									<span class="text-white font-bold text-[13px]" style={{ color: currentLeague().color }}>{currentLeague().name}</span>
+								<div class="flex items-center gap-1.5 opacity-90 shrink-0 ml-2">
+									<span class="text-[18px]" style={{ color: currentLeague().color }}>🏆</span>
+									<span class="font-bold text-[13px] text-white/80">{currentLeague().name}</span>
 								</div>
-							</>
+							</div>
 						)}
 					</Show>
 				</button>
 			</div>
 
-			{/* Action Buttons (Tasks, Frens, Boost) */}
-			<div class="w-full px-4 mb-6 z-10 flex items-center justify-center gap-2 mx-auto">
-				<button
-					onClick={() => props.onActionClick?.('earn')}
-					class="flex items-center justify-center gap-1.5 flex-1 bg-[#1c1c1e] border border-white/5 rounded-[16px] h-[52px] active:scale-95 transition-transform"
-				>
-					<span class="material-symbols-outlined text-[20px] text-white" style={{ 'font-variation-settings': '"FILL" 1' }}>assignment</span>
-					<span class="text-[13px] font-bold text-white tracking-tight">{t('airdropTabs.earn' as any) || 'تسک‌ها'}</span>
-				</button>
-
-				<button
-					onClick={() => props.onActionClick?.('frens')}
-					class="flex items-center justify-center gap-1.5 flex-1 bg-[#1c1c1e] border border-white/5 rounded-[16px] h-[52px] active:scale-95 transition-transform"
-				>
-					<span class="material-symbols-outlined text-[20px] text-white" style={{ 'font-variation-settings': '"FILL" 1' }}>group</span>
-					<span class="text-[13px] font-bold text-white tracking-tight">Frens</span>
-				</button>
-
-				<button
-					onClick={() => props.onActionClick?.('boost')}
-					class="flex items-center justify-center gap-1.5 flex-1 bg-[#1c1c1e] border border-white/5 rounded-[16px] h-[52px] active:scale-95 transition-transform"
-				>
-					<span class="material-symbols-outlined text-[20px] text-white">rocket_launch</span>
-					<span class="text-[13px] font-bold text-white tracking-tight">{t('airdropTabs.boost' as any) || 'ارتقا'}</span>
-				</button>
-			</div>
-
-			{/* Top Mining Info */}
-			<div class="text-center z-10 w-full flex flex-col items-center mb-2 mt-2" dir="ltr">
-				<button 
-					onClick={() => {
-						if (showShopCoachmark()) {
-							setShowShopCoachmark(false);
-							localStorage.setItem('airdrop-shop-coachmark-seen', 'true');
-						}
-						setShowShopModal(true);
-					}}
-					class="flex items-center justify-center gap-2 active:scale-95 transition-transform relative"
-				>
-					{showShopCoachmark() && (
-						<div class="absolute -top-12 left-1/2 -translate-x-1/2 bg-[#3390ec] text-white text-[12px] font-bold px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap animate-bounce z-50 after:content-[''] after:absolute after:-bottom-1.5 after:left-1/2 after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-[#3390ec]">
-							{t('shopInfo.coachmark' as any)}
-						</div>
-					)}
-					<div class="w-12 h-12 rounded-full flex items-center justify-center drop-shadow-[0_0_15px_rgba(251,191,36,0.6)]">
-						<span
-							class="material-symbols-outlined text-[#FFC107] text-[48px]"
-							style={{ 'font-variation-settings': '"FILL" 1' }}
-						>
-							monetization_on
-						</span>
+			{/* 2. Total Coins (Balance - Z-20) */}
+			<button 
+				onClick={() => {
+					if (showShopCoachmark()) {
+						setShowShopCoachmark(false);
+						localStorage.setItem('airdrop-shop-coachmark-seen', 'true');
+					}
+					setShowShopModal(true);
+				}}
+				class="flex items-center justify-center gap-3 active:scale-95 transition-transform relative z-20 mt-8 mb-2"
+				dir="ltr"
+			>
+				{showShopCoachmark() && (
+					<div class="absolute -top-12 left-1/2 -translate-x-1/2 bg-[#3390ec] text-white text-[12px] font-bold px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap animate-bounce z-50 after:content-[''] after:absolute after:-bottom-1.5 after:left-1/2 after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-[#3390ec]">
+						{t('shopInfo.coachmark' as any)}
 					</div>
-					<span class="text-white text-[56px] font-bold tabular-nums leading-none tracking-tighter">
-						{balance().toLocaleString('en-US')}
-					</span>
-				</button>
-				<button
-					onClick={() => props.onLeagueClick?.()}
-					class="flex items-center justify-center gap-2 mt-1 cursor-pointer active:scale-95 transition-transform"
+				)}
+				{/* Proper solid yellow coin icon WITH text inside */}
+				<div class="w-[42px] h-[42px] rounded-full bg-gradient-to-br from-[#ffcd00] to-[#ff9500] shadow-[inset_0_-4px_8px_rgba(0,0,0,0.2),0_0_15px_rgba(255,176,0,0.4)] flex items-center justify-center shrink-0 border-[2px] border-[#ffe885]">
+					<span class="text-black text-[24px] font-black leading-none mt-0.5">¢</span>
+				</div>
+				<span class="text-white font-black text-[56px] leading-none tracking-tight tab-num drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
+					{balance().toLocaleString('en-US')}
+				</span>
+			</button>
+
+			{/* 3. Rank & League (Z-20) */}
+			<button
+				onClick={() => props.onLeagueClick?.()}
+				class="flex items-center gap-2 mt-2 relative z-20 active:scale-95 transition-transform"
+				dir="ltr"
+			>
+				<Show 
+					when={statsQuery.data?.globalRank}
+					fallback={
+						<div class="flex items-center gap-1">
+							<span class="text-white/60 text-[14px]">🌾 125th 🌾</span>
+						</div>
+					}
 				>
-					<Show 
-						when={statsQuery.data?.globalRank}
-						fallback={
-							<>
-								<div class="flex items-center gap-0.5">
-									<span class="text-white/30 text-[20px] font-thin leading-none">{'{'}</span>
-									<span class="text-[#FFD700] text-[14px] font-black tracking-[0.15em] drop-shadow-[0_0_15px_rgba(255,215,0,0.8)] uppercase px-1">125TH</span>
-									<span class="text-white/30 text-[20px] font-thin leading-none">{'}'}</span>
-								</div>
-								<span class="text-white/20 text-[10px] mx-1.5">•</span>
-							</>
-						}
-					>
-						{(() => {
-							const rank = statsQuery.data?.globalRank || 0;
-							const j = rank % 10;
-							const k = rank % 100;
-							let suffix = 'TH';
-							if (j === 1 && k !== 11) suffix = 'ST';
-							else if (j === 2 && k !== 12) suffix = 'ND';
-							else if (j === 3 && k !== 13) suffix = 'RD';
-							
-	const shareToStory = () => {
-		if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.shareToStory) {
-			window.Telegram.WebApp.shareToStory('https://t.me/iFragment_bot', {
-				text: `I just earned ${energy()} energy on iFragment! Join my squad.`,
-			});
-		} else {
-			alert("Telegram Stories API is only available inside Telegram Mobile App.");
-		}
-	};
+					{(() => {
+						const rank = statsQuery.data?.globalRank || 0;
+						let suffix = 'th';
+						const j = rank % 10;
+						const k = rank % 100;
+						if (j === 1 && k !== 11) suffix = 'st';
+						else if (j === 2 && k !== 12) suffix = 'nd';
+						else if (j === 3 && k !== 13) suffix = 'rd';
 
-	return (
-								<>
-									<div class="flex items-center gap-0.5">
-										<span class="text-white/30 text-[20px] font-thin leading-none">{'{'}</span>
-										<span class="text-[#FFD700] text-[14px] font-black tracking-[0.15em] drop-shadow-[0_0_15px_rgba(255,215,0,0.8)] uppercase px-1">{rank.toLocaleString('en-US')}{suffix}</span>
-										<span class="text-white/30 text-[20px] font-thin leading-none">{'}'}</span>
-									</div>
-									<span class="text-white/20 text-[10px] mx-1.5">•</span>
-								</>
-							);
-						})()}
-					</Show>
-					<span
-						class="material-symbols-outlined text-[18px]"
-						style={{ color: currentLeague().color, 'font-variation-settings': '"FILL" 1' }}
-					>
-						{currentLeague().icon}
-					</span>
-					<span class="text-[15px] font-bold" style={{ color: currentLeague().color }}>{currentLeague().name}</span>
-					<span class="material-symbols-outlined text-[16px] text-white/40">chevron_right</span>
-				</button>
-			</div>
-
-			{/* Main Coin Section */}
-			<div class="flex flex-col items-center justify-center w-full mt-8 mb-auto relative z-10">
-				<div class="relative flex items-center justify-center w-full max-w-[420px] aspect-square">
-					
-					{/* ═══════════ LAYER 4: Outer Bloom (پخش گسترده) ═══════════ */}
-					<div
-						class="absolute inset-0 rounded-full pointer-events-none transition-colors duration-500 will-change-transform"
-						style={{
-							background: isTurboActive()
-								? 'radial-gradient(circle, rgba(239,68,68,0.35) 0%, rgba(239,68,68,0.18) 25%, rgba(239,68,68,0.06) 50%, transparent 70%)'
-								: 'radial-gradient(circle, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.15) 25%, rgba(255,255,255,0.05) 50%, transparent 70%)',
-							filter: 'blur(40px)',
-							transform: 'scale(1.4)',
-							animation: 'aura-breathe 4s ease-in-out infinite',
-						}}
-					/>
-
-					{/* ═══════════ LAYER 3: Mid Aura (هاله متوسط) ═══════════ */}
-					<div
-						class="absolute inset-0 rounded-full pointer-events-none transition-colors duration-500 will-change-transform"
-						style={{
-							background: isTurboActive()
-								? 'radial-gradient(circle, rgba(255,180,180,0.55) 0%, rgba(239,68,68,0.35) 30%, rgba(239,68,68,0.1) 55%, transparent 75%)'
-								: 'radial-gradient(circle, rgba(255,255,255,0.55) 0%, rgba(220,225,235,0.30) 30%, rgba(180,185,200,0.08) 55%, transparent 75%)',
-							filter: 'blur(22px)',
-							transform: 'scale(1.18)',
-						}}
-					/>
-
-					{/* ═══════════ THE COIN BUTTON (سکه واقعی 3D) ═══════════ */}
-					<div class="relative w-[78%] h-[78%] rounded-full z-20">
-						<Coin3D 
-							onTap={handleTap} 
-							isPressed={isPressed()} 
-							isTurboActive={isTurboActive()} 
-						/>
-						{/* Glow/Shadow under the 3D coin for Eclipse effect */}
-						<div class="absolute inset-0 rounded-full pointer-events-none" style={{
-							'box-shadow': isTurboActive()
-								? `
-									0 0 0 1.5px rgba(255,255,255,0.95),
-									0 0 4px 2px rgba(255,220,220,0.9),
-									0 0 12px 4px rgba(255,150,150,0.7),
-									0 0 30px 8px rgba(239,68,68,0.5),
-									inset 0 0 0 1px rgba(255,255,255,0.1)
-								`
-								: `
-									0 0 0 1.5px rgba(255,255,255,0.95),
-									0 0 4px 2px rgba(255,255,255,0.85),
-									0 0 12px 4px rgba(255,255,255,0.6),
-									0 0 30px 8px rgba(230,235,245,0.4),
-									inset 0 0 0 1px rgba(255,255,255,0.08)
-								`
-						}}></div>
-						<div class="absolute inset-0 rounded-full flex flex-col items-center justify-center overflow-hidden pointer-events-none">
-							{/* Triangle Logo with subtle glow */}
-							<svg
-								viewBox="0 0 100 100"
-								class="w-[45%] h-[45%] -mt-6"
-								style={{ 
-									filter: isTurboActive()
-										? 'drop-shadow(0px 0px 12px rgba(255,200,200,0.9)) drop-shadow(0px 0px 4px rgba(255,255,255,1))'
-										: 'drop-shadow(0px 0px 10px rgba(255,255,255,0.7)) drop-shadow(0px 0px 3px rgba(255,255,255,1))'
-								}}
-							>
-								<path 
-									d="M 50 15 L 15 80 L 85 80 Z" 
-									fill="none" 
-									stroke="white" 
-									stroke-width="12" 
-									stroke-linejoin="round" 
-									stroke-linecap="round"
-								/>
-								<path 
-									d="M 50 15 L 50 80" 
-									fill="none" 
-									stroke="white" 
-									stroke-width="12" 
-									stroke-linecap="round"
-								/>
-							</svg>
-
-							{/* Energy Counter Inside Coin */}
-							<div class="absolute bottom-[14%] left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-[#1c1c1e]/80 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/5 shadow-lg pointer-events-none">
-								<span class="text-white/50 font-bold text-[14px] tabular-nums">{energy()} /</span>
-								<span class="text-white font-bold text-[16px] tabular-nums">{maxEnergy()}</span>
-								<span class="material-symbols-outlined text-[#FFC107] text-[18px]" style={{ 'font-variation-settings': '"FILL" 1' }}>bolt</span>
+						return (
+							<div class="flex items-center gap-1">
+								<span class="text-white/60 text-[14px] font-medium tracking-wide">🌾 {rank.toLocaleString('en-US')}{suffix} 🌾</span>
 							</div>
+						);
+					})()}
+				</Show>
+				<span class="text-white/20 text-[12px] mx-2">•</span>
+				<div class="flex items-center gap-1.5">
+					<span class="text-[16px]">🏆</span>
+					<span class="text-[14px] font-bold text-white/80">{currentLeague().name}</span>
+					<span class="material-symbols-outlined text-[14px] text-white/40">chevron_right</span>
+				</div>
+			</button>
+
+			{/* 4. The Giant Glowing Coin (Z-10) */}
+			<div class="flex-1 flex flex-col items-center justify-center w-full relative z-10 py-6">
+				{/* Spinning Coin rim light (subtle) */}
+				<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[310px] h-[310px] rounded-full pointer-events-none"
+					style={{
+						background: isTurboActive() 
+							? 'conic-gradient(from 0deg, #ff404080, transparent, #ff404080, transparent, #ff404080)'
+							: 'conic-gradient(from 0deg, #ffffff80, transparent, #ffffff80, transparent, #ffffff80)',
+						filter: 'blur(3px)',
+						animation: 'spinSlow 6s linear infinite',
+						transform: isPressed() ? 'scale(0.96)' : 'scale(1)',
+						transition: 'transform 0.08s ease-out'
+					}} 
+				/>
+
+				<div class={`relative flex items-center justify-center w-[85vw] max-w-[340px] aspect-square ${isPressed() ? '' : 'coin-wrapper'}`}>
+					
+					{/* THE COIN: Pure Black Background */}
+					<button 
+						onPointerDown={handleTap}
+						onPointerUp={handlePointerUp}
+						onPointerLeave={handlePointerUp}
+						onPointerCancel={handlePointerUp}
+						class="relative w-[300px] h-[300px] rounded-full z-20 flex items-center justify-center touch-none select-none bg-black"
+						style={{
+							transform: isPressed() ? 'scale(0.96)' : 'scale(1)',
+							transition: 'transform 0.08s cubic-bezier(.2,.8,.2,1)',
+							'box-shadow': `
+								0 0 0 2px rgba(255,255,255,0.05),
+								inset 0 0 40px rgba(255,255,255,0.1),
+								0 20px 50px rgba(0,0,0,0.9)
+							`,
+						}}
+					>
+						{/* Floating Combo Counter */}
+						<div class={`absolute top-8 right-8 pointer-events-none transition-all duration-300 ${showCombo() ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`}>
+							<span class="text-white font-black text-[24px] drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] italic">
+								x{comboCount()}
+							</span>
 						</div>
-					</div>
+						
+						{/* SVG - Fragment Logo Style */}
+						<svg
+							viewBox="0 0 100 100"
+							class="w-[50%] h-[50%] relative z-10"
+							style={{ 
+								filter: isTurboActive() 
+									? 'drop-shadow(0px 0px 15px rgba(255,80,80,1))'
+									: 'drop-shadow(0px 0px 12px rgba(255,255,255,0.4))'
+							}}
+						>
+							{/* Top Shape */}
+							<path 
+								d="M 11 14 L 89 14 L 50 36 Z" 
+								fill="#ffffff"
+								stroke="#ffffff"
+								stroke-width="1.5"
+								stroke-linejoin="round"
+							/>
+							{/* Left Shape */}
+							<path 
+								d="M 7 19 L 47 42 L 47 88 Z" 
+								fill="#ffffff"
+								stroke="#ffffff"
+								stroke-width="1.5"
+								stroke-linejoin="round"
+							/>
+							{/* Right Shape */}
+							<path 
+								d="M 93 19 L 53 42 L 53 88 Z" 
+								fill="#ffffff"
+								stroke="#ffffff"
+								stroke-width="1.5"
+								stroke-linejoin="round"
+							/>
+						</svg>
+					</button>
 				</div>
 			</div>
 
-						{/* Shop Modal / Bottom Sheet */}
+			{/* 5. Bottom Action Area (Z-30) */}
+			<div class="w-full flex items-end justify-between px-6 mt-auto mb-[110px] relative z-30 pointer-events-none" dir="ltr">
+				
+				{/* Energy Counter */}
+				<div class="flex items-center gap-1.5 mb-2 pointer-events-auto">
+					<span class="text-[#FFC107] text-[26px]">⚡</span>
+					<div class="flex items-baseline gap-1">
+						<span class="text-white text-[24px] font-bold tabular-nums">{energy()}</span>
+						<span class="text-white/50 text-[16px] tabular-nums font-medium">/ {maxEnergy()}</span>
+					</div>
+				</div>
+
+				{/* Floating Action Pills */}
+				<div class="flex items-center bg-[#1c1c1e]/80 backdrop-blur-md rounded-[20px] p-1 border border-white/5 pointer-events-auto">
+					<button
+						onClick={() => props.onActionClick?.('frens')}
+						class="flex flex-col items-center justify-center w-[72px] py-2 rounded-[16px] hover:bg-white/10 active:scale-95 transition-all group"
+					>
+						<span class="text-[20px] mb-1 opacity-90 group-active:scale-110 transition-transform drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">🐻</span>
+						<span class="text-white/80 text-[11px] font-medium tracking-wide">{t('airdropTabs.frens' as any) || 'Frens'}</span>
+					</button>
+
+					<button
+						onClick={() => props.onActionClick?.('earn')}
+						class="flex flex-col items-center justify-center w-[72px] py-2 rounded-[16px] hover:bg-white/10 active:scale-95 transition-all group"
+					>
+						<span class="text-[20px] mb-1 opacity-90 group-active:scale-110 transition-transform drop-shadow-[0_0_8px_rgba(59,130,246,0.4)]">📋</span>
+						<span class="text-white/80 text-[11px] font-medium tracking-wide">{t('airdropTabs.earn' as any) || 'Earn'}</span>
+					</button>
+
+					<button
+						onClick={() => props.onActionClick?.('boost')}
+						class="flex flex-col items-center justify-center w-[72px] py-2 rounded-[16px] hover:bg-white/10 active:scale-95 transition-all group"
+					>
+						<span class="text-[20px] mb-1 opacity-90 group-active:scale-110 transition-transform drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]">🚀</span>
+						<span class="text-white/80 text-[11px] font-medium tracking-wide">{t('airdropTabs.boost' as any) || 'Boosts'}</span>
+					</button>
+				</div>
+			</div>
+
+			{/* ═══ Auto-Tap Bot Modal (Premium) ═══ */}
 			<Show when={showAutoTapModal()}>
-				<div class="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in px-4">
-					<div class="bg-[#1c1c1e] border border-[#ffb000]/30 rounded-3xl p-6 w-full max-w-[340px] flex flex-col items-center shadow-[0_0_50px_rgba(255,176,0,0.2)] animate-scale-up">
-						<div class="w-20 h-20 mb-4 bg-gradient-to-br from-[#ffb000] to-[#ff8000] rounded-full flex items-center justify-center shadow-lg">
-							<span class="material-symbols-outlined text-4xl text-white">smart_toy</span>
+				<div class="fixed inset-0 z-[120] flex items-center justify-center px-4" onClick={(e) => e.target === e.currentTarget && setShowAutoTapModal(false)}>
+					<div class="absolute inset-0 bg-black/40 backdrop-blur-[16px] animate-fade-in pointer-events-none" />
+					<div class="w-full max-w-[360px] rounded-[32px] overflow-hidden animate-scale-up relative border border-white/10 shadow-[0_30px_80px_rgba(0,0,0,0.8)]" style={{
+						background: 'linear-gradient(145deg, #1a1a24 0%, #101016 100%)',
+					}}>
+						<div class="absolute top-0 left-1/2 -translate-x-1/2 w-[250px] h-[150px] bg-[#E0F7FA] rounded-[100%] opacity-10 blur-[40px] pointer-events-none" />
+						<div class="absolute bottom-0 right-0 w-[200px] h-[200px] bg-[#81D4FA] rounded-[100%] opacity-10 blur-[50px] pointer-events-none" />
+
+						<div class="flex flex-col items-center px-6 pt-8 pb-8 relative z-10" dir="ltr">
+							<div class="relative mb-6">
+								<div class="w-[100px] h-[100px] rounded-full flex items-center justify-center relative overflow-hidden shadow-[0_15px_35px_rgba(0,188,212,0.15)]" style={{
+									background: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.02) 100%)',
+									'border': '1px solid rgba(255,255,255,0.2)',
+									'backdrop-filter': 'blur(10px)',
+								}}>
+									<div class="absolute inset-[2px] rounded-full" style={{
+										background: 'linear-gradient(135deg, rgba(224,247,250,0.8) 0%, rgba(77,208,225,0.8) 100%)',
+									}} />
+									<span class="material-symbols-outlined text-white text-[56px] relative z-10 drop-shadow-[0_2px_10px_rgba(255,255,255,0.8)]" style={{ 'font-variation-settings': '"FILL" 1' }}>cloud_done</span>
+									<div class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/40 to-transparent w-[200%] h-full -translate-x-full animate-[shimmer_3s_infinite]" />
+								</div>
+								<div class="absolute -top-1 -right-2 text-white animate-pulse">✨</div>
+								<div class="absolute bottom-2 -left-3 text-white/70 animate-bounce" style={{'animation-delay': '0.5s', 'font-size': '12px'}}>✨</div>
+							</div>
+
+							<h2 class="text-[26px] font-black text-white mb-2 tracking-tight">{t('autoTapBot.title' as any) || 'Auto-Tap Bot'}</h2>
+							<p class="text-[#8e8e93] text-center text-[15px] leading-relaxed mb-7 max-w-[280px] font-medium">
+								{t('autoTapBot.description' as any) || 'The bot was mining while you were away! Here is what it collected.'}
+							</p>
+
+							<div class="flex items-center gap-4 mb-8 px-6 py-4 rounded-[20px] relative overflow-hidden w-full justify-center shadow-[inset_0_2px_15px_rgba(255,255,255,0.05)] border border-white/5" style={{
+								background: 'linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%)',
+							}}>
+								<div class="flex flex-col items-center">
+									<span class="text-[#B2EBF2] text-[11px] font-bold uppercase tracking-[0.15em] mb-1">{t('autoTapBot.collected' as any) || 'Collected'}</span>
+									<div class="flex items-center gap-2">
+										<span class="text-[#ffb000] text-[28px] drop-shadow-[0_0_10px_rgba(255,176,0,0.6)]">¢</span>
+										<span class="text-[36px] font-black tabular-nums tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]">
+											+{offlineEarnings().toLocaleString()}
+										</span>
+									</div>
+								</div>
+							</div>
+
+							<button 
+								onClick={() => setShowAutoTapModal(false)}
+								class="w-full py-4.5 rounded-2xl text-[18px] font-black tracking-wide active:scale-[0.97] transition-all relative overflow-hidden text-[#050505] shadow-[0_10px_30px_rgba(255,176,0,0.3)]"
+								style={{
+									background: 'linear-gradient(135deg, #ffb000 0%, #ff8c00 100%)',
+								}}
+							>
+								<div class="absolute inset-0 bg-white opacity-0 hover:opacity-20 transition-opacity" />
+								{t('autoTapBot.claim' as any) || 'Claim Coins'}
+							</button>
+
+							<span class="text-[#8e8e93] text-[12px] mt-4 font-medium tracking-wide">
+								{t('autoTapBot.miningFor' as any) || `Mining for ${Math.floor(offlineDuration() / 3600)} hours`}
+							</span>
 						</div>
-						<h2 class="text-2xl font-bold text-white mb-2 text-center">Auto-Tap Bot</h2>
-						<p class="text-white/60 text-center text-sm mb-6">
-							The bot was mining while you were sleeping! Here is what it collected in the last 12 hours.
-						</p>
-						<div class="flex items-center gap-2 mb-8">
-							<span class="material-symbols-outlined text-[#FFC107] text-[28px]" style={{ 'font-variation-settings': '"FILL" 1' }}>toll</span>
-							<span class="text-4xl font-extrabold text-[#FFC107] tabular-nums">+{offlineEarnings().toLocaleString()}</span>
-						</div>
-						<button 
-							onClick={() => setShowAutoTapModal(false)}
-							class="w-full bg-[#ffb000] hover:bg-[#ff9000] text-black font-bold py-4 rounded-xl text-lg transition-colors shadow-[0_0_20px_rgba(255,176,0,0.4)]"
-						>
-							Claim Coins
-						</button>
 					</div>
 				</div>
 			</Show>
+			
+			{/* Shop Modal / Bottom Sheet */}
 			<Show when={showShopModal()}>
 				<div class="fixed inset-0 z-[100] flex flex-col justify-end">
-					{/* Backdrop */}
 					<div
-						class="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in"
+						class="absolute inset-0 bg-black/80 backdrop-blur-sm animate-fade-in"
 						onClick={() => setShowShopModal(false)}
 					/>
-
-					{/* Sheet Content */}
-					<div class="relative w-full h-[85vh] bg-[#0f0f13] rounded-t-3xl border-t border-white/10 flex flex-col animate-slide-up shadow-[0_-10px_40px_rgba(0,0,0,0.5)] overflow-hidden">
-						{/* Drag handle */}
-						<div class="w-full flex justify-center py-3 shrink-0" onClick={() => setShowShopModal(false)}>
-							<div class="w-12 h-1.5 rounded-full bg-white/20" />
+					<div class="relative w-full h-[85vh] bg-[#14141a] rounded-t-[32px] border-t border-white/10 flex flex-col animate-slide-up shadow-[0_-10px_60px_rgba(0,0,0,0.8)] overflow-hidden">
+						<div class="w-full flex justify-center py-4 shrink-0" onClick={() => setShowShopModal(false)}>
+							<div class="w-12 h-1.5 rounded-full bg-white/10" />
 						</div>
-
-						{/* Close button */}
 						<button
 							onClick={() => setShowShopModal(false)}
-							class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/10 text-white/50 hover:bg-white/20 hover:text-white transition-colors"
+							class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/5 text-[#8e8e93] hover:bg-white/10 hover:text-white transition-colors"
 						>
 							<span class="material-symbols-outlined text-[20px]">close</span>
 						</button>
-
 						<div class="flex-1 overflow-hidden relative">
 							<ShopView />
 						</div>

@@ -519,6 +519,9 @@ func main() {
 					r.Post("/tasks/complete", gamificationHandler.CompleteTask)
 					r.Get("/boosts", gamificationHandler.GetBoostsStatus)
 					r.Post("/boosts/upgrade", gamificationHandler.UpgradeBoost)
+					r.Post("/boosts/daily/turbo", gamificationHandler.ApplyTurbo)
+					r.Post("/boosts/daily/full-energy", gamificationHandler.ApplyFullEnergy)
+					r.Post("/mining/collect", gamificationHandler.CollectOfflineMining)
 					r.Get("/leaderboard", gamificationHandler.GetLeaderboard)
 
 					// Clan routes

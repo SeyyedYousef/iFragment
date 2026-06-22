@@ -1,12 +1,10 @@
 import { createQuery } from '@tanstack/solid-query';
 import { hapticFeedback, openTelegramLink } from '@tma.js/sdk-solid';
 import { Component, createSignal, For, Show } from 'solid-js';
-import { completeTask, getReferralInfo, getTasksStatus, TaskStatus } from '@/shared/api/profile.js';
-import { locale, t } from '@/shared/i18n/index.js';
+import { completeTask, getTasksStatus, TaskStatus } from '@/shared/api/profile.js';
+import { t } from '@/shared/i18n/index.js';
 import { syncProfileStats, currentLeague } from '@/shared/store/airdrop.js';
 import { SectionHeader } from '@/shared/ui/section-header.js';
-
-const isRtl = () => locale() === 'fa';
 
 export const TasksView: Component = () => {
 	const [taskErrors, setTaskErrors] = createSignal<Record<string, string>>({});
@@ -19,12 +17,6 @@ export const TasksView: Component = () => {
 		refetchOnWindowFocus: false,
 	}));
 
-	const referralQuery = createQuery<{ referralCode: string }>(() => ({
-		queryKey: ['referral-info'],
-		queryFn: getReferralInfo as () => Promise<{ referralCode: string }>,
-		staleTime: 60_000,
-		refetchOnWindowFocus: false,
-	}));
 
 	const handleTaskClick = async (task: TaskStatus) => {
 		if (task.completed) return;
@@ -137,59 +129,6 @@ export const TasksView: Component = () => {
 				shadowColor="rgba(51,144,236,0.3)"
 			/>
 
-			{/* Referral Card */}
-			<div class="bg-gradient-to-br from-[#1c1c1e] to-[#2c2c2e] rounded-2xl p-5 mb-6 border border-white/[0.06] relative overflow-hidden">
-				<div
-					class={'absolute top-0 ' + (isRtl() ? 'left-0' : 'right-0') + ' w-32 h-32 bg-[#3390ec]/20 blur-[50px] rounded-full pointer-events-none'}
-				></div>
-				<div class="relative z-10 flex items-center justify-between mb-4">
-					<div>
-						<h3 class="text-white font-bold text-sm flex items-center gap-2 mb-1">
-							<span
-								class="material-symbols-outlined text-[#3390ec] text-lg"
-								style={{ 'font-variation-settings': '"FILL" 1' }}
-							>
-								people
-							</span>
-							{t('airdropNew.friends.title')}
-						</h3>
-						<p class="text-[#8e8e93] text-xs max-w-[180px]">{t('airdropNew.friends.subtitle')}</p>
-					</div>
-					<div class="w-12 h-12 rounded-xl bg-[#3390ec]/10 flex items-center justify-center">
-						<span
-							class="material-symbols-outlined text-[#3390ec] text-2xl"
-							style={{ 'font-variation-settings': '"FILL" 1' }}
-						>
-							person_add
-						</span>
-					</div>
-				</div>
-				<button
-					onClick={() => {
-						try {
-							hapticFeedback.impactOccurred('light');
-						} catch (_) {}
-						if (referralQuery.isError) {
-							console.error('Failed to fetch referral info due to network or server error.');
-						}
-						const code = referralQuery.data?.referralCode || 'ref_fallback';
-						const link = `https://t.me/iFragmentBot?start=${code}`;
-						openTelegramLink(
-							`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(t('airdropNew.friends.subtitle'))}`,
-						);
-					}}
-					class={'w-full text-white font-bold py-3 rounded-xl active:scale-95 transition-transform text-sm shadow-[0_2px_10px_rgba(51,144,236,0.3)] ' + (referralQuery.isLoading ? 'bg-[#3390ec]/70 cursor-not-allowed' : 'bg-[#3390ec]')}
-					disabled={referralQuery.isLoading}
-				>
-					{referralQuery.isLoading ? (
-						<span class="material-symbols-outlined animate-spin align-middle text-sm">
-							progress_activity
-						</span>
-					) : (
-						t('airdropNew.friends.inviteBtn')
-					)}
-				</button>
-			</div>
 
 			{/* System Tasks Section */}
 			<div>

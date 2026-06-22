@@ -32,7 +32,7 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 
 	return (
 		<div 
-			class="flex-1 overflow-y-auto px-4 pt-6 pb-36 animate-fade-in no-scrollbar h-full relative" 
+			class="flex-1 overflow-y-auto px-4 pt-16 pb-36 animate-fade-in no-scrollbar h-full relative" 
 			style={{ background: '#000' }}
 			dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
 		>

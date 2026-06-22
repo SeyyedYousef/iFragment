@@ -102,23 +102,33 @@ export const spawnRocket = () => {
 	}
 };
 
-export const activateTurbo = () => {
+export const activateTurbo = async () => {
 	if (!isTurboActive()) {
-		setIsRocketSpawned(false);
-		setIsTurboActive(true);
-		setTurboExpiresAt(Date.now() + 15000); // 15 seconds
-		setTimeout(() => {
-			if (Date.now() >= turboExpiresAt()) {
-				setIsTurboActive(false);
-			}
-		}, 15000);
+		try {
+			await activateTurboServer();
+			setIsRocketSpawned(false);
+			setIsTurboActive(true);
+			setTurboExpiresAt(Date.now() + 15000); // 15 seconds
+			setTimeout(() => {
+				if (Date.now() >= turboExpiresAt()) {
+					setIsTurboActive(false);
+				}
+			}, 15000);
+		} catch (e) {
+			console.error('Failed to activate turbo on server:', e);
+		}
 	}
 };
 
-export const activateFullEnergy = () => {
+export const activateFullEnergy = async () => {
 	if (fullEnergyCount() > 0) {
-		setFullEnergyCount((c) => c - 1);
-		setEnergy(maxEnergy());
+		try {
+			await activateFullEnergyServer();
+			setFullEnergyCount((c) => c - 1);
+			setEnergy(maxEnergy());
+		} catch (e) {
+			console.error('Failed to activate full energy on server:', e);
+		}
 	}
 };
 
@@ -151,7 +161,7 @@ export const [boosters, setBoosters] = createSignal<Record<string, Booster>>({
 
 export const getBoosterCost = (booster: Booster) => booster.baseCost;
 
-import { upgradeBoost as apiUpgradeBoost, getBoostsStatus } from '@/shared/api/profile.js';
+import { upgradeBoost as apiUpgradeBoost, getBoostsStatus, activateTurboServer, activateFullEnergyServer } from '@/shared/api/profile.js';
 
 export const syncBoostersStatus = async () => {
 	try {
@@ -324,8 +334,24 @@ export const syncPendingTaps = async () => {
 			while (pendingTapBuckets.length > 0) {
 				const bucket = pendingTapBuckets[0];
 				
-				// For real security, implement crypto.subtle or CryptoJS HMAC here
-				const sig = `dummy_signature_for_${bucket.nonce}`;
+				let sig = `dummy_signature_for_${bucket.nonce}`;
+				try {
+					const encoder = new TextEncoder();
+					const initData = (window as any).Telegram?.WebApp?.initData || "dev_init_data_fallback";
+					const keyMaterial = await crypto.subtle.importKey(
+						"raw",
+						encoder.encode(initData),
+						{ name: "HMAC", hash: "SHA-256" },
+						false,
+						["sign"]
+					);
+					const payload = `${bucket.nonce}:${bucket.count}:${bucket.ts}`;
+					const signatureBuffer = await crypto.subtle.sign("HMAC", keyMaterial, encoder.encode(payload));
+					const signatureArray = Array.from(new Uint8Array(signatureBuffer));
+					sig = signatureArray.map(b => b.toString(16).padStart(2, '0')).join('');
+				} catch (e) {
+					console.error("HMAC generation failed", e);
+				}
 				
 				try {
 					const stats = await addTaps(bucket.count, bucket.multiplier, bucket.nonce, bucket.ts, sig);

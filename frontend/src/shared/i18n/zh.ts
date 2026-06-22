@@ -84,6 +84,7 @@ export const dict: Record<string, any> = {
 		mine: '矿山',
 		earn: '任务',
 		clan: '团队',
+		frens: '朋友',
 		boost: '升级',
 		shop: '服务',
 	},
@@ -100,5 +101,12 @@ export const dict: Record<string, any> = {
 	},
 	tapView: {
 		joinClan: '加入部落',
+	},
+	autoTapBot: {
+		title: '自动挖矿机器人',
+		description: '你不在的时候机器人一直在挖矿！这是它收集到的金币。',
+		collected: '已收集',
+		claim: '领取金币',
+		miningFor: '已挖矿12小时'
 	},
 };

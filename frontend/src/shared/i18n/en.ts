@@ -1830,6 +1830,7 @@ To enable me to delete malicious messages and restrict violating users, please a
 		mine: 'Mine',
 		earn: 'Tasks',
 		clan: 'Squads',
+		frens: 'Frens',
 		boost: 'Upgrades',
 		shop: 'Services',
 	},
@@ -1895,5 +1896,12 @@ To enable me to delete malicious messages and restrict violating users, please a
 			saveError: 'Failed to save quest.',
 			deleteError: 'Failed to delete quest.',
 		},
+	},
+	autoTapBot: {
+		title: 'Auto-Tap Bot',
+		description: 'The bot was mining while you were away! Here is what it collected.',
+		collected: 'COLLECTED',
+		claim: 'Claim Coins',
+		miningFor: 'Mining for 12 hours'
 	},
 };

@@ -409,7 +409,7 @@ func (s *ProfileService) SetReferralCode(ctx context.Context, userID int64, refe
 	return nil
 }
 
-func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int) (*model.ProfileStats, error) {
+func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, multiplier int) (*model.ProfileStats, error) {
 	if taps <= 0 {
 		return nil, fmt.Errorf("invalid tap count")
 	}
@@ -460,20 +460,25 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int) (*
 	}
 
 	energyCost := taps * multitapLevel
-	// Dynamic energy verification prevents infinite tap farming
-	if energyCost > energy {
-		energyCost = energy
-		taps = energyCost / multitapLevel
-		if taps == 0 && energyCost > 0 {
-			taps = 1
+	if multiplier == 5 {
+		energyCost = 0 // Turbo active: no energy cost
+	} else {
+		// Dynamic energy verification prevents infinite tap farming
+		if energyCost > energy {
+			energyCost = energy
+			taps = energyCost / multitapLevel
+			if taps == 0 && energyCost > 0 {
+				taps = 1
+			}
+		}
+		if energyCost <= 0 {
+			return nil, fmt.Errorf("not enough energy")
 		}
 	}
-	if energyCost <= 0 {
-		return nil, fmt.Errorf("not enough energy")
-	}
 
-	coinsEarned := float64(energyCost)
+	coinsEarned := float64(taps * multitapLevel * multiplier)
 	newEnergy := energy - energyCost
+
 
 	_, err = tx.Exec(ctx, `
 		UPDATE user_stats

@@ -15,7 +15,7 @@ type AirdropTab = 'mine' | 'earn' | 'clan' | 'frens' | 'boost' | 'shop';
 
 const getTabs = () => [
 	{ id: 'earn' as AirdropTab, icon: 'assignment', label: t('airdropTabs.earn') },
-	{ id: 'frens' as AirdropTab, icon: 'group', label: 'Frens' },
+	{ id: 'frens' as AirdropTab, icon: 'group', label: t('airdropTabs.frens' as any) || 'Frens' },
 	{ id: 'boost' as AirdropTab, icon: 'rocket_launch', label: t('airdropTabs.boost') },
 ];
 
@@ -102,7 +102,7 @@ export const AirdropPage: Component = () => {
 			{showLeaderboard() && (
 				<div class="fixed inset-0 z-[70] bg-black/95 flex flex-col animate-slide-up">
 					<div class="flex items-center justify-between p-4 border-b border-white/10">
-						<h2 class="text-white font-bold text-lg">Leaderboard</h2>
+						<h2 class="text-white font-bold text-lg">{t('gamification.leaderboard' as any) || 'Leaderboard'}</h2>
 						<button
 							onClick={() => setShowLeaderboard(false)}
 							class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center active:scale-90 transition-transform"

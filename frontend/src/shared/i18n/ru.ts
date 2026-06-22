@@ -1789,6 +1789,7 @@ export const dict = {
 		mine: 'Добыча',
 		earn: 'Задания',
 		clan: 'Отряды',
+		frens: 'Друзья',
 		boost: 'Улучшения',
 		shop: 'Услуги',
 	},
@@ -1818,5 +1819,12 @@ export const dict = {
 		userAgent: 'User Agent:',
 		payloadChanges: 'Изменения полезной нагрузки:',
 		loadMore: 'Загрузить еще записи',
+	},
+	autoTapBot: {
+		title: 'Авто-Бот',
+		description: 'Бот добывал монеты, пока вас не было! Вот что он собрал.',
+		collected: 'СОБРАНО',
+		claim: 'Получить монеты',
+		miningFor: 'Добыча за 12 часов'
 	},
 };

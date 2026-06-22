@@ -255,7 +255,7 @@ export const createPremiumCheckout = (): Promise<{ invoice_link: string }> =>
 export const addTaps = async (taps: number, multiplier: number, nonce: string, clientTS: number, sig: string): Promise<ProfileStats> => {
 	const stats = await validatedFetch('/profile/tap', ProfileStatsSchema, {
 		method: 'POST',
-		body: JSON.stringify({ taps, multiplier, nonce, client_ts: clientTS, sig }),
+		body: JSON.stringify({ taps, multiplier, nonce, client_ts: clientTS, signature: sig }),
 	});
 	if (stats.photoUrl !== undefined) {
 		setProfilePhotoUrl(stats.photoUrl);
@@ -263,11 +263,17 @@ export const addTaps = async (taps: number, multiplier: number, nonce: string, c
 	return stats;
 };
 
-export const collectOfflineMining = async (): Promise<{ earned: number }> => {
-	return validatedFetch('/profile/bot/collect', z.object({ earned: z.number() }), {
+export const collectOfflineMining = async (): Promise<{ earned: number; durationSeconds: number }> => {
+	return validatedFetch('/profile/mining/collect', z.object({ earned: z.number(), durationSeconds: z.number() }), {
 		method: 'POST',
 	});
 };
+
+export const activateTurboServer = (): Promise<SuccessResponse> =>
+	validatedFetch('/profile/boosts/daily/turbo', SuccessResponseSchema, { method: 'POST' });
+
+export const activateFullEnergyServer = (): Promise<SuccessResponse> =>
+	validatedFetch('/profile/boosts/daily/full-energy', SuccessResponseSchema, { method: 'POST' });
 
 export const getClan = (): Promise<UserClanDetails> =>
 	validatedFetch('/profile/clan', UserClanDetailsSchema);

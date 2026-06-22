@@ -827,3 +827,175 @@ func (s *GamificationService) GetGlobalClans(ctx context.Context) ([]map[string]
 func (s *GamificationService) GetActiveQuests(ctx context.Context, userID int64) ([]map[string]interface{}, error) {
 	return s.db.GetActiveQuests(ctx, userID)
 }
+
+type OfflineMiningResult struct {
+	Earned          float64 `json:"earned"`
+	DurationSeconds int     `json:"durationSeconds"`
+}
+
+// CollectOfflineMining calculates and awards offline mining rewards
+func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID int64) (*OfflineMiningResult, error) {
+	if s.db.Pool == nil {
+		return nil, fmt.Errorf("database pool is nil")
+	}
+
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var level int
+	var lastCollectedAt *time.Time
+	var capSeconds int
+
+	query := `SELECT tap_bot_level, tap_bot_last_collected_at, tap_bot_cap_seconds FROM user_boosts WHERE user_id = $1 FOR UPDATE`
+	err = tx.QueryRow(ctx, query, userID).Scan(&level, &lastCollectedAt, &capSeconds)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return &OfflineMiningResult{Earned: 0, DurationSeconds: 0}, nil
+		}
+		return nil, fmt.Errorf("failed to get user boosts: %w", err)
+	}
+
+	if level == 0 {
+		return &OfflineMiningResult{Earned: 0, DurationSeconds: 0}, nil
+	}
+
+	now := time.Now().UTC()
+	if lastCollectedAt == nil {
+		lastCollectedAt = &now
+	}
+
+	elapsed := int(now.Sub(*lastCollectedAt).Seconds())
+	if elapsed < 0 {
+		elapsed = 0
+	}
+	if elapsed > capSeconds {
+		elapsed = capSeconds
+	}
+
+	// Calculate earned coins: Level * 1 coin/sec
+	rate := float64(level)
+	earned := float64(elapsed) * rate
+
+	if earned > 0 {
+		_, err = tx.Exec(ctx, `UPDATE user_stats SET airdrop_coins = airdrop_coins + $1 WHERE user_id = $2`, earned, userID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to update user stats: %w", err)
+		}
+	}
+
+	_, err = tx.Exec(ctx, `UPDATE user_boosts SET tap_bot_last_collected_at = CURRENT_TIMESTAMP WHERE user_id = $1`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update tap bot last collected: %w", err)
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit: %w", err)
+	}
+
+	return &OfflineMiningResult{Earned: earned, DurationSeconds: elapsed}, nil
+}
+
+// ApplyTurbo applies a daily turbo boost
+func (s *GamificationService) ApplyTurbo(ctx context.Context, userID int64) error {
+	if s.db.Pool == nil {
+		return fmt.Errorf("database pool is nil")
+	}
+
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO user_daily_boosts (user_id, day, turbo_used, full_energy_used)
+		VALUES ($1, CURRENT_DATE, 0, 0)
+		ON CONFLICT (user_id, day) DO NOTHING
+	`, userID)
+	if err != nil {
+		return fmt.Errorf("failed to init daily boosts: %w", err)
+	}
+
+	var turboUsed int
+	err = tx.QueryRow(ctx, `SELECT turbo_used FROM user_daily_boosts WHERE user_id = $1 AND day = CURRENT_DATE FOR UPDATE`, userID).Scan(&turboUsed)
+	if err != nil {
+		return fmt.Errorf("failed to lock daily boosts: %w", err)
+	}
+
+	if turboUsed >= 3 {
+		return fmt.Errorf("daily turbo limit reached")
+	}
+
+	_, err = tx.Exec(ctx, `UPDATE user_daily_boosts SET turbo_used = turbo_used + 1 WHERE user_id = $1 AND day = CURRENT_DATE`, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update turbo usage: %w", err)
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit: %w", err)
+	}
+
+	return nil
+}
+
+// ApplyFullEnergy applies a daily full energy boost
+func (s *GamificationService) ApplyFullEnergy(ctx context.Context, userID int64) error {
+	if s.db.Pool == nil {
+		return fmt.Errorf("database pool is nil")
+	}
+
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO user_daily_boosts (user_id, day, turbo_used, full_energy_used)
+		VALUES ($1, CURRENT_DATE, 0, 0)
+		ON CONFLICT (user_id, day) DO NOTHING
+	`, userID)
+	if err != nil {
+		return fmt.Errorf("failed to init daily boosts: %w", err)
+	}
+
+	var fullEnergyUsed int
+	err = tx.QueryRow(ctx, `SELECT full_energy_used FROM user_daily_boosts WHERE user_id = $1 AND day = CURRENT_DATE FOR UPDATE`, userID).Scan(&fullEnergyUsed)
+	if err != nil {
+		return fmt.Errorf("failed to lock daily boosts: %w", err)
+	}
+
+	if fullEnergyUsed >= 3 {
+		return fmt.Errorf("daily full energy limit reached")
+	}
+
+	_, err = tx.Exec(ctx, `UPDATE user_daily_boosts SET full_energy_used = full_energy_used + 1 WHERE user_id = $1 AND day = CURRENT_DATE`, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update full energy usage: %w", err)
+	}
+
+	var energyLimitLevel int
+	err = tx.QueryRow(ctx, `SELECT energy_limit_level FROM user_boosts WHERE user_id = $1`, userID).Scan(&energyLimitLevel)
+	if err != nil && err != pgx.ErrNoRows {
+		return fmt.Errorf("failed to get energy limit level: %w", err)
+	}
+	if err == pgx.ErrNoRows {
+		energyLimitLevel = 1
+	}
+
+	maxEnergy := 500 + ((energyLimitLevel - 1) * 250)
+
+	_, err = tx.Exec(ctx, `UPDATE user_stats SET energy = $1, energy_updated_at = CURRENT_TIMESTAMP WHERE user_id = $2`, maxEnergy, userID)
+	if err != nil {
+		return fmt.Errorf("failed to refill energy: %w", err)
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit: %w", err)
+	}
+
+	return nil
+}

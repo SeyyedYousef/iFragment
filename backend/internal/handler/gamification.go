@@ -253,3 +253,56 @@ func (h *GamificationHandler) GetActiveQuests(w http.ResponseWriter, r *http.Req
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(quests)
 }
+
+func (h *GamificationHandler) CollectOfflineMining(w http.ResponseWriter, r *http.Request) {
+	userID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
+		return
+	}
+
+	res, err := h.gamificationService.CollectOfflineMining(r.Context(), userID)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(res); err != nil {
+		slog.Error("failed to encode offline mining response", "error", err)
+	}
+}
+
+func (h *GamificationHandler) ApplyTurbo(w http.ResponseWriter, r *http.Request) {
+	userID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
+		return
+	}
+
+	err = h.gamificationService.ApplyTurbo(r.Context(), userID)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+func (h *GamificationHandler) ApplyFullEnergy(w http.ResponseWriter, r *http.Request) {
+	userID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
+		return
+	}
+
+	err = h.gamificationService.ApplyFullEnergy(r.Context(), userID)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}

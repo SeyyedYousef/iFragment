@@ -161,7 +161,11 @@ func (h *ProfileHandler) SetReferrerCode(w http.ResponseWriter, r *http.Request)
 }
 
 type AddTapsRequest struct {
-	Taps int `json:"taps"`
+	Taps       int    `json:"taps"`
+	Multiplier int    `json:"multiplier"`
+	Nonce      string `json:"nonce"`
+	Signature  string `json:"signature"`
+	ClientTS   int64  `json:"client_ts"`
 }
 
 func (h *ProfileHandler) AddTaps(w http.ResponseWriter, r *http.Request) {
@@ -177,13 +181,25 @@ func (h *ProfileHandler) AddTaps(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// SEC-08: Validate tap count to prevent score manipulation (synchronized max taps = 50)
-	if req.Taps <= 0 || req.Taps > 50 {
-		RespondError(w, r, http.StatusBadRequest, "taps must be between 1 and 50", nil)
+	if req.Signature == "" {
+		RespondError(w, r, http.StatusBadRequest, "missing signature", nil)
 		return
 	}
 
-	stats, err := h.profileService.AddTaps(r.Context(), userID, req.Taps)
+	if req.Taps <= 0 {
+		RespondError(w, r, http.StatusBadRequest, "taps must be positive", nil)
+		return
+	}
+
+	// SEC-08: Validate tap count to prevent score manipulation. Clamp at 500 instead of rejecting.
+	if req.Taps > 500 {
+		req.Taps = 500
+	}
+	if req.Multiplier <= 0 {
+		req.Multiplier = 1
+	}
+
+	stats, err := h.profileService.AddTaps(r.Context(), userID, req.Taps, req.Multiplier)
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, "failed to update taps", err)
 		return

@@ -7,6 +7,18 @@ import { init } from '@/app/init.js';
 import { Root } from '@/app/Root.js';
 import { ErrorBoundary } from '@/shared/ui/ErrorBoundary.js';
 
+import '@fontsource/manrope/400.css';
+import '@fontsource/manrope/500.css';
+import '@fontsource/manrope/600.css';
+import '@fontsource/manrope/700.css';
+import '@fontsource/manrope/800.css';
+import '@fontsource/manrope/900.css';
+import '@fontsource/vazirmatn/400.css';
+import '@fontsource/vazirmatn/500.css';
+import '@fontsource/vazirmatn/600.css';
+import '@fontsource/vazirmatn/700.css';
+import '@fontsource/vazirmatn/800.css';
+import '@fontsource/vazirmatn/900.css';
 import './app/styles/index.css';
 
 if (import.meta.env.VITE_SENTRY_DSN) {

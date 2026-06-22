@@ -1751,6 +1751,7 @@ export const dict = {
 		mine: 'استخراج',
 		earn: 'تسک‌ها',
 		clan: 'تیم‌ها',
+		frens: 'دوستان',
 		boost: 'ارتقا',
 		shop: 'خدمات',
 	},
@@ -1869,5 +1870,12 @@ export const dict = {
 			saveError: 'خطا در ذخیره‌سازی تسک.',
 			deleteError: 'خطا در حذف تسک.',
 		},
+	},
+	autoTapBot: {
+		title: 'ربات استخراج',
+		description: 'ربات در زمان غیبت شما در حال استخراج بود! اینم دستاوردش.',
+		collected: 'جمع‌آوری شده',
+		claim: 'دریافت سکه‌ها',
+		miningFor: '۱۲ ساعت استخراج مداوم'
 	},
 };
