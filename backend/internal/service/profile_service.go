@@ -340,9 +340,9 @@ func (s *ProfileService) SetReferralCode(ctx context.Context, userID int64, refe
 	// 3) Daily/total caps — using *atomic* counter with rollback-on-deny
 	const (
 		MaxReferralRewardPerDay = 50000.0
-		MaxReferralRewardTotal  = 500000.0
-		ReferrerReward          = 10000.0
-		ReferredReward          = 5000.0
+		MaxReferralRewardTotal  = 5000000.0
+		ReferrerReward          = 2000.0
+		ReferredReward          = 2000.0
 	)
 	var totalEarned float64
 	_ = tx.QueryRow(ctx, `
@@ -514,6 +514,29 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 		_, err = tx.Exec(ctx, "UPDATE user_stats SET level = $1 WHERE user_id = $2", newLevel, userID)
 		if err != nil {
 			return nil, err
+		}
+
+		// Smart Referral: Reward referrer when user levels up
+		var referrerID *int64
+		_ = tx.QueryRow(ctx, "SELECT referred_by FROM users WHERE telegram_id = $1", userID).Scan(&referrerID)
+		if referrerID != nil {
+			var reward float64
+			switch newLevel {
+			case 2: // Silver
+				reward = 50000.0
+			case 3: // Gold
+				reward = 100000.0
+			case 4: // Platinum
+				reward = 250000.0
+			case 5: // Diamond
+				reward = 500000.0
+			case 6: // Legendary
+				reward = 1000000.0
+			}
+			if reward > 0 {
+				_, _ = tx.Exec(ctx, "UPDATE user_stats SET airdrop_coins = COALESCE(airdrop_coins, 0) + $1 WHERE user_id = $2", reward, *referrerID)
+				_, _ = tx.Exec(ctx, "INSERT INTO frg_transactions (user_id, amount, type, description) VALUES ($1, $2, 'referral_milestone', 'Fren reached a new league!')", *referrerID, reward)
+			}
 		}
 	}
 

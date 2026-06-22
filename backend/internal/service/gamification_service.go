@@ -364,7 +364,7 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 		}
 	case "invite_1_fren", "invite_3_frens", "invite_10_frens":
 		var frens int
-		_ = s.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM users WHERE referred_by = $1", userID).Scan(&frens)
+		_ = s.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM users u JOIN user_stats s ON u.telegram_id = s.user_id WHERE u.referred_by = $1 AND s.level >= 3", userID).Scan(&frens)
 		required := 1
 		if target.Type == "invite_3_frens" {
 			required = 3
@@ -372,7 +372,7 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 			required = 10
 		}
 		if frens < required {
-			return nil, fmt.Errorf("you must invite at least %d frens", required)
+			return nil, fmt.Errorf("you must invite at least %d frens who reach Gold league", required)
 		}
 	case "taps_100k":
 		var taps int
@@ -382,9 +382,13 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 		}
 	case "telegram_premium":
 		var isPremium bool
-		_ = s.db.Pool.QueryRow(ctx, "SELECT COALESCE(is_premium, false) FROM users WHERE telegram_id = $1", userID).Scan(&isPremium)
+		var level int
+		_ = s.db.Pool.QueryRow(ctx, "SELECT COALESCE(u.is_premium, false), COALESCE(s.level, 1) FROM users u JOIN user_stats s ON u.telegram_id = s.user_id WHERE u.telegram_id = $1", userID).Scan(&isPremium, &level)
 		if !isPremium {
 			return nil, fmt.Errorf("you must have Telegram Premium")
+		}
+		if level < 3 {
+			return nil, fmt.Errorf("you must reach Gold league first to claim the premium reward")
 		}
 	case "channel_join":
 		var config struct {
