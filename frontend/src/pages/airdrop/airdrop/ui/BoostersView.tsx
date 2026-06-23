@@ -113,7 +113,7 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 								<button
 									onClick={() => handleUpgrade(id)}
 									disabled={isMaxed() || !canAfford()}
-									class={`flex items-center p-4 transition-all active:bg-white/5 ${index() !== 0 ? 'border-t border-white/5' : ''} ${animatingId() === id ? 'bg-white/10' : ''}`}
+									class={`flex items-center p-4 transition-all ${isMaxed() || !canAfford() ? 'opacity-40 cursor-not-allowed grayscale-[0.5]' : 'active:bg-white/5'} ${index() !== 0 ? 'border-t border-white/5' : ''} ${animatingId() === id ? 'bg-white/10' : ''}`}
 								>
 									{/* Icon */}
 									<div class="w-14 h-14 bg-white/5 rounded-2xl flex items-center justify-center shrink-0 me-4">

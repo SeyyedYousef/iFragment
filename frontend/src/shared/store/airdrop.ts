@@ -126,7 +126,7 @@ export const activateTurbo = async () => {
 		} catch (e: any) {
 			console.error('Failed to activate turbo on server:', e);
 			setIsRocketSpawned(false);
-			const msg = e?.message || 'Failed to activate turbo';
+			const msg = e?.response?.data?.err || e?.response?.data?.message || e?.message || 'Failed to activate turbo';
 			showToast(msg, 'error');
 			if (msg.toLowerCase().includes('limit')) {
 				setTurboCount(0);
@@ -143,7 +143,7 @@ export const activateFullEnergy = async () => {
 			setEnergy(maxEnergy());
 		} catch (e: any) {
 			console.error('Failed to activate full energy on server:', e);
-			const msg = e?.message || 'Failed to activate full energy';
+			const msg = e?.response?.data?.err || e?.response?.data?.message || e?.message || 'Failed to activate full energy';
 			showToast(msg, 'error');
 			if (msg.toLowerCase().includes('limit')) {
 				setFullEnergyCount(0);
@@ -498,6 +498,12 @@ export const syncProfileStats = async () => {
 				if (typeof stats.dailyTappedCoins === 'number') {
 					setDailyTappedCoins(stats.dailyTappedCoins);
 				}
+				if (typeof stats.dailyTurboUsed === 'number') {
+					setTurboCount(Math.max(0, 2 - stats.dailyTurboUsed));
+				}
+				if (typeof stats.dailyFullEnergyUsed === 'number') {
+					setFullEnergyCount(Math.max(0, 3 - stats.dailyFullEnergyUsed));
+				}
 			}
 		}
 	} catch (e) {
@@ -527,8 +533,9 @@ export const upgradeBooster = async (id: string) => {
 		return true;
 	} catch (e: any) {
 		console.error('upgrade error:', e);
-		showToast(e?.message || 'Failed to upgrade booster', 'error');
-		if (e?.message?.includes('limit')) {
+		const msg = e?.response?.data?.err || e?.response?.data?.message || e?.message || 'Failed to upgrade booster';
+		showToast(msg, 'error');
+		if (msg.toLowerCase().includes('limit')) {
 			setTurboCount(0);
 			setFullEnergyCount(0);
 		}

@@ -17,9 +17,11 @@ type ProfileStats struct {
 	Level             int        `json:"level"`
 	XP                int        `json:"xp"`
 	XPToNextLevel     int        `json:"xpToNextLevel"`
-	IsPremium         bool       `json:"isPremium"`
-	DailyTappedCoins  float64    `json:"dailyTappedCoins"`
-	PremiumUntil      *time.Time `json:"premiumUntil,omitempty"`
+	IsPremium           bool       `json:"isPremium"`
+	DailyTappedCoins    float64    `json:"dailyTappedCoins"`
+	DailyTurboUsed      int        `json:"dailyTurboUsed"`
+	DailyFullEnergyUsed int        `json:"dailyFullEnergyUsed"`
+	PremiumUntil        *time.Time `json:"premiumUntil,omitempty"`
 	EmojiStatus       string     `json:"emojiStatus"`
 	EquippedBorder    string     `json:"equippedBorder"`
 	EquippedSkin      string     `json:"equippedSkin"`

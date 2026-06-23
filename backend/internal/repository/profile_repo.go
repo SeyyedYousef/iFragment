@@ -55,7 +55,9 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 			       COALESCE(us.airdrop_coins, 0) as airdrop_coins,
 			       COALESCE(us.energy, 500) as energy,
 			       COALESCE(us.energy_updated_at, CURRENT_TIMESTAMP) as energy_updated_at,
-			       COALESCE(udb.tapped_coins, 0) as daily_tapped_coins
+			       COALESCE(udb.tapped_coins, 0) as daily_tapped_coins,
+			       COALESCE(udb.turbo_used, 0) as turbo_used,
+			       COALESCE(udb.full_energy_used, 0) as full_energy_used
 			FROM user_stats us
 			LEFT JOIN user_daily_boosts udb ON udb.user_id = us.user_id AND udb.day = CURRENT_DATE
 			WHERE us.user_id = $1
@@ -82,7 +84,9 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 			si.airdrop_coins,
 			si.energy,
 			si.energy_updated_at,
-			si.daily_tapped_coins
+			si.daily_tapped_coins,
+			si.turbo_used,
+			si.full_energy_used
 		FROM stats_info si
 		CROSS JOIN user_info ui
 		CROSS JOIN reports_count rc
@@ -101,13 +105,14 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 	var energy int
 	var energyUpdatedAt time.Time
 	var dailyTappedCoins float64
+	var dailyTurboUsed, dailyFullEnergyUsed int
 
 	err := db.Pool.QueryRow(ctx, query, userID).Scan(
 		&memberSince, &usernamesAnalyzed, &groupsManaged, &channelsManaged,
 		&frgBalance, &totalFrgEarned, &totalFrgSpent,
 		&daysActive, &currentStreak, &totalTaps, &xp, &level, &lastActiveAt,
 		&isPremium, &premiumUntil, &emojiStatus, &equippedBorder, &equippedSkin, &airdropCoins,
-		&energy, &energyUpdatedAt, &dailyTappedCoins,
+		&energy, &energyUpdatedAt, &dailyTappedCoins, &dailyTurboUsed, &dailyFullEnergyUsed,
 	)
 	if err != nil {
 		return nil, err
@@ -153,6 +158,9 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 		Energy:            energy,
 		EnergyUpdatedAt:   energyUpdatedAt,
 		DailyTappedCoins:  dailyTappedCoins,
+		DailyTurboUsed:      dailyTurboUsed,
+		DailyFullEnergyUsed: dailyFullEnergyUsed,
+		ServerNow:           time.Now().Unix(),
 	}, nil
 }
 

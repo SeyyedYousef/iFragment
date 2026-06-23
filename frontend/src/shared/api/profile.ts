@@ -38,6 +38,8 @@ export const ProfileStatsSchema = z.object({
 	energyUpdatedAt: z.string().optional(),
 	photoUrl: z.string().optional(),
 	dailyTappedCoins: z.number().optional(),
+	dailyTurboUsed: z.number().optional().default(0),
+	dailyFullEnergyUsed: z.number().optional().default(0),
 });
 
 export const AchievementSchema = z.object({
