@@ -153,7 +153,7 @@ export const ProfilePage: Component = () => {
 								{t('profile.addHomeTitle') || 'Add iFragment to Home'}
 							</span>
 							<span class="text-[9px] text-[#a0a4ad] font-bold">
-								{t('profile.addHomeDesc') || 'Fast access & claim +1,000 FRG reward!'}
+								{t('profile.addHomeDesc') || 'Fast access & claim +1,000 Coins reward!'}
 							</span>
 						</div>
 					</div>

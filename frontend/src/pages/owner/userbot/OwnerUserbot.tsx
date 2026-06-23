@@ -33,13 +33,13 @@ export const OwnerUserbot: Component = () => {
 	});
 
 	const handleDelete = async (id: string) => {
-		if (!confirm('Are you sure you want to delete this userbot? It will be logged out and stop forwarding messages.')) return;
+		if (!confirm('آیا مطمئن هستید که می‌خواهید این حساب را حذف کنید؟ این حساب از ربات خارج شده و فوروارد پیام‌ها متوقف می‌شود.')) return;
 		try {
 			hapticFeedback.impactOccurred('medium');
 			await ownerApi.deleteUserbot(id);
 			loadUserbots();
 		} catch (err) {
-			alert('Failed to delete userbot');
+			alert('حذف حساب با خطا مواجه شد');
 		}
 	};
 
@@ -59,7 +59,7 @@ export const OwnerUserbot: Component = () => {
 			setPhoneCodeHash(resp.phone_code_hash);
 			setStep('code');
 		} catch (err: any) {
-			setErrorMsg(err?.response?.data?.error || 'Failed to send code');
+			setErrorMsg(err?.response?.data?.error || 'ارسال کد با خطا مواجه شد');
 		} finally {
 			setLoading(false);
 		}
@@ -85,7 +85,7 @@ export const OwnerUserbot: Component = () => {
 			setPhoneCodeHash('');
 			loadUserbots();
 		} catch (err: any) {
-			setErrorMsg(err?.response?.data?.error || 'Failed to verify code');
+			setErrorMsg(err?.response?.data?.error || 'تایید کد با خطا مواجه شد');
 		} finally {
 			setLoading(false);
 		}
@@ -103,9 +103,9 @@ export const OwnerUserbot: Component = () => {
 						🛡️
 					</div>
 					<div>
-						<h1 class="text-sm font-black uppercase tracking-wider text-white">Owner Panel</h1>
+						<h1 class="text-sm font-black uppercase tracking-wider text-white">پنل مدیریت</h1>
 						<p class="text-[9px] text-[#3390ec] font-black uppercase tracking-widest mt-0.5">
-							Userbot config
+							تنظیمات حساب‌های متصل
 						</p>
 					</div>
 				</div>
@@ -133,8 +133,8 @@ export const OwnerUserbot: Component = () => {
 					) : userbots().length === 0 ? (
 						<div class="bg-[#16171d] border border-[#2a2c35]/40 rounded-3xl p-6 text-center">
 							<span class="material-symbols-outlined text-4xl text-white/20 mb-2">person_add</span>
-							<h3 class="text-white/80 font-semibold mb-1">No Connected Accounts</h3>
-							<p class="text-[13px] text-white/50">Add a Telegram account to start mirroring channels.</p>
+							<h3 class="text-white/80 font-semibold mb-1">هیچ حسابی متصل نیست</h3>
+							<p class="text-[13px] text-white/50">یک حساب تلگرام اضافه کنید تا رهگیری پیام‌های کانال شروع شود.</p>
 						</div>
 					) : (
 						<For each={userbots()}>
@@ -148,12 +148,12 @@ export const OwnerUserbot: Component = () => {
 											<div class="flex items-center gap-2">
 												<span class="font-bold text-white" dir="ltr">{bot.phone_number}</span>
 												{bot.status === 'active' ? (
-													<span class="px-2 py-0.5 rounded-full bg-[#34c759]/10 text-[#34c759] text-[10px] font-bold uppercase tracking-wider">Active</span>
+													<span class="px-2 py-0.5 rounded-full bg-[#34c759]/10 text-[#34c759] text-[10px] font-bold uppercase tracking-wider">فعال</span>
 												) : (
 													<span class="px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 text-[10px] font-bold uppercase tracking-wider">{bot.status}</span>
 												)}
 											</div>
-											<p class="text-[12px] text-white/50 mt-0.5">Monitoring {bot.channels_count} channels</p>
+											<p class="text-[12px] text-white/50 mt-0.5">در حال بررسی {bot.channels_count} کانال</p>
 										</div>
 									</div>
 									<button 
@@ -168,7 +168,7 @@ export const OwnerUserbot: Component = () => {
 					)}
 				</div>
 
-				<h2 class="text-lg font-black text-white mb-4">Connect New Account</h2>
+				<h2 class="text-lg font-black text-white mb-4">اتصال حساب جدید</h2>
 
 				<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-6">
 					{errorMsg() && (

@@ -3,9 +3,12 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
+
+	"ifragment-backend/internal/model"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -386,4 +389,64 @@ func (r *SettingsRepo) GetMultipleSettings(ctx context.Context, groupIDs []uuid.
 	}
 
 	return result, nil
+}
+
+// System Settings Management
+func (r *SettingsRepo) GetSystemSettings(ctx context.Context) (*model.SystemSettings, error) {
+	// Try Cache first
+	cacheKey := "system_settings:global"
+	if r.cache != nil && r.cache.Client != nil {
+		val, err := r.cache.Client.Get(ctx, cacheKey).Result()
+		if err == nil {
+			var s model.SystemSettings
+			if json.Unmarshal([]byte(val), &s) == nil {
+				return &s, nil
+			}
+		}
+	}
+
+	query := `SELECT value FROM system_settings WHERE key = 'global'`
+	var b []byte
+	err := r.db.Pool.QueryRow(ctx, query).Scan(&b)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Return defaults if not set
+			return &model.SystemSettings{
+				MaintenanceMode: false,
+				TapMultiplier:   1.0,
+				ReferralBonus:   1000,
+				DailyRewardBase: 500,
+			}, nil
+		}
+		return nil, err
+	}
+
+	var s model.SystemSettings
+	if err := json.Unmarshal(b, &s); err != nil {
+		return nil, err
+	}
+
+	// Store in cache
+	if r.cache != nil && r.cache.Client != nil {
+		r.cache.Client.Set(ctx, cacheKey, string(b), 5*time.Minute)
+	}
+
+	return &s, nil
+}
+
+func (r *SettingsRepo) UpdateSystemSettings(ctx context.Context, settings *model.SystemSettings) error {
+	b, err := json.Marshal(settings)
+	if err != nil {
+		return err
+	}
+	query := `
+		INSERT INTO system_settings (key, value)
+		VALUES ('global', $1)
+		ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP
+	`
+	_, err = r.db.Pool.Exec(ctx, query, b)
+	if err == nil && r.cache != nil && r.cache.Client != nil {
+		r.cache.Client.Del(ctx, "system_settings:global")
+	}
+	return err
 }

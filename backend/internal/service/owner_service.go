@@ -13,6 +13,7 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -29,16 +30,18 @@ import (
 var promoCodeRe = regexp.MustCompile(`^[A-Z0-9]{4,20}$`)
 
 type OwnerService struct {
-	repo      *repository.OwnerRepo
-		cache     *repository.Cache
-	ubManager *mtproto.UserbotManager
+	repo         *repository.OwnerRepo
+	cache        *repository.Cache
+	settingsRepo *repository.SettingsRepo
+	ubManager    *mtproto.UserbotManager
 }
 
-func NewOwnerService(repo *repository.OwnerRepo, cache *repository.Cache, ubManager *mtproto.UserbotManager) *OwnerService {
+func NewOwnerService(repo *repository.OwnerRepo, cache *repository.Cache, settingsRepo *repository.SettingsRepo, ubManager *mtproto.UserbotManager) *OwnerService {
 	return &OwnerService{
-		repo:      repo,
-				cache:     cache,
-		ubManager: ubManager,
+		repo:         repo,
+		cache:        cache,
+		settingsRepo: settingsRepo,
+		ubManager:    ubManager,
 	}
 }
 
@@ -212,6 +215,11 @@ func (s *OwnerService) Authenticate(ctx context.Context, telegramUserID int64, p
 	return signed, nil
 }
 
+func (s *OwnerService) FlagUser(ctx context.Context, ownerID int64, targetUserID int64, isFlagged bool, reason string, ip string, ua string) error {
+	return s.repo.FlagUser(ctx, ownerID, targetUserID, isFlagged, reason, ip, ua)
+}
+
+// Stats & Auditing
 func (s *OwnerService) GetDashboardStats(ctx context.Context) (*model.OwnerDashboardStats, error) {
 	// Redis caching layer (30 seconds) to prevent heavy database load on dashboard refresh
 	if s.cache != nil && s.cache.Client != nil {
@@ -692,9 +700,57 @@ func (s *OwnerService) DeleteUserbot(ctx context.Context, id string) error {
 }
 
 
+
+
+// ─── Finance & Subscriptions ────────────────────────────────────────────────
+func (s *OwnerService) GetOrdersList(ctx context.Context, limit, offset int) ([]model.OrderRecord, error) {
+	return s.repo.GetOrdersList(ctx, limit, offset)
+}
+
+func (s *OwnerService) GetPremiumEntities(ctx context.Context) ([]model.PremiumEntity, error) {
+	return s.repo.GetPremiumEntities(ctx)
+}
+
+// ─── System Health & Logs ───────────────────────────────────────────────────
+func (s *OwnerService) LogSystemError(ctx context.Context, source, message string) error {
+	return s.repo.LogSystemError(ctx, source, message)
+}
+
+func (s *OwnerService) GetSystemErrors(ctx context.Context, limit int) ([]model.SystemErrorLog, error) {
+	return s.repo.GetSystemErrors(ctx, limit)
+}
+
+func (s *OwnerService) GetSystemHealthMetrics(ctx context.Context) (model.SystemHealthMetrics, error) {
+	var metrics model.SystemHealthMetrics
+
+	// Calculate memory and goroutines
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	metrics.AllocatedMB = m.Allocated / 1024 / 1024
+	metrics.TotalSysMB = m.Sys / 1024 / 1024
+	metrics.Goroutines = runtime.NumGoroutine()
+
+	// Check DB Ping
+	if err := s.repo.DB().Pool.Ping(ctx); err != nil {
+		metrics.DBStatus = "disconnected"
+	} else {
+		metrics.DBStatus = "healthy"
+	}
+
+	return metrics, nil
+}
+
+// ─── Entities (Channels & Groups) ───────────────────────────────────────────
+func (s *OwnerService) GetAllChannels(ctx context.Context, limit, offset int) ([]model.EntityRecord, error) {
+	return s.repo.GetAllChannels(ctx, limit, offset)
+}
+
+func (s *OwnerService) GetAllGroups(ctx context.Context, limit, offset int) ([]model.EntityRecord, error) {
+	return s.repo.GetAllGroups(ctx, limit, offset)
+}
+
 // AdjustAirdropCoins allows the owner to change user's airdrop coins
 func (s *OwnerService) AdjustAirdropCoins(ctx context.Context, req AdjustAirdropCoinsRequest) error {
-	// Re-using AdjustFrgRequest struct for simplicity, assuming it has UserID and Amount
 	err := s.repo.DB().AdjustAirdropCoins(ctx, req.UserID, req.Amount)
 	if err != nil {
 		return err
@@ -709,4 +765,66 @@ func (s *OwnerService) AdjustAirdropCoins(ctx context.Context, req AdjustAirdrop
 type AdjustAirdropCoinsRequest struct {
 	UserID int64   `json:"user_id"`
 	Amount float64 `json:"amount"`
+}
+
+// System Settings Management
+func (s *OwnerService) GetSystemSettings(ctx context.Context) (*model.SystemSettings, error) {
+	return s.settingsRepo.GetSystemSettings(ctx)
+}
+
+func (s *OwnerService) UpdateSystemSettings(ctx context.Context, settings *model.SystemSettings, ownerID int64, ip, ua string) error {
+	// First fetch the existing to log the difference
+	oldSettings, _ := s.settingsRepo.GetSystemSettings(ctx)
+	
+	err := s.settingsRepo.UpdateSystemSettings(ctx, settings)
+	if err != nil {
+		return err
+	}
+	
+	// Audit Logging
+	payload := map[string]interface{}{
+		"old": oldSettings,
+		"new": settings,
+	}
+	payloadBytes, _ := json.Marshal(payload)
+	_ = s.repo.LogOwnerAudit(ctx, &model.OwnerAuditLog{
+		OwnerID:   ownerID,
+		Action:    "update_system_settings",
+		Payload:   payloadBytes,
+		IPAddress: ip,
+		UserAgent: ua,
+	})
+	
+	return nil
+}
+
+// Broadcasts
+func (s *OwnerService) CreateBroadcast(ctx context.Context, ownerID int64, targetAudience, message, ip, ua string) (string, error) {
+	if targetAudience == "" || message == "" {
+		return "", errors.New("target_audience and message are required")
+	}
+
+	id, err := s.repo.CreateBroadcast(ctx, ownerID, targetAudience, message)
+	if err != nil {
+		return "", err
+	}
+
+	// Log audit
+	payloadBytes, _ := json.Marshal(map[string]string{
+		"broadcast_id":    id,
+		"target_audience": targetAudience,
+	})
+	_ = s.repo.LogOwnerAudit(ctx, &model.OwnerAuditLog{
+		OwnerID:   ownerID,
+		Action:    "create_broadcast",
+		Payload:   payloadBytes,
+		IPAddress: ip,
+		UserAgent: ua,
+	})
+
+	return id, nil
+}
+
+func (s *OwnerService) ListBroadcasts(ctx context.Context) ([]model.Broadcast, error) {
+	return s.repo.ListBroadcasts(ctx)
 }

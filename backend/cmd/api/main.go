@@ -280,16 +280,19 @@ func main() {
 	channelService.StartBackgroundTasks(ctx)
 
 	// Initialize UserbotManager
+	ownerRepo := repository.NewOwnerRepo(db)
+	
 	appIDStr := os.Getenv("TG_APP_ID")
 	appID, _ := strconv.Atoi(appIDStr)
 	appHash := os.Getenv("TG_APP_HASH")
 
-	userbotManager := mtproto.NewUserbotManager(appID, appHash, channelService.ProcessChannelPostForUserbot)
+	userbotManager := mtproto.NewUserbotManager(appID, appHash, channelService.ProcessChannelPostForUserbot, func(ctx context.Context, source, msg string) error {
+		return ownerRepo.LogSystemError(ctx, source, msg)
+	})
 	channelService.SetUserbotJoiner(userbotManager.JoinChannel)
 
 	// Fetch active userbots and start them
 	bgCtx := context.Background()
-	ownerRepo := repository.NewOwnerRepo(db)
 	activeBots, _ := ownerRepo.GetActiveManagedUserbots(bgCtx)
 	for _, b := range activeBots {
 		if err := userbotManager.AddClient(bgCtx, b.PhoneNumber); err != nil {
@@ -331,7 +334,7 @@ func main() {
 
 	// Initialize Owner components
 	middleware.InitAuthMiddleware(ownerRepo)
-	ownerService := service.NewOwnerService(ownerRepo, cache, userbotManager)
+	ownerService := service.NewOwnerService(ownerRepo, cache, settingsRepo, userbotManager)
 	ownerHandler := handler.NewOwnerHandler(ownerService)
 
 	// Public Routes
@@ -390,6 +393,7 @@ func main() {
 
 		// Protected core business API routes (require ban checking and blocking impersonated writes)
 		r.Group(func(r chi.Router) {
+			r.Use(middleware.MaintenanceMiddleware(settingsRepo))
 			r.Use(middleware.BlockImpersonatedWrites)
 			r.Use(middleware.UserBanCheckMiddleware(ownerRepo))
 
@@ -552,10 +556,16 @@ func main() {
 				r.Use(middleware.ValidateOwnerAdmin)
 
 				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/dashboard/stats", ownerHandler.GetStats)
+				
+				// System Settings
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/settings", ownerHandler.GetSettings)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Put("/settings", ownerHandler.UpdateSettings)
+
 				r.With(middleware.RequirePermission(middleware.PermSearchUsers)).Get("/users/search", ownerHandler.SearchUsers)
 				r.With(middleware.RequirePermission(middleware.PermImpersonate)).Post("/users/impersonate", ownerHandler.Impersonate)
 				r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/ban", ownerHandler.BanUser)
 				r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/unban", ownerHandler.UnbanUser)
+				r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/flag", ownerHandler.FlagUser)
 				r.With(middleware.RequirePermission(middleware.PermAuditView)).Get("/audit-logs", ownerHandler.GetAuditLogs)
 
 				// Promo Code management
@@ -563,17 +573,33 @@ func main() {
 				r.With(middleware.RequirePermission(middleware.PermPromoManage)).Delete("/promos", ownerHandler.DeletePromo)
 				r.With(middleware.RequirePermission(middleware.PermPromoView)).Get("/promos", ownerHandler.ListPromos)
 
+				// Broadcasts management
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Post("/broadcasts", ownerHandler.CreateBroadcast)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/broadcasts", ownerHandler.ListBroadcasts)
+
 				// Dynamic Quest management
 				r.With(middleware.RequirePermission(middleware.PermQuestManage)).Get("/quests", ownerHandler.ListQuests)
 				r.With(middleware.RequirePermission(middleware.PermQuestManage)).Post("/quests", ownerHandler.CreateQuest)
 				r.With(middleware.RequirePermission(middleware.PermQuestManage)).Put("/quests", ownerHandler.UpdateQuest)
 				r.With(middleware.RequirePermission(middleware.PermQuestManage)).Delete("/quests", ownerHandler.DeleteQuest)
 
-				// Userbot Connection management
 				r.With(middleware.RequirePermission(middleware.PermUserbotManage)).Get("/userbots", ownerHandler.ListUserbots)
 				r.With(middleware.RequirePermission(middleware.PermUserbotManage)).Delete("/userbots/{id}", ownerHandler.DeleteUserbot)
 				r.With(middleware.RequirePermission(middleware.PermUserbotManage)).Post("/userbot/send-code", ownerHandler.UserbotSendCode)
 				r.With(middleware.RequirePermission(middleware.PermUserbotManage)).Post("/userbot/verify-code", ownerHandler.UserbotVerifyCode)
+
+				// Finance & Subscriptions
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/finance/orders", ownerHandler.GetFinanceOrders)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/finance/subscriptions", ownerHandler.GetPremiumEntities)
+
+				// System Health & Logs
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/health/errors", ownerHandler.GetSystemErrors)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/health/metrics", ownerHandler.GetSystemHealthMetrics)
+
+				// Entities (Channels & Groups)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/entities/channels", ownerHandler.GetAllChannels)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/entities/groups", ownerHandler.GetAllGroups)
+
 			})
 		})
 	})

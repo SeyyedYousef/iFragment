@@ -1,0 +1,4 @@
+ALTER TABLE users DROP COLUMN IF EXISTS fraud_reason;
+ALTER TABLE users DROP COLUMN IF EXISTS is_flagged;
+DROP TABLE IF EXISTS broadcasts;
+DROP TABLE IF EXISTS system_settings;

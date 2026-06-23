@@ -49,9 +49,8 @@ export const ReferralPage: Component = () => {
 			hapticFeedback.impactOccurred('medium');
 		} catch {}
 		const fullLink = `https://t.me/iFragmentBot?start=${link}`;
-		// Use openTelegramLink to trigger the native share sheet
 		openTelegramLink(
-			`https://t.me/share/url?url=${encodeURIComponent(fullLink)}&text=${encodeURIComponent('Join me on iFragment and earn free FRG! 💎')}`,
+			`https://t.me/share/url?url=${encodeURIComponent(fullLink)}&text=${encodeURIComponent('Join me on iFragment and earn free Coins! 🟡')}`,
 		);
 	};
 

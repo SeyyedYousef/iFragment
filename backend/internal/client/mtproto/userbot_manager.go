@@ -12,14 +12,16 @@ type UserbotManager struct {
 	mu          sync.RWMutex
 	clients     map[string]*UserbotClient // phone number -> client
 	msgHandler  NewChannelMessageHandler
+	errLogger   func(ctx context.Context, source, msg string) error
 	appID       int
 	appHash     string
 }
 
-func NewUserbotManager(appID int, appHash string, handler NewChannelMessageHandler) *UserbotManager {
+func NewUserbotManager(appID int, appHash string, handler NewChannelMessageHandler, errLogger func(ctx context.Context, source, msg string) error) *UserbotManager {
 	return &UserbotManager{
 		clients:    make(map[string]*UserbotClient),
 		msgHandler: handler,
+		errLogger:  errLogger,
 		appID:      appID,
 		appHash:    appHash,
 	}
@@ -64,6 +66,9 @@ func (m *UserbotManager) JoinChannel(ctx context.Context, identifier string) err
 			return nil
 		}
 		slog.Warn("Userbot failed to join channel, trying next", "phone", phone, "channel", identifier, "error", err)
+		if m.errLogger != nil {
+			_ = m.errLogger(ctx, "userbot", fmt.Sprintf("Failed to join channel %s: %v", identifier, err))
+		}
 		lastErr = err
 	}
 

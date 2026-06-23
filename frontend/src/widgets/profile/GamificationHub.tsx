@@ -144,7 +144,7 @@ export const GamificationHub: Component = () => {
 						{t('gamification.questHub') || 'Quest Hub'}
 					</span>
 					<span class="text-xs font-black text-white mt-1">
-						{t('gamification.earnFrgXp') || 'Earn FRG & XP'}
+						{t('gamification.earnFrgXp') || 'Earn Coins & XP'}
 					</span>
 				</button>
 
@@ -245,7 +245,7 @@ export const GamificationHub: Component = () => {
 											<span class="text-[10px] font-black mt-1 text-white">
 												{(PROFILE_CONFIG.DAILY_REWARDS?.[day - 1] || 0).toLocaleString()}
 											</span>
-											<span class="text-[8px] text-[#a0a4ad] font-bold">FRG</span>
+											<span class="text-[8px] text-[#a0a4ad] font-bold">COINS</span>
 										</div>
 									);
 								}}

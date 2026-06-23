@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/solid-query';
 import { hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createSignal, Show } from 'solid-js';
 import { apiClient } from '@/shared/api/axios.js';
+import { t } from '@/shared/i18n/index.js';
 
 interface RedeemPromoModalProps {
 	isOpen: boolean;
@@ -35,7 +36,7 @@ export const RedeemPromoModal: Component<RedeemPromoModalProps> = (props) => {
 				try {
 					hapticFeedback.notificationOccurred('success');
 				} catch {}
-				setSuccessMsg(resp.data.message || 'Promo code successfully redeemed!');
+				setSuccessMsg(resp.data.message || t('promo.success')());
 				setCode('');
 
 				// Invalidate profile query to refetch new FRG balance instantly
@@ -51,7 +52,7 @@ export const RedeemPromoModal: Component<RedeemPromoModalProps> = (props) => {
 				hapticFeedback.notificationOccurred('error');
 			} catch {}
 			setErrorMsg(
-				err.response?.data?.error || 'Failed to redeem promo code. Please check code or try again.',
+				err.response?.data?.error || t('promo.error')(),
 			);
 		} finally {
 			setLoading(false);
@@ -83,10 +84,9 @@ export const RedeemPromoModal: Component<RedeemPromoModalProps> = (props) => {
 						<div class="w-16 h-16 rounded-3xl bg-gradient-to-br from-[#ffcc00]/20 to-[#ffcc00]/5 border border-[#ffcc00]/30 flex items-center justify-center text-3xl mb-4 shadow-inner">
 							🎁
 						</div>
-						<h2 class="text-lg font-black text-white uppercase tracking-wider">Redeem Gift Code</h2>
+						<h2 class="text-lg font-black text-white uppercase tracking-wider">{t('promo.title')()}</h2>
 						<p class="text-xs text-[#a0a4ad] font-bold mt-1 max-w-[240px]">
-							Enter a valid promotional or partner gift code to claim your free FRG token reward
-							instantly.
+							{t('promo.description')()}
 						</p>
 					</div>
 
@@ -94,7 +94,7 @@ export const RedeemPromoModal: Component<RedeemPromoModalProps> = (props) => {
 						<div class="flex flex-col gap-1.5">
 							<input
 								type="text"
-								placeholder="ENTER PROMO CODE"
+								placeholder={t('promo.placeholder')()}
 								value={code()}
 								onInput={(e) => setCode(e.currentTarget.value.toUpperCase())}
 								class="w-full h-12 bg-[#0f1014] border border-[#2a2c35] focus:border-[#ffcc00] text-center text-white text-sm font-bold uppercase tracking-wider rounded-2xl shadow-inner focus:outline-none transition-all"
@@ -128,7 +128,7 @@ export const RedeemPromoModal: Component<RedeemPromoModalProps> = (props) => {
 							disabled={loading() || !code().trim()}
 							class="w-full h-12 bg-[#ffcc00] disabled:bg-[#ffcc00]/50 hover:bg-[#e6b800] text-xs font-black uppercase tracking-wider text-[#0f1014] rounded-2xl active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-[#ffcc00]/10"
 						>
-							<Show when={loading()} fallback="Claim Reward">
+							<Show when={loading()} fallback={t('promo.claim')()}>
 								<div class="w-5 h-5 border-2 border-[#0f1014] border-t-transparent rounded-full animate-spin" />
 							</Show>
 						</button>

@@ -136,6 +136,7 @@ export const dict: Record<string, any> = {
 			boostersTitle: '助推器',
 			maxLevelReached: '已达到最高等级',
 			lvl: '级',
+			upgradeSuccess: '升级成功！',
 			meta: {
 				tapPower: { name: '多重点击', desc: '增加每次点击赚取的硬币' },
 				energyCap: { name: '能量上限', desc: '增加最大能量容量' },
@@ -190,5 +191,13 @@ export const dict: Record<string, any> = {
 			joinChannel: '加入官方频道',
 			specialTask: '特殊任务',
 		},
-	}
+	},
+	promo: {
+		title: '兑换礼品码',
+		description: '输入有效的促销或合作伙伴礼品码，立即领取免费的FRG代币奖励。',
+		placeholder: '输入促销代码',
+		claim: '领取奖励',
+		success: '促销代码兑换成功！',
+		error: '促销代码兑换失败。请检查代码或重试。',
+	},
 };

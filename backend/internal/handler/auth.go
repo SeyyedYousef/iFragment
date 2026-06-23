@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"time"
@@ -74,6 +75,18 @@ func (h *AuthHandler) IssueToken(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, "Failed to synchronize user profile", err)
 		return
+	}
+
+	// Try to process referral if start_param is present
+	initData := r.Header.Get("X-Telegram-Init-Data")
+	if initData != "" {
+		if values, err := url.ParseQuery(initData); err == nil {
+			startParam := values.Get("start_param")
+			if startParam != "" {
+				// Ignore errors, we just try to set it
+				_, _ = h.db.SetReferredBy(r.Context(), telegramID, startParam)
+			}
+		}
 	}
 
 	claims := middleware.JWTClaims{

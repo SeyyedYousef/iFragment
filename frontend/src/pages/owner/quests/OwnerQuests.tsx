@@ -354,7 +354,7 @@ export const OwnerQuests: Component = () => {
 									value={key()}
 									onInput={(e) => setKey(e.currentTarget.value.toLowerCase().replace(/\s+/g, '_'))}
 									class="h-11 px-4 bg-[#0f1014] border border-[#2a2c35] focus:border-[#3390ec] text-white text-xs font-bold rounded-2xl focus:outline-none transition-all disabled:opacity-50"
-									placeholder="e.g. join_my_channel"
+									placeholder="مثلاً join_my_channel"
 								/>
 							</div>
 
@@ -368,7 +368,7 @@ export const OwnerQuests: Component = () => {
 									value={title()}
 									onInput={(e) => setTitle(e.currentTarget.value)}
 									class="h-11 px-4 bg-[#0f1014] border border-[#2a2c35] focus:border-[#3390ec] text-white text-xs font-bold rounded-2xl focus:outline-none transition-all"
-									placeholder="e.g. Join the official Channel"
+									placeholder="مثلاً عضویت در کانال رسمی"
 								/>
 							</div>
 
@@ -410,10 +410,10 @@ export const OwnerQuests: Component = () => {
 									onChange={(e) => setType(e.currentTarget.value)}
 									class="h-11 px-4 bg-[#0f1014] border border-[#2a2c35] focus:border-[#3390ec] text-white text-xs font-bold rounded-2xl focus:outline-none transition-all appearance-none"
 								>
-									<option value="channel_join">Telegram Channel Join (verify live member)</option>
-									<option value="quiz">Quiz / Riddle (server-hashed verification)</option>
-									<option value="first_username_scan">First Username Scan Check</option>
-									<option value="register_first_bot">First Registered Bot Check</option>
+									<option value="channel_join">عضویت در کانال تلگرام (بررسی زنده عضویت)</option>
+									<option value="quiz">کوییز / معما (بررسی هش شده در سرور)</option>
+									<option value="first_username_scan">ثبت نام اولیه (دارای یوزرنیم)</option>
+									<option value="register_first_bot">ورود اولیه به ربات</option>
 								</select>
 							</div>
 
@@ -430,7 +430,7 @@ export const OwnerQuests: Component = () => {
 											value={channelUsername()}
 											onInput={(e) => setChannelUsername(e.currentTarget.value)}
 											class="h-9 px-3 bg-[#0f1014] border border-[#2a2c35] text-white text-xs font-bold rounded-xl focus:outline-none focus:border-[#3390ec] transition-all"
-											placeholder="e.g. @ifragment_channel"
+											placeholder="مثلاً @ifragment_channel"
 										/>
 									</div>
 								</div>
@@ -448,7 +448,7 @@ export const OwnerQuests: Component = () => {
 											value={quizQuestion()}
 											onInput={(e) => setQuizQuestion(e.currentTarget.value)}
 											class="h-9 px-3 bg-[#0f1014] border border-[#2a2c35] text-white text-xs font-bold rounded-xl focus:outline-none focus:border-[#3390ec] transition-all"
-											placeholder="e.g. What is 2 + 2?"
+											placeholder="مثلاً ۲ + ۲ چند می‌شود؟"
 										/>
 									</div>
 									<div class="flex flex-col gap-1.5">
@@ -461,7 +461,7 @@ export const OwnerQuests: Component = () => {
 											value={quizAnswer()}
 											onInput={(e) => setQuizAnswer(e.currentTarget.value)}
 											class="h-9 px-3 bg-[#0f1014] border border-[#2a2c35] text-white text-xs font-bold rounded-xl focus:outline-none focus:border-[#3390ec] transition-all"
-											placeholder={isEditing() ? 'Leave empty to keep answer unchanged' : 'e.g. 4'}
+											placeholder={isEditing() ? 'برای تغییر ندادن جواب، خالی بگذارید' : 'مثلاً 4'}
 										/>
 									</div>
 								</div>

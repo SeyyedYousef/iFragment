@@ -13,6 +13,8 @@ interface SearchedUser {
 	created_at: string;
 	balance: number;
 	is_premium: boolean;
+	is_flagged: boolean;
+	fraud_reason: string;
 }
 
 export const OwnerUsers: Component = () => {
@@ -59,6 +61,12 @@ export const OwnerUsers: Component = () => {
 	const [banReason, setBanReason] = createSignal('');
 	const [banDuration, setBanDuration] = createSignal(86400); // 1 day default (in seconds)
 	const [banLoading, setBanLoading] = createSignal(false);
+
+	// Flag Form inputs
+	const [showFlagModal, setShowFlagModal] = createSignal(false);
+	const [flagReason, setFlagReason] = createSignal('');
+	const [isFlaggedStatus, setIsFlaggedStatus] = createSignal(false);
+	const [flagLoading, setFlagLoading] = createSignal(false);
 
 	const handleSearch = async (e?: Event) => {
 		if (e) e.preventDefault();
@@ -146,6 +154,16 @@ export const OwnerUsers: Component = () => {
 		setBanType('full');
 		setBanDuration(86400);
 		setShowBanModal(true);
+	};
+
+	const handleOpenFlagModal = (user: SearchedUser) => {
+		try {
+			hapticFeedback.impactOccurred('light');
+		} catch {}
+		setSelectedUser(user);
+		setFlagReason(user.fraud_reason || '');
+		setIsFlaggedStatus(!user.is_flagged);
+		setShowFlagModal(true);
 	};
 
 	const submitFrgAdjustment = async (e: Event) => {
@@ -239,6 +257,40 @@ export const OwnerUsers: Component = () => {
 		);
 	};
 
+	const submitFlagOperation = async (e: Event) => {
+		e.preventDefault();
+		const user = selectedUser();
+		if (!user) return;
+
+		setFlagLoading(true);
+		try {
+			const resp = await apiClient.post('/owner/users/flag', {
+				user_id: user.telegram_id,
+				is_flagged: isFlaggedStatus(),
+				fraud_reason: flagReason().trim(),
+			});
+
+			if (resp.data.success) {
+				try {
+					hapticFeedback.notificationOccurred('success');
+				} catch {}
+				setUsers(
+					users().map((u) =>
+						u.telegram_id === user.telegram_id ? { ...u, is_flagged: isFlaggedStatus(), fraud_reason: flagReason().trim() } : u,
+					),
+				);
+				setShowFlagModal(false);
+			}
+		} catch (err: any) {
+			showTmaAlert(err.response?.data?.error || 'Flagging operation failed.');
+			try {
+				hapticFeedback.notificationOccurred('error');
+			} catch {}
+		} finally {
+			setFlagLoading(false);
+		}
+	};
+
 	const handleNav = (path: string) => {
 		try {
 			hapticFeedback.impactOccurred('light');
@@ -261,9 +313,9 @@ export const OwnerUsers: Component = () => {
 						<span class="material-symbols-outlined text-[18px] text-white/70">chevron_left</span>
 					</div>
 					<div>
-						<h1 class="text-sm font-black uppercase tracking-wider text-white">Users</h1>
+						<h1 class="text-sm font-black uppercase tracking-wider text-white">کاربران</h1>
 						<p class="text-[9px] text-[#3390ec] font-black uppercase tracking-widest mt-0.5">
-							Manager
+							مدیریت
 						</p>
 					</div>
 				</div>
@@ -280,7 +332,7 @@ export const OwnerUsers: Component = () => {
 						<span class="material-symbols-outlined text-white/40 text-[20px]">search</span>
 						<input
 							type="text"
-							placeholder="Username, Display Name, Telegram ID..."
+							placeholder="نام کاربری، نام، شناسه تلگرام..."
 							value={query()}
 							onInput={(e) => setQuery(e.currentTarget.value)}
 							class="w-full h-12 bg-transparent text-xs text-white placeholder-white/30 focus:outline-none"
@@ -290,7 +342,7 @@ export const OwnerUsers: Component = () => {
 						type="submit"
 						class="h-12 px-6 bg-[#3390ec] hover:bg-[#2b7ec9] text-xs font-black uppercase tracking-wider text-white rounded-2xl shadow-lg shadow-[#3390ec]/10 active:scale-95 transition-all"
 					>
-						Search
+						جستجو
 					</button>
 				</form>
 
@@ -305,7 +357,7 @@ export const OwnerUsers: Component = () => {
 				<Show when={loading()}>
 					<div class="flex flex-col items-center justify-center py-12 gap-4">
 						<div class="w-10 h-10 border-3 border-[#3390ec] border-t-transparent rounded-full animate-spin" />
-						<span class="text-xs text-[#a0a4ad] font-bold">Scanning database records...</span>
+						<span class="text-xs text-[#a0a4ad] font-bold">در حال جستجو در دیتابیس...</span>
 					</div>
 				</Show>
 
@@ -323,7 +375,13 @@ export const OwnerUsers: Component = () => {
 												</span>
 												<Show when={user.is_premium}>
 													<span class="px-2 py-0.5 rounded bg-gradient-to-r from-teal-500/20 to-cyan-500/20 border border-teal-500/30 text-[8px] font-black uppercase tracking-wider text-teal-400">
-														Premium
+														پرمیوم
+													</span>
+												</Show>
+												<Show when={user.is_flagged}>
+													<span class="px-2 py-0.5 rounded bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-500/30 text-[8px] font-black uppercase tracking-wider text-orange-400 flex items-center gap-1" title={user.fraud_reason}>
+														<span class="material-symbols-outlined text-[10px]">warning</span>
+														متخلف
 													</span>
 												</Show>
 											</div>
@@ -337,10 +395,10 @@ export const OwnerUsers: Component = () => {
 
 										<div class="flex flex-col items-end">
 											<span class="text-[10px] text-[#a0a4ad] font-black uppercase tracking-wider">
-												Coins Balance
+												موجودی سکه
 											</span>
 											<span class="text-sm font-black text-[#ffcc00] mt-0.5">
-												{Math.round(user.balance).toLocaleString()} Coins
+												{Math.round(user.balance).toLocaleString()} سکه
 											</span>
 										</div>
 									</div>
@@ -352,7 +410,7 @@ export const OwnerUsers: Component = () => {
 											class="h-8 px-3 bg-gradient-to-r from-[#3390ec]/15 to-[#3390ec]/5 hover:from-[#3390ec]/25 border border-[#3390ec]/30 text-[9px] font-black uppercase tracking-wider text-[#3390ec] rounded-xl active:scale-95 transition-all flex items-center gap-1"
 										>
 											<span class="material-symbols-outlined text-[12px]">visibility</span>
-											Impersonate
+											ورود به جای کاربر
 										</button>
 
 										<button
@@ -362,7 +420,7 @@ export const OwnerUsers: Component = () => {
 											<span class="material-symbols-outlined text-[12px]">
 												account_balance_wallet
 											</span>
-											Adjust Coins
+											تغییر موجودی
 										</button>
 
 										<button
@@ -370,7 +428,7 @@ export const OwnerUsers: Component = () => {
 											class="h-8 px-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-[9px] font-black uppercase tracking-wider text-red-400 rounded-xl active:scale-95 transition-all flex items-center gap-1"
 										>
 											<span class="material-symbols-outlined text-[12px]">block</span>
-											Suspend
+											مسدود کردن
 										</button>
 
 										<button
@@ -378,7 +436,15 @@ export const OwnerUsers: Component = () => {
 											class="h-8 px-3 bg-white/5 hover:bg-white/10 border border-white/10 text-[9px] font-black uppercase tracking-wider text-white/70 hover:text-white rounded-xl active:scale-95 transition-all flex items-center gap-1"
 										>
 											<span class="material-symbols-outlined text-[12px]">lock_open</span>
-											Unban
+											رفع مسدودیت
+										</button>
+
+										<button
+											onClick={() => handleOpenFlagModal(user)}
+											class="h-8 px-3 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 text-[9px] font-black uppercase tracking-wider text-orange-400 rounded-xl active:scale-95 transition-all flex items-center gap-1"
+										>
+											<span class="material-symbols-outlined text-[12px]">flag</span>
+											{user.is_flagged ? 'حذف وضعیت متخلف' : 'نشان‌گذاری به عنوان متخلف'}
 										</button>
 									</div>
 								</div>
@@ -400,21 +466,21 @@ export const OwnerUsers: Component = () => {
 						</button>
 
 						<h2 class="text-sm font-black uppercase tracking-wider text-white mb-4">
-							Adjust Coins Balance
+							تغییر موجودی کاربر
 						</h2>
 						<p class="text-[10px] text-[#a0a4ad] font-bold mb-4">
-							Adding positive values increases user's balance. Negative values decrease balance.
-							Reason is strictly audited.
+							مقادیر مثبت موجودی را افزایش می‌دهند. مقادیر منفی باعث کسر از حساب می‌شوند. 
+							علت تغییر در لاگ‌ها ثبت خواهد شد.
 						</p>
 
 						<form onSubmit={submitFrgAdjustment} class="flex flex-col gap-4">
 							<div class="flex flex-col gap-1.5">
 								<label class="text-[9px] text-[#a0a4ad] font-black uppercase tracking-wider">
-									Adjustment Amount (Coins)
+									مقدار تغییر (سکه)
 								</label>
 								<input
 									type="number"
-									placeholder="e.g. 50000 or -20000"
+									placeholder="مثلاً 50000 یا -20000"
 									value={frgAmount() || ''}
 									onInput={(e) => setFrgAmount(Number(e.currentTarget.value))}
 									class="w-full h-12 bg-[#0f1014] border border-[#2a2c35] focus:border-[#ffcc00] rounded-2xl px-4 text-xs text-white font-bold focus:outline-none transition-all"
@@ -424,10 +490,10 @@ export const OwnerUsers: Component = () => {
 
 							<div class="flex flex-col gap-1.5">
 								<label class="text-[9px] text-[#a0a4ad] font-black uppercase tracking-wider">
-									Audit Adjustment Reason
+									علت تغییر برای لاگ امنیتی
 								</label>
 								<textarea
-									placeholder="e.g. Daily reward referral multiplier fix or refund for premium checkout"
+									placeholder="مثلاً جایزه قرعه‌کشی یا رفع مشکل خرید"
 									value={frgReason()}
 									onInput={(e) => setFrgReason(e.currentTarget.value)}
 									class="w-full h-20 bg-[#0f1014] border border-[#2a2c35] focus:border-[#ffcc00] rounded-2xl p-4 text-xs text-white focus:outline-none transition-all resize-none"
@@ -440,8 +506,60 @@ export const OwnerUsers: Component = () => {
 								disabled={frgLoading()}
 								class="w-full h-12 bg-[#ffcc00] hover:bg-[#e6b800] text-xs font-black uppercase tracking-wider text-[#0f1014] rounded-2xl active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-[#ffcc00]/10"
 							>
-								<Show when={frgLoading()} fallback="Apply Adjustments">
+								<Show when={frgLoading()} fallback="اعمال تغییرات">
 									<div class="w-5 h-5 border-2 border-[#0f1014] border-t-transparent rounded-full animate-spin" />
+								</Show>
+							</button>
+						</form>
+					</div>
+				</div>
+			</Show>
+
+			{/* Modal: Flag User */}
+			<Show when={showFlagModal() && selectedUser()}>
+				<div class="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-[#000000]/80 backdrop-blur-md animate-fade-in">
+					<div class="w-full max-w-sm bg-gradient-to-b from-[#1c1d22] to-[#121316] border border-[#2a2c35]/50 rounded-[32px] p-6 shadow-2xl relative">
+						<button
+							onClick={() => setShowFlagModal(false)}
+							class="absolute top-5 end-5 w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10 active:scale-95 transition-all"
+						>
+							<span class="material-symbols-outlined text-[18px] text-white/70">close</span>
+						</button>
+
+						<h2 class="text-sm font-black uppercase tracking-wider text-white mb-4">
+							{isFlaggedStatus() ? 'نشان‌گذاری به عنوان متخلف' : 'حذف وضعیت متخلف'}
+						</h2>
+						<p class="text-[10px] text-[#a0a4ad] font-bold mb-4">
+							کاربرانی که نشان‌گذاری می‌شوند در لیست بررسی قرار می‌گیرند.
+						</p>
+
+						<form onSubmit={submitFlagOperation} class="flex flex-col gap-4">
+							<Show when={isFlaggedStatus()}>
+								<div class="flex flex-col gap-1.5">
+									<label class="text-[9px] text-[#a0a4ad] font-black uppercase tracking-wider">
+										علت تخلف
+									</label>
+									<textarea
+										placeholder="مثلاً استفاده از بات‌های خودکار، تقلب در دعوت دوستان..."
+										value={flagReason()}
+										onInput={(e) => setFlagReason(e.currentTarget.value)}
+										class="w-full h-20 bg-[#0f1014] border border-[#2a2c35] focus:border-[#ff9500] rounded-2xl p-4 text-xs text-white focus:outline-none transition-all resize-none"
+										required
+									/>
+								</div>
+							</Show>
+
+							<button
+								type="submit"
+								disabled={flagLoading()}
+								class={`w-full h-12 text-xs font-black uppercase tracking-wider rounded-2xl active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-lg ${
+									isFlaggedStatus()
+										? 'bg-[#ff9500] hover:bg-[#e68600] text-[#0f1014] shadow-[#ff9500]/10'
+										: 'bg-white/10 hover:bg-white/20 text-white shadow-white/5'
+								}`}
+							>
+								<Show when={flagLoading()} fallback="ثبت وضعیت">
+									<div class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
 								</Show>
 							</button>
 						</form>
@@ -461,51 +579,50 @@ export const OwnerUsers: Component = () => {
 						</button>
 
 						<h2 class="text-sm font-black uppercase tracking-wider text-white mb-4">
-							Account Suspension / Lock
+							مسدودسازی حساب
 						</h2>
 						<p class="text-[10px] text-[#a0a4ad] font-bold mb-4">
-							Restricts user actions across iFragment platform. Safe security log tracking applies
-							automatically.
+							دسترس‌های کاربر محدود می‌شود و تمامی این محدودیت‌ها در لاگ سرور ثبت می‌گردد.
 						</p>
 
 						<form onSubmit={submitBanOperation} class="flex flex-col gap-4">
 							<div class="flex flex-col gap-1.5">
 								<label class="text-[9px] text-[#a0a4ad] font-black uppercase tracking-wider">
-									Lock Severity Level
+									سطح مسدودسازی
 								</label>
 								<select
 									value={banType()}
 									onChange={(e) => setBanType(e.currentTarget.value)}
 									class="w-full h-12 bg-[#0f1014] border border-[#2a2c35] focus:border-red-500 rounded-2xl px-4 text-xs text-white focus:outline-none transition-all"
 								>
-									<option value="full">Full Account Block (Sign in denied)</option>
-									<option value="shadow">Shadow Ban (Ghost interactions)</option>
-									<option value="wallet_freeze">Wallet Freeze (Transfer locked)</option>
+									<option value="full">مسدودی کامل (عدم اجازه ورود)</option>
+									<option value="shadow">شدوبن (کاربر متوجه مسدودی نمی‌شود)</option>
+									<option value="wallet_freeze">قفل کیف پول (عدم اجازه انتقال)</option>
 								</select>
 							</div>
 
 							<div class="flex flex-col gap-1.5">
 								<label class="text-[9px] text-[#a0a4ad] font-black uppercase tracking-wider">
-									Lock Duration
+									مدت زمان
 								</label>
 								<select
 									value={banDuration()}
 									onChange={(e) => setBanDuration(Number(e.currentTarget.value))}
 									class="w-full h-12 bg-[#0f1014] border border-[#2a2c35] focus:border-red-500 rounded-2xl px-4 text-xs text-white focus:outline-none transition-all"
 								>
-									<option value={3600}>1 Hour suspension</option>
-									<option value={86400}>1 Day suspension</option>
-									<option value={604800}>1 Week lock</option>
-									<option value={0}>Permanent ban</option>
+									<option value={3600}>۱ ساعت</option>
+									<option value={86400}>۱ روز</option>
+									<option value={604800}>۱ هفته</option>
+									<option value={0}>دائمی</option>
 								</select>
 							</div>
 
 							<div class="flex flex-col gap-1.5">
 								<label class="text-[9px] text-[#a0a4ad] font-black uppercase tracking-wider">
-									Reason for Suspension
+									علت مسدودسازی
 								</label>
 								<textarea
-									placeholder="e.g. Exploiting referral chain or automated bot script tapping detected"
+									placeholder="مثلاً استفاده از اتوکلیکر یا تقلب در زیرمجموعه گیری"
 									value={banReason()}
 									onInput={(e) => setBanReason(e.currentTarget.value)}
 									class="w-full h-20 bg-[#0f1014] border border-[#2a2c35] focus:border-red-500 rounded-2xl p-4 text-xs text-white focus:outline-none transition-all resize-none"
@@ -518,7 +635,7 @@ export const OwnerUsers: Component = () => {
 								disabled={banLoading()}
 								class="w-full h-12 bg-red-500 hover:bg-red-600 text-xs font-black uppercase tracking-wider text-white rounded-2xl active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-red-500/10"
 							>
-								<Show when={banLoading()} fallback="Apply Restrictions">
+								<Show when={banLoading()} fallback="اعمال محدودیت">
 									<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
 								</Show>
 							</button>

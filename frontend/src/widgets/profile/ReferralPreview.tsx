@@ -71,8 +71,8 @@ export const ReferralPreview: Component<Props> = (props) => {
 					<span class="text-[#34c759] font-black text-xl">
 						{((props.referral?.totalEarned ?? 0) / 1000).toFixed(0)}K
 					</span>
-					<span class="text-[#a0a4ad] text-[10px] font-bold block mt-0.5">
-						FRG {t('profile.earned') || 'Earned'}
+					<span class="text-[#a0a4ad] text-[10px] font-bold mt-0.5 flex items-center justify-center gap-1">
+						<span class="text-[8px]">🟡</span> {t('profile.earned') || 'Earned'}
 					</span>
 				</div>
 			</div>

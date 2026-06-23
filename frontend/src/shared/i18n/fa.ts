@@ -1862,9 +1862,10 @@ export const dict = {
 			turbo: 'توربو',
 			fullEnergy: 'انرژی کامل',
 			available: '{count} موجود',
-			boostersTitle: 'بوسترها',
+			boostersTitle: 'تقویت‌کننده‌ها',
 			maxLevelReached: 'به حداکثر سطح رسید',
 			lvl: 'سطح',
+			upgradeSuccess: 'ارتقا با موفقیت انجام شد!',
 			meta: {
 				tapPower: { name: 'چند-تپ', desc: 'افزایش سکه در هر تپ' },
 				energyCap: { name: 'محدودیت انرژی', desc: 'افزایش ظرفیت مخزن انرژی' },
@@ -1919,5 +1920,13 @@ export const dict = {
 			joinChannel: 'عضویت در کانال رسمی',
 			specialTask: 'ماموریت ویژه',
 		},
-	}
+	},
+	promo: {
+		title: 'استفاده از کد هدیه',
+		description: 'برای دریافت فوری توکن FRG رایگان خود، یک کد هدیه معتبر وارد کنید.',
+		placeholder: 'کد هدیه را وارد کنید',
+		claim: 'دریافت پاداش',
+		success: 'کد هدیه با موفقیت استفاده شد!',
+		error: 'استفاده از کد هدیه با شکست مواجه شد. لطفاً کد را بررسی کرده یا دوباره امتحان کنید.',
+	},
 };

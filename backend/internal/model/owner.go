@@ -44,13 +44,20 @@ type ImpersonationSession struct {
 	ActionsTaken json.RawMessage `json:"actions_taken,omitempty"`
 }
 
+type ChartPoint struct {
+	Date  string  `json:"date"`
+	Value float64 `json:"value"`
+}
+
 type OwnerDashboardStats struct {
 	DAU            int             `json:"dau"`
 	MAU            int             `json:"mau"`
 	TotalUsers     int             `json:"total_users"`
 	FrgCirculation float64         `json:"frg_circulation"`
-	TonVolume      float64         `json:"ton_volume"`
+	StarsVolume    float64         `json:"stars_volume"`
 	RecentActivity []OwnerAuditLog `json:"recent_activity"`
+	DauChart       []ChartPoint    `json:"dau_chart"`
+	CoinFlowChart  []ChartPoint    `json:"coin_flow_chart"`
 }
 
 type PromoCode struct {
@@ -78,3 +85,58 @@ type ManagedUserbot struct {
 	UpdatedAt     time.Time `json:"updated_at"`
 }
 
+type SystemSettings struct {
+	MaintenanceMode bool    `json:"maintenance_mode"`
+	TapMultiplier   float64 `json:"tap_multiplier"`
+	ReferralBonus   int     `json:"referral_bonus"`
+	DailyRewardBase int     `json:"daily_reward_base"`
+}
+
+type Broadcast struct {
+	ID             string    `json:"id"`
+	OwnerID        int64     `json:"owner_id"`
+	TargetAudience string    `json:"target_audience"` // 'all', 'premium', 'active'
+	Message        string    `json:"message"`
+	Status         string    `json:"status"` // 'pending', 'processing', 'completed', 'failed'
+	SentCount      int       `json:"sent_count"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+type OrderRecord struct {
+	ID        string    `json:"id"`
+	UserID    int64     `json:"user_id"`
+	Amount    int       `json:"amount"`
+	Status    string    `json:"status"`
+	Payload   string    `json:"payload"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type PremiumEntity struct {
+	EntityType   string     `json:"entity_type"` // "channel" or "group"
+	EntityID     string     `json:"entity_id"`
+	Title        string     `json:"title"`
+	OwnerID      int64      `json:"owner_id"`
+	PremiumUntil *time.Time `json:"premium_until"`
+}
+
+type SystemErrorLog struct {
+	ID           string    `json:"id"`
+	Source       string    `json:"source"`
+	ErrorMessage string    `json:"error_message"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+type SystemHealthMetrics struct {
+	Goroutines  int    `json:"goroutines"`
+	AllocatedMB uint64 `json:"allocated_mb"`
+	TotalSysMB  uint64 `json:"total_sys_mb"`
+	DBStatus    string `json:"db_status"`
+}
+
+type EntityRecord struct {
+	EntityType string `json:"entity_type"`
+	EntityID   string `json:"entity_id"`
+	Title      string `json:"title"`
+	Status     string `json:"status"`
+	OwnerID    int64  `json:"owner_id"`
+}

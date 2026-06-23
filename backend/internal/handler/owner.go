@@ -147,6 +147,38 @@ func (h *OwnerHandler) BanUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
+// FlagUser Request struct
+type FlagUserRequest struct {
+	UserID      int64  `json:"user_id"`
+	IsFlagged   bool   `json:"is_flagged"`
+	FraudReason string `json:"fraud_reason"`
+}
+
+func (h *OwnerHandler) FlagUser(w http.ResponseWriter, r *http.Request) {
+	ownerID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, err.Error(), err)
+		return
+	}
+
+	var req FlagUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "Invalid request body", err)
+		return
+	}
+
+	ip := middleware.GetRealIP(r)
+	ua := r.UserAgent()
+
+	if err := h.srv.FlagUser(r.Context(), ownerID, req.UserID, req.IsFlagged, req.FraudReason, ip, ua); err != nil {
+		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
 func (h *OwnerHandler) UnbanUser(w http.ResponseWriter, r *http.Request) {
 	ownerID, err := middleware.GetUserID(r.Context())
 	if err != nil {
@@ -516,6 +548,48 @@ func (h *OwnerHandler) DeleteUserbot(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
+// Broadcasts
+func (h *OwnerHandler) CreateBroadcast(w http.ResponseWriter, r *http.Request) {
+	ownerID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, err.Error(), err)
+		return
+	}
+
+	var req struct {
+		TargetAudience string `json:"target_audience"`
+		Message        string `json:"message"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "Invalid request payload", err)
+		return
+	}
+
+	id, err := h.srv.CreateBroadcast(r.Context(), ownerID, req.TargetAudience, req.Message, middleware.GetRealIP(r), r.UserAgent())
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"id": id, "status": "pending"})
+}
+
+func (h *OwnerHandler) ListBroadcasts(w http.ResponseWriter, r *http.Request) {
+	list, err := h.srv.ListBroadcasts(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		return
+	}
+
+	if list == nil {
+		list = []model.Broadcast{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(list)
+}
 
 // AdjustAirdropCoins Handler
 func (h *OwnerHandler) AdjustAirdropCoins(w http.ResponseWriter, r *http.Request) {
@@ -535,3 +609,124 @@ func (h *OwnerHandler) AdjustAirdropCoins(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(`{"status":"success"}`))
 }
+
+func (h *OwnerHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
+	settings, err := h.srv.GetSystemSettings(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "Failed to get settings", err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(settings)
+}
+
+// ─── Finance & Subscriptions ────────────────────────────────────────────────
+func (h *OwnerHandler) GetFinanceOrders(w http.ResponseWriter, r *http.Request) {
+	limit := 50
+	offset := 0
+	// parsing limit and offset from query can be added if needed
+	records, err := h.srv.GetOrdersList(r.Context(), limit, offset)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "Failed to get orders", err)
+		return
+	}
+	if records == nil {
+		records = []model.OrderRecord{}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(records)
+}
+
+func (h *OwnerHandler) GetPremiumEntities(w http.ResponseWriter, r *http.Request) {
+	entities, err := h.srv.GetPremiumEntities(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "Failed to get premium entities", err)
+		return
+	}
+	if entities == nil {
+		entities = []model.PremiumEntity{}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(entities)
+}
+
+// ─── System Health & Logs ───────────────────────────────────────────────────
+func (h *OwnerHandler) GetSystemErrors(w http.ResponseWriter, r *http.Request) {
+	limit := 50
+	logs, err := h.srv.GetSystemErrors(r.Context(), limit)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "Failed to get system errors", err)
+		return
+	}
+	if logs == nil {
+		logs = []model.SystemErrorLog{}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(logs)
+}
+
+func (h *OwnerHandler) GetSystemHealthMetrics(w http.ResponseWriter, r *http.Request) {
+	metrics, err := h.srv.GetSystemHealthMetrics(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "Failed to get health metrics", err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(metrics)
+}
+
+// ─── Entities (Channels & Groups) ───────────────────────────────────────────
+func (h *OwnerHandler) GetAllChannels(w http.ResponseWriter, r *http.Request) {
+	limit := 100
+	offset := 0
+	entities, err := h.srv.GetAllChannels(r.Context(), limit, offset)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "Failed to get channels", err)
+		return
+	}
+	if entities == nil {
+		entities = []model.EntityRecord{}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(entities)
+}
+
+func (h *OwnerHandler) GetAllGroups(w http.ResponseWriter, r *http.Request) {
+	limit := 100
+	offset := 0
+	entities, err := h.srv.GetAllGroups(r.Context(), limit, offset)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "Failed to get groups", err)
+		return
+	}
+	if entities == nil {
+		entities = []model.EntityRecord{}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(entities)
+}
+
+
+func (h *OwnerHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
+	ownerID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, err.Error(), err)
+		return
+	}
+
+	var req model.SystemSettings
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "Invalid request payload", err)
+		return
+	}
+
+	err = h.srv.UpdateSystemSettings(r.Context(), &req, ownerID, middleware.GetRealIP(r), r.UserAgent())
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+

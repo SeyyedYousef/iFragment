@@ -43,6 +43,13 @@ import { TasksPage } from '@/pages/profile/tasks/index.js';
 import { CollectionStatsPage } from '@/pages/username/collection-stats/index.js';
 import { PremiumReportPage } from '@/pages/username/premium-report/index.js';
 
+import { OwnerSettingsPage } from '@/pages/owner/settings/index.js';
+import { OwnerPromosPage } from '@/pages/owner/promos/index.js';
+import { OwnerBroadcastPage } from '@/pages/owner/broadcast/index.js';
+import { OwnerFinancePage } from '@/pages/owner/finance/index.js';
+import { OwnerHealthPage } from '@/pages/owner/health/index.js';
+import { OwnerEntitiesPage } from '@/pages/owner/entities/index.js';
+
 interface Route {
 	path: string;
 	Component: Component;
@@ -93,4 +100,10 @@ export const routes: Route[] = [
 	{ path: '/owner/audit-logs', Component: OwnerAuditLogPage },
 	{ path: '/owner/quests', Component: OwnerQuests },
 	{ path: '/owner/userbot', Component: OwnerUserbot },
+	{ path: '/owner/settings', Component: OwnerSettingsPage },
+	{ path: '/owner/promos', Component: OwnerPromosPage },
+	{ path: '/owner/broadcast', Component: OwnerBroadcastPage },
+	{ path: '/owner/finance', Component: OwnerFinancePage },
+	{ path: '/owner/health', Component: OwnerHealthPage },
+	{ path: '/owner/entities', Component: OwnerEntitiesPage },
 ];

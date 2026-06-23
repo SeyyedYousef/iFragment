@@ -36,7 +36,7 @@ export const OwnerAuditLog: Component = () => {
 				setLogs(newLogs);
 			}
 		} catch (_err: any) {
-			setError(t('ownerAuditLog.retrieveError'));
+			setError('خطا در دریافت اطلاعات سرور');
 		} finally {
 			setLoading(false);
 		}
@@ -78,10 +78,10 @@ export const OwnerAuditLog: Component = () => {
 					</div>
 					<div>
 						<h1 class="text-sm font-black uppercase tracking-wider text-white">
-							{t('ownerAuditLog.title')}
+							لاگ‌های امنیتی سیستم
 						</h1>
 						<p class="text-[9px] text-[#3390ec] font-black uppercase tracking-widest mt-0.5">
-							{t('ownerAuditLog.systemSecurity')}
+							گزارش رویدادها
 						</p>
 					</div>
 				</div>
@@ -114,24 +114,24 @@ export const OwnerAuditLog: Component = () => {
 
 								<div class="flex flex-col gap-1.5 text-xs">
 									<div class="flex justify-between text-white/60">
-										<span class="font-bold">{t('ownerAuditLog.operatorId')}</span>
+										<span class="font-bold">شناسه مدیر</span>
 										<span class="text-white font-medium">{log.owner_id}</span>
 									</div>
 									<Show when={log.target_user_id}>
 										<div class="flex justify-between text-white/60">
-											<span class="font-bold">{t('ownerAuditLog.targetId')}</span>
+											<span class="font-bold">شناسه کاربر هدف</span>
 											<span class="text-[#3390ec] font-medium">{log.target_user_id}</span>
 										</div>
 									</Show>
 									<Show when={log.ip_address}>
 										<div class="flex justify-between text-white/60">
-											<span class="font-bold">{t('ownerAuditLog.ipAddress')}</span>
+											<span class="font-bold">آدرس IP</span>
 											<span class="font-mono text-[10px] text-white/80">{log.ip_address}</span>
 										</div>
 									</Show>
 									<Show when={log.user_agent}>
 										<div class="flex flex-col gap-0.5 text-white/60">
-											<span class="font-bold">{t('ownerAuditLog.userAgent')}</span>
+											<span class="font-bold">مرورگر سیستم</span>
 											<span class="text-[10px] text-white/40 leading-relaxed font-mono truncate">
 												{log.user_agent}
 											</span>
@@ -140,7 +140,7 @@ export const OwnerAuditLog: Component = () => {
 									<Show when={log.payload}>
 										<div class="mt-2 p-3 bg-[#0f1014] border border-[#2a2c35]/30 rounded-2xl flex flex-col gap-1 font-mono text-[9px] text-white/50">
 											<span class="font-bold text-[#a0a4ad] uppercase text-[8px] tracking-wide mb-1">
-												{t('ownerAuditLog.payloadChanges')}
+												دیتا تغییرات اعمال شده
 											</span>
 											<pre class="whitespace-pre-wrap break-all leading-normal">
 												{JSON.stringify(log.payload, null, 2)}
@@ -160,7 +160,7 @@ export const OwnerAuditLog: Component = () => {
 						class="w-full h-12 mt-6 bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-black uppercase tracking-wider text-white rounded-2xl active:scale-95 transition-all flex items-center justify-center gap-1.5"
 					>
 						<span class="material-symbols-outlined text-[16px]">expand_more</span>
-						{t('ownerAuditLog.loadMore')}
+						بارگذاری بیشتر
 					</button>
 				</Show>
 

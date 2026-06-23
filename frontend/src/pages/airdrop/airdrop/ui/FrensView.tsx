@@ -40,7 +40,7 @@ export const FrensView: Component = () => {
 		const fullLink = `https://t.me/iFragmentBot?start=${link}`;
 		// Use openTelegramLink to trigger the native share sheet
 		openTelegramLink(
-			`https://t.me/share/url?url=${encodeURIComponent(fullLink)}&text=${encodeURIComponent('Join me on iFragment and earn free FRG! 💎')}`,
+			`https://t.me/share/url?url=${encodeURIComponent(fullLink)}&text=${encodeURIComponent('Join me on iFragment and earn free Coins! 🟡')}`,
 		);
 	};
 
@@ -60,10 +60,10 @@ export const FrensView: Component = () => {
 			{/* Header Section */}
 			<div class="px-5 pt-14 pb-8 flex flex-col items-center">
 				<h1 class="text-[40px] font-bold tracking-tight mb-3 text-center text-white">
-					{frensCount()} {t('airdropFinal.friends.frensCount') || 'Frens'}
+					{frensCount()} {t('airdrop.friends.friendsJoined') || 'Frens'}
 				</h1>
 				<p class="text-[#8e8e93] text-[15px] text-center mb-10 font-normal leading-relaxed max-w-[280px]">
-					{t('airdropFinal.friends.subtitle') || 'Invite a friend to get bonuses and increase your squad'}
+					{t('airdrop.friends.subtitle') || 'Invite a friend to get bonuses and increase your squad'}
 				</p>
 
 				{/* Premium Invite Button */}
@@ -71,7 +71,7 @@ export const FrensView: Component = () => {
 					onClick={handleInvite}
 					class="w-full h-14 bg-white text-black rounded-[16px] font-semibold text-[17px] active:scale-[0.98] transition-transform flex items-center justify-center gap-2 shadow-sm"
 				>
-					{t('airdropFinal.friends.inviteBtn') || 'Invite a fren'}
+					{t('airdrop.friends.inviteBtn') || 'Invite a fren'}
 					<span class="material-symbols-outlined text-[20px]">person_add</span>
 				</button>
 			</div>
@@ -80,7 +80,7 @@ export const FrensView: Component = () => {
 			<div class="px-5 mt-2 flex-1 flex flex-col">
 				<div class="flex items-center justify-between mb-4">
 					<h2 class="text-[17px] font-semibold text-white">
-						{t('airdropFinal.friends.listTitle') || 'Frens list'}
+						{t('airdrop.friends.yourReferrals') || 'Frens list'}
 					</h2>
 				</div>
 
@@ -89,7 +89,7 @@ export const FrensView: Component = () => {
 					fallback={
 						<div class="flex-1 flex flex-col items-center justify-center py-10">
 							<p class="text-[#8e8e93] text-[15px] font-medium">
-								{t('airdropFinal.friends.noFriends') || "You haven't invited anyone yet"}
+								{t('airdrop.friends.noFriends') || "You haven't invited anyone yet"}
 							</p>
 						</div>
 					}
@@ -124,7 +124,7 @@ export const FrensView: Component = () => {
 												{friend.name}
 											</div>
 											<div class="text-[#8e8e93] text-[13px] font-normal mt-1 leading-none w-full text-left">
-												{formatNumber(friend.frensCount || 0)} {t('airdropFinal.friends.frensCount') || 'frens'}
+												{formatNumber(friend.frensCount || 0)} {t('airdrop.friends.friendsJoined') || 'frens'}
 											</div>
 										</div>
 										<div class="flex flex-col items-end justify-center shrink-0">

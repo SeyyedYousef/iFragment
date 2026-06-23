@@ -1921,6 +1921,7 @@ To enable me to delete malicious messages and restrict violating users, please a
 			boostersTitle: 'Boosters',
 			maxLevelReached: 'Maximum level reached',
 			lvl: 'lvl',
+			upgradeSuccess: 'Upgrade successful!',
 			meta: {
 				tapPower: { name: 'Multitap', desc: 'Increase coin earn per tap' },
 				energyCap: { name: 'Energy Limit', desc: 'Increase maximum energy capacity' },
@@ -1975,5 +1976,13 @@ To enable me to delete malicious messages and restrict violating users, please a
 			joinChannel: 'Join Official Channel',
 			specialTask: 'Special Task',
 		},
-	}
+	},
+	promo: {
+		title: 'Redeem Gift Code',
+		description: 'Enter a valid promotional or partner gift code to claim your free FRG token reward instantly.',
+		placeholder: 'ENTER PROMO CODE',
+		claim: 'Claim Reward',
+		success: 'Promo code successfully redeemed!',
+		error: 'Failed to redeem promo code. Please check code or try again.',
+	},
 };

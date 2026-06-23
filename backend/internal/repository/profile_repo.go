@@ -394,7 +394,7 @@ func (db *Database) GetReferralData(ctx context.Context, userID int64) (*model.R
 	g.Go(func() error {
 		friendsQuery := `
 			SELECT u.telegram_id, COALESCE(u.username, u.first_name), u.created_at,
-			       0 AS total_earned,
+			       10000.0 AS total_earned,
 			       COALESCE(us.airdrop_coins, 0),
 			       (SELECT COUNT(*) FROM users u2 WHERE u2.referred_by = u.telegram_id) as frens_count
 			FROM users u
@@ -435,7 +435,7 @@ func (db *Database) GetReferralData(ctx context.Context, userID int64) (*model.R
 	})
 
 	g.Go(func() error {
-		totalEarned = 0
+		totalEarned = float64(totalInvited) * 10000.0
 		return nil
 	})
 
@@ -475,7 +475,15 @@ func (db *Database) SetReferredBy(ctx context.Context, userID int64, referrerCod
 	if err != nil {
 		return false, err
 	}
-	return cmdTag.RowsAffected() == 1, nil
+	
+	success := cmdTag.RowsAffected() == 1
+	if success {
+		// Give 10,000 Coins to both referrer and the new user
+		_ = db.AdjustAirdropCoins(ctx, referrerID, 10000.0)
+		_ = db.AdjustAirdropCoins(ctx, userID, 10000.0)
+	}
+
+	return success, nil
 }
 
 const base62Chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"

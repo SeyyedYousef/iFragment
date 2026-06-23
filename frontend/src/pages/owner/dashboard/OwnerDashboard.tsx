@@ -10,7 +10,7 @@ interface DashboardStats {
 	mau: number;
 	total_users: number;
 	frg_circulation: number;
-	ton_volume: number;
+	stars_volume: number;
 	recent_activity: Array<{
 		id: string;
 		owner_id: number;
@@ -20,7 +20,30 @@ interface DashboardStats {
 		ip_address?: string;
 		created_at: string;
 	}>;
+	dau_chart: Array<{ date: string; value: number }>;
+	coin_flow_chart: Array<{ date: string; value: number }>;
 }
+
+const MiniChart: Component<{ data: Array<{ date: string; value: number }>; color: string }> = (props) => {
+	const max = () => Math.max(...props.data.map((d) => d.value), 1);
+	return (
+		<div class="flex items-end justify-between h-12 w-full mt-3 gap-1">
+			<For each={props.data}>
+				{(d) => (
+					<div class="relative w-full flex justify-center group">
+						<div
+							class={`w-full max-w-[8px] rounded-t-sm transition-all duration-300 ${props.color}`}
+							style={{ height: `${(d.value / max()) * 100}%` }}
+						/>
+						<div class="absolute -top-8 bg-black/80 px-2 py-1 rounded text-[9px] font-black opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20">
+							{d.date}: {d.value.toLocaleString()}
+						</div>
+					</div>
+				)}
+			</For>
+		</div>
+	);
+};
 
 export const OwnerDashboard: Component = () => {
 	const navigate = useNavigate();
@@ -72,9 +95,9 @@ export const OwnerDashboard: Component = () => {
 						🛡️
 					</div>
 					<div>
-						<h1 class="text-sm font-black uppercase tracking-wider text-white">Owner Panel</h1>
+						<h1 class="text-sm font-black uppercase tracking-wider text-white">پنل مدیریت</h1>
 						<p class="text-[9px] text-[#3390ec] font-black uppercase tracking-widest mt-0.5">
-							Control Center
+							مرکز کنترل سرور
 						</p>
 					</div>
 				</div>
@@ -84,7 +107,7 @@ export const OwnerDashboard: Component = () => {
 					class="h-9 px-4 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/30 text-[10px] font-black text-red-400 rounded-xl uppercase tracking-wider transition-all flex items-center gap-1.5"
 				>
 					<span class="material-symbols-outlined text-[14px]">logout</span>
-					Exit Panel
+					خروج از پنل
 				</button>
 			</div>
 
@@ -97,7 +120,7 @@ export const OwnerDashboard: Component = () => {
 					<div class="p-4 bg-red-500/10 border border-red-500/20 rounded-3xl flex items-start gap-3 animate-fade-in mb-6">
 						<span class="material-symbols-outlined text-red-500 mt-0.5">error</span>
 						<div>
-							<h3 class="text-sm font-black text-white">Access Violation</h3>
+							<h3 class="text-sm font-black text-white">خطای دسترسی</h3>
 							<p class="text-xs text-red-400 mt-1 leading-relaxed">{error()}</p>
 						</div>
 					</div>
@@ -109,7 +132,7 @@ export const OwnerDashboard: Component = () => {
 						<div class="flex flex-col items-center justify-center py-20 gap-4">
 							<div class="w-10 h-10 border-3 border-[#3390ec] border-t-transparent rounded-full animate-spin" />
 							<span class="text-xs text-[#a0a4ad] font-bold">
-								Synchronizing core network statistics...
+								در حال همگام‌سازی اطلاعات سرور...
 							</span>
 						</div>
 					}
@@ -121,7 +144,7 @@ export const OwnerDashboard: Component = () => {
 							<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-4 flex flex-col justify-between hover:scale-[1.02] active:scale-[0.98] transition-all duration-300">
 								<div class="flex items-center justify-between mb-2">
 									<span class="text-[10px] text-[#a0a4ad] font-black uppercase tracking-wider">
-										Active Today (DAU)
+										فعالین امروز (DAU)
 									</span>
 									<div class="w-6 h-6 rounded-lg bg-[#34c759]/10 flex items-center justify-center text-[#34c759] text-xs">
 										⚡
@@ -131,15 +154,18 @@ export const OwnerDashboard: Component = () => {
 									{(stats()?.dau ?? 0).toLocaleString()}
 								</span>
 								<span class="text-[9px] text-[#34c759] font-bold mt-1">
-									Live active user sessions
+									تعداد کاربرانی که امروز فعال بوده‌اند
 								</span>
+								<Show when={stats()?.dau_chart?.length}>
+									<MiniChart data={stats()!.dau_chart} color="bg-[#34c759]" />
+								</Show>
 							</div>
 
 							{/* MAU */}
 							<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-4 flex flex-col justify-between hover:scale-[1.02] active:scale-[0.98] transition-all duration-300">
 								<div class="flex items-center justify-between mb-2">
 									<span class="text-[10px] text-[#a0a4ad] font-black uppercase tracking-wider">
-										Active Monthly (MAU)
+										فعالین ماه (MAU)
 									</span>
 									<div class="w-6 h-6 rounded-lg bg-[#3390ec]/10 flex items-center justify-center text-[#3390ec] text-xs">
 										📊
@@ -155,7 +181,7 @@ export const OwnerDashboard: Component = () => {
 							<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-4 flex flex-col justify-between hover:scale-[1.02] active:scale-[0.98] transition-all duration-300">
 								<div class="flex items-center justify-between mb-2">
 									<span class="text-[10px] text-[#a0a4ad] font-black uppercase tracking-wider">
-										Total Registered
+										کل کاربران ثبت نامی
 									</span>
 									<div class="w-6 h-6 rounded-lg bg-[#5856d6]/10 flex items-center justify-center text-[#5856d6] text-xs">
 										👥
@@ -164,42 +190,49 @@ export const OwnerDashboard: Component = () => {
 								<span class="text-2xl font-black text-white">
 									{(stats()?.total_users ?? 0).toLocaleString()}
 								</span>
-								<span class="text-[9px] text-[#a0a4ad] font-bold mt-1">Total database users</span>
+								<span class="text-[9px] text-[#a0a4ad] font-bold mt-1">تعداد اعضای دیتابیس</span>
 							</div>
 
-							{/* FRG Circulation */}
+							{/* Coins Circulation */}
 							<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-4 flex flex-col justify-between hover:scale-[1.02] active:scale-[0.98] transition-all duration-300">
 								<div class="flex items-center justify-between mb-2">
 									<span class="text-[10px] text-[#a0a4ad] font-black uppercase tracking-wider">
-										FRG Circulation
+										سکه‌های در گردش
 									</span>
 									<div class="w-6 h-6 rounded-lg bg-[#ffcc00]/10 flex items-center justify-center text-[#ffcc00] text-xs">
 										🪙
 									</div>
 								</div>
 								<span class="text-lg font-black text-white truncate">
-									{Math.round(stats()?.frg_circulation ?? 0).toLocaleString()} FRG
+									{Math.round(stats()?.frg_circulation ?? 0).toLocaleString()} سکه
 								</span>
 								<span class="text-[9px] text-[#ffcc00] font-bold mt-1">
-									Total tokens circulated
+									کل سکه‌های ارائه شده در سیستم
 								</span>
 							</div>
 						</div>
 
-						{/* TON Volume card */}
-						<div class="w-full bg-gradient-to-r from-[#0088cc]/20 to-[#0088cc]/5 border border-[#0088cc]/30 rounded-3xl p-5 mb-6 hover:scale-[1.01] transition-all duration-300 flex justify-between items-center">
+						{/* Stars Volume card */}
+						<div class="w-full bg-gradient-to-r from-[#ffd21e]/20 to-[#ffd21e]/5 border border-[#ffd21e]/30 rounded-3xl p-5 mb-6 hover:scale-[1.01] transition-all duration-300 flex justify-between items-center">
 							<div>
-								<span class="text-[10px] text-[#0088cc] font-black uppercase tracking-widest block mb-1">
-									TON Stars Volume
+								<span class="text-[10px] text-[#ffd21e] font-black uppercase tracking-widest block mb-1">
+									حجم خریدهای تلگرام
 								</span>
 								<h3 class="text-2xl font-black text-white">
-									{Number(stats()?.ton_volume ?? 0).toFixed(2)} TON
+									{Number(stats()?.stars_volume ?? 0).toFixed(0)} ⭐
 								</h3>
 								<span class="text-[9px] text-white/50 font-bold block mt-0.5">
-									Approximate gross revenue from Star checkout transactions
+									درآمد ناخالص از خرید ستاره‌های تلگرام
 								</span>
 							</div>
-							<div class="text-4xl">💎</div>
+							<div class="w-1/3">
+								<Show when={stats()?.coin_flow_chart?.length}>
+									<MiniChart data={stats()!.coin_flow_chart} color="bg-[#ffd21e]" />
+								</Show>
+							</div>
+							<div class="w-12 h-12 rounded-2xl bg-black/20 flex items-center justify-center text-xl shrink-0">
+								💳
+							</div>
 						</div>
 
 						{/* Custom SVG Line Chart for Network traffic trend */}
@@ -209,7 +242,7 @@ export const OwnerDashboard: Component = () => {
 									trending_up
 								</span>
 								<h3 class="text-xs font-black uppercase tracking-wider text-white">
-									iFragment Traffic Growth
+									رشد ترافیک کاربران
 								</h3>
 							</div>
 							<div class="h-28 w-full relative overflow-hidden flex items-end">
@@ -264,13 +297,13 @@ export const OwnerDashboard: Component = () => {
 
 							{/* Timeline labels */}
 							<div class="flex justify-between text-[8px] text-[#a0a4ad] font-bold mt-3 uppercase tracking-wider">
-								<span>Mon</span>
-								<span>Tue</span>
-								<span>Wed</span>
-								<span>Thu</span>
-								<span>Fri</span>
-								<span>Sat</span>
-								<span>Sun</span>
+								<span>دوشنبه</span>
+								<span>سه‌شنبه</span>
+								<span>چهارشنبه</span>
+								<span>پنجشنبه</span>
+								<span>جمعه</span>
+								<span>شنبه</span>
+								<span>یکشنبه</span>
 							</div>
 						</div>
 
@@ -280,15 +313,15 @@ export const OwnerDashboard: Component = () => {
 								<div class="flex items-center gap-2">
 									<span class="material-symbols-outlined text-[#3390ec]">receipt_long</span>
 									<h3 class="text-xs font-black uppercase tracking-wider text-white">
-										Recent Activities
+										فعالیت‌های اخیر
 									</h3>
 								</div>
 								<button
 									onClick={() => handleNav('/owner/audit-logs')}
 									class="text-[9px] text-[#3390ec] font-black uppercase tracking-wider flex items-center gap-0.5 hover:underline"
 								>
-									View All
-									<span class="material-symbols-outlined text-[12px]">chevron_right</span>
+									مشاهده همه
+									<span class="material-symbols-outlined text-[12px]">chevron_left</span>
 								</button>
 							</div>
 
@@ -297,7 +330,7 @@ export const OwnerDashboard: Component = () => {
 									when={(stats()?.recent_activity?.length ?? 0) > 0}
 									fallback={
 										<div class="text-center py-6 text-xs text-[#a0a4ad] font-bold">
-											No security audit logs found. System is clean.
+											هیچ لاگ امنیتی یافت نشد. وضعیت عادی است.
 										</div>
 									}
 								>
@@ -310,12 +343,12 @@ export const OwnerDashboard: Component = () => {
 															{log.action}
 														</span>
 														<span class="text-[9px] text-[#a0a4ad] font-bold">
-															By Admin {log.owner_id}
+															توسط ادمین {log.owner_id}
 														</span>
 													</div>
 													<Show when={log.target_user_id}>
 														<span class="text-[10px] text-white/80 font-medium truncate">
-															Target user ID: {log.target_user_id}
+															کاربر هدف: {log.target_user_id}
 														</span>
 													</Show>
 												</div>
@@ -326,10 +359,10 @@ export const OwnerDashboard: Component = () => {
 																	hour: '2-digit',
 																	minute: '2-digit',
 																})
-															: 'Unknown'}
+															: 'نامشخص'}
 													</span>
 													<span class="text-[8px] text-[#3390ec] font-bold">
-														{log.ip_address || 'Server'}
+														{log.ip_address || 'سرور'}
 													</span>
 												</div>
 											</div>

@@ -151,8 +151,13 @@ func AuthSendCode(ctx context.Context, phone string) (string, error) {
 	os.MkdirAll(sessionDir, 0700)
 	storage := &session.FileStorage{Path: filepath.Join(sessionDir, fmt.Sprintf("userbot_%s.session", phone))}
 
-	appID, _ := strconv.Atoi(os.Getenv("TG_APP_ID"))
+	appIDStr := os.Getenv("TG_APP_ID")
 	appHash := os.Getenv("TG_APP_HASH")
+
+	if appIDStr == "" || appHash == "" {
+		return "", errors.New("برای ورود با حساب کاربری، ابتدا باید TG_APP_ID و TG_APP_HASH را در فایل env سرور تنظیم کنید. این مقادیر را از my.telegram.org دریافت کنید.")
+	}
+	appID, _ := strconv.Atoi(appIDStr)
 
 	client := telegram.NewClient(appID, appHash, telegram.Options{SessionStorage: storage})
 	
@@ -182,8 +187,13 @@ func AuthSignIn(ctx context.Context, phone, code, hash string) error {
 	}
 	storage := &session.FileStorage{Path: filepath.Join(sessionDir, fmt.Sprintf("userbot_%s.session", phone))}
 
-	appID, _ := strconv.Atoi(os.Getenv("TG_APP_ID"))
+	appIDStr := os.Getenv("TG_APP_ID")
 	appHash := os.Getenv("TG_APP_HASH")
+
+	if appIDStr == "" || appHash == "" {
+		return errors.New("برای ورود با حساب کاربری، ابتدا باید TG_APP_ID و TG_APP_HASH را در فایل env سرور تنظیم کنید. این مقادیر را از my.telegram.org دریافت کنید.")
+	}
+	appID, _ := strconv.Atoi(appIDStr)
 
 	client := telegram.NewClient(appID, appHash, telegram.Options{SessionStorage: storage})
 	
