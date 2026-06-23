@@ -47,10 +47,6 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 			JOIN managed_bots mb ON mg.bot_id = mb.id
 			WHERE mb.owner_user_id = $1
 		),
-		frg_info AS (
-			SELECT balance, total_earned, total_spent
-			FROM frg_balances WHERE user_id = $1
-		),
 		stats_info AS (
 			SELECT days_active, current_streak, total_taps, xp, level, last_active_at,
 			       COALESCE(emoji_status, '') as emoji_status,
@@ -66,9 +62,9 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 			rc.count,
 			mc.groups,
 			mc.channels,
-			COALESCE(fi.balance, 0.0),
-			COALESCE(fi.total_earned, 0.0),
-			COALESCE(fi.total_spent, 0.0),
+			si.xp,
+			0.0,
+			0.0,
 			si.days_active,
 			si.current_streak,
 			si.total_taps,
@@ -87,7 +83,6 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 		CROSS JOIN user_info ui
 		CROSS JOIN reports_count rc
 		CROSS JOIN managed_counts mc
-		LEFT JOIN frg_info fi ON true
 	`
 
 	var memberSince time.Time
@@ -399,14 +394,13 @@ func (db *Database) GetReferralData(ctx context.Context, userID int64) (*model.R
 	g.Go(func() error {
 		friendsQuery := `
 			SELECT u.telegram_id, COALESCE(u.username, u.first_name), u.created_at,
-			       COALESCE(fb.total_earned, 0),
+			       0 AS total_earned,
 			       COALESCE(us.airdrop_coins, 0),
 			       (SELECT COUNT(*) FROM users u2 WHERE u2.referred_by = u.telegram_id) as frens_count
 			FROM users u
-			LEFT JOIN frg_balances fb ON u.telegram_id = fb.user_id
 			LEFT JOIN user_stats us ON u.telegram_id = us.user_id
 			WHERE u.referred_by = $1
-			ORDER BY us.airdrop_coins DESC NULLS LAST
+			ORDER BY us.xp DESC NULLS LAST
 		`
 		rows, err := db.Pool.Query(ctx, friendsQuery, userID)
 		if err != nil {
@@ -441,10 +435,7 @@ func (db *Database) GetReferralData(ctx context.Context, userID int64) (*model.R
 	})
 
 	g.Go(func() error {
-		err := db.Pool.QueryRow(ctx, "SELECT COALESCE(SUM(amount), 0) FROM frg_transactions WHERE user_id = $1 AND type IN ('referral_payout', 'referral_revenue')", userID).Scan(&totalEarned)
-		if err != nil && err != pgx.ErrNoRows {
-			return err
-		}
+		totalEarned = 0
 		return nil
 	})
 

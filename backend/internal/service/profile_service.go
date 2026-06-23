@@ -345,10 +345,8 @@ func (s *ProfileService) SetReferralCode(ctx context.Context, userID int64, refe
 		ReferredReward          = 2000.0
 	)
 	var totalEarned float64
-	_ = tx.QueryRow(ctx, `
-		SELECT COALESCE(SUM(amount), 0) FROM frg_transactions
-		WHERE user_id = $1 AND type = 'admin_credit'
-		  AND metadata->>'referred_user_id' IS NOT NULL`, referrerID).Scan(&totalEarned)
+	// FRG transactions completely removed.
+	totalEarned = 0
 
 	rewardReferrer := totalEarned < MaxReferralRewardTotal
 	if rewardReferrer {
@@ -550,7 +548,6 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 			}
 			if reward > 0 {
 				_, _ = tx.Exec(ctx, "UPDATE user_stats SET airdrop_coins = COALESCE(airdrop_coins, 0) + $1 WHERE user_id = $2", reward, *referrerID)
-				_, _ = tx.Exec(ctx, "INSERT INTO frg_transactions (user_id, amount, type, description) VALUES ($1, $2, 'referral_milestone', 'Fren reached a new league!')", *referrerID, reward)
 			}
 		}
 	}
@@ -593,19 +590,19 @@ func (s *ProfileService) PurchaseCosmetic(ctx context.Context, userID int64, cos
 	defer tx.Rollback(ctx)
 
 	// 1. Lock balance + check
-	var balance float64
+	var balance int64
 	err = tx.QueryRow(ctx,
-		`SELECT balance FROM frg_balances WHERE user_id = $1 FOR UPDATE`,
+		`SELECT xp FROM user_stats WHERE user_id = $1 FOR UPDATE`,
 		userID,
 	).Scan(&balance)
 	if err == pgx.ErrNoRows {
-		return fmt.Errorf("insufficient FRG balance: need %.4f, have 0", item.Cost)
+		return fmt.Errorf("insufficient balance: need %.0f, have 0", item.Cost)
 	} else if err != nil {
 		return err
 	}
 
-	if balance < item.Cost {
-		return fmt.Errorf("insufficient FRG balance: have %.4f, need %.4f", balance, item.Cost)
+	if float64(balance) < item.Cost {
+		return fmt.Errorf("insufficient balance: have %d, need %.0f", balance, item.Cost)
 	}
 
 	// 2. Check not already owned (within tx)
@@ -623,9 +620,8 @@ func (s *ProfileService) PurchaseCosmetic(ctx context.Context, userID int64, cos
 
 	// 3. Debit
 	_, err = tx.Exec(ctx,
-		`UPDATE frg_balances SET balance = balance - $1, total_spent = total_spent + $1,
-		 updated_at = now() WHERE user_id = $2`,
-		item.Cost, userID,
+		`UPDATE user_stats SET xp = xp - $1 WHERE user_id = $2`,
+		int64(item.Cost), userID,
 	)
 	if err != nil {
 		return err
@@ -641,12 +637,8 @@ func (s *ProfileService) PurchaseCosmetic(ctx context.Context, userID int64, cos
 	}
 
 	// 5. Log transaction
-	meta, _ := json.Marshal(map[string]interface{}{"cosmetic_id": cosmeticID})
-	_, err = tx.Exec(ctx,
-		`INSERT INTO frg_transactions (user_id, type, amount, balance_before, balance_after, metadata)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		userID, "cosmetic_purchase", -item.Cost, balance, balance-item.Cost, meta,
-	)
+	// Cosmetics purchase logging can be handled elsewhere or omitted if not critical
+
 	if err != nil {
 		return err
 	}
@@ -781,9 +773,6 @@ func (s *ProfileService) DeleteUserDataGDPR(ctx context.Context, userID int64) e
 		{"user_daily_claims", "user_id"},
 		{"user_achievements", "user_id"},
 		{"clan_members", "user_id"},
-		{"user_bans", "user_id"},
-		{"frg_transactions", "user_id"},
-		{"frg_balances", "user_id"},
 		{"promo_redemptions", "user_id"},
 		{"search_logs", "user_id"},
 		{"user_stats", "user_id"},

@@ -308,12 +308,9 @@ func (s *ClanService) GetTopClans(ctx context.Context, limit int) ([]model.Clan,
 	}
 
 	query := `
-		SELECT c.id, c.telegram_channel_id, c.channel_username, COALESCE(c.channel_photo, '') as channel_photo, c.chat_title, c.members_count, COALESCE(SUM(b.balance), 0) as total_score, c.created_at
+		SELECT c.id, c.telegram_channel_id, c.channel_username, COALESCE(c.channel_photo, '') as channel_photo, c.chat_title, c.members_count, c.total_score, c.created_at
 		FROM clans c
-		LEFT JOIN clan_members cm ON c.id = cm.clan_id
-		LEFT JOIN frg_balances b ON cm.user_id = b.user_id
-		GROUP BY c.id
-		ORDER BY total_score DESC, c.members_count DESC, c.chat_title ASC
+		ORDER BY c.total_score DESC, c.members_count DESC, c.chat_title ASC
 		LIMIT $1
 	`
 	rows, err := s.db.Pool.Query(ctx, query, limit)

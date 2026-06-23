@@ -559,16 +559,6 @@ func (r *OwnerRepo) RedeemPromoCodeTx(ctx context.Context, code string, userID i
 		return err
 	}
 
-	meta, _ := json.Marshal(map[string]string{"promo_code": codeUpper})
-	_, err = tx.Exec(ctx,
-		`INSERT INTO frg_transactions (user_id, type, amount, balance_before, balance_after, metadata)
-		VALUES ($1, 'promo_redemption', $2, $3, $4, $5)`,
-		userID, rewardAmount, balanceBefore, balanceAfter, meta,
-	)
-	if err != nil {
-		return err
-	}
-
 	return tx.Commit(ctx)
 }
 

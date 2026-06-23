@@ -1,0 +1,3 @@
+BEGIN;
+ALTER TABLE user_boosts ADD COLUMN IF NOT EXISTS tap_bot_last_collected_at TIMESTAMPTZ DEFAULT now();
+COMMIT;
