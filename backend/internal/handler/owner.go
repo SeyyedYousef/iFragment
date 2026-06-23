@@ -31,7 +31,7 @@ func NewOwnerHandler(srv *service.OwnerService) *OwnerHandler {
 func (h *OwnerHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		InitData string `json:"init_data"`
-		Code     string `json:"code"`
+		Password string `json:"password"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -39,8 +39,8 @@ func (h *OwnerHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.InitData == "" || req.Code == "" {
-		RespondError(w, r, http.StatusBadRequest, "init_data and code are required", nil)
+	if req.InitData == "" || req.Password == "" {
+		RespondError(w, r, http.StatusBadRequest, "init_data and password are required", nil)
 		return
 	}
 
@@ -53,7 +53,7 @@ func (h *OwnerHandler) Login(w http.ResponseWriter, r *http.Request) {
 	ip := middleware.GetRealIP(r)
 	ua := r.UserAgent()
 
-	token, err := h.srv.Authenticate(r.Context(), tgUserID, req.Code, ip, ua)
+	token, err := h.srv.Authenticate(r.Context(), tgUserID, req.Password, ip, ua)
 	if err != nil {
 		RespondError(w, r, http.StatusUnauthorized, err.Error(), err)
 		return

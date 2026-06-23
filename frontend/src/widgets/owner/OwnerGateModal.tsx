@@ -1,7 +1,8 @@
 import { useNavigate } from '@solidjs/router';
 import { hapticFeedback, retrieveLaunchParams } from '@tma.js/sdk-solid';
-import { Component, createSignal, For, onMount, Show } from 'solid-js';
+import { Component, createSignal, onMount, Show } from 'solid-js';
 import { apiClient } from '@/shared/api/axios.js';
+import { t } from '@/shared/i18n/index.js';
 
 interface OwnerGateModalProps {
 	isOpen: boolean;
@@ -10,104 +11,31 @@ interface OwnerGateModalProps {
 
 export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 	const navigate = useNavigate();
-	const [pin, setPin] = createSignal<string[]>(Array(6).fill(''));
+	const [password, setPassword] = createSignal('');
 	const [errorMsg, setErrorMsg] = createSignal('');
 	const [loading, setLoading] = createSignal(false);
-	const inputRefs: HTMLInputElement[] = [];
+	let inputRef: HTMLInputElement | undefined;
 
 	onMount(() => {
-		// Focus first input on open
-		if (props.isOpen && inputRefs[0]) {
-			inputRefs[0].focus();
+		if (props.isOpen && inputRef) {
+			inputRef.focus();
 		}
 	});
 
-	const handleInput = (val: string, index: number) => {
-		// Only allow numbers
-		if (val && !/^\d$/.test(val)) return;
-
-		const newPin = [...pin()];
-		newPin[index] = val;
-		setPin(newPin);
-
-		// Auto focus next input
-		if (val && index < 5 && inputRefs[index + 1]) {
-			inputRefs[index + 1].focus();
-		}
-
-		// Auto submit on full PIN
-		if (newPin.every((slot) => slot !== '')) {
-			handleSubmit();
-		}
-	};
-
-	const handleKeyDown = (e: KeyboardEvent, index: number) => {
-		if (e.key === 'Backspace') {
-			try {
-				hapticFeedback.impactOccurred('light');
-			} catch {}
-			const newPin = [...pin()];
-
-			if (!newPin[index] && index > 0 && inputRefs[index - 1]) {
-				// If current is empty, delete previous and focus it
-				newPin[index - 1] = '';
-				setPin(newPin);
-				inputRefs[index - 1].focus();
-			} else {
-				// Delete current
-				newPin[index] = '';
-				setPin(newPin);
-			}
-			e.preventDefault();
-		} else if (e.key === 'ArrowLeft' && index > 0) {
-			inputRefs[index - 1].focus();
-			e.preventDefault();
-		} else if (e.key === 'ArrowRight' && index < 5) {
-			inputRefs[index + 1].focus();
-			e.preventDefault();
-		} else if (e.key === 'Enter') {
-			if (pin().every((slot) => slot !== '')) {
-				handleSubmit();
-			}
-		}
-	};
-
-	const handlePaste = (e: ClipboardEvent) => {
-		e.preventDefault();
-		const pastedData = e.clipboardData?.getData('text');
-		if (!pastedData) return;
-
-		const digits = pastedData.replace(/\D/g, '').split('').slice(0, 6);
-		if (digits.length === 0) return;
-
-		const newPin = [...pin()];
-		for (let i = 0; i < digits.length; i++) {
-			newPin[i] = digits[i];
-		}
-		setPin(newPin);
-
-		// Focus appropriate input
-		const nextIndex = Math.min(digits.length, 5);
-		if (inputRefs[nextIndex]) {
-			inputRefs[nextIndex].focus();
-		} else if (inputRefs[5]) {
-			inputRefs[5].focus();
-		}
-
-		if (newPin.every((slot) => slot !== '')) {
+	const handleKeyDown = (e: KeyboardEvent) => {
+		if (e.key === 'Enter' && password().trim() !== '') {
 			handleSubmit();
 		}
 	};
 
 	const handleSubmit = async () => {
-		if (loading()) return;
+		if (loading() || !password()) return;
 		setErrorMsg('');
 		setLoading(true);
+		
 		try {
 			hapticFeedback.impactOccurred('medium');
 		} catch {}
-
-		const totpCode = pin().join('');
 
 		// Get Telegram InitData securely
 		let tgUser =
@@ -125,9 +53,7 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 		}
 
 		if (!initData) {
-			setErrorMsg(
-				'This secure administrative panel can only be accessed inside the Telegram Mini App.',
-			);
+			setErrorMsg(t('ownerGate.errorNotTMA') || 'This secure administrative panel can only be accessed inside the Telegram Mini App.');
 			setLoading(false);
 			return;
 		}
@@ -135,7 +61,7 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 		try {
 			const resp = await apiClient.post('/owner/auth/totp', {
 				init_data: initData,
-				code: totpCode,
+				password: password(),
 			});
 
 			const { token } = resp.data;
@@ -143,7 +69,7 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 				try {
 					hapticFeedback.notificationOccurred('success');
 				} catch {}
-				// Securely store administrative token in sessionStorage (tab-scoped, neutralizes XSS persistence)
+				// Securely store administrative token in sessionStorage
 				sessionStorage.setItem('owner_token', token);
 				if (tgUser?.id) {
 					sessionStorage.setItem('owner_telegram_id', String(tgUser.id));
@@ -159,11 +85,10 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 				hapticFeedback.notificationOccurred('error');
 			} catch {}
 			setErrorMsg(
-				err.response?.data?.error || 'Authentication failed. Please verify your TOTP key.',
+				err.response?.data?.error || t('ownerGate.errorAuth') || 'Authentication failed. Please check your password.'
 			);
-			// Clear pin
-			setPin(Array(6).fill(''));
-			if (inputRefs[0]) inputRefs[0].focus();
+			setPassword('');
+			if (inputRef) inputRef.focus();
 		} finally {
 			setLoading(false);
 		}
@@ -192,39 +117,25 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 							🛡️
 						</div>
 						<h2 class="text-lg font-black text-white uppercase tracking-wider">
-							Owner Portal Access
+							{t('ownerGate.title') || 'Owner Portal Access'}
 						</h2>
 						<p class="text-xs text-[#a0a4ad] font-bold mt-1 max-w-[240px]">
-							Provide the 6-digit TOTP authentication code to access the secure administrative
-							panel.
+							{t('ownerGate.desc') || 'Provide your secure password to access the administrative panel.'}
 						</p>
 					</div>
 
-					{/* 6-Digit PIN input boxes */}
-					<div class="flex justify-between gap-2 mb-6">
-						<For each={pin()}>
-							{(digit, index) => (
-								<div class="block">
-									<span id={`digit-label-${index()}`} class="sr-only">
-										Digit {index() + 1}
-									</span>
-									<input
-										type="text"
-										inputmode="numeric"
-										pattern="[0-9]*"
-										maxLength={1}
-										value={digit}
-										aria-labelledby={`digit-label-${index()}`}
-										ref={(el) => (inputRefs[index()] = el)}
-										onInput={(e) => handleInput(e.currentTarget.value, index())}
-										onKeyDown={(e) => handleKeyDown(e, index())}
-										onPaste={handlePaste}
-										class="w-12 h-14 bg-[#0f1014] border border-[#2a2c35] focus:border-[#3390ec] text-white text-xl font-bold text-center rounded-2xl shadow-inner focus:outline-none transition-all"
-										disabled={loading()}
-									/>
-								</div>
-							)}
-						</For>
+					{/* Password Input */}
+					<div class="mb-6">
+						<input
+							type="password"
+							placeholder={t('ownerGate.placeholder') || 'Enter password...'}
+							value={password()}
+							ref={inputRef}
+							onInput={(e) => setPassword(e.currentTarget.value)}
+							onKeyDown={handleKeyDown}
+							class="w-full h-14 px-4 bg-[#0f1014] border border-[#2a2c35] focus:border-[#3390ec] text-white text-lg rounded-2xl shadow-inner focus:outline-none transition-all"
+							disabled={loading()}
+						/>
 					</div>
 
 					{/* Error Message */}
@@ -237,12 +148,16 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 						</div>
 					</Show>
 
-					{/* Loading Indicator */}
-					<Show when={loading()}>
-						<div class="flex justify-center items-center py-4">
-							<div class="w-8 h-8 border-3 border-[#3390ec] border-t-transparent rounded-full animate-spin"></div>
-						</div>
-					</Show>
+					{/* Submit Button */}
+					<button
+						onClick={handleSubmit}
+						disabled={loading() || !password()}
+						class="w-full h-14 bg-[#3390ec] hover:bg-[#2b7ec9] active:bg-[#2368a8] disabled:opacity-50 disabled:cursor-not-allowed text-white font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center"
+					>
+						<Show when={loading()} fallback={<span>{t('ownerGate.submit') || 'Authenticate'}</span>}>
+							<div class="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+						</Show>
+					</button>
 				</div>
 			</div>
 		</Show>

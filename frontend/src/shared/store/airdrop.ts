@@ -478,7 +478,7 @@ export const syncProfileStats = async () => {
 };
 
 export const upgradeBooster = async (id: string) => {
-	if (pendingTaps > 0) {
+	if (pendingTapBuckets.length > 0) {
 		await syncPendingTaps();
 	}
 

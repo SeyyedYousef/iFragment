@@ -1,4 +1,12 @@
 export const dict: Record<string, any> = {
+	ownerGate: {
+		title: '所有者门户访问',
+		desc: '提供您的安全密码以访问管理面板。',
+		placeholder: '输入密码...',
+		submit: '验证',
+		errorNotTMA: '这个安全的管理面板只能在 Telegram 小程序内部访问。',
+		errorAuth: '身份验证失败。请检查您的密码。',
+	},
 	boosters: {
 		freeDaily: '每日免费加速',
 		available: '可用 {count}',

@@ -609,6 +609,14 @@ export const dict = {
 		noData: 'No data available',
 		noActivity: 'No activity found',
 	},
+	ownerGate: {
+		title: 'Owner Portal Access',
+		desc: 'Provide your secure password to access the administrative panel.',
+		placeholder: 'Enter password...',
+		submit: 'Authenticate',
+		errorNotTMA: 'This secure administrative panel can only be accessed inside the Telegram Mini App.',
+		errorAuth: 'Authentication failed. Please check your password.',
+	},
 	error: {
 		title: 'Something went wrong',
 		tryAgain: 'Try Again',

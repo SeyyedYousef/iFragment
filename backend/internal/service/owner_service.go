@@ -43,8 +43,8 @@ func NewOwnerService(repo *repository.OwnerRepo, cache *repository.Cache, ubMana
 	}
 }
 
-// Authenticate verifies the TOTP code and generates a JWT token for the owner
-func (s *OwnerService) Authenticate(ctx context.Context, telegramUserID int64, code string, ip string, ua string) (string, error) {
+// Authenticate verifies the owner password and generates a JWT token for the owner
+func (s *OwnerService) Authenticate(ctx context.Context, telegramUserID int64, password string, ip string, ua string) (string, error) {
 	// 1. Verify if user is in OWNER_TELEGRAM_IDS
 	ownerIDsStr := os.Getenv("OWNER_TELEGRAM_IDS")
 	if ownerIDsStr == "" {
@@ -96,11 +96,20 @@ func (s *OwnerService) Authenticate(ctx context.Context, telegramUserID int64, c
 		}
 	}
 
-	// 2. Throw critical configuration error if OWNER_TOTP_SECRET env is missing (no fallback secret)
-	totpSecret := os.Getenv("OWNER_TOTP_SECRET")
-	if totpSecret == "" {
+	// 2. Throw critical configuration error if OWNER_PASSWORD env is missing
+	ownerPassword := os.Getenv("OWNER_PASSWORD")
+	if ownerPassword == "" {
 		incrLoginAttempts()
-		return "", errors.New("OWNER_TOTP_SECRET is not configured on the server; refusing to authenticate")
+		return "", errors.New("OWNER_PASSWORD is not configured on the server; refusing to authenticate")
+	}
+
+	// Enforce password complexity (at least one letter, one number, and one symbol)
+	hasLetter := regexp.MustCompile(`[a-zA-Z]`).MatchString(ownerPassword)
+	hasNumber := regexp.MustCompile(`[0-9]`).MatchString(ownerPassword)
+	hasSymbol := regexp.MustCompile(`[^a-zA-Z0-9]`).MatchString(ownerPassword)
+	if !hasLetter || !hasNumber || !hasSymbol {
+		incrLoginAttempts()
+		return "", errors.New("server misconfiguration: OWNER_PASSWORD must contain letters, numbers, and symbols")
 	}
 
 	// 3. Fetch owner role (throw error if role is not pre-registered in DB - no auto-seeding)
@@ -139,38 +148,20 @@ func (s *OwnerService) Authenticate(ctx context.Context, telegramUserID int64, c
 		}
 	}
 
-	// 5. Verify TOTP Code
-	secretToUse := o.TotpSecret
-	if secretToUse == "" {
-		secretToUse = totpSecret
-	}
-	if !totp.ValidateTOTP(code, secretToUse) {
+	// 5. Verify Password
+	if password != ownerPassword {
 		incrLoginAttempts()
-		return "", errors.New("invalid TOTP code")
+		return "", errors.New("invalid password")
 	}
 
-	// 6. Prevent TOTP code replay attacks by caching the exact consumed code string in Redis for the drift duration
+	// 6. Reset login failure attempts on successful authentication
 	if s.cache != nil && s.cache.Client != nil {
-		replayKey := fmt.Sprintf("totp:used:%d:%s", telegramUserID, code)
-		locked, err := s.cache.Client.SetNX(ctx, replayKey, "used", 90*time.Second).Result()
-		if err != nil || !locked {
-			incrLoginAttempts()
-			return "", errors.New("TOTP code already used; potential replay attack blocked")
-		}
-
-		// Reset login failure attempts on successful authentication
 		ipLockKey := fmt.Sprintf("owner:login:attempts:ip:%s", ip)
 		userLockKey := fmt.Sprintf("owner:login:attempts:user:%d", telegramUserID)
 		pipe := s.cache.Client.Pipeline()
 		pipe.Del(ctx, ipLockKey)
 		pipe.Del(ctx, userLockKey)
 		_, _ = pipe.Exec(ctx)
-	} else {
-		// Fallback to database time-step window lock if Redis is unavailable
-		window := time.Now().Unix() / 30
-		if err := s.repo.MarkTOTPUsed(ctx, telegramUserID, window); err != nil {
-			return "", errors.New("TOTP code already used; potential replay attack blocked")
-		}
 	}
 
 	// 7. Update last login

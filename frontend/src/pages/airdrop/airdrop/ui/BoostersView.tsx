@@ -1,6 +1,7 @@
 import { hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createSignal, For } from 'solid-js';
 import { balance, boosters, getBoosterCost, upgradeBooster, turboCount, fullEnergyCount, spawnRocket, activateFullEnergy, currentLeague } from '@/shared/store/airdrop.js';
+import { showToast } from '@/shared/ui/toast.js';
 import { t } from '@/shared/i18n/index.js';
 
 export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) => {
@@ -23,6 +24,7 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 		const success = await upgradeBooster(id);
 		if (success) {
 			triggerHaptic('success');
+			showToast({ message: 'انجام شد!', type: 'success' });
 			setAnimatingId(id);
 			setTimeout(() => setAnimatingId(null), 600);
 		} else {
@@ -32,7 +34,7 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 
 	return (
 		<div 
-			class="flex-1 overflow-y-auto px-4 pt-16 pb-36 animate-fade-in no-scrollbar h-full relative" 
+			class="flex-1 overflow-y-auto overflow-x-hidden px-4 pt-16 pb-36 animate-fade-in no-scrollbar h-full relative" 
 			style={{ background: '#000' }}
 			dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
 		>
