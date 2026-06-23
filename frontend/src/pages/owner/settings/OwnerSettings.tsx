@@ -1,7 +1,7 @@
 import { Component, createSignal, onMount, Show } from 'solid-js';
 import { Title } from '@solidjs/meta';
 import { OwnerTabs } from '@/widgets/owner/OwnerTabs.js';
-import { apiClient } from '@/shared/api/client.js';
+import { apiClient } from '@/shared/api/axios.js';
 
 interface SystemSettings {
 	maintenance_mode: boolean;

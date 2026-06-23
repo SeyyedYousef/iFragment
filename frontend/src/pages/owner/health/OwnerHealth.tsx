@@ -1,7 +1,7 @@
 import { Component, createSignal, onMount, Show, For } from 'solid-js';
 import { Title } from '@solidjs/meta';
 import { OwnerTabs } from '@/widgets/owner/OwnerTabs.js';
-import { apiClient } from '@/shared/api/client.js';
+import { apiClient } from '@/shared/api/axios.js';
 
 export const OwnerHealth: Component = () => {
 	const [metrics, setMetrics] = createSignal<any>(null);
