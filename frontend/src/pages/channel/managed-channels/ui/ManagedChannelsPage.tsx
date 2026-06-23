@@ -27,7 +27,7 @@ export const ManagedChannelsPage: Component = () => {
 	const [errorMsg, setErrorMsg] = createSignal('');
 
 	const [packages] = createResource(subscriptionApi.getPackages);
-	const [_balance, { refetch: refetchBalance }] = createResource(frgApi.getBalance);
+
 
 	const openSubscription = (channelId: string) => {
 		setSelectedChan(channelId);
@@ -46,7 +46,6 @@ export const ManagedChannelsPage: Component = () => {
 			setSuccessMsg('Subscription activated successfully!');
 			setShowSubscription(false);
 			refetch();
-			refetchBalance();
 		} catch (e: any) {
 			const msg = e?.response?.data?.error || 'Payment failed';
 			setErrorMsg(msg);

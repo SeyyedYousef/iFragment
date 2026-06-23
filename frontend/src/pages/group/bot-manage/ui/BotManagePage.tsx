@@ -39,7 +39,7 @@ export const BotManagePage: Component = () => {
 	);
 
 	const [packages] = createResource(subscriptionApi.getPackages);
-	const [_balance, { refetch: refetchBalance }] = createResource(frgApi.getBalance);
+
 
 	onMount(() => {
 		backButton.show();
@@ -82,7 +82,6 @@ export const BotManagePage: Component = () => {
 			);
 			setShowSubscription(false);
 			refetchGroups();
-			refetchBalance();
 		} catch (e: any) {
 			const msg = e?.response?.data?.error || 'Payment failed';
 			setErrorMsg(msg);
