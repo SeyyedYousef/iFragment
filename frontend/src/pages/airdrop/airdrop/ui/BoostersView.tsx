@@ -24,7 +24,7 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 		const success = await upgradeBooster(id);
 		if (success) {
 			triggerHaptic('success');
-			showToast({ message: t('airdropFinal.boosters.upgradeSuccess'), type: 'success' });
+			showToast(t('airdropFinal.boosters.upgradeSuccess') as string, 'success');
 			setAnimatingId(id);
 			setTimeout(() => setAnimatingId(null), 600);
 		} else {

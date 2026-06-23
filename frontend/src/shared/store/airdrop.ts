@@ -1,4 +1,5 @@
 import { createEffect, createMemo, createRoot, createSignal, onCleanup } from 'solid-js';
+import { showToast } from '@/shared/ui/toast.js';
 
 // --- Levels & Leagues ---
 export interface League {
@@ -122,8 +123,14 @@ export const activateTurbo = async () => {
 					setIsTurboActive(false);
 				}
 			}, 15000);
-		} catch (e) {
+		} catch (e: any) {
 			console.error('Failed to activate turbo on server:', e);
+			setIsRocketSpawned(false);
+			const msg = e?.message || 'Failed to activate turbo';
+			showToast(msg, 'error');
+			if (msg.toLowerCase().includes('limit')) {
+				setTurboCount(0);
+			}
 		}
 	}
 };
@@ -134,8 +141,13 @@ export const activateFullEnergy = async () => {
 			await activateFullEnergyServer();
 			setFullEnergyCount((c) => c - 1);
 			setEnergy(maxEnergy());
-		} catch (e) {
+		} catch (e: any) {
 			console.error('Failed to activate full energy on server:', e);
+			const msg = e?.message || 'Failed to activate full energy';
+			showToast(msg, 'error');
+			if (msg.toLowerCase().includes('limit')) {
+				setFullEnergyCount(0);
+			}
 		}
 	}
 };
@@ -509,16 +521,19 @@ export const upgradeBooster = async (id: string) => {
 	if (backendType === '') return false;
 
 	try {
-		const updated = await apiUpgradeBoost(backendType);
-		if (updated) {
-			await syncBoostersStatus();
-			await syncProfileStats();
-			return true;
+		await apiUpgradeBoost(backendType);
+		await syncBoostersStatus();
+		await syncProfileStats();
+		return true;
+	} catch (e: any) {
+		console.error('upgrade error:', e);
+		showToast(e?.message || 'Failed to upgrade booster', 'error');
+		if (e?.message?.includes('limit')) {
+			setTurboCount(0);
+			setFullEnergyCount(0);
 		}
-	} catch (e) {
-		console.error('Failed to upgrade booster:', e);
-	}
-	return false;
+		return false;
+	};
 };
 
 export const syncAllData = async () => {
