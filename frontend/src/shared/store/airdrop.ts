@@ -61,6 +61,9 @@ export const [totalTaps, setTotalTaps] = createSignal(
 export const [userXp, setUserXp] = createSignal(
 	typeof savedState.userXp === 'number' ? savedState.userXp : 0,
 );
+export const [globalRank, setGlobalRank] = createSignal(
+	typeof savedState.globalRank === 'number' ? savedState.globalRank : 0,
+);
 export const [energy, setEnergy] = createSignal(
 	typeof savedState.energy === 'number'
 		? Math.min(savedState.energy, savedState.maxEnergy || 500)
@@ -368,6 +371,9 @@ export const syncPendingTaps = async () => {
 						setFrgBalance(typeof stats.frgBalance === 'number' ? stats.frgBalance : 0);
 						setTotalTaps((typeof stats.totalTaps === 'number' ? stats.totalTaps : 0) + getOptimisticTaps());
 						setUserXp((typeof stats.xp === 'number' ? stats.xp : 0) + getOptimisticTaps() * 2);
+						if (typeof stats.globalRank === 'number') {
+							setGlobalRank(stats.globalRank);
+						}
 
 						try {
 							if (pendingTapBuckets.length === 0) {
@@ -450,6 +456,9 @@ export const syncProfileStats = async () => {
 				);
 				setTotalTaps((typeof stats.totalTaps === 'number' ? stats.totalTaps : 0) + getOptimisticTaps());
 				setUserXp(typeof stats.xp === 'number' ? stats.xp + getOptimisticTaps() * 2 : 0 + getOptimisticTaps() * 2);
+				if (typeof stats.globalRank === 'number') {
+					setGlobalRank(stats.globalRank);
+				}
 				if (typeof stats.energy === 'number') {
 					setEnergy(Math.max(0, stats.energy - getOptimisticEnergyCost()));
 				}
