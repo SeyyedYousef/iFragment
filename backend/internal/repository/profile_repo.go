@@ -156,11 +156,25 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 }
 
 func (db *Database) GetGlobalRankFromDB(ctx context.Context, xp int) (int, error) {
-	var globalRank int
-	// Ignore test/dummy accounts by ensuring user_id > 1000000 (real Telegram IDs are much larger)
-	rankQuery := "SELECT COUNT(*) + 1 FROM user_stats WHERE xp > $1 AND user_id > 1000000"
-	err := db.Pool.QueryRow(ctx, rankQuery, xp).Scan(&globalRank)
-	return globalRank, err
+	// League thresholds based on frontend config
+	leagues := []int{0, 5000, 50000, 500000, 2000000, 10000000, 50000000, 100000000}
+	
+	maxXP := 2000000000 // effectively infinity
+	for i := len(leagues) - 1; i >= 0; i-- {
+		if xp >= leagues[i] {
+			if i < len(leagues)-1 {
+				maxXP = leagues[i+1]
+			}
+			break
+		}
+	}
+
+	var rank int
+	// Rank is relative to the user's current league (xp < maxXP)
+	// Ignore test/dummy accounts by ensuring user_id > 1000000
+	rankQuery := "SELECT COUNT(*) + 1 FROM user_stats WHERE xp > $1 AND xp < $2 AND user_id > 1000000"
+	err := db.Pool.QueryRow(ctx, rankQuery, xp, maxXP).Scan(&rank)
+	return rank, err
 }
 
 var PredefinedAchievements = map[string]int{

@@ -2,7 +2,7 @@ import { Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { ShopView } from './ShopView.js';
 import { createQuery } from '@tanstack/solid-query';
-import { getProfileStats, collectOfflineMining } from '@/shared/api/profile.js';
+import { getProfileStats } from '@/shared/api/profile.js';
 import { t } from '@/shared/i18n/index.js';
 import {
 	balance,
@@ -15,6 +15,7 @@ import {
 	isRocketSpawned,
 	activateTurbo,
 	userClan,
+	globalRank,
 } from '@/shared/store/airdrop.js';
 
 interface CanvasParticle {
@@ -44,22 +45,6 @@ export const TapView: Component<{
 	const [showCombo, setShowCombo] = createSignal(false);
 	let comboTimerId: ReturnType<typeof setTimeout> | undefined;
 
-	// Auto-Tap Bot State
-	const [showAutoTapModal, setShowAutoTapModal] = createSignal(false);
-	const [offlineEarnings, setOfflineEarnings] = createSignal(0);
-	const [offlineDuration, setOfflineDuration] = createSignal(0);
-	
-	onMount(() => {
-		collectOfflineMining().then(res => {
-			if (res.earned > 0) {
-				setOfflineEarnings(res.earned);
-				setOfflineDuration(res.durationSeconds);
-				setShowAutoTapModal(true);
-			}
-		}).catch(e => {
-			console.log('No offline mining to collect', e);
-		});
-	});
 	const statsQuery = createQuery(() => ({
 		queryKey: ['profile-stats-tap'],
 		queryFn: getProfileStats,
@@ -194,7 +179,10 @@ export const TapView: Component<{
 			lastHapticAt = nowTime;
 		}
 
-		const power = isTurbo ? tapPower() * 5 : tapPower();
+		let power = isTurbo ? tapPower() * 5 : tapPower();
+		if (!isTurbo && energy() > 0 && energy() < tapPower()) {
+			power = energy();
+		}
 		recordTaps(1);
 
 		const rect = canvasRef.getBoundingClientRect();
@@ -306,8 +294,8 @@ export const TapView: Component<{
 						</div>
 					}>
 						{(clan) => {
-							const rank = statsQuery.data?.globalRank;
-							const currentRank = rank ? `#${rank.toLocaleString('en-US')}` : (t('airdropTabs.unranked' as any) || 'Unranked');
+							const rank = globalRank();
+							const currentRank = rank > 0 ? `#${rank.toLocaleString('en-US')}` : (t('airdropTabs.unranked' as any) || 'Unranked');
 
 							return (
 								<div class="flex items-center justify-between w-full py-0.5">
@@ -379,7 +367,7 @@ export const TapView: Component<{
 				dir="ltr"
 			>
 				<Show 
-					when={statsQuery.data?.globalRank}
+					when={globalRank() > 0}
 					fallback={
 						<div class="flex items-center gap-1">
 							<span class="text-white/40 text-[18px] font-light">{'{'}</span>
@@ -389,7 +377,7 @@ export const TapView: Component<{
 					}
 				>
 					{(() => {
-						const rank = statsQuery.data?.globalRank || 0;
+						const rank = globalRank();
 						let suffix = 'th';
 						const j = rank % 10;
 						const k = rank % 100;
@@ -551,70 +539,7 @@ export const TapView: Component<{
 				</div>
 			</div>
 
-			{/* ═══ Auto-Tap Bot Modal (Premium) ═══ */}
-			<Show when={showAutoTapModal()}>
-				<div class="fixed inset-0 z-[120] flex items-center justify-center px-4" onClick={(e) => e.target === e.currentTarget && setShowAutoTapModal(false)}>
-					<div class="absolute inset-0 bg-black/40 backdrop-blur-[16px] animate-fade-in pointer-events-none" />
-					<div class="w-full max-w-[360px] rounded-[32px] overflow-hidden animate-scale-up relative border border-white/10 shadow-[0_30px_80px_rgba(0,0,0,0.8)]" style={{
-						background: 'linear-gradient(145deg, #1a1a24 0%, #101016 100%)',
-					}}>
-						<div class="absolute top-0 left-1/2 -translate-x-1/2 w-[250px] h-[150px] bg-[#E0F7FA] rounded-[100%] opacity-10 blur-[40px] pointer-events-none" />
-						<div class="absolute bottom-0 right-0 w-[200px] h-[200px] bg-[#81D4FA] rounded-[100%] opacity-10 blur-[50px] pointer-events-none" />
 
-						<div class="flex flex-col items-center px-6 pt-8 pb-8 relative z-10" dir="ltr">
-							<div class="relative mb-6">
-								<div class="w-[100px] h-[100px] rounded-full flex items-center justify-center relative overflow-hidden shadow-[0_15px_35px_rgba(0,188,212,0.15)]" style={{
-									background: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.02) 100%)',
-									'border': '1px solid rgba(255,255,255,0.2)',
-									'backdrop-filter': 'blur(10px)',
-								}}>
-									<div class="absolute inset-[2px] rounded-full" style={{
-										background: 'linear-gradient(135deg, rgba(224,247,250,0.8) 0%, rgba(77,208,225,0.8) 100%)',
-									}} />
-									<span class="material-symbols-outlined text-white text-[56px] relative z-10 drop-shadow-[0_2px_10px_rgba(255,255,255,0.8)]" style={{ 'font-variation-settings': '"FILL" 1' }}>cloud_done</span>
-									<div class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/40 to-transparent w-[200%] h-full -translate-x-full animate-[shimmer_3s_infinite]" />
-								</div>
-								<div class="absolute -top-1 -right-2 text-white animate-pulse">✨</div>
-								<div class="absolute bottom-2 -left-3 text-white/70 animate-bounce" style={{'animation-delay': '0.5s', 'font-size': '12px'}}>✨</div>
-							</div>
-
-							<h2 class="text-[26px] font-black text-white mb-2 tracking-tight">{t('autoTapBot.title' as any) || 'Auto-Tap Bot'}</h2>
-							<p class="text-[#8e8e93] text-center text-[15px] leading-relaxed mb-7 max-w-[280px] font-medium">
-								{t('autoTapBot.description' as any) || 'The bot was mining while you were away! Here is what it collected.'}
-							</p>
-
-							<div class="flex items-center gap-4 mb-8 px-6 py-4 rounded-[20px] relative overflow-hidden w-full justify-center shadow-[inset_0_2px_15px_rgba(255,255,255,0.05)] border border-white/5" style={{
-								background: 'linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%)',
-							}}>
-								<div class="flex flex-col items-center">
-									<span class="text-[#B2EBF2] text-[11px] font-bold uppercase tracking-[0.15em] mb-1">{t('autoTapBot.collected' as any) || 'Collected'}</span>
-									<div class="flex items-center gap-2">
-										<span class="text-[#ffb000] text-[28px] drop-shadow-[0_0_10px_rgba(255,176,0,0.6)]">¢</span>
-										<span class="text-[36px] font-black tabular-nums tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]">
-											+{offlineEarnings().toLocaleString()}
-										</span>
-									</div>
-								</div>
-							</div>
-
-							<button 
-								onClick={() => setShowAutoTapModal(false)}
-								class="w-full py-4.5 rounded-2xl text-[18px] font-black tracking-wide active:scale-[0.97] transition-all relative overflow-hidden text-[#050505] shadow-[0_10px_30px_rgba(255,176,0,0.3)]"
-								style={{
-									background: 'linear-gradient(135deg, #ffb000 0%, #ff8c00 100%)',
-								}}
-							>
-								<div class="absolute inset-0 bg-white opacity-0 hover:opacity-20 transition-opacity" />
-								{t('autoTapBot.claim' as any) || 'Claim Coins'}
-							</button>
-
-							<span class="text-[#8e8e93] text-[12px] mt-4 font-medium tracking-wide">
-								{t('autoTapBot.miningFor' as any) || `Mining for ${Math.floor(offlineDuration() / 3600)} hours`}
-							</span>
-						</div>
-					</div>
-				</div>
-			</Show>
 			
 			{/* Shop Modal / Bottom Sheet */}
 			<Show when={showShopModal()}>

@@ -1,4 +1,4 @@
-import { Component, createSignal, Match, Switch, onMount } from 'solid-js';
+import { Component, createSignal, Match, Switch, onMount, onCleanup } from 'solid-js';
 import { BottomNav } from '@/widgets/bottom-nav/index.js';
 import { BoostersView } from './BoostersView.js';
 import { ClanView } from './ClanView.js';
@@ -24,7 +24,23 @@ export const AirdropPage: Component = () => {
 	const [showLeaderboard, setShowLeaderboard] = createSignal(false);
 	const [offlineEarnings, setOfflineEarnings] = createSignal(0);
 
+	const handleVisibilityChange = async () => {
+		if (document.visibilityState === 'visible') {
+			try {
+				const res = await collectOfflineMining();
+				if (res.earned && res.earned > 0) {
+					setOfflineEarnings(res.earned);
+					await syncProfileStats();
+				}
+			} catch (e) {
+				console.error('Failed to collect offline earnings', e);
+			}
+		}
+	};
+
 	onMount(async () => {
+		document.addEventListener('visibilitychange', handleVisibilityChange);
+		
 		try {
 			const res = await collectOfflineMining();
 			if (res.earned && res.earned > 0) {
@@ -34,6 +50,10 @@ export const AirdropPage: Component = () => {
 		} catch (e) {
 			console.error('Failed to collect offline earnings', e);
 		}
+	});
+
+	onCleanup(() => {
+		document.removeEventListener('visibilitychange', handleVisibilityChange);
 	});
 
 	const handleTabChange = (tab: AirdropTab) => {

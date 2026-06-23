@@ -102,6 +102,16 @@ export const dict: Record<string, any> = {
 	tapView: {
 		joinClan: '加入部落',
 	},
+	channelDashboard: {
+		commandCenter: '频道指挥中心',
+		commandCenterDesc: '您的一站式管理套件。实时监控分析，配置自动发布机器人，管理管理员权限，并轻松实现频道工作流自动化。',
+		funnelTitle: '审批流程（漏斗）',
+		funnelDesc: '所有草稿文章必须先发送到输入频道。在被正式发布到输出频道之前，它们将被保留以供您审批。',
+		inputDrafts: '输入（草稿）',
+		outputPublic: '输出（公开）',
+		inputChannel: '输入频道',
+		mainChannel: '主频道',
+	},
 	autoTapBot: {
 		title: '自动挖矿机器人',
 		description: '你不在的时候机器人一直在挖矿！这是它收集到的金币。',

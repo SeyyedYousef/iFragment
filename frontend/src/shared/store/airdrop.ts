@@ -13,6 +13,8 @@ export interface LeaderEntry {
 	name: string;
 	score: number;
 	league: string;
+	level: number;
+	clanName?: string;
 }
 
 export const LEAGUES: League[] = [
@@ -406,15 +408,21 @@ export const recordTaps = (count: number) => {
 	const turboActive = isTurboActive();
 	const multiplier = turboActive ? 5 : 1;
 	const power = tapPower() * multiplier;
-	const energyConsumed = turboActive ? 0 : count * tapPower();
+	let energyConsumed = turboActive ? 0 : count * tapPower();
+	let effectiveTaps = count;
+	let coinsEarned = turboActive ? count * tapPower() * multiplier : energyConsumed;
 
-	if (!turboActive && energy() < energyConsumed) return;
+	if (!turboActive && energy() < energyConsumed) {
+		if (energy() <= 0) return;
+		energyConsumed = energy();
+		coinsEarned = energyConsumed; // Multiplier is 1 if not turbo
+	}
 	
 	if (energyConsumed > 0) {
 		setEnergy((e) => Math.max(0, e - energyConsumed));
 	}
 	
-	setBalance((b) => b + count * power);
+	setBalance((b) => b + coinsEarned);
 	setTotalTaps((t) => t + count);
 	setUserXp((x) => x + count * 2);
 

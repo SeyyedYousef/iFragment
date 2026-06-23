@@ -17,6 +17,8 @@ export const fetchLeaderboard = async (): Promise<LeaderEntry[]> => {
 				name: m.first_name || m.username || `Miner #${m.user_id}`,
 				score: m.xp,
 				league: league.name,
+				level: m.level,
+				clanName: m.clan_name,
 			};
 		});
 	} catch (e) {

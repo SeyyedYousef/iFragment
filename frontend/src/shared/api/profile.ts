@@ -101,6 +101,7 @@ export const LeaderboardMemberSchema = z.object({
 	username: z.string(),
 	level: z.number().int().min(1),
 	xp: z.number().int().nonnegative(),
+	clan_name: z.string().optional(),
 });
 
 export const AchievementDefSchema = z.object({

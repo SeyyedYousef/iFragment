@@ -470,18 +470,36 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 		}
 	}
 	
+	var coinsEarned float64
 	if multiplier != 5 {
 		// Dynamic energy verification prevents infinite tap farming
 		if energyCost > energy {
-			taps = energy / multitapLevel
-			energyCost = taps * multitapLevel
+			maxFullTaps := energy / multitapLevel
+			remainderEnergy := energy % multitapLevel
+			
+			allowedTaps := maxFullTaps
+			if remainderEnergy > 0 {
+				allowedTaps++
+			}
+			
+			if taps > allowedTaps {
+				taps = allowedTaps
+			}
+			
+			if taps == allowedTaps && remainderEnergy > 0 {
+				energyCost = (taps - 1) * multitapLevel + remainderEnergy
+			} else {
+				energyCost = taps * multitapLevel
+			}
 		}
 		if taps <= 0 || energyCost <= 0 {
 			return nil, fmt.Errorf("not enough energy")
 		}
+		coinsEarned = float64(energyCost * multiplier)
+	} else {
+		coinsEarned = float64(taps * multitapLevel * multiplier)
 	}
 
-	coinsEarned := float64(taps * multitapLevel * multiplier)
 	newEnergy := energy - energyCost
 
 

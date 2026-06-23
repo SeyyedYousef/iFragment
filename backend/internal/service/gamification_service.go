@@ -716,6 +716,7 @@ type LeaderboardMember struct {
 	Username  string `json:"username"`
 	Level     int    `json:"level"`
 	XP        int    `json:"xp"`
+	ClanName  string `json:"clan_name,omitempty"`
 }
 
 // GetLeaderboard retrieves Top 100 members sorted by XP
@@ -742,11 +743,13 @@ func (s *GamificationService) GetLeaderboard(ctx context.Context) ([]Leaderboard
 				}
 			}
 
-			// Query database to resolve first_name, username, level
+			// Query database to resolve first_name, username, level, and clan
 			query := `
-				SELECT u.telegram_id, u.first_name, u.username, us.level
+				SELECT u.telegram_id, u.first_name, u.username, us.level, COALESCE(c.name, '') as clan_name
 				FROM users u
 				JOIN user_stats us ON us.user_id = u.telegram_id
+				LEFT JOIN clan_members cm ON cm.user_id = u.telegram_id
+				LEFT JOIN clans c ON c.id = cm.clan_id
 				WHERE u.telegram_id = ANY($1)
 			`
 			rows, err := s.db.Pool.Query(ctx, query, ids)
@@ -755,15 +758,16 @@ func (s *GamificationService) GetLeaderboard(ctx context.Context) ([]Leaderboard
 				memberMap := make(map[int64]LeaderboardMember)
 				for rows.Next() {
 					var id int64
-					var fn, username string
+					var fn, username, clanName string
 					var level int
-					if err := rows.Scan(&id, &fn, &username, &level); err == nil {
+					if err := rows.Scan(&id, &fn, &username, &level, &clanName); err == nil {
 						memberMap[id] = LeaderboardMember{
 							UserID:    id,
 							FirstName: fn,
 							Username:  username,
 							Level:     level,
 							XP:        scoreMap[id],
+							ClanName:  clanName,
 						}
 					}
 				}
@@ -785,9 +789,11 @@ func (s *GamificationService) GetLeaderboard(ctx context.Context) ([]Leaderboard
 
 	// Fallback to database
 	query := `
-		SELECT u.telegram_id, u.first_name, u.username, us.xp, us.level
+		SELECT u.telegram_id, u.first_name, u.username, us.xp, us.level, COALESCE(c.name, '') as clan_name
 		FROM users u
 		JOIN user_stats us ON us.user_id = u.telegram_id
+		LEFT JOIN clan_members cm ON cm.user_id = u.telegram_id
+		LEFT JOIN clans c ON c.id = cm.clan_id
 		ORDER BY us.xp DESC
 		LIMIT 100
 	`
@@ -802,7 +808,7 @@ func (s *GamificationService) GetLeaderboard(ctx context.Context) ([]Leaderboard
 	var zsetMembers []redis.Z
 	for rows.Next() {
 		var m LeaderboardMember
-		err := rows.Scan(&m.UserID, &m.FirstName, &m.Username, &m.XP, &m.Level)
+		err := rows.Scan(&m.UserID, &m.FirstName, &m.Username, &m.XP, &m.Level, &m.ClanName)
 		if err != nil {
 			continue
 		}

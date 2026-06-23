@@ -146,7 +146,13 @@ export const LeaderboardView: Component = () => {
 											{/* Name & League */}
 											<div>
 												<div class="text-white font-medium text-[15px]">{entry.name}</div>
-												<div class="text-[#8e8e93] text-[13px] mt-0.5">{entry.level} {t('boosters.lvl')}</div>
+												<div class="text-[#8e8e93] text-[13px] mt-0.5 flex items-center">
+													{entry.level} {t('boosters.lvl')}
+													<Show when={entry.clanName}>
+														<span class="mx-1.5 opacity-50">•</span>
+														<span class="text-[#3390ec] font-medium">{entry.clanName}</span>
+													</Show>
+												</div>
 												<div class="flex items-center gap-1.5 mt-0.5">
 													<span
 														class="material-symbols-outlined text-[12px]"
