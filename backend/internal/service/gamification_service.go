@@ -789,7 +789,7 @@ func (s *GamificationService) GetLeaderboard(ctx context.Context) ([]Leaderboard
 
 	// Fallback to database
 	query := `
-		SELECT u.telegram_id, u.first_name, u.username, us.xp, us.level, COALESCE(c.name, '') as clan_name
+		SELECT u.telegram_id, u.first_name, u.username, us.xp, us.level, COALESCE(c.chat_title, '') as clan_name
 		FROM users u
 		JOIN user_stats us ON us.user_id = u.telegram_id
 		LEFT JOIN clan_members cm ON cm.user_id = u.telegram_id
@@ -861,12 +861,19 @@ func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID i
 	}
 	defer tx.Rollback(ctx)
 
-	var level, multitap int
+	var level, multitap, energyLimitLevel int
 	var lastCollectedAt *time.Time
 	var capSeconds int
+	var energy int
+	var energyUpdatedAt time.Time
 
-	query := `SELECT tap_bot_level, tap_bot_last_collected_at, tap_bot_cap_seconds, multitap_level FROM user_boosts WHERE user_id = $1 FOR UPDATE`
-	err = tx.QueryRow(ctx, query, userID).Scan(&level, &lastCollectedAt, &capSeconds, &multitap)
+	query := `
+		SELECT b.tap_bot_level, b.tap_bot_last_collected_at, b.tap_bot_cap_seconds, b.multitap_level, b.energy_limit_level,
+		       s.energy, s.energy_updated_at
+		FROM user_boosts b
+		JOIN user_stats s ON s.user_id = b.user_id
+		WHERE b.user_id = $1 FOR UPDATE`
+	err = tx.QueryRow(ctx, query, userID).Scan(&level, &lastCollectedAt, &capSeconds, &multitap, &energyLimitLevel, &energy, &energyUpdatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return &OfflineMiningResult{Earned: 0, DurationSeconds: 0}, nil
@@ -887,7 +894,19 @@ func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID i
 		capSeconds = 12 * 3600 // 12 hours default cap
 	}
 
-	elapsed := int(now.Sub(*lastCollectedAt).Seconds())
+	maxEnergy := 500 + (energyLimitLevel-1)*250
+	timeToFull := maxEnergy - energy
+	if timeToFull < 0 {
+		timeToFull = 0
+	}
+	timeEnergyFullAt := energyUpdatedAt.Add(time.Duration(timeToFull) * time.Second)
+
+	botStartTime := *lastCollectedAt
+	if timeEnergyFullAt.After(botStartTime) {
+		botStartTime = timeEnergyFullAt
+	}
+
+	elapsed := int(now.Sub(botStartTime).Seconds())
 	if elapsed < 0 {
 		elapsed = 0
 	}

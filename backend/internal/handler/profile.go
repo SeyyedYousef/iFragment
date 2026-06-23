@@ -201,6 +201,10 @@ func (h *ProfileHandler) AddTaps(w http.ResponseWriter, r *http.Request) {
 
 	stats, err := h.profileService.AddTaps(r.Context(), userID, req.Taps, req.Multiplier)
 	if err != nil {
+		if err.Error() == "not enough energy" {
+			RespondError(w, r, http.StatusBadRequest, "not enough energy", err)
+			return
+		}
 		RespondError(w, r, http.StatusInternalServerError, "failed to update taps", err)
 		return
 	}
