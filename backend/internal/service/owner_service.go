@@ -726,7 +726,7 @@ func (s *OwnerService) GetSystemHealthMetrics(ctx context.Context) (model.System
 	// Calculate memory and goroutines
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	metrics.AllocatedMB = m.Allocated / 1024 / 1024
+	metrics.AllocatedMB = m.Alloc / 1024 / 1024
 	metrics.TotalSysMB = m.Sys / 1024 / 1024
 	metrics.Goroutines = runtime.NumGoroutine()
 
