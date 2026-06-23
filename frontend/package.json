@@ -30,6 +30,7 @@
 		"@motionone/solid": "^10.16.4",
 		"@sentry/browser": "^10.52.0",
 		"@solid-primitives/i18n": "^2.2.1",
+		"@solidjs/meta": "^0.29.4",
 		"@solidjs/router": "^0.13.6",
 		"@tanstack/solid-query": "^5.100.1",
 		"@tma.js/sdk-solid": "^3.0.8",
