@@ -18,6 +18,7 @@ type ProfileStats struct {
 	XP                int        `json:"xp"`
 	XPToNextLevel     int        `json:"xpToNextLevel"`
 	IsPremium         bool       `json:"isPremium"`
+	DailyTappedCoins  float64    `json:"dailyTappedCoins"`
 	PremiumUntil      *time.Time `json:"premiumUntil,omitempty"`
 	EmojiStatus       string     `json:"emojiStatus"`
 	EquippedBorder    string     `json:"equippedBorder"`

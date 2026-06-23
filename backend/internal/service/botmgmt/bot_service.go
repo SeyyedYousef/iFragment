@@ -43,10 +43,10 @@ type SubscriptionPackage struct {
 }
 
 var Packages = []SubscriptionPackage{
-	{ID: "1_month", Name: "1 Month", DurationMonths: 1, PriceUSD: 1.99, PricePerMonth: 1.99, PriceStars: 150, PriceCoins: 250000, GroupsLimit: 1, PriceFRG: 1.99, Discount: "", Badge: ""},
-	{ID: "3_months", Name: "3 Months", DurationMonths: 3, PriceUSD: 4.49, PricePerMonth: 1.49, PriceStars: 350, PriceCoins: 600000, GroupsLimit: 1, PriceFRG: 4.49, Discount: "25%", Badge: "popular"},
-	{ID: "6_months", Name: "6 Months", DurationMonths: 6, PriceUSD: 7.49, PricePerMonth: 1.29, PriceStars: 575, PriceCoins: 1000000, GroupsLimit: 1, PriceFRG: 7.49, Discount: "35%", Badge: ""},
-	{ID: "12_months", Name: "12 Months", DurationMonths: 12, PriceUSD: 11.99, PricePerMonth: 1.00, PriceStars: 925, PriceCoins: 1500000, GroupsLimit: 1, PriceFRG: 11.99, Discount: "50%", Badge: "best_value"},
+	{ID: "1_month", Name: "1 Month", DurationMonths: 1, PriceUSD: 1.99, PricePerMonth: 1.99, PriceStars: 150, PriceCoins: 350000, GroupsLimit: 1, PriceFRG: 1.99, Discount: "", Badge: ""},
+	{ID: "3_months", Name: "3 Months", DurationMonths: 3, PriceUSD: 4.49, PricePerMonth: 1.49, PriceStars: 350, PriceCoins: 900000, GroupsLimit: 1, PriceFRG: 4.49, Discount: "25%", Badge: "popular"},
+	{ID: "6_months", Name: "6 Months", DurationMonths: 6, PriceUSD: 7.49, PricePerMonth: 1.29, PriceStars: 575, PriceCoins: 1500000, GroupsLimit: 1, PriceFRG: 7.49, Discount: "35%", Badge: ""},
+	{ID: "12_months", Name: "12 Months", DurationMonths: 12, PriceUSD: 11.99, PricePerMonth: 1.00, PriceStars: 925, PriceCoins: 2500000, GroupsLimit: 1, PriceFRG: 11.99, Discount: "50%", Badge: "best_value"},
 }
 
 type BotService struct {

@@ -62,7 +62,7 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 					>
 						<div class="flex flex-col gap-1 items-start mb-1 w-full relative">
 							<span class="text-white font-medium text-[15px] max-w-[70%] leading-tight">{t('airdropFinal.boosters.turbo')}</span>
-							<span class="text-[#8e8e93] text-[13px]">{t('airdropFinal.boosters.available' as any).replace('{count}', `${turboCount()}/3`)}</span>
+							<span class="text-[#8e8e93] text-[13px]">{t('airdropFinal.boosters.available' as any).replace('{count}', `${turboCount()}/2`)}</span>
 							<span class="text-2xl absolute end-0 top-0">🚀</span>
 						</div>
 					</button>

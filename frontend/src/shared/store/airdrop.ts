@@ -84,7 +84,7 @@ export const [frgBalance, setFrgBalance] = createSignal(
 	typeof savedState.frgBalance === 'number' ? savedState.frgBalance : 0,
 );
 export const [turboCount, setTurboCount] = createSignal(
-	typeof savedState.turboCount === 'number' ? savedState.turboCount : 3,
+	typeof savedState.turboCount === 'number' ? savedState.turboCount : 2,
 );
 export const [fullEnergyCount, setFullEnergyCount] = createSignal(
 	typeof savedState.fullEnergyCount === 'number' ? savedState.fullEnergyCount : 3,
@@ -92,6 +92,9 @@ export const [fullEnergyCount, setFullEnergyCount] = createSignal(
 export const [isRocketSpawned, setIsRocketSpawned] = createSignal(false);
 export const [isTurboActive, setIsTurboActive] = createSignal(false);
 export const [turboExpiresAt, setTurboExpiresAt] = createSignal(0);
+export const [dailyTappedCoins, setDailyTappedCoins] = createSignal(
+	typeof savedState.dailyTappedCoins === 'number' ? savedState.dailyTappedCoins : 0,
+);
 
 export const spawnRocket = () => {
 	if (turboCount() > 0 && !isTurboActive() && !isRocketSpawned()) {
@@ -144,7 +147,7 @@ export const [lastBoosterResetDate, setLastBoosterResetDate] = createSignal<stri
 export const checkDailyBoosterReset = () => {
 	const today = new Date().toISOString().split('T')[0];
 	if (lastBoosterResetDate() !== today) {
-		setTurboCount(3);
+		setTurboCount(2);
 		setFullEnergyCount(3);
 		setLastBoosterResetDate(today);
 	}
@@ -159,9 +162,9 @@ export interface Booster {
 }
 
 export const [boosters, setBoosters] = createSignal<Record<string, Booster>>({
-	tapPower: { id: 'tapPower', level: 1, maxLevel: 10, baseCost: 2000 },
-	energyCap: { id: 'energyCap', level: 1, maxLevel: 10, baseCost: 1500 },
-	tapBot: { id: 'tapBot', level: 0, maxLevel: 1, baseCost: 20000 },
+	tapPower: { id: 'tapPower', level: 1, maxLevel: 10, baseCost: 3000 },
+	energyCap: { id: 'energyCap', level: 1, maxLevel: 10, baseCost: 2500 },
+	tapBot: { id: 'tapBot', level: 0, maxLevel: 1, baseCost: 50000 },
 });
 
 export const getBoosterCost = (booster: Booster) => booster.baseCost;
@@ -255,7 +258,7 @@ export const syncDailyRewardStatus = async () => {
 	}
 };
 
-export const DAILY_REWARDS = [500, 1000, 2500, 5000, 10000, 15000, 25000];
+export const DAILY_REWARDS = [200, 400, 800, 1500, 3000, 5000, 8000];
 
 export const claimDailyReward = async () => {
 	try {
@@ -274,7 +277,7 @@ export const claimDailyReward = async () => {
 
 // --- Referral ---
 export const [referralCount, setReferralCount] = createSignal(0);
-export const REFERRAL_REWARD = 10000;
+export const REFERRAL_REWARD = 1000;
 
 // --- Leaderboard functionality has been moved to LeaderboardView.tsx using TanStack Query ---
 
@@ -407,9 +410,7 @@ export const recordTaps = (count: number) => {
 	
 	const turboActive = isTurboActive();
 	const multiplier = turboActive ? 5 : 1;
-	const power = tapPower() * multiplier;
 	let energyConsumed = turboActive ? 0 : count * tapPower();
-	let effectiveTaps = count;
 	let coinsEarned = turboActive ? count * tapPower() * multiplier : energyConsumed;
 
 	if (!turboActive && energy() < energyConsumed) {
@@ -417,12 +418,24 @@ export const recordTaps = (count: number) => {
 		energyConsumed = energy();
 		coinsEarned = energyConsumed; // Multiplier is 1 if not turbo
 	}
+
+	let fatigueMultiplier = 1.0;
+	if (dailyTappedCoins() > 30000) {
+		fatigueMultiplier = 0.1;
+	} else if (dailyTappedCoins() > 15000) {
+		fatigueMultiplier = 0.25;
+	} else if (dailyTappedCoins() > 5000) {
+		fatigueMultiplier = 0.5;
+	}
+
+	coinsEarned = coinsEarned * fatigueMultiplier;
 	
 	if (energyConsumed > 0) {
 		setEnergy((e) => Math.max(0, e - energyConsumed));
 	}
 	
 	setBalance((b) => b + coinsEarned);
+	setDailyTappedCoins((d) => d + coinsEarned);
 	setTotalTaps((t) => t + count);
 	setUserXp((x) => x + count * 2);
 
@@ -469,6 +482,9 @@ export const syncProfileStats = async () => {
 				}
 				if (typeof stats.energy === 'number') {
 					setEnergy(Math.max(0, stats.energy - getOptimisticEnergyCost()));
+				}
+				if (typeof stats.dailyTappedCoins === 'number') {
+					setDailyTappedCoins(stats.dailyTappedCoins);
 				}
 			}
 		}
@@ -559,6 +575,7 @@ export const initStorageSync = () => {
 				turboCount: turboCount(),
 				fullEnergyCount: fullEnergyCount(),
 				lastBoosterResetDate: lastBoosterResetDate(),
+				dailyTappedCoins: dailyTappedCoins(),
 				savedAt: Date.now(), // Save exact timestamp
 			};
 

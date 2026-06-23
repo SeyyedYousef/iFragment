@@ -48,14 +48,17 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 			WHERE mb.owner_user_id = $1
 		),
 		stats_info AS (
-			SELECT days_active, current_streak, total_taps, xp, level, last_active_at,
-			       COALESCE(emoji_status, '') as emoji_status,
-			       COALESCE(equipped_border, '') as equipped_border,
-			       COALESCE(equipped_skin, '') as equipped_skin,
-			       COALESCE(airdrop_coins, 0) as airdrop_coins,
-			       COALESCE(energy, 500) as energy,
-			       COALESCE(energy_updated_at, CURRENT_TIMESTAMP) as energy_updated_at
-			FROM user_stats WHERE user_id = $1
+			SELECT us.days_active, us.current_streak, us.total_taps, us.xp, us.level, us.last_active_at,
+			       COALESCE(us.emoji_status, '') as emoji_status,
+			       COALESCE(us.equipped_border, '') as equipped_border,
+			       COALESCE(us.equipped_skin, '') as equipped_skin,
+			       COALESCE(us.airdrop_coins, 0) as airdrop_coins,
+			       COALESCE(us.energy, 500) as energy,
+			       COALESCE(us.energy_updated_at, CURRENT_TIMESTAMP) as energy_updated_at,
+			       COALESCE(udb.tapped_coins, 0) as daily_tapped_coins
+			FROM user_stats us
+			LEFT JOIN user_daily_boosts udb ON udb.user_id = us.user_id AND udb.day = CURRENT_DATE
+			WHERE us.user_id = $1
 		)
 		SELECT 
 			ui.created_at,
@@ -78,7 +81,8 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 			si.equipped_skin,
 			si.airdrop_coins,
 			si.energy,
-			si.energy_updated_at
+			si.energy_updated_at,
+			si.daily_tapped_coins
 		FROM stats_info si
 		CROSS JOIN user_info ui
 		CROSS JOIN reports_count rc
@@ -96,13 +100,14 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 	var airdropCoins float64
 	var energy int
 	var energyUpdatedAt time.Time
+	var dailyTappedCoins float64
 
 	err := db.Pool.QueryRow(ctx, query, userID).Scan(
 		&memberSince, &usernamesAnalyzed, &groupsManaged, &channelsManaged,
 		&frgBalance, &totalFrgEarned, &totalFrgSpent,
 		&daysActive, &currentStreak, &totalTaps, &xp, &level, &lastActiveAt,
 		&isPremium, &premiumUntil, &emojiStatus, &equippedBorder, &equippedSkin, &airdropCoins,
-		&energy, &energyUpdatedAt,
+		&energy, &energyUpdatedAt, &dailyTappedCoins,
 	)
 	if err != nil {
 		return nil, err
@@ -147,6 +152,7 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 		AirdropCoins:      airdropCoins,
 		Energy:            energy,
 		EnergyUpdatedAt:   energyUpdatedAt,
+		DailyTappedCoins:  dailyTappedCoins,
 	}, nil
 }
 
@@ -478,9 +484,9 @@ func (db *Database) SetReferredBy(ctx context.Context, userID int64, referrerCod
 	
 	success := cmdTag.RowsAffected() == 1
 	if success {
-		// Give 10,000 Coins to both referrer and the new user
-		_ = db.AdjustAirdropCoins(ctx, referrerID, 10000.0)
-		_ = db.AdjustAirdropCoins(ctx, userID, 10000.0)
+		// Give 1,000 Coins to both referrer and the new user
+		_ = db.AdjustAirdropCoins(ctx, referrerID, 1000.0)
+		_ = db.AdjustAirdropCoins(ctx, userID, 1000.0)
 	}
 
 	return success, nil
@@ -539,11 +545,11 @@ func GetXPToNextLevel(level int) int {
 
 // PredefinedCosmetics holds all profile cosmetic shop items
 var PredefinedCosmetics = []model.CosmeticItem{
-	{ID: "gold_shimmer", Type: "border", Name: "Gold Shimmer", Cost: 10.0, BorderClass: "border-gold-shimmer"},
-	{ID: "cyber_glow", Type: "border", Name: "Cyber Glow", Cost: 25.0, BorderClass: "border-cyber-glow"},
-	{ID: "rainbow_wave", Type: "border", Name: "Rainbow Wave", Cost: 50.0, BorderClass: "border-rainbow-wave"},
-	{ID: "cosmic_void", Type: "skin", Name: "Cosmic Void", Cost: 20.0, SkinClass: "bg-cosmic-void"},
-	{ID: "neon_matrix", Type: "skin", Name: "Neon Matrix", Cost: 35.0, SkinClass: "bg-neon-matrix"},
+	{ID: "gold_shimmer", Type: "border", Name: "Gold Shimmer", Cost: 15000.0, BorderClass: "border-gold-shimmer"},
+	{ID: "cyber_glow", Type: "border", Name: "Cyber Glow", Cost: 35000.0, BorderClass: "border-cyber-glow"},
+	{ID: "rainbow_wave", Type: "border", Name: "Rainbow Wave", Cost: 75000.0, BorderClass: "border-rainbow-wave"},
+	{ID: "cosmic_void", Type: "skin", Name: "Cosmic Void", Cost: 25000.0, SkinClass: "bg-cosmic-void"},
+	{ID: "neon_matrix", Type: "skin", Name: "Neon Matrix", Cost: 50000.0, SkinClass: "bg-neon-matrix"},
 }
 
 // GetCosmetics gets all cosmetics indicating which ones are purchased by the user

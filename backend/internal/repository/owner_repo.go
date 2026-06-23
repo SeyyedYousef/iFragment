@@ -434,9 +434,9 @@ func (r *OwnerRepo) SearchUsers(ctx context.Context, searchQuery string) ([]Sear
 			SELECT u.telegram_id, COALESCE(u.username, ''), COALESCE(u.first_name, ''), COALESCE(u.last_name, ''), COALESCE(u.language_code, ''), u.created_at, COALESCE(us.airdrop_coins, 0.0), COALESCE(u.is_premium, false), u.is_flagged, COALESCE(u.fraud_reason, '')
 			FROM users u
 			LEFT JOIN user_stats us ON u.telegram_id = us.user_id
-			WHERE u.username_trgm % $1 
-			   OR u.first_name_trgm % $1 
-			   OR u.last_name_trgm % $1
+			WHERE u.username % $1 
+			   OR u.first_name % $1 
+			   OR u.last_name % $1
 			ORDER BY u.created_at DESC
 			LIMIT 50
 		`
@@ -784,7 +784,7 @@ func (r *OwnerRepo) DeleteQuestTx(ctx context.Context, tx pgx.Tx, key string) er
 }
 
 func (r *OwnerRepo) CreateManagedUserbot(ctx context.Context, phone string) error {
-	_, err := r.db.Pool.Exec(ctx, "INSERT INTO managed_userbots (phone_number, status) VALUES (, 'active') ON CONFLICT (phone_number) DO UPDATE SET status = 'active', updated_at = NOW()", phone)
+	_, err := r.db.Pool.Exec(ctx, "INSERT INTO managed_userbots (phone_number, status) VALUES ($1, 'active') ON CONFLICT (phone_number) DO UPDATE SET status = 'active', updated_at = NOW()", phone)
 	return err
 }
 
@@ -833,13 +833,15 @@ func (r *OwnerRepo) GetOrdersList(ctx context.Context, limit, offset int) ([]mod
 
 func (r *OwnerRepo) GetPremiumEntities(ctx context.Context) ([]model.PremiumEntity, error) {
 	query := `
-		SELECT 'channel' as entity_type, channel_id, title, owner_id, premium_until
-		FROM channels
-		WHERE premium_until IS NOT NULL AND premium_until > now()
+		SELECT 'channel' as entity_type, c.chat_id::text as entity_id, c.chat_title as title, b.owner_user_id as owner_id, c.paid_until as premium_until
+		FROM managed_channels c
+		JOIN managed_bots b ON c.bot_id = b.id
+		WHERE c.paid_until IS NOT NULL AND c.paid_until > now()
 		UNION ALL
-		SELECT 'group' as entity_type, group_id, title, owner_id, premium_until
-		FROM bot_groups
-		WHERE premium_until IS NOT NULL AND premium_until > now()
+		SELECT 'group' as entity_type, g.chat_id::text as entity_id, g.chat_title as title, b.owner_user_id as owner_id, g.paid_until as premium_until
+		FROM managed_groups g
+		JOIN managed_bots b ON g.bot_id = b.id
+		WHERE g.paid_until IS NOT NULL AND g.paid_until > now()
 		ORDER BY premium_until ASC
 	`
 	rows, err := r.db.Pool.Query(ctx, query)
@@ -893,9 +895,10 @@ func (r *OwnerRepo) GetSystemErrors(ctx context.Context, limit int) ([]model.Sys
 // ─── Entities (Channels & Groups) ───────────────────────────────────────────
 func (r *OwnerRepo) GetAllChannels(ctx context.Context, limit, offset int) ([]model.EntityRecord, error) {
 	query := `
-		SELECT 'channel' as entity_type, channel_id, title, status, owner_id
-		FROM channels
-		ORDER BY created_at DESC
+		SELECT 'channel' as entity_type, c.chat_id::text as entity_id, c.chat_title as title, c.subscription_status as status, b.owner_user_id as owner_id
+		FROM managed_channels c
+		JOIN managed_bots b ON c.bot_id = b.id
+		ORDER BY c.created_at DESC
 		LIMIT $1 OFFSET $2
 	`
 	rows, err := r.db.Pool.Query(ctx, query, limit, offset)
@@ -917,9 +920,10 @@ func (r *OwnerRepo) GetAllChannels(ctx context.Context, limit, offset int) ([]mo
 
 func (r *OwnerRepo) GetAllGroups(ctx context.Context, limit, offset int) ([]model.EntityRecord, error) {
 	query := `
-		SELECT 'group' as entity_type, group_id, title, status, owner_id
-		FROM bot_groups
-		ORDER BY created_at DESC
+		SELECT 'group' as entity_type, g.chat_id::text as entity_id, g.chat_title as title, g.subscription_status as status, b.owner_user_id as owner_id
+		FROM managed_groups g
+		JOIN managed_bots b ON g.bot_id = b.id
+		ORDER BY g.created_at DESC
 		LIMIT $1 OFFSET $2
 	`
 	rows, err := r.db.Pool.Query(ctx, query, limit, offset)
@@ -941,7 +945,7 @@ func (r *OwnerRepo) GetAllGroups(ctx context.Context, limit, offset int) ([]mode
 
 
 func (r *OwnerRepo) DeleteManagedUserbot(ctx context.Context, id string) error {
-	_, err := r.db.Pool.Exec(ctx, "DELETE FROM managed_userbots WHERE id = ", id)
+	_, err := r.db.Pool.Exec(ctx, "DELETE FROM managed_userbots WHERE id = $1", id)
 	return err
 }
 

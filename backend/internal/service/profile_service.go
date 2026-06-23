@@ -339,10 +339,10 @@ func (s *ProfileService) SetReferralCode(ctx context.Context, userID int64, refe
 
 	// 3) Daily/total caps — using *atomic* counter with rollback-on-deny
 	const (
-		MaxReferralRewardPerDay = 50000.0
-		MaxReferralRewardTotal  = 5000000.0
-		ReferrerReward          = 2000.0
-		ReferredReward          = 2000.0
+		MaxReferralRewardPerDay = 20000.0
+		MaxReferralRewardTotal  = 1000000.0
+		ReferrerReward          = 1000.0
+		ReferredReward          = 1000.0
 	)
 	var totalEarned float64
 	// FRG transactions completely removed.
@@ -430,16 +430,17 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 	var energy, multitapLevel, energyLimitLevel int
 	var energyUpdatedAt time.Time
 	var turboExpiresAt *time.Time
+	var tappedCoins float64
 	err = tx.QueryRow(ctx, `
 		SELECT us.energy, us.energy_updated_at,
 		       COALESCE(b.multitap_level, 1), COALESCE(b.energy_limit_level, 1),
-		       db.turbo_expires_at
+		       db.turbo_expires_at, COALESCE(db.tapped_coins, 0)
 		FROM user_stats us
 		LEFT JOIN user_boosts b ON b.user_id = us.user_id
 		LEFT JOIN user_daily_boosts db ON db.user_id = us.user_id AND db.day = CURRENT_DATE
 		WHERE us.user_id = $1
 		FOR UPDATE OF us`, userID).
-		Scan(&energy, &energyUpdatedAt, &multitapLevel, &energyLimitLevel, &turboExpiresAt)
+		Scan(&energy, &energyUpdatedAt, &multitapLevel, &energyLimitLevel, &turboExpiresAt, &tappedCoins)
 	if err != nil {
 		return nil, fmt.Errorf("failed to lock user energy: %w", err)
 	}
@@ -498,9 +499,30 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 		coinsEarned = float64(taps * multitapLevel * multiplier)
 	}
 
+	// Anti-Grind: Tap Fatigue System (Diminishing Returns)
+	fatigueMultiplier := 1.0
+	if tappedCoins > 30000 {
+		fatigueMultiplier = 0.1
+	} else if tappedCoins > 15000 {
+		fatigueMultiplier = 0.25
+	} else if tappedCoins > 5000 {
+		fatigueMultiplier = 0.5
+	}
+
+	coinsEarned = coinsEarned * fatigueMultiplier
+
 	newEnergy := energy - energyCost
 
-
+	// Update or insert daily boosts to track tapped_coins
+	_, err = tx.Exec(ctx, `
+		INSERT INTO user_daily_boosts (user_id, day, tapped_coins) 
+		VALUES ($1, CURRENT_DATE, $2)
+		ON CONFLICT (user_id, day) DO UPDATE 
+		SET tapped_coins = user_daily_boosts.tapped_coins + EXCLUDED.tapped_coins
+	`, userID, coinsEarned)
+	if err != nil {
+		return nil, fmt.Errorf("failed to track daily tapped coins: %w", err)
+	}
 	_, err = tx.Exec(ctx, `
 		UPDATE user_stats
 		SET total_taps = COALESCE(total_taps, 0) + $1,
@@ -536,15 +558,15 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 			var reward float64
 			switch newLevel {
 			case 2: // Silver
-				reward = 50000.0
+				reward = 10000.0
 			case 3: // Gold
-				reward = 100000.0
+				reward = 25000.0
 			case 4: // Platinum
-				reward = 250000.0
+				reward = 50000.0
 			case 5: // Diamond
-				reward = 500000.0
+				reward = 100000.0
 			case 6: // Legendary
-				reward = 1000000.0
+				reward = 200000.0
 			}
 			if reward > 0 {
 				_, _ = tx.Exec(ctx, "UPDATE user_stats SET airdrop_coins = COALESCE(airdrop_coins, 0) + $1 WHERE user_id = $2", reward, *referrerID)
@@ -590,9 +612,9 @@ func (s *ProfileService) PurchaseCosmetic(ctx context.Context, userID int64, cos
 	defer tx.Rollback(ctx)
 
 	// 1. Lock balance + check
-	var balance int64
+	var balance float64
 	err = tx.QueryRow(ctx,
-		`SELECT xp FROM user_stats WHERE user_id = $1 FOR UPDATE`,
+		`SELECT COALESCE(airdrop_coins, 0) FROM user_stats WHERE user_id = $1 FOR UPDATE`,
 		userID,
 	).Scan(&balance)
 	if err == pgx.ErrNoRows {
@@ -601,8 +623,8 @@ func (s *ProfileService) PurchaseCosmetic(ctx context.Context, userID int64, cos
 		return err
 	}
 
-	if float64(balance) < item.Cost {
-		return fmt.Errorf("insufficient balance: have %d, need %.0f", balance, item.Cost)
+	if balance < item.Cost {
+		return fmt.Errorf("insufficient balance: have %.0f, need %.0f", balance, item.Cost)
 	}
 
 	// 2. Check not already owned (within tx)
@@ -618,10 +640,10 @@ func (s *ProfileService) PurchaseCosmetic(ctx context.Context, userID int64, cos
 		return fmt.Errorf("cosmetic already purchased")
 	}
 
-	// 3. Debit
+	// 3. Debit coins
 	_, err = tx.Exec(ctx,
-		`UPDATE user_stats SET xp = xp - $1 WHERE user_id = $2`,
-		int64(item.Cost), userID,
+		`UPDATE user_stats SET airdrop_coins = airdrop_coins - $1 WHERE user_id = $2`,
+		item.Cost, userID,
 	)
 	if err != nil {
 		return err

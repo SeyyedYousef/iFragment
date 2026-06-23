@@ -40,6 +40,7 @@ export interface ProfileStats {
 	energy?: number;
 	energyUpdatedAt?: string;
 	photoUrl?: string;
+	dailyTappedCoins?: number;
 }
 
 export interface ReferralInfo {

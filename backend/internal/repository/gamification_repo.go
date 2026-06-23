@@ -201,11 +201,11 @@ func (db *Database) CreditReferrerShareCoins(ctx context.Context, spenderID int6
 		return fmt.Errorf("failed to get t2 referrer: %w", err)
 	}
 
-	t1Commission := amountSpent * 0.10
+	t1Commission := amountSpent * 0.05
 	hasT2 := t2ReferrerID != nil && *t2ReferrerID != 0
 	var t2Commission float64
 	if hasT2 {
-		t2Commission = amountSpent * 0.03
+		t2Commission = amountSpent * 0.01
 	}
 
 	creditCoins := func(userID int64, commission float64, tier int) error {

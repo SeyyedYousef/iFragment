@@ -44,7 +44,47 @@ func NewGamificationService(db *repository.Database, cache *repository.Cache) *G
 		go s.startReferralWorker()
 	}
 
+	if db.Pool != nil {
+		go s.StartCoinDecayWorker(context.Background())
+	}
+
 	return s
+}
+
+// StartCoinDecayWorker periodically checks and applies a 2% penalty to inactive users' airdrop coins
+func (s *GamificationService) StartCoinDecayWorker(ctx context.Context) {
+	ticker := time.NewTicker(6 * time.Hour) // Run every 6 hours
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.applyCoinDecay(ctx)
+		}
+	}
+}
+
+func (s *GamificationService) applyCoinDecay(ctx context.Context) {
+	if s.db.Pool == nil {
+		return
+	}
+
+	query := `
+		UPDATE user_stats 
+		SET airdrop_coins = airdrop_coins * 0.98,
+		    last_decay_at = CURRENT_DATE 
+		WHERE last_active_at < NOW() - INTERVAL '5 days' 
+		  AND (last_decay_at IS NULL OR last_decay_at < CURRENT_DATE) 
+		  AND airdrop_coins > 0;
+	`
+	tag, err := s.db.Pool.Exec(ctx, query)
+	if err != nil {
+		slog.Error("Failed to apply coin decay", "err", err)
+	} else if tag.RowsAffected() > 0 {
+		slog.Info("Applied coin decay", "affected_users", tag.RowsAffected())
+	}
 }
 
 func (s *GamificationService) startReferralWorker() {
@@ -122,13 +162,13 @@ var dailyRewards = map[int]struct {
 	Frg float64 // Labeled Frg for JSON compatibility, actually represents Coins
 	Xp  int
 }{
-	1: {Frg: 500, Xp: 10},
-	2: {Frg: 1000, Xp: 20},
-	3: {Frg: 2500, Xp: 50},
-	4: {Frg: 5000, Xp: 100},
-	5: {Frg: 10000, Xp: 200},
-	6: {Frg: 15000, Xp: 300},
-	7: {Frg: 25000, Xp: 500},
+	1: {Frg: 200, Xp: 10},
+	2: {Frg: 400, Xp: 20},
+	3: {Frg: 800, Xp: 50},
+	4: {Frg: 1500, Xp: 100},
+	5: {Frg: 3000, Xp: 200},
+	6: {Frg: 5000, Xp: 300},
+	7: {Frg: 8000, Xp: 500},
 }
 
 // GetDailyStatus returns status of daily calendar claims
@@ -584,17 +624,17 @@ func (s *GamificationService) GetBoostsStatus(ctx context.Context, userID int64)
 		return nil, err
 	}
 
-	// Multi-tap pricing: Level * 2000.0 Coins. Max Level: 10
+	// Multi-tap pricing: Level * 3000.0 Coins. Max Level: 10
 	mtMax := boosts.MultitapLevel >= 10
-	mtPrice := float64(boosts.MultitapLevel) * 2000.0
+	mtPrice := float64(boosts.MultitapLevel) * 3000.0
 
-	// Energy Limit pricing: Level * 1500.0 Coins. Max Level: 10
+	// Energy Limit pricing: Level * 2500.0 Coins. Max Level: 10
 	elMax := boosts.EnergyLimitLevel >= 10
-	elPrice := float64(boosts.EnergyLimitLevel) * 1500.0
+	elPrice := float64(boosts.EnergyLimitLevel) * 2500.0
 
 	// Tap Bot: Level 0 (not bought) to 1 (bought). Max Level: 1
 	tbMax := boosts.TapBotLevel >= 1
-	tbPrice := 20000.0
+	tbPrice := 50000.0
 
 	return []BoostInfo{
 		{
@@ -682,15 +722,15 @@ func (s *GamificationService) UpgradeBoost(ctx context.Context, userID int64, bo
 	switch boostType {
 	case "multitap":
 		nextLevel = boosts.MultitapLevel + 1
-		priceCoins = float64(max(1, boosts.MultitapLevel)) * 2000.0
+		priceCoins = float64(max(1, boosts.MultitapLevel)) * 3000.0
 		maxLevel = boosts.MultitapLevel >= 10
 	case "energy_limit":
 		nextLevel = boosts.EnergyLimitLevel + 1
-		priceCoins = float64(max(1, boosts.EnergyLimitLevel)) * 1500.0
+		priceCoins = float64(max(1, boosts.EnergyLimitLevel)) * 2500.0
 		maxLevel = boosts.EnergyLimitLevel >= 10
 	case "tap_bot":
 		nextLevel = boosts.TapBotLevel + 1
-		priceCoins = 20000.0
+		priceCoins = 50000.0
 		maxLevel = boosts.TapBotLevel >= 1
 	default:
 		return nil, fmt.Errorf("invalid boost type")
@@ -946,7 +986,7 @@ func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID i
 	}
 
 	if capSeconds <= 0 {
-		capSeconds = 12 * 3600 // 12 hours default cap
+		capSeconds = 8 * 3600 // 8 hours default cap
 	}
 
 	maxEnergy := 500 + (energyLimitLevel-1)*250
@@ -969,7 +1009,7 @@ func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID i
 		elapsed = capSeconds
 	}
 
-	rate := (float64(multitap) / 3.0) * float64(level)
+	rate := (float64(multitap) / 5.0) * float64(level)
 	earned := float64(elapsed) * rate
 	earnedInt := int(earned)
 
@@ -1019,11 +1059,11 @@ func (s *GamificationService) ApplyTurbo(ctx context.Context, userID int64) erro
 		return fmt.Errorf("failed to lock daily boosts: %w", err)
 	}
 
-	if turboUsed >= 3 {
+	if turboUsed >= 2 {
 		return fmt.Errorf("daily turbo limit reached")
 	}
 
-	_, err = tx.Exec(ctx, `UPDATE user_daily_boosts SET turbo_used = turbo_used + 1, turbo_expires_at = CURRENT_TIMESTAMP + INTERVAL '20 seconds' WHERE user_id = $1 AND day = CURRENT_DATE`, userID)
+	_, err = tx.Exec(ctx, `UPDATE user_daily_boosts SET turbo_used = turbo_used + 1, turbo_expires_at = CURRENT_TIMESTAMP + INTERVAL '15 seconds' WHERE user_id = $1 AND day = CURRENT_DATE`, userID)
 	if err != nil {
 		return fmt.Errorf("failed to update turbo usage: %w", err)
 	}

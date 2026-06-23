@@ -37,6 +37,7 @@ export const ProfileStatsSchema = z.object({
 	energy: z.number().int().nonnegative().optional(),
 	energyUpdatedAt: z.string().optional(),
 	photoUrl: z.string().optional(),
+	dailyTappedCoins: z.number().optional(),
 });
 
 export const AchievementSchema = z.object({
