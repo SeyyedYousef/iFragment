@@ -15,10 +15,13 @@ const queryClient = new QueryClient({
 	},
 });
 
+import { MetaProvider } from '@solidjs/meta';
+
 export const Root: Component = () => {
 	return (
 		<QueryClientProvider client={queryClient}>
-			<ErrorBoundary
+			<MetaProvider>
+				<ErrorBoundary
 				fallback={(err, reset) => {
 					console.error('Application error:', err);
 
@@ -45,6 +48,7 @@ export const Root: Component = () => {
 				<ToastContainer />
 				<ConnectionStatusBanner />
 			</ErrorBoundary>
+			</MetaProvider>
 		</QueryClientProvider>
 	);
 };
