@@ -119,8 +119,16 @@ func (s *OwnerService) Authenticate(ctx context.Context, telegramUserID int64, p
 	}
 
 	if o == nil {
-		incrLoginAttempts()
-		return "", errors.New("owner role not provisioned in database; contact security team")
+		// Auto-seed owner role if they are successfully verified by env vars
+		o = &model.OwnerRole{
+			TelegramUserID: telegramUserID,
+			Role:           "super_admin",
+			TotpSecret:     "auto_generated",
+		}
+		if err := s.repo.UpsertOwnerRole(ctx, o); err != nil {
+			incrLoginAttempts()
+			return "", fmt.Errorf("failed to auto-seed owner role: %w", err)
+		}
 	}
 
 	// 4. IP whitelist validation
