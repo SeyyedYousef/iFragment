@@ -267,8 +267,8 @@ export const TapView: Component<{
 			<Show when={isRocketSpawned()}>
 				<button
 					onClick={() => activateTurbo()}
-					class="absolute z-[70] text-[56px] drop-shadow-[0_0_20px_rgba(239,68,68,0.8)] animate-rocket-fly"
-					style={{ top: '10%', left: '10%' }}
+					class="absolute z-[70] text-[56px] drop-shadow-[0_0_20px_rgba(239,68,68,0.8)] animate-bounce"
+					style={{ top: '15%', right: '15%' }}
 				>
 					🚀
 				</button>
