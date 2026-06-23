@@ -81,7 +81,7 @@ export const ClanView: Component = () => {
 				when={userClan()}
 				fallback={
 					/* === NOT IN A CLAN === */
-					<div class="px-5 pt-6 relative z-10 min-h-full">
+					<div class="px-5 pt-14 relative z-10 min-h-full">
 						{/* Ambient Mild Glow */}
 						<div
 							class="absolute top-0 right-0 w-[500px] h-[500px] rounded-full pointer-events-none transition-colors duration-500 z-[-1]"
@@ -249,9 +249,9 @@ export const ClanView: Component = () => {
 						<div class="min-h-full flex flex-col relative w-full" style={{
 							background: 'linear-gradient(180deg, #c77b28 0%, #a25c1a 30%, #1a1a1a 60%, #000000 100%)'
 						}}>
-							<div class="relative z-10 flex flex-col items-center pt-0 px-4 w-full max-w-md mx-auto">
-								{/* Top Icon Box (Partially cut off at top) */}
-								<div class="w-[100px] h-[100px] bg-black rounded-[32px] flex items-center justify-center mb-6 shadow-xl relative overflow-hidden shrink-0 mt-[-20px]">
+							<div class="relative z-10 flex flex-col items-center pt-14 px-4 w-full max-w-md mx-auto">
+								{/* Top Icon Box */}
+								<div class="w-[100px] h-[100px] bg-black rounded-[32px] flex items-center justify-center mb-6 shadow-xl relative overflow-hidden shrink-0">
 									{clan().channel_photo ? (
 										<img src={clan().channel_photo} class="w-full h-full object-cover" />
 									) : (

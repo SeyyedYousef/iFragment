@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -120,8 +121,8 @@ func (s *ClanService) LeaveClan(ctx context.Context, userID int64) error {
 		return err
 	}
 
-	// Reconcile members count by direct recount to prevent drift
-	_, err = tx.Exec(ctx, "UPDATE clans c SET members_count = (SELECT COUNT(*) FROM clan_members WHERE clan_id = c.id) WHERE c.id = $1", clanID)
+	// Reconcile members count atomically to prevent drift
+	_, err = tx.Exec(ctx, "UPDATE clans SET members_count = members_count - 1 WHERE id = $1 AND members_count > 0", clanID)
 	if err != nil {
 		return err
 	}
@@ -240,8 +241,8 @@ func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, usern
 		if err != nil {
 			return nil, err
 		}
-		// Recount and reconcile members count for left clan
-		_, err = tx.Exec(ctx, "UPDATE clans c SET members_count = (SELECT COUNT(*) FROM clan_members WHERE clan_id = c.id) WHERE c.id = $1", currentClanID)
+		// Recount and reconcile members count for left clan atomically
+		_, err = tx.Exec(ctx, "UPDATE clans SET members_count = members_count - 1 WHERE id = $1 AND members_count > 0", currentClanID)
 		if err != nil {
 			return nil, err
 		}
@@ -276,8 +277,8 @@ func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, usern
 		return nil, err
 	}
 
-	// Recount and reconcile members count for joined clan
-	_, err = tx.Exec(ctx, "UPDATE clans c SET members_count = (SELECT COUNT(*) FROM clan_members WHERE clan_id = c.id) WHERE c.id = $1", finalClan.ID)
+	// Recount and reconcile members count for joined clan atomically
+	_, err = tx.Exec(ctx, "UPDATE clans SET members_count = members_count + 1 WHERE id = $1", finalClan.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -307,6 +308,16 @@ func (s *ClanService) GetTopClans(ctx context.Context, limit int) ([]model.Clan,
 		return []model.Clan{}, nil
 	}
 
+	cacheKey := fmt.Sprintf("top_clans:%d", limit)
+	if s.cache != nil && s.cache.Client != nil {
+		if val, err := s.cache.Client.Get(ctx, cacheKey).Result(); err == nil && val != "" {
+			var cachedClans []model.Clan
+			if err := json.Unmarshal([]byte(val), &cachedClans); err == nil {
+				return cachedClans, nil
+			}
+		}
+	}
+
 	query := `
 		SELECT c.id, c.telegram_channel_id, c.channel_username, COALESCE(c.channel_photo, '') as channel_photo, c.chat_title, c.members_count, c.total_score, c.created_at
 		FROM clans c
@@ -330,6 +341,13 @@ func (s *ClanService) GetTopClans(ctx context.Context, limit int) ([]model.Clan,
 		c.ChannelPhoto = channelPhoto.String
 		clans = append(clans, c)
 	}
+
+	if s.cache != nil && s.cache.Client != nil {
+		if data, err := json.Marshal(clans); err == nil {
+			s.cache.Client.Set(ctx, cacheKey, data, 60*time.Second)
+		}
+	}
+
 	return clans, nil
 }
 

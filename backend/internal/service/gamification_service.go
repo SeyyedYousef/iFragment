@@ -85,6 +85,30 @@ func (s *GamificationService) getBotAPIClient() *telegram.BotAPIClient {
 	return nil
 }
 
+func (s *GamificationService) getChatMemberCached(ctx context.Context, tg *telegram.BotAPIClient, chatID interface{}, userID int64) (string, error) {
+	if s.cache == nil || s.cache.Client == nil {
+		return tg.GetChatMember(ctx, chatID, userID)
+	}
+
+	key := fmt.Sprintf("chat_member_gamification:%v:%d", chatID, userID)
+	status, err := s.cache.Client.Get(ctx, key).Result()
+	if err == nil {
+		return status, nil
+	}
+
+	status, err = tg.GetChatMember(ctx, chatID, userID)
+	if err != nil {
+		return "", err
+	}
+
+	ttl := 5 * time.Minute
+	if status == "left" || status == "kicked" || status == "" {
+		ttl = 30 * time.Second
+	}
+	s.cache.Client.Set(ctx, key, status, ttl)
+	return status, nil
+}
+
 type DailyRewardInfo struct {
 	Streak    int     `json:"streak"`
 	FrgReward float64 `json:"frg_reward"`
@@ -357,10 +381,24 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 			return nil, fmt.Errorf("you must reach Gold league first")
 		}
 	case "join_clan":
-		var count int
-		_ = s.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM clan_members WHERE user_id = $1", userID).Scan(&count)
-		if count == 0 {
+		var clanUsername string
+		err := s.db.Pool.QueryRow(ctx, "SELECT c.channel_username FROM clan_members cm JOIN clans c ON cm.clan_id = c.id WHERE cm.user_id = $1", userID).Scan(&clanUsername)
+		if err != nil || clanUsername == "" {
 			return nil, fmt.Errorf("you must join a clan first")
+		}
+
+		tgClient := s.getBotAPIClient()
+		if tgClient != nil && clanUsername != "" {
+			targetChat := "@" + strings.TrimPrefix(clanUsername, "@")
+			status, err := s.getChatMemberCached(ctx, tgClient, targetChat, userID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to verify clan channel membership: %w", err)
+			}
+			if status == "left" || status == "kicked" {
+				return nil, fmt.Errorf("you must actually join your clan's official Telegram channel (%s) to claim this reward", targetChat)
+			}
+		} else if os.Getenv("APP_ENV") == "production" {
+			return nil, fmt.Errorf("telegram Bot Token not configured (fail-closed)")
 		}
 	case "invite_1_fren", "invite_3_frens", "invite_10_frens":
 		var frens int
@@ -407,7 +445,7 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 				return nil, fmt.Errorf("official Telegram Bot Token not configured (fail-closed)")
 			}
 		} else {
-			status, err := tgClient.GetChatMember(ctx, channelName, userID)
+			status, err := s.getChatMemberCached(ctx, tgClient, channelName, userID)
 			if err != nil {
 				return nil, fmt.Errorf("failed to verify official channel membership: %w", err)
 			}
@@ -745,7 +783,7 @@ func (s *GamificationService) GetLeaderboard(ctx context.Context) ([]Leaderboard
 
 			// Query database to resolve first_name, username, level, and clan
 			query := `
-				SELECT u.telegram_id, u.first_name, u.username, us.level, COALESCE(c.name, '') as clan_name
+				SELECT u.telegram_id, u.first_name, u.username, us.level, c.chat_title as clan_name
 				FROM users u
 				JOIN user_stats us ON us.user_id = u.telegram_id
 				LEFT JOIN clan_members cm ON cm.user_id = u.telegram_id
@@ -758,17 +796,24 @@ func (s *GamificationService) GetLeaderboard(ctx context.Context) ([]Leaderboard
 				memberMap := make(map[int64]LeaderboardMember)
 				for rows.Next() {
 					var id int64
-					var fn, username, clanName string
+					var fn, username, clanName *string
 					var level int
 					if err := rows.Scan(&id, &fn, &username, &level, &clanName); err == nil {
-						memberMap[id] = LeaderboardMember{
-							UserID:    id,
-							FirstName: fn,
-							Username:  username,
-							Level:     level,
-							XP:        scoreMap[id],
-							ClanName:  clanName,
+						m := LeaderboardMember{
+							UserID: id,
+							Level:  level,
+							XP:     scoreMap[id],
 						}
+						if fn != nil {
+							m.FirstName = *fn
+						}
+						if username != nil {
+							m.Username = *username
+						}
+						if clanName != nil {
+							m.ClanName = *clanName
+						}
+						memberMap[id] = m
 					}
 				}
 
@@ -789,7 +834,7 @@ func (s *GamificationService) GetLeaderboard(ctx context.Context) ([]Leaderboard
 
 	// Fallback to database
 	query := `
-		SELECT u.telegram_id, u.first_name, u.username, us.xp, us.level, COALESCE(c.chat_title, '') as clan_name
+		SELECT u.telegram_id, u.first_name, u.username, us.xp, us.level, c.chat_title as clan_name
 		FROM users u
 		JOIN user_stats us ON us.user_id = u.telegram_id
 		LEFT JOIN clan_members cm ON cm.user_id = u.telegram_id
@@ -808,9 +853,19 @@ func (s *GamificationService) GetLeaderboard(ctx context.Context) ([]Leaderboard
 	var zsetMembers []redis.Z
 	for rows.Next() {
 		var m LeaderboardMember
-		err := rows.Scan(&m.UserID, &m.FirstName, &m.Username, &m.XP, &m.Level, &m.ClanName)
+		var fn, username, clanName *string
+		err := rows.Scan(&m.UserID, &fn, &username, &m.XP, &m.Level, &clanName)
 		if err != nil {
 			continue
+		}
+		if fn != nil {
+			m.FirstName = *fn
+		}
+		if username != nil {
+			m.Username = *username
+		}
+		if clanName != nil {
+			m.ClanName = *clanName
 		}
 		m.Rank = rank
 		result = append(result, m)

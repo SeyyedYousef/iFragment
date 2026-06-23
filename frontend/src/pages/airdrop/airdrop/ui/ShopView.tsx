@@ -4,7 +4,7 @@ import { t } from '@/shared/i18n/index.js';
 export const ShopView: Component = () => {
 	return (
 		<div
-			class="flex-1 overflow-y-auto px-5 pt-8 pb-36 animate-fade-in no-scrollbar"
+			class="flex-1 overflow-y-auto px-5 pt-8 pb-10 animate-fade-in no-scrollbar"
 			style={{ background: '#000' }}
 			dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
 		>
@@ -87,6 +87,12 @@ export const ShopView: Component = () => {
 				</div>
 			</div>
 
+			{/* Coming Soon Notice */}
+			<div class="bg-[#3390ec]/10 border border-[#3390ec]/20 rounded-2xl p-5 text-center mt-2 mb-8">
+				<p class="text-[#3390ec] text-[13.5px] leading-relaxed font-medium">
+					{t('shopInfo.comingSoon')}
+				</p>
+			</div>
 
 		</div>
 	);
