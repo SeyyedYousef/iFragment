@@ -321,7 +321,7 @@ let isSyncing = false;
 let syncPromise: Promise<void> | null = null;
 
 const getOptimisticCoins = () => pendingTapBuckets.reduce((acc, b) => acc + b.count * b.multiplier * tapPower(), 0);
-const getOptimisticEnergyCost = () => pendingTapBuckets.reduce((acc, b) => acc + (b.multiplier === 1 ? b.count : 0), 0);
+const getOptimisticEnergyCost = () => pendingTapBuckets.reduce((acc, b) => acc + (b.multiplier === 1 ? b.count * tapPower() : 0), 0);
 const getOptimisticTaps = () => pendingTapBuckets.reduce((acc, b) => acc + b.count, 0);
 
 export const syncPendingTaps = async () => {
@@ -400,7 +400,7 @@ export const recordTaps = (count: number) => {
 	const turboActive = isTurboActive();
 	const multiplier = turboActive ? 5 : 1;
 	const power = tapPower() * multiplier;
-	const energyConsumed = turboActive ? 0 : count;
+	const energyConsumed = turboActive ? 0 : count * tapPower();
 
 	if (!turboActive && energy() < energyConsumed) return;
 	

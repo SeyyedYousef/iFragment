@@ -1904,4 +1904,68 @@ To enable me to delete malicious messages and restrict violating users, please a
 		claim: 'Claim Coins',
 		miningFor: 'Mining for 12 hours'
 	},
+	airdropFinal: {
+		boosters: {
+			freeDaily: 'Free daily boosters',
+			turbo: 'Turbo',
+			fullEnergy: 'Full Energy',
+			available: '{count} available',
+			boostersTitle: 'Boosters',
+			maxLevelReached: 'Maximum level reached',
+			lvl: 'lvl',
+			meta: {
+				tapPower: { name: 'Multitap', desc: 'Increase coin earn per tap' },
+				energyCap: { name: 'Energy Limit', desc: 'Increase maximum energy capacity' },
+				tapBot: { name: 'Auto-Tap Bot', desc: 'Mines coins while you are away' }
+			}
+		},
+		friends: {
+			frensCount: 'Frens',
+			subtitle: 'Invite a friend to get bonuses and increase your squad',
+			inviteBtn: 'Invite a fren',
+			listTitle: 'Frens list',
+			noFriends: 'You haven\'t invited anyone yet',
+		},
+		clan: {
+			inviteText: 'Join the {title} clan and mine coins with me!',
+			title: 'Clans',
+			subtitle: 'Create or join a clan to mine as a team!',
+			howItWorks: 'How it works',
+			howItWorksDesc: 'A clan allows you and your frens to form a squad.',
+			joinTitle: 'Join a clan',
+			joinDesc: 'Enter a public channel link or username',
+			joinBtn: 'Join',
+			popularSquads: 'Popular squads',
+			loadError: 'Failed to load popular squads.',
+			noSquads: 'No squads found.',
+			members: 'members',
+			totalScore: 'Total score',
+			inviteToSquad: 'Invite to squad',
+			getMoreCoins: 'Get more Coins',
+			leaveClan: 'Leave squad',
+		},
+		bot: {
+			collected: 'Bot Collected',
+			description: 'Your Tap-Bot has been mining while you were away!',
+			earned: 'Earned Coins',
+			claim: 'Awesome!',
+		},
+		tasks: {
+			title: 'Earn',
+			subtitle: 'More coins for you',
+			tasksTab: 'Tasks',
+			failedLoad: 'Failed to load tasks.',
+			retryBtn: 'Retry',
+			noTasks: 'No tasks available right now.',
+			leagueGold: 'Reach Gold League',
+			joinClan: 'Join a Clan',
+			invite1: 'Invite 1 Fren',
+			invite3: 'Invite 3 Frens',
+			invite10: 'Invite 10 Frens',
+			taps100k: 'Reach 100,000 Taps',
+			premium: 'Telegram Premium',
+			joinChannel: 'Join Official Channel',
+			specialTask: 'Special Task',
+		},
+	}
 };

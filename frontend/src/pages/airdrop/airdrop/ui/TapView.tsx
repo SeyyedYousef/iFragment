@@ -306,7 +306,8 @@ export const TapView: Component<{
 						</div>
 					}>
 						{(clan) => {
-							const currentRank = clan().members_count > 100 ? 'Top 100' : '31st'; // Dynamic rank placeholder
+							const rank = statsQuery.data?.globalRank;
+							const currentRank = rank ? `#${rank.toLocaleString('en-US')}` : (t('airdropTabs.unranked' as any) || 'Unranked');
 
 							return (
 								<div class="flex items-center justify-between w-full py-0.5">
@@ -382,7 +383,7 @@ export const TapView: Component<{
 					fallback={
 						<div class="flex items-center gap-1">
 							<span class="text-white/40 text-[18px] font-light">{'{'}</span>
-							<span class="text-white/80 text-[14px] font-bold tracking-wide">125th</span>
+							<span class="text-white/80 text-[14px] font-bold tracking-wide">{t('airdropTabs.unranked' as any) || 'Unranked'}</span>
 							<span class="text-white/40 text-[18px] font-light">{'}'}</span>
 						</div>
 					}

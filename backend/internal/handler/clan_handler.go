@@ -1,12 +1,14 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/service"
 	"log/slog"
 	"net/http"
+	"time"
 )
 
 type ClanHandler struct {
@@ -59,7 +61,10 @@ func (h *ClanHandler) JoinClan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clan, err := h.clanService.SearchAndJoinClan(r.Context(), userID, req.Username)
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+
+	clan, err := h.clanService.SearchAndJoinClan(ctx, userID, req.Username)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrInvalidUsername):

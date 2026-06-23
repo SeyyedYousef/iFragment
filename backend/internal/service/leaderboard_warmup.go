@@ -16,7 +16,7 @@ func (s *ProfileService) WarmLeaderboard(ctx context.Context) error {
 	}
 	rows, err := s.db.Pool.Query(ctx, `
 		SELECT user_id, xp FROM user_stats
-		WHERE xp > 0
+		WHERE xp > 0 AND user_id > 1000000
 		ORDER BY xp DESC
 		LIMIT 100000
 	`)

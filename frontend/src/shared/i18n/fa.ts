@@ -1878,4 +1878,68 @@ export const dict = {
 		claim: 'دریافت سکه‌ها',
 		miningFor: '۱۲ ساعت استخراج مداوم'
 	},
+	airdropFinal: {
+		boosters: {
+			freeDaily: 'بوسترهای رایگان روزانه',
+			turbo: 'توربو',
+			fullEnergy: 'انرژی کامل',
+			available: '{count} موجود',
+			boostersTitle: 'بوسترها',
+			maxLevelReached: 'به حداکثر سطح رسید',
+			lvl: 'سطح',
+			meta: {
+				tapPower: { name: 'چند-تپ', desc: 'افزایش سکه در هر تپ' },
+				energyCap: { name: 'محدودیت انرژی', desc: 'افزایش ظرفیت مخزن انرژی' },
+				tapBot: { name: 'ربات استخراج', desc: 'استخراج سکه وقتی آنلاین نیستید' }
+			}
+		},
+		friends: {
+			frensCount: 'دوست',
+			subtitle: 'برای افزایش تیم و پاداش، دوستانت رو دعوت کن',
+			inviteBtn: 'دعوت یک دوست',
+			listTitle: 'لیست دوستان',
+			noFriends: 'هنوز کسی را دعوت نکرده‌اید',
+		},
+		clan: {
+			inviteText: 'به کلن {title} بپیوند و با من سکه استخراج کن!',
+			title: 'کلن‌ها',
+			subtitle: 'یک کلن بساز یا عضو شو تا تیمی استخراج کنید!',
+			howItWorks: 'این چطور کار می‌کند؟',
+			howItWorksDesc: 'با کلن، شما و دوستانتان یک تیم تشکیل می‌دهید.',
+			joinTitle: 'عضویت در کلن',
+			joinDesc: 'لینک عمومی کانال یا نام آن را بنویسید',
+			joinBtn: 'عضویت',
+			popularSquads: 'تیم‌های محبوب',
+			loadError: 'خطا در بارگذاری کلن‌ها.',
+			noSquads: 'هیچ تیمی یافت نشد.',
+			members: 'عضو',
+			totalScore: 'مجموع امتیاز',
+			inviteToSquad: 'دعوت به تیم',
+			getMoreCoins: 'سکه بیشتر بگیر',
+			leaveClan: 'خروج از کلن',
+		},
+		bot: {
+			collected: 'سکه جمع‌آوری شد',
+			description: 'ربات استخراج وقتی نبودی برات کار کرد!',
+			earned: 'سکه‌های استخراج شده',
+			claim: 'عالیه!',
+		},
+		tasks: {
+			title: 'کسب درآمد',
+			subtitle: 'سکه‌های بیشتر برای شما',
+			tasksTab: 'ماموریت‌ها',
+			failedLoad: 'خطا در بارگذاری.',
+			retryBtn: 'تلاش مجدد',
+			noTasks: 'در حال حاضر هیچ ماموریتی نیست.',
+			leagueGold: 'رسیدن به لیگ طلایی',
+			joinClan: 'عضویت در یک کلن',
+			invite1: 'دعوت ۱ دوست',
+			invite3: 'دعوت ۳ دوست',
+			invite10: 'دعوت ۱۰ دوست',
+			taps100k: 'رسیدن به ۱۰۰ هزار تپ',
+			premium: 'تلگرام پرمیوم',
+			joinChannel: 'عضویت در کانال رسمی',
+			specialTask: 'ماموریت ویژه',
+		},
+	}
 };

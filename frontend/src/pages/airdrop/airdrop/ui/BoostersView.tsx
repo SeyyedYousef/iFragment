@@ -48,7 +48,7 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 
 			{/* Free daily boosters */}
 			<div class="mb-6 relative z-10">
-				<h2 class="text-[22px] font-bold text-white mb-4 tracking-tight text-start">{t('boosters.freeDaily')}</h2>
+				<h2 class="text-[22px] font-bold text-white mb-4 tracking-tight text-start">{t('airdropFinal.boosters.freeDaily')}</h2>
 				<div class="grid grid-cols-2 gap-3">
 					<button 
 						onClick={() => {
@@ -59,8 +59,8 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 						class={`bg-[#1c1c1e] rounded-3xl p-4 flex flex-col gap-1.5 items-start transition-all text-start ${turboCount() > 0 ? 'active:scale-95' : 'opacity-50'}`}
 					>
 						<div class="flex flex-col gap-1 items-start mb-1 w-full relative">
-							<span class="text-white font-medium text-[15px] max-w-[70%] leading-tight">{t('boosters.turbo')}</span>
-							<span class="text-[#8e8e93] text-[13px]">{t('boosters.available' as any).replace('{count}', `${turboCount()}/3`)}</span>
+							<span class="text-white font-medium text-[15px] max-w-[70%] leading-tight">{t('airdropFinal.boosters.turbo')}</span>
+							<span class="text-[#8e8e93] text-[13px]">{t('airdropFinal.boosters.available' as any).replace('{count}', `${turboCount()}/3`)}</span>
 							<span class="text-2xl absolute end-0 top-0">🚀</span>
 						</div>
 					</button>
@@ -73,8 +73,8 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 						class={`bg-[#1c1c1e] rounded-3xl p-4 flex flex-col gap-1.5 items-start transition-all text-start ${fullEnergyCount() > 0 ? 'active:scale-95' : 'opacity-50'}`}
 					>
 						<div class="flex flex-col gap-1 items-start mb-1 w-full relative">
-							<span class="text-white font-medium text-[15px] max-w-[70%] leading-tight">{t('boosters.fullEnergy')}</span>
-							<span class="text-[#8e8e93] text-[13px]">{t('boosters.available' as any).replace('{count}', `${fullEnergyCount()}/3`)}</span>
+							<span class="text-white font-medium text-[15px] max-w-[70%] leading-tight">{t('airdropFinal.boosters.fullEnergy')}</span>
+							<span class="text-[#8e8e93] text-[13px]">{t('airdropFinal.boosters.available' as any).replace('{count}', `${fullEnergyCount()}/3`)}</span>
 							<span class="text-2xl absolute end-0 top-0">⚡</span>
 						</div>
 					</button>
@@ -84,7 +84,7 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 			{/* Boosters */}
 			<div class="relative z-10">
 				<h2 class="text-[22px] font-bold text-white mb-4 tracking-tight flex items-center gap-1">
-					{t('boosters.boostersTitle')}
+					{t('airdropFinal.boosters.boostersTitle')}
 					<span class="text-[14px]">✨</span>
 				</h2>
 				<div class="bg-[#1c1c1e] rounded-[32px] overflow-hidden flex flex-col pt-1">
@@ -104,8 +104,8 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 								tapBot: '🤖',
 							};
 							
-							const metaName = t(`boosters.meta.${id}.name` as any);
-							const metaDesc = t(`boosters.meta.${id}.desc` as any);
+							const metaName = t(`airdropFinal.boosters.meta.${id}.name` as any);
+							const metaDesc = t(`airdropFinal.boosters.meta.${id}.desc` as any);
 
 							return (
 								<button
@@ -121,7 +121,7 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 									{/* Info */}
 									<div class="flex-1 flex flex-col items-start text-start min-w-0 justify-center">
 										<div class="flex items-center gap-2">
-											<span class="text-white font-medium text-[17px] tracking-tight">{metaName !== `boosters.meta.${id}.name` ? metaName : defaultMeta.name}</span>
+											<span class="text-white font-medium text-[17px] tracking-tight">{metaName !== `airdropFinal.boosters.meta.${id}.name` ? metaName : defaultMeta.name}</span>
 											{id === 'tapBot' && (
 												<span class="text-white text-[13px] bg-white/10 px-2 py-0.5 rounded-full flex items-center gap-1">
 													on <div class="w-1.5 h-1.5 rounded-full bg-[#34c759]"></div>
@@ -130,15 +130,15 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 										</div>
 										
 										{id === 'tapBot' ? (
-											<span class="text-[#8e8e93] text-[15px] mt-0.5">{metaDesc !== `boosters.meta.${id}.desc` ? metaDesc : defaultMeta.desc}</span>
+											<span class="text-[#8e8e93] text-[15px] mt-0.5">{metaDesc !== `airdropFinal.boosters.meta.${id}.desc` ? metaDesc : defaultMeta.desc}</span>
 										) : isMaxed() ? (
-											<span class="text-[#8e8e93] text-[15px] mt-0.5">{t('boosters.maxLevelReached')}</span>
+											<span class="text-[#8e8e93] text-[15px] mt-0.5">{t('airdropFinal.boosters.maxLevelReached')}</span>
 										) : (
 											<div class="flex items-center gap-1.5 mt-1">
 												<span class="material-symbols-outlined text-amber-400 text-[16px]" style={{ 'font-variation-settings': '"FILL" 1' }}>monetization_on</span>
 												<span class="text-white font-bold text-[15px] tracking-tight">{cost().toLocaleString('en-US')}</span>
 												<span class="text-[#8e8e93] text-[15px] px-1">•</span>
-												<span class="text-[#8e8e93] text-[15px]">{booster().level} {t('boosters.lvl')}</span>
+												<span class="text-[#8e8e93] text-[15px]">{booster().level} {t('airdropFinal.boosters.lvl')}</span>
 											</div>
 										)}
 									</div>

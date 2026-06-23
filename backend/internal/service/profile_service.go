@@ -473,13 +473,10 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 	if multiplier != 5 {
 		// Dynamic energy verification prevents infinite tap farming
 		if energyCost > energy {
-			energyCost = energy
-			taps = energyCost / multitapLevel
-			if taps == 0 && energyCost > 0 {
-				taps = 1
-			}
+			taps = energy / multitapLevel
+			energyCost = taps * multitapLevel
 		}
-		if energyCost <= 0 {
+		if taps <= 0 || energyCost <= 0 {
 			return nil, fmt.Errorf("not enough energy")
 		}
 	}

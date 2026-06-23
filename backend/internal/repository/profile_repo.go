@@ -157,7 +157,8 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 
 func (db *Database) GetGlobalRankFromDB(ctx context.Context, xp int) (int, error) {
 	var globalRank int
-	rankQuery := "SELECT COUNT(*) + 1 FROM user_stats WHERE xp > $1"
+	// Ignore test/dummy accounts by ensuring user_id > 1000000 (real Telegram IDs are much larger)
+	rankQuery := "SELECT COUNT(*) + 1 FROM user_stats WHERE xp > $1 AND user_id > 1000000"
 	err := db.Pool.QueryRow(ctx, rankQuery, xp).Scan(&globalRank)
 	return globalRank, err
 }
@@ -487,18 +488,18 @@ func generateSecureReferralCode(length int) (string, error) {
 }
 
 var LevelThresholds = []int{
-	0,      // Level 1
-	500,    // Level 2
-	1500,   // Level 3
-	3500,   // Level 4
-	7000,   // Level 5
-	12000,  // Level 6
-	20000,  // Level 7
-	35000,  // Level 8
-	55000,  // Level 9
-	80000,  // Level 10
-	120000, // Level 11
-	200000, // Level 12
+	0,           // Level 1: Bronze
+	50000,       // Level 2: Silver
+	250000,      // Level 3: Gold
+	1000000,     // Level 4: Platinum
+	5000000,     // Level 5: Diamond
+	25000000,    // Level 6: Legendary
+	100000000,   // Level 7: Master
+	500000000,   // Level 8: Grandmaster
+	2500000000,  // Level 9: Elite
+	10000000000, // Level 10: Champion
+	50000000000, // Level 11: Hero
+	250000000000,// Level 12: Mythic
 }
 
 func GetLevelFromXP(xp int) int {

@@ -855,12 +855,12 @@ func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID i
 	}
 	defer tx.Rollback(ctx)
 
-	var level int
+	var level, multitap int
 	var lastCollectedAt *time.Time
 	var capSeconds int
 
-	query := `SELECT tap_bot_level, tap_bot_last_collected_at, tap_bot_cap_seconds FROM user_boosts WHERE user_id = $1 FOR UPDATE`
-	err = tx.QueryRow(ctx, query, userID).Scan(&level, &lastCollectedAt, &capSeconds)
+	query := `SELECT tap_bot_level, tap_bot_last_collected_at, tap_bot_cap_seconds, multitap_level FROM user_boosts WHERE user_id = $1 FOR UPDATE`
+	err = tx.QueryRow(ctx, query, userID).Scan(&level, &lastCollectedAt, &capSeconds, &multitap)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return &OfflineMiningResult{Earned: 0, DurationSeconds: 0}, nil
@@ -877,6 +877,10 @@ func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID i
 		lastCollectedAt = &now
 	}
 
+	if capSeconds <= 0 {
+		capSeconds = 12 * 3600 // 12 hours default cap
+	}
+
 	elapsed := int(now.Sub(*lastCollectedAt).Seconds())
 	if elapsed < 0 {
 		elapsed = 0
@@ -885,12 +889,12 @@ func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID i
 		elapsed = capSeconds
 	}
 
-	// Calculate earned coins: Level * 1 coin/sec
-	rate := float64(level)
+	rate := (float64(multitap) / 3.0) * float64(level)
 	earned := float64(elapsed) * rate
+	earnedInt := int(earned)
 
-	if earned > 0 {
-		_, err = tx.Exec(ctx, `UPDATE user_stats SET airdrop_coins = airdrop_coins + $1 WHERE user_id = $2`, earned, userID)
+	if earnedInt > 0 {
+		_, err = tx.Exec(ctx, `UPDATE user_stats SET airdrop_coins = airdrop_coins + $1 WHERE user_id = $2`, earnedInt, userID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to update user stats: %w", err)
 		}
@@ -905,7 +909,7 @@ func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID i
 		return nil, fmt.Errorf("failed to commit: %w", err)
 	}
 
-	return &OfflineMiningResult{Earned: earned, DurationSeconds: elapsed}, nil
+	return &OfflineMiningResult{Earned: float64(earnedInt), DurationSeconds: elapsed}, nil
 }
 
 // ApplyTurbo applies a daily turbo boost

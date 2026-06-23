@@ -79,23 +79,23 @@ export const TasksView: Component = () => {
 	const getTaskDetails = (key: string) => {
 		switch (key) {
 			case 'league_gold':
-				return { title: 'Reach Gold League', icon: '🏆' };
+				return { title: t('airdropFinal.tasks.leagueGold'), icon: '🏆' };
 			case 'join_clan':
-				return { title: 'Join a Clan', icon: '🛡️' };
+				return { title: t('airdropFinal.tasks.joinClan'), icon: '🛡️' };
 			case 'invite_1_fren':
-				return { title: 'Invite 1 Fren', icon: '🤝' };
+				return { title: t('airdropFinal.tasks.invite1'), icon: '🤝' };
 			case 'invite_3_frens':
-				return { title: 'Invite 3 Frens', icon: '👥' };
+				return { title: t('airdropFinal.tasks.invite3'), icon: '👥' };
 			case 'invite_10_frens':
-				return { title: 'Invite 10 Frens', icon: '💎' };
+				return { title: t('airdropFinal.tasks.invite10'), icon: '💎' };
 			case 'taps_100k':
-				return { title: 'Reach 100,000 Taps', icon: '👆' };
+				return { title: t('airdropFinal.tasks.taps100k'), icon: '👆' };
 			case 'telegram_premium':
-				return { title: 'Telegram Premium', icon: '⭐️' };
+				return { title: t('airdropFinal.tasks.premium'), icon: '⭐️' };
 			case 'join_ifragment_channel':
-				return { title: 'Join Official Channel', icon: '📣' };
+				return { title: t('airdropFinal.tasks.joinChannel'), icon: '📣' };
 			default:
-				return { title: 'Special Task', icon: '🎁' };
+				return { title: t('airdropFinal.tasks.specialTask'), icon: '🎁' };
 		}
 	};
 
@@ -116,17 +116,17 @@ export const TasksView: Component = () => {
 					</svg>
 				</div>
 				<h1 class="text-[40px] font-bold tracking-tight mb-2 text-center text-white">
-					Earn
+					{t('airdropFinal.tasks.title')}
 				</h1>
 				<p class="text-[#8e8e93] text-[15px] text-center font-normal">
-					More coins for you
+					{t('airdropFinal.tasks.subtitle')}
 				</p>
 			</div>
 
 			{/* Tasks List */}
 			<div class="px-5 mt-6 flex flex-col">
 				<h2 class="text-[17px] font-semibold text-white mb-4">
-					Tasks
+					{t('airdropFinal.tasks.tasksTab')}
 				</h2>
 
 				<div class="bg-[#1c1c1e] rounded-[24px] px-4 py-2 overflow-hidden flex flex-col">
@@ -142,9 +142,9 @@ export const TasksView: Component = () => {
 							when={!tasksQuery.isError}
 							fallback={
 								<div class="py-8 text-center flex flex-col items-center">
-									<span class="text-[#8e8e93] text-[15px]">Failed to load tasks.</span>
+									<span class="text-[#8e8e93] text-[15px]">{t('airdropFinal.tasks.failedLoad')}</span>
 									<button onClick={() => tasksQuery.refetch()} class="mt-4 px-6 py-2 bg-white text-black rounded-full font-semibold">
-										Retry
+										{t('airdropFinal.tasks.retryBtn')}
 									</button>
 								</div>
 							}
@@ -153,7 +153,7 @@ export const TasksView: Component = () => {
 								when={tasksQuery.data && tasksQuery.data.length > 0}
 								fallback={
 									<div class="py-8 text-center text-[#8e8e93] text-[15px]">
-										No tasks available right now.
+										{t('airdropFinal.tasks.noTasks')}
 									</div>
 								}
 							>

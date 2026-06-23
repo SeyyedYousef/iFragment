@@ -109,4 +109,68 @@ export const dict: Record<string, any> = {
 		claim: '领取金币',
 		miningFor: '已挖矿12小时'
 	},
+	airdropFinal: {
+		boosters: {
+			freeDaily: '每日免费助推器',
+			turbo: '涡轮',
+			fullEnergy: '满能量',
+			available: '可用 {count}',
+			boostersTitle: '助推器',
+			maxLevelReached: '已达到最高等级',
+			lvl: '级',
+			meta: {
+				tapPower: { name: '多重点击', desc: '增加每次点击赚取的硬币' },
+				energyCap: { name: '能量上限', desc: '增加最大能量容量' },
+				tapBot: { name: '自动点击机器人', desc: '在您离开时挖矿' }
+			}
+		},
+		friends: {
+			frensCount: '朋友',
+			subtitle: '邀请朋友获取奖励并壮大您的团队',
+			inviteBtn: '邀请朋友',
+			listTitle: '朋友列表',
+			noFriends: '您还没有邀请任何人',
+		},
+		clan: {
+			inviteText: '加入 {title} 家族，和我一起挖矿吧！',
+			title: '家族',
+			subtitle: '创建或加入家族，组队挖矿！',
+			howItWorks: '工作原理',
+			howItWorksDesc: '家族允许您和朋友组建团队。',
+			joinTitle: '加入家族',
+			joinDesc: '输入公开的频道链接或用户名',
+			joinBtn: '加入',
+			popularSquads: '热门团队',
+			loadError: '加载热门团队失败。',
+			noSquads: '未找到团队。',
+			members: '成员',
+			totalScore: '总分',
+			inviteToSquad: '邀请加入团队',
+			getMoreCoins: '获取更多硬币',
+			leaveClan: '离开团队',
+		},
+		bot: {
+			collected: '机器人已收集',
+			description: '您不在的时候，您的 Tap-Bot 一直在挖矿！',
+			earned: '赚取的硬币',
+			claim: '太棒了！',
+		},
+		tasks: {
+			title: '赚取',
+			subtitle: '为您提供更多硬币',
+			tasksTab: '任务',
+			failedLoad: '加载任务失败。',
+			retryBtn: '重试',
+			noTasks: '目前没有可用的任务。',
+			leagueGold: '达到黄金联赛',
+			joinClan: '加入家族',
+			invite1: '邀请 1 个朋友',
+			invite3: '邀请 3 个朋友',
+			invite10: '邀请 10 个朋友',
+			taps100k: '达到 100,000 次点击',
+			premium: 'Telegram 高级会员',
+			joinChannel: '加入官方频道',
+			specialTask: '特殊任务',
+		},
+	}
 };
