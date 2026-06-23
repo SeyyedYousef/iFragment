@@ -21,7 +21,6 @@ import (
 	"ifragment-backend/internal/model"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/client/mtproto"
-	"ifragment-backend/internal/service/totp"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
