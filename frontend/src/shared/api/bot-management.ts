@@ -252,3 +252,16 @@ export const clanApi = {
 };
 
 
+export interface PurchaseOption {
+	id: string;
+	title: string;
+	amount_stars: number;
+	amount_coins: number;
+	popular?: boolean;
+}
+
+export const marketplaceApi = {
+	getOptions: () => apiClient.get<PurchaseOption[]>('/marketplace/options').then((r: any) => r.data),
+	createStarsInvoice: (id: string) => apiClient.post('/marketplace/buy-stars', { option_id: id }).then((r: any) => r.data),
+	convertAirdropCoins: (amount: number) => apiClient.post('/marketplace/convert', { amount }).then((r: any) => r.data),
+};
