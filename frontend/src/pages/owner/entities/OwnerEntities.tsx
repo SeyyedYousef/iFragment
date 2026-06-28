@@ -90,8 +90,13 @@ export const OwnerEntities: Component = () => {
 					sessionStorage.setItem('owner_impersonation_token', token);
 					sessionStorage.setItem('impersonated_user_id', String(ownerId));
 					sessionStorage.setItem('impersonated_username', String(ownerId));
-					
-					window.location.href = '/';
+					// Clear cached owner profile data so impersonated user gets fresh data
+					localStorage.removeItem('cached_profile_stats');
+					localStorage.removeItem('cached_profile_achievements');
+					localStorage.removeItem('cached_profile_referral');
+					// Redirect to home under impersonation (HashRouter-compatible)
+					window.location.href = window.location.pathname + '#/';
+					window.location.reload();
 				} catch (e: any) {
 					alert(e.response?.data?.error || 'Failed to impersonate');
 				}

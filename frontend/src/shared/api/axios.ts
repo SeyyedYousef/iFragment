@@ -93,7 +93,9 @@ apiClient.interceptors.request.use(
 		}
 
 		// Pass Telegram InitData for authentication handshake if available
-		if (initData && isInternalUrl) {
+		// IMPORTANT: Do NOT send initData during impersonation — it contains the owner's
+		// identity and would cause the backend to resolve the wrong user.
+		if (initData && isInternalUrl && !impersonationToken) {
 			config.headers['X-Telegram-Init-Data'] = initData;
 		}
 
@@ -140,8 +142,17 @@ apiClient.interceptors.response.use(
 			if (isOwnerRequest) {
 				// Owner tokens are not silently refreshed via Telegram initData
 			} else if (isImpersonating) {
-				console.warn('[API] Impersonation token expired, clearing');
+				console.warn('[API] Impersonation token expired, redirecting back to owner panel');
 				sessionStorage.removeItem('owner_impersonation_token');
+				sessionStorage.removeItem('impersonated_user_id');
+				sessionStorage.removeItem('impersonated_username');
+				// Clear cached user data so owner doesn't see stale impersonated data
+				localStorage.removeItem('cached_profile_stats');
+				localStorage.removeItem('cached_profile_achievements');
+				localStorage.removeItem('cached_profile_referral');
+				// Redirect back to owner panel
+				window.location.href = window.location.pathname + '#/owner/users';
+				window.location.reload();
 			} else {
 				(originalRequest as any)._isRetryForAuth = true;
 				try {
@@ -199,6 +210,15 @@ apiClient.interceptors.response.use(
  * Safe to call multiple times; no-ops if a token already exists.
  */
 export async function bootstrapAuth(): Promise<void> {
+	// Skip bootstrap entirely if an impersonation session is active.
+	// The impersonation token in sessionStorage handles auth for all non-owner requests.
+	// Running bootstrap would re-authenticate as the real owner via Telegram initData,
+	// which would override the impersonation context.
+	const isImpersonating = !!sessionStorage.getItem('owner_impersonation_token');
+	if (isImpersonating) {
+		return;
+	}
+
 	const initData = getInitData();
 	const existingToken = localStorage.getItem('jwt_token');
 	const currentUserId = getUserIdFromInitData(initData);

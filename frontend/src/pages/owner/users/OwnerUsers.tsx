@@ -120,9 +120,13 @@ export const OwnerUsers: Component = () => {
 							'impersonated_username',
 							user.username || String(user.telegram_id),
 						);
-						// Redirect user back to home/dashboard under impersonation
-						navigate('/');
-						// Trigger page refresh to reload auth interceptor
+						// Clear cached owner profile data so impersonated user gets fresh data
+						localStorage.removeItem('cached_profile_stats');
+						localStorage.removeItem('cached_profile_achievements');
+						localStorage.removeItem('cached_profile_referral');
+						// Redirect to home under impersonation context.
+						// Use direct location change (not navigate+reload) to avoid race conditions.
+						window.location.href = window.location.pathname + '#/';
 						window.location.reload();
 					}
 				} catch (err: any) {
