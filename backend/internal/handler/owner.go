@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"log/slog"
 
 	"encoding/json"
@@ -598,7 +599,10 @@ func (h *OwnerHandler) AdjustAirdropCoins(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	err := h.srv.AdjustAirdropCoins(r.Context(), req)
+	ownerID, _ := middleware.GetUserID(r.Context())
+	ip := middleware.GetRealIP(r)
+
+	newBalance, err := h.srv.AdjustAirdropCoins(r.Context(), req, ownerID, ip)
 	if err != nil {
 		slog.Error("Failed to adjust airdrop coins", "error", err)
 		http.Error(w, "Failed to adjust airdrop coins", http.StatusInternalServerError)
@@ -606,7 +610,29 @@ func (h *OwnerHandler) AdjustAirdropCoins(w http.ResponseWriter, r *http.Request
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"status":"success"}`))
+	w.Write([]byte(fmt.Sprintf(`{"success":true,"new_balance":%f}`, newBalance)))
+}
+
+// AddEntityCredit Handler
+func (h *OwnerHandler) AddEntityCredit(w http.ResponseWriter, r *http.Request) {
+	var req service.AddEntityCreditRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	ownerID, _ := middleware.GetUserID(r.Context())
+	ip := middleware.GetRealIP(r)
+
+	err := h.srv.AddEntityCredit(r.Context(), req, ownerID, ip)
+	if err != nil {
+		slog.Error("Failed to add credit to entity", "error", err)
+		http.Error(w, "Failed to add credit", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"success":true}`))
 }
 
 func (h *OwnerHandler) GetSettings(w http.ResponseWriter, r *http.Request) {

@@ -28,6 +28,18 @@ const getInitData = (): string => {
 	return sessionStorage.getItem('cached_tg_init_data') || '';
 };
 
+const getUserIdFromInitData = (initData: string): string | null => {
+	try {
+		const params = new URLSearchParams(initData);
+		const userStr = params.get('user');
+		if (userStr) {
+			const user = JSON.parse(userStr);
+			return user.id ? String(user.id) : null;
+		}
+	} catch (_e) {}
+	return null;
+};
+
 // Reset failed initData cache on app load/reload to allow re-authentication attempts
 try {
 	sessionStorage.removeItem('failed_init_data');
@@ -47,6 +59,8 @@ let refreshPromise: Promise<string> | null = null;
 // Request Interceptor
 apiClient.interceptors.request.use(
 	(config: InternalAxiosRequestConfig) => {
+		const initData = getInitData();
+
 		// Attempt to retrieve a valid JWT token (Prefer impersonation session token if active, then owner token if administrative path, then standard user token)
 		const impersonationToken = sessionStorage.getItem('owner_impersonation_token');
 		const isOwnerRequest = isOwnerPath(config.url);
@@ -58,6 +72,15 @@ apiClient.interceptors.request.use(
 			token = ownerToken;
 		} else {
 			token = impersonationToken || localStorage.getItem('jwt_token');
+			if (!impersonationToken && token) {
+				const currentUserId = getUserIdFromInitData(initData);
+				const storedUserId = localStorage.getItem('tg_user_id');
+				if (currentUserId && currentUserId !== storedUserId) {
+					console.warn('[API] Telegram account switched, invalidating token');
+					token = null;
+					localStorage.removeItem('jwt_token');
+				}
+			}
 		}
 
 		// Prevent token leakage to third-party domains
@@ -70,7 +93,6 @@ apiClient.interceptors.request.use(
 		}
 
 		// Pass Telegram InitData for authentication handshake if available
-		const initData = getInitData();
 		if (initData && isInternalUrl) {
 			config.headers['X-Telegram-Init-Data'] = initData;
 		}
@@ -134,6 +156,8 @@ apiClient.interceptors.response.use(
 								.then((refreshResponse) => {
 									if (refreshResponse.data?.token) {
 										localStorage.setItem('jwt_token', refreshResponse.data.token);
+										const currentUserId = getUserIdFromInitData(getInitData());
+										if (currentUserId) localStorage.setItem('tg_user_id', currentUserId);
 										return refreshResponse.data.token as string;
 									}
 									throw new Error('No token in refresh response');
@@ -176,9 +200,18 @@ apiClient.interceptors.response.use(
  */
 export async function bootstrapAuth(): Promise<void> {
 	const initData = getInitData();
-
 	const existingToken = localStorage.getItem('jwt_token');
-	if (existingToken) return; // Already authenticated
+	const currentUserId = getUserIdFromInitData(initData);
+	const storedUserId = localStorage.getItem('tg_user_id');
+
+	if (existingToken) {
+		if (currentUserId && currentUserId !== storedUserId) {
+			console.warn('[Auth] Telegram account switched on bootstrap, clearing old token');
+			localStorage.removeItem('jwt_token');
+		} else {
+			return; // Already authenticated
+		}
+	}
 
 	if (!initData) return; // No Telegram context available
 
@@ -186,6 +219,7 @@ export async function bootstrapAuth(): Promise<void> {
 		const response = await apiClient.post('/auth/token', {});
 		if (response.data?.token) {
 			localStorage.setItem('jwt_token', response.data.token);
+			if (currentUserId) localStorage.setItem('tg_user_id', currentUserId);
 		}
 	} catch (err) {
 		console.warn('[Auth] Proactive bootstrap failed:', err);

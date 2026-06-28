@@ -18,12 +18,14 @@ import (
 type ProfileHandler struct {
 	profileService *service.ProfileService
 	paymentService *payment.StarsService
+	settingsRepo   *repository.SettingsRepo
 }
 
-func NewProfileHandler(s *service.ProfileService, p *payment.StarsService) *ProfileHandler {
+func NewProfileHandler(s *service.ProfileService, p *payment.StarsService, r *repository.SettingsRepo) *ProfileHandler {
 	return &ProfileHandler{
 		profileService: s,
 		paymentService: p,
+		settingsRepo:   r,
 	}
 }
 
@@ -53,6 +55,16 @@ func (h *ProfileHandler) GetPublicConfig(w http.ResponseWriter, r *http.Request)
 			{"name": "Legendary", "minScore": 5000000},
 		},
 		"daily_rewards": []int{500, 1000, 2500, 5000, 10000, 25000, 50000},
+	}
+
+	if sys, err := h.settingsRepo.GetSystemSettings(r.Context()); err == nil && sys != nil {
+		activeAds := []model.DashboardAd{}
+		for _, ad := range sys.DashboardAds {
+			if ad.IsActive {
+				activeAds = append(activeAds, ad)
+			}
+		}
+		config["dashboard_ads"] = activeAds
 	}
 
 	w.Header().Set("Content-Type", "application/json")

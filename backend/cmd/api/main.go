@@ -325,7 +325,7 @@ func main() {
 			}
 		}
 	}()
-	profileHandler := handler.NewProfileHandler(profileService, paymentService)
+	profileHandler := handler.NewProfileHandler(profileService, paymentService, settingsRepo)
 	gamificationService := service.NewGamificationService(db, cache)
 	gamificationHandler := handler.NewGamificationHandler(gamificationService)
 	clanService := service.NewClanService(db, cache, mtprotoClient)
@@ -561,6 +561,7 @@ func main() {
 				r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/ban", ownerHandler.BanUser)
 				r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/unban", ownerHandler.UnbanUser)
 				r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/flag", ownerHandler.FlagUser)
+				r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/adjust-frg", ownerHandler.AdjustAirdropCoins)
 				r.With(middleware.RequirePermission(middleware.PermAuditView)).Get("/audit-logs", ownerHandler.GetAuditLogs)
 
 				// Promo Code management
@@ -571,6 +572,11 @@ func main() {
 				// Broadcasts management
 				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Post("/broadcasts", ownerHandler.CreateBroadcast)
 				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/broadcasts", ownerHandler.ListBroadcasts)
+
+				// Entities management (Groups & Channels)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/entities/channels", ownerHandler.GetAllChannels)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/entities/groups", ownerHandler.GetAllGroups)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Post("/entities/add-credit", ownerHandler.AddEntityCredit)
 
 				// Dynamic Quest management
 				r.With(middleware.RequirePermission(middleware.PermQuestManage)).Get("/quests", ownerHandler.ListQuests)

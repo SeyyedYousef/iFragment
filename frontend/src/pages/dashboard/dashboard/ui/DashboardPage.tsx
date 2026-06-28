@@ -1,11 +1,34 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
 import { hapticFeedback } from '@tma.js/sdk-solid';
-import { Component } from 'solid-js';
+import { Component, createSignal, onMount, For, Show } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 import { BottomNav } from '@/widgets/bottom-nav/index.js';
+import { apiClient } from '@/shared/api/axios.js';
+
+interface DashboardAd {
+	id: string;
+	title: string;
+	image_url: string;
+	target: string;
+	is_active: boolean;
+}
+
 export const DashboardPage: Component = () => {
 	const navigate = useNavigate();
+	const [ads, setAds] = createSignal<DashboardAd[]>([]);
+
+	onMount(async () => {
+		try {
+			const { data } = await apiClient.get('/profile/public-config');
+			if (data && data.dashboard_ads) {
+				setAds(data.dashboard_ads);
+			}
+		} catch (error) {
+			console.error('Failed to load dashboard ads', error);
+		}
+	});
+
 	return (
 		<div class="min-h-screen bg-[#0f1014] pb-40 relative overflow-y-auto no-scrollbar text-white">
 			{/* Top Header Area */}
@@ -38,6 +61,34 @@ export const DashboardPage: Component = () => {
 				transition={{ duration: 0.6, easing: [0.4, 0, 0.2, 1] }}
 				class="w-full bg-[#1c1c1c] border-t border-[#2a2a2a] rounded-t-[40px] relative z-20 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] pt-8 pb-12 px-5 min-h-[60vh] -mt-10"
 			>
+				{/* Ads Carousel */}
+				<Show when={ads().length > 0}>
+					<div class="mb-6 flex overflow-x-auto snap-x snap-mandatory gap-4 pb-2 no-scrollbar">
+						<For each={ads()}>
+							{(ad) => (
+								<a
+									href={ad.target}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="snap-center shrink-0 w-[85%] relative rounded-3xl overflow-hidden shadow-lg border border-[#2a2a2a] active:scale-[0.98] transition-transform block"
+									onClick={() => {
+										try {
+											hapticFeedback.impactOccurred('light');
+										} catch {}
+									}}
+								>
+									<div class="aspect-[21/9] w-full bg-[#0f1014] relative">
+										<img src={ad.image_url} alt={ad.title} class="w-full h-full object-cover" />
+										<div class="absolute bottom-2 left-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded text-[9px] text-white/80 font-medium">
+											Ad
+										</div>
+									</div>
+								</a>
+							)}
+						</For>
+					</div>
+				</Show>
+
 				<div class="flex flex-col gap-4">
 					{/* Card 1: Group Management */}
 					<Motion.div

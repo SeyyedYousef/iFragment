@@ -85,11 +85,20 @@ type ManagedUserbot struct {
 	UpdatedAt     time.Time `json:"updated_at"`
 }
 
+type DashboardAd struct {
+	ID       string `json:"id"`
+	Title    string `json:"title"`
+	ImageURL string `json:"image_url"`
+	Target   string `json:"target"`
+	IsActive bool   `json:"is_active"`
+}
+
 type SystemSettings struct {
-	MaintenanceMode bool    `json:"maintenance_mode"`
-	TapMultiplier   float64 `json:"tap_multiplier"`
-	ReferralBonus   int     `json:"referral_bonus"`
-	DailyRewardBase int     `json:"daily_reward_base"`
+	MaintenanceMode bool          `json:"maintenance_mode"`
+	TapMultiplier   float64       `json:"tap_multiplier"`
+	ReferralBonus   int           `json:"referral_bonus"`
+	DailyRewardBase int           `json:"daily_reward_base"`
+	DashboardAds    []DashboardAd `json:"dashboard_ads,omitempty"`
 }
 
 type Broadcast struct {

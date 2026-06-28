@@ -718,11 +718,11 @@ func (s *ProfileService) PurchaseCosmetic(ctx context.Context, userID int64, cos
 
 		t1, t2, refErr := s.db.GetReferralChain(bgCtx, userID)
 		if refErr == nil {
-			if t1 != 0 {
-				_ = s.db.AdjustAirdropCoins(bgCtx, t1, item.Cost*0.10)
+			if t1 > 0 {
+				_, _ = s.db.AdjustAirdropCoins(bgCtx, t1, item.Cost*0.10)
 			}
-			if t2 != 0 {
-				_ = s.db.AdjustAirdropCoins(bgCtx, t2, item.Cost*0.05)
+			if t2 > 0 {
+				_, _ = s.db.AdjustAirdropCoins(bgCtx, t2, item.Cost*0.05)
 			}
 		}
 

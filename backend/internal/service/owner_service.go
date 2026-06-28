@@ -744,21 +744,101 @@ func (s *OwnerService) GetAllGroups(ctx context.Context, limit, offset int) ([]m
 	return s.repo.GetAllGroups(ctx, limit, offset)
 }
 
-// AdjustAirdropCoins allows the owner to change user's airdrop coins
-func (s *OwnerService) AdjustAirdropCoins(ctx context.Context, req AdjustAirdropCoinsRequest) error {
-	err := s.repo.DB().AdjustAirdropCoins(ctx, req.UserID, req.Amount)
+type AddEntityCreditRequest struct {
+	EntityType string `json:"entity_type"` // "channel" or "group"
+	EntityID   string `json:"entity_id"`
+	Days       int    `json:"days"`
+}
+
+func (s *OwnerService) AddEntityCredit(ctx context.Context, req AddEntityCreditRequest, adminID int64, ip string) error {
+	var err error
+	duration := time.Duration(req.Days) * 24 * time.Hour
+	entityIDUUID, parseErr := uuid.Parse(req.EntityID)
+	if parseErr != nil {
+		return fmt.Errorf("invalid entity ID: %v", parseErr)
+	}
+
+	if req.EntityType == "channel" {
+		var current *time.Time
+		err = s.repo.DB().Pool.QueryRow(ctx, "SELECT paid_until FROM managed_channels WHERE id = $1", entityIDUUID).Scan(&current)
+		if err != nil {
+			return err
+		}
+		
+		newUntil := time.Now().Add(duration)
+		if current != nil && current.After(time.Now()) {
+			newUntil = current.Add(duration)
+		}
+		
+		_, err = s.repo.DB().Pool.Exec(ctx, "UPDATE managed_channels SET paid_until = $1, subscription_status = 'premium' WHERE id = $2", newUntil, entityIDUUID)
+	} else if req.EntityType == "group" {
+		var current *time.Time
+		err = s.repo.DB().Pool.QueryRow(ctx, "SELECT paid_until FROM managed_groups WHERE id = $1", entityIDUUID).Scan(&current)
+		if err != nil {
+			return err
+		}
+		
+		newUntil := time.Now().Add(duration)
+		if current != nil && current.After(time.Now()) {
+			newUntil = current.Add(duration)
+		}
+		
+		_, err = s.repo.DB().Pool.Exec(ctx, "UPDATE managed_groups SET paid_until = $1, subscription_status = 'premium' WHERE id = $2", newUntil, entityIDUUID)
+	} else {
+		return fmt.Errorf("invalid entity type: %s", req.EntityType)
+	}
+
 	if err != nil {
 		return err
 	}
 
 	// Audit log
-	slog.Info("Owner adjusted user airdrop coins", "user_id", req.UserID, "amount", req.Amount)
+	slog.Info("Owner added credit to entity", "entity_type", req.EntityType, "entity_id", req.EntityID, "days", req.Days, "admin_id", adminID)
+	
+	payloadBytes, _ := json.Marshal(map[string]interface{}{
+		"entity_type": req.EntityType,
+		"entity_id":   req.EntityID,
+		"days":        req.Days,
+	})
+
+	_ = s.repo.LogOwnerAudit(ctx, &model.OwnerAuditLog{
+		OwnerID:   adminID,
+		Action:    "add_entity_credit",
+		Payload:   payloadBytes,
+		IPAddress: ip,
+	})
 	return nil
+}
+
+// AdjustAirdropCoins allows the owner to change user's airdrop coins
+func (s *OwnerService) AdjustAirdropCoins(ctx context.Context, req AdjustAirdropCoinsRequest, adminID int64, ip string) (float64, error) {
+	newBalance, err := s.repo.DB().AdjustAirdropCoins(ctx, req.UserID, req.Amount)
+	if err != nil {
+		return 0, err
+	}
+
+	// Audit log
+	slog.Info("Owner adjusted user airdrop coins", "user_id", req.UserID, "amount", req.Amount, "reason", req.Reason, "admin_id", adminID)
+
+	payloadBytes, _ := json.Marshal(map[string]interface{}{
+		"amount": req.Amount,
+		"reason": req.Reason,
+	})
+
+	_ = s.repo.LogOwnerAudit(ctx, &model.OwnerAuditLog{
+		OwnerID:      adminID,
+		Action:       "adjust_airdrop_coins",
+		TargetUserID: &req.UserID,
+		Payload:      payloadBytes,
+		IPAddress:    ip,
+	})
+	return newBalance, nil
 }
 
 type AdjustAirdropCoinsRequest struct {
 	UserID int64   `json:"user_id"`
 	Amount float64 `json:"amount"`
+	Reason string  `json:"reason"`
 }
 
 // System Settings Management

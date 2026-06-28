@@ -490,8 +490,8 @@ func (db *Database) SetReferredBy(ctx context.Context, userID int64, referrerCod
 	success := cmdTag.RowsAffected() == 1
 	if success {
 		// Give 1,000 Coins to both referrer and the new user
-		_ = db.AdjustAirdropCoins(ctx, referrerID, 1000.0)
-		_ = db.AdjustAirdropCoins(ctx, userID, 1000.0)
+		_, _ = db.AdjustAirdropCoins(ctx, referrerID, 1000.0)
+		_, _ = db.AdjustAirdropCoins(ctx, userID, 1000.0)
 	}
 
 	return success, nil
@@ -662,9 +662,9 @@ func (db *Database) GetReferralChain(ctx context.Context, userID int64) (int64, 
 }
 
 // AdjustAirdropCoins increments or decrements the user's airdrop_coins directly
-func (db *Database) AdjustAirdropCoins(ctx context.Context, userID int64, amount float64) error {
+func (db *Database) AdjustAirdropCoins(ctx context.Context, userID int64, amount float64) (float64, error) {
 	if db.Pool == nil {
-		return fmt.Errorf("no database connection")
+		return 0, fmt.Errorf("no database connection")
 	}
 
 	// Create user_stats if missing, then adjust
@@ -673,7 +673,9 @@ func (db *Database) AdjustAirdropCoins(ctx context.Context, userID int64, amount
 		VALUES ($1, 0, 1, 0, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, $2)
 		ON CONFLICT (user_id) DO UPDATE 
 		SET airdrop_coins = COALESCE(user_stats.airdrop_coins, 0.0) + $2
+		RETURNING airdrop_coins
 	`
-	_, err := db.Pool.Exec(ctx, query, userID, amount)
-	return err
+	var newBalance float64
+	err := db.Pool.QueryRow(ctx, query, userID, amount).Scan(&newBalance)
+	return newBalance, err
 }

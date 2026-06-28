@@ -1,10 +1,9 @@
 import { useNavigate } from '@solidjs/router';
 import { hapticFeedback } from '@tma.js/sdk-solid';
 import { Component } from 'solid-js';
-import { t } from '@/shared/i18n/index.js';
 
 interface OwnerTabsProps {
-	active: 'dashboard' | 'users' | 'audit-logs' | 'quests' | 'userbot' | 'settings' | 'promos' | 'broadcast' | 'finance' | 'health' | 'entities';
+	active: 'dashboard' | 'users' | 'audit-logs' | 'quests' | 'userbot' | 'settings' | 'promos' | 'broadcast' | 'finance' | 'health' | 'entities' | 'ads';
 }
 
 export const OwnerTabs: Component<OwnerTabsProps> = (props) => {
@@ -149,6 +148,20 @@ export const OwnerTabs: Component<OwnerTabsProps> = (props) => {
 			>
 				<span class="material-symbols-outlined text-[14px]">monitor_heart</span>
 				سلامت سیستم
+			</button>
+
+
+
+			<button
+				onClick={() => handleNav('/owner/ads')}
+				class={`h-8 px-4 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-1.5 shrink-0 ${
+					props.active === 'ads'
+						? 'bg-[#3390ec] text-white shadow-lg shadow-[#3390ec]/15'
+						: 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white border border-white/5'
+				}`}
+			>
+				<span class="material-symbols-outlined text-[14px]">campaign</span>
+				تبلیغات
 			</button>
 		</div>
 	);
