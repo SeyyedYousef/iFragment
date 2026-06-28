@@ -600,6 +600,7 @@ func main() {
 				// Entities (Channels & Groups)
 				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/entities/channels", ownerHandler.GetAllChannels)
 				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/entities/groups", ownerHandler.GetAllGroups)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Post("/entities/add-credit", ownerHandler.AddEntityCredit)
 
 			})
 		})

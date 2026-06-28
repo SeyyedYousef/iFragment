@@ -143,6 +143,7 @@ type SystemHealthMetrics struct {
 }
 
 type EntityRecord struct {
+	ID         string `json:"id"`
 	EntityType string `json:"entity_type"`
 	EntityID   string `json:"entity_id"`
 	Title      string `json:"title"`

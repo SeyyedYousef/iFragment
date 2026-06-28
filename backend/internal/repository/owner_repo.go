@@ -895,7 +895,7 @@ func (r *OwnerRepo) GetSystemErrors(ctx context.Context, limit int) ([]model.Sys
 // ─── Entities (Channels & Groups) ───────────────────────────────────────────
 func (r *OwnerRepo) GetAllChannels(ctx context.Context, limit, offset int) ([]model.EntityRecord, error) {
 	query := `
-		SELECT 'channel' as entity_type, c.chat_id::text as entity_id, c.chat_title as title, c.subscription_status as status, b.owner_user_id as owner_id
+		SELECT c.id::text as id, 'channel' as entity_type, c.chat_id::text as entity_id, c.chat_title as title, c.subscription_status as status, b.owner_user_id as owner_id
 		FROM managed_channels c
 		JOIN managed_bots b ON c.bot_id = b.id
 		ORDER BY c.created_at DESC
@@ -910,7 +910,7 @@ func (r *OwnerRepo) GetAllChannels(ctx context.Context, limit, offset int) ([]mo
 	var entities []model.EntityRecord
 	for rows.Next() {
 		var e model.EntityRecord
-		if err := rows.Scan(&e.EntityType, &e.EntityID, &e.Title, &e.Status, &e.OwnerID); err != nil {
+		if err := rows.Scan(&e.ID, &e.EntityType, &e.EntityID, &e.Title, &e.Status, &e.OwnerID); err != nil {
 			return nil, err
 		}
 		entities = append(entities, e)
@@ -920,7 +920,7 @@ func (r *OwnerRepo) GetAllChannels(ctx context.Context, limit, offset int) ([]mo
 
 func (r *OwnerRepo) GetAllGroups(ctx context.Context, limit, offset int) ([]model.EntityRecord, error) {
 	query := `
-		SELECT 'group' as entity_type, g.chat_id::text as entity_id, g.chat_title as title, g.subscription_status as status, b.owner_user_id as owner_id
+		SELECT g.id::text as id, 'group' as entity_type, g.chat_id::text as entity_id, g.chat_title as title, g.subscription_status as status, b.owner_user_id as owner_id
 		FROM managed_groups g
 		JOIN managed_bots b ON g.bot_id = b.id
 		ORDER BY g.created_at DESC
@@ -935,7 +935,7 @@ func (r *OwnerRepo) GetAllGroups(ctx context.Context, limit, offset int) ([]mode
 	var entities []model.EntityRecord
 	for rows.Next() {
 		var e model.EntityRecord
-		if err := rows.Scan(&e.EntityType, &e.EntityID, &e.Title, &e.Status, &e.OwnerID); err != nil {
+		if err := rows.Scan(&e.ID, &e.EntityType, &e.EntityID, &e.Title, &e.Status, &e.OwnerID); err != nil {
 			return nil, err
 		}
 		entities = append(entities, e)
