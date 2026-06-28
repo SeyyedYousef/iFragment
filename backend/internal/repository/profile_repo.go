@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -463,25 +464,45 @@ func (db *Database) GetReferralData(ctx context.Context, userID int64) (*model.R
 }
 
 func (db *Database) SetReferredBy(ctx context.Context, userID int64, referrerCode string) (bool, error) {
-	// Find referrer by referral_code
 	var referrerID int64
-	err := db.Pool.QueryRow(ctx, "SELECT telegram_id FROM users WHERE referral_code = $1", referrerCode).Scan(&referrerID)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return false, fmt.Errorf("invalid referral code")
+
+	// Support fallback frontend code format `ref_<user_id>`
+	if strings.HasPrefix(referrerCode, "ref_") {
+		idStr := strings.TrimPrefix(referrerCode, "ref_")
+		if id, err := strconv.ParseInt(idStr, 10, 64); err == nil {
+			referrerID = id
 		}
-		return false, err
+	}
+
+	if referrerID == 0 {
+		// Find referrer by 8-char referral_code
+		err := db.Pool.QueryRow(ctx, "SELECT telegram_id FROM users WHERE referral_code = $1", referrerCode).Scan(&referrerID)
+		if err != nil {
+			if err == pgx.ErrNoRows {
+				return false, fmt.Errorf("invalid referral code")
+			}
+			return false, err
+		}
+	} else {
+		// Verify that the parsed referrerID actually exists
+		var exists bool
+		err := db.Pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE telegram_id = $1)", referrerID).Scan(&exists)
+		if err != nil || !exists {
+			return false, fmt.Errorf("invalid referral user id")
+		}
 	}
 
 	if referrerID == userID {
 		return false, fmt.Errorf("cannot refer yourself")
 	}
 
-	// Update user's referred_by if it is currently NULL
+	// Update user's referred_by if it is currently NULL AND user was created within last 24h
 	cmdTag, err := db.Pool.Exec(ctx, `
 		UPDATE users 
 		SET referred_by = $1 
-		WHERE telegram_id = $2 AND referred_by IS NULL
+		WHERE telegram_id = $2 
+		  AND referred_by IS NULL 
+		  AND created_at > NOW() - INTERVAL '24 hours'
 	`, referrerID, userID)
 	if err != nil {
 		return false, err

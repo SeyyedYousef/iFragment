@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -84,8 +85,10 @@ func (h *AuthHandler) IssueToken(w http.ResponseWriter, r *http.Request) {
 		if values, err := url.ParseQuery(initData); err == nil {
 			startParam := values.Get("start_param")
 			if startParam != "" {
-				// Ignore errors, we just try to set it
-				_, _ = h.db.SetReferredBy(r.Context(), telegramID, startParam)
+				_, err := h.db.SetReferredBy(r.Context(), telegramID, startParam)
+				if err != nil {
+					slog.Warn("Failed to set referred_by", "user_id", telegramID, "referrer_code", startParam, "error", err)
+				}
 			}
 		}
 	}
