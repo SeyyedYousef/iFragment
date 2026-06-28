@@ -406,6 +406,16 @@ func (db *Database) GetReferralData(ctx context.Context, userID int64) (*model.R
 	var totalInvited int
 	var totalEarned float64
 
+	// Count total invited
+	g.Go(func() error {
+		err := db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM users WHERE referred_by = $1", userID).Scan(&totalInvited)
+		if err != nil {
+			return err
+		}
+		totalEarned = float64(totalInvited) * 1000.0
+		return nil
+	})
+
 	g.Go(func() error {
 		friendsQuery := `
 			SELECT u.telegram_id, COALESCE(u.username, u.first_name), u.created_at,
@@ -440,7 +450,6 @@ func (db *Database) GetReferralData(ctx context.Context, userID int64) (*model.R
 					AirdropCoins: airdropCoins,
 					FrensCount:   frensCount,
 				})
-				totalInvited++
 			}
 		}
 		if err := rows.Err(); err != nil {
@@ -452,8 +461,6 @@ func (db *Database) GetReferralData(ctx context.Context, userID int64) (*model.R
 	if err := g.Wait(); err != nil {
 		return nil, err
 	}
-
-	totalEarned = float64(totalInvited) * 1000.0
 
 	return &model.ReferralHubData{
 		ReferralCode: code,
