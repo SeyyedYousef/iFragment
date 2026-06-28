@@ -26,10 +26,11 @@ import (
 	"time"
 	"unicode/utf16"
 
+	"ifragment-backend/internal/telemetry"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
-	"ifragment-backend/internal/telemetry"
 )
 
 var webhookHTTPClient = channelmgmt.SafeHTTPClient(10 * time.Second)
@@ -114,32 +115,32 @@ type Chat struct {
 }
 
 type Message struct {
-	MessageID         int                `json:"message_id"`
-	MessageThreadID   *int               `json:"message_thread_id,omitempty"`
-	From              *User              `json:"from"`
-	Chat              *Chat              `json:"chat"`
-	Date              int                `json:"date"`
-	Text              string             `json:"text"`
-	Caption           string             `json:"caption"`
-	Photo             []interface{}      `json:"photo"`
-	Sticker           json.RawMessage    `json:"sticker,omitempty"`
-	Location          json.RawMessage    `json:"location,omitempty"`
-	Audio             json.RawMessage    `json:"audio,omitempty"`
-	Voice             json.RawMessage    `json:"voice,omitempty"`
-	Document          json.RawMessage    `json:"document,omitempty"`
-	Animation         json.RawMessage    `json:"animation,omitempty"`
-	Video             json.RawMessage    `json:"video,omitempty"`
-	Poll              json.RawMessage    `json:"poll,omitempty"`
-	Game              json.RawMessage    `json:"game,omitempty"`
-	Entities          []MessageEntity    `json:"entities"`
-	CaptionEntities   []MessageEntity    `json:"caption_entities,omitempty"`
-	ReplyToMessage    *Message           `json:"reply_to_message"`
-	ForwardFrom       *User              `json:"forward_from,omitempty"`
-	ForwardFromChat   *Chat              `json:"forward_from_chat"`
-	ViaBot            *User              `json:"via_bot"`
-	MediaGroupID      string             `json:"media_group_id,omitempty"`
-	AuthorSignature   string             `json:"author_signature,omitempty"`
-	ReplyMarkup       json.RawMessage    `json:"reply_markup,omitempty"`
+	MessageID          int                `json:"message_id"`
+	MessageThreadID    *int               `json:"message_thread_id,omitempty"`
+	From               *User              `json:"from"`
+	Chat               *Chat              `json:"chat"`
+	Date               int                `json:"date"`
+	Text               string             `json:"text"`
+	Caption            string             `json:"caption"`
+	Photo              []interface{}      `json:"photo"`
+	Sticker            json.RawMessage    `json:"sticker,omitempty"`
+	Location           json.RawMessage    `json:"location,omitempty"`
+	Audio              json.RawMessage    `json:"audio,omitempty"`
+	Voice              json.RawMessage    `json:"voice,omitempty"`
+	Document           json.RawMessage    `json:"document,omitempty"`
+	Animation          json.RawMessage    `json:"animation,omitempty"`
+	Video              json.RawMessage    `json:"video,omitempty"`
+	Poll               json.RawMessage    `json:"poll,omitempty"`
+	Game               json.RawMessage    `json:"game,omitempty"`
+	Entities           []MessageEntity    `json:"entities"`
+	CaptionEntities    []MessageEntity    `json:"caption_entities,omitempty"`
+	ReplyToMessage     *Message           `json:"reply_to_message"`
+	ForwardFrom        *User              `json:"forward_from,omitempty"`
+	ForwardFromChat    *Chat              `json:"forward_from_chat"`
+	ViaBot             *User              `json:"via_bot"`
+	MediaGroupID       string             `json:"media_group_id,omitempty"`
+	AuthorSignature    string             `json:"author_signature,omitempty"`
+	ReplyMarkup        json.RawMessage    `json:"reply_markup,omitempty"`
 	SuccessfulPayment  *SuccessfulPayment `json:"successful_payment"`
 	NewChatMembers     []User             `json:"new_chat_members"`
 	LeftChatMember     *User              `json:"left_chat_member"`
@@ -639,7 +640,12 @@ func (h *WebhookHandler) handleMyChatMemberUpdate(ctx context.Context, bot *repo
 
 				tg, _ := h.moderator.GetTelegramClient(ctx, bot)
 				msg := i18n.T("en", "notifications.bot_removed_channel", map[string]interface{}{"channel": chat.Title})
-				logIfErr(tg.SendMessage(ctx, bot.OwnerUserID, msg, nil, nil), "Failed to send owner bot_removed_channel notification", "owner_id", bot.OwnerUserID)
+				
+				targetUserID := bot.OwnerUserID
+				if ch.ConnectedByUserID != nil {
+					targetUserID = *ch.ConnectedByUserID
+				}
+				logIfErr(tg.SendMessage(ctx, targetUserID, msg, nil, nil), "Failed to send owner bot_removed_channel notification", "owner_id", targetUserID)
 			}
 		}
 		// MyChatMember updates for channels are distinct from groups; we handle and exit early.
@@ -678,12 +684,22 @@ func (h *WebhookHandler) handleMyChatMemberUpdate(ctx context.Context, bot *repo
 
 		if newStatus == "left" || newStatus == "kicked" {
 			msg := i18n.T(lang, "notifications.bot_removed", map[string]interface{}{"group": chat.Title})
-			logIfErr(tg.SendMessage(ctx, bot.OwnerUserID, msg, nil, nil), "Failed to send owner bot_removed notification", "owner_id", bot.OwnerUserID)
+			
+			targetUserID := bot.OwnerUserID
+			if managedGroup.ConnectedByUserID != nil {
+				targetUserID = *managedGroup.ConnectedByUserID
+			}
+			logIfErr(tg.SendMessage(ctx, targetUserID, msg, nil, nil), "Failed to send owner bot_removed notification", "owner_id", targetUserID)
 		} else if newStatus == "member" && (oldStatus == "administrator" || oldStatus == "creator") {
 			msg := i18n.T(lang, "notifications.admin_revoked_group")
 			logIfErr(tg.SendMessage(ctx, chat.ID, msg, nil, nil), "Failed to send admin_revoked group message", "chat_id", chat.ID)
 			ownerMsg := i18n.T(lang, "notifications.admin_revoked", map[string]interface{}{"group": chat.Title})
-			logIfErr(tg.SendMessage(ctx, bot.OwnerUserID, ownerMsg, nil, nil), "Failed to send admin_revoked owner notification", "owner_id", bot.OwnerUserID)
+			
+			targetUserID := bot.OwnerUserID
+			if managedGroup.ConnectedByUserID != nil {
+				targetUserID = *managedGroup.ConnectedByUserID
+			}
+			logIfErr(tg.SendMessage(ctx, targetUserID, ownerMsg, nil, nil), "Failed to send admin_revoked owner notification", "owner_id", targetUserID)
 		}
 	}
 }
@@ -758,7 +774,7 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 			packageID := parts[1]
 			groupID, err := uuid.Parse(groupIDStr)
 			if err == nil {
-				botSvc := botmgmt.NewBotService(h.botRepo, repository.NewSettingsRepo(h.db, nil), repository.NewAuditRepo(h.db), repository.NewAnalyticsRepo(h.db))
+				botSvc := botmgmt.NewBotService(h.botRepo, repository.NewSettingsRepo(h.db, nil), repository.NewAuditRepo(h.db), repository.NewAnalyticsRepo(h.db), nil)
 				err = botSvc.ActivateSubscriptionFromStars(ctx, msg.From.ID, groupID, packageID)
 				if err != nil {
 					slog.Error("Failed to activate subscription from Stars webhook", "error", err, "payload", pay.InvoicePayload)
@@ -774,7 +790,7 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 			packageID := parts[1]
 			channelID, err := uuid.Parse(channelIDStr)
 			if err == nil {
-				botSvc := botmgmt.NewBotService(h.botRepo, repository.NewSettingsRepo(h.db, nil), repository.NewAuditRepo(h.db), repository.NewAnalyticsRepo(h.db))
+				botSvc := botmgmt.NewBotService(h.botRepo, repository.NewSettingsRepo(h.db, nil), repository.NewAuditRepo(h.db), repository.NewAnalyticsRepo(h.db), nil)
 				err = botSvc.ActivateChannelSubscriptionFromStars(ctx, msg.From.ID, channelID, packageID)
 				if err != nil {
 					slog.Error("Failed to activate channel subscription from Stars webhook", "error", err, "payload", pay.InvoicePayload)
@@ -804,7 +820,7 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 						})
 						appURL := os.Getenv("APP_URL")
 						if appURL == "" {
-							appURL = "https://t.me/ifragment_bot/app"
+							appURL = "https://t.me/iFragmentBot/iFragment"
 						}
 						reportURL := fmt.Sprintf("%s?startapp=username_%s", appURL, username)
 						tg, _ := h.moderator.GetTelegramClient(ctx, bot)
@@ -813,11 +829,11 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 				}
 			} else {
 				// Payment Notification
-				ownerLang, _ := h.db.GetUserLanguage(ctx, bot.OwnerUserID)
+				ownerLang, _ := h.db.GetUserLanguage(ctx, msg.From.ID)
 				lang := i18n.DetectLanguage(ownerLang)
 				tg, _ := h.moderator.GetTelegramClient(ctx, bot)
 				msgText := i18n.T(lang, "notifications.payment_success", map[string]interface{}{"date": time.Now().Add(30 * 24 * time.Hour).Format("2006-01-02")})
-				_ = tg.SendMessage(ctx, bot.OwnerUserID, msgText, nil, nil)
+				_ = tg.SendMessage(ctx, msg.From.ID, msgText, nil, nil)
 			}
 		} else {
 			slog.Error("Failed to update order status", "error", err)
@@ -1120,9 +1136,17 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 			if count == 10 {
 				tg, _ := h.moderator.GetTelegramClient(ctx, bot)
 				group, _ := h.botRepo.GetGroup(ctx, bot.ID, msg.Chat.ID)
-				lang := i18n.DetectLanguage("")
+				
+				targetUserID := bot.OwnerUserID
+				if group != nil && group.ConnectedByUserID != nil {
+					targetUserID = *group.ConnectedByUserID
+				}
+				
+				ownerLang, _ := h.db.GetUserLanguage(ctx, targetUserID)
+				lang := i18n.DetectLanguage(ownerLang)
+				
 				alert := i18n.T(lang, "notifications.mass_spam", map[string]interface{}{"group": group.ChatTitle})
-				_ = tg.SendMessage(ctx, bot.OwnerUserID, alert, nil, nil)
+				_ = tg.SendMessage(ctx, targetUserID, alert, nil, nil)
 			}
 		}
 	}
@@ -1160,7 +1184,15 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 		if total == 1000 || total == 10000 || total == 100000 {
 			botToken, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 			tg := telegram.NewBotAPIClient(botToken)
-			lang := i18n.DetectLanguage("")
+			
+			group, _ := h.botRepo.GetGroup(ctx, bot.ID, msg.Chat.ID)
+			targetUserID := bot.OwnerUserID
+			if group != nil && group.ConnectedByUserID != nil {
+				targetUserID = *group.ConnectedByUserID
+			}
+			ownerLang, _ := h.db.GetUserLanguage(ctx, targetUserID)
+			lang := i18n.DetectLanguage(ownerLang)
+			
 			milestoneMsg := i18n.T(lang, "notifications.milestone", map[string]interface{}{"n": total})
 			_ = tg.SendMessage(ctx, msg.Chat.ID, milestoneMsg, nil, nil)
 		}
@@ -1375,7 +1407,7 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 	if strings.HasPrefix(m.Text, "/start") {
 		appURL := os.Getenv("APP_URL")
 		if appURL == "" {
-			appURL = "https://t.me/ifragment_bot/app"
+			appURL = "https://t.me/iFragmentBot/iFragment"
 		}
 
 		// Extract deep linking parameter
@@ -1405,8 +1437,14 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 			}
 		}
 
+		userLangFromDB, _ := h.db.GetUserLanguage(ctx, m.From.ID)
+		langCode := m.From.LanguageCode
+		if userLangFromDB != "" {
+			langCode = userLangFromDB
+		}
+		lang := i18n.DetectLanguage(langCode)
 		userName := m.From.FirstName
-		lang := i18n.DetectLanguage(m.From.LanguageCode)
+
 
 		var welcome string
 		if m.From.ID == bot.OwnerUserID {
@@ -1434,6 +1472,27 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 		}
 
 		_, _ = tg.SendMessageWithMarkup(ctx, m.Chat.ID, welcome, markup, m.MessageThreadID)
+	} else if strings.HasPrefix(m.Text, "/language") {
+		token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+		tg := telegram.NewBotAPIClient(token)
+		
+		msgText := "Please select your preferred language:\nلطفا زبان مورد نظر خود را انتخاب کنید:\nПожалуйста, выберите предпочитаемый язык:"
+		markup := map[string]interface{}{
+			"inline_keyboard": [][]map[string]interface{}{
+				{
+					{"text": "🇺🇸 English", "callback_data": "lang:en"},
+					{"text": "🇮🇷 فارسی", "callback_data": "lang:fa"},
+				},
+				{
+					{"text": "🇷🇺 Русский", "callback_data": "lang:ru"},
+					{"text": "🇨🇳 中文", "callback_data": "lang:zh"},
+				},
+				{
+					{"text": "🇸🇦 العربية", "callback_data": "lang:ar"},
+				},
+			},
+		}
+		_, _ = tg.SendMessageWithMarkup(ctx, m.Chat.ID, msgText, markup, m.MessageThreadID)
 	}
 }
 
@@ -1453,7 +1512,7 @@ func (h *WebhookHandler) handleGroupSettingsCommand(ctx context.Context, bot *re
 
 	appURL := os.Getenv("APP_URL")
 	if appURL == "" {
-		appURL = "https://t.me/ifragment_bot/app"
+		appURL = "https://t.me/iFragmentBot/iFragment"
 	}
 	dashboardURL := fmt.Sprintf("%s?startapp=group_%s", appURL, group.ID)
 
@@ -1461,14 +1520,14 @@ func (h *WebhookHandler) handleGroupSettingsCommand(ctx context.Context, bot *re
 	_ = tg.SendMessage(ctx, m.Chat.ID, msg, &m.MessageID, m.MessageThreadID)
 }
 
-func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *repository.ManagedBot, chat *Chat, _ int64) {
+func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *repository.ManagedBot, chat *Chat, inviterID int64) {
 	managedGroup, err := h.botRepo.GetGroup(ctx, bot.ID, chat.ID)
 	if err != nil {
 		status := "trial"
-		
+
 		hasHadTrial, _ := h.botRepo.HasChatHadTrial(ctx, chat.ID)
 		activeTrials, _ := h.botRepo.GetActiveTrialsCount(ctx, bot.OwnerUserID)
-		
+
 		if hasHadTrial || activeTrials >= 3 {
 			status = "expired"
 		} else {
@@ -1482,6 +1541,7 @@ func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *reposit
 			ChatType:           chat.Type,
 			SubscriptionStatus: status,
 			TrialEndsAt:        time.Now().Add(72 * time.Hour),
+			ConnectedByUserID:  &inviterID,
 		}
 		err = h.botRepo.CreateGroup(ctx, managedGroup)
 		if err != nil {
@@ -1531,7 +1591,7 @@ func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *reposit
 		// 3. Default features
 		appURL := os.Getenv("APP_URL")
 		if appURL == "" {
-			appURL = "https://t.me/ifragment_bot/app"
+			appURL = "https://t.me/iFragmentBot/iFragment"
 		}
 		dashboardURL := fmt.Sprintf("%s?startapp=group_%s", appURL, bot.ID)
 		setupMsg := i18n.T(lang, "onboarding.features", dashboardURL)
@@ -1729,7 +1789,12 @@ func (h *WebhookHandler) handleGroupAdminCommand(ctx context.Context, bot *repos
 		}
 	}
 
-	lang := i18n.DetectLanguage(m.From.LanguageCode)
+	userLangFromDB, _ := h.db.GetUserLanguage(ctx, m.From.ID)
+	langCode := m.From.LanguageCode
+	if userLangFromDB != "" {
+		langCode = userLangFromDB
+	}
+	lang := i18n.DetectLanguage(langCode)
 
 	switch cmd {
 	case "/ban":
@@ -1745,7 +1810,11 @@ func (h *WebhookHandler) handleGroupAdminCommand(ctx context.Context, bot *repos
 	case "/rules":
 		return h.adminRules(ctx, tg, m, lang, group.ID)
 	case "/report":
-		return h.adminReport(ctx, tg, m, lang, bot.OwnerUserID)
+		targetUserID := bot.OwnerUserID
+		if group.ConnectedByUserID != nil {
+			targetUserID = *group.ConnectedByUserID
+		}
+		return h.adminReport(ctx, tg, m, lang, targetUserID)
 	case "/pin":
 		return h.adminPin(ctx, bot, tg, m)
 	case "/info":
@@ -1874,7 +1943,7 @@ func (h *WebhookHandler) adminRules(ctx context.Context, tg *telegram.BotAPIClie
 	return true
 }
 
-func (h *WebhookHandler) adminReport(ctx context.Context, tg *telegram.BotAPIClient, m *Message, lang string, ownerID int64) bool {
+func (h *WebhookHandler) adminReport(ctx context.Context, tg *telegram.BotAPIClient, m *Message, _ string, ownerID int64) bool {
 	if m.ReplyToMessage == nil || m.ReplyToMessage.From == nil {
 		return false
 	}
@@ -1912,6 +1981,31 @@ func (h *WebhookHandler) getTarget(m *Message) (int64, string) {
 	return 0, ""
 }
 func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repository.ManagedBot, cq *CallbackQuery) {
+	if strings.HasPrefix(cq.Data, "lang:") {
+		parts := strings.Split(cq.Data, ":")
+		if len(parts) >= 2 {
+			newLang := parts[1]
+			err := h.db.UpdateUserLanguage(ctx, cq.From.ID, newLang)
+			
+			token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+			tg := telegram.NewBotAPIClient(token)
+			
+			var msg string
+			if err == nil {
+				msg = i18n.T(newLang, "profile.languageSettings") + " ✅"
+			} else {
+				msg = "Error updating language"
+			}
+			
+			_ = tg.AnswerCallbackQuery(ctx, cq.ID, msg, false)
+			// Optionally delete the message after language is selected
+			if cq.Message != nil {
+				_ = tg.DeleteMessage(ctx, cq.Message.Chat.ID, cq.Message.MessageID)
+			}
+		}
+		return
+	}
+
 	if strings.HasPrefix(cq.Data, "f_") {
 		err := h.channelService.HandleFunnelCallback(ctx, channelmgmt.FunnelCallbackData{
 			QueryID:          cq.ID,
@@ -1992,15 +2086,16 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 		token, errToken := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 		if errToken == nil {
 			tg := telegram.NewBotAPIClient(token)
-			
+
 			if errors.Is(err, channelmgmt.ErrAlreadyClicked) {
 				userLang := i18n.DetectLanguage(cq.From.LanguageCode)
 				msg := "You have already voted!"
-				if userLang == "fa" {
+				switch userLang {
+				case "fa":
 					msg = "شما قبلاً رأی داده‌اید!"
-				} else if userLang == "ru" {
+				case "ru":
 					msg = "Вы уже проголосовали!"
-				} else if userLang == "ar" {
+				case "ar":
 					msg = "لقد قمت بالتصويت بالفعل!"
 				}
 				_ = tg.AnswerCallbackQuery(ctx, cq.ID, msg, true) // true = show alert popup
@@ -2798,7 +2893,6 @@ func (h *WebhookHandler) handleChannelPost(ctx context.Context, bot *repository.
 	if err != nil {
 		slog.Error("Failed to process channel post in service", "error", err)
 	}
-
 
 }
 

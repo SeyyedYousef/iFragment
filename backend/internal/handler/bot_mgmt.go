@@ -2,7 +2,8 @@ package handler
 
 import (
 	"encoding/json"
-		"net/http"
+	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 
@@ -12,15 +13,19 @@ import (
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/botmgmt"
+	"ifragment-backend/internal/service/payment"
 )
 
 type BotMgmtHandler struct {
-	svc         *botmgmt.BotService
-	
+	svc            *botmgmt.BotService
+	paymentService *payment.StarsService
 }
 
-func NewBotMgmtHandler(svc *botmgmt.BotService, ) *BotMgmtHandler {
-	return &BotMgmtHandler{svc: svc, }
+func NewBotMgmtHandler(svc *botmgmt.BotService, paymentSvc *payment.StarsService) *BotMgmtHandler {
+	return &BotMgmtHandler{
+		svc:            svc,
+		paymentService: paymentSvc,
+	}
 }
 
 func (h *BotMgmtHandler) getUserID(r *http.Request) int64 {
@@ -202,7 +207,6 @@ func (h *BotMgmtHandler) DeleteGroup(w http.ResponseWriter, r *http.Request) {
 	RespondJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
-
 // ─── Settings ─────────────────────────────────────────────
 
 func (h *BotMgmtHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
@@ -328,7 +332,48 @@ func (h *BotMgmtHandler) SubscribeWithAirdrop(w http.ResponseWriter, r *http.Req
 	RespondJSON(w, http.StatusOK, map[string]string{"status": "subscribed_via_airdrop"})
 }
 
+func (h *BotMgmtHandler) SubscribeStarsInvoice(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+	var req SubscribeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
 
+	groupID, err := uuid.Parse(req.GroupID)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid group ID", err)
+		return
+	}
+
+	pkg := h.svc.GetPackageByID(req.PackageID)
+	if pkg == nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid package", nil)
+		return
+	}
+
+	group, err := h.svc.GetGroup(r.Context(), groupID, userID)
+	if err != nil {
+		RespondError(w, r, http.StatusForbidden, "access denied to group", err)
+		return
+	}
+
+	title := fmt.Sprintf("Subscription: %s", group.ChatTitle)
+	desc := fmt.Sprintf("%s subscription for %s", pkg.Name, group.ChatTitle)
+	payload := fmt.Sprintf("sub_stars_%s_%s", groupID.String(), pkg.ID)
+
+	link, err := h.paymentService.CreateInvoiceLink(title, desc, payload, pkg.PriceStars)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to generate invoice link", err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]string{"invoice_link": link})
+}
 
 type ChannelSubscribeRequest struct {
 	ChannelID string `json:"channel_id"`
@@ -387,7 +432,42 @@ func (h *BotMgmtHandler) SubscribeChannelWithAirdrop(w http.ResponseWriter, r *h
 	RespondJSON(w, http.StatusOK, map[string]string{"status": "subscribed_via_airdrop"})
 }
 
+func (h *BotMgmtHandler) SubscribeChannelStarsInvoice(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+	var req ChannelSubscribeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
 
+	channelID, err := uuid.Parse(req.ChannelID)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	pkg := h.svc.GetPackageByID(req.PackageID)
+	if pkg == nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid package", nil)
+		return
+	}
+
+	title := "Channel Subscription"
+	desc := fmt.Sprintf("%s subscription for your channel", pkg.Name)
+	payload := fmt.Sprintf("sub_chan_stars_%s_%s", channelID.String(), pkg.ID)
+
+	link, err := h.paymentService.CreateInvoiceLink(title, desc, payload, pkg.PriceStars)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to generate invoice link", err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]string{"invoice_link": link})
+}
 
 // ─── Analytics ────────────────────────────────────────────
 
@@ -433,35 +513,7 @@ func (h *BotMgmtHandler) GetAnalytics(w http.ResponseWriter, r *http.Request) {
 
 // ─── FRG Balance ──────────────────────────────────────────
 
-
-
-
-
 // ─── Marketplace ──────────────────────────────────────────
-
-
-
-type PurchaseStarsRequest struct {
-	OptionID         string `json:"option_id"`
-	TelegramChargeID string `json:"telegram_charge_id"`
-}
-
-
-
-type PurchaseToncoinRequest struct {
-	OptionID string `json:"option_id"`
-	TxHash   string `json:"tx_hash"`
-}
-
-
-
-type ConvertAirdropRequest struct {
-	Coins float64 `json:"coins"`
-}
-
-
-
-
 
 // ─── Audit Logs ───────────────────────────────────────────
 

@@ -27,6 +27,7 @@ type ManagedChannel struct {
 	AutoDeleteTime     int        `json:"auto_delete_time"`
 	SignMessages       bool       `json:"sign_messages"`
 	ProtectContent     bool       `json:"protect_content"`
+	ConnectedByUserID  *int64     `json:"connected_by_user_id,omitempty"`
 	CreatedAt          time.Time  `json:"created_at"`
 	UpdatedAt          time.Time  `json:"updated_at"`
 }
@@ -74,14 +75,14 @@ func (r *ChannelRepo) CreateChannel(ctx context.Context, ch *ManagedChannel) err
 		return fmt.Errorf("database pool is not initialized")
 	}
 
-	query := `INSERT INTO managed_channels (bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+	query := `INSERT INTO managed_channels (bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content, connected_by_user_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		ON CONFLICT (bot_id, chat_id) DO UPDATE SET chat_title = EXCLUDED.chat_title, subscribers_count = EXCLUDED.subscribers_count, updated_at = now(), deleted_at = NULL
 		RETURNING id, created_at, updated_at, trial_ends_at`
 
 	return r.db.Pool.QueryRow(ctx, query,
 		ch.BotID, ch.ChatID, ch.ChatTitle, ch.SubscribersCount, ch.SubscriptionStatus, ch.TrialEndsAt,
-		ch.LinkedChatID, ch.SlowModeDelay, ch.AutoDeleteTime, ch.SignMessages, ch.ProtectContent,
+		ch.LinkedChatID, ch.SlowModeDelay, ch.AutoDeleteTime, ch.SignMessages, ch.ProtectContent, ch.ConnectedByUserID,
 	).Scan(&ch.ID, &ch.CreatedAt, &ch.UpdatedAt, &ch.TrialEndsAt)
 }
 
@@ -98,7 +99,7 @@ func (r *ChannelRepo) GetChannelsByBot(ctx context.Context, botID uuid.UUID, cur
 	}
 
 	if cursor != nil && cursorID != nil {
-		query = `SELECT id, bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, paid_until, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content, created_at, updated_at
+		query = `SELECT id, bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, paid_until, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content, connected_by_user_id, created_at, updated_at
 			FROM managed_channels 
 			WHERE bot_id = $1 
 			AND chat_id NOT IN (SELECT input_chat_id FROM channel_funnels WHERE bot_id = $1)
@@ -106,7 +107,7 @@ func (r *ChannelRepo) GetChannelsByBot(ctx context.Context, botID uuid.UUID, cur
 			ORDER BY created_at DESC, id DESC LIMIT $4`
 		args = []interface{}{botID, *cursor, *cursorID, limit}
 	} else {
-		query = `SELECT id, bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, paid_until, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content, created_at, updated_at
+		query = `SELECT id, bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, paid_until, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content, connected_by_user_id, created_at, updated_at
 			FROM managed_channels 
 			WHERE bot_id = $1 
 			AND chat_id NOT IN (SELECT input_chat_id FROM channel_funnels WHERE bot_id = $1)
@@ -126,7 +127,7 @@ func (r *ChannelRepo) GetChannelsByBot(ctx context.Context, botID uuid.UUID, cur
 		if err := rows.Scan(
 			&c.ID, &c.BotID, &c.ChatID, &c.ChatTitle, &c.SubscribersCount, &c.SubscriptionStatus, &c.TrialEndsAt,
 			&c.PaidUntil, &c.LinkedChatID, &c.SlowModeDelay, &c.AutoDeleteTime, &c.SignMessages, &c.ProtectContent,
-			&c.CreatedAt, &c.UpdatedAt,
+			&c.ConnectedByUserID, &c.CreatedAt, &c.UpdatedAt,
 		); err != nil {
 			return nil, nil, nil, err
 		}
@@ -161,19 +162,19 @@ func (r *ChannelRepo) GetChannelsByOwner(ctx context.Context, ownerUserID int64,
 	}
 
 	if cursor != nil && cursorID != nil {
-		query = `SELECT c.id, c.bot_id, c.chat_id, c.chat_title, c.subscribers_count, c.subscription_status, c.trial_ends_at, c.paid_until, c.linked_chat_id, c.slow_mode_delay, c.auto_delete_time, c.sign_messages, c.protect_content, c.created_at, c.updated_at
+		query = `SELECT c.id, c.bot_id, c.chat_id, c.chat_title, c.subscribers_count, c.subscription_status, c.trial_ends_at, c.paid_until, c.linked_chat_id, c.slow_mode_delay, c.auto_delete_time, c.sign_messages, c.protect_content, c.connected_by_user_id, c.created_at, c.updated_at
 			FROM managed_channels c
 			JOIN managed_bots b ON c.bot_id = b.id
-			WHERE (b.owner_user_id = $1 OR EXISTS (SELECT 1 FROM channel_admins ca WHERE ca.channel_id = c.id AND ca.telegram_id = $1)) 
+			WHERE (c.connected_by_user_id = $1 OR EXISTS (SELECT 1 FROM channel_admins ca WHERE ca.channel_id = c.id AND ca.telegram_id = $1)) 
 			AND c.chat_id NOT IN (SELECT input_chat_id FROM channel_funnels WHERE owner_user_id = $1)
 			AND (c.created_at < $2 OR (c.created_at = $2 AND c.id < $3)) 
 			ORDER BY c.created_at DESC, c.id DESC LIMIT $4`
 		args = []interface{}{ownerUserID, *cursor, *cursorID, limit}
 	} else {
-		query = `SELECT c.id, c.bot_id, c.chat_id, c.chat_title, c.subscribers_count, c.subscription_status, c.trial_ends_at, c.paid_until, c.linked_chat_id, c.slow_mode_delay, c.auto_delete_time, c.sign_messages, c.protect_content, c.created_at, c.updated_at
+		query = `SELECT c.id, c.bot_id, c.chat_id, c.chat_title, c.subscribers_count, c.subscription_status, c.trial_ends_at, c.paid_until, c.linked_chat_id, c.slow_mode_delay, c.auto_delete_time, c.sign_messages, c.protect_content, c.connected_by_user_id, c.created_at, c.updated_at
 			FROM managed_channels c
 			JOIN managed_bots b ON c.bot_id = b.id
-			WHERE (b.owner_user_id = $1 OR EXISTS (SELECT 1 FROM channel_admins ca WHERE ca.channel_id = c.id AND ca.telegram_id = $1))
+			WHERE (c.connected_by_user_id = $1 OR EXISTS (SELECT 1 FROM channel_admins ca WHERE ca.channel_id = c.id AND ca.telegram_id = $1))
 			AND c.chat_id NOT IN (SELECT input_chat_id FROM channel_funnels WHERE owner_user_id = $1)
 			ORDER BY c.created_at DESC, c.id DESC LIMIT $2`
 		args = []interface{}{ownerUserID, limit}
@@ -191,7 +192,7 @@ func (r *ChannelRepo) GetChannelsByOwner(ctx context.Context, ownerUserID int64,
 		if err := rows.Scan(
 			&c.ID, &c.BotID, &c.ChatID, &c.ChatTitle, &c.SubscribersCount, &c.SubscriptionStatus, &c.TrialEndsAt,
 			&c.PaidUntil, &c.LinkedChatID, &c.SlowModeDelay, &c.AutoDeleteTime, &c.SignMessages, &c.ProtectContent,
-			&c.CreatedAt, &c.UpdatedAt,
+			&c.ConnectedByUserID, &c.CreatedAt, &c.UpdatedAt,
 		); err != nil {
 			return nil, nil, nil, err
 		}
@@ -218,14 +219,14 @@ func (r *ChannelRepo) GetChannelByID(ctx context.Context, id uuid.UUID) (*Manage
 		return nil, fmt.Errorf("database pool is not initialized")
 	}
 
-	query := `SELECT id, bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, paid_until, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content, created_at, updated_at
+	query := `SELECT id, bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, paid_until, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content, connected_by_user_id, created_at, updated_at
 		FROM managed_channels WHERE id = $1`
 
 	var c ManagedChannel
 	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
 		&c.ID, &c.BotID, &c.ChatID, &c.ChatTitle, &c.SubscribersCount, &c.SubscriptionStatus, &c.TrialEndsAt,
 		&c.PaidUntil, &c.LinkedChatID, &c.SlowModeDelay, &c.AutoDeleteTime, &c.SignMessages, &c.ProtectContent,
-		&c.CreatedAt, &c.UpdatedAt,
+		&c.ConnectedByUserID, &c.CreatedAt, &c.UpdatedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -241,7 +242,7 @@ func (r *ChannelRepo) GetChannelByChatID(ctx context.Context, chatID int64) (*Ma
 		return nil, fmt.Errorf("database pool is not initialized")
 	}
 
-	query := `SELECT id, bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, paid_until, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content, created_at, updated_at
+	query := `SELECT id, bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, paid_until, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content, connected_by_user_id, created_at, updated_at
 		FROM managed_channels WHERE chat_id = $1`
 
 	var c ManagedChannel
@@ -658,7 +659,7 @@ func (r *ChannelRepo) GetAllChannels(ctx context.Context) ([]ManagedChannel, err
 		return nil, fmt.Errorf("database pool is not initialized")
 	}
 
-	query := `SELECT id, bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, paid_until, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content, created_at, updated_at
+	query := `SELECT id, bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, paid_until, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content, connected_by_user_id, created_at, updated_at
 		FROM managed_channels`
 
 	rows, err := r.db.Pool.Query(ctx, query)
@@ -673,7 +674,7 @@ func (r *ChannelRepo) GetAllChannels(ctx context.Context) ([]ManagedChannel, err
 		if err := rows.Scan(
 			&c.ID, &c.BotID, &c.ChatID, &c.ChatTitle, &c.SubscribersCount, &c.SubscriptionStatus, &c.TrialEndsAt,
 			&c.PaidUntil, &c.LinkedChatID, &c.SlowModeDelay, &c.AutoDeleteTime, &c.SignMessages, &c.ProtectContent,
-			&c.CreatedAt, &c.UpdatedAt,
+			&c.ConnectedByUserID, &c.CreatedAt, &c.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}

@@ -140,49 +140,7 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/SimilarUsername"
-  /usernames/report/request:
-    post:
-      tags: [Premium Reports]
-      summary: Create Telegram Stars invoice for a premium username report
-      security:
-        - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ReportRequest"
-      responses:
-        "200":
-          description: Invoice link
-        "402":
-          description: Payment required
-  /usernames/report/view:
-    get:
-      tags: [Premium Reports]
-      summary: View or generate a paid premium username report
-      security:
-        - BearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/UsernameQuery"
-      responses:
-        "200":
-          description: Premium report
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/FullReport"
-        "402":
-          description: Payment required
-  /usernames/report/history:
-    get:
-      tags: [Premium Reports]
-      summary: List current user's generated reports
-      security:
-        - BearerAuth: []
-      responses:
-        "200":
-          description: Report history
+
   /bots:
     get:
       tags: [Bots]

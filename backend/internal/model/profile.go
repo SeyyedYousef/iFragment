@@ -3,33 +3,33 @@ package model
 import "time"
 
 type ProfileStats struct {
-	UsernamesAnalyzed int        `json:"usernamesAnalyzed"`
-	GroupsManaged     int        `json:"groupsManaged"`
-	ChannelsManaged   int        `json:"channelsManaged"`
-	DaysActive        int        `json:"daysActive"`
-	CurrentStreak     int        `json:"currentStreak"`
-	GlobalRank        int        `json:"globalRank"`
-	TotalTaps         int        `json:"totalTaps"`
-	TotalFrgEarned    float64    `json:"totalFrgEarned"`
-	TotalFrgSpent     float64    `json:"totalFrgSpent"`
-	FrgBalance        float64    `json:"frgBalance"`
-	MemberSince       time.Time  `json:"memberSince"`
-	Level             int        `json:"level"`
-	XP                int        `json:"xp"`
-	XPToNextLevel     int        `json:"xpToNextLevel"`
+	UsernamesAnalyzed   int        `json:"usernamesAnalyzed"`
+	GroupsManaged       int        `json:"groupsManaged"`
+	ChannelsManaged     int        `json:"channelsManaged"`
+	DaysActive          int        `json:"daysActive"`
+	CurrentStreak       int        `json:"currentStreak"`
+	GlobalRank          int        `json:"globalRank"`
+	TotalTaps           int        `json:"totalTaps"`
+	TotalFrgEarned      float64    `json:"totalFrgEarned"`
+	TotalFrgSpent       float64    `json:"totalFrgSpent"`
+	FrgBalance          float64    `json:"frgBalance"`
+	MemberSince         time.Time  `json:"memberSince"`
+	Level               int        `json:"level"`
+	XP                  int        `json:"xp"`
+	XPToNextLevel       int        `json:"xpToNextLevel"`
 	IsPremium           bool       `json:"isPremium"`
 	DailyTappedCoins    float64    `json:"dailyTappedCoins"`
 	DailyTurboUsed      int        `json:"dailyTurboUsed"`
 	DailyFullEnergyUsed int        `json:"dailyFullEnergyUsed"`
 	PremiumUntil        *time.Time `json:"premiumUntil,omitempty"`
-	EmojiStatus       string     `json:"emojiStatus"`
-	EquippedBorder    string     `json:"equippedBorder"`
-	EquippedSkin      string     `json:"equippedSkin"`
-	AirdropCoins      float64    `json:"airdropCoins"`
-	Energy            int        `json:"energy"`
-	EnergyUpdatedAt   time.Time  `json:"energyUpdatedAt"`
-	ServerNow         int64      `json:"serverNow"`
-	PhotoURL          string     `json:"photoUrl,omitempty"`
+	EmojiStatus         string     `json:"emojiStatus"`
+	EquippedBorder      string     `json:"equippedBorder"`
+	EquippedSkin        string     `json:"equippedSkin"`
+	AirdropCoins        float64    `json:"airdropCoins"`
+	Energy              int        `json:"energy"`
+	EnergyUpdatedAt     time.Time  `json:"energyUpdatedAt"`
+	ServerNow           int64      `json:"serverNow"`
+	PhotoURL            string     `json:"photoUrl,omitempty"`
 }
 
 type UserAchievement struct {

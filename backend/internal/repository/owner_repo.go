@@ -943,9 +943,7 @@ func (r *OwnerRepo) GetAllGroups(ctx context.Context, limit, offset int) ([]mode
 	return entities, nil
 }
 
-
 func (r *OwnerRepo) DeleteManagedUserbot(ctx context.Context, id string) error {
 	_, err := r.db.Pool.Exec(ctx, "DELETE FROM managed_userbots WHERE id = $1", id)
 	return err
 }
-

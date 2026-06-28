@@ -28,7 +28,7 @@ func TestCheckAvailability(t *testing.T) {
 	mockMTProto := mtproto.NewMockClient()
 
 	aggService := username.NewAggregatorService(nil, nil)
-	reportService := username.NewReportService(context.Background(), nil, nil, nil, mockMTProto)
+	reportService := username.NewAnalysisService(context.Background(), nil, nil, nil, mockMTProto)
 
 	// Inject MTProto Mock
 	h := NewUsernameHandler(aggService, reportService, mockMTProto, nil)
@@ -64,7 +64,7 @@ func TestCheckAvailability(t *testing.T) {
 func TestGetSimilar(t *testing.T) {
 	mockMTProto := mtproto.NewMockClient()
 	aggService := username.NewAggregatorService(nil, nil)
-	reportService := username.NewReportService(context.Background(), nil, nil, nil, mockMTProto)
+	reportService := username.NewAnalysisService(context.Background(), nil, nil, nil, mockMTProto)
 	h := NewUsernameHandler(aggService, reportService, mockMTProto, nil)
 
 	req := httptest.NewRequest("GET", "/api/v1/usernames/similar?u=news&limit=3", nil)

@@ -1,6 +1,7 @@
 import * as i18n from '@solid-primitives/i18n';
 import { initData } from '@tma.js/sdk-solid';
 import { createContext, createEffect, createRoot, createSignal, useContext } from 'solid-js';
+import { setLanguage } from '@/shared/api/profile.js';
 
 import { dict as en } from './en.js';
 import { dict as fa } from './fa.js';
@@ -48,6 +49,7 @@ export { getLocale as locale };
 export const setLocale = (newLocale: Locale) => {
 	localStorage.setItem('user_selected_locale', newLocale);
 	rawSetLocale(newLocale);
+	setLanguage(newLocale).catch(console.error);
 };
 
 export const isRtl = () => RTL_LOCALES.includes(getLocale());
@@ -100,6 +102,12 @@ export const t = i18n.translator(getDict, i18n.resolveTemplate) as (key: DictPat
 // Helper to format numbers based on active locale (Always use en-US to force Latin/English digits)
 export const formatNumber = (num: number): string => {
 	return num.toLocaleString('en-US');
+};
+
+export const formatCoins = (coins: number | undefined | null): string => {
+	if (!coins) return '+0';
+	if (coins >= 1000) return `+${formatNumber(Math.floor(coins / 1000))}k`;
+	return `+${formatNumber(Math.floor(coins))}`;
 };
 
 export const I18nContext = createContext({ t, locale: getLocale, setLocale, isRtl, formatNumber });

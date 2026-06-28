@@ -2,7 +2,7 @@ import { Component, For, Show } from 'solid-js';
 import { createQuery } from '@tanstack/solid-query';
 import { hapticFeedback, retrieveLaunchParams } from '@tma.js/sdk-solid';
 import { getProfileStats, getReferralInfo } from '@/shared/api/profile.js';
-import { formatNumber, t } from '@/shared/i18n/index.js';
+import { formatNumber, t, formatCoins } from '@/shared/i18n/index.js';
 import { openTelegramLink } from '@/shared/lib/telegram-native.js';
 
 export const FrensView: Component = () => {
@@ -44,11 +44,7 @@ export const FrensView: Component = () => {
 		);
 	};
 
-	const formatCoins = (coins: number) => {
-		if (!coins) return '+0';
-		if (coins >= 1000) return `+${formatNumber(Math.floor(coins / 1000))}k`;
-		return `+${formatNumber(Math.floor(coins))}`;
-	};
+
 
 	const frensCount = () => refInfo()?.totalInvited ?? 0;
 
@@ -110,7 +106,7 @@ export const FrensView: Component = () => {
 												class="w-full h-full object-cover"
 												onError={(e) => {
 													(e.target as HTMLImageElement).style.display = 'none';
-													(e.target as HTMLImageElement).nextElementSibling!.classList.remove(
+													(e.target as HTMLImageElement).nextElementSibling?.classList.remove(
 														'hidden',
 													);
 												}}

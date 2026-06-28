@@ -65,6 +65,39 @@ func (h *ProfileHandler) getUserID(r *http.Request) (int64, bool) {
 	return id, err == nil
 }
 
+type SetLanguageRequest struct {
+	Language string `json:"language"`
+}
+
+func (h *ProfileHandler) SetLanguage(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.getUserID(r)
+	if !ok {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	var req SetLanguageRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
+	// Basic validation for language
+	if len(req.Language) < 2 || len(req.Language) > 10 {
+		RespondError(w, r, http.StatusBadRequest, "invalid language code", nil)
+		return
+	}
+
+	err := h.profileService.UpdateLanguage(r.Context(), userID, req.Language)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to update language", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
 func (h *ProfileHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	userID, ok := h.getUserID(r)
 	if !ok {

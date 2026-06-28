@@ -20,7 +20,7 @@ func (db *Database) UpsertUser(ctx context.Context, u User) error {
 			username = EXCLUDED.username,
 			first_name = EXCLUDED.first_name,
 			last_name = EXCLUDED.last_name,
-			language_code = EXCLUDED.language_code,
+			language_code = CASE WHEN users.language_manual = true THEN users.language_code ELSE EXCLUDED.language_code END,
 			updated_at = CURRENT_TIMESTAMP
 	`
 	_, err := db.Pool.Exec(ctx, query, u.TelegramID, u.Username, u.FirstName, u.LastName, u.LanguageCode)
@@ -33,4 +33,15 @@ func (db *Database) GetUserLanguage(ctx context.Context, telegramID int64) (stri
 	query := `SELECT language_code FROM users WHERE telegram_id = $1`
 	err := db.Pool.QueryRow(ctx, query, telegramID).Scan(&lang)
 	return lang, err
+}
+
+// UpdateUserLanguage manually updates the user's language and sets the manual flag to true
+func (db *Database) UpdateUserLanguage(ctx context.Context, telegramID int64, lang string) error {
+	query := `
+		UPDATE users 
+		SET language_code = $2, language_manual = true, updated_at = CURRENT_TIMESTAMP
+		WHERE telegram_id = $1
+	`
+	_, err := db.Pool.Exec(ctx, query, telegramID, lang)
+	return err
 }

@@ -16,7 +16,10 @@ interface Props {
 }
 
 export const ReferralPreview: Component<Props> = (props) => {
-	const user = initData.user();
+	let user: any = null;
+	try {
+		user = initData.user();
+	} catch (e) {}
 	const [copied, setCopied] = createSignal(false);
 
 	const refLink = () =>

@@ -14,8 +14,9 @@ import (
 	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/telegram/auth"
 	"github.com/gotd/td/telegram/updates"
-	"github.com/gotd/td/tg"
 	updhook "github.com/gotd/td/telegram/updates/hook"
+	"github.com/gotd/td/tg"
+	"github.com/gotd/td/tgerr"
 )
 
 type UserbotClient struct {
@@ -23,6 +24,7 @@ type UserbotClient struct {
 	api        *tg.Client
 	dispatcher tg.UpdateDispatcher
 	gaps       *updates.Manager
+	cancel     context.CancelFunc
 }
 
 type NewChannelMessageHandler func(ctx context.Context, e tg.Entities, msg *tg.Message)
@@ -61,16 +63,21 @@ func (m *UserbotManager) createClient(ctx context.Context, phone string) (*Userb
 		},
 	})
 
+	clientCtx, cancel := context.WithCancel(ctx)
+
 	uc := &UserbotClient{
 		client:     client,
 		api:        client.API(),
 		dispatcher: dispatcher,
 		gaps:       gaps,
+		cancel:     cancel,
 	}
 
 	// Start the client in the background
 	go func() {
-		err := client.Run(ctx, func(runCtx context.Context) error {
+		defer cancel() // Clean up resources
+		
+		err := client.Run(clientCtx, func(runCtx context.Context) error {
 			status, err := client.Auth().Status(runCtx)
 			if err != nil {
 				return err
@@ -95,8 +102,11 @@ func (m *UserbotManager) createClient(ctx context.Context, phone string) (*Userb
 			})
 		})
 		if err != nil && !errors.Is(err, context.Canceled) {
-			slog.Error("Userbot client run failed", "phone", phone, "err", err)
+			slog.Error("Userbot client run failed or disconnected", "phone", phone, "err", err)
 		}
+		
+		// Ensure dead client is removed from the manager to prevent zombie state
+		m.RemoveClient(phone)
 	}()
 
 	return uc, nil
@@ -126,7 +136,7 @@ func InteractiveLogin(ctx context.Context, flow auth.Flow) error {
 		if err := client.Auth().IfNecessary(runCtx, flow); err != nil {
 			return err
 		}
-		
+
 		status, err := client.Auth().Status(runCtx)
 		if err != nil {
 			return err
@@ -160,14 +170,14 @@ func AuthSendCode(ctx context.Context, phone string) (string, error) {
 	appID, _ := strconv.Atoi(appIDStr)
 
 	client := telegram.NewClient(appID, appHash, telegram.Options{SessionStorage: storage})
-	
+
 	var phoneCodeHash string
 	err := client.Run(ctx, func(runCtx context.Context) error {
 		res, err := client.Auth().SendCode(runCtx, phone, auth.SendCodeOptions{})
 		if err != nil {
 			return err
 		}
-		
+
 		if sentCode, ok := res.(*tg.AuthSentCode); ok {
 			phoneCodeHash = sentCode.PhoneCodeHash
 		} else {
@@ -175,7 +185,7 @@ func AuthSendCode(ctx context.Context, phone string) (string, error) {
 		}
 		return nil
 	})
-	
+
 	return phoneCodeHash, err
 }
 
@@ -196,7 +206,7 @@ func AuthSignIn(ctx context.Context, phone, code, hash string) error {
 	appID, _ := strconv.Atoi(appIDStr)
 
 	client := telegram.NewClient(appID, appHash, telegram.Options{SessionStorage: storage})
-	
+
 	return client.Run(ctx, func(runCtx context.Context) error {
 		_, err := client.Auth().SignIn(runCtx, phone, code, hash)
 		return err
@@ -211,36 +221,44 @@ func (uc *UserbotClient) JoinChannel(ctx context.Context, identifier string) err
 
 	// Wait for the client to be ready and connected
 	// For gotd, we can just issue the API call and it will multiplex if running
-	
+
 	if strings.HasPrefix(identifier, "https://t.me/+") {
 		// Private invite link
 		hash := strings.TrimPrefix(identifier, "https://t.me/+")
 		_, err := uc.api.MessagesImportChatInvite(ctx, hash)
 		return err
 	}
-	
+
 	// Public username
 	username := strings.TrimPrefix(identifier, "@")
 	username = strings.TrimPrefix(username, "https://t.me/")
-	
+
 	peer, err := uc.api.ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{Username: username})
 	if err != nil {
 		return err
 	}
-	
+
 	if len(peer.Chats) == 0 {
 		return errors.New("channel not found")
 	}
-	
+
 	channel, ok := peer.Chats[0].(*tg.Channel)
 	if !ok {
 		return errors.New("resolved peer is not a channel")
 	}
-	
+
 	_, err = uc.api.ChannelsJoinChannel(ctx, &tg.InputChannel{
 		ChannelID:  channel.ID,
 		AccessHash: channel.AccessHash,
 	})
-	
-	return err
+
+	if err != nil {
+		if d, ok := tgerr.AsFloodWait(err); ok {
+			slog.Warn("FloodWait encountered while joining channel", "duration", d, "channel", identifier)
+			return fmt.Errorf("RATE_LIMIT: flood wait for %v", d)
+		}
+		return err
+	}
+
+	return nil
 }

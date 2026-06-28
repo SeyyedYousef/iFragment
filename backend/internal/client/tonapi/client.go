@@ -17,8 +17,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"golang.org/x/time/rate"
 	"ifragment-backend/internal/telemetry"
+
+	"golang.org/x/time/rate"
 )
 
 type Client struct {

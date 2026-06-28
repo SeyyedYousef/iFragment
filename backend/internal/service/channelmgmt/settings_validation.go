@@ -31,30 +31,30 @@ type GeneralSettingsSchema struct {
 	AntiRaidAction      string `json:"antiRaidAction"`
 
 	// Phase 1 Identity & Channel Moderation Config parameters
-	Name                string `json:"name"`
-	Description         string `json:"description"`
-	Photo               string `json:"photo"`
-	Username            string `json:"username"`
-	ShowAdminProfile    bool   `json:"showAdminProfile"`
-	HideChatHistory     bool   `json:"hideChatHistory"`
-	AntiSpam            bool   `json:"antiSpam"`
-	AutoDelete          int    `json:"autoDelete"`
-	DiscussionGroupID   string `json:"discussionGroupId"`
-	JoinReqAge          int    `json:"joinReqAge"`
-	JoinReqPhoto        bool   `json:"joinReqPhoto"`
-	ChannelName         string `json:"channelName"`
-	ChannelBio          string `json:"channelBio"`
-	ChannelPhotoUrl     string `json:"channelPhotoUrl"`
-	ChannelUsername     string `json:"channelUsername"`
-	AdminProfileDisplay bool   `json:"adminProfileDisplay"`
-	HideHistory         bool   `json:"hideHistory"`
-	HideMemberList      bool   `json:"hideMemberList"`
-	TelegramAntiSpam    bool   `json:"telegramAntiSpam"`
+	Name                string      `json:"name"`
+	Description         string      `json:"description"`
+	Photo               string      `json:"photo"`
+	Username            string      `json:"username"`
+	ShowAdminProfile    bool        `json:"showAdminProfile"`
+	HideChatHistory     bool        `json:"hideChatHistory"`
+	AntiSpam            bool        `json:"antiSpam"`
+	AutoDelete          int         `json:"autoDelete"`
+	DiscussionGroupID   string      `json:"discussionGroupId"`
+	JoinReqAge          int         `json:"joinReqAge"`
+	JoinReqPhoto        bool        `json:"joinReqPhoto"`
+	ChannelName         string      `json:"channelName"`
+	ChannelBio          string      `json:"channelBio"`
+	ChannelPhotoUrl     string      `json:"channelPhotoUrl"`
+	ChannelUsername     string      `json:"channelUsername"`
+	AdminProfileDisplay bool        `json:"adminProfileDisplay"`
+	HideHistory         bool        `json:"hideHistory"`
+	HideMemberList      bool        `json:"hideMemberList"`
+	TelegramAntiSpam    bool        `json:"telegramAntiSpam"`
 	SlowMode            interface{} `json:"slowMode"`
 	AutoDeleteTimer     interface{} `json:"autoDeleteTimer"`
-	DiscussionGroup     string `json:"discussionGroup"`
-	ApproveAccountAge   bool   `json:"approveAccountAge"`
-	ApproveProfilePhoto bool   `json:"approveProfilePhoto"`
+	DiscussionGroup     string      `json:"discussionGroup"`
+	ApproveAccountAge   bool        `json:"approveAccountAge"`
+	ApproveProfilePhoto bool        `json:"approveProfilePhoto"`
 
 	// Missing General Settings Phase 2 UI properties
 	SignMessages       bool   `json:"signMessages"`

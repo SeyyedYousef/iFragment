@@ -74,7 +74,6 @@ func (h *OwnerHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(stats)
 }
 
-
 func (h *OwnerHandler) Impersonate(w http.ResponseWriter, r *http.Request) {
 	ownerID, err := middleware.GetUserID(r.Context())
 	if err != nil {
@@ -706,7 +705,6 @@ func (h *OwnerHandler) GetAllGroups(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(entities)
 }
 
-
 func (h *OwnerHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	ownerID, err := middleware.GetUserID(r.Context())
 	if err != nil {
@@ -729,4 +727,3 @@ func (h *OwnerHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
-

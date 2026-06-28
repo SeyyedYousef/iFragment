@@ -26,7 +26,7 @@ type referralJob struct {
 
 type GamificationService struct {
 	db               *repository.Database
-		gamificationRepo *repository.Database
+	gamificationRepo *repository.Database
 	cache            *repository.Cache
 	referralQueue    chan referralJob
 }
@@ -34,7 +34,7 @@ type GamificationService struct {
 func NewGamificationService(db *repository.Database, cache *repository.Cache) *GamificationService {
 	s := &GamificationService{
 		db:               db,
-				gamificationRepo: db,
+		gamificationRepo: db,
 		cache:            cache,
 		referralQueue:    make(chan referralJob, 1000),
 	}
@@ -929,8 +929,6 @@ func (s *GamificationService) GetLeaderboard(ctx context.Context) ([]Leaderboard
 	return result, nil
 }
 
-
-
 func (s *GamificationService) GetGlobalClans(ctx context.Context) ([]map[string]interface{}, error) {
 	return s.db.GetGlobalClans(ctx)
 }
@@ -1029,6 +1027,10 @@ func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID i
 		return nil, fmt.Errorf("failed to commit: %w", err)
 	}
 
+	if s.cache != nil && s.cache.Client != nil {
+		s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
+	}
+
 	return &OfflineMiningResult{Earned: float64(earnedInt), DurationSeconds: elapsed}, nil
 }
 
@@ -1070,6 +1072,10 @@ func (s *GamificationService) ApplyTurbo(ctx context.Context, userID int64) erro
 
 	if err = tx.Commit(ctx); err != nil {
 		return fmt.Errorf("failed to commit: %w", err)
+	}
+
+	if s.cache != nil && s.cache.Client != nil {
+		s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
 	}
 
 	return nil
@@ -1129,6 +1135,10 @@ func (s *GamificationService) ApplyFullEnergy(ctx context.Context, userID int64)
 
 	if err = tx.Commit(ctx); err != nil {
 		return fmt.Errorf("failed to commit: %w", err)
+	}
+
+	if s.cache != nil && s.cache.Client != nil {
+		s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
 	}
 
 	return nil

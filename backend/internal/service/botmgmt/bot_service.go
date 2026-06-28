@@ -20,12 +20,12 @@ import (
 	"time"
 
 	"crypto/sha256"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/i18n"
 	"ifragment-backend/internal/repository"
-	"ifragment-backend/internal/service/crypto"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 type SubscriptionPackage struct {
@@ -57,7 +57,7 @@ type BotService struct {
 	lastNotificationDate string               // format: YYYY-MM-DD
 	qhNotifications      map[string]time.Time // key: groupID:action:HH:MM, val: time
 	lastBioUpdate        sync.Map             // map[uuid.UUID]time.Time
-	cryptoService        *crypto.CryptoService
+	cache                *repository.Cache
 	mu                   sync.Mutex
 }
 
@@ -66,13 +66,14 @@ func NewBotService(
 	settingsRepo *repository.SettingsRepo,
 	auditRepo *repository.AuditRepo,
 	analyticsRepo *repository.AnalyticsRepo,
+	cache *repository.Cache,
 ) *BotService {
 	return &BotService{
 		botRepo:       botRepo,
 		settingsRepo:  settingsRepo,
 		auditRepo:     auditRepo,
 		analyticsRepo: analyticsRepo,
-		cryptoService: crypto.NewCryptoService(),
+		cache:         cache,
 	}
 }
 
@@ -158,10 +159,14 @@ func (s *BotService) CheckExpirations(ctx context.Context) {
 					if decErr == nil {
 						tg := telegram.NewBotAPIClient(token)
 						_ = tg.LeaveChat(groupCtx, g.ChatID)
-						
+
 						lang := i18n.DetectLanguage("")
 						msg := i18n.T(lang, "notifications.group_auto_left", map[string]interface{}{"group": g.ChatTitle})
-						_ = tg.SendMessage(groupCtx, bot.OwnerUserID, msg, nil, nil)
+						targetUserID := bot.OwnerUserID
+						if g.ConnectedByUserID != nil {
+							targetUserID = *g.ConnectedByUserID
+						}
+						_ = tg.SendMessage(groupCtx, targetUserID, msg, nil, nil)
 					}
 				}
 				_ = s.botRepo.DeleteGroup(groupCtx, g.ID)
@@ -212,7 +217,11 @@ func (s *BotService) sendExpirationNotice(ctx context.Context, g repository.Mana
 	msg := i18n.T(lang, "notifications."+template, vars)
 
 	// Send to owner PV ONLY
-	_ = tg.SendMessage(ctx, bot.OwnerUserID, msg, nil, nil)
+	targetUserID := bot.OwnerUserID
+	if g.ConnectedByUserID != nil {
+		targetUserID = *g.ConnectedByUserID
+	}
+	_ = tg.SendMessage(ctx, targetUserID, msg, nil, nil)
 }
 
 // Bot Operations
@@ -413,6 +422,9 @@ func (s *BotService) GetGroup(ctx context.Context, groupID uuid.UUID, ownerID in
 	if err != nil {
 		return nil, err
 	}
+	if group.ConnectedByUserID != nil && *group.ConnectedByUserID == ownerID {
+		return group, nil
+	}
 	if _, err := s.GetBot(ctx, group.BotID, ownerID); err != nil {
 		return nil, err
 	}
@@ -425,7 +437,6 @@ func (s *BotService) DeleteGroup(ctx context.Context, groupID uuid.UUID, ownerID
 	}
 	return s.botRepo.DeleteGroup(ctx, groupID)
 }
-
 
 // Settings Operations
 
@@ -580,7 +591,7 @@ func (s *BotService) internalActivateSubscriptionTx(ctx context.Context, tx pgx.
 	if group.SubscriptionStatus == "paid" && group.PaidUntil != nil && group.PaidUntil.After(base) {
 		base = *group.PaidUntil
 	}
-	
+
 	months := pkg.DurationMonths
 	if months <= 0 {
 		months = 1
@@ -725,6 +736,10 @@ func (s *BotService) SubscribeWithAirdrop(ctx context.Context, userID int64, gro
 		return fmt.Errorf("failed to commit subscription transaction: %w", err)
 	}
 
+	if s.cache != nil && s.cache.Client != nil {
+		s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
+	}
+
 	bot, _ := s.botRepo.GetBotByID(ctx, group.BotID)
 	botUsername := ""
 	if bot != nil {
@@ -760,8 +775,6 @@ func (s *BotService) GetAuditLog(ctx context.Context, groupID uuid.UUID, ownerID
 	}
 	return s.auditRepo.GetByGroup(ctx, groupID, limit, offset)
 }
-
-
 
 // Token encryption
 
@@ -998,8 +1011,8 @@ func (s *BotService) SubscribeChannel(ctx context.Context, userID int64, channel
 	if err != nil {
 		return fmt.Errorf("unauthorized or invalid bot: %w", err)
 	}
-	if bot.OwnerUserID != userID {
-		return fmt.Errorf("unauthorized: not bot owner")
+	if bot.OwnerUserID != userID && (ch.ConnectedByUserID == nil || *ch.ConnectedByUserID != userID) {
+		return fmt.Errorf("unauthorized: not channel owner")
 	}
 
 	pkg := s.GetPackageByID(packageID)
@@ -1007,7 +1020,6 @@ func (s *BotService) SubscribeChannel(ctx context.Context, userID int64, channel
 		return fmt.Errorf("invalid package: %s", packageID)
 	}
 
-	
 	tx, err := s.botRepo.DB().Pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -1025,8 +1037,7 @@ func (s *BotService) SubscribeChannel(ctx context.Context, userID int64, channel
 	s.notifyOwnerOnSubscription(context.Background(), bot.BotUsername, ch.ChatTitle, pkg.Name, "FRG (Channel)", userID)
 
 	go func() {
-		
-		
+
 	}()
 
 	return nil
@@ -1072,8 +1083,8 @@ func (s *BotService) SubscribeChannelWithAirdrop(ctx context.Context, userID int
 	if err != nil {
 		return fmt.Errorf("unauthorized or invalid bot: %w", err)
 	}
-	if bot.OwnerUserID != userID {
-		return fmt.Errorf("unauthorized: not bot owner")
+	if bot.OwnerUserID != userID && (ch.ConnectedByUserID == nil || *ch.ConnectedByUserID != userID) {
+		return fmt.Errorf("unauthorized: not channel owner")
 	}
 
 	pkg := s.GetPackageByID(packageID)
@@ -1115,11 +1126,14 @@ func (s *BotService) SubscribeChannelWithAirdrop(ctx context.Context, userID int
 		return fmt.Errorf("failed to commit subscription transaction: %w", err)
 	}
 
+	if s.cache != nil && s.cache.Client != nil {
+		s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
+	}
+
 	s.notifyOwnerOnSubscription(context.Background(), bot.BotUsername, ch.ChatTitle, pkg.Name, "Airdrop Coins (Channel)", userID)
 
 	go func() {
-		
-		
+
 	}()
 
 	return nil
@@ -1159,8 +1173,7 @@ func (s *BotService) ActivateChannelSubscriptionFromStars(ctx context.Context, u
 	s.notifyOwnerOnSubscription(context.Background(), bot.BotUsername, ch.ChatTitle, pkg.Name, "Telegram Stars (Channel)", userID)
 
 	go func() {
-		
-		
+
 	}()
 
 	return nil

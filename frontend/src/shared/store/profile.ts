@@ -47,7 +47,7 @@ export interface ReferralInfo {
 	referralCode: string;
 	totalInvited: number;
 	totalEarned: number;
-	friends: { id: number; name: string; avatar?: string; joinedAt: string; earned: number }[];
+	friends: { id: number; name: string; avatar?: string; joinedAt: string; earned: number; airdropCoins?: number; frensCount?: number }[];
 }
 
 export interface ProfileSettings {

@@ -32,19 +32,21 @@ import (
 	"ifragment-backend/internal/service/payment"
 	"ifragment-backend/internal/service/username"
 
+	"strings"
+	"time"
+
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/joho/godotenv"
 	"github.com/rs/cors"
-	"strings"
-	"time"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"ifragment-backend/internal/telemetry"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 func main() {
@@ -250,8 +252,8 @@ func main() {
 
 	// Initialize Services
 	aggregatorService := username.NewAggregatorService(tonClient, cache)
+	analysisService := username.NewAnalysisService(context.Background(), db, cache, tonClient, mtprotoClient)
 	paymentService := payment.NewStarsService(db)
-	reportService := username.NewReportService(ctx, db, cache, tonClient, mtprotoClient)
 
 	// Initialize Bot Management repos & services
 	botRepo := repository.NewBotRepo(db)
@@ -259,7 +261,7 @@ func main() {
 	auditRepo := repository.NewAuditRepo(db)
 	analyticsRepo := repository.NewAnalyticsRepo(db)
 
-	botService := botmgmt.NewBotService(botRepo, settingsRepo, auditRepo, analyticsRepo)
+	botService := botmgmt.NewBotService(botRepo, settingsRepo, auditRepo, analyticsRepo, cache)
 	AutoRegisterMainBot(ctx, db, botService)
 	moderatorService := botmgmt.NewModeratorService(settingsRepo, botRepo, auditRepo, analyticsRepo, cache)
 
@@ -281,7 +283,7 @@ func main() {
 
 	// Initialize UserbotManager
 	ownerRepo := repository.NewOwnerRepo(db)
-	
+
 	appIDStr := os.Getenv("TG_APP_ID")
 	appID, _ := strconv.Atoi(appIDStr)
 	appHash := os.Getenv("TG_APP_HASH")
@@ -302,10 +304,10 @@ func main() {
 
 	channelHandler := handler.NewChannelHandler(channelService)
 
-	usernameHandler := handler.NewUsernameHandler(aggregatorService, reportService, mtprotoClient, cache)
-	premiumHandler := handler.NewPremiumHandler(reportService, paymentService)
+	usernameHandler := handler.NewUsernameHandler(aggregatorService, analysisService, mtprotoClient, cache)
+
 	webhookHandler := handler.NewWebhookHandler(db, moderatorService, botRepo, channelService)
-	botMgmtHandler := handler.NewBotMgmtHandler(botService)
+	botMgmtHandler := handler.NewBotMgmtHandler(botService, paymentService)
 	profileService := service.NewProfileService(db, cache)
 	// 🚀 Warm up Redis leaderboard at startup and periodically
 	go func() {
@@ -328,6 +330,7 @@ func main() {
 	gamificationHandler := handler.NewGamificationHandler(gamificationService)
 	clanService := service.NewClanService(db, cache, mtprotoClient)
 	clanService.StartWeeklyUpdater(ctx)
+	clanService.StartScoreFlusher(ctx)
 	clanHandler := handler.NewClanHandler(clanService)
 
 	authHandler := handler.NewAuthHandler(db)
@@ -404,21 +407,12 @@ func main() {
 			r.With(middleware.ValidateTelegramInitData(db, cache)).Post("/auth/token", authHandler.IssueToken)
 
 			r.Route("/usernames", func(r chi.Router) {
-				r.Get("/collection/stats", usernameHandler.GetCollectionStats)
 				r.Get("/check", usernameHandler.CheckAvailability)
 				r.Get("/quick", usernameHandler.QuickAnalysis)
 				r.Get("/quick/stream", usernameHandler.StreamQuickAnalysis)
-				r.Get("/trending", usernameHandler.GetTrending)
 				r.Get("/rates", usernameHandler.GetRates)
 				r.Get("/similar", usernameHandler.GetSimilar)
 
-				// Protected Routes (Require JWT)
-				r.Group(func(r chi.Router) {
-					// r.Use(middleware.AuthMiddleware)
-					r.Post("/report/request", premiumHandler.RequestPremiumReport)
-					r.Get("/report/view", premiumHandler.GetReport)
-					r.Get("/report/history", premiumHandler.GetHistory)
-				})
 			})
 
 			// ─── Bot Management API ─────────────────────────
@@ -493,12 +487,12 @@ func main() {
 				r.Get("/packages", botMgmtHandler.GetPackages)
 				r.Post("/subscribe", botMgmtHandler.Subscribe)
 				r.Post("/subscribe-airdrop", botMgmtHandler.SubscribeWithAirdrop)
+				r.Post("/subscribe-stars-invoice", botMgmtHandler.SubscribeStarsInvoice)
 
 				r.Post("/channel/subscribe", botMgmtHandler.SubscribeChannel)
 				r.Post("/channel/subscribe-airdrop", botMgmtHandler.SubscribeChannelWithAirdrop)
+				r.Post("/channel/subscribe-stars-invoice", botMgmtHandler.SubscribeChannelStarsInvoice)
 			})
-
-
 
 			r.Route("/profile", func(r chi.Router) {
 				r.Get("/avatar/{userID}", profileHandler.GetAvatar)
@@ -506,6 +500,7 @@ func main() {
 				r.Group(func(r chi.Router) {
 					r.Use(middleware.AuthMiddleware)
 
+					r.Post("/language", profileHandler.SetLanguage)
 					r.Delete("/gdpr", profileHandler.DeleteUserDataGDPR)
 					r.Get("/stats", profileHandler.GetStats)
 					r.Get("/achievements", profileHandler.GetAchievements)
@@ -556,7 +551,7 @@ func main() {
 				r.Use(middleware.ValidateOwnerAdmin)
 
 				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/dashboard/stats", ownerHandler.GetStats)
-				
+
 				// System Settings
 				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/settings", ownerHandler.GetSettings)
 				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Put("/settings", ownerHandler.UpdateSettings)

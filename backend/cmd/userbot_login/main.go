@@ -7,10 +7,11 @@ import (
 	"os"
 	"strings"
 
+	"ifragment-backend/internal/client/mtproto"
+
 	"github.com/gotd/td/telegram/auth"
 	"github.com/gotd/td/tg"
 	"github.com/joho/godotenv"
-	"ifragment-backend/internal/client/mtproto"
 )
 
 // terminalAuth implements auth.UserAuthenticator and auth.CodeAuthenticator

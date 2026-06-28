@@ -22,13 +22,13 @@ import (
 	"sync"
 	"time"
 
-	"ifragment-backend/internal/i18n"
-	"github.com/google/uuid"
 	"ifragment-backend/internal/client/telegram"
+	"ifragment-backend/internal/i18n"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/botmgmt"
-	"ifragment-backend/internal/service/crypto"
 	"ifragment-backend/internal/telemetry"
+
+	"github.com/google/uuid"
 )
 
 type ChannelService struct {
@@ -38,12 +38,14 @@ type ChannelService struct {
 	wg          sync.WaitGroup
 	httpClient  *http.Client // Shared thread-safe HTTP client
 
+	mu                   sync.Mutex
+	lastNotificationDate string
+
 	// Feature flags — loaded once at startup to avoid per-request os.Getenv overhead
 	featureForwarding    bool
 	featureAutoResponder bool
 
 	autoResponderService *AutoResponderService
-	cryptoService        *crypto.CryptoService
 
 	lastBioUpdate sync.Map // map[uuid.UUID]time.Time
 
@@ -64,8 +66,8 @@ func NewChannelService(
 		featureForwarding:    os.Getenv("FEATURE_FLAG_FORWARDING") != "false",
 		featureAutoResponder: os.Getenv("FEATURE_FLAG_AUTORESPONDER") != "false",
 		autoResponderService: NewAutoResponderService(channelRepo),
-		cryptoService:        crypto.NewCryptoService(),
-		dnsLookup:            net.LookupIP,
+
+		dnsLookup: net.LookupIP,
 	}
 }
 
@@ -272,6 +274,7 @@ func (s *ChannelService) ConnectChannel(ctx context.Context, ownerUserID int64, 
 		TrialEndsAt:        time.Now().Add(72 * time.Hour),
 		SignMessages:       false,
 		ProtectContent:     false,
+		ConnectedByUserID:  &ownerUserID,
 	}
 
 	err = s.channelRepo.CreateChannel(ctx, ch)
@@ -371,7 +374,7 @@ func (s *ChannelService) CreateFunnel(ctx context.Context, ownerUserID int64, ou
 	if err != nil {
 		return nil, fmt.Errorf("failed to create funnel: %w", err)
 	}
-	
+
 	// Auto-join logic for Userbot
 	if s.userbotJoiner != nil && inputChannelIdentifier != "" {
 		// Do this asynchronously to not block the response
@@ -1083,7 +1086,7 @@ end
 `
 
 func (s *ChannelService) scheduledPostWorker(ctx context.Context) {
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(10 * time.Second) // Poll less aggressively
 	defer ticker.Stop()
 
 	for {
@@ -1153,6 +1156,14 @@ func (s *ChannelService) scheduledPostWorker(ctx context.Context) {
 							return
 						}
 
+						// Process each post concurrently to avoid blocking the main scheduler
+						s.wg.Add(1)
+						postCopy := post
+						GoSafe(func() {
+							defer s.wg.Done()
+							bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+							defer cancel()
+
 						// Crash duplicate prevention
 						var processingKey string
 						if cache != nil && cache.Client != nil {
@@ -1195,60 +1206,60 @@ func (s *ChannelService) scheduledPostWorker(ctx context.Context) {
 						token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 						if err != nil {
 							if processingKey != "" {
-								cache.Client.Del(ctx, processingKey)
+								cache.Client.Del(bgCtx, processingKey)
 							}
-							slog.Error("Failed to decrypt bot token in scheduled post worker", "post_id", post.ID, "error", err)
+							slog.Error("Failed to decrypt bot token in scheduled post worker", "post_id", postCopy.ID, "error", err)
 							return
 						}
 
-						buttons, _ := s.GetChannelButtonsByChannelID(ctx, ch.ID)
+						buttons, _ := s.GetChannelButtonsByChannelID(bgCtx, ch.ID)
 						markup := BuildInlineKeyboard(buttons)
 
 						tg := telegram.NewBotAPIClient(token)
-						res, err := tg.SendMessageWithMarkup(ctx, ch.ChatID, post.Text, markup, nil)
+						res, err := tg.SendMessageWithMarkup(bgCtx, ch.ChatID, postCopy.Text, markup, nil)
 						if err != nil {
-							slog.Error("Failed to send scheduled message via telegram in worker", "post_id", post.ID, "error", err)
+							slog.Error("Failed to send scheduled message via telegram in worker", "post_id", postCopy.ID, "error", err)
 
 							// Normal failure: delete processing key so it can be retried
 							if processingKey != "" {
-								cache.Client.Del(ctx, processingKey)
+								cache.Client.Del(bgCtx, processingKey)
 							}
 
 							lowerErr := strings.ToLower(err.Error())
 							if strings.Contains(lowerErr, "forbidden") || strings.Contains(lowerErr, "kicked") || strings.Contains(lowerErr, "not a member") || strings.Contains(lowerErr, "not a participant") || strings.Contains(lowerErr, "chat not found") {
 								slog.Warn("Bot was kicked from channel during scheduled post, disconnecting it", "channel_id", ch.ID)
-								_ = s.channelRepo.DeleteChannel(ctx, ch.ID)
+								_ = s.channelRepo.DeleteChannel(bgCtx, ch.ID)
 								targetStr := ch.ID.String()
-								_ = s.auditRepo.Log(ctx, &repository.AuditLog{
+								_ = s.auditRepo.Log(bgCtx, &repository.AuditLog{
 									ActorID:  bot.OwnerUserID,
 									Action:   "channel.kicked",
 									TargetID: &targetStr,
 								})
-								_ = s.channelRepo.MarkPostAsPublished(ctx, post.ID, -1)
+								_ = s.channelRepo.MarkPostAsPublished(bgCtx, postCopy.ID, -1)
 								return
 							}
 
 							if cache != nil && cache.Client != nil {
-								retryKey := fmt.Sprintf("post_retries:%s", post.ID.String())
-								retries, _ := cache.Client.Incr(ctx, retryKey).Result()
+								retryKey := fmt.Sprintf("post_retries:%s", postCopy.ID.String())
+								retries, _ := cache.Client.Incr(bgCtx, retryKey).Result()
 								if retries >= 3 {
-									slog.Error("Max retries exceeded for scheduled post. Marking as failed.", "post_id", post.ID)
-									_ = s.channelRepo.MarkPostAsPublished(ctx, post.ID, -1) // -1 denotes failure
-									cache.Client.Del(ctx, retryKey)
+									_ = s.channelRepo.MarkPostAsPublished(bgCtx, postCopy.ID, -1)
+									slog.Error("Max retries exceeded for scheduled post. Marking as failed.", "post_id", postCopy.ID)
+									cache.Client.Del(bgCtx, retryKey)
 								}
 							}
 							return
 						}
 
-						err = s.channelRepo.MarkPostAsPublished(ctx, post.ID, int64(res.MessageID))
+						err = s.channelRepo.MarkPostAsPublished(bgCtx, postCopy.ID, int64(res.MessageID))
 						if err != nil {
-							slog.Error("Failed to mark scheduled post as published in db", "post_id", post.ID, "error", err)
+							slog.Error("Failed to mark scheduled post as published in db", "post_id", postCopy.ID, "error", err)
 							return
 						}
 
 						// Log background audit
-						meta, _ := json.Marshal(map[string]interface{}{"post_id": post.ID, "message_id": res.MessageID})
-						if auditErr := s.channelRepo.LogAudit(ctx, &repository.ChannelAuditLog{
+						meta, _ := json.Marshal(map[string]interface{}{"post_id": postCopy.ID, "message_id": res.MessageID})
+						if auditErr := s.channelRepo.LogAudit(bgCtx, &repository.ChannelAuditLog{
 							ChannelID: ch.ID,
 							ActorID:   bot.OwnerUserID,
 							Action:    "channel.post.published_scheduled",
@@ -1256,13 +1267,12 @@ func (s *ChannelService) scheduledPostWorker(ctx context.Context) {
 						}); auditErr != nil {
 							slog.Warn("failed to write channel audit log", "action", "channel.post.published_scheduled", "error", auditErr)
 						}
-
-						slog.Info("Successfully published scheduled post", "post_id", post.ID, "channel_id", ch.ID)
-					}(post)
-				}
-			}()
-		}
+					})
+				}(post)
+			}
+		}()
 	}
+}
 }
 
 func (s *ChannelService) getDynamicWebhookSecret(channelID uuid.UUID) (string, error) {
@@ -2248,9 +2258,14 @@ func (s *ChannelService) RequestApprovalForPost(ctx context.Context, ch *reposit
 		"text":    text,
 	})
 
-	_, err = tg.SendMessageWithMarkup(ctx, bot.OwnerUserID, previewText, markup, nil)
+	targetUserID := bot.OwnerUserID
+	if ch.ConnectedByUserID != nil {
+		targetUserID = *ch.ConnectedByUserID
+	}
+
+	_, err = tg.SendMessageWithMarkup(ctx, targetUserID, previewText, markup, nil)
 	if err != nil {
-		slog.Warn("Failed to send post approval to owner PV", "owner_id", bot.OwnerUserID, "error", err)
+		slog.Warn("Failed to send post approval to owner PV", "owner_id", targetUserID, "error", err)
 		startBotErr := i18n.T(lang, "channel.start_bot_error", map[string]interface{}{"err": err.Error()})
 		return fmt.Errorf("%s: %w", startBotErr, err)
 	}
@@ -2320,6 +2335,18 @@ func (s *ChannelService) CheckExpirations(ctx context.Context) {
 
 	now := time.Now()
 
+	// Determine if we should process 10 AM alerts today
+	shouldAlert := false
+	todayStr := now.Format("2006-01-02")
+	if now.Hour() == 10 {
+		s.mu.Lock()
+		if s.lastNotificationDate != todayStr {
+			shouldAlert = true
+			s.lastNotificationDate = todayStr
+		}
+		s.mu.Unlock()
+	}
+
 	for _, c := range channels {
 		var expiry *time.Time
 		if c.SubscriptionStatus == "trial" {
@@ -2335,6 +2362,26 @@ func (s *ChannelService) CheckExpirations(ctx context.Context) {
 		// 1. Check for actual expiration
 		if c.SubscriptionStatus != "expired" && now.After(*expiry) {
 			_ = s.channelRepo.UpdateChannelSubscription(ctx, c.ID, "expired", nil)
+			
+			// Send expiration notice
+			bot, err := s.botRepo.GetBotByID(ctx, c.BotID)
+			if err == nil {
+				token, decErr := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+				if decErr == nil {
+					tg := telegram.NewBotAPIClient(token)
+					lang := "en" // Default to english, as channels don't have settings right now
+					msg := i18n.T(lang, "notifications.service_ended", map[string]interface{}{"group": c.ChatTitle})
+					msg = strings.ReplaceAll(msg, "گروه", "کانال")
+					msg = strings.ReplaceAll(msg, "group", "channel")
+					
+					targetUserID := bot.OwnerUserID
+					if c.ConnectedByUserID != nil {
+						targetUserID = *c.ConnectedByUserID
+					}
+					_ = tg.SendMessage(ctx, targetUserID, msg, nil, nil)
+				}
+			}
+			continue
 		}
 
 		// 2. Auto-leave if expired for > 7 days
@@ -2345,15 +2392,57 @@ func (s *ChannelService) CheckExpirations(ctx context.Context) {
 				if decErr == nil {
 					tg := telegram.NewBotAPIClient(token)
 					_ = tg.LeaveChat(ctx, c.ChatID)
-					
+
 					// Send notification to owner
 					lang := i18n.DetectLanguage("")
 					msg := i18n.T(lang, "notifications.channel_auto_left", map[string]interface{}{"channel": c.ChatTitle})
-					_ = tg.SendMessage(ctx, bot.OwnerUserID, msg, nil, nil)
+					
+					targetUserID := bot.OwnerUserID
+					if c.ConnectedByUserID != nil {
+						targetUserID = *c.ConnectedByUserID
+					}
+					_ = tg.SendMessage(ctx, targetUserID, msg, nil, nil)
 				}
 			}
 			// Delete channel record to clean up completely
 			_ = s.channelRepo.DeleteChannel(ctx, c.ID)
+			continue
+		}
+
+		if c.SubscriptionStatus == "expired" {
+			continue
+		}
+
+		// 3. Check for alerts (3 days and 1 day before)
+		if shouldAlert {
+			targetDate := time.Date(expiry.Year(), expiry.Month(), expiry.Day(), 0, 0, 0, 0, expiry.Location())
+			nowDate := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+			daysLeft := int(targetDate.Sub(nowDate).Hours() / 24)
+			
+			if daysLeft == 3 || daysLeft == 1 {
+				template := "expiry_3d"
+				if daysLeft == 1 {
+					template = "expiry_24h"
+				}
+				
+				bot, err := s.botRepo.GetBotByID(ctx, c.BotID)
+				if err == nil {
+					token, decErr := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+					if decErr == nil {
+						tg := telegram.NewBotAPIClient(token)
+						lang := "en"
+						msg := i18n.T(lang, "notifications."+template, map[string]interface{}{"group": c.ChatTitle})
+						msg = strings.ReplaceAll(msg, "گروه", "کانال")
+						msg = strings.ReplaceAll(msg, "group", "channel")
+						
+						targetUserID := bot.OwnerUserID
+						if c.ConnectedByUserID != nil {
+							targetUserID = *c.ConnectedByUserID
+						}
+						_ = tg.SendMessage(ctx, targetUserID, msg, nil, nil)
+					}
+				}
+			}
 		}
 	}
 }

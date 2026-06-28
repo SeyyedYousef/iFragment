@@ -135,29 +135,29 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 	globalRank, _ := db.GetGlobalRankFromDB(ctx, xp)
 
 	return &model.ProfileStats{
-		UsernamesAnalyzed: usernamesAnalyzed,
-		GroupsManaged:     groupsManaged,
-		ChannelsManaged:   channelsManaged,
-		DaysActive:        daysActive,
-		CurrentStreak:     currentStreak,
-		GlobalRank:        globalRank,
-		TotalTaps:         totalTaps,
-		TotalFrgEarned:    totalFrgEarned,
-		TotalFrgSpent:     totalFrgSpent,
-		FrgBalance:        frgBalance,
-		MemberSince:       memberSince,
-		Level:             level,
-		XP:                xp,
-		XPToNextLevel:     GetXPToNextLevel(level),
-		IsPremium:         isPremium,
-		PremiumUntil:      premiumUntil,
-		EmojiStatus:       emojiStatus,
-		EquippedBorder:    equippedBorder,
-		EquippedSkin:      equippedSkin,
-		AirdropCoins:      airdropCoins,
-		Energy:            energy,
-		EnergyUpdatedAt:   energyUpdatedAt,
-		DailyTappedCoins:  dailyTappedCoins,
+		UsernamesAnalyzed:   usernamesAnalyzed,
+		GroupsManaged:       groupsManaged,
+		ChannelsManaged:     channelsManaged,
+		DaysActive:          daysActive,
+		CurrentStreak:       currentStreak,
+		GlobalRank:          globalRank,
+		TotalTaps:           totalTaps,
+		TotalFrgEarned:      totalFrgEarned,
+		TotalFrgSpent:       totalFrgSpent,
+		FrgBalance:          frgBalance,
+		MemberSince:         memberSince,
+		Level:               level,
+		XP:                  xp,
+		XPToNextLevel:       GetXPToNextLevel(level),
+		IsPremium:           isPremium,
+		PremiumUntil:        premiumUntil,
+		EmojiStatus:         emojiStatus,
+		EquippedBorder:      equippedBorder,
+		EquippedSkin:        equippedSkin,
+		AirdropCoins:        airdropCoins,
+		Energy:              energy,
+		EnergyUpdatedAt:     energyUpdatedAt,
+		DailyTappedCoins:    dailyTappedCoins,
 		DailyTurboUsed:      dailyTurboUsed,
 		DailyFullEnergyUsed: dailyFullEnergyUsed,
 		ServerNow:           time.Now().Unix(),
@@ -167,7 +167,7 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 func (db *Database) GetGlobalRankFromDB(ctx context.Context, xp int) (int, error) {
 	// League thresholds based on frontend config
 	leagues := []int{0, 5000, 50000, 500000, 2000000, 10000000, 50000000, 100000000}
-	
+
 	maxXP := 2000000000 // effectively infinity
 	for i := len(leagues) - 1; i >= 0; i-- {
 		if xp >= leagues[i] {
@@ -408,13 +408,13 @@ func (db *Database) GetReferralData(ctx context.Context, userID int64) (*model.R
 	g.Go(func() error {
 		friendsQuery := `
 			SELECT u.telegram_id, COALESCE(u.username, u.first_name), u.created_at,
-			       10000.0 AS total_earned,
+			       1000.0 AS total_earned,
 			       COALESCE(us.airdrop_coins, 0),
 			       (SELECT COUNT(*) FROM users u2 WHERE u2.referred_by = u.telegram_id) as frens_count
 			FROM users u
 			LEFT JOIN user_stats us ON u.telegram_id = us.user_id
 			WHERE u.referred_by = $1
-			ORDER BY us.xp DESC NULLS LAST
+			ORDER BY us.xp DESC NULLS LAST LIMIT 100
 		`
 		rows, err := db.Pool.Query(ctx, friendsQuery, userID)
 		if err != nil {
@@ -448,14 +448,11 @@ func (db *Database) GetReferralData(ctx context.Context, userID int64) (*model.R
 		return nil
 	})
 
-	g.Go(func() error {
-		totalEarned = float64(totalInvited) * 10000.0
-		return nil
-	})
-
 	if err := g.Wait(); err != nil {
 		return nil, err
 	}
+
+	totalEarned = float64(totalInvited) * 1000.0
 
 	return &model.ReferralHubData{
 		ReferralCode: code,
@@ -489,7 +486,7 @@ func (db *Database) SetReferredBy(ctx context.Context, userID int64, referrerCod
 	if err != nil {
 		return false, err
 	}
-	
+
 	success := cmdTag.RowsAffected() == 1
 	if success {
 		// Give 1,000 Coins to both referrer and the new user
@@ -515,18 +512,18 @@ func generateSecureReferralCode(length int) (string, error) {
 }
 
 var LevelThresholds = []int{
-	0,           // Level 1: Bronze
-	50000,       // Level 2: Silver
-	250000,      // Level 3: Gold
-	1000000,     // Level 4: Platinum
-	5000000,     // Level 5: Diamond
-	25000000,    // Level 6: Legendary
-	100000000,   // Level 7: Master
-	500000000,   // Level 8: Grandmaster
-	2500000000,  // Level 9: Elite
-	10000000000, // Level 10: Champion
-	50000000000, // Level 11: Hero
-	250000000000,// Level 12: Mythic
+	0,            // Level 1: Bronze
+	50000,        // Level 2: Silver
+	250000,       // Level 3: Gold
+	1000000,      // Level 4: Platinum
+	5000000,      // Level 5: Diamond
+	25000000,     // Level 6: Legendary
+	100000000,    // Level 7: Master
+	500000000,    // Level 8: Grandmaster
+	2500000000,   // Level 9: Elite
+	10000000000,  // Level 10: Champion
+	50000000000,  // Level 11: Hero
+	250000000000, // Level 12: Mythic
 }
 
 func GetLevelFromXP(xp int) int {
@@ -669,7 +666,7 @@ func (db *Database) AdjustAirdropCoins(ctx context.Context, userID int64, amount
 	if db.Pool == nil {
 		return fmt.Errorf("no database connection")
 	}
-	
+
 	// Create user_stats if missing, then adjust
 	query := `
 		INSERT INTO user_stats (user_id, xp, level, current_streak, last_active_at, energy, energy_updated_at, airdrop_coins)

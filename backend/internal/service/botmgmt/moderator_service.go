@@ -13,13 +13,15 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/google/uuid"
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/repository"
 
-	"golang.org/x/sync/singleflight"
+	"github.com/google/uuid"
+
 	"log/slog"
 	"net/http"
+
+	"golang.org/x/sync/singleflight"
 )
 
 var (

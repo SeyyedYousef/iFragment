@@ -21,15 +21,20 @@ import (
 )
 
 type ProfileService struct {
-	db      *repository.Database
-		cache   *repository.Cache
+	db    *repository.Database
+	cache *repository.Cache
 }
 
 func NewProfileService(db *repository.Database, cache *repository.Cache) *ProfileService {
 	return &ProfileService{
-		db:      db,
-				cache:   cache,
+		db:    db,
+		cache: cache,
 	}
+}
+
+// UpdateLanguage manually updates the user's language setting
+func (s *ProfileService) UpdateLanguage(ctx context.Context, telegramID int64, lang string) error {
+	return s.db.UpdateUserLanguage(ctx, telegramID, lang)
 }
 
 func (s *ProfileService) getGlobalRank(ctx context.Context, userID int64, xp int) int {
@@ -296,7 +301,28 @@ func (s *ProfileService) GetAchievements(ctx context.Context, userID int64) ([]m
 }
 
 func (s *ProfileService) GetReferralData(ctx context.Context, userID int64) (*model.ReferralHubData, error) {
-	return s.db.GetReferralData(ctx, userID)
+	cacheKey := fmt.Sprintf("profile:referral:%d", userID)
+	if s.cache != nil && s.cache.Client != nil {
+		val, err := s.cache.Client.Get(ctx, cacheKey).Result()
+		if err == nil {
+			var data model.ReferralHubData
+			if json.Unmarshal([]byte(val), &data) == nil {
+				return &data, nil
+			}
+		}
+	}
+
+	data, err := s.db.GetReferralData(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.cache != nil && s.cache.Client != nil {
+		bytes, _ := json.Marshal(data)
+		s.cache.Client.Set(ctx, cacheKey, bytes, 60*time.Second)
+	}
+
+	return data, nil
 }
 
 func (s *ProfileService) SetReferralCode(ctx context.Context, userID int64, referrerCode string) error {
@@ -468,25 +494,25 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 			multiplier = 1 // Fraudulent or expired turbo! Revert to normal.
 		}
 	}
-	
+
 	var coinsEarned float64
 	if multiplier != 5 {
 		// Dynamic energy verification prevents infinite tap farming
 		if energyCost > energy {
 			maxFullTaps := energy / multitapLevel
 			remainderEnergy := energy % multitapLevel
-			
+
 			allowedTaps := maxFullTaps
 			if remainderEnergy > 0 {
 				allowedTaps++
 			}
-			
+
 			if taps > allowedTaps {
 				taps = allowedTaps
 			}
-			
+
 			if taps == allowedTaps && remainderEnergy > 0 {
-				energyCost = (taps - 1) * multitapLevel + remainderEnergy
+				energyCost = (taps-1)*multitapLevel + remainderEnergy
 			} else {
 				energyCost = taps * multitapLevel
 			}
@@ -584,6 +610,22 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 			Member: strconv.FormatInt(userID, 10),
 		})
 		s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
+		
+		// Clan Score Aggregation
+		clanKey := fmt.Sprintf("user:clan:%d", userID)
+		clanIDStr, err := s.cache.Client.Get(ctx, clanKey).Result()
+		if err == redis.Nil {
+			// Cache miss, look up in PostgreSQL
+			err = s.db.Pool.QueryRow(ctx, "SELECT clan_id FROM clan_members WHERE user_id = $1", userID).Scan(&clanIDStr)
+			if err != nil {
+				clanIDStr = "none"
+			}
+			s.cache.Client.Set(ctx, clanKey, clanIDStr, 24*time.Hour)
+		}
+		
+		if clanIDStr != "" && clanIDStr != "none" {
+			s.cache.Client.ZIncrBy(ctx, "clan_leaderboard", coinsEarned, clanIDStr)
+		}
 	}
 
 	return s.GetStats(ctx, userID)
@@ -677,12 +719,10 @@ func (s *ProfileService) PurchaseCosmetic(ctx context.Context, userID int64, cos
 		t1, t2, refErr := s.db.GetReferralChain(bgCtx, userID)
 		if refErr == nil {
 			if t1 != 0 {
-				
-				
+				_ = s.db.AdjustAirdropCoins(bgCtx, t1, item.Cost*0.10)
 			}
 			if t2 != 0 {
-				
-				
+				_ = s.db.AdjustAirdropCoins(bgCtx, t2, item.Cost*0.05)
 			}
 		}
 

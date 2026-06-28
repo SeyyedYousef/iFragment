@@ -91,15 +91,7 @@ export interface FRGTransaction {
 	created_at: string;
 }
 
-export interface PurchaseOption {
-	id: string;
-	method: 'stars' | 'toncoin';
-	frg_amount: number;
-	price: number;
-	currency: string;
-	discount?: string;
-	popular?: boolean;
-}
+
 
 interface TopUser {
 	user_id: number;
@@ -259,35 +251,4 @@ export const clanApi = {
 	getTopClans: () => apiClient.get<Clan[]>('/profile/clan/top').then((r: any) => r.data),
 };
 
-export const marketplaceApi = {
-	getOptions: () =>
-		apiClient.get<PurchaseOption[]>('/marketplace/options').then((r: any) => r.data),
 
-	createStarsInvoice: (optionId: string) =>
-		apiClient
-			.post<{ invoice_link: string }>('/marketplace/purchase/stars/invoice', {
-				option_id: optionId,
-			})
-			.then((r: any) => r.data),
-
-	purchaseWithStars: (optionId: string, telegramChargeId: string) =>
-		apiClient
-			.post<FRGTransaction>('/marketplace/purchase/stars', {
-				option_id: optionId,
-				telegram_charge_id: telegramChargeId,
-			})
-			.then((r: any) => r.data),
-
-	purchaseWithToncoin: (optionId: string, txHash: string) =>
-		apiClient
-			.post<FRGTransaction>('/marketplace/purchase/toncoin', {
-				option_id: optionId,
-				tx_hash: txHash,
-			})
-			.then((r: any) => r.data),
-
-	convertAirdropCoins: (coins: number) =>
-		apiClient
-			.post<FRGTransaction>('/marketplace/convert/airdrop', { coins })
-			.then((r: any) => r.data),
-};

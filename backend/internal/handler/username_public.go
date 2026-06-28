@@ -19,7 +19,7 @@ import (
 
 type UsernameHandler struct {
 	service       *username.AggregatorService
-	reportService *username.ReportService
+	reportService *username.AnalysisService
 	mtprotoClient mtproto.Client
 	cache         *repository.Cache
 	sfGroup       singleflight.Group
@@ -28,28 +28,16 @@ type UsernameHandler struct {
 
 func NewUsernameHandler(
 	s *username.AggregatorService,
-	rs *username.ReportService,
+	r *username.AnalysisService,
 	m mtproto.Client,
 	c *repository.Cache,
 ) *UsernameHandler {
 	return &UsernameHandler{
 		service:       s,
-		reportService: rs,
+		reportService: r,
 		mtprotoClient: m,
 		cache:         c,
 	}
-}
-
-func (h *UsernameHandler) GetCollectionStats(w http.ResponseWriter, r *http.Request) {
-	stats, err := h.service.GetCollectionStats()
-	if err != nil {
-		RespondError(w, r, http.StatusInternalServerError, "failed to get collection stats", err)
-		return
-	}
-
-	w.Header().Set("Cache-Control", "public, max-age=300")
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(stats)
 }
 
 func (h *UsernameHandler) CheckAvailability(w http.ResponseWriter, r *http.Request) {
@@ -381,20 +369,6 @@ func (h *UsernameHandler) jsonResponse(w http.ResponseWriter, u string, status s
 	w.Header().Set("Cache-Control", "public, max-age=300")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(res)
-}
-
-// GetTrending returns real-time trending usernames
-func (h *UsernameHandler) GetTrending(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	list, err := h.service.GetTrendingUsernames(ctx)
-	if err != nil {
-		RespondError(w, r, http.StatusInternalServerError, "failed to get trending usernames", err)
-		return
-	}
-
-	w.Header().Set("Cache-Control", "public, max-age=180")
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(list)
 }
 
 // GetRates returns the cached TON-to-USD exchange rate

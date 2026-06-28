@@ -12,9 +12,10 @@ import (
 
 	"log/slog"
 
+	"ifragment-backend/internal/repository"
+
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/redis/go-redis/v9"
-	"ifragment-backend/internal/repository"
 )
 
 var slidingWindowScript = redis.NewScript(`

@@ -22,7 +22,7 @@ type DynamicBioConfig struct {
 }
 
 func (s *ChannelService) dynamicBioWorker(ctx context.Context) {
-	ticker := time.NewTicker(1 * time.Minute) // Check every minute
+	ticker := time.NewTicker(5 * time.Minute) // Check every 5 minutes to reduce load
 	defer ticker.Stop()
 
 	for {
@@ -31,12 +31,27 @@ func (s *ChannelService) dynamicBioWorker(ctx context.Context) {
 			slog.Info("Dynamic Bio Worker stopped due to context cancellation")
 			return
 		case <-ticker.C:
+			// Ensure only one worker runs globally using Redis lock
+			cache := s.channelRepo.GetCache()
+			if cache != nil && cache.Client != nil {
+				locked, _ := cache.Client.SetNX(ctx, "lock:dynamic_bio_worker", "1", 4*time.Minute).Result()
+				if !locked {
+					continue // Another instance is already processing
+				}
+			}
+
 			s.processDynamicBios(ctx)
 		}
 	}
 }
 
 func (s *ChannelService) processDynamicBios(ctx context.Context) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("Recovered from panic in dynamicBioWorker", "panic", r)
+		}
+	}()
+
 	// Fetch all connected channels
 	channels, err := s.channelRepo.GetAllChannels(ctx)
 	if err != nil {
@@ -45,6 +60,15 @@ func (s *ChannelService) processDynamicBios(ctx context.Context) {
 	}
 
 	for _, ch := range channels {
+		// Quick local cache check to skip DB query if updated very recently
+		lastUpdateVal, ok := s.lastBioUpdate.Load(ch.ID)
+		if ok {
+			lastUpdate := lastUpdateVal.(time.Time)
+			if time.Since(lastUpdate) < 9*time.Minute {
+				continue // Skip immediately without hitting DB
+			}
+		}
+
 		settings, err := s.channelRepo.GetChannelSettings(ctx, ch.ID)
 		if err != nil || settings == nil {
 			continue
@@ -72,7 +96,6 @@ func (s *ChannelService) processDynamicBios(ctx context.Context) {
 			intervalDuration = 24 * time.Hour
 		}
 
-		lastUpdateVal, ok := s.lastBioUpdate.Load(ch.ID)
 		if ok {
 			lastUpdate := lastUpdateVal.(time.Time)
 			if time.Since(lastUpdate) < intervalDuration {
@@ -80,9 +103,18 @@ func (s *ChannelService) processDynamicBios(ctx context.Context) {
 			}
 		}
 
-		s.updateChannelDynamicBio(ctx, &ch, config)
+		// Update in background so one failure doesn't block others
+		s.wg.Add(1)
+		chCopy := ch
+		configCopy := config
+		GoSafe(func() {
+			defer s.wg.Done()
+			bgCtx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+			defer cancel()
+			s.updateChannelDynamicBio(bgCtx, &chCopy, configCopy)
+		})
+		
 		s.lastBioUpdate.Store(ch.ID, time.Now())
-		time.Sleep(1 * time.Second) // Prevent Telegram Rate Limit (30 req/sec)
 	}
 }
 
@@ -110,18 +142,13 @@ func (s *ChannelService) updateChannelDynamicBio(ctx context.Context, ch *reposi
 	dateStr := now.Format("02 Jan 2006")
 	dayStr := now.Format("Monday")
 
-	btcPrice, gramPrice, _ := s.cryptoService.GetPrices(ctx)
-	btcStr := fmt.Sprintf("$%.2f", btcPrice)
-	gramStr := fmt.Sprintf("$%.2f", gramPrice)
-
 	replaceVars := func(template string) string {
 		res := template
 		res = strings.ReplaceAll(res, "$members", memberCount)
 		res = strings.ReplaceAll(res, "$time", timeStr)
 		res = strings.ReplaceAll(res, "$date", dateStr)
 		res = strings.ReplaceAll(res, "$day_name", dayStr)
-		res = strings.ReplaceAll(res, "$btc", btcStr)
-		res = strings.ReplaceAll(res, "$Gram", gramStr)
+
 		return res
 	}
 

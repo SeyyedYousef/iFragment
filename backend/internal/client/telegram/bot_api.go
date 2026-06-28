@@ -461,8 +461,8 @@ func (c *BotAPIClient) SendMessageWithMarkup(ctx context.Context, chatID int64, 
 		mode = parseMode[0]
 	}
 	payload := map[string]interface{}{
-		"chat_id":      chatID,
-		"text":         text,
+		"chat_id": chatID,
+		"text":    text,
 	}
 	if !IsNil(markup) {
 		payload["reply_markup"] = markup

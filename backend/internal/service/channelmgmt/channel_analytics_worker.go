@@ -8,10 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/botmgmt"
+
+	"github.com/google/uuid"
 )
 
 func (s *ChannelService) analyticsSnapshotWorker(ctx context.Context) {

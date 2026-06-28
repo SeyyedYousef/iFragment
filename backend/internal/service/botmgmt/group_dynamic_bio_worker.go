@@ -109,18 +109,13 @@ func (s *BotService) updateGroupDynamicBio(ctx context.Context, g *repository.Ma
 	dateStr := now.Format("02 Jan 2006")
 	dayStr := now.Format("Monday")
 
-	btcPrice, gramPrice, _ := s.cryptoService.GetPrices(ctx)
-	btcStr := fmt.Sprintf("$%.2f", btcPrice)
-	gramStr := fmt.Sprintf("$%.2f", gramPrice)
-
 	replaceVars := func(template string) string {
 		res := template
 		res = strings.ReplaceAll(res, "$members", memberCount)
 		res = strings.ReplaceAll(res, "$time", timeStr)
 		res = strings.ReplaceAll(res, "$date", dateStr)
 		res = strings.ReplaceAll(res, "$day_name", dayStr)
-		res = strings.ReplaceAll(res, "$btc", btcStr)
-		res = strings.ReplaceAll(res, "$Gram", gramStr)
+
 		return res
 	}
 

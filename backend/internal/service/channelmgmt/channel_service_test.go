@@ -9,8 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"ifragment-backend/internal/repository"
+
+	"github.com/google/uuid"
 )
 
 func TestProcessChannelPostAutoResponder(t *testing.T) {

@@ -18,10 +18,10 @@ import (
 	"strings"
 	"time"
 
+	"ifragment-backend/internal/client/mtproto"
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/model"
 	"ifragment-backend/internal/repository"
-	"ifragment-backend/internal/client/mtproto"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -246,8 +246,6 @@ func (s *OwnerService) GetDashboardStats(ctx context.Context) (*model.OwnerDashb
 
 	return stats, nil
 }
-
-
 
 func (s *OwnerService) SetUserBan(ctx context.Context, ownerID int64, targetUserID int64, banType string, reason string, durationSeconds int64, ip string, ua string) error {
 	var expiresAt *time.Time
@@ -676,14 +674,14 @@ func (s *OwnerService) UserbotVerifyCode(ctx context.Context, phone, code, hash 
 	if err != nil {
 		return err
 	}
-	
+
 	// Start in the pool
 	if s.ubManager != nil {
 		if err := s.ubManager.AddClient(ctx, phone); err != nil {
 			return err
 		}
 	}
-	
+
 	// Save to DB
 	return s.repo.CreateManagedUserbot(ctx, phone)
 }
@@ -698,9 +696,6 @@ func (s *OwnerService) DeleteUserbot(ctx context.Context, id string) error {
 	// Let's just delete from DB.
 	return s.repo.DeleteManagedUserbot(ctx, id)
 }
-
-
-
 
 // ─── Finance & Subscriptions ────────────────────────────────────────────────
 func (s *OwnerService) GetOrdersList(ctx context.Context, limit, offset int) ([]model.OrderRecord, error) {
@@ -755,12 +750,11 @@ func (s *OwnerService) AdjustAirdropCoins(ctx context.Context, req AdjustAirdrop
 	if err != nil {
 		return err
 	}
-	
+
 	// Audit log
 	slog.Info("Owner adjusted user airdrop coins", "user_id", req.UserID, "amount", req.Amount)
 	return nil
 }
-
 
 type AdjustAirdropCoinsRequest struct {
 	UserID int64   `json:"user_id"`
@@ -775,12 +769,12 @@ func (s *OwnerService) GetSystemSettings(ctx context.Context) (*model.SystemSett
 func (s *OwnerService) UpdateSystemSettings(ctx context.Context, settings *model.SystemSettings, ownerID int64, ip, ua string) error {
 	// First fetch the existing to log the difference
 	oldSettings, _ := s.settingsRepo.GetSystemSettings(ctx)
-	
+
 	err := s.settingsRepo.UpdateSystemSettings(ctx, settings)
 	if err != nil {
 		return err
 	}
-	
+
 	// Audit Logging
 	payload := map[string]interface{}{
 		"old": oldSettings,
@@ -794,7 +788,7 @@ func (s *OwnerService) UpdateSystemSettings(ctx context.Context, settings *model
 		IPAddress: ip,
 		UserAgent: ua,
 	})
-	
+
 	return nil
 }
 

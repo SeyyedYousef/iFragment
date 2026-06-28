@@ -24,7 +24,7 @@ type SimilarUsername struct {
 	OwnerAddress string  `json:"owner_address,omitempty"`
 }
 
-func (s *ReportService) FindSimilarUsernames(ctx context.Context, username string, limit int) ([]SimilarUsername, error) {
+func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username string, limit int) ([]SimilarUsername, error) {
 	if !ValidateUsername(username) {
 		return nil, nil
 	}

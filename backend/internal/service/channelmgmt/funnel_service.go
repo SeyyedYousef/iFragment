@@ -12,12 +12,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/gotd/td/tg"
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/i18n"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/botmgmt"
+
+	"github.com/google/uuid"
+	"github.com/gotd/td/tg"
 )
 
 type FunnelCallbackData struct {
@@ -55,20 +56,30 @@ func (s *ChannelService) ProcessChannelPostForFunnel(ctx context.Context, bot *r
 			// Store the media item
 			itemBytes, _ := json.Marshal(media)
 			cache.Client.RPush(ctx, groupKey, itemBytes)
-			cache.Client.Expire(ctx, groupKey, 10*time.Second)
+			cache.Client.Expire(ctx, groupKey, 15*time.Second)
+
+			// Extend the debounce timer (Sliding Window)
+			timerKey := fmt.Sprintf("funnel_group_timer:%s:%s", funnel.ID.String(), mediaGroupID)
+			cache.Client.Set(ctx, timerKey, "active", 2*time.Second)
 
 			// Try to acquire processing lock
-			locked, err := cache.Client.SetNX(ctx, lockKey, "active", 5*time.Second).Result()
+			locked, err := cache.Client.SetNX(ctx, lockKey, "active", 15*time.Second).Result()
 			if err == nil && locked {
 				// We are the leader for this media group, schedule aggregated processing
 				s.wg.Add(1)
 				GoSafe(func() {
 					defer s.wg.Done()
-					// Wait for other items in the album to arrive
-					time.Sleep(1500 * time.Millisecond)
 
 					bgCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 					defer cancel()
+
+					// Wait until the sliding window expires (no new items for 2 full seconds)
+					for {
+						if cache.Client.Exists(bgCtx, timerKey).Val() == 0 {
+							break // Timer expired, all items received
+						}
+						time.Sleep(500 * time.Millisecond)
+					}
 
 					// Retrieve all aggregated media items
 					items, err := cache.Client.LRange(bgCtx, groupKey, 0, -1).Result()
@@ -92,8 +103,8 @@ func (s *ChannelService) ProcessChannelPostForFunnel(ctx context.Context, bot *r
 						}
 					}
 
-					// Clean up cache (groupKey only, let lockKey expire to prevent orphans)
-					cache.Client.Del(bgCtx, groupKey)
+					// Clean up all cache keys so next album works clean
+					cache.Client.Del(bgCtx, groupKey, lockKey, timerKey)
 
 					err = s.processAggregatedFunnelPost(bgCtx, bot, funnel, int64(messageID), aggregatedText, aggregatedMedia, mediaGroupID, authorID, authorName)
 					if err != nil {
@@ -128,16 +139,16 @@ func (s *ChannelService) ProcessChannelPostForUserbot(ctx context.Context, e tg.
 	if !ok {
 		return
 	}
-	
+
 	// Convert raw channel ID to -100 format
 	chatID := int64(-1000000000000) - int64(peer.ChannelID)
-	
+
 	// 1. Get all funnels that use this channel as input
 	funnels, err := s.channelRepo.GetFunnelsByInputChatID(ctx, chatID)
 	if err != nil {
 		slog.Error("Userbot failed to check input chat funnels", "error", err)
 	}
-	
+
 	// 2. Get all inbound forwarding rules that use this channel as source
 	inboundRules, err := s.channelRepo.GetActiveForwardingRulesBySource(ctx, strconv.FormatInt(chatID, 10))
 	if err != nil {
@@ -147,9 +158,9 @@ func (s *ChannelService) ProcessChannelPostForUserbot(ctx context.Context, e tg.
 	if len(funnels) == 0 && len(inboundRules) == 0 {
 		return // Not an input channel for any active funnel or forwarding rule
 	}
-	
+
 	slog.Info("Userbot intercepted post", "input_chat_id", chatID, "message_id", msg.ID)
-	
+
 	// Extract basic data
 	text := msg.Message
 	var mediaGroupID string
@@ -163,17 +174,17 @@ func (s *ChannelService) ProcessChannelPostForUserbot(ctx context.Context, e tg.
 		if err != nil {
 			continue
 		}
-		
-		// Map MTProto media to our internal structure 
+
+		// Map MTProto media to our internal structure
 		// Note: MTProto media mapping requires extensive logic. For now, we capture Text correctly.
 		// If media is present, we handle it generally (Userbots can download/forward via their own mechanism,
 		// but since we relay via bot, we can use the original post link or text).
 		var media []repository.FunnelMediaItem // TODO: Implement MTProto -> Telegram API Media mapping if needed
-		
+
 		var replyMarkup json.RawMessage
 		var authorID *int64
 		authorName := ""
-		
+
 		// If it's a single post or album, we pass it to the existing pipeline
 		_, _ = s.ProcessChannelPostForFunnel(ctx, bot, chatID, msg.ID, text, media, mediaGroupID, replyMarkup, authorID, authorName)
 	}
@@ -245,8 +256,6 @@ func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *r
 	if removeHashtags {
 		processedText = removeHashtagsHelper(processedText)
 	}
-
-
 
 	// 3. AI Post Composer A/B Testing generation
 	var aiVariations []string
@@ -330,8 +339,8 @@ func (s *ChannelService) sendFunnelReviewToOwner(ctx context.Context, bot *repos
 		// Single Media
 		item := draft.MediaPayload[0]
 		payload := map[string]interface{}{
-			"chat_id":      funnel.OwnerUserID,
-			"caption":      activeText,
+			"chat_id": funnel.OwnerUserID,
+			"caption": activeText,
 		}
 		if !telegram.IsNil(previewMarkup) {
 			payload["reply_markup"] = previewMarkup
@@ -631,15 +640,25 @@ func (s *ChannelService) HandleFunnelCallback(ctx context.Context, cq FunnelCall
 
 	switch cmd {
 	case "f_app":
-		// Approve & Publish
+		// Approve & Publish (Async to prevent UI freeze)
 		_ = tg.AnswerCallbackQuery(ctx, cq.QueryID, "Publishing post...", false)
-		err = s.publishFunnelPostDirectly(ctx, tg, funnel, draft)
-		if err != nil {
-			_ = tg.SendMessage(ctx, cq.ChatID, i18n.T(lang, "funnel.failed", map[string]interface{}{"err": err}), nil, nil)
-			return err
-		}
+		_ = tg.EditMessageText(ctx, cq.ChatID, cq.MessageID, "⏳ **Publishing post, please wait...**", "Markdown")
 
-		_ = tg.EditMessageText(ctx, cq.ChatID, cq.MessageID, "✅ **Post Approved & Published successfully!**", "Markdown")
+		s.wg.Add(1)
+		GoSafe(func() {
+			defer s.wg.Done()
+			bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			defer cancel()
+
+			err := s.publishFunnelPostDirectly(bgCtx, tg, funnel, draft)
+			if err != nil {
+				_ = tg.SendMessage(bgCtx, cq.ChatID, i18n.T(lang, "funnel.failed", map[string]interface{}{"err": err}), nil, nil)
+				_ = tg.EditMessageText(bgCtx, cq.ChatID, cq.MessageID, "❌ **Failed to publish post.**", "Markdown")
+				return
+			}
+
+			_ = tg.EditMessageText(bgCtx, cq.ChatID, cq.MessageID, "✅ **Post Approved & Published successfully!**", "Markdown")
+		})
 
 	case "f_rej":
 		// Reject
@@ -1003,6 +1022,17 @@ func (s *ChannelService) PublishScheduledFunnelPosts(ctx context.Context) error 
 	slog.Info("Running scheduler for pending funnel posts", "count", len(posts))
 
 	for _, post := range posts {
+		// Crash duplicate prevention for Funnel Posts
+		var processingKey string
+		cache := s.channelRepo.GetCache()
+		if cache != nil && cache.Client != nil {
+			processingKey = fmt.Sprintf("funnel_post_processing:%s", post.ID.String())
+			acquiredProcessing, err := cache.Client.SetNX(ctx, processingKey, "1", 24*time.Hour).Result()
+			if err != nil || !acquiredProcessing {
+				continue // Already processing or processed
+			}
+		}
+
 		funnel, err := s.channelRepo.GetFunnelByID(ctx, post.FunnelID)
 		if err != nil {
 			continue
@@ -1018,11 +1048,24 @@ func (s *ChannelService) PublishScheduledFunnelPosts(ctx context.Context) error 
 			continue
 		}
 
-		tg := telegram.NewBotAPIClient(token)
-		err = s.publishFunnelPostDirectly(ctx, tg, funnel, &post)
-		if err != nil {
-			slog.Error("Failed to publish scheduled post", "draft_id", post.ID, "error", err)
-		}
+		// Run publish in goroutine to not block the scheduler loop
+		s.wg.Add(1)
+		postCopy := post
+		GoSafe(func() {
+			defer s.wg.Done()
+			bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			defer cancel()
+
+			tg := telegram.NewBotAPIClient(token)
+			err = s.publishFunnelPostDirectly(bgCtx, tg, funnel, &postCopy)
+			if err != nil {
+				slog.Error("Failed to publish scheduled funnel post", "draft_id", postCopy.ID, "error", err)
+				if processingKey != "" {
+					// Release lock so it can be retried
+					cache.Client.Del(bgCtx, processingKey)
+				}
+			}
+		})
 	}
 
 	return nil

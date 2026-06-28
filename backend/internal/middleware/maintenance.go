@@ -11,9 +11,9 @@ func MaintenanceMiddleware(settingsRepo *repository.SettingsRepo) func(http.Hand
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Do not block owner APIs, webhooks or health checks
-			if strings.HasPrefix(r.URL.Path, "/api/v1/owner") || 
-			   strings.HasPrefix(r.URL.Path, "/api/v1/webhook") || 
-			   strings.HasPrefix(r.URL.Path, "/api/v1/health") {
+			if strings.HasPrefix(r.URL.Path, "/api/v1/owner") ||
+				strings.HasPrefix(r.URL.Path, "/api/v1/webhook") ||
+				strings.HasPrefix(r.URL.Path, "/api/v1/health") {
 				next.ServeHTTP(w, r)
 				return
 			}

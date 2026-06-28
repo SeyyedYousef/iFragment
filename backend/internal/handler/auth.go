@@ -7,9 +7,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/repository"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type AuthHandler struct {

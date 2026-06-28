@@ -40,8 +40,6 @@ import { ReferralPage } from '@/pages/profile/referral/index.js';
 import { SecurityPage } from '@/pages/profile/security/index.js';
 import { SettingsPage } from '@/pages/profile/settings/index.js';
 import { TasksPage } from '@/pages/profile/tasks/index.js';
-import { CollectionStatsPage } from '@/pages/username/collection-stats/index.js';
-import { PremiumReportPage } from '@/pages/username/premium-report/index.js';
 
 import { OwnerSettingsPage } from '@/pages/owner/settings/index.js';
 import { OwnerPromosPage } from '@/pages/owner/promos/index.js';
@@ -58,8 +56,7 @@ interface Route {
 
 export const routes: Route[] = [
 	{ path: '/', Component: IndexPage },
-	{ path: '/username/stats', Component: CollectionStatsPage },
-	{ path: '/username/report', Component: PremiumReportPage },
+
 	{ path: '/airdrop', Component: AirdropPage },
 	{ path: '/marketplace', Component: MarketplacePage },
 	{ path: '/dashboard', Component: DashboardPage },

@@ -16,10 +16,11 @@ import (
 	"ifragment-backend/internal/model"
 	"ifragment-backend/internal/repository"
 
-	"github.com/PuerkitoBio/goquery"
 	"net/http"
-	"github.com/gotd/td/tg"
+
+	"github.com/PuerkitoBio/goquery"
 	"github.com/google/uuid"
+	"github.com/gotd/td/tg"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -43,7 +44,7 @@ func NewClanService(db *repository.Database, cache *repository.Cache, mtprotoCli
 // scrapeChannelPhoto tries to get the photo URL from public telegram web preview
 func scrapeChannelPhoto(username string) string {
 	defaultPhoto := fmt.Sprintf("https://t.me/i/userpic/320/%s.jpg", username)
-	
+
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Get("https://t.me/" + username)
 	if err != nil {
@@ -130,7 +131,15 @@ func (s *ClanService) LeaveClan(ctx context.Context, userID int64) error {
 	// Clean up empty clans to avoid spam
 	_, _ = tx.Exec(ctx, "DELETE FROM clans WHERE id = $1 AND members_count = 0", clanID)
 
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	if s.cache != nil && s.cache.Client != nil {
+		s.cache.Client.Del(ctx, fmt.Sprintf("user:clan:%d", userID))
+	}
+
+	return nil
 }
 
 var telegramUsernameRegex = regexp.MustCompile(`^[a-zA-Z0-9_]{3,32}$`)
@@ -297,6 +306,11 @@ func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, usern
 	if s.cache != nil && s.cache.Client != nil {
 		key := fmt.Sprintf("clan:join:cooldown:%d", userID)
 		_ = s.cache.Client.Set(ctx, key, 1, 10*time.Minute).Err()
+		s.cache.Client.Del(ctx, fmt.Sprintf("user:clan:%d", userID))
+		
+		// Invalidate top clans cache to reflect new member count
+		s.cache.Client.Del(ctx, "top_clans:100")
+		s.cache.Client.Del(ctx, "top_clans:10")
 	}
 
 	return &finalClan, nil
@@ -382,6 +396,66 @@ func (s *ClanService) StartWeeklyUpdater(ctx context.Context) {
 	}()
 }
 
+// StartScoreFlusher runs a background worker that syncs clan_leaderboard from Redis to PostgreSQL every 5 minutes.
+func (s *ClanService) StartScoreFlusher(ctx context.Context) {
+	if s.db == nil || s.cache == nil || s.cache.Client == nil {
+		slog.Warn("Cannot start ClanService Score Flusher: db or cache missing")
+		return
+	}
+
+	ticker := time.NewTicker(5 * time.Minute)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				s.flushScoresToDB(ctx)
+			case <-ctx.Done():
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+}
+
+func (s *ClanService) flushScoresToDB(ctx context.Context) {
+	slog.Info("Starting clan score flush to DB")
+
+	// Get all clan scores from Redis ZSET
+	members, err := s.cache.Client.ZRangeWithScores(ctx, "clan_leaderboard", 0, -1).Result()
+	if err != nil {
+		slog.Error("Failed to fetch clan_leaderboard from Redis", "error", err)
+		return
+	}
+
+	if len(members) == 0 {
+		return
+	}
+
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		slog.Error("Failed to start transaction for clan score flush", "error", err)
+		return
+	}
+	defer tx.Rollback(ctx)
+
+	// Batch update using a prepared statement inside the transaction
+	stmt := "UPDATE clans SET total_score = $1 WHERE id = $2"
+	for _, m := range members {
+		clanID := m.Member.(string)
+		score := m.Score
+		_, err := tx.Exec(ctx, stmt, score, clanID)
+		if err != nil {
+			slog.Warn("Failed to update clan score", "clan_id", clanID, "error", err)
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		slog.Error("Failed to commit clan score flush", "error", err)
+	} else {
+		slog.Info("Finished clan score flush to DB", "updated_clans", len(members))
+	}
+}
+
 func (s *ClanService) updateAllClans(ctx context.Context) {
 	slog.Info("Starting weekly clan info update")
 
@@ -428,4 +502,3 @@ func (s *ClanService) updateAllClans(ctx context.Context) {
 	}
 	slog.Info("Finished weekly clan info update")
 }
-

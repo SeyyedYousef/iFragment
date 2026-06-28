@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/google/uuid"
 	"ifragment-backend/internal/repository"
+
+	"github.com/google/uuid"
 )
 
 type Role string
@@ -50,9 +51,8 @@ func (s *ChannelService) GetUserRole(ctx context.Context, userID int64, channelI
 		return "", nil, err
 	}
 
-	// 1. Check if they are the bot owner
-	bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
-	if err == nil && bot.OwnerUserID == userID {
+	// 1. Check if they connected the channel
+	if ch.ConnectedByUserID != nil && *ch.ConnectedByUserID == userID {
 		return RoleOwner, ch, nil
 	}
 

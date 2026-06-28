@@ -195,42 +195,33 @@ var DefaultPricingHeuristicsConfig = PricingHeuristicsConfig{
 	ExchangeRateConfidenceBonus: 0.04,
 }
 
-type ReportTask struct {
-	UserID   int64
-	Username string
-	Report   *FullReport
-}
-
-type ReportService struct {
+type AnalysisService struct {
 	db            *repository.Database
 	cache         *repository.Cache
 	tonClient     *tonapi.Client
 	mtprotoClient mtproto.Client
-	saveQueue     chan ReportTask
 	rarityConfig  RarityConfig
 	pricingConfig PricingHeuristicsConfig
 	pricingClient *PricingClient
 	sfGroup       singleflight.Group
 }
 
-func NewReportService(
+func NewAnalysisService(
 	ctx context.Context,
 	db *repository.Database,
 	cache *repository.Cache,
 	ton *tonapi.Client,
 	mtp mtproto.Client,
-) *ReportService {
-	s := &ReportService{
+) *AnalysisService {
+	s := &AnalysisService{
 		db:            db,
 		cache:         cache,
 		tonClient:     ton,
 		mtprotoClient: mtp,
-		saveQueue:     make(chan ReportTask, 1000),
 		rarityConfig:  DefaultRarityConfig,
 		pricingConfig: DefaultPricingHeuristicsConfig,
 		pricingClient: NewPricingClientFromEnv(),
 	}
-	go s.worker(ctx)
 	return s
 }
 
@@ -248,7 +239,7 @@ type PriceEstimate struct {
 	Signals    []string `json:"signals,omitempty"`
 }
 
-func (s *ReportService) getCachedSearchPopularity(ctx context.Context, username string) (int, error) {
+func (s *AnalysisService) getCachedSearchPopularity(ctx context.Context, username string) (int, error) {
 	if s.db == nil {
 		return 0, fmt.Errorf("database not available")
 	}
@@ -274,37 +265,6 @@ func (s *ReportService) getCachedSearchPopularity(ctx context.Context, username 
 	}
 
 	return pop, nil
-}
-
-func (s *ReportService) worker(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case task, ok := <-s.saveQueue:
-			if !ok {
-				return
-			}
-			if task.Report == nil || s.db == nil {
-				continue
-			}
-			var err error
-			for i := 0; i < 3; i++ {
-				err = s.db.SaveReport(ctx, task.UserID, task.Username, string(task.Report.Status), task.Report.RarityScore, task.Report)
-				if err == nil {
-					break
-				}
-				select {
-				case <-ctx.Done():
-					return
-				case <-time.After(time.Second * time.Duration(i+1)):
-				}
-			}
-			if err != nil {
-				slog.Error("Failed to save report after retries", "user_id", task.UserID, "error", err)
-			}
-		}
-	}
 }
 
 // ── Full Report Structure (Section 13, Category 2) ──
@@ -403,7 +363,7 @@ type QuickCheck struct {
 	LinguisticScore  float64 `json:"linguistic_score"`
 }
 
-func (s *ReportService) LogSearch(ctx context.Context, username string, userID int64) {
+func (s *AnalysisService) LogSearch(ctx context.Context, username string, userID int64) {
 	if s.db != nil {
 		go func() {
 			logCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
@@ -413,7 +373,7 @@ func (s *ReportService) LogSearch(ctx context.Context, username string, userID i
 	}
 }
 
-func (s *ReportService) QuickAnalysis(ctx context.Context, username string, userID int64) (*QuickCheck, error) {
+func (s *AnalysisService) QuickAnalysis(ctx context.Context, username string, userID int64) (*QuickCheck, error) {
 	result := &QuickCheck{
 		Username:        username,
 		Length:          usernameLength(username),
@@ -439,7 +399,7 @@ func (s *ReportService) QuickAnalysis(ctx context.Context, username string, user
 
 // ── Deep Report (Premium) ──
 
-func (s *ReportService) GenerateDeepReport(ctx context.Context, userID int64, username string) (*FullReport, error) {
+func (s *AnalysisService) GenerateDeepReport(ctx context.Context, userID int64, username string) (*FullReport, error) {
 	ctx, cancel := context.WithTimeout(ctx, 12*time.Second)
 	defer cancel()
 
@@ -490,7 +450,7 @@ func (s *ReportService) GenerateDeepReport(ctx context.Context, userID int64, us
 	return val.(*FullReport), nil
 }
 
-func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, username string) (*FullReport, error) {
+func (s *AnalysisService) generateDeepReport(ctx context.Context, userID int64, username string) (*FullReport, error) {
 
 	rateUSD, _ := s.GetTONRate(ctx)
 
@@ -964,33 +924,7 @@ func (s *ReportService) generateDeepReport(ctx context.Context, userID int64, us
 	return report, nil
 }
 
-func (s *ReportService) CheckPayment(ctx context.Context, userID int64, username string) (bool, error) {
-	if s.db == nil {
-		return false, ErrDatabaseNotAvailable
-	}
-	return s.db.HasPaidForReport(ctx, userID, username)
-}
-
-func (s *ReportService) GetUserHistory(ctx context.Context, userID int64) ([]repository.DBReport, error) {
-	if s.db == nil {
-		return nil, ErrDatabaseNotAvailable
-	}
-	return s.db.GetUserReports(ctx, userID)
-}
-
-func (s *ReportService) SaveReportToDB(ctx context.Context, userID int64, username string, report *FullReport) {
-	if s.db != nil {
-		select {
-		case s.saveQueue <- ReportTask{UserID: userID, Username: username, Report: report}:
-		case <-time.After(2 * time.Second):
-			slog.Warn("Dropping report save task because queue is full", "user_id", userID, "username", username)
-		case <-ctx.Done():
-			slog.Warn("Dropping report save task because request ended", "user_id", userID, "username", username)
-		}
-	}
-}
-
-func (s *ReportService) GetWalletPortfolio(ctx context.Context, ownerAddr string) (*WalletPortfolio, error) {
+func (s *AnalysisService) GetWalletPortfolio(ctx context.Context, ownerAddr string) (*WalletPortfolio, error) {
 	if s.tonClient == nil {
 		return nil, fmt.Errorf("ton client not available")
 	}
@@ -1260,7 +1194,7 @@ func estimateValue(r *FullReport, cfg PricingHeuristicsConfig) *PriceEstimate {
 	}
 }
 
-func (s *ReportService) estimateValue(ctx context.Context, r *FullReport) *PriceEstimate {
+func (s *AnalysisService) estimateValue(ctx context.Context, r *FullReport) *PriceEstimate {
 	features := buildPricingFeatures(r)
 	if s.pricingClient != nil {
 		estimate, err := s.pricingClient.Predict(ctx, features)
@@ -1281,7 +1215,7 @@ func (s *ReportService) estimateValue(ctx context.Context, r *FullReport) *Price
 	return estimate
 }
 
-func (s *ReportService) CalculateRarity(u string) int {
+func (s *AnalysisService) CalculateRarity(u string) int {
 	score := 0
 	length := usernameLength(u)
 
@@ -1451,7 +1385,7 @@ func roundConfidence(v float64) float64 {
 }
 
 // GetTONRate fetches the current TON to USD exchange rate from TonAPI with caching
-func (s *ReportService) GetTONRate(ctx context.Context) (float64, error) {
+func (s *AnalysisService) GetTONRate(ctx context.Context) (float64, error) {
 	cacheKey := "ton_rate_usd"
 	if s.cache != nil {
 		val, err := s.cache.Client.Get(ctx, cacheKey).Result()
@@ -1480,7 +1414,7 @@ func (s *ReportService) GetTONRate(ctx context.Context) (float64, error) {
 	return price, nil
 }
 
-func (s *ReportService) CalculateChannelEmpire(ctx context.Context, usernames []string) (totalParticipants int, err error) {
+func (s *AnalysisService) CalculateChannelEmpire(ctx context.Context, usernames []string) (totalParticipants int, err error) {
 	if s.mtprotoClient == nil {
 		return 0, fmt.Errorf("mtproto client is not initialized")
 	}

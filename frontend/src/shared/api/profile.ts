@@ -302,3 +302,9 @@ export const deleteAccountGDPR = (): Promise<{ status: string; message: string }
 	validatedFetch('/profile/gdpr', z.object({ status: z.string(), message: z.string() }), {
 		method: 'DELETE',
 	});
+
+export const setLanguage = (language: string): Promise<{ status: string }> =>
+	validatedFetch('/profile/language', z.object({ status: z.string() }), {
+		method: 'POST',
+		body: JSON.stringify({ language }),
+	});

@@ -1,10 +1,13 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
 import { hapticFeedback } from '@tma.js/sdk-solid';
-import { Component, createMemo, createSignal, For, Show } from 'solid-js';
-import { useTrendingUsernames, useUsernameQuickAnalysis } from '@/entities/username/api/index.js';
+import { Component, createMemo, createSignal, For, Show, onMount, onCleanup } from 'solid-js';
+import {
+	useUsernameQuickAnalysis,
+} from '@/entities/username/api/index.js';
 import { useUsernameSearch } from '@/entities/username/model/index.js';
-import { type DictPaths, t } from '@/shared/i18n/index.js';
+import { getRandomTrending } from '@/entities/username/model/trendingList.js';
+import { type DictPaths, formatNumber, t } from '@/shared/i18n/index.js';
 
 interface ActionAreaProps {
 	activeTab: 'username' | 'collectibles' | 'gifts';
@@ -42,22 +45,65 @@ const CONTENT: Record<
 	},
 };
 
+/* ── Animated counter (counts up from 0 on mount) ── */
+const AnimatedNumber: Component<{ target: number; suffix?: string; decimals?: number }> = (
+	props,
+) => {
+	const [current, setCurrent] = createSignal(0);
+
+	onMount(() => {
+		const duration = 1200;
+		const start = performance.now();
+		const tick = (now: number) => {
+			const elapsed = now - start;
+			const progress = Math.min(elapsed / duration, 1);
+			// ease-out cubic
+			const eased = 1 - Math.pow(1 - progress, 3);
+			setCurrent(eased * props.target);
+			if (progress < 1) requestAnimationFrame(tick);
+		};
+		requestAnimationFrame(tick);
+	});
+
+	const formatted = createMemo(() => {
+		const d = props.decimals ?? 0;
+		if (d > 0) return current().toFixed(d);
+		return formatNumber(Math.round(current()));
+	});
+
+	return (
+		<span>
+			{formatted()}
+			{props.suffix || ''}
+		</span>
+	);
+};
+
 export const ActionArea: Component<ActionAreaProps> = (props) => {
-	const { searchQuery, setSearchQuery, searchError, validate } = useUsernameSearch();
+	const { searchQuery, setSearchQuery, searchError, setSearchError, validate } = useUsernameSearch();
 	const navigate = useNavigate();
 	const [analyzeState, setAnalyzeState] = createSignal<AnalyzeState>('idle');
 	const [isFocused, setIsFocused] = createSignal(false);
 
 	const quickAnalysis = useUsernameQuickAnalysis(() => searchQuery());
-	const trendingQuery = useTrendingUsernames();
-	const trendingList = createMemo(() => trendingQuery.data || ['news', 'auto', 'bank', 'crypto']);
+	const [tickerSlide, setTickerSlide] = createSignal(0);
+
+	onMount(() => {
+		const interval = setInterval(() => {
+			setTickerSlide((s) => (s + 1) % 3);
+		}, 4500); // 4.5 seconds per slide
+		
+		onCleanup(() => clearInterval(interval));
+	});
+
+	const [trendingList] = createSignal(getRandomTrending(4));
 
 	const keys = createMemo(() => CONTENT[props.activeTab]);
 	const charCount = createMemo(() => searchQuery().length);
-	const isValidLength = createMemo(() => charCount() >= 4 && charCount() <= 32);
+	const charProgress = createMemo(() => Math.min(charCount() / 32, 1));
 
 	const handleAnalyze = async () => {
-		if (analyzeState() !== 'idle' || !searchQuery()) return;
+		if (analyzeState() !== 'idle' || !searchQuery() || searchError()) return;
 		if (validate(searchQuery(), props.activeTab)) {
 			try {
 				hapticFeedback.impactOccurred('medium');
@@ -65,9 +111,15 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			setAnalyzeState('loading');
 			try {
 				await quickAnalysis.refetch();
-				navigate(`/username/report?u=${encodeURIComponent(searchQuery())}`);
+				setAnalyzeState('success');
+				setTimeout(() => {
+					setAnalyzeState('idle');
+				}, 2000);
 			} finally {
-				setAnalyzeState('idle');
+				// Don't change to idle immediately if success, to show success state
+				if (analyzeState() !== 'success') {
+					setAnalyzeState('idle');
+				}
 			}
 		} else {
 			try {
@@ -79,18 +131,19 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 	const updateSearchQuery = (val: string) => {
 		const stripped = val.replace(/^[@+]/, '');
 		setSearchQuery(stripped);
+		if (stripped.length > 0) {
+			validate(stripped, props.activeTab);
+		} else {
+			setSearchError(null);
+		}
 	};
 
 	const getButtonText = () => {
 		if (analyzeState() === 'loading') return t('action.analyzing');
 		if (analyzeState() === 'success') return t('home.success');
-
 		const status = quickAnalysis.data?.status;
-		if (status === 'available') {
-			return t('action.username.registerBtn');
-		} else if (status) {
-			return t('action.username.analyzeMarketBtn');
-		}
+		if (status === 'available') return t('action.username.registerBtn');
+		else if (status) return t('action.username.analyzeMarketBtn');
 		return t(keys().analyzeBtn);
 	};
 
@@ -109,79 +162,94 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 		}
 	};
 
-	const [isFeaturesExpanded, setIsFeaturesExpanded] = createSignal(false);
-
 	const getPrefix = () => {
 		if (props.activeTab === 'username') return '@';
 		if (props.activeTab === 'collectibles') return '+';
 		return '';
 	};
 
-	return (
-		<main class="w-full max-w-[420px] mx-auto pb-8" aria-label="Analysis section">
-			<Show
-				when={props.activeTab === 'username'}
-				fallback={
-					<div class="px-6 py-4 flex flex-col items-center">
-						<Motion.div
-							initial={{ opacity: 0, scale: 0.9, y: 30 }}
-							animate={{ opacity: 1, scale: 1, y: 0 }}
-							transition={{ duration: 0.5, easing: [0.23, 1, 0.32, 1] }}
-							class="w-full bg-[#0f1014] border border-[#2a2a2a] rounded-[32px] p-8 text-center flex flex-col items-center gap-6 shadow-2xl relative overflow-hidden"
-						>
-							{/* Inner Glowing Orb */}
-							<div
-								class={`absolute -top-24 w-48 h-48 rounded-full opacity-20 blur-3xl animate-pulse ${
-									props.activeTab === 'collectibles'
-										? 'bg-[radial-gradient(circle,_#ff9500_0%,_transparent_70%)]'
-										: 'bg-[radial-gradient(circle,_#e23b8c_0%,_transparent_70%)]'
-								}`}
-							/>
+	// Determine the semantic color of the input field based on validation
+	const inputStateColors = createMemo(() => {
+		const isError = searchError() || (searchQuery() && charCount() < 4);
+		const isSuccess = searchQuery() && !isError;
 
-							{/* Icon Container with active tab's color */}
-							<div
-								class={`w-20 h-20 rounded-[24px] flex items-center justify-center border relative transition-all duration-500 ${
-									props.activeTab === 'collectibles'
-										? 'bg-[#ff9500]/8 border-[#ff9500]/20'
-										: 'bg-[#e23b8c]/8 border-[#e23b8c]/20'
-								}`}
-							>
+		if (isError) {
+			return {
+				glow: 'rgba(255,69,58,0.4)',
+				glowSoft: 'rgba(255,69,58,0.1)',
+				borderTop: 'rgba(255,69,58,0.6)',
+				borderBottom: 'rgba(255,69,58,0.15)',
+				bg: '#140c0c', // subtle red tint background
+				icon: '#ff453a'
+			};
+		}
+		if (isSuccess) {
+			return {
+				glow: 'rgba(48,209,88,0.4)',
+				glowSoft: 'rgba(48,209,88,0.1)',
+				borderTop: 'rgba(48,209,88,0.6)',
+				borderBottom: 'rgba(48,209,88,0.15)',
+				bg: '#0a140d', // subtle green tint background
+				icon: '#30d158'
+			};
+		}
+		// Empty / Default state
+		return {
+			glow: 'rgba(51,144,236,0.5)',
+			glowSoft: 'rgba(51,144,236,0.15)',
+			borderTop: isFocused() ? 'rgba(51,144,236,0.5)' : 'rgba(255,255,255,0.25)',
+			borderBottom: isFocused() ? 'rgba(51,144,236,0.1)' : 'rgba(255,255,255,0.08)',
+			bg: '#111214',
+			icon: isFocused() ? '#3390ec' : 'rgba(255,255,255,0.4)'
+		};
+	});
+
+	return (
+		<main class="action-area w-full relative overflow-visible font-sans pb-20" aria-label="Analysis section">
+			{/* Ambient light */}
+			<div
+				class="absolute top-[20%] left-1/2 -translate-x-1/2 w-[70%] h-[40%] rounded-full pointer-events-none transition-all duration-1000 z-0"
+				style={{
+					background: `radial-gradient(ellipse, ${isFocused() ? 'rgba(51,144,236,0.15)' : 'rgba(51,144,236,0.05)'} 0%, transparent 70%)`,
+					filter: 'blur(60px)',
+				}}
+			/>
+
+			<div class="relative z-10 w-full max-w-[520px] mx-auto pt-8 px-5">
+				<Show
+					when={props.activeTab === 'username'}
+					fallback={
+						<Motion.div
+							initial={{ opacity: 0, y: 12 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{ duration: 0.5 }}
+							class="w-full rounded-[28px] bg-[#111214] border border-white/[0.06] p-8 flex flex-col items-center justify-center text-center relative overflow-hidden"
+						>
+							<div class="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
+
+							<div class="w-16 h-16 rounded-[20px] bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-6 relative">
 								<span
-									class={`material-symbols-outlined text-[36px] transition-transform duration-500 hover:scale-110 filled-icon ${
-										props.activeTab === 'collectibles' ? 'text-[#ff9500]' : 'text-[#e23b8c]'
-									}`}
+									class="material-symbols-outlined text-[28px] text-white/70"
+									style={{ 'font-variation-settings': '"wght" 300' }}
 								>
 									{props.activeTab === 'collectibles' ? 'tag' : 'featured_seasonal_and_gifts'}
 								</span>
-
-								{/* Lock icon overlay */}
-								<div class="absolute -bottom-1 -right-1 w-7 h-7 rounded-xl bg-[#1c1c1c] border border-[#2a2a2a] flex items-center justify-center shadow-lg">
-									<span class="material-symbols-outlined text-[13px] text-[#8e8e93]">lock</span>
+								<div class="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-full bg-[#111214] border border-white/10 flex items-center justify-center">
+									<span class="material-symbols-outlined text-[12px] text-white/40">lock</span>
 								</div>
 							</div>
 
-							{/* Badge */}
-							<span
-								class={`px-4 py-1.5 text-[10px] font-black uppercase rounded-full tracking-wider border transition-colors duration-500 ${
-									props.activeTab === 'collectibles'
-										? 'bg-[#ff9500]/5 border-[#ff9500]/15 text-[#ff9500]'
-										: 'bg-[#e23b8c]/5 border-[#e23b8c]/15 text-[#e23b8c]'
-								}`}
-							>
+							<span class="px-3 py-1 bg-white/[0.04] border border-white/[0.08] rounded-full text-[10px] font-semibold tracking-[0.15em] uppercase text-white/50 mb-5">
 								{t('action.comingSoon.badge')}
 							</span>
 
-							{/* Title & Description */}
-							<div class="space-y-3">
-								<h3 class="text-2xl font-black text-white tracking-tight">
-									{t('action.comingSoon.title')}
-								</h3>
-								<p class="text-[#8e8e93] text-[13px] font-medium leading-[1.7] px-2">
-									{t('action.comingSoon.description')}
-								</p>
-							</div>
+							<h3 class="text-xl font-semibold text-white/90 tracking-tight mb-3">
+								{t('action.comingSoon.title')}
+							</h3>
+							<p class="text-white/35 text-[13px] leading-[1.7] max-w-[90%] mb-8">
+								{t('action.comingSoon.description')}
+							</p>
 
-							{/* Action Button to switch to Username Tab */}
 							<button
 								onClick={() => {
 									try {
@@ -190,369 +258,239 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 									props.onTabChange?.('username');
 									window.scrollTo({ top: 0, behavior: 'smooth' });
 								}}
-								class="w-full mt-2 py-4 px-6 bg-[#3390ec] hover:bg-[#4da3f5] text-white font-black text-[14px] tracking-wide rounded-2xl flex items-center justify-center gap-2.5 active:scale-[0.98] transition-all shadow-lg shadow-[#3390ec]/15"
+								class="px-7 py-3 rounded-full bg-white text-black font-semibold text-[13px] flex items-center gap-2 hover:brightness-90 active:scale-[0.97] transition-all"
 							>
-								<span class="material-symbols-outlined text-[18px]">person_search</span>
-								{t('action.comingSoon.btn')}
-								<span class="material-symbols-outlined text-[16px] rtl:rotate-180">
-									arrow_forward
-								</span>
+								<span>{t('action.comingSoon.btn')}</span>
 							</button>
 						</Motion.div>
-					</div>
-				}
-			>
-				<div class="w-full">
-					{/* ── HEADER ── */}
-					<Motion.div
-						initial={{ opacity: 0, y: 10 }}
-						animate={{ opacity: 1, y: 0 }}
-						transition={{ duration: 0.5, easing: [0.23, 1, 0.32, 1] }}
-						class="text-center space-y-3 px-6 mb-8"
-					>
-						<h2 class="text-[28px] md:text-3xl font-black text-white tracking-tight leading-tight">
-							{t(keys().title)}
-						</h2>
-						<p class="text-[#8e8e93] text-[14px] font-medium leading-[1.7] px-2 max-w-[340px] mx-auto">
-							{t(keys().description)}
-						</p>
-					</Motion.div>
-
-					{/* ── SEARCH CARD ── */}
-					<Motion.div
-						initial={{ opacity: 0, y: 15 }}
-						animate={{ opacity: 1, y: 0 }}
-						transition={{ duration: 0.5, delay: 0.08, easing: [0.23, 1, 0.32, 1] }}
-						class="px-6"
-					>
-						<div
-							role="search"
-							aria-label="Username search"
-							class={`bg-[#0f1014] border rounded-[24px] p-5 transition-all duration-400 ${
-								searchError()
-									? 'border-red-500/40'
-									: isFocused()
-										? 'border-[#3390ec]/30 shadow-[0_0_0_4px_rgba(51,144,236,0.05)]'
-										: 'border-[#2a2a2a]'
-							}`}
-						>
-							{/* Top Bar */}
-							<div class="flex items-center justify-between mb-4">
-								<span class="flex items-center gap-2 text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em]">
-									<span
-										class="material-symbols-outlined text-[16px] text-[#3390ec]"
-										style={{ 'font-variation-settings': '"FILL" 1' }}
-									>
-										search
-									</span>
-									{t('home.targetAsset')}
-								</span>
-
-								<Show when={charCount() > 0}>
-									<div class="flex items-center gap-2">
-										<Show when={quickAnalysis.data}>
-											<span
-												class={`text-[10px] font-black uppercase px-2.5 py-1 rounded-xl ${
-													quickAnalysis.data?.status === 'available'
-														? 'bg-green-500/10 text-green-400 border border-green-500/20'
-														: 'bg-red-500/10 text-red-400 border border-red-500/20'
-												}`}
-												aria-live="polite"
-											>
-												{getStatusLabel(quickAnalysis.data?.status)}
-											</span>
-										</Show>
-										<span
-											class={`text-[11px] font-mono font-bold tabular-nums px-2 py-1 rounded-lg bg-white/[0.03] border border-white/[0.05] ${
-												isValidLength() ? 'text-green-400' : 'text-[#ff6b35]'
-											}`}
-										>
-											{charCount()}
-											<span class="text-white/15">/32</span>
-										</span>
-									</div>
-								</Show>
-							</div>
-
-							{/* Input */}
-							<div
-								class={`flex items-center gap-3 bg-[#1c1c1c] rounded-2xl p-4 border transition-all duration-300 ${
-									isFocused() ? 'border-[#3390ec]/25' : 'border-[#2a2a2a]'
-								}`}
-								dir="ltr"
-							>
-								<span
-									class={`text-[22px] font-black select-none transition-colors duration-300 ${
-										searchQuery() ? 'text-[#3390ec]' : 'text-white/10'
-									}`}
-								>
-									{getPrefix()}
-								</span>
-								<input
-									id="search-input"
-									class="w-full bg-transparent border-none focus:ring-0 outline-none text-left font-sans text-[20px] font-extrabold text-white placeholder:text-white/15 tracking-wide"
-									placeholder={t(keys().inputPlaceholder)}
-									aria-label={t(keys().inputPlaceholder)}
-									type="text"
-									autocomplete="off"
-									spellcheck={false}
-									value={searchQuery()}
-									onInput={(e) => updateSearchQuery(e.currentTarget.value)}
-									onFocus={() => setIsFocused(true)}
-									onBlur={() => setIsFocused(false)}
-								/>
-								<Show when={searchQuery()}>
-									<button
-										onClick={() => setSearchQuery('')}
-										class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-white/[0.06] hover:bg-white/10 transition-colors"
-										aria-label="Clear"
-									>
-										<svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-											<path
-												d="M8 2L2 8M2 2L8 8"
-												stroke="rgba(255,255,255,0.3)"
-												stroke-width="1.5"
-												stroke-linecap="round"
-											/>
-										</svg>
-									</button>
-								</Show>
-							</div>
-
-							{/* Error */}
-							<Show when={searchError()}>
-								<Motion.div
-									initial={{ opacity: 0, y: -4 }}
-									animate={{ opacity: 1, y: 0 }}
-									class="flex items-center gap-2 mt-3 px-1"
-								>
-									<span class="material-symbols-outlined text-[14px] text-red-400">error</span>
-									<span class="text-[12px] font-bold text-red-400">{searchError()}</span>
-								</Motion.div>
-							</Show>
-
-							{/* Quick Info Preview */}
-							<Show when={quickAnalysis.data}>
-								<Motion.div
-									initial={{ opacity: 0, height: 0 }}
-									animate={{ opacity: 1, height: 'auto' }}
-									class="mt-4 bg-[#141518] rounded-xl border border-[#2a2a2a] p-3 flex items-center justify-between"
-									aria-live="polite"
-								>
-									<div class="flex flex-col gap-1">
-										<span class="text-[#8e8e93] text-[11px] font-bold uppercase tracking-wider">
-											Rarity Score
-										</span>
-										<div class="flex items-center gap-1.5">
-											<span class="text-[#3390ec] material-symbols-outlined text-[14px]">
-												diamond
-											</span>
-											<span class="text-white text-[15px] font-black">
-												{quickAnalysis.data?.rarity_score}
-											</span>
-											<span class="text-[#8e8e93] text-[12px] font-medium">/ 10000</span>
-										</div>
-									</div>
-									<Show
-										when={
-											quickAnalysis.data?.sale_status !== 'not_for_sale' &&
-											(quickAnalysis.data?.buy_now_price || quickAnalysis.data?.highest_bid)
-										}
-									>
-										<div class="flex flex-col gap-1 items-end">
-											<span class="text-[#8e8e93] text-[11px] font-bold uppercase tracking-wider">
-												{quickAnalysis.data?.sale_status === 'on_auction' ? 'Highest Bid' : 'Price'}
-											</span>
-											<div class="flex items-center gap-1.5">
-												<span class="text-white text-[15px] font-black">
-													{quickAnalysis.data?.buy_now_price || quickAnalysis.data?.highest_bid}
-												</span>
-												<span class="text-[#3390ec] font-bold text-[12px]">TON</span>
-											</div>
-										</div>
-									</Show>
-								</Motion.div>
-							</Show>
-
-							{/* CTA Button */}
-							<button
-								onClick={handleAnalyze}
-								disabled={analyzeState() === 'loading' || !searchQuery()}
-								aria-busy={analyzeState() === 'loading'}
-								aria-live="polite"
-								class={`relative w-full overflow-hidden rounded-2xl mt-4 py-4 px-5 flex items-center justify-between transition-all duration-300 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed ${
-									analyzeState() === 'success'
-										? 'bg-[#34c759] shadow-lg shadow-green-500/15'
-										: 'bg-[#3390ec] hover:bg-[#4da3f5] shadow-lg shadow-[#3390ec]/15'
-								}`}
-							>
-								{/* Loading sweep */}
-								<Show when={analyzeState() === 'loading'}>
-									<div class="absolute inset-0 bg-white/10 animate-progress-sweep origin-left" />
-								</Show>
-
-								{/* Left: text */}
-								<div class="flex flex-col items-start relative z-10">
-									<span class="font-black text-[15px] text-white tracking-wide flex items-center gap-2">
-										<Show when={analyzeState() === 'loading'}>
-											<div class="w-4 h-4 rounded-full border-2 border-white/25 border-t-white animate-spin" />
-										</Show>
-										<Show when={analyzeState() === 'success'}>
-											<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-												<path
-													d="M3 8L6.5 11.5L13 5"
-													stroke="white"
-													stroke-width="2.5"
-													stroke-linecap="round"
-													stroke-linejoin="round"
-												/>
-											</svg>
-										</Show>
-										{getButtonText()}
-									</span>
-									<Show when={analyzeState() === 'idle'}>
-										<span class="text-white/50 text-[10px] font-bold uppercase tracking-[0.15em] mt-0.5">
-											{t('home.premiumReport')}
-										</span>
-									</Show>
-								</div>
-
-								{/* Right: arrow */}
-								<Show when={analyzeState() === 'idle'}>
-									<div class="relative z-10">
-										<svg
-											width="20"
-											height="20"
-											viewBox="0 0 20 20"
-											fill="none"
-											class="rtl:rotate-180 text-white/60"
-										>
-											<path
-												d="M4 10H16M16 10L11 5M16 10L11 15"
-												stroke="currentColor"
-												stroke-width="1.5"
-												stroke-linecap="round"
-												stroke-linejoin="round"
-											/>
-										</svg>
-									</div>
-								</Show>
-							</button>
-						</div>
-					</Motion.div>
-
-					{/* ── VALUE PROPOSITION (FEATURES) ACCORDION ── */}
-					<Show when={props.activeTab === 'username'}>
+					}
+				>
+					<div class="flex flex-col w-full">
+						{/* ━━━ HEADER ━━━ */}
 						<Motion.div
-							initial={{ opacity: 0, y: 15 }}
+							initial={{ opacity: 0, y: 16 }}
 							animate={{ opacity: 1, y: 0 }}
-							transition={{ duration: 0.5, delay: 0.15, easing: [0.23, 1, 0.32, 1] }}
-							class="px-6 pt-4"
+							transition={{ duration: 0.7, easing: [0.16, 1, 0.3, 1] }}
+							class="text-center w-full mb-10 flex flex-col items-center"
 						>
-							<div class="bg-[#0f1014] border border-[#2a2a2a] rounded-[20px] overflow-hidden transition-all duration-300">
-								<button
-									onClick={() => setIsFeaturesExpanded(!isFeaturesExpanded())}
-									class="w-full flex items-center justify-between p-4 bg-transparent hover:bg-white/[0.02] transition-colors"
-								>
-									<h3 class="text-[#8e8e93] text-[13px] font-bold flex items-center gap-2">
-										<span
-											class="material-symbols-outlined text-[16px] text-[#3390ec]"
-											style={{ 'font-variation-settings': '"FILL" 1' }}
-										>
-											insights
-										</span>
-										{t('action.username.features.title')}
-									</h3>
-									<span
-										class="material-symbols-outlined text-[18px] text-[#8e8e93] transition-transform duration-300"
-										style={{ transform: isFeaturesExpanded() ? 'rotate(180deg)' : 'rotate(0deg)' }}
-									>
-										expand_more
-									</span>
-								</button>
+							<div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08] mb-6 backdrop-blur-md shadow-[0_2px_10px_rgba(0,0,0,0.1)]">
+								<div class="w-1.5 h-1.5 rounded-full bg-[#3390ec] shadow-[0_0_8px_#3390ec]" />
+								<span class="text-[10px] font-semibold text-white/70 tracking-[0.2em] uppercase">
+									{t('home.premiumReport')}
+								</span>
+							</div>
+							<h2 class="text-[34px] md:text-[44px] font-extrabold tracking-tight leading-[1.2] mb-3 text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/40">
+								{t(keys().title)}
+							</h2>
+							<p class="text-white/50 text-[15px] font-medium max-w-[400px] leading-[1.6] mx-auto">
+								{t(keys().description)}
+							</p>
+						</Motion.div>
 
-								<div
-									class="overflow-hidden transition-all duration-400 ease-in-out"
-									style={{
-										'max-height': isFeaturesExpanded() ? '200px' : '0px',
-										opacity: isFeaturesExpanded() ? 1 : 0,
-									}}
-								>
-									<ul class="space-y-3 px-5 pb-5 pt-1 border-t border-[#2a2a2a]/50 mx-4">
-										<For each={[0, 1, 2]}>
-											{(index) => (
-												<li class="flex items-start gap-2.5">
-													<span class="material-symbols-outlined text-[16px] text-[#34c759] shrink-0 mt-0.5">
-														check_circle
-													</span>
-													<span class="text-white/80 text-[13px] font-medium leading-relaxed">
-														{t(`action.username.features.items.${index}` as DictPaths)}
-													</span>
-												</li>
-											)}
-										</For>
-									</ul>
+						{/* ━━━ SEARCH COMPONENT ━━━ */}
+						<Motion.div
+							initial={{ opacity: 0, y: 12 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{ duration: 0.5, delay: 0.08, easing: [0.16, 1, 0.3, 1] }}
+							class="w-full relative z-20 mb-8"
+						>
+							{/* Outer glow on focus */}
+							<div
+								class="absolute inset-[-4px] rounded-[32px] transition-all duration-700 ease-out z-[-1] pointer-events-none"
+								style={{
+									background: (isFocused() || searchQuery())
+										? `linear-gradient(135deg, ${inputStateColors().glow}, transparent, ${inputStateColors().glowSoft})`
+										: 'transparent',
+									filter: 'blur(20px)',
+									opacity: (isFocused() || searchQuery()) ? 0.4 : 0,
+								}}
+							/>
+
+							{/* Glassmorphic Container */}
+							<div
+								class="relative w-full rounded-[28px] transition-all duration-500 overflow-hidden backdrop-blur-2xl"
+								style={{
+									background: 'rgba(20, 20, 22, 0.4)',
+									border: `1px solid ${inputStateColors().borderTop}`,
+									'box-shadow': isFocused()
+										? '0 20px 40px -10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)'
+										: '0 10px 30px -10px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.02)',
+								}}
+							>
+								<div class="flex flex-col p-2">
+									{/* Input Row */}
+									<div class="flex items-center px-4 py-4 gap-2" dir="ltr">
+										<span
+											class="text-[24px] font-medium transition-colors duration-300 min-w-[20px]"
+											style={{ color: isFocused() ? (searchQuery() ? inputStateColors().icon : '#3390ec') : 'rgba(255,255,255,0.2)' }}
+										>
+											{getPrefix()}
+										</span>
+										<input
+											id="search-input"
+											class="flex-1 bg-transparent border-none focus:ring-0 outline-none text-left font-sans text-[22px] font-semibold text-white placeholder:text-white/20 tracking-wide"
+											placeholder={t(keys().inputPlaceholder)}
+											value={searchQuery()}
+											onInput={(e) => updateSearchQuery(e.currentTarget.value)}
+											onFocus={() => setIsFocused(true)}
+											onBlur={() => setIsFocused(false)}
+											autocomplete="off"
+											spellcheck={false}
+										/>
+										<Show when={searchQuery()}>
+											<div class="flex items-center shrink-0">
+												<button
+													onClick={() => setSearchQuery('')}
+													class="w-8 h-8 rounded-full bg-white/[0.05] hover:bg-white/10 text-white/40 hover:text-white transition-all flex items-center justify-center"
+												>
+													<span class="material-symbols-outlined text-[18px]">close</span>
+												</button>
+											</div>
+										</Show>
+									</div>
+
+									{/* Error */}
+									<Show when={searchError()}>
+										<Motion.div
+											initial={{ opacity: 0, height: 0 }}
+											animate={{ opacity: 1, height: 'auto' }}
+											class="px-5 pb-3 flex items-center gap-2"
+										>
+											<span class="material-symbols-outlined text-[15px] text-[#ff453a]">error</span>
+											<span class="text-[13px] font-medium text-[#ff453a]">{searchError()}</span>
+										</Motion.div>
+									</Show>
+
+									{/* Quick Analysis Result */}
+									<Show when={quickAnalysis.data}>
+										<Motion.div
+											initial={{ opacity: 0, y: 4 }}
+											animate={{ opacity: 1, y: 0 }}
+											class="mx-2 mb-2 p-3.5 rounded-[20px] bg-white/[0.03] border border-white/[0.06] flex items-center justify-between shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]"
+										>
+											<div class="flex items-center gap-3">
+												<div
+													class="w-3 h-3 rounded-full"
+													style={{
+														'background-color':
+															quickAnalysis.data?.status === 'available' ? '#30d158' : '#ff453a',
+														'box-shadow':
+															quickAnalysis.data?.status === 'available'
+																? '0 0 12px rgba(48,209,88,0.6)'
+																: '0 0 12px rgba(255,69,58,0.4)',
+													}}
+												/>
+												<span class="text-[13px] font-semibold text-white/90">
+													{getStatusLabel(quickAnalysis.data?.status)}
+												</span>
+											</div>
+											<div class="flex items-center gap-1.5 bg-black/50 px-3 py-1.5 rounded-full border border-white/[0.08]">
+												<span class="material-symbols-outlined text-[14px] text-[#3390ec]">
+													diamond
+												</span>
+												<span class="text-[13px] font-bold text-white/95">
+													{quickAnalysis.data?.rarity_score}
+												</span>
+											</div>
+										</Motion.div>
+									</Show>
+
+									{/* Analyze Button */}
+									<button
+										onClick={handleAnalyze}
+										disabled={analyzeState() === 'loading' || !searchQuery() || !!searchError()}
+										class="relative w-full h-[60px] rounded-[22px] font-semibold text-[15px] flex items-center justify-center gap-2 transition-all duration-300 overflow-hidden group mt-1"
+										style={{
+											background:
+												analyzeState() === 'success'
+													? 'linear-gradient(135deg, #28a745, #30d158)'
+													: !searchQuery() || !!searchError()
+														? 'rgba(255,255,255,0.04)'
+														: 'linear-gradient(135deg, #ffffff, #e0e0e0)',
+											color:
+												analyzeState() === 'success'
+													? '#fff'
+													: !searchQuery() || !!searchError()
+														? 'rgba(255,255,255,0.25)'
+														: '#000',
+											cursor: !searchQuery() || !!searchError() ? 'not-allowed' : 'pointer',
+											'box-shadow':
+												searchQuery() && !searchError() && analyzeState() === 'idle'
+													? '0 8px 24px -6px rgba(255,255,255,0.2)'
+													: 'none',
+										}}
+									>
+										<Show when={analyzeState() === 'loading'}>
+											<div class="w-5 h-5 rounded-full border-[2.5px] border-black/20 border-t-black animate-spin" />
+										</Show>
+										<span class="relative z-10 transition-transform group-hover:scale-[1.02]">{getButtonText()}</span>
+										<Show when={analyzeState() === 'idle' && searchQuery() && !searchError()}>
+											<span class="material-symbols-outlined text-[18px] rtl:rotate-180 relative z-10 group-hover:translate-x-1 transition-transform">
+												arrow_forward
+											</span>
+										</Show>
+									</button>
 								</div>
 							</div>
 						</Motion.div>
-					</Show>
 
-					{/* ── TRENDING ── */}
-					<Motion.div
-						initial={{ opacity: 0 }}
-						animate={{ opacity: 1 }}
-						transition={{ duration: 0.5, delay: 0.2 }}
-						class="px-6 pt-6"
-						dir="ltr"
-					>
-						<div class="flex items-center gap-2 mb-3">
-							<span class="text-[14px]" aria-hidden="true">
-								🔥
-							</span>
-							<span class="text-[11px] font-bold text-[#8e8e93] uppercase tracking-[0.15em]">
+						{/* ━━━ TRENDING ━━━ */}
+						<Motion.div
+							initial={{ opacity: 0 }}
+							animate={{ opacity: 1 }}
+							transition={{ duration: 0.5, delay: 0.2 }}
+							class="w-full mb-8 flex flex-col items-center"
+							dir="ltr"
+						>
+							<span class="text-[11px] font-semibold text-white/30 uppercase tracking-[0.25em] mb-4">
 								{t('action.trending.title')}
 							</span>
-						</div>
-						<div class="flex flex-wrap gap-2">
-							<For each={trendingList()}>
-								{(item) => (
-									<button
-										onClick={() => updateSearchQuery(item)}
-										class="px-3.5 py-2 rounded-xl bg-[#0f1014] border border-[#2a2a2a] hover:border-[#3390ec]/30 hover:bg-[#3390ec]/5 text-[12px] font-bold text-[#8e8e93] hover:text-white transition-all duration-300 active:scale-[0.96]"
-									>
-										@{item}
-									</button>
-								)}
-							</For>
-						</div>
-					</Motion.div>
+							<div class="flex flex-wrap justify-center gap-2.5">
+								<For each={trendingList()}>
+									{(item, idx) => (
+										<Motion.button
+											initial={{ opacity: 0, y: 10 }}
+											animate={{ opacity: 1, y: 0 }}
+											transition={{ duration: 0.4, delay: 0.25 + idx() * 0.05, easing: [0.16, 1, 0.3, 1] }}
+											onClick={() => {
+												updateSearchQuery(item);
+												const el = document.getElementById('search-input');
+												el?.focus();
+											}}
+											class="px-4 py-2.5 rounded-[14px] bg-white/[0.03] hover:bg-white/[0.08] text-white/60 text-[13px] font-medium transition-all duration-300 active:scale-95 flex items-center gap-1.5 hover:text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] border border-white/[0.02]"
+										>
+											<span class="text-white/20">@</span>
+											{item}
+										</Motion.button>
+									)}
+								</For>
+							</div>
+						</Motion.div>
 
-					{/* ── FREE STATS LINK ── */}
-					<Motion.div
-						initial={{ opacity: 0 }}
-						animate={{ opacity: 1 }}
-						transition={{ duration: 0.5, delay: 0.3 }}
-						class="px-6 pt-6"
-					>
-						<button
-							onClick={() => navigate('/username/stats')}
-							class="group w-full flex items-center justify-center gap-2.5 py-3.5 rounded-2xl bg-[#0f1014] border border-[#2a2a2a] hover:border-[#3390ec]/25 hover:bg-[#3390ec]/[0.03] transition-all duration-300 active:scale-[0.98]"
-						>
-							<span
-								class="material-symbols-outlined text-[16px] text-[#8e8e93] group-hover:text-[#3390ec] transition-colors"
-								style={{ 'font-variation-settings': '"FILL" 0' }}
-							>
-								info
-							</span>
-							<span class="text-[13px] font-bold text-[#8e8e93] group-hover:text-white/60 transition-colors">
-								{t('action.freeInfoPrefix')}
-								<span class="text-[#3390ec]">{t('action.freeInfoHighlight')}</span>
-								{t('action.freeInfoSuffix')}
-							</span>
-						</button>
-					</Motion.div>
-				</div>
-			</Show>
+
+					</div>
+				</Show>
+			</div>
+
+			<style>{`
+				@keyframes action-pulse {
+					0%, 100% { opacity: 1; transform: scale(1); }
+					50% { opacity: 0.5; transform: scale(0.85); }
+				}
+				.animate-action-pulse {
+					animation: action-pulse 2s ease-in-out infinite;
+				}
+				.action-btn:not(:disabled):active {
+					transform: scale(0.98);
+				}
+				@keyframes marquee-scroll {
+					0% { transform: translateX(0); }
+					100% { transform: translateX(-50%); }
+				}
+				.animate-marquee-scroll {
+					animation: marquee-scroll 30s linear infinite;
+				}
+			`}</style>
 		</main>
 	);
 };

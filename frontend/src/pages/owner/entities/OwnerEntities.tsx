@@ -2,6 +2,7 @@ import { Component, createSignal, onMount, Show, For } from 'solid-js';
 import { Title } from '@solidjs/meta';
 import { OwnerTabs } from '@/widgets/owner/OwnerTabs.js';
 import { apiClient } from '@/shared/api/axios.js';
+import { hapticFeedback } from '@tma.js/sdk-solid';
 
 export const OwnerEntities: Component = () => {
 	const [channels, setChannels] = createSignal<any[]>([]);
@@ -22,6 +23,43 @@ export const OwnerEntities: Component = () => {
 		} finally {
 			setLoading(false);
 		}
+	};
+
+	const showTmaConfirm = (message: string, onConfirm: () => void) => {
+		const tg = (window as any).Telegram?.WebApp;
+		if (tg?.showConfirm) {
+			tg.showConfirm(message, (confirmed: boolean) => {
+				if (confirmed) onConfirm();
+			});
+		} else {
+			if (window.confirm(message)) onConfirm();
+		}
+	};
+
+	const handleImpersonate = (ownerId: number) => {
+		try {
+			hapticFeedback.impactOccurred('medium');
+		} catch {}
+
+		showTmaConfirm(
+			`Are you sure you want to impersonate user ${ownerId}? You will enter simulation mode.`,
+			async () => {
+				try {
+					const resp = await apiClient.post('/owner/users/impersonate', {
+						user_id: ownerId,
+					});
+					const { token } = resp.data;
+					
+					sessionStorage.setItem('owner_impersonation_token', token);
+					sessionStorage.setItem('impersonated_user_id', String(ownerId));
+					sessionStorage.setItem('impersonated_username', String(ownerId));
+					
+					window.location.href = '/';
+				} catch (e: any) {
+					alert(e.response?.data?.error || 'Failed to impersonate');
+				}
+			}
+		);
 	};
 
 	onMount(() => {
@@ -68,7 +106,8 @@ export const OwnerEntities: Component = () => {
 											<th class="px-6 py-3 rounded-tr-xl">عنوان کانال</th>
 											<th class="px-6 py-3">شناسه کانال</th>
 											<th class="px-6 py-3">مالک (User ID)</th>
-											<th class="px-6 py-3 rounded-tl-xl">وضعیت ربات</th>
+											<th class="px-6 py-3">وضعیت ربات</th>
+											<th class="px-6 py-3 rounded-tl-xl">عملیات</th>
 										</tr>
 									</thead>
 									<tbody>
@@ -84,6 +123,15 @@ export const OwnerEntities: Component = () => {
 														}`}>
 															{ch.status}
 														</span>
+													</td>
+													<td class="px-6 py-4">
+														<button
+															onClick={() => handleImpersonate(ch.owner_id)}
+															class="h-8 px-3 bg-gradient-to-r from-[#3390ec]/15 to-[#3390ec]/5 hover:from-[#3390ec]/25 border border-[#3390ec]/30 text-[9px] font-black uppercase tracking-wider text-[#3390ec] rounded-xl active:scale-95 transition-all flex items-center gap-1"
+														>
+															<span class="material-symbols-outlined text-[12px]">visibility</span>
+															ورود به پنل
+														</button>
 													</td>
 												</tr>
 											)}
@@ -103,7 +151,8 @@ export const OwnerEntities: Component = () => {
 											<th class="px-6 py-3 rounded-tr-xl">عنوان گروه</th>
 											<th class="px-6 py-3">شناسه گروه</th>
 											<th class="px-6 py-3">مالک (User ID)</th>
-											<th class="px-6 py-3 rounded-tl-xl">وضعیت ربات</th>
+											<th class="px-6 py-3">وضعیت ربات</th>
+											<th class="px-6 py-3 rounded-tl-xl">عملیات</th>
 										</tr>
 									</thead>
 									<tbody>
@@ -119,6 +168,15 @@ export const OwnerEntities: Component = () => {
 														}`}>
 															{gr.status}
 														</span>
+													</td>
+													<td class="px-6 py-4">
+														<button
+															onClick={() => handleImpersonate(gr.owner_id)}
+															class="h-8 px-3 bg-gradient-to-r from-[#3390ec]/15 to-[#3390ec]/5 hover:from-[#3390ec]/25 border border-[#3390ec]/30 text-[9px] font-black uppercase tracking-wider text-[#3390ec] rounded-xl active:scale-95 transition-all flex items-center gap-1"
+														>
+															<span class="material-symbols-outlined text-[12px]">visibility</span>
+															ورود به پنل
+														</button>
 													</td>
 												</tr>
 											)}

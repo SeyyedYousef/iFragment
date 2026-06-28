@@ -166,8 +166,6 @@ func (db *Database) CompleteUserTask(ctx context.Context, userID int64, taskKey 
 	return err
 }
 
-
-
 // CreditReferrerShareCoins handles Tier 1 & Tier 2 lifetime commissions on user in-game Coins spending.
 // Tier 1 receives 10%, Tier 2 receives 3% of spender's spend.
 func (db *Database) CreditReferrerShareCoins(ctx context.Context, spenderID int64, amountSpent float64) error {
@@ -242,8 +240,6 @@ func (db *Database) CreditReferrerShareCoins(ctx context.Context, spenderID int6
 	return tx.Commit(ctx)
 }
 
-
-
 // GetGlobalClans returns the top 100 clans sorted by total score
 func (db *Database) GetGlobalClans(ctx context.Context) ([]map[string]interface{}, error) {
 	if db.Pool == nil {
@@ -251,11 +247,8 @@ func (db *Database) GetGlobalClans(ctx context.Context) ([]map[string]interface{
 	}
 
 	query := `
-		SELECT c.id, c.chat_title, COALESCE(SUM(us.airdrop_coins), 0) as total_score, COUNT(cm.user_id) as member_count
-		FROM clans c
-		LEFT JOIN clan_members cm ON cm.clan_id = c.id
-		LEFT JOIN user_stats us ON us.user_id = cm.user_id
-		GROUP BY c.id
+		SELECT id, chat_title, total_score, members_count as member_count
+		FROM clans
 		ORDER BY total_score DESC
 		LIMIT 100
 	`
@@ -275,9 +268,9 @@ func (db *Database) GetGlobalClans(ctx context.Context) ([]map[string]interface{
 			continue
 		}
 		clans = append(clans, map[string]interface{}{
-			"id": id,
-			"name": name,
-			"total_score": score,
+			"id":           id,
+			"name":         name,
+			"total_score":  score,
 			"member_count": members,
 		})
 	}
@@ -310,11 +303,11 @@ func (db *Database) GetActiveQuests(ctx context.Context, userID int64) ([]map[st
 			continue
 		}
 		tasks = append(tasks, map[string]interface{}{
-			"key": key,
+			"key":         key,
 			"description": desc,
-			"reward": reward,
-			"type": tType,
-			"group_id": groupID,
+			"reward":      reward,
+			"type":        tType,
+			"group_id":    groupID,
 		})
 	}
 	return tasks, nil

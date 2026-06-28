@@ -50,6 +50,7 @@ type ManagedGroup struct {
 	SubscriptionStatus string     `json:"subscription_status"`
 	TrialEndsAt        time.Time  `json:"trial_ends_at"`
 	PaidUntil          *time.Time `json:"paid_until,omitempty"`
+	ConnectedByUserID  *int64     `json:"connected_by_user_id,omitempty"`
 	CreatedAt          time.Time  `json:"created_at"`
 	UpdatedAt          time.Time  `json:"updated_at"`
 }
@@ -263,12 +264,12 @@ func (r *BotRepo) CreateGroup(ctx context.Context, group *ManagedGroup) error {
 		return fmt.Errorf("no database connection")
 	}
 
-	query := `INSERT INTO managed_groups (bot_id, chat_id, chat_title, chat_type, members_count, subscription_status, trial_ends_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	query := `INSERT INTO managed_groups (bot_id, chat_id, chat_title, chat_type, members_count, subscription_status, trial_ends_at, connected_by_user_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		ON CONFLICT (bot_id, chat_id) DO UPDATE SET chat_title = EXCLUDED.chat_title, members_count = EXCLUDED.members_count, updated_at = now()
 		RETURNING id, subscription_status, trial_ends_at, paid_until, created_at, updated_at`
 	return r.db.Pool.QueryRow(ctx, query,
-		group.BotID, group.ChatID, group.ChatTitle, group.ChatType, group.MembersCount, group.SubscriptionStatus, group.TrialEndsAt,
+		group.BotID, group.ChatID, group.ChatTitle, group.ChatType, group.MembersCount, group.SubscriptionStatus, group.TrialEndsAt, group.ConnectedByUserID,
 	).Scan(&group.ID, &group.SubscriptionStatus, &group.TrialEndsAt, &group.PaidUntil, &group.CreatedAt, &group.UpdatedAt)
 }
 
@@ -277,7 +278,7 @@ func (r *BotRepo) GetGroupsByBot(ctx context.Context, botID uuid.UUID) ([]Manage
 		return nil, fmt.Errorf("no database connection")
 	}
 
-	query := `SELECT id, bot_id, chat_id, chat_title, chat_type, members_count, subscription_status, trial_ends_at, paid_until, created_at, updated_at
+	query := `SELECT id, bot_id, chat_id, chat_title, chat_type, members_count, subscription_status, trial_ends_at, paid_until, connected_by_user_id, created_at, updated_at
 		FROM managed_groups WHERE bot_id = $1 ORDER BY created_at DESC`
 	rows, err := r.db.Pool.Query(ctx, query, botID)
 	if err != nil {
@@ -289,7 +290,7 @@ func (r *BotRepo) GetGroupsByBot(ctx context.Context, botID uuid.UUID) ([]Manage
 	for rows.Next() {
 		var g ManagedGroup
 		if err := rows.Scan(&g.ID, &g.BotID, &g.ChatID, &g.ChatTitle, &g.ChatType, &g.MembersCount,
-			&g.SubscriptionStatus, &g.TrialEndsAt, &g.PaidUntil, &g.CreatedAt, &g.UpdatedAt); err != nil {
+			&g.SubscriptionStatus, &g.TrialEndsAt, &g.PaidUntil, &g.ConnectedByUserID, &g.CreatedAt, &g.UpdatedAt); err != nil {
 			return nil, err
 		}
 		groups = append(groups, g)
@@ -513,4 +514,3 @@ func (r *BotRepo) RecordTrial(ctx context.Context, chatID int64) error {
 	_, err := r.db.Pool.Exec(ctx, `INSERT INTO chat_trial_history (chat_id) VALUES ($1) ON CONFLICT DO NOTHING`, chatID)
 	return err
 }
-
