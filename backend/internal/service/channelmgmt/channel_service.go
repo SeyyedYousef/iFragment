@@ -984,21 +984,36 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 				}
 
 				tg := telegram.NewBotAPIClient(token)
-				if rule.Mode == "forward" {
-					if err := tg.ForwardMessage(ctx, destChan.ChatID, chatID, messageID); err != nil {
-						slog.Error("Failed to forward message via inbound rule", "rule_id", rule.ID, "chat_id", chatID, "message_id", messageID, "error", err)
+				delayDuration := time.Duration(0)
+				if rule.Delay != "" {
+					if d, err := time.ParseDuration(rule.Delay); err == nil {
+						delayDuration = d
 					}
+				}
+
+				executeInbound := func() {
+					if rule.Mode == "forward" {
+						if err := tg.ForwardMessage(context.Background(), destChan.ChatID, chatID, messageID); err != nil {
+							slog.Error("Failed to forward message via inbound rule", "rule_id", rule.ID, "chat_id", chatID, "message_id", messageID, "error", err)
+						}
+					} else {
+						text := ApplyTextFilters(postText, ChannelPostFilter{
+							Mode:           rule.Mode,
+							Watermark:      rule.Watermark,
+							RemoveAds:      rule.RemoveAds,
+							RemoveHashtags: rule.RemoveHashtags,
+							RemoveLinks:    rule.RemoveLinks,
+						})
+						if err := tg.SendMessage(context.Background(), destChan.ChatID, text, nil, nil); err != nil {
+							slog.Error("Failed to send inbound message copy", "rule_id", rule.ID, "dest_chat_id", destChan.ChatID, "error", err)
+						}
+					}
+				}
+
+				if delayDuration > 0 {
+					time.AfterFunc(delayDuration, executeInbound)
 				} else {
-					text := ApplyTextFilters(postText, ChannelPostFilter{
-						Mode:           rule.Mode,
-						Watermark:      rule.Watermark,
-						RemoveAds:      rule.RemoveAds,
-						RemoveHashtags: rule.RemoveHashtags,
-						RemoveLinks:    rule.RemoveLinks,
-					})
-					if err := tg.SendMessage(ctx, destChan.ChatID, text, nil, nil); err != nil {
-						slog.Error("Failed to send inbound message copy", "rule_id", rule.ID, "dest_chat_id", destChan.ChatID, "error", err)
-					}
+					executeInbound()
 				}
 			}
 		}
@@ -1057,21 +1072,36 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 						targetChatID = chatRes.ID
 					}
 
-					if rule.Mode == "forward" {
-						if err := tg.ForwardMessage(ctx, targetChatID, chatID, messageID); err != nil {
-							slog.Error("Failed to forward outbound message", "rule_id", rule.ID, "target", targetChatID, "error", err)
+					delayDuration := time.Duration(0)
+					if rule.Delay != "" {
+						if d, err := time.ParseDuration(rule.Delay); err == nil {
+							delayDuration = d
 						}
+					}
+
+					executeOutbound := func() {
+						if rule.Mode == "forward" {
+							if err := tg.ForwardMessage(context.Background(), targetChatID, chatID, messageID); err != nil {
+								slog.Error("Failed to forward outbound message", "rule_id", rule.ID, "target", targetChatID, "error", err)
+							}
+						} else {
+							text := ApplyTextFilters(postText, ChannelPostFilter{
+								Mode:           rule.Mode,
+								Watermark:      rule.Watermark,
+								RemoveAds:      rule.RemoveAds,
+								RemoveHashtags: rule.RemoveHashtags,
+								RemoveLinks:    rule.RemoveLinks,
+							})
+							if err := tg.SendMessage(context.Background(), targetChatID, text, nil, nil); err != nil {
+								slog.Error("Failed to send outbound message copy", "rule_id", rule.ID, "target", targetChatID, "error", err)
+							}
+						}
+					}
+
+					if delayDuration > 0 {
+						time.AfterFunc(delayDuration, executeOutbound)
 					} else {
-						text := ApplyTextFilters(postText, ChannelPostFilter{
-							Mode:           rule.Mode,
-							Watermark:      rule.Watermark,
-							RemoveAds:      rule.RemoveAds,
-							RemoveHashtags: rule.RemoveHashtags,
-							RemoveLinks:    rule.RemoveLinks,
-						})
-						if err := tg.SendMessage(ctx, targetChatID, text, nil, nil); err != nil {
-							slog.Error("Failed to send outbound message copy", "rule_id", rule.ID, "target", targetChatID, "error", err)
-						}
+						executeOutbound()
 					}
 				}
 			}
@@ -2131,7 +2161,7 @@ func callGeminiParaphrase(text, apiKey string) (string, error) {
 		return "", err
 	}
 
-	apiURL := "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey
+	apiURL := "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=" + apiKey
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -2227,7 +2257,7 @@ func callGeminiComposer(ctx context.Context, text, apiKey, skill, customPrompt, 
 		return "", err
 	}
 
-	apiURL := "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey
+	apiURL := "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=" + apiKey
 
 	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewBuffer(jsonData))
 	if err != nil {
