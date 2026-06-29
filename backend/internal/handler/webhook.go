@@ -818,11 +818,11 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 							TargetType: &targetType,
 							TargetID:   &username,
 						})
-						appURL := os.Getenv("APP_URL")
-						if appURL == "" {
-							appURL = "https://t.me/iFragmentBot/iFragment"
+						miniAppURL := os.Getenv("MINI_APP_URL")
+						if miniAppURL == "" {
+							miniAppURL = "https://t.me/iFragmentBot/iFragment"
 						}
-						reportURL := fmt.Sprintf("%s?startapp=username_%s", appURL, username)
+						reportURL := fmt.Sprintf("%s?startapp=username_%s", miniAppURL, username)
 						tg, _ := h.moderator.GetTelegramClient(ctx, bot)
 						_ = tg.SendMessage(ctx, userID, fmt.Sprintf("Payment received. Your @%s report is unlocked:\n%s", username, reportURL), nil, nil)
 					}
@@ -1405,9 +1405,9 @@ func (h *WebhookHandler) answerPreCheckout(botToken string, id string, ok bool, 
 
 func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *repository.ManagedBot, m *Message) {
 	if strings.HasPrefix(m.Text, "/start") {
-		appURL := os.Getenv("APP_URL")
-		if appURL == "" {
-			appURL = "https://t.me/iFragmentBot/iFragment"
+		miniAppURL := os.Getenv("MINI_APP_URL")
+		if miniAppURL == "" {
+			miniAppURL = "https://t.me/iFragmentBot/iFragment"
 		}
 
 		// Extract deep linking parameter
@@ -1428,12 +1428,12 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 			startParam = string(sanitized)
 		}
 
-		targetURL := appURL
+		targetURL := miniAppURL
 		if startParam != "" {
-			if strings.Contains(appURL, "?") {
-				targetURL = fmt.Sprintf("%s&startapp=%s", appURL, startParam)
+			if strings.Contains(miniAppURL, "?") {
+				targetURL = fmt.Sprintf("%s&startapp=%s", miniAppURL, startParam)
 			} else {
-				targetURL = fmt.Sprintf("%s?startapp=%s", appURL, startParam)
+				targetURL = fmt.Sprintf("%s?startapp=%s", miniAppURL, startParam)
 			}
 		}
 
@@ -1463,9 +1463,7 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 				{
 					{
 						"text": btnText,
-						"web_app": map[string]string{
-							"url": targetURL,
-						},
+						"url": targetURL,
 					},
 				},
 			},
@@ -1510,11 +1508,11 @@ func (h *WebhookHandler) handleGroupSettingsCommand(ctx context.Context, bot *re
 		return
 	}
 
-	appURL := os.Getenv("APP_URL")
-	if appURL == "" {
-		appURL = "https://t.me/iFragmentBot/iFragment"
+	miniAppURL := os.Getenv("MINI_APP_URL")
+	if miniAppURL == "" {
+		miniAppURL = "https://t.me/iFragmentBot/iFragment"
 	}
-	dashboardURL := fmt.Sprintf("%s?startapp=group_%s", appURL, group.ID)
+	dashboardURL := fmt.Sprintf("%s?startapp=group_%s", miniAppURL, group.ID)
 
 	msg := fmt.Sprintf("⚙️ *Group Settings*\n\nYou can manage this group's settings via the dashboard:\n\n🔗 [Manage Group](%s)", dashboardURL)
 	_ = tg.SendMessage(ctx, m.Chat.ID, msg, &m.MessageID, m.MessageThreadID)
@@ -1589,11 +1587,11 @@ func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *reposit
 
 		time.Sleep(2 * time.Second)
 		// 3. Default features
-		appURL := os.Getenv("APP_URL")
-		if appURL == "" {
-			appURL = "https://t.me/iFragmentBot/iFragment"
+		miniAppURL := os.Getenv("MINI_APP_URL")
+		if miniAppURL == "" {
+			miniAppURL = "https://t.me/iFragmentBot/iFragment"
 		}
-		dashboardURL := fmt.Sprintf("%s?startapp=group_%s", appURL, bot.ID)
+		dashboardURL := fmt.Sprintf("%s?startapp=group_%s", miniAppURL, bot.ID)
 		setupMsg := i18n.T(lang, "onboarding.features", dashboardURL)
 		msg3, _ := tg.SendMessageWithResult(ctx, chat.ID, setupMsg, nil, nil)
 		if msg3 != nil {
