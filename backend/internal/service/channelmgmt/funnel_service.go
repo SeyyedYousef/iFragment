@@ -316,8 +316,11 @@ func (s *ChannelService) sendFunnelReviewToOwner(ctx context.Context, bot *repos
 	lang := "en"
 	activeText := draft.DraftText
 	destChan, err := s.channelRepo.GetChannelByChatID(ctx, funnel.OutputChatID)
+	slog.Info("sendFunnelReviewToOwner: fetching output channel", "outputChatID", funnel.OutputChatID, "destChan_err", err, "destChan_is_nil", destChan == nil)
 	if err == nil && destChan != nil {
+		slog.Info("sendFunnelReviewToOwner: applying watermark/signature", "destChan_id", destChan.ID, "text_before", activeText)
 		activeText = s.ApplyWatermarkAndSignature(ctx, draft.DraftText, destChan.ID)
+		slog.Info("sendFunnelReviewToOwner: applied", "text_after", activeText)
 		settings, err := s.channelRepo.GetChannelSettings(ctx, destChan.ID)
 		if err == nil && settings != nil {
 			var general GeneralSettingsSchema
@@ -866,8 +869,11 @@ func (s *ChannelService) publishFunnelPostDirectly(ctx context.Context, tg *tele
 
 	activeText := draft.DraftText
 	destChan, err := s.channelRepo.GetChannelByChatID(ctx, funnel.OutputChatID)
+	slog.Info("publishFunnelPostDirectly: fetching output channel", "outputChatID", funnel.OutputChatID, "destChan_err", err, "destChan_is_nil", destChan == nil)
 	if err == nil && destChan != nil {
+		slog.Info("publishFunnelPostDirectly: applying watermark/signature", "destChan_id", destChan.ID, "text_before", activeText)
 		activeText = s.ApplyWatermarkAndSignature(ctx, activeText, destChan.ID)
+		slog.Info("publishFunnelPostDirectly: applied", "text_after", activeText)
 	}
 	var previewMarkup interface{}
 	if len(draft.MediaPayload) > 1 && len(buttonsList) > 0 {
@@ -1150,11 +1156,28 @@ func (s *ChannelService) ApplyWatermarkAndSignature(ctx context.Context, text st
 	sigEnabled := general.SignMessages
 	sigText := general.CustomSignature
 
+	slog.Info("ApplyWatermarkAndSignature initial state", 
+		"channel_id", destChannelID,
+		"general_sign_enabled", sigEnabled,
+		"general_sig_text", sigText,
+		"posting_watermark_enabled", posting.WatermarkEnabled,
+		"posting_watermark_text", posting.WatermarkText,
+		"legacy_posting_sig", posting.Signature,
+		"raw_general", string(settings.General),
+		"raw_posting", string(settings.Posting),
+	)
+
 	// If general doesn't have it, check if posting has a legacy signature
 	if !sigEnabled && posting.Signature != "" {
 		sigEnabled = true
 		sigText = posting.Signature
 	}
+
+	slog.Info("ApplyWatermarkAndSignature final state",
+		"channel_id", destChannelID,
+		"sigEnabled", sigEnabled,
+		"sigText", sigText,
+	)
 
 	// Apply Signature
 	if sigEnabled && sigText != "" {
