@@ -1626,8 +1626,13 @@ func (h *WebhookHandler) handleWelcomeMessage(ctx context.Context, bot *reposito
 	json.Unmarshal(settings.General, &general)
 	json.Unmarshal(settings.CustomTexts, &ct)
 
-	if !general.WelcomeMessage || ct.WelcomeText == "" {
+	if !general.WelcomeMessage {
 		return
+	}
+
+	welcomeText := ct.WelcomeText
+	if welcomeText == "" {
+		welcomeText = "👋 Welcome to {group}, {user}!"
 	}
 
 	bot, _ = h.botRepo.GetBotByID(ctx, group.BotID)
@@ -1661,7 +1666,7 @@ func (h *WebhookHandler) handleWelcomeMessage(ctx context.Context, bot *reposito
 	// AutoDeleteBot settings will clean up old welcome messages.
 
 	// Format welcome text with placeholders, escaping dynamic inputs
-	text := ct.WelcomeText
+	text := welcomeText
 	usersStr := strings.Join(userLinks, ", ")
 	text = strings.ReplaceAll(text, "{user}", usersStr)
 	text = strings.ReplaceAll(text, "{first_name}", strings.Join(firstNames, ", "))

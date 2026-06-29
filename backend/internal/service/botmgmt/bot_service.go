@@ -1048,7 +1048,12 @@ func (s *BotService) internalActivateChannelSubscriptionTx(ctx context.Context, 
 	if ch.SubscriptionStatus == "paid" && ch.PaidUntil != nil && ch.PaidUntil.After(base) {
 		base = *ch.PaidUntil
 	}
-	paidUntil := base.Add(30 * 24 * time.Hour)
+	
+	months := pkg.DurationMonths
+	if months <= 0 {
+		months = 1
+	}
+	paidUntil := base.Add(time.Duration(months) * 30 * 24 * time.Hour)
 
 	channelRepo := repository.NewChannelRepo(s.botRepo.DB(), nil)
 	if err := channelRepo.UpdateChannelSubscriptionTx(ctx, tx, channelID, "paid", &paidUntil); err != nil {

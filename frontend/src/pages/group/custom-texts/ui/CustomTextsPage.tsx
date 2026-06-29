@@ -216,7 +216,7 @@ export const CustomTextsPage: Component = () => {
 						<textarea
 							value={cfg.welcomeText}
 							onInput={(e) => update('welcomeText', e.currentTarget.value)}
-							placeholder={t('customTextsSettings.welcomePlaceholder')}
+							placeholder="👋 Welcome to {group}, {user}!"
 							class="w-full h-28 bg-[#1c1c1c] text-white text-[14px] rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-[#2a2a2a] transition-all resize-none placeholder-[#8e8e93]"
 						/>
 					</Motion.div>
@@ -239,6 +239,7 @@ export const CustomTextsPage: Component = () => {
 							value={cfg.warningText}
 							onInput={(e) => update('warningText', e.currentTarget.value)}
 							class="w-full h-24 bg-[#1c1c1c] text-white text-[14px] rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-[#2a2a2a] transition-all resize-none placeholder-[#8e8e93]"
+							placeholder="⚠️ Warning: Please respect the rules."
 						/>
 					</Motion.div>
 
@@ -263,6 +264,7 @@ export const CustomTextsPage: Component = () => {
 								value={cfg.silenceStartText}
 								onInput={(e) => update('silenceStartText', e.currentTarget.value)}
 								class="w-full h-20 bg-[#1c1c1c] text-white text-[14px] rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-[#2a2a2a] transition-all resize-none placeholder-[#8e8e93]"
+								placeholder="🔒 Quiet hours have started. The group is now muted."
 							/>
 						</div>
 
@@ -280,6 +282,7 @@ export const CustomTextsPage: Component = () => {
 								value={cfg.silenceEndText}
 								onInput={(e) => update('silenceEndText', e.currentTarget.value)}
 								class="w-full h-20 bg-[#1c1c1c] text-white text-[14px] rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-[#2a2a2a] transition-all resize-none placeholder-[#8e8e93]"
+								placeholder="🔓 Quiet hours have ended. You can now send messages."
 							/>
 						</div>
 					</Motion.div>
@@ -302,6 +305,7 @@ export const CustomTextsPage: Component = () => {
 							value={cfg.rulesText}
 							onInput={(e) => update('rulesText', e.currentTarget.value)}
 							class="w-full h-32 bg-[#1c1c1c] text-white text-[14px] rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-[#2a2a2a] transition-all resize-none placeholder-[#8e8e93]"
+							placeholder="Be respectful and follow standard group rules."
 						/>
 					</Motion.div>
 
@@ -323,6 +327,7 @@ export const CustomTextsPage: Component = () => {
 							value={cfg.forceJoinText}
 							onInput={(e) => update('forceJoinText', e.currentTarget.value)}
 							class="w-full h-24 bg-[#1c1c1c] text-white text-[14px] rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-[#2a2a2a] transition-all resize-none placeholder-[#8e8e93]"
+							placeholder="You must join {channel} first"
 						/>
 					</Motion.div>
 
@@ -344,6 +349,7 @@ export const CustomTextsPage: Component = () => {
 							value={cfg.forceAddText}
 							onInput={(e) => update('forceAddText', e.currentTarget.value)}
 							class="w-full h-24 bg-[#1c1c1c] text-white text-[14px] rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-[#2a2a2a] transition-all resize-none placeholder-[#8e8e93]"
+							placeholder="You must add {count} members to the group before you can send messages."
 						/>
 					</Motion.div>
 
