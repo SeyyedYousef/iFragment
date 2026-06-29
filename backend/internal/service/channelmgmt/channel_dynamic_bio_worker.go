@@ -14,11 +14,16 @@ import (
 )
 
 type DynamicBioConfig struct {
-	Enabled       bool   `json:"enabled"`
-	BioTemplate   string `json:"bioTemplate"`
-	DisplayInName bool   `json:"displayInName"`
-	NameTemplate  string `json:"nameTemplate"`
-	Interval      string `json:"interval"` // "10m", "30m", "1h", "24h"
+	Enabled           bool        `json:"enabled"`
+	BioTemplate       string      `json:"bioTemplate"`
+	DisplayInName     bool        `json:"displayInName"`
+	NameTemplate      string      `json:"nameTemplate"`
+	Interval          interface{} `json:"interval"` // "10m", "30m", "1h", "24h" or minutes integer
+	EnableCountdown   bool        `json:"enableCountdown"`
+	EventName         string      `json:"eventName"`
+	TargetDate        string      `json:"targetDate"`
+	CountdownLocation string      `json:"countdownLocation"`
+	PostExpiryText    string      `json:"postExpiryText"`
 }
 
 func (s *ChannelService) dynamicBioWorker(ctx context.Context) {
@@ -84,16 +89,13 @@ func (s *ChannelService) processDynamicBios(ctx context.Context) {
 		}
 
 		// Check interval
-		intervalDuration := 10 * time.Minute // default
-		switch config.Interval {
-		case "10m":
+		intervalMinutes, err := normalizeDynamicBioInterval(config.Interval)
+		if err != nil {
+			intervalMinutes = 10 // default fallback
+		}
+		intervalDuration := time.Duration(intervalMinutes) * time.Minute
+		if intervalDuration <= 0 {
 			intervalDuration = 10 * time.Minute
-		case "30m":
-			intervalDuration = 30 * time.Minute
-		case "1h":
-			intervalDuration = 1 * time.Hour
-		case "24h":
-			intervalDuration = 24 * time.Hour
 		}
 
 		if ok {
@@ -142,12 +144,38 @@ func (s *ChannelService) updateChannelDynamicBio(ctx context.Context, ch *reposi
 	dateStr := now.Format("02 Jan 2006")
 	dayStr := now.Format("Monday")
 
+	countdownStr := ""
+	if config.EnableCountdown && config.TargetDate != "" {
+		targetTime, err := time.Parse("2006-01-02", config.TargetDate)
+		if err == nil {
+			nowZero := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+			targetZero := time.Date(targetTime.Year(), targetTime.Month(), targetTime.Day(), 0, 0, 0, 0, now.Location())
+			
+			diff := targetZero.Sub(nowZero)
+			days := int(diff.Hours() / 24)
+			
+			if days > 0 {
+				countdownStr = fmt.Sprintf("%d days", days)
+			} else if days == 0 {
+				countdownStr = "Today!"
+			} else {
+				if config.PostExpiryText != "" {
+					countdownStr = config.PostExpiryText
+				} else {
+					countdownStr = "Ended"
+				}
+			}
+		}
+	}
+
 	replaceVars := func(template string) string {
 		res := template
 		res = strings.ReplaceAll(res, "$members", memberCount)
 		res = strings.ReplaceAll(res, "$time", timeStr)
 		res = strings.ReplaceAll(res, "$date", dateStr)
 		res = strings.ReplaceAll(res, "$day_name", dayStr)
+		res = strings.ReplaceAll(res, "$countdown", countdownStr)
+		res = strings.ReplaceAll(res, "$event", config.EventName)
 
 		return res
 	}

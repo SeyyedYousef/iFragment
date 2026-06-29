@@ -277,9 +277,9 @@ export const channelApi = {
 			.post(`/channels/${channelId}/buttons`, buttons)
 			.then((r: any) => r.data?.data || r.data),
 
-	simulateAIPost: (channelId: string, text: string, action: string) =>
+	simulateAIPost: (channelId: string, text: string, action: string, extra?: { apiKey?: string; selectedSkill?: string; customSkillPrompt?: string }) =>
 		apiClient
-			.post(`/channels/${channelId}/simulate`, { text, action })
+			.post(`/channels/${channelId}/simulate`, { text, action, ...extra })
 			.then((r: any) => r.data?.data?.text || r.data?.text),
 
 	getFunnel: (channelId: string) =>

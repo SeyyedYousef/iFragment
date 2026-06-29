@@ -317,7 +317,7 @@ func (s *ChannelService) sendFunnelReviewToOwner(ctx context.Context, bot *repos
 	activeText := draft.DraftText
 	destChan, err := s.channelRepo.GetChannelByChatID(ctx, funnel.OutputChatID)
 	if err == nil && destChan != nil {
-		activeText = s.applyWatermarkAndSignature(ctx, draft.DraftText, destChan.ID)
+		activeText = s.ApplyWatermarkAndSignature(ctx, draft.DraftText, destChan.ID)
 		settings, err := s.channelRepo.GetChannelSettings(ctx, destChan.ID)
 		if err == nil && settings != nil {
 			var general GeneralSettingsSchema
@@ -867,7 +867,7 @@ func (s *ChannelService) publishFunnelPostDirectly(ctx context.Context, tg *tele
 	activeText := draft.DraftText
 	destChan, err := s.channelRepo.GetChannelByChatID(ctx, funnel.OutputChatID)
 	if err == nil && destChan != nil {
-		activeText = s.applyWatermarkAndSignature(ctx, activeText, destChan.ID)
+		activeText = s.ApplyWatermarkAndSignature(ctx, activeText, destChan.ID)
 	}
 	var previewMarkup interface{}
 	if len(draft.MediaPayload) > 1 && len(buttonsList) > 0 {
@@ -1094,6 +1094,9 @@ func buildReplyMarkupFromButtons(buttons []repository.ChannelInlineButton) inter
 		ikb := map[string]interface{}{
 			"text": truncateButtonText(text, 64),
 		}
+		if btn.Style != "" && btn.Style != "default" {
+			ikb["style"] = btn.Style
+		}
 
 		if btn.Type == "url" {
 			urlStr := strings.TrimSpace(btn.Value)
@@ -1121,7 +1124,7 @@ func buildReplyMarkupFromButtons(buttons []repository.ChannelInlineButton) inter
 	}
 }
 
-func (s *ChannelService) applyWatermarkAndSignature(ctx context.Context, text string, destChannelID uuid.UUID) string {
+func (s *ChannelService) ApplyWatermarkAndSignature(ctx context.Context, text string, destChannelID uuid.UUID) string {
 	settings, err := s.channelRepo.GetChannelSettings(ctx, destChannelID)
 	if err != nil {
 		return text

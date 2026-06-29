@@ -158,7 +158,11 @@ export const ChannelPostingPage: Component = () => {
 
 		try {
 			// Route through backend — never expose API key directly from browser
-			await channelApi.simulateAIPost(params.id, 'Hello, test connection.', 'test');
+			await channelApi.simulateAIPost(params.id, 'Hello, test connection.', 'test', {
+				apiKey: config.apiKey,
+				selectedSkill: config.selectedSkill,
+				customSkillPrompt: config.customSkillPrompt,
+			});
 			setConnectionStatus('success');
 			hapticFeedback.notificationOccurred('success');
 			showToast(t('channelPosting.connectionSuccess') || 'Connection successful!', 'success');
@@ -181,15 +185,6 @@ export const ChannelPostingPage: Component = () => {
 		if (!textPrompt && action !== 'suggestHashtags') return;
 		if (isGenerating()) return;
 
-		if (isDirty()) {
-			showToast(
-				t('channelPosting.saveBeforePreview' as any) ||
-					'Save the AI settings before generating a preview.',
-				'info',
-			);
-			return;
-		}
-
 		if (!config.apiKey) {
 			showToast(t('channelPosting.missingApiKey') || 'Please enter your API key first.', 'error');
 			setSimulatorOutput(t('channelPosting.simNoApiKey') || '❌ Please enter your API key first.');
@@ -203,7 +198,11 @@ export const ChannelPostingPage: Component = () => {
 		setSimulatorOutput(t('channelPosting.simGenerating') || 'Generating content... ⏳');
 		hapticFeedback.impactOccurred('light');
 		try {
-			const text = await channelApi.simulateAIPost(params.id, textPrompt, action);
+			const text = await channelApi.simulateAIPost(params.id, textPrompt, action, {
+				apiKey: config.apiKey,
+				selectedSkill: config.selectedSkill,
+				customSkillPrompt: config.customSkillPrompt,
+			});
 			if (text) {
 				setSimulatorOutput(text);
 				hapticFeedback.notificationOccurred('success');

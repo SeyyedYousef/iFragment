@@ -1013,6 +1013,71 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 		return nil // Do not process forwarding/auto-responder for expired channels
 	}
 
+	// 2. Outbound Forwarding Rules (Outbound copy/forward/webhook from our channel to others)
+	if s.featureForwarding {
+		outboundRules, err := s.channelRepo.GetForwardingRules(ctx, ch.ID)
+		if err == nil && len(outboundRules) > 0 {
+			for _, rule := range outboundRules {
+				if rule.Direction != "outbound" || !rule.IsActive {
+					continue
+				}
+
+				if rule.TargetType == "webhook" {
+					payload := map[string]interface{}{
+						"channel_id": ch.ID,
+						"chat_id":    ch.ChatID,
+						"message_id": messageID,
+						"text":       postText,
+						"is_edit":    isEdit,
+					}
+					payloadBytes, _ := json.Marshal(payload)
+					secret := os.Getenv("OUTBOUND_WEBHOOK_SECRET")
+					s.sendOutboundWebhookPayload(ctx, rule.Target, payloadBytes, secret)
+				} else {
+					bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
+					if err != nil {
+						continue
+					}
+					token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+					if err != nil {
+						continue
+					}
+					tg := telegram.NewBotAPIClient(token)
+
+					parsedTarget := parseChatIDOrUsername(rule.Target)
+					var targetChatID int64
+					if val, ok := parsedTarget.(int64); ok {
+						targetChatID = val
+					} else {
+						chatRes, err := tg.GetChat(ctx, parsedTarget)
+						if err != nil {
+							slog.Error("Failed to resolve target username", "target", parsedTarget, "error", err)
+							continue
+						}
+						targetChatID = chatRes.ID
+					}
+
+					if rule.Mode == "forward" {
+						if err := tg.ForwardMessage(ctx, targetChatID, chatID, messageID); err != nil {
+							slog.Error("Failed to forward outbound message", "rule_id", rule.ID, "target", targetChatID, "error", err)
+						}
+					} else {
+						text := ApplyTextFilters(postText, ChannelPostFilter{
+							Mode:           rule.Mode,
+							Watermark:      rule.Watermark,
+							RemoveAds:      rule.RemoveAds,
+							RemoveHashtags: rule.RemoveHashtags,
+							RemoveLinks:    rule.RemoveLinks,
+						})
+						if err := tg.SendMessage(ctx, targetChatID, text, nil, nil); err != nil {
+							slog.Error("Failed to send outbound message copy", "rule_id", rule.ID, "target", targetChatID, "error", err)
+						}
+					}
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -1289,7 +1354,8 @@ func (s *ChannelService) scheduledPostWorker(ctx context.Context) {
 						markup := BuildInlineKeyboard(buttons)
 
 						tg := telegram.NewBotAPIClient(token)
-						res, err := tg.SendMessageWithMarkup(bgCtx, ch.ChatID, postCopy.Text, markup, nil)
+						postText := s.ApplyWatermarkAndSignature(bgCtx, postCopy.Text, ch.ID)
+						res, err := tg.SendMessageWithMarkup(bgCtx, ch.ChatID, postText, markup, nil)
 						if err != nil {
 							slog.Error("Failed to send scheduled message via telegram in worker", "post_id", postCopy.ID, "error", err)
 
@@ -2203,25 +2269,38 @@ func callGeminiComposer(ctx context.Context, text, apiKey, skill, customPrompt s
 	return "", fmt.Errorf("no content returned from Gemini API")
 }
 
-func (s *ChannelService) SimulateAIPost(ctx context.Context, ownerUserID int64, channelID uuid.UUID, text, action string) (string, error) {
+func (s *ChannelService) SimulateAIPost(ctx context.Context, ownerUserID int64, channelID uuid.UUID, text, action, tempApiKey, tempSkill, tempCustomPrompt string) (string, error) {
 	ch, err := s.channelRepo.GetChannelByID(ctx, channelID)
 	if err != nil {
 		return "", err
 	}
 
-	settings, err := s.channelRepo.GetChannelSettings(ctx, ch.ID)
-	if err != nil {
-		return "", err
+	var apiKey, skill, customPrompt string
+	if tempApiKey != "" {
+		apiKey = tempApiKey
+		skill = tempSkill
+		customPrompt = tempCustomPrompt
+	} else {
+		settings, err := s.channelRepo.GetChannelSettings(ctx, ch.ID)
+		if err != nil {
+			return "", err
+		}
+		var posting PostingSettingsSchema
+		_ = json.Unmarshal(settings.Posting, &posting)
+		apiKey = posting.ApiKey
+		skill = posting.SelectedSkill
+		customPrompt = posting.CustomSkillPrompt
 	}
 
-	var posting PostingSettingsSchema
-	_ = json.Unmarshal(settings.Posting, &posting)
-
-	if posting.ApiKey == "" {
-		return "", fmt.Errorf("no API key configured for this channel")
+	if apiKey == "" {
+		return "", fmt.Errorf("no API key configured")
 	}
 
-	result, err := callGeminiComposer(ctx, text, posting.ApiKey, posting.SelectedSkill, posting.CustomSkillPrompt)
+	if action == "test" {
+		text = "Hello, please confirm you are working by responding with exactly: 'OK'"
+	}
+
+	result, err := callGeminiComposer(ctx, text, apiKey, skill, customPrompt)
 	if err != nil {
 		return "", err
 	}
@@ -2284,11 +2363,12 @@ func (s *ChannelService) RequestApprovalForPost(ctx context.Context, ch *reposit
 
 	// Save pending post draft in cache
 	pendingID := uuid.New()
+	signedText := s.ApplyWatermarkAndSignature(ctx, text, ch.ID)
 	pending := repository.PendingPost{
 		ID:        pendingID,
 		ChannelID: ch.ID,
 		ChatID:    ch.ChatID,
-		Text:      text,
+		Text:      signedText,
 		Buttons:   buttons,
 	}
 
@@ -2328,7 +2408,7 @@ func (s *ChannelService) RequestApprovalForPost(ctx context.Context, ch *reposit
 	// Format preview text
 	previewText := i18n.T(lang, "channel.draft_status_pending", map[string]interface{}{
 		"channel": ch.ChatTitle,
-		"text":    text,
+		"text":    signedText,
 	})
 
 	targetUserID := bot.OwnerUserID

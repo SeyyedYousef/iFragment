@@ -1008,7 +1008,7 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 			if err == nil && pendingVal != "" {
 				var pending repository.PendingPost
 				_ = json.Unmarshal([]byte(pendingVal), &pending)
-				pending.Text = msg.Text
+				pending.Text = h.channelService.ApplyWatermarkAndSignature(ctx, msg.Text, pending.ChannelID)
 				updatedJSON, _ := json.Marshal(pending)
 				_ = cache.Client.Set(ctx, pendingKey, updatedJSON, 24*time.Hour).Err()
 
@@ -1565,30 +1565,51 @@ func (h *WebhookHandler) handleGroupSettingsCommand(ctx context.Context, bot *re
 func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *repository.ManagedBot, chat *Chat, inviterID int64) {
 	managedGroup, err := h.botRepo.GetGroup(ctx, bot.ID, chat.ID)
 	if err != nil {
-		status := "trial"
-
-		hasHadTrial, _ := h.botRepo.HasChatHadTrial(ctx, chat.ID)
-		activeTrials, _ := h.botRepo.GetActiveTrialsCount(ctx, bot.OwnerUserID)
-
-		if hasHadTrial || activeTrials >= 3 {
-			status = "expired"
+		// Group not found under this bot. Check if it exists under another bot to migrate and preserve settings.
+		var existingGroupID uuid.UUID
+		var oldBotID uuid.UUID
+		query := `SELECT id, bot_id FROM managed_groups WHERE chat_id = $1 LIMIT 1`
+		errScan := h.db.Pool.QueryRow(ctx, query, chat.ID).Scan(&existingGroupID, &oldBotID)
+		if errScan == nil {
+			// Migrate the group to the new bot
+			updateQuery := `UPDATE managed_groups SET bot_id = $1, updated_at = now() WHERE id = $2`
+			_, errUpdate := h.db.Pool.Exec(ctx, updateQuery, bot.ID, existingGroupID)
+			if errUpdate != nil {
+				slog.Error("Failed to migrate group to new bot", "error", errUpdate, "group_id", existingGroupID, "new_bot_id", bot.ID)
+				return
+			}
+			slog.Info("Successfully migrated group to new bot", "group_id", existingGroupID, "old_bot_id", oldBotID, "new_bot_id", bot.ID)
+			managedGroup, err = h.botRepo.GetGroup(ctx, bot.ID, chat.ID)
+			if err != nil {
+				slog.Error("Failed to fetch migrated group", "error", err)
+				return
+			}
 		} else {
-			_ = h.botRepo.RecordTrial(ctx, chat.ID)
-		}
+			status := "trial"
 
-		managedGroup = &repository.ManagedGroup{
-			BotID:              bot.ID,
-			ChatID:             chat.ID,
-			ChatTitle:          chat.Title,
-			ChatType:           chat.Type,
-			SubscriptionStatus: status,
-			TrialEndsAt:        time.Now().Add(72 * time.Hour),
-			ConnectedByUserID:  &inviterID,
-		}
-		err = h.botRepo.CreateGroup(ctx, managedGroup)
-		if err != nil {
-			slog.Error("Failed to auto-create group in DB", "error", err)
-			return
+			hasHadTrial, _ := h.botRepo.HasChatHadTrial(ctx, chat.ID)
+			activeTrials, _ := h.botRepo.GetActiveTrialsCount(ctx, bot.OwnerUserID)
+
+			if hasHadTrial || activeTrials >= 3 {
+				status = "expired"
+			} else {
+				_ = h.botRepo.RecordTrial(ctx, chat.ID)
+			}
+
+			managedGroup = &repository.ManagedGroup{
+				BotID:              bot.ID,
+				ChatID:             chat.ID,
+				ChatTitle:          chat.Title,
+				ChatType:           chat.Type,
+				SubscriptionStatus: status,
+				TrialEndsAt:        time.Now().Add(72 * time.Hour),
+				ConnectedByUserID:  &inviterID,
+			}
+			err = h.botRepo.CreateGroup(ctx, managedGroup)
+			if err != nil {
+				slog.Error("Failed to auto-create group in DB", "error", err)
+				return
+			}
 		}
 	}
 
@@ -2535,7 +2556,10 @@ func buildReplyMarkupFromButtons(buttons []repository.ChannelInlineButton) inter
 		}
 		text += btn.Title
 
-		ikb := InlineKeyboardButton{Text: truncateButtonText(text, 64)}
+		ikb := InlineKeyboardButton{
+			Text:  truncateButtonText(text, 64),
+			Style: btn.Style,
+		}
 		if btn.Type == "url" {
 			ikb.URL = strings.TrimSpace(btn.Value)
 			if !strings.HasPrefix(ikb.URL, "http://") && !strings.HasPrefix(ikb.URL, "https://") && !strings.HasPrefix(ikb.URL, "tg://") {
