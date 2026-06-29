@@ -62,6 +62,7 @@ export const dict = {
 	},
 	"action": {
 		"analyzing": "Analyzing...",
+		"tempDisabled": "This section is temporarily disabled",
 		"collectibles": {
 			"analyzeBtn": "Analyze Anonymous Number",
 			"description": "Trace ownership history and evaluate market premiums for +888 numbers.",
@@ -1589,6 +1590,8 @@ export const dict = {
 	},
 	"home": {
 		"asset3d": "3D ASSET HERE",
+		"collectionInfo": "Collection Info",
+		"collectionSubtitle": "View general collection info from here!",
 		"premiumReport": "PREMIUM REPORT",
 		"promotion": "PROMOTION",
 		"scatterFloorLimit": "Scatter Floor Limit",

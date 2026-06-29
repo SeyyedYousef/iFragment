@@ -8,7 +8,7 @@ import {
 import { useUsernameSearch } from '@/entities/username/model/index.js';
 import { getRandomTrending } from '@/entities/username/model/trendingList.js';
 import { type DictPaths, formatNumber, t } from '@/shared/i18n/index.js';
-
+import { showAlert } from '@/shared/lib/telegram-native.js';
 interface ActionAreaProps {
 	activeTab: 'username' | 'collectibles' | 'gifts';
 	onTabChange?: (tab: 'username' | 'collectibles' | 'gifts') => void;
@@ -45,62 +45,20 @@ const CONTENT: Record<
 	},
 };
 
-/* ── Animated counter (counts up from 0 on mount) ── */
-const AnimatedNumber: Component<{ target: number; suffix?: string; decimals?: number }> = (
-	props,
-) => {
-	const [current, setCurrent] = createSignal(0);
-
-	onMount(() => {
-		const duration = 1200;
-		const start = performance.now();
-		const tick = (now: number) => {
-			const elapsed = now - start;
-			const progress = Math.min(elapsed / duration, 1);
-			// ease-out cubic
-			const eased = 1 - Math.pow(1 - progress, 3);
-			setCurrent(eased * props.target);
-			if (progress < 1) requestAnimationFrame(tick);
-		};
-		requestAnimationFrame(tick);
-	});
-
-	const formatted = createMemo(() => {
-		const d = props.decimals ?? 0;
-		if (d > 0) return current().toFixed(d);
-		return formatNumber(Math.round(current()));
-	});
-
-	return (
-		<span>
-			{formatted()}
-			{props.suffix || ''}
-		</span>
-	);
-};
 
 export const ActionArea: Component<ActionAreaProps> = (props) => {
 	const { searchQuery, setSearchQuery, searchError, setSearchError, validate } = useUsernameSearch();
 	const navigate = useNavigate();
 	const [analyzeState, setAnalyzeState] = createSignal<AnalyzeState>('idle');
 	const [isFocused, setIsFocused] = createSignal(false);
+	const [showCollectionTooltip, setShowCollectionTooltip] = createSignal(true);
 
 	const quickAnalysis = useUsernameQuickAnalysis(() => searchQuery());
-	const [tickerSlide, setTickerSlide] = createSignal(0);
-
-	onMount(() => {
-		const interval = setInterval(() => {
-			setTickerSlide((s) => (s + 1) % 3);
-		}, 4500); // 4.5 seconds per slide
-		
-		onCleanup(() => clearInterval(interval));
-	});
 
 	const [trendingList] = createSignal(getRandomTrending(4));
 
 	const keys = createMemo(() => CONTENT[props.activeTab]);
 	const charCount = createMemo(() => searchQuery().length);
-	const charProgress = createMemo(() => Math.min(charCount() / 32, 1));
 
 	const handleAnalyze = async () => {
 		if (analyzeState() !== 'idle' || !searchQuery() || searchError()) return;
@@ -145,21 +103,6 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 		if (status === 'available') return t('action.username.registerBtn');
 		else if (status) return t('action.username.analyzeMarketBtn');
 		return t(keys().analyzeBtn);
-	};
-
-	const getStatusLabel = (status?: string) => {
-		switch (status) {
-			case 'available':
-				return t('pages.premiumReport.status.available');
-			case 'taken':
-				return t('pages.premiumReport.status.taken');
-			case 'on_auction':
-				return t('pages.premiumReport.status.on_auction');
-			case 'on_sale':
-				return t('pages.premiumReport.status.on_sale');
-			default:
-				return status || '';
-		}
 	};
 
 	const getPrefix = () => {
@@ -273,11 +216,55 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 							transition={{ duration: 0.7, easing: [0.16, 1, 0.3, 1] }}
 							class="text-center w-full mb-10 flex flex-col items-center"
 						>
-							<div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08] mb-6 backdrop-blur-md shadow-[0_2px_10px_rgba(0,0,0,0.1)]">
-								<div class="w-1.5 h-1.5 rounded-full bg-[#3390ec] shadow-[0_0_8px_#3390ec]" />
-								<span class="text-[10px] font-semibold text-white/70 tracking-[0.2em] uppercase">
-									{t('home.premiumReport')}
-								</span>
+							<div class="flex items-center justify-center gap-3 mb-6">
+								<button 
+									onClick={() => {
+										props.onTabChange?.('username');
+										setTimeout(() => {
+											document.querySelector<HTMLInputElement>('input[type="text"]')?.focus();
+										}, 100);
+									}}
+									class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08] backdrop-blur-md shadow-[0_2px_10px_rgba(0,0,0,0.1)] hover:bg-white/[0.08] transition-colors"
+								>
+									<div class="w-1.5 h-1.5 rounded-full bg-[#3390ec] shadow-[0_0_8px_#3390ec]" />
+									<span class="text-[10px] font-semibold text-white/70 tracking-[0.2em] uppercase">
+										{t('home.premiumReport')}
+									</span>
+								</button>
+								<div class="relative">
+									<Show when={showCollectionTooltip()}>
+										<Motion.div
+											initial={{ opacity: 0, scale: 0.9, y: 10 }}
+											animate={{ opacity: 1, scale: 1, y: 0 }}
+											exit={{ opacity: 0, scale: 0.9 }}
+											class="absolute bottom-[130%] left-1/2 -translate-x-1/2 w-max max-w-[200px] bg-[#3390ec] text-white text-[12px] font-bold p-3 rounded-2xl shadow-[0_10px_25px_rgba(51,144,236,0.4)] z-50 flex flex-col gap-2"
+										>
+											<div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#3390ec] rotate-45 rounded-sm"></div>
+											<div class="relative z-10 flex items-start justify-between gap-3">
+												<span class="leading-relaxed text-right">{t('home.collectionSubtitle')}</span>
+												<button
+													onClick={(e) => {
+														e.stopPropagation();
+														setShowCollectionTooltip(false);
+													}}
+													class="mt-0.5 opacity-80 hover:opacity-100 p-0.5 shrink-0 active:scale-95 transition-transform"
+													aria-label="Close tooltip"
+												>
+													<span class="material-symbols-outlined text-[14px]">close</span>
+												</button>
+											</div>
+										</Motion.div>
+									</Show>
+									<button 
+										onClick={() => navigate('/collection-info')}
+										class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08] backdrop-blur-md shadow-[0_2px_10px_rgba(0,0,0,0.1)] hover:bg-white/[0.08] transition-colors"
+									>
+										<span class="material-symbols-outlined text-[14px] text-white/70">collections_bookmark</span>
+										<span class="text-[10px] font-semibold text-white/70 tracking-[0.2em] uppercase">
+											{t('home.collectionInfo')}
+										</span>
+									</button>
+								</div>
 							</div>
 							<h2 class="text-[34px] md:text-[44px] font-extrabold tracking-tight leading-[1.2] mb-3 text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/40">
 								{t(keys().title)}
@@ -361,39 +348,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 										</Motion.div>
 									</Show>
 
-									{/* Quick Analysis Result */}
-									<Show when={quickAnalysis.data}>
-										<Motion.div
-											initial={{ opacity: 0, y: 4 }}
-											animate={{ opacity: 1, y: 0 }}
-											class="mx-2 mb-2 p-3.5 rounded-[20px] bg-white/[0.03] border border-white/[0.06] flex items-center justify-between shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]"
-										>
-											<div class="flex items-center gap-3">
-												<div
-													class="w-3 h-3 rounded-full"
-													style={{
-														'background-color':
-															quickAnalysis.data?.status === 'available' ? '#30d158' : '#ff453a',
-														'box-shadow':
-															quickAnalysis.data?.status === 'available'
-																? '0 0 12px rgba(48,209,88,0.6)'
-																: '0 0 12px rgba(255,69,58,0.4)',
-													}}
-												/>
-												<span class="text-[13px] font-semibold text-white/90">
-													{getStatusLabel(quickAnalysis.data?.status)}
-												</span>
-											</div>
-											<div class="flex items-center gap-1.5 bg-black/50 px-3 py-1.5 rounded-full border border-white/[0.08]">
-												<span class="material-symbols-outlined text-[14px] text-[#3390ec]">
-													diamond
-												</span>
-												<span class="text-[13px] font-bold text-white/95">
-													{quickAnalysis.data?.rarity_score}
-												</span>
-											</div>
-										</Motion.div>
-									</Show>
+
 
 									{/* Analyze Button */}
 									<button

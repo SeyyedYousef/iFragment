@@ -62,6 +62,7 @@ export const dict = {
 	},
 	"action": {
 		"analyzing": "در حال تحلیل...",
+		"tempDisabled": "این بخش موقتا غیرفعال شده است",
 		"collectibles": {
 			"analyzeBtn": "تحلیل شماره مجازی",
 			"description": "تاریخچه مالکیت را ردیابی و ارزش واقعی شماره‌های ۸۸۸+ را ارزیابی کنید.",
@@ -1589,6 +1590,8 @@ export const dict = {
 	},
 	"home": {
 		"asset3d": "نمایش سه بعدی",
+		"collectionInfo": "اطلاعات کالکشن",
+		"collectionSubtitle": "اطلاعات کلی کالکشن را از اینجا مشاهده کنید!",
 		"premiumReport": "گزارش پرمیوم",
 		"promotion": "تبلیغات",
 		"scatterFloorLimit": "محدودیت کف قیمت",

@@ -62,6 +62,7 @@ export const dict = {
 	},
 	"action": {
 		"analyzing": "正在分析...",
+		"tempDisabled": "此部分暂时不可用",
 		"collectibles": {
 			"analyzeBtn": "分析匿名号码",
 			"description": "追踪所有权历史并评估 +888 号码的市场溢价。",
@@ -1589,6 +1590,8 @@ export const dict = {
 	},
 	"home": {
 		"asset3d": "3D 资产在这里",
+		"collectionInfo": "收藏信息",
+		"collectionSubtitle": "在此处查看一般收藏信息！",
 		"premiumReport": "高级报告",
 		"promotion": "促销活动",
 		"scatterFloorLimit": "分散下限",

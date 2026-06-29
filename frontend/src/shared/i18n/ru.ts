@@ -62,6 +62,7 @@ export const dict = {
 	},
 	"action": {
 		"analyzing": "Анализ...",
+		"tempDisabled": "Этот раздел временно отключен",
 		"collectibles": {
 			"analyzeBtn": "Анализировать анонимный номер",
 			"description": "Отслеживайте историю владения и оценивайте рыночные премии для номеров +888.",
@@ -1589,6 +1590,8 @@ export const dict = {
 	},
 	"home": {
 		"asset3d": "3D АКТИВ ЗДЕСЬ",
+		"collectionInfo": "Инфо о коллекции",
+		"collectionSubtitle": "Просмотр общей информации о коллекции здесь!",
 		"premiumReport": "ПРЕМИУМ ОТЧЕТ",
 		"promotion": "АКЦИЯ",
 		"scatterFloorLimit": "Лимит пола Scatter",

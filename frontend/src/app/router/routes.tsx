@@ -1,5 +1,6 @@
 import type { Component } from 'solid-js';
 import { AirdropPage } from '@/pages/airdrop/airdrop/index.js';
+import { CollectionInfoPage } from '@/pages/collection-info/index.js';
 import { ChannelAdminsPage } from '@/pages/channel/admins/index.js';
 import { ChannelAnalyticsPage } from '@/pages/channel/analytics/index.js';
 import { ChannelAuditLogPage } from '@/pages/channel/audit-log/index.js';
@@ -105,4 +106,5 @@ export const routes: Route[] = [
 	{ path: '/owner/health', Component: OwnerHealthPage, title: 'سلامت سیستم' },
 	{ path: '/owner/entities', Component: OwnerEntitiesPage, title: 'مدیریت گروه‌ها و کانال‌ها' },
 	{ path: '/owner/ads', Component: OwnerAds, title: 'تنظیمات تبلیغات داشبورد' },
+	{ path: '/collection-info', Component: CollectionInfoPage },
 ];
