@@ -204,7 +204,7 @@ func (s *ChannelService) ProcessChannelPostForUserbot(ctx context.Context, e tg.
 
 func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *repository.ManagedBot, funnel *repository.ChannelFunnel, inputMsgID int64, text string, media []repository.FunnelMediaItem, mediaGroupID string, authorID *int64, authorName string) error {
 	// 1. Load Input Channel settings to apply features (Project anchor)
-	sourceChan, err := s.channelRepo.GetChannelByChatID(ctx, funnel.InputChatID)
+	sourceChan, err := s.channelRepo.GetChannelByChatID(ctx, funnel.OutputChatID)
 	if err != nil {
 		return fmt.Errorf("failed to load input channel details: %w", err)
 	}
@@ -316,9 +316,9 @@ func (s *ChannelService) sendFunnelReviewToOwner(ctx context.Context, bot *repos
 	lang := "en"
 	activeText := draft.DraftText
 	
-	// Fetch Input Channel (source) to use its settings as the Project settings
-	sourceChan, err := s.channelRepo.GetChannelByChatID(ctx, funnel.InputChatID)
-	slog.Info("sendFunnelReviewToOwner: fetching input channel", "inputChatID", funnel.InputChatID, "sourceChan_err", err, "sourceChan_is_nil", sourceChan == nil)
+	// Fetch Output Channel (source) to use its settings as the Project settings
+	sourceChan, err := s.channelRepo.GetChannelByChatID(ctx, funnel.OutputChatID)
+	slog.Info("sendFunnelReviewToOwner: fetching output channel", "outputChatID", funnel.OutputChatID, "sourceChan_err", err, "sourceChan_is_nil", sourceChan == nil)
 	if err == nil && sourceChan != nil {
 		slog.Info("sendFunnelReviewToOwner: applying watermark/signature", "sourceChan_id", sourceChan.ID, "text_before", activeText)
 		activeText = s.ApplyWatermarkAndSignature(ctx, draft.DraftText, sourceChan.ID)
@@ -870,8 +870,8 @@ func (s *ChannelService) publishFunnelPostDirectly(ctx context.Context, tg *tele
 	_ = json.Unmarshal(draft.DraftButtons, &buttonsList)
 
 	activeText := draft.DraftText
-	sourceChan, err := s.channelRepo.GetChannelByChatID(ctx, funnel.InputChatID)
-	slog.Info("publishFunnelPostDirectly: fetching input channel", "inputChatID", funnel.InputChatID, "sourceChan_err", err, "sourceChan_is_nil", sourceChan == nil)
+	sourceChan, err := s.channelRepo.GetChannelByChatID(ctx, funnel.OutputChatID)
+	slog.Info("publishFunnelPostDirectly: fetching output channel", "outputChatID", funnel.OutputChatID, "sourceChan_err", err, "sourceChan_is_nil", sourceChan == nil)
 	if err == nil && sourceChan != nil {
 		slog.Info("publishFunnelPostDirectly: applying watermark/signature", "sourceChan_id", sourceChan.ID, "text_before", activeText)
 		activeText = s.ApplyWatermarkAndSignature(ctx, activeText, sourceChan.ID)
