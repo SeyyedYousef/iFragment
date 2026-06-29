@@ -111,9 +111,15 @@ func (s *AutoResponderService) ProcessMessage(ctx context.Context, tg *telegram.
 					// Handle Auto Delete
 					var general map[string]interface{}
 					if json.Unmarshal(settings.General, &general) == nil {
-						if autoDeleteBot, ok := general["autoDeleteBot"].(bool); ok && autoDeleteBot {
-							if autoDeleteDelay, ok := general["autoDeleteDelay"].(float64); ok && autoDeleteDelay > 0 {
-								time.AfterFunc(time.Duration(autoDeleteDelay)*time.Second, func() {
+						// Frontend sends 'autoDelete' as the timer in seconds (0 means disabled)
+						if autoDeleteTimer, ok := general["autoDelete"].(float64); ok && autoDeleteTimer > 0 {
+							time.AfterFunc(time.Duration(autoDeleteTimer)*time.Second, func() {
+								_ = tg.DeleteMessage(context.Background(), chatID, res.MessageID)
+							})
+						} else if autoDeleteStr, ok := general["autoDeleteTimer"].(string); ok && autoDeleteStr != "0" && autoDeleteStr != "" {
+							var timerSecs float64
+							if _, err := fmt.Sscanf(autoDeleteStr, "%f", &timerSecs); err == nil && timerSecs > 0 {
+								time.AfterFunc(time.Duration(timerSecs)*time.Second, func() {
 									_ = tg.DeleteMessage(context.Background(), chatID, res.MessageID)
 								})
 							}
