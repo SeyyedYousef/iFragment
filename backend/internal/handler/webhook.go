@@ -2520,6 +2520,10 @@ func (h *WebhookHandler) buildChannelInlineKeyboard(ctx context.Context, channel
 		ikb := InlineKeyboardButton{
 			Text: truncateButtonText(text, 64),
 		}
+		
+		if btn.Style != "" {
+			ikb.Style = btn.Style
+		}
 		if btn.Type == "url" {
 			ikb.URL = strings.TrimSpace(btn.Value)
 			if !strings.HasPrefix(ikb.URL, "http://") && !strings.HasPrefix(ikb.URL, "https://") && !strings.HasPrefix(ikb.URL, "tg://") {
