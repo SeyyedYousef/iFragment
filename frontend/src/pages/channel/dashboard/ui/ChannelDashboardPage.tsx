@@ -233,11 +233,19 @@ export const ChannelDashboardPage: Component = () => {
 					>
 						<div class="absolute right-0 top-0 w-32 h-32 bg-[#bf5af2]/10 rounded-full blur-2xl translate-x-1/2 -translate-y-1/2"></div>
 						
-						<div class="flex items-center gap-2 relative z-10">
-							<span class="material-symbols-outlined text-[#bf5af2] text-[20px]">account_tree</span>
-							<span class="text-[14px] font-black text-white">
-								{t('channelDashboard.funnelTitle')}
-							</span>
+						<div class="flex items-center justify-between relative z-10">
+							<div class="flex items-center gap-2">
+								<span class="material-symbols-outlined text-[#bf5af2] text-[20px]">account_tree</span>
+								<span class="text-[14px] font-black text-white">
+									{t('channelDashboard.funnelTitle')}
+								</span>
+							</div>
+							<button
+								onClick={() => navigate(`/channel/${params.id}/edit-project`)}
+								class="bg-[#1c1c1c]/50 hover:bg-[#1c1c1c] active:scale-95 transition-all w-8 h-8 rounded-full flex items-center justify-center text-[#bf5af2]"
+							>
+								<span class="material-symbols-outlined text-[16px]">edit</span>
+							</button>
 						</div>
 						
 						<p class="text-[12px] text-white/80 leading-relaxed relative z-10 mb-1">

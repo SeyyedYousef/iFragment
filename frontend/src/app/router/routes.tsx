@@ -14,6 +14,7 @@ import { ChannelInlineButtonsPage } from '@/pages/channel/inline-buttons/index.j
 import { ManagedChannelsPage } from '@/pages/channel/managed-channels/index.js';
 import { ChannelPostingPage } from '@/pages/channel/posting/index.js';
 import { ChannelFunnelPage } from '@/pages/channel/funnel/index.js';
+import { EditProjectPage } from '@/pages/channel/edit-project/ui/EditProjectPage.js';
 import { DashboardPage } from '@/pages/dashboard/dashboard/index.js';
 import { AnalyticsPage } from '@/pages/group/analytics/index.js';
 import { BotManagePage } from '@/pages/group/bot-manage/index.js';
@@ -84,6 +85,7 @@ export const routes: Route[] = [
 	{ path: '/managed-channels', Component: ManagedChannelsPage },
 	{ path: '/channel/connect', Component: ConnectChannelPage },
 	{ path: '/channel/:id', Component: ChannelDashboardPage },
+	{ path: '/channel/:id/edit-project', Component: EditProjectPage },
 	{ path: '/channel/:id/settings', Component: ChannelGeneralSettingsPage },
 	{ path: '/channel/:id/posting', Component: ChannelPostingPage },
 	{ path: '/channel/:id/funnel', Component: ChannelFunnelPage },

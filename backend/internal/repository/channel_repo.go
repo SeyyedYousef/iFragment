@@ -99,19 +99,21 @@ func (r *ChannelRepo) GetChannelsByBot(ctx context.Context, botID uuid.UUID, cur
 	}
 
 	if cursor != nil && cursorID != nil {
-		query = `SELECT id, bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, paid_until, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content, connected_by_user_id, created_at, updated_at
-			FROM managed_channels 
-			WHERE bot_id = $1 
-			AND chat_id NOT IN (SELECT input_chat_id FROM channel_funnels WHERE bot_id = $1)
-			AND (created_at < $2 OR (created_at = $2 AND id < $3)) 
-			ORDER BY created_at DESC, id DESC LIMIT $4`
+		query = `SELECT c.id, c.bot_id, c.chat_id, COALESCE(NULLIF(f.project_name, ''), c.chat_title), c.subscribers_count, c.subscription_status, c.trial_ends_at, c.paid_until, c.linked_chat_id, c.slow_mode_delay, c.auto_delete_time, c.sign_messages, c.protect_content, c.connected_by_user_id, c.created_at, c.updated_at
+			FROM managed_channels c
+			LEFT JOIN channel_funnels f ON f.output_chat_id = c.chat_id AND f.bot_id = c.bot_id
+			WHERE c.bot_id = $1 
+			AND c.chat_id NOT IN (SELECT input_chat_id FROM channel_funnels WHERE bot_id = $1)
+			AND (c.created_at < $2 OR (c.created_at = $2 AND c.id < $3)) 
+			ORDER BY c.created_at DESC, c.id DESC LIMIT $4`
 		args = []interface{}{botID, *cursor, *cursorID, limit}
 	} else {
-		query = `SELECT id, bot_id, chat_id, chat_title, subscribers_count, subscription_status, trial_ends_at, paid_until, linked_chat_id, slow_mode_delay, auto_delete_time, sign_messages, protect_content, connected_by_user_id, created_at, updated_at
-			FROM managed_channels 
-			WHERE bot_id = $1 
-			AND chat_id NOT IN (SELECT input_chat_id FROM channel_funnels WHERE bot_id = $1)
-			ORDER BY created_at DESC, id DESC LIMIT $2`
+		query = `SELECT c.id, c.bot_id, c.chat_id, COALESCE(NULLIF(f.project_name, ''), c.chat_title), c.subscribers_count, c.subscription_status, c.trial_ends_at, c.paid_until, c.linked_chat_id, c.slow_mode_delay, c.auto_delete_time, c.sign_messages, c.protect_content, c.connected_by_user_id, c.created_at, c.updated_at
+			FROM managed_channels c
+			LEFT JOIN channel_funnels f ON f.output_chat_id = c.chat_id AND f.bot_id = c.bot_id
+			WHERE c.bot_id = $1 
+			AND c.chat_id NOT IN (SELECT input_chat_id FROM channel_funnels WHERE bot_id = $1)
+			ORDER BY c.created_at DESC, c.id DESC LIMIT $2`
 		args = []interface{}{botID, limit}
 	}
 
@@ -162,18 +164,20 @@ func (r *ChannelRepo) GetChannelsByOwner(ctx context.Context, ownerUserID int64,
 	}
 
 	if cursor != nil && cursorID != nil {
-		query = `SELECT c.id, c.bot_id, c.chat_id, c.chat_title, c.subscribers_count, c.subscription_status, c.trial_ends_at, c.paid_until, c.linked_chat_id, c.slow_mode_delay, c.auto_delete_time, c.sign_messages, c.protect_content, c.connected_by_user_id, c.created_at, c.updated_at
+		query = `SELECT c.id, c.bot_id, c.chat_id, COALESCE(NULLIF(f.project_name, ''), c.chat_title), c.subscribers_count, c.subscription_status, c.trial_ends_at, c.paid_until, c.linked_chat_id, c.slow_mode_delay, c.auto_delete_time, c.sign_messages, c.protect_content, c.connected_by_user_id, c.created_at, c.updated_at
 			FROM managed_channels c
 			JOIN managed_bots b ON c.bot_id = b.id
+			LEFT JOIN channel_funnels f ON f.output_chat_id = c.chat_id AND f.bot_id = c.bot_id
 			WHERE (c.connected_by_user_id = $1 OR EXISTS (SELECT 1 FROM channel_admins ca WHERE ca.channel_id = c.id AND ca.telegram_id = $1)) 
 			AND c.chat_id NOT IN (SELECT input_chat_id FROM channel_funnels WHERE owner_user_id = $1)
 			AND (c.created_at < $2 OR (c.created_at = $2 AND c.id < $3)) 
 			ORDER BY c.created_at DESC, c.id DESC LIMIT $4`
 		args = []interface{}{ownerUserID, *cursor, *cursorID, limit}
 	} else {
-		query = `SELECT c.id, c.bot_id, c.chat_id, c.chat_title, c.subscribers_count, c.subscription_status, c.trial_ends_at, c.paid_until, c.linked_chat_id, c.slow_mode_delay, c.auto_delete_time, c.sign_messages, c.protect_content, c.connected_by_user_id, c.created_at, c.updated_at
+		query = `SELECT c.id, c.bot_id, c.chat_id, COALESCE(NULLIF(f.project_name, ''), c.chat_title), c.subscribers_count, c.subscription_status, c.trial_ends_at, c.paid_until, c.linked_chat_id, c.slow_mode_delay, c.auto_delete_time, c.sign_messages, c.protect_content, c.connected_by_user_id, c.created_at, c.updated_at
 			FROM managed_channels c
 			JOIN managed_bots b ON c.bot_id = b.id
+			LEFT JOIN channel_funnels f ON f.output_chat_id = c.chat_id AND f.bot_id = c.bot_id
 			WHERE (c.connected_by_user_id = $1 OR EXISTS (SELECT 1 FROM channel_admins ca WHERE ca.channel_id = c.id AND ca.telegram_id = $1))
 			AND c.chat_id NOT IN (SELECT input_chat_id FROM channel_funnels WHERE owner_user_id = $1)
 			ORDER BY c.created_at DESC, c.id DESC LIMIT $2`
@@ -249,7 +253,7 @@ func (r *ChannelRepo) GetChannelByChatID(ctx context.Context, chatID int64) (*Ma
 	err := r.db.Pool.QueryRow(ctx, query, chatID).Scan(
 		&c.ID, &c.BotID, &c.ChatID, &c.ChatTitle, &c.SubscribersCount, &c.SubscriptionStatus, &c.TrialEndsAt,
 		&c.PaidUntil, &c.LinkedChatID, &c.SlowModeDelay, &c.AutoDeleteTime, &c.SignMessages, &c.ProtectContent,
-		&c.CreatedAt, &c.UpdatedAt,
+		&c.ConnectedByUserID, &c.CreatedAt, &c.UpdatedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -1264,6 +1268,7 @@ type PendingPost struct {
 type ChannelFunnel struct {
 	ID           uuid.UUID `json:"id"`
 	BotID        uuid.UUID `json:"bot_id"`
+	ProjectName  string    `json:"project_name"`
 	InputChatID  int64     `json:"input_chat_id"`
 	OutputChatID int64     `json:"output_chat_id"`
 	OwnerUserID  int64     `json:"owner_user_id"`
@@ -1301,11 +1306,11 @@ func (r *ChannelRepo) CreateChannelFunnel(ctx context.Context, f *ChannelFunnel)
 	if r.db == nil || r.db.Pool == nil {
 		return fmt.Errorf("database pool is not initialized")
 	}
-	query := `INSERT INTO channel_funnels (bot_id, input_chat_id, output_chat_id, owner_user_id, is_active)
-		VALUES ($1, $2, $3, $4, $5)
-		ON CONFLICT (bot_id, input_chat_id) DO UPDATE SET output_chat_id = EXCLUDED.output_chat_id, is_active = EXCLUDED.is_active, updated_at = now()
+	query := `INSERT INTO channel_funnels (bot_id, project_name, input_chat_id, output_chat_id, owner_user_id, is_active)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (bot_id, input_chat_id) DO UPDATE SET output_chat_id = EXCLUDED.output_chat_id, project_name = EXCLUDED.project_name, is_active = EXCLUDED.is_active, updated_at = now()
 		RETURNING id, created_at, updated_at`
-	return r.db.Pool.QueryRow(ctx, query, f.BotID, f.InputChatID, f.OutputChatID, f.OwnerUserID, f.IsActive).
+	return r.db.Pool.QueryRow(ctx, query, f.BotID, f.ProjectName, f.InputChatID, f.OutputChatID, f.OwnerUserID, f.IsActive).
 		Scan(&f.ID, &f.CreatedAt, &f.UpdatedAt)
 }
 
@@ -1313,11 +1318,11 @@ func (r *ChannelRepo) GetFunnelByInputChatID(ctx context.Context, botID uuid.UUI
 	if r.db == nil || r.db.Pool == nil {
 		return nil, fmt.Errorf("database pool is not initialized")
 	}
-	query := `SELECT id, bot_id, input_chat_id, output_chat_id, owner_user_id, is_active, created_at, updated_at
+	query := `SELECT id, bot_id, project_name, input_chat_id, output_chat_id, owner_user_id, is_active, created_at, updated_at
 		FROM channel_funnels WHERE bot_id = $1 AND input_chat_id = $2`
 	var f ChannelFunnel
 	err := r.db.Pool.QueryRow(ctx, query, botID, inputChatID).Scan(
-		&f.ID, &f.BotID, &f.InputChatID, &f.OutputChatID, &f.OwnerUserID, &f.IsActive, &f.CreatedAt, &f.UpdatedAt,
+		&f.ID, &f.BotID, &f.ProjectName, &f.InputChatID, &f.OutputChatID, &f.OwnerUserID, &f.IsActive, &f.CreatedAt, &f.UpdatedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -1332,7 +1337,7 @@ func (r *ChannelRepo) GetFunnelsByInputChatID(ctx context.Context, inputChatID i
 	if r.db == nil || r.db.Pool == nil {
 		return nil, fmt.Errorf("database pool is not initialized")
 	}
-	query := `SELECT id, bot_id, input_chat_id, output_chat_id, owner_user_id, is_active, created_at, updated_at
+	query := `SELECT id, bot_id, project_name, input_chat_id, output_chat_id, owner_user_id, is_active, created_at, updated_at
 		FROM channel_funnels WHERE input_chat_id = $1 AND is_active = true`
 	rows, err := r.db.Pool.Query(ctx, query, inputChatID)
 	if err != nil {
@@ -1343,7 +1348,7 @@ func (r *ChannelRepo) GetFunnelsByInputChatID(ctx context.Context, inputChatID i
 	var funnels []*ChannelFunnel
 	for rows.Next() {
 		var f ChannelFunnel
-		if err := rows.Scan(&f.ID, &f.BotID, &f.InputChatID, &f.OutputChatID, &f.OwnerUserID, &f.IsActive, &f.CreatedAt, &f.UpdatedAt); err != nil {
+		if err := rows.Scan(&f.ID, &f.BotID, &f.ProjectName, &f.InputChatID, &f.OutputChatID, &f.OwnerUserID, &f.IsActive, &f.CreatedAt, &f.UpdatedAt); err != nil {
 			return nil, err
 		}
 		funnels = append(funnels, &f)
@@ -1355,11 +1360,11 @@ func (r *ChannelRepo) GetFunnelByOutputChatID(ctx context.Context, botID uuid.UU
 	if r.db == nil || r.db.Pool == nil {
 		return nil, fmt.Errorf("database pool is not initialized")
 	}
-	query := `SELECT id, bot_id, input_chat_id, output_chat_id, owner_user_id, is_active, created_at, updated_at
+	query := `SELECT id, bot_id, project_name, input_chat_id, output_chat_id, owner_user_id, is_active, created_at, updated_at
 		FROM channel_funnels WHERE bot_id = $1 AND output_chat_id = $2`
 	var f ChannelFunnel
 	err := r.db.Pool.QueryRow(ctx, query, botID, outputChatID).Scan(
-		&f.ID, &f.BotID, &f.InputChatID, &f.OutputChatID, &f.OwnerUserID, &f.IsActive, &f.CreatedAt, &f.UpdatedAt,
+		&f.ID, &f.BotID, &f.ProjectName, &f.InputChatID, &f.OutputChatID, &f.OwnerUserID, &f.IsActive, &f.CreatedAt, &f.UpdatedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -1374,11 +1379,11 @@ func (r *ChannelRepo) GetFunnelByID(ctx context.Context, id uuid.UUID) (*Channel
 	if r.db == nil || r.db.Pool == nil {
 		return nil, fmt.Errorf("database pool is not initialized")
 	}
-	query := `SELECT id, bot_id, input_chat_id, output_chat_id, owner_user_id, is_active, created_at, updated_at
+	query := `SELECT id, bot_id, project_name, input_chat_id, output_chat_id, owner_user_id, is_active, created_at, updated_at
 		FROM channel_funnels WHERE id = $1`
 	var f ChannelFunnel
 	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
-		&f.ID, &f.BotID, &f.InputChatID, &f.OutputChatID, &f.OwnerUserID, &f.IsActive, &f.CreatedAt, &f.UpdatedAt,
+		&f.ID, &f.BotID, &f.ProjectName, &f.InputChatID, &f.OutputChatID, &f.OwnerUserID, &f.IsActive, &f.CreatedAt, &f.UpdatedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -1395,6 +1400,17 @@ func (r *ChannelRepo) DeleteChannelFunnel(ctx context.Context, id uuid.UUID) err
 	}
 	query := `DELETE FROM channel_funnels WHERE id = $1`
 	_, err := r.db.Pool.Exec(ctx, query, id)
+	return err
+}
+
+func (r *ChannelRepo) UpdateChannelFunnelTx(ctx context.Context, tx pgx.Tx, f *ChannelFunnel) error {
+	query := `UPDATE channel_funnels SET project_name = $1, input_chat_id = $2, output_chat_id = $3, updated_at = now() WHERE id = $4`
+	var err error
+	if tx != nil {
+		_, err = tx.Exec(ctx, query, f.ProjectName, f.InputChatID, f.OutputChatID, f.ID)
+	} else {
+		_, err = r.db.Pool.Exec(ctx, query, f.ProjectName, f.InputChatID, f.OutputChatID, f.ID)
+	}
 	return err
 }
 
@@ -1779,4 +1795,52 @@ func (r *ChannelRepo) CreateChannelBillingSubscriptionTx(ctx context.Context, tx
 	}
 
 	return nil
+}
+
+func (r *ChannelRepo) TransferChannelSubscriptionTx(ctx context.Context, tx pgx.Tx, oldChannelID uuid.UUID, newChannelID uuid.UUID) error {
+	var status string
+	var paidUntil, trialEndsAt *time.Time
+	err := tx.QueryRow(ctx, `SELECT subscription_status, paid_until, trial_ends_at FROM managed_channels WHERE id = $1`, oldChannelID).Scan(&status, &paidUntil, &trialEndsAt)
+	if err != nil {
+		return fmt.Errorf("failed to get old channel subscription: %w", err)
+	}
+
+	_, err = tx.Exec(ctx, `UPDATE managed_channels SET subscription_status = $1, paid_until = $2, trial_ends_at = $3, updated_at = now() WHERE id = $4`, status, paidUntil, trialEndsAt, newChannelID)
+	if err != nil {
+		return fmt.Errorf("failed to update new channel subscription: %w", err)
+	}
+
+	_, err = tx.Exec(ctx, `UPDATE managed_channels SET subscription_status = 'free', paid_until = NULL, trial_ends_at = NULL, updated_at = now() WHERE id = $1`, oldChannelID)
+	if err != nil {
+		return fmt.Errorf("failed to reset old channel subscription: %w", err)
+	}
+
+	_, err = tx.Exec(ctx, `UPDATE channel_billing_subscriptions SET channel_id = $1 WHERE channel_id = $2`, newChannelID, oldChannelID)
+	if err != nil {
+		return fmt.Errorf("failed to transfer billing subscriptions: %w", err)
+	}
+
+	return nil
+}
+
+func (r *ChannelRepo) UpdateFunnelWithSubscriptionTx(ctx context.Context, f *ChannelFunnel, oldOutputChatID, newOutputChatID int64, oldChannelID, newChannelID uuid.UUID) error {
+	tx, err := r.db.Pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Update the funnel
+	if err := r.UpdateChannelFunnelTx(ctx, tx, f); err != nil {
+		return fmt.Errorf("failed to update funnel: %w", err)
+	}
+
+	// Transfer subscription if output channel changed
+	if oldOutputChatID != newOutputChatID {
+		if err := r.TransferChannelSubscriptionTx(ctx, tx, oldChannelID, newChannelID); err != nil {
+			return fmt.Errorf("failed to transfer subscription: %w", err)
+		}
+	}
+
+	return tx.Commit(ctx)
 }

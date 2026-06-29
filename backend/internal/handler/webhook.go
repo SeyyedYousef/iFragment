@@ -1378,7 +1378,8 @@ func (h *WebhookHandler) executeViolationAction(ctx context.Context, bot *reposi
 			slog.Warn("Skipped ban: bot lacks can_restrict_members", "chat_id", chatID)
 		}
 	case violation.Action == "delete" || violation.Action == "warn":
-		if (violation.Action == "warn" || violation.CurrentWarnings > 0) && general.WarningMessage {
+		slog.Info("Violation action matched delete/warn", "action", violation.Action, "warningMessageEnabled", general.WarningMessage, "currentWarnings", violation.CurrentWarnings, "type", violation.Type)
+		if (violation.Action == "warn" || violation.Action == "delete" || violation.CurrentWarnings > 0) && general.WarningMessage {
 			h.sendBotMessage(ctx, tgClient, chatID, fmt.Sprintf("⚠️ %s", penaltyMsg), nil, threadID, general)
 		} else if violation.Type == "mandatory_membership" || violation.Type == "forced_add" || violation.Type == "quiet_hours" {
 			h.sendBotMessage(ctx, tgClient, chatID, fmt.Sprintf("❌ %s", penaltyMsg), nil, threadID, general)
@@ -1612,12 +1613,15 @@ func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *reposit
 }
 
 func (h *WebhookHandler) handleWelcomeMessage(ctx context.Context, bot *repository.ManagedBot, chat *Chat, threadID *int, newMembers []User) {
+	slog.Info("handleWelcomeMessage triggered", "chat_id", chat.ID, "members_count", len(newMembers))
 	group, err := h.botRepo.GetGroup(ctx, bot.ID, chat.ID)
 	if err != nil {
+		slog.Error("Welcome message: group not found", "error", err, "bot_id", bot.ID, "chat_id", chat.ID)
 		return
 	}
-	settings, _ := h.moderator.GetSettings(ctx, group.ID)
-	if settings == nil {
+	settings, err := h.moderator.GetSettings(ctx, group.ID)
+	if err != nil || settings == nil {
+		slog.Error("Welcome message: settings not found", "error", err, "group_id", group.ID)
 		return
 	}
 
@@ -1625,6 +1629,8 @@ func (h *WebhookHandler) handleWelcomeMessage(ctx context.Context, bot *reposito
 	var ct repository.SettingsCustomTexts
 	json.Unmarshal(settings.General, &general)
 	json.Unmarshal(settings.CustomTexts, &ct)
+
+	slog.Info("Welcome message check", "enabled", general.WelcomeMessage, "customTextLen", len(ct.WelcomeText))
 
 	if !general.WelcomeMessage {
 		return
@@ -1843,12 +1849,12 @@ func (h *WebhookHandler) adminBan(ctx context.Context, bot *repository.ManagedBo
 	}
 
 	if perms, err := h.getBotPermissionsCached(ctx, tg, m.Chat.ID, bot.BotID); err == nil && perms != nil && !perms.CanRestrictMembers {
-		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.no_ban_perm"), &m.MessageID, m.MessageThreadID)
+		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "no_ban_perm"), &m.MessageID, m.MessageThreadID)
 		return true
 	}
 
 	_ = tg.BanChatMember(ctx, m.Chat.ID, targetID, 0, false)
-	_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.user_banned", map[string]interface{}{"id": targetID, "name": targetName}), &m.MessageID, m.MessageThreadID)
+	_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "user_banned", map[string]interface{}{"id": targetID, "name": targetName}), &m.MessageID, m.MessageThreadID)
 	return true
 }
 
@@ -1920,7 +1926,7 @@ func (h *WebhookHandler) adminWarn(ctx context.Context, bot *repository.ManagedB
 func (h *WebhookHandler) adminRules(ctx context.Context, tg *telegram.BotAPIClient, m *Message, lang string, groupID uuid.UUID) bool {
 	settings, err := h.moderator.GetSettings(ctx, groupID)
 	if err != nil || settings == nil {
-		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.no_rules"), &m.MessageID, m.MessageThreadID)
+		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "no_rules"), &m.MessageID, m.MessageThreadID)
 		return true
 	}
 
@@ -1928,7 +1934,7 @@ func (h *WebhookHandler) adminRules(ctx context.Context, tg *telegram.BotAPIClie
 	json.Unmarshal(settings.CustomTexts, &ct)
 
 	if ct.RulesText == "" {
-		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.no_rules"), &m.MessageID, m.MessageThreadID)
+		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "no_rules"), &m.MessageID, m.MessageThreadID)
 		return true
 	}
 

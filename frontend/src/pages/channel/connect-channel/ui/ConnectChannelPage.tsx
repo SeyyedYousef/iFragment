@@ -8,6 +8,7 @@ import { showToast } from '@/shared/ui/toast.js';
 
 export const ConnectChannelPage: Component = () => {
 	const navigate = useNavigate();
+	const [projectName, setProjectName] = createSignal('');
 	const [inputChannel, setInputChannel] = createSignal('');
 	const [outputChannel, setOutputChannel] = createSignal('');
 	const [isVerifying, setIsVerifying] = createSignal(false);
@@ -19,9 +20,9 @@ export const ConnectChannelPage: Component = () => {
 	});
 
 	const handleConnect = async () => {
-		if (!inputChannel().trim() || !outputChannel().trim()) {
+		if (!projectName().trim() || !inputChannel().trim() || !outputChannel().trim()) {
 			showToast(
-				t('connectChannel.validationError') || 'Please specify both input and output channels',
+				t('connectChannel.validationError') || 'Please specify project name, input, and output channels',
 				'error',
 			);
 			hapticFeedback.notificationOccurred('error');
@@ -39,10 +40,10 @@ export const ConnectChannelPage: Component = () => {
 			const outChan = await channelApi.connectChannel('auto', outputChannel().trim());
 
 			showToast(
-				t('connectChannel.creatingConnection') || 'Creating channel connection...',
+				t('connectChannel.creatingConnection') || 'Creating project connection...',
 				'info',
 			);
-			await channelApi.createFunnel(outChan.id, inChan.id);
+			await channelApi.createFunnel(outChan.id, inChan.id, projectName().trim());
 
 			if (inChan.subscription_status === 'expired' || outChan.subscription_status === 'expired') {
 				showToast(
@@ -96,16 +97,45 @@ export const ConnectChannelPage: Component = () => {
 				</button>
 				<div class="flex flex-col overflow-hidden">
 					<h1 class="text-[18px] font-black text-white leading-tight truncate">
-						{t('connectChannel.title') || 'Connect Channel'}
+						{t('connectChannel.title') || 'Create Project'}
 					</h1>
 					<span class="text-[12px] text-on-surface-variant truncate">
-						{t('connectChannel.subtitle') || 'Onboard a new Telegram channel'}
+						{t('connectChannel.subtitle') || 'Create a new funnel project'}
 					</span>
 				</div>
 			</div>
 
 			<div class="px-5 pt-6 flex flex-col gap-6">
-				{/* Step 1: Add Bot */}
+				{/* Step 1: Project Name */}
+				<Motion.div
+					initial={{ opacity: 0, y: 10 }}
+					animate={{ opacity: 1, y: 0 }}
+					transition={{ delay: 0.03 }}
+					class="bg-[#1c1c1c] rounded-3xl p-5 border border-[#2a2a2a] flex flex-col gap-3"
+				>
+					<div class="flex items-center gap-3 mb-1">
+						<div class="w-8 h-8 rounded-full bg-[#32ade6] text-black font-black flex items-center justify-center text-[15px]">
+							1
+						</div>
+						<h2 class="text-[16px] font-bold text-white">
+							{t('connectChannel.step0Title') || 'Project Name'}
+						</h2>
+					</div>
+					<p class="text-[13px] text-[#8e8e93] leading-relaxed mb-3">
+						{t('connectChannel.step0Desc') || 'Choose a name for your project to identify it in the dashboard.'}
+					</p>
+					<div>
+						<input
+							type="text"
+							value={projectName()}
+							onInput={(e) => setProjectName(e.currentTarget.value)}
+							placeholder="e.g. My Crypto Channel"
+							class="bg-[#0f1014] border border-[#3a3a3c] text-white text-[15px] rounded-xl px-4 py-3.5 w-full focus:outline-none focus:border-[#32ade6] placeholder-[#5a5a5e] transition-colors"
+						/>
+					</div>
+				</Motion.div>
+
+				{/* Step 2: Add Bot */}
 				<Motion.div
 					initial={{ opacity: 0, y: 10 }}
 					animate={{ opacity: 1, y: 0 }}
@@ -114,7 +144,7 @@ export const ConnectChannelPage: Component = () => {
 				>
 					<div class="flex items-center gap-3 mb-1">
 						<div class="w-8 h-8 rounded-full bg-[#32ade6] text-black font-black flex items-center justify-center text-[15px]">
-							1
+							2
 						</div>
 						<h2 class="text-[16px] font-bold text-white">
 							{t('connectChannel.step1Title') || 'Add Bot to Channel(s)'}
@@ -132,7 +162,7 @@ export const ConnectChannelPage: Component = () => {
 					</button>
 				</Motion.div>
 
-				{/* Step 2: Enter Channel & Connect */}
+				{/* Step 3: Enter Channel & Connect */}
 				<Motion.div
 					initial={{ opacity: 0, y: 10 }}
 					animate={{ opacity: 1, y: 0 }}
@@ -141,7 +171,7 @@ export const ConnectChannelPage: Component = () => {
 				>
 					<div class="flex items-center gap-3 mb-1">
 						<div class="w-8 h-8 rounded-full bg-[#32ade6] text-black font-black flex items-center justify-center text-[15px]">
-							2
+							3
 						</div>
 						<h2 class="text-[16px] font-bold text-white">
 							{t('connectChannel.step2Title') || 'Submit Channel / Funnel Information'}
@@ -181,7 +211,7 @@ export const ConnectChannelPage: Component = () => {
 
 					<button
 						onClick={handleConnect}
-						disabled={isVerifying() || !inputChannel().trim() || !outputChannel().trim()}
+						disabled={isVerifying() || !projectName().trim() || !inputChannel().trim() || !outputChannel().trim()}
 						class="mt-3 w-full bg-[#32ade6] text-black disabled:bg-[#32ade6]/40 disabled:text-black/50 rounded-xl py-3.5 flex items-center justify-center gap-2 font-bold transition-all text-[15px]"
 					>
 						<Show
@@ -190,7 +220,7 @@ export const ConnectChannelPage: Component = () => {
 								<span class="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin"></span>
 							}
 						>
-							{t('connectChannel.verifyConnectBtn') || 'Verify & Connect Channel'}
+							{t('connectChannel.verifyConnectBtn') || 'Verify & Create Project'}
 						</Show>
 					</button>
 				</Motion.div>

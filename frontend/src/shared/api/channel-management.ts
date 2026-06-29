@@ -288,9 +288,10 @@ export const channelApi = {
 			return data?.funnel === null ? null : data;
 		}),
 
-	createFunnel: (channelId: string, inputChannelId: string, inputChannelIdentifier?: string) =>
+	createFunnel: (channelId: string, inputChannelId: string, projectName: string, inputChannelIdentifier?: string) =>
 		apiClient
 			.post<any>(`/channels/${channelId}/funnel`, { 
+				project_name: projectName,
 				input_channel_id: inputChannelId,
 				input_channel_identifier: inputChannelIdentifier 
 			})
@@ -298,11 +299,18 @@ export const channelApi = {
 
 	deleteFunnel: (channelId: string) =>
 		apiClient.delete(`/channels/${channelId}/funnel`).then((r: any) => r.data?.data || r.data),
+	updateFunnel: (channelId: string, payload: {
+		project_name: string;
+		input_channel_id: string;
+		output_channel_id: string;
+		input_channel_identifier?: string;
+	}) => apiClient.put(`/channels/${channelId}/funnel`, payload).then((r: any) => r.data?.data || r.data),
 };
 
 export interface ChannelFunnel {
 	id: string;
 	bot_id: string;
+	project_name?: string;
 	input_chat_id: number;
 	output_chat_id: number;
 	owner_user_id: number;

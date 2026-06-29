@@ -456,6 +456,7 @@ func main() {
 				// Funnel System
 				r.Get("/{channelID}/funnel", channelHandler.GetFunnel)
 				r.Post("/{channelID}/funnel", channelHandler.CreateFunnel)
+				r.Put("/{channelID}/funnel", channelHandler.UpdateFunnel)
 				r.Delete("/{channelID}/funnel", channelHandler.DeleteFunnel)
 
 				// Forwarding Rules

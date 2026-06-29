@@ -340,7 +340,7 @@ func (s *ChannelService) DisconnectChannel(ctx context.Context, ownerUserID int6
 	return nil
 }
 
-func (s *ChannelService) CreateFunnel(ctx context.Context, ownerUserID int64, outputChannelID uuid.UUID, inputChannelID uuid.UUID, inputChannelIdentifier string) (*repository.ChannelFunnel, error) {
+func (s *ChannelService) CreateFunnel(ctx context.Context, ownerUserID int64, outputChannelID uuid.UUID, inputChannelID uuid.UUID, inputChannelIdentifier string, projectName string) (*repository.ChannelFunnel, error) {
 	if err := s.verifyAccess(ctx, ownerUserID, outputChannelID, RoleOwner, RoleAdmin); err != nil {
 		return nil, fmt.Errorf("access denied to output channel: %w", err)
 	}
@@ -364,6 +364,7 @@ func (s *ChannelService) CreateFunnel(ctx context.Context, ownerUserID int64, ou
 
 	f := &repository.ChannelFunnel{
 		BotID:        outChan.BotID,
+		ProjectName:  projectName,
 		InputChatID:  inChan.ChatID,
 		OutputChatID: outChan.ChatID,
 		OwnerUserID:  ownerUserID,
@@ -399,6 +400,78 @@ func (s *ChannelService) CreateFunnel(ctx context.Context, ownerUserID int64, ou
 	})
 
 	return f, nil
+}
+
+func (s *ChannelService) UpdateFunnel(ctx context.Context, ownerUserID int64, funnelID uuid.UUID, outputChannelID uuid.UUID, inputChannelID uuid.UUID, inputChannelIdentifier string, projectName string) (*repository.ChannelFunnel, error) {
+	if err := s.verifyAccess(ctx, ownerUserID, outputChannelID, RoleOwner, RoleAdmin); err != nil {
+		return nil, fmt.Errorf("access denied to output channel: %w", err)
+	}
+	if err := s.verifyAccess(ctx, ownerUserID, inputChannelID, RoleOwner, RoleAdmin); err != nil {
+		return nil, fmt.Errorf("access denied to input channel: %w", err)
+	}
+
+	funnel, err := s.channelRepo.GetFunnelByID(ctx, funnelID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get funnel: %w", err)
+	}
+
+	if funnel.OwnerUserID != ownerUserID {
+		return nil, fmt.Errorf("only the funnel owner can update it")
+	}
+
+	outChan, err := s.channelRepo.GetChannelByID(ctx, outputChannelID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get output channel: %w", err)
+	}
+
+	inChan, err := s.channelRepo.GetChannelByID(ctx, inputChannelID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get input channel: %w", err)
+	}
+
+	if outChan.BotID != inChan.BotID || funnel.BotID != outChan.BotID {
+		return nil, fmt.Errorf("both channels and funnel must belong to the same bot")
+	}
+
+	oldOutputChatID := funnel.OutputChatID
+	
+	oldOutChan, err := s.channelRepo.GetChannelByChatID(ctx, oldOutputChatID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get old output channel: %w", err)
+	}
+
+	funnel.ProjectName = projectName
+	funnel.InputChatID = inChan.ChatID
+	funnel.OutputChatID = outChan.ChatID
+
+	err = s.channelRepo.UpdateFunnelWithSubscriptionTx(ctx, funnel, oldOutputChatID, outChan.ChatID, oldOutChan.ID, outChan.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update funnel: %w", err)
+	}
+
+	// Auto-join logic for Userbot
+	if s.userbotJoiner != nil && inputChannelIdentifier != "" {
+		s.wg.Add(1)
+		GoSafe(func() {
+			defer s.wg.Done()
+			bgCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			if err := s.userbotJoiner(bgCtx, inputChannelIdentifier); err != nil {
+				slog.Warn("Userbot failed to auto-join updated funnel input channel", "channel", inputChannelIdentifier, "error", err)
+			} else {
+				slog.Info("Userbot successfully joined updated funnel input channel", "channel", inputChannelIdentifier)
+			}
+		})
+	}
+
+	target := funnel.ID.String()
+	_ = s.auditRepo.Log(ctx, &repository.AuditLog{
+		ActorID:  ownerUserID,
+		Action:   "channel.funnel_update",
+		TargetID: &target,
+	})
+
+	return funnel, nil
 }
 
 func (s *ChannelService) GetFunnelByOutputChannel(ctx context.Context, ownerUserID int64, outputChannelID uuid.UUID) (*repository.ChannelFunnel, error) {

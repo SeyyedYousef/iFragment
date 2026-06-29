@@ -1617,6 +1617,8 @@ export const dict = {
 		"minLenDesc": "Prevents sending very short, meaningless messages.",
 		"ruleOfZero": "The Rule of Zero",
 		"ruleOfZeroDesc": "Entering 0 in any field completely disables that specific limit.",
+		"ruleOfZeroExample": "Example:",
+		"ruleOfZeroExampleText": "0 means disabled. Setting 'Max Length' to 100 will block messages longer than 100 chars.",
 		"subtitle": "Set strict numerical boundaries to prevent spam and flood.",
 		"title": "Limits"
 	},

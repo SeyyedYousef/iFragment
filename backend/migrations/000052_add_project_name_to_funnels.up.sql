@@ -1,0 +1,3 @@
+BEGIN;
+ALTER TABLE channel_funnels ADD COLUMN project_name TEXT NOT NULL DEFAULT '';
+COMMIT;

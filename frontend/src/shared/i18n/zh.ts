@@ -1617,6 +1617,8 @@ export const dict = {
 		"minLenDesc": "防止发送非常短、无意义的消息。",
 		"ruleOfZero": "零法则",
 		"ruleOfZeroDesc": "在任何字段中输入 0 会完全禁用该特定限制。",
+		"ruleOfZeroExample": "示例：",
+		"ruleOfZeroExampleText": "0 表示禁用。将“最大长度”设置为 100 将阻止超过 100 个字符的消息。",
 		"subtitle": "设置严格的数字界限以防止垃圾邮件和洪水。",
 		"title": "限制"
 	},

@@ -893,6 +893,7 @@ func (h *ChannelHandler) SaveButtons(w http.ResponseWriter, r *http.Request) {
 }
 
 type CreateFunnelRequest struct {
+	ProjectName            string `json:"project_name"`
 	InputChannelID         string `json:"input_channel_id"`
 	InputChannelIdentifier string `json:"input_channel_identifier,omitempty"` // @username or invite link for userbot auto-join
 }
@@ -924,13 +925,68 @@ func (h *ChannelHandler) CreateFunnel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	funnel, err := h.svc.CreateFunnel(r.Context(), userID, channelID, inputChannelID, req.InputChannelIdentifier)
+	funnel, err := h.svc.CreateFunnel(r.Context(), userID, channelID, inputChannelID, req.InputChannelIdentifier, req.ProjectName)
 	if err != nil {
 		h.respondServerError(w, r, "failed to create funnel", err)
 		return
 	}
 
 	RespondJSON(w, http.StatusCreated, funnel)
+}
+
+type UpdateFunnelRequest struct {
+	ProjectName            string `json:"project_name"`
+	InputChannelID         string `json:"input_channel_id"`
+	OutputChannelID        string `json:"output_channel_id"`
+	InputChannelIdentifier string `json:"input_channel_identifier,omitempty"` 
+}
+
+func (h *ChannelHandler) UpdateFunnel(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	channelIDStr := chi.URLParam(r, "channelID")
+	oldChannelID, err := uuid.Parse(channelIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid output channel ID", err)
+		return
+	}
+
+	funnel, err := h.svc.GetFunnelByOutputChannel(r.Context(), userID, oldChannelID)
+	if err != nil || funnel == nil {
+		RespondError(w, r, http.StatusNotFound, "funnel not found", err)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
+	var req UpdateFunnelRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
+	inputChannelID, err := uuid.Parse(req.InputChannelID)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid input channel ID", err)
+		return
+	}
+
+	newOutputChannelID, err := uuid.Parse(req.OutputChannelID)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid new output channel ID", err)
+		return
+	}
+
+	updatedFunnel, err := h.svc.UpdateFunnel(r.Context(), userID, funnel.ID, newOutputChannelID, inputChannelID, req.InputChannelIdentifier, req.ProjectName)
+	if err != nil {
+		h.respondServerError(w, r, "failed to update funnel", err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, updatedFunnel)
 }
 
 func (h *ChannelHandler) GetFunnel(w http.ResponseWriter, r *http.Request) {
@@ -970,6 +1026,7 @@ func (h *ChannelHandler) GetFunnel(w http.ResponseWriter, r *http.Request) {
 	RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"id":               funnel.ID,
 		"bot_id":           funnel.BotID,
+		"project_name":     funnel.ProjectName,
 		"input_chat_id":    funnel.InputChatID,
 		"output_chat_id":   funnel.OutputChatID,
 		"owner_user_id":    funnel.OwnerUserID,

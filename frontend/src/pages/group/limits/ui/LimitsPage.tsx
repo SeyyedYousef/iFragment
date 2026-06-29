@@ -178,8 +178,7 @@ export const LimitsPage: Component = () => {
 							<span class="text-[12px] text-[#8e8e93] leading-relaxed">
 								{t('limitsSettings.ruleOfZeroDesc')}
 								<br />
-								<span class="text-[#3390ec] font-bold">Example:</span> 0 means disabled. Setting
-								'Max Length' to 100 will block messages longer than 100 chars.
+								<span class="text-[#3390ec] font-bold">{t('limitsSettings.ruleOfZeroExample')}</span> {t('limitsSettings.ruleOfZeroExampleText')}
 							</span>
 						</div>
 					</Motion.div>
