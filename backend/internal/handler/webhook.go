@@ -704,6 +704,20 @@ func (h *WebhookHandler) handleMyChatMemberUpdate(ctx context.Context, bot *repo
 	}
 }
 
+func (h *WebhookHandler) shouldProcessJoin(ctx context.Context, chatID int64, userID int64) bool {
+	cache := h.moderator.GetCache()
+	if cache != nil && cache.Client != nil {
+		// If Redis is available, deduplicate
+		key := fmt.Sprintf("processed_join:%d:%d", chatID, userID)
+		set, err := cache.Client.SetNX(ctx, key, "1", 10*time.Second).Result()
+		if err != nil {
+			return true
+		}
+		return set
+	}
+	return true
+}
+
 func (h *WebhookHandler) handleChatMemberUpdate(ctx context.Context, bot *repository.ManagedBot, cmu *ChatMemberUpdated) {
 	// Sync admin lists perfectly by updating Redis cache on user chat member updates
 	slog.Info("Chat member update received", "chat_id", cmu.Chat.ID, "user_id", cmu.From.ID, "new_status", cmu.NewChatMember.Status)
@@ -736,6 +750,31 @@ func (h *WebhookHandler) handleChatMemberUpdate(ctx context.Context, bot *reposi
 				Username:  cmu.NewChatMember.User.Username,
 			}
 			_, _ = h.channelService.ProcessNewMember(ctx, tg, ch.ID, cmu.Chat.ID, []telegram.User{tgUser})
+		}
+	}
+
+	// Trigger New Member Welcome/Captcha for Groups and Supergroups (Handles large chats >50 members where message.new_chat_members is not sent)
+	if (cmu.Chat.Type == "supergroup" || cmu.Chat.Type == "group") &&
+		(cmu.NewChatMember.Status == "member") &&
+		(cmu.OldChatMember.Status == "left" || cmu.OldChatMember.Status == "kicked" || cmu.OldChatMember.Status == "") {
+
+		tgUser := User{
+			ID:        cmu.NewChatMember.User.ID,
+			IsBot:     cmu.NewChatMember.User.IsBot,
+			FirstName: cmu.NewChatMember.User.FirstName,
+			Username:  cmu.NewChatMember.User.Username,
+		}
+
+		if h.shouldProcessJoin(ctx, cmu.Chat.ID, tgUser.ID) {
+			fakeMsg := &Message{
+				Chat: &Chat{
+					ID:    cmu.Chat.ID,
+					Title: cmu.Chat.Title,
+					Type:  cmu.Chat.Type,
+				},
+				NewChatMembers: []User{tgUser},
+			}
+			h.handleJoinLeaveUpdate(ctx, bot, fakeMsg)
 		}
 	}
 }
@@ -877,6 +916,10 @@ func (h *WebhookHandler) handleJoinLeaveUpdate(ctx context.Context, bot *reposit
 			nonBotCount := 0
 			var verifiedUsers []User
 			for _, user := range msg.NewChatMembers {
+				if !h.shouldProcessJoin(ctx, msg.Chat.ID, user.ID) {
+					continue
+				}
+
 				if user.IsBot && content.BlockBots.Enabled {
 					tgClient, tgErr := h.moderator.GetTelegramClient(ctx, bot)
 					if tgErr == nil {
@@ -1849,12 +1892,12 @@ func (h *WebhookHandler) adminBan(ctx context.Context, bot *repository.ManagedBo
 	}
 
 	if perms, err := h.getBotPermissionsCached(ctx, tg, m.Chat.ID, bot.BotID); err == nil && perms != nil && !perms.CanRestrictMembers {
-		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "no_ban_perm"), &m.MessageID, m.MessageThreadID)
+		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.no_ban_perm"), &m.MessageID, m.MessageThreadID)
 		return true
 	}
 
 	_ = tg.BanChatMember(ctx, m.Chat.ID, targetID, 0, false)
-	_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "user_banned", map[string]interface{}{"id": targetID, "name": targetName}), &m.MessageID, m.MessageThreadID)
+	_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.user_banned", map[string]interface{}{"id": targetID, "name": targetName}), &m.MessageID, m.MessageThreadID)
 	return true
 }
 
@@ -1926,7 +1969,7 @@ func (h *WebhookHandler) adminWarn(ctx context.Context, bot *repository.ManagedB
 func (h *WebhookHandler) adminRules(ctx context.Context, tg *telegram.BotAPIClient, m *Message, lang string, groupID uuid.UUID) bool {
 	settings, err := h.moderator.GetSettings(ctx, groupID)
 	if err != nil || settings == nil {
-		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "no_rules"), &m.MessageID, m.MessageThreadID)
+		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.no_rules"), &m.MessageID, m.MessageThreadID)
 		return true
 	}
 
@@ -1934,7 +1977,7 @@ func (h *WebhookHandler) adminRules(ctx context.Context, tg *telegram.BotAPIClie
 	json.Unmarshal(settings.CustomTexts, &ct)
 
 	if ct.RulesText == "" {
-		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "no_rules"), &m.MessageID, m.MessageThreadID)
+		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.no_rules"), &m.MessageID, m.MessageThreadID)
 		return true
 	}
 
@@ -2795,12 +2838,36 @@ func (h *WebhookHandler) adminClean(ctx context.Context, tg *telegram.BotAPIClie
 }
 
 func (h *WebhookHandler) sendBotMessage(ctx context.Context, tg *telegram.BotAPIClient, chatID int64, text string, replyMarkup map[string]interface{}, threadID *int, general repository.SettingsGeneral) {
+	if tg == nil {
+		slog.Error("sendBotMessage: telegram client is nil")
+		return
+	}
 	var msg *telegram.MessageResult
 	var err error
 	if replyMarkup != nil {
 		msg, err = tg.SendMessageWithMarkup(ctx, chatID, text, replyMarkup, threadID)
+		if err != nil {
+			slog.Error("Failed to send bot message with markup", "error", err, "chatID", chatID, "text", text)
+			if strings.Contains(err.Error(), "parse") || strings.Contains(err.Error(), "entity") {
+				slog.Info("Retrying message with markup in plain text mode", "chatID", chatID)
+				msg, err = tg.SendMessageWithMarkup(ctx, chatID, text, replyMarkup, threadID, "")
+				if err != nil {
+					slog.Error("Failed to send bot message with markup in plain text mode too", "error", err, "chatID", chatID)
+				}
+			}
+		}
 	} else {
 		msg, err = tg.SendMessageWithResult(ctx, chatID, text, nil, threadID)
+		if err != nil {
+			slog.Error("Failed to send bot message", "error", err, "chatID", chatID, "text", text)
+			if strings.Contains(err.Error(), "parse") || strings.Contains(err.Error(), "entity") {
+				slog.Info("Retrying message in plain text mode", "chatID", chatID)
+				msg, err = tg.SendMessageWithResult(ctx, chatID, text, nil, threadID, "")
+				if err != nil {
+					slog.Error("Failed to send bot message in plain text mode too", "error", err, "chatID", chatID)
+				}
+			}
+		}
 	}
 
 	if err == nil && msg != nil && general.AutoDeleteBot && general.AutoDeleteDelay > 0 {

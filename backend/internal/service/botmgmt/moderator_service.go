@@ -630,6 +630,9 @@ func (s *ModeratorService) isQuietHours(q repository.SettingsQuietHours, tz stri
 }
 
 func (s *ModeratorService) isSubscriptionValid(g *repository.ManagedGroup) bool {
+	if g.SubscriptionStatus == "expired" {
+		return false
+	}
 	now := time.Now()
 	// If paid period exists and is in the future
 	if g.PaidUntil != nil && now.Before(*g.PaidUntil) {
