@@ -1137,17 +1137,36 @@ func (s *ChannelService) ApplyWatermarkAndSignature(ctx context.Context, text st
 	_ = json.Unmarshal(settings.General, &general)
 
 	processedText := text
+
+	// Apply Watermark
 	if posting.WatermarkEnabled && posting.WatermarkText != "" {
 		watermarkStr := "\n\n" + posting.WatermarkText
 		if !strings.Contains(processedText, watermarkStr) {
 			processedText = processedText + watermarkStr
 		}
 	}
-	if general.SignMessages && general.CustomSignature != "" {
-		signatureStr := "\n\n✍️ " + general.CustomSignature
-		if !strings.Contains(processedText, signatureStr) {
-			processedText = processedText + signatureStr
+
+	// Support fallback for older legacy signatures
+	sigEnabled := general.SignMessages
+	sigText := general.CustomSignature
+
+	// If general doesn't have it, check if posting has a legacy signature
+	if !sigEnabled && posting.Signature != "" {
+		sigEnabled = true
+		sigText = posting.Signature
+	}
+
+	// Apply Signature
+	if sigEnabled && sigText != "" {
+		// Only append if it's not already in the text
+		if !strings.Contains(processedText, sigText) {
+			signaturePrefix := "\n\n✍️ "
+			if strings.HasPrefix(sigText, "✍️") || strings.HasPrefix(sigText, "—") {
+				signaturePrefix = "\n\n"
+			}
+			processedText = processedText + signaturePrefix + sigText
 		}
 	}
+
 	return processedText
 }
