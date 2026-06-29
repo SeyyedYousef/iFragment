@@ -253,7 +253,7 @@ export const ClanView: Component = () => {
 								{/* Top Icon Box */}
 								<div class="w-[100px] h-[100px] bg-black rounded-[32px] flex items-center justify-center mb-6 shadow-xl relative overflow-hidden shrink-0">
 									{clan().channel_photo ? (
-										<img src={clan().channel_photo} class="w-full h-full object-cover" />
+										<img src={clan().channel_photo} alt={clan().chat_title} class="w-full h-full object-cover" />
 									) : (
 										<svg viewBox="0 0 100 100" class="w-[50%] h-[50%]">
 											<path d="M 50 15 L 15 80 L 85 80 Z" fill="none" stroke="white" stroke-width="12" stroke-linejoin="round" stroke-linecap="round"/>
@@ -349,7 +349,7 @@ export const ClanView: Component = () => {
 											<div class="text-[#8e8e93] font-bold text-[14px] w-5 text-center">{globalRank() || 1}</div>
 											<div class="w-11 h-11 rounded-full bg-gradient-to-br from-gray-700 to-gray-600 flex items-center justify-center text-xl overflow-hidden border border-white/10">
 												<Show when={clan().channel_photo} fallback={<div class="text-white text-lg">You</div>}>
-													<img src={clan().channel_photo} class="w-full h-full object-cover" />
+													<img src={clan().channel_photo} alt={clan().chat_title} class="w-full h-full object-cover" />
 												</Show>
 											</div>
 											<div class="flex flex-col">

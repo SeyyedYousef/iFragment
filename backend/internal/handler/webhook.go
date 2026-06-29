@@ -765,17 +765,15 @@ func (h *WebhookHandler) handleChatMemberUpdate(ctx context.Context, bot *reposi
 			Username:  cmu.NewChatMember.User.Username,
 		}
 
-		if h.shouldProcessJoin(ctx, cmu.Chat.ID, tgUser.ID) {
-			fakeMsg := &Message{
-				Chat: &Chat{
-					ID:    cmu.Chat.ID,
-					Title: cmu.Chat.Title,
-					Type:  cmu.Chat.Type,
-				},
-				NewChatMembers: []User{tgUser},
-			}
-			h.handleJoinLeaveUpdate(ctx, bot, fakeMsg)
+		fakeMsg := &Message{
+			Chat: &Chat{
+				ID:    cmu.Chat.ID,
+				Title: cmu.Chat.Title,
+				Type:  cmu.Chat.Type,
+			},
+			NewChatMembers: []User{tgUser},
 		}
+		h.handleJoinLeaveUpdate(ctx, bot, fakeMsg)
 	}
 }
 

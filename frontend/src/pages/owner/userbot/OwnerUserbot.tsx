@@ -103,7 +103,7 @@ export const OwnerUserbot: Component = () => {
 						🛡️
 					</div>
 					<div>
-						<h1 class="text-sm font-black uppercase tracking-wider text-white">پنل مدیریت</h1>
+						<h2 class="text-sm font-black uppercase tracking-wider text-white">پنل مدیریت</h2>
 						<p class="text-[9px] text-[#3390ec] font-black uppercase tracking-widest mt-0.5">
 							تنظیمات حساب‌های متصل
 						</p>

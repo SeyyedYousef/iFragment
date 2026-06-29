@@ -53,9 +53,9 @@ export const ShopView: Component = () => {
 				</div>
 
 				<div class="bg-[#1c1c1e]/60 backdrop-blur-md rounded-2xl p-4 border border-white/5 flex items-center gap-4">
-					<div class="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center shrink-0">
+					<div class="w-12 h-12 rounded-xl bg-cyan-500/10 flex items-center justify-center shrink-0">
 						<span
-							class="material-symbols-outlined text-purple-400 text-[24px]"
+							class="material-symbols-outlined text-cyan-400 text-[24px]"
 							style={{ 'font-variation-settings': '"FILL" 1' }}
 						>
 							podcasts
