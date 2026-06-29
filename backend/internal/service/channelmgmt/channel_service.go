@@ -801,8 +801,8 @@ func (s *ChannelService) UpdateSettings(ctx context.Context, ownerUserID int64, 
 	}
 
 	ch, err := s.channelRepo.GetChannelByID(ctx, channelID)
+	isFunnelInput := false
 	if err == nil {
-		isFunnelInput := false
 		if funnels, errFunnel := s.channelRepo.GetFunnelsByInputChatID(ctx, ch.ChatID); errFunnel == nil && len(funnels) > 0 {
 			isFunnelInput = true
 		}
@@ -814,7 +814,12 @@ func (s *ChannelService) UpdateSettings(ctx context.Context, ownerUserID int64, 
 		}
 	}
 
-	newSettings, err := s.channelRepo.UpdateChannelSettingsCategory(ctx, channelID, category, data, ownerUserID, version)
+	targetVersion := version
+	if isFunnelInput {
+		targetVersion = 0
+	}
+
+	newSettings, err := s.channelRepo.UpdateChannelSettingsCategory(ctx, channelID, category, data, ownerUserID, targetVersion)
 	if err != nil {
 		return nil, err
 	}

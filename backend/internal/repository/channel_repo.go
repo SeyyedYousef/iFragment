@@ -366,13 +366,23 @@ func (r *ChannelRepo) UpdateChannelSettingsCategory(ctx context.Context, channel
 		return nil, fmt.Errorf("invalid channel settings category: %s", category)
 	}
 
-	query := fmt.Sprintf(`UPDATE channel_settings SET %s = $1, version = version + 1, updated_at = now(), updated_by = $2
-		WHERE channel_id = $3 AND version = $4
-		RETURNING version, updated_at`, column)
-
+	var query string
+	var err error
 	var version int
 	var updatedAt time.Time
-	err := r.db.Pool.QueryRow(ctx, query, data, userID, channelID, currentVersion).Scan(&version, &updatedAt)
+
+	if currentVersion <= 0 {
+		query = fmt.Sprintf(`UPDATE channel_settings SET %s = $1, version = version + 1, updated_at = now(), updated_by = $2
+			WHERE channel_id = $3
+			RETURNING version, updated_at`, column)
+		err = r.db.Pool.QueryRow(ctx, query, data, userID, channelID).Scan(&version, &updatedAt)
+	} else {
+		query = fmt.Sprintf(`UPDATE channel_settings SET %s = $1, version = version + 1, updated_at = now(), updated_by = $2
+			WHERE channel_id = $3 AND version = $4
+			RETURNING version, updated_at`, column)
+		err = r.db.Pool.QueryRow(ctx, query, data, userID, channelID, currentVersion).Scan(&version, &updatedAt)
+	}
+
 	if err == pgx.ErrNoRows {
 		return nil, ErrOptimisticLockConflict
 	}
