@@ -1305,6 +1305,7 @@ export const dict = {
 		"subtitle": "Connect your channel to the dashboard",
 		"success": "Channel connected successfully!",
 		"title": "Channel connection",
+		"trialLimitReached": "You have already created 3 channels with a trial period. New channels will not have a free trial period!",
 		"validationError": "Please specify both input and output channels.",
 		"verifyConnectBtn": "Verify & Connect Channel",
 		"verifyingInput": "Verifying input channel...",

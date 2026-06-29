@@ -44,10 +44,18 @@ export const ConnectChannelPage: Component = () => {
 			);
 			await channelApi.createFunnel(outChan.id, inChan.id);
 
-			showToast(
-				t('connectChannel.success') || 'Channel connected successfully!',
-				'success',
-			);
+			if (inChan.subscription_status === 'expired' || outChan.subscription_status === 'expired') {
+				showToast(
+					t('connectChannel.trialLimitReached') || 'You have already created 3 channels with a trial period. New channels will not have a free trial period!',
+					'warning'
+				);
+			} else {
+				showToast(
+					t('connectChannel.success') || 'Channel connected successfully!',
+					'success',
+				);
+			}
+			
 			hapticFeedback.notificationOccurred('success');
 			navigate('/managed-channels', { replace: true });
 		} catch (err: any) {

@@ -1305,6 +1305,7 @@ export const dict = {
 		"subtitle": "将您的频道连接到仪表板",
 		"success": "频道连接成功！",
 		"title": "通道连接",
+		"trialLimitReached": "您已经创建了 3 个带有试用期的频道。新频道将没有免费试用期！",
 		"validationError": "请指定输入和输出通道。",
 		"verifyConnectBtn": "验证并连接通道",
 		"verifyingInput": "正在验证输入通道...",
