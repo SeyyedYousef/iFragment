@@ -564,16 +564,55 @@ func (s *ChannelService) checkSubscription(ch *repository.ManagedChannel) error 
 	if ch == nil {
 		return fmt.Errorf("unauthorized: channel is nil")
 	}
+
+	// 1. Check if the channel itself has an active subscription
+	isSelfActive := true
+	if ch.SubscriptionStatus == "expired" {
+		isSelfActive = false
+	} else if ch.SubscriptionStatus == "trial" && ch.TrialEndsAt.Before(time.Now()) {
+		isSelfActive = false
+	} else if ch.SubscriptionStatus == "paid" && ch.PaidUntil != nil && ch.PaidUntil.Before(time.Now()) {
+		isSelfActive = false
+	}
+
+	if isSelfActive {
+		return nil
+	}
+
+	// 2. If the channel itself is expired/inactive, check if it is an Input Channel of a funnel
+	// and if that funnel's Output Channel has an active subscription!
+	if s.channelRepo != nil {
+		ctx := context.Background()
+		funnels, err := s.channelRepo.GetFunnelsByInputChatID(ctx, ch.ChatID)
+		if err == nil && len(funnels) > 0 {
+			for _, funnel := range funnels {
+				// Get output channel details
+				outChan, err := s.channelRepo.GetChannelByChatID(ctx, funnel.OutputChatID)
+				if err == nil && outChan != nil {
+					// Check output channel's subscription directly to avoid infinite recursion
+					isOutActive := true
+					if outChan.SubscriptionStatus == "expired" {
+						isOutActive = false
+					} else if outChan.SubscriptionStatus == "trial" && outChan.TrialEndsAt.Before(time.Now()) {
+						isOutActive = false
+					} else if outChan.SubscriptionStatus == "paid" && outChan.PaidUntil != nil && outChan.PaidUntil.Before(time.Now()) {
+						isOutActive = false
+					}
+					if isOutActive {
+						return nil // Bypassed! Input channel is active because its output channel (project) is active!
+					}
+				}
+			}
+		}
+	}
+
 	if ch.SubscriptionStatus == "expired" {
 		return fmt.Errorf("unauthorized: channel subscription has expired")
 	}
-	if ch.SubscriptionStatus == "trial" && ch.TrialEndsAt.Before(time.Now()) {
+	if ch.SubscriptionStatus == "trial" {
 		return fmt.Errorf("unauthorized: channel trial has ended")
 	}
-	if ch.SubscriptionStatus == "paid" && ch.PaidUntil != nil && ch.PaidUntil.Before(time.Now()) {
-		return fmt.Errorf("unauthorized: channel paid subscription has expired")
-	}
-	return nil
+	return fmt.Errorf("unauthorized: channel paid subscription has expired")
 }
 
 func (s *ChannelService) validateForwardingTarget(rule *repository.ChannelForwardingRule) error {
