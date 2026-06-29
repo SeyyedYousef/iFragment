@@ -203,15 +203,15 @@ func (s *ChannelService) ProcessChannelPostForUserbot(ctx context.Context, e tg.
 }
 
 func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *repository.ManagedBot, funnel *repository.ChannelFunnel, inputMsgID int64, text string, media []repository.FunnelMediaItem, mediaGroupID string, authorID *int64, authorName string) error {
-	// 1. Load Output Channel settings to apply features
-	destChan, err := s.channelRepo.GetChannelByChatID(ctx, funnel.OutputChatID)
+	// 1. Load Input Channel settings to apply features (Project anchor)
+	sourceChan, err := s.channelRepo.GetChannelByChatID(ctx, funnel.InputChatID)
 	if err != nil {
-		return fmt.Errorf("failed to load output channel details: %w", err)
+		return fmt.Errorf("failed to load input channel details: %w", err)
 	}
 
-	settings, err := s.channelRepo.GetChannelSettings(ctx, destChan.ID)
+	settings, err := s.channelRepo.GetChannelSettings(ctx, sourceChan.ID)
 	if err != nil {
-		return fmt.Errorf("failed to load output channel settings: %w", err)
+		return fmt.Errorf("failed to load input channel settings: %w", err)
 	}
 
 	var posting PostingSettingsSchema
@@ -272,7 +272,7 @@ func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *r
 	}
 
 	// 4. Load Predefined Inline Buttons
-	buttons, err := s.channelRepo.GetChannelButtons(ctx, destChan.ID)
+	buttons, err := s.channelRepo.GetChannelButtons(ctx, sourceChan.ID)
 	if err != nil {
 		buttons = []repository.ChannelInlineButton{}
 	}
@@ -303,7 +303,7 @@ func (s *ChannelService) processAggregatedFunnelPost(ctx context.Context, bot *r
 	}
 
 	// 6. Send the Review Messages to the Bot Owner (DM)
-	return s.sendFunnelReviewToOwner(ctx, bot, funnel, &draft, destChan.ChatTitle)
+	return s.sendFunnelReviewToOwner(ctx, bot, funnel, &draft, sourceChan.ChatTitle)
 }
 
 func (s *ChannelService) sendFunnelReviewToOwner(ctx context.Context, bot *repository.ManagedBot, funnel *repository.ChannelFunnel, draft *repository.PendingFunnelPost, destTitle string) error {
@@ -315,13 +315,15 @@ func (s *ChannelService) sendFunnelReviewToOwner(ctx context.Context, bot *repos
 
 	lang := "en"
 	activeText := draft.DraftText
-	destChan, err := s.channelRepo.GetChannelByChatID(ctx, funnel.OutputChatID)
-	slog.Info("sendFunnelReviewToOwner: fetching output channel", "outputChatID", funnel.OutputChatID, "destChan_err", err, "destChan_is_nil", destChan == nil)
-	if err == nil && destChan != nil {
-		slog.Info("sendFunnelReviewToOwner: applying watermark/signature", "destChan_id", destChan.ID, "text_before", activeText)
-		activeText = s.ApplyWatermarkAndSignature(ctx, draft.DraftText, destChan.ID)
+	
+	// Fetch Input Channel (source) to use its settings as the Project settings
+	sourceChan, err := s.channelRepo.GetChannelByChatID(ctx, funnel.InputChatID)
+	slog.Info("sendFunnelReviewToOwner: fetching input channel", "inputChatID", funnel.InputChatID, "sourceChan_err", err, "sourceChan_is_nil", sourceChan == nil)
+	if err == nil && sourceChan != nil {
+		slog.Info("sendFunnelReviewToOwner: applying watermark/signature", "sourceChan_id", sourceChan.ID, "text_before", activeText)
+		activeText = s.ApplyWatermarkAndSignature(ctx, draft.DraftText, sourceChan.ID)
 		slog.Info("sendFunnelReviewToOwner: applied", "text_after", activeText)
-		settings, err := s.channelRepo.GetChannelSettings(ctx, destChan.ID)
+		settings, err := s.channelRepo.GetChannelSettings(ctx, sourceChan.ID)
 		if err == nil && settings != nil {
 			var general GeneralSettingsSchema
 			if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
@@ -514,7 +516,7 @@ func generateAIBVariations(ctx context.Context, text, apiKey, skill, customPromp
 		return nil, err
 	}
 
-	apiURL := "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey
+	apiURL := "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=" + apiKey
 	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, err
@@ -868,11 +870,11 @@ func (s *ChannelService) publishFunnelPostDirectly(ctx context.Context, tg *tele
 	_ = json.Unmarshal(draft.DraftButtons, &buttonsList)
 
 	activeText := draft.DraftText
-	destChan, err := s.channelRepo.GetChannelByChatID(ctx, funnel.OutputChatID)
-	slog.Info("publishFunnelPostDirectly: fetching output channel", "outputChatID", funnel.OutputChatID, "destChan_err", err, "destChan_is_nil", destChan == nil)
-	if err == nil && destChan != nil {
-		slog.Info("publishFunnelPostDirectly: applying watermark/signature", "destChan_id", destChan.ID, "text_before", activeText)
-		activeText = s.ApplyWatermarkAndSignature(ctx, activeText, destChan.ID)
+	sourceChan, err := s.channelRepo.GetChannelByChatID(ctx, funnel.InputChatID)
+	slog.Info("publishFunnelPostDirectly: fetching input channel", "inputChatID", funnel.InputChatID, "sourceChan_err", err, "sourceChan_is_nil", sourceChan == nil)
+	if err == nil && sourceChan != nil {
+		slog.Info("publishFunnelPostDirectly: applying watermark/signature", "sourceChan_id", sourceChan.ID, "text_before", activeText)
+		activeText = s.ApplyWatermarkAndSignature(ctx, activeText, sourceChan.ID)
 		slog.Info("publishFunnelPostDirectly: applied", "text_after", activeText)
 	}
 	var previewMarkup interface{}
@@ -976,7 +978,7 @@ func (s *ChannelService) publishFunnelPostDirectly(ctx context.Context, tg *tele
 	_ = s.channelRepo.UpdatePendingFunnelPost(ctx, draft)
 	now := time.Now()
 	channelPost := repository.ChannelPost{
-		ChannelID:         destChan.ID,
+		ChannelID:         sourceChan.ID, // Track against Project (Input)
 		TelegramMessageID: pubMsgID,
 		AuthorUserID:      draft.OriginalAuthorID,
 		Text:              activeText,
@@ -987,7 +989,7 @@ func (s *ChannelService) publishFunnelPostDirectly(ctx context.Context, tg *tele
 
 	// 8. Log Audit Trails
 	auditLog := repository.ChannelAuditLog{
-		ChannelID: destChan.ID,
+		ChannelID: sourceChan.ID, // Track against Project (Input)
 		ActorID:   funnel.OwnerUserID,
 		Action:    "funnel_post_publish",
 	}
@@ -1002,7 +1004,7 @@ func (s *ChannelService) publishFunnelPostDirectly(ctx context.Context, tg *tele
 	_ = s.channelRepo.LogAudit(ctx, &auditLog)
 
 	lang := "en"
-	settings, err := s.channelRepo.GetChannelSettings(ctx, destChan.ID)
+	settings, err := s.channelRepo.GetChannelSettings(ctx, sourceChan.ID)
 	if err == nil && settings != nil {
 		var general GeneralSettingsSchema
 		if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
@@ -1130,8 +1132,8 @@ func buildReplyMarkupFromButtons(buttons []repository.ChannelInlineButton) inter
 	}
 }
 
-func (s *ChannelService) ApplyWatermarkAndSignature(ctx context.Context, text string, destChannelID uuid.UUID) string {
-	settings, err := s.channelRepo.GetChannelSettings(ctx, destChannelID)
+func (s *ChannelService) ApplyWatermarkAndSignature(ctx context.Context, text string, channelID uuid.UUID) string {
+	settings, err := s.channelRepo.GetChannelSettings(ctx, channelID)
 	if err != nil {
 		return text
 	}
@@ -1157,7 +1159,7 @@ func (s *ChannelService) ApplyWatermarkAndSignature(ctx context.Context, text st
 	sigText := general.CustomSignature
 
 	slog.Info("ApplyWatermarkAndSignature initial state", 
-		"channel_id", destChannelID,
+		"channel_id", channelID,
 		"general_sign_enabled", sigEnabled,
 		"general_sig_text", sigText,
 		"posting_watermark_enabled", posting.WatermarkEnabled,
@@ -1174,7 +1176,7 @@ func (s *ChannelService) ApplyWatermarkAndSignature(ctx context.Context, text st
 	}
 
 	slog.Info("ApplyWatermarkAndSignature final state",
-		"channel_id", destChannelID,
+		"channel_id", channelID,
 		"sigEnabled", sigEnabled,
 		"sigText", sigText,
 	)
