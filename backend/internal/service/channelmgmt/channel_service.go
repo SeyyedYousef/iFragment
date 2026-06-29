@@ -802,8 +802,15 @@ func (s *ChannelService) UpdateSettings(ctx context.Context, ownerUserID int64, 
 
 	ch, err := s.channelRepo.GetChannelByID(ctx, channelID)
 	if err == nil {
-		if err := s.checkSubscription(ch); err != nil {
-			return nil, err
+		isFunnelInput := false
+		if funnels, errFunnel := s.channelRepo.GetFunnelsByInputChatID(ctx, ch.ChatID); errFunnel == nil && len(funnels) > 0 {
+			isFunnelInput = true
+		}
+
+		if !isFunnelInput {
+			if err := s.checkSubscription(ch); err != nil {
+				return nil, err
+			}
 		}
 	}
 

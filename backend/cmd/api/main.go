@@ -140,40 +140,6 @@ func main() {
 			slog.Error("FATAL: Database migration initialization failed in production", "error", lastMigrationErr)
 			os.Exit(1)
 		}
-
-		// DEBUG: Query all channel settings to see what exists in the DB
-		if db.Pool != nil {
-			go func() {
-				time.Sleep(3 * time.Second) // wait for DB to settle
-				rows, err := db.Pool.Query(context.Background(), "SELECT channel_id, general::text, posting::text, version FROM channel_settings")
-				if err == nil {
-					defer rows.Close()
-					for rows.Next() {
-						var cid, gen, post string
-						var ver int
-						if errScan := rows.Scan(&cid, &gen, &post, &ver); errScan == nil {
-							slog.Info("DEBUG DB SETTINGS ROW", "channel_id", cid, "general", gen, "posting", post, "version", ver)
-						}
-					}
-				} else {
-					slog.Error("DEBUG DB SETTINGS QUERY FAILED", "error", err)
-				}
-
-				// Also query managed channels
-				rows2, err := db.Pool.Query(context.Background(), "SELECT id, chat_id, chat_title FROM managed_channels")
-				if err == nil {
-					defer rows2.Close()
-					for rows2.Next() {
-						var id string
-						var chatID int64
-						var title string
-						if errScan := rows2.Scan(&id, &chatID, &title); errScan == nil {
-							slog.Info("DEBUG DB CHANNEL ROW", "id", id, "chat_id", chatID, "title", title)
-						}
-					}
-				}
-			}()
-		}
 	}
 
 	// Initialize Cache
