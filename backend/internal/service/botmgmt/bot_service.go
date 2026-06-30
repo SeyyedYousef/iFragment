@@ -977,7 +977,11 @@ func (s *BotService) sendQHNotice(ctx context.Context, g repository.ManagedGroup
 	tg := telegram.NewBotAPIClient(token)
 
 	msg := customText
-	if msg == "" {
+	if msg != "" {
+		msg = strings.ReplaceAll(msg, "{group}", telegram.EscapeHTML(g.ChatTitle))
+		msg = strings.ReplaceAll(msg, "{chat_title}", telegram.EscapeHTML(g.ChatTitle))
+		msg = strings.ReplaceAll(msg, "{time}", timeStr)
+	} else {
 		if action == "start" {
 			msg = i18n.T(lang, "notifications.qh_start", nil)
 		} else {
