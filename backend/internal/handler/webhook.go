@@ -1326,6 +1326,82 @@ func (h *WebhookHandler) mapToModeratorContext(m *Message) *botmgmt.MessageConte
 	}
 }
 
+func (h *WebhookHandler) formatWarningText(ctx context.Context, tgClient *telegram.BotAPIClient, chatID int64, userID int64, reason string, violationType string, currentWarnings int, warningThreshold int, template string) string {
+	userName := fmt.Sprintf("User %d", userID)
+	userLink := fmt.Sprintf("<a href=\"tg://user?id=%d\">User %d</a>", userID, userID)
+	userUsername := ""
+
+	resp, errMember := tgClient.Request(ctx, "getChatMember", map[string]interface{}{
+		"chat_id": chatID,
+		"user_id": userID,
+	})
+	if errMember == nil {
+		var chatMemberResp struct {
+			Result struct {
+				User struct {
+					ID        int64  `json:"id"`
+					FirstName string `json:"first_name"`
+					LastName  string `json:"last_name"`
+					Username  string `json:"username"`
+				} `json:"user"`
+			} `json:"result"`
+		}
+		if json.Unmarshal(resp, &chatMemberResp) == nil && chatMemberResp.Result.User.ID != 0 {
+			u := chatMemberResp.Result.User
+			name := u.FirstName
+			if u.LastName != "" {
+				name += " " + u.LastName
+			}
+			userName = name
+			userLink = fmt.Sprintf("<a href=\"tg://user?id=%d\">%s</a>", userID, telegram.EscapeHTML(name))
+			if u.Username != "" {
+				userUsername = "@" + u.Username
+			}
+		}
+	}
+
+	ruleName := violationType
+	switch violationType {
+	case "username":
+		ruleName = "Username Restriction"
+	case "domain":
+		ruleName = "Domain Restriction"
+	case "links":
+		ruleName = "Links Restriction"
+	case "banned_keyword":
+		ruleName = "Banned Keyword"
+	case "duplicate":
+		ruleName = "Anti-Flood / Duplicate"
+	case "flood":
+		ruleName = "Anti-Flood"
+	case "min_length":
+		ruleName = "Message Minimum Length"
+	case "max_length":
+		ruleName = "Message Maximum Length"
+	case "quiet_hours":
+		ruleName = "Quiet Hours / Lockdown"
+	case "mandatory_membership":
+		ruleName = "Mandatory Membership"
+	case "forced_add":
+		ruleName = "Forced Member Addition"
+	case "admin_warn":
+		ruleName = "Administrator Action"
+	}
+
+	text := template
+	text = strings.ReplaceAll(text, "{user}", userLink)
+	text = strings.ReplaceAll(text, "{first_name}", telegram.EscapeHTML(userName))
+	text = strings.ReplaceAll(text, "{username}", telegram.EscapeHTML(userUsername))
+	text = strings.ReplaceAll(text, "{id}", fmt.Sprintf("%d", userID))
+	text = strings.ReplaceAll(text, "{reason}", telegram.EscapeHTML(reason))
+	text = strings.ReplaceAll(text, "{rule}", telegram.EscapeHTML(ruleName))
+	text = strings.ReplaceAll(text, "{count}", fmt.Sprintf("%d", currentWarnings))
+	text = strings.ReplaceAll(text, "{threshold}", fmt.Sprintf("%d", warningThreshold))
+	text = strings.ReplaceAll(text, "{time}", time.Now().Format("2006-01-02 15:04:05 MST"))
+
+	return text
+}
+
 func (h *WebhookHandler) executeViolationAction(ctx context.Context, bot *repository.ManagedBot, chatID int64, userID int64, messageID int, threadID *int, violation *botmgmt.Violation) {
 	tgClient, err := h.moderator.GetTelegramClient(ctx, bot)
 	if err != nil {
@@ -1368,6 +1444,7 @@ func (h *WebhookHandler) executeViolationAction(ctx context.Context, bot *reposi
 	// 3. Execute Penalty
 	lang := "en"
 	var general repository.SettingsGeneral
+	var ct repository.SettingsCustomTexts
 	group, err := h.botRepo.GetGroup(ctx, bot.ID, chatID)
 	if err == nil {
 		settings, _ := h.moderator.GetSettings(ctx, group.ID)
@@ -1375,12 +1452,24 @@ func (h *WebhookHandler) executeViolationAction(ctx context.Context, bot *reposi
 			if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
 				lang = general.Language
 			}
+			_ = json.Unmarshal(settings.CustomTexts, &ct)
 		}
 	}
 
-	penaltyMsg := violation.Message
-	if violation.CurrentWarnings > 0 {
-		penaltyMsg = i18n.T(lang, "notice.warning", violation.Message, violation.CurrentWarnings, violation.WarningThreshold)
+	var penaltyMsg string
+	if violation.Action == "warn" || violation.Action == "delete" {
+		warningTemplate := ct.WarningText
+		if warningTemplate == "" {
+			warningTemplate = "⚠️ <b>Official Warning</b>\n\nUser: {user} ({id})\nReason: {reason}\nRule Violated: {rule}\n\nThis is warning {count} out of {threshold}. Please strictly adhere to the group rules to avoid further administrative actions."
+		}
+		penaltyMsg = h.formatWarningText(ctx, tgClient, chatID, userID, violation.Message, violation.Type, violation.CurrentWarnings, violation.WarningThreshold, warningTemplate)
+	} else {
+		reasonStr := violation.Message
+		if violation.CurrentWarnings > 0 {
+			penaltyMsg = i18n.T(lang, "notice.warning", reasonStr, violation.CurrentWarnings, violation.WarningThreshold)
+		} else {
+			penaltyMsg = reasonStr
+		}
 	}
 
 	switch {
@@ -1421,7 +1510,7 @@ func (h *WebhookHandler) executeViolationAction(ctx context.Context, bot *reposi
 	case violation.Action == "delete" || violation.Action == "warn":
 		slog.Info("Violation action matched delete/warn", "action", violation.Action, "warningMessageEnabled", general.WarningMessage, "currentWarnings", violation.CurrentWarnings, "type", violation.Type)
 		if (violation.Action == "warn" || violation.Action == "delete" || violation.CurrentWarnings > 0) && general.WarningMessage {
-			h.sendBotMessage(ctx, tgClient, chatID, fmt.Sprintf("⚠️ %s", penaltyMsg), nil, threadID, general)
+			h.sendBotMessage(ctx, tgClient, chatID, penaltyMsg, nil, threadID, general)
 		} else if violation.Type == "mandatory_membership" || violation.Type == "forced_add" || violation.Type == "quiet_hours" {
 			h.sendBotMessage(ctx, tgClient, chatID, fmt.Sprintf("❌ %s", penaltyMsg), nil, threadID, general)
 		}

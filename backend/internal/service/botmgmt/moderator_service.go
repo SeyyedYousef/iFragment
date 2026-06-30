@@ -1013,13 +1013,6 @@ func (s *ModeratorService) handleAutoWarning(ctx context.Context, groupID uuid.U
 		return v, nil
 	}
 
-	// Use custom warning text if available
-	if ct.WarningText != "" {
-		v.Message = ct.WarningText
-	} else {
-		v.Message = "⚠️ Warning: Please respect the rules."
-	}
-
 	// Log warning event
 	s.logEvent(ctx, groupID, "member_warned", &userID, "")
 
