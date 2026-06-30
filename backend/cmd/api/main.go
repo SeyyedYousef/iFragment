@@ -394,6 +394,35 @@ func main() {
 			w.Write([]byte(`{"status": "healthy", "telegram_api": "reachable"}`))
 		})
 
+		r.Get("/diagnostics/group-settings/{chatID}", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			chatIDStr := chi.URLParam(r, "chatID")
+			chatID, err := strconv.ParseInt(chatIDStr, 10, 64)
+			if err != nil {
+				w.Write([]byte(fmt.Sprintf(`{"error": "invalid chat ID: %v"}`, err)))
+				return
+			}
+			if db == nil {
+				w.Write([]byte(`{"error": "db connection nil"}`))
+				return
+			}
+			var groupID string
+			var chatTitle string
+			err = db.Pool.QueryRow(r.Context(), "SELECT id, chat_title FROM managed_groups WHERE chat_id = $1", chatID).Scan(&groupID, &chatTitle)
+			if err != nil {
+				w.Write([]byte(fmt.Sprintf(`{"error": "group not found: %v"}`, err)))
+				return
+			}
+			var general string
+			var customTexts string
+			err = db.Pool.QueryRow(r.Context(), "SELECT general, custom_texts FROM group_settings WHERE group_id = $1", groupID).Scan(&general, &customTexts)
+			if err != nil {
+				w.Write([]byte(fmt.Sprintf(`{"error": "settings not found: %v"}`, err)))
+				return
+			}
+			w.Write([]byte(fmt.Sprintf(`{"groupID": "%s", "title": "%s", "general": %s, "custom_texts": %s}`, groupID, chatTitle, general, customTexts)))
+		})
+
 		// Protected core business API routes (require ban checking and blocking impersonated writes)
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.MaintenanceMiddleware(settingsRepo))
@@ -497,6 +526,7 @@ func main() {
 
 			r.Route("/profile", func(r chi.Router) {
 				r.Get("/avatar/{userID}", profileHandler.GetAvatar)
+				r.Get("/public-config", profileHandler.GetPublicConfig)
 
 				r.Group(func(r chi.Router) {
 					r.Use(middleware.AuthMiddleware)

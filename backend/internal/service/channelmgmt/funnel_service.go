@@ -517,23 +517,44 @@ func generateAIBVariations(ctx context.Context, text, apiKey, skill, customPromp
 	}
 
 	apiURL := "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=" + apiKey
-	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-
+	
+	var resp *http.Response
 	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
+
+	for attempt := 1; attempt <= 3; attempt++ {
+		req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewBuffer(jsonData))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err = client.Do(req)
+		if err == nil {
+			if resp.StatusCode == http.StatusOK {
+				break
+			}
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			err = fmt.Errorf("Gemini variations status code: %d, body: %s", resp.StatusCode, string(body))
+			
+			if resp.StatusCode != http.StatusServiceUnavailable && resp.StatusCode != http.StatusTooManyRequests {
+				return nil, err
+			}
+		}
+
+		if attempt < 3 {
+			slog.Warn("Retrying Gemini variations API call due to transient error", "attempt", attempt, "error", err)
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(time.Duration(attempt) * 1 * time.Second):
+			}
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Gemini variations status code: %d, body: %s", resp.StatusCode, string(body))
-	}
 
 	var geminiResp struct {
 		Candidates []struct {
@@ -1165,8 +1186,6 @@ func (s *ChannelService) ApplyWatermarkAndSignature(ctx context.Context, text st
 		"posting_watermark_enabled", posting.WatermarkEnabled,
 		"posting_watermark_text", posting.WatermarkText,
 		"legacy_posting_sig", posting.Signature,
-		"raw_general", string(settings.General),
-		"raw_posting", string(settings.Posting),
 	)
 
 	// If general doesn't have it, check if posting has a legacy signature

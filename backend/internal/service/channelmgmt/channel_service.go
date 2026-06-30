@@ -2214,26 +2214,42 @@ func callGeminiParaphrase(text, apiKey string) (string, error) {
 
 	apiURL := "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=" + apiKey
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
+	var resp *http.Response
+	client := &http.Client{Timeout: 5 * time.Second}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return "", err
+	for attempt := 1; attempt <= 3; attempt++ {
+		reqCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		req, err := http.NewRequestWithContext(reqCtx, "POST", apiURL, bytes.NewBuffer(jsonData))
+		if err != nil {
+			cancel()
+			return "", err
+		}
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err = client.Do(req)
+		cancel()
+		if err == nil {
+			if resp.StatusCode == http.StatusOK {
+				break
+			}
+			bodyBytes, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			err = fmt.Errorf("Gemini API returned status %d: %s", resp.StatusCode, string(bodyBytes))
+			
+			if resp.StatusCode != http.StatusServiceUnavailable && resp.StatusCode != http.StatusTooManyRequests {
+				return "", err
+			}
+		}
+
+		if attempt < 3 {
+			slog.Warn("Retrying Gemini paraphrase API call due to transient error", "attempt", attempt, "error", err)
+			time.Sleep(time.Duration(attempt) * 500 * time.Millisecond)
+		}
 	}
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{Timeout: 3 * time.Second}
-	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("Gemini API returned status %d: %s", resp.StatusCode, string(bodyBytes))
-	}
 
 	var geminiResp struct {
 		Candidates []struct {
@@ -2309,24 +2325,44 @@ func callGeminiComposer(ctx context.Context, text, apiKey, skill, customPrompt, 
 	}
 
 	apiURL := "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=" + apiKey
-
-	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", "application/json")
-
+	
+	var resp *http.Response
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
+
+	for attempt := 1; attempt <= 3; attempt++ {
+		req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewBuffer(jsonData))
+		if err != nil {
+			return "", err
+		}
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err = client.Do(req)
+		if err == nil {
+			if resp.StatusCode == http.StatusOK {
+				break
+			}
+			bodyBytes, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			err = fmt.Errorf("Gemini API returned status %d: %s", resp.StatusCode, string(bodyBytes))
+			
+			if resp.StatusCode != http.StatusServiceUnavailable && resp.StatusCode != http.StatusTooManyRequests {
+				return "", err
+			}
+		}
+
+		if attempt < 3 {
+			slog.Warn("Retrying Gemini composer API call due to transient error", "attempt", attempt, "error", err)
+			select {
+			case <-ctx.Done():
+				return "", ctx.Err()
+			case <-time.After(time.Duration(attempt) * 1 * time.Second):
+			}
+		}
+	}
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("Gemini API returned status %d: %s", resp.StatusCode, string(bodyBytes))
-	}
 
 	var geminiResp2 struct {
 		Candidates []struct {

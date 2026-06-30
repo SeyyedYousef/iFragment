@@ -161,6 +161,51 @@ func (r *SettingsRepo) ClearCacheKey(ctx context.Context, key string) {
 	}
 }
 
+func populateGeneralDefaults(raw json.RawMessage) json.RawMessage {
+	var m map[string]interface{}
+	if err := json.Unmarshal(raw, &m); err != nil || m == nil {
+		m = make(map[string]interface{})
+	}
+
+	defaults := map[string]interface{}{
+		"language":            "en",
+		"timezone":            "UTC",
+		"welcomeMessage":      true,
+		"warningMessage":      true,
+		"autoDeleteBot":       false,
+		"autoDeleteDelay":     30,
+		"trackAdmin":          false,
+		"verifyMembers":       false,
+		"publicCommands":      false,
+		"hideJoinLeave":       false,
+		"defaultPenalty":      "delete",
+		"autoWarning":         false,
+		"warningThreshold":    0,
+		"warningRetention":    0,
+		"warningFinalPenalty": "",
+		"casEnabled":          false,
+		"antiRaidThreshold":   0,
+		"antiRaidAction":      "none",
+		"botEnabled":          true,
+	}
+
+	changed := false
+	for k, v := range defaults {
+		if _, exists := m[k]; !exists {
+			m[k] = v
+			changed = true
+		}
+	}
+
+	if changed || len(raw) <= 2 { // empty or "{}"
+		newData, err := json.Marshal(m)
+		if err == nil {
+			return json.RawMessage(newData)
+		}
+	}
+	return raw
+}
+
 func (r *SettingsRepo) GetSettings(ctx context.Context, groupID uuid.UUID) (*GroupSettings, error) {
 	if r.db == nil || r.db.Pool == nil {
 		return nil, fmt.Errorf("database connection not available")
@@ -178,6 +223,7 @@ func (r *SettingsRepo) GetSettings(ctx context.Context, groupID uuid.UUID) (*Gro
 		if err == nil {
 			var s GroupSettings
 			if json.Unmarshal([]byte(val), &s) == nil {
+				s.General = populateGeneralDefaults(s.General)
 				r.localCache.Store(groupID, &s)
 				return &s, nil
 			}
@@ -196,6 +242,7 @@ func (r *SettingsRepo) GetSettings(ctx context.Context, groupID uuid.UUID) (*Gro
 	}
 
 	if err == nil {
+		s.General = populateGeneralDefaults(s.General)
 		r.localCache.Store(groupID, &s)
 		if r.cache != nil && r.cache.Client != nil {
 			// Set cache
@@ -221,11 +268,12 @@ func (r *SettingsRepo) initSettings(ctx context.Context, groupID uuid.UUID) (*Gr
 		DynamicBio:          empty,
 		Version:             1,
 	}
+	s.General = populateGeneralDefaults(s.General)
 	query := `INSERT INTO group_settings (group_id, general, content_restrictions, limits, quiet_hours, mandatory_membership, custom_texts, dynamic_bio)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		ON CONFLICT (group_id) DO NOTHING
 		RETURNING updated_at`
-	err := r.db.Pool.QueryRow(ctx, query, groupID, empty, empty, empty, empty, empty, empty, empty).Scan(&s.UpdatedAt)
+	err := r.db.Pool.QueryRow(ctx, query, groupID, s.General, empty, empty, empty, empty, empty, empty).Scan(&s.UpdatedAt)
 	if err == pgx.ErrNoRows {
 		return r.GetSettings(ctx, groupID)
 	}
