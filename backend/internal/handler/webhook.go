@@ -46,10 +46,16 @@ type WebhookHandler struct {
 	moderator      *botmgmt.ModeratorService
 	botRepo        *repository.BotRepo
 	channelService *channelmgmt.ChannelService
+	processedJoins sync.Map
 }
 
 func NewWebhookHandler(db *repository.Database, moderator *botmgmt.ModeratorService, botRepo *repository.BotRepo, channelService *channelmgmt.ChannelService) *WebhookHandler {
-	return &WebhookHandler{db: db, moderator: moderator, botRepo: botRepo, channelService: channelService}
+	return &WebhookHandler{
+		db:             db,
+		moderator:      moderator,
+		botRepo:        botRepo,
+		channelService: channelService,
+	}
 }
 
 type TelegramUpdate struct {
@@ -707,14 +713,31 @@ func (h *WebhookHandler) handleMyChatMemberUpdate(ctx context.Context, bot *repo
 func (h *WebhookHandler) shouldProcessJoin(ctx context.Context, chatID int64, userID int64) bool {
 	cache := h.moderator.GetCache()
 	if cache != nil && cache.Client != nil {
-		// If Redis is available, deduplicate
 		key := fmt.Sprintf("processed_join:%d:%d", chatID, userID)
 		set, err := cache.Client.SetNX(ctx, key, "1", 10*time.Second).Result()
-		if err != nil {
-			return true
+		if err == nil {
+			return set
 		}
-		return set
 	}
+
+	key := fmt.Sprintf("%d:%d", chatID, userID)
+	now := time.Now()
+	if val, ok := h.processedJoins.Load(key); ok {
+		if lastTime, timeOk := val.(time.Time); timeOk && now.Sub(lastTime) < 10*time.Second {
+			return false
+		}
+	}
+	h.processedJoins.Store(key, now)
+
+	go func() {
+		h.processedJoins.Range(func(k, v interface{}) bool {
+			if t, ok := v.(time.Time); ok && now.Sub(t) > 30*time.Second {
+				h.processedJoins.Delete(k)
+			}
+			return true
+		})
+	}()
+
 	return true
 }
 

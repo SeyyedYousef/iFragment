@@ -191,7 +191,13 @@ func populateGeneralDefaults(raw json.RawMessage) json.RawMessage {
 
 	changed := false
 	for k, v := range defaults {
-		if _, exists := m[k]; !exists {
+		val, exists := m[k]
+		if !exists || val == nil {
+			m[k] = v
+			changed = true
+			continue
+		}
+		if str, ok := val.(string); ok && str == "" {
 			m[k] = v
 			changed = true
 		}
@@ -225,7 +231,13 @@ func populateCustomTextsDefaults(raw json.RawMessage) json.RawMessage {
 
 	changed := false
 	for k, v := range defaults {
-		if _, exists := m[k]; !exists {
+		val, exists := m[k]
+		if !exists || val == nil {
+			m[k] = v
+			changed = true
+			continue
+		}
+		if str, ok := val.(string); ok && str == "" {
 			m[k] = v
 			changed = true
 		}
