@@ -77,10 +77,6 @@ export const ChannelDynamicBioPage: Component = () => {
 
 	const variables = [
 		{ tag: '$members', desc: t('channelDynamicBio.varMembers') || 'تعداد اعضا', val: '45,102' },
-		{ tag: '$btc', desc: t('channelDynamicBio.varBtc') || 'قیمت بیت‌کوین', val: '$64,200' },
-		{ tag: '$eth', desc: 'قیمت اتریوم', val: '$3,500' },
-		{ tag: '$sol', desc: 'قیمت سولانا', val: '$150' },
-		{ tag: '$ton', desc: 'قیمت TON', val: '$5.50' },
 		{ tag: '$Gram', desc: 'قیمت Gram', val: '$5.50' },
 		{ tag: '$time', desc: t('channelDynamicBio.varTime') || 'زمان فعلی', val: '14:30' },
 		{ tag: '$date', desc: 'تاریخ', val: '12 May 2026' },
@@ -90,13 +86,18 @@ export const ChannelDynamicBioPage: Component = () => {
 	const generatePreview = (template: string) => {
 		let res = template;
 		res = res.replace(/\$members/g, telegramInfo()?.memberCount?.toString() || '...');
-		res = res.replace(/\$time/g, new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-		res = res.replace(/\$date/g, new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }));
-		res = res.replace(/\$day_name/g, new Date().toLocaleDateString('en-US', { weekday: 'long' }));
-		res = res.replace(/\$btc/g, '$...');
-		res = res.replace(/\$eth/g, '$...');
-		res = res.replace(/\$sol/g, '$...');
-		res = res.replace(/\$ton/g, '$...');
+		
+		const now = new Date();
+		const hours = now.getUTCHours().toString().padStart(2, '0');
+		const mins = now.getUTCMinutes().toString().padStart(2, '0');
+		res = res.replace(/\$time/g, `${hours}:${mins}`);
+		
+		const dateStr = now.toLocaleDateString('en-GB', { timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric' });
+		res = res.replace(/\$date/g, dateStr);
+		
+		const dayStr = now.toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'long' });
+		res = res.replace(/\$day_name/g, dayStr);
+		
 		res = res.replace(/\$Gram/g, '$...');
 		return res || 'Empty';
 	};

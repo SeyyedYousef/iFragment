@@ -948,6 +948,14 @@ func (s *ChannelService) UpdateSettings(ctx context.Context, ownerUserID int64, 
 		}
 	}
 
+	if category == "dynamic_bio" {
+		var config DynamicBioConfig
+		if err := json.Unmarshal(data, &config); err == nil && config.Enabled {
+			// Trigger immediate update in background
+			go s.updateChannelDynamicBio(context.Background(), ch, config)
+		}
+	}
+
 	// Audit Log
 	var oldVal []byte
 	switch category {

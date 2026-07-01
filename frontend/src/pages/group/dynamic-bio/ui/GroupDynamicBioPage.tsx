@@ -67,10 +67,6 @@ export const GroupDynamicBioPage: Component = () => {
 
 	const variables = [
 		{ tag: '$members', desc: t('channelDynamicBio.varMembers') || 'Members', val: '45,102' },
-		{ tag: '$btc', desc: t('channelDynamicBio.varBtc') || 'Bitcoin Price', val: '$64,200' },
-		{ tag: '$eth', desc: 'Ethereum Price', val: '$3,500' },
-		{ tag: '$sol', desc: 'Solana Price', val: '$150' },
-		{ tag: '$ton', desc: 'TON Price', val: '$5.50' },
 		{ tag: '$Gram', desc: t('channelDynamicBio.varGram') || 'Gram Price', val: '$5.50' },
 		{ tag: '$time', desc: t('channelDynamicBio.varTime') || 'Current Time', val: '14:30' },
 		{ tag: '$date', desc: t('channelDynamicBio.varDate') || 'Date', val: '12 May 2026' },

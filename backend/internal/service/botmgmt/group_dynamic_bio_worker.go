@@ -104,7 +104,7 @@ func (s *BotService) updateGroupDynamicBio(ctx context.Context, g *repository.Ma
 		memberCount = fmt.Sprintf("%d", count)
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
 	timeStr := now.Format("15:04")
 	dateStr := now.Format("02 Jan 2006")
 	dayStr := now.Format("Monday")
@@ -117,11 +117,7 @@ func (s *BotService) updateGroupDynamicBio(ctx context.Context, g *repository.Ma
 		res = strings.ReplaceAll(res, "$day_name", dayStr)
 
 		if s.cryptoSvc != nil {
-			res = strings.ReplaceAll(res, "$btc", s.cryptoSvc.GetPrice("bitcoin"))
-			res = strings.ReplaceAll(res, "$eth", s.cryptoSvc.GetPrice("ethereum"))
 			res = strings.ReplaceAll(res, "$Gram", s.cryptoSvc.GetPrice("the-open-network"))
-			res = strings.ReplaceAll(res, "$sol", s.cryptoSvc.GetPrice("solana"))
-			res = strings.ReplaceAll(res, "$ton", s.cryptoSvc.GetPrice("the-open-network"))
 		}
 
 		return res

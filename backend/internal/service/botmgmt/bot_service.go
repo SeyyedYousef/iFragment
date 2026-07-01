@@ -540,6 +540,16 @@ func (s *BotService) UpdateSettings(ctx context.Context, groupID uuid.UUID, cate
 		}
 	}
 
+	if category == "dynamic_bio" {
+		var config GroupDynamicBioConfig
+		if err := json.Unmarshal(data, &config); err == nil && config.Enabled {
+			group, err := s.botRepo.GetGroupByID(ctx, groupID)
+			if err == nil {
+				go s.updateGroupDynamicBio(context.Background(), group, config)
+			}
+		}
+	}
+
 	return newSettings, nil
 }
 

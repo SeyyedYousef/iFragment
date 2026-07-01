@@ -62,7 +62,7 @@ func (s *CryptoPriceService) fetchPrices(ctx context.Context) {
 	}()
 
 	// CoinGecko ids for target currencies
-	ids := "bitcoin,ethereum,solana,the-open-network"
+	ids := "the-open-network"
 	url := fmt.Sprintf("https://api.coingecko.com/api/v3/simple/price?ids=%s&vs_currencies=usd", ids)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -72,6 +72,7 @@ func (s *CryptoPriceService) fetchPrices(ctx context.Context) {
 	}
 
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "iFragmentBot/1.0 (https://ifragment.com)")
 	
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
