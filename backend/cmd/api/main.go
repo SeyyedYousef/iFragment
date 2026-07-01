@@ -28,6 +28,7 @@ import (
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service"
 	"ifragment-backend/internal/service/botmgmt"
+	"ifragment-backend/internal/service/broadcaster"
 	"ifragment-backend/internal/service/channelmgmt"
 	"ifragment-backend/internal/service/cryptoprice"
 	"ifragment-backend/internal/service/payment"
@@ -154,6 +155,13 @@ func main() {
 	// Initialize Crypto Price Service
 	cryptoPriceService := cryptoprice.NewCryptoPriceService(cache)
 	go cryptoPriceService.Start(ctx)
+
+	// Initialize Gram Broadcaster
+	botToken := os.Getenv("BOT_TOKEN")
+	if botToken != "" {
+		gramBroadcaster := broadcaster.NewGramBroadcaster(botToken, cryptoPriceService)
+		go gramBroadcaster.Start(ctx)
+	}
 
 	// Initialize Router
 	r := chi.NewRouter()
