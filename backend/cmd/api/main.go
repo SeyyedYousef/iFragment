@@ -29,6 +29,7 @@ import (
 	"ifragment-backend/internal/service"
 	"ifragment-backend/internal/service/botmgmt"
 	"ifragment-backend/internal/service/channelmgmt"
+	"ifragment-backend/internal/service/cryptoprice"
 	"ifragment-backend/internal/service/payment"
 	"ifragment-backend/internal/service/username"
 
@@ -150,6 +151,10 @@ func main() {
 		defer cache.Close()
 	}
 
+	// Initialize Crypto Price Service
+	cryptoPriceService := cryptoprice.NewCryptoPriceService(cache)
+	go cryptoPriceService.Start(ctx)
+
 	// Initialize Router
 	r := chi.NewRouter()
 
@@ -261,7 +266,7 @@ func main() {
 	auditRepo := repository.NewAuditRepo(db)
 	analyticsRepo := repository.NewAnalyticsRepo(db)
 
-	botService := botmgmt.NewBotService(botRepo, settingsRepo, auditRepo, analyticsRepo, cache)
+	botService := botmgmt.NewBotService(botRepo, settingsRepo, auditRepo, analyticsRepo, cache, cryptoPriceService)
 	AutoRegisterMainBot(ctx, db, botService)
 	moderatorService := botmgmt.NewModeratorService(settingsRepo, botRepo, auditRepo, analyticsRepo, cache)
 
@@ -276,7 +281,7 @@ func main() {
 
 	// Initialize Handlers
 	channelRepo := repository.NewChannelRepo(db, cache)
-	channelService := channelmgmt.NewChannelService(channelRepo, botRepo, auditRepo)
+	channelService := channelmgmt.NewChannelService(channelRepo, botRepo, auditRepo, cryptoPriceService)
 
 	// 🚀 Start Channel Background Workers (Post scheduler & daily analytics snapshots)
 	channelService.StartBackgroundTasks(ctx)
@@ -476,6 +481,7 @@ func main() {
 				r.Delete("/{channelID}", channelHandler.DisconnectChannel)
 				r.Get("/{channelID}/settings", channelHandler.GetSettings)
 				r.Put("/{channelID}/settings", channelHandler.UpdateSettings)
+				r.Get("/{channelID}/telegram-info", channelHandler.GetTelegramInfo)
 				r.Get("/{channelID}/audit", channelHandler.GetAuditLogs)
 				r.Get("/{channelID}/analytics", channelHandler.GetAnalytics)
 				r.Post("/{channelID}/posts", channelHandler.CreatePost)

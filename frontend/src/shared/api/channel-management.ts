@@ -277,6 +277,11 @@ export const channelApi = {
 			.post(`/channels/${channelId}/buttons`, buttons)
 			.then((r: any) => r.data?.data || r.data),
 
+	getTelegramInfo: async (channelId: string) => {
+		const res = await apiClient.get(`/channels/${channelId}/telegram-info`);
+		return unwrapApiData(res);
+	},
+
 	simulateAIPost: (channelId: string, text: string, action: string, extra?: { apiKey?: string; selectedSkill?: string; customSkillPrompt?: string }) =>
 		apiClient
 			.post(`/channels/${channelId}/simulate`, { text, action, ...extra })

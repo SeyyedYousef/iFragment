@@ -26,6 +26,7 @@ import (
 	"ifragment-backend/internal/i18n"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/botmgmt"
+	"ifragment-backend/internal/service/cryptoprice"
 	"ifragment-backend/internal/telemetry"
 
 	"github.com/google/uuid"
@@ -49,6 +50,8 @@ type ChannelService struct {
 
 	lastBioUpdate sync.Map // map[uuid.UUID]time.Time
 
+	cryptoSvc *cryptoprice.CryptoPriceService
+
 	dnsLookup     func(host string) ([]net.IP, error)
 	userbotJoiner func(ctx context.Context, identifier string) error
 }
@@ -57,6 +60,7 @@ func NewChannelService(
 	channelRepo *repository.ChannelRepo,
 	botRepo *repository.BotRepo,
 	auditRepo *repository.AuditRepo,
+	cryptoSvc *cryptoprice.CryptoPriceService,
 ) *ChannelService {
 	return &ChannelService{
 		channelRepo:          channelRepo,
@@ -66,6 +70,7 @@ func NewChannelService(
 		featureForwarding:    os.Getenv("FEATURE_FLAG_FORWARDING") != "false",
 		featureAutoResponder: os.Getenv("FEATURE_FLAG_AUTORESPONDER") != "false",
 		autoResponderService: NewAutoResponderService(channelRepo),
+		cryptoSvc:            cryptoSvc,
 
 		dnsLookup: net.LookupIP,
 	}
@@ -2720,4 +2725,42 @@ func (s *ChannelService) CheckExpirations(ctx context.Context) {
 			}
 		}
 	}
+}
+
+type TelegramChatInfo struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	MemberCount int    `json:"memberCount"`
+}
+
+func (s *ChannelService) GetTelegramInfo(ctx context.Context, channelID uuid.UUID) (*TelegramChatInfo, error) {
+	ch, err := s.channelRepo.GetChannelByID(ctx, channelID)
+	if err != nil {
+		return nil, fmt.Errorf("channel not found: %w", err)
+	}
+
+	bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
+	if err != nil {
+		return nil, fmt.Errorf("bot not found: %w", err)
+	}
+
+	token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt token: %w", err)
+	}
+
+	tg := telegram.NewBotAPIClient(token)
+
+	chatRes, err := tg.GetChat(ctx, ch.ChatID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch chat info: %w", err)
+	}
+
+	memberCount, _ := tg.GetChatMemberCount(ctx, ch.ChatID)
+
+	return &TelegramChatInfo{
+		Title:       chatRes.Title,
+		Description: chatRes.Description,
+		MemberCount: memberCount,
+	}, nil
 }

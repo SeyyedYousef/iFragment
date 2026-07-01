@@ -24,6 +24,8 @@ export const ChannelDynamicBioPage: Component = () => {
 
 	const [isSaving, setIsSaving] = createSignal(false);
 
+	const [telegramInfo, setTelegramInfo] = createSignal<any>(null);
+
 	const settingsQuery = useChannelSettings(() => params.id!);
 	const updateSettingsMutation = useUpdateChannelSettings(() => params.id!);
 
@@ -59,14 +61,45 @@ export const ChannelDynamicBioPage: Component = () => {
 		}
 	});
 
+	onMount(async () => {
+		backButton.show();
+		const off = backButton.onClick(() => navigate(`/channel/${params.id}`));
+		
+		try {
+			const info = await channelApi.getTelegramInfo(params.id!);
+			if (info) setTelegramInfo(info);
+		} catch (e) {
+			console.error('Failed to fetch telegram info:', e);
+		}
+		
+		onCleanup(() => off());
+	});
+
 	const variables = [
 		{ tag: '$members', desc: t('channelDynamicBio.varMembers') || 'تعداد اعضا', val: '45,102' },
 		{ tag: '$btc', desc: t('channelDynamicBio.varBtc') || 'قیمت بیت‌کوین', val: '$64,200' },
+		{ tag: '$eth', desc: 'قیمت اتریوم', val: '$3,500' },
+		{ tag: '$sol', desc: 'قیمت سولانا', val: '$150' },
+		{ tag: '$ton', desc: 'قیمت TON', val: '$5.50' },
 		{ tag: '$Gram', desc: 'قیمت Gram', val: '$5.50' },
 		{ tag: '$time', desc: t('channelDynamicBio.varTime') || 'زمان فعلی', val: '14:30' },
 		{ tag: '$date', desc: 'تاریخ', val: '12 May 2026' },
 		{ tag: '$day_name', desc: 'روز هفته', val: 'Tuesday' },
 	];
+
+	const generatePreview = (template: string) => {
+		let res = template;
+		res = res.replace(/\$members/g, telegramInfo()?.memberCount?.toString() || '...');
+		res = res.replace(/\$time/g, new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+		res = res.replace(/\$date/g, new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }));
+		res = res.replace(/\$day_name/g, new Date().toLocaleDateString('en-US', { weekday: 'long' }));
+		res = res.replace(/\$btc/g, '$...');
+		res = res.replace(/\$eth/g, '$...');
+		res = res.replace(/\$sol/g, '$...');
+		res = res.replace(/\$ton/g, '$...');
+		res = res.replace(/\$Gram/g, '$...');
+		return res || 'Empty';
+	};
 
 	const handleSave = async () => {
 		setIsSaving(true);
@@ -97,12 +130,6 @@ export const ChannelDynamicBioPage: Component = () => {
 			setIsSaving(false);
 		}
 	};
-
-	onMount(() => {
-		backButton.show();
-		const off = backButton.onClick(() => navigate(`/channel/${params.id}`));
-		onCleanup(() => off());
-	});
 
 	return (
 		<div class="min-h-screen bg-[#0f1014] pb-28 relative overflow-x-hidden text-white">
@@ -209,8 +236,19 @@ export const ChannelDynamicBioPage: Component = () => {
 							<div class="bg-[#2c2c2e] p-3 rounded-xl border border-[#3a3a3c] flex flex-col gap-3 mb-2">
 								<span class="text-[13px] font-bold text-[#8e8e93]">{t('channelDynamicBio.currentStatus') || 'Current Status in Telegram:'}</span>
 								<div class="flex flex-col gap-1">
-									<span class="text-[12px] text-white/60">{t('channelDynamicBio.currentName') || 'Current Name:'} <span class="text-white">{currentName() || t('channelDynamicBio.fetching') || 'Fetching...'}</span></span>
-									<span class="text-[12px] text-white/60">{t('channelDynamicBio.currentBioReal') || 'Current Bio:'} <span class="text-white">{currentBio() || t('channelDynamicBio.fetching') || 'Fetching...'}</span></span>
+									<span class="text-[12px] text-white/60">{t('channelDynamicBio.currentName') || 'Current Name:'} <span class="text-white">{telegramInfo()?.title || currentName() || t('channelDynamicBio.fetching') || 'Fetching...'}</span></span>
+									<span class="text-[12px] text-white/60">{t('channelDynamicBio.currentBioReal') || 'Current Bio:'} <span class="text-white">{telegramInfo()?.description || currentBio() || t('channelDynamicBio.fetching') || 'Fetching...'}</span></span>
+								</div>
+							</div>
+
+							{/* Live Preview */}
+							<div class="bg-[#32ade6]/10 p-3 rounded-xl border border-[#32ade6]/30 flex flex-col gap-3 mb-2">
+								<span class="text-[13px] font-bold text-[#32ade6]">Live Preview</span>
+								<div class="flex flex-col gap-1">
+									<Show when={displayInName()}>
+										<span class="text-[12px] text-white/60">New Name: <span class="text-white">{generatePreview(nameTemplate())}</span></span>
+									</Show>
+									<span class="text-[12px] text-white/60">New Bio: <span class="text-white break-words">{generatePreview(bioTemplate())}</span></span>
 								</div>
 							</div>
 

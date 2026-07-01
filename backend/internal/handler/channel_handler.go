@@ -1095,3 +1095,32 @@ func (h *ChannelHandler) respondServerError(w http.ResponseWriter, r *http.Reque
 	// Return a secure localized/generic message for internal exceptions, preventing db structure leaks
 	RespondError(w, r, http.StatusInternalServerError, publicMsg, err)
 }
+
+func (h *ChannelHandler) GetTelegramInfo(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	channelIDStr := chi.URLParam(r, "channelID")
+	channelID, err := uuid.Parse(channelIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	_, _, err = h.svc.GetUserRole(r.Context(), userID, channelID)
+	if err != nil {
+		RespondError(w, r, http.StatusForbidden, "forbidden", err)
+		return
+	}
+
+	info, err := h.svc.GetTelegramInfo(r.Context(), channelID)
+	if err != nil {
+		h.respondServerError(w, r, "failed to get telegram info", err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, info)
+}

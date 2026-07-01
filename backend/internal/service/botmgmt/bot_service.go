@@ -23,6 +23,7 @@ import (
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/i18n"
 	"ifragment-backend/internal/repository"
+	"ifragment-backend/internal/service/cryptoprice"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -58,6 +59,7 @@ type BotService struct {
 	qhNotifications      map[string]time.Time // key: groupID:action:HH:MM, val: time
 	lastBioUpdate        sync.Map             // map[uuid.UUID]time.Time
 	cache                *repository.Cache
+	cryptoSvc            *cryptoprice.CryptoPriceService
 	mu                   sync.Mutex
 }
 
@@ -67,6 +69,7 @@ func NewBotService(
 	auditRepo *repository.AuditRepo,
 	analyticsRepo *repository.AnalyticsRepo,
 	cache *repository.Cache,
+	cryptoSvc *cryptoprice.CryptoPriceService,
 ) *BotService {
 	return &BotService{
 		botRepo:       botRepo,
@@ -74,6 +77,7 @@ func NewBotService(
 		auditRepo:     auditRepo,
 		analyticsRepo: analyticsRepo,
 		cache:         cache,
+		cryptoSvc:     cryptoSvc,
 	}
 }
 

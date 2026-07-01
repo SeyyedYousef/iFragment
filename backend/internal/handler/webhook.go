@@ -834,7 +834,7 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 			packageID := parts[1]
 			groupID, err := uuid.Parse(groupIDStr)
 			if err == nil {
-				botSvc := botmgmt.NewBotService(h.botRepo, repository.NewSettingsRepo(h.db, nil), repository.NewAuditRepo(h.db), repository.NewAnalyticsRepo(h.db), nil)
+				botSvc := botmgmt.NewBotService(h.botRepo, repository.NewSettingsRepo(h.db, nil), repository.NewAuditRepo(h.db), repository.NewAnalyticsRepo(h.db), nil, nil)
 				err = botSvc.ActivateSubscriptionFromStars(ctx, msg.From.ID, groupID, packageID)
 				if err != nil {
 					slog.Error("Failed to activate subscription from Stars webhook", "error", err, "payload", pay.InvoicePayload)
@@ -850,7 +850,7 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 			packageID := parts[1]
 			channelID, err := uuid.Parse(channelIDStr)
 			if err == nil {
-				botSvc := botmgmt.NewBotService(h.botRepo, repository.NewSettingsRepo(h.db, nil), repository.NewAuditRepo(h.db), repository.NewAnalyticsRepo(h.db), nil)
+				botSvc := botmgmt.NewBotService(h.botRepo, repository.NewSettingsRepo(h.db, nil), repository.NewAuditRepo(h.db), repository.NewAnalyticsRepo(h.db), nil, nil)
 				err = botSvc.ActivateChannelSubscriptionFromStars(ctx, msg.From.ID, channelID, packageID)
 				if err != nil {
 					slog.Error("Failed to activate channel subscription from Stars webhook", "error", err, "payload", pay.InvoicePayload)

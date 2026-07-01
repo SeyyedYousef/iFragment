@@ -176,17 +176,29 @@ func (s *ChannelService) updateChannelDynamicBio(ctx context.Context, ch *reposi
 		res = strings.ReplaceAll(res, "$day_name", dayStr)
 		res = strings.ReplaceAll(res, "$countdown", countdownStr)
 		res = strings.ReplaceAll(res, "$event", config.EventName)
+		
+		if s.cryptoSvc != nil {
+			res = strings.ReplaceAll(res, "$btc", s.cryptoSvc.GetPrice("bitcoin"))
+			res = strings.ReplaceAll(res, "$eth", s.cryptoSvc.GetPrice("ethereum"))
+			res = strings.ReplaceAll(res, "$Gram", s.cryptoSvc.GetPrice("the-open-network"))
+			res = strings.ReplaceAll(res, "$sol", s.cryptoSvc.GetPrice("solana"))
+			res = strings.ReplaceAll(res, "$ton", s.cryptoSvc.GetPrice("the-open-network"))
+		}
 
 		return res
 	}
 
 	if config.BioTemplate != "" {
 		newBio := replaceVars(config.BioTemplate)
-		_ = tg.SetChatDescription(ctx, ch.ChatID, newBio)
+		if err := tg.SetChatDescription(ctx, ch.ChatID, newBio); err != nil {
+			slog.Error("Failed to update channel bio", "channelID", ch.ChatID, "error", err)
+		}
 	}
 
 	if config.DisplayInName && config.NameTemplate != "" {
 		newName := replaceVars(config.NameTemplate)
-		_ = tg.SetChatTitle(ctx, ch.ChatID, newName)
+		if err := tg.SetChatTitle(ctx, ch.ChatID, newName); err != nil {
+			slog.Error("Failed to update channel title", "channelID", ch.ChatID, "error", err)
+		}
 	}
 }
