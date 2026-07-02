@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -61,9 +62,8 @@ func (s *CryptoPriceService) fetchPrices(ctx context.Context) {
 		}
 	}()
 
-	// CoinGecko ids for target currencies
-	ids := "the-open-network"
-	url := fmt.Sprintf("https://api.coingecko.com/api/v3/simple/price?ids=%s&vs_currencies=usd", ids)
+	// We use Binance API for more stable rate limits compared to CoinGecko without an API key
+	url := "https://api.binance.com/api/v3/ticker/price?symbol=TONUSDT"
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -86,18 +86,22 @@ func (s *CryptoPriceService) fetchPrices(ctx context.Context) {
 		return
 	}
 
-	var data map[string]map[string]float64
+	var data struct {
+		Price string `json:"price"`
+	}
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		slog.Error("failed to decode crypto prices", "error", err)
 		return
 	}
 
-	s.mu.Lock()
-	for id, currencies := range data {
-		if price, ok := currencies["usd"]; ok {
-			s.prices[id] = price
-		}
+	priceFloat, err := strconv.ParseFloat(data.Price, 64)
+	if err != nil {
+		slog.Error("failed to parse crypto price", "error", err)
+		return
 	}
+
+	s.mu.Lock()
+	s.prices["the-open-network"] = priceFloat
 	s.lastFetch = time.Now()
 	s.mu.Unlock()
 

@@ -33,7 +33,10 @@ export function useUpdateChannelSettings(channelId: () => string) {
 	return createMutation(() => ({
 		mutationFn: (variables: { category: string; data: any; version: number }) =>
 			channelApi.updateSettings(channelId(), variables.category, variables.data, variables.version),
-		onSuccess: (_data, variables) => {
+		onSuccess: (data, variables) => {
+			// Update the cache immediately with the new version and data to prevent optimistic lock errors (409)
+			queryClient.setQueryData(channelKeys.settings(channelId()), data);
+
 			// Invalidate target settings category query key to trigger background sync
 			queryClient.invalidateQueries({ queryKey: channelKeys.settings(channelId()) });
 
