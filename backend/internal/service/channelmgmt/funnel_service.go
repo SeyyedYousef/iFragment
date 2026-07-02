@@ -522,7 +522,8 @@ func generateAIBVariations(ctx context.Context, text, apiKey, skill, customPromp
 	client := &http.Client{Timeout: 15 * time.Second}
 
 	for attempt := 1; attempt <= 3; attempt++ {
-		req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewBuffer(jsonData))
+		var req *http.Request
+		req, err = http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewBuffer(jsonData))
 		if err != nil {
 			return nil, err
 		}

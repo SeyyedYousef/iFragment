@@ -1653,7 +1653,12 @@ export const dict = {
 		"statusActive": "Active",
 		"statusInactive": "Inactive",
 		"title": "Telegram Group Management",
-		"yourBots": "Your Managed Bots"
+		"yourBots": "Your Managed Bots",
+		"connectYourBot": "Connect Your Bot",
+		"pasteBotToken": "Paste the bot token from @BotFather to connect your bot to iFragment",
+		"pasteBotTokenPlaceholder": "Paste your bot token here...",
+		"connectBotBtn": "Connect Bot",
+		"connectBotFatherApi": "Connect BotFather API"
 	},
 	"managedChannels": {
 		"connectFirst": "Connect Your First Channel",

@@ -19,44 +19,37 @@ const STAT_TEMPLATES: StatItemTemplate[] = [
 	{
 		key: 'usernamesAnalyzed',
 		icon: 'search',
-		color: '#3390ec',
+		color: '#d4af37',
 		labelKey: 'profile.statsAnalyzed',
 		defaultLabel: 'Analyzed',
 	},
 	{
 		key: 'groupsManaged',
 		icon: 'group',
-		color: '#34c759',
+		color: '#a0a4ad',
 		labelKey: 'profile.statsGroups',
 		defaultLabel: 'Groups',
 	},
 	{
 		key: 'channelsManaged',
 		icon: 'campaign',
-		color: '#ff9500',
+		color: '#d4af37',
 		labelKey: 'profile.statsChannels',
 		defaultLabel: 'Channels',
 	},
 	{
 		key: 'currentStreak',
 		icon: 'local_fire_department',
-		color: '#ff6b35',
+		color: '#a0a4ad',
 		labelKey: 'profile.statsStreak',
 		defaultLabel: 'Streak',
 	},
 	{
 		key: 'daysActive',
 		icon: 'event_available',
-		color: '#00c7e2',
+		color: '#d4af37',
 		labelKey: 'profile.statsDaysActive',
 		defaultLabel: 'Days Active',
-	},
-	{
-		key: 'totalTaps',
-		icon: 'touch_app',
-		color: '#ff2d55',
-		labelKey: 'profile.statsTaps',
-		defaultLabel: 'Total Taps',
 	},
 ];
 
@@ -80,20 +73,12 @@ export const StatsDashboard: Component<Props> = (props) => {
 
 	return (
 		<Motion.div
-			initial={{ opacity: 0, y: 20 }}
+			initial={{ opacity: 0, y: 10 }}
 			animate={{ opacity: 1, y: 0 }}
-			transition={{ delay: 0.15 }}
-			class="mx-6 mt-4 bg-[#1c1c1c] rounded-3xl p-5 border border-[#2a2a2a]"
+			transition={{ delay: 0.1 }}
+			class="w-full overflow-x-auto no-scrollbar pb-1"
 		>
-			<div class="flex items-center gap-2 mb-4">
-				<div class="w-8 h-8 rounded-xl bg-[#0f1014] flex items-center justify-center border border-[#2a2a2a]">
-					<span class="material-symbols-outlined text-[18px] text-[#3390ec]">bar_chart</span>
-				</div>
-				<span class="text-white font-black text-sm">
-					{t('profile.activityStats') || 'Activity Stats'}
-				</span>
-			</div>
-			<div class="grid grid-cols-3 gap-2.5">
+			<div class="flex items-center gap-2 px-1 min-w-max">
 				<For each={STAT_TEMPLATES}>
 					{(item, i) => {
 						const rawVal = () => (props.stats ? (props.stats[item.key] as number) : 0);
@@ -102,19 +87,21 @@ export const StatsDashboard: Component<Props> = (props) => {
 							<Motion.div
 								initial={{ opacity: 0, scale: 0.9 }}
 								animate={{ opacity: 1, scale: 1 }}
-								transition={{ delay: 0.2 + i() * 0.05 }}
-								class="bg-[#0f1014] rounded-2xl p-3 border border-[#2a2a2a] flex flex-col items-center text-center gap-1"
+								transition={{ delay: 0.15 + i() * 0.05 }}
+								class="bg-[#1c1c1c] rounded-xl px-3 py-2 border border-[#2a2a2a] flex items-center gap-2 whitespace-nowrap"
 							>
 								<span
-									class="material-symbols-outlined text-[20px]"
+									class="material-symbols-outlined text-[14px]"
 									style={{ color: item.color, 'font-variation-settings': '"FILL" 1' }}
 								>
 									{item.icon}
 								</span>
-								<span class="text-white font-black text-lg leading-none">
+								<span class="text-white font-bold text-xs">
 									{formatVal(rawVal())}
 								</span>
-								<span class="text-[#a0a4ad] text-[10px] font-bold leading-tight">{label()}</span>
+								<span class="text-[#a0a4ad] text-[10px] font-medium ml-1">
+									{label()}
+								</span>
 							</Motion.div>
 						);
 					}}

@@ -1,286 +1,80 @@
 import { useNavigate } from '@solidjs/router';
-import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
 import { hapticFeedback } from '@tma.js/sdk-solid';
-import { Component, createEffect, createSignal, For, onCleanup, Show } from 'solid-js';
-import { claimDailyReward, getDailyStatus } from '@/shared/api/profile.js';
-import { PROFILE_CONFIG } from '@/shared/config/profile.js';
+import { Component } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 
-export const GamificationHub: Component = () => {
+const handleNavigate = (navigate: ReturnType<typeof useNavigate>, path: string) => {
+	try {
+		hapticFeedback.impactOccurred('light');
+	} catch {}
+	navigate(path);
+};
+
+export const QuestCard: Component = () => {
 	const navigate = useNavigate();
-	const queryClient = useQueryClient();
-	const [showModal, setShowModal] = createSignal(false);
-	const [claimSuccess, setClaimSuccess] = createSignal(false);
-	const [timeLeft, setTimeLeft] = createSignal<number>(0);
-
-	let successTimeout: ReturnType<typeof setTimeout>;
-	onCleanup(() => clearTimeout(successTimeout));
-
-	const dailyQuery = createQuery(() => ({
-		queryKey: ['profile', 'daily'],
-		queryFn: getDailyStatus,
-	}));
-
-	const claimDailyMutation = createMutation(() => ({
-		mutationFn: claimDailyReward,
-		onSuccess: (_) => {
-			queryClient.invalidateQueries({ queryKey: ['profile', 'daily'] });
-			queryClient.invalidateQueries({ queryKey: ['profile', 'stats'] });
-			setClaimSuccess(true);
-			try {
-				hapticFeedback.notificationOccurred('success');
-			} catch {}
-			clearTimeout(successTimeout);
-			successTimeout = setTimeout(() => {
-				setClaimSuccess(false);
-				setShowModal(false);
-			}, 2000);
-		},
-		onError: (err) => {
-			console.error(err);
-			try {
-				hapticFeedback.notificationOccurred('error');
-			} catch {}
-		},
-	}));
-
-	const daily = () => dailyQuery.data || null;
-	const claiming = () => claimDailyMutation.isPending;
-
-	// Sync and tick next claim countdown using server-returned time_left_seconds
-	createEffect(() => {
-		const data = daily();
-		if (data && !data.can_claim && data.time_left_seconds) {
-			const endTime = Date.now() + data.time_left_seconds * 1000;
-			setTimeLeft(Math.floor(data.time_left_seconds));
-
-			const interval = setInterval(() => {
-				const remaining = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
-				if (remaining <= 0) {
-					clearInterval(interval);
-					queryClient.invalidateQueries({ queryKey: ['profile', 'daily'] });
-				}
-				setTimeLeft(remaining);
-			}, 1000);
-
-			onCleanup(() => clearInterval(interval));
-		} else {
-			setTimeLeft(0);
-		}
-	});
-
-	const formatTimeLeft = (sec: number) => {
-		if (!sec || sec < 0 || Number.isNaN(sec)) return '00:00:00';
-		const h = Math.floor(sec / 3600);
-		const m = Math.floor((sec % 3600) / 60);
-		const s = Math.floor(sec % 60);
-		return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-	};
-
-	const handleClaim = async () => {
-		if (claiming() || !daily()?.can_claim) return;
-		try {
-			try {
-				hapticFeedback.impactOccurred('heavy');
-			} catch {}
-			claimDailyMutation.mutate();
-		} catch (e) {
-			console.error(e);
-		}
-	};
-
-	const handleNavigate = (path: string) => {
-		try {
-			hapticFeedback.impactOccurred('light');
-		} catch {}
-		navigate(path);
-	};
-
-	// Helper for 7-day grid rendering
-	const daysArray = [1, 2, 3, 4, 5, 6, 7];
-
 	return (
-		<div class="mx-6 mt-4 flex flex-col gap-4 font-sans text-white">
-			{/* Grid of actions: Daily, Quests, Boosts, Leaderboard */}
-			<div class="grid grid-cols-2 gap-3">
-				{/* Daily Claim card */}
-				<button
-					onClick={() => {
-						try {
-							hapticFeedback.impactOccurred('light');
-						} catch {}
-						setShowModal(true);
-					}}
-					class="relative overflow-hidden bg-gradient-to-br from-[#1c1c24] to-[#15161d] border border-[#2a2a2a] rounded-3xl p-4 flex flex-col text-left group active:scale-[0.98] transition-all"
-				>
-					<div class="flex items-center justify-between w-full mb-3">
-						<div class="w-8 h-8 rounded-xl bg-[#ffd700]/10 border border-[#ffd700]/20 flex items-center justify-center text-[#ffd700]">
-							<span class="material-symbols-outlined text-[18px]">calendar_today</span>
-						</div>
-						<Show when={daily()?.can_claim}>
-							<span class="w-2.5 h-2.5 rounded-full bg-[#34c759] animate-ping" />
-						</Show>
-					</div>
-					<span class="text-[10px] text-[#a0a4ad] font-bold uppercase tracking-wider">
-						{t('gamification.dailyLogin') || 'Daily Login'}
-					</span>
-					<span class="text-xs font-black text-white mt-1">
-						{daily()?.can_claim
-							? t('gamification.claimAvailable') || 'Claim Available'
-							: t('gamification.dayClaimed')?.replace('{day}', (daily()?.streak || 0).toString()) ||
-								`Day ${daily()?.streak || 0} Claimed`}
-					</span>
-				</button>
-
-				{/* Quest/Tasks Hub */}
-				<button
-					onClick={() => handleNavigate('/profile/tasks')}
-					class="bg-gradient-to-br from-[#1c1c24] to-[#15161d] border border-[#2a2a2a] rounded-3xl p-4 flex flex-col text-left active:scale-[0.98] transition-all"
-				>
-					<div class="w-8 h-8 rounded-xl bg-[#3390ec]/10 border border-[#3390ec]/20 flex items-center justify-center text-[#3390ec] mb-3">
-						<span class="material-symbols-outlined text-[18px]">assignment_turned_in</span>
-					</div>
-					<span class="text-[10px] text-[#a0a4ad] font-bold uppercase tracking-wider">
-						{t('gamification.questHub') || 'Quest Hub'}
-					</span>
-					<span class="text-xs font-black text-white mt-1">
-						{t('gamification.earnFrgXp') || 'Earn Coins & XP'}
-					</span>
-				</button>
-
-				{/* Boosts / Upgrades */}
-				<button
-					onClick={() => handleNavigate('/profile/boosts')}
-					class="bg-gradient-to-br from-[#1c1c24] to-[#15161d] border border-[#2a2a2a] rounded-3xl p-4 flex flex-col text-left active:scale-[0.98] transition-all"
-				>
-					<div class="w-8 h-8 rounded-xl bg-[#ff9500]/10 border border-[#ff9500]/20 flex items-center justify-center text-[#ff9500] mb-3">
-						<span class="material-symbols-outlined text-[18px]">rocket_launch</span>
-					</div>
-					<span class="text-[10px] text-[#a0a4ad] font-bold uppercase tracking-wider">
-						{t('gamification.boosts') || 'Boosts'}
-					</span>
-					<span class="text-xs font-black text-white mt-1">
-						{t('gamification.multipliersBots') || 'Multipliers & Bots'}
-					</span>
-				</button>
-
-				{/* Leaderboard */}
-				<button
-					onClick={() => handleNavigate('/profile/leaderboard')}
-					class="bg-gradient-to-br from-[#1c1c24] to-[#15161d] border border-[#2a2a2a] rounded-3xl p-4 flex flex-col text-left active:scale-[0.98] transition-all"
-				>
-					<div class="w-8 h-8 rounded-xl bg-[#34c759]/10 border border-[#34c759]/20 flex items-center justify-center text-[#34c759] mb-3">
-						<span class="material-symbols-outlined text-[18px]">emoji_events</span>
-					</div>
-					<span class="text-[10px] text-[#a0a4ad] font-bold uppercase tracking-wider">
-						{t('gamification.leaderboard') || 'Leaderboard'}
-					</span>
-					<span class="text-xs font-black text-white mt-1">
-						{t('gamification.top100Elite') || 'Top 100 Elite'}
-					</span>
-				</button>
+		<button
+			onClick={() => handleNavigate(navigate, '/profile/tasks')}
+			class="bg-[#1c1c1c] border border-[#2a2a2a] rounded-3xl p-5 flex flex-col items-start text-left group hover:bg-[#202020] active:scale-[0.98] transition-all relative overflow-hidden"
+		>
+			<div class="absolute top-0 right-0 w-24 h-24 bg-[#3390ec]/5 rounded-full blur-2xl -z-10" />
+			<div class="w-10 h-10 mb-4 rounded-xl bg-[#0f1014] border border-[#3390ec]/20 flex items-center justify-center text-[#3390ec]">
+				<span class="material-symbols-outlined text-[20px] font-light">assignment_turned_in</span>
 			</div>
+			<span class="text-white font-black text-sm mb-1">
+				{t('gamification.questHub') || 'Quests'}
+			</span>
+			<span class="text-[10px] text-[#a0a4ad] font-medium leading-tight">
+				{t('gamification.earnFrgXp') || 'Earn Coins & XP'}
+			</span>
+		</button>
+	);
+};
 
-			{/* Daily Claim Modal */}
-			<Show when={showModal()}>
-				<div class="fixed inset-0 bg-[#090a0d]/90 backdrop-blur-md flex items-center justify-center z-50 p-6 animate-fade-in">
-					<div class="bg-[#15161d] border border-[#2a2a2a] w-full max-w-sm rounded-[32px] p-6 flex flex-col items-center shadow-2xl relative">
-						<button
-							onClick={() => {
-								try {
-									hapticFeedback.impactOccurred('light');
-								} catch {}
-								setShowModal(false);
-							}}
-							class="absolute top-5 right-5 w-8 h-8 rounded-full bg-[#1c1c1c] border border-[#2a2a2a] flex items-center justify-center"
-						>
-							<span class="material-symbols-outlined text-[16px] text-white">close</span>
-						</button>
+export const BoostsCard: Component = () => {
+	const navigate = useNavigate();
+	return (
+		<button
+			onClick={() => handleNavigate(navigate, '/profile/boosts')}
+			class="bg-[#1c1c1c] border border-[#2a2a2a] rounded-3xl p-5 flex flex-col items-start text-left group hover:bg-[#202020] active:scale-[0.98] transition-all relative overflow-hidden"
+		>
+			<div class="absolute top-0 right-0 w-24 h-24 bg-[#d4af37]/5 rounded-full blur-2xl -z-10" />
+			<div class="w-10 h-10 mb-4 rounded-xl bg-[#0f1014] border border-[#d4af37]/20 flex items-center justify-center text-[#d4af37]">
+				<span class="material-symbols-outlined text-[20px] font-light">rocket_launch</span>
+			</div>
+			<span class="text-white font-black text-sm mb-1">
+				{t('gamification.boosts') || 'Boosts'}
+			</span>
+			<span class="text-[10px] text-[#a0a4ad] font-medium leading-tight">
+				{t('gamification.multipliersBots') || 'Multipliers & Bots'}
+			</span>
+		</button>
+	);
+};
 
-						<span class="text-[32px] mb-2">🎁</span>
-						<h3 class="text-lg font-black text-white text-center">
-							{t('gamification.dailyCalendarTitle') || 'Daily Login Calendar'}
-						</h3>
-						<p class="text-[11px] text-[#a0a4ad] text-center mb-6">
-							{t('gamification.dailyCalendarDesc') ||
-								'Log in daily to claim bigger rewards. Missing a day resets the streak.'}
-						</p>
-
-						{/* 7-Day Grid */}
-						<div class="grid grid-cols-4 gap-2 w-full mb-6">
-							<For each={daysArray}>
-								{(day) => {
-									const claimedInCycle = () => {
-										const data = daily();
-										if (!data) return 0;
-										return data.streak > 0 && data.streak % 7 === 0 && !data.can_claim
-											? 7
-											: data.streak % 7;
-									};
-
-									const isCurrent = () => {
-										const data = daily();
-										return data ? data.can_claim && day === claimedInCycle() + 1 : false;
-									};
-
-									const isClaimed = () => {
-										const data = daily();
-										return data ? day <= claimedInCycle() : false;
-									};
-
-									return (
-										<div
-											class={`flex flex-col items-center justify-center p-2 rounded-2xl border text-center transition-all ${
-												isCurrent()
-													? 'bg-[#3390ec]/15 border-[#3390ec]/50 text-[#3390ec] shadow-[0_0_8px_rgba(51,144,236,0.2)]'
-													: isClaimed()
-														? 'bg-[#34c759]/10 border-[#34c759]/30 text-[#34c759]'
-														: 'bg-[#1c1c24] border-[#222] text-[#a0a4ad]'
-											}`}
-										>
-											<span class="text-[9px] font-black uppercase tracking-wider">
-												{t('gamification.dayLabel')?.replace('{day}', day.toString()) ||
-													`Day ${day}`}
-											</span>
-											<span class="text-[10px] font-black mt-1 text-white">
-												{(PROFILE_CONFIG.DAILY_REWARDS?.[day - 1] || 0).toLocaleString()}
-											</span>
-											<span class="text-[8px] text-[#a0a4ad] font-bold">COINS</span>
-										</div>
-									);
-								}}
-							</For>
-						</div>
-
-						{/* Action Claim button */}
-						<Show
-							when={claimSuccess()}
-							fallback={
-								<button
-									onClick={handleClaim}
-									disabled={claiming() || !daily()?.can_claim}
-									class="w-full py-4 rounded-2xl bg-[#3390ec] hover:bg-[#2b7ec9] disabled:bg-[#1c1c24] disabled:text-[#a0a4ad] disabled:border disabled:border-[#2a2a2a] disabled:hover:bg-[#1c1c24] text-xs font-black tracking-wider uppercase text-white shadow-lg active:scale-95 transition-all"
-								>
-									{claiming()
-										? t('gamification.claiming') || 'Claiming...'
-										: daily()?.can_claim
-											? t('gamification.claimReward') || 'Claim Reward'
-											: `${t('gamification.comeBackTomorrow') || 'Come back tomorrow'} (${formatTimeLeft(timeLeft())})`}
-								</button>
-							}
-						>
-							<div class="w-full py-4 rounded-2xl bg-[#34c759]/10 border border-[#34c759]/20 flex items-center justify-center gap-2">
-								<span class="material-symbols-outlined text-[16px] text-[#34c759] animate-bounce">
-									check_circle
-								</span>
-								<span class="text-xs font-black text-[#34c759] uppercase tracking-wider">
-									{t('gamification.claimedSuccess') || 'Claimed successfully!'}
-								</span>
-							</div>
-						</Show>
-					</div>
+export const LeaderboardCard: Component = () => {
+	const navigate = useNavigate();
+	return (
+		<button
+			onClick={() => handleNavigate(navigate, '/profile/leaderboard')}
+			class="col-span-2 bg-gradient-to-r from-[#1c1c1c] to-[#15161d] border border-[#2a2a2a] rounded-3xl p-4 flex items-center justify-between group hover:bg-[#202020] active:scale-[0.98] transition-all"
+		>
+			<div class="flex items-center gap-4">
+				<div class="w-12 h-12 rounded-xl bg-[#0f1014] border border-[#2a2a2a] flex items-center justify-center text-[#d4af37]">
+					<span class="material-symbols-outlined text-[24px] font-light">emoji_events</span>
 				</div>
-			</Show>
-		</div>
+				<div class="flex flex-col items-start text-left">
+					<span class="text-white font-black text-sm">
+						{t('gamification.leaderboard') || 'Global Leaderboard'}
+					</span>
+					<span class="text-[10px] text-[#a0a4ad] font-medium">
+						{t('gamification.top100Elite') || 'View the Top 100 Elite Players'}
+					</span>
+				</div>
+			</div>
+			<div class="w-8 h-8 rounded-full bg-[#0f1014] border border-[#2a2a2a] flex items-center justify-center group-hover:bg-[#2a2a2a] transition-colors">
+				<span class="material-symbols-outlined text-[16px] text-white">chevron_right</span>
+			</div>
+		</button>
 	);
 };

@@ -15,7 +15,7 @@ func TestChannelFunnelDeBounceAndLogic(t *testing.T) {
 	botRepo := repository.NewBotRepo(nil)
 	auditRepo := repository.NewAuditRepo(nil)
 
-	s := NewChannelService(channelRepo, botRepo, auditRepo)
+	s := NewChannelService(channelRepo, botRepo, auditRepo, nil)
 	_ = s
 
 	ctx := context.Background()

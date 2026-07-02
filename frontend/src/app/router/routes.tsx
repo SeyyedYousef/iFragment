@@ -38,7 +38,6 @@ import { AchievementsPage } from '@/pages/profile/achievements/index.js';
 import { BoostsPage } from '@/pages/profile/boosts/index.js';
 import { LeaderboardPage } from '@/pages/profile/leaderboard/index.js';
 import { ProfilePage } from '@/pages/profile/profile/index.js';
-import { ReferralPage } from '@/pages/profile/referral/index.js';
 import { SecurityPage } from '@/pages/profile/security/index.js';
 import { SettingsPage } from '@/pages/profile/settings/index.js';
 import { TasksPage } from '@/pages/profile/tasks/index.js';
@@ -65,7 +64,6 @@ export const routes: Route[] = [
 	{ path: '/dashboard', Component: DashboardPage },
 	{ path: '/profile', Component: ProfilePage },
 	{ path: '/profile/achievements', Component: AchievementsPage },
-	{ path: '/profile/referral', Component: ReferralPage },
 	{ path: '/profile/settings', Component: SettingsPage },
 	{ path: '/profile/security', Component: SecurityPage },
 	{ path: '/profile/leaderboard', Component: LeaderboardPage },

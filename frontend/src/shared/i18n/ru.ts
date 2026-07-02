@@ -1653,7 +1653,12 @@ export const dict = {
 		"statusActive": "Активен",
 		"statusInactive": "Неактивен",
 		"title": "Управление группами",
-		"yourBots": "Ваши боты"
+		"yourBots": "Ваши боты",
+		"connectYourBot": "Подключите вашего бота",
+		"pasteBotToken": "Вставьте токен бота от @BotFather, чтобы подключить вашего бота к iFragment",
+		"pasteBotTokenPlaceholder": "Вставьте токен вашего бота здесь...",
+		"connectBotBtn": "Подключить бота",
+		"connectBotFatherApi": "Подключить API BotFather"
 	},
 	"managedChannels": {
 		"connectFirst": "Подключить первый канал",

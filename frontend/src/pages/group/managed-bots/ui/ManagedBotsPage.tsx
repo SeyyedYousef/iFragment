@@ -135,7 +135,7 @@ export const ManagedBotsPage: Component = () => {
 								{t('managedBots.createBtn')}
 							</span>
 							<span class="text-[12px] text-white/60 font-medium tracking-wide uppercase">
-								Connect BotFather API
+								{t('managedBots.connectBotFatherApi')}
 							</span>
 						</div>
 						<div class={`ms-auto ${isRtl() ? 'rotate-180' : ''}`}>
@@ -342,9 +342,9 @@ export const ManagedBotsPage: Component = () => {
 					>
 						<div class="w-10 h-1 bg-[#3a3a3a] rounded-full mx-auto mb-5" />
 
-						<h3 class="text-[18px] font-black text-white mb-1">Connect Your Bot</h3>
+						<h3 class="text-[18px] font-black text-white mb-1">{t('managedBots.connectYourBot')}</h3>
 						<p class="text-[13px] text-[#8e8e93] mb-5">
-							Paste the bot token from @BotFather to connect your bot to iFragment
+							{t('managedBots.pasteBotToken')}
 						</p>
 
 						{/* Steps */}
@@ -389,7 +389,7 @@ export const ManagedBotsPage: Component = () => {
 							type="password"
 							value={botToken()}
 							onInput={(e) => setBotToken(e.currentTarget.value)}
-							placeholder="Paste your bot token here..."
+							placeholder={t('managedBots.pasteBotTokenPlaceholder') as string}
 							class="w-full bg-[#2c2c2e] text-white text-[14px] rounded-2xl px-4 py-4 focus:outline-none focus:ring-2 focus:ring-[#3390ec] placeholder:text-[#555] mb-4"
 						/>
 
@@ -405,7 +405,7 @@ export const ManagedBotsPage: Component = () => {
 								}
 							>
 								<span class="material-symbols-outlined text-[20px]">link</span>
-								Connect Bot
+								{t('managedBots.connectBotBtn')}
 							</Show>
 						</button>
 					</Motion.div>

@@ -20,7 +20,7 @@ func TestProcessChannelPostAutoResponder(t *testing.T) {
 	botRepo := repository.NewBotRepo(nil)
 	auditRepo := repository.NewAuditRepo(nil)
 
-	s := NewChannelService(channelRepo, botRepo, auditRepo)
+	s := NewChannelService(channelRepo, botRepo, auditRepo, nil)
 	_ = s
 
 	ctx := context.Context(context.Background())
@@ -105,7 +105,7 @@ func TestChannelServiceNewFeatures(t *testing.T) {
 	botRepo := repository.NewBotRepo(nil)
 	auditRepo := repository.NewAuditRepo(nil)
 
-	s := NewChannelService(channelRepo, botRepo, auditRepo)
+	s := NewChannelService(channelRepo, botRepo, auditRepo, nil)
 	ctx := context.Background()
 
 	channelID := uuid.New()

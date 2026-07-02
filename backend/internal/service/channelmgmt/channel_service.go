@@ -2232,7 +2232,8 @@ func callGeminiParaphrase(text, apiKey string) (string, error) {
 
 	for attempt := 1; attempt <= 3; attempt++ {
 		reqCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		req, err := http.NewRequestWithContext(reqCtx, "POST", apiURL, bytes.NewBuffer(jsonData))
+		var req *http.Request
+		req, err = http.NewRequestWithContext(reqCtx, "POST", apiURL, bytes.NewBuffer(jsonData))
 		if err != nil {
 			cancel()
 			return "", err
@@ -2343,7 +2344,8 @@ func callGeminiComposer(ctx context.Context, text, apiKey, skill, customPrompt, 
 	client := &http.Client{Timeout: 10 * time.Second}
 
 	for attempt := 1; attempt <= 3; attempt++ {
-		req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewBuffer(jsonData))
+		var req *http.Request
+		req, err = http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewBuffer(jsonData))
 		if err != nil {
 			return "", err
 		}

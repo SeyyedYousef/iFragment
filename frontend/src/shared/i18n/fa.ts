@@ -1653,7 +1653,12 @@ export const dict = {
 		"statusActive": "فعال",
 		"statusInactive": "غیرفعال",
 		"title": "مدیریت گروه‌ها",
-		"yourBots": "بات‌های مدیریت شده شما"
+		"yourBots": "بات‌های مدیریت شده شما",
+		"connectYourBot": "ربات خود را متصل کنید",
+		"pasteBotToken": "توکن ربات را از @BotFather کپی کرده و برای اتصال ربات خود به iFragment، در اینجا جای‌گذاری کنید",
+		"pasteBotTokenPlaceholder": "توکن ربات خود را اینجا وارد کنید...",
+		"connectBotBtn": "اتصال ربات",
+		"connectBotFatherApi": "اتصال به API BotFather"
 	},
 	"managedChannels": {
 		"connectFirst": "اتصال اولین کانال",

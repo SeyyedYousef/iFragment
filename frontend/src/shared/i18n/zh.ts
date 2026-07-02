@@ -1653,7 +1653,12 @@ export const dict = {
 		"statusActive": "活跃",
 		"statusInactive": "不活跃",
 		"title": "Telegram 群组管理",
-		"yourBots": "您的托管机器人"
+		"yourBots": "您的托管机器人",
+		"connectYourBot": "连接您的机器人",
+		"pasteBotToken": "粘贴来自 @BotFather 的机器人令牌，将您的机器人连接到 iFragment",
+		"pasteBotTokenPlaceholder": "在此粘贴您的机器人令牌...",
+		"connectBotBtn": "连接机器人",
+		"connectBotFatherApi": "连接 BotFather API"
 	},
 	"managedChannels": {
 		"connectFirst": "连接您的第一个频道",
