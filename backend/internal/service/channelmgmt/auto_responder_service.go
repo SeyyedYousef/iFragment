@@ -104,7 +104,7 @@ func (s *AutoResponderService) ProcessMessage(ctx context.Context, tg *telegram.
 				}
 
 				// Send the reply
-				res, err := tg.SendMessageWithResult(ctx, chatID, replyText, nil, &messageID)
+				res, err := tg.SendMessageWithResult(ctx, chatID, replyText, &messageID, nil)
 				if err != nil {
 					slog.Error("failed to send auto response", "error", err, "chat_id", chatID, "message_id", messageID)
 				} else if res != nil {
@@ -218,7 +218,7 @@ func (s *AutoResponderService) ProcessAutoFirstComment(ctx context.Context, tg *
 		return false, nil
 	}
 
-	_, err = tg.SendMessageWithResult(ctx, chatID, replyText, nil, &messageID)
+	_, err = tg.SendMessageWithResult(ctx, chatID, replyText, &messageID, nil)
 	if err != nil {
 		slog.Error("failed to send auto first comment", "error", err, "chat_id", chatID, "message_id", messageID)
 		return false, err
