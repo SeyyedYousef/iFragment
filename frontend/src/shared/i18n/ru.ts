@@ -1877,6 +1877,11 @@ export const dict = {
 		"upgrading": "Обновление..."
 	},
 	"profile": {
+		"experience": "Опыт",
+		"nextLevel": "Следующий уровень",
+		"xp": "XP",
+		"level": "Ур.",
+		"rank": "Ранг",
 		"achievements": "Достижения",
 		"activityStats": "Статистика активности",
 		"addBtn": "Добавить",

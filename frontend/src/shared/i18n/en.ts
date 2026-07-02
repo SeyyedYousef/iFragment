@@ -1877,6 +1877,11 @@ export const dict = {
 		"upgrading": "Upgrading..."
 	},
 	"profile": {
+		"experience": "Experience",
+		"nextLevel": "Next Level",
+		"xp": "XP",
+		"level": "Lv.",
+		"rank": "RANK",
 		"achievements": "Achievements",
 		"activityStats": "Activity Stats",
 		"addBtn": "Add",

@@ -1,6 +1,7 @@
 import { initData } from '@tma.js/sdk-solid';
 import { createMemo, Show } from 'solid-js';
 import { getLevelInfo, type ProfileStats } from '@/shared/store/profile.js';
+import { t } from '@/shared/i18n/index.js';
 
 interface Props {
 	stats: ProfileStats | null;
@@ -10,6 +11,7 @@ export const IdentityHero = (props: Props) => {
 	const user = () => initData.user();
 	
 	const avatarUrl = createMemo(() => {
+		if ((user() as any)?.photo_url) return (user() as any).photo_url;
 		if (props.stats?.photoUrl) return props.stats.photoUrl;
 		return '';
 	});
@@ -17,83 +19,55 @@ export const IdentityHero = (props: Props) => {
 	const info = createMemo(() => getLevelInfo(props.stats?.xp || 0));
 
 	return (
-		<div class="bg-gradient-to-br from-[#1c1c1c] to-[#15161d] border border-[#2a2a2a] rounded-[32px] p-6 flex items-center gap-5 shadow-[0_8px_24px_rgba(0,0,0,0.4)] relative overflow-hidden group w-full">
-			{/* Subtle Background Glow */}
-			<div 
-				class="absolute top-0 right-0 w-32 h-32 bg-[#d4af37]/5 rounded-full blur-3xl -z-10"
-			/>
-
-			{/* Left: Avatar */}
-			<div class="relative w-20 h-20 rounded-full flex-shrink-0 border-2 border-[#2a2a2a] p-1 bg-[#0f1014]">
-				<Show
-					when={avatarUrl()}
-					fallback={
-						<div class="w-full h-full rounded-full flex items-center justify-center bg-[#15161d] text-white/50 font-light text-2xl">
-							{user()?.first_name ? user()?.first_name[0].toUpperCase() : 'U'}
-						</div>
-					}
-				>
-					<img
-						src={avatarUrl()}
-						alt="Avatar"
-						class="w-full h-full rounded-full object-cover"
-						loading="lazy"
-					/>
-				</Show>
+		<div class="relative w-full flex flex-col items-center px-4 z-20 mt-2">
+			
+			{/* Premium Cover Banner */}
+			<div class="absolute top-0 inset-x-4 h-24 bg-[#15161d] rounded-2xl overflow-hidden border border-[#2a2a2a]/60 shadow-lg -z-10">
+				{/* Abstract geometric shapes or gradients for the cover */}
+				<div class="absolute -right-10 -top-10 w-40 h-40 bg-[#d4af37]/20 rounded-full blur-2xl" />
+				<div class="absolute -left-10 -bottom-10 w-32 h-32 bg-[#3390ec]/20 rounded-full blur-2xl" />
+				<div class="absolute inset-0 bg-gradient-to-t from-[#0f1014] to-transparent opacity-60" />
 			</div>
 
-			{/* Right: Info */}
-			<div class="flex flex-col flex-grow min-w-0">
-				{/* Name & Title */}
-				<div class="flex items-center justify-between gap-3 w-full">
-					<div class="flex items-center gap-1.5 truncate min-w-0">
-						<h1 class="text-white text-xl font-black tracking-tight truncate">
-							{user()?.first_name} {user()?.last_name}
-						</h1>
-						<Show when={props.stats?.emojiStatus}>
-							<span class="text-base opacity-80 flex-shrink-0">{props.stats?.emojiStatus}</span>
-						</Show>
-					</div>
-					
-					{/* Small Rank Icon/Text if needed */}
-					<Show when={props.stats?.globalRank}>
-						<div class="flex items-center gap-1.5 bg-[#d4af37]/10 px-3 py-1 rounded-xl border border-[#d4af37]/20 flex-shrink-0">
-							<span
-								class="material-symbols-outlined text-[14px] text-[#d4af37]"
-								style={{ 'font-variation-settings': '"FILL" 1' }}
-							>
-								emoji_events
-							</span>
-							<span class="text-[#d4af37] text-[11px] font-bold">
-								#{props.stats?.globalRank?.toLocaleString()}
-							</span>
-						</div>
+			{/* Simple Avatar (Overlapping banner) */}
+			<div class="relative mt-8 mb-4">
+				<div class="w-24 h-24 rounded-full border-[1.5px] border-[#2a2a2a] bg-[#0f1014] p-1 z-10 overflow-hidden flex items-center justify-center mx-auto shadow-[0_0_20px_rgba(0,0,0,0.5)]">
+					<Show
+						when={avatarUrl()}
+						fallback={
+							<div class="w-full h-full rounded-full flex items-center justify-center bg-[#1c1c1c] text-white/50 font-light text-3xl">
+								{user()?.first_name ? user()?.first_name[0].toUpperCase() : 'U'}
+							</div>
+						}
+					>
+						<img
+							src={avatarUrl()}
+							alt="Avatar"
+							class="w-full h-full rounded-full object-cover"
+							loading="lazy"
+						/>
 					</Show>
 				</div>
+			</div>
 
-				<span class="text-xs text-[#a0a4ad] font-bold uppercase tracking-wider mb-3 mt-1">
-					{info().current.title}
-				</span>
-
-				{/* Level & Progress */}
-				<div class="flex items-center gap-3 w-full">
-					<span class="text-white font-black text-sm min-w-[36px]">
-						Lv.{info().current.level}
+			{/* User Info */}
+			<div class="flex flex-col items-center w-full text-center z-10 px-2">
+				<h1 class="text-white text-[22px] font-black leading-tight w-full break-words mb-2">
+					{user()?.first_name} {user()?.last_name}
+				</h1>
+				
+				<div class="flex items-center justify-center flex-wrap gap-2 mb-6">
+					<span class="text-[#d4af37] text-[10px] font-black uppercase tracking-[0.15em] bg-[#d4af37]/10 px-2.5 py-1 rounded-lg">
+						{t('profile.level') || 'Lv.'} {info().current.level} • {info().current.title}
 					</span>
-					<div class="flex-grow h-1.5 bg-[#0f1014] rounded-full overflow-hidden border border-[#2a2a2a]/50 relative">
-						<div
-							class="h-full rounded-full transition-all duration-1000 ease-out"
-							style={{ 
-								width: `${info().progress}%`,
-								background: 'linear-gradient(90deg, #4a4a4a, #d4af37)'
-							}}
-						/>
-					</div>
-					<span class="text-[10px] text-[#a0a4ad] font-medium min-w-[24px] text-right">
-						{info().progress}%
-					</span>
+					<Show when={props.stats?.globalRank}>
+						<span class="text-[#a0a4ad] text-[10px] font-bold tracking-widest bg-[#1c1c1c] px-2.5 py-1 rounded-lg border border-[#2a2a2a]">
+							{t('profile.rank') || 'RANK'} #{props.stats?.globalRank?.toLocaleString()}
+						</span>
+					</Show>
 				</div>
 			</div>
+
 		</div>
 	);
 };

@@ -76,30 +76,33 @@ export const StatsDashboard: Component<Props> = (props) => {
 			initial={{ opacity: 0, y: 10 }}
 			animate={{ opacity: 1, y: 0 }}
 			transition={{ delay: 0.1 }}
-			class="w-full overflow-x-auto no-scrollbar pb-1"
+			class="w-full"
 		>
-			<div class="flex items-center gap-2 px-1 min-w-max">
+			<div class="grid grid-cols-6 gap-2.5">
 				<For each={STAT_TEMPLATES}>
 					{(item, i) => {
 						const rawVal = () => (props.stats ? (props.stats[item.key] as number) : 0);
 						const label = () => t(item.labelKey as any) || item.defaultLabel;
+						const colClass = i() < 3 ? "col-span-2" : "col-span-3";
 						return (
 							<Motion.div
 								initial={{ opacity: 0, scale: 0.9 }}
 								animate={{ opacity: 1, scale: 1 }}
 								transition={{ delay: 0.15 + i() * 0.05 }}
-								class="bg-[#1c1c1c] rounded-xl px-3 py-2 border border-[#2a2a2a] flex items-center gap-2 whitespace-nowrap"
+								class={`bg-[#1c1c1c] rounded-[16px] py-2.5 px-1 border border-[#2a2a2a] flex flex-col justify-center items-center gap-1 shadow-sm ${colClass}`}
 							>
-								<span
-									class="material-symbols-outlined text-[14px]"
-									style={{ color: item.color, 'font-variation-settings': '"FILL" 1' }}
-								>
-									{item.icon}
-								</span>
-								<span class="text-white font-bold text-xs">
-									{formatVal(rawVal())}
-								</span>
-								<span class="text-[#a0a4ad] text-[10px] font-medium ml-1">
+								<div class="flex items-center gap-1 mb-0.5">
+									<span
+										class="material-symbols-outlined text-[15px]"
+										style={{ color: item.color, 'font-variation-settings': '"FILL" 1' }}
+									>
+										{item.icon}
+									</span>
+									<span class="text-white font-black text-[13px]">
+										{formatVal(rawVal())}
+									</span>
+								</div>
+								<span class="text-[#a0a4ad] text-[9px] font-bold uppercase tracking-wider text-center line-clamp-1 break-all">
 									{label()}
 								</span>
 							</Motion.div>

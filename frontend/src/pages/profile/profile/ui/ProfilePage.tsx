@@ -5,7 +5,7 @@ import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createSignal, ErrorBoundary, For, onMount, Show } from 'solid-js';
 import { useSecretTrigger } from '@/features/owner-gate/lib/useSecretTrigger.js';
 import { getProfileAchievements, getProfileStats } from '@/shared/api/profile.js';
-import { locale, setLocale, type Locale, t } from '@/shared/i18n/index.js';
+import { locale, setLocale, t } from '@/shared/i18n/index.js';
 import { setProfilePhotoUrl } from '@/shared/store/profile.js';
 import { ErrorFallback } from '@/shared/ui/ErrorFallback.js';
 import { SkeletonProfile } from '@/shared/ui/Skeleton.js';
@@ -15,21 +15,12 @@ import { AchievementPreview } from '@/widgets/profile/AchievementPreview.js';
 import { QuestCard, BoostsCard, LeaderboardCard } from '@/widgets/profile/GamificationHub.js';
 import { IdentityHero } from '@/widgets/profile/IdentityHero.js';
 import { StatsDashboard } from '@/widgets/profile/StatsDashboard.js';
+import { ExperienceCard } from '@/widgets/profile/ExperienceCard.js';
 
 export const ProfilePage: Component = () => {
 	const secretTrigger = useSecretTrigger();
 	const navigate = useNavigate();
 	const [showLangMenu, setShowLangMenu] = createSignal(false);
-
-	const getLanguageLabel = (l: Locale) => {
-		switch (l) {
-			case 'en': return 'English';
-			case 'fa': return 'فارسی';
-			case 'ru': return 'Русский';
-			case 'zh': return '中文';
-			default: return 'EN';
-		}
-	};
 
 	const getCachedStats = () => {
 		try {
@@ -110,7 +101,8 @@ export const ProfilePage: Component = () => {
 				</div>
 			) : (
 				<ErrorBoundary fallback={(err, reset) => <ErrorFallback err={err} reset={reset} />}>
-					<div class="px-5 pt-4 flex flex-col gap-3">
+					<div class="px-5 pt-4 flex flex-col gap-3 relative">
+						
 						{/* Header: Identity Hero (Compact) */}
 						<Motion.div
 							initial={{ opacity: 0, y: 10 }}
@@ -125,6 +117,9 @@ export const ProfilePage: Component = () => {
 						>
 							<IdentityHero stats={stats()} />
 						</Motion.div>
+
+						{/* New Premium Experience Card */}
+						<ExperienceCard stats={stats()} />
 
 						{/* Middle: Scrolling Stats Chips */}
 						<StatsDashboard stats={stats()} />
@@ -181,14 +176,14 @@ export const ProfilePage: Component = () => {
 								class="flex-1 flex items-center justify-center gap-1.5 py-3.5 bg-[#0f1014] rounded-[18px] hover:bg-[#15161d] active:scale-[0.98] transition-all"
 							>
 								<span class="material-symbols-outlined text-[#ff9500] text-[16px]">language</span>
-								<span class="text-[10px] text-white font-black uppercase tracking-widest hidden sm:inline">{getLanguageLabel(locale())}</span>
+								<span class="text-[10px] text-white font-black uppercase tracking-widest hidden sm:inline">{(t as any)('settings.language') || 'Language'}</span>
 							</button>
 							<button
 								onClick={() => handleNavigate('/profile/security')}
 								class="flex-1 flex items-center justify-center gap-1.5 py-3.5 bg-[#0f1014] rounded-[18px] hover:bg-[#15161d] active:scale-[0.98] transition-all"
 							>
 								<span class="material-symbols-outlined text-[#34c759] text-[16px]">security</span>
-								<span class="text-[10px] text-white font-black uppercase tracking-widest hidden sm:inline">{t('security.title') || 'Security'}</span>
+								<span class="text-[10px] text-white font-black uppercase tracking-widest hidden sm:inline">{(t as any)('security.title') || 'Security'}</span>
 							</button>
 						</Motion.div>
 

@@ -1877,6 +1877,11 @@ export const dict = {
 		"upgrading": "正在升级..."
 	},
 	"profile": {
+		"experience": "经验",
+		"nextLevel": "下一等级",
+		"xp": "XP",
+		"level": "等级",
+		"rank": "排名",
 		"achievements": "成就",
 		"activityStats": "活动统计",
 		"addBtn": "添加",
