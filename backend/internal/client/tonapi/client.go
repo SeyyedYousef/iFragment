@@ -528,7 +528,7 @@ func (c *Client) GetTONRates(ctx context.Context) (float64, error) {
 		return 0, err
 	}
 
-	tonData, ok := rates.Rates["ton"]
+	tonData, ok := rates.Rates["TON"]
 	if !ok {
 		return 0, fmt.Errorf("ton rate data not found")
 	}

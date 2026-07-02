@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
+	"ifragment-backend/internal/client/tonapi"
 	"ifragment-backend/internal/repository"
 )
 
@@ -62,46 +62,17 @@ func (s *CryptoPriceService) fetchPrices(ctx context.Context) {
 		}
 	}()
 
-	// We use Binance API for more stable rate limits compared to CoinGecko without an API key
-	url := "https://api.binance.com/api/v3/ticker/price?symbol=TONUSDT"
-
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		slog.Error("failed to create request for crypto prices", "error", err)
-		return
-	}
-
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "iFragmentBot/1.0 (https://ifragment.com)")
+	// Use TonAPI to fetch the official TON price, utilizing our authenticated client keys
+	tonClient := tonapi.NewClient()
+	usdPrice, err := tonClient.GetTONRates(ctx)
 	
-	resp, err := s.httpClient.Do(req)
 	if err != nil {
-		slog.Error("failed to fetch crypto prices", "error", err)
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		slog.Error("failed to fetch crypto prices", "status", resp.StatusCode)
-		return
-	}
-
-	var data struct {
-		Price string `json:"price"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		slog.Error("failed to decode crypto prices", "error", err)
-		return
-	}
-
-	priceFloat, err := strconv.ParseFloat(data.Price, 64)
-	if err != nil {
-		slog.Error("failed to parse crypto price", "error", err)
+		slog.Error("failed to fetch crypto price from tonapi", "error", err)
 		return
 	}
 
 	s.mu.Lock()
-	s.prices["the-open-network"] = priceFloat
+	s.prices["the-open-network"] = usdPrice
 	s.lastFetch = time.Now()
 	s.mu.Unlock()
 
