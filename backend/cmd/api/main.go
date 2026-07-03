@@ -353,6 +353,12 @@ func main() {
 	ownerService := service.NewOwnerService(ownerRepo, cache, settingsRepo, userbotManager)
 	ownerHandler := handler.NewOwnerHandler(ownerService)
 
+	// Base health check for external ping services (e.g. cron-job.org)
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status": "ok", "message": "iFragment API is awake"}`))
+	})
+
 	// Public Routes
 	r.Route("/api/v1", func(r chi.Router) {
 		// Health check routes kept outside ban checking to avoid database liveness probe DoS
