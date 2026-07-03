@@ -1,5 +1,5 @@
 import { initData } from '@tma.js/sdk-solid';
-import { createMemo, createSignal, Show } from 'solid-js';
+import { createMemo, createSignal, createEffect, Show } from 'solid-js';
 import { getLevelInfo, type ProfileStats } from '@/shared/store/profile.js';
 import { t } from '@/shared/i18n/index.js';
 import { API_CONFIG } from '@/shared/api/config.js';
