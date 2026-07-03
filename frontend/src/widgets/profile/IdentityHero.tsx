@@ -78,7 +78,7 @@ export const IdentityHero = (props: Props) => {
 								alt="Avatar"
 								class="w-full h-full object-cover transition-opacity duration-300"
 								loading="lazy"
-								crossorigin="anonymous"
+								referrerPolicy="no-referrer"
 								onError={() => setImgError(true)}
 							/>
 						</Show>

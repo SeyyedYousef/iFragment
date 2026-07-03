@@ -90,6 +90,7 @@ var enDict = map[string]interface{}{
 		"features":       "🛡 <b>Privacy & Security Settings</b>\n\n✅ <b>These features are now active:</b>\n\n🚫 Auto-delete links & domains\n🤖 Block nuisance bots\n🔥 Smart Anti-Spam (5 msgs / 10s)\n\n🎛 To customize, open your dashboard:\n👉 <a href=\"{arg0}\">Open Dashboard</a>",
 		"welcome_owner":  "🔥 <b>iFragment Admin Portal</b>\n\nWelcome back, Commander {arg0}. Manage your system settings, view real-time logs, and monitor live status.\n\n👇 <b>Launch control panel:</b>",
 		"welcome_public": "💎 <b>Welcome to @iFragmentBot</b>\n\nMonitor the true value of your Telegram collectibles; <b>search, value, and analyze</b> usernames, anonymous numbers, and gifts in real time.\n\nTransform your <b>group security</b> and <b>professional channel management</b> using our intelligent system.\n\n👇 <b>Open the iFragment Mini App now:</b>",
+		"welcome_hosted_public": "🛡 <b>Hello!</b>\nI am an advanced group management bot here to help you keep your group secure, organized, and professional.\n\n✨ <b>This bot is proudly hosted and powered by @iFragmentBot!</b>\n\nIf you are a group admin and would like to have your very own powerful bot with a <b>custom name, profile picture, and bio</b>, visit our main bot now and create your brand bot in seconds:\n\n👉 <b>@iFragmentBot</b>\n👉 <b>@iFragmentBot</b>",
 		"open_app":       "🚀 Launch iFragment 💎",
 	},
 	"moderation": map[string]interface{}{
@@ -185,6 +186,7 @@ var faDict = map[string]interface{}{
 		"features":       "🛡 <b>تنظیمات حریم خصوصی و امنیت</b>\n\n✅ <b>قابلیت‌های زیر هم‌اکنون فعال هستند:</b>\n\n🚫 حذف خودکار لینک‌ها و دامنه‌ها\n🤖 مسدودسازی ربات‌های مزاحم\n🔥 ضد اسپم هوشمند (۵ پیام در ۱۰ ثانیه)\n\n🎛 برای شخصی‌سازی، داشبورد مدیریت خود را باز کنید:\n👉 <a href=\"{arg0}\">ورود به داشبورد</a>",
 		"welcome_owner":  "🔥 <b>پنل مدیریت آی‌فرگمنت</b>\n\nخوش آمدید فرمانده {arg0}. تنظیمات سیستم خود را مدیریت کنید، لاگ‌ها را لحظه‌ای بررسی کنید و وضعیت را کنترل نمایید.\n\n👇 <b>ورود به کنترل پنل:</b>",
 		"welcome_public": "💎 <b>به پلتفرم همه‌کاره @iFragmentBot خوش آمدید.</b>\n\nبا آی‌فرگمنت ارزش واقعی دارایی‌های تلگرامی خود را ارزیابی کنید؛ نام‌های کاربری، شماره‌های ناشناس و هدایا را <b>جستجو، ارزش‌گذاری و تحلیل</b> کنید.\n\nهمچنین <b>امنیت گروه‌ها</b> و <b>مدیریت حرفه‌ای کانال‌های خود</b> را با سیستم هوشمند ما متحول سازید.\n\n👇 <b>همین حالا مینی‌اپ آی‌فرگمنت را باز کنید:</b>",
+		"welcome_hosted_public": "سلام! 🛡\nمن یک ربات پیشرفته مدیریت گروه هستم و اینجا حضور دارم تا به شما کمک کنم گروهی امن، منظم و حرفه‌ای داشته باشید.\n\n✨ <b>این ربات با افتخار توسط @iFragmentBot میزبانی و قدرت‌دهی می‌شود!</b>\n\nاگر شما هم مدیر یک گروه هستید و دوست دارید یک ربات کاملاً اختصاصی و قدرتمند با <b>نام، پروفایل و بیوگرافی دلخواه خودتان</b> داشته باشید، همین حالا به بات اصلی ما سر بزنید و در کمتر از چند ثانیه بات برند خودتان را بسازید:\n\n👉 <b>@iFragmentBot</b>\n👉 <b>@iFragmentBot</b>",
 		"open_app":       "🚀 ورود به آی‌فرگمنت 💎",
 	},
 	"moderation": map[string]interface{}{
@@ -280,6 +282,7 @@ var ruDict = map[string]interface{}{
 		"features":       "🛡 <b>Настройки конфиденциальности и безопасности</b>\n\n✅ <b>Эти функции уже активны:</b>\n\n🚫 Автоудаление ссылок и доменов\n🤖 Блокировка назойливых ботов\n🔥 Умный антиспам (5 сообщ. / 10 сек)\n\n🎛 Для настройки откройте панель управления:\n👉 <a href=\"{arg0}\">Открыть дашборд</a>",
 		"welcome_owner":  "🔥 <b>Панель администратора iFragment</b>\n\nДобро пожаловать, Командир {arg0}. Управляйте настройками системы и просматривайте логи в реальном времени.\n\n👇 <b>Открыть панель управления:</b>",
 		"welcome_public": "💎 <b>Добро пожаловать в @iFragmentBot</b>\n\nОтслеживайте реальную стоимость коллекционных объектов Telegram; <b>ищите, оценивайте и анализируйте</b> юзернеймы, анонимные номера и подарки в реальном времени.\n\nКроме того, преобразите <b>безопасность групп</b> и <b>профессиональное управление каналами</b> с помощью нашей системы.\n\n👇 <b>Запустите приложение iFragment прямо сейчас:</b>",
+		"welcome_hosted_public": "Привет! 🛡\nЯ продвинутый бот для управления группами, созданный для того, чтобы ваша группа была безопасной, организованной и профессиональной.\n\n✨ <b>Этот бот с гордостью поддерживается и предоставляется @iFragmentBot!</b>\n\nЕсли вы администратор группы и хотите иметь собственного мощного бота с <b>персональным именем, фото и описанием</b>, зайдите в нашего главного бота и создайте свой бренд-бот за пару секунд:\n\n👉 <b>@iFragmentBot</b>\n👉 <b>@iFragmentBot</b>",
 		"open_app":       "🚀 Открыть iFragment 💎",
 	},
 	"moderation": map[string]interface{}{
@@ -374,6 +377,7 @@ var zhDict = map[string]interface{}{
 		"features":       "🛡 <b>隐私与安全设置</b>\n\n✅ <b>这些功能现已激活：</b>\n\n🚫 自动删除链接和域名\n🤖 封锁骚扰机器人\n🔥 智能防洪（10秒内5条消息）\n\n🎛 如需自定义，请打开您的仪表板：\n👉 <a href=\"{arg0}\">打开仪表板</a>",
 		"welcome_owner":  "🔥 <b>iFragment 管理员门户</b>\n\n欢迎回来，指挥官 {arg0}。管理您的系统设置、查看实时日志并监控实时状态。\n\n👇 <b>启动控制面板：</b>",
 		"welcome_public": "💎 <b>欢迎使用 @iFragmentBot</b>\n\n实时监控您 Telegram 收藏品的真实价值；<b>搜索、估值和分析</b>用户名、匿名号码及礼物。\n\n使用我们的智能系统彻底改变您的<b>群组安全</b>和<b>专业频道管理</b>。\n\n👇 <b>立即打开 iFragment 小程序：</b>",
+		"welcome_hosted_public": "你好！🛡\n我是一个高级群组管理机器人，旨在帮助您的群组保持安全、有序和专业。\n\n✨ <b>本机器人由 @iFragmentBot 自豪地托管和提供支持！</b>\n\n如果您是群组管理员，并希望拥有一个完全定制化的强大机器人（包括<b>自定义名称、头像和简介</b>），请立即访问我们的主机器人，在几秒钟内创建您的品牌机器人：\n\n👉 <b>@iFragmentBot</b>\n👉 <b>@iFragmentBot</b>",
 		"open_app":       "🚀 打开 iFragment 💎",
 	},
 	"moderation": map[string]interface{}{

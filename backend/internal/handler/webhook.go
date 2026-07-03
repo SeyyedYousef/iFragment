@@ -1676,7 +1676,11 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 		if m.From.ID == bot.OwnerUserID {
 			welcome = i18n.T(lang, "onboarding.welcome_owner", userName)
 		} else {
-			welcome = i18n.T(lang, "onboarding.welcome_public", userName)
+			if strings.EqualFold(bot.BotUsername, "iFragmentBot") || bot.OwnerUserID == 0 {
+				welcome = i18n.T(lang, "onboarding.welcome_public", userName)
+			} else {
+				welcome = i18n.T(lang, "onboarding.welcome_hosted_public", userName)
+			}
 		}
 
 		token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
