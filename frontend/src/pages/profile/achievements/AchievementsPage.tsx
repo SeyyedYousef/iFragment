@@ -94,7 +94,7 @@ export const AchievementsPage: Component = () => {
 		shareToStory(`${window.location.origin}/promo_banner.png`, {
 			text: storyText,
 			widget_link: {
-				url: `https://t.me/iFragmentBot?start=ach_${ach.id}`,
+				url: `https://t.me/iFragmentBot/iFragment?startapp=ach_${ach.id}`,
 				name: 'iFragment',
 			},
 		});

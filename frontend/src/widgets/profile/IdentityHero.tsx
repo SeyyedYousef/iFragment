@@ -35,10 +35,10 @@ export const IdentityHero = (props: Props) => {
 	
 	const avatarUrl = createMemo(() => {
 		if (imgError()) return '';
-		// Try Telegram initData photo first (direct URL from Telegram)
-		if ((user() as any)?.photo_url) return (user() as any).photo_url;
-		// Then try the backend-served avatar proxy
+		// Try the backend-served avatar proxy FIRST
 		if (props.stats?.photoUrl) return buildAvatarUrl(props.stats.photoUrl);
+		// Then try Telegram initData photo (direct URL from Telegram)
+		if ((user() as any)?.photo_url) return (user() as any).photo_url;
 		return '';
 	});
 

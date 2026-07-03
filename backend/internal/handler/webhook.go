@@ -1653,6 +1653,25 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 			}
 			startParam = string(sanitized)
 		}
+		
+		if startParam != "" {
+			// Pre-register user to count referral immediately on /start
+			err := h.db.UpsertUser(ctx, repository.User{
+				TelegramID:   m.From.ID,
+				Username:     m.From.Username,
+				FirstName:    m.From.FirstName,
+				LastName:     m.From.LastName,
+				LanguageCode: m.From.LanguageCode,
+			})
+			if err == nil {
+				_, err := h.db.SetReferredBy(ctx, m.From.ID, startParam)
+				if err != nil {
+					slog.Warn("Failed to set referred_by via webhook", "user_id", m.From.ID, "referrer_code", startParam, "error", err)
+				}
+			} else {
+				slog.Error("Failed to upsert user for referral via webhook", "error", err)
+			}
+		}
 
 		targetURL := miniAppURL
 		if startParam != "" {

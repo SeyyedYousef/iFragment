@@ -37,7 +37,7 @@ export const FrensView: Component = () => {
 		try {
 			hapticFeedback.impactOccurred('medium');
 		} catch {}
-		const fullLink = `https://t.me/iFragmentBot?start=${link}`;
+		const fullLink = `https://t.me/iFragmentBot/iFragment?startapp=${link}`;
 		// Use openTelegramLink to trigger the native share sheet
 		openTelegramLink(
 			`https://t.me/share/url?url=${encodeURIComponent(fullLink)}&text=${encodeURIComponent('Join me on iFragment and earn free Coins! 🟡')}`,

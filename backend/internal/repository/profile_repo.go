@@ -517,9 +517,9 @@ func (db *Database) SetReferredBy(ctx context.Context, userID int64, referrerCod
 
 	success := cmdTag.RowsAffected() == 1
 	if success {
-		// Give 1,000 Coins to both referrer and the new user
-		_, _ = db.AdjustAirdropCoins(ctx, referrerID, 1000.0)
-		_, _ = db.AdjustAirdropCoins(ctx, userID, 1000.0)
+		// Give 10,000 Coins to both referrer and the new user
+		_, _ = db.AdjustAirdropCoins(ctx, referrerID, 10000.0)
+		_, _ = db.AdjustAirdropCoins(ctx, userID, 10000.0)
 	}
 
 	return success, nil

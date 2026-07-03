@@ -65,7 +65,7 @@ export const ClanView: Component = () => {
 		triggerHaptic('light');
 		const clan = userClan();
 		if (!clan) return;
-		const link = `https://t.me/iFragmentBot?start=clan_${clan.channel_username}`;
+		const link = `https://t.me/iFragmentBot/iFragment?startapp=clan_${clan.channel_username}`;
 		openTelegramLink(
 			`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(t('airdropFinal.clan.inviteText', { title: clan.chat_title }))}`,
 		);
