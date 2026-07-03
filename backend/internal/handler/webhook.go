@@ -1660,7 +1660,7 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 				TelegramID:   m.From.ID,
 				Username:     m.From.Username,
 				FirstName:    m.From.FirstName,
-				LastName:     m.From.LastName,
+				LastName:     "",
 				LanguageCode: m.From.LanguageCode,
 			})
 			if err == nil {
