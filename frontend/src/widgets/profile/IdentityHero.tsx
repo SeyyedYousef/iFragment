@@ -2,10 +2,32 @@ import { initData } from '@tma.js/sdk-solid';
 import { createMemo, createSignal, Show } from 'solid-js';
 import { getLevelInfo, type ProfileStats } from '@/shared/store/profile.js';
 import { t } from '@/shared/i18n/index.js';
+import { API_CONFIG } from '@/shared/api/config.js';
 
 interface Props {
 	stats: ProfileStats | null;
 }
+
+/**
+ * Build the full avatar URL.
+ * The backend returns `photoUrl` as a relative path like `/api/v1/profile/avatar/123456`.
+ * We need to prepend the backend origin so the <img> actually fetches from the API server,
+ * not from the frontend's own origin (which doesn't serve avatars).
+ */
+const buildAvatarUrl = (rawUrl: string): string => {
+	if (!rawUrl) return '';
+	// Already absolute — use as-is
+	if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) return rawUrl;
+	// Relative path from backend — prepend backend origin
+	// API_CONFIG.BASE_URL is like "https://ifragment-api.onrender.com/api/v1"
+	// photoUrl is like "/api/v1/profile/avatar/123456"
+	try {
+		const base = new URL(API_CONFIG.BASE_URL);
+		return `${base.origin}${rawUrl}`;
+	} catch {
+		return rawUrl;
+	}
+};
 
 export const IdentityHero = (props: Props) => {
 	const user = () => initData.user();
@@ -13,8 +35,10 @@ export const IdentityHero = (props: Props) => {
 	
 	const avatarUrl = createMemo(() => {
 		if (imgError()) return '';
+		// Try Telegram initData photo first (direct URL from Telegram)
 		if ((user() as any)?.photo_url) return (user() as any).photo_url;
-		if (props.stats?.photoUrl) return props.stats.photoUrl;
+		// Then try the backend-served avatar proxy
+		if (props.stats?.photoUrl) return buildAvatarUrl(props.stats.photoUrl);
 		return '';
 	});
 
@@ -23,18 +47,19 @@ export const IdentityHero = (props: Props) => {
 	return (
 		<div class="relative w-full flex flex-col items-center px-4 z-20 mt-4">
 			
-			{/* Cyber-Glass Cover Banner */}
-			<div class="absolute top-0 inset-x-4 h-28 bg-[#0a0a0f]/80 backdrop-blur-xl rounded-[32px] overflow-hidden border border-white/5 shadow-[0_8px_32px_rgba(0,0,0,0.5)] -z-10">
+			{/* Cyber-Glass Cover Banner — covers entire hero section */}
+			<div class="absolute top-0 inset-x-4 bottom-0 bg-[#0a0a0f]/80 backdrop-blur-xl rounded-[32px] overflow-hidden border border-white/5 shadow-[0_8px_32px_rgba(0,0,0,0.5)] -z-10">
 				{/* Dynamic Glowing Orbs */}
-				<div class="absolute -right-12 -top-12 w-48 h-48 bg-[#9d4edd]/30 rounded-full blur-[40px] mix-blend-screen animate-pulse" style="animation-duration: 4s;" />
-				<div class="absolute -left-12 -bottom-12 w-48 h-48 bg-[#00f5ff]/20 rounded-full blur-[40px] mix-blend-screen animate-pulse" style="animation-duration: 5s;" />
-				<div class="absolute inset-0 bg-gradient-to-b from-transparent via-[#050508]/40 to-[#050508]" />
+				<div class="absolute -right-12 -top-12 w-48 h-48 bg-[#00d4ff]/25 rounded-full blur-[40px] mix-blend-screen animate-pulse" style="animation-duration: 4s;" />
+				<div class="absolute -left-12 -bottom-12 w-48 h-48 bg-[#00f5ff]/15 rounded-full blur-[40px] mix-blend-screen animate-pulse" style="animation-duration: 5s;" />
+				<div class="absolute right-1/3 top-1/2 w-32 h-32 bg-[#00bfff]/10 rounded-full blur-[50px] mix-blend-screen" />
+				<div class="absolute inset-0 bg-gradient-to-b from-transparent via-[#050508]/30 to-[#050508]/60" />
 			</div>
 
 			{/* Premium Avatar Container */}
 			<div class="relative mt-6 mb-5">
 				{/* Glowing outer ring */}
-				<div class="absolute -inset-1 bg-gradient-to-r from-[#00f5ff] to-[#9d4edd] rounded-full blur opacity-40" />
+				<div class="absolute -inset-1 bg-gradient-to-r from-[#00f5ff] to-[#00bfff] rounded-full blur opacity-40" />
 				
 				<div class="relative w-[104px] h-[104px] rounded-full p-[2px] bg-gradient-to-br from-white/20 to-white/5 shadow-2xl">
 					<div class="w-full h-full rounded-full bg-[#050508] overflow-hidden flex items-center justify-center relative">
@@ -42,7 +67,7 @@ export const IdentityHero = (props: Props) => {
 							when={avatarUrl()}
 							fallback={
 								<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#1a1a24] to-[#0a0a0f]">
-									<span class="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-br from-[#00f5ff] to-[#9d4edd]">
+									<span class="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-br from-[#00f5ff] to-[#00bfff]">
 										{user()?.first_name ? user()?.first_name[0].toUpperCase() : 'U'}
 									</span>
 								</div>
@@ -53,6 +78,7 @@ export const IdentityHero = (props: Props) => {
 								alt="Avatar"
 								class="w-full h-full object-cover transition-opacity duration-300"
 								loading="lazy"
+								crossorigin="anonymous"
 								onError={() => setImgError(true)}
 							/>
 						</Show>
@@ -64,15 +90,15 @@ export const IdentityHero = (props: Props) => {
 			</div>
 
 			{/* User Info & Badges */}
-			<div class="flex flex-col items-center w-full text-center z-10 px-2">
+			<div class="flex flex-col items-center w-full text-center z-10 px-2 pb-5">
 				<h1 class="text-[26px] font-black leading-tight w-full break-words mb-3 text-transparent bg-clip-text bg-gradient-to-r from-white via-white/90 to-white/70 drop-shadow-sm">
 					{user()?.first_name} {user()?.last_name}
 				</h1>
 				
-				<div class="flex items-center justify-center flex-wrap gap-2.5 mb-6">
+				<div class="flex items-center justify-center flex-wrap gap-2.5">
 					{/* Level Badge */}
 					<div class="relative group">
-						<div class="absolute inset-0 bg-gradient-to-r from-[#9d4edd] to-[#00f5ff] rounded-xl blur opacity-30 group-hover:opacity-60 transition-opacity" />
+						<div class="absolute inset-0 bg-gradient-to-r from-[#00bfff] to-[#00f5ff] rounded-xl blur opacity-30 group-hover:opacity-60 transition-opacity" />
 						<div class="relative flex items-center gap-1.5 bg-[#0a0a0f]/90 border border-white/10 px-3 py-1.5 rounded-xl backdrop-blur-md">
 							<span class="material-symbols-outlined text-[14px] text-[#00f5ff]" style="font-variation-settings: 'FILL' 1;">star</span>
 							<span class="text-white text-[11px] font-black uppercase tracking-[0.1em]">

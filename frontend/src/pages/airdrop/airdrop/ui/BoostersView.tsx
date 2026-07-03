@@ -110,50 +110,60 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 							const metaDesc = t(`airdropFinal.boosters.meta.${id}.desc` as any);
 
 							return (
-								<button
-									onClick={() => handleUpgrade(id)}
-									disabled={isMaxed() || !canAfford()}
-									class={`flex items-center p-4 transition-all ${isMaxed() || !canAfford() ? 'opacity-40 cursor-not-allowed grayscale-[0.5]' : 'active:bg-white/5'} ${index() !== 0 ? 'border-t border-white/5' : ''} ${animatingId() === id ? 'bg-white/10' : ''}`}
-								>
-									{/* Icon */}
-									<div class="w-14 h-14 bg-white/5 rounded-2xl flex items-center justify-center shrink-0 me-4">
-										<span class="text-3xl">{emojiMap[id] || '✨'}</span>
-									</div>
+						<button
+							onClick={() => handleUpgrade(id)}
+							disabled={isMaxed() || !canAfford()}
+							class={`flex items-center p-4 transition-all ${isMaxed() || !canAfford() ? 'opacity-40 cursor-not-allowed grayscale-[0.5]' : 'active:bg-white/5'} ${index() !== 0 ? 'border-t border-white/5' : ''} ${animatingId() === id ? 'bg-white/10' : ''}`}
+						>
+							{/* Icon */}
+							<div class="w-14 h-14 bg-white/5 rounded-2xl flex items-center justify-center shrink-0 me-4">
+								<span class="text-3xl">{emojiMap[id] || '✨'}</span>
+							</div>
 
-									{/* Info */}
-									<div class="flex-1 flex flex-col items-start text-start min-w-0 justify-center">
-										<div class="flex items-center gap-2">
-											<span class="text-white font-medium text-[17px] tracking-tight">{metaName !== `airdropFinal.boosters.meta.${id}.name` ? metaName : defaultMeta.name}</span>
-											{id === 'tapBot' && (
-												<span class="text-white text-[13px] bg-white/10 px-2 py-0.5 rounded-full flex items-center gap-1">
-													on <div class="w-1.5 h-1.5 rounded-full bg-[#34c759]"></div>
-												</span>
-											)}
+							{/* Info */}
+							<div class="flex-1 flex flex-col items-start text-start min-w-0 justify-center">
+								<div class="flex items-center gap-2">
+									<span class="text-white font-medium text-[17px] tracking-tight">{metaName !== `airdropFinal.boosters.meta.${id}.name` ? metaName : defaultMeta.name}</span>
+									{id === 'tapBot' && booster().level >= 1 && (
+										<span class="text-white text-[13px] bg-[#34c759]/15 text-[#34c759] px-2 py-0.5 rounded-full flex items-center gap-1 font-medium">
+											on <div class="w-1.5 h-1.5 rounded-full bg-[#34c759]"></div>
+										</span>
+									)}
+								</div>
+								
+								{id === 'tapBot' ? (
+									booster().level >= 1 ? (
+										<span class="text-[#8e8e93] text-[15px] mt-0.5">{metaDesc !== `airdropFinal.boosters.meta.${id}.desc` ? metaDesc : defaultMeta.desc}</span>
+									) : (
+										<div class="flex items-center gap-1.5 mt-1">
+											<span class="material-symbols-outlined text-amber-400 text-[16px]" style={{ 'font-variation-settings': '"FILL" 1' }}>monetization_on</span>
+											<span class="text-white font-bold text-[15px] tracking-tight">{cost().toLocaleString('en-US')}</span>
+											<span class="text-[#8e8e93] text-[15px] ms-1">{metaDesc !== `airdropFinal.boosters.meta.${id}.desc` ? metaDesc : defaultMeta.desc}</span>
 										</div>
-										
-										{id === 'tapBot' ? (
-											<span class="text-[#8e8e93] text-[15px] mt-0.5">{metaDesc !== `airdropFinal.boosters.meta.${id}.desc` ? metaDesc : defaultMeta.desc}</span>
-										) : isMaxed() ? (
-											<span class="text-[#8e8e93] text-[15px] mt-0.5">{t('airdropFinal.boosters.maxLevelReached')}</span>
-										) : (
-											<div class="flex items-center gap-1.5 mt-1">
-												<span class="material-symbols-outlined text-amber-400 text-[16px]" style={{ 'font-variation-settings': '"FILL" 1' }}>monetization_on</span>
-												<span class="text-white font-bold text-[15px] tracking-tight">{cost().toLocaleString('en-US')}</span>
-												<span class="text-[#8e8e93] text-[15px] px-1">•</span>
-												<span class="text-[#8e8e93] text-[15px]">{booster().level} {t('airdropFinal.boosters.lvl')}</span>
-											</div>
-										)}
+									)
+								) : isMaxed() ? (
+									<span class="text-[#8e8e93] text-[15px] mt-0.5">{t('airdropFinal.boosters.maxLevelReached')}</span>
+								) : (
+									<div class="flex items-center gap-1.5 mt-1">
+										<span class="material-symbols-outlined text-amber-400 text-[16px]" style={{ 'font-variation-settings': '"FILL" 1' }}>monetization_on</span>
+										<span class="text-white font-bold text-[15px] tracking-tight">{cost().toLocaleString('en-US')}</span>
+										<span class="text-[#8e8e93] text-[15px] px-1">•</span>
+										<span class="text-[#8e8e93] text-[15px]">{booster().level} {t('airdropFinal.boosters.lvl')}</span>
 									</div>
+								)}
+							</div>
 
-									{/* Right Accessory */}
-									<div class="shrink-0 ms-2">
-										{isMaxed() && id !== 'tapBot' ? (
-											<span class="material-symbols-outlined text-white/40 text-[24px]">check</span>
-										) : (
-											<span class="material-symbols-outlined text-white/40 text-[24px] rtl:rotate-180">chevron_right</span>
-										)}
-									</div>
-								</button>
+							{/* Right Accessory */}
+							<div class="shrink-0 ms-2">
+								{isMaxed() && id !== 'tapBot' ? (
+									<span class="material-symbols-outlined text-white/40 text-[24px]">check</span>
+								) : id === 'tapBot' && booster().level >= 1 ? (
+									<span class="material-symbols-outlined text-[#34c759] text-[24px]">check_circle</span>
+								) : (
+									<span class="material-symbols-outlined text-white/40 text-[24px] rtl:rotate-180">chevron_right</span>
+								)}
+							</div>
+						</button>
 							);
 						}}
 					</For>

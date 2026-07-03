@@ -117,12 +117,12 @@ export const activateTurbo = async () => {
 			await activateTurboServer();
 			setIsRocketSpawned(false);
 			setIsTurboActive(true);
-			setTurboExpiresAt(Date.now() + 15000); // 15 seconds
+			setTurboExpiresAt(Date.now() + 10000); // 10 seconds
 			setTimeout(() => {
 				if (Date.now() >= turboExpiresAt()) {
 					setIsTurboActive(false);
 				}
-			}, 15000);
+			}, 10000);
 		} catch (e: any) {
 			console.error('Failed to activate turbo on server:', e);
 			setIsRocketSpawned(false);
@@ -340,8 +340,24 @@ let syncTimeout: ReturnType<typeof setTimeout> | undefined;
 let isSyncing = false;
 let syncPromise: Promise<void> | null = null;
 
-const getOptimisticCoins = () => pendingTapBuckets.reduce((acc, b) => acc + b.count * b.multiplier * tapPower(), 0);
-const getOptimisticEnergyCost = () => pendingTapBuckets.reduce((acc, b) => acc + (b.multiplier === 1 ? b.count * tapPower() : 0), 0);
+const getOptimisticCoins = () => {
+	const raw = pendingTapBuckets.reduce((acc, b) => {
+		const energyConsumed = b.multiplier === 5 ? 0 : b.count * tapPower();
+		const coinsEarned = b.multiplier === 5 ? b.count * tapPower() * 5 : energyConsumed;
+		return acc + coinsEarned;
+	}, 0);
+
+	let fatigueMultiplier = 1.0;
+	if (dailyTappedCoins() > 30000) {
+		fatigueMultiplier = 0.1;
+	} else if (dailyTappedCoins() > 15000) {
+		fatigueMultiplier = 0.25;
+	} else if (dailyTappedCoins() > 5000) {
+		fatigueMultiplier = 0.5;
+	}
+	return raw * fatigueMultiplier;
+};
+const getOptimisticEnergyCost = () => pendingTapBuckets.reduce((acc, b) => acc + (b.multiplier === 5 ? 0 : b.count * tapPower()), 0);
 const getOptimisticTaps = () => pendingTapBuckets.reduce((acc, b) => acc + b.count, 0);
 
 export const syncPendingTaps = async () => {
