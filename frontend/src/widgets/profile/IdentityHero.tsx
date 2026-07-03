@@ -34,12 +34,16 @@ export const IdentityHero = (props: Props) => {
 	const [imgError, setImgError] = createSignal(false);
 	
 	const avatarUrl = createMemo(() => {
-		if (imgError()) return '';
 		// Try the backend-served avatar proxy FIRST
 		if (props.stats?.photoUrl) return buildAvatarUrl(props.stats.photoUrl);
 		// Then try Telegram initData photo (direct URL from Telegram)
 		if ((user() as any)?.photo_url) return (user() as any).photo_url;
 		return '';
+	});
+
+	createEffect(() => {
+		avatarUrl();
+		setImgError(false);
 	});
 
 	const info = createMemo(() => getLevelInfo(props.stats?.xp || 0));
@@ -64,7 +68,7 @@ export const IdentityHero = (props: Props) => {
 				<div class="relative w-[104px] h-[104px] rounded-full p-[2px] bg-gradient-to-br from-white/20 to-white/5 shadow-2xl">
 					<div class="w-full h-full rounded-full bg-[#050508] overflow-hidden flex items-center justify-center relative">
 						<Show
-							when={avatarUrl()}
+							when={avatarUrl() && !imgError()}
 							fallback={
 								<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#1a1a24] to-[#0a0a0f]">
 									<span class="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-br from-[#00f5ff] to-[#00bfff]">

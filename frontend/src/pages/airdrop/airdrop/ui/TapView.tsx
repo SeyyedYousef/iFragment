@@ -248,6 +248,11 @@ export const TapView: Component<{
 					font-feature-settings: "tnum";
 					font-variant-numeric: tabular-nums;
 				}
+				@keyframes rocketFloat {
+					0%, 100% { transform: translate(0, 0) rotate(0deg); }
+					33% { transform: translate(-20px, 30px) rotate(-10deg) scale(1.1); }
+					66% { transform: translate(15px, -20px) rotate(15deg) scale(0.9); }
+				}
 				.coin-wrapper {
 					animation: idleBreathing 4s ease-in-out infinite;
 				}
@@ -267,8 +272,8 @@ export const TapView: Component<{
 			<Show when={isRocketSpawned()}>
 				<button
 					onClick={() => activateTurbo()}
-					class="absolute z-[70] text-[56px] drop-shadow-[0_0_20px_rgba(239,68,68,0.8)] animate-bounce"
-					style={{ top: '15%', right: '15%' }}
+					class="absolute z-[70] text-[56px] drop-shadow-[0_0_20px_rgba(239,68,68,0.8)]"
+					style={{ top: '35%', right: '8%', animation: 'rocketFloat 4s ease-in-out infinite' }}
 				>
 					🚀
 				</button>
