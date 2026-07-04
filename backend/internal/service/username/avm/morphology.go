@@ -18,6 +18,10 @@ type MorphFeatures struct {
 	HasGoldenYear     bool
 	AffixBonus        float64
 	TierMultiplier    float64
+	FrequencyRank     int
+	IsHyped           bool
+	EuphonyScore      float64
+	IsAesthetic       bool
 }
 
 // CalcMorphologyLog computes the clamped sum of log-multipliers.
@@ -94,6 +98,27 @@ func CalcMorphologyLog(features MorphFeatures, multipliers map[string]float64, c
 		morphLog += math.Log(1.0 + features.ComboValue/5.0) 
 	} else if features.TierMultiplier > 1.0 {
 		morphLog += math.Log(1.0 + features.TierMultiplier/5.0)
+	}
+
+	// AI God-Tier: Social Hype & Aesthetics
+	if features.IsHyped {
+		morphLog += math.Log(10.0) // 10x multiplier for extremely hyped internet slang
+	}
+	if features.IsAesthetic {
+		morphLog += math.Log(1.0 + features.EuphonyScore) // Smooth names get an aesthetic premium
+	}
+
+	// AI God-Tier: Word Popularity (N-gram Frequency)
+	if features.FrequencyRank > 0 {
+		if features.FrequencyRank <= 100 {
+			morphLog += math.Log(10.0) // Top 100 words (e.g. 'the', 'time')
+		} else if features.FrequencyRank <= 1000 {
+			morphLog += math.Log(5.0)  // Top 1000 words (e.g. 'game', 'love')
+		} else if features.FrequencyRank <= 5000 {
+			morphLog += math.Log(2.0)  // Top 5000 words
+		} else {
+			morphLog += math.Log(1.5)  // Rest of top 10k
+		}
 	}
 
 	// Lexicon: Garbage Penalty (Keyboard smashes)

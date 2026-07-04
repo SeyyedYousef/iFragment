@@ -95,6 +95,7 @@ func ClassifyUsername(username string) (segment string, charLen int16, features 
 	techRes := DetectTechPattern(lower)
 	yearRes := DetectGoldenYear(lower)
 	affixRes := DetectAffixes(decoded)
+	euphonyScore, isAesthetic := CalculateEuphony(decoded)
 
 	isDict := tierRes.Tier <= 4 || isDictionaryWord(decoded) || isDictionaryWord(lower)
 
@@ -112,6 +113,10 @@ func ClassifyUsername(username string) (segment string, charLen int16, features 
 		HasGoldenYear:     yearRes.HasYear,
 		AffixBonus:        affixRes.Bonus,
 		TierMultiplier:    tierRes.Multiplier,
+		FrequencyRank:     RankWord(decoded),
+		IsHyped:           IsHyped(decoded),
+		EuphonyScore:      euphonyScore,
+		IsAesthetic:       isAesthetic,
 	}
 
 	return segment, charLen, features
@@ -227,7 +232,19 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	// --- ANCHOR OVERRIDE ---
 	// If the exact username was sold before, use its latest sale price as the anchor
 	var anchorSale *repository.Sale
-	if len(targetSales) > 0 {
+	lowerUsername := strings.ToLower(username)
+
+	// 1. In-Memory Hardcoded Historical Dataset Bypass
+	if hardcodedPrice, ok := HistoricalSales[lowerUsername]; ok && hardcodedPrice > 0 {
+		baseLog = math.Log(hardcodedPrice)
+		nEff = 100.0 // Max confidence for exact historical match
+		// Heavily dampen MorphLog because premium is already priced into the anchor
+		morphLog = morphLog * 0.1 
+		reasoning["anchor_sale_used"] = true
+		reasoning["anchor_price"] = hardcodedPrice
+		reasoning["anchor_source"] = "memory_hardcoded"
+	} else if len(targetSales) > 0 {
+		// 2. Fallback to Postgres Database Target Sales
 		anchorSale = &targetSales[0] // GetSalesByUsername orders by sale_date DESC
 		// Use normalized price of the anchor sale
 		anchorPrice := ToFloat64(NormalizeSalePrice(anchorSale.SalePriceTON, anchorSale.SaleType, s.cfg))
@@ -239,6 +256,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 			morphLog = morphLog * 0.1 
 			reasoning["anchor_sale_used"] = true
 			reasoning["anchor_price"] = anchorPrice
+			reasoning["anchor_source"] = "postgres_db"
 			saleIDs = []int64{anchorSale.ID}
 		}
 	}
