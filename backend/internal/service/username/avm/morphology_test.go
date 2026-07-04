@@ -151,8 +151,7 @@ func TestCalcRangeLog(t *testing.T) {
 	morphLog := 0.0    // neutral
 	momentumLog := 0.0  // neutral
 	mad := 0.3          // moderate spread
-
-	expected, low, high := CalcRangeLog(baseLog, morphLog, momentumLog, mad, cfg)
+	expected, low, high := CalcRangeLog(baseLog, morphLog, momentumLog, mad, 8, cfg)
 
 	if math.Abs(expected-100.0) > 0.1 {
 		t.Errorf("expected ≈ 100 TON, got %v", expected)
@@ -179,7 +178,7 @@ func TestCalcRangeLog_MinWidthGuard(t *testing.T) {
 
 	baseLog := math.Log(50.0)
 	// Very small MAD → should use W_min = ln(1 + 0.15) ≈ 0.1398
-	expected, low, high := CalcRangeLog(baseLog, 0, 0, 0.01, cfg)
+	expected, low, high := CalcRangeLog(baseLog, 0, 0, 0.01, 8, cfg)
 
 	spread := (high - low) / expected
 	if spread < 0.25 { // at least ~25% total spread

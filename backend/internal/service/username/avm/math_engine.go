@@ -199,3 +199,48 @@ func CalcBaseLog(
 
 	return baseLog, nEff, mad, saleIDs
 }
+
+// AestheticRound rounds prices to clean numbers mimicking human appraisal
+func AestheticRound(n float64) float64 {
+	if n >= 10000 {
+		return math.Round(n/1000) * 1000
+	}
+	if n >= 1000 {
+		return math.Round(n/100) * 100
+	}
+	if n >= 100 {
+		return math.Round(n/10) * 10
+	}
+	return math.Floor(n)
+}
+
+// GetTier classifies a username into a rarity tier based on expected TON value
+func GetTier(p float64) string {
+	if p >= 1000000 {
+		return "God Tier"
+	}
+	if p >= 500000 {
+		return "Mythic"
+	}
+	if p >= 100000 {
+		return "Apex"
+	}
+	if p >= 10000 {
+		return "Grand"
+	}
+	if p >= 1000 {
+		return "Uncommon"
+	}
+	return "Common"
+}
+
+// GetStars returns visual star ratings based on price tiers
+func GetStars(p float64) string {
+	if p >= 100000 {
+		return "⭐⭐⭐⭐⭐"
+	}
+	if p >= 10000 {
+		return "⭐⭐⭐"
+	}
+	return "⭐"
+}

@@ -46,12 +46,20 @@ type ValuationResult struct {
 	ConfidenceScore int16           `json:"confidence_score"`
 	TONUSDRate      float64         `json:"ton_usd_rate"`
 	ComparableSales int             `json:"comparable_sales_count"`
+	Rarity          ValuationRarity `json:"rarity"`
 	ReasoningLog    map[string]any  `json:"reasoning_log"`
+}
+
+// ValuationRarity provides human-readable classification of the username's value
+type ValuationRarity struct {
+	Tier  string `json:"tier"`
+	Stars string `json:"stars"`
 }
 
 // ClassifyUsername extracts the segment and morphology features.
 func ClassifyUsername(username string) (segment string, charLen int16, features MorphFeatures) {
 	lower := strings.ToLower(username)
+	decoded := DecodeLeet(lower)
 	charLen = int16(len([]rune(lower)))
 
 	hasNumbers := false
@@ -82,11 +90,28 @@ func ClassifyUsername(username string) (segment string, charLen int16, features 
 		segment = "other"
 	}
 
+	tierRes := CheckTier(decoded)
+	comboRes := DetectCombo(decoded)
+	techRes := DetectTechPattern(lower)
+	yearRes := DetectGoldenYear(lower)
+	affixRes := DetectAffixes(decoded)
+
+	isDict := tierRes.Tier <= 4 || isDictionaryWord(decoded) || isDictionaryWord(lower)
+
 	features = MorphFeatures{
-		HasNumbers:    hasNumbers,
-		HasUnderscore: hasUnderscore,
-		IsDictionary:  isDictionaryWord(lower),
-		CharLength:    int(charLen),
+		HasNumbers:        hasNumbers,
+		HasUnderscore:     hasUnderscore,
+		IsDictionary:      isDict,
+		CharLength:        int(charLen),
+		FlowScore:         AnalyzeFlow(decoded),
+		IsPalindrome:      IsPalindrome(lower),
+		IsKeyboardPattern: IsKeyboardPattern(lower),
+		IsCombo:           comboRes.IsCombo,
+		ComboValue:        comboRes.Value,
+		IsTechPattern:     techRes.IsTechPattern,
+		HasGoldenYear:     yearRes.HasYear,
+		AffixBonus:        affixRes.Bonus,
+		TierMultiplier:    tierRes.Multiplier,
 	}
 
 	return segment, charLen, features
@@ -110,6 +135,11 @@ func isDictionaryWord(lower string) bool {
 		"chat": true, "love": true, "king": true, "club": true,
 		"play": true, "star": true, "cool": true, "best": true,
 		"top": true, "pro": true, "vip": true, "max": true,
+		"whale": true, "rare": true, "bull": true, "bear": true,
+		"rich": true, "moon": true, "pump": true, "god": true,
+		"queen": true, "root": true, "admin": true, "alpha": true,
+		"epic": true, "dark": true, "light": true, "fire": true,
+		"good": true, "fast": true, "lord": true, "hero": true,
 	}
 	return dictWords[lower]
 }
@@ -138,10 +168,11 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 
 	// ── Step 2: Parallel Fetch ──
 	var (
-		exactSales []repository.Sale
-		broadSales []repository.Sale
-		count30    int
-		count31_90 int
+		exactSales  []repository.Sale
+		broadSales  []repository.Sale
+		targetSales []repository.Sale
+		count30     int
+		count31_90  int
 	)
 
 	g, gCtx := errgroup.WithContext(ctx)
@@ -164,6 +195,12 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		return err
 	})
 
+	g.Go(func() error {
+		var err error
+		targetSales, err = s.db.GetSalesByUsername(gCtx, username)
+		return err
+	})
+
 	if err := g.Wait(); err != nil {
 		slog.Error("AVM parallel fetch failed", "username", username, "error", err)
 		return nil, fmt.Errorf("failed to fetch comparable data: %w", err)
@@ -171,6 +208,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 
 	reasoning["exact_sales_count"] = len(exactSales)
 	reasoning["broad_sales_count"] = len(broadSales)
+	reasoning["target_sales_count"] = len(targetSales)
 	reasoning["momentum_30d"] = count30
 	reasoning["momentum_31_90d"] = count31_90
 
@@ -182,12 +220,32 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 
 	// 3a. Base Price (Bayesian)
 	baseLog, nEff, mad, saleIDs := CalcBaseLog(exactComps, broadComps, s.cfg, features, now)
-	reasoning["base_log"] = baseLog
-	reasoning["n_eff"] = nEff
-	reasoning["mad"] = mad
 
 	// 3b. Morphology
 	morphLog := CalcMorphologyLog(features, s.cfg.MorphMultipliers, s.cfg)
+
+	// --- ANCHOR OVERRIDE ---
+	// If the exact username was sold before, use its latest sale price as the anchor
+	var anchorSale *repository.Sale
+	if len(targetSales) > 0 {
+		anchorSale = &targetSales[0] // GetSalesByUsername orders by sale_date DESC
+		// Use normalized price of the anchor sale
+		anchorPrice := ToFloat64(NormalizeSalePrice(anchorSale.SalePriceTON, anchorSale.SaleType, s.cfg))
+		
+		if anchorPrice > 0 {
+			baseLog = math.Log(anchorPrice)
+			nEff = 100.0 // Max confidence for exact historical match
+			// Heavily dampen MorphLog because premium is already priced into the anchor
+			morphLog = morphLog * 0.1 
+			reasoning["anchor_sale_used"] = true
+			reasoning["anchor_price"] = anchorPrice
+			saleIDs = []int64{anchorSale.ID}
+		}
+	}
+
+	reasoning["base_log"] = baseLog
+	reasoning["n_eff"] = nEff
+	reasoning["mad"] = mad
 	reasoning["morph_log"] = morphLog
 
 	// 3c. Momentum
@@ -196,8 +254,12 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	reasoning["momentum_log"] = momentumLog
 
 	// 3d. Range
-	expectedTON, lowTON, highTON := CalcRangeLog(baseLog, morphLog, momentumLog, mad, s.cfg)
+	expectedTONRaw, lowTONRaw, highTONRaw := CalcRangeLog(baseLog, morphLog, momentumLog, mad, features.CharLength, s.cfg)
 	basePriceTON := math.Exp(baseLog) // base before morph/momentum is exp(baseLog)
+
+	expectedTON := AestheticRound(expectedTONRaw)
+	lowTON := AestheticRound(lowTONRaw)
+	highTON := AestheticRound(highTONRaw)
 
 	reasoning["expected_ton"] = expectedTON
 	reasoning["low_ton"] = lowTON
@@ -260,6 +322,10 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		ConfidenceScore: confidence,
 		TONUSDRate:      tonRate,
 		ComparableSales: len(exactSales) + len(broadSales),
+		Rarity: ValuationRarity{
+			Tier:  GetTier(expectedTON),
+			Stars: GetStars(expectedTON),
+		},
 		ReasoningLog:    reasoning,
 	}, nil
 }

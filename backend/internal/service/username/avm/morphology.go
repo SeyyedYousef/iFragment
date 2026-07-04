@@ -5,10 +5,19 @@ import "math"
 // MorphFeatures describes the morphological properties of a username
 // used for multiplier stacking and confounder isolation.
 type MorphFeatures struct {
-	HasNumbers    bool
-	HasUnderscore bool
-	IsDictionary  bool
-	CharLength    int
+	HasNumbers        bool
+	HasUnderscore     bool
+	IsDictionary      bool
+	CharLength        int
+	FlowScore         float64
+	IsPalindrome      bool
+	IsKeyboardPattern bool
+	IsCombo           bool
+	ComboValue        float64
+	IsTechPattern     bool
+	HasGoldenYear     bool
+	AffixBonus        float64
+	TierMultiplier    float64
 }
 
 // CalcMorphologyLog computes the clamped sum of log-multipliers.
@@ -62,6 +71,37 @@ func CalcMorphologyLog(features MorphFeatures, multipliers map[string]float64, c
 		}
 	}
 
+	// Lexicon: Structure Bonus
+	if features.IsPalindrome {
+		morphLog += math.Log(1.5) // 50% bump for palindromes
+	}
+	if features.IsKeyboardPattern {
+		morphLog += math.Log(1.5) // 50% bump for keyboard patterns
+	}
+	if features.IsTechPattern {
+		morphLog += math.Log(2.0) // 100% bump for tech patterns
+	}
+	if features.HasGoldenYear {
+		morphLog += math.Log(1.3) // 30% bump
+	}
+	if features.AffixBonus > 1.0 {
+		morphLog += math.Log(features.AffixBonus)
+	}
+
+	// Lexicon: Tier & Combo Multipliers
+	if features.IsCombo {
+		// Scale down large multipliers so they stack nicely in log-space
+		morphLog += math.Log(1.0 + features.ComboValue/5.0) 
+	} else if features.TierMultiplier > 1.0 {
+		morphLog += math.Log(1.0 + features.TierMultiplier/5.0)
+	}
+
+	// Lexicon: Garbage Penalty (Keyboard smashes)
+	// If the name is unpronounceable and NOT a dictionary word/pure numeric, penalize it heavily.
+	if features.FlowScore < 0.5 && !features.IsDictionary && features.CharLength > 4 && !features.HasNumbers && !features.HasUnderscore {
+		morphLog -= 1.0 // Slashing the price by ~63%
+	}
+
 	// Clamp the total morph log
 	return clamp(morphLog, cfg.MorphClampLow, cfg.MorphClampHigh)
 }
@@ -104,7 +144,7 @@ func CalcSmoothedMomentum(count30, count31_90 int, priceTrend float64, cfg Engin
 //	Width = max(WeightedMAD * UncertaintyMult, W_min)
 //	Low  = exp(Expected_log - Width)
 //	High = exp(Expected_log + Width)
-func CalcRangeLog(baseLog, morphLog, momentumLog, mad float64, cfg EngineConfig) (expectedTON, lowTON, highTON float64) {
+func CalcRangeLog(baseLog, morphLog, momentumLog, mad float64, charLen int, cfg EngineConfig) (expectedTON, lowTON, highTON float64) {
 	expectedLog := baseLog + morphLog + momentumLog
 
 	// Width guard
@@ -115,9 +155,23 @@ func CalcRangeLog(baseLog, morphLog, momentumLog, mad float64, cfg EngineConfig)
 	lowTON = math.Exp(expectedLog - width)
 	highTON = math.Exp(expectedLog + width)
 
-	// Sanity: low must not be negative
+	// Hard floors based on length
+	if charLen == 4 && expectedTON < 5050 {
+		expectedTON = 5050
+	}
+	if charLen == 5 && expectedTON < 50 {
+		expectedTON = 50
+	}
+
+	// Floor safety
 	if lowTON < 0 {
 		lowTON = 0
+	}
+	if highTON < expectedTON {
+		highTON = expectedTON * 1.5
+	}
+	if lowTON > expectedTON {
+		lowTON = expectedTON * 0.5
 	}
 
 	return expectedTON, lowTON, highTON

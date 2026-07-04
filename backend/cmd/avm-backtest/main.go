@@ -105,7 +105,7 @@ func main() {
 		baseLog, _, mad, _ := avm.CalcBaseLog(exactComps, broadComps, cfg, avm.MorphFeatures{}, evalTime)
 		morphLog := avm.CalcMorphologyLog(features, cfg.MorphMultipliers, cfg)
 		momentumLog := avm.CalcSmoothedMomentum(count30, count31_90, 1.0, cfg)
-		expectedTON, lowTON, highTON := avm.CalcRangeLog(baseLog, morphLog, momentumLog, mad, cfg)
+		expectedTON, lowTON, highTON := avm.CalcRangeLog(baseLog, morphLog, momentumLog, mad, len(targetSale.Username), cfg)
 
 		// The actual normalized price of the target sale
 		actualPrice := avm.ToFloat64(avm.NormalizeSalePrice(targetSale.SalePriceTON, targetSale.SaleType, cfg))
