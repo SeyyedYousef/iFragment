@@ -109,8 +109,8 @@ func (db *Database) GetBroadComparables(ctx context.Context, segment string, bef
 func (db *Database) GetMomentumCounts(ctx context.Context, segment string, charLen int16, before time.Time) (count30 int, count31_90 int, err error) {
 	query := `
 		SELECT
-			COUNT(*) FILTER (WHERE sale_date >= $3 - INTERVAL '30 days' AND sale_date < $3),
-			COUNT(*) FILTER (WHERE sale_date >= $3 - INTERVAL '90 days' AND sale_date < $3 - INTERVAL '30 days')
+			COUNT(*) FILTER (WHERE sale_date >= $3::timestamptz - INTERVAL '30 days' AND sale_date < $3),
+			COUNT(*) FILTER (WHERE sale_date >= $3::timestamptz - INTERVAL '90 days' AND sale_date < $3::timestamptz - INTERVAL '30 days')
 		FROM username_sales
 		WHERE segment = $1
 		  AND char_length = $2
