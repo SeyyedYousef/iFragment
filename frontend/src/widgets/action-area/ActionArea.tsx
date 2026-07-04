@@ -9,6 +9,8 @@ import { useUsernameSearch } from '@/entities/username/model/index.js';
 import { getRandomTrending } from '@/entities/username/model/trendingList.js';
 import { type DictPaths, formatNumber, t } from '@/shared/i18n/index.js';
 import { showAlert } from '@/shared/lib/telegram-native.js';
+import { apiFetch } from '@/shared/api/base.js';
+
 interface ActionAreaProps {
 	activeTab: 'username' | 'collectibles' | 'gifts';
 	onTabChange?: (tab: 'username' | 'collectibles' | 'gifts') => void;
@@ -69,10 +71,9 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			setAnalyzeState('loading');
 			try {
 				// Call the backend AVM algorithm directly
-				const res = await fetch(`/api/v1/usernames/${searchQuery()}/valuate`, {
+				const data = await apiFetch<any>(`/usernames/${searchQuery()}/valuate`, {
 					method: 'POST',
 				});
-				const data = await res.json();
 				
 				setAnalyzeState('success');
 				
