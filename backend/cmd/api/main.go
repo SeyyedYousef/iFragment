@@ -33,6 +33,7 @@ import (
 	"ifragment-backend/internal/service/cryptoprice"
 	"ifragment-backend/internal/service/payment"
 	"ifragment-backend/internal/service/username"
+	"ifragment-backend/internal/service/username/avm"
 
 	"strings"
 	"time"
@@ -163,7 +164,7 @@ func main() {
 		go gramBroadcaster.Start(ctx)
 	}
 
-	// Initialize Router
+	// P3-S1: Initialize Server with middleware stack
 	r := chi.NewRouter()
 
 	r.Use(chiMiddleware.RealIP)
@@ -317,7 +318,9 @@ func main() {
 
 	channelHandler := handler.NewChannelHandler(channelService)
 
-	usernameHandler := handler.NewUsernameHandler(aggregatorService, analysisService, mtprotoClient, cache)
+	avmService := avm.NewValuationService(db, cache)
+
+	usernameHandler := handler.NewUsernameHandler(aggregatorService, analysisService, mtprotoClient, cache, avmService)
 
 	webhookHandler := handler.NewWebhookHandler(db, moderatorService, botRepo, channelService)
 	botMgmtHandler := handler.NewBotMgmtHandler(botService, paymentService)
@@ -460,6 +463,7 @@ func main() {
 				r.Get("/quick/stream", usernameHandler.StreamQuickAnalysis)
 				r.Get("/rates", usernameHandler.GetRates)
 				r.Get("/similar", usernameHandler.GetSimilar)
+				r.Get("/valuate", usernameHandler.Valuate)
 
 			})
 

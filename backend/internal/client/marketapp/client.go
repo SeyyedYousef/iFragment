@@ -42,7 +42,7 @@ func NewClient() *Client {
 	}
 
 	return &Client{
-		BaseURL: "https://api.marketapp.ws/v1",
+		BaseURL: "https://api.marketapp.org/v1",
 		Tokens:  tokens,
 		HTTP: &http.Client{
 			Timeout: 10 * time.Second,

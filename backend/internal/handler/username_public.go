@@ -8,6 +8,7 @@ import (
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/username"
+	"ifragment-backend/internal/service/username/avm"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -20,6 +21,7 @@ import (
 type UsernameHandler struct {
 	service       *username.AggregatorService
 	reportService *username.AnalysisService
+	avmService    *avm.ValuationService
 	mtprotoClient mtproto.Client
 	cache         *repository.Cache
 	sfGroup       singleflight.Group
@@ -31,10 +33,12 @@ func NewUsernameHandler(
 	r *username.AnalysisService,
 	m mtproto.Client,
 	c *repository.Cache,
+	avmSvc *avm.ValuationService,
 ) *UsernameHandler {
 	return &UsernameHandler{
 		service:       s,
 		reportService: r,
+		avmService:    avmSvc,
 		mtprotoClient: m,
 		cache:         c,
 	}
@@ -415,4 +419,57 @@ func (h *UsernameHandler) GetSimilar(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "public, max-age=3600")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(results)
+}
+
+// Valuate performs an AVM (Automated Valuation Model) estimation for a username.
+// Returns dual-denominated price range (TON + USD) with confidence score and audit run_id.
+func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
+	u := r.URL.Query().Get("u")
+	if u == "" {
+		RespondError(w, r, http.StatusBadRequest, "missing username", nil)
+		return
+	}
+
+	if !username.ValidateUsername(u) {
+		RespondError(w, r, http.StatusBadRequest, "invalid username format", nil)
+		return
+	}
+
+	if h.avmService == nil {
+		RespondError(w, r, http.StatusServiceUnavailable, "valuation service not available", nil)
+		return
+	}
+
+	ctx := r.Context()
+
+	// Rate limit: stricter than QuickAnalysis since valuation involves DB writes
+	if h.cache != nil {
+		ip := middleware.GetRealIP(r)
+		rlKey := "rate_limit:valuate:" + ip
+		count, _ := h.cache.Client.Incr(ctx, rlKey).Result()
+		if count == 1 {
+			h.cache.Client.Expire(context.Background(), rlKey, time.Minute)
+		}
+		if count > 10 {
+			RespondError(w, r, http.StatusTooManyRequests, "Too many valuation requests", nil)
+			return
+		}
+	}
+
+	// Fetch TON/USD rate
+	tonRate, err := h.reportService.GetTONRate(ctx)
+	if err != nil {
+		slog.Warn("AVM: TON rate fetch failed, using fallback", "error", err)
+		tonRate = 7.25
+	}
+
+	result, err := h.avmService.Valuate(ctx, u, tonRate)
+	if err != nil {
+		slog.Error("AVM valuation failed", "username", u, "error", err)
+		RespondError(w, r, http.StatusInternalServerError, "valuation failed", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
 }

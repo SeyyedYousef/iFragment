@@ -68,16 +68,27 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			} catch {}
 			setAnalyzeState('loading');
 			try {
-				await quickAnalysis.refetch();
+				// Call the backend AVM algorithm directly
+				const res = await fetch(`/api/v1/usernames/${searchQuery()}/valuate`, {
+					method: 'POST',
+				});
+				const data = await res.json();
+				
 				setAnalyzeState('success');
+				
+				// Show the AVM result to the user
+				if (data && data.expected_ton) {
+					showAlert(`✅ ارزش تخمینی: ${data.expected_ton} TON\nبازه قیمت: ${data.low_ton} تا ${data.high_ton} TON\nمدل: ${data.model_version}`);
+				} else {
+					showAlert('❌ خطا در ارتباط با موتور ارزش‌گذاری');
+				}
+				
 				setTimeout(() => {
 					setAnalyzeState('idle');
 				}, 2000);
-			} finally {
-				// Don't change to idle immediately if success, to show success state
-				if (analyzeState() !== 'success') {
-					setAnalyzeState('idle');
-				}
+			} catch (err) {
+				setAnalyzeState('idle');
+				showAlert('❌ خطا در ارتباط با سرور');
 			}
 		} else {
 			try {
@@ -99,9 +110,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 	const getButtonText = () => {
 		if (analyzeState() === 'loading') return t('action.analyzing');
 		if (analyzeState() === 'success') return t('home.success');
-		const status = quickAnalysis.data?.status;
-		if (status === 'available') return t('action.username.registerBtn');
-		else if (status) return t('action.username.analyzeMarketBtn');
+		if (props.activeTab === 'username') return t('action.username.analyzeMarketBtn');
 		return t(keys().analyzeBtn);
 	};
 
