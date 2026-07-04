@@ -102,7 +102,7 @@ func main() {
 		_, _, features := avm.ClassifyUsername(targetSale.Username)
 
 		// ── Execute Pipeline ──
-		baseLog, _, mad, _ := avm.CalcBaseLog(exactComps, broadComps, cfg, evalTime)
+		baseLog, _, mad, _ := avm.CalcBaseLog(exactComps, broadComps, cfg, avm.MorphFeatures{}, evalTime)
 		morphLog := avm.CalcMorphologyLog(features, cfg.MorphMultipliers, cfg)
 		momentumLog := avm.CalcSmoothedMomentum(count30, count31_90, 1.0, cfg)
 		expectedTON, lowTON, highTON := avm.CalcRangeLog(baseLog, morphLog, momentumLog, mad, cfg)

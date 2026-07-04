@@ -180,8 +180,8 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	exactComps := SalesToComparables(exactSales, s.cfg)
 	broadComps := SalesToComparables(broadSales, s.cfg)
 
-	// 3a. Base price via Bayesian shrinkage
-	baseLog, nEff, mad, saleIDs := CalcBaseLog(exactComps, broadComps, s.cfg, now)
+	// 3a. Base Price (Bayesian)
+	baseLog, nEff, mad, saleIDs := CalcBaseLog(exactComps, broadComps, s.cfg, features, now)
 	reasoning["base_log"] = baseLog
 	reasoning["n_eff"] = nEff
 	reasoning["mad"] = mad

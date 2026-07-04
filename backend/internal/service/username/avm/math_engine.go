@@ -140,6 +140,7 @@ func CalcBaseLog(
 	exactSales []ComparableSale,
 	broadSales []ComparableSale,
 	cfg EngineConfig,
+	features MorphFeatures,
 	now time.Time,
 ) (baseLog float64, nEff float64, mad float64, saleIDs []int64) {
 	saleIDs = []int64{} // Initialize to empty slice to prevent SQL NULL
@@ -165,8 +166,16 @@ func CalcBaseLog(
 
 	// Bayesian shrinkage
 	if len(exactSales) == 0 && len(broadSales) == 0 {
-		// No data at all — return a minimal fallback
-		baseLog = math.Log(5.0) // ~1.6 TON as absolute floor
+		// No data at all — return a length-based fallback
+		var fallbackTON float64 = 5.0
+		if features.CharLength == 4 {
+			fallbackTON = 5000.0 // 4-char names are highly valuable minimums
+		} else if features.CharLength == 5 {
+			fallbackTON = 200.0 // 5-char names
+		} else if features.CharLength == 6 {
+			fallbackTON = 20.0
+		}
+		baseLog = math.Log(fallbackTON)
 		return baseLog, 0, 0, saleIDs
 	}
 
