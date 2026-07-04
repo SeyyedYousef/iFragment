@@ -71,9 +71,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			setAnalyzeState('loading');
 			try {
 				// Call the backend AVM algorithm directly
-				const data = await apiFetch<any>(`/usernames/${searchQuery()}/valuate`, {
-					method: 'POST',
-				});
+				const data = await apiFetch<any>(`/usernames/valuate?u=${searchQuery()}`);
 				
 				setAnalyzeState('success');
 				
