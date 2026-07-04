@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"ifragment-backend/internal/repository"
 	"log/slog"
+	"math"
 	"strings"
 	"time"
 
@@ -196,7 +197,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 
 	// 3d. Range
 	expectedTON, lowTON, highTON := CalcRangeLog(baseLog, morphLog, momentumLog, mad, s.cfg)
-	basePriceTON := expectedTON // base before morph/momentum is exp(baseLog)
+	basePriceTON := math.Exp(baseLog) // base before morph/momentum is exp(baseLog)
 
 	reasoning["expected_ton"] = expectedTON
 	reasoning["low_ton"] = lowTON

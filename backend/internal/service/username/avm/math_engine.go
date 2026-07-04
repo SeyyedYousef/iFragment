@@ -142,6 +142,8 @@ func CalcBaseLog(
 	cfg EngineConfig,
 	now time.Time,
 ) (baseLog float64, nEff float64, mad float64, saleIDs []int64) {
+	saleIDs = []int64{} // Initialize to empty slice to prevent SQL NULL
+
 	// Compute exact match statistics
 	exactWeights := CalcTimeDecayWeights(exactSales, cfg.Lambda, now)
 	exactLogPrices := LogPrices(exactSales)
@@ -165,7 +167,7 @@ func CalcBaseLog(
 	if len(exactSales) == 0 && len(broadSales) == 0 {
 		// No data at all — return a minimal fallback
 		baseLog = math.Log(5.0) // ~1.6 TON as absolute floor
-		return baseLog, 0, 0, nil
+		return baseLog, 0, 0, saleIDs
 	}
 
 	if len(exactSales) == 0 {
