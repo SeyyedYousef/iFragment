@@ -241,14 +241,21 @@ func (c *Client) doRequest(ctx context.Context, url string) (*http.Response, err
 			bodyPreview = bodyPreview[:512] + "..."
 		}
 
-		slog.Error("TONAPI_REQUEST_FAILED",
-			"method", method,
-			"url", url,
-			"status", resp.StatusCode,
-			"body", bodyPreview,
-			"duration_sec", duration,
-			"authenticated", true, // simplified since we looped
-		)
+		shouldLog := true
+		if resp.StatusCode == http.StatusBadRequest && (strings.Contains(bodyPreview, "not resolved") || strings.Contains(bodyPreview, "entity not found")) {
+			shouldLog = false
+		}
+
+		if shouldLog {
+			slog.Error("TONAPI_REQUEST_FAILED",
+				"method", method,
+				"url", url,
+				"status", resp.StatusCode,
+				"body", bodyPreview,
+				"duration_sec", duration,
+				"authenticated", true, // simplified since we looped
+			)
+		}
 		// Reconstruct the body so callers can still read/decode it fully
 		resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 	}

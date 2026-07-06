@@ -18,19 +18,21 @@ import (
 // ValuationService orchestrates the AVM pipeline:
 // Classify → Fetch → Compute → Audit → Return
 type ValuationService struct {
-	db        *repository.Database
-	cache     *repository.Cache
-	tonClient *tonapi.Client
-	cfg       EngineConfig
+	db             *repository.Database
+	cache          *repository.Cache
+	tonClient      *tonapi.Client
+	cfg            EngineConfig
+	semanticEngine *SemanticEngine
 }
 
 // NewValuationService creates a new AVM service with default config.
 func NewValuationService(db *repository.Database, cache *repository.Cache, tonClient *tonapi.Client) *ValuationService {
 	return &ValuationService{
-		db:        db,
-		cache:     cache,
-		tonClient: tonClient,
-		cfg:       DefaultEngineConfig(),
+		db:             db,
+		cache:          cache,
+		tonClient:      tonClient,
+		cfg:            DefaultEngineConfig(),
+		semanticEngine: NewSemanticEngine(db),
 	}
 }
 
@@ -271,18 +273,26 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	reasoning["mad"] = mad
 	reasoning["morph_log"] = morphLog
 
-	// 3b-1. Semantic & Pronounceability Log
+	// 3b-1. Semantic Intelligence Engine (4-signal: Datamuse + Wikipedia + Gemini AI + Clearbit)
 	semanticLog := 0.0
-	dictMult, isDict := CalculateSemanticMultiplier(username)
-	if isDict {
-		semanticLog = math.Log(dictMult)
-		reasoning["semantic_source"] = "dictionary_datamuse"
-		reasoning["semantic_multiplier"] = dictMult
+	semResult := s.semanticEngine.Score(ctx, username)
+	if semResult != nil && semResult.Multiplier > 1.0 {
+		semanticLog = math.Log(semResult.Multiplier)
+		reasoning["semantic_source"] = "semantic_intelligence_engine"
+		reasoning["semantic_total_score"] = semResult.TotalScore
+		reasoning["semantic_multiplier"] = semResult.Multiplier
+		reasoning["semantic_word_freq"] = semResult.WordFreqScore
+		reasoning["semantic_wiki"] = semResult.WikiScore
+		reasoning["semantic_ai_score"] = semResult.AIScore
+		reasoning["semantic_brand"] = semResult.BrandScore
+		reasoning["semantic_ai_reason"] = semResult.AIReason
+		if semResult.WikiDescription != "" {
+			reasoning["semantic_wiki_desc"] = semResult.WikiDescription
+		}
 	} else if segment == "alphabetic" {
-		// Not a dictionary word, check flow/euphony
+		// Fallback: Not scored by engine, check flow/euphony
 		flowScore := AnalyzeFlow(username)
-		if flowScore >= 0.55 { // Decently pronounceable
-			// Max 1.5x multiplier for good pronounceability
+		if flowScore >= 0.55 {
 			flowMult := 1.0 + ((flowScore - 0.55) * 1.5)
 			semanticLog = math.Log(flowMult)
 			reasoning["semantic_source"] = "pronounceability_flow"
@@ -293,8 +303,12 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 
 	if anchorInjected && semanticLog > 0 {
 		// Premium is largely priced into the anchor sale itself.
-		// We severely dampen it so we don't double-count the dictionary premium.
-		semanticLog = semanticLog * 0.1
+		// Dampen so we don't double-count, but less aggressively for high AI scores.
+		dampFactor := 0.1
+		if semResult != nil && semResult.AIScore >= 80 {
+			dampFactor = 0.3 // High AI confidence = less damping
+		}
+		semanticLog = semanticLog * dampFactor
 	}
 	reasoning["semantic_log"] = semanticLog
 
@@ -330,21 +344,11 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	expectedTONRaw, lowTONRaw, highTONRaw := CalcRangeLog(baseLog, morphLog, momentumLog, semanticLog, mad, features.CharLength, s.cfg)
 	basePriceTON := math.Exp(baseLog) // base before morph/momentum/semantic is exp(baseLog)
 
-	// 3e. External Market Multipliers (Brand, Wallet Wealth, FnG)
+	// 3e. External Market Multipliers (Wallet Wealth, FnG)
+	// NOTE: Brand check is now handled by SemanticEngine (signal #4), no double-counting.
 	fngMult, fngClass := GetFearAndGreedMultiplier()
 	reasoning["fng_multiplier"] = fngMult
 	reasoning["fng_classification"] = fngClass
-	
-	if CheckGlobalBrand(username) {
-		brandMult := 3.0
-		if anchorInjected {
-			brandMult = 1.5 // Dampened if already priced in
-		}
-		expectedTONRaw *= brandMult
-		lowTONRaw *= brandMult
-		highTONRaw *= brandMult
-		reasoning["global_brand_multiplier"] = brandMult
-	}
 
 	if s.tonClient != nil {
 		nft, err := s.tonClient.GetNFTByDNS(ctx, username)
@@ -383,6 +387,29 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 			}
 			reasoning["live_bid_floor_applied"] = true
 			reasoning["live_bid_ton"] = maxBidFloat
+		}
+	}
+
+	// 3g. Historical Sale Floor (For Dictionary / Meaningful Usernames)
+	if features.IsDictionary && len(targetSales) > 0 {
+		highestPastSale := 0.0
+		for _, sale := range targetSales {
+			price := ToFloat64(sale.SalePriceTON)
+			if price > highestPastSale {
+				highestPastSale = price
+			}
+		}
+
+		// Ensure strictly higher (e.g., +5% minimum) than the highest past sale
+		strictFloor := highestPastSale * 1.05
+		if highestPastSale > 0 && expectedTONRaw < strictFloor {
+			expectedTONRaw = strictFloor
+			lowTONRaw = highestPastSale // Floor is the exact past sale
+			if highTONRaw < strictFloor {
+				highTONRaw = strictFloor * 1.5
+			}
+			reasoning["historical_sale_floor_applied"] = true
+			reasoning["highest_past_sale_ton"] = highestPastSale
 		}
 	}
 
