@@ -19,7 +19,7 @@ func TestCalcMorphologyLog_DictionaryWord(t *testing.T) {
 	// Should include: is_dictionary(2.5) + short_5(1.8) + no_underscore(1.15)
 	// = ln(2.5) + ln(1.8) + ln(1.15) = ln(5.175) ≈ 1.6438
 	// However, this exceeds the MorphClampHigh of ln(4.0) ≈ 1.3863, so it should be clamped.
-	expected := math.Log(2.50) + math.Log(1.8) + math.Log(1.15) // is_dictionary + short_5 + no_underscore (not clamped anymore)
+	expected := cfg.MorphClampHigh
 	if math.Abs(morphLog-expected) > 1e-6 {
 		t.Errorf("morphLog = %v, want %v", morphLog, expected)
 	}

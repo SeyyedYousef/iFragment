@@ -2,15 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 interface ValuationResult {
-    username: string;
-    expected_ton: number;
-    expected_usd: number;
-    low_ton: number;
-    low_usd: number;
-    high_ton: number;
-    high_usd: number;
+    username?: string; // might not be returned in /valuate directly
+    base_price_ton: string;
+    expected_ton: string;
+    low_ton: string;
+    high_ton: string;
     confidence_score: number;
-    run_id: string;
+    rarity: number;
+    reasoning_log: Record<string, any>;
 }
 
 export const UsernamePage: React.FC = () => {
@@ -24,7 +23,7 @@ export const UsernamePage: React.FC = () => {
             if (!username) return;
             try {
                 setLoading(true);
-                const res = await fetch(`http://localhost:8080/api/v1/username/valuate?u=${username}`);
+                const res = await fetch(`http://localhost:8080/api/v1/usernames/valuate?u=${username}`);
                 if (!res.ok) throw new Error('Failed to fetch valuation');
                 const result = await res.json();
                 setData(result);
@@ -42,9 +41,17 @@ export const UsernamePage: React.FC = () => {
     if (error) return <div className="flex justify-center items-center h-screen bg-gray-900 text-red-500">{error}</div>;
     if (!data) return null;
 
+    // Decimal amounts from backend come as strings
+    const lowTON = parseFloat(data.low_ton || '0');
+    const expectedTON = parseFloat(data.expected_ton || '0');
+    const highTON = parseFloat(data.high_ton || '0');
+
+    // Assume 1 TON = $5.00 for mockup (could be fetched)
+    const tonPrice = 5.0;
+
     return (
         <div className="min-h-screen bg-gray-900 text-white p-8 flex flex-col items-center">
-            <h1 className="text-4xl font-bold mb-8 text-blue-400">@{data.username}</h1>
+            <h1 className="text-4xl font-bold mb-8 text-blue-400">@{username}</h1>
             
             <div className="bg-gray-800 rounded-xl p-8 shadow-2xl w-full max-w-2xl border border-gray-700">
                 <h2 className="text-2xl font-semibold mb-6 border-b border-gray-700 pb-2">Valuation Estimate</h2>
@@ -52,34 +59,37 @@ export const UsernamePage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 text-center">
                     <div className="bg-gray-700 p-4 rounded-lg">
                         <p className="text-sm text-gray-400 uppercase tracking-wider mb-1">Low Range</p>
-                        <p className="text-2xl font-bold text-gray-200">{data.low_ton.toLocaleString()} TON</p>
-                        <p className="text-sm text-gray-500">${data.low_usd.toLocaleString()}</p>
+                        <p className="text-2xl font-bold text-gray-200">{lowTON.toLocaleString()} TON</p>
+                        <p className="text-sm text-gray-500">${(lowTON * tonPrice).toLocaleString()}</p>
                     </div>
                     
                     <div className="bg-blue-600 p-4 rounded-lg transform scale-105 shadow-lg border border-blue-400">
                         <p className="text-sm text-blue-200 uppercase tracking-wider mb-1">Expected Price</p>
-                        <p className="text-3xl font-bold text-white">{data.expected_ton.toLocaleString()} TON</p>
-                        <p className="text-sm text-blue-200">${data.expected_usd.toLocaleString()}</p>
+                        <p className="text-3xl font-bold text-white">{expectedTON.toLocaleString()} TON</p>
+                        <p className="text-sm text-blue-200">${(expectedTON * tonPrice).toLocaleString()}</p>
                     </div>
                     
                     <div className="bg-gray-700 p-4 rounded-lg">
                         <p className="text-sm text-gray-400 uppercase tracking-wider mb-1">High Range</p>
-                        <p className="text-2xl font-bold text-gray-200">{data.high_ton.toLocaleString()} TON</p>
-                        <p className="text-sm text-gray-500">${data.high_usd.toLocaleString()}</p>
+                        <p className="text-2xl font-bold text-gray-200">{highTON.toLocaleString()} TON</p>
+                        <p className="text-sm text-gray-500">${(highTON * tonPrice).toLocaleString()}</p>
                     </div>
                 </div>
 
                 <div className="flex justify-between items-center bg-gray-900 rounded-lg p-4">
                     <div>
                         <p className="text-sm text-gray-400">Confidence Score</p>
-                        <p className="text-xl font-bold text-green-400">{data.confidence_score.toFixed(1)} / 100</p>
+                        <p className="text-xl font-bold text-green-400">
+                            {typeof data.confidence_score === 'number' ? data.confidence_score.toFixed(1) : data.confidence_score} / 100
+                        </p>
                     </div>
                     <div className="text-right">
-                        <p className="text-sm text-gray-400">Audit Run ID</p>
-                        <p className="text-xs text-gray-500 font-mono">{data.run_id}</p>
+                        <p className="text-sm text-gray-400">Rarity Tier</p>
+                        <p className="text-xl font-bold text-blue-400">{data.rarity}</p>
                     </div>
                 </div>
             </div>
+        </div>
         </div>
     );
 };

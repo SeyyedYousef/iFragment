@@ -232,10 +232,9 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	if hardcodedPrice, ok := HistoricalSales[lowerUsername]; ok && hardcodedPrice > 0 {
 		// 1. In-Memory Hardcoded Historical Dataset
 		exactComps = append(exactComps, ComparableSale{
-			NormalizedPrice: hardcodedPrice,
-			SaleDate:        now, // Extremely recent for max weight
-			SaleType:        "buy_now",
-			ID:              0, // Sentinel ID
+			PriceTON: hardcodedPrice,
+			SaleDate: now, // Extremely recent for max weight
+			ID:       0,   // Sentinel ID
 		})
 		anchorInjected = true
 		reasoning["anchor_source"] = "memory_hardcoded"
@@ -245,11 +244,19 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		anchorSale := &targetSales[0]
 		anchorPrice := ToFloat64(NormalizeSalePrice(anchorSale.SalePriceTON, anchorSale.SaleType, s.cfg))
 		if anchorPrice > 0 {
+			// Remove the original sale from exactComps to avoid duplication
+			filteredComps := make([]ComparableSale, 0, len(exactComps))
+			for _, c := range exactComps {
+				if c.ID != anchorSale.ID {
+					filteredComps = append(filteredComps, c)
+				}
+			}
+			exactComps = filteredComps
+
 			exactComps = append(exactComps, ComparableSale{
-				NormalizedPrice: anchorPrice,
-				SaleDate:        now,
-				SaleType:        anchorSale.SaleType,
-				ID:              anchorSale.ID,
+				PriceTON: anchorPrice,
+				SaleDate: now,
+				ID:       anchorSale.ID,
 			})
 			anchorInjected = true
 			reasoning["anchor_source"] = "postgres_db"
@@ -280,15 +287,15 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	thirtyDaysAgo := now.AddDate(0, 0, -30)
 	
 	for _, comp := range exactComps {
-		// Skip injected sentinel anchor so we don't skew momentum
-		if comp.ID == 0 {
+		// Skip injected anchor (either sentinel 0 or the db anchor) so we don't skew momentum
+		if anchorInjected && (comp.ID == 0 || (len(targetSales) > 0 && comp.ID == targetSales[0].ID)) {
 			continue
 		}
 		if comp.SaleDate.After(thirtyDaysAgo) {
-			sumRecent += comp.NormalizedPrice
+			sumRecent += comp.PriceTON
 			numRecent++
 		} else {
-			sumOlder += comp.NormalizedPrice
+			sumOlder += comp.PriceTON
 			numOlder++
 		}
 	}

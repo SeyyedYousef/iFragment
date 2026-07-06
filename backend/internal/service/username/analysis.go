@@ -10,7 +10,6 @@ import (
 	"ifragment-backend/internal/client/tonapi"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/telemetry"
-	"log/slog"
 	"math"
 	"sort"
 	"strings"
@@ -202,7 +201,6 @@ type AnalysisService struct {
 	mtprotoClient mtproto.Client
 	rarityConfig  RarityConfig
 	pricingConfig PricingHeuristicsConfig
-	pricingClient *PricingClient
 	sfGroup       singleflight.Group
 }
 
@@ -220,7 +218,6 @@ func NewAnalysisService(
 		mtprotoClient: mtp,
 		rarityConfig:  DefaultRarityConfig,
 		pricingConfig: DefaultPricingHeuristicsConfig,
-		pricingClient: NewPricingClientFromEnv(),
 	}
 	return s
 }
@@ -1200,7 +1197,7 @@ func (s *AnalysisService) estimateValue(ctx context.Context, r *FullReport) *Pri
 	// For legacy Deep Reports, we rely on the deterministic heuristic fallback until this is removed.
 
 	estimate := estimateValue(r, s.pricingConfig)
-	estimate.Signals = append([]string{features.FeatureVersion}, estimate.Signals...)
+	estimate.Signals = append([]string{"heuristic_v1"}, estimate.Signals...)
 	telemetry.RecordPrediction("fallback")
 	return estimate
 }

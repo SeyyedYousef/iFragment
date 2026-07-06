@@ -169,11 +169,11 @@ func CalcBaseLog(
 		// No data at all — return a length-based fallback
 		var fallbackTON float64 = cfg.FallbackOther
 		if features.CharLength == 4 {
-			fallbackTON = cfg.FallbackExact // 4-char names are highly valuable minimums
+			fallbackTON = cfg.FallbackLen4
 		} else if features.CharLength == 5 {
-			fallbackTON = cfg.FallbackBroad // 5-char names
+			fallbackTON = cfg.FallbackLen5
 		} else if features.CharLength == 6 {
-			fallbackTON = cfg.FallbackChar4
+			fallbackTON = cfg.FallbackLen6
 		}
 		baseLog = math.Log(fallbackTON)
 		return baseLog, 0, 0, saleIDs

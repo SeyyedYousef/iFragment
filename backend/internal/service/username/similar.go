@@ -254,3 +254,7 @@ func minThree(a, b, c int) int {
 	}
 	return c
 }
+
+func roundFeature(v float64) float64 {
+	return math.Round(v*1000) / 1000
+}

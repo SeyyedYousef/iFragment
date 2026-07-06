@@ -34,9 +34,9 @@ type EngineConfig struct {
 	NormFactorOffer   float64 `json:"norm_factor_offer"`
 
 	// Fallback anchor values
-	FallbackExact float64 `json:"fallback_exact"`
-	FallbackBroad float64 `json:"fallback_broad"`
-	FallbackChar4 float64 `json:"fallback_char_4"`
+	FallbackLen4 float64 `json:"fallback_len_4"`
+	FallbackLen5 float64 `json:"fallback_len_5"`
+	FallbackLen6 float64 `json:"fallback_len_6"`
 	FallbackOther float64 `json:"fallback_other"`
 
 	// Clamps and dampings
@@ -55,8 +55,8 @@ func DefaultEngineConfig() EngineConfig {
 
 		K: 5.0, // Bayesian maturity threshold
 
-		MorphClampLow:  -1.0498, // ln(0.35)
-		MorphClampHigh: 4.6051,  // ln(100.0) -> allows up to 100x multiplier
+		MorphClampLow:  -2.3025,   // ln(0.1)
+		MorphClampHigh: 1.38629436, // ln(4.0) -> allows up to 4x multiplier
 
 		MomentumClampLow:  -0.2231, // ln(0.8)
 		MomentumClampHigh: 0.2231,  // ln(1.25)
@@ -70,9 +70,9 @@ func DefaultEngineConfig() EngineConfig {
 		NormFactorBuyNow:  0.85,
 		NormFactorOffer:   1.10,
 
-		FallbackExact: 5000.0,
-		FallbackBroad: 200.0,
-		FallbackChar4: 20.0,
+		FallbackLen4: 5000.0,
+		FallbackLen5: 200.0,
+		FallbackLen6: 20.0,
 		FallbackOther: 5.0,
 
 		ClampLowLimit:    50.0,
