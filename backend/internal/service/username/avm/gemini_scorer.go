@@ -112,7 +112,7 @@ func (g *GeminiScorer) callWithFallback(ctx context.Context, prompt string) *Gem
 		if err == nil {
 			return result
 		}
-		slog.Debug("Gemini project key failed, falling back to user keys", "error", err)
+		slog.Warn("Gemini project key failed, falling back to user keys", "error", err)
 	}
 
 	// Tier 2: User keys (round-robin)
@@ -134,7 +134,7 @@ func (g *GeminiScorer) callWithFallback(ctx context.Context, prompt string) *Gem
 		if err == nil {
 			return result
 		}
-		slog.Debug("Gemini user key failed", "attempt", i+1, "error", err)
+		slog.Warn("Gemini user key failed", "attempt", i+1, "error", err)
 	}
 
 	// Tier 3: All failed — neutral score
@@ -143,7 +143,7 @@ func (g *GeminiScorer) callWithFallback(ctx context.Context, prompt string) *Gem
 
 // callGemini makes a single API call to Gemini Flash.
 func (g *GeminiScorer) callGemini(ctx context.Context, prompt, apiKey string) (*GeminiResult, error) {
-	apiURL := "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + apiKey
+	apiURL := "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=" + apiKey
 
 	reqBody := map[string]any{
 		"contents": []map[string]any{
