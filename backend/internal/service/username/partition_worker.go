@@ -105,9 +105,10 @@ func (w *PartitionWorker) createFuturePartitions(ctx context.Context) error {
 	currentYear, currentMonth, _ := now.Date()
 
 	for i := 0; i <= 2; i++ {
-		t := time.Date(currentYear, currentMonth+time.Month(i), 1, 0, 0, 0, 0, time.UTC)
-		year := t.Year()
-		month := t.Month()
+		err := func(i int) error {
+			t := time.Date(currentYear, currentMonth+time.Month(i), 1, 0, 0, 0, 0, time.UTC)
+			year := t.Year()
+			month := t.Month()
 
 		// 1. search_logs partitions
 		{
@@ -210,7 +211,13 @@ func (w *PartitionWorker) createFuturePartitions(ctx context.Context) error {
 				slog.Debug("[PartitionWorker] Partition table already exists", "name", partitionName)
 			}
 		}
-	}
 
-	return nil
+		return nil
+	}(i)
+	if err != nil {
+		slog.Error("[PartitionWorker] Error creating partitions for month offset", "offset", i, "error", err)
+	}
+}
+
+return nil
 }

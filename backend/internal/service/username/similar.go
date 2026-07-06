@@ -75,10 +75,13 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 
 	if s.tonClient != nil {
 		var wg sync.WaitGroup
+		sem := make(chan struct{}, 5) // limit to 5 concurrent TON API calls
 		for i := range results {
 			wg.Add(1)
+			sem <- struct{}{}
 			go func(idx int) {
 				defer wg.Done()
+				defer func() { <-sem }()
 				nft, err := s.tonClient.GetNFTByDNS(ctx, results[idx].Username)
 				if err == nil && nft != nil && nft.Owner.Address != "" {
 					results[idx].OwnerAddress = nft.Owner.Address

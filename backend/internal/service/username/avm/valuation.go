@@ -223,42 +223,50 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	exactComps := SalesToComparables(exactSales, s.cfg)
 	broadComps := SalesToComparables(broadSales, s.cfg)
 
+	// --- ANCHOR OVERRIDE (Redesign) ---
+	// Inject the exact historical username sale as a highly weighted comparable
+	// rather than bypassing the entire Bayesian engine.
+	lowerUsername := strings.ToLower(username)
+	var anchorInjected bool
+
+	if hardcodedPrice, ok := HistoricalSales[lowerUsername]; ok && hardcodedPrice > 0 {
+		// 1. In-Memory Hardcoded Historical Dataset
+		exactComps = append(exactComps, ComparableSale{
+			NormalizedPrice: hardcodedPrice,
+			SaleDate:        now, // Extremely recent for max weight
+			SaleType:        "buy_now",
+			ID:              0, // Sentinel ID
+		})
+		anchorInjected = true
+		reasoning["anchor_source"] = "memory_hardcoded"
+		reasoning["anchor_price"] = hardcodedPrice
+	} else if len(targetSales) > 0 {
+		// 2. Fallback to Postgres Database Target Sales
+		anchorSale := &targetSales[0]
+		anchorPrice := ToFloat64(NormalizeSalePrice(anchorSale.SalePriceTON, anchorSale.SaleType, s.cfg))
+		if anchorPrice > 0 {
+			exactComps = append(exactComps, ComparableSale{
+				NormalizedPrice: anchorPrice,
+				SaleDate:        now,
+				SaleType:        anchorSale.SaleType,
+				ID:              anchorSale.ID,
+			})
+			anchorInjected = true
+			reasoning["anchor_source"] = "postgres_db"
+			reasoning["anchor_price"] = anchorPrice
+		}
+	}
+	
+	reasoning["anchor_injected"] = anchorInjected
+
 	// 3a. Base Price (Bayesian)
 	baseLog, nEff, mad, saleIDs := CalcBaseLog(exactComps, broadComps, s.cfg, features, now)
 
 	// 3b. Morphology
 	morphLog := CalcMorphologyLog(features, s.cfg.MorphMultipliers, s.cfg)
-
-	// --- ANCHOR OVERRIDE ---
-	// If the exact username was sold before, use its latest sale price as the anchor
-	var anchorSale *repository.Sale
-	lowerUsername := strings.ToLower(username)
-
-	// 1. In-Memory Hardcoded Historical Dataset Bypass
-	if hardcodedPrice, ok := HistoricalSales[lowerUsername]; ok && hardcodedPrice > 0 {
-		baseLog = math.Log(hardcodedPrice)
-		nEff = 100.0 // Max confidence for exact historical match
+	if anchorInjected {
 		// Heavily dampen MorphLog because premium is already priced into the anchor
-		morphLog = morphLog * 0.1 
-		reasoning["anchor_sale_used"] = true
-		reasoning["anchor_price"] = hardcodedPrice
-		reasoning["anchor_source"] = "memory_hardcoded"
-	} else if len(targetSales) > 0 {
-		// 2. Fallback to Postgres Database Target Sales
-		anchorSale = &targetSales[0] // GetSalesByUsername orders by sale_date DESC
-		// Use normalized price of the anchor sale
-		anchorPrice := ToFloat64(NormalizeSalePrice(anchorSale.SalePriceTON, anchorSale.SaleType, s.cfg))
-		
-		if anchorPrice > 0 {
-			baseLog = math.Log(anchorPrice)
-			nEff = 100.0 // Max confidence for exact historical match
-			// Heavily dampen MorphLog because premium is already priced into the anchor
-			morphLog = morphLog * 0.1 
-			reasoning["anchor_sale_used"] = true
-			reasoning["anchor_price"] = anchorPrice
-			reasoning["anchor_source"] = "postgres_db"
-			saleIDs = []int64{anchorSale.ID}
-		}
+		morphLog = morphLog * s.cfg.MorphDamping
 	}
 
 	reasoning["base_log"] = baseLog
@@ -267,7 +275,30 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	reasoning["morph_log"] = morphLog
 
 	// 3c. Momentum
-	priceTrend := 1.0 // Default neutral; could be computed from price series
+	var sumRecent, sumOlder float64
+	var numRecent, numOlder int
+	thirtyDaysAgo := now.AddDate(0, 0, -30)
+	
+	for _, comp := range exactComps {
+		// Skip injected sentinel anchor so we don't skew momentum
+		if comp.ID == 0 {
+			continue
+		}
+		if comp.SaleDate.After(thirtyDaysAgo) {
+			sumRecent += comp.NormalizedPrice
+			numRecent++
+		} else {
+			sumOlder += comp.NormalizedPrice
+			numOlder++
+		}
+	}
+	
+	priceTrend := 1.0 
+	if numRecent > 0 && numOlder > 0 {
+		avgRecent := sumRecent / float64(numRecent)
+		avgOlder := sumOlder / float64(numOlder)
+		priceTrend = avgRecent / avgOlder
+	}
 	momentumLog := CalcSmoothedMomentum(count30, count31_90, priceTrend, s.cfg)
 	reasoning["momentum_log"] = momentumLog
 
@@ -278,6 +309,14 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	expectedTON := AestheticRound(expectedTONRaw)
 	lowTON := AestheticRound(lowTONRaw)
 	highTON := AestheticRound(highTONRaw)
+
+	// Final invariants guard to ensure low <= expected <= high after rounding
+	if lowTON > expectedTON {
+		lowTON = expectedTON
+	}
+	if highTON < expectedTON {
+		highTON = expectedTON
+	}
 
 	reasoning["expected_ton"] = expectedTON
 	reasoning["low_ton"] = lowTON

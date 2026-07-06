@@ -167,13 +167,13 @@ func CalcBaseLog(
 	// Bayesian shrinkage
 	if len(exactSales) == 0 && len(broadSales) == 0 {
 		// No data at all — return a length-based fallback
-		var fallbackTON float64 = 5.0
+		var fallbackTON float64 = cfg.FallbackOther
 		if features.CharLength == 4 {
-			fallbackTON = 5000.0 // 4-char names are highly valuable minimums
+			fallbackTON = cfg.FallbackExact // 4-char names are highly valuable minimums
 		} else if features.CharLength == 5 {
-			fallbackTON = 200.0 // 5-char names
+			fallbackTON = cfg.FallbackBroad // 5-char names
 		} else if features.CharLength == 6 {
-			fallbackTON = 20.0
+			fallbackTON = cfg.FallbackChar4
 		}
 		baseLog = math.Log(fallbackTON)
 		return baseLog, 0, 0, saleIDs

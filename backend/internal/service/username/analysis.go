@@ -1195,19 +1195,9 @@ func estimateValue(r *FullReport, cfg PricingHeuristicsConfig) *PriceEstimate {
 }
 
 func (s *AnalysisService) estimateValue(ctx context.Context, r *FullReport) *PriceEstimate {
-	features := buildPricingFeatures(r)
-	if s.pricingClient != nil {
-		estimate, err := s.pricingClient.Predict(ctx, features)
-		if err == nil && isUsablePriceEstimate(estimate) {
-			if estimate.Method == "" {
-				estimate.Method = "ml_external"
-			}
-			estimate.Signals = append([]string{"external_model", features.FeatureVersion}, estimate.Signals...)
-			telemetry.RecordPrediction("success")
-			return estimate
-		}
-		slog.Warn("pricing model unavailable; falling back to heuristic", "username", r.Username, "error", err)
-	}
+	// [Deprecation Notice]: The external ML pricing model via pricingClient is formally bypassed.
+	// The Bayesian AVM (ValuationService) is now the definitive source of truth for valuations.
+	// For legacy Deep Reports, we rely on the deterministic heuristic fallback until this is removed.
 
 	estimate := estimateValue(r, s.pricingConfig)
 	estimate.Signals = append([]string{features.FeatureVersion}, estimate.Signals...)

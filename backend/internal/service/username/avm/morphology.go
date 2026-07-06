@@ -181,11 +181,11 @@ func CalcRangeLog(baseLog, morphLog, momentumLog, mad float64, charLen int, cfg 
 	highTON = math.Exp(expectedLog + width)
 
 	// Hard floors based on length
-	if charLen == 4 && expectedTON < 5050 {
-		expectedTON = 5050
+	if charLen == 4 && expectedTON < cfg.ClampLowExpected {
+		expectedTON = cfg.ClampLowExpected
 	}
-	if charLen == 5 && expectedTON < 50 {
-		expectedTON = 50
+	if charLen == 5 && expectedTON < cfg.ClampLowLimit {
+		expectedTON = cfg.ClampLowLimit
 	}
 
 	// Floor safety
