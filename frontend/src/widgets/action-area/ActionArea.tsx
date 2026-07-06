@@ -359,42 +359,43 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
 
 									{/* Analyze Button */}
-									<button
-										onClick={handleAnalyze}
-										disabled={analyzeState() === 'loading' || !searchQuery() || !!searchError()}
-										class="relative w-full h-[60px] rounded-[22px] font-semibold text-[15px] flex items-center justify-center gap-2 transition-all duration-300 overflow-hidden group mt-1"
-										style={{
-											background:
-												analyzeState() === 'success'
-													? 'linear-gradient(135deg, #28a745, #30d158)'
-													: !searchQuery() || !!searchError()
-														? 'rgba(255,255,255,0.04)'
-														: 'linear-gradient(135deg, #ffffff, #e0e0e0)',
-											color:
-												analyzeState() === 'success'
-													? '#fff'
-													: !searchQuery() || !!searchError()
-														? 'rgba(255,255,255,0.25)'
-														: '#000',
-											cursor: !searchQuery() || !!searchError() ? 'not-allowed' : 'pointer',
-											'box-shadow':
-												searchQuery() && !searchError() && analyzeState() === 'idle'
-													? '0 8px 24px -6px rgba(255,255,255,0.2)'
-													: 'none',
-										}}
-									>
-										<Show when={analyzeState() === 'loading'}>
-											<div class="w-5 h-5 rounded-full border-[2.5px] border-black/20 border-t-black animate-spin" />
-										</Show>
-										<span class="relative z-10 transition-transform group-hover:scale-[1.02]">{getButtonText()}</span>
-										<Show when={analyzeState() === 'idle' && searchQuery() && !searchError()}>
-											<span class="material-symbols-outlined text-[18px] rtl:rotate-180 relative z-10 group-hover:translate-x-1 transition-transform">
-												arrow_forward
-											</span>
-										</Show>
-									</button>
 								</div>
 							</div>
+
+							<button
+								onClick={handleAnalyze}
+								disabled={analyzeState() === 'loading' || !searchQuery() || !!searchError()}
+								class="relative w-full h-[60px] rounded-[22px] font-semibold text-[15px] flex items-center justify-center gap-2 transition-all duration-300 overflow-hidden group mt-4"
+								style={{
+									background:
+										analyzeState() === 'success'
+											? 'linear-gradient(135deg, #28a745, #30d158)'
+											: !searchQuery() || !!searchError()
+												? 'rgba(255,255,255,0.04)'
+												: 'linear-gradient(135deg, #ffffff, #e0e0e0)',
+									color:
+										analyzeState() === 'success'
+											? '#fff'
+											: !searchQuery() || !!searchError()
+												? 'rgba(255,255,255,0.25)'
+												: '#000',
+									cursor: !searchQuery() || !!searchError() ? 'not-allowed' : 'pointer',
+									'box-shadow':
+										searchQuery() && !searchError() && analyzeState() === 'idle'
+											? '0 8px 24px -6px rgba(255,255,255,0.2)'
+											: 'none',
+								}}
+							>
+								<Show when={analyzeState() === 'loading'}>
+									<div class="w-5 h-5 rounded-full border-[2.5px] border-black/20 border-t-black animate-spin" />
+								</Show>
+								<span class="relative z-10 transition-transform group-hover:scale-[1.02]">{getButtonText()}</span>
+								<Show when={analyzeState() === 'idle' && searchQuery() && !searchError()}>
+									<span class="material-symbols-outlined text-[18px] rtl:rotate-180 relative z-10 group-hover:translate-x-1 transition-transform">
+										arrow_forward
+									</span>
+								</Show>
+							</button>
 						</Motion.div>
 
 						{/* ━━━ TRENDING ━━━ */}

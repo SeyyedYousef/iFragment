@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"ifragment-backend/internal/client/tonapi"
 	"ifragment-backend/internal/repository"
 	"log/slog"
 	"math"
@@ -17,17 +18,19 @@ import (
 // ValuationService orchestrates the AVM pipeline:
 // Classify → Fetch → Compute → Audit → Return
 type ValuationService struct {
-	db    *repository.Database
-	cache *repository.Cache
-	cfg   EngineConfig
+	db        *repository.Database
+	cache     *repository.Cache
+	tonClient *tonapi.Client
+	cfg       EngineConfig
 }
 
 // NewValuationService creates a new AVM service with default config.
-func NewValuationService(db *repository.Database, cache *repository.Cache) *ValuationService {
+func NewValuationService(db *repository.Database, cache *repository.Cache, tonClient *tonapi.Client) *ValuationService {
 	return &ValuationService{
-		db:    db,
-		cache: cache,
-		cfg:   DefaultEngineConfig(),
+		db:        db,
+		cache:     cache,
+		tonClient: tonClient,
+		cfg:       DefaultEngineConfig(),
 	}
 }
 
@@ -220,18 +223,23 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	// ── Step 3: Math Engine (float64 isolated zone) ──
 
 	// Convert DB sales to engine ComparableSales with normalization
+	targetComps := SalesToComparables(targetSales, s.cfg)
 	exactComps := SalesToComparables(exactSales, s.cfg)
 	broadComps := SalesToComparables(broadSales, s.cfg)
 
+	// Apply 40% annual market appreciation to historical sales
+	ApplyMarketAppreciation(targetComps, 0.40, now)
+	ApplyMarketAppreciation(exactComps, 0.40, now)
+	ApplyMarketAppreciation(broadComps, 0.40, now)
+
 	// --- ANCHOR OVERRIDE (Redesign) ---
-	// Inject the exact historical username sale as a highly weighted comparable
-	// rather than bypassing the entire Bayesian engine.
+	// Inject the exact historical username sale as a highly weighted target comparable
 	lowerUsername := strings.ToLower(username)
 	var anchorInjected bool
 
 	if hardcodedPrice, ok := HistoricalSales[lowerUsername]; ok && hardcodedPrice > 0 {
 		// 1. In-Memory Hardcoded Historical Dataset
-		exactComps = append(exactComps, ComparableSale{
+		targetComps = append(targetComps, ComparableSale{
 			PriceTON: hardcodedPrice,
 			SaleDate: now, // Extremely recent for max weight
 			ID:       0,   // Sentinel ID
@@ -239,35 +247,17 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		anchorInjected = true
 		reasoning["anchor_source"] = "memory_hardcoded"
 		reasoning["anchor_price"] = hardcodedPrice
-	} else if len(targetSales) > 0 {
-		// 2. Fallback to Postgres Database Target Sales
-		anchorSale := &targetSales[0]
-		anchorPrice := ToFloat64(NormalizeSalePrice(anchorSale.SalePriceTON, anchorSale.SaleType, s.cfg))
-		if anchorPrice > 0 {
-			// Remove the original sale from exactComps to avoid duplication
-			filteredComps := make([]ComparableSale, 0, len(exactComps))
-			for _, c := range exactComps {
-				if c.ID != anchorSale.ID {
-					filteredComps = append(filteredComps, c)
-				}
-			}
-			exactComps = filteredComps
-
-			exactComps = append(exactComps, ComparableSale{
-				PriceTON: anchorPrice,
-				SaleDate: now,
-				ID:       anchorSale.ID,
-			})
-			anchorInjected = true
-			reasoning["anchor_source"] = "postgres_db"
-			reasoning["anchor_price"] = anchorPrice
-		}
+	} else if len(targetComps) > 0 {
+		// 2. Postgres Database Target Sales
+		anchorInjected = true
+		reasoning["anchor_source"] = "postgres_db"
+		reasoning["anchor_price"] = targetComps[0].PriceTON
 	}
 	
 	reasoning["anchor_injected"] = anchorInjected
 
 	// 3a. Base Price (Bayesian)
-	baseLog, nEff, mad, saleIDs := CalcBaseLog(exactComps, broadComps, s.cfg, features, now)
+	baseLog, nEff, mad, saleIDs := CalcBaseLog(targetComps, exactComps, broadComps, s.cfg, features, now)
 
 	// 3b. Morphology
 	morphLog := CalcMorphologyLog(features, s.cfg.MorphMultipliers, s.cfg)
@@ -280,6 +270,33 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	reasoning["n_eff"] = nEff
 	reasoning["mad"] = mad
 	reasoning["morph_log"] = morphLog
+
+	// 3b-1. Semantic & Pronounceability Log
+	semanticLog := 0.0
+	dictMult, isDict := CalculateSemanticMultiplier(username)
+	if isDict {
+		semanticLog = math.Log(dictMult)
+		reasoning["semantic_source"] = "dictionary_datamuse"
+		reasoning["semantic_multiplier"] = dictMult
+	} else if segment == "alphabetic" {
+		// Not a dictionary word, check flow/euphony
+		flowScore := AnalyzeFlow(username)
+		if flowScore >= 0.55 { // Decently pronounceable
+			// Max 1.5x multiplier for good pronounceability
+			flowMult := 1.0 + ((flowScore - 0.55) * 1.5)
+			semanticLog = math.Log(flowMult)
+			reasoning["semantic_source"] = "pronounceability_flow"
+			reasoning["semantic_multiplier"] = flowMult
+			reasoning["flow_score"] = flowScore
+		}
+	}
+
+	if anchorInjected && semanticLog > 0 {
+		// Premium is largely priced into the anchor sale itself.
+		// We severely dampen it so we don't double-count the dictionary premium.
+		semanticLog = semanticLog * 0.1
+	}
+	reasoning["semantic_log"] = semanticLog
 
 	// 3c. Momentum
 	var sumRecent, sumOlder float64
@@ -310,8 +327,64 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	reasoning["momentum_log"] = momentumLog
 
 	// 3d. Range
-	expectedTONRaw, lowTONRaw, highTONRaw := CalcRangeLog(baseLog, morphLog, momentumLog, mad, features.CharLength, s.cfg)
-	basePriceTON := math.Exp(baseLog) // base before morph/momentum is exp(baseLog)
+	expectedTONRaw, lowTONRaw, highTONRaw := CalcRangeLog(baseLog, morphLog, momentumLog, semanticLog, mad, features.CharLength, s.cfg)
+	basePriceTON := math.Exp(baseLog) // base before morph/momentum/semantic is exp(baseLog)
+
+	// 3e. External Market Multipliers (Brand, Wallet Wealth, FnG)
+	fngMult, fngClass := GetFearAndGreedMultiplier()
+	reasoning["fng_multiplier"] = fngMult
+	reasoning["fng_classification"] = fngClass
+	
+	if CheckGlobalBrand(username) {
+		brandMult := 3.0
+		if anchorInjected {
+			brandMult = 1.5 // Dampened if already priced in
+		}
+		expectedTONRaw *= brandMult
+		lowTONRaw *= brandMult
+		highTONRaw *= brandMult
+		reasoning["global_brand_multiplier"] = brandMult
+	}
+
+	if s.tonClient != nil {
+		nft, err := s.tonClient.GetNFTByDNS(ctx, username)
+		if err == nil && nft != nil && nft.Owner.Address != "" {
+			wallet, err := s.tonClient.GetWalletInfo(ctx, nft.Owner.Address)
+			if err == nil && wallet != nil {
+				tonBalance := float64(wallet.Balance) / 1e9
+				if tonBalance > 10000 {
+					whaleMult := 1.20
+					if tonBalance > 100000 {
+						whaleMult = 1.30
+					}
+					expectedTONRaw *= whaleMult
+					lowTONRaw *= whaleMult
+					highTONRaw *= whaleMult
+					reasoning["whale_wallet_multiplier"] = whaleMult
+					reasoning["wallet_balance_ton"] = tonBalance
+				}
+			}
+		}
+	}
+
+	expectedTONRaw *= fngMult
+	lowTONRaw *= fngMult
+	highTONRaw *= fngMult
+
+	// 3f. Live Bid Floor
+	activeBid, err := s.db.GetActiveBid(ctx, username)
+	if err == nil && activeBid != nil {
+		maxBidFloat := ToFloat64(activeBid.HighestBidTON)
+		if expectedTONRaw < maxBidFloat {
+			expectedTONRaw = maxBidFloat
+			lowTONRaw = maxBidFloat // The floor is literally the active bid!
+			if highTONRaw < maxBidFloat {
+				highTONRaw = maxBidFloat * 1.5 // Leave some room for a higher closing bid
+			}
+			reasoning["live_bid_floor_applied"] = true
+			reasoning["live_bid_ton"] = maxBidFloat
+		}
+	}
 
 	expectedTON := AestheticRound(expectedTONRaw)
 	lowTON := AestheticRound(lowTONRaw)

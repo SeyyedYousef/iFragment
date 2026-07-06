@@ -160,7 +160,7 @@ func TestLogPrices(t *testing.T) {
 func TestCalcBaseLog_NoData(t *testing.T) {
 	cfg := DefaultEngineConfig()
 	// Expect baseLog to fallback to ln(5.0) which is approx 1.609
-	baseLog, nEff, mad, ids := CalcBaseLog(nil, nil, cfg, MorphFeatures{CharLength: 0}, time.Now())
+	baseLog, nEff, mad, ids := CalcBaseLog(nil, nil, nil, cfg, MorphFeatures{CharLength: 0}, time.Now())
 
 	if math.Abs(baseLog-math.Log(5.0)) > 1e-10 {
 		t.Errorf("expected fallback baseLog=ln(5), got %v", baseLog)
@@ -186,7 +186,7 @@ func TestCalcBaseLog_ExactOnly(t *testing.T) {
 		{ID: 3, PriceTON: 80.0, SaleDate: now.AddDate(0, 0, -20)},
 	}
 
-	baseLog, nEff, _, ids := CalcBaseLog(exact, nil, cfg, MorphFeatures{CharLength: 0}, now)
+	baseLog, nEff, _, ids := CalcBaseLog(nil, exact, nil, cfg, MorphFeatures{CharLength: 0}, now)
 
 	// With no broad sales, broad median=0 → shrinkage pulls toward broad(0)
 	// But exact has data, so n_eff should be >0

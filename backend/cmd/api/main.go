@@ -318,7 +318,7 @@ func main() {
 
 	channelHandler := handler.NewChannelHandler(channelService)
 
-	avmService := avm.NewValuationService(db, cache)
+	avmService := avm.NewValuationService(db, cache, tonClient)
 
 	usernameHandler := handler.NewUsernameHandler(aggregatorService, analysisService, mtprotoClient, cache, avmService)
 

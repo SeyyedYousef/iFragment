@@ -46,6 +46,13 @@ type ValuationRun struct {
 	ReasoningLog     json.RawMessage `json:"reasoning_log"`
 }
 
+// ActiveBid represents the highest recorded bid for an ongoing auction.
+type ActiveBid struct {
+	Username      string          `json:"username"`
+	HighestBidTON decimal.Decimal `json:"highest_bid_ton"`
+	LastSeenAt    time.Time       `json:"last_seen_at"`
+}
+
 // InsertSale persists a sale record and returns the new row ID.
 func (db *Database) InsertSale(ctx context.Context, s Sale) (int64, error) {
 	query := `
@@ -227,4 +234,36 @@ func (db *Database) GetAllSales(ctx context.Context) ([]Sale, error) {
 		ORDER BY sale_date ASC`
 
 	return db.scanSales(ctx, query)
+}
+
+// UpsertActiveBid inserts or updates the highest seen bid for a username.
+func (db *Database) UpsertActiveBid(ctx context.Context, b ActiveBid) error {
+	query := `
+		INSERT INTO active_bids (username, highest_bid_ton, last_seen_at)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (username) DO UPDATE 
+		SET highest_bid_ton = GREATEST(active_bids.highest_bid_ton, EXCLUDED.highest_bid_ton),
+		    last_seen_at = EXCLUDED.last_seen_at
+	`
+	_, err := db.Pool.Exec(ctx, query, b.Username, b.HighestBidTON, b.LastSeenAt)
+	return err
+}
+
+// GetActiveBid retrieves the highest bid for a username if the auction is still recent (e.g. last 7 days).
+func (db *Database) GetActiveBid(ctx context.Context, username string) (*ActiveBid, error) {
+	query := `
+		SELECT username, highest_bid_ton, last_seen_at
+		FROM active_bids
+		WHERE username = $1
+		  AND last_seen_at > NOW() - INTERVAL '7 days'
+	`
+	var b ActiveBid
+	err := db.Pool.QueryRow(ctx, query, username).Scan(&b.Username, &b.HighestBidTON, &b.LastSeenAt)
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &b, nil
 }

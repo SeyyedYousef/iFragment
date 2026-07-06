@@ -169,16 +169,22 @@ func CalcSmoothedMomentum(count30, count31_90 int, priceTrend float64, cfg Engin
 //	Width = max(WeightedMAD * UncertaintyMult, W_min)
 //	Low  = exp(Expected_log - Width)
 //	High = exp(Expected_log + Width)
-func CalcRangeLog(baseLog, morphLog, momentumLog, mad float64, charLen int, cfg EngineConfig) (expectedTON, lowTON, highTON float64) {
-	expectedLog := baseLog + morphLog + momentumLog
+func CalcRangeLog(baseLog, morphLog, momentumLog, semanticLog, mad float64, charLen int, cfg EngineConfig) (expectedTON, lowTON, highTON float64) {
+	// Base expected log
+	finalLog := baseLog + morphLog + momentumLog + semanticLog
 
+	// Guard against absurdly low final logs
+	if finalLog < 0 {
+		finalLog = 0 // ~1 TON
+	}
+	
 	// Width guard
 	wMin := math.Log(1 + cfg.MinPct)
 	width := math.Max(mad*cfg.UncertaintyMult, wMin)
 
-	expectedTON = math.Exp(expectedLog)
-	lowTON = math.Exp(expectedLog - width)
-	highTON = math.Exp(expectedLog + width)
+	expectedTON = math.Exp(finalLog)
+	lowTON = math.Exp(finalLog - width)
+	highTON = math.Exp(finalLog + width)
 
 	// Hard floors based on length
 	if charLen == 4 && expectedTON < cfg.ClampLowExpected {

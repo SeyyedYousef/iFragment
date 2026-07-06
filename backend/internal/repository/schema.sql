@@ -41,3 +41,11 @@ CREATE INDEX IF NOT EXISTS idx_username_reports_data_gin ON username_reports USI
 CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id);
 CREATE INDEX IF NOT EXISTS idx_orders_payload_status ON orders(payload, status);
 CREATE INDEX IF NOT EXISTS idx_orders_payload_pattern ON orders(payload text_pattern_ops, status);
+
+-- Active Bids from Fragment Auctions
+CREATE TABLE IF NOT EXISTS active_bids (
+    username TEXT PRIMARY KEY,
+    highest_bid_ton NUMERIC NOT NULL,
+    last_seen_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_active_bids_last_seen ON active_bids(last_seen_at);

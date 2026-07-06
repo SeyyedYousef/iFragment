@@ -18,6 +18,21 @@ type ComparableSale struct {
 	IsDictionary  bool
 }
 
+// ApplyMarketAppreciation inflates the PriceTON of older sales based on a compounded annual growth rate.
+// For example, if annualRate is 0.40 (40%), a sale from 2 years ago is multiplied by 1.40^2 = 1.96.
+func ApplyMarketAppreciation(sales []ComparableSale, annualRate float64, now time.Time) {
+	if annualRate <= 0 {
+		return
+	}
+	for i, s := range sales {
+		yearsAgo := now.Sub(s.SaleDate).Hours() / (24.0 * 365.25)
+		if yearsAgo > 0 {
+			multiplier := math.Pow(1.0+annualRate, yearsAgo)
+			sales[i].PriceTON = s.PriceTON * multiplier
+		}
+	}
+}
+
 // CalcTimeDecayWeights computes exponential time-decay weights w_i = exp(-λ * days_ago).
 // The reference point is the most recent sale's date (or `now` if provided).
 func CalcTimeDecayWeights(sales []ComparableSale, lambda float64, now time.Time) []float64 {
@@ -134,9 +149,10 @@ func LogPrices(sales []ComparableSale) []float64 {
 	return logPrices
 }
 
-// CalcBaseLog computes the Bayesian-shrunk base price in log-space.
-// This is the core of the AVM pricing engine.
+// CalcBaseLog computes the foundational price in log-space using hierarchical Bayesian Shrinkage:
+// target -> exact -> broad.
 func CalcBaseLog(
+	targetSales []ComparableSale,
 	exactSales []ComparableSale,
 	broadSales []ComparableSale,
 	cfg EngineConfig,
@@ -164,8 +180,18 @@ func CalcBaseLog(
 		broadMedianLog = WeightedMedian(broadLogPrices, broadWeights)
 	}
 
-	// Bayesian shrinkage
-	if len(exactSales) == 0 && len(broadSales) == 0 {
+	// Compute target match statistics (the exact same username)
+	targetWeights := CalcTimeDecayWeights(targetSales, cfg.Lambda, now)
+	targetLogPrices := LogPrices(targetSales)
+	targetNEff := CalcEffectiveSampleSize(targetWeights)
+
+	targetMedianLog := 0.0
+	if len(targetSales) > 0 {
+		targetMedianLog = WeightedMedian(targetLogPrices, targetWeights)
+	}
+
+	// Bayesian shrinkage (Hierarchical)
+	if len(targetSales) == 0 && len(exactSales) == 0 && len(broadSales) == 0 {
 		// No data at all — return a length-based fallback
 		var fallbackTON float64 = cfg.FallbackOther
 		if features.CharLength == 4 {
@@ -179,10 +205,23 @@ func CalcBaseLog(
 		return baseLog, 0, 0, saleIDs
 	}
 
-	if len(exactSales) == 0 {
-		baseLog = broadMedianLog
+	// Shrink exact towards broad
+	shrunkExact := broadMedianLog
+	if len(exactSales) > 0 {
+		shrunkExact = BayesianShrinkage(exactMedianLog, broadMedianLog, nEff, cfg.K)
 	} else {
-		baseLog = BayesianShrinkage(exactMedianLog, broadMedianLog, nEff, cfg.K)
+		nEff = 0.0 // broad only
+	}
+
+	// Shrink target towards shrunkExact
+	if len(targetSales) > 0 {
+		// We use a much smaller K for target sales (e.g., 0.1) because 
+		// if we have a sale of the exact item, we trust it highly!
+		K_target := 0.1
+		baseLog = BayesianShrinkage(targetMedianLog, shrunkExact, targetNEff, K_target)
+		nEff = targetNEff // Return target nEff so confidence correctly reflects the small sample size
+	} else {
+		baseLog = shrunkExact
 	}
 
 	// Compute MAD from the better dataset
@@ -193,6 +232,9 @@ func CalcBaseLog(
 	}
 
 	// Collect comparable sale IDs
+	for _, s := range targetSales {
+		saleIDs = append(saleIDs, s.ID)
+	}
 	for _, s := range exactSales {
 		saleIDs = append(saleIDs, s.ID)
 	}
