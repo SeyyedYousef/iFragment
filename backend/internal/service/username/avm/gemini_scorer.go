@@ -209,8 +209,11 @@ func (g *GeminiScorer) callGemini(ctx context.Context, prompt, apiKey string) (*
 	var result GeminiResult
 	if err := json.Unmarshal([]byte(rawJSON), &result); err != nil {
 		// Try extracting score from malformed response
-		score := extractScoreFromText(rawJSON)
-		return &GeminiResult{Score: score, Reason: "parsed from raw"}, nil
+		score, errExt := extractScoreFromText(rawJSON)
+		if errExt != nil {
+			return nil, fmt.Errorf("failed to parse score from JSON and text. Raw text: %s", rawJSON)
+		}
+		result = GeminiResult{Score: score, Reason: "parsed from raw"}
 	}
 
 	// Clamp score
@@ -281,14 +284,14 @@ func (g *GeminiScorer) fetchUserKeysFromDB(ctx context.Context) []string {
 }
 
 // extractScoreFromText tries to extract a numeric score from a malformed AI response.
-func extractScoreFromText(text string) int {
+func extractScoreFromText(text string) (int, error) {
 	// Try to find a number between 1-100 in the text
 	text = strings.ReplaceAll(text, "\"", "")
 	for _, word := range strings.Fields(text) {
 		word = strings.Trim(word, "{}:,")
 		if n, err := strconv.Atoi(word); err == nil && n >= 1 && n <= 100 {
-			return n
+			return n, nil
 		}
 	}
-	return 50 // fallback neutral
+	return 0, fmt.Errorf("no numeric score found in text")
 }
