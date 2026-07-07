@@ -461,8 +461,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	// 3b. Morphology
 	morphLog := CalcMorphologyLog(features, s.cfg.MorphMultipliers, s.cfg)
 	if anchorInjected {
-		// Heavily dampen MorphLog because premium is already priced into the anchor
-		morphLog = morphLog * s.cfg.MorphDamping
+		morphLog = 0.0
 	}
 
 	reasoning["base_log"] = baseLog
@@ -497,14 +496,8 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		}
 	}
 
-	if anchorInjected && semanticLog > 0 {
-		// Premium is largely priced into the anchor sale itself.
-		// Dampen so we don't double-count, but less aggressively for high AI scores.
-		dampFactor := 0.4 // Allow 40% of semantic premium on top of anchor
-		if semResult != nil && semResult.AIScore >= 80 {
-			dampFactor = 0.6 // High AI confidence = even less damping
-		}
-		semanticLog = semanticLog * dampFactor
+	if anchorInjected {
+		semanticLog = 0.0
 	}
 	reasoning["semantic_log"] = semanticLog
 
@@ -607,6 +600,17 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 			reasoning["historical_sale_floor_applied"] = true
 			reasoning["highest_past_sale_ton"] = highestPastSale
 		}
+	}
+
+	// Enforce 1,000,000 TON absolute maximum cap globally
+	if expectedTONRaw > 1000000.0 {
+		expectedTONRaw = 1000000.0
+	}
+	if lowTONRaw > 1000000.0 {
+		lowTONRaw = 1000000.0
+	}
+	if highTONRaw > 1000000.0 {
+		highTONRaw = 1000000.0
 	}
 
 	expectedTON := AestheticRound(expectedTONRaw)

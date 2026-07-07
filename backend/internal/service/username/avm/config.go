@@ -75,7 +75,7 @@ func DefaultEngineConfig() EngineConfig {
 		FallbackLen6: 15.0,
 		FallbackOther: 5.0,
 
-		ClampLowLimit:    10.0,
+		ClampLowLimit:    5.0,
 		ClampLowExpected: 100.0,
 		MorphDamping:     0.1,
 

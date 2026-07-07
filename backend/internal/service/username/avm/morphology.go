@@ -275,7 +275,7 @@ func CalcRangeLog(baseLog, morphLog, momentumLog, semanticLog, mad float64, char
 	if charLen == 4 && expectedTON < cfg.ClampLowExpected {
 		expectedTON = cfg.ClampLowExpected
 	}
-	if charLen == 5 && expectedTON < cfg.ClampLowLimit {
+	if charLen >= 5 && expectedTON < cfg.ClampLowLimit {
 		expectedTON = cfg.ClampLowLimit
 	}
 
