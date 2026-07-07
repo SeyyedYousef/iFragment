@@ -269,7 +269,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	// If no anchor/target sales exist and the semantic engine thinks this is premium,
 	// boost the fallback base price dramatically. Without this, "bitcoin" starts at 5 TON.
 	if !anchorInjected && semResult != nil && semResult.TotalScore > 0 {
-		if semResult.TotalScore >= 80 {
+		if semResult.TotalScore >= 70 {
 			// Legendary: base at least 250 TON (will be multiplied by ~400x combined max = ~100k TON)
 			minBase := math.Log(250)
 			if baseLog < minBase {
