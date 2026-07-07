@@ -56,7 +56,7 @@ func DefaultEngineConfig() EngineConfig {
 		K: 5.0, // Bayesian maturity threshold
 
 		MorphClampLow:  -2.3025,   // ln(0.1)
-		MorphClampHigh: 2.07944154, // ln(8.0) -> allows up to 8x multiplier
+		MorphClampHigh: 1.6094379, // ln(5.0) -> capped at 5x multiplier (down from 8x)
 
 		MomentumClampLow:  -0.2231, // ln(0.8)
 		MomentumClampHigh: 0.2231,  // ln(1.25)

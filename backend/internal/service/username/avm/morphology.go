@@ -105,11 +105,11 @@ func CalcMorphologyLog(features MorphFeatures, multipliers map[string]float64, c
 	}
 	
 	// Pronounceability Premium/Penalty
-	if features.FlowScore > 0.70 {
+	if features.FlowScore > 0.85 {
 		if m, ok := multipliers["flow_high"]; ok && m > 0 {
 			morphLog += math.Log(m)
 		}
-	} else if features.FlowScore < 0.30 {
+	} else if features.FlowScore < 0.40 {
 		if m, ok := multipliers["flow_low"]; ok && m > 0 {
 			morphLog += math.Log(m)
 		}

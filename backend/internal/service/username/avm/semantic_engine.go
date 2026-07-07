@@ -294,43 +294,52 @@ func (e *SemanticEngine) scoreToMultiplier(score float64, length int, tags []str
 		return 1.0
 	}
 
-	// Exponential curve: mult = 1 + (score/100)^5.0 * 99
-	// This keeps garbage names at 1x, while capping the most legendary names at 100x.
+	// Exponential curve: mult = 1 + (score/100)^6.0 * 99
+	// This keeps garbage names at 1x,	// Use power of 6.0 instead of 5.0 to suppress mediocre AI scores heavily
+	// Score 50 -> ~1.5x multiplier (instead of 4x)
+	// Score 70 -> ~11.6x multiplier (instead of 17x)
 	normalized := score / 100.0
-	multiplier := 1.0 + math.Pow(normalized, 5.0)*99.0
+	multiplier := 1.0 + math.Pow(normalized, 6.0)*99.0
 
 	// Tag-Based Pricing
+	tagMultiplier := 1.0
 	for _, t := range tags {
 		tag := strings.ToLower(t)
 		if strings.Contains(tag, "crypto") || strings.Contains(tag, "web3") || strings.Contains(tag, "blockchain") {
-			multiplier *= 1.8
+			tagMultiplier *= 1.8
 		} else if strings.Contains(tag, "brand") || strings.Contains(tag, "company") || strings.Contains(tag, "startup") {
-			multiplier *= 1.6
+			tagMultiplier *= 1.6
 		} else if strings.Contains(tag, "country") || strings.Contains(tag, "location") || strings.Contains(tag, "city") {
-			multiplier *= 1.5
+			tagMultiplier *= 1.5
 		} else if strings.Contains(tag, "gaming") || strings.Contains(tag, "game") || strings.Contains(tag, "esports") {
-			multiplier *= 1.3
+			tagMultiplier *= 1.3
 		}
 		
 		if strings.Contains(tag, "wiki_popular") {
-			multiplier *= 1.5
+			tagMultiplier *= 1.5
 		}
 		if strings.Contains(tag, "brand_verified") {
-			multiplier *= 2.0
+			tagMultiplier *= 2.0
 		}
 		if strings.Contains(tag, "internet_slang") {
-			multiplier *= 1.50
+			tagMultiplier *= 1.50
 		}
 		if strings.Contains(tag, "color_premium") {
-			multiplier *= 1.25
+			tagMultiplier *= 1.25
 		}
 		if strings.Contains(tag, "geo_premium") {
-			multiplier *= 1.40
+			tagMultiplier *= 1.40
 		}
 		if strings.Contains(tag, "emoji_word") {
-			multiplier *= 1.20
+			tagMultiplier *= 1.20
 		}
 	}
+	
+	// Hard cap on Tag-Based Multiplier stacking
+	if tagMultiplier > 3.0 {
+		tagMultiplier = 3.0
+	}
+	multiplier *= tagMultiplier
 
 	// Length Multiplier
 	// Shorter names are exponentially more valuable
