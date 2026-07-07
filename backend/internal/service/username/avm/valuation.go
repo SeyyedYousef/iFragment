@@ -395,11 +395,6 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	exactComps := SalesToComparables(exactSales, s.cfg)
 	broadComps := SalesToComparables(broadSales, s.cfg)
 
-	// Apply 40% annual market appreciation to historical sales
-	ApplyMarketAppreciation(targetComps, 0.40, now)
-	ApplyMarketAppreciation(exactComps, 0.40, now)
-	ApplyMarketAppreciation(broadComps, 0.40, now)
-
 	// --- ANCHOR OVERRIDE (Redesign) ---
 	// Inject the exact historical username sale as a highly weighted target comparable
 	lowerUsername := strings.ToLower(username)
@@ -409,7 +404,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		// 1. In-Memory Hardcoded Historical Dataset
 		targetComps = append(targetComps, ComparableSale{
 			PriceTON:   hardcodedPrice,
-			SaleDate:   now, // Extremely recent for max weight
+			SaleDate:   time.Date(2022, 11, 1, 0, 0, 0, 0, time.UTC), // Fragment username launch date for accurate appreciation
 			ID:         0,   // Sentinel ID
 			CharLength: len(username),
 		})
@@ -422,6 +417,11 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		reasoning["anchor_source"] = "postgres_db"
 		reasoning["anchor_price"] = targetComps[0].PriceTON
 	}
+
+	// Apply 40% annual market appreciation to historical sales (including injected anchors)
+	ApplyMarketAppreciation(targetComps, 0.40, now)
+	ApplyMarketAppreciation(exactComps, 0.40, now)
+	ApplyMarketAppreciation(broadComps, 0.40, now)
 	
 	reasoning["anchor_injected"] = anchorInjected
 
@@ -462,7 +462,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	// 3b. Morphology
 	morphLog := CalcMorphologyLog(features, s.cfg.MorphMultipliers, s.cfg)
 	if anchorInjected {
-		morphLog = 0.0
+		morphLog *= 0.10 // Dampen morphology impact on top of anchor price
 	}
 
 	reasoning["base_log"] = baseLog
@@ -498,7 +498,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	}
 
 	if anchorInjected {
-		semanticLog = 0.0
+		semanticLog *= 0.10 // Dampen semantic impact on top of anchor price
 	}
 	reasoning["semantic_log"] = semanticLog
 
@@ -580,19 +580,19 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		}
 	}
 
-	// 3g. Historical Sale Floor (For Dictionary / Meaningful Usernames)
-	if features.IsDictionary && len(targetSales) > 0 {
-		highestPastSale := 0.0
-		for _, sale := range targetSales {
-			price := ToFloat64(sale.SalePriceTON)
-			if price > highestPastSale {
-				highestPastSale = price
-			}
+	// 3g. Historical Sale Floor (For all usernames with a past sale)
+	highestPastSale := 0.0
+	for _, sale := range targetComps {
+		// targetComps has already been appreciated!
+		if sale.PriceTON > highestPastSale {
+			highestPastSale = sale.PriceTON
 		}
+	}
 
+	if highestPastSale > 0 {
 		// Ensure strictly higher (e.g., +5% minimum) than the highest past sale
 		strictFloor := highestPastSale * 1.05
-		if highestPastSale > 0 && expectedTONRaw < strictFloor {
+		if expectedTONRaw < strictFloor {
 			expectedTONRaw = strictFloor
 			lowTONRaw = highestPastSale // Floor is the exact past sale
 			if highTONRaw < strictFloor {
