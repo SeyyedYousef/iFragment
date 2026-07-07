@@ -53,7 +53,7 @@ func main() {
 	}
 
 	repo := db
-	cacheService, _ := repository.NewCache(nil)
+	cacheService, _ := repository.NewCache(ctx)
 	tonClient := tonapi.NewClient()
 	svc := avm.NewValuationService(repo, cacheService, tonClient)
 

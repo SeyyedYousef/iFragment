@@ -45,15 +45,8 @@ type MorphFeatures struct {
 func CalcMorphologyLog(features MorphFeatures, multipliers map[string]float64, cfg EngineConfig) float64 {
 	var morphLog float64
 
-	// Dictionary word premium (strongest signal)
-	if features.IsDictionary {
-		if m, ok := multipliers["is_dictionary"]; ok && m > 0 {
-			morphLog += math.Log(m)
-		}
-	}
-
-	// has_numbers discount — ONLY if NOT a dictionary word (confounder isolation)
-	if features.HasNumbers && !features.IsDictionary {
+	// has_numbers discount
+	if features.HasNumbers {
 		if m, ok := multipliers["has_numbers"]; ok && m > 0 {
 			morphLog += math.Log(m)
 		}
@@ -116,22 +109,6 @@ func CalcMorphologyLog(features MorphFeatures, multipliers map[string]float64, c
 		}
 	}
 
-	// Length-based premiums (mutually exclusive)
-	switch {
-	case features.CharLength == 4:
-		if m, ok := multipliers["short_4"]; ok && m > 0 {
-			morphLog += math.Log(m)
-		}
-	case features.CharLength == 5:
-		if m, ok := multipliers["short_5"]; ok && m > 0 {
-			morphLog += math.Log(m)
-		}
-	case (features.CharLength == 6 || features.CharLength == 7) && features.IsDictionary:
-		if m, ok := multipliers["dict_6_7_char"]; ok && m > 0 {
-			morphLog += math.Log(m)
-		}
-	}
-
 	// Clean name premium (no underscore)
 	if !features.HasUnderscore {
 		if m, ok := multipliers["no_underscore"]; ok && m > 0 {
@@ -185,31 +162,8 @@ func CalcMorphologyLog(features MorphFeatures, multipliers map[string]float64, c
 		}
 	}
 
-	// AI God-Tier: Social Hype & Aesthetics
-	if features.IsHyped {
-		morphLog += math.Log(10.0) // 10x multiplier for extremely hyped internet slang
-	}
 	if features.IsAesthetic {
 		morphLog += math.Log(1.0 + features.EuphonyScore) // Smooth names get an aesthetic premium
-	}
-
-	// AI God-Tier: Word Popularity (N-gram Frequency)
-	if features.FrequencyRank > 0 {
-		if features.FrequencyRank <= 100 {
-			morphLog += math.Log(10.0) // Top 100 words (e.g. 'the', 'time')
-		} else if features.FrequencyRank <= 1000 {
-			morphLog += math.Log(5.0)  // Top 1000 words (e.g. 'game', 'love')
-		} else if features.FrequencyRank <= 5000 {
-			morphLog += math.Log(2.0)  // Top 5000 words
-		} else {
-			morphLog += math.Log(1.5)  // Rest of top 10k
-		}
-	}
-
-	// Lexicon: Garbage Penalty (Keyboard smashes)
-	// If the name is unpronounceable, not a dictionary word, and contains letters, penalize it heavily.
-	if features.FlowScore < 0.5 && !features.IsDictionary && features.HasAlpha {
-		morphLog -= 1.0 // Slashing the price by ~63%
 	}
 
 	// Clamp the total morph log

@@ -5,46 +5,42 @@ import (
 	"testing"
 )
 
-func TestCalcMorphologyLog_DictionaryWord(t *testing.T) {
+func TestCalcMorphologyLog_CleanWord(t *testing.T) {
 	cfg := DefaultEngineConfig()
 
 	features := MorphFeatures{
-		IsDictionary: true,
-		HasNumbers:   false,
-		CharLength:   5,
-		FlowScore:    0.70,
+		HasUnderscore: false,
+		HasNumbers:    false,
+		FlowScore:     0.70,
 	}
 
 	morphLog := CalcMorphologyLog(features, cfg.MorphMultipliers, cfg)
 
-	// Should include: is_dictionary(2.5) + short_5(1.8) + no_underscore(1.15)
-	// = ln(2.5) + ln(1.8) + ln(1.15) = ln(5.175) ≈ 1.6438
-	// However, this exceeds the MorphClampHigh of ln(5.0) ≈ 1.6094, so it should be clamped.
-	expected := cfg.MorphClampHigh
+	// Should include: no_underscore(1.15)
+	// = ln(1.15) ≈ 0.13976
+	expected := math.Log(1.15)
 	if math.Abs(morphLog-expected) > 1e-6 {
 		t.Errorf("morphLog = %v, want %v", morphLog, expected)
 	}
 }
 
-func TestCalcMorphologyLog_ConfounderIsolation(t *testing.T) {
+func TestCalcMorphologyLog_UnderscoreCompound(t *testing.T) {
 	cfg := DefaultEngineConfig()
 
-	// has_numbers=true AND is_dictionary=true
-	// → has_numbers discount should be SUPPRESSED
+	// has_underscore = true AND is_underscore_compound = true
+	// → should restore half of the underscore penalty
 	features := MorphFeatures{
-		IsDictionary: true,
-		HasNumbers:   true,
-		CharLength:   6,
-		FlowScore:    0.70,
+		HasUnderscore:        true,
+		IsUnderscoreCompound: true,
+		FlowScore:            0.70,
 	}
 
 	morphLog := CalcMorphologyLog(features, cfg.MorphMultipliers, cfg)
 
-	// Should NOT include has_numbers(0.70) discount
-	// Should include: is_dictionary(2.5) + no_underscore(1.15) + dict_6_7_char(1.40)
-	expected := math.Log(2.5) + math.Log(1.15) + math.Log(1.40)
+	// Should include: has_underscore(0.60) / 2 = Log(0.60) - (Log(0.60)/2) = Log(0.60)/2 ≈ -0.2554
+	expected := math.Log(0.60) / 2.0
 	if math.Abs(morphLog-expected) > 1e-6 {
-		t.Errorf("confounder isolation failed: morphLog = %v, want %v", morphLog, expected)
+		t.Errorf("underscore compound recovery failed: morphLog = %v, want %v", morphLog, expected)
 	}
 }
 

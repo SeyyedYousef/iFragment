@@ -408,9 +408,10 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	if hardcodedPrice, ok := HistoricalSales[lowerUsername]; ok && hardcodedPrice > 0 {
 		// 1. In-Memory Hardcoded Historical Dataset
 		targetComps = append(targetComps, ComparableSale{
-			PriceTON: hardcodedPrice,
-			SaleDate: now, // Extremely recent for max weight
-			ID:       0,   // Sentinel ID
+			PriceTON:   hardcodedPrice,
+			SaleDate:   now, // Extremely recent for max weight
+			ID:         0,   // Sentinel ID
+			CharLength: len(username),
 		})
 		anchorInjected = true
 		reasoning["anchor_source"] = "memory_hardcoded"

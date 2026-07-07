@@ -227,13 +227,14 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 		}
 	}
 
-	// Weighted combination
-	totalScore := (wordFreqScore * 0.10) +
+	// Weighted combination (prioritize language features and AI; treat brand as bonus)
+	baseScore := (wordFreqScore * 0.20) +
 		(wikiScore * 0.20) +
-		(aiScore * 0.45) +
-		(brandScore * 0.25)
+		(aiScore * 0.60)
 
-	// ----------------------------------------------------
+	brandBonus := (brandScore / 100.0) * 10.0
+	totalScore := baseScore + brandBonus
+
 	// Pronounceability Penalty (N-Gram / Vowel check)
 	// ----------------------------------------------------
 	hasVowel := false
@@ -288,18 +289,17 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 }
 
 // scoreToMultiplier converts the 0-100 score into a price multiplier.
-// Incorporates the Length Multiplier feature and Tag-Based Pricing.
 func (e *SemanticEngine) scoreToMultiplier(score float64, length int, tags []string) float64 {
 	var multiplier float64
 
+	// Penalty zone: scale from 0.1x to 1.0x
 	if score < 45.0 {
-		// Penalty zone: scale from 0.1x (at score 0) to 1.0x (at score 45)
-		multiplier = 0.1 + (score/45.0)*0.9
+		normalized := score / 45.0
+		multiplier = 0.1 + math.Pow(normalized, 3.0)*0.9
 	} else {
-		// Premium zone: scale from 1.0x (at score 45) to 100.0x (at score 100)
-		// Keeping garbage/mediocre names at 1.0x and high scores growing exponentially.
+		// Premium zone: scale from 1.0x (at score 45) to 200.0x (at score 100)
 		normalized := (score - 45.0) / 55.0
-		multiplier = 1.0 + math.Pow(normalized, 5.0)*99.0
+		multiplier = 1.0 + math.Pow(normalized, 2.0)*199.0
 	}
 
 	// Tag-Based Pricing
@@ -342,19 +342,6 @@ func (e *SemanticEngine) scoreToMultiplier(score float64, length int, tags []str
 	}
 	multiplier *= tagMultiplier
 
-	// Length Multiplier
-	// Shorter names are exponentially more valuable
-	if length == 4 {
-		multiplier *= 2.0 // 4-letter boost
-	} else if length == 5 {
-		multiplier *= 1.5 // 5-letter boost
-	} else if length >= 10 {
-		// Only penalize long names if they are NOT legendary globally recognized entities.
-		if score < 70.0 {
-			multiplier *= 0.8 // Long name penalty
-		}
-	}
-
 	// Cultural Significance / Mega-Entity Boost
 	// If a word is long but STILL scores legendary (70+), it means it's a massive global 
 	// entity (like a country, megabrand). We boost it so its price can rival short words.
@@ -362,7 +349,7 @@ func (e *SemanticEngine) scoreToMultiplier(score float64, length int, tags []str
 		multiplier *= 1.5
 	}
 
-	// Cap at maximum 500x after tag and length adjustments
+	// Cap at maximum 500x after tag adjustments
 	return math.Min(multiplier, 500.0)
 }
 
