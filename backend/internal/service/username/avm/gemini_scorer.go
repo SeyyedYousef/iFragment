@@ -37,10 +37,10 @@ type GeminiScorer struct {
 	httpClient   *http.Client
 }
 
-// GeminiResult holds the AI scoring result.
 type GeminiResult struct {
-	Score  int    `json:"score"`
-	Reason string `json:"reason"`
+	Score  int      `json:"score"`
+	Reason string   `json:"reason"`
+	Tags   []string `json:"tags"`
 }
 
 // NewGeminiScorer creates a new scorer with project key and DB access for user keys.
@@ -76,8 +76,8 @@ Calibration examples:
 - "rule"=65, "fast"=62, "lord"=68
 - "xyzqw"=5, "jkl123"=3, "a_b_c"=2, "qwerty7"=8
 
-CRITICAL: Respond with ONLY a raw JSON object and nothing else. Do not use markdown backticks. Do not include introductory text like "Here is the JSON".
-{"score": <number>, "reason": "<one-line explanation>"}`
+CRITICAL: Respond with ONLY a raw JSON object. Do not use markdown backticks. Do not include introductory text.
+{"score": <number>, "reason": "<one-line explanation>", "tags": ["crypto", "premium", "noun", "4-letter"]}`
 
 // Score returns the AI desirability score for a username (0-100).
 // It uses caching to avoid repeated API calls.
@@ -221,7 +221,7 @@ func (g *GeminiScorer) callGemini(ctx context.Context, prompt, apiKey string) (*
 		if errExt != nil {
 			return nil, fmt.Errorf("failed to parse score from JSON and text. Raw text: %s", rawJSON)
 		}
-		result = GeminiResult{Score: score, Reason: "parsed from raw"}
+		result = GeminiResult{Score: score, Reason: "parsed from raw", Tags: []string{"fallback"}}
 	}
 
 	// Clamp score

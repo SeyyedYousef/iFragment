@@ -28,14 +28,15 @@ type SemanticEngine struct {
 
 // SemanticResult holds the combined semantic analysis.
 type SemanticResult struct {
-	TotalScore      float64 `json:"total_score"`       // 0-100 combined score
-	Multiplier      float64 `json:"multiplier"`        // Price multiplier (1x - 200x)
-	WordFreqScore   float64 `json:"word_freq_score"`   // 0-100 from Datamuse
-	WikiScore       float64 `json:"wiki_score"`        // 0-100 from Wikipedia
-	AIScore         float64 `json:"ai_score"`          // 0-100 from Gemini
-	BrandScore      float64 `json:"brand_score"`       // 0 or 100 from Clearbit
-	AIReason        string  `json:"ai_reason"`         // One-line AI explanation
-	WikiDescription string  `json:"wiki_description"`  // Wikipedia article description
+	TotalScore      float64  `json:"total_score"`       // 0-100 combined score
+	Multiplier      float64  `json:"multiplier"`        // Price multiplier (1x - 200x)
+	WordFreqScore   float64  `json:"word_freq_score"`   // 0-100 from Datamuse
+	WikiScore       float64  `json:"wiki_score"`        // 0-100 from Wikipedia
+	AIScore         float64  `json:"ai_score"`          // 0-100 from Gemini
+	BrandScore      int      `json:"brand_score"`       // 0 or 100 from Clearbit
+	Tags            []string `json:"tags"`              // AI-generated tags
+	AIReason        string   `json:"ai_reason"`         // One-line AI explanation
+	WikiDescription string   `json:"wiki_description"`  // Wikipedia article description
 }
 
 // NewSemanticEngine creates a new semantic analysis engine.
@@ -120,9 +121,10 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 	var (
 		wikiScore  float64
 		aiScore    float64
-		brandScore float64
+		brandScore = float64(brandResult)
 		aiReason   string
 		wikiDesc   string
+		tags       []string
 	)
 
 	if wikiResult != nil && wikiResult.Exists {
@@ -133,22 +135,36 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 	if geminiResult != nil {
 		aiScore = float64(geminiResult.Score)
 		aiReason = geminiResult.Reason
+		tags = geminiResult.Tags
 	}
 
-	brandScore = float64(brandResult) // 0, 50, or 100
-
-	// Weighted combination:
-	// AI gets 50% weight because it understands context, crypto, and web3 culture best.
+	// Weighted combination
 	totalScore := (wordFreqScore * 0.15) +
 		(wikiScore * 0.15) +
 		(aiScore * 0.50) +
 		(brandScore * 0.20)
 
+	// ----------------------------------------------------
+	// Pronounceability Penalty (N-Gram / Vowel check)
+	// ----------------------------------------------------
+	hasVowel := false
+	lower := strings.ToLower(username)
+	for _, ch := range lower {
+		if ch == 'a' || ch == 'e' || ch == 'i' || ch == 'o' || ch == 'u' || ch == 'y' {
+			hasVowel = true
+			break
+		}
+	}
+	// If it's a completely garbage string of consonants (and not a dictionary word)
+	if !hasVowel && wordFreqScore == 0 {
+		totalScore = totalScore * 0.5 // Massive 50% penalty for unpronounceable gibberish
+	}
+
 	// Clamp to 0-100
 	totalScore = math.Max(0, math.Min(100, totalScore))
 
 	// 4. Convert score to price multiplier
-	multiplier := scoreToMultiplier(totalScore)
+	multiplier := e.scoreToMultiplier(totalScore, len(username))
 
 	result := &SemanticResult{
 		TotalScore:      math.Round(totalScore*100) / 100,
@@ -156,7 +172,8 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 		WordFreqScore:   math.Round(wordFreqScore*100) / 100,
 		WikiScore:       wikiScore,
 		AIScore:         aiScore,
-		BrandScore:      brandScore,
+		BrandScore:      brandResult,
+		Tags:            tags,
 		AIReason:        aiReason,
 		WikiDescription: wikiDesc,
 	}
@@ -169,6 +186,7 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 		"wiki", result.WikiScore,
 		"ai", result.AIScore,
 		"brand", result.BrandScore,
+		"tags", fmt.Sprintf("%v", tags),
 	)
 
 	// 5. Cache
@@ -180,23 +198,28 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 	return result
 }
 
-// scoreToMultiplier converts a 0-100 semantic score to a price multiplier.
-//
-// The curve is exponential to reward truly premium usernames:
-//   - Score 0-20:   ×1.0 - ×1.5  (worthless / gibberish)
-//   - Score 21-40:  ×1.5 - ×5    (low-value real words)
-//   - Score 41-60:  ×5   - ×25   (moderate value, common words)
-//   - Score 61-80:  ×25  - ×120  (high value, popular concepts)
-//   - Score 81-100: ×120 - ×500  (legendary: news, sport, bitcoin)
-func scoreToMultiplier(score float64) float64 {
-	if score <= 0 {
+// scoreToMultiplier converts the 0-100 score into a price multiplier.
+// Incorporates the Length Multiplier feature.
+func (e *SemanticEngine) scoreToMultiplier(score float64, length int) float64 {
+	if score <= 10.0 {
 		return 1.0
 	}
 
 	// Exponential curve: mult = 1 + (score/100)^5.0 * 149
-	// This keeps garbage names at 1x, while capping the most legendary names at 150x instead of 500x.
+	// This keeps garbage names at 1x, while capping the most legendary names at 150x.
 	normalized := score / 100.0
 	multiplier := 1.0 + math.Pow(normalized, 5.0)*149.0
 
+	// Length Multiplier
+	// Shorter names are exponentially more valuable
+	if length == 4 {
+		multiplier *= 2.0 // 4-letter boost
+	} else if length == 5 {
+		multiplier *= 1.5 // 5-letter boost
+	} else if length >= 10 {
+		multiplier *= 0.8 // Long name penalty
+	}
+
+	// Cap at maximum 150x after length adjustments
 	return math.Min(multiplier, 150.0)
 }
