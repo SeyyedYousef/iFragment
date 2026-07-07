@@ -75,11 +75,9 @@ func CheckGlobalBrand(username string) int {
 		}
 	}
 
-	// If no exact match but companies were returned, give partial credit
-	// ONLY if username is at least 4 chars long to prevent random 3-letter junk from getting brand points
-	if score == 0 && len(companies) > 0 && len(lower) >= 4 {
-		score = 50 // Related brand exists
-	}
+	// We DO NOT give partial credit just because companies exist in the autocomplete.
+	// Clearbit will return random fuzzy matches for any 4-letter string.
+	// Only exact domain or name match qualifies for brand premium.
 
 	brandMutex.Lock()
 	brandCache[lower] = score

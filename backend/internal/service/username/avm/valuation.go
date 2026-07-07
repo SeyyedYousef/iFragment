@@ -205,6 +205,7 @@ func ClassifyUsername(username string) (segment string, charLen int16, features 
 
 	features = MorphFeatures{
 		HasNumbers:        hasNumbers,
+		HasAlpha:          hasAlpha,
 		HasUnderscore:     hasUnderscore,
 		HasCheapSuffix:    hasCheapSuffix,
 		HasCheapPrefix:    hasCheapPrefix,

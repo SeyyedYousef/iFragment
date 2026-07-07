@@ -6,6 +6,7 @@ import "math"
 // used for multiplier stacking and confounder isolation.
 type MorphFeatures struct {
 	HasNumbers        bool
+	HasAlpha          bool
 	HasUnderscore     bool
 	HasCheapSuffix    bool
 	HasCheapPrefix    bool
@@ -206,8 +207,8 @@ func CalcMorphologyLog(features MorphFeatures, multipliers map[string]float64, c
 	}
 
 	// Lexicon: Garbage Penalty (Keyboard smashes)
-	// If the name is unpronounceable and NOT a dictionary word/pure numeric, penalize it heavily.
-	if features.FlowScore < 0.5 && !features.IsDictionary && features.CharLength > 4 && !features.HasNumbers && !features.HasUnderscore {
+	// If the name is unpronounceable, not a dictionary word, and contains letters, penalize it heavily.
+	if features.FlowScore < 0.5 && !features.IsDictionary && features.HasAlpha {
 		morphLog -= 1.0 // Slashing the price by ~63%
 	}
 
