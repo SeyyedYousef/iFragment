@@ -219,7 +219,17 @@ func (e *SemanticEngine) scoreToMultiplier(score float64, length int) float64 {
 	} else if length == 5 {
 		multiplier *= 1.5 // 5-letter boost
 	} else if length >= 10 {
-		multiplier *= 0.8 // Long name penalty
+		// Only penalize long names if they are NOT legendary globally recognized entities.
+		if score < 80.0 {
+			multiplier *= 0.8 // Long name penalty
+		}
+	}
+
+	// Cultural Significance / Mega-Entity Boost
+	// If a word is long but STILL scores legendary (85+), it means it's a massive global 
+	// entity (like a country, megabrand). We boost it so its price can rival short words.
+	if score >= 85.0 && length >= 6 {
+		multiplier *= 1.5
 	}
 
 	// Cap at maximum 100x after length adjustments
