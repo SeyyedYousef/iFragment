@@ -207,10 +207,10 @@ func (e *SemanticEngine) scoreToMultiplier(score float64, length int) float64 {
 		return 1.0
 	}
 
-	// Exponential curve: mult = 1 + (score/100)^5.0 * 149
-	// This keeps garbage names at 1x, while capping the most legendary names at 150x.
+	// Exponential curve: mult = 1 + (score/100)^5.0 * 99
+	// This keeps garbage names at 1x, while capping the most legendary names at 100x.
 	normalized := score / 100.0
-	multiplier := 1.0 + math.Pow(normalized, 5.0)*149.0
+	multiplier := 1.0 + math.Pow(normalized, 5.0)*99.0
 
 	// Length Multiplier
 	// Shorter names are exponentially more valuable
@@ -222,6 +222,6 @@ func (e *SemanticEngine) scoreToMultiplier(score float64, length int) float64 {
 		multiplier *= 0.8 // Long name penalty
 	}
 
-	// Cap at maximum 150x after length adjustments
-	return math.Min(multiplier, 150.0)
+	// Cap at maximum 100x after length adjustments
+	return math.Min(multiplier, 100.0)
 }
