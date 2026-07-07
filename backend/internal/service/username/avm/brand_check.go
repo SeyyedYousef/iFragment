@@ -76,7 +76,8 @@ func CheckGlobalBrand(username string) int {
 	}
 
 	// If no exact match but companies were returned, give partial credit
-	if score == 0 && len(companies) > 0 {
+	// ONLY if username is at least 4 chars long to prevent random 3-letter junk from getting brand points
+	if score == 0 && len(companies) > 0 && len(lower) >= 4 {
 		score = 50 // Related brand exists
 	}
 

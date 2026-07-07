@@ -74,7 +74,8 @@ Calibration examples:
 - "rule"=65, "fast"=62, "lord"=68
 - "xyzqw"=5, "jkl123"=3, "a_b_c"=2, "qwerty7"=8
 
-Respond with ONLY a JSON object, no markdown: {"score": <number>, "reason": "<one-line explanation>"}`
+CRITICAL: Respond with ONLY a raw JSON object and nothing else. Do not use markdown backticks. Do not include introductory text like "Here is the JSON".
+{"score": <number>, "reason": "<one-line explanation>"}`
 
 // Score returns the AI desirability score for a username (0-100).
 // It uses caching to avoid repeated API calls.
@@ -121,8 +122,8 @@ func (g *GeminiScorer) callWithFallback(ctx context.Context, prompt string) *Gem
 	// Tier 2: User keys (round-robin)
 	keys := g.getUserKeys(ctx)
 	if len(keys) == 0 {
-		slog.Warn("Gemini scorer: NO API keys available (project=empty, user_keys=0). Returning neutral 50.")
-		return &GeminiResult{Score: 50, Reason: "no API keys available, neutral score"}
+		slog.Warn("Gemini scorer: NO API keys available (project=empty, user_keys=0). Returning fallback 10.")
+		return &GeminiResult{Score: 10, Reason: "no API keys available, neutral score"}
 	}
 
 	maxAttempts := 3
@@ -142,9 +143,9 @@ func (g *GeminiScorer) callWithFallback(ctx context.Context, prompt string) *Gem
 		slog.Warn("Gemini user key FAILED", "attempt", i+1, "error", err, "key_prefix", key[:min(8, len(key))]+"...")
 	}
 
-	// Tier 3: All failed — neutral score
-	slog.Error("ALL Gemini API keys exhausted! Returning neutral 50. Fix your API keys!")
-	return &GeminiResult{Score: 50, Reason: "all API keys exhausted, neutral fallback"}
+	// Tier 3: All failed — fallback to low score for safety
+	slog.Error("ALL Gemini API keys exhausted! Returning fallback 10. Fix your API keys!")
+	return &GeminiResult{Score: 10, Reason: "all API keys exhausted, fallback"}
 }
 
 // callGemini makes a single API call to Gemini Flash.
@@ -161,7 +162,7 @@ func (g *GeminiScorer) callGemini(ctx context.Context, prompt, apiKey string) (*
 		},
 		"generationConfig": map[string]any{
 			"temperature":     0.1, // Low temperature for consistent scoring
-			"maxOutputTokens": 100,
+			"maxOutputTokens": 300,
 			"responseMimeType": "application/json",
 		},
 	}
@@ -293,10 +294,28 @@ func (g *GeminiScorer) fetchUserKeysFromDB(ctx context.Context) []string {
 
 // extractScoreFromText tries to extract a numeric score from a malformed AI response.
 func extractScoreFromText(text string) (int, error) {
-	// Try to find a number between 1-100 in the text
-	text = strings.ReplaceAll(text, "\"", "")
-	for _, word := range strings.Fields(text) {
-		word = strings.Trim(word, "{}:,")
+	// Look for "score": <number>
+	idx := strings.Index(strings.ToLower(text), `"score":`)
+	if idx != -1 {
+		part := text[idx+8:]
+		var numStr string
+		for _, ch := range part {
+			if ch >= '0' && ch <= '9' {
+				numStr += string(ch)
+			} else if len(numStr) > 0 {
+				break
+			}
+		}
+		if n, err := strconv.Atoi(numStr); err == nil && n >= 1 && n <= 100 {
+			return n, nil
+		}
+	}
+	
+	// Fallback: just find the first valid number between 1 and 100
+	for _, word := range strings.Fields(strings.ReplaceAll(text, "\"", "")) {
+		word = strings.TrimFunc(word, func(r rune) bool {
+			return r < '0' || r > '9'
+		})
 		if n, err := strconv.Atoi(word); err == nil && n >= 1 && n <= 100 {
 			return n, nil
 		}

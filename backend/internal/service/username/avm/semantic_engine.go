@@ -193,10 +193,10 @@ func scoreToMultiplier(score float64) float64 {
 		return 1.0
 	}
 
-	// Exponential curve: mult = 1 + (score/100)^4.0 * 499
-	// This gives a steep S-curve heavily rewarding high scores
+	// Exponential curve: mult = 1 + (score/100)^5.0 * 499
+	// This gives a steep S-curve heavily punishing low/medium scores but rewarding top scores
 	normalized := score / 100.0
-	multiplier := 1.0 + math.Pow(normalized, 4.0)*499.0
+	multiplier := 1.0 + math.Pow(normalized, 5.0)*499.0
 
 	return math.Min(multiplier, 500.0)
 }
