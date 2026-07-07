@@ -290,16 +290,17 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 // scoreToMultiplier converts the 0-100 score into a price multiplier.
 // Incorporates the Length Multiplier feature and Tag-Based Pricing.
 func (e *SemanticEngine) scoreToMultiplier(score float64, length int, tags []string) float64 {
-	if score <= 10.0 {
-		return 1.0
-	}
+	var multiplier float64
 
-	// Exponential curve: mult = 1 + (score/100)^6.0 * 99
-	// This keeps garbage names at 1x,	// Use power of 6.0 instead of 5.0 to suppress mediocre AI scores heavily
-	// Score 50 -> ~1.5x multiplier (instead of 4x)
-	// Score 70 -> ~11.6x multiplier (instead of 17x)
-	normalized := score / 100.0
-	multiplier := 1.0 + math.Pow(normalized, 6.0)*99.0
+	if score < 45.0 {
+		// Penalty zone: scale from 0.1x (at score 0) to 1.0x (at score 45)
+		multiplier = 0.1 + (score/45.0)*0.9
+	} else {
+		// Premium zone: scale from 1.0x (at score 45) to 100.0x (at score 100)
+		// Keeping garbage/mediocre names at 1.0x and high scores growing exponentially.
+		normalized := (score - 45.0) / 55.0
+		multiplier = 1.0 + math.Pow(normalized, 5.0)*99.0
+	}
 
 	// Tag-Based Pricing
 	tagMultiplier := 1.0

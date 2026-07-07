@@ -472,7 +472,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 
 	// 3b-1. Semantic Intelligence Engine (4-signal: Datamuse + Wikipedia + Gemini AI + Clearbit)
 	semanticLog := 0.0
-	if semResult != nil && semResult.Multiplier > 1.0 {
+	if semResult != nil && semResult.Multiplier > 0 {
 		semanticLog = math.Log(semResult.Multiplier)
 		reasoning["semantic_source"] = "semantic_intelligence_engine"
 		reasoning["semantic_total_score"] = semResult.TotalScore
