@@ -12,13 +12,14 @@ func TestCalcMorphologyLog_DictionaryWord(t *testing.T) {
 		IsDictionary: true,
 		HasNumbers:   false,
 		CharLength:   5,
+		FlowScore:    0.70,
 	}
 
 	morphLog := CalcMorphologyLog(features, cfg.MorphMultipliers, cfg)
 
 	// Should include: is_dictionary(2.5) + short_5(1.8) + no_underscore(1.15)
 	// = ln(2.5) + ln(1.8) + ln(1.15) = ln(5.175) ≈ 1.6438
-	// However, this exceeds the MorphClampHigh of ln(4.0) ≈ 1.3863, so it should be clamped.
+	// However, this exceeds the MorphClampHigh of ln(5.0) ≈ 1.6094, so it should be clamped.
 	expected := cfg.MorphClampHigh
 	if math.Abs(morphLog-expected) > 1e-6 {
 		t.Errorf("morphLog = %v, want %v", morphLog, expected)
@@ -34,13 +35,14 @@ func TestCalcMorphologyLog_ConfounderIsolation(t *testing.T) {
 		IsDictionary: true,
 		HasNumbers:   true,
 		CharLength:   6,
+		FlowScore:    0.70,
 	}
 
 	morphLog := CalcMorphologyLog(features, cfg.MorphMultipliers, cfg)
 
 	// Should NOT include has_numbers(0.70) discount
-	// Should include: is_dictionary(2.5) + no_underscore(1.15)
-	expected := math.Log(2.5) + math.Log(1.15)
+	// Should include: is_dictionary(2.5) + no_underscore(1.15) + dict_6_7_char(1.40)
+	expected := math.Log(2.5) + math.Log(1.15) + math.Log(1.40)
 	if math.Abs(morphLog-expected) > 1e-6 {
 		t.Errorf("confounder isolation failed: morphLog = %v, want %v", morphLog, expected)
 	}
@@ -53,6 +55,7 @@ func TestCalcMorphologyLog_NumbersOnly(t *testing.T) {
 		HasNumbers:   true,
 		IsDictionary: false,
 		CharLength:   8,
+		FlowScore:    0.70,
 	}
 
 	morphLog := CalcMorphologyLog(features, cfg.MorphMultipliers, cfg)
@@ -73,13 +76,15 @@ func TestCalcMorphologyLog_Clamping(t *testing.T) {
 		HasUnderscore: true,
 		IsDictionary:  false,
 		CharLength:    15,
+		FlowScore:     0.70,
 	}
 
 	morphLog := CalcMorphologyLog(features, cfg.MorphMultipliers, cfg)
 
-	// has_numbers(0.70) + has_underscore(0.60) = ln(0.70) + ln(0.60) ≈ -0.356 + -0.511 = -0.867
-	// Should NOT be clamped since -0.867 > ln(0.35) ≈ -1.0498
-	expected := math.Log(0.70) + math.Log(0.60)
+	// has_numbers(0.70) + has_underscore(0.60) + num_underscore_combo(0.50)
+	// = ln(0.70) + ln(0.60) + ln(0.50) ≈ -1.56
+	// Should NOT be clamped since -1.56 > MorphClampLow (-2.3025)
+	expected := math.Log(0.70) + math.Log(0.60) + math.Log(0.50)
 	if math.Abs(morphLog-expected) > 1e-6 {
 		t.Errorf("morphLog = %v, want %v (should not be clamped)", morphLog, expected)
 	}
@@ -151,7 +156,7 @@ func TestCalcRangeLog(t *testing.T) {
 	morphLog := 0.0    // neutral
 	momentumLog := 0.0  // neutral
 	mad := 0.3          // moderate spread
-	expected, low, high := CalcRangeLog(baseLog, morphLog, momentumLog, mad, 8, cfg)
+	expected, low, high := CalcRangeLog(baseLog, morphLog, momentumLog, 0.0, mad, 8, cfg)
 
 	if math.Abs(expected-100.0) > 0.1 {
 		t.Errorf("expected ≈ 100 TON, got %v", expected)
@@ -178,7 +183,7 @@ func TestCalcRangeLog_MinWidthGuard(t *testing.T) {
 
 	baseLog := math.Log(50.0)
 	// Very small MAD → should use W_min = ln(1 + 0.15) ≈ 0.1398
-	expected, low, high := CalcRangeLog(baseLog, 0, 0, 0.01, 8, cfg)
+	expected, low, high := CalcRangeLog(baseLog, 0, 0, 0, 0.01, 8, cfg)
 
 	spread := (high - low) / expected
 	if spread < 0.25 { // at least ~25% total spread

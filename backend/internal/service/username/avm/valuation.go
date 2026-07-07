@@ -701,6 +701,7 @@ func SalesToComparables(sales []repository.Sale, cfg EngineConfig) []ComparableS
 			ID:            s.ID,
 			PriceTON:      ToFloat64(normalized),
 			SaleDate:      s.SaleDate,
+			CharLength:    int(s.CharLength),
 			HasNumbers:    s.HasNumbers,
 			HasUnderscore: s.HasUnderscore,
 			IsDictionary:  s.IsDictionary,

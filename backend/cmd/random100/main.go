@@ -98,7 +98,7 @@ func main() {
 			conf := res.ConfidenceScore
 
 			mu.Lock()
-			fmt.Printf("| @%-14s | %-15.0f | %-15.0f | %-10.1f |\n", username, actualPrice, expected, conf)
+			fmt.Printf("| @%-14s | %-15.0f | %-15.0f | %-10d |\n", username, actualPrice, expected, conf)
 			mu.Unlock()
 		}(name)
 	}

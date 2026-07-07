@@ -6,17 +6,17 @@ import (
 	"time"
 )
 
-// ComparableSale is the input struct for the math engine.
-// Prices must already be normalized via NormalizeSalePrice.
 type ComparableSale struct {
-	ID       int64
-	PriceTON float64 // auction-equivalent normalized price
-	SaleDate time.Time
+	ID            int64
+	PriceTON      float64 // auction-equivalent normalized price
+	SaleDate      time.Time
+	CharLength    int
 	// Morphology flags for confounder isolation
 	HasNumbers    bool
 	HasUnderscore bool
 	IsDictionary  bool
 }
+
 
 // ApplyMarketAppreciation inflates the PriceTON of older sales based on a compounded annual growth rate.
 // For example, if annualRate is 0.40 (40%), a sale from 2 years ago is multiplied by 1.40^2 = 1.96.
@@ -149,6 +149,39 @@ func LogPrices(sales []ComparableSale) []float64 {
 	return logPrices
 }
 
+func fallbackForLength(length int, cfg EngineConfig) float64 {
+	fallback := cfg.FallbackOther
+	if length == 4 {
+		fallback = cfg.FallbackLen4
+	} else if length == 5 {
+		fallback = cfg.FallbackLen5
+	} else if length == 6 {
+		fallback = cfg.FallbackLen6
+	}
+	return fallback
+}
+
+// NormalizeToLength5 normalizes a price from its original length to a 5-letter equivalent.
+func NormalizeToLength5(price float64, length int, cfg EngineConfig) float64 {
+	if price <= 0 {
+		return 0
+	}
+	f := fallbackForLength(length, cfg)
+	if f <= 0 {
+		return price
+	}
+	return price * (cfg.FallbackLen5 / f)
+}
+
+// DenormalizeFromLength5 denormalizes a price from a 5-letter equivalent to the target length.
+func DenormalizeFromLength5(price float64, targetLength int, cfg EngineConfig) float64 {
+	if price <= 0 {
+		return 0
+	}
+	f := fallbackForLength(targetLength, cfg)
+	return price * (f / cfg.FallbackLen5)
+}
+
 // CalcBaseLog computes the foundational price in log-space using hierarchical Bayesian Shrinkage:
 // target -> exact -> broad.
 func CalcBaseLog(
@@ -161,83 +194,101 @@ func CalcBaseLog(
 ) (baseLog float64, nEff float64, mad float64, saleIDs []int64) {
 	saleIDs = []int64{} // Initialize to empty slice to prevent SQL NULL
 
+	// Normalize all prices to 5-letter equivalent before calculating median
+	exactSalesCopy := make([]ComparableSale, len(exactSales))
+	for i, s := range exactSales {
+		exactSalesCopy[i] = s
+		exactSalesCopy[i].PriceTON = NormalizeToLength5(s.PriceTON, s.CharLength, cfg)
+	}
+
+	broadSalesCopy := make([]ComparableSale, len(broadSales))
+	for i, s := range broadSales {
+		broadSalesCopy[i] = s
+		broadSalesCopy[i].PriceTON = NormalizeToLength5(s.PriceTON, s.CharLength, cfg)
+	}
+
+	targetSalesCopy := make([]ComparableSale, len(targetSales))
+	for i, s := range targetSales {
+		targetSalesCopy[i] = s
+		targetSalesCopy[i].PriceTON = NormalizeToLength5(s.PriceTON, s.CharLength, cfg)
+	}
+
 	// Compute exact match statistics
-	exactWeights := CalcTimeDecayWeights(exactSales, cfg.Lambda, now)
-	exactLogPrices := LogPrices(exactSales)
+	exactWeights := CalcTimeDecayWeights(exactSalesCopy, cfg.Lambda, now)
+	exactLogPrices := LogPrices(exactSalesCopy)
 	nEff = CalcEffectiveSampleSize(exactWeights)
 
 	exactMedianLog := 0.0
-	if len(exactSales) > 0 {
+	if len(exactSalesCopy) > 0 {
 		exactMedianLog = WeightedMedian(exactLogPrices, exactWeights)
 	}
 
 	// Compute broad match statistics
-	broadWeights := CalcTimeDecayWeights(broadSales, cfg.Lambda, now)
-	broadLogPrices := LogPrices(broadSales)
+	broadWeights := CalcTimeDecayWeights(broadSalesCopy, cfg.Lambda, now)
+	broadLogPrices := LogPrices(broadSalesCopy)
 
 	broadMedianLog := 0.0
-	if len(broadSales) > 0 {
+	if len(broadSalesCopy) > 0 {
 		broadMedianLog = WeightedMedian(broadLogPrices, broadWeights)
 	}
 
 	// Compute target match statistics (the exact same username)
-	targetWeights := CalcTimeDecayWeights(targetSales, cfg.Lambda, now)
-	targetLogPrices := LogPrices(targetSales)
+	targetWeights := CalcTimeDecayWeights(targetSalesCopy, cfg.Lambda, now)
+	targetLogPrices := LogPrices(targetSalesCopy)
 	targetNEff := CalcEffectiveSampleSize(targetWeights)
 
 	targetMedianLog := 0.0
-	if len(targetSales) > 0 {
+	if len(targetSalesCopy) > 0 {
 		targetMedianLog = WeightedMedian(targetLogPrices, targetWeights)
 	}
 
 	// Bayesian shrinkage (Hierarchical)
-	if len(targetSales) == 0 && len(exactSales) == 0 && len(broadSales) == 0 {
+	if len(targetSalesCopy) == 0 && len(exactSalesCopy) == 0 && len(broadSalesCopy) == 0 {
 		// No data at all — return a length-based fallback
-		var fallbackTON float64 = cfg.FallbackOther
-		if features.CharLength == 4 {
-			fallbackTON = cfg.FallbackLen4
-		} else if features.CharLength == 5 {
-			fallbackTON = cfg.FallbackLen5
-		} else if features.CharLength == 6 {
-			fallbackTON = cfg.FallbackLen6
-		}
-		baseLog = math.Log(fallbackTON)
+		baseLog = math.Log(fallbackForLength(features.CharLength, cfg))
 		return baseLog, 0, 0, saleIDs
 	}
 
 	// Shrink exact towards broad
 	shrunkExact := broadMedianLog
-	if len(exactSales) > 0 {
+	if len(exactSalesCopy) > 0 {
 		shrunkExact = BayesianShrinkage(exactMedianLog, broadMedianLog, nEff, cfg.K)
 	} else {
 		nEff = 0.0 // broad only
 	}
 
 	// Shrink target towards shrunkExact
-	if len(targetSales) > 0 {
+	if len(targetSalesCopy) > 0 {
 		// We use a much smaller K for target sales (e.g., 0.1) because 
 		// if we have a sale of the exact item, we trust it highly!
 		K_target := 0.1
 		baseLog = BayesianShrinkage(targetMedianLog, shrunkExact, targetNEff, K_target)
-		nEff = targetNEff // Return target nEff so confidence correctly reflects the small sample size
 	} else {
 		baseLog = shrunkExact
 	}
 
-	// Compute MAD from the better dataset
-	if len(exactSales) >= 3 {
-		mad = WeightedMAD(exactLogPrices, exactWeights, exactMedianLog)
-	} else if len(broadSales) >= 3 {
-		mad = WeightedMAD(broadLogPrices, broadWeights, broadMedianLog)
+	// Compute MAD for uncertainty
+	mad = WeightedMAD(exactLogPrices, exactWeights, exactMedianLog)
+
+	// Collect sale IDs for auditing
+	for _, s := range targetSalesCopy {
+		if s.ID > 0 {
+			saleIDs = append(saleIDs, s.ID)
+		}
+	}
+	for _, s := range exactSalesCopy {
+		if s.ID > 0 {
+			saleIDs = append(saleIDs, s.ID)
+		}
+	}
+	for _, s := range broadSalesCopy {
+		if s.ID > 0 {
+			saleIDs = append(saleIDs, s.ID)
+		}
 	}
 
-	// Collect comparable sale IDs
-	for _, s := range targetSales {
-		saleIDs = append(saleIDs, s.ID)
-	}
-	for _, s := range exactSales {
-		saleIDs = append(saleIDs, s.ID)
-	}
+	// Denormalize computed baseLog (which is in 5-letter log-space) back to the target's length
+	baseLog = math.Log(DenormalizeFromLength5(math.Exp(baseLog), features.CharLength, cfg))
 
 	return baseLog, nEff, mad, saleIDs
 }
