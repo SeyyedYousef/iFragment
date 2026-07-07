@@ -105,9 +105,28 @@ func ClassifyUsername(username string) (segment string, charLen int16, features 
 
 	isDict := tierRes.Tier <= 4 || isDictionaryWord(decoded) || isDictionaryWord(lower)
 
+	cheapSuffixes := []string{"_official", "_real", "_bot", "_news", "_ir", "_support", "_admin"}
+	hasCheapSuffix := false
+	for _, suf := range cheapSuffixes {
+		if strings.HasSuffix(lower, suf) && len(lower) > len(suf) {
+			hasCheapSuffix = true
+			break
+		}
+	}
+	if !hasCheapSuffix {
+		nonUnderscoreSuffixes := []string{"official", "real", "support", "admin"}
+		for _, suf := range nonUnderscoreSuffixes {
+			if strings.HasSuffix(lower, suf) && len(lower) >= len(suf) + 3 {
+				hasCheapSuffix = true
+				break
+			}
+		}
+	}
+
 	features = MorphFeatures{
 		HasNumbers:        hasNumbers,
 		HasUnderscore:     hasUnderscore,
+		HasCheapSuffix:    hasCheapSuffix,
 		IsDictionary:      isDict,
 		CharLength:        int(charLen),
 		FlowScore:         AnalyzeFlow(decoded),

@@ -82,6 +82,7 @@ func DefaultEngineConfig() EngineConfig {
 		MorphMultipliers: map[string]float64{
 			"has_numbers":     0.70, // discount for containing numbers
 			"has_underscore":  0.60, // discount for underscore
+			"fake_suffix":     0.20, // heavy discount for fake copycat suffixes (80% drop)
 			"is_dictionary":   2.50, // premium for dictionary words
 			"short_4":         3.00, // premium for 4-char
 			"short_5":         1.80, // premium for 5-char

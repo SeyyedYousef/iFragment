@@ -7,6 +7,7 @@ import "math"
 type MorphFeatures struct {
 	HasNumbers        bool
 	HasUnderscore     bool
+	HasCheapSuffix    bool
 	IsDictionary      bool
 	CharLength        int
 	FlowScore         float64
@@ -52,6 +53,13 @@ func CalcMorphologyLog(features MorphFeatures, multipliers map[string]float64, c
 	// has_underscore discount
 	if features.HasUnderscore {
 		if m, ok := multipliers["has_underscore"]; ok && m > 0 {
+			morphLog += math.Log(m)
+		}
+	}
+
+	// Fake/Cheap Suffix Penalty (anti-copycat)
+	if features.HasCheapSuffix {
+		if m, ok := multipliers["fake_suffix"]; ok && m > 0 {
 			morphLog += math.Log(m)
 		}
 	}

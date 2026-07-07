@@ -80,6 +80,27 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 
 		// Priority 1: Local frequency_data.go (10K words, instant, no HTTP)
 		rank := RankWord(username)
+		
+		if rank == 0 {
+			// Try CamelCase split for compound words (e.g., CryptoKing)
+			parts := splitCamelCase(username)
+			if len(parts) > 1 {
+				totalRank := 0
+				allExist := true
+				for _, p := range parts {
+					r := RankWord(p)
+					if r == 0 {
+						allExist = false
+						break
+					}
+					totalRank += r
+				}
+				if allExist {
+					rank = totalRank / len(parts)
+				}
+			}
+		}
+
 		if rank > 0 {
 			// Rank 1 (most common) → score ~100, Rank 10000 → score ~10
 			// Formula: 100 - (log10(rank) / log10(10000)) * 90
@@ -90,6 +111,25 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 			freq := GetWordFrequency(username)
 			if freq > 0 {
 				wordFreqScore = math.Min(50, math.Log10(freq+1)*15) // Cap at 50 for non-local words
+			} else {
+				// Try CamelCase on Datamuse
+				parts := splitCamelCase(username)
+				if len(parts) > 1 {
+					totalFreq := 0.0
+					allExist := true
+					for _, p := range parts {
+						f := GetWordFrequency(p)
+						if f <= 0 {
+							allExist = false
+							break
+						}
+						totalFreq += f
+					}
+					if allExist {
+						avgFreq := totalFreq / float64(len(parts))
+						wordFreqScore = math.Min(50, math.Log10(avgFreq+1)*15)
+					}
+				}
 			}
 		}
 
@@ -166,7 +206,7 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 	totalScore = math.Max(0, math.Min(100, totalScore))
 
 	// 4. Convert score to price multiplier
-	multiplier := e.scoreToMultiplier(totalScore, len(username))
+	multiplier := e.scoreToMultiplier(totalScore, len(username), tags)
 
 	result := &SemanticResult{
 		TotalScore:      math.Round(totalScore*100) / 100,
@@ -201,8 +241,8 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 }
 
 // scoreToMultiplier converts the 0-100 score into a price multiplier.
-// Incorporates the Length Multiplier feature.
-func (e *SemanticEngine) scoreToMultiplier(score float64, length int) float64 {
+// Incorporates the Length Multiplier feature and Tag-Based Pricing.
+func (e *SemanticEngine) scoreToMultiplier(score float64, length int, tags []string) float64 {
 	if score <= 10.0 {
 		return 1.0
 	}
@@ -211,6 +251,20 @@ func (e *SemanticEngine) scoreToMultiplier(score float64, length int) float64 {
 	// This keeps garbage names at 1x, while capping the most legendary names at 100x.
 	normalized := score / 100.0
 	multiplier := 1.0 + math.Pow(normalized, 5.0)*99.0
+
+	// Tag-Based Pricing
+	for _, t := range tags {
+		tag := strings.ToLower(t)
+		if strings.Contains(tag, "crypto") || strings.Contains(tag, "web3") {
+			multiplier *= 1.8
+		} else if strings.Contains(tag, "brand") || strings.Contains(tag, "company") {
+			multiplier *= 1.6
+		} else if strings.Contains(tag, "country") || strings.Contains(tag, "location") {
+			multiplier *= 1.5
+		} else if strings.Contains(tag, "gaming") || strings.Contains(tag, "game") {
+			multiplier *= 1.3
+		}
+	}
 
 	// Length Multiplier
 	// Shorter names are exponentially more valuable
@@ -232,6 +286,26 @@ func (e *SemanticEngine) scoreToMultiplier(score float64, length int) float64 {
 		multiplier *= 2.0
 	}
 
-	// Cap at maximum 100x after length adjustments
-	return math.Min(multiplier, 100.0)
+	// Cap at maximum 200x after tag and length adjustments
+	return math.Min(multiplier, 200.0)
+}
+
+// splitCamelCase splits a string into words based on CamelCase.
+// Example: "CryptoKing" -> ["Crypto", "King"]
+func splitCamelCase(s string) []string {
+	var words []string
+	var current []rune
+
+	for i, r := range s {
+		if i > 0 && r >= 'A' && r <= 'Z' {
+			words = append(words, string(current))
+			current = []rune{r}
+		} else {
+			current = append(current, r)
+		}
+	}
+	if len(current) > 0 {
+		words = append(words, string(current))
+	}
+	return words
 }
