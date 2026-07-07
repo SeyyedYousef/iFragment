@@ -49,6 +49,7 @@ import { OwnerFinancePage } from '@/pages/owner/finance/index.js';
 import { OwnerHealthPage } from '@/pages/owner/health/index.js';
 import { OwnerEntitiesPage } from '@/pages/owner/entities/index.js';
 import { OwnerAds } from '@/pages/owner/ads/index.js';
+import { UsernamePage } from '@/pages/username/index.js';
 
 interface Route {
 	path: string;
@@ -107,4 +108,5 @@ export const routes: Route[] = [
 	{ path: '/owner/entities', Component: OwnerEntitiesPage, title: 'مدیریت گروه‌ها و کانال‌ها' },
 	{ path: '/owner/ads', Component: OwnerAds, title: 'تنظیمات تبلیغات داشبورد' },
 	{ path: '/collection-info', Component: CollectionInfoPage },
+	{ path: '/username/report', Component: UsernamePage },
 ];

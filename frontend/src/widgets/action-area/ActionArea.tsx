@@ -68,27 +68,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			try {
 				hapticFeedback.impactOccurred('medium');
 			} catch {}
-			setAnalyzeState('loading');
-			try {
-				// Call the backend AVM algorithm directly
-				const data = await apiFetch<any>(`/usernames/valuate?u=${searchQuery()}`);
-				
-				setAnalyzeState('success');
-				
-				// Show the AVM result to the user
-				if (data && data.expected_ton) {
-					showAlert(`✅ ارزش تخمینی: ${data.expected_ton} TON\nبازه قیمت: ${data.low_ton} تا ${data.high_ton} TON\nمدل: ${data.model_version}`);
-				} else {
-					showAlert('❌ خطا در ارتباط با موتور ارزش‌گذاری');
-				}
-				
-				setTimeout(() => {
-					setAnalyzeState('idle');
-				}, 2000);
-			} catch (err) {
-				setAnalyzeState('idle');
-				showAlert('❌ خطا در ارتباط با سرور');
-			}
+			navigate(`/username/report?u=${searchQuery()}`);
 		} else {
 			try {
 				hapticFeedback.notificationOccurred('error');
