@@ -124,7 +124,7 @@ func (g *GeminiScorer) callWithFallback(ctx context.Context, prompt string) *Gem
 	// Tier 2: User keys (round-robin)
 	keys := g.getUserKeys(ctx)
 	if len(keys) == 0 {
-		slog.Warn("Gemini scorer: NO API keys available (project=empty, user_keys=0). Returning fallback 10.")
+		slog.Warn("Groq scorer: NO API keys available (project=empty, user_keys=0). Returning fallback 10.")
 		return &GeminiResult{Score: 10, Reason: "no API keys available, neutral score"}
 	}
 
@@ -139,14 +139,14 @@ func (g *GeminiScorer) callWithFallback(ctx context.Context, prompt string) *Gem
 
 		result, err := g.callGemini(ctx, prompt, key)
 		if err == nil {
-			slog.Info("Gemini AI scored successfully via user key", "score", result.Score, "reason", result.Reason)
+			slog.Info("Groq AI scored successfully", "score", result.Score, "reason", result.Reason)
 			return result
 		}
-		slog.Warn("Gemini user key FAILED", "attempt", i+1, "error", err, "key_prefix", key[:min(8, len(key))]+"...")
+		slog.Warn("Groq key FAILED", "attempt", i+1, "error", err, "key_prefix", key[:min(8, len(key))]+"...")
 	}
 
 	// Tier 3: All failed — fallback to low score for safety
-	slog.Error("ALL Gemini API keys exhausted! Returning fallback 10. Fix your API keys!")
+	slog.Error("ALL Groq API keys exhausted! Returning fallback 10. Fix your API keys!")
 	return &GeminiResult{Score: 10, Reason: "all API keys exhausted, fallback"}
 }
 
@@ -156,7 +156,7 @@ func (g *GeminiScorer) callGemini(ctx context.Context, prompt, apiKey string) (*
 	apiURL := "https://api.groq.com/openai/v1/chat/completions"
 
 	reqBody := map[string]any{
-		"model": "llama3-8b-8192", // Lightning fast model
+		"model": "llama-3.3-70b-versatile", // Highest tier Groq model
 		"messages": []map[string]string{
 			{"role": "user", "content": prompt},
 		},

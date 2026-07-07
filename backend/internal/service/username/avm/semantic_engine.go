@@ -138,10 +138,10 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 	brandScore = float64(brandResult) // 0, 50, or 100
 
 	// Weighted combination:
-	// AI gets the most weight because it understands context best
-	totalScore := (wordFreqScore * 0.20) +
-		(wikiScore * 0.20) +
-		(aiScore * 0.40) +
+	// AI gets 50% weight because it understands context, crypto, and web3 culture best.
+	totalScore := (wordFreqScore * 0.15) +
+		(wikiScore * 0.15) +
+		(aiScore * 0.50) +
 		(brandScore * 0.20)
 
 	// Clamp to 0-100
