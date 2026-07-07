@@ -336,8 +336,8 @@ func (e *SemanticEngine) scoreToMultiplier(score float64, length int, tags []str
 	}
 	
 	// Hard cap on Tag-Based Multiplier stacking
-	if tagMultiplier > 3.0 {
-		tagMultiplier = 3.0
+	if tagMultiplier > 2.5 {
+		tagMultiplier = 2.5
 	}
 	multiplier *= tagMultiplier
 
@@ -358,7 +358,7 @@ func (e *SemanticEngine) scoreToMultiplier(score float64, length int, tags []str
 	// If a word is long but STILL scores legendary (70+), it means it's a massive global 
 	// entity (like a country, megabrand). We boost it so its price can rival short words.
 	if score >= 70.0 && length >= 6 {
-		multiplier *= 2.0
+		multiplier *= 1.5
 	}
 
 	// Cap at maximum 500x after tag and length adjustments
