@@ -45,8 +45,10 @@ type GeminiResult struct {
 
 // NewGeminiScorer creates a new scorer with project key and DB access for user keys.
 func NewGeminiScorer(db *repository.Database) *GeminiScorer {
+	key := os.Getenv("GROQ_API_KEY")
+	// If GROQ_API_KEY is empty, it will fail gracefully or rely on fallback logic if implemented.
 	return &GeminiScorer{
-		projectKey: os.Getenv("GEMINI_API_KEY"),
+		projectKey: key,
 		db:         db,
 		cache:      make(map[string]*GeminiResult),
 		cacheTime:  make(map[string]time.Time),
@@ -148,22 +150,20 @@ func (g *GeminiScorer) callWithFallback(ctx context.Context, prompt string) *Gem
 	return &GeminiResult{Score: 10, Reason: "all API keys exhausted, fallback"}
 }
 
-// callGemini makes a single API call to Gemini Flash.
+// callGemini makes a single API call to Groq (Llama-3).
+// (Kept function name as callGemini to avoid breaking other files)
 func (g *GeminiScorer) callGemini(ctx context.Context, prompt, apiKey string) (*GeminiResult, error) {
-	apiURL := "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=" + apiKey
+	apiURL := "https://api.groq.com/openai/v1/chat/completions"
 
 	reqBody := map[string]any{
-		"contents": []map[string]any{
-			{
-				"parts": []map[string]any{
-					{"text": prompt},
-				},
-			},
+		"model": "llama3-8b-8192", // Lightning fast model
+		"messages": []map[string]string{
+			{"role": "user", "content": prompt},
 		},
-		"generationConfig": map[string]any{
-			"temperature":     0.1, // Low temperature for consistent scoring
-			"maxOutputTokens": 300,
-			"responseMimeType": "application/json",
+		"temperature": 0.1,
+		"max_tokens":  300,
+		"response_format": map[string]string{
+			"type": "json_object",
 		},
 	}
 
@@ -177,6 +177,7 @@ func (g *GeminiScorer) callGemini(ctx context.Context, prompt, apiKey string) (*
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
 
 	resp, err := g.httpClient.Do(req)
 	if err != nil {
@@ -194,25 +195,23 @@ func (g *GeminiScorer) callGemini(ctx context.Context, prompt, apiKey string) (*
 		return nil, fmt.Errorf("gemini status %d: %s", resp.StatusCode, bodyStr)
 	}
 
-	var geminiResp struct {
-		Candidates []struct {
-			Content struct {
-				Parts []struct {
-					Text string `json:"text"`
-				} `json:"parts"`
-			} `json:"content"`
-		} `json:"candidates"`
+	var groqResp struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&geminiResp); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&groqResp); err != nil {
 		return nil, fmt.Errorf("decode error: %w", err)
 	}
 
-	if len(geminiResp.Candidates) == 0 || len(geminiResp.Candidates[0].Content.Parts) == 0 {
-		return nil, fmt.Errorf("empty response from Gemini")
+	if len(groqResp.Choices) == 0 || groqResp.Choices[0].Message.Content == "" {
+		return nil, fmt.Errorf("empty response from Groq")
 	}
 
-	rawJSON := strings.TrimSpace(geminiResp.Candidates[0].Content.Parts[0].Text)
+	rawJSON := strings.TrimSpace(groqResp.Choices[0].Message.Content)
 
 	// Parse the score from the JSON response
 	var result GeminiResult
