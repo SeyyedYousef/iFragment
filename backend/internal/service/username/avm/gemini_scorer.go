@@ -70,11 +70,20 @@ Consider ALL of these factors:
 - Length bonus: Shorter meaningful words are exponentially more valuable.
 
 Calibration examples:
-- "news"=98, "sport"=97, "bitcoin"=99, "google"=99, "apple"=99
-- "clashofclans"=92, "chatgpt"=94, "ethereum"=96, "tesla"=97
-- "rare"=88, "king"=85, "cool"=78, "dark"=72
-- "rule"=65, "fast"=62, "lord"=68
-- "xyzqw"=5, "jkl123"=3, "a_b_c"=2, "qwerty7"=8
+- "news"=99 (Massive global industry, 4-letter, universally understood)
+- "sport"=98 (Massive global industry, 5-letter, high commercial value)
+- "bitcoin"=99 (Top tier crypto brand, highly liquid asset)
+- "tesla"=97 (Top global brand, strong cult following)
+- "rare"=88 (4-letter, real English word, evokes exclusivity)
+- "king"=85 (4-letter, real English word, evokes power)
+- "web3news"=70 (Compound word, niche crypto audience)
+- "tonwallet"=60 (Compound word, specific niche, functional)
+- "cryptobot"=45 (Compound word, functional but generic)
+- "cool"=78 (4-letter, positive meaning, but common)
+- "abcd"=15 (4-letter, pattern but no real meaning)
+- "xyzw"=3 (Random letters, unpronounceable, no meaning)
+- "jkl123"=3 (Random letters + numbers, zero value)
+- "a_b_c_d"=2 (Underscores ruin visual appeal, spammy)
 
 CRITICAL: Respond with ONLY a raw JSON object. Do not use markdown backticks. Do not include introductory text.
 {"score": <number>, "reason": "<one-line explanation>", "tags": ["crypto", "premium", "noun", "4-letter"]}`

@@ -67,16 +67,11 @@ func GetFearAndGreedMultiplier() (float64, string) {
 		return cached, "cached_error_fallback"
 	}
 
-	var multiplier float64 = 1.0
-	if val >= 75 {
-		multiplier = 1.20 // Extreme Greed -> +20% premium
-	} else if val >= 55 {
-		multiplier = 1.10 // Greed -> +10% premium
-	} else if val <= 25 {
-		multiplier = 0.90 // Extreme Fear -> -10% discount (user requested not dropping too low)
-	} else if val <= 45 {
-		multiplier = 0.95 // Fear -> -5% discount
-	}
+	// Linear Scaling Formula: 0.85 + (val / 100.0) * 0.35
+	// If val = 10 -> 0.85 + 0.035 = 0.885 (-11.5%)
+	// If val = 50 -> 0.85 + 0.175 = 1.025 (+2.5%)
+	// If val = 90 -> 0.85 + 0.315 = 1.165 (+16.5%)
+	var multiplier float64 = 0.85 + (float64(val) / 100.0) * 0.35
 
 	fngMutex.Lock()
 	fngCache = multiplier

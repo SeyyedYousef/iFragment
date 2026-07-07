@@ -116,10 +116,90 @@ func ClassifyUsername(username string) (segment string, charLen int16, features 
 	if !hasCheapSuffix {
 		nonUnderscoreSuffixes := []string{"official", "real", "support", "admin"}
 		for _, suf := range nonUnderscoreSuffixes {
-			if strings.HasSuffix(lower, suf) && len(lower) >= len(suf) + 3 {
+			if strings.HasSuffix(lower, suf) && len(lower) >= len(suf)+3 {
 				hasCheapSuffix = true
 				break
 			}
+		}
+	}
+
+	cheapPrefixes := []string{"the_", "real_", "official_", "mr_", "my_", "iam_"}
+	hasCheapPrefix := false
+	for _, pref := range cheapPrefixes {
+		if strings.HasPrefix(lower, pref) && len(lower) > len(pref) {
+			hasCheapPrefix = true
+			break
+		}
+	}
+	if !hasCheapPrefix {
+		nonUnderscorePrefixes := []string{"official", "real"}
+		for _, pref := range nonUnderscorePrefixes {
+			if strings.HasPrefix(lower, pref) && len(lower) >= len(pref)+4 {
+				hasCheapPrefix = true
+				break
+			}
+		}
+	}
+
+	hasRepetition := false
+	if len(lower) >= 3 {
+		for i := 0; i < len(lower)-2; i++ {
+			if lower[i] == lower[i+1] && lower[i] == lower[i+2] {
+				hasRepetition = true
+				break
+			}
+		}
+	}
+	
+	// Phase 4 Linguistics & Aesthetics
+	isUnderscoreCompound := false
+	if hasUnderscore {
+		parts := strings.Split(lower, "_")
+		if len(parts) == 2 {
+			if (isDictionaryWord(parts[0]) || RankWord(parts[0]) > 0) && (isDictionaryWord(parts[1]) || RankWord(parts[1]) > 0) {
+				isUnderscoreCompound = true
+			}
+		}
+	}
+	
+	isAcronym := false
+	acronyms := []string{"fifa", "nato", "nasa", "opec", "asap", "vpn", "ceo", "cto", "nft", "defi", "dao", "vip"}
+	for _, a := range acronyms {
+		if lower == a {
+			isAcronym = true
+			break
+		}
+	}
+	
+	isABAB := false
+	isAABB := false
+	if len(lower) == 4 {
+		if lower[0] == lower[2] && lower[1] == lower[3] && lower[0] != lower[1] {
+			isABAB = true
+		}
+		if lower[0] == lower[1] && lower[2] == lower[3] && lower[0] != lower[2] {
+			isAABB = true
+		}
+	}
+	
+	symCount := 0
+	for _, r := range strings.ToUpper(lower) {
+		switch r {
+		case 'A', 'H', 'I', 'M', 'O', 'T', 'U', 'V', 'W', 'X', 'Y':
+			symCount++
+		}
+	}
+	var visualSymmetry float64
+	if charLen > 0 {
+		visualSymmetry = float64(symCount) / float64(charLen)
+	}
+	
+	hasBrandableSuffix := false
+	brandableSuffixes := []string{"ly", "ify", "io", "er", "ex", "ix", "ax", "oo", "hq", "app"}
+	for _, s := range brandableSuffixes {
+		if strings.HasSuffix(lower, s) && len(lower) > len(s) + 2 && !hasUnderscore {
+			hasBrandableSuffix = true
+			break
 		}
 	}
 
@@ -127,6 +207,8 @@ func ClassifyUsername(username string) (segment string, charLen int16, features 
 		HasNumbers:        hasNumbers,
 		HasUnderscore:     hasUnderscore,
 		HasCheapSuffix:    hasCheapSuffix,
+		HasCheapPrefix:    hasCheapPrefix,
+		HasRepetition:     hasRepetition,
 		IsDictionary:      isDict,
 		CharLength:        int(charLen),
 		FlowScore:         AnalyzeFlow(decoded),
@@ -142,6 +224,12 @@ func ClassifyUsername(username string) (segment string, charLen int16, features 
 		IsHyped:           IsHyped(decoded),
 		EuphonyScore:      euphonyScore,
 		IsAesthetic:       isAesthetic,
+		HasBrandableSuffix: hasBrandableSuffix,
+		IsAcronym:         isAcronym,
+		IsUnderscoreCompound: isUnderscoreCompound,
+		VisualSymmetry:    visualSymmetry,
+		IsABAB:            isABAB,
+		IsAABB:            isAABB,
 	}
 
 	return segment, charLen, features
@@ -156,20 +244,77 @@ func isDictionaryWord(lower string) bool {
 	// for the standalone AVM package. In production, this will be injected.
 	dictWords := map[string]bool{
 		"auto": true, "bank": true, "bitcoin": true, "boss": true,
-		"buy": true, "cars": true, "casino": true, "crypto": true,
+		"cars": true, "casino": true, "crypto": true,
 		"game": true, "gold": true, "money": true, "news": true,
 		"shop": true, "sport": true, "tesla": true, "trade": true,
-		"wallet": true, "ton": true, "nft": true, "bet": true,
-		"apple": true, "google": true, "meta": true, "pay": true,
-		"coin": true, "ai": true, "tech": true, "web": true,
-		"chat": true, "love": true, "king": true, "club": true,
-		"play": true, "star": true, "cool": true, "best": true,
-		"top": true, "pro": true, "vip": true, "max": true,
-		"whale": true, "rare": true, "bull": true, "bear": true,
-		"rich": true, "moon": true, "pump": true, "god": true,
-		"queen": true, "root": true, "admin": true, "alpha": true,
-		"epic": true, "dark": true, "light": true, "fire": true,
-		"good": true, "fast": true, "lord": true, "hero": true,
+		"wallet": true, "apple": true, "google": true, "meta": true,
+		"coin": true, "tech": true, "chat": true, "love": true,
+		"king": true, "club": true, "play": true, "star": true,
+		"cool": true, "best": true, "whale": true, "rare": true,
+		"bull": true, "bear": true, "rich": true, "moon": true,
+		"pump": true, "queen": true, "root": true, "admin": true,
+		"alpha": true, "epic": true, "dark": true, "light": true,
+		"fire": true, "good": true, "fast": true, "lord": true,
+		"hero": true, "house": true, "home": true, "music": true,
+		"girl": true, "life": true, "soul": true, "mind": true,
+		"code": true, "token": true, "doge": true, "meme": true,
+		"chain": true, "block": true, "defi": true, "swap": true,
+		"earn": true, "farm": true, "yield": true, "cash": true,
+		"fund": true, "invest": true, "stock": true, "bond": true,
+		"doctor": true, "nurse": true, "health": true,
+		"food": true, "drink": true, "water": true, "coffee": true,
+		"beer": true, "wine": true, "hotel": true, "travel": true,
+		"trip": true, "boat": true, "ship": true, "moonlight": true,
+		"starry": true, "space": true, "earth": true, "world": true,
+		"planet": true, "gods": true, "devil": true, "angel": true,
+		"demon": true, "magic": true, "spell": true, "wizard": true,
+		"witch": true, "sword": true, "shield": true, "peace": true,
+		"hate": true, "smile": true, "laugh": true, "happy": true,
+		"angry": true, "calm": true, "smart": true, "dumb": true,
+		"genius": true, "idiot": true, "crazy": true, "wild": true,
+		"free": true, "slave": true, "master": true, "prince": true,
+		"princess": true, "lady": true, "madam": true, "bird": true,
+		"fish": true, "horse": true, "sheep": true, "lion": true,
+		"tiger": true, "wolf": true, "deer": true, "monkey": true,
+		"snake": true, "spider": true, "tree": true, "leaf": true,
+		"flower": true, "rose": true, "lily": true, "grass": true,
+		"wood": true, "stone": true, "rock": true, "metal": true,
+		"silver": true, "copper": true, "iron": true, "steel": true,
+		"glass": true, "plastic": true, "paper": true, "book": true,
+		"desk": true, "chair": true, "table": true, "room": true,
+		"door": true, "window": true, "wall": true, "roof": true,
+		"city": true, "town": true, "village": true, "street": true,
+		"road": true, "path": true, "bridge": true, "river": true,
+		"lake": true, "ocean": true, "mountain": true, "hill": true,
+		"valley": true, "forest": true, "desert": true, "island": true,
+		"beach": true, "sand": true, "snow": true, "rain": true,
+		"storm": true, "wind": true, "cloud": true, "weather": true,
+		"climate": true, "time": true, "night": true, "week": true,
+		"month": true, "year": true, "hour": true, "minute": true,
+		"second": true, "past": true, "present": true, "future": true,
+		"then": true, "always": true, "never": true, "soon": true,
+		"late": true, "early": true, "slow": true, "quick": true,
+		"rapid": true, "swift": true, "small": true, "tall": true,
+		"short": true, "long": true, "wide": true, "narrow": true,
+		"thick": true, "thin": true, "heavy": true, "bright": true,
+		"clear": true, "blur": true, "sharp": true, "dull": true,
+		"soft": true, "hard": true, "rough": true, "smooth": true,
+		"cold": true, "warm": true, "sweet": true, "sour": true,
+		"bitter": true, "salty": true, "spicy": true, "tasty": true,
+		"great": true, "awful": true, "nice": true, "mean": true,
+		"kind": true, "cruel": true, "fair": true, "foul": true,
+		"right": true, "wrong": true, "true": true, "false": true,
+		"real": true, "fake": true, "pure": true, "dirty": true,
+		"clean": true, "messy": true, "poor": true, "wealth": true,
+		"poverty": true, "safe": true, "danger": true, "secure": true,
+		"risk": true, "luck": true, "fate": true, "destiny": true,
+		"doom": true, "death": true, "birth": true, "kill": true,
+		"save": true, "help": true, "hurt": true, "heal": true,
+		"sell": true, "deal": true, "cost": true, "price": true,
+		"value": true, "worth": true, "store": true, "market": true,
+		"super": true, "mega": true, "ultra": true, "hyper": true,
+		"elite": true, "prime": true, "grand": true,
+		"cyber": true, "ninja": true, "hacker": true, "maker": true,
 	}
 	return dictWords[lower]
 }

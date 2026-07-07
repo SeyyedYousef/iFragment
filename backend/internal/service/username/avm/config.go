@@ -56,7 +56,7 @@ func DefaultEngineConfig() EngineConfig {
 		K: 5.0, // Bayesian maturity threshold
 
 		MorphClampLow:  -2.3025,   // ln(0.1)
-		MorphClampHigh: 1.38629436, // ln(4.0) -> allows up to 4x multiplier
+		MorphClampHigh: 2.07944154, // ln(8.0) -> allows up to 8x multiplier
 
 		MomentumClampLow:  -0.2231, // ln(0.8)
 		MomentumClampHigh: 0.2231,  // ln(1.25)
@@ -83,10 +83,24 @@ func DefaultEngineConfig() EngineConfig {
 			"has_numbers":     0.70, // discount for containing numbers
 			"has_underscore":  0.60, // discount for underscore
 			"fake_suffix":     0.20, // heavy discount for fake copycat suffixes (80% drop)
+			"fake_prefix":     0.30, // discount for fake prefixes like real_ (70% drop)
+			"repetition_penalty": 0.40, // discount for 3+ consecutive repeating chars (60% drop)
+			"num_underscore_combo": 0.50, // extra penalty for having both numbers and underscore
+			"flow_high":       1.30, // premium for high pronounceability
+			"flow_low":        0.60, // penalty for unpronounceable names
 			"is_dictionary":   2.50, // premium for dictionary words
+			"dict_6_7_char":   1.40, // premium for 6-7 char dictionary words
 			"short_4":         3.00, // premium for 4-char
 			"short_5":         1.80, // premium for 5-char
 			"no_underscore":   1.15, // mild premium for clean names
+			
+			// Phase 4 New Multipliers
+			"brandable_suffix": 1.40,
+			"known_acronym":    1.80,
+			"visual_symmetry":  1.15,
+			"mobile_typing":    1.10,
+			"pattern_abab":     1.25,
+			"pattern_aabb":     1.10,
 		},
 	}
 }

@@ -179,12 +179,59 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 		aiReason = geminiResult.Reason
 		tags = geminiResult.Tags
 	}
+	
+	if wikiScore > 60.0 {
+		tags = append(tags, "wiki_popular")
+	}
+	
+	if brandScore > 0.0 {
+		tags = append(tags, "brand_verified")
+	}
+	
+	lowerName := strings.ToLower(username)
+	cleanName := strings.ReplaceAll(lowerName, "_", "")
+	
+	// Slang premium
+	slangs := []string{"hodl", "wagmi", "ngmi", "fomo", "yolo", "based", "shill", "degen", "rekt"}
+	for _, s := range slangs {
+		if cleanName == s {
+			tags = append(tags, "internet_slang")
+			break
+		}
+	}
+	
+	// Color premium
+	colors := []string{"blue", "pink", "gold", "black", "white", "green", "red", "silver", "scarlet"}
+	for _, c := range colors {
+		if cleanName == c {
+			tags = append(tags, "color_premium")
+			break
+		}
+	}
+	
+	// Geo premium
+	geos := []string{"dubai", "tokyo", "paris", "london", "iran", "istanbul", "newyork", "china", "japan"}
+	for _, g := range geos {
+		if cleanName == g {
+			tags = append(tags, "geo_premium")
+			break
+		}
+	}
+	
+	// Emoji equivalent
+	emojis := []string{"fire", "rocket", "diamond", "whale", "crown", "star", "heart", "moon"}
+	for _, e := range emojis {
+		if cleanName == e {
+			tags = append(tags, "emoji_word")
+			break
+		}
+	}
 
 	// Weighted combination
-	totalScore := (wordFreqScore * 0.15) +
-		(wikiScore * 0.15) +
-		(aiScore * 0.50) +
-		(brandScore * 0.20)
+	totalScore := (wordFreqScore * 0.10) +
+		(wikiScore * 0.20) +
+		(aiScore * 0.45) +
+		(brandScore * 0.25)
 
 	// ----------------------------------------------------
 	// Pronounceability Penalty (N-Gram / Vowel check)
@@ -255,14 +302,33 @@ func (e *SemanticEngine) scoreToMultiplier(score float64, length int, tags []str
 	// Tag-Based Pricing
 	for _, t := range tags {
 		tag := strings.ToLower(t)
-		if strings.Contains(tag, "crypto") || strings.Contains(tag, "web3") {
+		if strings.Contains(tag, "crypto") || strings.Contains(tag, "web3") || strings.Contains(tag, "blockchain") {
 			multiplier *= 1.8
-		} else if strings.Contains(tag, "brand") || strings.Contains(tag, "company") {
+		} else if strings.Contains(tag, "brand") || strings.Contains(tag, "company") || strings.Contains(tag, "startup") {
 			multiplier *= 1.6
-		} else if strings.Contains(tag, "country") || strings.Contains(tag, "location") {
+		} else if strings.Contains(tag, "country") || strings.Contains(tag, "location") || strings.Contains(tag, "city") {
 			multiplier *= 1.5
-		} else if strings.Contains(tag, "gaming") || strings.Contains(tag, "game") {
+		} else if strings.Contains(tag, "gaming") || strings.Contains(tag, "game") || strings.Contains(tag, "esports") {
 			multiplier *= 1.3
+		}
+		
+		if strings.Contains(tag, "wiki_popular") {
+			multiplier *= 1.5
+		}
+		if strings.Contains(tag, "brand_verified") {
+			multiplier *= 2.0
+		}
+		if strings.Contains(tag, "internet_slang") {
+			multiplier *= 1.50
+		}
+		if strings.Contains(tag, "color_premium") {
+			multiplier *= 1.25
+		}
+		if strings.Contains(tag, "geo_premium") {
+			multiplier *= 1.40
+		}
+		if strings.Contains(tag, "emoji_word") {
+			multiplier *= 1.20
 		}
 	}
 
@@ -286,8 +352,8 @@ func (e *SemanticEngine) scoreToMultiplier(score float64, length int, tags []str
 		multiplier *= 2.0
 	}
 
-	// Cap at maximum 200x after tag and length adjustments
-	return math.Min(multiplier, 200.0)
+	// Cap at maximum 500x after tag and length adjustments
+	return math.Min(multiplier, 500.0)
 }
 
 // splitCamelCase splits a string into words based on CamelCase.

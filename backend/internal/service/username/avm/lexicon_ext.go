@@ -37,19 +37,19 @@ func CheckTier(word string) TierResult {
 		return TierResult{2, "Wealth/Premium", 20.0}
 	}
 	if _, ok := tier_3_persian[w]; ok {
-		return TierResult{3, "Persian Market", 15.0}
+		return TierResult{3, "Persian Market", 25.0}
 	}
 	if _, ok := tier_3_russian[w]; ok {
-		return TierResult{3, "Russian Market", 15.0}
+		return TierResult{3, "Russian Market", 25.0}
 	}
 	if _, ok := tier_3_arabic[w]; ok {
-		return TierResult{3, "Arabic Market", 15.0}
+		return TierResult{3, "Arabic Market", 25.0}
 	}
 	if _, ok := tier_3_chinese[w]; ok {
-		return TierResult{3, "Chinese Market", 15.0}
+		return TierResult{3, "Chinese Market", 25.0}
 	}
 	if _, ok := tier_3_turkish[w]; ok {
-		return TierResult{3, "Turkish Market", 15.0}
+		return TierResult{3, "Turkish Market", 25.0}
 	}
 	if _, ok := tier_3_lucky_numbers[w]; ok {
 		return TierResult{3, "Lucky Number", 12.0}

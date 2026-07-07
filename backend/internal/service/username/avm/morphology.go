@@ -8,6 +8,8 @@ type MorphFeatures struct {
 	HasNumbers        bool
 	HasUnderscore     bool
 	HasCheapSuffix    bool
+	HasCheapPrefix    bool
+	HasRepetition     bool
 	IsDictionary      bool
 	CharLength        int
 	FlowScore         float64
@@ -23,6 +25,12 @@ type MorphFeatures struct {
 	IsHyped           bool
 	EuphonyScore      float64
 	IsAesthetic       bool
+	HasBrandableSuffix bool
+	IsAcronym         bool
+	IsUnderscoreCompound bool
+	VisualSymmetry    float64
+	IsABAB            bool
+	IsAABB            bool
 }
 
 // CalcMorphologyLog computes the clamped sum of log-multipliers.
@@ -49,17 +57,60 @@ func CalcMorphologyLog(features MorphFeatures, multipliers map[string]float64, c
 			morphLog += math.Log(m)
 		}
 	}
-
-	// has_underscore discount
 	if features.HasUnderscore {
 		if m, ok := multipliers["has_underscore"]; ok && m > 0 {
 			morphLog += math.Log(m)
+		}
+	}
+	
+	// Double Penalty for Number + Underscore Combo
+	if features.HasNumbers && features.HasUnderscore {
+		if m, ok := multipliers["num_underscore_combo"]; ok && m > 0 {
+			morphLog += math.Log(m)
+		}
+	}
+	
+	// Underscore Compound Recovery
+	if features.IsUnderscoreCompound && features.HasUnderscore {
+		if m, ok := multipliers["has_underscore"]; ok && m > 0 {
+			// Restore half of the penalty
+			penaltyLog := math.Log(m)
+			morphLog -= (penaltyLog / 2.0)
 		}
 	}
 
 	// Fake/Cheap Suffix Penalty (anti-copycat)
 	if features.HasCheapSuffix {
 		if m, ok := multipliers["fake_suffix"]; ok && m > 0 {
+			morphLog += math.Log(m)
+		}
+	} else if features.HasBrandableSuffix {
+		if m, ok := multipliers["brandable_suffix"]; ok && m > 0 {
+			morphLog += math.Log(m)
+		}
+	}
+
+	// Fake/Cheap Prefix Penalty
+	if features.HasCheapPrefix {
+		if m, ok := multipliers["fake_prefix"]; ok && m > 0 {
+			morphLog += math.Log(m)
+		}
+	}
+
+	// Repetition Penalty (e.g. coooool)
+	if features.HasRepetition {
+		if m, ok := multipliers["repetition_penalty"]; ok && m > 0 {
+			morphLog += math.Log(m)
+		}
+	}
+	
+	// Pronounceability Premium/Penalty
+	if features.FlowScore > 0.70 {
+		if m, ok := multipliers["flow_high"]; ok && m > 0 {
+			morphLog += math.Log(m)
+		}
+	} else if features.FlowScore < 0.30 {
+		if m, ok := multipliers["flow_low"]; ok && m > 0 {
 			morphLog += math.Log(m)
 		}
 	}
@@ -72,6 +123,10 @@ func CalcMorphologyLog(features MorphFeatures, multipliers map[string]float64, c
 		}
 	case features.CharLength == 5:
 		if m, ok := multipliers["short_5"]; ok && m > 0 {
+			morphLog += math.Log(m)
+		}
+	case (features.CharLength == 6 || features.CharLength == 7) && features.IsDictionary:
+		if m, ok := multipliers["dict_6_7_char"]; ok && m > 0 {
 			morphLog += math.Log(m)
 		}
 	}
@@ -106,6 +161,27 @@ func CalcMorphologyLog(features MorphFeatures, multipliers map[string]float64, c
 		morphLog += math.Log(1.0 + features.ComboValue/5.0) 
 	} else if features.TierMultiplier > 1.0 {
 		morphLog += math.Log(1.0 + features.TierMultiplier/5.0)
+	}
+	
+	// Phase 4 premiums
+	if features.IsAcronym {
+		if m, ok := multipliers["known_acronym"]; ok && m > 0 {
+			morphLog += math.Log(m)
+		}
+	}
+	if features.IsABAB {
+		if m, ok := multipliers["pattern_abab"]; ok && m > 0 {
+			morphLog += math.Log(m)
+		}
+	} else if features.IsAABB {
+		if m, ok := multipliers["pattern_aabb"]; ok && m > 0 {
+			morphLog += math.Log(m)
+		}
+	}
+	if features.VisualSymmetry > 0.6 {
+		if m, ok := multipliers["visual_symmetry"]; ok && m > 0 {
+			morphLog += math.Log(m)
+		}
 	}
 
 	// AI God-Tier: Social Hype & Aesthetics
