@@ -70,9 +70,9 @@ func DefaultEngineConfig() EngineConfig {
 		NormFactorBuyNow:  0.85,
 		NormFactorOffer:   1.10,
 
-		FallbackLen4: 5000.0,
-		FallbackLen5: 200.0,
-		FallbackLen6: 20.0,
+		FallbackLen4: 250.0,
+		FallbackLen5: 50.0,
+		FallbackLen6: 15.0,
 		FallbackOther: 5.0,
 
 		ClampLowLimit:    50.0,

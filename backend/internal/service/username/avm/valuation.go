@@ -270,25 +270,25 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	// boost the fallback base price dramatically. Without this, "bitcoin" starts at 5 TON.
 	if !anchorInjected && semResult != nil && semResult.TotalScore > 0 {
 		if semResult.TotalScore >= 80 {
-			// Legendary: base at least 1,000 TON (will be multiplied by ~100x = ~100k TON max)
-			minBase := math.Log(1000)
+			// Legendary: base at least 250 TON (will be multiplied by ~400x combined max = ~100k TON)
+			minBase := math.Log(250)
 			if baseLog < minBase {
 				baseLog = minBase
-				reasoning["semantic_base_boost"] = "legendary_1000"
+				reasoning["semantic_base_boost"] = "legendary_250"
 			}
 		} else if semResult.TotalScore >= 60 {
-			// Premium: base at least 300 TON (will be multiplied by ~30x = ~9k TON max)
-			minBase := math.Log(300)
-			if baseLog < minBase {
-				baseLog = minBase
-				reasoning["semantic_base_boost"] = "premium_300"
-			}
-		} else if semResult.TotalScore >= 40 {
-			// Moderate: base at least 50 TON (will be multiplied by ~5x = ~250 TON max)
+			// Premium: base at least 50 TON (will be multiplied by ~120x combined max = ~6k TON)
 			minBase := math.Log(50)
 			if baseLog < minBase {
 				baseLog = minBase
-				reasoning["semantic_base_boost"] = "moderate_50"
+				reasoning["semantic_base_boost"] = "premium_50"
+			}
+		} else if semResult.TotalScore >= 40 {
+			// Moderate: base at least 10 TON (will be multiplied by ~20x combined max = ~200 TON)
+			minBase := math.Log(10)
+			if baseLog < minBase {
+				baseLog = minBase
+				reasoning["semantic_base_boost"] = "moderate_10"
 			}
 		}
 	}
