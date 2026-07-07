@@ -261,6 +261,37 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	// 3a. Base Price (Bayesian)
 	baseLog, nEff, mad, saleIDs := CalcBaseLog(targetComps, exactComps, broadComps, s.cfg, features, now)
 
+	// Fetch semantic engine result early so we can use it for base price boosting
+	semResult := s.semanticEngine.Score(ctx, username)
+
+	// 3a-1. Semantic-Aware Base Price Boost
+	// If no anchor/target sales exist and the semantic engine thinks this is premium,
+	// boost the fallback base price dramatically. Without this, "bitcoin" starts at 5 TON.
+	if !anchorInjected && semResult != nil && semResult.TotalScore > 0 {
+		if semResult.TotalScore >= 80 {
+			// Legendary: base at least 50,000 TON
+			minBase := math.Log(50000)
+			if baseLog < minBase {
+				baseLog = minBase
+				reasoning["semantic_base_boost"] = "legendary_50k"
+			}
+		} else if semResult.TotalScore >= 60 {
+			// Premium: base at least 5,000 TON
+			minBase := math.Log(5000)
+			if baseLog < minBase {
+				baseLog = minBase
+				reasoning["semantic_base_boost"] = "premium_5k"
+			}
+		} else if semResult.TotalScore >= 40 {
+			// Moderate: base at least 500 TON
+			minBase := math.Log(500)
+			if baseLog < minBase {
+				baseLog = minBase
+				reasoning["semantic_base_boost"] = "moderate_500"
+			}
+		}
+	}
+
 	// 3b. Morphology
 	morphLog := CalcMorphologyLog(features, s.cfg.MorphMultipliers, s.cfg)
 	if anchorInjected {
@@ -275,7 +306,6 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 
 	// 3b-1. Semantic Intelligence Engine (4-signal: Datamuse + Wikipedia + Gemini AI + Clearbit)
 	semanticLog := 0.0
-	semResult := s.semanticEngine.Score(ctx, username)
 	if semResult != nil && semResult.Multiplier > 1.0 {
 		semanticLog = math.Log(semResult.Multiplier)
 		reasoning["semantic_source"] = "semantic_intelligence_engine"
@@ -304,9 +334,9 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	if anchorInjected && semanticLog > 0 {
 		// Premium is largely priced into the anchor sale itself.
 		// Dampen so we don't double-count, but less aggressively for high AI scores.
-		dampFactor := 0.1
+		dampFactor := 0.4 // Allow 40% of semantic premium on top of anchor
 		if semResult != nil && semResult.AIScore >= 80 {
-			dampFactor = 0.3 // High AI confidence = less damping
+			dampFactor = 0.6 // High AI confidence = even less damping
 		}
 		semanticLog = semanticLog * dampFactor
 	}

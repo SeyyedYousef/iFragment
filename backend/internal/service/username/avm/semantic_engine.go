@@ -65,20 +65,34 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 		wordFreqScore float64
 		wikiResult    *WikipediaResult
 		geminiResult  *GeminiResult
-		isBrand       bool
+		brandResult   int
 		wg            sync.WaitGroup
 	)
 
 	wg.Add(4)
 
-	// Signal 1: Datamuse Word Frequency
+	// Signal 1: Word Frequency (LOCAL data first, then Datamuse fallback)
 	go func() {
 		defer wg.Done()
-		freq := GetWordFrequency(username)
-		if freq > 0 {
-			// Normalize to 0-100 scale
-			// freq=0.1 -> ~10, freq=10 -> ~50, freq=1000 -> ~90, freq=10000 -> ~100
-			wordFreqScore = math.Min(100, math.Log10(freq+1)*25)
+
+		// Priority 1: Local frequency_data.go (10K words, instant, no HTTP)
+		rank := RankWord(username)
+		if rank > 0 {
+			// Rank 1 (most common) → score ~100, Rank 10000 → score ~10
+			// Formula: 100 - (log10(rank) / log10(10000)) * 90
+			wordFreqScore = 100 - (math.Log10(float64(rank))/math.Log10(10000))*90
+			wordFreqScore = math.Max(10, math.Min(100, wordFreqScore))
+		} else {
+			// Priority 2: Datamuse API (catches words not in top 10K)
+			freq := GetWordFrequency(username)
+			if freq > 0 {
+				wordFreqScore = math.Min(50, math.Log10(freq+1)*15) // Cap at 50 for non-local words
+			}
+		}
+
+		// Bonus: Hype/Meme culture dictionary
+		if IsHyped(username) {
+			wordFreqScore = math.Max(wordFreqScore, 70) // Meme coins/culture = at least 70
 		}
 	}()
 
@@ -94,10 +108,10 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 		geminiResult = e.gemini.Score(ctx, username)
 	}()
 
-	// Signal 4: Clearbit Brand Check
+	// Signal 4: Clearbit Brand Check (gradient: 0/50/100)
 	go func() {
 		defer wg.Done()
-		isBrand = CheckGlobalBrand(username)
+		brandResult = CheckGlobalBrand(username)
 	}()
 
 	wg.Wait()
@@ -121,9 +135,7 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 		aiReason = geminiResult.Reason
 	}
 
-	if isBrand {
-		brandScore = 100
-	}
+	brandScore = float64(brandResult) // 0, 50, or 100
 
 	// Weighted combination:
 	// AI gets the most weight because it understands context best
@@ -173,20 +185,18 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 // The curve is exponential to reward truly premium usernames:
 //   - Score 0-20:   ×1.0 - ×1.5  (worthless / gibberish)
 //   - Score 21-40:  ×1.5 - ×5    (low-value real words)
-//   - Score 41-60:  ×5   - ×20   (moderate value, common words)
-//   - Score 61-80:  ×20  - ×80   (high value, popular concepts)
-//   - Score 81-100: ×80  - ×200  (legendary: news, sport, bitcoin)
+//   - Score 41-60:  ×5   - ×25   (moderate value, common words)
+//   - Score 61-80:  ×25  - ×120  (high value, popular concepts)
+//   - Score 81-100: ×120 - ×500  (legendary: news, sport, bitcoin)
 func scoreToMultiplier(score float64) float64 {
 	if score <= 0 {
 		return 1.0
 	}
 
-	// Exponential curve: mult = e^(score * k) where k scales the growth
-	// We want: score=20 -> ~1.5, score=50 -> ~10, score=80 -> ~60, score=100 -> ~200
-	// Using: mult = 1 + (score/100)^3.5 * 199
-	// This gives a smooth S-curve heavily rewarding high scores
+	// Exponential curve: mult = 1 + (score/100)^4.0 * 499
+	// This gives a steep S-curve heavily rewarding high scores
 	normalized := score / 100.0
-	multiplier := 1.0 + math.Pow(normalized, 3.5)*199.0
+	multiplier := 1.0 + math.Pow(normalized, 4.0)*499.0
 
-	return math.Min(multiplier, 200.0)
+	return math.Min(multiplier, 500.0)
 }

@@ -110,14 +110,18 @@ func (g *GeminiScorer) callWithFallback(ctx context.Context, prompt string) *Gem
 	if g.projectKey != "" {
 		result, err := g.callGemini(ctx, prompt, g.projectKey)
 		if err == nil {
+			slog.Info("Gemini AI scored successfully via project key", "score", result.Score, "reason", result.Reason)
 			return result
 		}
-		slog.Warn("Gemini project key failed, falling back to user keys", "error", err)
+		slog.Warn("Gemini project key FAILED", "error", err, "key_prefix", g.projectKey[:min(8, len(g.projectKey))]+"...")
+	} else {
+		slog.Warn("GEMINI_API_KEY env var is NOT SET — skipping project key tier")
 	}
 
 	// Tier 2: User keys (round-robin)
 	keys := g.getUserKeys(ctx)
 	if len(keys) == 0 {
+		slog.Warn("Gemini scorer: NO API keys available (project=empty, user_keys=0). Returning neutral 50.")
 		return &GeminiResult{Score: 50, Reason: "no API keys available, neutral score"}
 	}
 
@@ -132,12 +136,14 @@ func (g *GeminiScorer) callWithFallback(ctx context.Context, prompt string) *Gem
 
 		result, err := g.callGemini(ctx, prompt, key)
 		if err == nil {
+			slog.Info("Gemini AI scored successfully via user key", "score", result.Score, "reason", result.Reason)
 			return result
 		}
-		slog.Warn("Gemini user key failed", "attempt", i+1, "error", err)
+		slog.Warn("Gemini user key FAILED", "attempt", i+1, "error", err, "key_prefix", key[:min(8, len(key))]+"...")
 	}
 
 	// Tier 3: All failed — neutral score
+	slog.Error("ALL Gemini API keys exhausted! Returning neutral 50. Fix your API keys!")
 	return &GeminiResult{Score: 50, Reason: "all API keys exhausted, neutral fallback"}
 }
 
@@ -182,7 +188,9 @@ func (g *GeminiScorer) callGemini(ctx context.Context, prompt, apiKey string) (*
 	}
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("gemini status %d: %s", resp.StatusCode, string(body[:min(len(body), 200)]))
+		bodyStr := string(body[:min(len(body), 500)])
+		slog.Error("Gemini API returned non-200", "status", resp.StatusCode, "body", bodyStr)
+		return nil, fmt.Errorf("gemini status %d: %s", resp.StatusCode, bodyStr)
 	}
 
 	var geminiResp struct {

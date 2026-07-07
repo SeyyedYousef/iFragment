@@ -18,48 +18,49 @@ type ClearbitCompany struct {
 }
 
 var (
-	brandCache = make(map[string]bool)
+	brandCache = make(map[string]int)
 	brandMutex sync.RWMutex
 	brandHttp  = &http.Client{Timeout: 3 * time.Second}
 )
 
 // CheckGlobalBrand uses Clearbit Autocomplete API to detect if the username is a global corporate brand.
-func CheckGlobalBrand(username string) bool {
+// Returns a gradient score: 100 = exact match, 50 = partial match (related companies), 0 = no match.
+func CheckGlobalBrand(username string) int {
 	lower := strings.ToLower(strings.TrimSpace(username))
 	if len(lower) < 3 {
-		return false // Brands usually have 3+ characters
+		return 0 // Brands usually have 3+ characters
 	}
 
 	brandMutex.RLock()
-	isBrand, exists := brandCache[lower]
+	cachedScore, exists := brandCache[lower]
 	brandMutex.RUnlock()
 	if exists {
-		return isBrand
+		return cachedScore
 	}
 
 	url := fmt.Sprintf("https://autocomplete.clearbit.com/v1/companies/suggest?query=%s", lower)
 	resp, err := brandHttp.Get(url)
 	if err != nil {
 		slog.Warn("Clearbit API fetch failed", "username", lower, "error", err)
-		return false
+		return 0
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return false
+		return 0
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return false
+		return 0
 	}
 
 	var companies []ClearbitCompany
 	if err := json.Unmarshal(body, &companies); err != nil {
-		return false
+		return 0
 	}
 
-	foundBrand := false
+	score := 0
 	for _, c := range companies {
 		// Exact match check (either name or primary domain prefix)
 		cName := strings.ToLower(strings.ReplaceAll(c.Name, " ", ""))
@@ -69,14 +70,19 @@ func CheckGlobalBrand(username string) bool {
 		}
 
 		if cName == lower || cDomain == lower {
-			foundBrand = true
+			score = 100
 			break
 		}
 	}
 
+	// If no exact match but companies were returned, give partial credit
+	if score == 0 && len(companies) > 0 {
+		score = 50 // Related brand exists
+	}
+
 	brandMutex.Lock()
-	brandCache[lower] = foundBrand
+	brandCache[lower] = score
 	brandMutex.Unlock()
 
-	return foundBrand
+	return score
 }

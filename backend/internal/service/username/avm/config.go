@@ -1,6 +1,6 @@
 package avm
 
-const ModelVersion = "avm_v4.1"
+const ModelVersion = "avm_v5.1"
 
 // EngineConfig holds all hyperparameters for the AVM math engine.
 // These are snapshot-persisted with every valuation run for reproducibility.
