@@ -45,6 +45,20 @@ export const UsernamePage: Component = () => {
 		return '22px';
 	};
 
+	const getTierStyle = (tier: string) => {
+		const t = (tier || '').toLowerCase();
+		if (t.includes('legendary') || t.includes('grail')) {
+			return 'from-yellow-400/20 via-amber-500/15 to-yellow-600/10 border-yellow-400/40 text-yellow-400 shadow-[0_0_20px_rgba(251,191,36,0.25)]';
+		}
+		if (t.includes('epic') || t.includes('elite')) {
+			return 'from-cyan-400/20 to-blue-500/10 border-cyan-400/40 text-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.25)]';
+		}
+		if (t.includes('rare') || t.includes('premium')) {
+			return 'from-purple-400/20 to-pink-500/10 border-purple-400/40 text-purple-400 shadow-[0_0_20px_rgba(192,38,211,0.25)]';
+		}
+		return 'from-white/10 to-white/5 border-white/20 text-white/70';
+	};
+
 	const handleDownload = async () => {
 		if (!cardRef) return;
 		try {
@@ -164,28 +178,43 @@ export const UsernamePage: Component = () => {
 					{/* Flex Card Container */}
 					<div 
 						ref={cardRef}
-						class="w-full max-w-[400px] aspect-square bg-[#0c0d10] border border-white/[0.08] rounded-[36px] p-7 shadow-2xl relative overflow-hidden flex flex-col justify-between mb-6"
+						class="w-full max-w-[400px] bg-[#07080a] border border-white/[0.1] rounded-[40px] p-8 shadow-[0_20px_50px_rgba(0,0,0,0.8),0_0_30px_rgba(51,144,236,0.1)] relative overflow-hidden flex flex-col justify-between mb-8"
+						style={{ 
+							"aspect-ratio": "1 / 1", 
+							"background-image": "radial-gradient(rgba(255, 255, 255, 0.06) 1.2px, transparent 1.2px)", 
+							"background-size": "18px 18px" 
+						}}
 					>
 						{/* Background Glow Orbs */}
-						<div class="absolute -top-20 -left-20 w-56 h-56 bg-[#3390ec]/15 rounded-full blur-[80px] pointer-events-none" />
-						<div class="absolute -bottom-20 -right-20 w-48 h-48 bg-[#9d00ff]/15 rounded-full blur-[80px] pointer-events-none" />
-						<div class="absolute inset-0 bg-gradient-to-b from-white/[0.01] to-transparent pointer-events-none" />
+						<div class="absolute -top-24 -left-24 w-64 h-64 bg-[#00f5ff]/10 rounded-full blur-[90px] pointer-events-none" />
+						<div class="absolute -bottom-24 -right-24 w-60 h-60 bg-[#a100ff]/10 rounded-full blur-[90px] pointer-events-none" />
+						<div class="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
 						
+						{/* Shimmer Effect */}
+						<div 
+							class="absolute inset-0 pointer-events-none opacity-20"
+							style={{
+								background: "linear-gradient(135deg, transparent 30%, rgba(255,255,255,0.03) 45%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.03) 55%, transparent 70%)"
+							}}
+						/>
+
 						{/* Card Header */}
 						<div class="flex justify-between items-center z-10">
-							<span class="px-3.5 py-1.5 bg-gradient-to-br from-amber-400/20 to-orange-500/10 border border-amber-400/30 rounded-full text-[10px] font-bold tracking-wider text-amber-400 uppercase shadow-[0_0_15px_rgba(251,191,36,0.1)]">
+							<span 
+								class={`px-4 py-1.5 border rounded-full text-[10px] font-black tracking-wider uppercase ${getTierStyle(data()?.rarity?.tier || '')}`}
+							>
 								{data()?.rarity?.tier || 'Standard'}
 							</span>
-							<span class="text-[12px] font-mono font-black text-white/20 tracking-[4px] uppercase">
+							<span class="text-[11px] font-mono font-black text-white/30 tracking-[5px] uppercase">
 								iFragment
 							</span>
 						</div>
 
 						{/* Card Body (Username) */}
 						<div class="flex flex-col justify-center items-center z-10 text-center flex-grow relative py-8">
-							<div class="absolute w-[80%] h-[60px] bg-gradient-to-r from-[#3390ec] to-[#9d00ff] blur-[50px] opacity-15 -z-10" />
+							<div class="absolute w-[80%] h-[70px] bg-gradient-to-r from-[#00f5ff] to-[#a100ff] blur-[60px] opacity-25 -z-10" />
 							<span 
-								class="font-black tracking-tight text-white drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] truncate w-full"
+								class="font-black tracking-tight bg-gradient-to-b from-white via-white to-neutral-500 bg-clip-text text-transparent drop-shadow-[0_12px_24px_rgba(0,0,0,0.6)] truncate w-full px-2"
 								style={{ "font-size": getFontSize(data()?.username || username()) }}
 							>
 								@{data()?.username || username()}
@@ -193,29 +222,29 @@ export const UsernamePage: Component = () => {
 						</div>
 
 						{/* Card Footer */}
-						<div class="flex justify-between items-end border-t border-white/5 pt-4 z-10">
-							<div class="flex flex-col gap-1 text-left">
-								<span class="text-[10px] font-bold text-white/35 uppercase tracking-widest">
+						<div class="flex justify-between items-end border-t border-white/[0.06] pt-5 z-10">
+							<div class="flex flex-col gap-1.5 text-left">
+								<span class="text-[9px] font-black text-white/40 uppercase tracking-[2px]">
 									Estimated Value
 								</span>
 								<div class="flex items-center gap-1.5">
-									<svg class="w-6 h-6 filter drop-shadow-[0_0_8px_rgba(0,152,234,0.5)]" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<svg class="w-6.5 h-6.5 filter drop-shadow-[0_0_10px_rgba(0,152,234,0.6)]" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
 										<path d="M28 56C43.464 56 56 43.464 56 28C56 12.536 43.464 0 28 0C12.536 0 0 12.536 0 28C0 43.464 12.536 56 28 56Z" fill="#0098EA" />
 										<path d="M37.5603 15.6277H18.4386C14.9228 15.6277 12.6944 19.4202 14.4632 22.4861L26.2644 42.9409C27.0345 44.2765 28.9644 44.2765 29.7345 42.9409L41.5765 22.4861C43.3045 19.4202 41.0761 15.6277 37.5765 15.6277H37.5603ZM26.2483 36.8068L23.6119 31.8097L17.2017 20.6506C16.6742 19.7557 17.3255 18.6198 18.4223 18.6198H26.2483V36.8068ZM38.7972 20.6506L32.387 31.8259L29.7506 36.8068V18.6361H37.5765C38.6734 18.6361 39.3247 19.772 38.7972 20.6669V20.6506Z" fill="white" />
 									</svg>
-									<span class="text-[24px] font-black text-white leading-none drop-shadow-[0_0_15px_rgba(0,152,234,0.3)]">
+									<span class="text-[26px] sm:text-[28px] font-black text-white leading-none drop-shadow-[0_0_15px_rgba(0,152,234,0.3)]">
 										{parseFloat(data()?.expected_ton || '0').toLocaleString()}
 									</span>
 									<span class="text-[13px] font-bold text-[#3390ec] leading-none">TON</span>
 								</div>
 							</div>
 
-							<div class="flex flex-col items-end gap-1.5">
-								<div class="flex items-center gap-1 bg-[#00ff88]/10 px-2 py-0.5 rounded-full border border-[#00ff88]/20 text-[#00ff88] font-bold uppercase tracking-wider text-[9px]">
-									<div class="w-1.5 h-1.5 bg-[#00ff88] rounded-full shadow-[0_0_6px_#00ff88]" />
+							<div class="flex flex-col items-end gap-2">
+								<div class="flex items-center gap-1.5 bg-[#00ff88]/10 px-3 py-1 rounded-full border border-[#00ff88]/30 text-[#00ff88] font-black uppercase tracking-wider text-[9px] shadow-[0_0_15px_rgba(0,255,136,0.15)]">
+									<div class="w-1.5 h-1.5 bg-[#00ff88] rounded-full animate-pulse shadow-[0_0_8px_#00ff88]" />
 									Valued
 								</div>
-								<span class="text-[13px] text-white/50 font-bold leading-none">
+								<span class="text-[13px] text-white/60 font-black leading-none">
 									≈ ${parseFloat(data()?.expected_usd || '0').toLocaleString(undefined, { maximumFractionDigits: 0 })}
 								</span>
 							</div>
