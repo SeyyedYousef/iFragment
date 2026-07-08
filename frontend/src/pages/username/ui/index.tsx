@@ -106,7 +106,8 @@ export const UsernamePage: Component = () => {
 			
 			// Generate crisp flat image from flat hiddenCardRef
 			const dataUrl = await toPng(hiddenCardRef, {
-				pixelRatio: 3.0,
+				width: 400,
+				height: 400,
 			});
 
 			// Upload image to backend to get public HTTPS URL
@@ -147,7 +148,8 @@ export const UsernamePage: Component = () => {
 
 			// Generate flat image from flat hiddenCardRef
 			const dataUrl = await toPng(hiddenCardRef, {
-				pixelRatio: 3.0,
+				width: 400,
+				height: 400,
 			});
 
 			// Upload custom image to backend to get public HTTPS URL
@@ -440,7 +442,7 @@ export const UsernamePage: Component = () => {
 			</Show>
 
 			{/* Hidden Card for clean, crop-free image rendering */}
-			<div style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '400px', height: '400px' }}>
+			<div style={{ position: 'fixed', left: '0px', top: '0px', width: '400px', height: '400px', 'z-index': '-9999', 'pointer-events': 'none' }}>
 				<div 
 					ref={hiddenCardRef}
 					class="w-[400px] h-[400px] bg-[#07080a] border border-white/[0.1] rounded-[40px] p-8 relative overflow-hidden flex flex-col justify-between"
