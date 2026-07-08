@@ -468,6 +468,7 @@ func main() {
 				r.Get("/similar", usernameHandler.GetSimilar)
 				r.Get("/valuate", usernameHandler.Valuate)
 				r.Post("/share", usernameHandler.Share)
+				r.With(middleware.AuthMiddleware).Post("/send-to-chat", usernameHandler.SendToChat)
 			})
 
 			// ─── Bot Management API ─────────────────────────

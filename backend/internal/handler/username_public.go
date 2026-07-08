@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"ifragment-backend/internal/client/mtproto"
+	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/username"
@@ -530,6 +531,87 @@ func (h *UsernameHandler) Share(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"url": publicURL,
+	})
+}
+
+func (h *UsernameHandler) SendToChat(w http.ResponseWriter, r *http.Request) {
+	// 1. Get authenticated user
+	userIDStr := r.Context().Value(middleware.UserIDKey).(string)
+	telegramID, err := strconv.ParseInt(userIDStr, 10, 64)
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, "invalid user ID", err)
+		return
+	}
+
+	// 2. Decode payload
+	var payload struct {
+		Image string `json:"image"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
+	if payload.Image == "" {
+		RespondError(w, r, http.StatusBadRequest, "missing image data", nil)
+		return
+	}
+
+	// Remove base64 prefix if exists
+	base64Data := payload.Image
+	if idx := strings.Index(base64Data, ","); idx != -1 {
+		base64Data = base64Data[idx+1:]
+	}
+
+	dec, err := base64.StdEncoding.DecodeString(base64Data)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid base64 encoding", err)
+		return
+	}
+
+	// 3. Save to disk to get public URL
+	dir := "./static/shares"
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to create storage directory", err)
+		return
+	}
+
+	fileID := uuid.New().String()
+	filePath := fmt.Sprintf("%s/%s.png", dir, fileID)
+
+	if err := os.WriteFile(filePath, dec, 0644); err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to save image file", err)
+		return
+	}
+
+	// 4. Build the public URL
+	scheme := "http"
+	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	host := r.Host
+	publicURL := fmt.Sprintf("%s://%s/static/shares/%s.png", scheme, host, fileID)
+
+	// 5. Send to Telegram Chat
+	token := os.Getenv("TELEGRAM_BOT_TOKEN")
+	if token == "" {
+		RespondError(w, r, http.StatusInternalServerError, "telegram bot token not configured", nil)
+		return
+	}
+
+	tgClient := telegram.NewBotAPIClient(token)
+	caption := "Here is your iFragment valuation card! 💎"
+	_, err = tgClient.SendPhoto(r.Context(), telegramID, publicURL, caption, "HTML")
+	if err != nil {
+		slog.Error("Failed to send photo to user", "user_id", telegramID, "error", err)
+		RespondError(w, r, http.StatusInternalServerError, "failed to send photo to chat", err)
+		return
+	}
+
+	// 6. Return success
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{
+		"success": true,
 	})
 }
 

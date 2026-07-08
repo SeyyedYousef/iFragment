@@ -920,3 +920,35 @@ func (c *BotAPIClient) GetStarTransactions(ctx context.Context) (*StarTransactio
 	}
 	return &res, nil
 }
+
+// SendPhoto sends a photo by URL or file_id
+func (c *BotAPIClient) SendPhoto(ctx context.Context, chatID int64, photoURL string, caption string, parseMode ...string) (*MessageResult, error) {
+	mode := "HTML"
+	if len(parseMode) > 0 {
+		mode = parseMode[0]
+	}
+	payload := map[string]interface{}{
+		"chat_id": chatID,
+		"photo":   photoURL,
+	}
+	if caption != "" {
+		payload["caption"] = caption
+	}
+	if mode != "" {
+		payload["parse_mode"] = mode
+	}
+
+	resp, err := c.doRequestWithRetry(ctx, "sendPhoto", payload)
+	if err != nil {
+		return nil, err
+	}
+
+	var msgResult struct {
+		Result MessageResult `json:"result"`
+	}
+	if err := json.Unmarshal(resp, &msgResult); err != nil {
+		return nil, err
+	}
+	return &msgResult.Result, nil
+}
+

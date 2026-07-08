@@ -33,8 +33,6 @@ export const UsernamePage: Component = () => {
 	const [data, setData] = createSignal<ValuationResult | null>(null);
 	const [loading, setLoading] = createSignal<boolean>(true);
 	const [error, setError] = createSignal<string | null>(null);
-	const [showModal, setShowModal] = createSignal<boolean>(false);
-	const [generatedImg, setGeneratedImg] = createSignal<string>('');
 	const [sharing, setSharing] = createSignal<boolean>(false);
 	const [downloading, setDownloading] = createSignal<boolean>(false);
 
@@ -96,7 +94,7 @@ export const UsernamePage: Component = () => {
 		return 'from-white via-neutral-100 to-neutral-400';
 	};
 
-	const handleDownload = async () => {
+	const handleSendToChat = async () => {
 		if (!hiddenCardRef || downloading()) return;
 		setDownloading(true);
 		try {
@@ -105,25 +103,38 @@ export const UsernamePage: Component = () => {
 			} catch (_) {}
 			
 			// Generate crisp flat image from flat hiddenCardRef
-			// Use pixelRatio: 3 to ensure high quality, html-to-image handles the internal scaling.
 			const dataUrl = await toPng(hiddenCardRef, {
 				width: 400,
 				height: 400,
 				pixelRatio: 3,
 			});
 
-			// No need to upload to server just for downloading! Use local base64 dataUrl instantly.
-			setGeneratedImg(dataUrl);
-			setShowModal(true);
+			const response = await apiFetch<{ success: boolean }>('/usernames/send-to-chat', {
+				method: 'POST',
+				body: JSON.stringify({ image: dataUrl }),
+				headers: {
+					'Content-Type': 'application/json'
+				}
+			});
 
-			// Note: We deliberately DO NOT call link.click() here.
-			// Calling link.click() on mobile webviews (like Telegram TMA) forces the browser
-			// to navigate to the image URL, breaking the user out of the app and showing a 
-			// raw image view (which appears as a huge zoomed-in image).
-			// The modal instructs the user to long-press the image to save it securely.
-
+			if (response && response.success) {
+				try {
+					hapticFeedback.notificationOccurred('success');
+				} catch (_) {}
+				// Try to use a native alert or fallback to simple alert if toast isn't available
+				if (window.Telegram?.WebApp?.showAlert) {
+					window.Telegram.WebApp.showAlert(t('analysis.sent_to_chat', 'Successfully sent to your chat!'));
+				} else {
+					alert(t('analysis.sent_to_chat', 'Successfully sent to your chat!'));
+				}
+			}
 		} catch (err) {
-			console.error('Failed to generate image:', err);
+			console.error('Failed to send image to chat:', err);
+			if (window.Telegram?.WebApp?.showAlert) {
+				window.Telegram.WebApp.showAlert(t('analysis.err_server', 'Failed to send. Please try again.'));
+			} else {
+				alert(t('analysis.err_server', 'Failed to send. Please try again.'));
+			}
 		} finally {
 			setDownloading(false);
 		}
@@ -361,7 +372,7 @@ export const UsernamePage: Component = () => {
 					{/* Action Buttons */}
 					<div class="flex gap-4 w-full max-w-[400px]">
 						<button 
-							onClick={handleDownload}
+							onClick={handleSendToChat}
 							disabled={downloading()}
 							class="flex-1 h-12 bg-white/[0.04] hover:bg-white/[0.08] active:scale-95 border border-white/10 text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all cursor-pointer text-[14px] disabled:opacity-50 disabled:cursor-not-allowed"
 						>
@@ -374,8 +385,8 @@ export const UsernamePage: Component = () => {
 									</>
 								}
 							>
-								<span class="material-symbols-outlined text-[20px]">download</span>
-								{t('valuation.download') || 'Download Card'}
+								<span class="material-symbols-outlined text-[20px]">send</span>
+								{t('valuation.download') || 'Send to Chat'}
 							</Show>
 						</button>
 						<button 
@@ -397,42 +408,6 @@ export const UsernamePage: Component = () => {
 							</Show>
 						</button>
 					</div>
-
-					{/* Download Preview Modal (for Mobile/Telegram Webview support) */}
-					<Show when={showModal()}>
-						<div class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#07080a]/95 backdrop-blur-xl p-6 transition-all duration-300">
-							{/* Close Button */}
-							<button 
-								onClick={() => setShowModal(false)}
-								class="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/[0.06] border border-white/10 flex items-center justify-center text-white active:scale-95 transition-all cursor-pointer"
-							>
-								<span class="material-symbols-outlined text-[22px]">close</span>
-							</button>
-
-							<div class="w-full max-w-[340px] flex flex-col items-center gap-6">
-								<span class="text-[13px] font-bold text-white/50 text-center leading-relaxed">
-									{t('valuation.save_instruction') || 'لمس طولانی روی تصویر برای ذخیره در گالری\n(Long press the image to save to gallery)'}
-								</span>
-
-								{/* Generated Image Preview Container */}
-								<div class="relative w-full aspect-square bg-[#0c0d10] border border-white/[0.08] rounded-[36px] shadow-2xl overflow-hidden p-[1.5px] bg-gradient-to-br from-cyan-400 via-purple-600 to-pink-500 shrink-0">
-									<img 
-										src={generatedImg()} 
-										alt="Username Card" 
-										class="absolute inset-0 w-full h-full max-w-full max-h-full object-contain rounded-[35px] select-none"
-										onContextMenu={(e) => e.stopPropagation()} // Allow native context menu for saving
-									/>
-								</div>
-
-								<button 
-									onClick={() => setShowModal(false)}
-									class="w-full h-12 bg-white/[0.06] hover:bg-white/[0.1] active:scale-95 text-white font-bold rounded-2xl flex items-center justify-center transition-all text-[14px] cursor-pointer"
-								>
-									{t('valuation.close') || 'بستن (Close)'}
-								</button>
-							</div>
-						</div>
-					</Show>
 				</div>
 			</Show>
 
