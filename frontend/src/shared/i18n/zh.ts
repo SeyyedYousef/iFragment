@@ -2050,6 +2050,8 @@ export const dict = {
 		"err_meta": "获取元数据失败",
 		"err_server": "服务器通信发生错误",
 		"download": "下载估值卡片",
-		"share": "分享到故事"
+		"share": "分享到故事",
+		"save_instruction": "长按图片保存到相册",
+		"close": "关闭"
 	}
 };

@@ -362,6 +362,9 @@ func main() {
 		w.Write([]byte(`{"status": "ok", "message": "iFragment API is awake"}`))
 	})
 
+	// Static files serving (e.g., generated username card images for stories)
+	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
+
 	// Public Routes
 	r.Route("/api/v1", func(r chi.Router) {
 		// Health check routes kept outside ban checking to avoid database liveness probe DoS
@@ -464,7 +467,7 @@ func main() {
 				r.Get("/rates", usernameHandler.GetRates)
 				r.Get("/similar", usernameHandler.GetSimilar)
 				r.Get("/valuate", usernameHandler.Valuate)
-
+				r.Post("/share", usernameHandler.Share)
 			})
 
 			// ─── Bot Management API ─────────────────────────

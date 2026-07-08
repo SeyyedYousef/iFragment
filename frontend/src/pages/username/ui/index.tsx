@@ -33,6 +33,9 @@ export const UsernamePage: Component = () => {
 	const [data, setData] = createSignal<ValuationResult | null>(null);
 	const [loading, setLoading] = createSignal<boolean>(true);
 	const [error, setError] = createSignal<string | null>(null);
+	const [showModal, setShowModal] = createSignal<boolean>(false);
+	const [generatedImg, setGeneratedImg] = createSignal<string>('');
+	const [sharing, setSharing] = createSignal<boolean>(false);
 
 	const username = () => searchParams.u || '';
 	let cardRef: HTMLDivElement | undefined;
@@ -103,6 +106,10 @@ export const UsernamePage: Component = () => {
 					transform: 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1)',
 				}
 			});
+			setGeneratedImg(dataUrl);
+			setShowModal(true);
+
+			// Programmatic desktop download fallback
 			const link = document.createElement('a');
 			link.download = `ifragment-valuation-${data()?.username || 'card'}.png`;
 			link.href = dataUrl;
@@ -112,20 +119,50 @@ export const UsernamePage: Component = () => {
 		}
 	};
 
-	const handleShareToStory = () => {
+	const handleShareToStory = async () => {
 		const u = data()?.username || username();
-		if (!u) return;
+		if (!u || !cardRef || sharing()) return;
+
+		setSharing(true);
 		try {
-			hapticFeedback.impactOccurred('medium');
-		} catch (_) {}
-		const storyText = `Check out the market valuation of @${u} on iFragment! 💎`;
-		shareToStory(`${window.location.origin}/promo_banner.png`, {
-			text: storyText,
-			widget_link: {
-				url: `https://t.me/iFragmentBot/iFragment?startapp=val_${u}`,
-				name: 'iFragment',
-			},
-		});
+			try {
+				hapticFeedback.impactOccurred('medium');
+			} catch (_) {}
+
+			// Generate flat image
+			const dataUrl = await toPng(cardRef, {
+				pixelRatio: 3.0,
+				style: {
+					transform: 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1)',
+				}
+			});
+
+			// Upload custom image to backend to get public HTTPS URL
+			const response = await apiFetch<{ url: string }>('/usernames/share', {
+				method: 'POST',
+				body: JSON.stringify({ image: dataUrl }),
+				headers: {
+					'Content-Type': 'application/json'
+				}
+			});
+
+			if (response && response.url) {
+				const storyText = `Check out the market valuation of @${u} on iFragment! 💎`;
+				shareToStory(response.url, {
+					text: storyText,
+					widget_link: {
+						url: `https://t.me/iFragmentBot/iFragment?startapp=val_${u}`,
+						name: 'iFragment',
+					},
+				});
+			} else {
+				console.error('Failed to upload share image');
+			}
+		} catch (err) {
+			console.error('Failed to share to story:', err);
+		} finally {
+			setSharing(false);
+		}
 	};
 
 	onMount(() => {
@@ -270,8 +307,9 @@ export const UsernamePage: Component = () => {
 								<div class="flex items-center justify-center gap-1.5 w-full">
 									<span class="text-white/25 font-black text-[28px] select-none tracking-normal">✦</span>
 									<span 
-										class={`font-black tracking-tight bg-gradient-to-r ${getUsernameGradient(data()?.rarity?.tier || '')} bg-clip-text text-transparent drop-shadow-[0_12px_24px_rgba(0,0,0,0.75)] truncate max-w-[85%]`}
+										class={`inline-block font-black tracking-tight bg-gradient-to-r ${getUsernameGradient(data()?.rarity?.tier || '')} bg-clip-text text-transparent drop-shadow-[0_12px_24px_rgba(0,0,0,0.75)] truncate max-w-[85%]`}
 										style={{ "font-size": getFontSize(data()?.username || username()) }}
+										dir="ltr"
 									>
 										@{data()?.username || username()}
 									</span>
@@ -321,12 +359,59 @@ export const UsernamePage: Component = () => {
 						</button>
 						<button 
 							onClick={handleShareToStory}
-							class="flex-1 h-12 bg-[#3390ec] hover:bg-[#2b82d9] active:scale-95 text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all shadow-[0_4px_12px_rgba(51,144,236,0.3)] cursor-pointer text-[14px]"
+							disabled={sharing()}
+							class="flex-1 h-12 bg-[#3390ec] hover:bg-[#2b82d9] active:scale-95 text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all shadow-[0_4px_12px_rgba(51,144,236,0.3)] cursor-pointer text-[14px] disabled:opacity-50 disabled:cursor-not-allowed"
 						>
-							<span class="material-symbols-outlined text-[20px]">share</span>
-							{t('valuation.share') || 'Share to Story'}
+							<Show 
+								when={!sharing()} 
+								fallback={
+									<>
+										<div class="w-4 h-4 rounded-full border-2 border-white/20 border-t-white animate-spin" />
+										<span>{t('sharing') || 'Uploading...'}</span>
+									</>
+								}
+							>
+								<span class="material-symbols-outlined text-[20px]">share</span>
+								{t('valuation.share') || 'Share to Story'}
+							</Show>
 						</button>
 					</div>
+
+					{/* Download Preview Modal (for Mobile/Telegram Webview support) */}
+					<Show when={showModal()}>
+						<div class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#07080a]/95 backdrop-blur-xl p-6 transition-all duration-300">
+							{/* Close Button */}
+							<button 
+								onClick={() => setShowModal(false)}
+								class="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/[0.06] border border-white/10 flex items-center justify-center text-white active:scale-95 transition-all cursor-pointer"
+							>
+								<span class="material-symbols-outlined text-[22px]">close</span>
+							</button>
+
+							<div class="w-full max-w-[340px] flex flex-col items-center gap-6">
+								<span class="text-[13px] font-bold text-white/50 text-center leading-relaxed">
+									{t('valuation.save_instruction') || 'لمس طولانی روی تصویر برای ذخیره در گالری\n(Long press the image to save to gallery)'}
+								</span>
+
+								{/* Generated Image Preview Container */}
+								<div class="w-full aspect-square bg-[#0c0d10] border border-white/[0.08] rounded-[36px] shadow-2xl overflow-hidden p-[1.5px] bg-gradient-to-br from-cyan-400 via-purple-600 to-pink-500">
+									<img 
+										src={generatedImg()} 
+										alt="Username Card" 
+										class="w-full h-full object-cover rounded-[35px] select-none"
+										onContextMenu={(e) => e.stopPropagation()} // Allow native context menu for saving
+									/>
+								</div>
+
+								<button 
+									onClick={() => setShowModal(false)}
+									class="w-full h-12 bg-white/[0.06] hover:bg-white/[0.1] active:scale-95 text-white font-bold rounded-2xl flex items-center justify-center transition-all text-[14px] cursor-pointer"
+								>
+									{t('valuation.close') || 'بستن (Close)'}
+								</button>
+							</div>
+						</div>
+					</Show>
 				</div>
 			</Show>
 		</Show>

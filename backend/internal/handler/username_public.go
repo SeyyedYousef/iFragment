@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"ifragment-backend/internal/client/mtproto"
@@ -11,10 +12,13 @@ import (
 	"ifragment-backend/internal/service/username/avm"
 	"log/slog"
 	"net/http"
+	"os"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -473,3 +477,59 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
 }
+
+func (h *UsernameHandler) Share(w http.ResponseWriter, r *http.Request) {
+	var payload struct {
+		Image string `json:"image"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
+	if payload.Image == "" {
+		RespondError(w, r, http.StatusBadRequest, "missing image data", nil)
+		return
+	}
+
+	// Remove base64 prefix if exists
+	base64Data := payload.Image
+	if idx := strings.Index(base64Data, ","); idx != -1 {
+		base64Data = base64Data[idx+1:]
+	}
+
+	dec, err := base64.StdEncoding.DecodeString(base64Data)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid base64 encoding", err)
+		return
+	}
+
+	// Create static/shares dir if not exists
+	dir := "./static/shares"
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to create storage directory", err)
+		return
+	}
+
+	fileID := uuid.New().String()
+	filePath := fmt.Sprintf("%s/%s.png", dir, fileID)
+
+	if err := os.WriteFile(filePath, dec, 0644); err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to save image file", err)
+		return
+	}
+
+	// Build the public URL
+	scheme := "http"
+	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	host := r.Host
+	publicURL := fmt.Sprintf("%s://%s/static/shares/%s.png", scheme, host, fileID)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"url": publicURL,
+	})
+}
+
