@@ -11,8 +11,14 @@ type EngineConfig struct {
 	// Bayesian maturity threshold — controls shrinkage blend between exact and broad
 	K float64 `json:"k"`
 
+	// Bayesian target shrinkage threshold
+	KTarget float64 `json:"k_target"`
+
+	// Annual market appreciation rate
+	AppreciationRate float64 `json:"appreciation_rate"`
+
 	// Morphology stacking clamp bounds (in log-space)
-	MorphClampLow  float64 `json:"morph_clamp_low"`  // ln(0.35)
+	MorphClampLow  float64 `json:"morph_clamp_low"`  // ln(0.20)
 	MorphClampHigh float64 `json:"morph_clamp_high"` // ln(4.0)
 
 	// Momentum clamp bounds (in log-space)
@@ -54,9 +60,11 @@ func DefaultEngineConfig() EngineConfig {
 		Lambda: 0.01, // ~1% decay per day → 50% weight at ~69 days
 
 		K: 5.0, // Bayesian maturity threshold
+		KTarget: 0.4, // Target Bayesian shrinkage threshold
+		AppreciationRate: 0.20, // CAGR for TON usernames (20%)
 
-		MorphClampLow:  -2.3025,   // ln(0.1)
-		MorphClampHigh: 1.6094379, // ln(5.0) -> capped at 5x multiplier (down from 8x)
+		MorphClampLow:  -1.6094379, // ln(0.20)
+		MorphClampHigh: 1.3862944,  // ln(4.0) -> capped at 4x multiplier
 
 		MomentumClampLow:  -0.2231, // ln(0.8)
 		MomentumClampHigh: 0.2231,  // ln(1.25)
@@ -80,19 +88,16 @@ func DefaultEngineConfig() EngineConfig {
 		MorphDamping:     0.1,
 
 		MorphMultipliers: map[string]float64{
-			"has_numbers":     0.70, // discount for containing numbers
-			"has_underscore":  0.60, // discount for underscore
-			"fake_suffix":     0.20, // heavy discount for fake copycat suffixes (80% drop)
-			"fake_prefix":     0.30, // discount for fake prefixes like real_ (70% drop)
-			"repetition_penalty": 0.40, // discount for 3+ consecutive repeating chars (60% drop)
+			"has_numbers":          0.70, // discount for containing numbers
+			"has_underscore":       0.60, // discount for underscore
+			"fake_suffix":          0.20, // heavy discount for fake copycat suffixes (80% drop)
+			"fake_prefix":          0.30, // discount for fake prefixes like real_ (70% drop)
+			"repetition_penalty":   0.65, // discount for 3+ consecutive repeating chars (35% drop)
+			"symmetric_repetition_premium": 1.50, // premium for repeating single char words like xxxx
 			"num_underscore_combo": 0.50, // extra penalty for having both numbers and underscore
-			"flow_high":       1.30, // premium for high pronounceability
-			"flow_low":        0.60, // penalty for unpronounceable names
-			"is_dictionary":   2.50, // premium for dictionary words
-			"dict_6_7_char":   1.40, // premium for 6-7 char dictionary words
-			"short_4":         3.00, // premium for 4-char
-			"short_5":         1.80, // premium for 5-char
-			"no_underscore":   1.15, // mild premium for clean names
+			"flow_high":            1.30, // premium for high pronounceability
+			"flow_low":             0.60, // penalty for unpronounceable names
+			"no_underscore":        1.15, // mild premium for clean names
 			
 			// Phase 4 New Multipliers
 			"brandable_suffix": 1.40,

@@ -227,12 +227,12 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 		}
 	}
 
-	// Weighted combination (prioritize language features and AI; treat brand as bonus)
-	baseScore := (wordFreqScore * 0.20) +
-		(wikiScore * 0.20) +
-		(aiScore * 0.60)
+	// Weighted combination (25% frequency, 30% wiki, 30% AI; treat brand as 15% bonus)
+	baseScore := (wordFreqScore * 0.25) +
+		(wikiScore * 0.30) +
+		(aiScore * 0.30)
 
-	brandBonus := (brandScore / 100.0) * 10.0
+	brandBonus := (float64(brandScore) / 100.0) * 15.0
 	totalScore := baseScore + brandBonus
 
 	// Pronounceability Penalty (N-Gram / Vowel check)
@@ -308,7 +308,7 @@ func (e *SemanticEngine) scoreToMultiplier(score float64, length int, tags []str
 		tag := strings.ToLower(t)
 		if strings.Contains(tag, "crypto") || strings.Contains(tag, "web3") || strings.Contains(tag, "blockchain") {
 			tagMultiplier *= 1.8
-		} else if strings.Contains(tag, "brand") || strings.Contains(tag, "company") || strings.Contains(tag, "startup") {
+		} else if tag == "brand" || strings.HasPrefix(tag, "brand:") || strings.Contains(tag, "company") || strings.Contains(tag, "startup") {
 			tagMultiplier *= 1.6
 		} else if strings.Contains(tag, "country") || strings.Contains(tag, "location") || strings.Contains(tag, "city") {
 			tagMultiplier *= 1.5
@@ -316,22 +316,22 @@ func (e *SemanticEngine) scoreToMultiplier(score float64, length int, tags []str
 			tagMultiplier *= 1.3
 		}
 		
-		if strings.Contains(tag, "wiki_popular") {
+		if tag == "wiki_popular" {
 			tagMultiplier *= 1.5
 		}
-		if strings.Contains(tag, "brand_verified") {
+		if tag == "brand_verified" {
 			tagMultiplier *= 2.0
 		}
-		if strings.Contains(tag, "internet_slang") {
+		if tag == "internet_slang" {
 			tagMultiplier *= 1.50
 		}
-		if strings.Contains(tag, "color_premium") {
+		if tag == "color_premium" {
 			tagMultiplier *= 1.25
 		}
-		if strings.Contains(tag, "geo_premium") {
+		if tag == "geo_premium" {
 			tagMultiplier *= 1.40
 		}
-		if strings.Contains(tag, "emoji_word") {
+		if tag == "emoji_word" {
 			tagMultiplier *= 1.20
 		}
 	}
@@ -349,8 +349,8 @@ func (e *SemanticEngine) scoreToMultiplier(score float64, length int, tags []str
 		multiplier *= 1.5
 	}
 
-	// Cap at maximum 500x after tag adjustments
-	return math.Min(multiplier, 500.0)
+	// Cap at maximum 200x after tag adjustments
+	return math.Min(multiplier, 200.0)
 }
 
 // splitCamelCase splits a string into words based on CamelCase.

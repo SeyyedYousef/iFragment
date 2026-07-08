@@ -142,12 +142,24 @@ func ClassifyUsername(username string) (segment string, charLen int16, features 
 	}
 
 	hasRepetition := false
+	isSymmetricRepetition := false
 	if len(lower) >= 3 {
 		for i := 0; i < len(lower)-2; i++ {
 			if lower[i] == lower[i+1] && lower[i] == lower[i+2] {
 				hasRepetition = true
 				break
 			}
+		}
+		if hasRepetition {
+			isSym := true
+			first := lower[0]
+			for i := 1; i < len(lower); i++ {
+				if lower[i] != first {
+					isSym = false
+					break
+				}
+			}
+			isSymmetricRepetition = isSym
 		}
 	}
 	
@@ -231,6 +243,7 @@ func ClassifyUsername(username string) (segment string, charLen int16, features 
 		VisualSymmetry:    visualSymmetry,
 		IsABAB:            isABAB,
 		IsAABB:            isAABB,
+		IsSymmetricRepetition: isSymmetricRepetition,
 	}
 
 	return segment, charLen, features
@@ -418,11 +431,12 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		reasoning["anchor_price"] = targetComps[0].PriceTON
 	}
 
-	// Apply 40% annual market appreciation to historical sales (including injected anchors)
-	ApplyMarketAppreciation(targetComps, 0.40, now)
-	ApplyMarketAppreciation(exactComps, 0.40, now)
-	ApplyMarketAppreciation(broadComps, 0.40, now)
+	// Apply annual market appreciation to historical sales (including injected anchors)
+	ApplyMarketAppreciation(targetComps, s.cfg.AppreciationRate, now)
+	ApplyMarketAppreciation(exactComps, s.cfg.AppreciationRate, now)
+	ApplyMarketAppreciation(broadComps, s.cfg.AppreciationRate, now)
 	
+	reasoning["appreciation_rate"] = s.cfg.AppreciationRate
 	reasoning["anchor_injected"] = anchorInjected
 
 	// 3a. Base Price (Bayesian)
@@ -459,10 +473,23 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		}
 	}
 
+	// Compute dynamic age-based damping factor for anchor sales
+	dampingFactor := 1.0
+	if anchorInjected && len(targetComps) > 0 {
+		anchorDate := targetComps[0].SaleDate
+		ageInYears := now.Sub(anchorDate).Hours() / (24 * 365.25)
+		if ageInYears > 0 {
+			dampingFactor = math.Min(1.0, 0.10+ageInYears*0.10)
+		} else {
+			dampingFactor = 0.10
+		}
+	}
+	reasoning["anchor_damping_factor"] = dampingFactor
+
 	// 3b. Morphology
 	morphLog := CalcMorphologyLog(features, s.cfg.MorphMultipliers, s.cfg)
 	if anchorInjected {
-		morphLog *= 0.10 // Dampen morphology impact on top of anchor price
+		morphLog *= dampingFactor // Dampen morphology impact on top of anchor price based on age
 	}
 
 	reasoning["base_log"] = baseLog
@@ -485,7 +512,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		if semResult.WikiDescription != "" {
 			reasoning["semantic_wiki_desc"] = semResult.WikiDescription
 		}
-	} else if segment == "alphabetic" {
+	} else if segment == "alpha" {
 		// Fallback: Not scored by engine, check flow/euphony
 		flowScore := AnalyzeFlow(username)
 		if flowScore >= 0.55 {
@@ -498,7 +525,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	}
 
 	if anchorInjected {
-		semanticLog *= 0.10 // Dampen semantic impact on top of anchor price
+		semanticLog *= dampingFactor // Dampen semantic impact on top of anchor price based on age
 	}
 	reasoning["semantic_log"] = semanticLog
 

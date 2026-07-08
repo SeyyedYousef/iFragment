@@ -30,8 +30,9 @@ type MorphFeatures struct {
 	IsAcronym         bool
 	IsUnderscoreCompound bool
 	VisualSymmetry    float64
-	IsABAB            bool
-	IsAABB            bool
+	IsABAB               bool
+	IsAABB               bool
+	IsSymmetricRepetition bool
 }
 
 // CalcMorphologyLog computes the clamped sum of log-multipliers.
@@ -41,7 +42,7 @@ type MorphFeatures struct {
 // AND `is_dictionary=true`, the `has_numbers` discount is suppressed
 // because the dictionary premium already accounts for value.
 //
-// Stacking clamp: max(ln(0.35), min(Morph_log, ln(4.0)))
+// Stacking clamp: max(ln(0.20), min(Morph_log, ln(4.0)))
 func CalcMorphologyLog(features MorphFeatures, multipliers map[string]float64, cfg EngineConfig) float64 {
 	var morphLog float64
 
@@ -91,10 +92,16 @@ func CalcMorphologyLog(features MorphFeatures, multipliers map[string]float64, c
 		}
 	}
 
-	// Repetition Penalty (e.g. coooool)
+	// Repetition Penalty (e.g. coooool) or Premium (e.g. xxxx)
 	if features.HasRepetition {
-		if m, ok := multipliers["repetition_penalty"]; ok && m > 0 {
-			morphLog += math.Log(m)
+		if features.IsSymmetricRepetition {
+			if m, ok := multipliers["symmetric_repetition_premium"]; ok && m > 0 {
+				morphLog += math.Log(m)
+			}
+		} else {
+			if m, ok := multipliers["repetition_penalty"]; ok && m > 0 {
+				morphLog += math.Log(m)
+			}
 		}
 	}
 	

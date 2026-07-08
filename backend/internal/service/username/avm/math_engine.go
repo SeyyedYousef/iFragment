@@ -259,10 +259,8 @@ func CalcBaseLog(
 
 	// Shrink target towards shrunkExact
 	if len(targetSalesCopy) > 0 {
-		// We use a much smaller K for target sales (e.g., 0.1) because 
-		// if we have a sale of the exact item, we trust it highly!
-		K_target := 0.1
-		baseLog = BayesianShrinkage(targetMedianLog, shrunkExact, targetNEff, K_target)
+		// We trust the target sale highly, but KTarget controls target shrinkage rate
+		baseLog = BayesianShrinkage(targetMedianLog, shrunkExact, targetNEff, cfg.KTarget)
 	} else {
 		baseLog = shrunkExact
 	}
