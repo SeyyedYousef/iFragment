@@ -1,4 +1,4 @@
-﻿export const dict = {
+export const dict = {
 	"achievements": {
 		"army_builder_desc": "é‚€è¯·50ä½å¥½å‹",
 		"army_builder_title": "é™†å†›å»ºè®¾è€…",
@@ -2049,7 +2049,9 @@
 		"confidence": "æ¨¡åž‹ç½®ä¿¡åº¦",
 		"err_meta": "èŽ·å–å…ƒæ•°æ®å¤±è´¥",
 		"err_server": "æœåŠ¡å™¨é€šä¿¡å‘ç”Ÿé”™è¯¯",
-		"download": "发送到聊天",`n`t`t"sending": "发送中...",`n`t`t"sent_to_chat": "已发送！",
+		"download": "发送到聊天",
+		"sending": "发送中...",
+		"sent_to_chat": "已发送！",
 		"share": "åˆ†äº«åˆ°æ•…äº‹",
 		"save_instruction": "é•¿æŒ‰å›¾ç‰‡ä¿å­˜åˆ°ç›¸å†Œ",
 		"close": "å…³é—­",
