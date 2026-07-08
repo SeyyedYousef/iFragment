@@ -36,6 +36,7 @@ export const UsernamePage: Component = () => {
 	const [sharing, setSharing] = createSignal<boolean>(false);
 	const [downloading, setDownloading] = createSignal<boolean>(false);
 	const [sent, setSent] = createSignal<boolean>(false);
+	const [sendCount, setSendCount] = createSignal<number>(0);
 
 	const username = () => searchParams.u || '';
 	let cardRef: HTMLDivElement | undefined;
@@ -97,6 +98,15 @@ export const UsernamePage: Component = () => {
 
 	const handleSendToChat = async () => {
 		if (!hiddenCardRef || downloading()) return;
+		if (sendCount() >= 2) {
+			if ((window as any).Telegram?.WebApp?.showAlert) {
+				(window as any).Telegram.WebApp.showAlert(t('valuation.err_server') || 'You have reached the send limit. Please try again later.');
+			} else {
+				alert(t('valuation.err_server') || 'You have reached the send limit. Please try again later.');
+			}
+			return;
+		}
+
 		setDownloading(true);
 		setSent(false);
 		try {
@@ -124,6 +134,7 @@ export const UsernamePage: Component = () => {
 					hapticFeedback.notificationOccurred('success');
 				} catch (_) {}
 				setSent(true);
+				setSendCount(sendCount() + 1);
 				setTimeout(() => setSent(false), 3000);
 			}
 		} catch (err) {
