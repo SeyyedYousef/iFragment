@@ -536,8 +536,7 @@ func (h *UsernameHandler) Share(w http.ResponseWriter, r *http.Request) {
 
 func (h *UsernameHandler) SendToChat(w http.ResponseWriter, r *http.Request) {
 	// 1. Get authenticated user
-	userIDStr := r.Context().Value(middleware.UserIDKey).(string)
-	telegramID, err := strconv.ParseInt(userIDStr, 10, 64)
+	telegramID, err := middleware.GetUserID(r.Context())
 	if err != nil {
 		RespondError(w, r, http.StatusUnauthorized, "invalid user ID", err)
 		return
