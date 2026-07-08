@@ -108,6 +108,8 @@ export const UsernamePage: Component = () => {
 			const dataUrl = await toPng(hiddenCardRef, {
 				width: 400,
 				height: 400,
+				pixelRatio: 2,
+				style: { transform: 'scale(1)', transformOrigin: 'top left' }
 			});
 
 			// Upload image to backend to get public HTTPS URL
@@ -150,6 +152,8 @@ export const UsernamePage: Component = () => {
 			const dataUrl = await toPng(hiddenCardRef, {
 				width: 400,
 				height: 400,
+				pixelRatio: 2,
+				style: { transform: 'scale(1)', transformOrigin: 'top left' }
 			});
 
 			// Upload custom image to backend to get public HTTPS URL
@@ -343,8 +347,8 @@ export const UsernamePage: Component = () => {
 											<path d="M28 56C43.464 56 56 43.464 56 28C56 12.536 43.464 0 28 0C12.536 0 0 12.536 0 28C0 43.464 12.536 56 28 56Z" fill="#0098EA" />
 											<path d="M37.5603 15.6277H18.4386C14.9228 15.6277 12.6944 19.4202 14.4632 22.4861L26.2644 42.9409C27.0345 44.2765 28.9644 44.2765 29.7345 42.9409L41.5765 22.4861C43.3045 19.4202 41.0761 15.6277 37.5765 15.6277H37.5603ZM26.2483 36.8068L23.6119 31.8097L17.2017 20.6506C16.6742 19.7557 17.3255 18.6198 18.4223 18.6198H26.2483V36.8068ZM38.7972 20.6506L32.387 31.8259L29.7506 36.8068V18.6361H37.5765C38.6734 18.6361 39.3247 19.772 38.7972 20.6669V20.6506Z" fill="white" />
 										</svg>
-										<span class="text-[26px] sm:text-[28px] font-black text-white leading-none drop-shadow-[0_0_15px_rgba(0,152,234,0.3)]">
-											{parseFloat(data()?.expected_ton || '0').toLocaleString('en-US')}
+										<span class="text-[26px] sm:text-[28px] font-black text-white leading-none drop-shadow-[0_0_15px_rgba(0,152,234,0.3)]" style={{ "font-family": "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" }}>
+											{parseFloat(data()?.expected_ton || '0').toLocaleString('en-US', { numberingSystem: 'latn' })}
 										</span>
 										<span class="text-[13px] font-bold text-[#3390ec] leading-none">TON</span>
 									</div>
@@ -355,8 +359,8 @@ export const UsernamePage: Component = () => {
 										<div class="w-1.5 h-1.5 bg-[#00ff88] rounded-full animate-pulse shadow-[0_0_8px_#00ff88]" />
 										Valued
 									</div>
-									<span class="text-[13px] text-white/60 font-black leading-none">
-										≈ ${parseFloat(data()?.expected_usd || '0').toLocaleString('en-US', { maximumFractionDigits: 0 })}
+									<span class="text-[13px] text-white/60 font-black leading-none" style={{ "font-family": "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" }}>
+										≈ ${parseFloat(data()?.expected_usd || '0').toLocaleString('en-US', { maximumFractionDigits: 0, numberingSystem: 'latn' })}
 									</span>
 								</div>
 							</div>
@@ -508,8 +512,8 @@ export const UsernamePage: Component = () => {
 									<path d="M28 56C43.464 56 56 43.464 56 28C56 12.536 43.464 0 28 0C12.536 0 0 12.536 0 28C0 43.464 12.536 56 28 56Z" fill="#0098EA" />
 									<path d="M37.5603 15.6277H18.4386C14.9228 15.6277 12.6944 19.4202 14.4632 22.4861L26.2644 42.9409C27.0345 44.2765 28.9644 44.2765 29.7345 42.9409L41.5765 22.4861C43.3045 19.4202 41.0761 15.6277 37.5765 15.6277H37.5603ZM26.2483 36.8068L23.6119 31.8097L17.2017 20.6506C16.6742 19.7557 17.3255 18.6198 18.4223 18.6198H26.2483V36.8068ZM38.7972 20.6506L32.387 31.8259L29.7506 36.8068V18.6361H37.5765C38.6734 18.6361 39.3247 19.772 38.7972 20.6669V20.6506Z" fill="white" />
 								</svg>
-								<span class="text-[26px] sm:text-[28px] font-black text-white leading-none drop-shadow-[0_0_15px_rgba(0,152,234,0.3)]">
-									{parseFloat(data()?.expected_ton || '0').toLocaleString('en-US')}
+								<span class="text-[26px] sm:text-[28px] font-black text-white leading-none drop-shadow-[0_0_15px_rgba(0,152,234,0.3)]" style={{ "font-family": "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" }}>
+									{parseFloat(data()?.expected_ton || '0').toLocaleString('en-US', { numberingSystem: 'latn' })}
 								</span>
 								<span class="text-[13px] font-bold text-[#3390ec] leading-none">TON</span>
 							</div>
@@ -520,8 +524,8 @@ export const UsernamePage: Component = () => {
 								<div class="w-1.5 h-1.5 bg-[#00ff88] rounded-full animate-pulse shadow-[0_0_8px_#00ff88]" />
 								Valued
 							</div>
-							<span class="text-[13px] text-white/60 font-black leading-none">
-								≈ ${parseFloat(data()?.expected_usd || '0').toLocaleString('en-US', { maximumFractionDigits: 0 })}
+							<span class="text-[13px] text-white/60 font-black leading-none" style={{ "font-family": "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" }}>
+								≈ ${parseFloat(data()?.expected_usd || '0').toLocaleString('en-US', { maximumFractionDigits: 0, numberingSystem: 'latn' })}
 							</span>
 						</div>
 					</div>
