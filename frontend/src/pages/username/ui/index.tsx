@@ -36,6 +36,7 @@ export const UsernamePage: Component = () => {
 	const [showModal, setShowModal] = createSignal<boolean>(false);
 	const [generatedImg, setGeneratedImg] = createSignal<string>('');
 	const [sharing, setSharing] = createSignal<boolean>(false);
+	const [downloading, setDownloading] = createSignal<boolean>(false);
 
 	const username = () => searchParams.u || '';
 	let cardRef: HTMLDivElement | undefined;
@@ -95,27 +96,44 @@ export const UsernamePage: Component = () => {
 	};
 
 	const handleDownload = async () => {
-		if (!cardRef) return;
+		if (!cardRef || downloading()) return;
+		setDownloading(true);
 		try {
 			try {
 				hapticFeedback.impactOccurred('medium');
 			} catch (_) {}
+			
+			// Generate crisp flat image
 			const dataUrl = await toPng(cardRef, {
 				pixelRatio: 3.0,
 				style: {
 					transform: 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1)',
 				}
 			});
-			setGeneratedImg(dataUrl);
-			setShowModal(true);
 
-			// Programmatic desktop download fallback
-			const link = document.createElement('a');
-			link.download = `ifragment-valuation-${data()?.username || 'card'}.png`;
-			link.href = dataUrl;
-			link.click();
+			// Upload image to backend to get public HTTPS URL
+			const response = await apiFetch<{ url: string }>('/usernames/share', {
+				method: 'POST',
+				body: JSON.stringify({ image: dataUrl }),
+				headers: {
+					'Content-Type': 'application/json'
+				}
+			});
+
+			if (response && response.url) {
+				setGeneratedImg(response.url);
+				setShowModal(true);
+
+				// Programmatic desktop download fallback using public HTTPS URL
+				const link = document.createElement('a');
+				link.download = `ifragment-valuation-${data()?.username || 'card'}.png`;
+				link.href = response.url;
+				link.click();
+			}
 		} catch (err) {
 			console.error('Failed to generate image:', err);
+		} finally {
+			setDownloading(false);
 		}
 	};
 
@@ -352,10 +370,21 @@ export const UsernamePage: Component = () => {
 					<div class="flex gap-4 w-full max-w-[400px]">
 						<button 
 							onClick={handleDownload}
-							class="flex-1 h-12 bg-white/[0.04] hover:bg-white/[0.08] active:scale-95 border border-white/10 text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all cursor-pointer text-[14px]"
+							disabled={downloading()}
+							class="flex-1 h-12 bg-white/[0.04] hover:bg-white/[0.08] active:scale-95 border border-white/10 text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all cursor-pointer text-[14px] disabled:opacity-50 disabled:cursor-not-allowed"
 						>
-							<span class="material-symbols-outlined text-[20px]">download</span>
-							{t('valuation.download') || 'Download Card'}
+							<Show 
+								when={!downloading()} 
+								fallback={
+									<>
+										<div class="w-4 h-4 rounded-full border-2 border-white/20 border-t-white animate-spin" />
+										<span>{t('sharing') || 'Uploading...'}</span>
+									</>
+								}
+							>
+								<span class="material-symbols-outlined text-[20px]">download</span>
+								{t('valuation.download') || 'Download Card'}
+							</Show>
 						</button>
 						<button 
 							onClick={handleShareToStory}
