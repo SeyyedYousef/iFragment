@@ -57,9 +57,9 @@ type EngineConfig struct {
 // DefaultEngineConfig returns production-grade defaults.
 func DefaultEngineConfig() EngineConfig {
 	return EngineConfig{
-		Lambda: 0.01, // ~1% decay per day → 50% weight at ~69 days
+		Lambda: 0.005, // ~0.5% decay per day → 50% weight at ~138 days
 
-		K: 5.0, // Bayesian maturity threshold
+		K: 10.0, // Bayesian maturity threshold
 		KTarget: 0.4, // Target Bayesian shrinkage threshold
 		AppreciationRate: 0.20, // CAGR for TON usernames (20%)
 
