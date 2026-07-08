@@ -2048,6 +2048,8 @@ export const dict = {
 		"rarity_tier": "Rarity Tier",
 		"confidence": "Model Confidence",
 		"err_meta": "Failed to fetch metadata",
-		"err_server": "A server communication error occurred"
+		"err_server": "A server communication error occurred",
+		"download": "Download Card",
+		"share": "Share to Story"
 	}
 };

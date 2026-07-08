@@ -2048,6 +2048,8 @@ export const dict = {
 		"rarity_tier": "稀有度等级",
 		"confidence": "模型置信度",
 		"err_meta": "获取元数据失败",
-		"err_server": "服务器通信发生错误"
+		"err_server": "服务器通信发生错误",
+		"download": "下载估值卡片",
+		"share": "分享到故事"
 	}
 };

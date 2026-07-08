@@ -37,6 +37,7 @@
 		"@types/three": "^0.184.1",
 		"axios": "^1.16.0",
 		"eruda": "^3.0.1",
+		"html-to-image": "^1.11.13",
 		"material-symbols": "^0.45.2",
 		"qrcode": "^1.5.4",
 		"solid-focus-trap": "^0.1.9",
