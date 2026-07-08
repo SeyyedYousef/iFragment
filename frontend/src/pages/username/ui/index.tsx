@@ -3,6 +3,7 @@ import { Component, createSignal, createEffect, onCleanup, onMount, Show, For } 
 import { useSearchParams } from '@solidjs/router';
 import { apiFetch } from '@/shared/api/base.js';
 import { Motion } from '@motionone/solid';
+import { t } from '@/shared/i18n/index.js';
 
 interface ValuationResult {
 	run_id: number;
@@ -61,10 +62,10 @@ export const UsernamePage: Component = () => {
 				if (result) {
 					setData(result);
 				} else {
-					setError('فراخوانی متادیتا با خطا مواجه شد');
+					setError(t('valuation.err_meta') || 'Failed to fetch metadata');
 				}
 			} catch (err: any) {
-				setError(err.message || 'خطایی در ارتباط با سرور رخ داد');
+				setError(err.message || t('valuation.err_server') || 'A server communication error occurred');
 			} finally {
 				setLoading(false);
 			}
@@ -85,7 +86,7 @@ export const UsernamePage: Component = () => {
 			fallback={
 				<div class="flex flex-col justify-center items-center h-screen bg-[#0f1014] text-white/60 gap-4">
 					<div class="w-10 h-10 rounded-full border-[3px] border-white/10 border-t-[#3390ec] animate-spin" />
-					<span class="text-[13px] font-medium tracking-wide">در حال تحلیل ارزش بازار...</span>
+					<span class="text-[13px] font-medium tracking-wide">{t('valuation.analyzing') || 'Analyzing market value...'}</span>
 				</div>
 			}
 		>
@@ -96,13 +97,13 @@ export const UsernamePage: Component = () => {
 						<div class="w-16 h-16 rounded-full bg-[#ff453a]/10 flex items-center justify-center mb-4 text-[#ff453a]">
 							<span class="material-symbols-outlined text-[32px]">error</span>
 						</div>
-						<h1 class="text-lg font-bold mb-2">خطا در بارگذاری اطلاعات</h1>
+						<h1 class="text-lg font-bold mb-2">{t('valuation.error_title') || 'Failed to load data'}</h1>
 						<p class="text-[13px] text-white/40 leading-relaxed mb-6 max-w-xs">{error()}</p>
 						<button
 							onClick={() => window.history.back()}
 							class="h-11 px-6 bg-white/[0.04] border border-white/10 text-white font-medium rounded-xl transition-all active:scale-95"
 						>
-							بازگشت
+							{t('valuation.back') || 'Back'}
 						</button>
 					</div>
 				}
@@ -115,7 +116,7 @@ export const UsernamePage: Component = () => {
 							@{data()?.username || username()}
 						</span>
 						<span class="px-2.5 py-1 bg-white/[0.04] border border-white/[0.06] rounded-full text-[10px] font-semibold tracking-wider text-white/40 uppercase">
-							تحلیل ارزش بازار
+							{t('valuation.title') || 'Market Valuation'}
 						</span>
 					</div>
 
@@ -124,7 +125,7 @@ export const UsernamePage: Component = () => {
 						<div class="absolute inset-0 bg-gradient-to-b from-white/[0.01] to-transparent pointer-events-none" />
 						
 						<div class="text-center mb-6">
-							<span class="text-white/40 text-[11px] font-bold uppercase tracking-wider block mb-1">قیمت تخمینی بازار</span>
+							<span class="text-white/40 text-[11px] font-bold uppercase tracking-wider block mb-1">{t('valuation.estimated_price') || 'Estimated Market Price'}</span>
 							<div class="flex items-baseline justify-center gap-2">
 								<span class="text-[44px] font-black tracking-tight text-white">{parseFloat(data()?.expected_ton || '0').toLocaleString()}</span>
 								<span class="text-[18px] font-bold text-[#3390ec]">TON</span>
@@ -137,12 +138,12 @@ export const UsernamePage: Component = () => {
 						{/* Range Grid */}
 						<div class="grid grid-cols-2 gap-4 mb-6 border-t border-b border-white/[0.06] py-5">
 							<div class="text-center border-r border-white/[0.06]">
-								<span class="text-[10px] font-semibold text-white/35 uppercase tracking-wider block mb-1">کف بازه منصفانه</span>
+								<span class="text-[10px] font-semibold text-white/35 uppercase tracking-wider block mb-1">{t('valuation.floor') || 'Fair Value Floor'}</span>
 								<span class="text-[18px] font-extrabold text-white/80">{parseFloat(data()?.low_ton || '0').toLocaleString()} TON</span>
 								<span class="text-[11px] text-white/40 block mt-0.5" dir="ltr">${parseFloat(data()?.low_usd || '0').toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
 							</div>
 							<div class="text-center">
-								<span class="text-[10px] font-semibold text-white/35 uppercase tracking-wider block mb-1">سقف بازه منصفانه</span>
+								<span class="text-[10px] font-semibold text-white/35 uppercase tracking-wider block mb-1">{t('valuation.ceiling') || 'Fair Value Ceiling'}</span>
 								<span class="text-[18px] font-extrabold text-white/80">{parseFloat(data()?.high_ton || '0').toLocaleString()} TON</span>
 								<span class="text-[11px] text-white/40 block mt-0.5" dir="ltr">${parseFloat(data()?.high_usd || '0').toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
 							</div>
@@ -151,14 +152,14 @@ export const UsernamePage: Component = () => {
 						{/* Metainfo stats */}
 						<div class="flex justify-between items-center bg-[#111214] rounded-2xl p-4">
 							<div class="text-right">
-								<span class="text-[10px] font-semibold text-white/35 uppercase tracking-wider block mb-1">درجه کمیابی</span>
+								<span class="text-[10px] font-semibold text-white/35 uppercase tracking-wider block mb-1">{t('valuation.rarity_tier') || 'Rarity Tier'}</span>
 								<div class="flex items-center gap-1.5 justify-end">
 									<span class="text-[12px] text-yellow-400" dir="ltr">{data()?.rarity.stars}</span>
 									<span class="text-[13px] font-bold text-[#3390ec]">{data()?.rarity.tier}</span>
 								</div>
 							</div>
 							<div class="text-left">
-								<span class="text-[10px] font-semibold text-white/35 uppercase tracking-wider block mb-1">درجه اطمینان مدل</span>
+								<span class="text-[10px] font-semibold text-white/35 uppercase tracking-wider block mb-1">{t('valuation.confidence') || 'Model Confidence'}</span>
 								<div class="flex items-center gap-2 justify-start">
 									<span 
 										class="w-2 h-2 rounded-full shadow-[0_0_8px_currentColor]"
@@ -166,62 +167,6 @@ export const UsernamePage: Component = () => {
 									/>
 									<span class="text-[13px] font-bold text-white/80">{data()?.confidence_score} / 100</span>
 								</div>
-							</div>
-						</div>
-					</div>
-
-					{/* Reasoning details */}
-					<div class="w-full max-w-[480px] bg-white/[0.01] border border-white/[0.04] rounded-[24px] p-5 shadow-lg backdrop-blur-md">
-						<h3 class="text-[15px] font-bold text-white/80 border-b border-white/[0.06] pb-3 mb-4 flex items-center gap-2">
-							<span class="material-symbols-outlined text-[18px] text-[#3390ec]">analytics</span>
-							جزئیات تحلیل فنی ارزش
-						</h3>
-
-						<div class="flex flex-col gap-4">
-							{/* AI signal */}
-							<div class="flex flex-col gap-1 border-b border-white/[0.04] pb-3.5">
-								<div class="flex justify-between items-center">
-									<span class="text-[13px] font-bold text-white/70">سیگنال هوش مصنوعی (AI)</span>
-									<span class="text-[13px] font-extrabold text-[#3390ec]" dir="ltr">
-										{data()?.reasoning_log?.semantic_ai_score || 10} / 100
-									</span>
-								</div>
-								<p class="text-[12px] text-white/40 leading-relaxed text-right mt-1.5">
-									{data()?.reasoning_log?.semantic_ai_reason || 'کلمه فاقد هرگونه سیگنال فرهنگی، اجتماعی یا کریپتویی در بستر شبکه تلگرام است.'}
-								</p>
-							</div>
-
-							{/* Wikipedia signal */}
-							<Show when={data()?.reasoning_log?.semantic_wiki && data()?.reasoning_log?.semantic_wiki > 0}>
-								<div class="flex flex-col gap-1 border-b border-white/[0.04] pb-3.5">
-									<div class="flex justify-between items-center">
-										<span class="text-[13px] font-bold text-white/70">تراکم فرهنگی (Wikipedia)</span>
-										<span class="text-[13px] font-extrabold text-green-400" dir="ltr">
-											{data()?.reasoning_log?.semantic_wiki} / 100
-										</span>
-									</div>
-									<Show when={data()?.reasoning_log?.semantic_wiki_desc}>
-										<p class="text-[12px] text-white/40 leading-relaxed text-right mt-1.5">
-											{data()?.reasoning_log?.semantic_wiki_desc}
-										</p>
-									</Show>
-								</div>
-							</Show>
-
-							{/* Comparable Sales */}
-							<div class="flex justify-between items-center border-b border-white/[0.04] pb-3.5">
-								<span class="text-[13px] font-bold text-white/70">تعداد معاملات هم‌گروه مقایسه‌ای</span>
-								<span class="text-[13px] font-extrabold text-white/80">
-									{data()?.comparable_sales_count || 0} مورد
-								</span>
-							</div>
-
-							{/* Model Version */}
-							<div class="flex justify-between items-center">
-								<span class="text-[13px] font-bold text-white/70">نسخه الگوریتم ارزش‌گذاری</span>
-								<span class="text-[13px] font-bold text-white/40" dir="ltr">
-									{data()?.model_version}
-								</span>
 							</div>
 						</div>
 					</div>

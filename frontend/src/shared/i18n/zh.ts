@@ -2036,5 +2036,18 @@ export const dict = {
 	},
 	"tapView": {
 		"joinClan": "加入部落"
+	},
+	"valuation": {
+		"analyzing": "正在分析市场价值...",
+		"error_title": "数据加载失败",
+		"back": "返回",
+		"title": "市场估值分析",
+		"estimated_price": "预估市场价格",
+		"floor": "合理估值下限",
+		"ceiling": "合理估值上限",
+		"rarity_tier": "稀有度等级",
+		"confidence": "模型置信度",
+		"err_meta": "获取元数据失败",
+		"err_server": "服务器通信发生错误"
 	}
 };

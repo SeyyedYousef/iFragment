@@ -2036,5 +2036,18 @@ export const dict = {
 	},
 	"tapView": {
 		"joinClan": "Join a Clan"
+	},
+	"valuation": {
+		"analyzing": "Analyzing market value...",
+		"error_title": "Failed to load data",
+		"back": "Back",
+		"title": "Market Valuation",
+		"estimated_price": "Estimated Market Price",
+		"floor": "Fair Value Floor",
+		"ceiling": "Fair Value Ceiling",
+		"rarity_tier": "Rarity Tier",
+		"confidence": "Model Confidence",
+		"err_meta": "Failed to fetch metadata",
+		"err_server": "A server communication error occurred"
 	}
 };
