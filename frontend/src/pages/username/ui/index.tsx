@@ -105,32 +105,23 @@ export const UsernamePage: Component = () => {
 			} catch (_) {}
 			
 			// Generate crisp flat image from flat hiddenCardRef
+			// Use pixelRatio: 3 to ensure high quality, html-to-image handles the internal scaling.
 			const dataUrl = await toPng(hiddenCardRef, {
 				width: 400,
 				height: 400,
-				pixelRatio: 2,
-				style: { transform: 'scale(1)', transformOrigin: 'top left' }
+				pixelRatio: 3,
 			});
 
-			// Upload image to backend to get public HTTPS URL
-			const response = await apiFetch<{ url: string }>('/usernames/share', {
-				method: 'POST',
-				body: JSON.stringify({ image: dataUrl }),
-				headers: {
-					'Content-Type': 'application/json'
-				}
-			});
+			// No need to upload to server just for downloading! Use local base64 dataUrl instantly.
+			setGeneratedImg(dataUrl);
+			setShowModal(true);
 
-			if (response && response.url) {
-				setGeneratedImg(response.url);
-				setShowModal(true);
+			// Note: We deliberately DO NOT call link.click() here.
+			// Calling link.click() on mobile webviews (like Telegram TMA) forces the browser
+			// to navigate to the image URL, breaking the user out of the app and showing a 
+			// raw image view (which appears as a huge zoomed-in image).
+			// The modal instructs the user to long-press the image to save it securely.
 
-				// Programmatic desktop download fallback using public HTTPS URL
-				const link = document.createElement('a');
-				link.download = `ifragment-valuation-${data()?.username || 'card'}.png`;
-				link.href = response.url;
-				link.click();
-			}
 		} catch (err) {
 			console.error('Failed to generate image:', err);
 		} finally {
@@ -149,11 +140,11 @@ export const UsernamePage: Component = () => {
 			} catch (_) {}
 
 			// Generate flat image from flat hiddenCardRef
+			// Use pixelRatio: 3 to ensure high quality, html-to-image handles the internal scaling.
 			const dataUrl = await toPng(hiddenCardRef, {
 				width: 400,
 				height: 400,
-				pixelRatio: 2,
-				style: { transform: 'scale(1)', transformOrigin: 'top left' }
+				pixelRatio: 3,
 			});
 
 			// Upload custom image to backend to get public HTTPS URL
