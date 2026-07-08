@@ -174,7 +174,7 @@ export const UsernamePage: Component = () => {
 						{/* Card Header */}
 						<div class="flex justify-between items-center z-10">
 							<span class="px-3.5 py-1.5 bg-gradient-to-br from-amber-400/20 to-orange-500/10 border border-amber-400/30 rounded-full text-[10px] font-bold tracking-wider text-amber-400 uppercase shadow-[0_0_15px_rgba(251,191,36,0.1)]">
-								{data()?.rarity.tier || 'Standard'}
+								{data()?.rarity?.tier || 'Standard'}
 							</span>
 							<span class="text-[12px] font-mono font-black text-white/20 tracking-[4px] uppercase">
 								iFragment
