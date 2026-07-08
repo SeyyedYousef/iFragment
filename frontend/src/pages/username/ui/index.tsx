@@ -35,6 +35,7 @@ export const UsernamePage: Component = () => {
 	const [error, setError] = createSignal<string | null>(null);
 	const [sharing, setSharing] = createSignal<boolean>(false);
 	const [downloading, setDownloading] = createSignal<boolean>(false);
+	const [sent, setSent] = createSignal<boolean>(false);
 
 	const username = () => searchParams.u || '';
 	let cardRef: HTMLDivElement | undefined;
@@ -97,6 +98,7 @@ export const UsernamePage: Component = () => {
 	const handleSendToChat = async () => {
 		if (!hiddenCardRef || downloading()) return;
 		setDownloading(true);
+		setSent(false);
 		try {
 			try {
 				hapticFeedback.impactOccurred('medium');
@@ -121,19 +123,15 @@ export const UsernamePage: Component = () => {
 				try {
 					hapticFeedback.notificationOccurred('success');
 				} catch (_) {}
-				// Try to use a native alert or fallback to simple alert if toast isn't available
-				if (window.Telegram?.WebApp?.showAlert) {
-					window.Telegram.WebApp.showAlert(t('analysis.sent_to_chat', 'Successfully sent to your chat!'));
-				} else {
-					alert(t('analysis.sent_to_chat', 'Successfully sent to your chat!'));
-				}
+				setSent(true);
+				setTimeout(() => setSent(false), 3000);
 			}
 		} catch (err) {
 			console.error('Failed to send image to chat:', err);
-			if (window.Telegram?.WebApp?.showAlert) {
-				window.Telegram.WebApp.showAlert(t('analysis.err_server', 'Failed to send. Please try again.'));
+			if ((window as any).Telegram?.WebApp?.showAlert) {
+				(window as any).Telegram.WebApp.showAlert(t('valuation.err_server') || 'Failed to send. Please try again.');
 			} else {
-				alert(t('analysis.err_server', 'Failed to send. Please try again.'));
+				alert(t('valuation.err_server') || 'Failed to send. Please try again.');
 			}
 		} finally {
 			setDownloading(false);
@@ -373,20 +371,30 @@ export const UsernamePage: Component = () => {
 					<div class="flex gap-4 w-full max-w-[400px]">
 						<button 
 							onClick={handleSendToChat}
-							disabled={downloading()}
-							class="flex-1 h-12 bg-white/[0.04] hover:bg-white/[0.08] active:scale-95 border border-white/10 text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all cursor-pointer text-[14px] disabled:opacity-50 disabled:cursor-not-allowed"
+							disabled={downloading() || sent()}
+							class={`flex-1 h-12 border text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all cursor-pointer text-[14px] disabled:opacity-50 disabled:cursor-not-allowed ${sent() ? 'bg-green-500/20 border-green-500/50 hover:bg-green-500/30 text-green-400' : 'bg-white/[0.04] hover:bg-white/[0.08] active:scale-95 border-white/10'}`}
 						>
 							<Show 
 								when={!downloading()} 
 								fallback={
 									<>
 										<div class="w-4 h-4 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-										<span>{t('valuation.sharing') || 'Uploading...'}</span>
+										<span>{t('valuation.sending') || 'Sending...'}</span>
 									</>
 								}
 							>
-								<span class="material-symbols-outlined text-[20px]">send</span>
-								{t('valuation.download') || 'Send to Chat'}
+								<Show
+									when={!sent()}
+									fallback={
+										<>
+											<span class="material-symbols-outlined text-[20px] text-green-400">check_circle</span>
+											<span class="text-green-400">{t('valuation.sent_to_chat') || 'Sent!'}</span>
+										</>
+									}
+								>
+									<span class="material-symbols-outlined text-[20px]">send</span>
+									{t('valuation.download') || 'Send to Chat'}
+								</Show>
 							</Show>
 						</button>
 						<button 
