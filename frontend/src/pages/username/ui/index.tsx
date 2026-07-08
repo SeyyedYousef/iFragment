@@ -424,11 +424,11 @@ export const UsernamePage: Component = () => {
 								</span>
 
 								{/* Generated Image Preview Container */}
-								<div class="w-full aspect-square bg-[#0c0d10] border border-white/[0.08] rounded-[36px] shadow-2xl overflow-hidden p-[1.5px] bg-gradient-to-br from-cyan-400 via-purple-600 to-pink-500">
+								<div class="relative w-full aspect-square bg-[#0c0d10] border border-white/[0.08] rounded-[36px] shadow-2xl overflow-hidden p-[1.5px] bg-gradient-to-br from-cyan-400 via-purple-600 to-pink-500 shrink-0">
 									<img 
 										src={generatedImg()} 
 										alt="Username Card" 
-										class="w-full h-full object-cover rounded-[35px] select-none"
+										class="absolute inset-0 w-full h-full max-w-full max-h-full object-contain rounded-[35px] select-none"
 										onContextMenu={(e) => e.stopPropagation()} // Allow native context menu for saving
 									/>
 								</div>
