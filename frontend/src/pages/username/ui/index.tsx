@@ -77,6 +77,20 @@ export const UsernamePage: Component = () => {
 		return 'from-white/10 to-white/5 border-white/20 text-white/70';
 	};
 
+	const getUsernameGradient = (tier: string) => {
+		const t = (tier || '').toLowerCase();
+		if (t.includes('legendary') || t.includes('grail')) {
+			return 'from-yellow-200 via-amber-400 to-yellow-500';
+		}
+		if (t.includes('epic') || t.includes('elite')) {
+			return 'from-cyan-300 via-blue-400 to-indigo-500';
+		}
+		if (t.includes('rare') || t.includes('premium')) {
+			return 'from-purple-300 via-pink-400 to-red-400';
+		}
+		return 'from-white via-neutral-100 to-neutral-400';
+	};
+
 	const handleDownload = async () => {
 		if (!cardRef) return;
 		try {
@@ -244,14 +258,25 @@ export const UsernamePage: Component = () => {
 							</div>
 
 							{/* Card Body (Username) */}
-							<div class="flex flex-col justify-center items-center z-10 text-center flex-grow relative py-8">
-								<div class="absolute w-[80%] h-[70px] bg-gradient-to-r from-[#00f5ff] to-[#a100ff] blur-[60px] opacity-25 -z-10" />
-								<span 
-									class="font-black tracking-tight bg-gradient-to-b from-white via-white to-neutral-500 bg-clip-text text-transparent drop-shadow-[0_12px_24px_rgba(0,0,0,0.6)] truncate w-full px-2"
-									style={{ "font-size": getFontSize(data()?.username || username()) }}
-								>
-									@{data()?.username || username()}
-								</span>
+							<div class="flex flex-col justify-center items-center z-10 text-center flex-grow relative py-8 w-full">
+								{/* Direct radial gradient glow behind username (no blur, 100% compatible with HTML-to-Image download) */}
+								<div 
+									class="absolute w-[90%] h-[120px] opacity-75 -z-10 pointer-events-none"
+									style={{
+										background: "radial-gradient(ellipse 65% 55% at 50% 50%, rgba(0, 245, 255, 0.22) 0%, rgba(157, 0, 255, 0.16) 45%, transparent 75%)"
+									}}
+								/>
+								{/* Bounding bracket designs */}
+								<div class="flex items-center justify-center gap-1.5 w-full">
+									<span class="text-white/25 font-black text-[28px] select-none tracking-normal">✦</span>
+									<span 
+										class={`font-black tracking-tight bg-gradient-to-r ${getUsernameGradient(data()?.rarity?.tier || '')} bg-clip-text text-transparent drop-shadow-[0_12px_24px_rgba(0,0,0,0.75)] truncate max-w-[85%]`}
+										style={{ "font-size": getFontSize(data()?.username || username()) }}
+									>
+										@{data()?.username || username()}
+									</span>
+									<span class="text-white/25 font-black text-[28px] select-none tracking-normal">✦</span>
+								</div>
 							</div>
 
 							{/* Card Footer */}
