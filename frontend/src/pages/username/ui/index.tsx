@@ -36,6 +36,24 @@ export const UsernamePage: Component = () => {
 
 	const username = () => searchParams.u || '';
 	let cardRef: HTMLDivElement | undefined;
+	const [tilt, setTilt] = createSignal({ x: 0, y: 0, glossX: 50, glossY: 50 });
+	const handleMouseMove = (e: MouseEvent) => {
+		if (!cardRef) return;
+		const rect = cardRef.getBoundingClientRect();
+		const x = e.clientX - rect.left;
+		const y = e.clientY - rect.top;
+		const xc = rect.width / 2;
+		const yc = rect.height / 2;
+		const tiltX = (yc - y) / 12;
+		const tiltY = (x - xc) / 12;
+		const glossX = (x / rect.width) * 100;
+		const glossY = (y / rect.height) * 100;
+		setTilt({ x: tiltX, y: tiltY, glossX, glossY });
+	};
+
+	const handleMouseLeave = () => {
+		setTilt({ x: 0, y: 0, glossX: 50, glossY: 50 });
+	};
 
 	const getFontSize = (name: string) => {
 		const len = name.length;
@@ -66,9 +84,9 @@ export const UsernamePage: Component = () => {
 				hapticFeedback.impactOccurred('medium');
 			} catch (_) {}
 			const dataUrl = await toPng(cardRef, {
-				pixelRatio: 2.5,
+				pixelRatio: 3.0,
 				style: {
-					transform: 'scale(1)',
+					transform: 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1)',
 				}
 			});
 			const link = document.createElement('a');
@@ -175,78 +193,94 @@ export const UsernamePage: Component = () => {
 						</span>
 					</div>
 
-					{/* Flex Card Container */}
+					{/* Flex Card Container Wrapper (Gradient Border) */}
 					<div 
-						ref={cardRef}
-						class="w-full max-w-[400px] bg-[#07080a] border border-white/[0.1] rounded-[40px] p-8 shadow-[0_20px_50px_rgba(0,0,0,0.8),0_0_30px_rgba(51,144,236,0.1)] relative overflow-hidden flex flex-col justify-between mb-8"
-						style={{ 
-							"aspect-ratio": "1 / 1", 
-							"background-image": "radial-gradient(rgba(255, 255, 255, 0.06) 1.2px, transparent 1.2px)", 
-							"background-size": "18px 18px" 
-						}}
+						class="w-full max-w-[400px] aspect-square p-[1.5px] bg-gradient-to-br from-cyan-400 via-purple-600 to-pink-500 rounded-[42px] shadow-[0_30px_70px_rgba(0,0,0,0.85),0_0_40px_rgba(157,0,255,0.15)] transition-all duration-300 hover:shadow-[0_40px_80px_rgba(0,0,0,0.95),0_0_60px_rgba(0,245,255,0.25)] mb-8"
+						style={{ "aspect-ratio": "1 / 1" }}
 					>
-						{/* Background Glow Orbs */}
-						<div class="absolute -top-24 -left-24 w-64 h-64 bg-[#00f5ff]/10 rounded-full blur-[90px] pointer-events-none" />
-						<div class="absolute -bottom-24 -right-24 w-60 h-60 bg-[#a100ff]/10 rounded-full blur-[90px] pointer-events-none" />
-						<div class="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
-						
-						{/* Shimmer Effect */}
 						<div 
-							class="absolute inset-0 pointer-events-none opacity-20"
-							style={{
-								background: "linear-gradient(135deg, transparent 30%, rgba(255,255,255,0.03) 45%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.03) 55%, transparent 70%)"
+							ref={cardRef}
+							onMouseMove={handleMouseMove}
+							onMouseLeave={handleMouseLeave}
+							class="w-full h-full bg-[#07080a] rounded-[40px] p-8 relative overflow-hidden flex flex-col justify-between"
+							style={{ 
+								transform: `perspective(1000px) rotateX(${tilt().x}deg) rotateY(${tilt().y}deg)`,
+								"background-image": "radial-gradient(rgba(255, 255, 255, 0.05) 1.2px, transparent 1.2px)", 
+								"background-size": "18px 18px",
+								transition: "transform 0.08s ease-out",
 							}}
-						/>
+						>
+							{/* Gloss light reflection layer */}
+							<div 
+								class="absolute inset-0 pointer-events-none z-20 mix-blend-overlay transition-opacity duration-300 opacity-60"
+								style={{
+									background: `radial-gradient(circle at ${tilt().glossX}% ${tilt().glossY}%, rgba(255,255,255,0.2) 0%, transparent 60%)`
+								}}
+							/>
 
-						{/* Card Header */}
-						<div class="flex justify-between items-center z-10">
-							<span 
-								class={`px-4 py-1.5 border rounded-full text-[10px] font-black tracking-wider uppercase ${getTierStyle(data()?.rarity?.tier || '')}`}
-							>
-								{data()?.rarity?.tier || 'Standard'}
-							</span>
-							<span class="text-[11px] font-mono font-black text-white/30 tracking-[5px] uppercase">
-								iFragment
-							</span>
-						</div>
+							{/* Background Glow Orbs */}
+							<div class="absolute -top-24 -left-24 w-64 h-64 bg-[#00f5ff]/10 rounded-full blur-[90px] pointer-events-none" />
+							<div class="absolute -bottom-24 -right-24 w-60 h-60 bg-[#a100ff]/10 rounded-full blur-[90px] pointer-events-none" />
+							<div class="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
+							
+							{/* Shimmer Effect */}
+							<div 
+								class="absolute inset-0 pointer-events-none opacity-20"
+								style={{
+									background: "linear-gradient(135deg, transparent 30%, rgba(255,255,255,0.03) 45%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.03) 55%, transparent 70%)"
+								}}
+							/>
 
-						{/* Card Body (Username) */}
-						<div class="flex flex-col justify-center items-center z-10 text-center flex-grow relative py-8">
-							<div class="absolute w-[80%] h-[70px] bg-gradient-to-r from-[#00f5ff] to-[#a100ff] blur-[60px] opacity-25 -z-10" />
-							<span 
-								class="font-black tracking-tight bg-gradient-to-b from-white via-white to-neutral-500 bg-clip-text text-transparent drop-shadow-[0_12px_24px_rgba(0,0,0,0.6)] truncate w-full px-2"
-								style={{ "font-size": getFontSize(data()?.username || username()) }}
-							>
-								@{data()?.username || username()}
-							</span>
-						</div>
-
-						{/* Card Footer */}
-						<div class="flex justify-between items-end border-t border-white/[0.06] pt-5 z-10">
-							<div class="flex flex-col gap-1.5 text-left">
-								<span class="text-[9px] font-black text-white/40 uppercase tracking-[2px]">
-									Estimated Value
+							{/* Card Header */}
+							<div class="flex justify-between items-center z-10">
+								<span 
+									class={`px-4 py-1.5 border rounded-full text-[10px] font-black tracking-wider uppercase ${getTierStyle(data()?.rarity?.tier || '')}`}
+								>
+									{data()?.rarity?.tier || 'Standard'}
 								</span>
-								<div class="flex items-center gap-1.5">
-									<svg class="w-6.5 h-6.5 filter drop-shadow-[0_0_10px_rgba(0,152,234,0.6)]" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
-										<path d="M28 56C43.464 56 56 43.464 56 28C56 12.536 43.464 0 28 0C12.536 0 0 12.536 0 28C0 43.464 12.536 56 28 56Z" fill="#0098EA" />
-										<path d="M37.5603 15.6277H18.4386C14.9228 15.6277 12.6944 19.4202 14.4632 22.4861L26.2644 42.9409C27.0345 44.2765 28.9644 44.2765 29.7345 42.9409L41.5765 22.4861C43.3045 19.4202 41.0761 15.6277 37.5765 15.6277H37.5603ZM26.2483 36.8068L23.6119 31.8097L17.2017 20.6506C16.6742 19.7557 17.3255 18.6198 18.4223 18.6198H26.2483V36.8068ZM38.7972 20.6506L32.387 31.8259L29.7506 36.8068V18.6361H37.5765C38.6734 18.6361 39.3247 19.772 38.7972 20.6669V20.6506Z" fill="white" />
-									</svg>
-									<span class="text-[26px] sm:text-[28px] font-black text-white leading-none drop-shadow-[0_0_15px_rgba(0,152,234,0.3)]">
-										{parseFloat(data()?.expected_ton || '0').toLocaleString()}
-									</span>
-									<span class="text-[13px] font-bold text-[#3390ec] leading-none">TON</span>
-								</div>
+								<span class="text-[11px] font-mono font-black text-white/30 tracking-[5px] uppercase">
+									iFragment
+								</span>
 							</div>
 
-							<div class="flex flex-col items-end gap-2">
-								<div class="flex items-center gap-1.5 bg-[#00ff88]/10 px-3 py-1 rounded-full border border-[#00ff88]/30 text-[#00ff88] font-black uppercase tracking-wider text-[9px] shadow-[0_0_15px_rgba(0,255,136,0.15)]">
-									<div class="w-1.5 h-1.5 bg-[#00ff88] rounded-full animate-pulse shadow-[0_0_8px_#00ff88]" />
-									Valued
-								</div>
-								<span class="text-[13px] text-white/60 font-black leading-none">
-									≈ ${parseFloat(data()?.expected_usd || '0').toLocaleString(undefined, { maximumFractionDigits: 0 })}
+							{/* Card Body (Username) */}
+							<div class="flex flex-col justify-center items-center z-10 text-center flex-grow relative py-8">
+								<div class="absolute w-[80%] h-[70px] bg-gradient-to-r from-[#00f5ff] to-[#a100ff] blur-[60px] opacity-25 -z-10" />
+								<span 
+									class="font-black tracking-tight bg-gradient-to-b from-white via-white to-neutral-500 bg-clip-text text-transparent drop-shadow-[0_12px_24px_rgba(0,0,0,0.6)] truncate w-full px-2"
+									style={{ "font-size": getFontSize(data()?.username || username()) }}
+								>
+									@{data()?.username || username()}
 								</span>
+							</div>
+
+							{/* Card Footer */}
+							<div class="flex justify-between items-end border-t border-white/[0.06] pt-5 z-10">
+								<div class="flex flex-col gap-1.5 text-left">
+									<span class="text-[9px] font-black text-white/40 uppercase tracking-[2px]">
+										Estimated Value
+									</span>
+									<div class="flex items-center gap-1.5">
+										<svg class="w-6.5 h-6.5 filter drop-shadow-[0_0_10px_rgba(0,152,234,0.6)]" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+											<path d="M28 56C43.464 56 56 43.464 56 28C56 12.536 43.464 0 28 0C12.536 0 0 12.536 0 28C0 43.464 12.536 56 28 56Z" fill="#0098EA" />
+											<path d="M37.5603 15.6277H18.4386C14.9228 15.6277 12.6944 19.4202 14.4632 22.4861L26.2644 42.9409C27.0345 44.2765 28.9644 44.2765 29.7345 42.9409L41.5765 22.4861C43.3045 19.4202 41.0761 15.6277 37.5765 15.6277H37.5603ZM26.2483 36.8068L23.6119 31.8097L17.2017 20.6506C16.6742 19.7557 17.3255 18.6198 18.4223 18.6198H26.2483V36.8068ZM38.7972 20.6506L32.387 31.8259L29.7506 36.8068V18.6361H37.5765C38.6734 18.6361 39.3247 19.772 38.7972 20.6669V20.6506Z" fill="white" />
+										</svg>
+										<span class="text-[26px] sm:text-[28px] font-black text-white leading-none drop-shadow-[0_0_15px_rgba(0,152,234,0.3)]">
+											{parseFloat(data()?.expected_ton || '0').toLocaleString()}
+										</span>
+										<span class="text-[13px] font-bold text-[#3390ec] leading-none">TON</span>
+									</div>
+								</div>
+
+								<div class="flex flex-col items-end gap-2">
+									<div class="flex items-center gap-1.5 bg-[#00ff88]/10 px-3 py-1 rounded-full border border-[#00ff88]/30 text-[#00ff88] font-black uppercase tracking-wider text-[9px] shadow-[0_0_15px_rgba(0,255,136,0.15)]">
+										<div class="w-1.5 h-1.5 bg-[#00ff88] rounded-full animate-pulse shadow-[0_0_8px_#00ff88]" />
+										Valued
+									</div>
+									<span class="text-[13px] text-white/60 font-black leading-none">
+										≈ ${parseFloat(data()?.expected_usd || '0').toLocaleString(undefined, { maximumFractionDigits: 0 })}
+									</span>
+								</div>
 							</div>
 						</div>
 					</div>
