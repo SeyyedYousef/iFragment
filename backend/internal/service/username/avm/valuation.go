@@ -487,8 +487,10 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		} else {
 			dampingFactor = 0.10
 		}
-	} else {
+	} else if nEff > 0 {
 		dampingFactor = s.cfg.DatabaseDamping
+	} else {
+		dampingFactor = 1.0
 	}
 	reasoning["damping_factor"] = dampingFactor
 
