@@ -30,7 +30,7 @@ func main() {
 	tonClient := tonapi.NewClient()
 	svc := avm.NewValuationService(db, cacheService, tonClient)
 
-	for _, username := range []string{"news", "creator", "ruby"} {
+	for _, username := range []string{"news", "rare", "ruby"} {
 		fmt.Printf("\n=== Debugging @%s ===\n", username)
 		res, err := svc.Valuate(ctx, username, 0.0)
 		if err != nil {

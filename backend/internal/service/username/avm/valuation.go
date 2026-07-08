@@ -473,24 +473,28 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		}
 	}
 
-	// Compute dynamic age-based damping factor for anchor sales
+	// Compute dynamic age-based damping factor for anchor sales or database baseline
 	dampingFactor := 1.0
-	if anchorInjected && len(targetComps) > 0 {
-		anchorDate := targetComps[0].SaleDate
-		ageInYears := now.Sub(anchorDate).Hours() / (24 * 365.25)
-		if ageInYears > 0 {
-			dampingFactor = math.Min(1.0, 0.10+ageInYears*0.10)
+	if anchorInjected {
+		if len(targetComps) > 0 {
+			anchorDate := targetComps[0].SaleDate
+			ageInYears := now.Sub(anchorDate).Hours() / (24 * 365.25)
+			if ageInYears > 0 {
+				dampingFactor = math.Min(1.0, 0.10+ageInYears*0.10)
+			} else {
+				dampingFactor = 0.10
+			}
 		} else {
 			dampingFactor = 0.10
 		}
+	} else {
+		dampingFactor = s.cfg.DatabaseDamping
 	}
-	reasoning["anchor_damping_factor"] = dampingFactor
+	reasoning["damping_factor"] = dampingFactor
 
 	// 3b. Morphology
 	morphLog := CalcMorphologyLog(features, s.cfg.MorphMultipliers, s.cfg)
-	if anchorInjected {
-		morphLog *= dampingFactor // Dampen morphology impact on top of anchor price based on age
-	}
+	morphLog *= dampingFactor // Dampen morphology impact based on dampingFactor
 
 	reasoning["base_log"] = baseLog
 	reasoning["n_eff"] = nEff
@@ -524,9 +528,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		}
 	}
 
-	if anchorInjected {
-		semanticLog *= dampingFactor // Dampen semantic impact on top of anchor price based on age
-	}
+	semanticLog *= dampingFactor // Dampen semantic impact based on dampingFactor
 	reasoning["semantic_log"] = semanticLog
 
 	// 3c. Momentum

@@ -49,6 +49,7 @@ type EngineConfig struct {
 	ClampLowLimit    float64 `json:"clamp_low_limit"`
 	ClampLowExpected float64 `json:"clamp_low_expected"`
 	MorphDamping     float64 `json:"morph_damping"`
+	DatabaseDamping  float64 `json:"database_damping"`
 
 	// Morphology premium multipliers (PiT calibrated)
 	MorphMultipliers map[string]float64 `json:"morph_multipliers"`
@@ -78,14 +79,15 @@ func DefaultEngineConfig() EngineConfig {
 		NormFactorBuyNow:  0.85,
 		NormFactorOffer:   1.10,
 
-		FallbackLen4: 5050.0,
+		FallbackLen4: 250.0,
 		FallbackLen5: 50.0,
 		FallbackLen6: 15.0,
 		FallbackOther: 5.0,
 
 		ClampLowLimit:    5.0,
-		ClampLowExpected: 5050.0,
+		ClampLowExpected: 100.0,
 		MorphDamping:     0.1,
+		DatabaseDamping:  0.45,
 
 		MorphMultipliers: map[string]float64{
 			"has_numbers":          0.70, // discount for containing numbers
