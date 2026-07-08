@@ -121,12 +121,6 @@ export const UsernamePage: Component = () => {
 		fetchValuation();
 	});
 
-	const getConfidenceColor = (score: number) => {
-		if (score >= 70) return '#30d158'; // green
-		if (score >= 40) return '#ff9f0a'; // orange
-		return '#ff453a'; // red
-	};
-
 	return (
 		<Show
 			when={!loading()}

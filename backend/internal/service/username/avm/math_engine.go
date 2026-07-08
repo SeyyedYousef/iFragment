@@ -150,15 +150,16 @@ func LogPrices(sales []ComparableSale) []float64 {
 }
 
 func fallbackForLength(length int, cfg EngineConfig) float64 {
-	fallback := cfg.FallbackOther
-	if length == 4 {
-		fallback = cfg.FallbackLen4
-	} else if length == 5 {
-		fallback = cfg.FallbackLen5
-	} else if length == 6 {
-		fallback = cfg.FallbackLen6
+	switch length {
+	case 4:
+		return cfg.FallbackLen4
+	case 5:
+		return cfg.FallbackLen5
+	case 6:
+		return cfg.FallbackLen6
+	default:
+		return cfg.FallbackOther
 	}
-	return fallback
 }
 
 // NormalizeToLength5 normalizes a price from its original length to a 5-letter equivalent.
