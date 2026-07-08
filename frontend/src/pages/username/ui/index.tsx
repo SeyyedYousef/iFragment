@@ -373,7 +373,7 @@ export const UsernamePage: Component = () => {
 								fallback={
 									<>
 										<div class="w-4 h-4 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-										<span>{t('sharing') || 'Uploading...'}</span>
+										<span>{t('valuation.sharing') || 'Uploading...'}</span>
 									</>
 								}
 							>
@@ -391,7 +391,7 @@ export const UsernamePage: Component = () => {
 								fallback={
 									<>
 										<div class="w-4 h-4 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-										<span>{t('sharing') || 'Uploading...'}</span>
+										<span>{t('valuation.sharing') || 'Uploading...'}</span>
 									</>
 								}
 							>

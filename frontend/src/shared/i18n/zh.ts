@@ -2052,6 +2052,7 @@ export const dict = {
 		"download": "下载估值卡片",
 		"share": "分享到故事",
 		"save_instruction": "长按图片保存到相册",
-		"close": "关闭"
+		"close": "关闭",
+		"sharing": "正在上传..."
 	}
 };

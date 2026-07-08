@@ -2052,6 +2052,7 @@ export const dict = {
 		"download": "Download Card",
 		"share": "Share to Story",
 		"save_instruction": "Long press the image to save it to your gallery",
-		"close": "Close"
+		"close": "Close",
+		"sharing": "Uploading..."
 	}
 };
