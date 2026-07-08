@@ -630,15 +630,17 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		}
 	}
 
-	// Enforce 1,000,000 TON absolute maximum cap globally
-	if expectedTONRaw > 1000000.0 {
-		expectedTONRaw = 1000000.0
-	}
-	if lowTONRaw > 1000000.0 {
-		lowTONRaw = 1000000.0
-	}
-	if highTONRaw > 1000000.0 {
-		highTONRaw = 1000000.0
+	// Enforce 5,050 TON floor globally for 4-character usernames (Fragment rules)
+	if charLen == 4 {
+		if expectedTONRaw < 5050.0 {
+			expectedTONRaw = 5050.0
+		}
+		if lowTONRaw < 5050.0 {
+			lowTONRaw = 5050.0
+		}
+		if highTONRaw < expectedTONRaw {
+			highTONRaw = expectedTONRaw * 1.2
+		}
 	}
 
 	expectedTON := AestheticRound(expectedTONRaw)

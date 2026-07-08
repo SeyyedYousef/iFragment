@@ -133,8 +133,8 @@ func (g *GeminiScorer) callWithFallback(ctx context.Context, prompt string) *Gem
 	// Tier 2: User keys (round-robin)
 	keys := g.getUserKeys(ctx)
 	if len(keys) == 0 {
-		slog.Warn("Groq scorer: NO API keys available (project=empty, user_keys=0). Returning fallback 10.")
-		return &GeminiResult{Score: 10, Reason: "no API keys available, neutral score"}
+		slog.Warn("Groq scorer: NO API keys available (project=empty, user_keys=0). Returning fallback 60.")
+		return &GeminiResult{Score: 60, Reason: "no API keys available, neutral score"}
 	}
 
 	maxAttempts := 3
@@ -155,8 +155,8 @@ func (g *GeminiScorer) callWithFallback(ctx context.Context, prompt string) *Gem
 	}
 
 	// Tier 3: All failed — fallback to low score for safety
-	slog.Error("ALL Groq API keys exhausted! Returning fallback 10. Fix your API keys!")
-	return &GeminiResult{Score: 10, Reason: "all API keys exhausted, fallback"}
+	slog.Error("ALL Groq API keys exhausted! Returning fallback 60. Fix your API keys!")
+	return &GeminiResult{Score: 60, Reason: "all API keys exhausted, fallback"}
 }
 
 // callGemini makes a single API call to Groq (Llama-3).

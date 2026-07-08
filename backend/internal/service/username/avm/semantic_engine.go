@@ -102,9 +102,17 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 		}
 
 		if rank > 0 {
-			// Rank 1 (most common) → score ~100, Rank 10000 → score ~10
-			// Formula: 100 - (log10(rank) / log10(10000)) * 90
-			wordFreqScore = 100 - (math.Log10(float64(rank))/math.Log10(10000))*90
+			// Piecewise scaling for word frequency score:
+			// Rank 1-1000 -> 90 - 100
+			// Rank 1000-5000 -> 70 - 90
+			// Rank 5000-10000 -> 50 - 70
+			if rank <= 1000 {
+				wordFreqScore = 100.0 - (float64(rank)/1000.0)*10.0
+			} else if rank <= 5000 {
+				wordFreqScore = 90.0 - (float64(rank-1000)/4000.0)*20.0
+			} else {
+				wordFreqScore = 70.0 - (float64(rank-5000)/5000.0)*30.0
+			}
 			wordFreqScore = math.Max(10, math.Min(100, wordFreqScore))
 		} else {
 			// Priority 2: Datamuse API (catches words not in top 10K)
@@ -254,7 +262,8 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 	totalScore = math.Max(0, math.Min(100, totalScore))
 
 	// 4. Convert score to price multiplier
-	multiplier := e.scoreToMultiplier(totalScore, len(username), tags)
+	isDict := isDictionaryWord(username) || isDictionaryWord(strings.ToLower(username))
+	multiplier := e.scoreToMultiplier(totalScore, len(username), tags, isDict)
 
 	result := &SemanticResult{
 		TotalScore:      math.Round(totalScore*100) / 100,
@@ -289,13 +298,17 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 }
 
 // scoreToMultiplier converts the 0-100 score into a price multiplier.
-func (e *SemanticEngine) scoreToMultiplier(score float64, length int, tags []string) float64 {
+func (e *SemanticEngine) scoreToMultiplier(score float64, length int, tags []string, isDict bool) float64 {
 	var multiplier float64
 
 	// Penalty zone: scale from 0.1x to 1.0x
 	if score < 45.0 {
 		normalized := score / 45.0
 		multiplier = 0.1 + math.Pow(normalized, 3.0)*0.9
+		// Dictionary words should never be penalized below 1.0x
+		if isDict && multiplier < 1.0 {
+			multiplier = 1.0
+		}
 	} else {
 		// Premium zone: scale from 1.0x (at score 45) to 200.0x (at score 100)
 		normalized := (score - 45.0) / 55.0

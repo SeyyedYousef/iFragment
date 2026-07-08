@@ -78,13 +78,13 @@ func DefaultEngineConfig() EngineConfig {
 		NormFactorBuyNow:  0.85,
 		NormFactorOffer:   1.10,
 
-		FallbackLen4: 250.0,
+		FallbackLen4: 5050.0,
 		FallbackLen5: 50.0,
 		FallbackLen6: 15.0,
 		FallbackOther: 5.0,
 
 		ClampLowLimit:    5.0,
-		ClampLowExpected: 100.0,
+		ClampLowExpected: 5050.0,
 		MorphDamping:     0.1,
 
 		MorphMultipliers: map[string]float64{
