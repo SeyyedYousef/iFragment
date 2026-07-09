@@ -1,4 +1,4 @@
-import { Component, createSignal, onMount, For, Show } from 'solid-js';
+import { Component, For, Show } from 'solid-js';
 import { backButton } from '@tma.js/sdk-solid';
 import { useNavigate } from '@solidjs/router';
 import { t } from '@/shared/i18n/index.js';
@@ -34,25 +34,29 @@ interface CollectionData {
 export const CollectionInfoPage: Component = () => {
     const navigate = useNavigate();
 
+    // Setup TMA back button
     backButton.show();
     backButton.onClick(() => {
         navigate(-1);
     });
 
     const query = createQuery(() => ({
-        queryKey: ['collection-stats'],
+        queryKey: ['collectionStats'],
         queryFn: async () => {
-            const res = await api.get<CollectionData>('/collection-info/stats');
-            return res.data;
-        }
+            const { data } = await api.get<CollectionData>('/collection/stats');
+            return data;
+        },
+        staleTime: 5 * 60 * 1000,
     }));
+
+
 
     return (
         <div class="min-h-screen bg-[#111214] flex flex-col p-6 text-white font-sans pb-24">
             <Show when={query.isLoading}>
                 <div class="flex flex-col items-center justify-center h-64">
                     <div class="w-8 h-8 border-2 border-[#0098EA] border-t-transparent rounded-full animate-spin mb-4" />
-                    <p class="text-white/50">{t('action.loading', { defaultValue: 'Loading stats...' })}</p>
+                    <p class="text-white/50">{t('action.loading' as any, { defaultValue: 'Loading stats...' })}</p>
                 </div>
             </Show>
 

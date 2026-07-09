@@ -1349,7 +1349,7 @@ func (h *WebhookHandler) mapToModeratorContext(m *Message) *botmgmt.MessageConte
 	}
 }
 
-func (h *WebhookHandler) formatWarningText(ctx context.Context, tgClient *telegram.BotAPIClient, bot *repository.ManagedBot, group *repository.ManagedGroup, chatID int64, userID int64, reason string, violationType string, currentWarnings int, warningThreshold int, template string) string {
+func (h *WebhookHandler) formatWarningText(ctx context.Context, tgClient *telegram.BotAPIClient, group *repository.ManagedGroup, chatID int64, userID int64, reason string, violationType string, currentWarnings int, warningThreshold int, template string) string {
 	userName := fmt.Sprintf("User %d", userID)
 	userLink := fmt.Sprintf("<a href=\"tg://user?id=%d\">User %d</a>", userID, userID)
 	userUsername := ""
@@ -1553,7 +1553,7 @@ func (h *WebhookHandler) executeViolationAction(ctx context.Context, bot *reposi
 			isCustomNotice = true
 		}
 
-		penaltyMsg = h.formatWarningText(ctx, tgClient, bot, group, chatID, userID, violation.Message, violation.Type, violation.CurrentWarnings, violation.WarningThreshold, template)
+		penaltyMsg = h.formatWarningText(ctx, tgClient, group, chatID, userID, violation.Message, violation.Type, violation.CurrentWarnings, violation.WarningThreshold, template)
 	} else {
 		reasonStr := violation.Message
 		if violation.CurrentWarnings > 0 {

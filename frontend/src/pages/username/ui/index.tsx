@@ -603,7 +603,7 @@ export const UsernamePage: Component = () => {
 						</div>
 
 						{/* AI Suggestions */}
-						<Show when={data()?.similar && data()?.similar!.length > 0}>
+						<Show when={(data()?.similar?.length ?? 0) > 0}>
 							<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
 								<div class="flex items-center gap-2 text-white/80 mb-1">
 									<span class="material-symbols-outlined text-[20px] text-yellow-400">psychology</span>
