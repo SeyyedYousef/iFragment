@@ -544,6 +544,7 @@ export const UsernamePage: Component = () => {
 									</span>
 								))}
 							</div>
+							</div>
 						</Show>
 						
 						{/* Extended Reasoning Log */}
@@ -714,7 +715,7 @@ export const UsernamePage: Component = () => {
 								<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.history_title') || 'Ownership History'}</span>
 							</div>
 							<Show
-								when={data()?.history?.is_sold || (data()?.history?.transactions && data()?.history?.transactions.length > 0)}
+								when={data()?.history?.is_sold || ((data()?.history?.transactions?.length ?? 0) > 0)}
 								fallback={
 									<div class="flex items-center gap-3 bg-green-500/10 border border-green-500/20 rounded-xl p-4">
 										<span class="material-symbols-outlined text-green-400">verified</span>
@@ -730,7 +731,7 @@ export const UsernamePage: Component = () => {
 										<span class="text-white/50 text-xs font-semibold uppercase tracking-wider">Buyer</span>
 									</div>
 									{/* Table Body */}
-									<Show when={data()?.history?.transactions && data()?.history?.transactions.length > 0} fallback={
+									<Show when={(data()?.history?.transactions?.length ?? 0) > 0} fallback={
 										<div class="p-4 text-center text-white/50 text-sm">No transaction details available.</div>
 									}>
 										<div class="flex flex-col">
@@ -798,7 +799,7 @@ export const UsernamePage: Component = () => {
 									<span class="text-sm font-bold uppercase tracking-wider">Price Trend</span>
 								</div>
 								<div class="flex items-end justify-between gap-2 h-24 pt-4 border-b border-white/10 pb-1">
-									{data()?.price_trend?.map((trend, i, arr) => {
+									{data()?.price_trend?.map((trend, _i, arr) => {
 										const maxVal = Math.max(...arr.map(t => t.value));
 										const height = maxVal > 0 ? (trend.value / maxVal) * 100 : 0;
 										return (
