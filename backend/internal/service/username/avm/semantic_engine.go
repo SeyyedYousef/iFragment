@@ -235,6 +235,24 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 		}
 	}
 
+	// Crypto / Web3 Ultra Premium
+	cryptoWeb3 := []string{"wallet", "crypto", "bitcoin", "ton", "toncoin", "blockchain", "defi", "nft", "dex", "swap", "coin", "token", "web3", "pay", "bank", "trade", "market", "money", "whale"}
+	for _, c := range cryptoWeb3 {
+		if cleanName == c {
+			tags = append(tags, "crypto_ultra_premium")
+			break
+		}
+	}
+
+	// General Ultra Premium
+	generalUltra := []string{"ai", "chat", "news", "music", "video", "shop", "store", "buy", "sell", "cloud", "data", "tech", "art", "auto", "car", "travel", "hotel", "food", "pizza", "burger", "gold", "silver", "app", "bot"}
+	for _, g := range generalUltra {
+		if cleanName == g {
+			tags = append(tags, "general_ultra_premium")
+			break
+		}
+	}
+
 	// Weighted combination (25% frequency, 30% wiki, 30% AI; treat brand as 15% bonus)
 	baseScore := (wordFreqScore * 0.25) +
 		(wikiScore * 0.30) +
@@ -242,6 +260,16 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 
 	brandBonus := (float64(brandScore) / 100.0) * 15.0
 	totalScore := baseScore + brandBonus
+
+	// Boost total score directly for ultra-premium keywords to escape the penalty zone
+	for _, t := range tags {
+		if t == "crypto_ultra_premium" {
+			totalScore += 40.0 // Massive boost to push into high multiplier curve
+		}
+		if t == "general_ultra_premium" {
+			totalScore += 30.0
+		}
+	}
 
 	// Pronounceability Penalty (N-Gram / Vowel check)
 	// ----------------------------------------------------
@@ -347,11 +375,17 @@ func (e *SemanticEngine) scoreToMultiplier(score float64, length int, tags []str
 		if tag == "emoji_word" {
 			tagMultiplier *= 1.20
 		}
+		if tag == "crypto_ultra_premium" {
+			tagMultiplier *= 4.00
+		}
+		if tag == "general_ultra_premium" {
+			tagMultiplier *= 3.00
+		}
 	}
 	
 	// Hard cap on Tag-Based Multiplier stacking
-	if tagMultiplier > 2.5 {
-		tagMultiplier = 2.5
+	if tagMultiplier > 10.0 {
+		tagMultiplier = 10.0
 	}
 	multiplier *= tagMultiplier
 
