@@ -42,10 +42,17 @@ type DictionaryData struct {
 	Definition   string `json:"definition,omitempty"`
 }
 
+type ValuationHistoryItem struct {
+	SalePriceTON string    `json:"sale_price_ton"`
+	Date         time.Time `json:"date"`
+	Buyer        string    `json:"buyer"`
+}
+
 type ValuationHistory struct {
-	IsSold             bool    `json:"is_sold"`
-	OwnerAddress       string  `json:"owner_address,omitempty"`
-	HighestPastSaleTON float64 `json:"highest_past_sale_ton,omitempty"`
+	IsSold             bool                   `json:"is_sold"`
+	OwnerAddress       string                 `json:"owner_address,omitempty"`
+	HighestPastSaleTON float64                `json:"highest_past_sale_ton,omitempty"`
+	Transactions       []ValuationHistoryItem `json:"transactions,omitempty"`
 }
 
 type ValuationSimilar struct {
@@ -781,8 +788,21 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		seoScore += 30
 		// You could add + frequency/1000 here if you had frequency access.
 	}
-	if seoScore < 0 { seoScore = 0 }
-	if seoScore > 100 { seoScore = 100 }
+	// Boost for shorter length
+	if charLen <= 4 {
+		seoScore += 30
+	} else if charLen <= 6 {
+		seoScore += 20
+	} else if charLen <= 8 {
+		seoScore += 10
+	}
+
+	if seoScore < 0 {
+		seoScore = 0
+	}
+	if seoScore > 100 {
+		seoScore = 100
+	}
 
 	seoVerdict := "Poor"
 	if seoScore >= 70 {
@@ -794,6 +814,30 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	seoResult := ValuationSEO{
 		Score:   seoScore,
 		Verdict: seoVerdict,
+	}
+
+	var historyTransactions []ValuationHistoryItem
+	for _, sale := range targetSales {
+		priceStr := "Transferred"
+		if sale.SalePriceTON.GreaterThan(decimal.Zero) {
+			priceStr = sale.SalePriceTON.String()
+		}
+		buyer := ""
+		if sale.BuyerAddress != nil {
+			buyer = *sale.BuyerAddress
+		}
+		historyTransactions = append(historyTransactions, ValuationHistoryItem{
+			SalePriceTON: priceStr,
+			Date:         sale.SaleDate,
+			Buyer:        buyer,
+		})
+	}
+
+	history := ValuationHistory{
+		IsSold:             hasPastSale,
+		OwnerAddress:       ownerAddress,
+		HighestPastSaleTON: highestPastSale,
+		Transactions:       historyTransactions,
 	}
 
 	// ── Step 5: Return DTO ──
@@ -824,11 +868,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 			PartOfSpeech: dictData.PartOfSpeech,
 			Definition:   dictData.Definition,
 		},
-		History:         ValuationHistory{
-			IsSold:             hasPastSale,
-			OwnerAddress:       ownerAddress,
-			HighestPastSaleTON: highestPastSale,
-		},
+		History:         history,
 		Similar:         similarNames,
 		ReasoningLog:    reasoning,
 	}, nil

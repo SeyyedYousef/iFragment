@@ -475,6 +475,12 @@ func main() {
 				r.With(middleware.AuthMiddleware).Post("/send-to-chat", usernameHandler.SendToChat)
 			})
 
+			// ─── Collection Stats API ─────────────────────────
+			r.Route("/collection", func(r chi.Router) {
+				// No AuthMiddleware required so everyone can see stats
+				r.Get("/stats", collectionHandler.GetStats)
+			})
+
 			// ─── Bot Management API ─────────────────────────
 			r.Route("/bots", func(r chi.Router) {
 				r.Use(middleware.AuthMiddleware)
@@ -590,11 +596,6 @@ func main() {
 					r.Post("/boosts/daily/full-energy", gamificationHandler.ApplyFullEnergy)
 					r.Post("/mining/collect", gamificationHandler.CollectOfflineMining)
 					r.Get("/leaderboard", gamificationHandler.GetLeaderboard)
-
-					// Collection stats
-					r.Route("/collection", func(r chi.Router) {
-						r.Get("/stats", collectionHandler.GetStats)
-					})
 
 					// Clan routes
 					r.Get("/clan", clanHandler.GetClanDetails)

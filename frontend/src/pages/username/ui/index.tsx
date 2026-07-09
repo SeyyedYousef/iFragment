@@ -35,6 +35,11 @@ interface ValuationResult {
 		is_sold: boolean;
 		owner_address?: string;
 		highest_past_sale_ton?: number;
+		transactions?: {
+			sale_price_ton: string;
+			date: string;
+			buyer: string;
+		}[];
 	};
 	similar: {
 		username: string;
@@ -560,12 +565,12 @@ export const UsernamePage: Component = () => {
 						</div>
 
 						<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
-							<div class="flex items-center gap-2 text-white/80 mb-1">
+							<div class="flex items-center gap-2 text-white/80 mb-3">
 								<span class="material-symbols-outlined text-[20px] text-purple-400">history</span>
-								<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.history_title') || 'History & Ownership'}</span>
+								<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.history_title') || 'Ownership History'}</span>
 							</div>
 							<Show
-								when={data()?.history?.is_sold}
+								when={data()?.history?.is_sold || (data()?.history?.transactions && data()?.history?.transactions.length > 0)}
 								fallback={
 									<div class="flex items-center gap-3 bg-green-500/10 border border-green-500/20 rounded-xl p-4">
 										<span class="material-symbols-outlined text-green-400">verified</span>
@@ -573,31 +578,32 @@ export const UsernamePage: Component = () => {
 									</div>
 								}
 							>
-								<div class="flex flex-col gap-2">
-									<Show when={data()?.history?.owner_address}>
-										<div class="flex items-center justify-between bg-white/[0.02] rounded-xl p-3">
-											<span class="text-white/60 text-sm">{t('valuation.owner') || 'Current Owner:'}</span>
-											<div class="flex items-center gap-2">
-												<span class="text-white/90 font-mono text-xs max-w-[100px] truncate">{data()?.history?.owner_address}</span>
-												<button 
-													class="text-[#3390ec] hover:text-[#2b82d9]"
-													onClick={() => {
-														navigator.clipboard.writeText(data()?.history?.owner_address || '');
-														try { hapticFeedback.impactOccurred('light'); } catch (_) {}
-													}}
-												>
-													<span class="material-symbols-outlined text-[16px]">content_copy</span>
-												</button>
-											</div>
+								<div class="flex flex-col rounded-xl overflow-hidden bg-white/[0.02] border border-white/5">
+									{/* Table Header */}
+									<div class="grid grid-cols-3 p-3 border-b border-white/5 bg-white/[0.02]">
+										<span class="text-white/50 text-xs font-semibold uppercase tracking-wider">Sale price</span>
+										<span class="text-white/50 text-xs font-semibold uppercase tracking-wider">Date</span>
+										<span class="text-white/50 text-xs font-semibold uppercase tracking-wider">Buyer</span>
+									</div>
+									{/* Table Body */}
+									<Show when={data()?.history?.transactions && data()?.history?.transactions.length > 0} fallback={
+										<div class="p-4 text-center text-white/50 text-sm">No transaction details available.</div>
+									}>
+										<div class="flex flex-col">
+											{data()?.history?.transactions?.map((tx, idx) => (
+												<div class={`grid grid-cols-3 p-3 items-center ${idx !== (data()?.history?.transactions?.length || 0) - 1 ? 'border-b border-white/5' : ''}`}>
+													<span class="text-white font-bold text-sm">{tx.sale_price_ton}</span>
+													<span class="text-white/50 text-xs">{new Date(tx.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + ' at ' + new Date(tx.date).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
+													<span class="text-[#3390ec] font-medium text-xs truncate max-w-[120px]">{tx.buyer}</span>
+												</div>
+											))}
 										</div>
 									</Show>
-									<div class="flex items-center justify-between bg-white/[0.02] rounded-xl p-3">
-										<span class="text-white/60 text-sm">{t('valuation.sold_for') || 'Highest Sale:'}</span>
-										<div class="flex items-center gap-1">
-											<span class="text-white font-bold">{data()?.history?.highest_past_sale_ton}</span>
-											<span class="text-[#3390ec] font-bold text-sm">TON</span>
+									<Show when={(data()?.history?.transactions?.length || 0) > 4}>
+										<div class="p-3 text-center border-t border-white/5 bg-white/[0.01]">
+											<button class="text-[#3390ec] text-xs font-bold hover:underline">Show more</button>
 										</div>
-									</div>
+									</Show>
 								</div>
 							</Show>
 						</div>
