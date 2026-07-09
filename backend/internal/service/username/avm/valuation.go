@@ -987,7 +987,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 			b := 30
 			if dictData.IsWord { b += 30 }
 			if charLen <= 5 { b += 20 }
-			if !hasNumbers && !hasUnderscore { b += 20 }
+			if !features.HasNumbers && !features.HasUnderscore { b += 20 }
 			return b
 		}(),
 		FearGreedIndex: 72,
@@ -1000,9 +1000,9 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 			return ""
 		}(),
 		RarityBreakdown: map[string]int{
-			"Length Bonus": func() int { if charLen <= 5 { return 1000 } return 0 }(),
-			"Dictionary Bonus": func() int { if dictData.IsWord { return 2000 } return 0 }(),
-			"Clean Structure": func() int { if !hasUnderscore && !hasNumbers { return 300 } return 0 }(),
+			"Length Bonus": func() int { if charLen <= 5 { return 1000 }; return 0 }(),
+			"Dictionary Bonus": func() int { if dictData.IsWord { return 2000 }; return 0 }(),
+			"Clean Structure": func() int { if !features.HasUnderscore && !features.HasNumbers { return 300 }; return 0 }(),
 		},
 	}, nil
 }
