@@ -2,6 +2,7 @@ package username
 
 import (
 	"context"
+	"ifragment-backend/internal/service/username/avm"
 	"math"
 	"sort"
 	"strings"
@@ -33,7 +34,7 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 	}
 
 	base := strings.ToLower(username)
-	pool := similarCandidatePool(base)
+	pool := getCandidatePool(ctx, s.db, base)
 	results := make([]SimilarUsername, 0, limit)
 	seen := map[string]bool{base: true}
 
@@ -94,12 +95,21 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 	return results, nil
 }
 
-func similarCandidatePool(username string) []string {
+func getCandidatePool(ctx context.Context, db *repository.Database, username string) []string {
+	// First, fetch AI suggestions
+	suggestions := avm.GetAISuggestions(ctx, db, username)
+	
+	// Fallback to static pool if AI fails or returns empty
 	candidates := []string{
 		"meta", "crypto", "bitcoin", "ton", "news",
 		"bank", "wallet", "money", "auto", "cars",
 		"apple", "tesla", "google", "ai", "tech",
 		"game", "bet", "shop", "pay", "coin",
+	}
+
+	if len(suggestions) > 0 {
+		// Use AI suggestions, but also append some static ones to ensure variety
+		candidates = append(suggestions, candidates[:5]...)
 	}
 
 	highValueSuffixes := []string{"app", "bot", "pro", "x", "ai", "tech", "pay", "coin", "news"}
