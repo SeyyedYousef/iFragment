@@ -2041,7 +2041,7 @@ export const dict = {
 		"analyzing": "Analyzing market value...",
 		"error_title": "Failed to load data",
 		"back": "Back",
-		"title": "Market Valuation",
+		"title": "Smart Asset Valuation",
 		"estimated_price": "Estimated Market Price",
 		"floor": "Fair Value Floor",
 		"ceiling": "Fair Value Ceiling",

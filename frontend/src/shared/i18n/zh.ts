@@ -2041,7 +2041,7 @@ export const dict = {
 		"analyzing": "正在分析市场价值...",
 		"error_title": "数据加载失败",
 		"back": "返回",
-		"title": "市场估值分析",
+		"title": "智能资产估值",
 		"estimated_price": "预估市场价格",
 		"floor": "合理估值下限",
 		"ceiling": "合理估值上限",

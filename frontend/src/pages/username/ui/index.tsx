@@ -262,21 +262,10 @@ export const UsernamePage: Component = () => {
 					</div>
 				}
 			>
-				<div class="min-h-screen bg-[#0f1014] text-white px-5 py-8 flex flex-col items-center font-sans pb-24">
-					{/* Glowing Header */}
-					<div class="text-center mb-8 relative w-full">
-						<div class="absolute -top-12 left-1/2 -translate-x-1/2 w-32 h-32 bg-[#3390ec]/10 rounded-full blur-2xl pointer-events-none" />
-						<span class="text-[28px] font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-white/70 tracking-tight block mb-2" dir="ltr">
-							@{data()?.username || username()}
-						</span>
-						<span class="px-2.5 py-1 bg-white/[0.04] border border-white/[0.06] rounded-full text-[10px] font-semibold tracking-wider text-white/40 uppercase">
-							{t('valuation.title') || 'Market Valuation'}
-						</span>
-					</div>
-
+				<div class="min-h-screen bg-[#0f1014] text-white px-5 py-6 flex flex-col items-center font-sans pb-24">
 					{/* Flex Card Container Wrapper (Gradient Border) */}
 					<div 
-						class="w-full max-w-[400px] aspect-square p-[1.5px] bg-gradient-to-br from-cyan-400 via-purple-600 to-pink-500 rounded-[42px] shadow-[0_30px_70px_rgba(0,0,0,0.85),0_0_40px_rgba(157,0,255,0.15)] transition-all duration-300 hover:shadow-[0_40px_80px_rgba(0,0,0,0.95),0_0_60px_rgba(0,245,255,0.25)] mb-8"
+						class="w-full max-w-[400px] aspect-square p-[1.5px] bg-gradient-to-br from-cyan-400 via-purple-600 to-pink-500 rounded-[42px] shadow-[0_30px_70px_rgba(0,0,0,0.85),0_0_40px_rgba(157,0,255,0.15)] transition-all duration-300 hover:shadow-[0_40px_80px_rgba(0,0,0,0.95),0_0_60px_rgba(0,245,255,0.25)] mb-4"
 						style={{ "aspect-ratio": "1 / 1" }}
 					>
 						<div 
@@ -426,6 +415,14 @@ export const UsernamePage: Component = () => {
 								{t('valuation.share') || 'Share to Story'}
 							</Show>
 						</button>
+					</div>
+
+					{/* Future Content Section Header */}
+					<div class="w-full max-w-[400px] mt-8 flex flex-col items-start gap-2 border-t border-white/10 pt-6">
+						<div class="flex items-center gap-2 text-white/80">
+							<span class="material-symbols-outlined text-[20px] text-[#3390ec]">analytics</span>
+							<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.title') || 'Smart Asset Valuation'}</span>
+						</div>
 					</div>
 				</div>
 			</Show>
