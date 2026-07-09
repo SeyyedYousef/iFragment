@@ -349,6 +349,10 @@ func main() {
 	clanService.StartScoreFlusher(ctx)
 	clanHandler := handler.NewClanHandler(clanService)
 
+	collectionRepo := repository.NewCollectionRepo(db)
+	collectionHandler := handler.NewCollectionHandler(collectionRepo)
+
+
 	authHandler := handler.NewAuthHandler(db)
 
 	// Initialize Owner components
@@ -586,6 +590,11 @@ func main() {
 					r.Post("/boosts/daily/full-energy", gamificationHandler.ApplyFullEnergy)
 					r.Post("/mining/collect", gamificationHandler.CollectOfflineMining)
 					r.Get("/leaderboard", gamificationHandler.GetLeaderboard)
+
+					// Collection stats
+					r.Route("/collection", func(r chi.Router) {
+						r.Get("/stats", collectionHandler.GetStats)
+					})
 
 					// Clan routes
 					r.Get("/clan", clanHandler.GetClanDetails)
