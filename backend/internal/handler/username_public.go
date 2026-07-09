@@ -13,6 +13,7 @@ import (
 	"ifragment-backend/internal/service/username/avm"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -475,8 +476,92 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.sendValuationNotification(r, u, result)
+
+	// Fetch similar usernames (available ones)
+	similars, _ := h.reportService.FindSimilarUsernames(ctx, u, 3)
+	for _, sim := range similars {
+		result.Similar = append(result.Similar, avm.ValuationSimilar{
+			Username: sim.Username,
+			Reason:   sim.Reason,
+		})
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
+}
+
+func (h *UsernameHandler) sendValuationNotification(r *http.Request, u string, result *avm.ValuationResult) {
+	initData := r.Header.Get("X-Telegram-Init-Data")
+	userID := "ناشناس"
+	userIdent := "کاربر ناشناس"
+
+	if initData != "" {
+		values, _ := url.ParseQuery(initData)
+		userData := values.Get("user")
+		if userData != "" {
+			var userObj map[string]interface{}
+			if err := json.Unmarshal([]byte(userData), &userObj); err == nil {
+				if idVal, ok := userObj["id"]; ok {
+					switch v := idVal.(type) {
+					case float64:
+						userID = strconv.FormatInt(int64(v), 10)
+					case int64:
+						userID = strconv.FormatInt(v, 10)
+					}
+				}
+				if uName, ok := userObj["username"].(string); ok && uName != "" {
+					userIdent = "@" + uName
+				} else if first, ok := userObj["first_name"].(string); ok && first != "" {
+					userIdent = first
+				}
+			}
+		}
+	}
+
+	botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
+	if botToken == "" {
+		return
+	}
+
+	client := telegram.NewBotAPIClient(botToken)
+
+	msg := fmt.Sprintf(
+		"🔍 <b>درخواست تحلیل ارزش بازار (AVM)</b>\n\n"+
+			"👤 <b>کاربر:</b> %s (<code>%s</code>)\n"+
+			"🆔 <b>یوزرنیم مورد نظر:</b> @%s\n\n"+
+			"💰 <b>قیمت تخمینی (پایه):</b> %s TON\n"+
+			"📉 <b>کمترین قیمت:</b> %s TON\n"+
+			"📈 <b>بیشترین قیمت:</b> %s TON\n"+
+			"💵 <b>معادل دلاری (تخمینی):</b> $%s\n"+
+			"🎯 <b>دقت تخمین:</b> %d%%\n"+
+			"💎 <b>میزان کمیابی:</b> %s\n"+
+			"🏷 <b>تگ‌ها:</b> %s",
+		telegram.EscapeHTML(userIdent), userID,
+		telegram.EscapeHTML(u),
+		result.BasePriceTON.StringFixed(2),
+		result.LowTON.StringFixed(2),
+		result.HighTON.StringFixed(2),
+		result.ExpectedUSD.StringFixed(2),
+		result.ConfidenceScore,
+		result.Rarity.Tier,
+		strings.Join(result.Tags, ", "),
+	)
+
+	payload := map[string]interface{}{
+		"chat_id":    "@llsalell",
+		"text":       msg,
+		"parse_mode": "HTML",
+	}
+
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_, err := client.Request(ctx, "sendMessage", payload)
+		if err != nil {
+			slog.Warn("Failed to send AVM notification to channel", "error", err)
+		}
+	}()
 }
 
 func (h *UsernameHandler) Share(w http.ResponseWriter, r *http.Request) {

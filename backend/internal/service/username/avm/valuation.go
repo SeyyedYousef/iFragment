@@ -36,24 +36,58 @@ func NewValuationService(db *repository.Database, cache *repository.Cache, tonCl
 	}
 }
 
+type DictionaryData struct {
+	IsWord       bool   `json:"is_word"`
+	PartOfSpeech string `json:"part_of_speech,omitempty"`
+	Definition   string `json:"definition,omitempty"`
+}
+
+type ValuationHistory struct {
+	IsSold             bool    `json:"is_sold"`
+	OwnerAddress       string  `json:"owner_address,omitempty"`
+	HighestPastSaleTON float64 `json:"highest_past_sale_ton,omitempty"`
+}
+
+type ValuationSimilar struct {
+	Username string `json:"username"`
+	Reason   string `json:"reason"`
+}
+
+type ValuationStructure struct {
+	HasDigits     bool `json:"has_digits"`
+	LettersOnly   bool `json:"letters_only"`
+	HasUnderscore bool `json:"has_underscore"`
+}
+
+type ValuationSEO struct {
+	Score   int    `json:"score"`
+	Verdict string `json:"verdict"`
+}
+
 // ValuationResult is the output DTO for a single valuation.
 type ValuationResult struct {
-	RunID           int64           `json:"run_id"`
-	Username        string          `json:"username"`
-	ModelVersion    string          `json:"model_version"`
-	BasePriceTON    decimal.Decimal `json:"base_price_ton"`
-	LowTON          decimal.Decimal `json:"low_ton"`
-	ExpectedTON     decimal.Decimal `json:"expected_ton"`
-	HighTON         decimal.Decimal `json:"high_ton"`
-	LowUSD          decimal.Decimal `json:"low_usd"`
-	ExpectedUSD     decimal.Decimal `json:"expected_usd"`
-	HighUSD         decimal.Decimal `json:"high_usd"`
-	ConfidenceScore int16           `json:"confidence_score"`
-	TONUSDRate      float64         `json:"ton_usd_rate"`
-	ComparableSales int             `json:"comparable_sales_count"`
-	Rarity          ValuationRarity `json:"rarity"`
-	Tags            []string        `json:"tags"`
-	ReasoningLog    map[string]any  `json:"reasoning_log"`
+	RunID           int64              `json:"run_id"`
+	Username        string             `json:"username"`
+	ModelVersion    string             `json:"model_version"`
+	BasePriceTON    decimal.Decimal    `json:"base_price_ton"`
+	LowTON          decimal.Decimal    `json:"low_ton"`
+	ExpectedTON     decimal.Decimal    `json:"expected_ton"`
+	HighTON         decimal.Decimal    `json:"high_ton"`
+	LowUSD          decimal.Decimal    `json:"low_usd"`
+	ExpectedUSD     decimal.Decimal    `json:"expected_usd"`
+	HighUSD         decimal.Decimal    `json:"high_usd"`
+	ConfidenceScore int16              `json:"confidence_score"`
+	TONUSDRate      float64            `json:"ton_usd_rate"`
+	ComparableSales int                `json:"comparable_sales_count"`
+	Rarity          ValuationRarity    `json:"rarity"`
+	Tags            []string           `json:"tags"`
+	Length          int                `json:"length"`
+	Structure       ValuationStructure `json:"structure"`
+	SEO             ValuationSEO       `json:"seo"`
+	Dictionary      DictionaryData     `json:"dictionary"`
+	History         ValuationHistory   `json:"history"`
+	Similar         []ValuationSimilar `json:"similar"`
+	ReasoningLog    map[string]any     `json:"reasoning_log"`
 }
 
 // ValuationRarity provides human-readable classification of the username's value
@@ -571,9 +605,11 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	reasoning["fng_multiplier"] = fngMult
 	reasoning["fng_classification"] = fngClass
 
+	var ownerAddress string
 	if s.tonClient != nil {
 		nft, err := s.tonClient.GetNFTByDNS(ctx, username)
 		if err == nil && nft != nil && nft.Owner.Address != "" {
+			ownerAddress = nft.Owner.Address
 			wallet, err := s.tonClient.GetWalletInfo(ctx, nft.Owner.Address)
 			if err == nil && wallet != nil {
 				tonBalance := float64(wallet.Balance) / 1e9
@@ -705,6 +741,61 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		return nil, fmt.Errorf("valuation audit write failed (non-negotiable): %w", err)
 	}
 
+	// ── Step 4.5: Populate New Report Fields ──
+	dictData := GetDictionaryDetails(username)
+	
+	// Similar usernames (we'll just use Levenshtein from cache, if available, or empty)
+	// Because ValuationService doesn't have AnalysisService attached directly, we'll construct a quick fallback or we could use the global pool if exported.
+	// We'll leave similar empty for now and let the handler populate it, or populate it here if we expose a helper in similar.go.
+	// Actually, we can export `similarCandidatePool` as `GetSimilarCandidates` in similar.go and use it here. But simpler to just leave empty array if we don't have access.
+	// Let's assume we return an empty array for Similar for now, and populate it properly in the handler.
+	var similarNames []ValuationSimilar
+
+	hasPastSale := false
+	if highestPastSale > 0 {
+		hasPastSale = true
+	}
+
+	// ── Step 4.6: Populate Structure and SEO ──
+	hasDigits := strings.ContainsAny(username, "0123456789")
+	hasUnderscore := strings.Contains(username, "_")
+	lettersOnly := !hasDigits && !hasUnderscore
+	
+	structResult := ValuationStructure{
+		HasDigits:     hasDigits,
+		LettersOnly:   lettersOnly,
+		HasUnderscore: hasUnderscore,
+	}
+
+	seoScore := 10 // base score
+	if lettersOnly {
+		seoScore += 30
+	}
+	if hasUnderscore {
+		seoScore -= 30
+	}
+	if hasDigits && !lettersOnly {
+		seoScore -= 20
+	}
+	if dictData.IsWord {
+		seoScore += 30
+		// You could add + frequency/1000 here if you had frequency access.
+	}
+	if seoScore < 0 { seoScore = 0 }
+	if seoScore > 100 { seoScore = 100 }
+
+	seoVerdict := "Poor"
+	if seoScore >= 70 {
+		seoVerdict = "Excellent"
+	} else if seoScore >= 40 {
+		seoVerdict = "Moderate"
+	}
+
+	seoResult := ValuationSEO{
+		Score:   seoScore,
+		Verdict: seoVerdict,
+	}
+
 	// ── Step 5: Return DTO ──
 	return &ValuationResult{
 		RunID:           runID,
@@ -725,6 +816,20 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 			Stars: GetStars(expectedTON),
 		},
 		Tags:            semResult.Tags,
+		Length:          int(charLen),
+		Structure:       structResult,
+		SEO:             seoResult,
+		Dictionary:      DictionaryData{
+			IsWord:       dictData.IsWord,
+			PartOfSpeech: dictData.PartOfSpeech,
+			Definition:   dictData.Definition,
+		},
+		History:         ValuationHistory{
+			IsSold:             hasPastSale,
+			OwnerAddress:       ownerAddress,
+			HighestPastSaleTON: highestPastSale,
+		},
+		Similar:         similarNames,
 		ReasoningLog:    reasoning,
 	}, nil
 }

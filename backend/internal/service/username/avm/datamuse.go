@@ -18,6 +18,7 @@ type DatamuseResponse struct {
 	Word  string   `json:"word"`
 	Score int      `json:"score"`
 	Tags  []string `json:"tags"`
+	Defs  []string `json:"defs,omitempty"`
 }
 
 var (
@@ -128,4 +129,74 @@ func CalculateSemanticMultiplier(word string) (float64, bool) {
 	}
 
 	return totalMultiplier, true
+}
+
+type DictionaryDetails struct {
+	IsWord       bool
+	PartOfSpeech string
+	Definition   string
+}
+
+// GetDictionaryDetails queries Datamuse for md=d,p to get definition and POS
+func GetDictionaryDetails(word string) DictionaryDetails {
+	word = strings.ToLower(strings.TrimSpace(word))
+	res := DictionaryDetails{IsWord: false}
+	
+	if len(word) == 0 {
+		return res
+	}
+
+	url := fmt.Sprintf("https://api.datamuse.com/words?sp=%s&max=1&md=d,p", word)
+	resp, err := httpClient.Get(url)
+	if err != nil {
+		return res
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return res
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return res
+	}
+
+	var results []DatamuseResponse
+	if err := json.Unmarshal(body, &results); err != nil {
+		return res
+	}
+
+	if len(results) > 0 && strings.ToLower(results[0].Word) == word {
+		res.IsWord = true
+		
+		// Map part of speech
+		posMap := map[string]string{
+			"n": "Noun",
+			"v": "Verb",
+			"adj": "Adjective",
+			"adv": "Adverb",
+			"u": "Unknown",
+		}
+		
+		for _, tag := range results[0].Tags {
+			if fullPos, ok := posMap[tag]; ok {
+				res.PartOfSpeech = fullPos
+				break
+			}
+		}
+
+		if len(results[0].Defs) > 0 {
+			// Defs are typically formatted like "n\ta pocket-size case"
+			defStr := results[0].Defs[0]
+			parts := strings.SplitN(defStr, "\t", 2)
+			if len(parts) == 2 {
+				res.Definition = parts[1]
+			} else {
+				res.Definition = defStr
+			}
+		}
+	}
+
+	return res
 }

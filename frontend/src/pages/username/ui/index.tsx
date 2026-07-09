@@ -25,6 +25,30 @@ interface ValuationResult {
 		stars: string;
 	};
 	tags: string[];
+	length: number;
+	dictionary: {
+		is_word: boolean;
+		part_of_speech?: string;
+		definition?: string;
+	};
+	history: {
+		is_sold: boolean;
+		owner_address?: string;
+		highest_past_sale_ton?: number;
+	};
+	similar: {
+		username: string;
+		reason: string;
+	}[];
+	structure: {
+		has_digits: boolean;
+		letters_only: boolean;
+		has_underscore: boolean;
+	};
+	seo: {
+		score: number;
+		verdict: string;
+	};
 	reasoning_log: Record<string, any>;
 }
 
@@ -417,12 +441,188 @@ export const UsernamePage: Component = () => {
 						</button>
 					</div>
 
-					{/* Future Content Section Header */}
-					<div class="w-full max-w-[400px] mt-8 flex flex-col items-start gap-2 border-t border-white/10 pt-6">
-						<div class="flex items-center gap-2 text-white/80">
-							<span class="material-symbols-outlined text-[20px] text-[#3390ec]">analytics</span>
-							<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.title') || 'Smart Asset Valuation'}</span>
+					{/* Reports Section */}
+					<div class="w-full max-w-[400px] mt-8 flex flex-col gap-4 border-t border-white/10 pt-6 pb-12">
+						{/* Identity & Linguistics */}
+						<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
+							<div class="flex items-center gap-2 text-white/80 mb-1">
+								<span class="material-symbols-outlined text-[20px] text-cyan-400">translate</span>
+								<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.dict_title') || 'Identity & Linguistics'}</span>
+							</div>
+							<div class="flex items-center justify-between bg-white/[0.02] rounded-xl p-3">
+								<span class="text-white/60 text-sm">{t('valuation.len')?.replace('{count}', data()?.length?.toString() || '0') || `Length: ${data()?.length} chars`}</span>
+								<span class="text-white font-mono">{data()?.length}</span>
+							</div>
+							<Show
+								when={data()?.dictionary?.is_word}
+								fallback={
+									<div class="flex items-center justify-center bg-white/[0.02] rounded-xl p-4 border border-white/5">
+										<span class="text-white/40 text-sm italic">{t('valuation.dict_none') || 'Not a dictionary word'}</span>
+									</div>
+								}
+							>
+								<div class="flex flex-col bg-white/[0.02] rounded-xl p-3 border border-white/5 relative overflow-hidden">
+									<div class="absolute right-0 top-0 w-16 h-16 bg-cyan-500/10 rounded-bl-full pointer-events-none" />
+									<span class="text-cyan-400 text-xs font-bold uppercase mb-1">
+										{data()?.dictionary?.part_of_speech === 'Noun' ? (t('valuation.noun') || 'Noun') : 
+										 data()?.dictionary?.part_of_speech === 'Verb' ? (t('valuation.verb') || 'Verb') : 
+										 data()?.dictionary?.part_of_speech === 'Adjective' ? (t('valuation.adjective') || 'Adjective') : 
+										 data()?.dictionary?.part_of_speech || (t('valuation.unknown') || 'Unknown')}
+									</span>
+									<span class="text-white/80 text-sm leading-relaxed">{data()?.dictionary?.definition}</span>
+								</div>
+							</Show>
 						</div>
+
+						{/* Structural Anatomy */}
+						<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
+							<div class="flex items-center gap-2 text-white/80 mb-1">
+								<span class="material-symbols-outlined text-[20px] text-pink-400">biotech</span>
+								<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.struct_title') || 'Structural Anatomy'}</span>
+							</div>
+							
+							<div class="flex items-center justify-between bg-white/[0.02] rounded-xl p-3">
+								<span class="text-white/60 text-sm">{t('valuation.has_digits') || 'Contains Digits'}</span>
+								<div class="flex items-center gap-1">
+									<Show when={data()?.structure?.has_digits} fallback={
+										<><span class="material-symbols-outlined text-green-400 text-[18px]">check_circle</span> <span class="text-green-400 font-bold text-sm">{t('valuation.no') || 'No'}</span></>
+									}>
+										<span class="material-symbols-outlined text-red-400 text-[18px]">cancel</span> <span class="text-red-400 font-bold text-sm">{t('valuation.yes') || 'Yes'}</span>
+									</Show>
+								</div>
+							</div>
+
+							<div class="flex items-center justify-between bg-white/[0.02] rounded-xl p-3">
+								<span class="text-white/60 text-sm">{t('valuation.has_underscore') || 'Contains Underline (_)'}</span>
+								<div class="flex items-center gap-1">
+									<Show when={data()?.structure?.has_underscore} fallback={
+										<><span class="material-symbols-outlined text-green-400 text-[18px]">check_circle</span> <span class="text-green-400 font-bold text-sm">{t('valuation.no') || 'No'}</span></>
+									}>
+										<span class="material-symbols-outlined text-red-400 text-[18px]">cancel</span> <span class="text-red-400 font-bold text-sm">{t('valuation.yes') || 'Yes'}</span>
+									</Show>
+								</div>
+							</div>
+
+							<div class="flex items-center justify-between bg-white/[0.02] rounded-xl p-3">
+								<span class="text-white/60 text-sm">{t('valuation.letters_only') || 'Letters Only'}</span>
+								<div class="flex items-center gap-1">
+									<Show when={data()?.structure?.letters_only} fallback={
+										<><span class="material-symbols-outlined text-red-400 text-[18px]">cancel</span> <span class="text-red-400 font-bold text-sm">{t('valuation.no') || 'No'}</span></>
+									}>
+										<span class="material-symbols-outlined text-green-400 text-[18px]">check_circle</span> <span class="text-green-400 font-bold text-sm">{t('valuation.yes') || 'Yes'}</span>
+									</Show>
+								</div>
+							</div>
+						</div>
+
+						{/* Global Search SEO */}
+						<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
+							<div class="flex items-center gap-2 text-white/80 mb-1">
+								<span class="material-symbols-outlined text-[20px] text-blue-400">travel_explore</span>
+								<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.seo_title') || 'Global Search Potential'}</span>
+							</div>
+							
+							<div class="flex items-center gap-4 bg-white/[0.02] rounded-xl p-4 border border-white/5">
+								<div class="relative w-16 h-16 flex items-center justify-center shrink-0">
+									<svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+										<path
+											class="text-white/10"
+											stroke-width="3"
+											stroke="currentColor"
+											fill="none"
+											d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+										/>
+										<path
+											class={(data()?.seo?.score || 0) >= 70 ? "text-green-400" : (data()?.seo?.score || 0) >= 40 ? "text-yellow-400" : "text-red-400"}
+											stroke-dasharray={`${data()?.seo?.score || 0}, 100`}
+											stroke-width="3"
+											stroke-linecap="round"
+											stroke="currentColor"
+											fill="none"
+											d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+										/>
+									</svg>
+									<div class="absolute inset-0 flex items-center justify-center flex-col">
+										<span class="text-white font-bold text-lg leading-none">{data()?.seo?.score || 0}</span>
+									</div>
+								</div>
+								<div class="flex flex-col">
+									<span class={`font-bold text-lg ${(data()?.seo?.score || 0) >= 70 ? "text-green-400" : (data()?.seo?.score || 0) >= 40 ? "text-yellow-400" : "text-red-400"}`}>
+										{(data()?.seo?.score || 0) >= 70 ? (t('valuation.seo_excellent') || 'Excellent') : 
+										 (data()?.seo?.score || 0) >= 40 ? (t('valuation.seo_moderate') || 'Moderate') : 
+										 (t('valuation.seo_poor') || 'Poor')}
+									</span>
+									<span class="text-white/50 text-xs mt-1 leading-relaxed">
+										Higher score means better visibility in Telegram global search.
+									</span>
+								</div>
+							</div>
+						</div>
+
+						<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
+							<div class="flex items-center gap-2 text-white/80 mb-1">
+								<span class="material-symbols-outlined text-[20px] text-purple-400">history</span>
+								<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.history_title') || 'History & Ownership'}</span>
+							</div>
+							<Show
+								when={data()?.history?.is_sold}
+								fallback={
+									<div class="flex items-center gap-3 bg-green-500/10 border border-green-500/20 rounded-xl p-4">
+										<span class="material-symbols-outlined text-green-400">verified</span>
+										<span class="text-green-400 text-sm font-medium">{t('valuation.not_sold') || 'Status: Never sold on Fragment!'}</span>
+									</div>
+								}
+							>
+								<div class="flex flex-col gap-2">
+									<Show when={data()?.history?.owner_address}>
+										<div class="flex items-center justify-between bg-white/[0.02] rounded-xl p-3">
+											<span class="text-white/60 text-sm">{t('valuation.owner') || 'Current Owner:'}</span>
+											<div class="flex items-center gap-2">
+												<span class="text-white/90 font-mono text-xs max-w-[100px] truncate">{data()?.history?.owner_address}</span>
+												<button 
+													class="text-[#3390ec] hover:text-[#2b82d9]"
+													onClick={() => {
+														navigator.clipboard.writeText(data()?.history?.owner_address || '');
+														try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+													}}
+												>
+													<span class="material-symbols-outlined text-[16px]">content_copy</span>
+												</button>
+											</div>
+										</div>
+									</Show>
+									<div class="flex items-center justify-between bg-white/[0.02] rounded-xl p-3">
+										<span class="text-white/60 text-sm">{t('valuation.sold_for') || 'Highest Sale:'}</span>
+										<div class="flex items-center gap-1">
+											<span class="text-white font-bold">{data()?.history?.highest_past_sale_ton}</span>
+											<span class="text-[#3390ec] font-bold text-sm">TON</span>
+										</div>
+									</div>
+								</div>
+							</Show>
+						</div>
+
+						{/* AI Suggestions */}
+						<Show when={data()?.similar && data()?.similar!.length > 0}>
+							<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
+								<div class="flex items-center gap-2 text-white/80 mb-1">
+									<span class="material-symbols-outlined text-[20px] text-yellow-400">psychology</span>
+									<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.similar_title') || 'AI Alternative Suggestions'}</span>
+								</div>
+								<div class="flex gap-3 overflow-x-auto pb-2 snap-x hide-scrollbar">
+									{data()?.similar?.map(sim => (
+										<div class="min-w-[200px] flex-shrink-0 bg-white/[0.02] border border-white/5 rounded-xl p-3 snap-start cursor-pointer hover:bg-white/[0.05] transition-colors"
+											onClick={() => {
+												window.location.href = `/username?u=${sim.username}`;
+											}}
+										>
+											<div class="text-[#3390ec] font-bold mb-1 truncate">@{sim.username}</div>
+											<div class="text-white/50 text-xs line-clamp-2 leading-relaxed">{sim.reason}</div>
+										</div>
+									))}
+								</div>
+							</div>
+						</Show>
 					</div>
 				</div>
 			</Show>
