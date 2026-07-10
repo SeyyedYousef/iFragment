@@ -19,52 +19,54 @@ type FnGResponse struct {
 
 var (
 	fngCache      float64 = 1.0
+	fngIndexCache int     = 50
 	fngLastUpdate time.Time
 	fngMutex      sync.RWMutex
 	fngHttp       = &http.Client{Timeout: 5 * time.Second}
 )
 
 // GetFearAndGreedMultiplier fetches the global crypto Fear & Greed index and maps it to a valuation multiplier.
-func GetFearAndGreedMultiplier() (float64, string) {
+func GetFearAndGreedMultiplier() (float64, string, int) {
 	fngMutex.RLock()
 	cached := fngCache
+	cachedIdx := fngIndexCache
 	lastUpdate := fngLastUpdate
 	fngMutex.RUnlock()
 
 	// Cache for 12 hours since the index updates daily
 	if time.Since(lastUpdate) < 12*time.Hour {
-		return cached, "cached_fng"
+		return cached, "cached_fng", cachedIdx
 	}
 
 	resp, err := fngHttp.Get("https://api.alternative.me/fng/")
 	if err != nil {
 		slog.Warn("FnG API fetch failed", "error", err)
-		return cached, "cached_error_fallback"
+		return cached, "cached_error_fallback", cachedIdx
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return cached, "cached_error_fallback"
+		return cached, "cached_error_fallback", cachedIdx
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return cached, "cached_error_fallback"
+		return cached, "cached_error_fallback", cachedIdx
 	}
 
 	var parsed FnGResponse
 	if err := json.Unmarshal(body, &parsed); err != nil {
-		return cached, "cached_error_fallback"
+		return cached, "cached_error_fallback", cachedIdx
 	}
 
 	if len(parsed.Data) == 0 {
-		return cached, "cached_error_fallback"
+		return cached, "cached_error_fallback", cachedIdx
 	}
 
 	valStr := parsed.Data[0].Value
 	val, err := strconv.Atoi(valStr)
 	if err != nil {
-		return cached, "cached_error_fallback"
+		return cached, "cached_error_fallback", cachedIdx
 	}
 
 	// Linear Scaling Formula: 0.85 + (val / 100.0) * 0.35
@@ -75,8 +77,9 @@ func GetFearAndGreedMultiplier() (float64, string) {
 
 	fngMutex.Lock()
 	fngCache = multiplier
+	fngIndexCache = val
 	fngLastUpdate = time.Now()
 	fngMutex.Unlock()
 
-	return multiplier, parsed.Data[0].ValueClassification
+	return multiplier, parsed.Data[0].ValueClassification, val
 }

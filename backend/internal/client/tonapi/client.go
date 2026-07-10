@@ -577,6 +577,44 @@ func (c *Client) ResolveDNS(ctx context.Context, domain string) (*DNSResolve, er
 	return &resolve, nil
 }
 
+type BidInfo struct {
+	Success bool   `json:"success"`
+	Value   int64  `json:"value"` // nanotons
+	TxTime  int64  `json:"txTime"`
+	TxHash  string `json:"txHash"`
+	Bidder  struct {
+		Address  string `json:"address"`
+		IsWallet bool   `json:"is_wallet"`
+	} `json:"bidder"`
+}
+
+type BidsResponse struct {
+	Data []BidInfo `json:"data"`
+}
+
+// GetFragmentBids retrieves the bidding/auction history for a DNS domain (Fragment usernames)
+func (c *Client) GetFragmentBids(ctx context.Context, domain string) (*BidsResponse, error) {
+	url := fmt.Sprintf("%s/dns/%s/bids", c.BaseURL, domain)
+	resp, err := c.doRequest(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, nil // No bids found
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("tonapi dns bids error: %s", resp.Status)
+	}
+
+	var bids BidsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&bids); err != nil {
+		return nil, err
+	}
+	return &bids, nil
+}
+
 // StreamAccountEvents opens an SSE connection to stream events for specific accounts
 func (c *Client) StreamAccountEvents(ctx context.Context, accounts []string, onEvent func(data []byte)) error {
 	accountsStr := strings.Join(accounts, ",")

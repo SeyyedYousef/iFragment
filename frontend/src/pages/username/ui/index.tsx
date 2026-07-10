@@ -563,6 +563,99 @@ export const UsernamePage: Component = () => {
 
 					{/* Reports Section */}
 					<div class="w-full max-w-[400px] mt-8 flex flex-col gap-4 border-t border-white/10 pt-6 pb-12">
+						
+						{/* Price Trend Chart */}
+						<Show when={data()?.price_trend && data()!.price_trend.length > 0}>
+							<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
+								<div class="flex items-center gap-2 text-white/80 mb-1">
+									<span class="material-symbols-outlined text-[20px] text-indigo-400">trending_up</span>
+									<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.price_trend_title') || 'Price Trend'}</span>
+								</div>
+								<div class="flex items-end justify-between gap-2 h-24 pt-4 border-b border-white/10 pb-1">
+									{data()?.price_trend?.map((trend, _i, arr) => {
+										const maxVal = Math.max(...arr.map(t => t.value));
+										const height = maxVal > 0 ? (trend.value / maxVal) * 100 : 0;
+										return (
+											<div class="flex flex-col items-center gap-1 flex-1">
+												<div class="w-full bg-indigo-500/20 rounded-t-sm relative group cursor-pointer hover:bg-indigo-400/40 transition-colors" style={{ height: `${height}%`, "min-height": "4px" }}>
+													<div class="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 text-white text-[10px] px-1.5 py-0.5 rounded pointer-events-none whitespace-nowrap">
+														+{trend.value}%
+													</div>
+												</div>
+												<span class="text-white/40 text-[9px] uppercase">{trend.label}</span>
+											</div>
+										);
+									})}
+								</div>
+							</div>
+						</Show>
+
+						<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
+							<div class="flex items-center gap-2 text-white/80 mb-3">
+								<span class="material-symbols-outlined text-[20px] text-purple-400">history</span>
+								<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.history_title') || 'Ownership History'}</span>
+							</div>
+							<Show
+								when={data()?.history?.is_sold || ((data()?.history?.transactions?.length ?? 0) > 0)}
+								fallback={
+									<div class="flex items-center gap-3 bg-green-500/10 border border-green-500/20 rounded-xl p-4">
+										<span class="material-symbols-outlined text-green-400">verified</span>
+										<span class="text-green-400 text-sm font-medium">{t('valuation.not_sold') || 'Status: Never sold on Fragment!'}</span>
+									</div>
+								}
+							>
+								<div class="flex flex-col rounded-xl overflow-hidden bg-white/[0.02] border border-white/5">
+									{/* Table Header */}
+									<div class="grid grid-cols-3 p-3 border-b border-white/5 bg-white/[0.02]">
+										<span class="text-white/50 text-xs font-semibold uppercase tracking-wider">{t('valuation.sale_price') || 'Sale price'}</span>
+										<span class="text-white/50 text-xs font-semibold uppercase tracking-wider">{t('valuation.date') || 'Date'}</span>
+										<span class="text-white/50 text-xs font-semibold uppercase tracking-wider">{t('valuation.buyer') || 'Buyer'}</span>
+									</div>
+									{/* Table Body */}
+									<Show when={(data()?.history?.transactions?.length ?? 0) > 0} fallback={
+										<div class="p-4 text-center text-white/50 text-sm">{t('valuation.no_tx') || 'No transaction details available.'}</div>
+									}>
+										<div class="flex flex-col">
+											{data()?.history?.transactions?.map((tx, idx) => (
+												<div class={`grid grid-cols-3 p-3 items-center ${idx !== (data()?.history?.transactions?.length || 0) - 1 ? 'border-b border-white/5' : ''}`}>
+													<span class="text-white font-bold text-sm">{tx.sale_price_ton}</span>
+													<span class="text-white/50 text-xs">{new Date(tx.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + ' at ' + new Date(tx.date).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
+													<span class="text-[#3390ec] font-medium text-xs truncate max-w-[120px]">{tx.buyer}</span>
+												</div>
+											))}
+										</div>
+									</Show>
+									<Show when={(data()?.history?.transactions?.length || 0) > 4}>
+										<div class="p-3 text-center border-t border-white/5 bg-white/[0.01]">
+											<button class="text-[#3390ec] text-xs font-bold hover:underline">{t('valuation.show_more') || 'Show more'}</button>
+										</div>
+									</Show>
+								</div>
+							</Show>
+						</div>
+
+						{/* AI Suggestions */}
+						<Show when={(data()?.similar?.length ?? 0) > 0}>
+							<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
+								<div class="flex items-center gap-2 text-white/80 mb-1">
+									<span class="material-symbols-outlined text-[20px] text-yellow-400">psychology</span>
+									<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.similar_title') || 'AI Alternative Suggestions'}</span>
+								</div>
+								<div class="flex gap-3 overflow-x-auto pb-2 snap-x hide-scrollbar">
+									{data()?.similar?.map(sim => (
+										<div class="min-w-[200px] flex-shrink-0 bg-white/[0.02] border border-white/5 rounded-xl p-3 snap-start cursor-pointer hover:bg-white/[0.05] transition-colors"
+											onClick={() => {
+												window.location.href = `/username?u=${sim.username}`;
+											}}
+										>
+											<div class="text-[#3390ec] font-bold mb-1 truncate">@{sim.username}</div>
+											<div class="text-white/50 text-xs line-clamp-2 leading-relaxed">{sim.reason}</div>
+										</div>
+									))}
+								</div>
+							</div>
+						</Show>
+
 						{/* Identity & Linguistics */}
 						<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
 							<div class="flex items-center gap-2 text-white/80 mb-1">
@@ -604,34 +697,34 @@ export const UsernamePage: Component = () => {
 							{/* Contains Digits */}
 							<div class="flex items-center justify-between bg-white/[0.02] rounded-xl p-3">
 								<div class="flex flex-col gap-0.5">
-									<span class="text-white/80 text-sm font-medium">{t('valuation.has_digits') || 'Pure Letters'}</span>
-									<span class="text-white/30 text-[10px]">{data()?.structure?.has_digits ? 'Numbers reduce premium value' : 'No numbers → higher value'}</span>
+									<span class="text-white/80 text-sm font-medium">{t('valuation.has_digits_title') || 'Pure Letters'}</span>
+									<span class="text-white/30 text-[10px]">{data()?.structure?.has_digits ? (t('valuation.has_digits_desc') || 'Alpha-numeric combination') : (t('valuation.no_digits_desc') || 'Contains no numbers')}</span>
 								</div>
 								<Show when={!data()?.structure?.has_digits} fallback={
-									<span class="bg-red-500/15 text-red-400 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-red-500/20">−20% VALUE</span>
+									<span class="bg-red-500/15 text-red-400 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-red-500/20">AVOID</span>
 								}>
-									<span class="bg-green-500/15 text-green-400 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-green-500/20">+30% VALUE</span>
+									<span class="bg-green-500/15 text-green-400 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-green-500/20">PREMIUM</span>
 								</Show>
 							</div>
 
 							{/* Contains Underscore */}
 							<div class="flex items-center justify-between bg-white/[0.02] rounded-xl p-3">
 								<div class="flex flex-col gap-0.5">
-									<span class="text-white/80 text-sm font-medium">{t('valuation.has_underscore') || 'Clean Handle'}</span>
-									<span class="text-white/30 text-[10px]">{data()?.structure?.has_underscore ? 'Underscores lower memorability' : 'No underscores → clean & brandable'}</span>
+									<span class="text-white/80 text-sm font-medium">{t('valuation.has_underscore_title') || 'Clean Handle'}</span>
+									<span class="text-white/30 text-[10px]">{data()?.structure?.has_underscore ? (t('valuation.has_underscore_desc') || 'Contains underscore') : (t('valuation.no_underscore_desc') || 'Clean, unbroken format')}</span>
 								</div>
 								<Show when={!data()?.structure?.has_underscore} fallback={
-									<span class="bg-red-500/15 text-red-400 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-red-500/20">−40% VALUE</span>
+									<span class="bg-red-500/15 text-red-400 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-red-500/20">AVOID</span>
 								}>
-									<span class="bg-green-500/15 text-green-400 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-green-500/20">+20% VALUE</span>
+									<span class="bg-green-500/15 text-green-400 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-green-500/20">CLEAN</span>
 								</Show>
 							</div>
 
 							{/* Letters Only */}
 							<div class="flex items-center justify-between bg-white/[0.02] rounded-xl p-3">
 								<div class="flex flex-col gap-0.5">
-									<span class="text-white/80 text-sm font-medium">{t('valuation.letters_only') || 'Alpha-Only'}</span>
-									<span class="text-white/30 text-[10px]">{data()?.structure?.letters_only ? 'Pure alpha names are most premium' : 'Contains non-letter characters'}</span>
+									<span class="text-white/80 text-sm font-medium">{t('valuation.letters_only_title') || 'Alpha-Only'}</span>
+									<span class="text-white/30 text-[10px]">{data()?.structure?.letters_only ? (t('valuation.letters_only_desc') || 'Pure alphabetic characters') : (t('valuation.mixed_chars_desc') || 'Contains mixed characters')}</span>
 								</div>
 								<Show when={data()?.structure?.letters_only} fallback={
 									<span class="bg-white/5 text-white/40 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-white/10">MIXED</span>
@@ -643,24 +736,24 @@ export const UsernamePage: Component = () => {
 							{/* Dictionary Word */}
 							<div class="flex items-center justify-between bg-white/[0.02] rounded-xl p-3">
 								<div class="flex flex-col gap-0.5">
-									<span class="text-white/80 text-sm font-medium">Dictionary Word</span>
-									<span class="text-white/30 text-[10px]">{data()?.dictionary?.is_word ? 'Real words command 2-5x premium' : 'Not a recognized dictionary term'}</span>
+									<span class="text-white/80 text-sm font-medium">{t('valuation.dict_word_title') || 'Dictionary Word'}</span>
+									<span class="text-white/30 text-[10px]">{data()?.dictionary?.is_word ? (t('valuation.dict_word_desc') || 'Recognized semantic word') : (t('valuation.not_dict_word_desc') || 'Not found in dictionary')}</span>
 								</div>
 								<Show when={data()?.dictionary?.is_word} fallback={
 									<span class="bg-white/5 text-white/40 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-white/10">NO</span>
 								}>
-									<span class="bg-cyan-500/15 text-cyan-400 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-cyan-500/20">+200% VALUE</span>
+									<span class="bg-cyan-500/15 text-cyan-400 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-cyan-500/20">YES</span>
 								</Show>
 							</div>
 
 							{/* Character Length */}
 							<div class="flex items-center justify-between bg-white/[0.02] rounded-xl p-3">
 								<div class="flex flex-col gap-0.5">
-									<span class="text-white/80 text-sm font-medium">Length</span>
-									<span class="text-white/30 text-[10px]">{(data()?.length || 0) <= 4 ? 'Ultra-short — extremely rare' : (data()?.length || 0) <= 6 ? 'Short — high demand' : 'Standard length'}</span>
+									<span class="text-white/80 text-sm font-medium">{t('valuation.len_title') || 'Length'}</span>
+									<span class="text-white/30 text-[10px]">{(data()?.length || 0) <= 4 ? (t('valuation.len_ultra_short') || 'Ultra-short format') : (data()?.length || 0) <= 6 ? (t('valuation.len_short') || 'Short format') : (t('valuation.len_standard') || 'Standard length')}</span>
 								</div>
 								<span class={`text-[10px] font-bold px-2.5 py-1 rounded-lg border ${(data()?.length || 0) <= 4 ? 'bg-amber-500/15 text-amber-400 border-amber-500/20' : (data()?.length || 0) <= 6 ? 'bg-green-500/15 text-green-400 border-green-500/20' : 'bg-white/5 text-white/40 border-white/10'}`}>
-									{data()?.length} CHARS
+									{data()?.length} {t('valuation.chars_suffix') || 'CHARS'}
 								</span>
 							</div>
 						</div>
@@ -709,58 +802,16 @@ export const UsernamePage: Component = () => {
 							</div>
 						</div>
 
-						<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
-							<div class="flex items-center gap-2 text-white/80 mb-3">
-								<span class="material-symbols-outlined text-[20px] text-purple-400">history</span>
-								<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.history_title') || 'Ownership History'}</span>
-							</div>
-							<Show
-								when={data()?.history?.is_sold || ((data()?.history?.transactions?.length ?? 0) > 0)}
-								fallback={
-									<div class="flex items-center gap-3 bg-green-500/10 border border-green-500/20 rounded-xl p-4">
-										<span class="material-symbols-outlined text-green-400">verified</span>
-										<span class="text-green-400 text-sm font-medium">{t('valuation.not_sold') || 'Status: Never sold on Fragment!'}</span>
-									</div>
-								}
-							>
-								<div class="flex flex-col rounded-xl overflow-hidden bg-white/[0.02] border border-white/5">
-									{/* Table Header */}
-									<div class="grid grid-cols-3 p-3 border-b border-white/5 bg-white/[0.02]">
-										<span class="text-white/50 text-xs font-semibold uppercase tracking-wider">Sale price</span>
-										<span class="text-white/50 text-xs font-semibold uppercase tracking-wider">Date</span>
-										<span class="text-white/50 text-xs font-semibold uppercase tracking-wider">Buyer</span>
-									</div>
-									{/* Table Body */}
-									<Show when={(data()?.history?.transactions?.length ?? 0) > 0} fallback={
-										<div class="p-4 text-center text-white/50 text-sm">No transaction details available.</div>
-									}>
-										<div class="flex flex-col">
-											{data()?.history?.transactions?.map((tx, idx) => (
-												<div class={`grid grid-cols-3 p-3 items-center ${idx !== (data()?.history?.transactions?.length || 0) - 1 ? 'border-b border-white/5' : ''}`}>
-													<span class="text-white font-bold text-sm">{tx.sale_price_ton}</span>
-													<span class="text-white/50 text-xs">{new Date(tx.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + ' at ' + new Date(tx.date).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
-													<span class="text-[#3390ec] font-medium text-xs truncate max-w-[120px]">{tx.buyer}</span>
-												</div>
-											))}
-										</div>
-									</Show>
-									<Show when={(data()?.history?.transactions?.length || 0) > 4}>
-										<div class="p-3 text-center border-t border-white/5 bg-white/[0.01]">
-											<button class="text-[#3390ec] text-xs font-bold hover:underline">Show more</button>
-										</div>
-									</Show>
-								</div>
-							</Show>
-						</div>
+
 
 						{/* Market Comparison (Comparables) */}
 						<Show when={data()?.comparables && data()!.comparables.length > 0}>
 							<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
 								<div class="flex items-center gap-2 text-white/80 mb-1">
 									<span class="material-symbols-outlined text-[20px] text-[#3390ec]">compare_arrows</span>
-									<span class="text-sm font-bold uppercase tracking-wider">Market Comparison</span>
+									<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.comp_title') || 'Market Comparison'}</span>
 								</div>
-								<div class="text-white/50 text-xs mb-2">Based on {data()?.comparable_sales_count} similar sales</div>
+								<div class="text-white/50 text-xs mb-2">{t('valuation.comp_desc')?.replace('{count}', data()?.comparable_sales_count?.toString() || '0') || `Based on ${data()?.comparable_sales_count} similar sales`}</div>
 								<div class="flex flex-col gap-2">
 									{data()?.comparables?.map(comp => (
 										<div class="flex justify-between items-center bg-white/[0.02] border border-white/5 rounded-xl p-3">
@@ -775,7 +826,7 @@ export const UsernamePage: Component = () => {
 						{/* Brandability & Rarity */}
 						<div class="grid grid-cols-2 gap-4">
 							<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-2 justify-center items-center text-center">
-								<span class="text-white/50 text-[10px] font-bold uppercase tracking-wider mb-1">Brandability</span>
+								<span class="text-white/50 text-[10px] font-bold uppercase tracking-wider mb-1">{t('valuation.brandability') || 'Brandability'}</span>
 								<div class="relative w-14 h-14 flex items-center justify-center">
 									<svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
 										<path class="text-white/10" stroke-width="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
@@ -786,36 +837,12 @@ export const UsernamePage: Component = () => {
 							</div>
 							
 							<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-2 justify-center items-center text-center">
-								<span class="text-white/50 text-[10px] font-bold uppercase tracking-wider mb-1">Investment Grade</span>
+								<span class="text-white/50 text-[10px] font-bold uppercase tracking-wider mb-1">{t('valuation.investment_grade') || 'Investment Grade'}</span>
 								<span class="text-3xl font-black text-[#00ff88] drop-shadow-[0_0_10px_rgba(0,255,136,0.3)]">{data()?.investment_grade || 'C'}</span>
 							</div>
 						</div>
 
-						{/* Price Trend Chart */}
-						<Show when={data()?.price_trend && data()!.price_trend.length > 0}>
-							<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
-								<div class="flex items-center gap-2 text-white/80 mb-1">
-									<span class="material-symbols-outlined text-[20px] text-indigo-400">trending_up</span>
-									<span class="text-sm font-bold uppercase tracking-wider">Price Trend</span>
-								</div>
-								<div class="flex items-end justify-between gap-2 h-24 pt-4 border-b border-white/10 pb-1">
-									{data()?.price_trend?.map((trend, _i, arr) => {
-										const maxVal = Math.max(...arr.map(t => t.value));
-										const height = maxVal > 0 ? (trend.value / maxVal) * 100 : 0;
-										return (
-											<div class="flex flex-col items-center gap-1 flex-1">
-												<div class="w-full bg-indigo-500/20 rounded-t-sm relative group cursor-pointer hover:bg-indigo-400/40 transition-colors" style={{ height: `${height}%`, "min-height": "4px" }}>
-													<div class="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 text-white text-[10px] px-1.5 py-0.5 rounded pointer-events-none whitespace-nowrap">
-														+{trend.value}%
-													</div>
-												</div>
-												<span class="text-white/40 text-[10px] uppercase font-bold">{trend.label}</span>
-											</div>
-										);
-									})}
-								</div>
-							</div>
-						</Show>
+
 
 						{/* Owner Wallet Intelligence */}
 						<Show when={data()?.wallet_info}>
@@ -823,7 +850,7 @@ export const UsernamePage: Component = () => {
 								<div class="flex items-center justify-between text-white/80 mb-1">
 									<div class="flex items-center gap-2">
 										<span class="material-symbols-outlined text-[20px] text-teal-400">account_balance_wallet</span>
-										<span class="text-sm font-bold uppercase tracking-wider">Wallet Intelligence</span>
+										<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.wallet_title') || 'Wallet Intelligence'}</span>
 									</div>
 									<Show when={data()?.wallet_info?.is_whale}>
 										<span class="bg-teal-500/15 text-teal-400 text-[10px] font-bold px-2 py-0.5 rounded border border-teal-500/30 flex items-center gap-1">
@@ -833,11 +860,11 @@ export const UsernamePage: Component = () => {
 								</div>
 								<div class="grid grid-cols-2 gap-2 mt-1">
 									<div class="bg-white/[0.02] border border-white/5 rounded-xl p-3 flex flex-col">
-										<span class="text-white/40 text-[10px] uppercase font-bold tracking-wider mb-1">Balance</span>
+										<span class="text-white/40 text-[10px] uppercase font-bold tracking-wider mb-1">{t('valuation.balance') || 'Balance'}</span>
 										<span class="text-white font-mono text-sm">{data()?.wallet_info?.balance?.toLocaleString('en-US') || 0} TON</span>
 									</div>
 									<div class="bg-white/[0.02] border border-white/5 rounded-xl p-3 flex flex-col">
-										<span class="text-white/40 text-[10px] uppercase font-bold tracking-wider mb-1">Other Assets</span>
+										<span class="text-white/40 text-[10px] uppercase font-bold tracking-wider mb-1">{t('valuation.other_assets') || 'Other Assets'}</span>
 										<span class="text-white font-bold text-sm">{data()?.wallet_info?.nft_count || 0} NFTs</span>
 									</div>
 								</div>
@@ -849,7 +876,7 @@ export const UsernamePage: Component = () => {
 							<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
 								<div class="flex items-center gap-2 text-white/80 mb-1">
 									<span class="material-symbols-outlined text-[20px] text-blue-500">group</span>
-									<span class="text-sm font-bold uppercase tracking-wider">Telegram Entity</span>
+									<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.entity_title') || 'Telegram Entity'}</span>
 								</div>
 								<div class="flex items-center justify-between bg-white/[0.02] border border-white/5 rounded-xl p-3">
 									<div class="flex flex-col">
@@ -872,16 +899,16 @@ export const UsernamePage: Component = () => {
 							<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
 								<div class="flex items-center gap-2 text-white/80 mb-1">
 									<span class="material-symbols-outlined text-[20px] text-orange-400">storefront</span>
-									<span class="text-sm font-bold uppercase tracking-wider">Availability Status</span>
+									<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.availability') || 'Availability Status'}</span>
 								</div>
 								<div class="flex items-center justify-between bg-white/[0.02] rounded-xl p-3 border border-white/5">
 									<div class="flex items-center gap-2">
 										<span class={`w-2.5 h-2.5 rounded-full ${data()?.status?.toLowerCase().includes('available') ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : data()?.status?.toLowerCase().includes('sale') ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'}`} />
-										<span class="text-white font-bold">{data()?.status}</span>
+										<span class="text-white font-bold">{data()?.status?.toLowerCase().includes('available') ? (t('valuation.status_avail') || data()?.status) : data()?.status}</span>
 									</div>
 									<Show when={data()?.status?.toLowerCase().includes('sale')}>
 										<button class="bg-[#3390ec] hover:bg-[#3390ec]/90 text-white text-xs font-bold py-1.5 px-3 rounded-lg transition-colors">
-											Buy Now
+											{t('valuation.buy_now') || 'Buy Now'}
 										</button>
 									</Show>
 								</div>
@@ -893,7 +920,7 @@ export const UsernamePage: Component = () => {
 							<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
 								<div class="flex items-center gap-2 text-white/80 mb-1">
 									<span class="material-symbols-outlined text-[20px] text-yellow-500">speed</span>
-									<span class="text-sm font-bold uppercase tracking-wider">Market Sentiment</span>
+									<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.sentiment_title') || 'Market Sentiment'}</span>
 								</div>
 								<div class="flex items-center justify-between">
 									<span class="text-white font-bold text-lg">{data()?.fear_greed_label}</span>
@@ -910,7 +937,7 @@ export const UsernamePage: Component = () => {
 							<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
 								<div class="flex items-center gap-2 text-white/80 mb-1">
 									<span class="material-symbols-outlined text-[20px] text-white">menu_book</span>
-									<span class="text-sm font-bold uppercase tracking-wider">Cultural Context</span>
+									<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.cultural_context') || 'Cultural Context'}</span>
 								</div>
 								<p class="text-white/60 text-sm leading-relaxed italic border-l-2 border-white/20 pl-3">
 									{data()?.wikipedia_summary}
@@ -923,7 +950,7 @@ export const UsernamePage: Component = () => {
 							<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
 								<div class="flex items-center gap-2 text-white/80 mb-1">
 									<span class="material-symbols-outlined text-[20px] text-amber-400">diamond</span>
-									<span class="text-sm font-bold uppercase tracking-wider">Rarity Breakdown</span>
+									<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.rarity_breakdown') || 'Rarity Breakdown'}</span>
 								</div>
 								<div class="flex flex-col gap-2">
 									{Object.entries(data()?.rarity_breakdown || {}).filter(([_, v]) => v > 0).map(([key, value]) => (
@@ -936,27 +963,7 @@ export const UsernamePage: Component = () => {
 							</div>
 						</Show>
 
-						{/* AI Suggestions */}
-						<Show when={(data()?.similar?.length ?? 0) > 0}>
-							<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
-								<div class="flex items-center gap-2 text-white/80 mb-1">
-									<span class="material-symbols-outlined text-[20px] text-yellow-400">psychology</span>
-									<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.similar_title') || 'AI Alternative Suggestions'}</span>
-								</div>
-								<div class="flex gap-3 overflow-x-auto pb-2 snap-x hide-scrollbar">
-									{data()?.similar?.map(sim => (
-										<div class="min-w-[200px] flex-shrink-0 bg-white/[0.02] border border-white/5 rounded-xl p-3 snap-start cursor-pointer hover:bg-white/[0.05] transition-colors"
-											onClick={() => {
-												window.location.href = `/username?u=${sim.username}`;
-											}}
-										>
-											<div class="text-[#3390ec] font-bold mb-1 truncate">@{sim.username}</div>
-											<div class="text-white/50 text-xs line-clamp-2 leading-relaxed">{sim.reason}</div>
-										</div>
-									))}
-								</div>
-							</div>
-						</Show>
+
 					</div>
 				</div>
 			</Show>

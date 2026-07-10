@@ -1191,7 +1191,7 @@ func estimateValue(r *FullReport, cfg PricingHeuristicsConfig) *PriceEstimate {
 	}
 }
 
-func (s *AnalysisService) estimateValue(ctx context.Context, r *FullReport) *PriceEstimate {
+func (s *AnalysisService) estimateValue(_ context.Context, r *FullReport) *PriceEstimate {
 	// [Deprecation Notice]: The external ML pricing model via pricingClient is formally bypassed.
 	// The Bayesian AVM (ValuationService) is now the definitive source of truth for valuations.
 	// For legacy Deep Reports, we rely on the deterministic heuristic fallback until this is removed.

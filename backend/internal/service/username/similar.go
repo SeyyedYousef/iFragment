@@ -53,9 +53,29 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 		seen[candidate] = true
 
 		score, reason := similarityScore(base, candidate)
-		if score < 0.35 {
+		// Bypass similarity threshold if it's an AI suggestion
+		isAI := false
+		maxIdx := 5
+		if len(pool) < maxIdx {
+			maxIdx = len(pool)
+		}
+		for _, aiSug := range pool[:maxIdx] {
+			if aiSug == candidate {
+				isAI = true
+				break
+			}
+		}
+		
+		if !isAI && score < 0.35 {
 			continue
 		}
+		
+		// Boost score artificially for AI suggestions to ensure they appear at the top
+		if isAI {
+			score = 0.95
+			reason = "Semantic AI Alternative"
+		}
+		
 		results = append(results, SimilarUsername{
 			Username:    candidate,
 			Score:       roundFeature(score),
@@ -110,7 +130,7 @@ func getCandidatePool(ctx context.Context, db *repository.Database, username str
 
 	if len(suggestions) > 0 {
 		// Use AI suggestions, but also append some static ones to ensure variety
-		candidates = append(suggestions, candidates[:5]...)
+		candidates = append(suggestions, candidates...)
 	}
 
 	highValueSuffixes := []string{"app", "bot", "pro", "x", "ai", "tech", "pay", "coin", "news"}
