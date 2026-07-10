@@ -18,6 +18,7 @@ type WikipediaResult struct {
 	PageLength  int     // character count of the article
 	Score       float64 // normalized 0-100
 	Description string
+	FetchError  bool    // New flag indicating a network/API failure
 }
 
 var (
@@ -66,6 +67,9 @@ func GetWikipediaScore(term string) *WikipediaResult {
 
 	for _, candidate := range candidates {
 		r := queryWikipedia(candidate)
+		if r.FetchError {
+			result.FetchError = true
+		}
 		if r.Exists && r.Score > result.Score {
 			result = r
 		}
@@ -88,14 +92,14 @@ func queryWikipedia(term string) *WikipediaResult {
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return &WikipediaResult{}
+		return &WikipediaResult{FetchError: true}
 	}
 	req.Header.Set("User-Agent", "iFragment/1.0 (Telegram Mini App)")
 
 	resp, err := wikiHTTP.Do(req)
 	if err != nil {
 		slog.Debug("Wikipedia API fetch failed", "term", term, "error", err)
-		return &WikipediaResult{}
+		return &WikipediaResult{FetchError: true}
 	}
 	defer resp.Body.Close()
 
@@ -103,12 +107,12 @@ func queryWikipedia(term string) *WikipediaResult {
 		return &WikipediaResult{Exists: false}
 	}
 	if resp.StatusCode != http.StatusOK {
-		return &WikipediaResult{}
+		return &WikipediaResult{FetchError: true}
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return &WikipediaResult{}
+		return &WikipediaResult{FetchError: true}
 	}
 
 	var wikiResp struct {

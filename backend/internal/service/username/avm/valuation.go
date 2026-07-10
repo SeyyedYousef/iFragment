@@ -424,6 +424,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		return nil, fmt.Errorf("database not available for valuation")
 	}
 
+	username = strings.ToLower(strings.TrimSpace(username))
 	now := time.Now()
 	segment, charLen, features := ClassifyUsername(username)
 	reasoning := map[string]any{
@@ -526,35 +527,18 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	// 3a-1. Semantic-Aware Base Price Boost
 	// If no anchor/target sales exist and the semantic engine thinks this is premium,
 	// boost the fallback base price dramatically. Without this, "bitcoin" starts at 5 TON.
-	if !anchorInjected && semResult != nil && semResult.TotalScore > 0 {
-		if semResult.TotalScore >= 80 {
-			// Ultra Legendary: base at least 1500 TON (multiplied by ~150x = ~225k TON)
-			minBase := math.Log(1500)
-			if baseLog < minBase {
-				baseLog = minBase
-				reasoning["semantic_base_boost"] = "ultra_legendary_1500"
-			}
-		} else if semResult.TotalScore >= 70 {
-			// Legendary: base at least 500 TON (multiplied by ~100x = ~50k TON)
-			minBase := math.Log(500)
-			if baseLog < minBase {
-				baseLog = minBase
-				reasoning["semantic_base_boost"] = "legendary_500"
-			}
-		} else if semResult.TotalScore >= 60 {
-			// Premium: base at least 150 TON (multiplied by ~50x = ~7.5k TON)
-			minBase := math.Log(150)
-			if baseLog < minBase {
-				baseLog = minBase
-				reasoning["semantic_base_boost"] = "premium_150"
-			}
-		} else if semResult.TotalScore >= 40 {
-			// Moderate: base at least 30 TON (multiplied by ~10x = ~300 TON)
-			minBase := math.Log(30)
-			if baseLog < minBase {
-				baseLog = minBase
-				reasoning["semantic_base_boost"] = "moderate_30"
-			}
+	if !anchorInjected && semResult != nil && semResult.TotalScore >= 40 {
+		// Continuous multiplier from 1.0x (at score 40) to 6.0x (at score 100)
+		scoreDiff := semResult.TotalScore - 40.0
+		semBaseMult := 1.0 + math.Pow(scoreDiff/60.0, 1.5)*5.0
+		
+		lengthFallback := fallbackForLength(int(charLen), s.cfg)
+		minBasePrice := lengthFallback * semBaseMult
+		minBaseLog := math.Log(minBasePrice)
+		
+		if baseLog < minBaseLog {
+			baseLog = minBaseLog
+			reasoning["semantic_base_boost"] = fmt.Sprintf("continuous_boost_%.2fx", semBaseMult)
 		}
 	}
 
@@ -616,6 +600,13 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	}
 
 	semanticLog *= dampingFactor // Dampen semantic impact based on dampingFactor
+	
+	if anchorInjected {
+		morphLog = 0.0
+		semanticLog = 0.0
+		reasoning["anchor_suppression_applied"] = true
+	}
+	
 	reasoning["semantic_log"] = semanticLog
 
 	// 3c. Momentum
@@ -967,7 +958,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		Structure:       structureResult,
 		SEO:             seoResult,
 		Dictionary:      DictionaryData{
-			IsWord:       dictData.IsWord,
+			IsWord:       dictData.IsWord || (semResult != nil && semResult.WordFreqScore > 20),
 			PartOfSpeech: dictData.PartOfSpeech,
 			Definition:   dictData.Definition,
 		},

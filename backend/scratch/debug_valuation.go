@@ -30,16 +30,17 @@ func main() {
 	tonClient := tonapi.NewClient()
 	svc := avm.NewValuationService(db, cacheService, tonClient)
 
-	for _, username := range []string{"news", "rare", "ruby"} {
+	testNames := []string{"news", "Rare", "Cats", "delicious", "information", "ali123", "good_boy", "xkqwz", "telegram", "wallet"}
+	for _, username := range testNames {
 		fmt.Printf("\n=== Debugging @%s ===\n", username)
-		res, err := svc.Valuate(ctx, username, 0.0)
+		res, err := svc.Valuate(ctx, username, 2.3)
 		if err != nil {
 			log.Printf("Failed to valuate %s: %v", username, err)
 			continue
 		}
 
 		expected, _ := res.ExpectedTON.Float64()
-		fmt.Printf("Expected Price: %v TON\n", expected)
+		fmt.Printf("Expected Price: %.0f TON\n", expected)
 		
 		reasoningBytes, _ := json.MarshalIndent(res.ReasoningLog, "", "  ")
 		fmt.Println("Reasoning Log:")

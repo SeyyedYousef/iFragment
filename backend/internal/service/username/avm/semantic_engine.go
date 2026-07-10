@@ -254,12 +254,18 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 	}
 
 	// Weighted combination (25% frequency, 30% wiki, 30% AI; treat brand as 15% bonus)
-	baseScore := (wordFreqScore * 0.25) +
-		(wikiScore * 0.30) +
-		(aiScore * 0.30)
-
 	brandBonus := (float64(brandScore) / 100.0) * 15.0
-	totalScore := baseScore + brandBonus
+	
+	var totalScore float64
+	if wikiResult != nil && wikiResult.FetchError {
+		// Wikipedia API failed due to network error. Re-allocate 30% weight to Datamuse and AI.
+		baseScore := (wordFreqScore * 0.45) + (aiScore * 0.55)
+		totalScore = baseScore + brandBonus
+		slog.Warn("Wikipedia API failed, re-weighted semantic signals", "username", username)
+	} else {
+		baseScore := (wordFreqScore * 0.25) + (wikiScore * 0.30) + (aiScore * 0.30)
+		totalScore = baseScore + brandBonus
+	}
 
 	// Boost total score directly for ultra-premium keywords to escape the penalty zone
 	for _, t := range tags {
@@ -269,6 +275,15 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 		if t == "general_ultra_premium" {
 			totalScore += 30.0
 		}
+	}
+
+	// Safeguard: Ensure common dictionary words never fall into the penalty zone
+	if wordFreqScore >= 70 && totalScore < 65 {
+		totalScore = 65
+	} else if wordFreqScore >= 50 && totalScore < 55 {
+		totalScore = 55
+	} else if wordFreqScore >= 30 && totalScore < 45 {
+		totalScore = 45
 	}
 
 	// Pronounceability Penalty (N-Gram / Vowel check)
@@ -290,7 +305,7 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 	totalScore = math.Max(0, math.Min(100, totalScore))
 
 	// 4. Convert score to price multiplier
-	isDict := isDictionaryWord(username) || isDictionaryWord(strings.ToLower(username))
+	isDict := isDictionaryWord(username) || isDictionaryWord(strings.ToLower(username)) || wordFreqScore > 20
 	multiplier := e.scoreToMultiplier(totalScore, len(username), tags, isDict)
 
 	result := &SemanticResult{

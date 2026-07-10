@@ -87,7 +87,7 @@ func DefaultEngineConfig() EngineConfig {
 		ClampLowLimit:    5.0,
 		ClampLowExpected: 100.0,
 		MorphDamping:     0.1,
-		DatabaseDamping:  0.45,
+		DatabaseDamping:  0.70,
 
 		MorphMultipliers: map[string]float64{
 			"has_numbers":          0.70, // discount for containing numbers

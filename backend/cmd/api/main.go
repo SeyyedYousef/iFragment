@@ -288,6 +288,12 @@ func main() {
 		go partitionWorker.Start(ctx)
 	}
 
+	// 🚀 Start Background Collection Stats Worker
+	if db != nil && tonClient != nil {
+		collectionWorker := username.NewCollectionWorker(db, tonClient)
+		go collectionWorker.Start(ctx)
+	}
+
 	// Initialize Handlers
 	channelRepo := repository.NewChannelRepo(db, cache)
 	channelService := channelmgmt.NewChannelService(channelRepo, botRepo, auditRepo, cryptoPriceService)
