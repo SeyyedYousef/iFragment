@@ -527,26 +527,33 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	// If no anchor/target sales exist and the semantic engine thinks this is premium,
 	// boost the fallback base price dramatically. Without this, "bitcoin" starts at 5 TON.
 	if !anchorInjected && semResult != nil && semResult.TotalScore > 0 {
-		if semResult.TotalScore >= 70 {
-			// Legendary: base at least 250 TON (will be multiplied by ~400x combined max = ~100k TON)
-			minBase := math.Log(250)
+		if semResult.TotalScore >= 80 {
+			// Ultra Legendary: base at least 1500 TON (multiplied by ~150x = ~225k TON)
+			minBase := math.Log(1500)
 			if baseLog < minBase {
 				baseLog = minBase
-				reasoning["semantic_base_boost"] = "legendary_250"
+				reasoning["semantic_base_boost"] = "ultra_legendary_1500"
+			}
+		} else if semResult.TotalScore >= 70 {
+			// Legendary: base at least 500 TON (multiplied by ~100x = ~50k TON)
+			minBase := math.Log(500)
+			if baseLog < minBase {
+				baseLog = minBase
+				reasoning["semantic_base_boost"] = "legendary_500"
 			}
 		} else if semResult.TotalScore >= 60 {
-			// Premium: base at least 50 TON (will be multiplied by ~120x combined max = ~6k TON)
-			minBase := math.Log(50)
+			// Premium: base at least 150 TON (multiplied by ~50x = ~7.5k TON)
+			minBase := math.Log(150)
 			if baseLog < minBase {
 				baseLog = minBase
-				reasoning["semantic_base_boost"] = "premium_50"
+				reasoning["semantic_base_boost"] = "premium_150"
 			}
 		} else if semResult.TotalScore >= 40 {
-			// Moderate: base at least 10 TON (will be multiplied by ~20x combined max = ~200 TON)
-			minBase := math.Log(10)
+			// Moderate: base at least 30 TON (multiplied by ~10x = ~300 TON)
+			minBase := math.Log(30)
 			if baseLog < minBase {
 				baseLog = minBase
-				reasoning["semantic_base_boost"] = "moderate_10"
+				reasoning["semantic_base_boost"] = "moderate_30"
 			}
 		}
 	}
