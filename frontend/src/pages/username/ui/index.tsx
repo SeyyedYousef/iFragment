@@ -479,9 +479,9 @@ export const UsernamePage: Component = () => {
 							<div class="flex items-center justify-between text-white/80">
 								<div class="flex items-center gap-2">
 									<span class="material-symbols-outlined text-[20px] text-[#3390ec]">monitoring</span>
-									<span class="text-sm font-bold uppercase tracking-wider">Price Range</span>
+									<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.price_range') || 'Price Range'}</span>
 								</div>
-								<span class="text-xs text-white/40">Market Estimation</span>
+								<span class="text-xs text-white/40">{t('valuation.market_estimation') || 'Market Estimation'}</span>
 							</div>
 							
 							<div class="relative w-full h-3 bg-white/5 rounded-full overflow-hidden flex shadow-inner">
@@ -497,24 +497,24 @@ export const UsernamePage: Component = () => {
 							
 							<div class="flex justify-between w-full">
 								<div class="flex flex-col text-left">
-									<span class="text-white/40 text-[10px] uppercase font-bold tracking-wider mb-0.5">Low End</span>
+									<span class="text-white/40 text-[10px] uppercase font-bold tracking-wider mb-0.5">{t('valuation.floor') || 'Low End'}</span>
 									<span class="text-white font-mono text-sm">{parseFloat(data()?.low_ton || '0').toLocaleString('en-US')} TON</span>
 								</div>
 								<div class="flex flex-col text-center">
-									<span class="text-[#3390ec] text-[10px] uppercase font-black tracking-wider mb-0.5">Expected</span>
+									<span class="text-[#3390ec] text-[10px] uppercase font-black tracking-wider mb-0.5">{t('valuation.expected_label') || 'Expected'}</span>
 									<span class="text-white font-mono font-bold text-sm">{parseFloat(data()?.expected_ton || '0').toLocaleString('en-US')} TON</span>
 								</div>
 								<div class="flex flex-col text-right">
-									<span class="text-white/40 text-[10px] uppercase font-bold tracking-wider mb-0.5">High End</span>
+									<span class="text-white/40 text-[10px] uppercase font-bold tracking-wider mb-0.5">{t('valuation.ceiling') || 'High End'}</span>
 									<span class="text-white font-mono text-sm">{parseFloat(data()?.high_ton || '0').toLocaleString('en-US')} TON</span>
 								</div>
 							</div>
 						</div>
-
+ 
 						{/* Confidence & Model */}
 						<div class="grid grid-cols-2 gap-4">
 							<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-2">
-								<span class="text-white/50 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5"><span class="material-symbols-outlined text-[14px]">radar</span> Confidence</span>
+								<span class="text-white/50 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5"><span class="material-symbols-outlined text-[14px]">radar</span> {t('valuation.confidence') || 'Confidence'}</span>
 								<div class="flex items-end gap-1.5">
 									<span class={`text-2xl font-black leading-none ${data()?.confidence_score && data()!.confidence_score >= 80 ? 'text-green-400' : data()?.confidence_score && data()!.confidence_score >= 50 ? 'text-yellow-400' : 'text-red-400'}`}>{data()?.confidence_score || 0}%</span>
 								</div>
@@ -524,18 +524,18 @@ export const UsernamePage: Component = () => {
 							</div>
 							
 							<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-2">
-								<span class="text-white/50 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5"><span class="material-symbols-outlined text-[14px]">memory</span> Engine</span>
+								<span class="text-white/50 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5"><span class="material-symbols-outlined text-[14px]">memory</span> {t('valuation.engine') || 'Engine'}</span>
 								<span class="text-white font-bold text-sm leading-tight mt-1">{data()?.model_version || 'AVM-v2'}</span>
-								<span class="text-white/40 text-[10px] leading-tight">Data points: {data()?.comparable_sales_count || 0}</span>
+								<span class="text-white/40 text-[10px] leading-tight">{t('valuation.datapoints') || 'Data points'}: {data()?.comparable_sales_count || 0}</span>
 							</div>
 						</div>
-
+ 
 						{/* AI Reasoning Tags */}
 						<Show when={data()?.tags && data()!.tags.length > 0}>
 							<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
 								<div class="flex items-center gap-2 text-white/80">
 									<span class="material-symbols-outlined text-[20px] text-purple-400">auto_awesome</span>
-									<span class="text-sm font-bold uppercase tracking-wider">AI Valuation Factors</span>
+									<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.ai_factors') || 'AI Valuation Factors'}</span>
 								</div>
 							<div class="flex flex-wrap gap-2 mt-2">
 								{data()?.tags?.map((tag) => (
@@ -552,7 +552,7 @@ export const UsernamePage: Component = () => {
 							<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-3 mt-1">
 								<div class="flex items-center gap-2 text-white/80">
 									<span class="material-symbols-outlined text-[20px] text-green-400">psychology_alt</span>
-									<span class="text-sm font-bold uppercase tracking-wider">AI Reasoning</span>
+									<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.ai_reasoning') || 'AI Reasoning'}</span>
 								</div>
 								<div class="text-white/60 text-sm leading-relaxed whitespace-pre-line italic border-l-2 border-green-500/30 pl-3">
 									"{data()?.reasoning_log?.AI_Reasoning}"
@@ -560,12 +560,12 @@ export const UsernamePage: Component = () => {
 							</div>
 						</Show>
 					</div>
-
+ 
 					{/* Reports Section */}
 					<div class="w-full max-w-[400px] mt-8 flex flex-col gap-4 border-t border-white/10 pt-6 pb-12">
 						
 						{/* Price Trend Chart */}
-						<Show when={data()?.price_trend && data()!.price_trend.length > 0}>
+						<Show when={data()?.price_trend && data()!.price_trend.some(t => t.value > 0)}>
 							<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
 								<div class="flex items-center gap-2 text-white/80 mb-1">
 									<span class="material-symbols-outlined text-[20px] text-indigo-400">trending_up</span>
@@ -579,7 +579,7 @@ export const UsernamePage: Component = () => {
 											<div class="flex flex-col items-center gap-1 flex-1">
 												<div class="w-full bg-indigo-500/20 rounded-t-sm relative group cursor-pointer hover:bg-indigo-400/40 transition-colors" style={{ height: `${height}%`, "min-height": "4px" }}>
 													<div class="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 text-white text-[10px] px-1.5 py-0.5 rounded pointer-events-none whitespace-nowrap">
-														+{trend.value}%
+														{trend.label.toLowerCase().includes('volume') ? trend.value : `${trend.value >= 0 ? '+' : ''}${trend.value}%`}
 													</div>
 												</div>
 												<span class="text-white/40 text-[9px] uppercase">{trend.label}</span>
@@ -701,9 +701,9 @@ export const UsernamePage: Component = () => {
 									<span class="text-white/30 text-[10px]">{data()?.structure?.has_digits ? (t('valuation.has_digits_desc') || 'Alpha-numeric combination') : (t('valuation.no_digits_desc') || 'Contains no numbers')}</span>
 								</div>
 								<Show when={!data()?.structure?.has_digits} fallback={
-									<span class="bg-red-500/15 text-red-400 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-red-500/20">AVOID</span>
+									<span class="bg-red-500/15 text-red-400 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-red-500/20">{t('valuation.badge_avoid') || 'AVOID'}</span>
 								}>
-									<span class="bg-green-500/15 text-green-400 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-green-500/20">PREMIUM</span>
+									<span class="bg-green-500/15 text-green-400 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-green-500/20">{t('valuation.badge_premium') || 'PREMIUM'}</span>
 								</Show>
 							</div>
 
@@ -714,9 +714,9 @@ export const UsernamePage: Component = () => {
 									<span class="text-white/30 text-[10px]">{data()?.structure?.has_underscore ? (t('valuation.has_underscore_desc') || 'Contains underscore') : (t('valuation.no_underscore_desc') || 'Clean, unbroken format')}</span>
 								</div>
 								<Show when={!data()?.structure?.has_underscore} fallback={
-									<span class="bg-red-500/15 text-red-400 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-red-500/20">AVOID</span>
+									<span class="bg-red-500/15 text-red-400 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-red-500/20">{t('valuation.badge_avoid') || 'AVOID'}</span>
 								}>
-									<span class="bg-green-500/15 text-green-400 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-green-500/20">CLEAN</span>
+									<span class="bg-green-500/15 text-green-400 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-green-500/20">{t('valuation.badge_clean') || 'CLEAN'}</span>
 								</Show>
 							</div>
 
@@ -727,9 +727,9 @@ export const UsernamePage: Component = () => {
 									<span class="text-white/30 text-[10px]">{data()?.structure?.letters_only ? (t('valuation.letters_only_desc') || 'Pure alphabetic characters') : (t('valuation.mixed_chars_desc') || 'Contains mixed characters')}</span>
 								</div>
 								<Show when={data()?.structure?.letters_only} fallback={
-									<span class="bg-white/5 text-white/40 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-white/10">MIXED</span>
+									<span class="bg-white/5 text-white/40 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-white/10">{t('valuation.badge_mixed') || 'MIXED'}</span>
 								}>
-									<span class="bg-green-500/15 text-green-400 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-green-500/20">PREMIUM</span>
+									<span class="bg-green-500/15 text-green-400 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-green-500/20">{t('valuation.badge_premium') || 'PREMIUM'}</span>
 								</Show>
 							</div>
 
@@ -740,9 +740,9 @@ export const UsernamePage: Component = () => {
 									<span class="text-white/30 text-[10px]">{data()?.dictionary?.is_word ? (t('valuation.dict_word_desc') || 'Recognized semantic word') : (t('valuation.not_dict_word_desc') || 'Not found in dictionary')}</span>
 								</div>
 								<Show when={data()?.dictionary?.is_word} fallback={
-									<span class="bg-white/5 text-white/40 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-white/10">NO</span>
+									<span class="bg-white/5 text-white/40 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-white/10">{t('valuation.badge_no') || 'NO'}</span>
 								}>
-									<span class="bg-cyan-500/15 text-cyan-400 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-cyan-500/20">YES</span>
+									<span class="bg-cyan-500/15 text-cyan-400 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-cyan-500/20">{t('valuation.badge_yes') || 'YES'}</span>
 								</Show>
 							</div>
 
@@ -796,7 +796,7 @@ export const UsernamePage: Component = () => {
 										 (t('valuation.seo_poor') || 'Poor')}
 									</span>
 									<span class="text-white/50 text-xs mt-1 leading-relaxed">
-										Higher score means better visibility in Telegram global search.
+										{t('valuation.seo_desc') || 'Higher score means better visibility in Telegram global search.'}
 									</span>
 								</div>
 							</div>
@@ -854,7 +854,7 @@ export const UsernamePage: Component = () => {
 									</div>
 									<Show when={data()?.wallet_info?.is_whale}>
 										<span class="bg-teal-500/15 text-teal-400 text-[10px] font-bold px-2 py-0.5 rounded border border-teal-500/30 flex items-center gap-1">
-											<span class="material-symbols-outlined text-[12px]">sailing</span> WHALE
+											<span class="material-symbols-outlined text-[12px]">sailing</span> {t('valuation.badge_whale') || 'WHALE'}
 										</span>
 									</Show>
 								</div>
@@ -865,7 +865,7 @@ export const UsernamePage: Component = () => {
 									</div>
 									<div class="bg-white/[0.02] border border-white/5 rounded-xl p-3 flex flex-col">
 										<span class="text-white/40 text-[10px] uppercase font-bold tracking-wider mb-1">{t('valuation.other_assets') || 'Other Assets'}</span>
-										<span class="text-white font-bold text-sm">{data()?.wallet_info?.nft_count || 0} NFTs</span>
+										<span class="text-white font-bold text-sm">{t('valuation.nfts_suffix')?.replace('{count}', data()?.wallet_info?.nft_count?.toString() || '0') || `${data()?.wallet_info?.nft_count || 0} NFTs`}</span>
 									</div>
 								</div>
 							</div>
@@ -881,13 +881,13 @@ export const UsernamePage: Component = () => {
 								<div class="flex items-center justify-between bg-white/[0.02] border border-white/5 rounded-xl p-3">
 									<div class="flex flex-col">
 										<div class="flex items-center gap-2">
-											<span class="text-white font-bold capitalize">{data()?.entity_info?.type || 'Unknown'}</span>
+											<span class="text-white font-bold capitalize">{t(`valuation.entity_${data()?.entity_info?.type?.toLowerCase()}`) || data()?.entity_info?.type || 'Unknown'}</span>
 											<Show when={data()?.entity_info?.verified}>
 												<span class="material-symbols-outlined text-blue-400 text-[16px]">verified</span>
 											</Show>
 										</div>
 										<Show when={data()?.entity_info?.members}>
-											<span class="text-white/50 text-xs mt-0.5">{data()!.entity_info!.members.toLocaleString('en-US')} Members</span>
+											<span class="text-white/50 text-xs mt-0.5">{t('valuation.members')?.replace('{count}', data()!.entity_info!.members.toLocaleString('en-US')) || `${data()!.entity_info!.members.toLocaleString('en-US')} Members`}</span>
 										</Show>
 									</div>
 								</div>
@@ -904,7 +904,7 @@ export const UsernamePage: Component = () => {
 								<div class="flex items-center justify-between bg-white/[0.02] rounded-xl p-3 border border-white/5">
 									<div class="flex items-center gap-2">
 										<span class={`w-2.5 h-2.5 rounded-full ${data()?.status?.toLowerCase().includes('available') ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : data()?.status?.toLowerCase().includes('sale') ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'}`} />
-										<span class="text-white font-bold">{data()?.status?.toLowerCase().includes('available') ? (t('valuation.status_avail') || data()?.status) : data()?.status}</span>
+										<span class="text-white font-bold">{t(`valuation.status_${data()?.status?.toLowerCase().replace(' ', '_')}`) || data()?.status}</span>
 									</div>
 									<Show when={data()?.status?.toLowerCase().includes('sale')}>
 										<button class="bg-[#3390ec] hover:bg-[#3390ec]/90 text-white text-xs font-bold py-1.5 px-3 rounded-lg transition-colors">
@@ -923,7 +923,7 @@ export const UsernamePage: Component = () => {
 									<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.sentiment_title') || 'Market Sentiment'}</span>
 								</div>
 								<div class="flex items-center justify-between">
-									<span class="text-white font-bold text-lg">{data()?.fear_greed_label}</span>
+									<span class="text-white font-bold text-lg">{t(`valuation.fng_${data()?.fear_greed_label?.toLowerCase().replace(' ', '_')}`) || data()?.fear_greed_label}</span>
 									<span class="text-white/50 font-mono">{data()?.fear_greed_index}/100</span>
 								</div>
 								<div class="w-full h-2 bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 rounded-full relative mt-2">
@@ -955,7 +955,7 @@ export const UsernamePage: Component = () => {
 								<div class="flex flex-col gap-2">
 									{Object.entries(data()?.rarity_breakdown || {}).filter(([_, v]) => v > 0).map(([key, value]) => (
 										<div class="flex justify-between items-center text-sm">
-											<span class="text-white/60">{key}</span>
+											<span class="text-white/60">{t(`valuation.rarity_${key.toLowerCase().replace(' ', '_')}`) || key}</span>
 											<span class="text-amber-400 font-mono font-bold">+{value}</span>
 										</div>
 									))}
