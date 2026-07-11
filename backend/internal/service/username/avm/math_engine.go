@@ -150,7 +150,7 @@ func LogPrices(sales []ComparableSale) []float64 {
 }
 
 func fallbackForLength(length int, cfg EngineConfig) float64 {
-	if length <= 3 {
+	if length > 0 && length <= 3 {
 		return cfg.FallbackLen4 * 6.0 // 1,500 TON baseline for 3-letter words
 	}
 	switch length {

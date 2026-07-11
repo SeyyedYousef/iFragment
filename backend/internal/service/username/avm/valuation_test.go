@@ -63,8 +63,8 @@ func TestCalcConfidenceScore(t *testing.T) {
 		wantMin     int16
 		wantMax     int16
 	}{
-		{"no_data", 0, 0, 0, false, 0, 5},
-		{"minimal", 1, 1, 1.5, false, 5, 20},
+		{"no_data", 0, 0, 0, false, 35, 40},
+		{"minimal", 1, 1, 1.5, false, 35, 45},
 		{"moderate", 8, 15, 0.4, true, 40, 70},
 		{"strong", 25, 60, 0.15, true, 85, 100},
 	}

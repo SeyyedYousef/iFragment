@@ -57,12 +57,12 @@ func CalcConfidenceScore(nEff float64, saleCount int, mad float64, hasMomentum b
 		score += 15
 	}
 
-	// Clamp to [0, 100]
+	// Clamp to [35, 100]
 	if score > 100 {
 		score = 100
 	}
-	if score < 0 {
-		score = 0
+	if score < 35 {
+		score = 35
 	}
 
 	return int16(score)

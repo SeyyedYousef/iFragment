@@ -2,10 +2,12 @@ package username
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
-	"strconv"
-	"sync"
+	"net/http"
+	"regexp"
 	"time"
 
 	"ifragment-backend/internal/client/tonapi"
@@ -114,13 +116,9 @@ func (w *CollectionWorker) updateCollectionData(ctx context.Context) {
 		_, _ = conn.Exec(context.Background(), "SELECT pg_advisory_unlock(847295)")
 	}()
 
-	// Clean up old Anonymous Numbers (+888) or old statistics data to allow fresh Username seeding
+	// Force fresh seeding for Username stats
 	var hasOldData bool
-	_ = conn.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM nft_collection_recent_auctions WHERE item_name LIKE '+888%')").Scan(&hasOldData)
-	if !hasOldData {
-		_ = conn.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM nft_collection_stats WHERE floor_price = '5.66 TON' OR items_count = '581K')").Scan(&hasOldData)
-	}
-
+	_ = conn.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM nft_collection_stats WHERE floor_price = '5.66 TON' OR items_count = '581K')").Scan(&hasOldData)
 	if hasOldData {
 		slog.Info("[CollectionWorker] Detected old stats/anonymous numbers data. Clearing tables for fresh real Username data...")
 		_, _ = conn.Exec(ctx, "TRUNCATE TABLE nft_collection_stats CASCADE;")
@@ -143,9 +141,9 @@ func (w *CollectionWorker) updateCollectionData(ctx context.Context) {
 		w.seedInitialData(ctx, today)
 	}
 
-	// 2. Try to fetch live data from TonAPI and update the database
+	// 2. Try to fetch live data from GetGems/Fragment and update the database
 	if err := w.fetchAndSaveLiveData(ctx, today); err != nil {
-		slog.Warn("[CollectionWorker] Failed to fetch live collection data from TonAPI, using existing/fallback data", "error", err)
+		slog.Warn("[CollectionWorker] Failed to fetch live collection data from APIs, using existing/fallback data", "error", err)
 	} else {
 		slog.Info("[CollectionWorker] Successfully updated collection stats with live data")
 	}
@@ -191,17 +189,17 @@ func (w *CollectionWorker) seedInitialData(ctx context.Context, date time.Time) 
 		}
 	}
 
-	// Seed fallback recent auctions
+	// Seed fallback recent auctions using actual premium ones from Fragment
 	auctions := []struct {
 		Name   string
 		Price  string
 		Status string
 	}{
-		{"@durov", "15,000 TON", "Active"},
-		{"@telegram", "45,000 TON", "Active"},
-		{"@blockchain", "9,800 TON", "Active"},
-		{"@gift", "2,100 TON", "Active"},
-		{"@news", "1,800 TON", "Active"},
+		{"@feds", "23,665 TON", "Active"},
+		{"@blackhat", "10,001 TON", "Active"},
+		{"@gramv", "8,023 TON", "Active"},
+		{"@cryptoapp", "8,009 TON", "Active"},
+		{"@bcsj", "5,513 TON", "Active"},
 	}
 	for _, auc := range auctions {
 		_, err = tx.Exec(ctx, `
@@ -221,62 +219,143 @@ func (w *CollectionWorker) seedInitialData(ctx context.Context, date time.Time) 
 	}
 }
 
-func formatCommas(num float64) string {
-	str := fmt.Sprintf("%.0f", num)
-	n := len(str)
-	if n <= 3 {
-		return str
+func fetchHTML(ctx context.Context, url string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return "", err
 	}
-	var res []byte
-	for i := 0; i < n; i++ {
-		if i > 0 && (n-i)%3 == 0 {
-			res = append(res, ',')
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+
+	// Set resilient timeout to survive slower network links
+	client := &http.Client{Timeout: 25 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	return string(body), nil
+}
+
+type GetGemsNextData struct {
+	Props struct {
+		PageProps struct {
+			GqlCache map[string]interface{} `json:"gqlCache"`
+		} `json:"pageProps"`
+	} `json:"props"`
+}
+
+func (w *CollectionWorker) fetchRealStatsFromGetGems(ctx context.Context) (items, owners, floor, volume string, err error) {
+	html, err := fetchHTML(ctx, "https://getgems.io/collection/EQCA14o1-VWhS2efqoh_9M1b_A9DtKTuoqfmkn83AbJzwnPi")
+	if err != nil {
+		return "", "", "", "", err
+	}
+
+	reNextData := regexp.MustCompile(`(?s)<script id="__NEXT_DATA__" type="application/json">(.*?)</script>`)
+	match := reNextData.FindStringSubmatch(html)
+	if len(match) < 2 {
+		return "", "", "", "", fmt.Errorf("could not find __NEXT_DATA__ script tag")
+	}
+
+	var data GetGemsNextData
+	if err := json.Unmarshal([]byte(match[1]), &data); err != nil {
+		return "", "", "", "", err
+	}
+
+	var stats map[string]interface{}
+	for k, v := range data.Props.PageProps.GqlCache {
+		if len(k) > 23 && k[:23] == "alphaNftCollectionStats" {
+			if m, ok := v.(map[string]interface{}); ok {
+				stats = m
+				break
+			}
 		}
-		res = append(res, str[i])
 	}
-	return string(res)
+
+	if stats == nil {
+		return "", "", "", "", fmt.Errorf("collection stats not found in gqlCache")
+	}
+
+	floorVal, _ := stats["floorPrice"].(float64)
+	floor = fmt.Sprintf("%.2f TON", floorVal)
+
+	itemsVal, _ := stats["itemsCount"].(float64)
+	items = fmt.Sprintf("%.1fK", itemsVal/1000.0)
+
+	holdersVal, _ := stats["holders"].(float64)
+	owners = fmt.Sprintf("%.1fK", holdersVal/1000.0)
+
+	volStr, _ := stats["totalVolumeSold"].(string)
+	if volStr != "" {
+		var volFloat float64
+		_, err := fmt.Sscanf(volStr, "%f", &volFloat)
+		if err == nil {
+			volume = fmt.Sprintf("%.1fM TON", volFloat/1e15)
+		}
+	}
+	if volume == "" {
+		volume = "124.0M TON"
+	}
+
+	return items, owners, floor, volume, nil
+}
+
+func (w *CollectionWorker) fetchRealAuctionsFromFragment(ctx context.Context) []struct {
+	Name   string
+	Price  string
+	Status string
+} {
+	html, err := fetchHTML(ctx, "https://fragment.com/")
+	if err != nil {
+		slog.Warn("[CollectionWorker] Failed to fetch Fragment homepage", "error", err)
+		return nil
+	}
+
+	reRow := regexp.MustCompile(`(?s)<tr class="tm-row-selectable">.*?<div class="table-cell-value tm-value">@([a-zA-Z0-9_]+)</div>.*?<div class="table-cell-value tm-value icon-before icon-ton">([0-9,]+)</div>`)
+	matches := reRow.FindAllStringSubmatch(html, -1)
+
+	var auctions []struct {
+		Name   string
+		Price  string
+		Status string
+	}
+
+	for _, match := range matches {
+		if len(match) >= 3 {
+			auctions = append(auctions, struct {
+				Name   string
+				Price  string
+				Status string
+			}{
+				Name:   "@" + match[1],
+				Price:  match[2] + " TON",
+				Status: "Active",
+			})
+		}
+	}
+	return auctions
 }
 
 func (w *CollectionWorker) fetchAndSaveLiveData(ctx context.Context, date time.Time) error {
-	if w.tonClient == nil {
-		return fmt.Errorf("tonClient is nil")
-	}
-
-	// Query collection details from TonAPI
-	addr := "EQCA14o1-VWhS2efqoh_9M1b_A9DtKTuoqfmkn83AbJzwnPi"
-	collection, err := w.tonClient.GetCollection(ctx, addr)
+	// Try fetching real live stats from GetGems
+	itemsStr, ownersStr, floorStr, volumeStr, err := w.fetchRealStatsFromGetGems(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to fetch collection from TonAPI: %w", err)
-	}
-
-	itemsCount := collection.NextItemIndex
-	itemsStr := ""
-	if itemsCount > 0 {
-		itemsStr = fmt.Sprintf("%d", itemsCount)
-		if itemsCount >= 1000 {
-			itemsStr = fmt.Sprintf("%.1fK", float64(itemsCount)/1000.0)
-		}
-	}
-
-	// Retrieve last known valid stats or use defaults
-	var lastOwners, lastFloor, lastVolume, lastItems string
-	err = w.db.Pool.QueryRow(ctx, `
-		SELECT owners_count, floor_price, total_volume, items_count
-		FROM nft_collection_stats
-		WHERE items_count != '-1' AND items_count != '0' AND items_count != ''
-		ORDER BY stat_date DESC
-		LIMIT 1
-	`).Scan(&lastOwners, &lastFloor, &lastVolume, &lastItems)
-
-	if err != nil {
-		lastOwners = "164.6K"
-		lastFloor = "5.49 TON"
-		lastVolume = "124.0M TON"
-		lastItems = "582.8K"
-	}
-
-	if itemsStr == "" {
-		itemsStr = lastItems
+		slog.Warn("[CollectionWorker] Failed to fetch live stats from GetGems, using fallbacks", "error", err)
+		// Fallbacks
+		itemsStr = "582.8K"
+		ownersStr = "164.6K"
+		floorStr = "5.49 TON"
+		volumeStr = "124.0M TON"
 	}
 
 	// Save the updated stats for today
@@ -295,12 +374,12 @@ func (w *CollectionWorker) fetchAndSaveLiveData(ctx context.Context, date time.T
 			owners_count = EXCLUDED.owners_count,
 			floor_price = EXCLUDED.floor_price,
 			total_volume = EXCLUDED.total_volume
-	`, date, itemsStr, lastOwners, lastFloor, lastVolume)
+	`, date, itemsStr, ownersStr, floorStr, volumeStr)
 	if err != nil {
 		return fmt.Errorf("failed to upsert stats: %w", err)
 	}
 
-	// Also make sure categories exist for today
+	// Make sure categories exist for today
 	var catCount int
 	_ = tx.QueryRow(ctx, "SELECT COUNT(*) FROM nft_collection_categories WHERE stat_date = $1", date).Scan(&catCount)
 	if catCount == 0 {
@@ -331,90 +410,29 @@ func (w *CollectionWorker) fetchAndSaveLiveData(ctx context.Context, date time.T
 		}
 	}
 
-	// Fetch dynamic live auctions from TonAPI (fetch 300 items in parallel)
-	type pageResult struct {
-		items []tonapi.NFTItem
-		err   error
-	}
-
-	pages := 3
-	batchSize := 100
-	results := make(chan pageResult, pages)
-	var wg sync.WaitGroup
-
-	for i := 0; i < pages; i++ {
-		wg.Add(1)
-		go func(offset int) {
-			defer wg.Done()
-			resp, err := w.tonClient.GetCollectionItems(ctx, addr, batchSize, offset)
-			if err != nil {
-				results <- pageResult{err: err}
-				return
-			}
-			results <- pageResult{items: resp.Items}
-		}(i * batchSize)
-	}
-
-	wg.Wait()
-	close(results)
-
-	var liveAuctions []struct {
-		Name   string
-		Price  string
-		Status string
-	}
-
-	for res := range results {
-		if res.err != nil {
-			slog.Warn("[CollectionWorker] Failed to fetch collection items for live auctions", "error", res.err)
-			continue
-		}
-		for _, item := range res.items {
-			if item.Sale != nil && item.DNS != "" {
-				name := item.DNS
-				if len(name) > 5 && name[len(name)-5:] == ".t.me" {
-					name = "@" + name[:len(name)-5]
-				} else {
-					name = "@" + name
-				}
-
-				priceStr := "0 TON"
-				if item.Sale.Price.Value != "" {
-					val, err := strconv.ParseFloat(item.Sale.Price.Value, 64)
-					if err == nil {
-						priceStr = formatCommas(val/1e9) + " TON"
-					}
-				}
-
-				liveAuctions = append(liveAuctions, struct {
-					Name   string
-					Price  string
-					Status string
-				}{
-					Name:   name,
-					Price:  priceStr,
-					Status: "Active",
-				})
-			}
-		}
-	}
-
-	// If we successfully fetched real live auctions, write them to DB
+	// Fetch dynamic live premium auctions from Fragment
+	liveAuctions := w.fetchRealAuctionsFromFragment(ctx)
 	if len(liveAuctions) > 0 {
-		slog.Info("[CollectionWorker] Successfully fetched live auctions from blockchain", "count", len(liveAuctions))
+		slog.Info("[CollectionWorker] Successfully scraped live auctions from Fragment", "count", len(liveAuctions))
 		// Clean existing auctions for today before adding new ones
 		_, _ = tx.Exec(ctx, "DELETE FROM nft_collection_recent_auctions WHERE stat_date = $1", date)
-		for _, auc := range liveAuctions {
+		// Insert top 8 auctions
+		maxInsert := 8
+		if len(liveAuctions) < maxInsert {
+			maxInsert = len(liveAuctions)
+		}
+		for i := 0; i < maxInsert; i++ {
+			auc := liveAuctions[i]
 			_, err = tx.Exec(ctx, `
 				INSERT INTO nft_collection_recent_auctions (stat_date, item_name, price, status)
 				VALUES ($1, $2, $3, $4)
 			`, date, auc.Name, auc.Price, auc.Status)
 			if err != nil {
-				slog.Error("[CollectionWorker] Failed to insert live auction", "name", auc.Name, "error", err)
+				slog.Error("[CollectionWorker] Failed to insert Fragment live auction", "name", auc.Name, "error", err)
 			}
 		}
 	} else {
-		// Fallback to latest database auctions or defaults if TonAPI had rate-limits or empty response
+		// Fallback to latest database auctions or defaults
 		var aucCount int
 		_ = tx.QueryRow(ctx, "SELECT COUNT(*) FROM nft_collection_recent_auctions WHERE stat_date = $1", date).Scan(&aucCount)
 		if aucCount == 0 {
@@ -431,9 +449,11 @@ func (w *CollectionWorker) fetchAndSaveLiveData(ctx context.Context, date time.T
 					Price  string
 					Status string
 				}{
-					{"@durov", "15,000 TON", "Active"},
-					{"@telegram", "45,000 TON", "Active"},
-					{"@blockchain", "9,800 TON", "Active"},
+					{"@feds", "23,665 TON", "Active"},
+					{"@blackhat", "10,001 TON", "Active"},
+					{"@gramv", "8,023 TON", "Active"},
+					{"@cryptoapp", "8,009 TON", "Active"},
+					{"@bcsj", "5,513 TON", "Active"},
 				}
 				for _, auc := range defaultAuctions {
 					_, _ = tx.Exec(ctx, `

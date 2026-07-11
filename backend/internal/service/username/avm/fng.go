@@ -20,6 +20,7 @@ type FnGResponse struct {
 var (
 	fngCache      float64 = 1.0
 	fngIndexCache int     = 50
+	fngClassCache string  = "Neutral"
 	fngLastUpdate time.Time
 	fngMutex      sync.RWMutex
 	fngHttp       = &http.Client{Timeout: 5 * time.Second}
@@ -30,43 +31,44 @@ func GetFearAndGreedMultiplier() (float64, string, int) {
 	fngMutex.RLock()
 	cached := fngCache
 	cachedIdx := fngIndexCache
+	cachedClass := fngClassCache
 	lastUpdate := fngLastUpdate
 	fngMutex.RUnlock()
 
 	// Cache for 12 hours since the index updates daily
 	if time.Since(lastUpdate) < 12*time.Hour {
-		return cached, "cached_fng", cachedIdx
+		return cached, cachedClass, cachedIdx
 	}
 
 	resp, err := fngHttp.Get("https://api.alternative.me/fng/")
 	if err != nil {
 		slog.Warn("FnG API fetch failed", "error", err)
-		return cached, "cached_error_fallback", cachedIdx
+		return cached, cachedClass, cachedIdx
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return cached, "cached_error_fallback", cachedIdx
+		return cached, cachedClass, cachedIdx
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return cached, "cached_error_fallback", cachedIdx
+		return cached, cachedClass, cachedIdx
 	}
 
 	var parsed FnGResponse
 	if err := json.Unmarshal(body, &parsed); err != nil {
-		return cached, "cached_error_fallback", cachedIdx
+		return cached, cachedClass, cachedIdx
 	}
 
 	if len(parsed.Data) == 0 {
-		return cached, "cached_error_fallback", cachedIdx
+		return cached, cachedClass, cachedIdx
 	}
 
 	valStr := parsed.Data[0].Value
 	val, err := strconv.Atoi(valStr)
 	if err != nil {
-		return cached, "cached_error_fallback", cachedIdx
+		return cached, cachedClass, cachedIdx
 	}
 
 	// Linear Scaling Formula: 0.85 + (val / 100.0) * 0.35
@@ -78,6 +80,7 @@ func GetFearAndGreedMultiplier() (float64, string, int) {
 	fngMutex.Lock()
 	fngCache = multiplier
 	fngIndexCache = val
+	fngClassCache = parsed.Data[0].ValueClassification
 	fngLastUpdate = time.Now()
 	fngMutex.Unlock()
 
