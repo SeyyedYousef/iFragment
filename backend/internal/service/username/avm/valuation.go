@@ -518,11 +518,16 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	reasoning["appreciation_rate"] = s.cfg.AppreciationRate
 	reasoning["anchor_injected"] = anchorInjected
 
+	// Fetch semantic engine result early so we can use it for base price sliding & boosting
+	semResult := s.semanticEngine.Score(ctx, username)
+	if semResult != nil {
+		features.SemanticScore = semResult.TotalScore
+		features.IsDictionary = features.IsDictionary || semResult.WordFreqScore > 20
+	}
+	reasoning["features"] = features
+
 	// 3a. Base Price (Bayesian)
 	baseLog, nEff, mad, saleIDs := CalcBaseLog(targetComps, exactComps, broadComps, s.cfg, features, now)
-
-	// Fetch semantic engine result early so we can use it for base price boosting
-	semResult := s.semanticEngine.Score(ctx, username)
 
 	// 3a-1. Semantic-Aware Base Price Boost
 	// If no anchor/target sales exist and the semantic engine thinks this is premium,
@@ -557,7 +562,15 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 			dampingFactor = 0.10
 		}
 	} else if nEff > 0 {
-		dampingFactor = s.cfg.DatabaseDamping
+		// Dynamic Damping: short names damp more (baseline is already high), long names damp less
+		dynamicDamp := s.cfg.DatabaseDamping - float64(5-charLen)*0.10
+		if dynamicDamp < 0.35 {
+			dynamicDamp = 0.35
+		}
+		if dynamicDamp > 0.80 {
+			dynamicDamp = 0.80
+		}
+		dampingFactor = dynamicDamp
 	} else {
 		dampingFactor = 1.0
 	}

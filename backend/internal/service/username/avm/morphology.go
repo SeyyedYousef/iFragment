@@ -13,6 +13,7 @@ type MorphFeatures struct {
 	HasRepetition     bool
 	IsDictionary      bool
 	CharLength        int
+	SemanticScore     float64 // Added for prior sliding logic
 	FlowScore         float64
 	IsPalindrome      bool
 	IsKeyboardPattern bool
@@ -106,7 +107,7 @@ func CalcMorphologyLog(features MorphFeatures, multipliers map[string]float64, c
 	}
 	
 	// Pronounceability Premium/Penalty
-	if features.FlowScore > 0.85 {
+	if features.FlowScore > 0.85 && !features.IsDictionary {
 		if m, ok := multipliers["flow_high"]; ok && m > 0 {
 			morphLog += math.Log(m)
 		}
@@ -117,7 +118,7 @@ func CalcMorphologyLog(features MorphFeatures, multipliers map[string]float64, c
 	}
 
 	// Clean name premium (no underscore)
-	if !features.HasUnderscore {
+	if !features.HasUnderscore && !features.IsDictionary {
 		if m, ok := multipliers["no_underscore"]; ok && m > 0 {
 			morphLog += math.Log(m)
 		}
@@ -169,7 +170,7 @@ func CalcMorphologyLog(features MorphFeatures, multipliers map[string]float64, c
 		}
 	}
 
-	if features.IsAesthetic {
+	if features.IsAesthetic && !features.IsDictionary {
 		morphLog += math.Log(1.0 + features.EuphonyScore) // Smooth names get an aesthetic premium
 	}
 

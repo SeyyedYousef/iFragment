@@ -112,6 +112,14 @@ func (w *CollectionWorker) updateCollectionData(ctx context.Context) {
 		_, _ = conn.Exec(context.Background(), "SELECT pg_advisory_unlock(847295)")
 	}()
 
+	// Clean up old Anonymous Numbers (+888) data to allow fresh Username seeding
+	var hasOldData bool
+	_ = conn.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM nft_collection_recent_auctions WHERE item_name LIKE '+888%')").Scan(&hasOldData)
+	if hasOldData {
+		slog.Info("[CollectionWorker] Detected old Anonymous Numbers data. Clearing tables for Username data...")
+		_, _ = conn.Exec(ctx, "TRUNCATE TABLE nft_collection_stats CASCADE;")
+	}
+
 	slog.Info("[CollectionWorker] Running collection stats update cycle...")
 
 	// 1. Check if stats table has any rows
@@ -161,11 +169,10 @@ func (w *CollectionWorker) seedInitialData(ctx context.Context, date time.Time) 
 		Name   string
 		Volume string
 	}{
-		{"2 Letters", "12.4M TON"},
-		{"3 Letters", "8.9M TON"},
 		{"4 Letters", "5.2M TON"},
 		{"5 Letters", "3.1M TON"},
-		{"6+ Letters", "1.8M TON"},
+		{"6 Letters", "1.8M TON"},
+		{"7+ Letters", "1.2M TON"},
 	}
 	for _, cat := range categories {
 		_, err = tx.Exec(ctx, `
@@ -184,11 +191,11 @@ func (w *CollectionWorker) seedInitialData(ctx context.Context, date time.Time) 
 		Price  string
 		Status string
 	}{
-		{"+888 0000 0000", "4,500 TON", "Active"},
-		{"+888 1234 5678", "2,100 TON", "Active"},
-		{"+888 8888 8888", "15,000 TON", "Active"},
-		{"+888 0909 0909", "1,800 TON", "Active"},
-		{"+888 7777 7777", "9,800 TON", "Active"},
+		{"@durov", "15,000 TON", "Active"},
+		{"@telegram", "45,000 TON", "Active"},
+		{"@blockchain", "9,800 TON", "Active"},
+		{"@gift", "2,100 TON", "Active"},
+		{"@news", "1,800 TON", "Active"},
 	}
 	for _, auc := range auctions {
 		_, err = tx.Exec(ctx, `
@@ -292,11 +299,10 @@ func (w *CollectionWorker) fetchAndSaveLiveData(ctx context.Context, date time.T
 				Name   string
 				Volume string
 			}{
-				{"2 Letters", "12.4M TON"},
-				{"3 Letters", "8.9M TON"},
 				{"4 Letters", "5.2M TON"},
 				{"5 Letters", "3.1M TON"},
-				{"6+ Letters", "1.8M TON"},
+				{"6 Letters", "1.8M TON"},
+				{"7+ Letters", "1.2M TON"},
 			}
 			for _, cat := range categories {
 				_, _ = tx.Exec(ctx, `
@@ -325,9 +331,9 @@ func (w *CollectionWorker) fetchAndSaveLiveData(ctx context.Context, date time.T
 				Price  string
 				Status string
 			}{
-				{"+888 0000 0000", "4,500 TON", "Active"},
-				{"+888 1234 5678", "2,100 TON", "Active"},
-				{"+888 8888 8888", "15,000 TON", "Active"},
+				{"@durov", "15,000 TON", "Active"},
+				{"@telegram", "45,000 TON", "Active"},
+				{"@blockchain", "9,800 TON", "Active"},
 			}
 			for _, auc := range auctions {
 				_, _ = tx.Exec(ctx, `

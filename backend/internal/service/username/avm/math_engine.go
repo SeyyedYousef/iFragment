@@ -236,6 +236,21 @@ func CalcBaseLog(
 		broadMedianLog = WeightedMedian(broadLogPrices, broadWeights)
 	}
 
+	// Bayesian Prior Sliding: slide database median to raw length fallback based on semantic score
+	if features.SemanticScore > 0 {
+		fallbackPrice5 := cfg.FallbackLen5
+		fallbackLog5 := math.Log(fallbackPrice5)
+		
+		weight := features.SemanticScore / 100.0
+		if weight < 0.0 { weight = 0.0 }
+		if weight > 1.0 { weight = 1.0 }
+		
+		broadMedianLog = weight*broadMedianLog + (1.0-weight)*fallbackLog5
+		if exactMedianLog > 0 {
+			exactMedianLog = weight*exactMedianLog + (1.0-weight)*fallbackLog5
+		}
+	}
+
 	// Compute target match statistics (the exact same username)
 	targetWeights := CalcTimeDecayWeights(targetSalesCopy, cfg.Lambda, now)
 	targetLogPrices := LogPrices(targetSalesCopy)

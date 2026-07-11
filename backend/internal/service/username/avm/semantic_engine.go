@@ -353,9 +353,9 @@ func (e *SemanticEngine) scoreToMultiplier(score float64, length int, tags []str
 			multiplier = 1.0
 		}
 	} else {
-		// Premium zone: scale from 1.0x (at score 45) to 200.0x (at score 100)
+		// Premium zone: scale from 1.0x (at score 45) to 100.0x (at score 100) using 1.5 power
 		normalized := (score - 45.0) / 55.0
-		multiplier = 1.0 + math.Pow(normalized, 2.0)*199.0
+		multiplier = 1.0 + math.Pow(normalized, 1.5)*99.0
 	}
 
 	// Tag-Based Pricing
