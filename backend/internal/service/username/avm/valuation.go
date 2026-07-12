@@ -512,6 +512,24 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 			}
 		}
 		if !duplicate {
+			// Save to database so we don't have to scrape it again!
+			_, dbErr := s.db.InsertSale(ctx, repository.Sale{
+				Username:      username,
+				SalePriceTON:  decimal.NewFromFloat(ss.PriceTON),
+				SaleType:      "auction",
+				SaleDate:      ss.SaleDate,
+				BuyerAddress:  nil,
+				CharLength:    int16(charLen),
+				Segment:       segment,
+				HasNumbers:    features.HasNumbers,
+				HasUnderscore: features.HasUnderscore,
+				IsDictionary:  features.IsDictionary,
+				Source:        "fragment_scrape",
+			})
+			if dbErr != nil {
+				slog.Warn("Failed to persist scraped sale to database", "username", username, "error", dbErr)
+			}
+
 			targetComps = append(targetComps, ComparableSale{
 				ID:            0,
 				PriceTON:      ss.PriceTON,
@@ -671,6 +689,13 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	if anchorInjected {
 		morphLog = 0.0 // Morphology is static and already captured by historical anchor price
 		reasoning["anchor_damping_applied"] = true
+
+		anchorPrice := math.Exp(baseLog)
+		if anchorPrice > 0 {
+			semanticDamp := 1.0 / (1.0 + anchorPrice/50000.0)
+			semanticLog *= semanticDamp
+			reasoning["anchor_semantic_damping"] = semanticDamp
+		}
 	}
 	
 	reasoning["semantic_log"] = semanticLog

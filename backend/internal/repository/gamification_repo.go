@@ -208,9 +208,11 @@ func (db *Database) CreditReferrerShareCoins(ctx context.Context, spenderID int6
 
 	creditCoins := func(userID int64, commission float64, tier int) error {
 		_, err := tx.Exec(ctx, `
-			INSERT INTO user_stats (user_id, xp, level, current_streak, last_active_at, energy, energy_updated_at, airdrop_coins)
-			VALUES ($1, 0, 1, 0, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, $2)
-			ON CONFLICT (user_id) DO UPDATE SET airdrop_coins = COALESCE(user_stats.airdrop_coins, 0.0) + $2
+			INSERT INTO user_stats (user_id, xp, level, current_streak, last_active_at, energy, energy_updated_at, airdrop_coins, total_coins_earned)
+			VALUES ($1, 0, 1, 0, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, $2, $2)
+			ON CONFLICT (user_id) DO UPDATE SET 
+				airdrop_coins = COALESCE(user_stats.airdrop_coins, 0.0) + $2,
+				total_coins_earned = COALESCE(user_stats.total_coins_earned, 0.0) + $2
 		`, userID, commission)
 		if err != nil {
 			return fmt.Errorf("failed to credit t%d coins commission: %w", tier, err)

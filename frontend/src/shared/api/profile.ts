@@ -132,6 +132,7 @@ export const ClanSchema = z.object({
 	chat_title: z.string(),
 	members_count: z.number().int().nonnegative(),
 	total_score: z.number().nonnegative().optional(),
+	rank: z.number().int().nonnegative().optional(),
 });
 
 export const UserClanDetailsSchema = z.object({

@@ -256,7 +256,10 @@ export const ClanView: Component = () => {
 					};
 
 					const currentLeagueName = getClanLeague(); 
-					const currentRank = clan().members_count > 100 ? 'Top 100' : 'Unranked';
+					const currentRank = () => {
+						const c = clan();
+						return c && c.rank && c.rank > 0 ? `#${c.rank}` : 'Unranked';
+					};
 
 					return (
 						<div class="min-h-full flex flex-col relative w-full" style={{
@@ -288,7 +291,7 @@ export const ClanView: Component = () => {
 								<button class="flex items-center gap-1.5 mt-2 active:scale-95 transition-transform">
 									<div class="flex items-center gap-1">
 										<span class="text-white/40 text-[16px] font-light">{'{'}</span>
-										<span class="text-white/90 font-bold text-[14px]">{currentRank}</span>
+										<span class="text-white/90 font-bold text-[14px]">{currentRank()}</span>
 										<span class="text-white/40 text-[16px] font-light">{'}'}</span>
 									</div>
 									<span class="text-white/30 text-[14px] mx-1">•</span>

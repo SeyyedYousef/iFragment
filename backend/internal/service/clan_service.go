@@ -75,7 +75,13 @@ func (s *ClanService) GetClanDetails(ctx context.Context, userID int64) (*model.
 	}
 
 	query := `
-		SELECT c.id, c.telegram_channel_id, c.channel_username, COALESCE(c.channel_photo, '') as channel_photo, c.chat_title, c.members_count, c.created_at, cm.joined_at
+		SELECT c.id, c.telegram_channel_id, c.channel_username, COALESCE(c.channel_photo, '') as channel_photo, c.chat_title, c.members_count, c.total_score, c.created_at, cm.joined_at,
+		       (
+		           SELECT COALESCE(rank, 1) FROM (
+		               SELECT id, ROW_NUMBER() OVER (ORDER BY total_score DESC, members_count DESC) as rank
+		               FROM clans
+		           ) r WHERE r.id = c.id
+		       ) as rank
 		FROM clan_members cm
 		JOIN clans c ON cm.clan_id = c.id
 		WHERE cm.user_id = $1
@@ -84,12 +90,16 @@ func (s *ClanService) GetClanDetails(ctx context.Context, userID int64) (*model.
 	var joinedAt time.Time
 
 	err := s.db.Pool.QueryRow(ctx, query, userID).Scan(
-		&clan.ID, &clan.TelegramChannelID, &clan.ChannelUsername, &clan.ChannelPhoto, &clan.ChatTitle, &clan.MembersCount, &clan.CreatedAt, &joinedAt,
+		&clan.ID, &clan.TelegramChannelID, &clan.ChannelUsername, &clan.ChannelPhoto, &clan.ChatTitle, &clan.MembersCount, &clan.TotalScore, &clan.CreatedAt, &joinedAt, &clan.Rank,
 	)
 	if err == pgx.ErrNoRows {
 		return &model.UserClanDetails{IsMember: false}, nil
 	} else if err != nil {
 		return nil, err
+	}
+
+	if clan.ChannelPhoto == "" {
+		clan.ChannelPhoto = fmt.Sprintf("https://t.me/i/userpic/320/%s.jpg", clan.ChannelUsername)
 	}
 
 	return &model.UserClanDetails{
@@ -323,8 +333,17 @@ func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, usern
 		return nil, err
 	}
 
-	// Reload final clan members count to return correct data
-	err = tx.QueryRow(ctx, "SELECT members_count FROM clans WHERE id = $1", finalClan.ID).Scan(&finalClan.MembersCount)
+	// Reload final clan members count and rank to return correct data
+	err = tx.QueryRow(ctx, `
+		SELECT members_count, total_score,
+		       (
+		           SELECT COALESCE(rank, 1) FROM (
+		               SELECT id, ROW_NUMBER() OVER (ORDER BY total_score DESC, members_count DESC) as rank
+		               FROM clans
+		           ) r WHERE r.id = $1
+		       ) as rank
+		FROM clans WHERE id = $1
+	`, finalClan.ID).Scan(&finalClan.MembersCount, &finalClan.TotalScore, &finalClan.Rank)
 	if err != nil {
 		return nil, err
 	}
@@ -332,6 +351,10 @@ func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, usern
 	err = tx.Commit(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	if finalClan.ChannelPhoto == "" {
+		finalClan.ChannelPhoto = fmt.Sprintf("https://t.me/i/userpic/320/%s.jpg", finalClan.ChannelUsername)
 	}
 
 	if s.cache != nil && s.cache.Client != nil {
@@ -376,6 +399,7 @@ func (s *ClanService) GetTopClans(ctx context.Context, limit int) ([]model.Clan,
 	defer rows.Close()
 
 	clans := []model.Clan{}
+	rank := 1
 	for rows.Next() {
 		var c model.Clan
 		var channelPhoto sql.NullString
@@ -384,6 +408,11 @@ func (s *ClanService) GetTopClans(ctx context.Context, limit int) ([]model.Clan,
 			return nil, err
 		}
 		c.ChannelPhoto = channelPhoto.String
+		if c.ChannelPhoto == "" {
+			c.ChannelPhoto = fmt.Sprintf("https://t.me/i/userpic/320/%s.jpg", c.ChannelUsername)
+		}
+		c.Rank = rank
+		rank++
 		clans = append(clans, c)
 	}
 
@@ -461,11 +490,11 @@ func (s *ClanService) flushScoresToDB(ctx context.Context) {
 	}
 	defer tx.Rollback(ctx)
 
-	// Update total_score in clans table based on the sum of member airdrop_coins
+	// Update total_score in clans table based on the sum of member total_coins_earned
 	updateQuery := `
 		UPDATE clans c
 		SET total_score = COALESCE((
-			SELECT SUM(us.airdrop_coins)
+			SELECT SUM(us.total_coins_earned)
 			FROM clan_members cm
 			JOIN user_stats us ON cm.user_id = us.user_id
 			WHERE cm.clan_id = c.id
@@ -576,7 +605,7 @@ func (s *ClanService) GetClanMembers(ctx context.Context, userID int64, clanID s
 	}
 
 	query := `
-		SELECT u.telegram_id, COALESCE(u.username, '') as username, u.first_name, COALESCE(u.last_name, '') as last_name, COALESCE(us.airdrop_coins, 0) as score, COALESCE(us.level, 1) as level, COALESCE(us.xp, 0) as xp
+		SELECT u.telegram_id, COALESCE(u.username, '') as username, u.first_name, COALESCE(u.last_name, '') as last_name, COALESCE(us.total_coins_earned, 0) as score, COALESCE(us.level, 1) as level, COALESCE(us.xp, 0) as xp
 		FROM clan_members cm
 		JOIN users u ON cm.user_id = u.telegram_id
 		LEFT JOIN user_stats us ON u.telegram_id = us.user_id

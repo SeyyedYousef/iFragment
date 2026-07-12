@@ -317,6 +317,7 @@ func (s *GamificationService) ClaimDailyReward(ctx context.Context, userID int64
 	updateStatsQuery := `
 		UPDATE user_stats
 		SET airdrop_coins = airdrop_coins + $1,
+		    total_coins_earned = total_coins_earned + $1,
 		    xp = xp + $2,
 		    current_streak = $3,
 		    last_active_at = CURRENT_TIMESTAMP
@@ -570,6 +571,7 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 	updateStatsQuery := `
 		UPDATE user_stats
 		SET airdrop_coins = airdrop_coins + $1,
+		    total_coins_earned = total_coins_earned + $1,
 		    xp = xp + $2,
 		    last_active_at = CURRENT_TIMESTAMP
 		WHERE user_id = $3
@@ -1012,7 +1014,7 @@ func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID i
 	earnedInt := int(earned)
 
 	if earnedInt > 0 {
-		_, err = tx.Exec(ctx, `UPDATE user_stats SET airdrop_coins = airdrop_coins + $1 WHERE user_id = $2`, earnedInt, userID)
+		_, err = tx.Exec(ctx, `UPDATE user_stats SET airdrop_coins = airdrop_coins + $1, total_coins_earned = total_coins_earned + $1 WHERE user_id = $2`, earnedInt, userID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to update user stats: %w", err)
 		}

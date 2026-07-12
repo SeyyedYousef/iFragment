@@ -10,6 +10,7 @@ type Clan struct {
 	ChatTitle         string    `json:"chat_title"`
 	MembersCount      int       `json:"members_count"`
 	TotalScore        float64   `json:"total_score,omitempty"`
+	Rank              int       `json:"rank,omitempty"`
 	CreatedAt         time.Time `json:"created_at"`
 }
 

@@ -696,10 +696,11 @@ func (db *Database) AdjustAirdropCoins(ctx context.Context, userID int64, amount
 
 	// Create user_stats if missing, then adjust
 	query := `
-		INSERT INTO user_stats (user_id, xp, level, current_streak, last_active_at, energy, energy_updated_at, airdrop_coins)
-		VALUES ($1, 0, 1, 0, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, $2)
+		INSERT INTO user_stats (user_id, xp, level, current_streak, last_active_at, energy, energy_updated_at, airdrop_coins, total_coins_earned)
+		VALUES ($1, 0, 1, 0, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, $2, GREATEST(0.0, $2))
 		ON CONFLICT (user_id) DO UPDATE 
-		SET airdrop_coins = COALESCE(user_stats.airdrop_coins, 0.0) + $2
+		SET airdrop_coins = COALESCE(user_stats.airdrop_coins, 0.0) + $2,
+		    total_coins_earned = COALESCE(user_stats.total_coins_earned, 0.0) + CASE WHEN $2 > 0 THEN $2 ELSE 0.0 END
 		RETURNING airdrop_coins
 	`
 	var newBalance float64

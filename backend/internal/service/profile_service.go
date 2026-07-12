@@ -398,11 +398,14 @@ func (s *ProfileService) SetReferralCode(ctx context.Context, userID int64, refe
 	}
 
 	// 4) Issue rewards INSIDE tx via shared connection
+	// 4) Issue rewards INSIDE tx via shared connection
 	if rewardReferrer {
 		_, err = tx.Exec(ctx, `
-			INSERT INTO user_stats (user_id, days_active, current_streak, total_taps, xp, level, last_active_at, energy, energy_updated_at, airdrop_coins)
-			VALUES ($1, 1, 1, 0, 0, 1, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, $2)
-			ON CONFLICT (user_id) DO UPDATE SET airdrop_coins = COALESCE(user_stats.airdrop_coins, 0.0) + $2`,
+			INSERT INTO user_stats (user_id, days_active, current_streak, total_taps, xp, level, last_active_at, energy, energy_updated_at, airdrop_coins, total_coins_earned)
+			VALUES ($1, 1, 1, 0, 0, 1, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, $2, $2)
+			ON CONFLICT (user_id) DO UPDATE SET 
+				airdrop_coins = COALESCE(user_stats.airdrop_coins, 0.0) + $2,
+				total_coins_earned = COALESCE(user_stats.total_coins_earned, 0.0) + $2`,
 			referrerID, ReferrerReward,
 		)
 		if err != nil {
@@ -410,9 +413,11 @@ func (s *ProfileService) SetReferralCode(ctx context.Context, userID int64, refe
 		}
 	}
 	_, err = tx.Exec(ctx, `
-		INSERT INTO user_stats (user_id, days_active, current_streak, total_taps, xp, level, last_active_at, energy, energy_updated_at, airdrop_coins)
-		VALUES ($1, 1, 1, 0, 0, 1, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, $2)
-		ON CONFLICT (user_id) DO UPDATE SET airdrop_coins = COALESCE(user_stats.airdrop_coins, 0.0) + $2`,
+		INSERT INTO user_stats (user_id, days_active, current_streak, total_taps, xp, level, last_active_at, energy, energy_updated_at, airdrop_coins, total_coins_earned)
+		VALUES ($1, 1, 1, 0, 0, 1, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP, $2, $2)
+		ON CONFLICT (user_id) DO UPDATE SET 
+			airdrop_coins = COALESCE(user_stats.airdrop_coins, 0.0) + $2,
+			total_coins_earned = COALESCE(user_stats.total_coins_earned, 0.0) + $2`,
 		userID, ReferredReward,
 	)
 	if err != nil {
@@ -554,6 +559,7 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 		SET total_taps = COALESCE(total_taps, 0) + $1,
 		    xp = COALESCE(xp, 0) + $2,
 		    airdrop_coins = COALESCE(airdrop_coins, 0) + $3,
+		    total_coins_earned = COALESCE(total_coins_earned, 0) + $3,
 		    energy = $4,
 		    energy_updated_at = $5,
 		    last_active_at = now()
@@ -595,7 +601,7 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 				reward = 200000.0
 			}
 			if reward > 0 {
-				_, _ = tx.Exec(ctx, "UPDATE user_stats SET airdrop_coins = COALESCE(airdrop_coins, 0) + $1 WHERE user_id = $2", reward, *referrerID)
+				_, _ = tx.Exec(ctx, "UPDATE user_stats SET airdrop_coins = COALESCE(airdrop_coins, 0) + $1, total_coins_earned = COALESCE(total_coins_earned, 0) + $1 WHERE user_id = $2", reward, *referrerID)
 			}
 		}
 	}
