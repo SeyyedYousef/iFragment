@@ -86,6 +86,8 @@ export const TaskStatusSchema = z.object({
 	reward_frg: z.number().nonnegative(),
 	reward_xp: z.number().nonnegative(),
 	completed: z.boolean(),
+	type: z.string().optional(),
+	config: z.any().optional().nullable(),
 });
 
 export const BoostStatusSchema = z.object({
@@ -138,6 +140,16 @@ export const UserClanDetailsSchema = z.object({
 	joined_at: z.string().optional(),
 });
 
+export const ClanMemberSchema = z.object({
+	telegram_id: z.number(),
+	username: z.string().optional(),
+	first_name: z.string(),
+	last_name: z.string().optional(),
+	score: z.number(),
+	level: z.number().int().nonnegative(),
+	xp: z.number().int().nonnegative(),
+});
+
 export const SuccessResponseSchema = z
 	.object({
 		status: z.string().optional(),
@@ -152,6 +164,7 @@ export type BoostStatus = z.infer<typeof BoostStatusSchema>;
 export type LeaderboardMember = z.infer<typeof LeaderboardMemberSchema>;
 export type Clan = z.infer<typeof ClanSchema>;
 export type UserClanDetails = z.infer<typeof UserClanDetailsSchema>;
+export type ClanMember = z.infer<typeof ClanMemberSchema>;
 export type SuccessResponse = z.infer<typeof SuccessResponseSchema>;
 
 // ─── Validated Fetch Helper ───
@@ -193,10 +206,10 @@ export const claimDailyReward = (): Promise<DailyStatus> =>
 export const getTasksStatus = (): Promise<TaskStatus[]> =>
 	validatedFetch('/profile/tasks', z.array(TaskStatusSchema));
 
-export const completeTask = (taskKey: string): Promise<TaskStatus> =>
+export const completeTask = (taskKey: string, answer?: string): Promise<TaskStatus> =>
 	validatedFetch('/profile/tasks/complete', TaskStatusSchema, {
 		method: 'POST',
-		body: JSON.stringify({ taskKey }),
+		body: JSON.stringify({ taskKey, answer }),
 	});
 
 export const getBoostsStatus = (): Promise<BoostStatus[]> =>
@@ -297,6 +310,10 @@ export const leaveClan = (): Promise<SuccessResponse> =>
 
 export const getTopClans = (): Promise<Clan[]> =>
 	validatedFetch('/profile/clan/top', z.array(ClanSchema));
+
+export const getClanMembers = (clanId?: string, limit?: number): Promise<ClanMember[]> =>
+	validatedFetch(`/profile/clan/members?clan_id=${clanId || ''}&limit=${limit || 50}`, z.array(ClanMemberSchema));
+
 
 export const deleteAccountGDPR = (): Promise<{ status: string; message: string }> =>
 	validatedFetch('/profile/gdpr', z.object({ status: z.string(), message: z.string() }), {

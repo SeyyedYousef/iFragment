@@ -8,6 +8,9 @@ import { syncProfileStats } from '@/shared/store/airdrop.js';
 export const TasksView: Component = () => {
 	const [taskErrors, setTaskErrors] = createSignal<Record<string, string>>({});
 	const [loadingKeys, setLoadingKeys] = createSignal<Record<string, boolean>>({});
+	const [activeQuizTask, setActiveQuizTask] = createSignal<TaskStatus | null>(null);
+	const [quizAnswerInput, setQuizAnswerInput] = createSignal('');
+	const [quizError, setQuizError] = createSignal('');
 
 	const tasksQuery = createQuery<TaskStatus[]>(() => ({
 		queryKey: ['tasks-status'],
@@ -22,15 +25,30 @@ export const TasksView: Component = () => {
 
 		// Clear previous errors
 		setTaskErrors((prev) => ({ ...prev, [key]: '' }));
-		setLoadingKeys((prev) => ({ ...prev, [key]: true }));
 
 		try {
 			hapticFeedback.impactOccurred('medium');
 		} catch (_) {}
 
+		// Quiz quest check: trigger input modal
+		if (task.type === 'quiz') {
+			setActiveQuizTask(task);
+			setQuizAnswerInput('');
+			setQuizError('');
+			return;
+		}
+
+		setLoadingKeys((prev) => ({ ...prev, [key]: true }));
+
 		// CTA Redirect if Telegram channel task
-		if (key === 'join_ifragment_channel') {
-			openTelegramLink('https://t.me/ifragment_net');
+		if (task.type === 'channel_join' || key === 'join_ifragment_channel') {
+			let channelName = task.config?.channel_username || 'ifragment_net';
+			channelName = channelName.replace(/^@/, '');
+			try {
+				openTelegramLink(`https://t.me/${channelName}`);
+			} catch (_) {
+				window.open(`https://t.me/${channelName}`, '_blank');
+			}
 			// Give a tiny timeout for channel redirection before triggering verification
 			await new Promise((resolve) => setTimeout(resolve, 800));
 		}
@@ -61,7 +79,7 @@ export const TasksView: Component = () => {
 					errorMessage = "Keep tapping! You haven't reached the goal yet.";
 				} else if (msg.includes('telegram premium')) {
 					errorMessage = 'You need an active Telegram Premium subscription.';
-				} else if (msg.includes('join official telegram channel')) {
+				} else if (msg.includes('join official telegram channel') || msg.includes('official channel')) {
 					errorMessage = 'Please join the channel first.';
 				} else if (msg.includes('network') || msg.includes('fetch')) {
 					errorMessage = t('airdrop.tasks.errors.network') || 'Network error.';
@@ -76,26 +94,84 @@ export const TasksView: Component = () => {
 		}
 	};
 
-	const getTaskDetails = (key: string) => {
+	const handleQuizSubmit = async (e: Event) => {
+		e.preventDefault();
+		const task = activeQuizTask();
+		if (!task) return;
+
+		const answer = quizAnswerInput().trim();
+		if (!answer) {
+			setQuizError('Answer cannot be empty.');
+			return;
+		}
+
+		setQuizError('');
+		const key = task.key;
+		setLoadingKeys((prev) => ({ ...prev, [key]: true }));
+
+		try {
+			const result = await completeTask(key, answer);
+			if (result) {
+				try {
+					hapticFeedback.notificationOccurred('success');
+				} catch (_) {}
+				tasksQuery.refetch();
+				await syncProfileStats();
+				setActiveQuizTask(null);
+			} else {
+				throw new Error('empty_response');
+			}
+		} catch (e: any) {
+			console.error('Failed to complete quiz task:', e);
+			let errorMessage = 'Incorrect answer. Please try again.';
+			if (e?.message) {
+				const msg = e.message.toLowerCase();
+				if (msg.includes('incorrect')) {
+					errorMessage = 'Incorrect answer. Please try again.';
+				} else if (msg.includes('network') || msg.includes('fetch')) {
+					errorMessage = t('airdrop.tasks.errors.network') || 'Network error.';
+				} else {
+					errorMessage = e.message;
+				}
+			}
+			setQuizError(errorMessage);
+			try {
+				hapticFeedback.notificationOccurred('error');
+			} catch (_) {}
+		} finally {
+			setLoadingKeys((prev) => ({ ...prev, [key]: false }));
+		}
+	};
+
+	const getTaskDetails = (task: TaskStatus) => {
+		const key = task.key;
 		switch (key) {
 			case 'league_gold':
-				return { title: t('airdropFinal.tasks.leagueGold'), icon: '🏆' };
+				return { title: t('airdropFinal.tasks.leagueGold') || task.title, icon: '🏆' };
 			case 'join_clan':
-				return { title: t('airdropFinal.tasks.joinClan'), icon: '🛡️' };
+				return { title: t('airdropFinal.tasks.joinClan') || task.title, icon: '🛡️' };
 			case 'invite_1_fren':
-				return { title: t('airdropFinal.tasks.invite1'), icon: '🤝' };
+				return { title: t('airdropFinal.tasks.invite1') || task.title, icon: '🤝' };
 			case 'invite_3_frens':
-				return { title: t('airdropFinal.tasks.invite3'), icon: '👥' };
+				return { title: t('airdropFinal.tasks.invite3') || task.title, icon: '👥' };
 			case 'invite_10_frens':
-				return { title: t('airdropFinal.tasks.invite10'), icon: '💎' };
+				return { title: t('airdropFinal.tasks.invite10') || task.title, icon: '💎' };
 			case 'taps_100k':
-				return { title: t('airdropFinal.tasks.taps100k'), icon: '👆' };
+				return { title: t('airdropFinal.tasks.taps100k') || task.title, icon: '👆' };
 			case 'telegram_premium':
-				return { title: t('airdropFinal.tasks.premium'), icon: '⭐️' };
+				return { title: t('airdropFinal.tasks.premium') || task.title, icon: '⭐️' };
 			case 'join_ifragment_channel':
-				return { title: t('airdropFinal.tasks.joinChannel'), icon: '📣' };
+				return { title: t('airdropFinal.tasks.joinChannel') || task.title, icon: '📣' };
 			default:
-				return { title: t('airdropFinal.tasks.specialTask'), icon: '🎁' };
+				let icon = '🎁';
+				if (task.type === 'channel_join' || key.includes('channel') || key.includes('telegram')) {
+					icon = '📣';
+				} else if (task.type === 'quiz' || key.includes('quiz') || key.includes('question')) {
+					icon = '❓';
+				} else if (key.includes('invite') || key.includes('fren')) {
+					icon = '🤝';
+				}
+				return { title: task.title || t('airdropFinal.tasks.specialTask'), icon };
 		}
 	};
 
@@ -159,14 +235,14 @@ export const TasksView: Component = () => {
 							>
 								<For each={tasksQuery.data}>
 									{(task, index) => {
-										const details = getTaskDetails(task.key);
+										const details = getTaskDetails(task);
 										const isLast = index() === (tasksQuery.data?.length || 0) - 1;
 										return (
 											<div class={`flex flex-col ${!isLast ? 'border-b border-white/5' : ''}`}>
 												<button
 													onClick={() => handleTaskClick(task)}
 													disabled={task.completed || loadingKeys()[task.key]}
-													class="w-full flex items-center justify-between py-4 text-left active:opacity-70 transition-opacity disabled:opacity-100"
+													class="w-full flex items-center justify-between py-4 text-start active:opacity-70 transition-opacity disabled:opacity-100"
 												>
 													<div class="flex items-center gap-4 min-w-0 flex-1">
 														<div class="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center shrink-0">
@@ -206,6 +282,64 @@ export const TasksView: Component = () => {
 					</Show>
 				</div>
 			</div>
+
+			{/* QUIZ MODAL */}
+			<Show when={activeQuizTask()}>
+				<div class="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-fade-in">
+					<div class="w-full max-w-sm bg-gradient-to-b from-[#1c1d22] to-[#121316] border border-white/10 rounded-[32px] p-6 shadow-2xl relative">
+						<button
+							onClick={() => setActiveQuizTask(null)}
+							class="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center border border-white/10 active:scale-95 transition-all text-white/70"
+						>
+							<span class="material-symbols-outlined text-[18px]">close</span>
+						</button>
+
+						<div class="flex flex-col items-center text-center mt-2">
+							<div class="w-16 h-16 bg-[#3390ec]/10 border border-[#3390ec]/20 rounded-2xl flex items-center justify-center mb-4 text-[32px]">
+								❓
+							</div>
+							<h3 class="text-lg font-black text-white mb-2">
+								{activeQuizTask()?.title || t('airdropFinal.tasks.specialTask')}
+							</h3>
+							<p class="text-[14px] text-[#a0a4ad] leading-relaxed mb-6">
+								{activeQuizTask()?.config?.quiz_question || 'Solve this riddle to claim the reward!'}
+							</p>
+						</div>
+
+						<form onSubmit={handleQuizSubmit} class="space-y-4">
+							<div class="flex flex-col gap-1.5">
+								<input
+									type="text"
+									required
+									value={quizAnswerInput()}
+									onInput={(e) => setQuizAnswerInput(e.currentTarget.value)}
+									class="w-full h-12 px-4 bg-black/40 border border-white/10 focus:border-[#3390ec] text-white text-sm font-semibold rounded-2xl focus:outline-none transition-all text-center"
+									placeholder="پاسخ را وارد کنید..."
+									autofocus
+								/>
+							</div>
+
+							<Show when={quizError()}>
+								<p class="text-xs text-[#ff453a] font-bold text-center">
+									{quizError()}
+								</p>
+							</Show>
+
+							<button
+								type="submit"
+								disabled={loadingKeys()[activeQuizTask()!.key]}
+								class="w-full h-12 bg-gradient-to-r from-[#3390ec] to-[#287ece] active:scale-95 text-xs font-black uppercase tracking-wider rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+							>
+								{loadingKeys()[activeQuizTask()!.key] ? (
+									<span class="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+								) : (
+									t('airdrop.tasks.buttons.check') || 'Check Answer'
+								)}
+							</button>
+						</form>
+					</div>
+				</div>
+			</Show>
 		</div>
 	);
 };

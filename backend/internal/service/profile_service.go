@@ -367,8 +367,8 @@ func (s *ProfileService) SetReferralCode(ctx context.Context, userID int64, refe
 	const (
 		MaxReferralRewardPerDay = 20000.0
 		MaxReferralRewardTotal  = 1000000.0
-		ReferrerReward          = 1000.0
-		ReferredReward          = 1000.0
+		ReferrerReward          = 10000.0
+		ReferredReward          = 10000.0
 	)
 	var totalEarned float64
 	// FRG transactions completely removed.

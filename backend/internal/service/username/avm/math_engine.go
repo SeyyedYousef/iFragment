@@ -178,12 +178,24 @@ func NormalizeToLength5(price float64, length int, cfg EngineConfig) float64 {
 }
 
 // DenormalizeFromLength5 denormalizes a price from a 5-letter equivalent to the target length.
-func DenormalizeFromLength5(price float64, targetLength int, cfg EngineConfig) float64 {
+// Damps the length penalty for high semantic score premium names.
+func DenormalizeFromLength5(price float64, targetLength int, semanticScore float64, cfg EngineConfig) float64 {
 	if price <= 0 {
 		return 0
 	}
 	f := fallbackForLength(targetLength, cfg)
-	return price * (f / cfg.FallbackLen5)
+	ratio := f / cfg.FallbackLen5
+	if ratio < 1.0 && semanticScore > 0 {
+		damp := semanticScore / 100.0
+		if damp > 1.0 {
+			damp = 1.0
+		}
+		if damp < 0.0 {
+			damp = 0.0
+		}
+		ratio = damp*1.0 + (1.0-damp)*ratio
+	}
+	return price * ratio
 }
 
 // CalcBaseLog computes the foundational price in log-space using hierarchical Bayesian Shrinkage:
@@ -305,7 +317,7 @@ func CalcBaseLog(
 	}
 
 	// Denormalize computed baseLog (which is in 5-letter log-space) back to the target's length
-	baseLog = math.Log(DenormalizeFromLength5(math.Exp(baseLog), features.CharLength, cfg))
+	baseLog = math.Log(DenormalizeFromLength5(math.Exp(baseLog), features.CharLength, features.SemanticScore, cfg))
 
 	return baseLog, nEff, mad, saleIDs
 }

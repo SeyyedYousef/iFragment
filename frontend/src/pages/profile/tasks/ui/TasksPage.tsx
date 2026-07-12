@@ -10,6 +10,9 @@ export const TasksPage: Component = () => {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const [message, setMessage] = createSignal<{ text: string; error: boolean } | null>(null);
+	const [activeQuizTask, setActiveQuizTask] = createSignal<any | null>(null);
+	const [quizAnswerInput, setQuizAnswerInput] = createSignal('');
+	const [quizError, setQuizError] = createSignal('');
 
 	const tasksQuery = createQuery(() => ({
 		queryKey: ['profile', 'tasks'],
@@ -19,7 +22,7 @@ export const TasksPage: Component = () => {
 	}));
 
 	const completeTaskMutation = createMutation(() => ({
-		mutationFn: ({ key }: { key: string }) => completeTask(key),
+		mutationFn: ({ key, answer }: { key: string; answer?: string }) => completeTask(key, answer),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['profile', 'tasks'] });
 			queryClient.invalidateQueries({ queryKey: ['profile', 'stats'] });
@@ -67,17 +70,28 @@ export const TasksPage: Component = () => {
 		} catch {}
 	});
 
-	const handleComplete = async (key: string) => {
+	const handleComplete = async (task: any) => {
 		setMessage(null);
+		const key = task.key;
 		try {
 			try {
 				hapticFeedback.impactOccurred('medium');
 			} catch {}
 
+			// Quiz quest check: trigger input modal
+			if (task.type === 'quiz') {
+				setActiveQuizTask(task);
+				setQuizAnswerInput('');
+				setQuizError('');
+				return;
+			}
+
 			// If joining telegram channel, redirect user to the link first
-			if (key === 'join_ifragment_channel') {
+			if (task.type === 'channel_join' || key === 'join_ifragment_channel') {
+				let channelName = task.config?.channel_username || 'ifragment_net';
+				channelName = channelName.replace(/^@/, '');
 				try {
-					openTelegramLink('https://t.me/ifragment_net');
+					openTelegramLink(`https://t.me/${channelName}`);
 				} catch {}
 				await new Promise((resolve) => setTimeout(resolve, 800));
 			}
@@ -86,6 +100,32 @@ export const TasksPage: Component = () => {
 		} catch (e: any) {
 			console.error('Failed to complete task:', e);
 		}
+	};
+
+	const handleQuizSubmit = async (e: Event) => {
+		e.preventDefault();
+		const task = activeQuizTask();
+		if (!task) return;
+
+		const answer = quizAnswerInput().trim();
+		if (!answer) {
+			setQuizError('Answer cannot be empty.');
+			return;
+		}
+
+		setQuizError('');
+		const key = task.key;
+		completeTaskMutation.mutate(
+			{ key, answer },
+			{
+				onSuccess: () => {
+					setActiveQuizTask(null);
+				},
+				onError: (err: any) => {
+					setQuizError(err.message || 'Incorrect answer. Please try again.');
+				},
+			}
+		);
 	};
 
 	return (
@@ -174,7 +214,7 @@ export const TasksPage: Component = () => {
 												when={task.completed}
 												fallback={
 													<button
-														onClick={() => handleComplete(task.key)}
+														onClick={() => handleComplete(task)}
 														disabled={
 															completeTaskMutation.isPending &&
 															completeTaskMutation.variables?.key === task.key
@@ -200,6 +240,64 @@ export const TasksPage: Component = () => {
 					</Show>
 				)}
 			</div>
+
+			{/* QUIZ MODAL */}
+			<Show when={activeQuizTask()}>
+				<div class="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-fade-in">
+					<div class="w-full max-w-sm bg-gradient-to-b from-[#1c1d22] to-[#121316] border border-white/10 rounded-[32px] p-6 shadow-2xl relative">
+						<button
+							onClick={() => setActiveQuizTask(null)}
+							class="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center border border-white/10 active:scale-95 transition-all text-white/70"
+						>
+							<span class="material-symbols-outlined text-[18px]">close</span>
+						</button>
+
+						<div class="flex flex-col items-center text-center mt-2">
+							<div class="w-16 h-16 bg-[#3390ec]/10 border border-[#3390ec]/20 rounded-2xl flex items-center justify-center mb-4 text-[32px]">
+								❓
+							</div>
+							<h3 class="text-lg font-black text-white mb-2">
+								{activeQuizTask()?.title || t('airdropFinal.tasks.specialTask')}
+							</h3>
+							<p class="text-[14px] text-[#a0a4ad] leading-relaxed mb-6">
+								{activeQuizTask()?.config?.quiz_question || 'Solve this riddle to claim the reward!'}
+							</p>
+						</div>
+
+						<form onSubmit={handleQuizSubmit} class="space-y-4">
+							<div class="flex flex-col gap-1.5">
+								<input
+									type="text"
+									required
+									value={quizAnswerInput()}
+									onInput={(e) => setQuizAnswerInput(e.currentTarget.value)}
+									class="w-full h-12 px-4 bg-black/40 border border-white/10 focus:border-[#3390ec] text-white text-sm font-semibold rounded-2xl focus:outline-none transition-all text-center"
+									placeholder="پاسخ را وارد کنید..."
+									autofocus
+								/>
+							</div>
+
+							<Show when={quizError()}>
+								<p class="text-xs text-[#ff453a] font-bold text-center">
+									{quizError()}
+								</p>
+							</Show>
+
+							<button
+								type="submit"
+								disabled={completeTaskMutation.isPending && completeTaskMutation.variables?.key === activeQuizTask()!.key}
+								class="w-full h-12 bg-gradient-to-r from-[#3390ec] to-[#287ece] active:scale-95 text-xs font-black uppercase tracking-wider rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+							>
+								{completeTaskMutation.isPending && completeTaskMutation.variables?.key === activeQuizTask()!.key ? (
+									<span class="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+								) : (
+									t('airdrop.tasks.buttons.check') || 'Check Answer'
+								)}
+							</button>
+						</form>
+					</div>
+				</div>
+			</Show>
 		</div>
 	);
 };

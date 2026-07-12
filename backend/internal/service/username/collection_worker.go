@@ -84,8 +84,30 @@ func (w *CollectionWorker) ensureTablesExist(ctx context.Context) error {
 		CONSTRAINT fk_stat_date FOREIGN KEY (stat_date) REFERENCES nft_collection_stats (stat_date) ON DELETE CASCADE
 	);
 
+	CREATE TABLE IF NOT EXISTS nft_collection_top_sales (
+		id SERIAL PRIMARY KEY,
+		stat_date DATE NOT NULL,
+		item_name TEXT NOT NULL,
+		price TEXT NOT NULL,
+		status TEXT,
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+		CONSTRAINT fk_stat_date FOREIGN KEY (stat_date) REFERENCES nft_collection_stats (stat_date) ON DELETE CASCADE
+	);
+
+	CREATE TABLE IF NOT EXISTS nft_collection_recent_activity (
+		id SERIAL PRIMARY KEY,
+		stat_date DATE NOT NULL,
+		item_name TEXT NOT NULL,
+		price TEXT NOT NULL,
+		status TEXT,
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+		CONSTRAINT fk_stat_date FOREIGN KEY (stat_date) REFERENCES nft_collection_stats (stat_date) ON DELETE CASCADE
+	);
+
 	CREATE INDEX IF NOT EXISTS idx_nft_coll_categories_date ON nft_collection_categories(stat_date);
 	CREATE INDEX IF NOT EXISTS idx_nft_coll_auctions_date ON nft_collection_recent_auctions(stat_date);
+	CREATE INDEX IF NOT EXISTS idx_nft_coll_top_sales ON nft_collection_top_sales(stat_date);
+	CREATE INDEX IF NOT EXISTS idx_nft_coll_recent_act ON nft_collection_recent_activity(stat_date);
 	`
 	_, err := w.db.Pool.Exec(ctx, schemaSQL)
 	return err
@@ -346,6 +368,78 @@ func (w *CollectionWorker) fetchRealAuctionsFromFragment(ctx context.Context) []
 	return auctions
 }
 
+func (w *CollectionWorker) fetchRealTopSalesFromFragment(ctx context.Context) []struct {
+	Name   string
+	Price  string
+	Status string
+} {
+	html, err := fetchHTML(ctx, "https://fragment.com/?filter=sold")
+	if err != nil {
+		slog.Warn("[CollectionWorker] Failed to fetch Fragment sold page (top sales)", "error", err)
+		return nil
+	}
+
+	reRow := regexp.MustCompile(`(?s)<tr class="tm-row-selectable">.*?<div class="table-cell-value tm-value">@([a-zA-Z0-9_]+)</div>.*?<div class="table-cell-value tm-value icon-before icon-ton">([0-9,]+)</div>`)
+	matches := reRow.FindAllStringSubmatch(html, -1)
+
+	var sales []struct {
+		Name   string
+		Price  string
+		Status string
+	}
+
+	for _, match := range matches {
+		if len(match) >= 3 {
+			sales = append(sales, struct {
+				Name   string
+				Price  string
+				Status string
+			}{
+				Name:   "@" + match[1],
+				Price:  match[2] + " TON",
+				Status: "Sold",
+			})
+		}
+	}
+	return sales
+}
+
+func (w *CollectionWorker) fetchRealRecentActivityFromFragment(ctx context.Context) []struct {
+	Name   string
+	Price  string
+	Status string
+} {
+	html, err := fetchHTML(ctx, "https://fragment.com/?filter=sold&sort=listed")
+	if err != nil {
+		slog.Warn("[CollectionWorker] Failed to fetch Fragment recently sold page", "error", err)
+		return nil
+	}
+
+	reRow := regexp.MustCompile(`(?s)<tr class="tm-row-selectable">.*?<div class="table-cell-value tm-value">@([a-zA-Z0-9_]+)</div>.*?<div class="table-cell-value tm-value icon-before icon-ton">([0-9,]+)</div>`)
+	matches := reRow.FindAllStringSubmatch(html, -1)
+
+	var activity []struct {
+		Name   string
+		Price  string
+		Status string
+	}
+
+	for _, match := range matches {
+		if len(match) >= 3 {
+			activity = append(activity, struct {
+				Name   string
+				Price  string
+				Status string
+			}{
+				Name:   "@" + match[1],
+				Price:  match[2] + " TON",
+				Status: "Sold",
+			})
+		}
+	}
+	return activity
+}
+
 func (w *CollectionWorker) fetchAndSaveLiveData(ctx context.Context, date time.Time) error {
 	// Try fetching real live stats from GetGems
 	itemsStr, ownersStr, floorStr, volumeStr, err := w.fetchRealStatsFromGetGems(ctx)
@@ -414,9 +508,7 @@ func (w *CollectionWorker) fetchAndSaveLiveData(ctx context.Context, date time.T
 	liveAuctions := w.fetchRealAuctionsFromFragment(ctx)
 	if len(liveAuctions) > 0 {
 		slog.Info("[CollectionWorker] Successfully scraped live auctions from Fragment", "count", len(liveAuctions))
-		// Clean existing auctions for today before adding new ones
 		_, _ = tx.Exec(ctx, "DELETE FROM nft_collection_recent_auctions WHERE stat_date = $1", date)
-		// Insert top 8 auctions
 		maxInsert := 8
 		if len(liveAuctions) < maxInsert {
 			maxInsert = len(liveAuctions)
@@ -458,6 +550,110 @@ func (w *CollectionWorker) fetchAndSaveLiveData(ctx context.Context, date time.T
 				for _, auc := range defaultAuctions {
 					_, _ = tx.Exec(ctx, `
 						INSERT INTO nft_collection_recent_auctions (stat_date, item_name, price, status)
+						VALUES ($1, $2, $3, $4)
+					`, date, auc.Name, auc.Price, auc.Status)
+				}
+			}
+		}
+	}
+
+	// Fetch dynamic live top sales from Fragment
+	liveTopSales := w.fetchRealTopSalesFromFragment(ctx)
+	if len(liveTopSales) > 0 {
+		slog.Info("[CollectionWorker] Successfully scraped top sales from Fragment", "count", len(liveTopSales))
+		_, _ = tx.Exec(ctx, "DELETE FROM nft_collection_top_sales WHERE stat_date = $1", date)
+		maxInsert := 8
+		if len(liveTopSales) < maxInsert {
+			maxInsert = len(liveTopSales)
+		}
+		for i := 0; i < maxInsert; i++ {
+			auc := liveTopSales[i]
+			_, err = tx.Exec(ctx, `
+				INSERT INTO nft_collection_top_sales (stat_date, item_name, price, status)
+				VALUES ($1, $2, $3, $4)
+			`, date, auc.Name, auc.Price, auc.Status)
+			if err != nil {
+				slog.Error("[CollectionWorker] Failed to insert Fragment top sale", "name", auc.Name, "error", err)
+			}
+		}
+	} else {
+		var saleCount int
+		_ = tx.QueryRow(ctx, "SELECT COUNT(*) FROM nft_collection_top_sales WHERE stat_date = $1", date).Scan(&saleCount)
+		if saleCount == 0 {
+			_, err = tx.Exec(ctx, `
+				INSERT INTO nft_collection_top_sales (stat_date, item_name, price, status)
+				SELECT $1, item_name, price, status
+				FROM nft_collection_top_sales
+				WHERE stat_date = (SELECT stat_date FROM nft_collection_top_sales ORDER BY stat_date DESC LIMIT 1)
+			`, date)
+			if err != nil {
+				slog.Warn("[CollectionWorker] Could not copy top sales for today, using defaults", "error", err)
+				defaultSales := []struct {
+					Name   string
+					Price  string
+					Status string
+				}{
+					{"@danbao", "1,583,948 TON", "Sold"},
+					{"@news", "994,000 TON", "Sold"},
+					{"@auto", "900,000 TON", "Sold"},
+					{"@bank", "850,000 TON", "Sold"},
+					{"@avia", "800,000 TON", "Sold"},
+				}
+				for _, auc := range defaultSales {
+					_, _ = tx.Exec(ctx, `
+						INSERT INTO nft_collection_top_sales (stat_date, item_name, price, status)
+						VALUES ($1, $2, $3, $4)
+					`, date, auc.Name, auc.Price, auc.Status)
+				}
+			}
+		}
+	}
+
+	// Fetch dynamic live recent activity from Fragment
+	liveRecent := w.fetchRealRecentActivityFromFragment(ctx)
+	if len(liveRecent) > 0 {
+		slog.Info("[CollectionWorker] Successfully scraped recent activity from Fragment", "count", len(liveRecent))
+		_, _ = tx.Exec(ctx, "DELETE FROM nft_collection_recent_activity WHERE stat_date = $1", date)
+		maxInsert := 8
+		if len(liveRecent) < maxInsert {
+			maxInsert = len(liveRecent)
+		}
+		for i := 0; i < maxInsert; i++ {
+			auc := liveRecent[i]
+			_, err = tx.Exec(ctx, `
+				INSERT INTO nft_collection_recent_activity (stat_date, item_name, price, status)
+				VALUES ($1, $2, $3, $4)
+			`, date, auc.Name, auc.Price, auc.Status)
+			if err != nil {
+				slog.Error("[CollectionWorker] Failed to insert Fragment recent activity", "name", auc.Name, "error", err)
+			}
+		}
+	} else {
+		var actCount int
+		_ = tx.QueryRow(ctx, "SELECT COUNT(*) FROM nft_collection_recent_activity WHERE stat_date = $1", date).Scan(&actCount)
+		if actCount == 0 {
+			_, err = tx.Exec(ctx, `
+				INSERT INTO nft_collection_recent_activity (stat_date, item_name, price, status)
+				SELECT $1, item_name, price, status
+				FROM nft_collection_recent_activity
+				WHERE stat_date = (SELECT stat_date FROM nft_collection_recent_activity ORDER BY stat_date DESC LIMIT 1)
+			`, date)
+			if err != nil {
+				slog.Warn("[CollectionWorker] Could not copy recent activity for today, using defaults", "error", err)
+				defaultRecent := []struct {
+					Name   string
+					Price  string
+					Status string
+				}{
+					{"@hateallperson", "10 TON", "Sold"},
+					{"@ruimatech", "15 TON", "Sold"},
+					{"@grimoire", "515 TON", "Sold"},
+					{"@aiyawei", "19 TON", "Sold"},
+					{"@buxinxie", "19 TON", "Sold"},
+				}
+				for _, auc := range defaultRecent {
+					_, _ = tx.Exec(ctx, `
+						INSERT INTO nft_collection_recent_activity (stat_date, item_name, price, status)
 						VALUES ($1, $2, $3, $4)
 					`, date, auc.Name, auc.Price, auc.Status)
 				}

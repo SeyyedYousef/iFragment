@@ -225,9 +225,19 @@ export async function bootstrapAuth(): Promise<void> {
 	const storedUserId = localStorage.getItem('tg_user_id');
 
 	if (existingToken) {
+		let hasStartParam = false;
+		try {
+			const launchParams = retrieveLaunchParams();
+			hasStartParam = !!launchParams.tgWebAppStartParam;
+		} catch (_e) {}
+
 		if (currentUserId && currentUserId !== storedUserId) {
 			console.warn('[Auth] Telegram account switched on bootstrap, clearing old token');
 			localStorage.removeItem('jwt_token');
+		} else if (hasStartParam && !sessionStorage.getItem('start_param_processed')) {
+			console.log('[Auth] start_param detected on startup, forcing bootstrap to process referral/deeplink');
+			localStorage.removeItem('jwt_token');
+			sessionStorage.setItem('start_param_processed', 'true');
 		} else {
 			return; // Already authenticated
 		}

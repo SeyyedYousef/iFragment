@@ -236,7 +236,13 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 	}
 
 	// Crypto / Web3 Ultra Premium
-	cryptoWeb3 := []string{"wallet", "crypto", "bitcoin", "ton", "toncoin", "blockchain", "defi", "nft", "dex", "swap", "coin", "token", "web3", "pay", "bank", "trade", "market", "money", "whale"}
+	cryptoWeb3 := []string{
+		"wallet", "crypto", "bitcoin", "ton", "toncoin", "blockchain", "defi", "nft",
+		"dex", "swap", "coin", "token", "web3", "pay", "bank", "trade", "market",
+		"money", "whale", "binance", "bybit", "okx", "coinbase", "kraken", "kucoin",
+		"bitget", "tether", "usdt", "solana", "cardano", "ripple", "xrp", "doge",
+		"shiba", "tron", "polkadot", "chainlink", "uniswap", "pancakeswap",
+	}
 	for _, c := range cryptoWeb3 {
 		if cleanName == c {
 			tags = append(tags, "crypto_ultra_premium")

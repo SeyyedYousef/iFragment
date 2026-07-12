@@ -350,7 +350,7 @@ func main() {
 	profileHandler := handler.NewProfileHandler(profileService, paymentService, settingsRepo)
 	gamificationService := service.NewGamificationService(db, cache)
 	gamificationHandler := handler.NewGamificationHandler(gamificationService)
-	clanService := service.NewClanService(db, cache, mtprotoClient)
+	clanService := service.NewClanService(db, cache, mtprotoClient, telegram.NewBotAPIClient(botToken))
 	clanService.StartWeeklyUpdater(ctx)
 	clanService.StartScoreFlusher(ctx)
 	clanHandler := handler.NewClanHandler(clanService)
@@ -609,6 +609,7 @@ func main() {
 					r.Post("/clan/leave", clanHandler.LeaveClan)
 					r.Get("/clan/top", clanHandler.GetTopClans)
 					r.Get("/clans/top", clanHandler.GetTopClans)
+					r.Get("/clan/members", clanHandler.GetClanMembers)
 
 					// Promo Code redemption
 					r.Post("/promo/redeem", ownerHandler.RedeemPromo)

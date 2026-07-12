@@ -504,6 +504,13 @@ func (s *OwnerService) CreateQuest(ctx context.Context, ownerID int64, q model.Q
 		"referral":            true,
 		"first_username_scan": true,
 		"register_first_bot":  true,
+		"league_gold":         true,
+		"join_clan":           true,
+		"invite_1_fren":       true,
+		"invite_3_frens":      true,
+		"invite_10_frens":     true,
+		"taps_100k":           true,
+		"telegram_premium":    true,
 	}
 	if !validTypes[q.Type] {
 		return fmt.Errorf("invalid quest type: %s", q.Type)
@@ -574,6 +581,13 @@ func (s *OwnerService) UpdateQuest(ctx context.Context, ownerID int64, q model.Q
 		"referral":            true,
 		"first_username_scan": true,
 		"register_first_bot":  true,
+		"league_gold":         true,
+		"join_clan":           true,
+		"invite_1_fren":       true,
+		"invite_3_frens":      true,
+		"invite_10_frens":     true,
+		"taps_100k":           true,
+		"telegram_premium":    true,
 	}
 	if !validTypes[q.Type] {
 		return fmt.Errorf("invalid quest type: %s", q.Type)

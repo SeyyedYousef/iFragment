@@ -55,6 +55,19 @@ const DeepLinkHandler = () => {
 					if (username) {
 						navigate(`/username/report?u=${username}`, { replace: true });
 					}
+				} else if (startParam.startsWith('val_')) {
+					const username = startParam.substring(4);
+					if (username) {
+						navigate(`/username/report?u=${username}`, { replace: true });
+					}
+				} else if (startParam.startsWith('clan_')) {
+					const clanName = startParam.substring(5);
+					if (clanName) {
+						sessionStorage.setItem('pending_clan_join', clanName);
+						navigate('/airdrop', { replace: true });
+					}
+				} else if (startParam.startsWith('ach_')) {
+					navigate('/profile/achievements', { replace: true });
 				}
 			}
 		} catch (e) {

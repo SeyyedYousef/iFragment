@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"ifragment-backend/internal/client/mtproto"
+	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/model"
 	"ifragment-backend/internal/repository"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gotd/td/tg"
 	"github.com/jackc/pgx/v5"
+	"github.com/redis/go-redis/v9"
 )
 
 var (
@@ -35,11 +37,13 @@ type ClanService struct {
 	db            *repository.Database
 	cache         *repository.Cache
 	mtprotoClient mtproto.Client
+	botClient     *telegram.BotAPIClient
 }
 
-func NewClanService(db *repository.Database, cache *repository.Cache, mtprotoClient mtproto.Client) *ClanService {
-	return &ClanService{db: db, cache: cache, mtprotoClient: mtprotoClient}
+func NewClanService(db *repository.Database, cache *repository.Cache, mtprotoClient mtproto.Client, botClient *telegram.BotAPIClient) *ClanService {
+	return &ClanService{db: db, cache: cache, mtprotoClient: mtprotoClient, botClient: botClient}
 }
+
 
 // scrapeChannelPhoto tries to get the photo URL from public telegram web preview
 func scrapeChannelPhoto(username string) string {
@@ -142,6 +146,43 @@ func (s *ClanService) LeaveClan(ctx context.Context, userID int64) error {
 	return nil
 }
 
+func (s *ClanService) resolveChannelHybrid(ctx context.Context, username string) (int64, string, string, error) {
+	// First, try the Bot API
+	if s.botClient != nil {
+		chat, err := s.botClient.GetChat(ctx, "@"+username)
+		if err == nil && chat != nil && chat.Type == "channel" {
+			photoURL := fmt.Sprintf("https://t.me/i/userpic/320/%s.jpg", username)
+			return chat.ID, chat.Title, photoURL, nil
+		}
+		slog.Warn("Bot API Resolve failed, falling back to MTProto", "username", username, "error", err)
+	}
+
+	// Fallback to MTProto userbot
+	if s.mtprotoClient == nil {
+		return 0, "", "", fmt.Errorf("neither botClient nor mtprotoClient configured")
+	}
+
+	peer, err := s.mtprotoClient.ResolveUsername(ctx, username)
+	if err != nil || len(peer.Chats) == 0 {
+		return 0, "", "", ErrChannelNotFound
+	}
+
+	var channel *tg.Channel
+	for _, chat := range peer.Chats {
+		if ch, ok := chat.(*tg.Channel); ok {
+			channel = ch
+			break
+		}
+	}
+
+	if channel == nil {
+		return 0, "", "", ErrChannelNotFound
+	}
+
+	photoURL := scrapeChannelPhoto(username)
+	return channel.ID, channel.Title, photoURL, nil
+}
+
 var telegramUsernameRegex = regexp.MustCompile(`^[a-zA-Z0-9_]{3,32}$`)
 
 // SearchAndJoinClan searches a clan by Telegram username (e.g. @durov).
@@ -201,33 +242,23 @@ func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, usern
 				chatTitle = "iFragment Clan"
 			}
 		} else {
-			// Clan does not exist, use MTProto mirror client
-			if s.mtprotoClient == nil {
-				return nil, fmt.Errorf("mtproto client is not configured")
+			var err error
+			channelID, chatTitle, photoURL, err = s.resolveChannelHybrid(ctx, normalized)
+			if err != nil {
+				return nil, err
 			}
+		}
+	} else {
+		channelID = existingClan.TelegramChannelID
+	}
 
-			peer, err := s.mtprotoClient.ResolveUsername(ctx, normalized)
-			if err != nil || len(peer.Chats) == 0 {
-				slog.Error("ResolveUsername failed", "username", normalized, "error", err)
-				return nil, ErrChannelNotFound
+	// Check channel membership if botClient is configured
+	if s.botClient != nil {
+		status, err := s.botClient.GetChatMember(ctx, channelID, userID)
+		if err == nil {
+			if status == "left" || status == "kicked" {
+				return nil, ErrNotChannelMember
 			}
-
-			var channel *tg.Channel
-			for _, chat := range peer.Chats {
-				if ch, ok := chat.(*tg.Channel); ok {
-					channel = ch
-					break
-				}
-			}
-
-			if channel == nil {
-				slog.Error("Resolved peer is not a channel", "username", normalized)
-				return nil, ErrChannelNotFound
-			}
-
-			channelID = channel.ID
-			chatTitle = channel.Title
-			photoURL = scrapeChannelPhoto(normalized)
 		}
 	}
 
@@ -418,16 +449,8 @@ func (s *ClanService) StartScoreFlusher(ctx context.Context) {
 }
 
 func (s *ClanService) flushScoresToDB(ctx context.Context) {
-	slog.Info("Starting clan score flush to DB")
-
-	// Get all clan scores from Redis ZSET
-	members, err := s.cache.Client.ZRangeWithScores(ctx, "clan_leaderboard", 0, -1).Result()
-	if err != nil {
-		slog.Error("Failed to fetch clan_leaderboard from Redis", "error", err)
-		return
-	}
-
-	if len(members) == 0 {
+	slog.Info("Starting clan score aggregation and flush to DB")
+	if s.db == nil || s.db.Pool == nil {
 		return
 	}
 
@@ -438,21 +461,58 @@ func (s *ClanService) flushScoresToDB(ctx context.Context) {
 	}
 	defer tx.Rollback(ctx)
 
-	// Batch update using a prepared statement inside the transaction
-	stmt := "UPDATE clans SET total_score = $1 WHERE id = $2"
-	for _, m := range members {
-		clanID := m.Member.(string)
-		score := m.Score
-		_, err := tx.Exec(ctx, stmt, score, clanID)
-		if err != nil {
-			slog.Warn("Failed to update clan score", "clan_id", clanID, "error", err)
-		}
+	// Update total_score in clans table based on the sum of member airdrop_coins
+	updateQuery := `
+		UPDATE clans c
+		SET total_score = COALESCE((
+			SELECT SUM(us.airdrop_coins)
+			FROM clan_members cm
+			JOIN user_stats us ON cm.user_id = us.user_id
+			WHERE cm.clan_id = c.id
+		), 0)
+	`
+	_, err = tx.Exec(ctx, updateQuery)
+	if err != nil {
+		slog.Error("Failed to aggregate clan scores in DB", "error", err)
+		return
 	}
 
 	if err := tx.Commit(ctx); err != nil {
 		slog.Error("Failed to commit clan score flush", "error", err)
-	} else {
-		slog.Info("Finished clan score flush to DB", "updated_clans", len(members))
+		return
+	}
+
+	// Sync to Redis ZSET
+	if s.cache != nil && s.cache.Client != nil {
+		rows, err := s.db.Pool.Query(ctx, "SELECT id, total_score FROM clans")
+		if err != nil {
+			slog.Error("Failed to fetch clans for Redis sync", "error", err)
+			return
+		}
+		defer rows.Close()
+
+		pipe := s.cache.Client.Pipeline()
+		// Clear current leaderboard to remove empty clans
+		pipe.Del(ctx, "clan_leaderboard")
+
+		count := 0
+		for rows.Next() {
+			var id string
+			var score float64
+			if err := rows.Scan(&id, &score); err == nil {
+				pipe.ZAdd(ctx, "clan_leaderboard", redis.Z{
+					Score:  score,
+					Member: id,
+				})
+				count++
+			}
+		}
+		_, err = pipe.Exec(ctx)
+		if err != nil {
+			slog.Error("Failed to sync clan_leaderboard to Redis", "error", err)
+		} else {
+			slog.Info("Successfully synced clan scores to Redis", "count", count)
+		}
 	}
 }
 
@@ -473,32 +533,73 @@ func (s *ClanService) updateAllClans(ctx context.Context) {
 			continue
 		}
 
-		// Avoid spamming MTProto API
+		// Avoid spamming APIs
 		time.Sleep(2 * time.Second)
 
-		peer, err := s.mtprotoClient.ResolveUsername(ctx, username)
-		if err != nil || len(peer.Chats) == 0 {
+		_, title, photoURL, err := s.resolveChannelHybrid(ctx, username)
+		if err != nil {
+			slog.Warn("Failed to update clan weekly info", "username", username, "error", err)
 			continue
 		}
 
-		var channel *tg.Channel
-		for _, chat := range peer.Chats {
-			if ch, ok := chat.(*tg.Channel); ok {
-				channel = ch
-				break
-			}
-		}
-
-		if channel == nil {
-			continue
-		}
-
-		photoURL := scrapeChannelPhoto(username)
-
-		_, err = s.db.Pool.Exec(ctx, "UPDATE clans SET chat_title = $1, channel_photo = $2 WHERE id = $3", channel.Title, photoURL, id)
+		_, err = s.db.Pool.Exec(ctx, "UPDATE clans SET chat_title = $1, channel_photo = $2 WHERE id = $3", title, photoURL, id)
 		if err != nil {
 			slog.Error("Failed to update clan", "clan_id", id, "error", err)
 		}
 	}
 	slog.Info("Finished weekly clan info update")
 }
+
+type ClanMemberInfo struct {
+	TelegramID int64   `json:"telegram_id"`
+	Username   string  `json:"username,omitempty"`
+	FirstName  string  `json:"first_name"`
+	LastName   string  `json:"last_name,omitempty"`
+	Score      float64 `json:"score"`
+	Level      int     `json:"level"`
+	XP         int     `json:"xp"`
+}
+
+// GetClanMembers returns members of a clan ordered by score descending
+func (s *ClanService) GetClanMembers(ctx context.Context, userID int64, clanID string, limit int) ([]ClanMemberInfo, error) {
+	if s.db == nil || s.db.Pool == nil {
+		return []ClanMemberInfo{}, nil
+	}
+
+	if clanID == "" {
+		err := s.db.Pool.QueryRow(ctx, "SELECT clan_id FROM clan_members WHERE user_id = $1", userID).Scan(&clanID)
+		if err == pgx.ErrNoRows {
+			return []ClanMemberInfo{}, nil
+		} else if err != nil {
+			return nil, err
+		}
+	}
+
+	query := `
+		SELECT u.telegram_id, COALESCE(u.username, '') as username, u.first_name, COALESCE(u.last_name, '') as last_name, COALESCE(us.airdrop_coins, 0) as score, COALESCE(us.level, 1) as level, COALESCE(us.xp, 0) as xp
+		FROM clan_members cm
+		JOIN users u ON cm.user_id = u.telegram_id
+		LEFT JOIN user_stats us ON u.telegram_id = us.user_id
+		WHERE cm.clan_id = $1
+		ORDER BY score DESC
+		LIMIT $2
+	`
+	rows, err := s.db.Pool.Query(ctx, query, clanID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	members := []ClanMemberInfo{}
+	for rows.Next() {
+		var m ClanMemberInfo
+		err := rows.Scan(&m.TelegramID, &m.Username, &m.FirstName, &m.LastName, &m.Score, &m.Level, &m.XP)
+		if err != nil {
+			return nil, err
+		}
+		members = append(members, m)
+	}
+
+	return members, nil
+}
+

@@ -173,3 +173,80 @@ func truncateString(s string, maxLen int) string {
 	}
 	return string(runes[:maxLen]) + "..."
 }
+
+type HistoricalSale struct {
+	PriceTON float64
+	SaleDate time.Time
+}
+
+func (c *Client) GetHistoricalSales(ctx context.Context, username string) ([]HistoricalSale, error) {
+	res, err := c.fragmentCB.Execute(func() (any, error) {
+		return c.getHistoricalSalesInternal(ctx, username)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return res.([]HistoricalSale), nil
+}
+
+func (c *Client) getHistoricalSalesInternal(ctx context.Context, username string) ([]HistoricalSale, error) {
+	urlStr := fmt.Sprintf("%s/username/%s", c.BaseURL, url.PathEscape(username))
+
+	req, err := http.NewRequestWithContext(ctx, "GET", urlStr, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		io.Copy(io.Discard, resp.Body)
+		return nil, fmt.Errorf("fragment scraper returned status %d", resp.StatusCode)
+	}
+
+	limitReader := io.LimitReader(resp.Body, 2*1024*1024)
+	doc, err := goquery.NewDocumentFromReader(limitReader)
+	if err != nil {
+		return nil, err
+	}
+
+	var sales []HistoricalSale
+	doc.Find("table.tm-table tbody tr").Each(func(i int, s *goquery.Selection) {
+		priceText := s.Find("td").Eq(0).Find(".tm-value").Text()
+		priceText = strings.ReplaceAll(priceText, ",", "")
+		priceText = strings.TrimSpace(priceText)
+		if priceText == "" {
+			return
+		}
+		var price float64
+		_, err := fmt.Sscanf(priceText, "%f", &price)
+		if err != nil {
+			return
+		}
+
+		dateText, exists := s.Find("td").Eq(1).Find("time").Attr("datetime")
+		if !exists {
+			return
+		}
+		saleDate, err := time.Parse(time.RFC3339, dateText)
+		if err != nil {
+			saleDate, err = time.Parse("2006-01-02T15:04:05-07:00", dateText)
+			if err != nil {
+				return
+			}
+		}
+
+		sales = append(sales, HistoricalSale{
+			PriceTON: price,
+			SaleDate: saleDate,
+		})
+	})
+
+	return sales, nil
+}
+

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"ifragment-backend/internal/client/fragment"
 	"ifragment-backend/internal/client/tonapi"
 	"ifragment-backend/internal/repository"
 	"log/slog"
@@ -22,6 +23,7 @@ type ValuationService struct {
 	db             *repository.Database
 	cache          *repository.Cache
 	tonClient      *tonapi.Client
+	fragmentClient *fragment.Client
 	cfg            EngineConfig
 	semanticEngine *SemanticEngine
 }
@@ -32,6 +34,7 @@ func NewValuationService(db *repository.Database, cache *repository.Cache, tonCl
 		db:             db,
 		cache:          cache,
 		tonClient:      tonClient,
+		fragmentClient: fragment.NewClient(),
 		cfg:            DefaultEngineConfig(),
 		semanticEngine: NewSemanticEngine(db),
 	}
@@ -436,11 +439,12 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 
 	// ── Step 2: Parallel Fetch ──
 	var (
-		exactSales  []repository.Sale
-		broadSales  []repository.Sale
-		targetSales []repository.Sale
-		count30     int
-		count31_90  int
+		exactSales   []repository.Sale
+		broadSales   []repository.Sale
+		targetSales  []repository.Sale
+		scrapedSales []fragment.HistoricalSale
+		count30      int
+		count31_90   int
 	)
 
 	g, gCtx := errgroup.WithContext(ctx)
@@ -469,6 +473,17 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		return err
 	})
 
+	g.Go(func() error {
+		if s.fragmentClient != nil {
+			var err error
+			scrapedSales, err = s.fragmentClient.GetHistoricalSales(gCtx, username)
+			if err != nil {
+				slog.Warn("Failed to scrape historical sales from Fragment", "username", username, "error", err)
+			}
+		}
+		return nil
+	})
+
 	if err := g.Wait(); err != nil {
 		slog.Error("AVM parallel fetch failed", "username", username, "error", err)
 		return nil, fmt.Errorf("failed to fetch comparable data: %w", err)
@@ -476,7 +491,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 
 	reasoning["exact_sales_count"] = len(exactSales)
 	reasoning["broad_sales_count"] = len(broadSales)
-	reasoning["target_sales_count"] = len(targetSales)
+	reasoning["target_sales_count"] = len(targetSales) + len(scrapedSales)
 	reasoning["momentum_30d"] = count30
 	reasoning["momentum_31_90d"] = count31_90
 
@@ -486,6 +501,28 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	targetComps := SalesToComparables(targetSales, s.cfg)
 	exactComps := SalesToComparables(exactSales, s.cfg)
 	broadComps := SalesToComparables(broadSales, s.cfg)
+
+	// Merge scraped sales into targetComps (avoid duplicates)
+	for _, ss := range scrapedSales {
+		duplicate := false
+		for _, tc := range targetComps {
+			if math.Abs(tc.PriceTON-ss.PriceTON) < 0.1 && tc.SaleDate.Year() == ss.SaleDate.Year() && tc.SaleDate.Month() == ss.SaleDate.Month() && tc.SaleDate.Day() == ss.SaleDate.Day() {
+				duplicate = true
+				break
+			}
+		}
+		if !duplicate {
+			targetComps = append(targetComps, ComparableSale{
+				ID:            0,
+				PriceTON:      ss.PriceTON,
+				SaleDate:      ss.SaleDate,
+				CharLength:    int(charLen),
+				HasNumbers:    features.HasNumbers,
+				HasUnderscore: features.HasUnderscore,
+				IsDictionary:  features.IsDictionary,
+			})
+		}
+	}
 
 	// --- ANCHOR OVERRIDE (Redesign) ---
 	// Inject the exact historical username sale as a highly weighted target comparable
@@ -504,9 +541,9 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		reasoning["anchor_source"] = "memory_hardcoded"
 		reasoning["anchor_price"] = hardcodedPrice
 	} else if len(targetComps) > 0 {
-		// 2. Postgres Database Target Sales
+		// 2. Postgres Database or Scraped Target Sales
 		anchorInjected = true
-		reasoning["anchor_source"] = "postgres_db"
+		reasoning["anchor_source"] = "live_scraped_or_db"
 		reasoning["anchor_price"] = targetComps[0].PriceTON
 	}
 
@@ -554,21 +591,38 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 			anchorDate := targetComps[0].SaleDate
 			ageInYears := now.Sub(anchorDate).Hours() / (24 * 365.25)
 			if ageInYears > 0 {
-				dampingFactor = math.Min(1.0, 0.10+ageInYears*0.10)
+				if features.IsDictionary {
+					dampingFactor = math.Min(1.0, 0.25+ageInYears*0.15)
+				} else {
+					dampingFactor = math.Min(1.0, 0.10+ageInYears*0.10)
+				}
+			} else {
+				if features.IsDictionary {
+					dampingFactor = 0.25
+				} else {
+					dampingFactor = 0.10
+				}
+			}
+		} else {
+			if features.IsDictionary {
+				dampingFactor = 0.25
 			} else {
 				dampingFactor = 0.10
 			}
-		} else {
-			dampingFactor = 0.10
 		}
 	} else if nEff > 0 {
-		// Dynamic Damping: short names damp more (baseline is already high), long names damp less
+		// Dynamic Damping: short names damp more (baseline is already high), long names damp less.
+		// Bypassed for verified dictionary words to allow full organic premium.
 		dynamicDamp := s.cfg.DatabaseDamping - float64(5-charLen)*0.10
-		if dynamicDamp < 0.35 {
-			dynamicDamp = 0.35
-		}
-		if dynamicDamp > 0.80 {
-			dynamicDamp = 0.80
+		if features.IsDictionary {
+			dynamicDamp = 1.0
+		} else {
+			if dynamicDamp < 0.35 {
+				dynamicDamp = 0.35
+			}
+			if dynamicDamp > 0.80 {
+				dynamicDamp = 0.80
+			}
 		}
 		dampingFactor = dynamicDamp
 	} else {
@@ -615,9 +669,8 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	semanticLog *= dampingFactor // Dampen semantic impact based on dampingFactor
 	
 	if anchorInjected {
-		morphLog = 0.0
-		semanticLog = 0.0
-		reasoning["anchor_suppression_applied"] = true
+		morphLog = 0.0 // Morphology is static and already captured by historical anchor price
+		reasoning["anchor_damping_applied"] = true
 	}
 	
 	reasoning["semantic_log"] = semanticLog
@@ -627,7 +680,12 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	var numRecent, numOlder int
 	thirtyDaysAgo := now.AddDate(0, 0, -30)
 	
-	for _, comp := range exactComps {
+	compsToUse := exactComps
+	if len(compsToUse) == 0 {
+		compsToUse = broadComps
+	}
+
+	for _, comp := range compsToUse {
 		// Skip injected anchor (either sentinel 0 or the db anchor) so we don't skew momentum
 		if anchorInjected && (comp.ID == 0 || (len(targetSales) > 0 && comp.ID == targetSales[0].ID)) {
 			continue
@@ -647,6 +705,18 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		avgOlder := sumOlder / float64(numOlder)
 		priceTrend = avgRecent / avgOlder
 	}
+
+	// Fallback to broad comps for momentum counts if exact counts are zero
+	if count30 == 0 && count31_90 == 0 {
+		for _, comp := range broadComps {
+			if comp.SaleDate.After(thirtyDaysAgo) {
+				count30++
+			} else if comp.SaleDate.After(now.AddDate(0, 0, -90)) {
+				count31_90++
+			}
+		}
+	}
+
 	momentumLog := CalcSmoothedMomentum(count30, count31_90, priceTrend, s.cfg)
 	reasoning["momentum_log"] = momentumLog
 

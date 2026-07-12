@@ -8,6 +8,7 @@ import (
 	"ifragment-backend/internal/service"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -118,3 +119,33 @@ func (h *ClanHandler) GetTopClans(w http.ResponseWriter, r *http.Request) {
 		slog.Error("failed to encode top clans response", "error", err)
 	}
 }
+
+func (h *ClanHandler) GetClanMembers(w http.ResponseWriter, r *http.Request) {
+	userID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
+		return
+	}
+
+	clanID := r.URL.Query().Get("clan_id")
+	limitStr := r.URL.Query().Get("limit")
+	limit := 50
+	if limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			limit = l
+		}
+	}
+
+	members, err := h.clanService.GetClanMembers(r.Context(), userID, clanID, limit)
+	if err != nil {
+		slog.Error("GetClanMembers failed", "user_id", userID, "error", err)
+		RespondError(w, r, http.StatusInternalServerError, "failed to get clan members", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(members); err != nil {
+		slog.Error("failed to encode clan members response", "error", err)
+	}
+}
+

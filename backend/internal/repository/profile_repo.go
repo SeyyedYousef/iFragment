@@ -503,13 +503,12 @@ func (db *Database) SetReferredBy(ctx context.Context, userID int64, referrerCod
 		return false, fmt.Errorf("cannot refer yourself")
 	}
 
-	// Update user's referred_by if it is currently NULL AND user was created within last 24h
+	// Update user's referred_by if it is currently NULL
 	cmdTag, err := db.Pool.Exec(ctx, `
 		UPDATE users 
 		SET referred_by = $1 
 		WHERE telegram_id = $2 
-		  AND referred_by IS NULL 
-		  AND created_at > NOW() - INTERVAL '24 hours'
+		  AND referred_by IS NULL
 	`, referrerID, userID)
 	if err != nil {
 		return false, err

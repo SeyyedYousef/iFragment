@@ -1,7 +1,7 @@
 import { hapticFeedback, openTelegramLink } from '@tma.js/sdk-solid';
-import { Component, createResource, createSignal, For, Show } from 'solid-js';
-import { getTopClans, joinClan, leaveClan } from '@/shared/api/profile.js';
-import { setUserClan, userClan, currentLeague, LEAGUES, globalRank } from '@/shared/store/airdrop.js';
+import { Component, createResource, createSignal, For, Show, createEffect } from 'solid-js';
+import { getTopClans, joinClan, leaveClan, getClanMembers } from '@/shared/api/profile.js';
+import { setUserClan, userClan, currentLeague, LEAGUES } from '@/shared/store/airdrop.js';
 import { t } from '@/shared/i18n/index.js';
 
 export const ClanView: Component = () => {
@@ -9,6 +9,19 @@ export const ClanView: Component = () => {
 	const [loading, setLoading] = createSignal(false);
 	const [errorMsg, setErrorMsg] = createSignal('');
 	const [topClans] = createResource(getTopClans);
+
+	const clanId = () => userClan()?.id;
+	const [clanMembers] = createResource(clanId, (id) => getClanMembers(id));
+
+
+	// Automatically process deep link clan join on mount/render
+	createEffect(() => {
+		const pending = sessionStorage.getItem('pending_clan_join');
+		if (pending) {
+			sessionStorage.removeItem('pending_clan_join');
+			handleJoin(pending);
+		}
+	});
 
 	const triggerHaptic = (type: 'impact' | 'success' | 'error' | 'light') => {
 		try {
@@ -332,34 +345,72 @@ export const ClanView: Component = () => {
 									</button>
 								</div>
 
-								{/* Static Leaderboard Bottom Panel */}
+								{/* Clan Members Leaderboard */}
 								<div class="w-full mt-6 flex flex-col pb-32">
-									{/* Tabs */}
-									<div class="flex relative border-b border-[#2c2c2e]">
-										<button class="flex-1 pb-3 text-[#8e8e93] font-bold text-[15px] active:text-white transition-colors">{t('airdropFinal.clan.day', { defaultValue: 'Day' })}</button>
-										<button class="flex-1 pb-3 text-white font-bold text-[15px] relative">
-											{t('airdropFinal.clan.week', { defaultValue: 'Week' })}
-											<div class="absolute bottom-0 left-0 right-0 h-[2px] bg-white rounded-t-full"></div>
-										</button>
-									</div>
+									<h3 class="text-white font-bold text-[18px] mb-3 px-1">
+										{(t as any)('airdropFinal.clan.membersLeaderboard', { defaultValue: 'Squad Members' })}
+									</h3>
 									
-									{/* User Row */}
-									<div class="w-full mt-2 p-3 flex items-center justify-between active:bg-white/5 transition-colors rounded-2xl cursor-pointer">
-										<div class="flex items-center gap-3">
-											<div class="text-[#8e8e93] font-bold text-[14px] w-5 text-center">{globalRank() || 1}</div>
-											<div class="w-11 h-11 rounded-full bg-gradient-to-br from-gray-700 to-gray-600 flex items-center justify-center text-xl overflow-hidden border border-white/10">
-												<Show when={clan().channel_photo} fallback={<div class="text-white text-lg">You</div>}>
-													<img src={clan().channel_photo} alt={clan().chat_title} class="w-full h-full object-cover" />
-												</Show>
-											</div>
-											<div class="flex flex-col">
-												<span class="text-white font-bold text-[15px]">{t('airdropFinal.clan.you', { defaultValue: 'You' })}</span>
-												<span class="text-white/80 text-[13px] font-medium flex items-center gap-1 mt-0.5">
-													<span class="text-[#ffcc00] text-[12px] leading-none">🟡</span> {(clan().total_score || clan().members_count * 1500).toLocaleString('en-US')}
-												</span>
-											</div>
-										</div>
-										<span class="text-white font-bold text-[14px]">{t('airdropFinal.clan.you', { defaultValue: 'You' })}</span>
+									<div class="bg-[#1c1c1e]/50 rounded-2xl overflow-hidden border border-white/5">
+										<Show
+											when={!clanMembers.loading}
+											fallback={
+												<div class="flex items-center justify-center py-6">
+													<div class="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+												</div>
+											}
+										>
+											<For
+												each={clanMembers() || []}
+												fallback={
+													<div class="text-[#8e8e93] text-[13px] text-center py-6">
+														{(t as any)('airdropFinal.clan.noMembers', { defaultValue: 'No members found.' })}
+													</div>
+												}
+											>
+												{(member, index) => (
+													<div class={`w-full p-3.5 flex items-center justify-between transition-colors ${
+														index() !== 0 ? 'border-t border-white/5' : ''
+													}`}>
+														<div class="flex items-center gap-3 min-w-0">
+															<div class={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[12px] shrink-0 ${
+																index() === 0
+																	? 'bg-amber-400 text-black'
+																	: index() === 1
+																		? 'bg-gray-300 text-black'
+																		: index() === 2
+																			? 'bg-[#cd7f32] text-white'
+																			: 'text-[#8e8e93]'
+															}`}>
+																{index() + 1}
+															</div>
+															
+															<div class="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-600 flex items-center justify-center text-sm font-bold text-white overflow-hidden border border-white/10 shrink-0">
+																{member.first_name.slice(0, 2).toUpperCase()}
+															</div>
+															
+															<div class="flex flex-col min-w-0">
+																<span class="text-white font-bold text-[15px] truncate">
+																	{member.first_name} {member.last_name || ''}
+																</span>
+																<span class="text-white/50 text-[12px] mt-0.5">
+																	Level {member.level}
+																</span>
+															</div>
+														</div>
+														
+														<div class="shrink-0 text-end">
+															<div class="flex items-center gap-1 justify-end">
+																<span class="text-[#ffcc00] text-[12px]">🟡</span>
+																<span class="text-white font-bold text-[14px]">
+																	{member.score.toLocaleString('en-US')}
+																</span>
+															</div>
+														</div>
+													</div>
+												)}
+											</For>
+										</Show>
 									</div>
 								</div>
 							</div>
