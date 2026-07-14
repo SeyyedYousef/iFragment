@@ -728,10 +728,6 @@ func (s *ProfileService) PurchaseCosmetic(ctx context.Context, userID int64, cos
 	// 5. Log transaction
 	// Cosmetics purchase logging can be handled elsewhere or omitted if not critical
 
-	if err != nil {
-		return err
-	}
-
 	if err := tx.Commit(ctx); err != nil {
 		return err
 	}

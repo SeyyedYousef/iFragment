@@ -772,7 +772,8 @@ func (s *OwnerService) AddEntityCredit(ctx context.Context, req AddEntityCreditR
 		return fmt.Errorf("invalid entity ID: %v", parseErr)
 	}
 
-	if req.EntityType == "channel" {
+	switch req.EntityType {
+	case "channel":
 		var current *time.Time
 		err = s.repo.DB().Pool.QueryRow(ctx, "SELECT paid_until FROM managed_channels WHERE id = $1", entityIDUUID).Scan(&current)
 		if err != nil {
@@ -785,7 +786,7 @@ func (s *OwnerService) AddEntityCredit(ctx context.Context, req AddEntityCreditR
 		}
 		
 		_, err = s.repo.DB().Pool.Exec(ctx, "UPDATE managed_channels SET paid_until = $1, subscription_status = 'premium' WHERE id = $2", newUntil, entityIDUUID)
-	} else if req.EntityType == "group" {
+	case "group":
 		var current *time.Time
 		err = s.repo.DB().Pool.QueryRow(ctx, "SELECT paid_until FROM managed_groups WHERE id = $1", entityIDUUID).Scan(&current)
 		if err != nil {
@@ -798,7 +799,7 @@ func (s *OwnerService) AddEntityCredit(ctx context.Context, req AddEntityCreditR
 		}
 		
 		_, err = s.repo.DB().Pool.Exec(ctx, "UPDATE managed_groups SET paid_until = $1, subscription_status = 'premium' WHERE id = $2", newUntil, entityIDUUID)
-	} else {
+	default:
 		return fmt.Errorf("invalid entity type: %s", req.EntityType)
 	}
 

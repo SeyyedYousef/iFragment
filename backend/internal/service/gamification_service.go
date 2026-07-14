@@ -497,9 +497,10 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 		var frens int
 		_ = s.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM users WHERE referred_by = $1", userID).Scan(&frens)
 		required := 1
-		if target.Type == "invite_3_frens" {
+		switch target.Type {
+		case "invite_3_frens":
 			required = 3
-		} else if target.Type == "invite_10_frens" {
+		case "invite_10_frens":
 			required = 10
 		}
 		if frens < required {
