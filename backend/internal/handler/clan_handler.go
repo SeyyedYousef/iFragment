@@ -76,6 +76,8 @@ func (h *ClanHandler) JoinClan(w http.ResponseWriter, r *http.Request) {
 			RespondError(w, r, http.StatusForbidden, "not_channel_member", err)
 		case errors.Is(err, service.ErrAlreadyInClan):
 			RespondError(w, r, http.StatusBadRequest, "already_in_clan", err)
+		case errors.Is(err, service.ErrCooldownActive):
+			RespondError(w, r, http.StatusBadRequest, err.Error(), err)
 		default:
 			slog.Error("JoinClan failed", "user_id", userID, "error", err)
 			RespondError(w, r, http.StatusInternalServerError, "internal_error", err)

@@ -31,6 +31,7 @@ var (
 	ErrChannelNotFound  = errors.New("channel_not_found")
 	ErrNotChannelMember = errors.New("not_channel_member")
 	ErrAlreadyInClan    = errors.New("already_in_clan")
+	ErrCooldownActive   = errors.New("please wait before switching clans again")
 )
 
 type ClanService struct {
@@ -98,8 +99,14 @@ func (s *ClanService) GetClanDetails(ctx context.Context, userID int64) (*model.
 		return nil, err
 	}
 
-	if clan.ChannelPhoto == "" {
-		clan.ChannelPhoto = fmt.Sprintf("https://t.me/i/userpic/320/%s.jpg", clan.ChannelUsername)
+	if clan.ChannelPhoto == "" || strings.Contains(clan.ChannelPhoto, "t.me/i/userpic/320") {
+		clan.ChannelPhoto = scrapeChannelPhoto(clan.ChannelUsername)
+		// Update DB in background
+		if s.db != nil && s.db.Pool != nil {
+			go func(id, photo string) {
+				_, _ = s.db.Pool.Exec(context.Background(), "UPDATE clans SET channel_photo = $1 WHERE id = $2", photo, id)
+			}(clan.ID, clan.ChannelPhoto)
+		}
 	}
 
 	return &model.UserClanDetails{
@@ -161,7 +168,7 @@ func (s *ClanService) resolveChannelHybrid(ctx context.Context, username string)
 	if s.botClient != nil {
 		chat, err := s.botClient.GetChat(ctx, "@"+username)
 		if err == nil && chat != nil && chat.Type == "channel" {
-			photoURL := fmt.Sprintf("https://t.me/i/userpic/320/%s.jpg", username)
+			photoURL := scrapeChannelPhoto(username)
 			return chat.ID, chat.Title, photoURL, nil
 		}
 		slog.Warn("Bot API Resolve failed, falling back to MTProto", "username", username, "error", err)
@@ -218,7 +225,7 @@ func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, usern
 		key := fmt.Sprintf("clan:join:cooldown:%d", userID)
 		exists, _ := s.cache.Client.Exists(ctx, key).Result()
 		if exists > 0 {
-			return nil, fmt.Errorf("please wait before switching clans again")
+			return nil, ErrCooldownActive
 		}
 	}
 
@@ -353,8 +360,13 @@ func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, usern
 		return nil, err
 	}
 
-	if finalClan.ChannelPhoto == "" {
-		finalClan.ChannelPhoto = fmt.Sprintf("https://t.me/i/userpic/320/%s.jpg", finalClan.ChannelUsername)
+	if finalClan.ChannelPhoto == "" || strings.Contains(finalClan.ChannelPhoto, "t.me/i/userpic/320") {
+		finalClan.ChannelPhoto = scrapeChannelPhoto(finalClan.ChannelUsername)
+		if s.db != nil && s.db.Pool != nil && finalClan.ID != "" {
+			go func(id, photo string) {
+				_, _ = s.db.Pool.Exec(context.Background(), "UPDATE clans SET channel_photo = $1 WHERE id = $2", photo, id)
+			}(finalClan.ID, finalClan.ChannelPhoto)
+		}
 	}
 
 	if s.cache != nil && s.cache.Client != nil {
@@ -408,8 +420,13 @@ func (s *ClanService) GetTopClans(ctx context.Context, limit int) ([]model.Clan,
 			return nil, err
 		}
 		c.ChannelPhoto = channelPhoto.String
-		if c.ChannelPhoto == "" {
-			c.ChannelPhoto = fmt.Sprintf("https://t.me/i/userpic/320/%s.jpg", c.ChannelUsername)
+		if c.ChannelPhoto == "" || strings.Contains(c.ChannelPhoto, "t.me/i/userpic/320") {
+			c.ChannelPhoto = scrapeChannelPhoto(c.ChannelUsername)
+			if s.db != nil && s.db.Pool != nil && c.ID != "" {
+				go func(id, photo string) {
+					_, _ = s.db.Pool.Exec(context.Background(), "UPDATE clans SET channel_photo = $1 WHERE id = $2", photo, id)
+				}(c.ID, c.ChannelPhoto)
+			}
 		}
 		c.Rank = rank
 		rank++

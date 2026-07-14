@@ -97,6 +97,7 @@ var HistoricalSales = map[string]float64{
 	"events": 153000.0,
 	"gold": 151000.0,
 	"lord": 151000.0,
+	"thecrypto": 3500.0,
 	"cars": 150000.0,
 	"chart": 150000.0,
 	"mail": 150000.0,

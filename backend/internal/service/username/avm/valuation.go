@@ -807,6 +807,15 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		}
 	}
 
+	// 3g-1. Marketapp Historical Floor (Live Scraping Fallback/Override)
+	marketAppMax := ScrapeMarketappMaxPrice(ctx, username)
+	if marketAppMax > highestPastSale {
+		highestPastSale = marketAppMax
+		reasoning["historical_sale_floor_source"] = "marketapp"
+	} else if highestPastSale > 0 {
+		reasoning["historical_sale_floor_source"] = "database_or_fragment"
+	}
+
 	if highestPastSale > 0 {
 		// Ensure strictly higher (e.g., +5% minimum) than the highest past sale
 		strictFloor := highestPastSale * 1.05
