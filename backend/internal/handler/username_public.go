@@ -20,7 +20,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"ifragment-backend/internal/service"
+	"ifragment-backend/internal/service/notification"
 
 	"github.com/google/uuid"
 	"golang.org/x/sync/singleflight"
@@ -535,7 +535,7 @@ func (h *UsernameHandler) sendValuationNotification(r *http.Request, u string, r
 		result.Rarity.Tier,
 	)
 
-	service.GetAdminNotifier().NotifyAVM(context.Background(), msg)
+	notification.GetAdminNotifier().NotifyAVM(context.Background(), msg)
 }
 
 func (h *UsernameHandler) Share(w http.ResponseWriter, r *http.Request) {
