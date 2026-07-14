@@ -91,6 +91,7 @@ export const dict = {
 		},
 		"username": {
 			"activeAuctions": "活跃拍卖",
+			"failedToLoad": "无法加载市场数据",
 			"allTimeHigh": "销量创历史新高",
 			"analyzeBtn": "高级用户名分析",
 			"analyzeMarketBtn": "分析市场价值",

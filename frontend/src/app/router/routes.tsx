@@ -1,6 +1,7 @@
 import type { Component } from 'solid-js';
 import { AirdropPage } from '@/pages/airdrop/airdrop/index.js';
 import { CollectionInfoPage } from '@/pages/collection-info/index.js';
+import ClansPage from '@/pages/airdrop/clans/index.js';
 import { ChannelAdminsPage } from '@/pages/channel/admins/index.js';
 import { ChannelAnalyticsPage } from '@/pages/channel/analytics/index.js';
 import { ChannelAuditLogPage } from '@/pages/channel/audit-log/index.js';
@@ -61,6 +62,7 @@ export const routes: Route[] = [
 	{ path: '/', Component: IndexPage },
 
 	{ path: '/airdrop', Component: AirdropPage },
+	{ path: '/airdrop/clans', Component: ClansPage },
 	{ path: '/marketplace', Component: MarketplacePage },
 	{ path: '/dashboard', Component: DashboardPage },
 	{ path: '/profile', Component: ProfilePage },

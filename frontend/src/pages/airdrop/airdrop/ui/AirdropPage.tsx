@@ -1,5 +1,6 @@
 import { Component, createSignal, Match, Switch, onMount, onCleanup } from 'solid-js';
 import { BottomNav } from '@/widgets/bottom-nav/index.js';
+import { useNavigate } from '@solidjs/router';
 import { BoostersView } from './BoostersView.js';
 import { ClanView } from './ClanView.js';
 import { FrensView } from './FrensView.js';
@@ -23,6 +24,7 @@ export const AirdropPage: Component = () => {
 	const [activeTab, setActiveTab] = createSignal<AirdropTab>('mine');
 	const [showLeaderboard, setShowLeaderboard] = createSignal(false);
 	const [offlineEarnings, setOfflineEarnings] = createSignal(0);
+	const navigate = useNavigate();
 
 	const handleVisibilityChange = async () => {
 		if (document.visibilityState === 'visible') {
@@ -90,7 +92,7 @@ export const AirdropPage: Component = () => {
 					<Match when={activeTab() === 'mine'}>
 						<TapView 
 							onLeagueClick={() => setShowLeaderboard(true)} 
-							onClanClick={() => handleTabChange('clan')}
+							onClanClick={() => navigate('/airdrop/clans')}
 							onShopClick={() => handleTabChange('shop')}
 							onActionClick={(tabId) => handleTabChange(tabId as any)}
 						/>

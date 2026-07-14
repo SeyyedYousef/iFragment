@@ -91,6 +91,7 @@ export const dict = {
 		},
 		"username": {
 			"activeAuctions": "Active Auctions",
+			"failedToLoad": "Failed to load market data",
 			"allTimeHigh": "All-Time High Sales",
 			"analyzeBtn": "Advanced Username Analysis",
 			"analyzeMarketBtn": "Analyze Market Value",

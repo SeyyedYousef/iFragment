@@ -367,7 +367,7 @@ type UserTaskStatus struct {
 	Completed bool `json:"completed"`
 }
 
-// GetTasksStatus returns status of quests/tasks
+// GetTasksStatus returns status of quests/tasks with enriched UI metadata
 func (s *GamificationService) GetTasksStatus(ctx context.Context, userID int64) ([]UserTaskStatus, error) {
 	completedTasks, err := s.db.GetUserTasks(ctx, userID)
 	if err != nil {
@@ -385,8 +385,70 @@ func (s *GamificationService) GetTasksStatus(ctx context.Context, userID int64) 
 		return nil, err
 	}
 
+	// Fetch user stats for progress tracking
+	var taps int
+	var level int
+	var referrals int
+	var clanID int64
+	_ = s.db.Pool.QueryRow(ctx, "SELECT COALESCE(total_taps, 0), COALESCE(level, 1) FROM user_stats WHERE user_id = $1", userID).Scan(&taps, &level)
+	_ = s.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM users WHERE referred_by = $1", userID).Scan(&referrals)
+	_ = s.db.Pool.QueryRow(ctx, "SELECT COALESCE(clan_id, 0) FROM clan_members WHERE user_id = $1 LIMIT 1", userID).Scan(&clanID)
+
 	results := make([]UserTaskStatus, 0, len(activeQuests))
 	for _, q := range activeQuests {
+		switch q.Type {
+		case "taps_100k":
+			q.ProgressCurrent = taps
+			q.ProgressTarget = 100000
+		case "invite_1_fren":
+			q.ProgressCurrent = referrals
+			q.ProgressTarget = 1
+		case "invite_3_frens":
+			q.ProgressCurrent = referrals
+			q.ProgressTarget = 3
+		case "invite_10_frens":
+			q.ProgressCurrent = referrals
+			q.ProgressTarget = 10
+		case "league_gold":
+			q.ProgressCurrent = level
+			q.ProgressTarget = 3
+		case "telegram_premium":
+			q.IsPremiumReq = true
+			q.ProgressCurrent = level
+			q.ProgressTarget = 3
+		case "join_clan":
+			q.IsClanReq = true
+			if clanID > 0 {
+				q.ProgressCurrent = 1
+			}
+			q.ProgressTarget = 1
+		case "channel_join":
+			var config struct {
+				ChannelUsername string `json:"channel_username"`
+			}
+			_ = json.Unmarshal(q.Config, &config)
+			q.ActionText = config.ChannelUsername
+			if q.ActionText != "" {
+				if !strings.HasPrefix(q.ActionText, "@") && !strings.HasPrefix(q.ActionText, "-") {
+					q.ActionText = "@" + q.ActionText
+				}
+				channelRaw := strings.TrimPrefix(q.ActionText, "@")
+				q.ActionURL = "https://t.me/" + channelRaw
+			}
+		case "link", "social", "campaign":
+			var config struct {
+				URL string `json:"url"`
+			}
+			_ = json.Unmarshal(q.Config, &config)
+			if config.URL != "" {
+				q.ActionURL = config.URL
+			}
+		}
+
+		if q.ProgressCurrent > q.ProgressTarget {
+			q.ProgressCurrent = q.ProgressTarget
+		}
+
 		results = append(results, UserTaskStatus{
 			Quest:     q,
 			Completed: completedMap[q.Key],
@@ -409,6 +471,8 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 	if target == nil {
 		return nil, fmt.Errorf("invalid quest key")
 	}
+	// Log debugging info
+	slog.Info("Completing task", "userID", userID, "taskKey", taskKey, "taskType", target.Type)
 	if !target.IsActive || (target.ExpiresAt != nil && target.ExpiresAt.Before(time.Now())) {
 		return nil, fmt.Errorf("quest is inactive or expired")
 	}
@@ -422,14 +486,13 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 			return nil, fmt.Errorf("you must reach Gold league first")
 		}
 	case "join_clan":
-		var clanUsername string
-		err := s.db.Pool.QueryRow(ctx, "SELECT c.channel_username FROM clan_members cm JOIN clans c ON cm.clan_id = c.id WHERE cm.user_id = $1", userID).Scan(&clanUsername)
-		if err != nil || clanUsername == "" {
+		// Verify that the user belongs to a clan in the application
+		var clanID int64
+		err := s.db.Pool.QueryRow(ctx, "SELECT cm.clan_id FROM clan_members cm WHERE cm.user_id = $1", userID).Scan(&clanID)
+		if err != nil || clanID == 0 {
 			return nil, fmt.Errorf("you must join a clan first")
 		}
-
-		// Note: We cannot reliably check getChatMember for arbitrary clan channels because the bot is not an admin.
-		// The DB check above (that they are in a clan in the app) is sufficient.
+		// No further verification needed; DB membership is sufficient.
 	case "invite_1_fren", "invite_3_frens", "invite_10_frens":
 		var frens int
 		_ = s.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM users WHERE referred_by = $1", userID).Scan(&frens)
@@ -466,6 +529,8 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 		channelName := config.ChannelUsername
 		if channelName == "" {
 			channelName = "@ifragment_channel" // fallback
+		} else if !strings.HasPrefix(channelName, "@") && !strings.HasPrefix(channelName, "-") {
+			channelName = "@" + channelName
 		}
 
 		// Query live Telegram Bot API to check if user is a member

@@ -25,6 +25,7 @@ import (
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/i18n"
 	"ifragment-backend/internal/repository"
+	"ifragment-backend/internal/service"
 	"ifragment-backend/internal/service/botmgmt"
 	"ifragment-backend/internal/service/cryptoprice"
 	"ifragment-backend/internal/telemetry"
@@ -287,6 +288,10 @@ func (s *ChannelService) ConnectChannel(ctx context.Context, ownerUserID int64, 
 		return nil, fmt.Errorf("failed to save channel to database: %w", err)
 	}
 
+	msgTopic := fmt.Sprintf("📢 <b>کانال جدید ثبت شد!</b>\n\n🆔 <b>آیدی کانال:</b> <code>%d</code>\n📌 <b>نام کانال:</b> %s\n👥 <b>تعداد اعضا:</b> %d\n👤 <b>توسط کاربر (آیدی):</b> <code>%d</code>\n🤖 <b>آیدی ربات:</b> <code>%s</code>",
+		ch.ChatID, ch.ChatTitle, ch.SubscribersCount, ownerUserID, bot.ID.String())
+	service.GetAdminNotifier().NotifyNewChannel(ctx, msgTopic)
+
 	// 8. Log audit log
 	slog.Info("Channel connected successfully", "channel_id", ch.ID, "title", chatDetail.Title)
 	if err := s.auditRepo.Log(ctx, &repository.AuditLog{
@@ -403,6 +408,10 @@ func (s *ChannelService) CreateFunnel(ctx context.Context, ownerUserID int64, ou
 		Action:   "channel.funnel_create",
 		TargetID: &target,
 	})
+
+	msgTopic := fmt.Sprintf("🔀 <b>فانل (انتقال پیام) جدید ایجاد شد!</b>\n\n🆔 <b>آیدی فانل:</b> <code>%s</code>\n📁 <b>نام پروژه:</b> %s\n📥 <b>کانال مبدا:</b> %s (<code>%d</code>)\n📤 <b>کانال مقصد:</b> %s (<code>%d</code>)\n👤 <b>توسط کاربر:</b> <code>%d</code>\n🤖 <b>آیدی ربات:</b> <code>%s</code>",
+		f.ID.String(), f.ProjectName, inChan.ChatTitle, inChan.ChatID, outChan.ChatTitle, outChan.ChatID, ownerUserID, outChan.BotID.String())
+	service.GetAdminNotifier().NotifyNewChannel(ctx, msgTopic)
 
 	return f, nil
 }

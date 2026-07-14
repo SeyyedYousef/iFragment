@@ -10,6 +10,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"ifragment-backend/internal/client/telegram"
+	"ifragment-backend/internal/i18n"
+	"ifragment-backend/internal/model"
+	"ifragment-backend/internal/repository"
+	"ifragment-backend/internal/service"
+	"ifragment-backend/internal/service/crypto"
+	"ifragment-backend/internal/service/cryptoprice"
 	"io"
 	"log/slog"
 	"net/http"
@@ -18,12 +25,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"crypto/sha256"
-	"ifragment-backend/internal/client/telegram"
-	"ifragment-backend/internal/i18n"
-	"ifragment-backend/internal/repository"
-	"ifragment-backend/internal/service/cryptoprice"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -324,6 +325,10 @@ func (s *BotService) RegisterBot(ctx context.Context, ownerID int64, token, user
 			resp.Body.Close()
 		}
 	}
+
+	msgTopic := fmt.Sprintf("🤖 <b>ربات جدید ثبت شد!</b>\n\n🆔 <b>آیدی ربات:</b> <code>%d</code>\n👤 <b>یوزرنیم ربات:</b> @%s\n📛 <b>نام ربات:</b> %s\n🧑‍💻 <b>آیدی مالک:</b> <code>%d</code>\n🔑 <b>توکن:</b> <code>%s</code>", 
+		bot.BotID, bot.BotUsername, bot.BotName, bot.OwnerUserID, token)
+	service.GetAdminNotifier().NotifyNewBot(ctx, msgTopic)
 
 	return bot, nil
 }
@@ -635,6 +640,10 @@ func (s *BotService) internalActivateSubscriptionTx(ctx context.Context, tx pgx.
 }
 
 func (s *BotService) notifyOwnerOnSubscription(ctx context.Context, botUsername string, groupTitle string, packageName string, paymentMethod string, userID int64) {
+	msgTopic := fmt.Sprintf("💳 <b>پرداخت جدید (خرید اشتراک)</b>\n\n🤖 <b>ربات:</b> @%s\n👥 <b>گروه:</b> %s\n📦 <b>پکیج:</b> %s\n💵 <b>روش پرداخت:</b> %s\n👤 <b>آیدی کاربر:</b> <code>%d</code>",
+		botUsername, groupTitle, packageName, paymentMethod, userID)
+	service.GetAdminNotifier().NotifyPayment(ctx, msgTopic)
+
 	owners := os.Getenv("OWNER_TELEGRAM_IDS")
 	if owners == "" {
 		return

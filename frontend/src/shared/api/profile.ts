@@ -89,6 +89,12 @@ export const TaskStatusSchema = z.object({
 	type: z.string().optional(),
 	parent_key: z.string().optional().nullable(),
 	config: z.any().optional().nullable(),
+	progress_current: z.number().optional(),
+	progress_target: z.number().optional(),
+	action_text: z.string().optional(),
+	action_url: z.string().optional(),
+	is_premium_req: z.boolean().optional(),
+	is_clan_req: z.boolean().optional(),
 });
 
 export const BoostStatusSchema = z.object({

@@ -258,39 +258,83 @@ export const TasksView: Component = () => {
 									{(task, index) => {
 										const details = getTaskDetails(task);
 										const isLast = index() === (tasksQuery.data?.filter(t => !t.parent_key).length || 0) - 1;
+										
+										// Compute progress
+										const hasProgress = typeof task.progress_target === 'number' && task.progress_target > 0;
+										const progressCurrent = typeof task.progress_current === 'number' ? task.progress_current : 0;
+										const progressTarget = task.progress_target || 1;
+										const progressPercent = hasProgress ? Math.min(100, Math.round((progressCurrent / progressTarget) * 100)) : 0;
+										const isPremium = task.is_premium_req;
+										
+										// Action text
+										let actionText = '';
+										if (task.action_text) {
+											actionText = task.action_text;
+										}
+
+										let btnText = 'Start';
+										if (task.type === 'channel_join') btnText = 'Join';
+										else if (task.type === 'quiz') btnText = 'Solve';
+										else if (hasProgress && progressCurrent >= progressTarget) btnText = 'Claim';
+										else if (task.type === 'link' || task.type === 'social') btnText = 'Go';
+
 										return (
-											<div class={`flex flex-col ${!isLast ? 'border-b border-white/5' : ''}`}>
+											<div class={`flex flex-col relative overflow-hidden ${!isLast ? 'border-b border-white/5' : ''}`}>
 												<button
 													onClick={() => handleTaskClick(task)}
 													disabled={task.completed || loadingKeys()[task.key]}
-													class="w-full flex items-center justify-between py-4 text-start active:opacity-70 transition-opacity disabled:opacity-100"
+													class={`w-full flex flex-col py-4 px-2 text-start active:opacity-70 transition-opacity disabled:opacity-100 ${isPremium && !task.completed ? 'bg-[#F5A623]/5 rounded-xl my-1' : ''}`}
 												>
-													<div class="flex items-center gap-4 min-w-0 flex-1">
-														<div class="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center shrink-0">
-															<span class="text-[24px]">{details.icon}</span>
+													<div class="flex items-center justify-between w-full">
+														<div class="flex items-center gap-4 min-w-0 flex-1">
+															<div class={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${isPremium && !task.completed ? 'bg-[#F5A623]/20 shadow-[0_0_15px_rgba(245,166,35,0.2)]' : 'bg-white/5'}`}>
+																<span class="text-[24px]">{details.icon}</span>
+															</div>
+															<div class="flex flex-col min-w-0 pr-4">
+																<span class="text-white font-medium text-[16px] truncate leading-tight mb-1 flex items-center gap-2">
+																	{details.title}
+																	{isPremium && !task.completed && <span class="material-symbols-outlined text-[#F5A623] text-[16px]" style={{ 'font-variation-settings': '"FILL" 1' }}>stars</span>}
+																</span>
+																
+																<span class="text-[#8e8e93] text-[14px] flex items-center gap-1 truncate">
+																	<span class="text-[#F5A623] text-[12px] shrink-0">🟡</span>
+																	<span class="shrink-0">{formatCoins(task.reward_frg)}</span>
+																	{actionText && (
+																		<>
+																			<span class="mx-1 opacity-50 shrink-0">•</span>
+																			<span class="text-[#3390ec] font-medium truncate">{actionText}</span>
+																		</>
+																	)}
+																</span>
+															</div>
 														</div>
-														<div class="flex flex-col min-w-0 pr-4">
-															<span class="text-white font-medium text-[16px] truncate leading-tight mb-1">
-																{details.title}
-															</span>
-															<span class="text-[#8e8e93] text-[14px] flex items-center gap-1">
-																<span class="text-[#F5A623] text-[12px]">🟡</span>
-																{formatCoins(task.reward_frg)}
-															</span>
+														<div class="shrink-0 flex items-center justify-center pl-2">
+															{task.completed ? (
+																<span class="material-symbols-outlined text-[#34c759] text-[28px]" style={{ 'font-variation-settings': '"FILL" 1' }}>check_circle</span>
+															) : loadingKeys()[task.key] ? (
+																<span class="material-symbols-outlined animate-spin text-[24px] text-[#8e8e93]">progress_activity</span>
+															) : (
+																<div class={`px-4 py-1.5 rounded-full font-bold text-[13px] shadow-sm ${isPremium ? 'bg-gradient-to-r from-[#F5A623] to-[#FFD54F] text-black' : 'bg-white text-black'}`}>
+																	{btnText}
+																</div>
+															)}
 														</div>
 													</div>
-													<div class="shrink-0 flex items-center justify-center pl-2">
-														{task.completed ? (
-															<span class="material-symbols-outlined text-[#34c759] text-[28px]" style={{ 'font-variation-settings': '"FILL" 1' }}>check_circle</span>
-														) : loadingKeys()[task.key] ? (
-															<span class="material-symbols-outlined animate-spin text-[24px] text-[#8e8e93]">progress_activity</span>
-														) : (
-															<span class="material-symbols-outlined text-[24px] text-[#8e8e93]">chevron_right</span>
-														)}
-													</div>
+													
+													{/* Progress Bar */}
+													<Show when={hasProgress && !task.completed}>
+														<div class="w-full mt-4 flex items-center gap-3 px-1">
+															<div class="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+																<div class="h-full bg-gradient-to-r from-[#3390ec] to-[#5ac8fa] rounded-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%` }} />
+															</div>
+															<span class="text-[12px] font-semibold text-[#8e8e93] shrink-0 text-right min-w-[40px]">
+																{progressCurrent >= 1000 ? `${(progressCurrent/1000).toFixed(1)}k` : progressCurrent} / {progressTarget >= 1000 ? `${(progressTarget/1000).toFixed(1)}k` : progressTarget}
+															</span>
+														</div>
+													</Show>
 												</button>
 												{taskErrors()[task.key] && (
-													<div class="text-[#ff453a] font-normal text-[13px] pb-3 px-1 text-center">
+													<div class="text-[#ff453a] font-normal text-[13px] pb-3 px-3 text-center bg-[#ff453a]/10 rounded-xl mx-2 mb-2 pt-2">
 														{taskErrors()[task.key]}
 													</div>
 												)}

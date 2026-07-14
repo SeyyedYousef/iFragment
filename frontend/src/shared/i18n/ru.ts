@@ -91,6 +91,7 @@ export const dict = {
 		},
 		"username": {
 			"activeAuctions": "Активные аукционы",
+			"failedToLoad": "Не удалось загрузить данные рынка",
 			"allTimeHigh": "Самые крупные продажи",
 			"analyzeBtn": "Расширенный анализ юзернейма",
 			"analyzeMarketBtn": "Анализ рыночной стоимости",

@@ -90,7 +90,8 @@ export const dict = {
 			"title": "ترندها"
 		},
 		"username": {
-			"activeAuctions": "حراجی‌های فعال",
+			"activeAuctions": "مزایده‌های فعال",
+			"failedToLoad": "دریافت اطلاعات بازار با خطا مواجه شد",
 			"allTimeHigh": "بزرگترین فروش‌های تاریخ",
 			"analyzeBtn": "تحلیل پیشرفته نام کاربری",
 			"analyzeMarketBtn": "تحلیل ارزش بازار",

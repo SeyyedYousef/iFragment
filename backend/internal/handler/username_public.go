@@ -20,6 +20,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"ifragment-backend/internal/service"
+
 	"github.com/google/uuid"
 	"golang.org/x/sync/singleflight"
 )
@@ -519,49 +521,21 @@ func (h *UsernameHandler) sendValuationNotification(r *http.Request, u string, r
 		}
 	}
 
-	botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
-	if botToken == "" {
-		return
-	}
-
-	client := telegram.NewBotAPIClient(botToken)
-
 	msg := fmt.Sprintf(
-		"🔍 <b>درخواست تحلیل ارزش بازار (AVM)</b>\n\n"+
+		"🔍 <b>درخواست ارزش‌گذاری یوزرنیم</b>\n\n"+
 			"👤 <b>کاربر:</b> %s (<code>%s</code>)\n"+
-			"🆔 <b>یوزرنیم مورد نظر:</b> @%s\n\n"+
-			"💰 <b>قیمت تخمینی (پایه):</b> %s TON\n"+
-			"📉 <b>کمترین قیمت:</b> %s TON\n"+
-			"📈 <b>بیشترین قیمت:</b> %s TON\n"+
-			"💵 <b>معادل دلاری (تخمینی):</b> $%s\n"+
-			"🎯 <b>دقت تخمین:</b> %d%%\n"+
-			"💎 <b>میزان کمیابی:</b> %s\n"+
-			"🏷 <b>تگ‌ها:</b> %s",
+			"🆔 <b>یوزرنیم:</b> @%s\n\n"+
+			"💰 <b>قیمت نهایی:</b> %s TON\n"+
+			"💵 <b>معادل دلاری:</b> $%s\n"+
+			"💎 <b>کمیابی:</b> %s",
 		telegram.EscapeHTML(userIdent), userID,
 		telegram.EscapeHTML(u),
 		result.BasePriceTON.StringFixed(2),
-		result.LowTON.StringFixed(2),
-		result.HighTON.StringFixed(2),
 		result.ExpectedUSD.StringFixed(2),
-		result.ConfidenceScore,
 		result.Rarity.Tier,
-		strings.Join(result.Tags, ", "),
 	)
 
-	payload := map[string]interface{}{
-		"chat_id":    "@llsalell",
-		"text":       msg,
-		"parse_mode": "HTML",
-	}
-
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_, err := client.Request(ctx, "sendMessage", payload)
-		if err != nil {
-			slog.Warn("Failed to send AVM notification to channel", "error", err)
-		}
-	}()
+	service.GetAdminNotifier().NotifyAVM(context.Background(), msg)
 }
 
 func (h *UsernameHandler) Share(w http.ResponseWriter, r *http.Request) {
