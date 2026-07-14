@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"ifragment-backend/internal/client/telegram"
@@ -335,11 +336,29 @@ func (s *ProfileService) SetReferralCode(ctx context.Context, userID int64, refe
 	// 1) Resolve referrer + self/circular checks atomically WITH LOCK
 	var referrerID int64
 	var referrerReferredBy *int64
-	err = tx.QueryRow(ctx, `
-		SELECT telegram_id, referred_by
-		FROM users
-		WHERE referral_code = $1
-		FOR UPDATE`, referrerCode).Scan(&referrerID, &referrerReferredBy)
+	
+	parsedID := int64(0)
+	if strings.HasPrefix(referrerCode, "ref_") {
+		idStr := strings.TrimPrefix(referrerCode, "ref_")
+		if id, err := strconv.ParseInt(idStr, 10, 64); err == nil {
+			parsedID = id
+		}
+	}
+
+	if parsedID > 0 {
+		err = tx.QueryRow(ctx, `
+			SELECT telegram_id, referred_by
+			FROM users
+			WHERE telegram_id = $1
+			FOR UPDATE`, parsedID).Scan(&referrerID, &referrerReferredBy)
+	} else {
+		err = tx.QueryRow(ctx, `
+			SELECT telegram_id, referred_by
+			FROM users
+			WHERE referral_code = $1
+			FOR UPDATE`, referrerCode).Scan(&referrerID, &referrerReferredBy)
+	}
+
 	if err != nil {
 		return fmt.Errorf("invalid referral code")
 	}

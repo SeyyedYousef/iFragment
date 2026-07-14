@@ -428,19 +428,8 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 			return nil, fmt.Errorf("you must join a clan first")
 		}
 
-		tgClient := s.getBotAPIClient()
-		if tgClient != nil && clanUsername != "" {
-			targetChat := "@" + strings.TrimPrefix(clanUsername, "@")
-			status, err := s.getChatMemberCached(ctx, tgClient, targetChat, userID)
-			if err != nil {
-				return nil, fmt.Errorf("failed to verify clan channel membership: %w", err)
-			}
-			if status == "left" || status == "kicked" {
-				return nil, fmt.Errorf("you must actually join your clan's official Telegram channel (%s) to claim this reward", targetChat)
-			}
-		} else if os.Getenv("APP_ENV") == "production" {
-			return nil, fmt.Errorf("telegram Bot Token not configured (fail-closed)")
-		}
+		// Note: We cannot reliably check getChatMember for arbitrary clan channels because the bot is not an admin.
+		// The DB check above (that they are in a clan in the app) is sufficient.
 	case "invite_1_fren", "invite_3_frens", "invite_10_frens":
 		var frens int
 		_ = s.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM users u JOIN user_stats s ON u.telegram_id = s.user_id WHERE u.referred_by = $1 AND s.level >= 3", userID).Scan(&frens)

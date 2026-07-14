@@ -359,7 +359,7 @@ func main() {
 	collectionHandler := handler.NewCollectionHandler(collectionRepo)
 
 
-	authHandler := handler.NewAuthHandler(db)
+	authHandler := handler.NewAuthHandler(db, profileService)
 
 	// Initialize Owner components
 	middleware.InitAuthMiddleware(ownerRepo)

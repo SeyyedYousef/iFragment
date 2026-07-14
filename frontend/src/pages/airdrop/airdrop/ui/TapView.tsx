@@ -16,7 +16,9 @@ import {
 	activateTurbo,
 	userClan,
 	globalRank,
+	CLAN_LEAGUES,
 } from '@/shared/store/airdrop.js';
+import { API_CONFIG } from '@/shared/api/config.js';
 
 interface CanvasParticle {
 	x: number;
@@ -308,13 +310,13 @@ export const TapView: Component<{
 										{/* Squircle Profile Image */}
 										<div class="w-11 h-11 bg-black border-2 border-white/5 flex items-center justify-center overflow-hidden shrink-0 relative shadow-sm" style={{ 'border-radius': '14px' }}>
 											<Show when={clan().channel_photo} fallback={<div class="w-full h-full bg-gradient-to-br from-amber-300 to-amber-500"></div>}>
-												<img src={clan().channel_photo} alt={clan().chat_title} class="w-full h-full object-cover" />
+												<img src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`} alt={clan().chat_title} class="w-full h-full object-cover" />
 											</Show>
 										</div>
 										<div class="flex flex-col items-start min-w-0">
 											<span class="font-black text-[17px] truncate w-full text-left text-white tracking-tight leading-none mb-1.5">{clan().chat_title}</span>
 											<div class="flex items-center gap-1.5">
-												<span class="text-[#ffcc00] text-[14px] leading-none">🟡</span>
+												<span class="text-amber-400 text-[14px] leading-none">⭐</span>
 												<span class="text-white font-bold text-[14px] tabular-nums leading-none drop-shadow-sm">
 													{(clan().total_score || clan().members_count * 1500).toLocaleString('en-US')}
 												</span>
@@ -328,8 +330,22 @@ export const TapView: Component<{
 											<span class="text-white/40 text-[15px] font-light">{'}'}</span>
 										</div>
 										<div class="flex items-center gap-1.5 opacity-90 leading-none">
-											<span class="text-[14px]" style={{ color: currentLeague().color }}>🏆</span>
-											<span class="font-bold text-[13px] text-white/90">{currentLeague().name}</span>
+											<span class="text-[14px]" style={{ color: (() => {
+												const score = clan().total_score || clan().members_count * 1500;
+												let l = CLAN_LEAGUES[0];
+												for (const league of CLAN_LEAGUES) {
+													if (score >= league.minScore) l = league;
+												}
+												return l.color;
+											})() }}>🏆</span>
+											<span class="font-bold text-[13px] text-white/90">{(() => {
+												const score = clan().total_score || clan().members_count * 1500;
+												let l = CLAN_LEAGUES[0];
+												for (const league of CLAN_LEAGUES) {
+													if (score >= league.minScore) l = league;
+												}
+												return l.name;
+											})()}</span>
 										</div>
 									</div>
 								</div>

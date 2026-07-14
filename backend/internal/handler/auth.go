@@ -10,16 +10,21 @@ import (
 
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/repository"
+	"ifragment-backend/internal/service"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
 type AuthHandler struct {
-	db *repository.Database
+	db             *repository.Database
+	profileService *service.ProfileService
 }
 
-func NewAuthHandler(db *repository.Database) *AuthHandler {
-	return &AuthHandler{db: db}
+func NewAuthHandler(db *repository.Database, profileService *service.ProfileService) *AuthHandler {
+	return &AuthHandler{
+		db:             db,
+		profileService: profileService,
+	}
 }
 
 func (h *AuthHandler) IssueToken(w http.ResponseWriter, r *http.Request) {
@@ -65,6 +70,7 @@ func (h *AuthHandler) IssueToken(w http.ResponseWriter, r *http.Request) {
 	firstName, _ := user["first_name"].(string)
 	lastName, _ := user["last_name"].(string)
 	languageCode, _ := user["language_code"].(string)
+	isPremium, _ := user["is_premium"].(bool)
 
 	// Synchronize user profile in the database
 	err := h.db.UpsertUser(r.Context(), repository.User{
@@ -73,6 +79,7 @@ func (h *AuthHandler) IssueToken(w http.ResponseWriter, r *http.Request) {
 		FirstName:    firstName,
 		LastName:     lastName,
 		LanguageCode: languageCode,
+		IsPremium:    isPremium,
 	})
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, "Failed to synchronize user profile", err)
@@ -85,7 +92,7 @@ func (h *AuthHandler) IssueToken(w http.ResponseWriter, r *http.Request) {
 		if values, err := url.ParseQuery(initData); err == nil {
 			startParam := values.Get("start_param")
 			if startParam != "" {
-				_, err := h.db.SetReferredBy(r.Context(), telegramID, startParam)
+				err := h.profileService.SetReferralCode(r.Context(), telegramID, startParam)
 				if err != nil {
 					slog.Warn("Failed to set referred_by", "user_id", telegramID, "referrer_code", startParam, "error", err)
 				}
