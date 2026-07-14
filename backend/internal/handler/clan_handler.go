@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/service"
+	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -150,4 +152,34 @@ func (h *ClanHandler) GetClanMembers(w http.ResponseWriter, r *http.Request) {
 		slog.Error("failed to encode clan members response", "error", err)
 	}
 }
+
+func (h *ClanHandler) GetClanPhotoProxy(w http.ResponseWriter, r *http.Request) {
+	username := r.URL.Query().Get("username")
+	if username == "" {
+		http.Error(w, "missing username", http.StatusBadRequest)
+		return
+	}
+
+	// 1. Get official photo URL from Telegram Bot API via clanService
+	photoURL, err := h.clanService.GetOfficialChannelPhotoURL(r.Context(), username)
+	if err != nil || photoURL == "" {
+		// Fallback to t.me if official fails
+		photoURL = fmt.Sprintf("https://t.me/i/userpic/320/%s.jpg", username)
+	}
+
+	// 2. Fetch the actual image bytes
+	resp, err := http.Get(photoURL)
+	if err != nil {
+		http.Error(w, "failed to fetch photo", http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	w.Header().Set("Content-Type", "image/jpeg")
+	// Cache for 1 day in browser/CDN to prevent hammering Telegram API
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	
+	_, _ = io.Copy(w, resp.Body)
+}
+
 

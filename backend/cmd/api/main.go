@@ -571,6 +571,7 @@ func main() {
 			r.Route("/profile", func(r chi.Router) {
 				r.Get("/avatar/{userID}", profileHandler.GetAvatar)
 				r.Get("/public-config", profileHandler.GetPublicConfig)
+				r.Get("/clan/photo", clanHandler.GetClanPhotoProxy)
 
 				r.Group(func(r chi.Router) {
 					r.Use(middleware.AuthMiddleware)

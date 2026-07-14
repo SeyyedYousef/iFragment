@@ -3,7 +3,7 @@ import { Component, createResource, createSignal, For, Show, createEffect } from
 import { getTopClans, joinClan, leaveClan, getClanMembers } from '@/shared/api/profile.js';
 import { setUserClan, userClan, currentLeague, LEAGUES } from '@/shared/store/airdrop.js';
 import { t } from '@/shared/i18n/index.js';
-
+import { API_CONFIG } from '@/shared/api/config.js';
 export const ClanView: Component = () => {
 	const [usernameInput, setUsernameInput] = createSignal('');
 	const [loading, setLoading] = createSignal(false);
@@ -202,7 +202,7 @@ export const ClanView: Component = () => {
 													{/* Photo */}
 													{clan.channel_photo ? (
 														<img
-															src={clan.channel_photo}
+															src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan.channel_username}`}
 															alt={clan.chat_title}
 															class="w-12 h-12 rounded-2xl object-cover border border-white/10 shrink-0 mr-3"
 														/>
@@ -227,7 +227,7 @@ export const ClanView: Component = () => {
 																class="material-symbols-outlined text-amber-400 text-[14px]"
 																style={{ 'font-variation-settings': '"FILL" 1' }}
 															>
-																monetization_on
+																stars
 															</span>
 															<span class="text-amber-400 font-bold text-[14px]">
 																{formatScore(clan.total_score || clan.members_count * 1500)}
@@ -269,7 +269,7 @@ export const ClanView: Component = () => {
 								{/* Top Icon Box */}
 								<div class="w-[100px] h-[100px] bg-black rounded-[32px] flex items-center justify-center mb-6 shadow-xl relative overflow-hidden shrink-0">
 									{clan().channel_photo ? (
-										<img src={clan().channel_photo} alt={clan().chat_title} class="w-full h-full object-cover" />
+										<img src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`} alt={clan().chat_title} class="w-full h-full object-cover" />
 									) : (
 										<svg viewBox="0 0 100 100" class="w-[50%] h-[50%]">
 											<path d="M 50 15 L 15 80 L 85 80 Z" fill="none" stroke="white" stroke-width="12" stroke-linejoin="round" stroke-linecap="round"/>
@@ -318,12 +318,12 @@ export const ClanView: Component = () => {
 									<div class="w-full flex justify-between items-start mb-2 px-1">
 										<div class="flex flex-col items-start">
 											<div class="flex items-center gap-1.5">
-												<span class="text-[#ffcc00] text-[20px]">🟡</span>
-												<span class="text-white font-bold text-[24px] tracking-tight">
+												<span class="material-symbols-outlined text-[#ffcc00] text-[20px]" style={{ 'font-variation-settings': '"FILL" 1' }}>stars</span>
+												<div class="text-[32px] font-bold text-white tracking-tight leading-none mb-1">
 													{(clan().total_score || clan().members_count * 1500).toLocaleString('en-US')}
-												</span>
+												</div>
 											</div>
-											<span class="text-[#8e8e93] text-[13px] ml-7 font-medium">{t('airdropFinal.clan.totalScore', { defaultValue: 'Total score' })}</span>
+											<span class="text-[#8e8e93] text-[13px] ml-7 font-medium">{t('airdropFinal.clan.totalScore', { defaultValue: 'Total XP' })}</span>
 										</div>
 										
 										<div class="flex flex-col items-end">
@@ -404,7 +404,7 @@ export const ClanView: Component = () => {
 														
 														<div class="shrink-0 text-end">
 															<div class="flex items-center gap-1 justify-end">
-																<span class="text-[#ffcc00] text-[12px]">🟡</span>
+																<span class="text-amber-400 text-[12px]">⭐</span>
 																<span class="text-white font-bold text-[14px]">
 																	{member.score.toLocaleString('en-US')}
 																</span>

@@ -69,6 +69,19 @@ func scrapeChannelPhoto(username string) string {
 	return defaultPhoto
 }
 
+// GetOfficialChannelPhotoURL uses the Telegram Bot API to securely get the channel photo URL
+func (s *ClanService) GetOfficialChannelPhotoURL(ctx context.Context, username string) (string, error) {
+	if s.botClient == nil {
+		return "", errors.New("bot client is not initialized")
+	}
+	// Telegram API requires @ prefix for usernames
+	target := username
+	if !strings.HasPrefix(target, "@") {
+		target = "@" + target
+	}
+	return s.botClient.GetChatPhotoURL(ctx, target)
+}
+
 // GetClanDetails returns user's clan details (if any)
 func (s *ClanService) GetClanDetails(ctx context.Context, userID int64) (*model.UserClanDetails, error) {
 	if s.db == nil || s.db.Pool == nil {
@@ -507,11 +520,11 @@ func (s *ClanService) flushScoresToDB(ctx context.Context) {
 	}
 	defer tx.Rollback(ctx)
 
-	// Update total_score in clans table based on the sum of member total_coins_earned
+	// Update total_score in clans table based on the sum of member xp
 	updateQuery := `
 		UPDATE clans c
 		SET total_score = COALESCE((
-			SELECT SUM(us.total_coins_earned)
+			SELECT SUM(us.xp)
 			FROM clan_members cm
 			JOIN user_stats us ON cm.user_id = us.user_id
 			WHERE cm.clan_id = c.id
@@ -622,7 +635,7 @@ func (s *ClanService) GetClanMembers(ctx context.Context, userID int64, clanID s
 	}
 
 	query := `
-		SELECT u.telegram_id, COALESCE(u.username, '') as username, u.first_name, COALESCE(u.last_name, '') as last_name, COALESCE(us.total_coins_earned, 0) as score, COALESCE(us.level, 1) as level, COALESCE(us.xp, 0) as xp
+		SELECT u.telegram_id, COALESCE(u.username, '') as username, u.first_name, COALESCE(u.last_name, '') as last_name, COALESCE(us.xp, 0) as score, COALESCE(us.level, 1) as level, COALESCE(us.xp, 0) as xp
 		FROM clan_members cm
 		JOIN users u ON cm.user_id = u.telegram_id
 		LEFT JOIN user_stats us ON u.telegram_id = us.user_id
