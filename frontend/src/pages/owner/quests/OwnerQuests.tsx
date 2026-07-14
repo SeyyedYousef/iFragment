@@ -15,6 +15,7 @@ interface Quest {
 	is_active: boolean;
 	expires_at?: string;
 	created_at: string;
+	parent_key?: string | null;
 }
 
 export const OwnerQuests: Component = () => {
@@ -35,11 +36,13 @@ export const OwnerQuests: Component = () => {
 	const [rewardXp, setRewardXp] = createSignal(10);
 	const [isActive, setIsActive] = createSignal(true);
 	const [expiresAt, setExpiresAt] = createSignal('');
+	const [parentKey, setParentKey] = createSignal('');
 
 	// Custom Dynamic configs
 	const [channelUsername, setChannelUsername] = createSignal('');
 	const [quizQuestion, setQuizQuestion] = createSignal('');
 	const [quizAnswer, setQuizAnswer] = createSignal('');
+	const [taskUrl, setTaskUrl] = createSignal('');
 
 	onMount(() => {
 		// Lock access strictly to owner session
@@ -76,9 +79,11 @@ export const OwnerQuests: Component = () => {
 		setRewardXp(50);
 		setIsActive(true);
 		setExpiresAt('');
+		setParentKey('');
 		setChannelUsername('');
 		setQuizQuestion('');
 		setQuizAnswer('');
+		setTaskUrl('');
 		setIsModalOpen(true);
 	};
 
@@ -93,6 +98,7 @@ export const OwnerQuests: Component = () => {
 		setRewardFrg(q.reward_frg);
 		setRewardXp(q.reward_xp);
 		setIsActive(q.is_active);
+		setParentKey(q.parent_key || '');
 
 		// Parse expires_at into local input format YYYY-MM-DD
 		if (q.expires_at) {
@@ -105,6 +111,7 @@ export const OwnerQuests: Component = () => {
 		setChannelUsername(q.config?.channel_username || '');
 		setQuizQuestion(q.config?.quiz_question || '');
 		setQuizAnswer(''); // quiz answer hash remains empty on editing form for security
+		setTaskUrl(q.config?.url || '');
 
 		setIsModalOpen(true);
 	};
@@ -123,6 +130,8 @@ export const OwnerQuests: Component = () => {
 			if (quizAnswer()) {
 				configObj.answer = quizAnswer(); // Server automatically SHA256 hashes this
 			}
+		} else if (type() === 'link' || type() === 'social') {
+			configObj.url = taskUrl();
 		}
 
 		const questData = {
@@ -134,6 +143,7 @@ export const OwnerQuests: Component = () => {
 			config: configObj,
 			is_active: isActive(),
 			expires_at: expiresAt() ? new Date(expiresAt()).toISOString() : null,
+			parent_key: parentKey() || null,
 		};
 
 		try {
@@ -414,10 +424,47 @@ export const OwnerQuests: Component = () => {
 									<option value="quiz">کوییز / معما (بررسی هش شده در سرور)</option>
 									<option value="first_username_scan">ثبت نام اولیه (دارای یوزرنیم)</option>
 									<option value="register_first_bot">ورود اولیه به ربات</option>
+									<option value="campaign">کمپین (گروه‌بندی سایر تسک‌ها)</option>
+									<option value="link">لینک سایت (Dumb Verification با تایمر)</option>
+									<option value="social">شبکه‌های اجتماعی / توییتر / یوتیوب</option>
+								</select>
+							</div>
+
+							<div class="flex flex-col gap-1.5">
+								<label class="text-[10px] font-black uppercase text-[#a0a4ad]">
+									کمپین والد (برای زیرمجموعه کردن تسک)
+								</label>
+								<select
+									value={parentKey()}
+									onChange={(e) => setParentKey(e.currentTarget.value)}
+									class="h-11 px-4 bg-[#0f1014] border border-[#2a2c35] focus:border-[#3390ec] text-white text-xs font-bold rounded-2xl focus:outline-none transition-all appearance-none"
+								>
+									<option value="">-- بدون والد (مستقل) --</option>
+									<For each={quests().filter((q) => q.type === 'campaign' && q.key !== key())}>
+										{(q) => <option value={q.key}>{q.title}</option>}
+									</For>
 								</select>
 							</div>
 
 							{/* Dynamic Type Config Inputs */}
+							<Show when={type() === 'link' || type() === 'social'}>
+								<div class="p-4 bg-white/5 rounded-2xl border border-white/5 space-y-3 animate-fade-in">
+									<div class="flex flex-col gap-1.5">
+										<label class="text-[9px] font-black uppercase text-[#a0a4ad]">
+											لینک (URL)
+										</label>
+										<input
+											type="url"
+											required
+											value={taskUrl()}
+											onInput={(e) => setTaskUrl(e.currentTarget.value)}
+											class="h-9 px-3 bg-[#0f1014] border border-[#2a2c35] text-white text-xs font-bold rounded-xl focus:outline-none focus:border-[#3390ec] transition-all"
+											placeholder="https://t.me/ifragment_net"
+										/>
+									</div>
+								</div>
+							</Show>
+
 							<Show when={type() === 'channel_join'}>
 								<div class="p-4 bg-white/5 rounded-2xl border border-white/5 space-y-3 animate-fade-in">
 									<div class="flex flex-col gap-1.5">

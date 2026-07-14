@@ -9,6 +9,7 @@ export const TasksView: Component = () => {
 	const [taskErrors, setTaskErrors] = createSignal<Record<string, string>>({});
 	const [loadingKeys, setLoadingKeys] = createSignal<Record<string, boolean>>({});
 	const [activeQuizTask, setActiveQuizTask] = createSignal<TaskStatus | null>(null);
+	const [activeCampaign, setActiveCampaign] = createSignal<TaskStatus | null>(null);
 	const [quizAnswerInput, setQuizAnswerInput] = createSignal('');
 	const [quizError, setQuizError] = createSignal('');
 
@@ -38,6 +39,11 @@ export const TasksView: Component = () => {
 			return;
 		}
 
+		if (task.type === 'campaign') {
+			setActiveCampaign(task);
+			return;
+		}
+
 		setLoadingKeys((prev) => ({ ...prev, [key]: true }));
 
 		// CTA Redirect if Telegram channel task
@@ -51,6 +57,21 @@ export const TasksView: Component = () => {
 			}
 			// Give a tiny timeout for channel redirection before triggering verification
 			await new Promise((resolve) => setTimeout(resolve, 800));
+		} else if (task.type === 'link' || task.type === 'social') {
+			let targetUrl = task.config?.url;
+			if (targetUrl) {
+				try {
+					if (targetUrl.includes('t.me')) {
+						openTelegramLink(targetUrl);
+					} else {
+						window.open(targetUrl, '_blank');
+					}
+				} catch (_) {
+					window.open(targetUrl, '_blank');
+				}
+			}
+			// Dumb verification: wait 5 seconds while showing loading spinner
+			await new Promise((resolve) => setTimeout(resolve, 5000));
 		}
 
 		try {
@@ -233,10 +254,10 @@ export const TasksView: Component = () => {
 									</div>
 								}
 							>
-								<For each={tasksQuery.data}>
+								<For each={tasksQuery.data?.filter(t => !t.parent_key)}>
 									{(task, index) => {
 										const details = getTaskDetails(task);
-										const isLast = index() === (tasksQuery.data?.length || 0) - 1;
+										const isLast = index() === (tasksQuery.data?.filter(t => !t.parent_key).length || 0) - 1;
 										return (
 											<div class={`flex flex-col ${!isLast ? 'border-b border-white/5' : ''}`}>
 												<button
@@ -337,6 +358,84 @@ export const TasksView: Component = () => {
 								)}
 							</button>
 						</form>
+					</div>
+				</div>
+			</Show>
+
+			{/* CAMPAIGN MODAL */}
+			<Show when={activeCampaign()}>
+				<div class="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-fade-in">
+					<div class="w-full max-w-sm bg-gradient-to-b from-[#1c1d22] to-[#121316] border border-white/10 rounded-[32px] p-6 shadow-2xl relative max-h-[85vh] overflow-y-auto no-scrollbar">
+						<button
+							onClick={() => setActiveCampaign(null)}
+							class="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center border border-white/10 active:scale-95 transition-all text-white/70"
+						>
+							<span class="material-symbols-outlined text-[18px]">close</span>
+						</button>
+
+						<div class="flex flex-col items-center text-center mt-2 mb-6">
+							<div class="w-16 h-16 bg-[#3390ec]/10 border border-[#3390ec]/20 rounded-2xl flex items-center justify-center mb-4 text-[32px]">
+								{getTaskDetails(activeCampaign()!).icon}
+							</div>
+							<h3 class="text-lg font-black text-white mb-2">
+								{activeCampaign()?.title}
+							</h3>
+							<p class="text-[14px] text-[#a0a4ad] leading-relaxed">
+								تسک‌ها را کامل کنید تا جایزه باز شود!
+							</p>
+						</div>
+
+						<div class="bg-[#0f1014] rounded-2xl border border-white/5 flex flex-col mb-4 overflow-hidden">
+							<For each={tasksQuery.data?.filter(t => t.parent_key === activeCampaign()?.key)}>
+								{(task, index) => {
+									const details = getTaskDetails(task);
+									const isLast = index() === (tasksQuery.data?.filter(t => t.parent_key === activeCampaign()?.key).length || 0) - 1;
+									return (
+										<div class={`flex flex-col ${!isLast ? 'border-b border-white/5' : ''}`}>
+											<button
+												onClick={() => handleTaskClick(task)}
+												disabled={task.completed || loadingKeys()[task.key]}
+												class="w-full flex items-center justify-between py-3 px-4 text-start active:opacity-70 transition-opacity disabled:opacity-100"
+											>
+												<div class="flex items-center gap-3 min-w-0 flex-1">
+													<div class="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center shrink-0">
+														<span class="text-[16px]">{details.icon}</span>
+													</div>
+													<div class="flex flex-col min-w-0 pr-2">
+														<span class="text-white font-medium text-[14px] truncate leading-tight">
+															{details.title}
+														</span>
+														<Show when={task.reward_frg > 0}>
+															<span class="text-[#8e8e93] text-[12px] flex items-center gap-1 mt-0.5">
+																<span class="text-[#F5A623] text-[10px]">🟡</span>
+																{formatCoins(task.reward_frg)}
+															</span>
+														</Show>
+													</div>
+												</div>
+												<div class="shrink-0 flex items-center justify-center">
+													{task.completed ? (
+														<span class="material-symbols-outlined text-[#34c759] text-[24px]" style={{ 'font-variation-settings': '"FILL" 1' }}>check_circle</span>
+													) : loadingKeys()[task.key] ? (
+														<span class="material-symbols-outlined animate-spin text-[20px] text-[#8e8e93]">progress_activity</span>
+													) : (
+														<span class="material-symbols-outlined text-[20px] text-[#8e8e93]">chevron_right</span>
+													)}
+												</div>
+											</button>
+										</div>
+									);
+								}}
+							</For>
+						</div>
+
+						<button
+							onClick={() => handleTaskClick(activeCampaign()!)}
+							disabled={activeCampaign()?.completed || loadingKeys()[activeCampaign()!.key] || tasksQuery.data?.filter(t => t.parent_key === activeCampaign()?.key).some(t => !t.completed)}
+							class="w-full h-12 bg-gradient-to-r from-[#3390ec] to-[#287ece] active:scale-95 disabled:opacity-50 disabled:active:scale-100 text-white font-black text-[15px] tracking-wider rounded-2xl shadow-lg transition-all flex items-center justify-center"
+						>
+							{activeCampaign()?.completed ? 'Claimed' : loadingKeys()[activeCampaign()!.key] ? 'Claiming...' : 'دریافت جایزه'}
+						</button>
 					</div>
 				</div>
 			</Show>

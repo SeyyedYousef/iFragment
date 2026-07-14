@@ -432,7 +432,7 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 		// The DB check above (that they are in a clan in the app) is sufficient.
 	case "invite_1_fren", "invite_3_frens", "invite_10_frens":
 		var frens int
-		_ = s.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM users u JOIN user_stats s ON u.telegram_id = s.user_id WHERE u.referred_by = $1 AND s.level >= 3", userID).Scan(&frens)
+		_ = s.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM users WHERE referred_by = $1", userID).Scan(&frens)
 		required := 1
 		if target.Type == "invite_3_frens" {
 			required = 3
@@ -440,7 +440,7 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 			required = 10
 		}
 		if frens < required {
-			return nil, fmt.Errorf("you must invite at least %d frens who reach Gold league", required)
+			return nil, fmt.Errorf("you must invite at least %d frens", required)
 		}
 	case "taps_100k":
 		var taps int
@@ -501,6 +501,23 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 		if userHash != config.QuizAnswerHash {
 			return nil, fmt.Errorf("incorrect quiz answer")
 		}
+	case "campaign":
+		var pendingSubquests int
+		query := `
+			SELECT count(*)
+			FROM quests q
+			LEFT JOIN user_tasks ut ON q.key = ut.task_key AND ut.user_id = $1 AND ut.completed = true
+			WHERE q.parent_key = $2 AND q.is_active = true AND ut.task_key IS NULL
+		`
+		err := s.db.Pool.QueryRow(ctx, query, userID, taskKey).Scan(&pendingSubquests)
+		if err != nil {
+			return nil, fmt.Errorf("failed to verify campaign sub-tasks: %w", err)
+		}
+		if pendingSubquests > 0 {
+			return nil, fmt.Errorf("you must complete all sub-tasks first")
+		}
+	case "link", "social":
+		// Dumb verification: Frontend handles timer. Fall through.
 	}
 
 	// 2. Begin single unified transaction

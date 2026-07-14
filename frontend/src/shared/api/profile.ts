@@ -87,6 +87,7 @@ export const TaskStatusSchema = z.object({
 	reward_xp: z.number().nonnegative(),
 	completed: z.boolean(),
 	type: z.string().optional(),
+	parent_key: z.string().optional().nullable(),
 	config: z.any().optional().nullable(),
 });
 

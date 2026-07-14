@@ -676,7 +676,7 @@ func (r *OwnerRepo) FlagUser(ctx context.Context, ownerID int64, targetUserID in
 
 func (r *OwnerRepo) GetQuests(ctx context.Context) ([]model.Quest, error) {
 	query := `
-		SELECT key, title, type, reward_frg, reward_xp, config, is_active, expires_at, created_at
+		SELECT key, title, type, reward_frg, reward_xp, config, is_active, expires_at, created_at, parent_key
 		FROM quests
 		ORDER BY created_at DESC
 	`
@@ -690,7 +690,7 @@ func (r *OwnerRepo) GetQuests(ctx context.Context) ([]model.Quest, error) {
 	for rows.Next() {
 		var q model.Quest
 		err := rows.Scan(
-			&q.Key, &q.Title, &q.Type, &q.RewardFrg, &q.RewardXp, &q.Config, &q.IsActive, &q.ExpiresAt, &q.CreatedAt,
+			&q.Key, &q.Title, &q.Type, &q.RewardFrg, &q.RewardXp, &q.Config, &q.IsActive, &q.ExpiresAt, &q.CreatedAt, &q.ParentKey,
 		)
 		if err != nil {
 			return nil, err
@@ -708,7 +708,7 @@ func (r *OwnerRepo) GetQuests(ctx context.Context) ([]model.Quest, error) {
 
 func (r *OwnerRepo) GetActiveQuests(ctx context.Context) ([]model.Quest, error) {
 	query := `
-		SELECT key, title, type, reward_frg, reward_xp, config, is_active, expires_at, created_at
+		SELECT key, title, type, reward_frg, reward_xp, config, is_active, expires_at, created_at, parent_key
 		FROM quests
 		WHERE is_active = true AND (expires_at IS NULL OR expires_at > now())
 		ORDER BY created_at DESC
@@ -723,7 +723,7 @@ func (r *OwnerRepo) GetActiveQuests(ctx context.Context) ([]model.Quest, error) 
 	for rows.Next() {
 		var q model.Quest
 		err := rows.Scan(
-			&q.Key, &q.Title, &q.Type, &q.RewardFrg, &q.RewardXp, &q.Config, &q.IsActive, &q.ExpiresAt, &q.CreatedAt,
+			&q.Key, &q.Title, &q.Type, &q.RewardFrg, &q.RewardXp, &q.Config, &q.IsActive, &q.ExpiresAt, &q.CreatedAt, &q.ParentKey,
 		)
 		if err != nil {
 			return nil, err
@@ -741,13 +741,13 @@ func (r *OwnerRepo) GetActiveQuests(ctx context.Context) ([]model.Quest, error) 
 
 func (r *OwnerRepo) GetQuestByKey(ctx context.Context, key string) (*model.Quest, error) {
 	query := `
-		SELECT key, title, type, reward_frg, reward_xp, config, is_active, expires_at, created_at
+		SELECT key, title, type, reward_frg, reward_xp, config, is_active, expires_at, created_at, parent_key
 		FROM quests
 		WHERE key = $1
 	`
 	var q model.Quest
 	err := r.db.Pool.QueryRow(ctx, query, key).Scan(
-		&q.Key, &q.Title, &q.Type, &q.RewardFrg, &q.RewardXp, &q.Config, &q.IsActive, &q.ExpiresAt, &q.CreatedAt,
+		&q.Key, &q.Title, &q.Type, &q.RewardFrg, &q.RewardXp, &q.Config, &q.IsActive, &q.ExpiresAt, &q.CreatedAt, &q.ParentKey,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -760,20 +760,20 @@ func (r *OwnerRepo) GetQuestByKey(ctx context.Context, key string) (*model.Quest
 
 func (r *OwnerRepo) CreateQuestTx(ctx context.Context, tx pgx.Tx, q model.Quest) error {
 	query := `
-		INSERT INTO quests (key, title, type, reward_frg, reward_xp, config, is_active, expires_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO quests (key, title, type, reward_frg, reward_xp, config, is_active, expires_at, parent_key)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`
-	_, err := tx.Exec(ctx, query, q.Key, q.Title, q.Type, q.RewardFrg, q.RewardXp, q.Config, q.IsActive, q.ExpiresAt)
+	_, err := tx.Exec(ctx, query, q.Key, q.Title, q.Type, q.RewardFrg, q.RewardXp, q.Config, q.IsActive, q.ExpiresAt, q.ParentKey)
 	return err
 }
 
 func (r *OwnerRepo) UpdateQuestTx(ctx context.Context, tx pgx.Tx, q model.Quest) error {
 	query := `
 		UPDATE quests
-		SET title = $1, type = $2, reward_frg = $3, reward_xp = $4, config = $5, is_active = $6, expires_at = $7
-		WHERE key = $8
+		SET title = $1, type = $2, reward_frg = $3, reward_xp = $4, config = $5, is_active = $6, expires_at = $7, parent_key = $8
+		WHERE key = $9
 	`
-	_, err := tx.Exec(ctx, query, q.Title, q.Type, q.RewardFrg, q.RewardXp, q.Config, q.IsActive, q.ExpiresAt, q.Key)
+	_, err := tx.Exec(ctx, query, q.Title, q.Type, q.RewardFrg, q.RewardXp, q.Config, q.IsActive, q.ExpiresAt, q.ParentKey, q.Key)
 	return err
 }
 
