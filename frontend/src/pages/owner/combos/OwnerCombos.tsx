@@ -7,7 +7,18 @@ export const OwnerCombos: Component = () => {
 	const queryClient = useQueryClient();
 
 	const [dateInput, setDateInput] = createSignal(new Date().toISOString().split('T')[0]);
-	const [wordInput, setWordInput] = createSignal('');
+	
+	// Smart Defaults: Pre-fill combo item (secret word) dynamically based on the day
+	const getSmartDefaultWord = () => {
+		const defaultWords = [
+			'BLOCKCHAIN', 'SATOSHI', 'AIRDROP', 'FRAGMENT', 'WEB3',
+			'SOLANA', 'ETHEREUM', 'METAMASK', 'BITCOIN', 'TELEGRAM'
+		];
+		const dayIndex = new Date().getDate() % defaultWords.length;
+		return `${defaultWords[dayIndex]}_${new Date().getFullYear()}`;
+	};
+	
+	const [wordInput, setWordInput] = createSignal(getSmartDefaultWord());
 	const [rewardInput, setRewardInput] = createSignal('500000');
 
 	const combosQuery = createQuery(() => ({
@@ -15,7 +26,7 @@ export const OwnerCombos: Component = () => {
 		queryFn: () => ownerApi.listCombos(),
 	}));
 
-	const createMutation = createMutation(() => ({
+	const mutation = createMutation(() => ({
 		mutationFn: (data: { date: string; word: string; reward: number }) =>
 			ownerApi.createCombo(data.date, data.word, data.reward),
 		onSuccess: () => {
@@ -28,7 +39,7 @@ export const OwnerCombos: Component = () => {
 		e.preventDefault();
 		const reward = parseInt(rewardInput(), 10);
 		if (!dateInput() || !wordInput().trim() || isNaN(reward)) return;
-		createMutation.mutate({
+		mutation.mutate({
 			date: dateInput(),
 			word: wordInput().trim(),
 			reward,
@@ -81,10 +92,10 @@ export const OwnerCombos: Component = () => {
 							</div>
 							<button
 								type="submit"
-								disabled={createMutation.isPending || !wordInput().trim()}
+								disabled={mutation.isPending || !wordInput().trim()}
 								class="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium py-2 rounded-lg transition-colors mt-2"
 							>
-								{createMutation.isPending ? 'Saving...' : 'Save Combo'}
+								{mutation.isPending ? 'Saving...' : 'Save Combo'}
 							</button>
 						</form>
 					</div>

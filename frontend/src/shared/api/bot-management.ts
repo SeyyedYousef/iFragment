@@ -91,8 +91,6 @@ export interface FRGTransaction {
 	created_at: string;
 }
 
-
-
 interface TopUser {
 	user_id: number;
 	name: string;
@@ -157,8 +155,7 @@ export const groupApi = {
 	getGroup: (groupId: string) =>
 		apiClient.get<ManagedGroup>(`/groups/${groupId}`).then((r: any) => r.data),
 
-	revokeGroup: (groupId: string) =>
-		apiClient.delete(`/groups/${groupId}`).then((r: any) => r.data),
+	revokeGroup: (groupId: string) => apiClient.delete(`/groups/${groupId}`).then((r: any) => r.data),
 
 	getSettings: (groupId: string) =>
 		apiClient.get<GroupSettings>(`/groups/${groupId}/settings`).then((r: any) => r.data),
@@ -207,12 +204,18 @@ export const subscriptionApi = {
 
 	subscribeChannelWithAirdrop: (channelId: string, packageId: string) =>
 		apiClient
-			.post('/subscription/channel/subscribe-airdrop', { channel_id: channelId, package_id: packageId })
+			.post('/subscription/channel/subscribe-airdrop', {
+				channel_id: channelId,
+				package_id: packageId,
+			})
 			.then((r: any) => r.data),
 
 	createChannelSubscriptionStarsInvoice: (channelId: string, packageId: string) =>
 		apiClient
-			.post('/subscription/channel/subscribe-stars-invoice', { channel_id: channelId, package_id: packageId })
+			.post('/subscription/channel/subscribe-stars-invoice', {
+				channel_id: channelId,
+				package_id: packageId,
+			})
 			.then((r: any) => r.data),
 };
 
@@ -251,17 +254,22 @@ export const clanApi = {
 	getTopClans: () => apiClient.get<Clan[]>('/profile/clan/top').then((r: any) => r.data),
 };
 
-
 export interface PurchaseOption {
 	id: string;
 	title: string;
 	amount_stars: number;
 	amount_coins: number;
 	popular?: boolean;
+	frg_amount: number;
+	price: number;
+	discount?: string;
 }
 
 export const marketplaceApi = {
-	getOptions: () => apiClient.get<PurchaseOption[]>('/marketplace/options').then((r: any) => r.data),
-	createStarsInvoice: (id: string) => apiClient.post('/marketplace/buy-stars', { option_id: id }).then((r: any) => r.data),
-	convertAirdropCoins: (amount: number) => apiClient.post('/marketplace/convert', { amount }).then((r: any) => r.data),
+	getOptions: () =>
+		apiClient.get<PurchaseOption[]>('/marketplace/options').then((r: any) => r.data),
+	createStarsInvoice: (id: string) =>
+		apiClient.post('/marketplace/buy-stars', { option_id: id }).then((r: any) => r.data),
+	convertAirdropCoins: (amount: number) =>
+		apiClient.post('/marketplace/convert', { amount }).then((r: any) => r.data),
 };

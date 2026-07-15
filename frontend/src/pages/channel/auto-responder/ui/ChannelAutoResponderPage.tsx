@@ -54,7 +54,7 @@ export const ChannelAutoResponderPage: Component = () => {
 	const [attachButton, setAttachButton] = createSignal('');
 
 	const [newMemberWelcome, setNewMemberWelcome] = createSignal(false);
-	const [welcomeDelay, setWelcomeDelay] = createSignal('0');
+	const [welcomeDelay, setWelcomeDelay] = createSignal('3'); // Smart Default: 3 seconds delay
 	const [welcomeText, setWelcomeText] = createSignal('');
 
 	const [isSaving, setIsSaving] = createSignal(false);
@@ -586,8 +586,10 @@ export const ChannelAutoResponderPage: Component = () => {
 														</div>
 														<button
 															onClick={() => {
-																hapticFeedback.impactOccurred('light');
-																setRules(rules().filter((r) => r.id !== rule.id));
+																if (confirm(t('channelAutoResponder.deleteRuleConfirm') || 'Removing this rule will immediately stop automatic replies. Are you sure?')) {
+																	hapticFeedback.impactOccurred('light');
+																	setRules(rules().filter((r) => r.id !== rule.id));
+																}
 															}}
 															class="w-8 h-8 rounded-full bg-[#ff3b30]/10 text-[#ff3b30] flex items-center justify-center transition-colors hover:bg-[#ff3b30]/20"
 														>

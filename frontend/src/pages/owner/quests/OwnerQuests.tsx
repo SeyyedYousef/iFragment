@@ -72,18 +72,25 @@ export const OwnerQuests: Component = () => {
 			hapticFeedback.impactOccurred('medium');
 		} catch {}
 		setIsEditing(false);
-		setKey('');
-		setTitle('');
+		// Smart Defaults: Pre-fill quest creation parameters
+		const randomId = Math.floor(1000 + Math.random() * 9000);
+		setKey(`quest_channel_join_${randomId}`);
+		setTitle('Join Official iFragment Channel');
 		setType('channel_join');
 		setRewardFrg(5000);
 		setRewardXp(50);
 		setIsActive(true);
-		setExpiresAt('');
+
+		// Default expiry is 30 days from now
+		const defaultExpiry = new Date();
+		defaultExpiry.setDate(defaultExpiry.getDate() + 30);
+		setExpiresAt(defaultExpiry.toISOString().slice(0, 10));
+
 		setParentKey('');
-		setChannelUsername('');
-		setQuizQuestion('');
-		setQuizAnswer('');
-		setTaskUrl('');
+		setChannelUsername('@ifragment_channel');
+		setQuizQuestion('What is the ticker symbol of iFragment?');
+		setQuizAnswer('FRG');
+		setTaskUrl('https://ifragment.app');
 		setIsModalOpen(true);
 	};
 

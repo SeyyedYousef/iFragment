@@ -1,5 +1,5 @@
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
-import { Component, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import { Component, createEffect, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { marketplaceApi, PurchaseOption } from '@/shared/api/bot-management.js';
 import { t } from '@/shared/i18n/index.js';
 import { openInvoice } from '@/shared/lib/telegram-native.js';
@@ -16,6 +16,19 @@ export const MarketplacePage: Component = () => {
 	const [convertLoading, setConvertLoading] = createSignal(false);
 	const [convertError, setConvertError] = createSignal('');
 	const [convertSuccess, setConvertSuccess] = createSignal('');
+	const [isUserEdited, setIsUserEdited] = createSignal(false);
+
+	createEffect(() => {
+		const bal = balance();
+		if (!isUserEdited()) {
+			if (bal >= 100000) {
+				const maxMultiple = Math.floor(bal / 100000) * 100000;
+				setConvertAmount(maxMultiple.toString());
+			} else {
+				setConvertAmount('100000');
+			}
+		}
+	});
 
 	onMount(() => {
 		backButton.show();
@@ -28,8 +41,15 @@ export const MarketplacePage: Component = () => {
 		// Fetch purchase options
 		marketplaceApi
 			.getOptions()
-			.then((res) => {
-				setOptions(res || []);
+			.then((res: PurchaseOption[]) => {
+				const mapped = (res || []).map((opt: PurchaseOption) => ({
+					...opt,
+					price: opt.price ?? opt.amount_stars ?? 0,
+					frg_amount: opt.frg_amount ?? opt.amount_coins ?? 0,
+				}));
+				// Sort descending by price (highest price first)
+				const sorted = mapped.sort((a: PurchaseOption, b: PurchaseOption) => b.price - a.price);
+				setOptions(sorted);
 			})
 			.catch((err) => {
 				console.error('Failed to load options:', err);
@@ -106,6 +126,7 @@ export const MarketplacePage: Component = () => {
 			} catch (_) {}
 			await marketplaceApi.convertAirdropCoins(coinsVal);
 			setConvertSuccess('تبدیل با موفقیت انجام شد!');
+			setIsUserEdited(false);
 			setConvertAmount('');
 			try {
 				hapticFeedback.notificationOccurred('success');
@@ -125,6 +146,7 @@ export const MarketplacePage: Component = () => {
 		try {
 			hapticFeedback.impactOccurred('light');
 		} catch (_) {}
+		setIsUserEdited(true);
 		const total = balance();
 		const amt = Math.floor(total * pct);
 		// Align to nearest integer
@@ -271,6 +293,11 @@ export const MarketplacePage: Component = () => {
 												</span>
 											</div>
 
+											{/* Unit Price */}
+											<div class="text-[#8e8e93] text-[10px] font-semibold mt-1">
+												{parseFloat((opt.price / opt.frg_amount).toFixed(4))} Stars/FRG
+											</div>
+
 											{/* Discount Tag */}
 											<Show when={opt.discount}>
 												<span class="inline-block bg-[#34c759]/10 text-[#34c759] border border-[#34c759]/20 text-[9px] font-bold px-2 py-0.5 rounded-lg mt-2">
@@ -333,7 +360,10 @@ export const MarketplacePage: Component = () => {
 									<input
 										type="number"
 										value={convertAmount()}
-										onInput={(e) => setConvertAmount(e.target.value)}
+										onInput={(e) => {
+											setConvertAmount(e.target.value);
+											setIsUserEdited(true);
+										}}
 										placeholder="حداقل ۱۰۰,۰۰۰"
 										class="w-full bg-[#2c2c2e]/60 text-white font-mono font-bold text-sm py-4 pl-4 pr-16 rounded-2xl border border-white/[0.04] focus:border-[#3390ec]/40 focus:outline-none placeholder:text-[#555]"
 									/>

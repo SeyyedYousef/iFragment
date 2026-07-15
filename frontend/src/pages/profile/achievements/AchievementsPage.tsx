@@ -207,7 +207,9 @@ export const AchievementsPage: Component = () => {
 											<div class="w-full h-1 bg-[#0f1014] rounded-full overflow-hidden">
 												<div
 													class="h-full bg-[#3390ec] rounded-full"
-													style={{ width: `${Math.min(100, (ach.progress / ach.target) * 100)}%` }}
+													style={{
+														width: `${Math.max(20, Math.min(100, (ach.progress / ach.target) * 100))}%`,
+													}}
 												/>
 											</div>
 											<span class="text-[9px] text-[#a0a4ad] font-bold font-mono">
@@ -288,7 +290,7 @@ export const AchievementsPage: Component = () => {
 												<div
 													class="h-full bg-[#3390ec] rounded-full"
 													style={{
-														width: `${Math.min(100, (ach().progress / ach().target) * 100)}%`,
+														width: `${Math.max(20, Math.min(100, (ach().progress / ach().target) * 100))}%`,
 													}}
 												/>
 											</div>

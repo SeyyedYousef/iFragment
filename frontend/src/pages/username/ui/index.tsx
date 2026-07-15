@@ -403,7 +403,7 @@ export const UsernamePage: Component = () => {
 											<path d="M37.5603 15.6277H18.4386C14.9228 15.6277 12.6944 19.4202 14.4632 22.4861L26.2644 42.9409C27.0345 44.2765 28.9644 44.2765 29.7345 42.9409L41.5765 22.4861C43.3045 19.4202 41.0761 15.6277 37.5765 15.6277H37.5603ZM26.2483 36.8068L23.6119 31.8097L17.2017 20.6506C16.6742 19.7557 17.3255 18.6198 18.4223 18.6198H26.2483V36.8068ZM38.7972 20.6506L32.387 31.8259L29.7506 36.8068V18.6361H37.5765C38.6734 18.6361 39.3247 19.772 38.7972 20.6669V20.6506Z" fill="white" />
 										</svg>
 										<span class="text-[26px] sm:text-[28px] font-black text-white leading-none drop-shadow-[0_0_15px_rgba(0,152,234,0.3)]" style={{ "font-family": "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" }}>
-											{parseFloat(data()?.expected_ton || '0').toLocaleString('en-US', { numberingSystem: 'latn' })}
+											{parseFloat(data()?.expected_ton || '0').toLocaleString('en-US')}
 										</span>
 										<span class="text-[13px] font-bold text-[#3390ec] leading-none">TON</span>
 									</div>
@@ -415,7 +415,7 @@ export const UsernamePage: Component = () => {
 										Valued
 									</div>
 									<span class="text-[13px] text-white/60 font-black leading-none" style={{ "font-family": "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" }}>
-										≈ ${parseFloat(data()?.expected_usd || '0').toLocaleString('en-US', { maximumFractionDigits: 0, numberingSystem: 'latn' })}
+										≈ ${parseFloat(data()?.expected_usd || '0').toLocaleString('en-US', { maximumFractionDigits: 0 })}
 									</span>
 								</div>
 							</div>
@@ -474,6 +474,21 @@ export const UsernamePage: Component = () => {
 
 					{/* Valuation Metrics (Price Range & Confidence) */}
 					<div class="w-full max-w-[400px] mt-8 flex flex-col gap-4">
+						{/* Loss Aversion Warning Alert */}
+						<div class="bg-amber-500/10 border border-amber-500/25 rounded-2xl p-4 flex gap-3 items-start shadow-[0_4px_20px_rgba(245,158,11,0.05)]">
+							<span class="material-symbols-outlined text-amber-400 text-[22px] shrink-0 select-none animate-pulse">
+								warning
+							</span>
+							<div class="flex flex-col gap-1">
+								<span class="text-amber-400 font-black text-[10px] uppercase tracking-widest">
+									{t('valuation.loss_aversion_title') || 'High Demand Alert'}
+								</span>
+								<p class="text-white/80 text-xs leading-relaxed font-medium">
+									{t('valuation.loss_aversion_desc') || 'Highly requested handle. Secure ownership now on Fragment before it is taken by another bidder.'}
+								</p>
+							</div>
+						</div>
+
 						{/* Price Range */}
 						<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-5 flex flex-col gap-4">
 							<div class="flex items-center justify-between text-white/80">
@@ -495,18 +510,18 @@ export const UsernamePage: Component = () => {
 								<div class="absolute top-0 bottom-0 w-1 bg-white left-[50%] -translate-x-1/2 shadow-[0_0_10px_white]" />
 							</div>
 							
-							<div class="flex justify-between w-full">
-								<div class="flex flex-col text-left">
-									<span class="text-white/40 text-[10px] uppercase font-bold tracking-wider mb-0.5">{t('valuation.floor') || 'Low End'}</span>
-									<span class="text-white font-mono text-sm">{parseFloat(data()?.low_ton || '0').toLocaleString('en-US')} TON</span>
+							<div class="flex justify-between items-center w-full mt-1">
+								<div class="flex flex-col text-left opacity-40 scale-90 origin-left">
+									<span class="text-white/40 text-[9px] uppercase font-bold tracking-wider mb-0.5">{t('valuation.floor') || 'Low End'}</span>
+									<span class="text-white font-mono text-xs">{parseFloat(data()?.low_ton || '0').toLocaleString('en-US')} TON</span>
 								</div>
-								<div class="flex flex-col text-center">
-									<span class="text-[#3390ec] text-[10px] uppercase font-black tracking-wider mb-0.5">{t('valuation.expected_label') || 'Expected'}</span>
-									<span class="text-white font-mono font-bold text-sm">{parseFloat(data()?.expected_ton || '0').toLocaleString('en-US')} TON</span>
+								<div class="flex flex-col text-center scale-110 origin-center bg-white/[0.03] border border-white/10 rounded-xl px-4 py-2 shadow-[0_0_15px_rgba(51,144,236,0.15)]">
+									<span class="text-[#3390ec] text-[9px] uppercase font-black tracking-widest mb-0.5">{t('valuation.expected_label') || 'Expected'}</span>
+									<span class="text-white font-mono font-black text-base sm:text-lg drop-shadow-[0_0_10px_rgba(51,144,236,0.4)]">{parseFloat(data()?.expected_ton || '0').toLocaleString('en-US')} TON</span>
 								</div>
-								<div class="flex flex-col text-right">
-									<span class="text-white/40 text-[10px] uppercase font-bold tracking-wider mb-0.5">{t('valuation.ceiling') || 'High End'}</span>
-									<span class="text-white font-mono text-sm">{parseFloat(data()?.high_ton || '0').toLocaleString('en-US')} TON</span>
+								<div class="flex flex-col text-right opacity-40 scale-90 origin-right">
+									<span class="text-white/40 text-[9px] uppercase font-bold tracking-wider mb-0.5">{t('valuation.ceiling') || 'High End'}</span>
+									<span class="text-white font-mono text-xs">{parseFloat(data()?.high_ton || '0').toLocaleString('en-US')} TON</span>
 								</div>
 							</div>
 						</div>
@@ -881,7 +896,7 @@ export const UsernamePage: Component = () => {
 								<div class="flex items-center justify-between bg-white/[0.02] border border-white/5 rounded-xl p-3">
 									<div class="flex flex-col">
 										<div class="flex items-center gap-2">
-											<span class="text-white font-bold capitalize">{t(`valuation.entity_${data()?.entity_info?.type?.toLowerCase()}`) || data()?.entity_info?.type || 'Unknown'}</span>
+											<span class="text-white font-bold capitalize">{t(`valuation.entity_${data()?.entity_info?.type?.toLowerCase()}` as any) || data()?.entity_info?.type || 'Unknown'}</span>
 											<Show when={data()?.entity_info?.verified}>
 												<span class="material-symbols-outlined text-blue-400 text-[16px]">verified</span>
 											</Show>
@@ -904,7 +919,7 @@ export const UsernamePage: Component = () => {
 								<div class="flex items-center justify-between bg-white/[0.02] rounded-xl p-3 border border-white/5">
 									<div class="flex items-center gap-2">
 										<span class={`w-2.5 h-2.5 rounded-full ${data()?.status?.toLowerCase().includes('available') ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : data()?.status?.toLowerCase().includes('sale') ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'}`} />
-										<span class="text-white font-bold">{t(`valuation.status_${data()?.status?.toLowerCase().replace(' ', '_')}`) || data()?.status}</span>
+										<span class="text-white font-bold">{t(`valuation.status_${data()?.status?.toLowerCase().replace(' ', '_')}` as any) || data()?.status}</span>
 									</div>
 									<Show when={data()?.status?.toLowerCase().includes('sale')}>
 										<button class="bg-[#3390ec] hover:bg-[#3390ec]/90 text-white text-xs font-bold py-1.5 px-3 rounded-lg transition-colors">
@@ -923,7 +938,7 @@ export const UsernamePage: Component = () => {
 									<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.sentiment_title') || 'Market Sentiment'}</span>
 								</div>
 								<div class="flex items-center justify-between">
-									<span class="text-white font-bold text-lg">{t(`valuation.fng_${data()?.fear_greed_label?.toLowerCase().replace(' ', '_')}`) || data()?.fear_greed_label}</span>
+									<span class="text-white font-bold text-lg">{t(`valuation.fng_${data()?.fear_greed_label?.toLowerCase().replace(' ', '_')}` as any) || data()?.fear_greed_label}</span>
 									<span class="text-white/50 font-mono">{data()?.fear_greed_index}/100</span>
 								</div>
 								<div class="w-full h-2 bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 rounded-full relative mt-2">
@@ -955,7 +970,7 @@ export const UsernamePage: Component = () => {
 								<div class="flex flex-col gap-2">
 									{Object.entries(data()?.rarity_breakdown || {}).filter(([_, v]) => v > 0).map(([key, value]) => (
 										<div class="flex justify-between items-center text-sm">
-											<span class="text-white/60">{t(`valuation.rarity_${key.toLowerCase().replace(' ', '_')}`) || key}</span>
+											<span class="text-white/60">{t(`valuation.rarity_${key.toLowerCase().replace(' ', '_')}` as any) || key}</span>
 											<span class="text-amber-400 font-mono font-bold">+{value}</span>
 										</div>
 									))}
@@ -1036,7 +1051,7 @@ export const UsernamePage: Component = () => {
 									<path d="M37.5603 15.6277H18.4386C14.9228 15.6277 12.6944 19.4202 14.4632 22.4861L26.2644 42.9409C27.0345 44.2765 28.9644 44.2765 29.7345 42.9409L41.5765 22.4861C43.3045 19.4202 41.0761 15.6277 37.5765 15.6277H37.5603ZM26.2483 36.8068L23.6119 31.8097L17.2017 20.6506C16.6742 19.7557 17.3255 18.6198 18.4223 18.6198H26.2483V36.8068ZM38.7972 20.6506L32.387 31.8259L29.7506 36.8068V18.6361H37.5765C38.6734 18.6361 39.3247 19.772 38.7972 20.6669V20.6506Z" fill="white" />
 								</svg>
 								<span class="text-[26px] sm:text-[28px] font-black text-white leading-none drop-shadow-[0_0_15px_rgba(0,152,234,0.3)]" style={{ "font-family": "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" }}>
-									{parseFloat(data()?.expected_ton || '0').toLocaleString('en-US', { numberingSystem: 'latn' })}
+									{parseFloat(data()?.expected_ton || '0').toLocaleString('en-US')}
 								</span>
 								<span class="text-[13px] font-bold text-[#3390ec] leading-none">TON</span>
 							</div>
@@ -1048,7 +1063,7 @@ export const UsernamePage: Component = () => {
 								Valued
 							</div>
 							<span class="text-[13px] text-white/60 font-black leading-none" style={{ "font-family": "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" }}>
-								≈ ${parseFloat(data()?.expected_usd || '0').toLocaleString('en-US', { maximumFractionDigits: 0, numberingSystem: 'latn' })}
+								≈ ${parseFloat(data()?.expected_usd || '0').toLocaleString('en-US', { maximumFractionDigits: 0 })}
 							</span>
 						</div>
 					</div>

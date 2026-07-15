@@ -1,4 +1,4 @@
-import { Component, createSignal, Match, Switch, onMount, onCleanup } from 'solid-js';
+import { Component, createSignal, Match, Switch, onMount, onCleanup, Show } from 'solid-js';
 import { BottomNav } from '@/widgets/bottom-nav/index.js';
 import { BoostersView } from './BoostersView.js';
 import { ClanView } from './ClanView.js';
@@ -12,12 +12,6 @@ import { collectOfflineMining } from '@/shared/api/profile.js';
 import { syncProfileStats } from '@/shared/store/airdrop.js';
 
 type AirdropTab = 'mine' | 'earn' | 'clan' | 'frens' | 'boost' | 'shop';
-
-const getTabs = () => [
-	{ id: 'earn' as AirdropTab, icon: 'assignment', label: t('airdropTabs.earn') },
-	{ id: 'frens' as AirdropTab, icon: 'group', label: t('airdropTabs.frens' as any) || 'Frens' },
-	{ id: 'boost' as AirdropTab, icon: 'rocket_launch', label: t('airdropTabs.boost') },
-];
 
 export const AirdropPage: Component = () => {
 	const [activeTab, setActiveTab] = createSignal<AirdropTab>('mine');
@@ -152,9 +146,20 @@ export const AirdropPage: Component = () => {
 						</div>
 						
 						<h3 class="text-2xl font-black text-white mb-2 z-10 tracking-tight">{t('airdropFinal.bot.collected' as any) || 'Bot Collected'}</h3>
-						<p class="text-white/60 text-center text-sm mb-6 z-10">
+						<p class="text-white/60 text-center text-sm mb-4 z-10">
 							{t('airdropFinal.bot.description' as any) || 'Your Tap-Bot has been mining while you were away!'}
 						</p>
+
+						{/* Loss Aversion warning banner */}
+						<div class="bg-red-500/10 border border-red-500/20 rounded-2xl p-3 w-full mb-6 z-10 flex items-start gap-2.5 text-left">
+							<span class="text-red-500 text-lg shrink-0 mt-0.5">⚠️</span>
+							<div class="flex flex-col">
+								<span class="text-red-400 font-bold text-xs uppercase tracking-wider">{t('airdropFinal.bot.warningTitle' as any) || 'Mining Paused'}</span>
+								<span class="text-white/90 text-[13px] leading-snug">
+									{t('airdropFinal.bot.warningDesc' as any) || 'Claim now to keep mining! Bot capacity is full and further mining is paused.'}
+								</span>
+							</div>
+						</div>
 
 						<div class="bg-black/40 rounded-2xl p-4 w-full flex items-center justify-center gap-3 mb-6 z-10 border border-white/5">
 							<div class="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">

@@ -1,8 +1,6 @@
 import { Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { ShopView } from './ShopView.js';
-import { createQuery } from '@tanstack/solid-query';
-import { getProfileStats } from '@/shared/api/profile.js';
 import { t } from '@/shared/i18n/index.js';
 import {
 	balance,
@@ -47,11 +45,7 @@ export const TapView: Component<{
 	const [showCombo, setShowCombo] = createSignal(false);
 	let comboTimerId: ReturnType<typeof setTimeout> | undefined;
 
-	const statsQuery = createQuery(() => ({
-		queryKey: ['profile-stats-tap'],
-		queryFn: getProfileStats,
-		staleTime: 60_000,
-	}));
+
 
 	let canvasRef!: HTMLCanvasElement;
 	let animationFrameId: number;
@@ -255,6 +249,14 @@ export const TapView: Component<{
 					33% { transform: translate(-20px, 30px) rotate(-10deg) scale(1.1); }
 					66% { transform: translate(15px, -20px) rotate(15deg) scale(0.9); }
 				}
+				@keyframes coinShake {
+					0%, 100% { transform: translateX(0); }
+					25% { transform: translateX(-6px) rotate(-1deg); }
+					75% { transform: translateX(6px) rotate(1deg); }
+				}
+				.animate-shake {
+					animation: coinShake 0.15s ease-in-out 2;
+				}
 				.coin-wrapper {
 					animation: idleBreathing 4s ease-in-out infinite;
 				}
@@ -440,7 +442,7 @@ export const TapView: Component<{
 					}} 
 				/>
 
-				<div class={`relative flex items-center justify-center w-[85vw] max-w-[340px] aspect-square ${isPressed() ? '' : 'coin-wrapper'}`}>
+				<div class={`relative flex items-center justify-center w-[85vw] max-w-[340px] aspect-square ${isPressed() ? '' : 'coin-wrapper'} ${isShaking() ? 'animate-shake' : ''}`}>
 					
 					{/* THE COIN: Pure Black Background */}
 					<button 

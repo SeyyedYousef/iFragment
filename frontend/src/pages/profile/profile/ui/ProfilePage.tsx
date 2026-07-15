@@ -12,10 +12,10 @@ import { SkeletonProfile } from '@/shared/ui/Skeleton.js';
 import { BottomNav } from '@/widgets/bottom-nav/index.js';
 import { OwnerGateModal } from '@/widgets/owner/OwnerGateModal.js';
 import { AchievementPreview } from '@/widgets/profile/AchievementPreview.js';
-import { QuestCard, BoostsCard, LeaderboardCard } from '@/widgets/profile/GamificationHub.js';
+import { ExperienceCard } from '@/widgets/profile/ExperienceCard.js';
+import { BoostsCard, LeaderboardCard, QuestCard } from '@/widgets/profile/GamificationHub.js';
 import { IdentityHero } from '@/widgets/profile/IdentityHero.js';
 import { StatsDashboard } from '@/widgets/profile/StatsDashboard.js';
-import { ExperienceCard } from '@/widgets/profile/ExperienceCard.js';
 
 export const ProfilePage: Component = () => {
 	const secretTrigger = useSecretTrigger();
@@ -102,7 +102,6 @@ export const ProfilePage: Component = () => {
 			) : (
 				<ErrorBoundary fallback={(err, reset) => <ErrorFallback err={err} reset={reset} />}>
 					<div class="px-5 pt-4 flex flex-col gap-3 relative">
-						
 						{/* Header: Identity Hero (Compact) */}
 						<Motion.div
 							initial={{ opacity: 0, y: 10 }}
@@ -125,7 +124,7 @@ export const ProfilePage: Component = () => {
 						<StatsDashboard stats={stats()} />
 
 						{/* Core Bento Grid: Gamification & Achievements */}
-						<Motion.div 
+						<Motion.div
 							initial={{ opacity: 0, scale: 0.98 }}
 							animate={{ opacity: 1, scale: 1 }}
 							transition={{ delay: 0.15 }}
@@ -134,7 +133,7 @@ export const ProfilePage: Component = () => {
 							<QuestCard />
 							<BoostsCard />
 							<LeaderboardCard />
-							
+
 							<Show
 								when={!achievementsQuery.isLoading}
 								fallback={
@@ -148,7 +147,7 @@ export const ProfilePage: Component = () => {
 									</div>
 								}
 							>
-								<div 
+								<div
 									onClick={() => handleNavigate('/profile/achievements')}
 									class="col-span-2 cursor-pointer active:scale-[0.98] transition-transform"
 								>
@@ -169,21 +168,27 @@ export const ProfilePage: Component = () => {
 								class="flex-1 flex items-center justify-center gap-1.5 py-3.5 bg-[#0f1014] rounded-[18px] hover:bg-[#15161d] active:scale-[0.98] transition-all"
 							>
 								<span class="material-symbols-outlined text-[#3390ec] text-[16px]">settings</span>
-								<span class="text-[10px] text-white font-black uppercase tracking-widest hidden sm:inline">{t('settings.title') || 'Settings'}</span>
+								<span class="text-[10px] text-white font-black uppercase tracking-widest hidden sm:inline">
+									{t('settings.title') || 'Your Configured Settings'}
+								</span>
 							</button>
 							<button
 								onClick={() => setShowLangMenu(true)}
 								class="flex-1 flex items-center justify-center gap-1.5 py-3.5 bg-[#0f1014] rounded-[18px] hover:bg-[#15161d] active:scale-[0.98] transition-all"
 							>
 								<span class="material-symbols-outlined text-[#ff9500] text-[16px]">language</span>
-								<span class="text-[10px] text-white font-black uppercase tracking-widest hidden sm:inline">{(t as any)('settings.language') || 'Language'}</span>
+								<span class="text-[10px] text-white font-black uppercase tracking-widest hidden sm:inline">
+									{t('settings.language') || 'Your Language'}
+								</span>
 							</button>
 							<button
 								onClick={() => handleNavigate('/profile/security')}
 								class="flex-1 flex items-center justify-center gap-1.5 py-3.5 bg-[#0f1014] rounded-[18px] hover:bg-[#15161d] active:scale-[0.98] transition-all"
 							>
 								<span class="material-symbols-outlined text-[#34c759] text-[16px]">security</span>
-								<span class="text-[10px] text-white font-black uppercase tracking-widest hidden sm:inline">{(t as any)('security.title') || 'Security'}</span>
+								<span class="text-[10px] text-white font-black uppercase tracking-widest hidden sm:inline">
+									{t('security.title') || 'Your Security Config'}
+								</span>
 							</button>
 						</Motion.div>
 
@@ -212,13 +217,13 @@ export const ProfilePage: Component = () => {
 
 			{/* Language Selection Bottom Sheet */}
 			<Show when={showLangMenu()}>
-				<div 
+				<div
 					class="fixed inset-0 z-[100] flex flex-col justify-end"
 					onClick={() => setShowLangMenu(false)}
 				>
 					{/* Backdrop */}
 					<div class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" />
-					
+
 					{/* Bottom Sheet */}
 					<Motion.div
 						initial={{ y: 200, opacity: 0 }}
@@ -229,25 +234,31 @@ export const ProfilePage: Component = () => {
 					>
 						<div class="w-12 h-1.5 bg-[#2a2a2a] rounded-full mx-auto mb-2" />
 						<h3 class="text-white text-[22px] font-black tracking-tight mb-4 text-center">
-							{(t as any)('settings.language') || 'Language'}
+							{t('settings.language') || 'Your Language'}
 						</h3>
-						
-						<For each={[
-							{ code: 'en', label: 'English', icon: '🇬🇧' },
-							{ code: 'fa', label: 'فارسی', icon: '🇮🇷' },
-							{ code: 'ru', label: 'Русский', icon: '🇷🇺' },
-							{ code: 'zh', label: '中文', icon: '🇨🇳' },
-						] as const}>
+
+						<For
+							each={
+								[
+									{ code: 'en', label: 'English', icon: '🇬🇧' },
+									{ code: 'fa', label: 'فارسی', icon: '🇮🇷' },
+									{ code: 'ru', label: 'Русский', icon: '🇷🇺' },
+									{ code: 'zh', label: '中文', icon: '🇨🇳' },
+								] as const
+							}
+						>
 							{(lang) => (
 								<button
 									onClick={() => {
 										setLocale(lang.code);
-										try { hapticFeedback.selectionChanged(); } catch {}
+										try {
+											hapticFeedback.selectionChanged();
+										} catch {}
 										setShowLangMenu(false);
 									}}
 									class="flex items-center justify-between p-4 rounded-[20px] bg-[#0f1014] hover:bg-[#15161d] active:scale-[0.98] border border-transparent transition-all"
 									classList={{
-										'!border-[#3390ec] !bg-[#3390ec]/10': locale() === lang.code
+										'!border-[#3390ec] !bg-[#3390ec]/10': locale() === lang.code,
 									}}
 								>
 									<div class="flex items-center gap-4">

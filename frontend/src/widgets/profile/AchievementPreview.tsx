@@ -69,7 +69,9 @@ export const AchievementPreview: Component<Props> = (props) => {
 								<div class="w-full h-1 bg-[#2a2a2a] rounded-full overflow-hidden mt-1">
 									<div
 										class="h-full rounded-full bg-[#a0a4ad]"
-										style={{ width: `${Math.min(100, (ach.progress / ach.target) * 100)}%` }}
+										style={{
+											width: `${Math.max(20, Math.min(100, (ach.progress / ach.target) * 100))}%`,
+										}}
 									/>
 								</div>
 							</Show>

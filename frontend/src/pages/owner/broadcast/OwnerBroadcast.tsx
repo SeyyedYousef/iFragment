@@ -22,6 +22,20 @@ export const OwnerBroadcast: Component = () => {
 	const [message, setMessage] = createSignal('');
 	const [sending, setSending] = createSignal(false);
 
+	// Smart Defaults: Pre-fill broadcast schedule times (1 day from now at 10:00 AM)
+	const getSmartDefaultScheduleTime = () => {
+		const tomorrow = new Date();
+		tomorrow.setDate(tomorrow.getDate() + 1);
+		tomorrow.setHours(10, 0, 0, 0);
+		const year = tomorrow.getFullYear();
+		const month = String(tomorrow.getMonth() + 1).padStart(2, '0');
+		const day = String(tomorrow.getDate()).padStart(2, '0');
+		const hours = String(tomorrow.getHours()).padStart(2, '0');
+		const minutes = String(tomorrow.getMinutes()).padStart(2, '0');
+		return `${year}-${month}-${day}T${hours}:${minutes}`;
+	};
+	const [scheduleTime, setScheduleTime] = createSignal(getSmartDefaultScheduleTime());
+
 	const fetchBroadcasts = async () => {
 		try {
 			const resp = await apiClient.get('/owner/broadcasts');
@@ -49,6 +63,7 @@ export const OwnerBroadcast: Component = () => {
 			await apiClient.post('/owner/broadcasts', {
 				target_audience: audience(),
 				message: message().trim(),
+				scheduled_at: scheduleTime(),
 			});
 			setSuccessMsg('پیام در صف ارسال قرار گرفت');
 			setMessage('');
@@ -104,6 +119,17 @@ export const OwnerBroadcast: Component = () => {
 								<option value="premium">کاربران دارای اشتراک</option>
 								<option value="active">کاربران فعال (۷ روز گذشته)</option>
 							</select>
+						</div>
+
+						<div>
+							<label class="block text-xs font-bold text-white/50 mb-2">زمان ارسال زمان‌بندی شده (Smart Default)</label>
+							<input
+								type="datetime-local"
+								value={scheduleTime()}
+								onInput={(e) => setScheduleTime(e.target.value)}
+								class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#3390ec]"
+								dir="rtl"
+							/>
 						</div>
 
 						<div>

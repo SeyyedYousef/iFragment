@@ -6,8 +6,18 @@ import { BottomNav } from '@/widgets/bottom-nav/index.js';
 import { HeroTabs } from '@/widgets/hero-tabs/index.js';
 
 export const IndexPage: Component = () => {
+	const getInitialTab = (): 'username' | 'collectibles' | 'gifts' | null => {
+		if (typeof window !== 'undefined') {
+			const params = new URLSearchParams(window.location.search);
+			if (params.has('u')) {
+				return 'username';
+			}
+		}
+		return null;
+	};
+
 	const [activeTab, setActiveTab] = createSignal<'username' | 'collectibles' | 'gifts' | null>(
-		null,
+		getInitialTab(),
 	);
 
 	createEffect(() => {

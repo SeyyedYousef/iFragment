@@ -209,6 +209,12 @@ export const OwnerDashboard: Component = () => {
 								<span class="text-[9px] text-[#ffcc00] font-bold mt-1">
 									کل سکه‌های ارائه شده در سیستم
 								</span>
+								<div class="mt-2 pt-1.5 border-t border-white/5 flex flex-col gap-0.5">
+									<span class="text-[8px] text-white/40 uppercase font-black">هدف کنترل تورم: ۱۰۰M</span>
+									<div class="w-full bg-white/5 rounded-full h-1 overflow-hidden mt-0.5">
+										<div class="bg-[#ffcc00] h-full rounded-full" style={{ width: `${Math.min(100, ((stats()?.frg_circulation ?? 0) / 100000000) * 100)}%` }} />
+									</div>
+								</div>
 							</div>
 						</div>
 
@@ -224,6 +230,14 @@ export const OwnerDashboard: Component = () => {
 								<span class="text-[9px] text-white/50 font-bold block mt-0.5">
 									درآمد ناخالص از خرید ستاره‌های تلگرام
 								</span>
+								<div class="mt-2 flex items-center gap-1.5 flex-wrap">
+									<span class="text-[9px] text-[#ffd21e] bg-[#ffd21e]/10 border border-[#ffd21e]/20 px-2 py-0.5 rounded font-black">
+										بنچمارک جهانی: ۵۰,۰۰۰ ⭐
+									</span>
+									<span class="text-[9px] text-green-400 font-bold">
+										تارگت رشد: ۱۲۰٪
+									</span>
+								</div>
 							</div>
 							<div class="w-1/3">
 								<Show when={stats()?.coin_flow_chart?.length}>

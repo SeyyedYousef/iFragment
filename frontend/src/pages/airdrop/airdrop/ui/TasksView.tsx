@@ -282,8 +282,12 @@ export const TasksView: Component = () => {
 						<h3 class="text-white text-[20px] font-bold mb-1 z-10 flex items-center gap-2">
 							<span class="text-[24px]">🧩</span> Daily Combo
 						</h3>
-						<p class="text-[#8e8e93] text-[14px] text-center mb-4 z-10">
-							Guess the secret word and get <span class="text-[#F5A623] font-bold">+{formatCoins(comboQuery.data?.reward || 0)} FRG</span>
+						<p class="text-[#8e8e93] text-[14px] text-center mb-4 z-10 flex items-center justify-center gap-1">
+							Guess the secret word and get 
+							<span class="text-amber-500 font-bold text-[15px] flex items-center gap-1">
+								<span class="material-symbols-outlined text-[#F5A623] text-[18px] shrink-0" style={{ 'font-variation-settings': '"FILL" 1' }}>monetization_on</span>
+								+{formatCoins(comboQuery.data?.reward || 0)} FRG
+							</span>
 						</p>
 
 						<Show 
@@ -369,7 +373,10 @@ export const TasksView: Component = () => {
 										const hasProgress = typeof task.progress_target === 'number' && task.progress_target > 0;
 										const progressCurrent = typeof task.progress_current === 'number' ? task.progress_current : 0;
 										const progressTarget = task.progress_target || 1;
-										const progressPercent = hasProgress ? Math.min(100, Math.round((progressCurrent / progressTarget) * 100)) : 0;
+										let progressPercent = hasProgress ? Math.min(100, Math.round((progressCurrent / progressTarget) * 100)) : 0;
+										if (hasProgress && progressCurrent > 0 && !task.completed) {
+											progressPercent = Math.max(20, progressPercent);
+										}
 										const isPremium = task.is_premium_req;
 										
 										// Action text
@@ -402,13 +409,13 @@ export const TasksView: Component = () => {
 																	{isPremium && !task.completed && <span class="material-symbols-outlined text-[#F5A623] text-[16px]" style={{ 'font-variation-settings': '"FILL" 1' }}>stars</span>}
 																</span>
 																
-																<span class="text-[#8e8e93] text-[14px] flex items-center gap-1 truncate">
-																	<span class="text-[#F5A623] text-[12px] shrink-0">🟡</span>
+																<span class="text-amber-500 font-bold text-[15px] flex items-center gap-1 truncate">
+																	<span class="material-symbols-outlined text-[#F5A623] text-[18px] shrink-0" style={{ 'font-variation-settings': '"FILL" 1' }}>monetization_on</span>
 																	<span class="shrink-0">{formatCoins(task.reward_frg)}</span>
 																	{actionText && (
 																		<>
-																			<span class="mx-1 opacity-50 shrink-0">•</span>
-																			<span class="text-[#3390ec] font-medium truncate">{actionText}</span>
+																			<span class="mx-1 text-[#8e8e93]/50 font-normal shrink-0">•</span>
+																			<span class="text-[#3390ec] font-medium truncate text-[14px]">{actionText}</span>
 																		</>
 																	)}
 																</span>
@@ -556,8 +563,8 @@ export const TasksView: Component = () => {
 															{details.title}
 														</span>
 														<Show when={task.reward_frg > 0}>
-															<span class="text-[#8e8e93] text-[12px] flex items-center gap-1 mt-0.5">
-																<span class="text-[#F5A623] text-[10px]">🟡</span>
+															<span class="text-amber-500 font-bold text-[13px] flex items-center gap-1 mt-0.5">
+																<span class="material-symbols-outlined text-[#F5A623] text-[16px] shrink-0" style={{ 'font-variation-settings': '"FILL" 1' }}>monetization_on</span>
 																{formatCoins(task.reward_frg)}
 															</span>
 														</Show>

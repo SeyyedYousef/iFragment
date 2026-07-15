@@ -59,10 +59,10 @@ export const LimitsPage: Component = () => {
 			const mappedLimits = {
 				minMessageLength: remoteLimits.minMessageLength ?? 0,
 				maxMessageLength: remoteLimits.maxMessageLength ?? 0,
-				floodMessages: remoteLimits.floodMessages ?? 0,
-				floodWindow: remoteLimits.floodWindow ?? 0,
-				duplicateCount: remoteLimits.duplicateCount ?? 0,
-				duplicateWindow: remoteLimits.duplicateWindow ?? 0,
+				floodMessages: remoteLimits.floodMessages || 5, // Smart Default
+				floodWindow: remoteLimits.floodWindow || 5,     // Smart Default
+				duplicateCount: remoteLimits.duplicateCount || 2, // Smart Default
+				duplicateWindow: remoteLimits.duplicateWindow || 10, // Smart Default
 			};
 
 			setLimits(reconcile({ ...defaultConfig, ...mappedLimits }));
@@ -182,6 +182,23 @@ export const LimitsPage: Component = () => {
 							</span>
 						</div>
 					</Motion.div>
+
+					{/* Loss Aversion Warning Banner */}
+					<Show when={limits.floodMessages === 0 || limits.duplicateCount === 0}>
+						<Motion.div
+							initial={{ opacity: 0, scale: 0.95 }}
+							animate={{ opacity: 1, scale: 1 }}
+							class="bg-red-500/10 border border-red-500/20 text-red-400 rounded-2xl p-4 flex items-start gap-3"
+						>
+							<span class="material-symbols-outlined text-red-400 text-[20px] shrink-0 mt-0.5">warning</span>
+							<div class="flex flex-col">
+								<span class="text-xs font-black">{t('limitsSettings.warningTitle') || 'Insufficient Group Protection'}</span>
+								<span class="text-[10px] text-[#8e8e93] mt-1 leading-normal">
+									{t('limitsSettings.warningDesc') || 'Disabling flood control or duplicate protection leaves your group vulnerable to spam.'}
+								</span>
+							</div>
+						</Motion.div>
+					</Show>
 
 					{/* Message Length limits */}
 					<Motion.div
