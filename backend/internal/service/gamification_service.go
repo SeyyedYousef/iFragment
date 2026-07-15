@@ -1084,7 +1084,7 @@ func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID i
 		elapsed = capSeconds
 	}
 
-	rate := (float64(multitap) / 5.0) * float64(level)
+	rate := (float64(multitap) / 10.0) * float64(level)
 	earned := float64(elapsed) * rate
 	earnedInt := int(earned)
 

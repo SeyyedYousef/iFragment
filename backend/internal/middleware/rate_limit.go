@@ -233,6 +233,10 @@ func NewRateLimiter(ctx context.Context, cache *repository.Cache) func(http.Hand
 					}
 					next.ServeHTTP(w, r)
 					return
+				} else {
+					if !strings.Contains(err.Error(), "max requests limit exceeded") {
+						slog.Warn("Redis rate limit Lua script error", "error", err)
+					}
 				}
 			}
 
@@ -253,7 +257,7 @@ func NewRateLimiter(ctx context.Context, cache *repository.Cache) func(http.Hand
 				}
 			}
 
-			if len(valid) >= 30 {
+			if len(valid) >= 300 {
 				rl.mu.Unlock()
 				slog.Warn("Rate limit exceeded (Memory)", "ip", ip)
 				http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
@@ -322,7 +326,9 @@ func NewChannelRateLimiter(cache *repository.Cache) func(http.Handler) http.Hand
 						return
 					}
 				} else {
-					slog.Warn("Redis rate limit Lua script error", "error", err)
+					if !strings.Contains(err.Error(), "max requests limit exceeded") {
+						slog.Warn("Redis rate limit Lua script error", "error", err)
+					}
 				}
 			}
 

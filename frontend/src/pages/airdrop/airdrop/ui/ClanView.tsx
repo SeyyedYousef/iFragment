@@ -4,15 +4,17 @@ import { getTopClans, joinClan, leaveClan, getClanMembers } from '@/shared/api/p
 import { setUserClan, userClan, currentLeague, CLAN_LEAGUES } from '@/shared/store/airdrop.js';
 import { t } from '@/shared/i18n/index.js';
 import { API_CONFIG } from '@/shared/api/config.js';
+
 export const ClanView: Component = () => {
 	const [usernameInput, setUsernameInput] = createSignal('');
+	const [showSearch, setShowSearch] = createSignal(false);
 	const [loading, setLoading] = createSignal(false);
 	const [errorMsg, setErrorMsg] = createSignal('');
 	const [topClans] = createResource(getTopClans);
 
 	const clanId = () => userClan()?.id;
 	const [clanMembers] = createResource(clanId, (id) => getClanMembers(id));
-
+	const [activeTab, setActiveTab] = createSignal<'day' | 'week'>('day');
 
 	// Automatically process deep link clan join on mount/render
 	createEffect(() => {
@@ -52,6 +54,7 @@ export const ClanView: Component = () => {
 			const clanDetails = await joinClan(target);
 			setUserClan(clanDetails);
 			setUsernameInput('');
+			setShowSearch(false);
 		} catch (e: any) {
 			setErrorMsg(e.message || 'Failed to join clan');
 			triggerHaptic('error');
@@ -93,9 +96,8 @@ export const ClanView: Component = () => {
 			<Show
 				when={userClan()}
 				fallback={
-					/* === NOT IN A CLAN === */
-					<div class="px-5 pt-14 relative z-10 min-h-full">
-						{/* Ambient Mild Glow */}
+					/* === NOT IN A CLAN (Join Squad View) === */
+					<div class="px-4 pt-10 relative z-10 min-h-full flex flex-col items-center">
 						<div
 							class="absolute top-0 right-0 w-[500px] h-[500px] rounded-full pointer-events-none transition-colors duration-500 z-[-1]"
 							style={{
@@ -105,78 +107,87 @@ export const ClanView: Component = () => {
 							}}
 						></div>
 
-						{/* Header */}
-						<h1 class="text-[28px] font-bold text-white tracking-tight">{t('airdropFinal.clan.title')}</h1>
-						<p class="text-[#8e8e93] text-[15px] mt-1">{t('airdropFinal.clan.subtitle')}</p>
-
-						{/* How it works */}
-						<button class="w-full mt-4 bg-[#1c1c1e] rounded-2xl p-4 flex items-center justify-between active:bg-white/5 transition-all">
-							<div class="flex items-center gap-3">
-								<span class="text-2xl">💡</span>
-								<div class="text-start">
-									<div class="text-white font-medium text-[15px]">{t('airdropFinal.clan.howItWorks')}</div>
-									<div class="text-[#8e8e93] text-[13px]">{t('airdropFinal.clan.howItWorksDesc')}</div>
-								</div>
-							</div>
-							<span class="material-symbols-outlined text-white/40 text-[20px]">chevron_right</span>
-						</button>
-
-						{/* Search to Join */}
-						<div class="mt-5 bg-[#1c1c1e] rounded-2xl p-4">
-							<h3 class="text-white font-semibold text-[17px] mb-3">{t('airdropFinal.clan.joinTitle')}</h3>
-							<p class="text-[#8e8e93] text-[13px] mb-3">{t('airdropFinal.clan.joinDesc')}</p>
-							<div class="flex gap-2">
-								<input
-									type="text"
-									value={usernameInput()}
-									onInput={(e) => setUsernameInput(e.target.value)}
-									onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
-									class={`flex-1 bg-[#2c2c2e] text-white font-medium text-[15px] py-3 px-4 rounded-xl border border-white/5 focus:border-[#3390ec]/40 focus:outline-none placeholder:text-[#555]`}
-								/>
-								<button
-									onClick={() => handleJoin()}
-									disabled={loading() || !usernameInput().trim()}
-									class={`px-5 py-3 rounded-xl font-bold text-[14px] transition-all shrink-0 ${
-										usernameInput().trim() && !loading()
-											? 'bg-[#3390ec] text-white active:scale-95'
-											: 'bg-[#2c2c2e] text-[#555]'
-									}`}
-								>
-									{loading() ? '...' : t('airdropFinal.clan.joinBtn')}
-								</button>
-							</div>
-							{errorMsg() && (
-								<div class="text-red-500 text-[13px] font-medium mt-2.5 px-1">{errorMsg()}</div>
-							)}
+						{/* Disco ball graphic */}
+						<div class="w-32 h-32 mb-2 flex items-center justify-center drop-shadow-[0_0_40px_rgba(255,255,255,0.4)] relative">
+							<span class="text-[100px] leading-none z-10">🪩</span>
+							<div class="absolute inset-0 bg-white/10 blur-[40px] rounded-full z-0"></div>
 						</div>
 
-						{/* Popular Squads */}
-						<div class="mt-6">
-							<h2 class="text-[20px] font-bold text-white mb-3 tracking-tight">{t('airdropFinal.clan.popularSquads')}</h2>
-							<div class="bg-[#1c1c1e] rounded-[24px] overflow-hidden">
-								<Show
-									when={!topClans.loading}
+						<h1 class="text-[32px] font-bold text-white tracking-tight mb-2">
+							{t('airdropFinal.clan.joinSquadTitle', { defaultValue: 'Join Squad!' })}
+						</h1>
+						<p class="text-[#8e8e93] text-[15px] text-center mb-6 max-w-[280px] leading-snug">
+							{t('airdropFinal.clan.joinSquadDesc', { defaultValue: 'These squads recruiting now.\nDo you wanna join?' })}
+						</p>
+
+						<button 
+							onClick={() => setShowSearch(!showSearch())}
+							class="w-full bg-gradient-to-r from-amber-400 to-orange-400 text-black font-bold py-4 rounded-2xl active:scale-95 transition-transform text-[17px] mb-4 shadow-[0_0_20px_rgba(251,191,36,0.3)]"
+						>
+							{t('airdropFinal.clan.joinAnother', { defaultValue: 'Join another squad' })}
+						</button>
+
+						{/* Search to Join (Animated dropdown) */}
+						<Show when={showSearch()}>
+							<div class="w-full bg-[#1c1c1e] rounded-2xl p-4 mb-4 animate-slide-down border border-white/5">
+								<div class="flex gap-2">
+									<input
+										type="text"
+										placeholder={t('airdropFinal.clan.searchPlaceholder', { defaultValue: 'Squad username...' })}
+										value={usernameInput()}
+										onInput={(e) => setUsernameInput(e.target.value)}
+										onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
+										class="flex-1 bg-[#2c2c2e] text-white font-medium text-[15px] py-3 px-4 rounded-xl border border-white/5 focus:border-[#3390ec]/40 focus:outline-none placeholder:text-[#555]"
+									/>
+									<button
+										onClick={() => handleJoin()}
+										disabled={loading() || !usernameInput().trim()}
+										class={`px-5 py-3 rounded-xl font-bold text-[14px] transition-all shrink-0 ${
+											usernameInput().trim() && !loading()
+												? 'bg-[#3390ec] text-white active:scale-95'
+												: 'bg-[#2c2c2e] text-[#555]'
+										}`}
+									>
+										{loading() ? '...' : t('airdropFinal.clan.joinBtn', { defaultValue: 'Join' })}
+									</button>
+								</div>
+								{errorMsg() && (
+									<div class="text-red-500 text-[13px] font-medium mt-2.5 px-1">{errorMsg()}</div>
+								)}
+							</div>
+						</Show>
+
+						{/* Popular Squads List */}
+						<div class="w-full bg-[#141415] rounded-[24px] overflow-hidden border border-white/5 mt-2">
+							<Show
+								when={!topClans.loading}
+								fallback={
+									<div class="flex items-center justify-center py-10">
+										<div class="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+									</div>
+								}
+							>
+								<Show 
+									when={!topClans.error}
 									fallback={
-										<div class="flex items-center justify-center py-10">
-											<div class="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+										<div class="text-red-400 text-[14px] text-center py-8">
+											{t('airdropFinal.clan.loadError', { defaultValue: 'Failed to load popular squads.' })}
 										</div>
 									}
 								>
-									<Show 
-										when={!topClans.error}
+									<For
+										each={topClans() || []}
 										fallback={
-											<div class="text-red-400 text-[14px] text-center py-8">
-												{t('airdropFinal.clan.loadError', { defaultValue: 'Failed to load popular squads.' })}
-											</div>
+											<div class="text-[#8e8e93] text-[14px] text-center py-8">{t('airdropFinal.clan.noSquads')}</div>
 										}
 									>
-										<For
-											each={topClans() || []}
-											fallback={
-												<div class="text-[#8e8e93] text-[14px] text-center py-8">{t('airdropFinal.clan.noSquads')}</div>
+										{(clan, i) => {
+											const score = clan.total_score || clan.members_count * 1500;
+											let l = CLAN_LEAGUES[0];
+											for (const league of CLAN_LEAGUES) {
+												if (score >= league.minScore) l = league;
 											}
-										>
-											{(clan, i) => (
+											return (
 												<button
 													onClick={() => handleJoin(clan.channel_username)}
 													disabled={loading()}
@@ -184,67 +195,43 @@ export const ClanView: Component = () => {
 														i() !== 0 ? 'border-t border-white/5' : ''
 													}`}
 												>
-													{/* Rank */}
-													<div
-														class={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-[13px] shrink-0 mr-3 ${
-															i() === 0
-																? 'bg-amber-400 text-black'
-																: i() === 1
-																	? 'bg-gray-300 text-black'
-																	: i() === 2
-																		? 'bg-[#cd7f32] text-white'
-																		: 'bg-[#2c2c2e] text-[#8e8e93]'
-														}`}
-													>
-														{i() + 1}
-													</div>
-
 													{/* Photo */}
-													{clan.channel_photo ? (
-														<img
-															src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan.channel_username}`}
-															alt={clan.chat_title}
-															class="w-12 h-12 rounded-2xl object-cover border border-white/10 shrink-0 mr-3"
-														/>
-													) : (
-														<div class="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center shrink-0 mr-3 text-xl">
-															🛡️
-														</div>
-													)}
+													<div class="w-12 h-12 rounded-2xl bg-[#1c1c1e] p-1 flex items-center justify-center shrink-0 mr-4">
+														{clan.channel_photo ? (
+															<img
+																src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan.channel_username}`}
+																alt={clan.chat_title}
+																class="w-full h-full rounded-xl object-cover"
+															/>
+														) : (
+															<div class="w-full h-full rounded-xl bg-white/5 flex items-center justify-center text-xl">
+																🛡️
+															</div>
+														)}
+													</div>
 
 													{/* Info */}
 													<div class="flex-1 min-w-0">
-														<div class="text-white font-medium text-[16px] truncate">{clan.chat_title}</div>
-														<div class="text-[#8e8e93] text-[13px] mt-0.5">
-															{clan.members_count.toLocaleString('en-US')} {t('airdropFinal.clan.members')}
+														<div class="text-white font-bold text-[16px] truncate tracking-tight">{clan.chat_title}</div>
+														<div class="flex items-center gap-1 mt-0.5">
+															<span class="text-[14px]">🏆</span>
+															<span class="text-[#8e8e93] text-[13px] font-medium">{l.name}</span>
 														</div>
 													</div>
 
-													{/* Score */}
-													<div class="shrink-0 ms-2 text-end">
-														<div class="flex items-center gap-1">
-															<span
-																class="material-symbols-outlined text-amber-400 text-[14px]"
-																style={{ 'font-variation-settings': '"FILL" 1' }}
-															>
-																stars
-															</span>
-															<span class="text-amber-400 font-bold text-[14px]">
-																{formatScore(clan.total_score || clan.members_count * 1500)}
-															</span>
-														</div>
-													</div>
+													{/* Arrow */}
+													<span class="material-symbols-outlined text-[#8e8e93]/50 ml-2">chevron_right</span>
 												</button>
-											)}
-										</For>
-									</Show>
+											);
+										}}
+									</For>
 								</Show>
-							</div>
+							</Show>
 						</div>
 					</div>
 				}
 			>
-				{/* === IN A CLAN === */}
+				{/* === IN A CLAN (Squad Details View) === */}
 				{(clan) => {
 					const getClanLeague = () => {
 						const score = clan().total_score || clan().members_count * 1500;
@@ -256,165 +243,165 @@ export const ClanView: Component = () => {
 					};
 
 					const currentLeagueName = getClanLeague().name; 
-					const currentRank = () => {
-						const c = clan();
-						return c && c.rank && c.rank > 0 ? `#${c.rank}` : 'Unranked';
-					};
+
+					const soccerMessage = clan().members_count >= 11 
+						? t('airdropFinal.clan.soccerSuccess', { defaultValue: "Congratulations! You now have enough squad members to form a soccer team ⚽ 👏" })
+						: t('airdropFinal.clan.soccerInvite', { defaultValue: "Invite more frens to form a complete team! 🏃‍♂️💨" });
 
 					return (
-						<div class="min-h-full flex flex-col relative w-full" style={{
-							background: 'linear-gradient(180deg, #c77b28 0%, #a25c1a 30%, #1a1a1a 60%, #000000 100%)'
+						<div class="min-h-full flex flex-col relative w-full pb-10" style={{
+							background: 'linear-gradient(180deg, #1c263b 0%, #0c121e 100%)'
 						}}>
-							<div class="relative z-10 flex flex-col items-center pt-14 px-4 w-full max-w-md mx-auto">
+							{/* Background glow effect for Avatar */}
+							<div class="absolute top-10 left-1/2 -translate-x-1/2 w-[200px] h-[200px] bg-white/10 blur-[80px] rounded-full pointer-events-none z-0"></div>
+
+							<div class="relative z-10 flex flex-col items-center pt-10 px-4 w-full mx-auto">
 								{/* Top Icon Box */}
-								<div class="w-[100px] h-[100px] bg-black rounded-[32px] flex items-center justify-center mb-6 shadow-xl relative overflow-hidden shrink-0">
-									{clan().channel_photo ? (
-										<img src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`} alt={clan().chat_title} class="w-full h-full object-cover" />
-									) : (
-										<svg viewBox="0 0 100 100" class="w-[50%] h-[50%]">
-											<path d="M 50 15 L 15 80 L 85 80 Z" fill="none" stroke="white" stroke-width="12" stroke-linejoin="round" stroke-linecap="round"/>
-											<path d="M 50 15 L 50 80" fill="none" stroke="white" stroke-width="12" stroke-linecap="round"/>
-										</svg>
-									)}
+								<div class="w-24 h-24 bg-[#4ade80] rounded-[28px] p-1.5 flex items-center justify-center mb-4 shadow-xl shrink-0">
+									<div class="w-full h-full bg-white rounded-[22px] flex items-center justify-center overflow-hidden">
+										{clan().channel_photo ? (
+											<img src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`} alt={clan().chat_title} class="w-full h-full object-cover" />
+										) : (
+											<span class="text-[40px]">☕</span>
+										)}
+									</div>
 								</div>
 
 								{/* Clan Title & Link */}
 								<button 
 									onClick={() => openTelegramLink(`https://t.me/${clan().channel_username}`)}
-									class="flex items-center justify-center gap-1.5 text-white font-black text-[28px] tracking-tight active:scale-95 transition-transform"
+									class="flex items-center justify-center gap-2 text-white font-bold text-[28px] tracking-tight active:scale-95 transition-transform"
 								>
 									{clan().chat_title}
 									<span class="material-symbols-outlined text-[20px] text-white/50 mb-1">open_in_new</span>
 								</button>
 
-								{/* Rank & League */}
-								<button class="flex items-center gap-1.5 mt-2 active:scale-95 transition-transform">
-									<div class="flex items-center gap-1">
-										<span class="text-white/40 text-[16px] font-light">{'{'}</span>
-										<span class="text-white/90 font-bold text-[14px]">{currentRank()}</span>
-										<span class="text-white/40 text-[16px] font-light">{'}'}</span>
-									</div>
-									<span class="text-white/30 text-[14px] mx-1">•</span>
-									<span class="text-[14px]">🏆</span>
-									<span class="text-amber-400 font-bold text-[14px] flex items-center gap-0.5">
-										{currentLeagueName}
-										<span class="material-symbols-outlined text-[16px] text-white/40">chevron_right</span>
-									</span>
+								{/* League */}
+								<button class="flex items-center gap-1.5 mt-1 active:scale-95 transition-transform">
+									<span class="text-[18px]">🏆</span>
+									<span class="text-[#8e8e93] font-medium text-[15px]">{currentLeagueName}</span>
+									<span class="material-symbols-outlined text-[18px] text-[#8e8e93]">chevron_right</span>
 								</button>
 
 								{/* How it works */}
-								<button class="mt-6 text-white font-bold text-[15px] active:opacity-70 transition-opacity">
-									{t('airdropFinal.clan.howItWorks')}
+								<button class="mt-4 text-white/80 font-medium text-[14px] underline underline-offset-4 decoration-white/30 active:opacity-70 transition-opacity">
+									{t('airdropFinal.clan.howItWorks', { defaultValue: 'How it works?' })}
 								</button>
 
 								{/* Description Text */}
-								<p class="text-center text-white/90 font-medium text-[14px] mt-4 max-w-[320px] leading-relaxed">
-									{t('airdropFinal.clan.howItWorksDesc')}
+								<p class="text-center text-white/90 font-medium text-[14px] mt-5 max-w-[320px] leading-relaxed">
+									{soccerMessage}
 								</p>
 
 								{/* Action Card */}
-								<div class="w-full bg-[#1c1c1e]/90 backdrop-blur-md rounded-[28px] mt-6 p-5 flex flex-col gap-4 border border-white/5 shadow-2xl">
-									{/* Score & Invite Stats */}
-									<div class="w-full flex justify-between items-start mb-2 px-1">
-										<div class="flex flex-col items-start">
-											<div class="flex items-center gap-1.5">
-												<span class="material-symbols-outlined text-[#ffcc00] text-[20px]" style={{ 'font-variation-settings': '"FILL" 1' }}>stars</span>
-												<div class="text-[32px] font-bold text-white tracking-tight leading-none mb-1">
-													{(clan().total_score || clan().members_count * 1500).toLocaleString('en-US')}
-												</div>
+								<div class="w-full bg-[#1c1c1e] rounded-[28px] mt-6 flex flex-col shadow-2xl border border-white/5">
+									{/* Top stats */}
+									<div class="flex justify-between items-center px-6 py-5 border-b border-white/5">
+										<div class="flex items-center gap-3">
+											<div class="w-7 h-7 rounded-full bg-gradient-to-br from-[#ffcd00] to-[#ff9500] flex items-center justify-center border border-[#ffe885] shrink-0">
+												<span class="text-black text-[14px] font-black leading-none mt-0.5">¢</span>
 											</div>
-											<span class="text-[#8e8e93] text-[13px] ml-7 font-medium">{t('airdropFinal.clan.totalScore', { defaultValue: 'Total XP' })}</span>
+											<div class="flex flex-col items-start">
+												<span class="text-white font-bold text-[20px] leading-tight">
+													{formatScore(clan().total_score || clan().members_count * 1500)}
+												</span>
+												<span class="text-[#8e8e93] text-[13px] font-medium">
+													{t('airdropFinal.clan.minedInSquad', { defaultValue: 'mined in squad' })}
+												</span>
+											</div>
 										</div>
-										
 										<div class="flex flex-col items-end">
-											<span class="text-white font-bold text-[17px]">{t('airdropFinal.clan.inviteToSquad', { defaultValue: 'Invite to squad' })}</span>
-											<span class="text-[#8e8e93] text-[13px] font-medium">{t('airdropFinal.clan.getMoreCoins', { defaultValue: 'Get more Notcoin' })}</span>
+											<span class="text-white font-bold text-[20px] leading-tight">{clan().members_count}</span>
+											<span class="text-[#8e8e93] text-[13px] font-medium">
+												{t('airdropFinal.clan.players', { defaultValue: 'players' })}
+											</span>
 										</div>
 									</div>
 
 									{/* Action Buttons */}
-									<button
-										onClick={handleInvite}
-										class="w-full bg-[#007aff] text-white font-bold py-4 rounded-[18px] active:scale-[0.98] transition-transform text-[17px] mt-2"
+									<div class="p-4 flex flex-col gap-3">
+										<button
+											onClick={handleInvite}
+											class="w-full bg-[#3390ec] text-white font-bold py-4 rounded-[18px] active:scale-[0.98] transition-transform text-[16px]"
+										>
+											{t('airdropFinal.clan.invite', { defaultValue: 'Invite a fren' })}
+										</button>
+										<div class="flex gap-3">
+											<button
+												onClick={handleLeave}
+												disabled={loading()}
+												class="flex-1 bg-[#2c2c2e] text-white/90 font-bold py-3.5 rounded-[16px] active:scale-[0.98] transition-transform text-[15px]"
+											>
+												{loading() ? '...' : t('airdropFinal.clan.leave', { defaultValue: 'Leave squad' })}
+											</button>
+											<button class="flex-1 bg-[#2c2c2e] text-white/90 font-bold py-3.5 rounded-[16px] active:scale-[0.98] transition-transform text-[15px]">
+												{t('airdropFinal.clan.boost', { defaultValue: 'Boost' })}
+											</button>
+										</div>
+									</div>
+								</div>
+
+								{/* Tabs */}
+								<div class="w-full flex mt-6 bg-[#141415] rounded-2xl p-1 mb-4 border border-white/5">
+									<button 
+										onClick={() => setActiveTab('day')}
+										class={`flex-1 py-2 font-medium text-[14px] transition-all rounded-xl ${activeTab() === 'day' ? 'bg-[#2c2c2e] text-white shadow-sm' : 'text-[#8e8e93]'}`}
 									>
-										{t('airdropFinal.friends.inviteBtn')}
+										{t('airdropFinal.leaderboard.day', { defaultValue: 'Day' })}
 									</button>
-									<button
-										onClick={handleLeave}
-										disabled={loading()}
-										class="w-full bg-[#2c2c2e] text-white/90 font-bold py-4 rounded-[18px] active:scale-[0.98] transition-transform text-[17px]"
+									<button 
+										onClick={() => setActiveTab('week')}
+										class={`flex-1 py-2 font-medium text-[14px] transition-all rounded-xl ${activeTab() === 'week' ? 'bg-[#2c2c2e] text-white shadow-sm' : 'text-[#8e8e93]'}`}
 									>
-										{loading() ? '...' : t('airdropFinal.clan.leaveClan', { defaultValue: 'Leave squad' })}
+										{t('airdropFinal.leaderboard.week', { defaultValue: 'Week' })}
 									</button>
 								</div>
 
-								{/* Clan Members Leaderboard */}
-								<div class="w-full mt-6 flex flex-col pb-32">
-									<h3 class="text-white font-bold text-[18px] mb-3 px-1">
-										{(t as any)('airdropFinal.clan.membersLeaderboard', { defaultValue: 'Squad Members' })}
-									</h3>
-									
-									<div class="bg-[#1c1c1e]/50 rounded-2xl overflow-hidden border border-white/5">
-										<Show
-											when={!clanMembers.loading}
+								{/* Clan Members List */}
+								<div class="w-full flex flex-col">
+									<Show
+										when={!clanMembers.loading}
+										fallback={
+											<div class="flex items-center justify-center py-6">
+												<div class="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+											</div>
+										}
+									>
+										<For
+											each={clanMembers() || []}
 											fallback={
-												<div class="flex items-center justify-center py-6">
-													<div class="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+												<div class="text-[#8e8e93] text-[13px] text-center py-6">
+													{(t as any)('airdropFinal.clan.noMembers', { defaultValue: 'No members found.' })}
 												</div>
 											}
 										>
-											<For
-												each={clanMembers() || []}
-												fallback={
-													<div class="text-[#8e8e93] text-[13px] text-center py-6">
-														{(t as any)('airdropFinal.clan.noMembers', { defaultValue: 'No members found.' })}
-													</div>
-												}
-											>
-												{(member, index) => (
-													<div class={`w-full p-3.5 flex items-center justify-between transition-colors ${
-														index() !== 0 ? 'border-t border-white/5' : ''
-													}`}>
-														<div class="flex items-center gap-3 min-w-0">
-															<div class={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[12px] shrink-0 ${
-																index() === 0
-																	? 'bg-amber-400 text-black'
-																	: index() === 1
-																		? 'bg-gray-300 text-black'
-																		: index() === 2
-																			? 'bg-[#cd7f32] text-white'
-																			: 'text-[#8e8e93]'
-															}`}>
-																{index() + 1}
-															</div>
-															
-															<div class="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-600 flex items-center justify-center text-sm font-bold text-white overflow-hidden border border-white/10 shrink-0">
-																{member.first_name.slice(0, 2).toUpperCase()}
-															</div>
-															
-															<div class="flex flex-col min-w-0">
-																<span class="text-white font-bold text-[15px] truncate">
-																	{member.first_name} {member.last_name || ''}
-																</span>
-																<span class="text-white/50 text-[12px] mt-0.5">
-																	Level {member.level}
-																</span>
-															</div>
+											{(member, index) => (
+												<div class="w-full py-3 flex items-center justify-between">
+													<div class="flex items-center gap-3 min-w-0">
+														<div class="w-6 h-6 rounded-full flex items-center justify-center font-bold text-[13px] text-[#8e8e93] shrink-0">
+															{index() + 1}
 														</div>
 														
-														<div class="shrink-0 text-end">
-															<div class="flex items-center gap-1 justify-end">
-																<span class="text-amber-400 text-[12px]">⭐</span>
-																<span class="text-white font-bold text-[14px]">
-																	{member.score.toLocaleString('en-US')}
-																</span>
-															</div>
+														<div class="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-600 flex items-center justify-center text-sm font-bold text-white overflow-hidden shrink-0">
+															{member.first_name.slice(0, 2).toUpperCase()}
+														</div>
+														
+														<div class="flex flex-col min-w-0">
+															<span class="text-white font-medium text-[16px] truncate">
+																{member.first_name} {member.last_name || ''}
+															</span>
 														</div>
 													</div>
-												)}
-											</For>
-										</Show>
-									</div>
+													
+													<div class="shrink-0 text-end pl-2">
+														<span class="text-white font-medium text-[15px]">
+															{formatScore(member.score)}
+														</span>
+													</div>
+												</div>
+											)}
+										</For>
+									</Show>
 								</div>
 							</div>
 						</div>
