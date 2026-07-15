@@ -75,8 +75,12 @@ func GetWikipediaScore(term string) *WikipediaResult {
 		}
 	}
 
-	// 3. Cache result
+	// 3. Cache result with memory safety check
 	wikiCacheMutex.Lock()
+	if len(wikiCache) >= 5000 {
+		wikiCache = make(map[string]*WikipediaResult)
+		wikiCacheTime = make(map[string]time.Time)
+	}
 	wikiCache[term] = result
 	wikiCacheTime[term] = time.Now()
 	wikiCacheMutex.Unlock()

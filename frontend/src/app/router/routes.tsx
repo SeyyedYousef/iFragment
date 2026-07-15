@@ -32,6 +32,7 @@ import { MarketplacePage } from '@/pages/marketplace/index.js';
 import { OwnerAuditLogPage } from '@/pages/owner/audit-log/index.js';
 import { OwnerDashboardPage } from '@/pages/owner/dashboard/index.js';
 import { OwnerQuests } from '@/pages/owner/quests/index.js';
+import { OwnerCombos } from '@/pages/owner/combos/index.js';
 import { OwnerUserbot } from '@/pages/owner/userbot/index.js';
 import { OwnerUsersPage } from '@/pages/owner/users/index.js';
 import { AchievementsPage } from '@/pages/profile/achievements/index.js';
@@ -99,6 +100,7 @@ export const routes: Route[] = [
 	{ path: '/owner/users', Component: OwnerUsersPage },
 	{ path: '/owner/audit-logs', Component: OwnerAuditLogPage },
 	{ path: '/owner/quests', Component: OwnerQuests },
+	{ path: '/owner/combos', Component: OwnerCombos },
 	{ path: '/owner/userbot', Component: OwnerUserbot },
 	{ path: '/owner/settings', Component: OwnerSettingsPage },
 	{ path: '/owner/promos', Component: OwnerPromosPage },

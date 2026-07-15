@@ -107,8 +107,11 @@ func ScrapeMarketappMaxPrice(ctx context.Context, username string) float64 {
 		}
 	}
 
-	// Update cache
+	// Update cache with bounds safety
 	marketappMutex.Lock()
+	if len(marketappCache) >= 5000 {
+		marketappCache = make(map[string]cacheEntry)
+	}
 	marketappCache[username] = cacheEntry{
 		maxPrice: maxPrice,
 		fetched:  time.Now(),

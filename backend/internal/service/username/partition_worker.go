@@ -70,8 +70,8 @@ func (w *PartitionWorker) runMaintenance(ctx context.Context) {
 		slog.Error("[PartitionWorker] Failed to create partitions", "error", err)
 	}
 
-	// 2. Retention policy: delete audit_logs older than 90 days
-	slog.Info("[PartitionWorker] Cleaning up audit_logs older than 90 days...")
+	// 2. Retention policy: delete audit_logs and search_logs older than 90 days
+	slog.Info("[PartitionWorker] Cleaning up audit_logs and search_logs older than 90 days...")
 	retentionStart := time.Now()
 	res, err := w.db.Pool.Exec(ctx, "DELETE FROM audit_logs WHERE created_at < now() - INTERVAL '90 days';")
 	if err != nil {
@@ -79,20 +79,22 @@ func (w *PartitionWorker) runMaintenance(ctx context.Context) {
 	} else {
 		slog.Info("[PartitionWorker] Successfully cleaned up audit_logs", "rows_deleted", res.RowsAffected(), "duration", time.Since(retentionStart))
 	}
+	resSearch, errSearch := w.db.Pool.Exec(ctx, "DELETE FROM search_logs WHERE created_at < now() - INTERVAL '90 days';")
+	if errSearch != nil {
+		slog.Error("[PartitionWorker] Failed to clean up search_logs", "error", errSearch)
+	} else {
+		slog.Info("[PartitionWorker] Successfully cleaned up search_logs", "rows_deleted", resSearch.RowsAffected())
+	}
 
 	// 3. Perform VACUUM ANALYZE (only on Sundays to minimize load)
 	if time.Now().UTC().Weekday() == time.Sunday {
-		slog.Info("[PartitionWorker] Running weekly VACUUM ANALYZE on search_logs and group_events...")
+		slog.Info("[PartitionWorker] Running weekly VACUUM ANALYZE on critical tables...")
 		start := time.Now()
-		_, err := w.db.Pool.Exec(ctx, "VACUUM ANALYZE search_logs;")
-		if err != nil {
-			slog.Error("[PartitionWorker] VACUUM ANALYZE search_logs failed", "error", err)
-			return
-		}
-		_, err = w.db.Pool.Exec(ctx, "VACUUM ANALYZE group_events;")
-		if err != nil {
-			slog.Error("[PartitionWorker] VACUUM ANALYZE group_events failed", "error", err)
-			return
+		tables := []string{"search_logs", "group_events", "user_stats", "tap_audit"}
+		for _, t := range tables {
+			if _, err := w.db.Pool.Exec(ctx, fmt.Sprintf("VACUUM ANALYZE %s;", t)); err != nil {
+				slog.Error("[PartitionWorker] VACUUM ANALYZE failed", "table", t, "error", err)
+			}
 		}
 		slog.Info("[PartitionWorker] VACUUM ANALYZE completed successfully", "duration", time.Since(start))
 	}

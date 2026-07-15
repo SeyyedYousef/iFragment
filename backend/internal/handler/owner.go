@@ -273,6 +273,41 @@ func (h *OwnerHandler) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(logs)
 }
 
+func (h *OwnerHandler) AdminListCombos(w http.ResponseWriter, r *http.Request) {
+	combos, err := h.srv.AdminListCombos(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to get combos", err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(combos)
+}
+
+func (h *OwnerHandler) AdminCreateCombo(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Date         string `json:"date"`
+		SecretWord   string `json:"secret_word"`
+		RewardAmount int64  `json:"reward_amount"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid request", err)
+		return
+	}
+	if req.Date == "" || req.SecretWord == "" || req.RewardAmount <= 0 {
+		RespondError(w, r, http.StatusBadRequest, "invalid parameters", nil)
+		return
+	}
+
+	err := h.srv.AdminCreateCombo(r.Context(), req.Date, req.SecretWord, req.RewardAmount)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, err.Error(), err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"success": true}`))
+}
+
 func (h *OwnerHandler) CreatePromo(w http.ResponseWriter, r *http.Request) {
 	ownerID, err := middleware.GetUserID(r.Context())
 	if err != nil {

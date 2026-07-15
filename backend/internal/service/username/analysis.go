@@ -202,6 +202,7 @@ type AnalysisService struct {
 	rarityConfig  RarityConfig
 	pricingConfig PricingHeuristicsConfig
 	sfGroup       singleflight.Group
+	mtprotoSem    chan struct{}
 }
 
 func NewAnalysisService(
@@ -218,6 +219,7 @@ func NewAnalysisService(
 		mtprotoClient: mtp,
 		rarityConfig:  DefaultRarityConfig,
 		pricingConfig: DefaultPricingHeuristicsConfig,
+		mtprotoSem:    make(chan struct{}, 5),
 	}
 	return s
 }
@@ -536,6 +538,14 @@ func (s *AnalysisService) generateDeepReport(ctx context.Context, userID int64, 
 		}
 
 		if !mtCached {
+			// Acquire semaphore to prevent Telegram API FloodWait
+			select {
+			case s.mtprotoSem <- struct{}{}:
+				defer func() { <-s.mtprotoSem }()
+			case <-subCtx.Done():
+				return
+			}
+
 			// Check status
 			status, err := s.mtprotoClient.CheckUsername(subCtx, username)
 			if err == nil {
@@ -621,8 +631,8 @@ func (s *AnalysisService) generateDeepReport(ctx context.Context, userID int64, 
 				}
 				mu.Unlock()
 				if cBytes, err := json.Marshal(cData); err == nil {
-					// Cache MTProto data for 24 hours to avoid FloodWaits on popular usernames
-					s.cache.Client.Set(subCtx, mtCacheKey, cBytes, 24*time.Hour)
+					// Cache MTProto data for 2 hours to prevent memory buildup while avoiding FloodWaits
+					s.cache.Client.Set(subCtx, mtCacheKey, cBytes, 2*time.Hour)
 				}
 			}
 		}
@@ -1448,7 +1458,7 @@ func (s *AnalysisService) CalculateChannelEmpire(ctx context.Context, usernames 
 						ParticipantsCount: c.ParticipantsCount,
 					}
 					if cBytes, mErr := json.Marshal(cData); mErr == nil {
-						s.cache.Client.Set(ctx, cacheKey, cBytes, 24*time.Hour)
+						s.cache.Client.Set(ctx, cacheKey, cBytes, 2*time.Hour)
 					}
 				}
 			}

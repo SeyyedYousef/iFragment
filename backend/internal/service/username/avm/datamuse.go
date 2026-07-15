@@ -85,8 +85,11 @@ func GetWordFrequency(word string) float64 {
 		}
 	}
 
-	// 3. Update Cache
+	// 3. Update Cache with bounds safety
 	cacheMutex.Lock()
+	if len(wordCache) >= 5000 {
+		wordCache = make(map[string]float64)
+	}
 	wordCache[word] = frequency
 	cacheMutex.Unlock()
 

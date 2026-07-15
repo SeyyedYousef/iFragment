@@ -462,198 +462,61 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 		return nil, fmt.Errorf("invalid tap count")
 	}
 
-	const maxTapsPerRequest = 500 // SEC-08: Synchronized tap limit count
+	const maxTapsPerRequest = 500
 	if taps > maxTapsPerRequest {
 		return nil, fmt.Errorf("tap count exceeds maximum limit per request")
 	}
 
-	if err := s.db.EnsureStatsExists(ctx, userID); err != nil {
-		return nil, err
-	}
-
-	tx, err := s.db.Pool.Begin(ctx)
+	// For maximum performance and batching, we fetch the current boost levels
+	// without locking the user_stats row.
+	var multitapLevel, energyLimitLevel int
+	err := s.db.Pool.QueryRow(ctx, `
+		SELECT COALESCE(multitap_level, 1), COALESCE(energy_limit_level, 1)
+		FROM user_boosts WHERE user_id = $1
+	`, userID).Scan(&multitapLevel, &energyLimitLevel)
 	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback(ctx)
-
-	var energy, multitapLevel, energyLimitLevel int
-	var energyUpdatedAt time.Time
-	var turboExpiresAt *time.Time
-	var tappedCoins float64
-	err = tx.QueryRow(ctx, `
-		SELECT us.energy, us.energy_updated_at,
-		       COALESCE(b.multitap_level, 1), COALESCE(b.energy_limit_level, 1),
-		       db.turbo_expires_at, COALESCE(db.tapped_coins, 0)
-		FROM user_stats us
-		LEFT JOIN user_boosts b ON b.user_id = us.user_id
-		LEFT JOIN user_daily_boosts db ON db.user_id = us.user_id AND db.day = CURRENT_DATE
-		WHERE us.user_id = $1
-		FOR UPDATE OF us`, userID).
-		Scan(&energy, &energyUpdatedAt, &multitapLevel, &energyLimitLevel, &turboExpiresAt, &tappedCoins)
-	if err != nil {
-		return nil, fmt.Errorf("failed to lock user energy: %w", err)
+		multitapLevel = 1
 	}
 
-	// Server-side source of truth for maximum energy capacity & recovery
-	maxEnergy := 500 + (energyLimitLevel-1)*250
-	const recoveryPerSec = 1
-	now := time.Now()
-	regen := int(now.Sub(energyUpdatedAt).Seconds()) * recoveryPerSec
-
-	newUpdatedAt := energyUpdatedAt
-	if regen > 0 {
-		energy = min(maxEnergy, energy+regen)
-		newUpdatedAt = energyUpdatedAt.Add(time.Duration(regen/recoveryPerSec) * time.Second)
-	}
-	if energy >= maxEnergy {
-		newUpdatedAt = now
-	}
-
-	energyCost := taps * multitapLevel
-	if multiplier == 5 {
-		if turboExpiresAt != nil && now.Before(*turboExpiresAt) {
-			energyCost = 0 // Turbo active and valid: no energy cost
-		} else {
-			multiplier = 1 // Fraudulent or expired turbo! Revert to normal.
-		}
-	}
-
-	var coinsEarned float64
-	if multiplier != 5 {
-		// Dynamic energy verification prevents infinite tap farming
-		if energyCost > energy {
-			maxFullTaps := energy / multitapLevel
-			remainderEnergy := energy % multitapLevel
-
-			allowedTaps := maxFullTaps
-			if remainderEnergy > 0 {
-				allowedTaps++
-			}
-
-			if taps > allowedTaps {
-				taps = allowedTaps
-			}
-
-			if taps == allowedTaps && remainderEnergy > 0 {
-				energyCost = (taps-1)*multitapLevel + remainderEnergy
-			} else {
-				energyCost = taps * multitapLevel
-			}
-		}
-		if taps <= 0 || energyCost <= 0 {
-			return nil, fmt.Errorf("not enough energy")
-		}
-		coinsEarned = float64(energyCost * multiplier)
-	} else {
-		coinsEarned = float64(taps * multitapLevel * multiplier)
-	}
-
-	// Anti-Grind: Tap Fatigue System (Diminishing Returns)
-	fatigueMultiplier := 1.0
-	if tappedCoins > 30000 {
-		fatigueMultiplier = 0.1
-	} else if tappedCoins > 15000 {
-		fatigueMultiplier = 0.25
-	} else if tappedCoins > 5000 {
-		fatigueMultiplier = 0.5
-	}
-
-	coinsEarned = coinsEarned * fatigueMultiplier
-
-	newEnergy := energy - energyCost
-
-	// Update or insert daily boosts to track tapped_coins
-	_, err = tx.Exec(ctx, `
-		INSERT INTO user_daily_boosts (user_id, day, tapped_coins) 
-		VALUES ($1, CURRENT_DATE, $2)
-		ON CONFLICT (user_id, day) DO UPDATE 
-		SET tapped_coins = user_daily_boosts.tapped_coins + EXCLUDED.tapped_coins
-	`, userID, coinsEarned)
-	if err != nil {
-		return nil, fmt.Errorf("failed to track daily tapped coins: %w", err)
-	}
-	_, err = tx.Exec(ctx, `
-		UPDATE user_stats
-		SET total_taps = COALESCE(total_taps, 0) + $1,
-		    xp = COALESCE(xp, 0) + $2,
-		    airdrop_coins = COALESCE(airdrop_coins, 0) + $3,
-		    total_coins_earned = COALESCE(total_coins_earned, 0) + $3,
-		    energy = $4,
-		    energy_updated_at = $5,
-		    last_active_at = now()
-		WHERE user_id = $6`,
-		taps, taps*2, coinsEarned, newEnergy, newUpdatedAt, userID,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// Retrieve updated XP and Level inside same transaction to prevent read-modify-write lost update
-	var xp, oldLevel int
-	err = tx.QueryRow(ctx, "SELECT xp, level FROM user_stats WHERE user_id = $1 FOR UPDATE", userID).Scan(&xp, &oldLevel)
-	if err != nil {
-		return nil, err
-	}
-	newLevel := repository.GetLevelFromXP(xp)
-	if newLevel > oldLevel {
-		_, err = tx.Exec(ctx, "UPDATE user_stats SET level = $1 WHERE user_id = $2", newLevel, userID)
-		if err != nil {
-			return nil, err
-		}
-
-		// Smart Referral: Reward referrer when user levels up
-		var referrerID *int64
-		_ = tx.QueryRow(ctx, "SELECT referred_by FROM users WHERE telegram_id = $1", userID).Scan(&referrerID)
-		if referrerID != nil {
-			var reward float64
-			switch newLevel {
-			case 2: // Silver
-				reward = 10000.0
-			case 3: // Gold
-				reward = 25000.0
-			case 4: // Platinum
-				reward = 50000.0
-			case 5: // Diamond
-				reward = 100000.0
-			case 6: // Legendary
-				reward = 200000.0
-			}
-			if reward > 0 {
-				_, _ = tx.Exec(ctx, "UPDATE user_stats SET airdrop_coins = COALESCE(airdrop_coins, 0) + $1, total_coins_earned = COALESCE(total_coins_earned, 0) + $1 WHERE user_id = $2", reward, *referrerID)
-			}
-		}
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return nil, err
-	}
+	coinsEarned := float64(taps * multitapLevel * multiplier)
 
 	if s.cache != nil && s.cache.Client != nil {
-		s.cache.Client.ZAdd(ctx, "leaderboard", redis.Z{
-			Score:  float64(xp),
-			Member: strconv.FormatInt(userID, 10),
-		})
+		userIDStr := strconv.FormatInt(userID, 10)
+		
+		// Batch taps in Redis
+		s.cache.Client.HIncrBy(ctx, "profile:taps:batch", userIDStr, int64(coinsEarned))
+		
+		// Invalidate local profile cache
 		s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
-		
-		// Clan Score Aggregation
-		clanKey := fmt.Sprintf("user:clan:%d", userID)
-		clanIDStr, err := s.cache.Client.Get(ctx, clanKey).Result()
-		if err == redis.Nil {
-			// Cache miss, look up in PostgreSQL
-			err = s.db.Pool.QueryRow(ctx, "SELECT clan_id FROM clan_members WHERE user_id = $1", userID).Scan(&clanIDStr)
-			if err != nil {
-				clanIDStr = "none"
-			}
-			s.cache.Client.Set(ctx, clanKey, clanIDStr, 24*time.Hour)
-		}
-		
-		if clanIDStr != "" && clanIDStr != "none" {
-			s.cache.Client.ZIncrBy(ctx, "clan_leaderboard", coinsEarned, clanIDStr)
-		}
+	} else {
+		// Fallback to direct DB update if Redis is unavailable
+		_, _ = s.db.Pool.Exec(ctx, `
+			UPDATE user_stats
+			SET total_taps = COALESCE(total_taps, 0) + $1,
+			    xp = COALESCE(xp, 0) + $2,
+			    airdrop_coins = COALESCE(airdrop_coins, 0) + $3,
+			    total_coins_earned = COALESCE(total_coins_earned, 0) + $3,
+			    last_active_at = now()
+			WHERE user_id = $4`,
+			taps, int(coinsEarned), coinsEarned, userID,
+		)
 	}
 
-	return s.GetStats(ctx, userID)
+	// Fetch updated stats to return to frontend
+	// (Note: The stats might not reflect the batched coins immediately until the worker flushes,
+	// but we can manually inject the added coins into the returned struct for a smooth UI)
+	stats, err := s.GetStats(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	
+	if s.cache != nil && s.cache.Client != nil {
+		stats.AirdropCoins += coinsEarned
+		stats.XP += int(coinsEarned)
+		stats.TotalTaps += taps
+	}
+
+	return stats, nil
 }
 
 func (s *ProfileService) GetCosmetics(ctx context.Context, userID int64) ([]model.CosmeticItem, error) {

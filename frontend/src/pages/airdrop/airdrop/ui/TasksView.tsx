@@ -1,7 +1,7 @@
 import { createQuery } from '@tanstack/solid-query';
 import { hapticFeedback, openTelegramLink } from '@tma.js/sdk-solid';
 import { Component, createSignal, For, Show } from 'solid-js';
-import { completeTask, getTasksStatus, TaskStatus } from '@/shared/api/profile.js';
+import { completeTask, getTasksStatus, TaskStatus, getDailyComboStatus, claimDailyCombo, DailyComboStatus } from '@/shared/api/profile.js';
 import { t } from '@/shared/i18n/index.js';
 import { syncProfileStats } from '@/shared/store/airdrop.js';
 
@@ -12,6 +12,15 @@ export const TasksView: Component = () => {
 	const [activeCampaign, setActiveCampaign] = createSignal<TaskStatus | null>(null);
 	const [quizAnswerInput, setQuizAnswerInput] = createSignal('');
 	const [quizError, setQuizError] = createSignal('');
+	const [comboInput, setComboInput] = createSignal('');
+	const [comboError, setComboError] = createSignal('');
+	const [isSubmittingCombo, setIsSubmittingCombo] = createSignal(false);
+
+	const comboQuery = createQuery<DailyComboStatus>(() => ({
+		queryKey: ['daily-combo-status'],
+		queryFn: getDailyComboStatus as () => Promise<DailyComboStatus>,
+		staleTime: 60_000,
+	}));
 
 	const tasksQuery = createQuery<TaskStatus[]>(() => ({
 		queryKey: ['tasks-status'],
@@ -164,6 +173,49 @@ export const TasksView: Component = () => {
 		}
 	};
 
+	const handleComboSubmit = async (e: Event) => {
+		e.preventDefault();
+		const answer = comboInput().trim();
+		if (!answer) {
+			setComboError('Secret word cannot be empty.');
+			return;
+		}
+
+		setComboError('');
+		setIsSubmittingCombo(true);
+
+		try {
+			const success = await claimDailyCombo(answer);
+			if (success) {
+				try {
+					hapticFeedback.notificationOccurred('success');
+				} catch (_) {}
+				comboQuery.refetch();
+				await syncProfileStats();
+				setComboInput('');
+			}
+		} catch (e: any) {
+			console.error('Failed to claim daily combo:', e);
+			let errorMessage = 'Incorrect word. Please try again.';
+			if (e?.message) {
+				const msg = e.message.toLowerCase();
+				if (msg.includes('already claimed')) {
+					errorMessage = 'Already claimed today!';
+				} else if (msg.includes('incorrect')) {
+					errorMessage = 'Incorrect word. Please try again.';
+				} else {
+					errorMessage = e.message;
+				}
+			}
+			setComboError(errorMessage);
+			try {
+				hapticFeedback.notificationOccurred('error');
+			} catch (_) {}
+		} finally {
+			setIsSubmittingCombo(false);
+		}
+	};
+
 	const getTaskDetails = (task: TaskStatus) => {
 		const key = task.key;
 		switch (key) {
@@ -219,6 +271,60 @@ export const TasksView: Component = () => {
 					{t('airdropFinal.tasks.subtitle')}
 				</p>
 			</div>
+
+			{/* Daily Combo */}
+			<Show when={comboQuery.data?.is_active}>
+				<div class="px-5 mt-4">
+					<div class="bg-[#1c1c1e] rounded-[24px] p-5 flex flex-col items-center relative overflow-hidden border border-white/10">
+						{/* Background elements */}
+						<div class="absolute top-[-50px] right-[-50px] w-32 h-32 bg-[#F5A623]/20 rounded-full blur-[40px]" />
+						
+						<h3 class="text-white text-[20px] font-bold mb-1 z-10 flex items-center gap-2">
+							<span class="text-[24px]">🧩</span> Daily Combo
+						</h3>
+						<p class="text-[#8e8e93] text-[14px] text-center mb-4 z-10">
+							Guess the secret word and get <span class="text-[#F5A623] font-bold">+{formatCoins(comboQuery.data?.reward || 0)} FRG</span>
+						</p>
+
+						<Show 
+							when={!comboQuery.data?.is_claimed}
+							fallback={
+								<div class="w-full py-4 bg-green-500/10 border border-green-500/20 rounded-2xl flex flex-col items-center justify-center z-10">
+									<span class="text-[32px] mb-2">🎉</span>
+									<span class="text-green-500 font-bold">Reward Claimed!</span>
+									<span class="text-white/60 text-[13px]">Come back tomorrow for a new word.</span>
+								</div>
+							}
+						>
+							<form onSubmit={handleComboSubmit} class="w-full flex flex-col gap-3 z-10">
+								<div class="relative">
+									<input 
+										type="text" 
+										placeholder="Enter secret word..."
+										value={comboInput()}
+										onInput={(e) => setComboInput(e.target.value)}
+										class="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white placeholder-white/30 text-center font-bold text-[18px] focus:outline-none focus:border-[#F5A623] transition-colors"
+										disabled={isSubmittingCombo()}
+									/>
+								</div>
+								<Show when={comboError()}>
+									<span class="text-red-400 text-[13px] text-center bg-red-400/10 py-1.5 px-3 rounded-lg border border-red-400/20">{comboError()}</span>
+								</Show>
+								<button 
+									type="submit"
+									disabled={!comboInput().trim() || isSubmittingCombo()}
+									class="w-full bg-[#F5A623] text-black font-bold py-3.5 rounded-2xl active:scale-[0.98] transition-transform disabled:opacity-50 disabled:active:scale-100 flex justify-center items-center gap-2 shadow-[0_0_20px_rgba(245,166,35,0.3)]"
+								>
+									<Show when={isSubmittingCombo()} fallback="Check Word">
+										<div class="w-5 h-5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+										Verifying...
+									</Show>
+								</button>
+							</form>
+						</Show>
+					</div>
+				</div>
+			</Show>
 
 			{/* Tasks List */}
 			<div class="px-5 mt-6 flex flex-col">

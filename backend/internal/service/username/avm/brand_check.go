@@ -80,6 +80,9 @@ func CheckGlobalBrand(username string) int {
 	// Only exact domain or name match qualifies for brand premium.
 
 	brandMutex.Lock()
+	if len(brandCache) >= 5000 {
+		brandCache = make(map[string]int)
+	}
 	brandCache[lower] = score
 	brandMutex.Unlock()
 

@@ -99,7 +99,7 @@ export const AirdropPage: Component = () => {
 						<TasksView />
 					</Match>
 					<Match when={activeTab() === 'clan'}>
-						<ClanView />
+						<ClanView onOpenLeaderboard={() => setShowLeaderboard(true)} />
 					</Match>
 					<Match when={activeTab() === 'frens'}>
 						<FrensView />

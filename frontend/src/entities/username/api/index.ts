@@ -24,6 +24,31 @@ export interface QuickCheck {
 
 
 
+const CACHE_PREFIX = 'ifrag_cache_';
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
+function getLocalCache<T>(key: string): T | null {
+	try {
+		const raw = localStorage.getItem(CACHE_PREFIX + key);
+		if (!raw) return null;
+		const parsed = JSON.parse(raw);
+		if (Date.now() - parsed.timestamp < CACHE_TTL_MS) {
+			return parsed.data as T;
+		}
+		localStorage.removeItem(CACHE_PREFIX + key);
+	} catch {}
+	return null;
+}
+
+function setLocalCache<T>(key: string, data: T): void {
+	try {
+		localStorage.setItem(
+			CACHE_PREFIX + key,
+			JSON.stringify({ timestamp: Date.now(), data }),
+		);
+	} catch {}
+}
+
 export const useUsernameQuickAnalysis = (username: () => string | undefined | null) => {
 	const [debouncedUsername, setDebouncedUsername] = createSignal<string | undefined | null>(
 		username(),
@@ -47,7 +72,12 @@ export const useUsernameQuickAnalysis = (username: () => string | undefined | nu
 			queryKey: ['username', 'quick', u],
 			queryFn: async () => {
 				if (!u) throw new Error('Username is required');
-				return apiFetch<QuickCheck>(`/usernames/quick?u=${encodeURIComponent(u)}`);
+				const cacheKey = `quick_${u.toLowerCase()}`;
+				const cached = getLocalCache<QuickCheck>(cacheKey);
+				if (cached) return cached;
+				const res = await apiFetch<QuickCheck>(`/usernames/quick?u=${encodeURIComponent(u)}`);
+				setLocalCache(cacheKey, res);
+				return res;
 			},
 			enabled: !!u && u.length >= 4,
 			staleTime: 3 * 60 * 1000, // 3 minutes
@@ -88,7 +118,12 @@ export const useUsernameValuation = (username: () => string | undefined | null) 
 			queryKey: ['username', 'valuate', u],
 			queryFn: async () => {
 				if (!u) throw new Error('Username is required');
-				return apiFetch<ValuationResult>(`/usernames/valuate?u=${encodeURIComponent(u)}`);
+				const cacheKey = `valuate_${u.toLowerCase()}`;
+				const cached = getLocalCache<ValuationResult>(cacheKey);
+				if (cached) return cached;
+				const res = await apiFetch<ValuationResult>(`/usernames/valuate?u=${encodeURIComponent(u)}`);
+				setLocalCache(cacheKey, res);
+				return res;
 			},
 			enabled: !!u && u.length >= 4,
 			staleTime: 5 * 60 * 1000,

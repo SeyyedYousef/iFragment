@@ -35,6 +35,7 @@ services:
 
   dragonfly:
     image: 'docker.dragonflydb.io/dragonflydb/dragonfly'
+    command: ["dragonfly", "--cache_mode=true", "--maxmemory=${DRAGONFLY_MAX_MEMORY:-512MB}"]
     ulimits:
       memlock: -1
     restart: unless-stopped

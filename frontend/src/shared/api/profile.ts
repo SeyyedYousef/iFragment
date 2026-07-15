@@ -97,6 +97,14 @@ export const TaskStatusSchema = z.object({
 	is_clan_req: z.boolean().optional(),
 });
 
+export const DailyComboStatusSchema = z.object({
+	is_active: z.boolean(),
+	is_claimed: z.boolean(),
+	reward: z.number(),
+});
+
+export type DailyComboStatus = z.infer<typeof DailyComboStatusSchema>;
+
 export const BoostStatusSchema = z.object({
 	type: z.string(),
 	title: z.string(),
@@ -213,8 +221,32 @@ export const getReferralInfo = (): Promise<ReferralInfo> =>
 export const getDailyStatus = (): Promise<DailyStatus> =>
 	validatedFetch('/profile/daily', DailyStatusSchema);
 
-export const claimDailyReward = (): Promise<DailyStatus> =>
-	validatedFetch('/profile/daily/claim', DailyStatusSchema, { method: 'POST' });
+export async function claimDailyReward(): Promise<DailyStatus> {
+	return await apiFetch<DailyStatus>('/api/v1/profile/daily/claim', {
+		method: 'POST',
+		schema: DailyStatusSchema,
+	});
+}
+
+export async function getDailyComboStatus(): Promise<DailyComboStatus> {
+	return await apiFetch<DailyComboStatus>('/api/v1/profile/daily-combo', {
+		method: 'GET',
+		schema: DailyComboStatusSchema,
+	});
+}
+
+export async function claimDailyCombo(secretWord: string): Promise<boolean> {
+	try {
+		await apiFetch<{ success: boolean }>('/api/v1/profile/daily-combo/claim', {
+			method: 'POST',
+			body: { secret_word: secretWord },
+			schema: z.object({ success: z.boolean() }),
+		});
+		return true;
+	} catch (error) {
+		throw error;
+	}
+}
 
 export const getTasksStatus = (): Promise<TaskStatus[]> =>
 	validatedFetch('/profile/tasks', z.array(TaskStatusSchema));

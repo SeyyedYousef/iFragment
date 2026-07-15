@@ -543,7 +543,7 @@ func (s *ClanService) flushScoresToDB(ctx context.Context) {
 
 	// Sync to Redis ZSET
 	if s.cache != nil && s.cache.Client != nil {
-		rows, err := s.db.Pool.Query(ctx, "SELECT id, total_score FROM clans")
+		rows, err := s.db.Pool.Query(ctx, "SELECT id, total_score FROM clans ORDER BY total_score DESC LIMIT 1000")
 		if err != nil {
 			slog.Error("Failed to fetch clans for Redis sync", "error", err)
 			return

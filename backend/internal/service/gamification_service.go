@@ -46,9 +46,111 @@ func NewGamificationService(db *repository.Database, cache *repository.Cache) *G
 
 	if db.Pool != nil {
 		go s.StartCoinDecayWorker(context.Background())
+		go s.startLeaderboardCacheWorker(context.Background())
+		go s.startTapBatchWorker(context.Background())
 	}
 
 	return s
+}
+
+// startLeaderboardCacheWorker refreshes the leaderboard JSON payload every 5 minutes
+func (s *GamificationService) startLeaderboardCacheWorker(ctx context.Context) {
+	s.computeAndCacheLeaderboard(ctx) // Initial cache
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.computeAndCacheLeaderboard(ctx)
+		}
+	}
+}
+
+// startTapBatchWorker flushes batched taps from Redis to Postgres every 30 seconds
+func (s *GamificationService) startTapBatchWorker(ctx context.Context) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.flushTapBatches(ctx)
+		}
+	}
+}
+
+func (s *GamificationService) flushTapBatches(ctx context.Context) {
+	if s.cache == nil || s.cache.Client == nil || s.db == nil || s.db.Pool == nil {
+		return
+	}
+
+	// Rename key to avoid race conditions during processing
+	batchKey := "profile:taps:batch"
+	processingKey := "profile:taps:batch:processing"
+	err := s.cache.Client.Rename(ctx, batchKey, processingKey).Err()
+	if err != nil && err != redis.Nil {
+		slog.Error("failed to rename tap batch key", "err", err)
+		return
+	} else if err == redis.Nil {
+		return // Nothing to process
+	}
+
+	taps, err := s.cache.Client.HGetAll(ctx, processingKey).Result()
+	if err != nil {
+		slog.Error("failed to get processing tap batch", "err", err)
+		return
+	}
+
+	if len(taps) == 0 {
+		return
+	}
+
+	// Batch update PostgreSQL
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		slog.Error("failed to begin tap batch tx", "err", err)
+		return
+	}
+	defer tx.Rollback(ctx)
+
+	stmt := `
+		UPDATE user_stats 
+		SET airdrop_coins = airdrop_coins + $2,
+			xp = xp + $2
+		WHERE user_id = $1
+	`
+	for userIDStr, tapCountStr := range taps {
+		userID, err := strconv.ParseInt(userIDStr, 10, 64)
+		if err != nil {
+			continue
+		}
+		tapCount, err := strconv.ParseInt(tapCountStr, 10, 64)
+		if err != nil || tapCount <= 0 {
+			continue
+		}
+
+		_, err = tx.Exec(ctx, stmt, userID, tapCount)
+		if err != nil {
+			slog.Error("failed to update taps in db", "user", userID, "err", err)
+		} else {
+			// Update Leaderboard ZSET
+			s.cache.Client.ZIncrBy(ctx, "leaderboard", float64(tapCount), userIDStr)
+			s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID)) // invalidate local profile cache
+		}
+	}
+
+	err = tx.Commit(ctx)
+	if err != nil {
+		slog.Error("failed to commit tap batch tx", "err", err)
+	} else {
+		// Clean up processing key
+		s.cache.Client.Del(ctx, processingKey)
+	}
 }
 
 // StartCoinDecayWorker periodically checks and applies a 2% penalty to inactive users' airdrop coins
@@ -348,6 +450,7 @@ func (s *GamificationService) ClaimDailyReward(ctx context.Context, userID int64
 			Score:  float64(xp),
 			Member: strconv.FormatInt(userID, 10),
 		})
+		s.cache.Client.ZRemRangeByRank(ctx, "leaderboard", 0, -1001)
 		s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
 	}
 
@@ -676,6 +779,7 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 			Score:  float64(xp),
 			Member: strconv.FormatInt(userID, 10),
 		})
+		s.cache.Client.ZRemRangeByRank(ctx, "leaderboard", 0, -1001)
 		s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
 	}
 
@@ -877,19 +981,25 @@ type LeaderboardMember struct {
 // GetLeaderboard retrieves Top 100 members sorted by XP
 func (s *GamificationService) GetLeaderboard(ctx context.Context) ([]LeaderboardMember, error) {
 	if s.cache != nil && s.cache.Client != nil {
-		// Try fallback cache first if sorted set is down or empty
-		cachedFallback, err := s.cache.Client.Get(ctx, "leaderboard_cached_fallback").Result()
-		if err == nil && cachedFallback != "" {
-			var cachedRes []LeaderboardMember
-			if json.Unmarshal([]byte(cachedFallback), &cachedRes) == nil {
-				return cachedRes, nil
+		cached, err := s.cache.Client.Get(ctx, "stats:leaderboard:payload").Result()
+		if err == nil && cached != "" {
+			var res []LeaderboardMember
+			if json.Unmarshal([]byte(cached), &res) == nil {
+				return res, nil
 			}
 		}
+	}
+	return s.computeAndCacheLeaderboard(ctx)
+}
 
+func (s *GamificationService) computeAndCacheLeaderboard(ctx context.Context) ([]LeaderboardMember, error) {
+	// Try fallback cache first if sorted set is down or empty
+	var ids []int64
+	scoreMap := make(map[int64]int)
+	
+	if s.cache != nil && s.cache.Client != nil {
 		membersZ, err := s.cache.Client.ZRevRangeWithScores(ctx, "leaderboard", 0, 99).Result()
 		if err == nil && len(membersZ) > 0 {
-			var ids []int64
-			scoreMap := make(map[int64]int)
 			for _, m := range membersZ {
 				id, err := strconv.ParseInt(m.Member.(string), 10, 64)
 				if err == nil {
@@ -897,108 +1007,105 @@ func (s *GamificationService) GetLeaderboard(ctx context.Context) ([]Leaderboard
 					scoreMap[id] = int(m.Score)
 				}
 			}
+		}
+	}
 
-			// Query database to resolve first_name, username, level, and clan
-			query := `
-				SELECT u.telegram_id, u.first_name, u.username, us.level, c.chat_title as clan_name
-				FROM users u
-				JOIN user_stats us ON us.user_id = u.telegram_id
-				LEFT JOIN clan_members cm ON cm.user_id = u.telegram_id
-				LEFT JOIN clans c ON c.id = cm.clan_id
-				WHERE u.telegram_id = ANY($1)
-			`
-			rows, err := s.db.Pool.Query(ctx, query, ids)
-			if err == nil {
-				defer rows.Close()
-				memberMap := make(map[int64]LeaderboardMember)
-				for rows.Next() {
-					var id int64
-					var fn, username, clanName *string
-					var level int
-					if err := rows.Scan(&id, &fn, &username, &level, &clanName); err == nil {
-						m := LeaderboardMember{
-							UserID: id,
-							Level:  level,
-							XP:     scoreMap[id],
-						}
-						if fn != nil {
-							m.FirstName = *fn
-						}
-						if username != nil {
-							m.Username = *username
-						}
-						if clanName != nil {
-							m.ClanName = *clanName
-						}
-						memberMap[id] = m
-					}
-				}
+	result := make([]LeaderboardMember, 0, 100)
 
-				// Sort according to redis order
-				result := make([]LeaderboardMember, 0, len(ids))
-				rank := 1
-				for _, id := range ids {
-					if m, exists := memberMap[id]; exists {
-						m.Rank = rank
-						result = append(result, m)
-						rank++
+	if len(ids) > 0 {
+		// We have Redis ids, query DB for names
+		query := `
+			SELECT u.telegram_id, u.first_name, u.username, us.level, c.chat_title as clan_name
+			FROM users u
+			JOIN user_stats us ON us.user_id = u.telegram_id
+			LEFT JOIN clan_members cm ON cm.user_id = u.telegram_id
+			LEFT JOIN clans c ON c.id = cm.clan_id
+			WHERE u.telegram_id = ANY($1)
+		`
+		rows, err := s.db.Pool.Query(ctx, query, ids)
+		if err == nil {
+			defer rows.Close()
+			memberMap := make(map[int64]LeaderboardMember)
+			for rows.Next() {
+				var id int64
+				var fn, username, clanName *string
+				var level int
+				if err := rows.Scan(&id, &fn, &username, &level, &clanName); err == nil {
+					m := LeaderboardMember{
+						UserID: id,
+						Level:  level,
+						XP:     scoreMap[id],
 					}
+					if fn != nil {
+						m.FirstName = *fn
+					}
+					if username != nil {
+						m.Username = *username
+					}
+					if clanName != nil {
+						m.ClanName = *clanName
+					}
+					memberMap[id] = m
 				}
-				return result, nil
+			}
+
+			rank := 1
+			for _, id := range ids {
+				if m, exists := memberMap[id]; exists {
+					m.Rank = rank
+					result = append(result, m)
+					rank++
+				}
 			}
 		}
 	}
 
-	// Fallback to database
-	query := `
-		SELECT u.telegram_id, u.first_name, u.username, us.xp, us.level, c.chat_title as clan_name
-		FROM users u
-		JOIN user_stats us ON us.user_id = u.telegram_id
-		LEFT JOIN clan_members cm ON cm.user_id = u.telegram_id
-		LEFT JOIN clans c ON c.id = cm.clan_id
-		ORDER BY us.xp DESC
-		LIMIT 100
-	`
-	rows, err := s.db.Pool.Query(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	result := make([]LeaderboardMember, 0, 100)
-	rank := 1
-	var zsetMembers []redis.Z
-	for rows.Next() {
-		var m LeaderboardMember
-		var fn, username, clanName *string
-		err := rows.Scan(&m.UserID, &fn, &username, &m.XP, &m.Level, &clanName)
+	if len(result) == 0 {
+		// Fallback to pure DB query if redis ZSET was empty
+		query := `
+			SELECT u.telegram_id, u.first_name, u.username, us.xp, us.level, c.chat_title as clan_name
+			FROM users u
+			JOIN user_stats us ON us.user_id = u.telegram_id
+			LEFT JOIN clan_members cm ON cm.user_id = u.telegram_id
+			LEFT JOIN clans c ON c.id = cm.clan_id
+			ORDER BY us.xp DESC
+			LIMIT 100
+		`
+		rows, err := s.db.Pool.Query(ctx, query)
 		if err != nil {
-			continue
+			return nil, err
 		}
-		if fn != nil {
-			m.FirstName = *fn
-		}
-		if username != nil {
-			m.Username = *username
-		}
-		if clanName != nil {
-			m.ClanName = *clanName
-		}
-		m.Rank = rank
-		result = append(result, m)
-		zsetMembers = append(zsetMembers, redis.Z{
-			Score:  float64(m.XP),
-			Member: strconv.FormatInt(m.UserID, 10),
-		})
-		rank++
-	}
+		defer rows.Close()
 
-	// Cache fallback result in Redis with a 60 seconds TTL to protect DB
-	if s.cache != nil && s.cache.Client != nil && len(result) > 0 {
-		if data, err := json.Marshal(result); err == nil {
-			s.cache.Client.Set(ctx, "leaderboard_cached_fallback", data, 60*time.Second)
+		rank := 1
+		var zsetMembers []redis.Z
+		for rows.Next() {
+			var m LeaderboardMember
+			var fn, username, clanName *string
+			err := rows.Scan(&m.UserID, &fn, &username, &m.XP, &m.Level, &clanName)
+			if err != nil {
+				continue
+			}
+			if fn != nil {
+				m.FirstName = *fn
+			}
+			if username != nil {
+				m.Username = *username
+			}
+			if clanName != nil {
+				m.ClanName = *clanName
+			}
+			m.Rank = rank
+			result = append(result, m)
+			rank++
+			zsetMembers = append(zsetMembers, redis.Z{
+				Score:  float64(m.XP),
+				Member: strconv.FormatInt(m.UserID, 10),
+			})
 		}
-		if len(zsetMembers) > 0 {
+
+		// Repair sorted set if needed
+		if s.cache != nil && s.cache.Client != nil && len(zsetMembers) > 0 {
 			s.cache.Client.ZAdd(ctx, "leaderboard", zsetMembers...)
 		}
 	}
@@ -1009,14 +1116,17 @@ func (s *GamificationService) GetLeaderboard(ctx context.Context) ([]Leaderboard
 // GetTotalMiners returns the total number of users
 func (s *GamificationService) GetTotalMiners(ctx context.Context) (int64, error) {
 	if s.cache != nil && s.cache.Client != nil {
-		count, err := s.cache.Client.ZCard(ctx, "leaderboard").Result()
-		if err == nil && count > 0 {
-			return count, nil
+		val, err := s.cache.Client.Get(ctx, "stats:total_miners").Int64()
+		if err == nil && val > 0 {
+			return val, nil
 		}
 	}
 	
 	var count int64
 	err := s.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM users").Scan(&count)
+	if err == nil && s.cache != nil && s.cache.Client != nil {
+		s.cache.Client.Set(ctx, "stats:total_miners", count, 5*time.Minute)
+	}
 	return count, err
 }
 
@@ -1226,6 +1336,90 @@ func (s *GamificationService) ApplyFullEnergy(ctx context.Context, userID int64)
 
 	if err = tx.Commit(ctx); err != nil {
 		return fmt.Errorf("failed to commit: %w", err)
+	}
+
+	if s.cache != nil && s.cache.Client != nil {
+		s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
+	}
+
+	return nil
+}
+
+type DailyComboStatus struct {
+	IsActive   bool  `json:"is_active"`
+	IsClaimed  bool  `json:"is_claimed"`
+	Reward     int64 `json:"reward"`
+}
+
+func (s *GamificationService) GetDailyComboStatus(ctx context.Context, userID int64) (*DailyComboStatus, error) {
+	combo, err := s.db.GetTodayCombo(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if combo == nil {
+		return &DailyComboStatus{IsActive: false}, nil
+	}
+
+	claimed, err := s.db.HasClaimedCombo(ctx, userID, combo.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &DailyComboStatus{
+		IsActive:  true,
+		IsClaimed: claimed,
+		Reward:    combo.RewardAmount,
+	}, nil
+}
+
+func (s *GamificationService) ClaimDailyCombo(ctx context.Context, userID int64, secretWord string) error {
+	combo, err := s.db.GetTodayCombo(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to check today's combo: %w", err)
+	}
+	if combo == nil {
+		return fmt.Errorf("no daily combo is active today")
+	}
+
+	if strings.ToUpper(strings.TrimSpace(secretWord)) != strings.ToUpper(strings.TrimSpace(combo.SecretWord)) {
+		return fmt.Errorf("incorrect secret word")
+	}
+
+	claimed, err := s.db.HasClaimedCombo(ctx, userID, combo.ID)
+	if err != nil {
+		return fmt.Errorf("failed to verify claim status: %w", err)
+	}
+	if claimed {
+		return fmt.Errorf("you have already claimed today's combo")
+	}
+
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO user_daily_combo_claims (user_id, combo_id)
+		VALUES ($1, $2)
+	`, userID, combo.ID)
+	if err != nil {
+		return fmt.Errorf("failed to record claim: %w", err)
+	}
+
+	_, err = tx.Exec(ctx, `
+		UPDATE user_stats 
+		SET airdrop_coins = COALESCE(airdrop_coins, 0) + $2,
+		    total_coins_earned = COALESCE(total_coins_earned, 0) + $2,
+		    xp = COALESCE(xp, 0) + $2
+		WHERE user_id = $1
+	`, userID, combo.RewardAmount)
+	if err != nil {
+		return fmt.Errorf("failed to grant reward: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("transaction commit failed: %w", err)
 	}
 
 	if s.cache != nil && s.cache.Client != nil {

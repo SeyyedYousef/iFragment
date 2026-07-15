@@ -337,8 +337,12 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 		"tags", fmt.Sprintf("%v", tags),
 	)
 
-	// 5. Cache
+	// 5. Cache with bounds safety
 	e.mu.Lock()
+	if len(e.cache) >= 5000 {
+		e.cache = make(map[string]*SemanticResult)
+		e.times = make(map[string]time.Time)
+	}
 	e.cache[username] = result
 	e.times[username] = time.Now()
 	e.mu.Unlock()

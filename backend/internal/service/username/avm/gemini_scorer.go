@@ -107,8 +107,12 @@ func (g *GeminiScorer) Score(ctx context.Context, username string) *GeminiResult
 	prompt := fmt.Sprintf(geminiScorerPrompt, lower)
 	result := g.callWithFallback(ctx, prompt)
 
-	// 3. Cache result
+	// 3. Cache result with bounds safety
 	g.cacheMutex.Lock()
+	if len(g.cache) >= 5000 {
+		g.cache = make(map[string]*GeminiResult)
+		g.cacheTime = make(map[string]time.Time)
+	}
 	g.cache[lower] = result
 	g.cacheTime[lower] = time.Now()
 	g.cacheMutex.Unlock()

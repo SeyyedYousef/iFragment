@@ -183,6 +183,50 @@ func (h *GamificationHandler) GetLeaderboard(w http.ResponseWriter, r *http.Requ
 	}
 }
 
+func (h *GamificationHandler) GetDailyComboStatus(w http.ResponseWriter, r *http.Request) {
+	userID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
+		return
+	}
+
+	status, err := h.gamificationService.GetDailyComboStatus(r.Context(), userID)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to get combo status", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(status); err != nil {
+		slog.Error("failed to encode combo status", "error", err)
+	}
+}
+
+func (h *GamificationHandler) ClaimDailyCombo(w http.ResponseWriter, r *http.Request) {
+	userID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
+		return
+	}
+
+	var req struct {
+		SecretWord string `json:"secret_word"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid request", err)
+		return
+	}
+
+	err = h.gamificationService.ClaimDailyCombo(r.Context(), userID, req.SecretWord)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"success": true}`))
+}
+
 func (h *GamificationHandler) GetGlobalClans(w http.ResponseWriter, r *http.Request) {
 	clans, err := h.gamificationService.GetGlobalClans(r.Context())
 	if err != nil {

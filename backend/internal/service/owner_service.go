@@ -247,6 +247,19 @@ func (s *OwnerService) GetDashboardStats(ctx context.Context) (*model.OwnerDashb
 	return stats, nil
 }
 
+func (s *OwnerService) AdminListCombos(ctx context.Context) ([]repository.DailyCombo, error) {
+	return s.repo.DB().AdminListCombos(ctx)
+}
+
+func (s *OwnerService) AdminCreateCombo(ctx context.Context, dateStr string, word string, reward int64) error {
+	date, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		return fmt.Errorf("invalid date format: %v", err)
+	}
+	return s.repo.DB().AdminUpsertCombo(ctx, date, word, reward)
+}
+
+
 func (s *OwnerService) SetUserBan(ctx context.Context, ownerID int64, targetUserID int64, banType string, reason string, durationSeconds int64, ip string, ua string) error {
 	var expiresAt *time.Time
 	if durationSeconds > 0 {

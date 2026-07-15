@@ -222,6 +222,7 @@ func main() {
 	})
 	// CORS must be executed before rate limiter and auth
 	r.Use(c.Handler)
+	r.Use(chiMiddleware.Compress(5))
 
 	r.Use(middleware.SecurityHeaders)
 
@@ -603,6 +604,8 @@ func main() {
 					r.Post("/boosts/daily/full-energy", gamificationHandler.ApplyFullEnergy)
 					r.Post("/mining/collect", gamificationHandler.CollectOfflineMining)
 					r.Get("/leaderboard", gamificationHandler.GetLeaderboard)
+					r.Get("/daily-combo", gamificationHandler.GetDailyComboStatus)
+					r.Post("/daily-combo/claim", gamificationHandler.ClaimDailyCombo)
 
 					// Clan routes
 					r.Get("/clan", clanHandler.GetClanDetails)
@@ -660,6 +663,10 @@ func main() {
 				r.With(middleware.RequirePermission(middleware.PermQuestManage)).Post("/quests", ownerHandler.CreateQuest)
 				r.With(middleware.RequirePermission(middleware.PermQuestManage)).Put("/quests", ownerHandler.UpdateQuest)
 				r.With(middleware.RequirePermission(middleware.PermQuestManage)).Delete("/quests", ownerHandler.DeleteQuest)
+
+				// Daily Combos
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/combos", ownerHandler.AdminListCombos)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Post("/combos", ownerHandler.AdminCreateCombo)
 
 				r.With(middleware.RequirePermission(middleware.PermUserbotManage)).Get("/userbots", ownerHandler.ListUserbots)
 				r.With(middleware.RequirePermission(middleware.PermUserbotManage)).Delete("/userbots/{id}", ownerHandler.DeleteUserbot)

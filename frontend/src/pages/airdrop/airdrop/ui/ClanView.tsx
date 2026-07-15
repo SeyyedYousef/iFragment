@@ -5,7 +5,7 @@ import { setUserClan, userClan, currentLeague, CLAN_LEAGUES } from '@/shared/sto
 import { t } from '@/shared/i18n/index.js';
 import { API_CONFIG } from '@/shared/api/config.js';
 
-export const ClanView: Component = () => {
+export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) => {
 	const [usernameInput, setUsernameInput] = createSignal('');
 	const [showSearch, setShowSearch] = createSignal(false);
 	const [loading, setLoading] = createSignal(false);
@@ -228,6 +228,17 @@ export const ClanView: Component = () => {
 								</Show>
 							</Show>
 						</div>
+						
+						{/* Open Leaderboard Button for Non-Clan Users */}
+						<div class="w-full mt-4">
+							<button
+								onClick={() => props.onOpenLeaderboard?.()}
+								class="w-full bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 text-amber-500 font-bold py-3.5 rounded-[16px] active:scale-[0.98] transition-transform text-[15px] flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(251,191,36,0.15)]"
+							>
+								<span class="text-[18px]">🏆</span>
+								{t('gamification.leaderboard' as any, { defaultValue: 'View Global Leaderboard' })}
+							</button>
+						</div>
 					</div>
 				}
 			>
@@ -338,6 +349,17 @@ export const ClanView: Component = () => {
 												{t('airdropFinal.clan.boost', { defaultValue: 'Boost' })}
 											</button>
 										</div>
+									</div>
+
+									{/* Open Leaderboard Button */}
+									<div class="px-4 pb-4">
+										<button
+											onClick={() => props.onOpenLeaderboard?.()}
+											class="w-full bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 text-amber-500 font-bold py-3.5 rounded-[16px] active:scale-[0.98] transition-transform text-[15px] flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(251,191,36,0.15)]"
+										>
+											<span class="text-[18px]">🏆</span>
+											{t('gamification.leaderboard' as any, { defaultValue: 'View Global Leaderboard' })}
+										</button>
 									</div>
 								</div>
 

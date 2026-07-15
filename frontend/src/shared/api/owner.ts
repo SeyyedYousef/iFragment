@@ -9,6 +9,13 @@ export interface ManagedUserbot {
 	updated_at: string;
 }
 
+export interface AdminDailyCombo {
+	id: number;
+	active_date: string;
+	secret_word: string;
+	reward_amount: number;
+}
+
 export const ownerApi = {
 	listUserbots: () => apiClient.get<ManagedUserbot[]>('/owner/userbots').then((r: any) => r.data),
 
@@ -21,4 +28,8 @@ export const ownerApi = {
 			.then((r: any) => r.data),
 
 	deleteUserbot: (id: string) => apiClient.delete(`/owner/userbots/${id}`).then((r: any) => r.data),
+
+	listCombos: () => apiClient.get<AdminDailyCombo[]>('/owner/combos').then((r: any) => r.data),
+	createCombo: (date: string, word: string, reward: number) => 
+		apiClient.post('/owner/combos', { date, secret_word: word, reward_amount: reward }).then((r: any) => r.data),
 };
