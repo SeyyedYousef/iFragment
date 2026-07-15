@@ -2,12 +2,11 @@ import { createQuery } from '@tanstack/solid-query';
 import { Component, createSignal, For, Show } from 'solid-js';
 import { fetchLeaderboard } from '@/shared/api/airdrop.js';
 import { getTopClans, getProfileStats } from '@/shared/api/profile.js';
-import { LEAGUES, CLAN_LEAGUES } from '@/shared/store/airdrop.js';
+import { LEAGUES } from '@/shared/store/airdrop.js';
 import { t } from '@/shared/i18n/index.js';
 import { API_CONFIG } from '@/shared/api/config.js';
 
 export const LeaderboardView: Component = () => {
-	// Defaults to Bronze (index 0) or whatever league we want
 	const [selectedLeagueIndex, setSelectedLeagueIndex] = createSignal(0);
 	const [activeTab, setActiveTab] = createSignal<'miners' | 'squads'>('miners');
 	const [activeSubTab, setActiveSubTab] = createSignal<'day' | 'week'>('day');
@@ -32,8 +31,6 @@ export const LeaderboardView: Component = () => {
 		staleTime: 30_000,
 		refetchOnWindowFocus: false,
 	}));
-
-	const getLeagueColor = (name: string) => LEAGUES.find((l) => l.name === name)?.color || '#8e8e93';
 
 	const currentLeague = () => LEAGUES[selectedLeagueIndex()] || LEAGUES[0];
 
@@ -66,218 +63,307 @@ export const LeaderboardView: Component = () => {
 		return score.toLocaleString('en-US');
 	};
 
+	const progressPercent = () => {
+		const currentScore = statsQuery.data?.xp || 0;
+		const minScore = currentLeague().minScore;
+		const nextScore = LEAGUES[Math.min(LEAGUES.length - 1, selectedLeagueIndex() + 1)].minScore;
+		if (nextScore <= minScore) return 100;
+		const pct = ((currentScore - minScore) / (nextScore - minScore)) * 100;
+		return Math.min(100, Math.max(0, Math.round(pct)));
+	};
+
+	const getRankBadge = (index: number) => {
+		if (index === 0) return { bg: 'bg-amber-400/20 text-amber-300 border-amber-400/40', icon: '👑', rankText: '1' };
+		if (index === 1) return { bg: 'bg-slate-300/20 text-slate-200 border-slate-300/40', icon: '🥈', rankText: '2' };
+		if (index === 2) return { bg: 'bg-amber-700/20 text-amber-500 border-amber-600/40', icon: '🥉', rankText: '3' };
+		return { bg: 'bg-white/5 text-[#8e8e93] border-white/5', icon: null, rankText: (index + 1).toLocaleString('en-US') };
+	};
+
 	return (
 		<div 
-			class="flex-1 overflow-y-auto no-scrollbar animate-fade-in relative" 
-			style={{ background: '#000' }}
+			class="flex-1 overflow-y-auto no-scrollbar animate-fade-in relative bg-[#090a0f] pb-24" 
 			dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
 		>
-			{/* Top ambient glow based on league color */}
+			{/* Dynamic Ambient Background Glow */}
 			<div 
-				class="absolute top-0 left-0 right-0 h-[400px] pointer-events-none transition-colors duration-500 z-0"
+				class="absolute top-0 left-0 right-0 h-[450px] pointer-events-none transition-all duration-700 z-0 opacity-40"
 				style={{
-					background: `radial-gradient(ellipse at top, ${currentLeague().color}40 0%, transparent 70%)`
+					background: `radial-gradient(circle at 50% 20%, ${currentLeague().color} 0%, transparent 65%)`
 				}}
 			/>
 
-			<div class="relative z-10 flex flex-col pt-4">
-				{/* Top Stats Capsule */}
-				<div class="flex justify-center px-4 mb-2">
-					<div class="bg-white/10 backdrop-blur-md rounded-full px-4 py-2 flex items-center justify-between w-full max-w-[320px] shadow-sm border border-white/5">
-						<div class="flex items-center gap-1.5">
-							<span class="text-[14px]">🪙</span>
-							<span class="text-white font-bold text-[13px]">
-								{t('airdropFinal.leaderboard.totalMiners', { count: formatScore(leaderboardQuery.data?.total_miners || 20043793), defaultValue: '20,043,793 Fragmenters' })}
+			<div class="relative z-10 flex flex-col pt-3">
+				{/* Top Global Miners Pill */}
+				<div class="flex justify-center px-4 mb-4">
+					<div class="bg-white/5 backdrop-blur-xl rounded-full px-4 py-2 flex items-center justify-between w-full max-w-[340px] border border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
+						<div class="flex items-center gap-2">
+							<span class="text-base animate-pulse">🪙</span>
+							<span class="text-white font-semibold text-xs tracking-wide">
+								{(() => {
+									const raw = (t('airdropFinal.leaderboard.totalMiners' as any) as string) || '{count} Fragmenters';
+									return raw.replace('{count}', formatScore(leaderboardQuery.data?.total_miners || 20043793));
+								})()}
 							</span>
 						</div>
-						<div class="flex items-center gap-0.5 text-white/70">
-							<span class="text-[13px] font-medium">{t('airdropFinal.leaderboard.stats', { defaultValue: 'Stats' })}</span>
-							<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+						<div class="flex items-center gap-1 text-white/50 hover:text-white transition-colors cursor-pointer text-xs font-medium">
+							<span>{t('airdropFinal.leaderboard.stats', { defaultValue: 'Stats' })}</span>
+							<span class="material-symbols-outlined text-sm">chevron_right</span>
 						</div>
 					</div>
 				</div>
 
-				{/* Big Trophy */}
-				<div class="flex justify-center mt-6 mb-4">
-					<div class="relative">
-						<div class="absolute inset-0 blur-2xl opacity-50" style={{ background: currentLeague().color }}></div>
-						<span class="text-[120px] leading-none drop-shadow-2xl relative z-10">🏆</span>
+				{/* League Emblem Presentation */}
+				<div class="flex justify-center my-4">
+					<div class="relative flex items-center justify-center">
+						<div 
+							class="absolute inset-0 rounded-full blur-3xl opacity-60 animate-pulse" 
+							style={{ background: currentLeague().color }}
+						/>
+						<div class="relative z-10 w-28 h-28 flex items-center justify-center drop-shadow-[0_10px_25px_rgba(0,0,0,0.5)]">
+							<span class="text-[90px] leading-none transform hover:scale-105 transition-transform duration-300">🏆</span>
+						</div>
 					</div>
 				</div>
 
-				{/* League Slider */}
-				<div class="flex items-center justify-center gap-6 mt-2 mb-1 px-4">
+				{/* League Navigation Carousel */}
+				<div class="flex items-center justify-between px-6 mt-1 mb-2">
 					<button 
 						onClick={handlePrevLeague} 
 						disabled={selectedLeagueIndex() === 0}
-						class={`p-2 transition-all ${selectedLeagueIndex() === 0 ? 'opacity-30' : 'active:scale-90 opacity-80 hover:opacity-100'}`}
+						class={`w-10 h-10 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md flex items-center justify-center transition-all ${
+							selectedLeagueIndex() === 0 ? 'opacity-30 cursor-not-allowed' : 'active:scale-95 hover:bg-white/10 opacity-90'
+						}`}
 					>
-						<span class="material-symbols-outlined text-white text-[24px]">chevron_left</span>
+						<span class="material-symbols-outlined text-white text-xl">chevron_left</span>
 					</button>
 
-					<h2 class="text-white font-bold text-[28px] tracking-tight min-w-[160px] text-center" style={{ textShadow: `0 2px 10px ${currentLeague().color}40` }}>
-						{currentLeague().name} {t('airdropFinal.leaderboard.league', { defaultValue: 'league' })}
-					</h2>
+					<div class="flex flex-col items-center">
+						<h2 
+							class="text-white font-black text-2xl tracking-wide uppercase text-center" 
+							style={{ textShadow: `0 0 20px ${currentLeague().color}80` }}
+						>
+							{currentLeague().name} {t('airdropFinal.leaderboard.league', { defaultValue: 'LEAGUE' })}
+						</h2>
+					</div>
 
 					<button 
 						onClick={handleNextLeague}
 						disabled={selectedLeagueIndex() === LEAGUES.length - 1}
-						class={`p-2 transition-all ${selectedLeagueIndex() === LEAGUES.length - 1 ? 'opacity-30' : 'active:scale-90 opacity-80 hover:opacity-100'}`}
+						class={`w-10 h-10 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md flex items-center justify-center transition-all ${
+							selectedLeagueIndex() === LEAGUES.length - 1 ? 'opacity-30 cursor-not-allowed' : 'active:scale-95 hover:bg-white/10 opacity-90'
+						}`}
 					>
-						<span class="material-symbols-outlined text-white text-[24px]">chevron_right</span>
+						<span class="material-symbols-outlined text-white text-xl">chevron_right</span>
 					</button>
 				</div>
 
-				{/* Progress Text & Bar */}
+				{/* Animated XP Progress Bar */}
 				<div class="flex flex-col items-center px-8 mb-6">
-					<span class="text-white/60 text-[13px] font-medium mb-2 font-mono">
-						{(() => {
-							const currentScore = statsQuery.data?.xp || 0;
-							const maxScore = LEAGUES[Math.min(LEAGUES.length - 1, selectedLeagueIndex() + 1)].minScore;
-							return `${currentScore.toLocaleString()} / ${formatScore(maxScore)}`;
-						})()}
-					</span>
-					<div class="w-full max-w-[200px] h-2 bg-white/10 rounded-full overflow-hidden">
+					<div class="flex items-center justify-between w-full max-w-[240px] text-xs font-mono text-white/70 mb-1.5" dir="ltr">
+						<span>
+							{(statsQuery.data?.xp || 0).toLocaleString('en-US')}
+						</span>
+						<span class="text-white/40">/</span>
+						<span>
+							{formatScore(LEAGUES[Math.min(LEAGUES.length - 1, selectedLeagueIndex() + 1)].minScore)}
+						</span>
+					</div>
+					<div class="w-full max-w-[240px] h-2.5 bg-white/10 rounded-full p-0.5 backdrop-blur-sm border border-white/5">
 						<div 
-							class="h-full rounded-full transition-all duration-500"
+							class="h-full rounded-full transition-all duration-700 ease-out relative overflow-hidden"
 							style={{ 
-								width: '35%', // Mock progress
-								background: currentLeague().color,
-								boxShadow: `0 0 10px ${currentLeague().color}`
+								width: `${progressPercent()}%`, 
+								background: `linear-gradient(90deg, ${currentLeague().color}, #ffffff)`,
+								boxShadow: `0 0 12px ${currentLeague().color}`
 							}}
-						/>
+						>
+							<div class="absolute inset-0 bg-white/20 animate-pulse" />
+						</div>
 					</div>
 				</div>
 
-				{/* Main Tabs (Miners / Squads) */}
-				<div class="px-4 mb-4">
-					<div class="w-full bg-[#1c1c1e] rounded-[18px] p-1 flex">
+				{/* Primary Segmented Tabs (Miners / Squads) */}
+				<div class="px-4 mb-3">
+					<div class="w-full bg-[#14151f] rounded-2xl p-1.5 flex border border-white/5 shadow-inner">
 						<button 
 							onClick={() => setActiveTab('miners')}
-							class={`flex-1 py-2.5 rounded-[14px] text-[15px] font-bold transition-all ${activeTab() === 'miners' ? 'bg-white text-black shadow-sm' : 'text-[#8e8e93]'}`}
+							class={`flex-1 py-3 rounded-xl text-xs font-bold tracking-wider uppercase transition-all duration-300 ${
+								activeTab() === 'miners' 
+									? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 border border-blue-400/30' 
+									: 'text-white/60 hover:text-white'
+							}`}
 						>
-							{t('airdropFinal.leaderboard.miners', { defaultValue: 'Miners' })}
+							{t('airdropFinal.leaderboard.miners', { defaultValue: 'MINERS' })}
 						</button>
 						<button 
 							onClick={() => setActiveTab('squads')}
-							class={`flex-1 py-2.5 rounded-[14px] text-[15px] font-bold transition-all ${activeTab() === 'squads' ? 'bg-white text-black shadow-sm' : 'text-[#8e8e93]'}`}
+							class={`flex-1 py-3 rounded-xl text-xs font-bold tracking-wider uppercase transition-all duration-300 ${
+								activeTab() === 'squads' 
+									? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 border border-blue-400/30' 
+									: 'text-white/60 hover:text-white'
+							}`}
 						>
-							{t('airdropFinal.leaderboard.squads', { defaultValue: 'Squads' })}
+							{t('airdropFinal.leaderboard.squads', { defaultValue: 'SQUADS' })}
 						</button>
 					</div>
 				</div>
 
-				{/* Sub Tabs and List Background */}
-				<div class="bg-[#141415] rounded-t-[32px] pt-5 px-4 min-h-[400px] pb-20 border-t border-white/5 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] flex flex-col">
+				{/* Main Content Area */}
+				<div class="bg-[#0f1017] rounded-t-[32px] pt-4 px-4 min-h-[420px] border-t border-white/10 shadow-[0_-10px_35px_rgba(0,0,0,0.6)] flex flex-col">
 					
-					{/* Sub Tabs (Day / Week) */}
-					<div class="flex gap-6 border-b border-white/10 pb-3 mb-2 px-2">
-						<button 
-							onClick={() => setActiveSubTab('day')}
-							class={`text-[15px] font-bold transition-all relative ${activeSubTab() === 'day' ? 'text-white' : 'text-[#8e8e93]'}`}
-						>
-							{t('airdropFinal.leaderboard.day', { defaultValue: 'Day' })}
-							{activeSubTab() === 'day' && (
-								<div class="absolute -bottom-3.5 left-0 right-0 h-1 bg-white rounded-full"></div>
-							)}
-						</button>
-						<button 
-							onClick={() => setActiveSubTab('week')}
-							class={`text-[15px] font-bold transition-all relative ${activeSubTab() === 'week' ? 'text-white' : 'text-[#8e8e93]'}`}
-						>
-							{t('airdropFinal.leaderboard.week', { defaultValue: 'Week' })}
-							{activeSubTab() === 'week' && (
-								<div class="absolute -bottom-3.5 left-0 right-0 h-1 bg-white rounded-full"></div>
-							)}
-						</button>
+					{/* Sub-tabs Toggle (Day / Week) */}
+					<div class="flex items-center justify-center mb-4">
+						<div class="bg-[#181924] rounded-full p-1 border border-white/5 flex gap-1 w-full max-w-[260px]">
+							<button 
+								onClick={() => setActiveSubTab('day')}
+								class={`flex-1 py-1.5 rounded-full text-xs font-bold transition-all duration-300 ${
+									activeSubTab() === 'day' 
+										? 'bg-white/15 text-white shadow-sm border border-white/10' 
+										: 'text-white/40 hover:text-white/70'
+								}`}
+							>
+								{(t('airdropFinal.leaderboard.day' as any) as string) || 'Daily'}
+							</button>
+							<button 
+								onClick={() => setActiveSubTab('week')}
+								class={`flex-1 py-1.5 rounded-full text-xs font-bold transition-all duration-300 ${
+									activeSubTab() === 'week' 
+										? 'bg-white/15 text-white shadow-sm border border-white/10' 
+										: 'text-white/40 hover:text-white/70'
+								}`}
+							>
+								{(t('airdropFinal.leaderboard.week' as any) as string) || 'Weekly'}
+							</button>
+						</div>
 					</div>
 
-					{/* List View */}
-					<div class="flex-1 w-full pt-2">
+					{/* Leaderboard Lists */}
+					<div class="flex-1 w-full space-y-2">
 						<Show when={activeTab() === 'miners'}>
-							{/* MINERS LIST */}
 							<Show
 								when={!leaderboardQuery.isLoading}
 								fallback={
-									<div class="flex items-center justify-center py-16">
-										<div class="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+									<div class="flex flex-col items-center justify-center py-16 gap-3">
+										<div class="w-8 h-8 border-3 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+										<span class="text-xs text-white/40 font-medium">Loading Miners...</span>
 									</div>
 								}
 							>
 								<For each={filteredMiners()} fallback={
-									<div class="text-[#8e8e93] text-[14px] text-center py-8">{t('airdropFinal.leaderboard.noMiners', { defaultValue: 'No miners found in this league.' })}</div>
+									<div class="text-white/40 text-xs text-center py-12 bg-white/5 rounded-2xl border border-white/5">
+										{t('airdropFinal.leaderboard.noMiners', { defaultValue: 'No miners found in this league.' })}
+									</div>
 								}>
-									{(entry, i) => (
-										<div class="flex items-center justify-between py-3.5 active:bg-white/5 rounded-xl px-2 transition-colors">
-											<div class="flex items-center gap-3">
-												<div class="w-6 text-left font-bold text-[#8e8e93] text-[14px]">
-													{i() + 1}
-												</div>
-												{/* Avatar placeholder / initials */}
-												<div class="w-10 h-10 rounded-full bg-[#1c1c1e] flex items-center justify-center text-white font-bold border border-white/5">
-													{entry.name.slice(0, 2).toUpperCase()}
+									{(entry, i) => {
+										const badge = () => getRankBadge(i());
+										return (
+											<div 
+												class={`flex items-center justify-between p-3 rounded-2xl border transition-all duration-200 ${
+													i() < 3 
+														? 'bg-gradient-to-r from-white/10 via-white/5 to-transparent border-white/15 shadow-md' 
+														: 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06]'
+												}`}
+											>
+												<div class="flex items-center gap-3">
+													{/* Rank Badge */}
+													<div class={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs border ${badge().bg}`}>
+														{badge().icon || badge().rankText}
+													</div>
+
+													{/* Avatar Frame */}
+													<div class="relative">
+														<div class="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center text-white font-bold border border-white/10 shadow-sm">
+															{entry.name.slice(0, 2).toUpperCase()}
+														</div>
+													</div>
+
+													{/* User Info */}
+													<div class="flex flex-col">
+														<span class="text-white font-semibold text-sm truncate max-w-[140px]">
+															{entry.name}
+														</span>
+														<span class="text-white/40 text-[10px]">
+															{currentLeague().name} Miner
+														</span>
+													</div>
 												</div>
 
-												{/* Name & Rank */}
-												<div class="flex flex-col">
-													<div class="text-white font-medium text-[16px] truncate max-w-[150px]">{entry.name}</div>
+												{/* Score Badge */}
+												<div class="flex items-center gap-1.5 bg-white/5 px-3 py-1.5 rounded-xl border border-white/5">
+													<span class="text-xs">🪙</span>
+													<span class="text-white font-black text-xs font-mono" dir="ltr">
+														{formatScore(entry.score)}
+													</span>
 												</div>
 											</div>
-
-											{/* Score */}
-											<div class="flex items-center gap-4">
-												<div class="text-white font-bold text-[15px]">{formatScore(entry.score)}</div>
-											</div>
-										</div>
-									)}
+										);
+									}}
 								</For>
 							</Show>
 						</Show>
 
 						<Show when={activeTab() === 'squads'}>
-							{/* SQUADS LIST */}
 							<Show
 								when={!clansQuery.isLoading}
 								fallback={
-									<div class="flex items-center justify-center py-16">
-										<div class="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+									<div class="flex flex-col items-center justify-center py-16 gap-3">
+										<div class="w-8 h-8 border-3 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+										<span class="text-xs text-white/40 font-medium">Loading Squads...</span>
 									</div>
 								}
 							>
 								<For each={filteredSquads()} fallback={
-									<div class="text-[#8e8e93] text-[14px] text-center py-8">{t('airdropFinal.leaderboard.noSquads', { defaultValue: 'No squads found in this league.' })}</div>
+									<div class="text-white/40 text-xs text-center py-12 bg-white/5 rounded-2xl border border-white/5">
+										{t('airdropFinal.leaderboard.noSquads', { defaultValue: 'No squads found in this league.' })}
+									</div>
 								}>
 									{(clan, i) => {
 										const score = clan.total_score || clan.members_count * 1500;
+										const badge = () => getRankBadge(i());
 										return (
-											<div class="flex items-center justify-between py-3.5 active:bg-white/5 rounded-xl px-2 transition-colors">
+											<div 
+												class={`flex items-center justify-between p-3 rounded-2xl border transition-all duration-200 ${
+													i() < 3 
+														? 'bg-gradient-to-r from-white/10 via-white/5 to-transparent border-white/15 shadow-md' 
+														: 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06]'
+												}`}
+											>
 												<div class="flex items-center gap-3">
-													<div class="w-6 text-left font-bold text-[#8e8e93] text-[14px]">
-														{i() + 1}
+													{/* Rank Badge */}
+													<div class={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs border ${badge().bg}`}>
+														{badge().icon || badge().rankText}
 													</div>
-													{/* Photo */}
-													<div class="w-10 h-10 rounded-xl bg-[#1c1c1e] overflow-hidden flex items-center justify-center border border-white/5 p-0.5">
+
+													{/* Clan Photo / Icon */}
+													<div class="w-10 h-10 rounded-xl bg-[#1c1d2b] overflow-hidden flex items-center justify-center border border-white/10 shadow-sm p-0.5">
 														{clan.channel_photo ? (
 															<img
 																src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan.channel_username}`}
 																alt={clan.chat_title}
-																class="w-full h-full rounded-[10px] object-cover"
+																class="w-full h-full rounded-[8px] object-cover"
 															/>
 														) : (
 															<span class="text-lg">🛡️</span>
 														)}
 													</div>
 
-													{/* Name */}
+													{/* Squad Info */}
 													<div class="flex flex-col">
-														<div class="text-white font-medium text-[16px] truncate max-w-[140px]">{clan.chat_title}</div>
-														<div class="text-[#8e8e93] text-[13px] mt-0.5">{clan.members_count} {t('airdropFinal.leaderboard.players', { defaultValue: 'players' })}</div>
+														<span class="text-white font-semibold text-sm truncate max-w-[130px]">
+															{clan.chat_title}
+														</span>
+														<span class="text-white/40 text-[10px]" dir="ltr">
+															{clan.members_count.toLocaleString('en-US')} {t('airdropFinal.leaderboard.players', { defaultValue: 'players' })}
+														</span>
 													</div>
 												</div>
 
-												{/* Score */}
-												<div class="flex items-center gap-4">
-													<div class="text-white font-bold text-[15px]">{formatScore(score)}</div>
+												{/* Score Badge */}
+												<div class="flex items-center gap-1.5 bg-white/5 px-3 py-1.5 rounded-xl border border-white/5">
+													<span class="text-xs">🪙</span>
+													<span class="text-white font-black text-xs font-mono" dir="ltr">
+														{formatScore(score)}
+													</span>
 												</div>
 											</div>
 										);
@@ -286,7 +372,32 @@ export const LeaderboardView: Component = () => {
 							</Show>
 						</Show>
 					</div>
+				</div>
+			</div>
 
+			{/* Sticky My Rank Dock at Bottom */}
+			<div class="fixed bottom-0 left-0 right-0 p-3 bg-[#0a0b12]/90 backdrop-blur-xl border-t border-white/10 z-30 shadow-[0_-8px_30px_rgba(0,0,0,0.8)]">
+				<div class="flex items-center justify-between max-w-md mx-auto px-1">
+					<div class="flex items-center gap-3">
+						<div class="w-9 h-9 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-md border border-blue-400/30">
+							#{(statsQuery.data?.globalRank || 999).toLocaleString('en-US')}
+						</div>
+						<div class="flex flex-col">
+							<span class="text-white font-bold text-xs">
+								Your Rank Position
+							</span>
+							<span class="text-white/50 text-[10px]">
+								Keep tapping to level up!
+							</span>
+						</div>
+					</div>
+
+					<div class="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-xl border border-white/10">
+						<span class="text-xs">⚡</span>
+						<span class="text-white font-black text-xs font-mono" dir="ltr">
+							{(statsQuery.data?.xp || 0).toLocaleString('en-US')}
+						</span>
+					</div>
 				</div>
 			</div>
 		</div>
