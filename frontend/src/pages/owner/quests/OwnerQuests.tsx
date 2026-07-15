@@ -280,6 +280,27 @@ export const OwnerQuests: Component = () => {
 												<p class="text-[10px] text-white/50 font-bold font-mono mt-1 select-all">
 													{q.key}
 												</p>
+												
+												<Show when={q.type === 'channel_join' && q.config?.channel_username}>
+													<div class="mt-2 text-xs font-bold text-[#3390ec] flex items-center gap-1">
+														<span class="material-symbols-outlined text-[14px]">campaign</span>
+														{q.config.channel_username}
+													</div>
+												</Show>
+												<Show when={(q.type === 'link' || q.type === 'social') && q.config?.url}>
+													<div class="mt-2 text-xs font-bold text-[#5ac8fa] flex items-center gap-1">
+														<span class="material-symbols-outlined text-[14px]">link</span>
+														<a href={q.config.url} target="_blank" class="truncate max-w-[150px] hover:underline">
+															{q.config.url}
+														</a>
+													</div>
+												</Show>
+												<Show when={q.type === 'quiz' && q.config?.quiz_question}>
+													<div class="mt-2 text-xs font-bold text-[#F5A623] flex items-center gap-1 truncate max-w-[200px]">
+														<span class="material-symbols-outlined text-[14px]">help</span>
+														{q.config.quiz_question}
+													</div>
+												</Show>
 											</div>
 
 											<div class="flex gap-2">

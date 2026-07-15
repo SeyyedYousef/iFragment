@@ -390,9 +390,11 @@ func (s *GamificationService) GetTasksStatus(ctx context.Context, userID int64) 
 	var level int
 	var referrals int
 	var clanID int64
+	var isPremium bool
 	_ = s.db.Pool.QueryRow(ctx, "SELECT COALESCE(total_taps, 0), COALESCE(level, 1) FROM user_stats WHERE user_id = $1", userID).Scan(&taps, &level)
 	_ = s.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM users WHERE referred_by = $1", userID).Scan(&referrals)
 	_ = s.db.Pool.QueryRow(ctx, "SELECT COALESCE(clan_id, 0) FROM clan_members WHERE user_id = $1 LIMIT 1", userID).Scan(&clanID)
+	_ = s.db.Pool.QueryRow(ctx, "SELECT COALESCE(is_premium, false) FROM users WHERE telegram_id = $1", userID).Scan(&isPremium)
 
 	results := make([]UserTaskStatus, 0, len(activeQuests))
 	for _, q := range activeQuests {
@@ -414,8 +416,12 @@ func (s *GamificationService) GetTasksStatus(ctx context.Context, userID int64) 
 			q.ProgressTarget = 3
 		case "telegram_premium":
 			q.IsPremiumReq = true
-			q.ProgressCurrent = level
-			q.ProgressTarget = 3
+			if isPremium {
+				q.ProgressCurrent = 1
+			} else {
+				q.ProgressCurrent = 0
+			}
+			q.ProgressTarget = 1
 		case "join_clan":
 			q.IsClanReq = true
 			if clanID > 0 {
@@ -428,13 +434,14 @@ func (s *GamificationService) GetTasksStatus(ctx context.Context, userID int64) 
 			}
 			_ = json.Unmarshal(q.Config, &config)
 			q.ActionText = config.ChannelUsername
-			if q.ActionText != "" {
-				if !strings.HasPrefix(q.ActionText, "@") && !strings.HasPrefix(q.ActionText, "-") {
-					q.ActionText = "@" + q.ActionText
-				}
-				channelRaw := strings.TrimPrefix(q.ActionText, "@")
-				q.ActionURL = "https://t.me/" + channelRaw
+			if q.ActionText == "" {
+				q.ActionText = "@ifragment_channel"
 			}
+			if !strings.HasPrefix(q.ActionText, "@") && !strings.HasPrefix(q.ActionText, "-") {
+				q.ActionText = "@" + q.ActionText
+			}
+			channelRaw := strings.TrimPrefix(q.ActionText, "@")
+			q.ActionURL = "https://t.me/" + channelRaw
 		case "link", "social", "campaign":
 			var config struct {
 				URL string `json:"url"`
@@ -514,13 +521,9 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 		}
 	case "telegram_premium":
 		var isPremium bool
-		var level int
-		_ = s.db.Pool.QueryRow(ctx, "SELECT COALESCE(u.is_premium, false), COALESCE(s.level, 1) FROM users u JOIN user_stats s ON u.telegram_id = s.user_id WHERE u.telegram_id = $1", userID).Scan(&isPremium, &level)
+		_ = s.db.Pool.QueryRow(ctx, "SELECT COALESCE(is_premium, false) FROM users WHERE telegram_id = $1", userID).Scan(&isPremium)
 		if !isPremium {
 			return nil, fmt.Errorf("you must have Telegram Premium")
-		}
-		if level < 3 {
-			return nil, fmt.Errorf("you must reach Gold league first to claim the premium reward")
 		}
 	case "channel_join":
 		var config struct {
