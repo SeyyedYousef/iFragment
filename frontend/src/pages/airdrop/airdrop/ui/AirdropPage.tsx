@@ -130,7 +130,7 @@ export const AirdropPage: Component = () => {
 							<span class="material-symbols-outlined text-white text-xl">close</span>
 						</button>
 					</div>
-					<div class="flex-1 overflow-hidden">
+					<div class="flex-1 flex flex-col overflow-hidden">
 						<LeaderboardView />
 					</div>
 				</div>
