@@ -698,9 +698,10 @@ func (s *ModeratorService) GetChatMemberCached(ctx context.Context, tg *telegram
 
 	// High-privilege admin/owner statuses cached for only 15 seconds to mitigate demotion exploit window
 	ttl := 5 * time.Minute
-	if status == "administrator" || status == "creator" {
+	switch status {
+	case "administrator", "creator":
 		ttl = 15 * time.Second
-	} else if status == "left" || status == "kicked" || status == "" {
+	case "left", "kicked", "":
 		// Short TTL for non-members so they aren't blocked for 5 minutes after joining
 		ttl = 15 * time.Second
 	}
@@ -1008,7 +1009,7 @@ func (s *ModeratorService) ResolveAction(penalty string) string {
 	return penalty
 }
 
-func (s *ModeratorService) handleAutoWarning(ctx context.Context, groupID uuid.UUID, userID int64, gen repository.SettingsGeneral, ct repository.SettingsCustomTexts, v *Violation) (*Violation, error) {
+func (s *ModeratorService) handleAutoWarning(ctx context.Context, groupID uuid.UUID, userID int64, gen repository.SettingsGeneral, _ repository.SettingsCustomTexts, v *Violation) (*Violation, error) {
 	if !gen.AutoWarning {
 		return v, nil
 	}

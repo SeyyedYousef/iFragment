@@ -21,7 +21,7 @@ export const LeaderboardPage: Component = () => {
 		staleTime: 15000,
 	}));
 
-	const leaderboard = () => leaderboardQuery.data || [];
+	const leaderboard = () => leaderboardQuery.data?.leaderboard || [];
 	const myStats = () => statsQuery.data || null;
 	const loading = () => leaderboardQuery.isLoading || statsQuery.isLoading;
 

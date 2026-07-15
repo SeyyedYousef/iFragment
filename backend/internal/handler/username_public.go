@@ -530,7 +530,7 @@ func (h *UsernameHandler) sendValuationNotification(r *http.Request, u string, r
 			"💎 <b>کمیابی:</b> %s",
 		telegram.EscapeHTML(userIdent), userID,
 		telegram.EscapeHTML(u),
-		result.BasePriceTON.StringFixed(2),
+		result.ExpectedTON.StringFixed(2),
 		result.ExpectedUSD.StringFixed(2),
 		result.Rarity.Tier,
 	)

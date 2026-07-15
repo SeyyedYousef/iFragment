@@ -383,7 +383,18 @@ export const dict = {
 			"popularSquads": "热门团队",
 			"subtitle": "创建或加入家族，组队挖矿！",
 			"title": "家族",
-			"totalScore": "总分"
+			"totalScore": "总分",
+			"joinSquadTitle": "加入团队！",
+			"joinSquadDesc": "这些团队正在招募新成员。\n你想加入吗？",
+			"joinAnother": "加入另一个团队",
+			"searchPlaceholder": "团队用户名...",
+			"soccerSuccess": "恭喜！您现在有足够的团队成员组成一支足球队 ⚽ 👏",
+			"soccerInvite": "邀请更多朋友组成完整的团队！ 🏃‍♂️💨",
+			"minedInSquad": "在团队中开采",
+			"players": "玩家",
+			"invite": "邀请朋友",
+			"leave": "离开团队",
+			"boost": "加速"
 		},
 		"friends": {
 			"frensCount": "朋友",
@@ -391,6 +402,18 @@ export const dict = {
 			"listTitle": "朋友列表",
 			"noFriends": "您还没有邀请任何人",
 			"subtitle": "邀请朋友获取奖励并壮大您的团队"
+		},
+		"leaderboard": {
+			"totalMiners": "{count} Fragmenters",
+			"stats": "统计数据",
+			"league": "联赛",
+			"miners": "矿工",
+			"squads": "团队",
+			"day": "日",
+			"week": "周",
+			"noMiners": "该联赛中未找到矿工。",
+			"noSquads": "该联赛中未找到团队。",
+			"players": "玩家"
 		},
 		"tasks": {
 			"failedLoad": "加载任务失败。",

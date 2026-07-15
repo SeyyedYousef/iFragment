@@ -383,7 +383,18 @@ export const dict = {
 			"popularSquads": "Popular squads",
 			"subtitle": "Create or join a clan to mine as a team!",
 			"title": "Clans",
-			"totalScore": "Total score"
+			"totalScore": "Total score",
+			"joinSquadTitle": "Join Squad!",
+			"joinSquadDesc": "These squads recruiting now.\nDo you wanna join?",
+			"joinAnother": "Join another squad",
+			"searchPlaceholder": "Squad username...",
+			"soccerSuccess": "Congratulations! You now have enough squad members to form a soccer team ⚽ 👏",
+			"soccerInvite": "Invite more frens to form a complete team! 🏃‍♂️💨",
+			"minedInSquad": "mined in squad",
+			"players": "players",
+			"invite": "Invite a fren",
+			"leave": "Leave squad",
+			"boost": "Boost"
 		},
 		"friends": {
 			"frensCount": "Frens",
@@ -391,6 +402,18 @@ export const dict = {
 			"listTitle": "Frens list",
 			"noFriends": "You haven't invited anyone yet",
 			"subtitle": "Invite a friend to get bonuses and increase your squad"
+		},
+		"leaderboard": {
+			"totalMiners": "{count} Fragmenters",
+			"stats": "Stats",
+			"league": "league",
+			"miners": "Miners",
+			"squads": "Squads",
+			"day": "Day",
+			"week": "Week",
+			"noMiners": "No miners found in this league.",
+			"noSquads": "No squads found in this league.",
+			"players": "players"
 		},
 		"tasks": {
 			"failedLoad": "Failed to load tasks.",

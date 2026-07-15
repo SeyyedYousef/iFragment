@@ -68,7 +68,7 @@ func GetAdminNotifier() *AdminNotificationService {
 	return defaultAdminNotifier
 }
 
-func (s *AdminNotificationService) send(ctx context.Context, topicID *int, text string) {
+func (s *AdminNotificationService) send(_ context.Context, topicID *int, text string) {
 	if s.adminGroupID == 0 {
 		return
 	}

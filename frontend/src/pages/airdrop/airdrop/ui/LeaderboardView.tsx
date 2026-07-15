@@ -45,7 +45,7 @@ export const LeaderboardView: Component = () => {
 	};
 
 	const filteredMiners = () => {
-		const data = leaderboardQuery.data || [];
+		const data = leaderboardQuery.data?.leaderboard || [];
 		const league = currentLeague().name;
 		return data.filter((e) => e.league === league);
 	};
@@ -87,7 +87,7 @@ export const LeaderboardView: Component = () => {
 						<div class="flex items-center gap-1.5">
 							<span class="text-[14px]">🪙</span>
 							<span class="text-white font-bold text-[13px]">
-								{t('airdropFinal.leaderboard.totalMiners', { defaultValue: '20,043,793 Miners' })}
+								{t('airdropFinal.leaderboard.totalMiners', { count: formatScore(leaderboardQuery.data?.total_miners || 20043793), defaultValue: '20,043,793 Fragmenters' })}
 							</span>
 						</div>
 						<div class="flex items-center gap-0.5 text-white/70">

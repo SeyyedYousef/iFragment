@@ -165,11 +165,16 @@ export const SuccessResponseSchema = z
 	})
 	.catchall(z.unknown());
 
-// Infer and export types
+export const LeaderboardResponseSchema = z.object({
+	leaderboard: z.array(LeaderboardMemberSchema),
+	total_miners: z.number().int().nonnegative().optional(),
+});
+
 export type DailyStatus = z.infer<typeof DailyStatusSchema>;
 export type TaskStatus = z.infer<typeof TaskStatusSchema>;
 export type BoostStatus = z.infer<typeof BoostStatusSchema>;
 export type LeaderboardMember = z.infer<typeof LeaderboardMemberSchema>;
+export type LeaderboardResponse = z.infer<typeof LeaderboardResponseSchema>;
 export type Clan = z.infer<typeof ClanSchema>;
 export type UserClanDetails = z.infer<typeof UserClanDetailsSchema>;
 export type ClanMember = z.infer<typeof ClanMemberSchema>;
@@ -229,8 +234,8 @@ export const upgradeBoost = (boostType: string): Promise<UserBoosts> =>
 		body: JSON.stringify({ boostType }),
 	});
 
-export const getLeaderboard = (): Promise<LeaderboardMember[]> =>
-	validatedFetch('/profile/leaderboard', z.array(LeaderboardMemberSchema));
+export const getLeaderboard = (): Promise<LeaderboardResponse> =>
+	validatedFetch('/profile/leaderboard', LeaderboardResponseSchema);
 
 export interface AchievementDef {
 	id: string;

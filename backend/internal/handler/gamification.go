@@ -170,8 +170,15 @@ func (h *GamificationHandler) GetLeaderboard(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	totalMiners, _ := h.gamificationService.GetTotalMiners(r.Context())
+
+	response := map[string]interface{}{
+		"leaderboard":  leaderboard,
+		"total_miners": totalMiners,
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(leaderboard); err != nil {
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		slog.Error("failed to encode leaderboard response", "error", err)
 	}
 }

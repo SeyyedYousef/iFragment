@@ -383,7 +383,18 @@ export const dict = {
 			"popularSquads": "تیم‌های محبوب",
 			"subtitle": "یک کلن بساز یا عضو شو تا تیمی استخراج کنید!",
 			"title": "کلن‌ها",
-			"totalScore": "مجموع امتیاز"
+			"totalScore": "مجموع امتیاز",
+			"joinSquadTitle": "پیوستن به تیم!",
+			"joinSquadDesc": "این تیم‌ها در حال عضوگیری هستند.\nمی‌خوای به یکی‌شون ملحق بشی؟",
+			"joinAnother": "پیوستن به یک تیم دیگه",
+			"searchPlaceholder": "یوزرنیم تیم...",
+			"soccerSuccess": "تبریک! حالا تعداد اعضای تیم شما برای تشکیل یک تیم فوتبال کافیه ⚽ 👏",
+			"soccerInvite": "دوستان بیشتری دعوت کن تا تیمت کامل‌تر بشه! 🏃‍♂️💨",
+			"minedInSquad": "استخراج در تیم",
+			"players": "بازیکن",
+			"invite": "دعوت یک دوست",
+			"leave": "ترک تیم",
+			"boost": "بوست"
 		},
 		"friends": {
 			"frensCount": "دوست",
@@ -391,6 +402,18 @@ export const dict = {
 			"listTitle": "لیست دوستان",
 			"noFriends": "هنوز کسی را دعوت نکرده‌اید",
 			"subtitle": "برای افزایش تیم و پاداش، دوستانت رو دعوت کن"
+		},
+		"leaderboard": {
+			"totalMiners": "{count} فرگمنتر",
+			"stats": "آمار",
+			"league": "لیگ",
+			"miners": "ماینرها",
+			"squads": "تیم‌ها",
+			"day": "روزانه",
+			"week": "هفتگی",
+			"noMiners": "هیچ ماینری در این لیگ یافت نشد.",
+			"noSquads": "هیچ تیمی در این لیگ یافت نشد.",
+			"players": "بازیکن"
 		},
 		"tasks": {
 			"failedLoad": "خطا در بارگذاری.",

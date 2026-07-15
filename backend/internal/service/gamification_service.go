@@ -1006,6 +1006,20 @@ func (s *GamificationService) GetLeaderboard(ctx context.Context) ([]Leaderboard
 	return result, nil
 }
 
+// GetTotalMiners returns the total number of users
+func (s *GamificationService) GetTotalMiners(ctx context.Context) (int64, error) {
+	if s.cache != nil && s.cache.Client != nil {
+		count, err := s.cache.Client.ZCard(ctx, "leaderboard").Result()
+		if err == nil && count > 0 {
+			return count, nil
+		}
+	}
+	
+	var count int64
+	err := s.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM users").Scan(&count)
+	return count, err
+}
+
 func (s *GamificationService) GetGlobalClans(ctx context.Context) ([]map[string]interface{}, error) {
 	return s.db.GetGlobalClans(ctx)
 }
