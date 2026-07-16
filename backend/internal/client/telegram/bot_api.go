@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -952,9 +953,40 @@ func (c *BotAPIClient) SendPhoto(ctx context.Context, chatID int64, photoURL str
 	return &msgResult.Result, nil
 }
 
+// FlexibleString handles unmarshaling JSON values that can be either numbers or strings.
+type FlexibleString string
+
+func (fs *FlexibleString) UnmarshalJSON(b []byte) error {
+	if len(b) == 0 || string(b) == "null" {
+		*fs = ""
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(b, &s); err == nil {
+		*fs = FlexibleString(s)
+		return nil
+	}
+	var i int64
+	if err := json.Unmarshal(b, &i); err == nil {
+		*fs = FlexibleString(strconv.FormatInt(i, 10))
+		return nil
+	}
+	var f float64
+	if err := json.Unmarshal(b, &f); err == nil {
+		*fs = FlexibleString(strconv.FormatFloat(f, 'f', -1, 64))
+		return nil
+	}
+	*fs = FlexibleString(string(b))
+	return nil
+}
+
+func (fs FlexibleString) String() string {
+	return string(fs)
+}
+
 type EphemeralMessageResult struct {
-	MessageID          int    `json:"message_id"`
-	EphemeralMessageID string `json:"ephemeral_message_id"`
+	MessageID          int            `json:"message_id"`
+	EphemeralMessageID FlexibleString `json:"ephemeral_message_id"`
 }
 
 // SendEphemeralMessage sends a text message visible only to a specific user in a group chat.
@@ -981,6 +1013,9 @@ func (c *BotAPIClient) SendEphemeralMessage(ctx context.Context, chatID int64, r
 	var res EphemeralMessageResult
 	if err := json.Unmarshal(resp, &res); err != nil {
 		return nil, fmt.Errorf("failed to parse ephemeral message result: %w", err)
+	}
+	if string(res.EphemeralMessageID) == "" && res.MessageID != 0 {
+		res.EphemeralMessageID = FlexibleString(fmt.Sprintf("%d", res.MessageID))
 	}
 	return &res, nil
 }
@@ -1012,6 +1047,9 @@ func (c *BotAPIClient) SendEphemeralMessageWithMarkup(ctx context.Context, chatI
 	var res EphemeralMessageResult
 	if err := json.Unmarshal(resp, &res); err != nil {
 		return nil, fmt.Errorf("failed to parse ephemeral message result with markup: %w", err)
+	}
+	if string(res.EphemeralMessageID) == "" && res.MessageID != 0 {
+		res.EphemeralMessageID = FlexibleString(fmt.Sprintf("%d", res.MessageID))
 	}
 	return &res, nil
 }

@@ -152,8 +152,8 @@ type Message struct {
 	LeftChatMember     *User              `json:"left_chat_member"`
 	IsAutomaticForward bool               `json:"is_automatic_forward,omitempty"`
 	SenderChat         *Chat              `json:"sender_chat,omitempty"`
-	ReceiverUser       *User              `json:"receiver_user,omitempty"`
-	EphemeralMessageID string             `json:"ephemeral_message_id,omitempty"`
+	ReceiverUser       *User                  `json:"receiver_user,omitempty"`
+	EphemeralMessageID telegram.FlexibleString `json:"ephemeral_message_id,omitempty"`
 }
 
 type MessageEntity struct {
@@ -2408,8 +2408,8 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 		_ = tg.UnrestrictChatMember(ctx, cq.Message.Chat.ID, cq.From.ID)
 		if isEphemeral && captchaMsgID != "" {
 			_ = tg.DeleteEphemeralMessage(ctx, cq.Message.Chat.ID, captchaMsgID)
-		} else if cq.Message != nil && cq.Message.EphemeralMessageID != "" {
-			_ = tg.DeleteEphemeralMessage(ctx, cq.Message.Chat.ID, cq.Message.EphemeralMessageID)
+		} else if cq.Message != nil && cq.Message.EphemeralMessageID.String() != "" {
+			_ = tg.DeleteEphemeralMessage(ctx, cq.Message.Chat.ID, cq.Message.EphemeralMessageID.String())
 		} else if cq.Message != nil {
 			_ = tg.DeleteMessage(ctx, cq.Message.Chat.ID, cq.Message.MessageID)
 		}
@@ -2951,7 +2951,7 @@ Please click the button below to verify you are human.`, user.ID, telegram.Escap
 		epMsg, err := tg.SendEphemeralMessageWithMarkup(ctx, m.Chat.ID, user.ID, welcome, markup, m.MessageThreadID)
 		sendErr = err
 		if err == nil && epMsg != nil {
-			captchaMsgID = epMsg.EphemeralMessageID
+			captchaMsgID = epMsg.EphemeralMessageID.String()
 		}
 	} else {
 		captchaMsg, err := tg.SendMessageWithMarkup(ctx, m.Chat.ID, welcome, markup, m.MessageThreadID)
