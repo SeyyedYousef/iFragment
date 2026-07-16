@@ -22,6 +22,7 @@ export interface ManagedGroup {
 	chat_title: string;
 	chat_type: 'group' | 'supergroup' | 'channel';
 	members_count: number;
+	photo_url?: string;
 	subscription_status: 'trial' | 'paid' | 'expired' | 'cancelled';
 	trial_ends_at: string;
 	paid_until?: string;

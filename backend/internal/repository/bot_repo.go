@@ -47,6 +47,7 @@ type ManagedGroup struct {
 	ChatTitle          string     `json:"chat_title"`
 	ChatType           string     `json:"chat_type"`
 	MembersCount       int        `json:"members_count"`
+	PhotoURL           string     `json:"photo_url,omitempty"`
 	SubscriptionStatus string     `json:"subscription_status"`
 	TrialEndsAt        time.Time  `json:"trial_ends_at"`
 	PaidUntil          *time.Time `json:"paid_until,omitempty"`
@@ -264,12 +265,12 @@ func (r *BotRepo) CreateGroup(ctx context.Context, group *ManagedGroup) error {
 		return fmt.Errorf("no database connection")
 	}
 
-	query := `INSERT INTO managed_groups (bot_id, chat_id, chat_title, chat_type, members_count, subscription_status, trial_ends_at, connected_by_user_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		ON CONFLICT (bot_id, chat_id) DO UPDATE SET chat_title = EXCLUDED.chat_title, members_count = EXCLUDED.members_count, updated_at = now()
+	query := `INSERT INTO managed_groups (bot_id, chat_id, chat_title, chat_type, members_count, photo_url, subscription_status, trial_ends_at, connected_by_user_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		ON CONFLICT (bot_id, chat_id) DO UPDATE SET chat_title = EXCLUDED.chat_title, members_count = EXCLUDED.members_count, photo_url = EXCLUDED.photo_url, updated_at = now()
 		RETURNING id, subscription_status, trial_ends_at, paid_until, created_at, updated_at`
 	return r.db.Pool.QueryRow(ctx, query,
-		group.BotID, group.ChatID, group.ChatTitle, group.ChatType, group.MembersCount, group.SubscriptionStatus, group.TrialEndsAt, group.ConnectedByUserID,
+		group.BotID, group.ChatID, group.ChatTitle, group.ChatType, group.MembersCount, group.PhotoURL, group.SubscriptionStatus, group.TrialEndsAt, group.ConnectedByUserID,
 	).Scan(&group.ID, &group.SubscriptionStatus, &group.TrialEndsAt, &group.PaidUntil, &group.CreatedAt, &group.UpdatedAt)
 }
 
@@ -278,7 +279,7 @@ func (r *BotRepo) GetGroupsByBot(ctx context.Context, botID uuid.UUID) ([]Manage
 		return nil, fmt.Errorf("no database connection")
 	}
 
-	query := `SELECT id, bot_id, chat_id, chat_title, chat_type, members_count, subscription_status, trial_ends_at, paid_until, connected_by_user_id, created_at, updated_at
+	query := `SELECT id, bot_id, chat_id, chat_title, chat_type, members_count, COALESCE(photo_url, ''), subscription_status, trial_ends_at, paid_until, connected_by_user_id, created_at, updated_at
 		FROM managed_groups WHERE bot_id = $1 ORDER BY created_at DESC`
 	rows, err := r.db.Pool.Query(ctx, query, botID)
 	if err != nil {
@@ -289,7 +290,7 @@ func (r *BotRepo) GetGroupsByBot(ctx context.Context, botID uuid.UUID) ([]Manage
 	var groups []ManagedGroup
 	for rows.Next() {
 		var g ManagedGroup
-		if err := rows.Scan(&g.ID, &g.BotID, &g.ChatID, &g.ChatTitle, &g.ChatType, &g.MembersCount,
+		if err := rows.Scan(&g.ID, &g.BotID, &g.ChatID, &g.ChatTitle, &g.ChatType, &g.MembersCount, &g.PhotoURL,
 			&g.SubscriptionStatus, &g.TrialEndsAt, &g.PaidUntil, &g.ConnectedByUserID, &g.CreatedAt, &g.UpdatedAt); err != nil {
 			return nil, err
 		}
@@ -306,12 +307,12 @@ func (r *BotRepo) GetGroupByID(ctx context.Context, id uuid.UUID) (*ManagedGroup
 		return nil, fmt.Errorf("no database connection")
 	}
 
-	query := `SELECT id, bot_id, chat_id, chat_title, chat_type, members_count, subscription_status, trial_ends_at, paid_until, created_at, updated_at
+	query := `SELECT id, bot_id, chat_id, chat_title, chat_type, members_count, COALESCE(photo_url, ''), subscription_status, trial_ends_at, paid_until, connected_by_user_id, created_at, updated_at
 		FROM managed_groups WHERE id = $1`
 	var g ManagedGroup
 	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
-		&g.ID, &g.BotID, &g.ChatID, &g.ChatTitle, &g.ChatType, &g.MembersCount,
-		&g.SubscriptionStatus, &g.TrialEndsAt, &g.PaidUntil, &g.CreatedAt, &g.UpdatedAt,
+		&g.ID, &g.BotID, &g.ChatID, &g.ChatTitle, &g.ChatType, &g.MembersCount, &g.PhotoURL,
+		&g.SubscriptionStatus, &g.TrialEndsAt, &g.PaidUntil, &g.ConnectedByUserID, &g.CreatedAt, &g.UpdatedAt,
 	)
 	if err == pgx.ErrNoRows {
 		return nil, fmt.Errorf("group not found")
@@ -413,12 +414,12 @@ func (r *BotRepo) GetGroup(ctx context.Context, botID uuid.UUID, chatID int64) (
 	if r.db == nil || r.db.Pool == nil {
 		return nil, fmt.Errorf("no database connection")
 	}
-	query := `SELECT id, bot_id, chat_id, chat_title, chat_type, members_count, subscription_status, trial_ends_at, paid_until, created_at, updated_at
+	query := `SELECT id, bot_id, chat_id, chat_title, chat_type, members_count, COALESCE(photo_url, ''), subscription_status, trial_ends_at, paid_until, connected_by_user_id, created_at, updated_at
 		FROM managed_groups WHERE bot_id = $1 AND chat_id = $2`
 	var g ManagedGroup
 	err := r.db.Pool.QueryRow(ctx, query, botID, chatID).Scan(
-		&g.ID, &g.BotID, &g.ChatID, &g.ChatTitle, &g.ChatType, &g.MembersCount,
-		&g.SubscriptionStatus, &g.TrialEndsAt, &g.PaidUntil, &g.CreatedAt, &g.UpdatedAt,
+		&g.ID, &g.BotID, &g.ChatID, &g.ChatTitle, &g.ChatType, &g.MembersCount, &g.PhotoURL,
+		&g.SubscriptionStatus, &g.TrialEndsAt, &g.PaidUntil, &g.ConnectedByUserID, &g.CreatedAt, &g.UpdatedAt,
 	)
 	if err == pgx.ErrNoRows {
 		return nil, fmt.Errorf("group not found")
@@ -430,7 +431,7 @@ func (r *BotRepo) GetAllActiveGroups(ctx context.Context) ([]ManagedGroup, error
 	if r.db == nil || r.db.Pool == nil {
 		return nil, fmt.Errorf("no database connection")
 	}
-	query := `SELECT id, bot_id, chat_id, chat_title, chat_type, members_count, subscription_status, trial_ends_at, paid_until, created_at, updated_at
+	query := `SELECT id, bot_id, chat_id, chat_title, chat_type, members_count, COALESCE(photo_url, ''), subscription_status, trial_ends_at, paid_until, connected_by_user_id, created_at, updated_at
 		FROM managed_groups`
 	rows, err := r.db.Pool.Query(ctx, query)
 	if err != nil {
@@ -442,8 +443,8 @@ func (r *BotRepo) GetAllActiveGroups(ctx context.Context) ([]ManagedGroup, error
 	for rows.Next() {
 		var g ManagedGroup
 		err := rows.Scan(
-			&g.ID, &g.BotID, &g.ChatID, &g.ChatTitle, &g.ChatType, &g.MembersCount,
-			&g.SubscriptionStatus, &g.TrialEndsAt, &g.PaidUntil, &g.CreatedAt, &g.UpdatedAt,
+			&g.ID, &g.BotID, &g.ChatID, &g.ChatTitle, &g.ChatType, &g.MembersCount, &g.PhotoURL,
+			&g.SubscriptionStatus, &g.TrialEndsAt, &g.PaidUntil, &g.ConnectedByUserID, &g.CreatedAt, &g.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -454,6 +455,15 @@ func (r *BotRepo) GetAllActiveGroups(ctx context.Context) ([]ManagedGroup, error
 		return nil, err
 	}
 	return groups, nil
+}
+
+func (r *BotRepo) UpdateGroupDetails(ctx context.Context, groupID uuid.UUID, title string, membersCount int, photoURL string) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("no database connection")
+	}
+	query := `UPDATE managed_groups SET chat_title = $1, members_count = $2, photo_url = $3, updated_at = now() WHERE id = $4`
+	_, err := r.db.Pool.Exec(ctx, query, title, membersCount, photoURL, groupID)
+	return err
 }
 
 func (r *BotRepo) DeleteGroup(ctx context.Context, id uuid.UUID) error {

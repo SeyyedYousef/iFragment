@@ -323,10 +323,24 @@ export const BotManagePage: Component = () => {
 										>
 											<div class="flex items-center justify-between">
 												<div class="flex items-center gap-4 overflow-hidden">
-													<div class="w-12 h-12 shrink-0 rounded-2xl bg-gradient-to-br from-[#3390ec]/10 to-transparent flex items-center justify-center border border-[#3390ec]/20">
-														<span class="text-lg font-black text-[#3390ec]">
-															{group.chat_title.charAt(0)}
-														</span>
+													<div class="w-12 h-12 shrink-0 rounded-2xl bg-gradient-to-br from-[#3390ec]/10 to-transparent flex items-center justify-center border border-[#3390ec]/20 overflow-hidden">
+														<Show
+															when={group.photo_url}
+															fallback={
+																<span class="text-lg font-black text-[#3390ec]">
+																	{group.chat_title ? group.chat_title.charAt(0) : 'G'}
+																</span>
+															}
+														>
+															<img
+																src={group.photo_url}
+																alt={group.chat_title}
+																class="w-full h-full object-cover rounded-2xl"
+																onError={(e) => {
+																	(e.currentTarget as HTMLElement).style.display = 'none';
+																}}
+															/>
+														</Show>
 													</div>
 													<div class="flex flex-col overflow-hidden">
 														<h3 class="text-[16px] font-black text-white leading-tight mb-0.5 truncate">

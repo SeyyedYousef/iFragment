@@ -209,7 +209,7 @@ export const CustomTextsPage: Component = () => {
 						<textarea
 							value={cfg.welcomeText}
 							onInput={(e) => update('welcomeText', e.currentTarget.value)}
-							placeholder="👋 Welcome to {group}, {user}!"
+							placeholder="👋 Welcome {user} to <b>{group}</b>!"
 							class="w-full h-28 bg-[#1c1c1c] text-white text-[14px] rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-[#2a2a2a] transition-all resize-none placeholder-[#8e8e93]"
 						/>
 					</Motion.div>
@@ -232,7 +232,7 @@ export const CustomTextsPage: Component = () => {
 							value={cfg.warningText}
 							onInput={(e) => update('warningText', e.currentTarget.value)}
 							class="w-full h-24 bg-[#1c1c1c] text-white text-[14px] rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-[#2a2a2a] transition-all resize-none placeholder-[#8e8e93]"
-							placeholder="⚠️ Warning: Please respect the rules."
+							placeholder="⚠️ <b>{user}</b> | Warning <b>{count}/{threshold}</b>\n└ Reason: {reason}"
 						/>
 					</Motion.div>
 
@@ -257,7 +257,7 @@ export const CustomTextsPage: Component = () => {
 								value={cfg.silenceStartText}
 								onInput={(e) => update('silenceStartText', e.currentTarget.value)}
 								class="w-full h-20 bg-[#1c1c1c] text-white text-[14px] rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-[#2a2a2a] transition-all resize-none placeholder-[#8e8e93]"
-								placeholder="🔒 Quiet hours have started. The group is now muted."
+								placeholder="🔒 <b>{group}</b> | Quiet Hours Active"
 							/>
 						</div>
 
@@ -275,7 +275,7 @@ export const CustomTextsPage: Component = () => {
 								value={cfg.silenceEndText}
 								onInput={(e) => update('silenceEndText', e.currentTarget.value)}
 								class="w-full h-20 bg-[#1c1c1c] text-white text-[14px] rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-[#2a2a2a] transition-all resize-none placeholder-[#8e8e93]"
-								placeholder="🔓 Quiet hours have ended. You can now send messages."
+								placeholder="🔓 <b>{group}</b> | Chat Open"
 							/>
 						</div>
 					</Motion.div>
@@ -298,7 +298,7 @@ export const CustomTextsPage: Component = () => {
 							value={cfg.rulesText}
 							onInput={(e) => update('rulesText', e.currentTarget.value)}
 							class="w-full h-32 bg-[#1c1c1c] text-white text-[14px] rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-[#2a2a2a] transition-all resize-none placeholder-[#8e8e93]"
-							placeholder="Be respectful and follow standard group rules."
+							placeholder="📜 <b>{group} Rules</b>\n▫️ No Spam, Ads, or Unauthorized Links\n▫️ Maintain respect & decorum"
 						/>
 					</Motion.div>
 
@@ -320,7 +320,7 @@ export const CustomTextsPage: Component = () => {
 							value={cfg.forceJoinText}
 							onInput={(e) => update('forceJoinText', e.currentTarget.value)}
 							class="w-full h-24 bg-[#1c1c1c] text-white text-[14px] rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-[#2a2a2a] transition-all resize-none placeholder-[#8e8e93]"
-							placeholder="You must join {channel} first"
+							placeholder="📢 <b>{user}</b>, join required channels to chat in <b>{group}</b>:\n\n{channel_names}"
 						/>
 					</Motion.div>
 
@@ -342,7 +342,7 @@ export const CustomTextsPage: Component = () => {
 							value={cfg.forceAddText}
 							onInput={(e) => update('forceAddText', e.currentTarget.value)}
 							class="w-full h-24 bg-[#1c1c1c] text-white text-[14px] rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-[#2a2a2a] transition-all resize-none placeholder-[#8e8e93]"
-							placeholder="You must add {count} members to the group before you can send messages."
+							placeholder="👥 <b>{user}</b>, invite {remainadd} member(s) to chat in <b>{group}</b> ({added}/{number})"
 						/>
 					</Motion.div>
 

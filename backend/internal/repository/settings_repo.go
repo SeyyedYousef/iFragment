@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -222,6 +223,16 @@ func populateGeneralDefaults(raw json.RawMessage) json.RawMessage {
 	return raw
 }
 
+func IsLegacyText(val string) bool {
+	return strings.Contains(val, "We are delighted to have you join") ||
+		strings.Contains(val, "Official Warning") ||
+		strings.Contains(val, "Group Lockdown Initiated") ||
+		strings.Contains(val, "Group Lockdown Lifted") ||
+		strings.Contains(val, "Community Guidelines for") ||
+		strings.Contains(val, "Action Required: Channel Membership") ||
+		strings.Contains(val, "Action Required: Community Contribution")
+}
+
 func populateCustomTextsDefaults(raw json.RawMessage) json.RawMessage {
 	var m map[string]interface{}
 	if err := json.Unmarshal(raw, &m); err != nil || m == nil {
@@ -247,7 +258,7 @@ func populateCustomTextsDefaults(raw json.RawMessage) json.RawMessage {
 			changed = true
 			continue
 		}
-		if str, ok := val.(string); ok && str == "" {
+		if str, ok := val.(string); ok && (str == "" || IsLegacyText(str)) {
 			m[k] = v
 			changed = true
 		}

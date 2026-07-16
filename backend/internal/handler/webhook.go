@@ -1529,25 +1529,25 @@ func (h *WebhookHandler) executeViolationAction(ctx context.Context, bot *reposi
 	var penaltyMsg string
 	if violation.Action == "warn" || violation.Action == "delete" {
 		template := ct.WarningText
-		if template == "" {
-			template = "⚠️ <b>Official Warning</b>\n\nUser: {user} ({id})\nReason: {reason}\nRule Violated: {rule}\n\nThis is warning {count} out of {threshold}. Please strictly adhere to the group rules to avoid further administrative actions."
+		if template == "" || repository.IsLegacyText(template) {
+			template = "⚠️ <b>{user}</b> | Warning <b>{count}/{threshold}</b>\n└ Reason: {reason}"
 		}
 
 		switch violation.Type {
 		case "mandatory_membership":
 			template = ct.ForceJoinText
-			if template == "" {
-				template = "📢 <b>Action Required: Channel Membership</b>\n\nHello {user}, to participate in {group}, you are required to join our official channels:\n\n{channel_names}\n\nPlease join them to instantly unlock your chat privileges."
+			if template == "" || repository.IsLegacyText(template) {
+				template = "📢 <b>{user}</b>, join required channels to chat in <b>{group}</b>:\n\n{channel_names}"
 			}
 		case "forced_add":
 			template = ct.ForceAddText
-			if template == "" {
-				template = "👥 <b>Action Required: Community Contribution</b>\n\nHello {user}, to send messages in {group}, you must invite members to our community.\n\n📊 Progress: {added} / {number} members added.\n⏳ Remaining: {remainadd} members.\n\nPlease complete this requirement to unlock your chat privileges."
+			if template == "" || repository.IsLegacyText(template) {
+				template = "👥 <b>{user}</b>, invite {remainadd} member(s) to chat in <b>{group}</b> ({added}/{number})"
 			}
 		case "quiet_hours":
 			template = ct.SilenceStartText
-			if template == "" {
-				template = "🔒 <b>Group Lockdown Initiated</b>\n\nThe group {group} is currently in a scheduled quiet period or emergency lockdown. Standard members cannot send messages at this time. We appreciate your patience and cooperation.\n\n🕒 Time: {time}"
+			if template == "" || repository.IsLegacyText(template) {
+				template = "🔒 <b>{group}</b> | Quiet Hours Active"
 			}
 		}
 
@@ -1770,6 +1770,19 @@ func (h *WebhookHandler) handleGroupSettingsCommand(ctx context.Context, bot *re
 }
 
 func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *repository.ManagedBot, chat *Chat, inviterID int64) {
+	token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+	var tg *telegram.BotAPIClient
+	if token != "" {
+		tg = telegram.NewBotAPIClient(token)
+	}
+
+	var liveMembersCount int
+	var livePhotoURL string
+	if tg != nil {
+		liveMembersCount, _ = tg.GetChatMemberCount(ctx, chat.ID)
+		livePhotoURL, _ = tg.GetChatPhotoURL(ctx, chat.ID)
+	}
+
 	managedGroup, err := h.botRepo.GetGroup(ctx, bot.ID, chat.ID)
 	if err != nil {
 		// Group not found under this bot. Check if it exists under another bot to migrate and preserve settings.
@@ -1791,6 +1804,9 @@ func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *reposit
 				slog.Error("Failed to fetch migrated group", "error", err)
 				return
 			}
+			if liveMembersCount > 0 || livePhotoURL != "" {
+				_ = h.botRepo.UpdateGroupDetails(ctx, managedGroup.ID, chat.Title, liveMembersCount, livePhotoURL)
+			}
 		} else {
 			status := "trial"
 
@@ -1808,6 +1824,8 @@ func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *reposit
 				ChatID:             chat.ID,
 				ChatTitle:          chat.Title,
 				ChatType:           chat.Type,
+				MembersCount:       liveMembersCount,
+				PhotoURL:           livePhotoURL,
 				SubscriptionStatus: status,
 				TrialEndsAt:        time.Now().Add(72 * time.Hour),
 				ConnectedByUserID:  &inviterID,
@@ -1818,10 +1836,14 @@ func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *reposit
 				return
 			}
 		}
+	} else if liveMembersCount > 0 || livePhotoURL != "" {
+		_ = h.botRepo.UpdateGroupDetails(ctx, managedGroup.ID, chat.Title, liveMembersCount, livePhotoURL)
 	}
 
-	token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-	tg := telegram.NewBotAPIClient(token)
+	if tg == nil {
+		token, _ = botmgmt.DecryptToken(bot.BotTokenEncrypted)
+		tg = telegram.NewBotAPIClient(token)
+	}
 
 	// Sequence of onboarding messages (BUG #8 - Fixed with premium Persian flow)
 	GoSafe(func() {

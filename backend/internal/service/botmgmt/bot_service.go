@@ -401,7 +401,8 @@ func (s *BotService) RevokeBot(ctx context.Context, botID uuid.UUID, ownerID int
 // Group Operations
 
 func (s *BotService) ListGroups(ctx context.Context, botID uuid.UUID, ownerID int64) ([]repository.ManagedGroup, error) {
-	if _, err := s.GetBot(ctx, botID, ownerID); err != nil {
+	bot, err := s.GetBot(ctx, botID, ownerID)
+	if err != nil {
 		return nil, err
 	}
 	groups, err := s.botRepo.GetGroupsByBot(ctx, botID)
@@ -409,7 +410,13 @@ func (s *BotService) ListGroups(ctx context.Context, botID uuid.UUID, ownerID in
 		return nil, err
 	}
 
-	// Check trial expirations
+	var tg *telegram.BotAPIClient
+	token, _ := DecryptToken(bot.BotTokenEncrypted)
+	if token != "" {
+		tg = telegram.NewBotAPIClient(token)
+	}
+
+	// Check trial expirations & sync missing details
 	now := time.Now()
 	for i, g := range groups {
 		if g.SubscriptionStatus == "trial" && now.After(g.TrialEndsAt) {
@@ -419,6 +426,23 @@ func (s *BotService) ListGroups(ctx context.Context, botID uuid.UUID, ownerID in
 		if g.SubscriptionStatus == "paid" && g.PaidUntil != nil && now.After(*g.PaidUntil) {
 			_ = s.botRepo.UpdateGroupSubscription(ctx, g.ID, "expired", nil)
 			groups[i].SubscriptionStatus = "expired"
+		}
+
+		if tg != nil && (g.MembersCount == 0 || g.PhotoURL == "") {
+			count, errCount := tg.GetChatMemberCount(ctx, g.ChatID)
+			photoURL, _ := tg.GetChatPhotoURL(ctx, g.ChatID)
+			title := g.ChatTitle
+			if chatInfo, errChat := tg.GetChat(ctx, g.ChatID); errChat == nil && chatInfo != nil && chatInfo.Title != "" {
+				title = chatInfo.Title
+			}
+			if errCount == nil && count > 0 {
+				groups[i].MembersCount = count
+			}
+			if photoURL != "" {
+				groups[i].PhotoURL = photoURL
+			}
+			groups[i].ChatTitle = title
+			_ = s.botRepo.UpdateGroupDetails(ctx, g.ID, groups[i].ChatTitle, groups[i].MembersCount, groups[i].PhotoURL)
 		}
 	}
 
