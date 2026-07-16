@@ -233,7 +233,7 @@ func IsLegacyText(val string) bool {
 		strings.Contains(val, "Action Required: Community Contribution")
 }
 
-func populateCustomTextsDefaults(raw json.RawMessage) json.RawMessage {
+func populateCustomTextsDefaults(raw json.RawMessage, lang ...string) json.RawMessage {
 	var m map[string]interface{}
 	if err := json.Unmarshal(raw, &m); err != nil || m == nil {
 		m = make(map[string]interface{})
@@ -291,7 +291,9 @@ func (r *SettingsRepo) GetSettings(ctx context.Context, groupID uuid.UUID) (*Gro
 			var s GroupSettings
 			if json.Unmarshal([]byte(val), &s) == nil {
 				s.General = populateGeneralDefaults(s.General)
-				s.CustomTexts = populateCustomTextsDefaults(s.CustomTexts)
+				var gen SettingsGeneral
+				json.Unmarshal(s.General, &gen)
+				s.CustomTexts = populateCustomTextsDefaults(s.CustomTexts, gen.Language)
 				r.localCache.Store(groupID, &s)
 				return &s, nil
 			}
@@ -311,7 +313,9 @@ func (r *SettingsRepo) GetSettings(ctx context.Context, groupID uuid.UUID) (*Gro
 
 	if err == nil {
 		s.General = populateGeneralDefaults(s.General)
-		s.CustomTexts = populateCustomTextsDefaults(s.CustomTexts)
+		var gen SettingsGeneral
+		json.Unmarshal(s.General, &gen)
+		s.CustomTexts = populateCustomTextsDefaults(s.CustomTexts, gen.Language)
 		r.localCache.Store(groupID, &s)
 		if r.cache != nil && r.cache.Client != nil {
 			// Set cache
@@ -338,7 +342,9 @@ func (r *SettingsRepo) initSettings(ctx context.Context, groupID uuid.UUID) (*Gr
 		Version:             1,
 	}
 	s.General = populateGeneralDefaults(s.General)
-	s.CustomTexts = populateCustomTextsDefaults(s.CustomTexts)
+	var gen SettingsGeneral
+	json.Unmarshal(s.General, &gen)
+	s.CustomTexts = populateCustomTextsDefaults(s.CustomTexts, gen.Language)
 	query := `INSERT INTO group_settings (group_id, general, content_restrictions, limits, quiet_hours, mandatory_membership, custom_texts, dynamic_bio)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		ON CONFLICT (group_id) DO NOTHING

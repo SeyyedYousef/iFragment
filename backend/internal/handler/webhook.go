@@ -1930,7 +1930,7 @@ func (h *WebhookHandler) handleWelcomeMessage(ctx context.Context, bot *reposito
 	}
 
 	welcomeText := ct.WelcomeText
-	if welcomeText == "" {
+	if welcomeText == "" || repository.IsLegacyText(welcomeText) {
 		welcomeText = "👋 Welcome {user} to <b>{group}</b>!"
 	}
 

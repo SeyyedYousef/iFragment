@@ -30,13 +30,13 @@ interface CustomTextsConfig {
 }
 
 const defaults: CustomTextsConfig = {
-	welcomeText: '✨ {user} joined {group}. Make some noise!',
-	warningText: '⚠️ {user} warned ({count}/{threshold}).\nReason: {reason}',
-	silenceStartText: '🔒 Quiet hours active in {group}. Enjoy the silence.',
-	silenceEndText: '🔓 Chat open. Speak your mind, respectfully.',
-	rulesText: '📜 Guidelines:\n• No spam or unsolicited links\n• Respect others\n• Keep it relevant',
-	forceJoinText: '📢 Access locked. Join channels to chat:\n\n{channel_names}',
-	forceAddText: '👥 Contribution needed. Invite friends to unlock chat:\n\n📊 {added} / {number} invited ({remainadd} left)',
+	welcomeText: '👋 Welcome {user} to <b>{group}</b>!',
+	warningText: '⚠️ <b>{user}</b> | Warning <b>{count}/{threshold}</b>\n└ Reason: {reason}',
+	silenceStartText: '🔒 <b>{group}</b> | Quiet Hours Active',
+	silenceEndText: '🔓 <b>{group}</b> | Chat Open',
+	rulesText: '📜 <b>{group} Rules</b>\n▫️ No Spam, Ads, or Unauthorized Links\n▫️ Maintain respect & decorum',
+	forceJoinText: '📢 <b>{user}</b>, join required channels to chat in <b>{group}</b>:\n\n{channel_names}',
+	forceAddText: '👥 <b>{user}</b>, invite {remainadd} member(s) to chat in <b>{group}</b> ({added}/{number})',
 	inlineButtons: [],
 };
 
