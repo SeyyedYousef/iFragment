@@ -327,8 +327,26 @@ export const addTaps = async (taps: number, multiplier: number, nonce: string, c
 	return stats;
 };
 
-export const collectOfflineMining = async (): Promise<{ earned: number; durationSeconds: number }> => {
-	return validatedFetch('/profile/mining/collect', z.object({ earned: z.number(), durationSeconds: z.number() }), {
+export const collectOfflineMining = async (): Promise<{
+	earned: number;
+	durationSeconds: number;
+	sessionCap?: number;
+	dailyRemaining?: number;
+}> => {
+	return validatedFetch(
+		'/profile/mining/collect',
+		z.object({
+			earned: z.number(),
+			durationSeconds: z.number(),
+			sessionCap: z.number().optional(),
+			dailyRemaining: z.number().optional(),
+		}),
+		{ method: 'POST' },
+	);
+};
+
+export const startOfflineMining = async (): Promise<SuccessResponse> => {
+	return validatedFetch('/profile/mining/start', SuccessResponseSchema, {
 		method: 'POST',
 	});
 };

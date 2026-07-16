@@ -603,6 +603,7 @@ func main() {
 					r.Post("/boosts/daily/turbo", gamificationHandler.ApplyTurbo)
 					r.Post("/boosts/daily/full-energy", gamificationHandler.ApplyFullEnergy)
 					r.Post("/mining/collect", gamificationHandler.CollectOfflineMining)
+					r.Post("/mining/start", gamificationHandler.StartOfflineMining)
 					r.Get("/leaderboard", gamificationHandler.GetLeaderboard)
 					r.Get("/daily-combo", gamificationHandler.GetDailyComboStatus)
 					r.Post("/daily-combo/claim", gamificationHandler.ClaimDailyCombo)

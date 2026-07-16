@@ -8,7 +8,7 @@ import { ShopView } from './ShopView.js';
 import { TapView } from './TapView.js';
 import { TasksView } from './TasksView.js';
 import { t } from '@/shared/i18n/index.js';
-import { collectOfflineMining } from '@/shared/api/profile.js';
+import { collectOfflineMining, startOfflineMining } from '@/shared/api/profile.js';
 import { syncProfileStats } from '@/shared/store/airdrop.js';
 
 type AirdropTab = 'mine' | 'earn' | 'clan' | 'frens' | 'boost' | 'shop';
@@ -19,7 +19,12 @@ export const AirdropPage: Component = () => {
 	const [offlineEarnings, setOfflineEarnings] = createSignal(0);
 
 	const handleVisibilityChange = async () => {
-		if (document.visibilityState === 'visible') {
+		if (document.visibilityState === 'hidden') {
+			// Signal the backend to snapshot energy and start offline mining timer.
+			// In Telegram Mini Apps, the WebView doesn't unload on hide — it backgrounds.
+			// A fire-and-forget fetch will complete before OS suspends the process.
+			startOfflineMining().catch(() => {});
+		} else if (document.visibilityState === 'visible') {
 			try {
 				const res = await collectOfflineMining();
 				if (res.earned && res.earned > 0) {

@@ -271,6 +271,23 @@ func (h *GamificationHandler) CollectOfflineMining(w http.ResponseWriter, r *htt
 	}
 }
 
+func (h *GamificationHandler) StartOfflineMining(w http.ResponseWriter, r *http.Request) {
+	userID, err := middleware.GetUserID(r.Context())
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
+		return
+	}
+
+	err = h.gamificationService.StartOfflineMining(r.Context(), userID)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"success": true}`))
+}
+
 func (h *GamificationHandler) ApplyTurbo(w http.ResponseWriter, r *http.Request) {
 	userID, err := middleware.GetUserID(r.Context())
 	if err != nil {

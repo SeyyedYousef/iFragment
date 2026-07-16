@@ -108,11 +108,11 @@ export const DashboardPage: Component = () => {
 						initial={{ opacity: 0, scale: 0.9 }}
 						animate={{ opacity: 1, scale: 1 }}
 						transition={{ delay: 0.1, duration: 0.5, easing: [0.34, 1.56, 0.64, 1] }}
-						class="bg-[#0f1014] rounded-3xl p-5 shadow-inner border border-[#2a2a2a] hover:border-red-500/20 flex flex-col gap-4 relative overflow-hidden group cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500/50 hover:scale-[1.02] active:scale-[0.96] transition-all"
+						class="bg-[#0f1014] rounded-3xl p-5 shadow-inner border border-[#2a2a2a] hover:border-[#3390ec]/30 flex flex-col gap-4 relative overflow-hidden group cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#3390ec]/50 hover:scale-[1.02] active:scale-[0.96] transition-all"
 					>
 						<div class="flex items-start gap-4 relative z-10">
-							<div class="w-14 h-14 rounded-2xl bg-red-950/10 flex items-center justify-center shrink-0 border border-red-500/20 group-hover:scale-110 transition-transform duration-300">
-								<span class="material-symbols-outlined text-red-400 text-3xl">groups</span>
+							<div class="w-14 h-14 rounded-2xl bg-[#3390ec]/10 flex items-center justify-center shrink-0 border border-[#3390ec]/20 group-hover:scale-110 transition-transform duration-300">
+								<span class="material-symbols-outlined text-[#3390ec] text-3xl">groups</span>
 							</div>
 							<div class="flex-1 pt-1">
 								<h3 class="text-lg font-bold text-white mb-1">{t('dashboard.groupMgmt')}</h3>
@@ -123,7 +123,7 @@ export const DashboardPage: Component = () => {
 						</div>
 
 						<div class="flex items-center justify-end mt-2 relative z-10">
-							<div class="w-10 h-10 rounded-full bg-red-500 text-white flex items-center justify-center group-hover:bg-red-600 transition-all shadow-sm">
+							<div class="w-10 h-10 rounded-full bg-[#3390ec] text-white flex items-center justify-center group-hover:bg-[#2880de] transition-all shadow-sm">
 								<span class="material-symbols-outlined rtl:-scale-x-100 group-hover:translate-x-1 transition-transform">
 									arrow_forward
 								</span>
@@ -149,11 +149,11 @@ export const DashboardPage: Component = () => {
 						initial={{ opacity: 0, scale: 0.9 }}
 						animate={{ opacity: 1, scale: 1 }}
 						transition={{ delay: 0.2, duration: 0.5, easing: [0.34, 1.56, 0.64, 1] }}
-						class="bg-[#0f1014] rounded-3xl p-5 shadow-inner border border-[#2a2a2a] hover:border-green-500/20 flex flex-col gap-4 relative overflow-hidden group cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-500/50 hover:scale-[1.02] active:scale-[0.96] transition-all"
+						class="bg-[#0f1014] rounded-3xl p-5 shadow-inner border border-[#2a2a2a] hover:border-sky-400/30 flex flex-col gap-4 relative overflow-hidden group cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-400/50 hover:scale-[1.02] active:scale-[0.96] transition-all"
 					>
 						<div class="flex items-start gap-4 relative z-10">
-							<div class="w-14 h-14 rounded-2xl bg-green-950/10 flex items-center justify-center shrink-0 border border-green-500/20 group-hover:scale-110 transition-transform duration-300">
-								<span class="material-symbols-outlined text-green-400 text-3xl">campaign</span>
+							<div class="w-14 h-14 rounded-2xl bg-sky-500/10 flex items-center justify-center shrink-0 border border-sky-400/20 group-hover:scale-110 transition-transform duration-300">
+								<span class="material-symbols-outlined text-sky-400 text-3xl">campaign</span>
 							</div>
 							<div class="flex-1 pt-1">
 								<h3 class="text-lg font-bold text-white mb-1">{t('dashboard.channelMgmt')}</h3>
@@ -164,7 +164,7 @@ export const DashboardPage: Component = () => {
 						</div>
 
 						<div class="flex items-center justify-end mt-2 relative z-10">
-							<div class="w-10 h-10 rounded-full bg-green-500 text-white flex items-center justify-center group-hover:bg-green-600 transition-all shadow-sm">
+							<div class="w-10 h-10 rounded-full bg-sky-500 text-white flex items-center justify-center group-hover:bg-sky-600 transition-all shadow-sm">
 								<span class="material-symbols-outlined rtl:-scale-x-100 group-hover:translate-x-1 transition-transform">
 									arrow_forward
 								</span>

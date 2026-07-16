@@ -1143,9 +1143,75 @@ func (s *GamificationService) GetActiveQuests(ctx context.Context, userID int64)
 type OfflineMiningResult struct {
 	Earned          float64 `json:"earned"`
 	DurationSeconds int     `json:"durationSeconds"`
+	SessionCap      float64 `json:"sessionCap,omitempty"`
+	DailyRemaining  float64 `json:"dailyRemaining,omitempty"`
 }
 
-// CollectOfflineMining calculates and awards offline mining rewards
+const (
+	// minOfflineDuration is the minimum seconds the user must be offline for bot to mine
+	minOfflineDuration = 300 // 5 minutes
+	// collectionCooldownSec prevents rapid re-collection calls
+	collectionCooldownSec = 60
+	// energyGateThresholdPct is the max energy percentage to allow mining (10% = user must have tapped down)
+	energyGateThresholdPct = 0.10
+	// dailyCapMultiplier defines how many session-caps worth of coins can be earned per day
+	dailyCapMultiplier = 3
+)
+
+// StartOfflineMining records the user's current energy state when they go offline.
+// The frontend must call this when the app becomes hidden / user leaves.
+func (s *GamificationService) StartOfflineMining(ctx context.Context, userID int64) error {
+	if s.db.Pool == nil {
+		return fmt.Errorf("database pool is nil")
+	}
+
+	// Read current energy and max energy to snapshot
+	var storedEnergy int
+	var energyUpdatedAt time.Time
+	var energyLimitLevel int
+
+	err := s.db.Pool.QueryRow(ctx, `
+		SELECT COALESCE(s.energy, 500), COALESCE(s.energy_updated_at, now()), COALESCE(b.energy_limit_level, 1)
+		FROM user_stats s
+		LEFT JOIN user_boosts b ON s.user_id = b.user_id
+		WHERE s.user_id = $1
+	`, userID).Scan(&storedEnergy, &energyUpdatedAt, &energyLimitLevel)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil // No stats yet, nothing to snapshot
+		}
+		return fmt.Errorf("failed to read energy state: %w", err)
+	}
+
+	// Calculate current energy with regen
+	maxEnergy := 500 + (energyLimitLevel-1)*250
+	regen := int(time.Since(energyUpdatedAt).Seconds())
+	currentEnergy := storedEnergy + regen
+	if currentEnergy > maxEnergy {
+		currentEnergy = maxEnergy
+	}
+
+	// Record the snapshot and reset last_collected_at to now
+	_, err = s.db.Pool.Exec(ctx, `
+		UPDATE user_boosts
+		SET tap_bot_energy_snapshot = $1,
+		    tap_bot_last_collected_at = CURRENT_TIMESTAMP
+		WHERE user_id = $2
+	`, currentEnergy, userID)
+	if err != nil {
+		return fmt.Errorf("failed to snapshot energy for mining: %w", err)
+	}
+
+	return nil
+}
+
+// CollectOfflineMining calculates and awards offline mining rewards with hardened constraints:
+// 1. Energy-gate: user must have depleted energy (≤ 10% of max) when they went offline
+// 2. Minimum offline duration: 5 minutes
+// 3. Per-session cap: maxEnergy * multitapLevel
+// 4. Daily cap: sessionCap * 3
+// 5. Diminishing returns: 50% rate after 50% of cap, 25% after 75%
+// 6. Collection cooldown: 60 seconds between collections
 func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID int64) (*OfflineMiningResult, error) {
 	if s.db.Pool == nil {
 		return nil, fmt.Errorf("database pool is nil")
@@ -1160,13 +1226,24 @@ func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID i
 	var level, multitap, energyLimitLevel int
 	var lastCollectedAt *time.Time
 	var capSeconds int
+	var energySnapshot int
+	var dailyEarned float64
+	var dailyResetAt *time.Time
 
 	query := `
-		SELECT b.tap_bot_level, b.tap_bot_last_collected_at, b.tap_bot_cap_seconds, b.multitap_level, b.energy_limit_level
+		SELECT b.tap_bot_level, b.tap_bot_last_collected_at, b.tap_bot_cap_seconds,
+		       b.multitap_level, b.energy_limit_level,
+		       COALESCE(b.tap_bot_energy_snapshot, 0),
+		       COALESCE(b.tap_bot_daily_earned, 0),
+		       b.tap_bot_daily_reset_at
 		FROM user_boosts b
 		JOIN user_stats s ON s.user_id = b.user_id
 		WHERE b.user_id = $1 FOR UPDATE`
-	err = tx.QueryRow(ctx, query, userID).Scan(&level, &lastCollectedAt, &capSeconds, &multitap, &energyLimitLevel)
+	err = tx.QueryRow(ctx, query, userID).Scan(
+		&level, &lastCollectedAt, &capSeconds,
+		&multitap, &energyLimitLevel,
+		&energySnapshot, &dailyEarned, &dailyResetAt,
+	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return &OfflineMiningResult{Earned: 0, DurationSeconds: 0}, nil
@@ -1174,6 +1251,7 @@ func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID i
 		return nil, fmt.Errorf("failed to get user boosts: %w", err)
 	}
 
+	// Tap Bot not purchased
 	if level == 0 {
 		return &OfflineMiningResult{Earned: 0, DurationSeconds: 0}, nil
 	}
@@ -1183,20 +1261,86 @@ func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID i
 		lastCollectedAt = &now
 	}
 
-	if capSeconds <= 0 {
-		capSeconds = 8 * 3600 // 8 hours default cap
-	}
-
 	elapsed := int(now.Sub(*lastCollectedAt).Seconds())
 	if elapsed < 0 {
 		elapsed = 0
+	}
+
+	// Rule 6: Collection cooldown — prevent rapid re-calls
+	if elapsed < collectionCooldownSec {
+		return &OfflineMiningResult{Earned: 0, DurationSeconds: 0}, nil
+	}
+
+	// Rule 3: Minimum offline duration — bot needs at least 5 minutes to start
+	if elapsed < minOfflineDuration {
+		// Still update last_collected_at so the timer doesn't stack
+		_, _ = tx.Exec(ctx, `UPDATE user_boosts SET tap_bot_last_collected_at = CURRENT_TIMESTAMP WHERE user_id = $1`, userID)
+		_ = tx.Commit(ctx)
+		return &OfflineMiningResult{Earned: 0, DurationSeconds: elapsed}, nil
+	}
+
+	// Rule 1: Energy-gate — user must have depleted energy (≤ 10% of max) before bot mines
+	maxEnergy := 500 + (energyLimitLevel-1)*250
+	energyThreshold := int(float64(maxEnergy) * energyGateThresholdPct)
+
+	// If energy snapshot was never set (old users / graceful fallback), apply reduced rate (50%)
+	gracefulFallback := false
+	if energySnapshot > energyThreshold {
+		if energySnapshot == 0 {
+			// Never set — old user who hasn't called StartOfflineMining yet
+			gracefulFallback = true
+		} else {
+			// Energy was NOT depleted — bot doesn't mine
+			_, _ = tx.Exec(ctx, `UPDATE user_boosts SET tap_bot_last_collected_at = CURRENT_TIMESTAMP WHERE user_id = $1`, userID)
+			_ = tx.Commit(ctx)
+			return &OfflineMiningResult{Earned: 0, DurationSeconds: elapsed}, nil
+		}
+	}
+
+	if capSeconds <= 0 {
+		capSeconds = 12 * 3600 // 12 hours default cap
 	}
 	if elapsed > capSeconds {
 		elapsed = capSeconds
 	}
 
-	rate := (float64(multitap) / 10.0) * float64(level)
-	earned := float64(elapsed) * rate
+	// Rule 4: Reset daily counter if new day
+	today := now.Truncate(24 * time.Hour)
+	if dailyResetAt == nil || dailyResetAt.Before(today) {
+		dailyEarned = 0
+	}
+
+	// Calculate caps
+	sessionCap := float64(maxEnergy * multitap)         // Per-session cap
+	dailyCap := sessionCap * float64(dailyCapMultiplier) // Daily cap (3x session)
+
+	// Check daily cap headroom
+	dailyRemaining := dailyCap - dailyEarned
+	if dailyRemaining <= 0 {
+		_, _ = tx.Exec(ctx, `UPDATE user_boosts SET tap_bot_last_collected_at = CURRENT_TIMESTAMP WHERE user_id = $1`, userID)
+		_ = tx.Commit(ctx)
+		return &OfflineMiningResult{Earned: 0, DurationSeconds: elapsed, DailyRemaining: 0}, nil
+	}
+
+	// Rule 5: Diminishing returns — calculate earned with tiered rates
+	baseRate := (float64(multitap) / 10.0) * float64(level)
+	if gracefulFallback {
+		baseRate *= 0.5 // 50% rate for users who haven't adopted the new flow
+	}
+
+	// Calculate earned with diminishing returns applied against session cap
+	earned := calculateDiminishingEarnings(float64(elapsed), baseRate, sessionCap)
+
+	// Clamp to session cap
+	if earned > sessionCap {
+		earned = sessionCap
+	}
+
+	// Clamp to daily remaining
+	if earned > dailyRemaining {
+		earned = dailyRemaining
+	}
+
 	earnedInt := int(earned)
 
 	if earnedInt > 0 {
@@ -1206,9 +1350,20 @@ func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID i
 		}
 	}
 
-	_, err = tx.Exec(ctx, `UPDATE user_boosts SET tap_bot_last_collected_at = CURRENT_TIMESTAMP WHERE user_id = $1`, userID)
+	// Update tap bot state: reset timer, accumulate daily earnings, reset daily date if new day
+	_, err = tx.Exec(ctx, `
+		UPDATE user_boosts
+		SET tap_bot_last_collected_at = CURRENT_TIMESTAMP,
+		    tap_bot_daily_earned = CASE
+		        WHEN tap_bot_daily_reset_at IS NULL OR tap_bot_daily_reset_at < $2::date THEN $3
+		        ELSE COALESCE(tap_bot_daily_earned, 0) + $3
+		    END,
+		    tap_bot_daily_reset_at = $2::date,
+		    tap_bot_energy_snapshot = 0
+		WHERE user_id = $1
+	`, userID, now, float64(earnedInt))
 	if err != nil {
-		return nil, fmt.Errorf("failed to update tap bot last collected: %w", err)
+		return nil, fmt.Errorf("failed to update tap bot state: %w", err)
 	}
 
 	if err = tx.Commit(ctx); err != nil {
@@ -1219,7 +1374,60 @@ func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID i
 		s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
 	}
 
-	return &OfflineMiningResult{Earned: float64(earnedInt), DurationSeconds: elapsed}, nil
+	newDailyEarned := dailyEarned + float64(earnedInt)
+	return &OfflineMiningResult{
+		Earned:          float64(earnedInt),
+		DurationSeconds: elapsed,
+		SessionCap:      sessionCap,
+		DailyRemaining:  dailyCap - newDailyEarned,
+	}, nil
+}
+
+// calculateDiminishingEarnings applies tiered diminishing returns:
+// - First 50% of session cap: 100% rate
+// - 50%-75% of session cap: 50% rate
+// - 75%-100% of session cap: 25% rate
+func calculateDiminishingEarnings(elapsedSec, baseRate, sessionCap float64) float64 {
+	if sessionCap <= 0 || baseRate <= 0 {
+		return 0
+	}
+
+	tier1Limit := sessionCap * 0.50 // First 50%
+	tier2Limit := sessionCap * 0.75 // Next 25%
+
+	var earned float64
+	remainingTime := elapsedSec
+
+	// Tier 1: full rate until 50% of cap
+	tier1Time := tier1Limit / baseRate
+	if remainingTime <= tier1Time {
+		return remainingTime * baseRate
+	}
+	earned += tier1Limit
+	remainingTime -= tier1Time
+
+	// Tier 2: 50% rate from 50% to 75% of cap
+	tier2Rate := baseRate * 0.5
+	tier2Amount := tier2Limit - tier1Limit // 25% of cap
+	tier2Time := tier2Amount / tier2Rate
+	if remainingTime <= tier2Time {
+		earned += remainingTime * tier2Rate
+		return earned
+	}
+	earned += tier2Amount
+	remainingTime -= tier2Time
+
+	// Tier 3: 25% rate from 75% to 100% of cap
+	tier3Rate := baseRate * 0.25
+	tier3Amount := sessionCap - tier2Limit // 25% of cap
+	tier3Time := tier3Amount / tier3Rate
+	if remainingTime <= tier3Time {
+		earned += remainingTime * tier3Rate
+		return earned
+	}
+	earned += tier3Amount
+
+	return earned
 }
 
 // ApplyTurbo applies a daily turbo boost
