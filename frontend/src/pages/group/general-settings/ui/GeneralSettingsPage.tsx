@@ -29,6 +29,11 @@ interface GeneralConfig {
 	antiRaidThreshold: number;
 	antiRaidAction: string;
 	botEnabled: boolean;
+	ephemeralAll: boolean;
+	ephemeralWelcome: boolean;
+	ephemeralWarnings: boolean;
+	ephemeralCaptcha: boolean;
+	ephemeralAdminCmd: boolean;
 }
 
 const defaultConfig: GeneralConfig = {
@@ -51,6 +56,11 @@ const defaultConfig: GeneralConfig = {
 	antiRaidThreshold: 0,
 	antiRaidAction: 'none',
 	botEnabled: true,
+	ephemeralAll: false,
+	ephemeralWelcome: false,
+	ephemeralWarnings: false,
+	ephemeralCaptcha: false,
+	ephemeralAdminCmd: false,
 };
 
 export const GeneralSettingsPage: Component = () => {
@@ -210,6 +220,52 @@ export const GeneralSettingsPage: Component = () => {
 						enabled={config.botEnabled}
 						onToggle={(v) => updateField('botEnabled', v)}
 					/>
+				</Motion.div>
+
+				{/* Master Ephemeral Mode */}
+				<Motion.div
+					initial={{ opacity: 0, y: 10 }}
+					animate={{ opacity: 1, y: 0 }}
+					transition={{ delay: 0.04 }}
+					class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-3"
+				>
+					<div class="flex items-center justify-between gap-3">
+						<div class="flex flex-col flex-1 min-w-0">
+							<span class="text-[15px] font-bold text-white flex items-center gap-1.5">
+								<span class="material-symbols-outlined text-[18px] text-[#ff9f0a]">visibility_off</span>
+								{t('generalSettings.ephemeralAll') || 'Master Ephemeral Mode'}
+							</span>
+							<span class="text-[12px] text-on-surface-variant leading-snug">
+								{t('generalSettings.ephemeralAllDesc') || 'Send all bot responses and group notifications privately to the recipient only.'}
+							</span>
+						</div>
+						<ToggleSwitch
+							checked={config.ephemeralAll}
+							onChange={(v) => updateField('ephemeralAll', v)}
+						/>
+					</div>
+					<Show when={!config.ephemeralAll}>
+						<div class="pt-3 border-t border-[#2a2a2a] flex flex-col gap-3">
+							<div class="flex items-center justify-between gap-3">
+								<span class="text-[13px] text-white">
+									{t('generalSettings.ephemeralWelcome') || 'Ephemeral Welcome'}
+								</span>
+								<ToggleSwitch
+									checked={config.ephemeralWelcome}
+									onChange={(v) => updateField('ephemeralWelcome', v)}
+								/>
+							</div>
+							<div class="flex items-center justify-between gap-3">
+								<span class="text-[13px] text-white">
+									{t('generalSettings.ephemeralWarnings') || 'Ephemeral Warnings'}
+								</span>
+								<ToggleSwitch
+									checked={config.ephemeralWarnings}
+									onChange={(v) => updateField('ephemeralWarnings', v)}
+								/>
+							</div>
+						</div>
+					</Show>
 				</Motion.div>
 
 				{/* Time Zone */}

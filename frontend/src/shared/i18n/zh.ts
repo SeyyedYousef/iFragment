@@ -1640,6 +1640,12 @@ export const dict = {
 		warningMessageDesc: '删除消息时通知群组',
 		welcomeMessage: '欢迎辞',
 		welcomeMessageDesc: '自动问候新会员',
+		ephemeralAll: '总私密模式 (Ephemeral Mode)',
+		ephemeralAllDesc: '开启后，机器人的所有通知、警告和回复均仅私密发送给目标用户。',
+		ephemeralWelcome: '私密欢迎消息',
+		ephemeralWelcomeDesc: '仅向新成员显示欢迎消息',
+		ephemeralWarnings: '私密警告消息',
+		ephemeralWarningsDesc: '仅向违规者显示警告消息',
 	},
 	groupDashboard: {
 		groupLocked: '群组锁定',

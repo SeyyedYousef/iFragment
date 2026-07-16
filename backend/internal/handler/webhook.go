@@ -1562,7 +1562,7 @@ func (h *WebhookHandler) executeViolationAction(ctx context.Context, bot *reposi
 	}
 
 	sendMsg := func(text string) {
-		if general.EphemeralWarnings {
+		if general.EphemeralWarnings || general.EphemeralAll {
 			h.sendEphemeralBotMessage(ctx, tgClient, chatID, userID, text, nil, threadID, general)
 		} else {
 			h.sendBotMessage(ctx, tgClient, chatID, text, nil, threadID, general)
@@ -2015,7 +2015,7 @@ func (h *WebhookHandler) handleWelcomeMessage(ctx context.Context, bot *reposito
 		}
 	}
 
-	if general.EphemeralWelcome {
+	if general.EphemeralWelcome || general.EphemeralAll {
 		for _, u := range newMembers {
 			if u.IsBot {
 				continue
@@ -2242,7 +2242,7 @@ func (h *WebhookHandler) adminRules(ctx context.Context, tg *telegram.BotAPIClie
 	}
 
 	if err != nil || settings == nil {
-		if m.From != nil && general.EphemeralAdminCmd {
+		if m.From != nil && (general.EphemeralAdminCmd || general.EphemeralAll) {
 			_, _ = tg.SendEphemeralMessage(ctx, m.Chat.ID, m.From.ID, i18n.T(lang, "moderation.no_rules"), m.MessageThreadID)
 		} else {
 			_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.no_rules"), &m.MessageID, m.MessageThreadID)
@@ -2254,7 +2254,7 @@ func (h *WebhookHandler) adminRules(ctx context.Context, tg *telegram.BotAPIClie
 	json.Unmarshal(settings.CustomTexts, &ct)
 
 	if ct.RulesText == "" {
-		if m.From != nil && general.EphemeralAdminCmd {
+		if m.From != nil && (general.EphemeralAdminCmd || general.EphemeralAll) {
 			_, _ = tg.SendEphemeralMessage(ctx, m.Chat.ID, m.From.ID, i18n.T(lang, "moderation.no_rules"), m.MessageThreadID)
 		} else {
 			_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.no_rules"), &m.MessageID, m.MessageThreadID)
@@ -2273,7 +2273,7 @@ func (h *WebhookHandler) adminRules(ctx context.Context, tg *telegram.BotAPIClie
 	}
 
 	text := i18n.T(lang, "moderation.rules_title", map[string]interface{}{"rules": rulesText})
-	if m.From != nil && general.EphemeralAdminCmd {
+	if m.From != nil && (general.EphemeralAdminCmd || general.EphemeralAll) {
 		_, _ = tg.SendEphemeralMessage(ctx, m.Chat.ID, m.From.ID, text, m.MessageThreadID)
 	} else {
 		_ = tg.SendMessage(ctx, m.Chat.ID, text, &m.MessageID, m.MessageThreadID)
@@ -2946,7 +2946,7 @@ Please click the button below to verify you are human.`, user.ID, telegram.Escap
 	var captchaMsgID string
 	var isEphemeral bool
 
-	if general.EphemeralCaptcha {
+	if general.EphemeralCaptcha || general.EphemeralAll {
 		isEphemeral = true
 		epMsg, err := tg.SendEphemeralMessageWithMarkup(ctx, m.Chat.ID, user.ID, welcome, markup, m.MessageThreadID)
 		sendErr = err
@@ -3089,7 +3089,7 @@ func (h *WebhookHandler) adminInfo(ctx context.Context, tg *telegram.BotAPIClien
 		json.Unmarshal(settings.General, &general)
 	}
 
-	if m.From != nil && general.EphemeralAdminCmd {
+	if m.From != nil && (general.EphemeralAdminCmd || general.EphemeralAll) {
 		_, _ = tg.SendEphemeralMessage(ctx, m.Chat.ID, m.From.ID, infoText, m.MessageThreadID)
 	} else {
 		_ = tg.SendMessage(ctx, m.Chat.ID, infoText, &m.MessageID, m.MessageThreadID)
@@ -3136,7 +3136,7 @@ func (h *WebhookHandler) adminStats(ctx context.Context, tg *telegram.BotAPIClie
 		json.Unmarshal(settings.General, &general)
 	}
 
-	if m.From != nil && general.EphemeralAdminCmd {
+	if m.From != nil && (general.EphemeralAdminCmd || general.EphemeralAll) {
 		_, _ = tg.SendEphemeralMessage(ctx, m.Chat.ID, m.From.ID, statsText, m.MessageThreadID)
 	} else {
 		_ = tg.SendMessage(ctx, m.Chat.ID, statsText, &m.MessageID, m.MessageThreadID)

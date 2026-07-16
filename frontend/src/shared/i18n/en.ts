@@ -1670,6 +1670,12 @@ export const dict = {
 		warningMessageDesc: 'Notify group when a message is deleted',
 		welcomeMessage: 'Welcome Message',
 		welcomeMessageDesc: 'Auto-greet new members',
+		ephemeralAll: 'Master Ephemeral Mode (Private Messages)',
+		ephemeralAllDesc: 'Send all bot notifications, warnings, and responses privately to the target recipient only.',
+		ephemeralWelcome: 'Ephemeral Welcome',
+		ephemeralWelcomeDesc: 'Show welcome message only to the new member',
+		ephemeralWarnings: 'Ephemeral Warnings',
+		ephemeralWarningsDesc: 'Show violation warnings only to the offender',
 	},
 	groupDashboard: {
 		groupLocked: 'Group Locked',

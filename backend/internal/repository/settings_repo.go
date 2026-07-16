@@ -45,6 +45,7 @@ type SettingsGeneral struct {
 	EphemeralWarnings   bool   `json:"ephemeralWarnings"`
 	EphemeralCaptcha    bool   `json:"ephemeralCaptcha"`
 	EphemeralAdminCmd   bool   `json:"ephemeralAdminCmd"`
+	EphemeralAll        bool   `json:"ephemeralAll"`
 	DefaultPenalty      string `json:"defaultPenalty"`
 	AutoWarning         bool   `json:"autoWarning"`
 	WarningThreshold    int    `json:"warningThreshold"`
@@ -182,6 +183,11 @@ func populateGeneralDefaults(raw json.RawMessage) json.RawMessage {
 		"verifyMembers":       false,
 		"publicCommands":      false,
 		"hideJoinLeave":       false,
+		"ephemeralWelcome":    false,
+		"ephemeralWarnings":   false,
+		"ephemeralCaptcha":    false,
+		"ephemeralAdminCmd":   false,
+		"ephemeralAll":        false,
 		"defaultPenalty":      "delete",
 		"autoWarning":         false,
 		"warningThreshold":    0,

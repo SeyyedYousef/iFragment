@@ -1678,6 +1678,12 @@ export const dict = {
 		warningMessageDesc: 'Уведомлять группу об удалении сообщения',
 		welcomeMessage: 'Приветствие',
 		welcomeMessageDesc: 'Авто-приветствие новых участников',
+		ephemeralAll: 'Главный конфиденциальный режим (Ephemeral Mode)',
+		ephemeralAllDesc: 'Отправлять все уведомления, ответы и предупреждения бота только лично адресату.',
+		ephemeralWelcome: 'Конфиденциальное приветствие',
+		ephemeralWelcomeDesc: 'Показывать приветствие только новому участнику',
+		ephemeralWarnings: 'Конфиденциальные предупреждения',
+		ephemeralWarningsDesc: 'Показывать предупреждения только нарушителю',
 	},
 	groupDashboard: {
 		groupLocked: 'Группа закрыта',

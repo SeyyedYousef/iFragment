@@ -1663,6 +1663,12 @@ export const dict = {
 		warningMessageDesc: 'اطلاع‌رسانی به گروه هنگام حذف پیام',
 		welcomeMessage: 'پیام خوش‌آمدگویی',
 		welcomeMessageDesc: 'خوش‌آمدگویی خودکار به اعضای جدید',
+		ephemeralAll: 'ارسال محرمانه همه‌جانبه (Ephemeral Mode)',
+		ephemeralAllDesc: 'ارسال تمامی پیام‌ها، پاسخ‌ها و اخطارهای ربات فقط و فقط به شخص مربوطه تا دیگران پیام‌ها را نبینند.',
+		ephemeralWelcome: 'خوش‌آمدگویی محرمانه',
+		ephemeralWelcomeDesc: 'نمایش پیام خوش‌آمدگویی فقط برای خود عضو جدید',
+		ephemeralWarnings: 'اخطار محرمانه',
+		ephemeralWarningsDesc: 'نمایش پیام تذکر و حذف فقط برای کاربر متخلف',
 	},
 	groupDashboard: {
 		groupLocked: 'گروه قفل شد',
