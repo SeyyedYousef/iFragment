@@ -150,17 +150,6 @@ export const AirdropPage: Component = () => {
 							{t('airdropFinal.bot.description' as any) || 'Your Tap-Bot has been mining while you were away!'}
 						</p>
 
-						{/* Loss Aversion warning banner */}
-						<div class="bg-red-500/10 border border-red-500/20 rounded-2xl p-3 w-full mb-6 z-10 flex items-start gap-2.5 text-left">
-							<span class="text-red-500 text-lg shrink-0 mt-0.5">⚠️</span>
-							<div class="flex flex-col">
-								<span class="text-red-400 font-bold text-xs uppercase tracking-wider">{t('airdropFinal.bot.warningTitle' as any) || 'Mining Paused'}</span>
-								<span class="text-white/90 text-[13px] leading-snug">
-									{t('airdropFinal.bot.warningDesc' as any) || 'Claim now to keep mining! Bot capacity is full and further mining is paused.'}
-								</span>
-							</div>
-						</div>
-
 						<div class="bg-black/40 rounded-2xl p-4 w-full flex items-center justify-center gap-3 mb-6 z-10 border border-white/5">
 							<div class="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
 								<span class="material-symbols-outlined text-amber-400 text-2xl" style={{ 'font-variation-settings': '"FILL" 1' }}>monetization_on</span>

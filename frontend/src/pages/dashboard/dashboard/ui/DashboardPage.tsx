@@ -108,7 +108,7 @@ export const DashboardPage: Component = () => {
 						initial={{ opacity: 0, scale: 0.9 }}
 						animate={{ opacity: 1, scale: 1 }}
 						transition={{ delay: 0.1, duration: 0.5, easing: [0.34, 1.56, 0.64, 1] }}
-						class="bg-[#0f1014] rounded-3xl p-5 shadow-inner border border-red-500/10 hover:border-red-500/30 flex flex-col gap-4 relative overflow-hidden group cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500/50 hover:scale-[1.02] active:scale-[0.96] transition-all"
+						class="bg-[#0f1014] rounded-3xl p-5 shadow-inner border border-[#2a2a2a] hover:border-red-500/20 flex flex-col gap-4 relative overflow-hidden group cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500/50 hover:scale-[1.02] active:scale-[0.96] transition-all"
 					>
 						<div class="flex items-start gap-4 relative z-10">
 							<div class="w-14 h-14 rounded-2xl bg-red-950/10 flex items-center justify-center shrink-0 border border-red-500/20 group-hover:scale-110 transition-transform duration-300">
@@ -119,15 +119,6 @@ export const DashboardPage: Component = () => {
 								<p class="text-sm text-on-surface-variant leading-relaxed font-medium">
 									{t('dashboard.groupDesc')}
 								</p>
-								<div class="flex items-center gap-2 mt-3 bg-red-950/20 border border-red-500/20 px-3 py-1.5 rounded-xl w-fit">
-									<span class="relative flex h-2 w-2">
-										<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-										<span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-									</span>
-									<span class="text-xs font-semibold text-red-400">
-										{t('dashboard.warningGroup')}
-									</span>
-								</div>
 							</div>
 						</div>
 
@@ -169,14 +160,6 @@ export const DashboardPage: Component = () => {
 								<p class="text-sm text-[#a0a4ad] leading-relaxed font-medium">
 									{t('dashboard.channelDesc')}
 								</p>
-								<div class="flex items-center gap-2 mt-3 bg-green-950/20 border border-green-500/10 px-3 py-1.5 rounded-xl w-fit">
-									<span class="relative flex h-2 w-2">
-										<span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-									</span>
-									<span class="text-xs font-semibold text-green-400">
-										{t('dashboard.warningChannel')}
-									</span>
-								</div>
 							</div>
 						</div>
 

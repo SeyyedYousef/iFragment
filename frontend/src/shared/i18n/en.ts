@@ -91,6 +91,18 @@ export const dict = {
 			title: 'Trending',
 		},
 		username: {
+			fg: {
+				trending_up: 'Opportunity Zone (Extreme Fear)',
+				shopping_cart: 'Strategic Buy Zone (Fear)',
+				warning: 'Caution Zone (Greed)',
+				error: 'Correction Risk Warning (Extreme Greed)',
+				desc: {
+					trending_up: "Market is fearful. Don't miss out on heavily discounted floor prices before the next recovery.",
+					shopping_cart: 'Lower market activity presents a window for strategic selection before the next volume surge.',
+					warning: 'Market is heating up. Exercise caution as buying pressure rises; focus on high-utility assets.',
+					error: 'Extreme Greed! Protect capital from buying at the top. FOMO risk is high; sudden corrections may occur.',
+				},
+			},
 			activeAuctions: 'Active Auctions',
 			failedToLoad: 'Failed to load market data',
 			allTimeHigh: 'All-Time High Sales',
@@ -2122,6 +2134,8 @@ export const dict = {
 		deleteConfirm:
 			'Are you sure you want to delete your account? This will erase all local settings and cannot be undone.',
 		deleteDesc: 'Permanently remove all local data (irreversible)',
+		deleteSuccess: 'Account permanently deleted.',
+		deleteFailed: 'Deletion failed: {error}',
 		exportDesc: 'Securely export your Coins wallet private key. DO NOT share this with anyone!',
 		exportPrivateKey: 'Export Private Key',
 		exportSuccess: 'Private key copied to clipboard. Store it safely!',

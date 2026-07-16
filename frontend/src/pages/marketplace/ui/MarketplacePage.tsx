@@ -158,11 +158,7 @@ export const MarketplacePage: Component = () => {
 			class="flex flex-col bg-[#0f1014] relative overflow-hidden"
 			style={{ 'min-height': 'var(--tg-viewport-stable-height, 100vh)' }}
 		>
-			{/* Premium Ambient Light */}
-			<div
-				class="absolute top-0 left-1/2 -translate-x-1/2 w-[350px] h-[350px] rounded-full pointer-events-none filter blur-[80px]"
-				style={{ background: 'radial-gradient(circle, rgba(51,144,236,0.15) 0%, transparent 70%)' }}
-			></div>
+
 
 			{/* Header Info */}
 			<div class="px-5 pt-6 pb-4 z-10 flex flex-col items-center">

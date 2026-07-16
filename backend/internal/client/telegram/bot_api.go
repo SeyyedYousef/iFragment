@@ -952,3 +952,95 @@ func (c *BotAPIClient) SendPhoto(ctx context.Context, chatID int64, photoURL str
 	return &msgResult.Result, nil
 }
 
+type EphemeralMessageResult struct {
+	MessageID          int    `json:"message_id"`
+	EphemeralMessageID string `json:"ephemeral_message_id"`
+}
+
+// SendEphemeralMessage sends a text message visible only to a specific user in a group chat.
+func (c *BotAPIClient) SendEphemeralMessage(ctx context.Context, chatID int64, receiverUserID int64, text string, threadID *int, parseMode ...string) (*EphemeralMessageResult, error) {
+	mode := "HTML"
+	if len(parseMode) > 0 {
+		mode = parseMode[0]
+	}
+	payload := map[string]interface{}{
+		"chat_id":          chatID,
+		"receiver_user_id": receiverUserID,
+		"text":             text,
+	}
+	if mode != "" {
+		payload["parse_mode"] = mode
+	}
+	if threadID != nil {
+		payload["message_thread_id"] = *threadID
+	}
+	resp, err := c.Request(ctx, "sendMessage", payload)
+	if err != nil {
+		return nil, err
+	}
+	var res EphemeralMessageResult
+	if err := json.Unmarshal(resp, &res); err != nil {
+		return nil, fmt.Errorf("failed to parse ephemeral message result: %w", err)
+	}
+	return &res, nil
+}
+
+// SendEphemeralMessageWithMarkup sends a text message with inline markup visible only to a specific user in a group chat.
+func (c *BotAPIClient) SendEphemeralMessageWithMarkup(ctx context.Context, chatID int64, receiverUserID int64, text string, markup interface{}, threadID *int, parseMode ...string) (*EphemeralMessageResult, error) {
+	mode := "HTML"
+	if len(parseMode) > 0 {
+		mode = parseMode[0]
+	}
+	payload := map[string]interface{}{
+		"chat_id":          chatID,
+		"receiver_user_id": receiverUserID,
+		"text":             text,
+	}
+	if !IsNil(markup) {
+		payload["reply_markup"] = markup
+	}
+	if mode != "" {
+		payload["parse_mode"] = mode
+	}
+	if threadID != nil {
+		payload["message_thread_id"] = *threadID
+	}
+	resp, err := c.Request(ctx, "sendMessage", payload)
+	if err != nil {
+		return nil, err
+	}
+	var res EphemeralMessageResult
+	if err := json.Unmarshal(resp, &res); err != nil {
+		return nil, fmt.Errorf("failed to parse ephemeral message result with markup: %w", err)
+	}
+	return &res, nil
+}
+
+// EditEphemeralMessageText edits the text of an ephemeral message.
+func (c *BotAPIClient) EditEphemeralMessageText(ctx context.Context, chatID interface{}, ephemeralMessageID string, text string, parseMode ...string) error {
+	mode := "HTML"
+	if len(parseMode) > 0 {
+		mode = parseMode[0]
+	}
+	payload := map[string]interface{}{
+		"chat_id":              chatID,
+		"ephemeral_message_id": ephemeralMessageID,
+		"text":                 text,
+	}
+	if mode != "" {
+		payload["parse_mode"] = mode
+	}
+	_, err := c.Request(ctx, "editEphemeralMessageText", payload)
+	return handleEditError(err)
+}
+
+// DeleteEphemeralMessage deletes an ephemeral message.
+func (c *BotAPIClient) DeleteEphemeralMessage(ctx context.Context, chatID interface{}, ephemeralMessageID string) error {
+	_, err := c.Request(ctx, "deleteEphemeralMessage", map[string]interface{}{
+		"chat_id":              chatID,
+		"ephemeral_message_id": ephemeralMessageID,
+	})
+	return err
+}
+
+

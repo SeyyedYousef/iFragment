@@ -152,6 +152,8 @@ type Message struct {
 	LeftChatMember     *User              `json:"left_chat_member"`
 	IsAutomaticForward bool               `json:"is_automatic_forward,omitempty"`
 	SenderChat         *Chat              `json:"sender_chat,omitempty"`
+	ReceiverUser       *User              `json:"receiver_user,omitempty"`
+	EphemeralMessageID string             `json:"ephemeral_message_id,omitempty"`
 }
 
 type MessageEntity struct {
@@ -1525,7 +1527,6 @@ func (h *WebhookHandler) executeViolationAction(ctx context.Context, bot *reposi
 	}
 
 	var penaltyMsg string
-	isCustomNotice := false
 	if violation.Action == "warn" || violation.Action == "delete" {
 		template := ct.WarningText
 		if template == "" {
@@ -1538,19 +1539,16 @@ func (h *WebhookHandler) executeViolationAction(ctx context.Context, bot *reposi
 			if template == "" {
 				template = "📢 <b>Action Required: Channel Membership</b>\n\nHello {user}, to participate in {group}, you are required to join our official channels:\n\n{channel_names}\n\nPlease join them to instantly unlock your chat privileges."
 			}
-			isCustomNotice = true
 		case "forced_add":
 			template = ct.ForceAddText
 			if template == "" {
 				template = "👥 <b>Action Required: Community Contribution</b>\n\nHello {user}, to send messages in {group}, you must invite members to our community.\n\n📊 Progress: {added} / {number} members added.\n⏳ Remaining: {remainadd} members.\n\nPlease complete this requirement to unlock your chat privileges."
 			}
-			isCustomNotice = true
 		case "quiet_hours":
 			template = ct.SilenceStartText
 			if template == "" {
 				template = "🔒 <b>Group Lockdown Initiated</b>\n\nThe group {group} is currently in a scheduled quiet period or emergency lockdown. Standard members cannot send messages at this time. We appreciate your patience and cooperation.\n\n🕒 Time: {time}"
 			}
-			isCustomNotice = true
 		}
 
 		penaltyMsg = h.formatWarningText(ctx, tgClient, group, chatID, userID, violation.Message, violation.Type, violation.CurrentWarnings, violation.WarningThreshold, template)
@@ -1563,6 +1561,14 @@ func (h *WebhookHandler) executeViolationAction(ctx context.Context, bot *reposi
 		}
 	}
 
+	sendMsg := func(text string) {
+		if general.EphemeralWarnings {
+			h.sendEphemeralBotMessage(ctx, tgClient, chatID, userID, text, nil, threadID, general)
+		} else {
+			h.sendBotMessage(ctx, tgClient, chatID, text, nil, threadID, general)
+		}
+	}
+
 	switch {
 	case strings.HasPrefix(violation.Action, "mute"):
 		if botPerms == nil || botPerms.CanRestrictMembers {
@@ -1571,7 +1577,7 @@ func (h *WebhookHandler) executeViolationAction(ctx context.Context, bot *reposi
 			if msg == "" || msg == "penalty.mute" {
 				msg = fmt.Sprintf("🔇 User restricted for %s due to: %s", durationText, penaltyMsg)
 			}
-			h.sendBotMessage(ctx, tgClient, chatID, msg, nil, threadID, general)
+			sendMsg(msg)
 		} else {
 			slog.Warn("Skipped mute: bot lacks can_restrict_members", "chat_id", chatID)
 		}
@@ -1583,7 +1589,7 @@ func (h *WebhookHandler) executeViolationAction(ctx context.Context, bot *reposi
 			if msg == "" || msg == "penalty.kick" {
 				msg = fmt.Sprintf("👢 User kicked due to: %s", penaltyMsg)
 			}
-			h.sendBotMessage(ctx, tgClient, chatID, msg, nil, threadID, general)
+			sendMsg(msg)
 		} else {
 			slog.Warn("Skipped kick: bot lacks can_restrict_members", "chat_id", chatID)
 		}
@@ -1594,20 +1600,16 @@ func (h *WebhookHandler) executeViolationAction(ctx context.Context, bot *reposi
 			if msg == "" || msg == "penalty.ban" {
 				msg = fmt.Sprintf("🚫 User banned due to: %s", penaltyMsg)
 			}
-			h.sendBotMessage(ctx, tgClient, chatID, msg, nil, threadID, general)
+			sendMsg(msg)
 		} else {
 			slog.Warn("Skipped ban: bot lacks can_restrict_members", "chat_id", chatID)
 		}
 	case violation.Action == "delete" || violation.Action == "warn":
 		slog.Info("Violation action matched delete/warn", "action", violation.Action, "warningMessageEnabled", general.WarningMessage, "currentWarnings", violation.CurrentWarnings, "type", violation.Type)
 		if (violation.Action == "warn" || violation.Action == "delete" || violation.CurrentWarnings > 0) && general.WarningMessage {
-			if isCustomNotice {
-				h.sendBotMessage(ctx, tgClient, chatID, penaltyMsg, nil, threadID, general)
-			} else {
-				h.sendBotMessage(ctx, tgClient, chatID, penaltyMsg, nil, threadID, general)
-			}
+			sendMsg(penaltyMsg)
 		} else if violation.Type == "mandatory_membership" || violation.Type == "forced_add" || violation.Type == "quiet_hours" {
-			h.sendBotMessage(ctx, tgClient, chatID, penaltyMsg, nil, threadID, general)
+			sendMsg(penaltyMsg)
 		}
 	}
 }
@@ -2013,6 +2015,37 @@ func (h *WebhookHandler) handleWelcomeMessage(ctx context.Context, bot *reposito
 		}
 	}
 
+	if general.EphemeralWelcome {
+		for _, u := range newMembers {
+			if u.IsBot {
+				continue
+			}
+			name := u.FirstName
+			if u.Username != "" {
+				name = "@" + u.Username
+			}
+			userLink := fmt.Sprintf(`<a href="tg://user?id=%d">%s</a>`, u.ID, telegram.EscapeHTML(name))
+			
+			personalText := welcomeText
+			personalText = strings.ReplaceAll(personalText, "{user}", userLink)
+			personalText = strings.ReplaceAll(personalText, "{first_name}", telegram.EscapeHTML(u.FirstName))
+			if u.Username != "" {
+				personalText = strings.ReplaceAll(personalText, "{username}", "@"+telegram.EscapeHTML(u.Username))
+			} else {
+				personalText = strings.ReplaceAll(personalText, "{username}", telegram.EscapeHTML(u.FirstName))
+			}
+			personalText = strings.ReplaceAll(personalText, "{group}", telegram.EscapeHTML(chat.Title))
+			personalText = strings.ReplaceAll(personalText, "{chat_title}", telegram.EscapeHTML(chat.Title))
+			personalText = strings.ReplaceAll(personalText, "{id}", fmt.Sprintf("%d", u.ID))
+			personalText = strings.ReplaceAll(personalText, "{time}", time.Now().Format("2006-01-02 15:04:05 MST"))
+			personalText = strings.ReplaceAll(personalText, "{count}", fmt.Sprintf("%d", count))
+			personalText = strings.ReplaceAll(personalText, "{rules}", rules)
+
+			h.sendEphemeralBotMessage(ctx, tg, chat.ID, u.ID, personalText, markup, threadID, general)
+		}
+		return
+	}
+
 	h.sendBotMessage(ctx, tg, chat.ID, text, markup, threadID, general)
 }
 
@@ -2203,8 +2236,17 @@ func (h *WebhookHandler) adminWarn(ctx context.Context, bot *repository.ManagedB
 
 func (h *WebhookHandler) adminRules(ctx context.Context, tg *telegram.BotAPIClient, m *Message, lang string, groupID uuid.UUID) bool {
 	settings, err := h.moderator.GetSettings(ctx, groupID)
+	var general repository.SettingsGeneral
+	if settings != nil {
+		json.Unmarshal(settings.General, &general)
+	}
+
 	if err != nil || settings == nil {
-		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.no_rules"), &m.MessageID, m.MessageThreadID)
+		if m.From != nil && general.EphemeralAdminCmd {
+			_, _ = tg.SendEphemeralMessage(ctx, m.Chat.ID, m.From.ID, i18n.T(lang, "moderation.no_rules"), m.MessageThreadID)
+		} else {
+			_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.no_rules"), &m.MessageID, m.MessageThreadID)
+		}
 		return true
 	}
 
@@ -2212,7 +2254,11 @@ func (h *WebhookHandler) adminRules(ctx context.Context, tg *telegram.BotAPIClie
 	json.Unmarshal(settings.CustomTexts, &ct)
 
 	if ct.RulesText == "" {
-		_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.no_rules"), &m.MessageID, m.MessageThreadID)
+		if m.From != nil && general.EphemeralAdminCmd {
+			_, _ = tg.SendEphemeralMessage(ctx, m.Chat.ID, m.From.ID, i18n.T(lang, "moderation.no_rules"), m.MessageThreadID)
+		} else {
+			_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.no_rules"), &m.MessageID, m.MessageThreadID)
+		}
 		return true
 	}
 
@@ -2226,7 +2272,12 @@ func (h *WebhookHandler) adminRules(ctx context.Context, tg *telegram.BotAPIClie
 		}
 	}
 
-	_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.rules_title", map[string]interface{}{"rules": rulesText}), &m.MessageID, m.MessageThreadID)
+	text := i18n.T(lang, "moderation.rules_title", map[string]interface{}{"rules": rulesText})
+	if m.From != nil && general.EphemeralAdminCmd {
+		_, _ = tg.SendEphemeralMessage(ctx, m.Chat.ID, m.From.ID, text, m.MessageThreadID)
+	} else {
+		_ = tg.SendMessage(ctx, m.Chat.ID, text, &m.MessageID, m.MessageThreadID)
+	}
 	return true
 }
 
@@ -2331,8 +2382,12 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 		// Atomically check and clear pending captcha in Redis to prevent race conditions
 		// where a user clicks the button multiple times and gets multiple welcome messages.
 		cache := h.moderator.GetCache()
+		var redisVal string
 		if cache != nil && cache.Client != nil {
 			pendingKey := fmt.Sprintf("captcha_pending:%d:%d", cq.Message.Chat.ID, cq.From.ID)
+			if val, err := cache.Client.Get(ctx, pendingKey).Result(); err == nil {
+				redisVal = val
+			}
 			deleted, err := cache.Client.Del(ctx, pendingKey).Result()
 			if err != nil || deleted == 0 {
 				_ = h.moderator.AnswerCallbackQuery(ctx, bot, cq.ID, "Captcha already solved or expired.", false)
@@ -2340,8 +2395,24 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 			}
 		}
 
+		var isEphemeral bool
+		var captchaMsgID string
+		if redisVal != "" {
+			parts := strings.SplitN(redisVal, ":", 2)
+			if len(parts) == 2 {
+				isEphemeral = (parts[0] == "ephemeral")
+				captchaMsgID = parts[1]
+			}
+		}
+
 		_ = tg.UnrestrictChatMember(ctx, cq.Message.Chat.ID, cq.From.ID)
-		_ = tg.DeleteMessage(ctx, cq.Message.Chat.ID, cq.Message.MessageID)
+		if isEphemeral && captchaMsgID != "" {
+			_ = tg.DeleteEphemeralMessage(ctx, cq.Message.Chat.ID, captchaMsgID)
+		} else if cq.Message != nil && cq.Message.EphemeralMessageID != "" {
+			_ = tg.DeleteEphemeralMessage(ctx, cq.Message.Chat.ID, cq.Message.EphemeralMessageID)
+		} else if cq.Message != nil {
+			_ = tg.DeleteMessage(ctx, cq.Message.Chat.ID, cq.Message.MessageID)
+		}
 		_ = tg.AnswerCallbackQuery(ctx, cq.ID, "Verification successful! Welcome.", false)
 
 		h.handleWelcomeMessage(ctx, bot, cq.Message.Chat, cq.Message.MessageThreadID, []User{cq.From})
@@ -2858,7 +2929,9 @@ func (h *WebhookHandler) handleJoinCaptcha(ctx context.Context, bot *repository.
 
 	welcome := i18n.T(lang, "captcha.welcome_msg", map[string]interface{}{"name": user.FirstName, "id": user.ID})
 	if welcome == "" || welcome == "captcha.welcome_msg" {
-		welcome = fmt.Sprintf("👋 Welcome [%s](tg://user?id=%d)!\n\nPlease click the button below to verify you are human.", user.FirstName, user.ID)
+		welcome = fmt.Sprintf(`👋 Welcome <a href="tg://user?id=%d">%s</a>!
+
+Please click the button below to verify you are human.`, user.ID, telegram.EscapeHTML(user.FirstName))
 	}
 
 	cache := h.moderator.GetCache()
@@ -2869,20 +2942,48 @@ func (h *WebhookHandler) handleJoinCaptcha(ctx context.Context, bot *repository.
 		cache.Client.Set(ctx, pendingKey, "pending", 10*time.Minute)
 	}
 
-	captchaMsg, sendErr := tg.SendMessageWithMarkup(ctx, m.Chat.ID, welcome, markup, m.MessageThreadID)
-	if sendErr == nil && captchaMsg != nil && cache != nil && cache.Client != nil {
+	var sendErr error
+	var captchaMsgID string
+	var isEphemeral bool
+
+	if general.EphemeralCaptcha {
+		isEphemeral = true
+		epMsg, err := tg.SendEphemeralMessageWithMarkup(ctx, m.Chat.ID, user.ID, welcome, markup, m.MessageThreadID)
+		sendErr = err
+		if err == nil && epMsg != nil {
+			captchaMsgID = epMsg.EphemeralMessageID
+		}
+	} else {
+		captchaMsg, err := tg.SendMessageWithMarkup(ctx, m.Chat.ID, welcome, markup, m.MessageThreadID)
+		sendErr = err
+		if err == nil && captchaMsg != nil {
+			captchaMsgID = fmt.Sprintf("%d", captchaMsg.MessageID)
+		}
+	}
+
+	if sendErr == nil && captchaMsgID != "" && cache != nil && cache.Client != nil {
 		// Only update if the key still exists (meaning the user hasn't solved it yet)
-		updated, _ := cache.Client.SetXX(ctx, pendingKey, captchaMsg.MessageID, 10*time.Minute).Result()
+		redisVal := fmt.Sprintf("public:%s", captchaMsgID)
+		if isEphemeral {
+			redisVal = fmt.Sprintf("ephemeral:%s", captchaMsgID)
+		}
+		updated, _ := cache.Client.SetXX(ctx, pendingKey, redisVal, 10*time.Minute).Result()
 		if updated {
 			time.AfterFunc(5*time.Minute, func() {
 				bgCtx := context.Background()
 				val, err := cache.Client.Get(bgCtx, pendingKey).Result()
-				if err == nil && val == fmt.Sprintf("%d", captchaMsg.MessageID) {
+				if err == nil && val == redisVal {
 					tgClient, err := h.moderator.GetTelegramClient(bgCtx, bot)
 					if err == nil {
 						_ = tgClient.BanChatMember(bgCtx, m.Chat.ID, user.ID, time.Now().Add(30*time.Second).Unix(), false)
 						_ = tgClient.UnbanChatMember(bgCtx, m.Chat.ID, user.ID, true)
-						_ = tgClient.DeleteMessage(bgCtx, m.Chat.ID, captchaMsg.MessageID)
+						if isEphemeral {
+							_ = tgClient.DeleteEphemeralMessage(bgCtx, m.Chat.ID, captchaMsgID)
+						} else {
+							if msgIDInt, convErr := strconv.Atoi(captchaMsgID); convErr == nil {
+								_ = tgClient.DeleteMessage(bgCtx, m.Chat.ID, msgIDInt)
+							}
+						}
 					}
 					cache.Client.Del(bgCtx, pendingKey)
 				}
@@ -2983,7 +3084,16 @@ func (h *WebhookHandler) adminInfo(ctx context.Context, tg *telegram.BotAPIClien
 		)
 	}
 
-	_ = tg.SendMessage(ctx, m.Chat.ID, infoText, &m.MessageID, m.MessageThreadID)
+	var general repository.SettingsGeneral
+	if settings, err := h.moderator.GetSettings(ctx, group.ID); err == nil && settings != nil {
+		json.Unmarshal(settings.General, &general)
+	}
+
+	if m.From != nil && general.EphemeralAdminCmd {
+		_, _ = tg.SendEphemeralMessage(ctx, m.Chat.ID, m.From.ID, infoText, m.MessageThreadID)
+	} else {
+		_ = tg.SendMessage(ctx, m.Chat.ID, infoText, &m.MessageID, m.MessageThreadID)
+	}
 	return true
 }
 
@@ -3021,7 +3131,16 @@ func (h *WebhookHandler) adminStats(ctx context.Context, tg *telegram.BotAPIClie
 		)
 	}
 
-	_ = tg.SendMessage(ctx, m.Chat.ID, statsText, &m.MessageID, m.MessageThreadID)
+	var general repository.SettingsGeneral
+	if settings, err := h.moderator.GetSettings(ctx, group.ID); err == nil && settings != nil {
+		json.Unmarshal(settings.General, &general)
+	}
+
+	if m.From != nil && general.EphemeralAdminCmd {
+		_, _ = tg.SendEphemeralMessage(ctx, m.Chat.ID, m.From.ID, statsText, m.MessageThreadID)
+	} else {
+		_ = tg.SendMessage(ctx, m.Chat.ID, statsText, &m.MessageID, m.MessageThreadID)
+	}
 	return true
 }
 
@@ -3116,6 +3235,37 @@ func (h *WebhookHandler) sendBotMessage(ctx context.Context, tg *telegram.BotAPI
 		time.AfterFunc(time.Duration(general.AutoDeleteDelay)*time.Second, func() {
 			_ = tg.DeleteMessage(context.Background(), chatID, msg.MessageID)
 		})
+	}
+}
+
+func (h *WebhookHandler) sendEphemeralBotMessage(ctx context.Context, tg *telegram.BotAPIClient, chatID int64, receiverUserID int64, text string, replyMarkup map[string]interface{}, threadID *int, general repository.SettingsGeneral) {
+	if tg == nil {
+		slog.Error("sendEphemeralBotMessage: telegram client is nil")
+		return
+	}
+	var err error
+	if replyMarkup != nil {
+		_, err = tg.SendEphemeralMessageWithMarkup(ctx, chatID, receiverUserID, text, replyMarkup, threadID)
+		if err != nil {
+			slog.Error("Failed to send ephemeral message with markup", "error", err, "chatID", chatID, "receiverUserID", receiverUserID)
+			if strings.Contains(err.Error(), "parse") || strings.Contains(err.Error(), "entity") {
+				slog.Info("Retrying ephemeral message with markup in plain text mode", "chatID", chatID, "receiverUserID", receiverUserID)
+				_, err = tg.SendEphemeralMessageWithMarkup(ctx, chatID, receiverUserID, text, replyMarkup, threadID, "")
+			}
+		}
+	} else {
+		_, err = tg.SendEphemeralMessage(ctx, chatID, receiverUserID, text, threadID)
+		if err != nil {
+			slog.Error("Failed to send ephemeral message", "error", err, "chatID", chatID, "receiverUserID", receiverUserID)
+			if strings.Contains(err.Error(), "parse") || strings.Contains(err.Error(), "entity") {
+				slog.Info("Retrying ephemeral message in plain text mode", "chatID", chatID, "receiverUserID", receiverUserID)
+				_, err = tg.SendEphemeralMessage(ctx, chatID, receiverUserID, text, threadID, "")
+			}
+		}
+	}
+	if err != nil {
+		slog.Error("Ephemeral message failed after retry, falling back to public message", "error", err, "chatID", chatID, "receiverUserID", receiverUserID)
+		h.sendBotMessage(ctx, tg, chatID, text, replyMarkup, threadID, general)
 	}
 }
 

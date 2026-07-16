@@ -93,11 +93,12 @@ func (s *GamificationService) flushTapBatches(ctx context.Context) {
 	batchKey := "profile:taps:batch"
 	processingKey := "profile:taps:batch:processing"
 	err := s.cache.Client.Rename(ctx, batchKey, processingKey).Err()
-	if err != nil && err != redis.Nil {
+	if err != nil {
+		if err == redis.Nil || strings.Contains(strings.ToLower(err.Error()), "no such key") {
+			return // Nothing to process
+		}
 		slog.Error("failed to rename tap batch key", "err", err)
 		return
-	} else if err == redis.Nil {
-		return // Nothing to process
 	}
 
 	taps, err := s.cache.Client.HGetAll(ctx, processingKey).Result()
@@ -121,7 +122,8 @@ func (s *GamificationService) flushTapBatches(ctx context.Context) {
 	stmt := `
 		UPDATE user_stats 
 		SET airdrop_coins = airdrop_coins + $2,
-			xp = xp + $2
+			xp = xp + $2,
+			total_coins_earned = total_coins_earned + $2
 		WHERE user_id = $1
 	`
 	for userIDStr, tapCountStr := range taps {
@@ -946,7 +948,7 @@ func (s *GamificationService) UpgradeBoost(ctx context.Context, userID int64, bo
 	case "energy_limit":
 		updateQuery = "UPDATE user_boosts SET energy_limit_level = $1 WHERE user_id = $2"
 	case "tap_bot":
-		updateQuery = "UPDATE user_boosts SET tap_bot_level = $1 WHERE user_id = $2"
+		updateQuery = "UPDATE user_boosts SET tap_bot_level = $1, tap_bot_last_collected_at = CURRENT_TIMESTAMP WHERE user_id = $2"
 	}
 	_, err = tx.Exec(ctx, updateQuery, nextLevel, userID)
 	if err != nil {
@@ -1158,16 +1160,13 @@ func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID i
 	var level, multitap, energyLimitLevel int
 	var lastCollectedAt *time.Time
 	var capSeconds int
-	var energy int
-	var energyUpdatedAt time.Time
 
 	query := `
-		SELECT b.tap_bot_level, b.tap_bot_last_collected_at, b.tap_bot_cap_seconds, b.multitap_level, b.energy_limit_level,
-		       s.energy, s.energy_updated_at
+		SELECT b.tap_bot_level, b.tap_bot_last_collected_at, b.tap_bot_cap_seconds, b.multitap_level, b.energy_limit_level
 		FROM user_boosts b
 		JOIN user_stats s ON s.user_id = b.user_id
 		WHERE b.user_id = $1 FOR UPDATE`
-	err = tx.QueryRow(ctx, query, userID).Scan(&level, &lastCollectedAt, &capSeconds, &multitap, &energyLimitLevel, &energy, &energyUpdatedAt)
+	err = tx.QueryRow(ctx, query, userID).Scan(&level, &lastCollectedAt, &capSeconds, &multitap, &energyLimitLevel)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return &OfflineMiningResult{Earned: 0, DurationSeconds: 0}, nil
@@ -1188,19 +1187,7 @@ func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID i
 		capSeconds = 8 * 3600 // 8 hours default cap
 	}
 
-	maxEnergy := 500 + (energyLimitLevel-1)*250
-	timeToFull := maxEnergy - energy
-	if timeToFull < 0 {
-		timeToFull = 0
-	}
-	timeEnergyFullAt := energyUpdatedAt.Add(time.Duration(timeToFull) * time.Second)
-
-	botStartTime := *lastCollectedAt
-	if timeEnergyFullAt.After(botStartTime) {
-		botStartTime = timeEnergyFullAt
-	}
-
-	elapsed := int(now.Sub(botStartTime).Seconds())
+	elapsed := int(now.Sub(*lastCollectedAt).Seconds())
 	if elapsed < 0 {
 		elapsed = 0
 	}

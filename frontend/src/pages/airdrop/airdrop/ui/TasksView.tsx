@@ -276,8 +276,7 @@ export const TasksView: Component = () => {
 			<Show when={comboQuery.data?.is_active}>
 				<div class="px-5 mt-4">
 					<div class="bg-[#1c1c1e] rounded-[24px] p-5 flex flex-col items-center relative overflow-hidden border border-white/10">
-						{/* Background elements */}
-						<div class="absolute top-[-50px] right-[-50px] w-32 h-32 bg-[#F5A623]/20 rounded-full blur-[40px]" />
+
 						
 						<h3 class="text-white text-[20px] font-bold mb-1 z-10 flex items-center gap-2">
 							<span class="text-[24px]">🧩</span> Daily Combo

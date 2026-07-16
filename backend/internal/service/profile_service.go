@@ -249,6 +249,26 @@ func (s *ProfileService) GetStats(ctx context.Context, userID int64) (*model.Pro
 
 	stats.GlobalRank = s.getGlobalRank(ctx, userID, stats.XP)
 
+	// Add pending batched taps from Redis to ensure immediate UI updates upon page refresh
+	if s.cache != nil && s.cache.Client != nil {
+		userIDStr := strconv.FormatInt(userID, 10)
+		var pendingTaps int64
+		if val, err := s.cache.Client.HGet(ctx, "profile:taps:batch", userIDStr).Result(); err == nil {
+			if p, err := strconv.ParseInt(val, 10, 64); err == nil {
+				pendingTaps += p
+			}
+		}
+		if valProc, err := s.cache.Client.HGet(ctx, "profile:taps:batch:processing", userIDStr).Result(); err == nil {
+			if p, err := strconv.ParseInt(valProc, 10, 64); err == nil {
+				pendingTaps += p
+			}
+		}
+		if pendingTaps > 0 {
+			stats.AirdropCoins += float64(pendingTaps)
+			stats.XP += int(pendingTaps)
+		}
+	}
+
 	avatarPath, _, err := s.GetUserProfilePhotoPath(ctx, userID)
 	if err == nil && avatarPath != "" {
 		stats.PhotoURL = fmt.Sprintf("/api/v1/profile/avatar/%d", userID)
@@ -467,50 +487,104 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 		return nil, fmt.Errorf("tap count exceeds maximum limit per request")
 	}
 
-	// For maximum performance and batching, we fetch the current boost levels
-	// without locking the user_stats row.
+	// Fetch current boost levels and current energy status from user_stats and user_boosts
 	var multitapLevel, energyLimitLevel int
+	var storedEnergy int
+	var energyUpdatedAt time.Time
+
 	err := s.db.Pool.QueryRow(ctx, `
-		SELECT COALESCE(multitap_level, 1), COALESCE(energy_limit_level, 1)
-		FROM user_boosts WHERE user_id = $1
-	`, userID).Scan(&multitapLevel, &energyLimitLevel)
+		SELECT 
+			COALESCE(b.multitap_level, 1), 
+			COALESCE(b.energy_limit_level, 1),
+			COALESCE(s.energy, 500),
+			COALESCE(s.energy_updated_at, now())
+		FROM user_stats s
+		LEFT JOIN user_boosts b ON s.user_id = b.user_id
+		WHERE s.user_id = $1
+	`, userID).Scan(&multitapLevel, &energyLimitLevel, &storedEnergy, &energyUpdatedAt)
 	if err != nil {
 		multitapLevel = 1
+		energyLimitLevel = 1
+		storedEnergy = 500
+		energyUpdatedAt = time.Now()
+	}
+
+	// Calculate regenerated energy since energy_updated_at
+	maxEnergy := 500 + (energyLimitLevel-1)*250
+	regen := int(time.Since(energyUpdatedAt).Seconds())
+	currentEnergy := storedEnergy
+	if regen > 0 {
+		currentEnergy += regen
+		if currentEnergy > maxEnergy {
+			currentEnergy = maxEnergy
+		}
+	}
+
+	// Calculate energy consumed by these taps
+	energyConsumed := 0
+	if multiplier != 5 { // multiplier = 5 represents Turbo boost where no energy is consumed
+		energyConsumed = taps * multitapLevel
+	}
+
+	// Validate energy
+	if currentEnergy < energyConsumed {
+		return nil, fmt.Errorf("not enough energy")
+	}
+
+	// Save the decremented energy and update total taps in the database
+	newEnergy := currentEnergy - energyConsumed
+	_, err = s.db.Pool.Exec(ctx, `
+		UPDATE user_stats
+		SET energy = $1,
+		    energy_updated_at = now(),
+		    last_active_at = now(),
+		    total_taps = COALESCE(total_taps, 0) + $2
+		WHERE user_id = $3
+	`, newEnergy, taps, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update energy: %w", err)
 	}
 
 	coinsEarned := float64(taps * multitapLevel * multiplier)
+	redisFailed := false
 
 	if s.cache != nil && s.cache.Client != nil {
 		userIDStr := strconv.FormatInt(userID, 10)
 		
 		// Batch taps in Redis
-		s.cache.Client.HIncrBy(ctx, "profile:taps:batch", userIDStr, int64(coinsEarned))
-		
-		// Invalidate local profile cache
-		s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
-	} else {
-		// Fallback to direct DB update if Redis is unavailable
-		_, _ = s.db.Pool.Exec(ctx, `
+		err := s.cache.Client.HIncrBy(ctx, "profile:taps:batch", userIDStr, int64(coinsEarned)).Err()
+		if err != nil {
+			slog.Error("Redis HIncrBy failed in AddTaps, falling back to DB", "user", userID, "err", err)
+			redisFailed = true
+		} else {
+			// Invalidate local profile cache
+			s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
+		}
+	}
+
+	if s.cache == nil || s.cache.Client == nil || redisFailed {
+		// Fallback to direct DB update if Redis is unavailable or failed (e.g. Upstash daily request limit exceeded)
+		_, err = s.db.Pool.Exec(ctx, `
 			UPDATE user_stats
 			SET total_taps = COALESCE(total_taps, 0) + $1,
 			    xp = COALESCE(xp, 0) + $2,
 			    airdrop_coins = COALESCE(airdrop_coins, 0) + $3,
-			    total_coins_earned = COALESCE(total_coins_earned, 0) + $3,
-			    last_active_at = now()
+			    total_coins_earned = COALESCE(total_coins_earned, 0) + $3
 			WHERE user_id = $4`,
 			taps, int(coinsEarned), coinsEarned, userID,
 		)
+		if err != nil {
+			slog.Error("Direct DB update fallback failed in AddTaps", "user", userID, "err", err)
+		}
 	}
 
 	// Fetch updated stats to return to frontend
-	// (Note: The stats might not reflect the batched coins immediately until the worker flushes,
-	// but we can manually inject the added coins into the returned struct for a smooth UI)
 	stats, err := s.GetStats(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 	
-	if s.cache != nil && s.cache.Client != nil {
+	if s.cache != nil && s.cache.Client != nil && !redisFailed {
 		stats.AirdropCoins += coinsEarned
 		stats.XP += int(coinsEarned)
 		stats.TotalTaps += taps

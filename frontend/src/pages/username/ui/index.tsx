@@ -343,9 +343,7 @@ export const UsernamePage: Component = () => {
 								}}
 							/>
 
-							{/* Background Glow Orbs */}
-							<div class="absolute -top-24 -left-24 w-64 h-64 bg-[#00f5ff]/10 rounded-full blur-[90px] pointer-events-none" />
-							<div class="absolute -bottom-24 -right-24 w-60 h-60 bg-[#a100ff]/10 rounded-full blur-[90px] pointer-events-none" />
+
 							<div class="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
 							
 							{/* Shimmer Effect */}
@@ -474,20 +472,6 @@ export const UsernamePage: Component = () => {
 
 					{/* Valuation Metrics (Price Range & Confidence) */}
 					<div class="w-full max-w-[400px] mt-8 flex flex-col gap-4">
-						{/* Loss Aversion Warning Alert */}
-						<div class="bg-amber-500/10 border border-amber-500/25 rounded-2xl p-4 flex gap-3 items-start shadow-[0_4px_20px_rgba(245,158,11,0.05)]">
-							<span class="material-symbols-outlined text-amber-400 text-[22px] shrink-0 select-none animate-pulse">
-								warning
-							</span>
-							<div class="flex flex-col gap-1">
-								<span class="text-amber-400 font-black text-[10px] uppercase tracking-widest">
-									{t('valuation.loss_aversion_title') || 'High Demand Alert'}
-								</span>
-								<p class="text-white/80 text-xs leading-relaxed font-medium">
-									{t('valuation.loss_aversion_desc') || 'Highly requested handle. Secure ownership now on Fragment before it is taken by another bidder.'}
-								</p>
-							</div>
-						</div>
 
 						{/* Price Range */}
 						<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-5 flex flex-col gap-4">
@@ -993,9 +977,7 @@ export const UsernamePage: Component = () => {
 						"background-size": "18px 18px",
 					}}
 				>
-					{/* Background Glow Orbs */}
-					<div class="absolute -top-24 -left-24 w-64 h-64 bg-[#00f5ff]/10 rounded-full blur-[90px] pointer-events-none" />
-					<div class="absolute -bottom-24 -right-24 w-60 h-60 bg-[#a100ff]/10 rounded-full blur-[90px] pointer-events-none" />
+
 					<div class="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
 					
 					{/* Shimmer Effect */}

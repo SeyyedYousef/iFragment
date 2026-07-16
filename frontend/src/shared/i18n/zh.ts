@@ -91,6 +91,18 @@ export const dict = {
 			title: '流行趋势',
 		},
 		username: {
+			fg: {
+				trending_up: '机会区域（极度恐惧）',
+				shopping_cart: '战略购买区域（恐惧）',
+				warning: '警惕区域（贪婪）',
+				error: '回调风险警告（极度贪婪）',
+				desc: {
+					trending_up: '市场情绪极度恐惧。不要错过在下一次复苏前抄底打折地板价的机会。',
+					shopping_cart: '市场活跃度较低为下一次交易量激增前的战略选择提供了窗口。',
+					warning: '市场正在升温。随着买盘压力上升，请保持谨慎，专注于高价值资产。',
+					error: '极度贪婪！保护资本，避免在高位接盘。FOMO风险极高，随时可能出现突然回调。',
+				},
+			},
 			activeAuctions: '活跃拍卖',
 			failedToLoad: '无法加载市场数据',
 			allTimeHigh: '销量创历史新高',
@@ -2077,6 +2089,8 @@ export const dict = {
 		deleteAccount: '删除本地数据',
 		deleteConfirm: '您确定要删除您的帐户吗？这将删除所有本地设置并且无法撤消。',
 		deleteDesc: '永久删除所有本地数据（不可逆）',
+		deleteSuccess: '帐户已被永久删除。',
+		deleteFailed: '删除失败: {error}',
 		exportDesc: '安全导出您的硬币钱包私钥。不要与任何人分享这个！',
 		exportPrivateKey: '导出私钥',
 		exportSuccess: '私钥已复制到剪贴板。安全存放！',

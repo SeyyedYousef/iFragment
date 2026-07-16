@@ -88,14 +88,14 @@ export const SecurityPage: Component = () => {
 			} catch {}
 			const profileKeys = ['profile-settings', 'kyc_verified', 'profile-cache'];
 			profileKeys.forEach((k) => localStorage.removeItem(k));
-			await showAlert(t('security.deleteSuccess' as any) || 'Account permanently deleted.');
+			await showAlert(t('security.deleteSuccess'));
 			window.location.reload();
 		} catch (e: any) {
 			try {
 				hapticFeedback.notificationOccurred('error');
 			} catch {}
 			await showAlert(
-				t('security.deleteFailed' as any) || `Deletion failed: ${e?.message || 'unknown error'}`,
+				t('security.deleteFailed', { error: e?.message || 'unknown error' }),
 			);
 		}
 	};

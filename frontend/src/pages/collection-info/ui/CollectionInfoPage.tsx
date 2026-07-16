@@ -172,8 +172,7 @@ export const CollectionInfoPage: Component = () => {
 
 	return (
 		<div class="min-h-screen bg-[#080808] flex flex-col p-5 text-[#e0e0e0] font-sans pb-28 relative">
-			{/* Subtle premium background glow */}
-			<div class="fixed top-0 left-1/2 -translate-x-1/2 w-[80vw] h-[300px] bg-[#0098ea]/5 blur-[120px] rounded-[100%] pointer-events-none z-0" />
+
 
 			<Show when={query.isLoading}>
 				<div class="flex flex-col items-center justify-center h-[70vh] relative z-10">

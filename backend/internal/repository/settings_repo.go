@@ -41,6 +41,10 @@ type SettingsGeneral struct {
 	VerifyMembers       bool   `json:"verifyMembers"`
 	PublicCommands      bool   `json:"publicCommands"`
 	HideJoinLeave       bool   `json:"hideJoinLeave"`
+	EphemeralWelcome    bool   `json:"ephemeralWelcome"`
+	EphemeralWarnings   bool   `json:"ephemeralWarnings"`
+	EphemeralCaptcha    bool   `json:"ephemeralCaptcha"`
+	EphemeralAdminCmd   bool   `json:"ephemeralAdminCmd"`
 	DefaultPenalty      string `json:"defaultPenalty"`
 	AutoWarning         bool   `json:"autoWarning"`
 	WarningThreshold    int    `json:"warningThreshold"`
