@@ -1074,10 +1074,28 @@ func (c *BotAPIClient) EditEphemeralMessageText(ctx context.Context, chatID inte
 
 // DeleteEphemeralMessage deletes an ephemeral message.
 func (c *BotAPIClient) DeleteEphemeralMessage(ctx context.Context, chatID interface{}, ephemeralMessageID string) error {
+	if ephemeralMessageID == "" {
+		return nil
+	}
+	var epID interface{} = ephemeralMessageID
+	if num, err := strconv.ParseInt(ephemeralMessageID, 10, 64); err == nil {
+		epID = num
+	}
 	_, err := c.Request(ctx, "deleteEphemeralMessage", map[string]interface{}{
 		"chat_id":              chatID,
-		"ephemeral_message_id": ephemeralMessageID,
+		"ephemeral_message_id": epID,
 	})
+	if err != nil {
+		if num, ok := epID.(int64); ok && num > 0 {
+			_, errFallback := c.Request(ctx, "deleteMessage", map[string]interface{}{
+				"chat_id":    chatID,
+				"message_id": num,
+			})
+			if errFallback == nil {
+				return nil
+			}
+		}
+	}
 	return err
 }
 

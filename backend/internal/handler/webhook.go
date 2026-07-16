@@ -3272,12 +3272,21 @@ func (h *WebhookHandler) sendEphemeralBotMessage(ctx context.Context, tg *telegr
 	}
 
 	if epMsg != nil && epMsg.EphemeralMessageID.String() != "" {
+		epIDStr := epMsg.EphemeralMessageID.String()
 		delaySeconds := general.AutoDeleteDelay
 		if delaySeconds <= 0 {
 			delaySeconds = 60
 		}
+		slog.Info("Scheduling auto-delete for ephemeral message", "chatID", chatID, "ephemeralMessageID", epIDStr, "delaySeconds", delaySeconds)
 		time.AfterFunc(time.Duration(delaySeconds)*time.Second, func() {
-			_ = tg.DeleteEphemeralMessage(context.Background(), chatID, epMsg.EphemeralMessageID.String())
+			bgCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			errDel := tg.DeleteEphemeralMessage(bgCtx, chatID, epIDStr)
+			if errDel != nil {
+				slog.Error("Failed to auto-delete ephemeral message", "error", errDel, "chatID", chatID, "ephemeralMessageID", epIDStr)
+			} else {
+				slog.Info("Successfully auto-deleted ephemeral message", "chatID", chatID, "ephemeralMessageID", epIDStr)
+			}
 		})
 	}
 }
