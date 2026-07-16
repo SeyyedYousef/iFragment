@@ -1909,7 +1909,7 @@ func (h *WebhookHandler) handleWelcomeMessage(ctx context.Context, bot *reposito
 
 	welcomeText := ct.WelcomeText
 	if welcomeText == "" {
-		welcomeText = "👋 Welcome to {group}, {user}!"
+		welcomeText = "👋 Welcome {user} to <b>{group}</b>!"
 	}
 
 	bot, _ = h.botRepo.GetBotByID(ctx, group.BotID)
@@ -1975,7 +1975,7 @@ func (h *WebhookHandler) handleWelcomeMessage(ctx context.Context, bot *reposito
 	// Rules placeholder
 	rules := ct.RulesText
 	if rules == "" {
-		rules = "Be respectful and follow standard group rules."
+		rules = "▫️ No Spam, Ads, or Unauthorized Links\n▫️ Maintain respect & decorum"
 	}
 	text = strings.ReplaceAll(text, "{rules}", rules)
 
