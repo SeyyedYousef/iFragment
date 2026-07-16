@@ -2243,7 +2243,7 @@ func (h *WebhookHandler) adminRules(ctx context.Context, tg *telegram.BotAPIClie
 
 	if err != nil || settings == nil {
 		if m.From != nil && (general.EphemeralAdminCmd || general.EphemeralAll) {
-			_, _ = tg.SendEphemeralMessage(ctx, m.Chat.ID, m.From.ID, i18n.T(lang, "moderation.no_rules"), m.MessageThreadID)
+			h.sendEphemeralBotMessage(ctx, tg, m.Chat.ID, m.From.ID, i18n.T(lang, "moderation.no_rules"), nil, m.MessageThreadID, general)
 		} else {
 			_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.no_rules"), &m.MessageID, m.MessageThreadID)
 		}
@@ -2255,7 +2255,7 @@ func (h *WebhookHandler) adminRules(ctx context.Context, tg *telegram.BotAPIClie
 
 	if ct.RulesText == "" {
 		if m.From != nil && (general.EphemeralAdminCmd || general.EphemeralAll) {
-			_, _ = tg.SendEphemeralMessage(ctx, m.Chat.ID, m.From.ID, i18n.T(lang, "moderation.no_rules"), m.MessageThreadID)
+			h.sendEphemeralBotMessage(ctx, tg, m.Chat.ID, m.From.ID, i18n.T(lang, "moderation.no_rules"), nil, m.MessageThreadID, general)
 		} else {
 			_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.no_rules"), &m.MessageID, m.MessageThreadID)
 		}
@@ -2274,7 +2274,7 @@ func (h *WebhookHandler) adminRules(ctx context.Context, tg *telegram.BotAPIClie
 
 	text := i18n.T(lang, "moderation.rules_title", map[string]interface{}{"rules": rulesText})
 	if m.From != nil && (general.EphemeralAdminCmd || general.EphemeralAll) {
-		_, _ = tg.SendEphemeralMessage(ctx, m.Chat.ID, m.From.ID, text, m.MessageThreadID)
+		h.sendEphemeralBotMessage(ctx, tg, m.Chat.ID, m.From.ID, text, nil, m.MessageThreadID, general)
 	} else {
 		_ = tg.SendMessage(ctx, m.Chat.ID, text, &m.MessageID, m.MessageThreadID)
 	}
@@ -3090,7 +3090,7 @@ func (h *WebhookHandler) adminInfo(ctx context.Context, tg *telegram.BotAPIClien
 	}
 
 	if m.From != nil && (general.EphemeralAdminCmd || general.EphemeralAll) {
-		_, _ = tg.SendEphemeralMessage(ctx, m.Chat.ID, m.From.ID, infoText, m.MessageThreadID)
+		h.sendEphemeralBotMessage(ctx, tg, m.Chat.ID, m.From.ID, infoText, nil, m.MessageThreadID, general)
 	} else {
 		_ = tg.SendMessage(ctx, m.Chat.ID, infoText, &m.MessageID, m.MessageThreadID)
 	}
@@ -3137,7 +3137,7 @@ func (h *WebhookHandler) adminStats(ctx context.Context, tg *telegram.BotAPIClie
 	}
 
 	if m.From != nil && (general.EphemeralAdminCmd || general.EphemeralAll) {
-		_, _ = tg.SendEphemeralMessage(ctx, m.Chat.ID, m.From.ID, statsText, m.MessageThreadID)
+		h.sendEphemeralBotMessage(ctx, tg, m.Chat.ID, m.From.ID, statsText, nil, m.MessageThreadID, general)
 	} else {
 		_ = tg.SendMessage(ctx, m.Chat.ID, statsText, &m.MessageID, m.MessageThreadID)
 	}
@@ -3244,28 +3244,41 @@ func (h *WebhookHandler) sendEphemeralBotMessage(ctx context.Context, tg *telegr
 		return
 	}
 	var err error
+	var epMsg *telegram.EphemeralMessageResult
+
 	if replyMarkup != nil {
-		_, err = tg.SendEphemeralMessageWithMarkup(ctx, chatID, receiverUserID, text, replyMarkup, threadID)
+		epMsg, err = tg.SendEphemeralMessageWithMarkup(ctx, chatID, receiverUserID, text, replyMarkup, threadID)
 		if err != nil {
 			slog.Error("Failed to send ephemeral message with markup", "error", err, "chatID", chatID, "receiverUserID", receiverUserID)
 			if strings.Contains(err.Error(), "parse") || strings.Contains(err.Error(), "entity") {
 				slog.Info("Retrying ephemeral message with markup in plain text mode", "chatID", chatID, "receiverUserID", receiverUserID)
-				_, err = tg.SendEphemeralMessageWithMarkup(ctx, chatID, receiverUserID, text, replyMarkup, threadID, "")
+				epMsg, err = tg.SendEphemeralMessageWithMarkup(ctx, chatID, receiverUserID, text, replyMarkup, threadID, "")
 			}
 		}
 	} else {
-		_, err = tg.SendEphemeralMessage(ctx, chatID, receiverUserID, text, threadID)
+		epMsg, err = tg.SendEphemeralMessage(ctx, chatID, receiverUserID, text, threadID)
 		if err != nil {
 			slog.Error("Failed to send ephemeral message", "error", err, "chatID", chatID, "receiverUserID", receiverUserID)
 			if strings.Contains(err.Error(), "parse") || strings.Contains(err.Error(), "entity") {
 				slog.Info("Retrying ephemeral message in plain text mode", "chatID", chatID, "receiverUserID", receiverUserID)
-				_, err = tg.SendEphemeralMessage(ctx, chatID, receiverUserID, text, threadID, "")
+				epMsg, err = tg.SendEphemeralMessage(ctx, chatID, receiverUserID, text, threadID, "")
 			}
 		}
 	}
 	if err != nil {
 		slog.Error("Ephemeral message failed after retry, falling back to public message", "error", err, "chatID", chatID, "receiverUserID", receiverUserID)
 		h.sendBotMessage(ctx, tg, chatID, text, replyMarkup, threadID, general)
+		return
+	}
+
+	if epMsg != nil && epMsg.EphemeralMessageID.String() != "" {
+		delaySeconds := general.AutoDeleteDelay
+		if delaySeconds <= 0 {
+			delaySeconds = 60
+		}
+		time.AfterFunc(time.Duration(delaySeconds)*time.Second, func() {
+			_ = tg.DeleteEphemeralMessage(context.Background(), chatID, epMsg.EphemeralMessageID.String())
+		})
 	}
 }
 
