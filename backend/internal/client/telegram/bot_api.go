@@ -1073,7 +1073,7 @@ func (c *BotAPIClient) EditEphemeralMessageText(ctx context.Context, chatID inte
 }
 
 // DeleteEphemeralMessage deletes an ephemeral message.
-func (c *BotAPIClient) DeleteEphemeralMessage(ctx context.Context, chatID interface{}, ephemeralMessageID string) error {
+func (c *BotAPIClient) DeleteEphemeralMessage(ctx context.Context, chatID interface{}, ephemeralMessageID string, receiverUserID ...int64) error {
 	if ephemeralMessageID == "" {
 		return nil
 	}
@@ -1081,16 +1081,26 @@ func (c *BotAPIClient) DeleteEphemeralMessage(ctx context.Context, chatID interf
 	if num, err := strconv.ParseInt(ephemeralMessageID, 10, 64); err == nil {
 		epID = num
 	}
-	_, err := c.Request(ctx, "deleteEphemeralMessage", map[string]interface{}{
+	payload := map[string]interface{}{
 		"chat_id":              chatID,
 		"ephemeral_message_id": epID,
-	})
+	}
+	if len(receiverUserID) > 0 && receiverUserID[0] != 0 {
+		payload["receiver_user_id"] = receiverUserID[0]
+		payload["user_id"] = receiverUserID[0]
+	}
+	_, err := c.Request(ctx, "deleteEphemeralMessage", payload)
 	if err != nil {
 		if num, ok := epID.(int64); ok && num > 0 {
-			_, errFallback := c.Request(ctx, "deleteMessage", map[string]interface{}{
+			delPayload := map[string]interface{}{
 				"chat_id":    chatID,
 				"message_id": num,
-			})
+			}
+			if len(receiverUserID) > 0 && receiverUserID[0] != 0 {
+				delPayload["receiver_user_id"] = receiverUserID[0]
+				delPayload["user_id"] = receiverUserID[0]
+			}
+			_, errFallback := c.Request(ctx, "deleteMessage", delPayload)
 			if errFallback == nil {
 				return nil
 			}
