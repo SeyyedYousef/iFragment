@@ -72,49 +72,112 @@ export const LeaderboardView: Component = () => {
 		return Math.min(100, Math.max(0, Math.round(pct)));
 	};
 
-	const getRankBadgeStyle = (index: number) => {
-		if (index === 0) return { bg: 'bg-[#2a220c] text-[#f59e0b] border-[#523e14]', label: '01' };
-		if (index === 1) return { bg: 'bg-[#1a202c] text-[#cbd5e1] border-[#334155]', label: '02' };
-		if (index === 2) return { bg: 'bg-[#271911] text-[#d97706] border-[#452715]', label: '03' };
-		return { bg: 'bg-[#111622] text-[#64748b] border-[#1e293b]', label: index < 9 ? `0${index + 1}` : `${index + 1}` };
+	const getRankBadge = (index: number) => {
+		if (index === 0) return { bg: 'bg-amber-400/10 text-amber-400 border-amber-400/30', icon: '👑', rankText: '1' };
+		if (index === 1) return { bg: 'bg-slate-300/10 text-slate-300 border-slate-300/30', icon: '🥈', rankText: '2' };
+		if (index === 2) return { bg: 'bg-amber-700/10 text-amber-600 border-amber-600/30', icon: '🥉', rankText: '3' };
+		return { bg: 'bg-white/5 text-white/50 border-white/5', icon: null, rankText: (index + 1).toLocaleString('en-US') };
+	};
+
+	const getRowStyle = (index: number) => {
+		if (index === 0) return {
+			background: 'linear-gradient(135deg, rgba(251,191,36,0.1), rgba(251,191,36,0.02))',
+			'border-color': 'rgba(251,191,36,0.25)',
+			'box-shadow': '0 0 24px rgba(251,191,36,0.08)',
+		};
+		if (index === 1) return {
+			background: 'linear-gradient(135deg, rgba(148,163,184,0.08), rgba(148,163,184,0.02))',
+			'border-color': 'rgba(148,163,184,0.18)',
+		};
+		if (index === 2) return {
+			background: 'linear-gradient(135deg, rgba(217,119,6,0.08), rgba(217,119,6,0.02))',
+			'border-color': 'rgba(217,119,6,0.18)',
+		};
+		return {};
 	};
 
 	return (
 		<div
-			class="h-full w-full overflow-y-auto no-scrollbar relative pb-28 select-none font-sans"
-			style={{ background: '#090b10', color: '#f8fafc' }}
+			class="h-full w-full overflow-y-auto no-scrollbar relative pb-28"
+			style={{ background: 'linear-gradient(180deg, #0c0c0f 0%, #09090b 100%)' }}
 			dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
 		>
-			{/* Fragment subtle grid background accent */}
-			<div 
-				class="absolute inset-0 pointer-events-none opacity-[0.03]"
+			{/* Keyframes for leaderboard animations */}
+			<style>{`
+				@keyframes nc-fadeInUp {
+					from { opacity: 0; transform: translateY(14px); }
+					to { opacity: 1; transform: translateY(0); }
+				}
+				@keyframes nc-glowRing {
+					0%, 100% { opacity: 0.4; transform: scale(1); }
+					50% { opacity: 0.8; transform: scale(1.04); }
+				}
+				@keyframes nc-progressShimmer {
+					0% { transform: translateX(-150%); }
+					100% { transform: translateX(250%); }
+				}
+				@keyframes nc-iconFloat {
+					0%, 100% { transform: translateY(0); }
+					50% { transform: translateY(-4px); }
+				}
+			`}</style>
+
+			{/* Ambient top glow based on league color */}
+			<div
+				class="absolute top-0 left-0 right-0 h-[350px] pointer-events-none transition-all duration-700 z-0"
 				style={{
-					'background-image': `radial-gradient(#ffffff 1px, transparent 1px)`,
-					'background-size': '24px 24px'
+					background: `radial-gradient(ellipse at 50% -30%, ${currentLeague().color}30 0%, transparent 65%)`,
+					opacity: '0.6',
 				}}
 			/>
 
-			<div class="relative z-10 flex flex-col gap-4 pt-4 max-w-md mx-auto px-4">
+			<div class="relative z-10 flex flex-col gap-4 pt-3">
 
-				{/* ═══════ Fragment League Emblem Card ═══════ */}
-				<div class="bg-[#111622] border border-[#1e293b] rounded-2xl p-5 flex flex-col items-center relative overflow-hidden shadow-xl">
-					
-					{/* Top Hairline Accent */}
-					<div 
-						class="absolute top-0 left-0 right-0 h-[2px] transition-colors duration-500" 
-						style={{ background: `linear-gradient(90deg, transparent, ${currentLeague().color}, transparent)` }}
+				{/* ═══════ League Emblem Card ═══════ */}
+				<div
+					class="mx-4 rounded-[22px] border border-white/[0.07] p-6 flex flex-col items-center relative overflow-hidden"
+					style={{
+						background: 'rgba(255,255,255,0.025)',
+						'box-shadow': `0 8px 40px rgba(0,0,0,0.6), 0 0 80px ${currentLeague().color}08`,
+					}}
+				>
+					{/* Card internal glow */}
+					<div
+						class="absolute inset-0 pointer-events-none transition-all duration-700"
+						style={{
+							background: `radial-gradient(circle at 50% 20%, ${currentLeague().color}18 0%, transparent 55%)`,
+							filter: 'blur(30px)',
+						}}
 					/>
 
-					{/* League Icon */}
+					{/* League Icon — Material Icon inside gradient circle */}
 					<div
-						class="w-20 h-20 rounded-2xl flex items-center justify-center mb-3 relative z-10 border border-[#1e293b] bg-[#090b10] shadow-inner transition-all duration-300"
+						class="w-[92px] h-[92px] rounded-full flex items-center justify-center mb-4 relative z-10 transition-all duration-500"
+						style={{
+							background: `linear-gradient(145deg, ${currentLeague().color}35, ${currentLeague().color}0a)`,
+							border: `2.5px solid ${currentLeague().color}45`,
+							'box-shadow': `0 0 35px ${currentLeague().color}25, inset 0 0 25px ${currentLeague().color}0d`,
+							animation: 'nc-iconFloat 4s ease-in-out infinite',
+						}}
 					>
 						<span
-							class="material-symbols-outlined text-[40px] transition-colors duration-500"
-							style={{ color: currentLeague().color, 'font-variation-settings': '"FILL" 1' }}
+							class="material-symbols-outlined text-[42px] transition-colors duration-500"
+							style={{
+								color: currentLeague().color,
+								'font-variation-settings': '"FILL" 1',
+								filter: `drop-shadow(0 0 10px ${currentLeague().color}70)`,
+							}}
 						>
 							{currentLeague().icon}
 						</span>
+						{/* Glow ring pulse */}
+						<div
+							class="absolute inset-[-6px] rounded-full pointer-events-none"
+							style={{
+								border: `1.5px solid ${currentLeague().color}18`,
+								animation: 'nc-glowRing 3s ease-in-out infinite',
+							}}
+						/>
 					</div>
 
 					{/* Navigation + League Name */}
@@ -122,154 +185,210 @@ export const LeaderboardView: Component = () => {
 						<button
 							onClick={handlePrevLeague}
 							disabled={selectedLeagueIndex() === 0}
-							class={`w-9 h-9 rounded-xl flex items-center justify-center transition-all border ${
+							class={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ${
 								selectedLeagueIndex() === 0
-									? 'opacity-20 border-transparent cursor-not-allowed'
-									: 'bg-[#090b10] border-[#1e293b] text-[#8b94a5] hover:text-white hover:border-[#334155] active:scale-95'
+									? 'opacity-20 cursor-not-allowed'
+									: 'bg-white/[0.06] border border-white/[0.1] active:scale-90 hover:bg-white/[0.1]'
 							}`}
 						>
-							<span class="material-symbols-outlined text-lg">chevron_left</span>
+							<span class="material-symbols-outlined text-white/80 text-lg">chevron_left</span>
 						</button>
 
-						<h2 class="text-white font-bold text-lg uppercase tracking-wider font-mono text-center">
-							{currentLeague().name} LEAGUE
+						<h2
+							class="text-white font-extrabold text-[20px] uppercase tracking-[0.06em] text-center transition-all duration-500"
+							style={{ 'text-shadow': `0 0 30px ${currentLeague().color}55, 0 2px 8px rgba(0,0,0,0.5)` }}
+						>
+							{currentLeague().name} {t('airdropFinal.leaderboard.league', { defaultValue: 'LEAGUE' })}
 						</h2>
 
 						<button
 							onClick={handleNextLeague}
 							disabled={selectedLeagueIndex() === LEAGUES.length - 1}
-							class={`w-9 h-9 rounded-xl flex items-center justify-center transition-all border ${
+							class={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ${
 								selectedLeagueIndex() === LEAGUES.length - 1
-									? 'opacity-20 border-transparent cursor-not-allowed'
-									: 'bg-[#090b10] border-[#1e293b] text-[#8b94a5] hover:text-white hover:border-[#334155] active:scale-95'
+									? 'opacity-20 cursor-not-allowed'
+									: 'bg-white/[0.06] border border-white/[0.1] active:scale-90 hover:bg-white/[0.1]'
 							}`}
 						>
-							<span class="material-symbols-outlined text-lg">chevron_right</span>
+							<span class="material-symbols-outlined text-white/80 text-lg">chevron_right</span>
 						</button>
 					</div>
 
 					{/* Progress Bar Section */}
-					<div class="w-full mt-3 z-10">
-						<div class="flex items-center justify-between text-xs font-mono text-[#64748b] mb-1.5" dir="ltr">
-							<span>{(statsQuery.data?.xp || 0).toLocaleString('en-US')} XP</span>
-							<span>{formatScore(LEAGUES[Math.min(LEAGUES.length - 1, selectedLeagueIndex() + 1)].minScore)} XP</span>
+					<div class="w-full max-w-[270px] mt-4 z-10">
+						<div class="flex items-center justify-between text-[11px] font-mono mb-2" dir="ltr">
+							<span class="text-white/40">{(statsQuery.data?.xp || 0).toLocaleString('en-US')}</span>
+							<span class="text-white/15">/</span>
+							<span class="text-white/40">{formatScore(LEAGUES[Math.min(LEAGUES.length - 1, selectedLeagueIndex() + 1)].minScore)}</span>
 						</div>
-						<div class="w-full h-2 bg-[#090b10] rounded-full overflow-hidden border border-[#1e293b] relative">
+						<div class="w-full h-[10px] bg-white/[0.06] rounded-full overflow-hidden relative">
 							<div
-								class="h-full rounded-full transition-all duration-500 ease-out"
+								class="h-full rounded-full transition-all duration-700 ease-out relative overflow-hidden"
 								style={{
 									width: `${Math.max(3, progressPercent())}%`,
-									background: currentLeague().color,
+									background: `linear-gradient(90deg, ${currentLeague().color}80, ${currentLeague().color})`,
+									'box-shadow': `0 0 14px ${currentLeague().color}50, 0 0 5px ${currentLeague().color}30`,
 								}}
-							/>
+							>
+								{/* Shimmer effect on progress */}
+								<div
+									class="absolute inset-0 w-[40%] pointer-events-none"
+									style={{
+										background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent)',
+										animation: 'nc-progressShimmer 2.5s ease-in-out infinite',
+									}}
+								/>
+							</div>
+						</div>
+						{/* Percentage label */}
+						<div class="text-center mt-1.5">
+							<span class="text-[10px] font-semibold text-white/25 tabular-nums">{progressPercent()}%</span>
 						</div>
 					</div>
 
-					{/* Stats Pill */}
-					<div class="mt-4 flex items-center justify-between w-full pt-3 border-t border-[#1e293b] text-xs font-medium">
-						<span class="text-[#64748b] font-mono uppercase text-[10px]">TOTAL MINERS</span>
-						<span class="text-white font-mono font-semibold">
-							{formatScore(leaderboardQuery.data?.total_miners || 20043793)} Miners
-						</span>
+					{/* Stats pill */}
+					<div class="mt-2 flex items-center gap-2 z-10">
+						<div class="flex items-center gap-1.5 text-white/40 text-[11px] font-medium bg-white/[0.04] rounded-full px-3.5 py-1.5 border border-white/[0.06]">
+							<span class="text-[13px]">🪙</span>
+							<span>
+								{(() => {
+									const raw = (t('airdropFinal.leaderboard.totalMiners' as any) as string) || '{count} Fragmenters';
+									return raw.replace('{count}', formatScore(leaderboardQuery.data?.total_miners || 20043793));
+								})()}
+							</span>
+						</div>
 					</div>
 				</div>
 
 				{/* ═══════ Main Tabs (Miners / Squads) ═══════ */}
-				<div class="bg-[#111622] rounded-xl p-1 flex gap-1 border border-[#1e293b]">
+				<div class="mx-4 bg-white/[0.03] rounded-[14px] p-1 flex gap-1 border border-white/[0.06]">
 					<button
 						onClick={() => setActiveTab('miners')}
-						class={`flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+						class={`flex-1 py-2.5 rounded-[10px] text-[13px] font-bold uppercase tracking-wider transition-all duration-300 ${
 							activeTab() === 'miners'
-								? 'bg-[#00f0ff] text-black shadow-md font-semibold'
-								: 'text-[#64748b] hover:text-white'
+								? 'text-black'
+								: 'text-white/40 hover:text-white/60'
 						}`}
+						style={activeTab() === 'miners' ? {
+							background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
+							'box-shadow': '0 4px 18px rgba(245,158,11,0.3)',
+						} : {}}
 					>
 						{t('airdropFinal.leaderboard.miners', { defaultValue: 'MINERS' })}
 					</button>
 					<button
 						onClick={() => setActiveTab('squads')}
-						class={`flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+						class={`flex-1 py-2.5 rounded-[10px] text-[13px] font-bold uppercase tracking-wider transition-all duration-300 ${
 							activeTab() === 'squads'
-								? 'bg-[#00f0ff] text-black shadow-md font-semibold'
-								: 'text-[#64748b] hover:text-white'
+								? 'text-black'
+								: 'text-white/40 hover:text-white/60'
 						}`}
+						style={activeTab() === 'squads' ? {
+							background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
+							'box-shadow': '0 4px 18px rgba(245,158,11,0.3)',
+						} : {}}
 					>
 						{t('airdropFinal.leaderboard.squads', { defaultValue: 'SQUADS' })}
 					</button>
 				</div>
 
-				{/* ═══════ Sub Tabs & Header ═══════ */}
-				<div class="flex justify-between items-center px-1 mt-1">
-					<span class="text-xs font-semibold uppercase tracking-wider text-[#64748b]">
-						{activeTab() === 'miners' ? 'Top Miners' : 'Top Squads'}
-					</span>
-					<div class="bg-[#111622] p-0.5 rounded-lg border border-[#1e293b] flex gap-1">
+				{/* ═══════ Sub Tabs (Daily / Weekly) ═══════ */}
+				<div class="flex justify-center">
+					<div class="bg-white/[0.03] rounded-full p-[3px] flex gap-0.5 border border-white/[0.05]">
 						<button
 							onClick={() => setActiveSubTab('day')}
-							class={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+							class={`px-5 py-1.5 rounded-full text-[12px] font-semibold transition-all duration-300 ${
 								activeSubTab() === 'day'
-									? 'bg-[#1e293b] text-white font-semibold'
-									: 'text-[#64748b] hover:text-white'
+									? 'bg-white/[0.1] text-white shadow-sm'
+									: 'text-white/35 hover:text-white/55'
 							}`}
 						>
-							Daily
+							{(t('airdropFinal.leaderboard.day' as any) as string) || 'Daily'}
 						</button>
 						<button
 							onClick={() => setActiveSubTab('week')}
-							class={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+							class={`px-5 py-1.5 rounded-full text-[12px] font-semibold transition-all duration-300 ${
 								activeSubTab() === 'week'
-									? 'bg-[#1e293b] text-white font-semibold'
-									: 'text-[#64748b] hover:text-white'
+									? 'bg-white/[0.1] text-white shadow-sm'
+									: 'text-white/35 hover:text-white/55'
 							}`}
 						>
-							Weekly
+							{(t('airdropFinal.leaderboard.week' as any) as string) || 'Weekly'}
 						</button>
 					</div>
 				</div>
 
 				{/* ═══════ Leaderboard List ═══════ */}
-				<div class="flex flex-col gap-2 min-h-[300px]">
+				<div class="mx-4 flex flex-col gap-2 min-h-[300px]">
 
-					{/* Miners Tab */}
+					{/* Miners tab content */}
 					<Show when={activeTab() === 'miners'}>
 						<Show
 							when={!leaderboardQuery.isLoading}
 							fallback={
 								<div class="flex flex-col items-center justify-center py-16 gap-3">
-									<div class="w-6 h-6 border-2 border-[#1e293b] border-t-[#00f0ff] rounded-full animate-spin" />
-									<span class="text-xs text-[#64748b] font-medium">Loading Leaderboard...</span>
+									<div class="w-8 h-8 border-2 border-white/15 border-t-amber-400 rounded-full animate-spin" />
+									<span class="text-[12px] text-white/30 font-medium">Loading Miners...</span>
 								</div>
 							}
 						>
 							<For each={filteredMiners()} fallback={
-								<div class="bg-[#111622] rounded-xl border border-[#1e293b] p-8 text-center text-[#475569] text-xs font-medium">
-									{t('airdropFinal.leaderboard.noMiners', { defaultValue: 'No miners found in this league.' })}
+								<div class="flex flex-col items-center justify-center py-16 gap-3">
+									<span class="text-[28px]">🔍</span>
+									<span class="text-white/30 text-[13px] font-medium">
+										{t('airdropFinal.leaderboard.noMiners', { defaultValue: 'No miners found in this league.' })}
+									</span>
 								</div>
 							}>
 								{(entry, i) => {
-									const badge = () => getRankBadgeStyle(i());
+									const badge = () => getRankBadge(i());
+									const isTop3 = () => i() < 3;
 									return (
-										<div class="flex items-center justify-between p-3 rounded-xl bg-[#111622] border border-[#1e293b] hover:border-[#334155] transition-all">
-											<div class="flex items-center gap-3 min-w-0">
+										<div
+											class={`flex items-center justify-between p-3.5 rounded-[16px] border transition-all duration-200 ${
+												isTop3()
+													? ''
+													: 'bg-white/[0.02] border-white/[0.05] hover:bg-white/[0.04]'
+											}`}
+											style={{
+												animation: `nc-fadeInUp 400ms ease ${Math.min(i() * 50, 500)}ms both`,
+												...getRowStyle(i()),
+											}}
+										>
+											<div class="flex items-center gap-3">
 												{/* Rank Badge */}
-												<div class={`w-7 h-7 rounded-md flex items-center justify-center font-mono font-bold text-xs border shrink-0 ${badge().bg}`}>
-													{badge().label}
+												<div class={`w-8 h-8 rounded-[10px] flex items-center justify-center font-bold text-[12px] border shrink-0 ${badge().bg}`}>
+													{badge().icon || badge().rankText}
 												</div>
 
 												{/* Avatar */}
-												<div class="w-9 h-9 rounded-full bg-[#090b10] border border-[#1e293b] flex items-center justify-center text-xs font-semibold text-white shrink-0">
+												<div
+													class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-[13px] shrink-0"
+													style={{
+														background: isTop3()
+															? `linear-gradient(135deg, ${i() === 0 ? 'rgba(251,191,36,0.15)' : i() === 1 ? 'rgba(148,163,184,0.15)' : 'rgba(217,119,6,0.15)'}, rgba(255,255,255,0.03))`
+															: 'rgba(255,255,255,0.05)',
+														border: `1.5px solid ${isTop3()
+															? (i() === 0 ? 'rgba(251,191,36,0.3)' : i() === 1 ? 'rgba(148,163,184,0.25)' : 'rgba(217,119,6,0.25)')
+															: 'rgba(255,255,255,0.06)'
+														}`,
+													}}
+												>
 													{entry.name.slice(0, 2).toUpperCase()}
 												</div>
 
 												{/* Name */}
-												<span class="text-white font-semibold text-sm truncate max-w-[140px]">
+												<span class="text-white font-semibold text-[15px] truncate max-w-[120px]">
 													{entry.name}
 												</span>
 											</div>
 
 											{/* Score */}
-											<div class="shrink-0 font-mono text-xs font-semibold text-[#00f0ff] bg-[#090b10] px-2.5 py-1 rounded-md border border-[#1e293b]">
-												{formatScore(entry.score)} XP
+											<div class="flex items-center gap-1.5 shrink-0">
+												<span class="text-[13px]">🪙</span>
+												<span class="text-white font-bold text-[14px] tabular-nums" dir="ltr">
+													{formatScore(entry.score)}
+												</span>
 											</div>
 										</div>
 									);
@@ -278,60 +397,87 @@ export const LeaderboardView: Component = () => {
 						</Show>
 					</Show>
 
-					{/* Squads Tab */}
+					{/* Squads tab content */}
 					<Show when={activeTab() === 'squads'}>
 						<Show
 							when={!clansQuery.isLoading}
 							fallback={
 								<div class="flex flex-col items-center justify-center py-16 gap-3">
-									<div class="w-6 h-6 border-2 border-[#1e293b] border-t-[#00f0ff] rounded-full animate-spin" />
-									<span class="text-xs text-[#64748b] font-medium">Loading Squads...</span>
+									<div class="w-8 h-8 border-2 border-white/15 border-t-amber-400 rounded-full animate-spin" />
+									<span class="text-[12px] text-white/30 font-medium">Loading Squads...</span>
 								</div>
 							}
 						>
 							<For each={filteredSquads()} fallback={
-								<div class="bg-[#111622] rounded-xl border border-[#1e293b] p-8 text-center text-[#475569] text-xs font-medium">
-									{t('airdropFinal.leaderboard.noSquads', { defaultValue: 'No squads found in this league.' })}
+								<div class="flex flex-col items-center justify-center py-16 gap-3">
+									<span class="text-[28px]">🔍</span>
+									<span class="text-white/30 text-[13px] font-medium">
+										{t('airdropFinal.leaderboard.noSquads', { defaultValue: 'No squads found in this league.' })}
+									</span>
 								</div>
 							}>
 								{(clan, i) => {
 									const score = clan.total_score || clan.members_count * 1500;
-									const badge = () => getRankBadgeStyle(i());
+									const badge = () => getRankBadge(i());
+									const isTop3 = () => i() < 3;
 									return (
-										<div class="flex items-center justify-between p-3 rounded-xl bg-[#111622] border border-[#1e293b] hover:border-[#334155] transition-all">
-											<div class="flex items-center gap-3 min-w-0">
+										<div
+											class={`flex items-center justify-between p-3.5 rounded-[16px] border transition-all duration-200 ${
+												isTop3()
+													? ''
+													: 'bg-white/[0.02] border-white/[0.05] hover:bg-white/[0.04]'
+											}`}
+											style={{
+												animation: `nc-fadeInUp 400ms ease ${Math.min(i() * 50, 500)}ms both`,
+												...getRowStyle(i()),
+											}}
+										>
+											<div class="flex items-center gap-3">
 												{/* Rank Badge */}
-												<div class={`w-7 h-7 rounded-md flex items-center justify-center font-mono font-bold text-xs border shrink-0 ${badge().bg}`}>
-													{badge().label}
+												<div class={`w-8 h-8 rounded-[10px] flex items-center justify-center font-bold text-[12px] border shrink-0 ${badge().bg}`}>
+													{badge().icon || badge().rankText}
 												</div>
 
 												{/* Clan Photo */}
-												<div class="w-9 h-9 rounded-lg overflow-hidden border border-[#1e293b] bg-[#090b10] flex items-center justify-center shrink-0">
+												<div
+													class="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center shrink-0"
+													style={{
+														background: 'rgba(255,255,255,0.04)',
+														border: `1.5px solid ${isTop3()
+															? (i() === 0 ? 'rgba(251,191,36,0.25)' : i() === 1 ? 'rgba(148,163,184,0.2)' : 'rgba(217,119,6,0.2)')
+															: 'rgba(255,255,255,0.06)'
+														}`,
+														padding: '2px',
+													}}
+												>
 													{clan.channel_photo ? (
 														<img
 															src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan.channel_username}`}
 															alt={clan.chat_title}
-															class="w-full h-full object-cover"
+															class="w-full h-full rounded-[8px] object-cover"
 														/>
 													) : (
-														<span class="material-symbols-outlined text-base text-[#00f0ff]">groups</span>
+														<span class="text-lg">🛡️</span>
 													)}
 												</div>
 
 												{/* Squad Info */}
 												<div class="flex flex-col min-w-0">
-													<span class="text-white font-semibold text-sm truncate max-w-[130px]">
+													<span class="text-white font-semibold text-[14px] truncate max-w-[120px]">
 														{clan.chat_title}
 													</span>
-													<span class="text-[#64748b] text-[11px] font-mono">
-														{clan.members_count.toLocaleString('en-US')} members
+													<span class="text-white/30 text-[11px] font-medium" dir="ltr">
+														{clan.members_count.toLocaleString('en-US')} {t('airdropFinal.leaderboard.players', { defaultValue: 'players' })}
 													</span>
 												</div>
 											</div>
 
 											{/* Score */}
-											<div class="shrink-0 font-mono text-xs font-semibold text-[#00f0ff] bg-[#090b10] px-2.5 py-1 rounded-md border border-[#1e293b]">
-												{formatScore(score)} XP
+											<div class="flex items-center gap-1.5 shrink-0">
+												<span class="text-[13px]">🪙</span>
+												<span class="text-white font-bold text-[14px] tabular-nums" dir="ltr">
+													{formatScore(score)}
+												</span>
 											</div>
 										</div>
 									);
