@@ -132,7 +132,7 @@ export const UsernamePage: Component = () => {
 			return 'from-cyan-400/20 to-blue-500/10 border-cyan-400/40 text-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.25)]';
 		}
 		if (t.includes('rare') || t.includes('premium')) {
-			return 'from-purple-400/20 to-pink-500/10 border-purple-400/40 text-purple-400 shadow-[0_0_20px_rgba(192,38,211,0.25)]';
+			return 'from-emerald-400/20 to-teal-500/10 border-emerald-400/40 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.25)]';
 		}
 		return 'from-white/10 to-white/5 border-white/20 text-white/70';
 	};
@@ -146,7 +146,7 @@ export const UsernamePage: Component = () => {
 			return 'from-cyan-300 via-blue-400 to-indigo-500';
 		}
 		if (t.includes('rare') || t.includes('premium')) {
-			return 'from-purple-300 via-pink-400 to-red-400';
+			return 'from-emerald-300 via-teal-400 to-cyan-500';
 		}
 		return 'from-white via-neutral-100 to-neutral-400';
 	};
@@ -320,7 +320,7 @@ export const UsernamePage: Component = () => {
 				<div class="min-h-screen bg-[#0f1014] text-white px-5 py-6 flex flex-col items-center font-sans pb-24">
 					{/* Flex Card Container Wrapper (Gradient Border) */}
 					<div 
-						class="w-full max-w-[400px] aspect-square p-[1.5px] bg-gradient-to-br from-cyan-400 via-purple-600 to-pink-500 rounded-[42px] shadow-[0_30px_70px_rgba(0,0,0,0.85),0_0_40px_rgba(157,0,255,0.15)] transition-all duration-300 hover:shadow-[0_40px_80px_rgba(0,0,0,0.95),0_0_60px_rgba(0,245,255,0.25)] mb-4"
+						class="w-full max-w-[400px] aspect-square p-[1.5px] bg-gradient-to-br from-cyan-400 via-teal-500 to-emerald-400 rounded-[42px] shadow-[0_30px_70px_rgba(0,0,0,0.85),0_0_40px_rgba(20,184,166,0.15)] transition-all duration-300 hover:shadow-[0_40px_80px_rgba(0,0,0,0.95),0_0_60px_rgba(0,245,255,0.25)] mb-4"
 						style={{ "aspect-ratio": "1 / 1" }}
 					>
 						<div 
@@ -485,10 +485,10 @@ export const UsernamePage: Component = () => {
 							
 							<div class="relative w-full h-3 bg-white/5 rounded-full overflow-hidden flex shadow-inner">
 								<div class="h-full bg-gradient-to-r from-cyan-500/20 to-cyan-500 rounded-l-full" style={{ "width": "30%" }} />
-								<div class="h-full bg-gradient-to-r from-blue-500 to-purple-500 relative" style={{ "width": "40%" }}>
+								<div class="h-full bg-gradient-to-r from-blue-500 to-cyan-500 relative" style={{ "width": "40%" }}>
 									<div class="absolute inset-0 w-full h-full bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cmVjdCB3aWR0aD0iOCIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMSI+PC9yZWN0Pgo8cGF0aCBkPSJNMCAwTDggOFpNOCAwTDAgOFoiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLW9wYWNpdHk9IjAuMSIgc3Ryb2tlLXdpZHRoPSIxIj48L3BhdGg+Cjwvc3ZnPg==')] opacity-30 mix-blend-overlay" />
 								</div>
-								<div class="h-full bg-gradient-to-r from-purple-500 to-pink-500/20 rounded-r-full" style={{ "width": "30%" }} />
+								<div class="h-full bg-gradient-to-r from-cyan-500 to-emerald-500/20 rounded-r-full" style={{ "width": "30%" }} />
 								
 								{/* Expected marker */}
 								<div class="absolute top-0 bottom-0 w-1 bg-white left-[50%] -translate-x-1/2 shadow-[0_0_10px_white]" />
@@ -533,12 +533,12 @@ export const UsernamePage: Component = () => {
 						<Show when={data()?.tags && data()!.tags.length > 0}>
 							<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
 								<div class="flex items-center gap-2 text-white/80">
-									<span class="material-symbols-outlined text-[20px] text-purple-400">auto_awesome</span>
+									<span class="material-symbols-outlined text-[20px] text-cyan-400">auto_awesome</span>
 									<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.ai_factors') || 'AI Valuation Factors'}</span>
 								</div>
 							<div class="flex flex-wrap gap-2 mt-2">
 								{data()?.tags?.map((tag) => (
-									<span class="bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs px-2.5 py-1 rounded-lg">
+									<span class="bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs px-2.5 py-1 rounded-lg">
 										{tag}
 									</span>
 								))}
@@ -591,7 +591,7 @@ export const UsernamePage: Component = () => {
 
 						<div class="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
 							<div class="flex items-center gap-2 text-white/80 mb-3">
-								<span class="material-symbols-outlined text-[20px] text-purple-400">history</span>
+								<span class="material-symbols-outlined text-[20px] text-cyan-400">history</span>
 								<span class="text-sm font-bold uppercase tracking-wider">{t('valuation.history_title') || 'Ownership History'}</span>
 							</div>
 							<Show

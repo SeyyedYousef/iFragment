@@ -11,7 +11,7 @@ interface Props {
 /**
  * Build the full avatar URL.
  * The backend returns `photoUrl` as a relative path like `/api/v1/profile/avatar/123456`.
- * We need to prepend the backend origin so the <img> actually fetches from the API server,
+ * We need to prepend the backend origin so the img element actually fetches from the API server,
  * not from the frontend's own origin (which doesn't serve avatars).
  */
 const buildAvatarUrl = (rawUrl: string): string => {
@@ -77,14 +77,7 @@ export const IdentityHero = (props: Props) => {
 								</div>
 							}
 						>
-							<img
-								src={avatarUrl()}
-								alt="Avatar"
-								class="w-full h-full object-cover transition-opacity duration-300"
-								loading="lazy"
-								referrerPolicy="no-referrer"
-								onError={() => setImgError(true)}
-							/>
+							<img src={avatarUrl()} alt="Avatar" class="w-full h-full object-cover transition-opacity duration-300" loading="lazy" referrerPolicy="no-referrer" onError={() => setImgError(true)} />
 						</Show>
 					</div>
 				</div>

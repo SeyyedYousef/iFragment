@@ -440,6 +440,20 @@ export const BotManagePage: Component = () => {
 						{/* Handle */}
 						<div class="w-12 h-1.5 bg-[#3a3a3a] rounded-full mx-auto mb-6" />
 
+						{/* Status Messages */}
+						<Show when={successMsg()}>
+							<div class="bg-[#34c759]/10 border border-[#34c759]/30 text-[#34c759] rounded-2xl px-4 py-3 flex items-center gap-2 text-[13px] font-bold mb-4">
+								<span class="material-symbols-outlined text-[18px]">check_circle</span>
+								{successMsg()}
+							</div>
+						</Show>
+						<Show when={errorMsg()}>
+							<div class="bg-[#ff3b30]/10 border border-[#ff3b30]/30 text-[#ff3b30] rounded-2xl px-4 py-3 flex items-center gap-2 text-[13px] font-bold mb-4">
+								<span class="material-symbols-outlined text-[18px]">error</span>
+								{errorMsg()}
+							</div>
+						</Show>
+
 						{paymentStep() === 'package' ? (
 							<>
 								<h3 class="text-[20px] font-black text-white mb-1 leading-tight">

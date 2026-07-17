@@ -495,7 +495,13 @@ func (s *OwnerService) ListPromoCodes(ctx context.Context) ([]model.PromoCode, e
 
 func (s *OwnerService) RedeemPromoCode(ctx context.Context, userID int64, code string) error {
 	code = strings.ToUpper(code)
-	return s.repo.RedeemPromoCodeTx(ctx, code, userID)
+	if err := s.repo.RedeemPromoCodeTx(ctx, code, userID); err != nil {
+		return err
+	}
+	if s.cache != nil && s.cache.Client != nil {
+		s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
+	}
+	return nil
 }
 
 func (s *OwnerService) ListAllQuests(ctx context.Context) ([]model.Quest, error) {
@@ -838,11 +844,14 @@ func (s *OwnerService) AddEntityCredit(ctx context.Context, req AddEntityCreditR
 	return nil
 }
 
-// AdjustAirdropCoins allows the owner to change user's airdrop coins
 func (s *OwnerService) AdjustAirdropCoins(ctx context.Context, req AdjustAirdropCoinsRequest, adminID int64, ip string) (float64, error) {
 	newBalance, err := s.repo.DB().AdjustAirdropCoins(ctx, req.UserID, req.Amount)
 	if err != nil {
 		return 0, err
+	}
+
+	if s.cache != nil && s.cache.Client != nil {
+		s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", req.UserID))
 	}
 
 	// Audit log
