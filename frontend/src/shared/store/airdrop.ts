@@ -431,8 +431,18 @@ export const syncPendingTaps = async () => {
 					} else {
 						break;
 					}
-				} catch (e) {
+				} catch (e: any) {
 					console.error('Failed to sync taps with server:', e);
+					const status = e?.status || e?.response?.status;
+					if (status === 400) {
+						// Discard invalid bucket to prevent getting stuck in infinite loop
+						pendingTapBuckets.shift();
+						try {
+							localStorage.setItem('airdrop-pending-taps', JSON.stringify(pendingTapBuckets));
+						} catch (err) {
+							console.error('Failed to save pending taps after discard:', err);
+						}
+					}
 					break;
 				}
 			}

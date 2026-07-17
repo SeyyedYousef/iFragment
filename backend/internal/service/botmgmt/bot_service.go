@@ -472,6 +472,13 @@ func (s *BotService) DeleteGroup(ctx context.Context, groupID uuid.UUID, ownerID
 
 // Settings Operations
 
+type CachedChatInfo struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Username    string `json:"username"`
+	PhotoURL    string `json:"photo_url"`
+}
+
 func (s *BotService) GetSettings(ctx context.Context, groupID uuid.UUID, ownerID int64) (*repository.GroupSettings, error) {
 	group, err := s.GetGroup(ctx, groupID, ownerID)
 	if err != nil {
@@ -482,31 +489,59 @@ func (s *BotService) GetSettings(ctx context.Context, groupID uuid.UUID, ownerID
 		return nil, err
 	}
 
-	// Dynamically inject live Telegram Group info
+	// Dynamically inject live Telegram Group info with 10-minute caching
 	bot, err := s.botRepo.GetBotByID(ctx, group.BotID)
 	if err == nil && bot != nil {
 		token, decErr := DecryptToken(bot.BotTokenEncrypted)
 		if decErr == nil && token != "" {
-			tg := telegram.NewBotAPIClient(token)
-			chatRes, tgErr := tg.GetChat(ctx, group.ChatID)
-			if tgErr == nil && chatRes != nil {
-				var genMap map[string]interface{}
-				if err := json.Unmarshal(settings.General, &genMap); err == nil {
-					genMap["name"] = chatRes.Title
+			var cachedInfo CachedChatInfo
+			cacheKey := fmt.Sprintf("tg:chat:info:%d", group.ChatID)
+			cacheHit := false
+
+			if s.cache != nil && s.cache.Client != nil {
+				if val, err := s.cache.Client.Get(ctx, cacheKey).Result(); err == nil {
+					if json.Unmarshal([]byte(val), &cachedInfo) == nil {
+						cacheHit = true
+					}
+				}
+			}
+
+			if !cacheHit {
+				tg := telegram.NewBotAPIClient(token)
+				chatRes, tgErr := tg.GetChat(ctx, group.ChatID)
+				if tgErr == nil && chatRes != nil {
+					cachedInfo.Title = chatRes.Title
 					if chatRes.Description != "" {
-						genMap["description"] = chatRes.Description
+						cachedInfo.Description = chatRes.Description
 					}
 					if chatRes.Username != nil {
-						genMap["username"] = *chatRes.Username
+						cachedInfo.Username = *chatRes.Username
+					}
+					photoURL, pErr := tg.GetChatPhotoURL(ctx, group.ChatID)
+					if pErr == nil {
+						cachedInfo.PhotoURL = photoURL
 					}
 
-					// Try to fetch photo URL
-					photoURL, pErr := tg.GetChatPhotoURL(ctx, group.ChatID)
-					if pErr == nil && photoURL != "" {
-						genMap["photo"] = photoURL
-					} else if pErr == nil && photoURL == "" {
-						genMap["photo"] = "" // explicit empty if no photo
+					if s.cache != nil && s.cache.Client != nil {
+						if data, err := json.Marshal(cachedInfo); err == nil {
+							s.cache.Client.Set(ctx, cacheKey, data, 10*time.Minute)
+						}
 					}
+					cacheHit = true
+				}
+			}
+
+			if cacheHit {
+				var genMap map[string]interface{}
+				if err := json.Unmarshal(settings.General, &genMap); err == nil {
+					genMap["name"] = cachedInfo.Title
+					if cachedInfo.Description != "" {
+						genMap["description"] = cachedInfo.Description
+					}
+					if cachedInfo.Username != "" {
+						genMap["username"] = cachedInfo.Username
+					}
+					genMap["photo"] = cachedInfo.PhotoURL
 
 					// Re-marshal
 					if updated, mErr := json.Marshal(genMap); mErr == nil {

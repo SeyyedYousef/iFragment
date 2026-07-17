@@ -524,11 +524,13 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 	energyConsumed := 0
 	if multiplier != 5 { // multiplier = 5 represents Turbo boost where no energy is consumed
 		energyConsumed = taps * multitapLevel
-	}
-
-	// Validate energy
-	if currentEnergy < energyConsumed {
-		return nil, fmt.Errorf("not enough energy")
+		if currentEnergy < energyConsumed {
+			taps = currentEnergy / multitapLevel
+			energyConsumed = taps * multitapLevel
+			if taps <= 0 {
+				return nil, fmt.Errorf("not enough energy")
+			}
+		}
 	}
 
 	// Save the decremented energy and update total taps in the database
