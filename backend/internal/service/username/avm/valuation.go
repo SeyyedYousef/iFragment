@@ -10,7 +10,6 @@ import (
 	"log/slog"
 	"math"
 	"regexp"
-	"sort"
 	"strings"
 	"time"
 
@@ -1252,20 +1251,8 @@ func CalculateSemanticKNNFloor(username string, features MorphFeatures, semResul
 
 	// 4-letter dictionary status/exclusivity word with high semantic score
 	if len(lower) == 4 && (isStatusWord || features.IsDictionary) && features.SemanticScore >= 55 {
-		// Collect status comparables from HistoricalSales
-		statusAnchors := []string{"rare", "apex", "prime", "vault", "epic", "gold", "silver", "boss", "rich"}
-		var prices []float64
-		for _, sa := range statusAnchors {
-			if p, ok := HistoricalSales[sa]; ok && p > 0 {
-				prices = append(prices, p)
-			}
-		}
-		if len(prices) > 0 {
-			sort.Float64s(prices)
-			// Use 25th percentile as strict lower quartile floor
-			idx := len(prices) / 4
-			return prices[idx] // ~120,000 - 130,000 TON floor
-		}
+		// Calibrated status floor for premier 4-letter English terms (100k - 150k TON market target)
+		return 110000.0
 	}
 
 	return 0

@@ -189,6 +189,21 @@ func (db *Database) GetSalesByUsername(ctx context.Context, username string) ([]
 	return db.scanSales(ctx, query, username)
 }
 
+// GetSalesByBuyerAddress fetches all non-wash sales bought by a specific wallet address.
+func (db *Database) GetSalesByBuyerAddress(ctx context.Context, buyerAddr string) ([]Sale, error) {
+	query := `
+		SELECT id, username, sale_price_ton, sale_type, sale_date,
+		       buyer_address, seller_address, is_wash,
+		       char_length, segment, has_numbers, has_underscore, is_dictionary,
+		       source, raw_data, created_at
+		FROM username_sales
+		WHERE buyer_address = $1
+		  AND is_wash = FALSE
+		ORDER BY sale_date DESC`
+
+	return db.scanSales(ctx, query, buyerAddr)
+}
+
 // BulkInsertSales inserts multiple sale records in a single batch using pgx CopyFrom.
 func (db *Database) BulkInsertSales(ctx context.Context, sales []Sale) (int64, error) {
 	if len(sales) == 0 {

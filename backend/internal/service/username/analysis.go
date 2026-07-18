@@ -967,73 +967,92 @@ func (s *AnalysisService) generateDeepReport(ctx context.Context, userID int64, 
 }
 
 func (s *AnalysisService) GetWalletPortfolio(ctx context.Context, ownerAddr string) (*WalletPortfolio, error) {
-	if s.tonClient == nil {
-		return nil, fmt.Errorf("ton client not available")
-	}
-	nfts, err := s.tonClient.GetOwnerNFTs(ctx, ownerAddr)
-	if err != nil {
-		return nil, err
-	}
-
 	portfolio := &WalletPortfolio{
 		UsernamesList: []string{},
 		Items:         []PortfolioItemInfo{},
 	}
 
-	if nfts != nil {
-		portfolio.TotalCount = len(nfts.Items)
-		for _, item := range nfts.Items {
-			if item.DNS != "" {
-				username := strings.TrimSuffix(item.DNS, ".t.me")
-				portfolio.UsernamesList = append(portfolio.UsernamesList, username)
+	existingUsernames := make(map[string]bool)
 
-				pItem := PortfolioItemInfo{
-					Username: username,
-					Status:   "owned",
-				}
+	if s.tonClient != nil {
+		nfts, err := s.tonClient.GetOwnerNFTs(ctx, ownerAddr)
+		if err == nil && nfts != nil && len(nfts.Items) > 0 {
+			portfolio.TotalCount = len(nfts.Items)
+			for _, item := range nfts.Items {
+				if item.DNS != "" {
+					username := strings.TrimSuffix(item.DNS, ".t.me")
+					existingUsernames[username] = true
+					portfolio.UsernamesList = append(portfolio.UsernamesList, username)
 
-				if item.Sale != nil && item.Sale.Price.Value != "" {
-					var val float64
-					if _, sErr := fmt.Sscanf(item.Sale.Price.Value, "%f", &val); sErr == nil {
-						tokenName := strings.ToLower(item.Sale.Price.TokenName)
-						if tokenName == "ton" || tokenName == "nanoton" || tokenName == "" {
-							val = val / 1e9
-						}
-						pItem.SoldPrice = val
-						pItem.Status = "on_sale"
-						portfolio.TotalSpentTON += val
+					pItem := PortfolioItemInfo{
+						Username: username,
+						Status:   "owned",
 					}
-				} else {
-					if bids, bErr := s.tonClient.GetFragmentBids(ctx, username); bErr == nil && bids != nil && len(bids.Data) > 0 {
-						for _, bid := range bids.Data {
-							if bid.Success && bid.Value > 0 {
-								val := float64(bid.Value) / 1e9
-								pItem.SoldPrice = val
-								if bid.TxTime > 0 {
-									pItem.SaleDate = time.Unix(bid.TxTime, 0).Format(time.RFC3339)
+
+					if item.Sale != nil && item.Sale.Price.Value != "" {
+						var val float64
+						if _, sErr := fmt.Sscanf(item.Sale.Price.Value, "%f", &val); sErr == nil {
+							tokenName := strings.ToLower(item.Sale.Price.TokenName)
+							if tokenName == "ton" || tokenName == "nanoton" || tokenName == "" {
+								val = val / 1e9
+							}
+							pItem.SoldPrice = val
+							pItem.Status = "on_sale"
+							portfolio.TotalSpentTON += val
+						}
+					} else {
+						if bids, bErr := s.tonClient.GetFragmentBids(ctx, username); bErr == nil && bids != nil && len(bids.Data) > 0 {
+							for _, bid := range bids.Data {
+								if bid.Success && bid.Value > 0 {
+									val := float64(bid.Value) / 1e9
+									pItem.SoldPrice = val
+									if bid.TxTime > 0 {
+										pItem.SaleDate = time.Unix(bid.TxTime, 0).Format(time.RFC3339)
+									}
+									portfolio.TotalSpentTON += val
+									break
 								}
-								portfolio.TotalSpentTON += val
-								break
 							}
 						}
 					}
-				}
+					r := &FullReport{
+						Username:         username,
+						Length:           usernameLength(username),
+						ContainsNumbers:  containsNumbers(username),
+						IsDictionaryWord: isDictionaryWord(username),
+						RarityScore:      s.CalculateRarity(username),
+						LinguisticScore:  calculateLinguisticScore(username),
+					}
+					estimate := estimateValue(r, s.pricingConfig)
+					if estimate != nil {
+						portfolio.TotalValue += estimate.P50
+					}
 
-				r := &FullReport{
-					Username:         username,
-					Length:           usernameLength(username),
-					ContainsNumbers:  containsNumbers(username),
-					IsDictionaryWord: isDictionaryWord(username),
-					RarityScore:      s.CalculateRarity(username),
-					LinguisticScore:  calculateLinguisticScore(username),
+					portfolio.Items = append(portfolio.Items, pItem)
 				}
-				estimate := estimateValue(r, s.pricingConfig)
-				if estimate != nil {
-					portfolio.TotalValue += estimate.P50
-				}
-
-				portfolio.Items = append(portfolio.Items, pItem)
 			}
+		}
+	}
+
+	// Fallback/Supplement from Postgres Database sales table for this buyer address
+	if s.db != nil {
+		dbSales, sErr := s.db.GetSalesByBuyerAddress(ctx, ownerAddr)
+		if sErr == nil && len(dbSales) > 0 {
+			for _, sale := range dbSales {
+				if !existingUsernames[sale.Username] {
+					existingUsernames[sale.Username] = true
+					portfolio.UsernamesList = append(portfolio.UsernamesList, sale.Username)
+					fPrice, _ := sale.SalePriceTON.Float64()
+					portfolio.Items = append(portfolio.Items, PortfolioItemInfo{
+						Username:  sale.Username,
+						SoldPrice: fPrice,
+						SaleDate:  sale.SaleDate.Format(time.RFC3339),
+						Status:    "bought",
+					})
+					portfolio.TotalSpentTON += fPrice
+				}
+			}
+			portfolio.TotalCount = len(portfolio.Items)
 		}
 	}
 
