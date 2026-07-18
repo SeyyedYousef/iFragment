@@ -769,6 +769,38 @@ export const UsernamePage: Component = () => {
 							</Show>
 						</div>
 
+						{/* Comparable Benchmark Sales */}
+						<Show when={(data()?.comparables?.length ?? 0) > 0}>
+							<div class="bg-[#0e1118] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3">
+								<div class="flex items-center justify-between text-white/90 mb-1">
+									<div class="flex items-center gap-2">
+										<span class="material-symbols-outlined text-[20px] text-emerald-400">payments</span>
+										<span class="text-sm font-semibold uppercase tracking-wider">{t('valuation.comp_title') || 'Comparable Sales'}</span>
+									</div>
+									<span class="text-xs text-white/40">{data()?.comparables?.length} sales</span>
+								</div>
+								<div class="flex flex-col rounded-xl overflow-hidden bg-[#0a0c12] border border-white/[0.06]">
+									<div class="grid grid-cols-3 p-3 border-b border-white/[0.06] bg-white/[0.02] text-xs font-semibold text-white/40 uppercase">
+										<span>Username</span>
+										<span class="text-center">{t('valuation.sale_price') || 'Sale price'}</span>
+										<span class="text-right">{t('valuation.date') || 'Date'}</span>
+									</div>
+									{data()?.comparables?.map(comp => (
+										<div 
+											onClick={() => {
+												window.location.href = `/username?u=${comp.username}`;
+											}}
+											class="grid grid-cols-3 p-3 items-center border-b border-white/[0.06] text-xs hover:bg-white/[0.03] cursor-pointer"
+										>
+											<span class="text-[#0098ea] font-bold truncate">@{comp.username}</span>
+											<span class="text-emerald-400 font-mono font-bold text-center">{comp.price?.toLocaleString()} TON</span>
+											<span class="text-white/40 text-[11px] text-right font-mono">{comp.date ? new Date(comp.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '-'}</span>
+										</div>
+									))}
+								</div>
+							</div>
+						</Show>
+
 						{/* AI Suggestions with Status & Prices */}
 						<Show when={(data()?.similar?.length ?? 0) > 0}>
 							<div class="bg-[#0e1118] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3">
@@ -784,11 +816,11 @@ export const UsernamePage: Component = () => {
 										const getStatusBadge = (status?: string) => {
 											switch (status) {
 												case 'sold':
-													return { text: 'Sold', bg: 'bg-white/10 text-white/70' };
+													return { text: 'Sold', bg: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' };
 												case 'on_sale':
 													return { text: 'On Sale', bg: 'bg-[#0098ea]/20 text-[#0098ea] border border-[#0098ea]/30' };
 												case 'available':
-													return { text: 'Available', bg: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' };
+													return { text: 'Available', bg: 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' };
 												default:
 													return { text: 'Non-NFT', bg: 'bg-zinc-800 text-zinc-400' };
 											}
@@ -796,24 +828,29 @@ export const UsernamePage: Component = () => {
 										const badge = getStatusBadge(sim.status);
 
 										return (
-											<div class="min-w-[200px] flex-shrink-0 bg-[#0a0c12] border border-white/[0.06] rounded-xl p-3 snap-start cursor-pointer hover:bg-white/[0.03] transition-all flex flex-col justify-between gap-2"
+											<div class="min-w-[210px] flex-shrink-0 bg-[#0a0c12] border border-white/[0.06] hover:border-white/20 rounded-xl p-3.5 snap-start cursor-pointer hover:bg-white/[0.03] transition-all flex flex-col justify-between gap-2.5 shadow-md"
 												onClick={() => {
 													window.location.href = `/username?u=${sim.username}`;
 												}}
 											>
 												<div class="flex items-center justify-between gap-2">
-													<div class="text-[#0098ea] font-bold truncate">@{sim.username}</div>
-													<span class={`text-[9px] font-bold px-2 py-0.5 rounded-full ${badge.bg}`}>
+													<div class="text-[#0098ea] font-bold text-sm truncate">@{sim.username}</div>
+													<span class={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${badge.bg}`}>
 														{badge.text}
 													</span>
 												</div>
-												<div class="text-white/40 text-xs line-clamp-2 leading-relaxed">{sim.reason}</div>
-												<Show when={sim.sale_price}>
-													<div class="pt-2 border-t border-white/[0.06] flex items-center justify-between text-xs">
-														<span class="text-white/40">Price</span>
-														<span class="text-emerald-400 font-mono font-bold">{sim.sale_price?.toLocaleString()} TON</span>
+
+												<div class="text-white/50 text-xs line-clamp-2 leading-relaxed font-medium">{sim.reason}</div>
+
+												<div class="pt-2 border-t border-white/[0.06] flex items-center justify-between text-xs">
+													<span class="text-white/40 font-medium">{sim.status === 'on_sale' ? 'Ask Price' : 'Sale Price'}</span>
+													<div class="flex flex-col items-end">
+														<span class="text-emerald-400 font-mono font-bold">{sim.sale_price && sim.sale_price > 0 ? `${sim.sale_price.toLocaleString()} TON` : sim.status === 'sold' ? 'Sold' : '-'}</span>
+														{sim.sale_price_usd && sim.sale_price_usd > 0 && (
+															<span class="text-white/30 text-[10px] font-mono">≈ ${sim.sale_price_usd.toLocaleString()}</span>
+														)}
 													</div>
-												</Show>
+												</div>
 											</div>
 										);
 									})}
