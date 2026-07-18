@@ -729,6 +729,13 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 			isOldAnchor = true
 		}
 
+		// For anchored sales, semantic multiplier represents market drift over base price.
+		// Cap maximum drift multiplier to 6.0x to prevent compounding explosions on appreciated base.
+		if semResult != nil && semResult.Multiplier > 6.0 {
+			semanticLog = math.Log(6.0)
+			reasoning["anchor_semantic_capped_multiplier"] = 6.0
+		}
+
 		// Only zero out morphLog and apply aggressive semantic damping if the anchor is recent or non-dictionary
 		if !isOldAnchor || (!features.IsDictionary && features.SemanticScore < 60) {
 			morphLog = 0.0 // Morphology is static and already captured by historical anchor price

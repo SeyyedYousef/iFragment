@@ -502,8 +502,8 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 
 	if ownerAddr != "" && h.reportService != nil {
 		p, pErr := h.reportService.GetWalletPortfolio(ctx, ownerAddr)
-		if pErr == nil && p != nil {
-			var items []avm.PortfolioItemDto
+		var items []avm.PortfolioItemDto
+		if pErr == nil && p != nil && len(p.Items) > 0 {
 			for _, item := range p.Items {
 				items = append(items, avm.PortfolioItemDto{
 					Username:  item.Username,
@@ -512,12 +512,36 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 					Status:    item.Status,
 				})
 			}
+		}
+
+		// Fallback: If no active NFTs are found in the wallet, populate past auction purchases from history
+		if len(items) == 0 && len(result.History.Transactions) > 0 {
+			for _, tx := range result.History.Transactions {
+				if tx.Buyer == ownerAddr || strings.EqualFold(tx.Buyer, ownerAddr) {
+					priceVal, _ := strconv.ParseFloat(tx.SalePriceTON, 64)
+					items = append(items, avm.PortfolioItemDto{
+						Username:  u,
+						SoldPrice: priceVal,
+						SaleDate:  tx.Date.Format(time.RFC3339),
+						Status:    "past_auction_winner",
+					})
+					break
+				}
+			}
+		}
+
+		if len(items) > 0 {
+			totalSpent := 0.0
+			for _, it := range items {
+				totalSpent += it.SoldPrice
+			}
+			expVal, _ := result.ExpectedTON.Float64()
 			result.Portfolio = &avm.PortfolioDto{
 				OwnerAddress:  ownerAddr,
-				TotalCount:    p.TotalCount,
-				TotalSpentTON: p.TotalSpentTON,
-				TotalSpentUSD: p.TotalSpentTON * tonRate,
-				TotalValueTON: p.TotalValue,
+				TotalCount:    len(items),
+				TotalSpentTON: totalSpent,
+				TotalSpentUSD: totalSpent * tonRate,
+				TotalValueTON: expVal,
 				Items:         items,
 			}
 		}
