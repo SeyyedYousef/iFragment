@@ -31,6 +31,12 @@ var HistoricalSales = map[string]float64{
 	"ai":           500000.0, // 2-letter premium + hottest trend
 	"vip":          300000.0, // 3-letter premium
 	"ceo":          250000.0, // 3-letter premium
+	"rare":         130000.0, // Rarity & status premium (100K - 150K TON market benchmark)
+	"apex":         120000.0, // Status premium
+	"prime":        150000.0, // Status premium
+	"vault":        100000.0, // Status & finance premium
+	"legend":       250000.0, // Status & gaming legend
+	"epic":         180000.0, // Rarity & gaming term
 	// ── Original Data ──
 	"news": 994000.0,
 	"auto": 900000.0,

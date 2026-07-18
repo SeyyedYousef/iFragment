@@ -78,3 +78,48 @@ func TestCalcConfidenceScore(t *testing.T) {
 		})
 	}
 }
+
+func TestIsGibberishString(t *testing.T) {
+	if !IsGibberishString("fhhff", false, 0, 0.20) {
+		t.Error("'fhhff' should be classified as gibberish")
+	}
+	if !IsGibberishString("xqzkw", false, 0, 0.10) {
+		t.Error("'xqzkw' should be classified as gibberish")
+	}
+	if IsGibberishString("rare", true, 2660, 0.90) {
+		t.Error("'rare' should NOT be classified as gibberish")
+	}
+}
+
+func TestCalculateSemanticKNNFloor(t *testing.T) {
+	// @rare should get high KNN floor (100k - 150k TON)
+	rareFeat := MorphFeatures{
+		IsDictionary:  true,
+		SemanticScore: 85,
+		IsGibberish:   false,
+	}
+	semRes := &SemanticResult{
+		TotalScore: 85,
+		Tags:       []string{"exclusivity_status_premium"},
+	}
+
+	floor := CalculateSemanticKNNFloor("rare", rareFeat, semRes)
+	if floor < 100000 || floor > 160000 {
+		t.Errorf("KNN floor for 'rare' = %f, expected between 100000 and 160000", floor)
+	}
+
+	// @fhhff should get 0 KNN floor (gibberish protection)
+	gibberishFeat := MorphFeatures{
+		IsDictionary:  false,
+		SemanticScore: 10,
+		IsGibberish:   true,
+	}
+	gibberishSem := &SemanticResult{
+		TotalScore: 10,
+		Tags:       []string{},
+	}
+	fhhffFloor := CalculateSemanticKNNFloor("fhhff", gibberishFeat, gibberishSem)
+	if fhhffFloor != 0 {
+		t.Errorf("KNN floor for gibberish 'fhhff' = %f, expected 0", fhhffFloor)
+	}
+}

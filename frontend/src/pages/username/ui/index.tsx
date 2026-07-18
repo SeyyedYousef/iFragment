@@ -762,7 +762,7 @@ export const UsernamePage: Component = () => {
 								<span class="text-sm font-semibold uppercase tracking-wider">{t('valuation.struct_title') || 'Username DNA'}</span>
 							</div>
 							
-							{/* Contains Digits */}
+							{/* Pure Letters (No numbers) */}
 							<div class="flex items-center justify-between bg-[#0a0c12] rounded-xl p-3 border border-white/[0.04]">
 								<div class="flex flex-col gap-0.5">
 									<span class="text-white/80 text-xs font-medium">{t('valuation.has_digits_title') || 'Pure Letters'}</span>
@@ -775,7 +775,7 @@ export const UsernamePage: Component = () => {
 								</Show>
 							</div>
 
-							{/* Contains Underscore */}
+							{/* Clean Handle (No underscore) */}
 							<div class="flex items-center justify-between bg-[#0a0c12] rounded-xl p-3 border border-white/[0.04]">
 								<div class="flex flex-col gap-0.5">
 									<span class="text-white/80 text-xs font-medium">{t('valuation.has_underscore_title') || 'Clean Handle'}</span>
@@ -786,6 +786,43 @@ export const UsernamePage: Component = () => {
 								}>
 									<span class="bg-emerald-500/15 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-500/20">{t('valuation.badge_clean') || 'CLEAN'}</span>
 								</Show>
+							</div>
+
+							{/* Letters Only */}
+							<div class="flex items-center justify-between bg-[#0a0c12] rounded-xl p-3 border border-white/[0.04]">
+								<div class="flex flex-col gap-0.5">
+									<span class="text-white/80 text-xs font-medium">{t('valuation.letters_only_title') || 'Alpha-Only'}</span>
+									<span class="text-white/30 text-[10px]">{data()?.structure?.letters_only ? (t('valuation.letters_only_desc') || 'Pure alphabetic characters') : (t('valuation.mixed_chars_desc') || 'Contains mixed characters')}</span>
+								</div>
+								<Show when={data()?.structure?.letters_only} fallback={
+									<span class="bg-white/5 text-white/40 text-[10px] font-bold px-2 py-0.5 rounded border border-white/10">{t('valuation.badge_mixed') || 'MIXED'}</span>
+								}>
+									<span class="bg-emerald-500/15 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-500/20">{t('valuation.badge_premium') || 'PREMIUM'}</span>
+								</Show>
+							</div>
+
+							{/* Dictionary Word */}
+							<div class="flex items-center justify-between bg-[#0a0c12] rounded-xl p-3 border border-white/[0.04]">
+								<div class="flex flex-col gap-0.5">
+									<span class="text-white/80 text-xs font-medium">{t('valuation.dict_word_title') || 'Dictionary Word'}</span>
+									<span class="text-white/30 text-[10px]">{data()?.dictionary?.is_word ? (t('valuation.dict_word_desc') || 'Recognized semantic word') : (t('valuation.not_dict_word_desc') || 'Not found in dictionary')}</span>
+								</div>
+								<Show when={data()?.dictionary?.is_word} fallback={
+									<span class="bg-white/5 text-white/40 text-[10px] font-bold px-2 py-0.5 rounded border border-white/10">{t('valuation.badge_no') || 'NO'}</span>
+								}>
+									<span class="bg-cyan-500/15 text-cyan-400 text-[10px] font-bold px-2 py-0.5 rounded border border-cyan-500/20">{t('valuation.badge_yes') || 'YES'}</span>
+								</Show>
+							</div>
+
+							{/* Character Length */}
+							<div class="flex items-center justify-between bg-[#0a0c12] rounded-xl p-3 border border-white/[0.04]">
+								<div class="flex flex-col gap-0.5">
+									<span class="text-white/80 text-xs font-medium">{t('valuation.len_title') || 'Length'}</span>
+									<span class="text-white/30 text-[10px]">{(data()?.length || 0) <= 4 ? (t('valuation.len_ultra_short') || 'Ultra-short format') : (data()?.length || 0) <= 6 ? (t('valuation.len_short') || 'Short format') : (t('valuation.len_standard') || 'Standard length')}</span>
+								</div>
+								<span class={`text-[10px] font-bold px-2 py-0.5 rounded border ${(data()?.length || 0) <= 4 ? 'bg-amber-500/15 text-amber-400 border-amber-500/20' : (data()?.length || 0) <= 6 ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' : 'bg-white/5 text-white/40 border-white/10'}`}>
+									{data()?.length} {t('valuation.chars_suffix') || 'CHARS'}
+								</span>
 							</div>
 						</div>
 

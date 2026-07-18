@@ -34,6 +34,28 @@ type MorphFeatures struct {
 	IsABAB               bool
 	IsAABB               bool
 	IsSymmetricRepetition bool
+	IsGibberish          bool
+}
+
+// IsGibberishString checks if a username is a meaningless random string (e.g. fhhff, xqzkw).
+func IsGibberishString(username string, isDict bool, rank int, flow float64) bool {
+	if isDict || rank > 0 {
+		return false
+	}
+	hasVowel := false
+	for _, ch := range username {
+		if ch == 'a' || ch == 'e' || ch == 'i' || ch == 'o' || ch == 'u' || ch == 'y' {
+			hasVowel = true
+			break
+		}
+	}
+	if len(username) >= 3 && !hasVowel {
+		return true
+	}
+	if len(username) >= 4 && flow < 0.30 {
+		return true
+	}
+	return false
 }
 
 // CalcMorphologyLog computes the clamped sum of log-multipliers.
@@ -46,6 +68,11 @@ type MorphFeatures struct {
 // Stacking clamp: max(ln(0.20), min(Morph_log, ln(4.0)))
 func CalcMorphologyLog(features MorphFeatures, multipliers map[string]float64, cfg EngineConfig) float64 {
 	var morphLog float64
+
+	// Severe penalty for meaningless gibberish (e.g. @fhhff)
+	if features.IsGibberish {
+		morphLog += math.Log(0.15)
+	}
 
 	// has_numbers discount
 	if features.HasNumbers {

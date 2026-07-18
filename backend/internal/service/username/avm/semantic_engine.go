@@ -250,6 +250,18 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 		}
 	}
 
+	// Exclusivity & Rarity Status Ultra Premium
+	statusExclusivity := []string{
+		"rare", "apex", "prime", "legend", "vault", "epic", "supreme", "noble",
+		"hero", "master", "royal", "lord", "gem", "status", "myth", "god", "aura", "crown", "boss", "king", "rich",
+	}
+	for _, s := range statusExclusivity {
+		if cleanName == s {
+			tags = append(tags, "exclusivity_status_premium")
+			break
+		}
+	}
+
 	// General Ultra Premium
 	generalUltra := []string{"ai", "chat", "news", "music", "video", "shop", "store", "buy", "sell", "cloud", "data", "tech", "art", "auto", "car", "travel", "hotel", "food", "pizza", "burger", "gold", "silver", "app", "bot"}
 	for _, g := range generalUltra {
@@ -277,6 +289,9 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 	for _, t := range tags {
 		if t == "crypto_ultra_premium" {
 			totalScore += 40.0 // Massive boost to push into high multiplier curve
+		}
+		if t == "exclusivity_status_premium" {
+			totalScore += 35.0 // High-status/rarity boost
 		}
 		if t == "general_ultra_premium" {
 			totalScore += 30.0

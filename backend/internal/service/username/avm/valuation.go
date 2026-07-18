@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"math"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -361,6 +362,7 @@ func ClassifyUsername(username string) (segment string, charLen int16, features 
 		IsABAB:            isABAB,
 		IsAABB:            isAABB,
 		IsSymmetricRepetition: isSymmetricRepetition,
+		IsGibberish:          IsGibberishString(lower, isDict, RankWord(decoded), AnalyzeFlow(decoded)),
 	}
 
 	return segment, charLen, features
@@ -723,14 +725,24 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	semanticLog *= dampingFactor // Dampen semantic impact based on dampingFactor
 	
 	if anchorInjected {
-		morphLog = 0.0 // Morphology is static and already captured by historical anchor price
-		reasoning["anchor_damping_applied"] = true
+		isOldAnchor := false
+		if len(targetComps) > 0 && now.Sub(targetComps[0].SaleDate).Hours() > (18*30*24) {
+			isOldAnchor = true
+		}
 
-		anchorPrice := math.Exp(baseLog)
-		if anchorPrice > 0 {
-			semanticDamp := 1.0 / (1.0 + anchorPrice/50000.0)
-			semanticLog *= semanticDamp
-			reasoning["anchor_semantic_damping"] = semanticDamp
+		// Only zero out morphLog and apply aggressive semantic damping if the anchor is recent or non-dictionary
+		if !isOldAnchor || (!features.IsDictionary && features.SemanticScore < 60) {
+			morphLog = 0.0 // Morphology is static and already captured by historical anchor price
+			reasoning["anchor_damping_applied"] = true
+
+			anchorPrice := math.Exp(baseLog)
+			if anchorPrice > 0 {
+				semanticDamp := 1.0 / (1.0 + anchorPrice/50000.0)
+				semanticLog *= semanticDamp
+				reasoning["anchor_semantic_damping"] = semanticDamp
+			}
+		} else {
+			reasoning["anchor_damping_bypassed_old_sale"] = true
 		}
 	}
 	
@@ -863,6 +875,22 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 			}
 			reasoning["historical_sale_floor_applied"] = true
 			reasoning["highest_past_sale_ton"] = highestPastSale
+		}
+	}
+
+	// 3h. Semantic KNN Comparable Floor (High-value status dictionary words)
+	knnFloor := CalculateSemanticKNNFloor(username, features, semResult)
+	if knnFloor > 0 {
+		reasoning["knn_semantic_floor"] = knnFloor
+		if expectedTONRaw < knnFloor {
+			expectedTONRaw = knnFloor
+			if lowTONRaw < knnFloor*0.80 {
+				lowTONRaw = knnFloor * 0.80
+			}
+			if highTONRaw < knnFloor*1.30 {
+				highTONRaw = knnFloor * 1.30
+			}
+			reasoning["knn_semantic_floor_applied"] = true
 		}
 	}
 
@@ -1199,4 +1227,46 @@ func SalesToComparables(sales []repository.Sale, cfg EngineConfig) []ComparableS
 		})
 	}
 	return comps
+}
+
+// CalculateSemanticKNNFloor finds similar high-value sold dictionary anchors for premium words
+// and sets a dynamic market floor. Returns 0 if username is gibberish or not a premium word.
+func CalculateSemanticKNNFloor(username string, features MorphFeatures, semResult *SemanticResult) float64 {
+	// STRICT GIBBERISH GUARD: Never elevate random gibberish (e.g. @fhhff, @xqzkw)
+	if features.IsGibberish || (!features.IsDictionary && features.SemanticScore < 50) {
+		return 0
+	}
+
+	// Status & Rarity dictionary words (e.g., rare, apex, prime, legend, vault, epic)
+	isStatusWord := false
+	if semResult != nil {
+		for _, tag := range semResult.Tags {
+			if tag == "exclusivity_status_premium" || tag == "crypto_ultra_premium" || tag == "general_ultra_premium" {
+				isStatusWord = true
+				break
+			}
+		}
+	}
+
+	lower := strings.ToLower(username)
+
+	// 4-letter dictionary status/exclusivity word with high semantic score
+	if len(lower) == 4 && (isStatusWord || features.IsDictionary) && features.SemanticScore >= 55 {
+		// Collect status comparables from HistoricalSales
+		statusAnchors := []string{"rare", "apex", "prime", "vault", "epic", "gold", "silver", "boss", "rich"}
+		var prices []float64
+		for _, sa := range statusAnchors {
+			if p, ok := HistoricalSales[sa]; ok && p > 0 {
+				prices = append(prices, p)
+			}
+		}
+		if len(prices) > 0 {
+			sort.Float64s(prices)
+			// Use 25th percentile as strict lower quartile floor
+			idx := len(prices) / 4
+			return prices[idx] // ~120,000 - 130,000 TON floor
+		}
+	}
+
+	return 0
 }

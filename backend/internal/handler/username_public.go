@@ -494,9 +494,14 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// Populate Portfolio if OwnerAddress exists
-	if result.History.OwnerAddress != "" && h.reportService != nil {
-		p, pErr := h.reportService.GetWalletPortfolio(ctx, result.History.OwnerAddress)
+	// Populate Portfolio if OwnerAddress or latest buyer address exists
+	ownerAddr := result.History.OwnerAddress
+	if ownerAddr == "" && len(result.History.Transactions) > 0 {
+		ownerAddr = result.History.Transactions[0].Buyer
+	}
+
+	if ownerAddr != "" && h.reportService != nil {
+		p, pErr := h.reportService.GetWalletPortfolio(ctx, ownerAddr)
 		if pErr == nil && p != nil {
 			var items []avm.PortfolioItemDto
 			for _, item := range p.Items {
@@ -508,7 +513,7 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 				})
 			}
 			result.Portfolio = &avm.PortfolioDto{
-				OwnerAddress:  result.History.OwnerAddress,
+				OwnerAddress:  ownerAddr,
 				TotalCount:    p.TotalCount,
 				TotalSpentTON: p.TotalSpentTON,
 				TotalSpentUSD: p.TotalSpentTON * tonRate,
