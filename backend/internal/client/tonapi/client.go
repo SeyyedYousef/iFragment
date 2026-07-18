@@ -285,7 +285,8 @@ func (c *Client) GetCollection(ctx context.Context, addr string) (*NFTCollection
 
 // GetNFTByDNS resolves a username to its NFT item via TON DNS
 func (c *Client) GetNFTByDNS(ctx context.Context, username string) (*NFTItem, error) {
-	url := fmt.Sprintf("%s/nfts/%s.t.me", c.BaseURL, username)
+	cleanName := strings.TrimSuffix(username, ".t.me")
+	url := fmt.Sprintf("%s/nfts/%s.t.me", c.BaseURL, cleanName)
 	resp, err := c.doRequest(ctx, url)
 	if err != nil {
 		return nil, err

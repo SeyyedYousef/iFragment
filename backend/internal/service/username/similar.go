@@ -110,21 +110,29 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 			go func(idx int) {
 				defer wg.Done()
 				defer func() { <-sem }()
-				domainName := results[idx].Username
-				if !strings.HasSuffix(domainName, ".t.me") {
-					domainName += ".t.me"
+				uName := results[idx].Username
+
+				// 1. Check local Postgres database first to avoid hitting TonAPI rate limits
+				if s.db != nil {
+					if sales, dbErr := s.db.GetSalesByUsername(ctx, uName); dbErr == nil && len(sales) > 0 {
+						latest := sales[0]
+						results[idx].Status = "sold"
+						fPrice, _ := latest.SalePriceTON.Float64()
+						results[idx].SalePrice = fPrice
+						results[idx].SaleDate = latest.SaleDate.Format(time.RFC3339)
+						if latest.BuyerAddress != nil {
+							results[idx].OwnerAddress = *latest.BuyerAddress
+						}
+					}
 				}
 
-				nft, err := s.tonClient.GetNFTByDNS(ctx, domainName)
+				// 2. Fetch live NFT info via GetNFTByDNS
+				nft, err := s.tonClient.GetNFTByDNS(ctx, uName)
 				if err == nil && nft != nil {
-					// NFT exists — set owner
 					if nft.Owner.Address != "" {
 						results[idx].OwnerAddress = nft.Owner.Address
 					}
-
-					// Check sale status
 					if nft.Sale != nil && nft.Sale.Price.Value != "" {
-						// Currently listed for sale
 						results[idx].Status = "on_sale"
 						var val float64
 						if _, sErr := fmt.Sscanf(nft.Sale.Price.Value, "%f", &val); sErr == nil {
@@ -134,50 +142,11 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 							}
 							results[idx].SalePrice = val
 						}
-					} else if nft.Owner.Address != "" {
-						// Owned but not on sale — try to get last sale price from Fragment bids or transfers
+					} else if results[idx].Status == "" {
 						results[idx].Status = "sold"
-						if bids, bErr := s.tonClient.GetFragmentBids(ctx, domainName); bErr == nil && bids != nil && len(bids.Data) > 0 {
-							for _, bid := range bids.Data {
-								if bid.Success && bid.Value > 0 {
-									results[idx].SalePrice = float64(bid.Value) / 1e9
-									if bid.TxTime > 0 {
-										results[idx].SaleDate = time.Unix(bid.TxTime, 0).Format(time.RFC3339)
-									}
-									break
-								}
-							}
-						}
-						if results[idx].SaleDate == "" && nft.Address != "" {
-							transfers, trErr := s.tonClient.GetNFTTransfers(ctx, nft.Address)
-							if trErr == nil && transfers != nil && len(transfers.Transfers) > 0 {
-								lastTransfer := transfers.Transfers[0]
-								if lastTransfer.Timestamp > 0 {
-									results[idx].SaleDate = time.Unix(lastTransfer.Timestamp, 0).Format(time.RFC3339)
-								}
-							}
-						}
-					} else {
-						results[idx].Status = "available"
 					}
-				} else {
-					// Check Fragment bids directly as fallback
-					if bids, bErr := s.tonClient.GetFragmentBids(ctx, domainName); bErr == nil && bids != nil && len(bids.Data) > 0 {
-						for _, bid := range bids.Data {
-							if bid.Success && bid.Value > 0 {
-								results[idx].Status = "sold"
-								results[idx].SalePrice = float64(bid.Value) / 1e9
-								if bid.TxTime > 0 {
-									results[idx].SaleDate = time.Unix(bid.TxTime, 0).Format(time.RFC3339)
-								}
-								break
-							}
-						}
-					}
-
-					if results[idx].Status == "" {
-						results[idx].Status = "non_nft"
-					}
+				} else if results[idx].Status == "" {
+					results[idx].Status = "available"
 				}
 			}(i)
 		}
