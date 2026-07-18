@@ -23,6 +23,7 @@ import (
 	"ifragment-backend/internal/service/notification"
 
 	"github.com/google/uuid"
+	"github.com/gotd/td/tg"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -480,13 +481,64 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 
 	h.sendValuationNotification(r, u, result)
 
-	// Fetch similar usernames (available ones)
+	// Fetch similar usernames (with status enrichment)
 	similars, _ := h.reportService.FindSimilarUsernames(ctx, u, 3)
 	for _, sim := range similars {
 		result.Similar = append(result.Similar, avm.ValuationSimilar{
-			Username: sim.Username,
-			Reason:   sim.Reason,
+			Username:     sim.Username,
+			Reason:       sim.Reason,
+			Status:       sim.Status,
+			SalePrice:    sim.SalePrice,
+			SalePriceUSD: sim.SalePriceUSD,
+			SaleDate:     sim.SaleDate,
 		})
+	}
+
+	// Populate Portfolio if OwnerAddress exists
+	if result.History.OwnerAddress != "" && h.reportService != nil {
+		p, pErr := h.reportService.GetWalletPortfolio(ctx, result.History.OwnerAddress)
+		if pErr == nil && p != nil {
+			var items []avm.PortfolioItemDto
+			for _, item := range p.Items {
+				items = append(items, avm.PortfolioItemDto{
+					Username:  item.Username,
+					SoldPrice: item.SoldPrice,
+					SaleDate:  item.SaleDate,
+					Status:    item.Status,
+				})
+			}
+			result.Portfolio = &avm.PortfolioDto{
+				OwnerAddress:  result.History.OwnerAddress,
+				TotalCount:    p.TotalCount,
+				TotalSpentTON: p.TotalSpentTON,
+				TotalSpentUSD: p.TotalSpentTON * tonRate,
+				TotalValueTON: p.TotalValue,
+				Items:         items,
+			}
+		}
+	}
+
+	// Populate OwnerProfile via MTProto if available
+	if h.mtprotoClient != nil {
+		resolved, err := h.mtprotoClient.ResolveUsername(ctx, u)
+		if err == nil && resolved != nil {
+			if pUser, ok := resolved.Peer.(*tg.PeerUser); ok {
+				for _, uObj := range resolved.Users {
+					if user, ok := uObj.(*tg.User); ok && user.ID == pUser.UserID {
+						result.OwnerProfile = &avm.OwnerProfileDto{
+							UserID:    user.ID,
+							FirstName: user.FirstName,
+							LastName:  user.LastName,
+							Username:  user.Username,
+							IsPremium: user.Premium,
+							HasPhoto:  user.Photo != nil,
+							PeerType:  "user",
+						}
+						break
+					}
+				}
+			}
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -672,4 +724,86 @@ func (h *UsernameHandler) SendToChat(w http.ResponseWriter, r *http.Request) {
 		"success": true,
 	})
 }
+
+func (h *UsernameHandler) GetPortfolio(w http.ResponseWriter, r *http.Request) {
+	address := r.URL.Query().Get("address")
+	if address == "" {
+		RespondError(w, r, http.StatusBadRequest, "missing address parameter", nil)
+		return
+	}
+
+	p, err := h.reportService.GetWalletPortfolio(r.Context(), address)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to get wallet portfolio", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(p)
+}
+
+func (h *UsernameHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
+	u := r.URL.Query().Get("u")
+	if u == "" {
+		RespondError(w, r, http.StatusBadRequest, "missing username parameter", nil)
+		return
+	}
+
+	report, err := h.reportService.GenerateDeepReport(r.Context(), 0, u)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to fetch username history", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"username":        u,
+		"owner_address":   report.OwnerAddress,
+		"past_sales":      report.PastSales,
+		"previous_owners": report.PreviousOwners,
+	})
+}
+
+func (h *UsernameHandler) GetContact(w http.ResponseWriter, r *http.Request) {
+	u := r.URL.Query().Get("u")
+	if u == "" {
+		RespondError(w, r, http.StatusBadRequest, "missing username parameter", nil)
+		return
+	}
+
+	u = strings.TrimPrefix(u, "@")
+
+	var profile avm.OwnerProfileDto
+	profile.Username = u
+	profile.PeerType = "unknown"
+
+	if h.mtprotoClient != nil {
+		resolved, err := h.mtprotoClient.ResolveUsername(r.Context(), u)
+		if err == nil && resolved != nil {
+			switch p := resolved.Peer.(type) {
+			case *tg.PeerUser:
+				profile.PeerType = "user"
+				for _, uObj := range resolved.Users {
+					if user, ok := uObj.(*tg.User); ok && user.ID == p.UserID {
+						profile.UserID = user.ID
+						profile.FirstName = user.FirstName
+						profile.LastName = user.LastName
+						profile.Username = user.Username
+						profile.IsPremium = user.Premium
+						profile.HasPhoto = user.Photo != nil
+						break
+					}
+				}
+			case *tg.PeerChannel:
+				profile.PeerType = "channel"
+			case *tg.PeerChat:
+				profile.PeerType = "chat"
+			}
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(profile)
+}
+
 

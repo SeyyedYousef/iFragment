@@ -273,6 +273,8 @@ type SaleRecord struct {
 	Price    float64 `json:"price"`
 	Currency string  `json:"currency"`
 	Username string  `json:"username"`
+	Buyer    string  `json:"buyer,omitempty"`     // Wallet address of the buyer
+	BuyerDNS string  `json:"buyer_dns,omitempty"` // .ton domain name (if resolved)
 }
 
 type PotentialBuyer struct {
@@ -343,9 +345,19 @@ type FullReport struct {
 
 // ── Quick Check (Free - used by ActionArea) ──
 
+type PortfolioItemInfo struct {
+	Username  string  `json:"username"`
+	SoldPrice float64 `json:"sold_price,omitempty"`
+	SaleDate  string  `json:"sale_date,omitempty"`
+	Status    string  `json:"status"`
+}
+
 type WalletPortfolio struct {
-	TotalValue    float64  `json:"total_value"`
-	UsernamesList []string `json:"usernames_list"`
+	TotalValue    float64             `json:"total_value"`
+	UsernamesList []string            `json:"usernames_list"`
+	Items         []PortfolioItemInfo `json:"items,omitempty"`
+	TotalCount    int                 `json:"total_count"`
+	TotalSpentTON float64             `json:"total_spent_ton"`
 }
 
 type QuickCheck struct {
@@ -759,10 +771,33 @@ func (s *AnalysisService) generateDeepReport(ctx context.Context, userID int64, 
 				if len(report.PreviousOwners) == 0 && len(tonapiOwners) > 0 {
 					report.PreviousOwners = tonapiOwners
 				}
-				// If we don't have sales from marketapp/fragment, map them from transfers
-				if len(report.PastSales) == 0 {
-					// We omit mapping pure transfers to PastSales as sales because they have no price,
-					// avoiding skewing average/median prices in the analytics.
+				// Map transfers and bids to PastSales so the frontend history table is populated with price & buyer
+				if len(report.PastSales) == 0 && len(transfers.Transfers) > 0 {
+					var bidsData []tonapi.BidInfo
+					if bids, bErr := s.tonClient.GetFragmentBids(subCtx, username); bErr == nil && bids != nil {
+						bidsData = bids.Data
+					}
+
+					for idx, tr := range transfers.Transfers {
+						saleDate := ""
+						if tr.Timestamp > 0 {
+							saleDate = time.Unix(tr.Timestamp, 0).Format(time.RFC3339)
+						}
+						buyer := tr.To.Address
+						priceTON := 0.0
+
+						if idx < len(bidsData) && bidsData[idx].Success && bidsData[idx].Value > 0 {
+							priceTON = float64(bidsData[idx].Value) / 1e9
+						}
+
+						report.PastSales = append(report.PastSales, SaleRecord{
+							Date:     saleDate,
+							Price:    priceTON,
+							Currency: "TON",
+							Username: username,
+							Buyer:    buyer,
+						})
+					}
 				}
 				mu.Unlock()
 			}
@@ -942,13 +977,47 @@ func (s *AnalysisService) GetWalletPortfolio(ctx context.Context, ownerAddr stri
 
 	portfolio := &WalletPortfolio{
 		UsernamesList: []string{},
+		Items:         []PortfolioItemInfo{},
 	}
 
 	if nfts != nil {
+		portfolio.TotalCount = len(nfts.Items)
 		for _, item := range nfts.Items {
 			if item.DNS != "" {
 				username := strings.TrimSuffix(item.DNS, ".t.me")
 				portfolio.UsernamesList = append(portfolio.UsernamesList, username)
+
+				pItem := PortfolioItemInfo{
+					Username: username,
+					Status:   "owned",
+				}
+
+				if item.Sale != nil && item.Sale.Price.Value != "" {
+					var val float64
+					if _, sErr := fmt.Sscanf(item.Sale.Price.Value, "%f", &val); sErr == nil {
+						tokenName := strings.ToLower(item.Sale.Price.TokenName)
+						if tokenName == "ton" || tokenName == "nanoton" || tokenName == "" {
+							val = val / 1e9
+						}
+						pItem.SoldPrice = val
+						pItem.Status = "on_sale"
+						portfolio.TotalSpentTON += val
+					}
+				} else {
+					if bids, bErr := s.tonClient.GetFragmentBids(ctx, username); bErr == nil && bids != nil && len(bids.Data) > 0 {
+						for _, bid := range bids.Data {
+							if bid.Success && bid.Value > 0 {
+								val := float64(bid.Value) / 1e9
+								pItem.SoldPrice = val
+								if bid.TxTime > 0 {
+									pItem.SaleDate = time.Unix(bid.TxTime, 0).Format(time.RFC3339)
+								}
+								portfolio.TotalSpentTON += val
+								break
+							}
+						}
+					}
+				}
 
 				r := &FullReport{
 					Username:         username,
@@ -962,6 +1031,8 @@ func (s *AnalysisService) GetWalletPortfolio(ctx context.Context, ownerAddr stri
 				if estimate != nil {
 					portfolio.TotalValue += estimate.P50
 				}
+
+				portfolio.Items = append(portfolio.Items, pItem)
 			}
 		}
 	}

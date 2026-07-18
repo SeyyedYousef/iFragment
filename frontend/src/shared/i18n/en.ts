@@ -2297,5 +2297,9 @@ export const dict = {
 		rarity_clean_structure: 'Clean Structure',
 		seo_desc: 'Higher score means better visibility in Telegram global search.',
 		nfts_suffix: '{count} NFTs',
+		portfolio_title: 'Username Portfolio',
+		est_status: 'Est. / Status',
+		est_portfolio_val: 'Est. Portfolio Value',
+		owner_profile_title: 'Owner Profile',
 	},
 };

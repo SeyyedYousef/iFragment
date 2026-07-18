@@ -2249,5 +2249,9 @@ export const dict = {
 		rarity_clean_structure: '结构整洁度奖励',
 		seo_desc: '较高的分数意味着在 Telegram 全局搜索中具有更好的可见性。',
 		nfts_suffix: '{count} 个 NFT',
+		portfolio_title: '用户名投资组合',
+		est_status: '估值 / 状态',
+		est_portfolio_val: '预估投资组合总值',
+		owner_profile_title: '所有者资料',
 	},
 };

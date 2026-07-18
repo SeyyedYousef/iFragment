@@ -60,8 +60,12 @@ type ValuationHistory struct {
 }
 
 type ValuationSimilar struct {
-	Username string `json:"username"`
-	Reason   string `json:"reason"`
+	Username     string  `json:"username"`
+	Reason       string  `json:"reason"`
+	Status       string  `json:"status,omitempty"`          // "sold", "available", "on_sale", "on_auction", "non_nft"
+	SalePrice    float64 `json:"sale_price,omitempty"`      // Last sale price in TON
+	SalePriceUSD float64 `json:"sale_price_usd,omitempty"` // Last sale price in USD
+	SaleDate     string  `json:"sale_date,omitempty"`       // Date of last sale
 }
 
 type ValuationStructure struct {
@@ -112,6 +116,38 @@ type ValuationResult struct {
 	FearGreedLabel     string              `json:"fear_greed_label"`
 	WikipediaSummary   string              `json:"wikipedia_summary"`
 	RarityBreakdown    map[string]int      `json:"rarity_breakdown"`
+
+	// Portfolio & Contact features
+	Portfolio    *PortfolioDto    `json:"portfolio,omitempty"`
+	OwnerProfile *OwnerProfileDto `json:"owner_profile,omitempty"`
+}
+
+// PortfolioDto shows all usernames owned by the same wallet
+type PortfolioDto struct {
+	OwnerAddress  string             `json:"owner_address"`
+	TotalCount    int                `json:"total_count"`
+	TotalSpentTON float64           `json:"total_spent_ton"`
+	TotalSpentUSD float64           `json:"total_spent_usd"`
+	TotalValueTON float64           `json:"total_value_ton"`
+	Items         []PortfolioItemDto `json:"items"`
+}
+
+type PortfolioItemDto struct {
+	Username  string  `json:"username"`
+	SoldPrice float64 `json:"sold_price,omitempty"` // Actual sale price in TON (0 = unknown)
+	SaleDate  string  `json:"sale_date,omitempty"`
+	Status    string  `json:"status"` // "owned", "on_sale"
+}
+
+// OwnerProfileDto shows the Telegram profile behind a username
+type OwnerProfileDto struct {
+	UserID    int64  `json:"user_id,omitempty"`
+	FirstName string `json:"first_name,omitempty"`
+	LastName  string `json:"last_name,omitempty"`
+	Username  string `json:"username,omitempty"`
+	IsPremium bool   `json:"is_premium"`
+	HasPhoto  bool   `json:"has_photo"`
+	PeerType  string `json:"peer_type"` // "user", "channel", "bot", "unknown"
 }
 
 type ComparableSaleDto struct {
@@ -1005,16 +1041,12 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 				highestPastSale = priceTON
 			}
 			
-			buyerAddr := bid.Bidder.Address
-			// Formatting address lightly
-			if len(buyerAddr) > 16 {
-				buyerAddr = buyerAddr[:4] + "..." + buyerAddr[len(buyerAddr)-4:]
-			}
 			
+
 			historyTransactions = append(historyTransactions, ValuationHistoryItem{
 				SalePriceTON: fmt.Sprintf("%.0f", priceTON),
 				Date:         time.Unix(bid.TxTime, 0).UTC(),
-				Buyer:        buyerAddr,
+				Buyer:        bid.Bidder.Address, // Full address — frontend handles display truncation
 			})
 		}
 	} else {

@@ -2301,5 +2301,9 @@ export const dict = {
 		rarity_clean_structure: 'Чистая структура',
 		seo_desc: 'Более высокий балл означает лучшую видимость в глобальном поиске Telegram.',
 		nfts_suffix: '{count} NFT',
+		portfolio_title: 'Портфель юзернеймов',
+		est_status: 'Оценка / Статус',
+		est_portfolio_val: 'Оценочная стоимость портфеля',
+		owner_profile_title: 'Профиль владельца',
 	},
 };

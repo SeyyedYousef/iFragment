@@ -2284,5 +2284,9 @@ export const dict = {
 		rarity_clean_structure: 'امتیاز ساختار یکپارچه',
 		seo_desc: 'امتیاز بالاتر به معنای دید بهتر در جستجوی جهانی تلگرام است.',
 		nfts_suffix: '{count} NFT',
+		portfolio_title: 'پورتفولیوی نام‌های کاربری',
+		est_status: 'تخمین / وضعیت',
+		est_portfolio_val: 'ارزش تخمینی پورتفولیو',
+		owner_profile_title: 'پروفایل دارنده',
 	},
 };
