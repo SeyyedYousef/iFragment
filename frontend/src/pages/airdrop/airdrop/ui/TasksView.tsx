@@ -254,72 +254,62 @@ export const TasksView: Component = () => {
 	};
 
 	return (
-		<div class="flex-1 overflow-y-auto no-scrollbar bg-black text-white flex flex-col font-sans pb-28 relative">
-			{/* Clean Header */}
-			<div class="px-5 pt-14 pb-4 flex flex-col items-center">
-				<div class="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center mb-4">
-					<svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-						<circle cx="12" cy="12" r="10" fill="#F5A623"/>
-						<circle cx="12" cy="12" r="7" fill="#F5A623" stroke="#FFF7D6" stroke-width="1.5" stroke-opacity="0.5"/>
-						<path d="M11 8V16M8 10H16M8 14H16" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-					</svg>
+		<div class="flex-1 overflow-y-auto no-scrollbar bg-[#090a0d] text-white flex flex-col font-sans pb-28 relative">
+			{/* Fragment Style Header */}
+			<div class="px-5 pt-8 pb-3 flex flex-col items-center">
+				<div class="w-16 h-16 bg-[#11131a] rounded-2xl border border-white/10 flex items-center justify-center mb-3 shadow-inner">
+					<span class="material-symbols-outlined text-[32px] text-cyan-400">task_alt</span>
 				</div>
-				<h1 class="text-[40px] font-bold tracking-tight mb-2 text-center text-white">
+				<h1 class="text-2xl font-black tracking-tight mb-1 text-center text-white">
 					{t('airdropFinal.tasks.title')}
 				</h1>
-				<p class="text-[#8e8e93] text-[15px] text-center font-normal">
+				<p class="text-white/50 text-[13px] text-center font-medium max-w-xs">
 					{t('airdropFinal.tasks.subtitle')}
 				</p>
 			</div>
 
 			{/* Daily Combo */}
 			<Show when={comboQuery.data?.is_active}>
-				<div class="px-5 mt-4">
-					<div class="bg-[#1c1c1e] rounded-[24px] p-5 flex flex-col items-center relative overflow-hidden border border-white/10">
-
-						
-						<h3 class="text-white text-[20px] font-bold mb-1 z-10 flex items-center gap-2">
-							<span class="text-[24px]">🧩</span> Daily Combo
+				<div class="px-5 mt-2">
+					<div class="bg-[#11131a] rounded-2xl p-4 flex flex-col items-center relative border border-amber-400/30 shadow-lg">
+						<h3 class="text-white text-base font-black mb-1 z-10 flex items-center gap-2">
+							<span class="material-symbols-outlined text-amber-400 text-lg">extension</span> Daily Combo
 						</h3>
-						<p class="text-[#8e8e93] text-[14px] text-center mb-4 z-10 flex items-center justify-center gap-1">
-							Guess the secret word and get 
-							<span class="text-amber-500 font-bold text-[15px] flex items-center gap-1">
-								<span class="material-symbols-outlined text-[#F5A623] text-[18px] shrink-0" style={{ 'font-variation-settings': '"FILL" 1' }}>monetization_on</span>
-								+{formatCoins(comboQuery.data?.reward || 0)} FRG
+						<p class="text-white/50 text-xs text-center mb-3 z-10 flex items-center justify-center gap-1 font-medium">
+							Guess the secret word & earn 
+							<span class="text-amber-400 font-bold text-xs flex items-center gap-1">
+								+{formatCoins(comboQuery.data?.reward || 0)} 🪙
 							</span>
 						</p>
 
 						<Show 
 							when={!comboQuery.data?.is_claimed}
 							fallback={
-								<div class="w-full py-4 bg-green-500/10 border border-green-500/20 rounded-2xl flex flex-col items-center justify-center z-10">
-									<span class="text-[32px] mb-2">🎉</span>
-									<span class="text-green-500 font-bold">Reward Claimed!</span>
-									<span class="text-white/60 text-[13px]">Come back tomorrow for a new word.</span>
+								<div class="w-full py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex flex-col items-center justify-center z-10">
+									<span class="text-emerald-400 font-bold text-xs">Reward Claimed!</span>
+									<span class="text-white/40 text-[11px]">Come back tomorrow for a new word.</span>
 								</div>
 							}
 						>
-							<form onSubmit={handleComboSubmit} class="w-full flex flex-col gap-3 z-10">
-								<div class="relative">
-									<input 
-										type="text" 
-										placeholder="Enter secret word..."
-										value={comboInput()}
-										onInput={(e) => setComboInput(e.target.value)}
-										class="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white placeholder-white/30 text-center font-bold text-[18px] focus:outline-none focus:border-[#F5A623] transition-colors"
-										disabled={isSubmittingCombo()}
-									/>
-								</div>
+							<form onSubmit={handleComboSubmit} class="w-full flex flex-col gap-2.5 z-10">
+								<input 
+									type="text" 
+									placeholder="Enter secret word..."
+									value={comboInput()}
+									onInput={(e) => setComboInput(e.target.value)}
+									class="w-full bg-black/40 border border-white/10 rounded-xl py-2.5 px-4 text-white placeholder-white/30 text-center font-bold text-sm focus:outline-none focus:border-amber-400 transition-colors"
+									disabled={isSubmittingCombo()}
+								/>
 								<Show when={comboError()}>
-									<span class="text-red-400 text-[13px] text-center bg-red-400/10 py-1.5 px-3 rounded-lg border border-red-400/20">{comboError()}</span>
+									<span class="text-red-400 text-[11px] text-center bg-red-400/10 py-1 px-3 rounded-lg border border-red-400/20 font-bold">{comboError()}</span>
 								</Show>
 								<button 
 									type="submit"
 									disabled={!comboInput().trim() || isSubmittingCombo()}
-									class="w-full bg-[#F5A623] text-black font-bold py-3.5 rounded-2xl active:scale-[0.98] transition-transform disabled:opacity-50 disabled:active:scale-100 flex justify-center items-center gap-2 shadow-[0_0_20px_rgba(245,166,35,0.3)]"
+									class="w-full h-11 bg-amber-400 text-black font-black text-xs uppercase tracking-wider rounded-xl active:scale-98 transition-transform disabled:opacity-50 flex justify-center items-center gap-2 shadow-md"
 								>
-									<Show when={isSubmittingCombo()} fallback="Check Word">
-										<div class="w-5 h-5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+									<Show when={isSubmittingCombo()} fallback="Verify Secret Word">
+										<div class="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
 										Verifying...
 									</Show>
 								</button>
@@ -330,12 +320,12 @@ export const TasksView: Component = () => {
 			</Show>
 
 			{/* Tasks List */}
-			<div class="px-5 mt-6 flex flex-col">
-				<h2 class="text-[17px] font-semibold text-white mb-4">
+			<div class="px-5 mt-5 flex flex-col">
+				<h2 class="text-xs font-black uppercase tracking-widest text-white/40 mb-3">
 					{t('airdropFinal.tasks.tasksTab')}
 				</h2>
 
-				<div class="bg-[#1c1c1e] rounded-[24px] px-4 py-2 overflow-hidden flex flex-col">
+				<div class="bg-[#11131a] rounded-2xl p-2 overflow-hidden flex flex-col border border-white/10">
 					<Show
 						when={!tasksQuery.isLoading}
 						fallback={

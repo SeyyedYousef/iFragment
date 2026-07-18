@@ -523,7 +523,7 @@ export const TapView: Component<{
 				<div class="flex items-center bg-[#1c1c1e]/80 backdrop-blur-md rounded-[20px] p-1 border border-white/5 pointer-events-auto">
 					<button
 						onClick={() => props.onActionClick?.('frens')}
-						class="flex flex-col items-center justify-center min-w-[76px] py-2 rounded-[16px] hover:bg-white/10 active:scale-95 transition-all group"
+						class="flex flex-col items-center justify-center min-w-[84px] py-2 rounded-[16px] hover:bg-white/10 active:scale-95 transition-all group"
 					>
 						<span 
 							class="material-symbols-outlined text-[24px] mb-1 text-[#3b82f6] opacity-90 group-active:scale-110 transition-transform drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]"
@@ -536,7 +536,7 @@ export const TapView: Component<{
 
 					<button
 						onClick={() => props.onActionClick?.('earn')}
-						class="flex flex-col items-center justify-center min-w-[76px] py-2 rounded-[16px] hover:bg-white/10 active:scale-95 transition-all group"
+						class="flex flex-col items-center justify-center min-w-[84px] py-2 rounded-[16px] hover:bg-white/10 active:scale-95 transition-all group"
 					>
 						<span 
 							class="material-symbols-outlined text-[24px] mb-1 text-[#10b981] opacity-90 group-active:scale-110 transition-transform drop-shadow-[0_0_8px_rgba(16,185,129,0.6)]"
@@ -545,19 +545,6 @@ export const TapView: Component<{
 							task_alt
 						</span>
 						<span class="text-white/90 text-[11px] font-bold tracking-wide">{t('airdropTabs.earn' as any) || 'Earn'}</span>
-					</button>
-
-					<button
-						onClick={() => props.onActionClick?.('boost')}
-						class="flex flex-col items-center justify-center min-w-[76px] py-2 rounded-[16px] hover:bg-white/10 active:scale-95 transition-all group"
-					>
-						<span 
-							class="material-symbols-outlined text-[24px] mb-1 text-[#f59e0b] opacity-90 group-active:scale-110 transition-transform drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]"
-							style={{ 'font-variation-settings': '"FILL" 1' }}
-						>
-							rocket_launch
-						</span>
-						<span class="text-white/90 text-[11px] font-bold tracking-wide">{t('airdropTabs.boost' as any) || 'Boosts'}</span>
 					</button>
 				</div>
 			</div>

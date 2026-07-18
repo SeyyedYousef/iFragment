@@ -111,8 +111,15 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 				defer wg.Done()
 				defer func() { <-sem }()
 				uName := results[idx].Username
+				lowerName := strings.ToLower(uName)
 
-				// 1. Check local Postgres database first to avoid hitting TonAPI rate limits
+				// 1. Check AVM HistoricalSales map first for exact sold prices
+				if histPrice, exists := avm.HistoricalSales[lowerName]; exists {
+					results[idx].Status = "sold"
+					results[idx].SalePrice = histPrice
+				}
+
+				// 2. Check local Postgres database
 				if s.db != nil {
 					if sales, dbErr := s.db.GetSalesByUsername(ctx, uName); dbErr == nil && len(sales) > 0 {
 						latest := sales[0]
@@ -126,7 +133,7 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 					}
 				}
 
-				// 2. Fetch live NFT info via GetNFTByDNS
+				// 3. Fetch live NFT info via GetNFTByDNS
 				nft, err := s.tonClient.GetNFTByDNS(ctx, uName)
 				if err == nil && nft != nil {
 					if nft.Owner.Address != "" {
@@ -146,7 +153,12 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 						results[idx].Status = "sold"
 					}
 				} else if results[idx].Status == "" {
-					results[idx].Status = "available"
+					// Fallback: short names (<= 5 chars) and dictionary words on Fragment are sold
+					if len(lowerName) <= 5 || isDictionaryWord(lowerName) {
+						results[idx].Status = "sold"
+					} else {
+						results[idx].Status = "available"
+					}
 				}
 			}(i)
 		}

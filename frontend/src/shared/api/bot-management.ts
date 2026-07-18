@@ -220,6 +220,45 @@ export const subscriptionApi = {
 			.then((r: any) => r.data),
 };
 
+export interface ValuationAccessResponse {
+	has_access: boolean;
+	method?: 'free' | 'stars' | 'coins';
+	free_quota_used: boolean;
+	in_channel: boolean;
+	in_group: boolean;
+}
+
+export const valuationApi = {
+	checkAccess: (username: string) =>
+		apiClient
+			.get<ValuationAccessResponse>(`/usernames/valuation-access`, { params: { u: username } })
+			.then((r: any) => r.data)
+			.catch(() => ({
+				has_access: false,
+				free_quota_used: false,
+				in_channel: false,
+				in_group: false,
+			})),
+
+	payWithAirdrop: (username: string) =>
+		apiClient
+			.post<{ success: boolean; method: string }>('/usernames/valuation-pay-airdrop', { username })
+			.then((r: any) => r.data),
+
+	createStarsInvoice: (username: string) =>
+		apiClient
+			.post<{ invoice_link: string }>('/usernames/valuation-pay-stars', { username })
+			.then((r: any) => r.data),
+
+	verifyFreeAccess: (username: string) =>
+		apiClient
+			.post<{ success: boolean; has_access: boolean; in_channel: boolean; in_group: boolean }>(
+				'/usernames/valuation-verify-free',
+				{ username }
+			)
+			.then((r: any) => r.data),
+};
+
 // ─── FRG Token API ────────────────────────────────────────
 
 export const frgApi = {

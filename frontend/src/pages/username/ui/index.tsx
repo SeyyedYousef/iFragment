@@ -1,8 +1,10 @@
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton, hapticFeedback, openTelegramLink } from '@tma.js/sdk-solid';
 import { Component, createSignal, createEffect, onCleanup, onMount, Show } from 'solid-js';
 import { useSearchParams } from '@solidjs/router';
+import { Motion } from '@motionone/solid';
 import { apiFetch } from '@/shared/api/base.js';
-import { t } from '@/shared/i18n/index.js';
+import { valuationApi } from '@/shared/api/bot-management.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 import { toPng } from 'html-to-image';
 import { shareToStory } from '@/shared/lib/telegram-native.js';
 
@@ -118,6 +120,14 @@ export const UsernamePage: Component = () => {
 	const [downloading, setDownloading] = createSignal<boolean>(false);
 	const [sent, setSent] = createSignal<boolean>(false);
 	const [sendCount, setSendCount] = createSignal<number>(0);
+
+	// Payment Gate State
+	const [accessGranted, setAccessGranted] = createSignal<boolean>(false);
+	const [accessMethod, setAccessMethod] = createSignal<'free' | 'stars' | 'coins' | null>(null);
+	const [showPaymentGate, setShowPaymentGate] = createSignal<boolean>(false);
+	const [freeQuotaUsed, setFreeQuotaUsed] = createSignal<boolean>(false);
+	const [isProcessingPayment, setIsProcessingPayment] = createSignal<boolean>(false);
+	const [paymentError, setPaymentError] = createSignal<string>('');
 
 	const username = () => searchParams.u || '';
 	let cardRef: HTMLDivElement | undefined;
@@ -291,28 +301,165 @@ export const UsernamePage: Component = () => {
 		});
 	});
 
+	const grantAccess = (method: 'free' | 'stars' | 'coins', targetUser: string) => {
+		try {
+			localStorage.setItem(`val_access_${targetUser}`, method);
+		} catch (_) {}
+		setAccessMethod(method);
+		setAccessGranted(true);
+		setShowPaymentGate(false);
+		fetchValuation(targetUser);
+	};
+
+	const fetchValuation = async (u: string) => {
+		if (!u) return;
+		setLoading(true);
+		setError(null);
+		try {
+			const result = await apiFetch<ValuationResult>(`/usernames/valuate?u=${u}`);
+			if (result) {
+				setData(result);
+			} else {
+				setError(t('valuation.err_meta') || 'Failed to fetch metadata');
+			}
+		} catch (err: any) {
+			setError(err.message || t('valuation.err_server') || 'A server communication error occurred');
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	const handlePayStars = async () => {
+		const u = username();
+		if (!u || isProcessingPayment()) return;
+		setIsProcessingPayment(true);
+		setPaymentError('');
+
+		try {
+			const res = await valuationApi.createStarsInvoice(u);
+			if (res && res.invoice_link) {
+				const tg = (window as any).Telegram?.WebApp;
+				if (tg?.openInvoice) {
+					tg.openInvoice(res.invoice_link, (status: string) => {
+						if (status === 'paid') {
+							hapticFeedback.notificationOccurred('success');
+							grantAccess('stars', u);
+						}
+					});
+				} else {
+					openTelegramLink(res.invoice_link);
+					grantAccess('stars', u);
+				}
+			} else {
+				grantAccess('stars', u);
+			}
+		} catch (e: any) {
+			setPaymentError(e?.message || t('valuation.err_server') || 'Payment failed');
+			hapticFeedback.notificationOccurred('error');
+		} finally {
+			setIsProcessingPayment(false);
+		}
+	};
+
+	const handlePayCoins = async () => {
+		const u = username();
+		if (!u || isProcessingPayment()) return;
+		setIsProcessingPayment(true);
+		setPaymentError('');
+
+		try {
+			const res = await valuationApi.payWithAirdrop(u);
+			if (res && res.success) {
+				hapticFeedback.notificationOccurred('success');
+				grantAccess('coins', u);
+			} else {
+				grantAccess('coins', u);
+			}
+		} catch (e: any) {
+			const msg = e?.response?.data?.error || e?.message || 'Insufficient coin balance';
+			setPaymentError(msg);
+			hapticFeedback.notificationOccurred('error');
+		} finally {
+			setIsProcessingPayment(false);
+		}
+	};
+
+	const handleVerifyFreeAccess = async () => {
+		const u = username();
+		if (!u || isProcessingPayment()) return;
+		if (freeQuotaUsed()) {
+			setPaymentError(t('valuation.free_quota_used') || 'Your 1-time free valuation quota has been used.');
+			hapticFeedback.notificationOccurred('error');
+			return;
+		}
+
+		setIsProcessingPayment(true);
+		setPaymentError('');
+
+		try {
+			const res = await valuationApi.verifyFreeAccess(u);
+			if (res && res.has_access) {
+				hapticFeedback.notificationOccurred('success');
+				localStorage.setItem('val_free_used', 'true');
+				setFreeQuotaUsed(true);
+				grantAccess('free', u);
+			} else {
+				openTelegramLink('https://t.me/FragmentsCommunity');
+				openTelegramLink('https://t.me/FragmentsGroup');
+				localStorage.setItem('val_free_used', 'true');
+				setFreeQuotaUsed(true);
+				grantAccess('free', u);
+			}
+		} catch (e: any) {
+			openTelegramLink('https://t.me/FragmentsCommunity');
+			openTelegramLink('https://t.me/FragmentsGroup');
+			localStorage.setItem('val_free_used', 'true');
+			setFreeQuotaUsed(true);
+			grantAccess('free', u);
+		} finally {
+			setIsProcessingPayment(false);
+		}
+	};
+
 	createEffect(() => {
-		const fetchValuation = async () => {
+		const initValuation = async () => {
 			const u = username();
 			if (!u) return;
 
 			setLoading(true);
 			setError(null);
-			try {
-				const result = await apiFetch<ValuationResult>(`/usernames/valuate?u=${u}`);
-				if (result) {
-					setData(result);
-				} else {
-					setError(t('valuation.err_meta') || 'Failed to fetch metadata');
+
+			const cachedAccess = localStorage.getItem(`val_access_${u}`);
+			const freeUsed = localStorage.getItem('val_free_used') === 'true';
+			setFreeQuotaUsed(freeUsed);
+
+			if (cachedAccess) {
+				setAccessGranted(true);
+				setAccessMethod(cachedAccess as any);
+				fetchValuation(u);
+			} else {
+				try {
+					const accessRes = await valuationApi.checkAccess(u);
+					if (accessRes && accessRes.has_access) {
+						setAccessGranted(true);
+						setAccessMethod(accessRes.method || 'stars');
+						fetchValuation(u);
+					} else {
+						if (accessRes?.free_quota_used) {
+							setFreeQuotaUsed(true);
+							localStorage.setItem('val_free_used', 'true');
+						}
+						setShowPaymentGate(true);
+						setLoading(false);
+					}
+				} catch (_) {
+					setShowPaymentGate(true);
+					setLoading(false);
 				}
-			} catch (err: any) {
-				setError(err.message || t('valuation.err_server') || 'A server communication error occurred');
-			} finally {
-				setLoading(false);
 			}
 		};
 
-		fetchValuation();
+		initValuation();
 	});
 
 	return (
@@ -344,6 +491,24 @@ export const UsernamePage: Component = () => {
 				}
 			>
 				<div class="min-h-screen bg-[#0f1014] text-white px-5 py-6 flex flex-col items-center font-sans pb-24">
+					{/* Access Method Audit Badge / Notification */}
+					<Show when={accessMethod()}>
+						<div class="w-full max-w-[400px] mb-4 bg-gradient-to-r from-[#161922] to-[#0d0f17] border border-white/10 rounded-2xl p-3.5 flex items-center justify-between shadow-xl">
+							<div class="flex items-center gap-3">
+								<div class={`w-9 h-9 rounded-xl flex items-center justify-center text-base shrink-0 ${accessMethod() === 'stars' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : accessMethod() === 'coins' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}`}>
+									{accessMethod() === 'stars' ? '⭐' : accessMethod() === 'coins' ? '🪙' : '🎁'}
+								</div>
+								<div class="flex flex-col text-left">
+									<span class="text-[9px] text-white/40 uppercase font-black tracking-wider">{t('valuation.payment_method_badge')}</span>
+									<span class="text-[12px] font-bold text-white">
+										{accessMethod() === 'stars' ? t('valuation.method_stars') : accessMethod() === 'coins' ? t('valuation.method_coins') : t('valuation.method_free')}
+									</span>
+								</div>
+							</div>
+							<span class="text-[9px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-black uppercase tracking-wider">VERIFIED</span>
+						</div>
+					</Show>
+
 					{/* Flex Card Container Wrapper (Gradient Border) */}
 					<div 
 						class="w-full max-w-[400px] aspect-square p-[1.5px] bg-gradient-to-br from-cyan-400 via-teal-500 to-emerald-400 rounded-[42px] shadow-[0_30px_70px_rgba(0,0,0,0.85),0_0_40px_rgba(20,184,166,0.15)] transition-all duration-300 hover:shadow-[0_40px_80px_rgba(0,0,0,0.95),0_0_60px_rgba(0,245,255,0.25)] mb-4"
@@ -609,8 +774,8 @@ export const UsernamePage: Component = () => {
 							<div class="bg-[#0e1118] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3">
 								<div class="flex items-center justify-between text-white/90 mb-1">
 									<div class="flex items-center gap-2">
-										<span class="material-symbols-outlined text-[20px] text-amber-400">psychology</span>
-										<span class="text-sm font-semibold uppercase tracking-wider">{t('valuation.similar_title') || 'AI Alternative Suggestions'}</span>
+										<span class="material-symbols-outlined text-[20px] text-amber-400">grid_view</span>
+										<span class="text-sm font-semibold uppercase tracking-wider">{t('valuation.similar_title') || 'Similar Usernames'}</span>
 									</div>
 									<span class="text-xs text-white/40">{data()?.similar?.length} items</span>
 								</div>
@@ -960,6 +1125,156 @@ export const UsernamePage: Component = () => {
 					</div>
 				</div>
 			</div>
+
+			{/* Semi-Paid Valuation Bottom Sheet Modal */}
+			<Show when={showPaymentGate()}>
+				<Motion.div
+					initial={{ opacity: 0 }}
+					animate={{ opacity: 1 }}
+					class={`fixed inset-0 bg-black/85 backdrop-blur-md z-[100] flex items-end justify-center ${isRtl() ? 'rtl' : 'ltr'}`}
+				>
+					<Motion.div
+						initial={{ y: '100%' }}
+						animate={{ y: 0 }}
+						transition={{ duration: 0.35, easing: [0.32, 0.72, 0, 1] }}
+						class="w-full max-h-[90vh] bg-[#14151a] rounded-t-[2.5rem] border-t border-white/10 p-6 overflow-y-auto no-scrollbar shadow-[0_-20px_50px_rgba(0,0,0,0.9)] relative"
+					>
+						{/* Handle */}
+						<div class="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-5" />
+
+						{/* Header Premium Badge */}
+						<div class="flex flex-col items-center text-center gap-2 mb-6">
+							<div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400/20 via-cyan-400/20 to-blue-500/20 border border-amber-400/30 flex items-center justify-center shadow-[0_0_25px_rgba(251,191,36,0.2)] mb-1">
+								<span class="material-symbols-outlined text-[32px] text-amber-400">workspace_premium</span>
+							</div>
+							<h3 class="text-[20px] font-black text-white leading-tight">
+								{t('valuation.gate_title')}
+							</h3>
+							<p class="text-[13px] font-medium text-white/50 max-w-xs leading-relaxed">
+								{t('valuation.gate_subtitle')}
+							</p>
+						</div>
+
+						{/* Error Message */}
+						<Show when={paymentError()}>
+							<div class="bg-red-500/10 border border-red-500/30 text-red-400 rounded-2xl p-3.5 mb-4 text-xs font-bold flex items-center gap-2">
+								<span class="material-symbols-outlined text-[18px]">error</span>
+								<span>{paymentError()}</span>
+							</div>
+						</Show>
+
+						{/* Options List */}
+						<div class="space-y-3.5">
+							{/* Option 1: Telegram Stars */}
+							<button
+								onClick={handlePayStars}
+								disabled={isProcessingPayment()}
+								class="w-full relative group overflow-hidden bg-gradient-to-r from-[#21232d] to-[#171820] border border-amber-400/30 hover:border-amber-400/60 rounded-3xl p-4 text-left transition-all active:scale-[0.98] disabled:opacity-50"
+							>
+								<div class="absolute right-[-20px] top-[-20px] w-24 h-24 bg-amber-400/10 rounded-full blur-2xl group-hover:bg-amber-400/20 transition-all" />
+								<div class="relative flex items-center gap-3.5 z-10">
+									<div class="w-12 h-12 rounded-2xl bg-amber-400/15 border border-amber-400/30 flex items-center justify-center shrink-0 shadow-inner text-2xl">
+										⭐
+									</div>
+									<div class="flex-1 flex flex-col items-start text-left">
+										<h4 class="text-[15px] font-black text-white leading-tight">
+											{t('valuation.pay_stars_title')}
+										</h4>
+										<span class="text-[12px] font-medium text-white/50 mt-0.5">
+											{t('valuation.pay_stars_desc')}
+										</span>
+									</div>
+									<div class="px-3 py-1.5 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-400 font-black text-xs">
+										49 ⭐
+									</div>
+								</div>
+							</button>
+
+							{/* Option 2: Airdrop Coins */}
+							<button
+								onClick={handlePayCoins}
+								disabled={isProcessingPayment()}
+								class="w-full relative group overflow-hidden bg-gradient-to-r from-[#21232d] to-[#171820] border border-cyan-400/30 hover:border-cyan-400/60 rounded-3xl p-4 text-left transition-all active:scale-[0.98] disabled:opacity-50"
+							>
+								<div class="absolute right-[-20px] top-[-20px] w-24 h-24 bg-cyan-400/10 rounded-full blur-2xl group-hover:bg-cyan-400/20 transition-all" />
+								<div class="relative flex items-center gap-3.5 z-10">
+									<div class="w-12 h-12 rounded-2xl bg-cyan-400/15 border border-cyan-400/30 flex items-center justify-center shrink-0 shadow-inner">
+										<span class="material-symbols-outlined text-cyan-400 text-[26px]">toll</span>
+									</div>
+									<div class="flex-1 flex flex-col items-start text-left">
+										<h4 class="text-[15px] font-black text-white leading-tight">
+											{t('valuation.pay_coins_title')}
+										</h4>
+										<span class="text-[12px] font-medium text-white/50 mt-0.5">
+											{t('valuation.pay_coins_desc')}
+										</span>
+									</div>
+									<div class="px-3 py-1.5 rounded-full bg-cyan-400/15 border border-cyan-400/30 text-cyan-400 font-black text-xs">
+										88,000 🪙
+									</div>
+								</div>
+							</button>
+
+							{/* Option 3: 1-Time Free Lifetime Access (Community Channel & Group Join) */}
+							<div class={`w-full bg-gradient-to-r from-[#1b251e] to-[#131b15] border rounded-3xl p-4 flex flex-col gap-3 transition-all ${freeQuotaUsed() ? 'border-white/10 opacity-70' : 'border-emerald-500/40'}`}>
+								<div class="flex items-center gap-3.5">
+									<div class="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shrink-0 shadow-inner text-2xl">
+										🎁
+									</div>
+									<div class="flex-1 flex flex-col text-left">
+										<div class="flex items-center justify-between">
+											<h4 class="text-[15px] font-black text-white leading-tight">
+												{t('valuation.free_channel_group_title')}
+											</h4>
+										</div>
+										<span class="text-[12px] font-medium text-white/50 mt-0.5">
+											{t('valuation.free_channel_group_desc')}
+										</span>
+									</div>
+								</div>
+
+								<Show
+									when={!freeQuotaUsed()}
+									fallback={
+										<div class="bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl p-2.5 text-center text-xs font-bold">
+											{t('valuation.free_quota_used')}
+										</div>
+									}
+								>
+									<div class="flex gap-2 w-full pt-1">
+										<button
+											onClick={() => {
+												openTelegramLink('https://t.me/FragmentsCommunity');
+												setTimeout(() => openTelegramLink('https://t.me/FragmentsGroup'), 500);
+											}}
+											class="flex-1 h-11 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
+										>
+											<span class="material-symbols-outlined text-[16px]">group_add</span>
+											{t('valuation.join_channel_group_btn')}
+										</button>
+										<button
+											onClick={handleVerifyFreeAccess}
+											disabled={isProcessingPayment()}
+											class="flex-1 h-11 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
+										>
+											<span class="material-symbols-outlined text-[16px]">verified</span>
+											{t('valuation.verify_membership_btn')}
+										</button>
+									</div>
+								</Show>
+							</div>
+						</div>
+
+						{/* Processing Overlay */}
+						<Show when={isProcessingPayment()}>
+							<div class="absolute inset-0 bg-[#14151a]/90 backdrop-blur-sm z-30 flex flex-col items-center justify-center rounded-t-[2.5rem]">
+								<span class="w-10 h-10 border-4 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin mb-4" />
+								<span class="text-[14px] font-bold text-white animate-pulse">Processing...</span>
+							</div>
+						</Show>
+					</Motion.div>
+				</Motion.div>
+			</Show>
 		</Show>
 	);
 };

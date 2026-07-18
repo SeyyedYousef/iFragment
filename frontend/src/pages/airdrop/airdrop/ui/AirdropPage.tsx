@@ -11,11 +11,12 @@ import { t } from '@/shared/i18n/index.js';
 import { collectOfflineMining, startOfflineMining } from '@/shared/api/profile.js';
 import { syncProfileStats } from '@/shared/store/airdrop.js';
 
-type AirdropTab = 'mine' | 'earn' | 'clan' | 'frens' | 'boost' | 'shop';
+type AirdropTab = 'mine' | 'earn' | 'clan' | 'frens' | 'shop';
 
 export const AirdropPage: Component = () => {
 	const [activeTab, setActiveTab] = createSignal<AirdropTab>('mine');
 	const [showLeaderboard, setShowLeaderboard] = createSignal(false);
+	const [leaderboardInitialTab, setLeaderboardInitialTab] = createSignal<'miners' | 'squads'>('miners');
 	const [offlineEarnings, setOfflineEarnings] = createSignal(0);
 
 	const handleVisibilityChange = async () => {
@@ -88,7 +89,10 @@ export const AirdropPage: Component = () => {
 				<Switch>
 					<Match when={activeTab() === 'mine'}>
 						<TapView 
-							onLeagueClick={() => setShowLeaderboard(true)} 
+							onLeagueClick={() => {
+								setLeaderboardInitialTab('miners');
+								setShowLeaderboard(true);
+							}} 
 							onClanClick={() => handleTabChange('clan')}
 							onShopClick={() => handleTabChange('shop')}
 							onActionClick={(tabId) => handleTabChange(tabId as any)}
@@ -98,13 +102,13 @@ export const AirdropPage: Component = () => {
 						<TasksView />
 					</Match>
 					<Match when={activeTab() === 'clan'}>
-						<ClanView onOpenLeaderboard={() => setShowLeaderboard(true)} />
+						<ClanView onOpenLeaderboard={() => {
+							setLeaderboardInitialTab('squads');
+							setShowLeaderboard(true);
+						}} />
 					</Match>
 					<Match when={activeTab() === 'frens'}>
 						<FrensView />
-					</Match>
-					<Match when={activeTab() === 'boost'}>
-						<BoostersView onTurboClick={() => handleTabChange('mine')} />
 					</Match>
 					<Match when={activeTab() === 'shop'}>
 						<ShopView />
@@ -119,9 +123,9 @@ export const AirdropPage: Component = () => {
 
 			{/* Leaderboard Overlay */}
 			{showLeaderboard() && (
-				<div class="fixed inset-0 z-[70] bg-black/95 flex flex-col animate-slide-up">
+				<div class="fixed inset-0 z-[70] bg-[#090a0d]/95 backdrop-blur-xl flex flex-col animate-slide-up">
 					<div class="flex items-center justify-between p-4 border-b border-white/10">
-						<h2 class="text-white font-bold text-lg">{t('gamification.leaderboard' as any) || 'Leaderboard'}</h2>
+						<h2 class="text-white font-black text-lg tracking-tight">{t('gamification.leaderboard' as any) || 'Leaderboard'}</h2>
 						<button
 							onClick={() => setShowLeaderboard(false)}
 							class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center active:scale-90 transition-transform"
@@ -130,7 +134,7 @@ export const AirdropPage: Component = () => {
 						</button>
 					</div>
 					<div class="flex-1 flex flex-col overflow-hidden">
-						<LeaderboardView />
+						<LeaderboardView initialTab={leaderboardInitialTab()} />
 					</div>
 				</div>
 			)}

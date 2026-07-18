@@ -139,57 +139,36 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 			<Show
 				when={userClan()}
 				fallback={
-					/* ═══════ NOT IN A CLAN — Join Squad View ═══════ */
+					/* ═══════ NOT IN A CLAN — Join Clan View ═══════ */
 					<div class="px-4 pt-10 relative z-10 min-h-full flex flex-col items-center">
 						{/* Ambient glow */}
 						<div
-							class="absolute top-0 left-1/2 -translate-x-1/2 w-[400px] h-[400px] rounded-full pointer-events-none z-[-1]"
+							class="absolute top-0 left-1/2 -translate-x-1/2 w-[350px] h-[350px] rounded-full pointer-events-none z-[-1]"
 							style={{
-								background: `radial-gradient(circle, ${currentLeague().color}12 0%, transparent 55%)`,
-								filter: 'blur(60px)',
+								background: 'radial-gradient(circle, rgba(51,144,236,0.1) 0%, transparent 60%)',
+								filter: 'blur(50px)',
 							}}
 						/>
 
-						{/* Hero Icon */}
-						<div
-							class="w-[100px] h-[100px] rounded-full flex items-center justify-center mb-5 relative"
-							style={{
-								background: 'linear-gradient(145deg, rgba(251,191,36,0.15), rgba(251,191,36,0.03))',
-								border: '2px solid rgba(251,191,36,0.25)',
-								'box-shadow': '0 0 40px rgba(251,191,36,0.12)',
-								animation: 'nc-heroFloat 4s ease-in-out infinite',
-							}}
-						>
-							<span class="text-[52px] leading-none">🪩</span>
-							<div
-								class="absolute inset-[-5px] rounded-full pointer-events-none"
-								style={{
-									border: '1px solid rgba(251,191,36,0.1)',
-									animation: 'nc-glowRing 3s ease-in-out infinite',
-								}}
-							/>
+						{/* Fragment Style Hero Icon */}
+						<div class="w-20 h-20 rounded-3xl bg-[#11131a] border border-cyan-500/30 flex items-center justify-center mb-5 relative shadow-[0_0_30px_rgba(51,144,236,0.15)]">
+							<span class="material-symbols-outlined text-cyan-400 text-[40px]">shield</span>
 						</div>
 
-						<h1 class="text-[30px] font-extrabold text-white tracking-tight mb-2"
-							style={{ 'text-shadow': '0 2px 10px rgba(0,0,0,0.5)' }}
-						>
-							{t('airdropFinal.clan.joinSquadTitle', { defaultValue: 'Join Squad!' })}
+						<h1 class="text-[26px] font-black text-white tracking-tight mb-2 text-center">
+							{t('airdropFinal.clan.joinSquadTitle', { defaultValue: 'Official iFragment Clans' })}
 						</h1>
-						<p class="text-white/40 text-[14px] text-center mb-7 max-w-[260px] leading-relaxed font-medium">
-							{t('airdropFinal.clan.joinSquadDesc', { defaultValue: 'These squads recruiting now.\nDo you wanna join?' })}
+						<p class="text-white/50 text-[13px] text-center mb-6 max-w-[280px] leading-relaxed font-medium">
+							{t('airdropFinal.clan.joinSquadDesc', { defaultValue: 'Join an official community clan to pool rewards and compete on global leaderboards.' })}
 						</p>
 
 						{/* Join Button */}
 						<button
 							onClick={() => setShowSearch(!showSearch())}
-							class="w-full py-4 rounded-[16px] active:scale-[0.97] transition-all duration-200 text-[16px] font-bold text-black"
-							style={{
-								background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
-								'box-shadow': '0 4px 20px rgba(245,158,11,0.3), 0 0 0 1px rgba(251,191,36,0.1)',
-								animation: 'nc-pulseGlow 3s ease-in-out infinite',
-							}}
+							class="w-full h-13 rounded-2xl bg-white text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 active:scale-98 transition-all hover:bg-white/90 shadow-xl mb-4"
 						>
-							{t('airdropFinal.clan.joinAnother', { defaultValue: 'Join another squad' })}
+							<span class="material-symbols-outlined text-base">search</span>
+							{t('airdropFinal.clan.joinAnother', { defaultValue: 'Search & Join Clan' })}
 						</button>
 
 						{/* Search to Join (Animated dropdown) */}
@@ -449,30 +428,22 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 										</div>
 									</div>
 
-									{/* Action Buttons */}
-									<div class="p-4 flex flex-col gap-3">
+						{/* ── Action Buttons ── */}
+									<div class="p-4 flex flex-col gap-2.5">
 										<button
 											onClick={handleInvite}
-											class="w-full py-4 rounded-[14px] active:scale-[0.97] transition-all duration-200 text-[15px] font-bold text-black"
-											style={{
-												background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
-												'box-shadow': '0 4px 18px rgba(245,158,11,0.25)',
-											}}
+											class="w-full h-12 rounded-xl bg-white text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 active:scale-98 transition-all hover:bg-white/90 shadow-lg"
 										>
-											{t('airdropFinal.clan.invite', { defaultValue: 'Invite a fren' })}
+											<span class="material-symbols-outlined text-base">group_add</span>
+											{t('airdropFinal.clan.invite', { defaultValue: 'Invite Member' })}
 										</button>
-										<div class="flex gap-3">
-											<button
-												onClick={handleLeave}
-												disabled={loading()}
-												class="flex-1 bg-white/[0.05] border border-white/[0.08] text-white/70 font-bold py-3.5 rounded-[14px] active:scale-[0.97] transition-all duration-200 text-[14px] hover:bg-white/[0.08]"
-											>
-												{loading() ? '...' : t('airdropFinal.clan.leave', { defaultValue: 'Leave squad' })}
-											</button>
-											<button class="flex-1 bg-white/[0.05] border border-white/[0.08] text-white/70 font-bold py-3.5 rounded-[14px] active:scale-[0.97] transition-all duration-200 text-[14px] hover:bg-white/[0.08]">
-												{t('airdropFinal.clan.boost', { defaultValue: 'Boost' })}
-											</button>
-										</div>
+										<button
+											onClick={handleLeave}
+											disabled={loading()}
+											class="w-full h-11 bg-white/5 border border-white/10 text-white/60 font-bold text-xs rounded-xl active:scale-98 transition-all hover:bg-white/10 hover:text-white disabled:opacity-50"
+										>
+											{loading() ? '...' : t('airdropFinal.clan.leave', { defaultValue: 'Leave Clan' })}
+										</button>
 									</div>
 
 									{/* Open Leaderboard Button */}
