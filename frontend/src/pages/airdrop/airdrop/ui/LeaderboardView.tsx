@@ -73,24 +73,24 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 	};
 
 	const getRankBadge = (index: number) => {
-		if (index === 0) return { bg: 'bg-amber-400/15 text-amber-300 border-amber-400/30', rankText: '01' };
-		if (index === 1) return { bg: 'bg-slate-300/15 text-slate-200 border-slate-300/30', rankText: '02' };
-		if (index === 2) return { bg: 'bg-amber-700/15 text-amber-500 border-amber-600/30', rankText: '03' };
+		if (index === 0) return { bg: 'bg-amber-400/20 text-amber-300 border-amber-400/50 shadow-[0_0_12px_rgba(251,191,36,0.25)]', rankText: '01' };
+		if (index === 1) return { bg: 'bg-slate-300/20 text-slate-100 border-slate-300/40 shadow-[0_0_10px_rgba(203,213,225,0.2)]', rankText: '02' };
+		if (index === 2) return { bg: 'bg-amber-700/20 text-amber-400 border-amber-600/40 shadow-[0_0_10px_rgba(217,119,6,0.2)]', rankText: '03' };
 		return { bg: 'bg-white/5 text-white/40 border-white/10', rankText: (index + 1 < 10 ? `0${index + 1}` : `${index + 1}`) };
 	};
 
 	const getRowStyle = (index: number) => {
 		if (index === 0) return {
-			background: 'linear-gradient(135deg, rgba(251,191,36,0.06), rgba(251,191,36,0.01))',
-			'border-color': 'rgba(251,191,36,0.2)',
+			background: 'linear-gradient(135deg, rgba(251,191,36,0.08), rgba(17,19,26,0.95))',
+			'border-color': 'rgba(251,191,36,0.3)',
 		};
 		if (index === 1) return {
-			background: 'linear-gradient(135deg, rgba(148,163,184,0.05), rgba(148,163,184,0.01))',
-			'border-color': 'rgba(148,163,184,0.15)',
+			background: 'linear-gradient(135deg, rgba(203,213,225,0.06), rgba(17,19,26,0.95))',
+			'border-color': 'rgba(203,213,225,0.25)',
 		};
 		if (index === 2) return {
-			background: 'linear-gradient(135deg, rgba(217,119,6,0.05), rgba(217,119,6,0.01))',
-			'border-color': 'rgba(217,119,6,0.15)',
+			background: 'linear-gradient(135deg, rgba(217,119,6,0.06), rgba(17,19,26,0.95))',
+			'border-color': 'rgba(217,119,6,0.25)',
 		};
 		return {};
 	};

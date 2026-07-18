@@ -405,14 +405,14 @@ export const UsernamePage: Component = () => {
 				grantAccess('free', u);
 			} else {
 				openTelegramLink('https://t.me/FragmentsCommunity');
-				openTelegramLink('https://t.me/FragmentsGroup');
+				setTimeout(() => openTelegramLink('https://t.me/FragmentInvestors'), 400);
 				localStorage.setItem('val_free_used', 'true');
 				setFreeQuotaUsed(true);
 				grantAccess('free', u);
 			}
 		} catch (e: any) {
 			openTelegramLink('https://t.me/FragmentsCommunity');
-			openTelegramLink('https://t.me/FragmentsGroup');
+			setTimeout(() => openTelegramLink('https://t.me/FragmentInvestors'), 400);
 			localStorage.setItem('val_free_used', 'true');
 			setFreeQuotaUsed(true);
 			grantAccess('free', u);
@@ -1215,54 +1215,48 @@ export const UsernamePage: Component = () => {
 								</div>
 							</button>
 
-							{/* Option 3: 1-Time Free Lifetime Access (Community Channel & Group Join) */}
-							<div class={`w-full bg-gradient-to-r from-[#1b251e] to-[#131b15] border rounded-3xl p-4 flex flex-col gap-3 transition-all ${freeQuotaUsed() ? 'border-white/10 opacity-70' : 'border-emerald-500/40'}`}>
-								<div class="flex items-center gap-3.5">
-									<div class="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shrink-0 shadow-inner text-2xl">
-										🎁
-									</div>
-									<div class="flex-1 flex flex-col text-left">
-										<div class="flex items-center justify-between">
-											<h4 class="text-[15px] font-black text-white leading-tight">
-												{t('valuation.free_channel_group_title')}
-											</h4>
+							{/* Option 3: 1-Time Free Lifetime Access (Community Channels Join) — Hidden permanently once used */}
+							<Show when={!freeQuotaUsed()}>
+								<div class="w-full bg-gradient-to-r from-[#1b251e] to-[#131b15] border border-emerald-500/40 rounded-3xl p-4 flex flex-col gap-3 transition-all">
+									<div class="flex items-center gap-3.5">
+										<div class="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shrink-0 shadow-inner text-2xl">
+											🎁
 										</div>
-										<span class="text-[12px] font-medium text-white/50 mt-0.5">
-											{t('valuation.free_channel_group_desc')}
-										</span>
+										<div class="flex-1 flex flex-col text-left">
+											<div class="flex items-center justify-between">
+												<h4 class="text-[15px] font-black text-white leading-tight">
+													{t('valuation.free_channel_group_title')}
+												</h4>
+											</div>
+											<span class="text-[12px] font-medium text-white/50 mt-0.5">
+												{t('valuation.free_channel_group_desc')}
+											</span>
+										</div>
 									</div>
-								</div>
 
-								<Show
-									when={!freeQuotaUsed()}
-									fallback={
-										<div class="bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl p-2.5 text-center text-xs font-bold">
-											{t('valuation.free_quota_used')}
-										</div>
-									}
-								>
 									<div class="flex gap-2 w-full pt-1">
 										<button
 											onClick={() => {
 												openTelegramLink('https://t.me/FragmentsCommunity');
-												setTimeout(() => openTelegramLink('https://t.me/FragmentsGroup'), 500);
+												setTimeout(() => openTelegramLink('https://t.me/FragmentInvestors'), 400);
 											}}
 											class="flex-1 h-11 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
 										>
-											<span class="material-symbols-outlined text-[16px]">group_add</span>
-											{t('valuation.join_channel_group_btn')}
+											<span class="material-symbols-outlined text-[16px] text-emerald-400">group_add</span>
+											<span>{t('valuation.join_channel_group_btn')}</span>
 										</button>
 										<button
 											onClick={handleVerifyFreeAccess}
 											disabled={isProcessingPayment()}
-											class="flex-1 h-11 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
+											class="flex-1 h-11 bg-emerald-500 text-black font-black text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all disabled:opacity-50"
 										>
-											<span class="material-symbols-outlined text-[16px]">verified</span>
-											{t('valuation.verify_membership_btn')}
+											<Show when={isProcessingPayment()} fallback={<span>{t('valuation.verify_membership_btn')}</span>}>
+												<div class="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+											</Show>
 										</button>
 									</div>
-								</Show>
-							</div>
+								</div>
+							</Show>
 						</div>
 
 						{/* Processing Overlay */}

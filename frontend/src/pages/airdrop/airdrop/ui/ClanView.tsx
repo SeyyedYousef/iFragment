@@ -353,7 +353,7 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 										{clan().channel_photo ? (
 											<img src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`} alt={clan().chat_title} class="w-full h-full object-cover" />
 										) : (
-											<span class="text-[38px]">☕</span>
+											<span class="material-symbols-outlined text-[36px] text-cyan-400">shield</span>
 										)}
 									</div>
 								</div>

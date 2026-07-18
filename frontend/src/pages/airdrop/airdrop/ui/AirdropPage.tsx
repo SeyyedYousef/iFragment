@@ -11,7 +11,7 @@ import { t } from '@/shared/i18n/index.js';
 import { collectOfflineMining, startOfflineMining } from '@/shared/api/profile.js';
 import { syncProfileStats } from '@/shared/store/airdrop.js';
 
-type AirdropTab = 'mine' | 'earn' | 'clan' | 'frens' | 'shop';
+type AirdropTab = 'mine' | 'earn' | 'clan' | 'frens' | 'boost' | 'shop';
 
 export const AirdropPage: Component = () => {
 	const [activeTab, setActiveTab] = createSignal<AirdropTab>('mine');
@@ -109,6 +109,9 @@ export const AirdropPage: Component = () => {
 					</Match>
 					<Match when={activeTab() === 'frens'}>
 						<FrensView />
+					</Match>
+					<Match when={activeTab() === 'boost'}>
+						<BoostersView onTurboClick={() => handleTabChange('mine')} />
 					</Match>
 					<Match when={activeTab() === 'shop'}>
 						<ShopView />
