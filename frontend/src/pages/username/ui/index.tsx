@@ -1234,27 +1234,39 @@ export const UsernamePage: Component = () => {
 										</div>
 									</div>
 
-									<div class="flex gap-2 w-full pt-1">
+									{/* Dual Buttons Side-by-Side: Join Channel & Join Group */}
+									<div class="grid grid-cols-2 gap-2 w-full pt-1">
 										<button
-											onClick={() => {
-												openTelegramLink('https://t.me/FragmentsCommunity');
-												setTimeout(() => openTelegramLink('https://t.me/FragmentInvestors'), 400);
-											}}
-											class="flex-1 h-11 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
+											onClick={() => openTelegramLink('https://t.me/FragmentsCommunity')}
+											class="h-10 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all active:scale-95"
 										>
-											<span class="material-symbols-outlined text-[16px] text-emerald-400">group_add</span>
-											<span>{t('valuation.join_channel_group_btn')}</span>
+											<span class="material-symbols-outlined text-[16px] text-emerald-400">podcasts</span>
+											<span>{t('valuation.join_channel_btn')}</span>
 										</button>
 										<button
-											onClick={handleVerifyFreeAccess}
-											disabled={isProcessingPayment()}
-											class="flex-1 h-11 bg-emerald-500 text-black font-black text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all disabled:opacity-50"
+											onClick={() => openTelegramLink('https://t.me/FragmentInvestors')}
+											class="h-10 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all active:scale-95"
 										>
-											<Show when={isProcessingPayment()} fallback={<span>{t('valuation.verify_membership_btn')}</span>}>
-												<div class="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
-											</Show>
+											<span class="material-symbols-outlined text-[16px] text-emerald-400">group</span>
+											<span>{t('valuation.join_group_btn')}</span>
 										</button>
 									</div>
+
+									{/* Full-width Verify & Analyze Button Below */}
+									<button
+										onClick={handleVerifyFreeAccess}
+										disabled={isProcessingPayment()}
+										class="w-full h-11 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all disabled:opacity-50 mt-1"
+									>
+										<Show when={isProcessingPayment()} fallback={
+											<>
+												<span class="material-symbols-outlined text-[18px]">verified</span>
+												<span>{t('valuation.verify_membership_btn')}</span>
+											</>
+										}>
+											<div class="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+										</Show>
+									</button>
 								</div>
 							</Show>
 						</div>

@@ -220,29 +220,29 @@ export const TasksView: Component = () => {
 		const key = task.key;
 		switch (key) {
 			case 'league_gold':
-				return { title: t('airdropFinal.tasks.leagueGold') || task.title, icon: '🏆' };
+				return { title: t('airdropFinal.tasks.leagueGold') || task.title, icon: 'emoji_events' };
 			case 'join_clan':
-				return { title: t('airdropFinal.tasks.joinClan') || task.title, icon: '🛡️' };
+				return { title: t('airdropFinal.tasks.joinClan') || task.title, icon: 'shield' };
 			case 'invite_1_fren':
-				return { title: t('airdropFinal.tasks.invite1') || task.title, icon: '🤝' };
+				return { title: t('airdropFinal.tasks.invite1') || task.title, icon: 'person_add' };
 			case 'invite_3_frens':
-				return { title: t('airdropFinal.tasks.invite3') || task.title, icon: '👥' };
+				return { title: t('airdropFinal.tasks.invite3') || task.title, icon: 'group_add' };
 			case 'invite_10_frens':
-				return { title: t('airdropFinal.tasks.invite10') || task.title, icon: '💎' };
+				return { title: t('airdropFinal.tasks.invite10') || task.title, icon: 'groups' };
 			case 'taps_100k':
-				return { title: t('airdropFinal.tasks.taps100k') || task.title, icon: '👆' };
+				return { title: t('airdropFinal.tasks.taps100k') || task.title, icon: 'touch_app' };
 			case 'telegram_premium':
-				return { title: t('airdropFinal.tasks.premium') || task.title, icon: '⭐️' };
+				return { title: t('airdropFinal.tasks.premium') || task.title, icon: 'stars' };
 			case 'join_ifragment_channel':
-				return { title: t('airdropFinal.tasks.joinChannel') || task.title, icon: '📣' };
+				return { title: t('airdropFinal.tasks.joinChannel') || task.title, icon: 'podcasts' };
 			default:
-				let icon = '🎁';
+				let icon = 'card_giftcard';
 				if (task.type === 'channel_join' || key.includes('channel') || key.includes('telegram')) {
-					icon = '📣';
+					icon = 'podcasts';
 				} else if (task.type === 'quiz' || key.includes('quiz') || key.includes('question')) {
-					icon = '❓';
+					icon = 'help';
 				} else if (key.includes('invite') || key.includes('fren')) {
-					icon = '🤝';
+					icon = 'group_add';
 				}
 				return { title: task.title || t('airdropFinal.tasks.specialTask'), icon };
 		}
@@ -381,42 +381,52 @@ export const TasksView: Component = () => {
 										else if (task.type === 'link' || task.type === 'social') btnText = 'Go';
 
 										return (
-											<div class={`flex flex-col relative overflow-hidden ${!isLast ? 'border-b border-white/5' : ''}`}>
+											<div class={`flex flex-col relative overflow-hidden ${!isLast ? 'border-b border-white/[0.06]' : ''}`}>
 												<button
 													onClick={() => handleTaskClick(task)}
 													disabled={task.completed || loadingKeys()[task.key]}
-													class={`w-full flex flex-col py-4 px-2 text-start active:opacity-70 transition-opacity disabled:opacity-100 ${isPremium && !task.completed ? 'bg-[#F5A623]/5 rounded-xl my-1' : ''}`}
+													class={`w-full flex flex-col py-3.5 px-2 text-start transition-all disabled:opacity-100 hover:bg-white/[0.03] active:bg-white/[0.05] ${isPremium && !task.completed ? 'bg-amber-400/[0.04] rounded-xl my-1 border border-amber-400/20' : ''}`}
 												>
 													<div class="flex items-center justify-between w-full">
-														<div class="flex items-center gap-4 min-w-0 flex-1">
-															<div class={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${isPremium && !task.completed ? 'bg-[#F5A623]/20 shadow-[0_0_15px_rgba(245,166,35,0.2)]' : 'bg-white/5'}`}>
-																<span class="text-[24px]">{details.icon}</span>
+														<div class="flex items-center gap-3.5 min-w-0 flex-1">
+															<div class={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border ${isPremium && !task.completed ? 'bg-amber-400/15 border-amber-400/30 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.2)]' : 'bg-white/5 border-white/10 text-white'}`}>
+																<span class="material-symbols-outlined text-[22px]">{details.icon}</span>
 															</div>
-															<div class="flex flex-col min-w-0 pr-4">
-																<span class="text-white font-medium text-[16px] truncate leading-tight mb-1 flex items-center gap-2">
-																	{details.title}
-																	{isPremium && !task.completed && <span class="material-symbols-outlined text-[#F5A623] text-[16px]" style={{ 'font-variation-settings': '"FILL" 1' }}>stars</span>}
-																</span>
-																
-																<span class="text-amber-500 font-bold text-[15px] flex items-center gap-1 truncate">
-																	<span class="material-symbols-outlined text-[#F5A623] text-[18px] shrink-0" style={{ 'font-variation-settings': '"FILL" 1' }}>monetization_on</span>
-																	<span class="shrink-0">{formatCoins(task.reward_frg)}</span>
-																	{actionText && (
-																		<>
-																			<span class="mx-1 text-[#8e8e93]/50 font-normal shrink-0">•</span>
-																			<span class="text-[#3390ec] font-medium truncate text-[14px]">{actionText}</span>
-																		</>
+															<div class="flex flex-col min-w-0 pr-3">
+																<div class="flex items-center gap-2 mb-1 flex-wrap">
+																	<span class="text-white font-bold text-[14px] truncate leading-tight tracking-tight">
+																		{details.title}
+																	</span>
+																	{isPremium && !task.completed && (
+																		<span class="text-amber-400 text-[9px] bg-amber-400/15 border border-amber-400/30 px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
+																			STAR ⭐️
+																		</span>
 																	)}
-																</span>
+																</div>
+																
+																<div class="flex items-center gap-2 flex-wrap">
+																	<span class="text-amber-400 font-mono font-bold text-xs flex items-center gap-1 shrink-0">
+																		<span>🪙</span>
+																		<span>{formatCoins(task.reward_frg)}</span>
+																	</span>
+
+																	{/* Prominent Channel Handle / Target Badge */}
+																	{(actionText || (task.config as any)?.channel_username) && (
+																		<span class="text-cyan-400 bg-cyan-400/10 border border-cyan-400/25 px-2 py-0.5 rounded-md text-[11px] font-mono font-bold truncate max-w-[160px] flex items-center gap-1" dir="ltr">
+																			<span class="material-symbols-outlined text-[12px]">podcasts</span>
+																			{(task.config as any)?.channel_username ? `@${(task.config as any).channel_username}` : actionText}
+																		</span>
+																	)}
+																</div>
 															</div>
 														</div>
 														<div class="shrink-0 flex items-center justify-center pl-2">
 															{task.completed ? (
-																<span class="material-symbols-outlined text-[#34c759] text-[28px]" style={{ 'font-variation-settings': '"FILL" 1' }}>check_circle</span>
+																<span class="material-symbols-outlined text-emerald-400 text-[26px]">check_circle</span>
 															) : loadingKeys()[task.key] ? (
-																<span class="material-symbols-outlined animate-spin text-[24px] text-[#8e8e93]">progress_activity</span>
+																<span class="material-symbols-outlined animate-spin text-[22px] text-white/40">progress_activity</span>
 															) : (
-																<div class={`px-4 py-1.5 rounded-full font-bold text-[13px] shadow-sm ${isPremium ? 'bg-gradient-to-r from-[#F5A623] to-[#FFD54F] text-black' : 'bg-white text-black'}`}>
+																<div class={`px-4 py-1.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-md transition-transform active:scale-95 ${isPremium ? 'bg-amber-400 text-black' : 'bg-white text-black hover:bg-white/90'}`}>
 																	{btnText}
 																</div>
 															)}
@@ -425,18 +435,18 @@ export const TasksView: Component = () => {
 													
 													{/* Progress Bar */}
 													<Show when={hasProgress && !task.completed}>
-														<div class="w-full mt-4 flex items-center gap-3 px-1">
+														<div class="w-full mt-3 flex items-center gap-3 px-1">
 															<div class="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
-																<div class="h-full bg-gradient-to-r from-[#3390ec] to-[#5ac8fa] rounded-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%` }} />
+																<div class="h-full bg-cyan-400 rounded-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%` }} />
 															</div>
-															<span class="text-[12px] font-semibold text-[#8e8e93] shrink-0 text-right min-w-[40px]">
+															<span class="text-[11px] font-mono font-bold text-white/40 shrink-0 text-right min-w-[40px]">
 																{progressCurrent >= 1000 ? `${(progressCurrent/1000).toFixed(1)}k` : progressCurrent} / {progressTarget >= 1000 ? `${(progressTarget/1000).toFixed(1)}k` : progressTarget}
 															</span>
 														</div>
 													</Show>
 												</button>
 												{taskErrors()[task.key] && (
-													<div class="text-[#ff453a] font-normal text-[13px] pb-3 px-3 text-center bg-[#ff453a]/10 rounded-xl mx-2 mb-2 pt-2">
+													<div class="text-red-400 font-bold text-xs pb-2 px-3 text-center bg-red-400/10 rounded-xl mx-2 mb-2 pt-2 border border-red-400/20">
 														{taskErrors()[task.key]}
 													</div>
 												)}

@@ -322,9 +322,9 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 
 					const currentLeagueName = getClanLeague().name;
 
-					const soccerMessage = clan().members_count >= 11
-						? t('airdropFinal.clan.soccerSuccess', { defaultValue: "Congratulations! You now have enough squad members to form a soccer team ⚽ 👏" })
-						: t('airdropFinal.clan.soccerInvite', { defaultValue: "Invite more frens to form a complete team! 🏃‍♂️💨" });
+					const squadMessage = clan().members_count >= 10
+						? t('airdropFinal.clan.soccerSuccess', { defaultValue: "Your clan is fully active! Keep mining together to dominate global leaderboards." })
+						: t('airdropFinal.clan.soccerInvite', { defaultValue: "Invite more members to pool rewards and climb global clan rankings." });
 
 					return (
 						<div class="min-h-full flex flex-col relative w-full pb-10"
@@ -387,8 +387,8 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 								</button>
 
 								{/* Description Text */}
-								<p class="text-center text-white/60 font-medium text-[13px] mt-4 max-w-[300px] leading-relaxed">
-									{soccerMessage}
+								<p class="text-center text-white/50 font-medium text-[13px] mt-4 max-w-[280px] leading-relaxed">
+									{squadMessage}
 								</p>
 
 								{/* ── Stats & Actions Card ── */}
