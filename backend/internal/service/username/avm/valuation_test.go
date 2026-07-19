@@ -122,4 +122,24 @@ func TestCalculateSemanticKNNFloor(t *testing.T) {
 	if fhhffFloor != 0 {
 		t.Errorf("KNN floor for gibberish 'fhhff' = %f, expected 0", fhhffFloor)
 	}
+
+	// @cats and @dogs should get 0 KNN floor (rely on historical benchmark ~12.5k TON, not 110k floor)
+	commonFeat := MorphFeatures{
+		IsDictionary:  true,
+		SemanticScore: 60,
+		IsGibberish:   false,
+	}
+	commonSem := &SemanticResult{
+		TotalScore: 60,
+		Tags:       []string{"animal", "noun"},
+	}
+	catsFloor := CalculateSemanticKNNFloor("cats", commonFeat, commonSem)
+	if catsFloor != 0 {
+		t.Errorf("KNN floor for common noun 'cats' = %f, expected 0", catsFloor)
+	}
+
+	dogsFloor := CalculateSemanticKNNFloor("dogs", commonFeat, commonSem)
+	if dogsFloor != 0 {
+		t.Errorf("KNN floor for common noun 'dogs' = %f, expected 0", dogsFloor)
+	}
 }

@@ -122,7 +122,7 @@ export const UsernamePage: Component = () => {
 	const [sendCount, setSendCount] = createSignal<number>(0);
 
 	// Payment Gate State
-	const [accessGranted, setAccessGranted] = createSignal<boolean>(false);
+	const [_accessGranted, setAccessGranted] = createSignal<boolean>(false);
 	const [accessMethod, setAccessMethod] = createSignal<'free' | 'stars' | 'coins' | null>(null);
 	const [showPaymentGate, setShowPaymentGate] = createSignal<boolean>(false);
 	const [freeQuotaUsed, setFreeQuotaUsed] = createSignal<boolean>(false);
@@ -404,18 +404,14 @@ export const UsernamePage: Component = () => {
 				setFreeQuotaUsed(true);
 				grantAccess('free', u);
 			} else {
-				openTelegramLink('https://t.me/FragmentsCommunity');
-				setTimeout(() => openTelegramLink('https://t.me/FragmentInvestors'), 400);
-				localStorage.setItem('val_free_used', 'true');
-				setFreeQuotaUsed(true);
-				grantAccess('free', u);
+				const errMsg = t('valuation.free_quota_used') || 'Failed to verify membership or free quota already used.';
+				setPaymentError(errMsg);
+				hapticFeedback.notificationOccurred('error');
 			}
 		} catch (e: any) {
-			openTelegramLink('https://t.me/FragmentsCommunity');
-			setTimeout(() => openTelegramLink('https://t.me/FragmentInvestors'), 400);
-			localStorage.setItem('val_free_used', 'true');
-			setFreeQuotaUsed(true);
-			grantAccess('free', u);
+			const msg = e?.response?.data?.error || e?.message || t('valuation.free_quota_used') || 'Free quota already used or verification failed';
+			setPaymentError(msg);
+			hapticFeedback.notificationOccurred('error');
 		} finally {
 			setIsProcessingPayment(false);
 		}
@@ -1171,35 +1167,35 @@ export const UsernamePage: Component = () => {
 				<Motion.div
 					initial={{ opacity: 0 }}
 					animate={{ opacity: 1 }}
-					class={`fixed inset-0 bg-black/85 backdrop-blur-md z-[100] flex items-end justify-center ${isRtl() ? 'rtl' : 'ltr'}`}
+					class={`fixed inset-0 bg-black/90 backdrop-blur-xl z-[100] flex items-end justify-center ${isRtl() ? 'rtl' : 'ltr'}`}
 				>
 					<Motion.div
 						initial={{ y: '100%' }}
 						animate={{ y: 0 }}
 						transition={{ duration: 0.35, easing: [0.32, 0.72, 0, 1] }}
-						class="w-full max-h-[90vh] bg-[#14151a] rounded-t-[2.5rem] border-t border-white/10 p-6 overflow-y-auto no-scrollbar shadow-[0_-20px_50px_rgba(0,0,0,0.9)] relative"
+						class="w-full max-h-[92vh] bg-[#0b0c10] rounded-t-[2.5rem] border-t border-white/10 p-6 overflow-y-auto no-scrollbar shadow-[0_-25px_60px_rgba(0,0,0,0.95)] relative"
 					>
-						{/* Handle */}
-						<div class="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-5" />
+						{/* Handle Accent Bar */}
+						<div class="w-12 h-1 bg-gradient-to-r from-cyan-500 via-amber-400 to-emerald-500 rounded-full mx-auto mb-6 opacity-60" />
 
-						{/* Header Premium Badge */}
+						{/* Header Premium Badge & Persuasive Copy */}
 						<div class="flex flex-col items-center text-center gap-2 mb-6">
-							<div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400/20 via-cyan-400/20 to-blue-500/20 border border-amber-400/30 flex items-center justify-center shadow-[0_0_25px_rgba(251,191,36,0.2)] mb-1">
-								<span class="material-symbols-outlined text-[32px] text-amber-400">workspace_premium</span>
+							<div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500/20 via-cyan-500/20 to-emerald-500/20 border border-white/10 flex items-center justify-center shadow-[0_0_30px_rgba(34,211,238,0.15)] mb-1">
+								<span class="material-symbols-outlined text-[32px] text-amber-400">auto_awesome</span>
 							</div>
-							<h3 class="text-[20px] font-black text-white leading-tight">
+							<h3 class="text-[19px] sm:text-[21px] font-black text-white leading-snug max-w-sm">
 								{t('valuation.gate_title')}
 							</h3>
-							<p class="text-[13px] font-medium text-white/50 max-w-xs leading-relaxed">
+							<p class="text-[12.5px] font-medium text-white/50 max-w-xs leading-relaxed">
 								{t('valuation.gate_subtitle')}
 							</p>
 						</div>
 
 						{/* Error Message */}
 						<Show when={paymentError()}>
-							<div class="bg-red-500/10 border border-red-500/30 text-red-400 rounded-2xl p-3.5 mb-4 text-xs font-bold flex items-center gap-2">
-								<span class="material-symbols-outlined text-[18px]">error</span>
-								<span>{paymentError()}</span>
+							<div class="bg-red-500/10 border border-red-500/30 text-red-400 rounded-2xl p-3.5 mb-4 text-xs font-semibold flex items-center gap-2.5 shadow-lg">
+								<span class="material-symbols-outlined text-[20px] shrink-0">error</span>
+								<span class="leading-normal">{paymentError()}</span>
 							</div>
 						</Show>
 
@@ -1209,23 +1205,26 @@ export const UsernamePage: Component = () => {
 							<button
 								onClick={handlePayStars}
 								disabled={isProcessingPayment()}
-								class="w-full relative group overflow-hidden bg-gradient-to-r from-[#21232d] to-[#171820] border border-amber-400/30 hover:border-amber-400/60 rounded-3xl p-4 text-left transition-all active:scale-[0.98] disabled:opacity-50"
+								class="w-full relative group overflow-hidden bg-gradient-to-r from-[#171821] to-[#111219] border border-amber-500/30 hover:border-amber-400/70 rounded-3xl p-4 text-left transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg hover:shadow-[0_0_25px_rgba(251,191,36,0.15)]"
 							>
-								<div class="absolute right-[-20px] top-[-20px] w-24 h-24 bg-amber-400/10 rounded-full blur-2xl group-hover:bg-amber-400/20 transition-all" />
-								<div class="relative flex items-center gap-3.5 z-10">
-									<div class="w-12 h-12 rounded-2xl bg-amber-400/15 border border-amber-400/30 flex items-center justify-center shrink-0 shadow-inner text-2xl">
-										⭐
+								<div class="absolute right-[-20px] top-[-20px] w-24 h-24 bg-amber-400/10 rounded-full blur-2xl group-hover:bg-amber-400/20 transition-all pointer-events-none" />
+								<div class="relative flex items-center justify-between gap-3.5 z-10 w-full">
+									<div class="flex items-center gap-3.5 flex-1 min-w-0">
+										<div class="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shrink-0 shadow-inner">
+											<span class="material-symbols-outlined text-amber-400 text-[26px]">star</span>
+										</div>
+										<div class="flex flex-col text-start min-w-0">
+											<h4 class="text-[15px] font-black text-white leading-tight truncate">
+												{t('valuation.pay_stars_title')}
+											</h4>
+											<span class="text-[12px] font-medium text-white/50 mt-1 truncate">
+												{t('valuation.pay_stars_desc')}
+											</span>
+										</div>
 									</div>
-									<div class="flex-1 flex flex-col items-start text-left">
-										<h4 class="text-[15px] font-black text-white leading-tight">
-											{t('valuation.pay_stars_title')}
-										</h4>
-										<span class="text-[12px] font-medium text-white/50 mt-0.5">
-											{t('valuation.pay_stars_desc')}
-										</span>
-									</div>
-									<div class="px-3 py-1.5 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-400 font-black text-xs">
-										49 ⭐
+									<div class="px-3.5 py-1.5 rounded-full bg-amber-400/10 border border-amber-400/30 text-amber-400 font-extrabold text-xs shrink-0 shadow-sm flex items-center gap-1.5">
+										<span class="material-symbols-outlined text-[15px]">star</span>
+										<span>49</span>
 									</div>
 								</div>
 							</button>
@@ -1234,60 +1233,61 @@ export const UsernamePage: Component = () => {
 							<button
 								onClick={handlePayCoins}
 								disabled={isProcessingPayment()}
-								class="w-full relative group overflow-hidden bg-gradient-to-r from-[#21232d] to-[#171820] border border-cyan-400/30 hover:border-cyan-400/60 rounded-3xl p-4 text-left transition-all active:scale-[0.98] disabled:opacity-50"
+								class="w-full relative group overflow-hidden bg-gradient-to-r from-[#171821] to-[#111219] border border-cyan-500/30 hover:border-cyan-400/70 rounded-3xl p-4 text-left transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg hover:shadow-[0_0_25px_rgba(34,211,238,0.15)]"
 							>
-								<div class="absolute right-[-20px] top-[-20px] w-24 h-24 bg-cyan-400/10 rounded-full blur-2xl group-hover:bg-cyan-400/20 transition-all" />
-								<div class="relative flex items-center gap-3.5 z-10">
-									<div class="w-12 h-12 rounded-2xl bg-cyan-400/15 border border-cyan-400/30 flex items-center justify-center shrink-0 shadow-inner">
-										<span class="material-symbols-outlined text-cyan-400 text-[26px]">toll</span>
+								<div class="absolute right-[-20px] top-[-20px] w-24 h-24 bg-cyan-400/10 rounded-full blur-2xl group-hover:bg-cyan-400/20 transition-all pointer-events-none" />
+								<div class="relative flex items-center justify-between gap-3.5 z-10 w-full">
+									<div class="flex items-center gap-3.5 flex-1 min-w-0">
+										<div class="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center shrink-0 shadow-inner">
+											<span class="material-symbols-outlined text-cyan-400 text-[26px]">toll</span>
+										</div>
+										<div class="flex flex-col text-start min-w-0">
+											<h4 class="text-[15px] font-black text-white leading-tight truncate">
+												{t('valuation.pay_coins_title')}
+											</h4>
+											<span class="text-[12px] font-medium text-white/50 mt-1 truncate">
+												{t('valuation.pay_coins_desc')}
+											</span>
+										</div>
 									</div>
-									<div class="flex-1 flex flex-col items-start text-left">
-										<h4 class="text-[15px] font-black text-white leading-tight">
-											{t('valuation.pay_coins_title')}
-										</h4>
-										<span class="text-[12px] font-medium text-white/50 mt-0.5">
-											{t('valuation.pay_coins_desc')}
-										</span>
-									</div>
-									<div class="px-3 py-1.5 rounded-full bg-cyan-400/15 border border-cyan-400/30 text-cyan-400 font-black text-xs">
-										88,000 🪙
+									<div class="px-3.5 py-1.5 rounded-full bg-cyan-400/10 border border-cyan-400/30 text-cyan-400 font-extrabold text-xs shrink-0 shadow-sm flex items-center gap-1.5">
+										<span class="material-symbols-outlined text-[15px]">toll</span>
+										<span>88,000</span>
 									</div>
 								</div>
 							</button>
 
-							{/* Option 3: 1-Time Free Lifetime Access (Community Channels Join) — Hidden permanently once used */}
+							{/* Option 3: 1-Time Free Access for Community Members */}
 							<Show when={!freeQuotaUsed()}>
-								<div class="w-full bg-gradient-to-r from-[#1b251e] to-[#131b15] border border-emerald-500/40 rounded-3xl p-4 flex flex-col gap-3 transition-all">
+								<div class="w-full bg-gradient-to-r from-[#111a14] to-[#0d140f] border border-emerald-500/35 hover:border-emerald-400/60 rounded-3xl p-4 flex flex-col gap-3.5 transition-all shadow-lg hover:shadow-[0_0_25px_rgba(16,185,129,0.15)]">
 									<div class="flex items-center gap-3.5">
-										<div class="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shrink-0 shadow-inner text-2xl">
-											🎁
+										<div class="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shrink-0 shadow-inner">
+											<span class="material-symbols-outlined text-emerald-400 text-[26px]">card_giftcard</span>
 										</div>
-										<div class="flex-1 flex flex-col text-left">
-											<div class="flex items-center justify-between">
-												<h4 class="text-[15px] font-black text-white leading-tight">
-													{t('valuation.free_channel_group_title')}
-												</h4>
-											</div>
-											<span class="text-[12px] font-medium text-white/50 mt-0.5">
+										<div class="flex-1 flex flex-col text-start min-w-0">
+											<h4 class="text-[15px] font-black text-white leading-tight truncate">
+												{t('valuation.free_channel_group_title')}
+											</h4>
+											<span class="text-[12px] font-medium text-white/50 mt-0.5 leading-relaxed">
 												{t('valuation.free_channel_group_desc')}
 											</span>
 										</div>
 									</div>
 
 									{/* Dual Buttons Side-by-Side: Join Channel & Join Group */}
-									<div class="grid grid-cols-2 gap-2 w-full pt-1">
+									<div class="grid grid-cols-2 gap-2.5 w-full pt-0.5">
 										<button
 											onClick={() => openTelegramLink('https://t.me/FragmentsCommunity')}
-											class="h-10 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all active:scale-95"
+											class="h-10 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-300 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all active:scale-95"
 										>
 											<span class="material-symbols-outlined text-[16px] text-emerald-400">podcasts</span>
 											<span>{t('valuation.join_channel_btn')}</span>
 										</button>
 										<button
 											onClick={() => openTelegramLink('https://t.me/FragmentInvestors')}
-											class="h-10 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all active:scale-95"
+											class="h-10 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-300 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all active:scale-95"
 										>
-											<span class="material-symbols-outlined text-[16px] text-emerald-400">group</span>
+											<span class="material-symbols-outlined text-[16px] text-emerald-400">groups</span>
 											<span>{t('valuation.join_group_btn')}</span>
 										</button>
 									</div>
@@ -1296,7 +1296,7 @@ export const UsernamePage: Component = () => {
 									<button
 										onClick={handleVerifyFreeAccess}
 										disabled={isProcessingPayment()}
-										class="w-full h-11 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all disabled:opacity-50 mt-1"
+										class="w-full h-11 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-[0_4px_15px_rgba(16,185,129,0.3)] active:scale-95 transition-all disabled:opacity-50 mt-0.5"
 									>
 										<Show when={isProcessingPayment()} fallback={
 											<>
@@ -1313,7 +1313,7 @@ export const UsernamePage: Component = () => {
 
 						{/* Processing Overlay */}
 						<Show when={isProcessingPayment()}>
-							<div class="absolute inset-0 bg-[#14151a]/90 backdrop-blur-sm z-30 flex flex-col items-center justify-center rounded-t-[2.5rem]">
+							<div class="absolute inset-0 bg-[#0b0c10]/90 backdrop-blur-md z-30 flex flex-col items-center justify-center rounded-t-[2.5rem]">
 								<span class="w-10 h-10 border-4 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin mb-4" />
 								<span class="text-[14px] font-bold text-white animate-pulse">Processing...</span>
 							</div>

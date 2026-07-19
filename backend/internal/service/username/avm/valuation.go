@@ -885,18 +885,20 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	}
 
 	// 3h. Semantic KNN Comparable Floor (High-value status dictionary words)
-	knnFloor := CalculateSemanticKNNFloor(username, features, semResult)
-	if knnFloor > 0 {
-		reasoning["knn_semantic_floor"] = knnFloor
-		if expectedTONRaw < knnFloor {
-			expectedTONRaw = knnFloor
-			if lowTONRaw < knnFloor*0.80 {
-				lowTONRaw = knnFloor * 0.80
+	if !anchorInjected && highestPastSale == 0 {
+		knnFloor := CalculateSemanticKNNFloor(username, features, semResult)
+		if knnFloor > 0 {
+			reasoning["knn_semantic_floor"] = knnFloor
+			if expectedTONRaw < knnFloor {
+				expectedTONRaw = knnFloor
+				if lowTONRaw < knnFloor*0.80 {
+					lowTONRaw = knnFloor * 0.80
+				}
+				if highTONRaw < knnFloor*1.30 {
+					highTONRaw = knnFloor * 1.30
+				}
+				reasoning["knn_semantic_floor_applied"] = true
 			}
-			if highTONRaw < knnFloor*1.30 {
-				highTONRaw = knnFloor * 1.30
-			}
-			reasoning["knn_semantic_floor_applied"] = true
 		}
 	}
 
@@ -1247,7 +1249,7 @@ func CalculateSemanticKNNFloor(username string, features MorphFeatures, semResul
 	isStatusWord := false
 	if semResult != nil {
 		for _, tag := range semResult.Tags {
-			if tag == "exclusivity_status_premium" || tag == "crypto_ultra_premium" || tag == "general_ultra_premium" {
+			if tag == "exclusivity_status_premium" || tag == "crypto_ultra_premium" {
 				isStatusWord = true
 				break
 			}
@@ -1257,7 +1259,8 @@ func CalculateSemanticKNNFloor(username string, features MorphFeatures, semResul
 	lower := strings.ToLower(username)
 
 	// 4-letter dictionary status/exclusivity word with high semantic score
-	if len(lower) == 4 && (isStatusWord || features.IsDictionary) && features.SemanticScore >= 55 {
+	// MUST be an explicit status or crypto ultra-premium word, NOT generic dictionary nouns (like cats, dogs, etc.)
+	if len(lower) == 4 && isStatusWord && features.SemanticScore >= 70 {
 		// Calibrated status floor for premier 4-letter English terms (100k - 150k TON market target)
 		return 110000.0
 	}

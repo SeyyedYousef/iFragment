@@ -31,6 +31,8 @@ var HistoricalSales = map[string]float64{
 	"ai":           500000.0, // 2-letter premium + hottest trend
 	"vip":          300000.0, // 3-letter premium
 	"ceo":          250000.0, // 3-letter premium
+	"cats":         12500.0,  // Memecoin/community benchmark
+	"dogs":         12500.0,  // Memecoin/community benchmark
 	// ── Original Data ──
 	"news": 994000.0,
 	"auto": 900000.0,
