@@ -3,6 +3,7 @@ package username
 import (
 	"context"
 	"fmt"
+	"ifragment-backend/internal/client/fragment"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/username/avm"
 	"math"
@@ -10,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/shopspring/decimal"
 )
 
 var levenshteinPool = sync.Pool{
@@ -101,39 +104,49 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 		results = results[:limit]
 	}
 
-	if s.tonClient != nil {
-		var wg sync.WaitGroup
-		sem := make(chan struct{}, 5) // limit to 5 concurrent TON API calls
-		for i := range results {
-			wg.Add(1)
-			sem <- struct{}{}
-			go func(idx int) {
-				defer wg.Done()
-				defer func() { <-sem }()
-				uName := results[idx].Username
-				lowerName := strings.ToLower(uName)
+	tonRate, _ := s.GetTONRate(ctx)
+	if tonRate <= 0 {
+		tonRate = 7.25
+	}
 
-				// 1. Check AVM HistoricalSales map first for exact sold prices
-				if histPrice, exists := avm.HistoricalSales[lowerName]; exists {
+	fragClient := fragment.NewClient()
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 5) // limit concurrency
+	for i := range results {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(idx int) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			uName := results[idx].Username
+			lowerName := strings.ToLower(uName)
+
+			// 1. Check AVM HistoricalSales map first for exact sold prices
+			if histPrice, exists := avm.HistoricalSales[lowerName]; exists && histPrice > 0 {
+				results[idx].Status = "sold"
+				results[idx].SalePrice = histPrice
+			}
+
+			// 2. Check local Postgres database
+			if s.db != nil {
+				if sales, dbErr := s.db.GetSalesByUsername(ctx, uName); dbErr == nil && len(sales) > 0 {
+					latest := sales[0]
 					results[idx].Status = "sold"
-					results[idx].SalePrice = histPrice
-				}
-
-				// 2. Check local Postgres database
-				if s.db != nil {
-					if sales, dbErr := s.db.GetSalesByUsername(ctx, uName); dbErr == nil && len(sales) > 0 {
-						latest := sales[0]
-						results[idx].Status = "sold"
-						fPrice, _ := latest.SalePriceTON.Float64()
+					fPrice, _ := latest.SalePriceTON.Float64()
+					if fPrice > 0 {
 						results[idx].SalePrice = fPrice
+					}
+					if !latest.SaleDate.IsZero() {
 						results[idx].SaleDate = latest.SaleDate.Format(time.RFC3339)
-						if latest.BuyerAddress != nil {
-							results[idx].OwnerAddress = *latest.BuyerAddress
-						}
+					}
+					if latest.BuyerAddress != nil && *latest.BuyerAddress != "" {
+						results[idx].OwnerAddress = *latest.BuyerAddress
 					}
 				}
+			}
 
-				// 3. Fetch live NFT info via GetNFTByDNS
+			// 3. Fetch live NFT info via GetNFTByDNS (if TON client is available)
+			if s.tonClient != nil {
 				nft, err := s.tonClient.GetNFTByDNS(ctx, uName)
 				if err == nil && nft != nil {
 					if nft.Owner.Address != "" {
@@ -152,18 +165,62 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 					} else if results[idx].Status == "" {
 						results[idx].Status = "sold"
 					}
-				} else if results[idx].Status == "" {
-					// Fallback: short names (<= 5 chars) and dictionary words on Fragment are sold
-					if len(lowerName) <= 5 || isDictionaryWord(lowerName) {
+				}
+			}
+
+			// 4. Fragment Web Scraper check if status is still unknown or missing sale price
+			if results[idx].Status == "" || results[idx].Status == "available" || (results[idx].Status == "sold" && results[idx].SalePrice == 0) {
+				fStatus, fErr := fragClient.CheckUsername(ctx, uName)
+				if fErr == nil {
+					switch fStatus {
+					case fragment.StatusSale:
+						results[idx].Status = "on_sale"
+					case fragment.StatusAuction:
+						results[idx].Status = "on_auction"
+					case fragment.StatusSold:
 						results[idx].Status = "sold"
-					} else {
+					case fragment.StatusAvailable:
 						results[idx].Status = "available"
 					}
 				}
-			}(i)
-		}
-		wg.Wait()
+
+				if (results[idx].Status == "sold" || results[idx].Status == "on_sale") && results[idx].SalePrice == 0 {
+					scrapedSales, sErr := fragClient.GetHistoricalSales(ctx, uName)
+					if sErr == nil && len(scrapedSales) > 0 {
+						results[idx].SalePrice = scrapedSales[0].PriceTON
+						if !scrapedSales[0].SaleDate.IsZero() {
+							results[idx].SaleDate = scrapedSales[0].SaleDate.Format(time.RFC3339)
+						}
+						// Cache scraped sale into local DB
+						if s.db != nil {
+							_, _ = s.db.InsertSale(ctx, repository.Sale{
+								Username:     uName,
+								SalePriceTON: decimal.NewFromFloat(scrapedSales[0].PriceTON),
+								SaleType:     "auction",
+								SaleDate:     scrapedSales[0].SaleDate,
+								Source:       "fragment_scrape",
+							})
+						}
+					}
+				}
+			}
+
+			// 5. Fallback heuristics if status is still missing
+			if results[idx].Status == "" {
+				if len(lowerName) <= 5 || isDictionaryWord(lowerName) {
+					results[idx].Status = "sold"
+				} else {
+					results[idx].Status = "available"
+				}
+			}
+
+			// 6. Calculate USD sale price
+			if results[idx].SalePrice > 0 {
+				results[idx].SalePriceUSD = math.Round(results[idx].SalePrice*tonRate*100) / 100
+			}
+		}(i)
 	}
+	wg.Wait()
 
 	return results, nil
 }

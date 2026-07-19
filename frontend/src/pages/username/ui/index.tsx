@@ -816,13 +816,16 @@ export const UsernamePage: Component = () => {
 										const getStatusBadge = (status?: string) => {
 											switch (status) {
 												case 'sold':
-													return { text: 'Sold', bg: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' };
+												case 'taken':
+													return { text: t('valuation.status_sold') || 'Sold', bg: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' };
 												case 'on_sale':
-													return { text: 'On Sale', bg: 'bg-[#0098ea]/20 text-[#0098ea] border border-[#0098ea]/30' };
+													return { text: t('valuation.status_on_sale') || 'On Sale', bg: 'bg-[#0098ea]/20 text-[#0098ea] border border-[#0098ea]/30' };
+												case 'on_auction':
+													return { text: t('valuation.status_on_auction') || 'On Auction', bg: 'bg-amber-500/20 text-amber-400 border border-amber-500/30' };
 												case 'available':
-													return { text: 'Available', bg: 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' };
+													return { text: t('valuation.status_available') || 'Available', bg: 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' };
 												default:
-													return { text: 'Non-NFT', bg: 'bg-zinc-800 text-zinc-400' };
+													return { text: t('valuation.status_non_nft') || 'Non-NFT', bg: 'bg-zinc-800 text-zinc-400' };
 											}
 										};
 										const badge = getStatusBadge(sim.status);
@@ -843,9 +846,9 @@ export const UsernamePage: Component = () => {
 												<div class="text-white/50 text-xs line-clamp-2 leading-relaxed font-medium">{sim.reason}</div>
 
 												<div class="pt-2 border-t border-white/[0.06] flex items-center justify-between text-xs">
-													<span class="text-white/40 font-medium">{sim.status === 'on_sale' ? 'Ask Price' : 'Sale Price'}</span>
+													<span class="text-white/40 font-medium">{sim.status === 'on_sale' ? (t('valuation.ask_price') || 'Ask Price') : (t('valuation.sale_price') || 'Sale Price')}</span>
 													<div class="flex flex-col items-end">
-														<span class="text-emerald-400 font-mono font-bold">{sim.sale_price && sim.sale_price > 0 ? `${sim.sale_price.toLocaleString()} TON` : sim.status === 'sold' ? 'Sold' : '-'}</span>
+														<span class="text-emerald-400 font-mono font-bold">{sim.sale_price && sim.sale_price > 0 ? `${sim.sale_price.toLocaleString()} TON` : (sim.status === 'sold' || sim.status === 'taken') ? (t('valuation.status_sold') || 'Sold') : '-'}</span>
 														{sim.sale_price_usd && sim.sale_price_usd > 0 && (
 															<span class="text-white/30 text-[10px] font-mono">≈ ${sim.sale_price_usd.toLocaleString()}</span>
 														)}
