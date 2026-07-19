@@ -48,7 +48,7 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 		return data.filter((e) => e.league === league);
 	};
 
-	// All clans sorted globally by score (Clash of Clans style - No leagues)
+	// All clans sorted globally by score (Clash of Clans style)
 	const sortedGlobalClans = () => {
 		const data = [...(clansQuery.data || [])];
 		return data.sort((a, b) => {
@@ -131,7 +131,9 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 			/>
 
 			<div class="relative z-10 flex flex-col gap-4 pt-4 max-w-md mx-auto">
-				{/* ═══════ Miners League Header (Shown only on Miners tab) ═══════ */}
+				{/* ═══════ TOP HEADER AREA ═══════ */}
+
+				{/* 1) Miners League Header (Shown only on Miners tab) */}
 				<Show when={activeTab() === 'miners'}>
 					<div class="mx-4 rounded-2xl border border-white/[0.08] bg-[#10141e]/90 p-5 flex flex-col items-center relative overflow-hidden backdrop-blur-md shadow-2xl">
 						{/* League Icon */}
@@ -223,18 +225,151 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 					</div>
 				</Show>
 
-				{/* ═══════ Squads Global Banner (Shown only on Squads tab) ═══════ */}
+				{/* 2) TOP 3 CLANS PODIUM ABOVE TAB BUTTONS (Shown only on Squads tab) */}
 				<Show when={activeTab() === 'squads'}>
-					<div class="mx-4 rounded-2xl border border-[#0098ea]/30 bg-[#10141e]/90 p-4 flex flex-col items-center relative overflow-hidden backdrop-blur-md shadow-2xl">
-						<div class="flex items-center gap-2 mb-1">
-							<span class="material-symbols-outlined text-[#0098ea] text-xl">shield</span>
-							<h2 class="text-white font-mono font-black text-sm uppercase tracking-widest">
-								TOP GLOBAL CLANS
-							</h2>
-						</div>
-						<p class="text-white/40 text-xs font-medium text-center">
-							Global top 100 clan rankings & instant Telegram channel access
-						</p>
+					<div class="mx-4 pt-2">
+						<Show
+							when={!clansQuery.isLoading && sortedGlobalClans().length > 0}
+							fallback={
+								<div class="flex flex-col items-center justify-center py-10">
+									<div class="w-6 h-6 border-2 border-white/10 border-t-[#0098ea] rounded-full animate-spin" />
+									<span class="text-[11px] font-mono text-white/30 mt-2">
+										Loading Top Squads...
+									</span>
+								</div>
+							}
+						>
+							<div class="grid grid-cols-3 gap-2 items-end pt-3">
+								{/* 2nd Place */}
+								<Show when={top3Clans()[1]}>
+									{(clan) => {
+										const score = clan().total_score || clan().members_count * 1500;
+										return (
+											<div class="flex flex-col items-center bg-[#10141e] border border-slate-300/30 rounded-2xl p-2.5 relative pt-4 hover:border-slate-300/60 transition-all group">
+												<div class="w-6 h-6 rounded-full bg-slate-300/20 border border-slate-300/40 text-slate-200 font-mono font-black text-[11px] flex items-center justify-center absolute -top-3 shadow-md">
+													2
+												</div>
+												<div class="w-12 h-12 rounded-xl bg-[#161b28] border border-slate-300/30 flex items-center justify-center overflow-hidden mb-2 shrink-0">
+													{clan().channel_photo ? (
+														<img
+															src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`}
+															alt={clan().chat_title}
+															class="w-full h-full object-cover"
+														/>
+													) : (
+														<span class="material-symbols-outlined text-slate-300 text-xl">
+															shield
+														</span>
+													)}
+												</div>
+												<span class="text-white font-bold text-xs truncate max-w-full text-center mb-0.5">
+													{clan().chat_title}
+												</span>
+												<span class="text-white/40 text-[10px] font-mono mb-2" dir="ltr">
+													{clan().members_count} members
+												</span>
+												<span class="text-slate-200 font-mono font-black text-xs mb-2 tabular-nums">
+													🪙 {formatScore(score)}
+												</span>
+												<button
+													onClick={() => openChannel(clan().channel_username)}
+													class="w-full py-1.5 rounded-lg bg-slate-300/10 hover:bg-[#0098ea] hover:text-white border border-slate-300/20 text-slate-200 text-[11px] font-bold flex items-center justify-center gap-1 transition-all active:scale-95"
+												>
+													<span>Join</span>
+													<span class="material-symbols-outlined text-[13px]">open_in_new</span>
+												</button>
+											</div>
+										);
+									}}
+								</Show>
+
+								{/* 1st Place (Center - Gold Highlighted) */}
+								<Show when={top3Clans()[0]}>
+									{(clan) => {
+										const score = clan().total_score || clan().members_count * 1500;
+										return (
+											<div class="flex flex-col items-center bg-[#10141e] border-2 border-amber-400/50 rounded-2xl p-3 relative pt-5 shadow-[0_0_24px_rgba(245,158,11,0.2)] hover:border-amber-400 transition-all group -mt-2">
+												<div class="w-7 h-7 rounded-full bg-amber-400 border border-amber-300 text-black font-mono font-black text-xs flex items-center justify-center absolute -top-3.5 shadow-lg">
+													👑 1
+												</div>
+												<div class="w-14 h-14 rounded-xl bg-[#161b28] border-2 border-amber-400/40 flex items-center justify-center overflow-hidden mb-2 shrink-0">
+													{clan().channel_photo ? (
+														<img
+															src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`}
+															alt={clan().chat_title}
+															class="w-full h-full object-cover"
+														/>
+													) : (
+														<span class="material-symbols-outlined text-amber-400 text-2xl">
+															shield
+														</span>
+													)}
+												</div>
+												<span class="text-white font-black text-xs truncate max-w-full text-center mb-0.5">
+													{clan().chat_title}
+												</span>
+												<span class="text-white/40 text-[10px] font-mono mb-2" dir="ltr">
+													{clan().members_count} members
+												</span>
+												<span class="text-amber-400 font-mono font-black text-xs mb-2 tabular-nums">
+													🪙 {formatScore(score)}
+												</span>
+												<button
+													onClick={() => openChannel(clan().channel_username)}
+													class="w-full py-1.5 rounded-lg bg-amber-400 text-black font-extrabold text-[11px] flex items-center justify-center gap-1 transition-all active:scale-95 shadow-md"
+												>
+													<span>Join</span>
+													<span class="material-symbols-outlined text-[13px]">open_in_new</span>
+												</button>
+											</div>
+										);
+									}}
+								</Show>
+
+								{/* 3rd Place */}
+								<Show when={top3Clans()[2]}>
+									{(clan) => {
+										const score = clan().total_score || clan().members_count * 1500;
+										return (
+											<div class="flex flex-col items-center bg-[#10141e] border border-amber-700/30 rounded-2xl p-2.5 relative pt-4 hover:border-amber-700/60 transition-all group">
+												<div class="w-6 h-6 rounded-full bg-amber-700/20 border border-amber-600/40 text-amber-500 font-mono font-black text-[11px] flex items-center justify-center absolute -top-3 shadow-md">
+													3
+												</div>
+												<div class="w-12 h-12 rounded-xl bg-[#161b28] border border-amber-700/30 flex items-center justify-center overflow-hidden mb-2 shrink-0">
+													{clan().channel_photo ? (
+														<img
+															src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`}
+															alt={clan().chat_title}
+															class="w-full h-full object-cover"
+														/>
+													) : (
+														<span class="material-symbols-outlined text-amber-600 text-xl">
+															shield
+														</span>
+													)}
+												</div>
+												<span class="text-white font-bold text-xs truncate max-w-full text-center mb-0.5">
+													{clan().chat_title}
+												</span>
+												<span class="text-white/40 text-[10px] font-mono mb-2" dir="ltr">
+													{clan().members_count} members
+												</span>
+												<span class="text-amber-500 font-mono font-black text-xs mb-2 tabular-nums">
+													🪙 {formatScore(score)}
+												</span>
+												<button
+													onClick={() => openChannel(clan().channel_username)}
+													class="w-full py-1.5 rounded-lg bg-amber-700/10 hover:bg-[#0098ea] hover:text-white border border-amber-700/20 text-amber-500 text-[11px] font-bold flex items-center justify-center gap-1 transition-all active:scale-95"
+												>
+													<span>Join</span>
+													<span class="material-symbols-outlined text-[13px]">open_in_new</span>
+												</button>
+											</div>
+										);
+									}}
+								</Show>
+							</div>
+						</Show>
 					</div>
 				</Show>
 
@@ -288,9 +423,9 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 					</div>
 				</div>
 
-				{/* ═══════ Leaderboard Content ═══════ */}
+				{/* ═══════ Leaderboard Entries (Below Tab Buttons) ═══════ */}
 				<div class="mx-4 flex flex-col gap-3 min-h-[280px]">
-					{/* ── MINERS TAB ── */}
+					{/* ── MINERS TAB LIST ── */}
 					<Show when={activeTab() === 'miners'}>
 						<Show
 							when={!leaderboardQuery.isLoading}
@@ -358,7 +493,7 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 						</Show>
 					</Show>
 
-					{/* ── SQUADS / CLANS TAB (Clash of Clans Style Global Leaderboard) ── */}
+					{/* ── SQUADS / CLANS TAB LIST (#4 TO #100) ── */}
 					<Show when={activeTab() === 'squads'}>
 						<Show
 							when={!clansQuery.isLoading}
@@ -377,140 +512,8 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 									</div>
 								}
 							>
-								{/* ════ TOP 3 CLANS PODIUM (Clash of Clans Style) ════ */}
-								<div class="grid grid-cols-3 gap-2 mb-2 items-end pt-2">
-									{/* 2nd Place */}
-									<Show when={top3Clans()[1]}>
-										{(clan) => {
-											const score = clan().total_score || clan().members_count * 1500;
-											return (
-												<div class="flex flex-col items-center bg-[#10141e] border border-slate-300/30 rounded-2xl p-2.5 relative pt-4 hover:border-slate-300/60 transition-all group">
-													<div class="w-6 h-6 rounded-full bg-slate-300/20 border border-slate-300/40 text-slate-200 font-mono font-black text-[11px] flex items-center justify-center absolute -top-3 shadow-md">
-														2
-													</div>
-													<div class="w-12 h-12 rounded-xl bg-[#161b28] border border-slate-300/30 flex items-center justify-center overflow-hidden mb-2 shrink-0">
-														{clan().channel_photo ? (
-															<img
-																src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`}
-																alt={clan().chat_title}
-																class="w-full h-full object-cover"
-															/>
-														) : (
-															<span class="material-symbols-outlined text-slate-300 text-xl">
-																shield
-															</span>
-														)}
-													</div>
-													<span class="text-white font-bold text-xs truncate max-w-full text-center mb-0.5">
-														{clan().chat_title}
-													</span>
-													<span class="text-white/40 text-[10px] font-mono mb-2" dir="ltr">
-														{clan().members_count} members
-													</span>
-													<span class="text-slate-200 font-mono font-black text-xs mb-2 tabular-nums">
-														🪙 {formatScore(score)}
-													</span>
-													<button
-														onClick={() => openChannel(clan().channel_username)}
-														class="w-full py-1.5 rounded-lg bg-slate-300/10 hover:bg-[#0098ea] hover:text-white border border-slate-300/20 text-slate-200 text-[11px] font-bold flex items-center justify-center gap-1 transition-all active:scale-95"
-													>
-														<span>Join</span>
-														<span class="material-symbols-outlined text-[13px]">open_in_new</span>
-													</button>
-												</div>
-											);
-										}}
-									</Show>
-
-									{/* 1st Place (Center - Gold Highlighted) */}
-									<Show when={top3Clans()[0]}>
-										{(clan) => {
-											const score = clan().total_score || clan().members_count * 1500;
-											return (
-												<div class="flex flex-col items-center bg-[#10141e] border-2 border-amber-400/50 rounded-2xl p-3 relative pt-5 shadow-[0_0_24px_rgba(245,158,11,0.2)] hover:border-amber-400 transition-all group -mt-2">
-													<div class="w-7 h-7 rounded-full bg-amber-400 border border-amber-300 text-black font-mono font-black text-xs flex items-center justify-center absolute -top-3.5 shadow-lg">
-														👑 1
-													</div>
-													<div class="w-14 h-14 rounded-xl bg-[#161b28] border-2 border-amber-400/40 flex items-center justify-center overflow-hidden mb-2 shrink-0">
-														{clan().channel_photo ? (
-															<img
-																src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`}
-																alt={clan().chat_title}
-																class="w-full h-full object-cover"
-															/>
-														) : (
-															<span class="material-symbols-outlined text-amber-400 text-2xl">
-																shield
-															</span>
-														)}
-													</div>
-													<span class="text-white font-black text-xs truncate max-w-full text-center mb-0.5">
-														{clan().chat_title}
-													</span>
-													<span class="text-white/40 text-[10px] font-mono mb-2" dir="ltr">
-														{clan().members_count} members
-													</span>
-													<span class="text-amber-400 font-mono font-black text-xs mb-2 tabular-nums">
-														🪙 {formatScore(score)}
-													</span>
-													<button
-														onClick={() => openChannel(clan().channel_username)}
-														class="w-full py-1.5 rounded-lg bg-amber-400 text-black font-extrabold text-[11px] flex items-center justify-center gap-1 transition-all active:scale-95 shadow-md"
-													>
-														<span>Join</span>
-														<span class="material-symbols-outlined text-[13px]">open_in_new</span>
-													</button>
-												</div>
-											);
-										}}
-									</Show>
-
-									{/* 3rd Place */}
-									<Show when={top3Clans()[2]}>
-										{(clan) => {
-											const score = clan().total_score || clan().members_count * 1500;
-											return (
-												<div class="flex flex-col items-center bg-[#10141e] border border-amber-700/30 rounded-2xl p-2.5 relative pt-4 hover:border-amber-700/60 transition-all group">
-													<div class="w-6 h-6 rounded-full bg-amber-700/20 border border-amber-600/40 text-amber-500 font-mono font-black text-[11px] flex items-center justify-center absolute -top-3 shadow-md">
-														3
-													</div>
-													<div class="w-12 h-12 rounded-xl bg-[#161b28] border border-amber-700/30 flex items-center justify-center overflow-hidden mb-2 shrink-0">
-														{clan().channel_photo ? (
-															<img
-																src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`}
-																alt={clan().chat_title}
-																class="w-full h-full object-cover"
-															/>
-														) : (
-															<span class="material-symbols-outlined text-amber-600 text-xl">
-																shield
-															</span>
-														)}
-													</div>
-													<span class="text-white font-bold text-xs truncate max-w-full text-center mb-0.5">
-														{clan().chat_title}
-													</span>
-													<span class="text-white/40 text-[10px] font-mono mb-2" dir="ltr">
-														{clan().members_count} members
-													</span>
-													<span class="text-amber-500 font-mono font-black text-xs mb-2 tabular-nums">
-														🪙 {formatScore(score)}
-													</span>
-													<button
-														onClick={() => openChannel(clan().channel_username)}
-														class="w-full py-1.5 rounded-lg bg-amber-700/10 hover:bg-[#0098ea] hover:text-white border border-amber-700/20 text-amber-500 text-[11px] font-bold flex items-center justify-center gap-1 transition-all active:scale-95"
-													>
-														<span>Join</span>
-														<span class="material-symbols-outlined text-[13px]">open_in_new</span>
-													</button>
-												</div>
-											);
-										}}
-									</Show>
-								</div>
-
 								{/* ════ CLANS RANK 4 TO 100 ════ */}
-								<div class="flex flex-col gap-2 mt-2">
+								<div class="flex flex-col gap-2">
 									<For each={restClans()}>
 										{(clan, i) => {
 											const score = clan.total_score || clan.members_count * 1500;
