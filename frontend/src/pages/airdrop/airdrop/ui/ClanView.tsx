@@ -248,7 +248,7 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 														</div>
 														<div class="flex items-center gap-2 mt-0.5" dir="ltr">
 															<span class="text-white/40 text-[11px] font-mono">
-																@{clan.channel_username}
+																@{clan.channel_username.replace(/^@+/, '')}
 															</span>
 															<span class="text-white/20">·</span>
 															<span class="text-white/50 text-[11px] font-medium">

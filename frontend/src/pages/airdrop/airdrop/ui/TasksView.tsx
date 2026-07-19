@@ -450,7 +450,7 @@ export const TasksView: Component = () => {
 																					podcasts
 																				</span>
 																				{(task.config as any)?.channel_username
-																					? `@${(task.config as any).channel_username}`
+																					? `@${(task.config as any).channel_username.replace(/^@+/, '')}`
 																					: actionText}
 																			</span>
 																		)}
