@@ -12,6 +12,7 @@ import (
 	"ifragment-backend/internal/service/username"
 	"ifragment-backend/internal/service/username/avm"
 	"log/slog"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
