@@ -889,6 +889,16 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 						_ = tg.SendMessage(ctx, userID, fmt.Sprintf("Payment received. Your @%s report is unlocked:\n%s", username, reportURL), nil, nil)
 					}
 				}
+			} else if strings.HasPrefix(pay.InvoicePayload, "val_stars:") {
+				parts := strings.Split(pay.InvoicePayload, ":")
+				if len(parts) >= 3 {
+					userID, parseErr := strconv.ParseInt(parts[1], 10, 64)
+					username := parts[2]
+					if parseErr == nil && username != "" {
+						tg, _ := h.moderator.GetTelegramClient(ctx, bot)
+						_ = tg.SendMessage(ctx, userID, fmt.Sprintf("Payment received! You now have 24-hour full access to @%s AI valuation.", username), nil, nil)
+					}
+				}
 			} else {
 				// Payment Notification
 				ownerLang, _ := h.db.GetUserLanguage(ctx, msg.From.ID)

@@ -149,3 +149,52 @@ func (db *Database) CompleteChannelStarsPayment(ctx context.Context, payload str
 
 	return tx.Commit(ctx)
 }
+
+// HasPaidValuation checks if a user has a paid valuation order for the specified username within the last 24 hours.
+// Returns (hasAccess, method, error).
+func (db *Database) HasPaidValuation(ctx context.Context, userID int64, username string) (bool, string, error) {
+	if db.Pool == nil {
+		return false, "", nil
+	}
+	query := `
+		SELECT payload
+		FROM orders
+		WHERE user_id = $1
+		  AND status = 'paid'
+		  AND created_at > NOW() - INTERVAL '24 hours'
+		  AND (payload LIKE $2 OR payload LIKE $3 OR payload LIKE $4)
+		ORDER BY created_at DESC
+		LIMIT 1
+	`
+	p1 := "val_coins:" + username + "%"
+	p2 := "val_stars:" + fmt.Sprintf("%d:%s", userID, username) + "%"
+	p3 := "val_free:" + fmt.Sprintf("%d:%s", userID, username) + "%"
+	var payload string
+	err := db.Pool.QueryRow(ctx, query, userID, p1, p2, p3).Scan(&payload)
+	if err == pgx.ErrNoRows {
+		return false, "", nil
+	}
+	if err != nil {
+		return false, "", err
+	}
+
+	method := "coins"
+	if len(payload) >= 8 && payload[:8] == "val_free" {
+		method = "free"
+	} else if len(payload) >= 9 && payload[:9] == "val_stars" {
+		method = "stars"
+	}
+	return true, method, nil
+}
+
+// HasUsedFreeValuationQuota checks if a user has ever claimed a free valuation.
+func (db *Database) HasUsedFreeValuationQuota(ctx context.Context, userID int64) (bool, error) {
+	if db.Pool == nil {
+		return false, nil
+	}
+	query := `SELECT EXISTS(SELECT 1 FROM orders WHERE user_id = $1 AND starts_with(payload, 'val_free:') AND status = 'paid')`
+	var exists bool
+	err := db.Pool.QueryRow(ctx, query, userID).Scan(&exists)
+	return exists, err
+}
+

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"ifragment-backend/internal/service/notification"
+	"ifragment-backend/internal/service/payment"
 
 	"github.com/google/uuid"
 	"github.com/gotd/td/tg"
@@ -33,6 +34,8 @@ type UsernameHandler struct {
 	avmService    *avm.ValuationService
 	mtprotoClient mtproto.Client
 	cache         *repository.Cache
+	db            *repository.Database
+	starsService  *payment.StarsService
 	sfGroup       singleflight.Group
 	activeStreams atomic.Int64
 }
@@ -43,6 +46,8 @@ func NewUsernameHandler(
 	m mtproto.Client,
 	c *repository.Cache,
 	avmSvc *avm.ValuationService,
+	db *repository.Database,
+	starsSvc *payment.StarsService,
 ) *UsernameHandler {
 	return &UsernameHandler{
 		service:       s,
@@ -50,6 +55,8 @@ func NewUsernameHandler(
 		avmService:    avmSvc,
 		mtprotoClient: m,
 		cache:         c,
+		db:            db,
+		starsService:  starsSvc,
 	}
 }
 
@@ -834,5 +841,223 @@ func (h *UsernameHandler) GetContact(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(profile)
 }
+
+type valuationPayRequest struct {
+	Username string `json:"username"`
+}
+
+func (h *UsernameHandler) ValuationAccess(w http.ResponseWriter, r *http.Request) {
+	u := r.URL.Query().Get("u")
+	if u == "" {
+		RespondError(w, r, http.StatusBadRequest, "missing username", nil)
+		return
+	}
+	u = strings.TrimPrefix(u, "@")
+	ctx := r.Context()
+	userID, _ := middleware.GetUserID(ctx)
+
+	hasAccess := false
+	method := ""
+	if userID > 0 && h.cache != nil {
+		accessKey := fmt.Sprintf("val_access:%d:%s", userID, u)
+		if val, err := h.cache.Client.Get(ctx, accessKey).Result(); err == nil && val != "" {
+			hasAccess = true
+			method = val
+		}
+	}
+
+	if !hasAccess && userID > 0 && h.db != nil {
+		paid, payMethod, err := h.db.HasPaidValuation(ctx, userID, u)
+		if err == nil && paid {
+			hasAccess = true
+			method = payMethod
+			if h.cache != nil {
+				h.cache.Client.Set(ctx, fmt.Sprintf("val_access:%d:%s", userID, u), payMethod, 24*time.Hour)
+			}
+		}
+	}
+
+	freeQuotaUsed := false
+	if userID > 0 {
+		if h.cache != nil {
+			if val, err := h.cache.Client.Get(ctx, fmt.Sprintf("val_free_used:%d", userID)).Result(); err == nil && val == "true" {
+				freeQuotaUsed = true
+			}
+		}
+		if !freeQuotaUsed && h.db != nil {
+			used, err := h.db.HasUsedFreeValuationQuota(ctx, userID)
+			if err == nil && used {
+				freeQuotaUsed = true
+				if h.cache != nil {
+					h.cache.Client.Set(ctx, fmt.Sprintf("val_free_used:%d", userID), "true", 30*24*time.Hour)
+				}
+			}
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"has_access":      hasAccess,
+		"method":          method,
+		"free_quota_used": freeQuotaUsed,
+		"in_channel":      true,
+		"in_group":        true,
+	})
+}
+
+func (h *UsernameHandler) ValuationPayAirdrop(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID, errUser := middleware.GetUserID(ctx)
+	if errUser != nil || userID <= 0 {
+		RespondError(w, r, http.StatusUnauthorized, "Unauthorized", nil)
+		return
+	}
+
+	var req valuationPayRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Username == "" {
+		RespondError(w, r, http.StatusBadRequest, "Invalid request body", nil)
+		return
+	}
+	u := strings.TrimPrefix(req.Username, "@")
+
+	if h.db == nil {
+		RespondError(w, r, http.StatusServiceUnavailable, "Database unavailable", nil)
+		return
+	}
+
+	const priceFRG = 50000.0
+
+	profile, err := h.db.GetProfileStats(ctx, userID)
+	if err != nil || profile == nil || profile.AirdropCoins < priceFRG {
+		currentBalance := 0.0
+		if profile != nil {
+			currentBalance = profile.AirdropCoins
+		}
+		RespondError(w, r, http.StatusBadRequest, fmt.Sprintf("Insufficient coin balance. Required: 50,000 FRG (You have %.0f)", currentBalance), nil)
+		return
+	}
+
+	_, err = h.db.AdjustAirdropCoins(ctx, userID, -priceFRG)
+	if err != nil {
+		slog.Error("Failed to deduct airdrop coins for valuation", "user_id", userID, "username", u, "err", err)
+		RespondError(w, r, http.StatusInternalServerError, "Failed to process payment", nil)
+		return
+	}
+
+	payload := fmt.Sprintf("val_coins:%s:%d:%d", u, userID, time.Now().Unix())
+	_, _ = h.db.CreateOrder(ctx, repository.Order{
+		UserID:  userID,
+		Amount:  50000,
+		Status:  "paid",
+		Payload: payload,
+	})
+
+	if h.cache != nil {
+		h.cache.Client.Set(ctx, fmt.Sprintf("val_access:%d:%s", userID, u), "coins", 24*time.Hour)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"method":  "coins",
+	})
+}
+
+func (h *UsernameHandler) ValuationPayStars(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID, errUser := middleware.GetUserID(ctx)
+	if errUser != nil || userID <= 0 {
+		RespondError(w, r, http.StatusUnauthorized, "Unauthorized", nil)
+		return
+	}
+
+	var req valuationPayRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Username == "" {
+		RespondError(w, r, http.StatusBadRequest, "Invalid request body", nil)
+		return
+	}
+	u := strings.TrimPrefix(req.Username, "@")
+
+	if h.starsService == nil {
+		RespondError(w, r, http.StatusServiceUnavailable, "Stars payment service unavailable", nil)
+		return
+	}
+
+	payload := fmt.Sprintf("val_stars:%d:%s:%d", userID, u, time.Now().Unix())
+	invoiceLink, err := h.starsService.CreateInvoiceLink(
+		fmt.Sprintf("Valuation Access: @%s", u),
+		fmt.Sprintf("Unlock 24-hour AI valuation for Telegram username @%s", u),
+		payload,
+		49,
+	)
+	if err != nil {
+		slog.Error("Failed to create Stars invoice for valuation", "user_id", userID, "username", u, "err", err)
+		RespondError(w, r, http.StatusInternalServerError, "Failed to generate Stars invoice", nil)
+		return
+	}
+
+	if h.db != nil {
+		_, _ = h.db.CreateOrder(ctx, repository.Order{
+			UserID:  userID,
+			Amount:  49,
+			Status:  "pending",
+			Payload: payload,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"invoice_link": invoiceLink,
+	})
+}
+
+func (h *UsernameHandler) ValuationVerifyFree(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID, errUser := middleware.GetUserID(ctx)
+	if errUser != nil || userID <= 0 {
+		RespondError(w, r, http.StatusUnauthorized, "Unauthorized", nil)
+		return
+	}
+
+	var req valuationPayRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Username == "" {
+		RespondError(w, r, http.StatusBadRequest, "Invalid request body", nil)
+		return
+	}
+	u := strings.TrimPrefix(req.Username, "@")
+
+	if h.db != nil {
+		used, err := h.db.HasUsedFreeValuationQuota(ctx, userID)
+		if err == nil && used {
+			RespondError(w, r, http.StatusBadRequest, "Free valuation quota has already been used", nil)
+			return
+		}
+	}
+
+	if h.cache != nil {
+		h.cache.Client.Set(ctx, fmt.Sprintf("val_free_used:%d", userID), "true", 30*24*time.Hour)
+		h.cache.Client.Set(ctx, fmt.Sprintf("val_access:%d:%s", userID, u), "free", 24*time.Hour)
+	}
+
+	if h.db != nil {
+		payload := fmt.Sprintf("val_free:%d:%s:%d", userID, u, time.Now().Unix())
+		_, _ = h.db.CreateOrder(ctx, repository.Order{
+			UserID:  userID,
+			Amount:  0,
+			Status:  "paid",
+			Payload: payload,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":    true,
+		"has_access": true,
+		"in_channel": true,
+		"in_group":   true,
+	})
+}
+
+
 
 

@@ -327,7 +327,7 @@ func main() {
 
 	avmService := avm.NewValuationService(db, cache, tonClient)
 
-	usernameHandler := handler.NewUsernameHandler(aggregatorService, analysisService, mtprotoClient, cache, avmService)
+	usernameHandler := handler.NewUsernameHandler(aggregatorService, analysisService, mtprotoClient, cache, avmService, db, paymentService)
 
 	webhookHandler := handler.NewWebhookHandler(db, moderatorService, botRepo, channelService)
 	botMgmtHandler := handler.NewBotMgmtHandler(botService, paymentService)
@@ -480,6 +480,11 @@ func main() {
 				r.Get("/valuate", usernameHandler.Valuate)
 				r.Post("/share", usernameHandler.Share)
 				r.With(middleware.AuthMiddleware).Post("/send-to-chat", usernameHandler.SendToChat)
+
+				r.With(middleware.AuthMiddleware).Get("/valuation-access", usernameHandler.ValuationAccess)
+				r.With(middleware.AuthMiddleware).Post("/valuation-pay-airdrop", usernameHandler.ValuationPayAirdrop)
+				r.With(middleware.AuthMiddleware).Post("/valuation-pay-stars", usernameHandler.ValuationPayStars)
+				r.With(middleware.AuthMiddleware).Post("/valuation-verify-free", usernameHandler.ValuationVerifyFree)
 			})
 
 			// ─── Collection Stats API ─────────────────────────
