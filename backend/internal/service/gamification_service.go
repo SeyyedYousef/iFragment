@@ -540,7 +540,7 @@ func (s *GamificationService) GetTasksStatus(ctx context.Context, userID int64) 
 			_ = json.Unmarshal(q.Config, &config)
 			q.ActionText = config.ChannelUsername
 			if q.ActionText == "" {
-				q.ActionText = "@ifragment_channel"
+				q.ActionText = "@Fragmentscommunity"
 			}
 			if !strings.HasPrefix(q.ActionText, "@") && !strings.HasPrefix(q.ActionText, "-") {
 				q.ActionText = "@" + q.ActionText
@@ -637,7 +637,7 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 		_ = json.Unmarshal(target.Config, &config)
 		channelName := config.ChannelUsername
 		if channelName == "" {
-			channelName = "@ifragment_channel" // fallback
+			channelName = "@Fragmentscommunity" // fallback
 		} else if !strings.HasPrefix(channelName, "@") && !strings.HasPrefix(channelName, "-") {
 			channelName = "@" + channelName
 		}

@@ -87,7 +87,7 @@ export const OwnerQuests: Component = () => {
 		setExpiresAt(defaultExpiry.toISOString().slice(0, 10));
 
 		setParentKey('');
-		setChannelUsername('@ifragment_channel');
+		setChannelUsername('@Fragmentscommunity');
 		setQuizQuestion('What is the ticker symbol of iFragment?');
 		setQuizAnswer('FRG');
 		setTaskUrl('https://ifragment.app');
@@ -487,7 +487,7 @@ export const OwnerQuests: Component = () => {
 											value={taskUrl()}
 											onInput={(e) => setTaskUrl(e.currentTarget.value)}
 											class="h-9 px-3 bg-[#0f1014] border border-[#2a2c35] text-white text-xs font-bold rounded-xl focus:outline-none focus:border-[#3390ec] transition-all"
-											placeholder="https://t.me/ifragment_net"
+											placeholder="https://t.me/Fragmentscommunity"
 										/>
 									</div>
 								</div>
@@ -505,7 +505,7 @@ export const OwnerQuests: Component = () => {
 											value={channelUsername()}
 											onInput={(e) => setChannelUsername(e.currentTarget.value)}
 											class="h-9 px-3 bg-[#0f1014] border border-[#2a2c35] text-white text-xs font-bold rounded-xl focus:outline-none focus:border-[#3390ec] transition-all"
-											placeholder="مثلاً @ifragment_channel"
+											placeholder="مثلاً @Fragmentscommunity"
 										/>
 									</div>
 								</div>

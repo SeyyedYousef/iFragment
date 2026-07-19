@@ -88,7 +88,7 @@ export const TasksPage: Component = () => {
 
 			// If joining telegram channel, redirect user to the link first
 			if (task.type === 'channel_join' || key === 'join_ifragment_channel') {
-				let channelName = task.config?.channel_username || 'ifragment_net';
+				let channelName = task.config?.channel_username || 'Fragmentscommunity';
 				channelName = channelName.replace(/^@/, '');
 				try {
 					openTelegramLink(`https://t.me/${channelName}`);

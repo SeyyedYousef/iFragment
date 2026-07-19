@@ -3,7 +3,10 @@ package username
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
 	"ifragment-backend/internal/client/fragment"
+	"ifragment-backend/internal/client/mtproto"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/username/avm"
 	"math"
@@ -29,10 +32,47 @@ type SimilarUsername struct {
 	RarityScore  int     `json:"rarity_score"`
 	FragmentURL  string  `json:"fragment_url"`
 	OwnerAddress string  `json:"owner_address,omitempty"`
-	Status       string  `json:"status,omitempty"`          // "sold", "available", "on_sale", "on_auction", "non_nft"
+	Status       string  `json:"status,omitempty"`          // "sold", "available", "on_sale", "on_auction", "taken", "non_nft"
 	SalePrice    float64 `json:"sale_price,omitempty"`      // Last sale price in TON
 	SalePriceUSD float64 `json:"sale_price_usd,omitempty"` // Last sale price in USD
 	SaleDate     string  `json:"sale_date,omitempty"`       // Date of last sale
+}
+
+func checkTelegramWebStatus(ctx context.Context, username string) string {
+	client := &http.Client{Timeout: 3 * time.Second}
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://t.me/"+username, nil)
+	if err != nil {
+		return ""
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+	resp, err := client.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return "available"
+	}
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+
+	bodyBytes, err := io.ReadAll(io.LimitReader(resp.Body, 512*1024))
+	if err != nil {
+		return ""
+	}
+	html := string(bodyBytes)
+
+	// Check if page contains active user/channel/bot profile elements
+	if strings.Contains(html, "extra_actions") || strings.Contains(html, "tgme_page_title") || strings.Contains(html, "tgme_page_extra") || strings.Contains(html, "View in Telegram") {
+		return "taken"
+	}
+	if strings.Contains(html, "right away") || strings.Contains(html, "you can contact") {
+		return "available"
+	}
+
+	return ""
 }
 
 func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username string, limit int) ([]SimilarUsername, error) {
@@ -168,7 +208,63 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 				}
 			}
 
-			// 4. Fragment Web Scraper check if status is still unknown or missing sale price
+			// 4. Fetch past auction sales via TonAPI GetFragmentBids if SalePrice is not yet known
+			if (results[idx].Status == "sold" || results[idx].Status == "on_sale" || results[idx].Status == "") && results[idx].SalePrice == 0 && s.tonClient != nil {
+				if bidsResp, errBids := s.tonClient.GetFragmentBids(ctx, uName+".t.me"); errBids == nil && bidsResp != nil {
+					for _, bid := range bidsResp.Data {
+						if bid.Success && bid.Value > 0 {
+							results[idx].Status = "sold"
+							results[idx].SalePrice = float64(bid.Value) / 1e9
+							if bid.TxTime > 0 {
+								results[idx].SaleDate = time.Unix(bid.TxTime, 0).Format(time.RFC3339)
+							}
+							if bid.Bidder.Address != "" {
+								results[idx].OwnerAddress = bid.Bidder.Address
+							}
+							// Cache scraped sale into local DB
+							if s.db != nil {
+								sDate := time.Now()
+								if bid.TxTime > 0 {
+									sDate = time.Unix(bid.TxTime, 0)
+								}
+								buyer := bid.Bidder.Address
+								_, _ = s.db.InsertSale(ctx, repository.Sale{
+									Username:     uName,
+									SalePriceTON: decimal.NewFromFloat(results[idx].SalePrice),
+									SaleType:     "auction",
+									SaleDate:     sDate,
+									BuyerAddress: &buyer,
+									Source:       "tonapi_bids",
+								})
+							}
+							break
+						}
+					}
+				}
+			}
+
+			// 5. Check Telegram MTProto if available
+			if s.mtprotoClient != nil {
+				mtStatus, mtErr := s.mtprotoClient.CheckUsername(ctx, uName)
+				if mtErr == nil {
+					switch mtStatus {
+					case mtproto.StatusOccupied:
+						if results[idx].Status == "" {
+							results[idx].Status = "taken"
+						}
+					case mtproto.StatusPurchase:
+						if results[idx].Status == "" || results[idx].Status == "available" {
+							results[idx].Status = "on_sale"
+						}
+					case mtproto.StatusAvailable:
+						if results[idx].Status == "" {
+							results[idx].Status = "available"
+						}
+					}
+				}
+			}
+
+			// 6. Fragment Web Scraper check if status is still unknown or missing sale price
 			if results[idx].Status == "" || results[idx].Status == "available" || (results[idx].Status == "sold" && results[idx].SalePrice == 0) {
 				fStatus, fErr := fragClient.CheckUsername(ctx, uName)
 				if fErr == nil {
@@ -180,7 +276,9 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 					case fragment.StatusSold:
 						results[idx].Status = "sold"
 					case fragment.StatusAvailable:
-						results[idx].Status = "available"
+						if results[idx].Status == "" {
+							results[idx].Status = "available"
+						}
 					}
 				}
 
@@ -205,16 +303,24 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 				}
 			}
 
-			// 5. Fallback heuristics if status is still missing
+			// 6. Telegram Web check (t.me/<username>) if status is still empty or uncertain
+			if results[idx].Status == "" || results[idx].Status == "available" {
+				webStatus := checkTelegramWebStatus(ctx, uName)
+				if webStatus != "" {
+					results[idx].Status = webStatus
+				}
+			}
+
+			// 7. Fallback heuristics if status is still missing
 			if results[idx].Status == "" {
 				if len(lowerName) <= 5 || isDictionaryWord(lowerName) {
-					results[idx].Status = "sold"
+					results[idx].Status = "taken"
 				} else {
 					results[idx].Status = "available"
 				}
 			}
 
-			// 6. Calculate USD sale price
+			// 8. Calculate USD sale price
 			if results[idx].SalePrice > 0 {
 				results[idx].SalePriceUSD = math.Round(results[idx].SalePrice*tonRate*100) / 100
 			}

@@ -242,7 +242,7 @@ func (c *Client) doRequest(ctx context.Context, url string) (*http.Response, err
 		}
 
 		shouldLog := true
-		if resp.StatusCode == http.StatusBadRequest && (strings.Contains(bodyPreview, "not resolved") || strings.Contains(bodyPreview, "entity not found")) {
+		if strings.Contains(bodyPreview, "not resolved") || strings.Contains(bodyPreview, "entity not found") {
 			shouldLog = false
 		}
 
