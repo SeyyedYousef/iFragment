@@ -365,22 +365,32 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 	return result
 }
 
-// scoreToMultiplier converts the 0-100 score into a price multiplier.
+// scoreToMultiplier converts the 0-100 score into a calibrated price multiplier.
 func (e *SemanticEngine) scoreToMultiplier(score float64, length int, tags []string, isDict bool) float64 {
 	var multiplier float64
 
-	// Penalty zone: scale from 0.1x to 1.0x
+	// Length-calibrated max score multipliers to avoid exponential runaway on shorter base prices
+	maxBaseMultiplier := 50.0
+	if length == 4 {
+		maxBaseMultiplier = 25.0 // Base price ~2,500 - 5,000 TON -> ~62,500 - 125,000 TON
+	} else if length == 5 {
+		maxBaseMultiplier = 40.0 // Base price ~50 TON -> ~2,000 TON
+	} else if length <= 3 {
+		maxBaseMultiplier = 80.0
+	}
+
+	// Penalty zone: scale from 0.05x to 1.0x
 	if score < 45.0 {
 		normalized := score / 45.0
-		multiplier = 0.1 + math.Pow(normalized, 3.0)*0.9
+		multiplier = 0.05 + math.Pow(normalized, 3.0)*0.95
 		// Dictionary words should never be penalized below 1.0x
 		if isDict && multiplier < 1.0 {
 			multiplier = 1.0
 		}
 	} else {
-		// Premium zone: scale from 1.0x (at score 45) to 100.0x (at score 100) using 1.5 power
+		// Premium zone: scale from 1.0x (at score 45) to maxBaseMultiplier (at score 100) using 1.5 power
 		normalized := (score - 45.0) / 55.0
-		multiplier = 1.0 + math.Pow(normalized, 1.5)*99.0
+		multiplier = 1.0 + math.Pow(normalized, 1.5)*(maxBaseMultiplier-1.0)
 	}
 
 	// Tag-Based Pricing
@@ -388,56 +398,57 @@ func (e *SemanticEngine) scoreToMultiplier(score float64, length int, tags []str
 	for _, t := range tags {
 		tag := strings.ToLower(t)
 		if strings.Contains(tag, "crypto") || strings.Contains(tag, "web3") || strings.Contains(tag, "blockchain") {
-			tagMultiplier *= 1.8
-		} else if tag == "brand" || strings.HasPrefix(tag, "brand:") || strings.Contains(tag, "company") || strings.Contains(tag, "startup") {
-			tagMultiplier *= 1.6
-		} else if strings.Contains(tag, "country") || strings.Contains(tag, "location") || strings.Contains(tag, "city") {
 			tagMultiplier *= 1.5
-		} else if strings.Contains(tag, "gaming") || strings.Contains(tag, "game") || strings.Contains(tag, "esports") {
+		} else if tag == "brand" || strings.HasPrefix(tag, "brand:") || strings.Contains(tag, "company") || strings.Contains(tag, "startup") {
+			tagMultiplier *= 1.4
+		} else if strings.Contains(tag, "country") || strings.Contains(tag, "location") || strings.Contains(tag, "city") {
 			tagMultiplier *= 1.3
+		} else if strings.Contains(tag, "gaming") || strings.Contains(tag, "game") || strings.Contains(tag, "esports") {
+			tagMultiplier *= 1.2
 		}
 		
-		if tag == "wiki_popular" {
-			tagMultiplier *= 1.5
-		}
-		if tag == "brand_verified" {
-			tagMultiplier *= 2.0
-		}
-		if tag == "internet_slang" {
-			tagMultiplier *= 1.50
-		}
-		if tag == "color_premium" {
+		if tag == "exclusivity_status_premium" {
 			tagMultiplier *= 1.25
 		}
-		if tag == "geo_premium" {
-			tagMultiplier *= 1.40
+		if tag == "wiki_popular" {
+			tagMultiplier *= 1.3
 		}
-		if tag == "emoji_word" {
+		if tag == "brand_verified" {
+			tagMultiplier *= 1.8
+		}
+		if tag == "internet_slang" {
+			tagMultiplier *= 1.30
+		}
+		if tag == "color_premium" {
 			tagMultiplier *= 1.20
 		}
+		if tag == "geo_premium" {
+			tagMultiplier *= 1.30
+		}
+		if tag == "emoji_word" {
+			tagMultiplier *= 1.15
+		}
 		if tag == "crypto_ultra_premium" {
-			tagMultiplier *= 4.00
+			tagMultiplier *= 3.00
 		}
 		if tag == "general_ultra_premium" {
-			tagMultiplier *= 3.00
+			tagMultiplier *= 2.20
 		}
 	}
 	
 	// Hard cap on Tag-Based Multiplier stacking
-	if tagMultiplier > 10.0 {
-		tagMultiplier = 10.0
+	if tagMultiplier > 6.0 {
+		tagMultiplier = 6.0
 	}
 	multiplier *= tagMultiplier
 
 	// Cultural Significance / Mega-Entity Boost
-	// If a word is long but STILL scores legendary (70+), it means it's a massive global 
-	// entity (like a country, megabrand). We boost it so its price can rival short words.
 	if score >= 70.0 && length >= 6 {
-		multiplier *= 1.5
+		multiplier *= 1.3
 	}
 
-	// Cap at maximum 200x after tag adjustments
-	return math.Min(multiplier, 200.0)
+	// Cap at maximum 150x after tag adjustments
+	return math.Min(multiplier, 150.0)
 }
 
 // splitCamelCase splits a string into words based on CamelCase.

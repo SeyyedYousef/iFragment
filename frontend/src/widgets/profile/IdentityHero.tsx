@@ -2,6 +2,7 @@ import { initData } from '@tma.js/sdk-solid';
 import { createMemo, createSignal, createEffect, Show } from 'solid-js';
 import { getLevelInfo, type ProfileStats } from '@/shared/store/profile.js';
 import { API_CONFIG } from '@/shared/api/config.js';
+import { formatNumber, t } from '@/shared/i18n/index.js';
 
 interface Props {
 	stats: ProfileStats | null;
@@ -83,7 +84,7 @@ export const IdentityHero = (props: Props) => {
 					<div class="flex items-center gap-1.5 bg-[#3390ec]/15 border border-[#3390ec]/30 px-3 py-1.5 rounded-xl backdrop-blur-md">
 						<span class="material-symbols-outlined text-[15px] text-[#3390ec]" style={{ 'font-variation-settings': '"FILL" 1' }}>star</span>
 						<span class="text-white text-xs font-black">
-							سطح {info().current.level}: {info().current.title}
+							{t('profile.levelBadge', { level: formatNumber(info().current.level), title: info().current.title })}
 						</span>
 					</div>
 
@@ -92,7 +93,7 @@ export const IdentityHero = (props: Props) => {
 						<div class="flex items-center gap-1.5 bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl backdrop-blur-md">
 							<span class="material-symbols-outlined text-[15px] text-white/50">public</span>
 							<span class="text-white/60 text-xs font-bold">
-								رتبه <span class="text-white font-mono font-black">#{props.stats?.globalRank?.toLocaleString()}</span>
+								{t('profile.rankBadge', { rank: formatNumber(props.stats?.globalRank || 0) })}
 							</span>
 						</div>
 					</Show>

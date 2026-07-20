@@ -1,7 +1,7 @@
 import { Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { ShopView } from './ShopView.js';
-import { t } from '@/shared/i18n/index.js';
+import { formatNumber, t } from '@/shared/i18n/index.js';
 import {
 	balance,
 	currentLeague,
@@ -303,8 +303,8 @@ export const TapView: Component<{
 										<span class="text-xl">🛡️</span>
 									</div>
 									<div class="flex flex-col items-start text-right">
-										<span class="font-black text-sm text-white">{t('tapView.joinClan' as any) || 'عضویت در کلن'}</span>
-										<span class="text-[11px] text-white/50 font-medium">به گروه یا کانال بپیوندید</span>
+										<span class="font-black text-sm text-white">{t('airdrop.clan.joinClanBtn')}</span>
+										<span class="text-[11px] text-white/50 font-medium">{t('airdrop.clan.joinClanSubtitle')}</span>
 									</div>
 								</div>
 								<div class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/40 group-hover:text-white group-hover:bg-white/10 transition-all">
@@ -353,9 +353,9 @@ export const TapView: Component<{
 											</span>
 											<div class="flex items-center gap-1.5 mt-0.5">
 												<span class="text-xs font-mono font-bold text-white/80 tabular-nums">
-													{score.toLocaleString('fa-IR')}
+													{formatNumber(score)}
 												</span>
-												<span class="text-[11px] font-bold text-white/50">امتیاز</span>
+												<span class="text-[11px] font-bold text-white/50">{t('airdrop.clan.scoreLabelText')}</span>
 											</div>
 										</div>
 									</div>
@@ -384,7 +384,7 @@ export const TapView: Component<{
 					}
 					setShowShopModal(true);
 				}}
-				class="flex items-center justify-center gap-3 active:scale-95 transition-transform relative z-20 mt-8 mb-2"
+				class="flex items-center justify-center gap-2.5 active:scale-95 transition-transform relative z-20 mt-3 mb-1"
 				dir="ltr"
 			>
 				{showShopCoachmark() && (
@@ -393,10 +393,10 @@ export const TapView: Component<{
 					</div>
 				)}
 				{/* Proper solid yellow coin icon WITH text inside */}
-				<div class="w-[42px] h-[42px] rounded-full bg-gradient-to-br from-[#ffcd00] to-[#ff9500] shadow-[inset_0_-4px_8px_rgba(0,0,0,0.2),0_0_15px_rgba(255,176,0,0.4)] flex items-center justify-center shrink-0 border-[2px] border-[#ffe885]">
-					<span class="text-black text-[24px] font-black leading-none mt-0.5">¢</span>
+				<div class="w-9 h-9 rounded-full bg-gradient-to-br from-[#ffcd00] to-[#ff9500] shadow-[inset_0_-3px_6px_rgba(0,0,0,0.2),0_0_12px_rgba(255,176,0,0.4)] flex items-center justify-center shrink-0 border-[2px] border-[#ffe885]">
+					<span class="text-black text-[20px] font-black leading-none mt-0.5">¢</span>
 				</div>
-				<span class="text-white font-black text-[56px] leading-none tracking-tight tab-num drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
+				<span class="text-white font-black text-4xl sm:text-[44px] leading-none tracking-tight tab-num drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
 					{balance().toLocaleString('en-US')}
 				</span>
 			</button>
@@ -404,16 +404,16 @@ export const TapView: Component<{
 			{/* 3. Rank & League (Z-20) */}
 			<button
 				onClick={() => props.onLeagueClick?.()}
-				class="flex items-center gap-2 mt-2 relative z-20 active:scale-95 transition-transform"
+				class="flex items-center gap-2 mt-0.5 mb-1 relative z-20 active:scale-95 transition-transform"
 				dir="ltr"
 			>
 				<Show 
 					when={globalRank() > 0}
 					fallback={
 						<div class="flex items-center gap-1">
-							<span class="text-white/40 text-[18px] font-light">{'{'}</span>
-							<span class="text-white/80 text-[14px] font-bold tracking-wide">{t('airdropTabs.unranked' as any) || 'Unranked'}</span>
-							<span class="text-white/40 text-[18px] font-light">{'}'}</span>
+							<span class="text-white/40 text-[16px] font-light">{'{'}</span>
+							<span class="text-white/80 text-[13px] font-bold tracking-wide">{t('airdropTabs.unranked' as any) || 'Unranked'}</span>
+							<span class="text-white/40 text-[16px] font-light">{'}'}</span>
 						</div>
 					}
 				>
@@ -428,27 +428,27 @@ export const TapView: Component<{
 
 						return (
 							<div class="flex items-center gap-1">
-								<span class="text-white/40 text-[18px] font-light">{'{'}</span>
-								<span class="text-white/80 text-[15px] font-black tracking-wide drop-shadow-md">
+								<span class="text-white/40 text-[16px] font-light">{'{'}</span>
+								<span class="text-white/80 text-[14px] font-black tracking-wide drop-shadow-md">
 									{rank.toLocaleString('en-US')}{suffix}
 								</span>
-								<span class="text-white/40 text-[18px] font-light">{'}'}</span>
+								<span class="text-white/40 text-[16px] font-light">{'}'}</span>
 							</div>
 						);
 					})()}
 				</Show>
-				<span class="text-white/20 text-[12px] mx-2">•</span>
+				<span class="text-white/20 text-[12px] mx-1.5">•</span>
 				<div class="flex items-center gap-1.5">
-					<span class="text-[16px]">🏆</span>
-					<span class="text-[14px] font-bold text-white/80">{currentLeague().name}</span>
+					<span class="text-[15px]">🏆</span>
+					<span class="text-[13px] font-bold text-white/80">{currentLeague().name}</span>
 					<span class="material-symbols-outlined text-[14px] text-white/40">chevron_right</span>
 				</div>
 			</button>
 
-			{/* 4. The Giant Glowing Coin (Z-10) */}
-			<div class="flex-1 flex flex-col items-center justify-center w-full relative z-10 py-6">
+			{/* 4. The Glowing Tap Coin (Scaled Appropriately - Z-10) */}
+			<div class="flex-1 flex flex-col items-center justify-center w-full relative z-10 py-2">
 				{/* Spinning Coin rim light (subtle) */}
-				<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[310px] h-[310px] rounded-full pointer-events-none"
+				<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[225px] h-[225px] sm:w-[245px] sm:h-[245px] rounded-full pointer-events-none"
 					style={{
 						background: isTurboActive() 
 							? 'conic-gradient(from 0deg, #ff404080, transparent, #ff404080, transparent, #ff404080)'
@@ -460,7 +460,7 @@ export const TapView: Component<{
 					}} 
 				/>
 
-				<div class={`relative flex items-center justify-center w-[85vw] max-w-[340px] aspect-square ${isPressed() ? '' : 'coin-wrapper'} ${isShaking() ? 'animate-shake' : ''}`}>
+				<div class={`relative flex items-center justify-center w-[62vw] max-w-[240px] aspect-square ${isPressed() ? '' : 'coin-wrapper'} ${isShaking() ? 'animate-shake' : ''}`}>
 					
 					{/* THE COIN: Pure Black Background */}
 					<button 
@@ -468,7 +468,7 @@ export const TapView: Component<{
 						onPointerUp={handlePointerUp}
 						onPointerLeave={handlePointerUp}
 						onPointerCancel={handlePointerUp}
-						class="relative w-[300px] h-[300px] rounded-full z-20 flex items-center justify-center touch-none select-none bg-black"
+						class="relative w-[215px] h-[215px] sm:w-[235px] sm:h-[235px] rounded-full z-20 flex items-center justify-center touch-none select-none bg-black"
 						style={{
 							transform: isPressed() ? 'scale(0.96)' : 'scale(1)',
 							transition: 'transform 0.08s cubic-bezier(.2,.8,.2,1)',
@@ -480,8 +480,8 @@ export const TapView: Component<{
 						}}
 					>
 						{/* Floating Combo Counter */}
-						<div class={`absolute top-8 right-8 pointer-events-none transition-all duration-300 ${showCombo() ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`}>
-							<span class="text-white font-black text-[24px] drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] italic">
+						<div class={`absolute top-6 right-6 pointer-events-none transition-all duration-300 ${showCombo() ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`}>
+							<span class="text-white font-black text-[20px] drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] italic">
 								x{comboCount()}
 							</span>
 						</div>
@@ -489,7 +489,7 @@ export const TapView: Component<{
 						{/* SVG - Fragment Logo Style */}
 						<svg
 							viewBox="0 0 100 100"
-							class="w-[50%] h-[50%] relative z-10"
+							class="w-[48%] h-[48%] relative z-10"
 							style={{ 
 								filter: isTurboActive() 
 									? 'drop-shadow(0px 0px 15px rgba(255,80,80,1))'
@@ -526,25 +526,25 @@ export const TapView: Component<{
 			</div>
 
 			{/* 5. Ultra-Premium Bottom Action Area (Z-30) */}
-			<div class="w-full flex items-center justify-between px-4 mt-auto mb-[88px] relative z-30 pointer-events-none" dir="ltr">
+			<div class="w-full flex items-center justify-between px-4 mt-auto mb-[76px] relative z-30 pointer-events-none" dir="ltr">
 				{/* Energy Counter with Glowing Progress Bar (LEFT SIDE) */}
 				<div class="flex flex-col items-start pointer-events-auto select-none space-y-1">
 					<div class="flex items-center gap-1.5">
-						<span class="text-[26px] leading-none text-[#FFC107] drop-shadow-[0_0_12px_rgba(255,193,7,0.8)] animate-pulse">
+						<span class="text-[24px] leading-none text-[#FFC107] drop-shadow-[0_0_12px_rgba(255,193,7,0.8)] animate-pulse">
 							⚡
 						</span>
 						<div class="flex items-baseline gap-1 font-mono">
-							<span class="text-white text-[24px] font-black tracking-tight tabular-nums drop-shadow-md">
+							<span class="text-white text-[22px] font-black tracking-tight tabular-nums drop-shadow-md">
 								{energy().toLocaleString('fa-IR')}
 							</span>
-							<span class="text-white/40 text-[14px] font-bold tabular-nums">
+							<span class="text-white/40 text-[13px] font-bold tabular-nums">
 								/ {maxEnergy().toLocaleString('fa-IR')}
 							</span>
 						</div>
 					</div>
 
 					{/* Sleek Energy Mini Bar */}
-					<div class="w-28 h-1.5 bg-black/60 backdrop-blur-md rounded-full overflow-hidden border border-white/10 p-[0.5px] shadow-inner">
+					<div class="w-24 h-1.5 bg-black/60 backdrop-blur-md rounded-full overflow-hidden border border-white/10 p-[0.5px] shadow-inner">
 						<div
 							class="h-full bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-300 rounded-full transition-all duration-300 shadow-[0_0_10px_rgba(245,158,11,0.7)]"
 							style={{ width: `${Math.max(0, Math.min(100, (energy() / maxEnergy()) * 100))}%` }}
@@ -553,19 +553,19 @@ export const TapView: Component<{
 				</div>
 
 				{/* Floating Action Pills Capsule (RIGHT SIDE) */}
-				<div class="flex items-center bg-[#0F1117]/90 backdrop-blur-2xl rounded-[22px] p-1 border border-white/15 shadow-[0_12px_40px_rgba(0,0,0,0.8)] hover:border-white/25 transition-all duration-300 pointer-events-auto gap-0.5" dir="rtl">
+				<div class="flex items-center bg-[#0F1117]/90 backdrop-blur-2xl rounded-[20px] p-1 border border-white/15 shadow-[0_12px_40px_rgba(0,0,0,0.8)] hover:border-white/25 transition-all duration-300 pointer-events-auto gap-0.5" dir="rtl">
 					{/* Upgrade / Boosters */}
 					<button
 						onClick={() => props.onActionClick?.('boost')}
-						class="flex flex-col items-center justify-center min-w-[68px] px-2.5 py-1.5 rounded-[16px] hover:bg-[#f59e0b]/10 active:scale-95 transition-all group duration-200 cursor-pointer"
+						class="flex flex-col items-center justify-center min-w-[64px] px-2 py-1.5 rounded-[15px] hover:bg-[#f59e0b]/10 active:scale-95 transition-all group duration-200 cursor-pointer"
 					>
 						<span
-							class="material-symbols-outlined text-[22px] mb-0.5 text-[#f59e0b] group-hover:scale-115 group-active:scale-95 transition-transform duration-200 drop-shadow-[0_0_12px_rgba(245,158,11,0.8)]"
+							class="material-symbols-outlined text-[20px] mb-0.5 text-[#f59e0b] group-hover:scale-115 group-active:scale-95 transition-transform duration-200 drop-shadow-[0_0_12px_rgba(245,158,11,0.8)]"
 							style={{ 'font-variation-settings': '"FILL" 1' }}
 						>
 							rocket_launch
 						</span>
-						<span class="text-white/90 group-hover:text-white text-[11px] font-black tracking-wide">
+						<span class="text-white/90 group-hover:text-white text-[10px] font-black tracking-wide">
 							{t('airdropTabs.boost' as any) || 'ارتقا'}
 						</span>
 					</button>
@@ -573,15 +573,15 @@ export const TapView: Component<{
 					{/* Tasks */}
 					<button
 						onClick={() => props.onActionClick?.('earn')}
-						class="flex flex-col items-center justify-center min-w-[68px] px-2.5 py-1.5 rounded-[16px] hover:bg-[#10b981]/10 active:scale-95 transition-all group duration-200 cursor-pointer"
+						class="flex flex-col items-center justify-center min-w-[64px] px-2 py-1.5 rounded-[15px] hover:bg-[#10b981]/10 active:scale-95 transition-all group duration-200 cursor-pointer"
 					>
 						<span
-							class="material-symbols-outlined text-[22px] mb-0.5 text-[#10b981] group-hover:scale-115 group-active:scale-95 transition-transform duration-200 drop-shadow-[0_0_12px_rgba(16,185,129,0.8)]"
+							class="material-symbols-outlined text-[20px] mb-0.5 text-[#10b981] group-hover:scale-115 group-active:scale-95 transition-transform duration-200 drop-shadow-[0_0_12px_rgba(16,185,129,0.8)]"
 							style={{ 'font-variation-settings': '"FILL" 1' }}
 						>
 							task_alt
 						</span>
-						<span class="text-white/90 group-hover:text-white text-[11px] font-black tracking-wide">
+						<span class="text-white/90 group-hover:text-white text-[10px] font-black tracking-wide">
 							{t('airdropTabs.earn' as any) || 'تسک‌ها'}
 						</span>
 					</button>
@@ -589,15 +589,15 @@ export const TapView: Component<{
 					{/* Friends */}
 					<button
 						onClick={() => props.onActionClick?.('frens')}
-						class="flex flex-col items-center justify-center min-w-[68px] px-2.5 py-1.5 rounded-[16px] hover:bg-[#3b82f6]/10 active:scale-95 transition-all group duration-200 cursor-pointer"
+						class="flex flex-col items-center justify-center min-w-[64px] px-2 py-1.5 rounded-[15px] hover:bg-[#3b82f6]/10 active:scale-95 transition-all group duration-200 cursor-pointer"
 					>
 						<span
-							class="material-symbols-outlined text-[22px] mb-0.5 text-[#3b82f6] group-hover:scale-115 group-active:scale-95 transition-transform duration-200 drop-shadow-[0_0_12px_rgba(59,130,246,0.8)]"
+							class="material-symbols-outlined text-[20px] mb-0.5 text-[#3b82f6] group-hover:scale-115 group-active:scale-95 transition-transform duration-200 drop-shadow-[0_0_12px_rgba(59,130,246,0.8)]"
 							style={{ 'font-variation-settings': '"FILL" 1' }}
 						>
 							group
 						</span>
-						<span class="text-white/90 group-hover:text-white text-[11px] font-black tracking-wide">
+						<span class="text-white/90 group-hover:text-white text-[10px] font-black tracking-wide">
 							{t('airdropTabs.frens' as any) || 'دوستان'}
 						</span>
 					</button>

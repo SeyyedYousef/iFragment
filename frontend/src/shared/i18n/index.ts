@@ -99,9 +99,17 @@ export const getDict = () => {
 // Type-safe translator: wrong keys cause a compile-time error
 export const t = i18n.translator(getDict, i18n.resolveTemplate) as (key: DictPaths, args?: Record<string, any>) => string;
 
-// Helper to format numbers based on active locale (Always use en-US to force Latin/English digits)
+// Helper to format numbers based on active locale
+export const getIntlLocale = (): string => {
+	const loc = getLocale();
+	if (loc === 'fa') return 'fa-IR';
+	if (loc === 'ru') return 'ru-RU';
+	if (loc === 'zh') return 'zh-CN';
+	return 'en-US';
+};
+
 export const formatNumber = (num: number): string => {
-	return num.toLocaleString('en-US');
+	return num.toLocaleString(getIntlLocale());
 };
 
 export const formatCoins = (coins: number | undefined | null): string => {

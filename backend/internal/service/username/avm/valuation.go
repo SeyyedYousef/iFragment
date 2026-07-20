@@ -580,12 +580,18 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	}
 
 	// --- ANCHOR OVERRIDE (Redesign) ---
-	// Inject the exact historical username sale as a highly weighted target comparable
+	// Inject the exact historical username sale as a highly weighted target comparable.
+	// Live scraped or database target sales take priority over in-memory hardcoded dataset.
 	lowerUsername := strings.ToLower(username)
 	var anchorInjected bool
 
-	if hardcodedPrice, ok := HistoricalSales[lowerUsername]; ok && hardcodedPrice > 0 {
-		// 1. In-Memory Hardcoded Historical Dataset
+	if len(targetComps) > 0 {
+		// 1. Postgres Database or Scraped Target Sales (Live Data)
+		anchorInjected = true
+		reasoning["anchor_source"] = "live_scraped_or_db"
+		reasoning["anchor_price"] = targetComps[0].PriceTON
+	} else if hardcodedPrice, ok := HistoricalSales[lowerUsername]; ok && hardcodedPrice > 0 {
+		// 2. Fallback to In-Memory Hardcoded Historical Dataset
 		targetComps = append(targetComps, ComparableSale{
 			PriceTON:   hardcodedPrice,
 			SaleDate:   time.Date(2022, 11, 1, 0, 0, 0, 0, time.UTC), // Fragment username launch date for accurate appreciation
@@ -595,11 +601,6 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		anchorInjected = true
 		reasoning["anchor_source"] = "memory_hardcoded"
 		reasoning["anchor_price"] = hardcodedPrice
-	} else if len(targetComps) > 0 {
-		// 2. Postgres Database or Scraped Target Sales
-		anchorInjected = true
-		reasoning["anchor_source"] = "live_scraped_or_db"
-		reasoning["anchor_price"] = targetComps[0].PriceTON
 	}
 
 	// Apply annual market appreciation to historical sales (including injected anchors)
@@ -724,32 +725,21 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	semanticLog *= dampingFactor // Dampen semantic impact based on dampingFactor
 	
 	if anchorInjected {
-		isOldAnchor := false
-		if len(targetComps) > 0 && now.Sub(targetComps[0].SaleDate).Hours() > (18*30*24) {
-			isOldAnchor = true
-		}
+		// For anchored sales, the historical sale price ALREADY captures the username's morphology and baseline desirability.
+		// Morphology is zeroed out to prevent double-counting.
+		morphLog = 0.0
+		reasoning["anchor_morphology_zeroed"] = true
 
-		// For anchored sales, semantic multiplier represents market drift over base price.
-		// Cap maximum drift multiplier to 6.0x to prevent compounding explosions on appreciated base.
-		if semResult != nil && semResult.Multiplier > 6.0 {
-			semanticLog = math.Log(6.0)
-			reasoning["anchor_semantic_capped_multiplier"] = 6.0
-		}
-
-		// Only zero out morphLog and apply aggressive semantic damping if the anchor is recent or non-dictionary
-		if !isOldAnchor || (!features.IsDictionary && features.SemanticScore < 60) {
-			morphLog = 0.0 // Morphology is static and already captured by historical anchor price
-			reasoning["anchor_damping_applied"] = true
-
-			anchorPrice := math.Exp(baseLog)
-			if anchorPrice > 0 {
-				semanticDamp := 1.0 / (1.0 + anchorPrice/50000.0)
-				semanticLog *= semanticDamp
-				reasoning["anchor_semantic_damping"] = semanticDamp
-			}
+		// Semantic multiplier for anchored sales represents minor market sentiment drift (capped to max +15% / 1.15x).
+		maxDrift := 1.15
+		if semResult != nil && semResult.Multiplier > 1.0 {
+			driftVal := math.Min(semResult.Multiplier, maxDrift)
+			semanticLog = math.Log(driftVal)
+			reasoning["anchor_semantic_drift_multiplier"] = driftVal
 		} else {
-			reasoning["anchor_damping_bypassed_old_sale"] = true
+			semanticLog = 0.0
 		}
+		reasoning["anchor_damping_applied"] = true
 	}
 	
 	reasoning["semantic_log"] = semanticLog

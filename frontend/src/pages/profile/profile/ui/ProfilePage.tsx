@@ -5,7 +5,7 @@ import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createSignal, ErrorBoundary, For, onMount, Show } from 'solid-js';
 import { useSecretTrigger } from '@/features/owner-gate/lib/useSecretTrigger.js';
 import { getProfileAchievements, getProfileStats } from '@/shared/api/profile.js';
-import { locale, setLocale } from '@/shared/i18n/index.js';
+import { locale, setLocale, t } from '@/shared/i18n/index.js';
 import { setProfilePhotoUrl } from '@/shared/store/profile.js';
 import { ErrorFallback } from '@/shared/ui/ErrorFallback.js';
 import { SkeletonProfile } from '@/shared/ui/Skeleton.js';
