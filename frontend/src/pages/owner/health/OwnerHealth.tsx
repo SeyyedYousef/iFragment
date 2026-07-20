@@ -1,24 +1,28 @@
-import { Component, createSignal, onMount, Show, For } from 'solid-js';
-import { Title } from '@solidjs/meta';
-import { OwnerTabs } from '@/widgets/owner/OwnerTabs.js';
-import { apiClient } from '@/shared/api/axios.js';
+import { Component, createSignal, onMount, onCleanup, Show, For } from 'solid-js';
+import { ownerApi, SystemHealthMetrics } from '@/shared/api/owner.js';
 
 export const OwnerHealth: Component = () => {
-	const [metrics, setMetrics] = createSignal<any>(null);
-	const [errors, setErrors] = createSignal<any[]>([]);
+	const [metrics, setMetrics] = createSignal<SystemHealthMetrics | null>(null);
+	const [logs, setLogs] = createSignal<string[]>([]);
 	const [loading, setLoading] = createSignal(true);
 	const [fetchError, setFetchError] = createSignal('');
+	const [lastUpdated, setLastUpdated] = createSignal('');
+
+	let intervalTimer: any;
 
 	const fetchData = async () => {
+		if (document.hidden) return; // Pause polling when tab is hidden
+		setFetchError('');
 		try {
-			const [metricsResp, errorsResp] = await Promise.all([
-				apiClient.get('/owner/health/metrics'),
-				apiClient.get('/owner/health/errors'),
+			const [m, l] = await Promise.all([
+				ownerApi.getHealthMetrics().catch(() => null),
+				ownerApi.getHealthLogs().catch(() => ({ logs: [] })),
 			]);
-			setMetrics(metricsResp.data);
-			setErrors(errorsResp.data || []);
+			if (m) setMetrics(m);
+			setLogs(l.logs || []);
+			setLastUpdated(new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
 		} catch (e: any) {
-			setFetchError(e.response?.data?.error || 'خطا در دریافت وضعیت سیستم');
+			setFetchError(e.response?.data?.error || 'خطا در دریافت پایش سلامت سرور');
 		} finally {
 			setLoading(false);
 		}
@@ -26,103 +30,104 @@ export const OwnerHealth: Component = () => {
 
 	onMount(() => {
 		fetchData();
-		// Auto refresh metrics every 10 seconds
-		const interval = setInterval(fetchData, 10000);
-		return () => clearInterval(interval);
+		// Solid JS explicit onCleanup for polling interval
+		intervalTimer = setInterval(fetchData, 10000);
+	});
+
+	onCleanup(() => {
+		if (intervalTimer) clearInterval(intervalTimer);
 	});
 
 	return (
-		<div class="min-h-screen bg-[#0f1016] text-white pb-20">
-			<Title>پنل مدیریت | سلامت سیستم</Title>
-			<OwnerTabs active="health" />
-
-			<div class="p-6 max-w-6xl mx-auto mt-4">
-				<div class="mb-8">
-					<h1 class="text-3xl font-black mb-2 text-transparent bg-clip-text bg-gradient-to-l from-white to-white/50">
-						سلامت سیستم و مانیتورینگ
-					</h1>
-					<p class="text-white/50 text-sm font-bold">
-						رصد منابع سرور و خطاهای سیستم تلگرام به صورت زنده
-					</p>
+		<div class="space-y-6">
+			{/* Header */}
+			<div class="bg-[#16171d]/60 border border-white/5 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
+				<div>
+					<h2 class="text-sm font-black text-white">پایش سلامت سرور و مانیتورینگ زنده (Health Monitoring)</h2>
+					<Show when={lastUpdated()}>
+						<p class="text-xs text-white/40 font-bold mt-0.5">آخرین همگام‌سازی: {lastUpdated()}</p>
+					</Show>
 				</div>
 
-				<Show when={fetchError()}>
-					<div class="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-2xl mb-6 font-bold text-sm">
-						{fetchError()}
-					</div>
-				</Show>
-
-				<Show
-					when={!loading()}
-					fallback={
-						<div class="flex justify-center py-20">
-							<div class="w-8 h-8 border-4 border-[#3390ec]/30 border-t-[#3390ec] rounded-full animate-spin"></div>
-						</div>
-					}
+				<button
+					onClick={fetchData}
+					disabled={loading()}
+					class="h-9 px-4 bg-[#3390ec]/10 hover:bg-[#3390ec]/20 border border-[#3390ec]/30 text-[#3390ec] text-xs font-bold rounded-xl transition-all active:scale-95 flex items-center gap-1.5"
 				>
-					<div class="space-y-8">
-						{/* Server Metrics Cards */}
-						<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-							<div class="bg-white/5 border border-white/5 rounded-3xl p-6">
-								<div class="text-white/50 text-xs font-bold uppercase mb-2">وضعیت دیتابیس</div>
-								<div class={`text-2xl font-black ${metrics()?.db_status === 'healthy' ? 'text-green-400' : 'text-red-400'}`}>
-									{metrics()?.db_status === 'healthy' ? 'متصل (Healthy)' : 'قطع ارتباط'}
-								</div>
-							</div>
-							<div class="bg-white/5 border border-white/5 rounded-3xl p-6">
-								<div class="text-white/50 text-xs font-bold uppercase mb-2">رشته‌های پردازشی (Goroutines)</div>
-								<div class="text-2xl font-black text-amber-400">
-									{metrics()?.goroutines}
-								</div>
-							</div>
-							<div class="bg-white/5 border border-white/5 rounded-3xl p-6">
-								<div class="text-white/50 text-xs font-bold uppercase mb-2">رم اختصاص یافته (Allocated)</div>
-								<div class="text-2xl font-black text-blue-400">
-									{metrics()?.allocated_mb} MB
-								</div>
-							</div>
-							<div class="bg-white/5 border border-white/5 rounded-3xl p-6">
-								<div class="text-white/50 text-xs font-bold uppercase mb-2">کل رم مصرفی سیستم (Sys)</div>
-								<div class="text-2xl font-black text-[#3390ec]">
-									{metrics()?.total_sys_mb} MB
-								</div>
-							</div>
-						</div>
-
-						{/* System Errors Table */}
-						<div class="bg-white/5 border border-white/5 rounded-3xl p-6">
-							<div class="flex justify-between items-center mb-4">
-								<h3 class="font-black text-xl">لاگ خطاهای تلگرام (Flood Wait & Limits)</h3>
-								<button onClick={fetchData} class="p-2 bg-white/10 hover:bg-white/20 rounded-xl transition">
-									<span class="material-symbols-outlined text-[16px]">refresh</span>
-								</button>
-							</div>
-							<div class="overflow-x-auto">
-								<table class="w-full text-sm text-right">
-									<thead class="text-xs text-white/50 uppercase bg-white/5">
-										<tr>
-											<th class="px-6 py-3 rounded-tr-xl">سورس</th>
-											<th class="px-6 py-3">پیام خطا</th>
-											<th class="px-6 py-3 rounded-tl-xl">تاریخ و زمان</th>
-										</tr>
-									</thead>
-									<tbody>
-										<For each={errors()} fallback={<tr><td colSpan="3" class="text-center py-4 text-white/50">هیچ خطایی در سیستم یافت نشد</td></tr>}>
-											{(err) => (
-												<tr class="border-b border-white/5 hover:bg-white/5">
-													<td class="px-6 py-4 font-bold text-amber-400">{err.source}</td>
-													<td class="px-6 py-4 text-xs font-mono text-red-300 max-w-lg">{err.error_message}</td>
-													<td class="px-6 py-4 text-xs" dir="ltr">{new Date(err.created_at).toLocaleString('fa-IR')}</td>
-												</tr>
-											)}
-										</For>
-									</tbody>
-								</table>
-							</div>
-						</div>
-					</div>
-				</Show>
+					<span class={`material-symbols-outlined text-[16px] ${loading() ? 'animate-spin' : ''}`}>sync</span>
+					بروزرسانی دستی
+				</button>
 			</div>
+
+			<Show when={fetchError()}>
+				<div class="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-400 text-xs font-bold">
+					<span class="material-symbols-outlined text-xl">error</span>
+					<span>{fetchError()}</span>
+				</div>
+			</Show>
+
+			<Show
+				when={!loading() || metrics()}
+				fallback={
+					<div class="flex flex-col items-center justify-center py-20 gap-3">
+						<div class="w-8 h-8 border-3 border-[#3390ec] border-t-transparent rounded-full animate-spin" />
+						<span class="text-xs text-white/50 font-bold">در حال آنالیز سلامت دیتابیس و منابع...</span>
+					</div>
+				}
+			>
+				{/* Metrics Grid */}
+				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+					{/* DB Status */}
+					<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-5 space-y-2">
+						<span class="text-[10px] text-white/40 font-black uppercase tracking-wider block">وضعیت دیتابیس PostgreSQL</span>
+						<div class="flex items-center gap-2">
+							<span class={`w-3 h-3 rounded-full ${metrics()?.db_status === 'ok' ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'}`} />
+							<span class="text-lg font-black text-white">{metrics()?.db_status === 'ok' ? 'متصل (Online)' : 'اختلال'}</span>
+						</div>
+						<p class="text-[10px] text-emerald-400 font-mono font-bold">پاسخ‌دهی: {metrics()?.db_latency_ms || 1} ms</p>
+					</div>
+
+					{/* Goroutines */}
+					<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-5 space-y-2">
+						<span class="text-[10px] text-white/40 font-black uppercase tracking-wider block">پروسه‌های همزمان (Goroutines)</span>
+						<div class="text-2xl font-black text-amber-400 font-mono">{metrics()?.active_goroutines || 0}</div>
+						<p class="text-[10px] text-white/40 font-bold">رشته‌های پردازشی پویا در سرور Go</p>
+					</div>
+
+					{/* Memory RAM */}
+					<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-5 space-y-2">
+						<span class="text-[10px] text-white/40 font-black uppercase tracking-wider block">مصرف حافظه رم (Allocated RAM)</span>
+						<div class="text-2xl font-black text-[#3390ec] font-mono">{metrics()?.memory_used_mb || 0} MB</div>
+						<p class="text-[10px] text-[#3390ec] font-bold">اختصاص یافته به برنامه</p>
+					</div>
+
+					{/* Redis Health */}
+					<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-5 space-y-2">
+						<span class="text-[10px] text-white/40 font-black uppercase tracking-wider block">حافظه کش Redis</span>
+						<div class="flex items-center gap-2">
+							<span class={`w-3 h-3 rounded-full ${metrics()?.redis_status === 'ok' ? 'bg-emerald-400' : 'bg-red-500'}`} />
+							<span class="text-lg font-black text-white">{metrics()?.redis_status === 'ok' ? 'فعال (Healthy)' : 'غیرفعال'}</span>
+						</div>
+						<p class="text-[10px] text-white/40 font-bold">ذخیره‌سازی موقت جلسات کاربری</p>
+					</div>
+				</div>
+
+				{/* System Event Logs */}
+				<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-6 space-y-4">
+					<h3 class="text-xs font-black uppercase text-white tracking-wider">لاگ‌ها و خطاهای ثبت‌شده سیستم</h3>
+
+					<div class="bg-black/60 border border-white/10 rounded-2xl p-4 font-mono text-[11px] text-emerald-400 space-y-1.5 overflow-x-auto max-h-80 overflow-y-auto">
+						<Show
+							when={logs().length > 0}
+							fallback={<div class="text-white/40 font-sans text-xs text-center py-4">هیچ خطا یا اخطاری در سرور ثبت نشده است.</div>}
+						>
+							<For each={logs()}>
+								{(entry) => <div class="whitespace-pre-wrap leading-relaxed">{entry}</div>}
+							</For>
+						</Show>
+					</div>
+				</div>
+			</Show>
 		</div>
 	);
 };

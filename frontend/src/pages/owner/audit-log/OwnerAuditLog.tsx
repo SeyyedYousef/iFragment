@@ -1,42 +1,46 @@
-import { useNavigate } from '@solidjs/router';
-import { hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createSignal, For, onMount, Show } from 'solid-js';
-import { apiClient } from '@/shared/api/axios.js';
-import { t } from '@/shared/i18n/index.js';
-import { OwnerTabs } from '@/widgets/owner/OwnerTabs.js';
-
-interface AuditLog {
-	id: string;
-	owner_id: number;
-	action: string;
-	target_user_id?: number;
-	payload?: any;
-	ip_address?: string;
-	user_agent?: string;
-	created_at: string;
-}
+import { ownerApi, AuditLogEntry } from '@/shared/api/owner.js';
+import { hapticFeedback } from '@tma.js/sdk-solid';
 
 export const OwnerAuditLog: Component = () => {
-	const navigate = useNavigate();
-	const [logs, setLogs] = createSignal<AuditLog[]>([]);
+	const [logs, setLogs] = createSignal<AuditLogEntry[]>([]);
 	const [loading, setLoading] = createSignal(true);
 	const [error, setError] = createSignal('');
 	const [offset, setOffset] = createSignal(0);
+	const [hasMore, setHasMore] = createSignal(true);
+	const [searchQuery, setSearchQuery] = createSignal('');
+	const [expandedLogId, setExpandedLogId] = createSignal<string | number | null>(null);
 	const limit = 20;
+
+	const redactSensitiveKeys = (data?: Record<string, any>): Record<string, any> | undefined => {
+		if (!data) return undefined;
+		const clone = { ...data };
+		const sensitivePatterns = ['token', 'password', 'secret', 'initdata', 'auth'];
+		Object.keys(clone).forEach((key) => {
+			if (sensitivePatterns.some((p) => key.toLowerCase().includes(p))) {
+				clone[key] = '*** [REDACTED SECRET] ***';
+			} else if (typeof clone[key] === 'object' && clone[key] !== null) {
+				clone[key] = redactSensitiveKeys(clone[key]);
+			}
+		});
+		return clone;
+	};
 
 	const loadLogs = async (currentOffset: number, append: boolean = false) => {
 		setLoading(true);
+		setError('');
 		try {
-			const resp = await apiClient.get(`/owner/audit-logs?limit=${limit}&offset=${currentOffset}`);
-			const newLogs = resp.data || [];
+			const res = await ownerApi.getAuditLogs(limit, currentOffset);
+			const fetched = res.logs || [];
+			setHasMore(res.has_more ?? fetched.length >= limit);
 
 			if (append) {
-				setLogs([...logs(), ...newLogs]);
+				setLogs([...logs(), ...fetched]);
 			} else {
-				setLogs(newLogs);
+				setLogs(fetched);
 			}
-		} catch (_err: any) {
-			setError('خطا در دریافت اطلاعات سرور');
+		} catch (err: any) {
+			setError(err.response?.data?.error || 'خطا در دریافت لاگ‌های امنیتی سیستم');
 		} finally {
 			setLoading(false);
 		}
@@ -47,129 +51,158 @@ export const OwnerAuditLog: Component = () => {
 	});
 
 	const handleLoadMore = () => {
+		if (loading() || !hasMore()) return;
 		try {
 			hapticFeedback.impactOccurred('light');
 		} catch {}
-		const newOffset = offset() + limit;
-		setOffset(newOffset);
-		loadLogs(newOffset, true);
+		const nextOffset = offset() + limit;
+		setOffset(nextOffset);
+		loadLogs(nextOffset, true);
 	};
 
-	const handleNav = (path: string) => {
+	const toggleExpand = (id: string | number) => {
+		setExpandedLogId(expandedLogId() === id ? null : id);
+	};
+
+	const copyToClipboard = (text: string) => {
+		navigator.clipboard.writeText(text);
 		try {
-			hapticFeedback.impactOccurred('light');
+			hapticFeedback.notificationOccurred('success');
 		} catch {}
-		navigate(path);
+	};
+
+	const filteredLogs = () => {
+		const q = searchQuery().trim().toLowerCase();
+		if (!q) return logs();
+		return logs().filter(
+			(l) =>
+				l.action.toLowerCase().includes(q) ||
+				String(l.owner_id).includes(q) ||
+				(l.target_id && String(l.target_id).includes(q)) ||
+				(l.ip_address && l.ip_address.includes(q))
+		);
 	};
 
 	return (
-		<div class="min-h-screen bg-[#090a0f] text-white pb-32">
-			{/* Header glow */}
-			<div class="absolute top-0 inset-x-0 h-64 bg-gradient-to-b from-[#3390ec]/15 to-transparent pointer-events-none blur-[60px]" />
+		<div class="space-y-6">
+			{/* Search & Action Filter Bar */}
+			<div class="bg-[#16171d]/60 border border-white/5 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
+				<div>
+					<h2 class="text-sm font-black text-white">لاگ‌ها و رویدادهای امنیتی سیستم</h2>
+					<p class="text-xs text-white/40 font-bold mt-0.5">ثبت غیرقابل تغییر (Audit Ledger) تمام تراکنش‌های ارشد</p>
+				</div>
 
-			{/* Header */}
-			<div class="px-6 pt-6 pb-4 flex items-center justify-between border-b border-white/5 relative z-10">
-				<div class="flex items-center gap-3">
-					<div
-						onClick={() => handleNav('/owner/dashboard')}
-						class="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 active:scale-95 transition-all"
-					>
-						<span class="material-symbols-outlined text-[18px] text-white/70">chevron_left</span>
-					</div>
-					<div>
-						<h1 class="text-sm font-black uppercase tracking-wider text-white">
-							لاگ‌های امنیتی سیستم
-						</h1>
-						<p class="text-[9px] text-[#3390ec] font-black uppercase tracking-widest mt-0.5">
-							گزارش رویدادها
-						</p>
-					</div>
+				<div class="w-full md:w-72 bg-black/40 border border-white/10 focus-within:border-[#3390ec] rounded-2xl px-4 flex items-center gap-2.5 transition-all">
+					<span class="material-symbols-outlined text-white/40 text-[18px]">search</span>
+					<input
+						type="text"
+						placeholder="فیلتر رویداد، آی‌پی، شناسه ادمین..."
+						value={searchQuery()}
+						onInput={(e) => setSearchQuery(e.currentTarget.value)}
+						class="w-full h-11 bg-transparent text-xs text-white placeholder-white/30 focus:outline-none"
+					/>
 				</div>
 			</div>
 
-			<OwnerTabs active="audit-logs" />
+			<Show when={error()}>
+				<div class="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-400 text-xs font-bold">
+					<span class="material-symbols-outlined text-xl">error</span>
+					<span>{error()}</span>
+				</div>
+			</Show>
 
-			{/* Content */}
-			<div class="px-6 mt-6 relative z-10">
-				<Show when={error()}>
-					<div class="p-4 bg-red-500/10 border border-red-500/20 rounded-3xl text-center py-6">
-						<span class="material-symbols-outlined text-red-500 text-3xl mb-2">info</span>
-						<p class="text-xs text-red-400 font-bold leading-relaxed">{error()}</p>
-					</div>
-				</Show>
-
-				{/* Logs list */}
-				<div class="flex flex-col gap-3.5">
-					<For each={logs()}>
-						{(log) => (
-							<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-5">
-								<div class="flex justify-between items-start gap-4 mb-2 pb-2 border-b border-white/5">
-									<span class="px-2 py-0.5 rounded bg-[#3390ec]/10 border border-[#3390ec]/20 text-[8px] font-black uppercase tracking-wider text-[#3390ec]">
-										{log.action}
-									</span>
-									<span class="text-[9px] text-[#a0a4ad] font-bold">
-										{new Date(log.created_at).toLocaleString()}
-									</span>
-								</div>
-
-								<div class="flex flex-col gap-1.5 text-xs">
-									<div class="flex justify-between text-white/60">
-										<span class="font-bold">شناسه مدیر</span>
-										<span class="text-white font-medium">{log.owner_id}</span>
+			{/* Log List */}
+			<div class="space-y-3.5">
+				<For each={filteredLogs()}>
+					{(log) => {
+						const isExpanded = () => expandedLogId() === log.id;
+						const safePayload = redactSensitiveKeys(log.payload);
+						return (
+							<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-5 space-y-3 transition-all hover:border-white/20">
+								<div class="flex items-center justify-between gap-3 pb-3 border-b border-white/5">
+									<div class="flex items-center gap-2.5">
+										<span class="px-2.5 py-1 rounded-xl bg-[#3390ec]/10 border border-[#3390ec]/20 text-[10px] font-mono font-bold text-[#3390ec]">
+											{log.action}
+										</span>
+										<span class="text-xs text-white font-bold">ادمین: {log.owner_id}</span>
 									</div>
-									<Show when={log.target_user_id}>
-										<div class="flex justify-between text-white/60">
-											<span class="font-bold">شناسه کاربر هدف</span>
-											<span class="text-[#3390ec] font-medium">{log.target_user_id}</span>
+
+									<span class="text-[10px] text-white/40 font-mono">
+										{log.created_at ? new Date(log.created_at).toLocaleString('fa-IR') : '---'}
+									</span>
+								</div>
+
+								<div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs text-white/70">
+									<Show when={log.target_id}>
+										<div>
+											<span class="text-white/40 font-bold block text-[10px]">موجودیت/کاربر هدف:</span>
+											<span class="font-mono text-white text-xs">{log.target_id}</span>
 										</div>
 									</Show>
+
 									<Show when={log.ip_address}>
-										<div class="flex justify-between text-white/60">
-											<span class="font-bold">آدرس IP</span>
-											<span class="font-mono text-[10px] text-white/80">{log.ip_address}</span>
+										<div>
+											<span class="text-white/40 font-bold block text-[10px]">آدرس IP:</span>
+											<span class="font-mono text-emerald-400 text-xs">{log.ip_address}</span>
 										</div>
 									</Show>
+
 									<Show when={log.user_agent}>
-										<div class="flex flex-col gap-0.5 text-white/60">
-											<span class="font-bold">مرورگر سیستم</span>
-											<span class="text-[10px] text-white/40 leading-relaxed font-mono truncate">
-												{log.user_agent}
-											</span>
-										</div>
-									</Show>
-									<Show when={log.payload}>
-										<div class="mt-2 p-3 bg-[#0f1014] border border-[#2a2c35]/30 rounded-2xl flex flex-col gap-1 font-mono text-[9px] text-white/50">
-											<span class="font-bold text-[#a0a4ad] uppercase text-[8px] tracking-wide mb-1">
-												دیتا تغییرات اعمال شده
-											</span>
-											<pre class="whitespace-pre-wrap break-all leading-normal">
-												{JSON.stringify(log.payload, null, 2)}
-											</pre>
+										<div class="md:col-span-3">
+											<span class="text-white/40 font-bold block text-[10px]">مشخصات مرورگر / User Agent:</span>
+											<span class="font-mono text-[10px] text-white/50 truncate block">{log.user_agent}</span>
 										</div>
 									</Show>
 								</div>
+
+								{/* Payload Viewer */}
+								<Show when={safePayload}>
+									<div class="pt-2">
+										<button
+											onClick={() => toggleExpand(log.id)}
+											class="text-[10px] font-bold text-[#3390ec] flex items-center gap-1 hover:underline"
+										>
+											<span class="material-symbols-outlined text-[14px]">
+												{isExpanded() ? 'unfold_less' : 'unfold_more'}
+											</span>
+											{isExpanded() ? 'پنهان‌سازی جزئیات Payload' : 'مشاهده جزئیات Payload'}
+										</button>
+
+										<Show when={isExpanded()}>
+											<div class="mt-2 p-3 bg-black/60 border border-white/10 rounded-2xl relative font-mono text-[11px] text-emerald-400/90 overflow-x-auto">
+												<button
+													onClick={() => copyToClipboard(JSON.stringify(safePayload, null, 2))}
+													class="absolute top-2 end-2 px-2 py-1 bg-white/10 hover:bg-white/20 text-white rounded text-[9px] font-sans font-bold transition-all"
+												>
+													کپی JSON
+												</button>
+												<pre class="whitespace-pre-wrap leading-relaxed">{JSON.stringify(safePayload, null, 2)}</pre>
+											</div>
+										</Show>
+									</div>
+								</Show>
 							</div>
-						)}
-					</For>
-				</div>
-
-				{/* Load more button */}
-				<Show when={!loading() && logs().length >= limit}>
-					<button
-						onClick={handleLoadMore}
-						class="w-full h-12 mt-6 bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-black uppercase tracking-wider text-white rounded-2xl active:scale-95 transition-all flex items-center justify-center gap-1.5"
-					>
-						<span class="material-symbols-outlined text-[16px]">expand_more</span>
-						بارگذاری بیشتر
-					</button>
-				</Show>
-
-				<Show when={loading()}>
-					<div class="flex justify-center items-center py-8">
-						<div class="w-8 h-8 border-3 border-[#3390ec] border-t-transparent rounded-full animate-spin" />
-					</div>
-				</Show>
+						);
+					}}
+				</For>
 			</div>
+
+			{/* Load More Control */}
+			<Show when={!loading() && hasMore()}>
+				<button
+					onClick={handleLoadMore}
+					class="w-full h-12 bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-black text-white rounded-2xl transition-all flex items-center justify-center gap-2 active:scale-95"
+				>
+					<span class="material-symbols-outlined text-[18px]">expand_more</span>
+					بارگذاری صفحات بعدی
+				</button>
+			</Show>
+
+			<Show when={loading()}>
+				<div class="flex justify-center items-center py-10">
+					<div class="w-8 h-8 border-3 border-[#3390ec] border-t-transparent rounded-full animate-spin" />
+				</div>
+			</Show>
 		</div>
 	);
 };

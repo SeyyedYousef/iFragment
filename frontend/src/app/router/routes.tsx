@@ -51,12 +51,24 @@ import { OwnerHealthPage } from '@/pages/owner/health/index.js';
 import { OwnerEntitiesPage } from '@/pages/owner/entities/index.js';
 import { OwnerAds } from '@/pages/owner/ads/index.js';
 import { UsernamePage } from '@/pages/username/index.js';
+import { OwnerRouteGuard } from './OwnerRouteGuard.js';
+import { OwnerLayout } from '@/widgets/owner/OwnerLayout.js';
 
 interface Route {
 	path: string;
 	Component: Component;
 	title?: string;
 }
+
+const withOwnerGuard = (PageComponent: Component, activeTab: any, title?: string): Component => {
+	return () => (
+		<OwnerRouteGuard>
+			<OwnerLayout activeTab={activeTab} title={title}>
+				<PageComponent />
+			</OwnerLayout>
+		</OwnerRouteGuard>
+	);
+};
 
 export const routes: Route[] = [
 	{ path: '/', Component: IndexPage },
@@ -96,19 +108,19 @@ export const routes: Route[] = [
 	{ path: '/channel/:id/dynamic-bio', Component: ChannelDynamicBioPage },
 	{ path: '/channel/:id/auto-responder', Component: ChannelAutoResponderPage },
 	{ path: '/channel/:id/audit-log', Component: ChannelAuditLogPage },
-	{ path: '/owner/dashboard', Component: OwnerDashboardPage },
-	{ path: '/owner/users', Component: OwnerUsersPage },
-	{ path: '/owner/audit-logs', Component: OwnerAuditLogPage },
-	{ path: '/owner/quests', Component: OwnerQuests },
-	{ path: '/owner/combos', Component: OwnerCombos },
-	{ path: '/owner/userbot', Component: OwnerUserbot },
-	{ path: '/owner/settings', Component: OwnerSettingsPage },
-	{ path: '/owner/promos', Component: OwnerPromosPage },
-	{ path: '/owner/broadcast', Component: OwnerBroadcastPage },
-	{ path: '/owner/finance', Component: OwnerFinancePage },
-	{ path: '/owner/health', Component: OwnerHealthPage, title: 'سلامت سیستم' },
-	{ path: '/owner/entities', Component: OwnerEntitiesPage, title: 'مدیریت گروه‌ها و کانال‌ها' },
-	{ path: '/owner/ads', Component: OwnerAds, title: 'تنظیمات تبلیغات داشبورد' },
+	{ path: '/owner/dashboard', Component: withOwnerGuard(OwnerDashboardPage, 'dashboard', 'داشبورد مدیریتی') },
+	{ path: '/owner/users', Component: withOwnerGuard(OwnerUsersPage, 'users', 'مدیریت کاربران') },
+	{ path: '/owner/audit-logs', Component: withOwnerGuard(OwnerAuditLogPage, 'audit-logs', 'لاگ‌های سیستم') },
+	{ path: '/owner/quests', Component: withOwnerGuard(OwnerQuests, 'quests', 'مدیریت مأموریت‌ها') },
+	{ path: '/owner/combos', Component: withOwnerGuard(OwnerCombos, 'combos', 'کامبو روزانه') },
+	{ path: '/owner/userbot', Component: withOwnerGuard(OwnerUserbot, 'userbot', 'ربات‌های متصل') },
+	{ path: '/owner/settings', Component: withOwnerGuard(OwnerSettingsPage, 'settings', 'تنظیمات سیستم') },
+	{ path: '/owner/promos', Component: withOwnerGuard(OwnerPromosPage, 'promos', 'کدهای هدیه') },
+	{ path: '/owner/broadcast', Component: withOwnerGuard(OwnerBroadcastPage, 'broadcast', 'ارسال همگانی') },
+	{ path: '/owner/finance', Component: withOwnerGuard(OwnerFinancePage, 'finance', 'امور مالی') },
+	{ path: '/owner/health', Component: withOwnerGuard(OwnerHealthPage, 'health', 'سلامت سیستم') },
+	{ path: '/owner/entities', Component: withOwnerGuard(OwnerEntitiesPage, 'entities', 'مدیریت گروه‌ها و کانال‌ها') },
+	{ path: '/owner/ads', Component: withOwnerGuard(OwnerAds, 'ads', 'تنظیمات تبلیغات') },
 	{ path: '/collection-info', Component: CollectionInfoPage },
 	{ path: '/username/report', Component: UsernamePage },
 ];

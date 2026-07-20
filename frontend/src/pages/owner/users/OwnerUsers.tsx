@@ -1,93 +1,55 @@
-import { useNavigate } from '@solidjs/router';
-import { hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createSignal, For, Show } from 'solid-js';
-import { apiClient } from '@/shared/api/axios.js';
-import { OwnerTabs } from '@/widgets/owner/OwnerTabs.js';
-
-interface SearchedUser {
-	telegram_id: number;
-	username: string;
-	first_name: string;
-	last_name: string;
-	language_code: string;
-	created_at: string;
-	balance: number;
-	is_premium: boolean;
-	is_flagged: boolean;
-	fraud_reason: string;
-}
+import { ownerApi, SearchedUser } from '@/shared/api/owner.js';
+import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.js';
+import { hapticFeedback } from '@tma.js/sdk-solid';
 
 export const OwnerUsers: Component = () => {
-	const navigate = useNavigate();
-
-	const showTmaAlert = (message: string) => {
-		const tg = (window as any).Telegram?.WebApp;
-		if (tg?.showAlert) {
-			tg.showAlert(message);
-		} else {
-			alert(message);
-		}
-	};
-
-	const showTmaConfirm = (message: string, onConfirm: () => void) => {
-		const tg = (window as any).Telegram?.WebApp;
-		if (tg?.showConfirm) {
-			tg.showConfirm(message, (ok: boolean) => {
-				if (ok) onConfirm();
-			});
-		} else {
-			if (confirm(message)) {
-				onConfirm();
-			}
-		}
-	};
 	const [query, setQuery] = createSignal('');
 	const [users, setUsers] = createSignal<SearchedUser[]>([]);
 	const [loading, setLoading] = createSignal(false);
 	const [error, setError] = createSignal('');
+	const [activeFilter, setActiveFilter] = createSignal<'all' | 'premium' | 'flagged' | 'banned'>('all');
 
-	// Modals signals
+	// Selected user for danger actions
 	const [selectedUser, setSelectedUser] = createSignal<SearchedUser | null>(null);
-	const [showFrgModal, setShowFrgModal] = createSignal(false);
-	const [showBanModal, setShowBanModal] = createSignal(false);
+	const [actionType, setActionType] = createSignal<'frg' | 'ban' | 'unban' | 'flag' | 'impersonate' | null>(null);
 
-	// FRG Form inputs
+	// Action Form states
 	const [frgAmount, setFrgAmount] = createSignal<number>(0);
-	const [frgReason, setFrgReason] = createSignal('');
-	const [frgLoading, setFrgLoading] = createSignal(false);
-
-	// Ban Form inputs
-	const [banType, setBanType] = createSignal('full'); // 'full', 'shadow', 'wallet_freeze'
-	const [banReason, setBanReason] = createSignal('');
-	const [banDuration, setBanDuration] = createSignal(86400); // 1 day default (in seconds)
-	const [banLoading, setBanLoading] = createSignal(false);
-
-	// Flag Form inputs
-	const [showFlagModal, setShowFlagModal] = createSignal(false);
-	const [flagReason, setFlagReason] = createSignal('');
+	const [banType, setBanType] = createSignal('full');
+	const [banDuration, setBanDuration] = createSignal(86400);
 	const [isFlaggedStatus, setIsFlaggedStatus] = createSignal(false);
-	const [flagLoading, setFlagLoading] = createSignal(false);
+	const [actionLoading, setActionLoading] = createSignal(false);
 
-	const handleSearch = async (e?: Event) => {
-		if (e) e.preventDefault();
-		if (!query().trim()) return;
+	let searchDebounceTimer: any;
 
+	const handleSearchInput = (value: string) => {
+		setQuery(value);
+		if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+		if (!value.trim()) {
+			setUsers([]);
+			setError('');
+			return;
+		}
+
+		searchDebounceTimer = setTimeout(() => {
+			executeSearch(value.trim());
+		}, 300);
+	};
+
+	const executeSearch = async (searchStr: string) => {
+		if (!searchStr) return;
 		setError('');
 		setLoading(true);
-		try {
-			hapticFeedback.impactOccurred('medium');
-		} catch {}
 
 		try {
-			const resp = await apiClient.get(
-				`/owner/users/search?q=${encodeURIComponent(query().trim())}`,
-			);
-			setUsers(resp.data || []);
-			if (resp.data.length === 0) {
-				setError('No users found matching your search query.');
+			const data = await ownerApi.searchUsers(searchStr);
+			setUsers(data || []);
+			if (!data || data.length === 0) {
+				setError('هیچ کاربری با شناسه یا مشخصات وارد شده پیدا نشد.');
 			}
 		} catch (err: any) {
-			setError(err.response?.data?.error || 'User lookup failed.');
+			setError(err.response?.data?.error || 'خطا در برقراری ارتباط با دیتابیس کاربران.');
 			try {
 				hapticFeedback.notificationOccurred('error');
 			} catch {}
@@ -96,556 +58,431 @@ export const OwnerUsers: Component = () => {
 		}
 	};
 
-	const handleImpersonate = (user: SearchedUser) => {
-		try {
-			hapticFeedback.impactOccurred('medium');
-		} catch {}
-
-		showTmaConfirm(
-			`Are you sure you want to impersonate @${user.username || user.telegram_id}? You will enter read-only simulation mode.`,
-			async () => {
-				try {
-					const resp = await apiClient.post('/owner/users/impersonate', {
-						user_id: user.telegram_id,
-					});
-					const { token } = resp.data;
-					if (token) {
-						try {
-							hapticFeedback.notificationOccurred('success');
-						} catch {}
-						// Save the impersonation token in sessionStorage for transient security
-						sessionStorage.setItem('owner_impersonation_token', token);
-						sessionStorage.setItem('impersonated_user_id', String(user.telegram_id));
-						sessionStorage.setItem(
-							'impersonated_username',
-							user.username || String(user.telegram_id),
-						);
-						// Clear cached owner profile data so impersonated user gets fresh data
-						localStorage.removeItem('cached_profile_stats');
-						localStorage.removeItem('cached_profile_achievements');
-						localStorage.removeItem('cached_profile_referral');
-						// Redirect to home under impersonation context.
-						// Use direct location change (not navigate+reload) to avoid race conditions.
-						window.location.href = window.location.pathname + '#/';
-						window.location.reload();
-					}
-				} catch (err: any) {
-					showTmaAlert(err.response?.data?.error || 'Failed to initialize impersonation session.');
-					try {
-						hapticFeedback.notificationOccurred('error');
-					} catch {}
-				}
-			},
-		);
-	};
-
-	const handleOpenFrgModal = (user: SearchedUser) => {
-		try {
-			hapticFeedback.impactOccurred('light');
-		} catch {}
+	// Dialog Handlers
+	const openFrgModal = (user: SearchedUser) => {
 		setSelectedUser(user);
 		setFrgAmount(0);
-		setFrgReason('');
-		setShowFrgModal(true);
+		setActionType('frg');
 	};
 
-	const handleOpenBanModal = (user: SearchedUser) => {
-		try {
-			hapticFeedback.impactOccurred('light');
-		} catch {}
+	const openBanModal = (user: SearchedUser) => {
 		setSelectedUser(user);
-		setBanReason('');
 		setBanType('full');
 		setBanDuration(86400);
-		setShowBanModal(true);
+		setActionType('ban');
 	};
 
-	const handleOpenFlagModal = (user: SearchedUser) => {
-		try {
-			hapticFeedback.impactOccurred('light');
-		} catch {}
+	const openUnbanModal = (user: SearchedUser) => {
 		setSelectedUser(user);
-		setFlagReason(user.fraud_reason || '');
+		setActionType('unban');
+	};
+
+	const openFlagModal = (user: SearchedUser) => {
+		setSelectedUser(user);
 		setIsFlaggedStatus(!user.is_flagged);
-		setShowFlagModal(true);
+		setActionType('flag');
 	};
 
-	const submitFrgAdjustment = async (e: Event) => {
-		e.preventDefault();
+	const openImpersonateModal = (user: SearchedUser) => {
+		setSelectedUser(user);
+		setActionType('impersonate');
+	};
+
+	const closeActionModal = () => {
+		setSelectedUser(null);
+		setActionType(null);
+	};
+
+	// Execute Operations
+	const handleConfirmedAction = async (reason: string) => {
 		const user = selectedUser();
-		if (!user || frgAmount() === 0 || !frgReason().trim()) return;
+		const currentAction = actionType();
+		if (!user || !currentAction) return;
 
-		setFrgLoading(true);
+		setActionLoading(true);
 		try {
-			const resp = await apiClient.post('/owner/users/adjust-frg', {
-				user_id: user.telegram_id,
-				amount: frgAmount(),
-				reason: frgReason().trim(),
-			});
-
-			if (resp.data.success) {
-				try {
+			if (currentAction === 'frg') {
+				const res = await ownerApi.adjustFrg(user.telegram_id, frgAmount(), reason);
+				if (res.success) {
+					setUsers(users().map((u) => (u.telegram_id === user.telegram_id ? { ...u, balance: res.new_balance } : u)));
 					hapticFeedback.notificationOccurred('success');
-				} catch {}
-				// Update user balance locally in the view list
-				setUsers(
-					users().map((u) =>
-						u.telegram_id === user.telegram_id ? { ...u, balance: resp.data.new_balance } : u,
-					),
-				);
-				setShowFrgModal(false);
-			}
-		} catch (err: any) {
-			showTmaAlert(err.response?.data?.error || 'FRG adjustment failed.');
-			try {
-				hapticFeedback.notificationOccurred('error');
-			} catch {}
-		} finally {
-			setFrgLoading(false);
-		}
-	};
-
-	const submitBanOperation = async (e: Event) => {
-		e.preventDefault();
-		const user = selectedUser();
-		if (!user || !banReason().trim()) return;
-
-		setBanLoading(true);
-		try {
-			const resp = await apiClient.post('/owner/users/ban', {
-				user_id: user.telegram_id,
-				ban_type: banType(),
-				reason: banReason().trim(),
-				duration_seconds: banDuration(),
-			});
-
-			if (resp.data.success) {
-				try {
-					hapticFeedback.notificationOccurred('success');
-				} catch {}
-				setShowBanModal(false);
-			}
-		} catch (err: any) {
-			showTmaAlert(err.response?.data?.error || 'Account suspension failed.');
-			try {
-				hapticFeedback.notificationOccurred('error');
-			} catch {}
-		} finally {
-			setBanLoading(false);
-		}
-	};
-
-	const handleUnban = (user: SearchedUser) => {
-		try {
-			hapticFeedback.impactOccurred('medium');
-		} catch {}
-
-		showTmaConfirm(
-			`Are you sure you want to remove all suspensions for user ${user.username || user.telegram_id}?`,
-			async () => {
-				try {
-					const resp = await apiClient.post('/owner/users/unban', { user_id: user.telegram_id });
-					if (resp.data.success) {
-						try {
-							hapticFeedback.notificationOccurred('success');
-						} catch {}
-						showTmaAlert('All bans and locks successfully lifted.');
-					}
-				} catch (err: any) {
-					showTmaAlert(err.response?.data?.error || 'Failed to remove bans.');
-					try {
-						hapticFeedback.notificationOccurred('error');
-					} catch {}
 				}
-			},
-		);
-	};
-
-	const submitFlagOperation = async (e: Event) => {
-		e.preventDefault();
-		const user = selectedUser();
-		if (!user) return;
-
-		setFlagLoading(true);
-		try {
-			const resp = await apiClient.post('/owner/users/flag', {
-				user_id: user.telegram_id,
-				is_flagged: isFlaggedStatus(),
-				fraud_reason: flagReason().trim(),
-			});
-
-			if (resp.data.success) {
-				try {
+			} else if (currentAction === 'ban') {
+				const res = await ownerApi.banUser(user.telegram_id, banType(), reason, banDuration());
+				if (res.success) {
+					setUsers(users().map((u) => (u.telegram_id === user.telegram_id ? { ...u, is_banned: true, ban_reason: reason } : u)));
 					hapticFeedback.notificationOccurred('success');
-				} catch {}
-				setUsers(
-					users().map((u) =>
-						u.telegram_id === user.telegram_id ? { ...u, is_flagged: isFlaggedStatus(), fraud_reason: flagReason().trim() } : u,
-					),
-				);
-				setShowFlagModal(false);
+				}
+			} else if (currentAction === 'unban') {
+				const res = await ownerApi.unbanUser(user.telegram_id);
+				if (res.success) {
+					setUsers(users().map((u) => (u.telegram_id === user.telegram_id ? { ...u, is_banned: false, ban_reason: undefined } : u)));
+					hapticFeedback.notificationOccurred('success');
+				}
+			} else if (currentAction === 'flag') {
+				const res = await ownerApi.flagUser(user.telegram_id, isFlaggedStatus(), reason);
+				if (res.success) {
+					setUsers(users().map((u) => (u.telegram_id === user.telegram_id ? { ...u, is_flagged: isFlaggedStatus(), fraud_reason: reason } : u)));
+					hapticFeedback.notificationOccurred('success');
+				}
+			} else if (currentAction === 'impersonate') {
+				const res = await ownerApi.impersonateUser(user.telegram_id);
+				if (res.token) {
+					sessionStorage.setItem('owner_impersonation_token', res.token);
+					sessionStorage.setItem('impersonated_user_id', String(user.telegram_id));
+					sessionStorage.setItem('impersonated_username', user.username || String(user.telegram_id));
+					localStorage.removeItem('cached_profile_stats');
+					localStorage.removeItem('cached_profile_achievements');
+					localStorage.removeItem('cached_profile_referral');
+					window.location.href = window.location.pathname + '#/';
+					window.location.reload();
+					return;
+				}
 			}
+			closeActionModal();
 		} catch (err: any) {
-			showTmaAlert(err.response?.data?.error || 'Flagging operation failed.');
+			setError(err.response?.data?.error || 'عملیات با خطا مواجه شد.');
 			try {
 				hapticFeedback.notificationOccurred('error');
 			} catch {}
 		} finally {
-			setFlagLoading(false);
+			setActionLoading(false);
 		}
 	};
 
-	const handleNav = (path: string) => {
-		try {
-			hapticFeedback.impactOccurred('light');
-		} catch {}
-		navigate(path);
+	const filteredUsers = () => {
+		const filter = activeFilter();
+		return users().filter((u) => {
+			if (filter === 'premium') return u.is_premium;
+			if (filter === 'flagged') return u.is_flagged;
+			if (filter === 'banned') return u.is_banned;
+			return true;
+		});
+	};
+
+	const getDialogProps = () => {
+		const user = selectedUser();
+		const type = actionType();
+		if (!user || !type) return null;
+
+		if (type === 'frg') {
+			const currentBal = user.balance || 0;
+			const change = frgAmount();
+			const newBal = currentBal + change;
+			return {
+				title: 'تغییر موجودی سکه کاربر (FRG)',
+				description: `افزایش یا کاهش موجودی حساب کاربر @${user.username || user.telegram_id}. تمام تغییرات در سامانه حسابرسی ثبت می‌شوند.`,
+				actionLabel: 'تأیید و اعمال موجودی',
+				riskLevel: (Math.abs(change) > 500000 ? 'high' : 'medium') as 'high' | 'medium',
+				details: [
+					{ label: 'نام کاربر', value: `${user.first_name} ${user.last_name}` },
+					{ label: 'موجودی سکه', before: `${currentBal.toLocaleString()} FRG`, after: `${newBal.toLocaleString()} FRG` },
+				],
+			};
+		}
+
+		if (type === 'ban') {
+			return {
+				title: 'مسدودسازی حساب کاربر (Ban)',
+				description: `محدودسازی دسترسی کاربر @${user.username || user.telegram_id} به سیستم iFragment.`,
+				actionLabel: 'اعمال مسدودیت',
+				confirmWord: 'BAN',
+				riskLevel: 'critical' as const,
+				details: [
+					{ label: 'شناسه تلگرام', value: user.telegram_id },
+					{ label: 'نوع مسدودی', value: banType() === 'full' ? 'کامل' : banType() === 'shadow' ? 'شدوبن' : 'کیف پول' },
+					{ label: 'مدت زمان', value: banDuration() === 0 ? 'دائمی' : `${banDuration() / 3600} ساعت` },
+				],
+			};
+		}
+
+		if (type === 'unban') {
+			return {
+				title: 'رفع مسدودیت کاربر (Unban)',
+				description: `رفع تمامی محدودیت‌های حساب کاربر @${user.username || user.telegram_id}.`,
+				actionLabel: 'رفع مسدودیت',
+				riskLevel: 'medium' as const,
+				details: [{ label: 'شناسه تلگرام', value: user.telegram_id }],
+			};
+		}
+
+		if (type === 'flag') {
+			return {
+				title: isFlaggedStatus() ? 'نشانگذاری به عنوان متخلف' : 'حذف وضعیت متخلف',
+				description: `تغییر وضعیت ریسک امنیتی حساب کاربر @${user.username || user.telegram_id}.`,
+				actionLabel: 'ثبت وضعیت جدید',
+				riskLevel: 'medium' as const,
+				details: [{ label: 'وضعیت جدید', value: isFlaggedStatus() ? 'مشکوک به تقلب' : 'عادی' }],
+			};
+		}
+
+		if (type === 'impersonate') {
+			return {
+				title: 'شبیه‌سازی حساب (Impersonation)',
+				description: `ورود به حساب کاربر @${user.username || user.telegram_id} در حالت شبیه‌سازی خواندنی (Read-Only Simulation).`,
+				actionLabel: 'آغاز شبیه‌سازی',
+				confirmWord: 'SIMULATE',
+				riskLevel: 'high' as const,
+				details: [{ label: 'حساب هدف', value: `@${user.username || user.telegram_id}` }],
+			};
+		}
+
+		return null;
 	};
 
 	return (
-		<div class="min-h-screen bg-[#090a0f] text-white pb-32">
-			{/* Glow header */}
-			<div class="absolute top-0 inset-x-0 h-64 bg-gradient-to-b from-[#3390ec]/15 to-transparent pointer-events-none blur-[60px]" />
-
-			{/* Header */}
-			<div class="px-6 pt-6 pb-4 flex items-center justify-between border-b border-white/5 relative z-10">
-				<div class="flex items-center gap-3">
-					<div
-						onClick={() => handleNav('/owner/dashboard')}
-						class="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 active:scale-95 transition-all"
-					>
-						<span class="material-symbols-outlined text-[18px] text-white/70">chevron_left</span>
-					</div>
+		<div class="space-y-6">
+			{/* Search Box & Header */}
+			<div class="bg-[#16171d]/60 border border-white/5 rounded-3xl p-5 space-y-4">
+				<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
 					<div>
-						<h1 class="text-sm font-black uppercase tracking-wider text-white">کاربران</h1>
-						<p class="text-[9px] text-[#3390ec] font-black uppercase tracking-widest mt-0.5">
-							مدیریت
-						</p>
+						<h2 class="text-sm font-black text-white">مدیریت و جستجوی کاربران</h2>
+						<p class="text-xs text-white/40 font-bold mt-0.5">جستجو بر اساس نام کاربری، نام، یا شناسه عددی تلگرام</p>
+					</div>
+
+					{/* Category Filters */}
+					<div class="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
+						<button
+							onClick={() => setActiveFilter('all')}
+							class={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+								activeFilter() === 'all' ? 'bg-[#3390ec] text-white' : 'bg-white/5 text-white/60 hover:bg-white/10'
+							}`}
+						>
+							همه ({users().length})
+						</button>
+						<button
+							onClick={() => setActiveFilter('premium')}
+							class={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+								activeFilter() === 'premium' ? 'bg-teal-500 text-black' : 'bg-white/5 text-teal-400 hover:bg-white/10'
+							}`}
+						>
+							پرمیوم
+						</button>
+						<button
+							onClick={() => setActiveFilter('flagged')}
+							class={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+								activeFilter() === 'flagged' ? 'bg-amber-500 text-black' : 'bg-white/5 text-amber-400 hover:bg-white/10'
+							}`}
+						>
+							متخلفان
+						</button>
+						<button
+							onClick={() => setActiveFilter('banned')}
+							class={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+								activeFilter() === 'banned' ? 'bg-red-500 text-white' : 'bg-white/5 text-red-400 hover:bg-white/10'
+							}`}
+						>
+							مسدودین
+						</button>
 					</div>
 				</div>
-			</div>
 
-			{/* Sub tabs */}
-			<OwnerTabs active="users" />
-
-			{/* Main Area */}
-			<div class="px-6 mt-6 relative z-10">
-				{/* Search form */}
-				<form onSubmit={handleSearch} class="flex gap-2.5 mb-6">
-					<div class="flex-1 bg-[#16171d]/60 border border-[#2a2c35]/50 focus-within:border-[#3390ec] rounded-2xl px-4 flex items-center gap-2.5 transition-all">
+				<div class="flex gap-2.5">
+					<div class="flex-1 bg-black/40 border border-white/10 focus-within:border-[#3390ec] rounded-2xl px-4 flex items-center gap-2.5 transition-all">
 						<span class="material-symbols-outlined text-white/40 text-[20px]">search</span>
 						<input
 							type="text"
-							placeholder="نام کاربری، نام، شناسه تلگرام..."
+							placeholder="تایپ کنید (مثلاً @username یا 12345678)..."
 							value={query()}
-							onInput={(e) => setQuery(e.currentTarget.value)}
+							onInput={(e) => handleSearchInput(e.currentTarget.value)}
 							class="w-full h-12 bg-transparent text-xs text-white placeholder-white/30 focus:outline-none"
 						/>
 					</div>
 					<button
-						type="submit"
-						class="h-12 px-6 bg-[#3390ec] hover:bg-[#2b7ec9] text-xs font-black uppercase tracking-wider text-white rounded-2xl shadow-lg shadow-[#3390ec]/10 active:scale-95 transition-all"
+						onClick={() => executeSearch(query())}
+						disabled={loading() || !query().trim()}
+						class="h-12 px-6 bg-[#3390ec] hover:bg-[#2b7ec9] text-xs font-black uppercase text-white rounded-2xl active:scale-95 transition-all disabled:opacity-40"
 					>
 						جستجو
 					</button>
-				</form>
-
-				{/* Info/Errors */}
-				<Show when={error()}>
-					<div class="p-4 bg-red-500/10 border border-red-500/20 rounded-3xl text-center py-6">
-						<span class="material-symbols-outlined text-red-500 text-3xl mb-2">info</span>
-						<p class="text-xs text-red-400 font-bold leading-relaxed">{error()}</p>
-					</div>
-				</Show>
-
-				<Show when={loading()}>
-					<div class="flex flex-col items-center justify-center py-12 gap-4">
-						<div class="w-10 h-10 border-3 border-[#3390ec] border-t-transparent rounded-full animate-spin" />
-						<span class="text-xs text-[#a0a4ad] font-bold">در حال جستجو در دیتابیس...</span>
-					</div>
-				</Show>
-
-				{/* Search Results List */}
-				<Show when={!loading() && users().length > 0}>
-					<div class="flex flex-col gap-3.5">
-						<For each={users()}>
-							{(user) => (
-								<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-5 hover:scale-[1.01] transition-all">
-									<div class="flex justify-between items-start mb-3">
-										<div class="flex flex-col gap-0.5">
-											<div class="flex items-center gap-2">
-												<span class="text-xs font-black text-white truncate max-w-[140px]">
-													{user.first_name} {user.last_name}
-												</span>
-												<Show when={user.is_premium}>
-													<span class="px-2 py-0.5 rounded bg-gradient-to-r from-teal-500/20 to-cyan-500/20 border border-teal-500/30 text-[8px] font-black uppercase tracking-wider text-teal-400">
-														پرمیوم
-													</span>
-												</Show>
-												<Show when={user.is_flagged}>
-													<span class="px-2 py-0.5 rounded bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-500/30 text-[8px] font-black uppercase tracking-wider text-orange-400 flex items-center gap-1" title={user.fraud_reason}>
-														<span class="material-symbols-outlined text-[10px]">warning</span>
-														متخلف
-													</span>
-												</Show>
-											</div>
-											<span class="text-[10px] text-[#3390ec] font-bold">
-												@{user.username || 'no-username'}
-											</span>
-											<span class="text-[9px] text-[#a0a4ad] font-bold mt-1">
-												ID: {user.telegram_id}
-											</span>
-										</div>
-
-										<div class="flex flex-col items-end">
-											<span class="text-[10px] text-[#a0a4ad] font-black uppercase tracking-wider">
-												موجودی سکه
-											</span>
-											<span class="text-sm font-black text-[#ffcc00] mt-0.5">
-												{Math.round(user.balance).toLocaleString()} سکه
-											</span>
-										</div>
-									</div>
-
-									{/* Actions Area */}
-									<div class="pt-3.5 border-t border-white/5 flex gap-2 flex-wrap">
-										<button
-											onClick={() => handleImpersonate(user)}
-											class="h-8 px-3 bg-gradient-to-r from-[#3390ec]/15 to-[#3390ec]/5 hover:from-[#3390ec]/25 border border-[#3390ec]/30 text-[9px] font-black uppercase tracking-wider text-[#3390ec] rounded-xl active:scale-95 transition-all flex items-center gap-1"
-										>
-											<span class="material-symbols-outlined text-[12px]">visibility</span>
-											ورود به جای کاربر
-										</button>
-
-										<button
-											onClick={() => handleOpenFrgModal(user)}
-											class="h-8 px-3 bg-[#ffcc00]/10 hover:bg-[#ffcc00]/20 border border-[#ffcc00]/30 text-[9px] font-black uppercase tracking-wider text-[#ffcc00] rounded-xl active:scale-95 transition-all flex items-center gap-1"
-										>
-											<span class="material-symbols-outlined text-[12px]">
-												account_balance_wallet
-											</span>
-											تغییر موجودی
-										</button>
-
-										<button
-											onClick={() => handleOpenBanModal(user)}
-											class="h-8 px-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-[9px] font-black uppercase tracking-wider text-red-400 rounded-xl active:scale-95 transition-all flex items-center gap-1"
-										>
-											<span class="material-symbols-outlined text-[12px]">block</span>
-											مسدود کردن
-										</button>
-
-										<button
-											onClick={() => handleUnban(user)}
-											class="h-8 px-3 bg-white/5 hover:bg-white/10 border border-white/10 text-[9px] font-black uppercase tracking-wider text-white/70 hover:text-white rounded-xl active:scale-95 transition-all flex items-center gap-1"
-										>
-											<span class="material-symbols-outlined text-[12px]">lock_open</span>
-											رفع مسدودیت
-										</button>
-
-										<button
-											onClick={() => handleOpenFlagModal(user)}
-											class="h-8 px-3 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 text-[9px] font-black uppercase tracking-wider text-orange-400 rounded-xl active:scale-95 transition-all flex items-center gap-1"
-										>
-											<span class="material-symbols-outlined text-[12px]">flag</span>
-											{user.is_flagged ? 'حذف وضعیت متخلف' : 'نشان‌گذاری به عنوان متخلف'}
-										</button>
-									</div>
-								</div>
-							)}
-						</For>
-					</div>
-				</Show>
+				</div>
 			</div>
 
-			{/* Modal 1: FRG Adjustment Modal */}
-			<Show when={showFrgModal() && selectedUser()}>
-				<div class="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-[#000000]/80 backdrop-blur-md animate-fade-in">
-					<div class="w-full max-w-sm bg-gradient-to-b from-[#1c1d22] to-[#121316] border border-[#2a2c35]/50 rounded-[32px] p-6 shadow-2xl relative">
-						<button
-							onClick={() => setShowFrgModal(false)}
-							class="absolute top-5 end-5 w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10 active:scale-95 transition-all"
-						>
-							<span class="material-symbols-outlined text-[18px] text-white/70">close</span>
-						</button>
-
-						<h2 class="text-sm font-black uppercase tracking-wider text-white mb-4">
-							تغییر موجودی کاربر
-						</h2>
-						<p class="text-[10px] text-[#a0a4ad] font-bold mb-4">
-							مقادیر مثبت موجودی را افزایش می‌دهند. مقادیر منفی باعث کسر از حساب می‌شوند. 
-							علت تغییر در لاگ‌ها ثبت خواهد شد.
-						</p>
-
-						<form onSubmit={submitFrgAdjustment} class="flex flex-col gap-4">
-							<div class="flex flex-col gap-1.5">
-								<label class="text-[9px] text-[#a0a4ad] font-black uppercase tracking-wider">
-									مقدار تغییر (سکه)
-								</label>
-								<input
-									type="number"
-									placeholder="مثلاً 50000 یا -20000"
-									value={frgAmount() || ''}
-									onInput={(e) => setFrgAmount(Number(e.currentTarget.value))}
-									class="w-full h-12 bg-[#0f1014] border border-[#2a2c35] focus:border-[#ffcc00] rounded-2xl px-4 text-xs text-white font-bold focus:outline-none transition-all"
-									required
-								/>
-							</div>
-
-							<div class="flex flex-col gap-1.5">
-								<label class="text-[9px] text-[#a0a4ad] font-black uppercase tracking-wider">
-									علت تغییر برای لاگ امنیتی
-								</label>
-								<textarea
-									placeholder="مثلاً جایزه قرعه‌کشی یا رفع مشکل خرید"
-									value={frgReason()}
-									onInput={(e) => setFrgReason(e.currentTarget.value)}
-									class="w-full h-20 bg-[#0f1014] border border-[#2a2c35] focus:border-[#ffcc00] rounded-2xl p-4 text-xs text-white focus:outline-none transition-all resize-none"
-									required
-								/>
-							</div>
-
-							<button
-								type="submit"
-								disabled={frgLoading()}
-								class="w-full h-12 bg-[#ffcc00] hover:bg-[#e6b800] text-xs font-black uppercase tracking-wider text-[#0f1014] rounded-2xl active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-[#ffcc00]/10"
-							>
-								<Show when={frgLoading()} fallback="اعمال تغییرات">
-									<div class="w-5 h-5 border-2 border-[#0f1014] border-t-transparent rounded-full animate-spin" />
-								</Show>
-							</button>
-						</form>
-					</div>
+			{/* Status Feedback */}
+			<Show when={error()}>
+				<div class="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-400 text-xs font-bold">
+					<span class="material-symbols-outlined text-xl">info</span>
+					<span>{error()}</span>
 				</div>
 			</Show>
 
-			{/* Modal: Flag User */}
-			<Show when={showFlagModal() && selectedUser()}>
-				<div class="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-[#000000]/80 backdrop-blur-md animate-fade-in">
-					<div class="w-full max-w-sm bg-gradient-to-b from-[#1c1d22] to-[#121316] border border-[#2a2c35]/50 rounded-[32px] p-6 shadow-2xl relative">
-						<button
-							onClick={() => setShowFlagModal(false)}
-							class="absolute top-5 end-5 w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10 active:scale-95 transition-all"
-						>
-							<span class="material-symbols-outlined text-[18px] text-white/70">close</span>
-						</button>
+			<Show when={loading()}>
+				<div class="flex flex-col items-center justify-center py-16 gap-3">
+					<div class="w-8 h-8 border-3 border-[#3390ec] border-t-transparent rounded-full animate-spin" />
+					<span class="text-xs text-white/50 font-bold">در حال جستجو در بانک اطلاعاتی...</span>
+				</div>
+			</Show>
 
-						<h2 class="text-sm font-black uppercase tracking-wider text-white mb-4">
-							{isFlaggedStatus() ? 'نشان‌گذاری به عنوان متخلف' : 'حذف وضعیت متخلف'}
-						</h2>
-						<p class="text-[10px] text-[#a0a4ad] font-bold mb-4">
-							کاربرانی که نشان‌گذاری می‌شوند در لیست بررسی قرار می‌گیرند.
-						</p>
+			{/* Results List */}
+			<Show when={!loading() && filteredUsers().length > 0}>
+				<div class="space-y-4">
+					<For each={filteredUsers()}>
+						{(user) => (
+							<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-5 hover:border-white/20 transition-all space-y-4">
+								<div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+									<div class="space-y-1">
+										<div class="flex items-center gap-2 flex-wrap">
+											<h3 class="text-sm font-black text-white">
+												{user.first_name} {user.last_name}
+											</h3>
+											<Show when={user.is_premium}>
+												<span class="px-2 py-0.5 rounded bg-teal-500/10 border border-teal-500/30 text-[9px] font-black text-teal-400">
+													پرمیوم
+												</span>
+											</Show>
+											<Show when={user.is_flagged}>
+												<span class="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-[9px] font-black text-amber-400 flex items-center gap-1">
+													⚠️ متخلف
+												</span>
+											</Show>
+											<Show when={user.is_banned}>
+												<span class="px-2 py-0.5 rounded bg-red-500/10 border border-red-500/30 text-[9px] font-black text-red-400">
+													⛔ مسدود
+												</span>
+											</Show>
+										</div>
 
-						<form onSubmit={submitFlagOperation} class="flex flex-col gap-4">
-							<Show when={isFlaggedStatus()}>
-								<div class="flex flex-col gap-1.5">
-									<label class="text-[9px] text-[#a0a4ad] font-black uppercase tracking-wider">
-										علت تخلف
-									</label>
-									<textarea
-										placeholder="مثلاً استفاده از بات‌های خودکار، تقلب در دعوت دوستان..."
-										value={flagReason()}
-										onInput={(e) => setFlagReason(e.currentTarget.value)}
-										class="w-full h-20 bg-[#0f1014] border border-[#2a2c35] focus:border-[#ff9500] rounded-2xl p-4 text-xs text-white focus:outline-none transition-all resize-none"
-										required
-									/>
+										<div class="flex items-center gap-3 text-xs">
+											<span class="text-[#3390ec] font-bold">@{user.username || 'بدون شناسه'}</span>
+											<span class="text-white/40 font-mono text-[10px]">ID: {user.telegram_id}</span>
+											<Show when={user.language_code}>
+												<span class="text-white/30 text-[10px] uppercase font-mono">زبان: {user.language_code}</span>
+											</Show>
+										</div>
+									</div>
+
+									<div class="text-start md:text-end">
+										<span class="text-[10px] text-white/40 font-bold block">موجودی سکه</span>
+										<span class="text-base font-black text-amber-400 font-mono">
+											{Math.round(user.balance || 0).toLocaleString()} FRG
+										</span>
+									</div>
 								</div>
-							</Show>
 
-							<button
-								type="submit"
-								disabled={flagLoading()}
-								class={`w-full h-12 text-xs font-black uppercase tracking-wider rounded-2xl active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-lg ${
-									isFlaggedStatus()
-										? 'bg-[#ff9500] hover:bg-[#e68600] text-[#0f1014] shadow-[#ff9500]/10'
-										: 'bg-white/10 hover:bg-white/20 text-white shadow-white/5'
-								}`}
-							>
-								<Show when={flagLoading()} fallback="ثبت وضعیت">
-									<div class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-								</Show>
-							</button>
-						</form>
+								{/* Action Buttons */}
+								<div class="pt-3 border-t border-white/5 flex gap-2 flex-wrap">
+									<button
+										onClick={() => openImpersonateModal(user)}
+										class="h-8 px-3 bg-[#3390ec]/10 hover:bg-[#3390ec]/20 border border-[#3390ec]/30 text-[10px] font-bold text-[#3390ec] rounded-xl transition-all flex items-center gap-1 active:scale-95"
+									>
+										<span class="material-symbols-outlined text-[14px]">visibility</span>
+										ورود به جای کاربر
+									</button>
+
+									<button
+										onClick={() => openFrgModal(user)}
+										class="h-8 px-3 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-[10px] font-bold text-amber-400 rounded-xl transition-all flex items-center gap-1 active:scale-95"
+									>
+										<span class="material-symbols-outlined text-[14px]">account_balance_wallet</span>
+										تغییر موجودی
+									</button>
+
+									<button
+										onClick={() => openBanModal(user)}
+										class="h-8 px-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-[10px] font-bold text-red-400 rounded-xl transition-all flex items-center gap-1 active:scale-95"
+									>
+										<span class="material-symbols-outlined text-[14px]">block</span>
+										مسدود کردن
+									</button>
+
+									<button
+										onClick={() => openUnbanModal(user)}
+										class="h-8 px-3 bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-bold text-white/70 rounded-xl transition-all flex items-center gap-1 active:scale-95"
+									>
+										<span class="material-symbols-outlined text-[14px]">lock_open</span>
+										رفع مسدودیت
+									</button>
+
+									<button
+										onClick={() => openFlagModal(user)}
+										class="h-8 px-3 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 text-[10px] font-bold text-orange-400 rounded-xl transition-all flex items-center gap-1 active:scale-95"
+									>
+										<span class="material-symbols-outlined text-[14px]">flag</span>
+										{user.is_flagged ? 'حذف نشان متخلف' : 'نشانگذاری متخلف'}
+									</button>
+								</div>
+							</div>
+						)}
+					</For>
+				</div>
+			</Show>
+
+			{/* Form Controls embedded prior to Danger Confirmation */}
+			<Show when={actionType() === 'frg' && selectedUser()}>
+				<div class="fixed inset-0 z-[9990] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+					<div class="w-full max-w-sm bg-[#16171d] border border-white/10 rounded-3xl p-5 space-y-4">
+						<h3 class="text-sm font-black text-white">ورود مقدار تغییر موجودی</h3>
+						<div>
+							<label class="block text-[10px] text-white/50 font-bold mb-1">مقدار تغییر (سکه FRG)</label>
+							<input
+								type="number"
+								placeholder="مثال: 50000 یا -20000"
+								value={frgAmount() || ''}
+								onInput={(e) => setFrgAmount(Number(e.currentTarget.value))}
+								class="w-full h-11 bg-black/40 border border-white/10 rounded-xl px-4 text-xs font-mono text-white focus:border-[#3390ec] outline-none"
+							/>
+						</div>
+						<div class="flex gap-2">
+							<button onClick={closeActionModal} class="flex-1 h-10 bg-white/5 text-xs font-bold rounded-xl">انصراف</button>
+							<button onClick={() => {}} class="flex-1 h-10 bg-amber-500 text-black text-xs font-black rounded-xl">مرحله بعد (تأییدیه)</button>
+						</div>
 					</div>
 				</div>
 			</Show>
 
-			{/* Modal 2: Ban/Suspension Modal */}
-			<Show when={showBanModal() && selectedUser()}>
-				<div class="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-[#000000]/80 backdrop-blur-md animate-fade-in">
-					<div class="w-full max-w-sm bg-gradient-to-b from-[#1c1d22] to-[#121316] border border-[#2a2c35]/50 rounded-[32px] p-6 shadow-2xl relative">
-						<button
-							onClick={() => setShowBanModal(false)}
-							class="absolute top-5 end-5 w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10 active:scale-95 transition-all"
-						>
-							<span class="material-symbols-outlined text-[18px] text-white/70">close</span>
-						</button>
-
-						<h2 class="text-sm font-black uppercase tracking-wider text-white mb-4">
-							مسدودسازی حساب
-						</h2>
-						<p class="text-[10px] text-[#a0a4ad] font-bold mb-4">
-							دسترس‌های کاربر محدود می‌شود و تمامی این محدودیت‌ها در لاگ سرور ثبت می‌گردد.
-						</p>
-
-						<form onSubmit={submitBanOperation} class="flex flex-col gap-4">
-							<div class="flex flex-col gap-1.5">
-								<label class="text-[9px] text-[#a0a4ad] font-black uppercase tracking-wider">
-									سطح مسدودسازی
-								</label>
-								<select
-									value={banType()}
-									onChange={(e) => setBanType(e.currentTarget.value)}
-									class="w-full h-12 bg-[#0f1014] border border-[#2a2c35] focus:border-red-500 rounded-2xl px-4 text-xs text-white focus:outline-none transition-all"
-								>
-									<option value="full">مسدودی کامل (عدم اجازه ورود)</option>
-									<option value="shadow">شدوبن (کاربر متوجه مسدودی نمی‌شود)</option>
-									<option value="wallet_freeze">قفل کیف پول (عدم اجازه انتقال)</option>
-								</select>
-							</div>
-
-							<div class="flex flex-col gap-1.5">
-								<label class="text-[9px] text-[#a0a4ad] font-black uppercase tracking-wider">
-									مدت زمان
-								</label>
-								<select
-									value={banDuration()}
-									onChange={(e) => setBanDuration(Number(e.currentTarget.value))}
-									class="w-full h-12 bg-[#0f1014] border border-[#2a2c35] focus:border-red-500 rounded-2xl px-4 text-xs text-white focus:outline-none transition-all"
-								>
-									<option value={3600}>۱ ساعت</option>
-									<option value={86400}>۱ روز</option>
-									<option value={604800}>۱ هفته</option>
-									<option value={0}>دائمی</option>
-								</select>
-							</div>
-
-							<div class="flex flex-col gap-1.5">
-								<label class="text-[9px] text-[#a0a4ad] font-black uppercase tracking-wider">
-									علت مسدودسازی
-								</label>
-								<textarea
-									placeholder="مثلاً استفاده از اتوکلیکر یا تقلب در زیرمجموعه گیری"
-									value={banReason()}
-									onInput={(e) => setBanReason(e.currentTarget.value)}
-									class="w-full h-20 bg-[#0f1014] border border-[#2a2c35] focus:border-red-500 rounded-2xl p-4 text-xs text-white focus:outline-none transition-all resize-none"
-									required
-								/>
-							</div>
-
-							<button
-								type="submit"
-								disabled={banLoading()}
-								class="w-full h-12 bg-red-500 hover:bg-red-600 text-xs font-black uppercase tracking-wider text-white rounded-2xl active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-red-500/10"
+			<Show when={actionType() === 'ban' && selectedUser()}>
+				<div class="fixed inset-0 z-[9990] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+					<div class="w-full max-w-sm bg-[#16171d] border border-white/10 rounded-3xl p-5 space-y-4">
+						<h3 class="text-sm font-black text-white">تنظیم پارامترهای مسدودسازی</h3>
+						<div>
+							<label class="block text-[10px] text-white/50 font-bold mb-1">سطح مسدودسازی</label>
+							<select
+								value={banType()}
+								onChange={(e) => setBanType(e.currentTarget.value)}
+								class="w-full h-11 bg-black/40 border border-white/10 rounded-xl px-3 text-xs text-white outline-none"
 							>
-								<Show when={banLoading()} fallback="اعمال محدودیت">
-									<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-								</Show>
-							</button>
-						</form>
+								<option value="full">مسدودی کامل (عدم ورود)</option>
+								<option value="shadow">شدوبن (پنهان)</option>
+								<option value="wallet_freeze">قفل کیف پول</option>
+							</select>
+						</div>
+						<div>
+							<label class="block text-[10px] text-white/50 font-bold mb-1">مدت زمان</label>
+							<select
+								value={banDuration()}
+								onChange={(e) => setBanDuration(Number(e.currentTarget.value))}
+								class="w-full h-11 bg-black/40 border border-white/10 rounded-xl px-3 text-xs text-white outline-none"
+							>
+								<option value={3600}>۱ ساعت</option>
+								<option value={86400}>۲۴ ساعت</option>
+								<option value={604800}>۷ روز</option>
+								<option value={0}>دائمی</option>
+							</select>
+						</div>
+						<div class="flex gap-2">
+							<button onClick={closeActionModal} class="flex-1 h-10 bg-white/5 text-xs font-bold rounded-xl">انصراف</button>
+							<button onClick={() => {}} class="flex-1 h-10 bg-red-500 text-white text-xs font-black rounded-xl">مرحله بعد (تأییدیه)</button>
+						</div>
 					</div>
 				</div>
+			</Show>
+
+			{/* Danger Action Review Dialog */}
+			<Show when={getDialogProps()}>
+				{(dialogProps) => (
+					<DangerActionDialog
+						isOpen={true}
+						title={dialogProps().title}
+						description={dialogProps().description}
+						actionLabel={dialogProps().actionLabel}
+						confirmWord={dialogProps().confirmWord}
+						riskLevel={dialogProps().riskLevel}
+						details={dialogProps().details}
+						loading={actionLoading()}
+						onConfirm={handleConfirmedAction}
+						onClose={closeActionModal}
+					/>
+				)}
 			</Show>
 		</div>
 	);

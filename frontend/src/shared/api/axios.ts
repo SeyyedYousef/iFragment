@@ -99,6 +99,16 @@ apiClient.interceptors.request.use(
 			config.headers['X-Telegram-Init-Data'] = initData;
 		}
 
+		// P0-1 FIX: Generate Idempotency-Key for mutating requests (POST, PUT, PATCH, DELETE)
+		const method = (config.method || 'get').toLowerCase();
+		const isMutating = ['post', 'put', 'patch', 'delete'].includes(method);
+		if (isMutating && isInternalUrl && !config.headers['Idempotency-Key'] && !config.headers['X-Idempotency-Key']) {
+			const idempotencyKey = typeof crypto !== 'undefined' && crypto.randomUUID 
+				? crypto.randomUUID() 
+				: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+			config.headers['Idempotency-Key'] = idempotencyKey;
+		}
+
 		return config;
 	},
 	(error: AxiosError) => {
@@ -120,10 +130,13 @@ apiClient.interceptors.response.use(
 		const maxRetries = 3;
 		const baseDelay = 1000; // 1s base delay
 		const retryCount = originalRequest._retryCount || 0;
+		const reqMethod = (originalRequest.method || 'get').toLowerCase();
+		const isIdempotentMethod = ['get', 'head', 'options'].includes(reqMethod);
 		const isNetworkOr5xx =
 			!error.response || (error.response.status >= 500 && error.response.status < 600);
 
-		if (isNetworkOr5xx && retryCount < maxRetries) {
+		// P0-1 FIX: Automatic retry ONLY for idempotent GET/HEAD/OPTIONS requests. Never auto-retry POST/PUT/PATCH/DELETE.
+		if (isIdempotentMethod && isNetworkOr5xx && retryCount < maxRetries) {
 			originalRequest._retryCount = retryCount + 1;
 			const delay = baseDelay * 2 ** retryCount;
 			console.warn(
