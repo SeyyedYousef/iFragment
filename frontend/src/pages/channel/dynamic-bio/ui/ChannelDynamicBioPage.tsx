@@ -2,6 +2,7 @@ import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createEffect, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import { channelApi } from '@/shared/api/channel-management.js';
 import { useChannelSettings, useUpdateChannelSettings } from '@/shared/api/queries.js';
 import { t } from '@/shared/i18n/index.js';
 import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';

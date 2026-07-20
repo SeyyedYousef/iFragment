@@ -3,7 +3,7 @@ import { useNavigate, useParams } from '@solidjs/router';
 import { backButton, hapticFeedback, openTelegramLink } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import type { ManagedGroup, SubscriptionPackage } from '@/shared/api/bot-management.js';
-import { botApi, frgApi, subscriptionApi, groupApi } from '@/shared/api/bot-management.js';
+import { botApi, subscriptionApi, groupApi } from '@/shared/api/bot-management.js';
 import { channelApi } from '@/shared/api/channel-management.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 

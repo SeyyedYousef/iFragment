@@ -325,7 +325,7 @@ export const ChannelAdminsPage: Component = () => {
 																	</div>
 																</Show>
 																<Show when={item.role === 'Bot'}>
-																	<div class="absolute -bottom-1 -right-1 w-5 h-5 bg-[#bf5af2] rounded-lg border border-[#0f1014] flex items-center justify-center shadow-md">
+																	<div class="absolute -bottom-1 -right-1 w-5 h-5 bg-[#06b6d4] rounded-lg border border-[#0f1014] flex items-center justify-center shadow-md">
 																		<span class="material-symbols-outlined text-[12px] text-white">
 																			smart_toy
 																		</span>
@@ -392,7 +392,7 @@ export const ChannelAdminsPage: Component = () => {
 															</span>
 														</Show>
 														<Show when={item.perms.postStories}>
-															<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all bg-[#bf5af2]/5 border-[#bf5af2]/20 text-[#bf5af2] shadow-[0_2px_8px_rgba(191,90,242,0.05)]">
+															<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all bg-[#06b6d4]/5 border-[#06b6d4]/20 text-[#06b6d4] shadow-[0_2px_8px_rgba(6,182,212,0.05)]">
 																{t('channelAdmins.stories') || 'Stories'}
 															</span>
 														</Show>

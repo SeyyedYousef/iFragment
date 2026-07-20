@@ -158,7 +158,7 @@ export const OwnerDashboard: Component = () => {
 					<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-5 flex flex-col justify-between hover:scale-[1.01] transition-all">
 						<div class="flex items-center justify-between mb-2">
 							<span class="text-xs text-[#a0a4ad] font-black uppercase tracking-wider">کل اعضای ثبتنامی</span>
-							<div class="w-7 h-7 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 text-xs">
+							<div class="w-7 h-7 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 text-xs">
 								👥
 							</div>
 						</div>

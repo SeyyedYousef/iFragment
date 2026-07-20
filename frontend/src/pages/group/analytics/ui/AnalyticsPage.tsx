@@ -11,6 +11,7 @@ export const AnalyticsPage: Component = () => {
 	const params = useParams();
 	const [isMenuOpen, setIsMenuOpen] = createSignal(false);
 	const [days, setDays] = createSignal(7);
+	const [selectedMetric, setSelectedMetric] = createSignal<{ date: string; value: number; label: string } | null>(null);
 
 	const [data] = createResource(
 		() => ({ id: params.id, d: days() }),
@@ -25,6 +26,7 @@ export const AnalyticsPage: Component = () => {
 
 	const changeDays = (d: number) => {
 		setDays(d);
+		setSelectedMetric(null);
 		hapticFeedback.selectionChanged();
 	};
 
@@ -54,38 +56,52 @@ export const AnalyticsPage: Component = () => {
 		if (!metrics || metrics.length === 0)
 			return (
 				<div class="flex items-center justify-center py-8">
-					<span class="text-[13px] text-[#555]">No data yet</span>
+					<span class="text-xs text-white/40 font-bold">داده‌ای ثبت نشده است</span>
 				</div>
 			);
 		const maxVal = Math.max(...metrics.map((m) => m.value), 1);
+
 		return (
-			<div class="space-y-2">
-				<span class="text-[13px] font-bold text-[#8e8e93]">{label}</span>
-				<div class="flex items-end gap-1 h-32">
+			<div class="space-y-3 select-none">
+				<div class="flex items-center justify-between">
+					<span class="text-xs font-black text-white">{label}</span>
+					<Show when={selectedMetric() && selectedMetric()?.label === label}>
+						<span class="text-[11px] font-mono font-black text-[#3390ec] bg-[#3390ec]/10 px-2 py-0.5 rounded-md">
+							{selectedMetric()?.date}: {selectedMetric()?.value.toLocaleString()}
+						</span>
+					</Show>
+				</div>
+
+				<div class="flex items-end gap-1.5 h-36 pt-4 pb-1">
 					<For each={metrics}>
 						{(m) => {
 							const h = Math.max(8, (m.value / maxVal) * 100);
+							const isSelected = () => selectedMetric()?.date === m.date && selectedMetric()?.label === label;
 							return (
-								<div class="flex-1 flex flex-col items-center gap-1 group relative">
-									<div class="absolute -top-10 bg-[#2c2c2e] border border-[#3a3a3c] text-white text-[11px] font-bold px-2 py-1.5 rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none transform -translate-y-1 group-hover:translate-y-0 whitespace-nowrap z-50">
-										{m.value.toLocaleString()}{' '}
-										<span class="text-[#8e8e93] font-medium ml-1">({m.date.slice(5)})</span>
-									</div>
+								<button
+									onClick={() => {
+										hapticFeedback.impactOccurred('light');
+										setSelectedMetric({ date: m.date, value: m.value, label });
+									}}
+									class="flex-1 flex flex-col items-center gap-1 group relative h-full justify-end outline-none"
+								>
 									<div
-										class="w-full rounded-full transition-all duration-300 hover:brightness-125"
+										class={`w-full rounded-xl transition-all duration-200 ${
+											isSelected() ? 'brightness-150 ring-2 ring-white scale-105' : 'hover:brightness-125'
+										}`}
 										style={{
 											height: `${h}%`,
 											background: `linear-gradient(to top, ${color}cc, ${color})`,
 										}}
 									/>
-								</div>
+								</button>
 							);
 						}}
 					</For>
 				</div>
-				<div class="flex justify-between">
-					<span class="text-[10px] text-[#555]">{metrics[0]?.date.slice(5)}</span>
-					<span class="text-[10px] text-[#555]">{metrics[metrics.length - 1]?.date.slice(5)}</span>
+				<div class="flex justify-between text-[10px] text-white/40 font-mono">
+					<span>{metrics[0]?.date.slice(5)}</span>
+					<span>{metrics[metrics.length - 1]?.date.slice(5)}</span>
 				</div>
 			</div>
 		);
@@ -106,111 +122,111 @@ export const AnalyticsPage: Component = () => {
 		return [
 			{
 				icon: 'person_add',
-				label: t('analyticsSettings.newMembers'),
+				label: t('analyticsSettings.newMembers') || 'اعضای جدید',
 				value: s?.new_members ?? 0,
-				color: '#34c759',
+				color: '#10b981',
 				change: calcTrend(growth),
 			},
 			{
 				icon: 'chat_bubble',
-				label: t('analyticsSettings.totalMessages'),
+				label: t('analyticsSettings.totalMessages') || 'کل پیام‌ها',
 				value: s?.total_messages ?? 0,
 				color: '#3390ec',
 				change: calcTrend(activity),
 			},
 			{
 				icon: 'calculate',
-				label: t('analyticsSettings.avgPerDay'),
+				label: t('analyticsSettings.avgPerDay') || 'میانگین روزانه',
 				value: s ? Math.round(s.total_messages / Math.max(days(), 1)) : 0,
-				color: '#ff9f0a',
+				color: '#f59e0b',
 				change: 0,
 			},
 			{
 				icon: 'block',
-				label: 'Spam Blocked',
+				label: 'اسپم مسدود شده',
 				value: s?.spam_blocked ?? 0,
-				color: '#ff3b30',
+				color: '#ef4444',
 				change: 0,
 			},
 			{
 				icon: 'people',
-				label: 'Active Users',
+				label: 'اعضای فعال',
 				value: s?.active_users ?? 0,
-				color: '#af52de',
+				color: '#06b6d4',
 				change: 0,
 			},
 			{
 				icon: 'person_remove',
-				label: 'Members Left',
+				label: 'اعضای خروجی',
 				value: s?.members_left ?? 0,
-				color: '#ff6482',
+				color: '#ef4444',
 				change: 0,
 			},
 		];
 	};
 
 	return (
-		<div class="min-h-screen bg-[#0f1014] pb-10 relative text-white">
-			<div class="px-5 pt-6 pb-4 sticky top-0 bg-[#0f1014]/90 backdrop-blur-md z-30 border-b border-[#1c1c1c] flex items-center justify-between gap-3">
-				<div class="flex items-center gap-2 overflow-hidden flex-1">
+		<div class="theme-control min-h-screen bg-[#08090D] pb-12 relative text-white select-none">
+			{/* Top Bar Header */}
+			<div class="px-5 pt-5 pb-4 sticky top-0 bg-[#0F1117]/90 backdrop-blur-md z-30 border-b border-white/10 flex items-center justify-between gap-3">
+				<div class="flex items-center gap-3 overflow-hidden flex-1">
 					<button
 						onClick={() => {
 							hapticFeedback.impactOccurred('light');
 							window.history.back();
 						}}
-						class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-90 transition-all shrink-0"
-						aria-label="Back"
+						class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0"
+						aria-label="بازگشت"
 					>
 						<span class="material-symbols-outlined text-white text-[20px] rtl:-scale-x-100">
 							arrow_back
 						</span>
 					</button>
 					<div class="flex flex-col overflow-hidden">
-						<h1 class="text-[18px] font-black text-white leading-tight truncate">
-							{t('analyticsSettings.title')}
+						<h1 class="text-base font-black text-white leading-tight truncate">
+							{t('analyticsSettings.title') || 'آمار و آنالیز گروه'}
 						</h1>
-						<p class="text-[12px] text-on-surface-variant truncate">
-							{t('analyticsSettings.subtitle')}
+						<p class="text-xs text-white/50 truncate font-bold">
+							{t('analyticsSettings.subtitle') || 'تحلیل ترافیک و تعاملات روزانه'}
 						</p>
 					</div>
 				</div>
-				<div class="flex items-center gap-3">
+				<div class="flex items-center gap-2">
 					<button
 						onClick={downloadCSV}
-						class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] transition-colors shrink-0"
-						title="Export CSV"
+						class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 hover:bg-white/10 transition-colors shrink-0"
+						title="دریافت فایل خروجی CSV"
 					>
 						<span class="material-symbols-outlined text-[#3390ec] text-[20px]">download</span>
 					</button>
 					<button
 						onClick={() => setIsMenuOpen(true)}
-						class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] shrink-0"
+						class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 shrink-0"
+						aria-label="منوی مدیریتی"
 					>
 						<span class="material-symbols-outlined text-white text-[20px]">menu</span>
 					</button>
 				</div>
 			</div>
+
 			<div class="px-5">
-				{/* Date Range */}
+				{/* Date Range Selection */}
 				<div class="flex gap-2 mt-4">
 					{([7, 30, 90] as const).map((d) => (
 						<button
 							onClick={() => changeDays(d)}
-							class={`px-4 py-2 rounded-xl text-[13px] font-bold transition-all border ${
+							class={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
 								days() === d
-									? 'bg-[#3390ec]/10 border-[#3390ec]/30 text-[#3390ec]'
-									: 'bg-[#1c1c1c] border-[#2a2a2a] text-[#8e8e93]'
+									? 'bg-[#3390ec]/20 border-[#3390ec]/50 text-[#3390ec]'
+									: 'bg-[#151822] border-white/10 text-white/50 hover:text-white'
 							}`}
 						>
-							{d === 7
-								? t('analyticsSettings.range7d')
-								: d === 30
-									? t('analyticsSettings.range30d')
-									: t('analyticsSettings.range90d')}
+							{d === 7 ? '۷ روز اخیر' : d === 30 ? '۳۰ روز اخیر' : '۹۰ روز اخیر'}
 						</button>
 					))}
 				</div>
 			</div>
+
 			<HamburgerMenu
 				isOpen={isMenuOpen()}
 				onClose={() => setIsMenuOpen(false)}
@@ -227,23 +243,21 @@ export const AnalyticsPage: Component = () => {
 								initial={{ opacity: 0, y: 15 }}
 								animate={{ opacity: 1, y: 0 }}
 								transition={{ duration: 0.3, delay: i() * 0.05 }}
-								class="bg-[#1c1c1c] rounded-2xl border border-[#2a2a2a] p-4 flex flex-col gap-1"
+								class="bg-[#151822] rounded-[20px] border border-white/10 p-4 flex flex-col gap-1"
 							>
 								<div class="flex items-center gap-1.5">
 									<span class="material-symbols-outlined text-[16px]" style={{ color: stat.color }}>
 										{stat.icon}
 									</span>
-									<span class="text-[11px] font-bold text-[#8e8e93] uppercase">{stat.label}</span>
+									<span class="text-[11px] font-bold text-white/50 uppercase">{stat.label}</span>
 								</div>
-								<span class="text-[22px] font-black text-white">{stat.value.toLocaleString()}</span>
+								<span class="text-xl font-black text-white font-mono">{stat.value.toLocaleString()}</span>
 								<Show when={stat.change !== 0}>
 									<span
-										class={`text-[11px] font-bold ${stat.change > 0 ? 'text-[#34c759]' : 'text-[#ff3b30]'}`}
+										class={`text-[11px] font-bold ${stat.change > 0 ? 'text-[#10b981]' : 'text-[#ef4444]'}`}
 									>
 										{stat.change > 0 ? '↑' : '↓'} {Math.abs(stat.change)}{' '}
-										{stat.change > 0
-											? t('analyticsSettings.trendUp')
-											: t('analyticsSettings.trendDown')}
+										{stat.change > 0 ? 'رشد' : 'افت'}
 									</span>
 								</Show>
 							</Motion.div>
@@ -256,9 +270,9 @@ export const AnalyticsPage: Component = () => {
 					initial={{ opacity: 0, y: 10 }}
 					animate={{ opacity: 1, y: 0 }}
 					transition={{ duration: 0.4, delay: 0.2 }}
-					class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4"
+					class="bg-[#151822] rounded-[24px] border border-white/10 p-5"
 				>
-					{renderChart(data()?.growth || [], '#34c759', t('analyticsSettings.growthChart'))}
+					{renderChart(data()?.growth || [], '#10b981', 'نمودار رشد اعضا')}
 				</Motion.div>
 
 				{/* Activity Chart */}
@@ -266,9 +280,9 @@ export const AnalyticsPage: Component = () => {
 					initial={{ opacity: 0, y: 10 }}
 					animate={{ opacity: 1, y: 0 }}
 					transition={{ duration: 0.4, delay: 0.3 }}
-					class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4"
+					class="bg-[#151822] rounded-[24px] border border-white/10 p-5"
 				>
-					{renderChart(data()?.activity || [], '#3390ec', t('analyticsSettings.activityChart'))}
+					{renderChart(data()?.activity || [], '#3390ec', 'نمودار فعالیت پیام‌ها')}
 				</Motion.div>
 			</div>
 		</div>

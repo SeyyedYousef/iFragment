@@ -486,7 +486,7 @@ export const UsernamePage: Component = () => {
 					</div>
 				}
 			>
-				<div class="min-h-screen bg-[#0f1014] text-white px-5 py-6 flex flex-col items-center font-sans pb-24">
+				<div class="theme-asset min-h-screen bg-[#08090D] text-white px-5 py-6 flex flex-col items-center font-sans pb-24 select-none">
 					{/* Access Method Audit Badge / Notification */}
 					<Show when={accessMethod()}>
 						<div class="w-full max-w-[400px] mb-4 bg-gradient-to-r from-[#161922] to-[#0d0f17] border border-white/10 rounded-2xl p-3.5 flex items-center justify-between shadow-xl">
@@ -862,10 +862,10 @@ export const UsernamePage: Component = () => {
 							<div class="bg-[#0e1118] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3">
 								<div class="flex items-center justify-between text-white/90 mb-1">
 									<div class="flex items-center gap-2">
-										<span class="material-symbols-outlined text-[20px] text-purple-400">folder_special</span>
+										<span class="material-symbols-outlined text-[20px] text-cyan-400">folder_special</span>
 										<span class="text-sm font-semibold uppercase tracking-wider">{t('valuation.portfolio_title') || 'Username Portfolio'}</span>
 									</div>
-									<span class="text-xs text-purple-400 font-bold px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20">
+									<span class="text-xs text-cyan-400 font-bold px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20">
 										{data()?.portfolio?.total_count} Handles
 									</span>
 								</div>
@@ -894,9 +894,9 @@ export const UsernamePage: Component = () => {
 								</div>
 
 								<Show when={data()?.portfolio?.total_value_ton}>
-									<div class="p-3 bg-purple-500/10 border border-purple-500/20 rounded-xl flex items-center justify-between text-xs">
-										<span class="text-purple-300 font-medium">{t('valuation.est_portfolio_val') || 'Est. Portfolio Value'}</span>
-										<span class="text-purple-400 font-mono font-bold text-sm">
+									<div class="p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-xl flex items-center justify-between text-xs">
+										<span class="text-cyan-300 font-medium">{t('valuation.est_portfolio_val') || 'Est. Portfolio Value'}</span>
+										<span class="text-cyan-400 font-mono font-bold text-sm">
 											{data()?.portfolio?.total_value_ton?.toLocaleString()} TON
 										</span>
 									</div>

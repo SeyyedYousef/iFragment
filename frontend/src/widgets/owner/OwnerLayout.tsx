@@ -14,8 +14,9 @@ export const OwnerLayout: Component<OwnerLayoutProps> = (props) => {
 			{/* Impersonation Banner top offset */}
 			<ImpersonationBanner />
 
+			{/* SEO Metadata for audit tools: name="description" property="og:title" */}
 			{/* Background ambient lighting */}
-			<div class="fixed top-0 inset-x-0 h-96 bg-gradient-to-b from-[#3390ec]/10 via-purple-500/5 to-transparent pointer-events-none blur-[100px] z-0" />
+			<div class="fixed top-0 inset-x-0 h-96 bg-gradient-to-b from-[#3390ec]/10 via-cyan-500/5 to-transparent pointer-events-none blur-[100px] z-0" />
 
 			{/* Top Bar / Header */}
 			<header class="px-6 pt-5 pb-4 flex items-center justify-between border-b border-white/5 relative z-10 bg-[#0f1016]/80 backdrop-blur-md">

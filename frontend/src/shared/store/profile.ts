@@ -41,6 +41,8 @@ export interface ProfileStats {
 	energyUpdatedAt?: string;
 	photoUrl?: string;
 	dailyTappedCoins?: number;
+	dailyTurboUsed?: number;
+	dailyFullEnergyUsed?: number;
 }
 
 export interface ReferralInfo {

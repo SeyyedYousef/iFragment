@@ -222,25 +222,23 @@ export const getDailyStatus = (): Promise<DailyStatus> =>
 	validatedFetch('/profile/daily', DailyStatusSchema);
 
 export async function claimDailyReward(): Promise<DailyStatus> {
-	return await apiFetch<DailyStatus>('/api/v1/profile/daily/claim', {
+	return await apiFetch<DailyStatus>('/profile/daily/claim', {
 		method: 'POST',
-		schema: DailyStatusSchema,
 	});
 }
 
 export async function getDailyComboStatus(): Promise<DailyComboStatus> {
-	return await apiFetch<DailyComboStatus>('/api/v1/profile/daily-combo', {
+	return await apiFetch<DailyComboStatus>('/profile/daily-combo', {
 		method: 'GET',
-		schema: DailyComboStatusSchema,
 	});
 }
 
 export async function claimDailyCombo(secretWord: string): Promise<boolean> {
 	try {
-		await apiFetch<{ success: boolean }>('/api/v1/profile/daily-combo/claim', {
+		await apiFetch<{ success: boolean }>('/profile/daily-combo/claim', {
 			method: 'POST',
-			body: { secret_word: secretWord },
-			schema: z.object({ success: z.boolean() }),
+			body: JSON.stringify({ secret_word: secretWord }),
+			headers: { 'Content-Type': 'application/json' },
 		});
 		return true;
 	} catch (error) {

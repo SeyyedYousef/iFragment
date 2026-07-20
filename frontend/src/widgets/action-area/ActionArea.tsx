@@ -1,22 +1,15 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
 import { hapticFeedback } from '@tma.js/sdk-solid';
-import { Component, createMemo, createSignal, For, Show, onMount, onCleanup } from 'solid-js';
-import {
-	useUsernameQuickAnalysis,
-} from '@/entities/username/api/index.js';
+import { Component, createMemo, createSignal, For, Show } from 'solid-js';
 import { useUsernameSearch } from '@/entities/username/model/index.js';
 import { getRandomTrending } from '@/entities/username/model/trendingList.js';
-import { type DictPaths, formatNumber, t } from '@/shared/i18n/index.js';
-import { showAlert } from '@/shared/lib/telegram-native.js';
-import { apiFetch } from '@/shared/api/base.js';
+import { type DictPaths, t } from '@/shared/i18n/index.js';
 
 interface ActionAreaProps {
 	activeTab: 'username' | 'collectibles' | 'gifts';
 	onTabChange?: (tab: 'username' | 'collectibles' | 'gifts') => void;
 }
-
-type AnalyzeState = 'idle' | 'loading' | 'success';
 
 const CONTENT: Record<
 	ActionAreaProps['activeTab'],
@@ -47,15 +40,14 @@ const CONTENT: Record<
 	},
 };
 
+type AnalyzeState = 'idle' | 'loading' | 'success';
 
 export const ActionArea: Component<ActionAreaProps> = (props) => {
 	const { searchQuery, setSearchQuery, searchError, setSearchError, validate } = useUsernameSearch();
 	const navigate = useNavigate();
-	const [analyzeState, setAnalyzeState] = createSignal<AnalyzeState>('idle');
+	const [analyzeState] = createSignal<AnalyzeState>('idle');
 	const [isFocused, setIsFocused] = createSignal(false);
 	const [showCollectionTooltip, setShowCollectionTooltip] = createSignal(true);
-
-	const quickAnalysis = useUsernameQuickAnalysis(() => searchQuery());
 
 	const [trendingList] = createSignal(getRandomTrending(4));
 

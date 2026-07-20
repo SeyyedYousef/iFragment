@@ -48,7 +48,7 @@ export const ConnectChannelPage: Component = () => {
 			if (inChan.subscription_status === 'expired' || outChan.subscription_status === 'expired') {
 				showToast(
 					t('connectChannel.trialLimitReached') || 'You have already created 3 channels with a trial period. New channels will not have a free trial period!',
-					'warning'
+					'error'
 				);
 			} else {
 				showToast(

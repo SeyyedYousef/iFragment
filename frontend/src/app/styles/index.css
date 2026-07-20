@@ -1,4 +1,3 @@
-
 @import "tailwindcss";
 @source "../../**/*.{js,ts,jsx,tsx}";
 
@@ -59,26 +58,71 @@
 	--color-error-container: #ffdad6;
 	--color-on-error-container: #93000a;
 
-	--color-background: #000000;
+	--color-background: #08090D;
 	--color-on-background: var(--tg-theme-text-color, #ffffff);
-	--color-surface: var(--tg-theme-secondary-bg-color, #1c1c1c);
+	--color-surface: var(--tg-theme-secondary-bg-color, #0F1117);
 	--color-on-surface: var(--tg-theme-text-color, #ffffff);
-	--color-surface-variant: var(--tg-theme-header-bg-color, #2a2a2a);
+	--color-surface-variant: var(--tg-theme-header-bg-color, #151822);
 	--color-on-surface-variant: var(--tg-theme-hint-color, #a0a4ad);
-	/* Updated for WCAG AA contrast on dark background */
 	--color-inverse-surface: var(--tg-theme-text-color, #ffffff);
 	--color-inverse-on-surface: #000000;
 	--color-surface-tint: var(--tg-theme-button-color, #3390ec);
-	--color-surface-bright: var(--tg-theme-secondary-bg-color, #1c1c1c);
-	--color-surface-dim: var(--tg-theme-secondary-bg-color, #1c1c1c);
-	--color-surface-container-lowest: #000000;
-	--color-surface-container-low: var(--tg-theme-secondary-bg-color, #1c1c1c);
-	--color-surface-container: var(--tg-theme-secondary-bg-color, #1c1c1c);
-	--color-surface-container-high: var(--tg-theme-secondary-bg-color, #1c1c1c);
-	--color-surface-container-highest: var(--tg-theme-secondary-bg-color, #1c1c1c);
+	--color-surface-bright: #1C202B;
+	--color-surface-dim: #0F1117;
+	--color-surface-container-lowest: #050608;
+	--color-surface-container-low: #08090D;
+	--color-surface-container: #0F1117;
+	--color-surface-container-high: #151822;
+	--color-surface-container-highest: #1C202B;
 
 	--color-outline: var(--tg-theme-hint-color, #8e8e93);
 	--color-outline-variant: var(--tg-theme-hint-color, #8e8e93);
+}
+
+/* Fragment OS Design System Tokens */
+:root {
+	--fos-canvas: #08090D;
+	--fos-surface-1: #0F1117;
+	--fos-surface-2: #151822;
+	--fos-surface-3: #1C202B;
+	--fos-surface-elevated: rgba(24, 28, 38, 0.88);
+
+	--fos-primary: #3390ec;
+	--fos-ton: #0088cc;
+	--fos-success: #10b981;
+	--fos-warning: #f59e0b;
+	--fos-danger: #ef4444;
+	--fos-gold: #f59e0b;
+	--fos-cyan: #06b6d4;
+
+	--fos-radius-control: 12px;
+	--fos-radius-card: 16px;
+	--fos-radius-card-lg: 24px;
+	--fos-radius-sheet: 28px;
+	--fos-radius-hero: 32px;
+	--fos-radius-pill: 9999px;
+}
+
+/* Theme Modes */
+.theme-control {
+	--fos-surface-1: #10121a;
+	--fos-surface-2: #161a26;
+	--fos-surface-3: #1e2433;
+	--fos-accent: #3390ec;
+}
+
+.theme-play {
+	--fos-surface-1: #0f1016;
+	--fos-surface-2: #181926;
+	--fos-surface-3: #222438;
+	--fos-accent: #f59e0b;
+}
+
+.theme-asset {
+	--fos-surface-1: #08121a;
+	--fos-surface-2: #0e1c28;
+	--fos-surface-3: #152738;
+	--fos-accent: #0088cc;
 }
 
 @layer base {
@@ -110,15 +154,13 @@
 
 	body {
 		font-family: var(--font-app);
-		background-color: var(--color-background);
+		background-color: var(--fos-canvas);
 		color: var(--color-on-background);
-		/* For Telegram Mini Apps, it's better to avoid 100dvh directly here
-       to prevent jumping when keyboard appears. We rely on TMA SDK later. */
 		min-height: 100vh;
 		-webkit-font-smoothing: antialiased;
 		-moz-osx-font-smoothing: grayscale;
 
-		/* Lock down selection and interaction */
+		/* Lock down selection by default for UI chrome */
 		-webkit-user-select: none;
 		-moz-user-select: none;
 		-ms-user-select: none;
@@ -126,45 +168,60 @@
 
 		-webkit-touch-callout: none;
 		-webkit-tap-highlight-color: transparent;
-		touch-action: manipulation; /* Safely disables double-tap to zoom without breaking quick clicks */
+		touch-action: manipulation;
 	}
 
-	/* Allow text selection in inputs, textareas, and any designated selectable elements */
+	/* Allow text selection in inputs, textareas, financial reports, and selectable elements */
 	input,
 	textarea,
 	[contenteditable="true"],
-	.selectable {
+	.selectable,
+	.valuation-data,
+	.financial-report {
 		-webkit-user-select: text;
 		-moz-user-select: text;
 		-ms-user-select: text;
 		user-select: text;
 	}
 
-	/* Prevent callout on links, buttons, and images */
 	a,
 	button,
 	img {
 		-webkit-touch-callout: none;
 	}
 
-	/* Telegram Theme Variables Mapping for seamless integration */
-	/* Correct Theme Mapping: Tailwind tokens follow Telegram theme if available */
 	:root {
-		--color-background: #000000;
+		--color-background: #08090D;
 		--color-on-background: var(--tg-theme-text-color, #ffffff);
 		--color-outline: var(--tg-theme-hint-color, #8e8e93);
 		--color-primary: var(--tg-theme-link-color, #0088cc);
-		--color-surface: var(--tg-theme-secondary-bg-color, #1c1c1c);
+		--color-surface: var(--tg-theme-secondary-bg-color, #0F1117);
 	}
+}
+
+/* Fragment Pulse Indicator Animation */
+@keyframes fragment-pulse-glow {
+	0%, 100% {
+		opacity: 0.8;
+		box-shadow: 0 0 10px var(--pulse-color, #10b981);
+	}
+	50% {
+		opacity: 0.4;
+		box-shadow: 0 0 4px var(--pulse-color, #10b981);
+	}
+}
+
+.fragment-pulse-active {
+	animation: fragment-pulse-glow 2s ease-in-out infinite;
 }
 
 /* Custom Components & Utilities */
 .studio-shadow {
-	box-shadow: 0 20px 50px rgba(0, 0, 0, 0.04);
+	box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
 }
 
 .matte-surface {
-	background: linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(252, 252, 255, 1) 100%);
+	background: linear-gradient(180deg, #151822 0%, #0F1117 100%);
 }
 
 .material-symbols-outlined {
@@ -187,7 +244,6 @@
 		"wght" 400,
 		"GRAD" 0,
 		"opsz" 24;
-	/* Fallback protections in case the font fails to load (e.g. network issues) */
 	max-width: 1em;
 	overflow: hidden;
 	text-align: center;
@@ -207,9 +263,9 @@
 	background: linear-gradient(
 		90deg,
 		transparent 0%,
-		rgba(255, 255, 255, 0.12) 40%,
-		rgba(255, 255, 255, 0.25) 50%,
-		rgba(255, 255, 255, 0.12) 60%,
+		rgba(255, 255, 255, 0.08) 40%,
+		rgba(255, 255, 255, 0.18) 50%,
+		rgba(255, 255, 255, 0.08) 60%,
 		transparent 100%
 	);
 	animation: shimmer 4s ease-in-out infinite;
@@ -219,43 +275,13 @@
 .orb {
 	position: absolute;
 	border-radius: 9999px;
-	background: radial-gradient(circle, rgba(255, 255, 255, 0.12), transparent 70%);
+	background: radial-gradient(circle, rgba(255, 255, 255, 0.08), transparent 70%);
 	pointer-events: none;
 	filter: blur(40px);
 }
 
 .focus-glow:focus-within {
 	animation: glow 2s ease-in-out infinite;
-}
-
-@keyframes orb-float-1 {
-	0%,
-	100% {
-		transform: translate(0, 0) scale(1);
-	}
-
-	33% {
-		transform: translate(30px, -25px) scale(1.05);
-	}
-
-	66% {
-		transform: translate(-20px, 15px) scale(0.95);
-	}
-}
-
-@keyframes orb-float-2 {
-	0%,
-	100% {
-		transform: translate(0, 0) scale(1);
-	}
-
-	33% {
-		transform: translate(-25px, 20px) scale(1.1);
-	}
-
-	66% {
-		transform: translate(15px, -30px) scale(0.9);
-	}
 }
 
 @keyframes glow {
@@ -395,173 +421,16 @@
 	*,
 	*::before,
 	*::after {
-		animation-duration: 0.01ms;
-		animation-iteration-count: 1;
-		transition-duration: 0.01ms;
-		scroll-behavior: auto;
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
 	}
 }
 
-/* Animated Cosmetics */
-.border-gold-shimmer {
-	position: relative;
-	border: 2px solid transparent;
-	background-clip: padding-box, border-box;
-	background-origin: padding-box, border-box;
-	background-image:
-		linear-gradient(var(--color-surface), var(--color-surface)),
-		linear-gradient(90deg, #ffe066, #f5af19, #e65c00, #f5af19, #ffe066);
-	background-size: 200% auto;
-	animation: gold-shimmer-anim 3s linear infinite;
-	box-shadow: 0 0 15px rgba(245, 175, 25, 0.4);
-}
-
-.border-cyber-glow {
-	position: relative;
-	border: 2px solid transparent;
-	background-clip: padding-box, border-box;
-	background-origin: padding-box, border-box;
-	background-image:
-		linear-gradient(var(--color-surface), var(--color-surface)),
-		linear-gradient(90deg, #00f2fe, #4facfe, #00f2fe);
-	background-size: 200% auto;
-	animation: cyber-glow-anim 2s linear infinite;
-	box-shadow: 0 0 15px rgba(79, 172, 254, 0.5);
-}
-
-.border-rainbow-wave {
-	position: relative;
-	border: 2px solid transparent;
-	background-clip: padding-box, border-box;
-	background-origin: padding-box, border-box;
-	background-image:
-		linear-gradient(var(--color-surface), var(--color-surface)),
-		linear-gradient(90deg, #ff007f, #7f00ff, #00f2fe, #00ff7f, #ffff00, #ff007f);
-	background-size: 300% auto;
-	animation: rainbow-wave-anim 4s linear infinite;
-	box-shadow: 0 0 20px rgba(127, 0, 255, 0.4);
-}
-
-@keyframes gold-shimmer-anim {
-	0% {
-		background-position: 0% 50%;
-	}
-	100% {
-		background-position: 200% 50%;
-	}
-}
-
-@keyframes cyber-glow-anim {
-	0% {
-		background-position: 0% 50%;
-	}
-	100% {
-		background-position: 200% 50%;
-	}
-}
-
-@keyframes rainbow-wave-anim {
-	0% {
-		background-position: 0% 50%;
-	}
-	100% {
-		background-position: 300% 50%;
-	}
-}
-
-/* Skins */
-.bg-cosmic-void {
-	background: radial-gradient(circle at center, #1b0a3a 0%, #0c041e 50%, #000000 100%);
-	position: relative;
-	overflow: hidden;
-}
-.bg-cosmic-void::before {
-	content: "";
-	position: absolute;
-	inset: 0;
-	background-image:
-		radial-gradient(white, rgba(255, 255, 255, 0.2) 2px, transparent 40px),
-		radial-gradient(white, rgba(255, 255, 255, 0.15) 1px, transparent 30px),
-		radial-gradient(white, rgba(255, 255, 255, 0.1) 2px, transparent 40px);
-	background-size:
-		200px 200px,
-		150px 150px,
-		300px 300px;
-	background-position:
-		0 0,
-		40px 60px,
-		130px 270px;
-	opacity: 0.35;
-	animation: cosmic-stars 60s linear infinite;
-}
-
-@keyframes cosmic-stars {
-	from {
-		transform: translateY(0);
-	}
-	to {
-		transform: translateY(-300px);
-	}
-}
-
-.bg-neon-matrix {
-	background: #050a05;
-	background-image:
-		linear-gradient(rgba(0, 50, 0, 0.15) 1px, transparent 1px),
-		linear-gradient(90deg, rgba(0, 50, 0, 0.15) 1px, transparent 1px);
-	background-size: 20px 20px;
-	position: relative;
-	border: 1px solid rgba(0, 255, 0, 0.15);
-}
-.bg-neon-matrix::before {
-	content: "iFragment Terminal";
-	position: absolute;
-	top: 12px;
-	right: 12px;
-	font-family: monospace;
-	font-size: 10px;
-	color: #00ff00;
-	opacity: 0.3;
-}
-
-@keyframes rocket-fly {
-  0% { transform: translate(0, 0) rotate(0deg) scale(1); }
-  25% { transform: translate(50vw, 20vh) rotate(45deg) scale(1.2); }
-  50% { transform: translate(20vw, 60vh) rotate(-20deg) scale(1.5); }
-  75% { transform: translate(-30vw, 30vh) rotate(-60deg) scale(1.2); }
-  100% { transform: translate(0, 0) rotate(0deg) scale(1); }
-}
-
-
-.animate-rocket-fly {
-  animation: rocket-fly 4s ease-in-out infinite alternate;
-}
-
-/* ═════════════ Eclipse Aura Animations ═════════════ */
-
-/* انیمیشن "نفس کشیدن" آرام برای outer bloom - حس زنده بودن */
-@keyframes aura-breathe {
-    0%, 100% {
-        transform: scale(1.4);
-        opacity: 1;
-    }
-    50% {
-        transform: scale(1.48);
-        opacity: 0.85;
-    }
-}
-
-/* shake موجود را اگر ندارید اضافه کنید */
-@keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    10%, 30%, 50%, 70%, 90% { transform: translateX(-6px); }
-    20%, 40%, 60%, 80% { transform: translateX(6px); }
-}
-
-/* بهینهسازی پرفورمنس روی GPU */
+/* Will-change GPU optimization class */
 .will-change-transform {
-    will-change: transform, opacity;
-    transform: translateZ(0);  /* GPU layer */
-    backface-visibility: hidden;
+	will-change: transform, opacity;
+	transform: translateZ(0);
+	backface-visibility: hidden;
 }
-

@@ -1,4 +1,3 @@
-import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, onCleanup, onMount, Show } from 'solid-js';
@@ -8,6 +7,7 @@ import { t } from '@/shared/i18n/index.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 import { SelectField, SettingsSection, ToggleSwitch } from '@/shared/ui/settings-controls.js';
 import { showToast } from '@/shared/ui/toast.js';
+import { UnsavedChangesSheet } from '@/shared/ui/UnsavedChangesSheet.js';
 
 interface GeneralConfig {
 	language: string;
@@ -70,7 +70,10 @@ export const GeneralSettingsPage: Component = () => {
 
 	const [isSaving, setIsSaving] = createSignal(false);
 	const [isDirty, setIsDirty] = createSignal(false);
+	const [showUnsavedSheet, setShowUnsavedSheet] = createSignal(false);
 	const [settingsVersion, setSettingsVersion] = createSignal(1);
+	const [searchQuery, setSearchQuery] = createSignal('');
+	const [activeTab, setActiveTab] = createSignal<'all' | 'general' | 'moderation' | 'antiraid'>('all');
 
 	const [config, setConfig] = createStore<GeneralConfig>({ ...defaultConfig });
 
@@ -88,11 +91,8 @@ export const GeneralSettingsPage: Component = () => {
 
 	const handleBack = () => {
 		if (isDirty()) {
-			const confirmDiscard = window.confirm(
-				t('common.unsavedChangesConfirm') ||
-					'You have unsaved changes. Are you sure you want to discard them?',
-			);
-			if (!confirmDiscard) return;
+			setShowUnsavedSheet(true);
+			return;
 		}
 		window.history.back();
 	};
@@ -120,29 +120,36 @@ export const GeneralSettingsPage: Component = () => {
 			);
 			setSettingsVersion(result.version);
 			setIsDirty(false);
+			setShowUnsavedSheet(false);
 			hapticFeedback.notificationOccurred('success');
-			showToast(t('common.settingsSaved') || 'Settings saved successfully', 'success');
+			showToast(t('common.settingsSaved') || 'تنظیمات با موفقیت ذخیره شد', 'success');
 			navigate(`/group/${params.id}`);
 		} catch (_e: any) {
 			hapticFeedback.notificationOccurred('error');
-			showToast(t('common.errorUpdateFailed') || 'Failed to update settings', 'error');
+			showToast(t('common.errorUpdateFailed') || 'خطا در ذخیره‌سازی تنظیمات', 'error');
 		} finally {
 			setIsSaving(false);
 		}
 	};
 
+	const handleDiscard = () => {
+		setIsDirty(false);
+		setShowUnsavedSheet(false);
+		window.history.back();
+	};
+
 	return (
-		<div class="min-h-screen bg-[#0f1014] pb-28 relative overflow-x-hidden text-white">
-			{/* Header */}
-			<div class="px-5 pt-6 pb-4 bg-[#0f1014] sticky top-0 z-30 border-b border-[#1c1c1c] flex items-center justify-between gap-3">
-				<div class="flex items-center gap-2 overflow-hidden flex-1">
+		<div class="theme-control min-h-screen bg-[#08090D] pb-28 relative overflow-x-hidden text-white select-none">
+			{/* Top Bar Header */}
+			<div class="px-5 pt-5 pb-4 bg-[#0F1117]/90 backdrop-blur-md sticky top-0 z-30 border-b border-white/10 flex items-center justify-between gap-3">
+				<div class="flex items-center gap-3 overflow-hidden flex-1">
 					<button
 						onClick={() => {
 							hapticFeedback.impactOccurred('light');
 							handleBack();
 						}}
-						class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-90 transition-all shrink-0"
-						aria-label="Back"
+						class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0"
+						aria-label="بازگشت"
 					>
 						<span class="material-symbols-outlined text-white text-[20px] rtl:-scale-x-100">
 							arrow_back
@@ -150,26 +157,26 @@ export const GeneralSettingsPage: Component = () => {
 					</button>
 					<div class="flex flex-col overflow-hidden">
 						<div class="flex items-center gap-2">
-							<h1 class="text-[18px] font-black text-white leading-tight truncate">
-								{t('generalSettings.title')}
+							<h1 class="text-base font-black text-white leading-tight truncate">
+								{t('generalSettings.title') || 'تنظیمات عمومی گروه'}
 							</h1>
 							<Show when={isDirty()}>
 								<span
-									class="w-2.5 h-2.5 rounded-full bg-[#ff9f0a] animate-pulse shrink-0"
-									title="Unsaved changes"
+									class="w-2.5 h-2.5 rounded-full bg-[#f59e0b] animate-pulse shrink-0"
+									title="تغییرات ذخیره‌نشده"
 								/>
 							</Show>
 						</div>
-						<span class="text-[12px] text-on-surface-variant truncate">
-							{t('generalSettings.description')}
+						<span class="text-xs text-white/50 truncate font-bold">
+							{t('generalSettings.description') || 'پیکربندی قابلیت‌ها و قوانین ربات'}
 						</span>
 					</div>
 				</div>
 
 				<button
 					onClick={() => setIsMenuOpen(true)}
-					class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-95 transition-all shrink-0"
-					aria-label="Open menu"
+					class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0"
+					aria-label="منوی مدیریتی"
 				>
 					<span class="material-symbols-outlined text-white text-[20px]">menu</span>
 				</button>
@@ -182,431 +189,238 @@ export const GeneralSettingsPage: Component = () => {
 				activeTab="general"
 			/>
 
-			<div class="px-5 pt-6 flex flex-col gap-6">
-				{/* Bot Language */}
-				<Motion.div
-					initial={{ opacity: 0, y: 10 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ delay: 0.02 }}
-				>
-					<SelectField
-						label="Bot Language"
-						value={config.language}
-						onChange={(v) => updateField('language', v)}
-						options={[
-							{ value: 'en', label: 'English' },
-							{ value: 'fa', label: 'فارسی (Persian)' },
-							{ value: 'ru', label: 'Русский (Russian)' },
-							{ value: 'ar', label: 'العربية (Arabic)' },
-						]}
-					/>
-					<p class="mt-2 text-[11px] text-on-surface-variant px-1">
-						Select the language the bot will use for all group notifications and responses.
-					</p>
-				</Motion.div>
-
-				{/* Bot Enabled */}
-				<Motion.div
-					initial={{ opacity: 0, y: 10 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ delay: 0.03 }}
-				>
-					<SettingsSection
-						title={t('generalSettings.botEnabled') || 'Bot Enabled'}
-						description={
-							t('generalSettings.botEnabledDesc') ||
-							'Turn off to completely disable the bot in this group without kicking it.'
-						}
-						enabled={config.botEnabled}
-						onToggle={(v) => updateField('botEnabled', v)}
-					/>
-				</Motion.div>
-
-				{/* Master Ephemeral Mode */}
-				<Motion.div
-					initial={{ opacity: 0, y: 10 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ delay: 0.04 }}
-					class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-3"
-				>
-					<div class="flex items-center justify-between gap-3">
-						<div class="flex flex-col flex-1 min-w-0">
-							<span class="text-[15px] font-bold text-white flex items-center gap-1.5">
-								<span class="material-symbols-outlined text-[18px] text-[#ff9f0a]">visibility_off</span>
-								{t('generalSettings.ephemeralAll') || 'Master Ephemeral Mode'}
-							</span>
-							<span class="text-[12px] text-on-surface-variant leading-snug">
-								{t('generalSettings.ephemeralAllDesc') || 'Send all bot responses and group notifications privately to the recipient only.'}
-							</span>
-						</div>
-						<ToggleSwitch
-							checked={config.ephemeralAll}
-							onChange={(v) => updateField('ephemeralAll', v)}
+			<div class="px-5 pt-5 flex flex-col gap-5">
+				{/* Search & Category Filter Tabs */}
+				<div class="space-y-3">
+					<div class="bg-black/40 border border-white/10 rounded-2xl px-4 h-12 flex items-center gap-2.5">
+						<span class="material-symbols-outlined text-white/40 text-[20px]">search</span>
+						<input
+							type="text"
+							placeholder="جستجو در تنظیمات..."
+							value={searchQuery()}
+							onInput={(e) => setSearchQuery(e.currentTarget.value)}
+							class="w-full bg-transparent text-xs text-white placeholder-white/30 outline-none"
 						/>
 					</div>
-					<Show when={!config.ephemeralAll}>
-						<div class="pt-3 border-t border-[#2a2a2a] flex flex-col gap-3">
+
+					<div class="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+						<button
+							onClick={() => setActiveTab('all')}
+							class={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+								activeTab() === 'all' ? 'bg-[#3390ec] text-white' : 'bg-white/5 text-white/60 hover:text-white'
+							}`}
+						>
+							همه تنظیمات
+						</button>
+						<button
+							onClick={() => setActiveTab('general')}
+							class={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+								activeTab() === 'general' ? 'bg-[#3390ec] text-white' : 'bg-white/5 text-white/60 hover:text-white'
+							}`}
+						>
+							عمومی و پیام‌ها
+						</button>
+						<button
+							onClick={() => setActiveTab('moderation')}
+							class={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+								activeTab() === 'moderation' ? 'bg-[#3390ec] text-white' : 'bg-white/5 text-white/60 hover:text-white'
+							}`}
+						>
+							مدیریت و اخطارها
+						</button>
+						<button
+							onClick={() => setActiveTab('antiraid')}
+							class={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+								activeTab() === 'antiraid' ? 'bg-[#3390ec] text-white' : 'bg-white/5 text-white/60 hover:text-white'
+							}`}
+						>
+							ضد حمله و ربات
+						</button>
+					</div>
+				</div>
+
+				{/* Bot Language & Basic Options */}
+				<Show when={activeTab() === 'all' || activeTab() === 'general'}>
+					<div class="bg-[#151822] border border-white/10 rounded-[24px] p-5 space-y-4">
+						<h3 class="text-xs font-black text-[#3390ec] uppercase tracking-wider">تنظیمات اصلی ربات</h3>
+
+						<SelectField
+							label="زبان پاسخ‌دهی ربات"
+							value={config.language}
+							onChange={(v) => updateField('language', v)}
+							options={[
+								{ value: 'fa', label: 'فارسی (Persian)' },
+								{ value: 'en', label: 'English' },
+								{ value: 'ru', label: 'Русский (Russian)' },
+								{ value: 'ar', label: 'العربية (Arabic)' },
+							]}
+						/>
+
+						<SettingsSection
+							title={t('generalSettings.botEnabled') || 'فعال بودن ربات در گروه'}
+							description="غیرفعال‌سازی موقت فعالیت‌های ربات بدون نیاز به حذف آن"
+							enabled={config.botEnabled}
+							onToggle={(v) => updateField('botEnabled', v)}
+						/>
+
+						<SelectField
+							label={t('generalSettings.timeZone') || 'منطقه زمانی'}
+							value={config.timezone}
+							onChange={(v) => updateField('timezone', v)}
+							options={[
+								{ value: 'Asia/Tehran', label: 'تهران (GMT+3:30)' },
+								{ value: 'UTC', label: 'UTC (GMT+0)' },
+								{ value: 'Europe/Moscow', label: 'مسکو (GMT+3)' },
+								{ value: 'Asia/Dubai', label: 'دبی (GMT+4)' },
+							]}
+						/>
+					</div>
+				</Show>
+
+				{/* Ephemeral & Messages Section */}
+				<Show when={activeTab() === 'all' || activeTab() === 'general'}>
+					<div class="bg-[#151822] border border-white/10 rounded-[24px] p-5 space-y-4">
+						<h3 class="text-xs font-black text-amber-400 uppercase tracking-wider">پیام‌ها و رفتار پاسخ‌دهی</h3>
+
+						<SettingsSection
+							title={t('generalSettings.welcomeMessage') || 'پیام خوش‌آمدگویی'}
+							description="ارسال پیام خوش‌آمدگویی هنگام ورود اعضای جدید"
+							enabled={config.welcomeMessage}
+							onToggle={(v) => updateField('welcomeMessage', v)}
+							hasEditText={true}
+							onEditText={() => navigate(`/group/${params.id}/settings/custom-texts`)}
+						/>
+
+						<SettingsSection
+							title={t('generalSettings.warningMessage') || 'پیام‌های اخطار'}
+							description="نمایش پیام متنی هنگام صدور اخطار به کاربر"
+							enabled={config.warningMessage}
+							onToggle={(v) => updateField('warningMessage', v)}
+							hasEditText={true}
+							onEditText={() => navigate(`/group/${params.id}/settings/custom-texts`)}
+						/>
+
+						<div class="bg-black/40 rounded-2xl border border-white/5 p-4 space-y-3">
 							<div class="flex items-center justify-between gap-3">
-								<span class="text-[13px] text-white">
-									{t('generalSettings.ephemeralWelcome') || 'Ephemeral Welcome'}
-								</span>
-								<ToggleSwitch
-									checked={config.ephemeralWelcome}
-									onChange={(v) => updateField('ephemeralWelcome', v)}
-								/>
+								<div>
+									<span class="text-xs font-bold text-white block">حذف خودکار پیام‌های ربات</span>
+									<span class="text-[11px] text-white/40 font-bold">حذف پاسخ‌های ربات پس از زمان مشخص</span>
+								</div>
+								<ToggleSwitch checked={config.autoDeleteBot} onChange={(v) => updateField('autoDeleteBot', v)} />
 							</div>
-							<div class="flex items-center justify-between gap-3">
-								<span class="text-[13px] text-white">
-									{t('generalSettings.ephemeralWarnings') || 'Ephemeral Warnings'}
-								</span>
-								<ToggleSwitch
-									checked={config.ephemeralWarnings}
-									onChange={(v) => updateField('ephemeralWarnings', v)}
-								/>
-							</div>
-						</div>
-					</Show>
-				</Motion.div>
 
-				{/* Time Zone */}
-				<Motion.div
-					initial={{ opacity: 0, y: 10 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ delay: 0.05 }}
-				>
-					<SelectField
-						label={t('generalSettings.timeZone')}
-						value={config.timezone}
-						onChange={(v) => updateField('timezone', v)}
-						options={[
-							{ value: 'UTC', label: 'UTC (GMT+0)' },
-							{ value: 'Europe/Moscow', label: 'Europe/Moscow (GMT+3)' },
-							{ value: 'Asia/Tehran', label: 'Asia/Tehran (GMT+3:30)' },
-							{ value: 'Asia/Dubai', label: 'Asia/Dubai (GMT+4)' },
-							{ value: 'Asia/Shanghai', label: 'Asia/Shanghai (GMT+8)' },
-							{ value: 'Europe/London', label: 'Europe/London (GMT+1)' },
-							{ value: 'America/New_York', label: 'America/New York (GMT-4)' },
-						]}
-						description={t('generalSettings.timeZoneDesc')}
-					/>
-				</Motion.div>
-
-				<Motion.div
-					initial={{ opacity: 0, y: 10 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ delay: 0.1 }}
-				>
-					<SettingsSection
-						title={t('generalSettings.welcomeMessage')}
-						description={t('generalSettings.welcomeMessageDesc')}
-						enabled={config.welcomeMessage}
-						onToggle={(v) => updateField('welcomeMessage', v)}
-						hasEditText={true}
-						onEditText={() => navigate(`/group/${params.id}/settings/custom-texts`)}
-					/>
-				</Motion.div>
-
-				<Motion.div
-					initial={{ opacity: 0, y: 10 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ delay: 0.15 }}
-				>
-					<SettingsSection
-						title={t('generalSettings.warningMessage')}
-						description={t('generalSettings.warningMessageDesc')}
-						enabled={config.warningMessage}
-						onToggle={(v) => updateField('warningMessage', v)}
-						hasEditText={true}
-						onEditText={() => navigate(`/group/${params.id}/settings/custom-texts`)}
-					/>
-				</Motion.div>
-
-				{/* Auto-delete bot messages */}
-				<Motion.div
-					initial={{ opacity: 0, y: 10 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ delay: 0.2 }}
-					class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-3"
-				>
-					<div class="flex items-center justify-between gap-3">
-						<div class="flex flex-col flex-1 min-w-0">
-							<span class="text-[15px] font-bold text-white">
-								{t('generalSettings.autoDeleteBot')}
-							</span>
-							<span class="text-[12px] text-on-surface-variant leading-snug">
-								{t('generalSettings.autoDeleteBotDesc')}
-							</span>
-						</div>
-						<ToggleSwitch
-							checked={config.autoDeleteBot}
-							onChange={(v) => updateField('autoDeleteBot', v)}
-						/>
-					</div>
-					<Show when={config.autoDeleteBot}>
-						<div class="flex items-center gap-3 mt-2">
-							<input
-								type="number"
-								inputMode="numeric"
-								min="0"
-								value={config.autoDeleteDelay}
-								onInput={(e) =>
-									updateField('autoDeleteDelay', parseInt(e.currentTarget.value, 10) || 0)
-								}
-								class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-2 w-24 text-center focus:outline-none focus:ring-2 focus:ring-[#3390ec] placeholder-[#a0a4ad]"
-							/>
-							<span class="text-[14px] font-bold text-[#a0a4ad]">
-								{t('generalSettings.seconds')}
-							</span>
-						</div>
-					</Show>
-				</Motion.div>
-
-				<Motion.div
-					initial={{ opacity: 0, y: 10 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ delay: 0.25 }}
-					class="flex flex-col gap-2"
-				>
-					<SettingsSection
-						title={t('generalSettings.trackAdmin')}
-						description={t('generalSettings.trackAdminDesc')}
-						enabled={config.trackAdmin}
-						onToggle={(v) => updateField('trackAdmin', v)}
-					/>
-				</Motion.div>
-
-				<Motion.div
-					initial={{ opacity: 0, y: 10 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ delay: 0.3 }}
-				>
-					<SettingsSection
-						title={t('generalSettings.verifyMembers')}
-						description={t('generalSettings.verifyMembersDesc')}
-						enabled={config.verifyMembers}
-						onToggle={(v) => updateField('verifyMembers', v)}
-					/>
-				</Motion.div>
-
-				<Motion.div
-					initial={{ opacity: 0, y: 10 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ delay: 0.3 }}
-				>
-					<SettingsSection
-						title={t('generalSettings.publicCommands')}
-						description={t('generalSettings.publicCommandsDesc')}
-						enabled={config.publicCommands}
-						onToggle={(v) => updateField('publicCommands', v)}
-					/>
-				</Motion.div>
-
-				<Motion.div
-					initial={{ opacity: 0, y: 10 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ delay: 0.3 }}
-				>
-					<SettingsSection
-						title={t('generalSettings.hideJoinLeave')}
-						description={t('generalSettings.hideJoinLeaveDesc')}
-						enabled={config.hideJoinLeave}
-						onToggle={(v) => updateField('hideJoinLeave', v)}
-					/>
-				</Motion.div>
-
-				<Motion.div
-					initial={{ opacity: 0, y: 10 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ delay: 0.35 }}
-				>
-					<SelectField
-						label={t('generalSettings.defaultPenalty')}
-						value={config.defaultPenalty}
-						onChange={(v) => updateField('defaultPenalty', v)}
-						options={[
-							{ value: 'delete', label: t('generalSettings.optDelete') },
-							{ value: 'mute_1h', label: t('generalSettings.optMute1h') },
-							{ value: 'mute_24h', label: t('generalSettings.optMute24h') },
-							{ value: 'kick', label: t('generalSettings.optKick') },
-							{ value: 'ban', label: t('generalSettings.optBan') },
-						]}
-						description={t('generalSettings.defaultPenaltyDesc')}
-					/>
-				</Motion.div>
-
-				<Motion.div
-					initial={{ opacity: 0, y: 10 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ delay: 0.4 }}
-					class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-3"
-				>
-					<div class="flex items-center justify-between gap-3">
-						<div class="flex flex-col flex-1 min-w-0">
-							<span class="text-[15px] font-bold text-white">
-								{t('generalSettings.autoWarning')}
-							</span>
-							<span class="text-[12px] text-[#a0a4ad] leading-snug">
-								{t('generalSettings.autoWarningDesc')}
-							</span>
-						</div>
-						<ToggleSwitch
-							checked={config.autoWarning}
-							onChange={(v) => updateField('autoWarning', v)}
-						/>
-					</div>
-
-					<Show when={config.autoWarning}>
-						<div class="h-[1px] bg-[#2a2a2a] w-full my-2"></div>
-						<div class="grid grid-cols-2 gap-4">
-							<div class="flex flex-col gap-1.5">
-								<label class="text-[13px] font-bold text-white">
-									{t('generalSettings.threshold')}
-								</label>
-								<div class="relative">
+							<Show when={config.autoDeleteBot}>
+								<div class="flex items-center gap-3 pt-2">
 									<input
 										type="number"
-										inputMode="numeric"
-										min="1"
-										value={config.warningThreshold}
-										onInput={(e) =>
-											updateField('warningThreshold', parseInt(e.currentTarget.value, 10) || 3)
-										}
-										class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-[#3390ec]"
+										min="5"
+										value={config.autoDeleteDelay}
+										onInput={(e) => updateField('autoDeleteDelay', parseInt(e.currentTarget.value, 10) || 60)}
+										class="bg-black/60 border border-white/10 text-white text-xs font-mono rounded-xl px-3 py-2 w-24 text-center outline-none"
 									/>
+									<span class="text-xs text-white/50 font-bold">ثانیه</span>
 								</div>
-							</div>
-							<div class="flex flex-col gap-1.5">
-								<label class="text-[13px] font-bold text-white">
-									{t('generalSettings.retention')}
-								</label>
-								<div class="relative">
-									<input
-										type="number"
-										inputMode="numeric"
-										min="1"
-										value={config.warningRetention}
-										onInput={(e) =>
-											updateField('warningRetention', parseInt(e.currentTarget.value, 10) || 7)
-										}
-										class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-[#3390ec]"
-									/>
-								</div>
-							</div>
-						</div>
-
-						<div class="mt-2">
-							<SelectField
-								label={t('generalSettings.finalPenalty')}
-								value={config.warningFinalPenalty}
-								onChange={(v) => updateField('warningFinalPenalty', v)}
-								options={[
-									{ value: 'mute_24h', label: t('generalSettings.optMute24h') },
-									{ value: 'kick', label: t('generalSettings.optKick') },
-									{ value: 'ban', label: t('generalSettings.optBan') },
-								]}
-							/>
-						</div>
-					</Show>
-				</Motion.div>
-
-				<div class="h-[1px] bg-[#2a2a2a] w-full my-1"></div>
-
-				{/* CAS Protection */}
-				<Motion.div
-					initial={{ opacity: 0, y: 10 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ delay: 0.45 }}
-				>
-					<SettingsSection
-						title={t('generalSettings.casProtection')}
-						description={t('generalSettings.casProtectionDesc')}
-						enabled={config.casEnabled}
-						onToggle={(v) => updateField('casEnabled', v)}
-					/>
-				</Motion.div>
-
-				{/* Anti-Raid Section */}
-				<Motion.div
-					initial={{ opacity: 0, y: 10 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ delay: 0.5 }}
-					class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-3"
-				>
-					<div class="flex items-center justify-between gap-3">
-						<div class="flex flex-col flex-1 min-w-0">
-							<span class="text-[15px] font-bold text-white">{t('generalSettings.antiRaid')}</span>
-							<span class="text-[12px] text-[#a0a4ad] leading-snug">
-								{t('generalSettings.antiRaidDesc')}
-							</span>
+							</Show>
 						</div>
 					</div>
+				</Show>
 
-					<div class="h-[1px] bg-[#2a2a2a] w-full my-1"></div>
+				{/* Moderation & Penalties Section */}
+				<Show when={activeTab() === 'all' || activeTab() === 'moderation'}>
+					<div class="bg-[#151822] border border-white/10 rounded-[24px] p-5 space-y-4">
+						<h3 class="text-xs font-black text-[#10b981] uppercase tracking-wider">محدودیت‌ها و جریمه‌ها</h3>
 
-					<div class="grid grid-cols-2 gap-4">
-						<div class="flex flex-col gap-1.5">
-							<label class="text-[13px] font-bold text-white">
-								{t('generalSettings.antiRaidThreshold')}
-							</label>
-							<input
-								type="number"
-								inputMode="numeric"
-								min="0"
-								value={config.antiRaidThreshold}
-								onInput={(e) =>
-									updateField('antiRaidThreshold', parseInt(e.currentTarget.value, 10) || 0)
-								}
-								placeholder="Joins / min"
-								class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-[#3390ec]"
-							/>
-						</div>
-						<div class="flex flex-col gap-1.5">
-							<label class="text-[13px] font-bold text-white">
-								{t('generalSettings.antiRaidAction')}
-							</label>
-							<select
-								value={config.antiRaidAction}
-								onChange={(e) => updateField('antiRaidAction', e.currentTarget.value)}
-								class="w-full bg-[#2c2c2e] text-white text-[15px] rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-[#3390ec] appearance-none"
-							>
-								<option value="none">{t('generalSettings.antiRaidOff')}</option>
-								<option value="lockdown">{t('generalSettings.antiRaidLockdown')}</option>
-								<option value="alert">{t('generalSettings.antiRaidAlert')}</option>
-							</select>
+						<SelectField
+							label={t('generalSettings.defaultPenalty') || 'جریمه پیش‌فرض تخلفات'}
+							value={config.defaultPenalty}
+							onChange={(v) => updateField('defaultPenalty', v)}
+							options={[
+								{ value: 'delete', label: 'حذف پیام' },
+								{ value: 'mute_1h', label: 'سکوت ۱ ساعته' },
+								{ value: 'mute_24h', label: 'سکوت ۲۴ ساعته' },
+								{ value: 'kick', label: 'اخراج از گروه' },
+								{ value: 'ban', label: 'مسدودسازی دائمی' },
+							]}
+						/>
+
+						<SettingsSection
+							title={t('generalSettings.autoWarning') || 'سیستم اخطار خودکار'}
+							description="ثبت اخطار و اعمال جریمه در صورت رسیدن به حد مجاز"
+							enabled={config.autoWarning}
+							onToggle={(v) => updateField('autoWarning', v)}
+						/>
+					</div>
+				</Show>
+
+				{/* Anti-Raid & Security */}
+				<Show when={activeTab() === 'all' || activeTab() === 'antiraid'}>
+					<div class="bg-[#151822] border border-white/10 rounded-[24px] p-5 space-y-4">
+						<h3 class="text-xs font-black text-[#ef4444] uppercase tracking-wider">امنیت و ضد حمله (Anti-Raid)</h3>
+
+						<SettingsSection
+							title={t('generalSettings.casProtection') || 'محافظت CAS (شبکه ضد اسپم)'}
+							description="جلوگیری از ورود اکانت‌های شناخته‌شده اسپمر"
+							enabled={config.casEnabled}
+							onToggle={(v) => updateField('casEnabled', v)}
+						/>
+
+						<div class="grid grid-cols-2 gap-3">
+							<div>
+								<label class="block text-[11px] font-bold text-white/50 mb-1">حد آستانه ورود (Joins/min)</label>
+								<input
+									type="number"
+									value={config.antiRaidThreshold}
+									onInput={(e) => updateField('antiRaidThreshold', parseInt(e.currentTarget.value, 10) || 0)}
+									class="w-full bg-black/40 border border-white/10 text-white text-xs font-mono rounded-xl p-3 outline-none"
+								/>
+							</div>
+							<div>
+								<label class="block text-[11px] font-bold text-white/50 mb-1">اقدام ضد حمله</label>
+								<select
+									value={config.antiRaidAction}
+									onChange={(e) => updateField('antiRaidAction', e.currentTarget.value)}
+									class="w-full bg-black/40 border border-white/10 text-white text-xs rounded-xl p-3 outline-none"
+								>
+									<option value="none">غیرفعال</option>
+									<option value="lockdown">قفل اضطراری گروه</option>
+									<option value="alert">هشدار به ادمین‌ها</option>
+								</select>
+							</div>
 						</div>
 					</div>
-					<span class="text-[11px] text-[#a0a4ad]">{t('generalSettings.antiRaidNote')}</span>
-				</Motion.div>
+				</Show>
 			</div>
 
-			{/* Save Button */}
+			{/* Save Floating Action Bar */}
 			<Show when={isDirty()}>
-				<div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#0f1014] via-[#0f1014]/90 to-transparent z-40 flex gap-3">
+				<div class="fixed bottom-0 left-0 right-0 p-4 bg-[#08090D]/90 backdrop-blur-md border-t border-white/10 z-40 flex gap-3">
 					<button
-						onClick={() => handleBack()}
+						onClick={handleBack}
 						disabled={isSaving()}
-						class="flex-1 h-14 bg-[#1c1c1c] text-[#ff3b30] border border-[#ff3b30]/20 rounded-2xl font-bold text-[15px] transition-all flex items-center justify-center gap-2 hover:bg-[#ff3b30]/10"
+						class="flex-1 h-12 bg-white/5 text-red-400 border border-red-500/20 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1 min-h-[44px]"
 					>
-						{t('common.cancel')}
-						<span class="material-symbols-outlined text-[18px]">close</span>
+						انصراف
 					</button>
 					<button
 						onClick={handleSave}
 						disabled={isSaving()}
-						class="flex-[2] h-14 bg-[#3390ec] hover:bg-[#2b7bc9] text-white rounded-2xl font-bold text-[16px] shadow-[0_10px_25px_rgba(51,144,236,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-40"
+						class="flex-[2] h-12 bg-[#3390ec] hover:bg-[#2b7ec9] text-white rounded-xl font-black text-xs shadow-lg shadow-[#3390ec]/20 transition-all flex items-center justify-center gap-2 min-h-[44px]"
 					>
-						<Show
-							when={!isSaving()}
-							fallback={
-								<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-							}
-						>
-							{t('generalSettings.saveSettings')}
-							<span class="material-symbols-outlined text-[20px]">save</span>
+						<Show when={!isSaving()} fallback={<span class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />}>
+							ذخیره تنظیمات
+							<span class="material-symbols-outlined text-[18px]">save</span>
 						</Show>
 					</button>
 				</div>
 			</Show>
+
+			<UnsavedChangesSheet
+				isOpen={showUnsavedSheet()}
+				onSave={handleSave}
+				onDiscard={handleDiscard}
+				onClose={() => setShowUnsavedSheet(false)}
+				saving={isSaving()}
+			/>
 		</div>
 	);
 };

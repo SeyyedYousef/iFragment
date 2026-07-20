@@ -467,13 +467,15 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 														{entry.name}
 													</span>
 													<Show when={entry.clanName}>
-														<span
-															class="text-[#0098ea] text-[11px] font-mono font-bold truncate flex items-center gap-1"
-															dir="ltr"
-														>
-															<span class="material-symbols-outlined text-[12px]">shield</span>@
-															{entry.clanName.replace(/^@+/, '')}
-														</span>
+														{(cn) => (
+															<span
+																class="text-[#0098ea] text-[11px] font-mono font-bold truncate flex items-center gap-1"
+																dir="ltr"
+															>
+																<span class="material-symbols-outlined text-[12px]">shield</span>@
+																{cn().replace(/^@+/, '')}
+															</span>
+														)}
 													</Show>
 												</div>
 											</div>
@@ -483,8 +485,7 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 												class="flex items-center gap-1 shrink-0 pl-2 font-mono font-bold text-xs text-white/90 tabular-nums"
 												dir="ltr"
 											>
-												<span>🪙</span>
-												<span>{formatScore(entry.score)}</span>
+												<span>🪙</span> <span>{formatScore(entry.score)}</span>
 											</div>
 										</div>
 									);
@@ -576,7 +577,7 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 								</div>
 
 								{/* ════ USER'S CLAN RANK SEPARATOR & STICKY ROW ════ */}
-								<Show when={userClanInfo() && !userClanInfo()?.inTop100}>
+								<Show when={!userClanInfo()?.inTop100 ? userClanInfo() : undefined}>
 									{(info) => (
 										<div class="flex flex-col gap-2 mt-4">
 											{/* Separator Divider */}

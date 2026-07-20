@@ -1,26 +1,15 @@
 import { initData } from '@tma.js/sdk-solid';
 import { createMemo, createSignal, createEffect, Show } from 'solid-js';
 import { getLevelInfo, type ProfileStats } from '@/shared/store/profile.js';
-import { t } from '@/shared/i18n/index.js';
 import { API_CONFIG } from '@/shared/api/config.js';
 
 interface Props {
 	stats: ProfileStats | null;
 }
 
-/**
- * Build the full avatar URL.
- * The backend returns `photoUrl` as a relative path like `/api/v1/profile/avatar/123456`.
- * We need to prepend the backend origin so the img element actually fetches from the API server,
- * not from the frontend's own origin (which doesn't serve avatars).
- */
 const buildAvatarUrl = (rawUrl: string): string => {
 	if (!rawUrl) return '';
-	// Already absolute — use as-is
 	if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) return rawUrl;
-	// Relative path from backend — prepend backend origin
-	// API_CONFIG.BASE_URL is like "https://ifragment-api.onrender.com/api/v1"
-	// photoUrl is like "/api/v1/profile/avatar/123456"
 	try {
 		const base = new URL(API_CONFIG.BASE_URL);
 		return `${base.origin}${rawUrl}`;
@@ -32,11 +21,9 @@ const buildAvatarUrl = (rawUrl: string): string => {
 export const IdentityHero = (props: Props) => {
 	const user = () => initData.user();
 	const [imgError, setImgError] = createSignal(false);
-	
+
 	const avatarUrl = createMemo(() => {
-		// Try the backend-served avatar proxy FIRST
 		if (props.stats?.photoUrl) return buildAvatarUrl(props.stats.photoUrl);
-		// Then try Telegram initData photo (direct URL from Telegram)
 		if ((user() as any)?.photo_url) return (user() as any).photo_url;
 		return '';
 	});
@@ -49,73 +36,63 @@ export const IdentityHero = (props: Props) => {
 	const info = createMemo(() => getLevelInfo(props.stats?.xp || 0));
 
 	return (
-		<div class="relative w-full flex flex-col items-center px-4 z-20 mt-4">
-			
-			{/* Cyber-Glass Cover Banner — covers entire hero section */}
-			<div class="absolute top-0 inset-x-4 bottom-0 bg-[#0a0a0f]/80 backdrop-blur-xl rounded-[32px] overflow-hidden border border-white/5 shadow-[0_8px_32px_rgba(0,0,0,0.5)] -z-10">
-				{/* Dynamic Glowing Orbs */}
-				<div class="absolute -right-12 -top-12 w-48 h-48 bg-[#00d4ff]/25 rounded-full blur-[40px] mix-blend-screen animate-pulse" style="animation-duration: 4s;" />
-				<div class="absolute -left-12 -bottom-12 w-48 h-48 bg-[#00f5ff]/15 rounded-full blur-[40px] mix-blend-screen animate-pulse" style="animation-duration: 5s;" />
-				<div class="absolute right-1/3 top-1/2 w-32 h-32 bg-[#00bfff]/10 rounded-full blur-[50px] mix-blend-screen" />
-				<div class="absolute inset-0 bg-gradient-to-b from-transparent via-[#050508]/30 to-[#050508]/60" />
+		<div class="relative w-full flex flex-col items-center px-4 z-20 mt-4 select-none">
+			{/* Restrained Hero Glass Cover */}
+			<div class="absolute top-0 inset-x-4 bottom-0 bg-[#0F1117]/85 backdrop-blur-xl rounded-[28px] overflow-hidden border border-white/10 shadow-xl -z-10">
+				<div class="absolute -right-8 -top-8 w-40 h-40 bg-[#3390ec]/15 rounded-full blur-[50px] pointer-events-none" />
+				<div class="absolute -left-8 -bottom-8 w-40 h-40 bg-[#0088cc]/10 rounded-full blur-[50px] pointer-events-none" />
 			</div>
 
-			{/* Premium Avatar Container */}
-			<div class="relative mt-6 mb-5">
-				{/* Glowing outer ring */}
-				<div class="absolute -inset-1 bg-gradient-to-r from-[#00f5ff] to-[#00bfff] rounded-full blur opacity-40" />
-				
-				<div class="relative w-[104px] h-[104px] rounded-full p-[2px] bg-gradient-to-br from-white/20 to-white/5 shadow-2xl">
-					<div class="w-full h-full rounded-full bg-[#050508] overflow-hidden flex items-center justify-center relative">
+			{/* Avatar Container */}
+			<div class="relative mt-6 mb-4">
+				<div class="relative w-[96px] h-[96px] rounded-full p-[2px] bg-gradient-to-br from-[#3390ec]/40 to-white/10 shadow-2xl">
+					<div class="w-full h-full rounded-full bg-[#08090D] overflow-hidden flex items-center justify-center relative">
 						<Show
 							when={avatarUrl() && !imgError()}
 							fallback={
-								<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#1a1a24] to-[#0a0a0f]">
-									<span class="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-br from-[#00f5ff] to-[#00bfff]">
+								<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#151822] to-[#08090D]">
+									<span class="text-3xl font-black text-[#3390ec]">
 										{user()?.first_name ? user()?.first_name[0].toUpperCase() : 'U'}
 									</span>
 								</div>
 							}
 						>
-							<img src={avatarUrl()} alt="Avatar" class="w-full h-full object-cover transition-opacity duration-300" loading="lazy" referrerPolicy="no-referrer" onError={() => setImgError(true)} />
+							<img
+								src={avatarUrl()}
+								alt={user()?.first_name ? `تصویر ${user()?.first_name}` : 'تصویر پروفایل کاربر'}
+								class="w-full h-full object-cover transition-opacity duration-300"
+								loading="lazy"
+								referrerPolicy="no-referrer"
+								onError={() => setImgError(true)}
+							/>
 						</Show>
 					</div>
 				</div>
-				
-				{/* Status indicator (optional pulse) */}
-				<div class="absolute bottom-1 right-1 w-5 h-5 bg-[#00f5ff] rounded-full border-[3px] border-[#050508] shadow-[0_0_10px_rgba(0,245,255,0.5)]" />
+
+				<div class="absolute bottom-1 right-1 w-4 h-4 bg-[#10b981] rounded-full border-[2.5px] border-[#08090D]" />
 			</div>
 
-			{/* User Info & Badges */}
-			<div class="flex flex-col items-center w-full text-center z-10 px-2 pb-5">
-				<h1 class="text-[26px] font-black leading-tight w-full break-words mb-3 text-transparent bg-clip-text bg-gradient-to-r from-white via-white/90 to-white/70 drop-shadow-sm">
-					{user()?.first_name} {user()?.last_name}
+			{/* User Info & Narrative Level Bar */}
+			<div class="flex flex-col items-center w-full text-center z-10 px-4 pb-5 space-y-3">
+				<h1 class="text-2xl font-black leading-tight text-white">
+					<bdi>{user()?.first_name} {user()?.last_name || ''}</bdi>
 				</h1>
-				
-				<div class="flex items-center justify-center flex-wrap gap-2.5">
-					{/* Level Badge */}
-					<div class="relative group">
-						<div class="absolute inset-0 bg-gradient-to-r from-[#00bfff] to-[#00f5ff] rounded-xl blur opacity-30 group-hover:opacity-60 transition-opacity" />
-						<div class="relative flex items-center gap-1.5 bg-[#0a0a0f]/90 border border-white/10 px-3 py-1.5 rounded-xl backdrop-blur-md">
-							<span class="material-symbols-outlined text-[14px] text-[#00f5ff]" style="font-variation-settings: 'FILL' 1;">star</span>
-							<span class="text-white text-[11px] font-black uppercase tracking-[0.1em]">
-								{t('profile.level') || 'Lv.'} {info().current.level} <span class="text-white/40 mx-0.5">•</span> {info().current.title}
-							</span>
-						</div>
+
+				{/* Level Narrative Badge & Progress Bar */}
+				<div class="w-full max-w-xs space-y-1.5">
+					<div class="flex items-center justify-between text-xs font-bold">
+						<span class="text-[#3390ec]">سطح {info().current.level}: {info().current.title}</span>
+						<span class="text-white/40 font-mono text-[11px]">{props.stats?.xp || 0} XP</span>
 					</div>
 
-					{/* Rank Badge */}
-					<Show when={props.stats?.globalRank}>
-						<div class="flex items-center gap-1.5 bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl backdrop-blur-md">
-							<span class="material-symbols-outlined text-[14px] text-[#a0a4ad]">public</span>
-							<span class="text-[#a0a4ad] text-[11px] font-bold tracking-widest">
-								{t('profile.rank') || 'RANK'} <span class="text-white">#{props.stats?.globalRank?.toLocaleString()}</span>
-							</span>
-						</div>
-					</Show>
+					<div class="w-full h-2 bg-black/40 rounded-full border border-white/10 overflow-hidden">
+						<div
+							class="h-full bg-gradient-to-r from-[#3390ec] to-[#0088cc] rounded-full transition-all duration-500"
+							style={{ width: `${Math.min(100, info().progress)}%` }}
+						/>
+					</div>
 				</div>
 			</div>
-
 		</div>
 	);
 };

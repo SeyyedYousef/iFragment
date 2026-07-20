@@ -19,7 +19,7 @@ export const OwnerHealth: Component = () => {
 				ownerApi.getHealthLogs().catch(() => ({ logs: [] })),
 			]);
 			if (m) setMetrics(m);
-			setLogs(l.logs || []);
+			setLogs((l as any)?.logs || (Array.isArray(l) ? l : []));
 			setLastUpdated(new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
 		} catch (e: any) {
 			setFetchError(e.response?.data?.error || 'خطا در دریافت پایش سلامت سرور');

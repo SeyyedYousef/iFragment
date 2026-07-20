@@ -1,6 +1,6 @@
 import { hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createSignal, For } from 'solid-js';
-import { balance, boosters, getBoosterCost, upgradeBooster, turboCount, fullEnergyCount, spawnRocket, activateFullEnergy, currentLeague } from '@/shared/store/airdrop.js';
+import { balance, boosters, getBoosterCost, upgradeBooster, turboCount, fullEnergyCount, spawnRocket, activateFullEnergy } from '@/shared/store/airdrop.js';
 import { showToast } from '@/shared/ui/toast.js';
 import { t } from '@/shared/i18n/index.js';
 

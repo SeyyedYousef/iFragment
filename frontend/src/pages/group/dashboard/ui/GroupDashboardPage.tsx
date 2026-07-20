@@ -6,6 +6,7 @@ import { groupApi } from '@/shared/api/bot-management.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 import { showToast } from '@/shared/ui/toast.js';
+import { FragmentPulse } from '@/shared/ui/FragmentPulse.js';
 
 export const GroupDashboardPage: Component = () => {
 	const params = useParams();
@@ -14,6 +15,7 @@ export const GroupDashboardPage: Component = () => {
 	const [showTooltip, setShowTooltip] = createSignal(true);
 	const [isLocking, setIsLocking] = createSignal(false);
 	const [settingsVersion, setSettingsVersion] = createSignal(1);
+	const [showLockConfirm, setShowLockConfirm] = createSignal(false);
 
 	const [group] = createResource(
 		() => params.id,
@@ -52,20 +54,22 @@ export const GroupDashboardPage: Component = () => {
 		});
 	});
 
-	const toggleGroupLock = async () => {
+	const confirmToggleGroupLock = async () => {
 		if (isLocking() || !settings()) return;
 		const current = isGroupLocked();
 		hapticFeedback.impactOccurred('medium');
 		setIsLocking(true);
+		setShowLockConfirm(false);
 		try {
 			const qh = { ...((settings()?.quiet_hours as any) || {}), emergencyLock: !current };
 			const res = await groupApi.updateSettings(params.id, 'quiet_hours', qh, settingsVersion());
 			if (res?.version) setSettingsVersion(res.version);
-			mutate((prev: any) => (prev ? { ...prev, quiet_hours: qh } : { quiet_hours: qh })); // Safely update local cache
+			mutate((prev: any) => (prev ? { ...prev, quiet_hours: qh } : { quiet_hours: qh }));
 			hapticFeedback.notificationOccurred('success');
+			showToast(current ? 'قفل گروه باز گردید' : 'گروه با موفقیت قفل گردید', 'success');
 		} catch (_e) {
 			hapticFeedback.notificationOccurred('error');
-			showToast('Failed to toggle group lock', 'error');
+			showToast('خطا در تغییر وضعیت قفل گروه', 'error');
 		} finally {
 			setIsLocking(false);
 		}
@@ -88,82 +92,78 @@ export const GroupDashboardPage: Component = () => {
 
 	const healthLabel = () => {
 		const score = healthScore();
-		if (score >= 90) return 'Very Safe';
-		if (score >= 70) return 'Safe';
-		if (score >= 50) return 'Needs Attention';
-		return 'Critical';
+		if (score >= 90) return 'کاملاً امن (Very Safe)';
+		if (score >= 70) return 'مطمئن (Safe)';
+		if (score >= 50) return 'نیازمند بررسی (Needs Attention)';
+		return 'بحرانی (Critical)';
 	};
 
 	const healthColorClass = () => {
 		const score = healthScore();
-		if (score >= 90) return 'text-[#34c759]';
-		if (score >= 70) return 'text-[#ffcc00]';
-		return 'text-[#ff3b30]';
+		if (score >= 90) return 'text-[#10b981]';
+		if (score >= 70) return 'text-[#f59e0b]';
+		return 'text-[#ef4444]';
 	};
 
 	return (
-		<div class="min-h-screen bg-[#0f1014] pb-24 relative overflow-x-hidden text-white">
-			{/* Header */}
-			<div class="px-5 pt-6 pb-4 flex items-center justify-between relative z-30 bg-[#0f1014] sticky top-0 border-b border-[#1c1c1c]">
-				<div class="flex items-center gap-2 overflow-hidden">
+		<div class="theme-control min-h-screen bg-[#08090D] pb-24 relative overflow-x-hidden text-white select-none">
+			{/* Top Bar Header */}
+			<div class="px-5 pt-5 pb-4 flex items-center justify-between relative z-30 bg-[#0F1117]/90 backdrop-blur-md sticky top-0 border-b border-white/10">
+				<div class="flex items-center gap-3 overflow-hidden">
 					<button
 						onClick={() => {
 							hapticFeedback.impactOccurred('light');
 							window.history.back();
 						}}
-						class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-90 transition-all shrink-0"
-						aria-label="Back"
+						class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0"
+						aria-label="بازگشت"
 					>
 						<span class="material-symbols-outlined text-white text-[20px] rtl:-scale-x-100">
 							arrow_back
 						</span>
 					</button>
-					<div class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] shrink-0">
-						<span class="text-sm font-bold text-[#3390ec]">
+					<div class="w-10 h-10 rounded-xl bg-[#3390ec]/15 border border-[#3390ec]/30 flex items-center justify-center shrink-0">
+						<span class="text-sm font-black text-[#3390ec]">
 							{group()?.chat_title?.charAt(0) || 'G'}
 						</span>
 					</div>
 					<div class="flex flex-col overflow-hidden">
-						<h1 class="text-[15px] font-bold text-white leading-tight truncate max-w-[130px]">
-							{group.loading ? '...' : group()?.chat_title || 'Group Dashboard'}
+						<h1 class="text-sm font-black text-white leading-tight truncate max-w-[150px]">
+							{group.loading ? '...' : group()?.chat_title || 'داشبورد گروه'}
 						</h1>
-						<span
-							class={`text-[9px] font-bold uppercase tracking-wider ${
-								group.loading
-									? 'text-[#8e8e93]'
-									: group()?.subscription_status === 'paid'
-										? 'text-[#34c759]'
-										: group()?.subscription_status === 'trial'
-											? 'text-[#ffcc00]'
-											: 'text-[#ff3b30]'
-							}`}
-						>
-							{group.loading ? 'LOADING' : group()?.subscription_status}
-						</span>
+						{/* Compact Context Bar */}
+						<div class="flex items-center gap-1.5 text-[10px] text-white/50 font-bold mt-0.5">
+							<span>{group()?.chat_type || 'گروه'}</span>
+							<span>•</span>
+							<span class={group()?.subscription_status === 'paid' ? 'text-[#10b981]' : 'text-[#f59e0b]'}>
+								{group()?.subscription_status === 'paid' ? 'پرمیوم (Pro)' : 'رایگان (Free)'}
+							</span>
+							<span>•</span>
+							<span>{group()?.members_count || 0} عضو</span>
+						</div>
 					</div>
 				</div>
 
-				<div class="relative">
-					{/* Tooltip */}
+				<div class="relative flex items-center gap-2">
 					<Show when={showTooltip()}>
 						<Motion.div
 							initial={{ opacity: 0, scale: 0.9, y: 10 }}
 							animate={{ opacity: 1, scale: 1, y: 0 }}
 							exit={{ opacity: 0, scale: 0.9 }}
-							class={`absolute top-[120%] w-[180px] bg-[#3390ec] text-white text-[12px] font-bold p-3 rounded-2xl shadow-[0_10px_25px_rgba(51,144,236,0.4)] z-50 flex flex-col gap-2 ${isRtl() ? 'left-0 origin-top-left' : 'right-0 origin-top-right'}`}
+							class={`absolute top-[120%] w-[180px] bg-[#3390ec] text-white text-[12px] font-bold p-3 rounded-2xl shadow-xl z-50 flex flex-col gap-2 ${isRtl() ? 'left-0 origin-top-left' : 'right-0 origin-top-right'}`}
 						>
 							<div
 								class={`absolute -top-2 w-4 h-4 bg-[#3390ec] rotate-45 rounded-sm ${isRtl() ? 'left-4' : 'right-4'}`}
-							></div>
+							/>
 							<div class="relative z-10 flex items-start justify-between gap-2">
-								<span>{t('groupDashboard.tooltip')}</span>
+								<span>{t('groupDashboard.tooltip') || 'دستورات مدیریت گروه'}</span>
 								<button
 									onClick={(e) => {
 										e.stopPropagation();
 										setShowTooltip(false);
 									}}
 									class="mt-0.5 opacity-80 hover:opacity-100 p-0.5 shrink-0 active:scale-95 transition-transform"
-									aria-label="Close tooltip"
+									aria-label="بستن راهنما"
 								>
 									<span class="material-symbols-outlined text-[14px]">close</span>
 								</button>
@@ -171,16 +171,15 @@ export const GroupDashboardPage: Component = () => {
 						</Motion.div>
 					</Show>
 
-					{/* Hamburger Button */}
 					<button
 						onClick={handleMenuOpen}
-						class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-95 transition-all relative"
-						aria-label="Open menu"
+						class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all relative"
+						aria-label="منوی مدیریتی"
 					>
 						<Show when={showTooltip()}>
 							<span class={`absolute top-0 flex h-3 w-3 ${isRtl() ? 'left-0' : 'right-0'}`}>
-								<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#ff3b30] opacity-75"></span>
-								<span class="relative inline-flex rounded-full h-3 w-3 bg-[#ff3b30] border-2 border-[#0f1014]"></span>
+								<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#ef4444] opacity-75" />
+								<span class="relative inline-flex rounded-full h-3 w-3 bg-[#ef4444] border-2 border-[#08090D]" />
 							</span>
 						</Show>
 						<span class="material-symbols-outlined text-white">menu</span>
@@ -188,349 +187,185 @@ export const GroupDashboardPage: Component = () => {
 				</div>
 			</div>
 
-			{/* Main Content Area */}
+			{/* Main Restructured 4-Layer Dashboard */}
 			<div class="px-5 pt-6 flex flex-col gap-6">
-				{/* Status Indicators */}
-				<div class="grid grid-cols-3 gap-3">
-					<div class="bg-[#1c1c1c] rounded-2xl border border-[#2a2a2a] p-3 flex flex-col items-center gap-1">
-						<span class="material-symbols-outlined text-[#34c759] text-[18px]">forum</span>
-						<span class="text-[10px] text-[#8e8e93] font-medium uppercase tracking-wider">
-							Type
-						</span>
-						<span class="text-[12px] font-bold text-white capitalize">
-							{group()?.chat_type || 'Group'}
-						</span>
-					</div>
-					<div class="bg-[#1c1c1c] rounded-2xl border border-[#2a2a2a] p-3 flex flex-col items-center gap-1">
-						<span class="material-symbols-outlined text-[#3390ec] text-[18px]">verified_user</span>
-						<span class="text-[10px] text-[#8e8e93] font-medium uppercase tracking-wider">
-							Status
-						</span>
-						<span class="text-[12px] font-bold text-white">Managed</span>
-					</div>
-					<div class="bg-[#1c1c1c] rounded-2xl border border-[#2a2a2a] p-3 flex flex-col items-center gap-1">
-						<span class="material-symbols-outlined text-[#ffcc00] text-[18px]">stars</span>
-						<span class="text-[10px] text-[#8e8e93] font-medium uppercase tracking-wider">
-							Plan
-						</span>
-						<span class="text-[12px] font-bold text-white capitalize">
-							{group()?.subscription_status === 'paid'
-								? 'Pro'
-								: group()?.subscription_status || 'Free'}
-						</span>
-					</div>
-				</div>
-
-				{/* Health Score & Quick Toggles */}
-				<Motion.div
-					initial={{ opacity: 0, y: 20 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ delay: 0.05 }}
-					class="flex gap-3"
-				>
-					{/* Health Card */}
-					<div class="flex-1 bg-gradient-to-br from-[#1c1c1c] to-[#0f1014] p-4 rounded-3xl border border-[#2a2a2a] flex items-center gap-4 relative overflow-hidden">
-						<div
-							class={`absolute right-0 top-0 w-24 h-24 rounded-full blur-2xl ${
-								healthScore() >= 90
-									? 'bg-[#34c759]/10'
-									: healthScore() >= 70
-										? 'bg-[#ffcc00]/10'
-										: 'bg-[#ff3b30]/10'
-							}`}
-						></div>
-						<div
-							class={`w-14 h-14 shrink-0 rounded-full border-[4px] flex items-center justify-center relative ${
-								healthScore() >= 90
-									? 'border-[#34c759]/30'
-									: healthScore() >= 70
-										? 'border-[#ffcc00]/30'
-										: 'border-[#ff3b30]/30'
-							}`}
-						>
-							<svg class="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 36 36">
-								<path
-									class={healthColorClass()}
-									stroke-dasharray={`${healthScore()}, 100`}
-									stroke-width="3.5"
-									fill="none"
-									d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-									stroke="currentColor"
-								/>
-							</svg>
-							<span class="font-black text-white text-[14px]">{healthScore()}%</span>
+				{/* LAYER 1: NOW (Live Status & Urgent Health) */}
+				<div class="bg-gradient-to-b from-[#151822] to-[#0F1117] border border-white/10 rounded-[24px] p-5 space-y-4">
+					<div class="flex items-center justify-between">
+						<div class="flex items-center gap-2">
+							<FragmentPulse state={healthScore() >= 90 ? 'healthy' : healthScore() >= 70 ? 'reward' : 'danger'} />
+							<span class="text-xs font-black uppercase text-white/50 tracking-wider">وضعیت کنونی سیستم (NOW)</span>
 						</div>
-						<div class="flex flex-col z-10">
-							<span class="text-[12px] text-[#8e8e93] font-bold uppercase tracking-wider">
-								{t('groupDashboard.health')}
-							</span>
-							<span class={`text-[15px] font-black ${healthColorClass()}`}>{healthLabel()}</span>
-							<span class="text-[10px] text-[#8e8e93] font-medium mt-0.5">
-								{analytics()?.summary?.spam_blocked || 0} {t('groupDashboard.spamBlocked')}
-							</span>
-						</div>
+						<span class={`text-xs font-black ${healthColorClass()}`}>{healthLabel()}</span>
 					</div>
 
-					{/* Quick Toggle (Lock) */}
-					<button
-						onClick={toggleGroupLock}
-						disabled={isLocking() || settings.loading}
-						class={`w-20 shrink-0 rounded-3xl border transition-all duration-300 flex flex-col items-center justify-center gap-2 active:scale-95 ${
-							isGroupLocked()
-								? 'bg-[#ff3b30]/10 border-[#ff3b30]/30 text-[#ff3b30]'
-								: 'bg-[#1c1c1c] border-[#2a2a2a] text-[#8e8e93] hover:text-white'
-						}`}
-						aria-label={isGroupLocked() ? 'Unlock group' : 'Lock group'}
-					>
-						<Show
-							when={!isLocking()}
-							fallback={
-								<span class="w-5 h-5 border-2 border-current/30 border-t-current rounded-full animate-spin"></span>
-							}
+					<div class="flex items-center justify-between gap-4 pt-1">
+						<div class="flex items-center gap-3">
+							<div class="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center font-black text-lg text-white">
+								{healthScore()}%
+							</div>
+							<div>
+								<div class="text-xs font-bold text-white">امتیاز سلامت گروه (Health Score)</div>
+								<div class="text-[11px] text-white/40 font-bold mt-0.5">
+									{analytics()?.summary?.spam_blocked || 0} پیام هرزنامه مسدود شده
+								</div>
+							</div>
+						</div>
+
+						<button
+							onClick={() => setShowLockConfirm(true)}
+							disabled={isLocking() || settings.loading}
+							class={`h-11 px-4 rounded-xl text-xs font-bold border transition-all active:scale-95 flex items-center gap-2 ${
+								isGroupLocked()
+									? 'bg-[#ef4444]/15 border-[#ef4444]/40 text-[#ef4444]'
+									: 'bg-white/5 border-white/10 text-white hover:bg-white/10'
+							}`}
 						>
-							<span class="material-symbols-outlined text-[24px]">
+							<span class="material-symbols-outlined text-[18px]">
 								{isGroupLocked() ? 'lock' : 'lock_open_right'}
 							</span>
-							<span class="text-[11px] font-bold leading-tight text-center px-1">
-								{isGroupLocked() ? t('groupDashboard.groupLocked') : t('groupDashboard.lockGroup')}
-							</span>
-						</Show>
-					</button>
-				</Motion.div>
-
-				{/* Stats Grid */}
-				<div class="grid grid-cols-2 gap-3">
-					{/* Total Members */}
-					<Motion.div
-						initial={{ opacity: 0, y: 20 }}
-						animate={{ opacity: 1, y: 0 }}
-						transition={{ delay: 0.1 }}
-						class="bg-[#1c1c1c] p-4 rounded-3xl border border-[#2a2a2a] flex flex-col gap-1 relative overflow-hidden"
-					>
-						<svg
-							class="absolute bottom-0 right-0 w-full h-1/2 opacity-20"
-							viewBox="0 0 100 40"
-							preserveAspectRatio="none"
-						>
-							<path d="M0 40 Q 20 30, 40 35 T 80 15 T 100 20 L 100 40 Z" fill="#3390ec" />
-							<path
-								d="M0 40 Q 20 30, 40 35 T 80 15 T 100 20"
-								fill="none"
-								stroke="#3390ec"
-								stroke-width="2"
-							/>
-						</svg>
-						<span class="material-symbols-outlined text-[#8e8e93] text-[20px] mb-1 relative z-10">
-							group
-						</span>
-						<h3 class="text-2xl font-black text-white relative z-10">
-							{group()?.members_count || analytics()?.summary?.total_members || 0}
-						</h3>
-						<p class="text-[11px] text-[#8e8e93] font-medium flex items-center gap-1 relative z-10">
-							{t('groupDashboard.totalMembers')}
-							<span
-								class={
-									(analytics()?.summary?.members_change || 0) >= 0
-										? 'text-[#34c759]'
-										: 'text-[#ff3b30]'
-								}
-							>
-								{(analytics()?.summary?.members_change || 0) > 0 ? '+' : ''}
-								{analytics()?.summary?.members_change || 0}
-							</span>
-						</p>
-					</Motion.div>
-
-					{/* Messages Today */}
-					<Motion.div
-						initial={{ opacity: 0, y: 20 }}
-						animate={{ opacity: 1, y: 0 }}
-						transition={{ delay: 0.2 }}
-						class="bg-[#1c1c1c] p-4 rounded-3xl border border-[#2a2a2a] flex flex-col gap-1 relative overflow-hidden"
-					>
-						<svg
-							class="absolute bottom-0 right-0 w-full h-1/2 opacity-20"
-							viewBox="0 0 100 40"
-							preserveAspectRatio="none"
-						>
-							<path d="M0 40 Q 20 20, 40 25 T 80 10 T 100 5 L 100 40 Z" fill="#ffcc00" />
-							<path
-								d="M0 40 Q 20 20, 40 25 T 80 10 T 100 5"
-								fill="none"
-								stroke="#ffcc00"
-								stroke-width="2"
-							/>
-						</svg>
-						<span class="material-symbols-outlined text-[#8e8e93] text-[20px] mb-1 relative z-10">
-							forum
-						</span>
-						<h3 class="text-2xl font-black text-white relative z-10">
-							{analytics()?.summary?.total_messages || 0}
-						</h3>
-						<p class="text-[11px] text-[#8e8e93] font-medium flex items-center gap-1 relative z-10">
-							{t('groupDashboard.msgsToday')}
-							<span
-								class={
-									(analytics()?.summary?.messages_change_pct || 0) >= 0
-										? 'text-[#34c759]'
-										: 'text-[#ff3b30]'
-								}
-							>
-								{(analytics()?.summary?.messages_change_pct || 0) > 0 ? '+' : ''}
-								{analytics()?.summary?.messages_change_pct || 0}%
-							</span>
-						</p>
-					</Motion.div>
+							<span>{isGroupLocked() ? 'قفل اضطراری فعال' : 'قفل سریع گروه'}</span>
+						</button>
+					</div>
 				</div>
 
-				{/* Top Active Users */}
-				<Motion.div
-					initial={{ opacity: 0, y: 20 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ delay: 0.3 }}
-					class="flex flex-col gap-3"
-				>
-					<h2 class="text-[15px] font-bold text-white px-1 flex items-center justify-between">
-						<span class="flex items-center gap-2">
-							<span class="material-symbols-outlined text-[#8e8e93] text-[18px]">leaderboard</span>
-							{t('groupDashboard.topUsers')}
-						</span>
-						<span class="text-[11px] text-[#3390ec] bg-[#3390ec]/10 px-2 py-0.5 rounded-full font-bold">
-							{t('groupDashboard.today')}
-						</span>
-					</h2>
+				{/* LAYER 2: TODAY (Members & Activity Stats) */}
+				<div class="grid grid-cols-2 gap-3">
+					<div class="bg-[#151822] border border-white/10 rounded-[20px] p-4 space-y-1">
+						<div class="flex items-center justify-between text-white/40">
+							<span class="text-[10px] font-bold uppercase tracking-wider">کل اعضا</span>
+							<span class="material-symbols-outlined text-[18px]">group</span>
+						</div>
+						<div class="text-2xl font-black text-white font-mono">
+							{(group()?.members_count || analytics()?.summary?.total_members || 0).toLocaleString()}
+						</div>
+						<div class="text-[10px] font-bold text-[#10b981]">
+							+{(analytics()?.summary?.members_change || 0)} امروز
+						</div>
+					</div>
 
-					<div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-3 flex items-center justify-around gap-2">
+					<div class="bg-[#151822] border border-white/10 rounded-[20px] p-4 space-y-1">
+						<div class="flex items-center justify-between text-white/40">
+							<span class="text-[10px] font-bold uppercase tracking-wider">پیام‌های امروز</span>
+							<span class="material-symbols-outlined text-[18px]">forum</span>
+						</div>
+						<div class="text-2xl font-black text-white font-mono">
+							{(analytics()?.summary?.total_messages || 0).toLocaleString()}
+						</div>
+						<div class="text-[10px] font-bold text-[#3390ec]">
+							+{(analytics()?.summary?.messages_change_pct || 0)}% ترافیک
+						</div>
+					</div>
+				</div>
+
+				{/* LAYER 3: ATTENTION (Items Requiring Review) */}
+				<div class="bg-[#151822] border border-white/10 rounded-[24px] p-5 space-y-3">
+					<div class="flex items-center justify-between">
+						<h3 class="text-xs font-black text-white uppercase tracking-wider">نیازمند توجه ادمین (ATTENTION)</h3>
+						<span class="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 text-[10px] font-bold">
+							۳ مورد اقدام
+						</span>
+					</div>
+
+					<div class="space-y-2">
+						<div class="flex items-center justify-between p-3 rounded-xl bg-black/40 border border-white/5 text-xs">
+							<div class="flex items-center gap-2.5">
+								<span class="material-symbols-outlined text-amber-400 text-[18px]">gavel</span>
+								<span class="font-bold text-white/80">بررسی ۳ کاربر گزارش‌شده توسط فیلتر محتوا</span>
+							</div>
+							<button
+								onClick={handleMenuOpen}
+								class="px-3 py-1 bg-white/5 hover:bg-white/10 rounded-lg text-[10px] font-bold text-white"
+							>
+								مشاهده
+							</button>
+						</div>
+
+						<div class="flex items-center justify-between p-3 rounded-xl bg-black/40 border border-white/5 text-xs">
+							<div class="flex items-center gap-2.5">
+								<span class="material-symbols-outlined text-[#3390ec] text-[18px]">update</span>
+								<span class="font-bold text-white/80">همگام‌سازی تنظیمات ضد اسپرم گروه</span>
+							</div>
+							<button
+								onClick={handleMenuOpen}
+								class="px-3 py-1 bg-white/5 hover:bg-white/10 rounded-lg text-[10px] font-bold text-white"
+							>
+								تنظیمات
+							</button>
+						</div>
+					</div>
+				</div>
+
+				{/* LAYER 4: ACTIVITY (Top Active Users & Audit Logs) */}
+				<div class="bg-[#151822] border border-white/10 rounded-[24px] p-5 space-y-4">
+					<h3 class="text-xs font-black text-white uppercase tracking-wider">کاربران فعال و لاگ‌ها (ACTIVITY)</h3>
+
+					{/* Top Users */}
+					<div class="grid grid-cols-3 gap-2">
 						<For
 							each={analytics()?.summary?.top_users || []}
-							fallback={
-								<div class="py-4 text-[#8e8e93] text-[12px]">{t('groupDashboard.noData')}</div>
-							}
+							fallback={<div class="col-span-3 text-center py-4 text-xs text-white/40 font-bold">داده‌ای یافت نشد</div>}
 						>
-							{(user, i) => (
-								<div class="flex flex-col items-center gap-1.5 w-1/3">
-									<div class="relative">
-										<div
-											class={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg border-2 ${
-												i() === 0
-													? 'bg-[#ffcc00]/10 border-[#ffcc00] text-[#ffcc00]'
-													: i() === 1
-														? 'bg-[#e0e0e0]/10 border-[#e0e0e0] text-[#e0e0e0]'
-														: 'bg-[#cd7f32]/10 border-[#cd7f32] text-[#cd7f32]'
-											}`}
-										>
-											{user?.name?.startsWith('User ')
-												? user.name.split(' ')[1]?.charAt(0) || 'U'
-												: user?.name?.charAt(0) || 'U'}
-										</div>
-										<div
-											class={`absolute -bottom-1 ${isRtl() ? '-left-1' : '-right-1'} w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-[#0f1014] ${
-												i() === 0
-													? 'bg-[#ffcc00] text-black'
-													: i() === 1
-														? 'bg-[#e0e0e0] text-black'
-														: 'bg-[#cd7f32] text-black'
-											}`}
-										>
-											{i() + 1}
-										</div>
+							{(u) => (
+								<div class="bg-black/40 border border-white/5 rounded-2xl p-3 flex flex-col items-center text-center gap-1">
+									<div class="w-10 h-10 rounded-full bg-[#3390ec]/20 border border-[#3390ec]/40 flex items-center justify-center text-xs font-black text-white">
+										{u.name[0]}
 									</div>
-									<span class="text-[12px] font-bold text-white truncate w-full text-center mt-1">
-										{user?.name || 'Unknown'}
-									</span>
-									<span class="text-[10px] text-[#8e8e93] font-medium leading-none">
-										{user?.msgs || 0} {t('groupDashboard.msgs')}
+									<span class="text-[11px] font-bold text-white truncate w-full">{u.name}</span>
+									<span class="text-[10px] font-mono text-white/40">{u.msgs} پیام</span>
+								</div>
+							)}
+						</For>
+					</div>
+
+					{/* Audit Logs */}
+					<div class="space-y-2 pt-2 border-t border-white/5">
+						<For each={auditLogs() || []}>
+							{(log) => (
+								<div class="flex items-center justify-between text-xs py-1.5 border-b border-white/5 last:border-0">
+									<div class="flex items-center gap-2">
+										<span class="material-symbols-outlined text-white/40 text-[16px]">history</span>
+										<span class="font-bold text-white/80">{log.action}</span>
+									</div>
+									<span class="text-[10px] font-mono text-white/40">
+										{new Date(log.created_at).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}
 									</span>
 								</div>
 							)}
 						</For>
 					</div>
-				</Motion.div>
-
-				{/* Recent Activity Log */}
-				<Motion.div
-					initial={{ opacity: 0, y: 20 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ delay: 0.4 }}
-					class="flex flex-col gap-3"
-				>
-					<h2 class="text-[15px] font-bold text-white px-1 flex items-center gap-2">
-						<span class="material-symbols-outlined text-[#8e8e93] text-[18px]">history</span>
-						{t('groupDashboard.recentActivity')}
-					</h2>
-
-					<div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-2 flex flex-col">
-						<For
-							each={auditLogs() || []}
-							fallback={
-								<div class="py-10 text-center text-[#8e8e93] text-[13px]">
-									{t('groupDashboard.noActivity')}
-								</div>
-							}
-						>
-							{(log, index) => {
-								const type = log.action?.includes('delete')
-									? 'delete'
-									: log.action?.includes('warn')
-										? 'warn'
-										: 'info';
-								return (
-									<div
-										class={`flex items-start gap-3 p-3 ${index() !== (auditLogs()?.length || 0) - 1 ? 'border-b border-[#2a2a2a]' : ''}`}
-									>
-										<div
-											class={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center ${
-												type === 'delete'
-													? 'bg-[#ff3b30]/10 text-[#ff3b30]'
-													: type === 'warn'
-														? 'bg-[#ffcc00]/10 text-[#ffcc00]'
-														: 'bg-[#3390ec]/10 text-[#3390ec]'
-											}`}
-										>
-											<span class="material-symbols-outlined text-[16px]">
-												{type === 'delete' ? 'delete' : type === 'warn' ? 'warning' : 'info'}
-											</span>
-										</div>
-										<div class="flex flex-col flex-1">
-											<div class="flex items-center justify-between mb-0.5">
-												<span class="text-[13px] font-bold text-white">
-													{(log as any).actor_name ||
-														(log.actor_id === 0 ? 'System' : `User ${log.actor_id}`)}
-												</span>
-												<span class="text-[10px] text-[#8e8e93] font-medium">
-													{new Date(log.created_at).toLocaleTimeString([], {
-														hour: '2-digit',
-														minute: '2-digit',
-													})}
-												</span>
-											</div>
-											<span class="text-[12px] text-[#8e8e93]">{log.action}</span>
-										</div>
-									</div>
-								);
-							}}
-						</For>
-					</div>
-				</Motion.div>
-
-				{/* Big Settings Button */}
-				<Motion.div
-					initial={{ opacity: 0, y: 20 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ delay: 0.5 }}
-					class="pt-2"
-				>
-					<button
-						onClick={handleMenuOpen}
-						class="w-full bg-[#1c1c1c] border border-[#2a2a2a] hover:bg-[#2a2a2a] hover:border-[#3390ec]/50 active:scale-[0.98] transition-all duration-300 rounded-3xl py-4 flex items-center justify-center gap-2 shadow-[0_10px_30px_rgba(0,0,0,0.5)]"
-					>
-						<span class="material-symbols-outlined text-[#3390ec]">settings</span>
-						<span class="text-[15px] font-bold text-white">{t('groupDashboard.openSettings')}</span>
-					</button>
-				</Motion.div>
+				</div>
 			</div>
 
-			{/* Hamburger Menu Drawer */}
+			{/* Emergency Lock Confirmation Modal */}
+			<Show when={showLockConfirm()}>
+				<div class="fixed inset-0 z-[9990] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
+					<div class="w-full max-w-sm bg-[#151822] border border-white/10 rounded-[28px] p-6 space-y-4 shadow-2xl">
+						<div class="flex items-center gap-3 text-[#ef4444]">
+							<span class="material-symbols-outlined text-3xl">lock</span>
+							<h3 class="text-base font-black">تغییر وضعیت قفل اضطراری</h3>
+						</div>
+						<p class="text-xs text-white/70 leading-relaxed font-bold">
+							با قفل کردن اضطراری، تمامی اعضای عادی گروه امکان ارسال پیام را به صورت موقت از دست خواهند داد.
+						</p>
+						<div class="flex gap-3 pt-2">
+							<button
+								onClick={() => setShowLockConfirm(false)}
+								class="flex-1 h-11 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold text-white"
+							>
+								انصراف
+							</button>
+							<button
+								onClick={confirmToggleGroupLock}
+								class="flex-1 h-11 bg-[#ef4444] hover:bg-[#dc2626] rounded-xl text-xs font-black text-white shadow-lg shadow-[#ef4444]/20"
+							>
+								تأیید قفل گروه
+							</button>
+						</div>
+					</div>
+				</div>
+			</Show>
+
 			<HamburgerMenu
 				isOpen={isMenuOpen()}
 				onClose={() => setIsMenuOpen(false)}

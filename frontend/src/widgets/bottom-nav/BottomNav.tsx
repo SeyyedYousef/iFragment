@@ -1,6 +1,6 @@
 import { A, useLocation } from '@solidjs/router';
 import { initData } from '@tma.js/sdk-solid';
-import { Component, createEffect, createSignal, Show } from 'solid-js';
+import { Component, createEffect, createSignal, Show, onCleanup } from 'solid-js';
 import { API_CONFIG } from '@/shared/api/config.js';
 import { t } from '@/shared/i18n/index.js';
 import { profilePhotoUrl } from '@/shared/store/profile.js';
@@ -8,6 +8,27 @@ import { profilePhotoUrl } from '@/shared/store/profile.js';
 export const BottomNav: Component = () => {
 	const location = useLocation();
 	const user = () => initData.user() as any;
+	const [imgError, setImgError] = createSignal(false);
+	const [isDimmed, setIsDimmed] = createSignal(false);
+
+	let dimTimeout: any;
+
+	// Soft dim bottom nav during rapid tap interaction if on Airdrop view
+	const handleGlobalTouch = () => {
+		if (location.pathname === '/airdrop') {
+			setIsDimmed(true);
+			if (dimTimeout) clearTimeout(dimTimeout);
+			dimTimeout = setTimeout(() => setIsDimmed(false), 1500);
+		}
+	};
+
+	if (typeof window !== 'undefined') {
+		window.addEventListener('touchstart', handleGlobalTouch, { passive: true });
+		onCleanup(() => {
+			window.removeEventListener('touchstart', handleGlobalTouch);
+			if (dimTimeout) clearTimeout(dimTimeout);
+		});
+	}
 
 	const avatarUrl = () => {
 		const statsPhoto = profilePhotoUrl();
@@ -22,8 +43,6 @@ export const BottomNav: Component = () => {
 		return undefined;
 	};
 
-	const [imgError, setImgError] = createSignal(false);
-
 	createEffect(() => {
 		avatarUrl();
 		setImgError(false);
@@ -35,97 +54,84 @@ export const BottomNav: Component = () => {
 	};
 
 	return (
-		<div
-			class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 flex items-center justify-between gap-3 px-margin-main pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+		<nav
+			aria-label="منوی اصلی برنامه‌"
+			class={`fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 flex items-center justify-between gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] transition-opacity duration-300 ${
+				isDimmed() ? 'opacity-30 pointer-events-none' : 'opacity-100'
+			}`}
 			dir="ltr"
 		>
 			<div
-				class="flex-1 backdrop-blur-md rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.3)] flex items-center justify-between px-2 py-2 border h-18 transition-colors bg-[#1c1c1c]/90 border-[#2a2a2a]"
+				class="flex-1 backdrop-blur-xl rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex items-center justify-around px-3 py-1.5 border h-16 transition-colors bg-[#0F1117]/90 border-white/10"
 				dir="ltr"
 			>
 				<A
 					href="/"
-					class={`h-full aspect-square rounded-full flex flex-col items-center justify-center cursor-pointer shadow-sm transition-all ${
-						isActive('/') ? 'bg-white/10 scale-110' : 'hover:bg-white/5 hover:scale-105'
+					class={`h-12 w-12 rounded-full flex flex-col items-center justify-center cursor-pointer transition-all ${
+						isActive('/') ? 'bg-[#3390ec]/20 text-[#3390ec] scale-105' : 'text-white/60 hover:text-white hover:bg-white/5'
 					}`}
 				>
 					<span
-						class={`material-symbols-outlined text-2xl ${
-							isActive('/') ? 'text-white' : 'text-[#8e8e93]'
-						}`}
+						class="material-symbols-outlined text-xl"
 						style={{ 'font-variation-settings': isActive('/') ? '"FILL" 1' : '"FILL" 0' }}
 					>
 						home
 					</span>
-					<span
-						class={`text-[10px] font-black mt-0.5 ${
-							isActive('/') ? 'text-white' : 'text-[#8e8e93]'
-						}`}
-					>
-						{t('bottomNav.home')}
-					</span>
+					<span class="text-[10px] font-black tracking-tight mt-0.5">{t('bottomNav.home') || 'خانه'}</span>
 				</A>
 
 				<A
-					href="/dashboard"
-					class={`flex flex-col items-center gap-1 cursor-pointer group px-2 transition-all ${isActive('/dashboard') ? 'scale-110' : 'hover:scale-105'}`}
+					href="/username"
+					class={`h-12 w-12 rounded-full flex flex-col items-center justify-center cursor-pointer transition-all ${
+						isActive('/username') ? 'bg-[#0088cc]/20 text-[#0088cc] scale-105' : 'text-white/60 hover:text-white hover:bg-white/5'
+					}`}
 				>
 					<span
-						class={`material-symbols-outlined transition-colors text-2xl ${
-							isActive('/dashboard') ? 'text-white' : 'text-[#8e8e93] group-hover:text-white'
-						}`}
-						style={isActive('/dashboard') ? { 'font-variation-settings': '"FILL" 1' } : {}}
+						class="material-symbols-outlined text-xl"
+						style={{ 'font-variation-settings': isActive('/username') ? '"FILL" 1' : '"FILL" 0' }}
 					>
-						dashboard
+						search
 					</span>
-					<span
-						class={`text-[10px] font-bold transition-colors ${
-							isActive('/dashboard') ? 'text-white' : 'text-[#8e8e93] group-hover:text-white'
-						}`}
-					>
-						{t('bottomNav.dashboard')}
-					</span>
+					<span class="text-[10px] font-bold tracking-tight mt-0.5">ارزش‌گذاری</span>
 				</A>
 
 				<A
 					href="/airdrop"
-					class={`flex flex-col items-center gap-1 cursor-pointer group px-4 transition-all ${isActive('/airdrop') ? 'scale-110' : 'hover:scale-105'}`}
+					class={`h-12 w-12 rounded-full flex flex-col items-center justify-center cursor-pointer transition-all ${
+						isActive('/airdrop') ? 'bg-[#f59e0b]/20 text-[#f59e0b] scale-105' : 'text-white/60 hover:text-white hover:bg-white/5'
+					}`}
 				>
 					<span
-						class={`material-symbols-outlined transition-colors text-2xl ${
-							isActive('/airdrop') ? 'text-white' : 'text-[#8e8e93] group-hover:text-white'
-						}`}
-						style={isActive('/airdrop') ? { 'font-variation-settings': '"FILL" 1' } : {}}
+						class="material-symbols-outlined text-xl"
+						style={{ 'font-variation-settings': isActive('/airdrop') ? '"FILL" 1' : '"FILL" 0' }}
 					>
 						card_giftcard
 					</span>
-					<span
-						class={`text-[10px] font-bold transition-colors ${
-							isActive('/airdrop') ? 'text-white' : 'text-[#8e8e93] group-hover:text-white'
-						}`}
-					>
-						{t('bottomNav.airdrop')}
-					</span>
+					<span class="text-[10px] font-bold tracking-tight mt-0.5">{t('bottomNav.airdrop') || 'ایردراپ'}</span>
 				</A>
 			</div>
 
+			{/* Profile Link with explicit Accessible label */}
 			<A
 				href="/profile"
-				class={`flex flex-col items-center cursor-pointer transition-all ${isActive('/profile') ? 'scale-110' : 'hover:scale-105'}`}
+				aria-label="پروفایل کاربری"
+				class={`flex flex-col items-center cursor-pointer transition-all ${isActive('/profile') ? 'scale-105' : 'hover:scale-102'}`}
 			>
 				<div
-					class={`w-18 h-18 rounded-full backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.3)] border-[3px] flex items-center justify-center overflow-hidden transition-all bg-[#1c1c1c]/90 ${isActive('/profile') ? 'border-[#3390ec]' : 'border-[#2a2a2a]'} `}
+					class={`w-16 h-16 rounded-full backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] border-[2.5px] flex items-center justify-center overflow-hidden transition-all bg-[#0F1117]/90 ${
+						isActive('/profile') ? 'border-[#3390ec] shadow-[#3390ec]/20' : 'border-white/10'
+					}`}
 				>
 					<Show
 						when={avatarUrl() && !imgError()}
 						fallback={
-							<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#3390ec] to-[#34c759] text-white font-black text-xl">
+							<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#3390ec] to-[#10b981] text-white font-black text-lg">
 								{user()?.first_name ? user()?.first_name?.[0]?.toUpperCase() : 'U'}
 							</div>
 						}
 					>
 						<img
-							alt=""
+							alt={user()?.first_name ? `تصویر پروفایل ${user()?.first_name}` : 'تصویر پروفایل کاربر'}
 							class="w-full h-full object-cover"
 							src={avatarUrl()!}
 							loading="lazy"
@@ -135,6 +141,6 @@ export const BottomNav: Component = () => {
 					</Show>
 				</div>
 			</A>
-		</div>
+		</nav>
 	);
 };
