@@ -81,18 +81,18 @@ export const BottomNav: Component = () => {
 				</A>
 
 				<A
-					href="/username"
+					href="/dashboard"
 					class={`h-12 w-12 rounded-full flex flex-col items-center justify-center cursor-pointer transition-all ${
-						isActive('/username') ? 'bg-[#0088cc]/20 text-[#0088cc] scale-105' : 'text-white/60 hover:text-white hover:bg-white/5'
+						isActive('/dashboard') ? 'bg-[#3390ec]/20 text-[#3390ec] scale-105' : 'text-white/60 hover:text-white hover:bg-white/5'
 					}`}
 				>
 					<span
 						class="material-symbols-outlined text-xl"
-						style={{ 'font-variation-settings': isActive('/username') ? '"FILL" 1' : '"FILL" 0' }}
+						style={{ 'font-variation-settings': isActive('/dashboard') ? '"FILL" 1' : '"FILL" 0' }}
 					>
-						search
+						dashboard
 					</span>
-					<span class="text-[10px] font-bold tracking-tight mt-0.5">ارزش‌گذاری</span>
+					<span class="text-[10px] font-bold tracking-tight mt-0.5">{t('bottomNav.dashboard') || 'مدیریت'}</span>
 				</A>
 
 				<A
