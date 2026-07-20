@@ -67,8 +67,8 @@ export const AirdropPage: Component = () => {
 
 	return (
 		<div
-			class="flex flex-col bg-black relative overflow-hidden"
-			style={{ 'min-height': 'var(--tg-viewport-stable-height, 100vh)' }}
+			class="h-screen max-h-screen overflow-hidden flex flex-col justify-between bg-black relative select-none"
+			style={{ 'height': 'var(--tg-viewport-stable-height, 100vh)' }}
 		>
 			{/* Main Content */}
 			<div class="flex-1 overflow-hidden relative flex flex-col pt-0">

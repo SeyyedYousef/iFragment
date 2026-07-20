@@ -526,25 +526,25 @@ export const TapView: Component<{
 			</div>
 
 			{/* 5. Ultra-Premium Bottom Action Area (Z-30) */}
-			<div class="w-full flex items-end justify-between px-5 mt-auto mb-[110px] relative z-30 pointer-events-none" dir="rtl">
-				{/* Energy Counter with Glowing Progress Bar (RTL Right Side) */}
+			<div class="w-full flex items-center justify-between px-4 mt-auto mb-[88px] relative z-30 pointer-events-none" dir="ltr">
+				{/* Energy Counter with Glowing Progress Bar (LEFT SIDE) */}
 				<div class="flex flex-col items-start pointer-events-auto select-none space-y-1">
-					<div class="flex items-center gap-2">
-						<span class="text-[28px] leading-none text-[#FFC107] drop-shadow-[0_0_12px_rgba(255,193,7,0.8)] animate-pulse">
+					<div class="flex items-center gap-1.5">
+						<span class="text-[26px] leading-none text-[#FFC107] drop-shadow-[0_0_12px_rgba(255,193,7,0.8)] animate-pulse">
 							⚡
 						</span>
 						<div class="flex items-baseline gap-1 font-mono">
-							<span class="text-white text-[26px] font-black tracking-tight tabular-nums drop-shadow-md">
+							<span class="text-white text-[24px] font-black tracking-tight tabular-nums drop-shadow-md">
 								{energy().toLocaleString('fa-IR')}
 							</span>
-							<span class="text-white/40 text-[15px] font-bold tabular-nums">
+							<span class="text-white/40 text-[14px] font-bold tabular-nums">
 								/ {maxEnergy().toLocaleString('fa-IR')}
 							</span>
 						</div>
 					</div>
 
 					{/* Sleek Energy Mini Bar */}
-					<div class="w-32 h-1.5 bg-black/60 backdrop-blur-md rounded-full overflow-hidden border border-white/10 p-[0.5px] shadow-inner">
+					<div class="w-28 h-1.5 bg-black/60 backdrop-blur-md rounded-full overflow-hidden border border-white/10 p-[0.5px] shadow-inner">
 						<div
 							class="h-full bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-300 rounded-full transition-all duration-300 shadow-[0_0_10px_rgba(245,158,11,0.7)]"
 							style={{ width: `${Math.max(0, Math.min(100, (energy() / maxEnergy()) * 100))}%` }}
@@ -552,15 +552,15 @@ export const TapView: Component<{
 					</div>
 				</div>
 
-				{/* Floating Action Pills Capsule (RTL Left Side) */}
-				<div class="flex items-center bg-[#0F1117]/90 backdrop-blur-2xl rounded-[24px] p-1.5 border border-white/15 shadow-[0_12px_40px_rgba(0,0,0,0.8)] hover:border-white/25 transition-all duration-300 pointer-events-auto gap-1">
+				{/* Floating Action Pills Capsule (RIGHT SIDE) */}
+				<div class="flex items-center bg-[#0F1117]/90 backdrop-blur-2xl rounded-[22px] p-1 border border-white/15 shadow-[0_12px_40px_rgba(0,0,0,0.8)] hover:border-white/25 transition-all duration-300 pointer-events-auto gap-0.5" dir="rtl">
 					{/* Upgrade / Boosters */}
 					<button
 						onClick={() => props.onActionClick?.('boost')}
-						class="flex flex-col items-center justify-center min-w-[74px] px-3 py-2 rounded-[18px] hover:bg-[#f59e0b]/10 active:scale-95 transition-all group duration-200 cursor-pointer"
+						class="flex flex-col items-center justify-center min-w-[68px] px-2.5 py-1.5 rounded-[16px] hover:bg-[#f59e0b]/10 active:scale-95 transition-all group duration-200 cursor-pointer"
 					>
 						<span
-							class="material-symbols-outlined text-[24px] mb-0.5 text-[#f59e0b] group-hover:scale-115 group-active:scale-95 transition-transform duration-200 drop-shadow-[0_0_12px_rgba(245,158,11,0.8)]"
+							class="material-symbols-outlined text-[22px] mb-0.5 text-[#f59e0b] group-hover:scale-115 group-active:scale-95 transition-transform duration-200 drop-shadow-[0_0_12px_rgba(245,158,11,0.8)]"
 							style={{ 'font-variation-settings': '"FILL" 1' }}
 						>
 							rocket_launch
@@ -573,10 +573,10 @@ export const TapView: Component<{
 					{/* Tasks */}
 					<button
 						onClick={() => props.onActionClick?.('earn')}
-						class="flex flex-col items-center justify-center min-w-[74px] px-3 py-2 rounded-[18px] hover:bg-[#10b981]/10 active:scale-95 transition-all group duration-200 cursor-pointer"
+						class="flex flex-col items-center justify-center min-w-[68px] px-2.5 py-1.5 rounded-[16px] hover:bg-[#10b981]/10 active:scale-95 transition-all group duration-200 cursor-pointer"
 					>
 						<span
-							class="material-symbols-outlined text-[24px] mb-0.5 text-[#10b981] group-hover:scale-115 group-active:scale-95 transition-transform duration-200 drop-shadow-[0_0_12px_rgba(16,185,129,0.8)]"
+							class="material-symbols-outlined text-[22px] mb-0.5 text-[#10b981] group-hover:scale-115 group-active:scale-95 transition-transform duration-200 drop-shadow-[0_0_12px_rgba(16,185,129,0.8)]"
 							style={{ 'font-variation-settings': '"FILL" 1' }}
 						>
 							task_alt
@@ -589,10 +589,10 @@ export const TapView: Component<{
 					{/* Friends */}
 					<button
 						onClick={() => props.onActionClick?.('frens')}
-						class="flex flex-col items-center justify-center min-w-[74px] px-3 py-2 rounded-[18px] hover:bg-[#3b82f6]/10 active:scale-95 transition-all group duration-200 cursor-pointer"
+						class="flex flex-col items-center justify-center min-w-[68px] px-2.5 py-1.5 rounded-[16px] hover:bg-[#3b82f6]/10 active:scale-95 transition-all group duration-200 cursor-pointer"
 					>
 						<span
-							class="material-symbols-outlined text-[24px] mb-0.5 text-[#3b82f6] group-hover:scale-115 group-active:scale-95 transition-transform duration-200 drop-shadow-[0_0_12px_rgba(59,130,246,0.8)]"
+							class="material-symbols-outlined text-[22px] mb-0.5 text-[#3b82f6] group-hover:scale-115 group-active:scale-95 transition-transform duration-200 drop-shadow-[0_0_12px_rgba(59,130,246,0.8)]"
 							style={{ 'font-variation-settings': '"FILL" 1' }}
 						>
 							group

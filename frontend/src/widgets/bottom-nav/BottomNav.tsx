@@ -9,26 +9,6 @@ export const BottomNav: Component = () => {
 	const location = useLocation();
 	const user = () => initData.user() as any;
 	const [imgError, setImgError] = createSignal(false);
-	const [isDimmed, setIsDimmed] = createSignal(false);
-
-	let dimTimeout: any;
-
-	// Soft dim bottom nav during rapid tap interaction if on Airdrop view
-	const handleGlobalTouch = () => {
-		if (location.pathname === '/airdrop') {
-			setIsDimmed(true);
-			if (dimTimeout) clearTimeout(dimTimeout);
-			dimTimeout = setTimeout(() => setIsDimmed(false), 1500);
-		}
-	};
-
-	if (typeof window !== 'undefined') {
-		window.addEventListener('touchstart', handleGlobalTouch, { passive: true });
-		onCleanup(() => {
-			window.removeEventListener('touchstart', handleGlobalTouch);
-			if (dimTimeout) clearTimeout(dimTimeout);
-		});
-	}
 
 	const avatarUrl = () => {
 		const statsPhoto = profilePhotoUrl();
@@ -56,9 +36,7 @@ export const BottomNav: Component = () => {
 	return (
 		<nav
 			aria-label="منوی اصلی برنامه‌"
-			class={`fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 flex items-center justify-between gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] transition-opacity duration-300 ${
-				isDimmed() ? 'opacity-30 pointer-events-none' : 'opacity-100'
-			}`}
+			class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 flex items-center justify-between gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
 			dir="ltr"
 		>
 			<div
