@@ -160,29 +160,29 @@ export const ProfilePage: Component = () => {
 						>
 							<button
 								onClick={() => handleNavigate('/profile/settings')}
-								aria-label="تنظیمات حساب کاربری"
+								aria-label={t('profile.settings')}
 								class="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 py-3 bg-[#08090D] rounded-xl hover:bg-white/5 active:scale-95 transition-all text-xs font-bold text-white"
 							>
 								<span class="material-symbols-outlined text-[#3390ec] text-[18px]">settings</span>
-								<span>تنظیمات</span>
+								<span>{t('profile.settings')}</span>
 							</button>
 
 							<button
 								onClick={() => setShowLangMenu(true)}
-								aria-label="تغییر زبان برنامه"
+								aria-label={t('profile.language')}
 								class="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 py-3 bg-[#08090D] rounded-xl hover:bg-white/5 active:scale-95 transition-all text-xs font-bold text-white"
 							>
 								<span class="material-symbols-outlined text-[#f59e0b] text-[18px]">language</span>
-								<span>زبان</span>
+								<span>{t('profile.language')}</span>
 							</button>
 
 							<button
 								onClick={() => handleNavigate('/profile/security')}
-								aria-label="تنظیمات امنیتی و رمزنگاری"
+								aria-label={t('profile.security')}
 								class="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 py-3 bg-[#08090D] rounded-xl hover:bg-white/5 active:scale-95 transition-all text-xs font-bold text-white"
 							>
 								<span class="material-symbols-outlined text-[#10b981] text-[18px]">security</span>
-								<span>امنیت</span>
+								<span>{t('profile.security')}</span>
 							</button>
 						</Motion.div>
 
@@ -194,7 +194,7 @@ export const ProfilePage: Component = () => {
 								onClick={secretTrigger.onVersionTap}
 								class="text-[10px] text-white/50 font-bold cursor-pointer select-none"
 							>
-								نسخه ۱.۰.۴ (Build 2026)
+								{t('profile.versionInfo')}
 							</span>
 						</div>
 					</div>
@@ -225,7 +225,7 @@ export const ProfilePage: Component = () => {
 					>
 						<div class="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-2" />
 						<h3 class="text-white text-base font-black text-center mb-2">
-							انتخاب زبان برنامه‌ (Language)
+							{t('profile.selectLanguageTitle')}
 						</h3>
 
 						<For
