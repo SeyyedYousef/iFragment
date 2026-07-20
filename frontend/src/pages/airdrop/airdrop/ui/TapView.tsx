@@ -525,47 +525,22 @@ export const TapView: Component<{
 				</div>
 			</div>
 
-			{/* 5. Ultra-Premium Bottom Action Area (Clear from BottomNav - Z-30) */}
-			<div class="w-full flex items-center justify-between px-3.5 mt-auto mb-[98px] sm:mb-[108px] relative z-30 pointer-events-none gap-2" dir="ltr">
-				{/* Energy Counter with Glowing Progress Bar (LEFT SIDE) */}
-				<div class="flex flex-col items-start pointer-events-auto select-none space-y-1 shrink-0">
-					<div class="flex items-center gap-1">
-						<span class="text-[20px] leading-none text-[#FFC107] drop-shadow-[0_0_12px_rgba(255,193,7,0.8)] animate-pulse">
-							⚡
-						</span>
-						<div class="flex items-baseline gap-0.5 font-mono whitespace-nowrap">
-							<span class="text-white text-lg sm:text-[20px] font-black tracking-tight tabular-nums drop-shadow-md">
-								{energy().toLocaleString('en-US')}
-							</span>
-							<span class="text-white/40 text-[12px] font-bold tabular-nums">
-								/ {maxEnergy().toLocaleString('en-US')}
-							</span>
-						</div>
-					</div>
-
-					{/* Sleek Energy Mini Bar */}
-					<div class="w-20 sm:w-24 h-1.5 bg-black/60 backdrop-blur-md rounded-full overflow-hidden border border-white/10 p-[0.5px] shadow-inner">
-						<div
-							class="h-full bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-300 rounded-full transition-all duration-300 shadow-[0_0_10px_rgba(245,158,11,0.7)]"
-							style={{ width: `${Math.max(0, Math.min(100, (energy() / maxEnergy()) * 100))}%` }}
-						/>
-					</div>
-				</div>
-
-				{/* Floating Action Pills Capsule (RIGHT SIDE) */}
-				<div class="flex items-center bg-[#0F1117]/90 backdrop-blur-2xl rounded-[20px] p-1 border border-white/15 shadow-[0_12px_40px_rgba(0,0,0,0.8)] hover:border-white/25 transition-all duration-300 pointer-events-auto gap-0.5 shrink-0" dir="rtl">
-					{/* Upgrade / Boosters */}
+			{/* 5. Golden Ratio Bottom Area (Z-30) */}
+			<div class="w-full px-4 mt-auto mb-[82px] relative z-30 flex flex-col gap-2.5 pointer-events-none">
+				{/* Row A: 3-Column Glassmorphic Action Cards */}
+				<div class="grid grid-cols-3 gap-2 w-full pointer-events-auto" dir="rtl">
+					{/* Boost / Upgrade */}
 					<button
 						onClick={() => props.onActionClick?.('boost')}
-						class="flex flex-col items-center justify-center min-w-[54px] sm:min-w-[62px] px-2 py-1 rounded-[14px] hover:bg-[#f59e0b]/10 active:scale-95 transition-all group duration-200 cursor-pointer"
+						class="h-11 rounded-2xl bg-[#0F1117]/90 backdrop-blur-xl border border-white/12 hover:border-[#f59e0b]/40 flex items-center justify-center gap-1.5 active:scale-95 transition-all group shadow-lg cursor-pointer"
 					>
 						<span
-							class="material-symbols-outlined text-[19px] sm:text-[21px] mb-0.5 text-[#f59e0b] group-hover:scale-115 group-active:scale-95 transition-transform duration-200 drop-shadow-[0_0_12px_rgba(245,158,11,0.8)]"
+							class="material-symbols-outlined text-[18px] text-[#f59e0b] group-hover:scale-110 transition-transform drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]"
 							style={{ 'font-variation-settings': '"FILL" 1' }}
 						>
 							rocket_launch
 						</span>
-						<span class="text-white/90 group-hover:text-white text-[9.5px] sm:text-[10.5px] font-black tracking-wide">
+						<span class="text-white text-xs font-black tracking-wide">
 							{t('airdropTabs.boost' as any) || 'ارتقا'}
 						</span>
 					</button>
@@ -573,15 +548,15 @@ export const TapView: Component<{
 					{/* Tasks */}
 					<button
 						onClick={() => props.onActionClick?.('earn')}
-						class="flex flex-col items-center justify-center min-w-[54px] sm:min-w-[62px] px-2 py-1 rounded-[14px] hover:bg-[#10b981]/10 active:scale-95 transition-all group duration-200 cursor-pointer"
+						class="h-11 rounded-2xl bg-[#0F1117]/90 backdrop-blur-xl border border-white/12 hover:border-[#10b981]/40 flex items-center justify-center gap-1.5 active:scale-95 transition-all group shadow-lg cursor-pointer"
 					>
 						<span
-							class="material-symbols-outlined text-[19px] sm:text-[21px] mb-0.5 text-[#10b981] group-hover:scale-115 group-active:scale-95 transition-transform duration-200 drop-shadow-[0_0_12px_rgba(16,185,129,0.8)]"
+							class="material-symbols-outlined text-[18px] text-[#10b981] group-hover:scale-110 transition-transform drop-shadow-[0_0_8px_rgba(16,185,129,0.6)]"
 							style={{ 'font-variation-settings': '"FILL" 1' }}
 						>
 							task_alt
 						</span>
-						<span class="text-white/90 group-hover:text-white text-[9.5px] sm:text-[10.5px] font-black tracking-wide">
+						<span class="text-white text-xs font-black tracking-wide">
 							{t('airdropTabs.earn' as any) || 'تسک‌ها'}
 						</span>
 					</button>
@@ -589,18 +564,43 @@ export const TapView: Component<{
 					{/* Friends */}
 					<button
 						onClick={() => props.onActionClick?.('frens')}
-						class="flex flex-col items-center justify-center min-w-[54px] sm:min-w-[62px] px-2 py-1 rounded-[14px] hover:bg-[#3b82f6]/10 active:scale-95 transition-all group duration-200 cursor-pointer"
+						class="h-11 rounded-2xl bg-[#0F1117]/90 backdrop-blur-xl border border-white/12 hover:border-[#3b82f6]/40 flex items-center justify-center gap-1.5 active:scale-95 transition-all group shadow-lg cursor-pointer"
 					>
 						<span
-							class="material-symbols-outlined text-[19px] sm:text-[21px] mb-0.5 text-[#3b82f6] group-hover:scale-115 group-active:scale-95 transition-transform duration-200 drop-shadow-[0_0_12px_rgba(59,130,246,0.8)]"
+							class="material-symbols-outlined text-[18px] text-[#3b82f6] group-hover:scale-110 transition-transform drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]"
 							style={{ 'font-variation-settings': '"FILL" 1' }}
 						>
 							group
 						</span>
-						<span class="text-white/90 group-hover:text-white text-[9.5px] sm:text-[10.5px] font-black tracking-wide">
+						<span class="text-white text-xs font-black tracking-wide">
 							{t('airdropTabs.frens' as any) || 'دوستان'}
 						</span>
 					</button>
+				</div>
+
+				{/* Row B: Energy Counter & Sleek Full Bar */}
+				<div class="w-full flex items-center justify-between px-1 pointer-events-auto select-none" dir="ltr">
+					<div class="flex items-center gap-1.5">
+						<span class="text-[20px] leading-none text-[#FFC107] drop-shadow-[0_0_10px_rgba(255,193,7,0.8)] animate-pulse">
+							⚡
+						</span>
+						<div class="flex items-baseline gap-1 font-mono whitespace-nowrap">
+							<span class="text-white text-base sm:text-lg font-black tracking-tight tabular-nums drop-shadow-md">
+								{energy().toLocaleString('en-US')}
+							</span>
+							<span class="text-white/40 text-xs font-bold tabular-nums">
+								/ {maxEnergy().toLocaleString('en-US')}
+							</span>
+						</div>
+					</div>
+
+					{/* Energy Bar */}
+					<div class="w-36 sm:w-44 h-2 bg-black/60 backdrop-blur-md rounded-full overflow-hidden border border-white/10 p-[0.5px] shadow-inner">
+						<div
+							class="h-full bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-300 rounded-full transition-all duration-300 shadow-[0_0_10px_rgba(245,158,11,0.7)]"
+							style={{ width: `${Math.max(0, Math.min(100, (energy() / maxEnergy()) * 100))}%` }}
+						/>
+					</div>
 				</div>
 			</div>
 
