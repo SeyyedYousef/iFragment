@@ -79,7 +79,7 @@ func DefaultEngineConfig() EngineConfig {
 		NormFactorBuyNow:  0.85,
 		NormFactorOffer:   1.10,
 
-		FallbackLen4: 250.0,
+		FallbackLen4: 5050.0, // Fragment official 4-character minimum auction starting floor
 		FallbackLen5: 50.0,
 		FallbackLen6: 15.0,
 		FallbackOther: 5.0,

@@ -82,21 +82,31 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 		rank := RankWord(username)
 		
 		if rank == 0 {
-			// Try CamelCase split for compound words (e.g., CryptoKing)
-			parts := splitCamelCase(username)
-			if len(parts) > 1 {
-				totalRank := 0
-				allExist := true
-				for _, p := range parts {
-					r := RankWord(p)
-					if r == 0 {
-						allExist = false
-						break
-					}
-					totalRank += r
+			// Priority 1.5: Try splitting compound words (e.g. cryptoking -> crypto + king)
+			w1, w2, isCompound := splitCompoundWordTwo(username)
+			if isCompound {
+				r1 := RankWord(w1)
+				r2 := RankWord(w2)
+				if r1 > 0 && r2 > 0 {
+					rank = (r1 + r2) / 2
 				}
-				if allExist {
-					rank = totalRank / len(parts)
+			} else {
+				// Try CamelCase split for compound words (e.g., CryptoKing)
+				parts := splitCamelCase(username)
+				if len(parts) > 1 {
+					totalRank := 0
+					allExist := true
+					for _, p := range parts {
+						r := RankWord(p)
+						if r == 0 {
+							allExist = false
+							break
+						}
+						totalRank += r
+					}
+					if allExist {
+						rank = totalRank / len(parts)
+					}
 				}
 			}
 		}
@@ -262,6 +272,26 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 		}
 	}
 
+	// Telegram Ecosystem & MiniApp Lexicon
+	telegramEcosystem := []string{
+		"durov", "notcoin", "dogs", "catizen", "major", "paws", "hamster", "ton", "tether", "stars",
+		"memecoin", "channel", "group", "bot", "gift", "trade", "wallet",
+	}
+	for _, te := range telegramEcosystem {
+		if cleanName == te {
+			tags = append(tags, "telegram_ecosystem")
+			break
+		}
+	}
+
+	// Compound Word Check (e.g., cryptoking, fastpay)
+	if !isDictionaryWord(cleanName) && RankWord(cleanName) == 0 {
+		_, _, isCompound := splitCompoundWordTwo(cleanName)
+		if isCompound {
+			tags = append(tags, "compound_word")
+		}
+	}
+
 	// General Ultra Premium
 	generalUltra := []string{"ai", "chat", "news", "music", "video", "shop", "store", "buy", "sell", "cloud", "data", "tech", "art", "auto", "car", "travel", "hotel", "food", "pizza", "burger", "gold", "silver", "app", "bot"}
 	for _, g := range generalUltra {
@@ -407,6 +437,12 @@ func (e *SemanticEngine) scoreToMultiplier(score float64, length int, tags []str
 			tagMultiplier *= 1.2
 		}
 		
+		if tag == "telegram_ecosystem" {
+			tagMultiplier *= 2.50
+		}
+		if tag == "compound_word" {
+			tagMultiplier *= 0.22 // Compound words get ~78% discount relative to pure single words
+		}
 		if tag == "exclusivity_status_premium" {
 			tagMultiplier *= 1.25
 		}
@@ -469,4 +505,21 @@ func splitCamelCase(s string) []string {
 		words = append(words, string(current))
 	}
 	return words
+}
+
+// splitCompoundWordTwo attempts to split a lowercase unsegmented compound string into 2 dictionary words.
+// Example: "cryptoking" -> ("crypto", "king", true)
+func splitCompoundWordTwo(s string) (string, string, bool) {
+	lower := strings.ToLower(s)
+	if len(lower) < 6 {
+		return "", "", false
+	}
+	for i := 3; i <= len(lower)-3; i++ {
+		w1 := lower[:i]
+		w2 := lower[i:]
+		if (isDictionaryWord(w1) || RankWord(w1) > 0) && (isDictionaryWord(w2) || RankWord(w2) > 0) {
+			return w1, w2, true
+		}
+	}
+	return "", "", false
 }

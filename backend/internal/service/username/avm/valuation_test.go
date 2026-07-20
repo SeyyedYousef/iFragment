@@ -148,10 +148,10 @@ func TestValuationEngine_CatsAndRare(t *testing.T) {
 	svc := NewValuationService(nil, nil, nil)
 	
 	// 1. Check scoreToMultiplier for 4-letter status word (e.g. rare)
-	rareMult := svc.semanticEngine.scoreToMultiplier(85, 4, []string{"exclusivity_status_premium"}, true)
-	estimatedRare := 5000.0 * rareMult
-	if estimatedRare < 90000 || estimatedRare > 160000 {
-		t.Errorf("Estimated price for 'rare' = %f, expected between 90000 and 160000", estimatedRare)
+	rareMult := svc.semanticEngine.scoreToMultiplier(95, 4, []string{"exclusivity_status_premium"}, true)
+	estimatedRare := 5050.0 * rareMult
+	if estimatedRare < 100000 || estimatedRare > 150000 {
+		t.Errorf("Estimated price for 'rare' = %f, expected between 100000 and 150000", estimatedRare)
 	}
 
 	// 2. Check anchored cats price calculation logic
@@ -163,4 +163,29 @@ func TestValuationEngine_CatsAndRare(t *testing.T) {
 		t.Errorf("Anchored price for 'cats' = %f, expected between 10000 and 15000", finalCats)
 	}
 }
+
+func TestValuationEngine_CompoundRatioAndEcosystem(t *testing.T) {
+	svc := NewValuationService(nil, nil, nil)
+
+	// 1. Single Pure Word vs Compound Word ratio
+	cryptoMult := svc.semanticEngine.scoreToMultiplier(95, 6, []string{"crypto_ultra_premium"}, true)
+	compoundMult := svc.semanticEngine.scoreToMultiplier(95, 10, []string{"crypto_ultra_premium", "compound_word"}, false)
+
+	if compoundMult >= cryptoMult {
+		t.Errorf("Compound word multiplier (%f) should be significantly lower than pure word multiplier (%f)", compoundMult, cryptoMult)
+	}
+
+	// 2. Telegram System Handle Anchor (@wallet)
+	walletPrice, ok := HistoricalSales["wallet"]
+	if !ok || walletPrice < 500000 {
+		t.Errorf("Official system handle 'wallet' should be anchored >= 500000 TON, got %f", walletPrice)
+	}
+
+	// 3. Telegram Ecosystem Tag (@notcoin, @major)
+	notcoinPrice, ok := HistoricalSales["notcoin"]
+	if !ok || notcoinPrice < 100000 {
+		t.Errorf("Ecosystem handle 'notcoin' should be anchored >= 100000 TON, got %f", notcoinPrice)
+	}
+}
+
 

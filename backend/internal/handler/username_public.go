@@ -587,9 +587,16 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UsernameHandler) sendValuationNotification(r *http.Request, u string, result *avm.ValuationResult) {
+	ctx := r.Context()
 	initData := r.Header.Get("X-Telegram-Init-Data")
-	userID := "ناشناس"
+	userIDStr := "ناشناس"
 	userIdent := "کاربر ناشناس"
+	var parsedUserID int64
+
+	if uid, err := middleware.GetUserID(ctx); err == nil && uid > 0 {
+		parsedUserID = uid
+		userIDStr = strconv.FormatInt(uid, 10)
+	}
 
 	if initData != "" {
 		values, _ := url.ParseQuery(initData)
@@ -600,9 +607,11 @@ func (h *UsernameHandler) sendValuationNotification(r *http.Request, u string, r
 				if idVal, ok := userObj["id"]; ok {
 					switch v := idVal.(type) {
 					case float64:
-						userID = strconv.FormatInt(int64(v), 10)
+						parsedUserID = int64(v)
+						userIDStr = strconv.FormatInt(int64(v), 10)
 					case int64:
-						userID = strconv.FormatInt(v, 10)
+						parsedUserID = v
+						userIDStr = strconv.FormatInt(v, 10)
 					}
 				}
 				if uName, ok := userObj["username"].(string); ok && uName != "" {
@@ -614,15 +623,49 @@ func (h *UsernameHandler) sendValuationNotification(r *http.Request, u string, r
 		}
 	}
 
+	paymentMethodLabel := "❓ نامشخص"
+	if parsedUserID > 0 {
+		payMethod := ""
+		if h.cache != nil {
+			accessKey := fmt.Sprintf("val_access:%d:%s", parsedUserID, u)
+			if val, err := h.cache.Client.Get(ctx, accessKey).Result(); err == nil && val != "" {
+				payMethod = val
+			}
+		}
+		if payMethod == "" && h.db != nil {
+			paid, dbMethod, err := h.db.HasPaidValuation(ctx, parsedUserID, u)
+			if err == nil && paid {
+				payMethod = dbMethod
+			}
+		}
+
+		switch payMethod {
+		case "free":
+			paymentMethodLabel = "🎁 هدیه عضویت (کانال و گروه)"
+		case "coins":
+			paymentMethodLabel = "🪙 پرداخت با سکه (88,000 FRG)"
+		case "stars":
+			paymentMethodLabel = "⭐️ استارز تلگرام (Telegram Stars)"
+		case "owner":
+			paymentMethodLabel = "👑 مالک سیستم / ادمین"
+		default:
+			if payMethod != "" {
+				paymentMethodLabel = payMethod
+			}
+		}
+	}
+
 	msg := fmt.Sprintf(
 		"🔍 <b>درخواست ارزش‌گذاری یوزرنیم</b>\n\n"+
 			"👤 <b>کاربر:</b> %s (<code>%s</code>)\n"+
 			"🆔 <b>یوزرنیم:</b> @%s\n\n"+
+			"💳 <b>روش پرداخت:</b> %s\n"+
 			"💰 <b>قیمت نهایی:</b> %s TON\n"+
 			"💵 <b>معادل دلاری:</b> $%s\n"+
 			"💎 <b>کمیابی:</b> %s",
-		telegram.EscapeHTML(userIdent), userID,
+		telegram.EscapeHTML(userIdent), userIDStr,
 		telegram.EscapeHTML(u),
+		telegram.EscapeHTML(paymentMethodLabel),
 		result.ExpectedTON.StringFixed(2),
 		result.ExpectedUSD.StringFixed(2),
 		result.Rarity.Tier,

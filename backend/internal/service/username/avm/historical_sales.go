@@ -27,12 +27,18 @@ var HistoricalSales = map[string]float64{
 	"cardano":      120000.0, // Top crypto
 	"dogecoin":     150000.0, // Meme crypto legend
 	"nft":          250000.0, // Web3 category name
-	"blockchain":   200000.0, // Web3 category name
-	"ai":           500000.0, // 2-letter premium + hottest trend
-	"vip":          300000.0, // 3-letter premium
-	"ceo":          250000.0, // 3-letter premium
+	"wallet":       750000.0, // Official Telegram System Service (@wallet)
+	"gift":         350000.0, // Official Telegram Gifts Service (@gift)
+	"trade":        500000.0, // Official Telegram Trading Service (@trade)
+	"stars":        400000.0, // Official Telegram Stars Currency (@stars)
+	"durov":        600000.0, // Telegram Founder (@durov)
+	"notcoin":      180000.0, // Ecosystem Tier-1 MiniApp (@notcoin)
+	"major":        120000.0, // Ecosystem Tier-1 MiniApp (@major)
+	"catizen":      150000.0, // Ecosystem Tier-1 MiniApp (@catizen)
+	"hamster":      100000.0, // Ecosystem Tier-1 MiniApp (@hamster)
+	"paws":         80000.0,  // Ecosystem Tier-1 MiniApp (@paws)
 	"cats":         5050.0,  // Memecoin/community benchmark (Fragment original sale)
-	"dogs":         12500.0,  // Memecoin/community benchmark
+	"dogs":         12500.0,  // Memecoin/community benchmark (Fragment original sale)
 	// ── Original Data ──
 	"news": 994000.0,
 	"auto": 900000.0,
@@ -62,7 +68,6 @@ var HistoricalSales = map[string]float64{
 	"adidas": 250000.0,
 	"cryptoholder": 250000.0,
 	"defi": 250000.0,
-	"trade": 245000.0,
 	"chief": 242000.0,
 	"trip": 237000.0,
 	"web3": 224000.0,
@@ -263,7 +268,6 @@ var HistoricalSales = map[string]float64{
 	"europa": 70000.0,
 	"gitlab": 70000.0,
 	"smart": 70000.0,
-	"gift": 69000.0,
 	"iqos": 69000.0,
 	"move": 69000.0,
 	"playboy": 69000.0,

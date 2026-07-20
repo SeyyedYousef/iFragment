@@ -7,6 +7,7 @@ import { valuationApi } from '@/shared/api/bot-management.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { toPng } from 'html-to-image';
 import { shareToStory } from '@/shared/lib/telegram-native.js';
+import { cloudStorage } from '@/shared/lib/cloud-storage.js';
 
 interface ValuationResult {
 	run_id: number;
@@ -401,6 +402,7 @@ export const UsernamePage: Component = () => {
 			if (res && res.has_access) {
 				hapticFeedback.notificationOccurred('success');
 				localStorage.setItem('val_free_used', 'true');
+				cloudStorage.setItem('val_free_used', 'true');
 				setFreeQuotaUsed(true);
 				grantAccess('free', u);
 			} else {
@@ -426,8 +428,17 @@ export const UsernamePage: Component = () => {
 			setError(null);
 
 			const cachedAccess = localStorage.getItem(`val_access_${u}`);
-			const freeUsed = localStorage.getItem('val_free_used') === 'true';
-			setFreeQuotaUsed(freeUsed);
+			const localFreeUsed = localStorage.getItem('val_free_used') === 'true';
+			if (localFreeUsed) {
+				setFreeQuotaUsed(true);
+			} else {
+				cloudStorage.getItem('val_free_used').then((val) => {
+					if (val === 'true') {
+						setFreeQuotaUsed(true);
+						localStorage.setItem('val_free_used', 'true');
+					}
+				});
+			}
 
 			if (cachedAccess) {
 				setAccessGranted(true);
@@ -436,15 +447,17 @@ export const UsernamePage: Component = () => {
 			} else {
 				try {
 					const accessRes = await valuationApi.checkAccess(u);
+					if (accessRes?.free_quota_used) {
+						setFreeQuotaUsed(true);
+						localStorage.setItem('val_free_used', 'true');
+						cloudStorage.setItem('val_free_used', 'true');
+					}
+
 					if (accessRes && accessRes.has_access) {
 						setAccessGranted(true);
 						setAccessMethod(accessRes.method || 'stars');
 						fetchValuation(u);
 					} else {
-						if (accessRes?.free_quota_used) {
-							setFreeQuotaUsed(true);
-							localStorage.setItem('val_free_used', 'true');
-						}
 						setShowPaymentGate(true);
 						setLoading(false);
 					}

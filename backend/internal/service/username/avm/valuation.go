@@ -465,6 +465,15 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	}
 
 	username = strings.ToLower(strings.TrimSpace(username))
+	username = strings.TrimPrefix(username, "@")
+
+	if len(username) < 4 || len(username) > 32 {
+		return nil, fmt.Errorf("invalid telegram username length: must be between 4 and 32 characters")
+	}
+	if !regexp.MustCompile(`^[a-z][a-z0-9_]*$`).MatchString(username) {
+		return nil, fmt.Errorf("invalid telegram username format: must start with a letter and contain only letters, numbers, or underscores")
+	}
+
 	now := time.Now()
 	segment, charLen, features := ClassifyUsername(username)
 	reasoning := map[string]any{

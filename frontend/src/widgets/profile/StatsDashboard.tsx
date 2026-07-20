@@ -1,6 +1,6 @@
 import { Motion } from '@motionone/solid';
 import { Component, For } from 'solid-js';
-import { locale, t } from '@/shared/i18n/index.js';
+import { t } from '@/shared/i18n/index.js';
 import type { ProfileStats } from '@/shared/store/profile.js';
 
 interface Props {
