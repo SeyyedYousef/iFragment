@@ -1,6 +1,6 @@
 import { A, useLocation } from '@solidjs/router';
 import { initData } from '@tma.js/sdk-solid';
-import { Component, createEffect, createSignal, Show, onCleanup } from 'solid-js';
+import { Component, createEffect, createSignal, Show } from 'solid-js';
 import { API_CONFIG } from '@/shared/api/config.js';
 import { t } from '@/shared/i18n/index.js';
 import { profilePhotoUrl } from '@/shared/store/profile.js';
