@@ -797,6 +797,8 @@ export const dict = {
 		addRotatingText: 'افزودن یک متن دیگر',
 		addRotatingTextPlaceholder: 'افزودن متن جدید...',
 		addRule: 'افزودن پاسخگو',
+		adminRequirementNotice:
+			'توجه مهم: برای کارکرد صحیح کامنت‌گذاری و پاسخگویی خودکار، ربات حتماً باید در گروه بحث (Discussion Group) متصل به کانال عضو بوده و دسترسی مدیر (Admin) داشته باشد.',
 		aiAutoComment: 'کامنت خودکار هوش مصنوعی',
 		aiAutoCommentDesc:
 			'هوش مصنوعی پست شما را خوانده و به طور خودکار یک کامنت اول کاملاً مرتبط ایجاد می‌کند.',

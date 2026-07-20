@@ -794,6 +794,8 @@ export const dict = {
 		addRotatingText: '添加另一个文本',
 		addRotatingTextPlaceholder: '添加新文本...',
 		addRule: '添加新规则',
+		adminRequirementNotice:
+			'重要提示：为了使自动评论和自动回复正常工作，机器人必须是关联讨论组（Discussion Group）的成员并拥有管理员（Admin）权限。',
 		aiAutoComment: 'AI自动评论（智能评论器）',
 		aiAutoCommentDesc:
 			'人工智能会阅读您的新帖子，并在其下方撰写高度相关、自然且引人入胜的第一条评论，而不是通用文本。',

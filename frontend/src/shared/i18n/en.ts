@@ -798,6 +798,8 @@ export const dict = {
 		addRotatingText: 'Add Another Text',
 		addRotatingTextPlaceholder: 'Add new text...',
 		addRule: 'Add New Rule',
+		adminRequirementNotice:
+			'Important Notice: For automated commenting and auto-replies to work properly, the bot MUST be a member of the linked Discussion Group and have Admin privileges.',
 		aiAutoComment: 'AI Auto-Comment (Smart Commenter)',
 		aiAutoCommentDesc:
 			'Instead of generic texts, the AI reads your new post and writes a highly relevant, natural, and engaging first comment under it.',

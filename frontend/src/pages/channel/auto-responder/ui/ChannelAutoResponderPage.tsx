@@ -328,6 +328,12 @@ export const ChannelAutoResponderPage: Component = () => {
 									<p class="text-[13px] text-on-surface-variant leading-relaxed">
 										{t('channelAutoResponder.guideDesc') || 'با روشن شدن این بخش، ربات در گروه متصل به کانال شما (Discuss Group) فعال می‌شود. قابلیت‌های زیر در اختیار شماست:'}
 									</p>
+									<div class="bg-[#ff9f0a]/10 border border-[#ff9f0a]/30 rounded-2xl p-3.5 flex items-start gap-2.5 my-1">
+										<span class="material-symbols-outlined text-[#ff9f0a] text-[20px] shrink-0 mt-0.5">warning</span>
+										<p class="text-[12px] text-white font-bold leading-relaxed">
+											{t('channelAutoResponder.adminRequirementNotice') || 'توجه مهم: برای کارکرد صحیح کامنت‌گذاری و پاسخگویی خودکار، ربات حتماً باید در گروه بحث (Discussion Group) متصل به کانال عضو بوده و دسترسی مدیر (Admin) داشته باشد.'}
+										</p>
+									</div>
 									<ul class="flex flex-col gap-3 mt-1">
 										<li class="flex items-start gap-2">
 											<div class="w-6 h-6 rounded-full bg-[#32ade6]/20 flex items-center justify-center shrink-0 mt-0.5">
