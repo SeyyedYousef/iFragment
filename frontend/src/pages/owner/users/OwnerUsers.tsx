@@ -15,6 +15,7 @@ export const OwnerUsers: Component = () => {
 	const [actionType, setActionType] = createSignal<'frg' | 'ban' | 'unban' | 'flag' | 'impersonate' | null>(null);
 
 	// Action Form states
+	const [actionStep, setActionStep] = createSignal<'form' | 'confirm'>('confirm');
 	const [frgAmount, setFrgAmount] = createSignal<number>(0);
 	const [banType, setBanType] = createSignal('full');
 	const [banDuration, setBanDuration] = createSignal(86400);
@@ -62,6 +63,7 @@ export const OwnerUsers: Component = () => {
 	const openFrgModal = (user: SearchedUser) => {
 		setSelectedUser(user);
 		setFrgAmount(0);
+		setActionStep('form');
 		setActionType('frg');
 	};
 
@@ -69,28 +71,33 @@ export const OwnerUsers: Component = () => {
 		setSelectedUser(user);
 		setBanType('full');
 		setBanDuration(86400);
+		setActionStep('form');
 		setActionType('ban');
 	};
 
 	const openUnbanModal = (user: SearchedUser) => {
 		setSelectedUser(user);
+		setActionStep('confirm');
 		setActionType('unban');
 	};
 
 	const openFlagModal = (user: SearchedUser) => {
 		setSelectedUser(user);
 		setIsFlaggedStatus(!user.is_flagged);
+		setActionStep('confirm');
 		setActionType('flag');
 	};
 
 	const openImpersonateModal = (user: SearchedUser) => {
 		setSelectedUser(user);
+		setActionStep('confirm');
 		setActionType('impersonate');
 	};
 
 	const closeActionModal = () => {
 		setSelectedUser(null);
 		setActionType(null);
+		setActionStep('confirm');
 	};
 
 	// Execute Operations
@@ -163,7 +170,7 @@ export const OwnerUsers: Component = () => {
 	const getDialogProps = () => {
 		const user = selectedUser();
 		const type = actionType();
-		if (!user || !type) return null;
+		if (!user || !type || actionStep() !== 'confirm') return null;
 
 		if (type === 'frg') {
 			const currentBal = user.balance || 0;
@@ -408,7 +415,7 @@ export const OwnerUsers: Component = () => {
 			</Show>
 
 			{/* Form Controls embedded prior to Danger Confirmation */}
-			<Show when={actionType() === 'frg' && selectedUser()}>
+			<Show when={actionType() === 'frg' && actionStep() === 'form' && selectedUser()}>
 				<div class="fixed inset-0 z-[9990] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
 					<div class="w-full max-w-sm bg-[#16171d] border border-white/10 rounded-3xl p-5 space-y-4">
 						<h3 class="text-sm font-black text-white">ورود مقدار تغییر موجودی</h3>
@@ -424,13 +431,19 @@ export const OwnerUsers: Component = () => {
 						</div>
 						<div class="flex gap-2">
 							<button onClick={closeActionModal} class="flex-1 h-10 bg-white/5 text-xs font-bold rounded-xl">انصراف</button>
-							<button onClick={() => {}} class="flex-1 h-10 bg-amber-500 text-black text-xs font-black rounded-xl">مرحله بعد (تأییدیه)</button>
+							<button
+								onClick={() => frgAmount() !== 0 && setActionStep('confirm')}
+								disabled={frgAmount() === 0}
+								class="flex-1 h-10 bg-amber-500 text-black text-xs font-black rounded-xl disabled:opacity-40"
+							>
+								مرحله بعد (تأییدیه)
+							</button>
 						</div>
 					</div>
 				</div>
 			</Show>
 
-			<Show when={actionType() === 'ban' && selectedUser()}>
+			<Show when={actionType() === 'ban' && actionStep() === 'form' && selectedUser()}>
 				<div class="fixed inset-0 z-[9990] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
 					<div class="w-full max-w-sm bg-[#16171d] border border-white/10 rounded-3xl p-5 space-y-4">
 						<h3 class="text-sm font-black text-white">تنظیم پارامترهای مسدودسازی</h3>
@@ -461,7 +474,12 @@ export const OwnerUsers: Component = () => {
 						</div>
 						<div class="flex gap-2">
 							<button onClick={closeActionModal} class="flex-1 h-10 bg-white/5 text-xs font-bold rounded-xl">انصراف</button>
-							<button onClick={() => {}} class="flex-1 h-10 bg-red-500 text-white text-xs font-black rounded-xl">مرحله بعد (تأییدیه)</button>
+							<button
+								onClick={() => setActionStep('confirm')}
+								class="flex-1 h-10 bg-red-500 text-white text-xs font-black rounded-xl"
+							>
+								مرحله بعد (تأییدیه)
+							</button>
 						</div>
 					</div>
 				</div>

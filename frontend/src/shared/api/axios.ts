@@ -99,16 +99,6 @@ apiClient.interceptors.request.use(
 			config.headers['X-Telegram-Init-Data'] = initData;
 		}
 
-		// P0-1 FIX: Generate Idempotency-Key for mutating requests (POST, PUT, PATCH, DELETE)
-		const method = (config.method || 'get').toLowerCase();
-		const isMutating = ['post', 'put', 'patch', 'delete'].includes(method);
-		if (isMutating && isInternalUrl && !config.headers['Idempotency-Key'] && !config.headers['X-Idempotency-Key']) {
-			const idempotencyKey = typeof crypto !== 'undefined' && crypto.randomUUID 
-				? crypto.randomUUID() 
-				: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-			config.headers['Idempotency-Key'] = idempotencyKey;
-		}
-
 		return config;
 	},
 	(error: AxiosError) => {
