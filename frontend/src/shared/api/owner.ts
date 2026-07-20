@@ -216,26 +216,17 @@ export const ownerApi = {
 	updateSettings: (settingsPayload: SystemSettings) =>
 		apiClient.put<SystemSettings>('/owner/settings', settingsPayload).then((r) => r.data),
 	getAds: async (): Promise<DashboardAd[]> => {
-		try {
-			const res = await apiClient.get<{ dashboard_ads?: DashboardAd[] }>('/owner/ads');
-			return res.data?.dashboard_ads || [];
-		} catch (_e) {
-			const res = await apiClient.get<SystemSettings>('/owner/settings');
-			return res.data?.dashboard_ads || [];
-		}
+		const res = await apiClient.get<SystemSettings>('/owner/settings');
+		return res.data?.dashboard_ads || [];
 	},
 	updateAds: async (ads: DashboardAd[]) => {
-		try {
-			return (await apiClient.put('/owner/ads', { dashboard_ads: ads })).data;
-		} catch (_e) {
-			const current = await apiClient.get<SystemSettings>('/owner/settings');
-			return (
-				await apiClient.put('/owner/settings', {
-					...current.data,
-					dashboard_ads: ads,
-				})
-			).data;
-		}
+		const current = await apiClient.get<SystemSettings>('/owner/settings');
+		return (
+			await apiClient.put<SystemSettings>('/owner/settings', {
+				...current.data,
+				dashboard_ads: ads,
+			})
+		).data;
 	},
 
 	// --- Promos ---
@@ -252,7 +243,11 @@ export const ownerApi = {
 	deletePromo: (id: string | number) => apiClient.delete(`/owner/promos/${id}`).then((r) => r.data),
 
 	// --- Broadcast ---
-	listBroadcasts: () => apiClient.get<BroadcastMessage[]>('/owner/broadcast').then((r) => r.data),
+	listBroadcasts: () =>
+		apiClient
+			.get<BroadcastMessage[]>('/owner/broadcast')
+			.then((r) => r.data)
+			.catch(() => []),
 	sendBroadcast: (audience: string, text: string, scheduledAt?: string) =>
 		apiClient
 			.post<{ success: boolean; id: string | number }>('/owner/broadcast', {
@@ -266,17 +261,28 @@ export const ownerApi = {
 	getFinanceOrders: () => apiClient.get<FinanceOrder[]>('/owner/finance/orders').then((r) => r.data),
 
 	// --- Health ---
-	getHealthMetrics: () => apiClient.get<SystemHealthMetrics>('/owner/health').then((r) => r.data),
-	getHealthLogs: () => apiClient.get<{ logs: string[] }>('/owner/health/logs').then((r) => r.data),
+	getHealthMetrics: () => apiClient.get<SystemHealthMetrics>('/owner/health/metrics').then((r) => r.data),
+	getHealthLogs: () =>
+		apiClient
+			.get<any[]>('/owner/health/errors')
+			.then((r) => (Array.isArray(r.data) ? r.data.map((e) => `[${e.source || 'SYS'}] ${e.error_message || ''}`) : []))
+			.catch(() => []),
 
 	// --- Entities ---
-	listEntities: () => apiClient.get<OwnerEntityItem[]>('/owner/entities').then((r) => r.data),
-	addEntityCredit: (id: string | number, amount: number, reason: string) =>
+	listEntities: async (): Promise<OwnerEntityItem[]> => {
+		const [channelsRes, groupsRes] = await Promise.all([
+			apiClient.get<any[]>('/owner/entities/channels').catch(() => ({ data: [] })),
+			apiClient.get<any[]>('/owner/entities/groups').catch(() => ({ data: [] })),
+		]);
+		const channels = (channelsRes.data || []).map((c: any) => ({ ...c, type: 'channel' as const }));
+		const groups = (groupsRes.data || []).map((g: any) => ({ ...g, type: 'group' as const }));
+		return [...channels, ...groups];
+	},
+	addEntityCredit: (id: string | number, amount: number, _reason: string) =>
 		apiClient
-			.post<{ success: boolean }>('/owner/entities/credit', {
-				entity_id: id,
-				amount,
-				reason,
+			.post<{ success: boolean }>('/owner/entities/add-credit', {
+				entity_id: String(id),
+				days: amount,
 			})
 			.then((r) => r.data),
 };
