@@ -58,17 +58,16 @@ export const StatsDashboard: Component<Props> = (props) => {
 		const num = Number(v);
 		const validNum = Number.isNaN(num) ? 0 : num;
 		const absNum = Math.abs(validNum);
-		const isFa = locale() === 'fa';
 
 		if (absNum >= 1_000_000) {
 			const val = (validNum / 1_000_000).toFixed(1).replace(/\.0$/, '');
-			return (isFa ? parseFloat(val).toLocaleString('fa-IR') : val) + (isFa ? ' میلیون' : 'M');
+			return `${val}M`;
 		}
 		if (absNum >= 1_000) {
 			const val = (validNum / 1_000).toFixed(1).replace(/\.0$/, '');
-			return (isFa ? parseFloat(val).toLocaleString('fa-IR') : val) + (isFa ? ' هزار' : 'K');
+			return `${val}K`;
 		}
-		return validNum.toLocaleString(isFa ? 'fa-IR' : 'en-US');
+		return validNum.toLocaleString('en-US');
 	};
 
 	return (

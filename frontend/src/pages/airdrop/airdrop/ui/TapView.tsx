@@ -535,10 +535,10 @@ export const TapView: Component<{
 						</span>
 						<div class="flex items-baseline gap-1 font-mono whitespace-nowrap">
 							<span class="text-white text-[21px] font-black tracking-tight tabular-nums drop-shadow-md">
-								{energy().toLocaleString('fa-IR')}
+								{energy().toLocaleString('en-US')}
 							</span>
 							<span class="text-white/40 text-[13px] font-bold tabular-nums">
-								/ {maxEnergy().toLocaleString('fa-IR')}
+								/ {maxEnergy().toLocaleString('en-US')}
 							</span>
 						</div>
 					</div>

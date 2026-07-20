@@ -96,8 +96,30 @@ export const getDict = () => {
 	return { ...flattenedDicts.en, ...flattenedDicts[currentLocale] };
 };
 
+export const customResolveTemplate = (template: string, ...args: any[]): string => {
+	if (typeof template !== 'string') return (template as any) || '';
+	if (!args || args.length === 0) return template;
+
+	let result = template;
+	const firstArg = args[0];
+
+	if (firstArg && typeof firstArg === 'object') {
+		for (const key of Object.keys(firstArg)) {
+			const val = firstArg[key] !== undefined && firstArg[key] !== null ? String(firstArg[key]) : '';
+			result = result.split(`{{${key}}}`).join(val).split(`{${key}}`).join(val);
+		}
+	} else {
+		for (let i = 0; i < args.length; i++) {
+			const val = args[i] !== undefined && args[i] !== null ? String(args[i]) : '';
+			result = result.split(`{{${i}}}`).join(val).split(`{${i}}`).join(val);
+		}
+	}
+
+	return result;
+};
+
 // Type-safe translator: wrong keys cause a compile-time error
-export const t = i18n.translator(getDict, i18n.resolveTemplate) as (key: DictPaths, args?: Record<string, any>) => string;
+export const t = i18n.translator(getDict, customResolveTemplate) as (key: DictPaths, args?: Record<string, any>) => string;
 
 // Helper to format numbers based on active locale
 export const getIntlLocale = (): string => {
@@ -109,7 +131,7 @@ export const getIntlLocale = (): string => {
 };
 
 export const formatNumber = (num: number): string => {
-	return num.toLocaleString(getIntlLocale());
+	return num.toLocaleString('en-US');
 };
 
 export const formatCoins = (coins: number | undefined | null): string => {
