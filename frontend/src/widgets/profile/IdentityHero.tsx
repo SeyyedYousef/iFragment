@@ -72,25 +72,30 @@ export const IdentityHero = (props: Props) => {
 				<div class="absolute bottom-1 right-1 w-4 h-4 bg-[#10b981] rounded-full border-[2.5px] border-[#08090D]" />
 			</div>
 
-			{/* User Info & Narrative Level Bar */}
+			{/* User Info & Badges */}
 			<div class="flex flex-col items-center w-full text-center z-10 px-4 pb-5 space-y-3">
 				<h1 class="text-2xl font-black leading-tight text-white">
 					<bdi>{user()?.first_name} {user()?.last_name || ''}</bdi>
 				</h1>
 
-				{/* Level Narrative Badge & Progress Bar */}
-				<div class="w-full max-w-xs space-y-1.5">
-					<div class="flex items-center justify-between text-xs font-bold">
-						<span class="text-[#3390ec]">سطح {info().current.level}: {info().current.title}</span>
-						<span class="text-white/40 font-mono text-[11px]">{props.stats?.xp || 0} XP</span>
+				<div class="flex items-center justify-center flex-wrap gap-2">
+					{/* Level Badge */}
+					<div class="flex items-center gap-1.5 bg-[#3390ec]/15 border border-[#3390ec]/30 px-3 py-1.5 rounded-xl backdrop-blur-md">
+						<span class="material-symbols-outlined text-[15px] text-[#3390ec]" style={{ 'font-variation-settings': '"FILL" 1' }}>star</span>
+						<span class="text-white text-xs font-black">
+							سطح {info().current.level}: {info().current.title}
+						</span>
 					</div>
 
-					<div class="w-full h-2 bg-black/40 rounded-full border border-white/10 overflow-hidden">
-						<div
-							class="h-full bg-gradient-to-r from-[#3390ec] to-[#0088cc] rounded-full transition-all duration-500"
-							style={{ width: `${Math.min(100, info().progress)}%` }}
-						/>
-					</div>
+					{/* Rank Badge */}
+					<Show when={props.stats?.globalRank}>
+						<div class="flex items-center gap-1.5 bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl backdrop-blur-md">
+							<span class="material-symbols-outlined text-[15px] text-white/50">public</span>
+							<span class="text-white/60 text-xs font-bold">
+								رتبه <span class="text-white font-mono font-black">#{props.stats?.globalRank?.toLocaleString()}</span>
+							</span>
+						</div>
+					</Show>
 				</div>
 			</div>
 		</div>
