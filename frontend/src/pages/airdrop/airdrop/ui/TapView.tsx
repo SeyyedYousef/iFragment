@@ -448,7 +448,7 @@ export const TapView: Component<{
 			{/* 4. The Hero Glowing Tap Coin (Golden Ratio Proportions - Z-10) */}
 			<div class="flex-1 flex flex-col items-center justify-center w-full relative z-10 py-1">
 				{/* Spinning Coin rim light (subtle) */}
-				<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[265px] h-[265px] sm:w-[285px] sm:h-[285px] rounded-full pointer-events-none"
+				<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[250px] h-[250px] sm:w-[270px] sm:h-[270px] rounded-full pointer-events-none"
 					style={{
 						background: isTurboActive() 
 							? 'conic-gradient(from 0deg, #ff404080, transparent, #ff404080, transparent, #ff404080)'
@@ -460,7 +460,7 @@ export const TapView: Component<{
 					}} 
 				/>
 
-				<div class={`relative flex items-center justify-center w-[72vw] max-w-[275px] aspect-square ${isPressed() ? '' : 'coin-wrapper'} ${isShaking() ? 'animate-shake' : ''}`}>
+				<div class={`relative flex items-center justify-center w-[68vw] max-w-[260px] aspect-square ${isPressed() ? '' : 'coin-wrapper'} ${isShaking() ? 'animate-shake' : ''}`}>
 					
 					{/* THE COIN: Pure Black Background */}
 					<button 
@@ -468,7 +468,7 @@ export const TapView: Component<{
 						onPointerUp={handlePointerUp}
 						onPointerLeave={handlePointerUp}
 						onPointerCancel={handlePointerUp}
-						class="relative w-[256px] h-[256px] sm:w-[276px] sm:h-[276px] rounded-full z-20 flex items-center justify-center touch-none select-none bg-black"
+						class="relative w-[240px] h-[240px] sm:w-[260px] sm:h-[260px] rounded-full z-20 flex items-center justify-center touch-none select-none bg-black"
 						style={{
 							transform: isPressed() ? 'scale(0.96)' : 'scale(1)',
 							transition: 'transform 0.08s cubic-bezier(.2,.8,.2,1)',
@@ -480,7 +480,7 @@ export const TapView: Component<{
 						}}
 					>
 						{/* Floating Combo Counter */}
-						<div class={`absolute top-7 right-7 pointer-events-none transition-all duration-300 ${showCombo() ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`}>
+						<div class={`absolute top-6 right-6 pointer-events-none transition-all duration-300 ${showCombo() ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`}>
 							<span class="text-white font-black text-[22px] drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] italic">
 								x{comboCount()}
 							</span>
@@ -525,26 +525,26 @@ export const TapView: Component<{
 				</div>
 			</div>
 
-			{/* 5. Ultra-Premium Bottom Action Area (Z-30) */}
-			<div class="w-full flex items-center justify-between px-4 mt-auto mb-[88px] relative z-30 pointer-events-none" dir="ltr">
+			{/* 5. Ultra-Premium Bottom Action Area (Clear from BottomNav - Z-30) */}
+			<div class="w-full flex items-center justify-between px-4 mt-auto mb-[108px] sm:mb-[116px] relative z-30 pointer-events-none" dir="ltr">
 				{/* Energy Counter with Glowing Progress Bar (LEFT SIDE) */}
 				<div class="flex flex-col items-start pointer-events-auto select-none space-y-1">
 					<div class="flex items-center gap-1.5">
-						<span class="text-[25px] leading-none text-[#FFC107] drop-shadow-[0_0_12px_rgba(255,193,7,0.8)] animate-pulse">
+						<span class="text-[24px] leading-none text-[#FFC107] drop-shadow-[0_0_12px_rgba(255,193,7,0.8)] animate-pulse">
 							⚡
 						</span>
-						<div class="flex items-baseline gap-1 font-mono">
-							<span class="text-white text-[23px] font-black tracking-tight tabular-nums drop-shadow-md">
+						<div class="flex items-baseline gap-1 font-mono whitespace-nowrap">
+							<span class="text-white text-[21px] font-black tracking-tight tabular-nums drop-shadow-md">
 								{energy().toLocaleString('fa-IR')}
 							</span>
-							<span class="text-white/40 text-[14px] font-bold tabular-nums">
+							<span class="text-white/40 text-[13px] font-bold tabular-nums">
 								/ {maxEnergy().toLocaleString('fa-IR')}
 							</span>
 						</div>
 					</div>
 
 					{/* Sleek Energy Mini Bar */}
-					<div class="w-26 h-1.5 bg-black/60 backdrop-blur-md rounded-full overflow-hidden border border-white/10 p-[0.5px] shadow-inner">
+					<div class="w-24 h-1.5 bg-black/60 backdrop-blur-md rounded-full overflow-hidden border border-white/10 p-[0.5px] shadow-inner">
 						<div
 							class="h-full bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-300 rounded-full transition-all duration-300 shadow-[0_0_10px_rgba(245,158,11,0.7)]"
 							style={{ width: `${Math.max(0, Math.min(100, (energy() / maxEnergy()) * 100))}%` }}
