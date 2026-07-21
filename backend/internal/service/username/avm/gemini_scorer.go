@@ -45,8 +45,10 @@ type GeminiResult struct {
 
 // NewGeminiScorer creates a new scorer with project key and DB access for user keys.
 func NewGeminiScorer(db *repository.Database) *GeminiScorer {
-	key := os.Getenv("GROQ_API_KEY")
-	// If GROQ_API_KEY is empty, it will fail gracefully or rely on fallback logic if implemented.
+	key := os.Getenv("GEMINI_API_KEY")
+	if key == "" {
+		key = os.Getenv("GROQ_API_KEY")
+	}
 	return &GeminiScorer{
 		projectKey: key,
 		db:         db,

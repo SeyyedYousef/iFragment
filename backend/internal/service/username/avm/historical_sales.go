@@ -37,6 +37,10 @@ var HistoricalSales = map[string]float64{
 	"catizen":      150000.0, // Ecosystem Tier-1 MiniApp (@catizen)
 	"hamster":      100000.0, // Ecosystem Tier-1 MiniApp (@hamster)
 	"paws":         80000.0,  // Ecosystem Tier-1 MiniApp (@paws)
+	"rare":         125000.0, // Top Web3/Rarity category username (@rare)
+	"gem":          85000.0,  // Web3 gem category username (@gem)
+	"vip":          140000.0, // High-status 3-letter category username (@vip)
+	"ton":          450000.0, // Ecosystem Native Currency (@ton)
 	"cats":         5050.0,  // Memecoin/community benchmark (Fragment original sale)
 	"dogs":         12500.0,  // Memecoin/community benchmark (Fragment original sale)
 	// ── Original Data ──

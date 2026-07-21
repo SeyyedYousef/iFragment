@@ -652,28 +652,19 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	// Compute dynamic age-based damping factor for anchor sales or database baseline
 	dampingFactor := 1.0
 	if anchorInjected {
-		if len(targetComps) > 0 {
+		if features.IsDictionary {
+			// Super-premium dictionary words maintain 100% full valuation strength without artificial damping
+			dampingFactor = 1.0
+		} else if len(targetComps) > 0 {
 			anchorDate := targetComps[0].SaleDate
 			ageInYears := now.Sub(anchorDate).Hours() / (24 * 365.25)
 			if ageInYears > 0 {
-				if features.IsDictionary {
-					dampingFactor = math.Min(1.0, 0.25+ageInYears*0.15)
-				} else {
-					dampingFactor = math.Min(1.0, 0.10+ageInYears*0.10)
-				}
+				dampingFactor = math.Min(1.0, 0.50+ageInYears*0.15)
 			} else {
-				if features.IsDictionary {
-					dampingFactor = 0.25
-				} else {
-					dampingFactor = 0.10
-				}
+				dampingFactor = 0.50
 			}
 		} else {
-			if features.IsDictionary {
-				dampingFactor = 0.25
-			} else {
-				dampingFactor = 0.10
-			}
+			dampingFactor = 0.50
 		}
 	} else if nEff > 0 {
 		// Dynamic Damping: short names damp more (baseline is already high), long names damp less.
@@ -739,8 +730,11 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		morphLog = 0.0
 		reasoning["anchor_morphology_zeroed"] = true
 
-		// Semantic multiplier for anchored sales represents minor market sentiment drift (capped to max +15% / 1.15x).
-		maxDrift := 1.15
+		// Semantic multiplier for anchored sales represents minor market sentiment drift (capped up to 1.45x for dictionary words).
+		maxDrift := 1.25
+		if features.IsDictionary {
+			maxDrift = 1.45
+		}
 		if semResult != nil && semResult.Multiplier > 1.0 {
 			driftVal := math.Min(semResult.Multiplier, maxDrift)
 			semanticLog = math.Log(driftVal)
@@ -1237,31 +1231,64 @@ func SalesToComparables(sales []repository.Sale, cfg EngineConfig) []ComparableS
 }
 
 // CalculateSemanticKNNFloor finds similar high-value sold dictionary anchors for premium words
-// and sets a dynamic market floor. Returns 0 if username is gibberish or not a premium word.
+// and sets a dynamic market floor based on semantic vector similarity and word category.
 func CalculateSemanticKNNFloor(username string, features MorphFeatures, semResult *SemanticResult) float64 {
 	// STRICT GIBBERISH GUARD: Never elevate random gibberish (e.g. @fhhff, @xqzkw)
-	if features.IsGibberish || (!features.IsDictionary && features.SemanticScore < 50) {
+	if features.IsGibberish || (!features.IsDictionary && features.SemanticScore < 45) {
 		return 0
-	}
-
-	// Status & Rarity dictionary words (e.g., rare, apex, prime, legend, vault, epic)
-	isStatusWord := false
-	if semResult != nil {
-		for _, tag := range semResult.Tags {
-			if tag == "exclusivity_status_premium" || tag == "crypto_ultra_premium" {
-				isStatusWord = true
-				break
-			}
-		}
 	}
 
 	lower := strings.ToLower(username)
 
-	// 4-letter dictionary status/exclusivity word with high semantic score
-	// MUST be an explicit status or crypto ultra-premium word, NOT generic dictionary nouns (like cats, dogs, etc.)
-	if len(lower) == 4 && isStatusWord && features.SemanticScore >= 70 {
-		// Calibrated status floor for premier 4-letter English terms (100k - 150k TON market target)
-		return 110000.0
+	// Check tags for category classification
+	isStatusWord := false
+	isCryptoWord := false
+	isGeneralUltra := false
+	if semResult != nil {
+		for _, tag := range semResult.Tags {
+			switch tag {
+			case "exclusivity_status_premium":
+				isStatusWord = true
+			case "crypto_ultra_premium":
+				isCryptoWord = true
+			case "general_ultra_premium", "telegram_ecosystem":
+				isGeneralUltra = true
+			}
+		}
+	}
+
+	hasNumbers := features.HasNumbers || regexp.MustCompile(`\d`).MatchString(lower)
+	hasUnderscore := features.HasUnderscore || strings.Contains(lower, "_")
+	isPureAlpha := !hasNumbers && !hasUnderscore
+
+	// 1. 3-letter Pure Alpha Dictionary / Premium Words (e.g. @vip, @gem, @pay, @win)
+	if len(lower) == 3 && isPureAlpha {
+		if isCryptoWord || isStatusWord {
+			return 140000.0 // Super-premium 3-letter Web3/Status floor
+		}
+		if features.IsDictionary || semResult.WordFreqScore >= 40 {
+			return 85000.0 // Standard 3-letter pure dictionary floor
+		}
+	}
+
+	// 2. 4-letter Pure Alpha Dictionary Words (e.g. @rare, @rich, @boss, @gold, @lord, @meta)
+	if len(lower) == 4 && isPureAlpha {
+		if isStatusWord || isCryptoWord {
+			return 110000.0 // Premier 4-letter Web3/Status terms (100k-150k TON target)
+		}
+		if isGeneralUltra || (semResult != nil && semResult.WordFreqScore >= 80) {
+			return 45000.0 // High-volume 4-letter dictionary terms
+		}
+	}
+
+	// 3. 5-letter Pure Alpha Ultra Premium Words (e.g. @trade, @smart, @royal, @super)
+	if len(lower) == 5 && isPureAlpha {
+		if isCryptoWord || isStatusWord {
+			return 35000.0 // Premier 5-letter Web3/Status terms
+		}
+		if isGeneralUltra || semResult.WordFreqScore >= 70 {
+			return 15000.0 // High-volume 5-letter dictionary terms
+		}
 	}
 
 	return 0

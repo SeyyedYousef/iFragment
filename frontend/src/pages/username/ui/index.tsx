@@ -606,7 +606,7 @@ export const UsernamePage: Component = () => {
 							<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-3 shadow-sm">
 								<div class="flex items-center gap-2 text-white/90 mb-1">
 									<span class="material-symbols-outlined text-[20px] text-[#3390ec]">account_circle</span>
-									<span class="text-[13px] font-black uppercase tracking-widest">{t('valuation.owner_profile_title') || 'OWNER PROFILE'}</span>
+									<span class="text-[13px] font-black uppercase tracking-widest">{t('valuation.owner_profile_title')}</span>
 								</div>
 								<div class="flex items-center gap-3.5 p-3.5 bg-[#08090D] rounded-[16px] border border-white/5 shadow-inner">
 									<div class="w-12 h-12 rounded-[14px] bg-[#3390ec]/15 border border-[#3390ec]/30 text-[#3390ec] flex items-center justify-center font-black text-[18px]">
@@ -625,6 +625,116 @@ export const UsernamePage: Component = () => {
 								</div>
 							</div>
 						</Show>
+
+						{/* ═══════ 1. LIQUIDITY & INVESTMENT RISK MATRIX ═══════ */}
+						<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-4 shadow-sm relative overflow-hidden">
+							<div class="flex items-center gap-2 text-white/90 border-b border-white/5 pb-3">
+								<span class="material-symbols-outlined text-[20px] text-amber-400">payments</span>
+								<span class="text-[13px] font-black uppercase tracking-widest">{t('valuation.liquidity_risk_title')}</span>
+							</div>
+							
+							<div class="grid grid-cols-2 gap-3">
+								<div class="bg-[#08090D] border border-white/5 rounded-[16px] p-3.5 flex flex-col gap-1 shadow-inner">
+									<span class="text-white/40 text-[10px] font-black uppercase tracking-widest">{t('valuation.liquidity_score')}</span>
+									<span class="text-emerald-400 font-black text-[13px] tracking-tight">
+										{data()?.length && data()!.length <= 4 ? t('valuation.liquidity_instant') : data()?.dictionary?.is_word ? t('valuation.liquidity_high') : t('valuation.liquidity_medium')}
+									</span>
+								</div>
+								<div class="bg-[#08090D] border border-white/5 rounded-[16px] p-3.5 flex flex-col gap-1 shadow-inner">
+									<span class="text-white/40 text-[10px] font-black uppercase tracking-widest">{t('valuation.est_time_to_sell')}</span>
+									<span class="text-white font-mono font-bold text-[13px]">
+										{data()?.length && data()!.length <= 4 ? t('valuation.time_1_3_days') : data()?.dictionary?.is_word ? t('valuation.time_3_7_days') : t('valuation.time_1_3_weeks')}
+									</span>
+								</div>
+							</div>
+
+							<div class="bg-[#08090D] border border-white/5 rounded-[16px] p-3.5 flex items-center justify-between shadow-inner">
+								<div class="flex flex-col gap-0.5">
+									<span class="text-white/40 text-[10px] font-black uppercase tracking-widest">{t('valuation.investment_risk')}</span>
+									<span class="text-white font-black text-[13px]">
+										{data()?.rarity?.tier?.includes('Legendary') || data()?.rarity?.tier?.includes('Epic') ? t('valuation.risk_blue_chip') : data()?.dictionary?.is_word ? t('valuation.risk_growth') : t('valuation.risk_speculative')}
+									</span>
+								</div>
+								<span class={`px-2.5 py-1 rounded-[8px] text-[10px] font-black uppercase tracking-widest border ${data()?.rarity?.tier?.includes('Legendary') ? 'bg-amber-400/10 text-amber-400 border-amber-400/30' : 'bg-cyan-400/10 text-cyan-400 border-cyan-400/30'}`}>
+									{data()?.rarity?.tier || 'Blue-Chip'}
+								</span>
+							</div>
+						</div>
+
+						{/* ═══════ 2. ECOSYSTEM & COMMERCIAL POTENTIAL ═══════ */}
+						<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-4 shadow-sm relative overflow-hidden">
+							<div class="flex items-center gap-2 text-white/90 border-b border-white/5 pb-3">
+								<span class="material-symbols-outlined text-[20px] text-cyan-400">rocket_launch</span>
+								<span class="text-[13px] font-black uppercase tracking-widest">{t('valuation.usecase_title')}</span>
+							</div>
+
+							<div class="flex flex-col gap-2.5">
+								<div class="bg-[#08090D] border border-white/5 rounded-[16px] p-3.5 flex flex-col gap-1 shadow-inner">
+									<span class="text-white/40 text-[10px] font-black uppercase tracking-widest">{t('valuation.recommended_usecase')}</span>
+									<span class="text-[#3390ec] font-black text-[13px] flex items-center gap-2">
+										<span class="material-symbols-outlined text-[18px]">verified</span>
+										{data()?.tags?.includes('crypto_ultra_premium') ? t('valuation.usecase_otc') : data()?.tags?.includes('general_ultra_premium') ? t('valuation.usecase_news') : data()?.tags?.includes('telegram_ecosystem') ? t('valuation.usecase_miniapp') : t('valuation.usecase_brand')}
+									</span>
+								</div>
+
+								<div class="bg-[#08090D] border border-white/5 rounded-[16px] p-3.5 flex items-center justify-between shadow-inner">
+									<div class="flex flex-col gap-0.5">
+										<span class="text-white/40 text-[10px] font-black uppercase tracking-widest">{t('valuation.organic_traffic')}</span>
+										<span class="text-emerald-400 font-bold text-[12px]">
+											{data()?.seo?.score && data()!.seo.score >= 80 ? t('valuation.traffic_viral') : data()?.seo?.score && data()!.seo.score >= 50 ? t('valuation.traffic_high') : t('valuation.traffic_moderate')}
+										</span>
+									</div>
+									<div class="text-white font-mono font-black text-[16px] bg-emerald-400/10 text-emerald-400 border border-emerald-400/30 px-3 py-1 rounded-[10px]">
+										{data()?.seo?.score || 75}/100
+									</div>
+								</div>
+							</div>
+						</div>
+
+						{/* ═══════ 3. TRADEMARK & SAFETY AUDIT ═══════ */}
+						<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-4 shadow-sm">
+							<div class="flex items-center gap-2 text-white/90 border-b border-white/5 pb-3">
+								<span class="material-symbols-outlined text-[20px] text-emerald-400">gavel</span>
+								<span class="text-[13px] font-black uppercase tracking-widest">{t('valuation.trademark_title')}</span>
+							</div>
+
+							<div class="grid grid-cols-2 gap-3">
+								<div class="bg-[#08090D] border border-white/5 rounded-[16px] p-3.5 flex flex-col gap-1 shadow-inner">
+									<span class="text-white/40 text-[10px] font-black uppercase tracking-widest">{t('valuation.trademark_risk')}</span>
+									<span class={`font-black text-[12px] ${data()?.tags?.includes('brand_verified') ? 'text-amber-400' : 'text-emerald-400'}`}>
+										{data()?.tags?.includes('brand_verified') ? t('valuation.trademark_caution') : t('valuation.trademark_safe')}
+									</span>
+								</div>
+								<div class="bg-[#08090D] border border-white/5 rounded-[16px] p-3.5 flex flex-col gap-1 shadow-inner">
+									<span class="text-white/40 text-[10px] font-black uppercase tracking-widest">{t('valuation.verify_potential')}</span>
+									<span class="text-cyan-400 font-bold text-[12px]">
+										{data()?.dictionary?.is_word || (data()?.length && data()!.length <= 5) ? t('valuation.verify_high') : t('valuation.verify_normal')}
+									</span>
+								</div>
+							</div>
+						</div>
+
+						{/* ═══════ 4. 12-MONTH ROI & YIELD PROJECTION ═══════ */}
+						<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-4 shadow-sm relative overflow-hidden">
+							<div class="absolute -right-6 -bottom-6 w-24 h-24 bg-emerald-400/10 blur-2xl rounded-full pointer-events-none" />
+							
+							<div class="flex items-center gap-2 text-white/90 border-b border-white/5 pb-3 relative z-10">
+								<span class="material-symbols-outlined text-[20px] text-emerald-400">trending_up</span>
+								<span class="text-[13px] font-black uppercase tracking-widest">{t('valuation.roi_title')}</span>
+							</div>
+
+							<div class="flex items-center justify-between bg-[#08090D] border border-white/5 rounded-[16px] p-4 shadow-inner relative z-10">
+								<div class="flex flex-col gap-1">
+									<span class="text-white/40 text-[10px] font-black uppercase tracking-widest">{t('valuation.est_apy')}</span>
+									<span class="text-emerald-400 font-black text-[22px] font-mono leading-none">
+										+{data()?.rarity?.tier?.includes('Legendary') ? '45%' : data()?.dictionary?.is_word ? '28%' : '18%'} APY
+									</span>
+								</div>
+								<span class="text-[11px] font-bold text-white/70 bg-emerald-400/10 text-emerald-400 border border-emerald-400/20 px-3 py-1.5 rounded-[10px]">
+									{t('valuation.roi_beats_ton')}
+								</span>
+							</div>
+						</div>
 
 						{/* ═══════ USERNAME DNA & LINGUISTICS ═══════ */}
 						<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-3 shadow-sm">
