@@ -109,7 +109,7 @@ export const TasksView: Component = () => {
 			}
 			setTaskErrors((prev) => ({ ...prev, [key]: errorMessage }));
 			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
-		} fontally {
+		} finally {
 			setLoadingKeys((prev) => ({ ...prev, [key]: false }));
 		}
 	};
