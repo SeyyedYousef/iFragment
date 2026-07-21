@@ -593,26 +593,38 @@ type BidsResponse struct {
 	Data []BidInfo `json:"data"`
 }
 
+var (
+	bidsCache     sync.Map
+	bidsCacheTime sync.Map
+)
+
 // GetFragmentBids retrieves the bidding/auction history for a DNS domain (Fragment usernames)
 func (c *Client) GetFragmentBids(ctx context.Context, domain string) (*BidsResponse, error) {
+	domain = strings.ToLower(strings.TrimSpace(domain))
+	if cached, ok := bidsCache.Load(domain); ok {
+		if t, tOk := bidsCacheTime.Load(domain); tOk && time.Since(t.(time.Time)) < 1*time.Hour {
+			return cached.(*BidsResponse), nil
+		}
+	}
+
 	url := fmt.Sprintf("%s/dns/%s/bids", c.BaseURL, domain)
 	resp, err := c.doRequest(ctx, url)
 	if err != nil {
-		return nil, err
+		return nil, nil
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusNotFound {
-		return nil, nil // No bids found
-	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("tonapi dns bids error: %s", resp.Status)
+		return nil, nil
 	}
 
 	var bids BidsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&bids); err != nil {
-		return nil, err
+		return nil, nil
 	}
+
+	bidsCache.Store(domain, &bids)
+	bidsCacheTime.Store(domain, time.Now())
 	return &bids, nil
 }
 

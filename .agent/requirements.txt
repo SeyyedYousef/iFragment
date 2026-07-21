@@ -1,0 +1,12 @@
+# Official AI Engineering Tools for .agent
+instructor>=1.0.0
+dspy-ai>=2.4.0
+outlines>=0.0.40
+ragas>=0.1.0
+crawl4ai>=0.4.0
+marker-pdf>=1.0.0
+litellm>=1.30.0
+langfuse>=2.0.0
+qdrant-client>=1.9.0
+ollama>=0.2.0
+vllm>=0.5.0

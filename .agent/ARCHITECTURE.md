@@ -139,6 +139,24 @@ Modular knowledge domains that agents can load on-demand. based on task context.
 | ------------------ | --------------------- |
 | `game-development` | Game logic, mechanics |
 
+### AI & RAG Engineering (GitHub Official)
+
+| Skill        | Description                                                          |
+| ------------ | -------------------------------------------------------------------- |
+| `instructor` | Pydantic-based structured outputs, validation, retries               |
+| `dspy`       | Programming foundation models & prompt optimization                 |
+| `outlines`   | Regex & schema constrained structured generation                     |
+| `ragas`      | Evaluation metrics & synthetic test dataset generation for RAG       |
+| `chunky`     | Visual RAG document chunking & markdown processing                   |
+| `crawl4ai`   | LLM-friendly web crawler & markdown scraper for RAG                  |
+| `marker`     | Document to markdown converter (PDF, PPTX, DOCX, tables, math)       |
+| `litellm`    | Unified API gateway for 100+ LLMs in OpenAI format                  |
+| `langfuse`   | Open source LLM observability, tracing, and evaluation               |
+| `qdrant`     | High-performance vector similarity search engine & vector database   |
+| `ollama`     | Local LLM execution engine for open models                           |
+| `vllm`       | High-throughput GPU LLM serving & PagedAttention engine              |
+
+
 ### SEO & Growth
 
 | Skill              | Description                   |
