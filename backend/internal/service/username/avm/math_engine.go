@@ -207,7 +207,7 @@ func CalcBaseLog(
 ) (baseLog float64, nEff float64, mad float64, saleIDs []int64) {
 	saleIDs = []int64{} // Initialize to empty slice to prevent SQL NULL
 
-	// Normalize all prices to 5-letter equivalent before calculating median
+	// Normalize exact and broad prices to 5-letter equivalent for cross-length comparison
 	exactSalesCopy := make([]ComparableSale, len(exactSales))
 	for i, s := range exactSales {
 		exactSalesCopy[i] = s
@@ -220,10 +220,10 @@ func CalcBaseLog(
 		broadSalesCopy[i].PriceTON = NormalizeToLength5(s.PriceTON, s.CharLength, cfg)
 	}
 
+	// Target sales are for this exact username/length, so keep native TON prices!
 	targetSalesCopy := make([]ComparableSale, len(targetSales))
 	for i, s := range targetSales {
 		targetSalesCopy[i] = s
-		targetSalesCopy[i].PriceTON = NormalizeToLength5(s.PriceTON, s.CharLength, cfg)
 	}
 
 	// Compute exact match statistics
@@ -277,20 +277,25 @@ func CalcBaseLog(
 		return baseLog, 0, 0, saleIDs
 	}
 
-	// Shrink exact towards broad
-	shrunkExact := broadMedianLog
+	// Shrink exact towards broad (in 5-letter normalized space)
+	shrunkExact5Log := broadMedianLog
 	if len(exactSalesCopy) > 0 {
-		shrunkExact = BayesianShrinkage(exactMedianLog, broadMedianLog, nEff, cfg.K)
+		shrunkExact5Log = BayesianShrinkage(exactMedianLog, broadMedianLog, nEff, cfg.K)
 	} else {
 		nEff = 0.0 // broad only
 	}
 
-	// Shrink target towards shrunkExact
+	// Denormalize shrunkExact from 5-letter space to native target length space
+	shrunkExact5Price := math.Exp(shrunkExact5Log)
+	shrunkExactNativePrice := DenormalizeFromLength5(shrunkExact5Price, features.CharLength, features.SemanticScore, cfg)
+	shrunkExactNativeLog := math.Log(shrunkExactNativePrice)
+
+	// Shrink target towards shrunkExact (both in native length space)
 	if len(targetSalesCopy) > 0 {
 		// We trust the target sale highly, but KTarget controls target shrinkage rate
-		baseLog = BayesianShrinkage(targetMedianLog, shrunkExact, targetNEff, cfg.KTarget)
+		baseLog = BayesianShrinkage(targetMedianLog, shrunkExactNativeLog, targetNEff, cfg.KTarget)
 	} else {
-		baseLog = shrunkExact
+		baseLog = shrunkExactNativeLog
 	}
 
 	// Compute MAD for uncertainty
