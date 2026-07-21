@@ -4,7 +4,7 @@ import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import type { DailyMetric } from '@/shared/api/bot-management.js';
 import { groupApi } from '@/shared/api/bot-management.js';
-import { t } from '@/shared/i18n/index.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 
 export const AnalyticsPage: Component = () => {
@@ -67,7 +67,7 @@ export const AnalyticsPage: Component = () => {
 			return (
 				<div class="flex flex-col items-center justify-center py-12 gap-2 border border-dashed border-white/10 rounded-[20px]">
 					<span class="material-symbols-outlined text-white/20 text-[32px]">bar_chart</span>
-					<span class="text-[12px] text-white/40 font-bold tracking-widest uppercase">No Data Available</span>
+					<span class="text-[12px] text-white/40 font-bold tracking-widest uppercase">{t('analyticsSettings.noData')}</span>
 				</div>
 			);
 
@@ -149,17 +149,17 @@ export const AnalyticsPage: Component = () => {
 		};
 
 		return [
-			{ icon: 'person_add', label: t('analyticsSettings.newMembers') || 'NEW MEMBERS', value: s?.new_members ?? 0, color: '#10b981', change: calcTrend(growth) },
-			{ icon: 'chat_bubble', label: t('analyticsSettings.totalMessages') || 'TOTAL MSGS', value: s?.total_messages ?? 0, color: '#3390ec', change: calcTrend(activity) },
-			{ icon: 'calculate', label: t('analyticsSettings.avgPerDay') || 'AVG PER DAY', value: s ? Math.round(s.total_messages / Math.max(days(), 1)) : 0, color: '#f59e0b', change: 0 },
-			{ icon: 'block', label: 'SPAM BLOCKED', value: s?.spam_blocked ?? 0, color: '#ef4444', change: 0 },
-			{ icon: 'people', label: 'ACTIVE USERS', value: s?.active_users ?? 0, color: '#06b6d4', change: 0 },
-			{ icon: 'person_remove', label: 'MEMBERS LEFT', value: s?.members_left ?? 0, color: '#ef4444', change: 0 },
+			{ icon: 'person_add', label: t('analyticsSettings.newMembers'), value: s?.new_members ?? 0, color: '#10b981', change: calcTrend(growth) },
+			{ icon: 'chat_bubble', label: t('analyticsSettings.totalMessages'), value: s?.total_messages ?? 0, color: '#3390ec', change: calcTrend(activity) },
+			{ icon: 'calculate', label: t('analyticsSettings.avgPerDay'), value: s ? Math.round(s.total_messages / Math.max(days(), 1)) : 0, color: '#f59e0b', change: 0 },
+			{ icon: 'block', label: t('analyticsSettings.spamBlocked'), value: s?.spam_blocked ?? 0, color: '#ef4444', change: 0 },
+			{ icon: 'people', label: t('analyticsSettings.activeUsers'), value: s?.active_users ?? 0, color: '#06b6d4', change: 0 },
+			{ icon: 'person_remove', label: t('analyticsSettings.membersLeft'), value: s?.members_left ?? 0, color: '#ef4444', change: 0 },
 		];
 	};
 
 	return (
-		<div class="min-h-screen bg-[#030303] pb-12 relative text-white select-none font-sans" dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}>
+		<div class="min-h-screen bg-[#030303] pb-12 relative text-white select-none font-sans" dir={isRtl() ? 'rtl' : 'ltr'}>
 			
 			{/* Ambient Top Glow */}
 			<div class="absolute top-0 left-0 right-0 h-[400px] bg-gradient-to-b from-[#3390ec]/15 via-[#10b981]/5 to-transparent blur-[80px] pointer-events-none z-0" />
@@ -170,15 +170,16 @@ export const AnalyticsPage: Component = () => {
 					<button
 						onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} window.history.back(); }}
 						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm"
+						aria-label={t('common.back')}
 					>
 						<span class="material-symbols-outlined text-white/80 text-[22px] rtl:-scale-x-100">arrow_back</span>
 					</button>
 					<div class="flex flex-col overflow-hidden">
 						<h1 class="text-[17px] font-black text-white leading-tight truncate tracking-tight">
-							{t('analyticsSettings.title') || 'Analytics'}
+							{t('analyticsSettings.title')}
 						</h1>
 						<p class="text-[11px] text-white/50 truncate font-bold uppercase tracking-wider mt-0.5">
-							{t('analyticsSettings.subtitle') || 'Group Traffic & Engagement'}
+							{t('analyticsSettings.subtitle')}
 						</p>
 					</div>
 				</div>
@@ -192,6 +193,7 @@ export const AnalyticsPage: Component = () => {
 					<button
 						onClick={() => setIsMenuOpen(true)}
 						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
+						aria-label={t('common.toggle')}
 					>
 						<span class="material-symbols-outlined text-[22px]">menu</span>
 					</button>
@@ -212,7 +214,7 @@ export const AnalyticsPage: Component = () => {
 										: 'bg-transparent text-white/40 hover:text-white/80'
 								}`}
 							>
-								{d} DAYS
+								{t('analyticsSettings.days', { d })}
 							</button>
 						))}
 					</div>
@@ -285,7 +287,7 @@ export const AnalyticsPage: Component = () => {
 							class="bg-[#12141C]/80 backdrop-blur-xl rounded-[28px] border border-white/5 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.2)] relative overflow-hidden"
 						>
 							<div class="absolute top-0 left-1/2 -translate-x-1/2 w-[60%] h-[1px] bg-gradient-to-r from-transparent via-[#10b981]/30 to-transparent" />
-							{renderChart(data()?.growth || [], '#10b981', 'MEMBERS GROWTH', 'show_chart')}
+							{renderChart(data()?.growth || [], '#10b981', t('analyticsSettings.growthChart'), 'show_chart')}
 						</Motion.div>
 
 						{/* Activity Chart */}
@@ -296,7 +298,7 @@ export const AnalyticsPage: Component = () => {
 							class="bg-[#12141C]/80 backdrop-blur-xl rounded-[28px] border border-white/5 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.2)] relative overflow-hidden"
 						>
 							<div class="absolute top-0 left-1/2 -translate-x-1/2 w-[60%] h-[1px] bg-gradient-to-r from-transparent via-[#3390ec]/30 to-transparent" />
-							{renderChart(data()?.activity || [], '#3390ec', 'MESSAGE ACTIVITY', 'chat_bubble')}
+							{renderChart(data()?.activity || [], '#3390ec', t('analyticsSettings.activityChart'), 'chat_bubble')}
 						</Motion.div>
 					</Show>
 				</div>

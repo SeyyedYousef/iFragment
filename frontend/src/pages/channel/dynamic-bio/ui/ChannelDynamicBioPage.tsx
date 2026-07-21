@@ -1,10 +1,18 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
-import { Component, createEffect, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import {
+	Component,
+	createEffect,
+	createSignal,
+	For,
+	onCleanup,
+	onMount,
+	Show,
+} from 'solid-js';
 import { channelApi } from '@/shared/api/channel-management.js';
 import { useChannelSettings, useUpdateChannelSettings } from '@/shared/api/queries.js';
-import { t } from '@/shared/i18n/index.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SelectField, ToggleSwitch } from '@/shared/ui/settings-controls.js';
@@ -64,7 +72,10 @@ export const ChannelDynamicBioPage: Component = () => {
 
 	onMount(async () => {
 		backButton.show();
-		const off = backButton.onClick(() => navigate(`/channel/${params.id}`));
+		const off = backButton.onClick(() => {
+			try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+			navigate(`/channel/${params.id}`);
+		});
 
 		try {
 			const info = await channelApi.getTelegramInfo(params.id!);
@@ -73,42 +84,22 @@ export const ChannelDynamicBioPage: Component = () => {
 			console.error('Failed to fetch telegram info:', e);
 		}
 
-		onCleanup(() => off());
+		onCleanup(() => {
+			off();
+			backButton.hide();
+		});
 	});
 
 	const variables = [
-		{ tag: '$members', desc: t('channelDynamicBio.varMembers') || 'تعداد اعضا', val: '45,102' },
-		{ tag: '$Gram', desc: 'قیمت Gram', val: '$5.50' },
-		{ tag: '$time', desc: t('channelDynamicBio.varTime') || 'زمان فعلی', val: '14:30' },
-		{ tag: '$date', desc: 'تاریخ', val: '12 May 2026' },
-		{ tag: '$day_name', desc: 'روز هفته', val: 'Tuesday' },
+		{ tag: '$members', desc: t('channelDynamicBio.varMembers'), val: '45,102' },
+		{ tag: '$Gram', desc: t('channelDynamicBio.varGram'), val: '$5.50' },
+		{ tag: '$time', desc: t('channelDynamicBio.varTime'), val: '14:30' },
+		{ tag: '$date', desc: t('channelDynamicBio.varDate'), val: '12 May 2026' },
+		{ tag: '$day_name', desc: t('channelDynamicBio.varDayNameEn'), val: 'Tuesday' },
 	];
 
-	const generatePreview = (template: string) => {
-		let res = template;
-		res = res.replace(/\$members/g, telegramInfo()?.memberCount?.toString() || '...');
-
-		const now = new Date();
-		const hours = now.getUTCHours().toString().padStart(2, '0');
-		const mins = now.getUTCMinutes().toString().padStart(2, '0');
-		res = res.replace(/\$time/g, `${hours}:${mins}`);
-
-		const dateStr = now.toLocaleDateString('en-GB', {
-			timeZone: 'UTC',
-			day: '2-digit',
-			month: 'short',
-			year: 'numeric',
-		});
-		res = res.replace(/\$date/g, dateStr);
-
-		const dayStr = now.toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'long' });
-		res = res.replace(/\$day_name/g, dayStr);
-
-		res = res.replace(/\$Gram/g, '$...');
-		return res || 'Empty';
-	};
-
 	const handleSave = async () => {
+		try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
 		setIsSaving(true);
 
 		const currentVersion = settingsQuery.data?.version ?? 1;
@@ -126,271 +117,235 @@ export const ChannelDynamicBioPage: Component = () => {
 				data: payload,
 				version: currentVersion,
 			});
-			hapticFeedback.notificationOccurred('success');
-			showToast(t('common.settingsSaved') || 'Settings saved successfully', 'success');
+			try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+			showToast(t('common.settingsSaved'), 'success');
 			navigate(`/channel/${params.id}`);
 		} catch (e) {
 			console.error('Failed to save dynamic bio settings:', e);
-			hapticFeedback.notificationOccurred('error');
-			showToast(t('common.saveFailed') || 'Failed to save settings', 'error');
+			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			showToast(t('common.saveFailed'), 'error');
 		} finally {
 			setIsSaving(false);
 		}
 	};
 
 	return (
-		<div class="min-h-screen bg-[#0f1014] pb-28 relative overflow-x-hidden text-white">
-			{/* Header */}
-			<div class="px-5 pt-6 pb-4 bg-[#0f1014]/80 backdrop-blur-md sticky top-0 z-30 border-b border-[#1c1c1c] flex items-center justify-between gap-3">
-				<div class="flex items-center gap-2 overflow-hidden flex-1">
+		<div class="min-h-screen bg-[#030303] pb-28 relative overflow-x-hidden text-white font-sans selection:bg-[#3390ec]/30" dir={isRtl() ? 'rtl' : 'ltr'}>
+			
+			{/* Ambient Top Glow */}
+			<div class="absolute top-0 left-0 right-0 h-[350px] bg-gradient-to-b from-[#3390ec]/15 via-transparent to-transparent blur-[80px] pointer-events-none z-0" />
+
+			{/* ═══════ PREMIUM STICKY HEADER ═══════ */}
+			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm">
+				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
-						onClick={() => {
-							hapticFeedback.impactOccurred('light');
-							navigate(`/channel/${params.id}`);
-						}}
-						class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-90 transition-all shrink-0"
-						aria-label="Back"
+						onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} navigate(`/channel/${params.id}`); }}
+						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
+						aria-label={t('common.back')}
 					>
-						<span class="material-symbols-outlined text-white text-[20px] rtl:-scale-x-100">
-							arrow_back
-						</span>
+						<span class="material-symbols-outlined text-[22px] rtl:-scale-x-100">arrow_back</span>
 					</button>
 					<div class="flex flex-col overflow-hidden">
-						<h1 class="text-[18px] font-black text-white leading-tight truncate">
-							{t('channelDynamicBio.title') || 'بیوگرافی و نام زنده'}
+						<h1 class="text-[18px] font-black text-white leading-tight truncate tracking-tight">
+							{t('channelDynamicBio.title')}
 						</h1>
-						<span class="text-[12px] text-on-surface-variant truncate">
-							{t('channelDynamicBio.subtitle') || 'آپدیت زنده مشخصات کانال'}
+						<span class="text-[11px] text-white/50 font-bold uppercase tracking-wider truncate mt-0.5">
+							{t('channelDynamicBio.subtitle')}
 						</span>
 					</div>
 				</div>
 
 				<button
 					onClick={() => setIsMenuOpen(true)}
-					class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-95 transition-all shrink-0"
-					aria-label="Open menu"
+					class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-colors shrink-0 shadow-sm text-white/80"
+					aria-label={t('common.toggle')}
 				>
-					<span class="material-symbols-outlined text-white text-[20px]">menu</span>
+					<span class="material-symbols-outlined text-[22px]">menu</span>
 				</button>
 			</div>
 
-			<ChannelHamburgerMenu
-				isOpen={isMenuOpen()}
-				onClose={() => setIsMenuOpen(false)}
-				channelId={params.id}
-				activeTab="dynamic-bio"
-			/>
+			<ChannelHamburgerMenu isOpen={isMenuOpen()} onClose={() => setIsMenuOpen(false)} channelId={params.id} activeTab="dynamic-bio" />
 
-			<div class="px-5 pt-6 flex flex-col gap-6">
+			<div class="px-5 pt-5 flex flex-col gap-4 max-w-md mx-auto relative z-10 w-full pb-10">
+				
 				<ChannelContextBar channelId={params.id} />
 
 				<Show when={settingsQuery.isLoading}>
-					<div class="flex flex-col gap-4 animate-pulse">
-						<div class="h-40 bg-[#1c1c1c] rounded-3xl"></div>
-						<div class="h-32 bg-[#1c1c1c] rounded-3xl"></div>
-						<div class="h-24 bg-[#1c1c1c] rounded-3xl"></div>
+					<div class="flex flex-col gap-4 animate-pulse mt-2">
+						<div class="h-40 bg-[#12141C]/50 rounded-[24px] border border-white/5"></div>
+						<div class="h-32 bg-[#12141C]/50 rounded-[24px] border border-white/5"></div>
 					</div>
 				</Show>
 
 				<Show when={settingsQuery.isError}>
-					<div class="bg-[#1c1c1c] rounded-3xl border border-[#ff3b30]/30 p-6 flex flex-col gap-4 items-center text-center">
-						<span class="material-symbols-outlined text-[48px] text-[#ff3b30]">error</span>
+					<div class="bg-[#ff4a4a]/10 backdrop-blur-md rounded-[24px] border border-[#ff4a4a]/20 p-6 flex flex-col gap-3 items-center text-center shadow-sm mt-2">
+						<span class="material-symbols-outlined text-[42px] text-[#ff4a4a] drop-shadow-md">error</span>
 						<div class="flex flex-col gap-1">
-							<span class="text-[16px] font-bold text-white">Failed to Load Settings</span>
-							<span class="text-[12px] text-[#8e8e93]">
-								Please check your internet connection and try again.
+							<span class="text-[15px] font-black text-white tracking-tight">{t('common.errorUpdateFailed')}</span>
+							<span class="text-[12px] font-medium text-white/60 leading-relaxed">
+								{t('common.errors.generic')}
 							</span>
 						</div>
-						<button
-							onClick={() => settingsQuery.refetch()}
-							class="px-5 py-2.5 bg-[#32ade6] hover:bg-[#2b96c8] text-black rounded-xl font-bold text-[14px]"
-						>
-							Retry
+						<button onClick={() => settingsQuery.refetch()} class="px-6 py-3 bg-[#ff4a4a] hover:bg-[#ff3b30] text-white rounded-[14px] font-black uppercase tracking-widest text-[11px] shadow-[0_4px_15px_rgba(255,74,74,0.3)] active:scale-95 transition-all mt-2">
+							{t('common.retry')}
 						</button>
 					</div>
 				</Show>
 
 				<Show when={settingsQuery.data}>
-					<Motion.div
-						initial={{ opacity: 0, y: 10 }}
-						animate={{ opacity: 1, y: 0 }}
-						transition={{ delay: 0.05 }}
-						class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-4"
-					>
-						<div class="flex items-center justify-between gap-3">
-							<div class="flex flex-col flex-1 min-w-0">
-								<span class="text-[15px] font-bold text-white">
-									{t('channelDynamicBio.title') || 'بیوگرافی و نام زنده'}
+					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} class="bg-[#12141C]/80 backdrop-blur-xl rounded-[28px] border border-white/5 p-5 flex flex-col gap-5 shadow-sm relative overflow-hidden">
+						
+						{/* ═══════ ENGINE TOGGLE ═══════ */}
+						<div class="flex items-center justify-between gap-3 relative z-10 border-b border-white/5 pb-3">
+							<div class="flex flex-col flex-1 min-w-0 gap-0.5">
+								<span class="text-[15px] font-black text-white tracking-tight flex items-center gap-2">
+									<span class="material-symbols-outlined text-[#3390ec] text-[20px]">smart_toy</span>
+									{t('channelDynamicBio.title')}
 								</span>
-								<span class="text-[11px] text-[#8e8e93]">
-									{t('channelDynamicBio.subtitle') || 'Live channel info update'}
+								<span class="text-[11px] font-medium text-white/50">
+									{t('channelDynamicBio.subtitle2')}
 								</span>
 							</div>
-							<ToggleSwitch checked={enabled()} onChange={setEnabled} />
+							<ToggleSwitch checked={enabled()} onChange={(v) => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} setEnabled(v); }} />
 						</div>
 
 						<Show when={!enabled()}>
-							<div class="mt-2 p-4 bg-[#32ade6]/10 border border-[#32ade6]/30 rounded-xl flex flex-col gap-2">
-								<span class="text-[14px] font-bold text-[#32ade6]">
-									{t('channelDynamicBio.guideTitle') || 'Live Bio & Name Guide'}
+							<div class="bg-[#3390ec]/10 border border-[#3390ec]/20 rounded-[16px] p-4 flex flex-col gap-2 shadow-inner">
+								<span class="text-[13px] font-black text-[#3390ec] flex items-center gap-1.5">
+									<span class="material-symbols-outlined text-[18px]">info</span>
+									{t('channelDynamicBio.guideTitle')}
 								</span>
-								<p class="text-[13px] text-white/80 leading-relaxed">
-									{t('channelDynamicBio.guideDesc') ||
-										'By enabling this section, you can automatically update your channel bio...'}
+								<p class="text-[12px] font-medium text-white/70 leading-relaxed pl-6">
+									{t('channelDynamicBio.guideDesc')}
 								</p>
 							</div>
 						</Show>
 
 						<Show when={enabled()}>
-							<div class="h-[1px] bg-[#2a2a2a] w-full mt-1 mb-2"></div>
-
-							{/* Current Telegram Info Info */}
-							<div class="bg-[#2c2c2e] p-3 rounded-xl border border-[#3a3a3c] flex flex-col gap-3 mb-2">
-								<span class="text-[13px] font-bold text-[#8e8e93]">
-									{t('channelDynamicBio.currentStatus') || 'Current Status in Telegram:'}
+							
+							{/* ═══════ CURRENT TELEGRAM STATUS ═══════ */}
+							<div class="bg-[#08090D] p-4 rounded-[20px] border border-white/5 flex flex-col gap-3 shadow-inner">
+								<span class="text-[10px] font-black uppercase tracking-widest text-white/40 flex items-center gap-1.5">
+									<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_5px_#34d399]" />
+									{t('channelDynamicBio.currentStatus')}
 								</span>
-								<div class="flex flex-col gap-1">
-									<span class="text-[12px] text-white/60">
-										{t('channelDynamicBio.currentName') || 'Current Name:'}{' '}
-										<span class="text-white">
-											{telegramInfo()?.title ||
-												currentName() ||
-												t('channelDynamicBio.fetching') ||
-												'Fetching...'}
+								<div class="flex flex-col gap-2 border-t border-white/5 pt-2">
+									<div class="flex flex-col gap-0.5">
+										<span class="text-[10px] font-bold text-white/30 uppercase">{t('channelDynamicBio.currentName')}</span>
+										<span class="text-[13px] font-bold text-white">
+											{telegramInfo()?.title || currentName() || t('channelDynamicBio.fetching')}
 										</span>
-									</span>
-									<span class="text-[12px] text-white/60">
-										{t('channelDynamicBio.currentBioReal') || 'Current Bio:'}{' '}
-										<span class="text-white">
-											{telegramInfo()?.description ||
-												currentBio() ||
-												t('channelDynamicBio.fetching') ||
-												'Fetching...'}
+									</div>
+									<div class="flex flex-col gap-0.5 mt-1">
+										<span class="text-[10px] font-bold text-white/30 uppercase">{t('channelDynamicBio.currentBioReal')}</span>
+										<span class="text-[13px] font-medium text-white leading-relaxed">
+											{telegramInfo()?.description || currentBio() || t('channelDynamicBio.fetching')}
 										</span>
-									</span>
+									</div>
 								</div>
 							</div>
 
-							{/* Live Preview */}
-							<div class="bg-[#32ade6]/10 p-3 rounded-xl border border-[#32ade6]/30 flex flex-col gap-3 mb-2">
-								<span class="text-[13px] font-bold text-[#32ade6]">Live Preview</span>
-								<div class="flex flex-col gap-1">
-									<Show when={displayInName()}>
-										<span class="text-[12px] text-white/60">
-											New Name: <span class="text-white">{generatePreview(nameTemplate())}</span>
-										</span>
-									</Show>
-									<span class="text-[12px] text-white/60">
-										New Bio:{' '}
-										<span class="text-white break-words">{generatePreview(bioTemplate())}</span>
-									</span>
-								</div>
-							</div>
-
-							{/* Bio Input */}
-							<div class="flex flex-col gap-2">
-								<label class="text-[13px] font-bold text-white flex justify-between">
-									{t('channelDynamicBio.currentBio') || 'Bio Template'}
-									<span
-										class={`text-[11px] font-bold ${bioTemplate().length > 255 ? 'text-[#ff3b30]' : 'text-[#32ade6]'}`}
-									>
+							{/* ═══════ BIO INPUT ═══════ */}
+							<div class="flex flex-col gap-2 mt-1">
+								<label class="text-[12px] font-black text-white flex justify-between items-center uppercase tracking-wider px-1">
+									<div class="flex items-center gap-1.5">
+										<span class="material-symbols-outlined text-[16px] text-pink-400">format_quote</span>
+										{t('channelDynamicBio.currentBio')}
+									</div>
+									<span class={`text-[10px] font-bold font-mono px-2 py-0.5 rounded-[6px] border ${bioTemplate().length > 255 ? 'bg-[#ff4a4a]/10 text-[#ff4a4a] border-[#ff4a4a]/20' : 'bg-white/5 text-white/40 border-white/10'}`}>
 										{bioTemplate().length} / 255
 									</span>
 								</label>
-
 								<textarea
-									value={bioTemplate()}
-									onInput={(e) => setBioTemplate(e.currentTarget.value)}
-									class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-3 w-full min-h-[80px] focus:outline-none focus:ring-2 focus:ring-[#32ade6] border border-transparent placeholder-[#a0a4ad] resize-none"
-									placeholder="Official Channel | Members: $members"
-									maxLength={255}
+									value={bioTemplate()} onInput={(e) => setBioTemplate(e.currentTarget.value)}
+									placeholder="Official Channel | Members: $members" maxLength={255}
+									class="bg-[#08090D] border border-white/5 text-white text-[13px] font-medium leading-relaxed rounded-[18px] px-4 py-3.5 w-full min-h-[100px] focus:outline-none focus:border-[#3390ec]/50 transition-all resize-none placeholder-white/20 shadow-inner"
 								/>
 							</div>
 
-							{/* Display in Name */}
-							<div class="mt-2 bg-[#2c2c2e] p-3 rounded-xl border border-[#3a3a3c] flex flex-col gap-3">
+							{/* ═══════ DISPLAY IN NAME ═══════ */}
+							<div class="bg-[#08090D] p-4 rounded-[20px] border border-white/5 flex flex-col gap-4 shadow-inner mt-1">
 								<div class="flex items-center justify-between">
 									<div class="flex flex-col flex-1 min-w-0">
-										<span class="text-[13px] font-bold text-white">Display in Channel Name</span>
-										<span class="text-[11px] text-[#8e8e93]">
-											Add dynamic tags to the channel name
-										</span>
+										<span class="text-[13px] font-bold text-white tracking-tight">{t('channelDynamicBio.displayName')}</span>
+										<span class="text-[11px] font-medium text-white/50 mt-0.5">{t('channelDynamicBio.displayInNameDesc')}</span>
 									</div>
-									<ToggleSwitch checked={displayInName()} onChange={setDisplayInName} />
+									<ToggleSwitch checked={displayInName()} onChange={(v) => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} setDisplayInName(v); }} />
 								</div>
 
 								<Show when={displayInName()}>
-									<input
-										type="text"
-										value={nameTemplate()}
-										onInput={(e) => setNameTemplate(e.currentTarget.value)}
-										placeholder="iFragment News $time"
-										class="w-full bg-[#1c1c1c] text-white text-[14px] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#32ade6]"
-										maxLength={128}
-									/>
+									<div class="border-t border-white/5 pt-3">
+										<input
+											type="text" value={nameTemplate()} onInput={(e) => setNameTemplate(e.currentTarget.value)}
+											placeholder="iFragment News $time" maxLength={128}
+											class="w-full h-12 bg-[#12141C] text-white text-[13px] font-bold rounded-[14px] px-4 border border-white/5 focus:outline-none focus:border-[#3390ec]/50 transition-colors placeholder-white/20 shadow-inner"
+										/>
+									</div>
 								</Show>
 							</div>
 
-							{/* Variables */}
-							<div class="mt-2 flex flex-col gap-2">
-								<span class="text-[13px] font-bold text-white">
-									{t('channelDynamicBio.variables') || 'Available Tags'}
+							{/* ═══════ DYNAMIC VARIABLES ═══════ */}
+							<div class="flex flex-col gap-2 mt-2">
+								<span class="text-[11px] font-black uppercase tracking-widest text-white/40 px-1 flex items-center gap-1.5">
+									<span class="material-symbols-outlined text-[16px] text-amber-400">data_object</span>
+									{t('channelDynamicBio.variables')}
 								</span>
-								<div class="flex flex-wrap gap-2">
+								<div class="flex flex-wrap gap-2 pt-1">
 									<For each={variables}>
 										{(v) => (
 											<button
 												onClick={() => {
-													hapticFeedback.impactOccurred('light');
+													try { hapticFeedback.impactOccurred('light'); } catch (_) {}
 													if (bioTemplate().length + v.tag.length <= 255) {
 														setBioTemplate(`${bioTemplate()} ${v.tag}`);
 													}
 												}}
-												class="bg-[#2c2c2e] hover:bg-[#3a3a3c] transition-colors border border-[#3a3a3c] rounded-lg px-2.5 py-1.5 flex flex-col items-start"
+												class="bg-[#08090D] hover:bg-white/10 transition-all border border-white/5 hover:border-white/20 rounded-[14px] px-3 py-2 flex flex-col items-start active:scale-95 shadow-sm group"
 											>
-												<span class="text-[12px] font-bold text-[#32ade6]">{v.tag}</span>
-												<span class="text-[10px] text-on-surface-variant">{v.desc}</span>
+												<span class="text-[12px] font-black text-[#3390ec] font-mono group-hover:drop-shadow-[0_0_8px_rgba(51,144,236,0.5)]">{v.tag}</span>
+												<span class="text-[10px] font-medium text-white/40 mt-0.5">{v.desc}</span>
 											</button>
 										)}
 									</For>
 								</div>
 							</div>
 
-							<div class="h-[1px] bg-[#2a2a2a] w-full my-2"></div>
+							<div class="h-[1px] bg-white/5 w-full rounded-full my-2" />
 
-							<SelectField
-								label={t('channelDynamicBio.updateInterval') || 'Update Interval'}
-								value={interval()}
-								onChange={setIntervalVal}
-								options={[
-									{ value: '10m', label: t('channelDynamicBio.interval10m') || 'Every 10 minutes' },
-									{ value: '30m', label: t('channelDynamicBio.interval30m') || 'Every 30 minutes' },
-									{ value: '1h', label: t('channelDynamicBio.interval1h') || 'Every hour' },
-									{ value: '24h', label: t('channelDynamicBio.interval24h') || 'Once a day' },
-								]}
-								description={
-									t('channelDynamicBio.updateIntervalDesc') ||
-									'How often the channel info refreshes.'
-								}
-							/>
+							{/* ═══════ UPDATE INTERVAL ═══════ */}
+							<div class="bg-[#08090D] rounded-[16px] border border-white/5 p-1.5 shadow-inner">
+								<SelectField
+									label={t('channelDynamicBio.updateInterval')}
+									value={interval()}
+									onChange={(v) => { try { hapticFeedback.selectionChanged(); } catch (_) {} setIntervalVal(v); }}
+									options={[
+										{ value: '10m', label: t('channelDynamicBio.interval10m') },
+										{ value: '30m', label: t('channelDynamicBio.interval30m') },
+										{ value: '1h', label: t('channelDynamicBio.interval1h') },
+										{ value: '24h', label: t('channelDynamicBio.interval24h') },
+									]}
+								/>
+							</div>
 						</Show>
 					</Motion.div>
 
+					{/* ═══════ LIVE PREVIEW CARD ═══════ */}
 					<Show when={enabled()}>
-						<Motion.div
-							initial={{ opacity: 0, y: 10 }}
-							animate={{ opacity: 1, y: 0 }}
-							transition={{ delay: 0.15 }}
-							class="bg-gradient-to-br from-[#1c1c1c] to-[#121212] rounded-3xl border border-[#32ade6]/30 p-5 flex flex-col gap-3 relative overflow-hidden"
-						>
-							<div class="absolute -top-10 -right-10 w-32 h-32 bg-[#32ade6]/10 rounded-full blur-2xl"></div>
-							<span class="text-[13px] font-bold text-[#32ade6] flex items-center gap-2 relative z-10">
-								<span class="material-symbols-outlined text-[16px]">visibility</span>
-								{t('channelDynamicBio.preview') || 'پیش‌نمایش زنده'}
-							</span>
-							<div class="bg-[#0f1014] rounded-xl p-4 border border-[#2a2a2a] relative z-10 flex flex-col gap-2">
+						<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} class="bg-gradient-to-br from-[#3390ec]/15 to-transparent rounded-[28px] border border-[#3390ec]/30 p-5 flex flex-col gap-4 relative overflow-hidden shadow-[inset_0_0_20px_rgba(51,144,236,0.05)] mt-1">
+							<div class="absolute -top-10 -right-10 w-32 h-32 bg-[#3390ec]/20 rounded-full blur-3xl pointer-events-none" />
+							
+							<div class="flex items-center gap-2 relative z-10">
+								<div class="w-8 h-8 rounded-[10px] bg-[#3390ec]/20 flex items-center justify-center border border-[#3390ec]/40 shadow-inner">
+									<span class="material-symbols-outlined text-[16px] text-[#3390ec]">visibility</span>
+								</div>
+								<span class="text-[12px] font-black uppercase tracking-widest text-[#3390ec]">
+									{t('channelDynamicBio.preview')}
+								</span>
+							</div>
+
+							<div class="bg-[#030303]/60 backdrop-blur-md rounded-[18px] p-4.5 border border-white/10 relative z-10 flex flex-col gap-2.5 shadow-sm">
 								<Show when={displayInName() && nameTemplate()}>
-									<div class="text-[16px] font-black text-white">
+									<div class="text-[16px] font-black text-white tracking-tight border-b border-white/5 pb-2">
 										{nameTemplate()
 											.replace(/\$members/g, '45,102')
 											.replace(/\$time/g, '14:30')
@@ -400,14 +355,14 @@ export const ChannelDynamicBioPage: Component = () => {
 											.replace(/\$Gram/g, '$5.50')}
 									</div>
 								</Show>
-								<p class="text-[14px] text-[#a0a4ad] font-medium leading-relaxed">
+								<p class="text-[13px] text-white/70 font-medium leading-relaxed">
 									{bioTemplate()
 										.replace(/\$members/g, '45,102')
 										.replace(/\$time/g, '14:30')
 										.replace(/\$date/g, '12 May 2026')
 										.replace(/\$day_name/g, 'Tuesday')
 										.replace(/\$btc/g, '$64,200')
-										.replace(/\$Gram/g, '$5.50')}
+										.replace(/\$Gram/g, '$5.50') || <span class="text-white/30 italic">{t('channelDynamicBio.noBioWritten')}</span>}
 								</p>
 							</div>
 						</Motion.div>
@@ -415,23 +370,19 @@ export const ChannelDynamicBioPage: Component = () => {
 				</Show>
 			</div>
 
-			{/* Save Button */}
-			<div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#0f1014] via-[#0f1014]/90 to-transparent z-40 flex">
-				<button
-					onClick={handleSave}
-					disabled={isSaving()}
-					class="flex-1 h-14 bg-[#32ade6] hover:bg-[#2b96c8] text-black rounded-2xl font-bold text-[16px] shadow-[0_10px_25px_rgba(50,173,230,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-40"
-				>
-					<Show
-						when={!isSaving()}
-						fallback={
-							<span class="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin"></span>
-						}
+			{/* ═══════ FLOATING SAVE BUTTON ═══════ */}
+			<div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#030303] via-[#030303]/90 to-transparent z-40 pointer-events-none">
+				<div class="max-w-md mx-auto pointer-events-auto">
+					<button
+						onClick={handleSave} disabled={isSaving()}
+						class="w-full h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] hover:from-[#2b7ec9] hover:to-[#3390ec] text-white rounded-[16px] font-black text-[14px] uppercase tracking-widest shadow-[0_10px_30px_rgba(51,144,236,0.35)] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:scale-100 active:scale-95 border border-white/10"
 					>
-						{t('common.save') || 'Save Changes'}
-						<span class="material-symbols-outlined text-[20px]">save</span>
-					</Show>
-				</button>
+						<Show when={!isSaving()} fallback={<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}>
+							{t('common.save')}
+							<span class="material-symbols-outlined text-[22px]">save</span>
+						</Show>
+					</button>
+				</div>
 			</div>
 		</div>
 	);

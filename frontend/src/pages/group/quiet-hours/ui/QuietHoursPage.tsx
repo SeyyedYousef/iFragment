@@ -1,48 +1,23 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
-import {
-	Component,
-	createResource,
-	createSignal,
-	For,
-	onCleanup,
-	onMount,
-	Show,
-	Suspense,
-} from 'solid-js';
+import { Component, createResource, createSignal, For, onCleanup, onMount, Show, Suspense } from 'solid-js';
 import { createStore, reconcile } from 'solid-js/store';
 import { groupApi } from '@/shared/api/bot-management.js';
-import { t } from '@/shared/i18n/index.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 import { SettingsSection } from '@/shared/ui/settings-controls.js';
 import { showToast } from '@/shared/ui/toast.js';
 
-interface QuietPeriod {
-	id: string;
-	start: string;
-	end: string;
-}
+interface QuietPeriod { id: string; start: string; end: string; }
+interface QuietHoursConfig { emergencyLock: boolean; adminOverride: boolean; sendNotifications: boolean; periods: QuietPeriod[]; }
 
-interface QuietHoursConfig {
-	emergencyLock: boolean;
-	adminOverride: boolean;
-	sendNotifications: boolean;
-	periods: QuietPeriod[];
-}
-
-const defaultConfig: QuietHoursConfig = {
-	emergencyLock: false,
-	adminOverride: true,
-	sendNotifications: true,
-	periods: [],
-};
+const defaultConfig: QuietHoursConfig = { emergencyLock: false, adminOverride: true, sendNotifications: true, periods: [] };
 
 export const QuietHoursPage: Component = () => {
 	const navigate = useNavigate();
 	const params = useParams();
 
-	// Menu State
 	const [isMenuOpen, setIsMenuOpen] = createSignal(false);
 	const [isSaving, setIsSaving] = createSignal(false);
 	const [isDirty, setIsDirty] = createSignal(false);
@@ -51,33 +26,26 @@ export const QuietHoursPage: Component = () => {
 
 	const [config, setConfig] = createStore<QuietHoursConfig>({ ...defaultConfig });
 
-	const [_, { refetch }] = createResource(
-		() => params.id,
-		async (groupId) => {
-			const data = await groupApi.getSettings(groupId);
-			setSettingsVersion(data.version);
-			const qh = (data.quiet_hours || {}) as Partial<QuietHoursConfig>;
-			setConfig(reconcile({ ...defaultConfig, ...qh }));
-			setIsDirty(false);
-			return data;
-		},
-	);
+	const [_, { refetch }] = createResource(() => params.id, async (groupId) => {
+		const data = await groupApi.getSettings(groupId);
+		setSettingsVersion(data.version);
+		const qh = (data.quiet_hours || {}) as Partial<QuietHoursConfig>;
+		setConfig(reconcile({ ...defaultConfig, ...qh }));
+		setIsDirty(false);
+		return data;
+	});
 
-	// Handle Telegram Back Button
 	onMount(() => {
 		backButton.show();
 		const off = backButton.onClick(() => {
-			hapticFeedback.impactOccurred('light');
+			try { hapticFeedback.impactOccurred('light'); } catch (_) {}
 			window.history.back();
 		});
 		onCleanup(() => off());
 	});
 
 	const isTimeInPeriod = (time: string, start: string, end: string) => {
-		if (start < end) {
-			return time >= start && time <= end;
-		}
-		// Midnight wrap-around (e.g., 22:00 -> 08:00)
+		if (start < end) return time >= start && time <= end;
 		return time >= start || time <= end;
 	};
 
@@ -90,23 +58,12 @@ export const QuietHoursPage: Component = () => {
 		const getIntervals = (startStr: string, endStr: string): { start: number; end: number }[] => {
 			const start = getMinutes(startStr);
 			const end = getMinutes(endStr);
-			if (start < end) {
-				return [{ start, end }];
-			} else if (start > end) {
-				return [
-					{ start, end: 1440 },
-					{ start: 0, end },
-				];
-			} else {
-				// start === end is a 24-hour quiet period
-				return [{ start: 0, end: 1440 }];
-			}
+			if (start < end) return [{ start, end }];
+			else if (start > end) return [{ start, end: 1440 }, { start: 0, end }];
+			else return [{ start: 0, end: 1440 }];
 		};
 
-		const isOverlap = (
-			i1: { start: number; end: number },
-			i2: { start: number; end: number },
-		): boolean => {
+		const isOverlap = (i1: { start: number; end: number }, i2: { start: number; end: number }): boolean => {
 			return i1.start < i2.end && i2.start < i1.end;
 		};
 
@@ -117,7 +74,7 @@ export const QuietHoursPage: Component = () => {
 				for (const intA of intervalsA) {
 					for (const intB of intervalsB) {
 						if (isOverlap(intA, intB)) {
-							setOverlapWarning(`Period overlaps!`);
+							setOverlapWarning(t('quietHoursSettings.periodOverlap'));
 							return;
 						}
 					}
@@ -135,7 +92,7 @@ export const QuietHoursPage: Component = () => {
 	};
 
 	const addPeriod = () => {
-		hapticFeedback.impactOccurred('medium');
+		try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
 		const newPeriod: QuietPeriod = { id: crypto.randomUUID(), start: '22:00', end: '08:00' };
 		setConfig('periods', [...config.periods, newPeriod]);
 		setIsDirty(true);
@@ -143,7 +100,7 @@ export const QuietHoursPage: Component = () => {
 	};
 
 	const removePeriod = (id: string) => {
-		hapticFeedback.impactOccurred('light');
+		try { hapticFeedback.impactOccurred('light'); } catch (_) {}
 		const updated = config.periods.filter((p) => p.id !== id);
 		setConfig('periods', updated);
 		setIsDirty(true);
@@ -159,59 +116,54 @@ export const QuietHoursPage: Component = () => {
 
 	const handleSave = async () => {
 		if (overlapWarning()) {
-			hapticFeedback.notificationOccurred('error');
+			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
 			return;
 		}
 		if (!isDirty()) return;
 
-		hapticFeedback.notificationOccurred('success');
+		try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
 		setIsSaving(true);
 		try {
-			const result = await groupApi.updateSettings(
-				params.id,
-				'quiet_hours',
-				config as any,
-				settingsVersion(),
-			);
+			const result = await groupApi.updateSettings(params.id, 'quiet_hours', config as any, settingsVersion());
 			setSettingsVersion(result.version);
 			setIsDirty(false);
-			showToast(t('common.settingsSaved') || 'Settings saved successfully', 'success');
+			showToast(t('common.settingsSaved'), 'success');
 			navigate(`/group/${params.id}`);
 			backButton.hide();
 		} catch (_e) {
-			showToast(t('error.title'), 'error');
-			hapticFeedback.notificationOccurred('error');
+			showToast(t('common.errorUpdateFailed'), 'error');
+			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
 		} finally {
 			setIsSaving(false);
 		}
 	};
 
 	return (
-		<div class="min-h-screen bg-[#0f1014] text-white pb-24">
-			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#0f1014]/90 backdrop-blur-md z-20 border-b border-[#2a2a2a] flex items-center justify-between gap-3">
-				<div class="flex items-center gap-2 overflow-hidden flex-1">
+		<div class="min-h-screen bg-[#030303] text-white pb-28 relative font-sans selection:bg-[#3390ec]/30" dir={isRtl() ? 'rtl' : 'ltr'}>
+			
+			{/* Ambient Top Glow */}
+			<div class="absolute top-0 left-0 right-0 h-[350px] bg-gradient-to-b from-[#3390ec]/15 via-transparent to-transparent blur-[80px] pointer-events-none z-0" />
+
+			{/* ═══════ PREMIUM STICKY HEADER ═══════ */}
+			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm">
+				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
-						onClick={() => {
-							hapticFeedback.impactOccurred('light');
-							window.history.back();
-						}}
-						class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-90 transition-all shrink-0"
-						aria-label="Back"
+						onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} window.history.back(); }}
+						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
+						aria-label={t('common.back')}
 					>
-						<span class="material-symbols-outlined text-white text-[20px] rtl:-scale-x-100">
-							arrow_back
-						</span>
+						<span class="material-symbols-outlined text-[22px] rtl:-scale-x-100">arrow_back</span>
 					</button>
 					<div class="flex flex-col overflow-hidden">
-						<div class="flex items-center gap-2">
-							<h1 class="text-[18px] font-black text-white leading-tight truncate">
+						<div class="flex items-center gap-2.5">
+							<h1 class="text-[18px] font-black text-white leading-tight truncate tracking-tight">
 								{t('quietHoursSettings.title')}
 							</h1>
 							<Show when={isDirty()}>
-								<span class="w-2.5 h-2.5 rounded-full bg-[#ff9f0a] animate-pulse shrink-0" />
+								<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0 shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
 							</Show>
 						</div>
-						<p class="text-[12px] text-[#8e8e93] font-medium leading-snug truncate">
+						<p class="text-[11px] text-white/50 font-bold uppercase tracking-wider leading-snug truncate mt-0.5">
 							{t('quietHoursSettings.subtitle')}
 						</p>
 					</div>
@@ -219,189 +171,155 @@ export const QuietHoursPage: Component = () => {
 
 				<button
 					onClick={() => setIsMenuOpen(true)}
-					class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] transition-colors shrink-0"
+					class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-colors shrink-0 shadow-sm text-white/80"
+					aria-label={t('common.toggle')}
 				>
-					<span class="material-symbols-outlined text-white text-[20px]">menu</span>
+					<span class="material-symbols-outlined text-[22px]">menu</span>
 				</button>
 			</div>
 
-			<HamburgerMenu
-				isOpen={isMenuOpen()}
-				onClose={() => setIsMenuOpen(false)}
-				groupId={params.id}
-				activeTab="quiet"
-			/>
+			<HamburgerMenu isOpen={isMenuOpen()} onClose={() => setIsMenuOpen(false)} groupId={params.id} activeTab="quiet" />
 
 			<Suspense fallback={null}>
-				<div class="p-5 flex flex-col gap-5">
-					{/* Current Status Preview */}
+				<div class="p-5 flex flex-col gap-4 max-w-md mx-auto relative z-10 w-full">
+					
+					{/* ═══════ CURRENT STATUS PREVIEW ═══════ */}
 					<Motion.div
-						initial={{ opacity: 0, scale: 0.95 }}
-						animate={{ opacity: 1, scale: 1 }}
-						class={`p-4 rounded-3xl border flex items-center justify-between ${
-							isCurrentlyQuiet()
-								? 'bg-[#ff3b30]/10 border-[#ff3b30]/30 text-[#ff3b30]'
-								: 'bg-[#34c759]/10 border-[#34c759]/30 text-[#34c759]'
+						initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+						class={`p-5 rounded-[24px] border backdrop-blur-xl flex items-center justify-between shadow-sm relative overflow-hidden transition-colors duration-500 ${
+							isCurrentlyQuiet() ? 'bg-[#ff4a4a]/10 border-[#ff4a4a]/30 text-[#ff4a4a]' : 'bg-[#10b981]/10 border-[#10b981]/30 text-[#10b981]'
 						}`}
 					>
-						<div class="flex items-center gap-3">
-							<div
-								class={`w-2.5 h-2.5 rounded-full animate-pulse ${isCurrentlyQuiet() ? 'bg-[#ff3b30]' : 'bg-[#34c759]'}`}
-							/>
-							<div class="flex flex-col">
-								<span class="text-[14px] font-black uppercase tracking-tight">
-									{isCurrentlyQuiet() ? 'Group Locked' : 'Group Active'}
+						<div class={`absolute -right-6 -top-6 w-24 h-24 rounded-full blur-2xl pointer-events-none ${isCurrentlyQuiet() ? 'bg-[#ff4a4a]/20' : 'bg-[#10b981]/20'}`} />
+						
+						<div class="flex items-center gap-4 relative z-10">
+							<div class={`w-12 h-12 rounded-[16px] flex items-center justify-center shadow-inner border ${isCurrentlyQuiet() ? 'bg-[#ff4a4a]/20 border-[#ff4a4a]/30' : 'bg-[#10b981]/20 border-[#10b981]/30'}`}>
+								<span class="material-symbols-outlined text-[24px]">
+									{isCurrentlyQuiet() ? 'lock' : 'lock_open'}
 								</span>
-								<span class="text-[11px] opacity-70 font-medium">
-									Based on current server time (
-									{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})
+							</div>
+							<div class="flex flex-col gap-0.5">
+								<span class="text-[15px] font-black uppercase tracking-tight flex items-center gap-2">
+									{isCurrentlyQuiet() ? t('quietHoursSettings.groupLocked') : t('quietHoursSettings.groupActive')}
+									<span class={`w-2 h-2 rounded-full animate-pulse ${isCurrentlyQuiet() ? 'bg-[#ff4a4a] shadow-[0_0_8px_#ff4a4a]' : 'bg-[#10b981] shadow-[0_0_8px_#10b981]'}`} />
+								</span>
+								<span class="text-[11px] opacity-70 font-bold font-mono tracking-tight">
+									{t('quietHoursSettings.serverTime')}: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
 								</span>
 							</div>
 						</div>
-						<span class="material-symbols-outlined text-[20px]">
-							{isCurrentlyQuiet() ? 'lock' : 'lock_open'}
-						</span>
 					</Motion.div>
 
-					{/* Emergency Lock */}
-					<Motion.div
-						initial={{ opacity: 0, y: 10 }}
-						animate={{ opacity: 1, y: 0 }}
-						transition={{ delay: 0.1 }}
-					>
-						<div
-							class={`rounded-3xl border p-1 transition-colors duration-300 ${
-								config.emergencyLock
-									? 'bg-[#ff3b30]/10 border-[#ff3b30]/30'
-									: 'bg-[#1c1c1c] border-[#2a2a2a]'
-							}`}
-						>
+					{/* ═══════ EMERGENCY LOCK ═══════ */}
+					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+						<div class={`rounded-[24px] p-1.5 border transition-all duration-300 backdrop-blur-xl shadow-sm ${config.emergencyLock ? 'bg-[#ff4a4a]/15 border-[#ff4a4a]/40 shadow-[0_0_20px_rgba(255,74,74,0.15)]' : 'bg-[#12141C]/80 border-white/5'}`}>
 							<SettingsSection
 								title={t('quietHoursSettings.emergencyLock')}
 								description={t('quietHoursSettings.emergencyLockDesc')}
 								enabled={config.emergencyLock}
-								onToggle={(val) => {
-									setConfig('emergencyLock', val);
-									setIsDirty(true);
-								}}
+								onToggle={(val) => { setConfig('emergencyLock', val); setIsDirty(true); }}
 							/>
 						</div>
 					</Motion.div>
 
-					{/* Info Banner for Admins */}
-					<Motion.div
-						initial={{ opacity: 0, y: 10 }}
-						animate={{ opacity: 1, y: 0 }}
-						transition={{ delay: 0.2 }}
-						class="bg-[#ffcc00]/10 border border-[#ffcc00]/30 rounded-2xl p-4 flex items-start gap-3"
-					>
-						<span class="material-symbols-outlined text-[#ffcc00] text-[24px] shrink-0 mt-0.5">
-							admin_panel_settings
-						</span>
-						<div class="flex flex-col">
-							<span class="text-[14px] font-bold text-white mb-1">
-								{t('quietHoursSettings.adminOverride')}
-							</span>
-							<span class="text-[12px] text-[#8e8e93] leading-relaxed">
-								{t('quietHoursSettings.adminOverrideDesc')}
-							</span>
+					{/* ═══════ ADMIN INFO BANNER ═══════ */}
+					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} class="bg-amber-400/10 border border-amber-400/20 rounded-[20px] p-4.5 flex items-start gap-3.5 shadow-sm relative overflow-hidden">
+						<div class="w-10 h-10 rounded-[12px] bg-amber-400/15 border border-amber-400/30 flex items-center justify-center shrink-0 mt-0.5 shadow-inner">
+							<span class="material-symbols-outlined text-amber-400 text-[20px]">admin_panel_settings</span>
+						</div>
+						<div class="flex flex-col relative z-10">
+							<span class="text-[14px] font-black text-amber-400 mb-1 tracking-tight">{t('quietHoursSettings.adminOverride')}</span>
+							<span class="text-[11px] text-amber-400/70 leading-relaxed font-bold">{t('quietHoursSettings.adminOverrideDesc')}</span>
 						</div>
 					</Motion.div>
 
-					{/* Quiet Periods */}
-					<Motion.div
-						initial={{ opacity: 0, y: 10 }}
-						animate={{ opacity: 1, y: 0 }}
-						transition={{ delay: 0.3 }}
-						class="flex flex-col gap-3"
-					>
+					{/* ═══════ QUIET PERIODS LIST ═══════ */}
+					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} class="flex flex-col gap-3">
+						<div class="flex items-center gap-2 px-1 mb-1 border-b border-white/5 pb-2">
+							<span class="material-symbols-outlined text-[#3390ec] text-[20px]">schedule</span>
+							<h2 class="text-[12px] font-black text-white/60 uppercase tracking-widest">{t('quietHoursSettings.quietPeriods')}</h2>
+						</div>
+
 						<For each={config.periods}>
 							{(period) => (
-								<div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex items-center justify-between">
-									<div class="flex items-center gap-4">
-										<label>
-											<input
-												type="time"
-												value={period.start}
-												onChange={(e) => updatePeriod(period.id, 'start', e.currentTarget.value)}
-												class="bg-[#0f1014] border border-[#2a2a2a] rounded-xl px-3 py-2 text-[14px] text-white focus:border-[#3390ec] outline-none"
-											/>
-										</label>
-										<span class="text-[#8e8e93]">→</span>
-										<label>
-											<input
-												type="time"
-												value={period.end}
-												onChange={(e) => updatePeriod(period.id, 'end', e.currentTarget.value)}
-												class="bg-[#0f1014] border border-[#2a2a2a] rounded-xl px-3 py-2 text-[14px] text-white focus:border-[#3390ec] outline-none"
-											/>
-										</label>
+								<div class="bg-[#12141C]/80 backdrop-blur-xl rounded-[20px] border border-white/5 p-4 flex items-center justify-between shadow-sm hover:border-white/15 transition-colors">
+									<div class="flex items-center gap-3">
+										<div class="flex flex-col gap-1">
+											<span class="text-[9px] font-black uppercase tracking-widest text-white/30 px-1">{t('quietHoursSettings.start')}</span>
+											<label>
+												<input
+													type="time" value={period.start} onChange={(e) => updatePeriod(period.id, 'start', e.currentTarget.value)}
+													class="bg-[#08090D] border border-white/10 rounded-[12px] px-3 py-2 text-[14px] text-white font-mono font-bold focus:border-[#3390ec]/50 outline-none shadow-inner transition-colors"
+													dir="ltr"
+												/>
+											</label>
+										</div>
+										<span class="text-white/20 mt-4 material-symbols-outlined text-[18px]">arrow_forward</span>
+										<div class="flex flex-col gap-1">
+											<span class="text-[9px] font-black uppercase tracking-widest text-white/30 px-1">{t('quietHoursSettings.end')}</span>
+											<label>
+												<input
+													type="time" value={period.end} onChange={(e) => updatePeriod(period.id, 'end', e.currentTarget.value)}
+													class="bg-[#08090D] border border-white/10 rounded-[12px] px-3 py-2 text-[14px] text-white font-mono font-bold focus:border-[#3390ec]/50 outline-none shadow-inner transition-colors"
+													dir="ltr"
+												/>
+											</label>
+										</div>
 									</div>
-									<button onClick={() => removePeriod(period.id)} class="text-[#ff3b30] p-2">
-										<span class="material-symbols-outlined">delete</span>
+									<button onClick={() => removePeriod(period.id)} class="w-10 h-10 rounded-[12px] flex items-center justify-center bg-[#ff4a4a]/10 text-[#ff4a4a] border border-[#ff4a4a]/20 hover:bg-[#ff4a4a] hover:text-white transition-all active:scale-95 mt-4 shadow-sm" aria-label={t('common.delete')}>
+										<span class="material-symbols-outlined text-[20px]">delete</span>
 									</button>
 								</div>
 							)}
 						</For>
-						<button
-							onClick={addPeriod}
-							class="w-full py-4 border-2 border-dashed border-[#2a2a2a] rounded-3xl text-[#8e8e93] font-bold flex items-center justify-center gap-2 hover:border-[#3390ec] hover:text-[#3390ec] transition-all"
-						>
-							<span class="material-symbols-outlined">add</span>
+						
+						<button onClick={addPeriod} class="w-full h-14 border-2 border-dashed border-white/10 hover:border-[#3390ec]/50 rounded-[20px] text-white/40 hover:text-[#3390ec] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 bg-white/5 hover:bg-[#3390ec]/10 mt-1">
+							<span class="material-symbols-outlined text-[22px]">add_circle</span>
 							{t('quietHoursSettings.addPeriod')}
 						</button>
+						
 						<Show when={overlapWarning()}>
-							<p class="text-[#ff3b30] text-[12px] font-bold text-center">{overlapWarning()}</p>
+							<div class="bg-[#ff4a4a]/10 border border-[#ff4a4a]/20 text-[#ff4a4a] rounded-[12px] px-4 py-2.5 text-[11px] font-bold mt-1 flex items-center justify-center gap-2 shadow-sm">
+								<span class="material-symbols-outlined text-[16px]">error</span> {overlapWarning()}
+							</div>
 						</Show>
 					</Motion.div>
 
-					{/* Notifications */}
-					<Motion.div
-						initial={{ opacity: 0, y: 10 }}
-						animate={{ opacity: 1, y: 0 }}
-						transition={{ delay: 0.4 }}
-					>
-						<SettingsSection
-							title={t('quietHoursSettings.sendMessages')}
-							description={t('quietHoursSettings.sendMessagesDesc')}
-							enabled={config.sendNotifications}
-							onToggle={(val) => {
-								setConfig('sendNotifications', val);
-								setIsDirty(true);
-							}}
-							hasEditText={true}
-							onEditText={() => navigate(`/group/${params.id}/settings/custom-texts`)}
-						/>
+					{/* ═══════ NOTIFICATIONS ═══════ */}
+					<Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} class="mt-2">
+						<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-1.5 shadow-sm">
+							<SettingsSection
+								title={t('quietHoursSettings.sendMessages')}
+								description={t('quietHoursSettings.sendMessagesDesc')}
+								enabled={config.sendNotifications}
+								onToggle={(val) => { setConfig('sendNotifications', val); setIsDirty(true); }}
+								hasEditText={true}
+								onEditText={() => navigate(`/group/${params.id}/settings/custom-texts`)}
+							/>
+						</div>
 					</Motion.div>
 				</div>
 			</Suspense>
 
-			{/* Floating Action Bar */}
+			{/* ═══════ FLOATING ACTION BAR ═══════ */}
 			<Show when={isDirty()}>
-				<div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#0f1014] via-[#0f1014]/90 to-transparent z-40 flex gap-3">
-					<button
-						onClick={() => refetch()}
-						disabled={isSaving()}
-						class="flex-1 h-14 bg-[#1c1c1c] text-[#ff3b30] border border-[#ff3b30]/20 rounded-2xl font-bold text-[15px] transition-all flex items-center justify-center gap-2 hover:bg-[#ff3b30]/10"
-					>
-						{t('common.cancel')}
-						<span class="material-symbols-outlined text-[18px]">close</span>
-					</button>
-					<button
-						onClick={handleSave}
-						disabled={isSaving()}
-						class="flex-[2] h-14 bg-[#3390ec] hover:bg-[#2b7bc9] text-white rounded-2xl font-bold text-[16px] shadow-[0_10px_25_rgba(51,144,236,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-40"
-					>
-						<Show
-							when={!isSaving()}
-							fallback={
-								<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-							}
+				<div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#030303] via-[#030303]/90 to-transparent z-40 pointer-events-none">
+					<div class="max-w-md mx-auto flex gap-3 pointer-events-auto">
+						<button
+							onClick={() => refetch()} disabled={isSaving()}
+							class="w-16 h-14 bg-[#12141C]/80 backdrop-blur-md text-[#ff4a4a] border border-[#ff4a4a]/20 rounded-[16px] transition-all flex items-center justify-center hover:bg-[#ff4a4a]/10 active:scale-95 shadow-sm"
 						>
-							{t('generalSettings.saveSettings')}
-							<span class="material-symbols-outlined text-[20px]">save</span>
-						</Show>
-					</button>
+							<span class="material-symbols-outlined text-[24px]">close</span>
+						</button>
+						<button
+							onClick={handleSave} disabled={isSaving()}
+							class="flex-1 h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] hover:from-[#2b7ec9] hover:to-[#3390ec] text-white rounded-[16px] font-black text-[14px] uppercase tracking-widest shadow-[0_10px_30px_rgba(51,144,236,0.35)] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:scale-100 active:scale-95 border border-white/10"
+						>
+							<Show when={!isSaving()} fallback={<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}>
+								{t('generalSettings.saveSettings')} <span class="material-symbols-outlined text-[22px]">save</span>
+							</Show>
+						</button>
+					</div>
 				</div>
 			</Show>
 		</div>

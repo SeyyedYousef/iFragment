@@ -29,8 +29,14 @@ export const EditProjectPage: Component = () => {
 
 	onMount(() => {
 		backButton.show();
-		const off = backButton.onClick(() => navigate(-1));
-		onCleanup(() => off());
+		const off = backButton.onClick(() => {
+			try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+			navigate(-1);
+		});
+		onCleanup(() => {
+			off();
+			backButton.hide();
+		});
 	});
 
 	createEffect(() => {
@@ -44,39 +50,33 @@ export const EditProjectPage: Component = () => {
 
 	const handleSave = async () => {
 		if (!projectName().trim() || !inputChannel().trim() || !outputChannel().trim()) {
-			showToast(
-				t('connectChannel.validationError') ||
-					'Please specify project name, input, and output channels',
-				'error',
-			);
-			hapticFeedback.notificationOccurred('error');
+			showToast(t('connectChannel.validationError'), 'error');
+			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
 			return;
 		}
 
-		hapticFeedback.impactOccurred('medium');
+		try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
 		setIsSaving(true);
 
 		try {
-			// Connect input and output again to verify them and ensure they are added to DB
-			showToast(t('connectChannel.verifyingInput') || 'Verifying input channel...', 'info');
+			showToast(t('connectChannel.verifyingInput'), 'info');
 			const inChan = await channelApi.connectChannel('auto', inputChannel().trim());
 
-			showToast(t('connectChannel.verifyingOutput') || 'Verifying output channel...', 'info');
+			showToast(t('connectChannel.verifyingOutput'), 'info');
 			const outChan = await channelApi.connectChannel('auto', outputChannel().trim());
 
-			showToast(t('connectChannel.creatingConnection') || 'Updating project connection...', 'info');
+			showToast(t('connectChannel.creatingConnection'), 'info');
 
-			// We pass the new info to updateFunnel
 			await channelApi.updateFunnel(params.id, {
 				project_name: projectName().trim(),
 				input_channel_id: inChan.id,
 				output_channel_id: outChan.id,
 			});
 
-			showToast(t('connectChannel.success') || 'Project updated successfully!', 'success');
+			showToast(t('connectChannel.success'), 'success');
 
-			hapticFeedback.notificationOccurred('success');
-			// If output channel changed, the channel ID (and url) would be different, we should navigate back to dashboard list
+			try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+			
 			if (outChan.id !== params.id) {
 				navigate('/managed-channels', { replace: true });
 			} else {
@@ -89,7 +89,7 @@ export const EditProjectPage: Component = () => {
 				err?.message ||
 				'Failed to update project';
 			showToast(errMsg, 'error');
-			hapticFeedback.notificationOccurred('error');
+			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
 		} finally {
 			setIsSaving(false);
 		}
@@ -97,126 +97,137 @@ export const EditProjectPage: Component = () => {
 
 	return (
 		<div
-			class={`min-h-screen bg-[#0f1014] pb-28 relative overflow-x-hidden text-white ${isRtl() ? 'rtl' : 'ltr'}`}
+			class={`min-h-screen bg-[#030303] pb-32 relative overflow-x-hidden text-white font-sans selection:bg-[#3390ec]/30 ${isRtl() ? 'rtl' : 'ltr'}`}
 		>
-			{/* Header */}
-			<div class="px-5 pt-6 pb-4 bg-[#0f1014]/80 backdrop-blur-md sticky top-0 z-30 border-b border-[#1c1c1c] flex items-center gap-3">
+			{/* Ambient Top Glow */}
+			<div class="absolute top-0 left-0 right-0 h-[350px] bg-gradient-to-b from-[#3390ec]/15 via-transparent to-transparent blur-[80px] pointer-events-none z-0" />
+
+			{/* ═══════ PREMIUM STICKY HEADER ═══════ */}
+			<div class="px-5 pt-6 pb-4 bg-[#030303]/85 backdrop-blur-2xl sticky top-0 z-40 border-b border-white/5 flex items-center gap-3.5 shadow-sm">
 				<button
 					onClick={() => {
-						hapticFeedback.impactOccurred('light');
+						try { hapticFeedback.impactOccurred('light'); } catch (_) {}
 						navigate(-1);
 					}}
-					class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-90 transition-all shrink-0"
-					aria-label="Back"
+					class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
+					aria-label={t('common.back')}
 				>
-					<span class="material-symbols-outlined text-white text-[20px] rtl:-scale-x-100">
+					<span class="material-symbols-outlined text-[22px] rtl:-scale-x-100">
 						arrow_back
 					</span>
 				</button>
 				<div class="flex flex-col overflow-hidden">
-					<h1 class="text-[18px] font-black text-white leading-tight truncate">
-						{t('connectChannel.editProjectTitle') || 'Edit Project'}
+					<h1 class="text-[18px] font-black text-white leading-tight truncate tracking-tight">
+						{t('connectChannel.editProjectTitle')}
 					</h1>
-					<span class="text-[12px] text-on-surface-variant truncate">
-						{t('connectChannel.editProjectSubtitle') || 'Update project name and channels'}
+					<span class="text-[11px] text-white/50 font-bold uppercase tracking-wider truncate mt-0.5">
+						{t('connectChannel.editProjectSubtitle')}
 					</span>
 				</div>
 			</div>
 
-			<div class="px-5 pt-6 flex flex-col gap-6">
+			<div class="px-5 pt-6 flex flex-col gap-6 max-w-md mx-auto relative z-10 w-full">
 				<Show
 					when={!funnel.loading}
 					fallback={
-						<div class="flex items-center justify-center py-10">
-							<span class="w-8 h-8 border-4 border-[#32ade6]/25 border-t-[#32ade6] rounded-full animate-spin"></span>
+						<div class="flex flex-col gap-4 animate-pulse">
+							<div class="h-64 bg-[#12141C]/50 rounded-[24px] border border-white/5 w-full"></div>
 						</div>
 					}
 				>
 					<Motion.div
-						initial={{ opacity: 0, y: 10 }}
+						initial={{ opacity: 0, y: 15 }}
 						animate={{ opacity: 1, y: 0 }}
-						transition={{ delay: 0.03 }}
-						class="bg-[#1c1c1c] rounded-3xl p-5 border border-[#2a2a2a] flex flex-col gap-3"
+						transition={{ delay: 0.05 }}
+						class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] p-5 border border-white/5 flex flex-col gap-5 shadow-sm relative overflow-hidden"
 					>
-						<div class="flex items-center gap-3 mb-1">
-							<div class="w-8 h-8 rounded-full bg-[#32ade6] text-black font-black flex items-center justify-center text-[15px]">
-								<span class="material-symbols-outlined text-[18px]">edit</span>
+						<div class="absolute -right-6 -top-6 w-24 h-24 bg-[#3390ec]/10 blur-2xl rounded-full pointer-events-none" />
+
+						<div class="flex items-center gap-3.5 relative z-10 border-b border-white/5 pb-4">
+							<div class="w-10 h-10 rounded-[12px] bg-[#3390ec]/15 text-[#3390ec] font-black flex items-center justify-center border border-[#3390ec]/30 shadow-inner shrink-0">
+								<span class="material-symbols-outlined text-[20px]">edit</span>
 							</div>
-							<h2 class="text-[16px] font-bold text-white">
-								{t('connectChannel.projectDetails') || 'Project Details'}
+							<h2 class="text-[15px] font-black text-white tracking-tight">
+								{t('connectChannel.projectDetails')}
 							</h2>
 						</div>
 
-						<div class="flex flex-col gap-4 mt-2">
-							<div>
-								<label class="block text-[11px] uppercase tracking-wider text-[#8e8e93] font-bold mb-1.5 pl-1">
-									{t('connectChannel.projectNameLabel') || 'Project Name'}
+						<div class="flex flex-col gap-5 relative z-10">
+							<div class="flex flex-col gap-1.5">
+								<label class="block text-[10px] font-black uppercase tracking-widest text-white/40 px-1">
+									{t('connectChannel.projectNameLabel')}
 								</label>
 								<input
 									type="text"
 									value={projectName()}
 									onInput={(e) => setProjectName(e.currentTarget.value)}
 									placeholder="e.g. My Crypto Channel"
-									class="bg-[#0f1014] border border-[#3a3a3c] text-white text-[15px] rounded-xl px-4 py-3.5 w-full focus:outline-none focus:border-[#32ade6] placeholder-[#5a5a5e] transition-colors"
+									class="w-full h-14 bg-[#08090D] border border-white/5 text-white text-[14px] font-bold rounded-[16px] px-4 focus:outline-none focus:border-[#3390ec]/50 placeholder-white/20 transition-all shadow-inner"
 								/>
 							</div>
 
-							<div>
-								<label class="block text-[11px] uppercase tracking-wider text-[#8e8e93] font-bold mb-1.5 pl-1">
-									{t('connectChannel.inputChannelLabel') || 'Input Channel (@username)'}
+							<div class="flex flex-col gap-1.5">
+								<label class="block text-[10px] font-black uppercase tracking-widest text-white/40 px-1">
+									{t('connectChannel.inputChannelLabel')}
 								</label>
 								<input
 									type="text"
 									value={inputChannel()}
 									onInput={(e) => setInputChannel(e.currentTarget.value)}
 									placeholder="e.g. @my_raw_posts_channel"
-									class="bg-[#0f1014] border border-[#3a3a3c] text-white text-[15px] rounded-xl px-4 py-3.5 w-full focus:outline-none focus:border-[#32ade6] placeholder-[#5a5a5e] transition-colors"
+									class="w-full h-14 bg-[#08090D] border border-white/5 text-white text-[14px] font-bold font-mono rounded-[16px] px-4 focus:outline-none focus:border-[#3390ec]/50 placeholder-white/20 transition-all shadow-inner"
+									dir="ltr"
 								/>
-								<span class="text-[11px] text-[#8e8e93] mt-1.5 block">
-									{t('connectChannel.inputChannelNote') ||
-										'Ensure the bot is admin in the new channel.'}
+								<span class="text-[10px] font-medium text-white/40 mt-0.5 block px-1 leading-snug">
+									{t('connectChannel.inputChannelNote')}
 								</span>
 							</div>
 
-							<div>
-								<label class="block text-[11px] uppercase tracking-wider text-[#8e8e93] font-bold mb-1.5 pl-1">
-									{t('connectChannel.outputChannelLabel') || 'Output Channel (@username)'}
+							<div class="flex flex-col gap-1.5">
+								<label class="block text-[10px] font-black uppercase tracking-widest text-white/40 px-1">
+									{t('connectChannel.outputChannelLabel')}
 								</label>
 								<input
 									type="text"
 									value={outputChannel()}
 									onInput={(e) => setOutputChannel(e.currentTarget.value)}
 									placeholder="e.g. @my_public_channel"
-									class="bg-[#0f1014] border border-[#3a3a3c] text-white text-[15px] rounded-xl px-4 py-3.5 w-full focus:outline-none focus:border-[#32ade6] placeholder-[#5a5a5e] transition-colors"
+									class="w-full h-14 bg-[#08090D] border border-white/5 text-white text-[14px] font-bold font-mono rounded-[16px] px-4 focus:outline-none focus:border-[#3390ec]/50 placeholder-white/20 transition-all shadow-inner"
+									dir="ltr"
 								/>
-								<span class="text-[11px] text-[#8e8e93] mt-1.5 block">
-									{t('connectChannel.outputChannelNote') ||
-										'If changed, subscriptions will be transferred automatically.'}
+								<span class="text-[10px] font-medium text-white/40 mt-0.5 block px-1 leading-snug">
+									{t('connectChannel.outputChannelNote')}
 								</span>
 							</div>
 						</div>
-
-						<button
-							onClick={handleSave}
-							disabled={
-								isSaving() ||
-								!projectName().trim() ||
-								!inputChannel().trim() ||
-								!outputChannel().trim()
-							}
-							class="mt-3 w-full bg-[#32ade6] text-black disabled:bg-[#32ade6]/40 disabled:text-black/50 rounded-xl py-3.5 flex items-center justify-center gap-2 font-bold transition-all text-[15px]"
-						>
-							<Show
-								when={!isSaving()}
-								fallback={
-									<span class="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin"></span>
-								}
-							>
-								{t('connectChannel.saveBtn') || 'Save Changes'}
-							</Show>
-						</button>
 					</Motion.div>
 				</Show>
+			</div>
+
+			{/* ═══════ FLOATING SUBMIT BUTTON ═══════ */}
+			<div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#030303] via-[#030303]/90 to-transparent z-40 pointer-events-none">
+				<div class="max-w-md mx-auto pointer-events-auto">
+					<button
+						onClick={handleSave}
+						disabled={
+							isSaving() ||
+							!projectName().trim() ||
+							!inputChannel().trim() ||
+							!outputChannel().trim()
+						}
+						class="w-full h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] hover:from-[#2b7ec9] hover:to-[#3390ec] text-white rounded-[16px] font-black text-[14px] uppercase tracking-widest transition-all disabled:opacity-40 disabled:scale-100 flex items-center justify-center gap-2 shadow-[0_10px_30px_rgba(51,144,236,0.35)] active:scale-95 border border-white/10"
+					>
+						<Show
+							when={!isSaving()}
+							fallback={
+								<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+							}
+						>
+							{t('connectChannel.saveBtn')}
+							<span class="material-symbols-outlined text-[22px]">save</span>
+						</Show>
+					</button>
+				</div>
 			</div>
 		</div>
 	);

@@ -12,29 +12,15 @@ import {
 	Show,
 } from 'solid-js';
 import { channelApi } from '@/shared/api/channel-management.js';
-import { t } from '@/shared/i18n/index.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 import { showConfirm } from '@/shared/lib/telegram-native.js';
 import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SelectField, SettingsSection } from '@/shared/ui/settings-controls.js';
 import { showToast } from '@/shared/ui/toast.js';
 
-interface ContentTypes {
-	text: boolean;
-	photos: boolean;
-	videos: boolean;
-	files: boolean;
-	voice: boolean;
-}
-
-interface ForwardRule {
-	id: string;
-	direction: 'inbound' | 'outbound';
-	targetType: 'telegram' | 'webhook';
-	target: string;
-	mode: string;
-	active: boolean;
-}
+interface ContentTypes { text: boolean; photos: boolean; videos: boolean; files: boolean; voice: boolean; }
+interface ForwardRule { id: string; direction: 'inbound' | 'outbound'; targetType: 'telegram' | 'webhook'; target: string; mode: string; active: boolean; }
 
 export const ChannelForwardingPage: Component = () => {
 	const params = useParams();
@@ -50,17 +36,9 @@ export const ChannelForwardingPage: Component = () => {
 	const [verifiedTargetId, setVerifiedTargetId] = createSignal('');
 	const [mode, setMode] = createSignal('forward');
 
-	const [contentTypes, setContentTypes] = createSignal<ContentTypes>({
-		text: true,
-		photos: true,
-		videos: true,
-		files: true,
-		voice: true,
-	});
+	const [contentTypes, setContentTypes] = createSignal<ContentTypes>({ text: true, photos: true, videos: true, files: true, voice: true });
 
-	const [inboundWebhookUrl] = createSignal(
-		`${import.meta.env.VITE_API_URL || 'https://api.ifragment.app'}/wh/${params.id}/${Math.random().toString(36).substring(2, 15)}`,
-	);
+	const [inboundWebhookUrl] = createSignal(`${import.meta.env.VITE_API_URL || 'https://api.ifragment.app'}/wh/${params.id}/${Math.random().toString(36).substring(2, 15)}`);
 
 	// Advanced Options State
 	const [showAdvanced, setShowAdvanced] = createSignal(false);
@@ -71,33 +49,22 @@ export const ChannelForwardingPage: Component = () => {
 	const [delay, setDelay] = createSignal('');
 
 	const [rules, setRules] = createSignal<ForwardRule[]>([]);
-	const [isForwardingEnabled, setIsForwardingEnabled] = createSignal(
-		localStorage.getItem(`forwarding_enabled_${params.id}`) !== 'false',
-	);
+	const [isForwardingEnabled, setIsForwardingEnabled] = createSignal(localStorage.getItem(`forwarding_enabled_${params.id}`) !== 'false');
 
-	const [rulesData, { refetch: refetchRules }] = createResource(
-		() => params.id,
-		(id) => channelApi.getForwardingRules(id),
-	);
-
-	const [logsData] = createResource(
-		() => params.id,
-		(id) => channelApi.getForwardingLogs(id),
-	);
+	const [rulesData, { refetch: refetchRules }] = createResource(() => params.id, (id) => channelApi.getForwardingRules(id));
+	const [logsData] = createResource(() => params.id, (id) => channelApi.getForwardingLogs(id));
 
 	createEffect(() => {
 		const list = rulesData();
 		if (list) {
-			setRules(
-				list.map((r: any) => ({
-					id: r.id || '',
-					direction: r.direction,
-					targetType: r.target_type,
-					target: r.target,
-					mode: r.mode,
-					active: r.is_active,
-				})),
-			);
+			setRules(list.map((r: any) => ({
+				id: r.id || '',
+				direction: r.direction,
+				targetType: r.target_type,
+				target: r.target,
+				mode: r.mode,
+				active: r.is_active,
+			})));
 		}
 	});
 
@@ -106,24 +73,22 @@ export const ChannelForwardingPage: Component = () => {
 		if (!logs || !Array.isArray(logs)) return [];
 		return logs.map((l: any, idx: number) => ({
 			id: l.id || idx,
-			text: l.message || l.text || t('channelForwarding.logReceived') || 'Forwarded successfully',
-			time: l.created_at
-				? new Date(l.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-				: 'Just now',
+			text: l.message || l.text || t('channelForwarding.logReceived'),
+			time: l.created_at ? new Date(l.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
 			status: l.status || 'success',
 		}));
 	};
 
 	const getLocalizedMode = (mode: string) => {
-		if (mode === 'forward') return t('channelForwarding.modeForwardLabel') || 'Forward';
-		if (mode === 'copy') return t('channelForwarding.modeCopyLabel') || 'Copy';
-		if (mode === 'ai') return t('channelForwarding.modeCopyAiLabel') || 'AI Rewrite';
+		if (mode === 'forward') return t('channelForwarding.modeForwardLabel');
+		if (mode === 'copy') return t('channelForwarding.modeCopyLabel');
+		if (mode === 'ai') return t('channelForwarding.modeCopyAiLabel');
 		return mode;
 	};
 
 	const getLocalizedDirection = (direction: string) => {
-		if (direction === 'inbound') return t('channelForwarding.inbound') || 'Inbound';
-		if (direction === 'outbound') return t('channelForwarding.outbound') || 'Outbound';
+		if (direction === 'inbound') return t('channelForwarding.inbound');
+		if (direction === 'outbound') return t('channelForwarding.outbound');
 		return direction;
 	};
 
@@ -136,30 +101,28 @@ export const ChannelForwardingPage: Component = () => {
 	onMount(() => {
 		backButton.show();
 		const off = backButton.onClick(() => {
-			if (isCreating()) {
-				setIsCreating(false);
-			} else {
-				navigate(`/channel/${params.id}`);
-			}
+			try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+			if (isCreating()) setIsCreating(false);
+			else navigate(`/channel/${params.id}`);
 		});
 		onCleanup(() => off());
 	});
 
 	const handleVerify = async () => {
 		if (!targetChat().trim()) return;
-		hapticFeedback.impactOccurred('medium');
+		try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
 		setIsVerified(null);
 		try {
 			const result = await channelApi.verifyForwardingTarget(params.id, targetChat());
 			setVerifiedTargetId(result?.id ? String(result.id) : '');
 			setIsVerified(true);
-			hapticFeedback.notificationOccurred('success');
-			showToast(t('channelForwarding.targetVerified') || 'Target verified', 'success');
+			try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+			showToast(t('channelForwarding.targetVerified'), 'success');
 		} catch (_err) {
 			setVerifiedTargetId('');
 			setIsVerified(false);
-			hapticFeedback.notificationOccurred('error');
-			showToast(t('channelForwarding.targetVerifyFailed') || 'Could not verify target', 'error');
+			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			showToast(t('channelForwarding.targetVerifyFailed'), 'error');
 		}
 	};
 
@@ -169,99 +132,73 @@ export const ChannelForwardingPage: Component = () => {
 
 		if (targetType() === 'webhook') {
 			if (direction() === 'inbound') {
-				showToast(
-					t('channelForwarding.inboundWebhookUnavailable') ||
-						'Inbound webhooks are not available on this backend yet.',
-					'error',
-				);
-				hapticFeedback.notificationOccurred('error');
+				showToast(t('channelForwarding.inboundWebhookUnavailable'), 'error');
+				try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
 				return;
 			} else if (finalTarget.trim() && isVerified() === true) {
 				isReadyToSave = true;
 			}
 		} else {
 			if (finalTarget.trim() && isVerified() === true) {
-				if (direction() === 'inbound') {
-					finalTarget = verifiedTargetId() || finalTarget;
-				}
+				if (direction() === 'inbound') finalTarget = verifiedTargetId() || finalTarget;
 				isReadyToSave = true;
 			}
 		}
 
 		if (isReadyToSave) {
 			const newRule = {
-				channel_id: params.id,
-				direction: direction(),
-				target_type: targetType(),
-				target: finalTarget,
-				mode: mode() as any,
-				delay: delay(),
-				is_active: true,
-				content_types: contentTypes(),
-				remove_ads: removeAds(),
-				remove_hashtags: removeHashtags(),
-				remove_links: removeLinks(),
-				watermark: watermark(),
+				channel_id: params.id, direction: direction(), target_type: targetType(), target: finalTarget,
+				mode: mode() as any, delay: delay(), is_active: true, content_types: contentTypes(),
+				remove_ads: removeAds(), remove_hashtags: removeHashtags(), remove_links: removeLinks(), watermark: watermark(),
 			};
 
 			try {
 				await channelApi.createForwardingRule(params.id, newRule);
 				refetchRules();
-				hapticFeedback.notificationOccurred('success');
-				showToast(t('channelForwarding.ruleSaved') || 'Forwarding rule saved', 'success');
+				try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+				showToast(t('channelForwarding.ruleSaved'), 'success');
 				setIsCreating(false);
-				setTargetChat('');
-				setIsVerified(null);
-				setVerifiedTargetId('');
-				setMode('forward');
-				setDelay('');
+				setTargetChat(''); setIsVerified(null); setVerifiedTargetId(''); setMode('forward'); setDelay('');
 			} catch (err) {
 				console.error('Failed to create rule:', err);
-				hapticFeedback.notificationOccurred('error');
-				showToast(
-					t('channelForwarding.ruleSaveFailed') || 'Failed to save forwarding rule',
-					'error',
-				);
+				try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+				showToast(t('channelForwarding.ruleSaveFailed'), 'error');
 			}
 		} else {
-			showToast(
-				t('channelForwarding.verifyBeforeSave') || 'Verify the target before saving.',
-				'error',
-			);
+			showToast(t('channelForwarding.verifyBeforeSave'), 'error');
 		}
 	};
 
 	const toggleContentType = (key: keyof ContentTypes) => {
-		hapticFeedback.selectionChanged();
+		try { hapticFeedback.selectionChanged(); } catch (_) {}
 		setContentTypes((prev) => ({ ...prev, [key]: !prev[key] }));
 	};
 
 	return (
-		<div class="min-h-screen bg-[#0f1014] pb-28 relative overflow-x-hidden text-white">
-			{/* Header */}
-			<div class="px-5 pt-6 pb-4 bg-[#0f1014]/80 backdrop-blur-md sticky top-0 z-30 border-b border-[#1c1c1c] flex items-center justify-between gap-3">
-				<div class="flex items-center gap-2 overflow-hidden flex-1">
+		<div class="min-h-screen bg-[#030303] pb-28 relative overflow-x-hidden text-white font-sans selection:bg-[#3390ec]/30" dir={isRtl() ? 'rtl' : 'ltr'}>
+			
+			{/* Ambient Top Glow */}
+			<div class="absolute top-0 left-0 right-0 h-[350px] bg-gradient-to-b from-[#3390ec]/15 via-transparent to-transparent blur-[80px] pointer-events-none z-0" />
+
+			{/* ═══════ PREMIUM STICKY HEADER ═══════ */}
+			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm">
+				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
 						onClick={() => {
-							hapticFeedback.impactOccurred('light');
-							if (isCreating()) {
-								setIsCreating(false);
-							} else {
-								navigate(`/channel/${params.id}`);
-							}
+							try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+							if (isCreating()) setIsCreating(false);
+							else navigate(`/channel/${params.id}`);
 						}}
-						class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-90 transition-all shrink-0"
-						aria-label="Back"
+						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
+						aria-label={t('common.back')}
 					>
-						<span class="material-symbols-outlined text-white text-[20px] rtl:-scale-x-100">
-							arrow_back
-						</span>
+						<span class="material-symbols-outlined text-[22px] rtl:-scale-x-100">arrow_back</span>
 					</button>
 					<div class="flex flex-col overflow-hidden">
-						<h1 class="text-[18px] font-black text-white leading-tight truncate">
-							{t('channelForwarding.autoForward') || 'Auto Forward'}
+						<h1 class="text-[18px] font-black text-white leading-tight truncate tracking-tight">
+							{t('channelForwarding.autoForward')}
 						</h1>
-						<span class="text-[12px] text-on-surface-variant truncate">
+						<span class="text-[11px] font-bold uppercase tracking-wider text-white/50 truncate mt-0.5">
 							{t('channelForwarding.duplicatePosts')}
 						</span>
 					</div>
@@ -269,188 +206,148 @@ export const ChannelForwardingPage: Component = () => {
 
 				<button
 					onClick={() => setIsMenuOpen(true)}
-					class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-95 transition-all shrink-0"
-					aria-label="Open menu"
+					class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-colors shrink-0 shadow-sm text-white/80"
+					aria-label={t('common.toggle')}
 				>
-					<span class="material-symbols-outlined text-white text-[20px]">menu</span>
+					<span class="material-symbols-outlined text-[22px]">menu</span>
 				</button>
 			</div>
 
-			<ChannelHamburgerMenu
-				isOpen={isMenuOpen()}
-				onClose={() => setIsMenuOpen(false)}
-				channelId={params.id}
-				activeTab="forwarding"
-			/>
+			<ChannelHamburgerMenu isOpen={isMenuOpen()} onClose={() => setIsMenuOpen(false)} channelId={params.id} activeTab="forwarding" />
 
-			<div class="px-5 pt-6 flex flex-col gap-6 pb-24">
+			<div class="px-5 pt-5 flex flex-col gap-5 max-w-md mx-auto relative z-10 w-full pb-10">
+				
 				<ChannelContextBar channelId={params.id} />
 
 				<Show when={!isCreating()}>
-					<Motion.div
-						initial={{ opacity: 0, y: 10 }}
-						animate={{ opacity: 1, y: 0 }}
-						transition={{ delay: 0.05 }}
-						class="flex flex-col gap-4"
-					>
-						{/* Guide Banner */}
-						<div class="bg-[#1c1c1c] rounded-3xl border border-[#3390ec]/30 p-4 flex flex-col gap-3 relative overflow-hidden">
-							<div class="absolute -top-10 -right-10 w-36 h-36 bg-[#3390ec]/10 rounded-full blur-3xl"></div>
+					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} class="flex flex-col gap-4 mt-1">
+						
+						{/* ═══════ GUIDE BANNER ═══════ */}
+						<div class="bg-gradient-to-br from-[#3390ec]/15 to-[#12141C]/50 border border-[#3390ec]/20 rounded-[24px] p-5 flex flex-col gap-3 relative overflow-hidden shadow-sm">
+							<div class="absolute -top-10 -right-10 w-36 h-36 bg-[#3390ec]/20 rounded-full blur-3xl pointer-events-none" />
 							<div class="flex items-start gap-3 relative z-10 w-full">
-								<span class="material-symbols-outlined text-[#3390ec] text-[24px] shrink-0 mt-0.5 ml-1">
-									lightbulb
-								</span>
-								<div class="flex flex-col gap-1.5 w-full">
-									<h3 class="text-[14px] font-black text-[#3390ec]">
+								<div class="w-10 h-10 rounded-[12px] bg-[#3390ec]/15 flex items-center justify-center border border-[#3390ec]/30 shadow-inner shrink-0 mt-0.5">
+									<span class="material-symbols-outlined text-[#3390ec] text-[20px]">route</span>
+								</div>
+								<div class="flex flex-col gap-1 w-full">
+									<h3 class="text-[14px] font-black text-[#3390ec] tracking-tight">
 										{t('channelForwarding.howForwardingWorks')}
 									</h3>
-									<p class="text-[12px] text-white/90 leading-relaxed">
+									<p class="text-[12px] text-white/70 font-medium leading-relaxed">
 										{t('channelForwarding.howForwardingWorksDesc')}
 									</p>
 								</div>
 							</div>
 						</div>
 
-						{/* Master Toggle */}
-						<div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-3">
+						{/* ═══════ MASTER TOGGLE ═══════ */}
+						<div class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] border border-white/5 p-2 shadow-sm">
 							<SettingsSection
-								title={t('channelForwarding.enableAutoForward') || 'Enable Auto Forwarding'}
-								description={
-									t('channelForwarding.enableAutoForwardDesc') ||
-									'Automatically duplicate, mirror or rewrite new posts from other channels.'
-								}
+								title={t('channelForwarding.enableAutoForward')}
+								description={t('channelForwarding.enableAutoForwardDesc')}
 								enabled={isForwardingEnabled()}
 								onToggle={(v) => {
 									setIsForwardingEnabled(v);
 									localStorage.setItem(`forwarding_enabled_${params.id}`, String(v));
-									hapticFeedback.selectionChanged();
+									try { hapticFeedback.selectionChanged(); } catch (_) {}
 								}}
 							/>
 						</div>
 
 						<Show when={isForwardingEnabled()}>
+							
+							{/* EMPTY STATE */}
 							<Show when={rules().length === 0}>
-								<div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-5 flex flex-col items-center text-center gap-3">
-									<div class="w-16 h-16 rounded-full bg-[#3390ec]/10 text-[#3390ec] flex items-center justify-center mb-2">
-										<span class="material-symbols-outlined text-[32px]">call_split</span>
+								<div class="bg-[#12141C]/80 backdrop-blur-xl rounded-[28px] border border-white/5 border-dashed p-8 flex flex-col items-center text-center gap-3 shadow-sm mt-2">
+									<div class="w-16 h-16 rounded-[20px] bg-white/5 flex items-center justify-center mb-1 border border-white/10 shadow-inner">
+										<span class="material-symbols-outlined text-[36px] text-white/30">call_split</span>
 									</div>
-									<h2 class="text-[16px] font-bold text-white">
-										{t('channelForwarding.noForwardingRules') || 'No Forwarding Rules'}
+									<h2 class="text-[15px] font-black text-white/60 tracking-tight">
+										{t('channelForwarding.noForwardingRules')}
 									</h2>
-									<p class="text-[13px] text-[#8e8e93]">
-										{t('channelForwarding.noForwardingRulesDesc') ||
-											'Set up automatic forwarding to other channels.'}
+									<p class="text-[12px] text-white/40 font-medium leading-relaxed">
+										{t('channelForwarding.noForwardingRulesDesc')}
 									</p>
 									<button
-										onClick={() => setIsCreating(true)}
-										class="mt-4 px-6 py-3 bg-[#3390ec] text-white font-bold rounded-full hover:bg-[#2b7bc9] transition-colors shadow-[0_4px_15px_rgba(51,144,236,0.2)]"
+										onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} setIsCreating(true); }}
+										class="mt-4 w-full h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white font-black text-[13px] uppercase tracking-widest rounded-[16px] hover:from-[#2b7ec9] hover:to-[#3390ec] transition-all shadow-[0_10px_25px_rgba(51,144,236,0.3)] active:scale-95 border border-white/10"
 									>
-										{t('channelForwarding.createRule') || 'Create Rule'}
+										{t('channelForwarding.createRule')}
 									</button>
 								</div>
 							</Show>
 
+							{/* RULES LIST */}
 							<Show when={rules().length > 0}>
-								<div class="flex items-center justify-between">
-									<h2 class="text-[16px] font-bold text-white">
-										{t('channelForwarding.activeRules') || 'Active Rules'}
+								<div class="flex items-center justify-between px-1 mt-2 mb-1">
+									<h2 class="text-[12px] font-black text-white/60 uppercase tracking-widest flex items-center gap-2">
+										<span class="material-symbols-outlined text-[20px] text-white/40">account_tree</span>
+										{t('channelForwarding.activeRules')}
 									</h2>
 								</div>
 								<div class="flex flex-col gap-3">
 									<For each={rules()}>
 										{(rule) => (
-											<div class="bg-[#1c1c1c] rounded-2xl border border-[#2a2a2a] p-4 flex flex-col gap-3">
+											<div class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] border border-white/5 p-4.5 flex flex-col gap-4 shadow-sm hover:border-white/10 transition-colors">
 												<div class="flex items-center justify-between">
-													<div class="flex items-center gap-3">
-														<div
-															class={`w-10 h-10 rounded-full flex items-center justify-center ${rule.direction === 'inbound' ? 'bg-[#34c759]/20 text-[#34c759]' : 'bg-[#3390ec]/20 text-[#3390ec]'}`}
-														>
-															<span class="material-symbols-outlined text-[20px]">
-																{rule.targetType === 'webhook'
-																	? 'webhook'
-																	: rule.direction === 'inbound'
-																		? 'download'
-																		: 'upload'}
+													<div class="flex items-center gap-3.5 flex-1 min-w-0 pr-2">
+														<div class={`w-12 h-12 rounded-[14px] flex items-center justify-center shrink-0 shadow-inner border ${rule.direction === 'inbound' ? 'bg-[#10b981]/15 text-[#10b981] border-[#10b981]/30' : 'bg-[#3390ec]/15 text-[#3390ec] border-[#3390ec]/30'}`}>
+															<span class="material-symbols-outlined text-[22px] drop-shadow-md">
+																{rule.targetType === 'webhook' ? 'webhook' : rule.direction === 'inbound' ? 'download' : 'upload'}
 															</span>
 														</div>
-														<div class="flex flex-col">
-															<span class="text-[15px] font-bold text-white max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap">
+														<div class="flex flex-col min-w-0 gap-1">
+															<span class="text-[15px] font-black text-white truncate tracking-tight">
 																{rule.targetType === 'webhook'
-																	? rule.direction === 'inbound'
-																		? rule.target
-																		: `${t('channelForwarding.to')} ${rule.target}`
-																	: rule.direction === 'inbound'
-																		? `${t('channelForwarding.from')} ${formatTelegramTarget(rule.target)}`
-																		: `${t('channelForwarding.to')} ${formatTelegramTarget(rule.target)}`}
+																	? rule.direction === 'inbound' ? rule.target : `${t('channelForwarding.to')} ${rule.target}`
+																	: rule.direction === 'inbound' ? `${t('channelForwarding.from')} ${formatTelegramTarget(rule.target)}` : `${t('channelForwarding.to')} ${formatTelegramTarget(rule.target)}`}
 															</span>
-															<span class="text-[12px] text-on-surface-variant uppercase tracking-wider flex items-center gap-1">
+															<span class="text-[10px] font-bold text-white/50 uppercase tracking-widest flex items-center gap-1.5 truncate">
 																<Show when={rule.targetType === 'webhook'}>
-																	<span class="material-symbols-outlined text-[12px] text-[#ff2a5f]">
-																		webhook
-																	</span>
+																	<span class="material-symbols-outlined text-[12px] text-[#ff4a4a]">webhook</span>
 																</Show>
-																{getLocalizedMode(rule.mode)} •{' '}
-																{getLocalizedDirection(rule.direction)}
+																{getLocalizedMode(rule.mode)} <span class="w-1 h-1 rounded-full bg-white/20" /> {getLocalizedDirection(rule.direction)}
 															</span>
 														</div>
 													</div>
-													<div class="flex items-center gap-3">
+													<div class="flex items-center gap-2.5 shrink-0">
 														<button
 															onClick={async () => {
-																hapticFeedback.selectionChanged();
+																try { hapticFeedback.selectionChanged(); } catch (_) {}
 																try {
 																	const r = rulesData()?.find((x: any) => x.id === rule.id);
 																	if (r) {
 																		const updated = { ...r, is_active: !r.is_active };
-																		await channelApi.updateForwardingRule(
-																			params.id,
-																			r.id!,
-																			updated,
-																		);
+																		await channelApi.updateForwardingRule(params.id, r.id!, updated);
 																		refetchRules();
 																	}
 																} catch (_err) {
-																	hapticFeedback.notificationOccurred('error');
-																	showToast(
-																		t('channelForwarding.toggleFailed') || 'Failed to update rule',
-																		'error',
-																	);
+																	try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+																	showToast(t('channelForwarding.toggleFailed'), 'error');
 																}
 															}}
-															class={`w-12 h-7 rounded-full relative transition-colors ${rule.active ? 'bg-[#34c759]' : 'bg-[#3a3a3c]'}`}
+															class={`w-12 h-7 rounded-full relative transition-colors ${rule.active ? 'bg-[#10b981]' : 'bg-white/10'}`}
 														>
-															<div
-																class={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full transition-transform ${rule.active ? 'translate-x-5' : 'translate-x-0'}`}
-															></div>
+															<div class={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full transition-transform shadow-sm ${rule.active ? 'translate-x-5' : 'translate-x-0'}`}></div>
 														</button>
 
 														<button
 															onClick={async () => {
-																const confirmed = await showConfirm(
-																	t('channelForwarding.deleteRuleConfirm') ||
-																		'Are you sure you want to delete this forwarding rule?',
-																);
+																const confirmed = await showConfirm(t('channelForwarding.deleteRuleConfirm'));
 																if (!confirmed) return;
 																try {
-																	hapticFeedback.impactOccurred('medium');
+																	try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
 																	await channelApi.deleteForwardingRule(params.id, rule.id);
 																	refetchRules();
-																	showToast(
-																		t('channelForwarding.ruleDeleted') || 'Rule deleted',
-																		'success',
-																	);
+																	showToast(t('channelForwarding.ruleDeleted'), 'success');
 																} catch (_err) {
-																	hapticFeedback.notificationOccurred('error');
-																	showToast(
-																		t('channelForwarding.deleteRuleFailed') ||
-																			'Failed to delete rule',
-																		'error',
-																	);
+																	try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+																	showToast(t('channelForwarding.deleteRuleFailed'), 'error');
 																}
 															}}
-															class="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 text-red-500 flex items-center justify-center transition-all shadow-sm shrink-0"
+															class="w-9 h-9 rounded-[10px] bg-[#ff4a4a]/10 border border-[#ff4a4a]/20 hover:bg-[#ff4a4a] text-[#ff4a4a] hover:text-white flex items-center justify-center transition-all shadow-sm shrink-0 active:scale-95"
 														>
-															<span class="material-symbols-outlined text-[16px]">delete</span>
+															<span class="material-symbols-outlined text-[18px]">delete</span>
 														</button>
 													</div>
 												</div>
@@ -460,33 +357,29 @@ export const ChannelForwardingPage: Component = () => {
 								</div>
 
 								<button
-									onClick={() => setIsCreating(true)}
-									class="h-12 bg-[#2c2c2e] text-white font-bold rounded-xl hover:bg-[#3a3a3c] transition-colors flex items-center justify-center gap-2 mt-2 border border-[#3a3a3c] w-full"
+									onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} setIsCreating(true); }}
+									class="h-14 bg-white/5 text-white/60 hover:text-white hover:bg-white/10 font-black text-[12px] uppercase tracking-widest rounded-[16px] transition-all flex items-center justify-center gap-2 mt-1 border border-white/10 active:scale-95 shadow-sm"
 								>
-									<span class="material-symbols-outlined text-[18px]">add</span>
-									{t('channelForwarding.addNewRule') || 'Add New Rule'}
+									<span class="material-symbols-outlined text-[20px]">add_circle</span>
+									{t('channelForwarding.addNewRule')}
 								</button>
 							</Show>
 
-							{/* Forward Log */}
+							{/* RECENT ACTIVITY LOGS */}
 							<Show when={forwardLog().length > 0}>
 								<div class="mt-6 flex flex-col gap-3">
-									<h2 class="text-[16px] font-bold text-white flex items-center gap-2">
-										<span class="material-symbols-outlined text-[#8e8e93]">history</span>
-										{t('channelForwarding.recentActivity')}
-									</h2>
-									<div class="bg-[#1c1c1c] rounded-2xl border border-[#2a2a2a] overflow-hidden">
+									<div class="flex items-center gap-2 px-1 mb-1">
+										<span class="material-symbols-outlined text-[#8e8e93] text-[20px]">history</span>
+										<h2 class="text-[12px] font-black text-white/60 uppercase tracking-widest">{t('channelForwarding.recentActivity')}</h2>
+									</div>
+									<div class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] border border-white/5 p-2 shadow-inner">
 										<For each={forwardLog()}>
 											{(log, index) => (
-												<div
-													class={`p-3 flex items-start gap-3 ${index() !== forwardLog().length - 1 ? 'border-b border-[#2a2a2a]' : ''}`}
-												>
-													<span class="material-symbols-outlined text-[#34c759] text-[18px] mt-0.5">
-														check_circle
-													</span>
-													<div class="flex flex-col flex-1">
-														<span class="text-[13px] text-white">{log.text}</span>
-														<span class="text-[11px] text-[#8e8e93]">{log.time}</span>
+												<div class={`p-3.5 flex items-start gap-3.5 group hover:bg-white/[0.02] rounded-[16px] transition-colors ${index() !== forwardLog().length - 1 ? 'border-b border-white/5' : ''}`}>
+													<span class="material-symbols-outlined text-[#10b981] text-[20px] mt-0.5 drop-shadow-md">check_circle</span>
+													<div class="flex flex-col flex-1 gap-1">
+														<span class="text-[13px] font-bold text-white/90 leading-snug">{log.text}</span>
+														<span class="text-[10px] font-mono font-bold text-white/40 bg-[#08090D] border border-white/5 px-2 py-0.5 rounded-[6px] w-fit shadow-inner">{log.time}</span>
 													</div>
 												</div>
 											)}
@@ -498,384 +391,243 @@ export const ChannelForwardingPage: Component = () => {
 					</Motion.div>
 				</Show>
 
+				{/* ═══════ CREATE ROUTE VIEW ═══════ */}
 				<Show when={isCreating()}>
-					<Motion.div
-						initial={{ opacity: 0, scale: 0.95 }}
-						animate={{ opacity: 1, scale: 1 }}
-						class="flex flex-col gap-4"
-					>
-						<div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-5 flex flex-col gap-5">
-							<h2 class="text-[16px] font-bold text-white flex items-center gap-2">
-								<span class="material-symbols-outlined text-[#3390ec]">add_circle</span>
-								{t('channelForwarding.addNewRule') || 'New Forward Rule'}
-							</h2>
+					<Motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3, easing: [0.32, 0.72, 0, 1] }} class="flex flex-col gap-4">
+						
+						{/* MODULE 1: Target Definition */}
+						<div class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] border border-white/5 p-5 flex flex-col gap-5 shadow-sm relative overflow-hidden">
+							<div class="flex items-center gap-3 relative z-10 border-b border-white/5 pb-3">
+								<div class="w-10 h-10 rounded-[12px] bg-[#3390ec]/15 flex items-center justify-center border border-[#3390ec]/30 shadow-inner shrink-0">
+									<span class="material-symbols-outlined text-[20px] text-[#3390ec]">add_route</span>
+								</div>
+								<h2 class="text-[15px] font-black text-white tracking-tight">{t('channelForwarding.addNewRule')}</h2>
+							</div>
 
-							{/* Direction Selector */}
-							<div class="flex flex-col gap-2">
-								<label class="text-[13px] font-bold text-white">
-									{t('channelForwarding.ruleDirection')}
-								</label>
-								<div class="bg-[#2c2c2e] p-1 rounded-xl flex">
+							<div class="flex flex-col gap-1.5 relative z-10">
+								<label class="text-[10px] font-black uppercase tracking-widest text-white/40 px-1">{t('channelForwarding.ruleDirection')}</label>
+								<div class="bg-[#08090D] p-1.5 rounded-[16px] flex border border-white/5 shadow-inner">
 									<button
-										onClick={() => {
-											setDirection('outbound');
-											setIsVerified(null);
-											setVerifiedTargetId('');
-										}}
-										class={`flex-1 py-2 text-[13px] font-bold rounded-lg transition-colors flex items-center justify-center gap-2 ${direction() === 'outbound' ? 'bg-[#3a3a3c] text-white shadow' : 'text-[#8e8e93] hover:text-white'}`}
+										onClick={() => { setDirection('outbound'); setIsVerified(null); setVerifiedTargetId(''); try { hapticFeedback.selectionChanged(); } catch (_) {} }}
+										class={`flex-1 h-10 text-[11px] font-black uppercase tracking-widest rounded-[12px] transition-all flex items-center justify-center gap-2 ${direction() === 'outbound' ? 'bg-[#3390ec] text-white shadow-sm' : 'text-white/40 hover:text-white'}`}
 									>
-										<span class="material-symbols-outlined text-[16px]">upload</span>
-										{t('channelForwarding.outbound')}
+										<span class="material-symbols-outlined text-[16px]">upload</span> {t('channelForwarding.outbound')}
 									</button>
 									<button
-										onClick={() => {
-											setDirection('inbound');
-											setIsVerified(null);
-											setVerifiedTargetId('');
-										}}
-										class={`flex-1 py-2 text-[13px] font-bold rounded-lg transition-colors flex items-center justify-center gap-2 ${direction() === 'inbound' ? 'bg-[#3a3a3c] text-white shadow' : 'text-[#8e8e93] hover:text-white'}`}
+										onClick={() => { setDirection('inbound'); setIsVerified(null); setVerifiedTargetId(''); try { hapticFeedback.selectionChanged(); } catch (_) {} }}
+										class={`flex-1 h-10 text-[11px] font-black uppercase tracking-widest rounded-[12px] transition-all flex items-center justify-center gap-2 ${direction() === 'inbound' ? 'bg-[#10b981] text-white shadow-sm' : 'text-white/40 hover:text-white'}`}
 									>
-										<span class="material-symbols-outlined text-[16px]">download</span>
-										{t('channelForwarding.inbound')}
+										<span class="material-symbols-outlined text-[16px]">download</span> {t('channelForwarding.inbound')}
 									</button>
 								</div>
-								<p class="text-[11px] text-[#8e8e93] mt-1 text-center">
-									{direction() === 'outbound'
-										? t('channelForwarding.outboundDesc')
-										: t('channelForwarding.inboundDesc')}
+								<p class="text-[10px] text-white/40 mt-1 text-center font-bold px-4">
+									{direction() === 'outbound' ? t('channelForwarding.outboundDesc') : t('channelForwarding.inboundDesc')}
 								</p>
 							</div>
 
-							{/* Integration Type Selector */}
-							<div class="flex flex-col gap-2">
-								<label class="text-[13px] font-bold text-white">
-									{t('channelForwarding.integrationType')}
-								</label>
-								<div class="bg-[#2c2c2e] p-1 rounded-xl flex">
+							<div class="flex flex-col gap-1.5 relative z-10">
+								<label class="text-[10px] font-black uppercase tracking-widest text-white/40 px-1">{t('channelForwarding.integrationType')}</label>
+								<div class="bg-[#08090D] p-1.5 rounded-[16px] flex border border-white/5 shadow-inner">
 									<button
-										onClick={() => {
-											setTargetType('telegram');
-											setIsVerified(null);
-											setVerifiedTargetId('');
-										}}
-										class={`flex-1 py-2 text-[13px] font-bold rounded-lg transition-colors flex items-center justify-center gap-2 ${targetType() === 'telegram' ? 'bg-[#3a3a3c] text-white shadow' : 'text-[#8e8e93] hover:text-white'}`}
+										onClick={() => { setTargetType('telegram'); setIsVerified(null); setVerifiedTargetId(''); try { hapticFeedback.selectionChanged(); } catch (_) {} }}
+										class={`flex-1 h-10 text-[11px] font-black uppercase tracking-widest rounded-[12px] transition-all flex items-center justify-center gap-2 ${targetType() === 'telegram' ? 'bg-white/10 text-white shadow-sm' : 'text-white/40 hover:text-white'}`}
 									>
-										<span class="material-symbols-outlined text-[16px]">telegram</span>
-										{t('channelForwarding.telegram')}
+										<span class="material-symbols-outlined text-[16px]">telegram</span> {t('channelForwarding.telegram')}
 									</button>
 									<button
-										onClick={() => {
-											setTargetType('webhook');
-											setIsVerified(null);
-											setVerifiedTargetId('');
-										}}
-										class={`flex-1 py-2 text-[13px] font-bold rounded-lg transition-colors flex items-center justify-center gap-2 ${targetType() === 'webhook' ? 'bg-[#3a3a3c] text-white shadow' : 'text-[#8e8e93] hover:text-white'}`}
+										onClick={() => { setTargetType('webhook'); setIsVerified(null); setVerifiedTargetId(''); try { hapticFeedback.selectionChanged(); } catch (_) {} }}
+										class={`flex-1 h-10 text-[11px] font-black uppercase tracking-widest rounded-[12px] transition-all flex items-center justify-center gap-2 ${targetType() === 'webhook' ? 'bg-white/10 text-white shadow-sm' : 'text-white/40 hover:text-white'}`}
 									>
-										<span class="material-symbols-outlined text-[16px]">webhook</span>
-										{t('channelForwarding.webhookApi')}
+										<span class="material-symbols-outlined text-[16px]">webhook</span> {t('channelForwarding.webhookApi')}
 									</button>
 								</div>
-								<p class="text-[11px] text-[#8e8e93] mt-1 text-center">
-									{targetType() === 'telegram'
-										? t('channelForwarding.telegramDesc')
-										: t('channelForwarding.webhookDesc')}
-								</p>
 							</div>
 
 							<Show when={targetType() === 'telegram'}>
-								<div class="flex flex-col gap-2">
-									<label class="text-[13px] font-bold text-white flex items-center gap-2">
-										{direction() === 'outbound'
-											? t('channelForwarding.targetChannel')
-											: t('channelForwarding.sourceChannel')}
+								<div class="flex flex-col gap-1.5 relative z-10">
+									<label class="text-[10px] font-black uppercase tracking-widest text-white/40 px-1 flex items-center gap-2">
+										{direction() === 'outbound' ? t('channelForwarding.targetChannel') : t('channelForwarding.sourceChannel')}
 									</label>
 									<div class="flex gap-2">
 										<div class="relative flex-1">
-											<span class="absolute left-3 top-1/2 -translate-y-1/2 text-[#8e8e93] font-bold">
-												@
-											</span>
+											<span class="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 font-black">@</span>
 											<input
-												type="text"
-												value={targetChat()}
-												onInput={(e) => {
-													setTargetChat(e.currentTarget.value.replace('@', ''));
-													setIsVerified(null);
-													setVerifiedTargetId('');
-												}}
+												type="text" value={targetChat()}
+												onInput={(e) => { setTargetChat(e.currentTarget.value.replace('@', '')); setIsVerified(null); setVerifiedTargetId(''); }}
 												placeholder="channel_username"
-												class="bg-[#2c2c2e] text-white text-[15px] rounded-xl pl-8 pr-4 py-3 w-full focus:outline-none focus:ring-2 focus:ring-[#3390ec]"
+												class="bg-[#08090D] border border-white/5 text-white text-[14px] font-mono font-bold rounded-[16px] pl-10 pr-4 py-4 w-full focus:outline-none focus:border-[#3390ec]/50 shadow-inner transition-colors"
 											/>
 										</div>
 										<button
-											onClick={handleVerify}
-											disabled={!targetChat().trim()}
-											class="w-[48px] shrink-0 bg-[#2c2c2e] hover:bg-[#3a3a3c] disabled:opacity-50 text-white rounded-xl flex items-center justify-center transition-colors"
+											onClick={handleVerify} disabled={!targetChat().trim()}
+											class="w-14 shrink-0 bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-50 disabled:bg-transparent text-white rounded-[16px] flex items-center justify-center transition-all active:scale-95 shadow-sm"
 										>
-											<Show when={isVerified() === null}>
-												<span class="material-symbols-outlined text-[20px]">search</span>
-											</Show>
-											<Show when={isVerified() === true}>
-												<span class="material-symbols-outlined text-[#34c759] text-[20px]">
-													check_circle
-												</span>
-											</Show>
-											<Show when={isVerified() === false}>
-												<span class="material-symbols-outlined text-[#ff3b30] text-[20px]">
-													error
-												</span>
-											</Show>
+											<Show when={isVerified() === null}><span class="material-symbols-outlined text-[24px]">search</span></Show>
+											<Show when={isVerified() === true}><span class="material-symbols-outlined text-[#10b981] text-[24px] drop-shadow-md">check_circle</span></Show>
+											<Show when={isVerified() === false}><span class="material-symbols-outlined text-[#ff4a4a] text-[24px] drop-shadow-md">error</span></Show>
 										</button>
 									</div>
 								</div>
 							</Show>
 
 							<Show when={targetType() === 'webhook' && direction() === 'outbound'}>
-								<div class="flex flex-col gap-2">
-									<label class="text-[13px] font-bold text-white flex items-center justify-between">
+								<div class="flex flex-col gap-1.5 relative z-10">
+									<label class="text-[10px] font-black uppercase tracking-widest text-white/40 px-1 flex items-center justify-between">
 										{t('channelForwarding.destinationWebhook')}
-										<div class="group relative">
-											<span class="material-symbols-outlined text-[16px] text-[#8e8e93] cursor-help">
-												help
-											</span>
-											<div class="absolute bottom-full right-0 mb-2 w-64 bg-[#2c2c2e] text-[11px] text-white p-3 rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10 shadow-xl border border-[#3a3a3c]">
-												{t('channelForwarding.destinationWebhookHelp')}
-											</div>
-										</div>
 									</label>
 									<div class="relative">
-										<span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-[#8e8e93] text-[18px]">
-											link
-										</span>
+										<span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-white/30 text-[20px]">link</span>
 										<input
-											type="url"
-											value={targetChat()}
-											onInput={(e) => {
-												setTargetChat(e.currentTarget.value);
-												setIsVerified(!!e.currentTarget.value.startsWith('http'));
-												setVerifiedTargetId('');
-											}}
-											placeholder="https://your-automation-tool.com/webhook/..."
-											class="bg-[#2c2c2e] text-white text-[15px] rounded-xl pl-10 pr-4 py-3 w-full focus:outline-none focus:ring-2 focus:ring-[#3390ec]"
+											type="url" value={targetChat()}
+											onInput={(e) => { setTargetChat(e.currentTarget.value); setIsVerified(!!e.currentTarget.value.startsWith('http')); setVerifiedTargetId(''); }}
+											placeholder="https://api.example.com/webhook"
+											class="bg-[#08090D] border border-white/5 text-white text-[13px] font-mono font-bold rounded-[16px] pl-12 pr-4 py-4 w-full focus:outline-none focus:border-[#3390ec]/50 shadow-inner transition-colors"
+											dir="ltr"
 										/>
 									</div>
 								</div>
 							</Show>
 
 							<Show when={targetType() === 'webhook' && direction() === 'inbound'}>
-								<div class="flex flex-col gap-2">
-									<label class="text-[13px] font-bold text-white flex items-center justify-between">
+								<div class="flex flex-col gap-1.5 relative z-10">
+									<label class="text-[10px] font-black uppercase tracking-widest text-white/40 px-1">
 										{t('channelForwarding.uniqueInboundWebhook')}
-										<div class="group relative">
-											<span class="material-symbols-outlined text-[16px] text-[#8e8e93] cursor-help">
-												help
-											</span>
-											<div class="absolute bottom-full right-0 mb-2 w-64 bg-[#2c2c2e] text-[11px] text-white p-3 rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10 shadow-xl border border-[#3a3a3c]">
-												{t('channelForwarding.uniqueInboundWebhookHelp')}
-											</div>
-										</div>
 									</label>
 									<div class="flex gap-2">
 										<input
-											type="text"
-											value={inboundWebhookUrl()}
-											readonly
-											class="bg-[#2c2c2e] text-[#8e8e93] text-[13px] rounded-xl px-4 py-3 w-full focus:outline-none"
+											type="text" value={inboundWebhookUrl()} readonly
+											class="bg-[#08090D] border border-white/5 text-[#10b981] text-[11px] font-mono font-bold rounded-[16px] px-4 py-4 w-full focus:outline-none shadow-inner opacity-80"
+											dir="ltr"
 										/>
 										<button
 											onClick={() => {
-												hapticFeedback.selectionChanged();
+												try { hapticFeedback.selectionChanged(); } catch (_) {}
 												navigator.clipboard.writeText(inboundWebhookUrl());
-												showToast('Copied to clipboard', 'success');
+												showToast(t('common.copiedToClipboard'), 'success');
 											}}
-											class="w-[48px] shrink-0 bg-[#2c2c2e] hover:bg-[#3a3a3c] text-white rounded-xl flex items-center justify-center transition-colors"
+											class="w-14 shrink-0 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-[16px] flex items-center justify-center transition-all active:scale-95 shadow-sm"
 										>
 											<span class="material-symbols-outlined text-[20px]">content_copy</span>
 										</button>
 									</div>
-									<p class="text-[11px] text-[#8e8e93]">
-										{t('channelForwarding.inboundWebhookPlaceholder')}
-									</p>
+									<p class="text-[10px] font-bold text-white/40 px-1">{t('channelForwarding.inboundWebhookPlaceholder')}</p>
 								</div>
 							</Show>
 
-							<div class="flex flex-col gap-2">
-								<label class="text-[13px] font-bold text-white flex items-center justify-between">
+							<div class="flex flex-col gap-1.5 relative z-10">
+								<label class="text-[10px] font-black uppercase tracking-widest text-white/40 px-1">
 									{t('channelForwarding.mode')}
-									<div class="group relative">
-										<span class="material-symbols-outlined text-[16px] text-[#8e8e93] cursor-help">
-											help
-										</span>
-										<div class="absolute bottom-full right-0 mb-2 w-64 bg-[#2c2c2e] text-[11px] text-white p-3 rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10 shadow-xl border border-[#3a3a3c] whitespace-pre-line">
-											{t('channelForwarding.modeHelp')}
-										</div>
-									</div>
 								</label>
-								<SelectField
-									label=""
-									value={mode()}
-									onChange={setMode}
-									options={[
-										{ value: 'forward', label: t('channelForwarding.modeForwardLabel') },
-										{ value: 'copy', label: t('channelForwarding.modeCopyLabel') },
-										{ value: 'ai', label: t('channelForwarding.modeCopyAiLabel') },
-									]}
-								/>
+								<div class="bg-[#08090D] rounded-[16px] border border-white/5 p-1.5 shadow-inner">
+									<SelectField
+										label=""
+										value={mode()}
+										onChange={(v) => { try { hapticFeedback.selectionChanged(); } catch (_) {} setMode(v); }}
+										options={[
+											{ value: 'forward', label: t('channelForwarding.modeForwardLabel') },
+											{ value: 'copy', label: t('channelForwarding.modeCopyLabel') },
+											{ value: 'ai', label: t('channelForwarding.modeCopyAiLabel') },
+										]}
+									/>
+								</div>
 							</div>
 
-							<div class="flex flex-col gap-2">
-								<label class="text-[13px] font-bold text-white flex items-center justify-between">
+							<div class="flex flex-col gap-1.5 relative z-10">
+								<label class="text-[10px] font-black uppercase tracking-widest text-white/40 px-1">
 									{t('channelForwarding.delay')}
-									<div class="group relative">
-										<span class="material-symbols-outlined text-[16px] text-[#8e8e93] cursor-help">
-											help
-										</span>
-										<div class="absolute bottom-full right-0 mb-2 w-48 bg-[#2c2c2e] text-[11px] text-white p-3 rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10 shadow-xl border border-[#3a3a3c]">
-											{t('channelForwarding.delayHelp')}
-										</div>
-									</div>
 								</label>
 								<div class="relative">
-									<span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-[#8e8e93] text-[18px]">
-										timer
-									</span>
+									<span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-white/30 text-[20px]">timer</span>
 									<input
-										type="number"
-										value={delay()}
-										onInput={(e) => setDelay(e.currentTarget.value)}
+										type="number" value={delay()} onInput={(e) => setDelay(e.currentTarget.value)}
 										placeholder={t('channelForwarding.delayPlaceholder')}
-										class="bg-[#2c2c2e] text-white text-[15px] rounded-xl pl-10 pr-4 py-3 w-full focus:outline-none focus:ring-2 focus:ring-[#3390ec]"
+										class="bg-[#08090D] border border-white/5 text-white text-[14px] font-mono font-bold rounded-[16px] pl-12 pr-4 py-4 w-full focus:outline-none focus:border-[#3390ec]/50 shadow-inner transition-colors"
+										dir="ltr"
 									/>
 								</div>
 							</div>
 						</div>
 
-						{/* Content Types Filter */}
-						<div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-5 flex flex-col gap-4">
-							<h3 class="text-[15px] font-bold text-white flex items-center gap-2">
-								<span class="material-symbols-outlined text-[#8e8e93]">filter_alt</span>
-								{t('channelForwarding.allowedContentTypes')}
-							</h3>
-							<p class="text-[12px] text-[#8e8e93] -mt-2">
-								{t('channelForwarding.allowedContentTypesDesc')}
-							</p>
-							<div class="grid grid-cols-2 gap-3">
-								<div
-									onClick={() => toggleContentType('text')}
-									class={`p-3 rounded-xl border flex items-center gap-2 cursor-pointer transition-colors ${contentTypes().text ? 'bg-[#3390ec]/10 border-[#3390ec]/30 text-[#3390ec]' : 'bg-[#2c2c2e] border-[#3a3a3c] text-white'}`}
-								>
-									<span class="material-symbols-outlined text-[18px]">format_align_left</span>
-									<span class="text-[13px] font-bold">{t('channelForwarding.filterText')}</span>
+						{/* MODULE 2: Content Filters */}
+						<div class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] border border-white/5 p-5 flex flex-col gap-4 shadow-sm">
+							<div class="flex flex-col gap-0.5">
+								<h3 class="text-[14px] font-black text-white flex items-center gap-2">
+									<span class="material-symbols-outlined text-white/40 text-[20px]">filter_alt</span>
+									{t('channelForwarding.allowedContentTypes')}
+								</h3>
+								<p class="text-[11px] font-bold text-white/50 px-7">
+									{t('channelForwarding.allowedContentTypesDesc')}
+								</p>
+							</div>
+							
+							<div class="grid grid-cols-2 gap-3 mt-1">
+								<div onClick={() => toggleContentType('text')} class={`p-3.5 rounded-[16px] border flex items-center gap-2.5 transition-all cursor-pointer active:scale-95 shadow-sm ${contentTypes().text ? 'bg-[#3390ec]/15 border-[#3390ec]/30 text-[#3390ec] shadow-[inset_0_0_15px_rgba(51,144,236,0.1)]' : 'bg-[#08090D] border-white/5 text-white/40 hover:bg-white/5'}`}>
+									<span class="material-symbols-outlined text-[20px]">format_align_left</span>
+									<span class="text-[12px] font-black uppercase tracking-widest">{t('channelForwarding.filterText')}</span>
 								</div>
-								<div
-									onClick={() => toggleContentType('photos')}
-									class={`p-3 rounded-xl border flex items-center gap-2 cursor-pointer transition-colors ${contentTypes().photos ? 'bg-[#3390ec]/10 border-[#3390ec]/30 text-[#3390ec]' : 'bg-[#2c2c2e] border-[#3a3a3c] text-white'}`}
-								>
-									<span class="material-symbols-outlined text-[18px]">image</span>
-									<span class="text-[13px] font-bold">{t('channelForwarding.filterPhoto')}</span>
+								<div onClick={() => toggleContentType('photos')} class={`p-3.5 rounded-[16px] border flex items-center gap-2.5 transition-all cursor-pointer active:scale-95 shadow-sm ${contentTypes().photos ? 'bg-[#3390ec]/15 border-[#3390ec]/30 text-[#3390ec] shadow-[inset_0_0_15px_rgba(51,144,236,0.1)]' : 'bg-[#08090D] border-white/5 text-white/40 hover:bg-white/5'}`}>
+									<span class="material-symbols-outlined text-[20px]">image</span>
+									<span class="text-[12px] font-black uppercase tracking-widest">{t('channelForwarding.filterPhoto')}</span>
 								</div>
-								<div
-									onClick={() => toggleContentType('videos')}
-									class={`p-3 rounded-xl border flex items-center gap-2 cursor-pointer transition-colors ${contentTypes().videos ? 'bg-[#3390ec]/10 border-[#3390ec]/30 text-[#3390ec]' : 'bg-[#2c2c2e] border-[#3a3a3c] text-white'}`}
-								>
-									<span class="material-symbols-outlined text-[18px]">movie</span>
-									<span class="text-[13px] font-bold">{t('channelForwarding.filterVideo')}</span>
+								<div onClick={() => toggleContentType('videos')} class={`p-3.5 rounded-[16px] border flex items-center gap-2.5 transition-all cursor-pointer active:scale-95 shadow-sm ${contentTypes().videos ? 'bg-[#3390ec]/15 border-[#3390ec]/30 text-[#3390ec] shadow-[inset_0_0_15px_rgba(51,144,236,0.1)]' : 'bg-[#08090D] border-white/5 text-white/40 hover:bg-white/5'}`}>
+									<span class="material-symbols-outlined text-[20px]">movie</span>
+									<span class="text-[12px] font-black uppercase tracking-widest">{t('channelForwarding.filterVideo')}</span>
 								</div>
-								<div
-									onClick={() => toggleContentType('files')}
-									class={`p-3 rounded-xl border flex items-center gap-2 cursor-pointer transition-colors ${contentTypes().files ? 'bg-[#3390ec]/10 border-[#3390ec]/30 text-[#3390ec]' : 'bg-[#2c2c2e] border-[#3a3a3c] text-white'}`}
-								>
-									<span class="material-symbols-outlined text-[18px]">description</span>
-									<span class="text-[13px] font-bold">{t('channelForwarding.filterDocument')}</span>
+								<div onClick={() => toggleContentType('files')} class={`p-3.5 rounded-[16px] border flex items-center gap-2.5 transition-all cursor-pointer active:scale-95 shadow-sm ${contentTypes().files ? 'bg-[#3390ec]/15 border-[#3390ec]/30 text-[#3390ec] shadow-[inset_0_0_15px_rgba(51,144,236,0.1)]' : 'bg-[#08090D] border-white/5 text-white/40 hover:bg-white/5'}`}>
+									<span class="material-symbols-outlined text-[20px]">description</span>
+									<span class="text-[12px] font-black uppercase tracking-widest">{t('channelForwarding.filterDocument')}</span>
 								</div>
-								<div
-									onClick={() => toggleContentType('voice')}
-									class={`p-3 rounded-xl border flex items-center gap-2 cursor-pointer transition-colors col-span-2 justify-center ${contentTypes().voice ? 'bg-[#3390ec]/10 border-[#3390ec]/30 text-[#3390ec]' : 'bg-[#2c2c2e] border-[#3a3a3c] text-white'}`}
-								>
-									<span class="material-symbols-outlined text-[18px]">mic</span>
-									<span class="text-[13px] font-bold">{t('channelForwarding.filterVoice')}</span>
+								<div onClick={() => toggleContentType('voice')} class={`p-3.5 rounded-[16px] border flex items-center justify-center gap-2.5 transition-all cursor-pointer col-span-2 active:scale-95 shadow-sm ${contentTypes().voice ? 'bg-[#3390ec]/15 border-[#3390ec]/30 text-[#3390ec] shadow-[inset_0_0_15px_rgba(51,144,236,0.1)]' : 'bg-[#08090D] border-white/5 text-white/40 hover:bg-white/5'}`}>
+									<span class="material-symbols-outlined text-[20px]">mic</span>
+									<span class="text-[12px] font-black uppercase tracking-widest">{t('channelForwarding.filterVoice')}</span>
 								</div>
 							</div>
 						</div>
 
-						{/* Advanced Options */}
-						<div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-1 flex flex-col">
-							<button
-								onClick={() => setShowAdvanced(!showAdvanced())}
-								class="p-4 flex items-center justify-between w-full text-left"
-							>
-								<span class="text-[15px] font-bold text-white flex items-center gap-2">
-									<span class="material-symbols-outlined text-[#8e8e93] text-[18px]">tune</span>
+						{/* MODULE 3: Advanced Options */}
+						<div class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] border border-white/5 flex flex-col shadow-sm transition-all">
+							<button onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} setShowAdvanced(!showAdvanced()); }} class="p-5 flex items-center justify-between w-full text-left focus:outline-none">
+								<span class="text-[14px] font-black text-white flex items-center gap-2.5">
+									<span class="material-symbols-outlined text-white/40 text-[20px]">tune</span>
 									{t('channelForwarding.advancedMutators')}
 								</span>
-								<span
-									class={`material-symbols-outlined text-white transition-transform ${showAdvanced() ? 'rotate-180' : ''}`}
-								>
-									expand_more
-								</span>
+								<span class={`material-symbols-outlined text-white/50 transition-transform duration-300 ${showAdvanced() ? 'rotate-180' : ''}`}>expand_more</span>
 							</button>
 
 							<Show when={showAdvanced()}>
-								<div class="p-4 pt-0 flex flex-col gap-4 border-t border-[#2a2a2a] mt-1">
-									<div class="mt-4">
-										<SettingsSection
-											title={t('channelForwarding.removeAds')}
-											description={t('channelForwarding.removeAdsDesc')}
-											enabled={removeAds()}
-											onToggle={setRemoveAds}
-										/>
+								<div class="px-5 pb-5 flex flex-col gap-4 border-t border-white/5 pt-4">
+									<div class="bg-[#08090D] rounded-[20px] p-2 border border-white/5 shadow-inner flex flex-col gap-1">
+										<SettingsSection title={t('channelForwarding.removeAds')} description={t('channelForwarding.removeAdsDesc')} enabled={removeAds()} onToggle={(v) => { try { hapticFeedback.selectionChanged(); } catch (_) {} setRemoveAds(v); }} />
+										<div class="h-[1px] bg-white/5 mx-4" />
+										<SettingsSection title={t('channelForwarding.removeHashtags')} description={t('channelForwarding.removeHashtagsDesc')} enabled={removeHashtags()} onToggle={(v) => { try { hapticFeedback.selectionChanged(); } catch (_) {} setRemoveHashtags(v); }} />
+										<div class="h-[1px] bg-white/5 mx-4" />
+										<SettingsSection title={t('channelForwarding.removeLinks')} description={t('channelForwarding.removeLinksDesc')} enabled={removeLinks()} onToggle={(v) => { try { hapticFeedback.selectionChanged(); } catch (_) {} setRemoveLinks(v); }} />
 									</div>
-									<div class="h-[1px] bg-[#2a2a2a]"></div>
-									<SettingsSection
-										title={t('channelForwarding.removeHashtags')}
-										description={t('channelForwarding.removeHashtagsDesc')}
-										enabled={removeHashtags()}
-										onToggle={setRemoveHashtags}
-									/>
-									<div class="h-[1px] bg-[#2a2a2a]"></div>
-									<SettingsSection
-										title={t('channelForwarding.removeLinks')}
-										description={t('channelForwarding.removeLinksDesc')}
-										enabled={removeLinks()}
-										onToggle={setRemoveLinks}
-									/>
-									<div class="h-[1px] bg-[#2a2a2a]"></div>
-									<div class="flex flex-col gap-2">
-										<label class="text-[13px] font-bold text-white">
-											{t('channelForwarding.watermarkText')}
-										</label>
-										<p class="text-[11px] text-[#8e8e93]">{t('channelForwarding.watermarkDesc')}</p>
+
+									<div class="flex flex-col gap-1.5 mt-2">
+										<label class="text-[10px] font-black uppercase tracking-widest text-white/40 px-1">{t('channelForwarding.watermarkText')}</label>
 										<input
-											type="text"
-											value={watermark()}
-											onInput={(e) => setWatermark(e.currentTarget.value)}
+											type="text" value={watermark()} onInput={(e) => setWatermark(e.currentTarget.value)}
 											placeholder={t('channelForwarding.watermarkPlaceholder')}
-											class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-3 w-full focus:outline-none focus:ring-2 focus:ring-[#3390ec]"
+											class="bg-[#08090D] border border-white/5 text-white text-[13px] font-bold rounded-[16px] px-4 py-4 w-full focus:outline-none focus:border-[#3390ec]/50 shadow-inner transition-colors placeholder-white/20"
 										/>
+										<p class="text-[10px] font-bold text-white/40 px-1 mt-0.5">{t('channelForwarding.watermarkDesc')}</p>
 									</div>
 								</div>
 							</Show>
 						</div>
 
-						<div class="flex gap-3 mt-4">
-							<button
-								onClick={() => setIsCreating(false)}
-								class="flex-1 h-12 bg-[#2c2c2e] text-white rounded-xl font-bold hover:bg-[#3a3a3c] transition-colors"
-							>
-								{t('common.cancel') || 'Cancel'}
+						{/* Action Buttons */}
+						<div class="flex gap-3 mt-2">
+							<button onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} setIsCreating(false); }} class="flex-1 h-14 bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white rounded-[16px] font-black uppercase tracking-widest text-[13px] transition-all active:scale-95 shadow-sm">
+								{t('common.cancel')}
 							</button>
 							<button
 								onClick={handleSaveRule}
-								disabled={
-									(targetType() === 'telegram' && !targetChat().trim()) ||
-									(targetType() === 'webhook' &&
-										direction() === 'outbound' &&
-										!targetChat().trim()) ||
-									(targetType() === 'webhook' && direction() === 'inbound') ||
-									(targetType() === 'telegram' && isVerified() === false)
-								}
-								class="flex-[2] h-12 bg-[#3390ec] text-white rounded-xl font-bold hover:bg-[#2b7bc9] disabled:opacity-50 transition-colors"
+								disabled={(targetType() === 'telegram' && !targetChat().trim()) || (targetType() === 'webhook' && direction() === 'outbound' && !targetChat().trim()) || (targetType() === 'webhook' && direction() === 'inbound') || (targetType() === 'telegram' && isVerified() === false)}
+								class="flex-[2] h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] hover:from-[#2b7ec9] hover:to-[#3390ec] text-white rounded-[16px] font-black uppercase tracking-widest text-[13px] transition-all disabled:opacity-40 disabled:scale-100 active:scale-95 shadow-[0_10px_25px_rgba(51,144,236,0.3)] border border-white/10"
 							>
-								{t('channelForwarding.saveRule') || 'Save Rule'}
+								{t('channelForwarding.saveRule')}
 							</button>
 						</div>
 					</Motion.div>

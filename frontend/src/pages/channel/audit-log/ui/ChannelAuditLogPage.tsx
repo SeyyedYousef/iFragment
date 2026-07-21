@@ -3,7 +3,7 @@ import { useParams } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { channelApi } from '@/shared/api/channel-management.js';
-import { t } from '@/shared/i18n/index.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SelectField } from '@/shared/ui/settings-controls.js';
@@ -23,25 +23,22 @@ export const ChannelAuditLogPage: Component = () => {
 
 	const getActionIcon = (action: string) => {
 		const act = action.toLowerCase();
-		if (act.includes('delete') || act.includes('remove') || act.includes('disconnect'))
-			return 'delete';
+		if (act.includes('delete') || act.includes('remove') || act.includes('disconnect')) return 'delete';
 		if (act.includes('settings') || act.includes('update')) return 'settings';
 		if (act.includes('ban') || act.includes('restrict')) return 'block';
-		if (act.includes('create') || act.includes('add') || act.includes('connect'))
-			return 'add_circle';
+		if (act.includes('create') || act.includes('add') || act.includes('connect')) return 'add_circle';
 		if (act.includes('sync')) return 'sync';
 		return 'info';
 	};
 
 	const getActionColor = (action: string) => {
 		const act = action.toLowerCase();
-		if (act.includes('delete') || act.includes('remove') || act.includes('disconnect'))
-			return '#ff3b30'; // Red
-		if (act.includes('settings') || act.includes('update')) return '#32ade6'; // Blue
-		if (act.includes('ban') || act.includes('restrict')) return '#ff9f0a'; // Orange
-		if (act.includes('create') || act.includes('add') || act.includes('connect')) return '#34c759'; // Green
-		if (act.includes('sync')) return '#00c7e6'; // Cyan
-		return '#8e8e93';
+		if (act.includes('delete') || act.includes('remove') || act.includes('disconnect')) return '#ff4a4a'; // Premium Red
+		if (act.includes('settings') || act.includes('update')) return '#3390ec'; // Premium Blue
+		if (act.includes('ban') || act.includes('restrict')) return '#ff9f0a'; // Premium Orange
+		if (act.includes('create') || act.includes('add') || act.includes('connect')) return '#10b981'; // Premium Green
+		if (act.includes('sync')) return '#06b6d4'; // Premium Cyan
+		return '#8e8e93'; // Neutral
 	};
 
 	const formatLogTime = (timeStr: string) => {
@@ -49,7 +46,7 @@ export const ChannelAuditLogPage: Component = () => {
 		const d = new Date(timeStr);
 		return (
 			d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) +
-			' - ' +
+			' • ' +
 			d.toLocaleDateString([], { month: 'short', day: 'numeric' })
 		);
 	};
@@ -58,8 +55,7 @@ export const ChannelAuditLogPage: Component = () => {
 		const list = auditLogsData()?.data || [];
 		return list.filter((log: any) => {
 			const searchStr = searchQuery().toLowerCase();
-			const actionMatch =
-				actionFilter() === 'all' || log.action.toLowerCase().includes(actionFilter().toLowerCase());
+			const actionMatch = actionFilter() === 'all' || log.action.toLowerCase().includes(actionFilter().toLowerCase());
 
 			const actionStr = log.action.toLowerCase();
 			const actorStr = log.actor_name.toLowerCase();
@@ -78,7 +74,8 @@ export const ChannelAuditLogPage: Component = () => {
 	const handleExport = (format: 'csv' | 'json') => {
 		const rows = filteredLogs();
 		if (rows.length === 0) {
-			showToast(t('channelAuditLog.noLogs') || 'No logs match your search criteria.', 'info');
+			try { hapticFeedback.notificationOccurred('warning'); } catch (_) {}
+			showToast(t('channelAuditLog.noLogs'), 'info');
 			return;
 		}
 
@@ -87,10 +84,8 @@ export const ChannelAuditLogPage: Component = () => {
 				? JSON.stringify(rows, null, 2)
 				: [
 						['id', 'actor_name', 'action', 'created_at'].map(escapeCsv).join(','),
-						...rows.map((log: any) =>
-							[log.id, log.actor_name, log.action, log.created_at].map(escapeCsv).join(','),
-						),
-					].join('\n');
+						...rows.map((log: any) => [log.id, log.actor_name, log.action, log.created_at].map(escapeCsv).join(',')),
+				  ].join('\n');
 		const blob = new Blob([content], {
 			type: format === 'json' ? 'application/json;charset=utf-8' : 'text/csv;charset=utf-8',
 		});
@@ -102,170 +97,154 @@ export const ChannelAuditLogPage: Component = () => {
 		a.click();
 		document.body.removeChild(a);
 		URL.revokeObjectURL(url);
-		hapticFeedback.notificationOccurred('success');
-		showToast(t('channelAuditLog.exported') || 'Audit log exported', 'success');
+		try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+		showToast(t('channelAuditLog.exported'), 'success');
 	};
 
 	onMount(() => {
 		backButton.show();
-		const off = backButton.onClick(() => window.history.back());
+		const off = backButton.onClick(() => {
+			try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+			window.history.back();
+		});
 		onCleanup(() => off());
 	});
 
 	return (
-		<div class="min-h-screen bg-[#0f1014] pb-28 relative overflow-x-hidden text-white">
-			{/* Header */}
-			<div class="px-5 pt-6 pb-4 bg-[#0f1014]/80 backdrop-blur-md sticky top-0 z-30 border-b border-[#1c1c1c] flex items-center justify-between gap-3">
-				<div class="flex items-center gap-2 overflow-hidden flex-1">
+		<div class="min-h-screen bg-[#030303] pb-28 relative overflow-x-hidden text-white font-sans selection:bg-[#3390ec]/30" dir={isRtl() ? 'rtl' : 'ltr'}>
+			
+			{/* Ambient Top Glow */}
+			<div class="absolute top-0 left-0 right-0 h-[350px] bg-gradient-to-b from-[#3390ec]/15 via-transparent to-transparent blur-[80px] pointer-events-none z-0" />
+
+			{/* ═══════ PREMIUM STICKY HEADER ═══════ */}
+			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm">
+				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
-						onClick={() => {
-							hapticFeedback.impactOccurred('light');
-							window.history.back();
-						}}
-						class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-90 transition-all shrink-0"
-						aria-label="Back"
+						onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} window.history.back(); }}
+						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
+						aria-label={t('common.back')}
 					>
-						<span class="material-symbols-outlined text-white text-[20px] rtl:-scale-x-100">
-							arrow_back
-						</span>
+						<span class="material-symbols-outlined text-[22px] rtl:-scale-x-100">arrow_back</span>
 					</button>
 					<div class="flex flex-col overflow-hidden">
-						<h1 class="text-[18px] font-black text-white leading-tight truncate">
-							{t('channelAuditLog.title') || 'Audit Log'}
+						<h1 class="text-[18px] font-black text-white leading-tight truncate tracking-tight">
+							{t('channelAuditLog.title')}
 						</h1>
-						<span class="text-[12px] text-on-surface-variant truncate">
-							{t('channelAuditLog.subtitle') || 'Track all administrative actions'}
+						<span class="text-[11px] text-white/50 font-bold uppercase tracking-wider truncate mt-0.5">
+							{t('channelAuditLog.subtitle')}
 						</span>
 					</div>
 				</div>
 
 				<button
 					onClick={() => setIsMenuOpen(true)}
-					class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-95 transition-all shrink-0"
-					aria-label="Open menu"
+					class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-colors shrink-0 shadow-sm text-white/80"
+					aria-label={t('common.toggle')}
 				>
-					<span class="material-symbols-outlined text-white text-[20px]">menu</span>
+					<span class="material-symbols-outlined text-[22px]">menu</span>
 				</button>
 			</div>
 
-			<ChannelHamburgerMenu
-				isOpen={isMenuOpen()}
-				onClose={() => setIsMenuOpen(false)}
-				channelId={params.id}
-				activeTab="audit-log"
-			/>
+			<ChannelHamburgerMenu isOpen={isMenuOpen()} onClose={() => setIsMenuOpen(false)} channelId={params.id} activeTab="audit-log" />
 
-			<div class="px-5 pt-6 flex flex-col gap-5 pb-10">
+			<div class="px-5 pt-5 flex flex-col gap-4 max-w-md mx-auto relative z-10 w-full pb-10">
+				
 				<ChannelContextBar channelId={params.id} />
 
-				<Motion.div
-					initial={{ opacity: 0, y: 10 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ delay: 0.05 }}
-					class="flex flex-col gap-4"
-				>
-					{/* Search Bar */}
-					<div class="relative">
-						<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#8e8e93]">
-							search
-						</span>
-						<input
-							type="text"
-							value={searchQuery()}
-							onInput={(e) => setSearchQuery(e.currentTarget.value)}
-							placeholder={
-								t('channelAuditLog.searchPlaceholder') || 'Search logs by action or name...'
-							}
-							class="bg-[#1c1c1c] text-white text-[15px] rounded-xl pl-10 pr-4 py-3 w-full focus:outline-none focus:ring-2 focus:ring-[#32ade6] border border-[#2a2a2a]"
-						/>
-					</div>
-
+				<Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} class="flex flex-col gap-4">
+					
+					{/* ═══════ SEARCH & FILTERS ═══════ */}
 					<div class="flex flex-col gap-3">
-						{/* Action Filter */}
-						<SelectField
-							label={t('channelAuditLog.filterAction') || 'Action'}
-							value={actionFilter()}
-							onChange={setActionFilter}
-							options={[
-								{ value: 'all', label: t('channelAuditLog.allActions') || 'All Actions' },
-								{ value: 'delete', label: t('channelAuditLog.actDeleted') || 'Deleted' },
-								{ value: 'settings', label: t('channelAuditLog.actSettings') || 'Settings' },
-								{ value: 'sync', label: 'Synced' },
-							]}
-						/>
+						<div class="relative z-10">
+							<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-white/40 text-[22px] pointer-events-none">search</span>
+							<input
+								type="text" value={searchQuery()} onInput={(e) => setSearchQuery(e.currentTarget.value)}
+								placeholder={t('channelAuditLog.searchPlaceholder')}
+								class="w-full h-14 bg-[#12141C]/80 backdrop-blur-xl border border-white/5 text-white text-[13px] font-bold rounded-[18px] pl-12 pr-4 focus:outline-none focus:border-[#3390ec]/50 placeholder-white/30 transition-all shadow-inner"
+							/>
+						</div>
+
+						<div class="bg-[#12141C]/80 backdrop-blur-xl rounded-[18px] border border-white/5 p-1.5 shadow-sm">
+							<SelectField
+								label={t('channelAuditLog.filterAction')}
+								value={actionFilter()}
+								onChange={(v) => { try { hapticFeedback.selectionChanged(); } catch (_) {} setActionFilter(v); }}
+								options={[
+									{ value: 'all', label: t('channelAuditLog.allActions') },
+									{ value: 'delete', label: t('channelAuditLog.actDeleted') },
+									{ value: 'settings', label: t('channelAuditLog.actSettings') },
+									{ value: 'sync', label: t('channelAuditLog.actSynced') },
+								]}
+							/>
+						</div>
+
+						{/* Export Buttons */}
+						<div class="flex items-center gap-2.5">
+							<button onClick={() => handleExport('csv')} class="flex-1 h-12 bg-white/5 border border-white/10 rounded-[14px] text-[12px] font-black uppercase tracking-widest hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-sm text-white/80">
+								<span class="material-symbols-outlined text-[18px]">download</span> {t('channelAuditLog.exportCsv')}
+							</button>
+							<button onClick={() => handleExport('json')} class="flex-1 h-12 bg-white/5 border border-white/10 rounded-[14px] text-[12px] font-black uppercase tracking-widest hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-sm text-white/80">
+								<span class="material-symbols-outlined text-[18px]">data_object</span> {t('channelAuditLog.exportJson')}
+							</button>
+						</div>
 					</div>
 
-					{/* Export Buttons */}
-					<div class="flex items-center gap-3">
-						<button
-							onClick={() => handleExport('csv')}
-							class="flex-1 bg-[#1c1c1c] border border-[#2a2a2a] py-2 rounded-xl text-[13px] font-bold hover:bg-[#2c2c2e] transition-colors flex items-center justify-center gap-2"
-						>
-							<span class="material-symbols-outlined text-[16px]">download</span>
-							{t('channelAuditLog.exportCsv') || 'Export CSV'}
-						</button>
-						<button
-							onClick={() => handleExport('json')}
-							class="flex-1 bg-[#1c1c1c] border border-[#2a2a2a] py-2 rounded-xl text-[13px] font-bold hover:bg-[#2c2c2e] transition-colors flex items-center justify-center gap-2"
-						>
-							<span class="material-symbols-outlined text-[16px]">data_object</span>
-							{t('channelAuditLog.exportJson') || 'Export JSON'}
-						</button>
-					</div>
-
-					<div class="h-[1px] bg-[#2a2a2a] w-full my-1"></div>
-
-					{/* Log List */}
-					<div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-5 flex flex-col gap-5">
+					{/* ═══════ AUDIT LOG TIMELINE ═══════ */}
+					<div class="bg-[#12141C]/80 backdrop-blur-xl rounded-[28px] border border-white/5 p-5 flex flex-col shadow-[0_10px_30px_rgba(0,0,0,0.2)] relative mt-2">
+						
 						<Show when={filteredLogs().length === 0}>
-							<div class="py-8 flex flex-col items-center justify-center text-center gap-2">
-								<span class="material-symbols-outlined text-[40px] text-[#8e8e93]">
-									receipt_long
-								</span>
-								<span class="text-[#8e8e93] text-[14px]">
-									{t('channelAuditLog.noLogs') || 'No logs match your search criteria.'}
+							<div class="py-10 flex flex-col items-center justify-center text-center gap-3 border border-dashed border-white/5 rounded-[20px]">
+								<div class="w-14 h-14 rounded-[16px] bg-white/5 flex items-center justify-center border border-white/10 mb-1">
+									<span class="material-symbols-outlined text-[28px] text-white/40">receipt_long</span>
+								</div>
+								<span class="text-white/40 text-[12px] font-bold tracking-wide">
+									{t('channelAuditLog.noLogs')}
 								</span>
 							</div>
 						</Show>
+
 						<For each={filteredLogs()}>
-							{(log: any, i) => (
-								<div class="flex gap-4 relative">
-									<Show when={i() !== filteredLogs().length - 1}>
-										<div class="absolute left-[19px] top-10 bottom-[-20px] w-[2px] bg-[#2a2a2a]"></div>
-									</Show>
-									<div
-										class={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 z-10`}
-										style={{
-											'background-color': `${getActionColor(log.action)}20`,
-											color: getActionColor(log.action),
-										}}
-									>
-										<span class="material-symbols-outlined text-[18px]">
-											{getActionIcon(log.action)}
-										</span>
-									</div>
-									<div class="flex flex-col flex-1 min-w-0 pt-1">
-										<div class="flex items-center justify-between gap-2">
-											<span class="text-[14px] font-bold text-white truncate">
-												{log.actor_name}
-											</span>
-											<span class="text-[11px] text-[#8e8e93] font-mono shrink-0">
-												{formatLogTime(log.created_at)}
+							{(log: any, i) => {
+								const color = getActionColor(log.action);
+								return (
+									<div class="flex gap-4 relative mb-5 last:mb-0 group">
+										{/* Timeline Connector Line */}
+										<Show when={i() !== filteredLogs().length - 1}>
+											<div class="absolute top-12 bottom-[-20px] w-[2px] bg-gradient-to-b from-white/10 to-transparent" style={{ 'inset-inline-start': '23px' }} />
+										</Show>
+										
+										{/* Action Icon */}
+										<div
+											class="w-12 h-12 rounded-[16px] flex items-center justify-center shrink-0 z-10 shadow-inner border transition-transform duration-300 group-hover:scale-105"
+											style={{ 'background-color': `${color}15`, 'border-color': `${color}30`, color: color }}
+										>
+											<span class="material-symbols-outlined text-[20px] drop-shadow-md">
+												{getActionIcon(log.action)}
 											</span>
 										</div>
-										<div class="flex items-center gap-1.5 mt-0.5">
-											<span
-												class="text-[12px] font-bold uppercase tracking-wide"
-												style={{ color: getActionColor(log.action) }}
-											>
-												{log.action}
-											</span>
+
+										{/* Log Content */}
+										<div class="flex flex-col flex-1 min-w-0 pt-0.5 justify-center">
+											<div class="flex items-center justify-between gap-2 mb-1">
+												<span class="text-[14px] font-black text-white truncate tracking-tight">
+													{log.actor_name}
+												</span>
+												<span class="text-[10px] text-white/40 font-mono font-bold shrink-0 bg-white/5 px-2 py-0.5 rounded-[6px]">
+													{formatLogTime(log.created_at)}
+												</span>
+											</div>
+											<div class="flex items-center">
+												<span class="text-[11px] font-black uppercase tracking-widest px-2 py-0.5 rounded-[6px] border shadow-sm" style={{ 'background-color': `${color}10`, 'border-color': `${color}20`, color: color }}>
+													{log.action}
+												</span>
+											</div>
 										</div>
 									</div>
-								</div>
-							)}
+								);
+							}}
 						</For>
 					</div>
+
 				</Motion.div>
 			</div>
 		</div>
