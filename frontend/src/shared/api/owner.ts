@@ -39,7 +39,13 @@ export interface QuestItem {
 	description: string;
 	reward_frg: number;
 	reward_xp: number;
-	type: 'telegram_channel' | 'telegram_group' | 'daily_checkin' | 'invite' | 'external_link' | 'partner';
+	type:
+		| 'telegram_channel'
+		| 'telegram_group'
+		| 'daily_checkin'
+		| 'invite'
+		| 'external_link'
+		| 'partner';
 	is_active: boolean;
 	config?: Record<string, any>;
 	expires_at?: string;
@@ -144,7 +150,9 @@ export interface OwnerEntityItem {
 export const ownerApi = {
 	// --- Users ---
 	searchUsers: (query: string) =>
-		apiClient.get<SearchedUser[]>(`/owner/users/search?q=${encodeURIComponent(query)}`).then((r) => r.data),
+		apiClient
+			.get<SearchedUser[]>(`/owner/users/search?q=${encodeURIComponent(query)}`)
+			.then((r) => r.data),
 
 	adjustFrg: (userId: number, amount: number, reason: string) =>
 		apiClient
@@ -166,7 +174,9 @@ export const ownerApi = {
 			.then((r) => r.data),
 
 	unbanUser: (userId: number) =>
-		apiClient.post<{ success: boolean }>('/owner/users/unban', { user_id: userId }).then((r) => r.data),
+		apiClient
+			.post<{ success: boolean }>('/owner/users/unban', { user_id: userId })
+			.then((r) => r.data),
 
 	flagUser: (userId: number, isFlagged: boolean, fraudReason: string) =>
 		apiClient
@@ -178,17 +188,22 @@ export const ownerApi = {
 			.then((r) => r.data),
 
 	impersonateUser: (userId: number) =>
-		apiClient.post<{ token: string }>('/owner/users/impersonate', { user_id: userId }).then((r) => r.data),
+		apiClient
+			.post<{ token: string }>('/owner/users/impersonate', { user_id: userId })
+			.then((r) => r.data),
 
 	// --- Audit Logs ---
 	getAuditLogs: (limit = 20, offset = 0) =>
 		apiClient
-			.get<{ logs: AuditLogEntry[]; has_more: boolean }>(`/owner/audit-logs?limit=${limit}&offset=${offset}`)
+			.get<{ logs: AuditLogEntry[]; has_more: boolean }>(
+				`/owner/audit-logs?limit=${limit}&offset=${offset}`,
+			)
 			.then((r) => r.data),
 
 	// --- Quests ---
 	listQuests: () => apiClient.get<QuestItem[]>('/owner/quests').then((r) => r.data),
-	createQuest: (quest: Partial<QuestItem>) => apiClient.post<QuestItem>('/owner/quests', quest).then((r) => r.data),
+	createQuest: (quest: Partial<QuestItem>) =>
+		apiClient.post<QuestItem>('/owner/quests', quest).then((r) => r.data),
 	updateQuest: (id: string | number, quest: Partial<QuestItem>) =>
 		apiClient.put<QuestItem>(`/owner/quests/${id}`, quest).then((r) => r.data),
 	deleteQuest: (id: string | number) => apiClient.delete(`/owner/quests/${id}`).then((r) => r.data),
@@ -204,10 +219,17 @@ export const ownerApi = {
 	// --- Userbots ---
 	listUserbots: () => apiClient.get<ManagedUserbot[]>('/owner/userbots').then((r) => r.data),
 	sendUserbotCode: (phone: string) =>
-		apiClient.post<{ phone_code_hash: string }>('/owner/userbot/send-code', { phone }).then((r) => r.data),
+		apiClient
+			.post<{ phone_code_hash: string }>('/owner/userbot/send-code', { phone })
+			.then((r) => r.data),
 	verifyUserbotCode: (phone: string, code: string, phoneCodeHash: string, password_2fa?: string) =>
 		apiClient
-			.post('/owner/userbot/verify-code', { phone, code, phone_code_hash: phoneCodeHash, password_2fa })
+			.post('/owner/userbot/verify-code', {
+				phone,
+				code,
+				phone_code_hash: phoneCodeHash,
+				password_2fa,
+			})
 			.then((r) => r.data),
 	deleteUserbot: (id: string) => apiClient.delete(`/owner/userbots/${id}`).then((r) => r.data),
 
@@ -258,14 +280,20 @@ export const ownerApi = {
 			.then((r) => r.data),
 
 	// --- Finance ---
-	getFinanceOrders: () => apiClient.get<FinanceOrder[]>('/owner/finance/orders').then((r) => r.data),
+	getFinanceOrders: () =>
+		apiClient.get<FinanceOrder[]>('/owner/finance/orders').then((r) => r.data),
 
 	// --- Health ---
-	getHealthMetrics: () => apiClient.get<SystemHealthMetrics>('/owner/health/metrics').then((r) => r.data),
+	getHealthMetrics: () =>
+		apiClient.get<SystemHealthMetrics>('/owner/health/metrics').then((r) => r.data),
 	getHealthLogs: () =>
 		apiClient
 			.get<any[]>('/owner/health/errors')
-			.then((r) => (Array.isArray(r.data) ? r.data.map((e) => `[${e.source || 'SYS'}] ${e.error_message || ''}`) : []))
+			.then((r) =>
+				Array.isArray(r.data)
+					? r.data.map((e) => `[${e.source || 'SYS'}] ${e.error_message || ''}`)
+					: [],
+			)
 			.catch(() => []),
 
 	// --- Entities ---

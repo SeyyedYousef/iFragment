@@ -1,18 +1,22 @@
+import { hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createSignal, For, Show } from 'solid-js';
 import { ownerApi, SearchedUser } from '@/shared/api/owner.js';
 import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.js';
-import { hapticFeedback } from '@tma.js/sdk-solid';
 
 export const OwnerUsers: Component = () => {
 	const [query, setQuery] = createSignal('');
 	const [users, setUsers] = createSignal<SearchedUser[]>([]);
 	const [loading, setLoading] = createSignal(false);
 	const [error, setError] = createSignal('');
-	const [activeFilter, setActiveFilter] = createSignal<'all' | 'premium' | 'flagged' | 'banned'>('all');
+	const [activeFilter, setActiveFilter] = createSignal<'all' | 'premium' | 'flagged' | 'banned'>(
+		'all',
+	);
 
 	// Selected user for danger actions
 	const [selectedUser, setSelectedUser] = createSignal<SearchedUser | null>(null);
-	const [actionType, setActionType] = createSignal<'frg' | 'ban' | 'unban' | 'flag' | 'impersonate' | null>(null);
+	const [actionType, setActionType] = createSignal<
+		'frg' | 'ban' | 'unban' | 'flag' | 'impersonate' | null
+	>(null);
 
 	// Action Form states
 	const [actionStep, setActionStep] = createSignal<'form' | 'confirm'>('confirm');
@@ -111,25 +115,47 @@ export const OwnerUsers: Component = () => {
 			if (currentAction === 'frg') {
 				const res = await ownerApi.adjustFrg(user.telegram_id, frgAmount(), reason);
 				if (res.success) {
-					setUsers(users().map((u) => (u.telegram_id === user.telegram_id ? { ...u, balance: res.new_balance } : u)));
+					setUsers(
+						users().map((u) =>
+							u.telegram_id === user.telegram_id ? { ...u, balance: res.new_balance } : u,
+						),
+					);
 					hapticFeedback.notificationOccurred('success');
 				}
 			} else if (currentAction === 'ban') {
 				const res = await ownerApi.banUser(user.telegram_id, banType(), reason, banDuration());
 				if (res.success) {
-					setUsers(users().map((u) => (u.telegram_id === user.telegram_id ? { ...u, is_banned: true, ban_reason: reason } : u)));
+					setUsers(
+						users().map((u) =>
+							u.telegram_id === user.telegram_id
+								? { ...u, is_banned: true, ban_reason: reason }
+								: u,
+						),
+					);
 					hapticFeedback.notificationOccurred('success');
 				}
 			} else if (currentAction === 'unban') {
 				const res = await ownerApi.unbanUser(user.telegram_id);
 				if (res.success) {
-					setUsers(users().map((u) => (u.telegram_id === user.telegram_id ? { ...u, is_banned: false, ban_reason: undefined } : u)));
+					setUsers(
+						users().map((u) =>
+							u.telegram_id === user.telegram_id
+								? { ...u, is_banned: false, ban_reason: undefined }
+								: u,
+						),
+					);
 					hapticFeedback.notificationOccurred('success');
 				}
 			} else if (currentAction === 'flag') {
 				const res = await ownerApi.flagUser(user.telegram_id, isFlaggedStatus(), reason);
 				if (res.success) {
-					setUsers(users().map((u) => (u.telegram_id === user.telegram_id ? { ...u, is_flagged: isFlaggedStatus(), fraud_reason: reason } : u)));
+					setUsers(
+						users().map((u) =>
+							u.telegram_id === user.telegram_id
+								? { ...u, is_flagged: isFlaggedStatus(), fraud_reason: reason }
+								: u,
+						),
+					);
 					hapticFeedback.notificationOccurred('success');
 				}
 			} else if (currentAction === 'impersonate') {
@@ -137,11 +163,14 @@ export const OwnerUsers: Component = () => {
 				if (res.token) {
 					sessionStorage.setItem('owner_impersonation_token', res.token);
 					sessionStorage.setItem('impersonated_user_id', String(user.telegram_id));
-					sessionStorage.setItem('impersonated_username', user.username || String(user.telegram_id));
+					sessionStorage.setItem(
+						'impersonated_username',
+						user.username || String(user.telegram_id),
+					);
 					localStorage.removeItem('cached_profile_stats');
 					localStorage.removeItem('cached_profile_achievements');
 					localStorage.removeItem('cached_profile_referral');
-					window.location.href = window.location.pathname + '#/';
+					window.location.href = `${window.location.pathname}#/`;
 					window.location.reload();
 					return;
 				}
@@ -183,7 +212,11 @@ export const OwnerUsers: Component = () => {
 				riskLevel: (Math.abs(change) > 500000 ? 'high' : 'medium') as 'high' | 'medium',
 				details: [
 					{ label: 'نام کاربر', value: `${user.first_name} ${user.last_name}` },
-					{ label: 'موجودی سکه', before: `${currentBal.toLocaleString()} FRG`, after: `${newBal.toLocaleString()} FRG` },
+					{
+						label: 'موجودی سکه',
+						before: `${currentBal.toLocaleString()} FRG`,
+						after: `${newBal.toLocaleString()} FRG`,
+					},
 				],
 			};
 		}
@@ -197,8 +230,14 @@ export const OwnerUsers: Component = () => {
 				riskLevel: 'critical' as const,
 				details: [
 					{ label: 'شناسه تلگرام', value: user.telegram_id },
-					{ label: 'نوع مسدودی', value: banType() === 'full' ? 'کامل' : banType() === 'shadow' ? 'شدوبن' : 'کیف پول' },
-					{ label: 'مدت زمان', value: banDuration() === 0 ? 'دائمی' : `${banDuration() / 3600} ساعت` },
+					{
+						label: 'نوع مسدودی',
+						value: banType() === 'full' ? 'کامل' : banType() === 'shadow' ? 'شدوبن' : 'کیف پول',
+					},
+					{
+						label: 'مدت زمان',
+						value: banDuration() === 0 ? 'دائمی' : `${banDuration() / 3600} ساعت`,
+					},
 				],
 			};
 		}
@@ -244,7 +283,9 @@ export const OwnerUsers: Component = () => {
 				<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
 					<div>
 						<h2 class="text-sm font-black text-white">مدیریت و جستجوی کاربران</h2>
-						<p class="text-xs text-white/40 font-bold mt-0.5">جستجو بر اساس نام کاربری، نام، یا شناسه عددی تلگرام</p>
+						<p class="text-xs text-white/40 font-bold mt-0.5">
+							جستجو بر اساس نام کاربری، نام، یا شناسه عددی تلگرام
+						</p>
 					</div>
 
 					{/* Category Filters */}
@@ -252,7 +293,9 @@ export const OwnerUsers: Component = () => {
 						<button
 							onClick={() => setActiveFilter('all')}
 							class={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-								activeFilter() === 'all' ? 'bg-[#3390ec] text-white' : 'bg-white/5 text-white/60 hover:bg-white/10'
+								activeFilter() === 'all'
+									? 'bg-[#3390ec] text-white'
+									: 'bg-white/5 text-white/60 hover:bg-white/10'
 							}`}
 						>
 							همه ({users().length})
@@ -260,7 +303,9 @@ export const OwnerUsers: Component = () => {
 						<button
 							onClick={() => setActiveFilter('premium')}
 							class={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-								activeFilter() === 'premium' ? 'bg-teal-500 text-black' : 'bg-white/5 text-teal-400 hover:bg-white/10'
+								activeFilter() === 'premium'
+									? 'bg-teal-500 text-black'
+									: 'bg-white/5 text-teal-400 hover:bg-white/10'
 							}`}
 						>
 							پرمیوم
@@ -268,7 +313,9 @@ export const OwnerUsers: Component = () => {
 						<button
 							onClick={() => setActiveFilter('flagged')}
 							class={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-								activeFilter() === 'flagged' ? 'bg-amber-500 text-black' : 'bg-white/5 text-amber-400 hover:bg-white/10'
+								activeFilter() === 'flagged'
+									? 'bg-amber-500 text-black'
+									: 'bg-white/5 text-amber-400 hover:bg-white/10'
 							}`}
 						>
 							متخلفان
@@ -276,7 +323,9 @@ export const OwnerUsers: Component = () => {
 						<button
 							onClick={() => setActiveFilter('banned')}
 							class={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-								activeFilter() === 'banned' ? 'bg-red-500 text-white' : 'bg-white/5 text-red-400 hover:bg-white/10'
+								activeFilter() === 'banned'
+									? 'bg-red-500 text-white'
+									: 'bg-white/5 text-red-400 hover:bg-white/10'
 							}`}
 						>
 							مسدودین
@@ -351,9 +400,13 @@ export const OwnerUsers: Component = () => {
 
 										<div class="flex items-center gap-3 text-xs">
 											<span class="text-[#3390ec] font-bold">@{user.username || 'بدون شناسه'}</span>
-											<span class="text-white/40 font-mono text-[10px]">ID: {user.telegram_id}</span>
+											<span class="text-white/40 font-mono text-[10px]">
+												ID: {user.telegram_id}
+											</span>
 											<Show when={user.language_code}>
-												<span class="text-white/30 text-[10px] uppercase font-mono">زبان: {user.language_code}</span>
+												<span class="text-white/30 text-[10px] uppercase font-mono">
+													زبان: {user.language_code}
+												</span>
 											</Show>
 										</div>
 									</div>
@@ -380,7 +433,9 @@ export const OwnerUsers: Component = () => {
 										onClick={() => openFrgModal(user)}
 										class="h-8 px-3 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-[10px] font-bold text-amber-400 rounded-xl transition-all flex items-center gap-1 active:scale-95"
 									>
-										<span class="material-symbols-outlined text-[14px]">account_balance_wallet</span>
+										<span class="material-symbols-outlined text-[14px]">
+											account_balance_wallet
+										</span>
 										تغییر موجودی
 									</button>
 
@@ -420,7 +475,9 @@ export const OwnerUsers: Component = () => {
 					<div class="w-full max-w-sm bg-[#16171d] border border-white/10 rounded-3xl p-5 space-y-4">
 						<h3 class="text-sm font-black text-white">ورود مقدار تغییر موجودی</h3>
 						<div>
-							<label class="block text-[10px] text-white/50 font-bold mb-1">مقدار تغییر (سکه FRG)</label>
+							<label class="block text-[10px] text-white/50 font-bold mb-1">
+								مقدار تغییر (سکه FRG)
+							</label>
 							<input
 								type="number"
 								placeholder="مثال: 50000 یا -20000"
@@ -430,7 +487,12 @@ export const OwnerUsers: Component = () => {
 							/>
 						</div>
 						<div class="flex gap-2">
-							<button onClick={closeActionModal} class="flex-1 h-10 bg-white/5 text-xs font-bold rounded-xl">انصراف</button>
+							<button
+								onClick={closeActionModal}
+								class="flex-1 h-10 bg-white/5 text-xs font-bold rounded-xl"
+							>
+								انصراف
+							</button>
 							<button
 								onClick={() => frgAmount() !== 0 && setActionStep('confirm')}
 								disabled={frgAmount() === 0}
@@ -473,7 +535,12 @@ export const OwnerUsers: Component = () => {
 							</select>
 						</div>
 						<div class="flex gap-2">
-							<button onClick={closeActionModal} class="flex-1 h-10 bg-white/5 text-xs font-bold rounded-xl">انصراف</button>
+							<button
+								onClick={closeActionModal}
+								class="flex-1 h-10 bg-white/5 text-xs font-bold rounded-xl"
+							>
+								انصراف
+							</button>
 							<button
 								onClick={() => setActionStep('confirm')}
 								class="flex-1 h-10 bg-red-500 text-white text-xs font-black rounded-xl"

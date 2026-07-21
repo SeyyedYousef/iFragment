@@ -112,7 +112,7 @@ export const spawnRocket = () => {
 	if (turboCount() > 0 && !isTurboActive() && !isRocketSpawned()) {
 		setTurboCount((c) => c - 1);
 		setIsRocketSpawned(true);
-		
+
 		// Optional: Despawn if they don't click it within 10 seconds
 		setTimeout(() => {
 			if (isRocketSpawned()) {
@@ -137,7 +137,11 @@ export const activateTurbo = async () => {
 		} catch (e: any) {
 			console.error('Failed to activate turbo on server:', e);
 			setIsRocketSpawned(false);
-			const msg = e?.response?.data?.err || e?.response?.data?.message || e?.message || 'Failed to activate turbo';
+			const msg =
+				e?.response?.data?.err ||
+				e?.response?.data?.message ||
+				e?.message ||
+				'Failed to activate turbo';
 			showToast(msg, 'error');
 			if (msg.toLowerCase().includes('limit')) {
 				setTurboCount(0);
@@ -154,7 +158,11 @@ export const activateFullEnergy = async () => {
 			setEnergy(maxEnergy());
 		} catch (e: any) {
 			console.error('Failed to activate full energy on server:', e);
-			const msg = e?.response?.data?.err || e?.response?.data?.message || e?.message || 'Failed to activate full energy';
+			const msg =
+				e?.response?.data?.err ||
+				e?.response?.data?.message ||
+				e?.message ||
+				'Failed to activate full energy';
 			showToast(msg, 'error');
 			if (msg.toLowerCase().includes('limit')) {
 				setFullEnergyCount(0);
@@ -192,7 +200,12 @@ export const [boosters, setBoosters] = createSignal<Record<string, Booster>>({
 
 export const getBoosterCost = (booster: Booster) => booster.baseCost;
 
-import { upgradeBoost as apiUpgradeBoost, getBoostsStatus, activateTurboServer, activateFullEnergyServer } from '@/shared/api/profile.js';
+import {
+	activateFullEnergyServer,
+	activateTurboServer,
+	upgradeBoost as apiUpgradeBoost,
+	getBoostsStatus,
+} from '@/shared/api/profile.js';
 
 export const syncBoostersStatus = async () => {
 	try {
@@ -368,7 +381,8 @@ const getOptimisticCoins = () => {
 	}
 	return raw * fatigueMultiplier;
 };
-const getOptimisticEnergyCost = () => pendingTapBuckets.reduce((acc, b) => acc + (b.multiplier === 5 ? 0 : b.count * tapPower()), 0);
+const getOptimisticEnergyCost = () =>
+	pendingTapBuckets.reduce((acc, b) => acc + (b.multiplier === 5 ? 0 : b.count * tapPower()), 0);
 const getOptimisticTaps = () => pendingTapBuckets.reduce((acc, b) => acc + b.count, 0);
 
 export const syncPendingTaps = async () => {
@@ -380,28 +394,38 @@ export const syncPendingTaps = async () => {
 		try {
 			while (pendingTapBuckets.length > 0) {
 				const bucket = pendingTapBuckets[0];
-				
+
 				let sig = `dummy_signature_for_${bucket.nonce}`;
 				try {
 					const encoder = new TextEncoder();
-					const initData = (window as any).Telegram?.WebApp?.initData || "dev_init_data_fallback";
+					const initData = (window as any).Telegram?.WebApp?.initData || 'dev_init_data_fallback';
 					const keyMaterial = await crypto.subtle.importKey(
-						"raw",
+						'raw',
 						encoder.encode(initData),
-						{ name: "HMAC", hash: "SHA-256" },
+						{ name: 'HMAC', hash: 'SHA-256' },
 						false,
-						["sign"]
+						['sign'],
 					);
 					const payload = `${bucket.nonce}:${bucket.count}:${bucket.ts}`;
-					const signatureBuffer = await crypto.subtle.sign("HMAC", keyMaterial, encoder.encode(payload));
+					const signatureBuffer = await crypto.subtle.sign(
+						'HMAC',
+						keyMaterial,
+						encoder.encode(payload),
+					);
 					const signatureArray = Array.from(new Uint8Array(signatureBuffer));
-					sig = signatureArray.map(b => b.toString(16).padStart(2, '0')).join('');
+					sig = signatureArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 				} catch (e) {
-					console.error("HMAC generation failed", e);
+					console.error('HMAC generation failed', e);
 				}
-				
+
 				try {
-					const stats = await addTaps(bucket.count, bucket.multiplier, bucket.nonce, bucket.ts, sig);
+					const stats = await addTaps(
+						bucket.count,
+						bucket.multiplier,
+						bucket.nonce,
+						bucket.ts,
+						sig,
+					);
 					if (stats) {
 						pendingTapBuckets.shift(); // Remove the bucket we just synced
 
@@ -413,7 +437,9 @@ export const syncPendingTaps = async () => {
 							setEnergy(Math.max(0, stats.energy - getOptimisticEnergyCost()));
 						}
 						setFrgBalance(typeof stats.frgBalance === 'number' ? stats.frgBalance : 0);
-						setTotalTaps((typeof stats.totalTaps === 'number' ? stats.totalTaps : 0) + getOptimisticTaps());
+						setTotalTaps(
+							(typeof stats.totalTaps === 'number' ? stats.totalTaps : 0) + getOptimisticTaps(),
+						);
 						setUserXp((typeof stats.xp === 'number' ? stats.xp : 0) + getOptimisticTaps() * 2);
 						if (typeof stats.globalRank === 'number') {
 							setGlobalRank(stats.globalRank);
@@ -456,7 +482,7 @@ export const syncPendingTaps = async () => {
 
 export const recordTaps = (count: number) => {
 	if (typeof count !== 'number' || !Number.isInteger(count) || count <= 0) return;
-	
+
 	const turboActive = isTurboActive();
 	const multiplier = turboActive ? 5 : 1;
 	let energyConsumed = turboActive ? 0 : count * tapPower();
@@ -478,11 +504,11 @@ export const recordTaps = (count: number) => {
 	}
 
 	coinsEarned = coinsEarned * fatigueMultiplier;
-	
+
 	if (energyConsumed > 0) {
 		setEnergy((e) => Math.max(0, e - energyConsumed));
 	}
-	
+
 	setBalance((b) => b + coinsEarned);
 	setDailyTappedCoins((d) => d + coinsEarned);
 	setTotalTaps((t) => t + count);
@@ -521,11 +547,16 @@ export const syncProfileStats = async () => {
 			setFrgBalance(typeof stats.frgBalance === 'number' ? stats.frgBalance : 0);
 			if (!isSyncing) {
 				setBalance(
-					(typeof stats.airdropCoins === 'number' ? stats.airdropCoins : 0) +
-						getOptimisticCoins(),
+					(typeof stats.airdropCoins === 'number' ? stats.airdropCoins : 0) + getOptimisticCoins(),
 				);
-				setTotalTaps((typeof stats.totalTaps === 'number' ? stats.totalTaps : 0) + getOptimisticTaps());
-				setUserXp(typeof stats.xp === 'number' ? stats.xp + getOptimisticTaps() * 2 : 0 + getOptimisticTaps() * 2);
+				setTotalTaps(
+					(typeof stats.totalTaps === 'number' ? stats.totalTaps : 0) + getOptimisticTaps(),
+				);
+				setUserXp(
+					typeof stats.xp === 'number'
+						? stats.xp + getOptimisticTaps() * 2
+						: 0 + getOptimisticTaps() * 2,
+				);
 				if (typeof stats.globalRank === 'number') {
 					setGlobalRank(stats.globalRank);
 				}
@@ -570,14 +601,18 @@ export const upgradeBooster = async (id: string) => {
 		return true;
 	} catch (e: any) {
 		console.error('upgrade error:', e);
-		const msg = e?.response?.data?.err || e?.response?.data?.message || e?.message || 'Failed to upgrade booster';
+		const msg =
+			e?.response?.data?.err ||
+			e?.response?.data?.message ||
+			e?.message ||
+			'Failed to upgrade booster';
 		showToast(msg, 'error');
 		if (msg.toLowerCase().includes('limit')) {
 			setTurboCount(0);
 			setFullEnergyCount(0);
 		}
 		return false;
-	};
+	}
 };
 
 export const syncAllData = async () => {

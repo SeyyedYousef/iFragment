@@ -40,14 +40,23 @@ type RealClient struct {
 	api    *tg.Client
 }
 
-// NewRealClient creates a real MTProto client with session management.
-func NewRealClient(ctx context.Context) (Client, error) {
+// EnsureSessionDir returns the resolved session directory and ensures it exists.
+func EnsureSessionDir() (string, error) {
 	sessionDir := os.Getenv("TG_SESSION_DIR")
 	if sessionDir == "" {
 		sessionDir = "./sessions"
 	}
 	if err := os.MkdirAll(sessionDir, 0700); err != nil {
-		return nil, fmt.Errorf("failed to create session directory: %w", err)
+		return "", fmt.Errorf("failed to create session directory: %w", err)
+	}
+	return sessionDir, nil
+}
+
+// NewRealClient creates a real MTProto client with session management.
+func NewRealClient(ctx context.Context) (Client, error) {
+	sessionDir, err := EnsureSessionDir()
+	if err != nil {
+		return nil, err
 	}
 
 	storage := &session.FileStorage{Path: filepath.Join(sessionDir, "bot.session")}

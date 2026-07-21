@@ -1,10 +1,23 @@
 import { Component, JSX } from 'solid-js';
-import { OwnerTabs } from './OwnerTabs.js';
 import { ImpersonationBanner } from './ImpersonationBanner.js';
+import { OwnerTabs } from './OwnerTabs.js';
 
 interface OwnerLayoutProps {
 	children: JSX.Element;
-	activeTab: 'dashboard' | 'users' | 'audit-logs' | 'quests' | 'combos' | 'userbot' | 'settings' | 'promos' | 'broadcast' | 'finance' | 'health' | 'entities' | 'ads';
+	activeTab:
+		| 'dashboard'
+		| 'users'
+		| 'audit-logs'
+		| 'quests'
+		| 'combos'
+		| 'userbot'
+		| 'settings'
+		| 'promos'
+		| 'broadcast'
+		| 'finance'
+		| 'health'
+		| 'entities'
+		| 'ads';
 	title?: string;
 }
 
@@ -33,9 +46,7 @@ export const OwnerLayout: Component<OwnerLayoutProps> = (props) => {
 								Live
 							</span>
 						</div>
-						<p class="text-[10px] text-white/40 font-bold mt-0.5">
-							سامانه مدیریت ارشد iFragment
-						</p>
+						<p class="text-[10px] text-white/40 font-bold mt-0.5">سامانه مدیریت ارشد iFragment</p>
 					</div>
 				</div>
 
@@ -44,7 +55,7 @@ export const OwnerLayout: Component<OwnerLayoutProps> = (props) => {
 						onClick={() => {
 							sessionStorage.removeItem('owner_token');
 							sessionStorage.removeItem('owner_telegram_id');
-							window.location.href = window.location.pathname + '#/';
+							window.location.href = `${window.location.pathname}#/`;
 							window.location.reload();
 						}}
 						class="h-8 px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 active:scale-95"
@@ -60,9 +71,7 @@ export const OwnerLayout: Component<OwnerLayoutProps> = (props) => {
 			<OwnerTabs active={props.activeTab} />
 
 			{/* Main Content Viewport */}
-			<main class="relative z-10 p-4 md:p-8 max-w-7xl mx-auto pb-24">
-				{props.children}
-			</main>
+			<main class="relative z-10 p-4 md:p-8 max-w-7xl mx-auto pb-24">{props.children}</main>
 		</div>
 	);
 };

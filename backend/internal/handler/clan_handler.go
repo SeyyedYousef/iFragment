@@ -153,10 +153,14 @@ func (h *ClanHandler) GetClanMembers(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+var clanHTTPClient = &http.Client{
+	Timeout: 10 * time.Second,
+}
+
 func (h *ClanHandler) GetClanPhotoProxy(w http.ResponseWriter, r *http.Request) {
 	username := r.URL.Query().Get("username")
 	if username == "" {
-		http.Error(w, "missing username", http.StatusBadRequest)
+		RespondError(w, r, http.StatusBadRequest, "missing username", nil)
 		return
 	}
 
@@ -167,13 +171,24 @@ func (h *ClanHandler) GetClanPhotoProxy(w http.ResponseWriter, r *http.Request) 
 		photoURL = fmt.Sprintf("https://t.me/i/userpic/320/%s.jpg", username)
 	}
 
-	// 2. Fetch the actual image bytes
-	resp, err := http.Get(photoURL)
+	// 2. Fetch the actual image bytes safely with context and timeout
+	req, err := http.NewRequestWithContext(r.Context(), "GET", photoURL, nil)
 	if err != nil {
-		http.Error(w, "failed to fetch photo", http.StatusBadGateway)
+		RespondError(w, r, http.StatusInternalServerError, "failed to create photo request", err)
+		return
+	}
+
+	resp, err := clanHTTPClient.Do(req)
+	if err != nil {
+		RespondError(w, r, http.StatusBadGateway, "failed to fetch photo", err)
 		return
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		RespondError(w, r, http.StatusBadGateway, fmt.Sprintf("remote photo returned status %d", resp.StatusCode), nil)
+		return
+	}
 
 	w.Header().Set("Content-Type", "image/jpeg")
 	// Cache for 1 day in browser/CDN to prevent hammering Telegram API

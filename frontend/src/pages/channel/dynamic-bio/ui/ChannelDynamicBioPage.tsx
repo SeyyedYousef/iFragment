@@ -65,14 +65,14 @@ export const ChannelDynamicBioPage: Component = () => {
 	onMount(async () => {
 		backButton.show();
 		const off = backButton.onClick(() => navigate(`/channel/${params.id}`));
-		
+
 		try {
 			const info = await channelApi.getTelegramInfo(params.id!);
 			if (info) setTelegramInfo(info);
 		} catch (e) {
 			console.error('Failed to fetch telegram info:', e);
 		}
-		
+
 		onCleanup(() => off());
 	});
 
@@ -87,18 +87,23 @@ export const ChannelDynamicBioPage: Component = () => {
 	const generatePreview = (template: string) => {
 		let res = template;
 		res = res.replace(/\$members/g, telegramInfo()?.memberCount?.toString() || '...');
-		
+
 		const now = new Date();
 		const hours = now.getUTCHours().toString().padStart(2, '0');
 		const mins = now.getUTCMinutes().toString().padStart(2, '0');
 		res = res.replace(/\$time/g, `${hours}:${mins}`);
-		
-		const dateStr = now.toLocaleDateString('en-GB', { timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric' });
+
+		const dateStr = now.toLocaleDateString('en-GB', {
+			timeZone: 'UTC',
+			day: '2-digit',
+			month: 'short',
+			year: 'numeric',
+		});
 		res = res.replace(/\$date/g, dateStr);
-		
+
 		const dayStr = now.toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'long' });
 		res = res.replace(/\$day_name/g, dayStr);
-		
+
 		res = res.replace(/\$Gram/g, '$...');
 		return res || 'Empty';
 	};
@@ -217,16 +222,21 @@ export const ChannelDynamicBioPage: Component = () => {
 								<span class="text-[15px] font-bold text-white">
 									{t('channelDynamicBio.title') || 'بیوگرافی و نام زنده'}
 								</span>
-								<span class="text-[11px] text-[#8e8e93]">{t('channelDynamicBio.subtitle') || 'Live channel info update'}</span>
+								<span class="text-[11px] text-[#8e8e93]">
+									{t('channelDynamicBio.subtitle') || 'Live channel info update'}
+								</span>
 							</div>
 							<ToggleSwitch checked={enabled()} onChange={setEnabled} />
 						</div>
 
 						<Show when={!enabled()}>
 							<div class="mt-2 p-4 bg-[#32ade6]/10 border border-[#32ade6]/30 rounded-xl flex flex-col gap-2">
-								<span class="text-[14px] font-bold text-[#32ade6]">{t('channelDynamicBio.guideTitle') || 'Live Bio & Name Guide'}</span>
+								<span class="text-[14px] font-bold text-[#32ade6]">
+									{t('channelDynamicBio.guideTitle') || 'Live Bio & Name Guide'}
+								</span>
 								<p class="text-[13px] text-white/80 leading-relaxed">
-									{t('channelDynamicBio.guideDesc') || 'By enabling this section, you can automatically update your channel bio...'}
+									{t('channelDynamicBio.guideDesc') ||
+										'By enabling this section, you can automatically update your channel bio...'}
 								</p>
 							</div>
 						</Show>
@@ -236,10 +246,28 @@ export const ChannelDynamicBioPage: Component = () => {
 
 							{/* Current Telegram Info Info */}
 							<div class="bg-[#2c2c2e] p-3 rounded-xl border border-[#3a3a3c] flex flex-col gap-3 mb-2">
-								<span class="text-[13px] font-bold text-[#8e8e93]">{t('channelDynamicBio.currentStatus') || 'Current Status in Telegram:'}</span>
+								<span class="text-[13px] font-bold text-[#8e8e93]">
+									{t('channelDynamicBio.currentStatus') || 'Current Status in Telegram:'}
+								</span>
 								<div class="flex flex-col gap-1">
-									<span class="text-[12px] text-white/60">{t('channelDynamicBio.currentName') || 'Current Name:'} <span class="text-white">{telegramInfo()?.title || currentName() || t('channelDynamicBio.fetching') || 'Fetching...'}</span></span>
-									<span class="text-[12px] text-white/60">{t('channelDynamicBio.currentBioReal') || 'Current Bio:'} <span class="text-white">{telegramInfo()?.description || currentBio() || t('channelDynamicBio.fetching') || 'Fetching...'}</span></span>
+									<span class="text-[12px] text-white/60">
+										{t('channelDynamicBio.currentName') || 'Current Name:'}{' '}
+										<span class="text-white">
+											{telegramInfo()?.title ||
+												currentName() ||
+												t('channelDynamicBio.fetching') ||
+												'Fetching...'}
+										</span>
+									</span>
+									<span class="text-[12px] text-white/60">
+										{t('channelDynamicBio.currentBioReal') || 'Current Bio:'}{' '}
+										<span class="text-white">
+											{telegramInfo()?.description ||
+												currentBio() ||
+												t('channelDynamicBio.fetching') ||
+												'Fetching...'}
+										</span>
+									</span>
 								</div>
 							</div>
 
@@ -248,9 +276,14 @@ export const ChannelDynamicBioPage: Component = () => {
 								<span class="text-[13px] font-bold text-[#32ade6]">Live Preview</span>
 								<div class="flex flex-col gap-1">
 									<Show when={displayInName()}>
-										<span class="text-[12px] text-white/60">New Name: <span class="text-white">{generatePreview(nameTemplate())}</span></span>
+										<span class="text-[12px] text-white/60">
+											New Name: <span class="text-white">{generatePreview(nameTemplate())}</span>
+										</span>
 									</Show>
-									<span class="text-[12px] text-white/60">New Bio: <span class="text-white break-words">{generatePreview(bioTemplate())}</span></span>
+									<span class="text-[12px] text-white/60">
+										New Bio:{' '}
+										<span class="text-white break-words">{generatePreview(bioTemplate())}</span>
+									</span>
 								</div>
 							</div>
 

@@ -1,6 +1,6 @@
 import { useNavigate } from '@solidjs/router';
 import { hapticFeedback, retrieveLaunchParams } from '@tma.js/sdk-solid';
-import { Component, createSignal, createEffect, onCleanup, Show } from 'solid-js';
+import { Component, createEffect, createSignal, onCleanup, Show } from 'solid-js';
 import { apiClient } from '@/shared/api/axios.js';
 import { t } from '@/shared/i18n/index.js';
 
@@ -53,8 +53,8 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 			hapticFeedback.impactOccurred('medium');
 		} catch {}
 
-		let tgUser: any = undefined;
-		let initData: any = undefined;
+		let tgUser: any;
+		let initData: any;
 
 		try {
 			const tg = (window as any).Telegram?.WebApp;
@@ -69,7 +69,10 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 		} catch (_e) {}
 
 		if (!initData) {
-			setErrorMsg(t('ownerGate.errorNotTMA') || 'دسترسی به پنل مدیریتی تنها داخل نرم‌افزار تلگرام (TMA) امکان‌پذیر است.');
+			setErrorMsg(
+				t('ownerGate.errorNotTMA') ||
+					'دسترسی به پنل مدیریتی تنها داخل نرم‌افزار تلگرام (TMA) امکان‌پذیر است.',
+			);
 			setLoading(false);
 			return;
 		}
@@ -100,7 +103,9 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 				hapticFeedback.notificationOccurred('error');
 			} catch {}
 			setErrorMsg(
-				err.response?.data?.error || t('ownerGate.errorAuth') || 'احراز هویت با خطا مواجه شد. لطفاً رمز عبور را بررسی نمایید.'
+				err.response?.data?.error ||
+					t('ownerGate.errorAuth') ||
+					'احراز هویت با خطا مواجه شد. لطفاً رمز عبور را بررسی نمایید.',
 			);
 			setPassword('');
 			inputRef?.focus();
@@ -137,7 +142,10 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 						<div class="w-16 h-16 rounded-3xl bg-gradient-to-br from-[#3390ec]/20 to-[#3390ec]/5 border border-[#3390ec]/30 flex items-center justify-center text-3xl mb-4 shadow-inner">
 							🛡️
 						</div>
-						<h2 id="owner-gate-title" class="text-lg font-black text-white uppercase tracking-wider">
+						<h2
+							id="owner-gate-title"
+							class="text-lg font-black text-white uppercase tracking-wider"
+						>
 							{t('ownerGate.title') || 'احراز هویت ورود به پنل مدیریت'}
 						</h2>
 						<p class="text-xs text-[#a0a4ad] font-bold mt-1 max-w-[240px]">

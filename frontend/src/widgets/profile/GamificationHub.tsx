@@ -42,9 +42,7 @@ export const BoostsCard: Component = () => {
 			<div class="w-10 h-10 mb-4 rounded-xl bg-[#0f1014] border border-[#d4af37]/20 flex items-center justify-center text-[#d4af37]">
 				<span class="material-symbols-outlined text-[20px] font-light">rocket_launch</span>
 			</div>
-			<span class="text-white font-black text-sm mb-1">
-				{t('gamification.boosts') || 'Boosts'}
-			</span>
+			<span class="text-white font-black text-sm mb-1">{t('gamification.boosts') || 'Boosts'}</span>
 			<span class="text-[10px] text-[#a0a4ad] font-medium leading-tight">
 				{t('gamification.multipliersBots') || 'Multipliers & Bots'}
 			</span>

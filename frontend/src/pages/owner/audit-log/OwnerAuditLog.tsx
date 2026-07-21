@@ -1,6 +1,6 @@
-import { Component, createSignal, For, onMount, Show } from 'solid-js';
-import { ownerApi, AuditLogEntry } from '@/shared/api/owner.js';
 import { hapticFeedback } from '@tma.js/sdk-solid';
+import { Component, createSignal, For, onMount, Show } from 'solid-js';
+import { AuditLogEntry, ownerApi } from '@/shared/api/owner.js';
 
 export const OwnerAuditLog: Component = () => {
 	const [logs, setLogs] = createSignal<AuditLogEntry[]>([]);
@@ -79,7 +79,7 @@ export const OwnerAuditLog: Component = () => {
 				l.action.toLowerCase().includes(q) ||
 				String(l.owner_id).includes(q) ||
 				(l.target_id && String(l.target_id).includes(q)) ||
-				(l.ip_address && l.ip_address.includes(q))
+				l.ip_address?.includes(q),
 		);
 	};
 
@@ -89,7 +89,9 @@ export const OwnerAuditLog: Component = () => {
 			<div class="bg-[#16171d]/60 border border-white/5 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
 				<div>
 					<h2 class="text-sm font-black text-white">لاگ‌ها و رویدادهای امنیتی سیستم</h2>
-					<p class="text-xs text-white/40 font-bold mt-0.5">ثبت غیرقابل تغییر (Audit Ledger) تمام تراکنش‌های ارشد</p>
+					<p class="text-xs text-white/40 font-bold mt-0.5">
+						ثبت غیرقابل تغییر (Audit Ledger) تمام تراکنش‌های ارشد
+					</p>
 				</div>
 
 				<div class="w-full md:w-72 bg-black/40 border border-white/10 focus-within:border-[#3390ec] rounded-2xl px-4 flex items-center gap-2.5 transition-all">
@@ -135,7 +137,9 @@ export const OwnerAuditLog: Component = () => {
 								<div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs text-white/70">
 									<Show when={log.target_id}>
 										<div>
-											<span class="text-white/40 font-bold block text-[10px]">موجودیت/کاربر هدف:</span>
+											<span class="text-white/40 font-bold block text-[10px]">
+												موجودیت/کاربر هدف:
+											</span>
 											<span class="font-mono text-white text-xs">{log.target_id}</span>
 										</div>
 									</Show>
@@ -149,8 +153,12 @@ export const OwnerAuditLog: Component = () => {
 
 									<Show when={log.user_agent}>
 										<div class="md:col-span-3">
-											<span class="text-white/40 font-bold block text-[10px]">مشخصات مرورگر / User Agent:</span>
-											<span class="font-mono text-[10px] text-white/50 truncate block">{log.user_agent}</span>
+											<span class="text-white/40 font-bold block text-[10px]">
+												مشخصات مرورگر / User Agent:
+											</span>
+											<span class="font-mono text-[10px] text-white/50 truncate block">
+												{log.user_agent}
+											</span>
 										</div>
 									</Show>
 								</div>
@@ -176,7 +184,9 @@ export const OwnerAuditLog: Component = () => {
 												>
 													کپی JSON
 												</button>
-												<pre class="whitespace-pre-wrap leading-relaxed">{JSON.stringify(safePayload, null, 2)}</pre>
+												<pre class="whitespace-pre-wrap leading-relaxed">
+													{JSON.stringify(safePayload, null, 2)}
+												</pre>
 											</div>
 										</Show>
 									</div>

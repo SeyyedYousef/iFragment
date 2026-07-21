@@ -34,6 +34,28 @@ func (h *ChannelHandler) getUserID(r *http.Request) int64 {
 	return id
 }
 
+func parseCursor(cursorStr string) (*time.Time, *uuid.UUID) {
+	if cursorStr == "" {
+		return nil, nil
+	}
+	parts := strings.Split(cursorStr, "_")
+	if len(parts) == 2 {
+		var t *time.Time
+		var u *uuid.UUID
+		if parsedT, err := time.Parse(time.RFC3339, parts[0]); err == nil {
+			t = &parsedT
+		}
+		if parsedU, err := uuid.Parse(parts[1]); err == nil {
+			u = &parsedU
+		}
+		return t, u
+	}
+	if t, err := time.Parse(time.RFC3339, cursorStr); err == nil {
+		return &t, nil
+	}
+	return nil, nil
+}
+
 func (h *ChannelHandler) ListChannels(w http.ResponseWriter, r *http.Request) {
 	userID := h.getUserID(r)
 	if userID == 0 {
@@ -55,23 +77,7 @@ func (h *ChannelHandler) ListChannels(w http.ResponseWriter, r *http.Request) {
 	limitStr := r.URL.Query().Get("limit")
 	cursorStr := r.URL.Query().Get("cursor")
 
-	var cursor *time.Time
-	var cursorID *uuid.UUID
-	if cursorStr != "" {
-		parts := strings.Split(cursorStr, "_")
-		if len(parts) == 2 {
-			if t, err := time.Parse(time.RFC3339, parts[0]); err == nil {
-				cursor = &t
-			}
-			if u, err := uuid.Parse(parts[1]); err == nil {
-				cursorID = &u
-			}
-		} else {
-			if t, err := time.Parse(time.RFC3339, cursorStr); err == nil {
-				cursor = &t
-			}
-		}
-	}
+	cursor, cursorID := parseCursor(cursorStr)
 
 	limit := 20
 	if limitStr != "" {
@@ -298,23 +304,7 @@ func (h *ChannelHandler) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cursorStr := r.URL.Query().Get("cursor")
-	var cursor *time.Time
-	var cursorID *uuid.UUID
-	if cursorStr != "" {
-		parts := strings.Split(cursorStr, "_")
-		if len(parts) == 2 {
-			if t, err := time.Parse(time.RFC3339, parts[0]); err == nil {
-				cursor = &t
-			}
-			if u, err := uuid.Parse(parts[1]); err == nil {
-				cursorID = &u
-			}
-		} else {
-			if t, err := time.Parse(time.RFC3339, cursorStr); err == nil {
-				cursor = &t
-			}
-		}
-	}
+	cursor, cursorID := parseCursor(cursorStr)
 
 	logs, err := h.svc.GetAuditLogs(r.Context(), userID, channelID, cursor, cursorID, limit)
 	if err != nil {

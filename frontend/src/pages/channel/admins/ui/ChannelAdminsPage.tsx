@@ -94,7 +94,7 @@ export const ChannelAdminsPage: Component = () => {
 			(a: any) =>
 				a.name.toLowerCase().includes(q) ||
 				a.role.toLowerCase().includes(q) ||
-				(a.customTitle && a.customTitle.toLowerCase().includes(q)),
+				a.customTitle?.toLowerCase().includes(q),
 		);
 	});
 
@@ -102,22 +102,31 @@ export const ChannelAdminsPage: Component = () => {
 		const admins = filteredAdmins();
 		const owners = admins.filter((a: any) => a.role === 'Owner');
 		const bots = admins.filter((a: any) => a.role === 'Bot');
-		
+
 		const regularAdmins = admins.filter((a: any) => a.role !== 'Owner' && a.role !== 'Bot');
 		// ادمین‌های خروجی (محتوا)
-		const contentAdmins = regularAdmins.filter((a: any) => a.perms.post || a.perms.edit || a.perms.postStories);
+		const contentAdmins = regularAdmins.filter(
+			(a: any) => a.perms.post || a.perms.edit || a.perms.postStories,
+		);
 		// ادمین‌های ورودی (عضوگیری و مدیریت)
-		const inviteAdmins = regularAdmins.filter((a: any) => (a.perms.invite || a.perms.promote) && !contentAdmins.includes(a));
+		const inviteAdmins = regularAdmins.filter(
+			(a: any) => (a.perms.invite || a.perms.promote) && !contentAdmins.includes(a),
+		);
 		// سایر ادمین‌ها
-		const otherAdmins = regularAdmins.filter((a: any) => !contentAdmins.includes(a) && !inviteAdmins.includes(a));
+		const otherAdmins = regularAdmins.filter(
+			(a: any) => !contentAdmins.includes(a) && !inviteAdmins.includes(a),
+		);
 
 		return [
 			{ title: t('channelAdmins.owners') || 'Owners', items: owners },
-			{ title: t('channelAdmins.contentAdmins') || 'Content Admins (Output)', items: contentAdmins },
+			{
+				title: t('channelAdmins.contentAdmins') || 'Content Admins (Output)',
+				items: contentAdmins,
+			},
 			{ title: t('channelAdmins.inviteAdmins') || 'Community Admins (Input)', items: inviteAdmins },
 			{ title: t('channelAdmins.otherAdmins') || 'Other Admins', items: otherAdmins },
 			{ title: 'Bots', items: bots },
-		].filter(g => g.items.length > 0);
+		].filter((g) => g.items.length > 0);
 	});
 
 	const openAdminModal = (admin: any = null) => {
@@ -190,8 +199,6 @@ export const ChannelAdminsPage: Component = () => {
 			setIsSaving(false);
 		}
 	};
-
-
 
 	return (
 		<div class="min-h-screen bg-[#0f1014] pb-28 relative overflow-x-hidden text-white">
@@ -303,7 +310,9 @@ export const ChannelAdminsPage: Component = () => {
 						<For each={groupedAdmins()}>
 							{(group) => (
 								<div class="flex flex-col gap-2">
-									<h2 class="text-[13px] font-bold text-[#8e8e93] px-2 pt-2 uppercase tracking-wider">{group.title}</h2>
+									<h2 class="text-[13px] font-bold text-[#8e8e93] px-2 pt-2 uppercase tracking-wider">
+										{group.title}
+									</h2>
 									<div class="bg-[#1c1c1c]/60 backdrop-blur-md rounded-3xl border border-white/5 flex flex-col overflow-hidden shadow-md">
 										<For each={group.items}>
 											{(item: any, i) => (
@@ -401,7 +410,17 @@ export const ChannelAdminsPage: Component = () => {
 																{t('channelAdmins.anonymous') || 'Anonymous'}
 															</span>
 														</Show>
-														<Show when={!item.perms.post && !item.perms.edit && !item.perms.delete && !item.perms.invite && !item.perms.promote && !item.perms.postStories && !item.perms.anonymous}>
+														<Show
+															when={
+																!item.perms.post &&
+																!item.perms.edit &&
+																!item.perms.delete &&
+																!item.perms.invite &&
+																!item.perms.promote &&
+																!item.perms.postStories &&
+																!item.perms.anonymous
+															}
+														>
 															<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all bg-white/5 border-white/10 text-[#8e8e93]">
 																{t('channelAdmins.noSpecialPerms') || 'Read Only'}
 															</span>
@@ -462,16 +481,43 @@ export const ChannelAdminsPage: Component = () => {
 										each={[
 											{ key: 'post', label: t('channelAdmins.permCanPost') || 'Post Messages' },
 											{ key: 'edit', label: t('channelAdmins.permCanEdit') || 'Edit Messages' },
-											{ key: 'delete', label: t('channelAdmins.permCanDelete') || 'Delete Messages' },
+											{
+												key: 'delete',
+												label: t('channelAdmins.permCanDelete') || 'Delete Messages',
+											},
 											{ key: 'pin', label: t('channelAdmins.permCanPin') || 'Pin Messages' },
-											{ key: 'invite', label: t('channelAdmins.permCanInvite') || 'Invite Users via Link' },
-											{ key: 'postStories', label: t('channelAdmins.permCanPostStories') || 'Post Stories' },
-											{ key: 'editStories', label: t('channelAdmins.permCanEditStories') || 'Edit Stories' },
-											{ key: 'deleteStories', label: t('channelAdmins.permCanDeleteStories') || 'Delete Stories' },
-											{ key: 'videoChat', label: t('channelAdmins.permCanManageVC') || 'Manage Video Chats' },
-											{ key: 'editInfo', label: t('channelAdmins.permCanEditInfo') || 'Edit Channel Info' },
-											{ key: 'promote', label: t('channelAdmins.permCanPromote') || 'Add New Admins' },
-											{ key: 'anonymous', label: t('channelAdmins.permAnonymous') || 'Remain Anonymous' },
+											{
+												key: 'invite',
+												label: t('channelAdmins.permCanInvite') || 'Invite Users via Link',
+											},
+											{
+												key: 'postStories',
+												label: t('channelAdmins.permCanPostStories') || 'Post Stories',
+											},
+											{
+												key: 'editStories',
+												label: t('channelAdmins.permCanEditStories') || 'Edit Stories',
+											},
+											{
+												key: 'deleteStories',
+												label: t('channelAdmins.permCanDeleteStories') || 'Delete Stories',
+											},
+											{
+												key: 'videoChat',
+												label: t('channelAdmins.permCanManageVC') || 'Manage Video Chats',
+											},
+											{
+												key: 'editInfo',
+												label: t('channelAdmins.permCanEditInfo') || 'Edit Channel Info',
+											},
+											{
+												key: 'promote',
+												label: t('channelAdmins.permCanPromote') || 'Add New Admins',
+											},
+											{
+												key: 'anonymous',
+												label: t('channelAdmins.permAnonymous') || 'Remain Anonymous',
+											},
 										]}
 									>
 										{(perm, index) => (

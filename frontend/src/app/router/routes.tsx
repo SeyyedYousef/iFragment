@@ -1,6 +1,5 @@
 import type { Component } from 'solid-js';
 import { AirdropPage } from '@/pages/airdrop/airdrop/index.js';
-import { CollectionInfoPage } from '@/pages/collection-info/index.js';
 import { ChannelAdminsPage } from '@/pages/channel/admins/index.js';
 import { ChannelAnalyticsPage } from '@/pages/channel/analytics/index.js';
 import { ChannelAuditLogPage } from '@/pages/channel/audit-log/index.js';
@@ -8,31 +7,39 @@ import { ChannelAutoResponderPage } from '@/pages/channel/auto-responder/index.j
 import { ConnectChannelPage } from '@/pages/channel/connect-channel/index.js';
 import { ChannelDashboardPage } from '@/pages/channel/dashboard/index.js';
 import { ChannelDynamicBioPage } from '@/pages/channel/dynamic-bio/index.js';
+import { EditProjectPage } from '@/pages/channel/edit-project/ui/EditProjectPage.js';
 import { ChannelForwardingPage } from '@/pages/channel/forwarding/index.js';
+import { ChannelFunnelPage } from '@/pages/channel/funnel/index.js';
 import { ChannelGeneralSettingsPage } from '@/pages/channel/general-settings/index.js';
 import { ChannelInlineButtonsPage } from '@/pages/channel/inline-buttons/index.js';
 import { ManagedChannelsPage } from '@/pages/channel/managed-channels/index.js';
 import { ChannelPostingPage } from '@/pages/channel/posting/index.js';
-import { ChannelFunnelPage } from '@/pages/channel/funnel/index.js';
-import { EditProjectPage } from '@/pages/channel/edit-project/ui/EditProjectPage.js';
+import { CollectionInfoPage } from '@/pages/collection-info/index.js';
 import { DashboardPage } from '@/pages/dashboard/dashboard/index.js';
 import { AnalyticsPage } from '@/pages/group/analytics/index.js';
 import { BotManagePage } from '@/pages/group/bot-manage/index.js';
 import { ContentRestrictionsPage } from '@/pages/group/content-restrictions/index.js';
 import { CustomTextsPage } from '@/pages/group/custom-texts/index.js';
 import { GroupDashboardPage } from '@/pages/group/dashboard/index.js';
-import { GeneralSettingsPage } from '@/pages/group/general-settings/index.js';
 import { GroupDynamicBioPage } from '@/pages/group/dynamic-bio/index.js';
+import { GeneralSettingsPage } from '@/pages/group/general-settings/index.js';
 import { LimitsPage } from '@/pages/group/limits/index.js';
 import { ManagedBotsPage } from '@/pages/group/managed-bots/index.js';
 import { MandatoryPage } from '@/pages/group/mandatory/index.js';
 import { QuietHoursPage } from '@/pages/group/quiet-hours/index.js';
 import { IndexPage } from '@/pages/home/home/index.js';
 import { MarketplacePage } from '@/pages/marketplace/index.js';
+import { OwnerAds } from '@/pages/owner/ads/index.js';
 import { OwnerAuditLogPage } from '@/pages/owner/audit-log/index.js';
-import { OwnerDashboardPage } from '@/pages/owner/dashboard/index.js';
-import { OwnerQuests } from '@/pages/owner/quests/index.js';
+import { OwnerBroadcastPage } from '@/pages/owner/broadcast/index.js';
 import { OwnerCombos } from '@/pages/owner/combos/index.js';
+import { OwnerDashboardPage } from '@/pages/owner/dashboard/index.js';
+import { OwnerEntitiesPage } from '@/pages/owner/entities/index.js';
+import { OwnerFinancePage } from '@/pages/owner/finance/index.js';
+import { OwnerHealthPage } from '@/pages/owner/health/index.js';
+import { OwnerPromosPage } from '@/pages/owner/promos/index.js';
+import { OwnerQuests } from '@/pages/owner/quests/index.js';
+import { OwnerSettingsPage } from '@/pages/owner/settings/index.js';
 import { OwnerUserbot } from '@/pages/owner/userbot/index.js';
 import { OwnerUsersPage } from '@/pages/owner/users/index.js';
 import { AchievementsPage } from '@/pages/profile/achievements/index.js';
@@ -42,17 +49,9 @@ import { ProfilePage } from '@/pages/profile/profile/index.js';
 import { SecurityPage } from '@/pages/profile/security/index.js';
 import { SettingsPage } from '@/pages/profile/settings/index.js';
 import { TasksPage } from '@/pages/profile/tasks/index.js';
-
-import { OwnerSettingsPage } from '@/pages/owner/settings/index.js';
-import { OwnerPromosPage } from '@/pages/owner/promos/index.js';
-import { OwnerBroadcastPage } from '@/pages/owner/broadcast/index.js';
-import { OwnerFinancePage } from '@/pages/owner/finance/index.js';
-import { OwnerHealthPage } from '@/pages/owner/health/index.js';
-import { OwnerEntitiesPage } from '@/pages/owner/entities/index.js';
-import { OwnerAds } from '@/pages/owner/ads/index.js';
 import { UsernamePage } from '@/pages/username/index.js';
-import { OwnerRouteGuard } from './OwnerRouteGuard.js';
 import { OwnerLayout } from '@/widgets/owner/OwnerLayout.js';
+import { OwnerRouteGuard } from './OwnerRouteGuard.js';
 
 interface Route {
 	path: string;
@@ -108,18 +107,33 @@ export const routes: Route[] = [
 	{ path: '/channel/:id/dynamic-bio', Component: ChannelDynamicBioPage },
 	{ path: '/channel/:id/auto-responder', Component: ChannelAutoResponderPage },
 	{ path: '/channel/:id/audit-log', Component: ChannelAuditLogPage },
-	{ path: '/owner/dashboard', Component: withOwnerGuard(OwnerDashboardPage, 'dashboard', 'داشبورد مدیریتی') },
+	{
+		path: '/owner/dashboard',
+		Component: withOwnerGuard(OwnerDashboardPage, 'dashboard', 'داشبورد مدیریتی'),
+	},
 	{ path: '/owner/users', Component: withOwnerGuard(OwnerUsersPage, 'users', 'مدیریت کاربران') },
-	{ path: '/owner/audit-logs', Component: withOwnerGuard(OwnerAuditLogPage, 'audit-logs', 'لاگ‌های سیستم') },
+	{
+		path: '/owner/audit-logs',
+		Component: withOwnerGuard(OwnerAuditLogPage, 'audit-logs', 'لاگ‌های سیستم'),
+	},
 	{ path: '/owner/quests', Component: withOwnerGuard(OwnerQuests, 'quests', 'مدیریت مأموریت‌ها') },
 	{ path: '/owner/combos', Component: withOwnerGuard(OwnerCombos, 'combos', 'کامبو روزانه') },
 	{ path: '/owner/userbot', Component: withOwnerGuard(OwnerUserbot, 'userbot', 'ربات‌های متصل') },
-	{ path: '/owner/settings', Component: withOwnerGuard(OwnerSettingsPage, 'settings', 'تنظیمات سیستم') },
+	{
+		path: '/owner/settings',
+		Component: withOwnerGuard(OwnerSettingsPage, 'settings', 'تنظیمات سیستم'),
+	},
 	{ path: '/owner/promos', Component: withOwnerGuard(OwnerPromosPage, 'promos', 'کدهای هدیه') },
-	{ path: '/owner/broadcast', Component: withOwnerGuard(OwnerBroadcastPage, 'broadcast', 'ارسال همگانی') },
+	{
+		path: '/owner/broadcast',
+		Component: withOwnerGuard(OwnerBroadcastPage, 'broadcast', 'ارسال همگانی'),
+	},
 	{ path: '/owner/finance', Component: withOwnerGuard(OwnerFinancePage, 'finance', 'امور مالی') },
 	{ path: '/owner/health', Component: withOwnerGuard(OwnerHealthPage, 'health', 'سلامت سیستم') },
-	{ path: '/owner/entities', Component: withOwnerGuard(OwnerEntitiesPage, 'entities', 'مدیریت گروه‌ها و کانال‌ها') },
+	{
+		path: '/owner/entities',
+		Component: withOwnerGuard(OwnerEntitiesPage, 'entities', 'مدیریت گروه‌ها و کانال‌ها'),
+	},
 	{ path: '/owner/ads', Component: withOwnerGuard(OwnerAds, 'ads', 'تنظیمات تبلیغات') },
 	{ path: '/collection-info', Component: CollectionInfoPage },
 	{ path: '/username/report', Component: UsernamePage },

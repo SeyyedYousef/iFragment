@@ -113,7 +113,9 @@ export const ChannelAnalyticsPage: Component = () => {
 									setTimeRange(range);
 								}}
 								class={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors ${
-									timeRange() === range ? 'bg-[#3390ec] text-white shadow-sm' : 'text-white/50 hover:text-white'
+									timeRange() === range
+										? 'bg-[#3390ec] text-white shadow-sm'
+										: 'text-white/50 hover:text-white'
 								}`}
 							>
 								{range === '7d' ? '۷ روز' : range === '30d' ? '۳۰ روز' : '۹۰ روز'}
@@ -128,12 +130,12 @@ export const ChannelAnalyticsPage: Component = () => {
 						<span class="material-symbols-outlined text-[#3390ec] text-[20px] mb-1">
 							trending_up
 						</span>
-						<h3 class={`text-2xl font-black font-mono ${getErrColor(analytics()?.summary?.engagement_rate ?? 0)}`}>
+						<h3
+							class={`text-2xl font-black font-mono ${getErrColor(analytics()?.summary?.engagement_rate ?? 0)}`}
+						>
 							{analytics()?.summary?.engagement_rate ?? 0}%
 						</h3>
-						<p class="text-xs text-white/50 font-bold">
-							نرخ تعامل (ERR)
-						</p>
+						<p class="text-xs text-white/50 font-bold">نرخ تعامل (ERR)</p>
 					</div>
 
 					{/* Citation Index Card */}
@@ -163,16 +165,14 @@ export const ChannelAnalyticsPage: Component = () => {
 					<div class="bg-[#151822] p-5 rounded-[24px] border border-white/10 flex flex-col gap-2 col-span-2">
 						<div class="flex items-center justify-between">
 							<div class="flex flex-col">
-								<span class="text-xs text-white/50 font-bold">
-									رشد اعضای کانال
-								</span>
+								<span class="text-xs text-white/50 font-bold">رشد اعضای کانال</span>
 								<div class="flex items-end gap-2">
 									<h3 class="text-2xl font-black text-white font-mono">
 										+{(analytics()?.summary?.new_members || 0).toLocaleString()}
 									</h3>
 									<Show when={analytics()?.summary?.new_members_today}>
 										<span class="text-xs font-bold text-[#10b981] mb-1 font-mono">
-											+{(analytics()?.summary?.new_members_today || 0)} امروز
+											+{analytics()?.summary?.new_members_today || 0} امروز
 										</span>
 									</Show>
 								</div>
@@ -201,9 +201,7 @@ export const ChannelAnalyticsPage: Component = () => {
 					>
 						<div class="flex items-center justify-between">
 							<div class="flex flex-col">
-								<span class="text-xs text-white/50 font-bold">
-									میانگین بازدید هر پست
-								</span>
+								<span class="text-xs text-white/50 font-bold">میانگین بازدید هر پست</span>
 								<h3 class="text-2xl font-black text-white font-mono">
 									{(analytics()?.summary?.total_views || 0).toLocaleString()}
 								</h3>
@@ -248,7 +246,8 @@ export const ChannelAnalyticsPage: Component = () => {
 						</div>
 
 						<p class="text-xs text-white/70 leading-relaxed font-bold">
-							شاخص اعتبار (CI) بر برپایه میزان ارجاع سایر کانال‌ها، فوروارد بازنشرها، پایداری بازدیدها و اصالت محتوای کانال محاسبه می‌گردد.
+							شاخص اعتبار (CI) بر برپایه میزان ارجاع سایر کانال‌ها، فوروارد بازنشرها، پایداری
+							بازدیدها و اصالت محتوای کانال محاسبه می‌گردد.
 						</p>
 
 						<div class="bg-black/40 border border-white/5 rounded-2xl p-4 space-y-2 text-xs">

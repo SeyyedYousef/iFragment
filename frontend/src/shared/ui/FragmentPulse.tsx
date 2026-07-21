@@ -19,7 +19,6 @@ export const FragmentPulse: Component<FragmentPulseProps> = (props) => {
 				return '#06b6d4';
 			case 'danger':
 				return '#ef4444';
-			case 'active':
 			default:
 				return '#3390ec';
 		}

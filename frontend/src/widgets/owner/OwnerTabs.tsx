@@ -49,7 +49,7 @@ export const OwnerTabs: Component<OwnerTabsProps> = (props) => {
 	let activeBtnRef: HTMLButtonElement | undefined;
 
 	onMount(() => {
-		if (activeBtnRef && activeBtnRef.scrollIntoView) {
+		if (activeBtnRef?.scrollIntoView) {
 			activeBtnRef.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
 		}
 	});

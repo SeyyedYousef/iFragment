@@ -158,8 +158,6 @@ export const MarketplacePage: Component = () => {
 			class="flex flex-col bg-[#0f1014] relative overflow-hidden"
 			style={{ 'min-height': 'var(--tg-viewport-stable-height, 100vh)' }}
 		>
-
-
 			{/* Header Info */}
 			<div class="px-5 pt-6 pb-4 z-10 flex flex-col items-center">
 				<span

@@ -11,7 +11,9 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 	const [loading, setLoading] = createSignal(false);
 	const [errorMsg, setErrorMsg] = createSignal('');
 	const [showLeaveModal, setShowLeaveModal] = createSignal(false);
-	const [filterCategory, setFilterCategory] = createSignal<'featured' | 'growing' | 'friends'>('featured');
+	const [filterCategory, setFilterCategory] = createSignal<'featured' | 'growing' | 'friends'>(
+		'featured',
+	);
 	const [topClans] = createResource(getTopClans);
 
 	const clanId = () => userClan()?.id;
@@ -27,7 +29,8 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 
 	const triggerHaptic = (type: 'impact' | 'success' | 'error' | 'light') => {
 		try {
-			const tgHaptic = typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.HapticFeedback;
+			const tgHaptic =
+				typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.HapticFeedback;
 			if (type === 'impact') {
 				tgHaptic ? tgHaptic.impactOccurred('medium') : hapticFeedback.impactOccurred('medium');
 			} else if (type === 'light') {
@@ -145,7 +148,9 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 							<button
 								onClick={() => setFilterCategory('featured')}
 								class={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-									filterCategory() === 'featured' ? 'bg-[#3390ec] text-white' : 'text-white/50 hover:text-white'
+									filterCategory() === 'featured'
+										? 'bg-[#3390ec] text-white'
+										: 'text-white/50 hover:text-white'
 								}`}
 							>
 								{t('airdrop.clan.featuredTab')}
@@ -153,7 +158,9 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 							<button
 								onClick={() => setFilterCategory('growing')}
 								class={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-									filterCategory() === 'growing' ? 'bg-[#3390ec] text-white' : 'text-white/50 hover:text-white'
+									filterCategory() === 'growing'
+										? 'bg-[#3390ec] text-white'
+										: 'text-white/50 hover:text-white'
 								}`}
 							>
 								{t('airdrop.clan.growingTab')}
@@ -167,13 +174,24 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 									<div class="bg-[#151822] border border-white/10 rounded-[20px] p-3.5 flex items-center justify-between">
 										<div class="flex items-center gap-3">
 											<div class="w-10 h-10 rounded-xl bg-black border border-white/10 overflow-hidden flex items-center justify-center shrink-0">
-												<Show when={clan.channel_photo} fallback={<span class="text-amber-400 font-bold text-xs">🛡️</span>}>
-													<img src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan.channel_username}`} alt="" class="w-full h-full object-cover" />
+												<Show
+													when={clan.channel_photo}
+													fallback={<span class="text-amber-400 font-bold text-xs">🛡️</span>}
+												>
+													<img
+														src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan.channel_username}`}
+														alt=""
+														class="w-full h-full object-cover"
+													/>
 												</Show>
 											</div>
 											<div class="flex flex-col text-start">
 												<span class="text-xs font-black text-white">{clan.chat_title}</span>
-												<span class="text-[10px] font-mono text-white/40">{t('airdrop.clan.membersCount', { count: formatNumber(clan.members_count) })}</span>
+												<span class="text-[10px] font-mono text-white/40">
+													{t('airdrop.clan.membersCount', {
+														count: formatNumber(clan.members_count),
+													})}
+												</span>
 											</div>
 										</div>
 
@@ -205,13 +223,21 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 						<div class="bg-[#151822] border border-white/10 rounded-[24px] p-5 space-y-4 text-center">
 							<div class="w-16 h-16 mx-auto rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center overflow-hidden">
 								<Show when={clan().channel_photo} fallback={<span class="text-2xl">🛡️</span>}>
-									<img src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`} alt="" class="w-full h-full object-cover" />
+									<img
+										src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`}
+										alt=""
+										class="w-full h-full object-cover"
+									/>
 								</Show>
 							</div>
 
 							<div class="space-y-1">
 								<h2 class="text-lg font-black text-white">{clan().chat_title}</h2>
-								<div class="text-xs font-mono text-amber-400 font-bold">{t('airdrop.clan.totalScoreText', { score: formatNumber(clan().total_score || 0) })}</div>
+								<div class="text-xs font-mono text-amber-400 font-bold">
+									{t('airdrop.clan.totalScoreText', {
+										score: formatNumber(clan().total_score || 0),
+									})}
+								</div>
 							</div>
 
 							<div class="grid grid-cols-3 gap-2 pt-2">
@@ -241,16 +267,24 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 
 						{/* Members List */}
 						<div class="mt-6 space-y-3">
-							<h3 class="text-xs font-black text-white uppercase tracking-wider px-1">{t('airdrop.clan.membersHeader')}</h3>
+							<h3 class="text-xs font-black text-white uppercase tracking-wider px-1">
+								{t('airdrop.clan.membersHeader')}
+							</h3>
 							<div class="space-y-2">
 								<For each={clanMembers() || []}>
 									{(member, index) => (
 										<div class="bg-[#151822] border border-white/10 rounded-2xl p-3 flex items-center justify-between">
 											<div class="flex items-center gap-3">
-												<span class="text-xs font-mono font-bold text-white/40">#{index() + 1}</span>
-												<span class="text-xs font-bold text-white"><bdi>{member.first_name}</bdi></span>
+												<span class="text-xs font-mono font-bold text-white/40">
+													#{index() + 1}
+												</span>
+												<span class="text-xs font-bold text-white">
+													<bdi>{member.first_name}</bdi>
+												</span>
 											</div>
-											<span class="text-xs font-mono font-black text-amber-400">{formatScore(member.score)}</span>
+											<span class="text-xs font-mono font-black text-amber-400">
+												{formatScore(member.score)}
+											</span>
 										</div>
 									)}
 								</For>
@@ -272,10 +306,16 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 							{t('airdrop.clan.leaveModalDesc')}
 						</p>
 						<div class="flex gap-3 pt-2">
-							<button onClick={() => setShowLeaveModal(false)} class="flex-1 h-11 bg-white/5 rounded-xl text-xs font-bold text-white">
+							<button
+								onClick={() => setShowLeaveModal(false)}
+								class="flex-1 h-11 bg-white/5 rounded-xl text-xs font-bold text-white"
+							>
 								{t('airdrop.clan.cancelBtn')}
 							</button>
-							<button onClick={confirmLeaveClan} class="flex-1 h-11 bg-red-500 rounded-xl text-xs font-black text-white shadow-lg shadow-red-500/20">
+							<button
+								onClick={confirmLeaveClan}
+								class="flex-1 h-11 bg-red-500 rounded-xl text-xs font-black text-white shadow-lg shadow-red-500/20"
+							>
 								{t('airdrop.clan.confirmLeaveBtn')}
 							</button>
 						</div>

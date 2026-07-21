@@ -91,7 +91,11 @@ export const ChannelDashboardPage: Component = () => {
 						<div class="flex items-center gap-1.5 text-[10px] text-white/50 font-bold mt-0.5">
 							<span>{(channel()?.members_count || 0).toLocaleString()} عضو</span>
 							<span>•</span>
-							<span class={channel()?.subscription_status === 'paid' ? 'text-[#10b981]' : 'text-[#f59e0b]'}>
+							<span
+								class={
+									channel()?.subscription_status === 'paid' ? 'text-[#10b981]' : 'text-[#f59e0b]'
+								}
+							>
 								{channel()?.subscription_status === 'paid' ? 'پرمیوم (Pro)' : 'رایگان (Free)'}
 							</span>
 						</div>
@@ -106,7 +110,9 @@ export const ChannelDashboardPage: Component = () => {
 							exit={{ opacity: 0, scale: 0.9 }}
 							class={`absolute top-[120%] w-[180px] bg-[#0088cc] text-white text-[12px] font-bold p-3 rounded-2xl shadow-xl z-50 flex flex-col gap-2 ${isRtl() ? 'left-0 origin-top-left' : 'right-0 origin-top-right'}`}
 						>
-							<div class={`absolute -top-2 w-4 h-4 bg-[#0088cc] rotate-45 rounded-sm ${isRtl() ? 'left-4' : 'right-4'}`} />
+							<div
+								class={`absolute -top-2 w-4 h-4 bg-[#0088cc] rotate-45 rounded-sm ${isRtl() ? 'left-4' : 'right-4'}`}
+							/>
 							<div class="relative z-10 flex items-start justify-between gap-2">
 								<span>دستورات و ابزارهای انتشار کانال</span>
 								<button
@@ -140,7 +146,9 @@ export const ChannelDashboardPage: Component = () => {
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-2">
 							<FragmentPulse state="healthy" />
-							<h2 class="text-xs font-black uppercase text-white tracking-wider">اتاق فرمان انتشار (CHANNEL PULSE)</h2>
+							<h2 class="text-xs font-black uppercase text-white tracking-wider">
+								اتاق فرمان انتشار (CHANNEL PULSE)
+							</h2>
 						</div>
 						<span class="text-[11px] font-mono font-bold text-[#10b981]">
 							+{analytics()?.summary?.new_members_today || 0} عضو امروز
@@ -170,7 +178,9 @@ export const ChannelDashboardPage: Component = () => {
 				<Show when={funnel()}>
 					<div class="bg-[#151822] border border-white/10 rounded-[24px] p-5 space-y-3">
 						<div class="flex items-center justify-between">
-							<h3 class="text-xs font-black text-[#06b6d4] uppercase tracking-wider">مسیر انتشار خودکار</h3>
+							<h3 class="text-xs font-black text-[#06b6d4] uppercase tracking-wider">
+								مسیر انتشار خودکار
+							</h3>
 							<button
 								onClick={() => navigate(`/channel/${params.id}/funnel`)}
 								class="text-[11px] font-bold text-[#3390ec] hover:underline"
@@ -182,14 +192,18 @@ export const ChannelDashboardPage: Component = () => {
 						<div class="grid grid-cols-3 gap-2 text-center pt-2">
 							<div class="bg-black/40 border border-white/5 rounded-2xl p-3">
 								<span class="text-[10px] text-white/40 font-bold block mb-1">پیش‌نویس‌ها</span>
-								<span class="text-sm font-black text-white font-mono">{funnel()?.input_title || 'ورودی'}</span>
+								<span class="text-sm font-black text-white font-mono">
+									{funnel()?.input_title || 'ورودی'}
+								</span>
 							</div>
 							<div class="flex items-center justify-center">
 								<span class="material-symbols-outlined text-[#06b6d4] text-2xl">arrow_forward</span>
 							</div>
 							<div class="bg-black/40 border border-white/5 rounded-2xl p-3">
 								<span class="text-[10px] text-[#10b981] font-bold block mb-1">کانال عمومی</span>
-								<span class="text-sm font-black text-white font-mono">{channel()?.chat_title || 'خروجی'}</span>
+								<span class="text-sm font-black text-white font-mono">
+									{channel()?.chat_title || 'خروجی'}
+								</span>
 							</div>
 						</div>
 					</div>
@@ -221,7 +235,9 @@ export const ChannelDashboardPage: Component = () => {
 				{/* Stats Grid */}
 				<div class="grid grid-cols-2 gap-3">
 					<div class="bg-[#151822] border border-white/10 rounded-[20px] p-4 space-y-1">
-						<span class="text-[10px] text-white/40 font-bold uppercase tracking-wider">کل بازدیدها</span>
+						<span class="text-[10px] text-white/40 font-bold uppercase tracking-wider">
+							کل بازدیدها
+						</span>
 						<div class="text-2xl font-black text-white font-mono">
 							{(analytics()?.summary?.total_views || 0).toLocaleString()}
 						</div>
@@ -229,7 +245,9 @@ export const ChannelDashboardPage: Component = () => {
 					</div>
 
 					<div class="bg-[#151822] border border-white/10 rounded-[20px] p-4 space-y-1">
-						<span class="text-[10px] text-white/40 font-bold uppercase tracking-wider">پست‌های امروز</span>
+						<span class="text-[10px] text-white/40 font-bold uppercase tracking-wider">
+							پست‌های امروز
+						</span>
 						<div class="text-2xl font-black text-white font-mono">
 							{analytics()?.summary?.posts_today || 0}
 						</div>
@@ -239,7 +257,9 @@ export const ChannelDashboardPage: Component = () => {
 
 				{/* Admin Activity */}
 				<div class="bg-[#151822] border border-white/10 rounded-[24px] p-5 space-y-3">
-					<h3 class="text-xs font-black text-white uppercase tracking-wider">فعالیت‌های اخیر مدیران</h3>
+					<h3 class="text-xs font-black text-white uppercase tracking-wider">
+						فعالیت‌های اخیر مدیران
+					</h3>
 					<div class="space-y-2">
 						<For each={auditLogs()?.data || []}>
 							{(log) => (
@@ -249,7 +269,12 @@ export const ChannelDashboardPage: Component = () => {
 										<span class="font-bold text-white/80">{log.action}</span>
 									</div>
 									<span class="text-[10px] font-mono text-white/40">
-										{log.created_at ? new Date(log.created_at).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }) : ''}
+										{log.created_at
+											? new Date(log.created_at).toLocaleTimeString('fa-IR', {
+													hour: '2-digit',
+													minute: '2-digit',
+												})
+											: ''}
 									</span>
 								</div>
 							)}

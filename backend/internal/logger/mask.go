@@ -8,6 +8,7 @@ import (
 
 var (
 	phoneRegex   = regexp.MustCompile(`(?i)(?:^|[\s:+=])(\+?\d{10,14})(?:$|[\s:])`)
+	digitPattern = regexp.MustCompile(`\+?\d{10,14}`)
 	uuidRegex    = regexp.MustCompile(`(?i)[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}`)
 	payloadRegex = regexp.MustCompile(`(?i)(stars_premium_1m:|report_pay:)(\d+)`)
 )
@@ -17,7 +18,6 @@ func MaskPII(s string) string {
 	s = payloadRegex.ReplaceAllString(s, "$1[MASKED]")
 	s = uuidRegex.ReplaceAllString(s, "[MASKED_ID]")
 	s = phoneRegex.ReplaceAllStringFunc(s, func(match string) string {
-		digitPattern := regexp.MustCompile(`\+?\d{10,14}`)
 		return digitPattern.ReplaceAllString(match, "[MASKED_PHONE]")
 	})
 	return s

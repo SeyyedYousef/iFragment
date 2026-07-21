@@ -43,7 +43,8 @@ const CONTENT: Record<
 type AnalyzeState = 'idle' | 'loading' | 'success';
 
 export const ActionArea: Component<ActionAreaProps> = (props) => {
-	const { searchQuery, setSearchQuery, searchError, setSearchError, validate } = useUsernameSearch();
+	const { searchQuery, setSearchQuery, searchError, setSearchError, validate } =
+		useUsernameSearch();
 	const navigate = useNavigate();
 	const [analyzeState] = createSignal<AnalyzeState>('idle');
 	const [isFocused, setIsFocused] = createSignal(false);
@@ -103,7 +104,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 				borderTop: 'rgba(255,69,58,0.6)',
 				borderBottom: 'rgba(255,69,58,0.15)',
 				bg: '#140c0c', // subtle red tint background
-				icon: '#ff453a'
+				icon: '#ff453a',
 			};
 		}
 		if (isSuccess) {
@@ -113,7 +114,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 				borderTop: 'rgba(48,209,88,0.6)',
 				borderBottom: 'rgba(48,209,88,0.15)',
 				bg: '#0a140d', // subtle green tint background
-				icon: '#30d158'
+				icon: '#30d158',
 			};
 		}
 		// Empty / Default state
@@ -123,12 +124,15 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			borderTop: isFocused() ? 'rgba(51,144,236,0.5)' : 'rgba(255,255,255,0.25)',
 			borderBottom: isFocused() ? 'rgba(51,144,236,0.1)' : 'rgba(255,255,255,0.08)',
 			bg: '#111214',
-			icon: isFocused() ? '#3390ec' : 'rgba(255,255,255,0.4)'
+			icon: isFocused() ? '#3390ec' : 'rgba(255,255,255,0.4)',
 		};
 	});
 
 	return (
-		<main class="action-area w-full relative overflow-visible font-sans pb-20" aria-label="Analysis section">
+		<main
+			class="action-area w-full relative overflow-visible font-sans pb-20"
+			aria-label="Analysis section"
+		>
 			{/* Ambient light */}
 			<div
 				class="absolute top-[20%] left-1/2 -translate-x-1/2 w-[70%] h-[40%] rounded-full pointer-events-none transition-all duration-1000 z-0"
@@ -197,7 +201,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 							class="text-center w-full mb-10 flex flex-col items-center"
 						>
 							<div class="flex items-center justify-center gap-3 mb-6">
-								<button 
+								<button
 									onClick={() => {
 										props.onTabChange?.('username');
 										setTimeout(() => {
@@ -221,7 +225,9 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 										>
 											<div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#3390ec] rotate-45 rounded-sm"></div>
 											<div class="relative z-10 flex items-start justify-between gap-3">
-												<span class="leading-relaxed text-right">{t('home.collectionSubtitle')}</span>
+												<span class="leading-relaxed text-right">
+													{t('home.collectionSubtitle')}
+												</span>
 												<button
 													onClick={(e) => {
 														e.stopPropagation();
@@ -235,11 +241,13 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 											</div>
 										</Motion.div>
 									</Show>
-									<button 
+									<button
 										onClick={() => navigate('/collection-info')}
 										class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08] backdrop-blur-md shadow-[0_2px_10px_rgba(0,0,0,0.1)] hover:bg-white/[0.08] transition-colors"
 									>
-										<span class="material-symbols-outlined text-[14px] text-white/70">collections_bookmark</span>
+										<span class="material-symbols-outlined text-[14px] text-white/70">
+											collections_bookmark
+										</span>
 										<span class="text-[10px] font-semibold text-white/70 tracking-[0.2em] uppercase">
 											{t('home.collectionInfo')}
 										</span>
@@ -265,11 +273,12 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 							<div
 								class="absolute inset-[-4px] rounded-[32px] transition-all duration-700 ease-out z-[-1] pointer-events-none"
 								style={{
-									background: (isFocused() || searchQuery())
-										? `linear-gradient(135deg, ${inputStateColors().glow}, transparent, ${inputStateColors().glowSoft})`
-										: 'transparent',
+									background:
+										isFocused() || searchQuery()
+											? `linear-gradient(135deg, ${inputStateColors().glow}, transparent, ${inputStateColors().glowSoft})`
+											: 'transparent',
 									filter: 'blur(20px)',
-									opacity: (isFocused() || searchQuery()) ? 0.4 : 0,
+									opacity: isFocused() || searchQuery() ? 0.4 : 0,
 								}}
 							/>
 
@@ -289,7 +298,13 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 									<div class="flex items-center px-4 py-4 gap-2" dir="ltr">
 										<span
 											class="text-[24px] font-medium transition-colors duration-300 min-w-[20px]"
-											style={{ color: isFocused() ? (searchQuery() ? inputStateColors().icon : '#3390ec') : 'rgba(255,255,255,0.2)' }}
+											style={{
+												color: isFocused()
+													? searchQuery()
+														? inputStateColors().icon
+														: '#3390ec'
+													: 'rgba(255,255,255,0.2)',
+											}}
 										>
 											{getPrefix()}
 										</span>
@@ -323,12 +338,12 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 											animate={{ opacity: 1, height: 'auto' }}
 											class="px-5 pb-3 flex items-center gap-2"
 										>
-											<span class="material-symbols-outlined text-[15px] text-[#ff453a]">error</span>
+											<span class="material-symbols-outlined text-[15px] text-[#ff453a]">
+												error
+											</span>
 											<span class="text-[13px] font-medium text-[#ff453a]">{searchError()}</span>
 										</Motion.div>
 									</Show>
-
-
 
 									{/* Analyze Button */}
 								</div>
@@ -342,16 +357,16 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 									background:
 										analyzeState() === 'success'
 											? 'linear-gradient(135deg, #28a745, #30d158)'
-											: !searchQuery() || !!searchError()
+											: !searchQuery() || searchError()
 												? 'rgba(255,255,255,0.04)'
 												: 'linear-gradient(135deg, #ffffff, #e0e0e0)',
 									color:
 										analyzeState() === 'success'
 											? '#fff'
-											: !searchQuery() || !!searchError()
+											: !searchQuery() || searchError()
 												? 'rgba(255,255,255,0.25)'
 												: '#000',
-									cursor: !searchQuery() || !!searchError() ? 'not-allowed' : 'pointer',
+									cursor: !searchQuery() || searchError() ? 'not-allowed' : 'pointer',
 									'box-shadow':
 										searchQuery() && !searchError() && analyzeState() === 'idle'
 											? '0 8px 24px -6px rgba(255,255,255,0.2)'
@@ -361,7 +376,9 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 								<Show when={analyzeState() === 'loading'}>
 									<div class="w-5 h-5 rounded-full border-[2.5px] border-black/20 border-t-black animate-spin" />
 								</Show>
-								<span class="relative z-10 transition-transform group-hover:scale-[1.02]">{getButtonText()}</span>
+								<span class="relative z-10 transition-transform group-hover:scale-[1.02]">
+									{getButtonText()}
+								</span>
 								<Show when={analyzeState() === 'idle' && searchQuery() && !searchError()}>
 									<span class="material-symbols-outlined text-[18px] rtl:rotate-180 relative z-10 group-hover:translate-x-1 transition-transform">
 										arrow_forward
@@ -387,7 +404,11 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 										<Motion.button
 											initial={{ opacity: 0, y: 10 }}
 											animate={{ opacity: 1, y: 0 }}
-											transition={{ duration: 0.4, delay: 0.25 + idx() * 0.05, easing: [0.16, 1, 0.3, 1] }}
+											transition={{
+												duration: 0.4,
+												delay: 0.25 + idx() * 0.05,
+												easing: [0.16, 1, 0.3, 1],
+											}}
 											onClick={() => {
 												updateSearchQuery(item);
 												const el = document.getElementById('search-input');
@@ -402,8 +423,6 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 								</For>
 							</div>
 						</Motion.div>
-
-
 					</div>
 				</Show>
 			</div>

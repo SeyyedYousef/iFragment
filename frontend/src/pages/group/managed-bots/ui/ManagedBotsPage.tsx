@@ -80,7 +80,7 @@ export const ManagedBotsPage: Component = () => {
 			hapticFeedback.notificationOccurred('success');
 			setBotToDelete(null);
 			refetch();
-		} catch (e: any) {
+		} catch (_e: any) {
 			hapticFeedback.notificationOccurred('error');
 		} finally {
 			setIsDeleting(false);
@@ -183,7 +183,8 @@ export const ManagedBotsPage: Component = () => {
 									{t('managedBots.createCustomBotTitle') || 'Create Your Custom Bot'}
 								</p>
 								<p class="text-[13px] text-[#8e8e93] font-medium leading-relaxed">
-									{t('managedBots.createCustomBotDesc') || 'Connect your custom brand bot to access powerful group/channel tools and get exclusive developer benefits.'}
+									{t('managedBots.createCustomBotDesc') ||
+										'Connect your custom brand bot to access powerful group/channel tools and get exclusive developer benefits.'}
 								</p>
 							</div>
 
@@ -209,7 +210,8 @@ export const ManagedBotsPage: Component = () => {
 											{t('managedBots.featureProtectTitle') || 'Full Group Protection'}
 										</span>
 										<span class="text-[11px] text-[#8e8e93]">
-											{t('managedBots.featureProtectDesc') || 'Spam blocker, quiet hours & restrictions.'}
+											{t('managedBots.featureProtectDesc') ||
+												'Spam blocker, quiet hours & restrictions.'}
 										</span>
 									</div>
 								</div>
@@ -342,10 +344,10 @@ export const ManagedBotsPage: Component = () => {
 					>
 						<div class="w-10 h-1 bg-[#3a3a3a] rounded-full mx-auto mb-5" />
 
-						<h3 class="text-[18px] font-black text-white mb-1">{t('managedBots.connectYourBot')}</h3>
-						<p class="text-[13px] text-[#8e8e93] mb-5">
-							{t('managedBots.pasteBotToken')}
-						</p>
+						<h3 class="text-[18px] font-black text-white mb-1">
+							{t('managedBots.connectYourBot')}
+						</h3>
+						<p class="text-[13px] text-[#8e8e93] mb-5">{t('managedBots.pasteBotToken')}</p>
 
 						{/* Steps */}
 						<div class="space-y-3 mb-5">
@@ -429,9 +431,11 @@ export const ManagedBotsPage: Component = () => {
 						class="w-full max-w-sm bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-6 flex flex-col items-center text-center"
 					>
 						<div class="w-16 h-16 rounded-full bg-[#ff3b30]/10 flex items-center justify-center mb-4">
-							<span class="material-symbols-outlined text-[#ff3b30] text-[32px]">delete_forever</span>
+							<span class="material-symbols-outlined text-[#ff3b30] text-[32px]">
+								delete_forever
+							</span>
 						</div>
-						
+
 						<h3 class="text-[20px] font-black text-white mb-2">
 							{t('managedBots.deleteConfirmTitle' as any)}
 						</h3>

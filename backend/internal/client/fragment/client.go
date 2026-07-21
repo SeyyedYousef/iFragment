@@ -64,15 +64,22 @@ func (c *Client) CheckUsername(ctx context.Context, username string) (Status, er
 	return res.(Status), nil
 }
 
-func (c *Client) checkInternal(ctx context.Context, username string) (Status, error) {
-	url := fmt.Sprintf("%s/username/%s", c.BaseURL, url.PathEscape(username))
+func (c *Client) newRequest(ctx context.Context, endpoint string) (*http.Request, error) {
+	reqURL := fmt.Sprintf("%s%s", c.BaseURL, endpoint)
+	req, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+	return req, nil
+}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+func (c *Client) checkInternal(ctx context.Context, username string) (Status, error) {
+	endpoint := fmt.Sprintf("/username/%s", url.PathEscape(username))
+	req, err := c.newRequest(ctx, endpoint)
 	if err != nil {
 		return StatusUnknown, err
 	}
-	// Important: Use a browser-like User-Agent to avoid being blocked
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
@@ -190,13 +197,11 @@ func (c *Client) GetHistoricalSales(ctx context.Context, username string) ([]His
 }
 
 func (c *Client) getHistoricalSalesInternal(ctx context.Context, username string) ([]HistoricalSale, error) {
-	urlStr := fmt.Sprintf("%s/username/%s", c.BaseURL, url.PathEscape(username))
-
-	req, err := http.NewRequestWithContext(ctx, "GET", urlStr, nil)
+	endpoint := fmt.Sprintf("/username/%s", url.PathEscape(username))
+	req, err := c.newRequest(ctx, endpoint)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
 	resp, err := c.HTTP.Do(req)
 	if err != nil {

@@ -53,6 +53,9 @@ export default defineConfig({
 						if (id.includes('@tanstack') || id.includes('axios')) {
 							return 'vendor-data';
 						}
+						if (id.includes('three')) {
+							return 'vendor-three';
+						}
 						return 'vendor-others';
 					}
 				},

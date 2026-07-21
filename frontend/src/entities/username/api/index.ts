@@ -2,7 +2,6 @@ import { createQuery } from '@tanstack/solid-query';
 import { createEffect, createSignal, onCleanup } from 'solid-js';
 import { apiFetch } from '@/shared/api/base.js';
 
-
 export interface AvailabilityStatus {
 	username: string;
 	status: 'available' | 'taken' | 'on_auction' | 'on_sale' | 'purchase_available' | string;
@@ -22,8 +21,6 @@ export interface QuickCheck {
 	linguistic_score: number;
 }
 
-
-
 const CACHE_PREFIX = 'ifrag_cache_';
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -42,10 +39,7 @@ function getLocalCache<T>(key: string): T | null {
 
 function setLocalCache<T>(key: string, data: T): void {
 	try {
-		localStorage.setItem(
-			CACHE_PREFIX + key,
-			JSON.stringify({ timestamp: Date.now(), data }),
-		);
+		localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({ timestamp: Date.now(), data }));
 	} catch {}
 }
 
@@ -121,7 +115,9 @@ export const useUsernameValuation = (username: () => string | undefined | null) 
 				const cacheKey = `valuate_${u.toLowerCase()}`;
 				const cached = getLocalCache<ValuationResult>(cacheKey);
 				if (cached) return cached;
-				const res = await apiFetch<ValuationResult>(`/usernames/valuate?u=${encodeURIComponent(u)}`);
+				const res = await apiFetch<ValuationResult>(
+					`/usernames/valuate?u=${encodeURIComponent(u)}`,
+				);
 				setLocalCache(cacheKey, res);
 				return res;
 			},

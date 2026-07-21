@@ -29,7 +29,11 @@ export const DangerActionDialog: Component<DangerActionDialogProps> = (props) =>
 	const canSubmit = () => {
 		if (props.loading) return false;
 		if (props.requireReason !== false && !reason().trim()) return false;
-		if (props.confirmWord && typedWord().trim().toUpperCase() !== props.confirmWord.trim().toUpperCase()) return false;
+		if (
+			props.confirmWord &&
+			typedWord().trim().toUpperCase() !== props.confirmWord.trim().toUpperCase()
+		)
+			return false;
 		return true;
 	};
 
@@ -51,7 +55,9 @@ export const DangerActionDialog: Component<DangerActionDialogProps> = (props) =>
 					{/* Header Glow */}
 					<div
 						class={`absolute top-0 inset-x-0 h-2 bg-gradient-to-r ${
-							isCritical() ? 'from-red-500 via-rose-500 to-orange-500' : 'from-amber-500 to-yellow-400'
+							isCritical()
+								? 'from-red-500 via-rose-500 to-orange-500'
+								: 'from-amber-500 to-yellow-400'
 						}`}
 					/>
 
@@ -79,7 +85,9 @@ export const DangerActionDialog: Component<DangerActionDialogProps> = (props) =>
 						</div>
 						<div>
 							<h3 class="text-base font-black text-white">{props.title}</h3>
-							<p class="text-xs text-white/60 font-medium mt-1 leading-relaxed">{props.description}</p>
+							<p class="text-xs text-white/60 font-medium mt-1 leading-relaxed">
+								{props.description}
+							</p>
 						</div>
 					</div>
 
@@ -96,7 +104,9 @@ export const DangerActionDialog: Component<DangerActionDialogProps> = (props) =>
 										>
 											<div class="flex items-center gap-2 font-mono text-xs font-bold">
 												<span class="text-white/40 line-through">{item.before}</span>
-												<span class="material-symbols-outlined text-[12px] text-white/30">east</span>
+												<span class="material-symbols-outlined text-[12px] text-white/30">
+													east
+												</span>
 												<span class="text-emerald-400">{item.after}</span>
 											</div>
 										</Show>
@@ -127,7 +137,11 @@ export const DangerActionDialog: Component<DangerActionDialogProps> = (props) =>
 						<Show when={props.confirmWord}>
 							<div>
 								<label class="block text-[10px] text-red-400 font-black uppercase tracking-wider mb-1.5">
-									جهت تایید، عبارت <code class="bg-red-500/20 px-1 py-0.5 rounded text-red-300 font-mono">{props.confirmWord}</code> را وارد کنید:
+									جهت تایید، عبارت{' '}
+									<code class="bg-red-500/20 px-1 py-0.5 rounded text-red-300 font-mono">
+										{props.confirmWord}
+									</code>{' '}
+									را وارد کنید:
 								</label>
 								<input
 									type="text"

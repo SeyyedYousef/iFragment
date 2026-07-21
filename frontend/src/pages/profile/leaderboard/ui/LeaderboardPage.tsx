@@ -4,7 +4,7 @@ import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
 import { getLeaderboard, getProfileStats } from '@/shared/api/profile.js';
 import { t } from '@/shared/i18n/index.js';
-import { LeaderboardShell, type LeaderboardEntry } from '@/widgets/leaderboard/LeaderboardShell.js';
+import { type LeaderboardEntry, LeaderboardShell } from '@/widgets/leaderboard/LeaderboardShell.js';
 
 export const LeaderboardPage: Component = () => {
 	const navigate = useNavigate();
@@ -39,7 +39,7 @@ export const LeaderboardPage: Component = () => {
 
 	const currentUserEntry = createMemo<LeaderboardEntry | undefined>(() => {
 		const s = myStats();
-		if (!s || !s.globalRank) return undefined;
+		if (!s?.globalRank) return undefined;
 		return {
 			rank: s.globalRank,
 			id: 'me',
@@ -72,7 +72,9 @@ export const LeaderboardPage: Component = () => {
 		<div class="theme-play min-h-screen bg-[#08090D] p-5 text-white select-none">
 			<LeaderboardShell
 				title={t('gamification.globalLeaderboard') || 'جدول برترین‌های جهانی'}
-				subtitle={t('gamification.leaderboardSubtitle') || '۱۰۰ ماینر و کاربر برتر iFragment در سراسر جهان'}
+				subtitle={
+					t('gamification.leaderboardSubtitle') || '۱۰۰ ماینر و کاربر برتر iFragment در سراسر جهان'
+				}
 				scopeTabs={[
 					{ id: 'global', label: 'جهانی' },
 					{ id: 'clans', label: 'کلن‌ها' },

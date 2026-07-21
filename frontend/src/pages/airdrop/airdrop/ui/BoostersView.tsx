@@ -1,8 +1,17 @@
 import { hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createSignal, For } from 'solid-js';
-import { balance, boosters, getBoosterCost, upgradeBooster, turboCount, fullEnergyCount, spawnRocket, activateFullEnergy } from '@/shared/store/airdrop.js';
-import { showToast } from '@/shared/ui/toast.js';
 import { t } from '@/shared/i18n/index.js';
+import {
+	activateFullEnergy,
+	balance,
+	boosters,
+	fullEnergyCount,
+	getBoosterCost,
+	spawnRocket,
+	turboCount,
+	upgradeBooster,
+} from '@/shared/store/airdrop.js';
+import { showToast } from '@/shared/ui/toast.js';
 
 export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) => {
 	const [animatingId, setAnimatingId] = createSignal<string | null>(null);
@@ -33,8 +42,8 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 	};
 
 	return (
-		<div 
-			class="flex-1 overflow-y-auto overflow-x-hidden px-4 pt-8 pb-36 animate-fade-in no-scrollbar h-full relative bg-[#07080a] text-white" 
+		<div
+			class="flex-1 overflow-y-auto overflow-x-hidden px-4 pt-8 pb-36 animate-fade-in no-scrollbar h-full relative bg-[#07080a] text-white"
 			dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
 		>
 			{/* Ambient Radial Mesh Glow */}
@@ -65,34 +74,45 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 					{t('airdropFinal.boosters.freeDaily')}
 				</h2>
 				<div class="grid grid-cols-2 gap-3">
-					<button 
+					<button
 						onClick={() => {
 							spawnRocket();
 							props.onTurboClick?.();
-						}} 
+						}}
 						disabled={turboCount() === 0}
 						class={`bg-gradient-to-b from-white/[0.04] to-white/[0.01] border border-amber-400/30 rounded-2xl p-4 flex flex-col gap-1.5 items-start transition-all text-start relative overflow-hidden shadow-lg ${turboCount() > 0 ? 'active:scale-95 hover:border-amber-400/60' : 'opacity-40 grayscale-[0.5]'}`}
 					>
 						<div class="flex items-center justify-between w-full mb-1">
-							<span class="text-white font-black text-sm tracking-tight">{t('airdropFinal.boosters.turbo')}</span>
+							<span class="text-white font-black text-sm tracking-tight">
+								{t('airdropFinal.boosters.turbo')}
+							</span>
 							<span class="text-xl">🚀</span>
 						</div>
-						<span class="text-amber-400 font-mono font-bold text-xs">{t('airdropFinal.boosters.available' as any).replace('{count}', `${turboCount()}/2`)}</span>
+						<span class="text-amber-400 font-mono font-bold text-xs">
+							{t('airdropFinal.boosters.available' as any).replace('{count}', `${turboCount()}/2`)}
+						</span>
 					</button>
 
-					<button 
+					<button
 						onClick={() => {
 							activateFullEnergy();
 							props.onTurboClick?.();
-						}} 
+						}}
 						disabled={fullEnergyCount() === 0}
 						class={`bg-gradient-to-b from-white/[0.04] to-white/[0.01] border border-cyan-400/30 rounded-2xl p-4 flex flex-col gap-1.5 items-start transition-all text-start relative overflow-hidden shadow-lg ${fullEnergyCount() > 0 ? 'active:scale-95 hover:border-cyan-400/60' : 'opacity-40 grayscale-[0.5]'}`}
 					>
 						<div class="flex items-center justify-between w-full mb-1">
-							<span class="text-white font-black text-sm tracking-tight">{t('airdropFinal.boosters.fullEnergy')}</span>
+							<span class="text-white font-black text-sm tracking-tight">
+								{t('airdropFinal.boosters.fullEnergy')}
+							</span>
 							<span class="text-xl">⚡</span>
 						</div>
-						<span class="text-cyan-400 font-mono font-bold text-xs">{t('airdropFinal.boosters.available' as any).replace('{count}', `${fullEnergyCount()}/3`)}</span>
+						<span class="text-cyan-400 font-mono font-bold text-xs">
+							{t('airdropFinal.boosters.available' as any).replace(
+								'{count}',
+								`${fullEnergyCount()}/3`,
+							)}
+						</span>
 					</button>
 				</div>
 			</div>
@@ -116,7 +136,7 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 								energyCap: 'battery_charging_full',
 								tapBot: 'smart_toy',
 							};
-							
+
 							const metaName = t(`airdropFinal.boosters.meta.${id}.name` as any);
 							const metaDesc = t(`airdropFinal.boosters.meta.${id}.desc` as any);
 
@@ -128,36 +148,57 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 								>
 									{/* Icon */}
 									<div class="w-12 h-12 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center shrink-0 me-3.5 shadow-inner">
-										<span class="material-symbols-outlined text-white text-[24px]">{iconMap[id] || 'bolt'}</span>
+										<span class="material-symbols-outlined text-white text-[24px]">
+											{iconMap[id] || 'bolt'}
+										</span>
 									</div>
 
 									{/* Info */}
 									<div class="flex-1 flex flex-col items-start min-w-0 justify-center">
 										<div class="flex items-center gap-2">
-											<span class="text-white font-black text-[15px] tracking-tight">{metaName !== `airdropFinal.boosters.meta.${id}.name` ? metaName : defaultMeta.name}</span>
+											<span class="text-white font-black text-[15px] tracking-tight">
+												{metaName !== `airdropFinal.boosters.meta.${id}.name`
+													? metaName
+													: defaultMeta.name}
+											</span>
 											{id === 'tapBot' && booster().level >= 1 && (
 												<span class="text-emerald-400 text-[9px] bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1 font-black uppercase tracking-wider">
-													ACTIVE <div class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+													ACTIVE{' '}
+													<div class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
 												</span>
 											)}
 										</div>
-										
+
 										{id === 'tapBot' ? (
 											booster().level >= 1 ? (
-												<span class="text-white/40 text-xs mt-0.5 font-medium">{metaDesc !== `airdropFinal.boosters.meta.${id}.desc` ? metaDesc : defaultMeta.desc}</span>
+												<span class="text-white/40 text-xs mt-0.5 font-medium">
+													{metaDesc !== `airdropFinal.boosters.meta.${id}.desc`
+														? metaDesc
+														: defaultMeta.desc}
+												</span>
 											) : (
 												<div class="flex items-center gap-1.5 mt-0.5">
 													<span class="text-xs">🪙</span>
-													<span class="text-white font-mono font-bold text-xs">{cost().toLocaleString('en-US')}</span>
-													<span class="text-white/30 text-xs ms-1 font-medium">{metaDesc !== `airdropFinal.boosters.meta.${id}.desc` ? metaDesc : defaultMeta.desc}</span>
+													<span class="text-white font-mono font-bold text-xs">
+														{cost().toLocaleString('en-US')}
+													</span>
+													<span class="text-white/30 text-xs ms-1 font-medium">
+														{metaDesc !== `airdropFinal.boosters.meta.${id}.desc`
+															? metaDesc
+															: defaultMeta.desc}
+													</span>
 												</div>
 											)
 										) : isMaxed() ? (
-											<span class="text-white/40 text-xs mt-0.5 font-medium">{t('airdropFinal.boosters.maxLevelReached')}</span>
+											<span class="text-white/40 text-xs mt-0.5 font-medium">
+												{t('airdropFinal.boosters.maxLevelReached')}
+											</span>
 										) : (
 											<div class="flex items-center gap-1.5 mt-0.5">
 												<span class="text-xs">🪙</span>
-												<span class="text-white font-mono font-bold text-xs">{cost().toLocaleString('en-US')}</span>
+												<span class="text-white font-mono font-bold text-xs">
+													{cost().toLocaleString('en-US')}
+												</span>
 												<span class="text-white/30 text-xs font-mono">• Lvl {booster().level}</span>
 											</div>
 										)}
@@ -168,9 +209,13 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 										{isMaxed() && id !== 'tapBot' ? (
 											<span class="material-symbols-outlined text-white/30 text-[20px]">check</span>
 										) : id === 'tapBot' && booster().level >= 1 ? (
-											<span class="material-symbols-outlined text-emerald-400 text-[20px]">check_circle</span>
+											<span class="material-symbols-outlined text-emerald-400 text-[20px]">
+												check_circle
+											</span>
 										) : (
-											<span class="material-symbols-outlined text-white/30 text-[20px] rtl:rotate-180">chevron_right</span>
+											<span class="material-symbols-outlined text-white/30 text-[20px] rtl:rotate-180">
+												chevron_right
+											</span>
 										)}
 									</div>
 								</button>

@@ -42,8 +42,16 @@ vi.mock('@/shared/store/airdrop.js', () => ({
 	energy: () => 500,
 	maxEnergy: () => 500,
 	tapPower: () => 1,
+	globalRank: () => 1,
 	recordTaps: vi.fn(),
 	syncProfileStats: vi.fn(),
+	isRocketSpawned: () => false,
+	isTurboActive: () => false,
+	activateTurbo: vi.fn(),
+	activateFullEnergy: vi.fn(),
+	spawnRocket: vi.fn(),
+	turboCount: () => 0,
+	fullEnergyCount: () => 0,
 }));
 
 describe('AirdropPage', () => {
@@ -52,13 +60,13 @@ describe('AirdropPage', () => {
 		expect(screen.getByText('Bronze')).toBeInTheDocument();
 	});
 
-	it('displays the daily check-in button', () => {
+	it('displays the balance', () => {
 		render(() => <AirdropPage />);
-		expect(screen.getByRole('button', { name: /airdrop\.daily\.label/i })).toBeInTheDocument();
+		expect(screen.getByText('1,000')).toBeInTheDocument();
 	});
 
 	it('contains the navigation area', () => {
 		render(() => <AirdropPage />);
-		expect(screen.getByText(/airdrop\.tasks\.label/i)).toBeInTheDocument();
+		expect(screen.getByText('bottomNav.airdrop')).toBeInTheDocument();
 	});
 });

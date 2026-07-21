@@ -6,7 +6,28 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 )
+
+var (
+	allowedOriginsCache []string
+	allowedOriginsOnce  sync.Once
+)
+
+func getAllowedOrigins() []string {
+	allowedOriginsOnce.Do(func() {
+		allowedStr := os.Getenv("ALLOWED_ORIGINS")
+		origins := strings.Split(allowedStr, ",")
+		if len(origins) == 1 && origins[0] == "" {
+			origins = []string{"http://localhost:5173", "http://127.0.0.1:5173"}
+		}
+		for i, o := range origins {
+			origins[i] = strings.TrimSpace(o)
+		}
+		allowedOriginsCache = origins
+	})
+	return allowedOriginsCache
+}
 
 // CSRF protects against cross-site request forgery by validating the Origin/Referer
 // headers for state-mutating requests (POST, PUT, DELETE, PATCH).
@@ -38,12 +59,7 @@ func CSRF(next http.Handler) http.Handler {
 			return
 		}
 
-		// Retrieve allowed origins
-		allowedStr := os.Getenv("ALLOWED_ORIGINS")
-		allowedOrigins := strings.Split(allowedStr, ",")
-		if len(allowedOrigins) == 1 && allowedOrigins[0] == "" {
-			allowedOrigins = []string{"http://localhost:5173", "http://127.0.0.1:5173"}
-		}
+		allowedOrigins := getAllowedOrigins()
 
 		origin := r.Header.Get("Origin")
 		referer := r.Header.Get("Referer")
@@ -59,19 +75,14 @@ func CSRF(next http.Handler) http.Handler {
 		if source != "" {
 			matched := false
 			for _, allowed := range allowedOrigins {
-				allowed = strings.TrimSpace(allowed)
-				if allowed == "*" {
-					matched = true
-					break
-				}
-				if strings.EqualFold(source, allowed) {
+				if allowed == "*" || strings.EqualFold(source, allowed) {
 					matched = true
 					break
 				}
 			}
 
 			if !matched {
-				slog.Warn("CSRF block: origin/referer mismatch", "source", source, "allowed", allowedStr, "path", r.URL.Path)
+				slog.Warn("CSRF block: origin/referer mismatch", "source", source, "allowed", os.Getenv("ALLOWED_ORIGINS"), "path", r.URL.Path)
 				http.Error(w, "Forbidden: CSRF Origin/Referer validation failed", http.StatusForbidden)
 				return
 			}

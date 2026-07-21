@@ -4,9 +4,9 @@ import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { groupApi } from '@/shared/api/bot-management.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
+import { FragmentPulse } from '@/shared/ui/FragmentPulse.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 import { showToast } from '@/shared/ui/toast.js';
-import { FragmentPulse } from '@/shared/ui/FragmentPulse.js';
 
 export const GroupDashboardPage: Component = () => {
 	const params = useParams();
@@ -135,7 +135,11 @@ export const GroupDashboardPage: Component = () => {
 						<div class="flex items-center gap-1.5 text-[10px] text-white/50 font-bold mt-0.5">
 							<span>{group()?.chat_type || 'گروه'}</span>
 							<span>•</span>
-							<span class={group()?.subscription_status === 'paid' ? 'text-[#10b981]' : 'text-[#f59e0b]'}>
+							<span
+								class={
+									group()?.subscription_status === 'paid' ? 'text-[#10b981]' : 'text-[#f59e0b]'
+								}
+							>
 								{group()?.subscription_status === 'paid' ? 'پرمیوم (Pro)' : 'رایگان (Free)'}
 							</span>
 							<span>•</span>
@@ -193,8 +197,12 @@ export const GroupDashboardPage: Component = () => {
 				<div class="bg-gradient-to-b from-[#151822] to-[#0F1117] border border-white/10 rounded-[24px] p-5 space-y-4">
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-2">
-							<FragmentPulse state={healthScore() >= 90 ? 'healthy' : healthScore() >= 70 ? 'reward' : 'danger'} />
-							<span class="text-xs font-black uppercase text-white/50 tracking-wider">وضعیت کنونی سیستم (NOW)</span>
+							<FragmentPulse
+								state={healthScore() >= 90 ? 'healthy' : healthScore() >= 70 ? 'reward' : 'danger'}
+							/>
+							<span class="text-xs font-black uppercase text-white/50 tracking-wider">
+								وضعیت کنونی سیستم (NOW)
+							</span>
 						</div>
 						<span class={`text-xs font-black ${healthColorClass()}`}>{healthLabel()}</span>
 					</div>
@@ -205,7 +213,9 @@ export const GroupDashboardPage: Component = () => {
 								{healthScore()}%
 							</div>
 							<div>
-								<div class="text-xs font-bold text-white">امتیاز سلامت گروه (Health Score)</div>
+								<div class="text-xs font-bold text-white">
+									{t('groupDashboard.health') || 'امتیاز سلامت گروه (Health Score)'}
+								</div>
 								<div class="text-[11px] text-white/40 font-bold mt-0.5">
 									{analytics()?.summary?.spam_blocked || 0} پیام هرزنامه مسدود شده
 								</div>
@@ -237,10 +247,14 @@ export const GroupDashboardPage: Component = () => {
 							<span class="material-symbols-outlined text-[18px]">group</span>
 						</div>
 						<div class="text-2xl font-black text-white font-mono">
-							{(group()?.members_count || analytics()?.summary?.total_members || 0).toLocaleString()}
+							{(
+								group()?.members_count ||
+								analytics()?.summary?.total_members ||
+								0
+							).toLocaleString()}
 						</div>
 						<div class="text-[10px] font-bold text-[#10b981]">
-							+{(analytics()?.summary?.members_change || 0)} امروز
+							+{analytics()?.summary?.members_change || 0} امروز
 						</div>
 					</div>
 
@@ -253,7 +267,7 @@ export const GroupDashboardPage: Component = () => {
 							{(analytics()?.summary?.total_messages || 0).toLocaleString()}
 						</div>
 						<div class="text-[10px] font-bold text-[#3390ec]">
-							+{(analytics()?.summary?.messages_change_pct || 0)}% ترافیک
+							+{analytics()?.summary?.messages_change_pct || 0}% ترافیک
 						</div>
 					</div>
 				</div>
@@ -261,7 +275,9 @@ export const GroupDashboardPage: Component = () => {
 				{/* LAYER 3: ATTENTION (Items Requiring Review) */}
 				<div class="bg-[#151822] border border-white/10 rounded-[24px] p-5 space-y-3">
 					<div class="flex items-center justify-between">
-						<h3 class="text-xs font-black text-white uppercase tracking-wider">نیازمند توجه ادمین (ATTENTION)</h3>
+						<h3 class="text-xs font-black text-white uppercase tracking-wider">
+							نیازمند توجه ادمین (ATTENTION)
+						</h3>
 						<span class="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 text-[10px] font-bold">
 							۳ مورد اقدام
 						</span>
@@ -298,13 +314,19 @@ export const GroupDashboardPage: Component = () => {
 
 				{/* LAYER 4: ACTIVITY (Top Active Users & Audit Logs) */}
 				<div class="bg-[#151822] border border-white/10 rounded-[24px] p-5 space-y-4">
-					<h3 class="text-xs font-black text-white uppercase tracking-wider">کاربران فعال و لاگ‌ها (ACTIVITY)</h3>
+					<h3 class="text-xs font-black text-white uppercase tracking-wider">
+						کاربران فعال و لاگ‌ها (ACTIVITY)
+					</h3>
 
 					{/* Top Users */}
 					<div class="grid grid-cols-3 gap-2">
 						<For
 							each={analytics()?.summary?.top_users || []}
-							fallback={<div class="col-span-3 text-center py-4 text-xs text-white/40 font-bold">داده‌ای یافت نشد</div>}
+							fallback={
+								<div class="col-span-3 text-center py-4 text-xs text-white/40 font-bold">
+									داده‌ای یافت نشد
+								</div>
+							}
 						>
 							{(u) => (
 								<div class="bg-black/40 border border-white/5 rounded-2xl p-3 flex flex-col items-center text-center gap-1">
@@ -328,7 +350,10 @@ export const GroupDashboardPage: Component = () => {
 										<span class="font-bold text-white/80">{log.action}</span>
 									</div>
 									<span class="text-[10px] font-mono text-white/40">
-										{new Date(log.created_at).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}
+										{new Date(log.created_at).toLocaleTimeString('fa-IR', {
+											hour: '2-digit',
+											minute: '2-digit',
+										})}
 									</span>
 								</div>
 							)}
@@ -346,7 +371,8 @@ export const GroupDashboardPage: Component = () => {
 							<h3 class="text-base font-black">تغییر وضعیت قفل اضطراری</h3>
 						</div>
 						<p class="text-xs text-white/70 leading-relaxed font-bold">
-							با قفل کردن اضطراری، تمامی اعضای عادی گروه امکان ارسال پیام را به صورت موقت از دست خواهند داد.
+							با قفل کردن اضطراری، تمامی اعضای عادی گروه امکان ارسال پیام را به صورت موقت از دست
+							خواهند داد.
 						</p>
 						<div class="flex gap-3 pt-2">
 							<button

@@ -8,7 +8,9 @@ interface OwnerRouteGuardProps {
 
 export const OwnerRouteGuard: Component<OwnerRouteGuardProps> = (props) => {
 	const navigate = useNavigate();
-	const [status, setStatus] = createSignal<'checking' | 'authenticated' | 'unauthorized'>('checking');
+	const [status, setStatus] = createSignal<'checking' | 'authenticated' | 'unauthorized'>(
+		'checking',
+	);
 	const [showAuthGate, setShowAuthGate] = createSignal(false);
 
 	const verifySession = () => {
@@ -57,9 +59,7 @@ export const OwnerRouteGuard: Component<OwnerRouteGuardProps> = (props) => {
 				</div>
 			</Show>
 
-			<Show when={status() === 'authenticated'}>
-				{props.children}
-			</Show>
+			<Show when={status() === 'authenticated'}>{props.children}</Show>
 
 			<OwnerGateModal isOpen={showAuthGate()} onClose={handleGateClose} />
 		</>

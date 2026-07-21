@@ -58,22 +58,22 @@
 	--color-error-container: #ffdad6;
 	--color-on-error-container: #93000a;
 
-	--color-background: #08090D;
+	--color-background: #08090d;
 	--color-on-background: var(--tg-theme-text-color, #ffffff);
-	--color-surface: var(--tg-theme-secondary-bg-color, #0F1117);
+	--color-surface: var(--tg-theme-secondary-bg-color, #0f1117);
 	--color-on-surface: var(--tg-theme-text-color, #ffffff);
 	--color-surface-variant: var(--tg-theme-header-bg-color, #151822);
 	--color-on-surface-variant: var(--tg-theme-hint-color, #a0a4ad);
 	--color-inverse-surface: var(--tg-theme-text-color, #ffffff);
 	--color-inverse-on-surface: #000000;
 	--color-surface-tint: var(--tg-theme-button-color, #3390ec);
-	--color-surface-bright: #1C202B;
-	--color-surface-dim: #0F1117;
+	--color-surface-bright: #1c202b;
+	--color-surface-dim: #0f1117;
 	--color-surface-container-lowest: #050608;
-	--color-surface-container-low: #08090D;
-	--color-surface-container: #0F1117;
+	--color-surface-container-low: #08090d;
+	--color-surface-container: #0f1117;
 	--color-surface-container-high: #151822;
-	--color-surface-container-highest: #1C202B;
+	--color-surface-container-highest: #1c202b;
 
 	--color-outline: var(--tg-theme-hint-color, #8e8e93);
 	--color-outline-variant: var(--tg-theme-hint-color, #8e8e93);
@@ -81,10 +81,10 @@
 
 /* Fragment OS Design System Tokens */
 :root {
-	--fos-canvas: #08090D;
-	--fos-surface-1: #0F1117;
+	--fos-canvas: #08090d;
+	--fos-surface-1: #0f1117;
 	--fos-surface-2: #151822;
-	--fos-surface-3: #1C202B;
+	--fos-surface-3: #1c202b;
 	--fos-surface-elevated: rgba(24, 28, 38, 0.88);
 
 	--fos-primary: #3390ec;
@@ -191,17 +191,18 @@
 	}
 
 	:root {
-		--color-background: #08090D;
+		--color-background: #08090d;
 		--color-on-background: var(--tg-theme-text-color, #ffffff);
 		--color-outline: var(--tg-theme-hint-color, #8e8e93);
 		--color-primary: var(--tg-theme-link-color, #0088cc);
-		--color-surface: var(--tg-theme-secondary-bg-color, #0F1117);
+		--color-surface: var(--tg-theme-secondary-bg-color, #0f1117);
 	}
 }
 
 /* Fragment Pulse Indicator Animation */
 @keyframes fragment-pulse-glow {
-	0%, 100% {
+	0%,
+	100% {
 		opacity: 0.8;
 		box-shadow: 0 0 10px var(--pulse-color, #10b981);
 	}
@@ -221,7 +222,7 @@
 }
 
 .matte-surface {
-	background: linear-gradient(180deg, #151822 0%, #0F1117 100%);
+	background: linear-gradient(180deg, #151822 0%, #0f1117 100%);
 }
 
 .material-symbols-outlined {
@@ -421,10 +422,10 @@
 	*,
 	*::before,
 	*::after {
-		animation-duration: 0.01ms !important;
-		animation-iteration-count: 1 !important;
-		transition-duration: 0.01ms !important;
-		scroll-behavior: auto !important;
+		animation-duration: 0.01ms;
+		animation-iteration-count: 1;
+		transition-duration: 0.01ms;
+		scroll-behavior: auto;
 	}
 }
 

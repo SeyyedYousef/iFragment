@@ -94,9 +94,7 @@ export const SecurityPage: Component = () => {
 			try {
 				hapticFeedback.notificationOccurred('error');
 			} catch {}
-			await showAlert(
-				t('security.deleteFailed', { error: e?.message || 'unknown error' }),
-			);
+			await showAlert(t('security.deleteFailed', { error: e?.message || 'unknown error' }));
 		}
 	};
 

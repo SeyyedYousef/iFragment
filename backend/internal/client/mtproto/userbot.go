@@ -31,9 +31,9 @@ type NewChannelMessageHandler func(ctx context.Context, e tg.Entities, msg *tg.M
 
 // createClient creates an MTProto client designed to run as a Userbot (personal account).
 func (m *UserbotManager) createClient(ctx context.Context, phone string) (*UserbotClient, error) {
-	sessionDir := os.Getenv("TG_SESSION_DIR")
-	if sessionDir == "" {
-		sessionDir = "./sessions"
+	sessionDir, err := EnsureSessionDir()
+	if err != nil {
+		return nil, err
 	}
 	// Store sessions with phone number prefix
 	sessionPath := filepath.Join(sessionDir, fmt.Sprintf("userbot_%s.session", phone))
@@ -114,12 +114,9 @@ func (m *UserbotManager) createClient(ctx context.Context, phone string) (*Userb
 
 // InteractiveLogin is used by the CLI tool to perform the login flow
 func InteractiveLogin(ctx context.Context, flow auth.Flow) error {
-	sessionDir := os.Getenv("TG_SESSION_DIR")
-	if sessionDir == "" {
-		sessionDir = "./sessions"
-	}
-	if err := os.MkdirAll(sessionDir, 0700); err != nil {
-		return fmt.Errorf("failed to create session directory: %w", err)
+	sessionDir, err := EnsureSessionDir()
+	if err != nil {
+		return err
 	}
 
 	storage := &session.FileStorage{Path: filepath.Join(sessionDir, "userbot.session")}
@@ -154,11 +151,10 @@ func InteractiveLogin(ctx context.Context, flow auth.Flow) error {
 
 // AuthSendCode initiates the stateless login flow by sending a code to the phone number.
 func AuthSendCode(ctx context.Context, phone string) (string, error) {
-	sessionDir := os.Getenv("TG_SESSION_DIR")
-	if sessionDir == "" {
-		sessionDir = "./sessions"
+	sessionDir, err := EnsureSessionDir()
+	if err != nil {
+		return "", err
 	}
-	os.MkdirAll(sessionDir, 0700)
 	storage := &session.FileStorage{Path: filepath.Join(sessionDir, fmt.Sprintf("userbot_%s.session", phone))}
 
 	appIDStr := os.Getenv("TG_APP_ID")
@@ -172,7 +168,7 @@ func AuthSendCode(ctx context.Context, phone string) (string, error) {
 	client := telegram.NewClient(appID, appHash, telegram.Options{SessionStorage: storage})
 
 	var phoneCodeHash string
-	err := client.Run(ctx, func(runCtx context.Context) error {
+	err = client.Run(ctx, func(runCtx context.Context) error {
 		res, err := client.Auth().SendCode(runCtx, phone, auth.SendCodeOptions{})
 		if err != nil {
 			return err
@@ -191,9 +187,9 @@ func AuthSendCode(ctx context.Context, phone string) (string, error) {
 
 // AuthSignIn completes the stateless login flow using the phone, code, and hash.
 func AuthSignIn(ctx context.Context, phone, code, hash string) error {
-	sessionDir := os.Getenv("TG_SESSION_DIR")
-	if sessionDir == "" {
-		sessionDir = "./sessions"
+	sessionDir, err := EnsureSessionDir()
+	if err != nil {
+		return err
 	}
 	storage := &session.FileStorage{Path: filepath.Join(sessionDir, fmt.Sprintf("userbot_%s.session", phone))}
 

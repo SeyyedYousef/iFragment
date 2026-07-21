@@ -83,27 +83,11 @@ type Message struct {
 
 // FetchCollectionItems fetches paginated NFTs in a collection
 func (c *Client) FetchCollectionItems(ctx context.Context, collection string, limit int, offset int) (*NFTItems, error) {
-	url := fmt.Sprintf("%s/nfts/collections/%s/items?limit=%d&offset=%d", c.BaseURL, collection, limit, offset)
-	resp, err := c.doRequest(ctx, url)
+	resp, err := c.GetCollectionItems(ctx, collection, limit, offset)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("tonapi collection items error: status %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	var data NFTItems
-	if err := json.Unmarshal(body, &data); err != nil {
-		return nil, err
-	}
-	return &data, nil
+	return &NFTItems{Items: resp.Items}, nil
 }
 
 // FetchNFTHistory fetches the event history for an NFT address

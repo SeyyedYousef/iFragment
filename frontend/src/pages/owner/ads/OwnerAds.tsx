@@ -1,6 +1,6 @@
-import { Component, createSignal, onMount, For, Show } from 'solid-js';
-import { ownerApi, DashboardAd } from '@/shared/api/owner.js';
 import { hapticFeedback } from '@tma.js/sdk-solid';
+import { Component, createSignal, For, onMount, Show } from 'solid-js';
+import { DashboardAd, ownerApi } from '@/shared/api/owner.js';
 
 export const OwnerAds: Component = () => {
 	const [ads, setAds] = createSignal<DashboardAd[]>([]);
@@ -15,7 +15,7 @@ export const OwnerAds: Component = () => {
 		try {
 			const data = await ownerApi.getAds();
 			setAds(data || []);
-		} catch (e: any) {
+		} catch (_e: any) {
 			setError('خطا در دریافت لیست تبلیغات داشبورد');
 		} finally {
 			setLoading(false);
@@ -28,7 +28,10 @@ export const OwnerAds: Component = () => {
 
 	const handleAddAd = () => {
 		const newAd: DashboardAd = {
-			id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `ad_${Date.now()}`,
+			id:
+				typeof crypto !== 'undefined' && crypto.randomUUID
+					? crypto.randomUUID()
+					: `ad_${Date.now()}`,
 			title: '',
 			image_url: '',
 			target: '',
@@ -58,14 +61,13 @@ export const OwnerAds: Component = () => {
 			} catch {}
 
 			setTimeout(() => setSuccessMsg(''), 4000);
-		} catch (e: any) {
+		} catch (_e: any) {
 			setError('خطا در ذخیره‌سازی تبلیغات داشبورد');
 			try {
 				hapticFeedback.notificationOccurred('error');
 			} catch {}
-		} fontally: {
-			setSaving(false);
 		}
+		setSaving(false);
 	};
 
 	return (
@@ -74,7 +76,9 @@ export const OwnerAds: Component = () => {
 			<div class="bg-[#16171d]/60 border border-white/5 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
 				<div>
 					<h2 class="text-sm font-black text-white">تنظیمات و مدیریت بنرهای تبلیغاتی داشبورد</h2>
-					<p class="text-xs text-white/40 font-bold mt-0.5">مدیریت لایه‌بندی بنرهای تبلیغاتی متصل به فرانت‌اند وب‌اپ</p>
+					<p class="text-xs text-white/40 font-bold mt-0.5">
+						مدیریت لایه‌بندی بنرهای تبلیغاتی متصل به فرانت‌اند وب‌اپ
+					</p>
 				</div>
 				<button
 					onClick={handleAddAd}
@@ -130,7 +134,9 @@ export const OwnerAds: Component = () => {
 								<div class="flex-1 space-y-4 pt-4 md:pt-0">
 									<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 										<div>
-											<label class="block text-[10px] font-bold text-white/50 mb-1">عنوان بنر (جهت شناسایی)</label>
+											<label class="block text-[10px] font-bold text-white/50 mb-1">
+												عنوان بنر (جهت شناسایی)
+											</label>
 											<input
 												type="text"
 												class="w-full h-11 bg-black/40 border border-white/10 rounded-xl px-4 text-xs text-white focus:border-[#3390ec] outline-none"
@@ -141,7 +147,9 @@ export const OwnerAds: Component = () => {
 										</div>
 
 										<div>
-											<label class="block text-[10px] font-bold text-white/50 mb-1">لینک تصویر (Image URL)</label>
+											<label class="block text-[10px] font-bold text-white/50 mb-1">
+												لینک تصویر (Image URL)
+											</label>
 											<input
 												type="url"
 												class="w-full h-11 bg-black/40 border border-white/10 rounded-xl px-4 text-xs font-mono text-white focus:border-[#3390ec] outline-none"
@@ -154,7 +162,9 @@ export const OwnerAds: Component = () => {
 									</div>
 
 									<div>
-										<label class="block text-[10px] font-bold text-white/50 mb-1">لینک مقصد (Target URL / Telegram Channel)</label>
+										<label class="block text-[10px] font-bold text-white/50 mb-1">
+											لینک مقصد (Target URL / Telegram Channel)
+										</label>
 										<input
 											type="text"
 											class="w-full h-11 bg-black/40 border border-white/10 rounded-xl px-4 text-xs font-mono text-white focus:border-[#3390ec] outline-none"
@@ -175,7 +185,9 @@ export const OwnerAds: Component = () => {
 											/>
 											<div class="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#3390ec]" />
 										</label>
-										<span class="text-xs font-bold text-white/80">وضعیت نمایش بنر (فعال / غیرفعال)</span>
+										<span class="text-xs font-bold text-white/80">
+											وضعیت نمایش بنر (فعال / غیرفعال)
+										</span>
 									</div>
 								</div>
 
@@ -192,7 +204,8 @@ export const OwnerAds: Component = () => {
 												alt="پیش‌نمایش"
 												class="w-full h-full object-cover"
 												onError={(e) => {
-													(e.currentTarget as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="60" viewBox="0 0 100 60"><rect width="100" height="60" fill="%23222"/><text x="50" y="35" fill="%23666" font-size="10" text-anchor="middle">Broken Image</text></svg>';
+													(e.currentTarget as HTMLImageElement).src =
+														'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="60" viewBox="0 0 100 60"><rect width="100" height="60" fill="%23222"/><text x="50" y="35" fill="%23666" font-size="10" text-anchor="middle">Broken Image</text></svg>';
 												}}
 											/>
 										</Show>
@@ -208,12 +221,15 @@ export const OwnerAds: Component = () => {
 							disabled={saving()}
 							class="h-12 px-10 bg-[#3390ec] hover:bg-[#2b7ec9] text-xs font-black uppercase text-white rounded-2xl transition-all disabled:opacity-40 flex items-center gap-2 active:scale-95 shadow-lg shadow-[#3390ec]/20"
 						>
-							<Show when={saving()} fallback={
-								<>
-									<span class="material-symbols-outlined text-[18px]">save</span>
-									ذخیره تغییرات تبلیغات
-								</>
-							}>
+							<Show
+								when={saving()}
+								fallback={
+									<>
+										<span class="material-symbols-outlined text-[18px]">save</span>
+										ذخیره تغییرات تبلیغات
+									</>
+								}
+							>
 								<span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
 								در حال ذخیره...
 							</Show>

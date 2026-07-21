@@ -1,5 +1,5 @@
-import { Component, createSignal, onMount, Show, For } from 'solid-js';
-import { ownerApi, FinanceOrder, OwnerEntityItem } from '@/shared/api/owner.js';
+import { Component, createSignal, For, onMount, Show } from 'solid-js';
+import { FinanceOrder, OwnerEntityItem, ownerApi } from '@/shared/api/owner.js';
 
 export const OwnerFinance: Component = () => {
 	const [orders, setOrders] = createSignal<FinanceOrder[]>([]);
@@ -39,7 +39,9 @@ export const OwnerFinance: Component = () => {
 			<div class="bg-[#16171d]/60 border border-white/5 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
 				<div>
 					<h2 class="text-sm font-black text-white">امور مالی، خریدهای ستاره و اشتراک‌ها</h2>
-					<p class="text-xs text-white/40 font-bold mt-0.5">مدیریت تراکنش‌های درگاه ستاره تلگرام و وضعیت اعتبارات</p>
+					<p class="text-xs text-white/40 font-bold mt-0.5">
+						مدیریت تراکنش‌های درگاه ستاره تلگرام و وضعیت اعتبارات
+					</p>
 				</div>
 			</div>
 
@@ -62,27 +64,41 @@ export const OwnerFinance: Component = () => {
 				{/* Financial KPI Summary Cards */}
 				<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
 					<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-5 space-y-2">
-						<span class="text-[10px] text-white/40 font-black uppercase tracking-wider block">کل درآمد ستاره (Telegram Stars)</span>
-						<div class="text-3xl font-black text-amber-400 font-mono">{totalRevenueStars().toLocaleString()} ⭐</div>
+						<span class="text-[10px] text-white/40 font-black uppercase tracking-wider block">
+							کل درآمد ستاره (Telegram Stars)
+						</span>
+						<div class="text-3xl font-black text-amber-400 font-mono">
+							{totalRevenueStars().toLocaleString()} ⭐
+						</div>
 						<p class="text-[10px] text-emerald-400 font-bold">پرداخت‌های موفق ثبت‌شده</p>
 					</div>
 
 					<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-5 space-y-2">
-						<span class="text-[10px] text-white/40 font-black uppercase tracking-wider block">تعداد سفارشات</span>
-						<div class="text-3xl font-black text-white font-mono">{orders().length.toLocaleString()}</div>
+						<span class="text-[10px] text-white/40 font-black uppercase tracking-wider block">
+							تعداد سفارشات
+						</span>
+						<div class="text-3xl font-black text-white font-mono">
+							{orders().length.toLocaleString()}
+						</div>
 						<p class="text-[10px] text-white/50 font-bold">کل سفارشات صادرشده</p>
 					</div>
 
 					<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-5 space-y-2">
-						<span class="text-[10px] text-white/40 font-black uppercase tracking-wider block">اشتراک‌های فعال</span>
-						<div class="text-3xl font-black text-[#3390ec] font-mono">{subscriptions().length.toLocaleString()}</div>
+						<span class="text-[10px] text-white/40 font-black uppercase tracking-wider block">
+							اشتراک‌های فعال
+						</span>
+						<div class="text-3xl font-black text-[#3390ec] font-mono">
+							{subscriptions().length.toLocaleString()}
+						</div>
 						<p class="text-[10px] text-white/50 font-bold">کانال‌ها و گروه‌های دارای اعتبار فعال</p>
 					</div>
 				</div>
 
 				{/* Active Subscriptions */}
 				<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-6 space-y-4">
-					<h3 class="text-xs font-black uppercase text-white tracking-wider">اشتراک‌های فعال پریمیوم (گروه‌ها و کانال‌ها)</h3>
+					<h3 class="text-xs font-black uppercase text-white tracking-wider">
+						اشتراک‌های فعال پریمیوم (گروه‌ها و کانال‌ها)
+					</h3>
 					<div class="overflow-x-auto">
 						<table class="w-full text-start text-xs">
 							<thead>
@@ -112,9 +128,14 @@ export const OwnerFinance: Component = () => {
 												</span>
 											</td>
 											<td class="py-3 text-start font-bold text-white">
-												{sub.title} <span class="text-white/40 text-[10px] font-mono block">@{sub.username || sub.telegram_id}</span>
+												{sub.title}{' '}
+												<span class="text-white/40 text-[10px] font-mono block">
+													@{sub.username || sub.telegram_id}
+												</span>
 											</td>
-											<td class="py-3 text-start font-mono text-white/70">{sub.owner_username ? `@${sub.owner_username}` : sub.owner_id}</td>
+											<td class="py-3 text-start font-mono text-white/70">
+												{sub.owner_username ? `@${sub.owner_username}` : sub.owner_id}
+											</td>
 											<td class="py-3 text-end font-mono font-bold text-emerald-400">
 												{sub.credit_balance?.toLocaleString() || 0} سکه اعتبار
 											</td>
@@ -128,7 +149,9 @@ export const OwnerFinance: Component = () => {
 
 				{/* Transactions History */}
 				<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-6 space-y-4">
-					<h3 class="text-xs font-black uppercase text-white tracking-wider">تاریخچه آخرین تراکنش‌های پرداختی</h3>
+					<h3 class="text-xs font-black uppercase text-white tracking-wider">
+						تاریخچه آخرین تراکنش‌های پرداختی
+					</h3>
 					<div class="overflow-x-auto">
 						<table class="w-full text-start text-xs">
 							<thead>
@@ -168,9 +191,13 @@ export const OwnerFinance: Component = () => {
 												{order.amount_stars} ⭐️
 											</td>
 											<td class="py-3 text-start font-mono text-white/80">{order.user_id}</td>
-											<td class="py-3 text-start text-white/70 font-medium">{order.item_type || 'خرید داخل برنامه'}</td>
+											<td class="py-3 text-start text-white/70 font-medium">
+												{order.item_type || 'خرید داخل برنامه'}
+											</td>
 											<td class="py-3 text-end font-mono text-white/40 text-[10px]">
-												{order.created_at ? new Date(order.created_at).toLocaleDateString('fa-IR') : '---'}
+												{order.created_at
+													? new Date(order.created_at).toLocaleDateString('fa-IR')
+													: '---'}
 											</td>
 										</tr>
 									)}

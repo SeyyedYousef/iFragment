@@ -141,9 +141,7 @@ export const ChannelAutoResponderPage: Component = () => {
 				newMemberWelcome: !!originalAR?.newMemberWelcome,
 				welcomeDelay: originalAR?.welcomeDelay || '0',
 				welcomeText: originalAR?.welcomeText || '',
-				rules: Array.isArray(originalAR?.rules)
-					? originalAR.rules.map(normalizeRule)
-					: [],
+				rules: Array.isArray(originalAR?.rules) ? originalAR.rules.map(normalizeRule) : [],
 			})
 		);
 	});
@@ -322,44 +320,73 @@ export const ChannelAutoResponderPage: Component = () => {
 								<div class="bg-gradient-to-br from-[#32ade6]/20 to-[#0f1014] border border-[#32ade6]/30 rounded-3xl p-5 flex flex-col gap-3 relative overflow-hidden">
 									<div class="absolute -right-4 -top-4 w-24 h-24 bg-[#32ade6]/20 rounded-full blur-2xl"></div>
 									<div class="flex items-center gap-2 mb-1">
-										<span class="material-symbols-outlined text-[#32ade6] text-[24px]">lightbulb</span>
-										<h2 class="text-[16px] font-bold text-white">{t('channelAutoResponder.guideTitle') || 'راهنمای قابلیت‌های پاسخگوی خودکار'}</h2>
+										<span class="material-symbols-outlined text-[#32ade6] text-[24px]">
+											lightbulb
+										</span>
+										<h2 class="text-[16px] font-bold text-white">
+											{t('channelAutoResponder.guideTitle') || 'راهنمای قابلیت‌های پاسخگوی خودکار'}
+										</h2>
 									</div>
 									<p class="text-[13px] text-on-surface-variant leading-relaxed">
-										{t('channelAutoResponder.guideDesc') || 'با روشن شدن این بخش، ربات در گروه متصل به کانال شما (Discuss Group) فعال می‌شود. قابلیت‌های زیر در اختیار شماست:'}
+										{t('channelAutoResponder.guideDesc') ||
+											'با روشن شدن این بخش، ربات در گروه متصل به کانال شما (Discuss Group) فعال می‌شود. قابلیت‌های زیر در اختیار شماست:'}
 									</p>
 									<div class="bg-[#ff9f0a]/10 border border-[#ff9f0a]/30 rounded-2xl p-3.5 flex items-start gap-2.5 my-1">
-										<span class="material-symbols-outlined text-[#ff9f0a] text-[20px] shrink-0 mt-0.5">warning</span>
+										<span class="material-symbols-outlined text-[#ff9f0a] text-[20px] shrink-0 mt-0.5">
+											warning
+										</span>
 										<p class="text-[12px] text-white font-bold leading-relaxed">
-											{t('channelAutoResponder.adminRequirementNotice') || 'توجه مهم: برای کارکرد صحیح کامنت‌گذاری و پاسخگویی خودکار، ربات حتماً باید در گروه بحث (Discussion Group) متصل به کانال عضو بوده و دسترسی مدیر (Admin) داشته باشد.'}
+											{t('channelAutoResponder.adminRequirementNotice') ||
+												'توجه مهم: برای کارکرد صحیح کامنت‌گذاری و پاسخگویی خودکار، ربات حتماً باید در گروه بحث (Discussion Group) متصل به کانال عضو بوده و دسترسی مدیر (Admin) داشته باشد.'}
 										</p>
 									</div>
 									<ul class="flex flex-col gap-3 mt-1">
 										<li class="flex items-start gap-2">
 											<div class="w-6 h-6 rounded-full bg-[#32ade6]/20 flex items-center justify-center shrink-0 mt-0.5">
-												<span class="material-symbols-outlined text-[#32ade6] text-[14px]">forum</span>
+												<span class="material-symbols-outlined text-[#32ade6] text-[14px]">
+													forum
+												</span>
 											</div>
 											<div class="flex flex-col">
-												<span class="text-[14px] font-bold text-white">{t('channelAutoResponder.featFirstCommentTitle') || 'Auto First Comment'}</span>
-												<span class="text-[12px] text-[#8e8e93]">{t('channelAutoResponder.featFirstCommentDesc') || 'Registers the first comment instantly when a post is published.'}</span>
+												<span class="text-[14px] font-bold text-white">
+													{t('channelAutoResponder.featFirstCommentTitle') || 'Auto First Comment'}
+												</span>
+												<span class="text-[12px] text-[#8e8e93]">
+													{t('channelAutoResponder.featFirstCommentDesc') ||
+														'Registers the first comment instantly when a post is published.'}
+												</span>
 											</div>
 										</li>
 										<li class="flex items-start gap-2">
 											<div class="w-6 h-6 rounded-full bg-[#32ade6]/20 flex items-center justify-center shrink-0 mt-0.5">
-												<span class="material-symbols-outlined text-[#32ade6] text-[14px]">waving_hand</span>
+												<span class="material-symbols-outlined text-[#32ade6] text-[14px]">
+													waving_hand
+												</span>
 											</div>
 											<div class="flex flex-col">
-												<span class="text-[14px] font-bold text-white">{t('channelAutoResponder.featWelcomeTitle') || 'Welcome Message'}</span>
-												<span class="text-[12px] text-[#8e8e93]">{t('channelAutoResponder.featWelcomeDesc') || 'Greets new members with a custom message.'}</span>
+												<span class="text-[14px] font-bold text-white">
+													{t('channelAutoResponder.featWelcomeTitle') || 'Welcome Message'}
+												</span>
+												<span class="text-[12px] text-[#8e8e93]">
+													{t('channelAutoResponder.featWelcomeDesc') ||
+														'Greets new members with a custom message.'}
+												</span>
 											</div>
 										</li>
 										<li class="flex items-start gap-2">
 											<div class="w-6 h-6 rounded-full bg-[#32ade6]/20 flex items-center justify-center shrink-0 mt-0.5">
-												<span class="material-symbols-outlined text-[#32ade6] text-[14px]">smart_toy</span>
+												<span class="material-symbols-outlined text-[#32ade6] text-[14px]">
+													smart_toy
+												</span>
 											</div>
 											<div class="flex flex-col">
-												<span class="text-[14px] font-bold text-white">{t('channelAutoResponder.featKeywordTitle') || 'Keyword Replies'}</span>
-												<span class="text-[12px] text-[#8e8e93]">{t('channelAutoResponder.featKeywordDesc') || 'Automatically replies to common questions.'}</span>
+												<span class="text-[14px] font-bold text-white">
+													{t('channelAutoResponder.featKeywordTitle') || 'Keyword Replies'}
+												</span>
+												<span class="text-[12px] text-[#8e8e93]">
+													{t('channelAutoResponder.featKeywordDesc') ||
+														'Automatically replies to common questions.'}
+												</span>
 											</div>
 										</li>
 									</ul>
@@ -592,7 +619,12 @@ export const ChannelAutoResponderPage: Component = () => {
 														</div>
 														<button
 															onClick={() => {
-																if (confirm(t('channelAutoResponder.deleteRuleConfirm') || 'Removing this rule will immediately stop automatic replies. Are you sure?')) {
+																if (
+																	confirm(
+																		t('channelAutoResponder.deleteRuleConfirm') ||
+																			'Removing this rule will immediately stop automatic replies. Are you sure?',
+																	)
+																) {
 																	hapticFeedback.impactOccurred('light');
 																	setRules(rules().filter((r) => r.id !== rule.id));
 																}

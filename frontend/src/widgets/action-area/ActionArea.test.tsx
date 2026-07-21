@@ -32,8 +32,8 @@ vi.mock('@/entities/username/api/index.js', () => ({
 describe('ActionArea Component', () => {
 	it('renders correctly', () => {
 		render(() => <ActionArea activeTab="username" />);
-		// Check if the search role exists
-		expect(screen.getByRole('search')).toBeInTheDocument();
+		// Check if the search input exists
+		expect(screen.getByRole('textbox')).toBeInTheDocument();
 	});
 
 	it('displays the correct placeholder text', () => {

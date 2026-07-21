@@ -105,7 +105,8 @@ export const customResolveTemplate = (template: string, ...args: any[]): string 
 
 	if (firstArg && typeof firstArg === 'object') {
 		for (const key of Object.keys(firstArg)) {
-			const val = firstArg[key] !== undefined && firstArg[key] !== null ? String(firstArg[key]) : '';
+			const val =
+				firstArg[key] !== undefined && firstArg[key] !== null ? String(firstArg[key]) : '';
 			result = result.split(`{{${key}}}`).join(val).split(`{${key}}`).join(val);
 		}
 	} else {
@@ -119,7 +120,10 @@ export const customResolveTemplate = (template: string, ...args: any[]): string 
 };
 
 // Type-safe translator: wrong keys cause a compile-time error
-export const t = i18n.translator(getDict, customResolveTemplate) as (key: DictPaths, args?: Record<string, any>) => string;
+export const t = i18n.translator(getDict, customResolveTemplate) as (
+	key: DictPaths,
+	args?: Record<string, any>,
+) => string;
 
 // Helper to format numbers based on active locale
 export const getIntlLocale = (): string => {

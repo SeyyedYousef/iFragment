@@ -34,9 +34,12 @@ const defaults: CustomTextsConfig = {
 	warningText: '⚠️ <b>{user}</b> | Warning <b>{count}/{threshold}</b>\n└ Reason: {reason}',
 	silenceStartText: '🔒 <b>{group}</b> | Quiet Hours Active',
 	silenceEndText: '🔓 <b>{group}</b> | Chat Open',
-	rulesText: '📜 <b>{group} Rules</b>\n▫️ No Spam, Ads, or Unauthorized Links\n▫️ Maintain respect & decorum',
-	forceJoinText: '📢 <b>{user}</b>, join required channels to chat in <b>{group}</b>:\n\n{channel_names}',
-	forceAddText: '👥 <b>{user}</b>, invite {remainadd} member(s) to chat in <b>{group}</b> ({added}/{number})',
+	rulesText:
+		'📜 <b>{group} Rules</b>\n▫️ No Spam, Ads, or Unauthorized Links\n▫️ Maintain respect & decorum',
+	forceJoinText:
+		'📢 <b>{user}</b>, join required channels to chat in <b>{group}</b>:\n\n{channel_names}',
+	forceAddText:
+		'👥 <b>{user}</b>, invite {remainadd} member(s) to chat in <b>{group}</b> ({added}/{number})',
 	inlineButtons: [],
 };
 

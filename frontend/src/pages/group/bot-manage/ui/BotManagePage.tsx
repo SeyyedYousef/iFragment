@@ -3,7 +3,7 @@ import { useNavigate, useParams } from '@solidjs/router';
 import { backButton, hapticFeedback, openTelegramLink } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import type { ManagedGroup, SubscriptionPackage } from '@/shared/api/bot-management.js';
-import { botApi, subscriptionApi, groupApi } from '@/shared/api/bot-management.js';
+import { botApi, groupApi, subscriptionApi } from '@/shared/api/bot-management.js';
 import { channelApi } from '@/shared/api/channel-management.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 
@@ -39,7 +39,6 @@ export const BotManagePage: Component = () => {
 	);
 
 	const [packages] = createResource(subscriptionApi.getPackages);
-
 
 	onMount(() => {
 		backButton.show();
@@ -105,7 +104,7 @@ export const BotManagePage: Component = () => {
 			hapticFeedback.notificationOccurred('success');
 			setGroupToDelete(null);
 			refetchGroups();
-		} catch (e: any) {
+		} catch (_e: any) {
 			hapticFeedback.notificationOccurred('error');
 		} finally {
 			setIsDeletingGroup(false);
@@ -481,20 +480,24 @@ export const BotManagePage: Component = () => {
 											>
 												{/* Badge */}
 												<Show when={pkg.badge}>
-													<div class={`absolute top-0 ${isRtl() ? 'left-0 rounded-bl-xl rounded-tr-2xl' : 'right-0 rounded-br-xl rounded-tl-2xl'} px-2.5 py-1 text-[9px] font-black uppercase tracking-wider ${
-														pkg.badge === 'best_value'
-															? 'bg-[#ff9f0a] text-black'
-															: 'bg-[#3390ec] text-white'
-													}`}>
+													<div
+														class={`absolute top-0 ${isRtl() ? 'left-0 rounded-bl-xl rounded-tr-2xl' : 'right-0 rounded-br-xl rounded-tl-2xl'} px-2.5 py-1 text-[9px] font-black uppercase tracking-wider ${
+															pkg.badge === 'best_value'
+																? 'bg-[#ff9f0a] text-black'
+																: 'bg-[#3390ec] text-white'
+														}`}
+													>
 														{pkg.badge === 'best_value'
-															? (t('botManage.bestValue' as any) || 'Best Value')
-															: (t('botManage.popular' as any) || 'Popular')}
+															? t('botManage.bestValue' as any) || 'Best Value'
+															: t('botManage.popular' as any) || 'Popular'}
 													</div>
 												</Show>
 
 												<div class="flex flex-col items-start gap-0.5">
 													<div class="flex items-center gap-2">
-														<span class={`text-[16px] font-black ${selectedPkg() === pkg.id ? 'text-white' : 'text-white/90'}`}>
+														<span
+															class={`text-[16px] font-black ${selectedPkg() === pkg.id ? 'text-white' : 'text-white/90'}`}
+														>
 															{pkg.name}
 														</span>
 														<Show when={pkg.discount}>
@@ -504,7 +507,8 @@ export const BotManagePage: Component = () => {
 														</Show>
 													</div>
 													<span class="text-[11px] font-medium text-[#8e8e93]">
-														{t('botManage.totalPrice' as any) || 'Total'}: ${pkg.price_usd.toFixed(2)} · {pkg.price_stars} ⭐
+														{t('botManage.totalPrice' as any) || 'Total'}: $
+														{pkg.price_usd.toFixed(2)} · {pkg.price_stars} ⭐
 													</span>
 												</div>
 												<div class="flex flex-col items-end gap-0.5">
@@ -556,15 +560,22 @@ export const BotManagePage: Component = () => {
 								{/* Selected plan summary */}
 								<Show when={packages() && selectedPkg()}>
 									{(() => {
-										const pkg = (packages() || []).find((p: SubscriptionPackage) => p.id === selectedPkg());
+										const pkg = (packages() || []).find(
+											(p: SubscriptionPackage) => p.id === selectedPkg(),
+										);
 										return pkg ? (
 											<div class="bg-[#242426] rounded-2xl p-4 mb-6 border border-[#2a2a2a] flex items-center justify-between">
 												<div class="flex flex-col gap-0.5">
 													<span class="text-[15px] font-black text-white">{pkg.name}</span>
-													<span class="text-[12px] text-[#8e8e93]">${pkg.price_per_month.toFixed(2)}{t('botManage.perMonth' as any) || '/mo'}</span>
+													<span class="text-[12px] text-[#8e8e93]">
+														${pkg.price_per_month.toFixed(2)}
+														{t('botManage.perMonth' as any) || '/mo'}
+													</span>
 												</div>
 												<div class="flex flex-col items-end">
-													<span class="text-[17px] font-black text-white">${pkg.price_usd.toFixed(2)}</span>
+													<span class="text-[17px] font-black text-white">
+														${pkg.price_usd.toFixed(2)}
+													</span>
 													<span class="text-[11px] text-[#8e8e93]">{pkg.price_stars} ⭐</span>
 												</div>
 											</div>
@@ -594,9 +605,13 @@ export const BotManagePage: Component = () => {
 											</div>
 											<Show when={packages() && selectedPkg()}>
 												{(() => {
-													const pkg = (packages() || []).find((p: SubscriptionPackage) => p.id === selectedPkg());
+													const pkg = (packages() || []).find(
+														(p: SubscriptionPackage) => p.id === selectedPkg(),
+													);
 													return pkg ? (
-														<span class="text-[15px] font-black text-[#ffb900]">{pkg.price_stars} ⭐</span>
+														<span class="text-[15px] font-black text-[#ffb900]">
+															{pkg.price_stars} ⭐
+														</span>
 													) : null;
 												})()}
 											</Show>
@@ -626,10 +641,12 @@ export const BotManagePage: Component = () => {
 											</div>
 											<Show when={packages() && selectedPkg()}>
 												{(() => {
-													const pkg = (packages() || []).find((p: SubscriptionPackage) => p.id === selectedPkg());
+													const pkg = (packages() || []).find(
+														(p: SubscriptionPackage) => p.id === selectedPkg(),
+													);
 													return pkg ? (
 														<span class="text-[15px] font-black text-[#3390ec]">
-															{(pkg.price_coins).toLocaleString()}
+															{pkg.price_coins.toLocaleString()}
 														</span>
 													) : null;
 												})()}
@@ -667,14 +684,17 @@ export const BotManagePage: Component = () => {
 						class="w-full max-w-sm bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-6 flex flex-col items-center text-center"
 					>
 						<div class="w-16 h-16 rounded-full bg-[#ff3b30]/10 flex items-center justify-center mb-4">
-							<span class="material-symbols-outlined text-[#ff3b30] text-[32px]">delete_forever</span>
+							<span class="material-symbols-outlined text-[#ff3b30] text-[32px]">
+								delete_forever
+							</span>
 						</div>
-						
+
 						<h3 class="text-[20px] font-black text-white mb-2">
 							{t('botManage.deleteConfirmTitle' as any) || 'Remove Group'}
 						</h3>
 						<p class="text-[14px] text-[#8e8e93] mb-6 leading-relaxed">
-							{t('botManage.deleteConfirmDesc' as any) || 'Are you sure you want to remove this group? All settings will be lost and bot management will be disabled.'}
+							{t('botManage.deleteConfirmDesc' as any) ||
+								'Are you sure you want to remove this group? All settings will be lost and bot management will be disabled.'}
 						</p>
 
 						<div class="w-full flex gap-3">

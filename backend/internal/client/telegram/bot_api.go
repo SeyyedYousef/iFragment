@@ -736,17 +736,17 @@ func (c *BotAPIClient) SetChatPhoto(ctx context.Context, chatID interface{}, pho
 
 	tgResp, err := c.client.Do(tgReq)
 	if err != nil {
-		return fmt.Errorf("telegram setChatPhoto request failed: %w", err)
+		return c.maskTokenInError(fmt.Errorf("telegram setChatPhoto request failed: %w", err))
 	}
 	defer tgResp.Body.Close()
 
 	var tgResult apiResponse
 	if err := json.NewDecoder(tgResp.Body).Decode(&tgResult); err != nil {
-		return fmt.Errorf("failed to decode setChatPhoto response: %w", err)
+		return c.maskTokenInError(fmt.Errorf("failed to decode setChatPhoto response: %w", err))
 	}
 
 	if !tgResult.OK {
-		return fmt.Errorf("setChatPhoto failed: %s", tgResult.Description)
+		return c.maskTokenInError(fmt.Errorf("setChatPhoto failed: %s", tgResult.Description))
 	}
 
 	return nil

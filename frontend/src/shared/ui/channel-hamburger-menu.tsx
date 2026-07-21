@@ -36,12 +36,22 @@ export const ChannelHamburgerMenu: Component<ChannelHamburgerMenuProps> = (props
 		switch (id) {
 			case 'auto-responder': {
 				let ar = s.auto_responder;
-				if (typeof ar === 'string') try { ar = JSON.parse(ar); } catch { return null; }
+				if (typeof ar === 'string')
+					try {
+						ar = JSON.parse(ar);
+					} catch {
+						return null;
+					}
 				return ar?.enabled ? 'on' : 'off';
 			}
 			case 'dynamic-bio': {
 				let db = s.dynamic_bio;
-				if (typeof db === 'string') try { db = JSON.parse(db); } catch { return null; }
+				if (typeof db === 'string')
+					try {
+						db = JSON.parse(db);
+					} catch {
+						return null;
+					}
 				return db?.enabled ? 'on' : 'off';
 			}
 
@@ -154,19 +164,24 @@ export const ChannelHamburgerMenu: Component<ChannelHamburgerMenuProps> = (props
 								<div class="w-10 h-10 rounded-xl bg-[#24262d] border border-[#30323a] flex items-center justify-center shrink-0 text-[#32ade6] font-black">
 									<Show
 										when={!channel.loading}
-										fallback={<span class="w-5 h-5 border-2 border-[#32ade6]/25 border-t-[#32ade6] rounded-full animate-spin" />}
+										fallback={
+											<span class="w-5 h-5 border-2 border-[#32ade6]/25 border-t-[#32ade6] rounded-full animate-spin" />
+										}
 									>
 										{channel()?.chat_title?.charAt(0)?.toUpperCase() || 'C'}
 									</Show>
 								</div>
 								<div class="flex flex-col min-w-0">
 									<span class="text-[13px] font-black text-white truncate">
-										{channel.loading ? 'Loading channel...' : channel()?.chat_title || props.channelId}
+										{channel.loading
+											? 'Loading channel...'
+											: channel()?.chat_title || props.channelId}
 									</span>
 									<span class="text-[11px] text-[#8e8e93] truncate" dir="ltr">
 										{channel()?.chat_id ? `ID ${channel()?.chat_id}` : props.channelId}
 										<Show when={channel()?.subscription_status}>
-											{' '}· {channel()?.subscription_status}
+											{' '}
+											· {channel()?.subscription_status}
 										</Show>
 									</span>
 								</div>

@@ -1,7 +1,7 @@
+import { hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createSignal, onMount, Show } from 'solid-js';
 import { ownerApi, SystemSettings } from '@/shared/api/owner.js';
 import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.js';
-import { hapticFeedback } from '@tma.js/sdk-solid';
 
 export const OwnerSettings: Component = () => {
 	const [initialSettings, setInitialSettings] = createSignal<SystemSettings | null>(null);
@@ -92,7 +92,9 @@ export const OwnerSettings: Component = () => {
 			<div class="bg-[#16171d]/60 border border-white/5 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
 				<div>
 					<h2 class="text-sm font-black text-white">تنظیمات اصلی و اقتصاد سیستم</h2>
-					<p class="text-xs text-white/40 font-bold mt-0.5">مدیریت حالت تعمیرات و ضرایب پایه کلیک و پاداش‌ها</p>
+					<p class="text-xs text-white/40 font-bold mt-0.5">
+						مدیریت حالت تعمیرات و ضرایب پایه کلیک و پاداش‌ها
+					</p>
 				</div>
 			</div>
 
@@ -125,7 +127,9 @@ export const OwnerSettings: Component = () => {
 						<div class="flex justify-between items-start md:items-center">
 							<div>
 								<div class="flex items-center gap-2">
-									<h3 class="font-black text-sm text-white">حالت تعمیرات و نگهداری (Maintenance Mode)</h3>
+									<h3 class="font-black text-sm text-white">
+										حالت تعمیرات و نگهداری (Maintenance Mode)
+									</h3>
 									<Show when={settings()?.maintenance_mode}>
 										<span class="px-2 py-0.5 rounded bg-red-500/20 text-red-400 text-[9px] font-black">
 											فعال (مسدود عمومی)
@@ -133,7 +137,8 @@ export const OwnerSettings: Component = () => {
 									</Show>
 								</div>
 								<p class="text-xs text-white/50 font-medium mt-1 leading-relaxed">
-									در صورت فعال‌سازی، تمامی کاربران عادی با صفحه «در حال بروزرسانی» مواجه خواهند شد و صرفاً ادمین‌ها دسترسی دارند.
+									در صورت فعال‌سازی، تمامی کاربران عادی با صفحه «در حال بروزرسانی» مواجه خواهند شد و
+									صرفاً ادمین‌ها دسترسی دارند.
 								</p>
 							</div>
 
@@ -142,7 +147,9 @@ export const OwnerSettings: Component = () => {
 									type="checkbox"
 									class="sr-only peer"
 									checked={settings()?.maintenance_mode || false}
-									onChange={(e) => setSettings((s) => ({ ...s!, maintenance_mode: e.target.checked }))}
+									onChange={(e) =>
+										setSettings((s) => ({ ...s!, maintenance_mode: e.target.checked }))
+									}
 								/>
 								<div class="w-12 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500" />
 							</label>
@@ -151,11 +158,15 @@ export const OwnerSettings: Component = () => {
 
 					{/* Game Economy Variables */}
 					<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-6 space-y-6">
-						<h3 class="font-black text-sm text-white border-b border-white/5 pb-3">اقتصاد و ضرایب پاداش</h3>
+						<h3 class="font-black text-sm text-white border-b border-white/5 pb-3">
+							اقتصاد و ضرایب پاداش
+						</h3>
 
 						<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
 							<div>
-								<label class="block text-xs font-bold text-white/60 mb-2">ضریب تپ (Tap Multiplier)</label>
+								<label class="block text-xs font-bold text-white/60 mb-2">
+									ضریب تپ (Tap Multiplier)
+								</label>
 								<input
 									type="number"
 									step="0.1"
@@ -163,40 +174,61 @@ export const OwnerSettings: Component = () => {
 									max="100"
 									value={settings()?.tap_multiplier || 1.0}
 									onInput={(e) =>
-										setSettings((s) => ({ ...s!, tap_multiplier: parseFloat(e.target.value) || 1.0 }))
+										setSettings((s) => ({
+											...s!,
+											tap_multiplier: parseFloat(e.target.value) || 1.0,
+										}))
 									}
 									class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono focus:border-[#3390ec] outline-none"
 									dir="ltr"
 								/>
-								<p class="text-[10px] text-white/40 font-bold mt-1.5">ضریب ضرب‌کننده به ازای هر تپ در استخراج</p>
+								<p class="text-[10px] text-white/40 font-bold mt-1.5">
+									ضریب ضرب‌کننده به ازای هر تپ در استخراج
+								</p>
 							</div>
 
 							<div>
-								<label class="block text-xs font-bold text-white/60 mb-2">پاداش دعوت دوستان (Referral Bonus)</label>
+								<label class="block text-xs font-bold text-white/60 mb-2">
+									پاداش دعوت دوستان (Referral Bonus)
+								</label>
 								<input
 									type="number"
 									min="0"
 									value={settings()?.referral_bonus || 0}
-									onInput={(e) => setSettings((s) => ({ ...s!, referral_bonus: parseInt(e.target.value) || 0 }))}
+									onInput={(e) =>
+										setSettings((s) => ({
+											...s!,
+											referral_bonus: parseInt(e.target.value, 10) || 0,
+										}))
+									}
 									class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono focus:border-[#3390ec] outline-none"
 									dir="ltr"
 								/>
-								<p class="text-[10px] text-white/40 font-bold mt-1.5">مقدار پاداش اولیه جهت ورود هر زیرمجموعه</p>
+								<p class="text-[10px] text-white/40 font-bold mt-1.5">
+									مقدار پاداش اولیه جهت ورود هر زیرمجموعه
+								</p>
 							</div>
 
 							<div>
-								<label class="block text-xs font-bold text-white/60 mb-2">پایه پاداش روزانه (Daily Base)</label>
+								<label class="block text-xs font-bold text-white/60 mb-2">
+									پایه پاداش روزانه (Daily Base)
+								</label>
 								<input
 									type="number"
 									min="0"
 									value={settings()?.daily_reward_base || 0}
 									onInput={(e) =>
-										setSettings((s) => ({ ...s!, daily_reward_base: parseInt(e.target.value) || 0 }))
+										setSettings((s) => ({
+											...s!,
+											daily_reward_base: parseInt(e.target.value, 10) || 0,
+										}))
 									}
 									class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono focus:border-[#3390ec] outline-none"
 									dir="ltr"
 								/>
-								<p class="text-[10px] text-white/40 font-bold mt-1.5">مقدار پاداش ورود روزانه متوالی</p>
+								<p class="text-[10px] text-white/40 font-bold mt-1.5">
+									مقدار پاداش ورود روزانه متوالی
+								</p>
 							</div>
 						</div>
 					</div>
@@ -208,12 +240,15 @@ export const OwnerSettings: Component = () => {
 							disabled={saving() || !isDirty()}
 							class="h-12 px-8 bg-[#3390ec] hover:bg-[#2b7ec9] text-white text-xs font-black uppercase rounded-2xl transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 active:scale-95 shadow-lg shadow-[#3390ec]/20"
 						>
-							<Show when={saving()} fallback={
-								<>
-									<span class="material-symbols-outlined text-[18px]">save</span>
-									ذخیره تغییرات تنظیمات
-								</>
-							}>
+							<Show
+								when={saving()}
+								fallback={
+									<>
+										<span class="material-symbols-outlined text-[18px]">save</span>
+										ذخیره تغییرات تنظیمات
+									</>
+								}
+							>
 								<span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
 								در حال ذخیره‌سازی...
 							</Show>

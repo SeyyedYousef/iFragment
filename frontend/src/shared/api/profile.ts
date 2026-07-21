@@ -234,16 +234,12 @@ export async function getDailyComboStatus(): Promise<DailyComboStatus> {
 }
 
 export async function claimDailyCombo(secretWord: string): Promise<boolean> {
-	try {
-		await apiFetch<{ success: boolean }>('/profile/daily-combo/claim', {
-			method: 'POST',
-			body: JSON.stringify({ secret_word: secretWord }),
-			headers: { 'Content-Type': 'application/json' },
-		});
-		return true;
-	} catch (error) {
-		throw error;
-	}
+	await apiFetch<{ success: boolean }>('/profile/daily-combo/claim', {
+		method: 'POST',
+		body: JSON.stringify({ secret_word: secretWord }),
+		headers: { 'Content-Type': 'application/json' },
+	});
+	return true;
 }
 
 export const getTasksStatus = (): Promise<TaskStatus[]> =>
@@ -314,7 +310,13 @@ export const createPremiumCheckout = (): Promise<{ invoice_link: string }> =>
 		method: 'POST',
 	});
 
-export const addTaps = async (taps: number, multiplier: number, nonce: string, clientTS: number, sig: string): Promise<ProfileStats> => {
+export const addTaps = async (
+	taps: number,
+	multiplier: number,
+	nonce: string,
+	clientTS: number,
+	sig: string,
+): Promise<ProfileStats> => {
 	const stats = await validatedFetch('/profile/tap', ProfileStatsSchema, {
 		method: 'POST',
 		body: JSON.stringify({ taps, multiplier, nonce, client_ts: clientTS, signature: sig }),
@@ -373,8 +375,10 @@ export const getTopClans = (): Promise<Clan[]> =>
 	validatedFetch('/profile/clan/top', z.array(ClanSchema));
 
 export const getClanMembers = (clanId?: string, limit?: number): Promise<ClanMember[]> =>
-	validatedFetch(`/profile/clan/members?clan_id=${clanId || ''}&limit=${limit || 50}`, z.array(ClanMemberSchema));
-
+	validatedFetch(
+		`/profile/clan/members?clan_id=${clanId || ''}&limit=${limit || 50}`,
+		z.array(ClanMemberSchema),
+	);
 
 export const deleteAccountGDPR = (): Promise<{ status: string; message: string }> =>
 	validatedFetch('/profile/gdpr', z.object({ status: z.string(), message: z.string() }), {

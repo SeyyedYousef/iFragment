@@ -1,7 +1,7 @@
-import { Component, createSignal, onMount, Show, For } from 'solid-js';
-import { ownerApi, BroadcastMessage } from '@/shared/api/owner.js';
-import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.js';
 import { hapticFeedback } from '@tma.js/sdk-solid';
+import { Component, createSignal, For, onMount, Show } from 'solid-js';
+import { BroadcastMessage, ownerApi } from '@/shared/api/owner.js';
+import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.js';
 
 export const OwnerBroadcast: Component = () => {
 	const [broadcasts, setBroadcasts] = createSignal<BroadcastMessage[]>([]);
@@ -87,7 +87,9 @@ export const OwnerBroadcast: Component = () => {
 			<div class="bg-[#16171d]/60 border border-white/5 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
 				<div>
 					<h2 class="text-sm font-black text-white">سامانه ارسال پیام همگانی (Broadcast System)</h2>
-					<p class="text-xs text-white/40 font-bold mt-0.5">ارسال انبوه پیام‌های اطلاع‌رسانی به کاربران با قابلیت انتخاب جامعه هدف</p>
+					<p class="text-xs text-white/40 font-bold mt-0.5">
+						ارسال انبوه پیام‌های اطلاع‌رسانی به کاربران با قابلیت انتخاب جامعه هدف
+					</p>
 				</div>
 			</div>
 
@@ -107,12 +109,16 @@ export const OwnerBroadcast: Component = () => {
 
 			{/* Form */}
 			<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-6 space-y-4">
-				<h3 class="text-xs font-black uppercase text-white tracking-wider">تنظیم و ارسال پیام جدید</h3>
+				<h3 class="text-xs font-black uppercase text-white tracking-wider">
+					تنظیم و ارسال پیام جدید
+				</h3>
 
 				<form onSubmit={handleInitiateSend} class="space-y-4">
 					<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 						<div>
-							<label class="block text-[10px] font-bold text-white/50 mb-1">جامعه هدف (Audience)</label>
+							<label class="block text-[10px] font-bold text-white/50 mb-1">
+								جامعه هدف (Audience)
+							</label>
 							<select
 								value={audience()}
 								onChange={(e) => setAudience(e.currentTarget.value as any)}
@@ -126,7 +132,9 @@ export const OwnerBroadcast: Component = () => {
 						</div>
 
 						<div>
-							<label class="block text-[10px] font-bold text-white/50 mb-1">زمان‌بندی ارسال (اختیاری)</label>
+							<label class="block text-[10px] font-bold text-white/50 mb-1">
+								زمان‌بندی ارسال (اختیاری)
+							</label>
 							<input
 								type="datetime-local"
 								value={scheduleTime()}
@@ -138,7 +146,9 @@ export const OwnerBroadcast: Component = () => {
 
 					<div>
 						<div class="flex items-center justify-between mb-1">
-							<label class="block text-[10px] font-bold text-white/50">متن پیام تلگرام (پشتیبانی از فرمت HTML)</label>
+							<label class="block text-[10px] font-bold text-white/50">
+								متن پیام تلگرام (پشتیبانی از فرمت HTML)
+							</label>
 							<button
 								type="button"
 								onClick={() => setIsPreviewOpen(!isPreviewOpen())}
@@ -184,7 +194,9 @@ export const OwnerBroadcast: Component = () => {
 
 			{/* History Table */}
 			<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-6 space-y-4">
-				<h3 class="text-xs font-black uppercase text-white tracking-wider">تاریخچه پیام‌های صادر شده</h3>
+				<h3 class="text-xs font-black uppercase text-white tracking-wider">
+					تاریخچه پیام‌های صادر شده
+				</h3>
 
 				<Show when={loading()}>
 					<div class="flex justify-center items-center py-10">
@@ -193,7 +205,9 @@ export const OwnerBroadcast: Component = () => {
 				</Show>
 
 				<Show when={!loading() && broadcasts().length === 0}>
-					<div class="text-center py-10 text-white/40 text-xs font-bold">هیچ پیام همگانی صادر نشده است.</div>
+					<div class="text-center py-10 text-white/40 text-xs font-bold">
+						هیچ پیام همگانی صادر نشده است.
+					</div>
 				</Show>
 
 				<Show when={!loading() && broadcasts().length > 0}>
@@ -220,7 +234,10 @@ export const OwnerBroadcast: Component = () => {
 													{getAudienceLabel(b.target_audience)}
 												</span>
 											</td>
-											<td class="py-4 text-start max-w-[200px] truncate text-white/80 font-medium" title={b.message_text}>
+											<td
+												class="py-4 text-start max-w-[200px] truncate text-white/80 font-medium"
+												title={b.message_text}
+											>
 												{b.message_text}
 											</td>
 											<td class="py-4 text-start">
@@ -236,7 +253,9 @@ export const OwnerBroadcast: Component = () => {
 													{b.status}
 												</span>
 											</td>
-											<td class="py-4 text-end font-mono font-bold text-white">{b.sent_count?.toLocaleString() || 0}</td>
+											<td class="py-4 text-end font-mono font-bold text-white">
+												{b.sent_count?.toLocaleString() || 0}
+											</td>
 										</tr>
 									)}
 								</For>
@@ -257,7 +276,10 @@ export const OwnerBroadcast: Component = () => {
 					riskLevel="critical"
 					details={[
 						{ label: 'جامعه هدف', value: getAudienceLabel(audience()) },
-						{ label: 'زمان ارسال', value: scheduleTime() ? new Date(scheduleTime()).toLocaleString('fa-IR') : 'بلافاصله' },
+						{
+							label: 'زمان ارسال',
+							value: scheduleTime() ? new Date(scheduleTime()).toLocaleString('fa-IR') : 'بلافاصله',
+						},
 					]}
 					loading={sending()}
 					onConfirm={executeSendBroadcast}

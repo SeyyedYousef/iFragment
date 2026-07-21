@@ -254,7 +254,7 @@ export const valuationApi = {
 		apiClient
 			.post<{ success: boolean; has_access: boolean; in_channel: boolean; in_group: boolean }>(
 				'/usernames/valuation-verify-free',
-				{ username }
+				{ username },
 			)
 			.then((r: any) => r.data),
 };

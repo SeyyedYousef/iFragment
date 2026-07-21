@@ -21,9 +21,7 @@ export const ShopView: Component = () => {
 
 			{/* Title & Description */}
 			<div class="text-center mb-8">
-				<h2 class="text-white text-2xl font-black mb-2 tracking-tight">
-					{t('shopInfo.title')}
-				</h2>
+				<h2 class="text-white text-2xl font-black mb-2 tracking-tight">{t('shopInfo.title')}</h2>
 				<p class="text-white/60 text-[13.5px] leading-relaxed font-medium max-w-xs mx-auto">
 					{t('shopInfo.desc')}
 				</p>
@@ -42,7 +40,9 @@ export const ShopView: Component = () => {
 						</span>
 					</div>
 					<div class="flex-1 text-start">
-						<h3 class="text-white font-bold text-[15px] mb-0.5">{t('shopInfo.usernameAnalytics')}</h3>
+						<h3 class="text-white font-bold text-[15px] mb-0.5">
+							{t('shopInfo.usernameAnalytics')}
+						</h3>
 						<p class="text-white/50 text-[12px] leading-snug">
 							{t('shopInfo.usernameAnalyticsDesc')}
 						</p>
@@ -61,9 +61,7 @@ export const ShopView: Component = () => {
 					</div>
 					<div class="flex-1 text-start">
 						<h3 class="text-white font-bold text-[15px] mb-0.5">{t('shopInfo.groupMgmt')}</h3>
-						<p class="text-white/50 text-[12px] leading-snug">
-							{t('shopInfo.groupMgmtDesc')}
-						</p>
+						<p class="text-white/50 text-[12px] leading-snug">{t('shopInfo.groupMgmtDesc')}</p>
 					</div>
 				</div>
 
@@ -79,9 +77,7 @@ export const ShopView: Component = () => {
 					</div>
 					<div class="flex-1 text-start">
 						<h3 class="text-white font-bold text-[15px] mb-0.5">{t('shopInfo.channelMgmt')}</h3>
-						<p class="text-white/50 text-[12px] leading-snug">
-							{t('shopInfo.channelMgmtDesc')}
-						</p>
+						<p class="text-white/50 text-[12px] leading-snug">{t('shopInfo.channelMgmtDesc')}</p>
 					</div>
 				</div>
 			</div>

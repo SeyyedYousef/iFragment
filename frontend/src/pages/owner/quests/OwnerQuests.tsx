@@ -1,6 +1,6 @@
+import { hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createSignal, For, onMount, Show } from 'solid-js';
 import { ownerApi, QuestItem } from '@/shared/api/owner.js';
-import { hapticFeedback } from '@tma.js/sdk-solid';
 
 export const OwnerQuests: Component = () => {
 	const [quests, setQuests] = createSignal<QuestItem[]>([]);
@@ -140,7 +140,9 @@ export const OwnerQuests: Component = () => {
 			<div class="bg-[#16171d]/60 border border-white/5 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
 				<div>
 					<h2 class="text-sm font-black text-white">مدیریت مأموریت‌ها و کمپین‌های پاداش‌دار</h2>
-					<p class="text-xs text-white/40 font-bold mt-0.5">تعریف مأموریت‌های پاداش سکه و XP برای اعضای بات</p>
+					<p class="text-xs text-white/40 font-bold mt-0.5">
+						تعریف مأموریت‌های پاداش سکه و XP برای اعضای بات
+					</p>
 				</div>
 
 				<button
@@ -172,7 +174,9 @@ export const OwnerQuests: Component = () => {
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 					<For each={quests()}>
 						{(q) => {
-							const isExpired = q.expires_at ? new Date(q.expires_at).getTime() < Date.now() : false;
+							const isExpired = q.expires_at
+								? new Date(q.expires_at).getTime() < Date.now()
+								: false;
 							return (
 								<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-5 space-y-4 hover:border-white/20 transition-all flex flex-col justify-between">
 									<div class="space-y-2">
@@ -189,7 +193,9 @@ export const OwnerQuests: Component = () => {
 											</span>
 										</div>
 
-										<p class="text-xs text-white/60 font-medium line-clamp-2">{q.description || 'بدون توضیحات'}</p>
+										<p class="text-xs text-white/60 font-medium line-clamp-2">
+											{q.description || 'بدون توضیحات'}
+										</p>
 
 										<div class="flex items-center gap-3 text-[10px] text-amber-400 font-mono font-bold pt-1">
 											<span>🪙 {q.reward_frg.toLocaleString()} FRG</span>
@@ -199,7 +205,10 @@ export const OwnerQuests: Component = () => {
 
 									<div class="pt-3 border-t border-white/5 flex items-center justify-between">
 										<span class="text-[9px] text-white/40 font-mono">
-											انقضا: {q.expires_at ? new Date(q.expires_at).toLocaleDateString('fa-IR') : 'نامحدود'}
+											انقضا:{' '}
+											{q.expires_at
+												? new Date(q.expires_at).toLocaleDateString('fa-IR')
+												: 'نامحدود'}
 										</span>
 
 										<div class="flex gap-2">
@@ -265,7 +274,9 @@ export const OwnerQuests: Component = () => {
 
 							<div class="grid grid-cols-2 gap-3">
 								<div>
-									<label class="block text-[10px] text-white/50 font-bold mb-1">پاداش سکه (FRG)</label>
+									<label class="block text-[10px] text-white/50 font-bold mb-1">
+										پاداش سکه (FRG)
+									</label>
 									<input
 										type="number"
 										required
@@ -276,7 +287,9 @@ export const OwnerQuests: Component = () => {
 									/>
 								</div>
 								<div>
-									<label class="block text-[10px] text-white/50 font-bold mb-1">پاداش تجربه (XP)</label>
+									<label class="block text-[10px] text-white/50 font-bold mb-1">
+										پاداش تجربه (XP)
+									</label>
 									<input
 										type="number"
 										required
@@ -304,7 +317,9 @@ export const OwnerQuests: Component = () => {
 
 							<Show when={type() === 'telegram_channel' || type() === 'telegram_group'}>
 								<div>
-									<label class="block text-[10px] text-white/50 font-bold mb-1">شناسه کانال/گروه (آیدی با @)</label>
+									<label class="block text-[10px] text-white/50 font-bold mb-1">
+										شناسه کانال/گروه (آیدی با @)
+									</label>
 									<input
 										type="text"
 										value={channelUsername()}
@@ -317,7 +332,9 @@ export const OwnerQuests: Component = () => {
 
 							<Show when={type() === 'external_link' || type() === 'partner'}>
 								<div>
-									<label class="block text-[10px] text-white/50 font-bold mb-1">آدرس لینک مقصد (URL)</label>
+									<label class="block text-[10px] text-white/50 font-bold mb-1">
+										آدرس لینک مقصد (URL)
+									</label>
 									<input
 										type="url"
 										value={taskUrl()}
@@ -343,7 +360,9 @@ export const OwnerQuests: Component = () => {
 										type="button"
 										onClick={() => setIsActive(!isActive())}
 										class={`h-11 rounded-xl text-xs font-bold border transition-all ${
-											isActive() ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'
+											isActive()
+												? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+												: 'bg-red-500/10 border-red-500/20 text-red-400'
 										}`}
 									>
 										{isActive() ? 'وضعیت: فعال' : 'وضعیت: غیرفعال'}
@@ -352,10 +371,17 @@ export const OwnerQuests: Component = () => {
 							</div>
 
 							<div class="pt-3 flex gap-2">
-								<button type="button" onClick={() => setIsModalOpen(false)} class="flex-1 h-11 bg-white/5 text-xs font-bold rounded-xl">
+								<button
+									type="button"
+									onClick={() => setIsModalOpen(false)}
+									class="flex-1 h-11 bg-white/5 text-xs font-bold rounded-xl"
+								>
 									انصراف
 								</button>
-								<button type="submit" class="flex-1 h-11 bg-[#3390ec] text-white text-xs font-black rounded-xl">
+								<button
+									type="submit"
+									class="flex-1 h-11 bg-[#3390ec] text-white text-xs font-black rounded-xl"
+								>
 									ذخیره‌سازی
 								</button>
 							</div>

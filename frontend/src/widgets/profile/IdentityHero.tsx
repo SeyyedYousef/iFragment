@@ -1,8 +1,8 @@
 import { initData } from '@tma.js/sdk-solid';
-import { createMemo, createSignal, createEffect, Show } from 'solid-js';
-import { getLevelInfo, type ProfileStats } from '@/shared/store/profile.js';
+import { createEffect, createMemo, createSignal, Show } from 'solid-js';
 import { API_CONFIG } from '@/shared/api/config.js';
 import { formatNumber, t } from '@/shared/i18n/index.js';
+import { getLevelInfo, type ProfileStats } from '@/shared/store/profile.js';
 
 interface Props {
 	stats: ProfileStats | null;
@@ -76,15 +76,25 @@ export const IdentityHero = (props: Props) => {
 			{/* User Info & Badges */}
 			<div class="flex flex-col items-center w-full text-center z-10 px-4 pb-5 space-y-3">
 				<h1 class="text-2xl font-black leading-tight text-white">
-					<bdi>{user()?.first_name} {user()?.last_name || ''}</bdi>
+					<bdi>
+						{user()?.first_name} {user()?.last_name || ''}
+					</bdi>
 				</h1>
 
 				<div class="flex items-center justify-center flex-wrap gap-2">
 					{/* Level Badge */}
 					<div class="flex items-center gap-1.5 bg-[#3390ec]/15 border border-[#3390ec]/30 px-3 py-1.5 rounded-xl backdrop-blur-md">
-						<span class="material-symbols-outlined text-[15px] text-[#3390ec]" style={{ 'font-variation-settings': '"FILL" 1' }}>star</span>
+						<span
+							class="material-symbols-outlined text-[15px] text-[#3390ec]"
+							style={{ 'font-variation-settings': '"FILL" 1' }}
+						>
+							star
+						</span>
 						<span class="text-white text-xs font-black">
-							{t('profile.levelBadge', { level: formatNumber(info().current.level), title: info().current.title })}
+							{t('profile.levelBadge', {
+								level: formatNumber(info().current.level),
+								title: info().current.title,
+							})}
 						</span>
 					</div>
 

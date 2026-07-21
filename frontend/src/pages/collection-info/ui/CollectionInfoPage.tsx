@@ -172,8 +172,6 @@ export const CollectionInfoPage: Component = () => {
 
 	return (
 		<div class="min-h-screen bg-[#080808] flex flex-col p-5 text-[#e0e0e0] font-sans pb-28 relative">
-
-
 			<Show when={query.isLoading}>
 				<div class="flex flex-col items-center justify-center h-[70vh] relative z-10">
 					<div class="w-10 h-10 border-2 border-white/10 border-t-[#0098ea] rounded-full animate-spin mb-4" />

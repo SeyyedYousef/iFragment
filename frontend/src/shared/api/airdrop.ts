@@ -1,10 +1,13 @@
 import { getLeaderboard } from '@/shared/api/profile.js';
 import { LEAGUES, LeaderEntry } from '@/shared/store/airdrop.js';
 
-export const fetchLeaderboard = async (): Promise<{ leaderboard: LeaderEntry[], total_miners: number }> => {
+export const fetchLeaderboard = async (): Promise<{
+	leaderboard: LeaderEntry[];
+	total_miners: number;
+}> => {
 	try {
 		const response = await getLeaderboard();
-		if (!response || !response.leaderboard) return { leaderboard: [], total_miners: 0 };
+		if (!response?.leaderboard) return { leaderboard: [], total_miners: 0 };
 
 		const entries = response.leaderboard.map((m) => {
 			// Determine league based on score/xp
@@ -21,7 +24,7 @@ export const fetchLeaderboard = async (): Promise<{ leaderboard: LeaderEntry[], 
 				clanName: m.clan_name,
 			};
 		});
-		
+
 		return { leaderboard: entries, total_miners: response.total_miners || 0 };
 	} catch (e) {
 		console.error('Failed to fetch leaderboard:', e);

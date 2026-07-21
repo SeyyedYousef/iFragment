@@ -218,10 +218,16 @@ export const ChannelForwardingPage: Component = () => {
 			} catch (err) {
 				console.error('Failed to create rule:', err);
 				hapticFeedback.notificationOccurred('error');
-				showToast(t('channelForwarding.ruleSaveFailed') || 'Failed to save forwarding rule', 'error');
+				showToast(
+					t('channelForwarding.ruleSaveFailed') || 'Failed to save forwarding rule',
+					'error',
+				);
 			}
 		} else {
-			showToast(t('channelForwarding.verifyBeforeSave') || 'Verify the target before saving.', 'error');
+			showToast(
+				t('channelForwarding.verifyBeforeSave') || 'Verify the target before saving.',
+				'error',
+			);
 		}
 	};
 
@@ -309,7 +315,10 @@ export const ChannelForwardingPage: Component = () => {
 						<div class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-3">
 							<SettingsSection
 								title={t('channelForwarding.enableAutoForward') || 'Enable Auto Forwarding'}
-								description={t('channelForwarding.enableAutoForwardDesc') || 'Automatically duplicate, mirror or rewrite new posts from other channels.'}
+								description={
+									t('channelForwarding.enableAutoForwardDesc') ||
+									'Automatically duplicate, mirror or rewrite new posts from other channels.'
+								}
 								enabled={isForwardingEnabled()}
 								onToggle={(v) => {
 									setIsForwardingEnabled(v);
@@ -393,12 +402,19 @@ export const ChannelForwardingPage: Component = () => {
 																	const r = rulesData()?.find((x: any) => x.id === rule.id);
 																	if (r) {
 																		const updated = { ...r, is_active: !r.is_active };
-																		await channelApi.updateForwardingRule(params.id, r.id!, updated);
+																		await channelApi.updateForwardingRule(
+																			params.id,
+																			r.id!,
+																			updated,
+																		);
 																		refetchRules();
 																	}
-																} catch (err) {
+																} catch (_err) {
 																	hapticFeedback.notificationOccurred('error');
-																	showToast(t('channelForwarding.toggleFailed') || 'Failed to update rule', 'error');
+																	showToast(
+																		t('channelForwarding.toggleFailed') || 'Failed to update rule',
+																		'error',
+																	);
 																}
 															}}
 															class={`w-12 h-7 rounded-full relative transition-colors ${rule.active ? 'bg-[#34c759]' : 'bg-[#3a3a3c]'}`}
@@ -419,10 +435,17 @@ export const ChannelForwardingPage: Component = () => {
 																	hapticFeedback.impactOccurred('medium');
 																	await channelApi.deleteForwardingRule(params.id, rule.id);
 																	refetchRules();
-																	showToast(t('channelForwarding.ruleDeleted') || 'Rule deleted', 'success');
-																} catch (err) {
+																	showToast(
+																		t('channelForwarding.ruleDeleted') || 'Rule deleted',
+																		'success',
+																	);
+																} catch (_err) {
 																	hapticFeedback.notificationOccurred('error');
-																	showToast(t('channelForwarding.deleteRuleFailed') || 'Failed to delete rule', 'error');
+																	showToast(
+																		t('channelForwarding.deleteRuleFailed') ||
+																			'Failed to delete rule',
+																		'error',
+																	);
 																}
 															}}
 															class="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 text-red-500 flex items-center justify-center transition-all shadow-sm shrink-0"

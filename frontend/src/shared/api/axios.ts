@@ -154,7 +154,7 @@ apiClient.interceptors.response.use(
 				localStorage.removeItem('cached_profile_achievements');
 				localStorage.removeItem('cached_profile_referral');
 				// Redirect back to owner panel
-				window.location.href = window.location.pathname + '#/owner/users';
+				window.location.href = `${window.location.pathname}#/owner/users`;
 				window.location.reload();
 			} else {
 				(originalRequest as any)._isRetryForAuth = true;
@@ -238,7 +238,9 @@ export async function bootstrapAuth(): Promise<void> {
 			console.warn('[Auth] Telegram account switched on bootstrap, clearing old token');
 			localStorage.removeItem('jwt_token');
 		} else if (hasStartParam && !sessionStorage.getItem('start_param_processed')) {
-			console.log('[Auth] start_param detected on startup, forcing bootstrap to process referral/deeplink');
+			console.log(
+				'[Auth] start_param detected on startup, forcing bootstrap to process referral/deeplink',
+			);
 			localStorage.removeItem('jwt_token');
 			sessionStorage.setItem('start_param_processed', 'true');
 		} else {

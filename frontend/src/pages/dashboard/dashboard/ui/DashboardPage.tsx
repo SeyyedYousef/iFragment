@@ -74,7 +74,7 @@ export const DashboardPage: Component = () => {
 									onClick={() => {
 										try {
 											hapticFeedback.impactOccurred('light');
-										} catch { }
+										} catch {}
 									}}
 								>
 									<div class="aspect-[21/9] w-full bg-[#0f1014] relative">

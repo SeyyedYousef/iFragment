@@ -22,7 +22,9 @@ interface DashboardStats {
 	coin_flow_chart: Array<{ date: string; value: number }>;
 }
 
-const MiniChart: Component<{ data: Array<{ date: string; value: number }>; color: string }> = (props) => {
+const MiniChart: Component<{ data: Array<{ date: string; value: number }>; color: string }> = (
+	props,
+) => {
 	const max = () => Math.max(...props.data.map((d) => d.value), 1);
 	return (
 		<div class="flex items-end justify-between h-12 w-full mt-3 gap-1">
@@ -56,9 +58,17 @@ export const OwnerDashboard: Component = () => {
 		try {
 			const resp = await apiClient.get('/owner/dashboard/stats');
 			setStats(resp.data);
-			setLastRefreshed(new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+			setLastRefreshed(
+				new Date().toLocaleTimeString('fa-IR', {
+					hour: '2-digit',
+					minute: '2-digit',
+					second: '2-digit',
+				}),
+			);
 		} catch (err: any) {
-			setError(err.response?.data?.error || 'خطا در دریافت آمارهای داشبورد. عدم دسترسی احراز هویت.');
+			setError(
+				err.response?.data?.error || 'خطا در دریافت آمارهای داشبورد. عدم دسترسی احراز هویت.',
+			);
 			try {
 				hapticFeedback.notificationOccurred('error');
 			} catch {}
@@ -91,7 +101,9 @@ export const OwnerDashboard: Component = () => {
 				<div>
 					<h2 class="text-sm font-black text-white">داشبورد مدیریتی و پایش سیستم</h2>
 					<Show when={lastRefreshed()}>
-						<p class="text-[10px] text-white/40 font-bold mt-0.5">آخرین بهروزرسانی: {lastRefreshed()}</p>
+						<p class="text-[10px] text-white/40 font-bold mt-0.5">
+							آخرین بهروزرسانی: {lastRefreshed()}
+						</p>
 					</Show>
 				</div>
 				<button
@@ -99,7 +111,9 @@ export const OwnerDashboard: Component = () => {
 					disabled={loading()}
 					class="h-9 px-4 bg-[#3390ec]/10 hover:bg-[#3390ec]/20 border border-[#3390ec]/30 text-[#3390ec] text-xs font-bold rounded-xl transition-all active:scale-95 flex items-center gap-1.5 disabled:opacity-50"
 				>
-					<span class={`material-symbols-outlined text-[16px] ${loading() ? 'animate-spin' : ''}`}>sync</span>
+					<span class={`material-symbols-outlined text-[16px] ${loading() ? 'animate-spin' : ''}`}>
+						sync
+					</span>
 					بروزرسانی داده‌ها
 				</button>
 			</div>
@@ -119,7 +133,9 @@ export const OwnerDashboard: Component = () => {
 				fallback={
 					<div class="flex flex-col items-center justify-center py-20 gap-4">
 						<div class="w-10 h-10 border-3 border-[#3390ec] border-t-transparent rounded-full animate-spin" />
-						<span class="text-xs text-[#a0a4ad] font-bold">در حال دریافت و تحلیل آمارهای لحظهای...</span>
+						<span class="text-xs text-[#a0a4ad] font-bold">
+							در حال دریافت و تحلیل آمارهای لحظهای...
+						</span>
 					</div>
 				}
 			>
@@ -128,14 +144,20 @@ export const OwnerDashboard: Component = () => {
 					{/* DAU */}
 					<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-5 flex flex-col justify-between hover:scale-[1.01] transition-all">
 						<div class="flex items-center justify-between mb-2">
-							<span class="text-xs text-[#a0a4ad] font-black uppercase tracking-wider">فعالین امروز (DAU)</span>
+							<span class="text-xs text-[#a0a4ad] font-black uppercase tracking-wider">
+								فعالین امروز (DAU)
+							</span>
 							<div class="w-7 h-7 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 text-xs">
 								⚡
 							</div>
 						</div>
-						<span class="text-3xl font-black text-white">{stats()?.dau?.toLocaleString() ?? 0}</span>
+						<span class="text-3xl font-black text-white">
+							{stats()?.dau?.toLocaleString() ?? 0}
+						</span>
 						<div class="flex items-center justify-between mt-2 pt-2 border-t border-white/5 text-[10px]">
-							<span class="text-emerald-400 font-bold">ضریب بازگشت کاربر (Stickiness): {calculateDauMauRatio()}%</span>
+							<span class="text-emerald-400 font-bold">
+								ضریب بازگشت کاربر (Stickiness): {calculateDauMauRatio()}%
+							</span>
 						</div>
 						<Show when={stats()?.dau_chart?.length}>
 							<MiniChart data={stats()!.dau_chart} color="bg-emerald-500" />
@@ -145,43 +167,64 @@ export const OwnerDashboard: Component = () => {
 					{/* MAU */}
 					<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-5 flex flex-col justify-between hover:scale-[1.01] transition-all">
 						<div class="flex items-center justify-between mb-2">
-							<span class="text-xs text-[#a0a4ad] font-black uppercase tracking-wider">فعالین ماه (MAU)</span>
+							<span class="text-xs text-[#a0a4ad] font-black uppercase tracking-wider">
+								فعالین ماه (MAU)
+							</span>
 							<div class="w-7 h-7 rounded-xl bg-[#3390ec]/10 border border-[#3390ec]/20 flex items-center justify-center text-[#3390ec] text-xs">
 								📊
 							</div>
 						</div>
-						<span class="text-3xl font-black text-white">{stats()?.mau?.toLocaleString() ?? 0}</span>
+						<span class="text-3xl font-black text-white">
+							{stats()?.mau?.toLocaleString() ?? 0}
+						</span>
 						<span class="text-[10px] text-[#3390ec] font-bold mt-2">نرخ ماندگاری ۳۰ روز اخیر</span>
 					</div>
 
 					{/* Total Users */}
 					<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-5 flex flex-col justify-between hover:scale-[1.01] transition-all">
 						<div class="flex items-center justify-between mb-2">
-							<span class="text-xs text-[#a0a4ad] font-black uppercase tracking-wider">کل اعضای ثبتنامی</span>
+							<span class="text-xs text-[#a0a4ad] font-black uppercase tracking-wider">
+								کل اعضای ثبتنامی
+							</span>
 							<div class="w-7 h-7 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 text-xs">
 								👥
 							</div>
 						</div>
-						<span class="text-3xl font-black text-white">{stats()?.total_users?.toLocaleString() ?? 0}</span>
-						<span class="text-[10px] text-white/50 font-bold mt-2">تعداد کل حساب‌های کاربری فعال</span>
+						<span class="text-3xl font-black text-white">
+							{stats()?.total_users?.toLocaleString() ?? 0}
+						</span>
+						<span class="text-[10px] text-white/50 font-bold mt-2">
+							تعداد کل حساب‌های کاربری فعال
+						</span>
 					</div>
 
 					{/* Coins Circulation */}
 					<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-5 flex flex-col justify-between hover:scale-[1.01] transition-all">
 						<div class="flex items-center justify-between mb-2">
-							<span class="text-xs text-[#a0a4ad] font-black uppercase tracking-wider">سکه‌های در گردش</span>
+							<span class="text-xs text-[#a0a4ad] font-black uppercase tracking-wider">
+								سکه‌های در گردش
+							</span>
 							<div class="w-7 h-7 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 text-xs">
 								🪙
 							</div>
 						</div>
-						<span class="text-2xl font-black text-amber-400 truncate">{Math.round(stats()?.frg_circulation ?? 0).toLocaleString()} FRG</span>
+						<span class="text-2xl font-black text-amber-400 truncate">
+							{Math.round(stats()?.frg_circulation ?? 0).toLocaleString()} FRG
+						</span>
 						<div class="mt-2 pt-2 border-t border-white/5">
 							<div class="flex justify-between text-[9px] text-white/40 font-bold mb-1">
 								<span>سقف تورمی: ۱۰۰,۰۰۰,۰۰۰</span>
-								<span>{Math.min(100, Math.round(((stats()?.frg_circulation ?? 0) / 100000000) * 100))}%</span>
+								<span>
+									{Math.min(100, Math.round(((stats()?.frg_circulation ?? 0) / 100000000) * 100))}%
+								</span>
 							</div>
 							<div class="w-full bg-white/5 rounded-full h-1.5 overflow-hidden">
-								<div class="bg-amber-400 h-full rounded-full transition-all" style={{ width: `${Math.min(100, ((stats()?.frg_circulation ?? 0) / 100000000) * 100)}%` }} />
+								<div
+									class="bg-amber-400 h-full rounded-full transition-all"
+									style={{
+										width: `${Math.min(100, ((stats()?.frg_circulation ?? 0) / 100000000) * 100)}%`,
+									}}
+								/>
 							</div>
 						</div>
 					</div>
@@ -192,10 +235,16 @@ export const OwnerDashboard: Component = () => {
 					<div>
 						<div class="flex items-center gap-2 mb-1">
 							<span class="text-amber-400 text-lg">⭐</span>
-							<h3 class="text-xs font-black uppercase tracking-wider text-amber-400">حجم خریدهای ستاره تلگرام</h3>
+							<h3 class="text-xs font-black uppercase tracking-wider text-amber-400">
+								حجم خریدهای ستاره تلگرام
+							</h3>
 						</div>
-						<div class="text-3xl font-black text-white">{Number(stats()?.stars_volume ?? 0).toLocaleString()} Stars</div>
-						<p class="text-xs text-white/50 font-bold mt-1">درآمد ناخالص کلی پرداختیهای درگاه ستاره تلگرام</p>
+						<div class="text-3xl font-black text-white">
+							{Number(stats()?.stars_volume ?? 0).toLocaleString()} Stars
+						</div>
+						<p class="text-xs text-white/50 font-bold mt-1">
+							درآمد ناخالص کلی پرداختیهای درگاه ستاره تلگرام
+						</p>
 					</div>
 
 					<Show when={stats()?.coin_flow_chart?.length}>
@@ -210,7 +259,9 @@ export const OwnerDashboard: Component = () => {
 					<div class="flex items-center justify-between pb-3 border-b border-white/5">
 						<div class="flex items-center gap-2">
 							<span class="material-symbols-outlined text-[#3390ec]">trending_up</span>
-							<h3 class="text-xs font-black uppercase tracking-wider text-white">نمودار روند ترافیک و تعاملات کاربران</h3>
+							<h3 class="text-xs font-black uppercase tracking-wider text-white">
+								نمودار روند ترافیک و تعاملات کاربران
+							</h3>
 						</div>
 						<span class="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg">
 							سیستم آنلاین
@@ -225,8 +276,17 @@ export const OwnerDashboard: Component = () => {
 									<stop offset="100%" stop-color="#3390ec" stop-opacity="0" />
 								</linearGradient>
 							</defs>
-							<path d="M 0 30 Q 15 15 30 20 T 60 10 T 85 14 T 100 8 L 100 30 Z" fill="url(#dashboardChartGrad)" />
-							<path d="M 0 30 Q 15 15 30 20 T 60 10 T 85 14 T 100 8" fill="none" stroke="#3390ec" stroke-width="1.5" stroke-linecap="round" />
+							<path
+								d="M 0 30 Q 15 15 30 20 T 60 10 T 85 14 T 100 8 L 100 30 Z"
+								fill="url(#dashboardChartGrad)"
+							/>
+							<path
+								d="M 0 30 Q 15 15 30 20 T 60 10 T 85 14 T 100 8"
+								fill="none"
+								stroke="#3390ec"
+								stroke-width="1.5"
+								stroke-linecap="round"
+							/>
 						</svg>
 					</div>
 				</div>
@@ -236,7 +296,9 @@ export const OwnerDashboard: Component = () => {
 					<div class="flex items-center justify-between pb-3 border-b border-white/5">
 						<div class="flex items-center gap-2">
 							<span class="material-symbols-outlined text-[#3390ec]">receipt_long</span>
-							<h3 class="text-xs font-black uppercase tracking-wider text-white">آخرین رخدادها و فعالیت‌های امنیتی</h3>
+							<h3 class="text-xs font-black uppercase tracking-wider text-white">
+								آخرین رخدادها و فعالیت‌های امنیتی
+							</h3>
 						</div>
 						<button
 							onClick={() => handleNav('/owner/audit-logs')}
@@ -266,13 +328,22 @@ export const OwnerDashboard: Component = () => {
 											<div>
 												<p class="text-white/80 font-bold text-xs">ادمین شناسه {log.owner_id}</p>
 												<Show when={log.target_user_id}>
-													<p class="text-[10px] text-white/40 font-medium">کاربر هدف: {log.target_user_id}</p>
+													<p class="text-[10px] text-white/40 font-medium">
+														کاربر هدف: {log.target_user_id}
+													</p>
 												</Show>
 											</div>
 										</div>
 
 										<div class="text-end text-[10px] text-white/40 font-mono">
-											<div>{log.created_at ? new Date(log.created_at).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }) : '---'}</div>
+											<div>
+												{log.created_at
+													? new Date(log.created_at).toLocaleTimeString('fa-IR', {
+															hour: '2-digit',
+															minute: '2-digit',
+														})
+													: '---'}
+											</div>
 											<div class="text-[#3390ec] mt-0.5">{log.ip_address || 'داخلی'}</div>
 										</div>
 									</div>

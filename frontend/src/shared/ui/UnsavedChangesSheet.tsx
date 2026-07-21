@@ -1,5 +1,5 @@
-import { Component, Show } from 'solid-js';
 import { hapticFeedback } from '@tma.js/sdk-solid';
+import { Component, Show } from 'solid-js';
 
 interface UnsavedChangesSheetProps {
 	isOpen: boolean;
@@ -49,7 +49,9 @@ export const UnsavedChangesSheet: Component<UnsavedChangesSheetProps> = (props) 
 									تغییرات ذخیره‌نشده وجود دارد
 								</h3>
 								<p class="text-[11px] text-white/50 font-bold mt-0.5">
-									{props.changedCount ? `${props.changedCount} مورد تغییر ثبت نشده است.` : 'تنظیمات تغییر یافته را ذخیره می‌کنید؟'}
+									{props.changedCount
+										? `${props.changedCount} مورد تغییر ثبت نشده است.`
+										: 'تنظیمات تغییر یافته را ذخیره می‌کنید؟'}
 								</p>
 							</div>
 						</div>

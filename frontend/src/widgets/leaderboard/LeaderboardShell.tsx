@@ -1,4 +1,4 @@
-import { Component, For, Show, JSX } from 'solid-js';
+import { Component, For, JSX, Show } from 'solid-js';
 import { FragmentPulse } from '@/shared/ui/FragmentPulse.js';
 
 export interface LeaderboardEntry {
@@ -167,9 +167,14 @@ export const LeaderboardShell: Component<LeaderboardShellProps> = (props) => {
 								}`}
 							>
 								<div class="flex items-center gap-3 min-w-0">
-									<span class="w-6 text-center font-mono text-xs font-bold text-white/50">#{entry.rank}</span>
+									<span class="w-6 text-center font-mono text-xs font-bold text-white/50">
+										#{entry.rank}
+									</span>
 									<div class="w-9 h-9 rounded-full bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center shrink-0">
-										<Show when={entry.avatarUrl} fallback={<span class="text-xs font-bold text-white">{entry.name[0]}</span>}>
+										<Show
+											when={entry.avatarUrl}
+											fallback={<span class="text-xs font-bold text-white">{entry.name[0]}</span>}
+										>
 											<img src={entry.avatarUrl} alt="" class="w-full h-full object-cover" />
 										</Show>
 									</div>
@@ -180,7 +185,8 @@ export const LeaderboardShell: Component<LeaderboardShellProps> = (props) => {
 
 								<div class="text-end shrink-0">
 									<div class="font-mono text-xs font-black text-white">
-										{formatScore(entry.score)} <span class="text-[10px] text-white/40">{entry.scoreUnit || ''}</span>
+										{formatScore(entry.score)}{' '}
+										<span class="text-[10px] text-white/40">{entry.scoreUnit || ''}</span>
 									</div>
 								</div>
 							</div>

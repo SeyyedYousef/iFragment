@@ -1,7 +1,16 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
-import { Component, createResource, createSignal, createEffect, For, onCleanup, onMount, Show } from 'solid-js';
+import {
+	Component,
+	createEffect,
+	createResource,
+	createSignal,
+	For,
+	onCleanup,
+	onMount,
+	Show,
+} from 'solid-js';
 import { groupApi } from '@/shared/api/bot-management.js';
 import { t } from '@/shared/i18n/index.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
@@ -156,7 +165,6 @@ export const GroupDynamicBioPage: Component = () => {
 			/>
 
 			<div class="px-5 pt-6 flex flex-col gap-6">
-
 				<Show when={settings.loading}>
 					<div class="flex flex-col gap-4 animate-pulse">
 						<div class="h-40 bg-[#1c1c1c] rounded-3xl"></div>
@@ -189,16 +197,21 @@ export const GroupDynamicBioPage: Component = () => {
 								<span class="text-[15px] font-bold text-white">
 									{t('channelDynamicBio.title') || 'Dynamic Bio & Name'}
 								</span>
-								<span class="text-[11px] text-[#8e8e93]">{t('channelDynamicBio.subtitle2') || 'Real-time info updates'}</span>
+								<span class="text-[11px] text-[#8e8e93]">
+									{t('channelDynamicBio.subtitle2') || 'Real-time info updates'}
+								</span>
 							</div>
 							<ToggleSwitch checked={enabled()} onChange={setEnabled} />
 						</div>
 
 						<Show when={!enabled()}>
 							<div class="mt-2 p-4 bg-[#32ade6]/10 border border-[#32ade6]/30 rounded-xl flex flex-col gap-2">
-								<span class="text-[14px] font-bold text-[#32ade6]">{t('channelDynamicBio.guideTitleGroup') || 'Dynamic Bio Guide'}</span>
+								<span class="text-[14px] font-bold text-[#32ade6]">
+									{t('channelDynamicBio.guideTitleGroup') || 'Dynamic Bio Guide'}
+								</span>
 								<p class="text-[13px] text-white/80 leading-relaxed">
-									{t('channelDynamicBio.guideDescGroup') || 'By enabling this section, you can automatically update your group name and bio.'}
+									{t('channelDynamicBio.guideDescGroup') ||
+										'By enabling this section, you can automatically update your group name and bio.'}
 								</p>
 							</div>
 						</Show>
@@ -208,10 +221,18 @@ export const GroupDynamicBioPage: Component = () => {
 
 							{/* Current Telegram Info Info */}
 							<div class="bg-[#2c2c2e] p-3 rounded-xl border border-[#3a3a3c] flex flex-col gap-3 mb-2">
-								<span class="text-[13px] font-bold text-[#8e8e93]">{t('channelDynamicBio.currentStatusTelegram') || 'Current status in Telegram:'}</span>
+								<span class="text-[13px] font-bold text-[#8e8e93]">
+									{t('channelDynamicBio.currentStatusTelegram') || 'Current status in Telegram:'}
+								</span>
 								<div class="flex flex-col gap-1">
-									<span class="text-[12px] text-white/60">{t('channelDynamicBio.currentNameLabel') || 'Current Name: '}<span class="text-white">{currentName() || t('common.loading')}</span></span>
-									<span class="text-[12px] text-white/60">{t('channelDynamicBio.currentBioLabel') || 'Current Bio: '}<span class="text-white">{currentBio() || t('common.loading')}</span></span>
+									<span class="text-[12px] text-white/60">
+										{t('channelDynamicBio.currentNameLabel') || 'Current Name: '}
+										<span class="text-white">{currentName() || t('common.loading')}</span>
+									</span>
+									<span class="text-[12px] text-white/60">
+										{t('channelDynamicBio.currentBioLabel') || 'Current Bio: '}
+										<span class="text-white">{currentBio() || t('common.loading')}</span>
+									</span>
 								</div>
 							</div>
 
@@ -239,9 +260,12 @@ export const GroupDynamicBioPage: Component = () => {
 							<div class="mt-2 bg-[#2c2c2e] p-3 rounded-xl border border-[#3a3a3c] flex flex-col gap-3">
 								<div class="flex items-center justify-between">
 									<div class="flex flex-col flex-1 min-w-0">
-										<span class="text-[13px] font-bold text-white">{t('channelDynamicBio.displayInName') || 'Display in Group Name'}</span>
+										<span class="text-[13px] font-bold text-white">
+											{t('channelDynamicBio.displayInName') || 'Display in Group Name'}
+										</span>
 										<span class="text-[11px] text-[#8e8e93]">
-											{t('channelDynamicBio.displayInNameDesc') || 'Add dynamic tags to the group name'}
+											{t('channelDynamicBio.displayInNameDesc') ||
+												'Add dynamic tags to the group name'}
 										</span>
 									</div>
 									<ToggleSwitch checked={displayInName()} onChange={setDisplayInName} />
@@ -297,8 +321,7 @@ export const GroupDynamicBioPage: Component = () => {
 									{ value: '24h', label: t('channelDynamicBio.interval24h') || 'Once a day' },
 								]}
 								description={
-									t('channelDynamicBio.updateIntervalDesc') ||
-									'How often the group info refreshes.'
+									t('channelDynamicBio.updateIntervalDesc') || 'How often the group info refreshes.'
 								}
 							/>
 						</Show>

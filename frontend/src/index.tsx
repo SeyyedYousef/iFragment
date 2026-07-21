@@ -5,8 +5,8 @@ import { isTMA, mockTelegramEnv, retrieveLaunchParams } from '@tma.js/sdk-solid'
 import { render } from 'solid-js/web';
 import { init } from '@/app/init.js';
 import { Root } from '@/app/Root.js';
+import { bootstrapAuth } from '@/shared/api/axios.js';
 import { ErrorBoundary } from '@/shared/ui/ErrorBoundary.js';
-
 
 import './app/styles/index.css';
 
@@ -130,7 +130,6 @@ async function startApp() {
 		});
 
 		// 4.5. Proactively obtain JWT before any API calls to avoid 401→refresh loops
-		const { bootstrapAuth } = await import('@/shared/api/axios.js');
 		await bootstrapAuth();
 
 		// 5. Final Render

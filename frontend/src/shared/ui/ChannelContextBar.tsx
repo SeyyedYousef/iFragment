@@ -32,7 +32,12 @@ export const ChannelContextBar: Component<ChannelContextBarProps> = (props) => {
 			}`}
 		>
 			<div class="w-10 h-10 rounded-xl bg-[#23252c] border border-[#30323a] flex items-center justify-center shrink-0 text-[#32ade6] font-black">
-				<Show when={!channel.loading} fallback={<span class="w-5 h-5 border-2 border-[#32ade6]/25 border-t-[#32ade6] rounded-full animate-spin" />}>
+				<Show
+					when={!channel.loading}
+					fallback={
+						<span class="w-5 h-5 border-2 border-[#32ade6]/25 border-t-[#32ade6] rounded-full animate-spin" />
+					}
+				>
 					{channelLabel(channel())?.charAt(0)?.toUpperCase() || 'C'}
 				</Show>
 			</div>
@@ -42,7 +47,9 @@ export const ChannelContextBar: Component<ChannelContextBarProps> = (props) => {
 				</span>
 				<span class="text-[14px] font-black text-white truncate">
 					{channel.loading
-						? (isRtl() ? 'در حال بارگیری...' : 'Loading channel...')
+						? isRtl()
+							? 'در حال بارگیری...'
+							: 'Loading channel...'
 						: channelLabel(channel())}
 				</span>
 				<Show when={!channel.loading && channel()}>

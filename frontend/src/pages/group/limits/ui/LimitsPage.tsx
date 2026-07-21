@@ -60,7 +60,7 @@ export const LimitsPage: Component = () => {
 				minMessageLength: remoteLimits.minMessageLength ?? 0,
 				maxMessageLength: remoteLimits.maxMessageLength ?? 0,
 				floodMessages: remoteLimits.floodMessages || 5, // Smart Default
-				floodWindow: remoteLimits.floodWindow || 5,     // Smart Default
+				floodWindow: remoteLimits.floodWindow || 5, // Smart Default
 				duplicateCount: remoteLimits.duplicateCount || 2, // Smart Default
 				duplicateWindow: remoteLimits.duplicateWindow || 10, // Smart Default
 			};
@@ -178,7 +178,10 @@ export const LimitsPage: Component = () => {
 							<span class="text-[12px] text-[#8e8e93] leading-relaxed">
 								{t('limitsSettings.ruleOfZeroDesc')}
 								<br />
-								<span class="text-[#3390ec] font-bold">{t('limitsSettings.ruleOfZeroExample')}</span> {t('limitsSettings.ruleOfZeroExampleText')}
+								<span class="text-[#3390ec] font-bold">
+									{t('limitsSettings.ruleOfZeroExample')}
+								</span>{' '}
+								{t('limitsSettings.ruleOfZeroExampleText')}
 							</span>
 						</div>
 					</Motion.div>
@@ -190,11 +193,16 @@ export const LimitsPage: Component = () => {
 							animate={{ opacity: 1, scale: 1 }}
 							class="bg-red-500/10 border border-red-500/20 text-red-400 rounded-2xl p-4 flex items-start gap-3"
 						>
-							<span class="material-symbols-outlined text-red-400 text-[20px] shrink-0 mt-0.5">warning</span>
+							<span class="material-symbols-outlined text-red-400 text-[20px] shrink-0 mt-0.5">
+								warning
+							</span>
 							<div class="flex flex-col">
-								<span class="text-xs font-black">{t('limitsSettings.warningTitle') || 'Insufficient Group Protection'}</span>
+								<span class="text-xs font-black">
+									{t('limitsSettings.warningTitle') || 'Insufficient Group Protection'}
+								</span>
 								<span class="text-[10px] text-[#8e8e93] mt-1 leading-normal">
-									{t('limitsSettings.warningDesc') || 'Disabling flood control or duplicate protection leaves your group vulnerable to spam.'}
+									{t('limitsSettings.warningDesc') ||
+										'Disabling flood control or duplicate protection leaves your group vulnerable to spam.'}
 								</span>
 							</div>
 						</Motion.div>

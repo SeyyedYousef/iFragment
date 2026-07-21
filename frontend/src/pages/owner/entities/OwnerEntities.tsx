@@ -1,7 +1,7 @@
-import { Component, createSignal, onMount, Show, For } from 'solid-js';
-import { ownerApi, OwnerEntityItem } from '@/shared/api/owner.js';
-import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.js';
 import { hapticFeedback } from '@tma.js/sdk-solid';
+import { Component, createSignal, For, onMount, Show } from 'solid-js';
+import { OwnerEntityItem, ownerApi } from '@/shared/api/owner.js';
+import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.js';
 
 export const OwnerEntities: Component = () => {
 	const [channels, setChannels] = createSignal<OwnerEntityItem[]>([]);
@@ -72,7 +72,7 @@ export const OwnerEntities: Component = () => {
 				localStorage.removeItem('cached_profile_stats');
 				localStorage.removeItem('cached_profile_achievements');
 				localStorage.removeItem('cached_profile_referral');
-				window.location.href = window.location.pathname + '#/';
+				window.location.href = `${window.location.pathname}#/`;
 				window.location.reload();
 			}
 		} catch (e: any) {
@@ -86,7 +86,9 @@ export const OwnerEntities: Component = () => {
 			<div class="bg-[#16171d]/60 border border-white/5 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
 				<div>
 					<h2 class="text-sm font-black text-white">مدیریت گروه‌ها و کانال‌های تحت پوشش</h2>
-					<p class="text-xs text-white/40 font-bold mt-0.5">مشاهده وضعیت اتصال ربات، مالکیت‌ها و افزایش اعتبار مستقیم</p>
+					<p class="text-xs text-white/40 font-bold mt-0.5">
+						مشاهده وضعیت اتصال ربات، مالکیت‌ها و افزایش اعتبار مستقیم
+					</p>
 				</div>
 			</div>
 
@@ -102,14 +104,18 @@ export const OwnerEntities: Component = () => {
 				fallback={
 					<div class="flex flex-col items-center justify-center py-20 gap-3">
 						<div class="w-8 h-8 border-3 border-[#3390ec] border-t-transparent rounded-full animate-spin" />
-						<span class="text-xs text-white/50 font-bold">در حال دریافت لیست گروه‌ها و کانال‌ها...</span>
+						<span class="text-xs text-white/50 font-bold">
+							در حال دریافت لیست گروه‌ها و کانال‌ها...
+						</span>
 					</div>
 				}
 			>
 				<div class="space-y-8">
 					{/* Channels Section */}
 					<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-6 space-y-4">
-						<h3 class="text-xs font-black uppercase text-[#3390ec] tracking-wider">کانال‌های متصل ({channels().length})</h3>
+						<h3 class="text-xs font-black uppercase text-[#3390ec] tracking-wider">
+							کانال‌های متصل ({channels().length})
+						</h3>
 						<div class="overflow-x-auto">
 							<table class="w-full text-start text-xs">
 								<thead>
@@ -135,8 +141,12 @@ export const OwnerEntities: Component = () => {
 										{(ch) => (
 											<tr class="border-b border-white/5 hover:bg-white/5 transition-all">
 												<td class="py-3 text-start font-bold text-white">{ch.title}</td>
-												<td class="py-3 text-start font-mono text-white/60">@{ch.username || ch.telegram_id}</td>
-												<td class="py-3 text-start font-mono text-white/80">{ch.owner_username ? `@${ch.owner_username}` : ch.owner_id}</td>
+												<td class="py-3 text-start font-mono text-white/60">
+													@{ch.username || ch.telegram_id}
+												</td>
+												<td class="py-3 text-start font-mono text-white/80">
+													{ch.owner_username ? `@${ch.owner_username}` : ch.owner_id}
+												</td>
 												<td class="py-3 text-start">
 													<span
 														class={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
@@ -174,7 +184,9 @@ export const OwnerEntities: Component = () => {
 
 					{/* Groups Section */}
 					<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-6 space-y-4">
-						<h3 class="text-xs font-black uppercase text-amber-400 tracking-wider">گروه‌های متصل ({groups().length})</h3>
+						<h3 class="text-xs font-black uppercase text-amber-400 tracking-wider">
+							گروه‌های متصل ({groups().length})
+						</h3>
 						<div class="overflow-x-auto">
 							<table class="w-full text-start text-xs">
 								<thead>
@@ -200,8 +212,12 @@ export const OwnerEntities: Component = () => {
 										{(gr) => (
 											<tr class="border-b border-white/5 hover:bg-white/5 transition-all">
 												<td class="py-3 text-start font-bold text-white">{gr.title}</td>
-												<td class="py-3 text-start font-mono text-white/60">@{gr.username || gr.telegram_id}</td>
-												<td class="py-3 text-start font-mono text-white/80">{gr.owner_username ? `@${gr.owner_username}` : gr.owner_id}</td>
+												<td class="py-3 text-start font-mono text-white/60">
+													@{gr.username || gr.telegram_id}
+												</td>
+												<td class="py-3 text-start font-mono text-white/80">
+													{gr.owner_username ? `@${gr.owner_username}` : gr.owner_id}
+												</td>
 												<td class="py-3 text-start">
 													<span
 														class={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${

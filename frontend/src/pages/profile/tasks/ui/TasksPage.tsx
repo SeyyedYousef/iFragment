@@ -124,7 +124,7 @@ export const TasksPage: Component = () => {
 				onError: (err: any) => {
 					setQuizError(err.message || 'Incorrect answer. Please try again.');
 				},
-			}
+			},
 		);
 	};
 
@@ -260,7 +260,8 @@ export const TasksPage: Component = () => {
 								{activeQuizTask()?.title || t('airdropFinal.tasks.specialTask')}
 							</h3>
 							<p class="text-[14px] text-[#a0a4ad] leading-relaxed mb-6">
-								{activeQuizTask()?.config?.quiz_question || 'Solve this riddle to claim the reward!'}
+								{activeQuizTask()?.config?.quiz_question ||
+									'Solve this riddle to claim the reward!'}
 							</p>
 						</div>
 
@@ -278,18 +279,22 @@ export const TasksPage: Component = () => {
 							</div>
 
 							<Show when={quizError()}>
-								<p class="text-xs text-[#ff453a] font-bold text-center">
-									{quizError()}
-								</p>
+								<p class="text-xs text-[#ff453a] font-bold text-center">{quizError()}</p>
 							</Show>
 
 							<button
 								type="submit"
-								disabled={completeTaskMutation.isPending && completeTaskMutation.variables?.key === activeQuizTask()!.key}
+								disabled={
+									completeTaskMutation.isPending &&
+									completeTaskMutation.variables?.key === activeQuizTask()!.key
+								}
 								class="w-full h-12 bg-gradient-to-r from-[#3390ec] to-[#287ece] active:scale-95 text-xs font-black uppercase tracking-wider rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
 							>
-								{completeTaskMutation.isPending && completeTaskMutation.variables?.key === activeQuizTask()!.key ? (
-									<span class="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+								{completeTaskMutation.isPending &&
+								completeTaskMutation.variables?.key === activeQuizTask()!.key ? (
+									<span class="material-symbols-outlined animate-spin text-[18px]">
+										progress_activity
+									</span>
 								) : (
 									t('airdrop.tasks.buttons.check') || 'Check Answer'
 								)}

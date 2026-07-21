@@ -145,7 +145,7 @@ export const channelApi = {
 		apiClient.get<any>(`/channels/${id}/analytics`, { params: { days } }).then((r: any) => {
 			const list = Array.isArray(r.data) ? r.data : r.data?.data || [];
 			const topPosts = r.data?.summary?.top_posts || [];
-			
+
 			const latest = list[list.length - 1];
 			const totalMembers = latest ? latest.subscribers_count : 0;
 			const newMembers = list.reduce((sum: number, item: any) => sum + item.new_subscribers, 0);
@@ -157,7 +157,7 @@ export const channelApi = {
 			const mentionsIn = r.data?.summary?.mentions_in || 0;
 			const mentionsOut = r.data?.summary?.mentions_out || 0;
 			const bestTime = r.data?.summary?.best_time || '18:30';
-			
+
 			// Calculate Citation Index based on views per member ratio
 			let ciScore = 'N/A';
 			if (totalMembers > 0 && totalViews > 0) {
@@ -169,7 +169,10 @@ export const channelApi = {
 				else ciScore = 'D';
 			}
 
-			const engagementRate = totalMembers > 0 ? Math.min(100, Math.round(((viewsToday + newMembersToday) / totalMembers) * 100)) : 0;
+			const engagementRate =
+				totalMembers > 0
+					? Math.min(100, Math.round(((viewsToday + newMembersToday) / totalMembers) * 100))
+					: 0;
 
 			return {
 				summary: {
@@ -282,7 +285,12 @@ export const channelApi = {
 		return unwrapApiData(res);
 	},
 
-	simulateAIPost: (channelId: string, text: string, action: string, extra?: { apiKey?: string; selectedSkill?: string; customSkillPrompt?: string }) =>
+	simulateAIPost: (
+		channelId: string,
+		text: string,
+		action: string,
+		extra?: { apiKey?: string; selectedSkill?: string; customSkillPrompt?: string },
+	) =>
 		apiClient
 			.post(`/channels/${channelId}/simulate`, { text, action, ...extra })
 			.then((r: any) => r.data?.data?.text || r.data?.text),
@@ -293,23 +301,34 @@ export const channelApi = {
 			return data?.funnel === null ? null : data;
 		}),
 
-	createFunnel: (channelId: string, inputChannelId: string, projectName: string, inputChannelIdentifier?: string) =>
+	createFunnel: (
+		channelId: string,
+		inputChannelId: string,
+		projectName: string,
+		inputChannelIdentifier?: string,
+	) =>
 		apiClient
-			.post<any>(`/channels/${channelId}/funnel`, { 
+			.post<any>(`/channels/${channelId}/funnel`, {
 				project_name: projectName,
 				input_channel_id: inputChannelId,
-				input_channel_identifier: inputChannelIdentifier 
+				input_channel_identifier: inputChannelIdentifier,
 			})
 			.then((r: any) => r.data?.data || r.data),
 
 	deleteFunnel: (channelId: string) =>
 		apiClient.delete(`/channels/${channelId}/funnel`).then((r: any) => r.data?.data || r.data),
-	updateFunnel: (channelId: string, payload: {
-		project_name: string;
-		input_channel_id: string;
-		output_channel_id: string;
-		input_channel_identifier?: string;
-	}) => apiClient.put(`/channels/${channelId}/funnel`, payload).then((r: any) => r.data?.data || r.data),
+	updateFunnel: (
+		channelId: string,
+		payload: {
+			project_name: string;
+			input_channel_id: string;
+			output_channel_id: string;
+			input_channel_identifier?: string;
+		},
+	) =>
+		apiClient
+			.put(`/channels/${channelId}/funnel`, payload)
+			.then((r: any) => r.data?.data || r.data),
 };
 
 export interface ChannelFunnel {

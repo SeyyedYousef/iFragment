@@ -1,5 +1,6 @@
 import { Motion } from '@motionone/solid';
 import { Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
+import { t } from '@/shared/i18n/index.js';
 
 export const ConnectionStatusBanner: Component = () => {
 	const [isOnline, setIsOnline] = createSignal(navigator.onLine);
@@ -36,9 +37,11 @@ export const ConnectionStatusBanner: Component = () => {
 						<span class="material-symbols-outlined text-[#ff3b30] text-[18px]">wifi_off</span>
 					</div>
 					<div class="flex flex-col gap-0.5">
-						<span class="text-[13px] font-black text-white">Connection Interrupted</span>
+						<span class="text-[13px] font-black text-white">
+							{t('connection.interrupted' as any) || 'ارتباط قطع شد'}
+						</span>
 						<span class="text-[11px] font-semibold text-[#8e8e93] leading-snug">
-							Checking your internet signal...
+							{t('connection.checking' as any) || 'در حال بررسی اتصال اینترنت...'}
 						</span>
 					</div>
 				</div>
@@ -48,7 +51,7 @@ export const ConnectionStatusBanner: Component = () => {
 					}}
 					class="bg-[#ff3b30]/20 hover:bg-[#ff3b30]/30 text-white font-bold text-[11px] px-3.5 py-2 rounded-xl transition-all border border-[#ff3b30]/20 active:scale-95 duration-100"
 				>
-					Retry
+					{t('connection.retry' as any) || 'تلاش مجدد'}
 				</button>
 			</Motion.div>
 		</Show>

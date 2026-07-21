@@ -1,7 +1,7 @@
-import { Component, createSignal, onMount, For, Show, onCleanup } from 'solid-js';
-import { ownerApi, ManagedUserbot } from '@/shared/api/owner.js';
-import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.js';
 import { hapticFeedback } from '@tma.js/sdk-solid';
+import { Component, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import { ManagedUserbot, ownerApi } from '@/shared/api/owner.js';
+import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.js';
 
 export const OwnerUserbot: Component = () => {
 	const [phone, setPhone] = createSignal('');
@@ -28,9 +28,8 @@ export const OwnerUserbot: Component = () => {
 			setUserbots(bots || []);
 		} catch (err: any) {
 			setErrorMsg(err.response?.data?.error || 'خطا در بارگذاری لیست ربات‌ها');
-		} fontally: {
-			setLoadingBots(false);
 		}
+		setLoadingBots(false);
 	};
 
 	onMount(() => {
@@ -60,7 +59,7 @@ export const OwnerUserbot: Component = () => {
 
 	const handleSendCode = async () => {
 		const rawPhone = phone().trim();
-		if (!rawPhone || !rawPhone.startsWith('+')) {
+		if (!rawPhone?.startsWith('+')) {
 			setErrorMsg('لطفاً شماره تلفن معتبر همراه با پیش‌شماره کشور (مانند 989123456789+) وارد کنید.');
 			return;
 		}
@@ -92,7 +91,12 @@ export const OwnerUserbot: Component = () => {
 			setErrorMsg('');
 			hapticFeedback.impactOccurred('light');
 
-			await ownerApi.verifyUserbotCode(phone().trim(), code().trim(), phoneCodeHash(), password2FA().trim() || undefined);
+			await ownerApi.verifyUserbotCode(
+				phone().trim(),
+				code().trim(),
+				phoneCodeHash(),
+				password2FA().trim() || undefined,
+			);
 
 			setSuccessMsg('حساب تلگرام با موفقیت متصل شد.');
 			setStep('phone');
@@ -127,13 +131,19 @@ export const OwnerUserbot: Component = () => {
 			<div class="bg-[#16171d]/60 border border-white/5 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
 				<div>
 					<h2 class="text-sm font-black text-white">مدیریت حساب‌های ربات متصل (Userbot Session)</h2>
-					<p class="text-xs text-white/40 font-bold mt-0.5">اتصال لایه استخراج و پایش کانال‌های رسمی تلگرام</p>
+					<p class="text-xs text-white/40 font-bold mt-0.5">
+						اتصال لایه استخراج و پایش کانال‌های رسمی تلگرام
+					</p>
 				</div>
 				<button
 					onClick={loadUserbots}
 					class="w-10 h-10 rounded-2xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/70 transition-all active:scale-95"
 				>
-					<span class={`material-symbols-outlined text-[20px] ${loadingBots() ? 'animate-spin' : ''}`}>refresh</span>
+					<span
+						class={`material-symbols-outlined text-[20px] ${loadingBots() ? 'animate-spin' : ''}`}
+					>
+						refresh
+					</span>
 				</button>
 			</div>
 
@@ -211,7 +221,9 @@ export const OwnerUserbot: Component = () => {
 
 			{/* Connect New Userbot Form */}
 			<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-6 space-y-4">
-				<h3 class="text-xs font-black uppercase text-white tracking-wider">افزودن حساب جدید تلگرام</h3>
+				<h3 class="text-xs font-black uppercase text-white tracking-wider">
+					افزودن حساب جدید تلگرام
+				</h3>
 
 				<Show when={step() === 'phone'}>
 					<div class="space-y-3">
@@ -244,7 +256,9 @@ export const OwnerUserbot: Component = () => {
 				<Show when={step() === 'code'}>
 					<div class="space-y-3">
 						<div>
-							<label class="block text-[10px] font-bold text-white/50 mb-1">کد تایید ۵ رقمی تلگرام</label>
+							<label class="block text-[10px] font-bold text-white/50 mb-1">
+								کد تایید ۵ رقمی تلگرام
+							</label>
 							<input
 								type="text"
 								value={code()}
@@ -256,7 +270,9 @@ export const OwnerUserbot: Component = () => {
 						</div>
 
 						<div>
-							<label class="block text-[10px] font-bold text-white/50 mb-1">رمز 2FA تلگرام (در صورت داشتن تایید دو مرحله‌ای)</label>
+							<label class="block text-[10px] font-bold text-white/50 mb-1">
+								رمز 2FA تلگرام (در صورت داشتن تایید دو مرحله‌ای)
+							</label>
 							<input
 								type="password"
 								value={password2FA()}
@@ -285,11 +301,17 @@ export const OwnerUserbot: Component = () => {
 							</button>
 						</div>
 
-						<Show when={resendTimer() > 0} fallback={
-							<button onClick={handleSendCode} class="text-[10px] text-[#3390ec] font-bold underline">
-								ارسال مجدد کد تایید
-							</button>
-						}>
+						<Show
+							when={resendTimer() > 0}
+							fallback={
+								<button
+									onClick={handleSendCode}
+									class="text-[10px] text-[#3390ec] font-bold underline"
+								>
+									ارسال مجدد کد تایید
+								</button>
+							}
+						>
 							<p class="text-[10px] text-white/40 font-mono text-center">
 								امکان ارسال مجدد کد تا {resendTimer()} ثانیه دیگر
 							</p>

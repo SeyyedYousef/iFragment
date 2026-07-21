@@ -73,7 +73,9 @@ export const GeneralSettingsPage: Component = () => {
 	const [showUnsavedSheet, setShowUnsavedSheet] = createSignal(false);
 	const [settingsVersion, setSettingsVersion] = createSignal(1);
 	const [searchQuery, setSearchQuery] = createSignal('');
-	const [activeTab, setActiveTab] = createSignal<'all' | 'general' | 'moderation' | 'antiraid'>('all');
+	const [activeTab, setActiveTab] = createSignal<'all' | 'general' | 'moderation' | 'antiraid'>(
+		'all',
+	);
 
 	const [config, setConfig] = createStore<GeneralConfig>({ ...defaultConfig });
 
@@ -207,7 +209,9 @@ export const GeneralSettingsPage: Component = () => {
 						<button
 							onClick={() => setActiveTab('all')}
 							class={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-								activeTab() === 'all' ? 'bg-[#3390ec] text-white' : 'bg-white/5 text-white/60 hover:text-white'
+								activeTab() === 'all'
+									? 'bg-[#3390ec] text-white'
+									: 'bg-white/5 text-white/60 hover:text-white'
 							}`}
 						>
 							همه تنظیمات
@@ -215,7 +219,9 @@ export const GeneralSettingsPage: Component = () => {
 						<button
 							onClick={() => setActiveTab('general')}
 							class={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-								activeTab() === 'general' ? 'bg-[#3390ec] text-white' : 'bg-white/5 text-white/60 hover:text-white'
+								activeTab() === 'general'
+									? 'bg-[#3390ec] text-white'
+									: 'bg-white/5 text-white/60 hover:text-white'
 							}`}
 						>
 							عمومی و پیام‌ها
@@ -223,7 +229,9 @@ export const GeneralSettingsPage: Component = () => {
 						<button
 							onClick={() => setActiveTab('moderation')}
 							class={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-								activeTab() === 'moderation' ? 'bg-[#3390ec] text-white' : 'bg-white/5 text-white/60 hover:text-white'
+								activeTab() === 'moderation'
+									? 'bg-[#3390ec] text-white'
+									: 'bg-white/5 text-white/60 hover:text-white'
 							}`}
 						>
 							مدیریت و اخطارها
@@ -231,7 +239,9 @@ export const GeneralSettingsPage: Component = () => {
 						<button
 							onClick={() => setActiveTab('antiraid')}
 							class={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-								activeTab() === 'antiraid' ? 'bg-[#3390ec] text-white' : 'bg-white/5 text-white/60 hover:text-white'
+								activeTab() === 'antiraid'
+									? 'bg-[#3390ec] text-white'
+									: 'bg-white/5 text-white/60 hover:text-white'
 							}`}
 						>
 							ضد حمله و ربات
@@ -242,7 +252,9 @@ export const GeneralSettingsPage: Component = () => {
 				{/* Bot Language & Basic Options */}
 				<Show when={activeTab() === 'all' || activeTab() === 'general'}>
 					<div class="bg-[#151822] border border-white/10 rounded-[24px] p-5 space-y-4">
-						<h3 class="text-xs font-black text-[#3390ec] uppercase tracking-wider">تنظیمات اصلی ربات</h3>
+						<h3 class="text-xs font-black text-[#3390ec] uppercase tracking-wider">
+							تنظیمات اصلی ربات
+						</h3>
 
 						<SelectField
 							label="زبان پاسخ‌دهی ربات"
@@ -280,7 +292,9 @@ export const GeneralSettingsPage: Component = () => {
 				{/* Ephemeral & Messages Section */}
 				<Show when={activeTab() === 'all' || activeTab() === 'general'}>
 					<div class="bg-[#151822] border border-white/10 rounded-[24px] p-5 space-y-4">
-						<h3 class="text-xs font-black text-amber-400 uppercase tracking-wider">پیام‌ها و رفتار پاسخ‌دهی</h3>
+						<h3 class="text-xs font-black text-amber-400 uppercase tracking-wider">
+							پیام‌ها و رفتار پاسخ‌دهی
+						</h3>
 
 						<SettingsSection
 							title={t('generalSettings.welcomeMessage') || 'پیام خوش‌آمدگویی'}
@@ -304,9 +318,14 @@ export const GeneralSettingsPage: Component = () => {
 							<div class="flex items-center justify-between gap-3">
 								<div>
 									<span class="text-xs font-bold text-white block">حذف خودکار پیام‌های ربات</span>
-									<span class="text-[11px] text-white/40 font-bold">حذف پاسخ‌های ربات پس از زمان مشخص</span>
+									<span class="text-[11px] text-white/40 font-bold">
+										حذف پاسخ‌های ربات پس از زمان مشخص
+									</span>
 								</div>
-								<ToggleSwitch checked={config.autoDeleteBot} onChange={(v) => updateField('autoDeleteBot', v)} />
+								<ToggleSwitch
+									checked={config.autoDeleteBot}
+									onChange={(v) => updateField('autoDeleteBot', v)}
+								/>
 							</div>
 
 							<Show when={config.autoDeleteBot}>
@@ -315,7 +334,9 @@ export const GeneralSettingsPage: Component = () => {
 										type="number"
 										min="5"
 										value={config.autoDeleteDelay}
-										onInput={(e) => updateField('autoDeleteDelay', parseInt(e.currentTarget.value, 10) || 60)}
+										onInput={(e) =>
+											updateField('autoDeleteDelay', parseInt(e.currentTarget.value, 10) || 60)
+										}
 										class="bg-black/60 border border-white/10 text-white text-xs font-mono rounded-xl px-3 py-2 w-24 text-center outline-none"
 									/>
 									<span class="text-xs text-white/50 font-bold">ثانیه</span>
@@ -328,7 +349,9 @@ export const GeneralSettingsPage: Component = () => {
 				{/* Moderation & Penalties Section */}
 				<Show when={activeTab() === 'all' || activeTab() === 'moderation'}>
 					<div class="bg-[#151822] border border-white/10 rounded-[24px] p-5 space-y-4">
-						<h3 class="text-xs font-black text-[#10b981] uppercase tracking-wider">محدودیت‌ها و جریمه‌ها</h3>
+						<h3 class="text-xs font-black text-[#10b981] uppercase tracking-wider">
+							محدودیت‌ها و جریمه‌ها
+						</h3>
 
 						<SelectField
 							label={t('generalSettings.defaultPenalty') || 'جریمه پیش‌فرض تخلفات'}
@@ -355,7 +378,9 @@ export const GeneralSettingsPage: Component = () => {
 				{/* Anti-Raid & Security */}
 				<Show when={activeTab() === 'all' || activeTab() === 'antiraid'}>
 					<div class="bg-[#151822] border border-white/10 rounded-[24px] p-5 space-y-4">
-						<h3 class="text-xs font-black text-[#ef4444] uppercase tracking-wider">امنیت و ضد حمله (Anti-Raid)</h3>
+						<h3 class="text-xs font-black text-[#ef4444] uppercase tracking-wider">
+							امنیت و ضد حمله (Anti-Raid)
+						</h3>
 
 						<SettingsSection
 							title={t('generalSettings.casProtection') || 'محافظت CAS (شبکه ضد اسپم)'}
@@ -366,11 +391,15 @@ export const GeneralSettingsPage: Component = () => {
 
 						<div class="grid grid-cols-2 gap-3">
 							<div>
-								<label class="block text-[11px] font-bold text-white/50 mb-1">حد آستانه ورود (Joins/min)</label>
+								<label class="block text-[11px] font-bold text-white/50 mb-1">
+									حد آستانه ورود (Joins/min)
+								</label>
 								<input
 									type="number"
 									value={config.antiRaidThreshold}
-									onInput={(e) => updateField('antiRaidThreshold', parseInt(e.currentTarget.value, 10) || 0)}
+									onInput={(e) =>
+										updateField('antiRaidThreshold', parseInt(e.currentTarget.value, 10) || 0)
+									}
 									class="w-full bg-black/40 border border-white/10 text-white text-xs font-mono rounded-xl p-3 outline-none"
 								/>
 							</div>
@@ -406,7 +435,12 @@ export const GeneralSettingsPage: Component = () => {
 						disabled={isSaving()}
 						class="flex-[2] h-12 bg-[#3390ec] hover:bg-[#2b7ec9] text-white rounded-xl font-black text-xs shadow-lg shadow-[#3390ec]/20 transition-all flex items-center justify-center gap-2 min-h-[44px]"
 					>
-						<Show when={!isSaving()} fallback={<span class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />}>
+						<Show
+							when={!isSaving()}
+							fallback={
+								<span class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+							}
+						>
 							ذخیره تنظیمات
 							<span class="material-symbols-outlined text-[18px]">save</span>
 						</Show>

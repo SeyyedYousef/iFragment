@@ -1,7 +1,7 @@
-import { Component, createSignal, onMount, Show, For } from 'solid-js';
+import { hapticFeedback } from '@tma.js/sdk-solid';
+import { Component, createSignal, For, onMount, Show } from 'solid-js';
 import { ownerApi, PromoCode } from '@/shared/api/owner.js';
 import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.js';
-import { hapticFeedback } from '@tma.js/sdk-solid';
 
 export const OwnerPromos: Component = () => {
 	const [promos, setPromos] = createSignal<PromoCode[]>([]);
@@ -109,7 +109,9 @@ export const OwnerPromos: Component = () => {
 			<div class="bg-[#16171d]/60 border border-white/5 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
 				<div>
 					<h2 class="text-sm font-black text-white">مدیریت کدهای هدیه و پروموشن (Promo Codes)</h2>
-					<p class="text-xs text-white/40 font-bold mt-0.5">ایجاد کدهای هدیه سکه FRG با سقف استفاده و انقضای زمانی</p>
+					<p class="text-xs text-white/40 font-bold mt-0.5">
+						ایجاد کدهای هدیه سکه FRG با سقف استفاده و انقضای زمانی
+					</p>
 				</div>
 			</div>
 
@@ -143,7 +145,9 @@ export const OwnerPromos: Component = () => {
 
 				<form onSubmit={handleCreate} class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 					<div>
-						<label class="block text-[10px] font-bold text-white/50 mb-1">عبارت کد هدیه (انگلیسی)</label>
+						<label class="block text-[10px] font-bold text-white/50 mb-1">
+							عبارت کد هدیه (انگلیسی)
+						</label>
 						<input
 							type="text"
 							required
@@ -156,7 +160,9 @@ export const OwnerPromos: Component = () => {
 					</div>
 
 					<div>
-						<label class="block text-[10px] font-bold text-white/50 mb-1">مقدار سکه پاداش (FRG)</label>
+						<label class="block text-[10px] font-bold text-white/50 mb-1">
+							مقدار سکه پاداش (FRG)
+						</label>
 						<input
 							type="number"
 							required
@@ -169,7 +175,9 @@ export const OwnerPromos: Component = () => {
 					</div>
 
 					<div>
-						<label class="block text-[10px] font-bold text-white/50 mb-1">حداکثر تعداد استفاده (نفر)</label>
+						<label class="block text-[10px] font-bold text-white/50 mb-1">
+							حداکثر تعداد استفاده (نفر)
+						</label>
 						<input
 							type="number"
 							required
@@ -182,7 +190,9 @@ export const OwnerPromos: Component = () => {
 					</div>
 
 					<div>
-						<label class="block text-[10px] font-bold text-white/50 mb-1">مدت زمان اعتبار (ساعت)</label>
+						<label class="block text-[10px] font-bold text-white/50 mb-1">
+							مدت زمان اعتبار (ساعت)
+						</label>
 						<input
 							type="number"
 							min="1"
@@ -210,7 +220,9 @@ export const OwnerPromos: Component = () => {
 
 			{/* Promos Table */}
 			<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-6 space-y-4">
-				<h3 class="text-xs font-black uppercase text-white tracking-wider">لیست کدهای هدیه صادر شده</h3>
+				<h3 class="text-xs font-black uppercase text-white tracking-wider">
+					لیست کدهای هدیه صادر شده
+				</h3>
 
 				<Show when={loading()}>
 					<div class="flex justify-center items-center py-10">
@@ -219,7 +231,9 @@ export const OwnerPromos: Component = () => {
 				</Show>
 
 				<Show when={!loading() && promos().length === 0}>
-					<div class="text-center py-10 text-white/40 text-xs font-bold">هیچ کد هدیه‌ای یافت نشد.</div>
+					<div class="text-center py-10 text-white/40 text-xs font-bold">
+						هیچ کد هدیه‌ای یافت نشد.
+					</div>
 				</Show>
 
 				<Show when={!loading() && promos().length > 0}>
@@ -237,8 +251,13 @@ export const OwnerPromos: Component = () => {
 							<tbody>
 								<For each={promos()}>
 									{(promo) => {
-										const usagePct = Math.min(100, Math.round(((promo.current_uses || 0) / (promo.max_uses || 1)) * 100));
-										const isExpired = promo.expires_at ? new Date(promo.expires_at).getTime() < Date.now() : false;
+										const usagePct = Math.min(
+											100,
+											Math.round(((promo.current_uses || 0) / (promo.max_uses || 1)) * 100),
+										);
+										const isExpired = promo.expires_at
+											? new Date(promo.expires_at).getTime() < Date.now()
+											: false;
 										return (
 											<tr class="border-b border-white/5 hover:bg-white/5 transition-all">
 												<td class="py-4 text-start font-mono font-bold text-white">
@@ -249,7 +268,9 @@ export const OwnerPromos: Component = () => {
 															class="p-1 rounded bg-white/5 hover:bg-white/10 text-white/60 text-[10px]"
 															title="کپی عبارت کد"
 														>
-															<span class="material-symbols-outlined text-[12px]">content_copy</span>
+															<span class="material-symbols-outlined text-[12px]">
+																content_copy
+															</span>
 														</button>
 													</div>
 												</td>
@@ -262,12 +283,18 @@ export const OwnerPromos: Component = () => {
 															{promo.current_uses || 0} / {promo.max_uses} ({usagePct}%)
 														</div>
 														<div class="w-24 bg-white/5 rounded-full h-1 overflow-hidden">
-															<div class="bg-[#3390ec] h-full rounded-full" style={{ width: `${usagePct}%` }} />
+															<div
+																class="bg-[#3390ec] h-full rounded-full"
+																style={{ width: `${usagePct}%` }}
+															/>
 														</div>
 													</div>
 												</td>
 												<td class="py-4 text-start text-xs text-white/50 font-mono">
-													<Show when={promo.expires_at} fallback={<span class="text-emerald-400">دائمی</span>}>
+													<Show
+														when={promo.expires_at}
+														fallback={<span class="text-emerald-400">دائمی</span>}
+													>
 														<span class={isExpired ? 'text-red-400' : 'text-white/70'}>
 															{new Date(promo.expires_at!).toLocaleDateString('fa-IR')}
 														</span>

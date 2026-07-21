@@ -179,7 +179,6 @@ export const ChannelPostingPage: Component = () => {
 		}
 	};
 
-
 	const handleGenerate = async (action: string) => {
 		const textPrompt = simulatorPrompt();
 		if (!textPrompt && action !== 'suggestHashtags') return;
@@ -259,21 +258,21 @@ export const ChannelPostingPage: Component = () => {
 				<div class="flex items-center gap-2 overflow-hidden flex-1">
 					<button
 						onClick={() => {
-						hapticFeedback.impactOccurred('light');
-						if (isDirty()) {
-							showConfirm(
-								(t as any)('channelPosting.unsavedChangesConfirm') ||
-									'You have unsaved changes. Are you sure you want to exit?',
-							).then((confirmed: boolean) => {
-								if (confirmed) {
-									setIsDirty(false);
-									window.history.back();
-								}
-							});
-						} else {
-							window.history.back();
-						}
-					}}
+							hapticFeedback.impactOccurred('light');
+							if (isDirty()) {
+								showConfirm(
+									(t as any)('channelPosting.unsavedChangesConfirm') ||
+										'You have unsaved changes. Are you sure you want to exit?',
+								).then((confirmed: boolean) => {
+									if (confirmed) {
+										setIsDirty(false);
+										window.history.back();
+									}
+								});
+							} else {
+								window.history.back();
+							}
+						}}
 						class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-90 transition-all shrink-0"
 						aria-label="Back"
 					>
@@ -358,280 +357,282 @@ export const ChannelPostingPage: Component = () => {
 						transition={{ delay: 0.05 }}
 						class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-4"
 					>
-					<div class="flex items-center justify-between">
-						<div class="flex items-center gap-2">
-							<span class="material-symbols-outlined text-[#3390ec] text-[20px]">psychology</span>
-							<h2 class="text-[16px] font-bold text-white">
-								{t('channelPosting.aiComposer') || 'AI Composer'}
-							</h2>
-						</div>
-						{/* Free Tutorial Badge */}
-						<a
-							href="https://aistudio.google.com/"
-							target="_blank"
-							class="flex items-center gap-1 px-2.5 py-1 bg-[#3390ec]/10 rounded-full border border-[#3390ec]/20 text-[#3390ec] text-[11px] font-bold hover:bg-[#3390ec]/20 transition-all cursor-pointer shrink-0"
-							title="Free Key Tutorial"
-							rel="noopener"
-						>
-							<span class="material-symbols-outlined text-[13px]">school</span>
-							{t('channelPosting.freeKeyGuide') || 'Get Free API Key'}
-						</a>
-					</div>
-
-					{/* BYOK Description */}
-					<p class="text-[12px] text-on-surface-variant leading-relaxed">
-						{t('channelPosting.byokDescription') ||
-							'Our bot operates on the "Bring Your Own Key" (BYOK) model. Provide your API key below. Your key is stored securely and used directly for smart generation.'}
-					</p>
-
-					<div class="flex flex-col gap-2">
-						<label class="text-[13px] font-bold text-white">
-							{t('channelPosting.webServiceKey') || 'Web Service API Key'}
-						</label>
-						<div class="flex gap-2">
-							<input
-								type="password"
-								value={config.apiKey}
-								onInput={(e) => updateField('apiKey', e.currentTarget.value)}
-								placeholder="sk-..."
-								class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-2.5 flex-1 focus:outline-none focus:ring-2 focus:ring-[#3390ec] placeholder-[#a0a4ad]"
-							/>
-							<button
-								onClick={handleTestConnection}
-								disabled={!config.apiKey || connectionStatus() === 'testing'}
-								class="px-4 bg-[#3390ec]/10 text-[#3390ec] font-bold text-[13px] rounded-xl border border-[#3390ec]/20 hover:bg-[#3390ec]/20 active:scale-95 transition-all disabled:opacity-50 disabled:active:scale-100 flex flex-col items-center justify-center min-w-[70px]"
+						<div class="flex items-center justify-between">
+							<div class="flex items-center gap-2">
+								<span class="material-symbols-outlined text-[#3390ec] text-[20px]">psychology</span>
+								<h2 class="text-[16px] font-bold text-white">
+									{t('channelPosting.aiComposer') || 'AI Composer'}
+								</h2>
+							</div>
+							{/* Free Tutorial Badge */}
+							<a
+								href="https://aistudio.google.com/"
+								target="_blank"
+								class="flex items-center gap-1 px-2.5 py-1 bg-[#3390ec]/10 rounded-full border border-[#3390ec]/20 text-[#3390ec] text-[11px] font-bold hover:bg-[#3390ec]/20 transition-all cursor-pointer shrink-0"
+								title="Free Key Tutorial"
+								rel="noopener"
 							>
-								<Show when={connectionStatus() === 'testing'}>
-									<span class="w-4 h-4 border-2 border-[#3390ec]/30 border-t-[#3390ec] rounded-full animate-spin"></span>
-								</Show>
-								<Show when={connectionStatus() === 'idle'}>
-									{t('channelPosting.testConnection') || 'Test'}
-								</Show>
-								<Show when={connectionStatus() === 'success'}>
-									<span class="w-2.5 h-2.5 bg-[#34c759] rounded-full shadow-[0_0_8px_#34c759]"></span>
-								</Show>
-								<Show when={connectionStatus() === 'failed'}>
-									<span class="w-2.5 h-2.5 bg-[#ff3b30] rounded-full shadow-[0_0_8px_#ff3b30]"></span>
-								</Show>
-							</button>
+								<span class="material-symbols-outlined text-[13px]">school</span>
+								{t('channelPosting.freeKeyGuide') || 'Get Free API Key'}
+							</a>
 						</div>
-					</div>
-				</Motion.div>
 
-				{/* AI Composer Module with Skill Agent Selection */}
-				<Motion.div
-					initial={{ opacity: 0, y: 10 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ delay: 0.1 }}
-					class="bg-gradient-to-br from-[#1c1c1c] to-[#121212] rounded-3xl border border-[#3390ec]/30 p-4 flex flex-col gap-4 relative overflow-hidden"
-				>
-					<div class="absolute -top-10 -right-10 w-40 h-40 bg-[#3390ec]/10 rounded-full blur-3xl"></div>
+						{/* BYOK Description */}
+						<p class="text-[12px] text-on-surface-variant leading-relaxed">
+							{t('channelPosting.byokDescription') ||
+								'Our bot operates on the "Bring Your Own Key" (BYOK) model. Provide your API key below. Your key is stored securely and used directly for smart generation.'}
+						</p>
 
-					<div class="flex items-center gap-2 relative z-10">
-						<span class="material-symbols-outlined text-[#3390ec] text-[20px]">auto_awesome</span>
-						<h2 class="text-[16px] font-bold text-white">{t('channelPosting.aiSkillTitle')}</h2>
-					</div>
-
-					<p class="text-[12px] text-on-surface-variant leading-relaxed relative z-10">
-						{t('channelPosting.aiSkillGuide')}
-					</p>
-
-					{/* Skill System Selector */}
-					<div class="flex flex-col gap-2 relative z-10">
-						<div class="flex flex-wrap gap-2">
-							<For
-								each={[
-									{
-										id: 'journalist',
-										label: t('channelPosting.skillJournalist') || 'Journalist',
-										icon: 'newspaper',
-									},
-									{
-										id: 'technical',
-										label: t('channelPosting.skillTechnical') || 'Tech Reviewer',
-										icon: 'terminal',
-									},
-									{
-										id: 'crypto',
-										label: t('channelPosting.skillCrypto') || 'Crypto Analyst',
-										icon: 'trending_up',
-									},
-									{
-										id: 'copywriter',
-										label: t('channelPosting.skillCopywriter') || 'Copywriter',
-										icon: 'campaign',
-									},
-									{
-										id: 'custom',
-										label: t('channelPosting.skillCustom') || 'Custom Skill...',
-										icon: 'settings',
-									},
-								]}
-							>
-								{(sk) => (
-									<button
-										onClick={() => {
-											updateField('selectedSkill', sk.id);
-											hapticFeedback.selectionChanged();
-										}}
-										class={`px-3 py-1.5 rounded-lg text-[12px] font-bold flex items-center gap-1.5 transition-all ${
-											config.selectedSkill === sk.id
-												? 'bg-[#3390ec] text-white shadow-[0_4px_10px_rgba(51,144,236,0.3)]'
-												: 'bg-[#2a2a2a] text-[#8e8e93] hover:bg-[#333]'
-										}`}
-									>
-										<span class="material-symbols-outlined text-[14px]">{sk.icon}</span>
-										{sk.label}
-									</button>
-								)}
-							</For>
-						</div>
-					</div>
-
-					{/* Custom Skill Prompts Instructions */}
-					<Show when={config.selectedSkill === 'custom'}>
-						<div class="flex flex-col gap-2 relative z-10 mt-1 pl-3 border-l-2 border-[#3390ec]/30">
-							<label class="text-[12px] text-on-surface-variant font-bold">
-								{t('channelPosting.customSkillInstructions')}
+						<div class="flex flex-col gap-2">
+							<label class="text-[13px] font-bold text-white">
+								{t('channelPosting.webServiceKey') || 'Web Service API Key'}
 							</label>
-							<textarea
-								value={config.customSkillPrompt || ''}
-								onInput={(e) => updateField('customSkillPrompt', e.currentTarget.value)}
-								placeholder={t('channelPosting.customSkillInstructionsPlaceholder')}
-								class="bg-[#0f1014] text-white text-[13px] rounded-xl px-3 py-2 w-full min-h-[70px] focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-[#2a2a2a] placeholder-[#555] resize-none"
-							/>
-						</div>
-					</Show>
-				</Motion.div>
-
-				{/* Smart Post Editor Simulator (Breathtaking Dynamic Interface) */}
-				<Motion.div
-					initial={{ opacity: 0, y: 10 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ delay: 0.15 }}
-					class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-4"
-				>
-					<div class="flex items-center gap-2 mb-2">
-						<span class="material-symbols-outlined text-[#32ade6] text-[20px]">model_training</span>
-						<h2 class="text-[16px] font-bold text-white">{t('channelPosting.simulatorTitle')}</h2>
-					</div>
-
-					<p class="text-[12px] text-on-surface-variant leading-relaxed">
-						{t('channelPosting.simulatorDescription')}
-					</p>
-
-					<div class="flex flex-col gap-2">
-						<label class="text-[13px] font-bold text-white">
-							{t('channelPosting.rawTextInputLabel')}
-						</label>
-						<textarea
-							value={simulatorPrompt()}
-							onInput={(e) => {
-								setSimulatorPrompt(e.currentTarget.value);
-								setSimulatorOutput(''); // Clear stale generated output on edit
-								if (isGenerating()) {
-									generateAbortController?.abort();
-									setIsGenerating(false);
-								}
-							}}
-							placeholder={t('channelPosting.rawTextInputPlaceholder') as string}
-							class="bg-[#0f1014] text-white text-[14px] rounded-xl px-4 py-3 w-full min-h-[90px] focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-[#2a2a2a] placeholder-[#555] resize-y"
-						/>
-					</div>
-
-					<button
-						onClick={() => handleGenerate('generate')}
-						disabled={isGenerating() || !simulatorPrompt()}
-						class="h-11 bg-[#3390ec] hover:bg-[#2b7bc9] text-white rounded-xl font-bold text-[14px] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:hover:bg-[#3390ec]"
-					>
-						<Show
-							when={isGenerating()}
-							fallback={
-								<>
-									<span class="material-symbols-outlined text-[18px]">play_circle</span>{' '}
-									{t('channelPosting.processPreviewBtn')}
-								</>
-							}
-						>
-							<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-						</Show>
-					</button>
-
-					{/* Final Output Message Mockup (Visual Masterpiece resembling real Telegram Channel post) */}
-					<div class="flex flex-col gap-2 mt-2">
-						<label class="text-[13px] font-bold text-[#8e8e93]">
-							{t('channelPosting.finalPostLabel')}
-						</label>
-
-						{/* Premium Mockup Wallpaper and bubble layout */}
-						<div class="bg-gradient-to-br from-[#1a2b3c] via-[#111a22] to-[#0a0f14] rounded-2xl p-4 min-h-[160px] flex flex-col justify-end relative overflow-hidden border border-[#2a2a2a]">
-							<div class="absolute inset-0 bg-black/40"></div>
-
-							<div class="flex flex-col max-w-[90%] relative z-10 self-start">
-								{/* Telegram Message Bubble */}
-								<div
-									dir="auto"
-									class="bg-[#182533] text-white rounded-2xl rounded-bl-none rtl:rounded-br-none rtl:rounded-bl-2xl p-3.5 shadow-lg text-[14px] leading-relaxed whitespace-pre-wrap"
+							<div class="flex gap-2">
+								<input
+									type="password"
+									value={config.apiKey}
+									onInput={(e) => updateField('apiKey', e.currentTarget.value)}
+									placeholder="sk-..."
+									class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-2.5 flex-1 focus:outline-none focus:ring-2 focus:ring-[#3390ec] placeholder-[#a0a4ad]"
+								/>
+								<button
+									onClick={handleTestConnection}
+									disabled={!config.apiKey || connectionStatus() === 'testing'}
+									class="px-4 bg-[#3390ec]/10 text-[#3390ec] font-bold text-[13px] rounded-xl border border-[#3390ec]/20 hover:bg-[#3390ec]/20 active:scale-95 transition-all disabled:opacity-50 disabled:active:scale-100 flex flex-col items-center justify-center min-w-[70px]"
 								>
-									{simulatorOutput() ||
-										simulatorPrompt() ||
-										t('channelPosting.simulatorMockupDefault')}
+									<Show when={connectionStatus() === 'testing'}>
+										<span class="w-4 h-4 border-2 border-[#3390ec]/30 border-t-[#3390ec] rounded-full animate-spin"></span>
+									</Show>
+									<Show when={connectionStatus() === 'idle'}>
+										{t('channelPosting.testConnection') || 'Test'}
+									</Show>
+									<Show when={connectionStatus() === 'success'}>
+										<span class="w-2.5 h-2.5 bg-[#34c759] rounded-full shadow-[0_0_8px_#34c759]"></span>
+									</Show>
+									<Show when={connectionStatus() === 'failed'}>
+										<span class="w-2.5 h-2.5 bg-[#ff3b30] rounded-full shadow-[0_0_8px_#ff3b30]"></span>
+									</Show>
+								</button>
+							</div>
+						</div>
+					</Motion.div>
 
-									{/* Signature simulated dynamically if set */}
-									<div class="mt-3 pt-1 border-t border-white/10 text-[12px] text-[#32ade6] font-bold flex items-center gap-1">
-										<span class="material-symbols-outlined text-[14px]">signature</span>
-										<span>{t('channelPosting.signatureMockup')}</span>
-									</div>
+					{/* AI Composer Module with Skill Agent Selection */}
+					<Motion.div
+						initial={{ opacity: 0, y: 10 }}
+						animate={{ opacity: 1, y: 0 }}
+						transition={{ delay: 0.1 }}
+						class="bg-gradient-to-br from-[#1c1c1c] to-[#121212] rounded-3xl border border-[#3390ec]/30 p-4 flex flex-col gap-4 relative overflow-hidden"
+					>
+						<div class="absolute -top-10 -right-10 w-40 h-40 bg-[#3390ec]/10 rounded-full blur-3xl"></div>
 
-									<div class="flex items-center justify-end rtl:justify-start gap-1 mt-1.5 opacity-60 text-[10px]">
-										<span>
-											{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-										</span>
-										<span class="material-symbols-outlined text-[12px] text-[#32ade6]">
-											done_all
-										</span>
-									</div>
-								</div>
+						<div class="flex items-center gap-2 relative z-10">
+							<span class="material-symbols-outlined text-[#3390ec] text-[20px]">auto_awesome</span>
+							<h2 class="text-[16px] font-bold text-white">{t('channelPosting.aiSkillTitle')}</h2>
+						</div>
 
-								{/* Mockup Glass Buttons (Attached perfectly to the bubble) */}
-								<div class="flex flex-col gap-1 mt-1.5 w-full">
-									{/* Row 1 */}
-									<div class="flex gap-1 w-full">
-										<button class="flex-1 bg-[#1c2c3d]/90 hover:bg-[#233549] text-[#3390ec] border border-[#29425a] py-2 rounded-xl text-[12px] font-black transition-all flex items-center justify-center gap-1.5 backdrop-blur-md shadow-md active:scale-95">
-											<span>👍</span>
-											<span>{t('channelPosting.likeMockup')}</span>
+						<p class="text-[12px] text-on-surface-variant leading-relaxed relative z-10">
+							{t('channelPosting.aiSkillGuide')}
+						</p>
+
+						{/* Skill System Selector */}
+						<div class="flex flex-col gap-2 relative z-10">
+							<div class="flex flex-wrap gap-2">
+								<For
+									each={[
+										{
+											id: 'journalist',
+											label: t('channelPosting.skillJournalist') || 'Journalist',
+											icon: 'newspaper',
+										},
+										{
+											id: 'technical',
+											label: t('channelPosting.skillTechnical') || 'Tech Reviewer',
+											icon: 'terminal',
+										},
+										{
+											id: 'crypto',
+											label: t('channelPosting.skillCrypto') || 'Crypto Analyst',
+											icon: 'trending_up',
+										},
+										{
+											id: 'copywriter',
+											label: t('channelPosting.skillCopywriter') || 'Copywriter',
+											icon: 'campaign',
+										},
+										{
+											id: 'custom',
+											label: t('channelPosting.skillCustom') || 'Custom Skill...',
+											icon: 'settings',
+										},
+									]}
+								>
+									{(sk) => (
+										<button
+											onClick={() => {
+												updateField('selectedSkill', sk.id);
+												hapticFeedback.selectionChanged();
+											}}
+											class={`px-3 py-1.5 rounded-lg text-[12px] font-bold flex items-center gap-1.5 transition-all ${
+												config.selectedSkill === sk.id
+													? 'bg-[#3390ec] text-white shadow-[0_4px_10px_rgba(51,144,236,0.3)]'
+													: 'bg-[#2a2a2a] text-[#8e8e93] hover:bg-[#333]'
+											}`}
+										>
+											<span class="material-symbols-outlined text-[14px]">{sk.icon}</span>
+											{sk.label}
 										</button>
-										<button class="flex-1 bg-[#1c2c3d]/90 hover:bg-[#233549] text-[#ff3b30] border border-[#29425a] py-2 rounded-xl text-[12px] font-black transition-all flex items-center justify-center gap-1.5 backdrop-blur-md shadow-md active:scale-95">
-											<span>👎</span>
-											<span>{t('channelPosting.dislikeMockup')}</span>
-										</button>
-									</div>
-									{/* Row 2 */}
-									<div class="flex gap-1 w-full">
-										<button class="flex-1 bg-[#1c2c3d]/90 hover:bg-[#233549] text-[#34c759] border border-[#29425a] py-2 rounded-xl text-[12px] font-black transition-all flex items-center justify-center gap-1.5 backdrop-blur-md shadow-md active:scale-95">
-											<span>📎</span>
-											<span>{t('channelPosting.viewDetailsMockup')}</span>
-										</button>
-										<button class="flex-1 bg-[#1c2c3d]/90 hover:bg-[#233549] text-white border border-[#29425a] py-2 rounded-xl text-[12px] font-black transition-all flex items-center justify-center gap-1.5 backdrop-blur-md shadow-md active:scale-95">
-											<span>📢</span>
-											<span>{t('channelPosting.shareMockup')}</span>
-										</button>
-									</div>
-								</div>
+									)}
+								</For>
 							</div>
 						</div>
 
-						{/* Helpful Instruction Badge about glass buttons */}
-						<div class="flex items-start gap-2 bg-[#3390ec]/10 border border-[#3390ec]/20 rounded-2xl p-3 mt-1.5">
-							<span class="material-symbols-outlined text-[#3390ec] text-[20px] shrink-0 mt-0.5">
-								info
+						{/* Custom Skill Prompts Instructions */}
+						<Show when={config.selectedSkill === 'custom'}>
+							<div class="flex flex-col gap-2 relative z-10 mt-1 pl-3 border-l-2 border-[#3390ec]/30">
+								<label class="text-[12px] text-on-surface-variant font-bold">
+									{t('channelPosting.customSkillInstructions')}
+								</label>
+								<textarea
+									value={config.customSkillPrompt || ''}
+									onInput={(e) => updateField('customSkillPrompt', e.currentTarget.value)}
+									placeholder={t('channelPosting.customSkillInstructionsPlaceholder')}
+									class="bg-[#0f1014] text-white text-[13px] rounded-xl px-3 py-2 w-full min-h-[70px] focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-[#2a2a2a] placeholder-[#555] resize-none"
+								/>
+							</div>
+						</Show>
+					</Motion.div>
+
+					{/* Smart Post Editor Simulator (Breathtaking Dynamic Interface) */}
+					<Motion.div
+						initial={{ opacity: 0, y: 10 }}
+						animate={{ opacity: 1, y: 0 }}
+						transition={{ delay: 0.15 }}
+						class="bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-4 flex flex-col gap-4"
+					>
+						<div class="flex items-center gap-2 mb-2">
+							<span class="material-symbols-outlined text-[#32ade6] text-[20px]">
+								model_training
 							</span>
-							<p class="text-[12px] text-[#3390ec] leading-relaxed font-bold">
-								{t('channelPosting.glassButtonsInfo')}
-							</p>
+							<h2 class="text-[16px] font-bold text-white">{t('channelPosting.simulatorTitle')}</h2>
 						</div>
-					</div>
-				</Motion.div>
+
+						<p class="text-[12px] text-on-surface-variant leading-relaxed">
+							{t('channelPosting.simulatorDescription')}
+						</p>
+
+						<div class="flex flex-col gap-2">
+							<label class="text-[13px] font-bold text-white">
+								{t('channelPosting.rawTextInputLabel')}
+							</label>
+							<textarea
+								value={simulatorPrompt()}
+								onInput={(e) => {
+									setSimulatorPrompt(e.currentTarget.value);
+									setSimulatorOutput(''); // Clear stale generated output on edit
+									if (isGenerating()) {
+										generateAbortController?.abort();
+										setIsGenerating(false);
+									}
+								}}
+								placeholder={t('channelPosting.rawTextInputPlaceholder') as string}
+								class="bg-[#0f1014] text-white text-[14px] rounded-xl px-4 py-3 w-full min-h-[90px] focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-[#2a2a2a] placeholder-[#555] resize-y"
+							/>
+						</div>
+
+						<button
+							onClick={() => handleGenerate('generate')}
+							disabled={isGenerating() || !simulatorPrompt()}
+							class="h-11 bg-[#3390ec] hover:bg-[#2b7bc9] text-white rounded-xl font-bold text-[14px] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:hover:bg-[#3390ec]"
+						>
+							<Show
+								when={isGenerating()}
+								fallback={
+									<>
+										<span class="material-symbols-outlined text-[18px]">play_circle</span>{' '}
+										{t('channelPosting.processPreviewBtn')}
+									</>
+								}
+							>
+								<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+							</Show>
+						</button>
+
+						{/* Final Output Message Mockup (Visual Masterpiece resembling real Telegram Channel post) */}
+						<div class="flex flex-col gap-2 mt-2">
+							<label class="text-[13px] font-bold text-[#8e8e93]">
+								{t('channelPosting.finalPostLabel')}
+							</label>
+
+							{/* Premium Mockup Wallpaper and bubble layout */}
+							<div class="bg-gradient-to-br from-[#1a2b3c] via-[#111a22] to-[#0a0f14] rounded-2xl p-4 min-h-[160px] flex flex-col justify-end relative overflow-hidden border border-[#2a2a2a]">
+								<div class="absolute inset-0 bg-black/40"></div>
+
+								<div class="flex flex-col max-w-[90%] relative z-10 self-start">
+									{/* Telegram Message Bubble */}
+									<div
+										dir="auto"
+										class="bg-[#182533] text-white rounded-2xl rounded-bl-none rtl:rounded-br-none rtl:rounded-bl-2xl p-3.5 shadow-lg text-[14px] leading-relaxed whitespace-pre-wrap"
+									>
+										{simulatorOutput() ||
+											simulatorPrompt() ||
+											t('channelPosting.simulatorMockupDefault')}
+
+										{/* Signature simulated dynamically if set */}
+										<div class="mt-3 pt-1 border-t border-white/10 text-[12px] text-[#32ade6] font-bold flex items-center gap-1">
+											<span class="material-symbols-outlined text-[14px]">signature</span>
+											<span>{t('channelPosting.signatureMockup')}</span>
+										</div>
+
+										<div class="flex items-center justify-end rtl:justify-start gap-1 mt-1.5 opacity-60 text-[10px]">
+											<span>
+												{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+											</span>
+											<span class="material-symbols-outlined text-[12px] text-[#32ade6]">
+												done_all
+											</span>
+										</div>
+									</div>
+
+									{/* Mockup Glass Buttons (Attached perfectly to the bubble) */}
+									<div class="flex flex-col gap-1 mt-1.5 w-full">
+										{/* Row 1 */}
+										<div class="flex gap-1 w-full">
+											<button class="flex-1 bg-[#1c2c3d]/90 hover:bg-[#233549] text-[#3390ec] border border-[#29425a] py-2 rounded-xl text-[12px] font-black transition-all flex items-center justify-center gap-1.5 backdrop-blur-md shadow-md active:scale-95">
+												<span>👍</span>
+												<span>{t('channelPosting.likeMockup')}</span>
+											</button>
+											<button class="flex-1 bg-[#1c2c3d]/90 hover:bg-[#233549] text-[#ff3b30] border border-[#29425a] py-2 rounded-xl text-[12px] font-black transition-all flex items-center justify-center gap-1.5 backdrop-blur-md shadow-md active:scale-95">
+												<span>👎</span>
+												<span>{t('channelPosting.dislikeMockup')}</span>
+											</button>
+										</div>
+										{/* Row 2 */}
+										<div class="flex gap-1 w-full">
+											<button class="flex-1 bg-[#1c2c3d]/90 hover:bg-[#233549] text-[#34c759] border border-[#29425a] py-2 rounded-xl text-[12px] font-black transition-all flex items-center justify-center gap-1.5 backdrop-blur-md shadow-md active:scale-95">
+												<span>📎</span>
+												<span>{t('channelPosting.viewDetailsMockup')}</span>
+											</button>
+											<button class="flex-1 bg-[#1c2c3d]/90 hover:bg-[#233549] text-white border border-[#29425a] py-2 rounded-xl text-[12px] font-black transition-all flex items-center justify-center gap-1.5 backdrop-blur-md shadow-md active:scale-95">
+												<span>📢</span>
+												<span>{t('channelPosting.shareMockup')}</span>
+											</button>
+										</div>
+									</div>
+								</div>
+							</div>
+
+							{/* Helpful Instruction Badge about glass buttons */}
+							<div class="flex items-start gap-2 bg-[#3390ec]/10 border border-[#3390ec]/20 rounded-2xl p-3 mt-1.5">
+								<span class="material-symbols-outlined text-[#3390ec] text-[20px] shrink-0 mt-0.5">
+									info
+								</span>
+								<p class="text-[12px] text-[#3390ec] leading-relaxed font-bold">
+									{t('channelPosting.glassButtonsInfo')}
+								</p>
+							</div>
+						</div>
+					</Motion.div>
 				</Show>
 			</div>
 

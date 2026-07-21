@@ -195,16 +195,19 @@ func (c *Client) doRequest(ctx context.Context, url string) (*http.Response, err
 		duration = time.Since(start).Seconds()
 
 		if err == nil && resp.StatusCode == http.StatusTooManyRequests {
-			retryAfter := resp.Header.Get("Retry-After")
-			if delaySec, atoiErr := strconv.Atoi(retryAfter); atoiErr == nil && delaySec > 0 && delaySec <= 10 {
-				resp.Body.Close()
-				select {
-				case <-ctx.Done():
-					return nil, ctx.Err()
-				case <-time.After(time.Duration(delaySec) * time.Second):
+			resp.Body.Close()
+			delay := time.Duration(250*(1<<attempt)) * time.Millisecond
+			if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
+				if delaySec, atoiErr := strconv.Atoi(retryAfter); atoiErr == nil && delaySec > 0 && delaySec <= 10 {
+					delay = time.Duration(delaySec) * time.Second
 				}
-				continue
 			}
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(delay):
+			}
+			continue
 		}
 		break
 	}

@@ -11,7 +11,11 @@ export const AnalyticsPage: Component = () => {
 	const params = useParams();
 	const [isMenuOpen, setIsMenuOpen] = createSignal(false);
 	const [days, setDays] = createSignal(7);
-	const [selectedMetric, setSelectedMetric] = createSignal<{ date: string; value: number; label: string } | null>(null);
+	const [selectedMetric, setSelectedMetric] = createSignal<{
+		date: string;
+		value: number;
+		label: string;
+	} | null>(null);
 
 	const [data] = createResource(
 		() => ({ id: params.id, d: days() }),
@@ -76,7 +80,8 @@ export const AnalyticsPage: Component = () => {
 					<For each={metrics}>
 						{(m) => {
 							const h = Math.max(8, (m.value / maxVal) * 100);
-							const isSelected = () => selectedMetric()?.date === m.date && selectedMetric()?.label === label;
+							const isSelected = () =>
+								selectedMetric()?.date === m.date && selectedMetric()?.label === label;
 							return (
 								<button
 									onClick={() => {
@@ -87,7 +92,9 @@ export const AnalyticsPage: Component = () => {
 								>
 									<div
 										class={`w-full rounded-xl transition-all duration-200 ${
-											isSelected() ? 'brightness-150 ring-2 ring-white scale-105' : 'hover:brightness-125'
+											isSelected()
+												? 'brightness-150 ring-2 ring-white scale-105'
+												: 'hover:brightness-125'
 										}`}
 										style={{
 											height: `${h}%`,
@@ -251,7 +258,9 @@ export const AnalyticsPage: Component = () => {
 									</span>
 									<span class="text-[11px] font-bold text-white/50 uppercase">{stat.label}</span>
 								</div>
-								<span class="text-xl font-black text-white font-mono">{stat.value.toLocaleString()}</span>
+								<span class="text-xl font-black text-white font-mono">
+									{stat.value.toLocaleString()}
+								</span>
 								<Show when={stat.change !== 0}>
 									<span
 										class={`text-[11px] font-bold ${stat.change > 0 ? 'text-[#10b981]' : 'text-[#ef4444]'}`}

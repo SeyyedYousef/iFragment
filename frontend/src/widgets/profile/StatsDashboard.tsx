@@ -82,7 +82,7 @@ export const StatsDashboard: Component<Props> = (props) => {
 					{(item, i) => {
 						const rawVal = () => (props.stats ? (props.stats[item.key] as number) : 0);
 						const label = () => t(item.labelKey as any) || item.defaultLabel;
-						const colClass = i() < 3 ? "col-span-2" : "col-span-3";
+						const colClass = i() < 3 ? 'col-span-2' : 'col-span-3';
 						return (
 							<Motion.div
 								initial={{ opacity: 0, scale: 0.95 }}
@@ -92,11 +92,10 @@ export const StatsDashboard: Component<Props> = (props) => {
 							>
 								{/* Hover Glow */}
 								<div class="absolute -inset-[1px] bg-gradient-to-r from-white/0 via-white/20 to-white/0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-[2px]" />
-								
+
 								<div class="relative bg-[#0a0a0f]/60 backdrop-blur-md rounded-2xl py-3 px-2 border border-white/5 flex flex-col justify-center items-center gap-1.5 shadow-[0_4px_12px_rgba(0,0,0,0.2)] h-full overflow-hidden transition-all group-hover:border-white/10 group-hover:bg-[#0a0a0f]/80">
-									
 									{/* Subtle background icon */}
-									<span 
+									<span
 										class="material-symbols-outlined absolute -right-2 -bottom-2 text-[40px] opacity-[0.03] rotate-[-15deg] pointer-events-none transition-transform group-hover:scale-110"
 										style={{ color: item.color }}
 									>

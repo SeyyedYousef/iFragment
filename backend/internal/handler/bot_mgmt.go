@@ -29,27 +29,8 @@ func NewBotMgmtHandler(svc *botmgmt.BotService, paymentSvc *payment.StarsService
 }
 
 func (h *BotMgmtHandler) getUserID(r *http.Request) int64 {
-	user, ok := r.Context().Value(middleware.UserContextKey).(map[string]interface{})
-	if !ok {
-		return 0
-	}
-	idVal, ok := user["id"]
-	if !ok {
-		return 0
-	}
-	switch v := idVal.(type) {
-	case float64:
-		return int64(v)
-	case int64:
-		return v
-	case int:
-		return int64(v)
-	case string:
-		id, _ := strconv.ParseInt(v, 10, 64)
-		return id
-	default:
-		return 0
-	}
+	id, _ := middleware.GetUserID(r.Context())
+	return id
 }
 
 // ─── Bot CRUD ─────────────────────────────────────────────

@@ -868,6 +868,7 @@ export const dict = {
 		welcomeMessageDesc: '当新成员加入时发送私人欢迎消息。',
 		welcomeText: '欢迎辞',
 		welcomeTextPlaceholder: '你好$name！欢迎来到我们的频道👋',
+		deleteRuleConfirm: '删除此规则将立即停止自动回复。您确定要删除吗？',
 	},
 	channelDashboard: {
 		activeFunnel: '主动发布渠道',

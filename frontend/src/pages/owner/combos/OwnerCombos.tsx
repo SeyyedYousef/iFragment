@@ -1,7 +1,7 @@
 import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
-import { Component, createSignal, For, Show } from 'solid-js';
-import { ownerApi, AdminDailyCombo } from '@/shared/api/owner.js';
 import { hapticFeedback } from '@tma.js/sdk-solid';
+import { Component, createSignal, For, Show } from 'solid-js';
+import { AdminDailyCombo, ownerApi } from '@/shared/api/owner.js';
 
 export const OwnerCombos: Component = () => {
 	const queryClient = useQueryClient();
@@ -10,7 +10,10 @@ export const OwnerCombos: Component = () => {
 	const [wordInput, setWordInput] = createSignal('');
 	const [rewardInput, setRewardInput] = createSignal('500000');
 	const [showSecrets, setShowSecrets] = createSignal<Record<number, boolean>>({});
-	const [statusMsg, setStatusMsg] = createSignal<{ type: 'success' | 'error'; text: string } | null>(null);
+	const [statusMsg, setStatusMsg] = createSignal<{
+		type: 'success' | 'error';
+		text: string;
+	} | null>(null);
 
 	const combosQuery = createQuery(() => ({
 		queryKey: ['admin-combos'],
@@ -30,7 +33,10 @@ export const OwnerCombos: Component = () => {
 			setTimeout(() => setStatusMsg(null), 3000);
 		},
 		onError: (err: any) => {
-			setStatusMsg({ type: 'error', text: err.response?.data?.error || 'خطا در ثبت کامبو روزانه.' });
+			setStatusMsg({
+				type: 'error',
+				text: err.response?.data?.error || 'خطا در ثبت کامبو روزانه.',
+			});
 			try {
 				hapticFeedback.notificationOccurred('error');
 			} catch {}
@@ -55,7 +61,7 @@ export const OwnerCombos: Component = () => {
 	const handleSubmit = (e: Event) => {
 		e.preventDefault();
 		const reward = parseInt(rewardInput(), 10);
-		if (!dateInput() || !wordInput().trim() || isNaN(reward)) return;
+		if (!dateInput() || !wordInput().trim() || Number.isNaN(reward)) return;
 		createMutationHook.mutate({
 			date: dateInput(),
 			word: wordInput().trim().toUpperCase(),
@@ -73,14 +79,18 @@ export const OwnerCombos: Component = () => {
 			<div class="bg-[#16171d]/60 border border-white/5 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
 				<div>
 					<h2 class="text-sm font-black text-white">مدیریت کامبو و کلمات رمز روزانه</h2>
-					<p class="text-xs text-white/40 font-bold mt-0.5">تعیین رمز عبور مخفی روزانه و مقدار سکه پاداش برای کاربران</p>
+					<p class="text-xs text-white/40 font-bold mt-0.5">
+						تعیین رمز عبور مخفی روزانه و مقدار سکه پاداش برای کاربران
+					</p>
 				</div>
 			</div>
 
 			<Show when={statusMsg()}>
 				<div
 					class={`p-4 rounded-2xl border text-xs font-bold flex items-center gap-2 ${
-						statusMsg()?.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'
+						statusMsg()?.type === 'success'
+							? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+							: 'bg-red-500/10 border-red-500/20 text-red-400'
 					}`}
 				>
 					<span class="material-symbols-outlined text-base">
@@ -107,7 +117,9 @@ export const OwnerCombos: Component = () => {
 							</div>
 
 							<div>
-								<label class="block text-[10px] font-bold text-white/50 mb-1">کلمه رمز (Secret Word)</label>
+								<label class="block text-[10px] font-bold text-white/50 mb-1">
+									کلمه رمز (Secret Word)
+								</label>
 								<input
 									type="text"
 									placeholder="مثلاً SATOSHI_2026"
@@ -119,7 +131,9 @@ export const OwnerCombos: Component = () => {
 							</div>
 
 							<div>
-								<label class="block text-[10px] font-bold text-white/50 mb-1">مقدار سکه پاداش (FRG)</label>
+								<label class="block text-[10px] font-bold text-white/50 mb-1">
+									مقدار سکه پاداش (FRG)
+								</label>
 								<input
 									type="number"
 									value={rewardInput()}
@@ -143,7 +157,9 @@ export const OwnerCombos: Component = () => {
 				{/* Combos Table */}
 				<div class="lg:col-span-2">
 					<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-5 space-y-4">
-						<h3 class="text-xs font-black uppercase text-white tracking-wider">تاریخچه کامبوهای اخیر</h3>
+						<h3 class="text-xs font-black uppercase text-white tracking-wider">
+							تاریخچه کامبوهای اخیر
+						</h3>
 
 						<div class="overflow-x-auto">
 							<table class="w-full text-end text-xs">
@@ -174,7 +190,9 @@ export const OwnerCombos: Component = () => {
 													</td>
 													<td class="py-3 text-start font-mono font-bold text-amber-400">
 														<div class="flex items-center gap-2">
-															<span>{showSecrets()[combo.id] ? combo.secret_word : '••••••••'}</span>
+															<span>
+																{showSecrets()[combo.id] ? combo.secret_word : '••••••••'}
+															</span>
 															<button
 																onClick={() => toggleSecret(combo.id)}
 																class="text-white/40 hover:text-white text-[12px]"

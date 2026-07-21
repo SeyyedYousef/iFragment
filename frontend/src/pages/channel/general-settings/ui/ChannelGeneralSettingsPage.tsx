@@ -74,7 +74,7 @@ const defaultConfig: ChannelConfig = {
 	discussionGroup: '',
 	approveAccountAge: false,
 	approveProfilePhoto: false,
-	
+
 	inputChannelId: '',
 	inputChannelName: '',
 	inputChannelBio: '',
@@ -105,7 +105,7 @@ export const ChannelGeneralSettingsPage: Component = () => {
 				let inputChannelId = '';
 				try {
 					const funnel = await channelApi.getFunnel(channelId);
-					if (funnel && funnel.input_channel_id) {
+					if (funnel?.input_channel_id) {
 						inputChannelId = funnel.input_channel_id;
 						const inputSettings = await channelApi.getSettings(funnel.input_channel_id);
 						inputGeneral = inputSettings.general || {};
@@ -123,23 +123,37 @@ export const ChannelGeneralSettingsPage: Component = () => {
 					autoForward: apiGeneral.autoForward ?? defaultConfig.autoForward,
 					forwardDestination: apiGeneral.forwardDestination || defaultConfig.forwardDestination,
 					disableReactions: apiGeneral.disableReactions ?? defaultConfig.disableReactions,
-					channelName: apiGeneral.name || (apiGeneral as any).channelName || defaultConfig.channelName,
-					channelBio: apiGeneral.description || (apiGeneral as any).channelBio || defaultConfig.channelBio,
+					channelName:
+						apiGeneral.name || (apiGeneral as any).channelName || defaultConfig.channelName,
+					channelBio:
+						apiGeneral.description || (apiGeneral as any).channelBio || defaultConfig.channelBio,
 					channelPhotoUrl:
-						apiGeneral.photo || (apiGeneral as any).channelPhotoUrl || defaultConfig.channelPhotoUrl,
+						apiGeneral.photo ||
+						(apiGeneral as any).channelPhotoUrl ||
+						defaultConfig.channelPhotoUrl,
 					channelUsername:
-						apiGeneral.username || (apiGeneral as any).channelUsername || defaultConfig.channelUsername,
+						apiGeneral.username ||
+						(apiGeneral as any).channelUsername ||
+						defaultConfig.channelUsername,
 					adminProfileDisplay:
 						apiGeneral.showAdminProfile ??
 						(apiGeneral as any).adminProfileDisplay ??
 						defaultConfig.adminProfileDisplay,
-					hideHistory: apiGeneral.hideChatHistory ?? (apiGeneral as any).hideHistory ?? defaultConfig.hideHistory,
+					hideHistory:
+						apiGeneral.hideChatHistory ??
+						(apiGeneral as any).hideHistory ??
+						defaultConfig.hideHistory,
 					hideMemberList: apiGeneral.hideMemberList ?? defaultConfig.hideMemberList,
 					telegramAntiSpam:
-						apiGeneral.antiSpam ?? (apiGeneral as any).telegramAntiSpam ?? defaultConfig.telegramAntiSpam,
+						apiGeneral.antiSpam ??
+						(apiGeneral as any).telegramAntiSpam ??
+						defaultConfig.telegramAntiSpam,
 					slowMode: String(apiGeneral.slowMode ?? 0),
-					autoDeleteTimer: String(apiGeneral.autoDelete ?? (apiGeneral as any).autoDeleteTimer ?? 0),
-					discussionGroup: apiGeneral.discussionGroupId || (apiGeneral as any).discussionGroup || '',
+					autoDeleteTimer: String(
+						apiGeneral.autoDelete ?? (apiGeneral as any).autoDeleteTimer ?? 0,
+					),
+					discussionGroup:
+						apiGeneral.discussionGroupId || (apiGeneral as any).discussionGroup || '',
 					approveAccountAge:
 						(apiGeneral.joinReqAge ?? 0) > 0 ||
 						(apiGeneral as any).approveAccountAge ||
@@ -154,7 +168,7 @@ export const ChannelGeneralSettingsPage: Component = () => {
 					approveGifts: (apiGeneral as any).approveGifts ?? defaultConfig.approveGifts,
 					approveCollectibles:
 						(apiGeneral as any).approveCollectibles ?? defaultConfig.approveCollectibles,
-						
+
 					inputChannelId,
 					inputChannelName: inputGeneral.name || inputGeneral.channelName || '',
 					inputChannelBio: inputGeneral.description || inputGeneral.channelBio || '',
@@ -165,10 +179,7 @@ export const ChannelGeneralSettingsPage: Component = () => {
 				setConfig(reconcile(merged));
 				return settings;
 			} catch (error) {
-				showToast(
-					t('channelSettings.loadError') || 'Failed to load settings',
-					'error',
-				);
+				showToast(t('channelSettings.loadError') || 'Failed to load settings', 'error');
 				throw error;
 			}
 		},
@@ -179,7 +190,8 @@ export const ChannelGeneralSettingsPage: Component = () => {
 		if (isDirty()) {
 			hapticFeedback.notificationOccurred('warning');
 			const confirmDiscard = await showConfirm(
-				t('channelSettings.unsavedChangesConfirm') || 'You have unsaved changes. Are you sure you want to exit?'
+				t('channelSettings.unsavedChangesConfirm') ||
+					'You have unsaved changes. Are you sure you want to exit?',
 			);
 			if (confirmDiscard) {
 				setIsDirty(false); // Reset state to allow clean navigation
@@ -279,7 +291,7 @@ export const ChannelGeneralSettingsPage: Component = () => {
 			// We need to fetch the new version
 			const freshSettings = await channelApi.getSettings(params.id);
 			setSettingsVersion(freshSettings.version || 1);
-			
+
 			setIsDirty(false);
 			hapticFeedback.notificationOccurred('success');
 			showToast(t('common.settingsSaved') || 'Settings saved successfully', 'success');
@@ -288,14 +300,12 @@ export const ChannelGeneralSettingsPage: Component = () => {
 			hapticFeedback.notificationOccurred('error');
 			if (e.status === 409 || (e.response && e.response.status === 409)) {
 				showToast(
-					t('channelSettings.concurrencyError') || 'Conflict: These settings have been updated by another admin. Please refresh the page.',
+					t('channelSettings.concurrencyError') ||
+						'Conflict: These settings have been updated by another admin. Please refresh the page.',
 					'error',
 				);
 			} else {
-				showToast(
-					t('channelSettings.saveError') || 'Failed to save settings.',
-					'error',
-				);
+				showToast(t('channelSettings.saveError') || 'Failed to save settings.', 'error');
 			}
 		} finally {
 			setIsSaving(false);
@@ -384,10 +394,16 @@ export const ChannelGeneralSettingsPage: Component = () => {
 												</span>
 											}
 										>
-											<img src={config.inputChannelPhotoUrl} class="w-full h-full object-cover" alt="Avatar" />
+											<img
+												src={config.inputChannelPhotoUrl}
+												class="w-full h-full object-cover"
+												alt="Avatar"
+											/>
 										</Show>
 										<div class="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-											<span class="material-symbols-outlined text-white text-[20px]">photo_camera</span>
+											<span class="material-symbols-outlined text-white text-[20px]">
+												photo_camera
+											</span>
 										</div>
 										<input
 											type="file"
@@ -475,10 +491,16 @@ export const ChannelGeneralSettingsPage: Component = () => {
 											</span>
 										}
 									>
-										<img src={config.channelPhotoUrl} class="w-full h-full object-cover" alt="Avatar" />
+										<img
+											src={config.channelPhotoUrl}
+											class="w-full h-full object-cover"
+											alt="Avatar"
+										/>
 									</Show>
 									<div class="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-										<span class="material-symbols-outlined text-white text-[20px]">photo_camera</span>
+										<span class="material-symbols-outlined text-white text-[20px]">
+											photo_camera
+										</span>
 									</div>
 									<input
 										type="file"
@@ -611,7 +633,6 @@ export const ChannelGeneralSettingsPage: Component = () => {
 							</div>
 						</Show>
 					</Motion.div>
-
 
 					{/* Join Requests Section */}
 					<Motion.div

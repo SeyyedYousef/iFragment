@@ -22,7 +22,8 @@ export const ConnectChannelPage: Component = () => {
 	const handleConnect = async () => {
 		if (!projectName().trim() || !inputChannel().trim() || !outputChannel().trim()) {
 			showToast(
-				t('connectChannel.validationError') || 'Please specify project name, input, and output channels',
+				t('connectChannel.validationError') ||
+					'Please specify project name, input, and output channels',
 				'error',
 			);
 			hapticFeedback.notificationOccurred('error');
@@ -39,24 +40,19 @@ export const ConnectChannelPage: Component = () => {
 			showToast(t('connectChannel.verifyingOutput') || 'Verifying output channel...', 'info');
 			const outChan = await channelApi.connectChannel('auto', outputChannel().trim());
 
-			showToast(
-				t('connectChannel.creatingConnection') || 'Creating project connection...',
-				'info',
-			);
+			showToast(t('connectChannel.creatingConnection') || 'Creating project connection...', 'info');
 			await channelApi.createFunnel(outChan.id, inChan.id, projectName().trim());
 
 			if (inChan.subscription_status === 'expired' || outChan.subscription_status === 'expired') {
 				showToast(
-					t('connectChannel.trialLimitReached') || 'You have already created 3 channels with a trial period. New channels will not have a free trial period!',
-					'error'
+					t('connectChannel.trialLimitReached') ||
+						'You have already created 3 channels with a trial period. New channels will not have a free trial period!',
+					'error',
 				);
 			} else {
-				showToast(
-					t('connectChannel.success') || 'Channel connected successfully!',
-					'success',
-				);
+				showToast(t('connectChannel.success') || 'Channel connected successfully!', 'success');
 			}
-			
+
 			hapticFeedback.notificationOccurred('success');
 			navigate('/managed-channels', { replace: true });
 		} catch (err: any) {
@@ -122,7 +118,8 @@ export const ConnectChannelPage: Component = () => {
 						</h2>
 					</div>
 					<p class="text-[13px] text-[#8e8e93] leading-relaxed mb-3">
-						{t('connectChannel.step0Desc') || 'Choose a name for your project to identify it in the dashboard.'}
+						{t('connectChannel.step0Desc') ||
+							'Choose a name for your project to identify it in the dashboard.'}
 					</p>
 					<div>
 						<input
@@ -151,7 +148,8 @@ export const ConnectChannelPage: Component = () => {
 						</h2>
 					</div>
 					<p class="text-[13px] text-[#8e8e93] leading-relaxed">
-						{t('connectChannel.step1Desc') || 'Add our official bot as an Administrator with post sending rights to your channels.'}
+						{t('connectChannel.step1Desc') ||
+							'Add our official bot as an Administrator with post sending rights to your channels.'}
 					</p>
 					<button
 						onClick={handleOpenTelegram}
@@ -177,41 +175,47 @@ export const ConnectChannelPage: Component = () => {
 							{t('connectChannel.step2Title') || 'Submit Channel / Funnel Information'}
 						</h2>
 					</div>
-						<p class="text-[13px] text-[#8e8e93] leading-relaxed mb-3">
-							{t('connectChannel.step2Desc') || 'Enter the input channel address (for sending raw posts) and output channel address (for publishing final approved posts).'}
-						</p>
+					<p class="text-[13px] text-[#8e8e93] leading-relaxed mb-3">
+						{t('connectChannel.step2Desc') ||
+							'Enter the input channel address (for sending raw posts) and output channel address (for publishing final approved posts).'}
+					</p>
 
-						<div class="flex flex-col gap-3">
-							<div>
-								<label class="block text-[11px] uppercase tracking-wider text-[#8e8e93] font-bold mb-1.5 pl-1">
-									{t('connectChannel.inputChannelLabel') || 'Input Channel'}
-								</label>
-								<input
-									type="text"
-									value={inputChannel()}
-									onInput={(e) => setInputChannel(e.currentTarget.value)}
-									placeholder="e.g. @my_raw_posts_channel"
-									class="bg-[#0f1014] border border-[#3a3a3c] text-white text-[15px] rounded-xl px-4 py-3.5 w-full focus:outline-none focus:border-[#32ade6] placeholder-[#5a5a5e] transition-colors"
-								/>
-							</div>
-
-							<div>
-								<label class="block text-[11px] uppercase tracking-wider text-[#8e8e93] font-bold mb-1.5 pl-1">
-									{t('connectChannel.outputChannelLabel') || 'Output Channel'}
-								</label>
-								<input
-									type="text"
-									value={outputChannel()}
-									onInput={(e) => setOutputChannel(e.currentTarget.value)}
-									placeholder="e.g. @my_public_channel"
-									class="bg-[#0f1014] border border-[#3a3a3c] text-white text-[15px] rounded-xl px-4 py-3.5 w-full focus:outline-none focus:border-[#32ade6] placeholder-[#5a5a5e] transition-colors"
-								/>
-							</div>
+					<div class="flex flex-col gap-3">
+						<div>
+							<label class="block text-[11px] uppercase tracking-wider text-[#8e8e93] font-bold mb-1.5 pl-1">
+								{t('connectChannel.inputChannelLabel') || 'Input Channel'}
+							</label>
+							<input
+								type="text"
+								value={inputChannel()}
+								onInput={(e) => setInputChannel(e.currentTarget.value)}
+								placeholder="e.g. @my_raw_posts_channel"
+								class="bg-[#0f1014] border border-[#3a3a3c] text-white text-[15px] rounded-xl px-4 py-3.5 w-full focus:outline-none focus:border-[#32ade6] placeholder-[#5a5a5e] transition-colors"
+							/>
 						</div>
+
+						<div>
+							<label class="block text-[11px] uppercase tracking-wider text-[#8e8e93] font-bold mb-1.5 pl-1">
+								{t('connectChannel.outputChannelLabel') || 'Output Channel'}
+							</label>
+							<input
+								type="text"
+								value={outputChannel()}
+								onInput={(e) => setOutputChannel(e.currentTarget.value)}
+								placeholder="e.g. @my_public_channel"
+								class="bg-[#0f1014] border border-[#3a3a3c] text-white text-[15px] rounded-xl px-4 py-3.5 w-full focus:outline-none focus:border-[#32ade6] placeholder-[#5a5a5e] transition-colors"
+							/>
+						</div>
+					</div>
 
 					<button
 						onClick={handleConnect}
-						disabled={isVerifying() || !projectName().trim() || !inputChannel().trim() || !outputChannel().trim()}
+						disabled={
+							isVerifying() ||
+							!projectName().trim() ||
+							!inputChannel().trim() ||
+							!outputChannel().trim()
+						}
 						class="mt-3 w-full bg-[#32ade6] text-black disabled:bg-[#32ade6]/40 disabled:text-black/50 rounded-xl py-3.5 flex items-center justify-center gap-2 font-bold transition-all text-[15px]"
 					>
 						<Show

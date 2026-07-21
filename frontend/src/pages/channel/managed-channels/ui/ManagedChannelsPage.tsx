@@ -2,8 +2,8 @@ import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
 import { backButton, hapticFeedback, openTelegramLink } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import { SubscriptionPackage, subscriptionApi } from '@/shared/api/bot-management.js';
 import { channelApi } from '@/shared/api/channel-management.js';
-import { subscriptionApi, SubscriptionPackage } from '@/shared/api/bot-management.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 
 export const ManagedChannelsPage: Component = () => {
@@ -27,7 +27,6 @@ export const ManagedChannelsPage: Component = () => {
 	const [errorMsg, setErrorMsg] = createSignal('');
 
 	const [packages] = createResource(subscriptionApi.getPackages);
-
 
 	const openSubscription = (channelId: string) => {
 		setSelectedChan(channelId);
@@ -118,7 +117,7 @@ export const ManagedChannelsPage: Component = () => {
 			hapticFeedback.notificationOccurred('success');
 			setChannelToDelete(null);
 			refetch();
-		} catch (e: any) {
+		} catch (_e: any) {
 			hapticFeedback.notificationOccurred('error');
 		} finally {
 			setIsDeleting(false);
@@ -182,67 +181,76 @@ export const ManagedChannelsPage: Component = () => {
 					when={channels() && channels()!.length > 0}
 					fallback={
 						!channels.loading ? (
-						<Motion.div
-							initial={{ opacity: 0, y: 15 }}
-							animate={{ opacity: 1, y: 0 }}
-							class="bg-[#1c1c1c] rounded-3xl p-6 flex flex-col items-center justify-center text-center gap-4 border border-[#2a2a2a]"
-						>
-							<div class="w-16 h-16 rounded-full bg-[#32ade6]/10 flex items-center justify-center mb-1">
-								<span class="material-symbols-outlined text-[#32ade6] text-[32px]">campaign</span>
-							</div>
-							<h3 class="text-white font-black text-[18px]">{t('managedChannels.noChannels')}</h3>
-							<p class="text-[13px] text-[#8e8e93] leading-relaxed max-w-[280px]">
-								{t('managedChannels.noChannelsDesc') || 'No channels connected yet. Get started in 3 simple steps:'}
-							</p>
-
-							<div class="w-full flex flex-col gap-2.5 mt-2 text-start">
-								<div class="flex items-center gap-3 bg-[#0f1014] rounded-xl p-3 border border-[#2a2a2a]">
-									<div class="w-8 h-8 rounded-full bg-[#32ade6] text-black font-black flex items-center justify-center text-[14px] shrink-0">1</div>
-									<span class="text-[13px] text-white">
-										{t('managedChannels.step1') || 'Add @iFragmentBot to your channels as admin'}
-									</span>
-								</div>
-								<div class="flex items-center gap-3 bg-[#0f1014] rounded-xl p-3 border border-[#2a2a2a]">
-									<div class="w-8 h-8 rounded-full bg-[#32ade6] text-black font-black flex items-center justify-center text-[14px] shrink-0">2</div>
-									<span class="text-[13px] text-white">
-										{t('managedChannels.step2') || 'Enter your input and output channel addresses'}
-									</span>
-								</div>
-								<div class="flex items-center gap-3 bg-[#0f1014] rounded-xl p-3 border border-[#2a2a2a]">
-									<div class="w-8 h-8 rounded-full bg-[#34c759] text-black font-black flex items-center justify-center text-[14px] shrink-0">✓</div>
-									<span class="text-[13px] text-white">
-										{t('managedChannels.step3') || 'Enjoy AI posting, funnels, auto-responder and more!'}
-									</span>
-								</div>
-							</div>
-
-							<button
-								onClick={handleConnectNew}
-								class="mt-3 w-full h-12 bg-[#32ade6] text-black font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-[#2b96c8] transition-all active:scale-95"
+							<Motion.div
+								initial={{ opacity: 0, y: 15 }}
+								animate={{ opacity: 1, y: 0 }}
+								class="bg-[#1c1c1c] rounded-3xl p-6 flex flex-col items-center justify-center text-center gap-4 border border-[#2a2a2a]"
 							>
-								<span class="material-symbols-outlined text-[20px]">add</span>
-								{t('managedChannels.connectFirst') || 'Connect Your First Channel'}
-							</button>
-						</Motion.div>
-					) : (
-						<div class="flex flex-col gap-3">
-							<div class="flex items-center justify-between mb-1 pl-2">
-								<div class="h-4 w-32 bg-[#2a2a2a] rounded animate-pulse"></div>
-							</div>
-							<For each={[1, 2, 3]}>
-								{() => (
-									<div class="bg-[#1c1c1c] rounded-3xl p-4 border border-[#2a2a2a] flex items-center gap-4">
-										<div class="w-14 h-14 rounded-full bg-[#2a2a2a] animate-pulse shrink-0"></div>
-										<div class="flex-1 flex flex-col gap-2">
-											<div class="h-4 w-1/2 bg-[#2a2a2a] rounded animate-pulse"></div>
-											<div class="h-3 w-1/3 bg-[#2a2a2a] rounded animate-pulse"></div>
+								<div class="w-16 h-16 rounded-full bg-[#32ade6]/10 flex items-center justify-center mb-1">
+									<span class="material-symbols-outlined text-[#32ade6] text-[32px]">campaign</span>
+								</div>
+								<h3 class="text-white font-black text-[18px]">{t('managedChannels.noChannels')}</h3>
+								<p class="text-[13px] text-[#8e8e93] leading-relaxed max-w-[280px]">
+									{t('managedChannels.noChannelsDesc') ||
+										'No channels connected yet. Get started in 3 simple steps:'}
+								</p>
+
+								<div class="w-full flex flex-col gap-2.5 mt-2 text-start">
+									<div class="flex items-center gap-3 bg-[#0f1014] rounded-xl p-3 border border-[#2a2a2a]">
+										<div class="w-8 h-8 rounded-full bg-[#32ade6] text-black font-black flex items-center justify-center text-[14px] shrink-0">
+											1
 										</div>
-										<div class="w-10 h-10 rounded-full bg-[#2a2a2a] animate-pulse shrink-0"></div>
+										<span class="text-[13px] text-white">
+											{t('managedChannels.step1') || 'Add @iFragmentBot to your channels as admin'}
+										</span>
 									</div>
-								)}
-							</For>
-						</div>
-					)
+									<div class="flex items-center gap-3 bg-[#0f1014] rounded-xl p-3 border border-[#2a2a2a]">
+										<div class="w-8 h-8 rounded-full bg-[#32ade6] text-black font-black flex items-center justify-center text-[14px] shrink-0">
+											2
+										</div>
+										<span class="text-[13px] text-white">
+											{t('managedChannels.step2') ||
+												'Enter your input and output channel addresses'}
+										</span>
+									</div>
+									<div class="flex items-center gap-3 bg-[#0f1014] rounded-xl p-3 border border-[#2a2a2a]">
+										<div class="w-8 h-8 rounded-full bg-[#34c759] text-black font-black flex items-center justify-center text-[14px] shrink-0">
+											✓
+										</div>
+										<span class="text-[13px] text-white">
+											{t('managedChannels.step3') ||
+												'Enjoy AI posting, funnels, auto-responder and more!'}
+										</span>
+									</div>
+								</div>
+
+								<button
+									onClick={handleConnectNew}
+									class="mt-3 w-full h-12 bg-[#32ade6] text-black font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-[#2b96c8] transition-all active:scale-95"
+								>
+									<span class="material-symbols-outlined text-[20px]">add</span>
+									{t('managedChannels.connectFirst') || 'Connect Your First Channel'}
+								</button>
+							</Motion.div>
+						) : (
+							<div class="flex flex-col gap-3">
+								<div class="flex items-center justify-between mb-1 pl-2">
+									<div class="h-4 w-32 bg-[#2a2a2a] rounded animate-pulse"></div>
+								</div>
+								<For each={[1, 2, 3]}>
+									{() => (
+										<div class="bg-[#1c1c1c] rounded-3xl p-4 border border-[#2a2a2a] flex items-center gap-4">
+											<div class="w-14 h-14 rounded-full bg-[#2a2a2a] animate-pulse shrink-0"></div>
+											<div class="flex-1 flex flex-col gap-2">
+												<div class="h-4 w-1/2 bg-[#2a2a2a] rounded animate-pulse"></div>
+												<div class="h-3 w-1/3 bg-[#2a2a2a] rounded animate-pulse"></div>
+											</div>
+											<div class="w-10 h-10 rounded-full bg-[#2a2a2a] animate-pulse shrink-0"></div>
+										</div>
+									)}
+								</For>
+							</div>
+						)
 					}
 				>
 					<div class="flex flex-col gap-3">
@@ -255,7 +263,9 @@ export const ManagedChannelsPage: Component = () => {
 						<For each={channels()}>
 							{(channel, i) => {
 								const endDateStr =
-									channel.subscription_status === 'trial' ? channel.trial_ends_at : channel.paid_until;
+									channel.subscription_status === 'trial'
+										? channel.trial_ends_at
+										: channel.paid_until;
 								return (
 									<Motion.div
 										initial={{ opacity: 0, scale: 0.95 }}
@@ -269,7 +279,9 @@ export const ManagedChannelsPage: Component = () => {
 													{channel.avatar}
 												</div>
 												<div class="flex flex-col overflow-hidden">
-													<span class="text-white font-bold text-[16px] truncate">{channel.title}</span>
+													<span class="text-white font-bold text-[16px] truncate">
+														{channel.title}
+													</span>
 													<span class="text-[13px] text-[#8e8e93]">
 														{channel.members} {t('managedChannels.subscribers')}
 													</span>
@@ -360,9 +372,11 @@ export const ManagedChannelsPage: Component = () => {
 						class="w-full max-w-sm bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-6 flex flex-col items-center text-center"
 					>
 						<div class="w-16 h-16 rounded-full bg-[#ff3b30]/10 flex items-center justify-center mb-4">
-							<span class="material-symbols-outlined text-[#ff3b30] text-[32px]">delete_forever</span>
+							<span class="material-symbols-outlined text-[#ff3b30] text-[32px]">
+								delete_forever
+							</span>
 						</div>
-						
+
 						<h3 class="text-[20px] font-black text-white mb-2">
 							{t('managedChannels.deleteConfirmTitle' as any)}
 						</h3>
@@ -457,20 +471,24 @@ export const ManagedChannelsPage: Component = () => {
 											>
 												{/* Badge */}
 												<Show when={pkg.badge}>
-													<div class={`absolute top-0 ${isRtl() ? 'left-0 rounded-bl-xl rounded-tr-2xl' : 'right-0 rounded-br-xl rounded-tl-2xl'} px-2.5 py-1 text-[9px] font-black uppercase tracking-wider ${
-														pkg.badge === 'best_value'
-															? 'bg-[#ff9f0a] text-black'
-															: 'bg-[#32ade6] text-white'
-													}`}>
+													<div
+														class={`absolute top-0 ${isRtl() ? 'left-0 rounded-bl-xl rounded-tr-2xl' : 'right-0 rounded-br-xl rounded-tl-2xl'} px-2.5 py-1 text-[9px] font-black uppercase tracking-wider ${
+															pkg.badge === 'best_value'
+																? 'bg-[#ff9f0a] text-black'
+																: 'bg-[#32ade6] text-white'
+														}`}
+													>
 														{pkg.badge === 'best_value'
-															? (t('botManage.bestValue' as any) || 'Best Value')
-															: (t('botManage.popular' as any) || 'Popular')}
+															? t('botManage.bestValue' as any) || 'Best Value'
+															: t('botManage.popular' as any) || 'Popular'}
 													</div>
 												</Show>
 
 												<div class="flex flex-col items-start gap-0.5">
 													<div class="flex items-center gap-2">
-														<span class={`text-[16px] font-black ${selectedPkg() === pkg.id ? 'text-white' : 'text-white/90'}`}>
+														<span
+															class={`text-[16px] font-black ${selectedPkg() === pkg.id ? 'text-white' : 'text-white/90'}`}
+														>
 															{pkg.name}
 														</span>
 														<Show when={pkg.discount}>
@@ -480,7 +498,8 @@ export const ManagedChannelsPage: Component = () => {
 														</Show>
 													</div>
 													<span class="text-[11px] font-medium text-[#8e8e93]">
-														{t('botManage.totalPrice' as any) || 'Total'}: ${pkg.price_usd.toFixed(2)} · {pkg.price_stars} ⭐
+														{t('botManage.totalPrice' as any) || 'Total'}: $
+														{pkg.price_usd.toFixed(2)} · {pkg.price_stars} ⭐
 													</span>
 												</div>
 												<div class="flex flex-col items-end gap-0.5">
@@ -532,15 +551,22 @@ export const ManagedChannelsPage: Component = () => {
 								{/* Selected plan summary */}
 								<Show when={packages() && selectedPkg()}>
 									{(() => {
-										const pkg = (packages() || []).find((p: SubscriptionPackage) => p.id === selectedPkg());
+										const pkg = (packages() || []).find(
+											(p: SubscriptionPackage) => p.id === selectedPkg(),
+										);
 										return pkg ? (
 											<div class="bg-[#242426] rounded-2xl p-4 mb-6 border border-[#2a2a2a] flex items-center justify-between">
 												<div class="flex flex-col gap-0.5">
 													<span class="text-[15px] font-black text-white">{pkg.name}</span>
-													<span class="text-[12px] text-[#8e8e93]">${pkg.price_per_month.toFixed(2)}{t('botManage.perMonth' as any) || '/mo'}</span>
+													<span class="text-[12px] text-[#8e8e93]">
+														${pkg.price_per_month.toFixed(2)}
+														{t('botManage.perMonth' as any) || '/mo'}
+													</span>
 												</div>
 												<div class="flex flex-col items-end">
-													<span class="text-[17px] font-black text-white">${pkg.price_usd.toFixed(2)}</span>
+													<span class="text-[17px] font-black text-white">
+														${pkg.price_usd.toFixed(2)}
+													</span>
 													<span class="text-[11px] text-[#8e8e93]">{pkg.price_stars} ⭐</span>
 												</div>
 											</div>
@@ -570,9 +596,13 @@ export const ManagedChannelsPage: Component = () => {
 											</div>
 											<Show when={packages() && selectedPkg()}>
 												{(() => {
-													const pkg = (packages() || []).find((p: SubscriptionPackage) => p.id === selectedPkg());
+													const pkg = (packages() || []).find(
+														(p: SubscriptionPackage) => p.id === selectedPkg(),
+													);
 													return pkg ? (
-														<span class="text-[15px] font-black text-[#ffb900]">{pkg.price_stars} ⭐</span>
+														<span class="text-[15px] font-black text-[#ffb900]">
+															{pkg.price_stars} ⭐
+														</span>
 													) : null;
 												})()}
 											</Show>
@@ -602,10 +632,12 @@ export const ManagedChannelsPage: Component = () => {
 											</div>
 											<Show when={packages() && selectedPkg()}>
 												{(() => {
-													const pkg = (packages() || []).find((p: SubscriptionPackage) => p.id === selectedPkg());
+													const pkg = (packages() || []).find(
+														(p: SubscriptionPackage) => p.id === selectedPkg(),
+													);
 													return pkg ? (
 														<span class="text-[15px] font-black text-[#32ade6]">
-															{(pkg.price_coins).toLocaleString()}
+															{pkg.price_coins.toLocaleString()}
 														</span>
 													) : null;
 												})()}

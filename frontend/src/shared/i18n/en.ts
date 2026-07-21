@@ -97,10 +97,14 @@ export const dict = {
 				warning: 'Caution Zone (Greed)',
 				error: 'Correction Risk Warning (Extreme Greed)',
 				desc: {
-					trending_up: "Market is fearful. Don't miss out on heavily discounted floor prices before the next recovery.",
-					shopping_cart: 'Lower market activity presents a window for strategic selection before the next volume surge.',
-					warning: 'Market is heating up. Exercise caution as buying pressure rises; focus on high-utility assets.',
-					error: 'Extreme Greed! Protect capital from buying at the top. FOMO risk is high; sudden corrections may occur.',
+					trending_up:
+						"Market is fearful. Don't miss out on heavily discounted floor prices before the next recovery.",
+					shopping_cart:
+						'Lower market activity presents a window for strategic selection before the next volume surge.',
+					warning:
+						'Market is heating up. Exercise caution as buying pressure rises; focus on high-utility assets.',
+					error:
+						'Extreme Greed! Protect capital from buying at the top. FOMO risk is high; sudden corrections may occur.',
 				},
 			},
 			activeAuctions: 'Active Auctions',
@@ -214,7 +218,8 @@ export const dict = {
 			noClanTitle: 'No Clan (Click to join)',
 			noClans: 'No clans registered yet.',
 			noSquads: 'There’s no team yet — be the first!',
-			officialClansDesc: 'Join Telegram clans to boost your mining points and team airdrop chances.',
+			officialClansDesc:
+				'Join Telegram clans to boost your mining points and team airdrop chances.',
 			officialClansTitle: 'Official iFragment Clans',
 			pool: 'Mining Pool',
 			popularSquads: 'Popular teams',
@@ -874,7 +879,8 @@ export const dict = {
 		welcomeMessageDesc: 'Send a private welcome message when a new member joins.',
 		welcomeText: 'Welcome Message',
 		welcomeTextPlaceholder: 'Hello $name! Welcome to our channel 👋',
-		deleteRuleConfirm: 'Removing this rule will immediately stop automatic replies. Are you sure you want to risk losing engagement?',
+		deleteRuleConfirm:
+			'Removing this rule will immediately stop automatic replies. Are you sure you want to risk losing engagement?',
 	},
 	channelDashboard: {
 		activeFunnel: 'Active Publishing Funnel',
@@ -1001,7 +1007,8 @@ export const dict = {
 			'Wait for a specified number of minutes before mirroring. Helps posts look more organic.',
 		delayPlaceholder: '0 for instant',
 		deleteRule: 'Delete',
-		deleteRuleConfirm: 'Removing this forwarding rule will immediately stop auto-forwarding messages. Are you sure you want to risk losing engagement?',
+		deleteRuleConfirm:
+			'Removing this forwarding rule will immediately stop auto-forwarding messages. Are you sure you want to risk losing engagement?',
 		deleteRuleFailed: 'Failed to delete forwarding rule',
 		destinationWebhook: 'Destination Webhook URL',
 		destinationWebhookHelp:
@@ -1694,7 +1701,8 @@ export const dict = {
 		welcomeMessage: 'Welcome Message',
 		welcomeMessageDesc: 'Auto-greet new members',
 		ephemeralAll: 'Master Ephemeral Mode (Private Messages)',
-		ephemeralAllDesc: 'Send all bot notifications, warnings, and responses privately to the target recipient only.',
+		ephemeralAllDesc:
+			'Send all bot notifications, warnings, and responses privately to the target recipient only.',
 		ephemeralWelcome: 'Ephemeral Welcome',
 		ephemeralWelcomeDesc: 'Show welcome message only to the new member',
 		ephemeralWarnings: 'Ephemeral Warnings',
@@ -1766,7 +1774,8 @@ export const dict = {
 		subtitle: 'Set strict numerical boundaries to prevent spam and flood.',
 		title: 'Limits',
 		warningTitle: 'Insufficient Group Protection',
-		warningDesc: 'Disabling flood control or duplicate protection leaves your group highly vulnerable to automated spam bot attacks.',
+		warningDesc:
+			'Disabling flood control or duplicate protection leaves your group highly vulnerable to automated spam bot attacks.',
 	},
 	managedBots: {
 		botFatherBtn: 'Create Bot via @BotFather',
@@ -2336,7 +2345,8 @@ export const dict = {
 		est_portfolio_val: 'Est. Portfolio Value',
 		owner_profile_title: 'Owner Profile',
 		gate_title: 'What is your Telegram username really worth?',
-		gate_subtitle: 'Unlock AI market estimation, rarity score, investment potential, and comparable sales analysis:',
+		gate_subtitle:
+			'Unlock AI market estimation, rarity score, investment potential, and comparable sales analysis:',
 		pay_stars_title: 'Pay with Telegram Stars',
 		pay_stars_desc: '49 Telegram Stars ⭐️',
 		pay_coins_title: 'Pay with Airdrop Coins',

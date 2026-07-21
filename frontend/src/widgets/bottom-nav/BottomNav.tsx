@@ -46,7 +46,9 @@ export const BottomNav: Component = () => {
 				<A
 					href="/"
 					class={`h-12 w-12 rounded-full flex flex-col items-center justify-center cursor-pointer transition-all ${
-						isActive('/') ? 'bg-[#3390ec]/20 text-[#3390ec] scale-105' : 'text-white/60 hover:text-white hover:bg-white/5'
+						isActive('/')
+							? 'bg-[#3390ec]/20 text-[#3390ec] scale-105'
+							: 'text-white/60 hover:text-white hover:bg-white/5'
 					}`}
 				>
 					<span
@@ -55,13 +57,17 @@ export const BottomNav: Component = () => {
 					>
 						home
 					</span>
-					<span class="text-[10px] font-black tracking-tight mt-0.5">{t('bottomNav.home') || 'خانه'}</span>
+					<span class="text-[10px] font-black tracking-tight mt-0.5">
+						{t('bottomNav.home') || 'خانه'}
+					</span>
 				</A>
 
 				<A
 					href="/dashboard"
 					class={`h-12 w-12 rounded-full flex flex-col items-center justify-center cursor-pointer transition-all ${
-						isActive('/dashboard') ? 'bg-[#3390ec]/20 text-[#3390ec] scale-105' : 'text-white/60 hover:text-white hover:bg-white/5'
+						isActive('/dashboard')
+							? 'bg-[#3390ec]/20 text-[#3390ec] scale-105'
+							: 'text-white/60 hover:text-white hover:bg-white/5'
 					}`}
 				>
 					<span
@@ -70,13 +76,17 @@ export const BottomNav: Component = () => {
 					>
 						dashboard
 					</span>
-					<span class="text-[10px] font-bold tracking-tight mt-0.5">{t('bottomNav.dashboard') || 'مدیریت'}</span>
+					<span class="text-[10px] font-bold tracking-tight mt-0.5">
+						{t('bottomNav.dashboard') || 'مدیریت'}
+					</span>
 				</A>
 
 				<A
 					href="/airdrop"
 					class={`h-12 w-12 rounded-full flex flex-col items-center justify-center cursor-pointer transition-all ${
-						isActive('/airdrop') ? 'bg-[#f59e0b]/20 text-[#f59e0b] scale-105' : 'text-white/60 hover:text-white hover:bg-white/5'
+						isActive('/airdrop')
+							? 'bg-[#f59e0b]/20 text-[#f59e0b] scale-105'
+							: 'text-white/60 hover:text-white hover:bg-white/5'
 					}`}
 				>
 					<span
@@ -85,7 +95,9 @@ export const BottomNav: Component = () => {
 					>
 						card_giftcard
 					</span>
-					<span class="text-[10px] font-bold tracking-tight mt-0.5">{t('bottomNav.airdrop') || 'ایردراپ'}</span>
+					<span class="text-[10px] font-bold tracking-tight mt-0.5">
+						{t('bottomNav.airdrop') || 'ایردراپ'}
+					</span>
 				</A>
 			</div>
 
@@ -109,7 +121,9 @@ export const BottomNav: Component = () => {
 						}
 					>
 						<img
-							alt={user()?.first_name ? `تصویر پروفایل ${user()?.first_name}` : 'تصویر پروفایل کاربر'}
+							alt={
+								user()?.first_name ? `تصویر پروفایل ${user()?.first_name}` : 'تصویر پروفایل کاربر'
+							}
 							class="w-full h-full object-cover"
 							src={avatarUrl()!}
 							loading="lazy"

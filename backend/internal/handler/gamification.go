@@ -230,26 +230,24 @@ func (h *GamificationHandler) ClaimDailyCombo(w http.ResponseWriter, r *http.Req
 func (h *GamificationHandler) GetGlobalClans(w http.ResponseWriter, r *http.Request) {
 	clans, err := h.gamificationService.GetGlobalClans(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		RespondError(w, r, http.StatusInternalServerError, "failed to get global clans", err)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(clans)
+	RespondJSON(w, http.StatusOK, clans)
 }
 
 func (h *GamificationHandler) GetActiveQuests(w http.ResponseWriter, r *http.Request) {
 	userID, err := middleware.GetUserID(r.Context())
 	if err != nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
 		return
 	}
 	quests, err := h.gamificationService.GetActiveQuests(r.Context(), userID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		RespondError(w, r, http.StatusInternalServerError, "failed to get active quests", err)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(quests)
+	RespondJSON(w, http.StatusOK, quests)
 }
 
 func (h *GamificationHandler) CollectOfflineMining(w http.ResponseWriter, r *http.Request) {

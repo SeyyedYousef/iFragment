@@ -86,13 +86,9 @@ export const ChannelAuditLogPage: Component = () => {
 			format === 'json'
 				? JSON.stringify(rows, null, 2)
 				: [
-						['id', 'actor_name', 'action', 'created_at']
-							.map(escapeCsv)
-							.join(','),
+						['id', 'actor_name', 'action', 'created_at'].map(escapeCsv).join(','),
 						...rows.map((log: any) =>
-							[log.id, log.actor_name, log.action, log.created_at]
-								.map(escapeCsv)
-								.join(','),
+							[log.id, log.actor_name, log.action, log.created_at].map(escapeCsv).join(','),
 						),
 					].join('\n');
 		const blob = new Blob([content], {
