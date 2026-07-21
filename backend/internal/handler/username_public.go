@@ -489,98 +489,114 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 
 	h.sendValuationNotification(r, u, result)
 
-	// Fetch similar usernames (with status enrichment)
-	similars, _ := h.reportService.FindSimilarUsernames(ctx, u, 3)
-	for _, sim := range similars {
-		salePriceUSD := sim.SalePriceUSD
-		if salePriceUSD == 0 && sim.SalePrice > 0 && tonRate > 0 {
-			salePriceUSD = math.Round(sim.SalePrice * tonRate * 100) / 100
-		}
-		result.Similar = append(result.Similar, avm.ValuationSimilar{
-			Username:     sim.Username,
-			Reason:       sim.Reason,
-			Status:       sim.Status,
-			SalePrice:    sim.SalePrice,
-			SalePriceUSD: salePriceUSD,
-			SaleDate:     sim.SaleDate,
-		})
-	}
+	// Fetch similar usernames, portfolio enrichment, and MTProto profile concurrently using errgroup
+	gVal, gCtx := errgroup.WithContext(ctx)
 
-	// Populate Portfolio if OwnerAddress or latest buyer address exists
-	ownerAddr := result.History.OwnerAddress
-	if ownerAddr == "" && len(result.History.Transactions) > 0 {
-		ownerAddr = result.History.Transactions[0].Buyer
-	}
-
-	if ownerAddr != "" && h.reportService != nil {
-		p, pErr := h.reportService.GetWalletPortfolio(ctx, ownerAddr)
-		var items []avm.PortfolioItemDto
-		if pErr == nil && p != nil && len(p.Items) > 0 {
-			for _, item := range p.Items {
-				items = append(items, avm.PortfolioItemDto{
-					Username:  item.Username,
-					SoldPrice: item.SoldPrice,
-					SaleDate:  item.SaleDate,
-					Status:    item.Status,
-				})
+	// 1. Fetch similar usernames (with status enrichment)
+	gVal.Go(func() error {
+		similars, _ := h.reportService.FindSimilarUsernames(gCtx, u, 3)
+		for _, sim := range similars {
+			salePriceUSD := sim.SalePriceUSD
+			if salePriceUSD == 0 && sim.SalePrice > 0 && tonRate > 0 {
+				salePriceUSD = math.Round(sim.SalePrice * tonRate * 100) / 100
 			}
+			result.Similar = append(result.Similar, avm.ValuationSimilar{
+				Username:     sim.Username,
+				Reason:       sim.Reason,
+				Status:       sim.Status,
+				SalePrice:    sim.SalePrice,
+				SalePriceUSD: salePriceUSD,
+				SaleDate:     sim.SaleDate,
+			})
+		}
+		return nil
+	})
+
+	// 2. Populate Portfolio if OwnerAddress or latest buyer address exists
+	gVal.Go(func() error {
+		ownerAddr := result.History.OwnerAddress
+		if ownerAddr == "" && len(result.History.Transactions) > 0 {
+			ownerAddr = result.History.Transactions[0].Buyer
 		}
 
-		// Fallback: If no active NFTs are found in the wallet, populate past auction purchases from history
-		if len(items) == 0 && len(result.History.Transactions) > 0 {
-			for _, tx := range result.History.Transactions {
-				if tx.Buyer == ownerAddr || strings.EqualFold(tx.Buyer, ownerAddr) {
-					priceVal, _ := strconv.ParseFloat(tx.SalePriceTON, 64)
+		if ownerAddr != "" && h.reportService != nil {
+			p, pErr := h.reportService.GetWalletPortfolio(gCtx, ownerAddr)
+			var items []avm.PortfolioItemDto
+			if pErr == nil && p != nil && len(p.Items) > 0 {
+				for _, item := range p.Items {
 					items = append(items, avm.PortfolioItemDto{
-						Username:  u,
-						SoldPrice: priceVal,
-						SaleDate:  tx.Date.Format(time.RFC3339),
-						Status:    "past_auction_winner",
+						Username:  item.Username,
+						SoldPrice: item.SoldPrice,
+						SaleDate:  item.SaleDate,
+						Status:    item.Status,
 					})
-					break
 				}
 			}
-		}
 
-		if len(items) > 0 {
-			totalSpent := 0.0
-			for _, it := range items {
-				totalSpent += it.SoldPrice
-			}
-			expVal, _ := result.ExpectedTON.Float64()
-			result.Portfolio = &avm.PortfolioDto{
-				OwnerAddress:  ownerAddr,
-				TotalCount:    len(items),
-				TotalSpentTON: totalSpent,
-				TotalSpentUSD: totalSpent * tonRate,
-				TotalValueTON: expVal,
-				Items:         items,
-			}
-		}
-	}
-
-	// Populate OwnerProfile via MTProto if available
-	if h.mtprotoClient != nil {
-		resolved, err := h.mtprotoClient.ResolveUsername(ctx, u)
-		if err == nil && resolved != nil {
-			if pUser, ok := resolved.Peer.(*tg.PeerUser); ok {
-				for _, uObj := range resolved.Users {
-					if user, ok := uObj.(*tg.User); ok && user.ID == pUser.UserID {
-						result.OwnerProfile = &avm.OwnerProfileDto{
-							UserID:    user.ID,
-							FirstName: user.FirstName,
-							LastName:  user.LastName,
-							Username:  user.Username,
-							IsPremium: user.Premium,
-							HasPhoto:  user.Photo != nil,
-							PeerType:  "user",
-						}
+			// Fallback: If no active NFTs are found in the wallet, populate past auction purchases from history
+			if len(items) == 0 && len(result.History.Transactions) > 0 {
+				for _, tx := range result.History.Transactions {
+					if tx.Buyer == ownerAddr || strings.EqualFold(tx.Buyer, ownerAddr) {
+						priceVal, _ := strconv.ParseFloat(tx.SalePriceTON, 64)
+						items = append(items, avm.PortfolioItemDto{
+							Username:  u,
+							SoldPrice: priceVal,
+							SaleDate:  tx.Date.Format(time.RFC3339),
+							Status:    "past_auction_winner",
+						})
 						break
 					}
 				}
 			}
+
+			if len(items) > 0 {
+				totalSpent := 0.0
+				for _, it := range items {
+					totalSpent += it.SoldPrice
+				}
+				expVal, _ := result.ExpectedTON.Float64()
+				result.Portfolio = &avm.PortfolioDto{
+					OwnerAddress:  ownerAddr,
+					TotalCount:    len(items),
+					TotalSpentTON: totalSpent,
+					TotalSpentUSD: totalSpent * tonRate,
+					TotalValueTON: expVal,
+					Items:         items,
+				}
+			}
 		}
-	}
+		return nil
+	})
+
+	// 3. Populate OwnerProfile via MTProto if available (with 1s strict timeout)
+	gVal.Go(func() error {
+		if h.mtprotoClient != nil {
+			mtCtx, mtCancel := context.WithTimeout(gCtx, 1000*time.Millisecond)
+			defer mtCancel()
+			resolved, err := h.mtprotoClient.ResolveUsername(mtCtx, u)
+			if err == nil && resolved != nil {
+				if pUser, ok := resolved.Peer.(*tg.PeerUser); ok {
+					for _, uObj := range resolved.Users {
+						if user, ok := uObj.(*tg.User); ok && user.ID == pUser.UserID {
+							result.OwnerProfile = &avm.OwnerProfileDto{
+								UserID:    user.ID,
+								FirstName: user.FirstName,
+								LastName:  user.LastName,
+								Username:  user.Username,
+								IsPremium: user.Premium,
+								HasPhoto:  user.Photo != nil,
+								PeerType:  "user",
+							}
+							break
+						}
+					}
+				}
+			}
+		}
+		return nil
+	})
+
+	_ = gVal.Wait()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)

@@ -805,10 +805,12 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 
 	var ownerAddress string
 	if s.tonClient != nil {
-		nft, err := s.tonClient.GetNFTByDNS(ctx, username)
+		// Use a short 1.5s timeout for TonAPI wallet lookup so rate limiting never slows down valuation response
+		tonCtx, tonCancel := context.WithTimeout(ctx, 1500*time.Millisecond)
+		nft, err := s.tonClient.GetNFTByDNS(tonCtx, username)
 		if err == nil && nft != nil && nft.Owner.Address != "" {
 			ownerAddress = nft.Owner.Address
-			wallet, err := s.tonClient.GetWalletInfo(ctx, nft.Owner.Address)
+			wallet, err := s.tonClient.GetWalletInfo(tonCtx, nft.Owner.Address)
 			if err == nil && wallet != nil {
 				tonBalance := float64(wallet.Balance) / 1e9
 				if tonBalance > 10000 {
@@ -824,6 +826,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 				}
 			}
 		}
+		tonCancel()
 	}
 
 	expectedTONRaw *= fngMult

@@ -234,8 +234,8 @@ func (c *Client) doRequest(ctx context.Context, url string) (*http.Response, err
 
 	telemetry.RecordTonAPILatency(method, statusCode, duration)
 
-	// Log non-success responses with body preview for debugging
-	if err == nil && resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound {
+	// Log non-success responses with body preview for debugging (ignore 429 rate-limits to avoid log spam)
+	if err == nil && resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound && resp.StatusCode != http.StatusTooManyRequests {
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
 
