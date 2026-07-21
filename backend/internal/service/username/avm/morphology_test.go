@@ -49,6 +49,7 @@ func TestCalcMorphologyLog_NumbersOnly(t *testing.T) {
 
 	features := MorphFeatures{
 		HasNumbers:   true,
+		HasAlpha:     true,
 		IsDictionary: false,
 		CharLength:   8,
 		FlowScore:    0.70,
@@ -69,6 +70,7 @@ func TestCalcMorphologyLog_Clamping(t *testing.T) {
 	// Force extreme low by stacking multiple discounts
 	features := MorphFeatures{
 		HasNumbers:    true,
+		HasAlpha:      true,
 		HasUnderscore: true,
 		IsDictionary:  false,
 		CharLength:    15,

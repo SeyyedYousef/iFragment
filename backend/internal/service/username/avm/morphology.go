@@ -74,8 +74,8 @@ func CalcMorphologyLog(features MorphFeatures, multipliers map[string]float64, c
 		morphLog += math.Log(0.15)
 	}
 
-	// has_numbers discount
-	if features.HasNumbers {
+	// has_numbers discount (applies to mixed alpha-numeric names like @abc123, NOT to pure numeric names like @8888)
+	if features.HasNumbers && features.HasAlpha {
 		if m, ok := multipliers["has_numbers"]; ok && m > 0 {
 			morphLog += math.Log(m)
 		}
