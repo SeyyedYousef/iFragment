@@ -15,64 +15,95 @@ export function Coin3D(props: Coin3DProps) {
 	let camera: THREE.PerspectiveCamera;
 	let coinMesh: THREE.Mesh;
 	let animationFrameId: number;
+	let material: THREE.MeshPhysicalMaterial;
+	let resizeObserver: ResizeObserver;
 
 	const [tiltX, setTiltX] = createSignal(0);
 	const [tiltY, setTiltY] = createSignal(0);
 
 	onMount(() => {
-		// Setup Scene
+		// 1. Setup Scene
 		scene = new THREE.Scene();
 
-		// Setup Camera
+		// 2. Setup Camera
 		camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
-		camera.position.z = 5;
+		camera.position.z = 5.5; // Slightly pulled back to let the glow breathe
 
-		// Setup Renderer
-		renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-		renderer.setSize(containerRef.clientWidth, containerRef.clientHeight);
-		renderer.setPixelRatio(window.devicePixelRatio);
+		// 3. Premium Renderer Setup
+		renderer = new THREE.WebGLRenderer({ 
+			alpha: true, 
+			antialias: true,
+			powerPreference: "high-performance" 
+		});
+		renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Balanced for performance and sharpness
 		containerRef.appendChild(renderer.domElement);
 
-		// Create Coin Geometry (Cylinder)
-		const geometry = new THREE.CylinderGeometry(1.5, 1.5, 0.2, 64);
+		// 4. Responsive Resizing (Crucial for UI Layouts)
+		resizeObserver = new ResizeObserver(() => {
+			if (!containerRef) return;
+			const width = containerRef.clientWidth;
+			const height = containerRef.clientHeight;
+			if (width === 0 || height === 0) return;
+			
+			renderer.setSize(width, height);
+			camera.aspect = width / height;
+			camera.updateProjectionMatrix();
+		});
+		resizeObserver.observe(containerRef);
 
-		// Create Material
-		const textureLoader = new THREE.TextureLoader();
-		let material: THREE.MeshStandardMaterial;
+		// 5. Create Premium Coin Geometry (Ultra-smooth edges)
+		const geometry = new THREE.CylinderGeometry(1.6, 1.6, 0.15, 128);
+
+		// 6. Premium Physical Material (Glass/Metal hybrid)
+		material = new THREE.MeshPhysicalMaterial({
+			color: 0xffd700,
+			metalness: 1.0,
+			roughness: 0.15,
+			clearcoat: 1.0,
+			clearcoatRoughness: 0.05,
+			emissive: 0x000000,
+			emissiveIntensity: 0
+		});
 
 		if (props.textureUrl) {
-			const texture = textureLoader.load(props.textureUrl);
-			material = new THREE.MeshStandardMaterial({
-				map: texture,
-				metalness: 0.8,
-				roughness: 0.2,
-			});
-		} else {
-			material = new THREE.MeshStandardMaterial({
-				color: 0xffd700, // Gold color fallback
-				metalness: 0.9,
-				roughness: 0.1,
+			const textureLoader = new THREE.TextureLoader();
+			textureLoader.load(props.textureUrl, (tex) => {
+				tex.colorSpace = THREE.SRGBColorSpace;
+				tex.anisotropy = renderer.capabilities.getMaxAnisotropy(); // Extra crisp textures
+				material.map = tex;
+				material.needsUpdate = true;
 			});
 		}
 
 		coinMesh = new THREE.Mesh(geometry, material);
-		// Rotate to face camera
 		coinMesh.rotation.x = Math.PI / 2;
 		scene.add(coinMesh);
 
-		// Add Lights
-		const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+		// 7. Studio 3-Point Lighting Setup
+		const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
 		scene.add(ambientLight);
 
-		const directionalLight = new THREE.DirectionalLight(0xffffff, 2);
-		directionalLight.position.set(2, 3, 4);
-		scene.add(directionalLight);
+		// Key Light (Main bright reflection)
+		const keyLight = new THREE.DirectionalLight(0xffffff, 2.5);
+		keyLight.position.set(5, 5, 5);
+		scene.add(keyLight);
 
-		// Add pointer down logic to raycaster
+		// Fill Light (Cool Blue reflection for contrast)
+		const fillLight = new THREE.DirectionalLight(0x3390ec, 2.0);
+		fillLight.position.set(-5, 0, -5);
+		scene.add(fillLight);
+
+		// Rim Light (Amber/Gold highlight on edges)
+		const rimLight = new THREE.DirectionalLight(0xf59e0b, 2.5);
+		rimLight.position.set(0, -5, 2);
+		scene.add(rimLight);
+
+		// 8. Raycaster Interaction
 		const raycaster = new THREE.Raycaster();
 		const mouse = new THREE.Vector2();
 
 		const handlePointerDown = (event: PointerEvent) => {
+			if (event.cancelable) event.preventDefault();
 			const rect = renderer.domElement.getBoundingClientRect();
 			mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
 			mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -87,57 +118,77 @@ export function Coin3D(props: Coin3DProps) {
 
 		renderer.domElement.addEventListener('pointerdown', handlePointerDown);
 
-		// Gyroscope tracking for parallax
+		// 9. Gyroscope tracking for parallax
 		const handleOrientation = (event: DeviceOrientationEvent) => {
-			if (event.gamma && event.beta) {
-				// gamma is left/right tilt [-90, 90]
-				// beta is front/back tilt [-180, 180]
-				const clampedGamma = Math.max(-45, Math.min(45, event.gamma));
-				const clampedBeta = Math.max(-45, Math.min(45, event.beta - 45)); // adjust base angle for holding phone
-
+			if (event.gamma !== null && event.beta !== null) {
+				const clampedGamma = Math.max(-30, Math.min(30, event.gamma));
+				const clampedBeta = Math.max(-30, Math.min(30, event.beta - 45)); 
 				setTiltX(clampedBeta * (Math.PI / 180));
 				setTiltY(clampedGamma * (Math.PI / 180));
 			}
 		};
 
-		if (window.DeviceOrientationEvent) {
+		if (typeof window !== 'undefined' && window.DeviceOrientationEvent) {
 			window.addEventListener('deviceorientation', handleOrientation);
 		}
 
-		// Animation Loop
+		// 10. Animation Loop Constants
+		const clock = new THREE.Clock();
+		const turboEmissive = new THREE.Color(0xff1111);
+		const defaultEmissive = new THREE.Color(0x000000);
+		const turboColor = new THREE.Color(0xff6666);
+		const defaultColor = new THREE.Color(0xffd700);
+
 		const animate = () => {
 			animationFrameId = requestAnimationFrame(animate);
+			const elapsedTime = clock.getElapsedTime();
 
-			// Apply tilt + idle animation
-			const targetRotationX = Math.PI / 2 + tiltX() + (props.isPressed ? 0.1 : 0);
-			const targetRotationY = tiltY();
+			// Idle floating & breathing motion
+			const idleFloatY = Math.sin(elapsedTime * 2.0) * 0.08;
+			const idleRotZ = Math.sin(elapsedTime * 0.8) * 0.05;
 
-			coinMesh.rotation.x += (targetRotationX - coinMesh.rotation.x) * 0.1;
-			coinMesh.rotation.y += (targetRotationY - coinMesh.rotation.y) * 0.1;
+			// Target rotations with Gyro + Idle
+			const targetRotationX = Math.PI / 2 + tiltX() + (props.isPressed ? 0.15 : 0);
+			const targetRotationY = tiltY() + idleRotZ;
+			
+			// Smooth Lerping for movement
+			coinMesh.rotation.x += (targetRotationX - coinMesh.rotation.x) * 0.15;
+			coinMesh.rotation.y += (targetRotationY - coinMesh.rotation.y) * 0.15;
+			coinMesh.position.y += (idleFloatY - coinMesh.position.y) * 0.1;
 
-			// Scale effect on press
-			const targetScale = props.isPressed ? 0.95 : 1.0;
-			coinMesh.scale.set(targetScale, targetScale, targetScale);
+			// Scale effect on press (Springy feeling)
+			const targetScale = props.isPressed ? 0.92 : 1.0;
+			coinMesh.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.2);
 
-			// Turbo color change
-			if (props.isTurboActive) {
-				material.color.setHex(0xff5555);
-			} else {
-				material.color.setHex(0xffd700);
-			}
+			// Premium Turbo Effect (Glowing Core Lerp)
+			const targetEmissive = props.isTurboActive ? turboEmissive : defaultEmissive;
+			const targetIntensity = props.isTurboActive ? 1.5 : 0;
+			const targetBaseColor = props.isTurboActive ? turboColor : defaultColor;
+			
+			material.emissive.lerp(targetEmissive, 0.1);
+			material.emissiveIntensity += (targetIntensity - material.emissiveIntensity) * 0.1;
+			material.color.lerp(targetBaseColor, 0.1);
 
 			renderer.render(scene, camera);
 		};
 
 		animate();
 
+		// 11. Cleanup
 		onCleanup(() => {
 			cancelAnimationFrame(animationFrameId);
-			window.removeEventListener('deviceorientation', handleOrientation);
-			renderer.domElement.removeEventListener('pointerdown', handlePointerDown);
+			if (resizeObserver) resizeObserver.disconnect();
+			if (typeof window !== 'undefined') {
+				window.removeEventListener('deviceorientation', handleOrientation);
+			}
+			if (renderer.domElement) {
+				renderer.domElement.removeEventListener('pointerdown', handlePointerDown);
+			}
+			
 			renderer.dispose();
 			geometry.dispose();
 			material.dispose();
+			
 			if (containerRef && renderer.domElement) {
 				containerRef.removeChild(renderer.domElement);
 			}
@@ -147,7 +198,7 @@ export function Coin3D(props: Coin3DProps) {
 	return (
 		<div
 			ref={containerRef}
-			class="w-full h-full absolute inset-0 z-20 flex items-center justify-center cursor-pointer touch-none"
+			class="w-full h-full absolute inset-0 z-20 flex items-center justify-center touch-none select-none"
 		/>
 	);
 }
