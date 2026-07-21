@@ -3,7 +3,7 @@ import { useNavigate, useParams } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { channelApi } from '@/shared/api/channel-management.js';
-import { isRtl } from '@/shared/i18n/index.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { FragmentPulse } from '@/shared/ui/FragmentPulse.js';
 
@@ -13,6 +13,26 @@ export const ChannelDashboardPage: Component = () => {
 
 	const [isMenuOpen, setIsMenuOpen] = createSignal(false);
 	const [showTooltip, setShowTooltip] = createSignal(true);
+	const [searchQuery, setSearchQuery] = createSignal('');
+
+	const channelFeatures = () => [
+		{ name: t('search.features.channelPosting') || 'پست‌گذاری و زمان‌بندی', icon: 'send', path: `/channel/${params.id}/posting` },
+		{ name: t('search.features.channelSettings') || 'تنظیمات عمومی کانال', icon: 'settings', path: `/channel/${params.id}/settings` },
+		{ name: t('search.features.channelFunnel') || 'قیف فروش و بازاریابی', icon: 'filter_alt', path: `/channel/${params.id}/funnel` },
+		{ name: t('search.features.channelForwarding') || 'هدایت و فوروارد پیام‌ها', icon: 'forward', path: `/channel/${params.id}/forwarding` },
+		{ name: t('search.features.channelAdmins') || 'مدیریت مدیران و دسترسی‌ها', icon: 'admin_panel_settings', path: `/channel/${params.id}/admins` },
+		{ name: t('search.features.channelInlineButtons') || 'دکمه‌های شیشه‌ای اینلاین', icon: 'smart_button', path: `/channel/${params.id}/inline-buttons` },
+		{ name: t('search.features.channelAutoResponder') || 'پاسخ‌گوی خودکار چت', icon: 'question_answer', path: `/channel/${params.id}/auto-responder` },
+		{ name: t('search.features.channelAnalytics') || 'آمار و تحلیل کانال', icon: 'analytics', path: `/channel/${params.id}/analytics` },
+		{ name: t('search.features.channelDynamicBio') || 'بیوی پویا و متحرک', icon: 'badge', path: `/channel/${params.id}/dynamic-bio` },
+		{ name: t('search.features.channelAuditLog') || 'لاگ‌های امنیتی و تغییرات', icon: 'history', path: `/channel/${params.id}/audit-log` },
+	];
+
+	const filteredFeatures = () => {
+		const q = searchQuery().trim().toLowerCase();
+		if (!q) return [];
+		return channelFeatures().filter((f) => f.name.toLowerCase().includes(q));
+	};
 
 	const [channel] = createResource(
 		() => params.id,
@@ -141,6 +161,48 @@ export const ChannelDashboardPage: Component = () => {
 
 			{/* Main Content Area */}
 			<div class="px-5 pt-6 flex flex-col gap-6">
+				{/* Quick Feature Jump Search */}
+				<div class="relative">
+					<div class="bg-[#151822] border border-white/10 rounded-2xl px-4 h-12 flex items-center gap-2.5 focus-within:border-[#0088cc] transition-colors shadow-lg">
+						<span class="material-symbols-outlined text-white/40 text-[20px]">search</span>
+						<input
+							type="text"
+							placeholder={t('search.channelPlaceholder') || 'جستجوی سریع ابزارها و تنظیمات کانال...'}
+							value={searchQuery()}
+							onInput={(e) => setSearchQuery(e.currentTarget.value)}
+							class="w-full bg-transparent text-xs text-white placeholder-white/30 outline-none"
+						/>
+						<Show when={searchQuery()}>
+							<button
+								onClick={() => setSearchQuery('')}
+								class="text-white/40 hover:text-white text-xs p-1"
+							>
+								<span class="material-symbols-outlined text-[16px]">close</span>
+							</button>
+						</Show>
+					</div>
+
+					<Show when={searchQuery().trim() !== ''}>
+						<div class="absolute top-14 left-0 right-0 bg-[#151822] border border-white/10 rounded-2xl p-2 z-50 shadow-2xl space-y-1">
+							<For each={filteredFeatures()} fallback={<div class="p-3 text-xs text-white/40 text-center font-bold">{t('search.notFoundChannel') || 'ابزاری یافت نشد'}</div>}>
+								{(feat) => (
+									<button
+										onClick={() => {
+											hapticFeedback.impactOccurred('light');
+											setSearchQuery('');
+											navigate(feat.path);
+										}}
+										class="w-full p-3 rounded-xl bg-white/5 hover:bg-white/10 flex items-center gap-3 text-right transition-all"
+									>
+										<span class="material-symbols-outlined text-[#0088cc] text-[20px]">{feat.icon}</span>
+										<span class="text-xs font-bold text-white">{feat.name}</span>
+									</button>
+								)}
+							</For>
+						</div>
+					</Show>
+				</div>
+
 				{/* Channel Pulse Command Center Header */}
 				<div class="bg-gradient-to-b from-[#151822] to-[#0F1117] border border-white/10 rounded-[24px] p-5 space-y-4">
 					<div class="flex items-center justify-between">

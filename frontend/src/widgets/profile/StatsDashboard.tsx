@@ -110,7 +110,7 @@ export const StatsDashboard: Component<Props> = (props) => {
 											>
 												{item.icon}
 											</span>
-											<span class="text-white font-black text-[15px] tracking-tight text-shadow-sm">
+											<span class="text-white font-black text-[15px] tracking-tight text-shadow-sm font-mono tabular-nums">
 												{formatVal(rawVal())}
 											</span>
 										</div>

@@ -192,66 +192,8 @@ export const GeneralSettingsPage: Component = () => {
 			/>
 
 			<div class="px-5 pt-5 flex flex-col gap-5">
-				{/* Search & Category Filter Tabs */}
-				<div class="space-y-3">
-					<div class="bg-black/40 border border-white/10 rounded-2xl px-4 h-12 flex items-center gap-2.5">
-						<span class="material-symbols-outlined text-white/40 text-[20px]">search</span>
-						<input
-							type="text"
-							placeholder="جستجو در تنظیمات..."
-							value={searchQuery()}
-							onInput={(e) => setSearchQuery(e.currentTarget.value)}
-							class="w-full bg-transparent text-xs text-white placeholder-white/30 outline-none"
-						/>
-					</div>
-
-					<div class="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-						<button
-							onClick={() => setActiveTab('all')}
-							class={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-								activeTab() === 'all'
-									? 'bg-[#3390ec] text-white'
-									: 'bg-white/5 text-white/60 hover:text-white'
-							}`}
-						>
-							همه تنظیمات
-						</button>
-						<button
-							onClick={() => setActiveTab('general')}
-							class={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-								activeTab() === 'general'
-									? 'bg-[#3390ec] text-white'
-									: 'bg-white/5 text-white/60 hover:text-white'
-							}`}
-						>
-							عمومی و پیام‌ها
-						</button>
-						<button
-							onClick={() => setActiveTab('moderation')}
-							class={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-								activeTab() === 'moderation'
-									? 'bg-[#3390ec] text-white'
-									: 'bg-white/5 text-white/60 hover:text-white'
-							}`}
-						>
-							مدیریت و اخطارها
-						</button>
-						<button
-							onClick={() => setActiveTab('antiraid')}
-							class={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-								activeTab() === 'antiraid'
-									? 'bg-[#3390ec] text-white'
-									: 'bg-white/5 text-white/60 hover:text-white'
-							}`}
-						>
-							ضد حمله و ربات
-						</button>
-					</div>
-				</div>
-
 				{/* Bot Language & Basic Options */}
-				<Show when={activeTab() === 'all' || activeTab() === 'general'}>
-					<div class="bg-[#151822] border border-white/10 rounded-[24px] p-5 space-y-4">
+				<div class="bg-[#151822] border border-white/10 rounded-[24px] p-5 space-y-4">
 						<h3 class="text-xs font-black text-[#3390ec] uppercase tracking-wider">
 							تنظیمات اصلی ربات
 						</h3>
@@ -287,11 +229,9 @@ export const GeneralSettingsPage: Component = () => {
 							]}
 						/>
 					</div>
-				</Show>
 
 				{/* Ephemeral & Messages Section */}
-				<Show when={activeTab() === 'all' || activeTab() === 'general'}>
-					<div class="bg-[#151822] border border-white/10 rounded-[24px] p-5 space-y-4">
+				<div class="bg-[#151822] border border-white/10 rounded-[24px] p-5 space-y-4">
 						<h3 class="text-xs font-black text-amber-400 uppercase tracking-wider">
 							پیام‌ها و رفتار پاسخ‌دهی
 						</h3>
@@ -344,11 +284,9 @@ export const GeneralSettingsPage: Component = () => {
 							</Show>
 						</div>
 					</div>
-				</Show>
 
 				{/* Moderation & Penalties Section */}
-				<Show when={activeTab() === 'all' || activeTab() === 'moderation'}>
-					<div class="bg-[#151822] border border-white/10 rounded-[24px] p-5 space-y-4">
+				<div class="bg-[#151822] border border-white/10 rounded-[24px] p-5 space-y-4">
 						<h3 class="text-xs font-black text-[#10b981] uppercase tracking-wider">
 							محدودیت‌ها و جریمه‌ها
 						</h3>
@@ -373,11 +311,9 @@ export const GeneralSettingsPage: Component = () => {
 							onToggle={(v) => updateField('autoWarning', v)}
 						/>
 					</div>
-				</Show>
 
 				{/* Anti-Raid & Security */}
-				<Show when={activeTab() === 'all' || activeTab() === 'antiraid'}>
-					<div class="bg-[#151822] border border-white/10 rounded-[24px] p-5 space-y-4">
+				<div class="bg-[#151822] border border-white/10 rounded-[24px] p-5 space-y-4">
 						<h3 class="text-xs font-black text-[#ef4444] uppercase tracking-wider">
 							امنیت و ضد حمله (Anti-Raid)
 						</h3>
@@ -417,7 +353,6 @@ export const GeneralSettingsPage: Component = () => {
 							</div>
 						</div>
 					</div>
-				</Show>
 			</div>
 
 			{/* Save Floating Action Bar */}

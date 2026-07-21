@@ -1,5 +1,5 @@
 import { Motion } from '@motionone/solid';
-import { useParams } from '@solidjs/router';
+import { useNavigate, useParams } from '@solidjs/router';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { groupApi } from '@/shared/api/bot-management.js';
@@ -10,12 +10,31 @@ import { showToast } from '@/shared/ui/toast.js';
 
 export const GroupDashboardPage: Component = () => {
 	const params = useParams();
+	const navigate = useNavigate();
 
 	const [isMenuOpen, setIsMenuOpen] = createSignal(false);
 	const [showTooltip, setShowTooltip] = createSignal(true);
 	const [isLocking, setIsLocking] = createSignal(false);
 	const [settingsVersion, setSettingsVersion] = createSignal(1);
 	const [showLockConfirm, setShowLockConfirm] = createSignal(false);
+	const [searchQuery, setSearchQuery] = createSignal('');
+
+	const groupFeatures = () => [
+		{ name: t('search.features.groupSettings') || 'تنظیمات عمومی ربات', icon: 'settings', path: `/group/${params.id}/settings` },
+		{ name: t('search.features.contentRestrictions') || 'محدودیت‌های ارسال محتوا', icon: 'block', path: `/group/${params.id}/content` },
+		{ name: t('search.features.limits') || 'حد مجاز کاربری و محدودیت‌ها', icon: 'speed', path: `/group/${params.id}/limits` },
+		{ name: t('search.features.quietHours') || 'ساعات خاموشی و سکوت خودکار', icon: 'bedtime', path: `/group/${params.id}/quiet` },
+		{ name: t('search.features.mandatoryChannels') || 'عضویت اجباری کانال‌ها', icon: 'how_to_reg', path: `/group/${params.id}/mandatory` },
+		{ name: t('search.features.customTexts') || 'متن‌های سفارشی و خوش‌آمدگویی', icon: 'edit_note', path: `/group/${params.id}/settings/custom-texts` },
+		{ name: t('search.features.groupAnalytics') || 'آمار و گزارش‌های تحلیلی', icon: 'analytics', path: `/group/${params.id}/analytics` },
+		{ name: t('search.features.groupDynamicBio') || 'بیوی پویا و خودکار گروه', icon: 'badge', path: `/group/${params.id}/dynamic-bio` },
+	];
+
+	const filteredFeatures = () => {
+		const q = searchQuery().trim().toLowerCase();
+		if (!q) return [];
+		return groupFeatures().filter((f) => f.name.toLowerCase().includes(q));
+	};
 
 	const [group] = createResource(
 		() => params.id,
@@ -193,6 +212,48 @@ export const GroupDashboardPage: Component = () => {
 
 			{/* Main Restructured 4-Layer Dashboard */}
 			<div class="px-5 pt-6 flex flex-col gap-6">
+				{/* Quick Feature Jump Search */}
+				<div class="relative">
+					<div class="bg-[#151822] border border-white/10 rounded-2xl px-4 h-12 flex items-center gap-2.5 focus-within:border-[#3390ec] transition-colors shadow-lg">
+						<span class="material-symbols-outlined text-white/40 text-[20px]">search</span>
+						<input
+							type="text"
+							placeholder={t('search.groupPlaceholder') || 'جستجوی سریع قابلیت‌ها و تنظیمات گروه...'}
+							value={searchQuery()}
+							onInput={(e) => setSearchQuery(e.currentTarget.value)}
+							class="w-full bg-transparent text-xs text-white placeholder-white/30 outline-none"
+						/>
+						<Show when={searchQuery()}>
+							<button
+								onClick={() => setSearchQuery('')}
+								class="text-white/40 hover:text-white text-xs p-1"
+							>
+								<span class="material-symbols-outlined text-[16px]">close</span>
+							</button>
+						</Show>
+					</div>
+
+					<Show when={searchQuery().trim() !== ''}>
+						<div class="absolute top-14 left-0 right-0 bg-[#151822] border border-white/10 rounded-2xl p-2 z-50 shadow-2xl space-y-1">
+							<For each={filteredFeatures()} fallback={<div class="p-3 text-xs text-white/40 text-center font-bold">{t('search.notFoundGroup') || 'قابلیتی یافت نشد'}</div>}>
+								{(feat) => (
+									<button
+										onClick={() => {
+											hapticFeedback.impactOccurred('light');
+											setSearchQuery('');
+											navigate(feat.path);
+										}}
+										class="w-full p-3 rounded-xl bg-white/5 hover:bg-white/10 flex items-center gap-3 text-right transition-all"
+									>
+										<span class="material-symbols-outlined text-[#3390ec] text-[20px]">{feat.icon}</span>
+										<span class="text-xs font-bold text-white">{feat.name}</span>
+									</button>
+								)}
+							</For>
+						</div>
+					</Show>
+				</div>
+
 				{/* LAYER 1: NOW (Live Status & Urgent Health) */}
 				<div class="bg-gradient-to-b from-[#151822] to-[#0F1117] border border-white/10 rounded-[24px] p-5 space-y-4">
 					<div class="flex items-center justify-between">
