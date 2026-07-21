@@ -2,7 +2,7 @@ import { Motion } from '@motionone/solid';
 import { useSearchParams } from '@solidjs/router';
 import { backButton, hapticFeedback, openTelegramLink } from '@tma.js/sdk-solid';
 import { toPng } from 'html-to-image';
-import { Component, createEffect, createSignal, onCleanup, onMount, Show } from 'solid-js';
+import { Component, createEffect, createSignal, onCleanup, onMount, Show, For } from 'solid-js';
 import { apiFetch } from '@/shared/api/base.js';
 import { valuationApi } from '@/shared/api/bot-management.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
@@ -122,7 +122,6 @@ export const UsernamePage: Component = () => {
 	const [sent, setSent] = createSignal<boolean>(false);
 	const [sendCount, setSendCount] = createSignal<number>(0);
 
-	// Payment Gate State
 	const [_accessGranted, setAccessGranted] = createSignal<boolean>(false);
 	const [accessMethod, setAccessMethod] = createSignal<'free' | 'stars' | 'coins' | null>(null);
 	const [showPaymentGate, setShowPaymentGate] = createSignal<boolean>(false);
@@ -134,354 +133,157 @@ export const UsernamePage: Component = () => {
 	let cardRef: HTMLDivElement | undefined;
 	let hiddenCardRef: HTMLDivElement | undefined;
 	const [tilt, setTilt] = createSignal({ x: 0, y: 0, glossX: 50, glossY: 50 });
+
 	const handleMouseMove = (e: MouseEvent) => {
 		if (!cardRef) return;
 		const rect = cardRef.getBoundingClientRect();
 		const x = e.clientX - rect.left;
 		const y = e.clientY - rect.top;
-		const xc = rect.width / 2;
-		const yc = rect.height / 2;
-		const tiltX = (yc - y) / 12;
-		const tiltY = (x - xc) / 12;
-		const glossX = (x / rect.width) * 100;
-		const glossY = (y / rect.height) * 100;
-		setTilt({ x: tiltX, y: tiltY, glossX, glossY });
+		setTilt({ x: ((rect.height / 2) - y) / 12, y: (x - (rect.width / 2)) / 12, glossX: (x / rect.width) * 100, glossY: (y / rect.height) * 100 });
 	};
-
-	const handleMouseLeave = () => {
-		setTilt({ x: 0, y: 0, glossX: 50, glossY: 50 });
-	};
+	const handleMouseLeave = () => setTilt({ x: 0, y: 0, glossX: 50, glossY: 50 });
 
 	const getFontSize = (name: string) => {
 		const len = name.length;
-		if (len <= 5) return '44px';
-		if (len <= 8) return '36px';
-		if (len <= 12) return '28px';
-		return '22px';
+		if (len <= 5) return '46px';
+		if (len <= 8) return '38px';
+		if (len <= 12) return '30px';
+		return '24px';
 	};
 
-	const getTierStyle = (tier: string) => {
+	const getTierTheme = (tier: string) => {
 		const t = (tier || '').toLowerCase();
-		if (t.includes('legendary') || t.includes('grail')) {
-			return 'from-yellow-400/20 via-amber-500/15 to-yellow-600/10 border-yellow-400/40 text-yellow-400 shadow-[0_0_20px_rgba(251,191,36,0.25)]';
-		}
-		if (t.includes('epic') || t.includes('elite')) {
-			return 'from-cyan-400/20 to-blue-500/10 border-cyan-400/40 text-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.25)]';
-		}
-		if (t.includes('rare') || t.includes('premium')) {
-			return 'from-emerald-400/20 to-teal-500/10 border-emerald-400/40 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.25)]';
-		}
-		return 'from-white/10 to-white/5 border-white/20 text-white/70';
+		if (t.includes('legendary') || t.includes('grail')) return { wrapper: 'from-amber-400 via-orange-500 to-yellow-400 shadow-[0_30px_70px_rgba(0,0,0,0.85),0_0_50px_rgba(245,158,11,0.25)]', badge: 'bg-amber-400/10 border-amber-400/30 text-amber-400', text: 'from-yellow-200 via-amber-400 to-yellow-500', glow: 'rgba(245,158,11,0.2)' };
+		if (t.includes('epic') || t.includes('elite')) return { wrapper: 'from-cyan-400 via-blue-500 to-indigo-400 shadow-[0_30px_70px_rgba(0,0,0,0.85),0_0_50px_rgba(59,130,246,0.25)]', badge: 'bg-blue-400/10 border-blue-400/30 text-blue-400', text: 'from-cyan-300 via-blue-400 to-indigo-400', glow: 'rgba(59,130,246,0.2)' };
+		if (t.includes('rare') || t.includes('premium')) return { wrapper: 'from-emerald-400 via-teal-500 to-cyan-400 shadow-[0_30px_70px_rgba(0,0,0,0.85),0_0_50px_rgba(16,185,129,0.25)]', badge: 'bg-emerald-400/10 border-emerald-400/30 text-emerald-400', text: 'from-emerald-300 via-teal-400 to-cyan-400', glow: 'rgba(16,185,129,0.2)' };
+		return { wrapper: 'from-slate-400 via-gray-500 to-slate-400 shadow-[0_30px_70px_rgba(0,0,0,0.85),0_0_50px_rgba(148,163,184,0.15)]', badge: 'bg-slate-400/10 border-slate-400/30 text-slate-300', text: 'from-white via-slate-200 to-slate-400', glow: 'rgba(255,255,255,0.1)' };
 	};
 
-	const getUsernameGradient = (tier: string) => {
-		const t = (tier || '').toLowerCase();
-		if (t.includes('legendary') || t.includes('grail')) {
-			return 'from-yellow-200 via-amber-400 to-yellow-500';
-		}
-		if (t.includes('epic') || t.includes('elite')) {
-			return 'from-cyan-300 via-blue-400 to-indigo-500';
-		}
-		if (t.includes('rare') || t.includes('premium')) {
-			return 'from-emerald-300 via-teal-400 to-cyan-500';
-		}
-		return 'from-white via-neutral-100 to-neutral-400';
+	const triggerAlert = (msg: string) => {
+		const tg = (window as any).Telegram?.WebApp;
+		tg?.showAlert ? tg.showAlert(msg) : alert(msg);
 	};
 
 	const handleSendToChat = async () => {
 		if (!hiddenCardRef || downloading()) return;
-		if (sendCount() >= 2) {
-			if ((window as any).Telegram?.WebApp?.showAlert) {
-				(window as any).Telegram.WebApp.showAlert(
-					t('valuation.err_server') || 'You have reached the send limit. Please try again later.',
-				);
-			} else {
-				alert(
-					t('valuation.err_server') || 'You have reached the send limit. Please try again later.',
-				);
-			}
-			return;
-		}
-
-		setDownloading(true);
-		setSent(false);
+		if (sendCount() >= 2) return triggerAlert(t('valuation.err_server') || 'Send limit reached.');
+		setDownloading(true); setSent(false);
 		try {
-			try {
-				hapticFeedback.impactOccurred('medium');
-			} catch (_) {}
-
-			// Generate crisp flat image from flat hiddenCardRef
-			const dataUrl = await toPng(hiddenCardRef, {
-				width: 400,
-				height: 400,
-				pixelRatio: 3,
-			});
-
-			const response = await apiFetch<{ success: boolean }>('/usernames/send-to-chat', {
-				method: 'POST',
-				body: JSON.stringify({ image: dataUrl }),
-				headers: {
-					'Content-Type': 'application/json',
-				},
-			});
-
-			if (response?.success) {
-				try {
-					hapticFeedback.notificationOccurred('success');
-				} catch (_) {}
-				setSent(true);
-				setSendCount(sendCount() + 1);
-				setTimeout(() => setSent(false), 3000);
+			try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
+			const dataUrl = await toPng(hiddenCardRef, { width: 400, height: 400, pixelRatio: 3 });
+			const res = await apiFetch<{ success: boolean }>('/usernames/send-to-chat', { method: 'POST', body: JSON.stringify({ image: dataUrl }), headers: { 'Content-Type': 'application/json' } });
+			if (res?.success) {
+				try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+				setSent(true); setSendCount(c => c + 1); setTimeout(() => setSent(false), 3000);
 			}
 		} catch (err) {
-			console.error('Failed to send image to chat:', err);
-			if ((window as any).Telegram?.WebApp?.showAlert) {
-				(window as any).Telegram.WebApp.showAlert(
-					t('valuation.err_server') || 'Failed to send. Please try again.',
-				);
-			} else {
-				alert(t('valuation.err_server') || 'Failed to send. Please try again.');
-			}
-		} finally {
-			setDownloading(false);
-		}
+			triggerAlert(t('valuation.err_server') || 'Failed to send.');
+		} finally { setDownloading(false); }
 	};
 
 	const handleShareToStory = async () => {
 		const u = data()?.username || username();
 		if (!u || !hiddenCardRef || sharing()) return;
-
 		setSharing(true);
 		try {
-			try {
-				hapticFeedback.impactOccurred('medium');
-			} catch (_) {}
-
-			// Generate flat image from flat hiddenCardRef
-			// Use pixelRatio: 3 to ensure high quality, html-to-image handles the internal scaling.
-			const dataUrl = await toPng(hiddenCardRef, {
-				width: 400,
-				height: 400,
-				pixelRatio: 3,
-			});
-
-			// Upload custom image to backend to get public HTTPS URL
-			const response = await apiFetch<{ url: string }>('/usernames/share', {
-				method: 'POST',
-				body: JSON.stringify({ image: dataUrl }),
-				headers: {
-					'Content-Type': 'application/json',
-				},
-			});
-
-			if (response?.url) {
-				const storyText = `Check out the market valuation of @${u} on iFragment! 💎`;
-				shareToStory(response.url, {
-					text: storyText,
-					widget_link: {
-						url: `https://t.me/iFragmentBot/iFragment?startapp=val_${u}`,
-						name: 'iFragment',
-					},
-				});
-			} else {
-				console.error('Failed to upload share image');
+			try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
+			const dataUrl = await toPng(hiddenCardRef, { width: 400, height: 400, pixelRatio: 3 });
+			const res = await apiFetch<{ url: string }>('/usernames/share', { method: 'POST', body: JSON.stringify({ image: dataUrl }), headers: { 'Content-Type': 'application/json' } });
+			if (res?.url) {
+				shareToStory(res.url, { text: `Check out the market valuation of @${u} on iFragment! 💎`, widget_link: { url: `https://t.me/iFragmentBot/iFragment?startapp=val_${u}`, name: 'iFragment' } });
 			}
-		} catch (err) {
-			console.error('Failed to share to story:', err);
-		} finally {
-			setSharing(false);
-		}
+		} catch (err) {} finally { setSharing(false); }
 	};
 
 	onMount(() => {
 		backButton.show();
-		const off = backButton.onClick(() => {
-			try {
-				hapticFeedback.impactOccurred('light');
-			} catch (_) {}
-			window.history.back();
-		});
-
-		onCleanup(() => {
-			off();
-			backButton.hide();
-		});
+		const off = backButton.onClick(() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} window.history.back(); });
+		onCleanup(() => { off(); backButton.hide(); });
 	});
 
 	const grantAccess = (method: 'free' | 'stars' | 'coins', targetUser: string) => {
-		try {
-			localStorage.setItem(`val_access_${targetUser}`, method);
-		} catch (_) {}
-		setAccessMethod(method);
-		setAccessGranted(true);
-		setShowPaymentGate(false);
-		fetchValuation(targetUser);
+		try { localStorage.setItem(`val_access_${targetUser}`, method); } catch (_) {}
+		setAccessMethod(method); setAccessGranted(true); setShowPaymentGate(false); fetchValuation(targetUser);
 	};
 
 	const fetchValuation = async (u: string) => {
 		if (!u) return;
-		setLoading(true);
-		setError(null);
+		setLoading(true); setError(null);
 		try {
-			const result = await apiFetch<ValuationResult>(`/usernames/valuate?u=${u}`);
-			if (result) {
-				setData(result);
-			} else {
-				setError(t('valuation.err_meta') || 'Failed to fetch metadata');
-			}
+			const res = await apiFetch<ValuationResult>(`/usernames/valuate?u=${u}`);
+			res ? setData(res) : setError(t('valuation.err_meta') || 'Failed to fetch metadata');
 		} catch (err: any) {
-			setError(err.message || t('valuation.err_server') || 'A server communication error occurred');
-		} finally {
-			setLoading(false);
-		}
+			setError(err.message || t('valuation.err_server') || 'A server error occurred');
+		} finally { setLoading(false); }
 	};
 
 	const handlePayStars = async () => {
 		const u = username();
 		if (!u || isProcessingPayment()) return;
-		setIsProcessingPayment(true);
-		setPaymentError('');
-
+		setIsProcessingPayment(true); setPaymentError('');
 		try {
 			const res = await valuationApi.createStarsInvoice(u);
 			if (res?.invoice_link) {
 				const tg = (window as any).Telegram?.WebApp;
 				if (tg?.openInvoice) {
-					tg.openInvoice(res.invoice_link, (status: string) => {
-						if (status === 'paid') {
-							hapticFeedback.notificationOccurred('success');
-							grantAccess('stars', u);
-						}
-					});
-				} else {
-					openTelegramLink(res.invoice_link);
-					grantAccess('stars', u);
-				}
-			} else {
-				grantAccess('stars', u);
-			}
+					tg.openInvoice(res.invoice_link, (status: string) => { if (status === 'paid') { hapticFeedback.notificationOccurred('success'); grantAccess('stars', u); } });
+				} else { openTelegramLink(res.invoice_link); grantAccess('stars', u); }
+			} else grantAccess('stars', u);
 		} catch (e: any) {
-			setPaymentError(e?.message || t('valuation.err_server') || 'Payment failed');
-			hapticFeedback.notificationOccurred('error');
-		} finally {
-			setIsProcessingPayment(false);
-		}
+			setPaymentError(e?.message || 'Payment failed'); hapticFeedback.notificationOccurred('error');
+		} finally { setIsProcessingPayment(false); }
 	};
 
 	const handlePayCoins = async () => {
 		const u = username();
 		if (!u || isProcessingPayment()) return;
-		setIsProcessingPayment(true);
-		setPaymentError('');
-
+		setIsProcessingPayment(true); setPaymentError('');
 		try {
 			const res = await valuationApi.payWithAirdrop(u);
-			if (res?.success) {
-				hapticFeedback.notificationOccurred('success');
-				grantAccess('coins', u);
-			} else {
-				grantAccess('coins', u);
-			}
+			if (res?.success) { hapticFeedback.notificationOccurred('success'); grantAccess('coins', u); }
+			else grantAccess('coins', u);
 		} catch (e: any) {
-			const msg = e?.response?.data?.error || e?.message || 'Insufficient coin balance';
-			setPaymentError(msg);
-			hapticFeedback.notificationOccurred('error');
-		} finally {
-			setIsProcessingPayment(false);
-		}
+			setPaymentError(e?.response?.data?.error || e?.message || 'Insufficient coin balance'); hapticFeedback.notificationOccurred('error');
+		} finally { setIsProcessingPayment(false); }
 	};
 
 	const handleVerifyFreeAccess = async () => {
 		const u = username();
 		if (!u || isProcessingPayment()) return;
-		if (freeQuotaUsed()) {
-			setPaymentError(
-				t('valuation.free_quota_used') || 'Your 1-time free valuation quota has been used.',
-			);
-			hapticFeedback.notificationOccurred('error');
-			return;
-		}
-
-		setIsProcessingPayment(true);
-		setPaymentError('');
-
+		if (freeQuotaUsed()) { setPaymentError(t('valuation.free_quota_used') || 'Free quota used.'); hapticFeedback.notificationOccurred('error'); return; }
+		setIsProcessingPayment(true); setPaymentError('');
 		try {
 			const res = await valuationApi.verifyFreeAccess(u);
 			if (res?.has_access) {
 				hapticFeedback.notificationOccurred('success');
-				localStorage.setItem('val_free_used', 'true');
-				cloudStorage.setItem('val_free_used', 'true');
-				setFreeQuotaUsed(true);
-				grantAccess('free', u);
+				localStorage.setItem('val_free_used', 'true'); cloudStorage.setItem('val_free_used', 'true');
+				setFreeQuotaUsed(true); grantAccess('free', u);
 			} else {
-				const errMsg =
-					t('valuation.free_quota_used') ||
-					'Failed to verify membership or free quota already used.';
-				setPaymentError(errMsg);
-				hapticFeedback.notificationOccurred('error');
+				setPaymentError(t('valuation.free_quota_used') || 'Verification failed.'); hapticFeedback.notificationOccurred('error');
 			}
 		} catch (e: any) {
-			const msg =
-				e?.response?.data?.error ||
-				e?.message ||
-				t('valuation.free_quota_used') ||
-				'Free quota already used or verification failed';
-			setPaymentError(msg);
-			hapticFeedback.notificationOccurred('error');
-		} finally {
-			setIsProcessingPayment(false);
-		}
+			setPaymentError(e?.response?.data?.error || e?.message || 'Verification failed'); hapticFeedback.notificationOccurred('error');
+		} finally { setIsProcessingPayment(false); }
 	};
 
 	createEffect(() => {
 		const initValuation = async () => {
-			const u = username();
-			if (!u) return;
-
-			setLoading(true);
-			setError(null);
-
+			const u = username(); if (!u) return;
+			setLoading(true); setError(null);
 			const cachedAccess = localStorage.getItem(`val_access_${u}`);
-			const localFreeUsed = localStorage.getItem('val_free_used') === 'true';
-			if (localFreeUsed) {
-				setFreeQuotaUsed(true);
-			} else {
-				cloudStorage.getItem('val_free_used').then((val) => {
-					if (val === 'true') {
-						setFreeQuotaUsed(true);
-						localStorage.setItem('val_free_used', 'true');
-					}
-				});
-			}
+			if (localStorage.getItem('val_free_used') === 'true') setFreeQuotaUsed(true);
+			else cloudStorage.getItem('val_free_used').then((val) => { if (val === 'true') { setFreeQuotaUsed(true); localStorage.setItem('val_free_used', 'true'); } });
 
-			if (cachedAccess) {
-				setAccessGranted(true);
-				setAccessMethod(cachedAccess as any);
-				fetchValuation(u);
-			} else {
+			if (cachedAccess) { setAccessGranted(true); setAccessMethod(cachedAccess as any); fetchValuation(u); }
+			else {
 				try {
-					const accessRes = await valuationApi.checkAccess(u);
-					if (accessRes?.free_quota_used) {
-						setFreeQuotaUsed(true);
-						localStorage.setItem('val_free_used', 'true');
-						cloudStorage.setItem('val_free_used', 'true');
-					}
-
-					if (accessRes?.has_access) {
-						setAccessGranted(true);
-						setAccessMethod(accessRes.method || 'stars');
-						fetchValuation(u);
-					} else {
-						setShowPaymentGate(true);
-						setLoading(false);
-					}
-				} catch (_) {
-					setShowPaymentGate(true);
-					setLoading(false);
-				}
+					const res = await valuationApi.checkAccess(u);
+					if (res?.free_quota_used) { setFreeQuotaUsed(true); localStorage.setItem('val_free_used', 'true'); cloudStorage.setItem('val_free_used', 'true'); }
+					if (res?.has_access) { setAccessGranted(true); setAccessMethod(res.method || 'stars'); fetchValuation(u); }
+					else { setShowPaymentGate(true); setLoading(false); }
+				} catch (_) { setShowPaymentGate(true); setLoading(false); }
 			}
 		};
-
 		initValuation();
 	});
 
@@ -489,544 +291,264 @@ export const UsernamePage: Component = () => {
 		<Show
 			when={!loading()}
 			fallback={
-				<div class="flex flex-col justify-center items-center h-screen bg-[#0f1014] text-white/60 gap-4">
-					<div class="w-10 h-10 rounded-full border-[3px] border-white/10 border-t-[#3390ec] animate-spin" />
-					<span class="text-[13px] font-medium tracking-wide">
-						{t('valuation.analyzing') || 'Analyzing market value...'}
-					</span>
+				<div class="flex flex-col justify-center items-center h-screen bg-[#030303] text-white/60 gap-4">
+					<div class="w-12 h-12 rounded-full border-[3px] border-white/10 border-t-[#3390ec] animate-spin" />
+					<span class="text-[13px] font-bold tracking-widest uppercase">{t('valuation.analyzing') || 'Analyzing market value...'}</span>
 				</div>
 			}
 		>
 			<Show
 				when={!error()}
 				fallback={
-					<div class="min-h-screen bg-[#0f1014] text-white flex flex-col items-center justify-center p-6 text-center">
-						<div class="w-16 h-16 rounded-full bg-[#ff453a]/10 flex items-center justify-center mb-4 text-[#ff453a]">
-							<span class="material-symbols-outlined text-[32px]">error</span>
+					<div class="min-h-screen bg-[#030303] text-white flex flex-col items-center justify-center p-6 text-center">
+						<div class="w-20 h-20 rounded-full bg-[#ff4a4a]/10 flex items-center justify-center mb-5 border border-[#ff4a4a]/20 shadow-inner">
+							<span class="material-symbols-outlined text-[40px] text-[#ff4a4a]">error</span>
 						</div>
-						<h1 class="text-lg font-bold mb-2">
-							{t('valuation.error_title') || 'Failed to load data'}
-						</h1>
-						<p class="text-[13px] text-white/40 leading-relaxed mb-6 max-w-xs">{error()}</p>
-						<button
-							onClick={() => window.history.back()}
-							class="h-11 px-6 bg-white/[0.04] border border-white/10 text-white font-medium rounded-xl transition-all active:scale-95"
-						>
-							{t('valuation.back') || 'Back'}
+						<h1 class="text-xl font-black mb-2">{t('valuation.error_title') || 'Analysis Failed'}</h1>
+						<p class="text-[13px] text-white/50 leading-relaxed mb-6 max-w-xs">{error()}</p>
+						<button onClick={() => window.history.back()} class="h-12 px-8 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold rounded-[16px] transition-all active:scale-95 shadow-sm">
+							{t('valuation.back') || 'Go Back'}
 						</button>
 					</div>
 				}
 			>
-				<div class="theme-asset min-h-screen bg-[#08090D] text-white px-5 py-6 flex flex-col items-center font-sans pb-24 select-none">
-					{/* Access Method Audit Badge / Notification */}
+				<div class="min-h-screen bg-[#030303] text-white px-4 py-6 flex flex-col items-center font-sans pb-28 select-none relative" dir={isRtl() ? 'rtl' : 'ltr'}>
+					
+					{/* Ambient Dynamic Background Glow */}
+					<div class="absolute top-0 left-1/2 -translate-x-1/2 w-[150vw] h-[400px] blur-[100px] pointer-events-none z-0 opacity-40 transition-colors duration-1000" style={{ background: `radial-gradient(circle, ${getTierTheme(data()?.rarity?.tier || '').glow} 0%, transparent 60%)` }} />
+
+					{/* ═══════ ACCESS AUDIT BADGE ═══════ */}
 					<Show when={accessMethod()}>
-						<div class="w-full max-w-[400px] mb-4 bg-gradient-to-r from-[#161922] to-[#0d0f17] border border-white/10 rounded-2xl p-3.5 flex items-center justify-between shadow-xl">
+						<div class="w-full max-w-[400px] mb-5 bg-[#12141C]/80 backdrop-blur-md border border-white/10 rounded-[20px] p-3 flex items-center justify-between shadow-lg relative z-10">
 							<div class="flex items-center gap-3">
-								<div
-									class={`w-9 h-9 rounded-xl flex items-center justify-center text-base shrink-0 ${accessMethod() === 'stars' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : accessMethod() === 'coins' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}`}
-								>
+								<div class={`w-10 h-10 rounded-[14px] flex items-center justify-center text-lg shrink-0 border shadow-inner ${accessMethod() === 'stars' ? 'bg-amber-400/10 text-amber-400 border-amber-400/30' : accessMethod() === 'coins' ? 'bg-cyan-400/10 text-cyan-400 border-cyan-400/30' : 'bg-emerald-400/10 text-emerald-400 border-emerald-400/30'}`}>
 									{accessMethod() === 'stars' ? '⭐' : accessMethod() === 'coins' ? '🪙' : '🎁'}
 								</div>
-								<div class="flex flex-col text-left">
-									<span class="text-[9px] text-white/40 uppercase font-black tracking-wider">
-										{t('valuation.payment_method_badge')}
-									</span>
-									<span class="text-[12px] font-bold text-white">
-										{accessMethod() === 'stars'
-											? t('valuation.method_stars')
-											: accessMethod() === 'coins'
-												? t('valuation.method_coins')
-												: t('valuation.method_free')}
-									</span>
+								<div class="flex flex-col text-start">
+									<span class="text-[9px] text-white/40 uppercase font-black tracking-widest">{t('valuation.payment_method_badge') || 'ACCESS GRANTED'}</span>
+									<span class="text-[13px] font-bold text-white">{accessMethod() === 'stars' ? t('valuation.method_stars') : accessMethod() === 'coins' ? t('valuation.method_coins') : t('valuation.method_free')}</span>
 								</div>
 							</div>
-							<span class="text-[9px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-black uppercase tracking-wider">
-								VERIFIED
-							</span>
+							<span class="text-[10px] font-mono px-2.5 py-1 rounded-[8px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-black uppercase tracking-widest shadow-sm">VERIFIED</span>
 						</div>
 					</Show>
 
-					{/* Flex Card Container Wrapper (Gradient Border) */}
-					<div
-						class="w-full max-w-[400px] aspect-square p-[1.5px] bg-gradient-to-br from-cyan-400 via-teal-500 to-emerald-400 rounded-[42px] shadow-[0_30px_70px_rgba(0,0,0,0.85),0_0_40px_rgba(20,184,166,0.15)] transition-all duration-300 hover:shadow-[0_40px_80px_rgba(0,0,0,0.95),0_0_60px_rgba(0,245,255,0.25)] mb-4"
-						style={{ 'aspect-ratio': '1 / 1' }}
-					>
+					{/* ═══════ HERO TILT CARD ═══════ */}
+					<div class={`w-full max-w-[400px] aspect-square p-[2px] bg-gradient-to-br ${getTierTheme(data()?.rarity?.tier || '').wrapper} rounded-[44px] mb-6 relative z-10`} style={{ 'aspect-ratio': '1 / 1' }}>
 						<div
-							ref={cardRef}
-							onMouseMove={handleMouseMove}
-							onMouseLeave={handleMouseLeave}
-							class="w-full h-full bg-[#07080a] rounded-[40px] p-8 relative overflow-hidden flex flex-col justify-between"
-							style={{
-								transform: `perspective(1000px) rotateX(${tilt().x}deg) rotateY(${tilt().y}deg)`,
-								'background-image':
-									'radial-gradient(rgba(255, 255, 255, 0.05) 1.2px, transparent 1.2px)',
-								'background-size': '18px 18px',
-								transition: 'transform 0.08s ease-out',
-							}}
+							ref={cardRef} onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}
+							class="w-full h-full bg-[#08090D] rounded-[42px] p-7 relative overflow-hidden flex flex-col justify-between shadow-inner"
+							style={{ transform: `perspective(1000px) rotateX(${tilt().x}deg) rotateY(${tilt().y}deg)`, 'background-image': 'radial-gradient(rgba(255, 255, 255, 0.05) 1.5px, transparent 1.5px)', 'background-size': '20px 20px', transition: 'transform 0.1s ease-out' }}
 						>
-							{/* Gloss light reflection layer */}
-							<div
-								class="absolute inset-0 pointer-events-none z-20 mix-blend-overlay transition-opacity duration-300 opacity-60"
-								style={{
-									background: `radial-gradient(circle at ${tilt().glossX}% ${tilt().glossY}%, rgba(255,255,255,0.2) 0%, transparent 60%)`,
-								}}
-							/>
+							<div class="absolute inset-0 pointer-events-none z-20 mix-blend-overlay transition-opacity duration-300 opacity-70" style={{ background: `radial-gradient(circle at ${tilt().glossX}% ${tilt().glossY}%, rgba(255,255,255,0.25) 0%, transparent 50%)` }} />
+							<div class="absolute inset-0 bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
+							<div class="absolute inset-0 pointer-events-none opacity-30" style={{ background: 'linear-gradient(135deg, transparent 30%, rgba(255,255,255,0.05) 45%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.05) 55%, transparent 70%)' }} />
 
-							<div class="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
-
-							{/* Shimmer Effect */}
-							<div
-								class="absolute inset-0 pointer-events-none opacity-20"
-								style={{
-									background:
-										'linear-gradient(135deg, transparent 30%, rgba(255,255,255,0.03) 45%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.03) 55%, transparent 70%)',
-								}}
-							/>
-
-							{/* Card Header */}
 							<div class="flex justify-between items-center z-10">
-								<span
-									class={`px-4 py-1.5 border rounded-full text-[10px] font-black tracking-wider uppercase ${getTierStyle(data()?.rarity?.tier || '')}`}
-								>
+								<span class={`px-3.5 py-1.5 border rounded-[10px] text-[10px] font-black tracking-widest uppercase shadow-sm ${getTierTheme(data()?.rarity?.tier || '').badge}`}>
 									{data()?.rarity?.tier || 'Standard'}
 								</span>
-								<span class="text-[11px] font-mono font-black text-white/30 tracking-[5px] uppercase">
-									iFragment
-								</span>
+								<span class="text-[11px] font-mono font-black text-white/30 tracking-[4px] uppercase bg-white/5 px-3 py-1 rounded-[10px]">iFragment</span>
 							</div>
 
-							{/* Card Body (Username) */}
-							<div class="flex flex-col justify-center items-center z-10 text-center flex-grow relative py-8 w-full">
-								{/* Direct radial gradient glow behind username (no blur, 100% compatible with HTML-to-Image download) */}
-								<div
-									class="absolute w-[90%] h-[120px] opacity-75 -z-10 pointer-events-none"
-									style={{
-										background:
-											'radial-gradient(ellipse 65% 55% at 50% 50%, rgba(0, 245, 255, 0.22) 0%, rgba(157, 0, 255, 0.16) 45%, transparent 75%)',
-									}}
-								/>
-								{/* Bounding bracket designs */}
-								<div class="flex items-center justify-center gap-1.5 w-full">
-									<span class="text-white/25 font-black text-[28px] select-none tracking-normal">
-										✦
-									</span>
-									<span
-										class={`inline-block font-black tracking-tight bg-gradient-to-r ${getUsernameGradient(data()?.rarity?.tier || '')} bg-clip-text text-transparent drop-shadow-[0_12px_24px_rgba(0,0,0,0.75)] truncate max-w-[85%]`}
-										style={{ 'font-size': getFontSize(data()?.username || username()) }}
-										dir="ltr"
-									>
+							<div class="flex flex-col justify-center items-center z-10 text-center flex-grow relative py-6 w-full">
+								<div class="absolute w-full h-[140px] opacity-60 -z-10 pointer-events-none" style={{ background: `radial-gradient(ellipse 60% 60% at 50% 50%, ${getTierTheme(data()?.rarity?.tier || '').glow}, transparent 70%)` }} />
+								<div class="flex items-center justify-center gap-2 w-full">
+									<span class="text-white/20 font-black text-[24px] select-none">✦</span>
+									<span class={`inline-block font-black tracking-tight bg-gradient-to-r ${getTierTheme(data()?.rarity?.tier || '').text} bg-clip-text text-transparent drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)] truncate max-w-[80%]`} style={{ 'font-size': getFontSize(data()?.username || username()) }} dir="ltr">
 										@{data()?.username || username()}
 									</span>
-									<span class="text-white/25 font-black text-[28px] select-none tracking-normal">
-										✦
-									</span>
+									<span class="text-white/20 font-black text-[24px] select-none">✦</span>
 								</div>
 							</div>
 
-							{/* Card Footer */}
-							<div class="flex justify-between items-end border-t border-white/[0.06] pt-5 z-10">
-								<div class="flex flex-col gap-1.5 text-left">
-									<span class="text-[9px] font-black text-white/40 uppercase tracking-[2px]">
-										Estimated Value
-									</span>
-									<div class="flex items-center gap-1.5">
-										<svg
-											class="w-6.5 h-6.5 filter drop-shadow-[0_0_10px_rgba(0,152,234,0.6)]"
-											viewBox="0 0 56 56"
-											fill="none"
-											xmlns="http://www.w3.org/2000/svg"
-										>
-											<path
-												d="M28 56C43.464 56 56 43.464 56 28C56 12.536 43.464 0 28 0C12.536 0 0 12.536 0 28C0 43.464 12.536 56 28 56Z"
-												fill="#0098EA"
-											/>
-											<path
-												d="M37.5603 15.6277H18.4386C14.9228 15.6277 12.6944 19.4202 14.4632 22.4861L26.2644 42.9409C27.0345 44.2765 28.9644 44.2765 29.7345 42.9409L41.5765 22.4861C43.3045 19.4202 41.0761 15.6277 37.5765 15.6277H37.5603ZM26.2483 36.8068L23.6119 31.8097L17.2017 20.6506C16.6742 19.7557 17.3255 18.6198 18.4223 18.6198H26.2483V36.8068ZM38.7972 20.6506L32.387 31.8259L29.7506 36.8068V18.6361H37.5765C38.6734 18.6361 39.3247 19.772 38.7972 20.6669V20.6506Z"
-												fill="white"
-											/>
-										</svg>
-										<span
-											class="text-[26px] sm:text-[28px] font-black text-white leading-none drop-shadow-[0_0_15px_rgba(0,152,234,0.3)]"
-											style={{
-												'font-family':
-													"ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
-											}}
-										>
-											{parseFloat(data()?.expected_ton || '0').toLocaleString('en-US')}
-										</span>
-										<span class="text-[13px] font-bold text-[#3390ec] leading-none">TON</span>
+							<div class="flex justify-between items-end border-t border-white/10 pt-4 z-10">
+								<div class="flex flex-col gap-1 text-left">
+									<span class="text-[9px] font-black text-white/40 uppercase tracking-widest mb-0.5">Estimated Value</span>
+									<div class="flex items-center gap-2">
+										<svg class="w-7 h-7 filter drop-shadow-[0_0_12px_rgba(51,144,236,0.6)]" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M28 56C43.464 56 56 43.464 56 28C56 12.536 43.464 0 28 0C12.536 0 0 12.536 0 28C0 43.464 12.536 56 28 56Z" fill="#0098EA"/><path d="M37.5603 15.6277H18.4386C14.9228 15.6277 12.6944 19.4202 14.4632 22.4861L26.2644 42.9409C27.0345 44.2765 28.9644 44.2765 29.7345 42.9409L41.5765 22.4861C43.3045 19.4202 41.0761 15.6277 37.5765 15.6277H37.5603ZM26.2483 36.8068L23.6119 31.8097L17.2017 20.6506C16.6742 19.7557 17.3255 18.6198 18.4223 18.6198H26.2483V36.8068ZM38.7972 20.6506L32.387 31.8259L29.7506 36.8068V18.6361H37.5765C38.6734 18.6361 39.3247 19.772 38.7972 20.6669V20.6506Z" fill="white"/></svg>
+										<span class="text-[30px] font-black text-white leading-none drop-shadow-md font-sans tracking-tight">{parseFloat(data()?.expected_ton || '0').toLocaleString('en-US')}</span>
+										<span class="text-[14px] font-black text-[#3390ec] leading-none mb-0.5">TON</span>
 									</div>
 								</div>
-
 								<div class="flex flex-col items-end gap-2">
-									<div class="flex items-center gap-1.5 bg-[#00ff88]/10 px-3 py-1 rounded-full border border-[#00ff88]/30 text-[#00ff88] font-black uppercase tracking-wider text-[9px] shadow-[0_0_15px_rgba(0,255,136,0.15)]">
-										<div class="w-1.5 h-1.5 bg-[#00ff88] rounded-full animate-pulse shadow-[0_0_8px_#00ff88]" />
-										Valued
+									<div class="flex items-center gap-1.5 bg-[#00ff88]/10 px-3 py-1 rounded-[8px] border border-[#00ff88]/30 text-[#00ff88] font-black uppercase tracking-widest text-[9px] shadow-[0_0_15px_rgba(0,255,136,0.15)]">
+										<div class="w-1.5 h-1.5 bg-[#00ff88] rounded-full animate-pulse shadow-[0_0_8px_#00ff88]" /> Valued
 									</div>
-									<span
-										class="text-[13px] text-white/60 font-black leading-none"
-										style={{
-											'font-family':
-												"ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
-										}}
-									>
-										≈ $
-										{parseFloat(data()?.expected_usd || '0').toLocaleString('en-US', {
-											maximumFractionDigits: 0,
-										})}
-									</span>
+									<span class="text-[14px] text-white/50 font-black leading-none tracking-tight">≈ ${parseFloat(data()?.expected_usd || '0').toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
 								</div>
 							</div>
 						</div>
 					</div>
 
-					{/* Action Buttons */}
-					<div class="flex gap-4 w-full max-w-[400px]">
-						<button
-							onClick={handleSendToChat}
-							disabled={downloading() || sent()}
-							class={`flex-1 h-12 border text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all cursor-pointer text-[14px] disabled:opacity-50 disabled:cursor-not-allowed ${sent() ? 'bg-green-500/20 border-green-500/50 hover:bg-green-500/30 text-green-400' : 'bg-white/[0.04] hover:bg-white/[0.08] active:scale-95 border-white/10'}`}
-						>
-							<Show
-								when={!downloading()}
-								fallback={
-									<>
-										<div class="w-4 h-4 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-										<span>{t('valuation.sending') || 'Sending...'}</span>
-									</>
-								}
-							>
-								<Show
-									when={!sent()}
-									fallback={
-										<>
-											<span class="material-symbols-outlined text-[20px] text-green-400">
-												check_circle
-											</span>
-											<span class="text-green-400">{t('valuation.sent_to_chat') || 'Sent!'}</span>
-										</>
-									}
-								>
-									<span class="material-symbols-outlined text-[20px]">send</span>
-									{t('valuation.download') || 'Send to Chat'}
+					{/* ═══════ ACTION BUTTONS ═══════ */}
+					<div class="flex gap-3 w-full max-w-[400px] relative z-10 mb-8">
+						<button onClick={handleSendToChat} disabled={downloading() || sent()} class={`flex-1 h-14 rounded-[16px] font-black text-[13px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all disabled:opacity-60 shadow-md border ${sent() ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400' : 'bg-[#12141C]/80 backdrop-blur-md hover:bg-white/10 active:scale-95 border-white/10 text-white'}`}>
+							<Show when={!downloading()} fallback={<><div class="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" /><span>{t('valuation.sending') || 'SENDING...'}</span></>}>
+								<Show when={!sent()} fallback={<><span class="material-symbols-outlined text-[20px]">check_circle</span><span>{t('valuation.sent_to_chat') || 'SENT!'}</span></>}>
+									<span class="material-symbols-outlined text-[20px]">send</span> {t('valuation.download') || 'SEND TO CHAT'}
 								</Show>
 							</Show>
 						</button>
-						<button
-							onClick={handleShareToStory}
-							disabled={sharing()}
-							class="flex-1 h-12 bg-[#3390ec] hover:bg-[#2b82d9] active:scale-95 text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all shadow-[0_4px_12px_rgba(51,144,236,0.3)] cursor-pointer text-[14px] disabled:opacity-50 disabled:cursor-not-allowed"
-						>
-							<Show
-								when={!sharing()}
-								fallback={
-									<>
-										<div class="w-4 h-4 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-										<span>{t('valuation.sharing') || 'Uploading...'}</span>
-									</>
-								}
-							>
-								<span class="material-symbols-outlined text-[20px]">share</span>
-								{t('valuation.share') || 'Share to Story'}
+						<button onClick={handleShareToStory} disabled={sharing()} class="flex-1 h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] hover:from-[#2b7ec9] hover:to-[#3390ec] active:scale-95 text-white font-black text-[13px] uppercase tracking-wider rounded-[16px] flex items-center justify-center gap-2 transition-all shadow-[0_8px_20px_rgba(51,144,236,0.3)] disabled:opacity-60 border border-white/10">
+							<Show when={!sharing()} fallback={<><div class="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /><span>{t('valuation.sharing') || 'UPLOADING...'}</span></>}>
+								<span class="material-symbols-outlined text-[20px]">amp_stories</span> {t('valuation.share') || 'STORY'}
 							</Show>
 						</button>
 					</div>
 
-					{/* Valuation Metrics (Price Range) */}
-					<div class="w-full max-w-[400px] mt-8 flex flex-col gap-4">
-						{/* Price Range */}
-						<div class="bg-[#0e1118] border border-white/[0.08] rounded-2xl p-5 flex flex-col gap-4 shadow-xl">
+					<div class="w-full max-w-[400px] flex flex-col gap-4 relative z-10">
+						
+						{/* ═══════ PRICE RANGE HUD ═══════ */}
+						<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-4 shadow-[0_10px_30px_rgba(0,0,0,0.3)]">
 							<div class="flex items-center justify-between text-white/90">
 								<div class="flex items-center gap-2">
-									<span class="material-symbols-outlined text-[20px] text-[#0098ea]">
-										monitoring
-									</span>
-									<span class="text-sm font-semibold uppercase tracking-wider">
-										{t('valuation.price_range') || 'Price Range'}
-									</span>
+									<span class="material-symbols-outlined text-[20px] text-[#3390ec]">monitoring</span>
+									<span class="text-[13px] font-black uppercase tracking-widest">{t('valuation.price_range') || 'PRICE RANGE'}</span>
 								</div>
-								<span class="text-xs text-white/40">
-									{t('valuation.market_estimation') || 'Market Estimation'}
-								</span>
+								<span class="text-[10px] font-bold text-white/40 uppercase bg-white/5 px-2 py-1 rounded-[6px]">{t('valuation.market_estimation') || 'ESTIMATION'}</span>
 							</div>
-
-							<div class="relative w-full h-2.5 bg-white/5 rounded-full overflow-hidden flex">
-								<div
-									class="h-full bg-gradient-to-r from-[#0098ea]/20 to-[#0098ea] rounded-l-full"
-									style={{ width: '30%' }}
-								/>
-								<div class="h-full bg-[#0098ea] relative" style={{ width: '40%' }} />
-								<div
-									class="h-full bg-gradient-to-r from-[#0098ea] to-emerald-500/20 rounded-r-full"
-									style={{ width: '30%' }}
-								/>
-								<div class="absolute top-0 bottom-0 w-0.5 bg-white left-[50%] -translate-x-1/2 shadow-[0_0_8px_white]" />
+							<div class="relative w-full h-3 bg-[#08090D] rounded-full overflow-hidden flex shadow-inner border border-white/5 mt-1">
+								<div class="h-full bg-gradient-to-r from-[#3390ec]/20 to-[#3390ec] rounded-l-full" style={{ width: '30%' }} />
+								<div class="h-full bg-[#3390ec] relative shadow-[0_0_10px_#3390ec]" style={{ width: '40%' }} />
+								<div class="h-full bg-gradient-to-r from-[#3390ec] to-emerald-400/20 rounded-r-full" style={{ width: '30%' }} />
+								<div class="absolute top-0 bottom-0 w-1 bg-white left-[50%] -translate-x-1/2 shadow-[0_0_12px_white]" />
 							</div>
-
-							<div class="flex justify-between items-center w-full mt-1">
-								<div class="flex flex-col text-left opacity-50 scale-90 origin-left">
-									<span class="text-white/40 text-[9px] uppercase font-bold tracking-wider mb-0.5">
-										{t('valuation.floor') || 'Low End'}
-									</span>
-									<span class="text-white font-mono text-xs">
-										{parseFloat(data()?.low_ton || '0').toLocaleString('en-US')} TON
-									</span>
+							<div class="flex justify-between items-end w-full">
+								<div class="flex flex-col text-left opacity-60">
+									<span class="text-white/50 text-[10px] uppercase font-black tracking-widest mb-0.5">{t('valuation.floor') || 'LOW'}</span>
+									<span class="text-white font-mono font-bold text-[12px]">{parseFloat(data()?.low_ton || '0').toLocaleString('en-US')}</span>
 								</div>
-								<div class="flex flex-col text-center scale-105 origin-center bg-[#141824] border border-[#232a3d] rounded-xl px-4 py-2">
-									<span class="text-[#0098ea] text-[9px] uppercase font-bold tracking-widest mb-0.5">
-										{t('valuation.expected_label') || 'Expected'}
-									</span>
-									<span class="text-white font-mono font-bold text-base">
-										{parseFloat(data()?.expected_ton || '0').toLocaleString('en-US')} TON
-									</span>
+								<div class="flex flex-col text-center bg-[#08090D] border border-white/10 rounded-[14px] px-5 py-2 shadow-sm">
+									<span class="text-[#3390ec] text-[10px] uppercase font-black tracking-widest mb-0.5">{t('valuation.expected_label') || 'EXPECTED'}</span>
+									<span class="text-white font-mono font-black text-[16px]">{parseFloat(data()?.expected_ton || '0').toLocaleString('en-US')} TON</span>
 								</div>
-								<div class="flex flex-col text-right opacity-50 scale-90 origin-right">
-									<span class="text-white/40 text-[9px] uppercase font-bold tracking-wider mb-0.5">
-										{t('valuation.ceiling') || 'High End'}
-									</span>
-									<span class="text-white font-mono text-xs">
-										{parseFloat(data()?.high_ton || '0').toLocaleString('en-US')} TON
-									</span>
+								<div class="flex flex-col text-right opacity-60">
+									<span class="text-white/50 text-[10px] uppercase font-black tracking-widest mb-0.5">{t('valuation.ceiling') || 'HIGH'}</span>
+									<span class="text-white font-mono font-bold text-[12px]">{parseFloat(data()?.high_ton || '0').toLocaleString('en-US')}</span>
 								</div>
 							</div>
 						</div>
 
-						{/* AI Valuation Factors */}
+						{/* ═══════ AI FACTORS & REASONING ═══════ */}
 						<Show when={data()?.tags && data()!.tags.length > 0}>
-							<div class="bg-[#0e1118] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3">
+							<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-3.5 shadow-sm">
 								<div class="flex items-center gap-2 text-white/90">
-									<span class="material-symbols-outlined text-[20px] text-[#0098ea]">
-										auto_awesome
-									</span>
-									<span class="text-sm font-semibold uppercase tracking-wider">
-										{t('valuation.ai_factors') || 'AI Valuation Factors'}
-									</span>
+									<span class="material-symbols-outlined text-[20px] text-amber-400">auto_awesome</span>
+									<span class="text-[13px] font-black uppercase tracking-widest">{t('valuation.ai_factors') || 'VALUATION FACTORS'}</span>
 								</div>
-								<div class="flex flex-wrap gap-2 mt-1">
-									{data()?.tags?.map((tag) => (
-										<span class="bg-[#141824] border border-[#232a3d] text-white/80 text-xs px-2.5 py-1 rounded-lg">
-											{tag}
-										</span>
-									))}
+								<div class="flex flex-wrap gap-2 pt-1">
+									{data()?.tags?.map((tag) => <span class="bg-[#08090D] border border-white/10 text-white/70 text-[11px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-[10px] shadow-inner">{tag}</span>)}
 								</div>
 							</div>
 						</Show>
 
-						{/* Extended Reasoning Log */}
 						<Show when={data()?.reasoning_log?.AI_Reasoning}>
-							<div class="bg-[#0e1118] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3">
-								<div class="flex items-center gap-2 text-white/90">
-									<span class="material-symbols-outlined text-[20px] text-emerald-400">
-										psychology_alt
-									</span>
-									<span class="text-sm font-semibold uppercase tracking-wider">
-										{t('valuation.ai_reasoning') || 'AI Reasoning'}
-									</span>
+							<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-3 shadow-sm">
+								<div class="flex items-center gap-2 text-white/90 mb-1">
+									<span class="material-symbols-outlined text-[20px] text-emerald-400">psychology_alt</span>
+									<span class="text-[13px] font-black uppercase tracking-widest">{t('valuation.ai_reasoning') || 'AI REASONING'}</span>
 								</div>
-								<div class="text-white/60 text-xs leading-relaxed whitespace-pre-line border-l-2 border-emerald-500/40 pl-3">
+								<div class="text-white/60 text-[12px] leading-relaxed font-medium whitespace-pre-line border-l-[3px] border-emerald-500/40 pl-3.5 ml-1">
 									"{data()?.reasoning_log?.AI_Reasoning}"
 								</div>
 							</div>
 						</Show>
-					</div>
 
-					{/* Reports Section (Fragment Minimal Style) */}
-					<div class="w-full max-w-[400px] mt-6 flex flex-col gap-4 border-t border-white/[0.08] pt-6 pb-6">
-						{/* Ownership History */}
-						<div class="bg-[#0e1118] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3">
-							<div class="flex items-center gap-2 text-white/90 mb-2">
-								<span class="material-symbols-outlined text-[20px] text-[#0098ea]">history</span>
-								<span class="text-sm font-semibold uppercase tracking-wider">
-									{t('valuation.history_title') || 'Ownership History'}
-								</span>
+						<div class="w-full h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent my-2" />
+
+						{/* ═══════ HISTORY & COMPARABLES (RESTORED) ═══════ */}
+						<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-4 shadow-sm">
+							<div class="flex items-center gap-2 text-white/90">
+								<span class="material-symbols-outlined text-[20px] text-[#3390ec]">history</span>
+								<span class="text-[13px] font-black uppercase tracking-widest">{t('valuation.history_title') || 'OWNERSHIP HISTORY'}</span>
 							</div>
-							<Show
-								when={data()?.history?.is_sold || (data()?.history?.transactions?.length ?? 0) > 0}
-								fallback={
-									<div class="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3.5">
-										<span class="material-symbols-outlined text-emerald-400">verified</span>
-										<span class="text-emerald-400 text-xs font-medium">
-											{t('valuation.not_sold') || 'Status: Never sold on Fragment!'}
-										</span>
+							<Show when={data()?.history?.is_sold || (data()?.history?.transactions?.length ?? 0) > 0} fallback={
+								<div class="flex items-center gap-3 bg-emerald-400/10 border border-emerald-400/20 rounded-[16px] p-4 shadow-inner">
+									<span class="material-symbols-outlined text-emerald-400">verified</span>
+									<span class="text-emerald-400 text-[12px] font-bold tracking-wide">{t('valuation.not_sold') || 'Never sold on Fragment!'}</span>
+								</div>
+							}>
+								<div class="flex flex-col rounded-[16px] overflow-hidden bg-[#08090D] border border-white/5">
+									<div class="grid grid-cols-3 p-3 bg-white/[0.03] text-[10px] font-black text-white/40 uppercase tracking-widest border-b border-white/5">
+										<span>{t('valuation.sale_price') || 'PRICE'}</span><span class="text-center">{t('valuation.date') || 'DATE'}</span><span class="text-right">{t('valuation.buyer') || 'BUYER'}</span>
 									</div>
-								}
-							>
-								<div class="flex flex-col rounded-xl overflow-hidden bg-[#0a0c12] border border-white/[0.06]">
-									<div class="grid grid-cols-3 p-3 border-b border-white/[0.06] bg-white/[0.02] text-xs font-semibold text-white/40 uppercase">
-										<span>{t('valuation.sale_price') || 'Sale price'}</span>
-										<span>{t('valuation.date') || 'Date'}</span>
-										<span class="text-right">{t('valuation.buyer') || 'Buyer'}</span>
-									</div>
-									<Show
-										when={(data()?.history?.transactions?.length ?? 0) > 0}
-										fallback={
-											<div class="p-4 text-center text-white/40 text-xs">
-												{t('valuation.no_tx') || 'No transaction details available.'}
+									<Show when={(data()?.history?.transactions?.length ?? 0) > 0} fallback={<div class="p-5 text-center text-white/40 text-[12px] font-medium">{t('valuation.no_tx') || 'No transaction details.'}</div>}>
+										{data()?.history?.transactions?.map((tx, idx) => (
+											<div class={`grid grid-cols-3 p-3.5 items-center text-[12px] hover:bg-white/[0.02] transition-colors ${idx !== (data()?.history?.transactions?.length || 0) - 1 ? 'border-b border-white/5' : ''}`}>
+												<span class="text-white font-mono font-bold">{tx.sale_price_ton} TON</span>
+												<span class="text-white/40 text-[11px] font-mono text-center">{new Date(tx.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}</span>
+												<span class="text-[#3390ec] font-mono font-bold text-[11px] truncate text-right">{tx.buyer ? `${tx.buyer.slice(0, 5)}...${tx.buyer.slice(-4)}` : 'Fragment'}</span>
 											</div>
-										}
-									>
-										<div class="flex flex-col">
-											{data()?.history?.transactions?.map((tx, idx) => (
-												<div
-													class={`grid grid-cols-3 p-3 items-center text-xs ${idx !== (data()?.history?.transactions?.length || 0) - 1 ? 'border-b border-white/[0.06]' : ''}`}
-												>
-													<span class="text-white font-mono font-semibold">
-														{tx.sale_price_ton} TON
-													</span>
-													<span class="text-white/40 text-[11px]">
-														{new Date(tx.date).toLocaleDateString('en-GB', {
-															day: 'numeric',
-															month: 'short',
-															year: 'numeric',
-														})}
-													</span>
-													<span class="text-[#0098ea] font-mono font-medium text-[11px] truncate text-right">
-														{tx.buyer
-															? `${tx.buyer.slice(0, 6)}...${tx.buyer.slice(-4)}`
-															: 'Fragment'}
-													</span>
-												</div>
-											))}
-										</div>
+										))}
 									</Show>
 								</div>
 							</Show>
 						</div>
 
-						{/* Comparable Benchmark Sales */}
 						<Show when={(data()?.comparables?.length ?? 0) > 0}>
-							<div class="bg-[#0e1118] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3">
-								<div class="flex items-center justify-between text-white/90 mb-1">
+							<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-4 shadow-sm">
+								<div class="flex items-center justify-between text-white/90">
 									<div class="flex items-center gap-2">
-										<span class="material-symbols-outlined text-[20px] text-emerald-400">
-											payments
-										</span>
-										<span class="text-sm font-semibold uppercase tracking-wider">
-											{t('valuation.comp_title') || 'Comparable Sales'}
-										</span>
+										<span class="material-symbols-outlined text-[20px] text-emerald-400">payments</span>
+										<span class="text-[13px] font-black uppercase tracking-widest">{t('valuation.comp_title') || 'COMPARABLES'}</span>
 									</div>
-									<span class="text-xs text-white/40">{data()?.comparables?.length} sales</span>
+									<span class="text-[10px] font-bold text-white/40 bg-white/5 px-2 py-1 rounded-[6px]">{data()?.comparables?.length} SALES</span>
 								</div>
-								<div class="flex flex-col rounded-xl overflow-hidden bg-[#0a0c12] border border-white/[0.06]">
-									<div class="grid grid-cols-3 p-3 border-b border-white/[0.06] bg-white/[0.02] text-xs font-semibold text-white/40 uppercase">
-										<span>Username</span>
-										<span class="text-center">{t('valuation.sale_price') || 'Sale price'}</span>
-										<span class="text-right">{t('valuation.date') || 'Date'}</span>
+								<div class="flex flex-col rounded-[16px] overflow-hidden bg-[#08090D] border border-white/5">
+									<div class="grid grid-cols-3 p-3 bg-white/[0.03] text-[10px] font-black text-white/40 uppercase tracking-widest border-b border-white/5">
+										<span>USERNAME</span><span class="text-center">{t('valuation.sale_price') || 'PRICE'}</span><span class="text-right">{t('valuation.date') || 'DATE'}</span>
 									</div>
 									{data()?.comparables?.map((comp) => (
-										<div
-											onClick={() => {
-												window.location.href = `/username?u=${comp.username}`;
-											}}
-											class="grid grid-cols-3 p-3 items-center border-b border-white/[0.06] text-xs hover:bg-white/[0.03] cursor-pointer"
-										>
-											<span class="text-[#0098ea] font-bold truncate">@{comp.username}</span>
-											<span class="text-emerald-400 font-mono font-bold text-center">
-												{comp.price?.toLocaleString()} TON
-											</span>
-											<span class="text-white/40 text-[11px] text-right font-mono">
-												{comp.date
-													? new Date(comp.date).toLocaleDateString('en-GB', {
-															day: 'numeric',
-															month: 'short',
-														})
-													: '-'}
-											</span>
+										<div onClick={() => window.location.href = `/username?u=${comp.username}`} class="grid grid-cols-3 p-3.5 items-center border-b border-white/5 text-[12px] hover:bg-white/[0.04] cursor-pointer transition-colors">
+											<span class="text-[#3390ec] font-bold truncate">@{comp.username}</span>
+											<span class="text-emerald-400 font-mono font-bold text-center">{comp.price?.toLocaleString()} TON</span>
+											<span class="text-white/40 text-[11px] text-right font-mono">{comp.date ? new Date(comp.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '-'}</span>
 										</div>
 									))}
 								</div>
 							</div>
 						</Show>
 
-						{/* AI Suggestions with Status & Prices */}
+						{/* ═══════ SIMILAR USERNAMES (RESTORED) ═══════ */}
 						<Show when={(data()?.similar?.length ?? 0) > 0}>
-							<div class="bg-[#0e1118] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3">
-								<div class="flex items-center justify-between text-white/90 mb-1">
+							<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-4 shadow-sm w-full overflow-hidden">
+								<div class="flex items-center justify-between text-white/90">
 									<div class="flex items-center gap-2">
-										<span class="material-symbols-outlined text-[20px] text-amber-400">
-											grid_view
-										</span>
-										<span class="text-sm font-semibold uppercase tracking-wider">
-											{t('valuation.similar_title') || 'Similar Usernames'}
-										</span>
+										<span class="material-symbols-outlined text-[20px] text-amber-400">grid_view</span>
+										<span class="text-[13px] font-black uppercase tracking-widest">{t('valuation.similar_title') || 'SIMILAR USERNAMES'}</span>
 									</div>
-									<span class="text-xs text-white/40">{data()?.similar?.length} items</span>
+									<span class="text-[10px] font-bold text-white/40 bg-white/5 px-2 py-1 rounded-[6px]">{data()?.similar?.length} ITEMS</span>
 								</div>
-								<div class="flex gap-3 overflow-x-auto pb-2 snap-x hide-scrollbar">
+								
+								{/* Horizontal Scroll Container */}
+								<div class="flex gap-3 overflow-x-auto pb-2 snap-x hide-scrollbar w-full">
 									{data()?.similar?.map((sim) => {
 										const getStatusBadge = (status?: string) => {
 											switch (status) {
-												case 'sold':
-												case 'taken':
-													return {
-														text: t('valuation.status_sold') || 'Sold',
-														bg: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
-													};
-												case 'on_sale':
-													return {
-														text: t('valuation.status_on_sale') || 'On Sale',
-														bg: 'bg-[#0098ea]/20 text-[#0098ea] border border-[#0098ea]/30',
-													};
-												case 'on_auction':
-													return {
-														text: t('valuation.status_on_auction') || 'On Auction',
-														bg: 'bg-amber-500/20 text-amber-400 border border-amber-500/30',
-													};
-												case 'available':
-													return {
-														text: t('valuation.status_available') || 'Available',
-														bg: 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30',
-													};
-												default:
-													return {
-														text: t('valuation.status_non_nft') || 'Non-NFT',
-														bg: 'bg-zinc-800 text-zinc-400',
-													};
+												case 'sold': case 'taken': return { text: t('valuation.status_sold') || 'SOLD', bg: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' };
+												case 'on_sale': return { text: t('valuation.status_on_sale') || 'ON SALE', bg: 'bg-[#3390ec]/20 text-[#3390ec] border border-[#3390ec]/30' };
+												case 'on_auction': return { text: t('valuation.status_on_auction') || 'AUCTION', bg: 'bg-amber-500/20 text-amber-400 border border-amber-500/30' };
+												case 'available': return { text: t('valuation.status_available') || 'AVAILABLE', bg: 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' };
+												default: return { text: t('valuation.status_non_nft') || 'NON-NFT', bg: 'bg-white/5 text-white/40 border border-white/10' };
 											}
 										};
 										const badge = getStatusBadge(sim.status);
 
 										return (
-											<div
-												class="min-w-[210px] flex-shrink-0 bg-[#0a0c12] border border-white/[0.06] hover:border-white/20 rounded-xl p-3.5 snap-start cursor-pointer hover:bg-white/[0.03] transition-all flex flex-col justify-between gap-2.5 shadow-md"
-												onClick={() => {
-													window.location.href = `/username?u=${sim.username}`;
-												}}
-											>
+											<div onClick={() => window.location.href = `/username?u=${sim.username}`} class="min-w-[220px] flex-shrink-0 bg-[#08090D] border border-white/5 hover:border-white/20 rounded-[18px] p-4 snap-start cursor-pointer hover:bg-white/[0.04] transition-all flex flex-col justify-between gap-3 shadow-inner">
 												<div class="flex items-center justify-between gap-2">
-													<div class="text-[#0098ea] font-bold text-sm truncate">
-														@{sim.username}
-													</div>
-													<span
-														class={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${badge.bg}`}
-													>
-														{badge.text}
-													</span>
+													<div class="text-[#3390ec] font-black text-[14px] truncate">@{sim.username}</div>
+													<span class={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-[8px] ${badge.bg}`}>{badge.text}</span>
 												</div>
-
-												<div class="text-white/50 text-xs line-clamp-2 leading-relaxed font-medium">
-													{sim.reason}
-												</div>
-
-												<div class="pt-2 border-t border-white/[0.06] flex items-center justify-between text-xs">
-													<span class="text-white/40 font-medium">
-														{sim.status === 'on_sale'
-															? t('valuation.ask_price') || 'Ask Price'
-															: t('valuation.sale_price') || 'Sale Price'}
+												<div class="text-white/50 text-[11px] line-clamp-2 leading-relaxed font-medium">{sim.reason}</div>
+												<div class="pt-3 border-t border-white/5 flex items-center justify-between text-[11px]">
+													<span class="text-white/40 font-bold uppercase tracking-wider">
+														{sim.status === 'on_sale' ? (t('valuation.ask_price') || 'ASK') : (t('valuation.sale_price') || 'SALE')}
 													</span>
 													<div class="flex flex-col items-end">
-														<span class="text-emerald-400 font-mono font-bold">
-															{sim.sale_price && sim.sale_price > 0
-																? `${sim.sale_price.toLocaleString()} TON`
-																: sim.status === 'sold' || sim.status === 'taken'
-																	? t('valuation.status_sold') || 'Sold'
-																	: '-'}
-														</span>
-														{sim.sale_price_usd && sim.sale_price_usd > 0 && (
-															<span class="text-white/30 text-[10px] font-mono">
-																≈ ${sim.sale_price_usd.toLocaleString()}
-															</span>
-														)}
+														<span class="text-emerald-400 font-mono font-black">{sim.sale_price && sim.sale_price > 0 ? `${sim.sale_price.toLocaleString()} TON` : (sim.status === 'sold' || sim.status === 'taken' ? 'SOLD' : '-')}</span>
+														{sim.sale_price_usd && sim.sale_price_usd > 0 && <span class="text-white/30 text-[9px] font-mono">≈ ${sim.sale_price_usd.toLocaleString()}</span>}
 													</div>
 												</div>
 											</div>
@@ -1036,88 +558,66 @@ export const UsernamePage: Component = () => {
 							</div>
 						</Show>
 
-						{/* Username Portfolio Section */}
+						{/* ═══════ PORTFOLIO SECTION (RESTORED) ═══════ */}
 						<Show when={data()?.portfolio && (data()?.portfolio?.items?.length ?? 0) > 0}>
-							<div class="bg-[#0e1118] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3">
-								<div class="flex items-center justify-between text-white/90 mb-1">
+							<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-4 shadow-sm">
+								<div class="flex items-center justify-between text-white/90">
 									<div class="flex items-center gap-2">
-										<span class="material-symbols-outlined text-[20px] text-cyan-400">
-											folder_special
-										</span>
-										<span class="text-sm font-semibold uppercase tracking-wider">
-											{t('valuation.portfolio_title') || 'Username Portfolio'}
-										</span>
+										<span class="material-symbols-outlined text-[20px] text-cyan-400">folder_special</span>
+										<span class="text-[13px] font-black uppercase tracking-widest">{t('valuation.portfolio_title') || 'PORTFOLIO'}</span>
 									</div>
-									<span class="text-xs text-cyan-400 font-bold px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20">
-										{data()?.portfolio?.total_count} Handles
+									<span class="text-[10px] font-bold text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 px-2 py-1 rounded-[6px]">
+										{data()?.portfolio?.total_count} HANDLES
 									</span>
 								</div>
 
-								<div class="text-xs text-white/30 font-mono truncate">
-									Owner: {data()?.portfolio?.owner_address}
+								<div class="text-[10px] font-bold text-white/40 bg-white/5 px-3 py-2 rounded-[10px] border border-white/5 truncate flex items-center gap-1.5" dir="ltr">
+									<span class="material-symbols-outlined text-[14px]">wallet</span>
+									{data()?.portfolio?.owner_address}
 								</div>
 
-								<div class="flex flex-col rounded-xl overflow-hidden bg-[#0a0c12] border border-white/[0.06]">
-									<div class="grid grid-cols-2 p-3 border-b border-white/[0.06] bg-white/[0.02] text-xs font-semibold text-white/40 uppercase">
-										<span>Username</span>
-										<span class="text-right">{t('valuation.est_status') || 'Est. / Status'}</span>
+								<div class="flex flex-col rounded-[16px] overflow-hidden bg-[#08090D] border border-white/5">
+									<div class="grid grid-cols-2 p-3 bg-white/[0.03] text-[10px] font-black text-white/40 uppercase tracking-widest border-b border-white/5">
+										<span>USERNAME</span><span class="text-right">{t('valuation.est_status') || 'EST / STATUS'}</span>
 									</div>
 									<div class="flex flex-col max-h-[220px] overflow-y-auto hide-scrollbar">
-										{data()
-											?.portfolio?.items?.slice(0, 10)
-											.map((item) => (
-												<div
-													class="grid grid-cols-2 p-3 items-center border-b border-white/[0.06] text-xs hover:bg-white/[0.02] cursor-pointer"
-													onClick={() => (window.location.href = `/username?u=${item.username}`)}
-												>
-													<span class="text-[#0098ea] font-bold truncate">@{item.username}</span>
-													<span class="text-right text-xs text-white/50 font-mono">
-														{item.sold_price ? `${item.sold_price} TON` : item.status}
-													</span>
-												</div>
-											))}
+										{data()?.portfolio?.items?.slice(0, 10).map((item) => (
+											<div onClick={() => window.location.href = `/username?u=${item.username}`} class="grid grid-cols-2 p-3.5 items-center border-b border-white/5 text-[12px] hover:bg-white/[0.04] cursor-pointer transition-colors">
+												<span class="text-[#3390ec] font-bold truncate">@{item.username}</span>
+												<span class="text-right text-[11px] text-white/50 font-mono font-bold">
+													{item.sold_price ? `${item.sold_price} TON` : item.status}
+												</span>
+											</div>
+										))}
 									</div>
 								</div>
 
 								<Show when={data()?.portfolio?.total_value_ton}>
-									<div class="p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-xl flex items-center justify-between text-xs">
-										<span class="text-cyan-300 font-medium">
-											{t('valuation.est_portfolio_val') || 'Est. Portfolio Value'}
-										</span>
-										<span class="text-cyan-400 font-mono font-bold text-sm">
-											{data()?.portfolio?.total_value_ton?.toLocaleString()} TON
-										</span>
+									<div class="p-3.5 bg-cyan-400/10 border border-cyan-400/20 rounded-[14px] flex items-center justify-between text-[12px] shadow-inner mt-1">
+										<span class="text-cyan-400 font-bold uppercase tracking-wider">{t('valuation.est_portfolio_val') || 'EST. PORTFOLIO VALUE'}</span>
+										<span class="text-cyan-400 font-mono font-black text-[15px]">{data()?.portfolio?.total_value_ton?.toLocaleString()} TON</span>
 									</div>
 								</Show>
 							</div>
 						</Show>
 
-						{/* Owner Profile / Contact Section */}
+						{/* ═══════ OWNER PROFILE (RESTORED) ═══════ */}
 						<Show when={data()?.owner_profile?.first_name || data()?.owner_profile?.username}>
-							<div class="bg-[#0e1118] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3">
+							<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-3 shadow-sm">
 								<div class="flex items-center gap-2 text-white/90 mb-1">
-									<span class="material-symbols-outlined text-[20px] text-[#0098ea]">
-										account_circle
-									</span>
-									<span class="text-sm font-semibold uppercase tracking-wider">
-										{t('valuation.owner_profile_title') || 'Owner Profile'}
-									</span>
+									<span class="material-symbols-outlined text-[20px] text-[#3390ec]">account_circle</span>
+									<span class="text-[13px] font-black uppercase tracking-widest">{t('valuation.owner_profile_title') || 'OWNER PROFILE'}</span>
 								</div>
-								<div class="flex items-center gap-3 p-3 bg-[#0a0c12] rounded-xl border border-white/[0.06]">
-									<div class="w-10 h-10 rounded-full bg-[#0098ea]/20 text-[#0098ea] flex items-center justify-center font-bold text-base">
+								<div class="flex items-center gap-3.5 p-3.5 bg-[#08090D] rounded-[16px] border border-white/5 shadow-inner">
+									<div class="w-12 h-12 rounded-[14px] bg-[#3390ec]/15 border border-[#3390ec]/30 text-[#3390ec] flex items-center justify-center font-black text-[18px]">
 										{data()?.owner_profile?.first_name?.[0] || 'U'}
 									</div>
-									<div class="flex flex-col">
-										<span class="text-white font-bold text-sm">
+									<div class="flex flex-col min-w-0">
+										<span class="text-white font-black text-[15px] truncate">
 											{data()?.owner_profile?.first_name} {data()?.owner_profile?.last_name || ''}
 										</span>
 										<Show when={data()?.owner_profile?.username}>
-											<a
-												href={`https://t.me/${data()?.owner_profile?.username}`}
-												target="_blank"
-												class="text-[#0098ea] text-xs font-medium"
-												rel="noopener"
-											>
+											<a href={`https://t.me/${data()?.owner_profile?.username}`} target="_blank" rel="noopener" class="text-[#3390ec] text-[12px] font-bold mt-0.5 w-fit hover:underline">
 												@{data()?.owner_profile?.username}
 											</a>
 										</Show>
@@ -1126,550 +626,234 @@ export const UsernamePage: Component = () => {
 							</div>
 						</Show>
 
-						{/* Identity & Linguistics */}
-						<div class="bg-[#0e1118] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3">
-							<div class="flex items-center gap-2 text-white/90 mb-1">
-								<span class="material-symbols-outlined text-[20px] text-cyan-400">translate</span>
-								<span class="text-sm font-semibold uppercase tracking-wider">
-									{t('valuation.dict_title') || 'Identity & Linguistics'}
-								</span>
+						{/* ═══════ USERNAME DNA & LINGUISTICS ═══════ */}
+						<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-3 shadow-sm">
+							<div class="flex items-center gap-2 text-white/90 mb-2">
+								<span class="material-symbols-outlined text-[20px] text-pink-400">biotech</span>
+								<span class="text-[13px] font-black uppercase tracking-widest">{t('valuation.struct_title') || 'USERNAME DNA'}</span>
 							</div>
-							<div class="flex items-center justify-between bg-[#0a0c12] rounded-xl p-3 border border-white/[0.04]">
-								<span class="text-white/60 text-xs">
-									{t('valuation.len')?.replace('{count}', data()?.length?.toString() || '0') ||
-										`Length: ${data()?.length} chars`}
-								</span>
-								<span class="text-white font-mono text-xs">{data()?.length}</span>
-							</div>
-							<Show
-								when={data()?.dictionary?.is_word}
-								fallback={
-									<div class="flex items-center justify-center bg-[#0a0c12] rounded-xl p-3.5 border border-white/[0.04]">
-										<span class="text-white/30 text-xs italic">
-											{t('valuation.dict_none') || 'Not a dictionary word'}
-										</span>
+
+							{[
+								{ title: t('valuation.has_digits_title') || 'Pure Letters', desc: data()?.structure?.has_digits ? t('valuation.has_digits_desc') || 'Alpha-numeric' : t('valuation.no_digits_desc') || 'No numbers', premium: !data()?.structure?.has_digits },
+								{ title: t('valuation.has_underscore_title') || 'Clean Handle', desc: data()?.structure?.has_underscore ? t('valuation.has_underscore_desc') || 'Has underscore' : t('valuation.no_underscore_desc') || 'Clean format', premium: !data()?.structure?.has_underscore },
+								{ title: t('valuation.letters_only_title') || 'Alpha-Only', desc: data()?.structure?.letters_only ? t('valuation.letters_only_desc') || 'Pure alphabetic' : t('valuation.mixed_chars_desc') || 'Mixed characters', premium: data()?.structure?.letters_only }
+							].map(item => (
+								<div class="flex items-center justify-between bg-[#08090D] rounded-[16px] p-3.5 border border-white/5">
+									<div class="flex flex-col gap-1">
+										<span class="text-white/90 text-[12px] font-bold">{item.title}</span>
+										<span class="text-white/40 text-[10px] font-medium">{item.desc}</span>
 									</div>
-								}
-							>
-								<div class="flex flex-col bg-[#0a0c12] rounded-xl p-3 border border-white/[0.04]">
-									<span class="text-cyan-400 text-xs font-bold uppercase mb-1">
-										{data()?.dictionary?.part_of_speech || t('valuation.unknown') || 'Unknown'}
+									<span class={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-[8px] border ${item.premium ? 'bg-emerald-400/10 text-emerald-400 border-emerald-400/30' : 'bg-red-400/10 text-red-400 border-red-400/30'}`}>
+										{item.premium ? t('valuation.badge_premium') || 'PREMIUM' : t('valuation.badge_avoid') || 'AVOID'}
 									</span>
-									<span class="text-white/70 text-xs leading-relaxed">
-										{data()?.dictionary?.definition}
-									</span>
+								</div>
+							))}
+
+							{/* Linguistics */}
+							<div class="flex items-center justify-between bg-[#08090D] rounded-[16px] p-3.5 border border-white/5 mt-1">
+								<div class="flex flex-col gap-1">
+									<span class="text-white/90 text-[12px] font-bold">{t('valuation.dict_word_title') || 'Dictionary Word'}</span>
+									<span class="text-white/40 text-[10px] font-medium">{data()?.dictionary?.is_word ? data()?.dictionary?.part_of_speech || 'Recognized word' : 'Not found in dictionary'}</span>
+								</div>
+								<span class={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-[8px] border ${data()?.dictionary?.is_word ? 'bg-cyan-400/10 text-cyan-400 border-cyan-400/30' : 'bg-white/5 text-white/40 border-white/10'}`}>
+									{data()?.dictionary?.is_word ? 'YES' : 'NO'}
+								</span>
+							</div>
+							<Show when={data()?.dictionary?.is_word && data()?.dictionary?.definition}>
+								<div class="bg-[#08090D] rounded-[16px] p-3.5 border border-white/5 text-white/60 text-[11px] leading-relaxed font-medium italic border-l-[3px] border-l-cyan-400/50">
+									"{data()?.dictionary?.definition}"
 								</div>
 							</Show>
 						</div>
 
-						{/* Structural Anatomy — Username DNA */}
-						<div class="bg-[#0e1118] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3">
-							<div class="flex items-center gap-2 text-white/90 mb-1">
-								<span class="material-symbols-outlined text-[20px] text-pink-400">biotech</span>
-								<span class="text-sm font-semibold uppercase tracking-wider">
-									{t('valuation.struct_title') || 'Username DNA'}
-								</span>
-							</div>
-
-							{/* Pure Letters (No numbers) */}
-							<div class="flex items-center justify-between bg-[#0a0c12] rounded-xl p-3 border border-white/[0.04]">
-								<div class="flex flex-col gap-0.5">
-									<span class="text-white/80 text-xs font-medium">
-										{t('valuation.has_digits_title') || 'Pure Letters'}
-									</span>
-									<span class="text-white/30 text-[10px]">
-										{data()?.structure?.has_digits
-											? t('valuation.has_digits_desc') || 'Alpha-numeric combination'
-											: t('valuation.no_digits_desc') || 'Contains no numbers'}
-									</span>
-								</div>
-								<Show
-									when={!data()?.structure?.has_digits}
-									fallback={
-										<span class="bg-red-500/15 text-red-400 text-[10px] font-bold px-2 py-0.5 rounded border border-red-500/20">
-											{t('valuation.badge_avoid') || 'AVOID'}
-										</span>
-									}
-								>
-									<span class="bg-emerald-500/15 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-500/20">
-										{t('valuation.badge_premium') || 'PREMIUM'}
-									</span>
-								</Show>
-							</div>
-
-							{/* Clean Handle (No underscore) */}
-							<div class="flex items-center justify-between bg-[#0a0c12] rounded-xl p-3 border border-white/[0.04]">
-								<div class="flex flex-col gap-0.5">
-									<span class="text-white/80 text-xs font-medium">
-										{t('valuation.has_underscore_title') || 'Clean Handle'}
-									</span>
-									<span class="text-white/30 text-[10px]">
-										{data()?.structure?.has_underscore
-											? t('valuation.has_underscore_desc') || 'Contains underscore'
-											: t('valuation.no_underscore_desc') || 'Clean, unbroken format'}
-									</span>
-								</div>
-								<Show
-									when={!data()?.structure?.has_underscore}
-									fallback={
-										<span class="bg-red-500/15 text-red-400 text-[10px] font-bold px-2 py-0.5 rounded border border-red-500/20">
-											{t('valuation.badge_avoid') || 'AVOID'}
-										</span>
-									}
-								>
-									<span class="bg-emerald-500/15 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-500/20">
-										{t('valuation.badge_clean') || 'CLEAN'}
-									</span>
-								</Show>
-							</div>
-
-							{/* Letters Only */}
-							<div class="flex items-center justify-between bg-[#0a0c12] rounded-xl p-3 border border-white/[0.04]">
-								<div class="flex flex-col gap-0.5">
-									<span class="text-white/80 text-xs font-medium">
-										{t('valuation.letters_only_title') || 'Alpha-Only'}
-									</span>
-									<span class="text-white/30 text-[10px]">
-										{data()?.structure?.letters_only
-											? t('valuation.letters_only_desc') || 'Pure alphabetic characters'
-											: t('valuation.mixed_chars_desc') || 'Contains mixed characters'}
-									</span>
-								</div>
-								<Show
-									when={data()?.structure?.letters_only}
-									fallback={
-										<span class="bg-white/5 text-white/40 text-[10px] font-bold px-2 py-0.5 rounded border border-white/10">
-											{t('valuation.badge_mixed') || 'MIXED'}
-										</span>
-									}
-								>
-									<span class="bg-emerald-500/15 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-500/20">
-										{t('valuation.badge_premium') || 'PREMIUM'}
-									</span>
-								</Show>
-							</div>
-
-							{/* Dictionary Word */}
-							<div class="flex items-center justify-between bg-[#0a0c12] rounded-xl p-3 border border-white/[0.04]">
-								<div class="flex flex-col gap-0.5">
-									<span class="text-white/80 text-xs font-medium">
-										{t('valuation.dict_word_title') || 'Dictionary Word'}
-									</span>
-									<span class="text-white/30 text-[10px]">
-										{data()?.dictionary?.is_word
-											? t('valuation.dict_word_desc') || 'Recognized semantic word'
-											: t('valuation.not_dict_word_desc') || 'Not found in dictionary'}
-									</span>
-								</div>
-								<Show
-									when={data()?.dictionary?.is_word}
-									fallback={
-										<span class="bg-white/5 text-white/40 text-[10px] font-bold px-2 py-0.5 rounded border border-white/10">
-											{t('valuation.badge_no') || 'NO'}
-										</span>
-									}
-								>
-									<span class="bg-cyan-500/15 text-cyan-400 text-[10px] font-bold px-2 py-0.5 rounded border border-cyan-500/20">
-										{t('valuation.badge_yes') || 'YES'}
-									</span>
-								</Show>
-							</div>
-
-							{/* Character Length */}
-							<div class="flex items-center justify-between bg-[#0a0c12] rounded-xl p-3 border border-white/[0.04]">
-								<div class="flex flex-col gap-0.5">
-									<span class="text-white/80 text-xs font-medium">
-										{t('valuation.len_title') || 'Length'}
-									</span>
-									<span class="text-white/30 text-[10px]">
-										{(data()?.length || 0) <= 4
-											? t('valuation.len_ultra_short') || 'Ultra-short format'
-											: (data()?.length || 0) <= 6
-												? t('valuation.len_short') || 'Short format'
-												: t('valuation.len_standard') || 'Standard length'}
-									</span>
-								</div>
-								<span
-									class={`text-[10px] font-bold px-2 py-0.5 rounded border ${(data()?.length || 0) <= 4 ? 'bg-amber-500/15 text-amber-400 border-amber-500/20' : (data()?.length || 0) <= 6 ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' : 'bg-white/5 text-white/40 border-white/10'}`}
-								>
-									{data()?.length} {t('valuation.chars_suffix') || 'CHARS'}
-								</span>
-							</div>
-						</div>
-
-						{/* Brandability & Investment Grade */}
+						{/* ═══════ METRICS (Brandability & Grade) ═══════ */}
 						<div class="grid grid-cols-2 gap-3">
-							<div class="bg-[#0e1118] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-2 justify-center items-center text-center">
-								<span class="text-white/40 text-[10px] font-bold uppercase tracking-wider mb-1">
-									{t('valuation.brandability') || 'Brandability'}
-								</span>
-								<div class="relative w-12 h-12 flex items-center justify-center">
-									<svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-										<path
-											class="text-white/10"
-											stroke-width="4"
-											stroke="currentColor"
-											fill="none"
-											d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-										/>
-										<path
-											class="text-pink-400"
-											stroke-dasharray={`${data()?.brandability || 0}, 100`}
-											stroke-width="4"
-											stroke-linecap="round"
-											stroke="currentColor"
-											fill="none"
-											d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-										/>
+							<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-2 justify-center items-center text-center shadow-sm">
+								<span class="text-white/40 text-[10px] font-black uppercase tracking-widest mb-1">{t('valuation.brandability') || 'BRANDABILITY'}</span>
+								<div class="relative w-14 h-14 flex items-center justify-center">
+									<svg class="w-full h-full transform -rotate-90 drop-shadow-[0_0_8px_rgba(244,114,182,0.4)]" viewBox="0 0 36 36">
+										<path class="text-white/5" stroke-width="3" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+										<path class="text-pink-400" stroke-dasharray={`${data()?.brandability || 0}, 100`} stroke-width="3" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
 									</svg>
-									<span class="absolute text-white font-bold text-xs">
-										{data()?.brandability || 0}
-									</span>
+									<span class="absolute text-white font-black text-[14px]">{data()?.brandability || 0}</span>
 								</div>
 							</div>
-
-							<div class="bg-[#0e1118] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-2 justify-center items-center text-center">
-								<span class="text-white/40 text-[10px] font-bold uppercase tracking-wider mb-1">
-									{t('valuation.investment_grade') || 'Investment Grade'}
-								</span>
-								<span class="text-2xl font-black text-emerald-400">
-									{data()?.investment_grade || 'C'}
-								</span>
+							<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-2 justify-center items-center text-center shadow-sm">
+								<span class="text-white/40 text-[10px] font-black uppercase tracking-widest mb-1">{t('valuation.investment_grade') || 'INV. GRADE'}</span>
+								<span class="text-[32px] font-black text-emerald-400 drop-shadow-[0_0_12px_rgba(52,211,153,0.4)]">{data()?.investment_grade || 'C'}</span>
 							</div>
 						</div>
 
-						{/* Bottom Section: Confidence & Model Engine */}
-						<div class="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-white/[0.08]">
-							<div class="bg-[#0e1118] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-2">
-								<span class="text-white/40 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5">
-									<span class="material-symbols-outlined text-[14px]">radar</span>
-									{t('valuation.confidence') || 'Confidence'}
+						{/* ═══════ CONFIDENCE & MODEL ENGINE (RESTORED) ═══════ */}
+						<div class="grid grid-cols-2 gap-3 mt-1">
+							<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col justify-center gap-2 shadow-sm">
+								<span class="text-white/40 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 mb-1">
+									<span class="material-symbols-outlined text-[16px]">radar</span>
+									{t('valuation.confidence') || 'CONFIDENCE'}
 								</span>
-								<div class="flex items-end gap-1.5 mt-1">
-									<span
-										class={`text-xl font-black leading-none ${data()?.confidence_score && data()!.confidence_score >= 80 ? 'text-emerald-400' : data()?.confidence_score && data()!.confidence_score >= 50 ? 'text-amber-400' : 'text-red-400'}`}
-									>
-										{data()?.confidence_score || 0}%
-									</span>
-								</div>
-								<div class="w-full h-1 bg-white/5 rounded-full mt-1 overflow-hidden">
-									<div
-										class={`h-full ${data()?.confidence_score && data()!.confidence_score >= 80 ? 'bg-emerald-400' : data()?.confidence_score && data()!.confidence_score >= 50 ? 'bg-amber-400' : 'bg-red-400'}`}
-										style={{ width: `${data()?.confidence_score || 0}%` }}
-									/>
+								<span class={`text-[24px] font-black leading-none drop-shadow-md ${data()?.confidence_score && data()!.confidence_score >= 80 ? 'text-emerald-400' : data()?.confidence_score && data()!.confidence_score >= 50 ? 'text-amber-400' : 'text-[#ff4a4a]'}`}>
+									{data()?.confidence_score || 0}%
+								</span>
+								<div class="w-full h-[4px] bg-white/5 rounded-full mt-1.5 overflow-hidden shadow-inner">
+									<div class={`h-full rounded-full transition-all duration-1000 ${data()?.confidence_score && data()!.confidence_score >= 80 ? 'bg-emerald-400 shadow-[0_0_8px_#34d399]' : data()?.confidence_score && data()!.confidence_score >= 50 ? 'bg-amber-400 shadow-[0_0_8px_#fbbf24]' : 'bg-[#ff4a4a]'}`} style={{ width: `${data()?.confidence_score || 0}%` }} />
 								</div>
 							</div>
 
-							<div class="bg-[#0e1118] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-2">
-								<span class="text-white/40 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5">
-									<span class="material-symbols-outlined text-[14px]">memory</span>
-									{t('valuation.engine') || 'Engine'}
+							<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col justify-center gap-1 shadow-sm">
+								<span class="text-white/40 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 mb-1">
+									<span class="material-symbols-outlined text-[16px]">memory</span>
+									{t('valuation.engine') || 'ENGINE'}
 								</span>
-								<span class="text-white font-bold text-xs mt-1">
-									{data()?.model_version || 'AVM-v2'}
-								</span>
-								<span class="text-white/30 text-[10px]">
-									{t('valuation.datapoints') || 'Data points'}:{' '}
-									{data()?.comparable_sales_count || 0}
+								<span class="text-white font-black text-[15px] mt-1">{data()?.model_version || 'AVM-v2'}</span>
+								<span class="text-white/40 text-[10px] font-bold mt-1 uppercase tracking-wider">
+									{t('valuation.datapoints') || 'DATA POINTS'}: <span class="text-white/80">{data()?.comparable_sales_count || 0}</span>
 								</span>
 							</div>
 						</div>
 					</div>
+
 				</div>
 			</Show>
 
-			{/* Hidden Card for clean, crop-free image rendering */}
-			<div
-				style={{
-					position: 'fixed',
-					left: '0px',
-					top: '0px',
-					width: '400px',
-					height: '400px',
-					'z-index': '-9999',
-					'pointer-events': 'none',
-				}}
-			>
-				<div
-					ref={hiddenCardRef}
-					class="w-[400px] h-[400px] bg-[#07080a] border border-white/[0.1] rounded-[40px] p-8 relative overflow-hidden flex flex-col justify-between"
-					style={{
-						'background-image':
-							'radial-gradient(rgba(255, 255, 255, 0.05) 1.2px, transparent 1.2px)',
-						'background-size': '18px 18px',
-					}}
-				>
-					<div class="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
-
-					{/* Shimmer Effect */}
-					<div
-						class="absolute inset-0 pointer-events-none opacity-20"
-						style={{
-							background:
-								'linear-gradient(135deg, transparent 30%, rgba(255,255,255,0.03) 45%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.03) 55%, transparent 70%)',
-						}}
-					/>
-
-					{/* Card Header */}
+			{/* ═══════ HIDDEN CARD FOR EXPORT ═══════ */}
+			<div style={{ position: 'fixed', left: '0px', top: '0px', width: '400px', height: '400px', 'z-index': '-9999', 'pointer-events': 'none' }}>
+				<div ref={hiddenCardRef} class="w-[400px] h-[400px] bg-[#08090D] border border-white/10 rounded-[44px] p-8 relative overflow-hidden flex flex-col justify-between" style={{ 'background-image': 'radial-gradient(rgba(255, 255, 255, 0.05) 1.5px, transparent 1.5px)', 'background-size': '20px 20px' }}>
+					<div class="absolute inset-0 bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
+					<div class="absolute inset-0 pointer-events-none opacity-30" style={{ background: 'linear-gradient(135deg, transparent 30%, rgba(255,255,255,0.05) 45%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.05) 55%, transparent 70%)' }} />
+					
 					<div class="flex justify-between items-center z-10">
-						<span
-							class={`px-4 py-1.5 border rounded-full text-[10px] font-black tracking-wider uppercase ${getTierStyle(data()?.rarity?.tier || '')}`}
-						>
-							{data()?.rarity?.tier || 'Standard'}
-						</span>
-						<span class="text-[11px] font-mono font-black text-white/30 tracking-[5px] uppercase">
-							iFragment
-						</span>
+						<span class={`px-4 py-1.5 border rounded-[10px] text-[10px] font-black tracking-widest uppercase ${getTierTheme(data()?.rarity?.tier || '').badge}`}>{data()?.rarity?.tier || 'Standard'}</span>
+						<span class="text-[11px] font-mono font-black text-white/30 tracking-[4px] uppercase bg-white/5 px-3 py-1 rounded-[10px]">iFragment</span>
 					</div>
 
-					{/* Card Body (Username) */}
-					<div class="flex flex-col justify-center items-center z-10 text-center flex-grow relative py-8 w-full">
-						<div
-							class="absolute w-[90%] h-[120px] opacity-75 -z-10 pointer-events-none"
-							style={{
-								background:
-									'radial-gradient(ellipse 65% 55% at 50% 50%, rgba(0, 245, 255, 0.22) 0%, rgba(157, 0, 255, 0.16) 45%, transparent 75%)',
-							}}
-						/>
-						<div class="flex items-center justify-center gap-1.5 w-full">
-							<span class="text-white/25 font-black text-[28px] select-none tracking-normal">
-								✦
-							</span>
-							<span
-								class={`inline-block font-black tracking-tight bg-gradient-to-r ${getUsernameGradient(data()?.rarity?.tier || '')} bg-clip-text text-transparent drop-shadow-[0_12px_24px_rgba(0,0,0,0.75)] truncate max-w-[85%]`}
-								style={{ 'font-size': getFontSize(data()?.username || username()) }}
-								dir="ltr"
-							>
-								@{data()?.username || username()}
-							</span>
-							<span class="text-white/25 font-black text-[28px] select-none tracking-normal">
-								✦
-							</span>
+					<div class="flex flex-col justify-center items-center z-10 text-center flex-grow relative py-6 w-full">
+						<div class="absolute w-full h-[140px] opacity-70 -z-10 pointer-events-none" style={{ background: `radial-gradient(ellipse 60% 60% at 50% 50%, ${getTierTheme(data()?.rarity?.tier || '').glow}, transparent 70%)` }} />
+						<div class="flex items-center justify-center gap-2 w-full">
+							<span class="text-white/20 font-black text-[24px] select-none">✦</span>
+							<span class={`inline-block font-black tracking-tight bg-gradient-to-r ${getTierTheme(data()?.rarity?.tier || '').text} bg-clip-text text-transparent truncate max-w-[80%]`} style={{ 'font-size': getFontSize(data()?.username || username()) }} dir="ltr">@{data()?.username || username()}</span>
+							<span class="text-white/20 font-black text-[24px] select-none">✦</span>
 						</div>
 					</div>
 
-					{/* Card Footer */}
-					<div class="flex justify-between items-end border-t border-white/[0.06] pt-5 z-10">
-						<div class="flex flex-col gap-1.5 text-left">
-							<span class="text-[9px] font-black text-white/40 uppercase tracking-[2px]">
-								Estimated Value
-							</span>
-							<div class="flex items-center gap-1.5">
-								<svg
-									class="w-6.5 h-6.5 filter drop-shadow-[0_0_10px_rgba(0,152,234,0.6)]"
-									viewBox="0 0 56 56"
-									fill="none"
-									xmlns="http://www.w3.org/2000/svg"
-								>
-									<path
-										d="M28 56C43.464 56 56 43.464 56 28C56 12.536 43.464 0 28 0C12.536 0 0 12.536 0 28C0 43.464 12.536 56 28 56Z"
-										fill="#0098EA"
-									/>
-									<path
-										d="M37.5603 15.6277H18.4386C14.9228 15.6277 12.6944 19.4202 14.4632 22.4861L26.2644 42.9409C27.0345 44.2765 28.9644 44.2765 29.7345 42.9409L41.5765 22.4861C43.3045 19.4202 41.0761 15.6277 37.5765 15.6277H37.5603ZM26.2483 36.8068L23.6119 31.8097L17.2017 20.6506C16.6742 19.7557 17.3255 18.6198 18.4223 18.6198H26.2483V36.8068ZM38.7972 20.6506L32.387 31.8259L29.7506 36.8068V18.6361H37.5765C38.6734 18.6361 39.3247 19.772 38.7972 20.6669V20.6506Z"
-										fill="white"
-									/>
-								</svg>
-								<span
-									class="text-[26px] sm:text-[28px] font-black text-white leading-none drop-shadow-[0_0_15px_rgba(0,152,234,0.3)]"
-									style={{
-										'font-family':
-											"ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
-									}}
-								>
-									{parseFloat(data()?.expected_ton || '0').toLocaleString('en-US')}
-								</span>
-								<span class="text-[13px] font-bold text-[#3390ec] leading-none">TON</span>
+					<div class="flex justify-between items-end border-t border-white/10 pt-4 z-10">
+						<div class="flex flex-col gap-1 text-left">
+							<span class="text-[9px] font-black text-white/40 uppercase tracking-widest mb-0.5">Estimated Value</span>
+							<div class="flex items-center gap-2">
+								<svg class="w-7 h-7" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M28 56C43.464 56 56 43.464 56 28C56 12.536 43.464 0 28 0C12.536 0 0 12.536 0 28C0 43.464 12.536 56 28 56Z" fill="#0098EA"/><path d="M37.5603 15.6277H18.4386C14.9228 15.6277 12.6944 19.4202 14.4632 22.4861L26.2644 42.9409C27.0345 44.2765 28.9644 44.2765 29.7345 42.9409L41.5765 22.4861C43.3045 19.4202 41.0761 15.6277 37.5765 15.6277H37.5603ZM26.2483 36.8068L23.6119 31.8097L17.2017 20.6506C16.6742 19.7557 17.3255 18.6198 18.4223 18.6198H26.2483V36.8068ZM38.7972 20.6506L32.387 31.8259L29.7506 36.8068V18.6361H37.5765C38.6734 18.6361 39.3247 19.772 38.7972 20.6669V20.6506Z" fill="white"/></svg>
+								<span class="text-[30px] font-black text-white leading-none font-sans tracking-tight">{parseFloat(data()?.expected_ton || '0').toLocaleString('en-US')}</span>
+								<span class="text-[14px] font-black text-[#3390ec] leading-none mb-0.5">TON</span>
 							</div>
 						</div>
-
 						<div class="flex flex-col items-end gap-2">
-							<div class="flex items-center gap-1.5 bg-[#00ff88]/10 px-3 py-1 rounded-full border border-[#00ff88]/30 text-[#00ff88] font-black uppercase tracking-wider text-[9px] shadow-[0_0_15px_rgba(0,255,136,0.15)]">
-								<div class="w-1.5 h-1.5 bg-[#00ff88] rounded-full animate-pulse shadow-[0_0_8px_#00ff88]" />
-								Valued
+							<div class="flex items-center gap-1.5 bg-[#00ff88]/10 px-3 py-1 rounded-[8px] border border-[#00ff88]/30 text-[#00ff88] font-black uppercase tracking-widest text-[9px]">
+								<div class="w-1.5 h-1.5 bg-[#00ff88] rounded-full" /> Valued
 							</div>
-							<span
-								class="text-[13px] text-white/60 font-black leading-none"
-								style={{
-									'font-family':
-										"ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
-								}}
-							>
-								≈ $
-								{parseFloat(data()?.expected_usd || '0').toLocaleString('en-US', {
-									maximumFractionDigits: 0,
-								})}
-							</span>
+							<span class="text-[14px] text-white/50 font-black leading-none tracking-tight">≈ ${parseFloat(data()?.expected_usd || '0').toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
 						</div>
 					</div>
 				</div>
 			</div>
 
-			{/* Semi-Paid Valuation Bottom Sheet Modal */}
+			{/* ═══════ PREMIUM PAYMENT GATE (Bottom Sheet) ═══════ */}
 			<Show when={showPaymentGate()}>
-				<Motion.div
-					initial={{ opacity: 0 }}
-					animate={{ opacity: 1 }}
-					class={`fixed inset-0 bg-black/90 backdrop-blur-xl z-[100] flex items-end justify-center ${isRtl() ? 'rtl' : 'ltr'}`}
-				>
-					<Motion.div
-						initial={{ y: '100%' }}
-						animate={{ y: 0 }}
-						transition={{ duration: 0.35, easing: [0.32, 0.72, 0, 1] }}
-						class="w-full max-h-[92vh] bg-[#0b0c10] rounded-t-[2.5rem] border-t border-white/10 p-6 overflow-y-auto no-scrollbar shadow-[0_-25px_60px_rgba(0,0,0,0.95)] relative"
-					>
-						{/* Handle Accent Bar */}
-						<div class="w-12 h-1 bg-gradient-to-r from-cyan-500 via-amber-400 to-emerald-500 rounded-full mx-auto mb-6 opacity-60" />
+				<Motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} class={`fixed inset-0 bg-[#030303]/90 backdrop-blur-2xl z-[100] flex items-end justify-center ${isRtl() ? 'rtl' : 'ltr'}`}>
+					<Motion.div initial={{ y: '100%' }} animate={{ y: 0 }} transition={{ duration: 0.35, easing: [0.32, 0.72, 0, 1] }} class="w-full max-h-[92vh] bg-[#12141C] rounded-t-[32px] border-t border-white/10 p-6 overflow-y-auto no-scrollbar shadow-[0_-30px_80px_rgba(0,0,0,0.8)] relative">
+						
+						<div class="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-6" />
 
-						{/* Header Premium Badge & Persuasive Copy */}
-						<div class="flex flex-col items-center text-center gap-2 mb-6">
-							<div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500/20 via-cyan-500/20 to-emerald-500/20 border border-white/10 flex items-center justify-center shadow-[0_0_30px_rgba(34,211,238,0.15)] mb-1">
-								<span class="material-symbols-outlined text-[32px] text-amber-400">
-									auto_awesome
-								</span>
+						<div class="flex flex-col items-center text-center gap-2 mb-8">
+							<div class="w-16 h-16 rounded-[20px] bg-gradient-to-br from-amber-400/20 to-cyan-400/10 border border-white/10 flex items-center justify-center shadow-[inset_0_2px_10px_rgba(255,255,255,0.05),0_10px_30px_rgba(245,158,11,0.15)] mb-2">
+								<span class="material-symbols-outlined text-[36px] text-amber-400 drop-shadow-md">auto_awesome</span>
 							</div>
-							<h3 class="text-[19px] sm:text-[21px] font-black text-white leading-snug max-w-sm">
-								{t('valuation.gate_title')}
+							<h3 class="text-[22px] font-black text-white tracking-tight leading-tight max-w-sm">
+								{t('valuation.gate_title') || 'Unlock Full AI Valuation'}
 							</h3>
-							<p class="text-[12.5px] font-medium text-white/50 max-w-xs leading-relaxed">
-								{t('valuation.gate_subtitle')}
+							<p class="text-[13px] font-medium text-white/50 max-w-xs leading-relaxed">
+								{t('valuation.gate_subtitle') || 'Get deep market analytics, DNA structure, and exact pricing.'}
 							</p>
 						</div>
 
-						{/* Error Message */}
 						<Show when={paymentError()}>
-							<div class="bg-red-500/10 border border-red-500/30 text-red-400 rounded-2xl p-3.5 mb-4 text-xs font-semibold flex items-center gap-2.5 shadow-lg">
-								<span class="material-symbols-outlined text-[20px] shrink-0">error</span>
-								<span class="leading-normal">{paymentError()}</span>
+							<div class="bg-[#ff4a4a]/10 border border-[#ff4a4a]/30 text-[#ff4a4a] rounded-[16px] p-4 mb-5 text-[12px] font-bold flex items-center gap-2.5 shadow-sm">
+								<span class="material-symbols-outlined text-[22px]">error</span>
+								<span>{paymentError()}</span>
 							</div>
 						</Show>
 
-						{/* Options List */}
-						<div class="space-y-3.5">
-							{/* Option 1: Telegram Stars */}
-							<button
-								onClick={handlePayStars}
-								disabled={isProcessingPayment()}
-								class="w-full relative group overflow-hidden bg-gradient-to-r from-[#171821] to-[#111219] border border-amber-500/30 hover:border-amber-400/70 rounded-3xl p-4 text-left transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg hover:shadow-[0_0_25px_rgba(251,191,36,0.15)]"
-							>
-								<div class="absolute right-[-20px] top-[-20px] w-24 h-24 bg-amber-400/10 rounded-full blur-2xl group-hover:bg-amber-400/20 transition-all pointer-events-none" />
-								<div class="relative flex items-center justify-between gap-3.5 z-10 w-full">
-									<div class="flex items-center gap-3.5 flex-1 min-w-0">
-										<div class="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shrink-0 shadow-inner">
+						<div class="space-y-3">
+							{/* Stars Option */}
+							<button onClick={handlePayStars} disabled={isProcessingPayment()} class="w-full relative group overflow-hidden bg-[#08090D] border border-amber-400/20 hover:border-amber-400/50 rounded-[24px] p-4.5 text-left transition-all active:scale-[0.98] disabled:opacity-50 shadow-md">
+								<div class="absolute -right-6 -top-6 w-24 h-24 bg-amber-400/10 rounded-full blur-2xl group-hover:bg-amber-400/20 transition-all pointer-events-none" />
+								<div class="relative flex items-center justify-between gap-3 z-10 w-full">
+									<div class="flex items-center gap-4 flex-1 min-w-0">
+										<div class="w-12 h-12 rounded-[16px] bg-amber-400/10 border border-amber-400/30 flex items-center justify-center shrink-0 shadow-inner">
 											<span class="material-symbols-outlined text-amber-400 text-[26px]">star</span>
 										</div>
 										<div class="flex flex-col text-start min-w-0">
-											<h4 class="text-[15px] font-black text-white leading-tight truncate">
-												{t('valuation.pay_stars_title')}
-											</h4>
-											<span class="text-[12px] font-medium text-white/50 mt-1 truncate">
-												{t('valuation.pay_stars_desc')}
-											</span>
+											<h4 class="text-[15px] font-black text-white truncate">{t('valuation.pay_stars_title') || 'Pay with Stars'}</h4>
+											<span class="text-[11px] font-medium text-white/50 mt-0.5 truncate">{t('valuation.pay_stars_desc') || 'Instant Telegram Payment'}</span>
 										</div>
 									</div>
-									<div class="px-3.5 py-1.5 rounded-full bg-amber-400/10 border border-amber-400/30 text-amber-400 font-extrabold text-xs shrink-0 shadow-sm flex items-center gap-1.5">
-										<span class="material-symbols-outlined text-[15px]">star</span>
-										<span>49</span>
+									<div class="px-3.5 py-1.5 rounded-[10px] bg-amber-400/10 border border-amber-400/30 text-amber-400 font-black text-[13px] shrink-0 flex items-center gap-1.5 shadow-sm">
+										<span class="material-symbols-outlined text-[16px]">star</span> 49
 									</div>
 								</div>
 							</button>
 
-							{/* Option 2: Airdrop Coins */}
-							<button
-								onClick={handlePayCoins}
-								disabled={isProcessingPayment()}
-								class="w-full relative group overflow-hidden bg-gradient-to-r from-[#171821] to-[#111219] border border-cyan-500/30 hover:border-cyan-400/70 rounded-3xl p-4 text-left transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg hover:shadow-[0_0_25px_rgba(34,211,238,0.15)]"
-							>
-								<div class="absolute right-[-20px] top-[-20px] w-24 h-24 bg-cyan-400/10 rounded-full blur-2xl group-hover:bg-cyan-400/20 transition-all pointer-events-none" />
-								<div class="relative flex items-center justify-between gap-3.5 z-10 w-full">
-									<div class="flex items-center gap-3.5 flex-1 min-w-0">
-										<div class="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center shrink-0 shadow-inner">
+							{/* Coins Option */}
+							<button onClick={handlePayCoins} disabled={isProcessingPayment()} class="w-full relative group overflow-hidden bg-[#08090D] border border-cyan-400/20 hover:border-cyan-400/50 rounded-[24px] p-4.5 text-left transition-all active:scale-[0.98] disabled:opacity-50 shadow-md">
+								<div class="absolute -right-6 -top-6 w-24 h-24 bg-cyan-400/10 rounded-full blur-2xl group-hover:bg-cyan-400/20 transition-all pointer-events-none" />
+								<div class="relative flex items-center justify-between gap-3 z-10 w-full">
+									<div class="flex items-center gap-4 flex-1 min-w-0">
+										<div class="w-12 h-12 rounded-[16px] bg-cyan-400/10 border border-cyan-400/30 flex items-center justify-center shrink-0 shadow-inner">
 											<span class="material-symbols-outlined text-cyan-400 text-[26px]">toll</span>
 										</div>
 										<div class="flex flex-col text-start min-w-0">
-											<h4 class="text-[15px] font-black text-white leading-tight truncate">
-												{t('valuation.pay_coins_title')}
-											</h4>
-											<span class="text-[12px] font-medium text-white/50 mt-1 truncate">
-												{t('valuation.pay_coins_desc')}
-											</span>
+											<h4 class="text-[15px] font-black text-white truncate">{t('valuation.pay_coins_title') || 'Pay with Coins'}</h4>
+											<span class="text-[11px] font-medium text-white/50 mt-0.5 truncate">{t('valuation.pay_coins_desc') || 'Use your mined balance'}</span>
 										</div>
 									</div>
-									<div class="px-3.5 py-1.5 rounded-full bg-cyan-400/10 border border-cyan-400/30 text-cyan-400 font-extrabold text-xs shrink-0 shadow-sm flex items-center gap-1.5">
-										<span class="material-symbols-outlined text-[15px]">toll</span>
-										<span>88,000</span>
+									<div class="px-3.5 py-1.5 rounded-[10px] bg-cyan-400/10 border border-cyan-400/30 text-cyan-400 font-black text-[13px] shrink-0 flex items-center gap-1.5 shadow-sm">
+										<span class="material-symbols-outlined text-[16px]">toll</span> 88K
 									</div>
 								</div>
 							</button>
 
-							{/* Option 3: 1-Time Free Access for Community Members */}
+							{/* Community Free Access */}
 							<Show when={!freeQuotaUsed()}>
-								<div class="w-full bg-gradient-to-r from-[#111a14] to-[#0d140f] border border-emerald-500/35 hover:border-emerald-400/60 rounded-3xl p-4 flex flex-col gap-3.5 transition-all shadow-lg hover:shadow-[0_0_25px_rgba(16,185,129,0.15)]">
-									<div class="flex items-center gap-3.5">
-										<div class="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shrink-0 shadow-inner">
-											<span class="material-symbols-outlined text-emerald-400 text-[26px]">
-												card_giftcard
-											</span>
+								<div class="w-full bg-[#08090D] border border-emerald-400/20 hover:border-emerald-400/50 rounded-[24px] p-4.5 flex flex-col gap-4 transition-all shadow-md mt-2">
+									<div class="flex items-center gap-4">
+										<div class="w-12 h-12 rounded-[16px] bg-emerald-400/10 border border-emerald-400/30 flex items-center justify-center shrink-0 shadow-inner">
+											<span class="material-symbols-outlined text-emerald-400 text-[26px]">card_giftcard</span>
 										</div>
 										<div class="flex-1 flex flex-col text-start min-w-0">
-											<h4 class="text-[15px] font-black text-white leading-tight truncate">
-												{t('valuation.free_channel_group_title')}
-											</h4>
-											<span class="text-[12px] font-medium text-white/50 mt-0.5 leading-relaxed">
-												{t('valuation.free_channel_group_desc')}
-											</span>
+											<h4 class="text-[15px] font-black text-white truncate">{t('valuation.free_channel_group_title') || 'Community Access'}</h4>
+											<span class="text-[11px] font-medium text-white/50 mt-0.5 leading-relaxed">{t('valuation.free_channel_group_desc') || '1-Time Free pass for members'}</span>
 										</div>
 									</div>
 
-									{/* Dual Buttons Side-by-Side: Join Channel & Join Group */}
-									<div class="grid grid-cols-2 gap-2.5 w-full pt-0.5">
-										<button
-											onClick={() => openTelegramLink('https://t.me/FragmentsCommunity')}
-											class="h-10 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-300 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all active:scale-95"
-										>
-											<span class="material-symbols-outlined text-[16px] text-emerald-400">
-												podcasts
-											</span>
-											<span>{t('valuation.join_channel_btn')}</span>
+									<div class="grid grid-cols-2 gap-2.5 w-full">
+										<button onClick={() => openTelegramLink('https://t.me/FragmentsCommunity')} class="h-11 bg-white/5 hover:bg-white/10 border border-white/5 text-emerald-300 font-bold text-[12px] rounded-[14px] flex items-center justify-center gap-1.5 transition-all active:scale-95">
+											<span class="material-symbols-outlined text-[18px]">podcasts</span> {t('valuation.join_channel_btn') || 'CHANNEL'}
 										</button>
-										<button
-											onClick={() => openTelegramLink('https://t.me/FragmentInvestors')}
-											class="h-10 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-300 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all active:scale-95"
-										>
-											<span class="material-symbols-outlined text-[16px] text-emerald-400">
-												groups
-											</span>
-											<span>{t('valuation.join_group_btn')}</span>
+										<button onClick={() => openTelegramLink('https://t.me/FragmentInvestors')} class="h-11 bg-white/5 hover:bg-white/10 border border-white/5 text-emerald-300 font-bold text-[12px] rounded-[14px] flex items-center justify-center gap-1.5 transition-all active:scale-95">
+											<span class="material-symbols-outlined text-[18px]">groups</span> {t('valuation.join_group_btn') || 'GROUP'}
 										</button>
 									</div>
 
-									{/* Full-width Verify & Analyze Button Below */}
-									<button
-										onClick={handleVerifyFreeAccess}
-										disabled={isProcessingPayment()}
-										class="w-full h-11 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-[0_4px_15px_rgba(16,185,129,0.3)] active:scale-95 transition-all disabled:opacity-50 mt-0.5"
-									>
-										<Show
-											when={isProcessingPayment()}
-											fallback={
-												<>
-													<span class="material-symbols-outlined text-[18px]">verified</span>
-													<span>{t('valuation.verify_membership_btn')}</span>
-												</>
-											}
-										>
-											<div class="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+									<button onClick={handleVerifyFreeAccess} disabled={isProcessingPayment()} class="w-full h-14 bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 text-black font-black text-[13px] tracking-widest uppercase rounded-[16px] flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(52,211,153,0.3)] active:scale-95 transition-all disabled:opacity-50">
+										<Show when={isProcessingPayment()} fallback={<><span class="material-symbols-outlined text-[20px]">verified</span>{t('valuation.verify_membership_btn') || 'VERIFY & ANALYZE'}</>}>
+											<div class="w-5 h-5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
 										</Show>
 									</button>
 								</div>
 							</Show>
 						</div>
 
-						{/* Processing Overlay */}
 						<Show when={isProcessingPayment()}>
-							<div class="absolute inset-0 bg-[#0b0c10]/90 backdrop-blur-md z-30 flex flex-col items-center justify-center rounded-t-[2.5rem]">
-								<span class="w-10 h-10 border-4 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin mb-4" />
-								<span class="text-[14px] font-bold text-white animate-pulse">Processing...</span>
+							<div class="absolute inset-0 bg-[#12141C]/90 backdrop-blur-md z-30 flex flex-col items-center justify-center rounded-t-[32px]">
+								<span class="w-12 h-12 border-4 border-[#3390ec]/30 border-t-[#3390ec] rounded-full animate-spin mb-4 shadow-[0_0_15px_#3390ec]" />
+								<span class="text-[14px] font-black uppercase tracking-widest text-white animate-pulse">PROCESSING...</span>
 							</div>
 						</Show>
 					</Motion.div>

@@ -11,7 +11,6 @@ export const MarketplacePage: Component = () => {
 	const [optionsLoading, setOptionsLoading] = createSignal(true);
 	const [loadingOptionId, setLoadingOptionId] = createSignal<string | null>(null);
 
-	// Conversion state
 	const [convertAmount, setConvertAmount] = createSignal<string>('');
 	const [convertLoading, setConvertLoading] = createSignal(false);
 	const [convertError, setConvertError] = createSignal('');
@@ -32,65 +31,33 @@ export const MarketplacePage: Component = () => {
 
 	onMount(() => {
 		backButton.show();
-		const off = backButton.onClick(() => window.history.back());
-		onCleanup(() => {
-			off();
-			backButton.hide();
-		});
+		const off = backButton.onClick(() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} window.history.back(); });
+		onCleanup(() => { off(); backButton.hide(); });
 
-		// Fetch purchase options
-		marketplaceApi
-			.getOptions()
-			.then((res: PurchaseOption[]) => {
-				const mapped = (res || []).map((opt: PurchaseOption) => ({
-					...opt,
-					price: opt.price ?? opt.amount_stars ?? 0,
-					frg_amount: opt.frg_amount ?? opt.amount_coins ?? 0,
-				}));
-				// Sort descending by price (highest price first)
-				const sorted = mapped.sort((a: PurchaseOption, b: PurchaseOption) => b.price - a.price);
-				setOptions(sorted);
-			})
-			.catch((err) => {
-				console.error('Failed to load options:', err);
-			})
-			.finally(() => {
-				setOptionsLoading(false);
-			});
+		marketplaceApi.getOptions().then((res: PurchaseOption[]) => {
+			const mapped = (res || []).map((opt: PurchaseOption) => ({ ...opt, price: opt.price ?? opt.amount_stars ?? 0, frg_amount: opt.frg_amount ?? opt.amount_coins ?? 0 }));
+			setOptions(mapped.sort((a, b) => b.price - a.price));
+		}).catch((err) => console.error('Failed to load options:', err)).finally(() => setOptionsLoading(false));
 	});
 
 	const handleBuyWithStars = async (opt: PurchaseOption) => {
 		if (loadingOptionId()) return;
 		setLoadingOptionId(opt.id);
 		try {
-			try {
-				hapticFeedback.impactOccurred('medium');
-			} catch (_) {}
-
-			// 1. Create invoice link on backend
+			try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
 			const res = await marketplaceApi.createStarsInvoice(opt.id);
-			if (!res?.invoice_link) {
-				throw new Error('Failed to generate invoice link');
-			}
+			if (!res?.invoice_link) throw new Error('Failed to generate invoice link');
 
-			// 2. Open invoice native popup
 			const status = await openInvoice(res.invoice_link);
 			if (status === 'paid') {
-				try {
-					hapticFeedback.notificationOccurred('success');
-				} catch (_) {}
-				// Sync balance
+				try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
 				await syncProfileStats();
 			} else {
-				try {
-					hapticFeedback.notificationOccurred('warning');
-				} catch (_) {}
+				try { hapticFeedback.notificationOccurred('warning'); } catch (_) {}
 			}
 		} catch (e: any) {
 			console.error(e);
-			try {
-				hapticFeedback.notificationOccurred('error');
-			} catch (_) {}
+			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
 		} finally {
 			setLoadingOptionId(null);
 		}
@@ -99,7 +66,6 @@ export const MarketplacePage: Component = () => {
 	const calculatedFRG = () => {
 		const amt = parseFloat(convertAmount());
 		if (Number.isNaN(amt) || amt <= 0) return 0;
-		// Rate: 100,000 airdrop coins = 1 FRG (4 decimal precision)
 		return Math.floor((amt / 100000.0) * 10000) / 10000;
 	};
 
@@ -110,354 +76,248 @@ export const MarketplacePage: Component = () => {
 			setConvertError(t('marketplace.insufficientAirdrop') || 'حداقل مقدار تبدیل ۱۰۰,۰۰۰ سکه است');
 			return;
 		}
-
 		if (coinsVal > balance()) {
 			setConvertError(t('marketplace.insufficientAirdrop') || 'موجودی سکه ایردراپ شما کافی نیست');
 			return;
 		}
 
-		setConvertLoading(true);
-		setConvertError('');
-		setConvertSuccess('');
-
+		setConvertLoading(true); setConvertError(''); setConvertSuccess('');
 		try {
-			try {
-				hapticFeedback.impactOccurred('heavy');
-			} catch (_) {}
+			try { hapticFeedback.impactOccurred('heavy'); } catch (_) {}
 			await marketplaceApi.convertAirdropCoins(coinsVal);
 			setConvertSuccess('تبدیل با موفقیت انجام شد!');
-			setIsUserEdited(false);
-			setConvertAmount('');
-			try {
-				hapticFeedback.notificationOccurred('success');
-			} catch (_) {}
+			setIsUserEdited(false); setConvertAmount('');
+			try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
 			await syncProfileStats();
 		} catch (err: any) {
 			setConvertError(err.message || 'خطایی رخ داد، لطفاً دوباره تلاش کنید.');
-			try {
-				hapticFeedback.notificationOccurred('error');
-			} catch (_) {}
+			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
 		} finally {
 			setConvertLoading(false);
 		}
 	};
 
 	const setPercentAmount = (pct: number) => {
-		try {
-			hapticFeedback.impactOccurred('light');
-		} catch (_) {}
+		try { hapticFeedback.impactOccurred('light'); } catch (_) {}
 		setIsUserEdited(true);
-		const total = balance();
-		const amt = Math.floor(total * pct);
-		// Align to nearest integer
+		const amt = Math.floor(balance() * pct);
 		setConvertAmount(amt > 0 ? amt.toString() : '');
 	};
 
 	return (
-		<div
-			class="flex flex-col bg-[#0f1014] relative overflow-hidden"
-			style={{ 'min-height': 'var(--tg-viewport-stable-height, 100vh)' }}
-		>
-			{/* Header Info */}
-			<div class="px-5 pt-6 pb-4 z-10 flex flex-col items-center">
-				<span
-					class="material-symbols-outlined text-amber-400 text-5xl mb-2 animate-bounce"
-					style={{ 'font-variation-settings': '"FILL" 1' }}
-				>
-					storefront
-				</span>
-				<h1 class="text-white text-2xl font-black tracking-tight">
-					{t('marketplace.title') || 'بازارچه سکه'}
-				</h1>
-				<p class="text-[#8e8e93] text-xs font-semibold mt-1 text-center">
-					{t('marketplace.subtitle') || 'خرید و تبدیل سکه FRG'}
-				</p>
-			</div>
+		<div class="flex flex-col bg-[#030303] relative overflow-x-hidden text-white font-sans selection:bg-[#3390ec]/30" style={{ 'min-height': 'var(--tg-viewport-stable-height, 100vh)' }} dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}>
+			
+			{/* Ambient Top Glow */}
+			<div class="absolute top-0 left-0 right-0 h-[400px] bg-gradient-to-b from-[#3390ec]/15 via-amber-500/5 to-transparent blur-[80px] pointer-events-none z-0" />
 
-			{/* Balance Card */}
-			<div class="px-4 mb-6 z-10">
-				<div class="bg-gradient-to-br from-[#1c1c1e] to-[#121214] border border-white/[0.05] rounded-3xl p-5 shadow-2xl relative overflow-hidden flex items-center justify-between">
-					<div class="absolute inset-0 bg-gradient-to-tr from-[#3390ec]/5 via-transparent to-transparent pointer-events-none"></div>
-					<div>
-						<div class="text-[#8e8e93] text-[10px] font-black uppercase tracking-widest">
-							{t('marketplace.balance') || 'موجودی سکه (FRG)'}
-						</div>
-						<div class="text-white text-3xl font-black mt-1.5 flex items-baseline gap-1 font-mono">
-							{frgBalance().toLocaleString('en-US')}
-							<span class="text-amber-400 text-xs font-bold font-sans">FRG</span>
-						</div>
-						<div class="text-red-400 font-bold text-[10px] flex items-center gap-1 mt-2.5 bg-red-500/5 px-2 py-1 rounded-lg border border-red-500/10">
-							<span
-								class="material-symbols-outlined text-[10px]"
-								style={{ 'font-variation-settings': '"FILL" 1' }}
-							>
-								monetization_on
+			<div class="w-full max-w-[420px] mx-auto flex flex-col relative z-10">
+				
+				{/* ═══════ HEADER ═══════ */}
+				<div class="px-5 pt-8 pb-5 flex flex-col items-center text-center">
+					<div class="w-20 h-20 bg-gradient-to-br from-[#1c1608] to-[#08090D] rounded-[24px] border-[1.5px] border-amber-500/30 flex items-center justify-center mb-4 shadow-[inset_0_2px_12px_rgba(255,255,255,0.05),0_10px_30px_rgba(245,158,11,0.15)] relative overflow-hidden">
+						<div class="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-10 bg-amber-400/20 blur-xl rounded-full" />
+						<span class="material-symbols-outlined text-[42px] text-amber-400 drop-shadow-md">storefront</span>
+					</div>
+					<h1 class="text-[26px] font-black tracking-tight text-white mb-1.5 drop-shadow-sm">
+						{t('marketplace.title') || 'بازارچه سکه'}
+					</h1>
+					<p class="text-white/50 text-[13px] font-medium tracking-wide">
+						{t('marketplace.subtitle') || 'خرید و تبدیل سکه FRG'}
+					</p>
+				</div>
+
+				{/* ═══════ BALANCE DASHBOARD CARD ═══════ */}
+				<div class="px-4 mb-6">
+					<div class="bg-gradient-to-br from-[#12141C] to-[#08090D] border border-white/10 rounded-[28px] p-6 shadow-[0_20px_40px_rgba(0,0,0,0.5)] relative overflow-hidden flex items-center justify-between">
+						<div class="absolute -right-10 -top-10 w-32 h-32 bg-amber-400/10 blur-3xl rounded-full pointer-events-none" />
+						<div class="absolute -left-10 -bottom-10 w-32 h-32 bg-[#3390ec]/10 blur-3xl rounded-full pointer-events-none" />
+						
+						<div class="relative z-10 flex flex-col">
+							<span class="text-white/40 text-[10px] font-black uppercase tracking-widest mb-1.5">
+								{t('marketplace.balance') || 'موجودی سکه (FRG)'}
 							</span>
-							<span>{balance().toLocaleString('en-US')} Airdrop Coins</span>
+							<div class="text-white text-[32px] font-black flex items-baseline gap-1.5 font-mono drop-shadow-md" dir="ltr">
+								{frgBalance().toLocaleString('en-US')}
+								<span class="text-amber-400 text-[13px] font-black font-sans">FRG</span>
+							</div>
+							<div class="flex items-center gap-1.5 mt-3 bg-white/5 border border-white/10 px-3 py-1.5 rounded-[10px] shadow-sm w-fit" dir="ltr">
+								<span class="material-symbols-outlined text-[14px] text-[#3390ec]">monetization_on</span>
+								<span class="text-white/80 font-mono font-bold text-[11px] pt-0.5">{balance().toLocaleString('en-US')} Airdrop Coins</span>
+							</div>
+						</div>
+						
+						<div class="w-16 h-16 rounded-[20px] bg-gradient-to-br from-amber-400/20 to-amber-400/5 border border-amber-400/30 flex items-center justify-center shadow-inner relative z-10">
+							<span class="material-symbols-outlined text-amber-400 text-[36px] drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]">toll</span>
 						</div>
 					</div>
-					<div class="w-14 h-14 rounded-2xl bg-amber-400/5 border border-amber-400/20 flex items-center justify-center shadow-inner">
-						<span
-							class="material-symbols-outlined text-amber-400 text-3xl"
-							style={{ 'font-variation-settings': '"FILL" 1' }}
+				</div>
+
+				{/* ═══════ GLASS TABS ═══════ */}
+				<div class="px-4 mb-6">
+					<div class="bg-[#12141C]/80 backdrop-blur-xl rounded-[20px] p-1.5 flex gap-1 border border-white/5 shadow-inner">
+						<button
+							onClick={() => { try { hapticFeedback.selectionChanged(); } catch (_) {} setActiveTab('buy'); }}
+							class={`flex-1 h-12 rounded-[16px] text-[13px] font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-1.5 ${
+								activeTab() === 'buy' ? 'bg-white/10 text-white shadow-[0_2px_12px_rgba(0,0,0,0.3)] border border-white/5' : 'text-white/40 hover:text-white/80'
+							}`}
 						>
-							toll
-						</span>
+							<span class="material-symbols-outlined text-[18px]">stars</span> {t('marketplace.buyTokens') || 'خرید سکه'}
+						</button>
+						<button
+							onClick={() => { try { hapticFeedback.selectionChanged(); } catch (_) {} setActiveTab('convert'); }}
+							class={`flex-1 h-12 rounded-[16px] text-[13px] font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-1.5 ${
+								activeTab() === 'convert' ? 'bg-white/10 text-white shadow-[0_2px_12px_rgba(0,0,0,0.3)] border border-white/5' : 'text-white/40 hover:text-white/80'
+							}`}
+						>
+							<span class="material-symbols-outlined text-[18px]">swap_horiz</span> {t('marketplace.convertAirdrop') || 'تبدیل ایردراپ'}
+						</button>
 					</div>
 				</div>
-			</div>
 
-			{/* Premium Glass Tabs */}
-			<div class="px-4 mb-6 z-10">
-				<div class="flex bg-[#1c1c1e]/60 backdrop-blur-md border border-white/[0.04] p-1 rounded-2xl">
-					<button
-						onClick={() => {
-							try {
-								hapticFeedback.selectionChanged();
-							} catch (_) {}
-							setActiveTab('buy');
-						}}
-						class={`flex-1 py-3.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
-							activeTab() === 'buy'
-								? 'bg-[#3390ec] text-white shadow-[0_4px_15px_rgba(51,144,236,0.3)]'
-								: 'text-[#8e8e93] hover:text-white'
-						}`}
-					>
-						<span class="material-symbols-outlined text-sm">stars</span>
-						{t('marketplace.buyTokens') || 'خرید سکه'}
-					</button>
-					<button
-						onClick={() => {
-							try {
-								hapticFeedback.selectionChanged();
-							} catch (_) {}
-							setActiveTab('convert');
-						}}
-						class={`flex-1 py-3.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
-							activeTab() === 'convert'
-								? 'bg-[#3390ec] text-white shadow-[0_4px_15px_rgba(51,144,236,0.3)]'
-								: 'text-[#8e8e93] hover:text-white'
-						}`}
-					>
-						<span class="material-symbols-outlined text-sm">published_with_changes</span>
-						{t('marketplace.convertAirdrop') || 'تبدیل ایردراپ'}
-					</button>
-				</div>
-			</div>
+				{/* ═══════ TAB PANELS ═══════ */}
+				<div class="flex-1 px-4 pb-12">
+					
+					{/* ── BUY TAB (STORE) ── */}
+					<Show when={activeTab() === 'buy'}>
+						<Show when={!optionsLoading()} fallback={<div class="flex justify-center py-16"><div class="w-10 h-10 border-4 border-white/10 border-t-[#3390ec] rounded-full animate-spin shadow-[0_0_15px_#3390ec]" /></div>}>
+							<div class="grid grid-cols-2 gap-3.5">
+								<For each={options()}>
+									{(opt) => (
+										<div class={`bg-[#12141C]/80 backdrop-blur-xl border rounded-[24px] p-4 flex flex-col justify-between relative overflow-hidden transition-all duration-300 shadow-sm ${opt.popular ? 'border-amber-400/40 shadow-[0_8px_24px_rgba(245,158,11,0.15)] bg-gradient-to-b from-amber-400/5 to-transparent' : 'border-white/5 hover:border-white/15 hover:bg-[#161b28]'}`}>
+											
+											{opt.popular && (
+												<div class="absolute top-0 right-0 bg-gradient-to-l from-amber-400 to-amber-500 text-black text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-[12px] shadow-sm flex items-center gap-0.5">
+													<span class="material-symbols-outlined text-[12px]">local_fire_department</span> POPULAR
+												</div>
+											)}
 
-			{/* Tab Panels */}
-			<div class="flex-1 px-4 pb-12 z-10">
-				<Show when={activeTab() === 'buy'}>
-					<Show
-						when={!optionsLoading()}
-						fallback={
-							<div class="flex items-center justify-center py-16">
-								<div class="w-8 h-8 border-3 border-[#3390ec] border-t-transparent rounded-full animate-spin"></div>
-							</div>
-						}
-					>
-						<div class="grid grid-cols-2 gap-3.5">
-							<For each={options()}>
-								{(opt) => (
-									<div
-										class={`bg-[#1c1c1e]/80 backdrop-blur-lg border rounded-3xl p-4 flex flex-col justify-between relative overflow-hidden transition-all duration-300 ${
-											opt.popular
-												? 'border-amber-400/40 shadow-[0_4px_20px_rgba(251,191,36,0.1)]'
-												: 'border-white/[0.04]'
-										}`}
-									>
-										{opt.popular && (
-											<div class="absolute top-0 right-0 bg-gradient-to-l from-amber-400 to-amber-500 text-black text-[9px] font-black uppercase tracking-wider px-3 py-1 rounded-bl-xl shadow-lg flex items-center gap-0.5">
-												<span
-													class="material-symbols-outlined text-[10px]"
-													style={{ 'font-variation-settings': '"FILL" 1' }}
-												>
-													local_fire_department
-												</span>
-												POPULAR
-											</div>
-										)}
-
-										<div>
-											{/* Token Count */}
-											<div class="text-white text-2xl font-black flex items-baseline gap-0.5 font-mono mt-1">
-												{opt.frg_amount}
-												<span class="text-amber-400 text-[10px] font-black font-sans ml-0.5">
-													FRG
-												</span>
-											</div>
-
-											{/* Unit Price */}
-											<div class="text-[#8e8e93] text-[10px] font-semibold mt-1">
-												{parseFloat((opt.price / opt.frg_amount).toFixed(4))} Stars/FRG
-											</div>
-
-											{/* Discount Tag */}
-											<Show when={opt.discount}>
-												<span class="inline-block bg-[#34c759]/10 text-[#34c759] border border-[#34c759]/20 text-[9px] font-bold px-2 py-0.5 rounded-lg mt-2">
-													SAVE {opt.discount}
-												</span>
-											</Show>
-										</div>
-
-										{/* Action Button */}
-										<div class="mt-6">
-											<button
-												onClick={() => handleBuyWithStars(opt)}
-												disabled={loadingOptionId() !== null}
-												class={`w-full py-3 rounded-2xl font-black text-xs transition-all active:scale-[0.96] flex items-center justify-center gap-1 shadow-lg ${
-													loadingOptionId() === opt.id
-														? 'bg-[#2c2c2e] text-[#555]'
-														: opt.popular
-															? 'bg-gradient-to-r from-amber-400 to-amber-500 text-black hover:opacity-90'
-															: 'bg-[#3390ec] text-white hover:bg-[#3390ec]/90'
-												}`}
-											>
-												{loadingOptionId() === opt.id ? (
-													<span class="material-symbols-outlined text-sm animate-spin">
-														progress_activity
+											<div class="pt-2">
+												<div class="text-white text-[26px] font-black flex items-baseline gap-1 font-mono tracking-tight" dir="ltr">
+													{opt.frg_amount}
+													<span class="text-amber-400 text-[11px] font-black font-sans">FRG</span>
+												</div>
+												<div class="text-white/40 text-[10px] font-bold mt-0.5" dir="ltr">
+													{parseFloat((opt.price / opt.frg_amount).toFixed(4))} Stars/FRG
+												</div>
+												<Show when={opt.discount}>
+													<span class="inline-block bg-[#00ff88]/10 text-[#00ff88] border border-[#00ff88]/20 text-[9px] font-black px-2 py-0.5 rounded-[8px] mt-2.5 uppercase tracking-widest shadow-sm">
+														SAVE {opt.discount}
 													</span>
-												) : (
-													<>
-														<span
-															class="material-symbols-outlined text-sm"
-															style={{ 'font-variation-settings': '"FILL" 1' }}
-														>
-															stars
-														</span>
-														<span>{opt.price.toLocaleString('en-US')} Stars</span>
-													</>
-												)}
-											</button>
+												</Show>
+											</div>
+
+											<div class="mt-5">
+												<button
+													onClick={() => handleBuyWithStars(opt)}
+													disabled={loadingOptionId() !== null}
+													class={`w-full h-11 rounded-[14px] font-black text-[12px] uppercase tracking-wider transition-all active:scale-[0.96] flex items-center justify-center gap-1.5 shadow-md ${
+														loadingOptionId() === opt.id ? 'bg-[#08090D] text-white/30 border border-white/5' : opt.popular ? 'bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black shadow-[0_4px_15px_rgba(245,158,11,0.3)]' : 'bg-[#3390ec] text-white hover:bg-[#2b7ec9] shadow-[0_4px_15px_rgba(51,144,236,0.3)]'
+													}`}
+												>
+													{loadingOptionId() === opt.id ? (
+														<span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+													) : (
+														<><span class="material-symbols-outlined text-[18px]">stars</span><span dir="ltr">{opt.price.toLocaleString('en-US')} Stars</span></>
+													)}
+												</button>
+											</div>
+										</div>
+									)}
+								</For>
+							</div>
+						</Show>
+					</Show>
+
+					{/* ── CONVERT TAB (EXCHANGE) ── */}
+					<Show when={activeTab() === 'convert'}>
+						<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[28px] p-6 shadow-[0_10px_40px_rgba(0,0,0,0.3)]">
+							
+							<div class="flex items-center gap-2 mb-6 px-1">
+								<span class="material-symbols-outlined text-white/40 text-[18px]">currency_exchange</span>
+								<span class="text-white/50 text-[11px] font-black uppercase tracking-widest pt-0.5">
+									{t('marketplace.exchangeRate') || 'RATE: 100K COINS = 1 FRG'}
+								</span>
+							</div>
+
+							<form onSubmit={handleConvert} class="flex flex-col gap-5">
+								<div>
+									<label class="block text-white/70 text-[12px] font-bold mb-2.5 px-1">{t('marketplace.convertLabel') || 'سکه جهت تبدیل:'}</label>
+									<div class="relative">
+										<input
+											type="number"
+											value={convertAmount()}
+											onInput={(e) => { setConvertAmount(e.target.value); setIsUserEdited(true); }}
+											placeholder="MIN: 100,000"
+											class="w-full bg-[#08090D] border border-white/10 focus:border-[#3390ec]/50 rounded-[18px] py-4 pl-4 pr-[85px] text-white font-mono font-black text-[16px] outline-none transition-all shadow-inner placeholder-white/20"
+											dir="ltr"
+										/>
+										<div class="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none bg-white/5 px-2.5 py-1.5 rounded-[10px] border border-white/5">
+											<span class="material-symbols-outlined text-[#3390ec] text-[16px]">monetization_on</span>
+											<span class="text-white/60 text-[10px] font-bold uppercase tracking-widest pt-0.5">COINS</span>
 										</div>
 									</div>
-								)}
-							</For>
+
+									{/* Percent Quick Actions */}
+									<div class="flex gap-2 mt-3.5">
+										{[0.25, 0.5, 0.75, 1.0].map((pct) => (
+											<button
+												type="button"
+												onClick={() => setPercentAmount(pct)}
+												class="flex-1 bg-white/5 hover:bg-white/10 active:bg-white/15 border border-white/5 text-white/60 hover:text-white font-bold py-2.5 rounded-[12px] text-[11px] transition-all shadow-sm"
+											>
+												{pct === 1.0 ? 'MAX' : `${pct * 100}%`}
+											</button>
+										))}
+									</div>
+								</div>
+
+								{/* Output Preview */}
+								<Show when={calculatedFRG() > 0}>
+									<div class="bg-gradient-to-r from-[#3390ec]/10 to-transparent border border-[#3390ec]/20 rounded-[20px] p-4 flex items-center justify-between mt-1 animate-fade-in shadow-[inset_0_0_20px_rgba(51,144,236,0.05)]">
+										<div class="flex flex-col">
+											<span class="text-[#3390ec]/70 text-[9px] font-black uppercase tracking-widest mb-0.5">سکه دریافتی:</span>
+											<div class="text-white text-[24px] font-black font-mono tracking-tight" dir="ltr">
+												{calculatedFRG().toLocaleString('en-US')}
+												<span class="text-amber-400 text-[12px] font-black font-sans ml-1.5">FRG</span>
+											</div>
+										</div>
+										<div class="w-10 h-10 rounded-[12px] bg-[#3390ec]/20 flex items-center justify-center border border-[#3390ec]/30 shadow-inner">
+											<span class="material-symbols-outlined text-[#3390ec] text-[22px]">trending_up</span>
+										</div>
+									</div>
+								</Show>
+
+								{/* Messages */}
+								<Show when={convertError()}>
+									<div class="text-[#ff4a4a] text-[11px] font-bold text-center bg-[#ff4a4a]/10 py-3 rounded-[14px] border border-[#ff4a4a]/20 flex items-center justify-center gap-1.5 shadow-sm mt-1">
+										<span class="material-symbols-outlined text-[16px]">error</span> {convertError()}
+									</div>
+								</Show>
+								<Show when={convertSuccess()}>
+									<div class="text-[#00ff88] text-[11px] font-bold text-center bg-[#00ff88]/10 py-3 rounded-[14px] border border-[#00ff88]/20 flex items-center justify-center gap-1.5 shadow-sm mt-1">
+										<span class="material-symbols-outlined text-[16px]">check_circle</span> {convertSuccess()}
+									</div>
+								</Show>
+
+								<button
+									type="submit"
+									disabled={convertLoading() || !convertAmount() || parseFloat(convertAmount()) < 100000}
+									class={`w-full h-14 rounded-[16px] font-black text-[13px] uppercase tracking-widest transition-all active:scale-[0.97] flex items-center justify-center gap-2 mt-1 shadow-md border ${
+										convertLoading() || !convertAmount() || parseFloat(convertAmount()) < 100000
+											? 'bg-[#08090D] text-white/30 border-white/5 shadow-none'
+											: 'bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white hover:opacity-90 border-white/10 shadow-[0_8px_20px_rgba(51,144,236,0.3)]'
+									}`}
+								>
+									{convertLoading() ? (
+										<><span class="material-symbols-outlined text-[20px] animate-spin">progress_activity</span> EXCHANGING...</>
+									) : (
+										<><span class="material-symbols-outlined text-[20px]">swap_horizontal_circle</span> {t('marketplace.convertBtn') || 'تبدیل به سکه اصلی'}</>
+									)}
+								</button>
+							</form>
 						</div>
 					</Show>
-				</Show>
-
-				<Show when={activeTab() === 'convert'}>
-					<div class="bg-[#1c1c1e]/80 backdrop-blur-lg border border-white/[0.04] rounded-3xl p-5">
-						<div class="text-center mb-5">
-							<span class="text-[#8e8e93] text-xs font-semibold leading-relaxed">
-								{t('marketplace.exchangeRate') || 'نرخ تبدیل: ۱۰۰,۰۰۰ سکه ایردراپ = ۱ سکه FRG'}
-							</span>
-						</div>
-
-						<form onSubmit={handleConvert} class="flex flex-col gap-5">
-							<div>
-								<label class="block text-[#8e8e93] text-xs font-bold mb-2.5 px-1">
-									سکه جهت تبدیل:
-								</label>
-								<div class="relative">
-									<input
-										type="number"
-										value={convertAmount()}
-										onInput={(e) => {
-											setConvertAmount(e.target.value);
-											setIsUserEdited(true);
-										}}
-										placeholder="حداقل ۱۰۰,۰۰۰"
-										class="w-full bg-[#2c2c2e]/60 text-white font-mono font-bold text-sm py-4 pl-4 pr-16 rounded-2xl border border-white/[0.04] focus:border-[#3390ec]/40 focus:outline-none placeholder:text-[#555]"
-									/>
-									<div class="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none">
-										<span
-											class="material-symbols-outlined text-amber-400 text-lg"
-											style={{ 'font-variation-settings': '"FILL" 1' }}
-										>
-											monetization_on
-										</span>
-										<span class="text-[#8e8e93] text-xs font-bold">Coins</span>
-									</div>
-								</div>
-
-								{/* Quick actions percent */}
-								<div class="flex gap-2 mt-3">
-									<button
-										type="button"
-										onClick={() => setPercentAmount(0.25)}
-										class="flex-1 bg-[#2c2c2e]/40 hover:bg-[#2c2c2e]/80 border border-white/[0.02] text-[#8e8e93] hover:text-white font-bold py-2 rounded-xl text-[10px] transition-colors"
-									>
-										25%
-									</button>
-									<button
-										type="button"
-										onClick={() => setPercentAmount(0.5)}
-										class="flex-1 bg-[#2c2c2e]/40 hover:bg-[#2c2c2e]/80 border border-white/[0.02] text-[#8e8e93] hover:text-white font-bold py-2 rounded-xl text-[10px] transition-colors"
-									>
-										50%
-									</button>
-									<button
-										type="button"
-										onClick={() => setPercentAmount(0.75)}
-										class="flex-1 bg-[#2c2c2e]/40 hover:bg-[#2c2c2e]/80 border border-white/[0.02] text-[#8e8e93] hover:text-white font-bold py-2 rounded-xl text-[10px] transition-colors"
-									>
-										75%
-									</button>
-									<button
-										type="button"
-										onClick={() => setPercentAmount(1.0)}
-										class="flex-1 bg-[#2c2c2e]/40 hover:bg-[#2c2c2e]/80 border border-white/[0.02] text-[#8e8e93] hover:text-white font-bold py-2 rounded-xl text-[10px] transition-colors"
-									>
-										MAX
-									</button>
-								</div>
-							</div>
-
-							{/* Conversion Preview */}
-							<Show when={calculatedFRG() > 0}>
-								<div class="bg-[#3390ec]/5 border border-[#3390ec]/20 rounded-2xl p-4 flex items-center justify-between animate-fade-in">
-									<div>
-										<div class="text-[#8e8e93] text-[9px] font-black uppercase tracking-wider">
-											سکه دریافتی:
-										</div>
-										<div class="text-white text-2xl font-black mt-1 font-mono">
-											{calculatedFRG().toLocaleString('en-US')}
-											<span class="text-amber-400 text-xs font-bold font-sans ml-1">FRG</span>
-										</div>
-									</div>
-									<span class="material-symbols-outlined text-[#3390ec] text-2xl">trending_up</span>
-								</div>
-							</Show>
-
-							{/* Status messages */}
-							<Show when={convertError()}>
-								<div class="text-red-500 text-xs font-bold text-center bg-red-500/5 py-3 rounded-xl border border-red-500/10">
-									{convertError()}
-								</div>
-							</Show>
-							<Show when={convertSuccess()}>
-								<div class="text-[#34c759] text-xs font-bold text-center bg-[#34c759]/5 py-3 rounded-xl border border-[#34c759]/10">
-									{convertSuccess()}
-								</div>
-							</Show>
-
-							<button
-								type="submit"
-								disabled={
-									convertLoading() || !convertAmount() || parseFloat(convertAmount()) < 100000
-								}
-								class={`w-full py-4 rounded-2xl font-black text-sm transition-all active:scale-[0.97] flex items-center justify-center gap-1.5 shadow-[0_4px_20px_rgba(51,144,236,0.3)] ${
-									convertLoading() || !convertAmount() || parseFloat(convertAmount()) < 100000
-										? 'bg-[#2c2c2e] text-[#555] shadow-none'
-										: 'bg-[#3390ec] text-white hover:bg-[#3390ec]/90'
-								}`}
-							>
-								{convertLoading() ? (
-									<span class="material-symbols-outlined text-base animate-spin">
-										progress_activity
-									</span>
-								) : (
-									<>
-										<span class="material-symbols-outlined text-lg">swap_horizontal_circle</span>
-										<span>{t('marketplace.convertBtn') || 'تبدیل به سکه اصلی'}</span>
-									</>
-								)}
-							</button>
-						</form>
-					</div>
-				</Show>
+				</div>
 			</div>
 		</div>
 	);
