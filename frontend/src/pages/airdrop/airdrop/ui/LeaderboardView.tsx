@@ -91,22 +91,6 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 		return Math.min(100, Math.max(0, Math.round(pct)));
 	};
 
-	const getRankBadge = (index: number) => {
-		if (index === 0)
-			return {
-				bg: 'bg-amber-400/15 text-amber-400 border-amber-400/40 shadow-[0_0_12px_rgba(245,158,11,0.25)]',
-				rankText: '01',
-			};
-		if (index === 1)
-			return { bg: 'bg-slate-300/15 text-slate-100 border-slate-300/30', rankText: '02' };
-		if (index === 2)
-			return { bg: 'bg-amber-700/15 text-amber-500 border-amber-600/30', rankText: '03' };
-		return {
-			bg: 'bg-white/5 text-white/40 border-white/10',
-			rankText: index + 1 < 10 ? `0${index + 1}` : `${index + 1}`,
-		};
-	};
-
 	const openChannel = (username: string) => {
 		const clean = username.replace(/^@+/, '');
 		try {
@@ -118,35 +102,43 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 
 	return (
 		<div
-			class="h-full w-full overflow-y-auto no-scrollbar relative pb-32 bg-[#08090d] text-white selection:bg-[#0098ea]/30"
-			style={{ background: 'radial-gradient(ellipse at 50% 0%, #0c1220 0%, #08090d 100%)' }}
+			class="h-full w-full overflow-y-auto no-scrollbar relative pb-32 bg-[#030303] text-white selection:bg-[#3390ec]/30"
 			dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
 		>
-			{/* Ambient top glow */}
+			{/* Ambient Top Glow (Dynamic color for Miners, Blue for Squads) */}
 			<div
-				class="absolute top-0 left-0 right-0 h-[280px] pointer-events-none transition-all duration-700 z-0"
+				class="absolute top-0 left-0 right-0 h-[350px] pointer-events-none transition-colors duration-1000 ease-in-out z-0 blur-[80px] opacity-40"
 				style={{
-					background: `radial-gradient(ellipse at 50% 0%, ${activeTab() === 'miners' ? currentLeague().color : '#0098ea'}18 0%, transparent 65%)`,
+					background: activeTab() === 'miners' 
+						? `radial-gradient(circle at 50% -20%, ${currentLeague().color}, transparent 70%)`
+						: `radial-gradient(circle at 50% -20%, #3390ec, transparent 70%)`,
 				}}
 			/>
 
-			<div class="relative z-10 flex flex-col gap-4 pt-4 max-w-md mx-auto">
+			<div class="relative z-10 flex flex-col gap-5 pt-6 max-w-md mx-auto">
+				
 				{/* ═══════ TOP HEADER AREA ═══════ */}
 
-				{/* 1) Miners League Header (Shown only on Miners tab) */}
+				{/* 1) Miners League Header */}
 				<Show when={activeTab() === 'miners'}>
-					<div class="mx-4 rounded-2xl border border-white/[0.08] bg-[#10141e]/90 p-5 flex flex-col items-center relative overflow-hidden backdrop-blur-md shadow-2xl">
+					<div class="mx-4 rounded-[28px] border border-white/10 bg-[#12141C]/80 p-6 flex flex-col items-center relative overflow-hidden backdrop-blur-xl shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
+						{/* Background Inner Glow */}
+						<div 
+							class="absolute top-0 left-1/2 -translate-x-1/2 w-[120%] h-[120px] rounded-full blur-3xl pointer-events-none opacity-20 transition-all duration-700"
+							style={{ background: currentLeague().color }}
+						/>
+
 						{/* League Icon */}
 						<div
-							class="w-16 h-16 rounded-2xl flex items-center justify-center mb-3 relative z-10 border shadow-inner transition-all duration-300"
+							class="w-20 h-20 rounded-[22px] flex items-center justify-center mb-4 relative z-10 border-[1.5px] transition-all duration-500 shadow-[inset_0_2px_10px_rgba(255,255,255,0.1)]"
 							style={{
-								background: `linear-gradient(135deg, ${currentLeague().color}20, rgba(255,255,255,0.02))`,
-								'border-color': `${currentLeague().color}40`,
-								'box-shadow': `0 0 20px ${currentLeague().color}20`,
+								background: `linear-gradient(135deg, ${currentLeague().color}25, rgba(255,255,255,0.03))`,
+								'border-color': `${currentLeague().color}50`,
+								'box-shadow': `0 10px 30px ${currentLeague().color}30`,
 							}}
 						>
 							<span
-								class="material-symbols-outlined text-[32px]"
+								class="material-symbols-outlined text-[42px] drop-shadow-lg transition-colors duration-500"
 								style={{
 									color: currentLeague().color,
 									'font-variation-settings': '"FILL" 1',
@@ -157,212 +149,159 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 						</div>
 
 						{/* League Switcher Header */}
-						<div class="flex items-center justify-between w-full z-10 mb-3 px-1">
+						<div class="flex items-center justify-between w-full z-10 mb-5 px-1">
 							<button
 								onClick={handlePrevLeague}
 								disabled={selectedLeagueIndex() === 0}
-								class={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
+								class={`w-10 h-10 rounded-[14px] flex items-center justify-center transition-all duration-300 ${
 									selectedLeagueIndex() === 0
 										? 'opacity-20 cursor-not-allowed border border-transparent'
-										: 'bg-[#161b28] border border-white/10 active:scale-95 text-white/80 hover:bg-[#1a2130]'
+										: 'bg-white/5 border border-white/10 active:scale-95 text-white/80 hover:bg-white/10 hover:shadow-md'
 								}`}
 							>
-								<span class="material-symbols-outlined text-base">chevron_left</span>
+								<span class="material-symbols-outlined text-[20px] rtl:-scale-x-100">chevron_left</span>
 							</button>
 
-							<h2 class="text-white font-mono font-black text-sm uppercase tracking-widest text-center">
-								{currentLeague().name} LEAGUE
+							<h2 class="text-white font-black text-[16px] uppercase tracking-[0.15em] text-center drop-shadow-sm">
+								{currentLeague().name}
 							</h2>
 
 							<button
 								onClick={handleNextLeague}
 								disabled={selectedLeagueIndex() === LEAGUES.length - 1}
-								class={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
+								class={`w-10 h-10 rounded-[14px] flex items-center justify-center transition-all duration-300 ${
 									selectedLeagueIndex() === LEAGUES.length - 1
 										? 'opacity-20 cursor-not-allowed border border-transparent'
-										: 'bg-[#161b28] border border-white/10 active:scale-95 text-white/80 hover:bg-[#1a2130]'
+										: 'bg-white/5 border border-white/10 active:scale-95 text-white/80 hover:bg-white/10 hover:shadow-md'
 								}`}
 							>
-								<span class="material-symbols-outlined text-base">chevron_right</span>
+								<span class="material-symbols-outlined text-[20px] rtl:-scale-x-100">chevron_right</span>
 							</button>
 						</div>
 
-						{/* Score Progress Bar */}
-						<div class="w-full max-w-[260px] z-10">
-							<div
-								class="flex items-center justify-between text-[11px] font-mono mb-1.5 text-white/50"
-								dir="ltr"
-							>
-								<span>{(statsQuery.data?.xp || 0).toLocaleString('en-US')} XP</span>
-								<span>
-									{formatScore(
-										LEAGUES[Math.min(LEAGUES.length - 1, selectedLeagueIndex() + 1)].minScore,
-									)}
-								</span>
+						{/* Score Progress Bar (Premium Design) */}
+						<div class="w-full max-w-[280px] z-10">
+							<div class="flex items-center justify-between text-[12px] font-mono font-bold mb-2 text-white/60" dir="ltr">
+								<span class="text-white/90">{(statsQuery.data?.xp || 0).toLocaleString('en-US')} XP</span>
+								<span>{formatScore(LEAGUES[Math.min(LEAGUES.length - 1, selectedLeagueIndex() + 1)].minScore)}</span>
 							</div>
-							<div class="w-full h-1.5 bg-white/10 rounded-full overflow-hidden p-[1px]">
+							<div class="w-full h-[8px] bg-black/60 rounded-full overflow-hidden border border-white/10 p-[1px] shadow-inner">
 								<div
-									class="h-full rounded-full transition-all duration-500 ease-out"
+									class="h-full rounded-full transition-all duration-700 ease-out relative overflow-hidden"
 									style={{
 										width: `${Math.max(4, progressPercent())}%`,
-										background: currentLeague().color,
-										'box-shadow': `0 0 10px ${currentLeague().color}`,
+										background: `linear-gradient(90deg, ${currentLeague().color}aa, ${currentLeague().color})`,
+										'box-shadow': `0 0 12px ${currentLeague().color}80`,
 									}}
-								/>
+								>
+									<div class="absolute inset-0 bg-white/20 w-full h-full animate-[spinSlow_2s_linear_infinite]" style={{ transform: 'skewX(-45deg)' }} />
+								</div>
 							</div>
 						</div>
 
 						{/* Total Miners Badge */}
-						<div class="mt-4 flex items-center z-10">
-							<div
-								class="flex items-center gap-1.5 text-white/60 text-[11px] font-mono font-bold bg-[#161b28] rounded-full px-3.5 py-1 border border-white/10"
-								dir="ltr"
-							>
-								<span>🪙</span>
+						<div class="mt-5 flex items-center z-10">
+							<div class="flex items-center gap-1.5 text-white/70 text-[12px] font-mono font-bold bg-white/5 rounded-full px-4 py-1.5 border border-white/10 shadow-sm" dir="ltr">
+								<span class="text-[14px]">🪙</span>
 								<span>{formatScore(leaderboardQuery.data?.total_miners || 20043793)} Miners</span>
 							</div>
 						</div>
 					</div>
 				</Show>
 
-				{/* 2) TOP 3 CLANS PODIUM ABOVE TAB BUTTONS (Shown only on Squads tab) */}
+				{/* 2) TOP 3 CLANS PODIUM (Shown only on Squads tab) */}
 				<Show when={activeTab() === 'squads'}>
 					<div class="mx-4 pt-2">
 						<Show
 							when={!clansQuery.isLoading && sortedGlobalClans().length > 0}
 							fallback={
-								<div class="flex flex-col items-center justify-center py-10">
-									<div class="w-6 h-6 border-2 border-white/10 border-t-[#0098ea] rounded-full animate-spin" />
-									<span class="text-[11px] font-mono text-white/30 mt-2">
-										Loading Top Squads...
+								<div class="flex flex-col items-center justify-center py-12">
+									<div class="w-8 h-8 border-[3px] border-white/10 border-t-[#3390ec] rounded-full animate-spin" />
+									<span class="text-[12px] font-mono font-bold text-white/40 mt-3 tracking-widest">
+										LOADING PODIUM...
 									</span>
 								</div>
 							}
 						>
-							<div class="grid grid-cols-3 gap-2 items-end pt-3">
-								{/* 2nd Place */}
+							<div class="flex items-end justify-center gap-2.5 pt-6 pb-2">
+								{/* 2nd Place (Silver) */}
 								<Show when={top3Clans()[1]}>
 									{(clan) => {
 										const score = clan().total_score || clan().members_count * 1500;
 										return (
-											<div class="flex flex-col items-center bg-[#10141e] border border-slate-300/30 rounded-2xl p-2.5 relative pt-4 hover:border-slate-300/60 transition-all group">
-												<div class="w-6 h-6 rounded-full bg-slate-300/20 border border-slate-300/40 text-slate-200 font-mono font-black text-[11px] flex items-center justify-center absolute -top-3 shadow-md">
+											<div class="flex flex-col items-center w-[30%] bg-gradient-to-t from-[#12141C] to-[#1a1d29] border border-slate-300/30 rounded-[20px] p-2.5 relative pt-5 hover:border-slate-300/60 transition-all shadow-[0_8px_20px_rgba(0,0,0,0.4)]">
+												<div class="w-7 h-7 rounded-full bg-gradient-to-br from-slate-200 to-slate-400 border-[1.5px] border-white text-black font-mono font-black text-[12px] flex items-center justify-center absolute -top-3.5 shadow-[0_4px_10px_rgba(203,213,225,0.4)] z-10">
 													2
 												</div>
-												<div class="w-12 h-12 rounded-xl bg-[#161b28] border border-slate-300/30 flex items-center justify-center overflow-hidden mb-2 shrink-0">
+												<div class="w-12 h-12 rounded-[14px] bg-[#08090D] border border-slate-300/40 flex items-center justify-center overflow-hidden mb-2 shrink-0 shadow-inner">
 													{clan().channel_photo ? (
-														<img
-															src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`}
-															alt={clan().chat_title}
-															class="w-full h-full object-cover"
-														/>
+														<img src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`} alt="" class="w-full h-full object-cover" />
 													) : (
-														<span class="material-symbols-outlined text-slate-300 text-xl">
-															shield
-														</span>
+														<span class="material-symbols-outlined text-slate-300 text-xl">shield</span>
 													)}
 												</div>
-												<span class="text-white font-bold text-xs truncate max-w-full text-center mb-0.5">
-													{clan().chat_title}
-												</span>
-												<span class="text-white/40 text-[10px] font-mono mb-2" dir="ltr">
-													{clan().members_count} members
-												</span>
-												<span class="text-slate-200 font-mono font-black text-xs mb-2 tabular-nums">
-													🪙 {formatScore(score)}
-												</span>
-												<button
-													onClick={() => openChannel(clan().channel_username)}
-													class="w-full py-1.5 rounded-lg bg-slate-300/10 hover:bg-[#0098ea] hover:text-white border border-slate-300/20 text-slate-200 text-[11px] font-bold flex items-center justify-center gap-1 transition-all active:scale-95"
-												>
-													<span>Join</span>
-													<span class="material-symbols-outlined text-[13px]">open_in_new</span>
+												<span class="text-white font-bold text-[11px] truncate w-full text-center mb-0.5">{clan().chat_title}</span>
+												<span class="text-white/40 text-[9px] font-mono mb-2" dir="ltr">{formatScore(clan().members_count)} mem</span>
+												<span class="text-slate-200 font-mono font-black text-[11px] mb-2 tabular-nums">🪙 {formatScore(score)}</span>
+												<button onClick={() => openChannel(clan().channel_username)} class="w-full py-1.5 rounded-[10px] bg-slate-300/10 hover:bg-slate-300 text-slate-200 hover:text-black text-[10px] font-black flex items-center justify-center gap-1 transition-all active:scale-95 border border-slate-300/20">
+													JOIN
 												</button>
 											</div>
 										);
 									}}
 								</Show>
 
-								{/* 1st Place (Center - Gold Highlighted) */}
+								{/* 1st Place (Gold - Center & Taller) */}
 								<Show when={top3Clans()[0]}>
 									{(clan) => {
 										const score = clan().total_score || clan().members_count * 1500;
 										return (
-											<div class="flex flex-col items-center bg-[#10141e] border-2 border-amber-400/50 rounded-2xl p-3 relative pt-5 shadow-[0_0_24px_rgba(245,158,11,0.2)] hover:border-amber-400 transition-all group -mt-2">
-												<div class="w-7 h-7 rounded-full bg-amber-400 border border-amber-300 text-black font-mono font-black text-xs flex items-center justify-center absolute -top-3.5 shadow-lg">
+											<div class="flex flex-col items-center w-[35%] bg-gradient-to-t from-[#12141C] to-[#252011] border-[1.5px] border-amber-400/50 rounded-[24px] p-3 relative pt-6 hover:border-amber-400 transition-all shadow-[0_12px_30px_rgba(245,158,11,0.25)] -mt-6 z-10">
+												{/* Glow behind 1st */}
+												<div class="absolute -top-10 left-1/2 -translate-x-1/2 w-20 h-20 bg-amber-400/20 rounded-full blur-xl pointer-events-none" />
+												
+												<div class="w-8 h-8 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 border-[1.5px] border-white text-black font-mono font-black text-[13px] flex items-center justify-center absolute -top-4 shadow-[0_4px_12px_rgba(251,191,36,0.6)] z-10">
 													👑 1
 												</div>
-												<div class="w-14 h-14 rounded-xl bg-[#161b28] border-2 border-amber-400/40 flex items-center justify-center overflow-hidden mb-2 shrink-0">
+												<div class="w-16 h-16 rounded-[18px] bg-[#08090D] border-[2px] border-amber-400/50 flex items-center justify-center overflow-hidden mb-2.5 shrink-0 shadow-inner">
 													{clan().channel_photo ? (
-														<img
-															src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`}
-															alt={clan().chat_title}
-															class="w-full h-full object-cover"
-														/>
+														<img src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`} alt="" class="w-full h-full object-cover" />
 													) : (
-														<span class="material-symbols-outlined text-amber-400 text-2xl">
-															shield
-														</span>
+														<span class="material-symbols-outlined text-amber-400 text-3xl drop-shadow-md">shield</span>
 													)}
 												</div>
-												<span class="text-white font-black text-xs truncate max-w-full text-center mb-0.5">
-													{clan().chat_title}
-												</span>
-												<span class="text-white/40 text-[10px] font-mono mb-2" dir="ltr">
-													{clan().members_count} members
-												</span>
-												<span class="text-amber-400 font-mono font-black text-xs mb-2 tabular-nums">
-													🪙 {formatScore(score)}
-												</span>
-												<button
-													onClick={() => openChannel(clan().channel_username)}
-													class="w-full py-1.5 rounded-lg bg-amber-400 text-black font-extrabold text-[11px] flex items-center justify-center gap-1 transition-all active:scale-95 shadow-md"
-												>
-													<span>Join</span>
-													<span class="material-symbols-outlined text-[13px]">open_in_new</span>
+												<span class="text-white font-black text-[13px] truncate w-full text-center mb-0.5 tracking-tight">{clan().chat_title}</span>
+												<span class="text-white/40 text-[10px] font-mono mb-2" dir="ltr">{formatScore(clan().members_count)} members</span>
+												<span class="text-amber-400 font-mono font-black text-[12px] mb-3 tabular-nums drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]">🪙 {formatScore(score)}</span>
+												<button onClick={() => openChannel(clan().channel_username)} class="w-full py-2 rounded-[12px] bg-gradient-to-r from-amber-400 to-amber-500 text-black text-[11px] font-black flex items-center justify-center gap-1 transition-all active:scale-95 shadow-md">
+													JOIN
 												</button>
 											</div>
 										);
 									}}
 								</Show>
 
-								{/* 3rd Place */}
+								{/* 3rd Place (Bronze) */}
 								<Show when={top3Clans()[2]}>
 									{(clan) => {
 										const score = clan().total_score || clan().members_count * 1500;
 										return (
-											<div class="flex flex-col items-center bg-[#10141e] border border-amber-700/30 rounded-2xl p-2.5 relative pt-4 hover:border-amber-700/60 transition-all group">
-												<div class="w-6 h-6 rounded-full bg-amber-700/20 border border-amber-600/40 text-amber-500 font-mono font-black text-[11px] flex items-center justify-center absolute -top-3 shadow-md">
+											<div class="flex flex-col items-center w-[30%] bg-gradient-to-t from-[#12141C] to-[#1e1713] border border-orange-500/30 rounded-[20px] p-2.5 relative pt-5 hover:border-orange-500/60 transition-all shadow-[0_8px_20px_rgba(0,0,0,0.4)]">
+												<div class="w-7 h-7 rounded-full bg-gradient-to-br from-orange-300 to-orange-600 border-[1.5px] border-white text-black font-mono font-black text-[12px] flex items-center justify-center absolute -top-3.5 shadow-[0_4px_10px_rgba(249,115,22,0.4)] z-10">
 													3
 												</div>
-												<div class="w-12 h-12 rounded-xl bg-[#161b28] border border-amber-700/30 flex items-center justify-center overflow-hidden mb-2 shrink-0">
+												<div class="w-12 h-12 rounded-[14px] bg-[#08090D] border border-orange-500/40 flex items-center justify-center overflow-hidden mb-2 shrink-0 shadow-inner">
 													{clan().channel_photo ? (
-														<img
-															src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`}
-															alt={clan().chat_title}
-															class="w-full h-full object-cover"
-														/>
+														<img src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`} alt="" class="w-full h-full object-cover" />
 													) : (
-														<span class="material-symbols-outlined text-amber-600 text-xl">
-															shield
-														</span>
+														<span class="material-symbols-outlined text-orange-500 text-xl">shield</span>
 													)}
 												</div>
-												<span class="text-white font-bold text-xs truncate max-w-full text-center mb-0.5">
-													{clan().chat_title}
-												</span>
-												<span class="text-white/40 text-[10px] font-mono mb-2" dir="ltr">
-													{clan().members_count} members
-												</span>
-												<span class="text-amber-500 font-mono font-black text-xs mb-2 tabular-nums">
-													🪙 {formatScore(score)}
-												</span>
-												<button
-													onClick={() => openChannel(clan().channel_username)}
-													class="w-full py-1.5 rounded-lg bg-amber-700/10 hover:bg-[#0098ea] hover:text-white border border-amber-700/20 text-amber-500 text-[11px] font-bold flex items-center justify-center gap-1 transition-all active:scale-95"
-												>
-													<span>Join</span>
-													<span class="material-symbols-outlined text-[13px]">open_in_new</span>
+												<span class="text-white font-bold text-[11px] truncate w-full text-center mb-0.5">{clan().chat_title}</span>
+												<span class="text-white/40 text-[9px] font-mono mb-2" dir="ltr">{formatScore(clan().members_count)} mem</span>
+												<span class="text-orange-400 font-mono font-black text-[11px] mb-2 tabular-nums">🪙 {formatScore(score)}</span>
+												<button onClick={() => openChannel(clan().channel_username)} class="w-full py-1.5 rounded-[10px] bg-orange-500/10 hover:bg-orange-500 text-orange-400 hover:text-black text-[10px] font-black flex items-center justify-center gap-1 transition-all active:scale-95 border border-orange-500/20">
+													JOIN
 												</button>
 											</div>
 										);
@@ -373,106 +312,117 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 					</div>
 				</Show>
 
-				{/* ═══════ Main Tabs (MINERS / CLANS) ═══════ */}
-				<div class="mx-4 bg-[#10141e] rounded-2xl p-1 flex gap-1 border border-white/[0.08]">
+				{/* ═══════ Main Tabs (Pill Design) ═══════ */}
+				<div class="mx-4 bg-[#12141C]/60 backdrop-blur-md rounded-[20px] p-1.5 flex gap-1 border border-white/5 shadow-inner relative z-10">
 					<button
 						onClick={() => setActiveTab('miners')}
-						class={`flex-1 py-2.5 rounded-xl text-xs font-mono font-black uppercase tracking-wider transition-all ${
+						class={`flex-1 h-11 rounded-[16px] text-[13px] font-mono font-black uppercase tracking-wider transition-all duration-300 ${
 							activeTab() === 'miners'
-								? 'bg-[#0098ea] text-white shadow-[0_4px_14px_rgba(0,152,234,0.3)]'
-								: 'text-white/40 hover:text-white/70'
+								? 'bg-white/15 text-white shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-white/10'
+								: 'text-white/40 hover:text-white/80'
 						}`}
 					>
 						{t('airdropFinal.leaderboard.miners', { defaultValue: 'MINERS' })}
 					</button>
 					<button
 						onClick={() => setActiveTab('squads')}
-						class={`flex-1 py-2.5 rounded-xl text-xs font-mono font-black uppercase tracking-wider transition-all ${
+						class={`flex-1 h-11 rounded-[16px] text-[13px] font-mono font-black uppercase tracking-wider transition-all duration-300 ${
 							activeTab() === 'squads'
-								? 'bg-[#0098ea] text-white shadow-[0_4px_14px_rgba(0,152,234,0.3)]'
-								: 'text-white/40 hover:text-white/70'
+								? 'bg-white/15 text-white shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-white/10'
+								: 'text-white/40 hover:text-white/80'
 						}`}
 					>
-						{t('airdropFinal.leaderboard.squads', { defaultValue: 'CLANS' })}
+						{t('airdropFinal.leaderboard.squads', { defaultValue: 'SQUADS' })}
 					</button>
 				</div>
 
 				{/* ═══════ Sub Tabs (Daily / Weekly) ═══════ */}
-				<div class="flex justify-center">
-					<div class="bg-[#121622] rounded-lg p-0.5 flex gap-0.5 border border-white/10">
+				<div class="flex justify-center relative z-10 -mt-2 mb-1">
+					<div class="bg-[#12141C]/40 backdrop-blur-sm rounded-[12px] p-1 flex gap-1 border border-white/5">
 						<button
 							onClick={() => setActiveSubTab('day')}
-							class={`px-4 py-1 rounded-md text-[11px] font-mono font-bold transition-all ${
+							class={`px-5 py-1.5 rounded-[8px] text-[11px] font-mono font-bold transition-all duration-200 ${
 								activeSubTab() === 'day'
-									? 'bg-white/15 text-white'
+									? 'bg-white/10 text-white shadow-sm border border-white/5'
 									: 'text-white/40 hover:text-white/70'
 							}`}
 						>
-							Daily
+							DAILY
 						</button>
 						<button
 							onClick={() => setActiveSubTab('week')}
-							class={`px-4 py-1 rounded-md text-[11px] font-mono font-bold transition-all ${
+							class={`px-5 py-1.5 rounded-[8px] text-[11px] font-mono font-bold transition-all duration-200 ${
 								activeSubTab() === 'week'
-									? 'bg-white/15 text-white'
+									? 'bg-white/10 text-white shadow-sm border border-white/5'
 									: 'text-white/40 hover:text-white/70'
 							}`}
 						>
-							Weekly
+							WEEKLY
 						</button>
 					</div>
 				</div>
 
-				{/* ═══════ Leaderboard Entries (Below Tab Buttons) ═══════ */}
-				<div class="mx-4 flex flex-col gap-3 min-h-[280px]">
+				{/* ═══════ Leaderboard Entries (Glassmorphic List) ═══════ */}
+				<div class="mx-4 flex flex-col gap-2.5 min-h-[300px] relative z-10 pb-4">
+					
 					{/* ── MINERS TAB LIST ── */}
 					<Show when={activeTab() === 'miners'}>
 						<Show
 							when={!leaderboardQuery.isLoading}
 							fallback={
-								<div class="flex flex-col items-center justify-center py-14 gap-2">
-									<div class="w-6 h-6 border-2 border-white/10 border-t-[#0098ea] rounded-full animate-spin" />
-									<span class="text-[11px] font-mono text-white/30">Loading Miners...</span>
+								<div class="flex flex-col items-center justify-center py-16 gap-3">
+									<div class="w-8 h-8 border-[3px] border-white/10 border-t-[#3390ec] rounded-full animate-spin" />
+									<span class="text-[12px] font-mono font-bold text-white/40 tracking-widest">LOADING MINERS...</span>
 								</div>
 							}
 						>
 							<For
 								each={filteredMiners()}
 								fallback={
-									<div class="flex flex-col items-center justify-center py-14 gap-2 text-white/30 text-xs font-medium">
+									<div class="flex flex-col items-center justify-center py-16 text-white/40 text-[13px] font-medium bg-[#12141C]/40 rounded-[24px] border border-dashed border-white/10">
 										<span>No miners found in this league.</span>
 									</div>
 								}
 							>
 								{(entry, i) => {
-									const badge = () => getRankBadge(i());
+									const isTop1 = i() === 0;
+									const isTop2 = i() === 1;
+									const isTop3 = i() === 2;
+									
 									return (
-										<div class="flex items-center justify-between p-3 rounded-2xl border border-white/[0.07] bg-[#10141e] hover:bg-[#151a28] transition-all">
-											<div class="flex items-center gap-3 min-w-0 pr-2">
+										<div class={`flex items-center justify-between p-3.5 rounded-[22px] bg-[#12141C]/80 backdrop-blur-xl transition-all shadow-sm
+											${isTop1 ? 'border border-amber-400/40 bg-gradient-to-r from-amber-400/5 to-transparent' : 
+											  isTop2 ? 'border border-slate-300/30 bg-gradient-to-r from-slate-300/5 to-transparent' : 
+											  isTop3 ? 'border border-orange-500/30 bg-gradient-to-r from-orange-500/5 to-transparent' : 'border border-white/5 hover:border-white/15 hover:bg-[#151822]'}`
+										}>
+											<div class="flex items-center gap-3.5 min-w-0 pr-2">
 												{/* Rank Badge */}
-												<div
-													class={`w-7 h-7 rounded-lg flex items-center justify-center font-mono font-bold text-xs border shrink-0 ${badge().bg}`}
-												>
-													{badge().rankText}
+												<div class={`w-8 h-8 rounded-[12px] flex items-center justify-center font-mono font-black text-[13px] shrink-0
+													${isTop1 ? 'bg-amber-400 text-black shadow-[0_0_15px_rgba(251,191,36,0.4)]' : 
+													  isTop2 ? 'bg-slate-300 text-black' : 
+													  isTop3 ? 'bg-orange-400 text-black' : 'bg-white/5 text-white/50 border border-white/10'}`
+												}>
+													{i() + 1 < 10 ? `0${i() + 1}` : i() + 1}
 												</div>
 
 												{/* Avatar */}
-												<div class="w-9 h-9 rounded-full bg-[#161b28] border border-white/10 flex items-center justify-center text-white font-bold text-xs shrink-0">
+												<div class={`w-10 h-10 rounded-[14px] flex items-center justify-center text-white font-black text-[14px] shrink-0
+													${isTop1 ? 'bg-amber-400/10 border border-amber-400/30 text-amber-400' : 
+													  isTop2 ? 'bg-slate-300/10 border border-slate-300/30 text-slate-200' : 
+													  isTop3 ? 'bg-orange-400/10 border border-orange-400/30 text-orange-400' : 'bg-[#08090D] border border-white/10'}`
+												}>
 													{entry.name.slice(0, 2).toUpperCase()}
 												</div>
 
 												{/* Name & Clan */}
 												<div class="flex flex-col min-w-0">
-													<span class="text-white font-semibold text-sm truncate tracking-tight">
+													<span class="text-white font-bold text-[14px] truncate tracking-tight">
 														{entry.name}
 													</span>
 													<Show when={entry.clanName}>
 														{(cn) => (
-															<span
-																class="text-[#0098ea] text-[11px] font-mono font-bold truncate flex items-center gap-1"
-																dir="ltr"
-															>
-																<span class="material-symbols-outlined text-[12px]">shield</span>@
+															<span class="text-[#3390ec] text-[11px] font-mono font-bold truncate flex items-center gap-1 mt-0.5 opacity-90" dir="ltr">
+																<span class="material-symbols-outlined text-[13px]">shield</span>@
 																{cn().replace(/^@+/, '')}
 															</span>
 														)}
@@ -481,11 +431,9 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 											</div>
 
 											{/* Score */}
-											<div
-												class="flex items-center gap-1 shrink-0 pl-2 font-mono font-bold text-xs text-white/90 tabular-nums"
-												dir="ltr"
-											>
-												<span>🪙</span> <span>{formatScore(entry.score)}</span>
+											<div class={`flex items-center gap-1.5 shrink-0 pl-2 font-mono font-black text-[13px] tabular-nums
+												${isTop1 ? 'text-amber-400' : isTop2 ? 'text-slate-200' : isTop3 ? 'text-orange-400' : 'text-white/90'}`} dir="ltr">
+												<span class="text-[14px]">🪙</span> <span>{formatScore(entry.score)}</span>
 											</div>
 										</div>
 									);
@@ -499,75 +447,64 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 						<Show
 							when={!clansQuery.isLoading}
 							fallback={
-								<div class="flex flex-col items-center justify-center py-14 gap-2">
-									<div class="w-6 h-6 border-2 border-white/10 border-t-[#0098ea] rounded-full animate-spin" />
-									<span class="text-[11px] font-mono text-white/30">Loading Clans...</span>
+								<div class="flex flex-col items-center justify-center py-16 gap-3">
+									<div class="w-8 h-8 border-[3px] border-white/10 border-t-[#3390ec] rounded-full animate-spin" />
+									<span class="text-[12px] font-mono font-bold text-white/40 tracking-widest">LOADING SQUADS...</span>
 								</div>
 							}
 						>
 							<Show
 								when={sortedGlobalClans().length > 0}
 								fallback={
-									<div class="flex flex-col items-center justify-center py-14 gap-2 text-white/30 text-xs font-medium">
-										<span>No clans registered yet.</span>
+									<div class="flex flex-col items-center justify-center py-16 text-white/40 text-[13px] font-medium bg-[#12141C]/40 rounded-[24px] border border-dashed border-white/10">
+										<span>No squads registered yet.</span>
 									</div>
 								}
 							>
 								{/* ════ CLANS RANK 4 TO 100 ════ */}
-								<div class="flex flex-col gap-2">
+								<div class="flex flex-col gap-2.5">
 									<For each={restClans()}>
 										{(clan, i) => {
 											const score = clan.total_score || clan.members_count * 1500;
 											const rankNum = i() + 4;
 											return (
-												<div class="flex items-center justify-between p-3 rounded-2xl border border-white/[0.07] bg-[#10141e] hover:bg-[#151a28] transition-all">
-													<div class="flex items-center gap-3 min-w-0 pr-2">
+												<div class="flex items-center justify-between p-3.5 rounded-[22px] bg-[#12141C]/80 backdrop-blur-xl border border-white/5 hover:border-white/15 hover:bg-[#151822] transition-all group shadow-[0_4px_16px_rgba(0,0,0,0.2)]">
+													<div class="flex items-center gap-3.5 min-w-0 pr-2">
 														{/* Rank Number */}
-														<div class="w-7 h-7 rounded-lg bg-white/5 border border-white/10 text-white/50 font-mono font-black text-xs flex items-center justify-center shrink-0">
+														<div class="w-8 h-8 rounded-[12px] bg-white/5 border border-white/10 text-white/50 font-mono font-black text-[13px] flex items-center justify-center shrink-0">
 															{rankNum < 10 ? `0${rankNum}` : rankNum}
 														</div>
 
 														{/* Clan Avatar */}
-														<div class="w-9 h-9 rounded-xl overflow-hidden bg-[#161b28] border border-white/10 flex items-center justify-center shrink-0">
+														<div class="w-10 h-10 rounded-[14px] overflow-hidden bg-[#08090D] border border-white/10 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform duration-300 shadow-inner">
 															{clan.channel_photo ? (
-																<img
-																	src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan.channel_username}`}
-																	alt={clan.chat_title}
-																	class="w-full h-full object-cover"
-																/>
+																<img src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan.channel_username}`} alt="" class="w-full h-full object-cover" />
 															) : (
-																<span class="material-symbols-outlined text-white/40 text-base">
-																	shield
-																</span>
+																<span class="material-symbols-outlined text-white/40 text-lg">shield</span>
 															)}
 														</div>
 
 														{/* Clan Info */}
 														<div class="flex flex-col min-w-0">
-															<span class="text-white font-semibold text-sm truncate tracking-tight">
-																{clan.chat_title}
-															</span>
-															<span class="text-white/40 text-[11px] font-mono" dir="ltr">
-																@{clan.channel_username.replace(/^@+/, '')} ·{' '}
-																{clan.members_count.toLocaleString('en-US')} members
-															</span>
+															<span class="text-white font-bold text-[14px] truncate tracking-tight">{clan.chat_title}</span>
+															<div class="flex items-center gap-1.5 mt-0.5 opacity-60">
+																<span class="text-[11px] font-mono text-[#3390ec]" dir="ltr">@{clan.channel_username.replace(/^@+/, '')}</span>
+																<span class="text-[8px] text-white/40">•</span>
+																<span class="text-[11px] font-mono" dir="ltr">{formatScore(clan.members_count)} mem</span>
+															</div>
 														</div>
 													</div>
 
 													{/* Score & Join Action */}
-													<div class="flex items-center gap-2 shrink-0 pl-2">
-														<div
-															class="font-mono font-bold text-xs text-white/90 tabular-nums"
-															dir="ltr"
-														>
-															<span>🪙</span> {formatScore(score)}
+													<div class="flex items-center gap-2.5 shrink-0 pl-2">
+														<div class="font-mono font-black text-[13px] text-white/90 tabular-nums flex items-center gap-1" dir="ltr">
+															<span class="text-[14px]">🪙</span> {formatScore(score)}
 														</div>
 														<button
 															onClick={() => openChannel(clan.channel_username)}
-															class="w-8 h-8 rounded-xl bg-white/5 hover:bg-[#0098ea] text-white/60 hover:text-white border border-white/10 flex items-center justify-center shrink-0 active:scale-95 transition-all"
-															title="Open Telegram Channel"
+															class="w-9 h-9 rounded-[12px] bg-white/5 hover:bg-[#3390ec] text-white/60 hover:text-white border border-white/10 flex items-center justify-center shrink-0 active:scale-95 transition-all shadow-sm"
 														>
-															<span class="material-symbols-outlined text-[16px]">open_in_new</span>
+															<span class="material-symbols-outlined text-[18px]">open_in_new</span>
 														</button>
 													</div>
 												</div>
@@ -579,64 +516,56 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 								{/* ════ USER'S CLAN RANK SEPARATOR & STICKY ROW ════ */}
 								<Show when={!userClanInfo()?.inTop100 ? userClanInfo() : undefined}>
 									{(info) => (
-										<div class="flex flex-col gap-2 mt-4">
-											{/* Separator Divider */}
-											<div class="flex items-center gap-3 my-2">
-												<div class="flex-1 h-[1px] bg-white/10" />
-												<span class="text-[11px] font-mono font-bold text-amber-400 uppercase tracking-widest bg-[#161b28] px-3.5 py-1 rounded-full border border-amber-400/30">
-													Your Clan Rank: #{info().rank}
-												</span>
-												<div class="flex-1 h-[1px] bg-white/10" />
+										<div class="flex flex-col gap-3 mt-5">
+											{/* Premium Separator */}
+											<div class="flex items-center gap-3 px-2">
+												<div class="flex-1 h-[1px] bg-gradient-to-r from-transparent to-amber-400/30" />
+												<div class="flex items-center gap-1.5 bg-[#12141C] px-4 py-1.5 rounded-[12px] border border-amber-400/20 shadow-[0_0_12px_rgba(245,158,11,0.1)]">
+													<span class="material-symbols-outlined text-amber-400 text-[14px]">military_tech</span>
+													<span class="text-[11px] font-mono font-bold text-amber-400 tracking-widest pt-0.5">
+														YOUR SQUAD: #{info().rank}
+													</span>
+												</div>
+												<div class="flex-1 h-[1px] bg-gradient-to-l from-transparent to-amber-400/30" />
 											</div>
 
-											{/* User Clan Row */}
-											<div class="flex items-center justify-between p-3.5 rounded-2xl border-2 border-amber-400/40 bg-amber-400/5 hover:bg-amber-400/10 transition-all shadow-lg">
-												<div class="flex items-center gap-3 min-w-0 pr-2">
-													<div class="w-8 h-8 rounded-lg bg-amber-400/20 border border-amber-400/40 text-amber-400 font-mono font-black text-xs flex items-center justify-center shrink-0">
+											{/* User Clan Row (Highlighted) */}
+											<div class="flex items-center justify-between p-4 rounded-[24px] border-[1.5px] border-amber-400/50 bg-gradient-to-r from-amber-400/10 to-[#12141C] hover:from-amber-400/15 transition-all shadow-[0_8px_32px_rgba(245,158,11,0.15)] relative overflow-hidden">
+												{/* Subtle glow inside card */}
+												<div class="absolute top-0 left-0 w-32 h-32 bg-amber-400/10 rounded-full blur-2xl pointer-events-none" />
+												
+												<div class="flex items-center gap-3.5 min-w-0 pr-2 relative z-10">
+													<div class="w-9 h-9 rounded-[12px] bg-amber-400 text-black font-mono font-black text-[13px] flex items-center justify-center shrink-0 shadow-[0_0_12px_rgba(251,191,36,0.4)]">
 														#{info().rank}
 													</div>
 
-													<div class="w-10 h-10 rounded-xl overflow-hidden bg-[#161b28] border border-amber-400/30 flex items-center justify-center shrink-0">
+													<div class="w-11 h-11 rounded-[14px] overflow-hidden bg-[#08090D] border-[1.5px] border-amber-400/40 flex items-center justify-center shrink-0 shadow-inner">
 														{info().clan.channel_photo ? (
-															<img
-																src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${info().clan.channel_username}`}
-																alt={info().clan.chat_title}
-																class="w-full h-full object-cover"
-															/>
+															<img src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${info().clan.channel_username}`} alt="" class="w-full h-full object-cover" />
 														) : (
-															<span class="material-symbols-outlined text-amber-400 text-lg">
-																shield
-															</span>
+															<span class="material-symbols-outlined text-amber-400 text-xl">shield</span>
 														)}
 													</div>
 
 													<div class="flex flex-col min-w-0">
-														<span class="text-white font-bold text-sm truncate tracking-tight">
-															{info().clan.chat_title}
-														</span>
-														<span class="text-white/50 text-[11px] font-mono" dir="ltr">
-															@{info().clan.channel_username.replace(/^@+/, '')} ·{' '}
-															{info().clan.members_count.toLocaleString('en-US')} members
-														</span>
+														<span class="text-white font-black text-[15px] truncate tracking-tight">{info().clan.chat_title}</span>
+														<div class="flex items-center gap-1.5 mt-0.5 opacity-80">
+															<span class="text-[11px] font-mono text-amber-300" dir="ltr">@{info().clan.channel_username.replace(/^@+/, '')}</span>
+															<span class="text-[8px] text-white/40">•</span>
+															<span class="text-[11px] font-mono text-white/70" dir="ltr">{formatScore(info().clan.members_count)} mem</span>
+														</div>
 													</div>
 												</div>
 
-												<div class="flex items-center gap-2 shrink-0 pl-2">
-													<div
-														class="font-mono font-bold text-xs text-amber-400 tabular-nums"
-														dir="ltr"
-													>
-														<span>🪙</span>{' '}
-														{formatScore(
-															info().clan.total_score || info().clan.members_count * 1500,
-														)}
+												<div class="flex items-center gap-3 shrink-0 pl-2 relative z-10">
+													<div class="font-mono font-black text-[14px] text-amber-400 tabular-nums flex items-center gap-1 drop-shadow-md" dir="ltr">
+														<span class="text-[15px]">🪙</span> {formatScore(info().clan.total_score || info().clan.members_count * 1500)}
 													</div>
 													<button
 														onClick={() => openChannel(info().clan.channel_username)}
-														class="w-8 h-8 rounded-xl bg-amber-400 text-black border border-amber-300 flex items-center justify-center shrink-0 active:scale-95 transition-all font-bold"
-														title="Open Telegram Channel"
+														class="w-10 h-10 rounded-[14px] bg-amber-400 text-black flex items-center justify-center shrink-0 active:scale-95 transition-all shadow-md hover:bg-amber-300"
 													>
-														<span class="material-symbols-outlined text-[16px]">open_in_new</span>
+														<span class="material-symbols-outlined text-[20px]">open_in_new</span>
 													</button>
 												</div>
 											</div>
