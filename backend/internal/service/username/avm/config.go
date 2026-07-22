@@ -1,6 +1,6 @@
 package avm
 
-const ModelVersion = "avm_v5.1"
+const ModelVersion = "avm_v5.2"
 
 // EngineConfig holds all hyperparameters for the AVM math engine.
 // These are snapshot-persisted with every valuation run for reproducibility.
@@ -79,13 +79,13 @@ func DefaultEngineConfig() EngineConfig {
 		NormFactorBuyNow:  0.85,
 		NormFactorOffer:   1.10,
 
-		FallbackLen4: 5050.0, // Fragment official 4-character minimum auction starting floor
-		FallbackLen5: 50.0,
-		FallbackLen6: 15.0,
-		FallbackOther: 5.0,
+		FallbackLen4: 1200.0, // Calibrated starting baseline for 4-character names
+		FallbackLen5: 500.0,  // Fragment official 5-character starting bid baseline
+		FallbackLen6: 100.0,
+		FallbackOther: 25.0,
 
 		ClampLowLimit:    5.0,
-		ClampLowExpected: 100.0,
+		ClampLowExpected: 50.0,
 		MorphDamping:     0.1,
 		DatabaseDamping:  0.70,
 

@@ -162,8 +162,8 @@ func TestCalcBaseLog_NoData(t *testing.T) {
 	// Expect baseLog to fallback to ln(5.0) which is approx 1.609
 	baseLog, nEff, mad, ids := CalcBaseLog(nil, nil, nil, cfg, MorphFeatures{CharLength: 0}, time.Now())
 
-	if math.Abs(baseLog-math.Log(5.0)) > 1e-10 {
-		t.Errorf("expected fallback baseLog=ln(5), got %v", baseLog)
+	if math.Abs(baseLog-math.Log(cfg.FallbackOther)) > 1e-10 {
+		t.Errorf("expected fallback baseLog=ln(%f), got %v", cfg.FallbackOther, baseLog)
 	}
 	if nEff != 0 {
 		t.Errorf("expected nEff=0, got %v", nEff)

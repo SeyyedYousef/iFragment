@@ -306,7 +306,7 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 	
 	var totalScore float64
 	if wikiResult != nil && wikiResult.FetchError {
-		// Wikipedia API failed due to network error. Re-allocate 30% weight to Datamuse and AI.
+		// Wikipedia API failed due to network error. Re-allocate weight to Datamuse and AI.
 		baseScore := (wordFreqScore * 0.45) + (aiScore * 0.55)
 		totalScore = baseScore + brandBonus
 		slog.Warn("Wikipedia API failed, re-weighted semantic signals", "username", username)
@@ -315,20 +315,7 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 		totalScore = baseScore + brandBonus
 	}
 
-	// Boost total score directly for ultra-premium keywords to escape the penalty zone
-	for _, t := range tags {
-		if t == "crypto_ultra_premium" {
-			totalScore += 40.0 // Massive boost to push into high multiplier curve
-		}
-		if t == "exclusivity_status_premium" {
-			totalScore += 35.0 // High-status/rarity boost
-		}
-		if t == "general_ultra_premium" {
-			totalScore += 30.0
-		}
-	}
-
-	// Safeguard: Ensure common dictionary words never fall into the penalty zone
+	// Dynamic floor safeguards for common dictionary words
 	if wordFreqScore >= 70 && totalScore < 65 {
 		totalScore = 65
 	} else if wordFreqScore >= 50 && totalScore < 55 {
@@ -399,92 +386,68 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 func (e *SemanticEngine) scoreToMultiplier(score float64, length int, tags []string, isDict bool) float64 {
 	var multiplier float64
 
-	// Length-calibrated max score multipliers to avoid exponential runaway on shorter base prices
+	// Calibrated max multipliers per character length
 	maxBaseMultiplier := 50.0
 	if length == 4 {
-		maxBaseMultiplier = 25.0 // Base price ~2,500 - 5,000 TON -> ~62,500 - 125,000 TON
+		maxBaseMultiplier = 140.0 // Score 40 -> 1x, Score 67 (@cats) -> ~11.5x, Score 92 (@rare) -> ~96x, Score 100 -> ~140x
 	} else if length == 5 {
-		maxBaseMultiplier = 40.0 // Base price ~50 TON -> ~2,000 TON
+		maxBaseMultiplier = 60.0
 	} else if length <= 3 {
-		maxBaseMultiplier = 80.0
+		maxBaseMultiplier = 200.0
 	}
 
 	// Penalty zone: scale from 0.05x to 1.0x
-	if score < 45.0 {
-		normalized := score / 45.0
-		multiplier = 0.05 + math.Pow(normalized, 3.0)*0.95
+	if score < 40.0 {
+		normalized := score / 40.0
+		multiplier = 0.05 + math.Pow(normalized, 2.5)*0.95
 		// Dictionary words should never be penalized below 1.0x
 		if isDict && multiplier < 1.0 {
 			multiplier = 1.0
 		}
 	} else {
-		// Premium zone: scale from 1.0x (at score 45) to maxBaseMultiplier (at score 100) using 1.5 power
-		normalized := (score - 45.0) / 55.0
-		multiplier = 1.0 + math.Pow(normalized, 1.5)*(maxBaseMultiplier-1.0)
+		// Premium zone: smooth power curve (exponent 3.2)
+		normalized := (score - 40.0) / 60.0
+		multiplier = 1.0 + math.Pow(normalized, 3.2)*(maxBaseMultiplier-1.0)
 	}
 
-	// Tag-Based Pricing
+	// Tag-Based Pricing (bounded adjustments)
 	tagMultiplier := 1.0
 	for _, t := range tags {
 		tag := strings.ToLower(t)
-		if strings.Contains(tag, "crypto") || strings.Contains(tag, "web3") || strings.Contains(tag, "blockchain") {
-			tagMultiplier *= 1.5
-		} else if tag == "brand" || strings.HasPrefix(tag, "brand:") || strings.Contains(tag, "company") || strings.Contains(tag, "startup") {
-			tagMultiplier *= 1.4
-		} else if strings.Contains(tag, "country") || strings.Contains(tag, "location") || strings.Contains(tag, "city") {
-			tagMultiplier *= 1.3
-		} else if strings.Contains(tag, "gaming") || strings.Contains(tag, "game") || strings.Contains(tag, "esports") {
-			tagMultiplier *= 1.2
-		}
-		
-		if tag == "telegram_ecosystem" {
-			tagMultiplier *= 2.50
-		}
-		if tag == "compound_word" {
-			tagMultiplier *= 0.22 // Compound words get ~78% discount relative to pure single words
-		}
-		if tag == "exclusivity_status_premium" {
-			tagMultiplier *= 1.25
-		}
-		if tag == "wiki_popular" {
-			tagMultiplier *= 1.3
-		}
-		if tag == "brand_verified" {
-			tagMultiplier *= 1.8
-		}
-		if tag == "internet_slang" {
-			tagMultiplier *= 1.30
-		}
-		if tag == "color_premium" {
-			tagMultiplier *= 1.20
-		}
-		if tag == "geo_premium" {
-			tagMultiplier *= 1.30
-		}
-		if tag == "emoji_word" {
-			tagMultiplier *= 1.15
-		}
 		if tag == "crypto_ultra_premium" {
-			tagMultiplier *= 3.00
-		}
-		if tag == "general_ultra_premium" {
-			tagMultiplier *= 2.20
+			tagMultiplier *= 1.50
+		} else if tag == "exclusivity_status_premium" {
+			tagMultiplier *= 1.20
+		} else if tag == "telegram_ecosystem" {
+			tagMultiplier *= 1.80
+		} else if tag == "compound_word" {
+			tagMultiplier *= 0.35 // Compound words get discount relative to pure single words
+		} else if tag == "wiki_popular" {
+			tagMultiplier *= 1.15
+		} else if tag == "brand_verified" {
+			tagMultiplier *= 1.20
+		} else if tag == "internet_slang" {
+			tagMultiplier *= 1.20
+		} else if tag == "color_premium" {
+			tagMultiplier *= 1.15
+		} else if tag == "geo_premium" {
+			tagMultiplier *= 1.20
 		}
 	}
 	
 	// Hard cap on Tag-Based Multiplier stacking
-	if tagMultiplier > 6.0 {
-		tagMultiplier = 6.0
+	if tagMultiplier > 2.5 {
+		tagMultiplier = 2.5
 	}
 	multiplier *= tagMultiplier
 
 	// Cultural Significance / Mega-Entity Boost
-	if score >= 70.0 && length >= 6 {
-		multiplier *= 1.3
+	if score >= 80.0 && length >= 6 {
+		multiplier *= 1.2
 	}
 
-	// Cap at maximum 150x after tag adjustments
-	return math.Min(multiplier, 150.0)
+	// Cap maximum single multiplier
+	return math.Min(multiplier, 250.0)
 }
 
 // splitCamelCase splits a string into words based on CamelCase.

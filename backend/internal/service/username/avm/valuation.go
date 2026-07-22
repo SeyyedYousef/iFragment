@@ -521,10 +521,12 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 
 	g.Go(func() error {
 		if s.fragmentClient != nil {
+			scrapeCtx, cancelScrape := context.WithTimeout(gCtx, 1200*time.Millisecond)
+			defer cancelScrape()
 			var err error
-			scrapedSales, err = s.fragmentClient.GetHistoricalSales(gCtx, username)
+			scrapedSales, err = s.fragmentClient.GetHistoricalSales(scrapeCtx, username)
 			if err != nil {
-				slog.Warn("Failed to scrape historical sales from Fragment", "username", username, "error", err)
+				slog.Warn("Failed to scrape historical sales from Fragment (timeout or network)", "username", username, "error", err)
 			}
 		}
 		return nil

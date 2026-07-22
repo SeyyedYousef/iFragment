@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"ifragment-backend/internal/client/fragment"
 	"ifragment-backend/internal/client/mtproto"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/username/avm"
@@ -14,8 +13,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/shopspring/decimal"
 )
 
 var levenshteinPool = sync.Pool{
@@ -149,9 +146,12 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 		tonRate = 7.25
 	}
 
-	fragClient := fragment.NewClient()
+	// Enforce strict fast timeout of 1.2s for similar username enrichment to ensure ultra-fast response times
+	fastCtx, cancelFast := context.WithTimeout(ctx, 1200*time.Millisecond)
+	defer cancelFast()
+
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, 5) // limit concurrency
+	sem := make(chan struct{}, 10) // higher concurrency
 	for i := range results {
 		wg.Add(1)
 		sem <- struct{}{}
@@ -161,15 +161,15 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 			uName := results[idx].Username
 			lowerName := strings.ToLower(uName)
 
-			// 1. Check AVM HistoricalSales map first for exact sold prices
+			// 1. Check AVM HistoricalSales map first for exact sold prices (instant)
 			if histPrice, exists := avm.HistoricalSales[lowerName]; exists && histPrice > 0 {
 				results[idx].Status = "sold"
 				results[idx].SalePrice = histPrice
 			}
 
-			// 2. Check local Postgres database
+			// 2. Check local Postgres database (instant)
 			if s.db != nil {
-				if sales, dbErr := s.db.GetSalesByUsername(ctx, uName); dbErr == nil && len(sales) > 0 {
+				if sales, dbErr := s.db.GetSalesByUsername(fastCtx, uName); dbErr == nil && len(sales) > 0 {
 					latest := sales[0]
 					results[idx].Status = "sold"
 					fPrice, _ := latest.SalePriceTON.Float64()
@@ -185,9 +185,38 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 				}
 			}
 
-			// 3. Fetch live NFT info via GetNFTByDNS (if TON client is available)
-			if s.tonClient != nil {
-				nft, err := s.tonClient.GetNFTByDNS(ctx, uName)
+			// If status and price are already known from local DB or memory, short-circuit further network calls!
+			if results[idx].Status != "" && results[idx].SalePrice > 0 {
+				if results[idx].SalePrice > 0 {
+					results[idx].SalePriceUSD = math.Round(results[idx].SalePrice*tonRate*100) / 100
+				}
+				return
+			}
+
+			// 3. Fast MTProto check
+			if s.mtprotoClient != nil && fastCtx.Err() == nil {
+				mtStatus, mtErr := s.mtprotoClient.CheckUsername(fastCtx, uName)
+				if mtErr == nil {
+					switch mtStatus {
+					case mtproto.StatusOccupied:
+						if results[idx].Status == "" {
+							results[idx].Status = "taken"
+						}
+					case mtproto.StatusPurchase:
+						if results[idx].Status == "" || results[idx].Status == "available" {
+							results[idx].Status = "on_sale"
+						}
+					case mtproto.StatusAvailable:
+						if results[idx].Status == "" {
+							results[idx].Status = "available"
+						}
+					}
+				}
+			}
+
+			// 4. Fetch live NFT info via GetNFTByDNS (if TON client is available and context alive)
+			if s.tonClient != nil && fastCtx.Err() == nil && results[idx].Status == "" {
+				nft, err := s.tonClient.GetNFTByDNS(fastCtx, uName)
 				if err == nil && nft != nil {
 					if nft.Owner.Address != "" {
 						results[idx].OwnerAddress = nft.Owner.Address
@@ -208,110 +237,7 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 				}
 			}
 
-			// 4. Fetch past auction sales via TonAPI GetFragmentBids if SalePrice is not yet known
-			if (results[idx].Status == "sold" || results[idx].Status == "on_sale" || results[idx].Status == "") && results[idx].SalePrice == 0 && s.tonClient != nil {
-				if bidsResp, errBids := s.tonClient.GetFragmentBids(ctx, uName+".t.me"); errBids == nil && bidsResp != nil {
-					for _, bid := range bidsResp.Data {
-						if bid.Success && bid.Value > 0 {
-							results[idx].Status = "sold"
-							results[idx].SalePrice = float64(bid.Value) / 1e9
-							if bid.TxTime > 0 {
-								results[idx].SaleDate = time.Unix(bid.TxTime, 0).Format(time.RFC3339)
-							}
-							if bid.Bidder.Address != "" {
-								results[idx].OwnerAddress = bid.Bidder.Address
-							}
-							// Cache scraped sale into local DB
-							if s.db != nil {
-								sDate := time.Now()
-								if bid.TxTime > 0 {
-									sDate = time.Unix(bid.TxTime, 0)
-								}
-								buyer := bid.Bidder.Address
-								_, _ = s.db.InsertSale(ctx, repository.Sale{
-									Username:     uName,
-									SalePriceTON: decimal.NewFromFloat(results[idx].SalePrice),
-									SaleType:     "auction",
-									SaleDate:     sDate,
-									BuyerAddress: &buyer,
-									Source:       "tonapi_bids",
-								})
-							}
-							break
-						}
-					}
-				}
-			}
-
-			// 5. Check Telegram MTProto if available
-			if s.mtprotoClient != nil {
-				mtStatus, mtErr := s.mtprotoClient.CheckUsername(ctx, uName)
-				if mtErr == nil {
-					switch mtStatus {
-					case mtproto.StatusOccupied:
-						if results[idx].Status == "" {
-							results[idx].Status = "taken"
-						}
-					case mtproto.StatusPurchase:
-						if results[idx].Status == "" || results[idx].Status == "available" {
-							results[idx].Status = "on_sale"
-						}
-					case mtproto.StatusAvailable:
-						if results[idx].Status == "" {
-							results[idx].Status = "available"
-						}
-					}
-				}
-			}
-
-			// 6. Fragment Web Scraper check if status is still unknown or missing sale price
-			if results[idx].Status == "" || results[idx].Status == "available" || (results[idx].Status == "sold" && results[idx].SalePrice == 0) {
-				fStatus, fErr := fragClient.CheckUsername(ctx, uName)
-				if fErr == nil {
-					switch fStatus {
-					case fragment.StatusSale:
-						results[idx].Status = "on_sale"
-					case fragment.StatusAuction:
-						results[idx].Status = "on_auction"
-					case fragment.StatusSold:
-						results[idx].Status = "sold"
-					case fragment.StatusAvailable:
-						if results[idx].Status == "" {
-							results[idx].Status = "available"
-						}
-					}
-				}
-
-				if (results[idx].Status == "sold" || results[idx].Status == "on_sale") && results[idx].SalePrice == 0 {
-					scrapedSales, sErr := fragClient.GetHistoricalSales(ctx, uName)
-					if sErr == nil && len(scrapedSales) > 0 {
-						results[idx].SalePrice = scrapedSales[0].PriceTON
-						if !scrapedSales[0].SaleDate.IsZero() {
-							results[idx].SaleDate = scrapedSales[0].SaleDate.Format(time.RFC3339)
-						}
-						// Cache scraped sale into local DB
-						if s.db != nil {
-							_, _ = s.db.InsertSale(ctx, repository.Sale{
-								Username:     uName,
-								SalePriceTON: decimal.NewFromFloat(scrapedSales[0].PriceTON),
-								SaleType:     "auction",
-								SaleDate:     scrapedSales[0].SaleDate,
-								Source:       "fragment_scrape",
-							})
-						}
-					}
-				}
-			}
-
-			// 6. Telegram Web check (t.me/<username>) if status is still empty or uncertain
-			if results[idx].Status == "" || results[idx].Status == "available" {
-				webStatus := checkTelegramWebStatus(ctx, uName)
-				if webStatus != "" {
-					results[idx].Status = webStatus
-				}
-			}
-
-			// 7. Fallback heuristics if status is still missing
+			// 5. Fallback heuristics if status is still missing
 			if results[idx].Status == "" {
 				if len(lowerName) <= 5 || isDictionaryWord(lowerName) {
 					results[idx].Status = "taken"
@@ -320,7 +246,7 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 				}
 			}
 
-			// 8. Calculate USD sale price
+			// 6. Calculate USD sale price
 			if results[idx].SalePrice > 0 {
 				results[idx].SalePriceUSD = math.Round(results[idx].SalePrice*tonRate*100) / 100
 			}

@@ -459,6 +459,18 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
+	cleanU := strings.ToLower(strings.TrimPrefix(u, "@"))
+
+	// Redis Cache hit check
+	valCacheKey := "valuate_cache_v5:" + cleanU
+	if h.cache != nil {
+		if cachedData, err := h.cache.Client.Get(ctx, valCacheKey).Result(); err == nil && cachedData != "" {
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("X-Cache", "HIT")
+			w.Write([]byte(cachedData))
+			return
+		}
+	}
 
 	// Rate limit: stricter than QuickAnalysis since valuation involves DB writes
 	if h.cache != nil {
@@ -599,8 +611,17 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 
 	_ = gVal.Wait()
 
+	outBytes, err := json.Marshal(result)
+	if err == nil && h.cache != nil {
+		h.cache.Client.Set(context.Background(), valCacheKey, outBytes, 10*time.Minute)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	if len(outBytes) > 0 {
+		w.Write(outBytes)
+	} else {
+		json.NewEncoder(w).Encode(result)
+	}
 }
 
 func (h *UsernameHandler) sendValuationNotification(r *http.Request, u string, result *avm.ValuationResult) {

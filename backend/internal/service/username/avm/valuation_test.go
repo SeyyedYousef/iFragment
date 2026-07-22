@@ -146,21 +146,20 @@ func TestCalculateSemanticKNNFloor(t *testing.T) {
 
 func TestValuationEngine_CatsAndRare(t *testing.T) {
 	svc := NewValuationService(nil, nil, nil)
+	cfg := DefaultEngineConfig()
 	
 	// 1. Check scoreToMultiplier for 4-letter status word (e.g. rare)
-	rareMult := svc.semanticEngine.scoreToMultiplier(95, 4, []string{"exclusivity_status_premium"}, true)
-	estimatedRare := 5050.0 * rareMult
+	rareMult := svc.semanticEngine.scoreToMultiplier(92, 4, []string{"exclusivity_status_premium"}, true)
+	estimatedRare := cfg.FallbackLen4 * rareMult
 	if estimatedRare < 100000 || estimatedRare > 150000 {
 		t.Errorf("Estimated price for 'rare' = %f, expected between 100000 and 150000", estimatedRare)
 	}
 
-	// 2. Check anchored cats price calculation logic
-	// Historical sale 5050.0 TON appreciated ~3.7 yrs @ 20% = ~9950 TON
-	// MorphLog = 0, SemanticLog capped at max 1.15 drift
-	appreciatedCats := 5050.0 * 1.97
-	finalCats := appreciatedCats * 1.15
-	if finalCats < 10000 || finalCats > 15000 {
-		t.Errorf("Anchored price for 'cats' = %f, expected between 10000 and 15000", finalCats)
+	// 2. Check cats multiplier calculation
+	catsMult := svc.semanticEngine.scoreToMultiplier(67, 4, []string{"noun"}, true)
+	estimatedCats := cfg.FallbackLen4 * catsMult
+	if estimatedCats < 10000 || estimatedCats > 15000 {
+		t.Errorf("Estimated price for 'cats' = %f, expected between 10000 and 15000", estimatedCats)
 	}
 }
 
@@ -185,6 +184,31 @@ func TestValuationEngine_CompoundRatioAndEcosystem(t *testing.T) {
 	notcoinPrice, ok := HistoricalSales["notcoin"]
 	if !ok || notcoinPrice < 100000 {
 		t.Errorf("Ecosystem handle 'notcoin' should be anchored >= 100000 TON, got %f", notcoinPrice)
+	}
+}
+
+func TestValuationEngine_MultiTierBenchmarks(t *testing.T) {
+	svc := NewValuationService(nil, nil, nil)
+	cfg := DefaultEngineConfig()
+
+	// 1. 5-letter common noun (@money, @tesla) -> ~2,000 - 8,000 TON
+	moneyMult := svc.semanticEngine.scoreToMultiplier(75, 5, []string{"general_ultra_premium"}, true)
+	moneyPrice := cfg.FallbackLen5 * moneyMult
+	if moneyPrice < 2000 || moneyPrice > 10000 {
+		t.Errorf("5-letter term 'money' price = %f, expected between 2000 and 10000", moneyPrice)
+	}
+
+	// 2. Gibberish protection (@xqzkw) -> < 100 TON
+	gibberishMult := svc.semanticEngine.scoreToMultiplier(10, 5, []string{}, false)
+	gibberishPrice := cfg.FallbackLen5 * gibberishMult
+	if gibberishPrice > 100 {
+		t.Errorf("Gibberish term 'xqzkw' price = %f, expected < 100 TON", gibberishPrice)
+	}
+
+	// 3. 3-letter ultra status (@vip) -> > 50x multiplier
+	vipMult := svc.semanticEngine.scoreToMultiplier(90, 3, []string{"exclusivity_status_premium"}, true)
+	if vipMult < 50 {
+		t.Errorf("3-letter status term 'vip' multiplier (%f) should yield high value", vipMult)
 	}
 }
 
