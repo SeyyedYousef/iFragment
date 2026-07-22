@@ -1,4 +1,5 @@
 export const dict = {
+	dir: 'ltr',
 	search: {
 		channelPlaceholder: '快速搜索频道工具和设置...',
 		features: {
@@ -695,8 +696,9 @@ export const dict = {
 	},
 	bottomNav: {
 		airdrop: '空投',
-		dashboard: '仪表板',
+		dashboard: '管理',
 		home: '首页',
+		profile: '个人',
 	},
 	channelAdmins: {
 		addNewAdmin: '添加新管理员',
@@ -1601,13 +1603,14 @@ export const dict = {
 		welcomeTextDesc: '当新成员加入群组时发送。',
 	},
 	dashboard: {
-		channelDesc: '专业管理您的频道和其他功能',
-		channelMgmt: 'Telegram 频道管理',
-		description: '选择一项服务来管理您的社区。',
+		channelDesc:
+			'强劲 AI 频道助手；动态自动简介、彩色玻璃按钮、秒发首条评论与智能自动回复。',
+		channelMgmt: '智能频道管理',
+		description: '选择一项服务来管理您的 Telegram 社区。',
 		groupDesc:
-			'创建一个超先进的 Telegram 群组管理机器人，用您自己的个人姓名和个人资料来管理您的群组，并专业地管理您的群组...',
-		groupMgmt: 'Telegram 群组管理',
-		title: '管理',
+			'高级 AI 群组管理机器人；动态简介、自动反垃圾邮件、智能内容锁与专属品牌成员管理。',
+		groupMgmt: '智能群组管理',
+		title: '社区管理',
 		warningChannel: '所有频道均处于活跃和安全状态',
 		warningGroup: '1 个机器人离线 — 需立即处理以防止服务中断',
 	},

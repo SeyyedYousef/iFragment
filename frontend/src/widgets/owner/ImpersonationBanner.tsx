@@ -70,6 +70,8 @@ export const ImpersonationBanner: Component = () => {
 		sessionStorage.removeItem('owner_impersonation_token');
 		sessionStorage.removeItem('impersonated_user_id');
 		sessionStorage.removeItem('impersonated_username');
+		sessionStorage.removeItem('impersonated_first_name');
+		sessionStorage.removeItem('impersonated_last_name');
 
 		localStorage.removeItem('cached_profile_stats');
 		localStorage.removeItem('cached_profile_achievements');
@@ -81,20 +83,27 @@ export const ImpersonationBanner: Component = () => {
 		window.location.reload();
 	};
 
+	const navigateTo = (path: string) => {
+		try {
+			hapticFeedback.impactOccurred('light');
+		} catch {}
+		window.location.href = `${window.location.pathname}#${path}`;
+	};
+
 	return (
 		<Show when={impersonatedUser()}>
 			<div
-				class={`sticky top-0 inset-x-0 z-[10000] h-11 backdrop-blur-md border-b px-4 flex items-center justify-between text-xs text-white font-bold shadow-lg animate-slide-down select-none ${
+				class={`sticky top-0 inset-x-0 z-[10000] backdrop-blur-md border-b px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs text-white font-bold shadow-lg animate-slide-down select-none ${
 					remainingSeconds() <= 120
-						? 'bg-orange-600/90 border-orange-500/20'
-						: 'bg-red-600/90 border-red-500/20'
+						? 'bg-orange-600/95 border-orange-500/30'
+						: 'bg-red-600/95 border-red-500/30'
 				}`}
 			>
-				<div class="flex items-center gap-2">
-					<span class="inline-block w-2.5 h-2.5 rounded-full bg-white animate-ping" />
-					<span>
+				<div class="flex items-center gap-2 flex-wrap">
+					<span class="inline-block w-2.5 h-2.5 rounded-full bg-white animate-ping shrink-0" />
+					<span class="truncate max-w-[220px]">
 						{(
-							t('profile.impersonationBanner') || 'حالت شبیه‌سازی خواندنی: کاربر {username}'
+							t('profile.impersonationBanner') || 'ورود پشتیبانی به حساب کاربر: {username}'
 						).replace('{username}', impersonatedUser() || '')}
 					</span>
 					<span
@@ -105,12 +114,33 @@ export const ImpersonationBanner: Component = () => {
 						{formatTime(remainingSeconds())}
 					</span>
 				</div>
-				<button
-					onClick={handleExitSimulation}
-					class="h-7 px-3 bg-white text-red-600 active:scale-95 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all shadow shadow-black/20"
-				>
-					{t('profile.exitSimulation') || 'خروج از شبیه‌سازی'}
-				</button>
+
+				<div class="flex items-center gap-1.5">
+					<button
+						onClick={() => navigateTo('/managed-channels')}
+						class="h-7 px-2.5 bg-white/15 hover:bg-white/25 active:scale-95 text-[11px] font-bold rounded-lg transition-all border border-white/20"
+					>
+						کانال‌ها
+					</button>
+					<button
+						onClick={() => navigateTo('/managed-bots')}
+						class="h-7 px-2.5 bg-white/15 hover:bg-white/25 active:scale-95 text-[11px] font-bold rounded-lg transition-all border border-white/20"
+					>
+						گروه‌ها
+					</button>
+					<button
+						onClick={() => navigateTo('/profile')}
+						class="h-7 px-2.5 bg-white/15 hover:bg-white/25 active:scale-95 text-[11px] font-bold rounded-lg transition-all border border-white/20"
+					>
+						پروفایل
+					</button>
+					<button
+						onClick={handleExitSimulation}
+						class="h-7 px-3 bg-white text-red-600 active:scale-95 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all shadow shadow-black/20"
+					>
+						{t('profile.exitSimulation') || 'خروج'}
+					</button>
+				</div>
 			</div>
 		</Show>
 	);

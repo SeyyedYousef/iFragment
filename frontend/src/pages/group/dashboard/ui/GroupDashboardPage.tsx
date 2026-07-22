@@ -122,10 +122,24 @@ export const GroupDashboardPage: Component = () => {
 					>
 						<span class="material-symbols-outlined text-white/80 text-[22px] rtl:-scale-x-100">arrow_back</span>
 					</button>
-					<div class="w-11 h-11 rounded-[14px] bg-gradient-to-br from-[#3390ec]/20 to-[#3390ec]/5 border border-[#3390ec]/30 flex items-center justify-center shrink-0 shadow-inner">
-						<span class="text-[16px] font-black text-[#3390ec] drop-shadow-md">
-							{group()?.chat_title?.charAt(0) || 'G'}
-						</span>
+					<div class="w-11 h-11 rounded-[14px] bg-gradient-to-br from-[#3390ec]/20 to-[#3390ec]/5 border border-[#3390ec]/30 flex items-center justify-center shrink-0 shadow-inner overflow-hidden">
+						<Show
+							when={group()?.photo_url}
+							fallback={
+								<span class="text-[16px] font-black text-[#3390ec] drop-shadow-md">
+									{group()?.chat_title?.charAt(0) || 'G'}
+								</span>
+							}
+						>
+							<img
+								src={group()?.photo_url}
+								alt=""
+								class="w-full h-full object-cover"
+								onError={(e) => {
+									(e.currentTarget as HTMLElement).style.display = 'none';
+								}}
+							/>
+						</Show>
 					</div>
 					<div class="flex flex-col overflow-hidden">
 						<h1 class="text-[16px] font-black text-white leading-tight truncate tracking-tight">

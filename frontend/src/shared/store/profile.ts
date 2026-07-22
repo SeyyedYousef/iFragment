@@ -17,6 +17,10 @@ export interface Achievement {
 }
 
 export interface ProfileStats {
+	telegramId?: number;
+	username?: string;
+	firstName?: string;
+	lastName?: string;
 	usernamesAnalyzed: number;
 	groupsManaged: number;
 	channelsManaged: number;

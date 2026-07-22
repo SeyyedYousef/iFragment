@@ -115,9 +115,10 @@ type PreCheckoutQuery struct {
 }
 
 type Chat struct {
-	ID    int64  `json:"id"`
-	Type  string `json:"type"`
-	Title string `json:"title,omitempty"`
+	ID       int64  `json:"id"`
+	Type     string `json:"type"`
+	Title    string `json:"title,omitempty"`
+	Username string `json:"username,omitempty"`
 }
 
 type Message struct {
@@ -1540,24 +1541,24 @@ func (h *WebhookHandler) executeViolationAction(ctx context.Context, bot *reposi
 	if violation.Action == "warn" || violation.Action == "delete" {
 		template := ct.WarningText
 		if template == "" || repository.IsLegacyText(template) {
-			template = "⚠️ <b>{user}</b> | Warning <b>{count}/{threshold}</b>\n└ Reason: {reason}"
+			template = "⚠️ {user} | Warning {count}/{threshold} ▫️ {reason}"
 		}
 
 		switch violation.Type {
 		case "mandatory_membership":
 			template = ct.ForceJoinText
 			if template == "" || repository.IsLegacyText(template) {
-				template = "📢 <b>{user}</b>, join required channels to chat in <b>{group}</b>:\n\n{channel_names}"
+				template = "📢 {user}, join required channels to chat:\n{channel_names}"
 			}
 		case "forced_add":
 			template = ct.ForceAddText
 			if template == "" || repository.IsLegacyText(template) {
-				template = "👥 <b>{user}</b>, invite {remainadd} member(s) to chat in <b>{group}</b> ({added}/{number})"
+				template = "👥 {user}, invite {remainadd} member(s) to chat ({added}/{number})"
 			}
 		case "quiet_hours":
 			template = ct.SilenceStartText
 			if template == "" || repository.IsLegacyText(template) {
-				template = "🔒 <b>{group}</b> | Quiet Hours Active"
+				template = "🔒 Quiet mode activated"
 			}
 		}
 
@@ -1790,7 +1791,11 @@ func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *reposit
 	var livePhotoURL string
 	if tg != nil {
 		liveMembersCount, _ = tg.GetChatMemberCount(ctx, chat.ID)
-		livePhotoURL, _ = tg.GetChatPhotoURL(ctx, chat.ID)
+		if chat.Username != "" {
+			livePhotoURL = fmt.Sprintf("https://t.me/i/userpic/320/%s.jpg", chat.Username)
+		} else {
+			livePhotoURL, _ = tg.GetChatPhotoURL(ctx, chat.ID)
+		}
 	}
 
 	managedGroup, err := h.botRepo.GetGroup(ctx, bot.ID, chat.ID)
@@ -1941,7 +1946,7 @@ func (h *WebhookHandler) handleWelcomeMessage(ctx context.Context, bot *reposito
 
 	welcomeText := ct.WelcomeText
 	if welcomeText == "" || repository.IsLegacyText(welcomeText) {
-		welcomeText = "👋 Welcome {user} to <b>{group}</b>!"
+		welcomeText = "👋 Welcome {user}"
 	}
 
 	bot, _ = h.botRepo.GetBotByID(ctx, group.BotID)
@@ -2007,7 +2012,7 @@ func (h *WebhookHandler) handleWelcomeMessage(ctx context.Context, bot *reposito
 	// Rules placeholder
 	rules := ct.RulesText
 	if rules == "" {
-		rules = "▫️ No Spam, Ads, or Unauthorized Links\n▫️ Maintain respect & decorum"
+		rules = "📜 <b>Rules</b>: Respect others • No spam or links"
 	}
 	text = strings.ReplaceAll(text, "{rules}", rules)
 

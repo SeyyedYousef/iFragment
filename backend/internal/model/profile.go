@@ -3,6 +3,10 @@ package model
 import "time"
 
 type ProfileStats struct {
+	TelegramID          int64      `json:"telegramId"`
+	Username            string     `json:"username"`
+	FirstName           string     `json:"firstName"`
+	LastName            string     `json:"lastName"`
 	UsernamesAnalyzed   int        `json:"usernamesAnalyzed"`
 	GroupsManaged       int        `json:"groupsManaged"`
 	ChannelsManaged     int        `json:"channelsManaged"`

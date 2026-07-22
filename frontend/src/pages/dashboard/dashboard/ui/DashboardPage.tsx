@@ -3,7 +3,7 @@ import { useNavigate } from '@solidjs/router';
 import { hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createSignal, For, onMount, Show } from 'solid-js';
 import { apiClient } from '@/shared/api/axios.js';
-import { t } from '@/shared/i18n/index.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 import { BottomNav } from '@/widgets/bottom-nav/index.js';
 
 interface DashboardAd {
@@ -30,7 +30,7 @@ export const DashboardPage: Component = () => {
 	});
 
 	return (
-		<div class="min-h-screen bg-[#030303] relative overflow-y-auto no-scrollbar text-white flex flex-col font-sans selection:bg-[#3390ec]/30" dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}>
+		<div class="min-h-screen bg-[#030303] relative overflow-y-auto no-scrollbar text-white flex flex-col font-sans selection:bg-[#3390ec]/30" dir={isRtl() ? 'rtl' : 'ltr'}>
 			
 			{/* Ambient Top Glow */}
 			<div class="absolute top-0 left-0 right-0 h-[350px] bg-gradient-to-b from-[#3390ec]/15 via-[#3390ec]/5 to-transparent blur-[80px] pointer-events-none z-0" />
@@ -111,7 +111,7 @@ export const DashboardPage: Component = () => {
 								<div class="w-14 h-14 rounded-[16px] bg-[#3390ec]/10 flex items-center justify-center shrink-0 border border-[#3390ec]/20 group-hover:scale-110 transition-transform duration-300 shadow-inner">
 									<span class="material-symbols-outlined text-[#3390ec] text-[28px] drop-shadow-md">groups</span>
 								</div>
-								<div class="flex-1 pt-1 flex flex-col">
+								<div class="flex-1 pt-1 flex flex-col text-start">
 									<h3 class="text-[16px] font-black text-white mb-1 tracking-tight">{t('dashboard.groupMgmt')}</h3>
 									<p class="text-[12px] text-white/50 leading-relaxed font-medium">
 										{t('dashboard.groupDesc')}
@@ -140,7 +140,7 @@ export const DashboardPage: Component = () => {
 								<div class="w-14 h-14 rounded-[16px] bg-sky-500/10 flex items-center justify-center shrink-0 border border-sky-400/20 group-hover:scale-110 transition-transform duration-300 shadow-inner">
 									<span class="material-symbols-outlined text-sky-400 text-[28px] drop-shadow-md">campaign</span>
 								</div>
-								<div class="flex-1 pt-1 flex flex-col">
+								<div class="flex-1 pt-1 flex flex-col text-start">
 									<h3 class="text-[16px] font-black text-white mb-1 tracking-tight">{t('dashboard.channelMgmt')}</h3>
 									<p class="text-[12px] text-white/50 leading-relaxed font-medium">
 										{t('dashboard.channelDesc')}

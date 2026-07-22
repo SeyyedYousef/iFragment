@@ -14,6 +14,10 @@ export const UserBoostsSchema = z.object({
 export type UserBoosts = z.infer<typeof UserBoostsSchema>;
 
 export const ProfileStatsSchema = z.object({
+	telegramId: z.number().optional(),
+	username: z.string().optional(),
+	firstName: z.string().optional(),
+	lastName: z.string().optional(),
 	usernamesAnalyzed: z.number().int().nonnegative(),
 	groupsManaged: z.number().int().nonnegative(),
 	channelsManaged: z.number().int().nonnegative(),

@@ -428,12 +428,20 @@ func (s *BotService) ListGroups(ctx context.Context, botID uuid.UUID, ownerID in
 			groups[i].SubscriptionStatus = "expired"
 		}
 
-		if tg != nil && (g.MembersCount == 0 || g.PhotoURL == "") {
+		if tg != nil {
 			count, errCount := tg.GetChatMemberCount(ctx, g.ChatID)
-			photoURL, _ := tg.GetChatPhotoURL(ctx, g.ChatID)
+			photoURL := ""
 			title := g.ChatTitle
-			if chatInfo, errChat := tg.GetChat(ctx, g.ChatID); errChat == nil && chatInfo != nil && chatInfo.Title != "" {
-				title = chatInfo.Title
+			if chatInfo, errChat := tg.GetChat(ctx, g.ChatID); errChat == nil && chatInfo != nil {
+				if chatInfo.Title != "" {
+					title = chatInfo.Title
+				}
+				if chatInfo.Username != nil && *chatInfo.Username != "" {
+					photoURL = fmt.Sprintf("https://t.me/i/userpic/320/%s.jpg", *chatInfo.Username)
+				}
+			}
+			if photoURL == "" {
+				photoURL, _ = tg.GetChatPhotoURL(ctx, g.ChatID)
 			}
 			if errCount == nil && count > 0 {
 				groups[i].MembersCount = count
@@ -455,10 +463,46 @@ func (s *BotService) GetGroup(ctx context.Context, groupID uuid.UUID, ownerID in
 		return nil, err
 	}
 	if group.ConnectedByUserID != nil && *group.ConnectedByUserID == ownerID {
+		if group.PhotoURL == "" {
+			if bot, errBot := s.botRepo.GetBotByID(ctx, group.BotID); errBot == nil && bot != nil {
+				if token, _ := DecryptToken(bot.BotTokenEncrypted); token != "" {
+					tg := telegram.NewBotAPIClient(token)
+					photoURL := ""
+					if chatInfo, errChat := tg.GetChat(ctx, group.ChatID); errChat == nil && chatInfo != nil && chatInfo.Username != nil && *chatInfo.Username != "" {
+						photoURL = fmt.Sprintf("https://t.me/i/userpic/320/%s.jpg", *chatInfo.Username)
+					}
+					if photoURL == "" {
+						photoURL, _ = tg.GetChatPhotoURL(ctx, group.ChatID)
+					}
+					if photoURL != "" {
+						group.PhotoURL = photoURL
+						_ = s.botRepo.UpdateGroupDetails(ctx, group.ID, group.ChatTitle, group.MembersCount, group.PhotoURL)
+					}
+				}
+			}
+		}
 		return group, nil
 	}
 	if _, err := s.GetBot(ctx, group.BotID, ownerID); err != nil {
 		return nil, err
+	}
+	if group.PhotoURL == "" {
+		if bot, errBot := s.botRepo.GetBotByID(ctx, group.BotID); errBot == nil && bot != nil {
+			if token, _ := DecryptToken(bot.BotTokenEncrypted); token != "" {
+				tg := telegram.NewBotAPIClient(token)
+				photoURL := ""
+				if chatInfo, errChat := tg.GetChat(ctx, group.ChatID); errChat == nil && chatInfo != nil && chatInfo.Username != nil && *chatInfo.Username != "" {
+					photoURL = fmt.Sprintf("https://t.me/i/userpic/320/%s.jpg", *chatInfo.Username)
+				}
+				if photoURL == "" {
+					photoURL, _ = tg.GetChatPhotoURL(ctx, group.ChatID)
+				}
+				if photoURL != "" {
+					group.PhotoURL = photoURL
+					_ = s.botRepo.UpdateGroupDetails(ctx, group.ID, group.ChatTitle, group.MembersCount, group.PhotoURL)
+				}
+			}
+		}
 	}
 	return group, nil
 }

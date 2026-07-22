@@ -23,9 +23,40 @@ export const IdentityHero = (props: Props) => {
 	const user = () => initData.user();
 	const [imgError, setImgError] = createSignal(false);
 
+	const isImpersonating = createMemo(() => !!sessionStorage.getItem('owner_impersonation_token'));
+
+	const displayName = createMemo(() => {
+		if (props.stats?.firstName || props.stats?.lastName) {
+			const full = `${props.stats?.firstName || ''} ${props.stats?.lastName || ''}`.trim();
+			if (full) return full;
+		}
+		if (isImpersonating()) {
+			const sf = sessionStorage.getItem('impersonated_first_name');
+			const sl = sessionStorage.getItem('impersonated_last_name');
+			const su = sessionStorage.getItem('impersonated_username');
+			const full = `${sf || ''} ${sl || ''}`.trim();
+			if (full) return full;
+			if (su) return `@${su}`;
+		}
+		if (user()?.first_name) {
+			return `${user()?.first_name} ${user()?.last_name || ''}`.trim();
+		}
+		return 'کاربر';
+	});
+
+	const usernameTag = createMemo(() => {
+		if (props.stats?.username) return `@${props.stats.username}`;
+		if (isImpersonating()) {
+			const su = sessionStorage.getItem('impersonated_username');
+			if (su && !su.startsWith('impersonated_user_')) return `@${su}`;
+		}
+		if (user()?.username) return `@${user()?.username}`;
+		return '';
+	});
+
 	const avatarUrl = createMemo(() => {
 		if (props.stats?.photoUrl) return buildAvatarUrl(props.stats.photoUrl);
-		if ((user() as any)?.photo_url) return (user() as any).photo_url;
+		if ((user() as any)?.photo_url && !isImpersonating()) return (user() as any).photo_url;
 		return '';
 	});
 
@@ -35,6 +66,11 @@ export const IdentityHero = (props: Props) => {
 	});
 
 	const info = createMemo(() => getLevelInfo(props.stats?.xp || 0));
+
+	const initialLetter = createMemo(() => {
+		const name = displayName();
+		return name && name.length > 0 ? name[0].toUpperCase() : 'U';
+	});
 
 	return (
 		<div class="relative w-full flex flex-col items-center px-4 z-20 mt-4 select-none">
@@ -53,14 +89,14 @@ export const IdentityHero = (props: Props) => {
 							fallback={
 								<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#151822] to-[#08090D]">
 									<span class="text-3xl font-black text-[#3390ec]">
-										{user()?.first_name ? user()?.first_name[0].toUpperCase() : 'U'}
+										{initialLetter()}
 									</span>
 								</div>
 							}
 						>
 							<img
 								src={avatarUrl()}
-								alt={user()?.first_name ? `تصویر ${user()?.first_name}` : 'تصویر پروفایل کاربر'}
+								alt={`تصویر ${displayName()}`}
 								class="w-full h-full object-cover transition-opacity duration-300"
 								loading="lazy"
 								referrerPolicy="no-referrer"
@@ -74,14 +110,18 @@ export const IdentityHero = (props: Props) => {
 			</div>
 
 			{/* User Info & Badges */}
-			<div class="flex flex-col items-center w-full text-center z-10 px-4 pb-5 space-y-3">
+			<div class="flex flex-col items-center w-full text-center z-10 px-4 pb-5 space-y-2">
 				<h1 class="text-2xl font-black leading-tight text-white">
-					<bdi>
-						{user()?.first_name} {user()?.last_name || ''}
-					</bdi>
+					<bdi>{displayName()}</bdi>
 				</h1>
 
-				<div class="flex items-center justify-center flex-wrap gap-2">
+				<Show when={usernameTag()}>
+					<p class="text-[#3390ec] text-xs font-bold dir-ltr opacity-90">
+						{usernameTag()}
+					</p>
+				</Show>
+
+				<div class="flex items-center justify-center flex-wrap gap-2 pt-1">
 					{/* Level Badge */}
 					<div class="flex items-center gap-1.5 bg-[#3390ec]/15 border border-[#3390ec]/30 px-3 py-1.5 rounded-xl backdrop-blur-md">
 						<span

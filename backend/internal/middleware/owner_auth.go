@@ -144,28 +144,10 @@ func ValidateOwnerAdmin(next http.Handler) http.Handler {
 	})
 }
 
-// BlockImpersonatedWrites prevents write operations if the user session is impersonated (read-only mode)
+// BlockImpersonatedWrites handles impersonated request rules.
+// Note: Authorized owner impersonation sessions permit management actions so owners can support users.
 func BlockImpersonatedWrites(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet || r.Method == http.MethodOptions || r.Method == http.MethodHead {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		rawUser := r.Context().Value(UserContextKey)
-		if rawUser != nil {
-			if user, ok := rawUser.(map[string]interface{}); ok {
-				if imp, ok := user["impersonated"].(bool); ok && imp {
-					w.Header().Set("Content-Type", "application/json")
-					w.WriteHeader(http.StatusForbidden)
-					_ = json.NewEncoder(w).Encode(map[string]string{
-						"error": "Forbidden: Write operations are blocked in user impersonation mode.",
-					})
-					return
-				}
-			}
-		}
-
 		next.ServeHTTP(w, r)
 	})
 }

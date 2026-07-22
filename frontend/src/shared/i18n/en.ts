@@ -1,4 +1,5 @@
 export const dict = {
+	dir: 'ltr',
 	search: {
 		channelPlaceholder: 'Quick search channel tools and settings...',
 		features: {
@@ -704,8 +705,9 @@ export const dict = {
 	},
 	bottomNav: {
 		airdrop: 'Airdrop',
-		dashboard: 'Dashboard',
+		dashboard: 'Manage',
 		home: 'Home',
+		profile: 'Profile',
 	},
 	channelAdmins: {
 		addNewAdmin: 'Add New Admin',
@@ -1636,13 +1638,14 @@ export const dict = {
 		welcomeTextDesc: 'Sent when a new member joins the group.',
 	},
 	dashboard: {
-		channelDesc: 'Manage your channel professionally and other features',
-		channelMgmt: 'Telegram Channel Management',
-		description: 'Select a service to manage your communities.',
+		channelDesc:
+			'Powerful AI channel assistant; dynamic auto-bio, colorful glass buttons, instant first comment, and smart auto-responder.',
+		channelMgmt: 'Smart Channel Management',
+		description: 'Select a service to manage your Telegram communities.',
 		groupDesc:
-			'Create an ultra-advanced Telegram group management bot to manage your group with your own personal name and profile, and manage your group professionally...',
-		groupMgmt: 'Telegram Group Management',
-		title: 'Management',
+			'Advanced AI group management bot; dynamic bio, automated anti-spam, smart content locks, and full member control with your personal brand.',
+		groupMgmt: 'Smart Group Management',
+		title: 'Community Management',
 		warningChannel: 'All channels active & secured',
 		warningGroup: '1 bot offline — action required to prevent service interruption',
 	},
@@ -2344,6 +2347,7 @@ export const dict = {
 	shopInfo: {
 		channelMgmt: 'Channel Tools',
 		channelMgmtDesc: 'Auto-posting, professional inline keyboards, and precise member analytics.',
+		coachmark: 'Coin Utilities',
 		comingSoon:
 			'The ability to connect your wallet and convert coins to real tokens will be activated when listed on exchanges. Until then, use your coins to upgrade your bot!',
 		desc: 'In our ecosystem, the coins you mine are not worthless! You can use these coins instead of paying real Telegram Stars (⭐️) to pay for our bot services.',

@@ -634,20 +634,22 @@ export const TapView: Component<{
 						class="absolute inset-0 bg-black/80 backdrop-blur-sm animate-fade-in"
 						onClick={() => setShowShopModal(false)}
 					/>
-					<div class="relative w-full h-[85vh] bg-[#14141a] rounded-t-[32px] border-t border-white/10 flex flex-col animate-slide-up shadow-[0_-10px_60px_rgba(0,0,0,0.8)] overflow-hidden">
-						<div
-							class="w-full flex justify-center py-4 shrink-0"
-							onClick={() => setShowShopModal(false)}
-						>
-							<div class="w-12 h-1.5 rounded-full bg-white/10" />
+					<div class="relative w-full h-[85vh] sm:h-[80vh] bg-[#07080c] rounded-t-[32px] border-t border-amber-500/20 flex flex-col animate-slide-up shadow-[0_-10px_60px_rgba(0,0,0,0.9)] overflow-hidden z-10">
+						{/* Header handle and Close button */}
+						<div class="w-full flex items-center justify-between px-5 py-3.5 shrink-0 border-b border-white/5 bg-[#10121a]/80 backdrop-blur-md relative z-20">
+							<div class="w-8" />
+							<div
+								class="w-12 h-1.5 rounded-full bg-white/20 hover:bg-white/40 transition-colors cursor-pointer"
+								onClick={() => setShowShopModal(false)}
+							/>
+							<button
+								onClick={() => setShowShopModal(false)}
+								class="w-8 h-8 flex items-center justify-center rounded-full bg-white/5 text-white/60 hover:bg-white/10 hover:text-white transition-colors"
+							>
+								<span class="material-symbols-outlined text-[20px]">close</span>
+							</button>
 						</div>
-						<button
-							onClick={() => setShowShopModal(false)}
-							class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/5 text-[#8e8e93] hover:bg-white/10 hover:text-white transition-colors"
-						>
-							<span class="material-symbols-outlined text-[20px]">close</span>
-						</button>
-						<div class="flex-1 overflow-hidden relative">
+						<div class="flex-1 min-h-0 relative w-full flex flex-col overflow-hidden">
 							<ShopView />
 						</div>
 					</div>

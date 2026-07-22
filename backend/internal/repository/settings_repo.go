@@ -230,7 +230,16 @@ func IsLegacyText(val string) bool {
 		strings.Contains(val, "Group Lockdown Lifted") ||
 		strings.Contains(val, "Community Guidelines for") ||
 		strings.Contains(val, "Action Required: Channel Membership") ||
-		strings.Contains(val, "Action Required: Community Contribution")
+		strings.Contains(val, "Action Required: Community Contribution") ||
+		strings.Contains(val, "Welcome {user} to") ||
+		strings.Contains(val, "Quiet Hours Active") ||
+		strings.Contains(val, "Chat Open") ||
+		strings.Contains(val, "No Spam, Ads, or Unauthorized Links") ||
+		strings.Contains(val, "join required channels to chat in") ||
+		strings.Contains(val, "invite {remainadd} member(s) to chat in") ||
+		strings.Contains(val, "Warning <b>{count}") ||
+		strings.Contains(val, "حالت سکوت") ||
+		strings.Contains(val, "خوش‌آمدید")
 }
 
 func populateCustomTextsDefaults(raw json.RawMessage, lang ...string) json.RawMessage {
@@ -240,13 +249,13 @@ func populateCustomTextsDefaults(raw json.RawMessage, lang ...string) json.RawMe
 	}
 
 	defaults := map[string]interface{}{
-		"welcomeText":      "👋 Welcome {user} to <b>{group}</b>!",
-		"warningText":      "⚠️ <b>{user}</b> | Warning <b>{count}/{threshold}</b>\n└ Reason: {reason}",
-		"silenceStartText": "🔒 <b>{group}</b> | Quiet Hours Active",
-		"silenceEndText":   "🔓 <b>{group}</b> | Chat Open",
-		"rulesText":        "📜 <b>{group} Rules</b>\n▫️ No Spam, Ads, or Unauthorized Links\n▫️ Maintain respect & decorum",
-		"forceJoinText":    "📢 <b>{user}</b>, join required channels to chat in <b>{group}</b>:\n\n{channel_names}",
-		"forceAddText":     "👥 <b>{user}</b>, invite {remainadd} member(s) to chat in <b>{group}</b> ({added}/{number})",
+		"welcomeText":      "👋 Welcome {user}",
+		"warningText":      "⚠️ {user} | Warning {count}/{threshold} ▫️ {reason}",
+		"silenceStartText": "🔒 Quiet mode activated",
+		"silenceEndText":   "🔓 Quiet mode deactivated",
+		"rulesText":        "📜 <b>Rules</b>: Respect others • No spam or links",
+		"forceJoinText":    "📢 {user}, join required channels to chat:\n{channel_names}",
+		"forceAddText":     "👥 {user}, invite {remainadd} member(s) to chat ({added}/{number})",
 		"inlineButtons":    []interface{}{},
 	}
 

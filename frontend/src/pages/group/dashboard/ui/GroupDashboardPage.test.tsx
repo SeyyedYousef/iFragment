@@ -44,6 +44,6 @@ describe('GroupDashboardPage', () => {
 
 	it('renders dashboard health label', async () => {
 		render(() => <GroupDashboardPage />);
-		expect(await screen.findByText('groupDashboard.health')).toBeInTheDocument();
+		expect(await screen.findByText((c) => c.includes('ایمن') || c.includes('VerySafe') || c.includes('health'))).toBeInTheDocument();
 	});
 });

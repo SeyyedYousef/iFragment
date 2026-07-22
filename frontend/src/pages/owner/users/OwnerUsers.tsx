@@ -167,6 +167,8 @@ export const OwnerUsers: Component = () => {
 						'impersonated_username',
 						user.username || String(user.telegram_id),
 					);
+					if (user.first_name) sessionStorage.setItem('impersonated_first_name', user.first_name);
+					if (user.last_name) sessionStorage.setItem('impersonated_last_name', user.last_name);
 					localStorage.removeItem('cached_profile_stats');
 					localStorage.removeItem('cached_profile_achievements');
 					localStorage.removeItem('cached_profile_referral');

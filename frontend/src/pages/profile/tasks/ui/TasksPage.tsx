@@ -125,9 +125,9 @@ export const TasksPage: Component = () => {
 		);
 	};
 
-	const getTaskIcon = (type: string, key: string) => {
+	const getTaskIcon = (type?: string, key?: string) => {
 		if (type === 'quiz') return 'psychology';
-		if (type === 'channel_join' || key.includes('join')) return 'campaign';
+		if (type === 'channel_join' || (key && key.includes('join'))) return 'campaign';
 		return 'task_alt';
 	};
 
@@ -345,11 +345,11 @@ export const TasksPage: Component = () => {
 								❓
 							</div>
 							<h3 class="text-[20px] font-black text-white mb-2 tracking-tight">
-								{activeQuizTask()?.title || t('airdropFinal.tasks.specialTask')}
+								{activeQuizTask()?.title || t('airdropFinal.tasks.specialTask' as any)}
 							</h3>
 							<p class="text-[13px] font-medium text-white/60 leading-relaxed mb-6 px-2">
 								{activeQuizTask()?.config?.quiz_question ||
-									t('airdropFinal.tasks.items.default.desc')}
+									t('airdropFinal.tasks.items.default.desc' as any)}
 							</p>
 						</div>
 

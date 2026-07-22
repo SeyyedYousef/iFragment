@@ -7,6 +7,27 @@ import { botApi, groupApi, subscriptionApi } from '@/shared/api/bot-management.j
 import { channelApi } from '@/shared/api/channel-management.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 
+const GroupAvatar: Component<{ photoUrl?: string; title?: string; sizeClass?: string; textClass?: string }> = (props) => {
+	const [imgFailed, setImgFailed] = createSignal(false);
+	const initial = () => (props.title?.trim() ? props.title.trim().charAt(0).toUpperCase() : 'G');
+
+	return (
+		<div class={`shrink-0 rounded-[16px] bg-[#08090D] flex items-center justify-center border border-white/10 overflow-hidden shadow-inner ${props.sizeClass || 'w-14 h-14'}`}>
+			<Show
+				when={props.photoUrl && !imgFailed()}
+				fallback={<span class={`font-black text-[#3390ec] ${props.textClass || 'text-[18px]'}`}>{initial()}</span>}
+			>
+				<img
+					src={props.photoUrl}
+					alt={props.title || ''}
+					class="w-full h-full object-cover"
+					onError={() => setImgFailed(true)}
+				/>
+			</Show>
+		</div>
+	);
+};
+
 export const BotManagePage: Component = () => {
 	const navigate = useNavigate();
 	const params = useParams();
@@ -238,11 +259,7 @@ export const BotManagePage: Component = () => {
 												
 												{/* Avatar & Title */}
 												<div class="flex items-center gap-3.5 overflow-hidden flex-1 pr-2">
-													<div class="w-14 h-14 shrink-0 rounded-[16px] bg-[#08090D] flex items-center justify-center border border-white/10 overflow-hidden shadow-inner">
-														<Show when={group.photo_url} fallback={<span class="text-[18px] font-black text-[#3390ec]">{group.chat_title ? group.chat_title.charAt(0) : 'G'}</span>}>
-															<img src={group.photo_url} alt="" class="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }} />
-														</Show>
-													</div>
+													<GroupAvatar photoUrl={group.photo_url} title={group.chat_title} />
 													<div class="flex flex-col overflow-hidden">
 														<h3 class="text-[15px] font-black text-white leading-tight mb-1 truncate">{group.chat_title}</h3>
 														<div class="flex items-center gap-1.5 opacity-60">

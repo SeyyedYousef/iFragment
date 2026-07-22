@@ -35,81 +35,81 @@ export const BottomNav: Component = () => {
 
 	return (
 		<nav
-			aria-label="منوی اصلی برنامه‌"
-			class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 flex items-center justify-between gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+			aria-label={t('bottomNav.profile')}
+			class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 flex items-center justify-between gap-2.5 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
 			dir="ltr"
 		>
 			<div
-				class="flex-1 backdrop-blur-xl rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex items-center justify-around px-3 py-1.5 border h-16 transition-colors bg-[#0F1117]/90 border-white/10"
+				class="flex-1 backdrop-blur-2xl rounded-[24px] shadow-[0_12px_40px_rgba(0,0,0,0.6)] flex items-center justify-between px-2 py-1.5 border h-16 transition-colors bg-[#0D0F17]/95 border-white/10"
 				dir="ltr"
 			>
 				<A
 					href="/"
-					class={`h-12 w-12 rounded-full flex flex-col items-center justify-center cursor-pointer transition-all ${
+					class={`flex-1 h-13 rounded-[18px] flex flex-col items-center justify-center cursor-pointer transition-all min-w-0 px-1 ${
 						isActive('/')
-							? 'bg-[#3390ec]/20 text-[#3390ec] scale-105'
-							: 'text-white/60 hover:text-white hover:bg-white/5'
+							? 'bg-[#3390ec]/20 text-[#3390ec] border border-[#3390ec]/30 shadow-sm'
+							: 'text-white/60 hover:text-white hover:bg-white/5 border border-transparent'
 					}`}
 				>
 					<span
-						class="material-symbols-outlined text-xl"
+						class="material-symbols-outlined text-[22px]"
 						style={{ 'font-variation-settings': isActive('/') ? '"FILL" 1' : '"FILL" 0' }}
 					>
 						home
 					</span>
-					<span class="text-[10px] font-black tracking-tight mt-0.5">
-						{t('bottomNav.home') || 'خانه'}
+					<span class="text-[10px] font-black tracking-tight mt-0.5 truncate max-w-full text-center px-0.5 leading-tight">
+						{t('bottomNav.home')}
 					</span>
 				</A>
 
 				<A
 					href="/dashboard"
-					class={`h-12 w-12 rounded-full flex flex-col items-center justify-center cursor-pointer transition-all ${
+					class={`flex-1 h-13 rounded-[18px] flex flex-col items-center justify-center cursor-pointer transition-all min-w-0 px-1 ${
 						isActive('/dashboard')
-							? 'bg-[#3390ec]/20 text-[#3390ec] scale-105'
-							: 'text-white/60 hover:text-white hover:bg-white/5'
+							? 'bg-[#3390ec]/20 text-[#3390ec] border border-[#3390ec]/30 shadow-sm'
+							: 'text-white/60 hover:text-white hover:bg-white/5 border border-transparent'
 					}`}
 				>
 					<span
-						class="material-symbols-outlined text-xl"
+						class="material-symbols-outlined text-[22px]"
 						style={{ 'font-variation-settings': isActive('/dashboard') ? '"FILL" 1' : '"FILL" 0' }}
 					>
 						dashboard
 					</span>
-					<span class="text-[10px] font-bold tracking-tight mt-0.5">
-						{t('bottomNav.dashboard') || 'مدیریت'}
+					<span class="text-[10px] font-bold tracking-tight mt-0.5 truncate max-w-full text-center px-0.5 leading-tight">
+						{t('bottomNav.dashboard')}
 					</span>
 				</A>
 
 				<A
 					href="/airdrop"
-					class={`h-12 w-12 rounded-full flex flex-col items-center justify-center cursor-pointer transition-all ${
+					class={`flex-1 h-13 rounded-[18px] flex flex-col items-center justify-center cursor-pointer transition-all min-w-0 px-1 ${
 						isActive('/airdrop')
-							? 'bg-[#f59e0b]/20 text-[#f59e0b] scale-105'
-							: 'text-white/60 hover:text-white hover:bg-white/5'
+							? 'bg-[#f59e0b]/20 text-[#f59e0b] border border-[#f59e0b]/30 shadow-sm'
+							: 'text-white/60 hover:text-white hover:bg-white/5 border border-transparent'
 					}`}
 				>
 					<span
-						class="material-symbols-outlined text-xl"
+						class="material-symbols-outlined text-[22px]"
 						style={{ 'font-variation-settings': isActive('/airdrop') ? '"FILL" 1' : '"FILL" 0' }}
 					>
 						card_giftcard
 					</span>
-					<span class="text-[10px] font-bold tracking-tight mt-0.5">
-						{t('bottomNav.airdrop') || 'ایردراپ'}
+					<span class="text-[10px] font-bold tracking-tight mt-0.5 truncate max-w-full text-center px-0.5 leading-tight">
+						{t('bottomNav.airdrop')}
 					</span>
 				</A>
 			</div>
 
-			{/* Profile Link with explicit Accessible label */}
+			{/* Profile Link */}
 			<A
 				href="/profile"
-				aria-label="پروفایل کاربری"
-				class={`flex flex-col items-center cursor-pointer transition-all ${isActive('/profile') ? 'scale-105' : 'hover:scale-102'}`}
+				aria-label={t('bottomNav.profile')}
+				class={`flex flex-col items-center cursor-pointer transition-all shrink-0 ${isActive('/profile') ? 'scale-105' : 'hover:scale-102'}`}
 			>
 				<div
-					class={`w-16 h-16 rounded-full backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] border-[2.5px] flex items-center justify-center overflow-hidden transition-all bg-[#0F1117]/90 ${
-						isActive('/profile') ? 'border-[#3390ec] shadow-[#3390ec]/20' : 'border-white/10'
+					class={`w-16 h-16 rounded-[24px] backdrop-blur-2xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] border-[2.5px] flex items-center justify-center overflow-hidden transition-all bg-[#0D0F17]/95 ${
+						isActive('/profile') ? 'border-[#3390ec] shadow-[#3390ec]/30 ring-2 ring-[#3390ec]/20' : 'border-white/10'
 					}`}
 				>
 					<Show
@@ -121,9 +121,7 @@ export const BottomNav: Component = () => {
 						}
 					>
 						<img
-							alt={
-								user()?.first_name ? `تصویر پروفایل ${user()?.first_name}` : 'تصویر پروفایل کاربر'
-							}
+							alt="Profile"
 							class="w-full h-full object-cover"
 							src={avatarUrl()!}
 							loading="lazy"

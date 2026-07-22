@@ -35,18 +35,25 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 
 	query := `
 		WITH user_info AS (
-			SELECT created_at, is_premium, premium_until FROM users WHERE telegram_id = $1
+			SELECT telegram_id, COALESCE(username, '') as username, COALESCE(first_name, '') as first_name, COALESCE(last_name, '') as last_name, created_at, is_premium, premium_until 
+			FROM users WHERE telegram_id = $1
 		),
 		reports_count AS (
-			SELECT COUNT(*) as count FROM username_reports WHERE user_id = $1
+			SELECT COUNT(DISTINCT username) as count FROM search_logs WHERE user_id = $1
 		),
 		managed_counts AS (
 			SELECT 
-				COALESCE(SUM(CASE WHEN chat_type IN ('group', 'supergroup') THEN 1 ELSE 0 END), 0) as groups,
-				COALESCE(SUM(CASE WHEN chat_type = 'channel' THEN 1 ELSE 0 END), 0) as channels
-			FROM managed_groups mg
-			JOIN managed_bots mb ON mg.bot_id = mb.id
-			WHERE mb.owner_user_id = $1
+				(
+					SELECT COUNT(*) FROM managed_groups mg
+					LEFT JOIN managed_bots mb ON mg.bot_id = mb.id
+					WHERE mg.connected_by_user_id = $1 OR mb.owner_user_id = $1
+				) as groups,
+				(
+					SELECT COUNT(*) FROM managed_channels mc
+					LEFT JOIN managed_bots mb ON mc.bot_id = mb.id
+					WHERE mc.connected_by_user_id = $1 OR mb.owner_user_id = $1 
+					   OR EXISTS (SELECT 1 FROM channel_admins ca WHERE ca.channel_id = mc.id AND ca.telegram_id = $1)
+				) as channels
 		),
 		stats_info AS (
 			SELECT us.days_active, us.current_streak, us.total_taps, us.xp, us.level, us.last_active_at,
@@ -65,6 +72,10 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 			WHERE us.user_id = $1
 		)
 		SELECT 
+			ui.telegram_id,
+			ui.username,
+			ui.first_name,
+			ui.last_name,
 			ui.created_at,
 			rc.count,
 			mc.groups,
@@ -95,6 +106,8 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 		CROSS JOIN managed_counts mc
 	`
 
+	var targetTelegramID int64
+	var targetUsername, targetFirstName, targetLastName string
 	var memberSince time.Time
 	var usernamesAnalyzed, groupsManaged, channelsManaged int
 	var frgBalance, totalFrgEarned, totalFrgSpent float64
@@ -110,6 +123,7 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 	var dailyTurboUsed, dailyFullEnergyUsed int
 
 	err := db.Pool.QueryRow(ctx, query, userID).Scan(
+		&targetTelegramID, &targetUsername, &targetFirstName, &targetLastName,
 		&memberSince, &usernamesAnalyzed, &groupsManaged, &channelsManaged,
 		&frgBalance, &totalFrgEarned, &totalFrgSpent,
 		&daysActive, &currentStreak, &totalTaps, &xp, &level, &lastActiveAt,
@@ -137,6 +151,10 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 	globalRank, _ := db.GetGlobalRankFromDB(ctx, xp)
 
 	return &model.ProfileStats{
+		TelegramID:          targetTelegramID,
+		Username:            targetUsername,
+		FirstName:           targetFirstName,
+		LastName:            targetLastName,
 		UsernamesAnalyzed:   usernamesAnalyzed,
 		GroupsManaged:       groupsManaged,
 		ChannelsManaged:     channelsManaged,

@@ -12,13 +12,13 @@ import { showToast } from '@/shared/ui/toast.js';
 interface CustomTextsConfig { welcomeText: string; warningText: string; silenceStartText: string; silenceEndText: string; rulesText: string; forceJoinText: string; forceAddText: string; inlineButtons: { id: string; title: string; url: string }[]; }
 
 const defaults: CustomTextsConfig = {
-	welcomeText: '👋 Welcome {user} to <b>{group}</b>!',
-	warningText: '⚠️ <b>{user}</b> | Warning <b>{count}/{threshold}</b>\n└ Reason: {reason}',
-	silenceStartText: '🔒 <b>{group}</b> | Quiet Hours Active',
-	silenceEndText: '🔓 <b>{group}</b> | Chat Open',
-	rulesText: '📜 <b>{group} Rules</b>\n▫️ No Spam, Ads, or Unauthorized Links\n▫️ Maintain respect & decorum',
-	forceJoinText: '📢 <b>{user}</b>, join required channels to chat in <b>{group}</b>:\n\n{channel_names}',
-	forceAddText: '👥 <b>{user}</b>, invite {remainadd} member(s) to chat in <b>{group}</b> ({added}/{number})',
+	welcomeText: '👋 Welcome {user}',
+	warningText: '⚠️ {user} | Warning {count}/{threshold} ▫️ {reason}',
+	silenceStartText: '🔒 Quiet mode activated',
+	silenceEndText: '🔓 Quiet mode deactivated',
+	rulesText: '📜 <b>Rules</b>: Respect others • No spam or links',
+	forceJoinText: '📢 {user}, join required channels to chat:\n{channel_names}',
+	forceAddText: '👥 {user}, invite {remainadd} member(s) to chat ({added}/{number})',
 	inlineButtons: [],
 };
 
@@ -140,7 +140,7 @@ export const CustomTextsPage: Component = () => {
 							</label>
 							<span class="text-[11px] text-white/50 font-medium leading-snug px-1.5">{t('customTextsSettings.welcomeTextDesc')}</span>
 						</div>
-						<textarea value={cfg.welcomeText} onInput={(e) => update('welcomeText', e.currentTarget.value)} placeholder="👋 Welcome {user} to <b>{group}</b>!" class="w-full h-28 bg-[#08090D] text-white text-[13px] font-medium leading-relaxed rounded-[16px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3390ec]/50 border border-white/5 transition-all resize-none placeholder-white/20 shadow-inner" />
+						<textarea value={cfg.welcomeText} onInput={(e) => update('welcomeText', e.currentTarget.value)} placeholder="👋 Welcome {user}" class="w-full h-20 bg-[#08090D] text-white text-[13px] font-medium leading-relaxed rounded-[16px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3390ec]/50 border border-white/5 transition-all resize-none placeholder-white/20 shadow-inner" />
 					</Motion.div>
 
 					{/* Warning Message */}
@@ -152,7 +152,7 @@ export const CustomTextsPage: Component = () => {
 							</label>
 							<span class="text-[11px] text-white/50 font-medium leading-snug px-1.5">{t('customTextsSettings.warningTextDesc')}</span>
 						</div>
-						<textarea value={cfg.warningText} onInput={(e) => update('warningText', e.currentTarget.value)} placeholder="⚠️ <b>{user}</b> | Warning <b>{count}/{threshold}</b>\n└ Reason: {reason}" class="w-full h-24 bg-[#08090D] text-white text-[13px] font-medium leading-relaxed rounded-[16px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3390ec]/50 border border-white/5 transition-all resize-none placeholder-white/20 shadow-inner" />
+						<textarea value={cfg.warningText} onInput={(e) => update('warningText', e.currentTarget.value)} placeholder="⚠️ {user} | Warning {count}/{threshold} ▫️ {reason}" class="w-full h-20 bg-[#08090D] text-white text-[13px] font-medium leading-relaxed rounded-[16px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3390ec]/50 border border-white/5 transition-all resize-none placeholder-white/20 shadow-inner" />
 					</Motion.div>
 
 					{/* Silence Messaging */}
@@ -165,7 +165,7 @@ export const CustomTextsPage: Component = () => {
 								</label>
 								<span class="text-[11px] text-white/50 font-medium leading-snug px-1.5">{t('customTextsSettings.silenceStartTextDesc')}</span>
 							</div>
-							<textarea value={cfg.silenceStartText} onInput={(e) => update('silenceStartText', e.currentTarget.value)} placeholder="🔒 <b>{group}</b> | Quiet Hours Active" class="w-full h-20 bg-[#08090D] text-white text-[13px] font-medium leading-relaxed rounded-[16px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3390ec]/50 border border-white/5 transition-all resize-none placeholder-white/20 shadow-inner" />
+							<textarea value={cfg.silenceStartText} onInput={(e) => update('silenceStartText', e.currentTarget.value)} placeholder="🔒 Quiet mode activated" class="w-full h-20 bg-[#08090D] text-white text-[13px] font-medium leading-relaxed rounded-[16px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3390ec]/50 border border-white/5 transition-all resize-none placeholder-white/20 shadow-inner" />
 						</div>
 
 						<div class="w-full h-[1px] bg-white/5 rounded-full" />
@@ -178,7 +178,7 @@ export const CustomTextsPage: Component = () => {
 								</label>
 								<span class="text-[11px] text-white/50 font-medium leading-snug px-1.5">{t('customTextsSettings.silenceEndTextDesc')}</span>
 							</div>
-							<textarea value={cfg.silenceEndText} onInput={(e) => update('silenceEndText', e.currentTarget.value)} placeholder="🔓 <b>{group}</b> | Chat Open" class="w-full h-20 bg-[#08090D] text-white text-[13px] font-medium leading-relaxed rounded-[16px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3390ec]/50 border border-white/5 transition-all resize-none placeholder-white/20 shadow-inner" />
+							<textarea value={cfg.silenceEndText} onInput={(e) => update('silenceEndText', e.currentTarget.value)} placeholder="🔓 Quiet mode deactivated" class="w-full h-20 bg-[#08090D] text-white text-[13px] font-medium leading-relaxed rounded-[16px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3390ec]/50 border border-white/5 transition-all resize-none placeholder-white/20 shadow-inner" />
 						</div>
 					</Motion.div>
 
@@ -191,7 +191,7 @@ export const CustomTextsPage: Component = () => {
 							</label>
 							<span class="text-[11px] text-white/50 font-medium leading-snug px-1.5">{t('customTextsSettings.rulesTextDesc')}</span>
 						</div>
-						<textarea value={cfg.rulesText} onInput={(e) => update('rulesText', e.currentTarget.value)} placeholder="📜 <b>{group} Rules</b>\n▫️ No Spam, Ads, or Unauthorized Links\n▫️ Maintain respect & decorum" class="w-full h-32 bg-[#08090D] text-white text-[13px] font-medium leading-relaxed rounded-[16px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3390ec]/50 border border-white/5 transition-all resize-none placeholder-white/20 shadow-inner" />
+						<textarea value={cfg.rulesText} onInput={(e) => update('rulesText', e.currentTarget.value)} placeholder="📜 <b>Rules</b>: Respect others • No spam or links" class="w-full h-20 bg-[#08090D] text-white text-[13px] font-medium leading-relaxed rounded-[16px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3390ec]/50 border border-white/5 transition-all resize-none placeholder-white/20 shadow-inner" />
 					</Motion.div>
 
 					{/* Force Join & Add */}
@@ -204,7 +204,7 @@ export const CustomTextsPage: Component = () => {
 								</label>
 								<span class="text-[11px] text-white/50 font-medium leading-snug px-1.5">{t('customTextsSettings.forceJoinTextDesc')}</span>
 							</div>
-							<textarea value={cfg.forceJoinText} onInput={(e) => update('forceJoinText', e.currentTarget.value)} placeholder="📢 <b>{user}</b>, join required channels to chat in <b>{group}</b>:\n\n{channel_names}" class="w-full h-24 bg-[#08090D] text-white text-[13px] font-medium leading-relaxed rounded-[16px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3390ec]/50 border border-white/5 transition-all resize-none placeholder-white/20 shadow-inner" />
+							<textarea value={cfg.forceJoinText} onInput={(e) => update('forceJoinText', e.currentTarget.value)} placeholder="📢 {user}, join required channels to chat:\n{channel_names}" class="w-full h-20 bg-[#08090D] text-white text-[13px] font-medium leading-relaxed rounded-[16px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3390ec]/50 border border-white/5 transition-all resize-none placeholder-white/20 shadow-inner" />
 						</div>
 
 						<div class="w-full h-[1px] bg-white/5 rounded-full" />
@@ -217,7 +217,7 @@ export const CustomTextsPage: Component = () => {
 								</label>
 								<span class="text-[11px] text-white/50 font-medium leading-snug px-1.5">{t('customTextsSettings.forceAddTextDesc')}</span>
 							</div>
-							<textarea value={cfg.forceAddText} onInput={(e) => update('forceAddText', e.currentTarget.value)} placeholder="👥 <b>{user}</b>, invite {remainadd} member(s) to chat in <b>{group}</b> ({added}/{number})" class="w-full h-24 bg-[#08090D] text-white text-[13px] font-medium leading-relaxed rounded-[16px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3390ec]/50 border border-white/5 transition-all resize-none placeholder-white/20 shadow-inner" />
+							<textarea value={cfg.forceAddText} onInput={(e) => update('forceAddText', e.currentTarget.value)} placeholder="👥 {user}, invite {remainadd} member(s) to chat ({added}/{number})" class="w-full h-20 bg-[#08090D] text-white text-[13px] font-medium leading-relaxed rounded-[16px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3390ec]/50 border border-white/5 transition-all resize-none placeholder-white/20 shadow-inner" />
 						</div>
 					</Motion.div>
 

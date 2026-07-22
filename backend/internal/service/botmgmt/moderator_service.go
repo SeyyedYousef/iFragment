@@ -355,7 +355,7 @@ func (s *ModeratorService) ValidateMessage(ctx context.Context, bot *repository.
 
 			rulesText := customTexts.RulesText
 			if rulesText == "" {
-				rulesText = "Be respectful and follow standard group rules."
+				rulesText = "📜 <b>Rules</b>: Respect others • No spam or links"
 			}
 			v.Message = strings.ReplaceAll(v.Message, "{rules}", rulesText)
 		}
