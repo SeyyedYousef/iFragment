@@ -1921,6 +1921,7 @@ export const dict = {
 		buyWithTon: '使用 TON 购买',
 		convertAirdrop: '兑换空投',
 		convertBtn: '转换为硬币',
+		convertLabel: '要转换的硬币：',
 		credit: '信用',
 		debit: '借方',
 		exchangeRate: '比率：100 个硬币 = 1 个硬币',

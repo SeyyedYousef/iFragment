@@ -2,7 +2,7 @@ import { Motion } from '@motionone/solid';
 import { useSearchParams } from '@solidjs/router';
 import { backButton, hapticFeedback, openTelegramLink } from '@tma.js/sdk-solid';
 import { toPng } from 'html-to-image';
-import { Component, createEffect, createSignal, onCleanup, onMount, Show, For } from 'solid-js';
+import { Component, createEffect, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { apiFetch } from '@/shared/api/base.js';
 import { valuationApi } from '@/shared/api/bot-management.js';
 import { isRtl, t } from '@/shared/i18n/index.js';

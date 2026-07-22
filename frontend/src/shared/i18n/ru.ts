@@ -1974,6 +1974,7 @@ export const dict = {
 		buyWithTon: 'Купить за TON',
 		convertAirdrop: 'Конвертировать Airdrop',
 		convertBtn: 'Конвертировать в FRG',
+		convertLabel: 'Монеты для конвертации:',
 		credit: 'Пополнение',
 		debit: 'Списание',
 		exchangeRate: 'Курс: 100 монет = 1 FRG',

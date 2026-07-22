@@ -1968,6 +1968,7 @@ export const dict = {
 		buyWithTon: 'Buy with TON',
 		convertAirdrop: 'Convert Airdrop',
 		convertBtn: 'Convert to Coins',
+		convertLabel: 'Coins to convert:',
 		credit: 'Credit',
 		debit: 'Debit',
 		exchangeRate: 'Rate: 100 Coins = 1 Coin',

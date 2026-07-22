@@ -1962,6 +1962,7 @@ export const dict = {
 		buyWithTon: 'خرید با تون‌کوین',
 		convertAirdrop: 'تبدیل ایردراپ',
 		convertBtn: 'تبدیل به سکه',
+		convertLabel: 'سکه جهت تبدیل:',
 		credit: 'واریز',
 		debit: 'برداشت',
 		exchangeRate: 'نرخ: ۱۰۰ سکه = ۱ سکه',

@@ -32,7 +32,9 @@ export const ManagedChannelsPage: Component = () => {
 		setSelectedChan(channelId);
 		setPaymentStep('package');
 		setShowSubscription(true);
-		hapticFeedback.impactOccurred('light');
+		try {
+			hapticFeedback.impactOccurred('light');
+		} catch (_) {}
 	};
 
 	const handleSubscribeAirdrop = async () => {
@@ -41,14 +43,18 @@ export const ManagedChannelsPage: Component = () => {
 		setErrorMsg('');
 		try {
 			await subscriptionApi.subscribeChannelWithAirdrop(selectedChan(), selectedPkg());
-			hapticFeedback.notificationOccurred('success');
-			setSuccessMsg('Subscription activated successfully!');
+			try {
+				hapticFeedback.notificationOccurred('success');
+			} catch (_) {}
+			setSuccessMsg(t('botManage.subscriptionSuccess'));
 			setShowSubscription(false);
 			refetch();
 		} catch (e: any) {
 			const msg = e?.response?.data?.error || 'Payment failed';
 			setErrorMsg(msg);
-			hapticFeedback.notificationOccurred('error');
+			try {
+				hapticFeedback.notificationOccurred('error');
+			} catch (_) {}
 		} finally {
 			setIsProcessing(false);
 			setTimeout(() => {
@@ -72,7 +78,9 @@ export const ManagedChannelsPage: Component = () => {
 				if (tg?.openInvoice) {
 					tg.openInvoice(res.invoice_link, (status: string) => {
 						if (status === 'paid') {
-							hapticFeedback.notificationOccurred('success');
+							try {
+								hapticFeedback.notificationOccurred('success');
+							} catch (_) {}
 							setShowSubscription(false);
 							refetch();
 						}
@@ -84,7 +92,9 @@ export const ManagedChannelsPage: Component = () => {
 		} catch (e: any) {
 			const msg = e?.response?.data?.error || 'Failed to create invoice';
 			setErrorMsg(msg);
-			hapticFeedback.notificationOccurred('error');
+			try {
+				hapticFeedback.notificationOccurred('error');
+			} catch (_) {}
 		} finally {
 			setIsProcessing(false);
 			setTimeout(() => {
@@ -98,13 +108,13 @@ export const ManagedChannelsPage: Component = () => {
 		const date = new Date(dateStr);
 		const now = new Date();
 		const diff = date.getTime() - now.getTime();
-		if (diff <= 0) return 'Expired';
+		if (diff <= 0) return t('botManage.expired');
 
 		const days = Math.floor(diff / (1000 * 3600 * 24));
 		const hours = Math.floor((diff % (1000 * 3600 * 24)) / (1000 * 3600));
 
-		if (days > 0) return `${days}d ${hours}h left`;
-		return `${hours}h left`;
+		if (days > 0) return `${days}${t('botManage.daysLeft')}`;
+		return `${hours}${t('botManage.hoursLeft')}`;
 	};
 
 	const handleDeleteChannel = async () => {
@@ -114,11 +124,15 @@ export const ManagedChannelsPage: Component = () => {
 		setIsDeleting(true);
 		try {
 			await channelApi.disconnectChannel(channel.id);
-			hapticFeedback.notificationOccurred('success');
+			try {
+				hapticFeedback.notificationOccurred('success');
+			} catch (_) {}
 			setChannelToDelete(null);
 			refetch();
 		} catch (_e: any) {
-			hapticFeedback.notificationOccurred('error');
+			try {
+				hapticFeedback.notificationOccurred('error');
+			} catch (_) {}
 		} finally {
 			setIsDeleting(false);
 		}
@@ -126,57 +140,72 @@ export const ManagedChannelsPage: Component = () => {
 
 	onMount(() => {
 		backButton.show();
-		const off = backButton.onClick(() => window.history.back());
-		onCleanup(() => off());
+		const off = backButton.onClick(() => {
+			try {
+				hapticFeedback.impactOccurred('light');
+			} catch (_) {}
+			navigate('/dashboard');
+		});
+		onCleanup(() => {
+			off();
+			backButton.hide();
+		});
 	});
 
 	const handleConnectNew = () => {
-		hapticFeedback.impactOccurred('medium');
+		try {
+			hapticFeedback.impactOccurred('medium');
+		} catch (_) {}
 		navigate('/channel/connect');
 	};
 
 	return (
 		<div
-			class={`min-h-screen bg-[#0f1014] pb-28 relative overflow-x-hidden text-white ${isRtl() ? 'rtl' : 'ltr'}`}
+			class="min-h-screen bg-[#030303] pb-28 relative overflow-x-hidden text-white font-sans selection:bg-[#3390ec]/30"
+			dir={isRtl() ? 'rtl' : 'ltr'}
 		>
-			{/* Header */}
-			<div class="px-5 pt-6 pb-4 bg-[#0f1014] sticky top-0 z-30 border-b border-[#1c1c1c] flex items-center gap-3">
+			{/* Ambient Top Glow */}
+			<div class="absolute top-0 left-0 right-0 h-[350px] bg-gradient-to-b from-[#3390ec]/15 via-transparent to-transparent blur-[80px] pointer-events-none z-0" />
+
+			{/* ═══════ PREMIUM STICKY HEADER ═══════ */}
+			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-30 border-b border-white/5 flex items-center gap-3.5 shadow-sm">
 				<button
 					onClick={() => {
-						hapticFeedback.impactOccurred('light');
+						try {
+							hapticFeedback.impactOccurred('light');
+						} catch (_) {}
 						navigate('/dashboard');
 					}}
-					class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-90 transition-all shrink-0"
+					class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
 					aria-label="Back"
 				>
-					<span class="material-symbols-outlined text-white text-[20px] rtl:-scale-x-100">
+					<span class="material-symbols-outlined text-[22px] rtl:-scale-x-100">
 						arrow_back
 					</span>
 				</button>
 				<div class="flex flex-col gap-0.5 min-w-0">
-					<h1 class="text-[18px] font-black text-white leading-tight truncate">
+					<h1 class="text-[18px] font-black text-white leading-tight truncate tracking-tight">
 						{t('managedChannels.title')}
 					</h1>
-					<span class="text-[12px] text-on-surface-variant truncate">
+					<span class="text-[11px] font-bold text-white/50 uppercase tracking-wider truncate">
 						{t('managedChannels.description')}
 					</span>
 				</div>
 			</div>
 
-			<div class="px-5 pt-6 flex flex-col gap-6">
-				{/* Connect New Channel Button */}
+			<div class="px-5 pt-6 flex flex-col gap-6 max-w-md mx-auto relative z-10 w-full">
+				{/* ═══════ CONNECT NEW BUTTON ═══════ */}
 				<button
 					onClick={handleConnectNew}
-					class="w-full bg-[#1c1c1c] border border-[#32ade6]/30 hover:border-[#32ade6] hover:bg-[#32ade6]/10 text-[#32ade6] rounded-2xl py-4 flex items-center justify-center gap-2 font-bold transition-all shadow-sm group"
+					class="w-full h-16 bg-[#12141C]/80 backdrop-blur-md border border-white/5 hover:border-[#3390ec]/50 hover:bg-[#3390ec]/10 rounded-[20px] flex items-center justify-center gap-3 font-black text-[13px] uppercase tracking-widest text-[#3390ec] transition-all shadow-sm active:scale-95 group"
 				>
-					<div class="w-8 h-8 rounded-full bg-[#32ade6]/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+					<div class="w-9 h-9 rounded-[10px] bg-[#3390ec]/15 flex items-center justify-center border border-[#3390ec]/30 shadow-inner group-hover:scale-110 transition-transform">
 						<span class="material-symbols-outlined text-[20px]">add</span>
 					</div>
 					{t('managedChannels.connectNew')}
 				</button>
 
-				{/* Channel List */}
-
+				{/* ═══════ CHANNEL LIST ═══════ */}
 				<Show
 					when={channels() && channels()!.length > 0}
 					fallback={
@@ -184,68 +213,76 @@ export const ManagedChannelsPage: Component = () => {
 							<Motion.div
 								initial={{ opacity: 0, y: 15 }}
 								animate={{ opacity: 1, y: 0 }}
-								class="bg-[#1c1c1c] rounded-3xl p-6 flex flex-col items-center justify-center text-center gap-4 border border-[#2a2a2a]"
+								class="bg-[#12141C]/80 backdrop-blur-xl rounded-[28px] p-8 flex flex-col items-center justify-center text-center gap-5 border border-white/5 shadow-sm relative overflow-hidden"
 							>
-								<div class="w-16 h-16 rounded-full bg-[#32ade6]/10 flex items-center justify-center mb-1">
-									<span class="material-symbols-outlined text-[#32ade6] text-[32px]">campaign</span>
-								</div>
-								<h3 class="text-white font-black text-[18px]">{t('managedChannels.noChannels')}</h3>
-								<p class="text-[13px] text-[#8e8e93] leading-relaxed max-w-[280px]">
-									{t('managedChannels.noChannelsDesc') ||
-										'No channels connected yet. Get started in 3 simple steps:'}
-								</p>
+								<div class="absolute -top-10 -right-10 w-32 h-32 bg-[#3390ec]/15 rounded-full blur-3xl pointer-events-none" />
 
-								<div class="w-full flex flex-col gap-2.5 mt-2 text-start">
-									<div class="flex items-center gap-3 bg-[#0f1014] rounded-xl p-3 border border-[#2a2a2a]">
-										<div class="w-8 h-8 rounded-full bg-[#32ade6] text-black font-black flex items-center justify-center text-[14px] shrink-0">
+								<div class="w-20 h-20 rounded-[20px] bg-gradient-to-br from-[#3390ec]/20 to-[#3390ec]/5 border border-[#3390ec]/30 flex items-center justify-center shadow-inner relative z-10">
+									<span class="material-symbols-outlined text-[#3390ec] text-[40px] drop-shadow-md">
+										campaign
+									</span>
+								</div>
+
+								<div class="flex flex-col gap-2 relative z-10">
+									<h3 class="text-white font-black text-[20px] tracking-tight">
+										{t('managedChannels.noChannels')}
+									</h3>
+									<p class="text-[12px] text-white/50 leading-relaxed font-medium max-w-[250px] mx-auto">
+										{t('managedChannels.noChannelsDesc')}
+									</p>
+								</div>
+
+								<div class="w-full flex flex-col gap-2.5 mt-2 text-start relative z-10">
+									<div class="flex items-center gap-3.5 bg-[#08090D] rounded-[16px] p-3.5 border border-white/5 shadow-inner">
+										<div class="w-9 h-9 rounded-[10px] bg-[#3390ec]/15 text-[#3390ec] font-black flex items-center justify-center text-[14px] shrink-0 border border-[#3390ec]/30">
 											1
 										</div>
-										<span class="text-[13px] text-white">
-											{t('managedChannels.step1') || 'Add @iFragmentBot to your channels as admin'}
+										<span class="text-[12px] font-bold text-white/90 leading-snug">
+											{t('managedChannels.step1')}
 										</span>
 									</div>
-									<div class="flex items-center gap-3 bg-[#0f1014] rounded-xl p-3 border border-[#2a2a2a]">
-										<div class="w-8 h-8 rounded-full bg-[#32ade6] text-black font-black flex items-center justify-center text-[14px] shrink-0">
+									<div class="flex items-center gap-3.5 bg-[#08090D] rounded-[16px] p-3.5 border border-white/5 shadow-inner">
+										<div class="w-9 h-9 rounded-[10px] bg-[#3390ec]/15 text-[#3390ec] font-black flex items-center justify-center text-[14px] shrink-0 border border-[#3390ec]/30">
 											2
 										</div>
-										<span class="text-[13px] text-white">
-											{t('managedChannels.step2') ||
-												'Enter your input and output channel addresses'}
+										<span class="text-[12px] font-bold text-white/90 leading-snug">
+											{t('managedChannels.step2')}
 										</span>
 									</div>
-									<div class="flex items-center gap-3 bg-[#0f1014] rounded-xl p-3 border border-[#2a2a2a]">
-										<div class="w-8 h-8 rounded-full bg-[#34c759] text-black font-black flex items-center justify-center text-[14px] shrink-0">
-											✓
+									<div class="flex items-center gap-3.5 bg-[#08090D] rounded-[16px] p-3.5 border border-white/5 shadow-inner">
+										<div class="w-9 h-9 rounded-[10px] bg-[#10b981]/15 text-[#10b981] font-black flex items-center justify-center text-[16px] shrink-0 border border-[#10b981]/30">
+											<span class="material-symbols-outlined text-[18px]">done</span>
 										</div>
-										<span class="text-[13px] text-white">
-											{t('managedChannels.step3') ||
-												'Enjoy AI posting, funnels, auto-responder and more!'}
+										<span class="text-[12px] font-bold text-white/90 leading-snug">
+											{t('managedChannels.step3')}
 										</span>
 									</div>
 								</div>
 
 								<button
 									onClick={handleConnectNew}
-									class="mt-3 w-full h-12 bg-[#32ade6] text-black font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-[#2b96c8] transition-all active:scale-95"
+									class="mt-4 w-full h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white font-black text-[13px] uppercase tracking-widest rounded-[16px] flex items-center justify-center gap-2 hover:from-[#2b7ec9] hover:to-[#3390ec] transition-all active:scale-95 shadow-[0_10px_25px_rgba(51,144,236,0.3)] relative z-10 border border-white/10"
 								>
-									<span class="material-symbols-outlined text-[20px]">add</span>
-									{t('managedChannels.connectFirst') || 'Connect Your First Channel'}
+									<span class="material-symbols-outlined text-[20px]">
+										rocket_launch
+									</span>
+									{t('managedChannels.connectFirst')}
 								</button>
 							</Motion.div>
 						) : (
-							<div class="flex flex-col gap-3">
+							<div class="flex flex-col gap-4">
 								<div class="flex items-center justify-between mb-1 pl-2">
-									<div class="h-4 w-32 bg-[#2a2a2a] rounded animate-pulse"></div>
+									<div class="h-4 w-32 bg-white/5 rounded-[4px] animate-pulse"></div>
 								</div>
 								<For each={[1, 2, 3]}>
 									{() => (
-										<div class="bg-[#1c1c1c] rounded-3xl p-4 border border-[#2a2a2a] flex items-center gap-4">
-											<div class="w-14 h-14 rounded-full bg-[#2a2a2a] animate-pulse shrink-0"></div>
+										<div class="bg-[#12141C]/50 rounded-[24px] p-5 border border-white/5 flex items-center gap-4">
+											<div class="w-14 h-14 rounded-[16px] bg-white/5 animate-pulse shrink-0"></div>
 											<div class="flex-1 flex flex-col gap-2">
-												<div class="h-4 w-1/2 bg-[#2a2a2a] rounded animate-pulse"></div>
-												<div class="h-3 w-1/3 bg-[#2a2a2a] rounded animate-pulse"></div>
+												<div class="h-4 w-1/2 bg-white/5 rounded-[4px] animate-pulse"></div>
+												<div class="h-3 w-1/3 bg-white/5 rounded-[4px] animate-pulse"></div>
 											</div>
-											<div class="w-10 h-10 rounded-full bg-[#2a2a2a] animate-pulse shrink-0"></div>
+											<div class="w-10 h-10 rounded-[12px] bg-white/5 animate-pulse shrink-0"></div>
 										</div>
 									)}
 								</For>
@@ -253,11 +290,16 @@ export const ManagedChannelsPage: Component = () => {
 						)
 					}
 				>
-					<div class="flex flex-col gap-3">
-						<div class="flex items-center justify-between mb-1 pl-2">
-							<h2 class="text-[14px] font-bold text-[#8e8e93] uppercase tracking-wider">
-								{t('managedChannels.yourChannels')}
-							</h2>
+					<div class="flex flex-col gap-4">
+						<div class="flex items-center justify-between mb-1 px-1 border-b border-white/5 pb-2">
+							<div class="flex items-center gap-2">
+								<span class="material-symbols-outlined text-[#3390ec] text-[20px]">
+									view_list
+								</span>
+								<h2 class="text-[12px] font-black text-white/40 uppercase tracking-widest">
+									{t('managedChannels.yourChannels')}
+								</h2>
+							</div>
 						</div>
 
 						<For each={channels()}>
@@ -268,33 +310,33 @@ export const ManagedChannelsPage: Component = () => {
 										: channel.paid_until;
 								return (
 									<Motion.div
-										initial={{ opacity: 0, scale: 0.95 }}
-										animate={{ opacity: 1, scale: 1 }}
-										transition={{ delay: 0.1 + i() * 0.05 }}
-										class="bg-[#1c1c1c] rounded-3xl p-4 border border-[#2a2a2a] hover:border-[#32ade6]/50 flex flex-col gap-4 group transition-all"
+										initial={{ opacity: 0, y: 10 }}
+										animate={{ opacity: 1, y: 0 }}
+										transition={{ delay: i() * 0.05 }}
+										class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] p-5 border border-white/5 hover:border-white/15 flex flex-col gap-5 shadow-sm transition-all relative overflow-hidden group"
 									>
-										<div class="flex items-center justify-between">
-											<div class="flex items-center gap-4 overflow-hidden">
-												<div class="w-14 h-14 rounded-full bg-gradient-to-br from-[#32ade6] to-[#2b96c8] flex items-center justify-center font-black text-black text-xl shadow-lg group-hover:scale-105 transition-transform">
+										<div class="flex items-center justify-between relative z-10">
+											<div class="flex items-center gap-4 overflow-hidden pr-2">
+												<div class="w-[52px] h-[52px] rounded-[16px] bg-gradient-to-br from-[#3390ec]/20 to-[#3390ec]/5 border border-[#3390ec]/30 flex items-center justify-center font-black text-[#3390ec] text-[22px] shadow-inner shrink-0 group-hover:scale-105 transition-transform">
 													{channel.avatar}
 												</div>
-												<div class="flex flex-col overflow-hidden">
-													<span class="text-white font-bold text-[16px] truncate">
+												<div class="flex flex-col overflow-hidden gap-0.5">
+													<span class="text-white font-black text-[15px] truncate tracking-tight">
 														{channel.title}
 													</span>
-													<span class="text-[13px] text-[#8e8e93]">
+													<span class="text-[11px] font-bold text-white/40 tracking-wider">
 														{channel.members} {t('managedChannels.subscribers')}
 													</span>
 												</div>
 											</div>
-											<div class="flex flex-col items-end shrink-0">
+											<div class="flex flex-col items-end shrink-0 gap-1">
 												<span
-													class={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${
+													class={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-[8px] border shadow-sm ${
 														channel.subscription_status === 'paid'
-															? 'text-[#34c759] border-[#34c759]/20 bg-[#34c759]/5'
+															? 'text-[#10b981] border-[#10b981]/30 bg-[#10b981]/10'
 															: channel.subscription_status === 'trial'
-																? 'text-[#ff9f0a] border-[#ff9f0a]/20 bg-[#ff9f0a]/5'
-																: 'text-[#ff3b30] border-[#ff3b30]/20 bg-[#ff3b30]/5'
+																? 'text-amber-400 border-amber-400/30 bg-amber-400/10'
+																: 'text-[#ff4a4a] border-[#ff4a4a]/30 bg-[#ff4a4a]/10'
 													}`}
 												>
 													{channel.subscription_status === 'paid'
@@ -304,47 +346,56 @@ export const ManagedChannelsPage: Component = () => {
 															: 'Expired'}
 												</span>
 												<Show when={endDateStr && channel.subscription_status !== 'expired'}>
-													<span class="text-[10px] text-[#8e8e93] font-medium mt-1 whitespace-nowrap">
+													<span class="text-[10px] text-white/50 font-bold font-mono whitespace-nowrap bg-white/5 px-2 py-0.5 rounded-[4px]">
 														{formatTimeRemaining(endDateStr!)}
 													</span>
 												</Show>
 											</div>
 										</div>
 
-										<div class="flex gap-2 w-full">
+										<div class="flex gap-2.5 w-full relative z-10">
 											<Show when={channel.subscription_status !== 'expired'}>
 												<button
 													onClick={() => {
-														hapticFeedback.impactOccurred('light');
+														try {
+															hapticFeedback.impactOccurred('light');
+														} catch (_) {}
 														navigate(`/channel/${channel.id}`);
 													}}
-													class="flex-1 h-11 rounded-xl text-[13px] font-black transition-all bg-[#2c2c2e] text-white border border-[#3a3a3c] hover:bg-[#3a3a3c]"
+													class="flex-[1.5] h-12 rounded-[14px] text-[12px] uppercase tracking-widest font-black transition-all bg-[#08090D] text-white/80 border border-white/5 hover:border-white/20 hover:text-white shadow-sm active:scale-95"
 												>
 													{t('botManage.manage')}
 												</button>
 											</Show>
 											<button
 												onClick={() => openSubscription(channel.id)}
-												class={`flex-1 h-11 rounded-xl text-[13px] font-black transition-all border ${
+												class={`h-12 rounded-[14px] text-[12px] uppercase tracking-widest font-black transition-all border active:scale-95 flex items-center justify-center gap-1 shadow-sm ${
 													channel.subscription_status === 'paid'
-														? 'bg-[#1c1c1c] text-[#8e8e93] border-[#2a2a2a] hover:bg-[#2a2a2a]'
-														: 'bg-[#32ade6] text-black border-transparent shadow-[0_8px_20px_rgba(50,173,230,0.3)] hover:scale-[1.02]'
+														? 'flex-1 bg-white/5 text-white/60 border-transparent hover:bg-white/10 hover:text-white'
+														: 'flex-[2] bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white border-white/10 shadow-[0_4px_15px_rgba(51,144,236,0.3)]'
 												}`}
 											>
+												<Show when={channel.subscription_status !== 'paid'}>
+													<span class="material-symbols-outlined text-[16px]">stars</span>
+												</Show>
 												{channel.subscription_status === 'paid'
-													? t('botManage.extendSub' as any) || 'Extend'
-													: t('botManage.buySubscription' as any) || 'Buy Subscription'}
+													? t('botManage.extendSub')
+													: t('botManage.buySubscription')}
 											</button>
 											<button
 												onClick={(e) => {
 													e.stopPropagation();
-													hapticFeedback.impactOccurred('medium');
+													try {
+														hapticFeedback.impactOccurred('medium');
+													} catch (_) {}
 													setChannelToDelete(channel);
 												}}
-												class="w-11 h-11 rounded-xl bg-transparent flex items-center justify-center border border-[#ff3b30]/20 hover:bg-[#ff3b30]/10 text-[#ff3b30] transition-all"
-												aria-label={t('managedChannels.delete' as any) || 'Delete'}
+												class="w-12 h-12 rounded-[14px] bg-transparent flex items-center justify-center border border-transparent hover:bg-[#ff4a4a]/10 hover:border-[#ff4a4a]/30 text-white/30 hover:text-[#ff4a4a] transition-all active:scale-95 shrink-0"
+												aria-label={t('managedChannels.delete')}
 											>
-												<span class="material-symbols-outlined text-[20px]">delete</span>
+												<span class="material-symbols-outlined text-[20px]">
+													delete
+												</span>
 											</button>
 										</div>
 									</Motion.div>
@@ -355,12 +406,12 @@ export const ManagedChannelsPage: Component = () => {
 				</Show>
 			</div>
 
-			{/* Delete Channel Modal */}
+			{/* ═══════ DELETE CHANNEL MODAL ═══════ */}
 			<Show when={channelToDelete()}>
 				<Motion.div
 					initial={{ opacity: 0 }}
 					animate={{ opacity: 1 }}
-					class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center px-5"
+					class="fixed inset-0 bg-[#030303]/90 backdrop-blur-2xl z-50 flex items-center justify-center px-5"
 					onClick={(e) => {
 						if (e.target === e.currentTarget && !isDeleting()) setChannelToDelete(null);
 					}}
@@ -368,34 +419,29 @@ export const ManagedChannelsPage: Component = () => {
 					<Motion.div
 						initial={{ scale: 0.9, opacity: 0 }}
 						animate={{ scale: 1, opacity: 1 }}
-						transition={{ duration: 0.2, easing: [0.32, 0.72, 0, 1] }}
-						class="w-full max-w-sm bg-[#1c1c1c] rounded-3xl border border-[#2a2a2a] p-6 flex flex-col items-center text-center"
+						transition={{ duration: 0.3, easing: [0.32, 0.72, 0, 1] }}
+						class="w-full max-w-sm bg-[#12141C] rounded-[32px] border border-white/10 p-7 flex flex-col items-center text-center shadow-[0_20px_60px_rgba(0,0,0,0.8)] relative overflow-hidden"
 					>
-						<div class="w-16 h-16 rounded-full bg-[#ff3b30]/10 flex items-center justify-center mb-4">
-							<span class="material-symbols-outlined text-[#ff3b30] text-[32px]">
+						<div class="absolute -top-10 -left-10 w-32 h-32 bg-[#ff4a4a]/20 blur-3xl rounded-full pointer-events-none" />
+
+						<div class="w-20 h-20 rounded-[24px] bg-[#ff4a4a]/10 border border-[#ff4a4a]/30 flex items-center justify-center mb-5 shadow-inner relative z-10">
+							<span class="material-symbols-outlined text-[#ff4a4a] text-[40px] drop-shadow-md">
 								delete_forever
 							</span>
 						</div>
 
-						<h3 class="text-[20px] font-black text-white mb-2">
-							{t('managedChannels.deleteConfirmTitle' as any)}
+						<h3 class="text-[22px] font-black text-white mb-2 tracking-tight relative z-10">
+							{t('managedChannels.deleteConfirmTitle')}
 						</h3>
-						<p class="text-[14px] text-[#8e8e93] mb-6 leading-relaxed">
-							{t('managedChannels.deleteConfirmDesc' as any)}
+						<p class="text-[13px] text-white/50 mb-8 leading-relaxed font-medium relative z-10 px-2">
+							{t('managedChannels.deleteConfirmDesc')}
 						</p>
 
-						<div class="w-full flex gap-3">
-							<button
-								onClick={() => setChannelToDelete(null)}
-								disabled={isDeleting()}
-								class="flex-1 h-12 rounded-2xl font-bold text-[15px] bg-[#2a2a2a] text-white hover:bg-[#333] transition-all disabled:opacity-50"
-							>
-								{t('common.cancel')}
-							</button>
+						<div class="w-full flex flex-col gap-3 relative z-10">
 							<button
 								onClick={handleDeleteChannel}
 								disabled={isDeleting()}
-								class="flex-1 h-12 rounded-2xl font-bold text-[15px] bg-[#ff3b30] text-white hover:bg-[#ff453a] transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(255,59,48,0.2)]"
+								class="w-full h-14 rounded-[16px] font-black text-[14px] uppercase tracking-widest bg-[#ff4a4a] text-white hover:bg-[#ff3b30] transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_8px_24px_rgba(255,74,74,0.3)] active:scale-95 border border-white/10"
 							>
 								<Show
 									when={!isDeleting()}
@@ -403,20 +449,30 @@ export const ManagedChannelsPage: Component = () => {
 										<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
 									}
 								>
-									{t('managedChannels.delete' as any)}
+									<span class="material-symbols-outlined text-[20px]">
+										warning
+									</span>{' '}
+									{t('managedChannels.delete')}
 								</Show>
+							</button>
+							<button
+								onClick={() => setChannelToDelete(null)}
+								disabled={isDeleting()}
+								class="w-full h-14 rounded-[16px] font-bold text-[14px] uppercase tracking-widest bg-transparent text-white/60 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/5 transition-all disabled:opacity-50 active:scale-95"
+							>
+								{t('common.cancel')}
 							</button>
 						</div>
 					</Motion.div>
 				</Motion.div>
 			</Show>
 
-			{/* Subscription Bottom Sheet */}
+			{/* ═══════ SUBSCRIPTION BOTTOM SHEET ═══════ */}
 			<Show when={showSubscription()}>
 				<Motion.div
 					initial={{ opacity: 0 }}
 					animate={{ opacity: 1 }}
-					class="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-end justify-center"
+					class="fixed inset-0 bg-[#030303]/90 backdrop-blur-2xl z-[100] flex items-end justify-center"
 					onClick={(e) => {
 						if (e.target === e.currentTarget) setShowSubscription(false);
 					}}
@@ -425,90 +481,88 @@ export const ManagedChannelsPage: Component = () => {
 						initial={{ y: '100%' }}
 						animate={{ y: 0 }}
 						transition={{ duration: 0.4, easing: [0.32, 0.72, 0, 1] }}
-						class="w-full max-h-[85vh] bg-[#1c1c1c] rounded-t-[2.5rem] border-t border-[#2a2a2a] p-6 overflow-y-auto no-scrollbar shadow-2xl animate-fade-in"
+						class="w-full max-h-[85vh] bg-[#12141C] rounded-t-[32px] border-t border-white/10 p-6 overflow-y-auto no-scrollbar shadow-[0_-30px_80px_rgba(0,0,0,0.8)] relative"
 					>
-						{/* Status Messages */}
 						<Show when={successMsg()}>
-							<div class="bg-[#34c759]/10 border border-[#34c759]/30 text-[#34c759] rounded-2xl px-4 py-3 flex items-center gap-2 text-[13px] font-bold mb-4">
-								<span class="material-symbols-outlined text-[18px]">check_circle</span>
+							<div class="bg-[#10b981]/10 border border-[#10b981]/20 text-[#10b981] rounded-[16px] px-4 py-3.5 flex items-center gap-2.5 text-[13px] font-bold mb-5 shadow-sm">
+								<span class="material-symbols-outlined text-[20px]">check_circle</span>{' '}
 								{successMsg()}
 							</div>
 						</Show>
 						<Show when={errorMsg()}>
-							<div class="bg-[#ff3b30]/10 border border-[#ff3b30]/30 text-[#ff3b30] rounded-2xl px-4 py-3 flex items-center gap-2 text-[13px] font-bold mb-4">
-								<span class="material-symbols-outlined text-[18px]">error</span>
+							<div class="bg-[#ff4a4a]/10 border border-[#ff4a4a]/20 text-[#ff4a4a] rounded-[16px] px-4 py-3.5 flex items-center gap-2.5 text-[13px] font-bold mb-5 shadow-sm">
+								<span class="material-symbols-outlined text-[20px]">error</span>{' '}
 								{errorMsg()}
 							</div>
 						</Show>
 
-						{/* Handle */}
-						<div class="w-12 h-1.5 bg-[#3a3a3a] rounded-full mx-auto mb-6" />
+						<div class="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-6" />
 
 						{paymentStep() === 'package' ? (
-							<>
-								<h3 class="text-[20px] font-black text-white mb-1 leading-tight">
-									{t('botManage.choosePackage' as any) || 'Choose a Plan'}
-								</h3>
-								<p class="text-[13px] font-medium text-[#8e8e93] mb-6">
-									{t('botManage.selectPlan' as any) || 'Select a monthly plan for your'}{' '}
-									{t('botManage.channelService' as any) || 'channel'}
-								</p>
+							<div class="flex flex-col gap-5">
+								<div class="flex flex-col gap-1 text-center mb-2">
+									<h3 class="text-[22px] font-black text-white tracking-tight">
+										{t('botManage.choosePackage')}
+									</h3>
+									<p class="text-[13px] font-medium text-white/50">
+										{t('botManage.selectPlan')} {t('botManage.channelService')}
+									</p>
+								</div>
 
-								{/* Plan Cards */}
-								<div class="space-y-3">
+								<div class="space-y-3.5">
 									<For each={packages() || []}>
 										{(pkg: SubscriptionPackage) => (
 											<button
 												onClick={() => {
 													setSelectedPkg(pkg.id);
-													hapticFeedback.selectionChanged();
+													try {
+														hapticFeedback.selectionChanged();
+													} catch (_) {}
 												}}
-												class={`w-full rounded-3xl p-4 flex items-center justify-between border-2 transition-all active:scale-[0.98] relative overflow-hidden ${
+												class={`w-full rounded-[24px] p-5 flex items-center justify-between border-2 transition-all active:scale-[0.98] relative overflow-hidden group ${
 													selectedPkg() === pkg.id
-														? 'border-[#32ade6] bg-[#32ade6]/10 shadow-lg'
-														: 'border-[#2a2a2a] bg-[#242426] hover:border-[#3a3a3a]'
+														? 'border-[#3390ec] bg-[#3390ec]/10 shadow-[0_10px_30px_rgba(51,144,236,0.15)]'
+														: 'border-white/5 bg-[#08090D] hover:border-white/20 shadow-inner'
 												}`}
 											>
-												{/* Badge */}
 												<Show when={pkg.badge}>
 													<div
-														class={`absolute top-0 ${isRtl() ? 'left-0 rounded-bl-xl rounded-tr-2xl' : 'right-0 rounded-br-xl rounded-tl-2xl'} px-2.5 py-1 text-[9px] font-black uppercase tracking-wider ${
-															pkg.badge === 'best_value'
-																? 'bg-[#ff9f0a] text-black'
-																: 'bg-[#32ade6] text-white'
-														}`}
+														class={`absolute top-0 ${isRtl() ? 'left-0 rounded-bl-[16px]' : 'right-0 rounded-br-[16px]'} px-3 py-1.5 text-[10px] font-black uppercase tracking-widest shadow-sm ${pkg.badge === 'best_value' ? 'bg-amber-400 text-black' : 'bg-[#3390ec] text-white'}`}
 													>
 														{pkg.badge === 'best_value'
-															? t('botManage.bestValue' as any) || 'Best Value'
-															: t('botManage.popular' as any) || 'Popular'}
+															? t('botManage.bestValue')
+															: t('botManage.popular')}
 													</div>
 												</Show>
 
-												<div class="flex flex-col items-start gap-0.5">
+												<div class="flex flex-col items-start gap-1">
 													<div class="flex items-center gap-2">
 														<span
-															class={`text-[16px] font-black ${selectedPkg() === pkg.id ? 'text-white' : 'text-white/90'}`}
+															class={`text-[18px] font-black tracking-tight ${selectedPkg() === pkg.id ? 'text-[#3390ec]' : 'text-white'}`}
 														>
 															{pkg.name}
 														</span>
 														<Show when={pkg.discount}>
-															<span class="text-[10px] font-black text-[#34c759] bg-[#34c759]/10 px-2 py-0.5 rounded-full">
+															<span class="text-[10px] font-black text-[#10b981] bg-[#10b981]/10 border border-[#10b981]/20 px-2 py-0.5 rounded-[6px] shadow-sm">
 																-{pkg.discount}
 															</span>
 														</Show>
 													</div>
-													<span class="text-[11px] font-medium text-[#8e8e93]">
-														{t('botManage.totalPrice' as any) || 'Total'}: $
-														{pkg.price_usd.toFixed(2)} · {pkg.price_stars} ⭐
+													<span class="text-[11px] font-bold text-white/40 flex items-center gap-1">
+														{t('botManage.totalPrice')}: ${pkg.price_usd.toFixed(2)}{' '}
+														<span class="w-1 h-1 rounded-full bg-white/20 mx-0.5" />{' '}
+														{pkg.price_stars} <span class="text-amber-400">⭐</span>
 													</span>
 												</div>
 												<div class="flex flex-col items-end gap-0.5">
-													<div class="flex items-baseline gap-0.5">
-														<span class="text-[22px] font-black text-white">
+													<div class="flex items-baseline gap-1">
+														<span
+															class={`text-[24px] font-black font-mono tracking-tight ${selectedPkg() === pkg.id ? 'text-white' : 'text-white/80'}`}
+														>
 															${pkg.price_per_month.toFixed(2)}
 														</span>
-														<span class="text-[12px] font-bold text-[#8e8e93]">
-															{t('botManage.perMonth' as any) || '/mo'}
+														<span class="text-[12px] font-bold text-white/40">
+															{t('botManage.perMonth')}
 														</span>
 													</div>
 												</div>
@@ -517,81 +571,89 @@ export const ManagedChannelsPage: Component = () => {
 									</For>
 								</div>
 
-								{/* Continue Button */}
 								<button
 									onClick={() => {
-										hapticFeedback.impactOccurred('medium');
+										try {
+											hapticFeedback.impactOccurred('medium');
+										} catch (_) {}
 										setPaymentStep('method');
 									}}
 									disabled={!selectedPkg()}
-									class="w-full h-16 bg-[#32ade6] hover:bg-[#2b96c8] text-black rounded-[1.5rem] font-black text-[17px] mt-8 transition-all disabled:opacity-40 flex items-center justify-center gap-3 shadow-[0_20px_40px_rgba(50,173,230,0.3)] active:scale-95"
+									class="w-full h-16 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] hover:from-[#2b7ec9] hover:to-[#3390ec] text-white rounded-[20px] font-black text-[15px] uppercase tracking-widest mt-4 transition-all disabled:opacity-40 disabled:scale-100 flex items-center justify-center gap-2 shadow-[0_10px_30px_rgba(51,144,236,0.3)] active:scale-95 border border-white/10"
 								>
-									{t('botManage.continuePayment' as any) || 'Continue to Payment'}
+									{t('botManage.continuePayment')}{' '}
+									<span class="material-symbols-outlined text-[20px]">
+										arrow_forward
+									</span>
 								</button>
-							</>
+							</div>
 						) : (
-							<>
-								<div class="flex items-center gap-4 mb-6">
+							<div class="flex flex-col gap-5">
+								<div class="flex items-center gap-4 mb-2">
 									<button
 										onClick={() => setPaymentStep('package')}
-										class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center hover:bg-[#2a2a2a]"
+										class="w-11 h-11 rounded-[14px] bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors border border-white/10 active:scale-95 shrink-0"
 									>
-										<span class="material-symbols-outlined text-[20px]">arrow_back</span>
+										<span class="material-symbols-outlined text-[22px] text-white/70">
+											arrow_back
+										</span>
 									</button>
-									<div>
-										<h3 class="text-[20px] font-black text-white leading-tight">
-											{t('botManage.paymentMethodTitle' as any) || 'Payment Method'}
+									<div class="flex flex-col gap-0.5">
+										<h3 class="text-[20px] font-black text-white leading-tight tracking-tight">
+											{t('botManage.paymentMethodTitle')}
 										</h3>
-										<p class="text-[13px] font-medium text-[#8e8e93]">
-											{t('botManage.paymentMethodDesc' as any) || 'Choose how you want to pay'}
+										<p class="text-[12px] font-medium text-white/50">
+											{t('botManage.paymentMethodDesc')}
 										</p>
 									</div>
 								</div>
 
-								{/* Selected plan summary */}
 								<Show when={packages() && selectedPkg()}>
 									{(() => {
 										const pkg = (packages() || []).find(
 											(p: SubscriptionPackage) => p.id === selectedPkg(),
 										);
 										return pkg ? (
-											<div class="bg-[#242426] rounded-2xl p-4 mb-6 border border-[#2a2a2a] flex items-center justify-between">
-												<div class="flex flex-col gap-0.5">
-													<span class="text-[15px] font-black text-white">{pkg.name}</span>
-													<span class="text-[12px] text-[#8e8e93]">
-														${pkg.price_per_month.toFixed(2)}
-														{t('botManage.perMonth' as any) || '/mo'}
+											<div class="bg-[#08090D] rounded-[20px] p-5 border border-white/5 flex items-center justify-between shadow-inner">
+												<div class="flex flex-col gap-1">
+													<span class="text-[16px] font-black text-[#3390ec] tracking-tight">
+														{pkg.name} Plan
+													</span>
+													<span class="text-[11px] font-bold text-white/40 uppercase tracking-widest">
+														${pkg.price_per_month.toFixed(2)} {t('botManage.perMonth')}
 													</span>
 												</div>
-												<div class="flex flex-col items-end">
-													<span class="text-[17px] font-black text-white">
+												<div class="flex flex-col items-end gap-1">
+													<span class="text-[20px] font-black font-mono text-white tracking-tight">
 														${pkg.price_usd.toFixed(2)}
 													</span>
-													<span class="text-[11px] text-[#8e8e93]">{pkg.price_stars} ⭐</span>
+													<span class="text-[11px] font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-[6px] border border-amber-400/20 shadow-sm">
+														{pkg.price_stars} ⭐
+													</span>
 												</div>
 											</div>
 										) : null;
 									})()}
 								</Show>
 
-								<div class="space-y-4">
-									{/* Telegram Stars Button */}
+								<div class="space-y-3.5">
+									{/* Telegram Stars */}
 									<button
 										onClick={handleSubscribeStars}
 										disabled={isProcessing()}
-										class="w-full relative group overflow-hidden bg-gradient-to-r from-[#2c2d30] to-[#1c1d20] border border-[#ffb900]/30 rounded-[1.5rem] p-5 text-left transition-all active:scale-[0.98] hover:border-[#ffb900]/60"
+										class="w-full relative group overflow-hidden bg-[#12141C]/80 backdrop-blur-xl border border-amber-400/30 hover:border-amber-400/60 rounded-[24px] p-5 text-left transition-all active:scale-[0.98] shadow-sm"
 									>
-										<div class="absolute right-[-20px] top-[-20px] w-24 h-24 bg-[#ffb900]/10 rounded-full blur-2xl group-hover:bg-[#ffb900]/20 transition-all" />
+										<div class="absolute -right-6 -top-6 w-28 h-28 bg-amber-400/15 rounded-full blur-2xl group-hover:bg-amber-400/25 transition-all pointer-events-none" />
 										<div class="relative flex items-center gap-4 z-10">
-											<div class="w-12 h-12 rounded-full bg-[#ffb900]/10 flex items-center justify-center border border-[#ffb900]/20 shadow-inner">
-												<span class="text-[24px]">⭐</span>
+											<div class="w-14 h-14 rounded-[16px] bg-amber-400/15 flex items-center justify-center border border-amber-400/30 shadow-inner shrink-0">
+												<span class="text-[28px] drop-shadow-md">⭐</span>
 											</div>
-											<div class="flex-1">
-												<h4 class="text-[17px] font-black text-white mb-0.5">
-													{t('botManage.starsPayTitle' as any) || 'Telegram Stars'}
+											<div class="flex-1 min-w-0">
+												<h4 class="text-[16px] font-black text-white tracking-tight mb-1 truncate">
+													{t('botManage.starsPayTitle')}
 												</h4>
-												<p class="text-[13px] font-medium text-[#8e8e93]">
-													{t('botManage.starsPayDesc' as any) || 'Fast & native Telegram payment'}
+												<p class="text-[12px] font-medium text-white/50 truncate">
+													{t('botManage.starsPayDesc')}
 												</p>
 											</div>
 											<Show when={packages() && selectedPkg()}>
@@ -600,7 +662,7 @@ export const ManagedChannelsPage: Component = () => {
 														(p: SubscriptionPackage) => p.id === selectedPkg(),
 													);
 													return pkg ? (
-														<span class="text-[15px] font-black text-[#ffb900]">
+														<span class="text-[16px] font-black font-mono text-amber-400 shrink-0 bg-amber-400/10 px-3 py-1.5 rounded-[12px] border border-amber-400/20 shadow-sm">
 															{pkg.price_stars} ⭐
 														</span>
 													) : null;
@@ -609,25 +671,25 @@ export const ManagedChannelsPage: Component = () => {
 										</div>
 									</button>
 
-									{/* Airdrop Coins Button */}
+									{/* Airdrop Coins */}
 									<button
 										onClick={handleSubscribeAirdrop}
 										disabled={isProcessing()}
-										class="w-full relative group overflow-hidden bg-gradient-to-r from-[#2c2d30] to-[#1c1d20] border border-[#32ade6]/30 rounded-[1.5rem] p-5 text-left transition-all active:scale-[0.98] hover:border-[#32ade6]/60"
+										class="w-full relative group overflow-hidden bg-[#12141C]/80 backdrop-blur-xl border border-[#3390ec]/30 hover:border-[#3390ec]/60 rounded-[24px] p-5 text-left transition-all active:scale-[0.98] shadow-sm"
 									>
-										<div class="absolute right-[-20px] top-[-20px] w-24 h-24 bg-[#32ade6]/10 rounded-full blur-2xl group-hover:bg-[#32ade6]/20 transition-all" />
+										<div class="absolute -right-6 -top-6 w-28 h-28 bg-[#3390ec]/15 rounded-full blur-2xl group-hover:bg-[#3390ec]/25 transition-all pointer-events-none" />
 										<div class="relative flex items-center gap-4 z-10">
-											<div class="w-12 h-12 rounded-full bg-[#32ade6]/10 flex items-center justify-center border border-[#32ade6]/20 shadow-inner">
-												<span class="material-symbols-outlined text-[#32ade6] text-[24px]">
+											<div class="w-14 h-14 rounded-[16px] bg-[#3390ec]/15 flex items-center justify-center border border-[#3390ec]/30 shadow-inner shrink-0">
+												<span class="material-symbols-outlined text-[#3390ec] text-[28px] drop-shadow-md">
 													toll
 												</span>
 											</div>
-											<div class="flex-1">
-												<h4 class="text-[17px] font-black text-white mb-0.5">
-													{t('botManage.airdropPayTitle' as any) || 'Airdrop Coins'}
+											<div class="flex-1 min-w-0">
+												<h4 class="text-[16px] font-black text-white tracking-tight mb-1 truncate">
+													{t('botManage.airdropPayTitle')}
 												</h4>
-												<p class="text-[13px] font-medium text-[#8e8e93]">
-													{t('botManage.airdropPayDesc' as any) || 'Use your earned coin balance'}
+												<p class="text-[12px] font-medium text-white/50 truncate">
+													{t('botManage.airdropPayDesc')}
 												</p>
 											</div>
 											<Show when={packages() && selectedPkg()}>
@@ -636,7 +698,7 @@ export const ManagedChannelsPage: Component = () => {
 														(p: SubscriptionPackage) => p.id === selectedPkg(),
 													);
 													return pkg ? (
-														<span class="text-[15px] font-black text-[#32ade6]">
+														<span class="text-[16px] font-black font-mono text-[#3390ec] shrink-0 bg-[#3390ec]/10 px-3 py-1.5 rounded-[12px] border border-[#3390ec]/20 shadow-sm">
 															{pkg.price_coins.toLocaleString()}
 														</span>
 													) : null;
@@ -645,15 +707,17 @@ export const ManagedChannelsPage: Component = () => {
 										</div>
 									</button>
 								</div>
-							</>
-						)}
-
-						{isProcessing() && (
-							<div class="absolute inset-0 bg-[#0f1014]/80 backdrop-blur-sm z-20 flex flex-col items-center justify-center rounded-t-[2.5rem]">
-								<span class="w-10 h-10 border-4 border-[#32ade6]/30 border-t-[#32ade6] rounded-full animate-spin mb-4" />
-								<span class="text-[15px] font-bold text-white animate-pulse">Processing...</span>
 							</div>
 						)}
+
+						<Show when={isProcessing()}>
+							<div class="absolute inset-0 bg-[#030303]/90 backdrop-blur-xl z-50 flex flex-col items-center justify-center rounded-t-[32px] gap-4">
+								<span class="w-12 h-12 border-4 border-[#3390ec]/30 border-t-[#3390ec] rounded-full animate-spin" />
+								<span class="text-[14px] font-black uppercase tracking-widest text-[#3390ec] animate-pulse">
+									Processing...
+								</span>
+							</div>
+						</Show>
 					</Motion.div>
 				</Motion.div>
 			</Show>
