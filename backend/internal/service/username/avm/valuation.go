@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"ifragment-backend/internal/client/fragment"
+	"ifragment-backend/internal/client/marketapp"
 	"ifragment-backend/internal/client/tonapi"
 	"ifragment-backend/internal/repository"
 	"log/slog"
@@ -20,23 +21,25 @@ import (
 // ValuationService orchestrates the AVM pipeline:
 // Classify → Fetch → Compute → Audit → Return
 type ValuationService struct {
-	db             *repository.Database
-	cache          *repository.Cache
-	tonClient      *tonapi.Client
-	fragmentClient *fragment.Client
-	cfg            EngineConfig
-	semanticEngine *SemanticEngine
+	db              *repository.Database
+	cache           *repository.Cache
+	tonClient       *tonapi.Client
+	fragmentClient  *fragment.Client
+	marketappClient *marketapp.Client
+	cfg             EngineConfig
+	semanticEngine  *SemanticEngine
 }
 
 // NewValuationService creates a new AVM service with default config.
 func NewValuationService(db *repository.Database, cache *repository.Cache, tonClient *tonapi.Client) *ValuationService {
 	return &ValuationService{
-		db:             db,
-		cache:          cache,
-		tonClient:      tonClient,
-		fragmentClient: fragment.NewClient(),
-		cfg:            DefaultEngineConfig(),
-		semanticEngine: NewSemanticEngine(db),
+		db:              db,
+		cache:           cache,
+		tonClient:       tonClient,
+		fragmentClient:  fragment.NewClient(),
+		marketappClient: marketapp.NewClient(),
+		cfg:             DefaultEngineConfig(),
+		semanticEngine:  NewSemanticEngine(db),
 	}
 }
 
@@ -519,6 +522,34 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		return err
 	})
 
+	var marketappPrice float64
+	g.Go(func() error {
+		mCtx, cancelM := context.WithTimeout(gCtx, 1200*time.Millisecond)
+		defer cancelM()
+
+		// 1. Try MarketApp scraper first
+		scrapedPrice := ScrapeMarketappMaxPrice(mCtx, username)
+		if scrapedPrice > 0 {
+			marketappPrice = scrapedPrice
+			return nil
+		}
+
+		// 2. Try MarketApp official client API
+		if s.marketappClient != nil {
+			itemData, err := s.marketappClient.GetItem(mCtx, username)
+			if err == nil && itemData != nil {
+				if itemData.BuyNowPrice > 0 {
+					marketappPrice = itemData.BuyNowPrice
+				} else if itemData.HighestBid > 0 {
+					marketappPrice = itemData.HighestBid
+				} else if len(itemData.PastSales) > 0 {
+					marketappPrice = itemData.PastSales[0].Price
+				}
+			}
+		}
+		return nil
+	})
+
 	g.Go(func() error {
 		if s.fragmentClient != nil {
 			scrapeCtx, cancelScrape := context.WithTimeout(gCtx, 1200*time.Millisecond)
@@ -537,18 +568,31 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		return nil, fmt.Errorf("failed to fetch comparable data: %w", err)
 	}
 
-	reasoning["exact_sales_count"] = len(exactSales)
-	reasoning["broad_sales_count"] = len(broadSales)
-	reasoning["target_sales_count"] = len(targetSales) + len(scrapedSales)
-	reasoning["momentum_30d"] = count30
-	reasoning["momentum_31_90d"] = count31_90
-
 	// ── Step 3: Math Engine (float64 isolated zone) ──
 
 	// Convert DB sales to engine ComparableSales with normalization
 	targetComps := SalesToComparables(targetSales, s.cfg)
 	exactComps := SalesToComparables(exactSales, s.cfg)
 	broadComps := SalesToComparables(broadSales, s.cfg)
+
+	if marketappPrice > 0 {
+		reasoning["marketapp_price_found"] = marketappPrice
+		targetComps = append(targetComps, ComparableSale{
+			ID:            0,
+			PriceTON:      marketappPrice,
+			SaleDate:      now,
+			CharLength:    int(charLen),
+			HasNumbers:    features.HasNumbers,
+			HasUnderscore: features.HasUnderscore,
+			IsDictionary:  features.IsDictionary,
+		})
+	}
+
+	reasoning["exact_sales_count"] = len(exactSales)
+	reasoning["broad_sales_count"] = len(broadSales)
+	reasoning["target_sales_count"] = len(targetComps) + len(scrapedSales)
+	reasoning["momentum_30d"] = count30
+	reasoning["momentum_31_90d"] = count31_90
 
 	// Merge scraped sales into targetComps (avoid duplicates)
 	for _, ss := range scrapedSales {
@@ -900,13 +944,17 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		}
 	}
 
-	// Enforce 5,050 TON floor globally for 4-character usernames (Fragment rules)
+	// Floor for 4-character usernames: pure alpha names keep 1,000 TON starting floor, penalized names can drop lower
 	if charLen == 4 {
-		if expectedTONRaw < 5050.0 {
-			expectedTONRaw = 5050.0
+		minFloor := 1000.0
+		if features.HasUnderscore || features.HasNumbers {
+			minFloor = 250.0
 		}
-		if lowTONRaw < 5050.0 {
-			lowTONRaw = 5050.0
+		if expectedTONRaw < minFloor {
+			expectedTONRaw = minFloor
+		}
+		if lowTONRaw < minFloor {
+			lowTONRaw = minFloor
 		}
 		if highTONRaw < expectedTONRaw {
 			highTONRaw = expectedTONRaw * 1.2

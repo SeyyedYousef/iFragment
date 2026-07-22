@@ -386,14 +386,14 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 func (e *SemanticEngine) scoreToMultiplier(score float64, length int, tags []string, isDict bool) float64 {
 	var multiplier float64
 
-	// Calibrated max multipliers per character length
-	maxBaseMultiplier := 50.0
+	// Calibrated max multipliers per character length (Ultra-top words 1M+ TON, Mid-tier 100k+ TON)
+	maxBaseMultiplier := 80.0
 	if length == 4 {
-		maxBaseMultiplier = 140.0 // Score 40 -> 1x, Score 67 (@cats) -> ~11.5x, Score 92 (@rare) -> ~96x, Score 100 -> ~140x
+		maxBaseMultiplier = 450.0 // Score 40 -> 1x, Score 70 -> ~45x (~112k TON), Score 90 -> ~280x (~700k TON), Score 100 -> 450x (1.125M TON)
 	} else if length == 5 {
-		maxBaseMultiplier = 60.0
+		maxBaseMultiplier = 200.0 // Score 40 -> 1x, Score 75 -> ~50x (~50k TON), Score 100 -> 200x (200k TON)
 	} else if length <= 3 {
-		maxBaseMultiplier = 200.0
+		maxBaseMultiplier = 600.0
 	}
 
 	// Penalty zone: scale from 0.05x to 1.0x
@@ -405,9 +405,9 @@ func (e *SemanticEngine) scoreToMultiplier(score float64, length int, tags []str
 			multiplier = 1.0
 		}
 	} else {
-		// Premium zone: smooth power curve (exponent 3.2)
+		// Premium zone: smooth power curve (exponent 3.0)
 		normalized := (score - 40.0) / 60.0
-		multiplier = 1.0 + math.Pow(normalized, 3.2)*(maxBaseMultiplier-1.0)
+		multiplier = 1.0 + math.Pow(normalized, 3.0)*(maxBaseMultiplier-1.0)
 	}
 
 	// Tag-Based Pricing (bounded adjustments)

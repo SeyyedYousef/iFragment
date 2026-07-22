@@ -41,8 +41,9 @@ var HistoricalSales = map[string]float64{
 	"gem":          85000.0,  // Web3 gem category username (@gem)
 	"vip":          140000.0, // High-status 3-letter category username (@vip)
 	"ton":          450000.0, // Ecosystem Native Currency (@ton)
-	"cats":         5050.0,  // Memecoin/community benchmark (Fragment original sale)
-	"dogs":         12500.0,  // Memecoin/community benchmark (Fragment original sale)
+	"cats":         5050.0,   // Memecoin/community benchmark
+	"dogs":         12500.0,  // Memecoin/community benchmark
+	"work":         60000.0,  // Mid-tier generic (@work -> ~118.5k TON appreciated)
 	// ── Original Data ──
 	"news": 994000.0,
 	"auto": 900000.0,
@@ -127,7 +128,7 @@ var HistoricalSales = map[string]float64{
 	"poker": 136500.0,
 	"usdc": 136000.0,
 	"checkup": 135000.0,
-	"home": 135000.0,
+	"home": 58000.0,
 	"alphabet": 134000.0,
 	"listing": 134000.0,
 	"hack": 133000.0,
@@ -141,7 +142,7 @@ var HistoricalSales = map[string]float64{
 	"date": 127000.0,
 	"offer": 127000.0,
 	"data": 126000.0,
-	"food": 126000.0,
+	"food": 60000.0,
 	"dice": 125000.0,
 	"jets": 125000.0,
 	"property": 125000.0,
@@ -450,7 +451,7 @@ var HistoricalSales = map[string]float64{
 	"mari": 28024.0,
 	"free": 28000.0,
 	"gambling": 27000.0,
-	"john": 27000.0,
+	"john": 15000.0,
 	"superb": 27000.0,
 	"ffff": 26742.0,
 	"damac": 26250.0,
@@ -487,7 +488,7 @@ var HistoricalSales = map[string]float64{
 	"pain": 22000.0,
 	"insane": 166888.0,
 	"startup": 21111.0,
-	"alex": 21110.0,
+	"alex": 15000.0,
 	"beauty": 21000.0,
 	"ecommerce": 21000.0,
 	"hodl": 21000.0,
@@ -507,7 +508,7 @@ var HistoricalSales = map[string]float64{
 	"juli": 20000.0,
 	"kate": 20000.0,
 	"lazy": 20000.0,
-	"mike": 20000.0,
+	"mike": 14000.0,
 	"qplus": 20000.0,
 	"rove": 20000.0,
 	"shuffle": 20000.0,

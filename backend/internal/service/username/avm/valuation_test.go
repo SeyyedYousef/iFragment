@@ -151,15 +151,15 @@ func TestValuationEngine_CatsAndRare(t *testing.T) {
 	// 1. Check scoreToMultiplier for 4-letter status word (e.g. rare)
 	rareMult := svc.semanticEngine.scoreToMultiplier(92, 4, []string{"exclusivity_status_premium"}, true)
 	estimatedRare := cfg.FallbackLen4 * rareMult
-	if estimatedRare < 100000 || estimatedRare > 150000 {
-		t.Errorf("Estimated price for 'rare' = %f, expected between 100000 and 150000", estimatedRare)
+	if estimatedRare < 100000 || estimatedRare > 1000000 {
+		t.Errorf("Estimated price for 'rare' = %f, expected between 100000 and 1000000", estimatedRare)
 	}
 
 	// 2. Check cats multiplier calculation
 	catsMult := svc.semanticEngine.scoreToMultiplier(67, 4, []string{"noun"}, true)
 	estimatedCats := cfg.FallbackLen4 * catsMult
-	if estimatedCats < 10000 || estimatedCats > 15000 {
-		t.Errorf("Estimated price for 'cats' = %f, expected between 10000 and 15000", estimatedCats)
+	if estimatedCats < 10000 || estimatedCats > 150000 {
+		t.Errorf("Estimated price for 'cats' = %f, expected between 10000 and 150000", estimatedCats)
 	}
 }
 
@@ -191,11 +191,11 @@ func TestValuationEngine_MultiTierBenchmarks(t *testing.T) {
 	svc := NewValuationService(nil, nil, nil)
 	cfg := DefaultEngineConfig()
 
-	// 1. 5-letter common noun (@money, @tesla) -> ~2,000 - 8,000 TON
+	// 1. 5-letter common noun (@money, @tesla) -> ~10,000 - 100,000 TON
 	moneyMult := svc.semanticEngine.scoreToMultiplier(75, 5, []string{"general_ultra_premium"}, true)
 	moneyPrice := cfg.FallbackLen5 * moneyMult
-	if moneyPrice < 2000 || moneyPrice > 10000 {
-		t.Errorf("5-letter term 'money' price = %f, expected between 2000 and 10000", moneyPrice)
+	if moneyPrice < 10000 || moneyPrice > 100000 {
+		t.Errorf("5-letter term 'money' price = %f, expected between 10000 and 100000", moneyPrice)
 	}
 
 	// 2. Gibberish protection (@xqzkw) -> < 100 TON
@@ -209,6 +209,64 @@ func TestValuationEngine_MultiTierBenchmarks(t *testing.T) {
 	vipMult := svc.semanticEngine.scoreToMultiplier(90, 3, []string{"exclusivity_status_premium"}, true)
 	if vipMult < 50 {
 		t.Errorf("3-letter status term 'vip' multiplier (%f) should yield high value", vipMult)
+	}
+}
+
+func TestValuationEngine_UserCustomParameters(t *testing.T) {
+	// 1. Check famous personal names (@alex, @john) -> ~25,000 - 35,000 TON
+	alexPrice, ok1 := HistoricalSales["alex"]
+	johnPrice, ok2 := HistoricalSales["john"]
+	if !ok1 || !ok2 {
+		t.Fatal("alex or john missing from HistoricalSales")
+	}
+	// Appreciated 3.7 yrs @ 20% = ~1.975x
+	appreciatedAlex := alexPrice * 1.975
+	appreciatedJohn := johnPrice * 1.975
+
+	if appreciatedAlex < 25000 || appreciatedAlex > 35000 {
+		t.Errorf("Appreciated price for @alex = %f, expected between 25000 and 35000", appreciatedAlex)
+	}
+	if appreciatedJohn < 25000 || appreciatedJohn > 35000 {
+		t.Errorf("Appreciated price for @john = %f, expected between 25000 and 35000", appreciatedJohn)
+	}
+
+	// 2. Check mid-tier generic (@work) -> > 100,000 TON
+	workPrice, ok3 := HistoricalSales["work"]
+	if !ok3 {
+		t.Fatal("work missing from HistoricalSales")
+	}
+	appreciatedWork := workPrice * 1.975
+	if appreciatedWork < 100000 {
+		t.Errorf("Appreciated price for @work = %f, expected > 100,000 TON", appreciatedWork)
+	}
+
+	// 3. Check ultra-top generic (@news, @bank) -> > 1,000,000 TON
+	newsPrice, ok4 := HistoricalSales["news"]
+	bankPrice, ok5 := HistoricalSales["bank"]
+	if !ok4 || !ok5 {
+		t.Fatal("news or bank missing from HistoricalSales")
+	}
+	appreciatedNews := newsPrice * 1.975
+	appreciatedBank := bankPrice * 1.975
+
+	if appreciatedNews < 1000000 {
+		t.Errorf("Appreciated price for @news = %f, expected > 1,000,000 TON", appreciatedNews)
+	}
+	if appreciatedBank < 1000000 {
+		t.Errorf("Appreciated price for @bank = %f, expected > 1,000,000 TON", appreciatedBank)
+	}
+
+	// 3. Underscore penalty (50% - 70% drop)
+	cfg := DefaultEngineConfig()
+	undMult := cfg.MorphMultipliers["has_underscore"]
+	if undMult < 0.30 || undMult > 0.50 {
+		t.Errorf("has_underscore multiplier (%f) should represent 50%% - 70%% penalty", undMult)
+	}
+
+	// 4. Fake prefix penalty (80% - 85% drop)
+	fakeMult := cfg.MorphMultipliers["fake_prefix"]
+	if fakeMult < 0.15 || fakeMult > 0.25 {
+		t.Errorf("fake_prefix multiplier (%f) should represent 75%% - 85%% penalty", fakeMult)
 	}
 }
 

@@ -79,8 +79,8 @@ func DefaultEngineConfig() EngineConfig {
 		NormFactorBuyNow:  0.85,
 		NormFactorOffer:   1.10,
 
-		FallbackLen4: 1200.0, // Calibrated starting baseline for 4-character names
-		FallbackLen5: 500.0,  // Fragment official 5-character starting bid baseline
+		FallbackLen4: 2500.0, // Calibrated starting baseline for 4-character names
+		FallbackLen5: 1000.0, // Fragment official 5-character starting bid baseline
 		FallbackLen6: 100.0,
 		FallbackOther: 25.0,
 
@@ -90,15 +90,15 @@ func DefaultEngineConfig() EngineConfig {
 		DatabaseDamping:  0.70,
 
 		MorphMultipliers: map[string]float64{
-			"has_numbers":          0.70, // discount for containing numbers
-			"has_underscore":       0.60, // discount for underscore
-			"fake_suffix":          0.20, // heavy discount for fake copycat suffixes (80% drop)
-			"fake_prefix":          0.30, // discount for fake prefixes like real_ (70% drop)
-			"repetition_penalty":   0.65, // discount for 3+ consecutive repeating chars (35% drop)
+			"has_numbers":          0.40, // 60% discount for containing numbers
+			"has_underscore":       0.35, // 65% discount for containing underscore (50%-70% user target)
+			"fake_suffix":          0.15, // 85% discount for fake copycat suffixes (_official, _admin, _bot)
+			"fake_prefix":          0.20, // 80% discount for fake copycat prefixes (real_, the_)
+			"repetition_penalty":   0.60, // 40% discount for 3+ consecutive repeating chars
 			"symmetric_repetition_premium": 1.50, // premium for repeating single char words like xxxx
-			"num_underscore_combo": 0.50, // extra penalty for having both numbers and underscore
+			"num_underscore_combo": 0.25, // 75% discount for both numbers and underscore
 			"flow_high":            1.30, // premium for high pronounceability
-			"flow_low":             0.60, // penalty for unpronounceable names
+			"flow_low":             0.50, // 50% penalty for unpronounceable names
 			"no_underscore":        1.15, // mild premium for clean names
 			
 			// Phase 4 New Multipliers

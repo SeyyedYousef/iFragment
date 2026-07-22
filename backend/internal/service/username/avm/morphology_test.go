@@ -37,8 +37,8 @@ func TestCalcMorphologyLog_UnderscoreCompound(t *testing.T) {
 
 	morphLog := CalcMorphologyLog(features, cfg.MorphMultipliers, cfg)
 
-	// Should include: has_underscore(0.60) / 2 = Log(0.60) - (Log(0.60)/2) = Log(0.60)/2 ≈ -0.2554
-	expected := math.Log(0.60) / 2.0
+	// Should include: has_underscore / 2 = Log(has_underscore) / 2
+	expected := math.Log(cfg.MorphMultipliers["has_underscore"]) / 2.0
 	if math.Abs(morphLog-expected) > 1e-6 {
 		t.Errorf("underscore compound recovery failed: morphLog = %v, want %v", morphLog, expected)
 	}
@@ -57,8 +57,8 @@ func TestCalcMorphologyLog_NumbersOnly(t *testing.T) {
 
 	morphLog := CalcMorphologyLog(features, cfg.MorphMultipliers, cfg)
 
-	// has_numbers(0.70) + no_underscore(1.15)
-	expected := math.Log(0.70) + math.Log(1.15)
+	// has_numbers + no_underscore
+	expected := math.Log(cfg.MorphMultipliers["has_numbers"]) + math.Log(cfg.MorphMultipliers["no_underscore"])
 	if math.Abs(morphLog-expected) > 1e-6 {
 		t.Errorf("morphLog = %v, want %v", morphLog, expected)
 	}
@@ -79,12 +79,13 @@ func TestCalcMorphologyLog_Clamping(t *testing.T) {
 
 	morphLog := CalcMorphologyLog(features, cfg.MorphMultipliers, cfg)
 
-	// has_numbers(0.70) + has_underscore(0.60) + num_underscore_combo(0.50)
-	// = ln(0.70) + ln(0.60) + ln(0.50) ≈ -1.56
-	// Should NOT be clamped since -1.56 > MorphClampLow (-2.3025)
-	expected := math.Log(0.70) + math.Log(0.60) + math.Log(0.50)
-	if math.Abs(morphLog-expected) > 1e-6 {
-		t.Errorf("morphLog = %v, want %v (should not be clamped)", morphLog, expected)
+	// has_numbers + has_underscore + num_underscore_combo
+	expected := math.Log(cfg.MorphMultipliers["has_numbers"]) + math.Log(cfg.MorphMultipliers["has_underscore"]) + math.Log(cfg.MorphMultipliers["num_underscore_combo"])
+	if morphLog < cfg.MorphClampLow || morphLog > cfg.MorphClampHigh {
+		t.Errorf("morphLog = %v, outside clamp range [%v, %v]", morphLog, cfg.MorphClampLow, cfg.MorphClampHigh)
+	}
+	if math.Abs(morphLog-expected) > 1e-6 && morphLog != cfg.MorphClampLow {
+		t.Errorf("morphLog = %v, want %v (or clamped)", morphLog, expected)
 	}
 }
 
