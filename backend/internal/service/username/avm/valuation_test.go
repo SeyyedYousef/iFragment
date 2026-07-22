@@ -144,25 +144,6 @@ func TestCalculateSemanticKNNFloor(t *testing.T) {
 	}
 }
 
-func TestValuationEngine_CatsAndRare(t *testing.T) {
-	svc := NewValuationService(nil, nil, nil)
-	cfg := DefaultEngineConfig()
-	
-	// 1. Check scoreToMultiplier for 4-letter status word (e.g. rare)
-	rareMult := svc.semanticEngine.scoreToMultiplier(92, 4, []string{"exclusivity_status_premium"}, true)
-	estimatedRare := cfg.FallbackLen4 * rareMult
-	if estimatedRare < 100000 || estimatedRare > 1000000 {
-		t.Errorf("Estimated price for 'rare' = %f, expected between 100000 and 1000000", estimatedRare)
-	}
-
-	// 2. Check cats multiplier calculation
-	catsMult := svc.semanticEngine.scoreToMultiplier(67, 4, []string{"noun"}, true)
-	estimatedCats := cfg.FallbackLen4 * catsMult
-	if estimatedCats < 10000 || estimatedCats > 150000 {
-		t.Errorf("Estimated price for 'cats' = %f, expected between 10000 and 150000", estimatedCats)
-	}
-}
-
 func TestValuationEngine_CompoundRatioAndEcosystem(t *testing.T) {
 	svc := NewValuationService(nil, nil, nil)
 

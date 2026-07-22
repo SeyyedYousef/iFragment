@@ -1,6 +1,7 @@
 package avm
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -17,15 +18,24 @@ import (
 	"ifragment-backend/internal/repository"
 )
 
-// GeminiScorer provides AI-powered username desirability scoring using Gemini Flash.
-// It implements a 3-tier key strategy:
-//  1. Project key (GEMINI_API_KEY env var) — used first
-//  2. Fallback to user-provided keys from channel settings — round-robin
-//  3. Neutral score (50) if all keys fail
+// SemanticProvider defines the interface for AI-based username scoring
+type SemanticProvider interface {
+	Score(ctx context.Context, username string) (*GeminiResult, error)
+}
+
+type GeminiResult struct {
+	Score     int      `json:"score"`
+	Reason    string   `json:"reason"`
+	Tags      []string `json:"tags"`
+	Available bool     `json:"available"`
+}
+
+// GeminiScorer orchestrates AI scoring via Groq or Gemini providers based on configuration.
 type GeminiScorer struct {
+	provider     SemanticProvider
 	projectKey   string
 	db           *repository.Database
-	keyIndex     uint64 // atomic counter for round-robin
+	keyIndex     uint64
 	cache        map[string]*GeminiResult
 	cacheMutex   sync.RWMutex
 	cacheTime    map[string]time.Time
@@ -37,26 +47,20 @@ type GeminiScorer struct {
 	httpClient   *http.Client
 }
 
-type GeminiResult struct {
-	Score  int      `json:"score"`
-	Reason string   `json:"reason"`
-	Tags   []string `json:"tags"`
-}
-
-// NewGeminiScorer creates a new scorer with project key and DB access for user keys.
+// NewGeminiScorer creates a new AI scorer with provider auto-detection.
 func NewGeminiScorer(db *repository.Database) *GeminiScorer {
-	key := os.Getenv("GEMINI_API_KEY")
+	key := os.Getenv("GROQ_API_KEY")
 	if key == "" {
-		key = os.Getenv("GROQ_API_KEY")
+		key = os.Getenv("GEMINI_API_KEY")
 	}
 	return &GeminiScorer{
-		projectKey: key,
-		db:         db,
-		cache:      make(map[string]*GeminiResult),
-		cacheTime:  make(map[string]time.Time),
-		cacheTTL:   12 * time.Hour,
+		projectKey:  key,
+		db:          db,
+		cache:       make(map[string]*GeminiResult),
+		cacheTime:   make(map[string]time.Time),
+		cacheTTL:    12 * time.Hour,
 		userKeysTTL: 5 * time.Minute,
-		httpClient: &http.Client{Timeout: 8 * time.Second},
+		httpClient:  &http.Client{Timeout: 8 * time.Second},
 	}
 }
 
@@ -71,27 +75,11 @@ Consider ALL of these factors:
 - Market demand: Would people pay a premium for this username?
 - Length bonus: Shorter meaningful words are exponentially more valuable.
 
-Calibration examples:
-- "news"=99 (Massive global industry, 4-letter, universally understood)
-- "sport"=98 (Massive global industry, 5-letter, high commercial value)
-- "bitcoin"=99 (Top tier crypto brand, highly liquid asset)
-- "tesla"=97 (Top global brand, strong cult following)
-- "rare"=88 (4-letter, real English word, evokes exclusivity)
-- "king"=85 (4-letter, real English word, evokes power)
-- "web3news"=70 (Compound word, niche crypto audience)
-- "tonwallet"=60 (Compound word, specific niche, functional)
-- "cryptobot"=45 (Compound word, functional but generic)
-- "cool"=78 (4-letter, positive meaning, but common)
-- "abcd"=15 (4-letter, pattern but no real meaning)
-- "xyzw"=3 (Random letters, unpronounceable, no meaning)
-- "jkl123"=3 (Random letters + numbers, zero value)
-- "a_b_c_d"=2 (Underscores ruin visual appeal, spammy)
-
-CRITICAL: Respond with ONLY a raw JSON object. Do not use markdown backticks. Do not include introductory text.
+Respond with ONLY a raw JSON object. Do not use markdown backticks.
 {"score": <number>, "reason": "<one-line explanation>", "tags": ["crypto", "premium", "noun", "4-letter"]}`
 
-// Score returns the AI desirability score for a username (0-100).
-// It uses caching to avoid repeated API calls.
+// Score returns the AI desirability score for a username.
+// If AI is unavailable or fails, Available is set to false and Score is 0 so valuations are NEVER artificially inflated!
 func (g *GeminiScorer) Score(ctx context.Context, username string) *GeminiResult {
 	lower := strings.ToLower(strings.TrimSpace(username))
 
@@ -122,25 +110,24 @@ func (g *GeminiScorer) Score(ctx context.Context, username string) *GeminiResult
 	return result
 }
 
-// callWithFallback tries project key first, then falls back to user keys.
+// callWithFallback tries project key first, then user keys. Returns Available=false on failure.
 func (g *GeminiScorer) callWithFallback(ctx context.Context, prompt string) *GeminiResult {
 	// Tier 1: Project key
 	if g.projectKey != "" {
-		result, err := g.callGemini(ctx, prompt, g.projectKey)
-		if err == nil {
-			slog.Info("Gemini AI scored successfully via project key", "score", result.Score, "reason", result.Reason)
+		result, err := g.callAIProvider(ctx, prompt, g.projectKey)
+		if err == nil && result != nil {
+			result.Available = true
+			slog.Info("AI scored successfully via project key", "score", result.Score, "reason", result.Reason)
 			return result
 		}
-		slog.Warn("Gemini project key FAILED", "error", err, "key_prefix", g.projectKey[:min(8, len(g.projectKey))]+"...")
-	} else {
-		slog.Warn("GEMINI_API_KEY env var is NOT SET — skipping project key tier")
+		slog.Warn("AI project key FAILED", "error", err)
 	}
 
 	// Tier 2: User keys (round-robin)
 	keys := g.getUserKeys(ctx)
 	if len(keys) == 0 {
-		slog.Warn("Groq scorer: NO API keys available (project=empty, user_keys=0). Returning fallback 60.")
-		return &GeminiResult{Score: 60, Reason: "no API keys available, neutral score"}
+		slog.Warn("AI scorer: NO API keys available. Returning uninflated zero result.")
+		return &GeminiResult{Score: 0, Reason: "no API keys available, AI signal excluded", Available: false}
 	}
 
 	maxAttempts := 3
@@ -152,26 +139,33 @@ func (g *GeminiScorer) callWithFallback(ctx context.Context, prompt string) *Gem
 		idx := atomic.AddUint64(&g.keyIndex, 1) % uint64(len(keys))
 		key := keys[idx]
 
-		result, err := g.callGemini(ctx, prompt, key)
-		if err == nil {
-			slog.Info("Groq AI scored successfully", "score", result.Score, "reason", result.Reason)
+		result, err := g.callAIProvider(ctx, prompt, key)
+		if err == nil && result != nil {
+			result.Available = true
+			slog.Info("AI scored successfully via user key", "score", result.Score, "reason", result.Reason)
 			return result
 		}
-		slog.Warn("Groq key FAILED", "attempt", i+1, "error", err, "key_prefix", key[:min(8, len(key))]+"...")
 	}
 
-	// Tier 3: All failed — fallback to low score for safety
-	slog.Error("ALL Groq API keys exhausted! Returning fallback 60. Fix your API keys!")
-	return &GeminiResult{Score: 60, Reason: "all API keys exhausted, fallback"}
+	// Tier 3: All failed — return Available=false, Score=0 to avoid artificial inflation
+	slog.Warn("ALL AI API keys exhausted! Returning uninflated zero result.")
+	return &GeminiResult{Score: 0, Reason: "all API keys exhausted, AI signal excluded", Available: false}
 }
 
-// callGemini makes a single API call to Groq (Llama-3).
-// (Kept function name as callGemini to avoid breaking other files)
-func (g *GeminiScorer) callGemini(ctx context.Context, prompt, apiKey string) (*GeminiResult, error) {
+// callAIProvider dispatches request to Groq or Gemini endpoints based on API key prefix.
+func (g *GeminiScorer) callAIProvider(ctx context.Context, prompt, apiKey string) (*GeminiResult, error) {
+	// Auto-detect Gemini vs Groq
+	if strings.HasPrefix(apiKey, "AIzaSy") || strings.EqualFold(os.Getenv("SEMANTIC_PROVIDER"), "gemini") {
+		return g.callGeminiDirect(ctx, prompt, apiKey)
+	}
+	return g.callGroqDirect(ctx, prompt, apiKey)
+}
+
+func (g *GeminiScorer) callGroqDirect(ctx context.Context, prompt, apiKey string) (*GeminiResult, error) {
 	apiURL := "https://api.groq.com/openai/v1/chat/completions"
 
 	reqBody := map[string]any{
-		"model": "llama-3.3-70b-versatile", // Highest tier Groq model
+		"model": "llama-3.3-70b-versatile",
 		"messages": []map[string]string{
 			{"role": "user", "content": prompt},
 		},
@@ -200,14 +194,9 @@ func (g *GeminiScorer) callGemini(ctx context.Context, prompt, apiKey string) (*
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusTooManyRequests {
-		return nil, fmt.Errorf("rate limited (429)")
-	}
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		bodyStr := string(body[:min(len(body), 500)])
-		slog.Error("Gemini API returned non-200", "status", resp.StatusCode, "body", bodyStr)
-		return nil, fmt.Errorf("gemini status %d: %s", resp.StatusCode, bodyStr)
+		return nil, fmt.Errorf("groq status %d: %s", resp.StatusCode, string(body[:min(len(body), 200)]))
 	}
 
 	var groqResp struct {
@@ -218,36 +207,73 @@ func (g *GeminiScorer) callGemini(ctx context.Context, prompt, apiKey string) (*
 		} `json:"choices"`
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&groqResp); err != nil {
-		return nil, fmt.Errorf("decode error: %w", err)
+	if err := json.NewDecoder(resp.Body).Decode(&groqResp); err != nil || len(groqResp.Choices) == 0 {
+		return nil, fmt.Errorf("failed to decode groq response: %w", err)
 	}
 
-	if len(groqResp.Choices) == 0 || groqResp.Choices[0].Message.Content == "" {
-		return nil, fmt.Errorf("empty response from Groq")
+	content := strings.TrimSpace(groqResp.Choices[0].Message.Content)
+	var res GeminiResult
+	if err := json.Unmarshal([]byte(content), &res); err != nil {
+		return nil, fmt.Errorf("failed to parse groq JSON content: %w", err)
+	}
+	return &res, nil
+}
+
+func (g *GeminiScorer) callGeminiDirect(ctx context.Context, prompt, apiKey string) (*GeminiResult, error) {
+	apiURL := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=%s", apiKey)
+
+	reqBody := map[string]any{
+		"contents": []map[string]any{
+			{"parts": []map[string]string{{"text": prompt}}},
+		},
+		"generationConfig": map[string]any{
+			"responseMimeType": "application/json",
+			"temperature":      0.1,
+		},
 	}
 
-	rawJSON := strings.TrimSpace(groqResp.Choices[0].Message.Content)
-
-	// Parse the score from the JSON response
-	var result GeminiResult
-	if err := json.Unmarshal([]byte(rawJSON), &result); err != nil {
-		// Try extracting score from malformed response
-		score, errExt := extractScoreFromText(rawJSON)
-		if errExt != nil {
-			return nil, fmt.Errorf("failed to parse score from JSON and text. Raw text: %s", rawJSON)
-		}
-		result = GeminiResult{Score: score, Reason: "parsed from raw", Tags: []string{"fallback"}}
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, err
 	}
 
-	// Clamp score
-	if result.Score < 1 {
-		result.Score = 1
+	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, err
 	}
-	if result.Score > 100 {
-		result.Score = 100
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := g.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("gemini status %d: %s", resp.StatusCode, string(body[:min(len(body), 200)]))
 	}
 
-	return &result, nil
+	var geminiResp struct {
+		Candidates []struct {
+			Content struct {
+				Parts []struct {
+					Text string `json:"text"`
+				} `json:"parts"`
+			} `json:"content"`
+		} `json:"candidates"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&geminiResp); err != nil || len(geminiResp.Candidates) == 0 || len(geminiResp.Candidates[0].Content.Parts) == 0 {
+		return nil, fmt.Errorf("failed to decode gemini response: %w", err)
+	}
+
+	text := strings.TrimSpace(geminiResp.Candidates[0].Content.Parts[0].Text)
+	var res GeminiResult
+	if err := json.Unmarshal([]byte(text), &res); err != nil {
+		return nil, fmt.Errorf("failed to parse gemini JSON content: %w", err)
+	}
+	return &res, nil
 }
 
 // getUserKeys fetches and caches API keys from user channel settings.

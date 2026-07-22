@@ -19,8 +19,14 @@ import (
 
 	"ifragment-backend/internal/telemetry"
 
+	"github.com/shopspring/decimal"
 	"golang.org/x/time/rate"
 )
+
+// NanoTONToTON converts raw nanoTON int64 units into 9-decimal TON representation
+func NanoTONToTON(value int64) decimal.Decimal {
+	return decimal.NewFromInt(value).Div(decimal.NewFromInt(1_000_000_000))
+}
 
 type Client struct {
 	BaseURL  string
@@ -353,24 +359,56 @@ func (c *Client) GetWalletInfo(ctx context.Context, address string) (*WalletInfo
 	return &info, nil
 }
 
-// GetOwnerNFTs fetches all NFTs owned by a wallet in the usernames collection
+// GetOwnerNFTs fetches all NFTs owned by a wallet in the usernames collection with full pagination
 func (c *Client) GetOwnerNFTs(ctx context.Context, ownerAddr string) (*NFTItems, error) {
-	url := fmt.Sprintf("%s/accounts/%s/nfts?collection=%s&limit=100", c.BaseURL, ownerAddr, UsernamesCollectionAddr)
-	resp, err := c.doRequest(ctx, url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
+	var allItems NFTItems
+	limit := 100
+	offset := 0
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("tonapi owner nfts error: %s", resp.Status)
+	for {
+		url := fmt.Sprintf("%s/accounts/%s/nfts?collection=%s&limit=%d&offset=%d", c.BaseURL, ownerAddr, UsernamesCollectionAddr, limit, offset)
+		resp, err := c.doRequest(ctx, url)
+		if err != nil {
+			if len(allItems.Items) > 0 {
+				return &allItems, nil // Return partial results on error
+			}
+			return nil, err
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
+			if len(allItems.Items) > 0 {
+				return &allItems, nil
+			}
+			return nil, fmt.Errorf("tonapi owner nfts error: %s", resp.Status)
+		}
+
+		var pageItems NFTItems
+		if err := json.NewDecoder(resp.Body).Decode(&pageItems); err != nil {
+			resp.Body.Close()
+			if len(allItems.Items) > 0 {
+				return &allItems, nil
+			}
+			return nil, err
+		}
+		resp.Body.Close()
+
+		if len(pageItems.Items) == 0 {
+			break
+		}
+
+		allItems.Items = append(allItems.Items, pageItems.Items...)
+		if len(pageItems.Items) < limit {
+			break // No more pages
+		}
+
+		offset += limit
+		if offset >= 1000 { // Guard against runaway loops
+			break
+		}
 	}
 
-	var items NFTItems
-	if err := json.NewDecoder(resp.Body).Decode(&items); err != nil {
-		return nil, err
-	}
-	return &items, nil
+	return &allItems, nil
 }
 
 // GetNFTTransfers fetches transfer history for an NFT

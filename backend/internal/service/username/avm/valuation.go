@@ -125,21 +125,27 @@ type ValuationResult struct {
 	OwnerProfile *OwnerProfileDto `json:"owner_profile,omitempty"`
 }
 
-// PortfolioDto shows all usernames owned by the same wallet
+// PortfolioDto shows all usernames owned by the same wallet with historical last-sale basis
 type PortfolioDto struct {
-	OwnerAddress  string             `json:"owner_address"`
-	TotalCount    int                `json:"total_count"`
-	TotalSpentTON float64           `json:"total_spent_ton"`
-	TotalSpentUSD float64           `json:"total_spent_usd"`
-	TotalValueTON float64           `json:"total_value_ton"`
-	Items         []PortfolioItemDto `json:"items"`
+	OwnerAddress            string             `json:"owner_address"`
+	TotalCount              int                `json:"total_count"`
+	TotalLastSaleTON        float64            `json:"total_last_sale_ton"`
+	TotalLastSaleUSD        float64            `json:"total_last_sale_usd"`
+	TotalAcquisitionCostTON float64            `json:"total_acquisition_cost_ton"`
+	PricedItems             int                `json:"priced_items"`
+	UnknownItems            int                `json:"unknown_items"`
+	Items                   []PortfolioItemDto `json:"items"`
 }
 
 type PortfolioItemDto struct {
-	Username  string  `json:"username"`
-	SoldPrice float64 `json:"sold_price,omitempty"` // Actual sale price in TON (0 = unknown)
-	SaleDate  string  `json:"sale_date,omitempty"`
-	Status    string  `json:"status"` // "owned", "on_sale"
+	Username               string   `json:"username"`
+	Status                 string   `json:"status"`
+	LastSaleTON            *float64 `json:"last_sale_ton,omitempty"`
+	LastSaleUSD            *float64 `json:"last_sale_usd,omitempty"`
+	LastSaleDate           *string  `json:"last_sale_date,omitempty"`
+	SaleSource             string   `json:"sale_source,omitempty"`
+	AcquiredByCurrentOwner bool     `json:"acquired_by_current_owner"`
+	AcquisitionCostTON     *float64 `json:"acquisition_cost_ton,omitempty"`
 }
 
 // OwnerProfileDto shows the Telegram profile behind a username
@@ -944,8 +950,14 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		}
 	}
 
-	// Floor for 4-character usernames: pure alpha names keep 1,000 TON starting floor, penalized names can drop lower
-	if charLen == 4 {
+	// Gibberish and copycat hard cap: Never apply positive length floor to unpronounceable gibberish or spam copycats!
+	if features.IsGibberish || features.HasCheapPrefix || features.HasCheapSuffix {
+		expectedTONRaw = math.Min(expectedTONRaw, 25.0)
+		lowTONRaw = math.Min(lowTONRaw, 15.0)
+		highTONRaw = math.Min(highTONRaw, 35.0)
+		reasoning["gibberish_copycat_hard_cap_applied"] = true
+	} else if charLen == 4 {
+		// Floor for clean 4-character usernames
 		minFloor := 1000.0
 		if features.HasUnderscore || features.HasNumbers {
 			minFloor = 250.0
@@ -959,6 +971,15 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		if highTONRaw < expectedTONRaw {
 			highTONRaw = expectedTONRaw * 1.2
 		}
+	}
+
+	// Prediction Intervals: Symmetric percentage bounds (15% for anchored/known, 30% for general)
+	if anchorInjected || highestPastSale > 0 {
+		lowTONRaw = expectedTONRaw * 0.85
+		highTONRaw = expectedTONRaw * 1.15
+	} else if !features.IsGibberish {
+		lowTONRaw = expectedTONRaw * 0.70
+		highTONRaw = expectedTONRaw * 1.30
 	}
 
 	expectedTON := AestheticRound(expectedTONRaw)

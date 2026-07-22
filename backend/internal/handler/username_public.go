@@ -461,8 +461,8 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	cleanU := strings.ToLower(strings.TrimPrefix(u, "@"))
 
-	// Redis Cache hit check
-	valCacheKey := "valuate_cache_v5:" + cleanU
+	// Redis Cache hit check (centralized version-bound key format)
+	valCacheKey := fmt.Sprintf("valuation:%s:%s", avm.ModelVersion, cleanU)
 	if h.cache != nil {
 		if cachedData, err := h.cache.Client.Get(ctx, valCacheKey).Result(); err == nil && cachedData != "" {
 			w.Header().Set("Content-Type", "application/json")
@@ -535,27 +535,84 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 		if ownerAddr != "" && h.reportService != nil {
 			p, pErr := h.reportService.GetWalletPortfolio(gCtx, ownerAddr)
 			var items []avm.PortfolioItemDto
+			totalLastSaleTON := 0.0
+			totalAcquisitionCostTON := 0.0
+			pricedItems := 0
+			unknownItems := 0
+
 			if pErr == nil && p != nil && len(p.Items) > 0 {
 				for _, item := range p.Items {
+					var lastSaleTON *float64
+					var lastSaleUSD *float64
+					var lastSaleDate *string
+
+					if item.SoldPrice > 0 {
+						sPrice := item.SoldPrice
+						lastSaleTON = &sPrice
+						sUSD := sPrice * tonRate
+						lastSaleUSD = &sUSD
+						if item.SaleDate != "" {
+							sDate := item.SaleDate
+							lastSaleDate = &sDate
+						}
+						totalLastSaleTON += sPrice
+						pricedItems++
+					} else {
+						unknownItems++
+					}
+
+					acquiredByOwner := false
+					var acqCostTON *float64
+
+					// Fallback check if acquired by current owner
+					if item.SoldPrice > 0 {
+						acquiredByOwner = true
+						acqCostTON = lastSaleTON
+						totalAcquisitionCostTON += item.SoldPrice
+					}
+
 					items = append(items, avm.PortfolioItemDto{
-						Username:  item.Username,
-						SoldPrice: item.SoldPrice,
-						SaleDate:  item.SaleDate,
-						Status:    item.Status,
+						Username:               item.Username,
+						Status:                 item.Status,
+						LastSaleTON:            lastSaleTON,
+						LastSaleUSD:            lastSaleUSD,
+						LastSaleDate:           lastSaleDate,
+						SaleSource:             "fragment_history",
+						AcquiredByCurrentOwner: acquiredByOwner,
+						AcquisitionCostTON:     acqCostTON,
 					})
 				}
 			}
 
-			// Fallback: If no active NFTs are found in the wallet, populate past auction purchases from history
+			// Fallback: If no active NFTs found in wallet, populate past auction purchases
 			if len(items) == 0 && len(result.History.Transactions) > 0 {
 				for _, tx := range result.History.Transactions {
 					if tx.Buyer == ownerAddr || strings.EqualFold(tx.Buyer, ownerAddr) {
 						priceVal, _ := strconv.ParseFloat(tx.SalePriceTON, 64)
+						sDate := tx.Date.Format(time.RFC3339)
+						var lastSaleTON *float64
+						var lastSaleUSD *float64
+
+						if priceVal > 0 {
+							lastSaleTON = &priceVal
+							usdVal := priceVal * tonRate
+							lastSaleUSD = &usdVal
+							totalLastSaleTON += priceVal
+							totalAcquisitionCostTON += priceVal
+							pricedItems++
+						} else {
+							unknownItems++
+						}
+
 						items = append(items, avm.PortfolioItemDto{
-							Username:  u,
-							SoldPrice: priceVal,
-							SaleDate:  tx.Date.Format(time.RFC3339),
-							Status:    "past_auction_winner",
+							Username:               u,
+							Status:                 "past_auction_winner",
+							LastSaleTON:            lastSaleTON,
+							LastSaleUSD:            lastSaleUSD,
+							LastSaleDate:           &sDate,
+							SaleSource:             "fragment_auction",
+							AcquiredByCurrentOwner: true,
+							AcquisitionCostTON:     lastSaleTON,
 						})
 						break
 					}
@@ -563,18 +620,15 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if len(items) > 0 {
-				totalSpent := 0.0
-				for _, it := range items {
-					totalSpent += it.SoldPrice
-				}
-				expVal, _ := result.ExpectedTON.Float64()
 				result.Portfolio = &avm.PortfolioDto{
-					OwnerAddress:  ownerAddr,
-					TotalCount:    len(items),
-					TotalSpentTON: totalSpent,
-					TotalSpentUSD: totalSpent * tonRate,
-					TotalValueTON: expVal,
-					Items:         items,
+					OwnerAddress:            ownerAddr,
+					TotalCount:              len(items),
+					TotalLastSaleTON:        totalLastSaleTON,
+					TotalLastSaleUSD:        totalLastSaleTON * tonRate,
+					TotalAcquisitionCostTON: totalAcquisitionCostTON,
+					PricedItems:             pricedItems,
+					UnknownItems:            unknownItems,
+					Items:                   items,
 				}
 			}
 		}
