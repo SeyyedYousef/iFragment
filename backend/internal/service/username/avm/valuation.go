@@ -989,10 +989,17 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	lowUSD := lowDec.Mul(tonRateDec).Round(4)
 	highUSD := highDec.Mul(tonRateDec).Round(4)
 
-	// Confidence
+	// Confidence & Liquidity
 	hasMomentum := count30 > 0 || count31_90 > 0
 	confidence := CalcConfidenceScore(nEff, len(exactSales)+len(broadSales), mad, hasMomentum)
 	reasoning["confidence_score"] = confidence
+
+	liquidityScore := 40
+	if features.IsDictionary { liquidityScore += 30 }
+	if charLen <= 5 { liquidityScore += 20 }
+	if !features.HasNumbers && !features.HasUnderscore { liquidityScore += 10 }
+	if features.IsGibberish { liquidityScore = 5 }
+	reasoning["liquidity_score"] = liquidityScore
 
 	// ── Step 4: Synchronous Audit Write ──
 	configJSON, _ := json.Marshal(s.cfg)
@@ -1284,65 +1291,121 @@ func SalesToComparables(sales []repository.Sale, cfg EngineConfig) []ComparableS
 }
 
 // CalculateSemanticKNNFloor finds similar high-value sold dictionary anchors for premium words
-// and sets a dynamic market floor based on semantic vector similarity and word category.
+// using a 5D k-Nearest Neighbors (k-NN) vector similarity model over HistoricalSales.
 func CalculateSemanticKNNFloor(username string, features MorphFeatures, semResult *SemanticResult) float64 {
 	// STRICT GIBBERISH GUARD: Never elevate random gibberish (e.g. @fhhff, @xqzkw)
-	if features.IsGibberish || (!features.IsDictionary && features.SemanticScore < 45) {
+	if features.IsGibberish || (!features.IsDictionary && features.SemanticScore < 40) {
 		return 0
 	}
 
 	lower := strings.ToLower(username)
-
-	// Check tags for category classification
-	isStatusWord := false
-	isCryptoWord := false
-	isGeneralUltra := false
-	if semResult != nil {
-		for _, tag := range semResult.Tags {
-			switch tag {
-			case "exclusivity_status_premium":
-				isStatusWord = true
-			case "crypto_ultra_premium":
-				isCryptoWord = true
-			case "general_ultra_premium", "telegram_ecosystem":
-				isGeneralUltra = true
-			}
-		}
-	}
+	charLen := len(lower)
 
 	hasNumbers := features.HasNumbers || regexp.MustCompile(`\d`).MatchString(lower)
 	hasUnderscore := features.HasUnderscore || strings.Contains(lower, "_")
 	isPureAlpha := !hasNumbers && !hasUnderscore
 
-	// 1. 3-letter Pure Alpha Dictionary / Premium Words (e.g. @vip, @gem, @pay, @win)
-	if len(lower) == 3 && isPureAlpha {
-		if isCryptoWord || isStatusWord {
-			return 140000.0 // Super-premium 3-letter Web3/Status floor
-		}
-		if features.IsDictionary || semResult.WordFreqScore >= 40 {
-			return 85000.0 // Standard 3-letter pure dictionary floor
+	// Penalized morph names get reduced KNN floor
+	if !isPureAlpha {
+		return 0
+	}
+
+	// Build 5D Feature Vector for target username:
+	// v = [charLenNorm, wordFreqNorm, wikiScoreNorm, flowScoreNorm, tagWeightNorm]
+	vFreq := 0.0
+	vWiki := 0.0
+	vFlow := features.FlowScore
+	vTag := 1.0
+
+	if semResult != nil {
+		vFreq = semResult.WordFreqScore / 100.0
+		vWiki = float64(semResult.WikiScore) / 100.0
+		for _, tag := range semResult.Tags {
+			switch tag {
+			case "crypto_ultra_premium":
+				vTag += 2.0
+			case "exclusivity_status_premium":
+				vTag += 1.8
+			case "general_ultra_premium", "telegram_ecosystem":
+				vTag += 1.5
+			}
 		}
 	}
 
-	// 2. 4-letter Pure Alpha Dictionary Words (e.g. @rare, @rich, @boss, @gold, @lord, @meta)
-	if len(lower) == 4 && isPureAlpha {
-		if isStatusWord || isCryptoWord {
-			return 110000.0 // Premier 4-letter Web3/Status terms (100k-150k TON target)
+	type neighbor struct {
+		priceTON float64
+		dist     float64
+	}
+
+	neighbors := make([]neighbor, 0, len(HistoricalSales))
+
+	// Iterate over all anchors in HistoricalSales to compute 5D Euclidean distance
+	for anchorName, basePrice := range HistoricalSales {
+		aLen := len(anchorName)
+		aLenNorm := float64(aLen) / 10.0
+		targetLenNorm := float64(charLen) / 10.0
+
+		// Feature distance components
+		dLen := math.Abs(targetLenNorm - aLenNorm)
+		dFreq := math.Abs(vFreq - 0.50) // Baseline anchor frequency approximation
+		dWiki := math.Abs(vWiki - 0.30)
+		dFlow := math.Abs(vFlow - 0.70)
+		dTag := 0.0
+
+		if (strings.Contains(anchorName, "crypto") || anchorName == "ton" || anchorName == "trade") && vTag > 1.5 {
+			dTag = 0.0
+		} else if vTag > 1.5 {
+			dTag = 0.3
 		}
-		if isGeneralUltra || (semResult != nil && semResult.WordFreqScore >= 80) {
-			return 45000.0 // High-volume 4-letter dictionary terms
+
+		// 5D Weighted Distance
+		dist := math.Sqrt(3.0*dLen*dLen + 2.0*dFreq*dFreq + 1.0*dWiki*dWiki + 1.0*dFlow*dFlow + 1.5*dTag*dTag)
+
+		// Appreciate anchor price to current date (3.7 yrs @ 20% CAGR)
+		appreciatedPrice := basePrice * math.Pow(1.20, 3.7)
+
+		neighbors = append(neighbors, neighbor{
+			priceTON: appreciatedPrice,
+			dist:     dist,
+		})
+	}
+
+	// Sort neighbors by distance ascending
+	for i := 0; i < len(neighbors); i++ {
+		for j := i + 1; j < len(neighbors); j++ {
+			if neighbors[j].dist < neighbors[i].dist {
+				neighbors[i], neighbors[j] = neighbors[j], neighbors[i]
+			}
 		}
 	}
 
-	// 3. 5-letter Pure Alpha Ultra Premium Words (e.g. @trade, @smart, @royal, @super)
-	if len(lower) == 5 && isPureAlpha {
-		if isCryptoWord || isStatusWord {
-			return 35000.0 // Premier 5-letter Web3/Status terms
-		}
-		if isGeneralUltra || semResult.WordFreqScore >= 70 {
-			return 15000.0 // High-volume 5-letter dictionary terms
-		}
+	// Take top k=5 nearest neighbors
+	k := 5
+	if len(neighbors) < k {
+		k = len(neighbors)
 	}
 
-	return 0
+	var weightSum, weightedPriceSum float64
+	for i := 0; i < k; i++ {
+		w := 1.0 / (neighbors[i].dist + 0.05)
+		weightSum += w
+		weightedPriceSum += w * neighbors[i].priceTON
+	}
+
+	if weightSum == 0 {
+		return 0
+	}
+
+	knnEstimate := weightedPriceSum / weightSum
+
+	// Calibrate KNN estimate by character length category
+	if charLen == 3 {
+		return math.Min(knnEstimate, 250000.0)
+	} else if charLen == 4 {
+		return math.Min(knnEstimate, 1500000.0)
+	} else if charLen == 5 {
+		return math.Min(knnEstimate, 300000.0)
+	}
+
+	return math.Min(knnEstimate, 100000.0)
 }

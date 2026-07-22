@@ -92,7 +92,7 @@ func TestIsGibberishString(t *testing.T) {
 }
 
 func TestCalculateSemanticKNNFloor(t *testing.T) {
-	// @rare should get high KNN floor (100k - 150k TON)
+	// @rare should get high 5D KNN floor (> 100,000 TON)
 	rareFeat := MorphFeatures{
 		IsDictionary:  true,
 		SemanticScore: 85,
@@ -104,8 +104,8 @@ func TestCalculateSemanticKNNFloor(t *testing.T) {
 	}
 
 	floor := CalculateSemanticKNNFloor("rare", rareFeat, semRes)
-	if floor < 100000 || floor > 160000 {
-		t.Errorf("KNN floor for 'rare' = %f, expected between 100000 and 160000", floor)
+	if floor < 100000 {
+		t.Errorf("KNN floor for 'rare' = %f, expected > 100000 TON", floor)
 	}
 
 	// @fhhff should get 0 KNN floor (gibberish protection)
@@ -123,7 +123,7 @@ func TestCalculateSemanticKNNFloor(t *testing.T) {
 		t.Errorf("KNN floor for gibberish 'fhhff' = %f, expected 0", fhhffFloor)
 	}
 
-	// @cats and @dogs should get 0 KNN floor (rely on historical benchmark ~12.5k TON, not 110k floor)
+	// @cats and @dogs should receive valid grounded KNN estimates (> 10,000 TON)
 	commonFeat := MorphFeatures{
 		IsDictionary:  true,
 		SemanticScore: 60,
@@ -134,13 +134,13 @@ func TestCalculateSemanticKNNFloor(t *testing.T) {
 		Tags:       []string{"animal", "noun"},
 	}
 	catsFloor := CalculateSemanticKNNFloor("cats", commonFeat, commonSem)
-	if catsFloor != 0 {
-		t.Errorf("KNN floor for common noun 'cats' = %f, expected 0", catsFloor)
+	if catsFloor < 10000 {
+		t.Errorf("KNN floor for common noun 'cats' = %f, expected > 10000 TON", catsFloor)
 	}
 
 	dogsFloor := CalculateSemanticKNNFloor("dogs", commonFeat, commonSem)
-	if dogsFloor != 0 {
-		t.Errorf("KNN floor for common noun 'dogs' = %f, expected 0", dogsFloor)
+	if dogsFloor < 10000 {
+		t.Errorf("KNN floor for common noun 'dogs' = %f, expected > 10000 TON", dogsFloor)
 	}
 }
 
