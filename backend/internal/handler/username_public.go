@@ -26,6 +26,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gotd/td/tg"
+	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/singleflight"
 )
 
