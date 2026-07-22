@@ -632,6 +632,8 @@ export const dict = {
 	boosters: {
 		available: 'доступно {count}',
 		boostersTitle: 'Улучшения',
+		subtitle: 'Увеличьте скорость добычи',
+		title: 'Бусты и улучшение',
 		freeDaily: 'Бесплатные бусты',
 		fullEnergy: 'Полная Энергия',
 		lvl: 'уровень',
@@ -1711,6 +1713,8 @@ export const dict = {
 		tapBotDesc: 'Добывает монеты в автономном режиме до 12 часов',
 		taskCompletedSuccess: 'Задание успешно выполнено! Награда начислена.',
 		taskVerifyFailed: 'Не удалось проверить требования задания.',
+		quizAnswerEmpty: 'Ответ не может быть пустым.',
+		quizAnswerIncorrect: 'Неверный ответ. Попробуйте еще раз.',
 		top100Elite: 'Топ 100 элиты',
 		upgradeBtn: 'Улучшить',
 		upgradeCost: 'Стоимость улучшения',
@@ -1985,6 +1989,15 @@ export const dict = {
 		stars: 'Stars',
 		subtitle: 'Покупайте, конвертируйте и управляйте токенами FRG',
 		title: 'Маркетплейс FRG',
+	},
+	leaderboard: {
+		periodAll: 'За все время',
+		periodWeekly: 'За неделю',
+		scopeClans: 'Кланы',
+		scopeGlobal: 'Глобальный',
+		subtitle: 'Топ-100 элитных майнеров iFragment по всему миру',
+		title: 'Мировой лидерборд',
+		you: 'Вы',
 	},
 	notifications: {
 		admin_revoked:

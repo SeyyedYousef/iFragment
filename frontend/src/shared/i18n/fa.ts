@@ -407,8 +407,9 @@ export const dict = {
 	airdropFinal: {
 		boosters: {
 			available: '{count} موجود',
-			boostersTitle: 'تقویت‌کننده‌ها',
-			subtitle: 'افزایش سرعت استخراج، ظرفیت انرژی و ربات خودکار',
+			boostersTitle: 'بوسترها',
+			subtitle: 'افزایش قدرت استخراج سکه',
+			title: 'ارتقا و بوسترها',
 			freeDaily: 'بوسترهای رایگان روزانه',
 			fullEnergy: 'انرژی کامل',
 			lvl: 'سطح',
@@ -1698,6 +1699,8 @@ export const dict = {
 		tapBotDesc: 'استخراج سکه به صورت آفلاین تا سقف ۱۲ ساعت',
 		taskCompletedSuccess: 'ماموریت با موفقیت انجام شد! پاداش واریز گردید.',
 		taskVerifyFailed: 'بررسی شرایط ماموریت ناموفق بود.',
+		quizAnswerEmpty: 'پاسخ نمی‌تواند خالی باشد.',
+		quizAnswerIncorrect: 'پاسخ نادرست است. لطفاً دوباره تلاش کنید.',
 		top100Elite: '۱۰۰ نفر برتر',
 		upgradeBtn: 'ارتقا',
 		upgradeCost: 'هزینه ارتقا',
@@ -1973,6 +1976,15 @@ export const dict = {
 		stars: 'ستاره',
 		subtitle: 'خرید، تبدیل و مدیریت سکه‌ها',
 		title: 'بازارچه سکه',
+	},
+	leaderboard: {
+		periodAll: 'کل دوره',
+		periodWeekly: 'هفتگی',
+		scopeClans: 'کلن‌ها',
+		scopeGlobal: 'جهانی',
+		subtitle: '۱۰۰ ماینر و کاربر برتر iFragment در سراسر جهان',
+		title: 'جدول برترین‌های جهانی',
+		you: 'شما',
 	},
 	notifications: {
 		admin_revoked:

@@ -1,7 +1,8 @@
+import { Motion } from '@motionone/solid';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { deleteAccountGDPR } from '@/shared/api/profile.js';
-import { t } from '@/shared/i18n/index.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 import {
 	biometric,
 	disableClosingConfirmation,
@@ -15,7 +16,12 @@ export const SecurityPage: Component = () => {
 
 	onMount(async () => {
 		backButton.show();
-		const off = backButton.onClick(() => window.history.back());
+		const off = backButton.onClick(() => {
+			try {
+				hapticFeedback.impactOccurred('light');
+			} catch {}
+			window.history.back();
+		});
 		onCleanup(() => {
 			off();
 			try {
@@ -39,21 +45,18 @@ export const SecurityPage: Component = () => {
 
 	const handleToggleBiometrics = async () => {
 		try {
-			hapticFeedback.impactOccurred('light');
+			hapticFeedback.impactOccurred('medium');
 		} catch {}
 
 		if (!biometricsAvailable()) {
-			await showAlert(
-				t('security.biometricNotSupported') || 'Biometrics not supported on this device',
-			);
+			await showAlert(t('security.biometricNotSupported'));
 			return;
 		}
 
 		const currentVal = profileSettings().biometricEnabled;
 		if (!currentVal) {
-			// Request access
 			const accessGranted = await biometric.requestAccess(
-				'Enable FaceID lock for iFragment account settings',
+				'Enable lock for iFragment account settings',
 			);
 			if (accessGranted) {
 				updateSetting('biometricEnabled', true);
@@ -72,10 +75,7 @@ export const SecurityPage: Component = () => {
 		try {
 			hapticFeedback.notificationOccurred('warning');
 		} catch {}
-		const confirmed = await showConfirm(
-			t('security.deleteConfirm') ||
-				'Are you sure you want to PERMANENTLY delete your iFragment account, balance, achievements, and cosmetics on the server? This cannot be undone.',
-		);
+		const confirmed = await showConfirm(t('security.deleteConfirm'));
 		if (!confirmed) return;
 
 		try {
@@ -99,82 +99,134 @@ export const SecurityPage: Component = () => {
 	};
 
 	return (
-		<div class="min-h-screen bg-[#0f1014] pb-24 text-white">
-			{/* Header */}
-			<div class="px-6 pt-8 pb-6 bg-[#1c1c1c] border-b border-[#2a2a2a] rounded-b-[32px]">
-				<h1 class="text-2xl font-black">{t('security.title') || 'Account & Security'}</h1>
-				<p class="text-[#a0a4ad] text-xs mt-1">
-					{t('security.subtitle') || 'Manage biometric lock and security preferences'}
-				</p>
+		<div
+			class="min-h-screen bg-[#030303] pb-28 text-white font-sans flex flex-col relative overflow-x-hidden selection:bg-[#10b981]/30"
+			dir={isRtl() ? 'rtl' : 'ltr'}
+		>
+			{/* Ambient Glow: Security (Green) & Danger (Red) Mix */}
+			<div class="absolute top-0 left-0 right-0 h-[400px] bg-gradient-to-b from-[#10b981]/10 via-[#ff4a4a]/5 to-transparent blur-[80px] pointer-events-none z-0" />
+
+			{/* ═══════ PREMIUM STICKY HEADER ═══════ */}
+			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center gap-3.5 shadow-sm">
+				<button
+					onClick={() => {
+						try {
+							hapticFeedback.impactOccurred('light');
+						} catch {}
+						window.history.back();
+					}}
+					class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
+					aria-label="Back"
+				>
+					<span class="material-symbols-outlined text-[22px] rtl:-scale-x-100">
+						arrow_back
+					</span>
+				</button>
+				<div class="flex flex-col gap-0.5 min-w-0">
+					<h1 class="text-[18px] font-black text-white leading-tight tracking-tight">
+						{t('security.title')}
+					</h1>
+					<span class="text-[11px] font-bold text-white/50 uppercase tracking-wider truncate">
+						{t('security.subtitle')}
+					</span>
+				</div>
 			</div>
 
-			<div class="px-6 pt-6 flex flex-col gap-6">
-				{/* Biometrics */}
-				<div class="flex flex-col gap-3">
-					<h2 class="text-xs font-black text-[#a0a4ad] uppercase tracking-wider px-1">
-						{t('security.biometricTitle') || 'Lock Options'}
+			<div class="flex-1 w-full max-w-md mx-auto relative z-10 flex flex-col px-5 pt-6 gap-6">
+				{/* ═══════ BIOMETRICS SECTION ═══════ */}
+				<Motion.div
+					initial={{ opacity: 0, y: 15 }}
+					animate={{ opacity: 1, y: 0 }}
+					transition={{ delay: 0.05 }}
+					class="flex flex-col gap-3"
+				>
+					<h2 class="text-[11px] font-black text-white/40 uppercase tracking-widest px-2 flex items-center gap-2">
+						<span class="material-symbols-outlined text-[16px] text-white/30">
+							fingerprint
+						</span>
+						{t('security.biometricTitle')}
 					</h2>
 
-					<div class="bg-[#1c1c1c] border border-[#2a2a2a] rounded-3xl p-5 flex flex-col gap-4">
-						<div class="flex items-center justify-between">
-							<div class="flex flex-col gap-0.5 max-w-[75%]">
-								<span class="text-xs font-black text-white">
-									{t('security.biometricLock') || 'Biometric Access'}
+					<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-4 shadow-sm relative overflow-hidden">
+						<div class="absolute -right-6 -top-6 w-24 h-24 bg-[#10b981]/10 blur-2xl rounded-full pointer-events-none" />
+
+						<div class="flex items-center justify-between relative z-10">
+							<div class="flex flex-col gap-1 flex-1 pr-4">
+								<span class="text-[15px] font-black text-white tracking-tight">
+									{t('security.biometricLock')}
 								</span>
-								<span class="text-[10px] text-[#a0a4ad] leading-normal">
-									{t('security.biometricDesc') || 'Unlock iFragment with FaceID / TouchID'}
+								<span class="text-[11px] font-medium text-white/50 leading-relaxed">
+									{t('security.biometricDesc')}
 								</span>
 							</div>
+
 							<button
 								onClick={handleToggleBiometrics}
-								class={`w-11 h-6 rounded-full relative transition-colors duration-200 ${
-									profileSettings().biometricEnabled ? 'bg-[#3390ec]' : 'bg-white/10'
+								class={`w-12 h-7 rounded-full relative transition-colors duration-300 shadow-inner shrink-0 ${
+									profileSettings().biometricEnabled ? 'bg-[#10b981]' : 'bg-white/10'
 								} ${!biometricsAvailable() ? 'opacity-50 cursor-not-allowed' : ''}`}
 							>
 								<div
-									class={`w-5 h-5 rounded-full bg-white absolute top-[2px] transition-all duration-200 ${
-										profileSettings().biometricEnabled ? 'left-[22px]' : 'left-[2px]'
-									}`}
+									class={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full transition-transform shadow-sm ${profileSettings().biometricEnabled ? 'translate-x-5' : 'translate-x-0'}`}
 								/>
 							</button>
 						</div>
 
 						<Show when={!biometricsAvailable()}>
-							<div class="px-3 py-2 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-2">
-								<span class="material-symbols-outlined text-amber-500 text-[16px]">warning</span>
-								<span class="text-[9px] font-bold text-amber-500">
-									{t('security.biometricNotSupported') || 'Biometrics not supported on this device'}
+							<div class="bg-amber-400/10 border border-amber-400/20 rounded-[16px] p-3 flex items-center gap-3 relative z-10 shadow-inner mt-1">
+								<span class="material-symbols-outlined text-amber-400 text-[18px]">
+									warning
+								</span>
+								<span class="text-[11px] font-bold text-amber-400/90 leading-snug">
+									{t('security.biometricNotSupported')}
 								</span>
 							</div>
 						</Show>
 					</div>
-				</div>
+				</Motion.div>
 
-				{/* Data Purge */}
-				<div class="flex flex-col gap-3">
-					<h2 class="text-xs font-black text-[#a0a4ad] uppercase tracking-wider px-1">
-						{t('security.dangerZone') || 'Danger Zone'}
+				{/* ═══════ DANGER ZONE ═══════ */}
+				<Motion.div
+					initial={{ opacity: 0, y: 15 }}
+					animate={{ opacity: 1, y: 0 }}
+					transition={{ delay: 0.1 }}
+					class="flex flex-col gap-3 mt-2"
+				>
+					<h2 class="text-[11px] font-black text-[#ff4a4a]/60 uppercase tracking-widest px-2 flex items-center gap-2">
+						<span class="material-symbols-outlined text-[16px] text-[#ff4a4a]/40">
+							warning
+						</span>
+						{t('security.dangerZone')}
 					</h2>
 
-					<div class="bg-[#1c1c1c] border border-red-500/20 rounded-3xl p-5 flex flex-col gap-4">
-						<div class="flex flex-col gap-0.5">
-							<span class="text-xs font-black text-red-500">
-								{t('security.deleteAccount') || 'Delete Account Data'}
-							</span>
-							<span class="text-[10px] text-[#a0a4ad] leading-normal">
-								{t('security.deleteDesc') || 'Permanently remove all local data (irreversible)'}
-							</span>
+					<div class="bg-[#12141C]/80 backdrop-blur-xl border border-[#ff4a4a]/20 rounded-[24px] p-5 flex flex-col gap-5 shadow-sm relative overflow-hidden">
+						<div class="absolute -left-6 -bottom-6 w-32 h-32 bg-[#ff4a4a]/10 blur-3xl rounded-full pointer-events-none" />
+
+						<div class="flex items-start gap-3.5 relative z-10">
+							<div class="w-10 h-10 rounded-[12px] bg-[#ff4a4a]/15 flex items-center justify-center border border-[#ff4a4a]/30 shadow-inner shrink-0 mt-0.5">
+								<span class="material-symbols-outlined text-[#ff4a4a] text-[20px] drop-shadow-md">
+									delete_forever
+								</span>
+							</div>
+							<div class="flex flex-col gap-1">
+								<span class="text-[15px] font-black text-[#ff4a4a] tracking-tight">
+									{t('security.deleteAccount')}
+								</span>
+								<span class="text-[11px] font-medium text-white/50 leading-relaxed">
+									{t('security.deleteDesc')}
+								</span>
+							</div>
 						</div>
 
 						<button
 							onClick={handleDeleteAccount}
-							class="w-full py-3 bg-red-500/10 border border-red-500/20 text-red-500 font-black text-xs rounded-2xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-red-500/20"
+							class="w-full h-14 bg-[#ff4a4a]/10 hover:bg-[#ff4a4a] border border-[#ff4a4a]/30 text-[#ff4a4a] hover:text-white font-black text-[13px] uppercase tracking-widest rounded-[16px] flex items-center justify-center gap-2 active:scale-95 transition-all shadow-sm relative z-10"
 						>
-							<span class="material-symbols-outlined text-[16px]">delete_forever</span>
-							{t('security.deleteAccount') || 'Delete Local Data'}
+							<span class="material-symbols-outlined text-[20px]">warning</span>
+							{t('security.deleteAccount')}
 						</button>
 					</div>
-				</div>
+				</Motion.div>
 			</div>
 		</div>
 	);

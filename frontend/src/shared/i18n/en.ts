@@ -628,6 +628,8 @@ export const dict = {
 	boosters: {
 		available: '{count} available',
 		boostersTitle: 'Boosters',
+		subtitle: 'Enhance your mining power',
+		title: 'Boosts & Upgrades',
 		freeDaily: 'Free daily boosters',
 		fullEnergy: 'Full Energy',
 		lvl: 'lvl',
@@ -1702,6 +1704,8 @@ export const dict = {
 		tapBotDesc: 'Claims coins while offline for up to 12 hours',
 		taskCompletedSuccess: 'Task completed successfully! Reward credited.',
 		taskVerifyFailed: 'Failed to verify task requirements.',
+		quizAnswerEmpty: 'Answer cannot be empty.',
+		quizAnswerIncorrect: 'Incorrect answer. Please try again.',
 		top100Elite: 'Top 100 Elite',
 		upgradeBtn: 'Upgrade',
 		upgradeCost: 'Upgrade Cost',
@@ -1979,6 +1983,15 @@ export const dict = {
 		stars: 'Stars',
 		subtitle: 'Buy, convert, and manage your Coins',
 		title: 'Coins Marketplace',
+	},
+	leaderboard: {
+		periodAll: 'All Time',
+		periodWeekly: 'Weekly',
+		scopeClans: 'Clans',
+		scopeGlobal: 'Global',
+		subtitle: 'Top 100 elite iFragment miners worldwide',
+		title: 'Global Leaderboard',
+		you: 'You',
 	},
 	notifications: {
 		admin_revoked:

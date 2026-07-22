@@ -620,6 +620,8 @@ export const dict = {
 	boosters: {
 		available: '可用 {count}',
 		boostersTitle: '升级',
+		subtitle: '提升您的挖矿能力',
+		title: '加速与升级',
 		freeDaily: '每日免费加速',
 		fullEnergy: '能量全满',
 		lvl: '等级',
@@ -1667,6 +1669,8 @@ export const dict = {
 		tapBotDesc: '离线状态长达 12 小时领取金币',
 		taskCompletedSuccess: '任务顺利完成！奖励已记入。',
 		taskVerifyFailed: '无法验证任务要求。',
+		quizAnswerEmpty: '答案不能为空。',
+		quizAnswerIncorrect: '答案不正确。请再试一次。',
 		top100Elite: '百强精英',
 		upgradeBtn: '升级',
 		upgradeCost: '升级费用',
@@ -1932,6 +1936,15 @@ export const dict = {
 		stars: '星星',
 		subtitle: '购买、转换和管理您的硬币',
 		title: '硬币市场',
+	},
+	leaderboard: {
+		periodAll: '总计',
+		periodWeekly: '每周',
+		scopeClans: '战队',
+		scopeGlobal: '全球',
+		subtitle: '全球前 100 名 iFragment 精英矿工',
+		title: '全球排行榜',
+		you: '你',
 	},
 	notifications: {
 		admin_revoked:

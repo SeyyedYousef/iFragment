@@ -462,8 +462,9 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 	cleanU := strings.ToLower(strings.TrimPrefix(u, "@"))
 
 	// Redis Cache hit check (centralized version-bound key format)
+	nocache := r.URL.Query().Get("nocache") == "true" || r.URL.Query().Get("refresh") == "true" || r.URL.Query().Get("force") == "true"
 	valCacheKey := fmt.Sprintf("valuation:%s:%s", avm.ModelVersion, cleanU)
-	if h.cache != nil {
+	if h.cache != nil && !nocache {
 		if cachedData, err := h.cache.Client.Get(ctx, valCacheKey).Result(); err == nil && cachedData != "" {
 			w.Header().Set("Content-Type", "application/json")
 			w.Header().Set("X-Cache", "HIT")
