@@ -13,15 +13,15 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 	const [activeSubTab, setActiveSubTab] = createSignal<'day' | 'week'>('day');
 
 	const leaderboardQuery = createQuery(() => ({
-		queryKey: ['leaderboard'],
-		queryFn: fetchLeaderboard,
+		queryKey: ['leaderboard', activeSubTab()],
+		queryFn: () => fetchLeaderboard(activeSubTab()),
 		staleTime: 30_000,
 		refetchOnWindowFocus: false,
 	}));
 
 	const clansQuery = createQuery(() => ({
-		queryKey: ['topClansLeaderboard'],
-		queryFn: getTopClans,
+		queryKey: ['topClansLeaderboard', activeSubTab()],
+		queryFn: () => getTopClans(activeSubTab()),
 		staleTime: 30_000,
 		refetchOnWindowFocus: false,
 	}));

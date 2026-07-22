@@ -150,6 +150,9 @@
 	html,
 	body {
 		overscroll-behavior-y: none; /* Prevents webview drag bounce */
+		overflow-x: hidden;
+		width: 100%;
+		max-width: 100vw;
 	}
 
 	body {

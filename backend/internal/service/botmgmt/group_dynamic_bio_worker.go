@@ -44,6 +44,10 @@ func (s *BotService) processGroupDynamicBios(ctx context.Context) {
 	}
 
 	for _, g := range groups {
+		if !IsSubscriptionValid(&g) {
+			continue // Skip expired groups
+		}
+
 		settings, err := s.settingsRepo.GetSettings(ctx, g.ID)
 		if err != nil || settings == nil {
 			continue

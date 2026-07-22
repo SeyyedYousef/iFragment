@@ -1,12 +1,13 @@
 import { getLeaderboard } from '@/shared/api/profile.js';
 import { LEAGUES, LeaderEntry } from '@/shared/store/airdrop.js';
 
-export const fetchLeaderboard = async (): Promise<{
+export const fetchLeaderboard = async (period?: string | unknown): Promise<{
 	leaderboard: LeaderEntry[];
 	total_miners: number;
 }> => {
 	try {
-		const response = await getLeaderboard();
+		const p = typeof period === 'string' ? period : 'day';
+		const response = await getLeaderboard(p);
 		if (!response?.leaderboard) return { leaderboard: [], total_miners: 0 };
 
 		const entries = response.leaderboard.map((m) => {

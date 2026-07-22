@@ -111,7 +111,11 @@ func (h *ClanHandler) LeaveClan(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ClanHandler) GetTopClans(w http.ResponseWriter, r *http.Request) {
-	clans, err := h.clanService.GetTopClans(r.Context(), 10)
+	period := r.URL.Query().Get("period")
+	if period == "" {
+		period = "day"
+	}
+	clans, err := h.clanService.GetTopClans(r.Context(), 100, period)
 	if err != nil {
 		slog.Error("GetTopClans failed", "error", err)
 		RespondError(w, r, http.StatusInternalServerError, "failed to fetch top clans", err)

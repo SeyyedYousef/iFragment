@@ -700,8 +700,6 @@ func (h *WebhookHandler) handleMyChatMemberUpdate(ctx context.Context, bot *repo
 			}
 			logIfErr(tg.SendMessage(ctx, targetUserID, msg, nil, nil), "Failed to send owner bot_removed notification", "owner_id", targetUserID)
 		} else if newStatus == "member" && (oldStatus == "administrator" || oldStatus == "creator") {
-			msg := i18n.T(lang, "notifications.admin_revoked_group")
-			logIfErr(tg.SendMessage(ctx, chat.ID, msg, nil, nil), "Failed to send admin_revoked group message", "chat_id", chat.ID)
 			ownerMsg := i18n.T(lang, "notifications.admin_revoked", map[string]interface{}{"group": chat.Title})
 			
 			targetUserID := bot.OwnerUserID
@@ -1259,19 +1257,21 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 			cache.Client.Expire(ctx, totalKey, 90*24*time.Hour)
 		}
 		if total == 1000 || total == 10000 || total == 100000 {
-			botToken, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-			tg := telegram.NewBotAPIClient(botToken)
-			
 			group, _ := h.botRepo.GetGroup(ctx, bot.ID, msg.Chat.ID)
-			targetUserID := bot.OwnerUserID
-			if group != nil && group.ConnectedByUserID != nil {
-				targetUserID = *group.ConnectedByUserID
+			if group != nil && h.moderator.IsSubscriptionValid(group) {
+				botToken, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+				tg := telegram.NewBotAPIClient(botToken)
+				
+				targetUserID := bot.OwnerUserID
+				if group.ConnectedByUserID != nil {
+					targetUserID = *group.ConnectedByUserID
+				}
+				ownerLang, _ := h.db.GetUserLanguage(ctx, targetUserID)
+				lang := i18n.DetectLanguage(ownerLang)
+				
+				milestoneMsg := i18n.T(lang, "notifications.milestone", map[string]interface{}{"n": total})
+				_ = tg.SendMessage(ctx, msg.Chat.ID, milestoneMsg, nil, nil)
 			}
-			ownerLang, _ := h.db.GetUserLanguage(ctx, targetUserID)
-			lang := i18n.DetectLanguage(ownerLang)
-			
-			milestoneMsg := i18n.T(lang, "notifications.milestone", map[string]interface{}{"n": total})
-			_ = tg.SendMessage(ctx, msg.Chat.ID, milestoneMsg, nil, nil)
 		}
 	}
 }

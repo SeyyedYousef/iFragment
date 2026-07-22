@@ -55,7 +55,12 @@ func NewGamificationService(db *repository.Database, cache *repository.Cache) *G
 
 // startLeaderboardCacheWorker refreshes the leaderboard JSON payload every 5 minutes
 func (s *GamificationService) startLeaderboardCacheWorker(ctx context.Context) {
-	s.computeAndCacheLeaderboard(ctx) // Initial cache
+	refresh := func() {
+		for _, period := range []string{"all", "daily", "weekly"} {
+			s.computeAndCacheLeaderboard(ctx, period)
+		}
+	}
+	refresh() // Initial cache
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
@@ -64,7 +69,7 @@ func (s *GamificationService) startLeaderboardCacheWorker(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			s.computeAndCacheLeaderboard(ctx)
+			refresh()
 		}
 	}
 }
@@ -980,10 +985,14 @@ type LeaderboardMember struct {
 	ClanName  string `json:"clan_name,omitempty"`
 }
 
-// GetLeaderboard retrieves Top 100 members sorted by XP
-func (s *GamificationService) GetLeaderboard(ctx context.Context) ([]LeaderboardMember, error) {
+// GetLeaderboard retrieves Top 100 members sorted by XP for a given period ('day' or 'week')
+func (s *GamificationService) GetLeaderboard(ctx context.Context, period string) ([]LeaderboardMember, error) {
+	if period == "" {
+		period = "day"
+	}
+	cacheKey := fmt.Sprintf("stats:leaderboard:payload:%s", period)
 	if s.cache != nil && s.cache.Client != nil {
-		cached, err := s.cache.Client.Get(ctx, "stats:leaderboard:payload").Result()
+		cached, err := s.cache.Client.Get(ctx, cacheKey).Result()
 		if err == nil && cached != "" {
 			var res []LeaderboardMember
 			if json.Unmarshal([]byte(cached), &res) == nil {
@@ -991,16 +1000,22 @@ func (s *GamificationService) GetLeaderboard(ctx context.Context) ([]Leaderboard
 			}
 		}
 	}
-	return s.computeAndCacheLeaderboard(ctx)
+	res, err := s.computeAndCacheLeaderboard(ctx, period)
+	if err == nil && len(res) > 0 && s.cache != nil && s.cache.Client != nil {
+		if data, err := json.Marshal(res); err == nil {
+			_ = s.cache.Client.Set(ctx, cacheKey, string(data), 2*time.Minute).Err()
+		}
+	}
+	return res, err
 }
 
-func (s *GamificationService) computeAndCacheLeaderboard(ctx context.Context) ([]LeaderboardMember, error) {
-	// Try fallback cache first if sorted set is down or empty
+func (s *GamificationService) computeAndCacheLeaderboard(ctx context.Context, period string) ([]LeaderboardMember, error) {
+	redisZSetKey := "leaderboard:" + period
 	var ids []int64
 	scoreMap := make(map[int64]int)
-	
+
 	if s.cache != nil && s.cache.Client != nil {
-		membersZ, err := s.cache.Client.ZRevRangeWithScores(ctx, "leaderboard", 0, 99).Result()
+		membersZ, err := s.cache.Client.ZRevRangeWithScores(ctx, redisZSetKey, 0, 99).Result()
 		if err == nil && len(membersZ) > 0 {
 			for _, m := range membersZ {
 				id, err := strconv.ParseInt(m.Member.(string), 10, 64)
@@ -1064,18 +1079,37 @@ func (s *GamificationService) computeAndCacheLeaderboard(ctx context.Context) ([
 
 	if len(result) == 0 {
 		// Fallback to pure DB query if redis ZSET was empty
-		query := `
+		interval := "1 day"
+		if period == "week" {
+			interval = "7 days"
+		}
+
+		query := fmt.Sprintf(`
 			SELECT u.telegram_id, u.first_name, u.username, us.xp, us.level, c.chat_title as clan_name
 			FROM users u
 			JOIN user_stats us ON us.user_id = u.telegram_id
 			LEFT JOIN clan_members cm ON cm.user_id = u.telegram_id
 			LEFT JOIN clans c ON c.id = cm.clan_id
+			WHERE us.last_active_at >= NOW() - INTERVAL '%s'
 			ORDER BY us.xp DESC
 			LIMIT 100
-		`
+		`, interval)
 		rows, err := s.db.Pool.Query(ctx, query)
 		if err != nil {
-			return nil, err
+			// If no results for interval, fallback to overall top
+			fallbackQuery := `
+				SELECT u.telegram_id, u.first_name, u.username, us.xp, us.level, c.chat_title as clan_name
+				FROM users u
+				JOIN user_stats us ON us.user_id = u.telegram_id
+				LEFT JOIN clan_members cm ON cm.user_id = u.telegram_id
+				LEFT JOIN clans c ON c.id = cm.clan_id
+				ORDER BY us.xp DESC
+				LIMIT 100
+			`
+			rows, err = s.db.Pool.Query(ctx, fallbackQuery)
+			if err != nil {
+				return nil, err
+			}
 		}
 		defer rows.Close()
 
@@ -1108,7 +1142,7 @@ func (s *GamificationService) computeAndCacheLeaderboard(ctx context.Context) ([
 
 		// Repair sorted set if needed
 		if s.cache != nil && s.cache.Client != nil && len(zsetMembers) > 0 {
-			s.cache.Client.ZAdd(ctx, "leaderboard", zsetMembers...)
+			s.cache.Client.ZAdd(ctx, redisZSetKey, zsetMembers...)
 		}
 	}
 

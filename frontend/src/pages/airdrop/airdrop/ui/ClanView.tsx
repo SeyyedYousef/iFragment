@@ -98,7 +98,7 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 	};
 
 	return (
-		<div class="theme-play flex-1 overflow-y-auto no-scrollbar pb-32 relative bg-[#030303] text-white select-none">
+		<div class="theme-play flex-1 overflow-y-auto overflow-x-hidden no-scrollbar pb-32 relative bg-[#030303] text-white select-none">
 			{/* Ambient Top Glow */}
 			<div class="absolute top-0 left-1/2 -translate-x-1/2 w-[150vw] h-[300px] bg-gradient-to-b from-[#3390ec]/10 via-[#3390ec]/5 to-transparent blur-3xl pointer-events-none z-0" />
 

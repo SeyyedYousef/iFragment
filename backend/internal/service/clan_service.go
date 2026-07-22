@@ -395,13 +395,16 @@ func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, usern
 	return &finalClan, nil
 }
 
-// GetTopClans retrieves the top clans by member count from database.
-func (s *ClanService) GetTopClans(ctx context.Context, limit int) ([]model.Clan, error) {
+// GetTopClans retrieves the top clans sorted by period score or overall total score.
+func (s *ClanService) GetTopClans(ctx context.Context, limit int, period string) ([]model.Clan, error) {
 	if s.db == nil || s.db.Pool == nil {
 		return []model.Clan{}, nil
 	}
+	if period == "" {
+		period = "day"
+	}
 
-	cacheKey := fmt.Sprintf("top_clans:%d", limit)
+	cacheKey := fmt.Sprintf("top_clans:%d:%s", limit, period)
 	if s.cache != nil && s.cache.Client != nil {
 		if val, err := s.cache.Client.Get(ctx, cacheKey).Result(); err == nil && val != "" {
 			var cachedClans []model.Clan
@@ -411,15 +414,35 @@ func (s *ClanService) GetTopClans(ctx context.Context, limit int) ([]model.Clan,
 		}
 	}
 
-	query := `
-		SELECT c.id, c.telegram_channel_id, c.channel_username, COALESCE(c.channel_photo, '') as channel_photo, c.chat_title, c.members_count, c.total_score, c.created_at
+	interval := "1 day"
+	if period == "week" {
+		interval = "7 days"
+	}
+
+	query := fmt.Sprintf(`
+		SELECT c.id, c.telegram_channel_id, c.channel_username, COALESCE(c.channel_photo, '') as channel_photo, c.chat_title, c.members_count,
+		       COALESCE(SUM(us.xp), c.total_score) as period_score, c.created_at
 		FROM clans c
-		ORDER BY c.total_score DESC, c.members_count DESC, c.chat_title ASC
+		LEFT JOIN clan_members cm ON cm.clan_id = c.id
+		LEFT JOIN user_stats us ON us.user_id = cm.user_id AND us.last_active_at >= NOW() - INTERVAL '%s'
+		GROUP BY c.id
+		ORDER BY period_score DESC, c.members_count DESC, c.chat_title ASC
 		LIMIT $1
-	`
+	`, interval)
+
 	rows, err := s.db.Pool.Query(ctx, query, limit)
 	if err != nil {
-		return nil, err
+		// Fallback query
+		fallbackQuery := `
+			SELECT c.id, c.telegram_channel_id, c.channel_username, COALESCE(c.channel_photo, '') as channel_photo, c.chat_title, c.members_count, c.total_score, c.created_at
+			FROM clans c
+			ORDER BY c.total_score DESC, c.members_count DESC, c.chat_title ASC
+			LIMIT $1
+		`
+		rows, err = s.db.Pool.Query(ctx, fallbackQuery, limit)
+		if err != nil {
+			return nil, err
+		}
 	}
 	defer rows.Close()
 

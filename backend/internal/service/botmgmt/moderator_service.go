@@ -171,7 +171,7 @@ func (s *ModeratorService) checkAntiRaid(ctx context.Context, groupID uuid.UUID)
 	if err != nil {
 		return
 	}
-	if !s.isSubscriptionValid(group) {
+	if !s.IsSubscriptionValid(group) {
 		return
 	}
 
@@ -272,17 +272,21 @@ func (s *ModeratorService) ValidateMessage(ctx context.Context, bot *repository.
 		return nil, nil // Bot is paused or revoked
 	}
 
-	// 2.2 Check Subscription (BUG #9)
-	if !s.isSubscriptionValid(group) {
+	// 2.2 Check Subscription
+	if !s.IsSubscriptionValid(group) {
 		slog.Warn("Group subscription expired, pausing moderation", "group_id", group.ID)
 
-		// Fix silent failure: Notify the group that moderation is paused due to expired subscription.
-		// Use Redis to rate-limit this notification to once per 24 hours to avoid spamming the chat.
+		// Bot MUST remain completely silent in the group when subscription is expired.
+		// Notify the bot owner / group connector in private chat (PV) once per 24 hours.
 		if s.cache != nil && s.cache.Client != nil {
 			notifyKey := fmt.Sprintf("subscription_expired_notify:%s", group.ID)
 			if set, _ := s.cache.Client.SetNX(ctx, notifyKey, "1", 24*time.Hour).Result(); set {
-				msg := "⚠️ <b>Group Subscription Expired</b>\n\nModeration features are currently paused because the group's subscription has expired. Please renew the subscription in the dashboard to resume protection."
-				_ = tgClient.SendMessage(ctx, mc.ChatID, msg, nil, nil)
+				msg := "⚠️ <b>Group Subscription Expired</b>\n\nModeration features are currently paused for group: <b>" + group.ChatTitle + "</b> because its subscription has expired. Please renew in the dashboard."
+				targetUserID := bot.OwnerUserID
+				if group.ConnectedByUserID != nil {
+					targetUserID = *group.ConnectedByUserID
+				}
+				_ = tgClient.SendMessage(ctx, targetUserID, msg, nil, nil)
 			}
 		}
 
@@ -629,8 +633,8 @@ func (s *ModeratorService) isQuietHours(q repository.SettingsQuietHours, tz stri
 	return false
 }
 
-func (s *ModeratorService) isSubscriptionValid(g *repository.ManagedGroup) bool {
-	if g.SubscriptionStatus == "expired" {
+func IsSubscriptionValid(g *repository.ManagedGroup) bool {
+	if g == nil || g.SubscriptionStatus == "expired" {
 		return false
 	}
 	now := time.Now()
@@ -640,6 +644,10 @@ func (s *ModeratorService) isSubscriptionValid(g *repository.ManagedGroup) bool 
 	}
 	// Otherwise check trial
 	return now.Before(g.TrialEndsAt)
+}
+
+func (s *ModeratorService) IsSubscriptionValid(g *repository.ManagedGroup) bool {
+	return IsSubscriptionValid(g)
 }
 
 // ─── Mandatory Membership ─────────────────────────────────

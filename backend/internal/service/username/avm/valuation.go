@@ -120,9 +120,24 @@ type ValuationResult struct {
 	WikipediaSummary   string              `json:"wikipedia_summary"`
 	RarityBreakdown    map[string]int      `json:"rarity_breakdown"`
 
+	// Enhanced Valuation & Intelligence metrics
+	LiquidityRating    string             `json:"liquidity_rating"`
+	EstimatedSellTime  string             `json:"estimated_sell_time"`
+	TargetBuyerProfile string             `json:"target_buyer_profile"`
+	ProjectedGrowth    ProjectedGrowthDto `json:"projected_growth"`
+
 	// Portfolio & Contact features
 	Portfolio    *PortfolioDto    `json:"portfolio,omitempty"`
 	OwnerProfile *OwnerProfileDto `json:"owner_profile,omitempty"`
+}
+
+type ProjectedGrowthDto struct {
+	BullTON float64 `json:"bull_ton"`
+	BaseTON float64 `json:"base_ton"`
+	BearTON float64 `json:"bear_ton"`
+	BullUSD float64 `json:"bull_usd"`
+	BaseUSD float64 `json:"base_usd"`
+	BearUSD float64 `json:"bear_usd"`
 }
 
 // PortfolioDto shows all usernames owned by the same wallet with historical last-sale basis
@@ -1015,12 +1030,81 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	confidence := CalcConfidenceScore(nEff, len(exactSales)+len(broadSales), mad, hasMomentum)
 	reasoning["confidence_score"] = confidence
 
+	// Dynamic Liquidity & Velocity calculation
 	liquidityScore := 40
 	if features.IsDictionary { liquidityScore += 30 }
 	if charLen <= 5 { liquidityScore += 20 }
 	if !features.HasNumbers && !features.HasUnderscore { liquidityScore += 10 }
 	if features.IsGibberish { liquidityScore = 5 }
+
+	// Adjust liquidity score by price point (higher price = lower instant liquidity)
+	if expectedTON > 50000 {
+		liquidityScore -= 25
+	} else if expectedTON > 10000 {
+		liquidityScore -= 15
+	} else if expectedTON < 100 {
+		liquidityScore += 15
+	}
+
+	if liquidityScore < 5 { liquidityScore = 5 }
+	if liquidityScore > 98 { liquidityScore = 98 }
 	reasoning["liquidity_score"] = liquidityScore
+
+	// Derive Liquidity Rating
+	liquidityRating := "Moderate"
+	if liquidityScore >= 75 {
+		liquidityRating = "Ultra-Liquid"
+	} else if liquidityScore >= 55 {
+		liquidityRating = "High"
+	} else if liquidityScore <= 25 {
+		liquidityRating = "Illiquid"
+	}
+
+	// Derive Estimated Sell Time based on liquidity score & price bracket
+	estimatedSellTime := "1–3 Weeks"
+	if liquidityScore >= 80 {
+		estimatedSellTime = "24–48 Hours"
+	} else if liquidityScore >= 60 {
+		estimatedSellTime = "3–7 Days"
+	} else if liquidityScore >= 40 {
+		estimatedSellTime = "1–3 Weeks"
+	} else {
+		estimatedSellTime = "1–3 Months (OTC)"
+	}
+
+	// Derive Target Buyer Profile
+	targetBuyerProfile := "Personal Brand & Creator"
+	if semResult != nil && semResult.Tags != nil {
+		for _, tag := range semResult.Tags {
+			if strings.Contains(tag, "crypto") {
+				targetBuyerProfile = "Web3 & Crypto Project"
+				break
+			} else if strings.Contains(tag, "brand") || strings.Contains(tag, "premium") {
+				targetBuyerProfile = "Institutional / OTC Collector"
+				break
+			} else if strings.Contains(tag, "telegram") {
+				targetBuyerProfile = "Telegram MiniApp & Bot"
+				break
+			}
+		}
+	}
+	if targetBuyerProfile == "Personal Brand & Creator" && features.IsDictionary {
+		targetBuyerProfile = "Brand & Corporate Entity"
+	}
+
+	// Projected Growth (1-Year Bull / Base / Bear)
+	bullTON := AestheticRound(expectedTON * 1.45)
+	baseTON := AestheticRound(expectedTON * 1.22)
+	bearTON := AestheticRound(expectedTON * 0.95)
+
+	projectedGrowth := ProjectedGrowthDto{
+		BullTON: bullTON,
+		BaseTON: baseTON,
+		BearTON: bearTON,
+		BullUSD: math.Round(bullTON * tonRate),
+		BaseUSD: math.Round(baseTON * tonRate),
+		BearUSD: math.Round(bearTON * tonRate),
+	}
 
 	// ── Step 4: Synchronous Audit Write ──
 	configJSON, _ := json.Marshal(s.cfg)
@@ -1223,8 +1307,12 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		},
 		History:         history,
 		Similar:         similarNames,
-		ReasoningLog:    reasoning,
-		
+		// Enhanced Valuation & Intelligence metrics
+		LiquidityRating:    liquidityRating,
+		EstimatedSellTime:  estimatedSellTime,
+		TargetBuyerProfile: targetBuyerProfile,
+		ProjectedGrowth:    projectedGrowth,
+
 		// New fields populated
 		InvestmentGrade:  func() string {
 			if expectedTON > 50000 { return "A+" }

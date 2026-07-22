@@ -2,7 +2,7 @@ import { useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
 import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import { Component, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
-import { getLeaderboard, getProfileStats } from '@/shared/api/profile.js';
+import { Clan, getLeaderboard, getProfileStats, getTopClans, LeaderboardMember } from '@/shared/api/profile.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { type LeaderboardEntry, LeaderboardShell } from '@/widgets/leaderboard/LeaderboardShell.js';
 
@@ -12,9 +12,24 @@ export const LeaderboardPage: Component = () => {
 	const [activePeriod, setActivePeriod] = createSignal('all');
 
 	const leaderboardQuery = createQuery(() => ({
-		queryKey: ['profile', 'leaderboard'],
-		queryFn: getLeaderboard,
-		staleTime: 60000,
+		queryKey: ['profile', 'leaderboard', activeScope(), activePeriod()],
+		queryFn: async () => {
+			if (activeScope() === 'clans') {
+				const clans = await getTopClans(activePeriod());
+				return {
+					leaderboard: clans.map((c: Clan) => ({
+						rank: c.rank || 1,
+						user_id: c.telegram_channel_id,
+						first_name: c.chat_title,
+						username: c.channel_username,
+						level: c.members_count,
+						xp: c.total_score || c.members_count * 1500,
+					})),
+				};
+			}
+			return getLeaderboard(activePeriod());
+		},
+		staleTime: 30000,
 	}));
 
 	const statsQuery = createQuery(() => ({
@@ -27,13 +42,14 @@ export const LeaderboardPage: Component = () => {
 	const myStats = () => statsQuery.data || null;
 
 	const formattedEntries = createMemo<LeaderboardEntry[]>(() => {
-		return rawLeaderboard().map((m) => ({
+		const unit = activeScope() === 'clans' ? '🪙' : 'XP';
+		return rawLeaderboard().map((m: LeaderboardMember) => ({
 			rank: m.rank,
 			id: m.user_id,
 			name: m.first_name,
 			score: m.xp,
-			scoreUnit: 'XP',
-			isCurrentUser: myStats()?.globalRank === m.rank,
+			scoreUnit: unit,
+			isCurrentUser: activeScope() !== 'clans' && myStats()?.globalRank === m.rank,
 		}));
 	});
 

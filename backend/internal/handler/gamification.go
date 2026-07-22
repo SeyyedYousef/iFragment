@@ -164,7 +164,11 @@ func (h *GamificationHandler) UpgradeBoost(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *GamificationHandler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
-	leaderboard, err := h.gamificationService.GetLeaderboard(r.Context())
+	period := r.URL.Query().Get("period")
+	if period == "" {
+		period = "day"
+	}
+	leaderboard, err := h.gamificationService.GetLeaderboard(r.Context(), period)
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, "failed to get leaderboard", err)
 		return

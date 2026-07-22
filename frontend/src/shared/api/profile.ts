@@ -264,8 +264,10 @@ export const upgradeBoost = (boostType: string): Promise<UserBoosts> =>
 		body: JSON.stringify({ boostType }),
 	});
 
-export const getLeaderboard = (): Promise<LeaderboardResponse> =>
-	validatedFetch('/profile/leaderboard', LeaderboardResponseSchema);
+export const getLeaderboard = (period?: string | unknown): Promise<LeaderboardResponse> => {
+	const p = typeof period === 'string' ? period : 'day';
+	return validatedFetch(`/profile/leaderboard?period=${p}`, LeaderboardResponseSchema);
+};
 
 export interface AchievementDef {
 	id: string;
@@ -375,8 +377,10 @@ export const leaveClan = (): Promise<SuccessResponse> =>
 		method: 'POST',
 	});
 
-export const getTopClans = (): Promise<Clan[]> =>
-	validatedFetch('/profile/clan/top', z.array(ClanSchema));
+export const getTopClans = (period?: string | unknown): Promise<Clan[]> => {
+	const p = typeof period === 'string' ? period : 'day';
+	return validatedFetch(`/profile/clan/top?period=${p}`, z.array(ClanSchema));
+};
 
 export const getClanMembers = (clanId?: string, limit?: number): Promise<ClanMember[]> =>
 	validatedFetch(
