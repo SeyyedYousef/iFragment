@@ -204,11 +204,8 @@ export async function init(options: {
 				(miniApp as any).setBackgroundColor('#000000');
 			}
 		}
-		if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
-			if (typeof ((window as any).Telegram.WebApp as any).disableVerticalSwipes === 'function') {
-				((window as any).Telegram.WebApp as any).disableVerticalSwipes();
-			}
-		}
+		// Do NOT disable vertical swipes as it locks vertical touch scrolling in Telegram Android/iOS client
+		// if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) { ... }
 	} catch (e) {
 		console.warn('Failed to set initial theme colors or disable vertical swipes', e);
 	}

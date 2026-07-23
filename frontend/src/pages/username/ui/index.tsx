@@ -323,7 +323,7 @@ export const UsernamePage: Component = () => {
 					</div>
 				}
 			>
-				<div class="min-h-screen bg-[#030303] text-white px-4 py-6 flex flex-col items-center font-sans pb-28 select-none relative overflow-x-hidden max-w-full" dir={isRtl() ? 'rtl' : 'ltr'}>
+				<div class="min-h-screen bg-[#030303] text-white px-4 py-6 flex flex-col items-center font-sans pb-28 select-none relative overflow-x-hidden overflow-y-auto max-w-full" style={{ 'touch-action': 'pan-y' }} dir={isRtl() ? 'rtl' : 'ltr'}>
 					
 					{/* Ambient Dynamic Background Glow */}
 					<div class="absolute top-0 left-1/2 -translate-x-1/2 w-[150vw] h-[400px] blur-[100px] pointer-events-none z-0 opacity-40 transition-colors duration-1000" style={{ background: `radial-gradient(circle, ${getTierTheme(data()?.rarity?.tier || '').glow} 0%, transparent 60%)` }} />
