@@ -131,12 +131,12 @@ func processNFT(ctx context.Context, client *tonapi.Client, repo *repository.Dat
 		if len(event.Actions) > 0 && len(event.Actions[0].BaseTransactions) > 0 {
 			txHash := event.Actions[0].BaseTransactions[0]
 			priceTon, saleType := extractPriceFromTrace(ctx, client, txHash)
-			
+
 			if priceTon > 0 {
 				log.Printf("  [SALE FOUND] %s sold for %.2f TON (%s)", username, priceTon, saleType)
-				
+
 				saleDate := time.Unix(event.Timestamp, 0)
-				
+
 				_, err := repo.InsertSale(ctx, repository.Sale{
 					Username:      username,
 					CharLength:    charLen,
@@ -155,7 +155,7 @@ func processNFT(ctx context.Context, client *tonapi.Client, repo *repository.Dat
 			}
 		}
 	}
-	
+
 	time.Sleep(500 * time.Millisecond)
 }
 
@@ -166,7 +166,7 @@ func extractPriceFromTrace(ctx context.Context, client *tonapi.Client, traceID s
 	}
 
 	maxTon := int64(0)
-	saleType := "buy_now" 
+	saleType := "buy_now"
 
 	var traverse func(t *tonapi.Trace)
 	traverse = func(t *tonapi.Trace) {
@@ -192,7 +192,7 @@ func extractPriceFromTrace(ctx context.Context, client *tonapi.Client, traceID s
 	}
 
 	tonValue := float64(maxTon) / math.Pow10(9)
-	
+
 	if tonValue < 0.5 {
 		return 0, "unknown"
 	}

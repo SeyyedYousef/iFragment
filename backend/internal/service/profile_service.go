@@ -356,7 +356,7 @@ func (s *ProfileService) SetReferralCode(ctx context.Context, userID int64, refe
 	// 1) Resolve referrer + self/circular checks atomically WITH LOCK
 	var referrerID int64
 	var referrerReferredBy *int64
-	
+
 	parsedID := int64(0)
 	if strings.HasPrefix(referrerCode, "ref_") {
 		idStr := strings.TrimPrefix(referrerCode, "ref_")
@@ -552,7 +552,7 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 
 	if s.cache != nil && s.cache.Client != nil {
 		userIDStr := strconv.FormatInt(userID, 10)
-		
+
 		// Batch taps in Redis
 		err := s.cache.Client.HIncrBy(ctx, "profile:taps:batch", userIDStr, int64(coinsEarned)).Err()
 		if err != nil {
@@ -585,7 +585,7 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if s.cache != nil && s.cache.Client != nil && !redisFailed {
 		stats.AirdropCoins += coinsEarned
 		stats.XP += int(coinsEarned)

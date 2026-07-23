@@ -133,7 +133,7 @@ export const GroupDashboardPage: Component = () => {
 						>
 							<img
 								src={group()?.photo_url}
-								alt=""
+								alt={group()?.chat_title || 'Group photo'}
 								class="w-full h-full object-cover"
 								onError={(e) => {
 									(e.currentTarget as HTMLElement).style.display = 'none';
@@ -379,7 +379,7 @@ export const GroupDashboardPage: Component = () => {
 			{/* ═══════ EMERGENCY LOCK MODAL ═══════ */}
 			<Show when={showLockConfirm()}>
 				<div class="fixed inset-0 z-[9990] bg-[#030303]/90 backdrop-blur-2xl flex items-center justify-center p-5" onClick={(e) => { if (e.target === e.currentTarget) setShowLockConfirm(false); }}>
-					<Motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.3, easing: [0.32, 0.72, 0, 1] }} class="w-full max-w-sm bg-[#12141C] border border-white/10 rounded-[32px] p-7 flex flex-col gap-5 shadow-[0_20px_60px_rgba(0,0,0,0.8)] relative overflow-hidden">
+					<Motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.3, easing: [0.32, 0.72, 0, 1] }} class="w-full max-w-sm max-h-[85vh] overflow-y-auto no-scrollbar bg-[#12141C] border border-white/10 rounded-[32px] p-7 flex flex-col gap-5 shadow-[0_20px_60px_rgba(0,0,0,0.8)] relative">
 						<div class="absolute -top-10 -left-10 w-32 h-32 bg-[#ff4a4a]/20 blur-3xl rounded-full pointer-events-none" />
 						
 						<div class="w-16 h-16 rounded-[20px] bg-[#ff4a4a]/10 border border-[#ff4a4a]/30 flex items-center justify-center shadow-inner relative z-10 mx-auto mb-2">

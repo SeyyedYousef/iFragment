@@ -512,7 +512,7 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 		for _, sim := range similars {
 			salePriceUSD := sim.SalePriceUSD
 			if salePriceUSD == 0 && sim.SalePrice > 0 && tonRate > 0 {
-				salePriceUSD = math.Round(sim.SalePrice * tonRate * 100) / 100
+				salePriceUSD = math.Round(sim.SalePrice*tonRate*100) / 100
 			}
 			result.Similar = append(result.Similar, avm.ValuationSimilar{
 				Username:     sim.Username,
@@ -1198,7 +1198,3 @@ func (h *UsernameHandler) ValuationVerifyFree(w http.ResponseWriter, r *http.Req
 		"in_group":   true,
 	})
 }
-
-
-
-

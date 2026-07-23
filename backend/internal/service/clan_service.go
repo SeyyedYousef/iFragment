@@ -45,7 +45,6 @@ func NewClanService(db *repository.Database, cache *repository.Cache, mtprotoCli
 	return &ClanService{db: db, cache: cache, mtprotoClient: mtprotoClient, botClient: botClient}
 }
 
-
 // scrapeChannelPhoto tries to get the photo URL from public telegram web preview
 func scrapeChannelPhoto(username string) string {
 	defaultPhoto := fmt.Sprintf("https://t.me/i/userpic/320/%s.jpg", username)
@@ -386,7 +385,7 @@ func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, usern
 		key := fmt.Sprintf("clan:join:cooldown:%d", userID)
 		_ = s.cache.Client.Set(ctx, key, 1, 10*time.Minute).Err()
 		s.cache.Client.Del(ctx, fmt.Sprintf("user:clan:%d", userID))
-		
+
 		// Invalidate top clans cache to reflect new member count
 		s.cache.Client.Del(ctx, "top_clans:100")
 		s.cache.Client.Del(ctx, "top_clans:10")
@@ -684,4 +683,3 @@ func (s *ClanService) GetClanMembers(ctx context.Context, userID int64, clanID s
 
 	return members, nil
 }
-

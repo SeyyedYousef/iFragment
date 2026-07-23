@@ -449,7 +449,7 @@ export const TasksView: Component = () => {
 			{/* ═══════ QUIZ MODAL (Glassmorphic Box) ═══════ */}
 			<Show when={activeQuizTask()}>
 				<div class="fixed inset-0 z-[9999] flex items-center justify-center p-5 bg-black/80 backdrop-blur-md animate-fade-in" dir="rtl">
-					<div class="w-full max-w-sm bg-[#12141C] border border-white/10 rounded-[32px] p-7 shadow-[0_20px_60px_rgba(0,0,0,0.8)] relative animate-slide-up overflow-hidden">
+					<div class="w-full max-w-sm max-h-[85vh] overflow-y-auto no-scrollbar bg-[#12141C] border border-white/10 rounded-[32px] p-7 shadow-[0_20px_60px_rgba(0,0,0,0.8)] relative animate-slide-up">
 						{/* Ambient Glow */}
 						<div class="absolute -top-10 -right-10 w-32 h-32 bg-[#3390ec]/20 rounded-full blur-3xl pointer-events-none" />
 						

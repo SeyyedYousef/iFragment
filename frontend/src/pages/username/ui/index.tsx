@@ -561,7 +561,7 @@ export const UsernamePage: Component = () => {
 
 												<div class="pt-2.5 border-t border-white/10 flex items-center justify-between text-[11px]">
 													<span class="text-white/40 font-bold uppercase tracking-wider text-[9px]">
-														{sim.status === 'on_sale' ? (t('valuation.ask_price') || 'ASK') : (t('valuation.est_market_val') || 'VALUATION')}
+														{sim.status === 'on_sale' ? (t('valuation.ask_price' as any) || 'ASK') : (t('valuation.est_market_val' as any) || 'VALUATION')}
 													</span>
 													<div class="flex flex-col items-end">
 														<span class="text-emerald-400 font-mono font-black text-[13px]">
@@ -651,7 +651,7 @@ export const UsernamePage: Component = () => {
 
 							<div class="bg-[#08090D] border border-white/5 rounded-[16px] p-3.5 flex items-center justify-between shadow-inner">
 								<div class="flex flex-col gap-0.5">
-									<span class="text-white/40 text-[10px] font-black uppercase tracking-widest">{t('valuation.target_buyer') || 'TARGET BUYER PROFILE'}</span>
+									<span class="text-white/40 text-[10px] font-black uppercase tracking-widest">{t('valuation.target_buyer' as any) || 'TARGET BUYER PROFILE'}</span>
 									<span class="text-white font-black text-[13px]">
 										{data()?.target_buyer_profile || 'Personal Brand & Creator'}
 									</span>

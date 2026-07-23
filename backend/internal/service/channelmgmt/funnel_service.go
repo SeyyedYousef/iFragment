@@ -315,7 +315,7 @@ func (s *ChannelService) sendFunnelReviewToOwner(ctx context.Context, bot *repos
 
 	lang := "en"
 	activeText := draft.DraftText
-	
+
 	// Fetch Output Channel (source) to use its settings as the Project settings
 	sourceChan, err := s.channelRepo.GetChannelByChatID(ctx, funnel.OutputChatID)
 	slog.Info("sendFunnelReviewToOwner: fetching output channel", "outputChatID", funnel.OutputChatID, "sourceChan_err", err, "sourceChan_is_nil", sourceChan == nil)
@@ -517,7 +517,7 @@ func generateAIBVariations(ctx context.Context, text, apiKey, skill, customPromp
 	}
 
 	apiURL := "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=" + apiKey
-	
+
 	var resp *http.Response
 	client := &http.Client{Timeout: 15 * time.Second}
 
@@ -537,7 +537,7 @@ func generateAIBVariations(ctx context.Context, text, apiKey, skill, customPromp
 			body, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
 			err = fmt.Errorf("Gemini variations status code: %d, body: %s", resp.StatusCode, string(body))
-			
+
 			if resp.StatusCode != http.StatusServiceUnavailable && resp.StatusCode != http.StatusTooManyRequests {
 				return nil, err
 			}
@@ -1180,7 +1180,7 @@ func (s *ChannelService) ApplyWatermarkAndSignature(ctx context.Context, text st
 	sigEnabled := general.SignMessages
 	sigText := general.CustomSignature
 
-	slog.Info("ApplyWatermarkAndSignature initial state", 
+	slog.Info("ApplyWatermarkAndSignature initial state",
 		"channel_id", channelID,
 		"general_sign_enabled", sigEnabled,
 		"general_sig_text", sigText,

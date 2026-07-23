@@ -1,4 +1,5 @@
 import { Component, JSX } from 'solid-js';
+import { t } from '@/shared/i18n/index.js';
 import { ImpersonationBanner } from './ImpersonationBanner.js';
 import { OwnerTabs } from './OwnerTabs.js';
 
@@ -43,7 +44,7 @@ export const OwnerLayout: Component<OwnerLayoutProps> = (props) => {
 								{props.title || 'پنل مدیریت اونر'}
 							</h1>
 							<span class="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-black uppercase text-emerald-400">
-								Live
+								{t('common.live' as any) || 'Live'}
 							</span>
 						</div>
 						<p class="text-[10px] text-white/40 font-bold mt-0.5">سامانه مدیریت ارشد iFragment</p>

@@ -98,7 +98,7 @@ export const ProfilePage: Component = () => {
 			dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
 		>
 			{/* Ambient Top Glow (Cosmic Theme) */}
-			<div class="absolute top-0 left-0 right-0 h-[450px] bg-gradient-to-b from-[#3390ec]/15 via-[#8b5cf6]/5 to-transparent blur-[90px] pointer-events-none z-0" />
+			<div class="absolute top-0 left-0 right-0 h-[450px] bg-gradient-to-b from-[#3390ec]/15 via-[#06b6d4]/5 to-transparent blur-[90px] pointer-events-none z-0" />
 
 			{loading() ? (
 				<div class="px-5 pt-6 min-h-[80vh] relative z-10 max-w-md mx-auto w-full">
@@ -244,7 +244,7 @@ export const ProfilePage: Component = () => {
 						initial={{ y: '100%', opacity: 0 }}
 						animate={{ y: 0, opacity: 1 }}
 						transition={{ duration: 0.35, easing: [0.32, 0.72, 0, 1] }}
-						class="relative bg-[#12141C] border border-white/10 rounded-[32px] p-6 pb-8 w-full max-w-md mx-auto flex flex-col gap-3 shadow-[0_20px_60px_rgba(0,0,0,0.8)] overflow-hidden"
+						class="relative bg-[#12141C] border border-white/10 rounded-[32px] p-6 pb-8 w-full max-w-md max-h-[85vh] overflow-y-auto no-scrollbar mx-auto flex flex-col gap-3 shadow-[0_20px_60px_rgba(0,0,0,0.8)]"
 						onClick={(e: Event) => e.stopPropagation()}
 					>
 						<div class="absolute -top-10 -right-10 w-32 h-32 bg-amber-400/10 blur-3xl rounded-full pointer-events-none" />

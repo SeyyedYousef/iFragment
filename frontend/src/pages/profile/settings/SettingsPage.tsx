@@ -63,7 +63,7 @@ export const SettingsPage: Component = () => {
 			dir={isRtl() ? 'rtl' : 'ltr'}
 		>
 			{/* Ambient Top Glow (Premium Tech Theme) */}
-			<div class="absolute top-0 left-0 right-0 h-[400px] bg-gradient-to-b from-[#3390ec]/15 via-[#8b5cf6]/5 to-transparent blur-[90px] pointer-events-none z-0" />
+			<div class="absolute top-0 left-0 right-0 h-[400px] bg-gradient-to-b from-[#3390ec]/15 via-[#06b6d4]/5 to-transparent blur-[90px] pointer-events-none z-0" />
 
 			{/* ═══════ PREMIUM STICKY HEADER ═══════ */}
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center gap-3.5 shadow-sm shrink-0">
@@ -199,7 +199,7 @@ export const SettingsPage: Component = () => {
 					</h2>
 
 					<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-4 shadow-sm relative overflow-hidden">
-						<div class="absolute -left-6 -bottom-6 w-24 h-24 bg-[#8b5cf6]/10 blur-2xl rounded-full pointer-events-none" />
+						<div class="absolute -left-6 -bottom-6 w-24 h-24 bg-[#06b6d4]/10 blur-2xl rounded-full pointer-events-none" />
 
 						{/* Mining */}
 						<div class="flex items-center justify-between gap-4 relative z-10">

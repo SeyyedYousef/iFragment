@@ -7,3 +7,5 @@ username_files*.txt
 .idea/
 .vscode/settings.json
 *.log
+*.pyc
+__pycache__/

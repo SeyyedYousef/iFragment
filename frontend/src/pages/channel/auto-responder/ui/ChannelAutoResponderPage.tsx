@@ -406,12 +406,12 @@ export const ChannelAutoResponderPage: Component = () => {
 											</Show>
 
 											<Show when={commentMode() === 'ai'}>
-												<div class="bg-gradient-to-r from-[#8b5cf6]/15 to-[#8b5cf6]/5 p-4 rounded-[16px] border border-[#8b5cf6]/30 flex flex-col gap-2 shadow-inner">
-													<span class="text-[14px] font-black text-[#8b5cf6] flex items-center gap-2">
+												<div class="bg-gradient-to-r from-[#06b6d4]/15 to-[#06b6d4]/5 p-4 rounded-[16px] border border-[#06b6d4]/30 flex flex-col gap-2 shadow-inner">
+													<span class="text-[14px] font-black text-[#06b6d4] flex items-center gap-2">
 														<span class="material-symbols-outlined text-[20px]">auto_awesome</span>
 														{t('channelAutoResponder.aiAutoComment')}
 													</span>
-													<span class="text-[12px] font-medium text-[#8b5cf6]/70 leading-relaxed">
+													<span class="text-[12px] font-medium text-[#06b6d4]/70 leading-relaxed">
 														{t('channelAutoResponder.aiAutoCommentDesc')}
 													</span>
 												</div>
@@ -503,7 +503,7 @@ export const ChannelAutoResponderPage: Component = () => {
 																	<span class="text-[9px] font-black uppercase tracking-widest text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-[6px] border border-amber-400/20 shadow-sm">{t('channelAutoResponder.ruleDisabled')}</span>
 																</Show>
 																<Show when={rule.useAi}>
-																	<span class="text-[9px] font-black uppercase tracking-widest text-[#8b5cf6] bg-[#8b5cf6]/10 px-2 py-0.5 rounded-[6px] border border-[#8b5cf6]/20 shadow-sm flex items-center gap-1">
+																	<span class="text-[9px] font-black uppercase tracking-widest text-[#06b6d4] bg-[#06b6d4]/10 px-2 py-0.5 rounded-[6px] border border-[#06b6d4]/20 shadow-sm flex items-center gap-1">
 																		<span class="material-symbols-outlined text-[10px]">auto_awesome</span> AI
 																	</span>
 																</Show>
@@ -588,13 +588,13 @@ export const ChannelAutoResponderPage: Component = () => {
 										/>
 									</div>
 
-									<div class="flex items-center justify-between gap-3 bg-gradient-to-r from-[#8b5cf6]/15 to-[#8b5cf6]/5 p-4 rounded-[16px] border border-[#8b5cf6]/30 shadow-inner">
+									<div class="flex items-center justify-between gap-3 bg-gradient-to-r from-[#06b6d4]/15 to-[#06b6d4]/5 p-4 rounded-[16px] border border-[#06b6d4]/30 shadow-inner">
 										<div class="flex flex-col flex-1 min-w-0">
-											<span class="text-[14px] font-black text-[#8b5cf6] flex items-center gap-1.5 mb-0.5">
+											<span class="text-[14px] font-black text-[#06b6d4] flex items-center gap-1.5 mb-0.5">
 												<span class="material-symbols-outlined text-[18px]">auto_awesome</span>
 												{t('channelAutoResponder.enhanceWithAi')}
 											</span>
-											<span class="text-[11px] font-medium text-[#8b5cf6]/60 leading-snug">
+											<span class="text-[11px] font-medium text-[#06b6d4]/60 leading-snug">
 												{t('channelAutoResponder.useAiDesc')}
 											</span>
 										</div>

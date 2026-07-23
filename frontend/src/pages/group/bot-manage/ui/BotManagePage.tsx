@@ -147,7 +147,7 @@ export const BotManagePage: Component = () => {
 		<div class="min-h-screen bg-[#030303] pb-32 relative text-white overflow-x-hidden font-sans selection:bg-[#3390ec]/30" dir={isRtl() ? 'rtl' : 'ltr'}>
 			
 			{/* Ambient Top Glow */}
-			<div class="absolute top-0 left-0 right-0 h-[400px] bg-gradient-to-b from-[#3390ec]/15 via-[#8b5cf6]/5 to-transparent blur-[80px] pointer-events-none z-0" />
+			<div class="absolute top-0 left-0 right-0 h-[400px] bg-gradient-to-b from-[#3390ec]/15 via-[#06b6d4]/5 to-transparent blur-[80px] pointer-events-none z-0" />
 
 			{/* ═══════ PREMIUM STICKY HEADER ═══════ */}
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/80 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between shadow-sm">
@@ -435,7 +435,7 @@ export const BotManagePage: Component = () => {
 			{/* ═══════ DELETE GROUP MODAL (Danger Zone) ═══════ */}
 			<Show when={groupToDelete()}>
 				<Motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} class="fixed inset-0 bg-[#030303]/90 backdrop-blur-md z-[150] flex items-center justify-center px-5" onClick={(e) => { if (e.target === e.currentTarget && !isDeletingGroup()) setGroupToDelete(null); }}>
-					<Motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.3, easing: [0.32, 0.72, 0, 1] }} class="w-full max-w-sm bg-[#12141C] rounded-[32px] border border-white/10 p-7 flex flex-col items-center text-center shadow-[0_20px_60px_rgba(0,0,0,0.8)] relative overflow-hidden">
+					<Motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.3, easing: [0.32, 0.72, 0, 1] }} class="w-full max-w-sm max-h-[85vh] overflow-y-auto no-scrollbar bg-[#12141C] rounded-[32px] border border-white/10 p-7 flex flex-col items-center text-center shadow-[0_20px_60px_rgba(0,0,0,0.8)] relative">
 						<div class="absolute -top-10 -left-10 w-32 h-32 bg-[#ff4a4a]/20 blur-3xl rounded-full pointer-events-none" />
 						
 						<div class="w-20 h-20 rounded-[24px] bg-[#ff4a4a]/10 border border-[#ff4a4a]/30 flex items-center justify-center mb-5 shadow-inner relative z-10">

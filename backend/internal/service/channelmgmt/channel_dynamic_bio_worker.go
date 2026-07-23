@@ -115,7 +115,7 @@ func (s *ChannelService) processDynamicBios(ctx context.Context) {
 			defer cancel()
 			s.updateChannelDynamicBio(bgCtx, &chCopy, configCopy)
 		})
-		
+
 		s.lastBioUpdate.Store(ch.ID, time.Now())
 	}
 }
@@ -150,10 +150,10 @@ func (s *ChannelService) updateChannelDynamicBio(ctx context.Context, ch *reposi
 		if err == nil {
 			nowZero := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 			targetZero := time.Date(targetTime.Year(), targetTime.Month(), targetTime.Day(), 0, 0, 0, 0, now.Location())
-			
+
 			diff := targetZero.Sub(nowZero)
 			days := int(diff.Hours() / 24)
-			
+
 			if days > 0 {
 				countdownStr = fmt.Sprintf("%d days", days)
 			} else if days == 0 {
@@ -176,7 +176,7 @@ func (s *ChannelService) updateChannelDynamicBio(ctx context.Context, ch *reposi
 		res = strings.ReplaceAll(res, "$day_name", dayStr)
 		res = strings.ReplaceAll(res, "$countdown", countdownStr)
 		res = strings.ReplaceAll(res, "$event", config.EventName)
-		
+
 		if s.cryptoSvc != nil {
 			res = strings.ReplaceAll(res, "$Gram", s.cryptoSvc.GetPrice("the-open-network"))
 		}

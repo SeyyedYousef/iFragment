@@ -1108,5 +1108,3 @@ func (c *BotAPIClient) DeleteEphemeralMessage(ctx context.Context, chatID interf
 	}
 	return err
 }
-
-

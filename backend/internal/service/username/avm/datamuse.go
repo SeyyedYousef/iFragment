@@ -23,9 +23,9 @@ type DatamuseResponse struct {
 
 var (
 	// In-memory cache to avoid repeated HTTP calls for the same username
-	wordCache   = make(map[string]float64)
-	cacheMutex  sync.RWMutex
-	httpClient  = &http.Client{Timeout: 3 * time.Second}
+	wordCache  = make(map[string]float64)
+	cacheMutex sync.RWMutex
+	httpClient = &http.Client{Timeout: 3 * time.Second}
 )
 
 // GetWordFrequency queries the Datamuse API to check if a word is an English dictionary word
@@ -144,7 +144,7 @@ type DictionaryDetails struct {
 func GetDictionaryDetails(word string) DictionaryDetails {
 	word = strings.ToLower(strings.TrimSpace(word))
 	res := DictionaryDetails{IsWord: false}
-	
+
 	if len(word) == 0 {
 		return res
 	}
@@ -172,16 +172,16 @@ func GetDictionaryDetails(word string) DictionaryDetails {
 
 	if len(results) > 0 && strings.ToLower(results[0].Word) == word {
 		res.IsWord = true
-		
+
 		// Map part of speech
 		posMap := map[string]string{
-			"n": "Noun",
-			"v": "Verb",
+			"n":   "Noun",
+			"v":   "Verb",
 			"adj": "Adjective",
 			"adv": "Adverb",
-			"u": "Unknown",
+			"u":   "Unknown",
 		}
-		
+
 		for _, tag := range results[0].Tags {
 			if fullPos, ok := posMap[tag]; ok {
 				res.PartOfSpeech = fullPos

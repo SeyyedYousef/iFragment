@@ -3,12 +3,12 @@ package username
 import (
 	"context"
 	"fmt"
-	"io"
-	"net/http"
 	"ifragment-backend/internal/client/mtproto"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/username/avm"
+	"io"
 	"math"
+	"net/http"
 	"sort"
 	"strings"
 	"sync"
@@ -29,10 +29,10 @@ type SimilarUsername struct {
 	RarityScore  int     `json:"rarity_score"`
 	FragmentURL  string  `json:"fragment_url"`
 	OwnerAddress string  `json:"owner_address,omitempty"`
-	Status       string  `json:"status,omitempty"`          // "sold", "available", "on_sale", "on_auction", "taken", "non_nft"
-	SalePrice    float64 `json:"sale_price,omitempty"`      // Last sale price in TON
+	Status       string  `json:"status,omitempty"`         // "sold", "available", "on_sale", "on_auction", "taken", "non_nft"
+	SalePrice    float64 `json:"sale_price,omitempty"`     // Last sale price in TON
 	SalePriceUSD float64 `json:"sale_price_usd,omitempty"` // Last sale price in USD
-	SaleDate     string  `json:"sale_date,omitempty"`       // Date of last sale
+	SaleDate     string  `json:"sale_date,omitempty"`      // Date of last sale
 }
 
 func checkTelegramWebStatus(ctx context.Context, username string) string {
@@ -111,17 +111,17 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 				break
 			}
 		}
-		
+
 		if !isAI && score < 0.35 {
 			continue
 		}
-		
+
 		// Boost score artificially for AI suggestions to ensure they appear at the top
 		if isAI {
 			score = 0.95
 			reason = "Semantic AI Alternative"
 		}
-		
+
 		results = append(results, SimilarUsername{
 			Username:    candidate,
 			Score:       roundFeature(score),
@@ -280,7 +280,7 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 func getCandidatePool(ctx context.Context, db *repository.Database, username string) []string {
 	// First, fetch AI suggestions
 	suggestions := avm.GetAISuggestions(ctx, db, username)
-	
+
 	// Fallback to static pool if AI fails or returns empty
 	candidates := []string{
 		"meta", "crypto", "bitcoin", "ton", "news",

@@ -112,114 +112,114 @@ func (w *PartitionWorker) createFuturePartitions(ctx context.Context) error {
 			year := t.Year()
 			month := t.Month()
 
-		// 1. search_logs partitions
-		{
-			partitionName := fmt.Sprintf("search_logs_y%dm%02d", year, month)
-			var exists bool
-			query := `
+			// 1. search_logs partitions
+			{
+				partitionName := fmt.Sprintf("search_logs_y%dm%02d", year, month)
+				var exists bool
+				query := `
 				SELECT EXISTS (
 					SELECT FROM pg_tables 
 					WHERE schemaname = 'public' 
 					AND tablename = $1
 				);`
-			err := w.db.Pool.QueryRow(ctx, query, partitionName).Scan(&exists)
-			if err != nil {
-				return fmt.Errorf("failed to check partition existence for %s: %w", partitionName, err)
-			}
-
-			if !exists {
-				slog.Info("[PartitionWorker] Creating missing partition table", "name", partitionName)
-				startStr := t.Format("2006-01-02 15:04:05+00")
-				next := t.AddDate(0, 1, 0)
-				endStr := next.Format("2006-01-02 15:04:05+00")
-
-				tx, txErr := w.db.Pool.Begin(ctx)
-				if txErr != nil {
-					return fmt.Errorf("failed to begin tx for partition %s: %w", partitionName, txErr)
-				}
-				defer tx.Rollback(ctx)
-
-				_, err = tx.Exec(ctx, "SET LOCAL lock_timeout = '100ms';")
-				if err == nil {
-					createStmt := fmt.Sprintf(
-						"CREATE TABLE IF NOT EXISTS %s PARTITION OF search_logs FOR VALUES FROM ('%s') TO ('%s');",
-						partitionName, startStr, endStr,
-					)
-					_, err = tx.Exec(ctx, createStmt)
-				}
-
+				err := w.db.Pool.QueryRow(ctx, query, partitionName).Scan(&exists)
 				if err != nil {
-					slog.Warn("[PartitionWorker] Could not acquire lock or create partition, will retry later", "name", partitionName, "error", err)
-					return err
-				} else {
-					if err := tx.Commit(ctx); err != nil {
-						slog.Error("[PartitionWorker] Failed to commit partition creation", "name", partitionName, "error", err)
-						return err
-					}
-					slog.Info("[PartitionWorker] Successfully created partition table", "name", partitionName)
+					return fmt.Errorf("failed to check partition existence for %s: %w", partitionName, err)
 				}
-			} else {
-				slog.Debug("[PartitionWorker] Partition table already exists", "name", partitionName)
-			}
-		}
 
-		// 2. group_events partitions
-		{
-			partitionName := fmt.Sprintf("group_events_y%dm%02d", year, month)
-			var exists bool
-			query := `
+				if !exists {
+					slog.Info("[PartitionWorker] Creating missing partition table", "name", partitionName)
+					startStr := t.Format("2006-01-02 15:04:05+00")
+					next := t.AddDate(0, 1, 0)
+					endStr := next.Format("2006-01-02 15:04:05+00")
+
+					tx, txErr := w.db.Pool.Begin(ctx)
+					if txErr != nil {
+						return fmt.Errorf("failed to begin tx for partition %s: %w", partitionName, txErr)
+					}
+					defer tx.Rollback(ctx)
+
+					_, err = tx.Exec(ctx, "SET LOCAL lock_timeout = '100ms';")
+					if err == nil {
+						createStmt := fmt.Sprintf(
+							"CREATE TABLE IF NOT EXISTS %s PARTITION OF search_logs FOR VALUES FROM ('%s') TO ('%s');",
+							partitionName, startStr, endStr,
+						)
+						_, err = tx.Exec(ctx, createStmt)
+					}
+
+					if err != nil {
+						slog.Warn("[PartitionWorker] Could not acquire lock or create partition, will retry later", "name", partitionName, "error", err)
+						return err
+					} else {
+						if err := tx.Commit(ctx); err != nil {
+							slog.Error("[PartitionWorker] Failed to commit partition creation", "name", partitionName, "error", err)
+							return err
+						}
+						slog.Info("[PartitionWorker] Successfully created partition table", "name", partitionName)
+					}
+				} else {
+					slog.Debug("[PartitionWorker] Partition table already exists", "name", partitionName)
+				}
+			}
+
+			// 2. group_events partitions
+			{
+				partitionName := fmt.Sprintf("group_events_y%dm%02d", year, month)
+				var exists bool
+				query := `
 				SELECT EXISTS (
 					SELECT FROM pg_tables 
 					WHERE schemaname = 'public' 
 					AND tablename = $1
 				);`
-			err := w.db.Pool.QueryRow(ctx, query, partitionName).Scan(&exists)
-			if err != nil {
-				return fmt.Errorf("failed to check partition existence for %s: %w", partitionName, err)
-			}
-
-			if !exists {
-				slog.Info("[PartitionWorker] Creating missing partition table", "name", partitionName)
-				startStr := t.Format("2006-01-02 15:04:05+00")
-				next := t.AddDate(0, 1, 0)
-				endStr := next.Format("2006-01-02 15:04:05+00")
-
-				tx, txErr := w.db.Pool.Begin(ctx)
-				if txErr != nil {
-					return fmt.Errorf("failed to begin tx for partition %s: %w", partitionName, txErr)
-				}
-				defer tx.Rollback(ctx)
-
-				_, err = tx.Exec(ctx, "SET LOCAL lock_timeout = '100ms';")
-				if err == nil {
-					createStmt := fmt.Sprintf(
-						"CREATE TABLE IF NOT EXISTS %s PARTITION OF group_events FOR VALUES FROM ('%s') TO ('%s');",
-						partitionName, startStr, endStr,
-					)
-					_, err = tx.Exec(ctx, createStmt)
-				}
-
+				err := w.db.Pool.QueryRow(ctx, query, partitionName).Scan(&exists)
 				if err != nil {
-					slog.Warn("[PartitionWorker] Could not acquire lock or create partition, will retry later", "name", partitionName, "error", err)
-					return err
-				} else {
-					if err := tx.Commit(ctx); err != nil {
-						slog.Error("[PartitionWorker] Failed to commit partition creation", "name", partitionName, "error", err)
-						return err
-					}
-					slog.Info("[PartitionWorker] Successfully created partition table", "name", partitionName)
+					return fmt.Errorf("failed to check partition existence for %s: %w", partitionName, err)
 				}
-			} else {
-				slog.Debug("[PartitionWorker] Partition table already exists", "name", partitionName)
-			}
-		}
 
-		return nil
-	}(i)
-	if err != nil {
-		slog.Error("[PartitionWorker] Error creating partitions for month offset", "offset", i, "error", err)
+				if !exists {
+					slog.Info("[PartitionWorker] Creating missing partition table", "name", partitionName)
+					startStr := t.Format("2006-01-02 15:04:05+00")
+					next := t.AddDate(0, 1, 0)
+					endStr := next.Format("2006-01-02 15:04:05+00")
+
+					tx, txErr := w.db.Pool.Begin(ctx)
+					if txErr != nil {
+						return fmt.Errorf("failed to begin tx for partition %s: %w", partitionName, txErr)
+					}
+					defer tx.Rollback(ctx)
+
+					_, err = tx.Exec(ctx, "SET LOCAL lock_timeout = '100ms';")
+					if err == nil {
+						createStmt := fmt.Sprintf(
+							"CREATE TABLE IF NOT EXISTS %s PARTITION OF group_events FOR VALUES FROM ('%s') TO ('%s');",
+							partitionName, startStr, endStr,
+						)
+						_, err = tx.Exec(ctx, createStmt)
+					}
+
+					if err != nil {
+						slog.Warn("[PartitionWorker] Could not acquire lock or create partition, will retry later", "name", partitionName, "error", err)
+						return err
+					} else {
+						if err := tx.Commit(ctx); err != nil {
+							slog.Error("[PartitionWorker] Failed to commit partition creation", "name", partitionName, "error", err)
+							return err
+						}
+						slog.Info("[PartitionWorker] Successfully created partition table", "name", partitionName)
+					}
+				} else {
+					slog.Debug("[PartitionWorker] Partition table already exists", "name", partitionName)
+				}
+			}
+
+			return nil
+		}(i)
+		if err != nil {
+			slog.Error("[PartitionWorker] Error creating partitions for month offset", "offset", i, "error", err)
+		}
 	}
-}
 
-return nil
+	return nil
 }

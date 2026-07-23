@@ -41,12 +41,12 @@ func GetAISuggestions(ctx context.Context, db *repository.Database, username str
 	// Try user keys as fallback
 	scorer := NewGeminiScorer(db) // reuse the key fetching logic
 	keys := scorer.getUserKeys(ctx)
-	
+
 	maxKeys := 3
 	if len(keys) < maxKeys {
 		maxKeys = len(keys)
 	}
-	
+
 	for i := 0; i < maxKeys; i++ {
 		idx := atomic.AddUint64(&scorer.keyIndex, 1) % uint64(len(keys))
 		key := keys[idx]
@@ -55,7 +55,7 @@ func GetAISuggestions(ctx context.Context, db *repository.Database, username str
 			return res
 		}
 	}
-	
+
 	return nil
 }
 
@@ -111,7 +111,7 @@ func callGroqSuggestions(ctx context.Context, prompt, apiKey string) ([]string, 
 	}
 
 	rawJSON := strings.TrimSpace(groqResp.Choices[0].Message.Content)
-	
+
 	// Remove markdown backticks if the model ignores the prompt instruction
 	rawJSON = strings.TrimPrefix(rawJSON, "```json")
 	rawJSON = strings.TrimPrefix(rawJSON, "```")

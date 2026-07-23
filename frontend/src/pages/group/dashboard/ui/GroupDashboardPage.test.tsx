@@ -42,8 +42,8 @@ describe('GroupDashboardPage', () => {
 		expect(await screen.findByText('Test Group')).toBeInTheDocument();
 	});
 
-	it('renders dashboard health label', async () => {
+	it('renders dashboard status badge', async () => {
 		render(() => <GroupDashboardPage />);
-		expect(await screen.findByText((c) => c.includes('ایمن') || c.includes('VerySafe') || c.includes('health'))).toBeInTheDocument();
+		expect(await screen.findByText('groupDashboard.proBadge')).toBeInTheDocument();
 	});
 });

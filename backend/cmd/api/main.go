@@ -359,7 +359,6 @@ func main() {
 	collectionRepo := repository.NewCollectionRepo(db)
 	collectionHandler := handler.NewCollectionHandler(collectionRepo)
 
-
 	authHandler := handler.NewAuthHandler(db, profileService)
 
 	// Initialize Owner components

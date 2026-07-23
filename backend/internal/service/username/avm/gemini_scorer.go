@@ -350,7 +350,7 @@ func extractScoreFromText(text string) (int, error) {
 			return n, nil
 		}
 	}
-	
+
 	// Fallback: just find the first valid number between 1 and 100
 	for _, word := range strings.Fields(strings.ReplaceAll(text, "\"", "")) {
 		word = strings.TrimFunc(word, func(r rune) bool {

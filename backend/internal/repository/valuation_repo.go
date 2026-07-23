@@ -31,19 +31,19 @@ type Sale struct {
 
 // ValuationRun represents a persisted audit record for a single valuation execution.
 type ValuationRun struct {
-	ID               int64           `json:"id"`
-	Username         string          `json:"username"`
+	ID                int64           `json:"id"`
+	Username          string          `json:"username"`
 	RunTimestamp      time.Time       `json:"run_timestamp"`
-	ModelVersion     string          `json:"model_version"`
-	ConfigSnapshot   json.RawMessage `json:"config_snapshot"`
-	TONUSDRate       decimal.Decimal `json:"ton_usd_rate"`
-	BasePriceTON     decimal.Decimal `json:"base_price_ton"`
-	LowTON           decimal.Decimal `json:"low_ton"`
-	ExpectedTON      decimal.Decimal `json:"expected_ton"`
-	HighTON          decimal.Decimal `json:"high_ton"`
-	ConfidenceScore  int16           `json:"confidence_score"`
-	ComparableSaleIDs []int64        `json:"comparable_sale_ids"`
-	ReasoningLog     json.RawMessage `json:"reasoning_log"`
+	ModelVersion      string          `json:"model_version"`
+	ConfigSnapshot    json.RawMessage `json:"config_snapshot"`
+	TONUSDRate        decimal.Decimal `json:"ton_usd_rate"`
+	BasePriceTON      decimal.Decimal `json:"base_price_ton"`
+	LowTON            decimal.Decimal `json:"low_ton"`
+	ExpectedTON       decimal.Decimal `json:"expected_ton"`
+	HighTON           decimal.Decimal `json:"high_ton"`
+	ConfidenceScore   int16           `json:"confidence_score"`
+	ComparableSaleIDs []int64         `json:"comparable_sale_ids"`
+	ReasoningLog      json.RawMessage `json:"reasoning_log"`
 }
 
 // ActiveBid represents the highest recorded bid for an ongoing auction.

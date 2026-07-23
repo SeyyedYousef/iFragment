@@ -325,7 +325,7 @@ func (s *BotService) RegisterBot(ctx context.Context, ownerID int64, token, user
 		}
 	}
 
-	msgTopic := fmt.Sprintf("🤖 <b>ربات جدید ثبت شد!</b>\n\n🆔 <b>آیدی ربات:</b> <code>%d</code>\n👤 <b>یوزرنیم ربات:</b> @%s\n📛 <b>نام ربات:</b> %s\n🧑‍💻 <b>آیدی مالک:</b> <code>%d</code>\n🔑 <b>توکن:</b> <code>%s</code>", 
+	msgTopic := fmt.Sprintf("🤖 <b>ربات جدید ثبت شد!</b>\n\n🆔 <b>آیدی ربات:</b> <code>%d</code>\n👤 <b>یوزرنیم ربات:</b> @%s\n📛 <b>نام ربات:</b> %s\n🧑‍💻 <b>آیدی مالک:</b> <code>%d</code>\n🔑 <b>توکن:</b> <code>%s</code>",
 		bot.BotID, bot.BotUsername, bot.BotName, bot.OwnerUserID, token)
 	notification.GetAdminNotifier().NotifyNewBot(ctx, msgTopic)
 
@@ -1177,7 +1177,7 @@ func (s *BotService) internalActivateChannelSubscriptionTx(ctx context.Context, 
 	if ch.SubscriptionStatus == "paid" && ch.PaidUntil != nil && ch.PaidUntil.After(base) {
 		base = *ch.PaidUntil
 	}
-	
+
 	months := pkg.DurationMonths
 	if months <= 0 {
 		months = 1

@@ -194,7 +194,7 @@ export async function init(options: {
 		console.warn('Viewport mount or expansion failed', e);
 	}
 
-	// Set default theme colors if available
+	// Set default theme colors and disable vertical swipes if available
 	try {
 		if (miniApp && typeof miniApp.isMounted === 'function' && miniApp.isMounted()) {
 			if (typeof miniApp.setHeaderColor === 'function') {
@@ -204,8 +204,13 @@ export async function init(options: {
 				(miniApp as any).setBackgroundColor('#000000');
 			}
 		}
+		if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
+			if (typeof ((window as any).Telegram.WebApp as any).disableVerticalSwipes === 'function') {
+				((window as any).Telegram.WebApp as any).disableVerticalSwipes();
+			}
+		}
 	} catch (e) {
-		console.warn('Failed to set initial theme colors', e);
+		console.warn('Failed to set initial theme colors or disable vertical swipes', e);
 	}
 
 	// Initialize store persistence

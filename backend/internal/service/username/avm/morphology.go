@@ -5,36 +5,36 @@ import "math"
 // MorphFeatures describes the morphological properties of a username
 // used for multiplier stacking and confounder isolation.
 type MorphFeatures struct {
-	HasNumbers        bool
-	HasAlpha          bool
-	HasUnderscore     bool
-	HasCheapSuffix    bool
-	HasCheapPrefix    bool
-	HasRepetition     bool
-	IsDictionary      bool
-	CharLength        int
-	SemanticScore     float64 // Added for prior sliding logic
-	FlowScore         float64
-	IsPalindrome      bool
-	IsKeyboardPattern bool
-	IsCombo           bool
-	ComboValue        float64
-	IsTechPattern     bool
-	HasGoldenYear     bool
-	AffixBonus        float64
-	TierMultiplier    float64
-	FrequencyRank     int
-	IsHyped           bool
-	EuphonyScore      float64
-	IsAesthetic       bool
-	HasBrandableSuffix bool
-	IsAcronym         bool
-	IsUnderscoreCompound bool
-	VisualSymmetry    float64
-	IsABAB               bool
-	IsAABB               bool
+	HasNumbers            bool
+	HasAlpha              bool
+	HasUnderscore         bool
+	HasCheapSuffix        bool
+	HasCheapPrefix        bool
+	HasRepetition         bool
+	IsDictionary          bool
+	CharLength            int
+	SemanticScore         float64 // Added for prior sliding logic
+	FlowScore             float64
+	IsPalindrome          bool
+	IsKeyboardPattern     bool
+	IsCombo               bool
+	ComboValue            float64
+	IsTechPattern         bool
+	HasGoldenYear         bool
+	AffixBonus            float64
+	TierMultiplier        float64
+	FrequencyRank         int
+	IsHyped               bool
+	EuphonyScore          float64
+	IsAesthetic           bool
+	HasBrandableSuffix    bool
+	IsAcronym             bool
+	IsUnderscoreCompound  bool
+	VisualSymmetry        float64
+	IsABAB                bool
+	IsAABB                bool
 	IsSymmetricRepetition bool
-	IsGibberish          bool
+	IsGibberish           bool
 }
 
 // IsGibberishString checks if a username is a meaningless random string (e.g. fhhff, xqzkw).
@@ -85,14 +85,14 @@ func CalcMorphologyLog(features MorphFeatures, multipliers map[string]float64, c
 			morphLog += math.Log(m)
 		}
 	}
-	
+
 	// Double Penalty for Number + Underscore Combo
 	if features.HasNumbers && features.HasUnderscore {
 		if m, ok := multipliers["num_underscore_combo"]; ok && m > 0 {
 			morphLog += math.Log(m)
 		}
 	}
-	
+
 	// Underscore Compound Recovery
 	if features.IsUnderscoreCompound && features.HasUnderscore {
 		if m, ok := multipliers["has_underscore"]; ok && m > 0 {
@@ -132,7 +132,7 @@ func CalcMorphologyLog(features MorphFeatures, multipliers map[string]float64, c
 			}
 		}
 	}
-	
+
 	// Pronounceability Premium/Penalty
 	if features.FlowScore > 0.85 && !features.IsDictionary {
 		if m, ok := multipliers["flow_high"]; ok && m > 0 {
@@ -171,11 +171,11 @@ func CalcMorphologyLog(features MorphFeatures, multipliers map[string]float64, c
 	// Lexicon: Tier & Combo Multipliers
 	if features.IsCombo {
 		// Scale down large multipliers so they stack nicely in log-space
-		morphLog += math.Log(1.0 + features.ComboValue/5.0) 
+		morphLog += math.Log(1.0 + features.ComboValue/5.0)
 	} else if features.TierMultiplier > 1.0 {
 		morphLog += math.Log(1.0 + features.TierMultiplier/5.0)
 	}
-	
+
 	// Phase 4 premiums
 	if features.IsAcronym {
 		if m, ok := multipliers["known_acronym"]; ok && m > 0 {
@@ -251,7 +251,7 @@ func CalcRangeLog(baseLog, morphLog, momentumLog, semanticLog, mad float64, char
 	if finalLog < 0 {
 		finalLog = 0 // ~1 TON
 	}
-	
+
 	// Width guard
 	wMin := math.Log(1 + cfg.MinPct)
 	width := math.Max(mad*cfg.UncertaintyMult, wMin)

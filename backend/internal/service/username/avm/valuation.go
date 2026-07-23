@@ -65,10 +65,10 @@ type ValuationHistory struct {
 type ValuationSimilar struct {
 	Username     string  `json:"username"`
 	Reason       string  `json:"reason"`
-	Status       string  `json:"status,omitempty"`          // "sold", "available", "on_sale", "on_auction", "non_nft"
-	SalePrice    float64 `json:"sale_price,omitempty"`      // Last sale price in TON
+	Status       string  `json:"status,omitempty"`         // "sold", "available", "on_sale", "on_auction", "non_nft"
+	SalePrice    float64 `json:"sale_price,omitempty"`     // Last sale price in TON
 	SalePriceUSD float64 `json:"sale_price_usd,omitempty"` // Last sale price in USD
-	SaleDate     string  `json:"sale_date,omitempty"`       // Date of last sale
+	SaleDate     string  `json:"sale_date,omitempty"`      // Date of last sale
 }
 
 type ValuationStructure struct {
@@ -108,17 +108,17 @@ type ValuationResult struct {
 	ReasoningLog    map[string]any     `json:"reasoning_log"`
 
 	// New fields for the 17-point feature set
-	InvestmentGrade    string              `json:"investment_grade"`
-	Comparables        []ComparableSaleDto `json:"comparables"`
-	PriceTrend         []PriceTrendDto     `json:"price_trend"`
-	WalletInfo         *WalletInfoDto      `json:"wallet_info"`
-	EntityInfo         *EntityInfoDto      `json:"entity_info"`
-	Status             string              `json:"status"`
-	Brandability       int                 `json:"brandability"`
-	FearGreedIndex     int                 `json:"fear_greed_index"`
-	FearGreedLabel     string              `json:"fear_greed_label"`
-	WikipediaSummary   string              `json:"wikipedia_summary"`
-	RarityBreakdown    map[string]int      `json:"rarity_breakdown"`
+	InvestmentGrade  string              `json:"investment_grade"`
+	Comparables      []ComparableSaleDto `json:"comparables"`
+	PriceTrend       []PriceTrendDto     `json:"price_trend"`
+	WalletInfo       *WalletInfoDto      `json:"wallet_info"`
+	EntityInfo       *EntityInfoDto      `json:"entity_info"`
+	Status           string              `json:"status"`
+	Brandability     int                 `json:"brandability"`
+	FearGreedIndex   int                 `json:"fear_greed_index"`
+	FearGreedLabel   string              `json:"fear_greed_label"`
+	WikipediaSummary string              `json:"wikipedia_summary"`
+	RarityBreakdown  map[string]int      `json:"rarity_breakdown"`
 
 	// Enhanced Valuation & Intelligence metrics
 	LiquidityRating    string             `json:"liquidity_rating"`
@@ -303,7 +303,7 @@ func ClassifyUsername(username string) (segment string, charLen int16, features 
 			isSymmetricRepetition = isSym
 		}
 	}
-	
+
 	// Phase 4 Linguistics & Aesthetics
 	isUnderscoreCompound := false
 	if hasUnderscore {
@@ -314,7 +314,7 @@ func ClassifyUsername(username string) (segment string, charLen int16, features 
 			}
 		}
 	}
-	
+
 	isAcronym := false
 	acronyms := []string{"fifa", "nato", "nasa", "opec", "asap", "vpn", "ceo", "cto", "nft", "defi", "dao", "vip"}
 	for _, a := range acronyms {
@@ -323,7 +323,7 @@ func ClassifyUsername(username string) (segment string, charLen int16, features 
 			break
 		}
 	}
-	
+
 	isABAB := false
 	isAABB := false
 	if len(lower) == 4 {
@@ -334,7 +334,7 @@ func ClassifyUsername(username string) (segment string, charLen int16, features 
 			isAABB = true
 		}
 	}
-	
+
 	symCount := 0
 	for _, r := range strings.ToUpper(lower) {
 		switch r {
@@ -346,46 +346,46 @@ func ClassifyUsername(username string) (segment string, charLen int16, features 
 	if charLen > 0 {
 		visualSymmetry = float64(symCount) / float64(charLen)
 	}
-	
+
 	hasBrandableSuffix := false
 	brandableSuffixes := []string{"ly", "ify", "io", "er", "ex", "ix", "ax", "oo", "hq", "app"}
 	for _, s := range brandableSuffixes {
-		if strings.HasSuffix(lower, s) && len(lower) > len(s) + 2 && !hasUnderscore {
+		if strings.HasSuffix(lower, s) && len(lower) > len(s)+2 && !hasUnderscore {
 			hasBrandableSuffix = true
 			break
 		}
 	}
 
 	features = MorphFeatures{
-		HasNumbers:        hasNumbers,
-		HasAlpha:          hasAlpha,
-		HasUnderscore:     hasUnderscore,
-		HasCheapSuffix:    hasCheapSuffix,
-		HasCheapPrefix:    hasCheapPrefix,
-		HasRepetition:     hasRepetition,
-		IsDictionary:      isDict,
-		CharLength:        int(charLen),
-		FlowScore:         AnalyzeFlow(decoded),
-		IsPalindrome:      IsPalindrome(lower),
-		IsKeyboardPattern: IsKeyboardPattern(lower),
-		IsCombo:           comboRes.IsCombo,
-		ComboValue:        comboRes.Value,
-		IsTechPattern:     techRes.IsTechPattern,
-		HasGoldenYear:     yearRes.HasYear,
-		AffixBonus:        affixRes.Bonus,
-		TierMultiplier:    tierRes.Multiplier,
-		FrequencyRank:     RankWord(decoded),
-		IsHyped:           IsHyped(decoded),
-		EuphonyScore:      euphonyScore,
-		IsAesthetic:       isAesthetic,
-		HasBrandableSuffix: hasBrandableSuffix,
-		IsAcronym:         isAcronym,
-		IsUnderscoreCompound: isUnderscoreCompound,
-		VisualSymmetry:    visualSymmetry,
-		IsABAB:            isABAB,
-		IsAABB:            isAABB,
+		HasNumbers:            hasNumbers,
+		HasAlpha:              hasAlpha,
+		HasUnderscore:         hasUnderscore,
+		HasCheapSuffix:        hasCheapSuffix,
+		HasCheapPrefix:        hasCheapPrefix,
+		HasRepetition:         hasRepetition,
+		IsDictionary:          isDict,
+		CharLength:            int(charLen),
+		FlowScore:             AnalyzeFlow(decoded),
+		IsPalindrome:          IsPalindrome(lower),
+		IsKeyboardPattern:     IsKeyboardPattern(lower),
+		IsCombo:               comboRes.IsCombo,
+		ComboValue:            comboRes.Value,
+		IsTechPattern:         techRes.IsTechPattern,
+		HasGoldenYear:         yearRes.HasYear,
+		AffixBonus:            affixRes.Bonus,
+		TierMultiplier:        tierRes.Multiplier,
+		FrequencyRank:         RankWord(decoded),
+		IsHyped:               IsHyped(decoded),
+		EuphonyScore:          euphonyScore,
+		IsAesthetic:           isAesthetic,
+		HasBrandableSuffix:    hasBrandableSuffix,
+		IsAcronym:             isAcronym,
+		IsUnderscoreCompound:  isUnderscoreCompound,
+		VisualSymmetry:        visualSymmetry,
+		IsABAB:                isABAB,
+		IsAABB:                isAABB,
 		IsSymmetricRepetition: isSymmetricRepetition,
-		IsGibberish:          IsGibberishString(lower, isDict, RankWord(decoded), AnalyzeFlow(decoded)),
+		IsGibberish:           IsGibberishString(lower, isDict, RankWord(decoded), AnalyzeFlow(decoded)),
 	}
 
 	return segment, charLen, features
@@ -671,7 +671,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		targetComps = append(targetComps, ComparableSale{
 			PriceTON:   hardcodedPrice,
 			SaleDate:   time.Date(2022, 11, 1, 0, 0, 0, 0, time.UTC), // Fragment username launch date for accurate appreciation
-			ID:         0,   // Sentinel ID
+			ID:         0,                                            // Sentinel ID
 			CharLength: len(username),
 		})
 		anchorInjected = true
@@ -683,7 +683,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	ApplyMarketAppreciation(targetComps, s.cfg.AppreciationRate, now)
 	ApplyMarketAppreciation(exactComps, s.cfg.AppreciationRate, now)
 	ApplyMarketAppreciation(broadComps, s.cfg.AppreciationRate, now)
-	
+
 	reasoning["appreciation_rate"] = s.cfg.AppreciationRate
 	reasoning["anchor_injected"] = anchorInjected
 
@@ -705,11 +705,11 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		// Continuous multiplier from 1.0x (at score 40) to 6.0x (at score 100)
 		scoreDiff := semResult.TotalScore - 40.0
 		semBaseMult := 1.0 + math.Pow(scoreDiff/60.0, 1.5)*5.0
-		
+
 		lengthFallback := fallbackForLength(int(charLen), s.cfg)
 		minBasePrice := lengthFallback * semBaseMult
 		minBaseLog := math.Log(minBasePrice)
-		
+
 		if baseLog < minBaseLog {
 			baseLog = minBaseLog
 			reasoning["semantic_base_boost"] = fmt.Sprintf("continuous_boost_%.2fx", semBaseMult)
@@ -790,7 +790,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	}
 
 	semanticLog *= dampingFactor // Dampen semantic impact based on dampingFactor
-	
+
 	if anchorInjected {
 		// For anchored sales, the historical sale price ALREADY captures the username's morphology and baseline desirability.
 		// Morphology is zeroed out to prevent double-counting.
@@ -811,14 +811,14 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		}
 		reasoning["anchor_damping_applied"] = true
 	}
-	
+
 	reasoning["semantic_log"] = semanticLog
 
 	// 3c. Momentum
 	var sumRecent, sumOlder float64
 	var numRecent, numOlder int
 	thirtyDaysAgo := now.AddDate(0, 0, -30)
-	
+
 	compsToUse := exactComps
 	if len(compsToUse) == 0 {
 		compsToUse = broadComps
@@ -837,8 +837,8 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 			numOlder++
 		}
 	}
-	
-	priceTrend := 1.0 
+
+	priceTrend := 1.0
 	if numRecent > 0 && numOlder > 0 {
 		avgRecent := sumRecent / float64(numRecent)
 		avgOlder := sumOlder / float64(numOlder)
@@ -1032,10 +1032,18 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 
 	// Dynamic Liquidity & Velocity calculation
 	liquidityScore := 40
-	if features.IsDictionary { liquidityScore += 30 }
-	if charLen <= 5 { liquidityScore += 20 }
-	if !features.HasNumbers && !features.HasUnderscore { liquidityScore += 10 }
-	if features.IsGibberish { liquidityScore = 5 }
+	if features.IsDictionary {
+		liquidityScore += 30
+	}
+	if charLen <= 5 {
+		liquidityScore += 20
+	}
+	if !features.HasNumbers && !features.HasUnderscore {
+		liquidityScore += 10
+	}
+	if features.IsGibberish {
+		liquidityScore = 5
+	}
 
 	// Adjust liquidity score by price point (higher price = lower instant liquidity)
 	if expectedTON > 50000 {
@@ -1046,8 +1054,12 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		liquidityScore += 15
 	}
 
-	if liquidityScore < 5 { liquidityScore = 5 }
-	if liquidityScore > 98 { liquidityScore = 98 }
+	if liquidityScore < 5 {
+		liquidityScore = 5
+	}
+	if liquidityScore > 98 {
+		liquidityScore = 98
+	}
 	reasoning["liquidity_score"] = liquidityScore
 
 	// Derive Liquidity Rating
@@ -1133,7 +1145,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 
 	// ── Step 4.5: Populate New Report Fields ──
 	dictData := GetDictionaryDetails(username)
-	
+
 	// Similar usernames (we'll just use Levenshtein from cache, if available, or empty)
 	// Because ValuationService doesn't have AnalysisService attached directly, we'll construct a quick fallback or we could use the global pool if exported.
 	// We'll leave similar empty for now and let the handler populate it, or populate it here if we expose a helper in similar.go.
@@ -1164,7 +1176,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	// Calculate analytical SEO Score based on frequency data and composition
 	// Rather than using arbitrary +/- numbers, we map frequency and structural purity to a 1-100 metric.
 	seoScore := 0
-	
+
 	// Base score from length (shorter is generally higher search intent / more generic)
 	if charLen <= 4 {
 		seoScore = 80
@@ -1214,14 +1226,14 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 	}
 
 	var historyTransactions []ValuationHistoryItem
-	
+
 	// Fetch real history from TonAPI Bids endpoint
 	tonapiClient := tonapi.NewClient()
 	subCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	
+
 	bidsResp, errBids := tonapiClient.GetFragmentBids(subCtx, username+".t.me")
-	
+
 	if errBids == nil && bidsResp != nil && len(bidsResp.Data) > 0 {
 		// Bids are returned in descending order. The first one is typically the winning bid/sale.
 		// Sometimes there are multiple successful bids if resold. Let's record all successful ones.
@@ -1229,13 +1241,11 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 			if !bid.Success {
 				continue
 			}
-			
+
 			priceTON := float64(bid.Value) / 1e9 // Convert nanotons to TON
 			if priceTON > highestPastSale {
 				highestPastSale = priceTON
 			}
-			
-			
 
 			historyTransactions = append(historyTransactions, ValuationHistoryItem{
 				SalePriceTON: fmt.Sprintf("%.0f", priceTON),
@@ -1296,17 +1306,17 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 			Tier:  GetTier(expectedTON),
 			Stars: GetStars(expectedTON),
 		},
-		Tags:            semResult.Tags,
-		Length:          int(charLen),
-		Structure:       structureResult,
-		SEO:             seoResult,
-		Dictionary:      DictionaryData{
+		Tags:      semResult.Tags,
+		Length:    int(charLen),
+		Structure: structureResult,
+		SEO:       seoResult,
+		Dictionary: DictionaryData{
 			IsWord:       dictData.IsWord || (semResult != nil && semResult.WordFreqScore > 20),
 			PartOfSpeech: dictData.PartOfSpeech,
 			Definition:   dictData.Definition,
 		},
-		History:         history,
-		Similar:         similarNames,
+		History: history,
+		Similar: similarNames,
 		// Enhanced Valuation & Intelligence metrics
 		LiquidityRating:    liquidityRating,
 		EstimatedSellTime:  estimatedSellTime,
@@ -1314,17 +1324,27 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		ProjectedGrowth:    projectedGrowth,
 
 		// New fields populated
-		InvestmentGrade:  func() string {
-			if expectedTON > 50000 { return "A+" }
-			if expectedTON > 10000 { return "A" }
-			if expectedTON > 1000 { return "B" }
-			if expectedTON > 100 { return "C" }
+		InvestmentGrade: func() string {
+			if expectedTON > 50000 {
+				return "A+"
+			}
+			if expectedTON > 10000 {
+				return "A"
+			}
+			if expectedTON > 1000 {
+				return "B"
+			}
+			if expectedTON > 100 {
+				return "C"
+			}
 			return "D"
 		}(),
-		Comparables:      func() []ComparableSaleDto {
+		Comparables: func() []ComparableSaleDto {
 			var comps []ComparableSaleDto
 			for i, s := range targetSales {
-				if i >= 5 { break }
+				if i >= 5 {
+					break
+				}
 				comps = append(comps, ComparableSaleDto{
 					Username: s.Username,
 					Price:    ToFloat64(s.SalePriceTON),
@@ -1347,11 +1367,11 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 			} else {
 				trends = append(trends, PriceTrendDto{Label: "90d Volume", Value: 0})
 			}
-			// Price ratio 
+			// Price ratio
 			if priceTrend > 0 && priceTrend != 1.0 {
 				// E.g., if priceTrend is 1.5, it means recent prices are 50% higher than older ones
 				ratioPerc := (priceTrend - 1.0) * 100.0
-				trends = append(trends, PriceTrendDto{Label: "Price Action", Value: math.Round(ratioPerc*10)/10})
+				trends = append(trends, PriceTrendDto{Label: "Price Action", Value: math.Round(ratioPerc*10) / 10})
 			} else {
 				trends = append(trends, PriceTrendDto{Label: "Price Action", Value: 0})
 			}
@@ -1359,9 +1379,15 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		}(),
 		Brandability: func() int {
 			b := 30
-			if dictData.IsWord { b += 30 }
-			if charLen <= 5 { b += 20 }
-			if !features.HasNumbers && !features.HasUnderscore { b += 20 }
+			if dictData.IsWord {
+				b += 30
+			}
+			if charLen <= 5 {
+				b += 20
+			}
+			if !features.HasNumbers && !features.HasUnderscore {
+				b += 20
+			}
 			return b
 		}(),
 		FearGreedIndex: fngIndex,
@@ -1373,9 +1399,24 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 			return ""
 		}(),
 		RarityBreakdown: map[string]int{
-			"Length Bonus": func() int { if charLen <= 5 { return 1000 }; return 0 }(),
-			"Dictionary Bonus": func() int { if dictData.IsWord { return 2000 }; return 0 }(),
-			"Clean Structure": func() int { if !features.HasUnderscore && !features.HasNumbers { return 300 }; return 0 }(),
+			"Length Bonus": func() int {
+				if charLen <= 5 {
+					return 1000
+				}
+				return 0
+			}(),
+			"Dictionary Bonus": func() int {
+				if dictData.IsWord {
+					return 2000
+				}
+				return 0
+			}(),
+			"Clean Structure": func() int {
+				if !features.HasUnderscore && !features.HasNumbers {
+					return 300
+				}
+				return 0
+			}(),
 		},
 	}, nil
 }

@@ -1,52 +1,129 @@
-# 🚀 iFragment - نقشه راه فنی و معماری پروژه (Tech Spec Blueprint)
+# 🚀 iFragment - High-Performance Telegram Mini App & Web Platform
 
-این مخزن کد مربوط به اپلیکیشن **iFragment** (نسخه مینی‌اپ تلگرام) است. در زیر معماری کامل و ساختار تکنولوژی‌های به کار رفته در این پروژه تشریح شده است.
+[![Project Status: Completed](https://img.shields.io/badge/Status-Completed%20%26%20Verified-emerald?style=for-the-badge)](PRODUCTION.md)
+[![Stack: SolidJS + Go](https://img.shields.io/badge/Stack-SolidJS%20%7C%20Go%201.22%20%7C%20PostgreSQL-3390ec?style=for-the-badge)](docs/decisions/ADR-001-architecture-overview.md)
 
-## ۱. لایه فرانت‌اند (The Client-Side Mini App)
-تمرکز در این لایه بر روی پرفورمنس مطلق، سرعت اجرای بالا درون وب‌ویوی تلگرام و ایزوله‌سازی کدهای تیمی است.
-
-*   **هسته اصلی (Core):** `SolidJS` (بدون Virtual DOM برای بالاترین فریم‌ریت).
-*   **بستر ساخت (Build Tool):** `Vite` + `TypeScript` (حالت Strict).
-*   **معماری پوشه‌بندی:** `FSD (Feature-Sliced Design)` به سبک سوپر‌اپ (لگویی).
-*   **طراحی رابط کاربری (UI/UX):**
-    *   استایل‌دهی: `Tailwind CSS v4`
-    *   کامپوننت‌های پایه: `Ark UI` (Headless و قابل دسترس)
-    *   انیمیشن‌ها: `Motion Solid` (انیمیشن‌های نرم ۱۲۰ فریم)
-*   **مدیریت وضعیت و دیتای شبکه (State & Fetching):** `TanStack Query (v5)`
-*   **اعتبارسنجی داده‌ها (Validation):** `Valibot` (جایگزین کم‌حجم‌تر برای Zod)
-
-## ۲. لایه سرور و موتور پردازشی (The Backend Engine)
-تمرکز در این لایه بر روی هندل کردن هزاران ریکوئستِ همزمان (Concurrency)، پایداری مالی و سرعت پاسخگویی است.
-
-*   **زبان برنامه‌نویسی:** `Go (Golang)` آخرین نسخه.
-*   **معماری پوشه‌بندی:** `Clean Architecture / Go Standard Layout` (تفکیک لایه‌های Handler, Service, Repository).
-*   **پایگاه داده اصلی (Primary DB):** `PostgreSQL` (ایمن‌ترین پایگاه برای ذخیره دارایی‌ها و تراکنش‌ها).
-*   **مدیریت کوئری‌ها (ORM Alternative):** `SQLC` + `pgx` (تولید کدهای تایپ‌سیف Go مستقیماً از روی فایل‌های SQL خام).
-*   **کشینگ و پیام‌رسانی (Cache & Pub/Sub):** `DragonflyDB` (جایگزین چند-هسته‌ای (Multi-threaded) و بسیار پرسرعت‌تر برای Redis).
-*   **مسیریابی (Routing):** استفاده از `net/http` استاندارد نسخه ۱.۲۲ به بالا یا فریم‌ورک‌های سبک مثل `Chi`.
-
-## ۳. درگاه‌های یکپارچه‌سازی (Web3 & Telegram Integration)
-*   **ارتباط با سنسور‌های تلگرام:** `TMA SDK Solid` (برای اعمال ویبره، گرفتن تم و تعاملات نِیتیو).
-*   **امنیت ورود و اصالت‌سنجی:** پیاده‌سازی سد امنیتی `Telegram InitData` به صورت میان‌افزار در Go.
-*   **بلاکچین تون:** `TON Connect UI` برای اتصال به کیف پول‌ها و ساخت تراکنش‌های شبکه.
-*   **ارتباط فرانت‌اند و بک‌اند:** تولید کلاینت‌های شبکه به صورت تماماً خودکار از روی `Swagger/OpenAPI` بک‌اند به کمک ابزار `Hey-API`.
-
-## ۴. ابزارهای توسعه مهندسی و کیفی (DevTools & DevOps)
-برای حفظ کیفیت کد در صورت بزرگ شدن تیم، این ابزارها جلوی خطاهای انسانی را می‌گیرند:
-
-*   **مدیریت وابستگی‌ها:** `pnpm` (نصب سریع و جلوگیری از اشغال دیسک).
-*   **تایپوگرافی و لینتر کدها:** `Biome` (ابزار مبتنی بر Rust، جایگزین بسیار سریع برای ESLint و Prettier).
-*   **هوک‌های گیت (Git Hooks):** `Lefthook` (اجرای موازی چک‌لیست‌های قبل از کامیت کد، جایگزین Husky).
-*   **اسکن کدهای مرده:** `Knip` (برای پاکسازی فایل‌ها و پکیج‌های بی‌اسفاده در طول عمر پروژه).
-*   **حراست از معماری FSD:** `Dependency-Cruiser` (جلوگیری از وارد کردن فایل‌های اشتباه در لایه‌های نامربوط).
-*   **شبیه‌سازی شبکه:** `MSW (Mock Service Worker)` (برای توسعه مستقل فرانت‌اند بدون نیاز به آماده بودن بک‌اند).
-*   **تست‌ها:** `Vitest` (برای یونیت تست) و `Playwright` (برای تست‌های E2E مرورگر).
+**iFragment** is a Telegram Mini App (TMA) and Web Application engineered for ultra-fast performance, high-concurrency Telegram user interactions, fragment marketplace features, channel/group auto-response, and gamified airdrop systems.
 
 ---
 
-## فازهای پیاده‌سازی (Implementation Phases)
-1. **فاز صفر (پیکربندی ساختار):** راه‌اندازی فرانت‌اند (Solid+Vite)، راه‌اندازی معماری FSD، و ابزارهای کیفیت کد (Biome, Lefthook).
-2. **فاز یک (اتصال به تلگرام و تم‌سازی):** پیاده‌سازی Telegram SDK، آماده‌سازی Tailwind v4 و سیستم رنگی (Dark/Light).
-3. **فاز دو (توسعه کامپوننت‌های پایه):** پیاده‌سازی UI Kit با استفاده از Ark UI و اعمال انیمیشن‌های پایه.
-4. **فاز سه (توسعه فیچرها):** ساخت ماژول‌های Username, Numbers, Gifts و Domains.
-5. **فاز چهار (Web3 و یکپارچه‌سازی نهایی):** اتصال TON Connect و تست‌های نهایی با MSW/Playwright.
+## 🌟 Architecture & Tech Stack
+
+### 📱 Frontend (SolidJS + Vite)
+- **Framework:** [SolidJS](https://solidjs.com) (Zero Virtual DOM overhead for 120fps mobile WebView execution)
+- **Build Tool:** Vite + TypeScript (Strict Mode)
+- **Architecture:** Feature-Sliced Design (FSD)
+- **Styling:** Tailwind CSS v4 + Dark Glassmorphism Design Tokens
+- **State & Data:** `@tanstack/solid-query` v5
+- **Telegram Native SDK:** `@tma.js/sdk-solid` for Haptic Feedback, MainButton, BackButton & Theme integration
+
+### ⚙️ Backend (Go Engine)
+- **Language:** Go (Golang) 1.22+
+- **Architecture:** Clean Architecture (Handler -> Service -> Repository)
+- **Primary Database:** PostgreSQL with `SQLC` for 100% type-safe SQL queries
+- **Caching & Pub/Sub:** DragonflyDB (Multi-threaded Redis replacement)
+- **Security:** Telegram `initData` HMAC verification + JWT session isolation
+
+---
+
+## ⚡ Quick Start & Development
+
+### Prerequisites
+- Node.js 20+ and `pnpm` / `npm`
+- Go 1.22+
+- Docker & Docker Compose (for local PostgreSQL + DragonflyDB)
+
+### 1. Repository Setup
+```bash
+# Clone the repository
+git clone https://github.com/SeyyedYousef/iFragment.git
+cd iFragment
+```
+
+### 2. Environment Configuration
+```bash
+# Copy example environment file
+cp .env.example .env
+```
+
+### 3. Running Frontend (Dev Server)
+```bash
+cd frontend
+npm install
+npm run dev
+```
+The frontend dev server starts at `http://localhost:3000`.
+
+### 4. Running Backend (Dev Server)
+```bash
+cd backend
+go run cmd/api/main.go
+```
+The API server starts at `http://localhost:8080`.
+
+---
+
+## 🛠️ Quality Assurance & Validation Scripts
+
+The repository includes automated master validation scripts under `.agent/scripts`:
+
+```bash
+# Quick validation during development (Security, Lint, Schema, Tests, UX, SEO)
+python .agent/scripts/checklist.py .
+
+# Full verification suite before deployment
+python .agent/scripts/verify_all.py . --url http://localhost:3000
+
+# Standalone specialized checkers
+python .agent/skills/frontend-design/scripts/ux_audit.py .
+python .agent/skills/lint-and-validate/scripts/type_coverage.py .
+python .agent/skills/i18n-localization/scripts/i18n_checker.py .
+python .agent/skills/nextjs-react-expert/scripts/react_performance_checker.py .
+```
+
+---
+
+## 🚢 Production Deployment
+
+For complete step-by-step instructions on deploying with Docker Compose, Cloudflare Pages, SSL, and Telegram Webhooks, see [PRODUCTION.md](PRODUCTION.md).
+
+```bash
+# Quick deployment on VPS
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+---
+
+## 📂 Project Structure
+
+```plaintext
+iFragment/
+├── .agent/                 # Antigravity Kit (20 Agents, 36 Skills, Validation Scripts)
+├── docs/
+│   └── decisions/          # Architecture Decision Records (ADRs)
+├── frontend/               # SolidJS + Vite App (Feature-Sliced Design)
+│   ├── src/
+│   │   ├── app/            # Providers, router, global styles
+│   │   ├── pages/          # Application views & pages
+│   │   ├── widgets/        # Complex composite UI widgets
+│   │   ├── features/       # User interaction features
+│   │   ├── entities/       # Domain business entities
+│   │   └── shared/         # Reusable UI, API, i18n & utilities
+├── backend/                # Go Clean Architecture Engine
+│   ├── cmd/                # Entrypoints (api, worker)
+│   ├── internal/           # Handlers, services, repos, middlewares
+│   └── migrations/         # SQL database schema migrations
+├── docker-compose.prod.yml # Production Docker orchestration
+├── openapi.yaml            # OpenAPI / Swagger Specification
+├── PRODUCTION.md           # Production Deployment Guide
+└── README.md               # Project Blueprint & Guide
+```
+
+---
+
+## 📄 Documentation & References
+
+- [Architecture Decision Record (ADR-001)](docs/decisions/ADR-001-architecture-overview.md)
+- [Production Deployment Guide](PRODUCTION.md)
+- [Privacy Policy](PRIVACY_POLICY.md)
+- [OpenAPI 3.0 Specification](openapi.yaml)

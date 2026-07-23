@@ -129,4 +129,3 @@ func TestGetContactEndpoint(t *testing.T) {
 		t.Fatalf("expected username durov, got %v", resp["username"])
 	}
 }
-

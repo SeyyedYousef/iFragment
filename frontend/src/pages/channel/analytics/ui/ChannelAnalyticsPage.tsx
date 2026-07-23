@@ -214,7 +214,7 @@ export const ChannelAnalyticsPage: Component = () => {
 			{/* ═══════ CITATION INDEX MODAL (Bottom Sheet) ═══════ */}
 			<Show when={showCiModal()}>
 				<div class="fixed inset-0 z-[9990] bg-[#030303]/90 backdrop-blur-2xl flex items-end justify-center px-2 pb-2" onClick={(e) => { if (e.target === e.currentTarget) setShowCiModal(false); }}>
-					<Motion.div initial={{ y: '100%' }} animate={{ y: 0 }} transition={{ duration: 0.35, easing: [0.32, 0.72, 0, 1] }} class="w-full max-w-md bg-[#12141C] border border-white/10 rounded-[32px] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.8)] relative overflow-hidden">
+					<Motion.div initial={{ y: '100%' }} animate={{ y: 0 }} transition={{ duration: 0.35, easing: [0.32, 0.72, 0, 1] }} class="w-full max-w-md max-h-[85vh] overflow-y-auto no-scrollbar bg-[#12141C] border border-white/10 rounded-[32px] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.8)] relative">
 						<div class="absolute -top-10 -right-10 w-40 h-40 bg-[#06b6d4]/15 blur-3xl rounded-full pointer-events-none" />
 						
 						<div class="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-6" />

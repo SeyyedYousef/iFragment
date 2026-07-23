@@ -153,8 +153,8 @@ func TestCalcRangeLog(t *testing.T) {
 	// Base price = 100 TON → log(100) ≈ 4.605
 	baseLog := math.Log(100.0)
 	morphLog := 0.0    // neutral
-	momentumLog := 0.0  // neutral
-	mad := 0.3          // moderate spread
+	momentumLog := 0.0 // neutral
+	mad := 0.3         // moderate spread
 	expected, low, high := CalcRangeLog(baseLog, morphLog, momentumLog, 0.0, mad, 8, cfg)
 
 	if math.Abs(expected-100.0) > 0.1 {

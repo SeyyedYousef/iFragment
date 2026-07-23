@@ -20,7 +20,7 @@ func (h *CollectionHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 		RespondError(w, r, http.StatusInternalServerError, "Failed to fetch collection data", err)
 		return
 	}
-	
+
 	if data == nil {
 		RespondJSON(w, http.StatusOK, map[string]interface{}{"status": "pending", "message": "No data collected yet"})
 		return

@@ -309,7 +309,7 @@ export const AchievementsPage: Component = () => {
 							initial={{ y: '100%' }}
 							animate={{ y: 0 }}
 							transition={{ duration: 0.35, easing: [0.32, 0.72, 0, 1] }}
-							class="w-full max-w-md bg-[#12141C] border border-white/10 rounded-[32px] p-6 pb-8 flex flex-col items-center text-center relative overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.8)]"
+							class="w-full max-w-md max-h-[85vh] overflow-y-auto no-scrollbar bg-[#12141C] border border-white/10 rounded-[32px] p-6 pb-8 flex flex-col items-center text-center relative shadow-[0_20px_60px_rgba(0,0,0,0.8)]"
 						>
 							<Show when={ach().unlocked}>
 								<div class="absolute -top-20 -left-20 w-56 h-56 bg-amber-400/10 rounded-full blur-3xl pointer-events-none" />

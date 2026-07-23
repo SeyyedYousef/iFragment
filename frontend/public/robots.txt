@@ -1,0 +1,12 @@
+# iFragment Robots Configuration
+User-agent: *
+Allow: /
+Allow: /#/
+Allow: /#/marketplace
+Allow: /#/airdrop
+
+# Disallow administrative and private owner routes
+Disallow: /#/owner/
+Disallow: /api/v1/owner/
+
+Sitemap: https://ifragment.app/sitemap.xml

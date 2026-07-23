@@ -1157,7 +1157,7 @@ func (s *GamificationService) GetTotalMiners(ctx context.Context) (int64, error)
 			return val, nil
 		}
 	}
-	
+
 	var count int64
 	err := s.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM users").Scan(&count)
 	if err == nil && s.cache != nil && s.cache.Client != nil {
@@ -1345,7 +1345,7 @@ func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID i
 	}
 
 	// Calculate caps
-	sessionCap := float64(maxEnergy * multitap)         // Per-session cap
+	sessionCap := float64(maxEnergy * multitap)          // Per-session cap
 	dailyCap := sessionCap * float64(dailyCapMultiplier) // Daily cap (3x session)
 
 	// Check daily cap headroom
@@ -1575,9 +1575,9 @@ func (s *GamificationService) ApplyFullEnergy(ctx context.Context, userID int64)
 }
 
 type DailyComboStatus struct {
-	IsActive   bool  `json:"is_active"`
-	IsClaimed  bool  `json:"is_claimed"`
-	Reward     int64 `json:"reward"`
+	IsActive  bool  `json:"is_active"`
+	IsClaimed bool  `json:"is_claimed"`
+	Reward    int64 `json:"reward"`
 }
 
 func (s *GamificationService) GetDailyComboStatus(ctx context.Context, userID int64) (*DailyComboStatus, error) {

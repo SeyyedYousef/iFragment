@@ -11,9 +11,9 @@ func TestCalcTimeDecayWeights(t *testing.T) {
 	lambda := 0.01
 
 	sales := []ComparableSale{
-		{SaleDate: now},                               // 0 days ago
-		{SaleDate: now.AddDate(0, 0, -30)},            // 30 days ago
-		{SaleDate: now.AddDate(0, 0, -69)},            // ~69 days ago (half-life)
+		{SaleDate: now},                    // 0 days ago
+		{SaleDate: now.AddDate(0, 0, -30)}, // 30 days ago
+		{SaleDate: now.AddDate(0, 0, -69)}, // ~69 days ago (half-life)
 	}
 
 	weights := CalcTimeDecayWeights(sales, lambda, now)

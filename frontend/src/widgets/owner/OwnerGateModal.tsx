@@ -126,7 +126,7 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 					role="dialog"
 					aria-modal="true"
 					aria-labelledby="owner-gate-title"
-					class="w-full max-w-sm overflow-hidden bg-gradient-to-b from-[#1c1d22] to-[#121316] border border-[#2a2c35]/50 rounded-[32px] p-6 shadow-2xl relative"
+					class="w-full max-w-sm max-h-[85vh] overflow-y-auto no-scrollbar bg-gradient-to-b from-[#1c1d22] to-[#121316] border border-[#2a2c35]/50 rounded-[32px] p-6 shadow-2xl relative"
 				>
 					{/* Close button */}
 					<button

@@ -15,7 +15,7 @@ type Quest struct {
 	IsActive        bool            `json:"is_active"`
 	ExpiresAt       *time.Time      `json:"expires_at,omitempty"`
 	CreatedAt       time.Time       `json:"created_at"`
-	ParentKey       *string         `json:"parent_key,omitempty"` // For grouped tasks (Campaigns)
+	ParentKey       *string         `json:"parent_key,omitempty"`       // For grouped tasks (Campaigns)
 	ProgressCurrent int             `json:"progress_current,omitempty"` // Dynamically computed
 	ProgressTarget  int             `json:"progress_target,omitempty"`  // Dynamically computed
 	ActionText      string          `json:"action_text,omitempty"`      // e.g. "@ifragment_channel"

@@ -201,11 +201,11 @@ export const OwnerAds: Component = () => {
 										>
 											<img
 												src={ad.image_url}
-												alt="پیش‌نمایش"
+												alt={ad.title || 'Ad preview'}
 												class="w-full h-full object-cover"
 												onError={(e) => {
 													(e.currentTarget as HTMLImageElement).src =
-														'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="60" viewBox="0 0 100 60"><rect width="100" height="60" fill="%23222"/><text x="50" y="35" fill="%23666" font-size="10" text-anchor="middle">Broken Image</text></svg>';
+														'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="60" viewBox="0 0 100 60"><rect width="100" height="60" fill="%23222"/><text x="50" y="35" fill="%23666" font-size="10" text-anchor="middle">N/A</text></svg>';
 												}}
 											/>
 										</Show>

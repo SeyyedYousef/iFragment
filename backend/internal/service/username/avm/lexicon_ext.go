@@ -13,9 +13,9 @@ var (
 		"@": "a", "$": "s", "!": "i", "+": "t",
 	}
 
-	goldenYearRegex  = regexp.MustCompile(`(19[89]\d|20[0-3]\d)`)
-	binaryRegex      = regexp.MustCompile(`^[01]+$`)
-	hexRegex         = regexp.MustCompile(`^[0-9a-f]+$`)
+	goldenYearRegex = regexp.MustCompile(`(19[89]\d|20[0-3]\d)`)
+	binaryRegex     = regexp.MustCompile(`^[01]+$`)
+	hexRegex        = regexp.MustCompile(`^[0-9a-f]+$`)
 )
 
 type TierResult struct {
@@ -140,7 +140,7 @@ func DetectTechPattern(word string) TechPatternResult {
 	if len(word) == 6 && hexRegex.MatchString(strings.ToLower(word)) {
 		return TechPatternResult{true, "Hex Color"}
 	}
-	
+
 	isSolid := true
 	if len(word) >= 4 {
 		for i := 1; i < len(word); i++ {

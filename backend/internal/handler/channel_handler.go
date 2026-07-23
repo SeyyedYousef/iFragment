@@ -931,7 +931,7 @@ type UpdateFunnelRequest struct {
 	ProjectName            string `json:"project_name"`
 	InputChannelID         string `json:"input_channel_id"`
 	OutputChannelID        string `json:"output_channel_id"`
-	InputChannelIdentifier string `json:"input_channel_identifier,omitempty"` 
+	InputChannelIdentifier string `json:"input_channel_identifier,omitempty"`
 }
 
 func (h *ChannelHandler) UpdateFunnel(w http.ResponseWriter, r *http.Request) {

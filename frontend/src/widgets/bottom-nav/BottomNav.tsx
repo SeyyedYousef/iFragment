@@ -3,6 +3,7 @@ import { initData } from '@tma.js/sdk-solid';
 import { Component, createEffect, createSignal, Show } from 'solid-js';
 import { API_CONFIG } from '@/shared/api/config.js';
 import { t } from '@/shared/i18n/index.js';
+import { haptic } from '@/shared/lib/haptic.js';
 import { profilePhotoUrl } from '@/shared/store/profile.js';
 
 export const BottomNav: Component = () => {
@@ -45,6 +46,7 @@ export const BottomNav: Component = () => {
 			>
 				<A
 					href="/"
+					onClick={() => haptic.selection()}
 					class={`flex-1 h-13 rounded-[18px] flex flex-col items-center justify-center cursor-pointer transition-all min-w-0 px-1 ${
 						isActive('/')
 							? 'bg-[#3390ec]/20 text-[#3390ec] border border-[#3390ec]/30 shadow-sm'
@@ -64,6 +66,7 @@ export const BottomNav: Component = () => {
 
 				<A
 					href="/dashboard"
+					onClick={() => haptic.selection()}
 					class={`flex-1 h-13 rounded-[18px] flex flex-col items-center justify-center cursor-pointer transition-all min-w-0 px-1 ${
 						isActive('/dashboard')
 							? 'bg-[#3390ec]/20 text-[#3390ec] border border-[#3390ec]/30 shadow-sm'
@@ -83,6 +86,7 @@ export const BottomNav: Component = () => {
 
 				<A
 					href="/airdrop"
+					onClick={() => haptic.selection()}
 					class={`flex-1 h-13 rounded-[18px] flex flex-col items-center justify-center cursor-pointer transition-all min-w-0 px-1 ${
 						isActive('/airdrop')
 							? 'bg-[#f59e0b]/20 text-[#f59e0b] border border-[#f59e0b]/30 shadow-sm'
@@ -104,6 +108,7 @@ export const BottomNav: Component = () => {
 			{/* Profile Link */}
 			<A
 				href="/profile"
+				onClick={() => haptic.selection()}
 				aria-label={t('bottomNav.profile')}
 				class={`flex flex-col items-center cursor-pointer transition-all shrink-0 ${isActive('/profile') ? 'scale-105' : 'hover:scale-102'}`}
 			>

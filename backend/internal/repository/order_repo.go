@@ -197,4 +197,3 @@ func (db *Database) HasUsedFreeValuationQuota(ctx context.Context, userID int64)
 	err := db.Pool.QueryRow(ctx, query, userID).Scan(&exists)
 	return exists, err
 }
-

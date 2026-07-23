@@ -7,16 +7,15 @@ import (
 )
 
 type ComparableSale struct {
-	ID            int64
-	PriceTON      float64 // auction-equivalent normalized price
-	SaleDate      time.Time
-	CharLength    int
+	ID         int64
+	PriceTON   float64 // auction-equivalent normalized price
+	SaleDate   time.Time
+	CharLength int
 	// Morphology flags for confounder isolation
 	HasNumbers    bool
 	HasUnderscore bool
 	IsDictionary  bool
 }
-
 
 // ApplyMarketAppreciation inflates the PriceTON of older sales based on a compounded annual growth rate.
 // For example, if annualRate is 0.40 (40%), a sale from 2 years ago is multiplied by 1.40^2 = 1.96.
@@ -249,11 +248,15 @@ func CalcBaseLog(
 	if features.SemanticScore > 0 {
 		fallbackPrice5 := cfg.FallbackLen5
 		fallbackLog5 := math.Log(fallbackPrice5)
-		
+
 		weight := features.SemanticScore / 100.0
-		if weight < 0.0 { weight = 0.0 }
-		if weight > 1.0 { weight = 1.0 }
-		
+		if weight < 0.0 {
+			weight = 0.0
+		}
+		if weight > 1.0 {
+			weight = 1.0
+		}
+
 		broadMedianLog = weight*broadMedianLog + (1.0-weight)*fallbackLog5
 		if exactMedianLog > 0 {
 			exactMedianLog = weight*exactMedianLog + (1.0-weight)*fallbackLog5

@@ -7,7 +7,7 @@ import (
 
 func TestCalculateDiminishingEarnings(t *testing.T) {
 	sessionCap := 5000.0 // e.g. maxEnergy (500) * multitap (10)
-	baseRate := 1.0       // 1 coin/sec
+	baseRate := 1.0      // 1 coin/sec
 
 	// Tier boundaries:
 	// Tier 1 (100% rate): 0 to 2500 coins (takes 2500s)

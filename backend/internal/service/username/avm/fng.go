@@ -75,7 +75,7 @@ func GetFearAndGreedMultiplier() (float64, string, int) {
 	// If val = 10 -> 0.85 + 0.035 = 0.885 (-11.5%)
 	// If val = 50 -> 0.85 + 0.175 = 1.025 (+2.5%)
 	// If val = 90 -> 0.85 + 0.315 = 1.165 (+16.5%)
-	var multiplier float64 = 0.85 + (float64(val) / 100.0) * 0.35
+	var multiplier float64 = 0.85 + (float64(val)/100.0)*0.35
 
 	fngMutex.Lock()
 	fngCache = multiplier

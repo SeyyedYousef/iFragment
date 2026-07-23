@@ -259,7 +259,6 @@ func (s *OwnerService) AdminCreateCombo(ctx context.Context, dateStr string, wor
 	return s.repo.DB().AdminUpsertCombo(ctx, date, word, reward)
 }
 
-
 func (s *OwnerService) SetUserBan(ctx context.Context, ownerID int64, targetUserID int64, banType string, reason string, durationSeconds int64, ip string, ua string) error {
 	var expiresAt *time.Time
 	if durationSeconds > 0 {
@@ -798,12 +797,12 @@ func (s *OwnerService) AddEntityCredit(ctx context.Context, req AddEntityCreditR
 		if err != nil {
 			return err
 		}
-		
+
 		newUntil := time.Now().Add(duration)
 		if current != nil && current.After(time.Now()) {
 			newUntil = current.Add(duration)
 		}
-		
+
 		_, err = s.repo.DB().Pool.Exec(ctx, "UPDATE managed_channels SET paid_until = $1, subscription_status = 'premium' WHERE id = $2", newUntil, entityIDUUID)
 	case "group":
 		var current *time.Time
@@ -811,12 +810,12 @@ func (s *OwnerService) AddEntityCredit(ctx context.Context, req AddEntityCreditR
 		if err != nil {
 			return err
 		}
-		
+
 		newUntil := time.Now().Add(duration)
 		if current != nil && current.After(time.Now()) {
 			newUntil = current.Add(duration)
 		}
-		
+
 		_, err = s.repo.DB().Pool.Exec(ctx, "UPDATE managed_groups SET paid_until = $1, subscription_status = 'premium' WHERE id = $2", newUntil, entityIDUUID)
 	default:
 		return fmt.Errorf("invalid entity type: %s", req.EntityType)
@@ -828,7 +827,7 @@ func (s *OwnerService) AddEntityCredit(ctx context.Context, req AddEntityCreditR
 
 	// Audit log
 	slog.Info("Owner added credit to entity", "entity_type", req.EntityType, "entity_id", req.EntityID, "days", req.Days, "admin_id", adminID)
-	
+
 	payloadBytes, _ := json.Marshal(map[string]interface{}{
 		"entity_type": req.EntityType,
 		"entity_id":   req.EntityID,

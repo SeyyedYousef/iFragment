@@ -328,7 +328,7 @@ export const TasksPage: Component = () => {
 						initial={{ opacity: 0, scale: 0.9, y: 20 }}
 						animate={{ opacity: 1, scale: 1, y: 0 }}
 						transition={{ duration: 0.3, easing: [0.32, 0.72, 0, 1] }}
-						class="w-full max-w-sm bg-[#12141C] border border-white/10 rounded-[32px] p-6 pb-8 shadow-[0_20px_60px_rgba(0,0,0,0.8)] relative overflow-hidden"
+						class="w-full max-w-sm max-h-[85vh] overflow-y-auto no-scrollbar bg-[#12141C] border border-white/10 rounded-[32px] p-6 pb-8 shadow-[0_20px_60px_rgba(0,0,0,0.8)] relative"
 					>
 						{/* Inner Glow */}
 						<div class="absolute -top-10 -right-10 w-40 h-40 bg-[#3390ec]/20 rounded-full blur-3xl pointer-events-none" />

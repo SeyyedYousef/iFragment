@@ -254,4 +254,3 @@ func (c *Client) getHistoricalSalesInternal(ctx context.Context, username string
 
 	return sales, nil
 }
-

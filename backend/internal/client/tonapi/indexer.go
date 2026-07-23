@@ -10,8 +10,8 @@ import (
 // Indexer support structures
 
 type EventHistory struct {
-	Events []AccountEvent `json:"events"`
-	NextFrom int64 `json:"next_from"`
+	Events   []AccountEvent `json:"events"`
+	NextFrom int64          `json:"next_from"`
 }
 
 type AccountEvent struct {
@@ -23,12 +23,12 @@ type AccountEvent struct {
 }
 
 type Action struct {
-	Type            string           `json:"type"`
-	Status          string           `json:"status"`
-	NftItemTransfer *NftItemTransfer `json:"NftItemTransfer,omitempty"`
-	TonTransfer     *TonTransfer     `json:"TonTransfer,omitempty"`
+	Type              string             `json:"type"`
+	Status            string             `json:"status"`
+	NftItemTransfer   *NftItemTransfer   `json:"NftItemTransfer,omitempty"`
+	TonTransfer       *TonTransfer       `json:"TonTransfer,omitempty"`
 	SmartContractExec *SmartContractExec `json:"SmartContractExec,omitempty"`
-	BaseTransactions []string        `json:"base_transactions"`
+	BaseTransactions  []string           `json:"base_transactions"`
 }
 
 type NftItemTransfer struct {
@@ -46,38 +46,38 @@ type TonTransfer struct {
 }
 
 type SmartContractExec struct {
-	Executor AccountAddress `json:"executor"`
-	Contract AccountAddress `json:"contract"`
-	TonAttached int64       `json:"ton_attached"`
-	Operation string        `json:"operation"`
+	Executor    AccountAddress `json:"executor"`
+	Contract    AccountAddress `json:"contract"`
+	TonAttached int64          `json:"ton_attached"`
+	Operation   string         `json:"operation"`
 }
 
 type AccountAddress struct {
-	Address string `json:"address"`
-	Name    string `json:"name"`
-	IsWallet bool  `json:"is_wallet"`
+	Address  string `json:"address"`
+	Name     string `json:"name"`
+	IsWallet bool   `json:"is_wallet"`
 }
 
 type Trace struct {
-	ID            string        `json:"id"`
-	Transaction   Transaction   `json:"transaction"`
-	Interfaces    []string      `json:"interfaces"`
-	Children      []Trace       `json:"children"`
+	ID          string      `json:"id"`
+	Transaction Transaction `json:"transaction"`
+	Interfaces  []string    `json:"interfaces"`
+	Children    []Trace     `json:"children"`
 }
 
 type Transaction struct {
-	Hash       string `json:"hash"`
-	LT         int64  `json:"lt"`
-	Account    AccountAddress `json:"account"`
-	Success    bool   `json:"success"`
-	InMsg      *Message `json:"in_msg"`
-	OutMsgs    []Message `json:"out_msgs"`
+	Hash    string         `json:"hash"`
+	LT      int64          `json:"lt"`
+	Account AccountAddress `json:"account"`
+	Success bool           `json:"success"`
+	InMsg   *Message       `json:"in_msg"`
+	OutMsgs []Message      `json:"out_msgs"`
 }
 
 type Message struct {
-	CreatedLT   int64  `json:"created_lt"`
-	Value       int64  `json:"value"`
-	OpCode      string `json:"op_code,omitempty"`
+	CreatedLT     int64  `json:"created_lt"`
+	Value         int64  `json:"value"`
+	OpCode        string `json:"op_code,omitempty"`
 	DecodedOpName string `json:"decoded_op_name,omitempty"`
 }
 

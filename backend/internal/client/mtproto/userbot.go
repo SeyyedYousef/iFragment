@@ -76,7 +76,7 @@ func (m *UserbotManager) createClient(ctx context.Context, phone string) (*Userb
 	// Start the client in the background
 	go func() {
 		defer cancel() // Clean up resources
-		
+
 		err := client.Run(clientCtx, func(runCtx context.Context) error {
 			status, err := client.Auth().Status(runCtx)
 			if err != nil {
@@ -104,7 +104,7 @@ func (m *UserbotManager) createClient(ctx context.Context, phone string) (*Userb
 		if err != nil && !errors.Is(err, context.Canceled) {
 			slog.Error("Userbot client run failed or disconnected", "phone", phone, "err", err)
 		}
-		
+
 		// Ensure dead client is removed from the manager to prevent zombie state
 		m.RemoveClient(phone)
 	}()

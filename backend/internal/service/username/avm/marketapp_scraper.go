@@ -88,7 +88,7 @@ func ScrapeMarketappMaxPrice(ctx context.Context, username string) float64 {
 			}
 		}
 	}
-	
+
 	// A fallback regex specifically for marketapp's potential JSON data in <script> tags or other hidden fields
 	reJson := regexp.MustCompile(`"price":\s*"?([0-9]+(?:\.[0-9]+)?)"?`)
 	matchesJson := reJson.FindAllStringSubmatch(html, -1)

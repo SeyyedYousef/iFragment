@@ -18,7 +18,7 @@ type WikipediaResult struct {
 	PageLength  int     // character count of the article
 	Score       float64 // normalized 0-100
 	Description string
-	FetchError  bool    // New flag indicating a network/API failure
+	FetchError  bool // New flag indicating a network/API failure
 }
 
 var (
@@ -262,4 +262,3 @@ func getWikidataSitelinks(entityID string) int {
 	}
 	return 0
 }
-

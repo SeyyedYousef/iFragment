@@ -5,6 +5,7 @@ import { fetchLeaderboard } from '@/shared/api/airdrop.js';
 import { API_CONFIG } from '@/shared/api/config.js';
 import { getProfileStats, getTopClans } from '@/shared/api/profile.js';
 import { t } from '@/shared/i18n/index.js';
+import { cleanTelegramUsername, formatScore } from '@/shared/lib/formatters.js';
 import { LEAGUES, userClan } from '@/shared/store/airdrop.js';
 
 export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = (props) => {
@@ -65,11 +66,7 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 		return { clan: all[rankIndex], rank: rankIndex + 1, inTop100: rankIndex < 100 };
 	};
 
-	const formatScore = (score: number) => {
-		if (score >= 1_000_000) return `${(score / 1_000_000).toFixed(2)}M`;
-		if (score >= 1_000) return `${(score / 1_000).toFixed(0)}K`;
-		return score.toLocaleString('en-US');
-	};
+
 
 	const progressPercent = () => {
 		const currentScore = statsQuery.data?.xp || 0;
@@ -81,7 +78,7 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 	};
 
 	const openChannel = (username: string) => {
-		const clean = username.replace(/^@+/, '');
+		const clean = cleanTelegramUsername(username);
 		try { openTelegramLink(`https://t.me/${clean}`); } 
 		catch (_) { window.open(`https://t.me/${clean}`, '_blank'); }
 	};
@@ -211,7 +208,7 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 											<div class="flex flex-col items-center w-[31%] h-[160px] bg-gradient-to-t from-[#12141C] to-[#1a202c] border border-slate-400/30 rounded-t-[24px] rounded-b-[16px] p-2 relative shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
 												<div class="relative w-14 h-14 mb-3 mt-[-28px]">
 													<div class="w-full h-full rounded-[16px] bg-[#08090D] border-[2px] border-slate-300 flex items-center justify-center overflow-hidden shadow-[0_0_15px_rgba(203,213,225,0.3)]">
-														{clan().channel_photo ? <img src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`} class="w-full h-full object-cover" /> : <span class="material-symbols-outlined text-slate-300">shield</span>}
+														{clan().channel_photo ? <img src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`} alt={clan().chat_title || 'Clan Logo'} class="w-full h-full object-cover" /> : <span class="material-symbols-outlined text-slate-300">shield</span>}
 													</div>
 													{/* Rank Badge */}
 													<div class="absolute -bottom-2.5 left-1/2 -translate-x-1/2 bg-slate-300 text-black font-black text-[11px] px-2.5 py-0.5 rounded-full border-2 border-[#1a202c] shadow-sm">
@@ -239,7 +236,7 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 													{/* Perfect Crown Alignment */}
 													<div class="absolute -top-6 left-1/2 -translate-x-1/2 text-[26px] drop-shadow-[0_0_10px_rgba(251,191,36,0.8)] z-20" style={{ transform: 'translateX(-50%) rotate(10deg)' }}>👑</div>
 													<div class="w-full h-full rounded-[18px] bg-[#08090D] border-[2px] border-amber-400 flex items-center justify-center overflow-hidden shadow-[0_0_20px_rgba(251,191,36,0.4)] relative z-10">
-														{clan().channel_photo ? <img src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`} class="w-full h-full object-cover" /> : <span class="material-symbols-outlined text-amber-400 text-2xl">shield</span>}
+														{clan().channel_photo ? <img src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`} alt={clan().chat_title || 'Clan Logo'} class="w-full h-full object-cover" /> : <span class="material-symbols-outlined text-amber-400 text-2xl">shield</span>}
 													</div>
 													{/* Rank Badge */}
 													<div class="absolute -bottom-2.5 left-1/2 -translate-x-1/2 bg-amber-400 text-black font-black text-[12px] px-3 py-0.5 rounded-full border-[2.5px] border-[#2d220b] shadow-md z-20">
@@ -263,7 +260,7 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 											<div class="flex flex-col items-center w-[31%] h-[150px] bg-gradient-to-t from-[#12141C] to-[#261811] border border-orange-500/30 rounded-t-[24px] rounded-b-[16px] p-2 relative shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
 												<div class="relative w-12 h-12 mb-3 mt-[-24px]">
 													<div class="w-full h-full rounded-[14px] bg-[#08090D] border-[2px] border-orange-500 flex items-center justify-center overflow-hidden shadow-[0_0_15px_rgba(249,115,22,0.3)]">
-														{clan().channel_photo ? <img src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`} class="w-full h-full object-cover" /> : <span class="material-symbols-outlined text-orange-500">shield</span>}
+														{clan().channel_photo ? <img src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`} alt={clan().chat_title || 'Clan Logo'} class="w-full h-full object-cover" /> : <span class="material-symbols-outlined text-orange-500">shield</span>}
 													</div>
 													{/* Rank Badge */}
 													<div class="absolute -bottom-2.5 left-1/2 -translate-x-1/2 bg-orange-500 text-black font-black text-[11px] px-2.5 py-0.5 rounded-full border-2 border-[#261811] shadow-sm">
@@ -333,11 +330,11 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 														{rankNum < 10 ? `0${rankNum}` : rankNum}
 													</div>
 													<div class="w-10 h-10 rounded-[14px] bg-[#08090D] border border-white/10 flex items-center justify-center overflow-hidden shrink-0 shadow-inner group-hover:scale-105 transition-transform">
-														{clan.channel_photo ? <img src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan.channel_username}`} class="w-full h-full object-cover" /> : <span class="material-symbols-outlined text-white/40">shield</span>}
+														{clan.channel_photo ? <img src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan.channel_username}`} alt={clan.chat_title || 'Clan Logo'} class="w-full h-full object-cover" /> : <span class="material-symbols-outlined text-white/40">shield</span>}
 													</div>
 													<div class="flex flex-col min-w-0">
 														<span class="text-white font-bold text-[14px] truncate">{clan.chat_title}</span>
-														<span class="text-[#3390ec] text-[11px] font-mono mt-0.5" dir="ltr">@{clan.channel_username.replace(/^@+/, '')}</span>
+														<span class="text-[#3390ec] text-[11px] font-mono mt-0.5" dir="ltr">@{cleanTelegramUsername(clan.channel_username)}</span>
 													</div>
 												</div>
 												<div class="flex items-center gap-3 shrink-0 pl-2">
@@ -371,11 +368,11 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 													#{info().rank}
 												</div>
 												<div class="w-11 h-11 rounded-[14px] bg-[#08090D] border-[1.5px] border-amber-400/40 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
-													{info().clan.channel_photo ? <img src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${info().clan.channel_username}`} class="w-full h-full object-cover" /> : <span class="material-symbols-outlined text-amber-400">shield</span>}
+													{info().clan.channel_photo ? <img src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${info().clan.channel_username}`} alt={info().clan.chat_title || 'Clan Logo'} class="w-full h-full object-cover" /> : <span class="material-symbols-outlined text-amber-400">shield</span>}
 												</div>
 												<div class="flex flex-col min-w-0">
 													<span class="text-white font-black text-[15px] truncate">{info().clan.chat_title}</span>
-													<span class="text-amber-300 text-[11px] font-mono mt-0.5" dir="ltr">@{info().clan.channel_username.replace(/^@+/, '')}</span>
+													<span class="text-amber-300 text-[11px] font-mono mt-0.5" dir="ltr">@{cleanTelegramUsername(info().clan.channel_username)}</span>
 												</div>
 											</div>
 											<div class="flex items-center gap-3 shrink-0 pl-2 z-10">

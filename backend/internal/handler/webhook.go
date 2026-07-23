@@ -122,38 +122,38 @@ type Chat struct {
 }
 
 type Message struct {
-	MessageID          int                `json:"message_id"`
-	MessageThreadID    *int               `json:"message_thread_id,omitempty"`
-	From               *User              `json:"from"`
-	Chat               *Chat              `json:"chat"`
-	Date               int                `json:"date"`
-	Text               string             `json:"text"`
-	Caption            string             `json:"caption"`
-	Photo              []interface{}      `json:"photo"`
-	Sticker            json.RawMessage    `json:"sticker,omitempty"`
-	Location           json.RawMessage    `json:"location,omitempty"`
-	Audio              json.RawMessage    `json:"audio,omitempty"`
-	Voice              json.RawMessage    `json:"voice,omitempty"`
-	Document           json.RawMessage    `json:"document,omitempty"`
-	Animation          json.RawMessage    `json:"animation,omitempty"`
-	Video              json.RawMessage    `json:"video,omitempty"`
-	Poll               json.RawMessage    `json:"poll,omitempty"`
-	Game               json.RawMessage    `json:"game,omitempty"`
-	Entities           []MessageEntity    `json:"entities"`
-	CaptionEntities    []MessageEntity    `json:"caption_entities,omitempty"`
-	ReplyToMessage     *Message           `json:"reply_to_message"`
-	ForwardFrom        *User              `json:"forward_from,omitempty"`
-	ForwardFromChat    *Chat              `json:"forward_from_chat"`
-	ViaBot             *User              `json:"via_bot"`
-	MediaGroupID       string             `json:"media_group_id,omitempty"`
-	AuthorSignature    string             `json:"author_signature,omitempty"`
-	ReplyMarkup        json.RawMessage    `json:"reply_markup,omitempty"`
-	SuccessfulPayment  *SuccessfulPayment `json:"successful_payment"`
-	NewChatMembers     []User             `json:"new_chat_members"`
-	LeftChatMember     *User              `json:"left_chat_member"`
-	IsAutomaticForward bool               `json:"is_automatic_forward,omitempty"`
-	SenderChat         *Chat              `json:"sender_chat,omitempty"`
-	ReceiverUser       *User                  `json:"receiver_user,omitempty"`
+	MessageID          int                     `json:"message_id"`
+	MessageThreadID    *int                    `json:"message_thread_id,omitempty"`
+	From               *User                   `json:"from"`
+	Chat               *Chat                   `json:"chat"`
+	Date               int                     `json:"date"`
+	Text               string                  `json:"text"`
+	Caption            string                  `json:"caption"`
+	Photo              []interface{}           `json:"photo"`
+	Sticker            json.RawMessage         `json:"sticker,omitempty"`
+	Location           json.RawMessage         `json:"location,omitempty"`
+	Audio              json.RawMessage         `json:"audio,omitempty"`
+	Voice              json.RawMessage         `json:"voice,omitempty"`
+	Document           json.RawMessage         `json:"document,omitempty"`
+	Animation          json.RawMessage         `json:"animation,omitempty"`
+	Video              json.RawMessage         `json:"video,omitempty"`
+	Poll               json.RawMessage         `json:"poll,omitempty"`
+	Game               json.RawMessage         `json:"game,omitempty"`
+	Entities           []MessageEntity         `json:"entities"`
+	CaptionEntities    []MessageEntity         `json:"caption_entities,omitempty"`
+	ReplyToMessage     *Message                `json:"reply_to_message"`
+	ForwardFrom        *User                   `json:"forward_from,omitempty"`
+	ForwardFromChat    *Chat                   `json:"forward_from_chat"`
+	ViaBot             *User                   `json:"via_bot"`
+	MediaGroupID       string                  `json:"media_group_id,omitempty"`
+	AuthorSignature    string                  `json:"author_signature,omitempty"`
+	ReplyMarkup        json.RawMessage         `json:"reply_markup,omitempty"`
+	SuccessfulPayment  *SuccessfulPayment      `json:"successful_payment"`
+	NewChatMembers     []User                  `json:"new_chat_members"`
+	LeftChatMember     *User                   `json:"left_chat_member"`
+	IsAutomaticForward bool                    `json:"is_automatic_forward,omitempty"`
+	SenderChat         *Chat                   `json:"sender_chat,omitempty"`
+	ReceiverUser       *User                   `json:"receiver_user,omitempty"`
 	EphemeralMessageID telegram.FlexibleString `json:"ephemeral_message_id,omitempty"`
 }
 
@@ -649,7 +649,7 @@ func (h *WebhookHandler) handleMyChatMemberUpdate(ctx context.Context, bot *repo
 
 				tg, _ := h.moderator.GetTelegramClient(ctx, bot)
 				msg := i18n.T("en", "notifications.bot_removed_channel", map[string]interface{}{"channel": chat.Title})
-				
+
 				targetUserID := bot.OwnerUserID
 				if ch.ConnectedByUserID != nil {
 					targetUserID = *ch.ConnectedByUserID
@@ -693,7 +693,7 @@ func (h *WebhookHandler) handleMyChatMemberUpdate(ctx context.Context, bot *repo
 
 		if newStatus == "left" || newStatus == "kicked" {
 			msg := i18n.T(lang, "notifications.bot_removed", map[string]interface{}{"group": chat.Title})
-			
+
 			targetUserID := bot.OwnerUserID
 			if managedGroup.ConnectedByUserID != nil {
 				targetUserID = *managedGroup.ConnectedByUserID
@@ -701,7 +701,7 @@ func (h *WebhookHandler) handleMyChatMemberUpdate(ctx context.Context, bot *repo
 			logIfErr(tg.SendMessage(ctx, targetUserID, msg, nil, nil), "Failed to send owner bot_removed notification", "owner_id", targetUserID)
 		} else if newStatus == "member" && (oldStatus == "administrator" || oldStatus == "creator") {
 			ownerMsg := i18n.T(lang, "notifications.admin_revoked", map[string]interface{}{"group": chat.Title})
-			
+
 			targetUserID := bot.OwnerUserID
 			if managedGroup.ConnectedByUserID != nil {
 				targetUserID = *managedGroup.ConnectedByUserID
@@ -1211,15 +1211,15 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 			if count == 10 {
 				tg, _ := h.moderator.GetTelegramClient(ctx, bot)
 				group, _ := h.botRepo.GetGroup(ctx, bot.ID, msg.Chat.ID)
-				
+
 				targetUserID := bot.OwnerUserID
 				if group != nil && group.ConnectedByUserID != nil {
 					targetUserID = *group.ConnectedByUserID
 				}
-				
+
 				ownerLang, _ := h.db.GetUserLanguage(ctx, targetUserID)
 				lang := i18n.DetectLanguage(ownerLang)
-				
+
 				alert := i18n.T(lang, "notifications.mass_spam", map[string]interface{}{"group": group.ChatTitle})
 				_ = tg.SendMessage(ctx, targetUserID, alert, nil, nil)
 			}
@@ -1261,14 +1261,14 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 			if group != nil && h.moderator.IsSubscriptionValid(group) {
 				botToken, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 				tg := telegram.NewBotAPIClient(botToken)
-				
+
 				targetUserID := bot.OwnerUserID
 				if group.ConnectedByUserID != nil {
 					targetUserID = *group.ConnectedByUserID
 				}
 				ownerLang, _ := h.db.GetUserLanguage(ctx, targetUserID)
 				lang := i18n.DetectLanguage(ownerLang)
-				
+
 				milestoneMsg := i18n.T(lang, "notifications.milestone", map[string]interface{}{"n": total})
 				_ = tg.SendMessage(ctx, msg.Chat.ID, milestoneMsg, nil, nil)
 			}
@@ -1666,7 +1666,7 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 			}
 			startParam = string(sanitized)
 		}
-		
+
 		if startParam != "" {
 			// Pre-register user to count referral immediately on /start
 			err := h.db.UpsertUser(ctx, repository.User{
@@ -1703,7 +1703,6 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 		lang := i18n.DetectLanguage(langCode)
 		userName := m.From.FirstName
 
-
 		var welcome string
 		if m.From.ID == bot.OwnerUserID {
 			welcome = i18n.T(lang, "onboarding.welcome_owner", userName)
@@ -1725,7 +1724,7 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 				{
 					{
 						"text": btnText,
-						"url": targetURL,
+						"url":  targetURL,
 					},
 				},
 			},
@@ -1735,7 +1734,7 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 	} else if strings.HasPrefix(m.Text, "/language") {
 		token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 		tg := telegram.NewBotAPIClient(token)
-		
+
 		msgText := "Please select your preferred language:\nلطفا زبان مورد نظر خود را انتخاب کنید:\nПожалуйста, выберите предпочитаемый язык:"
 		markup := map[string]interface{}{
 			"inline_keyboard": [][]map[string]interface{}{
@@ -2062,7 +2061,7 @@ func (h *WebhookHandler) handleWelcomeMessage(ctx context.Context, bot *reposito
 				name = "@" + u.Username
 			}
 			userLink := fmt.Sprintf(`<a href="tg://user?id=%d">%s</a>`, u.ID, telegram.EscapeHTML(name))
-			
+
 			personalText := welcomeText
 			personalText = strings.ReplaceAll(personalText, "{user}", userLink)
 			personalText = strings.ReplaceAll(personalText, "{first_name}", telegram.EscapeHTML(u.FirstName))
@@ -2361,17 +2360,17 @@ func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repositor
 		if len(parts) >= 2 {
 			newLang := parts[1]
 			err := h.db.UpdateUserLanguage(ctx, cq.From.ID, newLang)
-			
+
 			token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 			tg := telegram.NewBotAPIClient(token)
-			
+
 			var msg string
 			if err == nil {
 				msg = i18n.T(newLang, "profile.languageSettings") + " ✅"
 			} else {
 				msg = "Error updating language"
 			}
-			
+
 			_ = tg.AnswerCallbackQuery(ctx, cq.ID, msg, false)
 			// Optionally delete the message after language is selected
 			if cq.Message != nil {
@@ -2842,7 +2841,7 @@ func (h *WebhookHandler) buildChannelInlineKeyboard(ctx context.Context, channel
 		ikb := InlineKeyboardButton{
 			Text: truncateButtonText(text, 64),
 		}
-		
+
 		if btn.Style != "" {
 			ikb.Style = btn.Style
 		}

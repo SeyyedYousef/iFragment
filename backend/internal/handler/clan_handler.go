@@ -197,8 +197,6 @@ func (h *ClanHandler) GetClanPhotoProxy(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Content-Type", "image/jpeg")
 	// Cache for 1 day in browser/CDN to prevent hammering Telegram API
 	w.Header().Set("Cache-Control", "public, max-age=86400")
-	
+
 	_, _ = io.Copy(w, resp.Body)
 }
-
-

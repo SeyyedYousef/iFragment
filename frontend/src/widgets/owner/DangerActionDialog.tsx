@@ -50,7 +50,7 @@ export const DangerActionDialog: Component<DangerActionDialogProps> = (props) =>
 				<div
 					role="dialog"
 					aria-modal="true"
-					class="w-full max-w-md bg-gradient-to-b from-[#1a1b22] to-[#111216] border border-white/10 rounded-[28px] p-6 shadow-2xl relative overflow-hidden"
+					class="w-full max-w-md max-h-[85vh] overflow-y-auto no-scrollbar bg-gradient-to-b from-[#1a1b22] to-[#111216] border border-white/10 rounded-[28px] p-6 shadow-2xl relative"
 				>
 					{/* Header Glow */}
 					<div

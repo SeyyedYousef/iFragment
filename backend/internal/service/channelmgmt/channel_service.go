@@ -448,7 +448,7 @@ func (s *ChannelService) UpdateFunnel(ctx context.Context, ownerUserID int64, fu
 	}
 
 	oldOutputChatID := funnel.OutputChatID
-	
+
 	oldOutChan, err := s.channelRepo.GetChannelByChatID(ctx, oldOutputChatID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get old output channel: %w", err)
@@ -1405,116 +1405,116 @@ func (s *ChannelService) scheduledPostWorker(ctx context.Context) {
 							bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 							defer cancel()
 
-						// Crash duplicate prevention
-						var processingKey string
-						if cache != nil && cache.Client != nil {
-							processingKey = fmt.Sprintf("post_processing:%s", post.ID.String())
-							acquiredProcessing, err := cache.Client.SetNX(ctx, processingKey, "1", 24*time.Hour).Result()
-							if err != nil || !acquiredProcessing {
-								return // Processing, processed, or crashed
-							}
-						}
-
-						ch, err := s.channelRepo.GetChannelByID(ctx, post.ChannelID)
-						if err != nil {
-							if processingKey != "" {
-								cache.Client.Del(ctx, processingKey)
-							}
-							slog.Error("Failed to fetch channel for scheduled post", "post_id", post.ID, "error", err)
-							return
-						}
-						if err := s.checkSubscription(ch); err != nil {
-							if processingKey != "" {
-								cache.Client.Del(ctx, processingKey)
-							}
-							var chID string
-							if ch != nil {
-								chID = ch.ID.String()
-							}
-							slog.Warn("Channel subscription expired or invalid, skipping scheduled post", "post_id", post.ID, "channel_id", chID)
-							return
-						}
-
-						bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
-						if err != nil {
-							if processingKey != "" {
-								cache.Client.Del(ctx, processingKey)
-							}
-							slog.Error("Failed to fetch bot for scheduled post", "post_id", post.ID, "error", err)
-							return
-						}
-
-						token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-						if err != nil {
-							if processingKey != "" {
-								cache.Client.Del(bgCtx, processingKey)
-							}
-							slog.Error("Failed to decrypt bot token in scheduled post worker", "post_id", postCopy.ID, "error", err)
-							return
-						}
-
-						buttons, _ := s.GetChannelButtonsByChannelID(bgCtx, ch.ID)
-						markup := BuildInlineKeyboard(buttons)
-
-						tg := telegram.NewBotAPIClient(token)
-						postText := s.ApplyWatermarkAndSignature(bgCtx, postCopy.Text, ch.ID)
-						res, err := tg.SendMessageWithMarkup(bgCtx, ch.ChatID, postText, markup, nil)
-						if err != nil {
-							slog.Error("Failed to send scheduled message via telegram in worker", "post_id", postCopy.ID, "error", err)
-
-							// Normal failure: delete processing key so it can be retried
-							if processingKey != "" {
-								cache.Client.Del(bgCtx, processingKey)
+							// Crash duplicate prevention
+							var processingKey string
+							if cache != nil && cache.Client != nil {
+								processingKey = fmt.Sprintf("post_processing:%s", post.ID.String())
+								acquiredProcessing, err := cache.Client.SetNX(ctx, processingKey, "1", 24*time.Hour).Result()
+								if err != nil || !acquiredProcessing {
+									return // Processing, processed, or crashed
+								}
 							}
 
-							lowerErr := strings.ToLower(err.Error())
-							if strings.Contains(lowerErr, "forbidden") || strings.Contains(lowerErr, "kicked") || strings.Contains(lowerErr, "not a member") || strings.Contains(lowerErr, "not a participant") || strings.Contains(lowerErr, "chat not found") {
-								slog.Warn("Bot was kicked from channel during scheduled post, disconnecting it", "channel_id", ch.ID)
-								_ = s.channelRepo.DeleteChannel(bgCtx, ch.ID)
-								targetStr := ch.ID.String()
-								_ = s.auditRepo.Log(bgCtx, &repository.AuditLog{
-									ActorID:  bot.OwnerUserID,
-									Action:   "channel.kicked",
-									TargetID: &targetStr,
-								})
-								_ = s.channelRepo.MarkPostAsPublished(bgCtx, postCopy.ID, -1)
+							ch, err := s.channelRepo.GetChannelByID(ctx, post.ChannelID)
+							if err != nil {
+								if processingKey != "" {
+									cache.Client.Del(ctx, processingKey)
+								}
+								slog.Error("Failed to fetch channel for scheduled post", "post_id", post.ID, "error", err)
+								return
+							}
+							if err := s.checkSubscription(ch); err != nil {
+								if processingKey != "" {
+									cache.Client.Del(ctx, processingKey)
+								}
+								var chID string
+								if ch != nil {
+									chID = ch.ID.String()
+								}
+								slog.Warn("Channel subscription expired or invalid, skipping scheduled post", "post_id", post.ID, "channel_id", chID)
 								return
 							}
 
-							if cache != nil && cache.Client != nil {
-								retryKey := fmt.Sprintf("post_retries:%s", postCopy.ID.String())
-								retries, _ := cache.Client.Incr(bgCtx, retryKey).Result()
-								if retries >= 3 {
-									_ = s.channelRepo.MarkPostAsPublished(bgCtx, postCopy.ID, -1)
-									slog.Error("Max retries exceeded for scheduled post. Marking as failed.", "post_id", postCopy.ID)
-									cache.Client.Del(bgCtx, retryKey)
+							bot, err := s.botRepo.GetBotByID(ctx, ch.BotID)
+							if err != nil {
+								if processingKey != "" {
+									cache.Client.Del(ctx, processingKey)
 								}
+								slog.Error("Failed to fetch bot for scheduled post", "post_id", post.ID, "error", err)
+								return
 							}
-							return
-						}
 
-						err = s.channelRepo.MarkPostAsPublished(bgCtx, postCopy.ID, int64(res.MessageID))
-						if err != nil {
-							slog.Error("Failed to mark scheduled post as published in db", "post_id", postCopy.ID, "error", err)
-							return
-						}
+							token, err := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+							if err != nil {
+								if processingKey != "" {
+									cache.Client.Del(bgCtx, processingKey)
+								}
+								slog.Error("Failed to decrypt bot token in scheduled post worker", "post_id", postCopy.ID, "error", err)
+								return
+							}
 
-						// Log background audit
-						meta, _ := json.Marshal(map[string]interface{}{"post_id": postCopy.ID, "message_id": res.MessageID})
-						if auditErr := s.channelRepo.LogAudit(bgCtx, &repository.ChannelAuditLog{
-							ChannelID: ch.ID,
-							ActorID:   bot.OwnerUserID,
-							Action:    "channel.post.published_scheduled",
-							Metadata:  meta,
-						}); auditErr != nil {
-							slog.Warn("failed to write channel audit log", "action", "channel.post.published_scheduled", "error", auditErr)
-						}
-					})
-				}(post)
-			}
-		}()
+							buttons, _ := s.GetChannelButtonsByChannelID(bgCtx, ch.ID)
+							markup := BuildInlineKeyboard(buttons)
+
+							tg := telegram.NewBotAPIClient(token)
+							postText := s.ApplyWatermarkAndSignature(bgCtx, postCopy.Text, ch.ID)
+							res, err := tg.SendMessageWithMarkup(bgCtx, ch.ChatID, postText, markup, nil)
+							if err != nil {
+								slog.Error("Failed to send scheduled message via telegram in worker", "post_id", postCopy.ID, "error", err)
+
+								// Normal failure: delete processing key so it can be retried
+								if processingKey != "" {
+									cache.Client.Del(bgCtx, processingKey)
+								}
+
+								lowerErr := strings.ToLower(err.Error())
+								if strings.Contains(lowerErr, "forbidden") || strings.Contains(lowerErr, "kicked") || strings.Contains(lowerErr, "not a member") || strings.Contains(lowerErr, "not a participant") || strings.Contains(lowerErr, "chat not found") {
+									slog.Warn("Bot was kicked from channel during scheduled post, disconnecting it", "channel_id", ch.ID)
+									_ = s.channelRepo.DeleteChannel(bgCtx, ch.ID)
+									targetStr := ch.ID.String()
+									_ = s.auditRepo.Log(bgCtx, &repository.AuditLog{
+										ActorID:  bot.OwnerUserID,
+										Action:   "channel.kicked",
+										TargetID: &targetStr,
+									})
+									_ = s.channelRepo.MarkPostAsPublished(bgCtx, postCopy.ID, -1)
+									return
+								}
+
+								if cache != nil && cache.Client != nil {
+									retryKey := fmt.Sprintf("post_retries:%s", postCopy.ID.String())
+									retries, _ := cache.Client.Incr(bgCtx, retryKey).Result()
+									if retries >= 3 {
+										_ = s.channelRepo.MarkPostAsPublished(bgCtx, postCopy.ID, -1)
+										slog.Error("Max retries exceeded for scheduled post. Marking as failed.", "post_id", postCopy.ID)
+										cache.Client.Del(bgCtx, retryKey)
+									}
+								}
+								return
+							}
+
+							err = s.channelRepo.MarkPostAsPublished(bgCtx, postCopy.ID, int64(res.MessageID))
+							if err != nil {
+								slog.Error("Failed to mark scheduled post as published in db", "post_id", postCopy.ID, "error", err)
+								return
+							}
+
+							// Log background audit
+							meta, _ := json.Marshal(map[string]interface{}{"post_id": postCopy.ID, "message_id": res.MessageID})
+							if auditErr := s.channelRepo.LogAudit(bgCtx, &repository.ChannelAuditLog{
+								ChannelID: ch.ID,
+								ActorID:   bot.OwnerUserID,
+								Action:    "channel.post.published_scheduled",
+								Metadata:  meta,
+							}); auditErr != nil {
+								slog.Warn("failed to write channel audit log", "action", "channel.post.published_scheduled", "error", auditErr)
+							}
+						})
+					}(post)
+				}
+			}()
+		}
 	}
-}
 }
 
 func (s *ChannelService) getDynamicWebhookSecret(channelID uuid.UUID) (string, error) {
@@ -2258,7 +2258,7 @@ func callGeminiParaphrase(text, apiKey string) (string, error) {
 			bodyBytes, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
 			err = fmt.Errorf("Gemini API returned status %d: %s", resp.StatusCode, string(bodyBytes))
-			
+
 			if resp.StatusCode != http.StatusServiceUnavailable && resp.StatusCode != http.StatusTooManyRequests {
 				return "", err
 			}
@@ -2307,7 +2307,7 @@ func callGeminiComposer(ctx context.Context, text, apiKey, skill, customPrompt, 
 	}
 
 	systemPrompt := ""
-	
+
 	if action == "suggestHashtags" {
 		systemPrompt = fmt.Sprintf("You are an expert social media manager acting as a %s. Generate 5-10 relevant and trending hashtags for the following text. Output ONLY the hashtags separated by spaces, without any explanation or extra text.", skillName)
 	} else {
@@ -2348,7 +2348,7 @@ func callGeminiComposer(ctx context.Context, text, apiKey, skill, customPrompt, 
 	}
 
 	apiURL := "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=" + apiKey
-	
+
 	var resp *http.Response
 	client := &http.Client{Timeout: 10 * time.Second}
 
@@ -2368,7 +2368,7 @@ func callGeminiComposer(ctx context.Context, text, apiKey, skill, customPrompt, 
 			bodyBytes, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
 			err = fmt.Errorf("Gemini API returned status %d: %s", resp.StatusCode, string(bodyBytes))
-			
+
 			if resp.StatusCode != http.StatusServiceUnavailable && resp.StatusCode != http.StatusTooManyRequests {
 				return "", err
 			}
@@ -2661,7 +2661,7 @@ func (s *ChannelService) CheckExpirations(ctx context.Context) {
 		// 1. Check for actual expiration
 		if c.SubscriptionStatus != "expired" && now.After(*expiry) {
 			_ = s.channelRepo.UpdateChannelSubscription(ctx, c.ID, "expired", nil)
-			
+
 			// Send expiration notice
 			bot, err := s.botRepo.GetBotByID(ctx, c.BotID)
 			if err == nil {
@@ -2672,7 +2672,7 @@ func (s *ChannelService) CheckExpirations(ctx context.Context) {
 					msg := i18n.T(lang, "notifications.service_ended", map[string]interface{}{"group": c.ChatTitle})
 					msg = strings.ReplaceAll(msg, "گروه", "کانال")
 					msg = strings.ReplaceAll(msg, "group", "channel")
-					
+
 					targetUserID := bot.OwnerUserID
 					if c.ConnectedByUserID != nil {
 						targetUserID = *c.ConnectedByUserID
@@ -2695,7 +2695,7 @@ func (s *ChannelService) CheckExpirations(ctx context.Context) {
 					// Send notification to owner
 					lang := i18n.DetectLanguage("")
 					msg := i18n.T(lang, "notifications.channel_auto_left", map[string]interface{}{"channel": c.ChatTitle})
-					
+
 					targetUserID := bot.OwnerUserID
 					if c.ConnectedByUserID != nil {
 						targetUserID = *c.ConnectedByUserID
@@ -2717,13 +2717,13 @@ func (s *ChannelService) CheckExpirations(ctx context.Context) {
 			targetDate := time.Date(expiry.Year(), expiry.Month(), expiry.Day(), 0, 0, 0, 0, expiry.Location())
 			nowDate := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 			daysLeft := int(targetDate.Sub(nowDate).Hours() / 24)
-			
+
 			if daysLeft == 3 || daysLeft == 1 {
 				template := "expiry_3d"
 				if daysLeft == 1 {
 					template = "expiry_24h"
 				}
-				
+
 				bot, err := s.botRepo.GetBotByID(ctx, c.BotID)
 				if err == nil {
 					token, decErr := botmgmt.DecryptToken(bot.BotTokenEncrypted)
@@ -2733,7 +2733,7 @@ func (s *ChannelService) CheckExpirations(ctx context.Context) {
 						msg := i18n.T(lang, "notifications."+template, map[string]interface{}{"group": c.ChatTitle})
 						msg = strings.ReplaceAll(msg, "گروه", "کانال")
 						msg = strings.ReplaceAll(msg, "group", "channel")
-						
+
 						targetUserID := bot.OwnerUserID
 						if c.ConnectedByUserID != nil {
 							targetUserID = *c.ConnectedByUserID

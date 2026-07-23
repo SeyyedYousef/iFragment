@@ -34,7 +34,7 @@ func NewCryptoPriceService(cache *repository.Cache) *CryptoPriceService {
 // Start runs a background worker to update prices periodically
 func (s *CryptoPriceService) Start(ctx context.Context) {
 	slog.Info("Starting Crypto Price Worker...")
-	
+
 	// Initial load from redis or API
 	s.loadFromRedis()
 	if len(s.prices) == 0 {
@@ -65,7 +65,7 @@ func (s *CryptoPriceService) fetchPrices(ctx context.Context) {
 	// Use TonAPI to fetch the official TON price, utilizing our authenticated client keys
 	tonClient := tonapi.NewClient()
 	usdPrice, err := tonClient.GetTONRates(ctx)
-	
+
 	if err != nil {
 		slog.Error("failed to fetch crypto price from tonapi", "error", err)
 		return

@@ -37,7 +37,7 @@ func NewIndexerService(client *tonapi.Client, repo *repository.Database) *Indexe
 // with a sleep interval between full collection sweeps.
 func (s *IndexerService) StartBackgroundLoop(ctx context.Context, interval time.Duration) {
 	slog.Info("Starting AVM TonAPI Indexer background loop...")
-	
+
 	go func() {
 		for {
 			select {
@@ -47,7 +47,7 @@ func (s *IndexerService) StartBackgroundLoop(ctx context.Context, interval time.
 			default:
 				s.RunFullSweep(ctx)
 				slog.Info("Indexer full sweep completed. Sleeping before next sweep...", "interval", interval)
-				
+
 				// Sleep with context awareness
 				select {
 				case <-ctx.Done():
@@ -137,12 +137,12 @@ func (s *IndexerService) processNFT(ctx context.Context, username string, nftAdd
 		if len(event.Actions) > 0 && len(event.Actions[0].BaseTransactions) > 0 {
 			txHash := event.Actions[0].BaseTransactions[0]
 			priceTon, saleType := s.extractPriceFromTrace(ctx, txHash)
-			
+
 			if priceTon > 0 {
 				slog.Debug("Sale found via indexer", "username", username, "price_ton", priceTon, "type", saleType)
-				
+
 				saleDate := time.Unix(event.Timestamp, 0)
-				
+
 				_, err := s.repo.InsertSale(ctx, repository.Sale{
 					Username:      username,
 					CharLength:    charLen,
@@ -161,7 +161,7 @@ func (s *IndexerService) processNFT(ctx context.Context, username string, nftAdd
 			}
 		}
 	}
-	
+
 	time.Sleep(500 * time.Millisecond)
 }
 
@@ -172,7 +172,7 @@ func (s *IndexerService) extractPriceFromTrace(ctx context.Context, traceID stri
 	}
 
 	maxTon := int64(0)
-	saleType := "buy_now" 
+	saleType := "buy_now"
 
 	var traverse func(t *tonapi.Trace)
 	traverse = func(t *tonapi.Trace) {
@@ -198,7 +198,7 @@ func (s *IndexerService) extractPriceFromTrace(ctx context.Context, traceID stri
 	}
 
 	tonValue := float64(maxTon) / math.Pow10(9)
-	
+
 	if tonValue < 0.5 {
 		return 0, "unknown"
 	}

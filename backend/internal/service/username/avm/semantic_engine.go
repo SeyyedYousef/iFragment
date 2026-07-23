@@ -30,15 +30,15 @@ type SemanticEngine struct {
 
 // SemanticResult holds the combined semantic analysis.
 type SemanticResult struct {
-	TotalScore      float64  `json:"total_score"`       // 0-100 combined score
-	Multiplier      float64  `json:"multiplier"`        // Price multiplier (1x - 200x)
-	WordFreqScore   float64  `json:"word_freq_score"`   // 0-100 from Datamuse
-	WikiScore       float64  `json:"wiki_score"`        // 0-100 from Wikipedia
-	AIScore         float64  `json:"ai_score"`          // 0-100 from Gemini
-	BrandScore      int      `json:"brand_score"`       // 0 or 100 from Clearbit
-	Tags            []string `json:"tags"`              // AI-generated tags
-	AIReason        string   `json:"ai_reason"`         // One-line AI explanation
-	WikiDescription string   `json:"wiki_description"`  // Wikipedia article description
+	TotalScore      float64  `json:"total_score"`      // 0-100 combined score
+	Multiplier      float64  `json:"multiplier"`       // Price multiplier (1x - 200x)
+	WordFreqScore   float64  `json:"word_freq_score"`  // 0-100 from Datamuse
+	WikiScore       float64  `json:"wiki_score"`       // 0-100 from Wikipedia
+	AIScore         float64  `json:"ai_score"`         // 0-100 from Gemini
+	BrandScore      int      `json:"brand_score"`      // 0 or 100 from Clearbit
+	Tags            []string `json:"tags"`             // AI-generated tags
+	AIReason        string   `json:"ai_reason"`        // One-line AI explanation
+	WikiDescription string   `json:"wiki_description"` // Wikipedia article description
 }
 
 // NewSemanticEngine creates a new semantic analysis engine.
@@ -80,7 +80,7 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 
 		// Priority 1: Local frequency_data.go (10K words, instant, no HTTP)
 		rank := RankWord(username)
-		
+
 		if rank == 0 {
 			// Priority 1.5: Try splitting compound words (e.g. cryptoking -> crypto + king)
 			w1, w2, isCompound := splitCompoundWordTwo(username)
@@ -197,18 +197,18 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 		aiReason = geminiResult.Reason
 		tags = geminiResult.Tags
 	}
-	
+
 	if wikiScore > 60.0 {
 		tags = append(tags, "wiki_popular")
 	}
-	
+
 	if brandScore > 0.0 {
 		tags = append(tags, "brand_verified")
 	}
-	
+
 	lowerName := strings.ToLower(username)
 	cleanName := strings.ReplaceAll(lowerName, "_", "")
-	
+
 	// Slang premium
 	slangs := []string{"hodl", "wagmi", "ngmi", "fomo", "yolo", "based", "shill", "degen", "rekt"}
 	for _, s := range slangs {
@@ -217,7 +217,7 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 			break
 		}
 	}
-	
+
 	// Color premium
 	colors := []string{"blue", "pink", "gold", "black", "white", "green", "red", "silver", "scarlet"}
 	for _, c := range colors {
@@ -226,7 +226,7 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 			break
 		}
 	}
-	
+
 	// Geo premium
 	geos := []string{"dubai", "tokyo", "paris", "london", "iran", "istanbul", "newyork", "china", "japan"}
 	for _, g := range geos {
@@ -235,7 +235,7 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 			break
 		}
 	}
-	
+
 	// Emoji equivalent
 	emojis := []string{"fire", "rocket", "diamond", "whale", "crown", "star", "heart", "moon"}
 	for _, e := range emojis {
@@ -303,7 +303,7 @@ func (e *SemanticEngine) Score(ctx context.Context, username string) *SemanticRe
 
 	// Weighted combination (25% frequency, 30% wiki, 30% AI; treat brand as 15% bonus)
 	brandBonus := (float64(brandScore) / 100.0) * 15.0
-	
+
 	var totalScore float64
 	if wikiResult != nil && wikiResult.FetchError {
 		// Wikipedia API failed due to network error. Re-allocate weight to Datamuse and AI.
@@ -434,7 +434,7 @@ func (e *SemanticEngine) scoreToMultiplier(score float64, length int, tags []str
 			tagMultiplier *= 1.20
 		}
 	}
-	
+
 	// Hard cap on Tag-Based Multiplier stacking
 	if tagMultiplier > 2.5 {
 		tagMultiplier = 2.5

@@ -40,9 +40,9 @@ type EngineConfig struct {
 	NormFactorOffer   float64 `json:"norm_factor_offer"`
 
 	// Fallback anchor values
-	FallbackLen4 float64 `json:"fallback_len_4"`
-	FallbackLen5 float64 `json:"fallback_len_5"`
-	FallbackLen6 float64 `json:"fallback_len_6"`
+	FallbackLen4  float64 `json:"fallback_len_4"`
+	FallbackLen5  float64 `json:"fallback_len_5"`
+	FallbackLen6  float64 `json:"fallback_len_6"`
 	FallbackOther float64 `json:"fallback_other"`
 
 	// Clamps and dampings
@@ -60,8 +60,8 @@ func DefaultEngineConfig() EngineConfig {
 	return EngineConfig{
 		Lambda: 0.005, // ~0.5% decay per day → 50% weight at ~138 days
 
-		K: 10.0, // Bayesian maturity threshold
-		KTarget: 0.4, // Target Bayesian shrinkage threshold
+		K:                10.0, // Bayesian maturity threshold
+		KTarget:          0.4,  // Target Bayesian shrinkage threshold
 		AppreciationRate: 0.20, // CAGR for TON usernames (20%)
 
 		MorphClampLow:  -1.6094379, // ln(0.20)
@@ -79,9 +79,9 @@ func DefaultEngineConfig() EngineConfig {
 		NormFactorBuyNow:  0.85,
 		NormFactorOffer:   1.10,
 
-		FallbackLen4: 2500.0, // Calibrated starting baseline for 4-character names
-		FallbackLen5: 1000.0, // Fragment official 5-character starting bid baseline
-		FallbackLen6: 100.0,
+		FallbackLen4:  2500.0, // Calibrated starting baseline for 4-character names
+		FallbackLen5:  1000.0, // Fragment official 5-character starting bid baseline
+		FallbackLen6:  100.0,
 		FallbackOther: 25.0,
 
 		ClampLowLimit:    5.0,
@@ -90,17 +90,17 @@ func DefaultEngineConfig() EngineConfig {
 		DatabaseDamping:  0.70,
 
 		MorphMultipliers: map[string]float64{
-			"has_numbers":          0.40, // 60% discount for containing numbers
-			"has_underscore":       0.35, // 65% discount for containing underscore (50%-70% user target)
-			"fake_suffix":          0.15, // 85% discount for fake copycat suffixes (_official, _admin, _bot)
-			"fake_prefix":          0.20, // 80% discount for fake copycat prefixes (real_, the_)
-			"repetition_penalty":   0.60, // 40% discount for 3+ consecutive repeating chars
+			"has_numbers":                  0.40, // 60% discount for containing numbers
+			"has_underscore":               0.35, // 65% discount for containing underscore (50%-70% user target)
+			"fake_suffix":                  0.15, // 85% discount for fake copycat suffixes (_official, _admin, _bot)
+			"fake_prefix":                  0.20, // 80% discount for fake copycat prefixes (real_, the_)
+			"repetition_penalty":           0.60, // 40% discount for 3+ consecutive repeating chars
 			"symmetric_repetition_premium": 1.50, // premium for repeating single char words like xxxx
-			"num_underscore_combo": 0.25, // 75% discount for both numbers and underscore
-			"flow_high":            1.30, // premium for high pronounceability
-			"flow_low":             0.50, // 50% penalty for unpronounceable names
-			"no_underscore":        1.15, // mild premium for clean names
-			
+			"num_underscore_combo":         0.25, // 75% discount for both numbers and underscore
+			"flow_high":                    1.30, // premium for high pronounceability
+			"flow_low":                     0.50, // 50% penalty for unpronounceable names
+			"no_underscore":                1.15, // mild premium for clean names
+
 			// Phase 4 New Multipliers
 			"brandable_suffix": 1.40,
 			"known_acronym":    1.80,

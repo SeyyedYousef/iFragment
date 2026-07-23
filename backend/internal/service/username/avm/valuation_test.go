@@ -250,5 +250,3 @@ func TestValuationEngine_UserCustomParameters(t *testing.T) {
 		t.Errorf("fake_prefix multiplier (%f) should represent 75%% - 85%% penalty", fakeMult)
 	}
 }
-
-
