@@ -250,3 +250,18 @@ func TestValuationEngine_UserCustomParameters(t *testing.T) {
 		t.Errorf("fake_prefix multiplier (%f) should represent 75%% - 85%% penalty", fakeMult)
 	}
 }
+
+func TestRareUsernameValuationRegression(t *testing.T) {
+	// 1. Check frequency rank for "rare"
+	rank := RankWord("rare")
+	if rank == 0 {
+		t.Error("'rare' should exist in wordFrequencyRank with non-zero rank")
+	}
+
+	// 2. Check historical sales anchor for "rare"
+	rarePrice, ok := HistoricalSales["rare"]
+	if !ok || rarePrice < 100000 {
+		t.Errorf("Historical sales anchor for 'rare' missing or < 100000 TON, got %f", rarePrice)
+	}
+}
+

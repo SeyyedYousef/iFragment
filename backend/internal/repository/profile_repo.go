@@ -401,21 +401,13 @@ func (db *Database) GetReferralData(ctx context.Context, userID int64) (*model.R
 
 	var code string
 	g.Go(func() error {
+		code = fmt.Sprintf("ref_%d", userID)
 		var refCode sql.NullString
-		err := db.Pool.QueryRow(ctx, "SELECT referral_code FROM users WHERE telegram_id = $1", userID).Scan(&refCode)
-		if err != nil {
-			return err
-		}
-		code = refCode.String
-		if !refCode.Valid || code == "" {
-			var err error
-			code, err = generateSecureReferralCode(8)
-			if err != nil {
-				return err
-			}
-			_, err = db.Pool.Exec(ctx, "UPDATE users SET referral_code = $1 WHERE telegram_id = $2", code, userID)
-			if err != nil {
-				return err
+		_ = db.Pool.QueryRow(ctx, "SELECT referral_code FROM users WHERE telegram_id = $1", userID).Scan(&refCode)
+		if !refCode.Valid || refCode.String == "" {
+			secCode, err := generateSecureReferralCode(8)
+			if err == nil {
+				_, _ = db.Pool.Exec(ctx, "UPDATE users SET referral_code = $1 WHERE telegram_id = $2", secCode, userID)
 			}
 		}
 		return nil

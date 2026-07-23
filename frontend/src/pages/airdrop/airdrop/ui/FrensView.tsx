@@ -1,11 +1,14 @@
 import { createQuery } from '@tanstack/solid-query';
 import { hapticFeedback } from '@tma.js/sdk-solid';
-import { Component, For, Show } from 'solid-js';
+import { Component, createSignal, For, Show } from 'solid-js';
 import { getReferralInfo } from '@/shared/api/profile.js';
+import { PROFILE_CONFIG } from '@/shared/config/profile.js';
 import { formatCoins, formatNumber, t } from '@/shared/i18n/index.js';
 import { openTelegramLink } from '@/shared/lib/telegram-native.js';
 
 export const FrensView: Component = () => {
+	const [copied, setCopied] = createSignal(false);
+
 	const referralQuery = createQuery(() => ({
 		queryKey: ['profile', 'referral'],
 		queryFn: getReferralInfo,
@@ -14,16 +17,51 @@ export const FrensView: Component = () => {
 
 	const refInfo = () => referralQuery.data || null;
 
+	const getBotUsername = (): string => {
+		const envUsername = import.meta.env.VITE_BOT_USERNAME as string | undefined;
+		if (envUsername) return envUsername.replace('@', '');
+		const tgBot = (window as any).Telegram?.WebApp?.initDataUnsafe?.bot?.username;
+		if (tgBot) return tgBot;
+		return PROFILE_CONFIG.IFRAGMENT_BOT || 'iFragmentBot';
+	};
+
+	const getReferralLink = (): string => {
+		const code = refInfo()?.referralCode;
+		const tgUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
+		const botUsername = getBotUsername();
+
+		let refParam = '';
+		if (code) {
+			refParam = code.startsWith('ref_') ? code : `ref_${code}`;
+		} else if (tgUser?.id) {
+			refParam = `ref_${tgUser.id}`;
+		}
+
+		return refParam ? `https://t.me/${botUsername}?start=${refParam}` : `https://t.me/${botUsername}`;
+	};
+
 	const handleInvite = () => {
-		const link = refInfo()?.referralCode;
-		if (!link) return;
+		const fullLink = getReferralLink();
 		try {
 			hapticFeedback.impactOccurred('medium');
 		} catch {}
-		const fullLink = `https://t.me/iFragmentBot/iFragment?startapp=${link}`;
 		openTelegramLink(
 			`https://t.me/share/url?url=${encodeURIComponent(fullLink)}&text=${encodeURIComponent('Join me on iFragment and earn free Coins! 🟡')}`,
 		);
+	};
+
+	const handleCopy = async () => {
+		const fullLink = getReferralLink();
+		try {
+			await navigator.clipboard.writeText(fullLink);
+			setCopied(true);
+			try {
+				hapticFeedback.notificationOccurred('success');
+			} catch {}
+			setTimeout(() => setCopied(false), 2000);
+		} catch {
+			openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(fullLink)}`);
+		}
 	};
 
 	const frensCount = () => refInfo()?.totalInvited ?? 0;
@@ -56,14 +94,39 @@ export const FrensView: Component = () => {
 						{t('airdrop.friends.subtitle') || 'Invite friends to earn bonus coins and climb global leaderboards.'}
 					</p>
 
-					{/* Invite CTA Button (Premium Edition) */}
-					<button
-						onClick={handleInvite}
-						class="w-full h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] hover:from-[#2b7ec9] hover:to-[#3390ec] text-white font-black text-[14px] uppercase tracking-widest rounded-[18px] active:scale-95 transition-all duration-300 flex items-center justify-center gap-2 shadow-[0_8px_24px_rgba(51,144,236,0.4)] border border-white/10"
-					>
-						<span>{t('airdrop.friends.inviteBtn') || 'INVITE A FREN'}</span>
-						<span class="material-symbols-outlined text-[20px]">person_add</span>
-					</button>
+					{/* Invite CTA Buttons */}
+					<div class="w-full flex items-center gap-2">
+						<button
+							onClick={handleInvite}
+							class="flex-1 h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] hover:from-[#2b7ec9] hover:to-[#3390ec] text-white font-black text-[13px] uppercase tracking-widest rounded-[18px] active:scale-95 transition-all duration-300 flex items-center justify-center gap-2 shadow-[0_8px_24px_rgba(51,144,236,0.4)] border border-white/10"
+						>
+							<span>{t('airdrop.friends.inviteBtn') || 'INVITE A FREN'}</span>
+							<span class="material-symbols-outlined text-[20px]">person_add</span>
+						</button>
+						<button
+							onClick={handleCopy}
+							class="w-14 h-14 bg-[#161b28] hover:bg-[#1f2638] text-white/90 font-bold rounded-[18px] active:scale-95 transition-all duration-300 flex items-center justify-center border border-white/10 shrink-0"
+							title="Copy Referral Link"
+						>
+							<span class="material-symbols-outlined text-[22px]">
+								{copied() ? 'check' : 'content_copy'}
+							</span>
+						</button>
+					</div>
+
+					{/* Live Unique Referral Link Box */}
+					<div class="w-full mt-3 bg-[#12141C]/90 border border-[#3390ec]/30 rounded-[14px] p-2.5 flex items-center justify-between gap-2 shadow-inner">
+						<span class="text-[12px] font-mono text-[#3390ec] truncate select-all px-1">
+							{getReferralLink()}
+						</span>
+						<button
+							onClick={handleCopy}
+							class="text-[11px] font-bold text-white/80 hover:text-white bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-[8px] transition-all shrink-0 flex items-center gap-1"
+						>
+							<span class="material-symbols-outlined text-[14px]">{copied() ? 'check' : 'content_copy'}</span>
+							<span>{copied() ? 'Copied' : 'Copy'}</span>
+						</button>
+					</div>
 				</div>
 
 				{/* ═══════ FRENS LIST ═══════ */}

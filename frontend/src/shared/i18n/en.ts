@@ -1643,7 +1643,7 @@ export const dict = {
 		channelMgmt: 'Smart Channel Management',
 		description: 'Select a service to manage your Telegram communities.',
 		groupDesc:
-			'Advanced AI group management bot; dynamic bio, automated anti-spam, smart content locks, and full member control with your personal brand.',
+			'Build an advanced group management bot with hundreds of features; dynamic bio, automated anti-spam, smart content locks, and full member control with your personal brand.',
 		groupMgmt: 'Smart Group Management',
 		title: 'Community Management',
 		warningChannel: 'All channels active & secured',

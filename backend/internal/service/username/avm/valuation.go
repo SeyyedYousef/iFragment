@@ -971,11 +971,26 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		lowTONRaw = math.Min(lowTONRaw, 15.0)
 		highTONRaw = math.Min(highTONRaw, 35.0)
 		reasoning["gibberish_copycat_hard_cap_applied"] = true
-	} else if charLen == 4 {
-		// Floor for clean 4-character usernames
-		minFloor := 1000.0
+	} else if charLen == 3 {
+		// Floor for clean 3-character usernames (Fragment protocol baseline = 10,000 TON)
+		minFloor := 10000.0
 		if features.HasUnderscore || features.HasNumbers {
-			minFloor = 250.0
+			minFloor = 2500.0
+		}
+		if expectedTONRaw < minFloor {
+			expectedTONRaw = minFloor
+		}
+		if lowTONRaw < minFloor {
+			lowTONRaw = minFloor
+		}
+		if highTONRaw < expectedTONRaw {
+			highTONRaw = expectedTONRaw * 1.2
+		}
+	} else if charLen == 4 {
+		// Floor for clean 4-character usernames (Fragment protocol baseline = 5,050 TON)
+		minFloor := 5050.0
+		if features.HasUnderscore || features.HasNumbers {
+			minFloor = 1000.0
 		}
 		if expectedTONRaw < minFloor {
 			expectedTONRaw = minFloor
@@ -990,8 +1005,8 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 
 	// Prediction Intervals: Symmetric percentage bounds (15% for anchored/known, 30% for general)
 	if anchorInjected || highestPastSale > 0 {
-		lowTONRaw = expectedTONRaw * 0.85
-		highTONRaw = expectedTONRaw * 1.15
+		lowTONRaw = math.Max(expectedTONRaw*0.85, highestPastSale)
+		highTONRaw = math.Max(expectedTONRaw*1.15, highestPastSale*1.05)
 	} else if !features.IsGibberish {
 		lowTONRaw = expectedTONRaw * 0.70
 		highTONRaw = expectedTONRaw * 1.30
@@ -1550,7 +1565,7 @@ func CalculateSemanticKNNFloor(username string, features MorphFeatures, semResul
 
 	// Calibrate KNN estimate by character length category
 	if charLen == 3 {
-		return math.Min(knnEstimate, 250000.0)
+		return math.Min(knnEstimate, 3500000.0)
 	} else if charLen == 4 {
 		return math.Min(knnEstimate, 1500000.0)
 	} else if charLen == 5 {

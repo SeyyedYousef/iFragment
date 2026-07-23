@@ -183,14 +183,14 @@ func (h *ProfileHandler) SetReferrerCode(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Alphanumeric, 4 to 16 characters validation (SEC-07)
-	if len(req.ReferrerCode) < 4 || len(req.ReferrerCode) > 16 {
-		RespondError(w, r, http.StatusBadRequest, "referrerCode must be between 4 and 16 characters", nil)
+	// Alphanumeric + underscore/hyphen, 3 to 32 characters validation (SEC-07)
+	if len(req.ReferrerCode) < 3 || len(req.ReferrerCode) > 32 {
+		RespondError(w, r, http.StatusBadRequest, "referrerCode must be between 3 and 32 characters", nil)
 		return
 	}
 	for _, char := range req.ReferrerCode {
-		if !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9')) {
-			RespondError(w, r, http.StatusBadRequest, "referrerCode must be alphanumeric", nil)
+		if !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') || char == '_' || char == '-') {
+			RespondError(w, r, http.StatusBadRequest, "referrerCode contains invalid characters", nil)
 			return
 		}
 	}

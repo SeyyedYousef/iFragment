@@ -1608,7 +1608,7 @@ export const dict = {
 		channelMgmt: '智能频道管理',
 		description: '选择一项服务来管理您的 Telegram 社区。',
 		groupDesc:
-			'高级 AI 群组管理机器人；动态简介、自动反垃圾邮件、智能内容锁与专属品牌成员管理。',
+			'打造拥有数百种功能的高级群组管理机器人；动态简介、自动反垃圾邮件、智能内容锁与专属品牌成员管理。',
 		groupMgmt: '智能群组管理',
 		title: '社区管理',
 		warningChannel: '所有频道均处于活跃和安全状态',

@@ -150,14 +150,16 @@ func LogPrices(sales []ComparableSale) []float64 {
 
 func fallbackForLength(length int, cfg EngineConfig) float64 {
 	switch length {
+	case 3:
+		return cfg.FallbackLen3 // 10,000 TON
 	case 4:
-		return cfg.FallbackLen4 // 5,050 TON (Fragment 4-char starting bid floor)
+		return cfg.FallbackLen4 // 5,050 TON
 	case 5:
-		return cfg.FallbackLen5 // 50 TON
+		return cfg.FallbackLen5 // 1,000 TON
 	case 6:
-		return cfg.FallbackLen6 // 15 TON
+		return cfg.FallbackLen6 // 100 TON
 	default:
-		return cfg.FallbackOther // 5 TON
+		return cfg.FallbackOther // 25 TON
 	}
 }
 

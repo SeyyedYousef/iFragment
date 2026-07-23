@@ -40,6 +40,7 @@ type EngineConfig struct {
 	NormFactorOffer   float64 `json:"norm_factor_offer"`
 
 	// Fallback anchor values
+	FallbackLen3  float64 `json:"fallback_len_3"`
 	FallbackLen4  float64 `json:"fallback_len_4"`
 	FallbackLen5  float64 `json:"fallback_len_5"`
 	FallbackLen6  float64 `json:"fallback_len_6"`
@@ -79,8 +80,9 @@ func DefaultEngineConfig() EngineConfig {
 		NormFactorBuyNow:  0.85,
 		NormFactorOffer:   1.10,
 
-		FallbackLen4:  2500.0, // Calibrated starting baseline for 4-character names
-		FallbackLen5:  1000.0, // Fragment official 5-character starting bid baseline
+		FallbackLen3:  10000.0, // Fragment official 3-character starting bid baseline
+		FallbackLen4:  5050.0,  // Fragment official 4-character starting bid baseline
+		FallbackLen5:  1000.0,  // Fragment official 5-character starting bid baseline
 		FallbackLen6:  100.0,
 		FallbackOther: 25.0,
 
