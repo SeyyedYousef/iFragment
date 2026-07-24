@@ -2548,5 +2548,12 @@ export const dict = {
 		retail_holder: 'فروشنده خرد',
 		hard_negotiation: 'انتظار چانه‌زنی سخت را داشته باشید.',
 		soft_negotiation: 'انگیزه بالا برای فروش. پیشنهادهای پایین‌تر ممکن است پذیرفته شوند.',
+		net_flip_past_buy: 'قیمت خرید قبلی',
+		net_flip_profit: 'سود خالص پس از کارمزد',
+		net_flip_roi: 'بازدهی خالص سرمایه‌گذاری (ROI)',
+		concept_similar_title: 'نام‌های کاربری هم‌مفهوم و برندهای مرتبط',
+		ai_matched: 'تطبیق‌یافته هوش مصنوعی',
+		historical_sale_badge: 'معامله واقعی ثبت‌شده',
+		estimated_badge: 'تخمین هوش مصنوعی',
 	},
 };

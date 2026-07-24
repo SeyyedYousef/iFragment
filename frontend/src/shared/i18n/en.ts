@@ -2558,5 +2558,12 @@ export const dict = {
 		retail_holder: 'RETAIL HOLDER',
 		hard_negotiation: 'Expect hard negotiation.',
 		soft_negotiation: 'High motivation to sell. Lowball offers may work.',
+		net_flip_past_buy: 'Past Purchase Price',
+		net_flip_profit: 'Net Profit After Fees',
+		net_flip_roi: 'Net ROI on Flip',
+		concept_similar_title: 'Concept Similar Usernames',
+		ai_matched: 'AI MATCHED',
+		historical_sale_badge: 'HISTORICAL SALE',
+		estimated_badge: 'ESTIMATED',
 	},
 };

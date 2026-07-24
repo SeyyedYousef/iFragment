@@ -2498,5 +2498,12 @@ export const dict = {
 		retail_holder: '散户持有者',
 		hard_negotiation: '预计谈判难度较高。',
 		soft_negotiation: '出售意愿高，低价出价可能生效。',
+		net_flip_past_buy: '历史购买价格',
+		net_flip_profit: '扣除手续费后的净利润',
+		net_flip_roi: '净转售投资回报率 (ROI)',
+		concept_similar_title: '概念相似用户名',
+		ai_matched: 'AI 匹配',
+		historical_sale_badge: '历史成交记录',
+		estimated_badge: 'AI 估算',
 	},
 };

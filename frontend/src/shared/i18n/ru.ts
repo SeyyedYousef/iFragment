@@ -2563,5 +2563,12 @@ export const dict = {
 		retail_holder: 'РОЗНИЧНЫЙ ВЛАДЕЛЕЦ',
 		hard_negotiation: 'Ожидайте жестких переговоров.',
 		soft_negotiation: 'Высокая мотивация к продаже. Торг уместен.',
+		net_flip_past_buy: 'Цена прошлой покупки',
+		net_flip_profit: 'Чистая прибыль после комиссии',
+		net_flip_roi: 'Чистый ROI от перепродажи',
+		concept_similar_title: 'Концептуально похожие юзернеймы',
+		ai_matched: 'ПОДБОР ИИ',
+		historical_sale_badge: 'ИСТОРИЯ ПРОДАЖ',
+		estimated_badge: 'ОЦЕНКА ИИ',
 	},
 };

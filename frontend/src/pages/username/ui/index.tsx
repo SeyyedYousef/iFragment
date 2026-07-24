@@ -22,9 +22,7 @@ interface ValuationResult {
 	liquidity_rating?: string; estimated_sell_time?: string; target_buyer_profile?: string;
 	projected_growth?: { bull_ton: number; base_ton: number; bear_ton: number; bull_usd: number; base_usd: number; bear_usd: number; };
 	liquidity_metrics?: { score: number; estimated_days: string; };
-	cross_platform?: { twitter: boolean; instagram: boolean; github: boolean; web3: boolean; };
 	auction_playbook?: { start_price_ton: number; bid_step_ton: number; best_day: string; best_hour_utc: string; };
-	phishing_threat?: { has_threat: boolean; risk_level: string; };
 	search_trend?: { surge_percent: number; status: string; };
 	reasoning_log: Record<string, any>; investment_grade: string; comparables: { username: string; price: number; date: string; }[]; price_trend: { label: string; value: number; }[]; wallet_info?: { balance: number; nft_count: number; is_whale: boolean; }; entity_info?: { type: string; members: number; verified: boolean; }; status?: string; brandability: number; fear_greed_index: number; fear_greed_label: string; wikipedia_summary: string; rarity_breakdown: Record<string, number>;
 }
@@ -59,11 +57,6 @@ export const UsernamePage: Component = () => {
 		setTilt({ x: ((rect.height / 2) - y) / 10, y: (x - (rect.width / 2)) / 10, glossX: (x / rect.width) * 100, glossY: (y / rect.height) * 100 });
 	};
 	const handleMouseLeave = () => setTilt({ x: 0, y: 0, glossX: 50, glossY: 50 });
-
-	const formatTag = (tag: string) => {
-		const map: Record<string, string> = { crypto_ultra_premium: 'Crypto & Web3', exclusivity_status_premium: 'Status & Rarity', telegram_ecosystem: 'Telegram Ecosystem', general_ultra_premium: 'High Commercial Value', color_premium: 'Color Keyword', geo_premium: 'Geographic Brand', internet_slang: 'Internet Slang', emoji_word: 'Emoji Term', brand_verified: 'Verified Brand', wiki_popular: 'Wikipedia Notable', compound_word: 'Compound Term' };
-		return map[tag] || tag.replace(/_/g, ' ').toUpperCase();
-	};
 
 	const getFontSize = (name: string) => {
 		const len = name.length;
@@ -211,7 +204,30 @@ export const UsernamePage: Component = () => {
 
 	// --- Derived Intelligence Data ---
 	const expectedTon = () => parseFloat(data()?.expected_ton || '0');
-	const netProfit = () => expectedTon() * 0.95;
+	
+	// Historical purchase price if sold previously
+	const pastSaleTon = () => {
+		if (data()?.history?.highest_past_sale_ton && data()!.history!.highest_past_sale_ton! > 0) {
+			return data()!.history!.highest_past_sale_ton!;
+		}
+		if (data()?.history?.transactions && data()!.history!.transactions!.length > 0) {
+			const p = parseFloat(data()!.history!.transactions![0].sale_price_ton);
+			if (!isNaN(p) && p > 0) return p;
+		}
+		return 0;
+	};
+
+	const netSaleTon = () => expectedTon() * 0.95;
+	const netFlipProfit = () => {
+		const past = pastSaleTon();
+		if (past > 0) return netSaleTon() - past;
+		return netSaleTon();
+	};
+	const netRoiPercent = () => {
+		const past = pastSaleTon();
+		if (past > 0) return ((netSaleTon() - past) / past) * 100;
+		return 0;
+	};
 
 	return (
 		<Show
@@ -403,30 +419,47 @@ export const UsernamePage: Component = () => {
 							</div>
 						</div>
 
-						{/* 🚀 3. NET FLIP ROI CALCULATOR */}
-						<div class="w-full bg-gradient-to-br from-[#10b981]/10 to-[#08090D] backdrop-blur-2xl border border-[#10b981]/30 rounded-[28px] p-6 flex flex-col gap-4 shadow-[0_10px_30px_rgba(16,185,129,0.1)] relative overflow-hidden">
+						{/* 🧮 3. ADVANCED NET FLIP ROI ESTIMATOR (WITH HISTORICAL ACQUISITION DEDUCTION) */}
+						<div class="w-full bg-gradient-to-br from-[#10b981]/15 via-[#12141C]/90 to-[#08090D] backdrop-blur-2xl border border-[#10b981]/30 rounded-[28px] p-6 flex flex-col gap-4 shadow-[0_10px_30px_rgba(16,185,129,0.15)] relative overflow-hidden">
 							<div class="absolute -right-10 -top-10 w-40 h-40 bg-[#10b981]/10 blur-3xl rounded-full pointer-events-none" />
 							<div class="flex items-center justify-between text-white/90 relative z-10 border-b border-[#10b981]/20 pb-3">
 								<div class="flex items-center gap-2">
-									<span class="material-symbols-outlined text-[20px] text-[#10b981]">calculate</span>
+									<span class="material-symbols-outlined text-[22px] text-[#10b981]">calculate</span>
 									<span class="text-[13px] font-black uppercase tracking-widest text-[#10b981]">{t('valuation.net_flip_title') || 'NET FLIP ESTIMATOR'}</span>
 								</div>
 								<span class="text-[9px] font-black text-[#10b981] bg-[#10b981]/10 px-2.5 py-1 rounded-[8px] border border-[#10b981]/30 shadow-sm">-5% FRAGMENT FEE</span>
 							</div>
 							
-							<div class="flex justify-between items-center w-full mt-1 relative z-10">
-								<div class="flex flex-col text-left opacity-70">
-									<span class="text-white/60 text-[10px] uppercase font-black tracking-widest mb-1">{t('valuation.gross_sale') || 'GROSS SALE'}</span>
-									<span class="text-white font-mono font-bold text-[14px] line-through decoration-[#ff4a4a] decoration-2">{expectedTon().toLocaleString('en-US')} TON</span>
-								</div>
-								<div class="flex items-center justify-center px-4 opacity-40">
-									<span class="material-symbols-outlined text-[24px] rtl:rotate-180">arrow_forward</span>
-								</div>
-								<div class="flex flex-col text-right">
-									<span class="text-[#10b981] text-[10px] uppercase font-black tracking-widest mb-1">{t('valuation.net_profit_wallet') || 'NET PROFIT TO WALLET'}</span>
-									<span class="text-[#10b981] font-mono font-black text-[22px] tracking-tight drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]">
-										{netProfit().toLocaleString('en-US', { maximumFractionDigits: 1 })} TON
-									</span>
+							<div class="flex flex-col gap-3 relative z-10">
+								<Show when={pastSaleTon() > 0}>
+									<div class="grid grid-cols-2 gap-2.5">
+										<div class="bg-[#08090D]/80 border border-white/5 rounded-[16px] p-3 flex flex-col gap-0.5">
+											<span class="text-white/40 text-[9px] font-black uppercase tracking-widest">{t('valuation.net_flip_past_buy') || 'PAST PURCHASE PRICE'}</span>
+											<span class="text-white font-mono font-black text-[14px]">{pastSaleTon().toLocaleString('en-US')} TON</span>
+										</div>
+										<div class="bg-[#08090D]/80 border border-white/5 rounded-[16px] p-3 flex flex-col gap-0.5">
+											<span class="text-white/40 text-[9px] font-black uppercase tracking-widest">{t('valuation.gross_sale') || 'GROSS VALUATION'}</span>
+											<span class="text-white font-mono font-black text-[14px]">{expectedTon().toLocaleString('en-US')} TON</span>
+										</div>
+									</div>
+								</Show>
+
+								<div class="flex justify-between items-center w-full bg-[#08090D]/90 rounded-[20px] p-4 border border-[#10b981]/30 shadow-inner">
+									<div class="flex flex-col text-start">
+										<span class="text-white/50 text-[10px] uppercase font-black tracking-widest mb-0.5">{t('valuation.net_profit_wallet') || 'NET PROFIT TO WALLET'}</span>
+										<span class="text-[#10b981] font-mono font-black text-[22px] tracking-tight drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]">
+											{netFlipProfit().toLocaleString('en-US', { maximumFractionDigits: 1 })} TON
+										</span>
+									</div>
+
+									<Show when={pastSaleTon() > 0 && netRoiPercent() !== 0}>
+										<div class="flex flex-col items-end">
+											<span class="text-white/40 text-[9px] uppercase font-black tracking-widest mb-0.5">{t('valuation.net_flip_roi') || 'NET ROI'}</span>
+											<span class={`font-mono font-black text-[16px] px-3 py-1 rounded-[10px] border shadow-sm ${netRoiPercent() > 0 ? 'bg-[#10b981]/20 text-[#10b981] border-[#10b981]/40' : 'bg-[#ff4a4a]/20 text-[#ff4a4a] border-[#ff4a4a]/40'}`}>
+												{netRoiPercent() > 0 ? `+${netRoiPercent().toFixed(1)}%` : `${netRoiPercent().toFixed(1)}%`}
+											</span>
+										</div>
+									</Show>
 								</div>
 							</div>
 						</div>
@@ -439,10 +472,10 @@ export const UsernamePage: Component = () => {
 								<div class="flex items-center justify-between text-white/90 relative z-10 border-b border-white/5 pb-3">
 									<div class="flex items-center gap-2.5">
 										<span class="material-symbols-outlined text-[22px] text-[#3390ec]">hub</span>
-										<span class="text-[13px] font-black uppercase tracking-widest text-white">CONCEPT SIMILAR USERNAMES</span>
+										<span class="text-[13px] font-black uppercase tracking-widest text-white">{t('valuation.concept_similar_title') || 'CONCEPT SIMILAR USERNAMES'}</span>
 									</div>
 									<span class="text-[10px] font-black text-[#3390ec] bg-[#3390ec]/10 border border-[#3390ec]/30 px-2.5 py-1 rounded-[8px] shadow-sm">
-										AI MATCHED
+										{t('valuation.ai_matched') || 'AI MATCHED'}
 									</span>
 								</div>
 
@@ -456,7 +489,7 @@ export const UsernamePage: Component = () => {
 												<div class="flex items-center gap-2">
 													<span class="text-[#3390ec] font-black text-[15px] group-hover:underline truncate">@{item.username}</span>
 													<span class={`text-[8px] font-black uppercase px-2 py-0.5 rounded-[6px] border ${item.status === 'sold' ? 'bg-[#10b981]/15 text-[#10b981] border-[#10b981]/30' : 'bg-amber-400/15 text-amber-400 border-amber-400/30'}`}>
-														{item.status === 'sold' ? 'HISTORICAL SALE' : 'ESTIMATED'}
+														{item.status === 'sold' ? (t('valuation.historical_sale_badge') || 'HISTORICAL SALE') : (t('valuation.estimated_badge') || 'ESTIMATED')}
 													</span>
 												</div>
 												<span class="text-white/40 text-[11px] font-medium truncate">{item.reason}</span>
@@ -464,7 +497,7 @@ export const UsernamePage: Component = () => {
 
 											<div class="flex flex-col items-end shrink-0 pl-3">
 												<span class="text-white font-mono font-black text-[14px]">{item.sale_price?.toLocaleString()} TON</span>
-												<span class="text-white/40 text-[10px] font-mono font-bold">≈ ${item.sale_price_usd?.toLocaleString({ maximumFractionDigits: 0 })}</span>
+												<span class="text-white/40 text-[10px] font-mono font-bold">≈ ${item.sale_price_usd?.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
 											</div>
 										</div>
 									))}
@@ -528,67 +561,7 @@ export const UsernamePage: Component = () => {
 							</div>
 						</div>
 
-						{/* 🛡️ 7. PHISHING Threat & GLOBAL TREND */}
-						<div class="w-full bg-[#12141C]/80 backdrop-blur-2xl border border-white/5 rounded-[28px] p-6 flex flex-col gap-4 shadow-sm">
-							<div class="flex items-center justify-between text-white/90 border-b border-white/5 pb-3">
-								<div class="flex items-center gap-2">
-									<span class="material-symbols-outlined text-[20px] text-emerald-400">verified_user</span>
-									<span class="text-[13px] font-black uppercase tracking-widest">{t('valuation.phishing_radar_title') || 'SECURITY & DEMAND RADAR'}</span>
-								</div>
-								<span class="text-[10px] font-black text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2.5 py-1 rounded-[8px] shadow-sm">
-									RISK: {data()?.phishing_threat?.risk_level || 'LOW (SAFE)'}
-								</span>
-							</div>
-
-							<div class="grid grid-cols-2 gap-3">
-								<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-4 flex flex-col gap-1 shadow-inner">
-									<span class="text-white/40 text-[10px] font-black uppercase tracking-widest">{t('valuation.global_search_trend_title') || 'SEARCH DEMAND'}</span>
-									<span class="text-emerald-400 font-mono font-black text-[15px]">
-										+{data()?.search_trend?.surge_percent || 124}% SURGE
-									</span>
-								</div>
-								<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-4 flex flex-col gap-1 shadow-inner">
-									<span class="text-white/40 text-[10px] font-black uppercase tracking-widest">IMPERSONATION RISK</span>
-									<span class="text-white font-mono font-black text-[13px]">
-										{data()?.phishing_threat?.has_threat ? 'HIGH THREAT' : (t('valuation.phishing_safe_desc') || 'CLEAN')}
-									</span>
-								</div>
-							</div>
-						</div>
-
-						{/* 🌐 8. CROSS-PLATFORM BRAND EQUITY LOCK */}
-						<div class="w-full bg-[#12141C]/80 backdrop-blur-2xl border border-white/5 rounded-[28px] p-6 flex flex-col gap-4 shadow-sm">
-							<div class="flex items-center justify-between text-white/90 border-b border-white/5 pb-3">
-								<div class="flex items-center gap-2">
-									<span class="material-symbols-outlined text-[20px] text-purple-400">language</span>
-									<span class="text-[13px] font-black uppercase tracking-widest">{t('valuation.brand_equity_title') || 'CROSS-PLATFORM BRAND LOCK'}</span>
-								</div>
-								<span class="text-[10px] font-black text-purple-400 bg-purple-400/10 border border-purple-400/20 px-2.5 py-1 rounded-[8px] shadow-sm">
-									WEB3 BRAND
-								</span>
-							</div>
-
-							<div class="grid grid-cols-4 gap-2">
-								<div class="bg-[#08090D] border border-white/5 rounded-[14px] p-3 flex flex-col items-center gap-1 shadow-inner">
-									<span class="text-white/40 font-black text-[10px]">X / TWITTER</span>
-									<span class="text-emerald-400 text-[11px] font-black">AVAILABLE</span>
-								</div>
-								<div class="bg-[#08090D] border border-white/5 rounded-[14px] p-3 flex flex-col items-center gap-1 shadow-inner">
-									<span class="text-white/40 font-black text-[10px]">INSTAGRAM</span>
-									<span class="text-emerald-400 text-[11px] font-black">AVAILABLE</span>
-								</div>
-								<div class="bg-[#08090D] border border-white/5 rounded-[14px] p-3 flex flex-col items-center gap-1 shadow-inner">
-									<span class="text-white/40 font-black text-[10px]">GITHUB</span>
-									<span class="text-emerald-400 text-[11px] font-black">AVAILABLE</span>
-								</div>
-								<div class="bg-[#08090D] border border-white/5 rounded-[14px] p-3 flex flex-col items-center gap-1 shadow-inner">
-									<span class="text-white/40 font-black text-[10px]">.TON DOMAIN</span>
-									<span class="text-emerald-400 text-[11px] font-black">CLAIMABLE</span>
-								</div>
-							</div>
-						</div>
-
-						{/* 🚀 9. 12-MONTH PROJECTIONS */}
+						{/* 🚀 7. 12-MONTH PROJECTIONS */}
 						<div class="w-full bg-[#12141C]/80 backdrop-blur-2xl border border-white/5 rounded-[28px] p-6 flex flex-col gap-5 shadow-sm">
 							<div class="flex items-center justify-between border-b border-white/5 pb-4">
 								<div class="flex items-center gap-2 text-white/90">
@@ -622,7 +595,7 @@ export const UsernamePage: Component = () => {
 							</div>
 						</div>
 
-						{/* 🧬 10. USERNAME STRUCTURAL ANATOMY */}
+						{/* 🧬 8. USERNAME STRUCTURAL ANATOMY */}
 						<div class="w-full bg-[#12141C]/80 backdrop-blur-2xl border border-white/5 rounded-[28px] p-6 flex flex-col gap-4 shadow-sm">
 							<div class="flex items-center justify-between text-white/90 border-b border-white/5 pb-3">
 								<div class="flex items-center gap-2">
@@ -656,32 +629,7 @@ export const UsernamePage: Component = () => {
 							</div>
 						</div>
 
-						{/* 🚀 11. COMPARABLES */}
-						<Show when={(data()?.comparables?.length ?? 0) > 0}>
-							<div class="w-full bg-[#12141C]/80 backdrop-blur-2xl border border-white/5 rounded-[28px] p-6 flex flex-col gap-4 shadow-sm">
-								<div class="flex items-center justify-between text-white/90 border-b border-white/5 pb-3">
-									<div class="flex items-center gap-2">
-										<span class="material-symbols-outlined text-[20px] text-white">payments</span>
-										<span class="text-[13px] font-black uppercase tracking-widest">{t('valuation.comp_title') || 'COMPARABLES'}</span>
-									</div>
-									<span class="text-[10px] font-black text-white/30 bg-white/5 border border-white/5 px-2.5 py-1 rounded-[8px] shadow-inner">{data()?.comparables?.length} SALES</span>
-								</div>
-								<div class="flex flex-col rounded-[16px] overflow-hidden bg-[#08090D] border border-white/5 shadow-inner">
-									<div class="grid grid-cols-3 p-3.5 bg-white/[0.03] text-[10px] font-black text-white/30 uppercase tracking-widest border-b border-white/5">
-										<span>USERNAME</span><span class="text-center">{t('valuation.sale_price') || 'PRICE'}</span><span class="text-right">{t('valuation.date') || 'DATE'}</span>
-									</div>
-									{data()?.comparables?.map((comp) => (
-										<div onClick={() => window.location.href = `/username?u=${comp.username}`} class="grid grid-cols-3 p-4 items-center border-b border-white/5 text-[13px] hover:bg-white/[0.04] cursor-pointer transition-colors">
-											<span class="text-white font-black truncate">@{comp.username}</span>
-											<span class="text-white font-mono font-black text-center">{comp.price?.toLocaleString()} TON</span>
-											<span class="text-white/40 text-[11px] font-bold text-right font-mono">{comp.date ? new Date(comp.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '-'}</span>
-										</div>
-									))}
-								</div>
-							</div>
-						</Show>
-
-						{/* 🚀 12. HISTORY */}
+						{/* 🚀 9. HISTORY */}
 						<div class="w-full bg-[#12141C]/80 backdrop-blur-2xl border border-white/5 rounded-[28px] p-6 flex flex-col gap-4 shadow-sm">
 							<div class="flex items-center gap-2 text-white/90 border-b border-white/5 pb-3">
 								<span class="material-symbols-outlined text-[20px] text-white">history</span>
@@ -761,7 +709,7 @@ export const UsernamePage: Component = () => {
 								<div class="flex justify-between items-center border-b border-white/5 pb-4">
 									<div class="flex items-center gap-2">
 										<span class="material-symbols-outlined text-amber-400 text-[24px]">lock</span>
-										<h3 class="text-[17px] font-black text-white tracking-tight">{t('valuation.pay_gate_title') || 'UNLOCK FULL AI INTELLIGENCE'}</h3>
+										<h3 class="text-[17px] font-black text-white tracking-tight">{t('valuation.gate_title') || 'UNLOCK FULL AI INTELLIGENCE'}</h3>
 									</div>
 									<button onClick={() => window.history.back()} class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/60 transition-colors">
 										<span class="material-symbols-outlined text-[18px]">close</span>
@@ -769,7 +717,7 @@ export const UsernamePage: Component = () => {
 								</div>
 
 								<Show when={paymentError()}>
-									<div class="p-3 bg-[#ff4a4a]/10 border border-[#ff4a4a]/30 rounded-[14px] text-[#ff4a4a] text-[12px] font-bold text-center">
+									<div class="p-[#ff4a4a]/10 border border-[#ff4a4a]/30 rounded-[14px] text-[#ff4a4a] text-[12px] font-bold text-center">
 										{paymentError()}
 									</div>
 								</Show>
