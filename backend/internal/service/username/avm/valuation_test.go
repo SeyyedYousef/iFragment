@@ -1,6 +1,7 @@
 package avm
 
 import (
+	"math"
 	"testing"
 )
 
@@ -260,8 +261,14 @@ func TestRareUsernameValuationRegression(t *testing.T) {
 
 	// 2. Check historical sales anchor for "rare"
 	rarePrice, ok := HistoricalSales["rare"]
-	if !ok || rarePrice < 100000 {
-		t.Errorf("Historical sales anchor for 'rare' missing or < 100000 TON, got %f", rarePrice)
+	if !ok || rarePrice < 50000 {
+		t.Errorf("Historical sales anchor for 'rare' missing or < 50000 TON, got %f", rarePrice)
+	}
+
+	// 3. Appreciated value (3.7 years @ 20% CAGR) should fall between 100,000 and 150,000 TON
+	appreciated := rarePrice * math.Pow(1.20, 3.7)
+	if appreciated < 100000 || appreciated > 150000 {
+		t.Errorf("Appreciated valuation for 'rare' (%f TON) is out of target range [100000, 150000]", appreciated)
 	}
 }
 
