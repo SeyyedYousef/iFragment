@@ -7,10 +7,11 @@ import (
 )
 
 type ComparableSale struct {
-	ID         int64
-	PriceTON   float64 // auction-equivalent normalized price
-	SaleDate   time.Time
-	CharLength int
+	ID          int64
+	PriceTON    float64 // auction-equivalent normalized price (appreciated)
+	RawPriceTON float64 // un-appreciated original historical purchase price
+	SaleDate    time.Time
+	CharLength  int
 	// Morphology flags for confounder isolation
 	HasNumbers    bool
 	HasUnderscore bool
@@ -24,10 +25,13 @@ func ApplyMarketAppreciation(sales []ComparableSale, annualRate float64, now tim
 		return
 	}
 	for i, s := range sales {
+		if sales[i].RawPriceTON == 0 {
+			sales[i].RawPriceTON = s.PriceTON
+		}
 		yearsAgo := now.Sub(s.SaleDate).Hours() / (24.0 * 365.25)
 		if yearsAgo > 0 {
 			multiplier := math.Pow(1.0+annualRate, yearsAgo)
-			sales[i].PriceTON = s.PriceTON * multiplier
+			sales[i].PriceTON = sales[i].RawPriceTON * multiplier
 		}
 	}
 }

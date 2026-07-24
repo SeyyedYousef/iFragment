@@ -37,7 +37,7 @@ var HistoricalSales = map[string]float64{
 	"catizen":      150000.0, // Ecosystem Tier-1 MiniApp (@catizen)
 	"hamster":      100000.0, // Ecosystem Tier-1 MiniApp (@hamster)
 	"paws":         80000.0,  // Ecosystem Tier-1 MiniApp (@paws)
-	"rare":         65000.0,  // Top Web3/Rarity category username (@rare -> ~128.3k TON appreciated)
+	"rare":         65000.0,  // Top Web3/Rarity category username (@rare anchor 65k TON)
 	"python":       45000.0,  // Top programming language / tech brand (@python)
 	"limited":      5050.0,   // High-status English adjective, sold on Fragment (@limited)
 	"developer":    25000.0,  // Major tech category (@developer)

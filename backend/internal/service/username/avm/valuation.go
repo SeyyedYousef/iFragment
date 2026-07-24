@@ -631,6 +631,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 			targetComps = append(targetComps, ComparableSale{
 				ID:            0,
 				PriceTON:      ss.PriceTON,
+				RawPriceTON:   ss.PriceTON,
 				SaleDate:      ss.SaleDate,
 				CharLength:    int(charLen),
 				HasNumbers:    features.HasNumbers,
@@ -655,10 +656,11 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		}
 		if !alreadyHasAnchor {
 			targetComps = append([]ComparableSale{{
-				PriceTON:   hardcodedPrice,
-				SaleDate:   time.Date(2022, 11, 1, 0, 0, 0, 0, time.UTC),
-				ID:         0,
-				CharLength: len(username),
+				PriceTON:    hardcodedPrice,
+				RawPriceTON: hardcodedPrice,
+				SaleDate:    time.Date(2022, 11, 1, 0, 0, 0, 0, time.UTC),
+				ID:          0,
+				CharLength:  len(username),
 			}}, targetComps...)
 		}
 		anchorInjected = true
@@ -1242,7 +1244,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		key := fmt.Sprintf("%.0f_%s", ss.PriceTON, ss.SaleDate.Format("2006-01-02"))
 		if !seenTx[key] {
 			seenTx[key] = true
-			if ss.PriceTON > highestPastSale {
+			if highestPastSale == 0 && ss.PriceTON > 0 {
 				highestPastSale = ss.PriceTON
 			}
 			historyTransactions = append(historyTransactions, ValuationHistoryItem{
@@ -1260,7 +1262,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		if sale.SalePriceTON.GreaterThan(decimal.Zero) {
 			priceStr = sale.SalePriceTON.String()
 			fPrice, _ = sale.SalePriceTON.Float64()
-			if fPrice > highestPastSale {
+			if highestPastSale == 0 && fPrice > 0 {
 				highestPastSale = fPrice
 			}
 		}
@@ -1284,7 +1286,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		key := fmt.Sprintf("%.0f_2022-11-01", hardcodedPrice)
 		if !seenTx[key] {
 			seenTx[key] = true
-			if hardcodedPrice > highestPastSale {
+			if highestPastSale == 0 {
 				highestPastSale = hardcodedPrice
 			}
 			historyTransactions = append(historyTransactions, ValuationHistoryItem{
