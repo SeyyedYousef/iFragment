@@ -323,8 +323,9 @@ func CalcBaseLog(
 		}
 	}
 
-	// Denormalize computed baseLog (which is in 5-letter log-space) back to the target's length
-	baseLog = math.Log(DenormalizeFromLength5(math.Exp(baseLog), features.CharLength, features.SemanticScore, cfg))
+	// NOTE: baseLog is already in native-length log-space after target-vs-exact
+	// shrinkage (shrunkExactNativeLog was denormalized at line 295).
+	// No second denormalization needed — that was causing Double Denormalization bug.
 
 	return baseLog, nEff, mad, saleIDs
 }

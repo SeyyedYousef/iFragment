@@ -62,7 +62,7 @@ func DefaultEngineConfig() EngineConfig {
 		Lambda: 0.005, // ~0.5% decay per day → 50% weight at ~138 days
 
 		K:                10.0, // Bayesian maturity threshold
-		KTarget:          0.4,  // Target Bayesian shrinkage threshold
+		KTarget:          0.08, // Target Bayesian shrinkage — high trust in actual sale history
 		AppreciationRate: 0.20, // CAGR for TON usernames (20%)
 
 		MorphClampLow:  -1.6094379, // ln(0.20)
