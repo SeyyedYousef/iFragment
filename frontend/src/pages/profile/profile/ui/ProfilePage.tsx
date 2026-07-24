@@ -266,6 +266,7 @@ export const ProfilePage: Component = () => {
 								each={
 									[
 										{ code: 'fa', label: 'فارسی (Persian)', icon: '🇮🇷' },
+										{ code: 'ps', label: 'پښتو (Pashto)', icon: '🇦🇫' },
 										{ code: 'en', label: 'English (US)', icon: '🇬🇧' },
 										{ code: 'ru', label: 'Русский', icon: '🇷🇺' },
 										{ code: 'zh', label: '中文', icon: '🇨🇳' },

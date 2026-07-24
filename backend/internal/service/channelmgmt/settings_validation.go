@@ -203,7 +203,7 @@ func ValidateSettingsCategory(category string, data json.RawMessage) error {
 		if err := json.Unmarshal(data, &s); err != nil {
 			return fmt.Errorf("invalid general settings structure: %w", err)
 		}
-		if s.Language != "" && s.Language != "fa" && s.Language != "en" && s.Language != "ru" && s.Language != "zh" {
+		if s.Language != "" && s.Language != "fa" && s.Language != "ps" && s.Language != "en" && s.Language != "ru" && s.Language != "zh" {
 			return fmt.Errorf("invalid language selection: %s", s.Language)
 		}
 		channelName := firstNonEmpty(s.Name, s.ChannelName)

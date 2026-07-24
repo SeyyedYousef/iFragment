@@ -135,6 +135,7 @@ export const GeneralSettingsPage: Component = () => {
 							onChange={(v) => updateField('language', v)}
 							options={[
 								{ value: 'fa', label: 'فارسی (Persian)' },
+								{ value: 'ps', label: 'پښتو (Pashto)' },
 								{ value: 'en', label: 'English' },
 								{ value: 'ru', label: 'Русский (Russian)' },
 								{ value: 'zh', label: '中文 (Chinese)' },

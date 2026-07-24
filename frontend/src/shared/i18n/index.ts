@@ -5,10 +5,11 @@ import { setLanguage } from '@/shared/api/profile.js';
 
 import { dict as en } from './en.js';
 import { dict as fa } from './fa.js';
+import { dict as ps } from './ps.js';
 import { dict as ru } from './ru.js';
 import { dict as zh } from './zh.js';
 
-const dictionaries = { en, fa, ru, zh };
+const dictionaries = { en, fa, ps, ru, zh };
 export type Locale = keyof typeof dictionaries;
 export type Dictionary = typeof en;
 
@@ -16,16 +17,17 @@ const mapLanguageCode = (code?: string): Locale => {
 	if (!code) return 'en';
 	const c = code.toLowerCase();
 	if (c.startsWith('fa')) return 'fa';
+	if (c.startsWith('ps') || c.startsWith('puk') || c.startsWith('pus')) return 'ps';
 	if (c.startsWith('ru')) return 'ru';
 	if (c.startsWith('zh')) return 'zh';
 	return 'en';
 };
 
-export const RTL_LOCALES: Locale[] = ['fa'];
+export const RTL_LOCALES: Locale[] = ['fa', 'ps'];
 
 const getInitialLocale = (): Locale => {
 	const saved = localStorage.getItem('user_selected_locale');
-	if (saved && (saved === 'en' || saved === 'fa' || saved === 'ru' || saved === 'zh')) {
+	if (saved && (saved === 'en' || saved === 'fa' || saved === 'ps' || saved === 'ru' || saved === 'zh')) {
 		return saved as Locale;
 	}
 
@@ -85,6 +87,7 @@ export type DictPaths = FlattenKeys<Dictionary>;
 const flattenedDicts = {
 	en: i18n.flatten(dictionaries.en),
 	fa: i18n.flatten(dictionaries.fa),
+	ps: i18n.flatten(dictionaries.ps),
 	ru: i18n.flatten(dictionaries.ru),
 	zh: i18n.flatten(dictionaries.zh),
 };
@@ -129,6 +132,7 @@ export const t = i18n.translator(getDict, customResolveTemplate) as (
 export const getIntlLocale = (): string => {
 	const loc = getLocale();
 	if (loc === 'fa') return 'fa-IR';
+	if (loc === 'ps') return 'ps-AF';
 	if (loc === 'ru') return 'ru-RU';
 	if (loc === 'zh') return 'zh-CN';
 	return 'en-US';

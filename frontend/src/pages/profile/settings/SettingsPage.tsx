@@ -363,6 +363,39 @@ export const SettingsPage: Component = () => {
 								</span>
 							</button>
 
+							{/* Pashto */}
+							<button
+								onClick={() => {
+									try {
+										hapticFeedback.impactOccurred('light');
+									} catch {}
+									setLocale('ps');
+								}}
+								class={`p-4 rounded-[20px] flex flex-col items-center justify-center gap-2 border transition-all active:scale-95 shadow-sm group ${
+									locale() === 'ps'
+										? 'bg-[#3390ec]/15 border-[#3390ec]/40 shadow-[0_0_15px_rgba(51,144,236,0.15)]'
+										: 'bg-[#08090D] border-white/5 hover:border-white/20'
+								}`}
+							>
+								<div class="relative">
+									<span class="text-[28px] drop-shadow-md transition-transform group-hover:scale-110">
+										🇦🇫
+									</span>
+									<Show when={locale() === 'ps'}>
+										<div class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[#3390ec] flex items-center justify-center shadow-md">
+											<span class="material-symbols-outlined text-[10px] text-[#3390ec] font-black text-white">
+												done
+											</span>
+										</div>
+									</Show>
+								</div>
+								<span
+									class={`font-black tracking-wide ${locale() === 'ps' ? 'text-[#3390ec] text-[13px]' : 'text-white/80 text-[12px]'}`}
+								>
+									پښتو
+								</span>
+							</button>
+
 							{/* Russian */}
 							<button
 								onClick={() => {
