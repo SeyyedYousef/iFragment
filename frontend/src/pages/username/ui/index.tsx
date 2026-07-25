@@ -2,10 +2,10 @@ import { Motion } from '@motionone/solid';
 import { useSearchParams } from '@solidjs/router';
 import { backButton, hapticFeedback, openTelegramLink } from '@tma.js/sdk-solid';
 import { toPng } from 'html-to-image';
-import { Component, createEffect, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import { Component, createEffect, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { apiFetch } from '@/shared/api/base.js';
 import { valuationApi } from '@/shared/api/bot-management.js';
-import { isRtl, locale, setLocale, t } from '@/shared/i18n/index.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 import { cloudStorage } from '@/shared/lib/cloud-storage.js';
 import { shareToStory } from '@/shared/lib/telegram-native.js';
 
@@ -268,34 +268,6 @@ export const UsernamePage: Component = () => {
 					<div class="fixed top-0 left-1/2 -translate-x-1/2 w-[150vw] h-[500px] blur-[120px] pointer-events-none z-0 opacity-50 transition-colors duration-1000" style={{ background: `radial-gradient(circle, ${getTierTheme(data()?.rarity?.tier || '').glow} 0%, transparent 60%)` }} />
 
 					<div class="w-full max-w-[420px] flex flex-col items-center gap-4">
-
-						{/* 🌐 5-LANGUAGE SELECTOR BAR */}
-						<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[20px] p-2 flex items-center justify-between gap-1 shadow-md relative z-20">
-							<For each={[
-								{ code: 'fa', label: 'فارسی', flag: '🇮🇷' },
-								{ code: 'ps', label: 'پښتو', flag: '🇦🇫' },
-								{ code: 'en', label: 'EN', flag: '🇬🇧' },
-								{ code: 'ru', label: 'RU', flag: '🇷🇺' },
-								{ code: 'zh', label: 'ZH', flag: '🇨🇳' },
-							] as const}>
-								{(item) => (
-									<button
-										onClick={() => {
-											setLocale(item.code);
-											try { hapticFeedback.selectionChanged(); } catch {}
-										}}
-										class={`flex-1 py-2 px-1.5 rounded-[14px] flex items-center justify-center gap-1.5 transition-all text-[11px] font-black tracking-wider border active:scale-95 ${
-											locale() === item.code
-												? 'bg-[#3390ec]/20 text-[#3390ec] border-[#3390ec]/40 shadow-[0_0_12px_rgba(51,144,236,0.3)]'
-												: 'bg-white/5 text-white/60 hover:text-white border-transparent'
-										}`}
-									>
-										<span class="text-[13px]">{item.flag}</span>
-										<span>{item.label}</span>
-									</button>
-								)}
-							</For>
-						</div>
 
 						{/* ═══════ ACCESS AUDIT BADGE ═══════ */}
 						<Show when={accessMethod()}>
