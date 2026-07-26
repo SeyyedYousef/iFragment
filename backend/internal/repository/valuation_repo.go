@@ -147,6 +147,66 @@ func (db *Database) InsertValuationRun(ctx context.Context, run ValuationRun) (i
 	return id, err
 }
 
+// BacktestPoint pairs a valuation the model issued with a sale that happened
+// afterwards, which is the only honest way to measure model accuracy.
+type BacktestPoint struct {
+	PredictedTON float64
+	ActualTON    float64
+	WithinBand   bool
+}
+
+// GetBacktestPoints returns predicted-versus-actual pairs: every recorded sale
+// that occurred after a valuation run for the same username, matched to that
+// run's most recent prediction beforehand.
+//
+// Only runs from the given model version are considered, so a model change does
+// not inherit the previous version's track record.
+func (db *Database) GetBacktestPoints(ctx context.Context, modelVersion string, limit int) ([]BacktestPoint, error) {
+	if limit <= 0 || limit > 5000 {
+		limit = 1000
+	}
+	query := `
+		SELECT DISTINCT ON (s.id)
+			r.expected_ton, r.low_ton, r.high_ton, s.sale_price_ton
+		FROM username_sales s
+		JOIN valuation_runs r
+		  ON r.username = s.username
+		 AND r.run_timestamp < s.sale_date
+		WHERE s.is_wash = FALSE
+		  AND s.sale_price_ton > 0
+		  AND r.expected_ton > 0
+		  AND r.model_version = $1
+		ORDER BY s.id, r.run_timestamp DESC
+		LIMIT $2`
+
+	rows, err := db.Pool.Query(ctx, query, modelVersion, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	points := make([]BacktestPoint, 0, 64)
+	for rows.Next() {
+		var expected, low, high, actual decimal.Decimal
+		if err := rows.Scan(&expected, &low, &high, &actual); err != nil {
+			return nil, err
+		}
+		predictedF, _ := expected.Float64()
+		actualF, _ := actual.Float64()
+		lowF, _ := low.Float64()
+		highF, _ := high.Float64()
+		if predictedF <= 0 || actualF <= 0 {
+			continue
+		}
+		points = append(points, BacktestPoint{
+			PredictedTON: predictedF,
+			ActualTON:    actualF,
+			WithinBand:   actualF >= lowF && actualF <= highF,
+		})
+	}
+	return points, rows.Err()
+}
+
 // scanSales is a shared row scanner for sale queries.
 func (db *Database) scanSales(ctx context.Context, query string, args ...interface{}) ([]Sale, error) {
 	rows, err := db.Pool.Query(ctx, query, args...)

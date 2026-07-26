@@ -33,6 +33,7 @@ type SimilarUsername struct {
 	SalePrice    float64 `json:"sale_price,omitempty"`     // Last sale price in TON
 	SalePriceUSD float64 `json:"sale_price_usd,omitempty"` // Last sale price in USD
 	SaleDate     string  `json:"sale_date,omitempty"`      // Date of last sale
+	PriceSource  string  `json:"price_source,omitempty"`   // "archive_anchor", "db_sale", "onchain_listing"
 }
 
 func checkTelegramWebStatus(ctx context.Context, username string) string {
@@ -72,6 +73,70 @@ func checkTelegramWebStatus(ctx context.Context, username string) string {
 	return ""
 }
 
+// ResolveOccupancy reports whether each of the given usernames is currently
+// taken, listed for sale, or free to register. It exists so the "concept similar"
+// list stops labelling obviously-registered handles (auto, bitcoin, vehicle …) as
+// "available" just because no sale record was found for them.
+//
+// The whole batch shares one deadline; names that cannot be resolved in time are
+// simply omitted from the returned map so callers can leave the status unknown
+// rather than guess.
+func (s *AnalysisService) ResolveOccupancy(ctx context.Context, names []string) map[string]string {
+	statuses := make(map[string]string, len(names))
+	if len(names) == 0 {
+		return statuses
+	}
+
+	fastCtx, cancel := context.WithTimeout(ctx, 1500*time.Millisecond)
+	defer cancel()
+
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 8)
+
+	for _, raw := range names {
+		name := strings.ToLower(strings.TrimSpace(strings.TrimPrefix(raw, "@")))
+		if name == "" {
+			continue
+		}
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(uName string) {
+			defer wg.Done()
+			defer func() { <-sem }()
+
+			status := ""
+			if s.mtprotoClient != nil && fastCtx.Err() == nil {
+				if mtStatus, err := s.mtprotoClient.CheckUsername(fastCtx, uName); err == nil {
+					switch mtStatus {
+					case mtproto.StatusOccupied:
+						status = "taken"
+					case mtproto.StatusPurchase:
+						status = "on_sale"
+					case mtproto.StatusAvailable:
+						status = "available"
+					}
+				}
+			}
+			// Fall back to the public t.me page when MTProto is unavailable or
+			// rate limited.
+			if status == "" && fastCtx.Err() == nil {
+				status = checkTelegramWebStatus(fastCtx, uName)
+			}
+			if status == "" {
+				return
+			}
+
+			mu.Lock()
+			statuses[uName] = status
+			mu.Unlock()
+		}(name)
+	}
+	wg.Wait()
+
+	return statuses
+}
+
 func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username string, limit int) ([]SimilarUsername, error) {
 	if !ValidateUsername(username) {
 		return nil, nil
@@ -83,43 +148,27 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 	base := strings.ToLower(username)
 	pool := getCandidatePool(ctx, s.db, base)
 	results := make([]SimilarUsername, 0, limit)
-	seen := map[string]bool{base: true}
 
-	for _, candidate := range pool {
+	for _, candidate := range pool.names {
 		select {
 		case <-ctx.Done():
 			return results, ctx.Err()
 		default:
 		}
 
-		candidate = strings.ToLower(strings.TrimSpace(candidate))
-		if seen[candidate] || !ValidateUsername(candidate) {
-			continue
-		}
-		seen[candidate] = true
-
 		score, reason := similarityScore(base, candidate)
-		// Bypass similarity threshold if it's an AI suggestion
-		isAI := false
-		maxIdx := 5
-		if len(pool) < maxIdx {
-			maxIdx = len(pool)
-		}
-		for _, aiSug := range pool[:maxIdx] {
-			if aiSug == candidate {
-				isAI = true
-				break
-			}
-		}
+		isAI := pool.ai[candidate]
 
+		// AI suggestions are semantic (not spelling-based), so the Levenshtein
+		// threshold does not apply to them — but everything else must actually
+		// look like the queried username to earn a slot.
 		if !isAI && score < 0.35 {
 			continue
 		}
-
-		// Boost score artificially for AI suggestions to ensure they appear at the top
 		if isAI {
-			score = 0.95
-			reason = "Semantic AI Alternative"
+			// Keep AI picks on top while preserving their relative ordering.
+			score = math.Max(score, 0.90)
+			reason = "Semantic AI alternative"
 		}
 
 		results = append(results, SimilarUsername{
@@ -165,6 +214,7 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 			if histPrice, exists := avm.HistoricalSales[lowerName]; exists && histPrice > 0 {
 				results[idx].Status = "sold"
 				results[idx].SalePrice = histPrice
+				results[idx].PriceSource = "archive_anchor"
 			}
 
 			// 2. Check local Postgres database (instant)
@@ -175,6 +225,7 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 					fPrice, _ := latest.SalePriceTON.Float64()
 					if fPrice > 0 {
 						results[idx].SalePrice = fPrice
+						results[idx].PriceSource = "db_sale"
 					}
 					if !latest.SaleDate.IsZero() {
 						results[idx].SaleDate = latest.SaleDate.Format(time.RFC3339)
@@ -230,9 +281,13 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 								val = val / 1e9
 							}
 							results[idx].SalePrice = val
+							results[idx].PriceSource = "onchain_listing"
 						}
 					} else if results[idx].Status == "" {
-						results[idx].Status = "sold"
+						// An NFT that exists but carries no active listing is owned,
+						// not sold — reporting "sold" with a zero price made the card
+						// render it as "unsold / available".
+						results[idx].Status = "taken"
 					}
 				}
 			}
@@ -257,26 +312,44 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 	return results, nil
 }
 
-func getCandidatePool(ctx context.Context, db *repository.Database, username string) []string {
-	// First, fetch AI suggestions
-	suggestions := avm.GetAISuggestions(ctx, db, username)
+// candidatePool holds similar-username candidates together with the exact subset
+// that came from the semantic LLM suggester. Tracking the AI set explicitly is
+// what keeps unrelated filler out of the "AI matched" slots — the previous
+// implementation guessed by slice position, so whenever the LLM was unavailable
+// the first five entries of a hardcoded market list ("meta", "crypto", "bitcoin",
+// "ton", "news") were promoted as AI suggestions for every single username.
+type candidatePool struct {
+	names []string
+	ai    map[string]bool
+}
 
-	// Fallback to static pool if AI fails or returns empty
-	candidates := []string{
-		"meta", "crypto", "bitcoin", "ton", "news",
-		"bank", "wallet", "money", "auto", "cars",
-		"apple", "tesla", "google", "ai", "tech",
-		"game", "bet", "shop", "pay", "coin",
+func getCandidatePool(ctx context.Context, db *repository.Database, username string) candidatePool {
+	pool := candidatePool{
+		names: make([]string, 0, 32),
+		ai:    make(map[string]bool, 10),
+	}
+	seen := map[string]bool{username: true}
+
+	add := func(name string, fromAI bool) {
+		name = strings.ToLower(strings.TrimSpace(strings.TrimPrefix(name, "@")))
+		if name == "" || seen[name] || !ValidateUsername(name) {
+			return
+		}
+		seen[name] = true
+		if fromAI {
+			pool.ai[name] = true
+		}
+		pool.names = append(pool.names, name)
 	}
 
-	if len(suggestions) > 0 {
-		// Use AI suggestions, but also append some static ones to ensure variety
-		candidates = append(suggestions, candidates...)
+	// 1. Semantic alternatives from the LLM (may be empty when the key is missing
+	//    or the call times out — in that case we simply fall back to morphology).
+	for _, suggestion := range avm.GetAISuggestions(ctx, db, username) {
+		add(suggestion, true)
 	}
 
-	highValueSuffixes := []string{"app", "bot", "pro", "x", "ai", "tech", "pay", "coin", "news"}
-	highValuePrefixes := []string{"the", "my", "get", "go", "crypto", "meta", "ton"}
-
+	// 2. Morphological variants derived from the queried username itself. Unlike a
+	//    static keyword list these are always genuinely related to the input.
 	appendSafe := func(base, ext string) string {
 		if len(base)+len(ext) <= 32 {
 			return base + ext
@@ -284,28 +357,34 @@ func getCandidatePool(ctx context.Context, db *repository.Database, username str
 		return base[:32-len(ext)] + ext
 	}
 
-	for _, suffix := range highValueSuffixes {
-		candidates = append(candidates, appendSafe(username, suffix))
+	for _, suffix := range []string{"app", "bot", "pro", "hq", "vip", "s", "x", "ai", "official"} {
+		add(appendSafe(username, suffix), false)
 	}
-	for _, prefix := range highValuePrefixes {
+	for _, prefix := range []string{"the", "my", "get", "go", "real", "its"} {
 		cand := prefix + username
 		if len(cand) > 32 {
 			cand = prefix + username[:32-len(prefix)]
 		}
-		candidates = append(candidates, cand)
+		add(cand, false)
 	}
 
+	// 3. Shorter root forms — the most valuable neighbours of a long handle are
+	//    usually its truncations, not its extensions.
 	if len(username) > 4 {
-		candidates = append(candidates, username[:len(username)-1])
-	}
-	if len(username) >= 4 {
 		trunc := username[:len(username)-1]
-		candidates = append(candidates, appendSafe(trunc, "x"), appendSafe(trunc, "pro"))
+		add(trunc, false)
+		add(appendSafe(trunc, "x"), false)
+		add(appendSafe(trunc, "pro"), false)
 	}
-	if len(username) >= 4 {
-		candidates = append(candidates, appendSafe(username, "s"), appendSafe(username, "hq"), appendSafe(username, "vip"))
+	if len(username) > 5 {
+		add(username[:len(username)-2], false)
 	}
-	return candidates
+	// Singular <-> plural pivot
+	if strings.HasSuffix(username, "s") && len(username) > 4 {
+		add(strings.TrimSuffix(username, "s"), false)
+	}
+
+	return pool
 }
 
 func similarityScore(base, candidate string) (float64, string) {
@@ -319,21 +398,32 @@ func similarityScore(base, candidate string) (float64, string) {
 	distanceScore := 1 - float64(levenshtein(baseRunes, candidateRunes))/maxLen
 	prefixScore := commonPrefixScore(baseRunes, candidateRunes)
 	keywordScore := 0.0
-	reason := "shape_match"
+	// Reasons are rendered verbatim in the valuation card, so they are written as
+	// human-readable labels rather than internal snake_case codes.
+	reason := "Close spelling match"
 
 	switch {
 	case isHighValueMarketKeyword(base) && isHighValueMarketKeyword(candidate):
 		keywordScore = 0.35
-		reason = "same_market_category"
+		reason = "Same market category"
 	case isBrandLikeKeyword(base) && isBrandLikeKeyword(candidate):
 		keywordScore = 0.30
-		reason = "brand_keyword"
+		reason = "Comparable brand keyword"
+	case strings.HasPrefix(candidate, base):
+		keywordScore = 0.22
+		reason = "Same root, extended handle"
+	case strings.HasPrefix(base, candidate):
+		keywordScore = 0.22
+		reason = "Shorter root form"
+	case strings.HasSuffix(candidate, base):
+		keywordScore = 0.20
+		reason = "Same root, prefixed handle"
 	case strings.HasSuffix(candidate, "ai") || strings.HasSuffix(candidate, "bot") || strings.HasSuffix(candidate, "pro"):
 		keywordScore = 0.25
-		reason = "premium_suffix"
+		reason = "Premium suffix pattern"
 	case strings.Contains(candidate, base) || strings.Contains(base, candidate):
 		keywordScore = 0.2
-		reason = "contains_root"
+		reason = "Shares the same root"
 	}
 
 	lengthPenalty := math.Abs(float64(len(baseRunes)-len(candidateRunes))) * 0.03

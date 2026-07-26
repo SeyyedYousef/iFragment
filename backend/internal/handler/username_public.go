@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -439,6 +440,42 @@ func (h *UsernameHandler) GetSimilar(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(results)
 }
 
+const (
+	// maxSimilarResults caps the "concept similar" list. Beyond this the card
+	// turns into a scroll of low-signal rows.
+	maxSimilarResults = 6
+	// maxPortfolioItems caps the holder's other collectibles shown per report.
+	maxPortfolioItems = 12
+	// whaleMinHoldings is the number of verified collectibles in one wallet that
+	// earns the "whale holder" badge.
+	whaleMinHoldings = 5
+)
+
+// similarEvidenceRank scores how much verifiable market evidence a similar-username
+// entry carries, so the strongest rows lead the list.
+func similarEvidenceRank(s avm.ValuationSimilar) int {
+	switch {
+	case s.SalePrice > 0 && s.Status == "sold":
+		return 4
+	case s.SalePrice > 0 && (s.Status == "on_sale" || s.Status == "on_auction"):
+		return 3
+	case s.Status == "on_sale" || s.Status == "on_auction":
+		return 2
+	case s.Status == "taken":
+		return 1
+	default:
+		return 0
+	}
+}
+
+// portfolioItemValue returns the item's known TON value, or 0 when unpriced.
+func portfolioItemValue(item avm.PortfolioItemDto) float64 {
+	if item.LastSaleTON != nil {
+		return *item.LastSaleTON
+	}
+	return 0
+}
+
 // Valuate performs an AVM (Automated Valuation Model) estimation for a username.
 // Returns dual-denominated price range (TON + USD) with confidence score and audit run_id.
 func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
@@ -500,29 +537,87 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 		RespondError(w, r, http.StatusInternalServerError, "valuation failed", err)
 		return
 	}
-
 	h.sendValuationNotification(r, u, result)
 
 	// Fetch similar usernames, portfolio enrichment, and MTProto profile concurrently using errgroup
 	gVal, gCtx := errgroup.WithContext(ctx)
 
-	// 1. Fetch similar usernames (with status enrichment)
+	// 1. Fetch similar usernames (with status enrichment and deduplication)
 	gVal.Go(func() error {
-		similars, _ := h.reportService.FindSimilarUsernames(gCtx, u, 3)
+		lowerU := strings.ToLower(u)
+		seen := map[string]bool{lowerU: true}
+
+		merged := make([]avm.ValuationSimilar, 0, maxSimilarResults*2)
+		for _, sim := range result.Similar {
+			name := strings.ToLower(sim.Username)
+			if name == "" || seen[name] {
+				continue
+			}
+			seen[name] = true
+			merged = append(merged, sim)
+		}
+
+		similars, _ := h.reportService.FindSimilarUsernames(gCtx, u, maxSimilarResults)
 		for _, sim := range similars {
+			simName := strings.ToLower(sim.Username)
+			if simName == "" || seen[simName] {
+				continue
+			}
+			seen[simName] = true
+
+			status := sim.Status
+			if status == "" && sim.SalePrice > 0 {
+				status = "sold"
+			}
 			salePriceUSD := sim.SalePriceUSD
 			if salePriceUSD == 0 && sim.SalePrice > 0 && tonRate > 0 {
 				salePriceUSD = math.Round(sim.SalePrice*tonRate*100) / 100
 			}
-			result.Similar = append(result.Similar, avm.ValuationSimilar{
+
+			merged = append(merged, avm.ValuationSimilar{
 				Username:     sim.Username,
 				Reason:       sim.Reason,
-				Status:       sim.Status,
+				Status:       status,
 				SalePrice:    sim.SalePrice,
 				SalePriceUSD: salePriceUSD,
 				SaleDate:     sim.SaleDate,
+				PriceSource:  sim.PriceSource,
 			})
 		}
+
+		// Rank so that entries carrying real market evidence lead the list, then
+		// trim: an unranked wall of ten mostly-empty rows was the main reason this
+		// section read as noise.
+		sort.SliceStable(merged, func(i, j int) bool {
+			return similarEvidenceRank(merged[i]) > similarEvidenceRank(merged[j])
+		})
+		if len(merged) > maxSimilarResults {
+			merged = merged[:maxSimilarResults]
+		}
+
+		// Resolve occupancy for the rows we are actually going to render. The
+		// concept generator has no idea whether "auto" or "bitcoin" is registered,
+		// and an unchecked default of "available" was the most visible wrong claim
+		// on the card.
+		var unresolved []string
+		for _, sim := range merged {
+			if sim.Status == "" {
+				unresolved = append(unresolved, sim.Username)
+			}
+		}
+		if len(unresolved) > 0 {
+			statuses := h.reportService.ResolveOccupancy(gCtx, unresolved)
+			for i := range merged {
+				if merged[i].Status != "" {
+					continue
+				}
+				if st, ok := statuses[strings.ToLower(merged[i].Username)]; ok {
+					merged[i].Status = st
+				}
+			}
+		}
+
+		result.Similar = merged
 		return nil
 	})
 
@@ -532,111 +627,106 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 		if ownerAddr == "" && len(result.History.Transactions) > 0 {
 			ownerAddr = result.History.Transactions[0].Buyer
 		}
+		if ownerAddr == "" || h.reportService == nil {
+			return nil
+		}
 
-		if ownerAddr != "" && h.reportService != nil {
-			p, pErr := h.reportService.GetWalletPortfolio(gCtx, ownerAddr)
-			var items []avm.PortfolioItemDto
-			totalLastSaleTON := 0.0
-			totalAcquisitionCostTON := 0.0
-			pricedItems := 0
-			unknownItems := 0
+		lowerU := strings.ToLower(u)
+		p, pErr := h.reportService.GetWalletPortfolio(gCtx, ownerAddr)
+		var items []avm.PortfolioItemDto
+		totalLastSaleTON := 0.0
+		totalAcquisitionCostTON := 0.0
+		estValueTON := 0.0
+		pricedItems := 0
+		unknownItems := 0
 
-			if pErr == nil && p != nil && len(p.Items) > 0 {
-				for _, item := range p.Items {
-					var lastSaleTON *float64
-					var lastSaleUSD *float64
-					var lastSaleDate *string
+		if pErr == nil && p != nil && len(p.Items) > 0 {
+			estValueTON = p.TotalValue
+			for _, item := range p.Items {
+				// The queried username is the subject of the report, not a
+				// "other collectible in the same wallet" entry.
+				if strings.EqualFold(item.Username, lowerU) {
+					continue
+				}
 
-					if item.SoldPrice > 0 {
-						sPrice := item.SoldPrice
-						lastSaleTON = &sPrice
-						sUSD := sPrice * tonRate
-						lastSaleUSD = &sUSD
-						if item.SaleDate != "" {
-							sDate := item.SaleDate
-							lastSaleDate = &sDate
-						}
-						totalLastSaleTON += sPrice
-						pricedItems++
-					} else {
-						unknownItems++
+				var lastSaleTON *float64
+				var lastSaleUSD *float64
+				var lastSaleDate *string
+				acquiredByOwner := false
+				var acqCostTON *float64
+
+				if item.SoldPrice > 0 {
+					sPrice := item.SoldPrice
+					sUSD := math.Round(sPrice * tonRate)
+					lastSaleTON = &sPrice
+					lastSaleUSD = &sUSD
+					if item.SaleDate != "" {
+						sDate := item.SaleDate
+						lastSaleDate = &sDate
 					}
+					totalLastSaleTON += sPrice
+					pricedItems++
 
-					acquiredByOwner := false
-					var acqCostTON *float64
-
-					// Fallback check if acquired by current owner
-					if item.SoldPrice > 0 {
+					// An "on_sale" price is a live ask, not something the holder paid.
+					if item.Status != "on_sale" {
 						acquiredByOwner = true
 						acqCostTON = lastSaleTON
-						totalAcquisitionCostTON += item.SoldPrice
+						totalAcquisitionCostTON += sPrice
 					}
-
-					items = append(items, avm.PortfolioItemDto{
-						Username:               item.Username,
-						Status:                 item.Status,
-						LastSaleTON:            lastSaleTON,
-						LastSaleUSD:            lastSaleUSD,
-						LastSaleDate:           lastSaleDate,
-						SaleSource:             "fragment_history",
-						AcquiredByCurrentOwner: acquiredByOwner,
-						AcquisitionCostTON:     acqCostTON,
-					})
+				} else {
+					unknownItems++
 				}
+
+				items = append(items, avm.PortfolioItemDto{
+					Username:               item.Username,
+					Status:                 item.Status,
+					LastSaleTON:            lastSaleTON,
+					LastSaleUSD:            lastSaleUSD,
+					LastSaleDate:           lastSaleDate,
+					SaleSource:             "fragment_history",
+					AcquiredByCurrentOwner: acquiredByOwner,
+					AcquisitionCostTON:     acqCostTON,
+				})
 			}
+		}
 
-			// Fallback: If no active NFTs found in wallet, populate past auction purchases
-			if len(items) == 0 && len(result.History.Transactions) > 0 {
-				for _, tx := range result.History.Transactions {
-					if tx.Buyer == ownerAddr || strings.EqualFold(tx.Buyer, ownerAddr) {
-						priceVal, _ := strconv.ParseFloat(tx.SalePriceTON, 64)
-						sDate := tx.Date.Format(time.RFC3339)
-						var lastSaleTON *float64
-						var lastSaleUSD *float64
+		if len(items) == 0 {
+			// Nothing verifiable in this wallet beyond the queried handle itself —
+			// leave Portfolio nil so the client hides the section instead of
+			// rendering placeholder totals.
+			return nil
+		}
 
-						if priceVal > 0 {
-							lastSaleTON = &priceVal
-							usdVal := priceVal * tonRate
-							lastSaleUSD = &usdVal
-							totalLastSaleTON += priceVal
-							totalAcquisitionCostTON += priceVal
-							pricedItems++
-						} else {
-							unknownItems++
-						}
+		// Most valuable holdings first; unpriced items sink to the bottom.
+		sort.SliceStable(items, func(i, j int) bool {
+			return portfolioItemValue(items[i]) > portfolioItemValue(items[j])
+		})
+		if len(items) > maxPortfolioItems {
+			items = items[:maxPortfolioItems]
+		}
 
-						items = append(items, avm.PortfolioItemDto{
-							Username:               u,
-							Status:                 "past_auction_winner",
-							LastSaleTON:            lastSaleTON,
-							LastSaleUSD:            lastSaleUSD,
-							LastSaleDate:           &sDate,
-							SaleSource:             "fragment_auction",
-							AcquiredByCurrentOwner: true,
-							AcquisitionCostTON:     lastSaleTON,
-						})
-						break
-					}
-				}
-			}
-
-			if len(items) > 0 {
-				result.Portfolio = &avm.PortfolioDto{
-					OwnerAddress:            ownerAddr,
-					TotalCount:              len(items),
-					TotalLastSaleTON:        totalLastSaleTON,
-					TotalLastSaleUSD:        totalLastSaleTON * tonRate,
-					TotalAcquisitionCostTON: totalAcquisitionCostTON,
-					PricedItems:             pricedItems,
-					UnknownItems:            unknownItems,
-					Items:                   items,
-				}
-			}
+		result.Portfolio = &avm.PortfolioDto{
+			OwnerAddress:            ownerAddr,
+			TotalCount:              len(items),
+			TotalLastSaleTON:        totalLastSaleTON,
+			TotalLastSaleUSD:        math.Round(totalLastSaleTON * tonRate),
+			TotalAcquisitionCostTON: totalAcquisitionCostTON,
+			TotalEstValueTON:        math.Round(estValueTON),
+			TotalEstValueUSD:        math.Round(estValueTON * tonRate),
+			PricedItems:             pricedItems,
+			UnknownItems:            unknownItems,
+			Items:                   items,
 		}
 		return nil
 	})
 
-	// 3. Populate OwnerProfile via MTProto if available (with 1s strict timeout)
+	// 3. Attach the model's measured track record (cached hourly, never blocking).
+	gVal.Go(func() error {
+		result.ModelAccuracy = h.avmService.GetModelAccuracy(gCtx)
+		return nil
+	})
+
+	// 4. Populate OwnerProfile via MTProto if available (with 1s strict timeout)
 	gVal.Go(func() error {
 		if h.mtprotoClient != nil {
 			mtCtx, mtCancel := context.WithTimeout(gCtx, 1000*time.Millisecond)
@@ -665,6 +755,22 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 	})
 
 	_ = gVal.Wait()
+
+	// Reconcile the wallet summary with what the on-chain lookup actually returned.
+	// WalletInfo used to ship hardcoded counts ("12 NFTs" for any short handle),
+	// which then drove the whale badge on the portfolio card.
+	if result.WalletInfo != nil {
+		holdings := 0
+		if result.Portfolio != nil {
+			holdings = result.Portfolio.TotalCount + 1 // + the queried username itself
+		} else if result.History.OwnerAddress != "" {
+			holdings = 1
+		}
+		result.WalletInfo.NFTCount = holdings
+		if holdings >= whaleMinHoldings {
+			result.WalletInfo.IsWhale = true
+		}
+	}
 
 	outBytes, err := json.Marshal(result)
 	if err == nil && h.cache != nil {

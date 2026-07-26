@@ -2580,5 +2580,94 @@ export const dict = {
 		items_suffix: 'предм.',
 		portfolio_est_val: 'Оценка портфеля',
 		other_collectibles: 'Другие юзернеймы в этом кошельке',
+
+		// Значки похожих юзернеймов
+		archive_sale_badge: 'АРХИВНАЯ ПРОДАЖА',
+		taken_badge: 'ЗАНЯТ',
+		unverified_badge: 'НЕ ПРОВЕРЕНО',
+
+		// Значки портфеля и пустое состояние
+		listed_badge: 'В ПРОДАЖЕ',
+		auction_badge: 'АУКЦИОН',
+		acquired_badge: 'КУПЛЕН',
+		holding_badge: 'В ВЛАДЕНИИ',
+		portfolio_empty_title: 'Публичных активов не найдено',
+		portfolio_empty_desc: 'В этом кошельке нет других подтверждаемых коллекционных активов.',
+		portfolio_spent_total: 'Общие затраты на покупку',
+		portfolio_unpriced: 'нет публичной цены',
+
+		// Состояние рынка в реальном времени
+		live_market_title: 'Рынок сейчас',
+		live_on_auction: 'ИДЁТ АУКЦИОН',
+		live_on_sale: 'КУПИТЬ СРАЗУ',
+		live_available: 'СВОБОДЕН',
+		live_taken: 'НЕ ПРОДАЁТСЯ',
+		live_unknown: 'СТАТУС НЕИЗВЕСТЕН',
+		buy_now_price: 'Цена покупки',
+		current_bid: 'Текущая ставка',
+		above_estimate: 'выше оценки',
+		below_estimate: 'ниже оценки',
+		auction_ends_in: 'Аукцион завершится через',
+		recorded_offers: 'Зафиксированная активность рынка',
+		view_on_fragment: 'Fragment',
+		open_in_telegram: 'Открыть t.me',
+		checked_at: 'Проверено',
+
+		// Доверие и основа цены
+		confidence_label: 'Уверенность',
+		conf_high: 'ВЫСОКАЯ УВЕРЕННОСТЬ',
+		conf_medium: 'СРЕДНЯЯ УВЕРЕННОСТЬ',
+		conf_low: 'НИЗКАЯ УВЕРЕННОСТЬ',
+		conf_thin: 'МАЛО ДАННЫХ',
+		basis_own_sales: 'продажи этого имени',
+		basis_exact: 'аналоги той же длины',
+		basis_broad: 'аналоги сегмента',
+		basis_live_ask: 'учтена текущая цена',
+		model_track_record: 'Измеренная точность модели',
+		in_band: 'в диапазоне',
+
+		// Контекст рынка коллекции
+		market_context_title: 'Рынок коллекции',
+		floor_price: 'Минимальная цена',
+		volume_24h: 'Объём за 24ч',
+		active_auctions: 'Активные аукционы',
+		total_holders: 'Держатели',
+
+		// Сопоставимые продажи
+		comparables_title: 'Сопоставимые продажи',
+		comparables_subtitle: 'Реальные сделки, на которых построена оценка',
+
+		// Сохранённые отчёты
+		cached_report: 'Сохранённый отчёт',
+		refresh_report: 'Обновить',
+		refreshing: 'Обновление...',
+		recents_title: 'Ваши недавние отчёты',
+		recents_hint: 'Хранятся 24 часа',
+
+		// Стратегия аукциона и прогноз
+		negotiation_tactic: 'Тактика переговоров',
+		target_buyer: 'Вероятный покупатель',
+		heuristic_note: 'Эвристическая подсказка, а не измеренный рыночный сигнал.',
+		recommended_start: 'Рекомендуемый старт',
+		bid_step: 'Шаг ставки',
+		time_to_sell: 'Ожидаемый срок продажи',
+		best_window: 'Лучшее время для листинга',
+		liquidity_label: 'Ликвидность',
+		projection_note: 'Ширина коридора отражает разброс сопоставимых продаж сегмента.',
+
+		// Структурный разбор
+		anatomy_title: 'Структурный разбор',
+		anatomy_length: 'Длина',
+		anatomy_chars: 'симв.',
+		anatomy_letters_only: 'Только буквы',
+		anatomy_digits: 'Цифры',
+		anatomy_underscore: 'Подчёркивание',
+		anatomy_pure: 'Да (чистый)',
+		anatomy_contains: 'Есть',
+		anatomy_none: 'Нет',
+		anatomy_clean: 'Чисто',
+		anatomy_yes: 'Да',
+		anatomy_no: 'Нет',
+		no_transaction_data: 'Нет данных о сделках',
 	},
 };

@@ -2575,5 +2575,94 @@ export const dict = {
 		items_suffix: 'items',
 		portfolio_est_val: 'Est. Portfolio Value',
 		other_collectibles: 'Other Usernames Held in this Wallet',
+
+		// Similar-username badges
+		archive_sale_badge: 'ARCHIVE SALE',
+		taken_badge: 'TAKEN',
+		unverified_badge: 'UNVERIFIED',
+
+		// Portfolio badges & empty state
+		listed_badge: 'LISTED',
+		auction_badge: 'AUCTION',
+		acquired_badge: 'ACQUIRED',
+		holding_badge: 'HOLDING',
+		portfolio_empty_title: 'No public holdings found',
+		portfolio_empty_desc: 'This wallet has no other verifiable collectibles on-chain.',
+		portfolio_spent_total: 'Total Acquisition Cost',
+		portfolio_unpriced: 'no public price',
+
+		// Live market state
+		live_market_title: 'Live Market',
+		live_on_auction: 'LIVE AUCTION',
+		live_on_sale: 'BUY NOW',
+		live_available: 'AVAILABLE',
+		live_taken: 'NOT FOR SALE',
+		live_unknown: 'STATUS UNKNOWN',
+		buy_now_price: 'Buy Now Price',
+		current_bid: 'Current Bid',
+		above_estimate: 'above est.',
+		below_estimate: 'below est.',
+		auction_ends_in: 'Auction ends in',
+		recorded_offers: 'Recorded Market Activity',
+		view_on_fragment: 'Fragment',
+		open_in_telegram: 'Open t.me',
+		checked_at: 'Checked',
+
+		// Confidence & provenance
+		confidence_label: 'Confidence',
+		conf_high: 'HIGH CONFIDENCE',
+		conf_medium: 'MODERATE CONFIDENCE',
+		conf_low: 'LOW CONFIDENCE',
+		conf_thin: 'THIN DATA',
+		basis_own_sales: 'own sales',
+		basis_exact: 'same-length comps',
+		basis_broad: 'segment comps',
+		basis_live_ask: 'live ask included',
+		model_track_record: 'Measured Track Record',
+		in_band: 'in band',
+
+		// Collection market context
+		market_context_title: 'Collection Market',
+		floor_price: 'Floor Price',
+		volume_24h: '24h Volume',
+		active_auctions: 'Live Auctions',
+		total_holders: 'Holders',
+
+		// Comparable sales
+		comparables_title: 'Comparable Sales',
+		comparables_subtitle: 'Real sales this estimate is built on',
+
+		// Saved reports
+		cached_report: 'Saved report',
+		refresh_report: 'Refresh',
+		refreshing: 'Refreshing...',
+		recents_title: 'Your recent reports',
+		recents_hint: 'Kept for 24 hours',
+
+		// Playbook & projection
+		negotiation_tactic: 'Negotiation Tactic',
+		target_buyer: 'Likely Buyer',
+		heuristic_note: 'Heuristic guidance, not a measured market signal.',
+		recommended_start: 'Recommended Start',
+		bid_step: 'Bid Step',
+		time_to_sell: 'Estimated Time to Sell',
+		best_window: 'Best Listing Window',
+		liquidity_label: 'Liquidity',
+		projection_note: 'Cone width follows the dispersion of comparable sales in this segment.',
+
+		// Structural anatomy
+		anatomy_title: 'Structural Anatomy',
+		anatomy_length: 'Length',
+		anatomy_chars: 'chars',
+		anatomy_letters_only: 'Letters Only',
+		anatomy_digits: 'Digits',
+		anatomy_underscore: 'Underscore',
+		anatomy_pure: 'Yes (pure)',
+		anatomy_contains: 'Contains',
+		anatomy_none: 'None',
+		anatomy_clean: 'Clean',
+		anatomy_yes: 'Yes',
+		anatomy_no: 'No',
+		no_transaction_data: 'No transaction data',
 	},
 };

@@ -2565,5 +2565,94 @@ export const dict = {
 		items_suffix: 'آیتم',
 		portfolio_est_val: 'ارزش تخمینی پورتفوی',
 		other_collectibles: 'سایر نام‌های کاربری دارنده در این کیف‌پول',
+
+		// نشان‌های نام‌های مشابه
+		archive_sale_badge: 'فروش آرشیوی',
+		taken_badge: 'ثبت‌شده',
+		unverified_badge: 'تأییدنشده',
+
+		// نشان‌های پورتفوی و حالت خالی
+		listed_badge: 'در فهرست فروش',
+		auction_badge: 'حراج',
+		acquired_badge: 'خریداری‌شده',
+		holding_badge: 'در اختیار',
+		portfolio_empty_title: 'دارایی عمومی دیگری یافت نشد',
+		portfolio_empty_desc: 'این کیف‌پول کالکتیبل قابل‌تأیید دیگری روی زنجیره ندارد.',
+		portfolio_spent_total: 'مجموع هزینهٔ تملک',
+		portfolio_unpriced: 'بدون قیمت عمومی',
+
+		// وضعیت زندهٔ بازار
+		live_market_title: 'بازار زنده',
+		live_on_auction: 'حراج فعال',
+		live_on_sale: 'قابل خرید',
+		live_available: 'آزاد',
+		live_taken: 'برای فروش نیست',
+		live_unknown: 'وضعیت نامشخص',
+		buy_now_price: 'قیمت خرید فوری',
+		current_bid: 'بالاترین پیشنهاد',
+		above_estimate: 'بالاتر از تخمین',
+		below_estimate: 'پایین‌تر از تخمین',
+		auction_ends_in: 'پایان حراج تا',
+		recorded_offers: 'فعالیت ثبت‌شدهٔ بازار',
+		view_on_fragment: 'فرگمنت',
+		open_in_telegram: 'بازکردن t.me',
+		checked_at: 'بررسی‌شده',
+
+		// اطمینان و مبنای قیمت
+		confidence_label: 'میزان اطمینان',
+		conf_high: 'اطمینان بالا',
+		conf_medium: 'اطمینان متوسط',
+		conf_low: 'اطمینان پایین',
+		conf_thin: 'دادهٔ ناکافی',
+		basis_own_sales: 'فروش خودِ این نام',
+		basis_exact: 'مشابه هم‌طول',
+		basis_broad: 'مشابه هم‌دسته',
+		basis_live_ask: 'قیمت زندهٔ بازار',
+		model_track_record: 'کارنامهٔ اندازه‌گیری‌شدهٔ مدل',
+		in_band: 'داخل بازه',
+
+		// بافت بازار مجموعه
+		market_context_title: 'بازار کل مجموعه',
+		floor_price: 'کف قیمت',
+		volume_24h: 'حجم ۲۴ ساعت',
+		active_auctions: 'حراج‌های فعال',
+		total_holders: 'دارندگان',
+
+		// معاملات مبنا
+		comparables_title: 'معاملات مبنا',
+		comparables_subtitle: 'فروش‌های واقعی که این تخمین بر آن‌ها بنا شده',
+
+		// گزارش‌های ذخیره‌شده
+		cached_report: 'گزارش ذخیره‌شده',
+		refresh_report: 'به‌روزرسانی',
+		refreshing: 'در حال به‌روزرسانی...',
+		recents_title: 'گزارش‌های اخیر شما',
+		recents_hint: 'تا ۲۴ ساعت در دسترس',
+
+		// راهنمای حراج و پیش‌بینی
+		negotiation_tactic: 'تاکتیک مذاکره',
+		target_buyer: 'خریدار محتمل',
+		heuristic_note: 'راهنمای تجربی است، نه سیگنال اندازه‌گیری‌شدهٔ بازار.',
+		recommended_start: 'قیمت شروع پیشنهادی',
+		bid_step: 'گام پیشنهاد',
+		time_to_sell: 'زمان تخمینی فروش',
+		best_window: 'بهترین بازهٔ عرضه',
+		liquidity_label: 'نقدشوندگی',
+		projection_note: 'پهنای بازه از پراکندگی معاملات مشابه همین دسته می‌آید.',
+
+		// آناتومی ساختاری
+		anatomy_title: 'آناتومی ساختاری',
+		anatomy_length: 'طول',
+		anatomy_chars: 'کاراکتر',
+		anatomy_letters_only: 'فقط حروف',
+		anatomy_digits: 'رقم',
+		anatomy_underscore: 'زیرخط',
+		anatomy_pure: 'بله (خالص)',
+		anatomy_contains: 'دارد',
+		anatomy_none: 'ندارد',
+		anatomy_clean: 'تمیز',
+		anatomy_yes: 'بله',
+		anatomy_no: 'خیر',
+		no_transaction_data: 'دادهٔ معامله‌ای موجود نیست',
 	},
 };

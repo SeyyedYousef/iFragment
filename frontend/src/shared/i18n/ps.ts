@@ -2565,5 +2565,94 @@ export const dict = {
 		items_suffix: 'آیټمونه',
 		portfolio_est_val: 'د پورټفولیو تخمیني ارزښت',
 		other_collectibles: 'په دې والټ کې نور ادرسونه او یوزرنیمونه',
+
+		// د ورته نومونو نښې
+		archive_sale_badge: 'آرشیوي پلورل',
+		taken_badge: 'نیول شوی',
+		unverified_badge: 'ناتاییدشوی',
+
+		// د پورټفولیو نښې او تشه حالت
+		listed_badge: 'د پلور لیست کې',
+		auction_badge: 'لیلام',
+		acquired_badge: 'اخیستل شوی',
+		holding_badge: 'ساتل شوی',
+		portfolio_empty_title: 'بله عامه شتمني ونه موندل شوه',
+		portfolio_empty_desc: 'دا والټ په زنځیر کې بل د تایید وړ کالکټیبل نه لري.',
+		portfolio_spent_total: 'د ترلاسه کولو ټوله لګښت',
+		portfolio_unpriced: 'عامه بیه نشته',
+
+		// د بازار ژوندی حالت
+		live_market_title: 'ژوندی بازار',
+		live_on_auction: 'روان لیلام',
+		live_on_sale: 'اوس واخله',
+		live_available: 'شته',
+		live_taken: 'د پلور لپاره نه دی',
+		live_unknown: 'حالت نامعلوم',
+		buy_now_price: 'د اوس پیرودلو بیه',
+		current_bid: 'اوسنی وړاندیز',
+		above_estimate: 'له اټکل لوړ',
+		below_estimate: 'له اټکل ټیټ',
+		auction_ends_in: 'لیلام پای ته رسیږي په',
+		recorded_offers: 'د بازار ثبت شوې فعالیت',
+		view_on_fragment: 'فرګمنټ',
+		open_in_telegram: 't.me پرانیځئ',
+		checked_at: 'کتل شوی',
+
+		// باور او د بیې بنسټ
+		confidence_label: 'د باور کچه',
+		conf_high: 'لوړ باور',
+		conf_medium: 'منځنی باور',
+		conf_low: 'ټیټ باور',
+		conf_thin: 'ناکافي معلومات',
+		basis_own_sales: 'د همدې نوم پلورل',
+		basis_exact: 'هم اوږدوالي ورته',
+		basis_broad: 'هم برخې ورته',
+		basis_live_ask: 'ژوندۍ بیه شامله',
+		model_track_record: 'د ماډل اندازه شوی ریکارډ',
+		in_band: 'په کچه کې',
+
+		// د ټولګې بازار
+		market_context_title: 'د ټولګې بازار',
+		floor_price: 'ټیټه بیه',
+		volume_24h: 'د ۲۴ ساعتونو حجم',
+		active_auctions: 'روان لیلامونه',
+		total_holders: 'لرونکي',
+
+		// ورته پلورل
+		comparables_title: 'د پرتلې پلورل',
+		comparables_subtitle: 'ریښتیني پلورل چې دا اټکل پرې ولاړ دی',
+
+		// خوندي شوي راپورونه
+		cached_report: 'خوندي شوی راپور',
+		refresh_report: 'تازه کول',
+		refreshing: 'تازه کیږي...',
+		recents_title: 'ستاسو وروستي راپورونه',
+		recents_hint: 'تر ۲۴ ساعتونو پورې شته',
+
+		// د لیلام لارښود او وړاندوینه
+		negotiation_tactic: 'د خبرو اترو تاکتیک',
+		target_buyer: 'احتمالي پیرودونکی',
+		heuristic_note: 'تجربي لارښوونه ده، نه د بازار اندازه شوی سیګنال.',
+		recommended_start: 'وړاندیز شوې پیل بیه',
+		bid_step: 'د وړاندیز پوړ',
+		time_to_sell: 'د پلورلو اټکلي وخت',
+		best_window: 'د لیست کولو غوره وخت',
+		liquidity_label: 'نغدیتوب',
+		projection_note: 'د کچې پلنوالی د همدې برخې د ورته پلورلو له خپریدو راځي.',
+
+		// جوړښتي جوړښت
+		anatomy_title: 'جوړښتي جوړښت',
+		anatomy_length: 'اوږدوالی',
+		anatomy_chars: 'توري',
+		anatomy_letters_only: 'یوازې توري',
+		anatomy_digits: 'شمېرې',
+		anatomy_underscore: 'لاندې کرښه',
+		anatomy_pure: 'هو (خالص)',
+		anatomy_contains: 'لري',
+		anatomy_none: 'نلري',
+		anatomy_clean: 'پاک',
+		anatomy_yes: 'هو',
+		anatomy_no: 'نه',
+		no_transaction_data: 'د راکړې ورکړې معلومات نشته',
 	},
 };

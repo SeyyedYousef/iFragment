@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -15,6 +16,41 @@ import (
 )
 
 var suggestionHttpClient = &http.Client{Timeout: 10 * time.Second}
+
+const suggestionCacheTTL = 6 * time.Hour
+
+type suggestionCacheEntry struct {
+	names     []string
+	expiresAt time.Time
+}
+
+// Semantic alternatives for a given handle are stable for hours, but the
+// valuation endpoint used to pay for a fresh Groq round-trip on every single
+// request (including cache-busting refreshes).
+var (
+	suggestionCacheMu sync.RWMutex
+	suggestionCache   = map[string]suggestionCacheEntry{}
+)
+
+func cachedSuggestions(key string) ([]string, bool) {
+	suggestionCacheMu.RLock()
+	entry, ok := suggestionCache[key]
+	suggestionCacheMu.RUnlock()
+	if !ok || time.Now().After(entry.expiresAt) {
+		return nil, false
+	}
+	return entry.names, true
+}
+
+func storeSuggestions(key string, names []string) {
+	suggestionCacheMu.Lock()
+	defer suggestionCacheMu.Unlock()
+	// Cheap bounded eviction: drop everything once the map grows past a sane size.
+	if len(suggestionCache) > 5000 {
+		suggestionCache = make(map[string]suggestionCacheEntry, 512)
+	}
+	suggestionCache[key] = suggestionCacheEntry{names: names, expiresAt: time.Now().Add(suggestionCacheTTL)}
+}
 
 const aiSuggestionPrompt = `Generate 10 highly valuable, semantic alternative Telegram usernames for "@%s".
 These should NOT just be random prefixes/suffixes. Think about synonyms, related industries, related premium keywords, and highly brandable variations. 
@@ -27,6 +63,10 @@ Example: ["auto", "drive", "motor", "wheels", "racing", "vehicle", "carsapp", "t
 // GetAISuggestions returns a list of semantic alternative usernames using the LLM.
 func GetAISuggestions(ctx context.Context, db *repository.Database, username string) []string {
 	lower := strings.ToLower(strings.TrimSpace(username))
+	if cached, ok := cachedSuggestions(lower); ok {
+		return cached
+	}
+
 	prompt := fmt.Sprintf(aiSuggestionPrompt, lower)
 	projectKey := os.Getenv("GROQ_API_KEY")
 
@@ -34,6 +74,7 @@ func GetAISuggestions(ctx context.Context, db *repository.Database, username str
 	if projectKey != "" {
 		res, err := callGroqSuggestions(ctx, prompt, projectKey)
 		if err == nil && len(res) > 0 {
+			storeSuggestions(lower, res)
 			return res
 		}
 	}
@@ -41,6 +82,9 @@ func GetAISuggestions(ctx context.Context, db *repository.Database, username str
 	// Try user keys as fallback
 	scorer := NewGeminiScorer(db) // reuse the key fetching logic
 	keys := scorer.getUserKeys(ctx)
+	if len(keys) == 0 {
+		return nil
+	}
 
 	maxKeys := 3
 	if len(keys) < maxKeys {
@@ -52,6 +96,7 @@ func GetAISuggestions(ctx context.Context, db *repository.Database, username str
 		key := keys[idx]
 		res, err := callGroqSuggestions(ctx, prompt, key)
 		if err == nil && len(res) > 0 {
+			storeSuggestions(lower, res)
 			return res
 		}
 	}

@@ -12,7 +12,10 @@ import (
 	"math"
 	"os"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -66,10 +69,14 @@ type ValuationHistory struct {
 type ValuationSimilar struct {
 	Username     string  `json:"username"`
 	Reason       string  `json:"reason"`
-	Status       string  `json:"status,omitempty"`         // "sold", "available", "on_sale", "on_auction", "non_nft"
+	Status       string  `json:"status,omitempty"`         // "sold", "available", "taken", "on_sale", "on_auction", "non_nft"
 	SalePrice    float64 `json:"sale_price,omitempty"`     // Last sale price in TON
 	SalePriceUSD float64 `json:"sale_price_usd,omitempty"` // Last sale price in USD
 	SaleDate     string  `json:"sale_date,omitempty"`      // Date of last sale
+	// PriceSource tells the client how trustworthy SalePrice is:
+	// "archive_anchor" (dated dataset price), "db_sale"/"fragment_history"
+	// (recorded sale) or "onchain_listing" (live ask price).
+	PriceSource string `json:"price_source,omitempty"`
 }
 
 type ValuationStructure struct {
@@ -137,11 +144,83 @@ type ValuationResult struct {
 	AuctionPlaybook  *AuctionPlaybookDto  `json:"auction_playbook,omitempty"`
 	PhishingThreat   *PhishingThreatDto   `json:"phishing_threat,omitempty"`
 	SearchTrend      *SearchTrendDto      `json:"search_trend,omitempty"`
+
+	// Live market state, collection context and estimate provenance.
+	LiveMarket    *LiveMarketDto    `json:"live_market,omitempty"`
+	MarketContext *MarketContextDto `json:"market_context,omitempty"`
+	PriceBasis    *PriceBasisDto    `json:"price_basis,omitempty"`
+	ModelAccuracy *ModelAccuracyDto `json:"model_accuracy,omitempty"`
+}
+
+// ModelAccuracyDto reports how the model has actually performed against sales that
+// happened after a valuation was issued. Without it, "confidence" is self-reported.
+type ModelAccuracyDto struct {
+	SampleSize     int     `json:"sample_size"`
+	MedianErrorPct float64 `json:"median_error_pct"`
+	WithinBandPct  float64 `json:"within_band_pct"`
+	EvaluatedAt    string  `json:"evaluated_at"`
 }
 
 type LiquidityMetricsDto struct {
 	Score         int    `json:"score"`
 	EstimatedDays string `json:"estimated_days"`
+}
+
+// LiveMarketDto is the current, actionable market state for a username: is it on
+// auction right now, what is the standing bid, when does it close, and where can
+// the user act on it. This is the one thing fragment.com shows that a valuation
+// report is useless without.
+type LiveMarketDto struct {
+	Status        string  `json:"status"` // on_auction | on_sale | taken | available | unknown
+	CurrentBidTON float64 `json:"current_bid_ton,omitempty"`
+	CurrentBidUSD float64 `json:"current_bid_usd,omitempty"`
+	BuyNowTON     float64 `json:"buy_now_ton,omitempty"`
+	BuyNowUSD     float64 `json:"buy_now_usd,omitempty"`
+	// AuctionEndsAt is RFC3339 and drives the client-side countdown.
+	AuctionEndsAt  string           `json:"auction_ends_at,omitempty"`
+	MintDate       string           `json:"mint_date,omitempty"`
+	OwnerAddress   string           `json:"owner_address,omitempty"`
+	PreviousOwners int              `json:"previous_owners,omitempty"`
+	Offers         []MarketOfferDto `json:"offers,omitempty"`
+	FragmentURL    string           `json:"fragment_url"`
+	TelegramURL    string           `json:"telegram_url"`
+	// AskVsEstimatePct is how far the live ask sits above (+) or below (−) our
+	// expected value, in percent. This is the single most decision-relevant number
+	// on the page when the username is actually purchasable.
+	AskVsEstimatePct float64 `json:"ask_vs_estimate_pct,omitempty"`
+	CheckedAt        string  `json:"checked_at"`
+}
+
+type MarketOfferDto struct {
+	PriceTON float64 `json:"price_ton"`
+	PriceUSD float64 `json:"price_usd,omitempty"`
+	Date     string  `json:"date,omitempty"`
+	From     string  `json:"from,omitempty"`
+}
+
+// MarketContextDto is collection-wide context so a single price has a scale to be
+// read against.
+type MarketContextDto struct {
+	FloorPriceTON  float64 `json:"floor_price_ton,omitempty"`
+	Volume24hTON   float64 `json:"volume_24h_ton,omitempty"`
+	TotalVolumeTON float64 `json:"total_volume_ton,omitempty"`
+	SalesCount     int     `json:"sales_count,omitempty"`
+	ListedRatio    float64 `json:"listed_ratio,omitempty"`
+	ActiveAuctions int     `json:"active_auctions,omitempty"`
+	TotalOwners    int     `json:"total_owners,omitempty"`
+	ItemsCount     int     `json:"items_count,omitempty"`
+	HighestSaleTON float64 `json:"highest_sale_ton,omitempty"`
+}
+
+// PriceBasisDto states exactly what evidence produced the estimate, so the number
+// can be audited by the person paying for it.
+type PriceBasisDto struct {
+	TargetSales int    `json:"target_sales"` // recorded sales of this exact username
+	ExactSales  int    `json:"exact_sales"`  // same segment and character length
+	BroadSales  int    `json:"broad_sales"`  // same segment, any length
+	AnchorUsed  bool   `json:"anchor_used"`  // archive anchor price contributed
+	LiveAskUsed bool   `json:"live_ask_used"`
+	Method      string `json:"method"`
 }
 
 type CrossPlatformDto struct {
@@ -181,14 +260,19 @@ type ProjectedGrowthDto struct {
 
 // PortfolioDto shows all usernames owned by the same wallet with historical last-sale basis
 type PortfolioDto struct {
-	OwnerAddress            string             `json:"owner_address"`
-	TotalCount              int                `json:"total_count"`
-	TotalLastSaleTON        float64            `json:"total_last_sale_ton"`
-	TotalLastSaleUSD        float64            `json:"total_last_sale_usd"`
-	TotalAcquisitionCostTON float64            `json:"total_acquisition_cost_ton"`
-	PricedItems             int                `json:"priced_items"`
-	UnknownItems            int                `json:"unknown_items"`
-	Items                   []PortfolioItemDto `json:"items"`
+	OwnerAddress string `json:"owner_address"`
+	TotalCount   int    `json:"total_count"`
+	// TotalLastSale* is the sum of the last recorded prices — i.e. what the
+	// holdings changed hands for, not what they are worth today.
+	TotalLastSaleTON        float64 `json:"total_last_sale_ton"`
+	TotalLastSaleUSD        float64 `json:"total_last_sale_usd"`
+	TotalAcquisitionCostTON float64 `json:"total_acquisition_cost_ton"`
+	// TotalEstValue* is the model's current estimate for the whole wallet.
+	TotalEstValueTON float64            `json:"total_est_value_ton,omitempty"`
+	TotalEstValueUSD float64            `json:"total_est_value_usd,omitempty"`
+	PricedItems      int                `json:"priced_items"`
+	UnknownItems     int                `json:"unknown_items"`
+	Items            []PortfolioItemDto `json:"items"`
 }
 
 type PortfolioItemDto struct {
@@ -528,30 +612,50 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		return err
 	})
 
-	var marketappPrice float64
+	var (
+		marketappPrice float64
+		marketItem     *marketapp.ItemData
+		liveStatus     string
+	)
+
+	// Structured item data first: it carries the live sale state (bid, buy-now,
+	// auction end, past sales, previous owners) that the report needs, not just a
+	// price. The HTML scraper stays as a price-only fallback.
 	g.Go(func() error {
-		mCtx, cancelM := context.WithTimeout(gCtx, 1200*time.Millisecond)
+		mCtx, cancelM := context.WithTimeout(gCtx, 1500*time.Millisecond)
 		defer cancelM()
 
-		// 1. Try MarketApp scraper first
-		scrapedPrice := ScrapeMarketappMaxPrice(mCtx, username)
-		if scrapedPrice > 0 {
-			marketappPrice = scrapedPrice
-			return nil
-		}
-
-		// 2. Try MarketApp official client API
 		if s.marketappClient != nil {
-			itemData, err := s.marketappClient.GetItem(mCtx, username)
-			if err == nil && itemData != nil {
-				if itemData.BuyNowPrice > 0 {
+			if itemData, err := s.marketappClient.GetItem(mCtx, username); err == nil && itemData != nil {
+				marketItem = itemData
+				switch {
+				case itemData.BuyNowPrice > 0:
 					marketappPrice = itemData.BuyNowPrice
-				} else if itemData.HighestBid > 0 {
+				case itemData.HighestBid > 0:
 					marketappPrice = itemData.HighestBid
-				} else if len(itemData.PastSales) > 0 {
+				case len(itemData.PastSales) > 0:
 					marketappPrice = itemData.PastSales[0].Price
 				}
 			}
+		}
+
+		if marketappPrice == 0 {
+			if scrapedPrice := ScrapeMarketappMaxPrice(mCtx, username); scrapedPrice > 0 {
+				marketappPrice = scrapedPrice
+			}
+		}
+		return nil
+	})
+
+	// Live availability straight from Fragment.
+	g.Go(func() error {
+		if s.fragmentClient == nil {
+			return nil
+		}
+		fCtx, cancelF := context.WithTimeout(gCtx, 1500*time.Millisecond)
+		defer cancelF()
+		if st, err := s.fragmentClient.CheckUsername(fCtx, username); err == nil && st != fragment.StatusUnknown {
+			liveStatus = string(st)
 		}
 		return nil
 	})
@@ -1115,10 +1219,36 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		targetBuyerProfile = "Brand & Corporate Entity"
 	}
 
-	// Projected Growth (1-Year Bull / Base / Bear)
-	bullTON := AestheticRound(expectedTON * 1.45)
-	baseTON := AestheticRound(expectedTON * 1.22)
-	bearTON := AestheticRound(expectedTON * 0.95)
+	// Projected Growth (1-Year Bull / Base / Bear).
+	//
+	// Previously these were fixed ×1.45 / ×1.22 / ×0.95 multipliers, identical for
+	// every username. They are now derived from two things the model actually
+	// measured: the configured market CAGR for the base path, and the dispersion of
+	// the comparable sales (MAD, in log-space) for the spread. A username priced
+	// from tight, consistent comparables gets a narrow cone; a thinly-traded one
+	// gets a wide one — which is the honest picture.
+	baseMultiplier := 1.0 + s.cfg.AppreciationRate
+	spread := mad * s.cfg.UncertaintyMult
+	if spread < 0.18 {
+		spread = 0.18 // floor: never imply more precision than a year out allows
+	}
+	if spread > 0.85 {
+		spread = 0.85
+	}
+	// Momentum tilts the base path: a segment trading faster than its own 90-day
+	// rate is given a modest upgrade, and vice versa.
+	if count31_90 > 0 {
+		recentRate := float64(count30) / 30.0
+		priorRate := float64(count31_90) / 60.0
+		if priorRate > 0 {
+			tilt := math.Log(recentRate/priorRate) * 0.10
+			baseMultiplier *= math.Exp(math.Max(-0.12, math.Min(0.12, tilt)))
+		}
+	}
+
+	baseTON := AestheticRound(expectedTON * baseMultiplier)
+	bullTON := AestheticRound(expectedTON * baseMultiplier * math.Exp(spread))
+	bearTON := AestheticRound(expectedTON * baseMultiplier * math.Exp(-spread))
 
 	projectedGrowth := ProjectedGrowthDto{
 		BullTON: bullTON,
@@ -1156,6 +1286,29 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 
 	// ── Step 4.5: Populate New Report Fields ──
 	dictData := GetDictionaryDetails(username)
+
+	liveMarket := buildLiveMarket(username, marketItem, liveStatus, expectedTON, tonRate)
+	marketContext := s.getMarketContext(ctx)
+	bestSaleDay, bestSaleHour := deriveBestListingWindow(exactSales)
+	priceBasis := &PriceBasisDto{
+		TargetSales: len(targetSales),
+		ExactSales:  len(exactSales),
+		BroadSales:  len(broadSales),
+		AnchorUsed:  len(scrapedSales) > 0 || highestPastSale > 0,
+		LiveAskUsed: marketappPrice > 0,
+		Method: func() string {
+			switch {
+			case len(targetSales) > 0:
+				return "prior_sales_of_this_username"
+			case len(exactSales) >= 5:
+				return "comparable_sales_same_length"
+			case len(broadSales) > 0:
+				return "segment_comparables_shrunk_to_prior"
+			default:
+				return "length_prior_only"
+			}
+		}(),
+	}
 
 	// Similar usernames (we'll just use Levenshtein from cache, if available, or empty)
 	// Because ValuationService doesn't have AnalysisService attached directly, we'll construct a quick fallback or we could use the global pool if exported.
@@ -1475,60 +1628,68 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 				return 0
 			}(),
 		},
-		// Portfolio & Contact features
+		// Portfolio & Contact features.
+		// Returns nil (instead of an empty shell) when the wallet holds nothing we
+		// can verify, so the client can hide the section rather than fill it with
+		// placeholder values.
 		Portfolio: func() *PortfolioDto {
 			if ownerAddress == "" || s.db == nil {
-				return &PortfolioDto{
-					OwnerAddress: ownerAddress,
-					TotalCount:   0,
-					Items:        []PortfolioItemDto{},
-				}
+				return nil
 			}
 			sales, err := s.db.GetSalesByBuyerAddress(ctx, ownerAddress)
 			if err != nil || len(sales) == 0 {
-				return &PortfolioDto{
-					OwnerAddress: ownerAddress,
-					TotalCount:   0,
-					Items:        []PortfolioItemDto{},
-				}
+				return nil
 			}
 			var items []PortfolioItemDto
 			var totalTON float64
+			lowerU := strings.ToLower(username)
 			for _, item := range sales {
+				// The queried handle must never appear inside its own portfolio list.
+				if strings.EqualFold(item.Username, lowerU) {
+					continue
+				}
 				pTON := ToFloat64(item.SalePriceTON)
 				totalTON += pTON
 				dateStr := item.SaleDate.Format("2006-01-02")
 				items = append(items, PortfolioItemDto{
-					Username:     item.Username,
-					Status:       item.SaleType,
-					LastSaleTON:  &pTON,
-					LastSaleDate: &dateStr,
+					Username:               item.Username,
+					Status:                 item.SaleType,
+					LastSaleTON:            &pTON,
+					LastSaleDate:           &dateStr,
+					SaleSource:             "fragment_history",
+					AcquiredByCurrentOwner: true,
+					AcquisitionCostTON:     &pTON,
 				})
+			}
+			if len(items) == 0 {
+				return nil
 			}
 			return &PortfolioDto{
 				OwnerAddress:            ownerAddress,
 				TotalCount:              len(items),
 				TotalLastSaleTON:        totalTON,
-				TotalLastSaleUSD:        totalTON * tonRate,
+				TotalLastSaleUSD:        math.Round(totalTON * tonRate),
 				TotalAcquisitionCostTON: totalTON,
 				PricedItems:             len(items),
 				Items:                   items,
 			}
 		}(),
-		OwnerProfile: &OwnerProfileDto{
-			Username: username,
-			PeerType: "user",
-		},
+		// OwnerProfile is left nil here on purpose. It used to be pre-filled with
+		// the queried handle itself, which the UI then rendered as "the owner's
+		// Telegram account". Only a real MTProto resolution may populate it.
+		OwnerProfile: nil,
 
-		// Wallet & Entity Intelligence
+		// Wallet & Entity Intelligence.
+		// NFTCount/Balance are filled in by the handler once the real on-chain
+		// portfolio is known; only IsWhale is pre-seeded from the price tier.
 		WalletInfo: &WalletInfoDto{
-			Balance:  func() float64 { if expectedTON > 50000 { return 250000.0 }; return 15000.0 }(),
-			NFTCount: func() int { if charLen <= 5 { return 12 }; return 3 }(),
-			IsWhale:  expectedTON >= 20000 || charLen <= 5,
+			IsWhale: expectedTON >= 20000,
 		},
+		// Members used to be a fabricated subscriber count (45,000 for any
+		// dictionary word). We do not have a real audience figure here, so the
+		// field is left at zero rather than invented.
 		EntityInfo: &EntityInfoDto{
 			Type:     func() string { if dictData.IsWord { return "Brand / Corporate" }; return "Individual Creator" }(),
-			Members:  func() int { if dictData.IsWord { return 45000 }; return 1200 }(),
 			Verified: dictData.IsWord || charLen <= 4,
 		},
 
@@ -1558,19 +1719,329 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		},
 		AuctionPlaybook: &AuctionPlaybookDto{
 			StartPriceTON: math.Round(expectedTON * 0.7),
-			BidStepTON:    math.Max(5, math.Round(expectedTON * 0.05)),
-			BestDay:       "Thursday",
-			BestHourUTC:   "18:00",
+			BidStepTON:    math.Max(5, math.Round(expectedTON*0.05)),
+			// BestDay/BestHourUTC are intentionally left empty: they used to be
+			// hardcoded to "Thursday 18:00" for every username in the world, which
+			// is not a finding. They are populated only when the comparable set is
+			// large enough to actually show a timing pattern.
+			BestDay:     bestSaleDay,
+			BestHourUTC: bestSaleHour,
 		},
 		PhishingThreat: &PhishingThreatDto{
 			HasThreat: false,
 			RiskLevel: "LOW",
 		},
-		SearchTrend: &SearchTrendDto{
-			SurgePercent: 124,
-			Status:       "Demand Surging",
-		},
+		// Demand signal derived from real segment momentum (last 30 days versus the
+		// preceding 60), not a constant.
+		SearchTrend:   buildSearchTrend(count30, count31_90),
+		LiveMarket:    liveMarket,
+		MarketContext: marketContext,
+		PriceBasis:    priceBasis,
 	}, nil
+}
+
+// buildSearchTrend converts raw segment momentum counts into a demand signal.
+// Returns nil when there is not enough trading activity to say anything.
+func buildSearchTrend(count30, count31_90 int) *SearchTrendDto {
+	if count30 == 0 && count31_90 == 0 {
+		return nil
+	}
+	recentRate := float64(count30) / 30.0
+	priorRate := float64(count31_90) / 60.0
+	if priorRate <= 0 {
+		if count30 == 0 {
+			return nil
+		}
+		return &SearchTrendDto{SurgePercent: 100, Status: "New Activity"}
+	}
+
+	surge := int(math.Round(((recentRate / priorRate) - 1) * 100))
+	status := "Stable Demand"
+	switch {
+	case surge >= 50:
+		status = "Demand Surging"
+	case surge >= 15:
+		status = "Demand Rising"
+	case surge <= -50:
+		status = "Demand Collapsing"
+	case surge <= -15:
+		status = "Demand Cooling"
+	}
+	return &SearchTrendDto{SurgePercent: surge, Status: status}
+}
+
+// deriveBestListingWindow finds the weekday and UTC hour that historically saw the
+// highest sale prices in the comparable set. It returns empty strings unless there
+// are enough sales for the pattern to mean anything.
+func deriveBestListingWindow(sales []repository.Sale) (day string, hour string) {
+	const minSales = 12
+	if len(sales) < minSales {
+		return "", ""
+	}
+
+	dayTotals := map[time.Weekday]float64{}
+	dayCounts := map[time.Weekday]int{}
+	hourTotals := map[int]float64{}
+	hourCounts := map[int]int{}
+
+	for _, sale := range sales {
+		if sale.SaleDate.IsZero() {
+			continue
+		}
+		price := ToFloat64(sale.SalePriceTON)
+		if price <= 0 {
+			continue
+		}
+		utc := sale.SaleDate.UTC()
+		dayTotals[utc.Weekday()] += price
+		dayCounts[utc.Weekday()]++
+		hourTotals[utc.Hour()] += price
+		hourCounts[utc.Hour()]++
+	}
+
+	bestDayAvg, bestHourAvg := 0.0, 0.0
+	var bestDay time.Weekday
+	bestHour := -1
+	for d, total := range dayTotals {
+		if avg := total / float64(dayCounts[d]); avg > bestDayAvg {
+			bestDayAvg, bestDay = avg, d
+		}
+	}
+	for h, total := range hourTotals {
+		if avg := total / float64(hourCounts[h]); avg > bestHourAvg {
+			bestHourAvg, bestHour = avg, h
+		}
+	}
+
+	if bestDayAvg == 0 || bestHour < 0 {
+		return "", ""
+	}
+	return bestDay.String(), fmt.Sprintf("%02d:00", bestHour)
+}
+
+// The backtest scans the full run/sale history, so it is computed at most once
+// per hour and shared across requests.
+var (
+	accuracyMu      sync.RWMutex
+	accuracyCache   *ModelAccuracyDto
+	accuracyExpires time.Time
+)
+
+const modelAccuracyTTL = time.Hour
+
+// GetModelAccuracy measures how the current model version has actually performed:
+// the median absolute percentage error against sales that happened after each
+// prediction, and how often the real price landed inside the published range.
+//
+// Returns nil until there are enough matched pairs for the figure to mean
+// anything — a "100% accurate" badge off three samples is worse than no badge.
+func (s *ValuationService) GetModelAccuracy(ctx context.Context) *ModelAccuracyDto {
+	const minSamples = 20
+
+	accuracyMu.RLock()
+	cached, expires := accuracyCache, accuracyExpires
+	accuracyMu.RUnlock()
+	if cached != nil && time.Now().Before(expires) {
+		return cached
+	}
+	if s.db == nil {
+		return cached
+	}
+
+	bCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	points, err := s.db.GetBacktestPoints(bCtx, ModelVersion, 2000)
+	if err != nil {
+		slog.Warn("AVM backtest query failed", "error", err)
+		return cached
+	}
+	if len(points) < minSamples {
+		return nil
+	}
+
+	errors := make([]float64, 0, len(points))
+	inBand := 0
+	for _, p := range points {
+		errors = append(errors, math.Abs(p.PredictedTON-p.ActualTON)/p.ActualTON*100)
+		if p.WithinBand {
+			inBand++
+		}
+	}
+	sort.Float64s(errors)
+
+	median := errors[len(errors)/2]
+	if len(errors)%2 == 0 {
+		median = (errors[len(errors)/2-1] + errors[len(errors)/2]) / 2
+	}
+
+	fresh := &ModelAccuracyDto{
+		SampleSize:     len(points),
+		MedianErrorPct: math.Round(median*10) / 10,
+		WithinBandPct:  math.Round(float64(inBand) / float64(len(points)) * 1000) / 10,
+		EvaluatedAt:    time.Now().UTC().Format(time.RFC3339),
+	}
+
+	accuracyMu.Lock()
+	accuracyCache = fresh
+	accuracyExpires = time.Now().Add(modelAccuracyTTL)
+	accuracyMu.Unlock()
+
+	return fresh
+}
+
+// Collection-wide stats are identical for every username and change slowly, so
+// they are fetched once and shared rather than re-requested per valuation.
+var (
+	marketContextMu      sync.RWMutex
+	marketContextCache   *MarketContextDto
+	marketContextExpires time.Time
+)
+
+const marketContextTTL = 5 * time.Minute
+
+// getMarketContext returns collection-wide market stats, or nil when the upstream
+// is unavailable. It never blocks a valuation for long and never fails it.
+func (s *ValuationService) getMarketContext(ctx context.Context) *MarketContextDto {
+	marketContextMu.RLock()
+	cached, expires := marketContextCache, marketContextExpires
+	marketContextMu.RUnlock()
+	if cached != nil && time.Now().Before(expires) {
+		return cached
+	}
+
+	if s.marketappClient == nil {
+		return cached
+	}
+
+	cCtx, cancel := context.WithTimeout(ctx, 1500*time.Millisecond)
+	defer cancel()
+
+	data, err := s.marketappClient.GetCollection(cCtx)
+	if err != nil || data == nil {
+		// Serve the stale value rather than nothing.
+		return cached
+	}
+
+	fresh := &MarketContextDto{
+		FloorPriceTON:  data.FloorPrice,
+		Volume24hTON:   data.Volume24h,
+		TotalVolumeTON: data.TotalVolume,
+		SalesCount:     data.SalesCount,
+		ListedRatio:    data.ListedRatio,
+		ActiveAuctions: data.ActiveAuctions,
+		TotalOwners:    data.TotalOwners,
+		ItemsCount:     data.ItemsCount,
+		HighestSaleTON: data.HighestSale,
+	}
+
+	marketContextMu.Lock()
+	marketContextCache = fresh
+	marketContextExpires = time.Now().Add(marketContextTTL)
+	marketContextMu.Unlock()
+
+	return fresh
+}
+
+// normalizeMarketStatus maps the various vocabularies used by Marketapp and
+// Fragment onto the single set the client renders.
+func normalizeMarketStatus(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "auction", "on_auction", "active_auction":
+		return "on_auction"
+	case "sale", "on_sale", "for_sale", "buy_now", "listed", "purchase_available":
+		return "on_sale"
+	case "sold", "taken", "owned", "occupied", "not_for_sale":
+		return "taken"
+	case "available", "free":
+		return "available"
+	default:
+		return ""
+	}
+}
+
+// parseMarketTime accepts the handful of timestamp shapes Marketapp returns and
+// normalises them to RFC3339. An unparseable value yields "" rather than a
+// misleading date.
+func parseMarketTime(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	for _, layout := range []string{time.RFC3339, "2006-01-02T15:04:05", "2006-01-02 15:04:05", "2006-01-02"} {
+		if ts, err := time.Parse(layout, raw); err == nil {
+			return ts.UTC().Format(time.RFC3339)
+		}
+	}
+	// Unix seconds
+	if secs, err := strconv.ParseInt(raw, 10, 64); err == nil && secs > 1_000_000_000 {
+		return time.Unix(secs, 0).UTC().Format(time.RFC3339)
+	}
+	return ""
+}
+
+// buildLiveMarket assembles the current, actionable market state. It returns a
+// value even when no marketplace data was reachable, because the Fragment and
+// t.me links are always useful.
+func buildLiveMarket(username string, item *marketapp.ItemData, fragmentStatus string, expectedTON, tonRate float64) *LiveMarketDto {
+	lm := &LiveMarketDto{
+		Status:      normalizeMarketStatus(fragmentStatus),
+		FragmentURL: "https://fragment.com/username/" + username,
+		TelegramURL: "https://t.me/" + username,
+		CheckedAt:   time.Now().UTC().Format(time.RFC3339),
+	}
+
+	if item != nil {
+		if st := normalizeMarketStatus(item.SaleStatus); st != "" {
+			// Marketapp knows about listings; Fragment only knows occupancy, so a
+			// concrete listing status wins over a generic "taken".
+			if lm.Status == "" || lm.Status == "taken" {
+				lm.Status = st
+			}
+		}
+		if item.HighestBid > 0 {
+			lm.CurrentBidTON = item.HighestBid
+			lm.CurrentBidUSD = math.Round(item.HighestBid * tonRate)
+		}
+		if item.BuyNowPrice > 0 {
+			lm.BuyNowTON = item.BuyNowPrice
+			lm.BuyNowUSD = math.Round(item.BuyNowPrice * tonRate)
+		}
+		lm.AuctionEndsAt = parseMarketTime(item.EndTime)
+		lm.MintDate = parseMarketTime(item.MintDate)
+		lm.OwnerAddress = item.OwnerAddress
+		lm.PreviousOwners = len(item.PreviousOwners)
+
+		for _, sale := range item.PastSales {
+			if sale.Price <= 0 {
+				continue
+			}
+			lm.Offers = append(lm.Offers, MarketOfferDto{
+				PriceTON: sale.Price,
+				PriceUSD: math.Round(sale.Price * tonRate),
+				Date:     parseMarketTime(sale.Date),
+				From:     sale.From,
+			})
+			if len(lm.Offers) >= 5 {
+				break
+			}
+		}
+	}
+
+	// How far the live ask sits from our estimate — the number a buyer actually
+	// decides on.
+	ask := lm.BuyNowTON
+	if ask == 0 {
+		ask = lm.CurrentBidTON
+	}
+	if ask > 0 && expectedTON > 0 {
+		lm.AskVsEstimatePct = math.Round(((ask/expectedTON)-1)*1000) / 10
+	}
+
+	if lm.Status == "" {
+		lm.Status = "unknown"
+	}
+	return lm
 }
 
 // SalesToComparables converts repository sales to math engine ComparableSales
@@ -1833,73 +2304,75 @@ func (s *ValuationService) GenerateSemanticSimilarUsernames(ctx context.Context,
 
 	result := make([]ValuationSimilar, 0, len(candidates))
 	for _, cand := range candidates {
-		candName := cand.Name
-		if candName == u {
+		if cand.Name == u {
 			continue
 		}
+		// Status is intentionally left empty: this generator knows nothing about
+		// occupancy, and defaulting to "available" advertised handles like "auto"
+		// or "bitcoin" as free to register. The handler resolves it for real.
+		result = append(result, ValuationSimilar{
+			Username: cand.Name,
+			Reason:   cand.Reason,
+		})
+	}
 
-		salePriceTON := 0.0
-		salePriceUSD := 0.0
-		status := "available"
-		saleDate := ""
+	// Price enrichment runs concurrently under a single shared deadline. Doing it
+	// sequentially meant up to 5 × 2s of Fragment scraping inside the valuation
+	// request.
+	enrichCtx, cancelEnrich := context.WithTimeout(ctx, 2500*time.Millisecond)
+	defer cancelEnrich()
 
-		// 1. Check HistoricalSales Anchor DB
-		if p, ok := HistoricalSales[candName]; ok {
-			appreciated := p * 1.975
-			salePriceTON = math.Round(appreciated)
-			salePriceUSD = math.Round(salePriceTON * tonRate)
-			status = "sold"
-			saleDate = "2023-03-15"
-		} else {
-			// 2. Check Database sale records
+	fragClient := s.fragmentClient
+	if fragClient == nil {
+		fragClient = fragment.NewClient()
+	}
+
+	var wg sync.WaitGroup
+	for i := range result {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			candName := result[idx].Username
+
+			setSold := func(priceTON float64, date, source string) {
+				result[idx].SalePrice = priceTON
+				result[idx].SalePriceUSD = math.Round(priceTON * tonRate)
+				result[idx].SaleDate = date
+				result[idx].PriceSource = source
+				result[idx].Status = "sold"
+			}
+
+			// 1. Database sale records first — they carry a real, dated price.
 			if s.db != nil {
-				if dbSales, err := s.db.GetSalesByUsername(ctx, candName); err == nil && len(dbSales) > 0 {
-					p := ToFloat64(dbSales[0].SalePriceTON)
-					if p > 0 {
-						salePriceTON = p
-						salePriceUSD = p * tonRate
-						status = "sold"
-						saleDate = dbSales[0].SaleDate.Format("2006-01-02")
+				if dbSales, err := s.db.GetSalesByUsername(enrichCtx, candName); err == nil && len(dbSales) > 0 {
+					if p := ToFloat64(dbSales[0].SalePriceTON); p > 0 {
+						setSold(p, dbSales[0].SaleDate.Format("2006-01-02"), "db_sale")
+						return
 					}
 				}
 			}
-		}
 
-		// 3. Fallback: Scrape live from Fragment website if not found in DB/Historical anchors
-		if salePriceTON == 0 {
-			fragClient := s.fragmentClient
-			if fragClient == nil {
-				fragClient = fragment.NewClient()
+			// 2. HistoricalSales anchor dataset, reported as-is. The previous code
+			//    multiplied the anchor by 1.975 and stamped every entry with a
+			//    hardcoded "2023-03-15" date, surfacing invented figures under a
+			//    "VERIFIED SALE" badge.
+			if p, ok := HistoricalSales[candName]; ok && p > 0 {
+				setSold(p, "", "archive_anchor")
+				return
 			}
-			subCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-			scrapedSales, err := fragClient.GetHistoricalSales(subCtx, candName)
-			cancel()
-			if err == nil && len(scrapedSales) > 0 {
-				p := scrapedSales[0].PriceTON
-				if p > 0 {
-					salePriceTON = p
-					salePriceUSD = math.Round(p * tonRate)
-					status = "sold"
-					saleDate = scrapedSales[0].SaleDate.Format("2006-01-02")
+
+			// 3. Last resort: scrape Fragment for a recorded sale.
+			if enrichCtx.Err() != nil {
+				return
+			}
+			if scrapedSales, err := fragClient.GetHistoricalSales(enrichCtx, candName); err == nil && len(scrapedSales) > 0 {
+				if p := scrapedSales[0].PriceTON; p > 0 {
+					setSold(p, scrapedSales[0].SaleDate.Format("2006-01-02"), "fragment_history")
 				}
 			}
-		}
-
-		if salePriceTON == 0 {
-			salePriceTON = 0
-			salePriceUSD = 0
-			status = "available"
-		}
-
-		result = append(result, ValuationSimilar{
-			Username:     candName,
-			Reason:       cand.Reason,
-			Status:       status,
-			SalePrice:    salePriceTON,
-			SalePriceUSD: salePriceUSD,
-			SaleDate:     saleDate,
-		})
+		}(i)
 	}
+	wg.Wait()
 
 	return result
 }

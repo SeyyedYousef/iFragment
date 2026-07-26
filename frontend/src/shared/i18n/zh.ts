@@ -2515,5 +2515,94 @@ export const dict = {
 		items_suffix: '个项目',
 		portfolio_est_val: '估算组合总值',
 		other_collectibles: '该钱包持有的其他用户名',
+
+		// 相似用户名标签
+		archive_sale_badge: '归档成交',
+		taken_badge: '已被占用',
+		unverified_badge: '未核实',
+
+		// 组合标签与空状态
+		listed_badge: '挂售中',
+		auction_badge: '拍卖中',
+		acquired_badge: '已购入',
+		holding_badge: '持有中',
+		portfolio_empty_title: '未找到公开持仓',
+		portfolio_empty_desc: '该钱包在链上没有其他可核实的收藏品。',
+		portfolio_spent_total: '总购入成本',
+		portfolio_unpriced: '无公开价格',
+
+		// 实时市场状态
+		live_market_title: '实时市场',
+		live_on_auction: '拍卖进行中',
+		live_on_sale: '一口价可购',
+		live_available: '可注册',
+		live_taken: '非卖品',
+		live_unknown: '状态未知',
+		buy_now_price: '一口价',
+		current_bid: '当前出价',
+		above_estimate: '高于估值',
+		below_estimate: '低于估值',
+		auction_ends_in: '拍卖结束倒计时',
+		recorded_offers: '已记录的市场活动',
+		view_on_fragment: 'Fragment',
+		open_in_telegram: '打开 t.me',
+		checked_at: '检查于',
+
+		// 置信度与定价依据
+		confidence_label: '置信度',
+		conf_high: '高置信度',
+		conf_medium: '中等置信度',
+		conf_low: '低置信度',
+		conf_thin: '数据不足',
+		basis_own_sales: '该名称的成交',
+		basis_exact: '同长度可比成交',
+		basis_broad: '同类别可比成交',
+		basis_live_ask: '已计入实时报价',
+		model_track_record: '模型实测表现',
+		in_band: '落在区间内',
+
+		// 藏品市场概况
+		market_context_title: '藏品市场',
+		floor_price: '地板价',
+		volume_24h: '24小时成交量',
+		active_auctions: '进行中的拍卖',
+		total_holders: '持有人数',
+
+		// 可比成交
+		comparables_title: '可比成交',
+		comparables_subtitle: '本次估值所依据的真实成交',
+
+		// 已保存的报告
+		cached_report: '已保存的报告',
+		refresh_report: '刷新',
+		refreshing: '刷新中...',
+		recents_title: '你最近的报告',
+		recents_hint: '保留 24 小时',
+
+		// 拍卖策略与预测
+		negotiation_tactic: '议价策略',
+		target_buyer: '可能的买家',
+		heuristic_note: '这是经验性建议，并非实测的市场信号。',
+		recommended_start: '建议起拍价',
+		bid_step: '加价幅度',
+		time_to_sell: '预计成交时间',
+		best_window: '最佳挂单时段',
+		liquidity_label: '流动性',
+		projection_note: '区间宽度取决于该类别可比成交的离散程度。',
+
+		// 结构解析
+		anatomy_title: '结构解析',
+		anatomy_length: '长度',
+		anatomy_chars: '字符',
+		anatomy_letters_only: '纯字母',
+		anatomy_digits: '数字',
+		anatomy_underscore: '下划线',
+		anatomy_pure: '是（纯净）',
+		anatomy_contains: '含有',
+		anatomy_none: '无',
+		anatomy_clean: '干净',
+		anatomy_yes: '是',
+		anatomy_no: '否',
+		no_transaction_data: '暂无交易数据',
 	},
 };
