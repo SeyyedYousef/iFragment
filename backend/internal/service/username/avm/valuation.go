@@ -1886,8 +1886,8 @@ func (s *ValuationService) GenerateSemanticSimilarUsernames(ctx context.Context,
 		}
 
 		if salePriceTON == 0 {
-			salePriceTON = math.Round(float64(100000 / (len(candName) + 1)))
-			salePriceUSD = math.Round(salePriceTON * tonRate)
+			salePriceTON = 0
+			salePriceUSD = 0
 			status = "available"
 		}
 

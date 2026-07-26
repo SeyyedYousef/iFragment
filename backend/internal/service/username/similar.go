@@ -246,27 +246,7 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 				}
 			}
 
-			// 6. Calculate fallback baseline price if SalePrice is missing or zero
-			if results[idx].SalePrice <= 0 {
-				estPrice := 15.0 // baseline floor
-				cLen := len(lowerName)
-				if cLen == 4 {
-					estPrice = 250.0
-				} else if cLen == 5 {
-					estPrice = 75.0
-				} else if cLen <= 7 {
-					estPrice = 30.0
-				}
-				if isDictionaryWord(lowerName) {
-					estPrice *= 3.5
-				}
-				if strings.Contains(lowerName, "crypto") || strings.Contains(lowerName, "bot") || strings.Contains(lowerName, "ai") {
-					estPrice *= 2.0
-				}
-				results[idx].SalePrice = math.Round(estPrice)
-			}
-
-			// 7. Calculate USD sale price
+			// 6. Calculate USD sale price if a real SalePrice exists
 			if results[idx].SalePrice > 0 {
 				results[idx].SalePriceUSD = math.Round(results[idx].SalePrice*tonRate*100) / 100
 			}
