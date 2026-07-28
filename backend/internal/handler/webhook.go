@@ -42,19 +42,22 @@ var telegramUpdatePool = sync.Pool{
 }
 
 type WebhookHandler struct {
-	db             *repository.Database
-	moderator      *botmgmt.ModeratorService
-	botRepo        *repository.BotRepo
-	channelService *channelmgmt.ChannelService
-	processedJoins sync.Map
+	db              *repository.Database
+	moderator       *botmgmt.ModeratorService
+	botRepo         *repository.BotRepo
+	channelService  *channelmgmt.ChannelService
+	premiumGroupSvc *botmgmt.PremiumGroupService
+	processedJoins  sync.Map
 }
 
 func NewWebhookHandler(db *repository.Database, moderator *botmgmt.ModeratorService, botRepo *repository.BotRepo, channelService *channelmgmt.ChannelService) *WebhookHandler {
+	analyticsRepo := repository.NewAnalyticsRepo(db)
 	return &WebhookHandler{
-		db:             db,
-		moderator:      moderator,
-		botRepo:        botRepo,
-		channelService: channelService,
+		db:              db,
+		moderator:       moderator,
+		botRepo:         botRepo,
+		channelService:  channelService,
+		premiumGroupSvc: botmgmt.NewPremiumGroupService(botRepo, analyticsRepo),
 	}
 }
 
@@ -952,6 +955,24 @@ func (h *WebhookHandler) handleJoinLeaveUpdate(ctx context.Context, bot *reposit
 					continue
 				}
 
+				// Enforce Telegram Premium restriction for @FragmentInvestors
+				if botmgmt.IsFragmentInvestorsGroup(msg.Chat.Title, msg.Chat.Username) {
+					if !user.IsBot && !user.IsPremium {
+						tgClient, tgErr := h.moderator.GetTelegramClient(ctx, bot)
+						if tgErr == nil && h.premiumGroupSvc != nil {
+							uComp := botmgmt.UserCompact{
+								ID:        user.ID,
+								IsBot:     user.IsBot,
+								FirstName: user.FirstName,
+								Username:  user.Username,
+								IsPremium: user.IsPremium,
+							}
+							_ = h.premiumGroupSvc.ProcessMemberJoinRealtime(ctx, tgClient, msg.Chat.ID, uComp)
+						}
+						continue
+					}
+				}
+
 				if user.IsBot && content.BlockBots.Enabled {
 					tgClient, tgErr := h.moderator.GetTelegramClient(ctx, bot)
 					if tgErr == nil {
@@ -1017,6 +1038,25 @@ func (h *WebhookHandler) handleJoinLeaveUpdate(ctx context.Context, bot *reposit
 func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *repository.ManagedBot, msg *Message) {
 	if msg.Chat == nil || msg.From == nil {
 		return
+	}
+
+	// Enforce Telegram Premium restriction for @FragmentInvestors
+	if botmgmt.IsFragmentInvestorsGroup(msg.Chat.Title, msg.Chat.Username) && msg.From != nil {
+		if !msg.From.IsBot && !msg.From.IsPremium {
+			tgClient, tgErr := h.moderator.GetTelegramClient(ctx, bot)
+			if tgErr == nil && h.premiumGroupSvc != nil {
+				uComp := botmgmt.UserCompact{
+					ID:        msg.From.ID,
+					IsBot:     msg.From.IsBot,
+					FirstName: msg.From.FirstName,
+					Username:  msg.From.Username,
+					IsPremium: msg.From.IsPremium,
+				}
+				_ = h.premiumGroupSvc.ProcessMemberJoinRealtime(ctx, tgClient, msg.Chat.ID, uComp)
+				h.deleteMessage(ctx, bot, msg.Chat.ID, msg.MessageID)
+				return
+			}
+		}
 	}
 
 	// Intercept owner/admin private messages for Channel Funnel caption editing

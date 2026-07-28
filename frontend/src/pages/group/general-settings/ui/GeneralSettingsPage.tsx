@@ -215,6 +215,38 @@ export const GeneralSettingsPage: Component = () => {
 					</div>
 				</div>
 
+				{/* ═══════ EPHEMERAL MODE (PRIVATE MESSAGES) ═══════ */}
+				<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 shadow-sm relative overflow-hidden flex flex-col gap-4 mt-2">
+					<div class="absolute -right-6 -top-6 w-24 h-24 bg-sky-500/10 blur-2xl rounded-full pointer-events-none" />
+					<div class="flex items-center gap-2 mb-1 relative z-10">
+						<span class="material-symbols-outlined text-[20px] text-sky-400">visibility_off</span>
+						<h3 class="text-[13px] font-black text-sky-400 uppercase tracking-widest">{t('generalSettings.ephemeralAll')}</h3>
+					</div>
+
+					<div class="relative z-10 flex flex-col gap-5">
+						<SettingsSection
+							title={t('generalSettings.ephemeralAll')}
+							description={t('generalSettings.ephemeralAllDesc')}
+							enabled={config.ephemeralAll}
+							onToggle={(v) => updateField('ephemeralAll', v)}
+						/>
+
+						<SettingsSection
+							title={t('generalSettings.ephemeralWelcome')}
+							description={t('generalSettings.ephemeralWelcomeDesc')}
+							enabled={config.ephemeralWelcome}
+							onToggle={(v) => updateField('ephemeralWelcome', v)}
+						/>
+
+						<SettingsSection
+							title={t('generalSettings.ephemeralWarnings')}
+							description={t('generalSettings.ephemeralWarningsDesc')}
+							enabled={config.ephemeralWarnings}
+							onToggle={(v) => updateField('ephemeralWarnings', v)}
+						/>
+					</div>
+				</div>
+
 				{/* ═══════ MODERATION & PENALTIES ═══════ */}
 				<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 shadow-sm relative overflow-hidden flex flex-col gap-4 mt-2">
 					<div class="absolute -right-6 -bottom-6 w-24 h-24 bg-[#10b981]/10 blur-2xl rounded-full pointer-events-none" />

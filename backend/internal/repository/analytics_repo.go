@@ -231,3 +231,30 @@ func (r *AnalyticsRepo) GetUserWarningsCount(ctx context.Context, groupID uuid.U
 	).Scan(&count)
 	return count, err
 }
+
+func (r *AnalyticsRepo) GetGroupMemberIDs(ctx context.Context, groupID uuid.UUID) ([]int64, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, fmt.Errorf("no database connection")
+	}
+
+	query := `
+		SELECT DISTINCT user_id 
+		FROM group_events 
+		WHERE group_id = $1 AND user_id IS NOT NULL AND event_type IN ('member_join', 'message')
+	`
+	rows, err := r.db.Pool.Query(ctx, query, groupID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var userIDs []int64
+	for rows.Next() {
+		var uid int64
+		if err := rows.Scan(&uid); err == nil && uid != 0 {
+			userIDs = append(userIDs, uid)
+		}
+	}
+	return userIDs, nil
+}
+

@@ -55,6 +55,7 @@ type BotService struct {
 	settingsRepo         *repository.SettingsRepo
 	auditRepo            *repository.AuditRepo
 	analyticsRepo        *repository.AnalyticsRepo
+	premiumGroupSvc      *PremiumGroupService
 	lastNotificationDate string               // format: YYYY-MM-DD
 	qhNotifications      map[string]time.Time // key: groupID:action:HH:MM, val: time
 	lastBioUpdate        sync.Map             // map[uuid.UUID]time.Time
@@ -72,13 +73,18 @@ func NewBotService(
 	cryptoSvc *cryptoprice.CryptoPriceService,
 ) *BotService {
 	return &BotService{
-		botRepo:       botRepo,
-		settingsRepo:  settingsRepo,
-		auditRepo:     auditRepo,
-		analyticsRepo: analyticsRepo,
-		cache:         cache,
-		cryptoSvc:     cryptoSvc,
+		botRepo:         botRepo,
+		settingsRepo:    settingsRepo,
+		auditRepo:       auditRepo,
+		analyticsRepo:   analyticsRepo,
+		premiumGroupSvc: NewPremiumGroupService(botRepo, analyticsRepo),
+		cache:           cache,
+		cryptoSvc:       cryptoSvc,
 	}
+}
+
+func (s *BotService) GetPremiumGroupService() *PremiumGroupService {
+	return s.premiumGroupSvc
 }
 
 func (s *BotService) StartBackgroundTasks(ctx context.Context) {
@@ -101,6 +107,11 @@ func (s *BotService) StartBackgroundTasks(ctx context.Context) {
 
 	// Start group dynamic bio worker
 	go s.dynamicBioWorker(ctx)
+
+	// Start daily @FragmentInvestors premium membership audit worker (00:00 GMT / 04:30 AFN)
+	if s.premiumGroupSvc != nil {
+		s.premiumGroupSvc.StartDailyAuditWorker(ctx)
+	}
 }
 
 func (s *BotService) CheckExpirations(ctx context.Context) {

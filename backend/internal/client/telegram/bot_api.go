@@ -418,6 +418,35 @@ func (c *BotAPIClient) UnbanChatMember(ctx context.Context, chatID int64, userID
 	return err
 }
 
+type TelegramChatMemberUser struct {
+	ID        int64  `json:"id"`
+	IsBot     bool   `json:"is_bot"`
+	FirstName string `json:"first_name"`
+	Username  string `json:"username,omitempty"`
+	IsPremium bool   `json:"is_premium,omitempty"`
+}
+
+type TelegramChatMemberResponse struct {
+	User   TelegramChatMemberUser `json:"user"`
+	Status string                 `json:"status"`
+}
+
+func (c *BotAPIClient) GetChatMemberFull(ctx context.Context, chatID int64, userID int64) (*TelegramChatMemberResponse, error) {
+	respBytes, err := c.Request(ctx, "getChatMember", map[string]interface{}{
+		"chat_id": chatID,
+		"user_id": userID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var res TelegramChatMemberResponse
+	if err := json.Unmarshal(respBytes, &res); err != nil {
+		return nil, fmt.Errorf("failed to parse getChatMember result: %w", err)
+	}
+	return &res, nil
+}
+
+
 func (c *BotAPIClient) UnrestrictChatMember(ctx context.Context, chatID int64, userID int64) error {
 	_, err := c.Request(ctx, "restrictChatMember", map[string]interface{}{
 		"chat_id": chatID,
