@@ -111,6 +111,14 @@ func (s *CryptoPriceService) GetPrice(symbol string) string {
 	return formatPrice(price)
 }
 
+// GetFloatPrice returns raw price float64 and existence bool
+func (s *CryptoPriceService) GetFloatPrice(symbol string) (float64, bool) {
+	s.mu.RLock()
+	price, ok := s.prices[symbol]
+	s.mu.RUnlock()
+	return price, ok
+}
+
 func formatPrice(price float64) string {
 	if price >= 1000 {
 		p := int64(price)
