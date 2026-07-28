@@ -108,8 +108,8 @@ func (s *PremiumGroupService) ProcessMemberJoinRealtime(ctx context.Context, tgC
 		}
 	}
 
-	// 2. Pause 2 seconds so the user can read the warning
-	time.Sleep(2 * time.Second)
+	// 2. Pause 6 seconds so any user (even non-native English speakers) can read the warning comfortably
+	time.Sleep(6 * time.Second)
 
 	// 3. Repeat joiner (> 3 attempts in 10 minutes) -> 15-minute temp ban
 	if count > 3 {
