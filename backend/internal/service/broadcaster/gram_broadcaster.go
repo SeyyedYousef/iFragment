@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"math"
 	"sync"
 	"time"
 
@@ -127,35 +126,13 @@ func (b *GramBroadcaster) broadcast10MinPost(ctx context.Context, now time.Time)
 	currentTick := b.priceHistory[len(b.priceHistory)-1]
 	currentPrice := currentTick.Price
 
-	high := currentPrice
-	low := currentPrice
-	firstPrice := b.priceHistory[0].Price
-
-	for _, tick := range b.priceHistory {
-		if tick.Price > high {
-			high = tick.Price
-		}
-		if tick.Price < low {
-			low = tick.Price
-		}
+	// Send ONLY the price string (like before)
+	priceStr := b.cryptoSvc.GetPrice("the-open-network")
+	if priceStr == "N/A" || priceStr == "" {
+		priceStr = fmt.Sprintf("$%.3f", currentPrice)
 	}
 
-	pctChange := 0.0
-	if firstPrice > 0 {
-		pctChange = ((currentPrice - firstPrice) / firstPrice) * 100
-	}
-
-	signStr := "▲ +"
-	if pctChange < 0 {
-		signStr = "▼ "
-	}
-
-	// Ultra-Minimal Single-Line English Template
-	text := fmt.Sprintf("💎 $GRAM: $%.3f (%s%.2f%%)",
-		currentPrice,
-		signStr,
-		math.Abs(pctChange),
-	)
+	text := priceStr
 
 	payload := map[string]interface{}{
 		"chat_id": b.target,
