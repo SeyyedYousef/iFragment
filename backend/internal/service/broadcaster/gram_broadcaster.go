@@ -150,15 +150,11 @@ func (b *GramBroadcaster) broadcast10MinPost(ctx context.Context, now time.Time)
 		signStr = "▼ "
 	}
 
-	// Minimal English Template
-	text := fmt.Sprintf("💎 $GRAM: $%.3f (%s%.2f%%)\nHigh: $%.3f | Low: $%.3f\n📅 %s • %s UTC\n\n@TheGramPrice",
+	// Ultra-Minimal Single-Line English Template
+	text := fmt.Sprintf("💎 $GRAM: $%.3f (%s%.2f%%)",
 		currentPrice,
 		signStr,
 		math.Abs(pctChange),
-		high,
-		low,
-		now.Format("02 Jan 2006"),
-		now.Format("15:04"),
 	)
 
 	payload := map[string]interface{}{
@@ -231,7 +227,7 @@ func (b *GramBroadcaster) checkAndSendDailyRecap(ctx context.Context, now time.T
 	yesterdayDate := now.Add(-12 * time.Hour).Format("02 JAN 2006")
 
 	// Daily Summary Ultra-Minimal English Template
-	recapText := fmt.Sprintf("📊 GRAM DAILY RECAP — %s\n\n Open:  $%.3f\n High:  $%.3f (%s UTC)\n Low:   $%.3f (%s UTC)\n Close: $%.3f\n Avg:   $%.3f\n\n📈 Change: %s$%.3f (%s%.2f%%)\n⚡ Updates: %d\n\n@TheGramPrice",
+	recapText := fmt.Sprintf("📊 GRAM DAILY RECAP — %s\n\n Open:  $%.3f\n High:  $%.3f (%s UTC)\n Low:   $%.3f (%s UTC)\n Close: $%.3f\n Avg:   $%.3f\n\n📈 Change: %s$%.3f (%s%.2f%%)\n⚡ Updates: %d",
 		yesterdayDate,
 		openPrice,
 		highPrice, highTime.Format("15:04"),
