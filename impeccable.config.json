@@ -1,0 +1,11 @@
+{
+  "$schema": "https://impeccable.style/schema/config.v1.json",
+  "version": "4.0.3",
+  "productContext": "PRODUCT.md",
+  "designTokens": "DESIGN.md",
+  "detector": {
+    "enabled": true,
+    "scanPath": "frontend",
+    "strictMode": false
+  }
+}

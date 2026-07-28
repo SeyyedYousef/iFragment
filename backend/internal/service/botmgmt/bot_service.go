@@ -157,6 +157,11 @@ func (s *BotService) CheckExpirations(ctx context.Context) {
 
 			// 2. Auto-leave if expired for > 7 days
 			if g.SubscriptionStatus == "expired" && now.After(expiry.Add(7*24*time.Hour)) {
+				if repository.IsExemptFromAutoLeave(groupCtx, s.botRepo.DB(), g.ChatID, g.ChatTitle) {
+					slog.Info("Skipping auto-leave for exempt group", "chat_id", g.ChatID, "title", g.ChatTitle)
+					return
+				}
+
 				bot, err := s.botRepo.GetBotByID(groupCtx, g.BotID)
 				if err == nil {
 					token, decErr := DecryptToken(bot.BotTokenEncrypted)

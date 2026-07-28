@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -1854,3 +1855,80 @@ func (r *ChannelRepo) UpdateFunnelWithSubscriptionTx(ctx context.Context, f *Cha
 
 	return tx.Commit(ctx)
 }
+
+// IsExemptFromAutoLeave checks whether a channel or group is protected from automatic leaving.
+// Protected items include:
+// 1. Specific community channels: @Fragmentscommunity, @TheGramPrice, @Fragmentinvestort
+// 2. Any channel configured in the Tasks/Quests section (table: quests)
+func IsExemptFromAutoLeave(ctx context.Context, db *Database, chatID int64, chatTitle string) bool {
+	cleanTitle := strings.ToLower(strings.TrimSpace(chatTitle))
+	normalizedTitle := strings.ReplaceAll(strings.TrimPrefix(cleanTitle, "@"), " ", "")
+
+	// 1. Check static exempt list (@Fragmentscommunity, @TheGramPrice, @Fragmentinvestort)
+	staticExempt := []string{
+		"fragmentscommunity",
+		"thegramprice",
+		"fragmentinvestort",
+	}
+
+	for _, name := range staticExempt {
+		if normalizedTitle == name || strings.Contains(normalizedTitle, name) {
+			return true
+		}
+	}
+
+	if db == nil || db.Pool == nil {
+		return false
+	}
+
+	// 2. Check dynamic task channels from quests table
+	rows, err := db.Pool.Query(ctx, `SELECT config FROM quests WHERE is_active = true OR is_active IS NULL`)
+	if err != nil {
+		return false
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var configBytes []byte
+		if err := rows.Scan(&configBytes); err != nil {
+			continue
+		}
+
+		if len(configBytes) == 0 {
+			continue
+		}
+
+		var cfg map[string]interface{}
+		if err := json.Unmarshal(configBytes, &cfg); err != nil {
+			continue
+		}
+
+		// Check channel_username in config
+		if chUsernameRaw, ok := cfg["channel_username"]; ok {
+			if chUsernameStr, isStr := chUsernameRaw.(string); isStr && chUsernameStr != "" {
+				chUserClean := strings.ToLower(strings.TrimSpace(chUsernameStr))
+				chUserNorm := strings.ReplaceAll(strings.TrimPrefix(chUserClean, "@"), " ", "")
+				if normalizedTitle == chUserNorm || strings.Contains(normalizedTitle, chUserNorm) {
+					return true
+				}
+			}
+		}
+
+		// Check channel_id in config
+		if chIDRaw, ok := cfg["channel_id"]; ok {
+			var cfgID int64
+			switch v := chIDRaw.(type) {
+			case float64:
+				cfgID = int64(v)
+			case int64:
+				cfgID = v
+			}
+			if cfgID != 0 && cfgID == chatID {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+

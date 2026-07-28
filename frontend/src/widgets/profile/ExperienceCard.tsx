@@ -34,7 +34,7 @@ export const ExperienceCard: Component<Props> = (props) => {
 							</h3>
 						</div>
 						<div class="flex items-baseline gap-1">
-							<span class="text-[32px] font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-white/70 leading-none tracking-tight font-mono tabular-nums">
+							<span class="text-[32px] font-black text-white leading-none tracking-tight font-mono tabular-nums">
 								{(props.stats?.xp || 0).toLocaleString()}
 							</span>
 							<span class="text-[12px] font-black text-[#00f5ff]">{t('profile.xp') || 'XP'}</span>

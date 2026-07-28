@@ -32,26 +32,19 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 				props.activeTab ? 'pt-4 pb-20' : 'pt-8 pb-20 min-h-[85vh]'
 			}`}
 		>
-			{/* Floating Light Orbs (Dark Mode adapted) */}
+			{/* Floating Light Orbs (Emerald & Telegram Blue glow) */}
 			<div
-				class={`orb w-48 h-48 top-10 ${isRtl() ? '-right-20' : '-left-20'} opacity-30`}
+				class={`orb w-64 h-64 top-0 ${isRtl() ? '-right-24' : '-left-24'} opacity-40 pointer-events-none`}
 				style={{
-					background: 'radial-gradient(circle, rgba(51,144,236,0.3) 0%, transparent 70%)',
+					background: 'radial-gradient(circle, rgba(16,185,129,0.25) 0%, rgba(6,182,212,0.15) 50%, transparent 70%)',
 					animation: 'orb-float-1 12s ease-in-out infinite',
 				}}
 			></div>
 			<div
-				class={`orb w-32 h-32 top-40 ${isRtl() ? 'left-[-10%]' : 'right-[-10%]'} opacity-20`}
+				class={`orb w-48 h-48 top-32 ${isRtl() ? 'left-[-10%]' : 'right-[-10%]'} opacity-30 pointer-events-none`}
 				style={{
-					background: 'radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%)',
+					background: 'radial-gradient(circle, rgba(0,136,204,0.3) 0%, transparent 70%)',
 					animation: 'orb-float-2 15s ease-in-out infinite',
-				}}
-			></div>
-			<div
-				class={`orb w-24 h-24 bottom-20 ${isRtl() ? 'right-[30%]' : 'left-[30%]'} opacity-30`}
-				style={{
-					background: 'radial-gradient(circle, rgba(51,144,236,0.2) 0%, transparent 70%)',
-					animation: 'orb-float-1 18s ease-in-out infinite reverse',
 				}}
 			></div>
 
@@ -63,16 +56,16 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 					transition={{ duration: 0.5, easing: [0.4, 0, 0.2, 1] }}
 					class="w-full flex flex-col items-center overflow-hidden relative z-10"
 				>
-					{/* Promo Card with Shimmer (Dark style) */}
-					<div class="w-full max-w-sm bg-[#1c1c1c]/80 backdrop-blur-xl border border-[#2a2a2a] rounded-[32px] p-4 mb-12 shadow-lg flex flex-col items-center relative overflow-hidden">
+					{/* Promo Card with Shimmer & Glass Glow */}
+					<div class="w-full max-w-sm bg-white/[0.03] backdrop-blur-2xl border border-white/[0.1] rounded-[32px] p-5 mb-10 shadow-[0_20px_50px_rgba(0,0,0,0.6)] flex flex-col items-center relative overflow-hidden group">
 						<div class="shimmer-overlay opacity-30"></div>
-						<div class="bg-[#B03060] text-white px-8 py-2 rounded-xl rotate-[-2deg] shadow-lg mb-2 relative z-10">
-							<p class="text-[12px] font-black tracking-[0.2em] opacity-80 leading-none">
+						<div class="bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white px-8 py-2.5 rounded-2xl rotate-[-1deg] shadow-[0_10px_25px_rgba(16,185,129,0.3)] mb-2.5 relative z-10">
+							<p class="text-[11px] font-black tracking-[0.25em] opacity-90 leading-none uppercase">
 								{t('home.promotion')}
 							</p>
 							<p class="text-[20px] font-black leading-none mt-1">{t('hero.promoBadge')}</p>
 						</div>
-						<p class="text-[#8e8e93] text-[10px] font-bold tracking-widest uppercase relative z-10">
+						<p class="text-white/50 text-[11px] font-bold tracking-widest uppercase relative z-10">
 							{t('home.scatterFloorLimit')}
 						</p>
 					</div>

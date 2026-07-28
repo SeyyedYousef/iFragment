@@ -161,7 +161,7 @@ export const UsernamePage: Component = () => {
 			case 'on_auction':
 				return { label: t('valuation.auction_badge') || 'AUCTION', class: 'bg-amber-400/10 text-amber-400 border-amber-400/30' };
 			case 'bought':
-				return { label: t('valuation.acquired_badge') || 'ACQUIRED', class: 'bg-violet-400/10 text-violet-300 border-violet-400/30' };
+				return { label: t('valuation.acquired_badge') || 'ACQUIRED', class: 'bg-cyan-400/10 text-cyan-300 border-cyan-400/30' };
 			default:
 				return { label: t('valuation.holding_badge') || 'HOLDING', class: 'bg-emerald-400/10 text-emerald-400 border-emerald-400/30' };
 		}
@@ -519,7 +519,7 @@ export const UsernamePage: Component = () => {
 									<div class="absolute w-full h-[160px] opacity-70 -z-10 pointer-events-none mix-blend-screen" style={{ background: `radial-gradient(ellipse 60% 60% at 50% 50%, ${getTierTheme(data()?.rarity?.tier || '').glow}, transparent 70%)` }} />
 									<div class="flex items-center justify-center gap-2.5 w-full">
 										<span class="text-white/20 font-black text-[28px] select-none drop-shadow-md">✦</span>
-										<span class={`inline-block font-black tracking-tighter bg-gradient-to-r ${getTierTheme(data()?.rarity?.tier || '').text} bg-clip-text text-transparent drop-shadow-[0_10px_30px_rgba(0,0,0,0.8)] truncate max-w-[75%] pb-2`} style={{ 'font-size': getFontSize(data()?.username || username()) }} dir="ltr">
+										<span class="inline-block font-black tracking-tighter text-white drop-shadow-[0_10px_30px_rgba(0,0,0,0.8)] truncate max-w-[75%] pb-2" style={{ 'font-size': getFontSize(data()?.username || username()) }} dir="ltr">
 											@{data()?.username || username()}
 										</span>
 										<span class="text-white/20 font-black text-[28px] select-none drop-shadow-md">✦</span>
@@ -1391,7 +1391,7 @@ export const UsernamePage: Component = () => {
 								<div class="flex flex-col justify-center items-center z-10 text-center flex-grow py-4 w-full">
 									<div class="flex items-center justify-center gap-2 w-full">
 										<span class="text-white/20 font-black text-[22px]">✦</span>
-										<span class={`inline-block font-black tracking-tighter bg-gradient-to-r ${getTierTheme(data()?.rarity?.tier || '').text} bg-clip-text text-transparent truncate max-w-[80%]`} style={{ 'font-size': getFontSize(data()?.username || username()) }} dir="ltr">
+										<span class="inline-block font-black tracking-tighter text-white truncate max-w-[80%]" style={{ 'font-size': getFontSize(data()?.username || username()) }} dir="ltr">
 											@{data()?.username || username()}
 										</span>
 										<span class="text-white/20 font-black text-[22px]">✦</span>

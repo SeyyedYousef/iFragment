@@ -254,7 +254,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 									</button>
 								</div>
 							</div>
-							<h2 class="text-[34px] md:text-[44px] font-extrabold tracking-tight leading-[1.2] mb-3 text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/40">
+							<h2 class="text-[34px] md:text-[44px] font-extrabold tracking-tight leading-[1.2] mb-3 text-white">
 								{t(keys().title)}
 							</h2>
 							<p class="text-white/50 text-[15px] font-medium max-w-[400px] leading-[1.6] mx-auto">
