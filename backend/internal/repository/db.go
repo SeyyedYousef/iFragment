@@ -41,6 +41,13 @@ func NewDatabase(ctx context.Context) (*Database, error) {
 
 	config.MaxConnLifetime = time.Hour
 	config.MaxConnIdleTime = 30 * time.Minute
+	config.HealthCheckPeriod = time.Minute
+	config.ConnConfig.ConnectTimeout = 5 * time.Second
+
+	if config.ConnConfig.RuntimeParams == nil {
+		config.ConnConfig.RuntimeParams = make(map[string]string)
+	}
+	config.ConnConfig.RuntimeParams["statement_timeout"] = "30000" // 30s timeout to prevent runaway queries
 
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {

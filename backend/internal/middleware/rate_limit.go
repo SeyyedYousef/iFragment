@@ -241,6 +241,7 @@ func NewRateLimiter(ctx context.Context, cache *repository.Cache) func(http.Hand
 			}
 
 			// In-memory fallback (per-IP rate limiting)
+			slog.Warn("Rate limiter fallback to in-memory mode active (Redis offline/degraded)", "ip", ip)
 			rl.mu.Lock()
 
 			// Safety net: prevent OOM if flooded with unique IPs

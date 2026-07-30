@@ -283,6 +283,15 @@ func (r *ChannelRepo) DeleteChannel(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+func (r *ChannelRepo) DisconnectChannel(ctx context.Context, id uuid.UUID) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("database pool is not initialized")
+	}
+	query := `UPDATE managed_channels SET subscription_status = 'disconnected', updated_at = now() WHERE id = $1`
+	_, err := r.db.Pool.Exec(ctx, query, id)
+	return err
+}
+
 // Channel Settings (JSONB columns)
 
 func (r *ChannelRepo) GetChannelSettings(ctx context.Context, channelID uuid.UUID) (*ChannelSettings, error) {
@@ -372,17 +381,10 @@ func (r *ChannelRepo) UpdateChannelSettingsCategory(ctx context.Context, channel
 	var version int
 	var updatedAt time.Time
 
-	if currentVersion <= 0 {
-		query = fmt.Sprintf(`UPDATE channel_settings SET %s = $1, version = version + 1, updated_at = now(), updated_by = $2
-			WHERE channel_id = $3
-			RETURNING version, updated_at`, column)
-		err = r.db.Pool.QueryRow(ctx, query, data, userID, channelID).Scan(&version, &updatedAt)
-	} else {
-		query = fmt.Sprintf(`UPDATE channel_settings SET %s = $1, version = version + 1, updated_at = now(), updated_by = $2
-			WHERE channel_id = $3 AND version = $4
-			RETURNING version, updated_at`, column)
-		err = r.db.Pool.QueryRow(ctx, query, data, userID, channelID, currentVersion).Scan(&version, &updatedAt)
-	}
+	query = fmt.Sprintf(`UPDATE channel_settings SET %s = $1, version = version + 1, updated_at = now(), updated_by = $2
+		WHERE channel_id = $3 AND version = $4
+		RETURNING version, updated_at`, column)
+	err = r.db.Pool.QueryRow(ctx, query, data, userID, channelID, currentVersion).Scan(&version, &updatedAt)
 
 	if err == pgx.ErrNoRows {
 		return nil, ErrOptimisticLockConflict

@@ -17,6 +17,7 @@ import (
 	"ifragment-backend/internal/service/channelmgmt"
 	"io"
 	"log/slog"
+	"math/rand"
 	"net/http"
 	"os"
 	"runtime/debug"
@@ -547,6 +548,8 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 		updateDate = update.CallbackQuery.Message.Date
 	} else if update.MyChatMember != nil {
 		updateDate = update.MyChatMember.Date
+	} else if update.ChatMember != nil {
+		updateDate = update.ChatMember.Date
 	}
 
 	if updateDate > 0 {
@@ -595,8 +598,21 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 		w.WriteHeader(http.StatusOK)
 	default:
 		slog.Error("CRITICAL: Webhook job queue full! Webhook dropped.")
+		if cache != nil && cache.Client != nil {
+			cache.Client.Del(context.Background(), cacheKey)
+		}
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}
+}
+
+func (h *WebhookHandler) tryLockOnboarding(ctx context.Context, botID uuid.UUID, chatID int64) bool {
+	cache := h.moderator.GetCache()
+	if cache == nil || cache.Client == nil {
+		return true
+	}
+	key := fmt.Sprintf("onboarding_lock:%s:%d", botID.String(), chatID)
+	ok, err := cache.Client.SetNX(ctx, key, "1", 10*time.Minute).Result()
+	return err == nil && ok
 }
 
 func (h *WebhookHandler) handlePreCheckoutUpdate(ctx context.Context, bot *repository.ManagedBot, pq *PreCheckoutQuery) {
@@ -637,10 +653,20 @@ func (h *WebhookHandler) handleMyChatMemberUpdate(ctx context.Context, bot *repo
 	newStatus := mcm.NewChatMember.Status
 	oldStatus := mcm.OldChatMember.Status
 
-	if (newStatus == "administrator" || newStatus == "member") && chat.Type != "channel" {
+	isGroup := chat.Type == "group" || chat.Type == "supergroup"
+	wasInChat := oldStatus == "member" || oldStatus == "administrator" || oldStatus == "creator" || oldStatus == "restricted"
+	isInChat := newStatus == "member" || newStatus == "administrator"
+
+	var fromLang string
+	if mcm.From.ID != 0 {
+		fromLang = mcm.From.LanguageCode
+	}
+
+	if isGroup && isInChat && !wasInChat {
 		slog.Info("Bot added to group", "chat_id", chat.ID, "chat_type", chat.Type)
-		// Trigger onboarding flow
-		h.handleBotAddedToGroup(ctx, bot, &chat, mcm.From.ID)
+		if h.tryLockOnboarding(ctx, bot.ID, chat.ID) {
+			h.handleBotAddedToGroup(ctx, bot, &chat, mcm.From.ID, newStatus == "administrator", fromLang)
+		}
 	}
 
 	if chat.Type == "channel" {
@@ -648,7 +674,7 @@ func (h *WebhookHandler) handleMyChatMemberUpdate(ctx context.Context, bot *repo
 		if err == nil {
 			if newStatus == "left" || newStatus == "kicked" || (newStatus == "member" && oldStatus == "administrator") {
 				slog.Warn("Bot was kicked or demoted from channel via webhook", "channel_id", ch.ID)
-				_ = h.channelService.GetChannelRepo().DeleteChannel(ctx, ch.ID)
+				_ = h.channelService.GetChannelRepo().DisconnectChannel(ctx, ch.ID)
 
 				tg, _ := h.moderator.GetTelegramClient(ctx, bot)
 				msg := i18n.T("en", "notifications.bot_removed_channel", map[string]interface{}{"channel": chat.Title})
@@ -698,7 +724,7 @@ func (h *WebhookHandler) handleMyChatMemberUpdate(ctx context.Context, bot *repo
 			msg := i18n.T(lang, "notifications.bot_removed", map[string]interface{}{"group": chat.Title})
 
 			targetUserID := bot.OwnerUserID
-			if managedGroup.ConnectedByUserID != nil {
+			if managedGroup != nil && managedGroup.ConnectedByUserID != nil {
 				targetUserID = *managedGroup.ConnectedByUserID
 			}
 			logIfErr(tg.SendMessage(ctx, targetUserID, msg, nil, nil), "Failed to send owner bot_removed notification", "owner_id", targetUserID)
@@ -706,7 +732,7 @@ func (h *WebhookHandler) handleMyChatMemberUpdate(ctx context.Context, bot *repo
 			ownerMsg := i18n.T(lang, "notifications.admin_revoked", map[string]interface{}{"group": chat.Title})
 
 			targetUserID := bot.OwnerUserID
-			if managedGroup.ConnectedByUserID != nil {
+			if managedGroup != nil && managedGroup.ConnectedByUserID != nil {
 				targetUserID = *managedGroup.ConnectedByUserID
 			}
 			logIfErr(tg.SendMessage(ctx, targetUserID, ownerMsg, nil, nil), "Failed to send admin_revoked owner notification", "owner_id", targetUserID)
@@ -733,14 +759,14 @@ func (h *WebhookHandler) shouldProcessJoin(ctx context.Context, chatID int64, us
 	}
 	h.processedJoins.Store(key, now)
 
-	go func() {
+	if rand.Intn(100) == 0 {
 		h.processedJoins.Range(func(k, v interface{}) bool {
 			if t, ok := v.(time.Time); ok && now.Sub(t) > 30*time.Second {
 				h.processedJoins.Delete(k)
 			}
 			return true
 		})
-	}()
+	}
 
 	return true
 }
@@ -929,10 +955,15 @@ func (h *WebhookHandler) handleJoinLeaveUpdate(ctx context.Context, bot *reposit
 		if botWasAdded {
 			slog.Info("Bot detected its own addition to group via new_chat_members", "chat_id", msg.Chat.ID, "chat_type", msg.Chat.Type)
 			var inviterID int64
+			var inviterLang string
 			if msg.From != nil {
 				inviterID = msg.From.ID
+				inviterLang = msg.From.LanguageCode
 			}
-			h.handleBotAddedToGroup(ctx, bot, msg.Chat, inviterID)
+			isGroup := msg.Chat != nil && (msg.Chat.Type == "group" || msg.Chat.Type == "supergroup")
+			if isGroup && h.tryLockOnboarding(ctx, bot.ID, msg.Chat.ID) {
+				h.handleBotAddedToGroup(ctx, bot, msg.Chat, inviterID, false, inviterLang)
+			}
 			// Retrieve the group again after creation
 			group, err = h.botRepo.GetGroup(ctx, bot.ID, msg.Chat.ID)
 		}
@@ -1028,7 +1059,7 @@ func (h *WebhookHandler) handleJoinLeaveUpdate(ctx context.Context, bot *reposit
 		}
 
 		if settings != nil {
-			if general.HideJoinLeave {
+			if general.HideJoinLeave && msg.MessageID != 0 {
 				h.deleteMessage(ctx, bot, msg.Chat.ID, msg.MessageID)
 			}
 		}
@@ -1819,7 +1850,7 @@ func (h *WebhookHandler) handleGroupSettingsCommand(ctx context.Context, bot *re
 	_ = tg.SendMessage(ctx, m.Chat.ID, msg, &m.MessageID, m.MessageThreadID)
 }
 
-func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *repository.ManagedBot, chat *Chat, inviterID int64) {
+func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *repository.ManagedBot, chat *Chat, inviterID int64, isAlreadyAdmin bool, inviterLang string) {
 	token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 	var tg *telegram.BotAPIClient
 	if token != "" {
@@ -1845,21 +1876,26 @@ func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *reposit
 		query := `SELECT id, bot_id FROM managed_groups WHERE chat_id = $1 LIMIT 1`
 		errScan := h.db.Pool.QueryRow(ctx, query, chat.ID).Scan(&existingGroupID, &oldBotID)
 		if errScan == nil {
-			// Migrate the group to the new bot
-			updateQuery := `UPDATE managed_groups SET bot_id = $1, updated_at = now() WHERE id = $2`
-			_, errUpdate := h.db.Pool.Exec(ctx, updateQuery, bot.ID, existingGroupID)
-			if errUpdate != nil {
-				slog.Error("Failed to migrate group to new bot", "error", errUpdate, "group_id", existingGroupID, "new_bot_id", bot.ID)
-				return
-			}
-			slog.Info("Successfully migrated group to new bot", "group_id", existingGroupID, "old_bot_id", oldBotID, "new_bot_id", bot.ID)
-			managedGroup, err = h.botRepo.GetGroup(ctx, bot.ID, chat.ID)
-			if err != nil {
-				slog.Error("Failed to fetch migrated group", "error", err)
-				return
-			}
-			if liveMembersCount > 0 || livePhotoURL != "" {
-				_ = h.botRepo.UpdateGroupDetails(ctx, managedGroup.ID, chat.Title, liveMembersCount, livePhotoURL)
+			oldBot, errOldBot := h.botRepo.GetBotByID(ctx, oldBotID)
+			if errOldBot == nil && oldBot != nil && oldBot.OwnerUserID == bot.OwnerUserID {
+				// Migrate the group to the new bot owned by the same user
+				updateQuery := `UPDATE managed_groups SET bot_id = $1, updated_at = now() WHERE id = $2`
+				_, errUpdate := h.db.Pool.Exec(ctx, updateQuery, bot.ID, existingGroupID)
+				if errUpdate != nil {
+					slog.Error("Failed to migrate group to new bot", "error", errUpdate, "group_id", existingGroupID, "new_bot_id", bot.ID)
+					return
+				}
+				slog.Info("Successfully migrated group to new bot", "group_id", existingGroupID, "old_bot_id", oldBotID, "new_bot_id", bot.ID)
+				managedGroup, err = h.botRepo.GetGroup(ctx, bot.ID, chat.ID)
+				if err != nil {
+					slog.Error("Failed to fetch migrated group", "error", err)
+					return
+				}
+				if liveMembersCount > 0 || livePhotoURL != "" {
+					_ = h.botRepo.UpdateGroupDetails(ctx, managedGroup.ID, chat.Title, liveMembersCount, livePhotoURL)
+				}
+			} else {
+				slog.Warn("Group migration rejected: old and new bot owners do not match", "chat_id", chat.ID, "old_bot_id", oldBotID, "new_bot_id", bot.ID)
 			}
 		} else {
 			status := "trial"
@@ -1899,17 +1935,14 @@ func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *reposit
 		tg = telegram.NewBotAPIClient(token)
 	}
 
-	// Sequence of onboarding messages (BUG #8 - Fixed with premium Persian flow)
+	// Single consolidated onboarding message
 	GoSafe(func() {
-		var msgIDs []int
 		ctx := context.Background()
 
-		// Try to detect language from group settings
-		lang := "en"
-		// We need to fetch the group to get its ID (UUID)
-		managedGroup, err := h.botRepo.GetGroup(ctx, bot.ID, chat.ID)
-		if err == nil {
-			settings, _ := h.moderator.GetSettings(ctx, managedGroup.ID)
+		lang := i18n.DetectLanguage(inviterLang)
+		mGroup, errFetch := h.botRepo.GetGroup(ctx, bot.ID, chat.ID)
+		if errFetch == nil && mGroup != nil {
+			settings, _ := h.moderator.GetSettings(ctx, mGroup.ID)
 			if settings != nil {
 				var general repository.SettingsGeneral
 				if json.Unmarshal(settings.General, &general) == nil && general.Language != "" {
@@ -1918,44 +1951,40 @@ func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *reposit
 			}
 		}
 
-		// 1. Thank you message
-		welcome := i18n.T(lang, "onboarding.thanks", chat.Title)
-		msg1, _ := tg.SendMessageWithResult(ctx, chat.ID, welcome, nil, nil)
-		if msg1 != nil {
-			msgIDs = append(msgIDs, msg1.MessageID)
-		}
-
-		time.Sleep(1 * time.Second)
-		// 2. Admin request
-		adminMsg := i18n.T(lang, "onboarding.admin_req")
-		msg2, _ := tg.SendMessageWithResult(ctx, chat.ID, adminMsg, nil, nil)
-		if msg2 != nil {
-			msgIDs = append(msgIDs, msg2.MessageID)
-		}
-
-		time.Sleep(2 * time.Second)
-		// 3. Default features
 		miniAppURL := os.Getenv("MINI_APP_URL")
 		if miniAppURL == "" {
 			miniAppURL = "https://t.me/iFragmentBot/iFragment"
 		}
 		dashboardURL := fmt.Sprintf("%s?startapp=group_%s", miniAppURL, bot.ID)
-		setupMsg := i18n.T(lang, "onboarding.features", dashboardURL)
-		msg3, _ := tg.SendMessageWithResult(ctx, chat.ID, setupMsg, nil, nil)
-		if msg3 != nil {
-			msgIDs = append(msgIDs, msg3.MessageID)
+
+		welcomeMsg := i18n.T(lang, "onboarding.combined", map[string]interface{}{
+			"group": chat.Title,
+			"url":   dashboardURL,
+		})
+
+		if welcomeMsg == "" || welcomeMsg == "onboarding.combined" {
+			welcomeMsg = fmt.Sprintf(`🎉 <b>از اعتماد شما سپاسگزاریم!</b>
+
+از این لحظه، محافظ هوشمند <b>%s</b> در خدمت شماست.
+
+⚙️ <b>برای فعال‌سازی کامل، مرا ادمین کنید با دسترسی‌های:</b>
+✅ حذف پیام‌ها  ✅ محدودسازی اعضا  ✅ بن کاربران  ✅ سنجاق پیام
+
+🎛 <b>مدیریت و شخصی‌سازی از داشبورد:</b>
+👉 <a href="%s">ورود به داشبورد</a>
+
+🌟 <i>قدرت‌گرفته از @iFragmentBot</i>`, chat.Title, dashboardURL)
 		}
 
-		// Auto-delete after 2 minutes without blocking the goroutine or holding the semaphore
-		chatID := chat.ID
-		capturedMsgIDs := make([]int, len(msgIDs))
-		copy(capturedMsgIDs, msgIDs)
-		time.AfterFunc(2*time.Minute, func() {
-			bgCtx := context.Background()
-			for _, mid := range capturedMsgIDs {
-				_ = tg.DeleteMessage(bgCtx, chatID, mid)
-			}
-		})
+		msg, _ := tg.SendMessageWithResult(ctx, chat.ID, welcomeMsg, nil, nil)
+		if msg != nil {
+			msgID := msg.MessageID
+			chatID := chat.ID
+			time.AfterFunc(2*time.Minute, func() {
+				bgCtx := context.Background()
+				_ = tg.DeleteMessage(bgCtx, chatID, msgID)
+			})
+		}
 	})
 }
 
@@ -2979,6 +3008,11 @@ func (h *WebhookHandler) handleJoinCaptcha(ctx context.Context, bot *repository.
 	bot, _ = h.botRepo.GetBotByID(ctx, group.BotID)
 	tg, _ := h.moderator.GetTelegramClient(ctx, bot)
 
+	if perms, errPerm := h.getBotPermissionsCached(ctx, tg, m.Chat.ID, bot.BotID); errPerm == nil && !perms.CanRestrictMembers {
+		slog.Warn("Bot lacks can_restrict_members permission to restrict member for captcha", "chat_id", m.Chat.ID)
+		return false
+	}
+
 	// 1. Restrict member
 	_ = tg.RestrictChatMember(ctx, m.Chat.ID, user.ID, 0)
 
@@ -3518,10 +3552,11 @@ func (h *WebhookHandler) handleChatJoinRequest(ctx context.Context, bot *reposit
 		}
 	}
 
-	// Decline or wait for manual evaluation (let's keep for manual review on mismatch)
+	// Decline or wait for manual evaluation
 	if !shouldApprove {
 		tg, err := h.moderator.GetTelegramClient(ctx, bot)
 		if err == nil {
+			_ = tg.DeclineChatJoinRequest(ctx, req.Chat.ID, req.From.ID)
 			userLang := i18n.DetectLanguage(req.From.LanguageCode)
 			rejectMsg := ""
 
@@ -3529,12 +3564,20 @@ func (h *WebhookHandler) handleChatJoinRequest(ctx context.Context, bot *reposit
 			case "premium":
 				rejectMsg = i18n.T(userLang, "channel.join_request_rejected_premium", map[string]interface{}{"channel": ch.ChatTitle})
 				if rejectMsg == "" || rejectMsg == "channel.join_request_rejected_premium" {
-					rejectMsg = fmt.Sprintf("⚠️ درخواست عضویت شما در کانال %s به دلیل عدم داشتن اکانت Premium پذیرفته نشد. لطفاً شرایط کانال را مجدداً بررسی کنید.", ch.ChatTitle)
+					if userLang == "fa" {
+						rejectMsg = fmt.Sprintf("⚠️ درخواست عضویت شما در کانال %s به دلیل عدم داشتن اکانت Premium پذیرفته نشد. لطفاً شرایط کانال را مجدداً بررسی کنید.", ch.ChatTitle)
+					} else {
+						rejectMsg = fmt.Sprintf("⚠️ Your request to join %s was not approved because your account does not have Telegram Premium status.", ch.ChatTitle)
+					}
 				}
 			case "photo":
 				rejectMsg = i18n.T(userLang, "channel.join_request_rejected_photo", map[string]interface{}{"channel": ch.ChatTitle})
 				if rejectMsg == "" || rejectMsg == "channel.join_request_rejected_photo" {
-					rejectMsg = fmt.Sprintf("⚠️ درخواست عضویت شما در کانال %s پذیرفته نشد زیرا شما تصویر پروفایل ندارید.", ch.ChatTitle)
+					if userLang == "fa" {
+						rejectMsg = fmt.Sprintf("⚠️ درخواست عضویت شما در کانال %s پذیرفته نشد زیرا شما تصویر پروفایل ندارید.", ch.ChatTitle)
+					} else {
+						rejectMsg = fmt.Sprintf("⚠️ Your request to join %s was not approved because you do not have a profile photo.", ch.ChatTitle)
+					}
 				}
 			}
 			_ = tg.SendMessage(ctx, req.From.ID, rejectMsg, nil, nil)

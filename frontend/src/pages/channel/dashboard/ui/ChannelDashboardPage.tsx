@@ -5,7 +5,13 @@ import { Component, createResource, createSignal, For, onCleanup, onMount, Show 
 import { channelApi } from '@/shared/api/channel-management.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
-import { FragmentPulse } from '@/shared/ui/FragmentPulse.js';
+import { AdminsLessonCard } from './lessons/AdminsLessonCard.js';
+import { AutoResponderLessonCard } from './lessons/AutoResponderLessonCard.js';
+import { DynamicBioLessonCard } from './lessons/DynamicBioLessonCard.js';
+import { ForwardingLessonCard } from './lessons/ForwardingLessonCard.js';
+import { FunnelLessonCard } from './lessons/FunnelLessonCard.js';
+import { InlineButtonsLessonCard } from './lessons/InlineButtonsLessonCard.js';
+import { PostingLessonCard } from './lessons/PostingLessonCard.js';
 
 export const ChannelDashboardPage: Component = () => {
 	const params = useParams();
@@ -35,16 +41,22 @@ export const ChannelDashboardPage: Component = () => {
 	};
 
 	const [channel] = createResource(() => params.id, (id) => channelApi.getChannel(id));
-	const [analytics] = createResource(() => params.id, (id) => channelApi.getAnalytics(id, 7));
-	const [auditLogs] = createResource(() => params.id, (id) => channelApi.getAuditLogs(id, 5));
-	const [funnel] = createResource(() => params.id, (id) => channelApi.getFunnel(id));
+	const [funnel] = createResource(() => params.id, (id) => channelApi.getFunnel(id).catch(() => null));
+	const [settings] = createResource(() => params.id, (id) => channelApi.getSettings(id).catch(() => null));
 
 	onMount(() => {
 		backButton.show();
-		const off = backButton.onClick(() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} window.history.back(); });
+		const off = backButton.onClick(() => {
+			try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+			window.history.back();
+		});
 		const timer = setTimeout(() => setShowTooltip(false), 10000);
 
-		onCleanup(() => { off(); clearTimeout(timer); backButton.hide(); });
+		onCleanup(() => {
+			off();
+			clearTimeout(timer);
+			backButton.hide();
+		});
 	});
 
 	const handleMenuOpen = () => {
@@ -53,16 +65,34 @@ export const ChannelDashboardPage: Component = () => {
 		try { hapticFeedback.impactOccurred('light'); } catch (_) {}
 	};
 
-	const getHealthColor = (rate: number) => {
-		if (rate >= 20) return '#10b981';
-		if (rate >= 10) return '#f59e0b';
-		return '#ff4a4a';
+	const learnedFeatures = () => {
+		const s = settings();
+		const f = funnel();
+		return [
+			{ key: 'funnel', done: !!f && (f.enabled ?? true) },
+			{ key: 'posting', done: true }, // Core feature always ready
+			{ key: 'autoResponder', done: !!(s?.auto_responder as any)?.enabled },
+			{ key: 'forwarding', done: !!(s as any)?.forwarding_rules?.length },
+			{ key: 'dynamicBio', done: !!(s?.dynamic_bio as any)?.enabled },
+			{ key: 'inlineButtons', done: !!(s as any)?.inline_buttons?.length },
+			{ key: 'admins', done: true },
+		];
 	};
 
-	const getHealthBg = (rate: number) => {
-		if (rate >= 20) return 'bg-[#10b981]/10 border-[#10b981]/30 text-[#10b981]';
-		if (rate >= 10) return 'bg-amber-400/10 border-amber-400/30 text-amber-400';
-		return 'bg-[#ff4a4a]/10 border-[#ff4a4a]/30 text-[#ff4a4a]';
+	const progress = () => {
+		const list = learnedFeatures();
+		if (!list.length) return 0;
+		const completed = list.filter((item) => item.done).length;
+		return Math.round((completed / list.length) * 100);
+	};
+
+	const isFeatureDone = (key: string) => {
+		return learnedFeatures().find((item) => item.key === key)?.done || false;
+	};
+
+	const navigateWithFeedback = (path: string) => {
+		try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+		navigate(path);
 	};
 
 	return (
@@ -174,137 +204,68 @@ export const ChannelDashboardPage: Component = () => {
 					</Show>
 				</div>
 
-				{/* ═══════ LAYER 1: COMMAND CENTER (PULSE) ═══════ */}
-				<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[28px] p-5 flex flex-col gap-5 shadow-sm relative overflow-hidden">
-					<div class="absolute -right-6 -top-6 w-24 h-24 bg-[#06b6d4]/10 blur-2xl rounded-full pointer-events-none" />
+				{/* ═══════ HERO: ACADEMY PROGRESS RING ═══════ */}
+				<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[28px] p-5 flex items-center gap-4 shadow-sm relative overflow-hidden">
+					<div class="absolute -right-8 -top-8 w-28 h-28 bg-[#3390ec]/10 blur-2xl rounded-full pointer-events-none" />
 					
-					<div class="flex items-center justify-between relative z-10 border-b border-white/5 pb-3">
-						<div class="flex items-center gap-2.5">
-							<FragmentPulse state="healthy" />
-							<h2 class="text-[10px] font-black uppercase text-white/40 tracking-widest">
-								{t('channelDashboard.commandCenter')}
-							</h2>
-						</div>
-						<span class="text-[11px] font-black text-[#10b981] bg-[#10b981]/10 border border-[#10b981]/20 px-2 py-0.5 rounded-[6px] shadow-sm uppercase tracking-wider">
-							+{analytics()?.summary?.new_members_today || 0} {t('channelDashboard.today')}
+					<div class="relative w-16 h-16 shrink-0 flex items-center justify-center">
+						<svg viewBox="0 0 64 64" class="w-full h-full -rotate-90">
+							<circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="6" />
+							<circle
+								cx="32" cy="32" r="26" fill="none" stroke="#3390ec" stroke-width="6" stroke-linecap="round"
+								stroke-dasharray={`${(progress() / 100) * 163} 163`}
+								class="transition-all duration-1000 ease-out"
+							/>
+						</svg>
+						<span class="absolute inset-0 flex items-center justify-center text-[13px] font-black font-mono text-white">
+							{progress()}%
 						</span>
 					</div>
 
-					<div class="grid grid-cols-2 gap-3 relative z-10">
-						<button
-							onClick={() => navigate(`/channel/${params.id}/posting`)}
-							class="h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] hover:from-[#2b7ec9] hover:to-[#3390ec] text-white rounded-[16px] text-[13px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-[0_8px_24px_rgba(51,144,236,0.3)] active:scale-95 transition-all border border-white/10"
-						>
-							<span class="material-symbols-outlined text-[20px]">edit_square</span>
-							{t('channelDashboard.newPost')}
-						</button>
-
-						<button
-							onClick={() => navigate(`/channel/${params.id}/funnel`)}
-							class="h-14 bg-[#08090D] hover:bg-white/5 border border-white/10 text-white rounded-[16px] text-[12px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all shadow-sm"
-						>
-							<span class="material-symbols-outlined text-[#06b6d4] text-[20px]">account_tree</span>
-							{t('channelDashboard.funnelTitle')}
-						</button>
+					<div class="flex flex-col">
+						<h2 class="text-[15px] font-black text-white tracking-tight">{t('lessons.heroTitle')}</h2>
+						<p class="text-[11px] text-white/50 font-bold mt-1 leading-relaxed">{t('lessons.heroDesc')}</p>
 					</div>
 				</div>
 
-				{/* ═══════ FUNNEL VISUAL OVERVIEW ═══════ */}
-				<Show when={funnel()}>
-					<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-4 shadow-sm">
-						<div class="flex items-center justify-between border-b border-white/5 pb-3">
-							<h3 class="text-[11px] font-black text-[#06b6d4] uppercase tracking-widest flex items-center gap-1.5">
-								<span class="material-symbols-outlined text-[16px]">route</span>
-								{t('channelDashboard.autoFunnelPath')}
-							</h3>
-							<button onClick={() => navigate(`/channel/${params.id}/funnel`)} class="text-[10px] font-black text-[#3390ec] bg-[#3390ec]/10 px-2 py-0.5 rounded-[6px] border border-[#3390ec]/20 uppercase tracking-widest shadow-sm">
-								{t('common.edit')}
-							</button>
-						</div>
+				{/* ═══════ 0 TO 100 INTERACTIVE LESSON CARDS ═══════ */}
+				<div class="flex flex-col gap-4">
+					<FunnelLessonCard
+						isDone={isFeatureDone('funnel')}
+						onNavigate={() => navigateWithFeedback(`/channel/${params.id}/funnel`)}
+					/>
 
-						<div class="flex items-center justify-between gap-2 mt-1">
-							<div class="flex-1 bg-[#08090D] border border-white/5 rounded-[16px] p-3.5 flex flex-col items-center text-center gap-1 shadow-inner relative overflow-hidden group">
-								<div class="absolute inset-0 bg-[#06b6d4]/5 opacity-0 group-hover:opacity-100 transition-colors" />
-								<span class="text-[9px] font-black text-white/30 uppercase tracking-widest relative z-10">{t('channelDashboard.inputDrafts')}</span>
-								<span class="text-[13px] font-black text-white truncate w-full relative z-10 px-1">{funnel()?.input_title || t('channelDashboard.inputChannel')}</span>
-							</div>
-							<div class="w-8 flex items-center justify-center shrink-0">
-								<span class="material-symbols-outlined text-[#06b6d4] text-[24px] rtl:rotate-180">double_arrow</span>
-							</div>
-							<div class="flex-1 bg-[#08090D] border border-white/5 rounded-[16px] p-3.5 flex flex-col items-center text-center gap-1 shadow-inner relative overflow-hidden group">
-								<div class="absolute inset-0 bg-[#10b981]/5 opacity-0 group-hover:opacity-100 transition-colors" />
-								<span class="text-[9px] font-black text-white/30 uppercase tracking-widest relative z-10">{t('channelDashboard.outputPublic')}</span>
-								<span class="text-[13px] font-black text-white truncate w-full relative z-10 px-1">{channel()?.chat_title || t('channelDashboard.mainChannel')}</span>
-							</div>
-						</div>
-					</div>
-				</Show>
+					<PostingLessonCard
+						isDone={isFeatureDone('posting')}
+						onNavigate={() => navigateWithFeedback(`/channel/${params.id}/posting`)}
+					/>
 
-				{/* ═══════ ENGAGEMENT & HEALTH METRICS ═══════ */}
-				<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-4 shadow-sm relative overflow-hidden">
-					<div class="absolute -left-6 -top-6 w-24 h-24 bg-white/5 blur-2xl rounded-full pointer-events-none" />
-					
-					<div class="flex items-center justify-between relative z-10">
-						<span class="text-[13px] font-black text-white tracking-tight flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px] text-white/40">monitoring</span> {t('channelDashboard.healthScore')}</span>
-						<span class={`text-[18px] font-black font-mono px-3 py-1 rounded-[10px] shadow-inner border ${getHealthBg(analytics()?.summary?.engagement_rate || 0)}`}>
-							{analytics()?.summary?.engagement_rate || 0}%
-						</span>
-					</div>
+					<AutoResponderLessonCard
+						isDone={isFeatureDone('autoResponder')}
+						onNavigate={() => navigateWithFeedback(`/channel/${params.id}/auto-responder`)}
+					/>
 
-					<div class="w-full h-4 bg-[#08090D] rounded-full overflow-hidden border border-white/5 shadow-inner relative z-10 flex">
-						<div
-							class="h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_currentColor]"
-							style={{
-								width: `${Math.min(100, (analytics()?.summary?.engagement_rate || 0) * 2)}%`,
-								background: getHealthColor(analytics()?.summary?.engagement_rate || 0),
-							}}
-						/>
-					</div>
+					<ForwardingLessonCard
+						isDone={isFeatureDone('forwarding')}
+						onNavigate={() => navigateWithFeedback(`/channel/${params.id}/forwarding`)}
+					/>
+
+					<DynamicBioLessonCard
+						isDone={isFeatureDone('dynamicBio')}
+						onNavigate={() => navigateWithFeedback(`/channel/${params.id}/dynamic-bio`)}
+					/>
+
+					<InlineButtonsLessonCard
+						isDone={isFeatureDone('inlineButtons')}
+						onNavigate={() => navigateWithFeedback(`/channel/${params.id}/inline-buttons`)}
+					/>
+
+					<AdminsLessonCard
+						isDone={isFeatureDone('admins')}
+						onNavigate={() => navigateWithFeedback(`/channel/${params.id}/admins`)}
+					/>
 				</div>
 
-				{/* ═══════ STATS GRID ═══════ */}
-				<div class="grid grid-cols-2 gap-3.5">
-					<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 hover:border-white/15 rounded-[24px] p-4.5 flex flex-col justify-center transition-all shadow-sm group relative overflow-hidden">
-						<div class="absolute -right-4 -top-4 w-16 h-16 bg-[#3390ec]/10 blur-xl rounded-full pointer-events-none" />
-						<span class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1 relative z-10">{t('channelDashboard.totalViews')}</span>
-						<div class="text-[26px] font-black text-white font-mono tracking-tight drop-shadow-sm relative z-10">
-							{(analytics()?.summary?.total_views || 0).toLocaleString()}
-						</div>
-						<div class="text-[10px] font-bold text-[#3390ec] mt-1 uppercase tracking-wider relative z-10 bg-[#3390ec]/10 w-fit px-1.5 py-0.5 rounded-[4px] border border-[#3390ec]/20">{t('channelDashboard.viewsThisWeek')}</div>
-					</div>
-
-					<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 hover:border-white/15 rounded-[24px] p-4.5 flex flex-col justify-center transition-all shadow-sm group relative overflow-hidden">
-						<div class="absolute -left-4 -top-4 w-16 h-16 bg-[#10b981]/10 blur-xl rounded-full pointer-events-none" />
-						<span class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1 relative z-10">{t('channelDashboard.postsToday')}</span>
-						<div class="text-[26px] font-black text-white font-mono tracking-tight drop-shadow-sm relative z-10">
-							{analytics()?.summary?.posts_today || 0}
-						</div>
-						<div class="text-[10px] font-bold text-[#10b981] mt-1 uppercase tracking-wider relative z-10 bg-[#10b981]/10 w-fit px-1.5 py-0.5 rounded-[4px] border border-[#10b981]/20">{t('channelDashboard.published')}</div>
-					</div>
-				</div>
-
-				{/* ═══════ ADMIN ACTIVITY ═══════ */}
-				<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-3 shadow-sm">
-					<h3 class="text-[11px] font-black text-white/40 uppercase tracking-widest border-b border-white/5 pb-3">{t('channelDashboard.adminActivity')}</h3>
-					<div class="flex flex-col pt-1">
-						<Show when={auditLogs()?.data?.length === 0}>
-							<div class="py-4 text-center text-[11px] font-bold text-white/30 uppercase tracking-widest bg-[#08090D] rounded-[16px] border border-white/5">{t('channelDashboard.noRecentActivity')}</div>
-						</Show>
-						<For each={auditLogs()?.data?.slice(0, 5) || []}>
-							{(log) => (
-								<div class="flex items-center justify-between text-[12px] py-3 border-b border-white/5 last:border-0 group hover:bg-white/[0.02] transition-colors rounded-lg px-2 -mx-2">
-									<div class="flex items-center gap-3">
-										<span class="material-symbols-outlined text-white/30 text-[18px] group-hover:text-[#3390ec] transition-colors">history</span>
-										<span class="font-bold text-white/80">{log.action}</span>
-									</div>
-									<span class="text-[10px] font-mono font-bold text-white/40 bg-[#08090D] border border-white/5 px-2 py-1 rounded-[6px] shadow-inner">
-										{log.created_at ? new Date(log.created_at).toLocaleTimeString(isRtl() ? 'fa-IR' : 'en-US', { hour: '2-digit', minute: '2-digit' }) : ''}
-									</span>
-								</div>
-							)}
-						</For>
-					</div>
-				</div>
 			</div>
 
 			<ChannelHamburgerMenu isOpen={isMenuOpen()} onClose={() => setIsMenuOpen(false)} channelId={params.id} activeTab="dashboard" />

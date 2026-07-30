@@ -83,6 +83,7 @@ type PostingSettingsSchema struct {
 
 	AiProvider          string `json:"aiProvider,omitempty"`
 	ApiKey              string `json:"apiKey,omitempty"`
+	AiModel             string `json:"aiModel,omitempty"`
 	Tone                string `json:"tone,omitempty"`
 	AiConfirmBeforeEdit bool   `json:"aiConfirmBeforeEdit,omitempty"`
 	AiComposerEnabled   bool   `json:"aiComposerEnabled,omitempty"`

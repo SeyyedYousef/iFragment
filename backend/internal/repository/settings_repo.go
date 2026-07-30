@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -13,7 +14,16 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/redis/go-redis/v9"
+	"golang.org/x/sync/singleflight"
 )
+
+const localCacheTTL = 15 * time.Second
+
+type cachedSettings struct {
+	val      *GroupSettings
+	storedAt time.Time
+}
 
 var ErrOptimisticLockConflict = fmt.Errorf("settings have been modified by another user")
 
@@ -155,10 +165,51 @@ type SettingsRepo struct {
 	db         *Database
 	cache      *Cache
 	localCache sync.Map
+	sf         singleflight.Group
 }
 
 func NewSettingsRepo(db *Database, cache *Cache) *SettingsRepo {
-	return &SettingsRepo{db: db, cache: cache, localCache: sync.Map{}}
+	repo := &SettingsRepo{db: db, cache: cache, localCache: sync.Map{}}
+	if cache != nil && cache.Client != nil {
+		go repo.listenPubSubInvalidation(context.Background())
+	}
+	return repo
+}
+
+func (r *SettingsRepo) listenPubSubInvalidation(ctx context.Context) {
+	defer func() {
+		if err := recover(); err != nil {
+			slog.Error("[SettingsRepo] Recovered from panic in pubsub listener", "error", err)
+		}
+	}()
+
+	sub := r.cache.Client.Subscribe(ctx, "settings_invalidate")
+	defer sub.Close()
+
+	ch := sub.Channel()
+	for msg := range ch {
+		if id, err := uuid.Parse(msg.Payload); err == nil {
+			r.localCache.Delete(id)
+		}
+	}
+}
+
+func (r *SettingsRepo) publishInvalidation(ctx context.Context, groupID uuid.UUID) {
+	if r.cache != nil && r.cache.Client != nil {
+		if err := r.cache.Client.Publish(ctx, "settings_invalidate", groupID.String()).Err(); err != nil {
+			slog.Warn("[SettingsRepo] Failed to publish settings invalidation", "group_id", groupID, "error", err)
+		}
+	}
+}
+
+func (r *SettingsRepo) setLocalCache(groupID uuid.UUID, s *GroupSettings) {
+	if s == nil {
+		return
+	}
+	r.localCache.Store(groupID, &cachedSettings{
+		val:      s,
+		storedAt: time.Now(),
+	})
 }
 
 func (r *SettingsRepo) ClearCacheKey(ctx context.Context, key string) {
@@ -287,54 +338,81 @@ func (r *SettingsRepo) GetSettings(ctx context.Context, groupID uuid.UUID) (*Gro
 		return nil, fmt.Errorf("database connection not available")
 	}
 
-	// 0. Try local memory cache first for zero-latency
+	// 0. Try local memory cache first for zero-latency with TTL check
 	if val, ok := r.localCache.Load(groupID); ok {
-		return val.(*GroupSettings), nil
+		if c, ok := val.(*cachedSettings); ok && time.Since(c.storedAt) < localCacheTTL {
+			return c.val, nil
+		}
+		r.localCache.Delete(groupID)
 	}
 
-	// 1. Try cache
-	if r.cache != nil && r.cache.Client != nil {
-		cacheKey := fmt.Sprintf("settings:%s", groupID.String())
-		val, err := r.cache.Client.Get(ctx, cacheKey).Result()
-		if err == nil {
-			var s GroupSettings
-			if json.Unmarshal([]byte(val), &s) == nil {
-				s.General = populateGeneralDefaults(s.General)
-				var gen SettingsGeneral
-				json.Unmarshal(s.General, &gen)
-				s.CustomTexts = populateCustomTextsDefaults(s.CustomTexts, gen.Language)
-				r.localCache.Store(groupID, &s)
-				return &s, nil
+	// 1. Singleflight execution to protect against cache stampede
+	v, err, _ := r.sf.Do(groupID.String(), func() (interface{}, error) {
+		// Re-check local cache inside singleflight
+		if val, ok := r.localCache.Load(groupID); ok {
+			if c, ok := val.(*cachedSettings); ok && time.Since(c.storedAt) < localCacheTTL {
+				return c.val, nil
 			}
 		}
-	}
 
-	query := `SELECT group_id, general, content_restrictions, limits, quiet_hours, mandatory_membership, custom_texts, dynamic_bio, version, updated_at, updated_by
-		FROM group_settings WHERE group_id = $1`
-	var s GroupSettings
-	err := r.db.Pool.QueryRow(ctx, query, groupID).Scan(
-		&s.GroupID, &s.General, &s.ContentRestrictions, &s.Limits, &s.QuietHours,
-		&s.MandatoryMembership, &s.CustomTexts, &s.DynamicBio, &s.Version, &s.UpdatedAt, &s.UpdatedBy,
-	)
-	if err == pgx.ErrNoRows {
-		return r.initSettings(ctx, groupID)
-	}
+		// Try Redis cache
+		if r.cache != nil && r.cache.Client != nil {
+			cacheKey := fmt.Sprintf("settings:%s", groupID.String())
+			val, err := r.cache.Client.Get(ctx, cacheKey).Result()
+			if err == nil {
+				var s GroupSettings
+				if errUnmarshal := json.Unmarshal([]byte(val), &s); errUnmarshal == nil {
+					s.General = populateGeneralDefaults(s.General)
+					var gen SettingsGeneral
+					if errGen := json.Unmarshal(s.General, &gen); errGen != nil {
+						gen.Language = "en"
+					}
+					s.CustomTexts = populateCustomTextsDefaults(s.CustomTexts, gen.Language)
+					r.setLocalCache(groupID, &s)
+					return &s, nil
+				}
+			} else if !errors.Is(err, redis.Nil) {
+				slog.Warn("Redis settings fetch error", "group_id", groupID, "error", err)
+			}
+		}
 
-	if err == nil {
+		query := `SELECT group_id, general, content_restrictions, limits, quiet_hours, mandatory_membership, custom_texts, dynamic_bio, version, updated_at, updated_by
+			FROM group_settings WHERE group_id = $1`
+		var s GroupSettings
+		queryErr := r.db.Pool.QueryRow(ctx, query, groupID).Scan(
+			&s.GroupID, &s.General, &s.ContentRestrictions, &s.Limits, &s.QuietHours,
+			&s.MandatoryMembership, &s.CustomTexts, &s.DynamicBio, &s.Version, &s.UpdatedAt, &s.UpdatedBy,
+		)
+		if queryErr == pgx.ErrNoRows {
+			return r.initSettings(ctx, groupID)
+		}
+		if queryErr != nil {
+			return nil, queryErr
+		}
+
 		s.General = populateGeneralDefaults(s.General)
 		var gen SettingsGeneral
-		json.Unmarshal(s.General, &gen)
-		s.CustomTexts = populateCustomTextsDefaults(s.CustomTexts, gen.Language)
-		r.localCache.Store(groupID, &s)
-		if r.cache != nil && r.cache.Client != nil {
-			// Set cache
-			cacheKey := fmt.Sprintf("settings:%s", groupID.String())
-			data, _ := json.Marshal(s)
-			r.cache.Client.Set(ctx, cacheKey, data, 1*time.Hour)
+		if errGen := json.Unmarshal(s.General, &gen); errGen != nil {
+			gen.Language = "en"
 		}
-	}
+		s.CustomTexts = populateCustomTextsDefaults(s.CustomTexts, gen.Language)
+		r.setLocalCache(groupID, &s)
 
-	return &s, err
+		if r.cache != nil && r.cache.Client != nil {
+			cacheKey := fmt.Sprintf("settings:%s", groupID.String())
+			data, marshalErr := json.Marshal(s)
+			if marshalErr == nil {
+				_ = r.cache.Client.Set(ctx, cacheKey, data, 1*time.Hour).Err()
+			}
+		}
+
+		return &s, nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	return v.(*GroupSettings), nil
 }
 
 func (r *SettingsRepo) initSettings(ctx context.Context, groupID uuid.UUID) (*GroupSettings, error) {
@@ -352,7 +430,9 @@ func (r *SettingsRepo) initSettings(ctx context.Context, groupID uuid.UUID) (*Gr
 	}
 	s.General = populateGeneralDefaults(s.General)
 	var gen SettingsGeneral
-	json.Unmarshal(s.General, &gen)
+	if errGen := json.Unmarshal(s.General, &gen); errGen != nil {
+		gen.Language = "en"
+	}
 	s.CustomTexts = populateCustomTextsDefaults(s.CustomTexts, gen.Language)
 	query := `INSERT INTO group_settings (group_id, general, content_restrictions, limits, quiet_hours, mandatory_membership, custom_texts, dynamic_bio)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -363,7 +443,7 @@ func (r *SettingsRepo) initSettings(ctx context.Context, groupID uuid.UUID) (*Gr
 		return r.GetSettings(ctx, groupID)
 	}
 	if err == nil {
-		r.localCache.Store(groupID, s)
+		r.setLocalCache(groupID, s)
 	}
 	return s, err
 }
@@ -401,6 +481,7 @@ func (r *SettingsRepo) UpdateCategory(ctx context.Context, groupID uuid.UUID, ca
 		r.cache.Client.Del(ctx, cacheKey)
 	}
 	r.localCache.Delete(groupID)
+	r.publishInvalidation(ctx, groupID)
 
 	return r.GetSettings(ctx, groupID)
 }
@@ -417,6 +498,7 @@ func (r *SettingsRepo) ForceUpdateQuietHours(ctx context.Context, groupID uuid.U
 			r.cache.Client.Del(ctx, cacheKey)
 		}
 		r.localCache.Delete(groupID)
+		r.publishInvalidation(ctx, groupID)
 	}
 	return err
 }
@@ -427,14 +509,17 @@ func (r *SettingsRepo) GetMultipleSettings(ctx context.Context, groupIDs []uuid.
 		return result, nil
 	}
 
-	// 0. Try local cache first
+	// 0. Try local cache first with TTL validation
 	var cacheMisses []uuid.UUID
 	for _, id := range groupIDs {
 		if val, ok := r.localCache.Load(id); ok {
-			result[id] = val.(*GroupSettings)
-		} else {
-			cacheMisses = append(cacheMisses, id)
+			if c, ok := val.(*cachedSettings); ok && time.Since(c.storedAt) < localCacheTTL {
+				result[id] = c.val
+				continue
+			}
+			r.localCache.Delete(id)
 		}
+		cacheMisses = append(cacheMisses, id)
 	}
 
 	if len(cacheMisses) == 0 {
@@ -457,7 +542,7 @@ func (r *SettingsRepo) GetMultipleSettings(ctx context.Context, groupIDs []uuid.
 					if str, ok := v.(string); ok {
 						var s GroupSettings
 						if json.Unmarshal([]byte(str), &s) == nil {
-							r.localCache.Store(gID, &s)
+							r.setLocalCache(gID, &s)
 							result[gID] = &s
 							continue
 						}
@@ -466,6 +551,7 @@ func (r *SettingsRepo) GetMultipleSettings(ctx context.Context, groupIDs []uuid.
 				redisMisses = append(redisMisses, gID)
 			}
 		} else {
+			slog.Warn("Redis MGET settings error", "error", err)
 			redisMisses = cacheMisses
 		}
 	} else {
@@ -497,7 +583,7 @@ func (r *SettingsRepo) GetMultipleSettings(ctx context.Context, groupIDs []uuid.
 			if err == nil {
 				result[s.GroupID] = &s
 				foundMap[s.GroupID] = true
-				r.localCache.Store(s.GroupID, &s)
+				r.setLocalCache(s.GroupID, &s)
 				if r.cache != nil && r.cache.Client != nil {
 					cacheKey := fmt.Sprintf("settings:%s", s.GroupID.String())
 					data, _ := json.Marshal(s)

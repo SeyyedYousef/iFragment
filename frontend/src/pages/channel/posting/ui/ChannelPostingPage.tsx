@@ -68,6 +68,17 @@ const defaultConfig: PostingConfig = {
 	customSkillPrompt: '',
 };
 
+const AI_PROVIDERS = [
+	{ id: 'gemini', label: 'Gemini', hint: 'AIza...', free: true, keyUrl: 'https://aistudio.google.com/' },
+	{ id: 'openai', label: 'ChatGPT', hint: 'sk-...', keyUrl: 'https://platform.openai.com/api-keys' },
+	{ id: 'anthropic', label: 'Claude', hint: 'sk-ant-...', keyUrl: 'https://console.anthropic.com/' },
+	{ id: 'groq', label: 'Groq', hint: 'gsk_...', free: true, keyUrl: 'https://console.groq.com/' },
+	{ id: 'xai', label: 'Grok', hint: 'xai-...', keyUrl: 'https://console.x.ai/' },
+	{ id: 'kimi', label: 'Kimi', hint: 'sk-...', keyUrl: 'https://platform.moonshot.cn/' },
+	{ id: 'deepseek', label: 'DeepSeek', hint: 'sk-...', keyUrl: 'https://platform.deepseek.com/' },
+	{ id: 'openrouter', label: 'OpenRouter', hint: 'sk-or-...', free: true, keyUrl: 'https://openrouter.ai/' },
+];
+
 export const ChannelPostingPage: Component = () => {
 	const navigate = useNavigate();
 	const params = useParams();
@@ -159,6 +170,7 @@ export const ChannelPostingPage: Component = () => {
 		try {
 			// Route through backend — never expose API key directly from browser
 			await channelApi.simulateAIPost(params.id, 'Hello, test connection.', 'test', {
+				aiProvider: config.aiProvider,
 				apiKey: config.apiKey,
 				selectedSkill: config.selectedSkill,
 				customSkillPrompt: config.customSkillPrompt,
@@ -198,6 +210,7 @@ export const ChannelPostingPage: Component = () => {
 		hapticFeedback.impactOccurred('light');
 		try {
 			const text = await channelApi.simulateAIPost(params.id, textPrompt, action, {
+				aiProvider: config.aiProvider,
 				apiKey: config.apiKey,
 				selectedSkill: config.selectedSkill,
 				customSkillPrompt: config.customSkillPrompt,
@@ -364,35 +377,65 @@ export const ChannelPostingPage: Component = () => {
 									{t('channelPosting.aiComposer') || 'AI Composer'}
 								</h2>
 							</div>
-							{/* Free Tutorial Badge */}
+							{/* Provider Key Link */}
 							<a
-								href="https://aistudio.google.com/"
+								href={(AI_PROVIDERS.find(p => p.id === (config.aiProvider || 'gemini')) || AI_PROVIDERS[0]).keyUrl}
 								target="_blank"
 								class="flex items-center gap-1 px-2.5 py-1 bg-[#3390ec]/10 rounded-full border border-[#3390ec]/20 text-[#3390ec] text-[11px] font-bold hover:bg-[#3390ec]/20 transition-all cursor-pointer shrink-0"
-								title="Free Key Tutorial"
+								title="Get API Key"
 								rel="noopener"
 							>
 								<span class="material-symbols-outlined text-[13px]">school</span>
-								{t('channelPosting.freeKeyGuide') || 'Get Free API Key'}
+								{t('channelPosting.freeKeyGuide') || 'Get API Key'}
 							</a>
 						</div>
 
 						{/* BYOK Description */}
 						<p class="text-[12px] text-on-surface-variant leading-relaxed">
 							{t('channelPosting.byokDescription') ||
-								'Our bot operates on the "Bring Your Own Key" (BYOK) model. Provide your API key below. Your key is stored securely and used directly for smart generation.'}
+								'Our bot operates on the "Bring Your Own Key" (BYOK) model. Select your provider and enter your API key below.'}
 						</p>
+
+						{/* AI Provider Selector Chips */}
+						<div class="flex flex-col gap-2">
+							<label class="text-[13px] font-bold text-white">
+								{t('channelPosting.selectProvider') || 'Select Provider'}
+							</label>
+							<div class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar">
+								<For each={AI_PROVIDERS}>
+									{(p) => (
+										<button
+											type="button"
+											onClick={() => {
+												updateField('aiProvider', p.id);
+												hapticFeedback.selectionChanged();
+											}}
+											class={`shrink-0 px-3.5 py-2 rounded-xl text-[12px] font-bold border transition-all active:scale-95 flex items-center gap-1.5 ${
+												(config.aiProvider || 'gemini') === p.id
+													? 'bg-[#3390ec]/15 border-[#3390ec]/50 text-[#3390ec] shadow-[0_0_12px_rgba(51,144,236,0.2)]'
+													: 'bg-[#2c2c2e] border-transparent text-white/70 hover:bg-[#333]'
+											}`}
+										>
+											{p.label}
+											<Show when={p.free}>
+												<span class="ms-1 text-[9px] text-[#34c759] font-black uppercase">Free</span>
+											</Show>
+										</button>
+									)}
+								</For>
+							</div>
+						</div>
 
 						<div class="flex flex-col gap-2">
 							<label class="text-[13px] font-bold text-white">
-								{t('channelPosting.webServiceKey') || 'Web Service API Key'}
+								{t('channelPosting.webServiceKey') || 'API Key'}
 							</label>
 							<div class="flex gap-2">
 								<input
 									type="password"
 									value={config.apiKey}
 									onInput={(e) => updateField('apiKey', e.currentTarget.value)}
-									placeholder="sk-..."
+									placeholder={(AI_PROVIDERS.find(p => p.id === (config.aiProvider || 'gemini')) || AI_PROVIDERS[0]).hint}
 									class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-2.5 flex-1 focus:outline-none focus:ring-2 focus:ring-[#3390ec] placeholder-[#a0a4ad]"
 								/>
 								<button

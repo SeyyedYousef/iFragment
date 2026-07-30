@@ -414,7 +414,9 @@ func (h *ChannelHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
 type SimulateAIRequest struct {
 	Text              string `json:"text"`
 	Action            string `json:"action"`
+	AiProvider        string `json:"aiProvider,omitempty"`
 	ApiKey            string `json:"apiKey,omitempty"`
+	AiModel           string `json:"aiModel,omitempty"`
 	SelectedSkill     string `json:"selectedSkill,omitempty"`
 	CustomSkillPrompt string `json:"customSkillPrompt,omitempty"`
 }
@@ -439,7 +441,7 @@ func (h *ChannelHandler) SimulateAI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.svc.SimulateAIPost(r.Context(), userID, channelID, req.Text, req.Action, req.ApiKey, req.SelectedSkill, req.CustomSkillPrompt)
+	result, err := h.svc.SimulateAIPost(r.Context(), userID, channelID, req.Text, req.Action, req.AiProvider, req.ApiKey, req.AiModel, req.SelectedSkill, req.CustomSkillPrompt)
 	if err != nil {
 		h.respondServerError(w, r, "AI generation failed", err)
 		return

@@ -3,8 +3,9 @@ package repository
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -25,6 +26,13 @@ func NewCache(ctx context.Context) (*Cache, error) {
 		return nil, fmt.Errorf("unable to parse DRAGONFLY_URL: %v", err)
 	}
 
+	// Production configuration options for Dragonfly/Redis
+	opts.PoolSize = 100
+	opts.MinIdleConns = 10
+	opts.DialTimeout = 3 * time.Second
+	opts.ReadTimeout = 2 * time.Second
+	opts.MaxRetries = 2
+
 	client := redis.NewClient(opts)
 
 	// Test connection
@@ -32,7 +40,7 @@ func NewCache(ctx context.Context) (*Cache, error) {
 		return nil, fmt.Errorf("cache ping failed: %v", err)
 	}
 
-	log.Println("✅ Connected to DragonflyDB/Redis successfully")
+	slog.Info("✅ Connected to DragonflyDB/Redis successfully", "pool_size", opts.PoolSize)
 	return &Cache{Client: client}, nil
 }
 

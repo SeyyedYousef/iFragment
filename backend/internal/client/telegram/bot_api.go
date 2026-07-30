@@ -377,6 +377,14 @@ func (c *BotAPIClient) ApproveChatJoinRequest(ctx context.Context, chatID interf
 	return err
 }
 
+func (c *BotAPIClient) DeclineChatJoinRequest(ctx context.Context, chatID interface{}, userID int64) error {
+	_, err := c.Request(ctx, "declineChatJoinRequest", map[string]interface{}{
+		"chat_id": chatID,
+		"user_id": userID,
+	})
+	return err
+}
+
 func (c *BotAPIClient) RestrictChatMember(ctx context.Context, chatID int64, userID int64, untilDate int64) error {
 	_, err := c.Request(ctx, "restrictChatMember", map[string]interface{}{
 		"chat_id": chatID,

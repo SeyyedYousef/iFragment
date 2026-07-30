@@ -37,6 +37,7 @@ export interface ChannelConfig {
 		deleteAfter: number;
 		aiProvider?: string;
 		apiKey?: string;
+		aiModel?: string;
 		tone?: string;
 		aiConfirmBeforeEdit?: boolean;
 		aiComposerEnabled?: boolean;
@@ -289,7 +290,7 @@ export const channelApi = {
 		channelId: string,
 		text: string,
 		action: string,
-		extra?: { apiKey?: string; selectedSkill?: string; customSkillPrompt?: string },
+		extra?: { aiProvider?: string; apiKey?: string; aiModel?: string; selectedSkill?: string; customSkillPrompt?: string },
 	) =>
 		apiClient
 			.post(`/channels/${channelId}/simulate`, { text, action, ...extra })

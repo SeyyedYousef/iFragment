@@ -63,7 +63,7 @@ func (s *ProfileService) WarmLeaderboard(ctx context.Context) error {
 	} else {
 		s.cache.Client.Del(ctx, "leaderboard")
 	}
-	// stamp last-warmed for diagnostics
-	s.cache.Client.Set(ctx, "leaderboard:warmed_at", time.Now().Unix(), 0)
+	// stamp last-warmed for diagnostics (with 24h TTL)
+	s.cache.Client.Set(ctx, "leaderboard:warmed_at", time.Now().Unix(), 24*time.Hour)
 	return nil
 }
