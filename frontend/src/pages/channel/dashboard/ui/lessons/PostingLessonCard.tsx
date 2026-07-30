@@ -36,7 +36,7 @@ export const PostingLessonCard: Component<{ onNavigate: () => void; isDone?: boo
 			<div class="h-28 bg-[#08090D] rounded-[20px] border border-white/5 p-3 flex flex-col justify-between shadow-inner">
 				<div class="flex items-center justify-around border-b border-white/5 pb-2">
 					{[
-						{ icon: 'schedule', label: t('lessons.posting.schedule') },
+						{ icon: 'bolt', label: t('lessons.posting.instant') },
 						{ icon: 'branding_watermark', label: t('lessons.posting.watermark') },
 						{ icon: 'auto_awesome', label: t('lessons.posting.formatting') },
 					].map((item, idx) => (
@@ -54,7 +54,7 @@ export const PostingLessonCard: Component<{ onNavigate: () => void; isDone?: boo
 				<div class="flex items-center justify-between px-2 text-[11px] font-bold text-white/70">
 					<span class="flex items-center gap-1.5">
 						<span class="w-2 h-2 rounded-full bg-[#10b981] animate-ping" />
-						{activeTab() === 0 && t('lessons.posting.demoScheduleText')}
+						{activeTab() === 0 && t('lessons.posting.demoInstantText')}
 						{activeTab() === 1 && t('lessons.posting.demoWatermarkText')}
 						{activeTab() === 2 && t('lessons.posting.demoFormattingText')}
 					</span>

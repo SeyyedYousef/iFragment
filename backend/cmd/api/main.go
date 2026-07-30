@@ -26,6 +26,7 @@ import (
 	"ifragment-backend/internal/logger"
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/repository"
+	"ifragment-backend/internal/router"
 	"ifragment-backend/internal/service"
 	"ifragment-backend/internal/service/botmgmt"
 	"ifragment-backend/internal/service/broadcaster"
@@ -108,14 +109,13 @@ func main() {
 	// Initialize Database
 	db, err := repository.NewDatabase(ctx)
 	if err != nil {
+		if isProd {
+			slog.Error("FATAL: Database connection failed in production", "error", err)
+			os.Exit(1)
+		}
 		slog.Warn("Database connection failed, continuing without DB", "error", err)
 	} else {
 		defer db.Close()
-
-		// Force clean the dirty state to prevent migration deadlocks
-		if db.Pool != nil {
-			_, _ = db.Pool.Exec(ctx, "UPDATE schema_migrations SET dirty = false")
-		}
 
 		// Run Migrations with retry
 		var migrationSuccess bool

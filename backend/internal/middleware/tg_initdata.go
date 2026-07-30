@@ -130,8 +130,8 @@ func ValidateTelegramInitData(db *repository.Database, cache *repository.Cache) 
 				}
 			}
 
-			// Development bypass check or explicit environment override
-			if (allowDevBypass && os.Getenv("APP_ENV") != "production") || os.Getenv("BYPASS_TELEGRAM_AUTH") == "true" {
+			// Development bypass check (Strictly disabled in production)
+			if (allowDevBypass || os.Getenv("BYPASS_TELEGRAM_AUTH") == "true") && os.Getenv("APP_ENV") != "production" {
 				// Attempt to parse query parameters directly.
 				// This allows using mock, clock-skewed, or expired user data without failing cryptographic validation.
 				if values, err := url.ParseQuery(initData); err == nil {

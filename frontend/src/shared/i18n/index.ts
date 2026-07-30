@@ -4,13 +4,8 @@ import { createContext, createEffect, createRoot, createSignal, useContext } fro
 import { setLanguage } from '@/shared/api/profile.js';
 
 import { dict as en } from './en.js';
-import { dict as fa } from './fa.js';
-import { dict as ps } from './ps.js';
-import { dict as ru } from './ru.js';
-import { dict as zh } from './zh.js';
 
-const dictionaries = { en, fa, ps, ru, zh };
-export type Locale = keyof typeof dictionaries;
+export type Locale = 'en' | 'fa' | 'ps' | 'ru' | 'zh';
 export type Dictionary = typeof en;
 
 const mapLanguageCode = (code?: string): Locale => {
@@ -27,7 +22,7 @@ export const RTL_LOCALES: Locale[] = ['fa', 'ps'];
 
 const getInitialLocale = (): Locale => {
 	const saved = localStorage.getItem('user_selected_locale');
-	if (saved && (saved === 'en' || saved === 'fa' || saved === 'ps' || saved === 'ru' || saved === 'zh')) {
+	if (saved && ['en', 'fa', 'ps', 'ru', 'zh'].includes(saved)) {
 		return saved as Locale;
 	}
 
@@ -48,9 +43,52 @@ const [getLocale, rawSetLocale] = createSignal<Locale>(getInitialLocale());
 
 export { getLocale as locale };
 
+const enFlattened = i18n.flatten(en);
+const [loadedDicts, setLoadedDicts] = createSignal<Record<Locale, any>>({
+	en: enFlattened,
+	fa: {},
+	ps: {},
+	ru: {},
+	zh: {},
+});
+
+export const loadDictionary = async (loc: Locale) => {
+	if (loc === 'en') return;
+	const current = loadedDicts();
+	if (Object.keys(current[loc] || {}).length > 0) return;
+
+	try {
+		let module: { dict: any } | undefined;
+		switch (loc) {
+			case 'fa':
+				module = await import('./fa.js');
+				break;
+			case 'ps':
+				module = await import('./ps.js');
+				break;
+			case 'ru':
+				module = await import('./ru.js');
+				break;
+			case 'zh':
+				module = await import('./zh.js');
+				break;
+		}
+		if (module?.dict) {
+			const flattened = i18n.flatten(module.dict);
+			setLoadedDicts((prev) => ({ ...prev, [loc]: flattened }));
+		}
+	} catch (err) {
+		console.error(`Failed to load dictionary for ${loc}:`, err);
+	}
+};
+
+// Initial background load for selected locale
+loadDictionary(getInitialLocale());
+
 export const setLocale = (newLocale: Locale) => {
 	localStorage.setItem('user_selected_locale', newLocale);
 	rawSetLocale(newLocale);
+	loadDictionary(newLocale);
 	setLanguage(newLocale).catch(console.error);
 };
 
@@ -62,7 +100,9 @@ createRoot(() => {
 		if (localStorage.getItem('user_selected_locale')) return;
 		const user = initData.user();
 		if (user?.language_code) {
-			rawSetLocale(mapLanguageCode(user.language_code));
+			const loc = mapLanguageCode(user.language_code);
+			rawSetLocale(loc);
+			loadDictionary(loc);
 		}
 	});
 
@@ -83,20 +123,14 @@ type FlattenKeys<T, Prefix extends string = ''> = {
 
 export type DictPaths = FlattenKeys<Dictionary>;
 
-// Flatten dictionaries once at startup for high performance
-const flattenedDicts = {
-	en: i18n.flatten(dictionaries.en),
-	fa: i18n.flatten(dictionaries.fa),
-	ps: i18n.flatten(dictionaries.ps),
-	ru: i18n.flatten(dictionaries.ru),
-	zh: i18n.flatten(dictionaries.zh),
-};
-
 // Flatten dictionary for performance with 'en' fallback for missing keys
 export const getDict = () => {
 	const currentLocale = getLocale();
-	if (currentLocale === 'en') return flattenedDicts.en;
-	return { ...flattenedDicts.en, ...flattenedDicts[currentLocale] };
+	const dicts = loadedDicts();
+	if (currentLocale === 'en' || !dicts[currentLocale] || Object.keys(dicts[currentLocale]).length === 0) {
+		return enFlattened;
+	}
+	return { ...enFlattened, ...dicts[currentLocale] };
 };
 
 export const customResolveTemplate = (template: string, ...args: any[]): string => {
@@ -139,7 +173,7 @@ export const getIntlLocale = (): string => {
 };
 
 export const formatNumber = (num: number): string => {
-	return num.toLocaleString('en-US');
+	return num.toLocaleString(getIntlLocale());
 };
 
 export const formatCoins = (coins: number | undefined | null): string => {
@@ -150,3 +184,4 @@ export const formatCoins = (coins: number | undefined | null): string => {
 
 export const I18nContext = createContext({ t, locale: getLocale, setLocale, isRtl, formatNumber });
 export const useI18n = () => useContext(I18nContext);
+

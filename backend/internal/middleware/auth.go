@@ -68,6 +68,9 @@ func AuthMiddleware(next http.Handler) http.Handler {
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		secret := cachedJWTSecret
+		if secret == "" {
+			secret = os.Getenv("JWT_SECRET")
+		}
 
 		if secret == "" {
 			slog.Error("JWT_SECRET environment variable is not configured")

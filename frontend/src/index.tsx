@@ -109,9 +109,9 @@ async function startApp() {
 		// 3. Now it's safe to retrieve params
 		const launchParams = retrieveLaunchParams();
 		const debug =
-			(launchParams.tgWebAppStartParam || '').includes('debug') ||
-			localStorage.getItem('debug') === 'true' ||
-			import.meta.env.DEV;
+			import.meta.env.DEV &&
+			((launchParams.tgWebAppStartParam || '').includes('debug') ||
+				localStorage.getItem('debug') === 'true');
 
 		if (debug) {
 			try {

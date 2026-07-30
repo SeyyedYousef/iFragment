@@ -60,7 +60,10 @@ func (s *StarsService) CreateInvoiceLink(title, desc, payload string, amount int
 		Prices:      []Price{{Label: title, Amount: amount}},
 	}
 
-	jsonBody, _ := json.Marshal(reqBody)
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal invoice request: %w", err)
+	}
 	resp, err := s.HTTP.Post(url, "application/json", bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return "", err
