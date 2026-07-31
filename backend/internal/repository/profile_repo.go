@@ -82,7 +82,7 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 			mc.channels,
 			si.airdrop_coins,
 			si.total_coins_earned,
-			0.0,
+			COALESCE(GREATEST(si.total_coins_earned - si.airdrop_coins, 0.0), 0.0),
 			si.days_active,
 			si.current_streak,
 			si.total_taps,

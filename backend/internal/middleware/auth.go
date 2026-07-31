@@ -123,3 +123,42 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		http.Error(w, "Unauthorized: Invalid claims", http.StatusUnauthorized)
 	})
 }
+
+// OptionalAuthMiddleware populates UserContextKey if valid Bearer token or Telegram InitData is present,
+// but allows unauthenticated guest requests to proceed cleanly.
+func OptionalAuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
+			tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+			secret := cachedJWTSecret
+			if secret == "" {
+				secret = os.Getenv("JWT_SECRET")
+			}
+			if secret != "" {
+				token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
+					if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+						return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+					}
+					return []byte(secret), nil
+				})
+				if err == nil && token.Valid {
+					if claims, ok := token.Claims.(*JWTClaims); ok {
+						user := map[string]interface{}{
+							"id":           claims.UserID,
+							"username":     claims.Username,
+							"role":         claims.Role,
+							"impersonated": claims.ID != "",
+							"token_type":   claims.TokenType,
+							"mfa_verified": claims.MFAVerified,
+						}
+						ctx := context.WithValue(r.Context(), UserContextKey, user)
+						next.ServeHTTP(w, r.WithContext(ctx))
+						return
+					}
+				}
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}

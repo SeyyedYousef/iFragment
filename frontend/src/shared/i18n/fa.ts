@@ -301,8 +301,10 @@ export const dict = {
 			yourReferrals: 'دعوت شده‌های شما',
 		},
 		leaderboard: {
-			all: '全部',
-			empty: '这个联盟里还没有矿工',
+			all: 'کل',
+			daily: 'روزانه',
+			weekly: 'هفتگی',
+			empty: 'هنوز ماینری در این لیگ ثبت نشده است',
 			friendsTab: 'دوستان',
 			global: 'جهانی',
 			label: 'برترین‌ها',

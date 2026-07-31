@@ -300,8 +300,10 @@ export const dict = {
 			yourReferrals: 'Your Referrals',
 		},
 		leaderboard: {
-			all: '全部',
-			empty: '这个联盟里还没有矿工',
+			all: 'All-Time',
+			daily: 'DAILY',
+			weekly: 'WEEKLY',
+			empty: 'No miners found in this league',
 			friendsTab: 'Friends',
 			global: 'Global',
 			label: 'Top Miners',

@@ -306,19 +306,32 @@ func (h *UsernameHandler) StreamQuickAnalysis(w http.ResponseWriter, r *http.Req
 
 	ctx := r.Context()
 
+	var userID int64
+	if rawUser := ctx.Value(middleware.UserContextKey); rawUser != nil {
+		if user, ok := rawUser.(map[string]interface{}); ok {
+			if id, ok := user["id"].(int64); ok {
+				userID = id
+			} else if id, ok := user["id"].(float64); ok {
+				userID = int64(id)
+			}
+		}
+	}
+
 	// Rate limit check for stream creation
 	if h.cache != nil {
 		ip := middleware.GetRealIP(r)
 		rlKey := "rate_limit:stream:" + ip
-		count, _ := h.cache.Client.Incr(ctx, rlKey).Result()
-		if count == 1 {
-			h.cache.Client.Expire(context.Background(), rlKey, time.Minute)
-		}
-		if count > 10 {
+		pipe := h.cache.Client.Pipeline()
+		incrCmd := pipe.Incr(ctx, rlKey)
+		pipe.Expire(ctx, rlKey, time.Minute)
+		_, _ = pipe.Exec(ctx)
+		if incrCmd.Val() > 10 {
 			RespondError(w, r, http.StatusTooManyRequests, "Too many streaming requests. Please try again later.", nil)
 			return
 		}
 	}
+
+	h.reportService.LogSearch(ctx, u, userID)
 
 	// Concurrent connections limit
 	if h.activeStreams.Add(1) > 500 {

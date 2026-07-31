@@ -48,8 +48,8 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 	const sortedGlobalClans = () => {
 		const data = [...(clansQuery.data || [])];
 		return data.sort((a, b) => {
-			const scoreA = a.total_score || a.members_count * 1500;
-			const scoreB = b.total_score || b.members_count * 1500;
+			const scoreA = a.total_score || 0;
+			const scoreB = b.total_score || 0;
 			return scoreB - scoreA;
 		});
 	};
@@ -62,7 +62,9 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 		if (!myClan) return null;
 		const all = sortedGlobalClans();
 		const rankIndex = all.findIndex((c) => c.id === myClan.id || c.channel_username === myClan.channel_username);
-		if (rankIndex === -1) return null;
+		if (rankIndex === -1) {
+			return { clan: myClan, rank: 100, inTop100: false };
+		}
 		return { clan: all[rankIndex], rank: rankIndex + 1, inTop100: rankIndex < 100 };
 	};
 
@@ -133,7 +135,7 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 								activeSubTab() === 'day' ? 'bg-[#3390ec] text-white shadow-md' : 'text-white/40 hover:text-white/70'
 							}`}
 						>
-							DAILY
+							{t('airdropFinal.leaderboard.daily', 'DAILY')}
 						</button>
 						<button
 							onClick={() => setActiveSubTab('week')}
@@ -141,7 +143,7 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 								activeSubTab() === 'week' ? 'bg-[#3390ec] text-white shadow-md' : 'text-white/40 hover:text-white/70'
 							}`}
 						>
-							WEEKLY
+							{t('airdropFinal.leaderboard.weekly', 'WEEKLY')}
 						</button>
 					</div>
 				</div>

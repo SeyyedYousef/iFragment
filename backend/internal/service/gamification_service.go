@@ -145,9 +145,22 @@ func (s *GamificationService) flushTapBatches(ctx context.Context) {
 		if err != nil {
 			slog.Error("failed to update taps in db", "user", userID, "err", err)
 		} else {
-			// Update Leaderboard ZSET
+			// Update Leaderboard ZSETs (all-time, daily dated, weekly dated)
+			now := time.Now().UTC()
+			dayKey := fmt.Sprintf("leaderboard:daily:%s", now.Format("2006-01-02"))
+			year, week := now.ISOWeek()
+			weekKey := fmt.Sprintf("leaderboard:weekly:%d-W%02d", year, week)
+
 			s.cache.Client.ZIncrBy(ctx, "leaderboard", float64(tapCount), userIDStr)
-			s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID)) // invalidate local profile cache
+			s.cache.Client.ZIncrBy(ctx, "leaderboard:all", float64(tapCount), userIDStr)
+
+			pipe := s.cache.Client.Pipeline()
+			pipe.ZIncrBy(ctx, dayKey, float64(tapCount), userIDStr)
+			pipe.Expire(ctx, dayKey, 48*time.Hour)
+			pipe.ZIncrBy(ctx, weekKey, float64(tapCount), userIDStr)
+			pipe.Expire(ctx, weekKey, 14*24*time.Hour)
+			pipe.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
+			_, _ = pipe.Exec(ctx)
 		}
 	}
 
@@ -393,12 +406,9 @@ func (s *GamificationService) ClaimDailyReward(ctx context.Context, userID int64
 		}
 	}
 
-	nextStreak := streak + 1
-	if nextStreak > 7 {
-		nextStreak = 1
-	}
-
-	reward := dailyRewards[nextStreak]
+	totalStreak := streak + 1
+	rewardDay := ((totalStreak - 1) % 7) + 1
+	reward := dailyRewards[rewardDay]
 
 	// 3. Update user_daily_claims in transaction
 	claimQuery := `
@@ -407,7 +417,7 @@ func (s *GamificationService) ClaimDailyReward(ctx context.Context, userID int64
 		ON CONFLICT (user_id) DO UPDATE
 		SET last_claimed_at = CURRENT_TIMESTAMP, streak = $2
 	`
-	_, err = tx.Exec(ctx, claimQuery, userID, nextStreak)
+	_, err = tx.Exec(ctx, claimQuery, userID, totalStreak)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update daily claim state: %w", err)
 	}
@@ -433,7 +443,7 @@ func (s *GamificationService) ClaimDailyReward(ctx context.Context, userID int64
 		WHERE user_id = $4
 		RETURNING xp, level
 	`
-	err = tx.QueryRow(ctx, updateStatsQuery, reward.Frg, reward.Xp, nextStreak, userID).Scan(&xp, &oldLevel)
+	err = tx.QueryRow(ctx, updateStatsQuery, reward.Frg, reward.Xp, totalStreak, userID).Scan(&xp, &oldLevel)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update user stats: %w", err)
 	}
@@ -463,7 +473,7 @@ func (s *GamificationService) ClaimDailyReward(ctx context.Context, userID int64
 
 	timeLeft := float64(86400) - float64(now.Hour()*3600+now.Minute()*60+now.Second())
 	return &DailyRewardInfo{
-		Streak:    nextStreak,
+		Streak:    totalStreak,
 		FrgReward: reward.Frg,
 		XpReward:  reward.Xp,
 		Claimed:   true,
@@ -1010,12 +1020,27 @@ func (s *GamificationService) GetLeaderboard(ctx context.Context, period string)
 }
 
 func (s *GamificationService) computeAndCacheLeaderboard(ctx context.Context, period string) ([]LeaderboardMember, error) {
-	redisZSetKey := "leaderboard:" + period
+	now := time.Now().UTC()
+	var redisZSetKey string
+	switch strings.ToLower(period) {
+	case "daily", "day":
+		redisZSetKey = fmt.Sprintf("leaderboard:daily:%s", now.Format("2006-01-02"))
+	case "weekly", "week":
+		year, week := now.ISOWeek()
+		redisZSetKey = fmt.Sprintf("leaderboard:weekly:%d-W%02d", year, week)
+	default:
+		redisZSetKey = "leaderboard"
+	}
+
 	var ids []int64
 	scoreMap := make(map[int64]int)
 
 	if s.cache != nil && s.cache.Client != nil {
 		membersZ, err := s.cache.Client.ZRevRangeWithScores(ctx, redisZSetKey, 0, 99).Result()
+		if (err != nil || len(membersZ) == 0) && (period == "" || strings.EqualFold(period, "all")) {
+			// Fallback to legacy "leaderboard:all" key
+			membersZ, err = s.cache.Client.ZRevRangeWithScores(ctx, "leaderboard:all", 0, 99).Result()
+		}
 		if err == nil && len(membersZ) > 0 {
 			for _, m := range membersZ {
 				id, err := strconv.ParseInt(m.Member.(string), 10, 64)

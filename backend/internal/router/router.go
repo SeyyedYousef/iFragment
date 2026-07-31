@@ -40,8 +40,8 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 
 		r.Route("/usernames", func(r chi.Router) {
 			r.Get("/check", cfg.UsernameHandler.CheckAvailability)
-			r.Get("/quick", cfg.UsernameHandler.QuickAnalysis)
-			r.Get("/quick/stream", cfg.UsernameHandler.StreamQuickAnalysis)
+			r.With(middleware.OptionalAuthMiddleware).Get("/quick", cfg.UsernameHandler.QuickAnalysis)
+			r.With(middleware.OptionalAuthMiddleware).Get("/quick/stream", cfg.UsernameHandler.StreamQuickAnalysis)
 			r.Get("/rates", cfg.UsernameHandler.GetRates)
 			r.Get("/similar", cfg.UsernameHandler.GetSimilar)
 			r.Get("/valuate", cfg.UsernameHandler.Valuate)
