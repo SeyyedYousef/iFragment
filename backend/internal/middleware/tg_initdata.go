@@ -256,15 +256,7 @@ func ValidateTelegramInitData(db *repository.Database, cache *repository.Cache) 
 				}
 			}
 
-			// Authentication succeeded: reset failed counters
-			if cache != nil && cache.Client != nil {
-				pipe := cache.Client.Pipeline()
-				pipe.Del(ctx, "brute_fail:ip:"+ip)
-				if userID != "" {
-					pipe.Del(ctx, "brute_fail:user:"+userID)
-				}
-				_, _ = pipe.Exec(ctx)
-			}
+			// Authentication succeeded: failure keys expire automatically via 1h TTL, no need to issue DEL write commands on every request
 
 			// Inject user into context
 			if userObj != nil {

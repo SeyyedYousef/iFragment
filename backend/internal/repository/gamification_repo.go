@@ -78,6 +78,13 @@ func (db *Database) GetUserBoosts(ctx context.Context, userID int64) (*UserBoost
 		return nil, fmt.Errorf("no database connection")
 	}
 
+	// Ensure parent user row exists first to satisfy FK constraint
+	_, _ = db.Pool.Exec(ctx, `
+		INSERT INTO users (telegram_id, username, first_name, last_name, language_code)
+		VALUES ($1, '', 'User', '', 'en')
+		ON CONFLICT (telegram_id) DO NOTHING
+	`, userID)
+
 	// Ensure record exists
 	ensureQuery := `
 		INSERT INTO user_boosts (user_id, multitap_level, energy_limit_level, tap_bot_level)

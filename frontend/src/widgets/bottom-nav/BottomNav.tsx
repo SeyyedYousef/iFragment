@@ -37,19 +37,19 @@ export const BottomNav: Component = () => {
 	return (
 		<nav
 			aria-label={t('bottomNav.profile')}
-			class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 flex items-center justify-between gap-2.5 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+			class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-md z-50 flex items-center justify-between gap-2.5 pointer-events-auto pb-[env(safe-area-inset-bottom,0px)]"
 			dir="ltr"
 		>
 			<div
-				class="flex-1 backdrop-blur-2xl rounded-[24px] shadow-[0_12px_40px_rgba(0,0,0,0.6)] flex items-center justify-between px-2 py-1.5 border h-16 transition-colors bg-[#0D0F17]/95 border-white/10"
+				class="flex-1 backdrop-blur-2xl rounded-[28px] shadow-[0_16px_50px_rgba(0,0,0,0.85)] flex items-center justify-between px-2 py-1.5 border h-16 transition-all bg-[#0D0F17]/95 border-white/15 hover:border-white/25"
 				dir="ltr"
 			>
 				<A
 					href="/"
 					onClick={() => haptic.selection()}
-					class={`flex-1 h-13 rounded-[18px] flex flex-col items-center justify-center cursor-pointer transition-all min-w-0 px-1 ${
+					class={`flex-1 h-13 rounded-[20px] flex flex-col items-center justify-center cursor-pointer transition-all min-w-0 px-1 ${
 						isActive('/')
-							? 'bg-[#3390ec]/20 text-[#3390ec] border border-[#3390ec]/30 shadow-sm'
+							? 'bg-[#3390ec]/20 text-[#3390ec] border border-[#3390ec]/35 shadow-sm scale-102'
 							: 'text-white/60 hover:text-white hover:bg-white/5 border border-transparent'
 					}`}
 				>
@@ -67,9 +67,9 @@ export const BottomNav: Component = () => {
 				<A
 					href="/dashboard"
 					onClick={() => haptic.selection()}
-					class={`flex-1 h-13 rounded-[18px] flex flex-col items-center justify-center cursor-pointer transition-all min-w-0 px-1 ${
+					class={`flex-1 h-13 rounded-[20px] flex flex-col items-center justify-center cursor-pointer transition-all min-w-0 px-1 ${
 						isActive('/dashboard')
-							? 'bg-[#3390ec]/20 text-[#3390ec] border border-[#3390ec]/30 shadow-sm'
+							? 'bg-[#3390ec]/20 text-[#3390ec] border border-[#3390ec]/35 shadow-sm scale-102'
 							: 'text-white/60 hover:text-white hover:bg-white/5 border border-transparent'
 					}`}
 				>
@@ -87,9 +87,9 @@ export const BottomNav: Component = () => {
 				<A
 					href="/airdrop"
 					onClick={() => haptic.selection()}
-					class={`flex-1 h-13 rounded-[18px] flex flex-col items-center justify-center cursor-pointer transition-all min-w-0 px-1 ${
+					class={`flex-1 h-13 rounded-[20px] flex flex-col items-center justify-center cursor-pointer transition-all min-w-0 px-1 ${
 						isActive('/airdrop')
-							? 'bg-[#f59e0b]/20 text-[#f59e0b] border border-[#f59e0b]/30 shadow-sm'
+							? 'bg-[#f59e0b]/20 text-[#f59e0b] border border-[#f59e0b]/35 shadow-sm scale-102'
 							: 'text-white/60 hover:text-white hover:bg-white/5 border border-transparent'
 					}`}
 				>
@@ -113,8 +113,8 @@ export const BottomNav: Component = () => {
 				class={`flex flex-col items-center cursor-pointer transition-all shrink-0 ${isActive('/profile') ? 'scale-105' : 'hover:scale-102'}`}
 			>
 				<div
-					class={`w-16 h-16 rounded-[24px] backdrop-blur-2xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] border-[2.5px] flex items-center justify-center overflow-hidden transition-all bg-[#0D0F17]/95 ${
-						isActive('/profile') ? 'border-[#3390ec] shadow-[#3390ec]/30 ring-2 ring-[#3390ec]/20' : 'border-white/10'
+					class={`w-16 h-16 rounded-[28px] backdrop-blur-2xl shadow-[0_16px_50px_rgba(0,0,0,0.85)] border-[2.5px] flex items-center justify-center overflow-hidden transition-all bg-[#0D0F17]/95 ${
+						isActive('/profile') ? 'border-[#3390ec] shadow-[#3390ec]/40 ring-2 ring-[#3390ec]/20' : 'border-white/15'
 					}`}
 				>
 					<Show

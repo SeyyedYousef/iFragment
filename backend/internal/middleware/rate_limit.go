@@ -49,6 +49,27 @@ var incrExpireScript = redis.NewScript(`
 	return current
 `)
 
+var (
+	redisQuotaMu            sync.RWMutex
+	redisQuotaExceededUntil time.Time
+)
+
+func isRedisQuotaExceeded() bool {
+	if os.Getenv("DISABLE_REDIS_RATE_LIMIT") == "true" || os.Getenv("DISABLE_REDIS_RATE_LIMIT") == "1" {
+		return true
+	}
+	redisQuotaMu.RLock()
+	defer redisQuotaMu.RUnlock()
+	return time.Now().Before(redisQuotaExceededUntil)
+}
+
+func markRedisQuotaExceeded() {
+	redisQuotaMu.Lock()
+	defer redisQuotaMu.Unlock()
+	redisQuotaExceededUntil = time.Now().Add(15 * time.Minute)
+	slog.Warn("Redis quota limit detected! Circuit breaker activated: rate limiting temporarily switched to in-memory mode for 15 minutes to save Redis commands.")
+}
+
 type rateLimiter struct {
 	ips map[string][]time.Time
 	mu  sync.Mutex
@@ -207,8 +228,8 @@ func NewRateLimiter(ctx context.Context, cache *repository.Cache) func(http.Hand
 			ip := GetRealIP(r)
 			userID := getUserID(r)
 
-			// Try Redis-based rate limiting first
-			if cache != nil && cache.Client != nil {
+			// Try Redis-based rate limiting first if Redis is healthy and quota not exceeded
+			if cache != nil && cache.Client != nil && !isRedisQuotaExceeded() {
 				ctx := r.Context()
 				var key string
 				var limit int64 = 180
@@ -230,14 +251,16 @@ func NewRateLimiter(ctx context.Context, cache *repository.Cache) func(http.Hand
 					next.ServeHTTP(w, r)
 					return
 				} else {
-					if !strings.Contains(err.Error(), "max requests limit exceeded") {
+					errStr := err.Error()
+					if strings.Contains(errStr, "max requests limit exceeded") || strings.Contains(errStr, "free tier limit") || strings.Contains(errStr, "ERR max") {
+						markRedisQuotaExceeded()
+					} else {
 						slog.Warn("Redis rate limit Lua script error", "error", err)
 					}
 				}
 			}
 
 			// In-memory fallback (per-IP rate limiting)
-			slog.Warn("Rate limiter fallback to in-memory mode active (Redis offline/degraded)", "ip", ip)
 			rl.mu.Lock()
 
 			// Safety net: prevent OOM if flooded with unique IPs
@@ -275,7 +298,7 @@ func NewChannelRateLimiter(cache *repository.Cache) func(http.Handler) http.Hand
 			ip := GetRealIP(r)
 			userID := getUserID(r)
 
-			if cache != nil && cache.Client != nil {
+			if cache != nil && cache.Client != nil && !isRedisQuotaExceeded() {
 				ctx := r.Context()
 				var key string
 				limit := int64(300)
@@ -323,7 +346,10 @@ func NewChannelRateLimiter(cache *repository.Cache) func(http.Handler) http.Hand
 						return
 					}
 				} else {
-					if !strings.Contains(err.Error(), "max requests limit exceeded") {
+					errStr := err.Error()
+					if strings.Contains(errStr, "max requests limit exceeded") || strings.Contains(errStr, "free tier limit") || strings.Contains(errStr, "ERR max") {
+						markRedisQuotaExceeded()
+					} else {
 						slog.Warn("Redis rate limit Lua script error", "error", err)
 					}
 				}

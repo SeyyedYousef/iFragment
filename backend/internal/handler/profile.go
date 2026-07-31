@@ -460,3 +460,120 @@ func (h *ProfileHandler) GetAvatar(w http.ResponseWriter, r *http.Request) {
 
 	_, _ = io.Copy(w, body)
 }
+
+func (h *ProfileHandler) GetMarketplaceOptions(w http.ResponseWriter, r *http.Request) {
+	options := []map[string]interface{}{
+		{
+			"id":           "pack_starter",
+			"title":        "Starter Pack",
+			"amount_stars": 50,
+			"amount_coins": 10000,
+			"frg_amount":   10,
+			"price":        0.99,
+			"discount":     "",
+		},
+		{
+			"id":           "pack_pro",
+			"title":        "Pro Investor Pack",
+			"amount_stars": 250,
+			"amount_coins": 65000,
+			"popular":      true,
+			"frg_amount":   70,
+			"price":        4.99,
+			"discount":     "15% OFF",
+		},
+		{
+			"id":           "pack_whale",
+			"title":        "Whale Dominator Pack",
+			"amount_stars": 1000,
+			"amount_coins": 300000,
+			"frg_amount":   350,
+			"price":        19.99,
+			"discount":     "30% OFF",
+		},
+	}
+	RespondJSON(w, http.StatusOK, options)
+}
+
+func (h *ProfileHandler) BuyStarsMarketplace(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.getUserID(r)
+	if !ok {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+	var req struct {
+		OptionID string `json:"option_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.OptionID == "" {
+		RespondError(w, r, http.StatusBadRequest, "invalid payload", nil)
+		return
+	}
+
+	stars := 50
+	title := "Starter Pack"
+	switch req.OptionID {
+	case "pack_pro":
+		stars = 250
+		title = "Pro Investor Pack"
+	case "pack_whale":
+		stars = 1000
+		title = "Whale Dominator Pack"
+	}
+
+	if h.paymentService == nil {
+		RespondError(w, r, http.StatusInternalServerError, "payment service unavailable", nil)
+		return
+	}
+
+	payload := fmt.Sprintf("marketplace_%s_%d", req.OptionID, userID)
+	link, err := h.paymentService.CreateInvoiceLink(r.Context(), title, fmt.Sprintf("Purchase %s on iFragment", title), payload, stars)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to create invoice link", err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]string{"invoice_link": link})
+}
+
+func (h *ProfileHandler) ConvertAirdropCoins(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.getUserID(r)
+	if !ok {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+	var req struct {
+		Amount float64 `json:"amount"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	RespondJSON(w, http.StatusOK, map[string]interface{}{"success": true, "user_id": userID, "converted_amount": req.Amount})
+}
+
+func (h *ProfileHandler) GetFRGBalance(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.getUserID(r)
+	if !ok {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+	stats, err := h.profileService.GetProfileStats(r.Context(), userID)
+	if err != nil || stats == nil {
+		RespondJSON(w, http.StatusOK, map[string]interface{}{
+			"user_id":      userID,
+			"balance":      0.0,
+			"total_earned": 0.0,
+			"total_spent":  0.0,
+			"updated_at":   time.Now().Format(time.RFC3339),
+		})
+		return
+	}
+	RespondJSON(w, http.StatusOK, map[string]interface{}{
+		"user_id":      userID,
+		"balance":      stats.AirdropCoins,
+		"total_earned": stats.TotalCoinsEarned,
+		"total_spent":  0.0,
+		"updated_at":   time.Now().Format(time.RFC3339),
+	})
+}
+
+func (h *ProfileHandler) GetFRGTransactions(w http.ResponseWriter, r *http.Request) {
+	RespondJSON(w, http.StatusOK, []interface{}{})
+}

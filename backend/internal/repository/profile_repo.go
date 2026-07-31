@@ -19,6 +19,13 @@ import (
 
 // EnsureStatsExists inserts default stats for the user if they don't exist
 func (db *Database) EnsureStatsExists(ctx context.Context, userID int64) error {
+	// Ensure parent user row exists first to satisfy FK constraint
+	_, _ = db.Pool.Exec(ctx, `
+		INSERT INTO users (telegram_id, username, first_name, last_name, language_code)
+		VALUES ($1, '', 'User', '', 'en')
+		ON CONFLICT (telegram_id) DO NOTHING
+	`, userID)
+
 	query := `
 		INSERT INTO user_stats (user_id, days_active, current_streak, total_taps, xp, level, last_active_at, energy, energy_updated_at)
 		VALUES ($1, 1, 1, 0, 0, 1, CURRENT_TIMESTAMP, 500, CURRENT_TIMESTAMP)
