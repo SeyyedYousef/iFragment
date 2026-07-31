@@ -141,6 +141,7 @@ func GetRealIP(r *http.Request) string {
 						}
 					}
 				}
+			}
 		}
 	}
 
