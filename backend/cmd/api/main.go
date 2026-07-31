@@ -380,77 +380,73 @@ func main() {
 	// Static files serving (e.g., generated username card images for stories)
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
 
-	// Public Routes
-	r.Route("/api/v1", func(r chi.Router) {
-		// Health check routes kept outside ban checking to avoid database liveness probe DoS
-		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(`{"status": "ok"}`))
-		})
+	// Public Health check routes
+	r.Get("/api/v1/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status": "ok"}`))
+	})
 
-		r.Get("/healthz/live", func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(`{"status": "alive"}`))
-		})
+	r.Get("/api/v1/healthz/live", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status": "alive"}`))
+	})
 
-		r.Get("/healthz/ready", func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			if db == nil {
-				w.WriteHeader(http.StatusServiceUnavailable)
-				w.Write([]byte(`{"status": "unready", "db": "disconnected"}`))
-				return
-			}
-			if err := db.Pool.Ping(r.Context()); err != nil {
-				w.WriteHeader(http.StatusServiceUnavailable)
-				w.Write([]byte(`{"status": "unready", "db": "error"}`))
-				return
-			}
-			if cache == nil {
-				w.WriteHeader(http.StatusServiceUnavailable)
-				w.Write([]byte(`{"status": "unready", "cache": "disconnected"}`))
-				return
-			}
-			if err := cache.Client.Ping(r.Context()).Err(); err != nil {
-				w.WriteHeader(http.StatusServiceUnavailable)
-				w.Write([]byte(`{"status": "unready", "cache": "error"}`))
-				return
-			}
+	r.Get("/api/v1/healthz/ready", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if db == nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte(`{"status": "unready", "db": "disconnected"}`))
+			return
+		}
+		if err := db.Pool.Ping(r.Context()); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte(`{"status": "unready", "db": "error"}`))
+			return
+		}
+		if cache == nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte(`{"status": "unready", "cache": "disconnected"}`))
+			return
+		}
+		if err := cache.Client.Ping(r.Context()).Err(); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte(`{"status": "unready", "cache": "error"}`))
+			return
+		}
 
-			w.Write([]byte(`{"status": "ready"}`))
-		})
+		w.Write([]byte(`{"status": "ready"}`))
+	})
 
-		r.Get("/diagnostics/telegram", func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			tgClient := &http.Client{Timeout: 5 * time.Second}
-			tgResp, err := tgClient.Get("https://api.telegram.org")
-			if err != nil {
-				// P1-S5: Do not leak internal error details to client
-				slog.Error("Telegram API health check failed", "error", err)
-				w.WriteHeader(http.StatusServiceUnavailable)
-				w.Write([]byte(`{"status": "unhealthy", "telegram_api": "unreachable"}`))
-				return
-			}
-			tgResp.Body.Close()
-			w.Write([]byte(`{"status": "healthy", "telegram_api": "reachable"}`))
-		})
+	r.Get("/api/v1/diagnostics/telegram", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		tgClient := &http.Client{Timeout: 5 * time.Second}
+		tgResp, err := tgClient.Get("https://api.telegram.org")
+		if err != nil {
+			slog.Error("Telegram API health check failed", "error", err)
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte(`{"status": "unhealthy", "telegram_api": "unreachable"}`))
+			return
+		}
+		tgResp.Body.Close()
+		w.Write([]byte(`{"status": "healthy", "telegram_api": "reachable"}`))
+	})
 
-		// Register API and Owner routes via modular router package
-		router.RegisterAPIRoutes(r, router.Config{
-			DB:                  db,
-			Cache:               cache,
-			OwnerRepo:           ownerRepo,
-			SettingsRepo:        settingsRepo,
-			AuthHandler:         authHandler,
-			UsernameHandler:     usernameHandler,
-			CollectionHandler:   collectionHandler,
-			BotMgmtHandler:      botMgmtHandler,
-			ChannelHandler:      channelHandler,
-			ProfileHandler:      profileHandler,
-			GamificationHandler: gamificationHandler,
-			ClanHandler:         clanHandler,
-			WebhookHandler:      webhookHandler,
-			OwnerHandler:        ownerHandler,
-		})
+	// Register API and Owner routes via modular router package
+	router.RegisterAPIRoutes(r, router.Config{
+		DB:                  db,
+		Cache:               cache,
+		OwnerRepo:           ownerRepo,
+		SettingsRepo:        settingsRepo,
+		AuthHandler:         authHandler,
+		UsernameHandler:     usernameHandler,
+		CollectionHandler:   collectionHandler,
+		BotMgmtHandler:      botMgmtHandler,
+		ChannelHandler:      channelHandler,
+		ProfileHandler:      profileHandler,
+		GamificationHandler: gamificationHandler,
+		ClanHandler:         clanHandler,
+		WebhookHandler:      webhookHandler,
+		OwnerHandler:        ownerHandler,
 	})
 
 	// Start server with graceful shutdown
