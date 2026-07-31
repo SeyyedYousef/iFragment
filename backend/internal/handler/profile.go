@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -526,7 +527,7 @@ func (h *ProfileHandler) BuyStarsMarketplace(w http.ResponseWriter, r *http.Requ
 	}
 
 	payload := fmt.Sprintf("marketplace_%s_%d", req.OptionID, userID)
-	link, err := h.paymentService.CreateInvoiceLink(r.Context(), title, fmt.Sprintf("Purchase %s on iFragment", title), payload, stars)
+	link, err := h.paymentService.CreateInvoiceLink(title, fmt.Sprintf("Purchase %s on iFragment", title), payload, stars)
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, "failed to create invoice link", err)
 		return
@@ -554,7 +555,7 @@ func (h *ProfileHandler) GetFRGBalance(w http.ResponseWriter, r *http.Request) {
 		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
 		return
 	}
-	stats, err := h.profileService.GetProfileStats(r.Context(), userID)
+	stats, err := h.profileService.GetStats(r.Context(), userID)
 	if err != nil || stats == nil {
 		RespondJSON(w, http.StatusOK, map[string]interface{}{
 			"user_id":      userID,
