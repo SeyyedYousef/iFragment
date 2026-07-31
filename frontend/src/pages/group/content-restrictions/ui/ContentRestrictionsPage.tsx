@@ -1,6 +1,6 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { createStore, reconcile } from 'solid-js/store';
 import { groupApi } from '@/shared/api/bot-management.js';
@@ -8,6 +8,7 @@ import { t } from '@/shared/i18n/index.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 import { SettingsSection } from '@/shared/ui/settings-controls.js';
 import { showToast } from '@/shared/ui/toast.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 type RestrictionSetting = { enabled: boolean; window: string; start: string; end: string; penalty: string; };
 
@@ -54,13 +55,13 @@ export const ContentRestrictionsPage: Component = () => {
 
 	onMount(() => {
 		backButton.show();
-		const off = backButton.onClick(() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} window.history.back(); });
+		const off = backButton.onClick(() => { haptic.impact('light'); window.history.back(); });
 		onCleanup(() => off());
 	});
 
 	const handleSave = async () => {
 		if (!isDirty()) return;
-		try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+		haptic.notify('success');
 		setIsSaving(true);
 		try {
 			const payload: any = { ...settings, bannedKeywords: bannedKeywords(), requiredKeywords: requiredKeywords() };
@@ -71,7 +72,7 @@ export const ContentRestrictionsPage: Component = () => {
 			navigate(`/group/${params.id}`);
 			backButton.hide();
 		} catch (err: any) {
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 			const errorMsg = err.response?.data?.error || err.message;
 			if (errorMsg === 'version_mismatch') showToast(t('common.errorVersionMismatch'), 'error');
 			else showToast(t('common.errorUpdateFailed'), 'error');
@@ -140,7 +141,7 @@ export const ContentRestrictionsPage: Component = () => {
 				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 						<button
-							onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} window.history.back(); }}
+							onClick={() => { haptic.impact('light'); window.history.back(); }}
 							class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm"
 							aria-label="Back"
 						>
@@ -173,7 +174,7 @@ export const ContentRestrictionsPage: Component = () => {
 					<For each={tabs}>
 						{(tab) => (
 							<button
-								onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} setActiveTab(tab.id); }}
+								onClick={() => { haptic.impact('light'); setActiveTab(tab.id); }}
 								class={`flex items-center gap-1.5 px-4 py-2.5 rounded-[14px] whitespace-nowrap transition-all duration-300 ${
 									activeTab() === tab.id
 										? 'bg-[#3390ec] text-white font-black shadow-[0_4px_16px_rgba(51,144,236,0.3)] border border-transparent'
@@ -201,7 +202,7 @@ export const ContentRestrictionsPage: Component = () => {
 								onClick={() => {
 									settingKeys.links.forEach((k) => setSettings(k, 'enabled', true));
 									setIsDirty(true);
-									try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
+									haptic.impact('medium');
 									showToast('All link blockers enabled', 'success');
 								}}
 								class="text-[11px] text-[#3390ec] font-bold hover:underline bg-[#3390ec]/10 px-2.5 py-1 rounded-[8px] border border-[#3390ec]/20 transition-all active:scale-95"

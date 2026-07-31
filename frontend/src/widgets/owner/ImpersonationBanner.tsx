@@ -1,6 +1,7 @@
-import { hapticFeedback } from '@tma.js/sdk-solid';
+
 import { Component, createEffect, createSignal, onCleanup, Show } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const ImpersonationBanner: Component = () => {
 	const [impersonatedUser, setImpersonatedUser] = createSignal<string | null>(null);
@@ -64,7 +65,7 @@ export const ImpersonationBanner: Component = () => {
 
 	const handleExitSimulation = () => {
 		try {
-			hapticFeedback.notificationOccurred('warning');
+			haptic.notify('warning');
 		} catch {}
 
 		sessionStorage.removeItem('owner_impersonation_token');
@@ -85,7 +86,7 @@ export const ImpersonationBanner: Component = () => {
 
 	const navigateTo = (path: string) => {
 		try {
-			hapticFeedback.impactOccurred('light');
+			haptic.impact('light');
 		} catch {}
 		window.location.href = `${window.location.pathname}#${path}`;
 	};

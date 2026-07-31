@@ -1,6 +1,6 @@
 import { Motion } from '@motionone/solid';
 import { useParams } from '@solidjs/router';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import {
 	Component,
 	createMemo,
@@ -15,6 +15,7 @@ import { channelApi } from '@/shared/api/channel-management.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const ChannelAnalyticsPage: Component = () => {
 	const params = useParams();
@@ -33,7 +34,7 @@ export const ChannelAnalyticsPage: Component = () => {
 	onMount(() => {
 		backButton.show();
 		const off = backButton.onClick(() => {
-			try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+			haptic.impact('light');
 			window.history.back();
 		});
 		onCleanup(() => off());
@@ -76,7 +77,7 @@ export const ChannelAnalyticsPage: Component = () => {
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm">
 				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
-						onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} window.history.back(); }}
+						onClick={() => { haptic.impact('light'); window.history.back(); }}
 						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
 						aria-label={t('common.back')}
 					>
@@ -112,7 +113,7 @@ export const ChannelAnalyticsPage: Component = () => {
 					<For each={['7d', '30d', '90d']}>
 						{(range) => (
 							<button
-								onClick={() => { try { hapticFeedback.selectionChanged(); } catch (_) {} setTimeRange(range); }}
+								onClick={() => { haptic.selection(); setTimeRange(range); }}
 								class={`flex-1 h-10 rounded-[12px] text-[12px] font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center ${
 									timeRange() === range
 										? 'bg-[#3390ec] text-white shadow-[0_2px_10px_rgba(51,144,236,0.3)]'
@@ -143,7 +144,7 @@ export const ChannelAnalyticsPage: Component = () => {
 
 					{/* Citation Index Card */}
 					<button
-						onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} setShowCiModal(true); }}
+						onClick={() => { haptic.impact('light'); setShowCiModal(true); }}
 						class="bg-[#12141C]/80 backdrop-blur-xl border border-[#06b6d4]/20 hover:border-[#06b6d4]/40 rounded-[24px] p-4.5 flex flex-col justify-center transition-all shadow-[0_4px_20px_rgba(6,182,212,0.05)] text-start relative overflow-hidden group active:scale-95"
 					>
 						<div class="absolute -right-6 -top-6 w-20 h-20 bg-[#06b6d4]/10 blur-xl rounded-full pointer-events-none" />

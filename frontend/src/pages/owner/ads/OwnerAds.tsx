@@ -1,6 +1,7 @@
-import { hapticFeedback } from '@tma.js/sdk-solid';
+
 import { Component, createSignal, For, onMount, Show } from 'solid-js';
 import { DashboardAd, ownerApi } from '@/shared/api/owner.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const OwnerAds: Component = () => {
 	const [ads, setAds] = createSignal<DashboardAd[]>([]);
@@ -57,14 +58,14 @@ export const OwnerAds: Component = () => {
 			await ownerApi.updateAds(ads());
 			setSuccessMsg('تنظیمات بنرهای تبلیغاتی داشبورد با موفقیت ذخیره شد.');
 			try {
-				hapticFeedback.notificationOccurred('success');
+				haptic.notify('success');
 			} catch {}
 
 			setTimeout(() => setSuccessMsg(''), 4000);
 		} catch (_e: any) {
 			setError('خطا در ذخیره‌سازی تبلیغات داشبورد');
 			try {
-				hapticFeedback.notificationOccurred('error');
+				haptic.notify('error');
 			} catch {}
 		}
 		setSaving(false);
@@ -199,8 +200,7 @@ export const OwnerAds: Component = () => {
 											when={ad.image_url}
 											fallback={<span class="text-white/20 text-[10px] font-bold">بدون تصویر</span>}
 										>
-											<img
-												src={ad.image_url}
+											<img loading="lazy" 												src={ad.image_url}
 												alt={ad.title || 'Ad preview'}
 												class="w-full h-full object-cover"
 												onError={(e) => {

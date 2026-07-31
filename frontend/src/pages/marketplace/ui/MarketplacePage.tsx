@@ -1,9 +1,10 @@
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import { Component, createEffect, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { marketplaceApi, PurchaseOption } from '@/shared/api/bot-management.js';
 import { t } from '@/shared/i18n/index.js';
 import { openInvoice } from '@/shared/lib/telegram-native.js';
 import { balance, frgBalance, syncProfileStats } from '@/shared/store/airdrop.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const MarketplacePage: Component = () => {
 	const [activeTab, setActiveTab] = createSignal<'buy' | 'convert'>('buy');
@@ -31,7 +32,7 @@ export const MarketplacePage: Component = () => {
 
 	onMount(() => {
 		backButton.show();
-		const off = backButton.onClick(() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} window.history.back(); });
+		const off = backButton.onClick(() => { haptic.impact('light'); window.history.back(); });
 		onCleanup(() => { off(); backButton.hide(); });
 
 		marketplaceApi.getOptions().then((res: PurchaseOption[]) => {
@@ -44,20 +45,20 @@ export const MarketplacePage: Component = () => {
 		if (loadingOptionId()) return;
 		setLoadingOptionId(opt.id);
 		try {
-			try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
+			haptic.impact('medium');
 			const res = await marketplaceApi.createStarsInvoice(opt.id);
 			if (!res?.invoice_link) throw new Error('Failed to generate invoice link');
 
 			const status = await openInvoice(res.invoice_link);
 			if (status === 'paid') {
-				try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+				haptic.notify('success');
 				await syncProfileStats();
 			} else {
-				try { hapticFeedback.notificationOccurred('warning'); } catch (_) {}
+				haptic.notify('warning');
 			}
 		} catch (e: any) {
 			console.error(e);
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 		} finally {
 			setLoadingOptionId(null);
 		}
@@ -83,22 +84,22 @@ export const MarketplacePage: Component = () => {
 
 		setConvertLoading(true); setConvertError(''); setConvertSuccess('');
 		try {
-			try { hapticFeedback.impactOccurred('heavy'); } catch (_) {}
+			haptic.impact('heavy');
 			await marketplaceApi.convertAirdropCoins(coinsVal);
 			setConvertSuccess('تبدیل با موفقیت انجام شد!');
 			setIsUserEdited(false); setConvertAmount('');
-			try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+			haptic.notify('success');
 			await syncProfileStats();
 		} catch (err: any) {
 			setConvertError(err.message || 'خطایی رخ داد، لطفاً دوباره تلاش کنید.');
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 		} finally {
 			setConvertLoading(false);
 		}
 	};
 
 	const setPercentAmount = (pct: number) => {
-		try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+		haptic.impact('light');
 		setIsUserEdited(true);
 		const amt = Math.floor(balance() * pct);
 		setConvertAmount(amt > 0 ? amt.toString() : '');
@@ -156,7 +157,7 @@ export const MarketplacePage: Component = () => {
 				<div class="px-4 mb-6">
 					<div class="bg-[#12141C]/80 backdrop-blur-xl rounded-[20px] p-1.5 flex gap-1 border border-white/5 shadow-inner">
 						<button
-							onClick={() => { try { hapticFeedback.selectionChanged(); } catch (_) {} setActiveTab('buy'); }}
+							onClick={() => { haptic.selection(); setActiveTab('buy'); }}
 							class={`flex-1 h-12 rounded-[16px] text-[13px] font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-1.5 ${
 								activeTab() === 'buy' ? 'bg-white/10 text-white shadow-[0_2px_12px_rgba(0,0,0,0.3)] border border-white/5' : 'text-white/40 hover:text-white/80'
 							}`}
@@ -164,7 +165,7 @@ export const MarketplacePage: Component = () => {
 							<span class="material-symbols-outlined text-[18px]">stars</span> {t('marketplace.buyTokens') || 'خرید سکه'}
 						</button>
 						<button
-							onClick={() => { try { hapticFeedback.selectionChanged(); } catch (_) {} setActiveTab('convert'); }}
+							onClick={() => { haptic.selection(); setActiveTab('convert'); }}
 							class={`flex-1 h-12 rounded-[16px] text-[13px] font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-1.5 ${
 								activeTab() === 'convert' ? 'bg-white/10 text-white shadow-[0_2px_12px_rgba(0,0,0,0.3)] border border-white/5' : 'text-white/40 hover:text-white/80'
 							}`}

@@ -1,6 +1,6 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate, useSearchParams } from '@solidjs/router';
-import { backButton, hapticFeedback, openLink, openTelegramLink } from '@tma.js/sdk-solid';
+import { backButton, openLink, openTelegramLink } from '@tma.js/sdk-solid';
 import { toPng } from 'html-to-image';
 import { Component, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { apiFetch } from '@/shared/api/base.js';
@@ -17,6 +17,7 @@ import {
 	type RecentReport,
 } from '@/shared/lib/report-cache.js';
 import { shareToStory } from '@/shared/lib/telegram-native.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 interface ValuationResult {
 	run_id: number; username: string; model_version: string; base_price_ton: string; low_ton: string; expected_ton: string; high_ton: string; low_usd: string; expected_usd: string; high_usd: string; confidence_score: number; ton_usd_rate: number; comparable_sales_count: number;
@@ -80,20 +81,20 @@ export const UsernamePage: Component = () => {
 	const username = () => searchParams.u || '';
 
 	const toggleSection = (key: string) => {
-		try { hapticFeedback.selectionChanged(); } catch (_) {}
+		haptic.selection();
 		setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
 	};
 
 	/** Internal navigation to another report. Plain hrefs pointed at `/username`, which is not a route. */
 	const openReport = (name: string) => {
 		if (!name) return;
-		try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+		haptic.impact('light');
 		navigate(`/username/report?u=${encodeURIComponent(name)}`);
 	};
 
 	const openExternal = (url?: string) => {
 		if (!url) return;
-		try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
+		haptic.impact('medium');
 		try {
 			url.includes('t.me/') ? openTelegramLink(url) : openLink(url);
 		} catch (_) {
@@ -188,11 +189,11 @@ export const UsernamePage: Component = () => {
 		if (sendCount() >= 2) return triggerAlert(t('valuation.err_server') || 'Send limit reached.');
 		setDownloading(true); setSent(false);
 		try {
-			try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
+			haptic.impact('medium');
 			const dataUrl = await toPng(hiddenCardRef, { width: 400, height: 400, pixelRatio: 3 });
 			const res = await apiFetch<{ success: boolean }>('/usernames/send-to-chat', { method: 'POST', body: JSON.stringify({ image: dataUrl }), headers: { 'Content-Type': 'application/json' } });
 			if (res?.success) {
-				try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+				haptic.notify('success');
 				setSent(true); setSendCount(c => c + 1); setTimeout(() => setSent(false), 3000);
 			}
 		} catch (err) {
@@ -205,7 +206,7 @@ export const UsernamePage: Component = () => {
 		if (!u || !hiddenCardRef || sharing()) return;
 		setSharing(true);
 		try {
-			try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
+			haptic.impact('medium');
 			const dataUrl = await toPng(hiddenCardRef, { width: 400, height: 400, pixelRatio: 3 });
 			const res = await apiFetch<{ url: string }>('/usernames/share', { method: 'POST', body: JSON.stringify({ image: dataUrl }), headers: { 'Content-Type': 'application/json' } });
 			if (res?.url) {
@@ -216,7 +217,7 @@ export const UsernamePage: Component = () => {
 
 	onMount(() => {
 		backButton.show();
-		const off = backButton.onClick(() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} window.history.back(); });
+		const off = backButton.onClick(() => { haptic.impact('light'); window.history.back(); });
 		onCleanup(() => { off(); backButton.hide(); });
 	});
 
@@ -275,7 +276,7 @@ export const UsernamePage: Component = () => {
 	const handleRefresh = async () => {
 		const u = data()?.username || username();
 		if (!u || refreshing()) return;
-		try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
+		haptic.impact('medium');
 		invalidateReport(u);
 		await fetchValuation(u, { force: true });
 	};
@@ -289,11 +290,11 @@ export const UsernamePage: Component = () => {
 			if (res?.invoice_link) {
 				const tg = (window as any).Telegram?.WebApp;
 				if (tg?.openInvoice) {
-					tg.openInvoice(res.invoice_link, (status: string) => { if (status === 'paid') { hapticFeedback.notificationOccurred('success'); grantAccess('stars', u); } });
+					tg.openInvoice(res.invoice_link, (status: string) => { if (status === 'paid') { haptic.notify('success'); grantAccess('stars', u); } });
 				} else { openTelegramLink(res.invoice_link); grantAccess('stars', u); }
 			} else grantAccess('stars', u);
 		} catch (e: any) {
-			setPaymentError(e?.message || 'Payment failed'); hapticFeedback.notificationOccurred('error');
+			setPaymentError(e?.message || 'Payment failed'); haptic.notify('error');
 		} finally { setIsProcessingPayment(false); }
 	};
 
@@ -303,29 +304,29 @@ export const UsernamePage: Component = () => {
 		setIsProcessingPayment(true); setPaymentError('');
 		try {
 			const res = await valuationApi.payWithAirdrop(u);
-			if (res?.success) { hapticFeedback.notificationOccurred('success'); grantAccess('coins', u); }
+			if (res?.success) { haptic.notify('success'); grantAccess('coins', u); }
 			else grantAccess('coins', u);
 		} catch (e: any) {
-			setPaymentError(e?.response?.data?.error || e?.message || 'Insufficient coin balance'); hapticFeedback.notificationOccurred('error');
+			setPaymentError(e?.response?.data?.error || e?.message || 'Insufficient coin balance'); haptic.notify('error');
 		} finally { setIsProcessingPayment(false); }
 	};
 
 	const handleVerifyFreeAccess = async () => {
 		const u = username();
 		if (!u || isProcessingPayment()) return;
-		if (freeQuotaUsed()) { setPaymentError(t('valuation.free_quota_used') || 'Free quota used.'); hapticFeedback.notificationOccurred('error'); return; }
+		if (freeQuotaUsed()) { setPaymentError(t('valuation.free_quota_used') || 'Free quota used.'); haptic.notify('error'); return; }
 		setIsProcessingPayment(true); setPaymentError('');
 		try {
 			const res = await valuationApi.verifyFreeAccess(u);
 			if (res?.has_access) {
-				hapticFeedback.notificationOccurred('success');
+				haptic.notify('success');
 				localStorage.setItem('val_free_used', 'true'); cloudStorage.setItem('val_free_used', 'true');
 				setFreeQuotaUsed(true); grantAccess('free', u);
 			} else {
-				setPaymentError(t('valuation.free_quota_used') || 'Verification failed.'); hapticFeedback.notificationOccurred('error');
+				setPaymentError(t('valuation.free_quota_used') || 'Verification failed.'); haptic.notify('error');
 			}
 		} catch (e: any) {
-			setPaymentError(e?.response?.data?.error || e?.message || 'Verification failed'); hapticFeedback.notificationOccurred('error');
+			setPaymentError(e?.response?.data?.error || e?.message || 'Verification failed'); haptic.notify('error');
 		} finally { setIsProcessingPayment(false); }
 	};
 

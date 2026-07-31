@@ -1,6 +1,6 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show, Suspense } from 'solid-js';
 import { createStore, reconcile } from 'solid-js/store';
 import { groupApi } from '@/shared/api/bot-management.js';
@@ -8,6 +8,7 @@ import { isRtl, t } from '@/shared/i18n/index.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 import { SettingsSection } from '@/shared/ui/settings-controls.js';
 import { showToast } from '@/shared/ui/toast.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 interface QuietPeriod { id: string; start: string; end: string; }
 interface QuietHoursConfig { emergencyLock: boolean; adminOverride: boolean; sendNotifications: boolean; periods: QuietPeriod[]; }
@@ -38,7 +39,7 @@ export const QuietHoursPage: Component = () => {
 	onMount(() => {
 		backButton.show();
 		const off = backButton.onClick(() => {
-			try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+			haptic.impact('light');
 			window.history.back();
 		});
 		onCleanup(() => off());
@@ -92,7 +93,7 @@ export const QuietHoursPage: Component = () => {
 	};
 
 	const addPeriod = () => {
-		try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
+		haptic.impact('medium');
 		const newPeriod: QuietPeriod = { id: crypto.randomUUID(), start: '22:00', end: '08:00' };
 		setConfig('periods', [...config.periods, newPeriod]);
 		setIsDirty(true);
@@ -100,7 +101,7 @@ export const QuietHoursPage: Component = () => {
 	};
 
 	const removePeriod = (id: string) => {
-		try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+		haptic.impact('light');
 		const updated = config.periods.filter((p) => p.id !== id);
 		setConfig('periods', updated);
 		setIsDirty(true);
@@ -116,12 +117,12 @@ export const QuietHoursPage: Component = () => {
 
 	const handleSave = async () => {
 		if (overlapWarning()) {
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 			return;
 		}
 		if (!isDirty()) return;
 
-		try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+		haptic.notify('success');
 		setIsSaving(true);
 		try {
 			const result = await groupApi.updateSettings(params.id, 'quiet_hours', config as any, settingsVersion());
@@ -132,7 +133,7 @@ export const QuietHoursPage: Component = () => {
 			backButton.hide();
 		} catch (_e) {
 			showToast(t('common.errorUpdateFailed'), 'error');
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 		} finally {
 			setIsSaving(false);
 		}
@@ -148,7 +149,7 @@ export const QuietHoursPage: Component = () => {
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm">
 				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
-						onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} window.history.back(); }}
+						onClick={() => { haptic.impact('light'); window.history.back(); }}
 						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
 						aria-label={t('common.back')}
 					>

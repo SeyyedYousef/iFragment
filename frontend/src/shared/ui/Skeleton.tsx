@@ -67,3 +67,36 @@ export const SkeletonProfile: Component = () => {
 		</div>
 	);
 };
+
+export const SkeletonCard: Component = () => {
+	return (
+		<div class="flex flex-col gap-3 p-5 bg-[#15161d]/60 border border-[#222]/80 rounded-3xl h-[120px] animate-pulse w-full">
+			<SkeletonBlock class="h-5 w-1/2 rounded-lg" />
+			<SkeletonBlock class="h-3 w-full rounded mt-2" />
+			<SkeletonBlock class="h-3 w-3/4 rounded" />
+		</div>
+	);
+};
+
+export const SkeletonTableRow: Component = () => {
+	return (
+		<div class="flex items-center justify-between py-3 border-b border-[#222]/50 w-full animate-pulse">
+			<SkeletonBlock class="h-4 w-[30%] rounded" />
+			<SkeletonBlock class="h-4 w-[20%] rounded" />
+			<SkeletonBlock class="h-4 w-[15%] rounded" />
+			<SkeletonBlock class="h-4 w-[10%] rounded" />
+		</div>
+	);
+};
+
+export const SkeletonChart: Component = () => {
+	return (
+		<div class="bg-[#15161d]/60 border border-[#222]/80 rounded-3xl h-[200px] p-5 flex items-end justify-between gap-2 animate-pulse w-full">
+			<SkeletonBlock class="w-1/6 h-[40%] rounded-t-lg" />
+			<SkeletonBlock class="w-1/6 h-[70%] rounded-t-lg" />
+			<SkeletonBlock class="w-1/6 h-[50%] rounded-t-lg" />
+			<SkeletonBlock class="w-1/6 h-[90%] rounded-t-lg" />
+			<SkeletonBlock class="w-1/6 h-[30%] rounded-t-lg" />
+		</div>
+	);
+};

@@ -1,6 +1,6 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import {
 	Component,
 	createResource,
@@ -16,6 +16,7 @@ import { isRtl, t } from '@/shared/i18n/index.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 import { NumberInputField, StringListField, ToggleSwitch } from '@/shared/ui/settings-controls.js';
 import { showToast } from '@/shared/ui/toast.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const MandatoryPage: Component = () => {
 	const navigate = useNavigate();
@@ -57,7 +58,7 @@ export const MandatoryPage: Component = () => {
 	onMount(() => {
 		backButton.show();
 		const off = backButton.onClick(() => {
-			try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+			haptic.impact('light');
 			window.history.back();
 		});
 		onCleanup(() => off());
@@ -70,7 +71,7 @@ export const MandatoryPage: Component = () => {
 
 	const handleSave = async () => {
 		if (!isDirty() || !settingsData()) return;
-		try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+		haptic.notify('success');
 		setIsSaving(true);
 		try {
 			await groupApi.updateSettings(
@@ -92,7 +93,7 @@ export const MandatoryPage: Component = () => {
 			navigate(`/group/${params.id}`);
 		} catch (_e) {
 			showToast(t('common.errorUpdateFailed'), 'error');
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 		} finally {
 			setIsSaving(false);
 		}
@@ -108,7 +109,7 @@ export const MandatoryPage: Component = () => {
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm">
 				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
-						onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} window.history.back(); }}
+						onClick={() => { haptic.impact('light'); window.history.back(); }}
 						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm"
 						aria-label={t('common.back')}
 					>
@@ -154,7 +155,7 @@ export const MandatoryPage: Component = () => {
 								</div>
 								<h2 class="text-[15px] font-black text-white tracking-tight">{t('mandatorySettings.forcedAdd')}</h2>
 							</div>
-							<ToggleSwitch checked={cfg.forcedAddEnabled} onChange={(v) => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} updateCfg('forcedAddEnabled', v); }} />
+							<ToggleSwitch checked={cfg.forcedAddEnabled} onChange={(v) => { haptic.impact('light'); updateCfg('forcedAddEnabled', v); }} />
 						</div>
 
 						<Show when={cfg.forcedAddEnabled}>
@@ -183,7 +184,7 @@ export const MandatoryPage: Component = () => {
 								</div>
 								<h2 class="text-[15px] font-black text-white tracking-tight">{t('mandatorySettings.forceJoin')}</h2>
 							</div>
-							<ToggleSwitch checked={cfg.forceJoinEnabled} onChange={(v) => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} updateCfg('forceJoinEnabled', v); }} />
+							<ToggleSwitch checked={cfg.forceJoinEnabled} onChange={(v) => { haptic.impact('light'); updateCfg('forceJoinEnabled', v); }} />
 						</div>
 
 						<Show when={cfg.forceJoinEnabled}>
@@ -215,7 +216,7 @@ export const MandatoryPage: Component = () => {
 						</div>
 						
 						<div class="absolute right-5 top-5 z-10">
-							<ToggleSwitch checked={cfg.verificationEnabled} onChange={(v) => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} updateCfg('verificationEnabled', v); }} />
+							<ToggleSwitch checked={cfg.verificationEnabled} onChange={(v) => { haptic.impact('light'); updateCfg('verificationEnabled', v); }} />
 						</div>
 					</Motion.div>
 

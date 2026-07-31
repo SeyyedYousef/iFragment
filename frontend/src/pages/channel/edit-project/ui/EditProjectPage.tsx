@@ -1,6 +1,6 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import {
 	Component,
 	createEffect,
@@ -13,6 +13,7 @@ import {
 import { channelApi } from '@/shared/api/channel-management.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { showToast } from '@/shared/ui/toast.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const EditProjectPage: Component = () => {
 	const params = useParams();
@@ -30,7 +31,7 @@ export const EditProjectPage: Component = () => {
 	onMount(() => {
 		backButton.show();
 		const off = backButton.onClick(() => {
-			try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+			haptic.impact('light');
 			navigate(-1);
 		});
 		onCleanup(() => {
@@ -51,11 +52,11 @@ export const EditProjectPage: Component = () => {
 	const handleSave = async () => {
 		if (!projectName().trim() || !inputChannel().trim() || !outputChannel().trim()) {
 			showToast(t('connectChannel.validationError'), 'error');
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 			return;
 		}
 
-		try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
+		haptic.impact('medium');
 		setIsSaving(true);
 
 		try {
@@ -75,7 +76,7 @@ export const EditProjectPage: Component = () => {
 
 			showToast(t('connectChannel.success'), 'success');
 
-			try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+			haptic.notify('success');
 			
 			if (outChan.id !== params.id) {
 				navigate('/managed-channels', { replace: true });
@@ -89,7 +90,7 @@ export const EditProjectPage: Component = () => {
 				err?.message ||
 				'Failed to update project';
 			showToast(errMsg, 'error');
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 		} finally {
 			setIsSaving(false);
 		}
@@ -106,7 +107,7 @@ export const EditProjectPage: Component = () => {
 			<div class="px-5 pt-6 pb-4 bg-[#030303]/85 backdrop-blur-2xl sticky top-0 z-40 border-b border-white/5 flex items-center gap-3.5 shadow-sm">
 				<button
 					onClick={() => {
-						try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+						haptic.impact('light');
 						navigate(-1);
 					}}
 					class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"

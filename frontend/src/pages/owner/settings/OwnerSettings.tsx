@@ -1,7 +1,8 @@
-import { hapticFeedback } from '@tma.js/sdk-solid';
+
 import { Component, createSignal, onMount, Show } from 'solid-js';
 import { ownerApi, SystemSettings } from '@/shared/api/owner.js';
 import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const OwnerSettings: Component = () => {
 	const [initialSettings, setInitialSettings] = createSignal<SystemSettings | null>(null);
@@ -72,14 +73,14 @@ export const OwnerSettings: Component = () => {
 			setShowConfirmDialog(false);
 
 			try {
-				hapticFeedback.notificationOccurred('success');
+				haptic.notify('success');
 			} catch {}
 
 			setTimeout(() => setSuccessMsg(''), 4000);
 		} catch (e: any) {
 			setError(e.response?.data?.error || 'خطا در ذخیره‌سازی تنظیمات');
 			try {
-				hapticFeedback.notificationOccurred('error');
+				haptic.notify('error');
 			} catch {}
 		} finally {
 			setSaving(false);

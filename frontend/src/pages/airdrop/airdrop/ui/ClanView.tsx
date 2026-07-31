@@ -1,9 +1,10 @@
-import { hapticFeedback, openTelegramLink } from '@tma.js/sdk-solid';
+import { openTelegramLink } from '@tma.js/sdk-solid';
 import { Component, createEffect, createResource, createSignal, For, Show } from 'solid-js';
 import { API_CONFIG } from '@/shared/api/config.js';
 import { getClanMembers, getTopClans, joinClan, leaveClan } from '@/shared/api/profile.js';
 import { formatNumber, t } from '@/shared/i18n/index.js';
 import { setUserClan, userClan } from '@/shared/store/airdrop.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) => {
 	const [usernameInput, setUsernameInput] = createSignal('');
@@ -27,14 +28,13 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 
 	const triggerHaptic = (type: 'impact' | 'success' | 'error' | 'light') => {
 		try {
-			const tgHaptic =
-				typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.HapticFeedback;
+			
 			if (type === 'impact') {
-				tgHaptic ? tgHaptic.impactOccurred('medium') : hapticFeedback.impactOccurred('medium');
+				haptic.impact('medium');
 			} else if (type === 'light') {
-				tgHaptic ? tgHaptic.impactOccurred('light') : hapticFeedback.impactOccurred('light');
+				haptic.impact('light');
 			} else {
-				tgHaptic ? tgHaptic.notificationOccurred(type) : hapticFeedback.notificationOccurred(type);
+				haptic.notify(type);
 			}
 		} catch (_) {}
 	};
@@ -200,8 +200,7 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 													when={clan.channel_photo}
 													fallback={<span class="text-amber-400 font-bold text-lg">🛡️</span>}
 												>
-													<img
-														src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan.channel_username}`}
+													<img loading="lazy" 														src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan.channel_username}`}
 														alt=""
 														class="w-full h-full object-cover"
 													/>
@@ -256,8 +255,7 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 									when={clan().channel_photo}
 									fallback={<span class="text-3xl drop-shadow-md">🛡️</span>}
 								>
-									<img
-										src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`}
+									<img loading="lazy" 										src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`}
 										alt=""
 										class="w-full h-full object-cover"
 									/>

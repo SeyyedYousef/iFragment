@@ -1,4 +1,4 @@
-import { hapticFeedback } from '@tma.js/sdk-solid';
+
 import { Component, createSignal, For, Show } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 import {
@@ -12,15 +12,16 @@ import {
 	upgradeBooster,
 } from '@/shared/store/airdrop.js';
 import { showToast } from '@/shared/ui/toast.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) => {
 	const [animatingId, setAnimatingId] = createSignal<string | null>(null);
 
 	const triggerHaptic = (type: 'impact' | 'success' | 'error') => {
 		try {
-			const tgHaptic = typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.HapticFeedback;
-			if (type === 'impact') tgHaptic ? tgHaptic.impactOccurred('medium') : hapticFeedback.impactOccurred('medium');
-			else tgHaptic ? tgHaptic.notificationOccurred(type) : hapticFeedback.notificationOccurred(type);
+			
+			if (type === 'impact') haptic.impact('medium');
+			else haptic.notify(type);
 		} catch (_) {}
 	};
 

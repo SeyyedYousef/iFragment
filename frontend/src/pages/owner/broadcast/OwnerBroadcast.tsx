@@ -1,7 +1,8 @@
-import { hapticFeedback } from '@tma.js/sdk-solid';
+
 import { Component, createSignal, For, onMount, Show } from 'solid-js';
 import { BroadcastMessage, ownerApi } from '@/shared/api/owner.js';
 import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const OwnerBroadcast: Component = () => {
 	const [broadcasts, setBroadcasts] = createSignal<BroadcastMessage[]>([]);
@@ -61,13 +62,13 @@ export const OwnerBroadcast: Component = () => {
 			setShowConfirmDialog(false);
 			fetchBroadcasts();
 			try {
-				hapticFeedback.notificationOccurred('success');
+				haptic.notify('success');
 			} catch {}
 			setTimeout(() => setSuccessMsg(''), 4000);
 		} catch (e: any) {
 			setError(e.response?.data?.error || 'خطا در ارسال پیام همگانی');
 			try {
-				hapticFeedback.notificationOccurred('error');
+				haptic.notify('error');
 			} catch {}
 		} finally {
 			setSending(false);

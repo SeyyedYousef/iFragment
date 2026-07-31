@@ -1,6 +1,6 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import {
 	Component,
 	createEffect,
@@ -18,6 +18,7 @@ import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SelectField, SettingsSection } from '@/shared/ui/settings-controls.js';
 import { showToast } from '@/shared/ui/toast.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 interface InlineBtn {
 	id: string;
@@ -103,9 +104,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 	onMount(() => {
 		backButton.show();
 		const off = backButton.onClick(() => {
-			try {
-				hapticFeedback.impactOccurred('light');
-			} catch (_) {}
+			haptic.impact('light');
 			navigate(`/channel/${params.id}`);
 		});
 		onCleanup(() => off());
@@ -113,9 +112,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 
 	const handleAddButton = () => {
 		if (!btnTitle().trim() || !btnValue().trim()) return;
-		try {
-			hapticFeedback.impactOccurred('light');
-		} catch (_) {}
+		haptic.impact('light');
 
 		const newBtn = {
 			id: editingId() ? editingId()! : `local_${Date.now()}`,
@@ -142,9 +139,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 	};
 
 	const handleEditButton = (id: string) => {
-		try {
-			hapticFeedback.impactOccurred('light');
-		} catch (_) {}
+		haptic.impact('light');
 		const btn = buttons().find((b) => b.id === id);
 		if (btn) {
 			setBtnTitle(btn.title);
@@ -157,9 +152,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 	};
 
 	const handleCancelEdit = () => {
-		try {
-			hapticFeedback.impactOccurred('light');
-		} catch (_) {}
+		haptic.impact('light');
 		setBtnTitle('');
 		setBtnValue('');
 		setBtnType('url');
@@ -169,9 +162,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 	};
 
 	const handleRemoveButton = (id: string) => {
-		try {
-			hapticFeedback.impactOccurred('light');
-		} catch (_) {}
+		haptic.impact('light');
 		setButtons(buttons().filter((b) => b.id !== id));
 		setIsDirty(true);
 		setActivePreset('custom');
@@ -182,9 +173,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 			const confirmed = await showConfirm(t('channelInlineButtons.presetWarning'));
 			if (!confirmed) return;
 		}
-		try {
-			hapticFeedback.impactOccurred('medium');
-		} catch (_) {}
+		haptic.impact('medium');
 		setIsDirty(true);
 		setActivePreset(preset as any);
 
@@ -249,9 +238,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 
 	const handleSave = async () => {
 		setIsSaving(true);
-		try {
-			hapticFeedback.impactOccurred('medium');
-		} catch (_) {}
+		haptic.impact('medium');
 
 		const currentVersion = settings()?.version ?? 1;
 		const settingsPayload = { enabled: isButtonsEnabled(), preset: activePreset() };
@@ -276,16 +263,12 @@ export const ChannelInlineButtonsPage: Component = () => {
 			await channelApi.updateSettings(params.id, 'inline_buttons', settingsPayload, currentVersion);
 			await channelApi.saveButtons(params.id, buttonsPayload);
 			setIsDirty(false);
-			try {
-				hapticFeedback.notificationOccurred('success');
-			} catch (_) {}
+			haptic.notify('success');
 			showToast(t('channelInlineButtons.saveSuccess'), 'success');
 			navigate(`/channel/${params.id}`);
 		} catch (e) {
 			console.error('Failed to save inline buttons to server:', e);
-			try {
-				hapticFeedback.notificationOccurred('error');
-			} catch (_) {}
+			haptic.notify('error');
 			showToast(t('channelInlineButtons.saveFailed'), 'error');
 		} finally {
 			setIsSaving(false);
@@ -305,9 +288,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
 						onClick={() => {
-							try {
-								hapticFeedback.impactOccurred('light');
-							} catch (_) {}
+							haptic.impact('light');
 							navigate(`/channel/${params.id}`);
 						}}
 						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
@@ -401,9 +382,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 						onToggle={(v) => {
 							setIsButtonsEnabled(v);
 							setIsDirty(true);
-							try {
-								hapticFeedback.selectionChanged();
-							} catch (_) {}
+							haptic.selection();
 						}}
 					/>
 				</Motion.div>
@@ -582,9 +561,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 														<Show when={index() > 0}>
 															<button
 																onClick={() => {
-																	try {
-																		hapticFeedback.impactOccurred('light');
-																	} catch (_) {}
+																	haptic.impact('light');
 																	const newBtns = [...buttons()];
 																	[newBtns[index() - 1], newBtns[index()]] = [
 																		newBtns[index()],
@@ -604,9 +581,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 														<Show when={index() < buttons().length - 1}>
 															<button
 																onClick={() => {
-																	try {
-																		hapticFeedback.impactOccurred('light');
-																	} catch (_) {}
+																	haptic.impact('light');
 																	const newBtns = [...buttons()];
 																	[newBtns[index() + 1], newBtns[index()]] = [
 																		newBtns[index()],
@@ -844,9 +819,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 					<div class="max-w-md mx-auto flex gap-3 pointer-events-auto">
 						<button
 							onClick={() => {
-								try {
-									hapticFeedback.impactOccurred('light');
-								} catch (_) {}
+								haptic.impact('light');
 								navigate(`/channel/${params.id}`);
 							}}
 							disabled={isSaving()}

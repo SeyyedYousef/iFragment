@@ -112,7 +112,7 @@ export const LeaderboardShell: Component<LeaderboardShellProps> = (props) => {
 							</span>
 							<div class="w-12 h-12 rounded-full bg-slate-700/50 border-2 border-slate-400 flex items-center justify-center text-base font-black text-white overflow-hidden">
 								<Show when={topThree()[1]?.avatarUrl} fallback={topThree()[1]?.name?.[0] || '2'}>
-									<img src={topThree()[1].avatarUrl} alt="" class="w-full h-full object-cover" />
+									<img loading="lazy" src={topThree()[1].avatarUrl} alt="" class="w-full h-full object-cover" />
 								</Show>
 							</div>
 							<div class="w-full truncate text-xs font-bold text-white">{topThree()[1]?.name}</div>
@@ -128,7 +128,7 @@ export const LeaderboardShell: Component<LeaderboardShellProps> = (props) => {
 							</span>
 							<div class="w-14 h-14 rounded-full bg-amber-500/20 border-2 border-amber-400 flex items-center justify-center text-lg font-black text-white overflow-hidden">
 								<Show when={topThree()[0]?.avatarUrl} fallback={topThree()[0]?.name?.[0] || '1'}>
-									<img src={topThree()[0].avatarUrl} alt="" class="w-full h-full object-cover" />
+									<img loading="lazy" src={topThree()[0].avatarUrl} alt="" class="w-full h-full object-cover" />
 								</Show>
 							</div>
 							<div class="w-full truncate text-xs font-black text-white">{topThree()[0]?.name}</div>
@@ -144,7 +144,7 @@ export const LeaderboardShell: Component<LeaderboardShellProps> = (props) => {
 							</span>
 							<div class="w-12 h-12 rounded-full bg-amber-900/30 border-2 border-amber-700 flex items-center justify-center text-base font-black text-white overflow-hidden">
 								<Show when={topThree()[2]?.avatarUrl} fallback={topThree()[2]?.name?.[0] || '3'}>
-									<img src={topThree()[2].avatarUrl} alt="" class="w-full h-full object-cover" />
+									<img loading="lazy" src={topThree()[2].avatarUrl} alt="" class="w-full h-full object-cover" />
 								</Show>
 							</div>
 							<div class="w-full truncate text-xs font-bold text-white">{topThree()[2]?.name}</div>
@@ -175,7 +175,7 @@ export const LeaderboardShell: Component<LeaderboardShellProps> = (props) => {
 											when={entry.avatarUrl}
 											fallback={<span class="text-xs font-bold text-white">{entry.name[0]}</span>}
 										>
-											<img src={entry.avatarUrl} alt="" class="w-full h-full object-cover" />
+											<img loading="lazy" src={entry.avatarUrl} alt="" class="w-full h-full object-cover" />
 										</Show>
 									</div>
 									<div class="truncate text-xs font-bold text-white">

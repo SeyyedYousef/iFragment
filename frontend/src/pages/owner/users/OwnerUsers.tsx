@@ -1,7 +1,8 @@
-import { hapticFeedback } from '@tma.js/sdk-solid';
+
 import { Component, createSignal, For, Show } from 'solid-js';
 import { ownerApi, SearchedUser } from '@/shared/api/owner.js';
 import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const OwnerUsers: Component = () => {
 	const [query, setQuery] = createSignal('');
@@ -56,7 +57,7 @@ export const OwnerUsers: Component = () => {
 		} catch (err: any) {
 			setError(err.response?.data?.error || 'خطا در برقراری ارتباط با دیتابیس کاربران.');
 			try {
-				hapticFeedback.notificationOccurred('error');
+				haptic.notify('error');
 			} catch {}
 		} finally {
 			setLoading(false);
@@ -120,7 +121,7 @@ export const OwnerUsers: Component = () => {
 							u.telegram_id === user.telegram_id ? { ...u, balance: res.new_balance } : u,
 						),
 					);
-					hapticFeedback.notificationOccurred('success');
+					haptic.notify('success');
 				}
 			} else if (currentAction === 'ban') {
 				const res = await ownerApi.banUser(user.telegram_id, banType(), reason, banDuration());
@@ -132,7 +133,7 @@ export const OwnerUsers: Component = () => {
 								: u,
 						),
 					);
-					hapticFeedback.notificationOccurred('success');
+					haptic.notify('success');
 				}
 			} else if (currentAction === 'unban') {
 				const res = await ownerApi.unbanUser(user.telegram_id);
@@ -144,7 +145,7 @@ export const OwnerUsers: Component = () => {
 								: u,
 						),
 					);
-					hapticFeedback.notificationOccurred('success');
+					haptic.notify('success');
 				}
 			} else if (currentAction === 'flag') {
 				const res = await ownerApi.flagUser(user.telegram_id, isFlaggedStatus(), reason);
@@ -156,7 +157,7 @@ export const OwnerUsers: Component = () => {
 								: u,
 						),
 					);
-					hapticFeedback.notificationOccurred('success');
+					haptic.notify('success');
 				}
 			} else if (currentAction === 'impersonate') {
 				const res = await ownerApi.impersonateUser(user.telegram_id);
@@ -181,7 +182,7 @@ export const OwnerUsers: Component = () => {
 		} catch (err: any) {
 			setError(err.response?.data?.error || 'عملیات با خطا مواجه شد.');
 			try {
-				hapticFeedback.notificationOccurred('error');
+				haptic.notify('error');
 			} catch {}
 		} finally {
 			setActionLoading(false);

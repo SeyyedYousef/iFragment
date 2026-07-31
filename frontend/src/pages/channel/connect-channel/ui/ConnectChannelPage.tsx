@@ -1,10 +1,11 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
-import { backButton, hapticFeedback, openTelegramLink } from '@tma.js/sdk-solid';
+import { backButton, openTelegramLink } from '@tma.js/sdk-solid';
 import { Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { channelApi } from '@/shared/api/channel-management.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { showToast } from '@/shared/ui/toast.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const ConnectChannelPage: Component = () => {
 	const navigate = useNavigate();
@@ -16,7 +17,7 @@ export const ConnectChannelPage: Component = () => {
 	onMount(() => {
 		backButton.show();
 		const off = backButton.onClick(() => {
-			try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+			haptic.impact('light');
 			navigate(-1);
 		});
 		onCleanup(() => {
@@ -28,11 +29,11 @@ export const ConnectChannelPage: Component = () => {
 	const handleConnect = async () => {
 		if (!projectName().trim() || !inputChannel().trim() || !outputChannel().trim()) {
 			showToast(t('connectChannel.validationError'), 'error');
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 			return;
 		}
 
-		try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
+		haptic.impact('medium');
 		setIsVerifying(true);
 
 		try {
@@ -51,19 +52,19 @@ export const ConnectChannelPage: Component = () => {
 				showToast(t('connectChannel.success'), 'success');
 			}
 
-			try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+			haptic.notify('success');
 			navigate('/managed-channels', { replace: true });
 		} catch (err: any) {
 			const errMsg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Failed to connect channel';
 			showToast(errMsg, 'error');
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 		} finally {
 			setIsVerifying(false);
 		}
 	};
 
 	const handleOpenTelegram = () => {
-		try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+		haptic.impact('light');
 		openTelegramLink('https://t.me/iFragmentBot?startchannel=true');
 	};
 
@@ -76,7 +77,7 @@ export const ConnectChannelPage: Component = () => {
 			{/* ═══════ PREMIUM STICKY HEADER ═══════ */}
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center gap-3.5 shadow-sm">
 				<button
-					onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} navigate(-1); }}
+					onClick={() => { haptic.impact('light'); navigate(-1); }}
 					class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
 					aria-label={t('common.back')}
 				>

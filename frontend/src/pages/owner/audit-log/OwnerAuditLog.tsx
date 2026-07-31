@@ -1,6 +1,7 @@
-import { hapticFeedback } from '@tma.js/sdk-solid';
+
 import { Component, createSignal, For, onMount, Show } from 'solid-js';
 import { AuditLogEntry, ownerApi } from '@/shared/api/owner.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const OwnerAuditLog: Component = () => {
 	const [logs, setLogs] = createSignal<AuditLogEntry[]>([]);
@@ -53,7 +54,7 @@ export const OwnerAuditLog: Component = () => {
 	const handleLoadMore = () => {
 		if (loading() || !hasMore()) return;
 		try {
-			hapticFeedback.impactOccurred('light');
+			haptic.impact('light');
 		} catch {}
 		const nextOffset = offset() + limit;
 		setOffset(nextOffset);
@@ -67,7 +68,7 @@ export const OwnerAuditLog: Component = () => {
 	const copyToClipboard = (text: string) => {
 		navigator.clipboard.writeText(text);
 		try {
-			hapticFeedback.notificationOccurred('success');
+			haptic.notify('success');
 		} catch {}
 	};
 

@@ -1,10 +1,11 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
-import { backButton, hapticFeedback, openTelegramLink } from '@tma.js/sdk-solid';
+import { backButton, openTelegramLink } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { SubscriptionPackage, subscriptionApi } from '@/shared/api/bot-management.js';
 import { channelApi } from '@/shared/api/channel-management.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const ManagedChannelsPage: Component = () => {
 	const navigate = useNavigate();
@@ -32,9 +33,7 @@ export const ManagedChannelsPage: Component = () => {
 		setSelectedChan(channelId);
 		setPaymentStep('package');
 		setShowSubscription(true);
-		try {
-			hapticFeedback.impactOccurred('light');
-		} catch (_) {}
+		haptic.impact('light');
 	};
 
 	const handleSubscribeAirdrop = async () => {
@@ -43,18 +42,14 @@ export const ManagedChannelsPage: Component = () => {
 		setErrorMsg('');
 		try {
 			await subscriptionApi.subscribeChannelWithAirdrop(selectedChan(), selectedPkg());
-			try {
-				hapticFeedback.notificationOccurred('success');
-			} catch (_) {}
+			haptic.notify('success');
 			setSuccessMsg(t('botManage.subscriptionSuccess'));
 			setShowSubscription(false);
 			refetch();
 		} catch (e: any) {
 			const msg = e?.response?.data?.error || 'Payment failed';
 			setErrorMsg(msg);
-			try {
-				hapticFeedback.notificationOccurred('error');
-			} catch (_) {}
+			haptic.notify('error');
 		} finally {
 			setIsProcessing(false);
 			setTimeout(() => {
@@ -78,9 +73,7 @@ export const ManagedChannelsPage: Component = () => {
 				if (tg?.openInvoice) {
 					tg.openInvoice(res.invoice_link, (status: string) => {
 						if (status === 'paid') {
-							try {
-								hapticFeedback.notificationOccurred('success');
-							} catch (_) {}
+							haptic.notify('success');
 							setShowSubscription(false);
 							refetch();
 						}
@@ -92,9 +85,7 @@ export const ManagedChannelsPage: Component = () => {
 		} catch (e: any) {
 			const msg = e?.response?.data?.error || 'Failed to create invoice';
 			setErrorMsg(msg);
-			try {
-				hapticFeedback.notificationOccurred('error');
-			} catch (_) {}
+			haptic.notify('error');
 		} finally {
 			setIsProcessing(false);
 			setTimeout(() => {
@@ -124,15 +115,11 @@ export const ManagedChannelsPage: Component = () => {
 		setIsDeleting(true);
 		try {
 			await channelApi.disconnectChannel(channel.id);
-			try {
-				hapticFeedback.notificationOccurred('success');
-			} catch (_) {}
+			haptic.notify('success');
 			setChannelToDelete(null);
 			refetch();
 		} catch (_e: any) {
-			try {
-				hapticFeedback.notificationOccurred('error');
-			} catch (_) {}
+			haptic.notify('error');
 		} finally {
 			setIsDeleting(false);
 		}
@@ -141,9 +128,7 @@ export const ManagedChannelsPage: Component = () => {
 	onMount(() => {
 		backButton.show();
 		const off = backButton.onClick(() => {
-			try {
-				hapticFeedback.impactOccurred('light');
-			} catch (_) {}
+			haptic.impact('light');
 			navigate('/dashboard');
 		});
 		onCleanup(() => {
@@ -153,9 +138,7 @@ export const ManagedChannelsPage: Component = () => {
 	});
 
 	const handleConnectNew = () => {
-		try {
-			hapticFeedback.impactOccurred('medium');
-		} catch (_) {}
+		haptic.impact('medium');
 		navigate('/channel/connect');
 	};
 
@@ -171,9 +154,7 @@ export const ManagedChannelsPage: Component = () => {
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-30 border-b border-white/5 flex items-center gap-3.5 shadow-sm">
 				<button
 					onClick={() => {
-						try {
-							hapticFeedback.impactOccurred('light');
-						} catch (_) {}
+						haptic.impact('light');
 						navigate('/dashboard');
 					}}
 					class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
@@ -357,9 +338,7 @@ export const ManagedChannelsPage: Component = () => {
 											<Show when={channel.subscription_status !== 'expired'}>
 												<button
 													onClick={() => {
-														try {
-															hapticFeedback.impactOccurred('light');
-														} catch (_) {}
+														haptic.impact('light');
 														navigate(`/channel/${channel.id}`);
 													}}
 													class="flex-[1.5] h-12 rounded-[14px] text-[12px] uppercase tracking-widest font-black transition-all bg-[#08090D] text-white/80 border border-white/5 hover:border-white/20 hover:text-white shadow-sm active:scale-95"
@@ -385,9 +364,7 @@ export const ManagedChannelsPage: Component = () => {
 											<button
 												onClick={(e) => {
 													e.stopPropagation();
-													try {
-														hapticFeedback.impactOccurred('medium');
-													} catch (_) {}
+													haptic.impact('medium');
 													setChannelToDelete(channel);
 												}}
 												class="w-12 h-12 rounded-[14px] bg-transparent flex items-center justify-center border border-transparent hover:bg-[#ff4a4a]/10 hover:border-[#ff4a4a]/30 text-white/30 hover:text-[#ff4a4a] transition-all active:scale-95 shrink-0"
@@ -515,9 +492,7 @@ export const ManagedChannelsPage: Component = () => {
 											<button
 												onClick={() => {
 													setSelectedPkg(pkg.id);
-													try {
-														hapticFeedback.selectionChanged();
-													} catch (_) {}
+													haptic.selection();
 												}}
 												class={`w-full rounded-[24px] p-5 flex items-center justify-between border-2 transition-all active:scale-[0.98] relative overflow-hidden group ${
 													selectedPkg() === pkg.id
@@ -573,9 +548,7 @@ export const ManagedChannelsPage: Component = () => {
 
 								<button
 									onClick={() => {
-										try {
-											hapticFeedback.impactOccurred('medium');
-										} catch (_) {}
+										haptic.impact('medium');
 										setPaymentStep('method');
 									}}
 									disabled={!selectedPkg()}

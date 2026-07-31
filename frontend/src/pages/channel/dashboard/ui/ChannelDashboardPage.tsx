@@ -1,6 +1,6 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { channelApi } from '@/shared/api/channel-management.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
@@ -12,6 +12,7 @@ import { ForwardingLessonCard } from './lessons/ForwardingLessonCard.js';
 import { FunnelLessonCard } from './lessons/FunnelLessonCard.js';
 import { InlineButtonsLessonCard } from './lessons/InlineButtonsLessonCard.js';
 import { PostingLessonCard } from './lessons/PostingLessonCard.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const ChannelDashboardPage: Component = () => {
 	const params = useParams();
@@ -47,7 +48,7 @@ export const ChannelDashboardPage: Component = () => {
 	onMount(() => {
 		backButton.show();
 		const off = backButton.onClick(() => {
-			try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+			haptic.impact('light');
 			window.history.back();
 		});
 		const timer = setTimeout(() => setShowTooltip(false), 10000);
@@ -62,7 +63,7 @@ export const ChannelDashboardPage: Component = () => {
 	const handleMenuOpen = () => {
 		setIsMenuOpen(true);
 		setShowTooltip(false);
-		try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+		haptic.impact('light');
 	};
 
 	const learnedFeatures = () => {
@@ -91,7 +92,7 @@ export const ChannelDashboardPage: Component = () => {
 	};
 
 	const navigateWithFeedback = (path: string) => {
-		try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+		haptic.impact('light');
 		navigate(path);
 	};
 
@@ -105,7 +106,7 @@ export const ChannelDashboardPage: Component = () => {
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between shadow-sm">
 				<div class="flex items-center gap-3 overflow-hidden flex-1">
 					<button
-						onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} window.history.back(); }}
+						onClick={() => { haptic.impact('light'); window.history.back(); }}
 						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
 						aria-label={t('common.back')}
 					>
@@ -190,7 +191,7 @@ export const ChannelDashboardPage: Component = () => {
 							<For each={filteredFeatures()} fallback={<div class="p-4 text-[12px] text-white/40 text-center font-bold">{t('search.notFoundChannel')}</div>}>
 								{(feat) => (
 									<button
-										onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} setSearchQuery(''); navigate(feat.path); }}
+										onClick={() => { haptic.impact('light'); setSearchQuery(''); navigate(feat.path); }}
 										class="w-full p-3 rounded-[14px] bg-transparent hover:bg-white/10 flex items-center gap-3.5 text-right transition-all active:scale-95"
 									>
 										<div class="w-9 h-9 rounded-[10px] bg-[#3390ec]/10 flex items-center justify-center border border-[#3390ec]/20 shrink-0">

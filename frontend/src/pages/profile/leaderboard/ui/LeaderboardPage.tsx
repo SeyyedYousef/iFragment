@@ -1,10 +1,11 @@
 import { useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import { Component, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
 import { Clan, getLeaderboard, getProfileStats, getTopClans, LeaderboardMember } from '@/shared/api/profile.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { type LeaderboardEntry, LeaderboardShell } from '@/widgets/leaderboard/LeaderboardShell.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const LeaderboardPage: Component = () => {
 	const navigate = useNavigate();
@@ -71,7 +72,7 @@ export const LeaderboardPage: Component = () => {
 			backButton.show();
 			const off = backButton.onClick(() => {
 				try {
-					hapticFeedback.impactOccurred('light');
+					haptic.impact('light');
 				} catch {}
 				navigate('/profile');
 			});
@@ -103,7 +104,7 @@ export const LeaderboardPage: Component = () => {
 					activeScope={activeScope()}
 					onScopeChange={(s) => {
 						try {
-							hapticFeedback.selectionChanged();
+							haptic.selection();
 						} catch {}
 						setActiveScope(s);
 					}}
@@ -114,7 +115,7 @@ export const LeaderboardPage: Component = () => {
 					activePeriod={activePeriod()}
 					onPeriodChange={(p) => {
 						try {
-							hapticFeedback.selectionChanged();
+							haptic.selection();
 						} catch {}
 						setActivePeriod(p);
 					}}

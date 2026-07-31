@@ -1,6 +1,7 @@
-import { hapticFeedback } from '@tma.js/sdk-solid';
+
 import { Component, createSignal, For, onMount, Show } from 'solid-js';
 import { ownerApi, QuestItem } from '@/shared/api/owner.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const OwnerQuests: Component = () => {
 	const [quests, setQuests] = createSignal<QuestItem[]>([]);
@@ -42,7 +43,7 @@ export const OwnerQuests: Component = () => {
 
 	const openCreateModal = () => {
 		try {
-			hapticFeedback.impactOccurred('medium');
+			haptic.impact('medium');
 		} catch {}
 		setIsEditing(false);
 		setQuestId('');
@@ -64,7 +65,7 @@ export const OwnerQuests: Component = () => {
 
 	const openEditModal = (q: QuestItem) => {
 		try {
-			hapticFeedback.impactOccurred('medium');
+			haptic.impact('medium');
 		} catch {}
 		setIsEditing(true);
 		setQuestId(q.id);
@@ -110,7 +111,7 @@ export const OwnerQuests: Component = () => {
 				await ownerApi.createQuest(questData);
 			}
 			try {
-				hapticFeedback.notificationOccurred('success');
+				haptic.notify('success');
 			} catch {}
 			setIsModalOpen(false);
 			loadQuests();
@@ -126,7 +127,7 @@ export const OwnerQuests: Component = () => {
 		setLoading(true);
 		try {
 			await ownerApi.deleteQuest(id);
-			hapticFeedback.notificationOccurred('success');
+			haptic.notify('success');
 			loadQuests();
 		} catch (err: any) {
 			setErrorMsg(err.response?.data?.error || 'خطا در حذف مأموریت');

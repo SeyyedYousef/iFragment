@@ -1,7 +1,8 @@
 import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
-import { hapticFeedback } from '@tma.js/sdk-solid';
+
 import { Component, createSignal, For, Show } from 'solid-js';
 import { AdminDailyCombo, ownerApi } from '@/shared/api/owner.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const OwnerCombos: Component = () => {
 	const queryClient = useQueryClient();
@@ -28,7 +29,7 @@ export const OwnerCombos: Component = () => {
 			setWordInput('');
 			setStatusMsg({ type: 'success', text: 'کامبو روزانه با موفقیت ثبت شد.' });
 			try {
-				hapticFeedback.notificationOccurred('success');
+				haptic.notify('success');
 			} catch {}
 			setTimeout(() => setStatusMsg(null), 3000);
 		},
@@ -38,7 +39,7 @@ export const OwnerCombos: Component = () => {
 				text: err.response?.data?.error || 'خطا در ثبت کامبو روزانه.',
 			});
 			try {
-				hapticFeedback.notificationOccurred('error');
+				haptic.notify('error');
 			} catch {}
 		},
 	}));
@@ -49,7 +50,7 @@ export const OwnerCombos: Component = () => {
 			queryClient.invalidateQueries({ queryKey: ['admin-combos'] });
 			setStatusMsg({ type: 'success', text: 'کامبو روزانه حذف شد.' });
 			try {
-				hapticFeedback.notificationOccurred('success');
+				haptic.notify('success');
 			} catch {}
 			setTimeout(() => setStatusMsg(null), 3000);
 		},

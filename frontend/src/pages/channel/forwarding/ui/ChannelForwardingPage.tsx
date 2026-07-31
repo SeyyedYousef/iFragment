@@ -1,6 +1,6 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import {
 	Component,
 	createEffect,
@@ -18,6 +18,7 @@ import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SelectField, SettingsSection } from '@/shared/ui/settings-controls.js';
 import { showToast } from '@/shared/ui/toast.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 interface ContentTypes { text: boolean; photos: boolean; videos: boolean; files: boolean; voice: boolean; }
 interface ForwardRule { id: string; direction: 'inbound' | 'outbound'; targetType: 'telegram' | 'webhook'; target: string; mode: string; active: boolean; }
@@ -101,7 +102,7 @@ export const ChannelForwardingPage: Component = () => {
 	onMount(() => {
 		backButton.show();
 		const off = backButton.onClick(() => {
-			try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+			haptic.impact('light');
 			if (isCreating()) setIsCreating(false);
 			else navigate(`/channel/${params.id}`);
 		});
@@ -110,18 +111,18 @@ export const ChannelForwardingPage: Component = () => {
 
 	const handleVerify = async () => {
 		if (!targetChat().trim()) return;
-		try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
+		haptic.impact('medium');
 		setIsVerified(null);
 		try {
 			const result = await channelApi.verifyForwardingTarget(params.id, targetChat());
 			setVerifiedTargetId(result?.id ? String(result.id) : '');
 			setIsVerified(true);
-			try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+			haptic.notify('success');
 			showToast(t('channelForwarding.targetVerified'), 'success');
 		} catch (_err) {
 			setVerifiedTargetId('');
 			setIsVerified(false);
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 			showToast(t('channelForwarding.targetVerifyFailed'), 'error');
 		}
 	};
@@ -133,7 +134,7 @@ export const ChannelForwardingPage: Component = () => {
 		if (targetType() === 'webhook') {
 			if (direction() === 'inbound') {
 				showToast(t('channelForwarding.inboundWebhookUnavailable'), 'error');
-				try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+				haptic.notify('error');
 				return;
 			} else if (finalTarget.trim() && isVerified() === true) {
 				isReadyToSave = true;
@@ -155,13 +156,13 @@ export const ChannelForwardingPage: Component = () => {
 			try {
 				await channelApi.createForwardingRule(params.id, newRule);
 				refetchRules();
-				try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+				haptic.notify('success');
 				showToast(t('channelForwarding.ruleSaved'), 'success');
 				setIsCreating(false);
 				setTargetChat(''); setIsVerified(null); setVerifiedTargetId(''); setMode('forward'); setDelay('');
 			} catch (err) {
 				console.error('Failed to create rule:', err);
-				try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+				haptic.notify('error');
 				showToast(t('channelForwarding.ruleSaveFailed'), 'error');
 			}
 		} else {
@@ -170,7 +171,7 @@ export const ChannelForwardingPage: Component = () => {
 	};
 
 	const toggleContentType = (key: keyof ContentTypes) => {
-		try { hapticFeedback.selectionChanged(); } catch (_) {}
+		haptic.selection();
 		setContentTypes((prev) => ({ ...prev, [key]: !prev[key] }));
 	};
 
@@ -185,7 +186,7 @@ export const ChannelForwardingPage: Component = () => {
 				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
 						onClick={() => {
-							try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+							haptic.impact('light');
 							if (isCreating()) setIsCreating(false);
 							else navigate(`/channel/${params.id}`);
 						}}
@@ -249,7 +250,7 @@ export const ChannelForwardingPage: Component = () => {
 								onToggle={(v) => {
 									setIsForwardingEnabled(v);
 									localStorage.setItem(`forwarding_enabled_${params.id}`, String(v));
-									try { hapticFeedback.selectionChanged(); } catch (_) {}
+									haptic.selection();
 								}}
 							/>
 						</div>
@@ -269,7 +270,7 @@ export const ChannelForwardingPage: Component = () => {
 										{t('channelForwarding.noForwardingRulesDesc')}
 									</p>
 									<button
-										onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} setIsCreating(true); }}
+										onClick={() => { haptic.impact('light'); setIsCreating(true); }}
 										class="mt-4 w-full h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white font-black text-[13px] uppercase tracking-widest rounded-[16px] hover:from-[#2b7ec9] hover:to-[#3390ec] transition-all shadow-[0_10px_25px_rgba(51,144,236,0.3)] active:scale-95 border border-white/10"
 									>
 										{t('channelForwarding.createRule')}
@@ -313,7 +314,7 @@ export const ChannelForwardingPage: Component = () => {
 													<div class="flex items-center gap-2.5 shrink-0">
 														<button
 															onClick={async () => {
-																try { hapticFeedback.selectionChanged(); } catch (_) {}
+																haptic.selection();
 																try {
 																	const r = rulesData()?.find((x: any) => x.id === rule.id);
 																	if (r) {
@@ -322,7 +323,7 @@ export const ChannelForwardingPage: Component = () => {
 																		refetchRules();
 																	}
 																} catch (_err) {
-																	try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+																	haptic.notify('error');
 																	showToast(t('channelForwarding.toggleFailed'), 'error');
 																}
 															}}
@@ -336,12 +337,12 @@ export const ChannelForwardingPage: Component = () => {
 																const confirmed = await showConfirm(t('channelForwarding.deleteRuleConfirm'));
 																if (!confirmed) return;
 																try {
-																	try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
+																	haptic.impact('medium');
 																	await channelApi.deleteForwardingRule(params.id, rule.id);
 																	refetchRules();
 																	showToast(t('channelForwarding.ruleDeleted'), 'success');
 																} catch (_err) {
-																	try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+																	haptic.notify('error');
 																	showToast(t('channelForwarding.deleteRuleFailed'), 'error');
 																}
 															}}
@@ -357,7 +358,7 @@ export const ChannelForwardingPage: Component = () => {
 								</div>
 
 								<button
-									onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} setIsCreating(true); }}
+									onClick={() => { haptic.impact('light'); setIsCreating(true); }}
 									class="h-14 bg-white/5 text-white/60 hover:text-white hover:bg-white/10 font-black text-[12px] uppercase tracking-widest rounded-[16px] transition-all flex items-center justify-center gap-2 mt-1 border border-white/10 active:scale-95 shadow-sm"
 								>
 									<span class="material-symbols-outlined text-[20px]">add_circle</span>
@@ -408,13 +409,13 @@ export const ChannelForwardingPage: Component = () => {
 								<label class="text-[10px] font-black uppercase tracking-widest text-white/40 px-1">{t('channelForwarding.ruleDirection')}</label>
 								<div class="bg-[#08090D] p-1.5 rounded-[16px] flex border border-white/5 shadow-inner">
 									<button
-										onClick={() => { setDirection('outbound'); setIsVerified(null); setVerifiedTargetId(''); try { hapticFeedback.selectionChanged(); } catch (_) {} }}
+										onClick={() => { setDirection('outbound'); setIsVerified(null); setVerifiedTargetId(''); haptic.selection(); }}
 										class={`flex-1 h-10 text-[11px] font-black uppercase tracking-widest rounded-[12px] transition-all flex items-center justify-center gap-2 ${direction() === 'outbound' ? 'bg-[#3390ec] text-white shadow-sm' : 'text-white/40 hover:text-white'}`}
 									>
 										<span class="material-symbols-outlined text-[16px]">upload</span> {t('channelForwarding.outbound')}
 									</button>
 									<button
-										onClick={() => { setDirection('inbound'); setIsVerified(null); setVerifiedTargetId(''); try { hapticFeedback.selectionChanged(); } catch (_) {} }}
+										onClick={() => { setDirection('inbound'); setIsVerified(null); setVerifiedTargetId(''); haptic.selection(); }}
 										class={`flex-1 h-10 text-[11px] font-black uppercase tracking-widest rounded-[12px] transition-all flex items-center justify-center gap-2 ${direction() === 'inbound' ? 'bg-[#10b981] text-white shadow-sm' : 'text-white/40 hover:text-white'}`}
 									>
 										<span class="material-symbols-outlined text-[16px]">download</span> {t('channelForwarding.inbound')}
@@ -429,13 +430,13 @@ export const ChannelForwardingPage: Component = () => {
 								<label class="text-[10px] font-black uppercase tracking-widest text-white/40 px-1">{t('channelForwarding.integrationType')}</label>
 								<div class="bg-[#08090D] p-1.5 rounded-[16px] flex border border-white/5 shadow-inner">
 									<button
-										onClick={() => { setTargetType('telegram'); setIsVerified(null); setVerifiedTargetId(''); try { hapticFeedback.selectionChanged(); } catch (_) {} }}
+										onClick={() => { setTargetType('telegram'); setIsVerified(null); setVerifiedTargetId(''); haptic.selection(); }}
 										class={`flex-1 h-10 text-[11px] font-black uppercase tracking-widest rounded-[12px] transition-all flex items-center justify-center gap-2 ${targetType() === 'telegram' ? 'bg-white/10 text-white shadow-sm' : 'text-white/40 hover:text-white'}`}
 									>
 										<span class="material-symbols-outlined text-[16px]">telegram</span> {t('channelForwarding.telegram')}
 									</button>
 									<button
-										onClick={() => { setTargetType('webhook'); setIsVerified(null); setVerifiedTargetId(''); try { hapticFeedback.selectionChanged(); } catch (_) {} }}
+										onClick={() => { setTargetType('webhook'); setIsVerified(null); setVerifiedTargetId(''); haptic.selection(); }}
 										class={`flex-1 h-10 text-[11px] font-black uppercase tracking-widest rounded-[12px] transition-all flex items-center justify-center gap-2 ${targetType() === 'webhook' ? 'bg-white/10 text-white shadow-sm' : 'text-white/40 hover:text-white'}`}
 									>
 										<span class="material-symbols-outlined text-[16px]">webhook</span> {t('channelForwarding.webhookApi')}
@@ -501,7 +502,7 @@ export const ChannelForwardingPage: Component = () => {
 										/>
 										<button
 											onClick={() => {
-												try { hapticFeedback.selectionChanged(); } catch (_) {}
+												haptic.selection();
 												navigator.clipboard.writeText(inboundWebhookUrl());
 												showToast(t('common.copiedToClipboard'), 'success');
 											}}
@@ -522,7 +523,7 @@ export const ChannelForwardingPage: Component = () => {
 									<SelectField
 										label=""
 										value={mode()}
-										onChange={(v) => { try { hapticFeedback.selectionChanged(); } catch (_) {} setMode(v); }}
+										onChange={(v) => { haptic.selection(); setMode(v); }}
 										options={[
 											{ value: 'forward', label: t('channelForwarding.modeForwardLabel') },
 											{ value: 'copy', label: t('channelForwarding.modeCopyLabel') },
@@ -586,7 +587,7 @@ export const ChannelForwardingPage: Component = () => {
 
 						{/* MODULE 3: Advanced Options */}
 						<div class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] border border-white/5 flex flex-col shadow-sm transition-all">
-							<button onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} setShowAdvanced(!showAdvanced()); }} class="p-5 flex items-center justify-between w-full text-left focus:outline-none">
+							<button onClick={() => { haptic.impact('light'); setShowAdvanced(!showAdvanced()); }} class="p-5 flex items-center justify-between w-full text-left focus:outline-none">
 								<span class="text-[14px] font-black text-white flex items-center gap-2.5">
 									<span class="material-symbols-outlined text-white/40 text-[20px]">tune</span>
 									{t('channelForwarding.advancedMutators')}
@@ -597,11 +598,11 @@ export const ChannelForwardingPage: Component = () => {
 							<Show when={showAdvanced()}>
 								<div class="px-5 pb-5 flex flex-col gap-4 border-t border-white/5 pt-4">
 									<div class="bg-[#08090D] rounded-[20px] p-2 border border-white/5 shadow-inner flex flex-col gap-1">
-										<SettingsSection title={t('channelForwarding.removeAds')} description={t('channelForwarding.removeAdsDesc')} enabled={removeAds()} onToggle={(v) => { try { hapticFeedback.selectionChanged(); } catch (_) {} setRemoveAds(v); }} />
+										<SettingsSection title={t('channelForwarding.removeAds')} description={t('channelForwarding.removeAdsDesc')} enabled={removeAds()} onToggle={(v) => { haptic.selection(); setRemoveAds(v); }} />
 										<div class="h-[1px] bg-white/5 mx-4" />
-										<SettingsSection title={t('channelForwarding.removeHashtags')} description={t('channelForwarding.removeHashtagsDesc')} enabled={removeHashtags()} onToggle={(v) => { try { hapticFeedback.selectionChanged(); } catch (_) {} setRemoveHashtags(v); }} />
+										<SettingsSection title={t('channelForwarding.removeHashtags')} description={t('channelForwarding.removeHashtagsDesc')} enabled={removeHashtags()} onToggle={(v) => { haptic.selection(); setRemoveHashtags(v); }} />
 										<div class="h-[1px] bg-white/5 mx-4" />
-										<SettingsSection title={t('channelForwarding.removeLinks')} description={t('channelForwarding.removeLinksDesc')} enabled={removeLinks()} onToggle={(v) => { try { hapticFeedback.selectionChanged(); } catch (_) {} setRemoveLinks(v); }} />
+										<SettingsSection title={t('channelForwarding.removeLinks')} description={t('channelForwarding.removeLinksDesc')} enabled={removeLinks()} onToggle={(v) => { haptic.selection(); setRemoveLinks(v); }} />
 									</div>
 
 									<div class="flex flex-col gap-1.5 mt-2">
@@ -619,7 +620,7 @@ export const ChannelForwardingPage: Component = () => {
 
 						{/* Action Buttons */}
 						<div class="flex gap-3 mt-2">
-							<button onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} setIsCreating(false); }} class="flex-1 h-14 bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white rounded-[16px] font-black uppercase tracking-widest text-[13px] transition-all active:scale-95 shadow-sm">
+							<button onClick={() => { haptic.impact('light'); setIsCreating(false); }} class="flex-1 h-14 bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white rounded-[16px] font-black uppercase tracking-widest text-[13px] transition-all active:scale-95 shadow-sm">
 								{t('common.cancel')}
 							</button>
 							<button

@@ -1,6 +1,6 @@
 import { Motion } from '@motionone/solid';
 import { useParams } from '@solidjs/router';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { channelApi } from '@/shared/api/channel-management.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
@@ -8,6 +8,7 @@ import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SelectField } from '@/shared/ui/settings-controls.js';
 import { showToast } from '@/shared/ui/toast.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const ChannelAuditLogPage: Component = () => {
 	const params = useParams();
@@ -74,7 +75,7 @@ export const ChannelAuditLogPage: Component = () => {
 	const handleExport = (format: 'csv' | 'json') => {
 		const rows = filteredLogs();
 		if (rows.length === 0) {
-			try { hapticFeedback.notificationOccurred('warning'); } catch (_) {}
+			haptic.notify('warning');
 			showToast(t('channelAuditLog.noLogs'), 'info');
 			return;
 		}
@@ -97,14 +98,14 @@ export const ChannelAuditLogPage: Component = () => {
 		a.click();
 		document.body.removeChild(a);
 		URL.revokeObjectURL(url);
-		try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+		haptic.notify('success');
 		showToast(t('channelAuditLog.exported'), 'success');
 	};
 
 	onMount(() => {
 		backButton.show();
 		const off = backButton.onClick(() => {
-			try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+			haptic.impact('light');
 			window.history.back();
 		});
 		onCleanup(() => off());
@@ -120,7 +121,7 @@ export const ChannelAuditLogPage: Component = () => {
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm">
 				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
-						onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} window.history.back(); }}
+						onClick={() => { haptic.impact('light'); window.history.back(); }}
 						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
 						aria-label={t('common.back')}
 					>
@@ -168,7 +169,7 @@ export const ChannelAuditLogPage: Component = () => {
 							<SelectField
 								label={t('channelAuditLog.filterAction')}
 								value={actionFilter()}
-								onChange={(v) => { try { hapticFeedback.selectionChanged(); } catch (_) {} setActionFilter(v); }}
+								onChange={(v) => { haptic.selection(); setActionFilter(v); }}
 								options={[
 									{ value: 'all', label: t('channelAuditLog.allActions') },
 									{ value: 'delete', label: t('channelAuditLog.actDeleted') },

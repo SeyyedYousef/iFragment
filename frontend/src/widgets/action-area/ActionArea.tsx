@@ -1,10 +1,11 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
-import { hapticFeedback } from '@tma.js/sdk-solid';
+
 import { Component, createMemo, createSignal, For, Show } from 'solid-js';
 import { useUsernameSearch } from '@/entities/username/model/index.js';
 import { getRandomTrending } from '@/entities/username/model/trendingList.js';
 import { type DictPaths, t } from '@/shared/i18n/index.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 interface ActionAreaProps {
 	activeTab: 'username' | 'collectibles' | 'gifts';
@@ -59,12 +60,12 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 		if (analyzeState() !== 'idle' || !searchQuery() || searchError()) return;
 		if (validate(searchQuery(), props.activeTab)) {
 			try {
-				hapticFeedback.impactOccurred('medium');
+				haptic.impact('medium');
 			} catch {}
 			navigate(`/username/report?u=${searchQuery()}`);
 		} else {
 			try {
-				hapticFeedback.notificationOccurred('error');
+				haptic.notify('error');
 			} catch {}
 		}
 	};
@@ -180,7 +181,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 							<button
 								onClick={() => {
 									try {
-										hapticFeedback.impactOccurred('medium');
+										haptic.impact('medium');
 									} catch {}
 									props.onTabChange?.('username');
 									window.scrollTo({ top: 0, behavior: 'smooth' });

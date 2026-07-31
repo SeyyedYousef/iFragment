@@ -10,6 +10,7 @@ import { LeaderboardView } from './LeaderboardView.js';
 import { ShopView } from './ShopView.js';
 import { TapView } from './TapView.js';
 import { TasksView } from './TasksView.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 type AirdropTab = 'mine' | 'earn' | 'clan' | 'frens' | 'boost' | 'shop';
 
@@ -54,8 +55,8 @@ export const AirdropPage: Component = () => {
 
 	const handleTabChange = (tab: AirdropTab) => {
 		try {
-			const tgHaptic = typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.HapticFeedback;
-			if (tgHaptic) tgHaptic.selectionChanged();
+			
+			haptic.selection();
 		} catch (_) {}
 		setActiveTab(tab);
 	};

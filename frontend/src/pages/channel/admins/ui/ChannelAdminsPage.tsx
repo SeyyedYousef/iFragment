@@ -1,22 +1,21 @@
 import { Motion } from '@motionone/solid';
 import { useParams } from '@solidjs/router';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
 import {
 	Component,
 	createMemo,
 	createResource,
 	createSignal,
 	For,
-	onCleanup,
-	onMount,
 	Show,
 } from 'solid-js';
 import { channelApi } from '@/shared/api/channel-management.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
+import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
 import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { ToggleSwitch } from '@/shared/ui/settings-controls.js';
 import { showToast } from '@/shared/ui/toast.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const ChannelAdminsPage: Component = () => {
 	const params = useParams();
@@ -28,14 +27,7 @@ export const ChannelAdminsPage: Component = () => {
 
 	const [channelData] = createResource(() => params.id, (channelId) => channelApi.getChannel(channelId));
 
-	onMount(() => {
-		backButton.show();
-		const off = backButton.onClick(() => {
-			try { hapticFeedback.impactOccurred('light'); } catch (_) {}
-			window.history.back();
-		});
-		onCleanup(() => off());
-	});
+	useTelegramBackButton(-1);
 
 	const [adminsData, { refetch }] = createResource(() => params.id, (channelId) => channelApi.getAdmins(channelId));
 
@@ -44,14 +36,14 @@ export const ChannelAdminsPage: Component = () => {
 	const handleSync = async () => {
 		try {
 			setIsSyncing(true);
-			try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+			haptic.impact('light');
 			await channelApi.syncAdmins(params.id);
 			await refetch();
-			try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+			haptic.notify('success');
 			showToast(t('channelAdmins.syncSuccess'), 'success');
 		} catch (err) {
 			console.error(err);
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 			showToast(t('channelAdmins.syncFailed'), 'error');
 		} finally {
 			setIsSyncing(false);
@@ -108,7 +100,7 @@ export const ChannelAdminsPage: Component = () => {
 			});
 		}
 		setShowModal(true);
-		try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+		haptic.impact('light');
 	};
 
 	const [isSaving, setIsSaving] = createSignal(false);
@@ -118,13 +110,13 @@ export const ChannelAdminsPage: Component = () => {
 		try {
 			setIsSaving(true);
 			await channelApi.updateAdmin(params.id, editingAdmin().id, { custom_title: editingAdmin().customTitle, permissions: editingAdmin().perms });
-			try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+			haptic.notify('success');
 			setShowModal(false);
 			refetch();
 			showToast(t('channelAdmins.saveSuccess'), 'success');
 		} catch (err) {
 			console.error(err);
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 			showToast(t('channelAdmins.saveFailed'), 'error');
 		} finally {
 			setIsSaving(false);
@@ -141,7 +133,7 @@ export const ChannelAdminsPage: Component = () => {
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-30 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm">
 				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
-						onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} window.history.back(); }}
+						onClick={() => { haptic.impact('light'); window.history.back(); }}
 						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
 						aria-label={t('common.back')}
 					>

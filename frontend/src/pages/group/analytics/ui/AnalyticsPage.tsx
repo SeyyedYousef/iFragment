@@ -1,11 +1,12 @@
 import { Motion } from '@motionone/solid';
 import { useParams } from '@solidjs/router';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import type { DailyMetric } from '@/shared/api/bot-management.js';
 import { groupApi } from '@/shared/api/bot-management.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const AnalyticsPage: Component = () => {
 	const params = useParams();
@@ -25,7 +26,7 @@ export const AnalyticsPage: Component = () => {
 	onMount(() => {
 		backButton.show();
 		const off = backButton.onClick(() => {
-			try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+			haptic.impact('light');
 			window.history.back();
 		});
 		onCleanup(() => {
@@ -37,13 +38,13 @@ export const AnalyticsPage: Component = () => {
 	const changeDays = (d: number) => {
 		setDays(d);
 		setSelectedMetric(null);
-		try { hapticFeedback.selectionChanged(); } catch (_) {}
+		haptic.selection();
 	};
 
 	const downloadCSV = () => {
 		const d = data();
 		if (!d) return;
-		try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
+		haptic.impact('medium');
 
 		let csv = 'Date,Growth,Activity\n';
 		const maxLength = Math.max(d.growth.length, d.activity.length);
@@ -105,7 +106,7 @@ export const AnalyticsPage: Component = () => {
 							return (
 								<button
 									onClick={() => {
-										try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+										haptic.impact('light');
 										setSelectedMetric({ date: m.date, value: m.value, label });
 									}}
 									class="flex-1 flex flex-col items-center gap-1 group relative h-full justify-end outline-none"
@@ -168,7 +169,7 @@ export const AnalyticsPage: Component = () => {
 			<div class="px-5 pt-6 pb-4 sticky top-0 bg-[#030303]/80 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm">
 				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
-						onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} window.history.back(); }}
+						onClick={() => { haptic.impact('light'); window.history.back(); }}
 						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm"
 						aria-label={t('common.back')}
 					>

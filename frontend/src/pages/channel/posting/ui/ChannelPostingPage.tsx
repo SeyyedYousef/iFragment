@@ -1,27 +1,8 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
-import { backButton, hapticFeedback as nativeHaptic } from '@tma.js/sdk-solid';
-import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import { backButton } from '@tma.js/sdk-solid';
+import { Component, createResource, createSignal, onCleanup, onMount, For, Show } from 'solid-js';
 import { showConfirm } from '@/shared/lib/telegram-native.js';
-
-const hapticFeedback = {
-	impactOccurred: (style: any) => {
-		try {
-			nativeHaptic.impactOccurred(style);
-		} catch (_e) {}
-	},
-	notificationOccurred: (type: any) => {
-		try {
-			nativeHaptic.notificationOccurred(type);
-		} catch (_e) {}
-	},
-	selectionChanged: () => {
-		try {
-			nativeHaptic.selectionChanged();
-		} catch (_e) {}
-	},
-};
-
 import { createStore, reconcile, unwrap } from 'solid-js/store';
 import { channelApi } from '@/shared/api/channel-management.js';
 import { t } from '@/shared/i18n/index.js';
@@ -29,6 +10,7 @@ import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SettingsSection } from '@/shared/ui/settings-controls.js';
 import { showToast } from '@/shared/ui/toast.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 interface PostingConfig {
 	autoPostEnabled: boolean;
@@ -130,7 +112,7 @@ export const ChannelPostingPage: Component = () => {
 		backButton.show();
 		const off = backButton.onClick(async () => {
 			if (isDirty()) {
-				hapticFeedback.notificationOccurred('warning');
+				haptic.notify('warning');
 				const confirmDiscard = await showConfirm(
 					(t as any)('channelPosting.unsavedChangesConfirm') ||
 						'You have unsaved changes. Are you sure you want to exit?',
@@ -162,7 +144,7 @@ export const ChannelPostingPage: Component = () => {
 	const handleTestConnection = async () => {
 		if (!config.apiKey || connectionStatus() === 'testing') return;
 		setConnectionStatus('testing');
-		hapticFeedback.impactOccurred('medium');
+		haptic.impact('medium');
 
 		testAbortController?.abort();
 		testAbortController = new AbortController();
@@ -176,12 +158,12 @@ export const ChannelPostingPage: Component = () => {
 				customSkillPrompt: config.customSkillPrompt,
 			});
 			setConnectionStatus('success');
-			hapticFeedback.notificationOccurred('success');
+			haptic.notify('success');
 			showToast(t('channelPosting.connectionSuccess') || 'Connection successful!', 'success');
 		} catch (e: any) {
 			if (e.name === 'AbortError') return;
 			setConnectionStatus('failed');
-			hapticFeedback.notificationOccurred('error');
+			haptic.notify('error');
 			const errMsg =
 				e?.response?.data?.error ||
 				e?.response?.data?.message ||
@@ -207,7 +189,7 @@ export const ChannelPostingPage: Component = () => {
 
 		setIsGenerating(true);
 		setSimulatorOutput(t('channelPosting.simGenerating') || 'Generating content... ⏳');
-		hapticFeedback.impactOccurred('light');
+		haptic.impact('light');
 		try {
 			const text = await channelApi.simulateAIPost(params.id, textPrompt, action, {
 				aiProvider: config.aiProvider,
@@ -217,7 +199,7 @@ export const ChannelPostingPage: Component = () => {
 			});
 			if (text) {
 				setSimulatorOutput(text);
-				hapticFeedback.notificationOccurred('success');
+				haptic.notify('success');
 			}
 		} catch (e: any) {
 			if (e.name === 'AbortError') return;
@@ -227,13 +209,13 @@ export const ChannelPostingPage: Component = () => {
 					t('channelPosting.simSafetyBlocked') || '❌ Content blocked due to safety reasons.',
 					'error',
 				);
-				hapticFeedback.notificationOccurred('error');
+				haptic.notify('error');
 			} else {
 				showToast(
 					t('channelPosting.simError') || '❌ Failed to generate content. Try again.',
 					'error',
 				);
-				hapticFeedback.notificationOccurred('error');
+				haptic.notify('error');
 			}
 			console.error('Gemini generation failed:', e);
 		} finally {
@@ -253,11 +235,11 @@ export const ChannelPostingPage: Component = () => {
 			);
 			setSettingsVersion(result.version);
 			setIsDirty(false);
-			hapticFeedback.notificationOccurred('success');
+			haptic.notify('success');
 			showToast(t('common.settingsSaved') || 'Settings saved successfully', 'success');
 			navigate(`/channel/${params.id}`);
 		} catch (_e: any) {
-			hapticFeedback.notificationOccurred('error');
+			haptic.notify('error');
 			showToast(t('channelPosting.failedToSaveSettings'), 'error');
 		} finally {
 			setIsSaving(false);
@@ -271,7 +253,7 @@ export const ChannelPostingPage: Component = () => {
 				<div class="flex items-center gap-2 overflow-hidden flex-1">
 					<button
 						onClick={() => {
-							hapticFeedback.impactOccurred('light');
+							haptic.impact('light');
 							if (isDirty()) {
 								showConfirm(
 									(t as any)('channelPosting.unsavedChangesConfirm') ||
@@ -408,7 +390,7 @@ export const ChannelPostingPage: Component = () => {
 											type="button"
 											onClick={() => {
 												updateField('aiProvider', p.id);
-												hapticFeedback.selectionChanged();
+												haptic.selection();
 											}}
 											class={`shrink-0 px-3.5 py-2 rounded-xl text-[12px] font-bold border transition-all active:scale-95 flex items-center gap-1.5 ${
 												(config.aiProvider || 'gemini') === p.id
@@ -514,7 +496,7 @@ export const ChannelPostingPage: Component = () => {
 										<button
 											onClick={() => {
 												updateField('selectedSkill', sk.id);
-												hapticFeedback.selectionChanged();
+												haptic.selection();
 											}}
 											class={`px-3 py-1.5 rounded-lg text-[12px] font-bold flex items-center gap-1.5 transition-all ${
 												config.selectedSkill === sk.id

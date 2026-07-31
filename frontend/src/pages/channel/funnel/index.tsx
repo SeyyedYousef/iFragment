@@ -1,6 +1,6 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { channelApi } from '@/shared/api/channel-management.js';
 import { t } from '@/shared/i18n/index.js';
@@ -8,6 +8,7 @@ import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { FragmentPulse } from '@/shared/ui/FragmentPulse.js';
 import { showToast } from '@/shared/ui/toast.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const ChannelFunnelPage: Component = () => {
 	const params = useParams();
@@ -42,10 +43,10 @@ export const ChannelFunnelPage: Component = () => {
 	const handleCreateFunnel = async () => {
 		if (!selectedInputChannel()) return;
 		setIsSubmitting(true);
-		hapticFeedback.impactOccurred('medium');
+		haptic.impact('medium');
 		try {
 			await channelApi.createFunnel(params.id, selectedInputChannel(), inputIdentifier());
-			hapticFeedback.notificationOccurred('success');
+			haptic.notify('success');
 			showToast(t('channelFunnel.enabled') || 'قیف انتشار با موفقیت فعال شد', 'success');
 			mutateFunnel({
 				input_chat_id: Number(selectedInputChannel()),
@@ -53,7 +54,7 @@ export const ChannelFunnelPage: Component = () => {
 				is_active: true,
 			});
 		} catch (_error) {
-			hapticFeedback.notificationOccurred('error');
+			haptic.notify('error');
 			showToast(t('channelFunnel.enableError') || 'خطا در فعال‌سازی قیف انتشار', 'error');
 		} finally {
 			setIsSubmitting(false);
@@ -62,14 +63,14 @@ export const ChannelFunnelPage: Component = () => {
 
 	const handleDeleteFunnel = async () => {
 		setIsSubmitting(true);
-		hapticFeedback.impactOccurred('medium');
+		haptic.impact('medium');
 		try {
 			await channelApi.deleteFunnel(params.id);
-			hapticFeedback.notificationOccurred('success');
+			haptic.notify('success');
 			showToast(t('channelFunnel.disabled') || 'قیف انتشار غیرفعال گردید', 'success');
 			mutateFunnel(null);
 		} catch (_error) {
-			hapticFeedback.notificationOccurred('error');
+			haptic.notify('error');
 			showToast(t('channelFunnel.disableError') || 'خطا در غیرفعال‌سازی قیف', 'error');
 		} finally {
 			setIsSubmitting(false);
@@ -83,7 +84,7 @@ export const ChannelFunnelPage: Component = () => {
 				<div class="flex items-center gap-3">
 					<button
 						onClick={() => {
-							hapticFeedback.impactOccurred('light');
+							haptic.impact('light');
 							navigate(`/channel/${params.id}`);
 						}}
 						class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0"
@@ -102,7 +103,7 @@ export const ChannelFunnelPage: Component = () => {
 				</div>
 				<button
 					onClick={() => {
-						hapticFeedback.impactOccurred('light');
+						haptic.impact('light');
 						setIsMenuOpen(true);
 					}}
 					class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 shrink-0"

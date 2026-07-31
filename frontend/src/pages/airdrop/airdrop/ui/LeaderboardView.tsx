@@ -135,7 +135,7 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 								activeSubTab() === 'day' ? 'bg-[#3390ec] text-white shadow-md' : 'text-white/40 hover:text-white/70'
 							}`}
 						>
-							{t('airdropFinal.leaderboard.daily', 'DAILY')}
+							{t('airdropFinal.leaderboard.daily' as any, { defaultValue: 'DAILY' })}
 						</button>
 						<button
 							onClick={() => setActiveSubTab('week')}
@@ -143,7 +143,7 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 								activeSubTab() === 'week' ? 'bg-[#3390ec] text-white shadow-md' : 'text-white/40 hover:text-white/70'
 							}`}
 						>
-							{t('airdropFinal.leaderboard.weekly', 'WEEKLY')}
+							{t('airdropFinal.leaderboard.weekly' as any, { defaultValue: 'WEEKLY' })}
 						</button>
 					</div>
 				</div>

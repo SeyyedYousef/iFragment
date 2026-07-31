@@ -1,6 +1,6 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { channelApi } from '@/shared/api/channel-management.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
@@ -8,6 +8,7 @@ import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { FragmentPulse } from '@/shared/ui/FragmentPulse.js';
 import { showToast } from '@/shared/ui/toast.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const ChannelFunnelPage: Component = () => {
 	const params = useParams();
@@ -25,7 +26,7 @@ export const ChannelFunnelPage: Component = () => {
 	onMount(() => {
 		backButton.show();
 		const off = backButton.onClick(() => {
-			try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+			haptic.impact('light');
 			navigate(`/channel/${params.id}`);
 		});
 		onCleanup(() => { off(); backButton.hide(); });
@@ -34,14 +35,14 @@ export const ChannelFunnelPage: Component = () => {
 	const handleCreateFunnel = async () => {
 		if (!selectedInputChannel()) return;
 		setIsSubmitting(true);
-		try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
+		haptic.impact('medium');
 		try {
 			await channelApi.createFunnel(params.id, selectedInputChannel(), inputIdentifier());
-			try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+			haptic.notify('success');
 			showToast(t('channelFunnel.enabled'), 'success');
 			mutateFunnel({ input_chat_id: Number(selectedInputChannel()), output_chat_id: channel()?.chat_id, is_active: true });
 		} catch (_error) {
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 			showToast(t('channelFunnel.enableError'), 'error');
 		} finally {
 			setIsSubmitting(false);
@@ -50,14 +51,14 @@ export const ChannelFunnelPage: Component = () => {
 
 	const handleDeleteFunnel = async () => {
 		setIsSubmitting(true);
-		try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
+		haptic.impact('medium');
 		try {
 			await channelApi.deleteFunnel(params.id);
-			try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+			haptic.notify('success');
 			showToast(t('channelFunnel.disabled'), 'success');
 			mutateFunnel(null);
 		} catch (_error) {
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 			showToast(t('channelFunnel.disableError'), 'error');
 		} finally {
 			setIsSubmitting(false);
@@ -74,7 +75,7 @@ export const ChannelFunnelPage: Component = () => {
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between shadow-sm">
 				<div class="flex items-center gap-3 overflow-hidden flex-1">
 					<button
-						onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} navigate(`/channel/${params.id}`); }}
+						onClick={() => { haptic.impact('light'); navigate(`/channel/${params.id}`); }}
 						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
 						aria-label={t('common.back')}
 					>
@@ -91,7 +92,7 @@ export const ChannelFunnelPage: Component = () => {
 				</div>
 
 				<button
-					onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} setIsMenuOpen(true); }}
+					onClick={() => { haptic.impact('light'); setIsMenuOpen(true); }}
 					class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-colors shrink-0 shadow-sm text-white/80"
 					aria-label={t('common.toggle')}
 				>

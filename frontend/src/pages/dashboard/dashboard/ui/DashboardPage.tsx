@@ -1,10 +1,11 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
-import { hapticFeedback } from '@tma.js/sdk-solid';
+
 import { Component, createSignal, For, onMount, Show } from 'solid-js';
 import { apiClient } from '@/shared/api/axios.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { BottomNav } from '@/widgets/bottom-nav/index.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 interface DashboardAd {
 	id: string;
@@ -79,11 +80,11 @@ export const DashboardPage: Component = () => {
 								{(ad) => (
 									<a
 										href={ad.target} target="_blank" rel="noopener noreferrer"
-										onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch {} }}
+										onClick={() => { try { haptic.impact('light'); } catch {} }}
 										class="snap-center shrink-0 w-[88%] relative rounded-[24px] overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.5)] border border-white/10 active:scale-[0.98] transition-transform block group"
 									>
 										<div class="aspect-[21/9] w-full bg-[#08090D] relative overflow-hidden">
-											<img src={ad.image_url} alt={ad.title} class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+											<img loading="lazy" src={ad.image_url} alt={ad.title} class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
 											<div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
 											<div class="absolute bottom-3 left-3 bg-black/50 backdrop-blur-md px-2.5 py-1 rounded-[8px] text-[10px] text-white/90 font-black uppercase tracking-widest border border-white/10 shadow-sm">
 												AD
@@ -101,8 +102,8 @@ export const DashboardPage: Component = () => {
 						{/* Card 1: Group Management */}
 						<div
 							role="button" tabIndex={0}
-							onClick={() => { hapticFeedback.impactOccurred('medium'); navigate('/managed-bots'); }}
-							onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); hapticFeedback.impactOccurred('medium'); navigate('/managed-bots'); } }}
+							onClick={() => { haptic.impact('medium'); navigate('/managed-bots'); }}
+							onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); haptic.impact('medium'); navigate('/managed-bots'); } }}
 							class="w-full bg-[#08090D] rounded-[24px] p-4.5 border border-white/5 hover:border-[#3390ec]/40 shadow-sm hover:shadow-[0_8px_30px_rgba(51,144,236,0.15)] flex flex-col gap-4 relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-all duration-300 outline-none focus-visible:ring-2 focus-visible:ring-[#3390ec]/50"
 						>
 							<div class="absolute -right-10 -top-10 w-32 h-32 bg-[#3390ec]/10 rounded-full blur-3xl group-hover:bg-[#3390ec]/20 transition-all pointer-events-none" />
@@ -130,8 +131,8 @@ export const DashboardPage: Component = () => {
 						{/* Card 2: Channel Management */}
 						<div
 							role="button" tabIndex={0}
-							onClick={() => { hapticFeedback.impactOccurred('medium'); navigate('/managed-channels'); }}
-							onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); hapticFeedback.impactOccurred('medium'); navigate('/managed-channels'); } }}
+							onClick={() => { haptic.impact('medium'); navigate('/managed-channels'); }}
+							onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); haptic.impact('medium'); navigate('/managed-channels'); } }}
 							class="w-full bg-[#08090D] rounded-[24px] p-4.5 border border-white/5 hover:border-sky-400/40 shadow-sm hover:shadow-[0_8px_30px_rgba(14,165,233,0.15)] flex flex-col gap-4 relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-all duration-300 outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50"
 						>
 							<div class="absolute -right-10 -top-10 w-32 h-32 bg-sky-400/10 rounded-full blur-3xl group-hover:bg-sky-400/20 transition-all pointer-events-none" />

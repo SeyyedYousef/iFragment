@@ -1,6 +1,6 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { createStore, reconcile } from 'solid-js/store';
 import { channelApi } from '@/shared/api/channel-management.js';
@@ -10,6 +10,7 @@ import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SelectField, SettingsSection, ToggleSwitch } from '@/shared/ui/settings-controls.js';
 import { showToast } from '@/shared/ui/toast.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 interface ChannelConfig {
 	language: string; timezone: string; signMessages: boolean; customSignature: string; autoForward: boolean; forwardDestination: string; disableReactions: boolean; joinRequestsEnabled: boolean; approvePremium: boolean; approveGifts: boolean; approveCollectibles: boolean;
@@ -99,9 +100,9 @@ export const ChannelGeneralSettingsPage: Component = () => {
 	);
 
 	const handleBack = async () => {
-		try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+		haptic.impact('light');
 		if (isDirty()) {
-			try { hapticFeedback.notificationOccurred('warning'); } catch (_) {}
+			haptic.notify('warning');
 			const confirmDiscard = await showConfirm(
 				t('channelSettings.unsavedChangesConfirm'),
 			);
@@ -153,11 +154,11 @@ export const ChannelGeneralSettingsPage: Component = () => {
 			setSettingsVersion(freshSettings.version || 1);
 
 			setIsDirty(false);
-			try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+			haptic.notify('success');
 			showToast(t('common.settingsSaved'), 'success');
 			navigate(`/channel/${params.id}`);
 		} catch (e: any) {
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 			if (e.status === 409 || (e.response && e.response.status === 409)) {
 				showToast(t('channelSettings.concurrencyError'), 'error');
 			} else {
@@ -242,7 +243,7 @@ export const ChannelGeneralSettingsPage: Component = () => {
 											when={config.inputChannelPhotoUrl}
 											fallback={<span class="text-[28px] font-black text-[#3390ec] drop-shadow-md">{config.inputChannelName.charAt(0) || '?'}</span>}
 										>
-											<img src={config.inputChannelPhotoUrl} class="w-full h-full object-cover" alt="Avatar" />
+											<img loading="lazy" src={config.inputChannelPhotoUrl} class="w-full h-full object-cover" alt="Avatar" />
 										</Show>
 										<div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
 											<span class="material-symbols-outlined text-white text-[24px]">photo_camera</span>
@@ -256,7 +257,7 @@ export const ChannelGeneralSettingsPage: Component = () => {
 													reader.onload = (event) => {
 														if (event.target?.result) {
 															updateField('inputChannelPhotoUrl', event.target.result as string);
-															try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+															haptic.notify('success');
 														}
 													};
 													reader.readAsDataURL(file);
@@ -266,7 +267,7 @@ export const ChannelGeneralSettingsPage: Component = () => {
 									</div>
 									<Show when={config.inputChannelPhotoUrl}>
 										<button
-											onClick={() => { updateField('inputChannelPhotoUrl', ''); try { hapticFeedback.notificationOccurred('warning'); } catch (_) {} }}
+											onClick={() => { updateField('inputChannelPhotoUrl', ''); haptic.notify('warning'); }}
 											class="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-[#ff4a4a] text-white flex items-center justify-center hover:bg-[#ff3b30] active:scale-95 transition-all border-2 border-[#12141C] z-30 shadow-md"
 											title={t('common.delete')}
 										>
@@ -313,7 +314,7 @@ export const ChannelGeneralSettingsPage: Component = () => {
 										when={config.channelPhotoUrl}
 										fallback={<span class="text-[28px] font-black text-[#10b981] drop-shadow-md">{config.channelName.charAt(0) || '?'}</span>}
 									>
-										<img src={config.channelPhotoUrl} class="w-full h-full object-cover" alt="Avatar" />
+										<img loading="lazy" src={config.channelPhotoUrl} class="w-full h-full object-cover" alt="Avatar" />
 									</Show>
 									<div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
 										<span class="material-symbols-outlined text-white text-[24px]">photo_camera</span>
@@ -327,7 +328,7 @@ export const ChannelGeneralSettingsPage: Component = () => {
 												reader.onload = (event) => {
 													if (event.target?.result) {
 														updateField('channelPhotoUrl', event.target.result as string);
-														try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+														haptic.notify('success');
 													}
 												};
 												reader.readAsDataURL(file);
@@ -337,7 +338,7 @@ export const ChannelGeneralSettingsPage: Component = () => {
 								</div>
 								<Show when={config.channelPhotoUrl}>
 									<button
-										onClick={() => { updateField('channelPhotoUrl', ''); try { hapticFeedback.notificationOccurred('warning'); } catch (_) {} }}
+										onClick={() => { updateField('channelPhotoUrl', ''); haptic.notify('warning'); }}
 										class="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-[#ff4a4a] text-white flex items-center justify-center hover:bg-[#ff3b30] active:scale-95 transition-all border-2 border-[#12141C] z-30 shadow-md"
 										title={t('common.delete')}
 									>

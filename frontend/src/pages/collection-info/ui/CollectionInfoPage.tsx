@@ -1,9 +1,9 @@
-import { useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
-import { backButton } from '@tma.js/sdk-solid';
+
 import { Component, createMemo, For, Show } from 'solid-js';
 import { apiClient as api } from '@/shared/api/axios.js';
 import { t } from '@/shared/i18n/index.js';
+import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
 
 interface CollectionStats { stat_date: string; items_count: string; owners_count: string; floor_price: string; total_volume: string; }
 interface CollectionCategory { category_name: string; volume: string; }
@@ -11,10 +11,7 @@ interface CollectionAuction { item_name: string; price: string; status: string; 
 interface CollectionData { stats: CollectionStats | null; categories: CollectionCategory[]; auctions: CollectionAuction[]; top_sales: CollectionAuction[]; recent_activity: CollectionAuction[]; fear_greed_index: number; fear_greed_label: string; status?: string; }
 
 export const CollectionInfoPage: Component = () => {
-	const navigate = useNavigate();
-
-	backButton.show();
-	backButton.onClick(() => navigate(-1));
+	useTelegramBackButton(-1);
 
 	const query = createQuery(() => ({
 		queryKey: ['collectionStats'],

@@ -1,5 +1,6 @@
-import { hapticFeedback, retrieveLaunchParams } from '@tma.js/sdk-solid';
+import { retrieveLaunchParams } from '@tma.js/sdk-solid';
 import { createSignal, onCleanup } from 'solid-js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export function useSecretTrigger() {
 	const [tapCount, setTapCount] = createSignal(0);
@@ -30,7 +31,7 @@ export function useSecretTrigger() {
 		}
 
 		try {
-			hapticFeedback.impactOccurred('light');
+			haptic.impact('light');
 		} catch {}
 
 		setTapCount((c) => c + 1);
@@ -42,7 +43,7 @@ export function useSecretTrigger() {
 
 		if (tapCount() >= 5) {
 			try {
-				hapticFeedback.notificationOccurred('success');
+				haptic.notify('success');
 			} catch {}
 			setShowGate(true);
 			setTapCount(0);

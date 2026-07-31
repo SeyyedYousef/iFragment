@@ -1,6 +1,6 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { groupApi } from '@/shared/api/bot-management.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
@@ -13,6 +13,7 @@ import { GroupDynamicBioLessonCard } from './group-lessons/GroupDynamicBioLesson
 import { LimitsLessonCard } from './group-lessons/LimitsLessonCard.js';
 import { MandatoryLessonCard } from './group-lessons/MandatoryLessonCard.js';
 import { QuietHoursLessonCard } from './group-lessons/QuietHoursLessonCard.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const GroupDashboardPage: Component = () => {
 	const params = useParams();
@@ -54,7 +55,7 @@ export const GroupDashboardPage: Component = () => {
 	onMount(() => {
 		backButton.show();
 		const off = backButton.onClick(() => {
-			try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+			haptic.impact('light');
 			window.history.back();
 		});
 		const timer = setTimeout(() => setShowTooltip(false), 10000);
@@ -68,7 +69,7 @@ export const GroupDashboardPage: Component = () => {
 	const confirmToggleGroupLock = async () => {
 		if (isLocking() || !settings()) return;
 		const current = isGroupLocked();
-		try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
+		haptic.impact('medium');
 		setIsLocking(true);
 		setShowLockConfirm(false);
 		try {
@@ -76,10 +77,10 @@ export const GroupDashboardPage: Component = () => {
 			const res = await groupApi.updateSettings(params.id, 'quiet_hours', qh, settingsVersion());
 			if (res?.version) setSettingsVersion(res.version);
 			mutate((prev: any) => (prev ? { ...prev, quiet_hours: qh } : { quiet_hours: qh }));
-			try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+			haptic.notify('success');
 			showToast(current ? t('groupDashboard.unlockSuccess') : t('groupDashboard.lockSuccess'), 'success');
 		} catch (_e) {
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 			showToast(t('groupDashboard.lockError'), 'error');
 		} finally {
 			setIsLocking(false);
@@ -89,7 +90,7 @@ export const GroupDashboardPage: Component = () => {
 	const handleMenuOpen = () => {
 		setIsMenuOpen(true);
 		setShowTooltip(false);
-		try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+		haptic.impact('light');
 	};
 
 	const learnedFeatures = () => {
@@ -119,7 +120,7 @@ export const GroupDashboardPage: Component = () => {
 	};
 
 	const navigateWithFeedback = (path: string) => {
-		try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+		haptic.impact('light');
 		navigate(path);
 	};
 
@@ -133,7 +134,7 @@ export const GroupDashboardPage: Component = () => {
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between shadow-sm">
 				<div class="flex items-center gap-3 overflow-hidden flex-1">
 					<button
-						onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} window.history.back(); }}
+						onClick={() => { haptic.impact('light'); window.history.back(); }}
 						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm"
 						aria-label={t('common.back')}
 					>
@@ -148,8 +149,7 @@ export const GroupDashboardPage: Component = () => {
 								</span>
 							}
 						>
-							<img
-								src={group()?.photo_url}
+							<img loading="lazy" 								src={group()?.photo_url}
 								alt={group()?.chat_title || 'Group photo'}
 								class="w-full h-full object-cover"
 								onError={(e) => {
@@ -233,7 +233,7 @@ export const GroupDashboardPage: Component = () => {
 							<For each={filteredFeatures()} fallback={<div class="p-4 text-[12px] text-white/40 text-center font-bold">{t('search.notFoundGroup')}</div>}>
 								{(feat) => (
 									<button
-										onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} setSearchQuery(''); navigate(feat.path); }}
+										onClick={() => { haptic.impact('light'); setSearchQuery(''); navigate(feat.path); }}
 										class="w-full p-3 rounded-[14px] bg-transparent hover:bg-white/10 flex items-center gap-3.5 text-right transition-all active:scale-95"
 									>
 										<div class="w-9 h-9 rounded-[10px] bg-[#3390ec]/10 flex items-center justify-center border border-[#3390ec]/20 shrink-0">

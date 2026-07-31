@@ -21,6 +21,77 @@
     <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&family=Manrope:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=Vazirmatn:wght@400;500;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" rel="stylesheet">
 
+    <style>
+      /* ===== iFragment Splash Screen (Zero-JS, First Paint) ===== */
+      #app-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 24px;
+        background: radial-gradient(120% 80% at 50% 38%, #12151f 0%, #08090d 45%, #000000 100%);
+        opacity: 1;
+        transform: scale(1);
+        transition: opacity .45s cubic-bezier(.16,1,.3,1), transform .45s cubic-bezier(.16,1,.3,1);
+        will-change: opacity, transform;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      #app-splash.splash-hidden { opacity: 0; transform: scale(1.06); pointer-events: none; }
+
+      .splash-coin { position: relative; width: 148px; height: 148px; display: flex; align-items: center; justify-content: center; }
+
+      /* حلقه چرخان دور سکه — همان conic-gradient صفحه تپ */
+      .splash-ring {
+        position: absolute; inset: -14px; border-radius: 9999px;
+        background: conic-gradient(from 0deg, #ffffff55, transparent, #ffffff55, transparent, #ffffff55);
+        filter: blur(5px);
+        animation: splashSpin 6s linear infinite;
+      }
+      /* بدنه سکه */
+      .splash-disc {
+        position: relative; width: 148px; height: 148px; border-radius: 9999px;
+        background: #030303;
+        box-shadow: 0 0 0 1px rgba(255,255,255,.08), inset 0 0 40px rgba(255,255,255,.10), 0 25px 60px rgba(0,0,0,.95);
+        display: flex; align-items: center; justify-content: center;
+        animation: splashPop .6s cubic-bezier(.16,1,.3,1) both, splashBreath 4s ease-in-out 0.6s infinite;
+      }
+      .splash-mark { width: 48%; height: 48%; filter: drop-shadow(0 0 14px rgba(255,255,255,.5)); }
+
+      .splash-brand {
+        font-family: "Orbitron", "Exo 2", system-ui, sans-serif;
+        font-weight: 800; font-size: 19px; letter-spacing: .16em;
+        color: #ffffff; text-transform: uppercase;
+        opacity: 0; animation: splashFadeUp .5s ease-out .25s forwards;
+      }
+
+      .splash-bar {
+        width: 132px; height: 3px; border-radius: 9999px;
+        background: rgba(255,255,255,.08); overflow: hidden;
+        opacity: 0; animation: splashFadeUp .5s ease-out .4s forwards;
+      }
+      .splash-bar > i {
+        display: block; height: 100%; width: 40%; border-radius: 9999px;
+        background: linear-gradient(90deg, transparent, #3390ec, #ffffff, #3390ec, transparent);
+        animation: splashSweep 1.4s ease-in-out infinite;
+      }
+
+      @keyframes splashSpin  { to { transform: rotate(360deg); } }
+      @keyframes splashPop   { from { transform: scale(.82); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+      @keyframes splashBreath{ 0%,100% { transform: scale(1); } 50% { transform: scale(1.035); } }
+      @keyframes splashFadeUp{ from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+      @keyframes splashSweep { 0% { transform: translateX(-140%); } 100% { transform: translateX(340%); } }
+
+      /* احترام به تنظیمات دسترس‌پذیری کاربر */
+      @media (prefers-reduced-motion: reduce) {
+        .splash-ring, .splash-disc, .splash-bar > i { animation: none !important; }
+      }
+    </style>
+
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
       // Force Telegram WebApp header color as early as possible
@@ -31,9 +102,33 @@
         } catch(e) {}
       }
     </script>
+    <script>
+      // زمان شروع، برای محاسبه حداقل مدت نمایش splash
+      window.__SPLASH_START__ = Date.now();
+      // مکانیزم ایمنی: اگر باندل JS اصلاً لود نشد، بعد از ۱۲ ثانیه splash پاک شود
+      // تا کاربر پیام خطای موجود در index.tsx یا صفحه خالی را ببیند و بتواند رفرش کند.
+      setTimeout(function () {
+        var el = document.getElementById('app-splash');
+        if (el) el.classList.add('splash-hidden');
+      }, 12000);
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="app-splash" role="status" aria-label="Loading iFragment">
+      <div class="splash-coin">
+        <div class="splash-ring"></div>
+        <div class="splash-disc">
+          <svg class="splash-mark" viewBox="0 0 100 100" aria-hidden="true">
+            <path d="M 11 14 L 89 14 L 50 36 Z" fill="#ffffff" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
+            <path d="M 7 19 L 47 42 L 47 88 Z"  fill="#ffffff" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
+            <path d="M 93 19 L 53 42 L 53 88 Z" fill="#ffffff" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
+      <div class="splash-brand">iFragment</div>
+      <div class="splash-bar"><i></i></div>
+    </div>
     <div id="root"></div>
     <script src="/src/index.tsx" type="module"></script>
   </body>

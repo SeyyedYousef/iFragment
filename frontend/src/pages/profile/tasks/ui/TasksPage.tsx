@@ -1,11 +1,12 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
 import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
-import { backButton, hapticFeedback, openTelegramLink } from '@tma.js/sdk-solid';
+import { backButton, openTelegramLink } from '@tma.js/sdk-solid';
 import { Component, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { completeTask, getTasksStatus } from '@/shared/api/profile.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { SkeletonTask } from '@/shared/ui/Skeleton.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const TasksPage: Component = () => {
 	const navigate = useNavigate();
@@ -28,7 +29,7 @@ export const TasksPage: Component = () => {
 			queryClient.invalidateQueries({ queryKey: ['profile', 'tasks'] });
 			queryClient.invalidateQueries({ queryKey: ['profile', 'stats'] });
 			try {
-				hapticFeedback.notificationOccurred('success');
+				haptic.notify('success');
 			} catch {}
 			setMessage({
 				text: t('gamification.taskCompletedSuccess'),
@@ -37,7 +38,7 @@ export const TasksPage: Component = () => {
 		},
 		onError: (err: any) => {
 			try {
-				hapticFeedback.notificationOccurred('error');
+				haptic.notify('error');
 			} catch {}
 			setMessage({
 				text: err.message || t('gamification.taskVerifyFailed'),
@@ -54,7 +55,7 @@ export const TasksPage: Component = () => {
 			backButton.show();
 			const off = backButton.onClick(() => {
 				try {
-					hapticFeedback.impactOccurred('light');
+					haptic.impact('light');
 				} catch {}
 				navigate('/profile');
 			});
@@ -72,7 +73,7 @@ export const TasksPage: Component = () => {
 		const key = task.key;
 		try {
 			try {
-				hapticFeedback.impactOccurred('medium');
+				haptic.impact('medium');
 			} catch {}
 
 			// Quiz quest check: trigger input modal
@@ -145,7 +146,7 @@ export const TasksPage: Component = () => {
 					<button
 						onClick={() => {
 							try {
-								hapticFeedback.impactOccurred('light');
+								haptic.impact('light');
 							} catch {}
 							navigate('/profile');
 						}}

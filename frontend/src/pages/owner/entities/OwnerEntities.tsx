@@ -1,7 +1,8 @@
-import { hapticFeedback } from '@tma.js/sdk-solid';
+
 import { Component, createSignal, For, onMount, Show } from 'solid-js';
 import { OwnerEntityItem, ownerApi } from '@/shared/api/owner.js';
 import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const OwnerEntities: Component = () => {
 	const [channels, setChannels] = createSignal<OwnerEntityItem[]>([]);
@@ -46,13 +47,13 @@ export const OwnerEntities: Component = () => {
 		setCreditLoading(true);
 		try {
 			await ownerApi.addEntityCredit(entity.id, creditAmount(), reason);
-			hapticFeedback.notificationOccurred('success');
+			haptic.notify('success');
 			setShowCreditModal(false);
 			fetchData();
 		} catch (e: any) {
 			setError(e.response?.data?.error || 'خطا در افزایش اعتبار موجودیت');
 			try {
-				hapticFeedback.notificationOccurred('error');
+				haptic.notify('error');
 			} catch {}
 		} finally {
 			setCreditLoading(false);

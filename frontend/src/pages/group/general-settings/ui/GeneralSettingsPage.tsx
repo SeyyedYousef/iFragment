@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from '@solidjs/router';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { createStore, reconcile } from 'solid-js/store';
 import { groupApi } from '@/shared/api/bot-management.js';
@@ -8,6 +8,7 @@ import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 import { SelectField, SettingsSection, ToggleSwitch } from '@/shared/ui/settings-controls.js';
 import { showToast } from '@/shared/ui/toast.js';
 import { UnsavedChangesSheet } from '@/shared/ui/UnsavedChangesSheet.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 interface GeneralConfig { language: string; timezone: string; welcomeMessage: boolean; warningMessage: boolean; autoDeleteBot: boolean; autoDeleteDelay: number; trackAdmin: boolean; verifyMembers: boolean; publicCommands: boolean; hideJoinLeave: boolean; defaultPenalty: string; autoWarning: boolean; warningThreshold: number; warningRetention: number; warningFinalPenalty: string; casEnabled: boolean; antiRaidThreshold: number; antiRaidAction: string; botEnabled: boolean; ephemeralAll: boolean; ephemeralWelcome: boolean; ephemeralWarnings: boolean; ephemeralCaptcha: boolean; ephemeralAdminCmd: boolean; }
 
@@ -52,18 +53,18 @@ export const GeneralSettingsPage: Component = () => {
 
 	const handleSave = async () => {
 		if (!isDirty()) return;
-		try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
+		haptic.impact('medium');
 		setIsSaving(true);
 		try {
 			const result = await groupApi.updateSettings(params.id, 'general', config as any, settingsVersion());
 			setSettingsVersion(result.version);
 			setIsDirty(false);
 			setShowUnsavedSheet(false);
-			try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+			haptic.notify('success');
 			showToast(t('common.settingsSaved'), 'success');
 			navigate(`/group/${params.id}`);
 		} catch (_e: any) {
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 			showToast(t('common.errorUpdateFailed'), 'error');
 		} finally {
 			setIsSaving(false);
@@ -86,7 +87,7 @@ export const GeneralSettingsPage: Component = () => {
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm">
 				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
-						onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} handleBack(); }}
+						onClick={() => { haptic.impact('light'); handleBack(); }}
 						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm"
 						aria-label={t('common.back')}
 					>

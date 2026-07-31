@@ -1,5 +1,5 @@
 import { createQuery } from '@tanstack/solid-query';
-import { hapticFeedback, openTelegramLink } from '@tma.js/sdk-solid';
+import { openTelegramLink } from '@tma.js/sdk-solid';
 import { Component, createSignal, For, Show } from 'solid-js';
 import {
 	claimDailyCombo,
@@ -11,6 +11,7 @@ import {
 } from '@/shared/api/profile.js';
 import { t } from '@/shared/i18n/index.js';
 import { syncProfileStats } from '@/shared/store/airdrop.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const TasksView: Component = () => {
 	const [taskErrors, setTaskErrors] = createSignal<Record<string, string>>({});
@@ -42,9 +43,7 @@ export const TasksView: Component = () => {
 
 		setTaskErrors((prev) => ({ ...prev, [key]: '' }));
 
-		try {
-			hapticFeedback.impactOccurred('medium');
-		} catch (_) {}
+		haptic.impact('medium');
 
 		if (task.type === 'quiz') {
 			setActiveQuizTask(task);
@@ -88,7 +87,7 @@ export const TasksView: Component = () => {
 		try {
 			const result = await completeTask(key);
 			if (result) {
-				try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+				haptic.notify('success');
 				tasksQuery.refetch();
 				await syncProfileStats();
 			} else {
@@ -108,7 +107,7 @@ export const TasksView: Component = () => {
 				else if (msg.includes('network') || msg.includes('fetch')) errorMessage = t('airdrop.tasks.errors.network') || 'Network error.';
 			}
 			setTaskErrors((prev) => ({ ...prev, [key]: errorMessage }));
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 		} finally {
 			setLoadingKeys((prev) => ({ ...prev, [key]: false }));
 		}
@@ -132,7 +131,7 @@ export const TasksView: Component = () => {
 		try {
 			const result = await completeTask(key, answer);
 			if (result) {
-				try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+				haptic.notify('success');
 				tasksQuery.refetch();
 				await syncProfileStats();
 				setActiveQuizTask(null);
@@ -149,7 +148,7 @@ export const TasksView: Component = () => {
 				else errorMessage = e.message;
 			}
 			setQuizError(errorMessage);
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 		} finally {
 			setLoadingKeys((prev) => ({ ...prev, [key]: false }));
 		}
@@ -169,7 +168,7 @@ export const TasksView: Component = () => {
 		try {
 			const success = await claimDailyCombo(answer);
 			if (success) {
-				try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+				haptic.notify('success');
 				comboQuery.refetch();
 				await syncProfileStats();
 				setComboInput('');
@@ -184,7 +183,7 @@ export const TasksView: Component = () => {
 				else errorMessage = e.message;
 			}
 			setComboError(errorMessage);
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 		} finally {
 			setIsSubmittingCombo(false);
 		}

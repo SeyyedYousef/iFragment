@@ -1,11 +1,12 @@
 import { useNavigate } from '@solidjs/router';
-import { hapticFeedback } from '@tma.js/sdk-solid';
+
 import { Component } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 const handleNavigate = (navigate: ReturnType<typeof useNavigate>, path: string) => {
 	try {
-		hapticFeedback.impactOccurred('light');
+		haptic.impact('light');
 	} catch {}
 	navigate(path);
 };

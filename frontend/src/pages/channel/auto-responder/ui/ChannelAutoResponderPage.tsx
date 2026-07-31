@@ -1,6 +1,6 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import {
 	Component,
 	createEffect,
@@ -18,6 +18,7 @@ import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SelectField, SettingsSection, ToggleSwitch } from '@/shared/ui/settings-controls.js';
 import { showToast } from '@/shared/ui/toast.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 interface AutoResponderRule {
 	id: string;
@@ -155,7 +156,7 @@ export const ChannelAutoResponderPage: Component = () => {
 
 	const handleSaveRule = () => {
 		if (keywords().trim() && replyText().trim()) {
-			try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+			haptic.notify('success');
 			setRules([
 				...rules(),
 				{
@@ -177,14 +178,14 @@ export const ChannelAutoResponderPage: Component = () => {
 
 	const handleAddRotatingText = () => {
 		if (newRotatingText().trim()) {
-			try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+			haptic.impact('light');
 			setRotatingTexts([...rotatingTexts(), newRotatingText().trim()]);
 			setNewRotatingText('');
 		}
 	};
 
 	const handleRemoveRotatingText = (idx: number) => {
-		try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+		haptic.impact('light');
 		setRotatingTexts(rotatingTexts().filter((_, i) => i !== idx));
 	};
 
@@ -207,12 +208,12 @@ export const ChannelAutoResponderPage: Component = () => {
 
 		try {
 			await channelApi.updateSettings(params.id, 'auto_responder', payload, currentVersion);
-			try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+			haptic.notify('success');
 			showToast(t('common.settingsSaved'), 'success');
 			navigate(`/channel/${params.id}`);
 		} catch (e) {
 			console.error('Failed to save auto responder settings:', e);
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 			showToast(t('common.saveFailed'), 'error');
 		} finally {
 			setIsSaving(false);
@@ -222,7 +223,7 @@ export const ChannelAutoResponderPage: Component = () => {
 	onMount(() => {
 		backButton.show();
 		const off = backButton.onClick(() => {
-			try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+			haptic.impact('light');
 			if (isCreating()) {
 				setIsCreating(false);
 			} else {
@@ -243,7 +244,7 @@ export const ChannelAutoResponderPage: Component = () => {
 				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
 						onClick={() => {
-							try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+							haptic.impact('light');
 							if (isCreating()) setIsCreating(false);
 							else navigate(`/channel/${params.id}`);
 						}}
@@ -296,7 +297,7 @@ export const ChannelAutoResponderPage: Component = () => {
 							<span class="text-[11px] font-medium text-white/50 mt-1">{t('channelAutoResponder.engineSub')}</span>
 						</div>
 						<div class="relative z-10">
-							<ToggleSwitch checked={enabled()} onChange={(v) => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} setEnabled(v); }} />
+							<ToggleSwitch checked={enabled()} onChange={(v) => { haptic.impact('light'); setEnabled(v); }} />
 						</div>
 					</Motion.div>
 
@@ -348,7 +349,7 @@ export const ChannelAutoResponderPage: Component = () => {
 										title={t('channelAutoResponder.firstComment')}
 										description={t('channelAutoResponder.firstCommentDesc')}
 										enabled={autoFirstComment()}
-										onToggle={(v) => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} setAutoFirstComment(v); }}
+										onToggle={(v) => { haptic.impact('light'); setAutoFirstComment(v); }}
 									/>
 
 									<Show when={autoFirstComment()}>
@@ -357,7 +358,7 @@ export const ChannelAutoResponderPage: Component = () => {
 												<SelectField
 													label={t('channelAutoResponder.firstCommentMode')}
 													value={commentMode()}
-													onChange={(v) => { try { hapticFeedback.selectionChanged(); } catch (_) {} setCommentMode(v); }}
+													onChange={(v) => { haptic.selection(); setCommentMode(v); }}
 													options={[
 														{ value: 'fixed', label: t('channelAutoResponder.modeFixed') },
 														{ value: 'rotating', label: t('channelAutoResponder.modeRotating') },
@@ -422,7 +423,7 @@ export const ChannelAutoResponderPage: Component = () => {
 													<SelectField
 														label={t('channelAutoResponder.attachInlineBtn')}
 														value={attachButton()}
-														onChange={(v) => { try { hapticFeedback.selectionChanged(); } catch (_) {} setAttachButton(v); }}
+														onChange={(v) => { haptic.selection(); setAttachButton(v); }}
 														options={[
 															{ value: '', label: t('channelAutoResponder.btnNone') },
 															{ value: 'like_set', label: t('channelAutoResponder.btnLikeSet') },
@@ -441,7 +442,7 @@ export const ChannelAutoResponderPage: Component = () => {
 										title={t('channelAutoResponder.welcomeMessage')}
 										description={t('channelAutoResponder.welcomeMessageDesc')}
 										enabled={newMemberWelcome()}
-										onToggle={(v) => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} setNewMemberWelcome(v); }}
+										onToggle={(v) => { haptic.impact('light'); setNewMemberWelcome(v); }}
 									/>
 									<Show when={newMemberWelcome()}>
 										<div class="flex flex-col gap-4 pt-4 border-t border-white/5 relative z-10">
@@ -512,7 +513,7 @@ export const ChannelAutoResponderPage: Component = () => {
 														<button
 															onClick={() => {
 																if (confirm(t('channelAutoResponder.deleteRuleConfirm'))) {
-																	try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
+																	haptic.impact('medium');
 																	setRules(rules().filter((r) => r.id !== rule.id));
 																}
 															}}
@@ -527,7 +528,7 @@ export const ChannelAutoResponderPage: Component = () => {
 									</Show>
 									
 									<button
-										onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} setIsCreating(true); }}
+										onClick={() => { haptic.impact('light'); setIsCreating(true); }}
 										class="mt-2 h-14 bg-white/5 border border-white/10 hover:border-[#3390ec]/50 hover:bg-[#3390ec]/10 text-white/60 hover:text-[#3390ec] font-black uppercase tracking-widest text-[12px] rounded-[16px] transition-all flex items-center justify-center gap-2 active:scale-95"
 									>
 										<span class="material-symbols-outlined text-[22px]">add_circle</span>
@@ -546,7 +547,7 @@ export const ChannelAutoResponderPage: Component = () => {
 										<span class="material-symbols-outlined text-[#3390ec] text-[20px]">add_task</span>
 										{t('channelAutoResponder.addRule')}
 									</h2>
-									<ToggleSwitch checked={isRuleEnabled()} onChange={(v) => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} setIsRuleEnabled(v); }} />
+									<ToggleSwitch checked={isRuleEnabled()} onChange={(v) => { haptic.impact('light'); setIsRuleEnabled(v); }} />
 								</div>
 
 								<div class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] border border-white/5 p-5 flex flex-col gap-5 shadow-sm">
@@ -566,7 +567,7 @@ export const ChannelAutoResponderPage: Component = () => {
 										<SelectField
 											label={t('channelAutoResponder.matchType')}
 											value={matchType()}
-											onChange={(v) => { try { hapticFeedback.selectionChanged(); } catch (_) {} setMatchType(v); }}
+											onChange={(v) => { haptic.selection(); setMatchType(v); }}
 											options={[
 												{ value: 'exact', label: t('channelAutoResponder.matchExact') },
 												{ value: 'contains', label: t('channelAutoResponder.matchContains') },
@@ -598,12 +599,12 @@ export const ChannelAutoResponderPage: Component = () => {
 												{t('channelAutoResponder.useAiDesc')}
 											</span>
 										</div>
-										<ToggleSwitch checked={useAi()} onChange={(v) => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} setUseAi(v); }} />
+										<ToggleSwitch checked={useAi()} onChange={(v) => { haptic.impact('light'); setUseAi(v); }} />
 									</div>
 								</div>
 
 								<div class="flex gap-3 mt-1">
-									<button onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} setIsCreating(false); }} class="flex-1 h-14 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-[16px] font-black uppercase tracking-widest text-[13px] transition-all border border-transparent hover:border-white/10 active:scale-95">
+									<button onClick={() => { haptic.impact('light'); setIsCreating(false); }} class="flex-1 h-14 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-[16px] font-black uppercase tracking-widest text-[13px] transition-all border border-transparent hover:border-white/10 active:scale-95">
 										{t('common.cancel')}
 									</button>
 									<button onClick={handleSaveRule} disabled={!keywords().trim() || !replyText().trim()} class="flex-[2] h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] hover:from-[#2b7ec9] hover:to-[#3390ec] text-white rounded-[16px] font-black uppercase tracking-widest text-[13px] shadow-[0_8px_20px_rgba(51,144,236,0.3)] transition-all disabled:opacity-50 disabled:scale-100 active:scale-95 border border-white/10">
@@ -621,7 +622,7 @@ export const ChannelAutoResponderPage: Component = () => {
 				<div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#030303] via-[#030303]/90 to-transparent z-40 pointer-events-none">
 					<div class="max-w-md mx-auto flex gap-3 pointer-events-auto">
 						<button
-							onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} navigate(`/channel/${params.id}`); }} disabled={isSaving()}
+							onClick={() => { haptic.impact('light'); navigate(`/channel/${params.id}`); }} disabled={isSaving()}
 							class="w-16 h-14 bg-[#12141C]/80 backdrop-blur-md text-[#ff4a4a] border border-[#ff4a4a]/20 rounded-[16px] transition-all flex items-center justify-center hover:bg-[#ff4a4a]/10 active:scale-95 shadow-sm"
 						>
 							<span class="material-symbols-outlined text-[24px]">close</span>

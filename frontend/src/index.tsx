@@ -7,6 +7,7 @@ import { init } from '@/app/init.js';
 import { Root } from '@/app/Root.js';
 import { bootstrapAuth } from '@/shared/api/axios.js';
 import { ErrorBoundary } from '@/shared/ui/ErrorBoundary.js';
+import { hideSplash } from '@/shared/lib/splash.js';
 
 import './app/styles/index.css';
 
@@ -141,6 +142,12 @@ async function startApp() {
 			),
 			root,
 		);
+
+		// 6. Hide splash — دو rAF پشت سر هم تضمین می‌کند اولین فریم واقعی
+		//    اپ روی صفحه نقاشی شده باشد و کاربر بین splash و UI، فلش سیاه نبیند.
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => hideSplash());
+		});
 	} catch (e) {
 		console.error('Startup Error:', e);
 		// P0-F1: Use DOM API instead of innerHTML to prevent XSS from error messages
@@ -164,6 +171,7 @@ async function startApp() {
 
 		errorContainer.append(title, msg, btn);
 		root.replaceChildren(errorContainer);
+		hideSplash(true); // فوری، چون کاربر باید پیام خطا و دکمه Reload را ببیند
 	}
 }
 

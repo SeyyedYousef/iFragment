@@ -1,8 +1,9 @@
 import { useNavigate } from '@solidjs/router';
-import { hapticFeedback, retrieveLaunchParams } from '@tma.js/sdk-solid';
+import { retrieveLaunchParams } from '@tma.js/sdk-solid';
 import { Component, createEffect, createSignal, onCleanup, Show } from 'solid-js';
 import { apiClient } from '@/shared/api/axios.js';
 import { t } from '@/shared/i18n/index.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 interface OwnerGateModalProps {
 	isOpen: boolean;
@@ -50,7 +51,7 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 		setLoading(true);
 
 		try {
-			hapticFeedback.impactOccurred('medium');
+			haptic.impact('medium');
 		} catch {}
 
 		let tgUser: any;
@@ -86,7 +87,7 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 			const { token } = resp.data;
 			if (token) {
 				try {
-					hapticFeedback.notificationOccurred('success');
+					haptic.notify('success');
 				} catch {}
 				sessionStorage.setItem('owner_token', token);
 				if (tgUser?.id) {
@@ -100,7 +101,7 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 			}
 		} catch (err: any) {
 			try {
-				hapticFeedback.notificationOccurred('error');
+				haptic.notify('error');
 			} catch {}
 			setErrorMsg(
 				err.response?.data?.error ||

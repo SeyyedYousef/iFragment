@@ -342,8 +342,7 @@ export const TapView: Component<{
 														</div>
 													}
 												>
-													<img
-														src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`}
+													<img loading="lazy" 														src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`}
 														alt={clan().chat_title}
 														class="w-full h-full object-cover"
 													/>

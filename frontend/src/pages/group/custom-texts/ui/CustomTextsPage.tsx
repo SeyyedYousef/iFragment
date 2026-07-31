@@ -1,6 +1,6 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show, Suspense } from 'solid-js';
 import { createStore, reconcile } from 'solid-js/store';
 import { groupApi } from '@/shared/api/bot-management.js';
@@ -8,6 +8,7 @@ import { t } from '@/shared/i18n/index.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 import { InlineButtonField } from '@/shared/ui/settings-controls.js';
 import { showToast } from '@/shared/ui/toast.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 interface CustomTextsConfig { welcomeText: string; warningText: string; silenceStartText: string; silenceEndText: string; rulesText: string; forceJoinText: string; forceAddText: string; inlineButtons: { id: string; title: string; url: string }[]; }
 
@@ -44,7 +45,7 @@ export const CustomTextsPage: Component = () => {
 
 	onMount(() => {
 		backButton.show();
-		const off = backButton.onClick(() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} window.history.back(); });
+		const off = backButton.onClick(() => { haptic.impact('light'); window.history.back(); });
 		onCleanup(() => off());
 	});
 
@@ -52,7 +53,7 @@ export const CustomTextsPage: Component = () => {
 
 	const handleSave = async () => {
 		if (!isDirty()) return;
-		try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+		haptic.notify('success');
 		setIsSaving(true);
 		try {
 			const result = await groupApi.updateSettings(params.id, 'custom_texts', cfg as any, settingsVersion());
@@ -63,7 +64,7 @@ export const CustomTextsPage: Component = () => {
 			backButton.hide();
 		} catch (_e) {
 			showToast(t('error.title'), 'error');
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 		} finally {
 			setIsSaving(false);
 		}
@@ -78,7 +79,7 @@ export const CustomTextsPage: Component = () => {
 			{/* ═══════ PREMIUM STICKY HEADER ═══════ */}
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm">
 				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
-					<button onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} window.history.back(); }} class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm">
+					<button onClick={() => { haptic.impact('light'); window.history.back(); }} class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm">
 						<span class="material-symbols-outlined text-white/80 text-[22px] rtl:-scale-x-100">arrow_back</span>
 					</button>
 					<div class="flex flex-col overflow-hidden">

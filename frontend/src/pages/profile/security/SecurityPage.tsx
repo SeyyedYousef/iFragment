@@ -1,5 +1,5 @@
 import { Motion } from '@motionone/solid';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import { Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { deleteAccountGDPR } from '@/shared/api/profile.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
@@ -10,6 +10,7 @@ import {
 	showConfirm,
 } from '@/shared/lib/telegram-native.js';
 import { profileSettings, updateSetting } from '@/shared/store/profile.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const SecurityPage: Component = () => {
 	const [biometricsAvailable, setBiometricsAvailable] = createSignal(false);
@@ -18,7 +19,7 @@ export const SecurityPage: Component = () => {
 		backButton.show();
 		const off = backButton.onClick(() => {
 			try {
-				hapticFeedback.impactOccurred('light');
+				haptic.impact('light');
 			} catch {}
 			window.history.back();
 		});
@@ -45,7 +46,7 @@ export const SecurityPage: Component = () => {
 
 	const handleToggleBiometrics = async () => {
 		try {
-			hapticFeedback.impactOccurred('medium');
+			haptic.impact('medium');
 		} catch {}
 
 		if (!biometricsAvailable()) {
@@ -61,7 +62,7 @@ export const SecurityPage: Component = () => {
 			if (accessGranted) {
 				updateSetting('biometricEnabled', true);
 				try {
-					hapticFeedback.notificationOccurred('success');
+					haptic.notify('success');
 				} catch {}
 			} else {
 				updateSetting('biometricEnabled', false);
@@ -73,7 +74,7 @@ export const SecurityPage: Component = () => {
 
 	const handleDeleteAccount = async () => {
 		try {
-			hapticFeedback.notificationOccurred('warning');
+			haptic.notify('warning');
 		} catch {}
 		const confirmed = await showConfirm(t('security.deleteConfirm'));
 		if (!confirmed) return;
@@ -84,7 +85,7 @@ export const SecurityPage: Component = () => {
 
 			// 2. Local cleanup
 			try {
-				hapticFeedback.notificationOccurred('success');
+				haptic.notify('success');
 			} catch {}
 			const profileKeys = ['profile-settings', 'kyc_verified', 'profile-cache'];
 			profileKeys.forEach((k) => localStorage.removeItem(k));
@@ -92,7 +93,7 @@ export const SecurityPage: Component = () => {
 			window.location.reload();
 		} catch (e: any) {
 			try {
-				hapticFeedback.notificationOccurred('error');
+				haptic.notify('error');
 			} catch {}
 			await showAlert(t('security.deleteFailed', { error: e?.message || 'unknown error' }));
 		}
@@ -111,7 +112,7 @@ export const SecurityPage: Component = () => {
 				<button
 					onClick={() => {
 						try {
-							hapticFeedback.impactOccurred('light');
+							haptic.impact('light');
 						} catch {}
 						window.history.back();
 					}}

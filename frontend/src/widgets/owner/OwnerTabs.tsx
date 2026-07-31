@@ -1,6 +1,7 @@
 import { useNavigate } from '@solidjs/router';
-import { hapticFeedback } from '@tma.js/sdk-solid';
+
 import { Component, For, onMount } from 'solid-js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export type OwnerTabId =
 	| 'dashboard'
@@ -56,7 +57,7 @@ export const OwnerTabs: Component<OwnerTabsProps> = (props) => {
 
 	const handleNav = (path: string) => {
 		try {
-			hapticFeedback.impactOccurred('light');
+			haptic.impact('light');
 		} catch {}
 		navigate(path);
 	};

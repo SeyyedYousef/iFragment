@@ -1,7 +1,8 @@
 import { useNavigate } from '@solidjs/router';
-import { hapticFeedback } from '@tma.js/sdk-solid';
+
 import { Component, createSignal, For, onMount, Show } from 'solid-js';
 import { apiClient } from '@/shared/api/axios.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 interface DashboardStats {
 	dau: number;
@@ -70,7 +71,7 @@ export const OwnerDashboard: Component = () => {
 				err.response?.data?.error || 'خطا در دریافت آمارهای داشبورد. عدم دسترسی احراز هویت.',
 			);
 			try {
-				hapticFeedback.notificationOccurred('error');
+				haptic.notify('error');
 			} catch {}
 		} finally {
 			setLoading(false);
@@ -83,7 +84,7 @@ export const OwnerDashboard: Component = () => {
 
 	const handleNav = (path: string) => {
 		try {
-			hapticFeedback.impactOccurred('light');
+			haptic.impact('light');
 		} catch {}
 		navigate(path);
 	};

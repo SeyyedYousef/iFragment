@@ -1,7 +1,8 @@
-import { hapticFeedback } from '@tma.js/sdk-solid';
+
 import { Component, createSignal, For, onMount, Show } from 'solid-js';
 import { ownerApi, PromoCode } from '@/shared/api/owner.js';
 import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const OwnerPromos: Component = () => {
 	const [promos, setPromos] = createSignal<PromoCode[]>([]);
@@ -66,13 +67,13 @@ export const OwnerPromos: Component = () => {
 			setNewCode('');
 			fetchPromos();
 			try {
-				hapticFeedback.notificationOccurred('success');
+				haptic.notify('success');
 			} catch {}
 			setTimeout(() => setSuccessMsg(''), 4000);
 		} catch (e: any) {
 			setError(e.response?.data?.error || 'خطا در ایجاد کد هدیه');
 			try {
-				hapticFeedback.notificationOccurred('error');
+				haptic.notify('error');
 			} catch {}
 		} finally {
 			setCreating(false);
@@ -88,7 +89,7 @@ export const OwnerPromos: Component = () => {
 			setDeletingPromo(null);
 			fetchPromos();
 			try {
-				hapticFeedback.notificationOccurred('success');
+				haptic.notify('success');
 			} catch {}
 			setTimeout(() => setSuccessMsg(''), 3000);
 		} catch (e: any) {
@@ -99,7 +100,7 @@ export const OwnerPromos: Component = () => {
 	const copyToClipboard = (text: string) => {
 		navigator.clipboard.writeText(text);
 		try {
-			hapticFeedback.notificationOccurred('success');
+			haptic.notify('success');
 		} catch {}
 	};
 

@@ -1,10 +1,11 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import type { ManagedBot } from '@/shared/api/bot-management.js';
 import { botApi } from '@/shared/api/bot-management.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const ManagedBotsPage: Component = () => {
 	const navigate = useNavigate();
@@ -20,7 +21,7 @@ export const ManagedBotsPage: Component = () => {
 	onMount(() => {
 		backButton.show();
 		const off = backButton.onClick(() => {
-			try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+			haptic.impact('light');
 			if (showCreateModal()) setShowCreateModal(false);
 			else navigate('/dashboard');
 		});
@@ -31,13 +32,13 @@ export const ManagedBotsPage: Component = () => {
 		const token = botToken().trim();
 		if (!token) {
 			setErrorMsg(t('managedBots.tokenRequired'));
-			try { hapticFeedback.notificationOccurred('warning'); } catch (_) {}
+			haptic.notify('warning');
 			return;
 		}
 
 		if (!/^\d+:[A-Za-z0-9_-]+$/.test(token)) {
 			setErrorMsg(t('managedBots.tokenInvalidFormat'));
-			try { hapticFeedback.notificationOccurred('warning'); } catch (_) {}
+			haptic.notify('warning');
 			return;
 		}
 
@@ -55,14 +56,14 @@ export const ManagedBotsPage: Component = () => {
 				bot_id: botIdNum,
 			});
 
-			try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+			haptic.notify('success');
 			setBotToken('');
 			setShowCreateModal(false);
 			refetch();
 		} catch (e: any) {
 			const msg = e?.response?.data?.error || t('managedBots.registerFailed');
 			setErrorMsg(msg);
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 		} finally {
 			setIsCreating(false);
 		}
@@ -75,11 +76,11 @@ export const ManagedBotsPage: Component = () => {
 		setIsDeleting(true);
 		try {
 			await botApi.revokeBot(bot.id);
-			try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+			haptic.notify('success');
 			setBotToDelete(null);
 			refetch();
 		} catch (_e: any) {
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 		} finally {
 			setIsDeleting(false);
 		}
@@ -94,7 +95,7 @@ export const ManagedBotsPage: Component = () => {
 			{/* ═══════ PREMIUM STICKY HEADER ═══════ */}
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-30 border-b border-white/5 flex items-center gap-3.5 shadow-sm">
 				<button
-					onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} navigate('/dashboard'); }}
+					onClick={() => { haptic.impact('light'); navigate('/dashboard'); }}
 					class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
 					aria-label={t('common.back')}
 				>
@@ -115,7 +116,7 @@ export const ManagedBotsPage: Component = () => {
 				{/* ═══════ CREATE BOT HERO BUTTON ═══════ */}
 				<Motion.button
 					initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, easing: [0.32, 0.72, 0, 1] }}
-					onClick={() => { try { hapticFeedback.impactOccurred('medium'); } catch (_) {} setShowCreateModal(true); }}
+					onClick={() => { haptic.impact('medium'); setShowCreateModal(true); }}
 					class="w-full group relative overflow-hidden rounded-[24px] p-[1.5px] bg-gradient-to-br from-[#3390ec] via-[#3390ec] to-[#2b7bc9] shadow-[0_15px_35px_rgba(51,144,236,0.25)] active:scale-95 transition-all text-left"
 				>
 					<div class="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -197,7 +198,7 @@ export const ManagedBotsPage: Component = () => {
 
 							<button
 								onClick={() => {
-									try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
+									haptic.impact('medium');
 									const link = 'https://t.me/BotFather';
 									try { if ((window as any).Telegram?.WebApp?.openTelegramLink) (window as any).Telegram.WebApp.openTelegramLink(link); else window.open(link, '_blank'); }
 									catch (_) { window.open(link, '_blank'); }
@@ -215,7 +216,7 @@ export const ManagedBotsPage: Component = () => {
 							{(bot: ManagedBot, index) => (
 								<Motion.div
 									initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: index() * 0.08, easing: [0.32, 0.72, 0, 1] }}
-									onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} navigate(`/bot/${bot.id}/manage`); }}
+									onClick={() => { haptic.impact('light'); navigate(`/bot/${bot.id}/manage`); }}
 									class="bg-[#12141C]/80 backdrop-blur-xl rounded-[20px] border border-white/5 p-4 flex items-center gap-4 hover:border-[#3390ec]/30 transition-all cursor-pointer active:scale-[0.98] shadow-sm group"
 								>
 									<div class={`w-14 h-14 rounded-[16px] flex items-center justify-center shrink-0 relative overflow-hidden shadow-inner ${bot.status === 'active' ? 'bg-[#3390ec]/15 border border-[#3390ec]/30' : 'bg-[#08090D] border border-white/10'}`}>
@@ -235,7 +236,7 @@ export const ManagedBotsPage: Component = () => {
 
 									<div class="flex items-center gap-1.5 shrink-0">
 										<button
-											onClick={(e) => { e.stopPropagation(); try { hapticFeedback.impactOccurred('medium'); } catch (_) {} setBotToDelete(bot); }}
+											onClick={(e) => { e.stopPropagation(); haptic.impact('medium'); setBotToDelete(bot); }}
 											class="w-10 h-10 rounded-[12px] flex items-center justify-center bg-transparent hover:bg-[#ff4a4a]/10 text-white/20 hover:text-[#ff4a4a] transition-colors border border-transparent hover:border-[#ff4a4a]/20"
 											aria-label={t('managedBots.delete')}
 										>

@@ -1,6 +1,6 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import {
 	Component,
 	createEffect,
@@ -16,6 +16,7 @@ import { isRtl, t } from '@/shared/i18n/index.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 import { SelectField, ToggleSwitch } from '@/shared/ui/settings-controls.js';
 import { showToast } from '@/shared/ui/toast.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const GroupDynamicBioPage: Component = () => {
 	const params = useParams();
@@ -83,7 +84,7 @@ export const GroupDynamicBioPage: Component = () => {
 	];
 
 	const handleSave = async () => {
-		try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
+		haptic.impact('medium');
 		setIsSaving(true);
 
 		const payload = {
@@ -104,12 +105,12 @@ export const GroupDynamicBioPage: Component = () => {
 			if (res?.version) setSettingsVersion(res.version);
 			mutate((prev: any) => (prev ? { ...prev, dynamic_bio: payload } : { dynamic_bio: payload }));
 
-			try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+			haptic.notify('success');
 			showToast(t('common.settingsSaved'), 'success');
 			navigate(`/group/${params.id}`);
 		} catch (e) {
 			console.error('Failed to save dynamic bio settings:', e);
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 			showToast(t('common.saveFailed'), 'error');
 		} finally {
 			setIsSaving(false);
@@ -119,7 +120,7 @@ export const GroupDynamicBioPage: Component = () => {
 	onMount(() => {
 		backButton.show();
 		const off = backButton.onClick(() => {
-			try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+			haptic.impact('light');
 			navigate(`/group/${params.id}`);
 		});
 		onCleanup(() => off());
@@ -135,7 +136,7 @@ export const GroupDynamicBioPage: Component = () => {
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm">
 				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
-						onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} navigate(`/group/${params.id}`); }}
+						onClick={() => { haptic.impact('light'); navigate(`/group/${params.id}`); }}
 						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm"
 						aria-label={t('common.back')}
 					>
@@ -205,7 +206,7 @@ export const GroupDynamicBioPage: Component = () => {
 									{t('channelDynamicBio.subtitle2')}
 								</span>
 							</div>
-							<ToggleSwitch checked={enabled()} onChange={(v) => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} setEnabled(v); }} />
+							<ToggleSwitch checked={enabled()} onChange={(v) => { haptic.impact('light'); setEnabled(v); }} />
 						</div>
 
 						{/* Guide Banner */}
@@ -269,7 +270,7 @@ export const GroupDynamicBioPage: Component = () => {
 										<span class="text-[13px] font-bold text-white tracking-tight">{t('channelDynamicBio.displayInName')}</span>
 										<span class="text-[11px] font-medium text-white/50 mt-0.5">{t('channelDynamicBio.displayInNameDesc')}</span>
 									</div>
-									<ToggleSwitch checked={displayInName()} onChange={(v) => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} setDisplayInName(v); }} />
+									<ToggleSwitch checked={displayInName()} onChange={(v) => { haptic.impact('light'); setDisplayInName(v); }} />
 								</div>
 
 								<Show when={displayInName()}>
@@ -297,7 +298,7 @@ export const GroupDynamicBioPage: Component = () => {
 										{(v) => (
 											<button
 												onClick={() => {
-													try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+													haptic.impact('light');
 													if (bioTemplate().length + v.tag.length <= 255) {
 														setBioTemplate(`${bioTemplate()} ${v.tag}`);
 													}

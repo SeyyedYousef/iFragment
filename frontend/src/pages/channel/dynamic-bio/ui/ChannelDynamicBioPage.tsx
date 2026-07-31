@@ -1,6 +1,6 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import {
 	Component,
 	createEffect,
@@ -17,6 +17,7 @@ import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
 import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SelectField, ToggleSwitch } from '@/shared/ui/settings-controls.js';
 import { showToast } from '@/shared/ui/toast.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const ChannelDynamicBioPage: Component = () => {
 	const params = useParams();
@@ -73,7 +74,7 @@ export const ChannelDynamicBioPage: Component = () => {
 	onMount(async () => {
 		backButton.show();
 		const off = backButton.onClick(() => {
-			try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+			haptic.impact('light');
 			navigate(`/channel/${params.id}`);
 		});
 
@@ -99,7 +100,7 @@ export const ChannelDynamicBioPage: Component = () => {
 	];
 
 	const handleSave = async () => {
-		try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
+		haptic.impact('medium');
 		setIsSaving(true);
 
 		const currentVersion = settingsQuery.data?.version ?? 1;
@@ -117,12 +118,12 @@ export const ChannelDynamicBioPage: Component = () => {
 				data: payload,
 				version: currentVersion,
 			});
-			try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+			haptic.notify('success');
 			showToast(t('common.settingsSaved'), 'success');
 			navigate(`/channel/${params.id}`);
 		} catch (e) {
 			console.error('Failed to save dynamic bio settings:', e);
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 			showToast(t('common.saveFailed'), 'error');
 		} finally {
 			setIsSaving(false);
@@ -139,7 +140,7 @@ export const ChannelDynamicBioPage: Component = () => {
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm">
 				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
-						onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} navigate(`/channel/${params.id}`); }}
+						onClick={() => { haptic.impact('light'); navigate(`/channel/${params.id}`); }}
 						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
 						aria-label={t('common.back')}
 					>
@@ -206,7 +207,7 @@ export const ChannelDynamicBioPage: Component = () => {
 									{t('channelDynamicBio.subtitle2')}
 								</span>
 							</div>
-							<ToggleSwitch checked={enabled()} onChange={(v) => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} setEnabled(v); }} />
+							<ToggleSwitch checked={enabled()} onChange={(v) => { haptic.impact('light'); setEnabled(v); }} />
 						</div>
 
 						<Show when={!enabled()}>
@@ -270,7 +271,7 @@ export const ChannelDynamicBioPage: Component = () => {
 										<span class="text-[13px] font-bold text-white tracking-tight">{t('channelDynamicBio.displayName')}</span>
 										<span class="text-[11px] font-medium text-white/50 mt-0.5">{t('channelDynamicBio.displayInNameDesc')}</span>
 									</div>
-									<ToggleSwitch checked={displayInName()} onChange={(v) => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} setDisplayInName(v); }} />
+									<ToggleSwitch checked={displayInName()} onChange={(v) => { haptic.impact('light'); setDisplayInName(v); }} />
 								</div>
 
 								<Show when={displayInName()}>
@@ -295,7 +296,7 @@ export const ChannelDynamicBioPage: Component = () => {
 										{(v) => (
 											<button
 												onClick={() => {
-													try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+													haptic.impact('light');
 													if (bioTemplate().length + v.tag.length <= 255) {
 														setBioTemplate(`${bioTemplate()} ${v.tag}`);
 													}
@@ -317,7 +318,7 @@ export const ChannelDynamicBioPage: Component = () => {
 								<SelectField
 									label={t('channelDynamicBio.updateInterval')}
 									value={interval()}
-									onChange={(v) => { try { hapticFeedback.selectionChanged(); } catch (_) {} setIntervalVal(v); }}
+									onChange={(v) => { haptic.selection(); setIntervalVal(v); }}
 									options={[
 										{ value: '10m', label: t('channelDynamicBio.interval10m') },
 										{ value: '30m', label: t('channelDynamicBio.interval30m') },

@@ -1,7 +1,8 @@
-import { hapticFeedback } from '@tma.js/sdk-solid';
+
 import { Component, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { ManagedUserbot, ownerApi } from '@/shared/api/owner.js';
 import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const OwnerUserbot: Component = () => {
 	const [phone, setPhone] = createSignal('');
@@ -67,7 +68,7 @@ export const OwnerUserbot: Component = () => {
 		try {
 			setLoading(true);
 			setErrorMsg('');
-			hapticFeedback.impactOccurred('light');
+			haptic.impact('light');
 
 			const resp = await ownerApi.sendUserbotCode(rawPhone);
 			setPhoneCodeHash(resp.phone_code_hash);
@@ -89,7 +90,7 @@ export const OwnerUserbot: Component = () => {
 		try {
 			setLoading(true);
 			setErrorMsg('');
-			hapticFeedback.impactOccurred('light');
+			haptic.impact('light');
 
 			await ownerApi.verifyUserbotCode(
 				phone().trim(),
@@ -117,7 +118,7 @@ export const OwnerUserbot: Component = () => {
 		if (!id) return;
 		try {
 			await ownerApi.deleteUserbot(id);
-			hapticFeedback.notificationOccurred('success');
+			haptic.notify('success');
 			setDeletingBotId(null);
 			loadUserbots();
 		} catch (err: any) {

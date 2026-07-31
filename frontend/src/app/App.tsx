@@ -4,6 +4,7 @@ import { retrieveLaunchParams } from '@tma.js/sdk-solid';
 import { createEffect, ErrorBoundary, For } from 'solid-js';
 import { routes } from '@/app/router/routes.js';
 import { t } from '@/shared/i18n/index.js';
+import { PageTransition } from '@/shared/ui/PageTransition.js';
 import { ImpersonationBanner } from '@/widgets/owner/ImpersonationBanner.js';
 
 const PageErrorFallback = (err: any, reset: () => void) => {
@@ -32,7 +33,9 @@ const RouteWrapper = (props: { component: any; [key: string]: any }) => {
 	return (
 		<ErrorBoundary fallback={(err, reset) => PageErrorFallback(err, reset)}>
 			<ImpersonationBanner />
-			<props.component {...props} />
+			<PageTransition>
+				<props.component {...props} />
+			</PageTransition>
 		</ErrorBoundary>
 	);
 };

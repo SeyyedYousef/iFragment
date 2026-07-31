@@ -1,10 +1,11 @@
 import { createQuery } from '@tanstack/solid-query';
-import { hapticFeedback } from '@tma.js/sdk-solid';
+
 import { Component, createSignal, For, Show } from 'solid-js';
 import { getReferralInfo } from '@/shared/api/profile.js';
 import { PROFILE_CONFIG } from '@/shared/config/profile.js';
 import { formatCoins, formatNumber, t } from '@/shared/i18n/index.js';
 import { openTelegramLink } from '@/shared/lib/telegram-native.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const FrensView: Component = () => {
 	const [copied, setCopied] = createSignal(false);
@@ -43,7 +44,7 @@ export const FrensView: Component = () => {
 	const handleInvite = () => {
 		const fullLink = getReferralLink();
 		try {
-			hapticFeedback.impactOccurred('medium');
+			haptic.impact('medium');
 		} catch {}
 		openTelegramLink(
 			`https://t.me/share/url?url=${encodeURIComponent(fullLink)}&text=${encodeURIComponent('Join me on iFragment and earn free Coins! 🟡')}`,
@@ -56,7 +57,7 @@ export const FrensView: Component = () => {
 			await navigator.clipboard.writeText(fullLink);
 			setCopied(true);
 			try {
-				hapticFeedback.notificationOccurred('success');
+				haptic.notify('success');
 			} catch {}
 			setTimeout(() => setCopied(false), 2000);
 		} catch {
@@ -191,8 +192,7 @@ export const FrensView: Component = () => {
 														  isTop3 ? 'bg-orange-400/10 border-orange-400/30 text-orange-400' : 'bg-[#08090D] border-white/10 text-white/80'}`
 													}>
 														<span class="absolute">{friend.name.slice(0, 2).toUpperCase()}</span>
-														<img
-															src={`/api/v1/profile/avatar/${friend.id}`}
+														<img loading="lazy" 															src={`/api/v1/profile/avatar/${friend.id}`}
 															alt={friend.name}
 															class="w-full h-full object-cover relative z-10"
 															onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}

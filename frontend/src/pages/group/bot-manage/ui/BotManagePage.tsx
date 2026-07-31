@@ -1,11 +1,12 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
-import { backButton, hapticFeedback, openTelegramLink } from '@tma.js/sdk-solid';
+import { backButton, openTelegramLink } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import type { ManagedGroup, SubscriptionPackage } from '@/shared/api/bot-management.js';
 import { botApi, groupApi, subscriptionApi } from '@/shared/api/bot-management.js';
 import { channelApi } from '@/shared/api/channel-management.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 const GroupAvatar: Component<{ photoUrl?: string; title?: string; sizeClass?: string; textClass?: string }> = (props) => {
 	const [imgFailed, setImgFailed] = createSignal(false);
@@ -17,8 +18,7 @@ const GroupAvatar: Component<{ photoUrl?: string; title?: string; sizeClass?: st
 				when={props.photoUrl && !imgFailed()}
 				fallback={<span class={`font-black text-[#3390ec] ${props.textClass || 'text-[18px]'}`}>{initial()}</span>}
 			>
-				<img
-					src={props.photoUrl}
+				<img loading="lazy" 					src={props.photoUrl}
 					alt={props.title || ''}
 					class="w-full h-full object-cover"
 					onError={() => setImgFailed(true)}
@@ -52,7 +52,7 @@ export const BotManagePage: Component = () => {
 	onMount(() => {
 		backButton.show();
 		const off = backButton.onClick(() => {
-			try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+			haptic.impact('light');
 			if (showSubscription()) setShowSubscription(false);
 			else navigate('/managed-bots');
 		});
@@ -61,7 +61,7 @@ export const BotManagePage: Component = () => {
 
 	const handleInvite = () => {
 		if (!bot()) return;
-		try { hapticFeedback.impactOccurred('medium'); } catch (_) {}
+		haptic.impact('medium');
 		const url = `https://t.me/${bot()!.bot_username.replace('@', '')}?startgroup=start&admin=restrict_members+delete_messages+ban_users`;
 		try { openTelegramLink(url); } catch (_e) { window.open(url, '_blank'); }
 	};
@@ -70,7 +70,7 @@ export const BotManagePage: Component = () => {
 		setSelectedGroup(groupId);
 		setPaymentStep('package');
 		setShowSubscription(true);
-		try { hapticFeedback.impactOccurred('light'); } catch (_) {}
+		haptic.impact('light');
 	};
 
 	const handleSubscribeAirdrop = async () => {
@@ -78,13 +78,13 @@ export const BotManagePage: Component = () => {
 		setIsProcessing(true); setErrorMsg('');
 		try {
 			await subscriptionApi.subscribeWithAirdrop(selectedGroup(), selectedPkg());
-			try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+			haptic.notify('success');
 			setSuccessMsg(t('botManage.subscriptionSuccess' as any) || 'Subscription activated successfully!');
 			setShowSubscription(false);
 			refetchGroups();
 		} catch (e: any) {
 			setErrorMsg(e?.response?.data?.error || 'Payment failed');
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 		} finally {
 			setIsProcessing(false);
 			setTimeout(() => { setSuccessMsg(''); setErrorMsg(''); }, 4000);
@@ -97,11 +97,11 @@ export const BotManagePage: Component = () => {
 		setIsDeletingGroup(true);
 		try {
 			await groupApi.revokeGroup(group.id);
-			try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+			haptic.notify('success');
 			setGroupToDelete(null);
 			refetchGroups();
 		} catch (_e: any) {
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 		} finally {
 			setIsDeletingGroup(false);
 		}
@@ -117,7 +117,7 @@ export const BotManagePage: Component = () => {
 				if (tg?.openInvoice) {
 					tg.openInvoice(res.invoice_link, (status: string) => {
 						if (status === 'paid') {
-							try { hapticFeedback.notificationOccurred('success'); } catch (_) {}
+							haptic.notify('success');
 							setShowSubscription(false);
 							refetchGroups();
 						}
@@ -128,7 +128,7 @@ export const BotManagePage: Component = () => {
 			}
 		} catch (e: any) {
 			setErrorMsg(e?.response?.data?.error || 'Failed to create invoice');
-			try { hapticFeedback.notificationOccurred('error'); } catch (_) {}
+			haptic.notify('error');
 		} finally {
 			setIsProcessing(false);
 			setTimeout(() => { setSuccessMsg(''); setErrorMsg(''); }, 4000);
@@ -164,7 +164,7 @@ export const BotManagePage: Component = () => {
 						</div>
 					</Show>
 				</div>
-				<button onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} navigate('/managed-bots'); }} class="w-10 h-10 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/70">
+				<button onClick={() => { haptic.impact('light'); navigate('/managed-bots'); }} class="w-10 h-10 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/70">
 					<span class="material-symbols-outlined text-[22px]">close</span>
 				</button>
 			</div>
@@ -271,7 +271,7 @@ export const BotManagePage: Component = () => {
 
 												{/* Status Badge & Delete */}
 												<div class="flex flex-col items-end shrink-0 gap-1.5">
-													<button onClick={(e) => { e.stopPropagation(); try { hapticFeedback.impactOccurred('medium'); } catch (_) {} setGroupToDelete(group); }} class="w-8 h-8 rounded-[10px] flex items-center justify-center hover:bg-[#ff4a4a]/10 text-white/30 hover:text-[#ff4a4a] transition-colors border border-transparent hover:border-[#ff4a4a]/20" aria-label="Delete">
+													<button onClick={(e) => { e.stopPropagation(); haptic.impact('medium'); setGroupToDelete(group); }} class="w-8 h-8 rounded-[10px] flex items-center justify-center hover:bg-[#ff4a4a]/10 text-white/30 hover:text-[#ff4a4a] transition-colors border border-transparent hover:border-[#ff4a4a]/20" aria-label="Delete">
 														<span class="material-symbols-outlined text-[18px]">delete</span>
 													</button>
 													<span class={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-[8px] border shadow-sm ${isPaid ? 'text-[#00ff88] border-[#00ff88]/30 bg-[#00ff88]/10' : isTrial ? 'text-amber-400 border-amber-400/30 bg-amber-400/10' : 'text-[#ff4a4a] border-[#ff4a4a]/30 bg-[#ff4a4a]/10'}`}>
@@ -286,7 +286,7 @@ export const BotManagePage: Component = () => {
 											{/* Actions */}
 											<div class="flex gap-2.5 w-full pt-1">
 												<Show when={!isExpired}>
-													<button onClick={() => { try { hapticFeedback.impactOccurred('light'); } catch (_) {} navigate(`/group/${group.id}`); }} class="flex-1 h-12 rounded-[14px] text-[12px] font-black uppercase tracking-widest transition-all bg-white/5 text-white border border-white/10 hover:bg-white/10 active:scale-95 shadow-sm">
+													<button onClick={() => { haptic.impact('light'); navigate(`/group/${group.id}`); }} class="flex-1 h-12 rounded-[14px] text-[12px] font-black uppercase tracking-widest transition-all bg-white/5 text-white border border-white/10 hover:bg-white/10 active:scale-95 shadow-sm">
 														{t('botManage.manage') || 'MANAGE'}
 													</button>
 												</Show>
@@ -326,7 +326,7 @@ export const BotManagePage: Component = () => {
 								<div class="space-y-3.5 mb-8">
 									<For each={packages() || []}>
 										{(pkg: SubscriptionPackage) => (
-											<button onClick={() => { setSelectedPkg(pkg.id); try { hapticFeedback.selectionChanged(); } catch (_) {} }} class={`w-full rounded-[24px] p-4.5 flex items-center justify-between border-[1.5px] transition-all active:scale-[0.98] relative overflow-hidden text-start ${selectedPkg() === pkg.id ? 'border-[#3390ec] bg-[#3390ec]/10 shadow-[0_8px_24px_rgba(51,144,236,0.15)]' : 'border-white/10 bg-[#08090D] hover:border-white/20 hover:bg-[#161b28]'}`}>
+											<button onClick={() => { setSelectedPkg(pkg.id); haptic.selection(); }} class={`w-full rounded-[24px] p-4.5 flex items-center justify-between border-[1.5px] transition-all active:scale-[0.98] relative overflow-hidden text-start ${selectedPkg() === pkg.id ? 'border-[#3390ec] bg-[#3390ec]/10 shadow-[0_8px_24px_rgba(51,144,236,0.15)]' : 'border-white/10 bg-[#08090D] hover:border-white/20 hover:bg-[#161b28]'}`}>
 												<Show when={selectedPkg() === pkg.id}><div class="absolute -right-6 -top-6 w-24 h-24 bg-[#3390ec]/10 rounded-full blur-2xl pointer-events-none" /></Show>
 												<Show when={pkg.badge}>
 													<div class={`absolute top-0 ${isRtl() ? 'left-0 rounded-bl-[12px]' : 'right-0 rounded-br-[12px]'} px-3 py-1 text-[9px] font-black uppercase tracking-widest shadow-sm ${pkg.badge === 'best_value' ? 'bg-amber-400 text-black' : 'bg-[#3390ec] text-white'}`}>
@@ -354,7 +354,7 @@ export const BotManagePage: Component = () => {
 									</For>
 								</div>
 
-								<button onClick={() => { try { hapticFeedback.impactOccurred('medium'); } catch (_) {} setPaymentStep('method'); }} disabled={!selectedPkg()} class="w-full h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white rounded-[16px] font-black text-[14px] uppercase tracking-widest transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(51,144,236,0.3)] active:scale-95 border border-white/10">
+								<button onClick={() => { haptic.impact('medium'); setPaymentStep('method'); }} disabled={!selectedPkg()} class="w-full h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white rounded-[16px] font-black text-[14px] uppercase tracking-widest transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(51,144,236,0.3)] active:scale-95 border border-white/10">
 									{t('botManage.continuePayment' as any) || 'CONTINUE'} <span class="material-symbols-outlined text-[20px] rtl:-scale-x-100">arrow_forward</span>
 								</button>
 							</>

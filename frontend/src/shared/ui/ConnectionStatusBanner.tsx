@@ -1,8 +1,10 @@
 import { Motion } from '@motionone/solid';
 import { Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
+import { useQueryClient } from '@tanstack/solid-query';
 import { t } from '@/shared/i18n/index.js';
 
 export const ConnectionStatusBanner: Component = () => {
+	const queryClient = useQueryClient();
 	const [isOnline, setIsOnline] = createSignal(navigator.onLine);
 
 	const handleOnline = () => {
@@ -48,6 +50,9 @@ export const ConnectionStatusBanner: Component = () => {
 				<button
 					onClick={() => {
 						setIsOnline(navigator.onLine);
+						if (navigator.onLine) {
+							queryClient.refetchQueries();
+						}
 					}}
 					class="bg-[#ff3b30]/20 hover:bg-[#ff3b30]/30 text-white font-bold text-[11px] px-3.5 py-2 rounded-xl transition-all border border-[#ff3b30]/20 active:scale-95 duration-100"
 				>

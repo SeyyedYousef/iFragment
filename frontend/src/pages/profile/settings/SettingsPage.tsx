@@ -1,33 +1,20 @@
 import { Motion } from '@motionone/solid';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
-import { Component, onCleanup, onMount, Show } from 'solid-js';
+import { Component, Show } from 'solid-js';
 import { isRtl, locale, setLocale, t } from '@/shared/i18n/index.js';
 import { requestWriteAccess } from '@/shared/lib/telegram-native.js';
+import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
 import { profileSettings, updateNotification, updateSetting } from '@/shared/store/profile.js';
 import { ToggleSwitch } from '@/shared/ui/ToggleSwitch.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const SettingsPage: Component = () => {
-	onMount(() => {
-		backButton.show();
-		const off = backButton.onClick(() => {
-			try {
-				hapticFeedback.impactOccurred('light');
-			} catch {}
-			window.history.back();
-		});
-		onCleanup(() => {
-			off();
-			try {
-				backButton.hide();
-			} catch {}
-		});
-	});
+	useTelegramBackButton(-1);
 
 	const handleToggleNotification = async (
 		key: 'mining' | 'referral' | 'community' | 'promotions',
 	) => {
 		try {
-			hapticFeedback.impactOccurred('light');
+			haptic.impact('light');
 		} catch {}
 		const currentVal = profileSettings().notifications[key];
 		const targetVal = !currentVal;
@@ -44,7 +31,7 @@ export const SettingsPage: Component = () => {
 		updateSetting('hapticEnabled', checked);
 		if (checked) {
 			try {
-				hapticFeedback.impactOccurred('medium');
+				haptic.impact('medium');
 			} catch {}
 		}
 	};
@@ -70,7 +57,7 @@ export const SettingsPage: Component = () => {
 				<button
 					onClick={() => {
 						try {
-							hapticFeedback.impactOccurred('light');
+							haptic.impact('light');
 						} catch {}
 						window.history.back();
 					}}
@@ -301,7 +288,7 @@ export const SettingsPage: Component = () => {
 							<button
 								onClick={() => {
 									try {
-										hapticFeedback.impactOccurred('light');
+										haptic.impact('light');
 									} catch {}
 									setLocale('en');
 								}}
@@ -334,7 +321,7 @@ export const SettingsPage: Component = () => {
 							<button
 								onClick={() => {
 									try {
-										hapticFeedback.impactOccurred('light');
+										haptic.impact('light');
 									} catch {}
 									setLocale('fa');
 								}}
@@ -367,7 +354,7 @@ export const SettingsPage: Component = () => {
 							<button
 								onClick={() => {
 									try {
-										hapticFeedback.impactOccurred('light');
+										haptic.impact('light');
 									} catch {}
 									setLocale('ps');
 								}}
@@ -400,7 +387,7 @@ export const SettingsPage: Component = () => {
 							<button
 								onClick={() => {
 									try {
-										hapticFeedback.impactOccurred('light');
+										haptic.impact('light');
 									} catch {}
 									setLocale('ru');
 								}}
@@ -433,7 +420,7 @@ export const SettingsPage: Component = () => {
 							<button
 								onClick={() => {
 									try {
-										hapticFeedback.impactOccurred('light');
+										haptic.impact('light');
 									} catch {}
 									setLocale('zh');
 								}}

@@ -1,8 +1,9 @@
 import { useNavigate } from '@solidjs/router';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import { Component, onCleanup, onMount } from 'solid-js';
 import { BoostersView } from '@/pages/airdrop/airdrop/ui/BoostersView.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const BoostsPage: Component = () => {
 	const navigate = useNavigate();
@@ -12,7 +13,7 @@ export const BoostsPage: Component = () => {
 			backButton.show();
 			const off = backButton.onClick(() => {
 				try {
-					hapticFeedback.impactOccurred('light');
+					haptic.impact('light');
 				} catch {}
 				navigate('/profile');
 			});
@@ -39,7 +40,7 @@ export const BoostsPage: Component = () => {
 					<button
 						onClick={() => {
 							try {
-								hapticFeedback.impactOccurred('light');
+								haptic.impact('light');
 							} catch {}
 							navigate('/profile');
 						}}

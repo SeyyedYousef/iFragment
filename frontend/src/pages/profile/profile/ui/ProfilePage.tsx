@@ -1,7 +1,7 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
-import { backButton, hapticFeedback } from '@tma.js/sdk-solid';
+import { backButton } from '@tma.js/sdk-solid';
 import { Component, createSignal, ErrorBoundary, For, onMount, Show } from 'solid-js';
 import { useSecretTrigger } from '@/features/owner-gate/lib/useSecretTrigger.js';
 import { getProfileAchievements, getProfileStats } from '@/shared/api/profile.js';
@@ -16,6 +16,7 @@ import { ExperienceCard } from '@/widgets/profile/ExperienceCard.js';
 import { BoostsCard, LeaderboardCard, QuestCard } from '@/widgets/profile/GamificationHub.js';
 import { IdentityHero } from '@/widgets/profile/IdentityHero.js';
 import { StatsDashboard } from '@/widgets/profile/StatsDashboard.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const ProfilePage: Component = () => {
 	const secretTrigger = useSecretTrigger();
@@ -87,7 +88,7 @@ export const ProfilePage: Component = () => {
 
 	const handleNavigate = (path: string) => {
 		try {
-			hapticFeedback.impactOccurred('light');
+			haptic.impact('light');
 		} catch {}
 		navigate(path);
 	};
@@ -278,7 +279,7 @@ export const ProfilePage: Component = () => {
 										onClick={() => {
 											setLocale(lang.code);
 											try {
-												hapticFeedback.selectionChanged();
+												haptic.selection();
 											} catch {}
 											setShowLangMenu(false);
 										}}
