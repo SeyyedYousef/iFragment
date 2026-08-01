@@ -21,7 +21,7 @@ export const PageTransition: Component<{ children: JSX.Element }> = (props) => {
 
   return (
     <div 
-      class={`w-full h-full transition-all duration-200 ease-out motion-reduce:transition-none motion-reduce:transform-none ${isVisible() ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
+      class={`w-full h-full transition-opacity duration-200 ease-out motion-reduce:transition-none ${isVisible() ? 'opacity-100' : 'opacity-0'}`}
     >
       {props.children}
     </div>

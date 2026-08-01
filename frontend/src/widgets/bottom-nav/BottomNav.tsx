@@ -1,6 +1,6 @@
 import { A, useLocation } from '@solidjs/router';
 import { initData } from '@tma.js/sdk-solid';
-import { Component, createEffect, createSignal, Show } from 'solid-js';
+import { Component, createEffect, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { API_CONFIG } from '@/shared/api/config.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
@@ -10,6 +10,7 @@ export const BottomNav: Component = () => {
 	const location = useLocation();
 	const user = () => initData.user() as any;
 	const [imgError, setImgError] = createSignal(false);
+	const [navVisible, setNavVisible] = createSignal(true);
 
 	const avatarUrl = () => {
 		const statsPhoto = profilePhotoUrl();
@@ -29,6 +30,57 @@ export const BottomNav: Component = () => {
 		setImgError(false);
 	});
 
+	onMount(() => {
+		let lastScrollY = window.scrollY || 0;
+		let scrollTimeout: any = null;
+
+		const handleScroll = (e?: Event) => {
+			const target = e?.target as HTMLElement | Document;
+			let currentScrollY = 0;
+			let docHeight = document.documentElement.scrollHeight;
+			let windowHeight = window.innerHeight;
+
+			if (target && 'scrollTop' in target && target !== document && target !== document.documentElement) {
+				currentScrollY = (target as HTMLElement).scrollTop;
+				docHeight = (target as HTMLElement).scrollHeight;
+				windowHeight = (target as HTMLElement).clientHeight;
+			} else {
+				currentScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+			}
+
+			const diff = currentScrollY - lastScrollY;
+			const isNearBottom = currentScrollY + windowHeight >= docHeight - 40;
+			const isNearTop = currentScrollY < 40;
+
+			if (isNearTop || isNearBottom) {
+				setNavVisible(true);
+			} else if (diff > 12) {
+				// Scrolling down
+				setNavVisible(false);
+			} else if (diff < -8) {
+				// Scrolling up
+				setNavVisible(true);
+			}
+
+			lastScrollY = currentScrollY;
+
+			if (scrollTimeout) clearTimeout(scrollTimeout);
+			// Reveal navigation when scrolling stops for 1.2 seconds
+			scrollTimeout = setTimeout(() => {
+				setNavVisible(true);
+			}, 1200);
+		};
+
+		window.addEventListener('scroll', handleScroll, { passive: true });
+		document.addEventListener('scroll', handleScroll, { passive: true, capture: true });
+
+		onCleanup(() => {
+			window.removeEventListener('scroll', handleScroll);
+			document.removeEventListener('scroll', handleScroll, { capture: true } as any);
+			if (scrollTimeout) clearTimeout(scrollTimeout);
+		});
+	});
+
 	const isActive = (path: string) => {
 		if (path === '/') return location.pathname === '/';
 		return location.pathname === path || location.pathname.startsWith(`${path}/`);
@@ -37,7 +89,11 @@ export const BottomNav: Component = () => {
 	return (
 		<nav
 			aria-label={t('bottomNav.profile')}
-			class="fixed left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-md z-[99] flex items-center justify-between gap-2.5 pointer-events-auto"
+			class={`fixed left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-md z-[99] flex items-center justify-between gap-2.5 transition-all duration-300 ease-out ${
+				navVisible()
+					? 'translate-y-0 opacity-100 pointer-events-auto'
+					: 'translate-y-28 opacity-0 pointer-events-none'
+			}`}
 			style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
 			dir="ltr"
 		>
