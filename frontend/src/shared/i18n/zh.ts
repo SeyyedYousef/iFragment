@@ -2731,4 +2731,20 @@ export const dict = {
 		anatomy_no: '否',
 		no_transaction_data: '暂无交易数据',
 	},
+	demo: {
+		groupTitle: '预览模式 — 演示群组',
+		channelTitle: '预览模式 — 演示频道',
+		subtitle: '数据为测试数据，不会向 Telegram 发送任何内容。',
+		explainer:
+			'这是一个完全交互式的沙盒。您在这里看到的每个页面、设置和图表都与连接您自己的群组或频道时完全一致 — 但数据是模拟的，更改不会保存。',
+		savedLocally: '仅在演示模式中生效 — 无实际影响',
+		lockedAction: '此操作在预览模式下不可用',
+		ctaGroup: '连接真实机器人',
+		ctaChannel: '连接真实频道',
+		exit: '退出',
+		tryTitle: '还没准备好？先体验一下',
+		tryDesc: '在创建机器人或添加频道之前，探索所有功能。',
+		previewGroup: '群组演示',
+		previewChannel: '频道演示',
+	},
 };

@@ -208,6 +208,14 @@ export const ManagedBotsPage: Component = () => {
 								<span class="material-symbols-outlined text-[20px]">open_in_new</span>
 								{t('managedBots.botFatherBtn')}
 							</button>
+
+							<button
+								onClick={() => { haptic.impact('light'); navigate('/group/demo-group'); }}
+								class="w-full h-12 bg-amber-400/10 hover:bg-amber-400/15 border border-amber-400/30 text-amber-300 rounded-[16px] font-bold text-[12px] transition-all flex items-center justify-center gap-2 relative z-10 active:scale-95"
+							>
+								<span class="material-symbols-outlined text-[18px]">science</span>
+								{t('demo.previewGroup')}
+							</button>
 						</Motion.div>
 					</Show>
 

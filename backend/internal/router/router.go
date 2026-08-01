@@ -179,6 +179,7 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 
 				r.Post("/promo/redeem", cfg.OwnerHandler.RedeemPromo)
 			})
+		})
 
 		r.Route("/marketplace", func(r chi.Router) {
 			r.Use(middleware.AuthMiddleware)
@@ -246,5 +247,4 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 				})
 			})
 		})
-	})
 }

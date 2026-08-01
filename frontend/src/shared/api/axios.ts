@@ -2,6 +2,8 @@ import { retrieveLaunchParams } from '@tma.js/sdk-solid';
 import axios, { AxiosError, AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { API_CONFIG } from './config.js';
 
+import { demoAdapter, isDemoRequest } from './demo-adapter.js';
+
 const getInitData = (): string => {
 	let initDataStr = '';
 
@@ -59,6 +61,12 @@ let refreshPromise: Promise<string> | null = null;
 // Request Interceptor
 apiClient.interceptors.request.use(
 	(config: InternalAxiosRequestConfig) => {
+		// ⛑ جعبه‌شنی دمو: درخواست هرگز به شبکه نمی‌رود و توکنی هم ضمیمه نمی‌شود
+		if (isDemoRequest(config)) {
+			config.adapter = demoAdapter as any;
+			return config;
+		}
+
 		const initData = getInitData();
 
 		// Attempt to retrieve a valid JWT token (Prefer impersonation session token if active, then owner token if administrative path, then standard user token)

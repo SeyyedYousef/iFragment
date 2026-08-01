@@ -249,6 +249,14 @@ export const ManagedChannelsPage: Component = () => {
 									</span>
 									{t('managedChannels.connectFirst')}
 								</button>
+
+								<button
+									onClick={() => { haptic.impact('light'); navigate('/channel/demo-channel'); }}
+									class="w-full h-12 bg-amber-400/10 hover:bg-amber-400/15 border border-amber-400/30 text-amber-300 rounded-[16px] font-bold text-[12px] transition-all flex items-center justify-center gap-2 relative z-10 active:scale-95"
+								>
+									<span class="material-symbols-outlined text-[18px]">science</span>
+									{t('demo.previewChannel')}
+								</button>
 							</Motion.div>
 						) : (
 							<div class="flex flex-col gap-4">

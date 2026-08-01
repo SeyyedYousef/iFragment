@@ -569,8 +569,8 @@ func (h *ProfileHandler) GetFRGBalance(w http.ResponseWriter, r *http.Request) {
 	RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"user_id":      userID,
 		"balance":      stats.AirdropCoins,
-		"total_earned": stats.TotalCoinsEarned,
-		"total_spent":  0.0,
+		"total_earned": stats.TotalFrgEarned,
+		"total_spent":  stats.TotalFrgSpent,
 		"updated_at":   time.Now().Format(time.RFC3339),
 	})
 }

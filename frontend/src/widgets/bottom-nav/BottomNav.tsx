@@ -37,7 +37,8 @@ export const BottomNav: Component = () => {
 	return (
 		<nav
 			aria-label={t('bottomNav.profile')}
-			class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-md z-50 flex items-center justify-between gap-2.5 pointer-events-auto pb-[env(safe-area-inset-bottom,0px)]"
+			class="fixed left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-md z-[99] flex items-center justify-between gap-2.5 pointer-events-auto"
+			style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
 			dir="ltr"
 		>
 			<div

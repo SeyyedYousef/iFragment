@@ -336,12 +336,12 @@ export const UsernamePage: Component = () => {
 			setRecents(getRecentReports());
 			if (!u) return;
 
-			// A report cached within the last 24 hours is shown immediately — no
-			// spinner, no access check, no second charge.
+			const cachedAccess = localStorage.getItem(`val_access_${u}`);
 			const cached = getCachedReport<ValuationResult>(u);
-			if (cached) {
-				const method = localStorage.getItem(`val_access_${u}`);
-				if (method) setAccessMethod(method as any);
+
+			// Only serve local cache immediately if user has confirmed access
+			if (cached && cachedAccess) {
+				setAccessMethod(cachedAccess as any);
 				setAccessGranted(true);
 				setShowPaymentGate(false);
 				applyReport(cached, true);
@@ -349,19 +349,39 @@ export const UsernamePage: Component = () => {
 				return;
 			}
 
-			setLoading(true); setError(null);
-			const cachedAccess = localStorage.getItem(`val_access_${u}`);
+			setLoading(true);
+			setError(null);
+
 			if (localStorage.getItem('val_free_used') === 'true') setFreeQuotaUsed(true);
 			else cloudStorage.getItem('val_free_used').then((val) => { if (val === 'true') { setFreeQuotaUsed(true); localStorage.setItem('val_free_used', 'true'); } });
 
-			if (cachedAccess) { setAccessGranted(true); setAccessMethod(cachedAccess as any); fetchValuation(u); }
-			else {
+			if (cachedAccess) {
+				setAccessGranted(true);
+				setAccessMethod(cachedAccess as any);
+				fetchValuation(u);
+			} else {
 				try {
 					const res = await valuationApi.checkAccess(u);
-					if (res?.free_quota_used) { setFreeQuotaUsed(true); localStorage.setItem('val_free_used', 'true'); cloudStorage.setItem('val_free_used', 'true'); }
-					if (res?.has_access) { setAccessGranted(true); setAccessMethod(res.method || 'stars'); fetchValuation(u); }
-					else { setShowPaymentGate(true); setLoading(false); }
-				} catch (_) { setShowPaymentGate(true); setLoading(false); }
+					if (res?.free_quota_used) {
+						setFreeQuotaUsed(true);
+						localStorage.setItem('val_free_used', 'true');
+						cloudStorage.setItem('val_free_used', 'true');
+					}
+					if (res?.has_access) {
+						const method = res.method || 'stars';
+						try { localStorage.setItem(`val_access_${u}`, method); } catch (_) {}
+						setAccessGranted(true);
+						setAccessMethod(method as any);
+						setShowPaymentGate(false);
+						fetchValuation(u);
+					} else {
+						setShowPaymentGate(true);
+						setLoading(false);
+					}
+				} catch (_) {
+					setShowPaymentGate(true);
+					setLoading(false);
+				}
 			}
 		};
 		initValuation();

@@ -157,6 +157,33 @@ export const DashboardPage: Component = () => {
 							</div>
 						</div>
 
+						{/* ── DEMO / PREVIEW STRIP ── */}
+						<div class="w-full rounded-[24px] border border-dashed border-amber-400/25 bg-amber-400/[0.04] p-4 flex flex-col gap-3">
+							<div class="flex items-center gap-2.5">
+								<span class="material-symbols-outlined text-amber-400 text-[20px]">science</span>
+								<div class="flex flex-col text-start">
+									<h4 class="text-[13px] font-black text-amber-300">{t('demo.tryTitle')}</h4>
+									<p class="text-[11px] text-white/45 font-medium">{t('demo.tryDesc')}</p>
+								</div>
+							</div>
+							<div class="flex gap-2">
+								<button
+									onClick={() => { haptic.impact('light'); navigate('/group/demo-group'); }}
+									class="flex-1 h-11 rounded-[14px] bg-[#08090D] border border-white/10 hover:border-[#3390ec]/40 text-white/80 text-[12px] font-bold active:scale-95 transition-all flex items-center justify-center gap-1.5"
+								>
+									<span class="material-symbols-outlined text-[18px] text-[#3390ec]">groups</span>
+									{t('demo.previewGroup')}
+								</button>
+								<button
+									onClick={() => { haptic.impact('light'); navigate('/channel/demo-channel'); }}
+									class="flex-1 h-11 rounded-[14px] bg-[#08090D] border border-white/10 hover:border-sky-400/40 text-white/80 text-[12px] font-bold active:scale-95 transition-all flex items-center justify-center gap-1.5"
+								>
+									<span class="material-symbols-outlined text-[18px] text-sky-400">campaign</span>
+									{t('demo.previewChannel')}
+								</button>
+							</div>
+						</div>
+
 					</div>
 				</div>
 			</Motion.div>

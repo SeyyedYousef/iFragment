@@ -2793,4 +2793,20 @@ export const dict = {
 		anatomy_no: 'No',
 		no_transaction_data: 'No transaction data',
 	},
+	demo: {
+		groupTitle: 'Preview mode — demo group',
+		channelTitle: 'Preview mode — demo channel',
+		subtitle: 'Sample data. Nothing is sent to Telegram.',
+		explainer:
+			'This is a fully interactive sandbox. Every screen, setting and chart here is exactly what you will get the moment you connect your own group or channel — but the data is fake and changes are never saved.',
+		savedLocally: 'Applied in the demo only — no real effect',
+		lockedAction: 'Not available in preview mode',
+		ctaGroup: 'Connect a real bot',
+		ctaChannel: 'Connect a real channel',
+		exit: 'Exit',
+		tryTitle: 'Not ready yet? Take a tour',
+		tryDesc: 'Explore every feature before creating a bot or adding a channel.',
+		previewGroup: 'Group demo',
+		previewChannel: 'Channel demo',
+	},
 };

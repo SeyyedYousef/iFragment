@@ -12,24 +12,6 @@ export function useSecretTrigger() {
 	});
 
 	const onVersionTap = () => {
-		const ownerIdsStr = import.meta.env.VITE_OWNER_TELEGRAM_ID || '';
-		const ownerIds = ownerIdsStr
-			.split(',')
-			.map((s: string) => parseInt(s.trim(), 10))
-			.filter((n: number) => !Number.isNaN(n));
-
-		let userId: number | undefined;
-		try {
-			const lp = retrieveLaunchParams();
-			userId = (lp.initData as any)?.user?.id;
-		} catch (_e) {
-			// ignore
-		}
-
-		if (ownerIds.length > 0 && userId && !ownerIds.includes(userId)) {
-			return;
-		}
-
 		try {
 			haptic.impact('light');
 		} catch {}
