@@ -96,7 +96,7 @@ export const PullToRefresh: Component<PullToRefreshProps> = (props) => {
       
       <div 
         style={{ 
-          transform: `translateY(${isRefreshing() ? THRESHOLD : pullDistance()}px)`,
+          transform: isRefreshing() || pullDistance() > 0 ? `translateY(${isRefreshing() ? THRESHOLD : pullDistance()}px)` : undefined,
           transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)',
         }}
         class="min-h-full motion-reduce:transition-none motion-reduce:transform-none"

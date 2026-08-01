@@ -346,7 +346,7 @@ func (db *Database) MaintainUserStats(ctx context.Context, userID int64) error {
 func (db *Database) ExpirePremiumSubscriptions(ctx context.Context) error {
 	query := `
 		UPDATE users SET is_premium = FALSE
-		WHERE is_premium = TRUE AND premium_until < now()
+		WHERE is_premium = TRUE AND premium_until IS NOT NULL AND premium_until < now()
 	`
 	_, err := db.Pool.Exec(ctx, query)
 	return err

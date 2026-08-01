@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"ifragment-backend/internal/client/telegram"
+	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/model"
 	"ifragment-backend/internal/repository"
 	"log/slog"
@@ -515,6 +516,16 @@ func (s *GamificationService) GetTasksStatus(ctx context.Context, userID int64) 
 	_ = s.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM users WHERE referred_by = $1", userID).Scan(&referrals)
 	_ = s.db.Pool.QueryRow(ctx, "SELECT COALESCE(clan_id, 0) FROM clan_members WHERE user_id = $1 LIMIT 1", userID).Scan(&clanID)
 	_ = s.db.Pool.QueryRow(ctx, "SELECT COALESCE(is_premium, false) FROM users WHERE telegram_id = $1", userID).Scan(&isPremium)
+	if !isPremium {
+		if rawUser := ctx.Value(middleware.UserContextKey); rawUser != nil {
+			if userMap, ok := rawUser.(map[string]interface{}); ok {
+				if tgIsPremium, ok := userMap["is_premium"].(bool); ok && tgIsPremium {
+					isPremium = true
+					_, _ = s.db.Pool.Exec(ctx, "UPDATE users SET is_premium = TRUE WHERE telegram_id = $1", userID)
+				}
+			}
+		}
+	}
 
 	results := make([]UserTaskStatus, 0, len(activeQuests))
 	for _, q := range activeQuests {
@@ -642,6 +653,28 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 	case "telegram_premium":
 		var isPremium bool
 		_ = s.db.Pool.QueryRow(ctx, "SELECT COALESCE(is_premium, false) FROM users WHERE telegram_id = $1", userID).Scan(&isPremium)
+		if !isPremium {
+			// 1. Check request context (populated from Telegram initData user object)
+			if rawUser := ctx.Value(middleware.UserContextKey); rawUser != nil {
+				if userMap, ok := rawUser.(map[string]interface{}); ok {
+					if tgIsPremium, ok := userMap["is_premium"].(bool); ok && tgIsPremium {
+						isPremium = true
+						_, _ = s.db.Pool.Exec(ctx, "UPDATE users SET is_premium = TRUE WHERE telegram_id = $1", userID)
+					}
+				}
+			}
+		}
+		if !isPremium {
+			// 2. Query Telegram Bot API as dynamic verification fallback
+			tgClient := s.getBotAPIClient()
+			if tgClient != nil {
+				memberRes, err := tgClient.GetChatMemberFull(ctx, userID, userID)
+				if err == nil && memberRes != nil && memberRes.User.IsPremium {
+					isPremium = true
+					_, _ = s.db.Pool.Exec(ctx, "UPDATE users SET is_premium = TRUE WHERE telegram_id = $1", userID)
+				}
+			}
+		}
 		if !isPremium {
 			return nil, fmt.Errorf("you must have Telegram Premium")
 		}

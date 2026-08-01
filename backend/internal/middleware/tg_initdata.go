@@ -261,6 +261,15 @@ func ValidateTelegramInitData(db *repository.Database, cache *repository.Cache) 
 			// Inject user into context
 			if userObj != nil {
 				ctx = context.WithValue(ctx, UserContextKey, userObj)
+				if isPrem, ok := userObj["is_premium"].(bool); ok && isPrem && db != nil && db.Pool != nil && userID != "" {
+					if uid, err := strconv.ParseInt(userID, 10, 64); err == nil && uid > 0 {
+						go func(uID int64) {
+							bgCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+							defer cancel()
+							_, _ = db.Pool.Exec(bgCtx, "UPDATE users SET is_premium = TRUE WHERE telegram_id = $1 AND is_premium = FALSE", uID)
+						}(uid)
+					}
+				}
 			}
 
 			next.ServeHTTP(w, r.WithContext(ctx))
