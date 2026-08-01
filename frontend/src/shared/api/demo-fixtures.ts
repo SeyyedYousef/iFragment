@@ -79,6 +79,13 @@ const createState = () => ({
 			ban: '🚫 {name} از گروه حذف شد.',
 			muted: '🔇 {name} تا {time} سکوت شد.',
 		},
+		dynamic_bio: {
+			enabled: true,
+			bioTemplate: 'iFragment Demo | اعضا: $members',
+			displayInName: false,
+			nameTemplate: '',
+			interval: '10m',
+		},
 		version: 1,
 		updated_at: now(),
 	},
@@ -108,6 +115,16 @@ const createState = () => ({
 		protect_content: false,
 		created_at: daysAgo(21),
 		updated_at: now(),
+	},
+
+	funnel: {
+		id: 'demo-funnel-1',
+		project_name: 'iFragment Demo Project',
+		input_chat_id: -1002000000003,
+		output_chat_id: -1002000000002,
+		input_channel_identifier: '@source_channel',
+		is_active: true,
+		created_at: daysAgo(14),
 	},
 
 	channelSettings: {
@@ -166,11 +183,11 @@ const createState = () => ({
 	],
 
 	channelAudit: [
-		{ id: 'c-log-1', channel_id: DEMO_CHANNEL_ID, actor_id: 55501,
+		{ id: 'c-log-1', channel_id: DEMO_CHANNEL_ID, actor_id: 55501, actor_name: 'Demo Owner',
 			action: 'ویرایش تنظیمات انتشار', created_at: daysAgo(0) },
-		{ id: 'c-log-2', channel_id: DEMO_CHANNEL_ID, actor_id: 0,
+		{ id: 'c-log-2', channel_id: DEMO_CHANNEL_ID, actor_id: 0, actor_name: 'System',
 			action: 'ارسال خودکار پست زمان‌بندی‌شده', created_at: daysAgo(1) },
-		{ id: 'c-log-3', channel_id: DEMO_CHANNEL_ID, actor_id: 55502,
+		{ id: 'c-log-3', channel_id: DEMO_CHANNEL_ID, actor_id: 55502, actor_name: 'Demo Editor',
 			action: 'افزودن دکمه شیشه‌ای «لایک»', created_at: daysAgo(3) },
 	],
 });
@@ -261,6 +278,17 @@ export const resolveDemoRoute = async (
 	const m = method.toUpperCase();
 	const s = state;
 
+	// ── پکیج‌های اشتراک ──
+	if (p.endsWith('/subscription/packages') && m === 'GET') {
+		return {
+			data: [
+				{ id: '1m', name: '1 Month', price_usd: 4.99, price_stars: 250, price_coins: 50000, price_per_month: 4.99, duration_months: 1 },
+				{ id: '3m', name: '3 Months', price_usd: 11.99, price_stars: 600, price_coins: 120000, price_per_month: 3.99, discount: '20%', badge: 'popular', duration_months: 3 },
+				{ id: '12m', name: '1 Year', price_usd: 35.99, price_stars: 1800, price_coins: 350000, price_per_month: 2.99, discount: '40%', badge: 'best_value', duration_months: 12 },
+			],
+		};
+	}
+
 	// ── ربات ──
 	if (/\/bots\/[^/]+\/groups$/.test(p)) return { data: [s.group] };
 	if (/\/bots\/[^/]+$/.test(p) && m === 'GET') return { data: s.bot };
@@ -330,7 +358,11 @@ export const resolveDemoRoute = async (
 		if (p.endsWith('/audit')) return { data: { data: s.channelAudit, next_cursor: null } };
 		if (p.endsWith('/members')) return { data: [] };
 		if (p.endsWith('/funnel')) {
-			if (m === 'GET') return { data: { funnel: null } };
+			if (m === 'GET') return { data: s.funnel };
+			if (m === 'POST' || m === 'PUT') {
+				s.funnel = { ...s.funnel, ...(body || {}) };
+				return { data: s.funnel };
+			}
 			return { error: await lockedError(config, 'در حالت دمو امکان‌پذیر نیست.') };
 		}
 		if (p.endsWith('/settings')) {
@@ -344,7 +376,7 @@ export const resolveDemoRoute = async (
 		if (m === 'GET') return { data: [s.channel] }; // GET /channels?bot_id=demo-bot
 	}
 
-	// ── پرداخت/اشتراک: همیشه قفل ──
+	// ── سایر عملیات‌های پرداخت/اشتراک: در دمو قفل است ──
 	if (p.includes('/subscription'))
 		return { error: await lockedError(config, 'در حالت دمو امکان خرید وجود ندارد.') };
 
