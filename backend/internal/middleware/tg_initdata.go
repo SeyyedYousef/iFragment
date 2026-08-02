@@ -309,9 +309,9 @@ func validate(initData, botToken string) error {
 	dataCheckString := strings.Join(filteredPairs, "\n")
 
 	// HMAC-SHA256 validation
-	// 1. Secret Key = HMAC-SHA256(BotToken, "WebAppData")
-	h := hmac.New(sha256.New, []byte(botToken))
-	h.Write([]byte("WebAppData"))
+	// 1. Secret Key = HMAC-SHA256("WebAppData", BotToken)
+	h := hmac.New(sha256.New, []byte("WebAppData"))
+	h.Write([]byte(botToken))
 	secretKey := h.Sum(nil)
 
 	// 2. Hash = HMAC-SHA256(Secret Key, DataCheckString)
