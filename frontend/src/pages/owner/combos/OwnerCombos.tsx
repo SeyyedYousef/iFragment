@@ -163,7 +163,7 @@ export const OwnerCombos: Component = () => {
 						</h3>
 
 						<div class="overflow-x-auto">
-							<table class="w-full text-end text-xs">
+							<table class="w-full text-start text-xs">
 								<thead>
 									<tr class="border-b border-white/10 text-white/40 text-[10px] font-bold">
 										<th class="pb-3 text-start">تاریخ</th>

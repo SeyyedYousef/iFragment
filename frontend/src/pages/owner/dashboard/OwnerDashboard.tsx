@@ -270,25 +270,44 @@ export const OwnerDashboard: Component = () => {
 					</div>
 
 					<div class="h-32 w-full relative overflow-hidden flex items-end">
-						<svg class="w-full h-28" viewBox="0 0 100 30" preserveAspectRatio="none">
-							<defs>
-								<linearGradient id="dashboardChartGrad" x1="0" y1="0" x2="0" y2="1">
-									<stop offset="0%" stop-color="#3390ec" stop-opacity="0.4" />
-									<stop offset="100%" stop-color="#3390ec" stop-opacity="0" />
-								</linearGradient>
-							</defs>
-							<path
-								d="M 0 30 Q 15 15 30 20 T 60 10 T 85 14 T 100 8 L 100 30 Z"
-								fill="url(#dashboardChartGrad)"
-							/>
-							<path
-								d="M 0 30 Q 15 15 30 20 T 60 10 T 85 14 T 100 8"
-								fill="none"
-								stroke="#3390ec"
-								stroke-width="1.5"
-								stroke-linecap="round"
-							/>
-						</svg>
+						{(() => {
+							const data = stats()?.dau_chart || [];
+							const maxVal = Math.max(...data.map((d) => d.value), 1);
+							const minVal = Math.min(...data.map((d) => d.value), 0);
+							const range = maxVal - minVal || 1;
+
+							const coords =
+								data.length > 0
+									? data.map((d, i) => {
+											const x = data.length > 1 ? (i / (data.length - 1)) * 100 : 50;
+											const y = 26 - ((d.value - minVal) / range) * 20;
+											return `${x.toFixed(1)} ${y.toFixed(1)}`;
+										})
+									: ['0 25', '50 15', '100 8'];
+
+							const linePath = `M ${coords.join(' L ')}`;
+							const areaPath = `M 0 30 L ${coords.join(' L ')} L 100 30 Z`;
+
+							return (
+								<svg class="w-full h-28" viewBox="0 0 100 30" preserveAspectRatio="none">
+									<defs>
+										<linearGradient id="dashboardChartGrad" x1="0" y1="0" x2="0" y2="1">
+											<stop offset="0%" stop-color="#3390ec" stop-opacity="0.4" />
+											<stop offset="100%" stop-color="#3390ec" stop-opacity="0" />
+										</linearGradient>
+									</defs>
+									<path d={areaPath} fill="url(#dashboardChartGrad)" />
+									<path
+										d={linePath}
+										fill="none"
+										stroke="#3390ec"
+										stroke-width="1.5"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									/>
+								</svg>
+							);
+						})()}
 					</div>
 				</div>
 

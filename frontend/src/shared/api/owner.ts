@@ -235,8 +235,23 @@ export const ownerApi = {
 
 	// --- System Settings & Ads (Decoupled Payload Safety) ---
 	getSettings: () => apiClient.get<SystemSettings>('/owner/settings').then((r) => r.data),
-	updateSettings: (settingsPayload: SystemSettings) =>
-		apiClient.put<SystemSettings>('/owner/settings', settingsPayload).then((r) => r.data),
+	updateSettings: async (settingsPayload: Partial<SystemSettings>) => {
+		let existing: SystemSettings | null = null;
+		try {
+			const res = await apiClient.get<SystemSettings>('/owner/settings');
+			existing = res.data;
+		} catch (_e) {}
+
+		const mergedPayload: SystemSettings = {
+			maintenance_mode: settingsPayload.maintenance_mode ?? existing?.maintenance_mode ?? false,
+			tap_multiplier: settingsPayload.tap_multiplier ?? existing?.tap_multiplier ?? 1,
+			referral_bonus: settingsPayload.referral_bonus ?? existing?.referral_bonus ?? 0,
+			daily_reward_base: settingsPayload.daily_reward_base ?? existing?.daily_reward_base ?? 0,
+			dashboard_ads: settingsPayload.dashboard_ads ?? existing?.dashboard_ads ?? [],
+		};
+
+		return (await apiClient.put<SystemSettings>('/owner/settings', mergedPayload)).data;
+	},
 	getAds: async (): Promise<DashboardAd[]> => {
 		const res = await apiClient.get<SystemSettings>('/owner/settings');
 		return res.data?.dashboard_ads || [];

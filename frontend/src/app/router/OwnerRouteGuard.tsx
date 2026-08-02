@@ -1,6 +1,7 @@
 import { useNavigate } from '@solidjs/router';
 import { Component, createSignal, JSX, onMount, Show } from 'solid-js';
 import { OwnerGateModal } from '@/widgets/owner/OwnerGateModal.js';
+import { isJwtExpired } from '@/shared/lib/jwt.js';
 
 interface OwnerRouteGuardProps {
 	children: JSX.Element;
@@ -21,22 +22,16 @@ export const OwnerRouteGuard: Component<OwnerRouteGuardProps> = (props) => {
 			return;
 		}
 
-		try {
-			const payload = JSON.parse(atob(token.split('.')[1]));
-			const expiresAt = payload.exp * 1000;
-			if (Date.now() >= expiresAt) {
-				console.warn('[OwnerGuard] Session expired. Clearing token.');
-				sessionStorage.removeItem('owner_token');
-				sessionStorage.removeItem('owner_telegram_id');
-				setStatus('unauthorized');
-				setShowAuthGate(true);
-				return;
-			}
-			setStatus('authenticated');
-		} catch (_e) {
-			// If token is non-JWT string, allow session if token exists
-			setStatus('authenticated');
+		if (isJwtExpired(token)) {
+			console.warn('[OwnerGuard] Session expired. Clearing token.');
+			sessionStorage.removeItem('owner_token');
+			sessionStorage.removeItem('owner_telegram_id');
+			setStatus('unauthorized');
+			setShowAuthGate(true);
+			return;
 		}
+
+		setStatus('authenticated');
 	};
 
 	onMount(() => {

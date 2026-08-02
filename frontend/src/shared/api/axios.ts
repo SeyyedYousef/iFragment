@@ -100,6 +100,18 @@ apiClient.interceptors.request.use(
 			config.headers.Authorization = `Bearer ${token}`;
 		}
 
+		// Attach Idempotency-Key for mutating administrative operations to prevent duplicate execution
+		const reqMethod = (config.method || 'get').toLowerCase();
+		if (isOwnerRequest && ['post', 'put', 'patch', 'delete'].includes(reqMethod)) {
+			if (!config.headers['Idempotency-Key']) {
+				const key =
+					typeof crypto !== 'undefined' && crypto.randomUUID
+						? crypto.randomUUID()
+						: `idem_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+				config.headers['Idempotency-Key'] = key;
+			}
+		}
+
 		// Pass Telegram InitData for authentication handshake if available
 		// IMPORTANT: Do NOT send initData during impersonation — it contains the owner's
 		// identity and would cause the backend to resolve the wrong user.
