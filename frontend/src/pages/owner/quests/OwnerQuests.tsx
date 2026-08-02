@@ -13,7 +13,7 @@ export const OwnerQuests: Component = () => {
 	const [isEditing, setIsEditing] = createSignal(false);
 
 	// Form fields
-	const [questId, setQuestId] = createSignal<string | number>('');
+	const [questKey, setQuestKey] = createSignal<string>('');
 	const [title, setTitle] = createSignal('');
 	const [description, setDescription] = createSignal('');
 	const [type, setType] = createSignal<QuestItem['type']>('telegram_channel');
@@ -46,7 +46,7 @@ export const OwnerQuests: Component = () => {
 			haptic.impact('medium');
 		} catch {}
 		setIsEditing(false);
-		setQuestId('');
+		setQuestKey('');
 		setTitle('');
 		setDescription('');
 		setType('telegram_channel');
@@ -68,7 +68,7 @@ export const OwnerQuests: Component = () => {
 			haptic.impact('medium');
 		} catch {}
 		setIsEditing(true);
-		setQuestId(q.id);
+		setQuestKey(q.key || String(q.id));
 		setTitle(q.title);
 		setDescription(q.description || '');
 		setType(q.type);
@@ -105,8 +105,8 @@ export const OwnerQuests: Component = () => {
 		};
 
 		try {
-			if (isEditing() && questId()) {
-				await ownerApi.updateQuest(questId(), questData);
+			if (isEditing() && questKey()) {
+				await ownerApi.updateQuest(questKey(), questData);
 			} else {
 				await ownerApi.createQuest(questData);
 			}
@@ -122,11 +122,11 @@ export const OwnerQuests: Component = () => {
 		}
 	};
 
-	const handleDelete = async (id: string | number) => {
+	const handleDelete = async (key: string) => {
 		if (!confirm('آیا از حذف این مأموریت اطمینان دارید؟')) return;
 		setLoading(true);
 		try {
-			await ownerApi.deleteQuest(id);
+			await ownerApi.deleteQuest(key);
 			haptic.notify('success');
 			loadQuests();
 		} catch (err: any) {
@@ -220,7 +220,7 @@ export const OwnerQuests: Component = () => {
 												<span class="material-symbols-outlined text-[16px]">edit</span>
 											</button>
 											<button
-												onClick={() => handleDelete(q.id)}
+												onClick={() => handleDelete(q.key || String(q.id))}
 												class="w-8 h-8 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 flex items-center justify-center transition-all"
 											>
 												<span class="material-symbols-outlined text-[16px]">delete</span>

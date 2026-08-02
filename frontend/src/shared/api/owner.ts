@@ -35,6 +35,7 @@ export interface AuditLogEntry {
 
 export interface QuestItem {
 	id: string | number;
+	key?: string;
 	title: string;
 	description: string;
 	reward_frg: number;
@@ -205,8 +206,8 @@ export const ownerApi = {
 	createQuest: (quest: Partial<QuestItem>) =>
 		apiClient.post<QuestItem>('/owner/quests', quest).then((r) => r.data),
 	updateQuest: (id: string | number, quest: Partial<QuestItem>) =>
-		apiClient.put<QuestItem>(`/owner/quests/${id}`, quest).then((r) => r.data),
-	deleteQuest: (id: string | number) => apiClient.delete(`/owner/quests/${id}`).then((r) => r.data),
+		apiClient.put<QuestItem>(`/owner/quests`, quest).then((r) => r.data),
+	deleteQuest: (key: string) => apiClient.delete(`/owner/quests?key=${encodeURIComponent(key)}`).then((r) => r.data),
 
 	// --- Daily Combos ---
 	listCombos: () => apiClient.get<AdminDailyCombo[]>('/owner/combos').then((r) => r.data),
@@ -268,29 +269,28 @@ export const ownerApi = {
 
 	// --- Promos ---
 	listPromos: () => apiClient.get<PromoCode[]>('/owner/promos').then((r) => r.data),
-	createPromo: (code: string, reward: number, maxUses: number, expiryDate: string) =>
+	createPromo: (code: string, reward: number, maxUses: number, expiresInHours?: number) =>
 		apiClient
-			.post<PromoCode>('/owner/promos', {
+			.post('/owner/promos', {
 				code,
-				reward_frg: reward,
+				reward_amount: reward,
 				max_uses: maxUses,
-				expires_at: expiryDate,
+				...(expiresInHours != null && expiresInHours > 0 ? { expires_in_hours: expiresInHours } : {}),
 			})
 			.then((r) => r.data),
-	deletePromo: (id: string | number) => apiClient.delete(`/owner/promos/${id}`).then((r) => r.data),
+	deletePromo: (code: string) => apiClient.delete(`/owner/promos?code=${encodeURIComponent(code)}`).then((r) => r.data),
 
 	// --- Broadcast ---
 	listBroadcasts: () =>
 		apiClient
-			.get<BroadcastMessage[]>('/owner/broadcast')
+			.get<BroadcastMessage[]>('/owner/broadcasts')
 			.then((r) => r.data)
 			.catch(() => []),
-	sendBroadcast: (audience: string, text: string, scheduledAt?: string) =>
+	sendBroadcast: (audience: string, text: string, _scheduledAt?: string) =>
 		apiClient
-			.post<{ success: boolean; id: string | number }>('/owner/broadcast', {
+			.post<{ success: boolean; id: string | number }>('/owner/broadcasts', {
 				target_audience: audience,
-				message_text: text,
-				scheduled_at: scheduledAt,
+				message: text,
 			})
 			.then((r) => r.data),
 

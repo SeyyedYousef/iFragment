@@ -11,6 +11,7 @@ import (
 
 	"ifragment-backend/internal/client/mtproto"
 	"ifragment-backend/internal/service/username"
+	"ifragment-backend/internal/service/username/avm"
 )
 
 type mockRoundTripper struct{}
@@ -129,3 +130,21 @@ func TestGetContactEndpoint(t *testing.T) {
 		t.Fatalf("expected username durov, got %v", resp["username"])
 	}
 }
+
+func TestValuateAccessControl(t *testing.T) {
+	mockMTProto := mtproto.NewMockClient()
+	aggService := username.NewAggregatorService(nil, nil)
+	reportService := username.NewAnalysisService(context.Background(), nil, nil, nil, mockMTProto)
+	avmService := &avm.ValuationService{}
+	h := NewUsernameHandler(aggService, reportService, mockMTProto, nil, avmService, nil, nil)
+
+	// Unauthenticated request to /valuate must be rejected with 401 Unauthorized
+	req := httptest.NewRequest("GET", "/api/v1/usernames/valuate?u=polymarket", nil)
+	w := httptest.NewRecorder()
+	h.Valuate(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("Expected 401 Unauthorized for unauthenticated request, got %d", w.Code)
+	}
+}
+

@@ -59,10 +59,8 @@ export const OwnerPromos: Component = () => {
 		setError('');
 		setSuccessMsg('');
 
-		const expiryDate = new Date(Date.now() + hours * 3600 * 1000).toISOString();
-
 		try {
-			await ownerApi.createPromo(codeStr, reward, uses, expiryDate);
+			await ownerApi.createPromo(codeStr, reward, uses, hours > 0 ? hours : undefined);
 			setSuccessMsg(`کد هدیه ${codeStr} با موفقیت ایجاد شد.`);
 			setNewCode('');
 			fetchPromos();
@@ -84,7 +82,7 @@ export const OwnerPromos: Component = () => {
 		const promo = deletingPromo();
 		if (!promo) return;
 		try {
-			await ownerApi.deletePromo(promo.id || promo.code);
+			await ownerApi.deletePromo(promo.code);
 			setSuccessMsg(`کد ${promo.code} با موفقیت حذف گردید.`);
 			setDeletingPromo(null);
 			fetchPromos();

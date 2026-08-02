@@ -44,7 +44,7 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 			r.With(middleware.OptionalAuthMiddleware).Get("/quick/stream", cfg.UsernameHandler.StreamQuickAnalysis)
 			r.Get("/rates", cfg.UsernameHandler.GetRates)
 			r.Get("/similar", cfg.UsernameHandler.GetSimilar)
-			r.Get("/valuate", cfg.UsernameHandler.Valuate)
+			r.With(middleware.AuthMiddleware).Get("/valuate", cfg.UsernameHandler.Valuate)
 			r.Post("/share", cfg.UsernameHandler.Share)
 			r.With(middleware.AuthMiddleware).Post("/send-to-chat", cfg.UsernameHandler.SendToChat)
 

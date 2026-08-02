@@ -511,6 +511,36 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	cleanU := strings.ToLower(strings.TrimPrefix(u, "@"))
 
+	userID, errUser := middleware.GetUserID(ctx)
+	if errUser != nil || userID <= 0 {
+		RespondError(w, r, http.StatusUnauthorized, "Unauthorized", nil)
+		return
+	}
+
+	// Verify user valuation access for this username (24h granted access)
+	hasAccess := false
+	if h.cache != nil {
+		accessKey := fmt.Sprintf("val_access:%d:%s", userID, cleanU)
+		if val, err := h.cache.Client.Get(ctx, accessKey).Result(); err == nil && val != "" {
+			hasAccess = true
+		}
+	}
+
+	if !hasAccess && h.db != nil {
+		paid, payMethod, err := h.db.HasPaidValuation(ctx, userID, cleanU)
+		if err == nil && paid {
+			hasAccess = true
+			if h.cache != nil {
+				h.cache.Client.Set(ctx, fmt.Sprintf("val_access:%d:%s", userID, cleanU), payMethod, 24*time.Hour)
+			}
+		}
+	}
+
+	if !hasAccess {
+		RespondError(w, r, http.StatusForbidden, "Access denied. Valuation requires payment or free verification.", nil)
+		return
+	}
+
 	// Redis Cache hit check (centralized version-bound key format)
 	nocache := r.URL.Query().Get("nocache") == "true" || r.URL.Query().Get("refresh") == "true" || r.URL.Query().Get("force") == "true"
 	valCacheKey := fmt.Sprintf("valuation:%s:%s", avm.ModelVersion, cleanU)
@@ -1102,6 +1132,81 @@ func (h *UsernameHandler) GetContact(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(profile)
 }
 
+func (h *UsernameHandler) checkTelegramMembership(ctx context.Context, userID int64) (inChannel bool, inGroup bool) {
+	if userID <= 0 {
+		return false, false
+	}
+
+	botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
+	if botToken == "" {
+		botToken = os.Getenv("BOT_TOKEN")
+	}
+
+	if botToken == "" {
+		if os.Getenv("APP_ENV") == "production" {
+			return false, false
+		}
+		return true, true
+	}
+
+	tg := telegram.NewBotAPIClient(botToken)
+
+	channelTarget := os.Getenv("OFFICIAL_CHANNEL_USERNAME")
+	if channelTarget == "" {
+		channelTarget = "@iFragment_Official"
+	}
+	if !strings.HasPrefix(channelTarget, "@") && !strings.HasPrefix(channelTarget, "-") {
+		channelTarget = "@" + channelTarget
+	}
+
+	groupTarget := os.Getenv("OFFICIAL_GROUP_USERNAME")
+	if groupTarget == "" {
+		groupTarget = "@Fragmentscommunity"
+	}
+	if !strings.HasPrefix(groupTarget, "@") && !strings.HasPrefix(groupTarget, "-") {
+		groupTarget = "@" + groupTarget
+	}
+
+	inChannel = h.isMemberCached(ctx, tg, channelTarget, userID)
+	inGroup = h.isMemberCached(ctx, tg, groupTarget, userID)
+
+	return inChannel, inGroup
+}
+
+func (h *UsernameHandler) isMemberCached(ctx context.Context, tg *telegram.BotAPIClient, chatTarget string, userID int64) bool {
+	cacheKey := fmt.Sprintf("tg_member:%s:%d", chatTarget, userID)
+	if h.cache != nil {
+		if val, err := h.cache.Client.Get(ctx, cacheKey).Result(); err == nil {
+			return val == "true"
+		}
+	}
+
+	status, err := tg.GetChatMember(ctx, chatTarget, userID)
+	isMember := false
+	if err == nil {
+		s := strings.ToLower(status)
+		if s == "creator" || s == "administrator" || s == "member" || s == "restricted" {
+			isMember = true
+		}
+	} else {
+		slog.Warn("Failed to check Telegram chat member status", "chat", chatTarget, "user_id", userID, "err", err)
+	}
+
+	if h.cache != nil {
+		ttl := 3 * time.Minute
+		if !isMember {
+			ttl = 30 * time.Second
+		}
+		valStr := "false"
+		if isMember {
+			valStr = "true"
+		}
+		h.cache.Client.Set(ctx, cacheKey, valStr, ttl)
+	}
+
+	return isMember
+}
+
 type valuationPayRequest struct {
 	Username string `json:"username"`
 }
@@ -1155,13 +1260,15 @@ func (h *UsernameHandler) ValuationAccess(w http.ResponseWriter, r *http.Request
 		}
 	}
 
+	inChannel, inGroup := h.checkTelegramMembership(ctx, userID)
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"has_access":      hasAccess,
 		"method":          method,
 		"free_quota_used": freeQuotaUsed,
-		"in_channel":      true,
-		"in_group":        true,
+		"in_channel":      inChannel,
+		"in_group":        inGroup,
 	})
 }
 
@@ -1292,6 +1399,12 @@ func (h *UsernameHandler) ValuationVerifyFree(w http.ResponseWriter, r *http.Req
 			RespondError(w, r, http.StatusBadRequest, "Free valuation quota has already been used", nil)
 			return
 		}
+	}
+
+	inChannel, inGroup := h.checkTelegramMembership(ctx, userID)
+	if !inChannel || !inGroup {
+		RespondError(w, r, http.StatusBadRequest, fmt.Sprintf("Must join both official channel and group first (in_channel=%v, in_group=%v)", inChannel, inGroup), nil)
+		return
 	}
 
 	if h.cache != nil {

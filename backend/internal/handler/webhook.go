@@ -790,6 +790,27 @@ func (h *WebhookHandler) handleChatMemberUpdate(ctx context.Context, bot *reposi
 		}
 	}
 
+	// Enforce Telegram Premium restriction for @FragmentInvestors on any chat member status update (Channel, Supergroup, Group)
+	if (cmu.NewChatMember.Status == "member" || cmu.NewChatMember.Status == "administrator") &&
+		(cmu.OldChatMember.Status == "left" || cmu.OldChatMember.Status == "kicked" || cmu.OldChatMember.Status == "") {
+		if botmgmt.IsFragmentInvestorsGroup(cmu.Chat.Title, cmu.Chat.Username) {
+			if !cmu.NewChatMember.User.IsBot && !cmu.NewChatMember.User.IsPremium {
+				tgClient, tgErr := h.moderator.GetTelegramClient(ctx, bot)
+				if tgErr == nil && h.premiumGroupSvc != nil {
+					uComp := botmgmt.UserCompact{
+						ID:        cmu.NewChatMember.User.ID,
+						IsBot:     cmu.NewChatMember.User.IsBot,
+						FirstName: cmu.NewChatMember.User.FirstName,
+						Username:  cmu.NewChatMember.User.Username,
+						IsPremium: cmu.NewChatMember.User.IsPremium,
+					}
+					_ = h.premiumGroupSvc.ProcessMemberJoinRealtime(ctx, tgClient, cmu.Chat.ID, uComp)
+					return
+				}
+			}
+		}
+	}
+
 	// Trigger New Member Welcome for Channels
 	if cmu.Chat.Type == "channel" && (cmu.NewChatMember.Status == "member" || cmu.NewChatMember.Status == "administrator") && (cmu.OldChatMember.Status == "left" || cmu.OldChatMember.Status == "kicked" || cmu.OldChatMember.Status == "") {
 		ch, err := h.channelService.GetChannelByChatID(ctx, cmu.Chat.ID)
@@ -816,13 +837,15 @@ func (h *WebhookHandler) handleChatMemberUpdate(ctx context.Context, bot *reposi
 			IsBot:     cmu.NewChatMember.User.IsBot,
 			FirstName: cmu.NewChatMember.User.FirstName,
 			Username:  cmu.NewChatMember.User.Username,
+			IsPremium: cmu.NewChatMember.User.IsPremium,
 		}
 
 		fakeMsg := &Message{
 			Chat: &Chat{
-				ID:    cmu.Chat.ID,
-				Title: cmu.Chat.Title,
-				Type:  cmu.Chat.Type,
+				ID:       cmu.Chat.ID,
+				Title:    cmu.Chat.Title,
+				Type:     cmu.Chat.Type,
+				Username: cmu.Chat.Username,
 			},
 			NewChatMembers: []User{tgUser},
 		}
@@ -3501,6 +3524,28 @@ func (h *WebhookHandler) handleChatJoinRequest(ctx context.Context, bot *reposit
 		return
 	}
 	slog.Info("Processing chat join request", "chat_id", req.Chat.ID, "user_id", req.From.ID)
+
+	// 0. Enforce Telegram Premium restriction for @FragmentInvestors on join requests
+	if botmgmt.IsFragmentInvestorsGroup(req.Chat.Title, req.Chat.Username) {
+		if !req.From.IsBot && !req.From.IsPremium {
+			slog.Info("Decline join request for @FragmentInvestors: user does not have premium", "user_id", req.From.ID, "chat_id", req.Chat.ID)
+			tg, err := h.moderator.GetTelegramClient(ctx, bot)
+			if err == nil {
+				_ = tg.DeclineChatJoinRequest(ctx, req.Chat.ID, req.From.ID)
+				userLang := i18n.DetectLanguage(req.From.LanguageCode)
+				rejectMsg := i18n.T(userLang, "channel.join_request_rejected_premium", map[string]interface{}{"channel": req.Chat.Title})
+				if rejectMsg == "" || rejectMsg == "channel.join_request_rejected_premium" {
+					if userLang == "fa" {
+						rejectMsg = fmt.Sprintf("⚠️ درخواست عضویت شما در %s به دلیل عدم داشتن اکانت Premium پذیرفته نشد.", req.Chat.Title)
+					} else {
+						rejectMsg = fmt.Sprintf("⚠️ Your request to join %s was not approved because your account does not have Telegram Premium status.", req.Chat.Title)
+					}
+				}
+				_ = tg.SendMessage(ctx, req.From.ID, rejectMsg, nil, nil)
+			}
+			return
+		}
+	}
 
 	// 1. Verify channel connection exists in managed_channels
 	ch, err := h.channelService.GetChannelByChatID(ctx, req.Chat.ID)
