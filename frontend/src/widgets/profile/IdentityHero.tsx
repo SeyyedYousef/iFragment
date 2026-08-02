@@ -12,6 +12,7 @@ interface Props {
 export const IdentityHero = (props: Props) => {
 	const user = () => initData.user();
 	const [imgError, setImgError] = createSignal(false);
+	const [fallbackAttempted, setFallbackAttempted] = createSignal(false);
 
 	const isImpersonating = createMemo(() => !!getActiveImpersonationToken());
 
@@ -44,23 +45,36 @@ export const IdentityHero = (props: Props) => {
 		return '';
 	});
 
-	const avatarUrl = createMemo(() => {
-		const directTgPhoto = !isImpersonating() && ((user() as any)?.photo_url || (user() as any)?.photoUrl);
+	const directTgPhoto = createMemo(() => {
+		if (isImpersonating()) return '';
+		return ((user() as any)?.photo_url || (user() as any)?.photoUrl) || '';
+	});
 
-		if (imgError()) {
-			// If proxy/primary URL failed to load, fall back to direct Telegram CDN photo or empty
-			return directTgPhoto || '';
-		}
-
-		if (directTgPhoto) return directTgPhoto;
+	const primaryAvatarUrl = createMemo(() => {
+		const direct = directTgPhoto();
+		if (direct) return direct;
 		if (props.stats?.photoUrl) return buildAvatarUrl(props.stats.photoUrl);
 		return '';
+	});
+
+	const avatarUrl = createMemo(() => {
+		if (imgError() && !fallbackAttempted()) {
+			// Primary URL failed; try direct Telegram CDN as fallback
+			const fallback = directTgPhoto();
+			if (fallback) return fallback;
+		}
+		if (imgError() && fallbackAttempted()) {
+			// Both primary and fallback failed
+			return '';
+		}
+		return primaryAvatarUrl();
 	});
 
 	createEffect(() => {
 		props.stats?.photoUrl;
 		user();
 		setImgError(false);
+		setFallbackAttempted(false);
 	});
 
 	const info = createMemo(() => getLevelInfo(props.stats?.xp || 0));
@@ -83,7 +97,7 @@ export const IdentityHero = (props: Props) => {
 				<div class="relative w-[96px] h-[96px] rounded-full p-[2px] bg-gradient-to-br from-[#3390ec]/40 to-white/10 shadow-2xl">
 					<div class="w-full h-full rounded-full bg-[#08090D] overflow-hidden flex items-center justify-center relative">
 						<Show
-							when={avatarUrl() && !imgError()}
+							when={avatarUrl()}
 							fallback={
 								<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#151822] to-[#08090D]">
 									<span class="text-3xl font-black text-[#3390ec]">
@@ -98,7 +112,15 @@ export const IdentityHero = (props: Props) => {
 								class="w-full h-full object-cover transition-opacity duration-300"
 								loading="lazy"
 								referrerPolicy="no-referrer"
-								onError={() => setImgError(true)}
+								onError={() => {
+									if (!imgError()) {
+										// First failure: try fallback to direct Telegram CDN
+										setImgError(true);
+									} else {
+										// Fallback also failed: show initial letter
+										setFallbackAttempted(true);
+									}
+								}}
 							/>
 						</Show>
 					</div>

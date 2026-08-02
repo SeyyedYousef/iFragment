@@ -577,7 +577,8 @@ func (c *BotAPIClient) GetUserProfilePhotoURL(ctx context.Context, userID int64)
 		return "", nil
 	}
 
-	fileID := photosResult.Photos[0][0].FileID
+	sizes := photosResult.Photos[0]
+	fileID := sizes[len(sizes)-1].FileID
 
 	fileResp, err := c.Request(ctx, "getFile", map[string]interface{}{
 		"file_id": fileID,

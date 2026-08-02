@@ -12,27 +12,40 @@ export const BottomNav: Component = () => {
 	const [imgError, setImgError] = createSignal(false);
 	const [navVisible, setNavVisible] = createSignal(true);
 
-	const avatarUrl = () => {
+	const [fallbackAttempted, setFallbackAttempted] = createSignal(false);
+
+	const directTgPhoto = () => {
 		const u = user();
-		const directTgPhoto = (u?.photoUrl || u?.photo_url) as string | undefined;
+		return (u?.photoUrl || u?.photo_url) as string | undefined;
+	};
 
-		if (imgError()) {
-			return directTgPhoto;
-		}
-
-		if (directTgPhoto) return directTgPhoto;
+	const primaryAvatarUrl = () => {
+		const direct = directTgPhoto();
+		if (direct) return direct;
 
 		const statsPhoto = profilePhotoUrl();
-		if (statsPhoto) {
-			return buildAvatarUrl(statsPhoto);
-		}
+		if (statsPhoto) return buildAvatarUrl(statsPhoto);
 		return undefined;
+	};
+
+	const avatarUrl = () => {
+		if (imgError() && !fallbackAttempted()) {
+			// Primary URL failed; try direct Telegram CDN as fallback
+			const fallback = directTgPhoto();
+			if (fallback) return fallback;
+		}
+		if (imgError() && fallbackAttempted()) {
+			// Both primary and fallback failed
+			return undefined;
+		}
+		return primaryAvatarUrl();
 	};
 
 	createEffect(() => {
 		profilePhotoUrl();
 		user();
 		setImgError(false);
+		setFallbackAttempted(false);
 	});
 
 	onMount(() => {
@@ -178,7 +191,7 @@ export const BottomNav: Component = () => {
 					}`}
 				>
 					<Show
-						when={avatarUrl() && !imgError()}
+						when={avatarUrl()}
 						fallback={
 							<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#3390ec] to-[#10b981] text-white font-black text-lg">
 								{user()?.first_name ? user()?.first_name?.[0]?.toUpperCase() : 'U'}
@@ -191,7 +204,15 @@ export const BottomNav: Component = () => {
 							src={avatarUrl()!}
 							loading="lazy"
 							referrerPolicy="no-referrer"
-							onError={() => setImgError(true)}
+							onError={() => {
+								if (!imgError()) {
+									// First failure: try fallback to direct Telegram CDN
+									setImgError(true);
+								} else {
+									// Fallback also failed: show initial letter
+									setFallbackAttempted(true);
+								}
+							}}
 						/>
 					</Show>
 				</div>
