@@ -510,11 +510,11 @@ func (s *GamificationService) GetTasksStatus(ctx context.Context, userID int64) 
 	var taps int
 	var level int
 	var referrals int
-	var clanID int64
+	var hasClan bool
 	var isPremium bool
 	_ = s.db.Pool.QueryRow(ctx, "SELECT COALESCE(total_taps, 0), COALESCE(level, 1) FROM user_stats WHERE user_id = $1", userID).Scan(&taps, &level)
 	_ = s.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM users WHERE referred_by = $1", userID).Scan(&referrals)
-	_ = s.db.Pool.QueryRow(ctx, "SELECT COALESCE(clan_id, 0) FROM clan_members WHERE user_id = $1 LIMIT 1", userID).Scan(&clanID)
+	_ = s.db.Pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM clan_members WHERE user_id = $1)", userID).Scan(&hasClan)
 	_ = s.db.Pool.QueryRow(ctx, "SELECT COALESCE(is_premium, false) FROM users WHERE telegram_id = $1", userID).Scan(&isPremium)
 	if !isPremium {
 		if rawUser := ctx.Value(middleware.UserContextKey); rawUser != nil {
@@ -555,7 +555,7 @@ func (s *GamificationService) GetTasksStatus(ctx context.Context, userID int64) 
 			q.ProgressTarget = 1
 		case "join_clan":
 			q.IsClanReq = true
-			if clanID > 0 {
+			if hasClan {
 				q.ProgressCurrent = 1
 			}
 			q.ProgressTarget = 1
@@ -625,9 +625,9 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 		}
 	case "join_clan":
 		// Verify that the user belongs to a clan in the application
-		var clanID int64
-		err := s.db.Pool.QueryRow(ctx, "SELECT cm.clan_id FROM clan_members cm WHERE cm.user_id = $1", userID).Scan(&clanID)
-		if err != nil || clanID == 0 {
+		var hasClan bool
+		err := s.db.Pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM clan_members WHERE user_id = $1)", userID).Scan(&hasClan)
+		if err != nil || !hasClan {
 			return nil, fmt.Errorf("you must join a clan first")
 		}
 		// No further verification needed; DB membership is sufficient.

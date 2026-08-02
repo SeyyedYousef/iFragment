@@ -171,6 +171,14 @@ func (s *ProfileService) GetUserProfilePhotoPath(ctx context.Context, userID int
 				}
 			}
 		}
+
+		// 3. Fallback to photo_url stored in users database table
+		var dbPhotoURL string
+		if queryErr := s.db.Pool.QueryRow(ctx, "SELECT COALESCE(photo_url, '') FROM users WHERE telegram_id = $1", userID).Scan(&dbPhotoURL); queryErr == nil && dbPhotoURL != "" {
+			s.cacheAvatar(ctx, cacheKey, dbPhotoURL, "")
+			slog.Debug("[GetUserProfilePhotoPath] Successfully retrieved path via DB photo_url", "photo_url", dbPhotoURL, "user_id", userID)
+			return dbPhotoURL, "", nil
+		}
 	}
 
 	if s.cache != nil && s.cache.Client != nil {
@@ -192,32 +200,44 @@ func (s *ProfileService) GetAvatarStream(ctx context.Context, userID int64) (io.
 		return nil, "", 0, fmt.Errorf("no avatar found")
 	}
 
-	tg := telegram.NewBotAPIClient(botToken)
-
-	fileURL := fmt.Sprintf("%s/file/bot%s/%s", tg.BaseURL(), tg.Token(), path)
-	slog.Debug("[GetAvatarStream] Downloading from Telegram", "base_url", tg.BaseURL(), "path", path)
-
 	client := &http.Client{Timeout: 5 * time.Second}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fileURL, nil)
+	var req *http.Request
+
+	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
+		slog.Debug("[GetAvatarStream] Downloading direct URL", "url", path, "user_id", userID)
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, path, nil)
+	} else if botToken != "" {
+		tg := telegram.NewBotAPIClient(botToken)
+		fileURL := fmt.Sprintf("%s/file/bot%s/%s", tg.BaseURL(), tg.Token(), path)
+		slog.Debug("[GetAvatarStream] Downloading from Telegram", "base_url", tg.BaseURL(), "path", path)
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, fileURL, nil)
+	} else {
+		return nil, "", 0, fmt.Errorf("invalid avatar source")
+	}
+
 	if err != nil {
 		return nil, "", 0, err
 	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		slog.Debug("[GetAvatarStream] Telegram request failed", "user_id", userID, "error", err)
+		slog.Debug("[GetAvatarStream] Remote avatar request failed", "user_id", userID, "error", err)
 		return nil, "", 0, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		resp.Body.Close()
-		slog.Debug("[GetAvatarStream] Telegram file server returned error", "status_code", resp.StatusCode, "user_id", userID)
-		return nil, "", 0, fmt.Errorf("telegram returned status %d", resp.StatusCode)
+		slog.Debug("[GetAvatarStream] Remote file server returned error", "status_code", resp.StatusCode, "user_id", userID)
+		return nil, "", 0, fmt.Errorf("server returned status %d", resp.StatusCode)
 	}
 
 	contentLength, _ := strconv.ParseInt(resp.Header.Get("Content-Length"), 10, 64)
-	slog.Debug("[GetAvatarStream] Stream initialized", "user_id", userID, "size_bytes", contentLength, "content_type", resp.Header.Get("Content-Type"))
-	return resp.Body, resp.Header.Get("Content-Type"), contentLength, nil
+	contentType := resp.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "image/jpeg"
+	}
+	slog.Debug("[GetAvatarStream] Stream initialized", "user_id", userID, "size_bytes", contentLength, "content_type", contentType)
+	return resp.Body, contentType, contentLength, nil
 }
 
 func (s *ProfileService) GetStats(ctx context.Context, userID int64) (*model.ProfileStats, error) {
@@ -230,10 +250,7 @@ func (s *ProfileService) GetStats(ctx context.Context, userID int64) (*model.Pro
 			if json.Unmarshal([]byte(val), &stats) == nil {
 				stats.GlobalRank = s.getGlobalRank(ctx, userID, stats.XP)
 				stats.ServerNow = time.Now().UnixNano() / int64(time.Millisecond)
-				avatarPath, _, err := s.GetUserProfilePhotoPath(ctx, userID)
-				if err == nil && avatarPath != "" {
-					stats.PhotoURL = fmt.Sprintf("/api/v1/profile/avatar/%d", userID)
-				}
+				stats.PhotoURL = fmt.Sprintf("/api/v1/profile/avatar/%d", userID)
 				return &stats, nil
 			}
 		}
@@ -269,10 +286,7 @@ func (s *ProfileService) GetStats(ctx context.Context, userID int64) (*model.Pro
 		}
 	}
 
-	avatarPath, _, err := s.GetUserProfilePhotoPath(ctx, userID)
-	if err == nil && avatarPath != "" {
-		stats.PhotoURL = fmt.Sprintf("/api/v1/profile/avatar/%d", userID)
-	}
+	stats.PhotoURL = fmt.Sprintf("/api/v1/profile/avatar/%d", userID)
 
 	if s.cache != nil && s.cache.Client != nil {
 		data, err := json.Marshal(stats)
