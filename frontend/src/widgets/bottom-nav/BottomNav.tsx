@@ -20,11 +20,15 @@ export const BottomNav: Component = () => {
 	};
 
 	const primaryAvatarUrl = () => {
-		const direct = directTgPhoto();
-		if (direct) return direct;
-
+		const u = user();
+		const userId = u?.id;
+		if (userId) {
+			return buildAvatarUrl(`/api/v1/profile/avatar/${userId}`);
+		}
 		const statsPhoto = profilePhotoUrl();
 		if (statsPhoto) return buildAvatarUrl(statsPhoto);
+		const direct = directTgPhoto();
+		if (direct) return direct;
 		return undefined;
 	};
 

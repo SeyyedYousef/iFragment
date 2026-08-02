@@ -51,9 +51,14 @@ export const IdentityHero = (props: Props) => {
 	});
 
 	const primaryAvatarUrl = createMemo(() => {
+		const u = user();
+		const userId = u?.id || props.stats?.telegramId;
+		if (userId && !isImpersonating()) {
+			return buildAvatarUrl(`/api/v1/profile/avatar/${userId}`);
+		}
+		if (props.stats?.photoUrl) return buildAvatarUrl(props.stats.photoUrl);
 		const direct = directTgPhoto();
 		if (direct) return direct;
-		if (props.stats?.photoUrl) return buildAvatarUrl(props.stats.photoUrl);
 		return '';
 	});
 

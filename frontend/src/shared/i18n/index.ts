@@ -162,18 +162,14 @@ export const t = i18n.translator(getDict, customResolveTemplate) as (
 	args?: Record<string, any>,
 ) => string;
 
-// Helper to format numbers based on active locale
+// Helper to format numbers based on active locale (en-US for consistent English digits)
 export const getIntlLocale = (): string => {
-	const loc = getLocale();
-	if (loc === 'fa') return 'fa-IR';
-	if (loc === 'ps') return 'ps-AF';
-	if (loc === 'ru') return 'ru-RU';
-	if (loc === 'zh') return 'zh-CN';
 	return 'en-US';
 };
 
 export const formatNumber = (num: number): string => {
-	return num.toLocaleString(getIntlLocale());
+	if (num === undefined || num === null || Number.isNaN(num)) return '0';
+	return num.toLocaleString('en-US');
 };
 
 export const formatCoins = (coins: number | undefined | null): string => {
