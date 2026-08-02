@@ -13,6 +13,15 @@ export const BottomNav: Component = () => {
 	const [navVisible, setNavVisible] = createSignal(true);
 
 	const avatarUrl = () => {
+		const u = user();
+		const directTgPhoto = (u?.photoUrl || u?.photo_url) as string | undefined;
+
+		if (imgError()) {
+			return directTgPhoto;
+		}
+
+		if (directTgPhoto) return directTgPhoto;
+
 		const statsPhoto = profilePhotoUrl();
 		if (statsPhoto) {
 			if (statsPhoto.startsWith('http')) return statsPhoto;
@@ -20,13 +29,12 @@ export const BottomNav: Component = () => {
 			const cleanPath = statsPhoto.startsWith('/') ? statsPhoto : `/${statsPhoto}`;
 			return `${base}${cleanPath}`;
 		}
-		const u = user();
-		if (u?.photoUrl || u?.photo_url) return u.photoUrl || u.photo_url;
 		return undefined;
 	};
 
 	createEffect(() => {
-		avatarUrl();
+		profilePhotoUrl();
+		user();
 		setImgError(false);
 	});
 

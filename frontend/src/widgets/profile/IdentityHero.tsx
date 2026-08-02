@@ -55,13 +55,21 @@ export const IdentityHero = (props: Props) => {
 	});
 
 	const avatarUrl = createMemo(() => {
+		const directTgPhoto = !isImpersonating() && ((user() as any)?.photo_url || (user() as any)?.photoUrl);
+
+		if (imgError()) {
+			// If proxy/primary URL failed to load, fall back to direct Telegram CDN photo or empty
+			return directTgPhoto || '';
+		}
+
+		if (directTgPhoto) return directTgPhoto;
 		if (props.stats?.photoUrl) return buildAvatarUrl(props.stats.photoUrl);
-		if ((user() as any)?.photo_url && !isImpersonating()) return (user() as any).photo_url;
 		return '';
 	});
 
 	createEffect(() => {
-		avatarUrl();
+		props.stats?.photoUrl;
+		user();
 		setImgError(false);
 	});
 

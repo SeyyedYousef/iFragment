@@ -174,7 +174,7 @@ func (s *ProfileService) GetUserProfilePhotoPath(ctx context.Context, userID int
 	}
 
 	if s.cache != nil && s.cache.Client != nil {
-		s.cache.Client.Set(ctx, cacheKey, "none", 1*time.Hour)
+		s.cache.Client.Set(ctx, cacheKey, "none", 2*time.Minute)
 	}
 	slog.Debug("[GetUserProfilePhotoPath] No avatar path found", "user_id", userID)
 	return "", "", nil
