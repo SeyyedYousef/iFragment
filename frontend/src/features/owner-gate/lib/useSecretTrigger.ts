@@ -1,4 +1,3 @@
-import { retrieveLaunchParams } from '@tma.js/sdk-solid';
 import { createSignal, onCleanup } from 'solid-js';
 import { haptic } from '@/shared/lib/haptic.js';
 

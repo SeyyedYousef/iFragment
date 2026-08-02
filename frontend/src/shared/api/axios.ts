@@ -4,6 +4,32 @@ import { API_CONFIG } from './config.js';
 
 import { demoAdapter, isDemoRequest } from './demo-adapter.js';
 
+export const clearUserSessionData = () => {
+	try {
+		localStorage.removeItem('jwt_token');
+		localStorage.removeItem('tg_user_id');
+		localStorage.removeItem('cached_profile_stats');
+		localStorage.removeItem('cached_profile_achievements');
+		localStorage.removeItem('cached_profile_referral');
+		localStorage.removeItem('airdrop-pending-taps');
+		sessionStorage.removeItem('cached_tg_init_data');
+		sessionStorage.removeItem('cached_tg_init_data_user_id');
+		sessionStorage.removeItem('owner_impersonation_token');
+		sessionStorage.removeItem('owner_impersonation_expires_at');
+		sessionStorage.removeItem('impersonated_user_id');
+		sessionStorage.removeItem('impersonated_username');
+		sessionStorage.removeItem('impersonated_first_name');
+		sessionStorage.removeItem('impersonated_last_name');
+
+		for (let i = localStorage.length - 1; i >= 0; i--) {
+			const key = localStorage.key(i);
+			if (key && (key.startsWith('cached_profile_') || key.startsWith('airdrop-pending-taps'))) {
+				localStorage.removeItem(key);
+			}
+		}
+	} catch (_e) {}
+};
+
 const getInitData = (): string => {
 	let initDataStr = '';
 
@@ -21,10 +47,27 @@ const getInitData = (): string => {
 
 	// Cache in sessionStorage to survive path changes where hash is lost
 	if (initDataStr) {
+		const currentUserId = getUserIdFromInitData(initDataStr);
+		const storedUserId = localStorage.getItem('tg_user_id');
+		if (currentUserId && storedUserId && currentUserId !== storedUserId) {
+			console.warn('[API] Account switch detected in initData, clearing session data');
+			clearUserSessionData();
+		}
 		try {
 			sessionStorage.setItem('cached_tg_init_data', initDataStr);
+			if (currentUserId) {
+				sessionStorage.setItem('cached_tg_init_data_user_id', currentUserId);
+			}
 		} catch (_e) {}
 		return initDataStr;
+	}
+
+	const cachedUserId = sessionStorage.getItem('cached_tg_init_data_user_id');
+	const storedUserId = localStorage.getItem('tg_user_id');
+	if (cachedUserId && storedUserId && cachedUserId !== storedUserId) {
+		sessionStorage.removeItem('cached_tg_init_data');
+		sessionStorage.removeItem('cached_tg_init_data_user_id');
+		return '';
 	}
 
 	return sessionStorage.getItem('cached_tg_init_data') || '';
@@ -40,6 +83,23 @@ const getUserIdFromInitData = (initData: string): string | null => {
 		}
 	} catch (_e) {}
 	return null;
+};
+
+export const getActiveImpersonationToken = (): string | null => {
+	const token = sessionStorage.getItem('owner_impersonation_token');
+	if (!token) return null;
+	const expiresAt = sessionStorage.getItem('owner_impersonation_expires_at');
+	if (expiresAt && Date.now() > Number(expiresAt)) {
+		console.warn('[API] Impersonation token TTL expired, clearing token');
+		sessionStorage.removeItem('owner_impersonation_token');
+		sessionStorage.removeItem('owner_impersonation_expires_at');
+		sessionStorage.removeItem('impersonated_user_id');
+		sessionStorage.removeItem('impersonated_username');
+		sessionStorage.removeItem('impersonated_first_name');
+		sessionStorage.removeItem('impersonated_last_name');
+		return null;
+	}
+	return token;
 };
 
 // Reset failed initData cache on app load/reload to allow re-authentication attempts
@@ -70,7 +130,7 @@ apiClient.interceptors.request.use(
 		const initData = getInitData();
 
 		// Attempt to retrieve a valid JWT token (Prefer impersonation session token if active, then owner token if administrative path, then standard user token)
-		const impersonationToken = sessionStorage.getItem('owner_impersonation_token');
+		const impersonationToken = getActiveImpersonationToken();
 		const isOwnerRequest = isOwnerPath(config.url);
 		const ownerToken = isOwnerRequest ? sessionStorage.getItem('owner_token') : null;
 
@@ -83,10 +143,10 @@ apiClient.interceptors.request.use(
 			if (!impersonationToken && token) {
 				const currentUserId = getUserIdFromInitData(initData);
 				const storedUserId = localStorage.getItem('tg_user_id');
-				if (currentUserId && currentUserId !== storedUserId) {
-					console.warn('[API] Telegram account switched, invalidating token');
+				if (currentUserId && storedUserId && currentUserId !== storedUserId) {
+					console.warn('[API] Telegram account switched, wiping old session data');
+					clearUserSessionData();
 					token = null;
-					localStorage.removeItem('jwt_token');
 				}
 			}
 		}
@@ -167,12 +227,13 @@ apiClient.interceptors.response.use(
 			} else if (isImpersonating) {
 				console.warn('[API] Impersonation token expired, redirecting back to owner panel');
 				sessionStorage.removeItem('owner_impersonation_token');
+				sessionStorage.removeItem('owner_impersonation_expires_at');
 				sessionStorage.removeItem('impersonated_user_id');
 				sessionStorage.removeItem('impersonated_username');
+				sessionStorage.removeItem('impersonated_first_name');
+				sessionStorage.removeItem('impersonated_last_name');
 				// Clear cached user data so owner doesn't see stale impersonated data
-				localStorage.removeItem('cached_profile_stats');
-				localStorage.removeItem('cached_profile_achievements');
-				localStorage.removeItem('cached_profile_referral');
+				clearUserSessionData();
 				// Redirect back to owner panel
 				window.location.href = `${window.location.pathname}#/owner/users`;
 				window.location.reload();

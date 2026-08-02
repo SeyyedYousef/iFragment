@@ -1,6 +1,7 @@
 import { initData } from '@tma.js/sdk-solid';
 import { createEffect, createMemo, createSignal, Show } from 'solid-js';
-import { API_CONFIG } from '@/shared/api/config.js';
+import { buildAvatarUrl } from '@/shared/api/config.js';
+import { getActiveImpersonationToken } from '@/shared/api/axios.js';
 import { formatNumber, t } from '@/shared/i18n/index.js';
 import { getLevelInfo, type ProfileStats } from '@/shared/store/profile.js';
 
@@ -8,22 +9,11 @@ interface Props {
 	stats: ProfileStats | null;
 }
 
-const buildAvatarUrl = (rawUrl: string): string => {
-	if (!rawUrl) return '';
-	if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) return rawUrl;
-	try {
-		const base = new URL(API_CONFIG.BASE_URL);
-		return `${base.origin}${rawUrl}`;
-	} catch {
-		return rawUrl;
-	}
-};
-
 export const IdentityHero = (props: Props) => {
 	const user = () => initData.user();
 	const [imgError, setImgError] = createSignal(false);
 
-	const isImpersonating = createMemo(() => !!sessionStorage.getItem('owner_impersonation_token'));
+	const isImpersonating = createMemo(() => !!getActiveImpersonationToken());
 
 	const displayName = createMemo(() => {
 		if (props.stats?.firstName || props.stats?.lastName) {
@@ -36,19 +26,19 @@ export const IdentityHero = (props: Props) => {
 			const su = sessionStorage.getItem('impersonated_username');
 			const full = `${sf || ''} ${sl || ''}`.trim();
 			if (full) return full;
-			if (su) return `@${su}`;
+			if (su && !su.startsWith('impersonated_user_') && !su.startsWith('owner_')) return `@${su}`;
 		}
 		if (user()?.first_name) {
 			return `${user()?.first_name} ${user()?.last_name || ''}`.trim();
 		}
-		return 'کاربر';
+		return t('common.user' as any) || t('profile.user' as any) || 'User';
 	});
 
 	const usernameTag = createMemo(() => {
-		if (props.stats?.username) return `@${props.stats.username}`;
+		if (props.stats?.username && !props.stats.username.startsWith('owner_') && !props.stats.username.startsWith('impersonated_user_')) return `@${props.stats.username}`;
 		if (isImpersonating()) {
 			const su = sessionStorage.getItem('impersonated_username');
-			if (su && !su.startsWith('impersonated_user_')) return `@${su}`;
+			if (su && !su.startsWith('impersonated_user_') && !su.startsWith('owner_')) return `@${su}`;
 		}
 		if (user()?.username) return `@${user()?.username}`;
 		return '';

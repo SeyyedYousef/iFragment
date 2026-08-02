@@ -513,7 +513,36 @@ Replace the variadic `minInt` inside Levenshtein's inner loop with a zero-alloca
 
 ---
 
-## ✅ PHASE X COMPLETE
+## 🔐 6. Identity Chain & Cross-Account Security Audit (August 2026 Addendum)
+
+### Critical Findings & Mitigation Summary
+
+1. **Session Bleeding Between Accounts (P0 Security Vulnerability)**
+   * **Vulnerability:** Unprefixed `localStorage` keys (`cached_profile_stats`, `airdrop-pending-taps`) and unvalidated `sessionStorage` initData (`cached_tg_init_data`) allowed account B to render account A's full profile state when switching Telegram accounts in a shared WebView.
+   * **Mitigation:**
+     - User session data is now explicitly wiped via `clearUserSessionData()` upon detecting account switches.
+     - Storage keys are now dynamically scoped with `telegram_id` suffixes (e.g. `cached_profile_stats_${userId}`, `airdrop-pending-taps_${userId}`).
+     - Initial data getters now strictly validate that stored `telegramId` matches the currently active user before rendering.
+
+2. **Profile Photo Rendering Chain Failure**
+   * **Vulnerability:** Absence of `photo_url` column in `users` database table, dependence on Telegram attachment menu `initData.user().photo_url`, and 2-minute Redis negative caching (`"none"`) for unstarted bots caused permanent initials fallbacks.
+   * **Mitigation:**
+     - Added Migration `000063_add_photo_url_to_users.up.sql` adding `photo_url TEXT` column to `users`.
+     - `UpsertUser` in `user_repo.go` persists and updates user photo URLs.
+     - `GetProfileStats` in `profile_repo.go` selects DB `photo_url`.
+     - Reduced negative cache TTL from 2 minutes to 15 seconds.
+     - Avatar URL construction unified in `buildAvatarUrl` (in `config.ts`) and `Cache-Control` header on `/api/v1/profile/avatar/{id}` changed from `public` to `private`.
+
+3. **Sticky Owner / Impersonation Display Name**
+   * **Vulnerability:** Impersonation tokens stored in `sessionStorage` lacked TTL enforcement, and `displayName()` rendered raw synthetic usernames (`owner_5076...`, `impersonated_user_...`).
+   * **Mitigation:**
+     - `getActiveImpersonationToken()` enforces a 15-minute TTL on impersonation sessions in `sessionStorage`.
+     - `displayName()` and `usernameTag()` in `IdentityHero.tsx` explicitly filter out synthetic prefixes (`owner_` and `impersonated_user_`) and fall back to i18n localization (`t('common.user')`).
+
+---
+
+## ✅ PHASE XI COMPLETE
 * Audit & Concurrency Review: ✅ Complete
-* Code Optimizations Created: ✅ Complete
-* Date: June 2, 2026
+* Identity & Session Security Audit: ✅ Complete
+* Date: August 2, 2026
+

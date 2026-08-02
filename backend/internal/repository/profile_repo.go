@@ -42,7 +42,7 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 
 	query := `
 		WITH user_info AS (
-			SELECT telegram_id, COALESCE(username, '') as username, COALESCE(first_name, '') as first_name, COALESCE(last_name, '') as last_name, created_at, is_premium, premium_until 
+			SELECT telegram_id, COALESCE(username, '') as username, COALESCE(first_name, '') as first_name, COALESCE(last_name, '') as last_name, COALESCE(photo_url, '') as photo_url, created_at, is_premium, premium_until 
 			FROM users WHERE telegram_id = $1
 		),
 		reports_count AS (
@@ -106,7 +106,8 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 			si.energy_updated_at,
 			si.daily_tapped_coins,
 			si.turbo_used,
-			si.full_energy_used
+			si.full_energy_used,
+			ui.photo_url
 		FROM stats_info si
 		CROSS JOIN user_info ui
 		CROSS JOIN reports_count rc
@@ -114,7 +115,7 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 	`
 
 	var targetTelegramID int64
-	var targetUsername, targetFirstName, targetLastName string
+	var targetUsername, targetFirstName, targetLastName, dbPhotoURL string
 	var memberSince time.Time
 	var usernamesAnalyzed, groupsManaged, channelsManaged int
 	var frgBalance, totalFrgEarned, totalFrgSpent float64
@@ -136,6 +137,7 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 		&daysActive, &currentStreak, &totalTaps, &xp, &level, &lastActiveAt,
 		&isPremium, &premiumUntil, &emojiStatus, &equippedBorder, &equippedSkin, &airdropCoins,
 		&energy, &energyUpdatedAt, &dailyTappedCoins, &dailyTurboUsed, &dailyFullEnergyUsed,
+		&dbPhotoURL,
 	)
 	if err != nil {
 		return nil, err
@@ -188,6 +190,7 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 		DailyTurboUsed:      dailyTurboUsed,
 		DailyFullEnergyUsed: dailyFullEnergyUsed,
 		ServerNow:           time.Now().Unix(),
+		PhotoURL:            dbPhotoURL,
 	}, nil
 }
 

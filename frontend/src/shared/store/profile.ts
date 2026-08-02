@@ -128,9 +128,14 @@ const saved = loadProfileState();
 const loadCachedPhotoUrl = (): string => {
 	if (typeof window === 'undefined' || !window.localStorage) return '';
 	try {
-		const raw = localStorage.getItem('cached_profile_stats');
+		const storedUserId = localStorage.getItem('tg_user_id');
+		const key = storedUserId ? `cached_profile_stats_${storedUserId}` : 'cached_profile_stats';
+		const raw = localStorage.getItem(key) || localStorage.getItem('cached_profile_stats');
 		if (raw) {
 			const parsed = JSON.parse(raw);
+			if (storedUserId && parsed?.telegramId && String(parsed.telegramId) !== storedUserId) {
+				return '';
+			}
 			return typeof parsed?.photoUrl === 'string' ? parsed.photoUrl : '';
 		}
 	} catch {}

@@ -16,3 +16,16 @@ export const API_CONFIG = {
 
 	TIMEOUT: 15000,
 };
+
+export const buildAvatarUrl = (rawUrl: string | undefined): string => {
+	if (!rawUrl) return '';
+	if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) return rawUrl;
+	const cleanPath = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl}`;
+	try {
+		const base = new URL(API_CONFIG.BASE_URL);
+		return `${base.origin}${cleanPath}`;
+	} catch {
+		const base = API_CONFIG.BASE_URL.replace(/\/api\/v1\/?$/, '');
+		return `${base}${cleanPath}`;
+	}
+};

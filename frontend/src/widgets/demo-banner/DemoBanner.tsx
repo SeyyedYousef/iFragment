@@ -53,7 +53,7 @@ export const DemoBanner: Component = () => {
 						<button
 							onClick={() => { haptic.impact('light'); setExpanded(!expanded()); }}
 							class="w-8 h-8 rounded-[10px] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/5 transition-colors shrink-0"
-							aria-label={t('common.more')}
+							aria-label={t('common.more' as any)}
 						>
 							<span class={`material-symbols-outlined text-[20px] transition-transform ${expanded() ? 'rotate-180' : ''}`}>
 								expand_less

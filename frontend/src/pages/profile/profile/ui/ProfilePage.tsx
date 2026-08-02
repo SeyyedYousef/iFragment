@@ -25,8 +25,15 @@ export const ProfilePage: Component = () => {
 
 	const getCachedStats = () => {
 		try {
-			const raw = localStorage.getItem('cached_profile_stats');
-			return raw ? JSON.parse(raw) : undefined;
+			const storedUserId = localStorage.getItem('tg_user_id');
+			const key = storedUserId ? `cached_profile_stats_${storedUserId}` : 'cached_profile_stats';
+			const raw = localStorage.getItem(key) || localStorage.getItem('cached_profile_stats');
+			if (!raw) return undefined;
+			const parsed = JSON.parse(raw);
+			if (storedUserId && parsed?.telegramId && String(parsed.telegramId) !== storedUserId) {
+				return undefined;
+			}
+			return parsed;
 		} catch {
 			return undefined;
 		}
@@ -34,7 +41,9 @@ export const ProfilePage: Component = () => {
 
 	const getCachedAchievements = () => {
 		try {
-			const raw = localStorage.getItem('cached_profile_achievements');
+			const storedUserId = localStorage.getItem('tg_user_id');
+			const key = storedUserId ? `cached_profile_achievements_${storedUserId}` : 'cached_profile_achievements';
+			const raw = localStorage.getItem(key) || localStorage.getItem('cached_profile_achievements');
 			return raw ? JSON.parse(raw) : undefined;
 		} catch {
 			return undefined;
@@ -47,6 +56,11 @@ export const ProfilePage: Component = () => {
 			const res = await getProfileStats();
 			if (res) {
 				try {
+					const userId = res.telegramId || localStorage.getItem('tg_user_id');
+					if (userId) {
+						localStorage.setItem(`cached_profile_stats_${userId}`, JSON.stringify(res));
+						localStorage.setItem('tg_user_id', String(userId));
+					}
 					localStorage.setItem('cached_profile_stats', JSON.stringify(res));
 					if (res.photoUrl) {
 						setProfilePhotoUrl(res.photoUrl);
@@ -66,6 +80,10 @@ export const ProfilePage: Component = () => {
 			const res = await getProfileAchievements();
 			if (res) {
 				try {
+					const storedUserId = localStorage.getItem('tg_user_id');
+					if (storedUserId) {
+						localStorage.setItem(`cached_profile_achievements_${storedUserId}`, JSON.stringify(res));
+					}
 					localStorage.setItem('cached_profile_achievements', JSON.stringify(res));
 				} catch {}
 			}

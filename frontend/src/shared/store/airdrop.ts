@@ -346,9 +346,18 @@ interface TapBucket {
 	ts: number;
 }
 
+const getPendingTapsKey = () => {
+	try {
+		const userId = localStorage.getItem('tg_user_id');
+		return userId ? `airdrop-pending-taps_${userId}` : 'airdrop-pending-taps';
+	} catch {
+		return 'airdrop-pending-taps';
+	}
+};
+
 let pendingTapBuckets: TapBucket[] = [];
 try {
-	const savedPending = localStorage.getItem('airdrop-pending-taps');
+	const savedPending = localStorage.getItem(getPendingTapsKey()) || localStorage.getItem('airdrop-pending-taps');
 	if (savedPending) {
 		const parsed = JSON.parse(savedPending);
 		if (Array.isArray(parsed)) {
@@ -447,9 +456,10 @@ export const syncPendingTaps = async () => {
 
 						try {
 							if (pendingTapBuckets.length === 0) {
+								localStorage.removeItem(getPendingTapsKey());
 								localStorage.removeItem('airdrop-pending-taps');
 							} else {
-								localStorage.setItem('airdrop-pending-taps', JSON.stringify(pendingTapBuckets));
+								localStorage.setItem(getPendingTapsKey(), JSON.stringify(pendingTapBuckets));
 							}
 						} catch (e) {
 							console.error('Failed to save pending taps:', e);
@@ -464,7 +474,7 @@ export const syncPendingTaps = async () => {
 						// Discard invalid bucket to prevent getting stuck in infinite loop
 						pendingTapBuckets.shift();
 						try {
-							localStorage.setItem('airdrop-pending-taps', JSON.stringify(pendingTapBuckets));
+							localStorage.setItem(getPendingTapsKey(), JSON.stringify(pendingTapBuckets));
 						} catch (err) {
 							console.error('Failed to save pending taps after discard:', err);
 						}
@@ -529,7 +539,7 @@ export const recordTaps = (count: number) => {
 	}
 
 	try {
-		localStorage.setItem('airdrop-pending-taps', JSON.stringify(pendingTapBuckets));
+		localStorage.setItem(getPendingTapsKey(), JSON.stringify(pendingTapBuckets));
 	} catch (e) {
 		console.error('Failed to save pending taps:', e);
 	}

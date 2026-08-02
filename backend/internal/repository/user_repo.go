@@ -11,21 +11,23 @@ type User struct {
 	LastName     string
 	LanguageCode string
 	IsPremium    bool
+	PhotoURL     string
 }
 
 func (db *Database) UpsertUser(ctx context.Context, u User) error {
 	query := `
-		INSERT INTO users (telegram_id, username, first_name, last_name, language_code, is_premium)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO users (telegram_id, username, first_name, last_name, language_code, is_premium, photo_url)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (telegram_id) DO UPDATE SET
 			username = EXCLUDED.username,
 			first_name = EXCLUDED.first_name,
 			last_name = EXCLUDED.last_name,
 			is_premium = EXCLUDED.is_premium,
+			photo_url = COALESCE(NULLIF(EXCLUDED.photo_url, ''), users.photo_url),
 			language_code = CASE WHEN users.language_manual = true THEN users.language_code ELSE EXCLUDED.language_code END,
 			updated_at = CURRENT_TIMESTAMP
 	`
-	_, err := db.Pool.Exec(ctx, query, u.TelegramID, u.Username, u.FirstName, u.LastName, u.LanguageCode, u.IsPremium)
+	_, err := db.Pool.Exec(ctx, query, u.TelegramID, u.Username, u.FirstName, u.LastName, u.LanguageCode, u.IsPremium, u.PhotoURL)
 	return err
 }
 

@@ -71,6 +71,10 @@ func (h *AuthHandler) IssueToken(w http.ResponseWriter, r *http.Request) {
 	lastName, _ := user["last_name"].(string)
 	languageCode, _ := user["language_code"].(string)
 	isPremium, _ := user["is_premium"].(bool)
+	photoURL, _ := user["photo_url"].(string)
+	if photoURL == "" {
+		photoURL, _ = user["photoUrl"].(string)
+	}
 
 	// Synchronize user profile in the database
 	err := h.db.UpsertUser(r.Context(), repository.User{
@@ -80,6 +84,7 @@ func (h *AuthHandler) IssueToken(w http.ResponseWriter, r *http.Request) {
 		LastName:     lastName,
 		LanguageCode: languageCode,
 		IsPremium:    isPremium,
+		PhotoURL:     photoURL,
 	})
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, "Failed to synchronize user profile", err)
