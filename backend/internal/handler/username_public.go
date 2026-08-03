@@ -1153,7 +1153,7 @@ func (h *UsernameHandler) checkTelegramMembership(ctx context.Context, userID in
 
 	channelTarget := os.Getenv("OFFICIAL_CHANNEL_USERNAME")
 	if channelTarget == "" {
-		channelTarget = "@iFragment_Official"
+		channelTarget = "@FragmentsCommunity"
 	}
 	if !strings.HasPrefix(channelTarget, "@") && !strings.HasPrefix(channelTarget, "-") {
 		channelTarget = "@" + channelTarget
@@ -1161,7 +1161,7 @@ func (h *UsernameHandler) checkTelegramMembership(ctx context.Context, userID in
 
 	groupTarget := os.Getenv("OFFICIAL_GROUP_USERNAME")
 	if groupTarget == "" {
-		groupTarget = "@Fragmentscommunity"
+		groupTarget = "@FragmentInvestors"
 	}
 	if !strings.HasPrefix(groupTarget, "@") && !strings.HasPrefix(groupTarget, "-") {
 		groupTarget = "@" + groupTarget

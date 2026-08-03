@@ -127,7 +127,7 @@ export const ChannelDashboardPage: Component = () => {
 							</span>
 						</div>
 						<div class="flex items-center gap-1.5 text-[10px] text-white/50 font-bold mt-0.5 tracking-wider uppercase">
-							<span class="font-mono">{t('channelDashboard.membersCount', { count: (channel()?.members_count || 0).toLocaleString() })}</span>
+							<span class="font-mono">{t('channelDashboard.membersCount', { count: (channel()?.members_count || 0).toLocaleString('en-US') })}</span>
 							<span class="w-1 h-1 rounded-full bg-white/20" />
 							<span class={channel()?.subscription_status === 'paid' ? 'text-[#10b981]' : 'text-amber-400'}>
 								{channel()?.subscription_status === 'paid' ? t('common.pro') : t('common.free')}

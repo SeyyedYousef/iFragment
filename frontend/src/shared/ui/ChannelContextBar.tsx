@@ -11,7 +11,7 @@ const formatCount = (value?: number) => {
 	const count = value || 0;
 	if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
 	if (count >= 1_000) return `${(count / 1_000).toFixed(1)}k`;
-	return count.toLocaleString();
+	return count.toLocaleString('en-US');
 };
 
 const channelLabel = (channel?: ManagedChannel) => {

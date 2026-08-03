@@ -46,7 +46,7 @@ export const DynamicBioLessonCard: Component<{ onNavigate: () => void; isDone?: 
 						animate={{ scale: 1, color: '#ffffff' }}
 						class="text-purple-300 shrink-0 ml-2 font-black"
 					>
-						{membersCount().toLocaleString()}
+						{membersCount().toLocaleString('en-US')}
 					</Motion.span>
 				</div>
 			</div>

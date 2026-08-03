@@ -168,7 +168,7 @@ export const ChannelAnalyticsPage: Component = () => {
 							<div class="flex flex-col gap-0.5">
 								<span class="text-[11px] font-black uppercase tracking-widest text-white/40 flex items-center gap-1.5"><span class="material-symbols-outlined text-[#10b981] text-[16px]">groups</span> {t('channelAnalytics.memberGrowth')}</span>
 								<div class="flex items-end gap-2.5">
-									<h3 class="text-[26px] font-black text-white font-mono tracking-tight drop-shadow-sm">+{(analytics()?.summary?.new_members || 0).toLocaleString()}</h3>
+									<h3 class="text-[26px] font-black text-white font-mono tracking-tight drop-shadow-sm">+{(analytics()?.summary?.new_members || 0).toLocaleString('en-US')}</h3>
 									<Show when={analytics()?.summary?.new_members_today}>
 										<span class="text-[10px] font-black text-[#10b981] bg-[#10b981]/10 px-2 py-0.5 rounded-[6px] border border-[#10b981]/20 uppercase tracking-widest mb-1.5 shadow-sm">+{analytics()?.summary?.new_members_today || 0} {t('channelAnalytics.today')}</span>
 									</Show>

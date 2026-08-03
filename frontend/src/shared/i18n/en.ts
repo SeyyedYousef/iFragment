@@ -2792,6 +2792,13 @@ export const dict = {
 		anatomy_yes: 'Yes',
 		anatomy_no: 'No',
 		no_transaction_data: 'No transaction data',
+		free_channel_group_title: '1-Time Free Access',
+		free_channel_group_desc: 'Complete the tasks below to claim 24h AI valuation access',
+		free_channel_task: 'Subscribe to Official Channel',
+		free_group_task: 'Join Official Group',
+		free_group_premium_note: 'Note: Only Telegram Premium accounts can join this group.',
+		joined_badge: 'Joined',
+		join_btn: 'Join',
 	},
 	demo: {
 		groupTitle: 'Preview mode — demo group',

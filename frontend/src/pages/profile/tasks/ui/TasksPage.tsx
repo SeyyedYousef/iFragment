@@ -266,7 +266,7 @@ export const TasksPage: Component = () => {
 															<span class="material-symbols-outlined text-[12px]">
 																toll
 															</span>{' '}
-															+{(task.reward_frg ?? 0).toLocaleString()}
+															+{(task.reward_frg ?? 0).toLocaleString('en-US')}
 														</span>
 													</Show>
 													<Show when={task.reward_xp}>
@@ -274,7 +274,7 @@ export const TasksPage: Component = () => {
 															<span class="material-symbols-outlined text-[12px]">
 																bolt
 															</span>{' '}
-															+{(task.reward_xp ?? 0).toLocaleString()} XP
+															+{(task.reward_xp ?? 0).toLocaleString('en-US')} XP
 														</span>
 													</Show>
 												</div>

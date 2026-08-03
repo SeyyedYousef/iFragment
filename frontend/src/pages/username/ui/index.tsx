@@ -63,6 +63,8 @@ export const UsernamePage: Component = () => {
 	const [accessMethod, setAccessMethod] = createSignal<'free' | 'stars' | 'coins' | null>(null);
 	const [showPaymentGate, setShowPaymentGate] = createSignal<boolean>(false);
 	const [freeQuotaUsed, setFreeQuotaUsed] = createSignal<boolean>(false);
+	const [inChannel, setInChannel] = createSignal<boolean>(false);
+	const [inGroup, setInGroup] = createSignal<boolean>(false);
 	const [isProcessingPayment, setIsProcessingPayment] = createSignal<boolean>(false);
 	const [paymentError, setPaymentError] = createSignal<string>('');
 
@@ -326,6 +328,11 @@ export const UsernamePage: Component = () => {
 				setPaymentError(t('valuation.free_quota_used') || 'Verification failed.'); haptic.notify('error');
 			}
 		} catch (e: any) {
+			const accessCheck = await valuationApi.checkAccess(u).catch(() => null);
+			if (accessCheck) {
+				if (accessCheck.in_channel !== undefined) setInChannel(accessCheck.in_channel);
+				if (accessCheck.in_group !== undefined) setInGroup(accessCheck.in_group);
+			}
 			setPaymentError(e?.response?.data?.error || e?.message || 'Verification failed'); haptic.notify('error');
 		} finally { setIsProcessingPayment(false); }
 	};
@@ -362,6 +369,8 @@ export const UsernamePage: Component = () => {
 			} else {
 				try {
 					const res = await valuationApi.checkAccess(u);
+					if (res?.in_channel !== undefined) setInChannel(res.in_channel);
+					if (res?.in_group !== undefined) setInGroup(res.in_group);
 					if (res?.free_quota_used) {
 						setFreeQuotaUsed(true);
 						localStorage.setItem('val_free_used', 'true');
@@ -1494,30 +1503,80 @@ export const UsernamePage: Component = () => {
 										</div>
 									</button>
 
-									{/* Community Free Access */}
+									{/* Community Free Access Task Checklist */}
 									<Show when={!freeQuotaUsed()}>
-										<div class="w-full bg-[#08090D] border border-emerald-400/20 hover:border-emerald-400/50 rounded-[24px] p-4.5 flex flex-col gap-4 transition-all shadow-md mt-2">
-											<div class="flex items-center gap-4">
-												<div class="w-12 h-12 rounded-[16px] bg-emerald-400/10 border border-emerald-400/30 flex items-center justify-center shrink-0 shadow-inner">
-													<span class="material-symbols-outlined text-emerald-400 text-[26px]">card_giftcard</span>
+										<div class="w-full bg-[#08090D] border border-emerald-400/20 rounded-[24px] p-4 flex flex-col gap-3.5 shadow-md mt-1">
+											<div class="flex items-center gap-3">
+												<div class="w-10 h-10 rounded-[14px] bg-emerald-400/10 border border-emerald-400/30 flex items-center justify-center shrink-0 shadow-inner">
+													<span class="material-symbols-outlined text-emerald-400 text-[22px]">card_giftcard</span>
 												</div>
 												<div class="flex-1 flex flex-col text-start min-w-0">
-													<h4 class="text-[15px] font-black text-white truncate">{t('valuation.free_channel_group_title') || 'Community Access'}</h4>
-													<span class="text-[11px] font-medium text-white/50 mt-0.5 leading-relaxed">{t('valuation.free_channel_group_desc') || '1-Time Free pass for members'}</span>
+													<h4 class="text-[14px] font-black text-white truncate">{t('valuation.free_channel_group_title') || '1-Time Free Access'}</h4>
+													<span class="text-[11px] font-medium text-white/50 leading-tight">{t('valuation.free_channel_group_desc') || 'Complete tasks below to unlock 24h AI valuation access'}</span>
 												</div>
 											</div>
 
-											<div class="grid grid-cols-2 gap-2.5 w-full">
-												<button onClick={() => openTelegramLink('https://t.me/FragmentsCommunity')} class="h-11 bg-white/5 hover:bg-white/10 border border-white/5 text-emerald-300 font-bold text-[12px] rounded-[14px] flex items-center justify-center gap-1.5 transition-all active:scale-95">
-													<span class="material-symbols-outlined text-[18px]">podcasts</span> {t('valuation.join_channel_btn') || 'CHANNEL'}
-												</button>
-												<button onClick={() => openTelegramLink('https://t.me/FragmentInvestors')} class="h-11 bg-white/5 hover:bg-white/10 border border-white/5 text-emerald-300 font-bold text-[12px] rounded-[14px] flex items-center justify-center gap-1.5 transition-all active:scale-95">
-													<span class="material-symbols-outlined text-[18px]">groups</span> {t('valuation.join_group_btn') || 'GROUP'}
-												</button>
+											{/* Tasks Checklist */}
+											<div class="flex flex-col gap-2.5 w-full">
+												{/* Task 1: Channel */}
+												<div class={`p-3 rounded-[16px] border flex items-center justify-between gap-2.5 transition-all ${inChannel() ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/[0.03] border-white/10'}`}>
+													<div class="flex items-center gap-2.5 min-w-0 flex-1">
+														<div class={`w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-black shrink-0 ${inChannel() ? 'bg-emerald-400 text-black' : 'bg-white/10 text-white/50'}`}>
+															<Show when={inChannel()} fallback="1">✓</Show>
+														</div>
+														<div class="flex flex-col text-start min-w-0">
+															<span class="text-[12px] font-bold text-white truncate">{t('valuation.free_channel_task') || 'Subscribe to Official Channel'}</span>
+															<span class="text-[10px] text-emerald-400 font-mono">@FragmentsCommunity</span>
+														</div>
+													</div>
+													<Show when={!inChannel()} fallback={
+														<span class="px-2.5 py-1 rounded-[10px] bg-emerald-400/20 text-emerald-300 font-bold text-[11px] flex items-center gap-1 shrink-0">
+															<span class="material-symbols-outlined text-[14px]">check_circle</span>
+															{t('valuation.joined_badge') || 'Joined'}
+														</span>
+													}>
+														<button onClick={() => openTelegramLink('https://t.me/FragmentsCommunity')} class="px-3 py-1.5 bg-emerald-400 hover:bg-emerald-300 text-black font-extrabold text-[11px] rounded-[10px] flex items-center gap-1 transition-all active:scale-95 shrink-0 shadow-sm">
+															<span class="material-symbols-outlined text-[14px]">podcasts</span>
+															{t('valuation.join_btn') || 'Join'}
+														</button>
+													</Show>
+												</div>
+
+												{/* Task 2: Group */}
+												<div class={`p-3 rounded-[16px] border flex flex-col gap-2 transition-all ${inGroup() ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/[0.03] border-white/10'}`}>
+													<div class="flex items-center justify-between gap-2.5 w-full">
+														<div class="flex items-center gap-2.5 min-w-0 flex-1">
+															<div class={`w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-black shrink-0 ${inGroup() ? 'bg-emerald-400 text-black' : 'bg-white/10 text-white/50'}`}>
+																<Show when={inGroup()} fallback="2">✓</Show>
+															</div>
+															<div class="flex flex-col text-start min-w-0">
+																<span class="text-[12px] font-bold text-white truncate">{t('valuation.free_group_task') || 'Join Official Group'}</span>
+																<span class="text-[10px] text-emerald-400 font-mono">@FragmentInvestors</span>
+															</div>
+														</div>
+														<Show when={!inGroup()} fallback={
+															<span class="px-2.5 py-1 rounded-[10px] bg-emerald-400/20 text-emerald-300 font-bold text-[11px] flex items-center gap-1 shrink-0">
+																<span class="material-symbols-outlined text-[14px]">check_circle</span>
+																{t('valuation.joined_badge') || 'Joined'}
+															</span>
+														}>
+															<button onClick={() => openTelegramLink('https://t.me/FragmentInvestors')} class="px-3 py-1.5 bg-emerald-400 hover:bg-emerald-300 text-black font-extrabold text-[11px] rounded-[10px] flex items-center gap-1 transition-all active:scale-95 shrink-0 shadow-sm">
+																<span class="material-symbols-outlined text-[14px]">groups</span>
+																{t('valuation.join_btn') || 'Join'}
+															</button>
+														</Show>
+													</div>
+													<div class="bg-amber-400/10 border border-amber-400/20 rounded-[10px] px-2.5 py-1.5 flex items-start gap-1.5">
+														<span class="material-symbols-outlined text-amber-400 text-[14px] shrink-0 mt-0.5">star</span>
+														<span class="text-[10px] font-medium text-amber-300/90 leading-tight">
+															{t('valuation.free_group_premium_note') || 'Note: Only Telegram Premium users can join this group.'}
+														</span>
+													</div>
+												</div>
 											</div>
 
-											<button onClick={handleVerifyFreeAccess} disabled={isProcessingPayment()} class="w-full h-14 bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 text-black font-black text-[13px] tracking-widest uppercase rounded-[16px] flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(52,211,153,0.3)] active:scale-95 transition-all disabled:opacity-50">
-												<Show when={isProcessingPayment()} fallback={<><span class="material-symbols-outlined text-[20px]">verified</span>{t('valuation.verify_membership_btn') || 'VERIFY & ANALYZE'}</>}>
+											<button onClick={handleVerifyFreeAccess} disabled={isProcessingPayment()} class="w-full h-12 bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 text-black font-black text-[12px] tracking-wider uppercase rounded-[14px] flex items-center justify-center gap-2 shadow-[0_6px_20px_rgba(52,211,153,0.25)] active:scale-95 transition-all disabled:opacity-50 mt-0.5">
+												<Show when={isProcessingPayment()} fallback={<><span class="material-symbols-outlined text-[18px]">verified</span>{t('valuation.verify_membership_btn') || 'VERIFY & ANALYZE'}</>}>
 													<div class="w-5 h-5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
 												</Show>
 											</button>

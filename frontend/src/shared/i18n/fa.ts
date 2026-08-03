@@ -2782,6 +2782,13 @@ export const dict = {
 		anatomy_yes: 'بله',
 		anatomy_no: 'خیر',
 		no_transaction_data: 'دادهٔ معامله‌ای موجود نیست',
+		free_channel_group_title: 'دسترسی رایگان تک‌نوبتی',
+		free_channel_group_desc: 'تسک‌های زیر را تکمیل کنید تا آنالیز ۲۴ ساعته آزاد شود',
+		free_channel_task: 'عضویت در کانال رسمی',
+		free_group_task: 'عضویت در گروه رسمی',
+		free_group_premium_note: 'توضیح: فقط کاربران دارای پرمیوم تلگرام می‌توانند عضو این گروه شوند.',
+		joined_badge: 'عضو شدید',
+		join_btn: 'عضویت',
 	},
 	demo: {
 		groupTitle: 'حالت پیش‌نمایش — گروه نمونه',

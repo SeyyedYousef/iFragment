@@ -1,5 +1,5 @@
 import { Component, createMemo } from 'solid-js';
-import { t } from '@/shared/i18n/index.js';
+import { formatNumber, t } from '@/shared/i18n/index.js';
 import { getLevelInfo, type ProfileStats } from '@/shared/store/profile.js';
 
 interface Props {
@@ -35,7 +35,7 @@ export const ExperienceCard: Component<Props> = (props) => {
 						</div>
 						<div class="flex items-baseline gap-1">
 							<span class="text-[32px] font-black text-white leading-none tracking-tight font-mono tabular-nums">
-								{(props.stats?.xp || 0).toLocaleString()}
+								{formatNumber(props.stats?.xp || 0)}
 							</span>
 							<span class="text-[12px] font-black text-[#00f5ff]">{t('profile.xp') || 'XP'}</span>
 						</div>
@@ -47,7 +47,7 @@ export const ExperienceCard: Component<Props> = (props) => {
 						</h3>
 						<div class="flex items-baseline justify-end gap-1">
 							<span class="text-[18px] font-bold text-white/90 leading-none font-mono tabular-nums">
-								{info().next.xpRequired.toLocaleString()}
+								{formatNumber(info().next.xpRequired)}
 							</span>
 							<span class="text-[10px] font-bold text-white/40">{t('profile.xp') || 'XP'}</span>
 						</div>
