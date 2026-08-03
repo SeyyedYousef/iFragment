@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"ifragment-backend/internal/client/mtproto"
 	"ifragment-backend/internal/client/telegram"
+	"ifragment-backend/internal/client/tonapi"
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/username"
@@ -667,10 +668,15 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 	// 2. Populate Portfolio if OwnerAddress or latest buyer address exists
 	gVal.Go(func() error {
 		ownerAddr := result.History.OwnerAddress
-		if ownerAddr == "" && len(result.History.Transactions) > 0 {
-			ownerAddr = result.History.Transactions[0].Buyer
+		if (ownerAddr == "" || !tonapi.IsValidTONAddress(ownerAddr)) && len(result.History.Transactions) > 0 {
+			buyer := result.History.Transactions[0].Buyer
+			if tonapi.IsValidTONAddress(buyer) {
+				ownerAddr = buyer
+			} else {
+				ownerAddr = ""
+			}
 		}
-		if ownerAddr == "" || h.reportService == nil {
+		if ownerAddr == "" || !tonapi.IsValidTONAddress(ownerAddr) || h.reportService == nil {
 			return nil
 		}
 
@@ -1217,7 +1223,7 @@ func (h *UsernameHandler) ValuationAccess(w http.ResponseWriter, r *http.Request
 		RespondError(w, r, http.StatusBadRequest, "missing username", nil)
 		return
 	}
-	u = strings.TrimPrefix(u, "@")
+	u = strings.ToLower(strings.TrimPrefix(u, "@"))
 	ctx := r.Context()
 	userID, _ := middleware.GetUserID(ctx)
 
@@ -1285,7 +1291,7 @@ func (h *UsernameHandler) ValuationPayAirdrop(w http.ResponseWriter, r *http.Req
 		RespondError(w, r, http.StatusBadRequest, "Invalid request body", nil)
 		return
 	}
-	u := strings.TrimPrefix(req.Username, "@")
+	u := strings.ToLower(strings.TrimPrefix(req.Username, "@"))
 
 	if h.db == nil {
 		RespondError(w, r, http.StatusServiceUnavailable, "Database unavailable", nil)
@@ -1343,7 +1349,7 @@ func (h *UsernameHandler) ValuationPayStars(w http.ResponseWriter, r *http.Reque
 		RespondError(w, r, http.StatusBadRequest, "Invalid request body", nil)
 		return
 	}
-	u := strings.TrimPrefix(req.Username, "@")
+	u := strings.ToLower(strings.TrimPrefix(req.Username, "@"))
 
 	if h.starsService == nil {
 		RespondError(w, r, http.StatusServiceUnavailable, "Stars payment service unavailable", nil)
@@ -1391,7 +1397,7 @@ func (h *UsernameHandler) ValuationVerifyFree(w http.ResponseWriter, r *http.Req
 		RespondError(w, r, http.StatusBadRequest, "Invalid request body", nil)
 		return
 	}
-	u := strings.TrimPrefix(req.Username, "@")
+	u := strings.ToLower(strings.TrimPrefix(req.Username, "@"))
 
 	if h.db != nil {
 		used, err := h.db.HasUsedFreeValuationQuota(ctx, userID)

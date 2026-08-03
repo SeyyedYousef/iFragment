@@ -131,10 +131,14 @@ func (c *Client) GetCollection(ctx context.Context) (*CollectionData, error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, nil
+	}
+
 	if resp.StatusCode != http.StatusOK {
 		// Read response body to diagnose rejection reason
 		bodyPreview, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		slog.Error("MARKETAPP_REQUEST_FAILED",
+		slog.Warn("MARKETAPP_REQUEST_FAILED",
 			"url", url,
 			"status", resp.StatusCode,
 			"body", string(bodyPreview),

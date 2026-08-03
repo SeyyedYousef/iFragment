@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -156,19 +157,20 @@ func (db *Database) HasPaidValuation(ctx context.Context, userID int64, username
 	if db.Pool == nil {
 		return false, "", nil
 	}
+	cleanU := strings.ToLower(strings.TrimPrefix(username, "@"))
 	query := `
 		SELECT payload
 		FROM orders
 		WHERE user_id = $1
 		  AND status = 'paid'
 		  AND created_at > NOW() - INTERVAL '24 hours'
-		  AND (payload LIKE $2 OR payload LIKE $3 OR payload LIKE $4)
+		  AND (LOWER(payload) LIKE $2 OR LOWER(payload) LIKE $3 OR LOWER(payload) LIKE $4)
 		ORDER BY created_at DESC
 		LIMIT 1
 	`
-	p1 := "val_coins:" + username + "%"
-	p2 := "val_stars:" + fmt.Sprintf("%d:%s", userID, username) + "%"
-	p3 := "val_free:" + fmt.Sprintf("%d:%s", userID, username) + "%"
+	p1 := "val_coins:" + cleanU + "%"
+	p2 := "val_stars:" + fmt.Sprintf("%d:%s", userID, cleanU) + "%"
+	p3 := "val_free:" + fmt.Sprintf("%d:%s", userID, cleanU) + "%"
 	var payload string
 	err := db.Pool.QueryRow(ctx, query, userID, p1, p2, p3).Scan(&payload)
 	if err == pgx.ErrNoRows {
@@ -179,9 +181,9 @@ func (db *Database) HasPaidValuation(ctx context.Context, userID int64, username
 	}
 
 	method := "coins"
-	if len(payload) >= 8 && payload[:8] == "val_free" {
+	if len(payload) >= 8 && strings.ToLower(payload[:8]) == "val_free" {
 		method = "free"
-	} else if len(payload) >= 9 && payload[:9] == "val_stars" {
+	} else if len(payload) >= 9 && strings.ToLower(payload[:9]) == "val_stars" {
 		method = "stars"
 	}
 	return true, method, nil

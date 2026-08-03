@@ -339,8 +339,28 @@ func (c *Client) GetNFTItem(ctx context.Context, nftAddr string) (*NFTItem, erro
 	return &item, nil
 }
 
+// IsValidTONAddress checks if a given string looks like a valid TON account address (userfriendly base64 or raw hex)
+func IsValidTONAddress(addr string) bool {
+	addr = strings.TrimSpace(addr)
+	if addr == "" || strings.Contains(addr, " ") {
+		return false
+	}
+	// Check user-friendly base64 / base64url prefixes (EQ..., UQ..., kQ..., 0Q...)
+	if strings.HasPrefix(addr, "EQ") || strings.HasPrefix(addr, "UQ") || strings.HasPrefix(addr, "kQ") || strings.HasPrefix(addr, "0Q") {
+		return len(addr) >= 44 && len(addr) <= 50
+	}
+	// Check raw hex prefixes (0:..., -1:...)
+	if strings.HasPrefix(addr, "0:") || strings.HasPrefix(addr, "-1:") {
+		return len(addr) >= 66
+	}
+	return false
+}
+
 // GetWalletInfo fetches balance and status of a TON wallet
 func (c *Client) GetWalletInfo(ctx context.Context, address string) (*WalletInfo, error) {
+	if !IsValidTONAddress(address) {
+		return nil, fmt.Errorf("invalid TON address: %s", address)
+	}
 	url := fmt.Sprintf("%s/accounts/%s", c.BaseURL, address)
 	resp, err := c.doRequest(ctx, url)
 	if err != nil {
@@ -361,6 +381,9 @@ func (c *Client) GetWalletInfo(ctx context.Context, address string) (*WalletInfo
 
 // GetOwnerNFTs fetches all NFTs owned by a wallet in the usernames collection with full pagination
 func (c *Client) GetOwnerNFTs(ctx context.Context, ownerAddr string) (*NFTItems, error) {
+	if !IsValidTONAddress(ownerAddr) {
+		return nil, fmt.Errorf("invalid TON address: %s", ownerAddr)
+	}
 	var allItems NFTItems
 	limit := 100
 	offset := 0
