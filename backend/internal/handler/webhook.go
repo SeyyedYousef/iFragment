@@ -525,6 +525,13 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 	}()
 
 	update := telegramUpdatePool.Get().(*TelegramUpdate)
+	dispatched := false
+	defer func() {
+		if !dispatched {
+			*update = TelegramUpdate{}
+			telegramUpdatePool.Put(update)
+		}
+	}()
 
 	if err := json.Unmarshal(bodyBytes, update); err != nil {
 		slog.Error("Error decoding update", "error", err)
@@ -595,6 +602,7 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 	// Offload all heavy/API-interacting webhooks to our Async Job Queue Worker Pool
 	select {
 	case jobQueue <- WebhookJob{ctx: context.WithoutCancel(ctx), bot: bot, update: update}:
+		dispatched = true
 		w.WriteHeader(http.StatusOK)
 	default:
 		slog.Error("CRITICAL: Webhook job queue full! Webhook dropped.")

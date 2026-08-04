@@ -9,3 +9,5 @@ username_files*.txt
 *.log
 *.pyc
 __pycache__/
+graphify-out/
+.graphify/
