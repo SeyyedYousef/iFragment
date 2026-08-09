@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -1057,11 +1058,11 @@ func buildReplyMarkupFromButtons(buttons []repository.ChannelInlineButton) inter
 		if btnType == "url" || btnType == "share" {
 			if btnType == "share" {
 				if btn.Value == "" || btn.Value == "share" {
-					ikb["switch_inline_query"] = ""
+					ikb["url"] = "https://t.me/share/url?url="
 				} else if strings.HasPrefix(btn.Value, "http://") || strings.HasPrefix(btn.Value, "https://") || strings.HasPrefix(btn.Value, "tg://") {
 					ikb["url"] = btn.Value
 				} else {
-					ikb["switch_inline_query"] = btn.Value
+					ikb["url"] = "https://t.me/share/url?text=" + url.QueryEscape(btn.Value)
 				}
 			} else {
 				uStr := strings.TrimSpace(btn.Value)
@@ -1112,6 +1113,9 @@ func (s *ChannelService) ApplyWatermarkAndSignature(ctx context.Context, text st
 	var general GeneralSettingsSchema
 	_ = json.Unmarshal(settings.General, &general)
 
+	var rawGen map[string]interface{}
+	_ = json.Unmarshal(settings.General, &rawGen)
+
 	processedText := text
 
 	// Apply Watermark
@@ -1122,9 +1126,28 @@ func (s *ChannelService) ApplyWatermarkAndSignature(ctx context.Context, text st
 		}
 	}
 
-	// Support fallback for older legacy signatures
+	// Robust Signature settings extraction (supports camelCase & snake_case)
 	sigEnabled := general.SignMessages
-	sigText := general.CustomSignature
+	if !sigEnabled {
+		if val, ok := rawGen["signMessages"].(bool); ok {
+			sigEnabled = val
+		} else if val, ok := rawGen["sign_messages"].(bool); ok {
+			sigEnabled = val
+		} else if val, ok := rawGen["signMessages"].(string); ok {
+			sigEnabled = (val == "true" || val == "1")
+		} else if val, ok := rawGen["sign_messages"].(string); ok {
+			sigEnabled = (val == "true" || val == "1")
+		}
+	}
+
+	sigText := strings.TrimSpace(general.CustomSignature)
+	if sigText == "" {
+		if val, ok := rawGen["customSignature"].(string); ok && strings.TrimSpace(val) != "" {
+			sigText = strings.TrimSpace(val)
+		} else if val, ok := rawGen["custom_signature"].(string); ok && strings.TrimSpace(val) != "" {
+			sigText = strings.TrimSpace(val)
+		}
+	}
 
 	slog.Info("ApplyWatermarkAndSignature initial state",
 		"channel_id", channelID,
@@ -1139,6 +1162,9 @@ func (s *ChannelService) ApplyWatermarkAndSignature(ctx context.Context, text st
 	if !sigEnabled && posting.Signature != "" {
 		sigEnabled = true
 		sigText = posting.Signature
+	}
+	if sigEnabled && sigText == "" {
+		sigText = "— Admin"
 	}
 
 	slog.Info("ApplyWatermarkAndSignature final state",

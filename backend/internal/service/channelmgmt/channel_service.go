@@ -1209,29 +1209,41 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 		}
 	}
 
-	// 3. Auto-attach inline buttons to newly posted channel messages if enabled
+	// 3. Apply Watermark & Signature & Auto-attach inline buttons to channel messages if enabled
 	if !isEdit {
-		settings, errSettings := s.channelRepo.GetChannelSettings(ctx, ch.ID)
-		inlineButtonsEnabled := true
-		if errSettings == nil && settings != nil && len(settings.InlineButtons) > 0 {
-			var ibConfig struct {
-				Enabled *bool `json:"enabled"`
-			}
-			if json.Unmarshal(settings.InlineButtons, &ibConfig) == nil && ibConfig.Enabled != nil {
-				inlineButtonsEnabled = *ibConfig.Enabled
-			}
-		}
+		bot, errBot := s.botRepo.GetBotByID(ctx, ch.BotID)
+		if errBot == nil {
+			token, errToken := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+			if errToken == nil {
+				tg := telegram.NewBotAPIClient(token)
 
-		if inlineButtonsEnabled {
-			buttons, errBtn := s.GetChannelButtonsByChannelID(ctx, ch.ID)
-			if errBtn == nil && len(buttons) > 0 {
-				markup := BuildInlineKeyboard(buttons)
-				if markup != nil {
-					bot, errBot := s.botRepo.GetBotByID(ctx, ch.BotID)
-					if errBot == nil {
-						token, errToken := botmgmt.DecryptToken(bot.BotTokenEncrypted)
-						if errToken == nil {
-							tg := telegram.NewBotAPIClient(token)
+				// A. Apply Watermark & Signature to post text if enabled
+				signedText := s.ApplyWatermarkAndSignature(ctx, postText, ch.ID)
+				if signedText != postText && signedText != "" {
+					if errText := tg.EditMessageText(ctx, ch.ChatID, messageID, signedText); errText != nil {
+						slog.Error("Failed to edit channel post text with signature/watermark", "channel_id", ch.ID, "chat_id", ch.ChatID, "message_id", messageID, "error", errText)
+					} else {
+						slog.Info("Successfully applied signature/watermark to channel post", "channel_id", ch.ID, "message_id", messageID)
+					}
+				}
+
+				// B. Auto-attach inline buttons if enabled
+				settings, errSettings := s.channelRepo.GetChannelSettings(ctx, ch.ID)
+				inlineButtonsEnabled := true
+				if errSettings == nil && settings != nil && len(settings.InlineButtons) > 0 {
+					var ibConfig struct {
+						Enabled *bool `json:"enabled"`
+					}
+					if json.Unmarshal(settings.InlineButtons, &ibConfig) == nil && ibConfig.Enabled != nil {
+						inlineButtonsEnabled = *ibConfig.Enabled
+					}
+				}
+
+				if inlineButtonsEnabled {
+					buttons, errBtn := s.GetChannelButtonsByChannelID(ctx, ch.ID)
+					if errBtn == nil && len(buttons) > 0 {
+						markup := BuildInlineKeyboard(buttons)
+						if markup != nil {
 							if errEdit := tg.EditMessageReplyMarkup(ctx, ch.ChatID, messageID, markup); errEdit != nil {
 								slog.Error("Failed to auto-attach inline buttons to channel post", "channel_id", ch.ID, "chat_id", ch.ChatID, "message_id", messageID, "error", errEdit)
 							} else {
@@ -2063,11 +2075,11 @@ func BuildInlineKeyboard(buttons []repository.ChannelInlineButton) interface{} {
 			// Handle "share" literal value or URL from presets
 			if btnType == "share" {
 				if btn.Value == "" || btn.Value == "share" {
-					ikb["switch_inline_query"] = ""
+					ikb["url"] = "https://t.me/share/url?url="
 				} else if strings.HasPrefix(btn.Value, "http://") || strings.HasPrefix(btn.Value, "https://") || strings.HasPrefix(btn.Value, "tg://") {
 					ikb["url"] = btn.Value
 				} else {
-					ikb["switch_inline_query"] = btn.Value
+					ikb["url"] = "https://t.me/share/url?text=" + url.QueryEscape(btn.Value)
 				}
 			} else {
 				u, err := url.ParseRequestURI(btn.Value)
