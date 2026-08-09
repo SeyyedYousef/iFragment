@@ -351,6 +351,8 @@ export interface ForwardingRule {
 	direction: 'inbound' | 'outbound';
 	target_type: 'telegram' | 'webhook';
 	target: string;
+	source_channel?: string;
+	target_channel?: string;
 	mode: 'forward' | 'copy' | 'ai';
 	delay: string;
 	is_active: boolean;

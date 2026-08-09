@@ -858,6 +858,8 @@ type ChannelForwardingRule struct {
 	Direction      string          `json:"direction"`
 	TargetType     string          `json:"target_type"`
 	Target         string          `json:"target"`
+	SourceChannel  string          `json:"source_channel"`
+	TargetChannel  string          `json:"target_channel"`
 	Mode           string          `json:"mode"`
 	Delay          string          `json:"delay"`
 	IsActive       bool            `json:"is_active"`
@@ -890,6 +892,7 @@ type ChannelInlineButton struct {
 	Emoji      string    `json:"emoji"`
 	ClickCount int       `json:"click_count"`
 	OrderIndex int       `json:"order_index"`
+	IsActive   bool      `json:"is_active"`
 	CreatedAt  time.Time `json:"created_at"`
 }
 
@@ -899,12 +902,12 @@ func (r *ChannelRepo) CreateForwardingRule(ctx context.Context, rule *ChannelFor
 		return fmt.Errorf("database pool is not initialized")
 	}
 
-	query := `INSERT INTO channel_forwarding_rules (channel_id, direction, target_type, target, mode, delay, is_active, content_types, remove_ads, remove_hashtags, remove_links, watermark)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+	query := `INSERT INTO channel_forwarding_rules (channel_id, direction, target_type, target, source_channel, target_channel, mode, delay, is_active, content_types, remove_ads, remove_hashtags, remove_links, watermark)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		RETURNING id, created_at`
 
 	return r.db.Pool.QueryRow(ctx, query,
-		rule.ChannelID, rule.Direction, rule.TargetType, rule.Target, rule.Mode, rule.Delay, rule.IsActive,
+		rule.ChannelID, rule.Direction, rule.TargetType, rule.Target, rule.SourceChannel, rule.TargetChannel, rule.Mode, rule.Delay, rule.IsActive,
 		rule.ContentTypes, rule.RemoveAds, rule.RemoveHashtags, rule.RemoveLinks, rule.Watermark,
 	).Scan(&rule.ID, &rule.CreatedAt)
 }
@@ -915,7 +918,7 @@ func (r *ChannelRepo) GetForwardingRules(ctx context.Context, channelID uuid.UUI
 		return nil, fmt.Errorf("database pool is not initialized")
 	}
 
-	query := `SELECT id, channel_id, direction, target_type, target, mode, delay, is_active, content_types, remove_ads, remove_hashtags, remove_links, watermark, created_at
+	query := `SELECT id, channel_id, direction, target_type, target, source_channel, target_channel, mode, delay, is_active, content_types, remove_ads, remove_hashtags, remove_links, watermark, created_at
 		FROM channel_forwarding_rules WHERE channel_id = $1 ORDER BY created_at ASC`
 
 	rows, err := r.db.Pool.Query(ctx, query, channelID)
@@ -928,7 +931,7 @@ func (r *ChannelRepo) GetForwardingRules(ctx context.Context, channelID uuid.UUI
 	for rows.Next() {
 		var rl ChannelForwardingRule
 		if err := rows.Scan(
-			&rl.ID, &rl.ChannelID, &rl.Direction, &rl.TargetType, &rl.Target, &rl.Mode, &rl.Delay, &rl.IsActive,
+			&rl.ID, &rl.ChannelID, &rl.Direction, &rl.TargetType, &rl.Target, &rl.SourceChannel, &rl.TargetChannel, &rl.Mode, &rl.Delay, &rl.IsActive,
 			&rl.ContentTypes, &rl.RemoveAds, &rl.RemoveHashtags, &rl.RemoveLinks, &rl.Watermark, &rl.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -947,11 +950,11 @@ func (r *ChannelRepo) UpdateForwardingRule(ctx context.Context, rule *ChannelFor
 		return fmt.Errorf("database pool is not initialized")
 	}
 
-	query := `UPDATE channel_forwarding_rules SET direction = $1, target_type = $2, target = $3, mode = $4, delay = $5, is_active = $6, content_types = $7, remove_ads = $8, remove_hashtags = $9, remove_links = $10, watermark = $11
-		WHERE id = $12 AND channel_id = $13`
+	query := `UPDATE channel_forwarding_rules SET direction = $1, target_type = $2, target = $3, source_channel = $4, target_channel = $5, mode = $6, delay = $7, is_active = $8, content_types = $9, remove_ads = $10, remove_hashtags = $11, remove_links = $12, watermark = $13
+		WHERE id = $14 AND channel_id = $15`
 
 	tag, err := r.db.Pool.Exec(ctx, query,
-		rule.Direction, rule.TargetType, rule.Target, rule.Mode, rule.Delay, rule.IsActive,
+		rule.Direction, rule.TargetType, rule.Target, rule.SourceChannel, rule.TargetChannel, rule.Mode, rule.Delay, rule.IsActive,
 		rule.ContentTypes, rule.RemoveAds, rule.RemoveHashtags, rule.RemoveLinks, rule.Watermark, rule.ID, rule.ChannelID,
 	)
 	if err != nil {
@@ -986,8 +989,8 @@ func (r *ChannelRepo) GetActiveForwardingRulesBySource(ctx context.Context, targ
 		return nil, fmt.Errorf("database pool is not initialized")
 	}
 
-	query := `SELECT id, channel_id, direction, target_type, target, mode, delay, is_active, content_types, remove_ads, remove_hashtags, remove_links, watermark, created_at
-		FROM channel_forwarding_rules WHERE target = $1 AND is_active = true`
+	query := `SELECT id, channel_id, direction, target_type, target, source_channel, target_channel, mode, delay, is_active, content_types, remove_ads, remove_hashtags, remove_links, watermark, created_at
+		FROM channel_forwarding_rules WHERE (source_channel = $1 OR target = $1) AND is_active = true`
 
 	rows, err := r.db.Pool.Query(ctx, query, target)
 	if err != nil {
@@ -999,7 +1002,7 @@ func (r *ChannelRepo) GetActiveForwardingRulesBySource(ctx context.Context, targ
 	for rows.Next() {
 		var rl ChannelForwardingRule
 		if err := rows.Scan(
-			&rl.ID, &rl.ChannelID, &rl.Direction, &rl.TargetType, &rl.Target, &rl.Mode, &rl.Delay, &rl.IsActive,
+			&rl.ID, &rl.ChannelID, &rl.Direction, &rl.TargetType, &rl.Target, &rl.SourceChannel, &rl.TargetChannel, &rl.Mode, &rl.Delay, &rl.IsActive,
 			&rl.ContentTypes, &rl.RemoveAds, &rl.RemoveHashtags, &rl.RemoveLinks, &rl.Watermark, &rl.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -1117,7 +1120,7 @@ func (r *ChannelRepo) SaveChannelButtons(ctx context.Context, channelID uuid.UUI
 	}
 
 	// 1. Fetch existing buttons inside the transaction to identify matches
-	queryExisting := `SELECT id, channel_id, title, value, type, style, emoji, click_count, order_index, created_at
+	queryExisting := `SELECT id, channel_id, title, value, type, style, emoji, click_count, order_index, is_active, created_at
 		FROM channel_inline_buttons WHERE channel_id = $1 ORDER BY order_index ASC, created_at ASC`
 	rows, err := tx.Query(ctx, queryExisting, channelID)
 	if err != nil {
@@ -1129,7 +1132,7 @@ func (r *ChannelRepo) SaveChannelButtons(ctx context.Context, channelID uuid.UUI
 	for rows.Next() {
 		var b ChannelInlineButton
 		if err := rows.Scan(
-			&b.ID, &b.ChannelID, &b.Title, &b.Value, &b.Type, &b.Style, &b.Emoji, &b.ClickCount, &b.OrderIndex, &b.CreatedAt,
+			&b.ID, &b.ChannelID, &b.Title, &b.Value, &b.Type, &b.Style, &b.Emoji, &b.ClickCount, &b.OrderIndex, &b.IsActive, &b.CreatedAt,
 		); err != nil {
 			return err
 		}
@@ -1153,8 +1156,8 @@ func (r *ChannelRepo) SaveChannelButtons(ctx context.Context, channelID uuid.UUI
 		if btn.ID != uuid.Nil {
 			if _, exists := existingMap[btn.ID]; exists {
 				// Update all fields (including title/value/type) but keep click count intact
-				query := `UPDATE channel_inline_buttons SET title = $1, value = $2, type = $3, style = $4, emoji = $5, order_index = $6 WHERE id = $7`
-				_, err = tx.Exec(ctx, query, btn.Title, btn.Value, btn.Type, btn.Style, btn.Emoji, i, btn.ID)
+				query := `UPDATE channel_inline_buttons SET title = $1, value = $2, type = $3, style = $4, emoji = $5, order_index = $6, is_active = $7 WHERE id = $8`
+				_, err = tx.Exec(ctx, query, btn.Title, btn.Value, btn.Type, btn.Style, btn.Emoji, i, btn.IsActive, btn.ID)
 				if err != nil {
 					return err
 				}
@@ -1165,9 +1168,9 @@ func (r *ChannelRepo) SaveChannelButtons(ctx context.Context, channelID uuid.UUI
 
 		// Insert new button
 		newID := uuid.New()
-		query := `INSERT INTO channel_inline_buttons (id, channel_id, title, value, type, style, emoji, click_count, order_index)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8)`
-		_, err = tx.Exec(ctx, query, newID, channelID, btn.Title, btn.Value, btn.Type, btn.Style, btn.Emoji, i)
+		query := `INSERT INTO channel_inline_buttons (id, channel_id, title, value, type, style, emoji, click_count, order_index, is_active)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9)`
+		_, err = tx.Exec(ctx, query, newID, channelID, btn.Title, btn.Value, btn.Type, btn.Style, btn.Emoji, i, btn.IsActive)
 		if err != nil {
 			return err
 		}
@@ -1197,7 +1200,7 @@ func (r *ChannelRepo) GetChannelButtons(ctx context.Context, channelID uuid.UUID
 		return nil, fmt.Errorf("database pool is not initialized")
 	}
 
-	query := `SELECT id, channel_id, title, value, type, style, emoji, 0 as click_count, order_index, created_at
+	query := `SELECT id, channel_id, title, value, type, style, emoji, click_count, order_index, is_active, created_at
 		FROM channel_inline_buttons WHERE channel_id = $1 ORDER BY order_index ASC, created_at ASC`
 
 	rows, err := r.db.Pool.Query(ctx, query, channelID)
@@ -1210,7 +1213,7 @@ func (r *ChannelRepo) GetChannelButtons(ctx context.Context, channelID uuid.UUID
 	for rows.Next() {
 		var b ChannelInlineButton
 		if err := rows.Scan(
-			&b.ID, &b.ChannelID, &b.Title, &b.Value, &b.Type, &b.Style, &b.Emoji, &b.ClickCount, &b.OrderIndex, &b.CreatedAt,
+			&b.ID, &b.ChannelID, &b.Title, &b.Value, &b.Type, &b.Style, &b.Emoji, &b.ClickCount, &b.OrderIndex, &b.IsActive, &b.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1239,12 +1242,12 @@ func (r *ChannelRepo) GetButtonByID(ctx context.Context, buttonID uuid.UUID) (*C
 		return nil, fmt.Errorf("database pool is not initialized")
 	}
 
-	query := `SELECT id, channel_id, title, value, type, style, emoji, click_count, created_at
+	query := `SELECT id, channel_id, title, value, type, style, emoji, click_count, order_index, is_active, created_at
 		FROM channel_inline_buttons WHERE id = $1`
 
 	var b ChannelInlineButton
 	err := r.db.Pool.QueryRow(ctx, query, buttonID).Scan(
-		&b.ID, &b.ChannelID, &b.Title, &b.Value, &b.Type, &b.Style, &b.Emoji, &b.ClickCount, &b.CreatedAt,
+		&b.ID, &b.ChannelID, &b.Title, &b.Value, &b.Type, &b.Style, &b.Emoji, &b.ClickCount, &b.OrderIndex, &b.IsActive, &b.CreatedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -1676,7 +1679,7 @@ func (r *ChannelRepo) GetChannelButtonsWithCounts(ctx context.Context, channelID
 		          WHERE c.channel_id = b.channel_id 
 		            AND c.telegram_message_id = $2 
 		            AND c.button_id = b.id), 0) AS click_count,
-		b.order_index, b.created_at
+		b.order_index, b.is_active, b.created_at
 		FROM channel_inline_buttons b 
 		WHERE b.channel_id = $1 
 		ORDER BY b.order_index ASC, b.created_at ASC`
@@ -1691,7 +1694,7 @@ func (r *ChannelRepo) GetChannelButtonsWithCounts(ctx context.Context, channelID
 	for rows.Next() {
 		var b ChannelInlineButton
 		if err := rows.Scan(
-			&b.ID, &b.ChannelID, &b.Title, &b.Value, &b.Type, &b.Style, &b.Emoji, &b.ClickCount, &b.OrderIndex, &b.CreatedAt,
+			&b.ID, &b.ChannelID, &b.Title, &b.Value, &b.Type, &b.Style, &b.Emoji, &b.ClickCount, &b.OrderIndex, &b.IsActive, &b.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

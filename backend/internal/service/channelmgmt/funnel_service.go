@@ -1037,6 +1037,9 @@ func buildReplyMarkupFromButtons(buttons []repository.ChannelInlineButton) inter
 	}
 	var row []map[string]interface{}
 	for _, btn := range buttons {
+		if btn.ID != uuid.Nil && !btn.IsActive {
+			continue
+		}
 		text := ""
 		if btn.Emoji != "" {
 			text += btn.Emoji + " "
@@ -1050,16 +1053,37 @@ func buildReplyMarkupFromButtons(buttons []repository.ChannelInlineButton) inter
 			ikb["style"] = btn.Style
 		}
 
-		if btn.Type == "url" {
-			urlStr := strings.TrimSpace(btn.Value)
-			if !strings.HasPrefix(urlStr, "http://") && !strings.HasPrefix(urlStr, "https://") && !strings.HasPrefix(urlStr, "tg://") {
-				urlStr = "https://" + urlStr
+		btnType := strings.ToLower(btn.Type)
+		if btnType == "url" || btnType == "share" {
+			if btnType == "share" {
+				if btn.Value == "" || btn.Value == "share" {
+					ikb["switch_inline_query"] = ""
+				} else if strings.HasPrefix(btn.Value, "http://") || strings.HasPrefix(btn.Value, "https://") || strings.HasPrefix(btn.Value, "tg://") {
+					ikb["url"] = btn.Value
+				} else {
+					ikb["switch_inline_query"] = btn.Value
+				}
+			} else {
+				uStr := strings.TrimSpace(btn.Value)
+				if !strings.HasPrefix(uStr, "http://") && !strings.HasPrefix(uStr, "https://") && !strings.HasPrefix(uStr, "tg://") {
+					uStr = "https://" + uStr
+				}
+				ikb["url"] = uStr
 			}
-			ikb["url"] = urlStr
+		} else if btnType == "payment" {
+			if strings.HasPrefix(btn.Value, "http://") || strings.HasPrefix(btn.Value, "https://") || strings.HasPrefix(btn.Value, "tg://") {
+				ikb["url"] = btn.Value
+			} else {
+				ikb["callback_data"] = fmt.Sprintf("btn_click:%s", btn.ID.String())
+			}
 		} else {
 			ikb["callback_data"] = fmt.Sprintf("btn_click:%s", btn.ID.String())
 		}
 		row = append(row, ikb)
+	}
+
+	if len(row) == 0 {
+		return nil
 	}
 
 	var keyboard [][]map[string]interface{}

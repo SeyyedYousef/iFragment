@@ -560,11 +560,11 @@ func (s *ChannelService) ProcessAutoResponder(ctx context.Context, tg *telegram.
 	return s.autoResponderService.ProcessMessage(ctx, tg, channelID, chatID, messageID, text)
 }
 
-func (s *ChannelService) ProcessAutoFirstComment(ctx context.Context, tg *telegram.BotAPIClient, channelID uuid.UUID, chatID int64, messageID int) (bool, error) {
+func (s *ChannelService) ProcessAutoFirstComment(ctx context.Context, tg *telegram.BotAPIClient, channelID uuid.UUID, chatID int64, messageID int, postText ...string) (bool, error) {
 	if !s.featureAutoResponder {
 		return false, nil
 	}
-	return s.autoResponderService.ProcessAutoFirstComment(ctx, tg, channelID, chatID, messageID)
+	return s.autoResponderService.ProcessAutoFirstComment(ctx, tg, channelID, chatID, messageID, postText...)
 }
 
 func (s *ChannelService) ProcessNewMember(ctx context.Context, tg *telegram.BotAPIClient, channelID uuid.UUID, chatID int64, newMembers []telegram.User) (bool, error) {
@@ -635,8 +635,36 @@ func (s *ChannelService) validateForwardingTarget(rule *repository.ChannelForwar
 		return fmt.Errorf("invalid target type: must be telegram or webhook")
 	}
 
+	// Normalize source/target fallback fields
+	if rule.SourceChannel == "" && rule.Direction == "inbound" {
+		rule.SourceChannel = rule.Target
+	}
+	if rule.TargetChannel == "" && rule.Direction == "outbound" {
+		rule.TargetChannel = rule.Target
+	}
+	if rule.Target == "" {
+		if rule.TargetChannel != "" {
+			rule.Target = rule.TargetChannel
+		} else if rule.SourceChannel != "" {
+			rule.Target = rule.SourceChannel
+		}
+	}
+
+	// Prevent source and target from being identical
+	if rule.SourceChannel != "" && rule.TargetChannel != "" {
+		srcNorm := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(rule.SourceChannel)), "@")
+		tgtNorm := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(rule.TargetChannel)), "@")
+		if srcNorm != "" && tgtNorm != "" && srcNorm == tgtNorm {
+			return fmt.Errorf("source and target channels cannot be identical")
+		}
+	}
+
 	if targetType == "webhook" {
-		u, err := url.Parse(rule.Target)
+		targetURL := rule.Target
+		if targetURL == "" {
+			targetURL = rule.TargetChannel
+		}
+		u, err := url.Parse(targetURL)
 		if err != nil {
 			return fmt.Errorf("invalid webhook URL: %w", err)
 		}
@@ -1175,6 +1203,41 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 						time.AfterFunc(delayDuration, executeOutbound)
 					} else {
 						executeOutbound()
+					}
+				}
+			}
+		}
+	}
+
+	// 3. Auto-attach inline buttons to newly posted channel messages if enabled
+	if !isEdit {
+		settings, errSettings := s.channelRepo.GetChannelSettings(ctx, ch.ID)
+		inlineButtonsEnabled := true
+		if errSettings == nil && settings != nil && len(settings.InlineButtons) > 0 {
+			var ibConfig struct {
+				Enabled *bool `json:"enabled"`
+			}
+			if json.Unmarshal(settings.InlineButtons, &ibConfig) == nil && ibConfig.Enabled != nil {
+				inlineButtonsEnabled = *ibConfig.Enabled
+			}
+		}
+
+		if inlineButtonsEnabled {
+			buttons, errBtn := s.GetChannelButtonsByChannelID(ctx, ch.ID)
+			if errBtn == nil && len(buttons) > 0 {
+				markup := BuildInlineKeyboard(buttons)
+				if markup != nil {
+					bot, errBot := s.botRepo.GetBotByID(ctx, ch.BotID)
+					if errBot == nil {
+						token, errToken := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+						if errToken == nil {
+							tg := telegram.NewBotAPIClient(token)
+							if errEdit := tg.EditMessageReplyMarkup(ctx, ch.ChatID, messageID, markup); errEdit != nil {
+								slog.Error("Failed to auto-attach inline buttons to channel post", "channel_id", ch.ID, "chat_id", ch.ChatID, "message_id", messageID, "error", errEdit)
+							} else {
+								slog.Info("Successfully attached inline buttons to channel post", "channel_id", ch.ID, "message_id", messageID)
+							}
+						}
 					}
 				}
 			}
@@ -1975,11 +2038,20 @@ func BuildInlineKeyboard(buttons []repository.ChannelInlineButton) interface{} {
 
 	var row []map[string]interface{}
 	for _, btn := range buttons {
+		if btn.ID != uuid.Nil && !btn.IsActive {
+			continue // Skip inactive buttons
+		}
+
 		text := ""
 		if btn.Emoji != "" {
 			text += btn.Emoji + " "
 		}
 		text += btn.Title
+
+		btnType := strings.ToLower(btn.Type)
+		if btnType == "counter" && btn.ClickCount > 0 {
+			text += fmt.Sprintf(" (%d)", btn.ClickCount)
+		}
 
 		ikb := map[string]interface{}{"text": text}
 
@@ -1987,11 +2059,16 @@ func BuildInlineKeyboard(buttons []repository.ChannelInlineButton) interface{} {
 			ikb["style"] = btn.Style
 		}
 
-		btnType := strings.ToLower(btn.Type)
 		if btnType == "url" || btnType == "share" {
-			// Handle "share" literal value from presets
-			if btnType == "share" && btn.Value == "share" {
-				ikb["switch_inline_query"] = ""
+			// Handle "share" literal value or URL from presets
+			if btnType == "share" {
+				if btn.Value == "" || btn.Value == "share" {
+					ikb["switch_inline_query"] = ""
+				} else if strings.HasPrefix(btn.Value, "http://") || strings.HasPrefix(btn.Value, "https://") || strings.HasPrefix(btn.Value, "tg://") {
+					ikb["url"] = btn.Value
+				} else {
+					ikb["switch_inline_query"] = btn.Value
+				}
 			} else {
 				u, err := url.ParseRequestURI(btn.Value)
 				if err != nil || (u.Scheme != "http" && u.Scheme != "https" && u.Scheme != "tg") || ((u.Scheme == "http" || u.Scheme == "https") && u.Host == "") {
@@ -2006,7 +2083,13 @@ func BuildInlineKeyboard(buttons []repository.ChannelInlineButton) interface{} {
 			}
 			ikb["web_app"] = map[string]string{"url": btn.Value}
 		} else if btnType == "payment" {
-			ikb["pay"] = true
+			// Telegram Bot API rejects pay: true on non-invoice messages with BUTTON_TYPE_INVALID.
+			// Format payment buttons on regular posts as URL or callback query.
+			if strings.HasPrefix(btn.Value, "http://") || strings.HasPrefix(btn.Value, "https://") || strings.HasPrefix(btn.Value, "tg://") {
+				ikb["url"] = btn.Value
+			} else {
+				ikb["callback_data"] = fmt.Sprintf("btn_click:%s", btn.ID.String())
+			}
 		} else {
 			// callback, counter, or default
 			ikb["callback_data"] = fmt.Sprintf("btn_click:%s", btn.ID.String())

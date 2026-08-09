@@ -28,6 +28,7 @@ interface InlineBtn {
 	style: string;
 	emoji: string;
 	click_count?: number;
+	is_active?: boolean;
 }
 
 export const ChannelInlineButtonsPage: Component = () => {
@@ -74,6 +75,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 					style: b.style,
 					emoji: b.emoji || '',
 					click_count: b.click_count || 0,
+					is_active: b.is_active !== undefined ? b.is_active : true,
 				})),
 			);
 		}
@@ -122,6 +124,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 			style: btnStyle(),
 			emoji: btnEmoji().trim(),
 			click_count: 0,
+			is_active: true,
 		};
 
 		if (editingId()) {
@@ -181,54 +184,59 @@ export const ChannelInlineButtonsPage: Component = () => {
 			setButtons([
 				{
 					id: 'p1',
-					title: t('channelInlineButtons.likeBtn'),
+					title: t('channelInlineButtons.likeBtn') || 'پسندیدم',
 					value: 'like',
 					type: 'counter',
 					style: 'success',
 					emoji: '👍',
 					click_count: 0,
+					is_active: true,
 				},
 				{
 					id: 'p2',
-					title: t('channelInlineButtons.dislikeBtn'),
+					title: t('channelInlineButtons.dislikeBtn') || 'نپسندیدم',
 					value: 'dislike',
 					type: 'counter',
 					style: 'danger',
 					emoji: '👎',
 					click_count: 0,
+					is_active: true,
 				},
 			]);
 		} else if (preset === 'link_share') {
 			setButtons([
 				{
 					id: 'p1',
-					title: t('channelInlineButtons.viewSiteBtn'),
+					title: t('channelInlineButtons.viewSiteBtn') || 'مشاهده سایت',
 					value: 'https://site.com',
 					type: 'url',
 					style: 'primary',
 					emoji: '📎',
 					click_count: 0,
+					is_active: true,
 				},
 				{
 					id: 'p2',
-					title: t('channelInlineButtons.shareBtn'),
+					title: t('channelInlineButtons.shareBtn') || 'اشتراک‌گذاری',
 					value: 'share',
 					type: 'share',
 					style: 'default',
 					emoji: '📢',
 					click_count: 0,
+					is_active: true,
 				},
 			]);
 		} else if (preset === 'buy') {
 			setButtons([
 				{
 					id: 'p1',
-					title: t('channelInlineButtons.buyNowBtn'),
+					title: t('channelInlineButtons.buyNowBtn') || 'خرید مستقیم',
 					value: 'payment_id',
 					type: 'payment',
 					style: 'primary',
 					emoji: '🛒',
 					click_count: 0,
+					is_active: true,
 				},
 			]);
 		} else if (preset === 'custom') {
@@ -252,6 +260,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 				style: b.style,
 				emoji: b.emoji,
 				click_count: b.click_count || 0,
+				is_active: b.is_active !== false,
 			};
 			if (b.id && !b.id.startsWith('p') && !b.id.startsWith('local_')) {
 				payload.id = b.id;

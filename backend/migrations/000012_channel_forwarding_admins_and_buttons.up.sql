@@ -9,6 +9,8 @@ CREATE TABLE channel_forwarding_rules (
     direction TEXT NOT NULL CHECK (direction IN ('inbound', 'outbound')),
     target_type TEXT NOT NULL CHECK (target_type IN ('telegram', 'webhook')),
     target TEXT NOT NULL,
+    source_channel TEXT NOT NULL DEFAULT '',
+    target_channel TEXT NOT NULL DEFAULT '',
     mode TEXT NOT NULL DEFAULT 'forward' CHECK (mode IN ('forward', 'copy', 'ai')),
     delay TEXT DEFAULT '',
     is_active BOOLEAN NOT NULL DEFAULT true,

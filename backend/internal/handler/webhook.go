@@ -1102,7 +1102,7 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 		return
 	}
 
-	// Enforce Telegram Premium restriction for @FragmentInvestors
+	// Enforce Telegram Premium restriction for @FragmentInvestors ONLY (bypass regular group moderation)
 	if botmgmt.IsFragmentInvestorsGroup(msg.Chat.Title, msg.Chat.Username) && msg.From != nil {
 		if !msg.From.IsBot && !msg.From.IsPremium {
 			tgClient, tgErr := h.moderator.GetTelegramClient(ctx, bot)
@@ -1116,9 +1116,10 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 				}
 				_ = h.premiumGroupSvc.ProcessMemberJoinRealtime(ctx, tgClient, msg.Chat.ID, uComp)
 				h.deleteMessage(ctx, bot, msg.Chat.ID, msg.MessageID)
-				return
 			}
 		}
+		// For @FragmentInvestors, only Telegram Premium enforcement applies; stop further moderation checks.
+		return
 	}
 
 	// Intercept owner/admin private messages for Channel Funnel caption editing
@@ -1347,7 +1348,11 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 		ch, err := h.channelService.GetChannelByChatID(ctx, channelChatID)
 		if err == nil && ch != nil {
 			tg, _ := h.moderator.GetTelegramClient(ctx, bot)
-			_, _ = h.channelService.ProcessAutoFirstComment(ctx, tg, ch.ID, msg.Chat.ID, msg.MessageID)
+			postText := msg.Text
+			if postText == "" {
+				postText = msg.Caption
+			}
+			_, _ = h.channelService.ProcessAutoFirstComment(ctx, tg, ch.ID, msg.Chat.ID, msg.MessageID, postText)
 		}
 	}
 
@@ -2929,6 +2934,9 @@ func (h *WebhookHandler) buildChannelInlineKeyboard(ctx context.Context, channel
 
 	var row []InlineKeyboardButton
 	for _, btn := range buttons {
+		if btn.ID != uuid.Nil && !btn.IsActive {
+			continue
+		}
 		text := ""
 		if btn.Emoji != "" {
 			text += btn.Emoji + " "
@@ -2941,20 +2949,35 @@ func (h *WebhookHandler) buildChannelInlineKeyboard(ctx context.Context, channel
 		ikb := InlineKeyboardButton{
 			Text: truncateButtonText(text, 64),
 		}
-
-		if btn.Style != "" {
+		if btn.Style != "" && btn.Style != "default" {
 			ikb.Style = btn.Style
 		}
-		if btn.Type == "url" {
-			ikb.URL = strings.TrimSpace(btn.Value)
-			if !strings.HasPrefix(ikb.URL, "http://") && !strings.HasPrefix(ikb.URL, "https://") && !strings.HasPrefix(ikb.URL, "tg://") {
-				ikb.URL = "https://" + ikb.URL
+
+		btnType := strings.ToLower(btn.Type)
+		if btnType == "url" || btnType == "share" {
+			if btnType == "share" && (btn.Value == "" || btn.Value == "share") {
+				ikb.URL = "https://t.me/share/url?url="
+			} else {
+				uStr := strings.TrimSpace(btn.Value)
+				if !strings.HasPrefix(uStr, "http://") && !strings.HasPrefix(uStr, "https://") && !strings.HasPrefix(uStr, "tg://") {
+					uStr = "https://" + uStr
+				}
+				ikb.URL = uStr
+			}
+		} else if btnType == "payment" {
+			if strings.HasPrefix(btn.Value, "http://") || strings.HasPrefix(btn.Value, "https://") || strings.HasPrefix(btn.Value, "tg://") {
+				ikb.URL = btn.Value
+			} else {
+				ikb.CallbackData = fmt.Sprintf("btn_click:%s", btn.ID.String())
 			}
 		} else {
-			// Callback query click button
 			ikb.CallbackData = fmt.Sprintf("btn_click:%s", btn.ID.String())
 		}
 		row = append(row, ikb)
+	}
+
+	if len(row) == 0 {
+		return nil, nil
 	}
 
 	var keyboard [][]InlineKeyboardButton
@@ -2975,6 +2998,9 @@ func buildReplyMarkupFromButtons(buttons []repository.ChannelInlineButton) inter
 	}
 	var row []InlineKeyboardButton
 	for _, btn := range buttons {
+		if btn.ID != uuid.Nil && !btn.IsActive {
+			continue
+		}
 		text := ""
 		if btn.Emoji != "" {
 			text += btn.Emoji + " "
@@ -2982,19 +3008,39 @@ func buildReplyMarkupFromButtons(buttons []repository.ChannelInlineButton) inter
 		text += btn.Title
 
 		ikb := InlineKeyboardButton{
-			Text:  truncateButtonText(text, 64),
-			Style: btn.Style,
+			Text: truncateButtonText(text, 64),
 		}
-		if btn.Type == "url" {
-			ikb.URL = strings.TrimSpace(btn.Value)
-			if !strings.HasPrefix(ikb.URL, "http://") && !strings.HasPrefix(ikb.URL, "https://") && !strings.HasPrefix(ikb.URL, "tg://") {
-				ikb.URL = "https://" + ikb.URL
+		if btn.Style != "" && btn.Style != "default" {
+			ikb.Style = btn.Style
+		}
+
+		btnType := strings.ToLower(btn.Type)
+		if btnType == "url" || btnType == "share" {
+			if btnType == "share" && (btn.Value == "" || btn.Value == "share") {
+				ikb.URL = "https://t.me/share/url?url="
+			} else {
+				uStr := strings.TrimSpace(btn.Value)
+				if !strings.HasPrefix(uStr, "http://") && !strings.HasPrefix(uStr, "https://") && !strings.HasPrefix(uStr, "tg://") {
+					uStr = "https://" + uStr
+				}
+				ikb.URL = uStr
+			}
+		} else if btnType == "payment" {
+			if strings.HasPrefix(btn.Value, "http://") || strings.HasPrefix(btn.Value, "https://") || strings.HasPrefix(btn.Value, "tg://") {
+				ikb.URL = btn.Value
+			} else {
+				ikb.CallbackData = fmt.Sprintf("btn_click:%s", btn.ID.String())
 			}
 		} else {
 			ikb.CallbackData = fmt.Sprintf("btn_click:%s", btn.ID.String())
 		}
 		row = append(row, ikb)
 	}
+
+	if len(row) == 0 {
+		return nil
+	}
+
 	var keyboard [][]InlineKeyboardButton
 	for i := 0; i < len(row); i += 2 {
 		end := i + 2
@@ -3003,6 +3049,7 @@ func buildReplyMarkupFromButtons(buttons []repository.ChannelInlineButton) inter
 		}
 		keyboard = append(keyboard, row[i:end])
 	}
+
 	return InlineKeyboardMarkup{InlineKeyboard: keyboard}
 }
 

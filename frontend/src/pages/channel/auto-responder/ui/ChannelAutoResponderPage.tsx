@@ -54,10 +54,6 @@ export const ChannelAutoResponderPage: Component = () => {
 
 	const [attachButton, setAttachButton] = createSignal('');
 
-	const [newMemberWelcome, setNewMemberWelcome] = createSignal(false);
-	const [welcomeDelay, setWelcomeDelay] = createSignal('3'); // Smart Default: 3 seconds delay
-	const [welcomeText, setWelcomeText] = createSignal('');
-
 	const [isSaving, setIsSaving] = createSignal(false);
 
 	const [settings] = createResource(
@@ -92,9 +88,6 @@ export const ChannelAutoResponderPage: Component = () => {
 					if ('rotatingTexts' in obj && Array.isArray(obj.rotatingTexts))
 						setRotatingTexts(obj.rotatingTexts.map(String));
 					if ('attachButton' in obj) setAttachButton(String(obj.attachButton || ''));
-					if ('newMemberWelcome' in obj) setNewMemberWelcome(!!obj.newMemberWelcome);
-					if ('welcomeDelay' in obj) setWelcomeDelay(String(obj.welcomeDelay || '0'));
-					if ('welcomeText' in obj) setWelcomeText(String(obj.welcomeText || ''));
 					if ('rules' in obj && Array.isArray(obj.rules)) setRules(obj.rules.map(normalizeRule));
 				}
 			} catch (e) {
@@ -124,9 +117,6 @@ export const ChannelAutoResponderPage: Component = () => {
 			fixedComment: fixedComment(),
 			rotatingTexts: rotatingTexts(),
 			attachButton: attachButton(),
-			newMemberWelcome: newMemberWelcome(),
-			welcomeDelay: welcomeDelay(),
-			welcomeText: welcomeText(),
 			rules: rules(),
 		};
 
@@ -139,9 +129,6 @@ export const ChannelAutoResponderPage: Component = () => {
 				fixedComment: originalAR?.fixedComment || '',
 				rotatingTexts: originalAR?.rotatingTexts || [],
 				attachButton: originalAR?.attachButton || '',
-				newMemberWelcome: !!originalAR?.newMemberWelcome,
-				welcomeDelay: originalAR?.welcomeDelay || '0',
-				welcomeText: originalAR?.welcomeText || '',
 				rules: Array.isArray(originalAR?.rules) ? originalAR.rules.map(normalizeRule) : [],
 			})
 		);
@@ -200,9 +187,6 @@ export const ChannelAutoResponderPage: Component = () => {
 			fixedComment: fixedComment(),
 			rotatingTexts: rotatingTexts(),
 			attachButton: attachButton(),
-			newMemberWelcome: newMemberWelcome(),
-			welcomeDelay: welcomeDelay(),
-			welcomeText: welcomeText(),
 			rules: rules(),
 		};
 
@@ -333,10 +317,6 @@ export const ChannelAutoResponderPage: Component = () => {
 											<div class="flex flex-col"><span class="text-[13px] font-black text-white">{t('channelAutoResponder.featFirstCommentTitle')}</span><span class="text-[10px] font-medium text-white/50">{t('channelAutoResponder.featFirstCommentDesc')}</span></div>
 										</div>
 										<div class="flex items-center gap-3">
-											<div class="w-8 h-8 rounded-[10px] bg-white/5 flex items-center justify-center border border-white/10 shadow-inner shrink-0"><span class="material-symbols-outlined text-emerald-400 text-[16px]">waving_hand</span></div>
-											<div class="flex flex-col"><span class="text-[13px] font-black text-white">{t('channelAutoResponder.featWelcomeTitle')}</span><span class="text-[10px] font-medium text-white/50">{t('channelAutoResponder.featWelcomeDesc')}</span></div>
-										</div>
-										<div class="flex items-center gap-3">
 											<div class="w-8 h-8 rounded-[10px] bg-white/5 flex items-center justify-center border border-white/10 shadow-inner shrink-0"><span class="material-symbols-outlined text-cyan-400 text-[16px]">quickreply</span></div>
 											<div class="flex flex-col"><span class="text-[13px] font-black text-white">{t('channelAutoResponder.featKeywordTitle')}</span><span class="text-[10px] font-medium text-white/50">{t('channelAutoResponder.featKeywordDesc')}</span></div>
 										</div>
@@ -431,39 +411,6 @@ export const ChannelAutoResponderPage: Component = () => {
 														]}
 													/>
 												</div>
-											</div>
-										</div>
-									</Show>
-								</div>
-
-								{/* ═══════ NEW MEMBER WELCOME ═══════ */}
-								<div class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] border border-white/5 p-5 flex flex-col gap-4 shadow-sm relative overflow-hidden">
-									<SettingsSection
-										title={t('channelAutoResponder.welcomeMessage')}
-										description={t('channelAutoResponder.welcomeMessageDesc')}
-										enabled={newMemberWelcome()}
-										onToggle={(v) => { haptic.impact('light'); setNewMemberWelcome(v); }}
-									/>
-									<Show when={newMemberWelcome()}>
-										<div class="flex flex-col gap-4 pt-4 border-t border-white/5 relative z-10">
-											<div class="flex flex-col gap-1.5">
-												<label class="text-[11px] font-black uppercase tracking-widest text-white/40 px-1">{t('channelAutoResponder.welcomeDelay')}</label>
-												<input
-													type="number" value={welcomeDelay()} onInput={(e) => setWelcomeDelay(e.currentTarget.value)} placeholder="0"
-													class="bg-[#08090D] border border-white/5 text-white text-[13px] font-mono font-bold rounded-[16px] px-4 py-3.5 w-full focus:outline-none focus:border-[#3390ec]/50 shadow-inner transition-colors placeholder-white/20"
-													dir="ltr"
-												/>
-											</div>
-											<div class="flex flex-col gap-1.5 mt-1">
-												<label class="text-[11px] font-black uppercase tracking-widest text-white/40 px-1 flex justify-between items-center">
-													{t('channelAutoResponder.welcomeText')}
-													<span class="text-[#3390ec] font-bold bg-[#3390ec]/10 px-2 py-0.5 rounded-[6px] border border-[#3390ec]/20 lowercase tracking-normal">{t('channelAutoResponder.useName')}</span>
-												</label>
-												<textarea
-													value={welcomeText()} onInput={(e) => setWelcomeText(e.currentTarget.value)}
-													placeholder={t('channelAutoResponder.welcomeTextPlaceholder')}
-													class="bg-[#08090D] border border-white/5 text-white text-[13px] font-medium leading-relaxed rounded-[16px] px-4 py-3.5 w-full min-h-[100px] focus:outline-none focus:border-[#3390ec]/50 resize-none shadow-inner placeholder-white/20 transition-colors"
-												/>
 											</div>
 										</div>
 									</Show>

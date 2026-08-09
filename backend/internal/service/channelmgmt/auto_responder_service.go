@@ -7,6 +7,7 @@ import (
 	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/repository"
 	"log/slog"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -22,6 +23,92 @@ func NewAutoResponderService(channelRepo *repository.ChannelRepo) *AutoResponder
 	return &AutoResponderService{
 		channelRepo: channelRepo,
 	}
+}
+
+// resolveChannelLLMCredentials gets LLM provider, API key, and model from channel settings or environment
+func (s *AutoResponderService) resolveChannelLLMCredentials(ctx context.Context, channelID uuid.UUID) (provider, apiKey, model string) {
+	settings, err := s.channelRepo.GetChannelSettings(ctx, channelID)
+	if err == nil && settings != nil && len(settings.Posting) > 0 {
+		var posting PostingSettingsSchema
+		if json.Unmarshal(settings.Posting, &posting) == nil {
+			provider = posting.AiProvider
+			apiKey = posting.ApiKey
+			model = posting.AiModel
+		}
+	}
+	if apiKey == "" {
+		apiKey = os.Getenv("GROQ_API_KEY")
+		if apiKey != "" {
+			provider = "groq"
+		} else {
+			apiKey = os.Getenv("GEMINI_API_KEY")
+			if apiKey != "" {
+				provider = "gemini"
+			}
+		}
+	}
+	return
+}
+
+// generateAIComment produces a context-aware comment for a channel post
+func (s *AutoResponderService) generateAIComment(ctx context.Context, channelID uuid.UUID, postText string) (string, error) {
+	provider, apiKey, model := s.resolveChannelLLMCredentials(ctx, channelID)
+	if apiKey == "" {
+		return "", fmt.Errorf("no LLM API key configured for AI comment")
+	}
+
+	systemPrompt := "You are an AI assistant for a Telegram channel. Your job is to write a short, highly relevant, engaging first comment for the channel post provided inside <POST> tags.\n" +
+		"HARD RULES:\n" +
+		"1. Respond in the EXACT same language as the post (e.g. Persian if post is in Persian).\n" +
+		"2. Keep it concise (1 to 2 sentences max).\n" +
+		"3. Sound natural, positive, and human.\n" +
+		"4. Return ONLY the comment text without code fences, quotes, or preambles."
+
+	userMsg := fmt.Sprintf("<POST>\n%s\n</POST>", postText)
+	return CallLLM(ctx, provider, apiKey, model, systemPrompt, userMsg, false)
+}
+
+// generateAIResponse produces a context-aware auto-response to a message
+func (s *AutoResponderService) generateAIResponse(ctx context.Context, channelID uuid.UUID, userText string, instruction string) (string, error) {
+	provider, apiKey, model := s.resolveChannelLLMCredentials(ctx, channelID)
+	if apiKey == "" {
+		return "", fmt.Errorf("no LLM API key configured for AI response")
+	}
+
+	systemPrompt := "You are an AI auto-responder for a Telegram group/channel. Read the incoming message inside <USER_MESSAGE> tags and generate a helpful, polite, and direct response.\n"
+	if strings.TrimSpace(instruction) != "" {
+		systemPrompt += fmt.Sprintf("Additional instructions from admin: %s\n", instruction)
+	}
+	systemPrompt += "HARD RULES:\n" +
+		"1. Respond in the EXACT same language as the incoming message.\n" +
+		"2. Keep it concise and clear.\n" +
+		"3. Output ONLY the response text without code fences or preambles."
+
+	userMsg := fmt.Sprintf("<USER_MESSAGE>\n%s\n</USER_MESSAGE>", userText)
+	return CallLLM(ctx, provider, apiKey, model, systemPrompt, userMsg, false)
+}
+
+// getAutoResponderMarkup returns the inline keyboard markup based on attachButton preset or channel buttons
+func (s *AutoResponderService) getAutoResponderMarkup(ctx context.Context, channelID uuid.UUID, attachButton string) interface{} {
+	switch strings.TrimSpace(attachButton) {
+	case "like_set":
+		buttons := []repository.ChannelInlineButton{
+			{ID: uuid.New(), ChannelID: channelID, Title: "👍", Type: "callback", Value: "like"},
+			{ID: uuid.New(), ChannelID: channelID, Title: "👎", Type: "callback", Value: "dislike"},
+		}
+		return BuildInlineKeyboard(buttons)
+	case "share_set":
+		buttons := []repository.ChannelInlineButton{
+			{ID: uuid.New(), ChannelID: channelID, Emoji: "📢", Title: "اشتراک‌گذاری", Type: "share", Value: "share"},
+		}
+		return BuildInlineKeyboard(buttons)
+	default:
+		buttons, err := s.channelRepo.GetChannelButtons(ctx, channelID)
+		if err == nil && len(buttons) > 0 {
+			return BuildInlineKeyboard(buttons)
+		}
+	}
+	return nil
 }
 
 // ProcessMessage evaluates a message against the auto-responder rules for a channel.
@@ -81,12 +168,21 @@ func (s *AutoResponderService) ProcessMessage(ctx context.Context, tg *telegram.
 					matched = true
 				}
 			}
+		case "ai":
+			matched = true
 		}
 
 		if matched {
 			replyText := rule.ReplyText
 			if replyText == "" {
 				replyText = rule.Response // fallback if schema has 'response' instead of 'replyText'
+			}
+
+			if rule.UseAI || rule.Match == "ai" {
+				aiReply, err := s.generateAIResponse(ctx, channelID, text, replyText)
+				if err == nil && strings.TrimSpace(aiReply) != "" {
+					replyText = aiReply
+				}
 			}
 
 			if replyText != "" {
@@ -103,8 +199,9 @@ func (s *AutoResponderService) ProcessMessage(ctx context.Context, tg *telegram.
 					}
 				}
 
-				// Send the reply
-				res, err := tg.SendMessageWithResult(ctx, chatID, replyText, &messageID, nil)
+				// Send the reply with inline keyboard markup if configured
+				markup := s.getAutoResponderMarkup(ctx, channelID, schema.AttachButton)
+				res, err := tg.SendMessageWithReplyAndMarkup(ctx, chatID, replyText, &messageID, markup, nil)
 				if err != nil {
 					slog.Error("failed to send auto response", "error", err, "chat_id", chatID, "message_id", messageID)
 				} else if res != nil {
@@ -184,7 +281,7 @@ func (s *AutoResponderService) ProcessNewMember(ctx context.Context, tg *telegra
 }
 
 // ProcessAutoFirstComment leaves an automatic first comment on a linked discussion group
-func (s *AutoResponderService) ProcessAutoFirstComment(ctx context.Context, tg *telegram.BotAPIClient, channelID uuid.UUID, chatID int64, messageID int) (bool, error) {
+func (s *AutoResponderService) ProcessAutoFirstComment(ctx context.Context, tg *telegram.BotAPIClient, channelID uuid.UUID, chatID int64, messageID int, postText ...string) (bool, error) {
 	settings, err := s.channelRepo.GetChannelSettings(ctx, channelID)
 	if err != nil || settings == nil || len(settings.AutoResponder) == 0 {
 		return false, err
@@ -208,9 +305,21 @@ func (s *AutoResponderService) ProcessAutoFirstComment(ctx context.Context, tg *
 			replyText = schema.RotatingTexts[time.Now().UnixNano()%int64(len(schema.RotatingTexts))]
 		}
 	case "ai":
-		replyText = "💡 " // We can fallback to an empty string or a standard message since full AI is not requested here yet
-		if len(schema.RotatingTexts) > 0 {
+		var textContext string
+		if len(postText) > 0 {
+			textContext = postText[0]
+		}
+		if textContext != "" {
+			aiText, err := s.generateAIComment(ctx, channelID, textContext)
+			if err == nil && strings.TrimSpace(aiText) != "" {
+				replyText = aiText
+			}
+		}
+		if replyText == "" && len(schema.RotatingTexts) > 0 {
 			replyText = schema.RotatingTexts[0]
+		}
+		if replyText == "" {
+			replyText = schema.FixedComment
 		}
 	}
 
@@ -218,7 +327,8 @@ func (s *AutoResponderService) ProcessAutoFirstComment(ctx context.Context, tg *
 		return false, nil
 	}
 
-	_, err = tg.SendMessageWithResult(ctx, chatID, replyText, &messageID, nil)
+	markup := s.getAutoResponderMarkup(ctx, channelID, schema.AttachButton)
+	_, err = tg.SendMessageWithReplyAndMarkup(ctx, chatID, replyText, &messageID, markup, nil)
 	if err != nil {
 		slog.Error("failed to send auto first comment", "error", err, "chat_id", chatID, "message_id", messageID)
 		return false, err

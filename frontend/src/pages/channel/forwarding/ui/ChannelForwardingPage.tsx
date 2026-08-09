@@ -32,8 +32,11 @@ export const ChannelForwardingPage: Component = () => {
 	// Rule Form State
 	const [direction, setDirection] = createSignal<'inbound' | 'outbound'>('outbound');
 	const [targetType, setTargetType] = createSignal<'telegram' | 'webhook'>('telegram');
+	const [sourceChat, setSourceChat] = createSignal('');
 	const [targetChat, setTargetChat] = createSignal('');
-	const [isVerified, setIsVerified] = createSignal<boolean | null>(null);
+	const [isSourceVerified, setIsSourceVerified] = createSignal<boolean | null>(null);
+	const [verifiedSourceId, setVerifiedSourceId] = createSignal('');
+	const [isTargetVerified, setIsTargetVerified] = createSignal<boolean | null>(null);
 	const [verifiedTargetId, setVerifiedTargetId] = createSignal('');
 	const [mode, setMode] = createSignal('forward');
 
@@ -63,6 +66,8 @@ export const ChannelForwardingPage: Component = () => {
 				direction: r.direction,
 				targetType: r.target_type,
 				target: r.target,
+				sourceChannel: r.source_channel,
+				targetChannel: r.target_channel,
 				mode: r.mode,
 				active: r.is_active,
 			})));
@@ -109,26 +114,59 @@ export const ChannelForwardingPage: Component = () => {
 		onCleanup(() => off());
 	});
 
-	const handleVerify = async () => {
+	const handleVerifySource = async () => {
+		if (!sourceChat().trim()) return;
+		haptic.impact('medium');
+		setIsSourceVerified(null);
+		try {
+			const result = await channelApi.verifyForwardingTarget(params.id, sourceChat());
+			setVerifiedSourceId(result?.id ? String(result.id) : '');
+			setIsSourceVerified(true);
+			haptic.notify('success');
+			showToast(t('channelForwarding.targetVerified'), 'success');
+		} catch (_err) {
+			setVerifiedSourceId('');
+			setIsSourceVerified(false);
+			haptic.notify('error');
+			showToast(t('channelForwarding.targetVerifyFailed'), 'error');
+		}
+	};
+
+	const handleVerifyTarget = async () => {
 		if (!targetChat().trim()) return;
 		haptic.impact('medium');
-		setIsVerified(null);
+		setIsTargetVerified(null);
 		try {
 			const result = await channelApi.verifyForwardingTarget(params.id, targetChat());
 			setVerifiedTargetId(result?.id ? String(result.id) : '');
-			setIsVerified(true);
+			setIsTargetVerified(true);
 			haptic.notify('success');
 			showToast(t('channelForwarding.targetVerified'), 'success');
 		} catch (_err) {
 			setVerifiedTargetId('');
-			setIsVerified(false);
+			setIsTargetVerified(false);
 			haptic.notify('error');
 			showToast(t('channelForwarding.targetVerifyFailed'), 'error');
 		}
 	};
 
 	const handleSaveRule = async () => {
-		let finalTarget = targetChat();
+		let finalSource = sourceChat().trim();
+		let finalTarget = targetChat().trim();
+
+		if (direction() === 'outbound' && !finalSource) {
+			finalSource = params.id;
+		}
+		if (direction() === 'inbound' && !finalTarget) {
+			finalTarget = params.id;
+		}
+
+		if (finalSource && finalTarget && finalSource.replace('@', '').toLowerCase() === finalTarget.replace('@', '').toLowerCase()) {
+			showToast(t('channelForwarding.sourceAndTargetMustBeDifferent') || 'Source and target channels must be different', 'error');
+			haptic.notify('error');
+			return;
+		}
+
 		let isReadyToSave = false;
 
 		if (targetType() === 'webhook') {
@@ -136,21 +174,34 @@ export const ChannelForwardingPage: Component = () => {
 				showToast(t('channelForwarding.inboundWebhookUnavailable'), 'error');
 				haptic.notify('error');
 				return;
-			} else if (finalTarget.trim() && isVerified() === true) {
+			} else if (finalTarget && (isTargetVerified() === true || finalTarget.startsWith('http'))) {
 				isReadyToSave = true;
 			}
 		} else {
-			if (finalTarget.trim() && isVerified() === true) {
-				if (direction() === 'inbound') finalTarget = verifiedTargetId() || finalTarget;
-				isReadyToSave = true;
+			if (direction() === 'outbound') {
+				if (finalTarget && (isTargetVerified() === true || verifiedTargetId())) isReadyToSave = true;
+			} else {
+				if (finalSource && (isSourceVerified() === true || verifiedSourceId())) isReadyToSave = true;
 			}
 		}
 
 		if (isReadyToSave) {
+			const primaryTarget = direction() === 'outbound' ? (verifiedTargetId() || finalTarget) : (verifiedSourceId() || finalSource);
 			const newRule = {
-				channel_id: params.id, direction: direction(), target_type: targetType(), target: finalTarget,
-				mode: mode() as any, delay: delay(), is_active: true, content_types: contentTypes(),
-				remove_ads: removeAds(), remove_hashtags: removeHashtags(), remove_links: removeLinks(), watermark: watermark(),
+				channel_id: params.id,
+				direction: direction(),
+				target_type: targetType(),
+				target: primaryTarget,
+				source_channel: finalSource,
+				target_channel: finalTarget,
+				mode: mode() as any,
+				delay: delay(),
+				is_active: true,
+				content_types: contentTypes(),
+				remove_ads: removeAds(),
+				remove_hashtags: removeHashtags(),
+				remove_links: removeLinks(),
+				watermark: watermark(),
 			};
 
 			try {
@@ -159,7 +210,10 @@ export const ChannelForwardingPage: Component = () => {
 				haptic.notify('success');
 				showToast(t('channelForwarding.ruleSaved'), 'success');
 				setIsCreating(false);
-				setTargetChat(''); setIsVerified(null); setVerifiedTargetId(''); setMode('forward'); setDelay('');
+				setSourceChat(''); setTargetChat('');
+				setIsSourceVerified(null); setVerifiedSourceId('');
+				setIsTargetVerified(null); setVerifiedTargetId('');
+				setMode('forward'); setDelay('');
 			} catch (err) {
 				console.error('Failed to create rule:', err);
 				haptic.notify('error');
@@ -409,13 +463,13 @@ export const ChannelForwardingPage: Component = () => {
 								<label class="text-[10px] font-black uppercase tracking-widest text-white/40 px-1">{t('channelForwarding.ruleDirection')}</label>
 								<div class="bg-[#08090D] p-1.5 rounded-[16px] flex border border-white/5 shadow-inner">
 									<button
-										onClick={() => { setDirection('outbound'); setIsVerified(null); setVerifiedTargetId(''); haptic.selection(); }}
+										onClick={() => { setDirection('outbound'); setIsSourceVerified(null); setIsTargetVerified(null); haptic.selection(); }}
 										class={`flex-1 h-10 text-[11px] font-black uppercase tracking-widest rounded-[12px] transition-all flex items-center justify-center gap-2 ${direction() === 'outbound' ? 'bg-[#3390ec] text-white shadow-sm' : 'text-white/40 hover:text-white'}`}
 									>
 										<span class="material-symbols-outlined text-[16px]">upload</span> {t('channelForwarding.outbound')}
 									</button>
 									<button
-										onClick={() => { setDirection('inbound'); setIsVerified(null); setVerifiedTargetId(''); haptic.selection(); }}
+										onClick={() => { setDirection('inbound'); setIsSourceVerified(null); setIsTargetVerified(null); haptic.selection(); }}
 										class={`flex-1 h-10 text-[11px] font-black uppercase tracking-widest rounded-[12px] transition-all flex items-center justify-center gap-2 ${direction() === 'inbound' ? 'bg-[#10b981] text-white shadow-sm' : 'text-white/40 hover:text-white'}`}
 									>
 										<span class="material-symbols-outlined text-[16px]">download</span> {t('channelForwarding.inbound')}
@@ -430,13 +484,13 @@ export const ChannelForwardingPage: Component = () => {
 								<label class="text-[10px] font-black uppercase tracking-widest text-white/40 px-1">{t('channelForwarding.integrationType')}</label>
 								<div class="bg-[#08090D] p-1.5 rounded-[16px] flex border border-white/5 shadow-inner">
 									<button
-										onClick={() => { setTargetType('telegram'); setIsVerified(null); setVerifiedTargetId(''); haptic.selection(); }}
+										onClick={() => { setTargetType('telegram'); setIsSourceVerified(null); setIsTargetVerified(null); haptic.selection(); }}
 										class={`flex-1 h-10 text-[11px] font-black uppercase tracking-widest rounded-[12px] transition-all flex items-center justify-center gap-2 ${targetType() === 'telegram' ? 'bg-white/10 text-white shadow-sm' : 'text-white/40 hover:text-white'}`}
 									>
 										<span class="material-symbols-outlined text-[16px]">telegram</span> {t('channelForwarding.telegram')}
 									</button>
 									<button
-										onClick={() => { setTargetType('webhook'); setIsVerified(null); setVerifiedTargetId(''); haptic.selection(); }}
+										onClick={() => { setTargetType('webhook'); setIsSourceVerified(null); setIsTargetVerified(null); haptic.selection(); }}
 										class={`flex-1 h-10 text-[11px] font-black uppercase tracking-widest rounded-[12px] transition-all flex items-center justify-center gap-2 ${targetType() === 'webhook' ? 'bg-white/10 text-white shadow-sm' : 'text-white/40 hover:text-white'}`}
 									>
 										<span class="material-symbols-outlined text-[16px]">webhook</span> {t('channelForwarding.webhookApi')}
@@ -445,27 +499,54 @@ export const ChannelForwardingPage: Component = () => {
 							</div>
 
 							<Show when={targetType() === 'telegram'}>
+								{/* Source Channel Field */}
 								<div class="flex flex-col gap-1.5 relative z-10">
 									<label class="text-[10px] font-black uppercase tracking-widest text-white/40 px-1 flex items-center gap-2">
-										{direction() === 'outbound' ? t('channelForwarding.targetChannel') : t('channelForwarding.sourceChannel')}
+										{t('channelForwarding.sourceChannel')}
+									</label>
+									<div class="flex gap-2">
+										<div class="relative flex-1">
+											<span class="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 font-black">@</span>
+											<input
+												type="text" value={sourceChat()}
+												onInput={(e) => { setSourceChat(e.currentTarget.value.replace('@', '')); setIsSourceVerified(null); setVerifiedSourceId(''); }}
+												placeholder={direction() === 'outbound' ? params.id : "source_channel_username"}
+												class="bg-[#08090D] border border-white/5 text-white text-[14px] font-mono font-bold rounded-[16px] pl-10 pr-4 py-4 w-full focus:outline-none focus:border-[#3390ec]/50 shadow-inner transition-colors"
+											/>
+										</div>
+										<button
+											onClick={handleVerifySource} disabled={!sourceChat().trim()}
+											class="w-14 shrink-0 bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-50 disabled:bg-transparent text-white rounded-[16px] flex items-center justify-center transition-all active:scale-95 shadow-sm"
+										>
+											<Show when={isSourceVerified() === null}><span class="material-symbols-outlined text-[24px]">search</span></Show>
+											<Show when={isSourceVerified() === true}><span class="material-symbols-outlined text-[#10b981] text-[24px] drop-shadow-md">check_circle</span></Show>
+											<Show when={isSourceVerified() === false}><span class="material-symbols-outlined text-[#ff4a4a] text-[24px] drop-shadow-md">error</span></Show>
+										</button>
+									</div>
+								</div>
+
+								{/* Target Channel Field */}
+								<div class="flex flex-col gap-1.5 relative z-10">
+									<label class="text-[10px] font-black uppercase tracking-widest text-white/40 px-1 flex items-center gap-2">
+										{t('channelForwarding.targetChannel')}
 									</label>
 									<div class="flex gap-2">
 										<div class="relative flex-1">
 											<span class="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 font-black">@</span>
 											<input
 												type="text" value={targetChat()}
-												onInput={(e) => { setTargetChat(e.currentTarget.value.replace('@', '')); setIsVerified(null); setVerifiedTargetId(''); }}
-												placeholder="channel_username"
+												onInput={(e) => { setTargetChat(e.currentTarget.value.replace('@', '')); setIsTargetVerified(null); setVerifiedTargetId(''); }}
+												placeholder={direction() === 'inbound' ? params.id : "target_channel_username"}
 												class="bg-[#08090D] border border-white/5 text-white text-[14px] font-mono font-bold rounded-[16px] pl-10 pr-4 py-4 w-full focus:outline-none focus:border-[#3390ec]/50 shadow-inner transition-colors"
 											/>
 										</div>
 										<button
-											onClick={handleVerify} disabled={!targetChat().trim()}
+											onClick={handleVerifyTarget} disabled={!targetChat().trim()}
 											class="w-14 shrink-0 bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-50 disabled:bg-transparent text-white rounded-[16px] flex items-center justify-center transition-all active:scale-95 shadow-sm"
 										>
-											<Show when={isVerified() === null}><span class="material-symbols-outlined text-[24px]">search</span></Show>
-											<Show when={isVerified() === true}><span class="material-symbols-outlined text-[#10b981] text-[24px] drop-shadow-md">check_circle</span></Show>
-											<Show when={isVerified() === false}><span class="material-symbols-outlined text-[#ff4a4a] text-[24px] drop-shadow-md">error</span></Show>
+											<Show when={isTargetVerified() === null}><span class="material-symbols-outlined text-[24px]">search</span></Show>
+											<Show when={isTargetVerified() === true}><span class="material-symbols-outlined text-[#10b981] text-[24px] drop-shadow-md">check_circle</span></Show>
+											<Show when={isTargetVerified() === false}><span class="material-symbols-outlined text-[#ff4a4a] text-[24px] drop-shadow-md">error</span></Show>
 										</button>
 									</div>
 								</div>
@@ -625,7 +706,7 @@ export const ChannelForwardingPage: Component = () => {
 							</button>
 							<button
 								onClick={handleSaveRule}
-								disabled={(targetType() === 'telegram' && !targetChat().trim()) || (targetType() === 'webhook' && direction() === 'outbound' && !targetChat().trim()) || (targetType() === 'webhook' && direction() === 'inbound') || (targetType() === 'telegram' && isVerified() === false)}
+								disabled={(targetType() === 'telegram' && direction() === 'outbound' && !targetChat().trim()) || (targetType() === 'telegram' && direction() === 'inbound' && !sourceChat().trim()) || (targetType() === 'webhook' && direction() === 'outbound' && !targetChat().trim()) || (targetType() === 'webhook' && direction() === 'inbound') || (targetType() === 'telegram' && direction() === 'outbound' && isTargetVerified() === false) || (targetType() === 'telegram' && direction() === 'inbound' && isSourceVerified() === false)}
 								class="flex-[2] h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] hover:from-[#2b7ec9] hover:to-[#3390ec] text-white rounded-[16px] font-black uppercase tracking-widest text-[13px] transition-all disabled:opacity-40 disabled:scale-100 active:scale-95 shadow-[0_10px_25px_rgba(51,144,236,0.3)] border border-white/10"
 							>
 								{t('channelForwarding.saveRule')}

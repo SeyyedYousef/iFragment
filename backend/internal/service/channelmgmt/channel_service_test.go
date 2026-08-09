@@ -355,6 +355,27 @@ func TestValidateForwardingTarget(t *testing.T) {
 			expectErr: true,
 			errText:   "private/loopback IPs are not allowed as webhook targets",
 		},
+		{
+			name: "Separate source and target channels allowed",
+			rule: &repository.ChannelForwardingRule{
+				TargetType:    "telegram",
+				Direction:     "outbound",
+				SourceChannel: "@source_channel",
+				TargetChannel: "@target_channel",
+			},
+			expectErr: false,
+		},
+		{
+			name: "Identical source and target channels rejected",
+			rule: &repository.ChannelForwardingRule{
+				TargetType:    "telegram",
+				Direction:     "outbound",
+				SourceChannel: "@my_channel",
+				TargetChannel: "my_channel",
+			},
+			expectErr: true,
+			errText:   "source and target channels cannot be identical",
+		},
 	}
 
 	for _, tc := range tests {
@@ -502,5 +523,50 @@ func TestValidateSettingsCategoryInlineButtons(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestForwardingModes(t *testing.T) {
+	sampleText := "Check out #ad news at https://example.com #spon #test"
+
+	// Mode 1: forward (No text modification, direct forward)
+	filterForward := ChannelPostFilter{
+		Mode: "forward",
+	}
+	resForward := ApplyTextFilters(sampleText, filterForward)
+	if resForward != sampleText {
+		t.Errorf("Expected unchanged text in forward mode, got: %s", resForward)
+	}
+
+	// Mode 2: copy with cleaning (remove ads, hashtags, links, and add watermark)
+	filterCopy := ChannelPostFilter{
+		Mode:           "copy",
+		RemoveAds:      true,
+		RemoveHashtags: true,
+		RemoveLinks:    true,
+		Watermark:      "@my_watermark",
+	}
+	resCopy := ApplyTextFilters(sampleText, filterCopy)
+	if strings.Contains(resCopy, "#ad") || strings.Contains(resCopy, "#spon") || strings.Contains(resCopy, "https://") {
+		t.Errorf("Copy mode failed to remove ads/links: %s", resCopy)
+	}
+	if !strings.Contains(resCopy, "@my_watermark") {
+		t.Errorf("Copy mode failed to add watermark: %s", resCopy)
+	}
+
+	// Mode 3: ai (dynamic paraphrase + cleaning)
+	filterAI := ChannelPostFilter{
+		Mode:           "ai",
+		RemoveAds:      true,
+		RemoveHashtags: true,
+		RemoveLinks:    true,
+		Watermark:      "@ai_watermark",
+	}
+	resAI := ApplyTextFilters(sampleText, filterAI)
+	if resAI == "" {
+		t.Errorf("AI mode produced empty string")
+	}
+	if !strings.Contains(resAI, "@ai_watermark") {
+		t.Errorf("AI mode failed to add watermark: %s", resAI)
 	}
 }

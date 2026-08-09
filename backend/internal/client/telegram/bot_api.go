@@ -522,6 +522,38 @@ func (c *BotAPIClient) SendMessageWithMarkup(ctx context.Context, chatID int64, 
 	return &res, nil
 }
 
+func (c *BotAPIClient) SendMessageWithReplyAndMarkup(ctx context.Context, chatID int64, text string, replyToID *int, markup interface{}, threadID *int, parseMode ...string) (*MessageResult, error) {
+	mode := "HTML"
+	if len(parseMode) > 0 {
+		mode = parseMode[0]
+	}
+	payload := map[string]interface{}{
+		"chat_id": chatID,
+		"text":    text,
+	}
+	if !IsNil(markup) {
+		payload["reply_markup"] = markup
+	}
+	if mode != "" {
+		payload["parse_mode"] = mode
+	}
+	if replyToID != nil {
+		payload["reply_to_message_id"] = *replyToID
+	}
+	if threadID != nil {
+		payload["message_thread_id"] = *threadID
+	}
+	resp, err := c.Request(ctx, "sendMessage", payload)
+	if err != nil {
+		return nil, err
+	}
+	var res MessageResult
+	if err := json.Unmarshal(resp, &res); err != nil {
+		return nil, fmt.Errorf("failed to parse message result: %w", err)
+	}
+	return &res, nil
+}
+
 func (c *BotAPIClient) AnswerCallbackQuery(ctx context.Context, queryID string, text string, showAlert bool) error {
 	_, err := c.Request(ctx, "answerCallbackQuery", map[string]interface{}{
 		"callback_query_id": queryID,

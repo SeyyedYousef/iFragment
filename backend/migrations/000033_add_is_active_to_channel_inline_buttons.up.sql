@@ -1,0 +1,5 @@
+BEGIN;
+
+ALTER TABLE channel_inline_buttons ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
+
+COMMIT;
