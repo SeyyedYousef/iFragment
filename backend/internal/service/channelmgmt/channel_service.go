@@ -1057,21 +1057,20 @@ func (s *ChannelService) ProcessChannelPost(ctx context.Context, chatID int64, m
 
 func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int64, messageID int, postText string, replyMarkup json.RawMessage, isEdit bool) error {
 	_ = replyMarkup // Silence unused parameter warning
-	// 1. Inbound Forwarding Rules (Inbound copy/forward from other channels into ours)
+	// 1. Forwarding Rules Processing (Copy/forward from source channel into target channel)
 	if s.featureForwarding && !isEdit {
-		inboundRules, err := s.channelRepo.GetActiveInboundForwardingRules(ctx)
-		if err == nil && len(inboundRules) > 0 {
-			for _, rule := range inboundRules {
+		activeRules, err := s.channelRepo.GetAllActiveForwardingRules(ctx)
+		if err == nil && len(activeRules) > 0 {
+			for _, rule := range activeRules {
+				if !rule.IsActive {
+					continue
+				}
+
 				destChan, err := s.channelRepo.GetChannelByID(ctx, rule.ChannelID)
 				if err != nil || destChan == nil {
 					continue
 				}
 				if err := s.checkSubscription(destChan); err != nil {
-					continue
-				}
-
-				// Hard Safeguard: Prevent self-forwarding loop (never forward to self)
-				if destChan.ChatID == chatID {
 					continue
 				}
 
@@ -1087,10 +1086,13 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 
 				tg := telegram.NewBotAPIClient(token)
 
-				// Determine source identifier for this inbound rule
+				// Determine source identifier for this rule
 				sourceIdentifier := rule.SourceChannel
-				if sourceIdentifier == "" {
+				if sourceIdentifier == "" && rule.Direction == "inbound" {
 					sourceIdentifier = rule.Target
+				}
+				if sourceIdentifier == "" {
+					sourceIdentifier = strconv.FormatInt(destChan.ChatID, 10)
 				}
 
 				parsedSource := parseChatIDOrUsername(sourceIdentifier)
@@ -1100,7 +1102,7 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 				} else {
 					chatRes, err := tg.GetChat(ctx, parsedSource)
 					if err != nil {
-						slog.Error("Failed to resolve inbound source channel username", "source", parsedSource, "error", err)
+						slog.Error("Failed to resolve source channel username", "source", parsedSource, "error", err)
 						continue
 					}
 					sourceChatID = chatRes.ID
@@ -1111,6 +1113,34 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 					continue
 				}
 
+				// Determine target chat ID
+				targetIdentifier := rule.TargetChannel
+				if targetIdentifier == "" && rule.Direction == "outbound" {
+					targetIdentifier = rule.Target
+				}
+				if targetIdentifier == "" {
+					targetIdentifier = strconv.FormatInt(destChan.ChatID, 10)
+				}
+
+				parsedTarget := parseChatIDOrUsername(targetIdentifier)
+				var targetChatID int64
+				if val, ok := parsedTarget.(int64); ok {
+					targetChatID = val
+				} else {
+					chatRes, err := tg.GetChat(ctx, parsedTarget)
+					if err != nil {
+						slog.Error("Failed to resolve target channel username", "target", parsedTarget, "error", err)
+						continue
+					}
+					targetChatID = chatRes.ID
+				}
+
+				// Hard Safeguard: Prevent self-forwarding loop (never forward to self)
+				if targetChatID == chatID {
+					slog.Warn("Skipping self-forwarding rule: target channel is identical to source channel", "chat_id", chatID)
+					continue
+				}
+
 				delayDuration := time.Duration(0)
 				if rule.Delay != "" {
 					if d, err := time.ParseDuration(rule.Delay); err == nil {
@@ -1118,10 +1148,10 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 					}
 				}
 
-				executeInbound := func() {
+				executeForward := func() {
 					if rule.Mode == "forward" {
-						if err := tg.ForwardMessage(context.Background(), destChan.ChatID, chatID, messageID); err != nil {
-							slog.Error("Failed to forward message via inbound rule", "rule_id", rule.ID, "chat_id", chatID, "message_id", messageID, "error", err)
+						if err := tg.ForwardMessage(context.Background(), targetChatID, chatID, messageID); err != nil {
+							slog.Error("Failed to forward message via rule", "rule_id", rule.ID, "source_chat", chatID, "target_chat", targetChatID, "error", err)
 						}
 					} else {
 						text := ApplyTextFilters(postText, ChannelPostFilter{
@@ -1131,16 +1161,16 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 							RemoveHashtags: rule.RemoveHashtags,
 							RemoveLinks:    rule.RemoveLinks,
 						})
-						if err := tg.SendMessage(context.Background(), destChan.ChatID, text, nil, nil); err != nil {
-							slog.Error("Failed to send inbound message copy", "rule_id", rule.ID, "dest_chat_id", destChan.ChatID, "error", err)
+						if err := tg.SendMessage(context.Background(), targetChatID, text, nil, nil); err != nil {
+							slog.Error("Failed to send message copy via rule", "rule_id", rule.ID, "target_chat", targetChatID, "error", err)
 						}
 					}
 				}
 
 				if delayDuration > 0 {
-					time.AfterFunc(delayDuration, executeInbound)
+					time.AfterFunc(delayDuration, executeForward)
 				} else {
-					executeInbound()
+					executeForward()
 				}
 			}
 		}

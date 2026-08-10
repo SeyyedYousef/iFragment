@@ -983,14 +983,14 @@ func (r *ChannelRepo) DeleteForwardingRule(ctx context.Context, channelID uuid.U
 	return nil
 }
 
-// GetActiveInboundForwardingRules retrieves all active inbound forwarding rules across all channels
-func (r *ChannelRepo) GetActiveInboundForwardingRules(ctx context.Context) ([]ChannelForwardingRule, error) {
+// GetAllActiveForwardingRules retrieves all active forwarding rules across all channels
+func (r *ChannelRepo) GetAllActiveForwardingRules(ctx context.Context) ([]ChannelForwardingRule, error) {
 	if r.db == nil || r.db.Pool == nil {
 		return nil, fmt.Errorf("database pool is not initialized")
 	}
 
 	query := `SELECT id, channel_id, direction, target_type, target, source_channel, target_channel, mode, delay, is_active, content_types, remove_ads, remove_hashtags, remove_links, watermark, created_at
-		FROM channel_forwarding_rules WHERE direction = 'inbound' AND is_active = true`
+		FROM channel_forwarding_rules WHERE is_active = true`
 
 	rows, err := r.db.Pool.Query(ctx, query)
 	if err != nil {

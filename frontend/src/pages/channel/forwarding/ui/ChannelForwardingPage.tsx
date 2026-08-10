@@ -121,7 +121,8 @@ export const ChannelForwardingPage: Component = () => {
 			str = str.replace(/https?:\/\/(t|telegram)\.me\//i, '');
 			str = str.split('/')[0];
 		}
-		if (!str.startsWith('@') && !str.startsWith('-100') && !str.startsWith('http')) {
+		str = str.replace(/@/g, '');
+		if (!str.startsWith('-100') && !str.startsWith('http')) {
 			str = '@' + str;
 		}
 		return str;
@@ -132,7 +133,7 @@ export const ChannelForwardingPage: Component = () => {
 		if (!src) return;
 		if (targetType() === 'telegram') {
 			src = cleanTelegramInput(src);
-			setSourceChat(src);
+			setSourceChat(src.replace(/@/g, ''));
 		}
 		haptic.impact('medium');
 		setIsSourceVerified(null);
@@ -155,7 +156,7 @@ export const ChannelForwardingPage: Component = () => {
 		if (!tgt) return;
 		if (targetType() === 'telegram') {
 			tgt = cleanTelegramInput(tgt);
-			setTargetChat(tgt);
+			setTargetChat(tgt.replace(/@/g, ''));
 		}
 		haptic.impact('medium');
 		setIsTargetVerified(null);
@@ -182,14 +183,7 @@ export const ChannelForwardingPage: Component = () => {
 			if (finalTarget) finalTarget = cleanTelegramInput(finalTarget);
 		}
 
-		if (direction() === 'outbound' && !finalSource) {
-			finalSource = params.id;
-		}
-		if (direction() === 'inbound' && !finalTarget) {
-			finalTarget = params.id;
-		}
-
-		if (finalSource && finalTarget && finalSource.replace('@', '').toLowerCase() === finalTarget.replace('@', '').toLowerCase()) {
+		if (finalSource && finalTarget && finalSource.replace(/@/g, '').toLowerCase() === finalTarget.replace(/@/g, '').toLowerCase()) {
 			showToast(t('channelForwarding.sourceAndTargetMustBeDifferent') || 'Source and target channels must be different', 'error');
 			haptic.notify('error');
 			return;
@@ -206,11 +200,7 @@ export const ChannelForwardingPage: Component = () => {
 				isReadyToSave = true;
 			}
 		} else {
-			if (direction() === 'outbound') {
-				if (finalTarget && (isTargetVerified() === true || verifiedTargetId() || finalTarget.startsWith('@') || finalTarget.startsWith('-100'))) isReadyToSave = true;
-			} else {
-				if (finalSource && (isSourceVerified() === true || verifiedSourceId() || finalSource.startsWith('@') || finalSource.startsWith('-100'))) isReadyToSave = true;
-			}
+			if (finalSource && finalTarget) isReadyToSave = true;
 		}
 
 		if (isReadyToSave) {
@@ -537,8 +527,8 @@ export const ChannelForwardingPage: Component = () => {
 											<span class="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 font-black">@</span>
 											<input
 												type="text" value={sourceChat()}
-												onInput={(e) => { setSourceChat(e.currentTarget.value.replace('@', '')); setIsSourceVerified(null); setVerifiedSourceId(''); }}
-												placeholder={direction() === 'outbound' ? params.id : "source_channel_username"}
+												onInput={(e) => { setSourceChat(e.currentTarget.value.replace(/@/g, '')); setIsSourceVerified(null); setVerifiedSourceId(''); }}
+												placeholder="source_channel_username"
 												class="bg-[#08090D] border border-white/5 text-white text-[14px] font-mono font-bold rounded-[16px] pl-10 pr-4 py-4 w-full focus:outline-none focus:border-[#3390ec]/50 shadow-inner transition-colors"
 											/>
 										</div>
@@ -563,8 +553,8 @@ export const ChannelForwardingPage: Component = () => {
 											<span class="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 font-black">@</span>
 											<input
 												type="text" value={targetChat()}
-												onInput={(e) => { setTargetChat(e.currentTarget.value.replace('@', '')); setIsTargetVerified(null); setVerifiedTargetId(''); }}
-												placeholder={direction() === 'inbound' ? params.id : "target_channel_username"}
+												onInput={(e) => { setTargetChat(e.currentTarget.value.replace(/@/g, '')); setIsTargetVerified(null); setVerifiedTargetId(''); }}
+												placeholder="target_channel_username"
 												class="bg-[#08090D] border border-white/5 text-white text-[14px] font-mono font-bold rounded-[16px] pl-10 pr-4 py-4 w-full focus:outline-none focus:border-[#3390ec]/50 shadow-inner transition-colors"
 											/>
 										</div>
