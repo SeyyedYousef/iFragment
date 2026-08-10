@@ -1173,6 +1173,11 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 						targetChatID = chatRes.ID
 					}
 
+					if targetChatID == chatID {
+						slog.Warn("Skipping self-forwarding rule: target channel is identical to source channel", "channel_id", ch.ID, "chat_id", chatID)
+						continue
+					}
+
 					delayDuration := time.Duration(0)
 					if rule.Delay != "" {
 						if d, err := time.ParseDuration(rule.Delay); err == nil {
