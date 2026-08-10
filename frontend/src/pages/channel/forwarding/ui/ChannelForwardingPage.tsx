@@ -114,12 +114,30 @@ export const ChannelForwardingPage: Component = () => {
 		onCleanup(() => off());
 	});
 
+	const cleanTelegramInput = (input: string) => {
+		let str = input.trim();
+		if (!str) return str;
+		if (str.includes('t.me/') || str.includes('telegram.me/')) {
+			str = str.replace(/https?:\/\/(t|telegram)\.me\//i, '');
+			str = str.split('/')[0];
+		}
+		if (!str.startsWith('@') && !str.startsWith('-100') && !str.startsWith('http')) {
+			str = '@' + str;
+		}
+		return str;
+	};
+
 	const handleVerifySource = async () => {
-		if (!sourceChat().trim()) return;
+		let src = sourceChat().trim();
+		if (!src) return;
+		if (targetType() === 'telegram') {
+			src = cleanTelegramInput(src);
+			setSourceChat(src);
+		}
 		haptic.impact('medium');
 		setIsSourceVerified(null);
 		try {
-			const result = await channelApi.verifyForwardingTarget(params.id, sourceChat());
+			const result = await channelApi.verifyForwardingTarget(params.id, src);
 			setVerifiedSourceId(result?.id ? String(result.id) : '');
 			setIsSourceVerified(true);
 			haptic.notify('success');
@@ -133,11 +151,16 @@ export const ChannelForwardingPage: Component = () => {
 	};
 
 	const handleVerifyTarget = async () => {
-		if (!targetChat().trim()) return;
+		let tgt = targetChat().trim();
+		if (!tgt) return;
+		if (targetType() === 'telegram') {
+			tgt = cleanTelegramInput(tgt);
+			setTargetChat(tgt);
+		}
 		haptic.impact('medium');
 		setIsTargetVerified(null);
 		try {
-			const result = await channelApi.verifyForwardingTarget(params.id, targetChat());
+			const result = await channelApi.verifyForwardingTarget(params.id, tgt);
 			setVerifiedTargetId(result?.id ? String(result.id) : '');
 			setIsTargetVerified(true);
 			haptic.notify('success');
@@ -153,6 +176,11 @@ export const ChannelForwardingPage: Component = () => {
 	const handleSaveRule = async () => {
 		let finalSource = sourceChat().trim();
 		let finalTarget = targetChat().trim();
+
+		if (targetType() === 'telegram') {
+			if (finalSource) finalSource = cleanTelegramInput(finalSource);
+			if (finalTarget) finalTarget = cleanTelegramInput(finalTarget);
+		}
 
 		if (direction() === 'outbound' && !finalSource) {
 			finalSource = params.id;
@@ -179,9 +207,9 @@ export const ChannelForwardingPage: Component = () => {
 			}
 		} else {
 			if (direction() === 'outbound') {
-				if (finalTarget && (isTargetVerified() === true || verifiedTargetId())) isReadyToSave = true;
+				if (finalTarget && (isTargetVerified() === true || verifiedTargetId() || finalTarget.startsWith('@') || finalTarget.startsWith('-100'))) isReadyToSave = true;
 			} else {
-				if (finalSource && (isSourceVerified() === true || verifiedSourceId())) isReadyToSave = true;
+				if (finalSource && (isSourceVerified() === true || verifiedSourceId() || finalSource.startsWith('@') || finalSource.startsWith('-100'))) isReadyToSave = true;
 			}
 		}
 

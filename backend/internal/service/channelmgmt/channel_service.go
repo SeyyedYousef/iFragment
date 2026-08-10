@@ -2194,6 +2194,10 @@ func removeLinksHelper(text string) string {
 }
 
 func parseChatIDOrUsername(target string) interface{} {
+	target = strings.TrimSpace(target)
+	if norm, err := normalizeChannelInput(target); err == nil && norm != "" {
+		target = norm
+	}
 	if strings.HasPrefix(target, "-100") || strings.HasPrefix(target, "-") {
 		if val, err := strconv.ParseInt(target, 10, 64); err == nil {
 			return val
