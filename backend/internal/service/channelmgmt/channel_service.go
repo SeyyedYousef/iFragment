@@ -1059,18 +1059,19 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 	_ = replyMarkup // Silence unused parameter warning
 	// 1. Inbound Forwarding Rules (Inbound copy/forward from other channels into ours)
 	if s.featureForwarding && !isEdit {
-		inboundRules, err := s.channelRepo.GetActiveForwardingRulesBySource(ctx, strconv.FormatInt(chatID, 10))
+		inboundRules, err := s.channelRepo.GetActiveInboundForwardingRules(ctx)
 		if err == nil && len(inboundRules) > 0 {
 			for _, rule := range inboundRules {
-				if rule.Direction != "inbound" {
-					continue
-				}
-
 				destChan, err := s.channelRepo.GetChannelByID(ctx, rule.ChannelID)
-				if err != nil {
+				if err != nil || destChan == nil {
 					continue
 				}
 				if err := s.checkSubscription(destChan); err != nil {
+					continue
+				}
+
+				// Hard Safeguard: Prevent self-forwarding loop (never forward to self)
+				if destChan.ChatID == chatID {
 					continue
 				}
 
@@ -1085,6 +1086,31 @@ func (s *ChannelService) processChannelPostAsync(ctx context.Context, chatID int
 				}
 
 				tg := telegram.NewBotAPIClient(token)
+
+				// Determine source identifier for this inbound rule
+				sourceIdentifier := rule.SourceChannel
+				if sourceIdentifier == "" {
+					sourceIdentifier = rule.Target
+				}
+
+				parsedSource := parseChatIDOrUsername(sourceIdentifier)
+				var sourceChatID int64
+				if val, ok := parsedSource.(int64); ok {
+					sourceChatID = val
+				} else {
+					chatRes, err := tg.GetChat(ctx, parsedSource)
+					if err != nil {
+						slog.Error("Failed to resolve inbound source channel username", "source", parsedSource, "error", err)
+						continue
+					}
+					sourceChatID = chatRes.ID
+				}
+
+				// Only process if the incoming post is from the configured source channel
+				if sourceChatID != chatID {
+					continue
+				}
+
 				delayDuration := time.Duration(0)
 				if rule.Delay != "" {
 					if d, err := time.ParseDuration(rule.Delay); err == nil {

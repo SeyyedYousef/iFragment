@@ -983,6 +983,38 @@ func (r *ChannelRepo) DeleteForwardingRule(ctx context.Context, channelID uuid.U
 	return nil
 }
 
+// GetActiveInboundForwardingRules retrieves all active inbound forwarding rules across all channels
+func (r *ChannelRepo) GetActiveInboundForwardingRules(ctx context.Context) ([]ChannelForwardingRule, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, fmt.Errorf("database pool is not initialized")
+	}
+
+	query := `SELECT id, channel_id, direction, target_type, target, source_channel, target_channel, mode, delay, is_active, content_types, remove_ads, remove_hashtags, remove_links, watermark, created_at
+		FROM channel_forwarding_rules WHERE direction = 'inbound' AND is_active = true`
+
+	rows, err := r.db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var rules []ChannelForwardingRule
+	for rows.Next() {
+		var rl ChannelForwardingRule
+		if err := rows.Scan(
+			&rl.ID, &rl.ChannelID, &rl.Direction, &rl.TargetType, &rl.Target, &rl.SourceChannel, &rl.TargetChannel, &rl.Mode, &rl.Delay, &rl.IsActive,
+			&rl.ContentTypes, &rl.RemoveAds, &rl.RemoveHashtags, &rl.RemoveLinks, &rl.Watermark, &rl.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		rules = append(rules, rl)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+	return rules, nil
+}
+
 // GetActiveForwardingRulesBySource retrieves active rules (inbound or outbound) by a target username or ID
 func (r *ChannelRepo) GetActiveForwardingRulesBySource(ctx context.Context, target string) ([]ChannelForwardingRule, error) {
 	if r.db == nil || r.db.Pool == nil {
