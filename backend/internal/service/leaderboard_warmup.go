@@ -11,7 +11,7 @@ import (
 // WarmLeaderboard fully populates the Redis sorted set from PostgreSQL.
 // Should be run on startup AND every N minutes via a scheduler.
 func (s *ProfileService) WarmLeaderboard(ctx context.Context) error {
-	if s.cache == nil || s.cache.Client == nil {
+	if s.cache == nil || s.cache.Client == nil || s.cache.IsQuotaExceeded() {
 		return nil
 	}
 	rows, err := s.db.Pool.Query(ctx, `

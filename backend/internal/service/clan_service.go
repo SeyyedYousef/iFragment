@@ -564,7 +564,7 @@ func (s *ClanService) flushScoresToDB(ctx context.Context) {
 	}
 
 	// Sync to Redis ZSET
-	if s.cache != nil && s.cache.Client != nil {
+	if s.cache != nil && s.cache.Client != nil && !s.cache.IsQuotaExceeded() {
 		rows, err := s.db.Pool.Query(ctx, "SELECT id, total_score FROM clans ORDER BY total_score DESC LIMIT 1000")
 		if err != nil {
 			slog.Error("Failed to fetch clans for Redis sync", "error", err)
@@ -590,7 +590,9 @@ func (s *ClanService) flushScoresToDB(ctx context.Context) {
 		}
 		_, err = pipe.Exec(ctx)
 		if err != nil {
-			slog.Error("Failed to sync clan_leaderboard to Redis", "error", err)
+			if !s.cache.HandleError(err) {
+				slog.Error("Failed to sync clan_leaderboard to Redis", "error", err)
+			}
 		} else {
 			slog.Info("Successfully synced clan scores to Redis", "count", count)
 		}

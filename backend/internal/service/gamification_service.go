@@ -91,7 +91,7 @@ func (s *GamificationService) startTapBatchWorker(ctx context.Context) {
 }
 
 func (s *GamificationService) flushTapBatches(ctx context.Context) {
-	if s.cache == nil || s.cache.Client == nil || s.db == nil || s.db.Pool == nil {
+	if s.cache == nil || s.cache.Client == nil || s.cache.IsQuotaExceeded() || s.db == nil || s.db.Pool == nil {
 		return
 	}
 
@@ -103,13 +103,18 @@ func (s *GamificationService) flushTapBatches(ctx context.Context) {
 		if err == redis.Nil || strings.Contains(strings.ToLower(err.Error()), "no such key") {
 			return // Nothing to process
 		}
+		if s.cache.HandleError(err) {
+			return
+		}
 		slog.Error("failed to rename tap batch key", "err", err)
 		return
 	}
 
 	taps, err := s.cache.Client.HGetAll(ctx, processingKey).Result()
 	if err != nil {
-		slog.Error("failed to get processing tap batch", "err", err)
+		if !s.cache.HandleError(err) {
+			slog.Error("failed to get processing tap batch", "err", err)
+		}
 		return
 	}
 
