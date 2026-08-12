@@ -12,11 +12,11 @@ export const MandatoryLessonCard: Component<{ onNavigate: () => void; isDone?: b
 
 	return (
 		<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 hover:border-white/15 rounded-[28px] p-5 flex flex-col gap-4 shadow-sm relative overflow-hidden transition-all">
-			<div class="absolute -left-10 -top-10 w-32 h-32 bg-purple-500/10 blur-3xl rounded-full pointer-events-none" />
+			<div class="absolute -left-10 -top-10 w-32 h-32 bg-cyan-500/10 blur-3xl rounded-full pointer-events-none" />
 
 			<div class="flex items-center justify-between relative z-10">
 				<div class="flex items-center gap-2.5">
-					<div class="w-9 h-9 rounded-[12px] bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+					<div class="w-9 h-9 rounded-[12px] bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
 						<span class="material-symbols-outlined text-[20px]">how_to_reg</span>
 					</div>
 					<h3 class="text-[14px] font-black text-white">{t('groupLessons.mandatory.title')}</h3>
@@ -36,7 +36,7 @@ export const MandatoryLessonCard: Component<{ onNavigate: () => void; isDone?: b
 			{/* Mandatory Channel Verification Demo */}
 			<div class="h-28 bg-[#08090D] rounded-[20px] border border-white/5 p-3.5 flex items-center justify-between shadow-inner">
 				<div class="flex items-center gap-3">
-					<div class="w-10 h-10 rounded-[12px] bg-white/5 border border-white/10 flex items-center justify-center text-purple-400">
+					<div class="w-10 h-10 rounded-[12px] bg-white/5 border border-white/10 flex items-center justify-center text-cyan-400">
 						<span class="material-symbols-outlined text-[22px]">campaign</span>
 					</div>
 					<div class="flex flex-col">
@@ -62,7 +62,7 @@ export const MandatoryLessonCard: Component<{ onNavigate: () => void; isDone?: b
 
 			<button
 				onClick={props.onNavigate}
-				class="w-full h-12 bg-white/5 border border-purple-500/30 text-purple-400 hover:bg-purple-500/10 rounded-[16px] text-[12px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
+				class="w-full h-12 bg-white/5 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 rounded-[16px] text-[12px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
 			>
 				{t('groupLessons.mandatory.cta')}
 				<span class="material-symbols-outlined text-[18px] rtl:-scale-x-100">arrow_forward</span>
