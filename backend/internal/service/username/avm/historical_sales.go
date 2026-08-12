@@ -1,53 +1,67 @@
 package avm
 
-// HistoricalSales contains thousands of exact historical sold prices loaded from all DATA files
+import "strings"
+
+// ValuationAnchors contains estimated model benchmarks for un-transacted legendary handles.
+// These are strictly categorized as model estimates/anchors and NOT verified historical sales.
+var ValuationAnchors = map[string]float64{
+	"bitcoin":      750000.0,
+	"ethereum":     500000.0,
+	"sport":        450000.0,
+	"silver":       200000.0,
+	"youtube":      400000.0,
+	"google":       600000.0,
+	"tesla":        350000.0,
+	"twitter":      300000.0,
+	"instagram":    350000.0,
+	"tiktok":       300000.0,
+	"chatgpt":      250000.0,
+	"clashofclans": 150000.0,
+	"minecraft":    200000.0,
+	"fortnite":     180000.0,
+	"roblox":       150000.0,
+	"spotify":      250000.0,
+	"netflix":      300000.0,
+	"whatsapp":     350000.0,
+	"paypal":       250000.0,
+	"visa":         400000.0,
+	"solana":       200000.0,
+	"cardano":      120000.0,
+	"dogecoin":     150000.0,
+	"nft":          250000.0,
+	"wallet":       750000.0,
+	"gift":         350000.0,
+	"trade":        500000.0,
+	"stars":        400000.0,
+	"durov":        600000.0,
+	"notcoin":      180000.0,
+	"major":        120000.0,
+	"catizen":      150000.0,
+	"hamster":      100000.0,
+	"paws":         80000.0,
+	"rare":         65000.0,
+	"python":       45000.0,
+	"work":         60000.0,
+}
+
+// GetPriceSource returns whether a price anchor is a verified on-chain sale or a model estimate
+func GetPriceSource(username string) string {
+	u := strings.TrimPrefix(strings.ToLower(username), "@")
+	if _, isAnchor := ValuationAnchors[u]; isAnchor {
+		return "model_estimate"
+	}
+	if _, isSold := HistoricalSales[u]; isSold {
+		return "onchain_sale"
+	}
+	return "unknown"
+}
+
+// Note: ValuationAnchors are kept strictly separate from HistoricalSales.
+// They are NOT injected into HistoricalSales at runtime.
+
+
+// HistoricalSales contains exact historical sold prices and anchor values
 var HistoricalSales = map[string]float64{
-	// ── Legendary Tier (estimated from market comparables) ──
-	"bitcoin":      750000.0, // Top crypto brand, comparable to @news (994K)
-	"ethereum":     500000.0, // Second largest crypto
-	"sport":        450000.0, // Generic premium, comparable to @game (500K)
-	"silver":       200000.0, // Precious metal, comparable to @gold (151K) but rarer username
-	"youtube":      400000.0, // Top social platform
-	"google":       600000.0, // Top tech brand
-	"tesla":        350000.0, // Top EV brand, comparable to @nike (330K)
-	"twitter":      300000.0, // Social media giant
-	"instagram":    350000.0, // Social media giant
-	"tiktok":       300000.0, // Social media giant
-	"chatgpt":      250000.0, // AI revolution brand
-	"clashofclans": 150000.0, // Top mobile game
-	"minecraft":    200000.0, // Gaming legend
-	"fortnite":     180000.0, // Gaming phenomenon
-	"roblox":       150000.0, // Gaming platform
-	"spotify":      250000.0, // Music streaming
-	"netflix":      300000.0, // Streaming giant
-	"whatsapp":     350000.0, // Messaging giant
-	"paypal":       250000.0, // Payment giant
-	"visa":         400000.0, // Financial giant
-	"solana":       200000.0, // Top crypto
-	"cardano":      120000.0, // Top crypto
-	"dogecoin":     150000.0, // Meme crypto legend
-	"nft":          250000.0, // Web3 category name
-	"wallet":       750000.0, // Official Telegram System Service (@wallet)
-	"gift":         350000.0, // Official Telegram Gifts Service (@gift)
-	"trade":        500000.0, // Official Telegram Trading Service (@trade)
-	"stars":        400000.0, // Official Telegram Stars Currency (@stars)
-	"durov":        600000.0, // Telegram Founder (@durov)
-	"notcoin":      180000.0, // Ecosystem Tier-1 MiniApp (@notcoin)
-	"major":        120000.0, // Ecosystem Tier-1 MiniApp (@major)
-	"catizen":      150000.0, // Ecosystem Tier-1 MiniApp (@catizen)
-	"hamster":      100000.0, // Ecosystem Tier-1 MiniApp (@hamster)
-	"paws":         80000.0,  // Ecosystem Tier-1 MiniApp (@paws)
-	"rare":         65000.0,  // Top Web3/Rarity category username (@rare anchor 65k TON)
-	"python":       45000.0,  // Top programming language / tech brand (@python)
-	"limited":      5050.0,   // High-status English adjective, sold on Fragment (@limited)
-	"developer":    25000.0,  // Major tech category (@developer)
-	"premium":      40000.0,  // High-status category (@premium)
-	"gem":          85000.0,  // Web3 gem category username (@gem)
-	"vip":          140000.0, // High-status 3-letter category username (@vip)
-	"ton":          450000.0, // Ecosystem Native Currency (@ton)
-	"cats":         5050.0,   // Memecoin/community benchmark
-	"dogs":         12500.0,  // Memecoin/community benchmark
-	"work":         60000.0,  // Mid-tier generic (@work -> ~118.5k TON appreciated)
 	// ── Original Data ──
 	"news":                             994000.0,
 	"auto":                             900000.0,

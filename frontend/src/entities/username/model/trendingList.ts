@@ -1,4 +1,6 @@
-export const TRENDING_USERNAMES = [
+/* Editorial selection examples for Home Page preview — NOT live market data */
+
+const RAW_EXAMPLES = [
 	'danbao',
 	'news',
 	'auto',
@@ -34,7 +36,6 @@ export const TRENDING_USERNAMES = [
 	'chief',
 	'trip',
 	'web3',
-	'fuck',
 	'payment',
 	'fund',
 	'interior',
@@ -102,7 +103,7 @@ export const TRENDING_USERNAMES = [
 	'rare',
 	'chatgpt',
 
-	// Animals & Nature (4+ letters)
+	// Animals & Nature
 	'lion',
 	'bear',
 	'wolf',
@@ -119,7 +120,6 @@ export const TRENDING_USERNAMES = [
 	'bull',
 	'monkey',
 	'horse',
-	'tiger',
 	'zebra',
 	'panther',
 	'falcon',
@@ -145,7 +145,7 @@ export const TRENDING_USERNAMES = [
 	'ocean',
 	'river',
 
-	// Finance & Crypto (4+ letters)
+	// Finance & Crypto
 	'finance',
 	'money',
 	'wealth',
@@ -182,7 +182,6 @@ export const TRENDING_USERNAMES = [
 	'bearish',
 	'long',
 	'short',
-	'margin',
 	'leverage',
 	'trading',
 	'exchange',
@@ -191,11 +190,10 @@ export const TRENDING_USERNAMES = [
 	'bond',
 	'option',
 	'future',
-	'swap',
 	'pool',
 	'liquidity',
 
-	// Tech & Internet (4+ letters)
+	// Tech & Internet
 	'tech',
 	'code',
 	'cloud',
@@ -231,14 +229,13 @@ export const TRENDING_USERNAMES = [
 	'design',
 	'logo',
 	'brand',
-	'server',
 	'domain',
 	'hosting',
 	'network',
 	'router',
 	'switch',
 
-	// Gaming & Entertainment (4+ letters)
+	// Gaming & Entertainment
 	'xbox',
 	'sony',
 	'steam',
@@ -263,13 +260,11 @@ export const TRENDING_USERNAMES = [
 	'movie',
 	'cinema',
 	'actor',
-	'star',
 	'idol',
 	'hero',
 	'villain',
 	'boss',
 	'level',
-	'gold',
 	'mana',
 	'stat',
 	'buff',
@@ -281,7 +276,7 @@ export const TRENDING_USERNAMES = [
 	'armor',
 	'weapon',
 
-	// Global & Places (4+ letters)
+	// Global & Places
 	'qatar',
 	'tokyo',
 	'paris',
@@ -300,7 +295,6 @@ export const TRENDING_USERNAMES = [
 	'mena',
 	'world',
 	'globe',
-	'earth',
 	'planet',
 	'city',
 	'town',
@@ -313,7 +307,7 @@ export const TRENDING_USERNAMES = [
 	'china',
 	'japan',
 
-	// Action & Descriptor (4+ letters)
+	// Action & Descriptor
 	'fast',
 	'slow',
 	'cold',
@@ -325,7 +319,6 @@ export const TRENDING_USERNAMES = [
 	'ultra',
 	'super',
 	'mega',
-	'epic',
 	'real',
 	'fake',
 	'true',
@@ -343,30 +336,26 @@ export const TRENDING_USERNAMES = [
 	'easy',
 	'free',
 	'paid',
-	'premium',
 
-	// Names & Titles (4+ letters)
+	// Names & Titles
 	'john',
 	'jane',
 	'alex',
 	'alice',
 	'mallory',
 	'sybil',
-	'admin',
 	'user',
 	'guest',
 	'member',
 	'staff',
 	'owner',
-	'boss',
 	'leader',
-	'chief',
 	'manager',
 	'director',
 	'founder',
 	'creator',
 
-	// Brands & Concepts (4+ letters)
+	// Brands & Concepts
 	'apple',
 	'google',
 	'tesla',
@@ -398,22 +387,17 @@ export const TRENDING_USERNAMES = [
 	'drink',
 	'food',
 
-	// Miscellaneous highly requested (4+ letters)
+	// Miscellaneous
 	'shop',
 	'store',
 	'mall',
-	'market',
 	'bazaar',
-	'deal',
-	'offer',
 	'discount',
 	'coupon',
-	'code',
 	'work',
 	'career',
 	'hire',
 	'resume',
-	'portfolio',
 	'project',
 	'task',
 	'goal',
@@ -422,9 +406,7 @@ export const TRENDING_USERNAMES = [
 	'strategy',
 	'vision',
 	'mission',
-	'core',
 	'base',
-	'root',
 	'seed',
 	'leaf',
 	'growth',
@@ -432,16 +414,28 @@ export const TRENDING_USERNAMES = [
 	'build',
 	'create',
 	'launch',
-	'founder',
 	'startup',
 	'venture',
-	'fund',
-	'capital',
 	'angel',
 ];
 
-// Helper to get exactly N random elements from the list
+// Deduplicated and cleaned editorial examples
+export const EDITORIAL_EXAMPLES: string[] = Array.from(new Set(RAW_EXAMPLES));
+
+// Backward compatibility alias
+export const TRENDING_USERNAMES = EDITORIAL_EXAMPLES;
+
+// Unbiased Fisher-Yates shuffle algorithm to sample N examples
+export function getRandomEditorialExamples(count: number = 4): string[] {
+	const array = [...EDITORIAL_EXAMPLES];
+	for (let i = array.length - 1; i > 0; i--) {
+		const j = Math.floor(Math.random() * (i + 1));
+		[array[i], array[j]] = [array[j], array[i]];
+	}
+	return array.slice(0, count);
+}
+
+// Backward compatibility helper
 export function getRandomTrending(count: number = 4): string[] {
-	const shuffled = [...TRENDING_USERNAMES].sort(() => 0.5 - Math.random());
-	return shuffled.slice(0, count);
+	return getRandomEditorialExamples(count);
 }

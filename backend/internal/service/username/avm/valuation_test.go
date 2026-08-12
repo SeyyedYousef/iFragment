@@ -157,13 +157,13 @@ func TestValuationEngine_CompoundRatioAndEcosystem(t *testing.T) {
 	}
 
 	// 2. Telegram System Handle Anchor (@wallet)
-	walletPrice, ok := HistoricalSales["wallet"]
+	walletPrice, ok := ValuationAnchors["wallet"]
 	if !ok || walletPrice < 500000 {
 		t.Errorf("Official system handle 'wallet' should be anchored >= 500000 TON, got %f", walletPrice)
 	}
 
 	// 3. Telegram Ecosystem Tag (@notcoin, @major)
-	notcoinPrice, ok := HistoricalSales["notcoin"]
+	notcoinPrice, ok := ValuationAnchors["notcoin"]
 	if !ok || notcoinPrice < 100000 {
 		t.Errorf("Ecosystem handle 'notcoin' should be anchored >= 100000 TON, got %f", notcoinPrice)
 	}
@@ -213,9 +213,9 @@ func TestValuationEngine_UserCustomParameters(t *testing.T) {
 	}
 
 	// 2. Check mid-tier generic (@work) -> > 100,000 TON
-	workPrice, ok3 := HistoricalSales["work"]
+	workPrice, ok3 := ValuationAnchors["work"]
 	if !ok3 {
-		t.Fatal("work missing from HistoricalSales")
+		t.Fatal("work missing from ValuationAnchors")
 	}
 	appreciatedWork := workPrice * 1.975
 	if appreciatedWork < 100000 {
@@ -259,10 +259,10 @@ func TestRareUsernameValuationRegression(t *testing.T) {
 		t.Error("'rare' should exist in wordFrequencyRank with non-zero rank")
 	}
 
-	// 2. Check historical sales anchor for "rare"
-	rarePrice, ok := HistoricalSales["rare"]
+	// 2. Check model benchmark anchor for "rare"
+	rarePrice, ok := ValuationAnchors["rare"]
 	if !ok || rarePrice < 50000 {
-		t.Errorf("Historical sales anchor for 'rare' missing or < 50000 TON, got %f", rarePrice)
+		t.Errorf("Valuation anchor for 'rare' missing or < 50000 TON, got %f", rarePrice)
 	}
 
 	// 3. Appreciated value (3.7 years @ 20% CAGR) should fall between 100,000 and 150,000 TON

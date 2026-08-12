@@ -2,14 +2,24 @@ import { createQuery } from '@tanstack/solid-query';
 import { createEffect, createSignal, onCleanup } from 'solid-js';
 import { apiFetch } from '@/shared/api/base.js';
 
+export type UsernameStatusType =
+	| 'available'
+	| 'taken'
+	| 'reserved'
+	| 'active_auction'
+	| 'listed_for_sale'
+	| 'collectible_not_listed'
+	| 'unknown'
+	| 'source_unavailable';
+
 export interface AvailabilityStatus {
 	username: string;
-	status: 'available' | 'taken' | 'on_auction' | 'on_sale' | 'purchase_available' | string;
+	status: UsernameStatusType;
 }
 
 export interface QuickCheck {
 	username: string;
-	status: string;
+	status: UsernameStatusType;
 	length: number;
 	rarity_score: number;
 	sale_status: string;
@@ -19,29 +29,17 @@ export interface QuickCheck {
 	fragment_url: string;
 	search_popularity: number;
 	linguistic_score: number;
+	data_badges?: Record<string, string>;
+	fetched_at?: string;
 }
 
-const CACHE_PREFIX = 'ifrag_cache_';
-const CACHE_TTL_MS = 5 * 60 * 1000;
-
-function getLocalCache<T>(key: string): T | null {
-	try {
-		const raw = localStorage.getItem(CACHE_PREFIX + key);
-		if (!raw) return null;
-		const parsed = JSON.parse(raw);
-		if (Date.now() - parsed.timestamp < CACHE_TTL_MS) {
-			return parsed.data as T;
-		}
-		localStorage.removeItem(CACHE_PREFIX + key);
-	} catch {}
-	return null;
-}
-
-function setLocalCache<T>(key: string, data: T): void {
-	try {
-		localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({ timestamp: Date.now(), data }));
-	} catch {}
-}
+// Tiered TTL Definitions (in milliseconds)
+export const TTI_TIERS = {
+	ACTIVE_BID: 15 * 1000, // 15s for live bids
+	OWNERSHIP: 30 * 1000, // 30s for ownership & listing
+	VALUATION: 5 * 60 * 1000, // 5m for valuation calculations
+	LINGUISTIC: 30 * 24 * 60 * 60 * 1000, // 30d for linguistic metrics
+};
 
 export const useUsernameQuickAnalysis = (username: () => string | undefined | null) => {
 	const [debouncedUsername, setDebouncedUsername] = createSignal<string | undefined | null>(
@@ -66,15 +64,10 @@ export const useUsernameQuickAnalysis = (username: () => string | undefined | nu
 			queryKey: ['username', 'quick', u],
 			queryFn: async () => {
 				if (!u) throw new Error('Username is required');
-				const cacheKey = `quick_${u.toLowerCase()}`;
-				const cached = getLocalCache<QuickCheck>(cacheKey);
-				if (cached) return cached;
-				const res = await apiFetch<QuickCheck>(`/usernames/quick?u=${encodeURIComponent(u)}`);
-				setLocalCache(cacheKey, res);
-				return res;
+				return await apiFetch<QuickCheck>(`/usernames/quick?u=${encodeURIComponent(u)}`);
 			},
 			enabled: !!u && u.length >= 4,
-			staleTime: 3 * 60 * 1000, // 3 minutes
+			staleTime: TTI_TIERS.OWNERSHIP, // 30s fresh state
 		};
 	});
 };
@@ -86,7 +79,14 @@ export interface ValuationResult {
 	high_ton: string;
 	confidence_score: number;
 	rarity: number;
-	reasoning_log: Record<string, any>;
+	reasoning_log: Record<string, unknown>;
+	max_rational_bid_ton?: string;
+	net_seller_proceeds_ton?: string;
+	data_badges?: Record<string, string>;
+	fetched_at?: string;
+	is_fallback_used?: boolean;
+	onchain_verified_count?: number;
+	comparable_sales_count?: number;
 }
 
 export const useUsernameValuation = (username: () => string | undefined | null) => {
@@ -112,17 +112,12 @@ export const useUsernameValuation = (username: () => string | undefined | null) 
 			queryKey: ['username', 'valuate', u],
 			queryFn: async () => {
 				if (!u) throw new Error('Username is required');
-				const cacheKey = `valuate_${u.toLowerCase()}`;
-				const cached = getLocalCache<ValuationResult>(cacheKey);
-				if (cached) return cached;
-				const res = await apiFetch<ValuationResult>(
+				return await apiFetch<ValuationResult>(
 					`/usernames/valuate?u=${encodeURIComponent(u)}`,
 				);
-				setLocalCache(cacheKey, res);
-				return res;
 			},
 			enabled: !!u && u.length >= 4,
-			staleTime: 5 * 60 * 1000,
+			staleTime: TTI_TIERS.VALUATION, // 5m fresh state
 		};
 	});
 };

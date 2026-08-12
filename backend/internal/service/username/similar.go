@@ -292,14 +292,11 @@ func (s *AnalysisService) FindSimilarUsernames(ctx context.Context, username str
 				}
 			}
 
-			// 5. Fallback heuristics if status is still missing
+			// 5. Explicit status when status is unresolved (no fake length/dictionary guessing)
 			if results[idx].Status == "" {
-				if len(lowerName) <= 5 || isDictionaryWord(lowerName) {
-					results[idx].Status = "taken"
-				} else {
-					results[idx].Status = "available"
-				}
+				results[idx].Status = "unknown"
 			}
+
 
 			// 6. Calculate USD sale price if a real SalePrice exists
 			if results[idx].SalePrice > 0 {
