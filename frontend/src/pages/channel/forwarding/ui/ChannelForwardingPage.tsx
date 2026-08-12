@@ -579,7 +579,7 @@ export const ChannelForwardingPage: Component = () => {
 										<span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-white/30 text-[20px]">link</span>
 										<input
 											type="url" value={targetChat()}
-											onInput={(e) => { setTargetChat(e.currentTarget.value); setIsVerified(!!e.currentTarget.value.startsWith('http')); setVerifiedTargetId(''); }}
+											onInput={(e) => { setTargetChat(e.currentTarget.value); setIsTargetVerified(!!e.currentTarget.value.startsWith('http')); setVerifiedTargetId(''); }}
 											placeholder="https://api.example.com/webhook"
 											class="bg-[#08090D] border border-white/5 text-white text-[13px] font-mono font-bold rounded-[16px] pl-12 pr-4 py-4 w-full focus:outline-none focus:border-[#3390ec]/50 shadow-inner transition-colors"
 											dir="ltr"

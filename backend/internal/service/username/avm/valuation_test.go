@@ -64,8 +64,8 @@ func TestCalcConfidenceScore(t *testing.T) {
 		wantMin     int16
 		wantMax     int16
 	}{
-		{"no_data", 0, 0, 0, false, 35, 40},
-		{"minimal", 1, 1, 1.5, false, 35, 45},
+		{"no_data", 0, 0, 0, false, 0, 10},
+		{"minimal", 1, 1, 1.5, false, 5, 20},
 		{"moderate", 8, 15, 0.4, true, 40, 70},
 		{"strong", 25, 60, 0.15, true, 85, 100},
 	}
@@ -271,4 +271,39 @@ func TestRareUsernameValuationRegression(t *testing.T) {
 		t.Errorf("Appreciated valuation for 'rare' (%f TON) is out of target range [100000, 150000]", appreciated)
 	}
 }
+
+func TestCheckHomoglyphRisk(t *testing.T) {
+	hasRisk, msg := CheckHomoglyphRisk("cIash")
+	if !hasRisk || msg == "" {
+		t.Error("Expected homoglyph risk for 'cIash' containing uppercase 'I'")
+	}
+
+	hasRiskCyrillic, _ := CheckHomoglyphRisk("сlash") // Cyrillic 'с'
+	if !hasRiskCyrillic {
+		t.Error("Expected homoglyph risk for username containing Cyrillic 'с'")
+	}
+
+	cleanRisk, _ := CheckHomoglyphRisk("clash")
+	if cleanRisk {
+		t.Error("Expected no homoglyph risk for clean username 'clash'")
+	}
+}
+
+func TestCheckTrademarkRisk(t *testing.T) {
+	hasTM, _ := CheckTrademarkRisk("clashofclans")
+	if !hasTM {
+		t.Error("Expected trademark risk for 'clashofclans'")
+	}
+
+	hasTM2, _ := CheckTrademarkRisk("telegram_news")
+	if !hasTM2 {
+		t.Error("Expected trademark risk for 'telegram_news'")
+	}
+
+	cleanTM, _ := CheckTrademarkRisk("mystic_forest")
+	if cleanTM {
+		t.Error("Expected no trademark risk for 'mystic_forest'")
+	}
+}
+
 

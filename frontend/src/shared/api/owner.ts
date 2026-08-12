@@ -206,7 +206,7 @@ export const ownerApi = {
 	createQuest: (quest: Partial<QuestItem>) =>
 		apiClient.post<QuestItem>('/owner/quests', quest).then((r) => r.data),
 	updateQuest: (id: string | number, quest: Partial<QuestItem>) =>
-		apiClient.put<QuestItem>(`/owner/quests`, quest).then((r) => r.data),
+		apiClient.put<QuestItem>(`/owner/quests/${id}`, quest).then((r) => r.data),
 	deleteQuest: (key: string) => apiClient.delete(`/owner/quests?key=${encodeURIComponent(key)}`).then((r) => r.data),
 
 	// --- Daily Combos ---

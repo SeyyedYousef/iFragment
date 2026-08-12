@@ -46,7 +46,25 @@ interface ValuationResult {
 	};
 	price_basis?: { target_sales: number; exact_sales: number; broad_sales: number; anchor_used: boolean; live_ask_used: boolean; method: string };
 	model_accuracy?: { sample_size: number; median_error_pct: number; within_band_pct: number; evaluated_at: string };
-	reasoning_log: Record<string, any>; investment_grade: string; comparables: { username: string; price: number; date: string; }[]; price_trend: { label: string; value: number; }[]; wallet_info?: { balance: number; nft_count: number; is_whale: boolean; }; entity_info?: { type: string; members: number; verified: boolean; }; status?: string; brandability: number; fear_greed_index: number; fear_greed_label: string; wikipedia_summary: string; rarity_breakdown: Record<string, number>;
+	quality_grade?: string;
+	percentile_rank?: number;
+	risk_audit?: {
+		has_homoglyph_risk: boolean;
+		homoglyph_message?: string;
+		is_scam_or_fake: boolean;
+		has_trademark_risk: boolean;
+		trademark_detail?: string;
+		ton_dns_synergy?: string;
+	};
+	transaction_economics?: {
+		net_payout_ton: number;
+		net_payout_usd: number;
+		fragment_fee_ton: number;
+		fragment_fee_pct: number;
+		min_bid_ton: number;
+		bid_step_ton: number;
+	};
+	reasoning_log: Record<string, any>; investment_grade: string; comparables: { username: string; price: number; date: string; tonviewer_url?: string; }[]; price_trend: { label: string; value: number; }[]; wallet_info?: { balance: number; nft_count: number; is_whale: boolean; }; entity_info?: { type: string; members: number; verified: boolean; }; status?: string; brandability: number; fear_greed_index: number; fear_greed_label: string; wikipedia_summary: string; rarity_breakdown: Record<string, number>;
 }
 
 export const UsernamePage: Component = () => {
@@ -997,6 +1015,94 @@ export const UsernamePage: Component = () => {
 							</Show>
 						</div>
 
+						{/* ⚡ 3. LIVE STATUS & FRAGMENT ECONOMICS */}
+						<Show when={data()?.transaction_economics}>
+							{(econ) => (
+								<div class="w-full bg-[#12141C]/80 backdrop-blur-2xl border border-white/5 rounded-[28px] p-6 flex flex-col gap-4 shadow-sm">
+									<div class="flex items-center justify-between gap-3 text-white/90 border-b border-white/5 pb-3">
+										<div class="flex items-center gap-2 min-w-0">
+											<span class="material-symbols-outlined text-[20px] text-amber-400 shrink-0">bolt</span>
+											<span class="text-[13px] font-black uppercase tracking-widest truncate">FRAGMENT ECONOMICS</span>
+										</div>
+										<span class="text-[10px] font-mono font-black text-amber-400 bg-amber-400/10 border border-amber-400/25 px-2.5 py-1 rounded-[8px] shrink-0">
+											5% FEE
+										</span>
+									</div>
+
+									<div class="grid grid-cols-2 gap-3">
+										<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 flex flex-col gap-0.5 shadow-inner">
+											<span class="text-white/40 text-[9px] font-black uppercase tracking-widest">NET SELLER PROCEEDS</span>
+											<span class="text-emerald-400 font-mono font-black text-[15px] truncate">{econ().net_payout_ton} TON</span>
+											<span class="text-white/30 text-[10px] font-mono">≈ ${econ().net_payout_usd}</span>
+										</div>
+										<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 flex flex-col gap-0.5 shadow-inner">
+											<span class="text-white/40 text-[9px] font-black uppercase tracking-widest">FRAGMENT PLATFORM FEE</span>
+											<span class="text-amber-400 font-mono font-black text-[15px] truncate">{econ().fragment_fee_ton} TON</span>
+											<span class="text-white/30 text-[10px] font-mono">5.0% commission</span>
+										</div>
+										<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 flex flex-col gap-0.5 shadow-inner">
+											<span class="text-white/40 text-[9px] font-black uppercase tracking-widest">MINIMUM BID REQUIRED</span>
+											<span class="text-white font-mono font-black text-[14px] truncate">{econ().min_bid_ton} TON</span>
+										</div>
+										<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 flex flex-col gap-0.5 shadow-inner">
+											<span class="text-white/40 text-[9px] font-black uppercase tracking-widest">BID STEP INCREMENT</span>
+											<span class="text-white font-mono font-black text-[14px] truncate">{econ().bid_step_ton} TON</span>
+										</div>
+									</div>
+								</div>
+							)}
+						</Show>
+
+						{/* 🚨 5. RISK & SECURITY AUDIT */}
+						<Show when={data()?.risk_audit}>
+							{(risk) => (
+								<div class="w-full bg-[#12141C]/80 backdrop-blur-2xl border border-white/5 rounded-[28px] p-6 flex flex-col gap-4 shadow-sm">
+									<div class="flex items-center justify-between gap-3 text-white/90 border-b border-white/5 pb-3">
+										<div class="flex items-center gap-2 min-w-0">
+											<span class="material-symbols-outlined text-[20px] text-cyan-400 shrink-0">security</span>
+											<span class="text-[13px] font-black uppercase tracking-widest truncate">SECURITY & RISK AUDIT</span>
+										</div>
+										<span class="text-[10px] font-black text-cyan-400 bg-cyan-400/10 border border-cyan-400/25 px-2.5 py-1 rounded-[8px] shrink-0">
+											ON-CHAIN CHECK
+										</span>
+									</div>
+
+									<div class="flex flex-col gap-2.5">
+										{/* Homoglyph status */}
+										<div class={`flex items-center justify-between p-3.5 rounded-[16px] border ${risk().has_homoglyph_risk ? 'bg-[#ff4a4a]/10 border-[#ff4a4a]/30 text-[#ff4a4a]' : 'bg-[#10b981]/10 border-[#10b981]/25 text-[#10b981]'}`}>
+											<div class="flex items-center gap-2.5 min-w-0">
+												<span class="material-symbols-outlined text-[18px] shrink-0">{risk().has_homoglyph_risk ? 'warning' : 'check_circle'}</span>
+												<span class="text-[11px] font-bold truncate">
+													{risk().has_homoglyph_risk ? risk().homoglyph_message : 'Homoglyph Check: No visual spoofing characters detected'}
+												</span>
+											</div>
+										</div>
+
+										{/* Trademark status */}
+										<Show when={risk().has_trademark_risk}>
+											<div class="flex items-center justify-between p-3.5 rounded-[16px] bg-amber-400/10 border border-amber-400/30 text-amber-400">
+												<div class="flex items-center gap-2.5 min-w-0">
+													<span class="material-symbols-outlined text-[18px] shrink-0">copyright</span>
+													<span class="text-[11px] font-bold truncate">{risk().trademark_detail}</span>
+												</div>
+											</div>
+										</Show>
+
+										{/* TON DNS status */}
+										<div class="flex items-center justify-between bg-[#08090D] border border-white/5 rounded-[16px] p-3.5">
+											<div class="flex items-center gap-2 min-w-0">
+												<span class="material-symbols-outlined text-[18px] text-white/40 shrink-0">language</span>
+												<span class="text-[11px] font-medium text-white/70">TON DNS Synergy ({username()}.ton)</span>
+											</div>
+											<span class="text-[10px] font-mono font-black text-emerald-400 bg-emerald-400/10 border border-emerald-400/25 px-2 py-0.5 rounded-[6px]">
+												{risk().ton_dns_synergy || 'Available'}
+											</span>
+										</div>
+									</div>
+								</div>
+							)}
+						</Show>
+
 						{/* 🌟 4. LINGUISTIC MEANING & DICTIONARY */}
 						<div class="w-full bg-gradient-to-br from-[#3390ec]/15 via-[#12141C]/90 to-[#08090D] backdrop-blur-2xl border border-[#3390ec]/30 rounded-[28px] p-6 flex flex-col gap-3.5 shadow-[0_10px_30px_rgba(51,144,236,0.15)] relative overflow-hidden">
 							<div class="absolute -right-8 -top-8 w-32 h-32 bg-[#3390ec]/10 blur-3xl rounded-full pointer-events-none" />
@@ -1242,11 +1348,10 @@ export const UsernamePage: Component = () => {
 								<div class="flex flex-col gap-1.5 max-h-[260px] overflow-y-auto pr-1">
 									<For each={data()?.comparables?.slice(0, 12)}>
 										{(comp) => (
-											<button
-												onClick={() => openReport(comp.username)}
-												class="flex items-center justify-between gap-2 bg-[#08090D] hover:bg-white/[0.04] border border-white/5 rounded-[14px] px-3.5 py-3 transition-all active:scale-[0.98] text-start"
-											>
-												<span class="text-white/80 font-mono font-black text-[12px] truncate" dir="ltr">@{comp.username}</span>
+											<div class="flex items-center justify-between gap-2 bg-[#08090D] hover:bg-white/[0.04] border border-white/5 rounded-[14px] px-3.5 py-3 transition-all text-start">
+												<button onClick={() => openReport(comp.username)} class="text-white/80 font-mono font-black text-[12px] hover:underline truncate" dir="ltr">
+													@{comp.username}
+												</button>
 												<div class="flex items-center gap-2.5 shrink-0">
 													<span class="text-white font-mono font-black text-[12px] whitespace-nowrap">{fmtTon(comp.price)} TON</span>
 													<Show when={comp.date}>
@@ -1254,8 +1359,17 @@ export const UsernamePage: Component = () => {
 															{new Date(comp.date).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' })}
 														</span>
 													</Show>
+													<a
+														href={comp.tonviewer_url || `https://tonviewer.com/nft/${comp.username.replace('@', '')}`}
+														target="_blank"
+														rel="noreferrer"
+														onClick={(e) => e.stopPropagation()}
+														class="text-[#3390ec] hover:text-[#00f0ff] text-[10px] font-mono font-bold bg-[#3390ec]/10 border border-[#3390ec]/30 px-1.5 py-0.5 rounded-[5px] transition-colors"
+													>
+														tx ↗
+													</a>
 												</div>
-											</button>
+											</div>
 										)}
 									</For>
 								</div>

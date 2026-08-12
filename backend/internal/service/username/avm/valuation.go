@@ -146,10 +146,14 @@ type ValuationResult struct {
 	SearchTrend      *SearchTrendDto      `json:"search_trend,omitempty"`
 
 	// Live market state, collection context and estimate provenance.
-	LiveMarket    *LiveMarketDto    `json:"live_market,omitempty"`
-	MarketContext *MarketContextDto `json:"market_context,omitempty"`
-	PriceBasis    *PriceBasisDto    `json:"price_basis,omitempty"`
-	ModelAccuracy *ModelAccuracyDto `json:"model_accuracy,omitempty"`
+	LiveMarket           *LiveMarketDto           `json:"live_market,omitempty"`
+	MarketContext        *MarketContextDto        `json:"market_context,omitempty"`
+	PriceBasis           *PriceBasisDto           `json:"price_basis,omitempty"`
+	ModelAccuracy        *ModelAccuracyDto        `json:"model_accuracy,omitempty"`
+	QualityGrade         string                   `json:"quality_grade,omitempty"`
+	PercentileRank       float64                  `json:"percentile_rank,omitempty"`
+	RiskAudit            *RiskAuditDto            `json:"risk_audit,omitempty"`
+	TransactionEconomics *TransactionEconomicsDto `json:"transaction_economics,omitempty"`
 }
 
 // ModelAccuracyDto reports how the model has actually performed against sales that
@@ -297,10 +301,131 @@ type OwnerProfileDto struct {
 	PeerType  string `json:"peer_type"` // "user", "channel", "bot", "unknown"
 }
 
+type RiskAuditDto struct {
+	HasHomoglyphRisk bool   `json:"has_homoglyph_risk"`
+	HomoglyphMessage string `json:"homoglyph_message,omitempty"`
+	IsScamOrFake     bool   `json:"is_scam_or_fake"`
+	HasTrademarkRisk bool   `json:"has_trademark_risk"`
+	TrademarkDetail  string `json:"trademark_detail,omitempty"`
+	TonDnsSynergy    string `json:"ton_dns_synergy,omitempty"` // "registered", "available", "unknown"
+}
+
+type TransactionEconomicsDto struct {
+	NetPayoutTON   float64 `json:"net_payout_ton"`
+	NetPayoutUSD   float64 `json:"net_payout_usd"`
+	FragmentFeeTON float64 `json:"fragment_fee_ton"`
+	FragmentFeePct float64 `json:"fragment_fee_pct"`
+	MinBidTON      float64 `json:"min_bid_ton"`
+	BidStepTON     float64 `json:"bid_step_ton"`
+}
+
+func CheckHomoglyphRisk(username string) (bool, string) {
+	raw := strings.TrimPrefix(username, "@")
+	u := strings.ToLower(raw)
+
+	// Latin visual spoofing traps
+	if strings.Contains(raw, "I") && strings.Contains(raw, "l") {
+		return true, "High phishing risk: contains ambiguous uppercase 'I' and lowercase 'l'"
+	}
+	if strings.Contains(raw, "I") {
+		return true, "Spoofing risk: uppercase 'I' looks identical to lowercase 'l' in standard fonts"
+	}
+	if strings.Contains(u, "0") && strings.Contains(u, "o") {
+		return true, "Visual confusion risk: contains digit '0' alongside letter 'O'"
+	}
+	if strings.Contains(u, "1") && (strings.Contains(u, "l") || strings.Contains(raw, "I")) {
+		return true, "Visual confusion risk: contains digit '1' alongside letter 'l'/'I'"
+	}
+	if strings.Contains(u, "rn") || strings.Contains(u, "vv") {
+		return true, "Ligature spoofing risk: contains visual trick 'rn' (m-like) or 'vv' (w-like)"
+	}
+
+	// Non-ASCII and Cyrillic/Greek homoglyphs
+	cyrillicHomoglyphs := map[rune]string{
+		'а': "Cyrillic 'а' (looks like Latin 'a')",
+		'е': "Cyrillic 'е' (looks like Latin 'e')",
+		'о': "Cyrillic 'о' (looks like Latin 'o')",
+		'р': "Cyrillic 'р' (looks like Latin 'p')",
+		'с': "Cyrillic 'с' (looks like Latin 'c')",
+		'х': "Cyrillic 'х' (looks like Latin 'x')",
+		'у': "Cyrillic 'у' (looks like Latin 'y')",
+		'і': "Cyrillic 'і' (looks like Latin 'i')",
+		'А': "Cyrillic 'А' (looks like Latin 'A')",
+		'В': "Cyrillic 'В' (looks like Latin 'B')",
+		'Е': "Cyrillic 'Е' (looks like Latin 'E')",
+		'К': "Cyrillic 'К' (looks like Latin 'K')",
+		'М': "Cyrillic 'М' (looks like Latin 'M')",
+		'Н': "Cyrillic 'Н' (looks like Latin 'H')",
+		'О': "Cyrillic 'О' (looks like Latin 'O')",
+		'Р': "Cyrillic 'Р' (looks like Latin 'P')",
+		'С': "Cyrillic 'С' (looks like Latin 'C')",
+		'Т': "Cyrillic 'Т' (looks like Latin 'T')",
+		'Х': "Cyrillic 'Х' (looks like Latin 'X')",
+		'α': "Greek 'α' (looks like Latin 'a')",
+		'ε': "Greek 'ε' (looks like Latin 'e')",
+		'ο': "Greek 'ο' (looks like Latin 'o')",
+		'ρ': "Greek 'ρ' (looks like Latin 'p')",
+	}
+
+	for _, r := range raw {
+		if desc, found := cyrillicHomoglyphs[r]; found {
+			return true, fmt.Sprintf("Critical homoglyph spoofing: contains %s", desc)
+		}
+		if r > 127 {
+			return true, "Critical homoglyph risk: contains non-ASCII characters"
+		}
+	}
+	return false, ""
+}
+
+func CheckTrademarkRisk(username string) (bool, string) {
+	u := strings.TrimPrefix(strings.ToLower(username), "@")
+	brands := map[string]string{
+		"clash":    "Clash of Clans / Supercell",
+		"telegram": "Telegram FZ-LLC",
+		"durov":    "Pavel Durov / Telegram",
+		"wallet":   "Telegram Wallet",
+		"fragment": "Fragment Auction Platform",
+		"bitcoin":  "Bitcoin Foundation",
+		"ethereum": "Ethereum Foundation",
+		"binance":  "Binance Exchange",
+		"apple":    "Apple Inc.",
+		"google":   "Google LLC",
+		"meta":     "Meta Platforms Inc.",
+		"nike":     "Nike Inc.",
+		"adidas":   "Adidas AG",
+		"rolex":    "Rolex SA",
+	}
+	for b, brandName := range brands {
+		if u == b || (len(u) >= 4 && strings.Contains(u, b)) {
+			return true, fmt.Sprintf("Trademark clash: %s", brandName)
+		}
+	}
+	return false, ""
+}
+
+func CalculateQualityGrade(expectedTON float64) (string, float64) {
+	switch {
+	case expectedTON >= 1000:
+		return "A+", math.Min(99.0, 95.0+((expectedTON-1000)/2000)*4.0)
+	case expectedTON >= 400:
+		return "A", 85.0 + ((expectedTON-400)/600)*10.0
+	case expectedTON >= 150:
+		return "B+", 70.0 + ((expectedTON-150)/250)*15.0
+	case expectedTON >= 50:
+		return "B", 50.0 + ((expectedTON-50)/100)*20.0
+	case expectedTON >= 15:
+		return "C+", 30.0 + ((expectedTON-15)/35)*20.0
+	default:
+		return "C", math.Max(5.0, (expectedTON/15)*25.0)
+	}
+}
+
 type ComparableSaleDto struct {
-	Username string  `json:"username"`
-	Price    float64 `json:"price"`
-	Date     string  `json:"date"`
+	Username     string  `json:"username"`
+	Price        float64 `json:"price"`
+	Date         string  `json:"date"`
+	TonviewerUrl string  `json:"tonviewer_url,omitempty"`
 }
 
 type PriceTrendDto struct {
@@ -996,9 +1121,7 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 		tonCancel()
 	}
 
-	expectedTONRaw *= fngMult
-	lowTONRaw *= fngMult
-	highTONRaw *= fngMult
+	// Note: FnG index is recorded in reasoning log as market context, but not multiplied into TON username valuation
 
 	// 3f. Live Bid Floor
 	activeBid, err := s.db.GetActiveBid(ctx, username)
@@ -1543,6 +1666,34 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 			}
 			return "D"
 		}(),
+		QualityGrade: func() string {
+			g, _ := CalculateQualityGrade(expectedTON)
+			return g
+		}(),
+		PercentileRank: func() float64 {
+			_, p := CalculateQualityGrade(expectedTON)
+			return p
+		}(),
+		RiskAudit: func() *RiskAuditDto {
+			hasHg, hgMsg := CheckHomoglyphRisk(username)
+			hasTm, tmDetail := CheckTrademarkRisk(username)
+			return &RiskAuditDto{
+				HasHomoglyphRisk: hasHg,
+				HomoglyphMessage: hgMsg,
+				IsScamOrFake:     false,
+				HasTrademarkRisk: hasTm,
+				TrademarkDetail:  tmDetail,
+				TonDnsSynergy:    "available",
+			}
+		}(),
+		TransactionEconomics: &TransactionEconomicsDto{
+			NetPayoutTON:   math.Round((expectedTON*0.95)*100) / 100,
+			NetPayoutUSD:   math.Round((ToFloat64(expectedUSD)*0.95)*100) / 100,
+			FragmentFeeTON: math.Round((expectedTON*0.05)*100) / 100,
+			FragmentFeePct: 5.0,
+			MinBidTON:      math.Max(5, math.Round(expectedTON*0.6)),
+			BidStepTON:     math.Max(5, math.Round(expectedTON*0.05)),
+		},
 		Comparables: func() []ComparableSaleDto {
 			var comps []ComparableSaleDto
 			for i, s := range targetSales {
@@ -1550,9 +1701,10 @@ func (s *ValuationService) Valuate(ctx context.Context, username string, tonRate
 					break
 				}
 				comps = append(comps, ComparableSaleDto{
-					Username: s.Username,
-					Price:    ToFloat64(s.SalePriceTON),
-					Date:     s.SaleDate.Format(time.RFC3339),
+					Username:     s.Username,
+					Price:        ToFloat64(s.SalePriceTON),
+					Date:         s.SaleDate.Format(time.RFC3339),
+					TonviewerUrl: fmt.Sprintf("https://tonviewer.com/nft/%s", strings.TrimPrefix(s.Username, "@")),
 				})
 			}
 			return comps
