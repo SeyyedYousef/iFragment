@@ -9,7 +9,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"ifragment-backend/internal/repository"
@@ -79,28 +78,7 @@ func GetAISuggestions(ctx context.Context, db *repository.Database, username str
 		}
 	}
 
-	// Try user keys as fallback
-	scorer := NewGeminiScorer(db) // reuse the key fetching logic
-	keys := scorer.getUserKeys(ctx)
-	if len(keys) == 0 {
-		return nil
-	}
-
-	maxKeys := 3
-	if len(keys) < maxKeys {
-		maxKeys = len(keys)
-	}
-
-	for i := 0; i < maxKeys; i++ {
-		idx := atomic.AddUint64(&scorer.keyIndex, 1) % uint64(len(keys))
-		key := keys[idx]
-		res, err := callGroqSuggestions(ctx, prompt, key)
-		if err == nil && len(res) > 0 {
-			storeSuggestions(lower, res)
-			return res
-		}
-	}
-
+	// Return nil if project key fails or is missing
 	return nil
 }
 

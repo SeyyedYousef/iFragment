@@ -200,8 +200,17 @@ func NewRateLimiter(ctx context.Context, cache *repository.Cache) func(http.Hand
 	}()
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Skip rate limiting for webhook endpoints (Telegram sends many updates from same IP)
+			// Dedicated high-capacity rate limiting for webhook endpoints (1200 requests/min to prevent flooding)
 			if strings.HasPrefix(r.URL.Path, "/api/v1/webhook/") {
+				if cache != nil && cache.Client != nil && !cache.IsQuotaExceeded() {
+					key := "rate_limit:webhook:" + GetRealIP(r)
+					count, err := incrExpireScript.Run(r.Context(), cache.Client, []string{key}, 1200, 60).Int64()
+					if err == nil && count > 1200 {
+						slog.Warn("Webhook rate limit exceeded (Redis)", "key", key, "count", count)
+						http.Error(w, "Webhook rate limit exceeded", http.StatusTooManyRequests)
+						return
+					}
+				}
 				next.ServeHTTP(w, r)
 				return
 			}

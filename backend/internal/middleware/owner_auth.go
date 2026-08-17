@@ -144,10 +144,27 @@ func ValidateOwnerAdmin(next http.Handler) http.Handler {
 	})
 }
 
-// BlockImpersonatedWrites handles impersonated request rules.
-// Note: Authorized owner impersonation sessions permit management actions so owners can support users.
+// BlockImpersonatedWrites prevents mutating HTTP requests (POST, PUT, DELETE, PATCH)
+// when executed within an impersonated user session to protect user data integrity.
 func BlockImpersonatedWrites(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		method := strings.ToUpper(r.Method)
+		if method == "POST" || method == "PUT" || method == "DELETE" || method == "PATCH" {
+			rawUser := r.Context().Value(UserContextKey)
+			if rawUser != nil {
+				if userMap, ok := rawUser.(map[string]interface{}); ok {
+					if isImpersonated, _ := userMap["impersonated"].(bool); isImpersonated {
+						slog.Warn("SECURITY: Blocked write operation during impersonation session",
+							"method", method,
+							"path", r.URL.Path,
+							"user_id", userMap["id"],
+						)
+						http.Error(w, "Forbidden: Mutating operations are disabled in impersonation mode", http.StatusForbidden)
+						return
+					}
+				}
+			}
+		}
 		next.ServeHTTP(w, r)
 	})
 }

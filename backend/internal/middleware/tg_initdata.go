@@ -174,7 +174,7 @@ func ValidateTelegramInitData(db *repository.Database, cache *repository.Cache) 
 					}
 
 					if len(botTokens) == 0 {
-						rows, queryErr := db.Pool.Query(ctx, "SELECT bot_token_encrypted FROM managed_bots WHERE status = 'active'")
+						rows, queryErr := db.Pool.Query(ctx, "SELECT bot_token_encrypted FROM managed_bots WHERE status = 'active' LIMIT 50")
 						if queryErr == nil {
 							defer rows.Close()
 							for rows.Next() {
@@ -186,9 +186,9 @@ func ValidateTelegramInitData(db *repository.Database, cache *repository.Cache) 
 									}
 								}
 							}
-							if cache != nil && cache.Client != nil && len(botTokens) > 0 {
+							if cache != nil && cache.Client != nil {
 								tokensJSON, _ := json.Marshal(botTokens)
-								cache.Client.Set(ctx, cacheKey, string(tokensJSON), 10*time.Minute)
+								cache.Client.Set(ctx, cacheKey, string(tokensJSON), 5*time.Minute)
 							}
 						}
 					}

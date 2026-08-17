@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"ifragment-backend/internal/repository"
@@ -110,9 +109,8 @@ func (g *GeminiScorer) Score(ctx context.Context, username string) *GeminiResult
 	return result
 }
 
-// callWithFallback tries project key first, then user keys. Returns Available=false on failure.
+// callWithFallback tries official project key. Returns Available=false on failure without using user keys.
 func (g *GeminiScorer) callWithFallback(ctx context.Context, prompt string) *GeminiResult {
-	// Tier 1: Project key
 	if g.projectKey != "" {
 		result, err := g.callAIProvider(ctx, prompt, g.projectKey)
 		if err == nil && result != nil {
@@ -123,33 +121,8 @@ func (g *GeminiScorer) callWithFallback(ctx context.Context, prompt string) *Gem
 		slog.Warn("AI project key FAILED", "error", err)
 	}
 
-	// Tier 2: User keys (round-robin)
-	keys := g.getUserKeys(ctx)
-	if len(keys) == 0 {
-		slog.Warn("AI scorer: NO API keys available. Returning uninflated zero result.")
-		return &GeminiResult{Score: 0, Reason: "no API keys available, AI signal excluded", Available: false}
-	}
-
-	maxAttempts := 3
-	if maxAttempts > len(keys) {
-		maxAttempts = len(keys)
-	}
-
-	for i := 0; i < maxAttempts; i++ {
-		idx := atomic.AddUint64(&g.keyIndex, 1) % uint64(len(keys))
-		key := keys[idx]
-
-		result, err := g.callAIProvider(ctx, prompt, key)
-		if err == nil && result != nil {
-			result.Available = true
-			slog.Info("AI scored successfully via user key", "score", result.Score, "reason", result.Reason)
-			return result
-		}
-	}
-
-	// Tier 3: All failed — return Available=false, Score=0 to avoid artificial inflation
-	slog.Warn("ALL AI API keys exhausted! Returning uninflated zero result.")
-	return &GeminiResult{Score: 0, Reason: "all API keys exhausted, AI signal excluded", Available: false}
+	slog.Warn("AI scorer: Project API key unavailable or failed. Returning uninflated zero result.")
+	return &GeminiResult{Score: 0, Reason: "AI key unavailable or failed, AI signal excluded", Available: false}
 }
 
 // callAIProvider dispatches request to Groq or Gemini endpoints based on API key prefix.
@@ -276,61 +249,7 @@ func (g *GeminiScorer) callGeminiDirect(ctx context.Context, prompt, apiKey stri
 	return &res, nil
 }
 
-// getUserKeys fetches and caches API keys from user channel settings.
-func (g *GeminiScorer) getUserKeys(ctx context.Context) []string {
-	g.userKeysMu.RLock()
-	if time.Since(g.userKeysTime) < g.userKeysTTL && len(g.userKeys) > 0 {
-		keys := g.userKeys
-		g.userKeysMu.RUnlock()
-		return keys
-	}
-	g.userKeysMu.RUnlock()
 
-	// Fetch from DB
-	keys := g.fetchUserKeysFromDB(ctx)
-
-	g.userKeysMu.Lock()
-	g.userKeys = keys
-	g.userKeysTime = time.Now()
-	g.userKeysMu.Unlock()
-
-	return keys
-}
-
-// fetchUserKeysFromDB queries the channel_settings table for unique API keys.
-func (g *GeminiScorer) fetchUserKeysFromDB(ctx context.Context) []string {
-	if g.db == nil {
-		return nil
-	}
-
-	query := `
-		SELECT DISTINCT posting->>'apiKey' AS api_key
-		FROM channel_settings
-		WHERE posting->>'apiKey' IS NOT NULL
-		  AND posting->>'apiKey' != ''
-		LIMIT 100
-	`
-
-	rows, err := g.db.Pool.Query(ctx, query)
-	if err != nil {
-		slog.Warn("Failed to fetch user API keys for Gemini scorer", "error", err)
-		return nil
-	}
-	defer rows.Close()
-
-	var keys []string
-	seen := make(map[string]bool)
-	for rows.Next() {
-		var key string
-		if err := rows.Scan(&key); err == nil && key != "" && !seen[key] {
-			seen[key] = true
-			keys = append(keys, key)
-		}
-	}
-
-	slog.Info("Loaded user Gemini API keys for AVM scorer", "count", len(keys))
-	return keys
-}
 
 // extractScoreFromText tries to extract a numeric score from a malformed AI response.
 func extractScoreFromText(text string) (int, error) {

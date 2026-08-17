@@ -1,34 +1,33 @@
 package avm
 
 import (
-	"encoding/json"
-	"fmt"
-	"io"
-	"log/slog"
-	"net/http"
 	"strings"
 	"sync"
-	"time"
 )
 
-type ClearbitCompany struct {
-	Name   string `json:"name"`
-	Domain string `json:"domain"`
-	Logo   string `json:"logo"`
+// KnownGlobalBrands contains high-profile global brands, companies, and platforms.
+var KnownGlobalBrands = map[string]int{
+	"google": 100, "apple": 100, "microsoft": 100, "amazon": 100, "meta": 100,
+	"tesla": 100, "netflix": 100, "spotify": 100, "twitter": 100, "instagram": 100,
+	"tiktok": 100, "youtube": 100, "telegram": 100, "whatsapp": 100, "paypal": 100,
+	"stripe": 100, "uber": 100, "airbnb": 100, "nvidia": 100, "intel": 100,
+	"binance": 100, "coinbase": 100, "bybit": 100, "okx": 100, "kraken": 100,
+	"toncoin": 100, "tether": 100, "solana": 100, "polygon": 100, "avalanche": 100,
+	"nike": 100, "adidas": 100, "puma": 100, "gucci": 100, "rolex": 100,
+	"disney": 100, "marvel": 100, "sony": 100, "samsung": 100, "canon": 100,
 }
 
 var (
 	brandCache = make(map[string]int)
 	brandMutex sync.RWMutex
-	brandHttp  = &http.Client{Timeout: 3 * time.Second}
 )
 
-// CheckGlobalBrand uses Clearbit Autocomplete API to detect if the username is a global corporate brand.
-// Returns a gradient score: 100 = exact match, 50 = partial match (related companies), 0 = no match.
+// CheckGlobalBrand detects if the username is a recognized global brand.
+// Returns 100 for verified global brand matches, and 0 otherwise without external HTTP latency.
 func CheckGlobalBrand(username string) int {
 	lower := strings.ToLower(strings.TrimSpace(username))
 	if len(lower) < 3 {
-		return 0 // Brands usually have 3+ characters
+		return 0
 	}
 
 	brandMutex.RLock()
@@ -38,46 +37,10 @@ func CheckGlobalBrand(username string) int {
 		return cachedScore
 	}
 
-	url := fmt.Sprintf("https://autocomplete.clearbit.com/v1/companies/suggest?query=%s", lower)
-	resp, err := brandHttp.Get(url)
-	if err != nil {
-		slog.Warn("Clearbit API fetch failed", "username", lower, "error", err)
-		return 0
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return 0
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return 0
-	}
-
-	var companies []ClearbitCompany
-	if err := json.Unmarshal(body, &companies); err != nil {
-		return 0
-	}
-
 	score := 0
-	for _, c := range companies {
-		// Exact match check (either name or primary domain prefix)
-		cName := strings.ToLower(strings.ReplaceAll(c.Name, " ", ""))
-		cDomain := strings.ToLower(c.Domain)
-		if idx := strings.Index(cDomain, "."); idx > 0 {
-			cDomain = cDomain[:idx]
-		}
-
-		if cName == lower || cDomain == lower {
-			score = 100
-			break
-		}
+	if val, isBrand := KnownGlobalBrands[lower]; isBrand {
+		score = val
 	}
-
-	// We DO NOT give partial credit just because companies exist in the autocomplete.
-	// Clearbit will return random fuzzy matches for any 4-letter string.
-	// Only exact domain or name match qualifies for brand premium.
 
 	brandMutex.Lock()
 	if len(brandCache) >= 5000 {

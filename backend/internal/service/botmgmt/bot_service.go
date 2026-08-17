@@ -928,27 +928,26 @@ func getCryptoKey() []byte {
 	cryptoOnce.Do(func() {
 		keyStr := os.Getenv("BOT_TOKEN_KEY")
 		if keyStr == "" {
+			if os.Getenv("APP_ENV") == "production" {
+				panic("CRITICAL SECURITY RISK: BOT_TOKEN_KEY must be explicitly set in production environments. Deriving token encryption keys from JWT_SECRET is prohibited.")
+			}
 			jwtSecret := os.Getenv("JWT_SECRET")
 			if jwtSecret != "" {
+				slog.Warn("BOT_TOKEN_KEY not set. Falling back to sha256(JWT_SECRET) in development mode only.")
 				hash := sha256.Sum256([]byte(jwtSecret))
 				cryptoKey = hash[:]
 				return
 			}
-			if os.Getenv("APP_ENV") != "production" {
-				keyStr = "dev_bot_token_key_32_characters_"
-			} else {
-				panic("CRITICAL: BOT_TOKEN_KEY and JWT_SECRET environment variables are not set")
-			}
+			keyStr = "dev_bot_token_key_32_characters_"
 		}
 		key := []byte(keyStr)
 		if len(key) != 32 {
 			if os.Getenv("APP_ENV") != "production" {
-				// Pad or truncate to 32 bytes for dev
 				temp := make([]byte, 32)
 				copy(temp, key)
 				key = temp
 			} else {
-				panic("CRITICAL: BOT_TOKEN_KEY must be exactly 32 bytes/characters long")
+				panic("CRITICAL: BOT_TOKEN_KEY must be exactly 32 bytes/characters long in production")
 			}
 		}
 		cryptoKey = key

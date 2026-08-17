@@ -88,7 +88,7 @@ The frontend is a SPA deployed separately on Cloudflare Pages:
 3. **Secrets**: Keep all secrets in `.env` file with restricted permissions (`chmod 600 .env`).
 4. **Updates**: Regularly update Docker images for security patches.
 
-## Scaling
-- The API is stateless and can be scaled horizontally by adding more containers.
-- DragonflyDB is multi-threaded and benefits from additional CPU cores.
-- PostgreSQL can be scaled with read replicas if needed.
+## Session Persistence & Scaling
+- MTProto session state is persisted in the `sessions_data` Docker volume.
+- **Horizontal Scaling:** MTProto client connection sessions are bound to a single worker instance to avoid concurrent Telegram FloodWait and authentication conflicts. When scaling API instances horizontally, delegate MTProto bot worker tasks to a single primary container or shared session storage.
+- `TRUSTED_PROXIES`: When running behind Cloudflare or Nginx reverse proxies, configure `TRUSTED_PROXIES` in `.env` with trusted proxy CIDRs (or IP lists) to ensure accurate client IP rate limiting and ban enforcement.

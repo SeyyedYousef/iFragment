@@ -254,6 +254,7 @@ func (m *MockClient) GetFullChannel(ctx context.Context, inputChannel tg.InputCh
 func InitClient(ctx context.Context) (Client, error) {
 	appID := os.Getenv("TG_APP_ID")
 	botToken := os.Getenv("BOT_TOKEN")
+	isProd := os.Getenv("APP_ENV") == "production"
 
 	if appID != "" && botToken != "" {
 		c, err := NewRealClient(ctx)
@@ -261,9 +262,15 @@ func InitClient(ctx context.Context) (Client, error) {
 			slog.Info("Real MTProto client initialized")
 			return c, nil
 		}
-		slog.Error("Failed to initialize real MTProto client, falling back to MockClient", "err", err)
+		if isProd {
+			return nil, fmt.Errorf("CRITICAL: Failed to initialize real MTProto client in production environment: %w", err)
+		}
+		slog.Error("Failed to initialize real MTProto client, falling back to MockClient (non-production)", "err", err)
 	} else {
-		slog.Warn("MTProto credentials (TG_APP_ID, BOT_TOKEN) are missing. Falling back to MockClient (Not Recommended for production!)")
+		if isProd {
+			return nil, fmt.Errorf("CRITICAL: MTProto credentials (TG_APP_ID, BOT_TOKEN) are missing in production environment")
+		}
+		slog.Warn("MTProto credentials (TG_APP_ID, BOT_TOKEN) are missing. Falling back to MockClient (Development mode only)")
 	}
 	return NewMockClient(), nil
 }
