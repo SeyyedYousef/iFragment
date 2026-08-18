@@ -5,24 +5,23 @@ import { setLanguage } from '@/shared/api/profile.js';
 
 import { dict as en } from './en.js';
 
-export type Locale = 'en' | 'fa' | 'ps' | 'ru' | 'zh';
+export type Locale = 'en' | 'fa' | 'ru' | 'zh';
 export type Dictionary = typeof en;
 
 const mapLanguageCode = (code?: string): Locale => {
 	if (!code) return 'en';
 	const c = code.toLowerCase();
 	if (c.startsWith('fa')) return 'fa';
-	if (c.startsWith('ps') || c.startsWith('puk') || c.startsWith('pus')) return 'ps';
 	if (c.startsWith('ru')) return 'ru';
 	if (c.startsWith('zh')) return 'zh';
 	return 'en';
 };
 
-export const RTL_LOCALES: Locale[] = ['fa', 'ps'];
+export const RTL_LOCALES: Locale[] = ['fa'];
 
 const getInitialLocale = (): Locale => {
 	const saved = localStorage.getItem('user_selected_locale');
-	if (saved && ['en', 'fa', 'ps', 'ru', 'zh'].includes(saved)) {
+	if (saved && ['en', 'fa', 'ru', 'zh'].includes(saved)) {
 		return saved as Locale;
 	}
 
@@ -47,7 +46,6 @@ const enFlattened = i18n.flatten(en);
 const [loadedDicts, setLoadedDicts] = createSignal<Record<Locale, any>>({
 	en: enFlattened,
 	fa: {},
-	ps: {},
 	ru: {},
 	zh: {},
 });
@@ -62,9 +60,6 @@ export const loadDictionary = async (loc: Locale) => {
 		switch (loc) {
 			case 'fa':
 				module = await import('./fa.js');
-				break;
-			case 'ps':
-				module = await import('./ps.js');
 				break;
 			case 'ru':
 				module = await import('./ru.js');

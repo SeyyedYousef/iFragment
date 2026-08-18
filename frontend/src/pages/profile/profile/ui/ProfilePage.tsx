@@ -284,8 +284,7 @@ export const ProfilePage: Component = () => {
 							<For
 								each={
 									[
-										{ code: 'fa', label: 'دری (Dari)', icon: '🇦🇫' },
-										{ code: 'ps', label: 'پښتو (Pashto)', icon: '🇦🇫' },
+										{ code: 'fa', label: 'فارسی (Persian)', icon: '🇮🇷' },
 										{ code: 'en', label: 'English (US)', icon: '🇬🇧' },
 										{ code: 'ru', label: 'Русский', icon: '🇷🇺' },
 										{ code: 'zh', label: '中文', icon: '🇨🇳' },

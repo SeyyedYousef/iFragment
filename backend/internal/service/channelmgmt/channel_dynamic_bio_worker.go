@@ -88,15 +88,12 @@ func (s *ChannelService) processDynamicBios(ctx context.Context) {
 			continue
 		}
 
-		// Check interval
+		// Check interval (enforce hard minimum 10 minutes to protect channel)
 		intervalMinutes, err := normalizeDynamicBioInterval(config.Interval)
-		if err != nil {
-			intervalMinutes = 10 // default fallback
+		if err != nil || intervalMinutes < 10 {
+			intervalMinutes = 10 // safe fallback
 		}
 		intervalDuration := time.Duration(intervalMinutes) * time.Minute
-		if intervalDuration <= 0 {
-			intervalDuration = 10 * time.Minute
-		}
 
 		if ok {
 			lastUpdate := lastUpdateVal.(time.Time)

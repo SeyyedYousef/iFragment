@@ -222,7 +222,10 @@ export const subscriptionApi = {
 
 export interface ValuationAccessResponse {
 	has_access: boolean;
-	method?: 'free' | 'stars' | 'coins';
+	method?: 'free' | 'stars' | 'coins' | 'pro';
+	is_pro?: boolean;
+	daily_used?: number;
+	daily_limit?: number;
 	free_quota_used: boolean;
 	in_channel: boolean;
 	in_group: boolean;

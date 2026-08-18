@@ -107,6 +107,9 @@ export const [turboExpiresAt, setTurboExpiresAt] = createSignal(0);
 export const [dailyTappedCoins, setDailyTappedCoins] = createSignal(
 	typeof savedState.dailyTappedCoins === 'number' ? savedState.dailyTappedCoins : 0,
 );
+export const [creditExpiresInDays, setCreditExpiresInDays] = createSignal(
+	typeof savedState.creditExpiresInDays === 'number' ? savedState.creditExpiresInDays : 15,
+);
 
 export const spawnRocket = () => {
 	if (turboCount() > 0 && !isTurboActive() && !isRocketSpawned()) {
@@ -578,6 +581,9 @@ export const syncProfileStats = async () => {
 				}
 				if (typeof stats.dailyTurboUsed === 'number') {
 					setTurboCount(Math.max(0, 2 - stats.dailyTurboUsed));
+				}
+				if (typeof stats.creditExpiresInDays === 'number') {
+					setCreditExpiresInDays(stats.creditExpiresInDays);
 				}
 				if (typeof stats.dailyFullEnergyUsed === 'number') {
 					setFullEnergyCount(Math.max(0, 3 - stats.dailyFullEnergyUsed));

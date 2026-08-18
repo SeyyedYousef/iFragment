@@ -54,9 +54,6 @@ func DetectLanguage(code string) string {
 	if strings.HasPrefix(code, "fa") || strings.HasPrefix(code, "ir") {
 		return "fa"
 	}
-	if strings.HasPrefix(code, "ps") || strings.HasPrefix(code, "puk") || strings.HasPrefix(code, "pus") || strings.HasPrefix(code, "af") {
-		return "ps"
-	}
 	if strings.HasPrefix(code, "ru") {
 		return "ru"
 	}
@@ -73,8 +70,6 @@ func getDict(lang string) map[string]interface{} {
 	switch lang {
 	case "fa":
 		return faDict
-	case "ps":
-		return faDict // Pashto falls back to faDict in backend bot messages
 	case "ru":
 		return ruDict
 	case "zh":

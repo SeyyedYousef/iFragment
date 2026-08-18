@@ -16,7 +16,7 @@ import {
 	saveReport,
 	type RecentReport,
 } from '@/shared/lib/report-cache.js';
-import { shareToStory } from '@/shared/lib/telegram-native.js';
+import { copyToClipboard, shareToStory } from '@/shared/lib/telegram-native.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 interface ValuationResult {
@@ -78,7 +78,10 @@ export const UsernamePage: Component = () => {
 	const [sendCount, setSendCount] = createSignal<number>(0);
 
 	const [_accessGranted, setAccessGranted] = createSignal<boolean>(false);
-	const [accessMethod, setAccessMethod] = createSignal<'free' | 'stars' | 'coins' | null>(null);
+	const [accessMethod, setAccessMethod] = createSignal<'free' | 'stars' | 'coins' | 'pro' | null>(null);
+	const [isPro, setIsPro] = createSignal<boolean>(false);
+	const [dailyUsed, setDailyUsed] = createSignal<number>(0);
+	const [copiedCert, setCopiedCert] = createSignal<boolean>(false);
 	const [showPaymentGate, setShowPaymentGate] = createSignal<boolean>(false);
 	const [freeQuotaUsed, setFreeQuotaUsed] = createSignal<boolean>(false);
 	const [inChannel, setInChannel] = createSignal<boolean>(false);
@@ -241,7 +244,17 @@ export const UsernamePage: Component = () => {
 		onCleanup(() => { off(); backButton.hide(); });
 	});
 
-	const grantAccess = (method: 'free' | 'stars' | 'coins', targetUser: string) => {
+	const handleCopyCertificate = async () => {
+		const u = data()?.username || username();
+		if (!u) return;
+		const clean = u.replace('@', '');
+		const link = `${window.location.origin}/username/report?u=${encodeURIComponent(clean)}`;
+		await copyToClipboard(link);
+		setCopiedCert(true);
+		setTimeout(() => setCopiedCert(false), 3000);
+	};
+
+	const grantAccess = (method: 'free' | 'stars' | 'coins' | 'pro', targetUser: string) => {
 		try { localStorage.setItem(`val_access_${targetUser}`, method); } catch (_) {}
 		setAccessMethod(method); setAccessGranted(true); setShowPaymentGate(false); fetchValuation(targetUser);
 	};
@@ -310,9 +323,20 @@ export const UsernamePage: Component = () => {
 			if (res?.invoice_link) {
 				const tg = (window as any).Telegram?.WebApp;
 				if (tg?.openInvoice) {
-					tg.openInvoice(res.invoice_link, (status: string) => { if (status === 'paid') { haptic.notify('success'); grantAccess('stars', u); } });
-				} else { openTelegramLink(res.invoice_link); grantAccess('stars', u); }
-			} else grantAccess('stars', u);
+					tg.openInvoice(res.invoice_link, (status: string) => {
+						if (status === 'paid') {
+							haptic.notify('success');
+							setIsPro(true);
+							grantAccess('pro', u);
+						}
+					});
+				} else {
+					openTelegramLink(res.invoice_link);
+					grantAccess('pro', u);
+				}
+			} else {
+				grantAccess('pro', u);
+			}
 		} catch (e: any) {
 			setPaymentError(e?.message || 'Payment failed'); haptic.notify('error');
 		} finally { setIsProcessingPayment(false); }
@@ -389,13 +413,17 @@ export const UsernamePage: Component = () => {
 					const res = await valuationApi.checkAccess(u);
 					if (res?.in_channel !== undefined) setInChannel(res.in_channel);
 					if (res?.in_group !== undefined) setInGroup(res.in_group);
+					if (res?.is_pro) {
+						setIsPro(true);
+						if (res.daily_used !== undefined) setDailyUsed(res.daily_used);
+					}
 					if (res?.free_quota_used) {
 						setFreeQuotaUsed(true);
 						localStorage.setItem('val_free_used', 'true');
 						cloudStorage.setItem('val_free_used', 'true');
 					}
 					if (res?.has_access) {
-						const method = res.method || 'stars';
+						const method = res.method || (res.is_pro ? 'pro' : 'stars');
 						try { localStorage.setItem(`val_access_${u}`, method); } catch (_) {}
 						setAccessGranted(true);
 						setAccessMethod(method as any);
@@ -528,21 +556,29 @@ export const UsernamePage: Component = () => {
 					<div class="w-full max-w-[420px] flex flex-col items-center gap-4">
 
 						{/* ═══════ ACCESS AUDIT BADGE ═══════ */}
+						{/* ═══════ ACCESS AUDIT BADGE ═══════ */}
 						<Show when={accessMethod()}>
 							<div class="w-full bg-[#12141C]/80 backdrop-blur-2xl border border-white/5 rounded-[20px] p-3.5 flex items-center justify-between shadow-sm relative z-10">
 								<div class="flex items-center gap-3.5">
-									<div class={`w-11 h-11 rounded-[14px] flex items-center justify-center text-[22px] shrink-0 border shadow-inner ${accessMethod() === 'stars' ? 'bg-amber-400/10 text-amber-400 border-amber-400/30' : accessMethod() === 'coins' ? 'bg-cyan-400/10 text-cyan-400 border-cyan-400/30' : 'bg-emerald-400/10 text-emerald-400 border-emerald-400/30'}`}>
-										{accessMethod() === 'stars' ? '⭐' : accessMethod() === 'coins' ? '🪙' : '🎁'}
+									<div class={`w-11 h-11 rounded-[14px] flex items-center justify-center text-[22px] shrink-0 border shadow-inner ${accessMethod() === 'pro' || accessMethod() === 'stars' ? 'bg-amber-400/10 text-amber-400 border-amber-400/30' : accessMethod() === 'coins' ? 'bg-cyan-400/10 text-cyan-400 border-cyan-400/30' : 'bg-emerald-400/10 text-emerald-400 border-emerald-400/30'}`}>
+										{accessMethod() === 'pro' ? '👑' : accessMethod() === 'stars' ? '⭐' : accessMethod() === 'coins' ? '🪙' : '🎁'}
 									</div>
 									<div class="flex flex-col text-start">
 										<span class="text-[9px] text-white/40 uppercase font-black tracking-widest">{t('valuation.payment_method_badge') || 'ACCESS PROTOCOL'}</span>
-										<span class="text-[13px] font-black text-white">{accessMethod() === 'stars' ? t('valuation.method_stars') : accessMethod() === 'coins' ? t('valuation.method_coins') : t('valuation.method_free')}</span>
+										<span class="text-[13px] font-black text-white">{accessMethod() === 'pro' ? 'PRO ANALYST PASS' : accessMethod() === 'stars' ? t('valuation.method_stars') : accessMethod() === 'coins' ? t('valuation.method_coins') : t('valuation.method_free')}</span>
 									</div>
 								</div>
-								<span class="text-[10px] font-mono px-3 py-1.5 rounded-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-black uppercase tracking-widest shadow-sm flex items-center gap-1">
-									<div class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_#34d399]" />
-									VERIFIED
-								</span>
+								<div class="flex flex-col items-end gap-1">
+									<span class="text-[10px] font-mono px-3 py-1 rounded-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-black uppercase tracking-widest shadow-sm flex items-center gap-1">
+										<div class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_#34d399]" />
+										VERIFIED
+									</span>
+									<Show when={isPro()}>
+										<span class="text-[9px] font-mono text-white/40 font-bold">
+											{t('valuation.daily_quota_counter', { used: dailyUsed() }) || `Today: ${dailyUsed()}/3 used`}
+										</span>
+									</Show>
+								</div>
 							</div>
 						</Show>
 
@@ -591,6 +627,56 @@ export const UsernamePage: Component = () => {
 									</div>
 								</div>
 							</div>
+						</div>
+
+						{/* ═══════ OFFICIAL DIGITAL VALUATION CERTIFICATE ═══════ */}
+						<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-amber-400/30 rounded-[28px] p-5 flex flex-col gap-3.5 shadow-[0_10px_30px_rgba(251,191,36,0.08)] relative overflow-hidden my-1">
+							<div class="absolute -right-10 -top-10 w-32 h-32 bg-amber-400/10 blur-2xl rounded-full pointer-events-none" />
+
+							<div class="flex items-center justify-between border-b border-white/5 pb-3 relative z-10">
+								<div class="flex items-center gap-2.5">
+									<div class="w-9 h-9 rounded-[12px] bg-amber-400/15 border border-amber-400/30 flex items-center justify-center text-amber-400 shadow-inner shrink-0">
+										<span class="material-symbols-outlined text-[20px]">verified_user</span>
+									</div>
+									<div class="flex flex-col text-start min-w-0">
+										<span class="text-[13px] font-black text-white tracking-tight uppercase truncate">{t('valuation.certificate_title') || 'DIGITAL APPRAISAL CERTIFICATE'}</span>
+										<span class="text-[10px] text-white/40 font-medium truncate">{t('valuation.certificate_issuer') || 'iFragment Market Intelligence Engine'}</span>
+									</div>
+								</div>
+								<span class="text-[9px] font-mono font-bold bg-amber-400/10 border border-amber-400/30 text-amber-400 px-2 py-0.5 rounded-[6px] shrink-0">
+									ID: IFR-{(data()?.run_id ?? 8942).toString(16).toUpperCase()}
+								</span>
+							</div>
+
+							<div class="grid grid-cols-2 gap-2.5 relative z-10 text-start">
+								<div class="bg-[#08090D] border border-white/5 rounded-[14px] p-3 flex flex-col gap-0.5 min-w-0">
+									<span class="text-[9px] font-black text-white/40 uppercase tracking-wider">CERTIFIED HANDLE</span>
+									<span class="text-white font-mono font-black text-[13px] truncate" dir="ltr">@{data()?.username || username()}</span>
+								</div>
+								<div class="bg-[#08090D] border border-white/5 rounded-[14px] p-3 flex flex-col gap-0.5 min-w-0">
+									<span class="text-[9px] font-black text-white/40 uppercase tracking-wider">VERIFIED FAIR VALUE</span>
+									<span class="text-emerald-400 font-mono font-black text-[13px] truncate" dir="ltr">{parseFloat(data()?.expected_ton || '0').toLocaleString('en-US')} TON</span>
+								</div>
+							</div>
+
+							<button
+								onClick={handleCopyCertificate}
+								class={`w-full h-11 rounded-[14px] font-black text-[12px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm border relative z-10 ${
+									copiedCert()
+										? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+										: 'bg-gradient-to-r from-amber-400/20 to-amber-500/20 border-amber-400/40 text-amber-300 hover:from-amber-400/30 hover:to-amber-500/30'
+								}`}
+							>
+								<Show when={copiedCert()} fallback={
+									<>
+										<span class="material-symbols-outlined text-[17px]">content_copy</span>
+										<span>{t('valuation.certificate_copy_link') || 'COPY CERTIFICATE LINK'}</span>
+									</>
+								}>
+									<span class="material-symbols-outlined text-[17px]">check</span>
+									<span>{t('valuation.certificate_link_copied') || 'LINK COPIED TO CLIPBOARD!'}</span>
+								</Show>
+							</button>
 						</div>
 
 						{/* ═══════ ACTION BUTTONS ═══════ */}
@@ -1558,150 +1644,188 @@ export const UsernamePage: Component = () => {
 						</div>
 					</div>
 
-					{/* ═══════ PAYMENT MODAL GATE ═══════ */}
+					{/* ═══════ PAYMENT MODAL GATE (PRO PASS 2.0) ═══════ */}
 					<Show when={showPaymentGate()}>
-						<Motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} class="fixed inset-0 bg-black/80 backdrop-blur-xl z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-							<Motion.div initial={{ y: '100%' }} animate={{ y: 0 }} class="w-full max-w-[420px] bg-[#12141C] border-t sm:border border-white/10 rounded-t-[32px] sm:rounded-[32px] p-6 flex flex-col gap-5 shadow-2xl relative">
-								<div class="flex justify-between items-center border-b border-white/5 pb-4">
-									<div class="flex items-center gap-2">
-										<span class="material-symbols-outlined text-amber-400 text-[24px]">lock</span>
-										<h3 class="text-[17px] font-black text-white tracking-tight">{t('valuation.gate_title') || 'UNLOCK FULL AI INTELLIGENCE'}</h3>
+						<Motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} class="fixed inset-0 bg-black/85 backdrop-blur-2xl z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+							<Motion.div initial={{ y: '100%' }} animate={{ y: 0 }} class="w-full max-w-[440px] max-h-[90vh] overflow-y-auto bg-[#0d0f16] border-t sm:border border-amber-400/25 rounded-t-[36px] sm:rounded-[36px] p-6 flex flex-col gap-5 shadow-[0_-10px_50px_rgba(0,0,0,0.8)] relative">
+								
+								{/* Ambient Glow */}
+								<div class="absolute -top-10 left-1/2 -translate-x-1/2 w-48 h-48 bg-amber-400/10 blur-3xl rounded-full pointer-events-none" />
+
+								{/* Header */}
+								<div class="flex justify-between items-start border-b border-white/5 pb-4 relative z-10">
+									<div class="flex flex-col text-start">
+										<div class="flex items-center gap-2 mb-1.5">
+											<span class="px-3 py-1 bg-amber-400/15 border border-amber-400/40 text-amber-400 font-black text-[9px] uppercase tracking-widest rounded-full shadow-sm">
+												{t('valuation.pro_pass_badge') || '🔥 50% OFF LIMITED TIME'}
+											</span>
+										</div>
+										<h3 class="text-[20px] font-black text-white tracking-tight flex items-center gap-2">
+											<span class="text-amber-400">👑</span>
+											{t('valuation.pro_pass_title') || 'Pro Analyst Pass'}
+										</h3>
+										<p class="text-[11px] text-white/50 font-medium leading-relaxed mt-0.5">
+											{t('valuation.pro_pass_desc') || 'Deep AI valuation intelligence, real-time 70%+ arbitrage radar alerts, and official digital certificates.'}
+										</p>
 									</div>
-									<button onClick={() => window.history.back()} class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/60 transition-colors">
+									<button onClick={() => window.history.back()} class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/60 transition-colors shrink-0">
 										<span class="material-symbols-outlined text-[18px]">close</span>
 									</button>
 								</div>
 
 								<Show when={paymentError()}>
-									<div class="p-[#ff4a4a]/10 border border-[#ff4a4a]/30 rounded-[14px] text-[#ff4a4a] text-[12px] font-bold text-center">
+									<div class="p-3 bg-[#ff4a4a]/10 border border-[#ff4a4a]/30 rounded-[14px] text-[#ff4a4a] text-[12px] font-bold text-center">
 										{paymentError()}
 									</div>
 								</Show>
 
-								<div class="flex flex-col gap-3">
-									{/* Stars Option */}
-									<button onClick={handlePayStars} disabled={isProcessingPayment()} class="w-full relative group overflow-hidden bg-[#08090D] border border-amber-400/20 hover:border-amber-400/50 rounded-[24px] p-4.5 text-left transition-all active:scale-[0.98] disabled:opacity-50 shadow-md">
-										<div class="absolute -right-6 -top-6 w-24 h-24 bg-amber-400/10 rounded-full blur-2xl group-hover:bg-amber-400/20 transition-all pointer-events-none" />
-										<div class="relative flex items-center justify-between gap-3 z-10 w-full">
-											<div class="flex items-center gap-4 flex-1 min-w-0">
-												<div class="w-12 h-12 rounded-[16px] bg-amber-400/10 border border-amber-400/30 flex items-center justify-center shrink-0 shadow-inner">
-													<span class="material-symbols-outlined text-amber-400 text-[26px]">star</span>
-												</div>
-												<div class="flex flex-col text-start min-w-0">
-													<h4 class="text-[15px] font-black text-white truncate">{t('valuation.pay_stars_title') || 'Pay with Stars'}</h4>
-													<span class="text-[11px] font-medium text-white/50 mt-0.5 truncate">{t('valuation.pay_stars_desc') || 'Instant Telegram Payment'}</span>
-												</div>
-											</div>
-											<div class="px-3.5 py-1.5 rounded-[10px] bg-amber-400/10 border border-amber-400/30 text-amber-400 font-black text-[13px] shrink-0 flex items-center gap-1.5 shadow-sm">
-												<span class="material-symbols-outlined text-[16px]">star</span> 49
-											</div>
+								{/* Price Card */}
+								<div class="bg-gradient-to-br from-amber-400/15 via-[#12141C] to-[#08090D] border border-amber-400/35 rounded-[24px] p-5 flex items-center justify-between shadow-[0_6px_25px_rgba(251,191,36,0.1)] relative z-10">
+									<div class="flex flex-col text-start">
+										<div class="flex items-center gap-2">
+											<span class="text-white/40 font-mono text-[13px] line-through font-bold">{t('valuation.pro_price_original') || '$10.00'}</span>
+											<span class="text-amber-400 text-[26px] font-black font-mono tracking-tight">{t('valuation.pro_price_discounted') || '$4.99'}</span>
+											<span class="text-white/40 text-[11px] font-bold">{t('valuation.pro_price_period') || '/ month'}</span>
 										</div>
-									</button>
+										<span class="text-[11px] text-amber-300/80 font-mono font-medium flex items-center gap-1 mt-0.5">
+											<span class="material-symbols-outlined text-[13px]">star</span>
+											{t('valuation.pro_stars_amount') || '249 Telegram Stars'}
+										</span>
+									</div>
+									<div class="w-11 h-11 rounded-[14px] bg-amber-400/20 border border-amber-400/40 flex items-center justify-center text-amber-400 text-[20px] shadow-inner shrink-0">
+										⭐
+									</div>
+								</div>
 
-									{/* Coins Option */}
-									<button onClick={handlePayCoins} disabled={isProcessingPayment()} class="w-full relative group overflow-hidden bg-[#08090D] border border-cyan-400/20 hover:border-cyan-400/50 rounded-[24px] p-4.5 text-left transition-all active:scale-[0.98] disabled:opacity-50 shadow-md">
-										<div class="absolute -right-6 -top-6 w-24 h-24 bg-cyan-400/10 rounded-full blur-2xl group-hover:bg-cyan-400/20 transition-all pointer-events-none" />
-										<div class="relative flex items-center justify-between gap-3 z-10 w-full">
-											<div class="flex items-center gap-4 flex-1 min-w-0">
-												<div class="w-12 h-12 rounded-[16px] bg-cyan-400/10 border border-cyan-400/30 flex items-center justify-center shrink-0 shadow-inner">
-													<span class="material-symbols-outlined text-cyan-400 text-[26px]">toll</span>
-												</div>
-												<div class="flex flex-col text-start min-w-0">
-													<h4 class="text-[15px] font-black text-white truncate">{t('valuation.pay_coins_title') || 'Pay with Coins'}</h4>
-													<span class="text-[11px] font-medium text-white/50 mt-0.5 truncate">{t('valuation.pay_coins_desc') || 'Use your mined balance'}</span>
-												</div>
-											</div>
-											<div class="px-3.5 py-1.5 rounded-[10px] bg-cyan-400/10 border border-cyan-400/30 text-cyan-400 font-black text-[13px] shrink-0 flex items-center gap-1.5 shadow-sm">
-												<span class="material-symbols-outlined text-[16px]">toll</span> 88K
-											</div>
+								{/* 4 Feature Highlights */}
+								<div class="flex flex-col gap-2.5 relative z-10 text-start">
+									{/* Feature 1: 3 Daily Deep Valuations */}
+									<div class="bg-[#12141C]/80 border border-white/5 rounded-[18px] p-3.5 flex items-start gap-3">
+										<div class="w-9 h-9 rounded-[12px] bg-amber-400/10 border border-amber-400/25 flex items-center justify-center text-amber-400 text-[18px] shrink-0 mt-0.5">
+											⚡
 										</div>
-									</button>
+										<div class="flex flex-col min-w-0">
+											<span class="text-[12px] font-black text-white">{t('valuation.pro_feature_daily_title') || '3 Deep Daily Valuations'}</span>
+											<span class="text-[10px] text-white/50 font-medium leading-relaxed">{t('valuation.pro_feature_daily_desc') || 'Valuate up to 3 usernames every day with deepest AI models and on-chain blockchain records.'}</span>
+										</div>
+									</div>
 
-									{/* Community Free Access Task Checklist */}
+									{/* Feature 2: 70%+ Arbitrage Deal Radar */}
+									<div class="bg-[#12141C]/80 border border-white/5 rounded-[18px] p-3.5 flex items-start gap-3">
+										<div class="w-9 h-9 rounded-[12px] bg-cyan-400/10 border border-cyan-400/25 flex items-center justify-center text-cyan-400 text-[18px] shrink-0 mt-0.5">
+											🚨
+										</div>
+										<div class="flex flex-col min-w-0">
+											<span class="text-[12px] font-black text-white">{t('valuation.pro_feature_arbitrage_title') || '70%+ Arbitrage Deal Radar'}</span>
+											<span class="text-[10px] text-white/50 font-medium leading-relaxed">{t('valuation.pro_feature_arbitrage_desc') || 'Instant Telegram Bot DMs whenever any username is listed on Fragment at >70% discount below fair value.'}</span>
+										</div>
+									</div>
+
+									{/* Feature 3: Official Digital Certificate */}
+									<div class="bg-[#12141C]/80 border border-white/5 rounded-[18px] p-3.5 flex items-start gap-3">
+										<div class="w-9 h-9 rounded-[12px] bg-emerald-400/10 border border-emerald-400/25 flex items-center justify-center text-emerald-400 text-[18px] shrink-0 mt-0.5">
+											📜
+										</div>
+										<div class="flex flex-col min-w-0">
+											<span class="text-[12px] font-black text-white">{t('valuation.pro_feature_cert_title') || 'Official Digital Certificate'}</span>
+											<span class="text-[10px] text-white/50 font-medium leading-relaxed">{t('valuation.pro_feature_cert_desc') || 'A dedicated public URL & appraisal badge to embed in your Telegram bio and prove handle authenticity.'}</span>
+										</div>
+									</div>
+
+									{/* Feature 4: 3D Holographic Flex Card */}
+									<div class="bg-[#12141C]/80 border border-white/5 rounded-[18px] p-3.5 flex items-start gap-3">
+										<div class="w-9 h-9 rounded-[12px] bg-purple-400/10 border border-purple-400/25 flex items-center justify-center text-purple-400 text-[18px] shrink-0 mt-0.5">
+											🎨
+										</div>
+										<div class="flex flex-col min-w-0">
+											<span class="text-[12px] font-black text-white">{t('valuation.pro_feature_card_title') || '3D Luxury Holographic Card'}</span>
+											<span class="text-[10px] text-white/50 font-medium leading-relaxed">{t('valuation.pro_feature_card_desc') || 'Interactive gyro cards with real-time gloss reflections for Telegram stories and stickers.'}</span>
+										</div>
+									</div>
+								</div>
+
+								{/* Primary Action Button: Stars Pro Pass */}
+								<button
+									onClick={handlePayStars}
+									disabled={isProcessingPayment()}
+									class="w-full h-14 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-black text-[13px] tracking-wider uppercase rounded-[20px] flex items-center justify-center gap-2 shadow-[0_8px_30px_rgba(251,191,36,0.3)] active:scale-95 transition-all disabled:opacity-50 relative z-10"
+								>
+									<Show when={isProcessingPayment()} fallback={
+										<>
+											<span class="material-symbols-outlined text-[20px]">star</span>
+											<span>{t('valuation.unlock_pro_btn') || 'ACTIVATE PRO PASS (249 STARS)'}</span>
+										</>
+									}>
+										<div class="w-5 h-5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+									</Show>
+								</button>
+
+								{/* Alternative payment options accordion / 1-time task */}
+								<div class="flex flex-col gap-2 pt-2 border-t border-white/5 relative z-10">
+									<div class="flex gap-2">
+										{/* Coins fallback */}
+										<button
+											onClick={handlePayCoins}
+											disabled={isProcessingPayment()}
+											class="flex-1 py-3 px-3 rounded-[16px] bg-[#12141C] border border-white/10 hover:border-white/20 text-white/70 font-black text-[11px] flex items-center justify-center gap-1.5 transition-all active:scale-95"
+										>
+											<span class="text-cyan-400 text-[14px]">🪙</span>
+											<span>{t('valuation.pay_coins_title') || 'Pay with Coins'} (88K)</span>
+										</button>
+									</div>
+
+									{/* 1-Time Free Task Checklist */}
 									<Show when={!freeQuotaUsed()}>
-										<div class="w-full bg-[#08090D] border border-emerald-400/20 rounded-[24px] p-4 flex flex-col gap-3.5 shadow-md mt-1">
-											<div class="flex items-center gap-3">
-												<div class="w-10 h-10 rounded-[14px] bg-emerald-400/10 border border-emerald-400/30 flex items-center justify-center shrink-0 shadow-inner">
-													<span class="material-symbols-outlined text-emerald-400 text-[22px]">card_giftcard</span>
-												</div>
-												<div class="flex-1 flex flex-col text-start min-w-0">
-													<h4 class="text-[14px] font-black text-white truncate">{t('valuation.free_channel_group_title') || '1-Time Free Access'}</h4>
-													<span class="text-[11px] font-medium text-white/50 leading-tight">{t('valuation.free_channel_group_desc') || 'Complete tasks below to unlock 24h AI valuation access'}</span>
+										<div class="w-full bg-[#08090D] border border-emerald-400/20 rounded-[20px] p-3.5 flex flex-col gap-2.5 shadow-md mt-1">
+											<div class="flex items-center justify-between">
+												<div class="flex items-center gap-2">
+													<span class="material-symbols-outlined text-emerald-400 text-[18px]">card_giftcard</span>
+													<span class="text-[12px] font-black text-white">{t('valuation.free_channel_group_title') || '1-Time Free Sample'}</span>
 												</div>
 											</div>
 
-											{/* Tasks Checklist */}
-											<div class="flex flex-col gap-2.5 w-full">
-												{/* Task 1: Channel */}
-												<div class={`p-3 rounded-[16px] border flex items-center justify-between gap-2.5 transition-all ${inChannel() ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/[0.03] border-white/10'}`}>
-													<div class="flex items-center gap-2.5 min-w-0 flex-1">
-														<div class={`w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-black shrink-0 ${inChannel() ? 'bg-emerald-400 text-black' : 'bg-white/10 text-white/50'}`}>
+											<div class="flex flex-col gap-2 w-full">
+												<div class={`p-2.5 rounded-[12px] border flex items-center justify-between gap-2 ${inChannel() ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/[0.02] border-white/10'}`}>
+													<div class="flex items-center gap-2 min-w-0 text-start">
+														<div class={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${inChannel() ? 'bg-emerald-400 text-black' : 'bg-white/10 text-white/50'}`}>
 															<Show when={inChannel()} fallback="1">✓</Show>
 														</div>
-														<div class="flex flex-col text-start min-w-0">
-															<span class="text-[12px] font-bold text-white truncate">{t('valuation.free_channel_task') || 'Subscribe to Official Channel'}</span>
-															<span class="text-[10px] text-emerald-400 font-mono">@FragmentsCommunity</span>
-														</div>
+														<span class="text-[11px] font-bold text-white truncate">{t('valuation.free_channel_task') || 'Join Channel'}</span>
 													</div>
-													<Show when={!inChannel()} fallback={
-														<span class="px-2.5 py-1 rounded-[10px] bg-emerald-400/20 text-emerald-300 font-bold text-[11px] flex items-center gap-1 shrink-0">
-															<span class="material-symbols-outlined text-[14px]">check_circle</span>
-															{t('valuation.joined_badge') || 'Joined'}
-														</span>
-													}>
-														<button onClick={() => openTelegramLink('https://t.me/FragmentsCommunity')} class="px-3 py-1.5 bg-emerald-400 hover:bg-emerald-300 text-black font-extrabold text-[11px] rounded-[10px] flex items-center gap-1 transition-all active:scale-95 shrink-0 shadow-sm">
-															<span class="material-symbols-outlined text-[14px]">podcasts</span>
-															{t('valuation.join_btn') || 'Join'}
+													<Show when={!inChannel()} fallback={<span class="text-[10px] text-emerald-400 font-bold">✓ Joined</span>}>
+														<button onClick={() => openTelegramLink('https://t.me/FragmentsCommunity')} class="px-2.5 py-1 bg-emerald-400 hover:bg-emerald-300 text-black font-extrabold text-[10px] rounded-[8px] flex items-center gap-1 active:scale-95">
+															Join
 														</button>
 													</Show>
 												</div>
 
-												{/* Task 2: Group */}
-												<div class={`p-3 rounded-[16px] border flex flex-col gap-2 transition-all ${inGroup() ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/[0.03] border-white/10'}`}>
-													<div class="flex items-center justify-between gap-2.5 w-full">
-														<div class="flex items-center gap-2.5 min-w-0 flex-1">
-															<div class={`w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-black shrink-0 ${inGroup() ? 'bg-emerald-400 text-black' : 'bg-white/10 text-white/50'}`}>
-																<Show when={inGroup()} fallback="2">✓</Show>
-															</div>
-															<div class="flex flex-col text-start min-w-0">
-																<span class="text-[12px] font-bold text-white truncate">{t('valuation.free_group_task') || 'Join Official Group'}</span>
-																<span class="text-[10px] text-emerald-400 font-mono">@FragmentInvestors</span>
-															</div>
+												<div class={`p-2.5 rounded-[12px] border flex items-center justify-between gap-2 ${inGroup() ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/[0.02] border-white/10'}`}>
+													<div class="flex items-center gap-2 min-w-0 text-start">
+														<div class={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${inGroup() ? 'bg-emerald-400 text-black' : 'bg-white/10 text-white/50'}`}>
+															<Show when={inGroup()} fallback="2">✓</Show>
 														</div>
-														<Show when={!inGroup()} fallback={
-															<span class="px-2.5 py-1 rounded-[10px] bg-emerald-400/20 text-emerald-300 font-bold text-[11px] flex items-center gap-1 shrink-0">
-																<span class="material-symbols-outlined text-[14px]">check_circle</span>
-																{t('valuation.joined_badge') || 'Joined'}
-															</span>
-														}>
-															<button onClick={() => openTelegramLink('https://t.me/FragmentInvestors')} class="px-3 py-1.5 bg-emerald-400 hover:bg-emerald-300 text-black font-extrabold text-[11px] rounded-[10px] flex items-center gap-1 transition-all active:scale-95 shrink-0 shadow-sm">
-																<span class="material-symbols-outlined text-[14px]">groups</span>
-																{t('valuation.join_btn') || 'Join'}
-															</button>
-														</Show>
+														<span class="text-[11px] font-bold text-white truncate">{t('valuation.free_group_task') || 'Join Group'}</span>
 													</div>
-													<div class="bg-amber-400/10 border border-amber-400/20 rounded-[10px] px-2.5 py-1.5 flex items-start gap-1.5">
-														<span class="material-symbols-outlined text-amber-400 text-[14px] shrink-0 mt-0.5">star</span>
-														<span class="text-[10px] font-medium text-amber-300/90 leading-tight">
-															{t('valuation.free_group_premium_note') || 'Note: Only Telegram Premium users can join this group.'}
-														</span>
-													</div>
+													<Show when={!inGroup()} fallback={<span class="text-[10px] text-emerald-400 font-bold">✓ Joined</span>}>
+														<button onClick={() => openTelegramLink('https://t.me/FragmentInvestors')} class="px-2.5 py-1 bg-emerald-400 hover:bg-emerald-300 text-black font-extrabold text-[10px] rounded-[8px] flex items-center gap-1 active:scale-95">
+															Join
+														</button>
+													</Show>
 												</div>
 											</div>
 
-											<button onClick={handleVerifyFreeAccess} disabled={isProcessingPayment()} class="w-full h-12 bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 text-black font-black text-[12px] tracking-wider uppercase rounded-[14px] flex items-center justify-center gap-2 shadow-[0_6px_20px_rgba(52,211,153,0.25)] active:scale-95 transition-all disabled:opacity-50 mt-0.5">
-												<Show when={isProcessingPayment()} fallback={<><span class="material-symbols-outlined text-[18px]">verified</span>{t('valuation.verify_membership_btn') || 'VERIFY & ANALYZE'}</>}>
-													<div class="w-5 h-5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
-												</Show>
+											<button onClick={handleVerifyFreeAccess} disabled={isProcessingPayment()} class="w-full h-10 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-[11px] uppercase tracking-wider rounded-[12px] flex items-center justify-center gap-1.5 active:scale-95">
+												<span class="material-symbols-outlined text-[16px]">verified</span>
+												<span>{t('valuation.verify_membership_btn') || 'VERIFY & GET 1-TIME REPORT'}</span>
 											</button>
 										</div>
 									</Show>
 								</div>
 
 								<Show when={isProcessingPayment()}>
-									<div class="absolute inset-0 bg-[#12141C]/90 backdrop-blur-md z-30 flex flex-col items-center justify-center rounded-t-[32px]">
-										<span class="w-12 h-12 border-4 border-[#3390ec]/30 border-t-[#3390ec] rounded-full animate-spin mb-4 shadow-[0_0_15px_#3390ec]" />
-										<span class="text-[14px] font-black uppercase tracking-widest text-white animate-pulse">PROCESSING...</span>
+									<div class="absolute inset-0 bg-[#0d0f16]/95 backdrop-blur-md z-30 flex flex-col items-center justify-center rounded-[36px]">
+										<span class="w-12 h-12 border-4 border-amber-400/30 border-t-amber-400 rounded-full animate-spin mb-4 shadow-[0_0_20px_rgba(251,191,36,0.5)]" />
+										<span class="text-[13px] font-black uppercase tracking-widest text-white animate-pulse">PROCESSING PRO ACTIVATION...</span>
 									</div>
 								</Show>
 							</Motion.div>

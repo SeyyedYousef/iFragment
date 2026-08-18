@@ -25,8 +25,8 @@ func NewAutoResponderService(channelRepo *repository.ChannelRepo) *AutoResponder
 	}
 }
 
-// resolveChannelLLMCredentials gets LLM provider, API key, and model from channel settings or environment
-func (s *AutoResponderService) resolveChannelLLMCredentials(ctx context.Context, channelID uuid.UUID) (provider, apiKey, model string) {
+// resolveChannelLLMCredentials gets LLM provider, API key, model, and persona prompt from channel settings or environment
+func (s *AutoResponderService) resolveChannelLLMCredentials(ctx context.Context, channelID uuid.UUID) (provider, apiKey, model, customPrompt, tone string) {
 	settings, err := s.channelRepo.GetChannelSettings(ctx, channelID)
 	if err == nil && settings != nil && len(settings.Posting) > 0 {
 		var posting PostingSettingsSchema
@@ -34,6 +34,8 @@ func (s *AutoResponderService) resolveChannelLLMCredentials(ctx context.Context,
 			provider = posting.AiProvider
 			apiKey = posting.ApiKey
 			model = posting.AiModel
+			customPrompt = posting.CustomSkillPrompt
+			tone = posting.Tone
 		}
 	}
 	if apiKey == "" {
@@ -50,18 +52,24 @@ func (s *AutoResponderService) resolveChannelLLMCredentials(ctx context.Context,
 	return
 }
 
-// generateAIComment produces a context-aware comment for a channel post
+// generateAIComment produces a context-aware comment for a channel post adhering to channel persona
 func (s *AutoResponderService) generateAIComment(ctx context.Context, channelID uuid.UUID, postText string) (string, error) {
-	provider, apiKey, model := s.resolveChannelLLMCredentials(ctx, channelID)
+	provider, apiKey, model, customPrompt, tone := s.resolveChannelLLMCredentials(ctx, channelID)
 	if apiKey == "" {
 		return "", fmt.Errorf("no LLM API key configured for AI comment")
 	}
 
-	systemPrompt := "You are an AI assistant for a Telegram channel. Your job is to write a short, highly relevant, engaging first comment for the channel post provided inside <POST> tags.\n" +
-		"HARD RULES:\n" +
+	systemPrompt := "You are an AI assistant for a Telegram channel. Your job is to write a short, highly relevant, engaging first comment or TL;DR for the channel post provided inside <POST> tags.\n"
+	if strings.TrimSpace(customPrompt) != "" {
+		systemPrompt += fmt.Sprintf("CHANNEL CUSTOM PERSONA & INSTRUCTIONS:\n%s\n", customPrompt)
+	}
+	if strings.TrimSpace(tone) != "" {
+		systemPrompt += fmt.Sprintf("CHANNEL TONE: %s\n", tone)
+	}
+	systemPrompt += "HARD RULES:\n" +
 		"1. Respond in the EXACT same language as the post (e.g. Persian if post is in Persian).\n" +
-		"2. Keep it concise (1 to 2 sentences max).\n" +
-		"3. Sound natural, positive, and human.\n" +
+		"2. Keep it concise (1 to 2 sentences max or a sharp 3-bullet TL;DR).\n" +
+		"3. Sound natural, authentic to the channel persona, and human.\n" +
 		"4. Return ONLY the comment text without code fences, quotes, or preambles."
 
 	userMsg := fmt.Sprintf("<POST>\n%s\n</POST>", postText)
@@ -70,7 +78,7 @@ func (s *AutoResponderService) generateAIComment(ctx context.Context, channelID 
 
 // generateAIResponse produces a context-aware auto-response to a message
 func (s *AutoResponderService) generateAIResponse(ctx context.Context, channelID uuid.UUID, userText string, instruction string) (string, error) {
-	provider, apiKey, model := s.resolveChannelLLMCredentials(ctx, channelID)
+	provider, apiKey, model, _, _ := s.resolveChannelLLMCredentials(ctx, channelID)
 	if apiKey == "" {
 		return "", fmt.Errorf("no LLM API key configured for AI response")
 	}

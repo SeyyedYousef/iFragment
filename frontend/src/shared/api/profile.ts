@@ -38,6 +38,7 @@ export const ProfileStatsSchema = z.object({
 	equippedBorder: z.string(),
 	equippedSkin: z.string(),
 	airdropCoins: z.number().optional(),
+	creditExpiresInDays: z.number().optional().default(15),
 	energy: z.number().int().nonnegative().optional(),
 	energyUpdatedAt: z.string().optional(),
 	photoUrl: z.string().optional(),

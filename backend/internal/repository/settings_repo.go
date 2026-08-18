@@ -120,7 +120,9 @@ type SettingsLimits struct {
 	FloodWin  int `json:"floodWindow"`
 	DupCount  int `json:"duplicateCount"`
 	DupWin    int `json:"duplicateWindow"`
+	SlowMode  int `json:"slowMode,omitempty"`
 }
+
 
 type QuietPeriod struct {
 	ID    string `json:"id"`
@@ -487,10 +489,23 @@ func (r *SettingsRepo) UpdateCategory(ctx context.Context, groupID uuid.UUID, ca
 }
 
 func (r *SettingsRepo) ForceUpdateQuietHours(ctx context.Context, groupID uuid.UUID, data json.RawMessage) error {
+	return r.ForceUpdateCategory(ctx, groupID, "quiet_hours", data)
+}
+
+// ForceUpdateCategory updates any settings category directly (for inline keyboard toggles)
+func (r *SettingsRepo) ForceUpdateCategory(ctx context.Context, groupID uuid.UUID, category string, data json.RawMessage) error {
+	validCategories := map[string]bool{
+		"general": true, "content_restrictions": true, "limits": true,
+		"quiet_hours": true, "mandatory_membership": true, "custom_texts": true,
+		"dynamic_bio": true,
+	}
+	if !validCategories[category] {
+		return fmt.Errorf("invalid settings category: %s", category)
+	}
 	if r.db == nil || r.db.Pool == nil {
 		return fmt.Errorf("database connection not available")
 	}
-	query := `UPDATE group_settings SET quiet_hours = $1, version = version + 1, updated_at = now() WHERE group_id = $2`
+	query := fmt.Sprintf(`UPDATE group_settings SET %s = $1, version = version + 1, updated_at = now() WHERE group_id = $2`, category)
 	_, err := r.db.Pool.Exec(ctx, query, data, groupID)
 	if err == nil {
 		if r.cache != nil && r.cache.Client != nil {

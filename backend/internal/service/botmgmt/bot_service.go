@@ -43,6 +43,18 @@ type SubscriptionPackage struct {
 	Badge          string  `json:"badge,omitempty"`
 }
 
+type DiscountTier struct {
+	Percent       int     `json:"percent"`
+	RequiredCoins float64 `json:"required_coins"`
+	Description   string  `json:"description"`
+}
+
+var DiscountTiers = []DiscountTier{
+	{Percent: 25, RequiredCoins: 250000, Description: "25% OFF (250,000 Coins) - Valid for 15 days"},
+	{Percent: 50, RequiredCoins: 750000, Description: "50% OFF (750,000 Coins) - Valid for 15 days"},
+	{Percent: 75, RequiredCoins: 2000000, Description: "75% OFF (2,000,000 Coins) - Valid for 15 days"},
+}
+
 var Packages = []SubscriptionPackage{
 	{ID: "1_month", Name: "1 Month", DurationMonths: 1, PriceUSD: 1.99, PricePerMonth: 1.99, PriceStars: 150, PriceCoins: 350000, GroupsLimit: 1, PriceFRG: 1.99, Discount: "", Badge: ""},
 	{ID: "3_months", Name: "3 Months", DurationMonths: 3, PriceUSD: 4.49, PricePerMonth: 1.49, PriceStars: 350, PriceCoins: 900000, GroupsLimit: 1, PriceFRG: 4.49, Discount: "25%", Badge: "popular"},
@@ -90,9 +102,13 @@ func (s *BotService) GetPremiumGroupService() *PremiumGroupService {
 func (s *BotService) StartBackgroundTasks(ctx context.Context) {
 	expiryTicker := time.NewTicker(10 * time.Minute)
 	qhTicker := time.NewTicker(1 * time.Minute)
+	creditBatchTicker := time.NewTicker(30 * time.Minute)
+
 	go func() {
 		defer expiryTicker.Stop()
 		defer qhTicker.Stop()
+		defer creditBatchTicker.Stop()
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -101,6 +117,12 @@ func (s *BotService) StartBackgroundTasks(ctx context.Context) {
 				s.CheckExpirations(ctx)
 			case <-qhTicker.C:
 				s.CheckQuietHoursTransitions(ctx)
+			case <-creditBatchTicker.C:
+				if s.botRepo != nil && s.botRepo.DB() != nil {
+					if expired, err := s.botRepo.DB().ExpireOutdatedCreditBatches(ctx); err == nil && expired > 0 {
+						slog.Info("Successfully expired outdated 15-day credit batches", "expired_count", expired)
+					}
+				}
 			}
 		}
 	}()
@@ -852,21 +874,9 @@ func (s *BotService) SubscribeWithAirdrop(ctx context.Context, userID int64, gro
 	}
 	defer tx.Rollback(ctx)
 
-	// Lock and check user_stats for airdrop_coins
-	var currentCoins float64
-	err = tx.QueryRow(ctx, `SELECT airdrop_coins FROM user_stats WHERE user_id = $1 FOR UPDATE`, userID).Scan(&currentCoins)
-	if err != nil {
-		return fmt.Errorf("failed to get user airdrop coins: %w", err)
-	}
-
-	if currentCoins < requiredCoins {
-		return fmt.Errorf("insufficient airdrop coins: need %.0f, have %.0f", requiredCoins, currentCoins)
-	}
-
-	// Deduct coins
-	_, err = tx.Exec(ctx, `UPDATE user_stats SET airdrop_coins = airdrop_coins - $1 WHERE user_id = $2`, requiredCoins, userID)
-	if err != nil {
-		return fmt.Errorf("failed to deduct airdrop coins: %w", err)
+	// Deduct coins using FIFO
+	if err := s.botRepo.DB().DeductCreditsFIFO(ctx, tx, userID, requiredCoins); err != nil {
+		return fmt.Errorf("failed to deduct credits: %w", err)
 	}
 
 	if err := s.internalActivateSubscriptionTx(ctx, tx, userID, groupID, packageID, group, pkg); err != nil {
@@ -1252,19 +1262,9 @@ func (s *BotService) SubscribeChannelWithAirdrop(ctx context.Context, userID int
 	}
 	defer tx.Rollback(ctx)
 
-	var currentCoins float64
-	err = tx.QueryRow(ctx, `SELECT airdrop_coins FROM user_stats WHERE user_id = $1 FOR UPDATE`, userID).Scan(&currentCoins)
-	if err != nil {
-		return fmt.Errorf("failed to get user airdrop coins: %w", err)
-	}
-
-	if currentCoins < requiredCoins {
-		return fmt.Errorf("insufficient airdrop coins: need %.0f, have %.0f", requiredCoins, currentCoins)
-	}
-
-	_, err = tx.Exec(ctx, `UPDATE user_stats SET airdrop_coins = airdrop_coins - $1 WHERE user_id = $2`, requiredCoins, userID)
-	if err != nil {
-		return fmt.Errorf("failed to deduct airdrop coins: %w", err)
+	// Deduct coins using FIFO
+	if err := s.botRepo.DB().DeductCreditsFIFO(ctx, tx, userID, requiredCoins); err != nil {
+		return fmt.Errorf("failed to deduct credits: %w", err)
 	}
 
 	if err := s.internalActivateChannelSubscriptionTx(ctx, tx, userID, channelID, packageID, ch, pkg); err != nil {

@@ -570,3 +570,124 @@ func TestForwardingModes(t *testing.T) {
 		t.Errorf("AI mode failed to add watermark: %s", resAI)
 	}
 }
+
+func TestValidateSettingsDynamicBioMinimumInterval(t *testing.T) {
+	tests := []struct {
+		name      string
+		jsonData  string
+		expectErr bool
+		errText   string
+	}{
+		{
+			name: "Interval 5 minutes rejected",
+			jsonData: `{
+				"enabled": true,
+				"bioTemplate": "Members: $members",
+				"interval": 5
+			}`,
+			expectErr: true,
+			errText:   "dynamic bio interval must be at least 10 minutes",
+		},
+		{
+			name: "Interval string '5m' rejected",
+			jsonData: `{
+				"enabled": true,
+				"bioTemplate": "Members: $members",
+				"interval": "5m"
+			}`,
+			expectErr: true,
+			errText:   "dynamic bio interval must be at least 10 minutes",
+		},
+		{
+			name: "Interval string '9m' rejected",
+			jsonData: `{
+				"enabled": true,
+				"bioTemplate": "Members: $members",
+				"interval": "9m"
+			}`,
+			expectErr: true,
+			errText:   "dynamic bio interval must be at least 10 minutes",
+		},
+		{
+			name: "Interval 10 minutes accepted",
+			jsonData: `{
+				"enabled": true,
+				"bioTemplate": "Members: $members",
+				"interval": 10
+			}`,
+			expectErr: false,
+		},
+		{
+			name: "Interval string '10m' accepted",
+			jsonData: `{
+				"enabled": true,
+				"bioTemplate": "Members: $members",
+				"interval": "10m"
+			}`,
+			expectErr: false,
+		},
+		{
+			name: "Interval string '30m' accepted",
+			jsonData: `{
+				"enabled": true,
+				"bioTemplate": "Members: $members",
+				"interval": "30m"
+			}`,
+			expectErr: false,
+		},
+		{
+			name: "Interval 0 (disabled) accepted",
+			jsonData: `{
+				"enabled": false,
+				"bioTemplate": "Members: $members",
+				"interval": 0
+			}`,
+			expectErr: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateSettingsCategory("dynamic_bio", json.RawMessage(tc.jsonData))
+			if tc.expectErr {
+				if err == nil {
+					t.Fatalf("Expected error for interval but got nil")
+				}
+				if tc.errText != "" && !strings.Contains(err.Error(), tc.errText) {
+					t.Errorf("Expected error containing %q, got: %v", tc.errText, err)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("Expected no error, got: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestAutoFirstCommentFixedMode(t *testing.T) {
+	settingsJSON := json.RawMessage(`{
+		"enabled": true,
+		"autoFirstComment": true,
+		"commentMode": "fixed",
+		"fixedComment": "📌 Official Channel Support: @iFragmentSupport"
+	}`)
+
+	var schema AutoResponderSchema
+	err := json.Unmarshal(settingsJSON, &schema)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal auto_responder settings: %v", err)
+	}
+
+	if !schema.Enabled || !schema.AutoFirstComment {
+		t.Errorf("Expected autoFirstComment to be enabled")
+	}
+
+	if schema.CommentMode != "fixed" {
+		t.Errorf("Expected commentMode to be 'fixed', got %q", schema.CommentMode)
+	}
+
+	if schema.FixedComment != "📌 Official Channel Support: @iFragmentSupport" {
+		t.Errorf("Unexpected fixed comment text: %q", schema.FixedComment)
+	}
+}

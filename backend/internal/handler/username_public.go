@@ -518,9 +518,43 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify user valuation access for this username (24h granted access)
+	// Verify user valuation access for this username (24h granted access or Pro quota)
 	hasAccess := false
+	isPro := false
 	if h.cache != nil {
+		if val, err := h.cache.Client.Get(ctx, fmt.Sprintf("user_val_pro:%d", userID)).Result(); err == nil && val == "true" {
+			isPro = true
+		}
+	}
+	if !isPro && h.db != nil {
+		query := `SELECT COUNT(*) FROM orders WHERE user_id = $1 AND status = 'paid' AND (payload LIKE 'val_pro:%' OR amount = 249) AND created_at >= NOW() - INTERVAL '30 days'`
+		var count int
+		if err := h.db.Pool.QueryRow(ctx, query, userID).Scan(&count); err == nil && count > 0 {
+			isPro = true
+		}
+	}
+
+	if isPro {
+		todayStr := time.Now().UTC().Format("2006-01-02")
+		dailyKey := fmt.Sprintf("val_daily_used:%d:%s", userID, todayStr)
+		dailyUsed := 0
+		if h.cache != nil {
+			if cntStr, err := h.cache.Client.Get(ctx, dailyKey).Result(); err == nil {
+				dailyUsed, _ = strconv.Atoi(cntStr)
+			}
+		}
+		if dailyUsed < 3 {
+			hasAccess = true
+			if h.cache != nil {
+				cnt, _ := h.cache.Client.Incr(ctx, dailyKey).Result()
+				if cnt == 1 {
+					h.cache.Client.Expire(ctx, dailyKey, 24*time.Hour)
+				}
+			}
+		}
+	}
+
+	if !hasAccess && h.cache != nil {
 		accessKey := fmt.Sprintf("val_access:%d:%s", userID, cleanU)
 		if val, err := h.cache.Client.Get(ctx, accessKey).Result(); err == nil && val != "" {
 			hasAccess = true
@@ -538,7 +572,7 @@ func (h *UsernameHandler) Valuate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !hasAccess {
-		RespondError(w, r, http.StatusForbidden, "Access denied. Valuation requires payment or free verification.", nil)
+		RespondError(w, r, http.StatusForbidden, "Access denied. Valuation requires active Pro subscription or payment.", nil)
 		return
 	}
 
@@ -1229,7 +1263,41 @@ func (h *UsernameHandler) ValuationAccess(w http.ResponseWriter, r *http.Request
 
 	hasAccess := false
 	method := ""
+	isPro := false
+	dailyUsed := 0
+	const dailyLimit = 3
+
+	// 1. Check if user has active Pro pass
 	if userID > 0 && h.cache != nil {
+		if val, err := h.cache.Client.Get(ctx, fmt.Sprintf("user_val_pro:%d", userID)).Result(); err == nil && val == "true" {
+			isPro = true
+		}
+	}
+	if !isPro && userID > 0 && h.db != nil {
+		query := `SELECT COUNT(*) FROM orders WHERE user_id = $1 AND status = 'paid' AND (payload LIKE 'val_pro:%' OR amount = 249) AND created_at >= NOW() - INTERVAL '30 days'`
+		var count int
+		if err := h.db.Pool.QueryRow(ctx, query, userID).Scan(&count); err == nil && count > 0 {
+			isPro = true
+			if h.cache != nil {
+				h.cache.Client.Set(ctx, fmt.Sprintf("user_val_pro:%d", userID), "true", 24*time.Hour)
+			}
+		}
+	}
+
+	if isPro && userID > 0 && h.cache != nil {
+		todayStr := time.Now().UTC().Format("2006-01-02")
+		dailyKey := fmt.Sprintf("val_daily_used:%d:%s", userID, todayStr)
+		if cntStr, err := h.cache.Client.Get(ctx, dailyKey).Result(); err == nil {
+			dailyUsed, _ = strconv.Atoi(cntStr)
+		}
+		if dailyUsed < dailyLimit {
+			hasAccess = true
+			method = "pro"
+		}
+	}
+
+	// 2. Check cached single access
+	if !hasAccess && userID > 0 && h.cache != nil {
 		accessKey := fmt.Sprintf("val_access:%d:%s", userID, u)
 		if val, err := h.cache.Client.Get(ctx, accessKey).Result(); err == nil && val != "" {
 			hasAccess = true
@@ -1272,6 +1340,9 @@ func (h *UsernameHandler) ValuationAccess(w http.ResponseWriter, r *http.Request
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"has_access":      hasAccess,
 		"method":          method,
+		"is_pro":          isPro,
+		"daily_used":      dailyUsed,
+		"daily_limit":     dailyLimit,
 		"free_quota_used": freeQuotaUsed,
 		"in_channel":      inChannel,
 		"in_group":        inGroup,
@@ -1345,26 +1416,24 @@ func (h *UsernameHandler) ValuationPayStars(w http.ResponseWriter, r *http.Reque
 	}
 
 	var req valuationPayRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Username == "" {
-		RespondError(w, r, http.StatusBadRequest, "Invalid request body", nil)
-		return
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		req.Username = ""
 	}
-	u := strings.ToLower(strings.TrimPrefix(req.Username, "@"))
 
 	if h.starsService == nil {
 		RespondError(w, r, http.StatusServiceUnavailable, "Stars payment service unavailable", nil)
 		return
 	}
 
-	payload := fmt.Sprintf("val_stars:%d:%s:%d", userID, u, time.Now().Unix())
+	payload := fmt.Sprintf("val_pro:%d:%d", userID, time.Now().Unix())
 	invoiceLink, err := h.starsService.CreateInvoiceLink(
-		fmt.Sprintf("Valuation Access: @%s", u),
-		fmt.Sprintf("Unlock 24-hour AI valuation for Telegram username @%s", u),
+		"👑 iFragment Pro Analyst Pass (30 Days)",
+		"3 Daily Deep Valuations + 70% Fragment Arbitrage Alerts + Digital Certificate",
 		payload,
-		49,
+		249,
 	)
 	if err != nil {
-		slog.Error("Failed to create Stars invoice for valuation", "user_id", userID, "username", u, "err", err)
+		slog.Error("Failed to create Stars invoice for Pro Pass", "user_id", userID, "err", err)
 		RespondError(w, r, http.StatusInternalServerError, "Failed to generate Stars invoice", nil)
 		return
 	}
@@ -1372,7 +1441,7 @@ func (h *UsernameHandler) ValuationPayStars(w http.ResponseWriter, r *http.Reque
 	if h.db != nil {
 		_, _ = h.db.CreateOrder(ctx, repository.Order{
 			UserID:  userID,
-			Amount:  49,
+			Amount:  249,
 			Status:  "pending",
 			Payload: payload,
 		})

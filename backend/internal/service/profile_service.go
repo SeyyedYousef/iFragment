@@ -594,6 +594,10 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 		}
 	}
 
+	if coinsEarned > 0 {
+		_ = s.db.AddCreditBatch(ctx, userID, coinsEarned, "taps")
+	}
+
 	// Fetch updated stats to return to frontend
 	stats, err := s.GetStats(ctx, userID)
 	if err != nil {

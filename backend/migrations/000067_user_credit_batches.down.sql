@@ -1,0 +1,5 @@
+BEGIN;
+
+DROP TABLE IF EXISTS user_credit_batches CASCADE;
+
+COMMIT;

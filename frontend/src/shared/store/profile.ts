@@ -41,6 +41,7 @@ export interface ProfileStats {
 	equippedBorder: string;
 	equippedSkin: string;
 	airdropCoins?: number;
+	creditExpiresInDays?: number;
 	energy?: number;
 	energyUpdatedAt?: string;
 	photoUrl?: string;

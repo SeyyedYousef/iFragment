@@ -1178,3 +1178,70 @@ func (c *BotAPIClient) DeleteEphemeralMessage(ctx context.Context, chatID interf
 	}
 	return err
 }
+
+// ChatPermissions describes actions that a non-administrator user is allowed to take in a chat.
+type ChatPermissions struct {
+	CanSendMessages       bool `json:"can_send_messages"`
+	CanSendAudios         bool `json:"can_send_audios"`
+	CanSendDocuments      bool `json:"can_send_documents"`
+	CanSendPhotos         bool `json:"can_send_photos"`
+	CanSendVideos         bool `json:"can_send_videos"`
+	CanSendVideoNotes     bool `json:"can_send_video_notes"`
+	CanSendVoiceNotes     bool `json:"can_send_voice_notes"`
+	CanSendPolls          bool `json:"can_send_polls"`
+	CanSendOtherMessages  bool `json:"can_send_other_messages"`
+	CanAddWebPagePreviews bool `json:"can_add_web_page_previews"`
+	CanChangeInfo         bool `json:"can_change_info"`
+	CanInviteUsers        bool `json:"can_invite_users"`
+	CanPinMessages        bool `json:"can_pin_messages"`
+	CanManageTopics       bool `json:"can_manage_topics"`
+}
+
+// SetChatPermissions sets default chat permissions for all members
+func (c *BotAPIClient) SetChatPermissions(ctx context.Context, chatID interface{}, permissions ChatPermissions) error {
+	payload := map[string]interface{}{
+		"chat_id":     chatID,
+		"permissions": permissions,
+	}
+	_, err := c.Request(ctx, "setChatPermissions", payload)
+	return err
+}
+
+// SetChatSlowModeDelay sets slow mode delay in seconds for a supergroup (0 to disable)
+func (c *BotAPIClient) SetChatSlowModeDelay(ctx context.Context, chatID interface{}, slowModeDelay int) error {
+	payload := map[string]interface{}{
+		"chat_id":         chatID,
+		"slow_mode_delay": slowModeDelay,
+	}
+	_, err := c.Request(ctx, "setChatSlowModeDelay", payload)
+	return err
+}
+
+// DeleteMessages deletes multiple messages simultaneously (Telegram Bot API 7.0+)
+func (c *BotAPIClient) DeleteMessages(ctx context.Context, chatID interface{}, messageIDs []int) error {
+	if len(messageIDs) == 0 {
+		return nil
+	}
+	payload := map[string]interface{}{
+		"chat_id":     chatID,
+		"message_ids": messageIDs,
+	}
+	_, err := c.Request(ctx, "deleteMessages", payload)
+	if err != nil {
+		var cID int64
+		switch v := chatID.(type) {
+		case int64:
+			cID = v
+		case int:
+			cID = int64(v)
+		case float64:
+			cID = int64(v)
+		}
+		if cID != 0 {
+			for _, mID := range messageIDs {
+				_ = c.DeleteMessage(ctx, cID, mID)
+			}
+		}
+	}
+	return nil
+}

@@ -152,6 +152,14 @@ func (s *ModeratorService) GetSettings(ctx context.Context, groupID uuid.UUID) (
 	return s.settingsRepo.GetSettings(ctx, groupID)
 }
 
+func (s *ModeratorService) GetSettingsRepo() *repository.SettingsRepo {
+	return s.settingsRepo
+}
+
+func (s *ModeratorService) ForceUpdateCategory(ctx context.Context, groupID uuid.UUID, category string, data json.RawMessage) error {
+	return s.settingsRepo.ForceUpdateCategory(ctx, groupID, category, data)
+}
+
 func (s *ModeratorService) LogMemberEvent(ctx context.Context, groupID uuid.UUID, eventType string, userID *int64) {
 	if s.analyticsRepo != nil {
 		_ = s.analyticsRepo.LogEvent(ctx, &repository.GroupEvent{

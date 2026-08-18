@@ -287,7 +287,61 @@ export const GroupDashboardPage: Component = () => {
 					</button>
 				</div>
 
+				{/* ═══════ ZERO-ADS GUARANTEE ═══════ */}
+				<div class="bg-gradient-to-r from-[#10b981]/15 to-[#3390ec]/10 border border-[#10b981]/30 rounded-[24px] p-4 flex flex-col gap-2 shadow-sm relative overflow-hidden">
+					<div class="flex items-center gap-3">
+						<div class="w-10 h-10 rounded-[12px] bg-[#10b981]/20 border border-[#10b981]/40 flex items-center justify-center shrink-0">
+							<span class="material-symbols-outlined text-[#10b981] text-[22px]">verified_user</span>
+						</div>
+						<div class="flex flex-col">
+							<div class="flex items-center gap-2">
+								<span class="text-[13px] font-black text-white">Zero-Ads Guarantee</span>
+								<span class="bg-[#10b981]/20 text-[#10b981] text-[9px] font-black uppercase px-2 py-0.5 rounded-full border border-[#10b981]/40">Active</span>
+							</div>
+							<p class="text-[10px] text-white/60 font-medium mt-0.5">100% Ad-Free & Privacy First. No promotional ads or airdrop spam will ever be sent to your group.</p>
+						</div>
+					</div>
+				</div>
+
+				{/* ═══════ FAST ADMIN COMMANDS ═══════ */}
+				<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-4 flex flex-col gap-3">
+					<div class="flex items-center justify-between">
+						<div class="flex items-center gap-2">
+							<span class="material-symbols-outlined text-[#3390ec] text-[20px]">terminal</span>
+							<span class="text-[13px] font-black text-white">Fast Admin Chat Commands</span>
+						</div>
+						<span class="text-[10px] font-mono text-white/40 uppercase font-bold">In-Chat CLI</span>
+					</div>
+					<div class="grid grid-cols-2 gap-2 text-[11px] font-mono">
+						<div class="bg-black/30 rounded-[12px] p-2 border border-white/5 flex flex-col">
+							<span class="text-[#3390ec] font-bold">/settings</span>
+							<span class="text-[10px] text-white/40 font-sans">Interactive Inline GUI</span>
+						</div>
+						<div class="bg-black/30 rounded-[12px] p-2 border border-white/5 flex flex-col">
+							<span class="text-[#3390ec] font-bold">/lock & /unlock</span>
+							<span class="text-[10px] text-white/40 font-sans">Lock/Open chat</span>
+						</div>
+						<div class="bg-black/30 rounded-[12px] p-2 border border-white/5 flex flex-col">
+							<span class="text-[#3390ec] font-bold">/mute [10m|1h]</span>
+							<span class="text-[10px] text-white/40 font-sans">Mute with duration</span>
+						</div>
+						<div class="bg-black/30 rounded-[12px] p-2 border border-white/5 flex flex-col">
+							<span class="text-[#3390ec] font-bold">/ephemeral [15s]</span>
+							<span class="text-[10px] text-white/40 font-sans">Auto-delete bot msgs</span>
+						</div>
+						<div class="bg-black/30 rounded-[12px] p-2 border border-white/5 flex flex-col">
+							<span class="text-[#3390ec] font-bold">/slowmode [sec]</span>
+							<span class="text-[10px] text-white/40 font-sans">Rate limit delay</span>
+						</div>
+						<div class="bg-black/30 rounded-[12px] p-2 border border-white/5 flex flex-col">
+							<span class="text-[#3390ec] font-bold">/purge [n]</span>
+							<span class="text-[10px] text-white/40 font-sans">Bulk delete messages</span>
+						</div>
+					</div>
+				</div>
+
 				{/* ═══════ 0 TO 100 INTERACTIVE GROUP LESSON CARDS ═══════ */}
+
 				<div class="flex flex-col gap-4">
 					<EphemeralLessonCard
 						isDone={isFeatureDone('ephemeral')}

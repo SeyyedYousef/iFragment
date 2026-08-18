@@ -73,7 +73,12 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 			       COALESCE(us.energy_updated_at, CURRENT_TIMESTAMP) as energy_updated_at,
 			       COALESCE(udb.tapped_coins, 0) as daily_tapped_coins,
 			       COALESCE(udb.turbo_used, 0) as turbo_used,
-			       COALESCE(udb.full_energy_used, 0) as full_energy_used
+			       COALESCE(udb.full_energy_used, 0) as full_energy_used,
+			       COALESCE((
+			           SELECT CEIL(EXTRACT(EPOCH FROM (MIN(expires_at) - CURRENT_TIMESTAMP)) / 86400.0)
+			           FROM user_credit_batches
+			           WHERE user_id = us.user_id AND is_expired = FALSE AND remaining_amount > 0 AND expires_at >= CURRENT_TIMESTAMP
+			       ), 15)::int as credit_expires_in_days
 			FROM user_stats us
 			LEFT JOIN user_daily_boosts udb ON udb.user_id = us.user_id AND udb.day = CURRENT_DATE
 			WHERE us.user_id = $1
@@ -102,6 +107,7 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 			si.equipped_border,
 			si.equipped_skin,
 			si.airdrop_coins,
+			si.credit_expires_in_days,
 			si.energy,
 			si.energy_updated_at,
 			si.daily_tapped_coins,
@@ -125,6 +131,7 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 	var premiumUntil *time.Time
 	var emojiStatus, equippedBorder, equippedSkin string
 	var airdropCoins float64
+	var creditExpiresInDays int
 	var energy int
 	var energyUpdatedAt time.Time
 	var dailyTappedCoins float64
@@ -136,6 +143,7 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 		&frgBalance, &totalFrgEarned, &totalFrgSpent,
 		&daysActive, &currentStreak, &totalTaps, &xp, &level, &lastActiveAt,
 		&isPremium, &premiumUntil, &emojiStatus, &equippedBorder, &equippedSkin, &airdropCoins,
+		&creditExpiresInDays,
 		&energy, &energyUpdatedAt, &dailyTappedCoins, &dailyTurboUsed, &dailyFullEnergyUsed,
 		&dbPhotoURL,
 	)
@@ -184,6 +192,7 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 		EquippedBorder:      equippedBorder,
 		EquippedSkin:        equippedSkin,
 		AirdropCoins:        airdropCoins,
+		CreditExpiresInDays: creditExpiresInDays,
 		Energy:              energy,
 		EnergyUpdatedAt:     energyUpdatedAt,
 		DailyTappedCoins:    dailyTappedCoins,
@@ -318,7 +327,7 @@ func (db *Database) UpdateAchievementProgress(ctx context.Context, userID int64,
 	return err
 }
 
-// MaintainUserStats maintains user streak and days active atomically.
+// MaintainUserStats maintains user streak and days active atomically, and purges expired credit batches.
 func (db *Database) MaintainUserStats(ctx context.Context, userID int64) error {
 	if err := db.EnsureStatsExists(ctx, userID); err != nil {
 		return err
@@ -341,8 +350,26 @@ func (db *Database) MaintainUserStats(ctx context.Context, userID int64) error {
 			END
 		WHERE user_id = $1
 	`
-	_, err := db.Pool.Exec(ctx, query, userID)
-	return err
+	if _, err := db.Pool.Exec(ctx, query, userID); err != nil {
+		return err
+	}
+
+	// Expire batches older than 15 days and reconcile valid airdrop_coins
+	_, _ = db.Pool.Exec(ctx, `
+		UPDATE user_credit_batches 
+		SET is_expired = TRUE 
+		WHERE user_id = $1 AND expires_at < CURRENT_TIMESTAMP AND is_expired = FALSE;
+
+		UPDATE user_stats
+		SET airdrop_coins = COALESCE((
+			SELECT SUM(remaining_amount)
+			FROM user_credit_batches
+			WHERE user_id = $1 AND is_expired = FALSE AND expires_at >= CURRENT_TIMESTAMP
+		), 0.0)
+		WHERE user_id = $1;
+	`, userID)
+
+	return nil
 }
 
 // ExpirePremiumSubscriptions updates all expired premium subscriptions bulk.
@@ -726,5 +753,154 @@ func (db *Database) AdjustAirdropCoins(ctx context.Context, userID int64, amount
 	`
 	var newBalance float64
 	err := db.Pool.QueryRow(ctx, query, userID, amount).Scan(&newBalance)
+	if err == nil && amount > 0 {
+		_ = db.AddCreditBatch(ctx, userID, amount, "adjust")
+	}
 	return newBalance, err
+}
+
+// AddCreditBatch records a 15-day expiring credit batch for a user
+func (db *Database) AddCreditBatch(ctx context.Context, userID int64, amount float64, source string) error {
+	if amount <= 0 {
+		return nil
+	}
+	_, err := db.Pool.Exec(ctx, `
+		INSERT INTO user_credit_batches (user_id, amount, remaining_amount, source, earned_at, expires_at, is_expired)
+		VALUES ($1, $2, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '15 days', FALSE)
+	`, userID, amount, source)
+	return err
+}
+
+// DeductCreditsFIFO deducts credits using FIFO (oldest non-expired batches first) and syncs user_stats
+func (db *Database) DeductCreditsFIFO(ctx context.Context, tx pgx.Tx, userID int64, requiredCoins float64) error {
+	if requiredCoins <= 0 {
+		return nil
+	}
+
+	rows, err := tx.Query(ctx, `
+		SELECT id, remaining_amount 
+		FROM user_credit_batches 
+		WHERE user_id = $1 AND is_expired = FALSE AND expires_at >= CURRENT_TIMESTAMP AND remaining_amount > 0 
+		ORDER BY expires_at ASC 
+		FOR UPDATE
+	`, userID)
+	if err != nil {
+		return fmt.Errorf("failed to query credit batches: %w", err)
+	}
+	defer rows.Close()
+
+	type BatchRow struct {
+		ID        string
+		Remaining float64
+	}
+	var batches []BatchRow
+	var totalAvailable float64
+	for rows.Next() {
+		var b BatchRow
+		if err := rows.Scan(&b.ID, &b.Remaining); err != nil {
+			return err
+		}
+		batches = append(batches, b)
+		totalAvailable += b.Remaining
+	}
+	rows.Close()
+
+	if totalAvailable < requiredCoins {
+		return fmt.Errorf("insufficient active credits: have %.0f, need %.0f", totalAvailable, requiredCoins)
+	}
+
+	toDeduct := requiredCoins
+	for _, b := range batches {
+		if toDeduct <= 0 {
+			break
+		}
+		if b.Remaining <= toDeduct {
+			_, err := tx.Exec(ctx, `
+				UPDATE user_credit_batches 
+				SET remaining_amount = 0, is_expired = TRUE 
+				WHERE id = $1
+			`, b.ID)
+			if err != nil {
+				return err
+			}
+			toDeduct -= b.Remaining
+		} else {
+			_, err := tx.Exec(ctx, `
+				UPDATE user_credit_batches 
+				SET remaining_amount = remaining_amount - $1 
+				WHERE id = $2
+			`, toDeduct, b.ID)
+			if err != nil {
+				return err
+			}
+			toDeduct = 0
+		}
+	}
+
+	_, err = tx.Exec(ctx, `
+		UPDATE user_stats 
+		SET airdrop_coins = COALESCE((
+			SELECT SUM(remaining_amount) 
+			FROM user_credit_batches 
+			WHERE user_id = $1 AND is_expired = FALSE AND expires_at >= CURRENT_TIMESTAMP
+		), 0.0) 
+		WHERE user_id = $1
+	`, userID)
+	return err
+}
+
+// ExpireOutdatedCreditBatches marks credit batches older than 15 days as expired and reconciles user_stats
+func (db *Database) ExpireOutdatedCreditBatches(ctx context.Context) (int64, error) {
+	if db == nil || db.Pool == nil {
+		return 0, fmt.Errorf("database connection not available")
+	}
+
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+
+	rows, err := tx.Query(ctx, `
+		UPDATE user_credit_batches 
+		SET is_expired = TRUE 
+		WHERE is_expired = FALSE AND expires_at < CURRENT_TIMESTAMP 
+		RETURNING user_id
+	`)
+	if err != nil {
+		return 0, fmt.Errorf("failed to expire credit batches: %w", err)
+	}
+
+	userMap := make(map[int64]bool)
+	var expiredCount int64
+	for rows.Next() {
+		var uID int64
+		if err := rows.Scan(&uID); err == nil {
+			userMap[uID] = true
+			expiredCount++
+		}
+	}
+	rows.Close()
+
+	if expiredCount == 0 {
+		return 0, nil
+	}
+
+	for uID := range userMap {
+		_, _ = tx.Exec(ctx, `
+			UPDATE user_stats 
+			SET airdrop_coins = COALESCE((
+				SELECT SUM(remaining_amount) 
+				FROM user_credit_batches 
+				WHERE user_id = $1 AND is_expired = FALSE AND expires_at >= CURRENT_TIMESTAMP
+			), 0.0) 
+			WHERE user_id = $1
+		`, uID)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+
+	return expiredCount, nil
 }

@@ -463,6 +463,14 @@ func (s *GamificationService) ClaimDailyReward(ctx context.Context, userID int64
 		}
 	}
 
+	// Record 15-day expiring credit batch
+	if reward.Frg > 0 {
+		_, _ = tx.Exec(ctx, `
+			INSERT INTO user_credit_batches (user_id, amount, remaining_amount, source, earned_at, expires_at, is_expired)
+			VALUES ($1, $2, $2, 'streak', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '15 days', FALSE)
+		`, userID, reward.Frg)
+	}
+
 	// Commit transaction
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("failed to commit daily claim: %w", err)
@@ -824,6 +832,14 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 		}
 	}
 
+	// Record 15-day expiring credit batch
+	if target.RewardFrg > 0 {
+		_, _ = tx.Exec(ctx, `
+			INSERT INTO user_credit_batches (user_id, amount, remaining_amount, source, earned_at, expires_at, is_expired)
+			VALUES ($1, $2, $2, 'task', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '15 days', FALSE)
+		`, userID, target.RewardFrg)
+	}
+
 	// Commit transaction
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("failed to commit task completion: %w", err)
@@ -976,21 +992,13 @@ func (s *GamificationService) UpgradeBoost(ctx context.Context, userID int64, bo
 		return nil, fmt.Errorf("boost level already at maximum")
 	}
 
-	// 5. Verify balance
+	// 5. Verify balance and deduct via FIFO
 	if currentCoins < priceCoins {
 		return nil, fmt.Errorf("insufficient Coin balance: have %.2f, need %.2f", currentCoins, priceCoins)
 	}
 
-	// Update user stats with new coin balance
-	res, err := tx.Exec(ctx,
-		`UPDATE user_stats SET airdrop_coins = airdrop_coins - $1, last_active_at = CURRENT_TIMESTAMP WHERE user_id = $2 AND COALESCE(airdrop_coins, 0) >= $1`,
-		priceCoins, userID,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update user coins balance: %w", err)
-	}
-	if res.RowsAffected() == 0 {
-		return nil, fmt.Errorf("insufficient Coin balance during final deduction")
+	if err := s.db.DeductCreditsFIFO(ctx, tx, userID, priceCoins); err != nil {
+		return nil, fmt.Errorf("failed to deduct credits: %w", err)
 	}
 
 	// 6. Update user_boosts inside transaction
@@ -1445,6 +1453,10 @@ func (s *GamificationService) CollectOfflineMining(ctx context.Context, userID i
 		if err != nil {
 			return nil, fmt.Errorf("failed to update user stats: %w", err)
 		}
+		_, _ = tx.Exec(ctx, `
+			INSERT INTO user_credit_batches (user_id, amount, remaining_amount, source, earned_at, expires_at, is_expired)
+			VALUES ($1, $2, $2, 'offline', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '15 days', FALSE)
+		`, userID, float64(earnedInt))
 	}
 
 	// Update tap bot state: reset timer, accumulate daily earnings, reset daily date if new day

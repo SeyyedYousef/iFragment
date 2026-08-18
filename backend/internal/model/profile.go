@@ -30,6 +30,7 @@ type ProfileStats struct {
 	EquippedBorder      string     `json:"equippedBorder"`
 	EquippedSkin        string     `json:"equippedSkin"`
 	AirdropCoins        float64    `json:"airdropCoins"`
+	CreditExpiresInDays int        `json:"creditExpiresInDays"`
 	Energy              int        `json:"energy"`
 	EnergyUpdatedAt     time.Time  `json:"energyUpdatedAt"`
 	ServerNow           int64      `json:"serverNow"`

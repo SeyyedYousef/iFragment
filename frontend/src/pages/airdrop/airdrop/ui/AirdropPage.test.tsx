@@ -52,7 +52,10 @@ vi.mock('@/shared/store/airdrop.js', () => ({
 	spawnRocket: vi.fn(),
 	turboCount: () => 0,
 	fullEnergyCount: () => 0,
+	creditExpiresInDays: () => 15,
+	batches: () => [],
 }));
+
 
 describe('AirdropPage', () => {
 	it('renders the league name', () => {
