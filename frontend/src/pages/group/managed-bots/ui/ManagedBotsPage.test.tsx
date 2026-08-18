@@ -1,13 +1,13 @@
 import { render, screen } from '@solidjs/testing-library';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { botApi } from '@/shared/api/bot-management.js';
+import { botApi } from '@/entities/bot/index.js';
 import { ManagedBotsPage } from './ManagedBotsPage.js';
 
 vi.mock('@solidjs/router', () => ({
 	useNavigate: () => vi.fn(),
 }));
 
-vi.mock('@/shared/api/bot-management.js', () => ({
+vi.mock('@/entities/bot/index.js', () => ({
 	botApi: {
 		listBots: vi.fn(),
 		registerBot: vi.fn(),

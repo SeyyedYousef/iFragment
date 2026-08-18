@@ -1,5 +1,5 @@
 import { Component, createSignal, For, onMount, Show } from 'solid-js';
-import { FinanceOrder, OwnerEntityItem, ownerApi } from '@/shared/api/owner.js';
+import { type FinanceOrder, type OwnerEntityItem, ownerApi } from '@/entities/owner/index.js';
 
 export const OwnerFinance: Component = () => {
 	const [orders, setOrders] = createSignal<FinanceOrder[]>([]);

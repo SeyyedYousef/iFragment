@@ -1,0 +1,188 @@
+import * as v from 'valibot';
+
+export const UserBoostsSchema = v.object({
+	user_id: v.pipe(v.number(), v.integer()),
+	multitap_level: v.pipe(v.number(), v.integer()),
+	energy_limit_level: v.pipe(v.number(), v.integer()),
+	tap_bot_level: v.pipe(v.number(), v.integer()),
+});
+
+export const ProfileStatsSchema = v.object({
+	telegramId: v.optional(v.number()),
+	username: v.optional(v.string()),
+	firstName: v.optional(v.string()),
+	lastName: v.optional(v.string()),
+	usernamesAnalyzed: v.pipe(v.number(), v.integer(), v.minValue(0)),
+	groupsManaged: v.pipe(v.number(), v.integer(), v.minValue(0)),
+	channelsManaged: v.pipe(v.number(), v.integer(), v.minValue(0)),
+	daysActive: v.pipe(v.number(), v.integer(), v.minValue(0)),
+	currentStreak: v.pipe(v.number(), v.integer(), v.minValue(0)),
+	globalRank: v.pipe(v.number(), v.integer(), v.minValue(0)),
+	totalTaps: v.pipe(v.number(), v.integer(), v.minValue(0)),
+	totalFrgEarned: v.pipe(v.number(), v.minValue(0)),
+	totalFrgSpent: v.pipe(v.number(), v.minValue(0)),
+	frgBalance: v.pipe(v.number(), v.minValue(0)),
+	memberSince: v.string(),
+	level: v.pipe(v.number(), v.integer(), v.minValue(1)),
+	xp: v.pipe(v.number(), v.integer(), v.minValue(0)),
+	xpToNextLevel: v.pipe(v.number(), v.integer(), v.minValue(0)),
+	isPremium: v.boolean(),
+	premiumUntil: v.optional(v.string()),
+	emojiStatus: v.string(),
+	equippedBorder: v.string(),
+	equippedSkin: v.string(),
+	airdropCoins: v.optional(v.number()),
+	creditExpiresInDays: v.optional(v.number(), 15),
+	energy: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
+	energyUpdatedAt: v.optional(v.string()),
+	photoUrl: v.optional(v.string()),
+	dailyTappedCoins: v.optional(v.number()),
+	dailyTurboUsed: v.optional(v.number(), 0),
+	dailyFullEnergyUsed: v.optional(v.number(), 0),
+});
+
+export const AchievementSchema = v.object({
+	id: v.string(),
+	category: v.optional(
+		v.picklist(['onboarding', 'mining', 'analysis', 'social', 'management', 'streaks', 'special']),
+	),
+	icon: v.optional(v.string()),
+	unlocked: v.boolean(),
+	unlockedAt: v.nullish(v.string()),
+	progress: v.pipe(v.number(), v.minValue(0)),
+	target: v.pipe(v.number(), v.minValue(0)),
+});
+
+export const ReferralFriendSchema = v.object({
+	id: v.number(),
+	name: v.string(),
+	avatar: v.optional(v.string()),
+	joinedAt: v.string(),
+	earned: v.pipe(v.number(), v.minValue(0)),
+	airdropCoins: v.optional(v.pipe(v.number(), v.minValue(0)), 0),
+	frensCount: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0)), 0),
+});
+
+export const ReferralInfoSchema = v.object({
+	referralCode: v.string(),
+	totalInvited: v.pipe(v.number(), v.integer(), v.minValue(0)),
+	totalEarned: v.pipe(v.number(), v.minValue(0)),
+	friends: v.array(ReferralFriendSchema),
+});
+
+export const DailyStatusSchema = v.object({
+	streak: v.pipe(v.number(), v.integer(), v.minValue(0)),
+	frg_reward: v.pipe(v.number(), v.minValue(0)),
+	xp_reward: v.pipe(v.number(), v.minValue(0)),
+	claimed: v.boolean(),
+	can_claim: v.boolean(),
+	time_left_seconds: v.optional(v.number()),
+});
+
+export const TaskStatusSchema = v.object({
+	key: v.string(),
+	title: v.string(),
+	reward_frg: v.pipe(v.number(), v.minValue(0)),
+	reward_xp: v.pipe(v.number(), v.minValue(0)),
+	completed: v.boolean(),
+	type: v.optional(v.string()),
+	parent_key: v.nullish(v.string()),
+	config: v.nullish(v.unknown()),
+	progress_current: v.optional(v.number()),
+	progress_target: v.optional(v.number()),
+	action_text: v.optional(v.string()),
+	action_url: v.optional(v.string()),
+	is_premium_req: v.optional(v.boolean()),
+	is_clan_req: v.optional(v.boolean()),
+});
+
+export const DailyComboStatusSchema = v.object({
+	is_active: v.boolean(),
+	is_claimed: v.boolean(),
+	reward: v.number(),
+});
+
+export const BoostStatusSchema = v.object({
+	type: v.string(),
+	title: v.string(),
+	current_level: v.pipe(v.number(), v.integer(), v.minValue(0)),
+	next_level: v.pipe(v.number(), v.integer(), v.minValue(0)),
+	price_frg: v.pipe(v.number(), v.minValue(0)),
+	max_level: v.boolean(),
+});
+
+export const LeaderboardMemberSchema = v.object({
+	rank: v.pipe(v.number(), v.integer(), v.minValue(1)),
+	user_id: v.number(),
+	first_name: v.string(),
+	username: v.string(),
+	level: v.pipe(v.number(), v.integer(), v.minValue(1)),
+	xp: v.pipe(v.number(), v.integer(), v.minValue(0)),
+	clan_name: v.optional(v.string()),
+});
+
+export const LeaderboardResponseSchema = v.object({
+	leaderboard: v.array(LeaderboardMemberSchema),
+	total_miners: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
+});
+
+export const AchievementDefSchema = v.object({
+	id: v.string(),
+	target: v.pipe(v.number(), v.minValue(0)),
+});
+
+export const CosmeticItemSchema = v.object({
+	id: v.string(),
+	type: v.picklist(['border', 'skin']),
+	name: v.string(),
+	cost: v.pipe(v.number(), v.minValue(0)),
+	purchased: v.boolean(),
+	borderClass: v.optional(v.string()),
+	skinClass: v.optional(v.string()),
+});
+
+export const ClanSchema = v.object({
+	id: v.string(),
+	telegram_channel_id: v.number(),
+	channel_username: v.string(),
+	channel_photo: v.optional(v.string()),
+	chat_title: v.string(),
+	members_count: v.pipe(v.number(), v.integer(), v.minValue(0)),
+	total_score: v.optional(v.pipe(v.number(), v.minValue(0))),
+	rank: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
+});
+
+export const UserClanDetailsSchema = v.object({
+	clan: v.optional(ClanSchema),
+	is_member: v.boolean(),
+	joined_at: v.optional(v.string()),
+});
+
+export const ClanMemberSchema = v.object({
+	telegram_id: v.number(),
+	username: v.optional(v.string()),
+	first_name: v.string(),
+	last_name: v.optional(v.string()),
+	score: v.number(),
+	level: v.pipe(v.number(), v.integer(), v.minValue(0)),
+	xp: v.pipe(v.number(), v.integer(), v.minValue(0)),
+});
+
+export const SuccessResponseSchema = v.record(v.string(), v.unknown());
+
+export const ProfileSettingsSchema = v.object({
+	notifications: v.optional(
+		v.partial(
+			v.object({
+				mining: v.boolean(),
+				referral: v.boolean(),
+				community: v.boolean(),
+				promotions: v.boolean(),
+			}),
+		),
+	),
+	hapticEnabled: v.optional(v.boolean()),
+	soundEnabled: v.optional(v.boolean()),
+	autoPlayAnimations: v.optional(v.boolean()),
+	biometricEnabled: v.optional(v.boolean()),
+});

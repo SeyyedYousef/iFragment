@@ -53,21 +53,26 @@ const HISTORICAL_HALL_OF_FAME: LeaderboardItem[] = [
 	{ rank: 3, handle: 'bank', priceTon: 850000, priceUsd: 4675000, date: 'Dec 2022', category: 'crypto', verified: true },
 	{ rank: 4, handle: 'avia', priceTon: 800000, priceUsd: 4400000, date: 'Dec 2022', category: 'short', verified: true },
 	{ rank: 5, handle: 'chat', priceTon: 700000, priceUsd: 3850000, date: 'Nov 2022', category: 'short', verified: true },
-	{ rank: 6, handle: 'game', priceTon: 500000, priceUsd: 2750000, date: 'Jan 2023', category: 'short', verified: true },
-	{ rank: 7, handle: 'doge', priceTon: 350000, priceUsd: 1925000, date: 'Nov 2022', category: 'crypto', verified: true },
-	{ rank: 8, handle: 'king', priceTon: 300000, priceUsd: 1650000, date: 'Dec 2022', category: 'short', verified: true },
-	{ rank: 9, handle: 'gold', priceTon: 260000, priceUsd: 1430000, date: 'Dec 2022', category: 'brand', verified: true },
-	{ rank: 10, handle: 'ton', priceTon: 250000, priceUsd: 1375000, date: 'Nov 2022', category: 'crypto', verified: true },
-	{ rank: 11, handle: 'meta', priceTon: 200000, priceUsd: 1100000, date: 'Jan 2023', category: 'brand', verified: true },
-	{ rank: 12, handle: 'vip', priceTon: 150000, priceUsd: 825000, date: 'Dec 2022', category: 'short', verified: true },
-	{ rank: 13, handle: 'btc', priceTon: 120000, priceUsd: 660000, date: 'Jan 2023', category: 'crypto', verified: true },
-	{ rank: 14, handle: 'eth', priceTon: 100000, priceUsd: 550000, date: 'Feb 2023', category: 'crypto', verified: true },
-	{ rank: 15, handle: 'pay', priceTon: 90000, priceUsd: 495000, date: 'Jan 2023', category: 'crypto', verified: true },
-	{ rank: 16, handle: 'shop', priceTon: 85000, priceUsd: 467500, date: 'Mar 2023', category: 'brand', verified: true },
-	{ rank: 17, handle: 'app', priceTon: 75000, priceUsd: 412500, date: 'Jan 2023', category: 'short', verified: true },
-	{ rank: 18, handle: 'bot', priceTon: 70000, priceUsd: 385000, date: 'Feb 2023', category: 'short', verified: true },
-	{ rank: 19, handle: 'music', priceTon: 65000, priceUsd: 357500, date: 'Apr 2023', category: 'brand', verified: true },
-	{ rank: 20, handle: 'play', priceTon: 60000, priceUsd: 330000, date: 'May 2023', category: 'short', verified: true },
+	{ rank: 6, handle: 'king', priceTon: 675000, priceUsd: 3712500, date: 'Dec 2022', category: 'short', verified: true },
+	{ rank: 7, handle: 'fifa', priceTon: 600000, priceUsd: 3300000, date: 'Dec 2022', category: 'brand', verified: true },
+	{ rank: 8, handle: 'devil', priceTon: 555555, priceUsd: 3055552, date: 'Nov 2022', category: 'other', verified: true },
+	{ rank: 9, handle: 'game', priceTon: 500000, priceUsd: 2750000, date: 'Jan 2023', category: 'short', verified: true },
+	{ rank: 10, handle: 'sber', priceTon: 471000, priceUsd: 2590500, date: 'Nov 2022', category: 'brand', verified: true },
+	{ rank: 11, handle: 'meta', priceTon: 404000, priceUsd: 2222000, date: 'Jan 2023', category: 'brand', verified: true },
+	{ rank: 12, handle: 'casino', priceTon: 400000, priceUsd: 2200000, date: 'Nov 2022', category: 'other', verified: true },
+	{ rank: 13, handle: 'doge', priceTon: 350000, priceUsd: 1925000, date: 'Nov 2022', category: 'crypto', verified: true },
+	{ rank: 14, handle: 'hotels', priceTon: 350000, priceUsd: 1925000, date: 'Nov 2022', category: 'other', verified: true },
+	{ rank: 15, handle: 'pizza', priceTon: 346000, priceUsd: 1903000, date: 'Dec 2022', category: 'other', verified: true },
+	{ rank: 16, handle: 'nike', priceTon: 330000, priceUsd: 1815000, date: 'Nov 2022', category: 'brand', verified: true },
+	{ rank: 17, handle: 'gram', priceTon: 313000, priceUsd: 1721500, date: 'Nov 2022', category: 'crypto', verified: true },
+	{ rank: 18, handle: 'play', priceTon: 302000, priceUsd: 1661000, date: 'May 2023', category: 'short', verified: true },
+	{ rank: 19, handle: 'alfa', priceTon: 300000, priceUsd: 1650000, date: 'Nov 2022', category: 'brand', verified: true },
+	{ rank: 20, handle: 'coin', priceTon: 300000, priceUsd: 1650000, date: 'Nov 2022', category: 'crypto', verified: true },
+	{ rank: 21, handle: 'cash', priceTon: 284000, priceUsd: 1562000, date: 'Dec 2022', category: 'crypto', verified: true },
+	{ rank: 22, handle: 'rich', priceTon: 266000, priceUsd: 1463000, date: 'Dec 2022', category: 'short', verified: true },
+	{ rank: 23, handle: 'amazon', priceTon: 262500, priceUsd: 1443750, date: 'Jan 2023', category: 'brand', verified: true },
+	{ rank: 24, handle: 'adidas', priceTon: 250000, priceUsd: 1375000, date: 'Dec 2022', category: 'brand', verified: true },
+	{ rank: 25, handle: 'defi', priceTon: 250000, priceUsd: 1375000, date: 'Dec 2022', category: 'crypto', verified: true },
 ];
 
 export const CollectionInfoPage: Component = () => {
@@ -97,15 +102,6 @@ export const CollectionInfoPage: Component = () => {
 		return Number.isNaN(val) ? 0 : val * multiplier;
 	};
 
-	const getMaxVolume = (categories: CollectionCategory[]): number => {
-		let max = 0;
-		for (const cat of categories) {
-			const val = parseVolume(cat.volume);
-			if (val > max) max = val;
-		}
-		return max || 1;
-	};
-
 	const calculateMarketCap = (items: string, floor: string): string => {
 		const itemsNum = parseVolume(items);
 		const floorNum = parseVolume(floor);
@@ -117,21 +113,6 @@ export const CollectionInfoPage: Component = () => {
 		}
 		return '---';
 	};
-
-	const highestSale = createMemo(() => {
-		const data = query.data;
-		if (!data?.top_sales || data.top_sales.length === 0) return null;
-		let maxVal = 0;
-		let maxStr = '';
-		for (const sale of data.top_sales) {
-			const val = parseVolume(sale.price);
-			if (val > maxVal) {
-				maxVal = val;
-				maxStr = sale.price;
-			}
-		}
-		return maxVal > 0 ? { priceVal: maxVal, priceStr: maxStr } : null;
-	});
 
 	const volumeCapContrast = createMemo(() => {
 		const data = query.data;
@@ -497,13 +478,13 @@ export const CollectionInfoPage: Component = () => {
 						</div>
 
 						{/* FILTER CHIPS */}
-						<div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar" dir="ltr">
+						<div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
 							<For
 								each={[
-									{ id: 'all', label: 'All Time' },
-									{ id: 'short', label: 'Short (2-4 char)' },
-									{ id: 'crypto', label: 'Crypto & TON' },
-									{ id: 'brand', label: 'Brand & Words' },
+									{ id: 'all', label: t('valuation.leaderboard_tab_all') || 'All Time' },
+									{ id: 'short', label: t('valuation.leaderboard_tab_short') || 'Short (4-char)' },
+									{ id: 'crypto', label: t('valuation.leaderboard_tab_crypto') || 'Crypto & TON' },
+									{ id: 'brand', label: t('valuation.leaderboard_tab_brand') || 'Brand & Words' },
 								]}
 							>
 								{(chip) => (
@@ -528,7 +509,6 @@ export const CollectionInfoPage: Component = () => {
 						<div class="bg-[#12141C]/80 backdrop-blur-2xl border border-white/10 rounded-[24px] overflow-hidden shadow-sm">
 							<For each={filteredLeaderboard()}>
 								{(item) => {
-									const isTop3 = item.rank <= 3;
 									const rankColor =
 										item.rank === 1
 											? 'text-amber-400 bg-amber-400/15 border-amber-400/30'

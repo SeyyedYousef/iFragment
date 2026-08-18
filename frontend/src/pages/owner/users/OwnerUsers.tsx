@@ -1,7 +1,7 @@
 
 import { Component, createSignal, For, Show } from 'solid-js';
-import { ownerApi, SearchedUser } from '@/shared/api/owner.js';
-import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.js';
+import { ownerApi, type SearchedUser } from '@/entities/owner/index.js';
+import { DangerActionDialog } from '@/widgets/owner/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 export const OwnerUsers: Component = () => {

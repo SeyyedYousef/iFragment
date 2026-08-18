@@ -8,53 +8,15 @@ import (
 	"strings"
 	"time"
 
+	"ifragment-backend/internal/model"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
-type ManagedBot struct {
-	ID                 uuid.UUID `json:"id"`
-	OwnerUserID        int64     `json:"owner_user_id"`
-	BotTokenEncrypted  []byte    `json:"-"`
-	BotUsername        string    `json:"bot_username"`
-	BotName            string    `json:"bot_name"`
-	BotID              int64     `json:"bot_id"`
-	Status             string    `json:"status"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
-	ManagedGroupsCount int       `json:"managed_groups_count"`
-	SubscriptionStatus string    `json:"subscription_status"`
-	WebhookSecretToken string    `json:"webhook_secret_token"`
-}
-
-type BillingSubscription struct {
-	ID          uuid.UUID
-	UserID      int64
-	GroupID     uuid.UUID
-	PackageID   string
-	GroupsLimit int
-	AmountFRG   float64
-	Period      string
-	Status      string
-	StartsAt    time.Time
-	ExpiresAt   time.Time
-}
-
-type ManagedGroup struct {
-	ID                 uuid.UUID  `json:"id"`
-	BotID              uuid.UUID  `json:"bot_id"`
-	ChatID             int64      `json:"chat_id"`
-	ChatTitle          string     `json:"chat_title"`
-	ChatType           string     `json:"chat_type"`
-	MembersCount       int        `json:"members_count"`
-	PhotoURL           string     `json:"photo_url,omitempty"`
-	SubscriptionStatus string     `json:"subscription_status"`
-	TrialEndsAt        time.Time  `json:"trial_ends_at"`
-	PaidUntil          *time.Time `json:"paid_until,omitempty"`
-	ConnectedByUserID  *int64     `json:"connected_by_user_id,omitempty"`
-	CreatedAt          time.Time  `json:"created_at"`
-	UpdatedAt          time.Time  `json:"updated_at"`
-}
+type ManagedBot = model.ManagedBot
+type BillingSubscription = model.BillingSubscription
+type ManagedGroup = model.ManagedGroup
 
 type BotRepo struct {
 	db *Database
@@ -62,6 +24,15 @@ type BotRepo struct {
 
 func NewBotRepo(db *Database) *BotRepo {
 	return &BotRepo{db: db}
+}
+
+func (r *BotRepo) GetActiveBotEncryptedToken(ctx context.Context) ([]byte, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, fmt.Errorf("no database connection")
+	}
+	var encryptedToken []byte
+	err := r.db.Pool.QueryRow(ctx, "SELECT bot_token_encrypted FROM managed_bots WHERE status = 'active' LIMIT 1").Scan(&encryptedToken)
+	return encryptedToken, err
 }
 
 func (r *BotRepo) DB() *Database {

@@ -2,9 +2,15 @@ import { useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
 import { backButton } from '@tma.js/sdk-solid';
 import { Component, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
-import { Clan, getLeaderboard, getProfileStats, getTopClans, LeaderboardMember } from '@/shared/api/profile.js';
+import {
+	type Clan,
+	getLeaderboard,
+	getProfileStats,
+	getTopClans,
+	type LeaderboardMember,
+} from '@/entities/user/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
-import { type LeaderboardEntry, LeaderboardShell } from '@/widgets/leaderboard/LeaderboardShell.js';
+import { type LeaderboardEntry, LeaderboardShell } from '@/widgets/leaderboard/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 export const LeaderboardPage: Component = () => {

@@ -1,20 +1,12 @@
 import { Component, createSignal, For, Show } from 'solid-js';
-import { balance, creditExpiresInDays } from '@/shared/store/airdrop.js';
+import { balance } from '@/entities/airdrop/index.js';
 import { formatNumber, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
-import { showToast } from '@/shared/ui/toast.js';
-
-interface DiscountOption {
-	percent: 25 | 50 | 75;
-	coins: number;
-	label: string;
-}
-
-const DISCOUNT_OPTIONS: DiscountOption[] = [
-	{ percent: 25, coins: 10000, label: '25%' },
-	{ percent: 50, coins: 25000, label: '50%' },
-	{ percent: 75, coins: 50000, label: '75%' },
-];
+import { showToast } from '@/shared/ui/index.js';
+import {
+	calculateDiscountForPlan,
+	DISCOUNT_TIERS,
+} from '@/shared/lib/stars-calculator.js';
 
 interface ShopProduct {
 	id: string;
@@ -61,7 +53,7 @@ const PRODUCTS: ShopProduct[] = [
 ];
 
 export const ShopView: Component = () => {
-	const [selectedDiscounts, setSelectedDiscounts] = createSignal<Record<string, 25 | 50 | 75>>({
+	const [selectedDiscounts, setSelectedDiscounts] = createSignal<Record<string, 20 | 35 | 50 | 70>>({
 		group_mgmt: 50,
 		channel_mgmt: 50,
 		valuation_quota: 50,
@@ -69,33 +61,23 @@ export const ShopView: Component = () => {
 
 	const [activeModalProduct, setActiveModalProduct] = createSignal<ShopProduct | null>(null);
 
-	const handleDiscountChange = (productId: string, percent: 25 | 50 | 75) => {
+	const handleDiscountChange = (productId: string, percent: 20 | 35 | 50 | 70) => {
 		try {
 			haptic.selection();
 		} catch (_) {}
 		setSelectedDiscounts((prev) => ({ ...prev, [productId]: percent }));
 	};
 
-	const getDiscountCoins = (percent: number) => {
-		const opt = DISCOUNT_OPTIONS.find((o) => o.percent === percent);
-		return opt ? opt.coins : 25000;
-	};
-
-	const getFinalPrice = (baseStars: number, percent: number) => {
-		const discounted = Math.round(baseStars * (1 - percent / 100));
-		return Math.max(1, discounted);
-	};
-
 	const handleInitiatePurchase = (product: ShopProduct) => {
 		const discount = selectedDiscounts()[product.id] || 50;
-		const reqCoins = getDiscountCoins(discount);
+		const calc = calculateDiscountForPlan(product.baseUsd, discount, product.baseStars);
 
-		if (balance() < reqCoins) {
+		if (balance() < calc.requiredCoins) {
 			try {
 				haptic.notify('error');
 			} catch (_) {}
 			showToast(
-				`${t('shopInfo.insufficientCoins' as any) || 'Not enough coins'} (${formatNumber(balance())} / ${formatNumber(reqCoins)})`,
+				`${t('shopInfo.insufficientCoins' as any) || 'Not enough coins'} (${formatNumber(balance())} / ${formatNumber(calc.requiredCoins)})`,
 				'error',
 			);
 			return;
@@ -109,14 +91,13 @@ export const ShopView: Component = () => {
 
 	const handleConfirmCheckout = (product: ShopProduct) => {
 		const discount = selectedDiscounts()[product.id] || 50;
-		const reqCoins = getDiscountCoins(discount);
-		const finalStars = getFinalPrice(product.baseStars, discount);
+		const calc = calculateDiscountForPlan(product.baseUsd, discount, product.baseStars);
 
 		try {
 			haptic.notify('success');
 		} catch (_) {}
 		showToast(
-			`⭐ ${finalStars} Telegram Stars + ${formatNumber(reqCoins)} Coins applied for ${t(product.titleKey as any)}!`,
+			`⭐ ${calc.finalStars} Telegram Stars + ${formatNumber(calc.requiredCoins)} Coins applied for ${t(product.titleKey as any)}!`,
 			'success',
 		);
 		setActiveModalProduct(null);
@@ -191,9 +172,13 @@ export const ShopView: Component = () => {
 					<For each={PRODUCTS}>
 						{(product) => {
 							const currentDiscount = () => selectedDiscounts()[product.id] || 50;
-							const reqCoins = () => getDiscountCoins(currentDiscount());
-							const finalStars = () => getFinalPrice(product.baseStars, currentDiscount());
-							const hasEnoughCoins = () => balance() >= reqCoins();
+							const calc = () =>
+								calculateDiscountForPlan(
+									product.baseUsd,
+									currentDiscount(),
+									product.baseStars,
+								);
+							const hasEnoughCoins = () => balance() >= calc().requiredCoins;
 
 							return (
 								<div class="group bg-[#12141C]/85 backdrop-blur-xl border border-white/10 hover:border-white/20 rounded-[24px] p-4.5 flex flex-col gap-3.5 shadow-[0_8px_25px_rgba(0,0,0,0.3)] transition-all duration-300">
@@ -214,7 +199,7 @@ export const ShopView: Component = () => {
 												</h3>
 												<div class="flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded-[8px] border border-white/5 shrink-0">
 													<span class="text-white/40 text-[11px] line-through font-mono">
-														⭐ {product.baseStars}
+														⭐ {product.baseStars} (${product.baseUsd.toFixed(2)})
 													</span>
 												</div>
 											</div>
@@ -229,17 +214,22 @@ export const ShopView: Component = () => {
 										<span class="text-white/50 text-[11px] font-bold text-start">
 											{t('shopInfo.selectDiscount' as any) || 'Select Coin Discount:'}
 										</span>
-										<div class="grid grid-cols-3 gap-2">
-											<For each={DISCOUNT_OPTIONS}>
+										<div class="grid grid-cols-4 gap-2">
+											<For each={DISCOUNT_TIERS}>
 												{(opt) => {
 													const isSelected = () => currentDiscount() === opt.percent;
-													const canAfford = () => balance() >= opt.coins;
+													const tierCalc = calculateDiscountForPlan(
+														product.baseUsd,
+														opt.percent,
+														product.baseStars,
+													);
+													const canAfford = () => balance() >= tierCalc.requiredCoins;
 
 													return (
 														<button
 															type="button"
 															onClick={() => handleDiscountChange(product.id, opt.percent)}
-															class={`rounded-[14px] py-2 px-2 flex flex-col items-center justify-center transition-all duration-200 border ${
+															class={`rounded-[14px] py-2 px-1 flex flex-col items-center justify-center transition-all duration-200 border ${
 																isSelected()
 																	? 'bg-gradient-to-b from-amber-500/25 to-amber-500/10 border-amber-400 text-white shadow-[0_0_12px_rgba(245,158,11,0.2)]'
 																	: canAfford()
@@ -250,8 +240,8 @@ export const ShopView: Component = () => {
 															<span class="font-black text-[13px] tracking-tight">
 																{opt.label}
 															</span>
-															<span class="text-[10px] font-mono font-semibold text-amber-400/90 mt-0.5">
-																{formatNumber(opt.coins)} 🪙
+															<span class="text-[9.5px] font-mono font-semibold text-amber-400/90 mt-0.5">
+																{formatNumber(tierCalc.requiredCoins)} 🪙
 															</span>
 														</button>
 													);
@@ -268,7 +258,7 @@ export const ShopView: Component = () => {
 											</span>
 											<div class="flex items-center gap-1.5">
 												<span class="text-amber-400 font-black text-[17px] leading-none">
-													⭐ {finalStars()} Stars
+													⭐ {calc().finalStars} Stars
 												</span>
 												<span class="text-[11px] font-bold text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded-[6px] border border-emerald-500/20">
 													-{currentDiscount()}%
@@ -307,7 +297,7 @@ export const ShopView: Component = () => {
 					</span>
 					<p class="text-amber-300/90 text-[12px] font-medium leading-relaxed">
 						{t('shopInfo.comingSoon' as any) ||
-							'Mined coins are internal utility credits with a 15-day validity, used strictly for up to 75% discounts on bot services and hold no direct crypto value.'}
+							'Mined coins are internal utility credits with a 15-day validity, used strictly for up to 70% discounts on bot services and hold no direct crypto value.'}
 					</p>
 				</div>
 			</div>
@@ -316,8 +306,12 @@ export const ShopView: Component = () => {
 			<Show when={activeModalProduct()}>
 				{(prod) => {
 					const discount = () => selectedDiscounts()[prod().id] || 50;
-					const coins = () => getDiscountCoins(discount());
-					const stars = () => getFinalPrice(prod().baseStars, discount());
+					const calc = () =>
+						calculateDiscountForPlan(
+							prod().baseUsd,
+							discount(),
+							prod().baseStars,
+						);
 
 					return (
 						<div
@@ -342,15 +336,15 @@ export const ShopView: Component = () => {
 								<div class="w-full bg-[#090a0f] rounded-[18px] p-4 border border-white/5 space-y-2.5 mb-5 text-[13px]">
 									<div class="flex justify-between items-center text-white/60">
 										<span>{t('shopInfo.originalPrice' as any) || 'Original Price'}:</span>
-										<span class="line-through font-mono">⭐ {prod().baseStars} Stars</span>
+										<span class="line-through font-mono">⭐ {calc().baseStars} Stars (${calc().baseUsd.toFixed(2)})</span>
 									</div>
 									<div class="flex justify-between items-center text-emerald-400">
 										<span>{t('shopInfo.coinsRequired' as any) || 'Coin Voucher'}:</span>
-										<span class="font-mono font-bold">-{formatNumber(coins())} 🪙 (-{discount()}%)</span>
+										<span class="font-mono font-bold">-{formatNumber(calc().requiredCoins)} 🪙 (-{calc().discountPercent}%)</span>
 									</div>
 									<div class="border-t border-white/10 pt-2 flex justify-between items-center text-white font-black text-[15px]">
 										<span>{t('shopInfo.finalPrice' as any) || 'Final Payment'}:</span>
-										<span class="text-amber-400 font-mono">⭐ {stars()} Stars</span>
+										<span class="text-amber-400 font-mono">⭐ {calc().finalStars} Stars (${calc().finalUsd.toFixed(2)})</span>
 									</div>
 								</div>
 

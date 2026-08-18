@@ -3,9 +3,9 @@ import { useNavigate } from '@solidjs/router';
 import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
 import { backButton, openTelegramLink } from '@tma.js/sdk-solid';
 import { Component, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
-import { completeTask, getTasksStatus } from '@/shared/api/profile.js';
+import { completeTask, getTasksStatus } from '@/entities/user/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
-import { SkeletonTask } from '@/shared/ui/Skeleton.js';
+import { SkeletonTask } from '@/shared/ui/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 export const TasksPage: Component = () => {

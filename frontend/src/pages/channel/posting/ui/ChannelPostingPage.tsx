@@ -4,12 +4,10 @@ import { backButton } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, onCleanup, onMount, For, Show } from 'solid-js';
 import { showConfirm } from '@/shared/lib/telegram-native.js';
 import { createStore, reconcile, unwrap } from 'solid-js/store';
-import { channelApi } from '@/shared/api/channel-management.js';
+import { ChannelContextBar, ChannelHamburgerMenu, channelApi } from '@/entities/channel/index.js';
 import { t } from '@/shared/i18n/index.js';
-import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
-import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { SettingsSection } from '@/shared/ui/settings-controls.js';
-import { showToast } from '@/shared/ui/toast.js';
+import { showToast } from '@/shared/ui/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 interface PostingConfig {

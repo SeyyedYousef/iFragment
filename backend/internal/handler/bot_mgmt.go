@@ -257,8 +257,9 @@ func (h *BotMgmtHandler) GetPackages(w http.ResponseWriter, r *http.Request) {
 }
 
 type SubscribeRequest struct {
-	GroupID   string `json:"group_id"`
-	PackageID string `json:"package_id"`
+	GroupID         string `json:"group_id"`
+	PackageID       string `json:"package_id"`
+	DiscountPercent int    `json:"discount_percent,omitempty"`
 }
 
 func (h *BotMgmtHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
@@ -343,22 +344,56 @@ func (h *BotMgmtHandler) SubscribeStarsInvoice(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	finalStars := pkg.PriceStars
+	if req.DiscountPercent > 0 {
+		discountPercent := req.DiscountPercent
+		if discountPercent > 70 {
+			discountPercent = 70
+		}
+		savedStars := (pkg.PriceStars * discountPercent) / 100
+		finalStars = pkg.PriceStars - savedStars
+		if finalStars < 1 {
+			finalStars = 1
+		}
+		requiredCoins := float64(savedStars * 1032)
+
+		tx, err := h.svc.BotRepo().DB().Pool.Begin(r.Context())
+		if err != nil {
+			RespondError(w, r, http.StatusInternalServerError, "failed to start transaction", err)
+			return
+		}
+		defer tx.Rollback(r.Context())
+
+		if err := h.svc.BotRepo().DB().DeductCreditsFIFO(r.Context(), tx, userID, requiredCoins); err != nil {
+			RespondError(w, r, http.StatusBadRequest, err.Error(), err)
+			return
+		}
+		if err := tx.Commit(r.Context()); err != nil {
+			RespondError(w, r, http.StatusInternalServerError, "failed to commit credit deduction", err)
+			return
+		}
+	}
+
 	title := fmt.Sprintf("Subscription: %s", group.ChatTitle)
 	desc := fmt.Sprintf("%s subscription for %s", pkg.Name, group.ChatTitle)
 	payload := fmt.Sprintf("sub_stars_%s_%s", groupID.String(), pkg.ID)
 
-	link, err := h.paymentService.CreateInvoiceLink(title, desc, payload, pkg.PriceStars)
+	link, err := h.paymentService.CreateInvoiceLink(title, desc, payload, finalStars)
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, "failed to generate invoice link", err)
 		return
 	}
 
-	RespondJSON(w, http.StatusOK, map[string]string{"invoice_link": link})
+	RespondJSON(w, http.StatusOK, map[string]interface{}{
+		"invoice_link": link,
+		"final_stars":  finalStars,
+	})
 }
 
 type ChannelSubscribeRequest struct {
-	ChannelID string `json:"channel_id"`
-	PackageID string `json:"package_id"`
+	ChannelID       string `json:"channel_id"`
+	PackageID       string `json:"package_id"`
+	DiscountPercent int    `json:"discount_percent,omitempty"`
 }
 
 func (h *BotMgmtHandler) SubscribeChannel(w http.ResponseWriter, r *http.Request) {
@@ -437,17 +472,50 @@ func (h *BotMgmtHandler) SubscribeChannelStarsInvoice(w http.ResponseWriter, r *
 		return
 	}
 
+	finalStars := pkg.PriceStars
+	if req.DiscountPercent > 0 {
+		discountPercent := req.DiscountPercent
+		if discountPercent > 70 {
+			discountPercent = 70
+		}
+		savedStars := (pkg.PriceStars * discountPercent) / 100
+		finalStars = pkg.PriceStars - savedStars
+		if finalStars < 1 {
+			finalStars = 1
+		}
+		requiredCoins := float64(savedStars * 1032)
+
+		tx, err := h.svc.BotRepo().DB().Pool.Begin(r.Context())
+		if err != nil {
+			RespondError(w, r, http.StatusInternalServerError, "failed to start transaction", err)
+			return
+		}
+		defer tx.Rollback(r.Context())
+
+		if err := h.svc.BotRepo().DB().DeductCreditsFIFO(r.Context(), tx, userID, requiredCoins); err != nil {
+			RespondError(w, r, http.StatusBadRequest, err.Error(), err)
+			return
+		}
+		if err := tx.Commit(r.Context()); err != nil {
+			RespondError(w, r, http.StatusInternalServerError, "failed to commit credit deduction", err)
+			return
+		}
+	}
+
 	title := "Channel Subscription"
 	desc := fmt.Sprintf("%s subscription for your channel", pkg.Name)
 	payload := fmt.Sprintf("sub_chan_stars_%s_%s", channelID.String(), pkg.ID)
 
-	link, err := h.paymentService.CreateInvoiceLink(title, desc, payload, pkg.PriceStars)
+	link, err := h.paymentService.CreateInvoiceLink(title, desc, payload, finalStars)
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, "failed to generate invoice link", err)
 		return
 	}
 
-	RespondJSON(w, http.StatusOK, map[string]string{"invoice_link": link})
+	RespondJSON(w, http.StatusOK, map[string]interface{}{
+		"invoice_link": link,
+		"final_stars":  finalStars,
+	})
 }
 
 // ─── Analytics ────────────────────────────────────────────

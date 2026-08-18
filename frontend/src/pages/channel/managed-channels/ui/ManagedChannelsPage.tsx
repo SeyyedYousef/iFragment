@@ -2,10 +2,13 @@ import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
 import { backButton, openTelegramLink } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
-import { SubscriptionPackage, subscriptionApi } from '@/shared/api/bot-management.js';
-import { channelApi } from '@/shared/api/channel-management.js';
+import { type SubscriptionPackage, subscriptionApi } from '@/entities/bot/index.js';
+import { channelApi } from '@/entities/channel/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
+import { balance } from '@/entities/airdrop/index.js';
+import { calculateDiscountForPlan } from '@/shared/lib/stars-calculator.js';
+import { PaymentDiscountCard } from '@/shared/ui/payment-discount/PaymentDiscountCard.js';
 
 export const ManagedChannelsPage: Component = () => {
 	const navigate = useNavigate();
@@ -23,6 +26,8 @@ export const ManagedChannelsPage: Component = () => {
 	const [paymentStep, setPaymentStep] = createSignal<'package' | 'method'>('package');
 	const [selectedChan, setSelectedChan] = createSignal<string>('');
 	const [selectedPkg, setSelectedPkg] = createSignal<string>('');
+	const [isDiscountEnabled, setIsDiscountEnabled] = createSignal(false);
+	const [discountPercent, setDiscountPercent] = createSignal<20 | 35 | 50 | 70>(50);
 	const [isProcessing, setIsProcessing] = createSignal(false);
 	const [successMsg, setSuccessMsg] = createSignal('');
 	const [errorMsg, setErrorMsg] = createSignal('');
@@ -36,37 +41,17 @@ export const ManagedChannelsPage: Component = () => {
 		haptic.impact('light');
 	};
 
-	const handleSubscribeAirdrop = async () => {
-		if (!selectedPkg() || !selectedChan()) return;
-		setIsProcessing(true);
-		setErrorMsg('');
-		try {
-			await subscriptionApi.subscribeChannelWithAirdrop(selectedChan(), selectedPkg());
-			haptic.notify('success');
-			setSuccessMsg(t('botManage.subscriptionSuccess'));
-			setShowSubscription(false);
-			refetch();
-		} catch (e: any) {
-			const msg = e?.response?.data?.error || 'Payment failed';
-			setErrorMsg(msg);
-			haptic.notify('error');
-		} finally {
-			setIsProcessing(false);
-			setTimeout(() => {
-				setSuccessMsg('');
-				setErrorMsg('');
-			}, 4000);
-		}
-	};
 
 	const handleSubscribeStars = async () => {
 		if (!selectedPkg() || !selectedChan()) return;
 		setIsProcessing(true);
 		setErrorMsg('');
 		try {
+			const percent = isDiscountEnabled() ? discountPercent() : 0;
 			const res = await subscriptionApi.createChannelSubscriptionStarsInvoice(
 				selectedChan(),
 				selectedPkg(),
+				percent,
 			);
 			if (res.invoice_link) {
 				const tg = (window as any).Telegram?.WebApp;
@@ -594,100 +579,62 @@ export const ManagedChannelsPage: Component = () => {
 										const pkg = (packages() || []).find(
 											(p: SubscriptionPackage) => p.id === selectedPkg(),
 										);
-										return pkg ? (
-											<div class="bg-[#08090D] rounded-[20px] p-5 border border-white/5 flex items-center justify-between shadow-inner">
-												<div class="flex flex-col gap-1">
-													<span class="text-[16px] font-black text-[#3390ec] tracking-tight">
-														{pkg.name} Plan
-													</span>
-													<span class="text-[11px] font-bold text-white/40 uppercase tracking-widest">
-														${pkg.price_per_month.toFixed(2)} {t('botManage.perMonth')}
-													</span>
+										if (!pkg) return null;
+										const calc = () =>
+											calculateDiscountForPlan(
+												pkg.price_usd,
+												isDiscountEnabled() ? discountPercent() : 0,
+												pkg.price_stars,
+											);
+
+										return (
+											<div class="space-y-4">
+												{/* Plan Summary Card */}
+												<div class="bg-[#08090D] rounded-[20px] p-5 border border-white/5 flex items-center justify-between shadow-inner">
+													<div class="flex flex-col gap-1">
+														<span class="text-[16px] font-black text-[#3390ec] tracking-tight">
+															{pkg.name} Plan
+														</span>
+														<span class="text-[11px] font-bold text-white/40 uppercase tracking-widest">
+															${pkg.price_per_month.toFixed(2)} {t('botManage.perMonth')}
+														</span>
+													</div>
+													<div class="flex flex-col items-end gap-1">
+														<span class="text-[20px] font-black font-mono text-white tracking-tight">
+															${calc().finalUsd.toFixed(2)}
+														</span>
+														<span class="text-[11px] font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-[6px] border border-amber-400/20 shadow-sm">
+															{calc().finalStars} ⭐
+														</span>
+													</div>
 												</div>
-												<div class="flex flex-col items-end gap-1">
-													<span class="text-[20px] font-black font-mono text-white tracking-tight">
-														${pkg.price_usd.toFixed(2)}
+
+												{/* Coin Discount Toggle & Tier Selector */}
+												<PaymentDiscountCard
+													baseUsd={pkg.price_usd}
+													baseStars={pkg.price_stars}
+													userCoins={balance()}
+													isDiscountEnabled={isDiscountEnabled()}
+													selectedPercent={discountPercent()}
+													onToggleDiscount={(enabled) => setIsDiscountEnabled(enabled)}
+													onSelectPercent={(percent) => setDiscountPercent(percent)}
+												/>
+
+												{/* Pay Action Button */}
+												<button
+													onClick={handleSubscribeStars}
+													disabled={isProcessing()}
+													class="w-full h-15 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-500 text-black font-black text-[15px] uppercase tracking-wider rounded-[20px] shadow-[0_10px_25px_rgba(245,158,11,0.3)] transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2.5 mt-2"
+												>
+													<span class="text-[20px]">⭐</span>
+													<span>
+														{t('botManage.payWithStars' as any) || 'Pay with Stars'} ({calc().finalStars} ⭐)
 													</span>
-													<span class="text-[11px] font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-[6px] border border-amber-400/20 shadow-sm">
-														{pkg.price_stars} ⭐
-													</span>
-												</div>
+												</button>
 											</div>
-										) : null;
+										);
 									})()}
 								</Show>
-
-								<div class="space-y-3.5">
-									{/* Telegram Stars */}
-									<button
-										onClick={handleSubscribeStars}
-										disabled={isProcessing()}
-										class="w-full relative group overflow-hidden bg-[#12141C]/80 backdrop-blur-xl border border-amber-400/30 hover:border-amber-400/60 rounded-[24px] p-5 text-left transition-all active:scale-[0.98] shadow-sm"
-									>
-										<div class="absolute -right-6 -top-6 w-28 h-28 bg-amber-400/15 rounded-full blur-2xl group-hover:bg-amber-400/25 transition-all pointer-events-none" />
-										<div class="relative flex items-center gap-4 z-10">
-											<div class="w-14 h-14 rounded-[16px] bg-amber-400/15 flex items-center justify-center border border-amber-400/30 shadow-inner shrink-0">
-												<span class="text-[28px] drop-shadow-md">⭐</span>
-											</div>
-											<div class="flex-1 min-w-0">
-												<h4 class="text-[16px] font-black text-white tracking-tight mb-1 truncate">
-													{t('botManage.starsPayTitle')}
-												</h4>
-												<p class="text-[12px] font-medium text-white/50 truncate">
-													{t('botManage.starsPayDesc')}
-												</p>
-											</div>
-											<Show when={packages() && selectedPkg()}>
-												{(() => {
-													const pkg = (packages() || []).find(
-														(p: SubscriptionPackage) => p.id === selectedPkg(),
-													);
-													return pkg ? (
-														<span class="text-[16px] font-black font-mono text-amber-400 shrink-0 bg-amber-400/10 px-3 py-1.5 rounded-[12px] border border-amber-400/20 shadow-sm">
-															{pkg.price_stars} ⭐
-														</span>
-													) : null;
-												})()}
-											</Show>
-										</div>
-									</button>
-
-									{/* Airdrop Coins */}
-									<button
-										onClick={handleSubscribeAirdrop}
-										disabled={isProcessing()}
-										class="w-full relative group overflow-hidden bg-[#12141C]/80 backdrop-blur-xl border border-[#3390ec]/30 hover:border-[#3390ec]/60 rounded-[24px] p-5 text-left transition-all active:scale-[0.98] shadow-sm"
-									>
-										<div class="absolute -right-6 -top-6 w-28 h-28 bg-[#3390ec]/15 rounded-full blur-2xl group-hover:bg-[#3390ec]/25 transition-all pointer-events-none" />
-										<div class="relative flex items-center gap-4 z-10">
-											<div class="w-14 h-14 rounded-[16px] bg-[#3390ec]/15 flex items-center justify-center border border-[#3390ec]/30 shadow-inner shrink-0">
-												<span class="material-symbols-outlined text-[#3390ec] text-[28px] drop-shadow-md">
-													toll
-												</span>
-											</div>
-											<div class="flex-1 min-w-0">
-												<h4 class="text-[16px] font-black text-white tracking-tight mb-1 truncate">
-													{t('botManage.airdropPayTitle')}
-												</h4>
-												<p class="text-[12px] font-medium text-white/50 truncate">
-													{t('botManage.airdropPayDesc')}
-												</p>
-											</div>
-											<Show when={packages() && selectedPkg()}>
-												{(() => {
-													const pkg = (packages() || []).find(
-														(p: SubscriptionPackage) => p.id === selectedPkg(),
-													);
-													return pkg ? (
-														<span class="text-[16px] font-black font-mono text-[#3390ec] shrink-0 bg-[#3390ec]/10 px-3 py-1.5 rounded-[12px] border border-[#3390ec]/20 shadow-sm">
-															{pkg.price_coins.toLocaleString()}
-														</span>
-													) : null;
-												})()}
-											</Show>
-										</div>
-									</button>
-								</div>
 							</div>
 						)}
 

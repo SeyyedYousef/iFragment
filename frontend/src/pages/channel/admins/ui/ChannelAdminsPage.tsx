@@ -8,13 +8,11 @@ import {
 	For,
 	Show,
 } from 'solid-js';
-import { channelApi } from '@/shared/api/channel-management.js';
+import { ChannelContextBar, ChannelHamburgerMenu, channelApi } from '@/entities/channel/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
-import { ChannelContextBar } from '@/shared/ui/ChannelContextBar.js';
-import { ChannelHamburgerMenu } from '@/shared/ui/channel-hamburger-menu.js';
 import { ToggleSwitch } from '@/shared/ui/settings-controls.js';
-import { showToast } from '@/shared/ui/toast.js';
+import { showToast } from '@/shared/ui/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 export const ChannelAdminsPage: Component = () => {

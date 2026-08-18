@@ -50,9 +50,10 @@ type DiscountTier struct {
 }
 
 var DiscountTiers = []DiscountTier{
-	{Percent: 25, RequiredCoins: 250000, Description: "25% OFF (250,000 Coins) - Valid for 15 days"},
-	{Percent: 50, RequiredCoins: 750000, Description: "50% OFF (750,000 Coins) - Valid for 15 days"},
-	{Percent: 75, RequiredCoins: 2000000, Description: "75% OFF (2,000,000 Coins) - Valid for 15 days"},
+	{Percent: 20, RequiredCoins: 31000, Description: "20% OFF - Valid for 15 days"},
+	{Percent: 35, RequiredCoins: 54700, Description: "35% OFF - Valid for 15 days"},
+	{Percent: 50, RequiredCoins: 77400, Description: "50% OFF - Valid for 15 days"},
+	{Percent: 70, RequiredCoins: 108400, Description: "70% OFF (MAX) - Valid for 15 days"},
 }
 
 var Packages = []SubscriptionPackage{
@@ -93,6 +94,10 @@ func NewBotService(
 		cache:           cache,
 		cryptoSvc:       cryptoSvc,
 	}
+}
+
+func (s *BotService) BotRepo() *repository.BotRepo {
+	return s.botRepo
 }
 
 func (s *BotService) GetPremiumGroupService() *PremiumGroupService {
@@ -143,22 +148,14 @@ func (s *BotService) CheckExpirations(ctx context.Context) {
 	}
 
 	now := time.Now()
-
-	// Determine if we should process 10 AM alerts today
-	shouldAlert := false
-	todayStr := now.Format("2006-01-02")
-	if now.Hour() == 10 {
-		s.mu.Lock()
-		if s.lastNotificationDate != todayStr {
-			shouldAlert = true
-			s.lastNotificationDate = todayStr
-		}
-		s.mu.Unlock()
-	}
-
 	const maxConcurrency = 15
 	sem := make(chan struct{}, maxConcurrency)
 	var wg sync.WaitGroup
+
+	miniAppURL := os.Getenv("MINI_APP_URL")
+	if miniAppURL == "" {
+		miniAppURL = "https://t.me/iFragmentBot/iFragment"
+	}
 
 	for _, g := range groups {
 		sem <- struct{}{}
@@ -167,7 +164,7 @@ func (s *BotService) CheckExpirations(ctx context.Context) {
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			groupCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			groupCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 			defer cancel()
 
 			var expiry *time.Time
@@ -184,7 +181,7 @@ func (s *BotService) CheckExpirations(ctx context.Context) {
 			// 1. Check for actual expiration
 			if g.SubscriptionStatus != "expired" && now.After(*expiry) {
 				_ = s.botRepo.UpdateGroupSubscription(groupCtx, g.ID, "expired", nil)
-				s.sendExpirationNotice(groupCtx, g, "service_ended", map[string]interface{}{"group": g.ChatTitle})
+				s.sendSmartExpirationNotice(groupCtx, g, "expired", *expiry, miniAppURL)
 				return
 			}
 
@@ -219,17 +216,35 @@ func (s *BotService) CheckExpirations(ctx context.Context) {
 				return
 			}
 
-			// 2. Check for alerts (3 days and 1 day before)
-			if shouldAlert {
-				targetDate := time.Date(expiry.Year(), expiry.Month(), expiry.Day(), 0, 0, 0, 0, expiry.Location())
-				nowDate := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-				daysLeft := int(targetDate.Sub(nowDate).Hours() / 24)
-				if daysLeft == 3 || daysLeft == 1 {
-					template := "expiry_3d"
-					if daysLeft == 1 {
-						template = "expiry_24h"
+			// 3. Precision Multi-Stage Alerts: 48h, 24h, 6h, 1h before expiration
+			remaining := expiry.Sub(now)
+			if remaining <= 0 {
+				return
+			}
+
+			var stage string
+			switch {
+			case remaining <= 1*time.Hour:
+				stage = "1h"
+			case remaining <= 6*time.Hour:
+				stage = "6h"
+			case remaining <= 24*time.Hour:
+				stage = "24h"
+			case remaining <= 48*time.Hour:
+				stage = "48h"
+			}
+
+			if stage != "" {
+				notifKey := fmt.Sprintf("notif:grp:%s:%s", g.ID.String(), stage)
+				alreadySent := false
+				if s.cache != nil && s.cache.Client != nil {
+					set, err := s.cache.Client.SetNX(groupCtx, notifKey, "1", 7*24*time.Hour).Result()
+					if err != nil || !set {
+						alreadySent = true
 					}
-					s.sendExpirationNotice(groupCtx, g, template, map[string]interface{}{"group": g.ChatTitle})
+				}
+				if !alreadySent {
+					s.sendSmartExpirationNotice(groupCtx, g, stage, *expiry, miniAppURL)
 				}
 			}
 		}(g)
@@ -237,14 +252,14 @@ func (s *BotService) CheckExpirations(ctx context.Context) {
 	wg.Wait()
 }
 
-func (s *BotService) sendExpirationNotice(ctx context.Context, g repository.ManagedGroup, template string, vars map[string]interface{}) {
+func (s *BotService) sendSmartExpirationNotice(ctx context.Context, g repository.ManagedGroup, stage string, expiry time.Time, miniAppURL string) {
 	bot, err := s.botRepo.GetBotByID(ctx, g.BotID)
 	if err != nil {
 		return
 	}
 
 	// Get Language
-	lang := "en"
+	lang := "fa"
 	settings, _ := s.settingsRepo.GetSettings(ctx, g.ID)
 	if settings != nil {
 		var general repository.SettingsGeneral
@@ -256,15 +271,119 @@ func (s *BotService) sendExpirationNotice(ctx context.Context, g repository.Mana
 	token, _ := DecryptToken(bot.BotTokenEncrypted)
 	tg := telegram.NewBotAPIClient(token)
 
-	msg := i18n.T(lang, "notifications."+template, vars)
+	var text string
+	var renewCoinsBtn, renewProBtn, dashboardBtn string
 
-	// Send to owner PV ONLY
+	if lang == "fa" {
+		renewCoinsBtn = "🪙 تمدید با سکه ایردراپ"
+		renewProBtn = "⭐ تمدید با استارز یا TON"
+		dashboardBtn = "⚙️ ورود به داشبورد"
+
+		expiryDateStr := expiry.Format("2006/01/02 15:04")
+		switch stage {
+		case "48h":
+			text = fmt.Sprintf(`🔔 <b>یادآوری تمدید محافظت گروه: %s</b>
+
+⏳ <b>زمان باقی‌مانده از اشتراک:</b> ۴۸ ساعت
+📅 <b>تاریخ انقضا:</b> <code>%s</code>
+🛡️ <b>وضعیت سپر امنیتی:</b> فعال (ضد اسپم، فیلتر لینک، کپچای ورودی)
+
+✨ برای حفظ آرامش گروه و جلوگیری از ورود ربات‌های تبلیغاتی، می‌توانید همین حالا با <b>سکه ایردراپ</b> یا <b>تلگرام استارز/TON</b> اشتراک خود را تمدید کنید.
+
+🎁 <i>تخفیف وفاداری: تمدید با سکه ایردراپ بدون پرداخت ریالی!</i>`, telegram.EscapeHTML(g.ChatTitle), expiryDateStr)
+
+		case "24h":
+			text = fmt.Sprintf(`⚠️ <b>هشدار مهم: فقط ۲۴ ساعت تا پایان محافظت گروه %s!</b>
+
+⏳ <b>زمان انقضا:</b> <code>%s</code>
+🚨 پس از پایان این مهلت، ربات محافظ متوقف شده و فیلترهای ضداسپم، کپچا و قفل چت غیرفعال خواهند شد.
+
+⚡ <b>تمدید فوری بدون وقفه:</b>
+با یک کلیک از طریق دکمه‌های زیر، اشتراک گروه را تمدید کنید:`, telegram.EscapeHTML(g.ChatTitle), expiryDateStr)
+
+		case "6h", "1h":
+			remText := "۶ ساعت"
+			if stage == "1h" {
+				remText = "کمتر از ۱ ساعت"
+			}
+			text = fmt.Sprintf(`🚨 <b>هشدار فوری: اشتراک گروه %s در حال اتمام است! (%s باقی‌مانده)</b>
+
+⚡ جلوگیری از هجوم ربات‌های تبلیغاتی و قطع سرویس:
+همین حالا با زدن دکمه زیر با سکه‌های ایردراپ یا استارز تلگرام تمدید کنید.`, telegram.EscapeHTML(g.ChatTitle), remText)
+
+		case "expired":
+			text = fmt.Sprintf(`🛑 <b>اشتراک محافظت گروه %s به پایان رسید.</b>
+
+⚠️ فیلترهای ضداسپم، حذف لینک و کپچای ورودی به حالت تعلیق درآمدند.
+🔒 <b>نگران نباشید:</b> تمامی تنظیمات، لیست سیاه و کانال‌های عضویت اجباری گروه شما محفوظ است و با تمدید اشتراک، بلافاصله فعال خواهند شد.`, telegram.EscapeHTML(g.ChatTitle))
+		}
+	} else {
+		renewCoinsBtn = "🪙 Extend with Airdrop Coins"
+		renewProBtn = "⭐ Extend with Stars / TON"
+		dashboardBtn = "⚙️ Open Web Dashboard"
+
+		expiryDateStr := expiry.Format("2006/01/02 15:04")
+		switch stage {
+		case "48h":
+			text = fmt.Sprintf(`🔔 <b>Subscription Renewal Reminder: %s</b>
+
+⏳ <b>Time Remaining:</b> 48 Hours
+📅 <b>Expires At:</b> <code>%s</code>
+🛡️ <b>Protection Status:</b> Active (Anti-Spam, Link Filter, Join CAPTCHA)
+
+✨ Extend now using your <b>Airdrop Coins</b> or <b>Telegram Stars / TON</b> to keep your group protected without interruption.`, telegram.EscapeHTML(g.ChatTitle), expiryDateStr)
+
+		case "24h":
+			text = fmt.Sprintf(`⚠️ <b>Important Notice: 24 Hours Left for %s!</b>
+
+⏳ <b>Expires At:</b> <code>%s</code>
+🚨 Protection features will be suspended after expiration.
+
+⚡ <b>Instant 1-Click Renewal:</b>
+Use the buttons below to extend protection:`, telegram.EscapeHTML(g.ChatTitle), expiryDateStr)
+
+		case "6h", "1h":
+			remText := "6 hours"
+			if stage == "1h" {
+				remText = "less than 1 hour"
+			}
+			text = fmt.Sprintf(`🚨 <b>Urgent: Protection expiring for %s! (%s left)</b>
+
+⚡ Prevent spam bot attacks and keep your group secure by renewing now:`, telegram.EscapeHTML(g.ChatTitle), remText)
+
+		case "expired":
+			text = fmt.Sprintf(`🛑 <b>Protection subscription ended for %s.</b>
+
+⚠️ Anti-spam and auto-moderation features are now suspended.
+🔒 <b>All your settings and blacklists are safely preserved.</b> Renew now to restore full protection immediately.`, telegram.EscapeHTML(g.ChatTitle))
+		}
+	}
+
+	dashboardURL := fmt.Sprintf("%s?startapp=group_%s", miniAppURL, g.ID)
+	renewCoinsURL := fmt.Sprintf("%s?startapp=group_%s", miniAppURL, g.ID)
+	renewProURL := fmt.Sprintf("%s?startapp=group_%s", miniAppURL, g.ID)
+
+	markup := map[string]interface{}{
+		"inline_keyboard": [][]map[string]interface{}{
+			{
+				{"text": renewCoinsBtn, "url": renewCoinsURL},
+			},
+			{
+				{"text": renewProBtn, "url": renewProURL},
+			},
+			{
+				{"text": dashboardBtn, "url": dashboardURL},
+			},
+		},
+	}
+
 	targetUserID := bot.OwnerUserID
 	if g.ConnectedByUserID != nil {
 		targetUserID = *g.ConnectedByUserID
 	}
-	_ = tg.SendMessage(ctx, targetUserID, msg, nil, nil)
+	_, _ = tg.SendMessageWithMarkup(ctx, targetUserID, text, markup, nil, "HTML")
 }
+
 
 // Bot Operations
 

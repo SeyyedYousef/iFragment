@@ -2,9 +2,9 @@ import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
 import { backButton, openTelegramLink } from '@tma.js/sdk-solid';
 import { Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
-import { channelApi } from '@/shared/api/channel-management.js';
+import { channelApi } from '@/entities/channel/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
-import { showToast } from '@/shared/ui/toast.js';
+import { showToast } from '@/shared/ui/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 export const ConnectChannelPage: Component = () => {

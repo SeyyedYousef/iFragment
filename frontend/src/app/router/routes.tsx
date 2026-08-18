@@ -1,5 +1,5 @@
 import { type Component, lazy } from 'solid-js';
-import { OwnerLayout } from '@/widgets/owner/OwnerLayout.js';
+import { OwnerLayout } from '@/widgets/owner/index.js';
 import { OwnerRouteGuard } from './OwnerRouteGuard.js';
 
 // Route-level Code Splitting (Lazy Loading)

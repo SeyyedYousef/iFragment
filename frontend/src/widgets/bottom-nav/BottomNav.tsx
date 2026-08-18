@@ -4,7 +4,7 @@ import { Component, createEffect, createSignal, onCleanup, onMount, Show } from 
 import { buildAvatarUrl } from '@/shared/api/config.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
-import { profilePhotoUrl } from '@/shared/store/profile.js';
+import { profilePhotoUrl } from '@/entities/user/index.js';
 
 export const BottomNav: Component = () => {
 	const location = useLocation();

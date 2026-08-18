@@ -2,8 +2,7 @@ import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
 import { backButton } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
-import type { ManagedBot } from '@/shared/api/bot-management.js';
-import { botApi } from '@/shared/api/bot-management.js';
+import { botApi, type ManagedBot } from '@/entities/bot/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 

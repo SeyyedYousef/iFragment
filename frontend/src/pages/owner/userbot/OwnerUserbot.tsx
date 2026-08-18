@@ -1,7 +1,7 @@
 
 import { Component, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
-import { ManagedUserbot, ownerApi } from '@/shared/api/owner.js';
-import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.js';
+import { type ManagedUserbot, ownerApi } from '@/entities/owner/index.js';
+import { DangerActionDialog } from '@/widgets/owner/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 export const OwnerUserbot: Component = () => {

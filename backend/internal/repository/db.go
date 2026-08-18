@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -40,14 +41,20 @@ func NewDatabase(ctx context.Context) (*Database, error) {
 	}
 
 	config.MaxConnLifetime = time.Hour
+	config.MaxConnLifetimeJitter = 5 * time.Minute
 	config.MaxConnIdleTime = 30 * time.Minute
 	config.HealthCheckPeriod = time.Minute
 	config.ConnConfig.ConnectTimeout = 5 * time.Second
 
+	// Enable automatic statement caching on connections for highest throughput
+	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeCacheStatement
+
 	if config.ConnConfig.RuntimeParams == nil {
 		config.ConnConfig.RuntimeParams = make(map[string]string)
 	}
-	config.ConnConfig.RuntimeParams["statement_timeout"] = "30000" // 30s timeout to prevent runaway queries
+	config.ConnConfig.RuntimeParams["statement_timeout"] = "30000"                      // 30s max query runtime
+	config.ConnConfig.RuntimeParams["lock_timeout"] = "5000"                            // 5s max lock wait to prevent convoys
+	config.ConnConfig.RuntimeParams["idle_in_transaction_session_timeout"] = "10000"   // 10s max idle in tx to protect vacuum
 
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
@@ -59,7 +66,7 @@ func NewDatabase(ctx context.Context) (*Database, error) {
 		return nil, fmt.Errorf("database ping failed: %v", err)
 	}
 
-	slog.Info("✅ Connected to PostgreSQL successfully", "max_conns", maxConns)
+	slog.Info("✅ Connected to PostgreSQL successfully (optimized pgxpool)", "max_conns", maxConns)
 	return &Database{Pool: pool}, nil
 }
 

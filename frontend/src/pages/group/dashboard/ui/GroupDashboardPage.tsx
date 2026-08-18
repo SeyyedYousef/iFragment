@@ -2,7 +2,7 @@ import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
-import { groupApi } from '@/shared/api/bot-management.js';
+import { groupApi } from '@/entities/group/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 import { showToast } from '@/shared/ui/toast.js';

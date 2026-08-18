@@ -1,6 +1,7 @@
 import { render, screen } from '@solidjs/testing-library';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { botApi, frgApi, subscriptionApi } from '@/shared/api/bot-management.js';
+import { botApi, subscriptionApi } from '@/entities/bot/index.js';
+import { frgApi } from '@/entities/user/index.js';
 import { BotManagePage } from './BotManagePage.js';
 
 vi.mock('@solidjs/router', () => ({
@@ -8,7 +9,7 @@ vi.mock('@solidjs/router', () => ({
 	useNavigate: () => vi.fn(),
 }));
 
-vi.mock('@/shared/api/bot-management.js', () => ({
+vi.mock('@/entities/bot/index.js', () => ({
 	botApi: {
 		getBot: vi.fn(),
 		listGroups: vi.fn(),
@@ -17,6 +18,9 @@ vi.mock('@/shared/api/bot-management.js', () => ({
 		getPackages: vi.fn(),
 		purchase: vi.fn(),
 	},
+}));
+
+vi.mock('@/entities/user/index.js', () => ({
 	frgApi: {
 		getBalance: vi.fn(),
 	},

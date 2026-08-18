@@ -2,10 +2,13 @@ import { Motion } from '@motionone/solid';
 import { createQuery } from '@tanstack/solid-query';
 import { backButton } from '@tma.js/sdk-solid';
 import { Component, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
-import { getAchievementDefs, getProfileAchievements } from '@/shared/api/profile.js';
+import {
+	ACHIEVEMENT_DEFS,
+	getAchievementDefs,
+	getProfileAchievements,
+} from '@/entities/user/index.js';
 import { formatNumber, locale, t } from '@/shared/i18n/index.js';
 import { haptic, shareToStory, switchInlineQuery } from '@/shared/lib/telegram-native.js';
-import { ACHIEVEMENT_DEFS } from '@/shared/store/profile.js';
 
 export const AchievementsPage: Component = () => {
 	const [activeCategory, setActiveCategory] = createSignal<string>('all');

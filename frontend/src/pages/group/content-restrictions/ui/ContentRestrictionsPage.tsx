@@ -3,7 +3,7 @@ import { useNavigate, useParams } from '@solidjs/router';
 import { backButton } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { createStore, reconcile } from 'solid-js/store';
-import { groupApi } from '@/shared/api/bot-management.js';
+import { groupApi } from '@/entities/group/index.js';
 import { t } from '@/shared/i18n/index.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 import { SettingsSection } from '@/shared/ui/settings-controls.js';

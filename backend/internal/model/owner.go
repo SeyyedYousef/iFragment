@@ -136,10 +136,16 @@ type SystemErrorLog struct {
 }
 
 type SystemHealthMetrics struct {
-	Goroutines  int    `json:"goroutines"`
-	AllocatedMB uint64 `json:"allocated_mb"`
-	TotalSysMB  uint64 `json:"total_sys_mb"`
-	DBStatus    string `json:"db_status"`
+	DBStatus          string `json:"db_status"`
+	DBLatencyMS       int64  `json:"db_latency_ms"`
+	RedisStatus       string `json:"redis_status"`
+	ActiveGoroutines  int    `json:"active_goroutines"`
+	MemoryUsedMB      uint64 `json:"memory_used_mb"`
+	UptimeSeconds     int64  `json:"uptime_seconds"`
+	RecentErrorsCount int    `json:"recent_errors_count"`
+	Goroutines        int    `json:"goroutines,omitempty"`
+	AllocatedMB       uint64 `json:"allocated_mb,omitempty"`
+	TotalSysMB        uint64 `json:"total_sys_mb,omitempty"`
 }
 
 type EntityRecord struct {

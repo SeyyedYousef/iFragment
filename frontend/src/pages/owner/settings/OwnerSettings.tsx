@@ -1,7 +1,7 @@
 
 import { Component, createSignal, onMount, Show } from 'solid-js';
-import { ownerApi, SystemSettings } from '@/shared/api/owner.js';
-import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.js';
+import { ownerApi, type SystemSettings } from '@/entities/owner/index.js';
+import { DangerActionDialog } from '@/widgets/owner/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 export const OwnerSettings: Component = () => {

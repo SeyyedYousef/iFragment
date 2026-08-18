@@ -1,9 +1,9 @@
 import { openTelegramLink } from '@tma.js/sdk-solid';
 import { Component, createEffect, createResource, createSignal, For, Show } from 'solid-js';
 import { API_CONFIG } from '@/shared/api/config.js';
-import { getClanMembers, getTopClans, joinClan, leaveClan } from '@/shared/api/profile.js';
+import { getClanMembers, getTopClans, joinClan, leaveClan } from '@/entities/user/index.js';
 import { formatNumber, t } from '@/shared/i18n/index.js';
-import { setUserClan, userClan } from '@/shared/store/airdrop.js';
+import { setUserClan, userClan } from '@/entities/airdrop/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) => {

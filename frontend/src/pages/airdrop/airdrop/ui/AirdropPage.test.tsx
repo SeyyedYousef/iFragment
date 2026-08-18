@@ -15,7 +15,7 @@ vi.mock('@solidjs/router', () => ({
 	A: (props: any) => <a {...props}>{props.children}</a>,
 }));
 
-vi.mock('@/shared/store/airdrop.js', () => ({
+vi.mock('@/entities/airdrop/index.js', () => ({
 	checkedInToday: () => false,
 	currentLeague: () => ({ name: 'Bronze', color: '#cd7f32', icon: 'stars' }),
 	userClan: () => null,

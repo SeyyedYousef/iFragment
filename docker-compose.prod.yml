@@ -18,11 +18,29 @@ services:
       db:
         condition: service_healthy
       dragonfly:
-        condition: service_started
+        condition: service_healthy
     restart: unless-stopped
 
   db:
-    image: postgres:15-alpine
+    image: postgres:17-alpine
+    command: >
+      postgres
+      -c shared_buffers=1GB
+      -c work_mem=32MB
+      -c maintenance_work_mem=256MB
+      -c effective_cache_size=3GB
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c wal_buffers=32MB
+      -c checkpoint_completion_target=0.9
+      -c checkpoint_timeout=15min
+      -c max_connections=200
+      -c max_worker_processes=8
+      -c max_parallel_workers=8
+      -c max_parallel_workers_per_gather=4
+      -c idle_in_transaction_session_timeout=10000
+      -c statement_timeout=30000
+      -c lock_timeout=5000
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-user}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-pass}
@@ -37,12 +55,31 @@ services:
     restart: unless-stopped
 
   dragonfly:
-    image: 'docker.dragonflydb.io/dragonflydb/dragonfly'
-    command: ["dragonfly", "--cache_mode=true", "--maxmemory=${DRAGONFLY_MAX_MEMORY:-512MB}"]
+    image: 'docker.dragonflydb.io/dragonflydb/dragonfly:latest'
+    command: [
+      "dragonfly",
+      "--cache_mode=true",
+      "--maxmemory=${DRAGONFLY_MAX_MEMORY:-1GB}",
+      "--keys_output_limit=8192",
+      "--dbfilename=dump.rdb",
+      "--dir=/data"
+    ]
+    volumes:
+      - dragonfly_data:/data
     ulimits:
       memlock: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
 
 volumes:
   pgdata:
   sessions_data:
+  dragonfly_data:
+

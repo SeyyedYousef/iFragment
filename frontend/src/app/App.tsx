@@ -4,9 +4,9 @@ import { retrieveLaunchParams } from '@tma.js/sdk-solid';
 import { createEffect, ErrorBoundary, For } from 'solid-js';
 import { routes } from '@/app/router/routes.js';
 import { t } from '@/shared/i18n/index.js';
-import { PageTransition } from '@/shared/ui/PageTransition.js';
+import { PageTransition } from '@/shared/ui/index.js';
 import { DemoBanner } from '@/widgets/demo-banner/index.js';
-import { ImpersonationBanner } from '@/widgets/owner/ImpersonationBanner.js';
+import { ImpersonationBanner } from '@/widgets/owner/index.js';
 
 const PageErrorFallback = (err: any, reset: () => void) => {
 	Sentry.captureException(err);

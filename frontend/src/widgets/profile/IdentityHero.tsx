@@ -3,7 +3,7 @@ import { createEffect, createMemo, createSignal, Show } from 'solid-js';
 import { buildAvatarUrl } from '@/shared/api/config.js';
 import { getActiveImpersonationToken } from '@/shared/api/axios.js';
 import { formatNumber, t } from '@/shared/i18n/index.js';
-import { getLevelInfo, type ProfileStats } from '@/shared/store/profile.js';
+import { getLevelInfo, type ProfileStats } from '@/entities/user/index.js';
 
 interface Props {
 	stats: ProfileStats | null;

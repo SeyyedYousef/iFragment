@@ -1,6 +1,6 @@
 import { Component, createMemo } from 'solid-js';
 import { formatNumber, t } from '@/shared/i18n/index.js';
-import { getLevelInfo, type ProfileStats } from '@/shared/store/profile.js';
+import { getLevelInfo, type ProfileStats } from '@/entities/user/index.js';
 
 interface Props {
 	stats: ProfileStats | null;

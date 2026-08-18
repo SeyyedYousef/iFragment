@@ -1,9 +1,9 @@
 import { Component, createSignal, Match, onCleanup, onMount, Show, Switch } from 'solid-js';
-import { collectOfflineMining, startOfflineMining } from '@/shared/api/profile.js';
+import { collectOfflineMining, startOfflineMining } from '@/entities/user/index.js';
 import { t } from '@/shared/i18n/index.js';
-import { syncProfileStats } from '@/shared/store/airdrop.js';
+import { syncProfileStats } from '@/entities/airdrop/index.js';
 import { BottomNav } from '@/widgets/bottom-nav/index.js';
-import { BoostersView } from './BoostersView.js';
+import { BoostersView } from '@/widgets/airdrop-boosters/index.js';
 import { ClanView } from './ClanView.js';
 import { FrensView } from './FrensView.js';
 import { LeaderboardView } from './LeaderboardView.js';

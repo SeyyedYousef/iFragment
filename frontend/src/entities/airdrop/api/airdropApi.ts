@@ -1,7 +1,9 @@
-import { getLeaderboard } from '@/shared/api/profile.js';
-import { LEAGUES, LeaderEntry } from '@/shared/store/airdrop.js';
+import { getLeaderboard } from '@/entities/user/index.js';
+import { type LeaderEntry, LEAGUES } from '../model/types.js';
 
-export const fetchLeaderboard = async (period?: string | unknown): Promise<{
+export const fetchLeaderboard = async (
+	period?: string | unknown,
+): Promise<{
 	leaderboard: LeaderEntry[];
 	total_miners: number;
 }> => {
@@ -11,7 +13,6 @@ export const fetchLeaderboard = async (period?: string | unknown): Promise<{
 		if (!response?.leaderboard) return { leaderboard: [], total_miners: 0 };
 
 		const entries = response.leaderboard.map((m) => {
-			// Determine league based on score/xp
 			let league = LEAGUES[0];
 			for (const l of LEAGUES) {
 				if (m.xp >= l.minScore) league = l;

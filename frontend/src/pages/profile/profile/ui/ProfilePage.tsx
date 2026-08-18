@@ -3,19 +3,21 @@ import { useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
 import { backButton } from '@tma.js/sdk-solid';
 import { Component, createSignal, ErrorBoundary, For, onMount, Show } from 'solid-js';
-import { useSecretTrigger } from '@/features/owner-gate/lib/useSecretTrigger.js';
-import { getProfileAchievements, getProfileStats } from '@/shared/api/profile.js';
+import { useSecretTrigger } from '@/features/owner-gate/index.js';
+import { getProfileAchievements, getProfileStats, setProfilePhotoUrl } from '@/entities/user/index.js';
 import { locale, setLocale, t } from '@/shared/i18n/index.js';
-import { setProfilePhotoUrl } from '@/shared/store/profile.js';
-import { ErrorFallback } from '@/shared/ui/ErrorFallback.js';
-import { SkeletonProfile } from '@/shared/ui/Skeleton.js';
+import { ErrorFallback, SkeletonProfile } from '@/shared/ui/index.js';
 import { BottomNav } from '@/widgets/bottom-nav/index.js';
-import { OwnerGateModal } from '@/widgets/owner/OwnerGateModal.js';
-import { AchievementPreview } from '@/widgets/profile/AchievementPreview.js';
-import { ExperienceCard } from '@/widgets/profile/ExperienceCard.js';
-import { BoostsCard, LeaderboardCard, QuestCard } from '@/widgets/profile/GamificationHub.js';
-import { IdentityHero } from '@/widgets/profile/IdentityHero.js';
-import { StatsDashboard } from '@/widgets/profile/StatsDashboard.js';
+import { OwnerGateModal } from '@/widgets/owner/index.js';
+import {
+	AchievementPreview,
+	BoostsCard,
+	ExperienceCard,
+	IdentityHero,
+	LeaderboardCard,
+	QuestCard,
+	StatsDashboard,
+} from '@/widgets/profile/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 export const ProfilePage: Component = () => {

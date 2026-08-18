@@ -14,8 +14,8 @@ import {
 	viewport,
 } from '@tma.js/sdk-solid';
 
-import { initStorageSync } from '@/shared/store/airdrop.js';
-import { initProfileSync, profileSettings } from '@/shared/store/profile.js';
+import { initStorageSync } from '@/entities/airdrop/index.js';
+import { initProfileSync, profileSettings } from '@/entities/user/index.js';
 
 /**
  * Initializes the application and configures its dependencies.

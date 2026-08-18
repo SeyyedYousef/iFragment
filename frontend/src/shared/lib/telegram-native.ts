@@ -3,37 +3,16 @@
  * Typed, safe wrappers for all TG WebApp methods used in the profile section.
  */
 
-import { profileSettings } from '@/shared/store/profile.js';
+import { haptic } from './haptic.js';
+export { haptic };
 
 const getWebApp = () => (window as any).Telegram?.WebApp;
-
-// ─── Haptic Feedback ───
-export const haptic = {
-	impact: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft' = 'medium') => {
-		if (!profileSettings().hapticEnabled) return;
-		try {
-			getWebApp()?.HapticFeedback?.impactOccurred(style);
-		} catch {}
-	},
-	notification: (type: 'error' | 'success' | 'warning' = 'success') => {
-		if (!profileSettings().hapticEnabled) return;
-		try {
-			getWebApp()?.HapticFeedback?.notificationOccurred(type);
-		} catch {}
-	},
-	selection: () => {
-		if (!profileSettings().hapticEnabled) return;
-		try {
-			getWebApp()?.HapticFeedback?.selectionChanged();
-		} catch {}
-	},
-};
 
 // ─── Clipboard ───
 export const copyToClipboard = async (text: string): Promise<boolean> => {
 	try {
 		await navigator.clipboard.writeText(text);
-		haptic.notification('success');
+		haptic.notify('success');
 		return true;
 	} catch {
 		// Fallback for older browsers
@@ -45,7 +24,7 @@ export const copyToClipboard = async (text: string): Promise<boolean> => {
 		textarea.select();
 		document.execCommand('copy');
 		document.body.removeChild(textarea);
-		haptic.notification('success');
+		haptic.notify('success');
 		return true;
 	}
 };

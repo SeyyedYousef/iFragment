@@ -1,5 +1,6 @@
 import { Component, createResource, Show } from 'solid-js';
-import { channelApi, type ManagedChannel } from '@/shared/api/channel-management.js';
+import { channelApi } from '../api/channelApi.js';
+import type { ManagedChannel } from '../model/types.js';
 import { isRtl } from '@/shared/i18n/index.js';
 
 interface ChannelContextBarProps {

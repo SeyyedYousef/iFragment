@@ -5,7 +5,6 @@ import { haptic } from '@/shared/lib/haptic.js';
 import {
 	activateTurbo,
 	balance,
-	creditExpiresInDays,
 	currentLeague,
 	energy,
 	globalRank,
@@ -15,7 +14,7 @@ import {
 	recordTaps,
 	tapPower,
 	userClan,
-} from '@/shared/store/airdrop.js';
+} from '@/entities/airdrop/index.js';
 import { ShopView } from './ShopView.js';
 
 interface CanvasParticle {
@@ -455,22 +454,6 @@ export const TapView: Component<{
 						chevron_right
 					</span>
 				</div>
-			</button>
-
-			{/* Discount Voucher Badge / Shop Trigger */}
-			<button
-				type="button"
-				onClick={() => props.onShopClick?.()}
-				class="flex items-center gap-2 mb-2 px-3 py-1.5 rounded-[14px] bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-amber-500/15 border border-amber-500/25 active:scale-95 transition-all shadow-[0_4px_16px_rgba(245,158,11,0.15)] relative z-20"
-			>
-				<span class="text-[14px]">🎟️</span>
-				<span class="text-amber-300 font-black text-[11.5px] tracking-tight">
-					تا ۷۵٪ تخفیف در فروشگاه خدمات
-				</span>
-				<span class="text-white/40 text-[10px] font-mono border-s border-white/10 ps-2">
-					اعتبار: {creditExpiresInDays()} روز
-				</span>
-				<span class="material-symbols-outlined text-amber-400/70 text-[14px]">chevron_left</span>
 			</button>
 
 			{/* 4. The Hero Glowing Tap Coin (Perfectly Centered via flex-1) */}

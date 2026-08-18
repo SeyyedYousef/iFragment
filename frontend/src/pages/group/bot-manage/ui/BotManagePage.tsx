@@ -2,11 +2,14 @@ import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton, openTelegramLink } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
-import type { ManagedGroup, SubscriptionPackage } from '@/shared/api/bot-management.js';
-import { botApi, groupApi, subscriptionApi } from '@/shared/api/bot-management.js';
-import { channelApi } from '@/shared/api/channel-management.js';
+import { botApi, type SubscriptionPackage, subscriptionApi } from '@/entities/bot/index.js';
+import { groupApi, type ManagedGroup } from '@/entities/group/index.js';
+import { channelApi } from '@/entities/channel/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
+import { balance } from '@/entities/airdrop/index.js';
+import { calculateDiscountForPlan } from '@/shared/lib/stars-calculator.js';
+import { PaymentDiscountCard } from '@/shared/ui/payment-discount/PaymentDiscountCard.js';
 
 const GroupAvatar: Component<{ photoUrl?: string; title?: string; sizeClass?: string; textClass?: string }> = (props) => {
 	const [imgFailed, setImgFailed] = createSignal(false);
@@ -37,6 +40,8 @@ export const BotManagePage: Component = () => {
 	const [paymentStep, setPaymentStep] = createSignal<'package' | 'method'>('package');
 	const [selectedGroup, setSelectedGroup] = createSignal<string>('');
 	const [selectedPkg, setSelectedPkg] = createSignal<string>('');
+	const [isDiscountEnabled, setIsDiscountEnabled] = createSignal(false);
+	const [discountPercent, setDiscountPercent] = createSignal<20 | 35 | 50 | 70>(50);
 	const [isProcessing, setIsProcessing] = createSignal(false);
 	const [successMsg, setSuccessMsg] = createSignal('');
 	const [errorMsg, setErrorMsg] = createSignal('');
@@ -73,23 +78,6 @@ export const BotManagePage: Component = () => {
 		haptic.impact('light');
 	};
 
-	const handleSubscribeAirdrop = async () => {
-		if (!selectedPkg() || !selectedGroup()) return;
-		setIsProcessing(true); setErrorMsg('');
-		try {
-			await subscriptionApi.subscribeWithAirdrop(selectedGroup(), selectedPkg());
-			haptic.notify('success');
-			setSuccessMsg(t('botManage.subscriptionSuccess' as any) || 'Subscription activated successfully!');
-			setShowSubscription(false);
-			refetchGroups();
-		} catch (e: any) {
-			setErrorMsg(e?.response?.data?.error || 'Payment failed');
-			haptic.notify('error');
-		} finally {
-			setIsProcessing(false);
-			setTimeout(() => { setSuccessMsg(''); setErrorMsg(''); }, 4000);
-		}
-	};
 
 	const handleDeleteGroup = async () => {
 		const group = groupToDelete();
@@ -111,7 +99,8 @@ export const BotManagePage: Component = () => {
 		if (!selectedPkg() || !selectedGroup()) return;
 		setIsProcessing(true); setErrorMsg('');
 		try {
-			const res = await subscriptionApi.createSubscriptionStarsInvoice(selectedGroup(), selectedPkg());
+			const percent = isDiscountEnabled() ? discountPercent() : 0;
+			const res = await subscriptionApi.createSubscriptionStarsInvoice(selectedGroup(), selectedPkg(), percent);
 			if (res.invoice_link) {
 				const tg = (window as any).Telegram?.WebApp;
 				if (tg?.openInvoice) {
@@ -360,65 +349,62 @@ export const BotManagePage: Component = () => {
 							</>
 						) : (
 							<>
-								<div class="flex items-center gap-4 mb-8">
+								<div class="flex items-center gap-4 mb-6">
 									<button onClick={() => setPaymentStep('package')} class="w-10 h-10 rounded-[12px] bg-white/5 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all text-white/70">
 										<span class="material-symbols-outlined text-[22px] rtl:-scale-x-100">arrow_back</span>
 									</button>
 									<div class="flex flex-col">
 										<h3 class="text-[20px] font-black text-white leading-tight tracking-tight">{t('botManage.paymentMethodTitle' as any) || 'Payment Method'}</h3>
-										<p class="text-[12px] font-medium text-white/50">{t('botManage.paymentMethodDesc' as any) || 'Choose how you want to pay'}</p>
+										<p class="text-[12px] font-medium text-white/50">{t('botManage.paymentMethodDesc' as any) || 'Choose your options and pay with Telegram Stars'}</p>
 									</div>
 								</div>
 
 								<Show when={packages() && selectedPkg()}>
 									{(() => {
 										const pkg = (packages() || []).find((p: SubscriptionPackage) => p.id === selectedPkg());
-										return pkg ? (
-											<div class="bg-[#08090D] rounded-[20px] p-5 mb-6 border border-white/5 flex items-center justify-between shadow-inner">
-												<div class="flex flex-col gap-1">
-													<span class="text-[16px] font-black text-white">{pkg.name}</span>
-													<span class="text-[12px] font-mono text-white/50">${pkg.price_per_month.toFixed(2)}/mo</span>
+										if (!pkg) return null;
+										const calc = () => calculateDiscountForPlan(pkg.price_usd, isDiscountEnabled() ? discountPercent() : 0, pkg.price_stars);
+
+										return (
+											<div class="space-y-4">
+												{/* Plan Summary Card */}
+												<div class="bg-[#08090D] rounded-[20px] p-5 border border-white/5 flex items-center justify-between shadow-inner">
+													<div class="flex flex-col gap-1">
+														<span class="text-[16px] font-black text-white">{pkg.name}</span>
+														<span class="text-[12px] font-mono text-white/50">${pkg.price_per_month.toFixed(2)}/mo</span>
+													</div>
+													<div class="flex flex-col items-end gap-1">
+														<span class="text-[20px] font-black font-mono text-white tracking-tight">${calc().finalUsd.toFixed(2)}</span>
+														<span class="text-[11px] font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-[6px] border border-amber-400/20">{calc().finalStars} STARS ⭐</span>
+													</div>
 												</div>
-												<div class="flex flex-col items-end gap-1">
-													<span class="text-[20px] font-black font-mono text-white tracking-tight">${pkg.price_usd.toFixed(2)}</span>
-													<span class="text-[11px] font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-[6px] border border-amber-400/20">{pkg.price_stars} STARS</span>
-												</div>
+
+												{/* Coin Discount Toggle & Tier Selector */}
+												<PaymentDiscountCard
+													baseUsd={pkg.price_usd}
+													baseStars={pkg.price_stars}
+													userCoins={balance()}
+													isDiscountEnabled={isDiscountEnabled()}
+													selectedPercent={discountPercent()}
+													onToggleDiscount={(enabled) => setIsDiscountEnabled(enabled)}
+													onSelectPercent={(percent) => setDiscountPercent(percent)}
+												/>
+
+												{/* Pay Action Button */}
+												<button
+													onClick={handleSubscribeStars}
+													disabled={isProcessing()}
+													class="w-full h-15 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-500 text-black font-black text-[15px] uppercase tracking-wider rounded-[20px] shadow-[0_10px_25px_rgba(245,158,11,0.3)] transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2.5 mt-2"
+												>
+													<span class="text-[20px]">⭐</span>
+													<span>
+														{t('botManage.payWithStars' as any) || 'Pay with Stars'} ({calc().finalStars} ⭐)
+													</span>
+												</button>
 											</div>
-										) : null;
+										);
 									})()}
 								</Show>
-
-								<div class="space-y-3.5">
-									<button onClick={handleSubscribeStars} disabled={isProcessing()} class="w-full relative group overflow-hidden bg-[#08090D] border border-amber-400/20 hover:border-amber-400/50 rounded-[24px] p-4.5 text-left transition-all active:scale-[0.98] disabled:opacity-50 shadow-md">
-										<div class="absolute -right-6 -top-6 w-24 h-24 bg-amber-400/10 rounded-full blur-2xl group-hover:bg-amber-400/20 transition-all pointer-events-none" />
-										<div class="relative flex items-center justify-between gap-3 z-10 w-full">
-											<div class="flex items-center gap-4 flex-1 min-w-0">
-												<div class="w-12 h-12 rounded-[16px] bg-amber-400/10 border border-amber-400/30 flex items-center justify-center shrink-0 shadow-inner">
-													<span class="material-symbols-outlined text-amber-400 text-[26px]">star</span>
-												</div>
-												<div class="flex flex-col text-start min-w-0">
-													<h4 class="text-[15px] font-black text-white truncate">{t('botManage.starsPayTitle' as any) || 'Telegram Stars'}</h4>
-													<span class="text-[11px] font-medium text-white/50 mt-0.5 truncate">{t('botManage.starsPayDesc' as any) || 'Native fast payment'}</span>
-												</div>
-											</div>
-										</div>
-									</button>
-
-									<button onClick={handleSubscribeAirdrop} disabled={isProcessing()} class="w-full relative group overflow-hidden bg-[#08090D] border border-cyan-400/20 hover:border-cyan-400/50 rounded-[24px] p-4.5 text-left transition-all active:scale-[0.98] disabled:opacity-50 shadow-md">
-										<div class="absolute -right-6 -top-6 w-24 h-24 bg-cyan-400/10 rounded-full blur-2xl group-hover:bg-cyan-400/20 transition-all pointer-events-none" />
-										<div class="relative flex items-center justify-between gap-3 z-10 w-full">
-											<div class="flex items-center gap-4 flex-1 min-w-0">
-												<div class="w-12 h-12 rounded-[16px] bg-cyan-400/10 border border-cyan-400/30 flex items-center justify-center shrink-0 shadow-inner">
-													<span class="material-symbols-outlined text-cyan-400 text-[26px]">toll</span>
-												</div>
-												<div class="flex flex-col text-start min-w-0">
-													<h4 class="text-[15px] font-black text-white truncate">{t('botManage.airdropPayTitle' as any) || 'Airdrop Coins'}</h4>
-													<span class="text-[11px] font-medium text-white/50 mt-0.5 truncate">{t('botManage.airdropPayDesc' as any) || 'Use your mined balance'}</span>
-												</div>
-											</div>
-										</div>
-									</button>
-								</div>
 							</>
 						)}
 

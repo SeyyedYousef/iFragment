@@ -4,7 +4,7 @@ import { backButton, openLink, openTelegramLink } from '@tma.js/sdk-solid';
 import { toPng } from 'html-to-image';
 import { Component, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { apiFetch } from '@/shared/api/base.js';
-import { valuationApi } from '@/shared/api/bot-management.js';
+import { valuationApi } from '@/entities/username/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { cloudStorage } from '@/shared/lib/cloud-storage.js';
 import {

@@ -11,7 +11,7 @@ import {
 	Suspense,
 } from 'solid-js';
 import { createStore, reconcile } from 'solid-js/store';
-import { groupApi } from '@/shared/api/bot-management.js';
+import { groupApi } from '@/entities/group/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 import { NumberInputField } from '@/shared/ui/settings-controls.js';

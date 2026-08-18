@@ -755,13 +755,38 @@ func (s *OwnerService) GetSystemHealthMetrics(ctx context.Context) (model.System
 	runtime.ReadMemStats(&m)
 	metrics.AllocatedMB = m.Alloc / 1024 / 1024
 	metrics.TotalSysMB = m.Sys / 1024 / 1024
+	metrics.MemoryUsedMB = metrics.AllocatedMB
 	metrics.Goroutines = runtime.NumGoroutine()
+	metrics.ActiveGoroutines = metrics.Goroutines
 
-	// Check DB Ping
+	// Check DB Ping & measure latency
+	dbStart := time.Now()
 	if err := s.repo.DB().Pool.Ping(ctx); err != nil {
-		metrics.DBStatus = "disconnected"
+		metrics.DBStatus = "down"
+		metrics.DBLatencyMS = 0
 	} else {
-		metrics.DBStatus = "healthy"
+		metrics.DBStatus = "ok"
+		lat := time.Since(dbStart).Milliseconds()
+		if lat <= 0 {
+			lat = 1
+		}
+		metrics.DBLatencyMS = lat
+	}
+
+	// Check Dragonfly / Redis Ping
+	if s.cache != nil && s.cache.Client != nil {
+		if err := s.cache.Client.Ping(ctx).Err(); err != nil {
+			metrics.RedisStatus = "down"
+		} else {
+			metrics.RedisStatus = "ok"
+		}
+	} else {
+		metrics.RedisStatus = "down"
+	}
+
+	// Recent errors count
+	if errs, err := s.repo.GetSystemErrors(ctx, 100); err == nil {
+		metrics.RecentErrorsCount = len(errs)
 	}
 
 	return metrics, nil

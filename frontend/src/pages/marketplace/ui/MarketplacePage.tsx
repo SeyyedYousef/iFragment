@@ -1,9 +1,9 @@
 import { backButton } from '@tma.js/sdk-solid';
 import { Component, createEffect, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
-import { marketplaceApi, PurchaseOption } from '@/shared/api/bot-management.js';
+import { marketplaceApi, type PurchaseOption } from '@/entities/user/index.js';
 import { t } from '@/shared/i18n/index.js';
 import { openInvoice } from '@/shared/lib/telegram-native.js';
-import { balance, frgBalance, syncProfileStats } from '@/shared/store/airdrop.js';
+import { balance, frgBalance, syncProfileStats } from '@/entities/airdrop/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 export const MarketplacePage: Component = () => {

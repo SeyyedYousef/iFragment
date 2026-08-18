@@ -137,6 +137,18 @@ func (s *GamificationService) flushTapBatches(ctx context.Context) {
 			total_coins_earned = total_coins_earned + $2
 		WHERE user_id = $1
 	`
+
+	var pipe redis.Pipeliner
+	if s.cache != nil && s.cache.Client != nil {
+		pipe = s.cache.Client.Pipeline()
+	}
+
+	now := time.Now().UTC()
+	dayKey := fmt.Sprintf("leaderboard:daily:%s", now.Format("2006-01-02"))
+	year, week := now.ISOWeek()
+	weekKey := fmt.Sprintf("leaderboard:weekly:%d-W%02d", year, week)
+	hasUpdates := false
+
 	for userIDStr, tapCountStr := range taps {
 		userID, err := strconv.ParseInt(userIDStr, 10, 64)
 		if err != nil {
@@ -150,30 +162,28 @@ func (s *GamificationService) flushTapBatches(ctx context.Context) {
 		_, err = tx.Exec(ctx, stmt, userID, tapCount)
 		if err != nil {
 			slog.Error("failed to update taps in db", "user", userID, "err", err)
-		} else {
-			// Update Leaderboard ZSETs (all-time, daily dated, weekly dated)
-			now := time.Now().UTC()
-			dayKey := fmt.Sprintf("leaderboard:daily:%s", now.Format("2006-01-02"))
-			year, week := now.ISOWeek()
-			weekKey := fmt.Sprintf("leaderboard:weekly:%d-W%02d", year, week)
-
-			s.cache.Client.ZIncrBy(ctx, "leaderboard", float64(tapCount), userIDStr)
-			s.cache.Client.ZIncrBy(ctx, "leaderboard:all", float64(tapCount), userIDStr)
-
-			pipe := s.cache.Client.Pipeline()
+		} else if pipe != nil {
+			hasUpdates = true
+			pipe.ZIncrBy(ctx, "leaderboard", float64(tapCount), userIDStr)
+			pipe.ZIncrBy(ctx, "leaderboard:all", float64(tapCount), userIDStr)
 			pipe.ZIncrBy(ctx, dayKey, float64(tapCount), userIDStr)
-			pipe.Expire(ctx, dayKey, 48*time.Hour)
 			pipe.ZIncrBy(ctx, weekKey, float64(tapCount), userIDStr)
-			pipe.Expire(ctx, weekKey, 14*24*time.Hour)
 			pipe.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
-			_, _ = pipe.Exec(ctx)
+		}
+	}
+
+	if pipe != nil && hasUpdates {
+		pipe.Expire(ctx, dayKey, 48*time.Hour)
+		pipe.Expire(ctx, weekKey, 14*24*time.Hour)
+		if _, err := pipe.Exec(ctx); err != nil {
+			slog.Error("failed to execute batched leaderboard pipeline", "err", err)
 		}
 	}
 
 	err = tx.Commit(ctx)
 	if err != nil {
 		slog.Error("failed to commit tap batch tx", "err", err)
-	} else {
+	} else if s.cache != nil && s.cache.Client != nil {
 		// Clean up processing key
 		s.cache.Client.Del(ctx, processingKey)
 	}

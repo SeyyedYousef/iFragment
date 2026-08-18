@@ -1,6 +1,6 @@
 import { useNavigate } from '@solidjs/router';
 import { Component, createSignal, JSX, onMount, Show } from 'solid-js';
-import { OwnerGateModal } from '@/widgets/owner/OwnerGateModal.js';
+import { OwnerGateModal } from '@/widgets/owner/index.js';
 import { isJwtExpired } from '@/shared/lib/jwt.js';
 
 interface OwnerRouteGuardProps {

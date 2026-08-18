@@ -1,7 +1,7 @@
 import { Motion } from '@motionone/solid';
 import { backButton } from '@tma.js/sdk-solid';
 import { Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
-import { deleteAccountGDPR } from '@/shared/api/profile.js';
+import { deleteAccountGDPR, profileSettings, updateSetting } from '@/entities/user/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import {
 	biometric,
@@ -9,7 +9,6 @@ import {
 	showAlert,
 	showConfirm,
 } from '@/shared/lib/telegram-native.js';
-import { profileSettings, updateSetting } from '@/shared/store/profile.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 export const SecurityPage: Component = () => {

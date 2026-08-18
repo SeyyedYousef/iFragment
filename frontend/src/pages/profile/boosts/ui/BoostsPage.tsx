@@ -1,7 +1,7 @@
 import { useNavigate } from '@solidjs/router';
 import { backButton } from '@tma.js/sdk-solid';
 import { Component, onCleanup, onMount } from 'solid-js';
-import { BoostersView } from '@/pages/airdrop/airdrop/ui/BoostersView.js';
+import { BoostersView } from '@/widgets/airdrop-boosters/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 

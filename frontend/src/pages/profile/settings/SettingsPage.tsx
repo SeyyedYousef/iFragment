@@ -3,8 +3,8 @@ import { Component, Show } from 'solid-js';
 import { isRtl, locale, setLocale, t } from '@/shared/i18n/index.js';
 import { requestWriteAccess } from '@/shared/lib/telegram-native.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
-import { profileSettings, updateNotification, updateSetting } from '@/shared/store/profile.js';
-import { ToggleSwitch } from '@/shared/ui/ToggleSwitch.js';
+import { profileSettings, updateNotification, updateSetting } from '@/entities/user/index.js';
+import { ToggleSwitch } from '@/shared/ui/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 export const SettingsPage: Component = () => {

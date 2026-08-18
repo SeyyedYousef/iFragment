@@ -1,12 +1,11 @@
 import { createQuery } from '@tanstack/solid-query';
 import { openTelegramLink } from '@tma.js/sdk-solid';
 import { Component, createSignal, For, Show } from 'solid-js';
-import { fetchLeaderboard } from '@/shared/api/airdrop.js';
+import { fetchLeaderboard, LEAGUES, userClan } from '@/entities/airdrop/index.js';
 import { API_CONFIG } from '@/shared/api/config.js';
-import { getProfileStats, getTopClans } from '@/shared/api/profile.js';
+import { getProfileStats, getTopClans } from '@/entities/user/index.js';
 import { t } from '@/shared/i18n/index.js';
 import { cleanTelegramUsername, formatScore } from '@/shared/lib/formatters.js';
-import { LEAGUES, userClan } from '@/shared/store/airdrop.js';
 
 export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = (props) => {
 	const [selectedLeagueIndex, setSelectedLeagueIndex] = createSignal(0);

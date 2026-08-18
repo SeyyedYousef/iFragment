@@ -1,7 +1,7 @@
 import * as i18n from '@solid-primitives/i18n';
 import { initData } from '@tma.js/sdk-solid';
 import { createContext, createEffect, createRoot, createSignal, useContext } from 'solid-js';
-import { setLanguage } from '@/shared/api/profile.js';
+import { apiFetch } from '@/shared/api/base.js';
 
 import { dict as en } from './en.js';
 
@@ -84,7 +84,11 @@ export const setLocale = (newLocale: Locale) => {
 	localStorage.setItem('user_selected_locale', newLocale);
 	rawSetLocale(newLocale);
 	loadDictionary(newLocale);
-	setLanguage(newLocale).catch(console.error);
+	apiFetch('/profile/language', {
+		method: 'POST',
+		body: JSON.stringify({ language: newLocale }),
+		headers: { 'Content-Type': 'application/json' },
+	}).catch(console.error);
 };
 
 export const isRtl = () => RTL_LOCALES.includes(getLocale());

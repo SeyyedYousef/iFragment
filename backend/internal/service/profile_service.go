@@ -83,12 +83,12 @@ func (s *ProfileService) getBotAPIClient(ctx context.Context) (*telegram.BotAPIC
 		return telegram.NewBotAPIClient(token), nil
 	}
 
-	if s.db == nil || s.db.Pool == nil {
+	if s.db == nil {
 		return nil, fmt.Errorf("no database connection")
 	}
 
-	var encryptedToken []byte
-	err := s.db.Pool.QueryRow(ctx, "SELECT bot_token_encrypted FROM managed_bots WHERE status = 'active' LIMIT 1").Scan(&encryptedToken)
+	botRepo := repository.NewBotRepo(s.db)
+	encryptedToken, err := botRepo.GetActiveBotEncryptedToken(ctx)
 	if err == nil && len(encryptedToken) > 0 {
 		token, err := botmgmt.DecryptToken(encryptedToken)
 		if err == nil {

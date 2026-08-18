@@ -3,29 +3,15 @@ package repository
 import (
 	"context"
 	"fmt"
-	"time"
+
+	"ifragment-backend/internal/model"
 
 	"github.com/jackc/pgx/v5"
 )
 
-type DailyClaimState struct {
-	UserID        int64      `json:"user_id"`
-	LastClaimedAt *time.Time `json:"last_claimed_at"`
-	Streak        int        `json:"streak"`
-}
-
-type UserBoosts struct {
-	UserID           int64 `json:"user_id"`
-	MultitapLevel    int   `json:"multitap_level"`
-	EnergyLimitLevel int   `json:"energy_limit_level"`
-	TapBotLevel      int   `json:"tap_bot_level"`
-}
-
-type UserTask struct {
-	TaskKey     string     `json:"task_key"`
-	Completed   bool       `json:"completed"`
-	CompletedAt *time.Time `json:"completed_at,omitempty"`
-}
+type DailyClaimState = model.DailyClaimState
+type UserBoosts = model.UserBoosts
+type UserTask = model.UserTask
 
 // GetDailyClaimState returns the user's daily login reward claim status
 func (db *Database) GetDailyClaimState(ctx context.Context, userID int64) (*DailyClaimState, error) {

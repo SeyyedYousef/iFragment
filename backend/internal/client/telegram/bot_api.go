@@ -879,6 +879,41 @@ func (c *BotAPIClient) LeaveChat(ctx context.Context, chatID interface{}) error 
 	return err
 }
 
+// UnpinChatMessage unpins a message in a chat
+func (c *BotAPIClient) UnpinChatMessage(ctx context.Context, chatID interface{}, messageID int) error {
+	payload := map[string]interface{}{
+		"chat_id": chatID,
+	}
+	if messageID > 0 {
+		payload["message_id"] = messageID
+	}
+	_, err := c.Request(ctx, "unpinChatMessage", payload)
+	return err
+}
+
+// UnpinAllChatMessages unpins all messages in a chat
+func (c *BotAPIClient) UnpinAllChatMessages(ctx context.Context, chatID interface{}) error {
+	_, err := c.Request(ctx, "unpinAllChatMessages", map[string]interface{}{
+		"chat_id": chatID,
+	})
+	return err
+}
+
+// ExportChatInviteLink generates a new primary invite link for a chat
+func (c *BotAPIClient) ExportChatInviteLink(ctx context.Context, chatID interface{}) (string, error) {
+	resp, err := c.Request(ctx, "exportChatInviteLink", map[string]interface{}{
+		"chat_id": chatID,
+	})
+	if err != nil {
+		return "", err
+	}
+	var link string
+	err = json.Unmarshal(resp, &link)
+	return link, err
+}
+
+
+
 // EditMessageReplyMarkup edits the reply markup of a message
 func (c *BotAPIClient) EditMessageReplyMarkup(ctx context.Context, chatID interface{}, messageID int, markup interface{}) error {
 	payload := map[string]interface{}{

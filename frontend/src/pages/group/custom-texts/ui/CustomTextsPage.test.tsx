@@ -1,6 +1,6 @@
 import { render, screen } from '@solidjs/testing-library';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { groupApi } from '@/shared/api/bot-management.js';
+import { groupApi } from '@/entities/group/index.js';
 import { CustomTextsPage } from './CustomTextsPage.js';
 
 vi.mock('@solidjs/router', () => ({
@@ -8,7 +8,7 @@ vi.mock('@solidjs/router', () => ({
 	useNavigate: () => vi.fn(),
 }));
 
-vi.mock('@/shared/api/bot-management.js', () => ({
+vi.mock('@/entities/group/index.js', () => ({
 	groupApi: {
 		getSettings: vi.fn(),
 		updateSettings: vi.fn(),

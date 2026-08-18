@@ -4,13 +4,13 @@ import { Component, createSignal, For, Show } from 'solid-js';
 import {
 	claimDailyCombo,
 	completeTask,
-	DailyComboStatus,
+	type DailyComboStatus,
 	getDailyComboStatus,
 	getTasksStatus,
-	TaskStatus,
-} from '@/shared/api/profile.js';
+	type TaskStatus,
+} from '@/entities/user/index.js';
 import { t } from '@/shared/i18n/index.js';
-import { syncProfileStats } from '@/shared/store/airdrop.js';
+import { syncProfileStats } from '@/entities/airdrop/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 export const TasksView: Component = () => {

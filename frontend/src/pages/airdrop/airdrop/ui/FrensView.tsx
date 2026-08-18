@@ -1,7 +1,7 @@
 import { createQuery } from '@tanstack/solid-query';
 
 import { Component, createSignal, For, Show } from 'solid-js';
-import { getReferralInfo } from '@/shared/api/profile.js';
+import { getReferralInfo } from '@/entities/user/index.js';
 import { PROFILE_CONFIG } from '@/shared/config/profile.js';
 import { formatCoins, formatNumber, t } from '@/shared/i18n/index.js';
 import { openTelegramLink } from '@/shared/lib/telegram-native.js';

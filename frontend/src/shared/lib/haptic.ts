@@ -1,5 +1,14 @@
 import { hapticFeedback } from '@tma.js/sdk-solid';
-import { profileSettings } from '@/shared/store/profile.js';
+
+const isHapticEnabled = (): boolean => {
+	try {
+		const s = localStorage.getItem('profile_settings');
+		if (s) {
+			return JSON.parse(s)?.hapticEnabled !== false;
+		}
+	} catch {}
+	return true;
+};
 
 type Impact = 'light' | 'medium' | 'heavy' | 'rigid' | 'soft';
 type Notif = 'success' | 'warning' | 'error';
@@ -7,7 +16,7 @@ type Notif = 'success' | 'warning' | 'error';
 /** Setting-aware wrapper. Use this everywhere instead of raw hapticFeedback. */
 export const haptic = {
 	impact(style: Impact = 'light') {
-		if (!profileSettings().hapticEnabled) return;
+		if (!isHapticEnabled()) return;
 		try {
 			if ((window as any).Telegram?.WebApp?.HapticFeedback) {
 				(window as any).Telegram.WebApp.HapticFeedback.impactOccurred(style);
@@ -17,7 +26,7 @@ export const haptic = {
 		} catch {}
 	},
 	notify(type: Notif) {
-		if (!profileSettings().hapticEnabled) return;
+		if (!isHapticEnabled()) return;
 		try {
 			if ((window as any).Telegram?.WebApp?.HapticFeedback) {
 				(window as any).Telegram.WebApp.HapticFeedback.notificationOccurred(type);
@@ -27,7 +36,7 @@ export const haptic = {
 		} catch {}
 	},
 	selection() {
-		if (!profileSettings().hapticEnabled) return;
+		if (!isHapticEnabled()) return;
 		try {
 			if ((window as any).Telegram?.WebApp?.HapticFeedback) {
 				(window as any).Telegram.WebApp.HapticFeedback.selectionChanged();

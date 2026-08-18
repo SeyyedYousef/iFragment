@@ -1,5 +1,5 @@
 import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
-import { channelApi } from './channel-management.js';
+import { channelApi } from './channelApi.js';
 
 // Query Key Hierarchy for optimal caching and automatic invalidations
 export const channelKeys = {
@@ -34,18 +34,12 @@ export function useUpdateChannelSettings(channelId: () => string) {
 		mutationFn: (variables: { category: string; data: any; version: number }) =>
 			channelApi.updateSettings(channelId(), variables.category, variables.data, variables.version),
 		onSuccess: (data, variables) => {
-			// Update the cache immediately with the new version and data to prevent optimistic lock errors (409)
 			queryClient.setQueryData(channelKeys.settings(channelId()), data);
-
-			// Invalidate target settings category query key to trigger background sync
 			queryClient.invalidateQueries({ queryKey: channelKeys.settings(channelId()) });
 
-			// Check variables.category, and if it is "inline_buttons", automatically invalidate the channel buttons query
 			if (variables.category === 'inline_buttons') {
 				queryClient.invalidateQueries({ queryKey: channelKeys.buttons(channelId()) });
 			}
-
-			// Invalidate the channel detail query to refresh overall stats dashboards
 			queryClient.invalidateQueries({ queryKey: channelKeys.detail(channelId()) });
 		},
 	}));

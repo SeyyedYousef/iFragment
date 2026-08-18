@@ -1,7 +1,7 @@
 import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
 
 import { Component, createSignal, For, Show } from 'solid-js';
-import { AdminDailyCombo, ownerApi } from '@/shared/api/owner.js';
+import { type AdminDailyCombo, ownerApi } from '@/entities/owner/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 export const OwnerCombos: Component = () => {

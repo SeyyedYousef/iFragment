@@ -36,12 +36,6 @@ import (
 
 var webhookHTTPClient = channelmgmt.SafeHTTPClient(10 * time.Second)
 
-var telegramUpdatePool = sync.Pool{
-	New: func() interface{} {
-		return new(TelegramUpdate)
-	},
-}
-
 type WebhookHandler struct {
 	db              *repository.Database
 	moderator       *botmgmt.ModeratorService
@@ -60,183 +54,6 @@ func NewWebhookHandler(db *repository.Database, moderator *botmgmt.ModeratorServ
 		channelService:  channelService,
 		premiumGroupSvc: botmgmt.NewPremiumGroupService(botRepo, analyticsRepo),
 	}
-}
-
-type TelegramUpdate struct {
-	UpdateID          int                `json:"update_id"`
-	PreCheckoutQuery  *PreCheckoutQuery  `json:"pre_checkout_query"`
-	Message           *Message           `json:"message"`
-	EditedMessage     *Message           `json:"edited_message"`
-	MyChatMember      *ChatMemberUpdated `json:"my_chat_member"`
-	ChatMember        *ChatMemberUpdated `json:"chat_member"`
-	CallbackQuery     *CallbackQuery     `json:"callback_query"`
-	ChannelPost       *Message           `json:"channel_post"`
-	EditedChannelPost *Message           `json:"edited_channel_post"`
-	ChatJoinRequest   *ChatJoinRequest   `json:"chat_join_request"`
-}
-
-type ChatJoinRequest struct {
-	Chat       Chat            `json:"chat"`
-	From       User            `json:"from"`
-	UserChatID int64           `json:"user_chat_id"`
-	Date       int             `json:"date"`
-	Bio        string          `json:"bio,omitempty"`
-	InviteLink *ChatInviteLink `json:"invite_link,omitempty"`
-}
-
-type CallbackQuery struct {
-	ID      string   `json:"id"`
-	From    User     `json:"from"`
-	Message *Message `json:"message"`
-	Data    string   `json:"data"`
-}
-
-type ChatMemberUpdated struct {
-	Chat          Chat            `json:"chat"`
-	From          User            `json:"from"`
-	Date          int             `json:"date"`
-	OldChatMember ChatMember      `json:"old_chat_member"`
-	NewChatMember ChatMember      `json:"new_chat_member"`
-	InviteLink    *ChatInviteLink `json:"invite_link,omitempty"`
-}
-
-type ChatMember struct {
-	User   User   `json:"user"`
-	Status string `json:"status"`
-}
-
-type ChatInviteLink struct {
-	InviteLink string `json:"invite_link"`
-	Name       string `json:"name,omitempty"`
-}
-
-type PreCheckoutQuery struct {
-	ID             string `json:"id"`
-	InvoicePayload string `json:"invoice_payload"`
-	TotalAmount    int    `json:"total_amount"`
-	Currency       string `json:"currency"`
-	From           *User  `json:"from"`
-}
-
-type Chat struct {
-	ID       int64  `json:"id"`
-	Type     string `json:"type"`
-	Title    string `json:"title,omitempty"`
-	Username string `json:"username,omitempty"`
-}
-
-type Message struct {
-	MessageID          int                     `json:"message_id"`
-	MessageThreadID    *int                    `json:"message_thread_id,omitempty"`
-	From               *User                   `json:"from"`
-	Chat               *Chat                   `json:"chat"`
-	Date               int                     `json:"date"`
-	Text               string                  `json:"text"`
-	Caption            string                  `json:"caption"`
-	Photo              []interface{}           `json:"photo"`
-	Sticker            json.RawMessage         `json:"sticker,omitempty"`
-	Location           json.RawMessage         `json:"location,omitempty"`
-	Audio              json.RawMessage         `json:"audio,omitempty"`
-	Voice              json.RawMessage         `json:"voice,omitempty"`
-	Document           json.RawMessage         `json:"document,omitempty"`
-	Animation          json.RawMessage         `json:"animation,omitempty"`
-	Video              json.RawMessage         `json:"video,omitempty"`
-	Poll               json.RawMessage         `json:"poll,omitempty"`
-	Game               json.RawMessage         `json:"game,omitempty"`
-	Entities           []MessageEntity         `json:"entities"`
-	CaptionEntities    []MessageEntity         `json:"caption_entities,omitempty"`
-	ReplyToMessage     *Message                `json:"reply_to_message"`
-	ForwardFrom        *User                   `json:"forward_from,omitempty"`
-	ForwardFromChat    *Chat                   `json:"forward_from_chat"`
-	ViaBot             *User                   `json:"via_bot"`
-	MediaGroupID       string                  `json:"media_group_id,omitempty"`
-	AuthorSignature    string                  `json:"author_signature,omitempty"`
-	ReplyMarkup        json.RawMessage         `json:"reply_markup,omitempty"`
-	SuccessfulPayment  *SuccessfulPayment      `json:"successful_payment"`
-	NewChatMembers     []User                  `json:"new_chat_members"`
-	LeftChatMember     *User                   `json:"left_chat_member"`
-	IsAutomaticForward bool                    `json:"is_automatic_forward,omitempty"`
-	SenderChat         *Chat                   `json:"sender_chat,omitempty"`
-	ReceiverUser       *User                   `json:"receiver_user,omitempty"`
-	EphemeralMessageID telegram.FlexibleString `json:"ephemeral_message_id,omitempty"`
-}
-
-type MessageEntity struct {
-	Type   string `json:"type"`
-	Offset int    `json:"offset"`
-	Length int    `json:"length"`
-	URL    string `json:"url,omitempty"`
-}
-
-type BotPermissions struct {
-	Status             string `json:"status"`
-	CanDeleteMessages  bool   `json:"can_delete_messages"`
-	CanRestrictMembers bool   `json:"can_restrict_members"`
-	CanPromoteMembers  bool   `json:"can_promote_members"`
-	CanChangeInfo      bool   `json:"can_change_info"`
-	CanInviteUsers     bool   `json:"can_invite_users"`
-	CanPinMessages     bool   `json:"can_pin_messages"`
-}
-
-type User struct {
-	ID           int64  `json:"id"`
-	IsBot        bool   `json:"is_bot"`
-	FirstName    string `json:"first_name"`
-	Username     string `json:"username,omitempty"`
-	LanguageCode string `json:"language_code,omitempty"`
-	IsPremium    bool   `json:"is_premium,omitempty"`
-}
-
-type SuccessfulPayment struct {
-	Currency                string `json:"currency"`
-	TotalAmount             int    `json:"total_amount"`
-	InvoicePayload          string `json:"invoice_payload"`
-	TelegramPaymentChargeID string `json:"telegram_payment_charge_id"`
-}
-
-type InlineKeyboardButton struct {
-	Text         string `json:"text"`
-	URL          string `json:"url,omitempty"`
-	CallbackData string `json:"callback_data,omitempty"`
-	Style        string `json:"style,omitempty"`
-}
-
-type InlineKeyboardMarkup struct {
-	InlineKeyboard [][]InlineKeyboardButton `json:"inline_keyboard"`
-}
-
-// Central Worker Pool configuration for asynchronous webhook execution
-type WebhookJob struct {
-	ctx    context.Context
-	bot    *repository.ManagedBot
-	update *TelegramUpdate
-}
-
-var (
-	jobQueue   chan WebhookJob
-	queueOnce  sync.Once
-	maxWorkers = 50 // Handles extremely high concurrent webhook updates
-)
-
-func initWorkerPool(db *repository.Database, mod *botmgmt.ModeratorService, botRepo *repository.BotRepo, chanServ *channelmgmt.ChannelService) {
-	queueOnce.Do(func() {
-		jobQueue = make(chan WebhookJob, 10000)
-		handler := NewWebhookHandler(db, mod, botRepo, chanServ)
-		for i := 0; i < maxWorkers; i++ {
-			go func() {
-				for job := range jobQueue {
-					func() {
-						defer func() {
-							if r := recover(); r != nil {
-								slog.Error("Worker panic recovered during async webhook execution", "panic", r, "stack", string(debug.Stack()))
-							}
-						}()
-						handler.processUpdateAsync(job.ctx, job.bot, job.update)
-					}()
-				}
-			}()
-		}
-	})
 }
 
 func (h *WebhookHandler) processUpdateAsync(parentCtx context.Context, bot *repository.ManagedBot, update *TelegramUpdate) {
@@ -2552,17 +2369,19 @@ func (h *WebhookHandler) handleGroupAdminCommand(ctx context.Context, bot *repos
 	lang := i18n.DetectLanguage(langCode)
 
 	switch cmd {
-	case "/lock":
+	case "/help", "/commands":
+		return h.adminHelp(ctx, tg, m, lang)
+	case "/lock", "/lockdown":
 		return h.adminLock(ctx, bot, tg, m, lang, group.ID)
 	case "/unlock":
 		return h.adminUnlock(ctx, bot, tg, m, lang, group.ID)
-	case "/ban":
+	case "/ban", "/tban":
 		return h.adminBan(ctx, bot, tg, m, lang, group.ID)
 	case "/unban":
 		return h.adminUnban(ctx, bot, tg, m, lang, group.ID)
 	case "/kick":
 		return h.adminKick(ctx, bot, tg, m, lang, group.ID)
-	case "/mute":
+	case "/mute", "/tmute":
 		return h.adminMute(ctx, bot, tg, m, lang, group.ID)
 	case "/unmute":
 		return h.adminUnmute(ctx, bot, tg, m, lang, group.ID)
@@ -2578,12 +2397,20 @@ func (h *WebhookHandler) handleGroupAdminCommand(ctx context.Context, bot *repos
 		return h.adminEphemeral(ctx, bot, tg, m, lang, group.ID)
 	case "/del":
 		return h.adminDel(ctx, tg, m)
-	case "/purge":
+	case "/purge", "/clear":
 		return h.adminPurge(ctx, tg, m, lang)
 	case "/rules":
 		return h.adminRules(ctx, tg, m, lang, group.ID)
 	case "/setrules":
 		return h.adminSetRules(ctx, bot, tg, m, lang, group.ID)
+	case "/welcome":
+		return h.adminWelcome(ctx, tg, m, group.ID)
+	case "/setwelcome":
+		return h.adminSetWelcome(ctx, bot, tg, m, group.ID)
+	case "/settitle", "/title":
+		return h.adminSetTitle(ctx, tg, m)
+	case "/setdesc", "/setdescription", "/description":
+		return h.adminSetDescription(ctx, tg, m)
 	case "/antispam":
 		return h.adminAntispam(ctx, bot, tg, m, lang, group.ID)
 	case "/quiet":
@@ -2599,6 +2426,18 @@ func (h *WebhookHandler) handleGroupAdminCommand(ctx context.Context, bot *repos
 		return h.adminReport(ctx, tg, m, lang, targetUserID)
 	case "/pin":
 		return h.adminPin(ctx, bot, tg, m)
+	case "/unpin":
+		return h.adminUnpin(ctx, bot, tg, m)
+	case "/unpinall":
+		return h.adminUnpinAll(ctx, bot, tg, m)
+	case "/id", "/whois":
+		return h.adminID(ctx, tg, m)
+	case "/ping":
+		return h.adminPing(ctx, tg, m)
+	case "/admins", "/staff":
+		return h.adminAdmins(ctx, tg, m)
+	case "/link", "/invitelink":
+		return h.adminLink(ctx, tg, m)
 	case "/info":
 		return h.adminInfo(ctx, tg, m, lang, group, bot)
 	case "/stats":
@@ -2606,6 +2445,7 @@ func (h *WebhookHandler) handleGroupAdminCommand(ctx context.Context, bot *repos
 	case "/clean":
 		return h.adminClean(ctx, tg, m, lang)
 	}
+
 
 	return false
 }
@@ -3105,7 +2945,248 @@ func (h *WebhookHandler) adminPin(ctx context.Context, bot *repository.ManagedBo
 	return true
 }
 
+func (h *WebhookHandler) adminUnpin(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message) bool {
+	msgID := 0
+	if m.ReplyToMessage != nil {
+		msgID = m.ReplyToMessage.MessageID
+	}
+	err := tg.UnpinChatMessage(ctx, m.Chat.ID, msgID)
+	if err != nil {
+		_ = tg.SendMessage(ctx, m.Chat.ID, "❌ Failed to unpin message.", &m.MessageID, m.MessageThreadID)
+		return true
+	}
+	_ = tg.SendMessage(ctx, m.Chat.ID, "📌 Message unpinned successfully.", &m.MessageID, m.MessageThreadID)
+	return true
+}
+
+func (h *WebhookHandler) adminUnpinAll(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message) bool {
+	err := tg.UnpinAllChatMessages(ctx, m.Chat.ID)
+	if err != nil {
+		_ = tg.SendMessage(ctx, m.Chat.ID, "❌ Failed to unpin all messages.", &m.MessageID, m.MessageThreadID)
+		return true
+	}
+	_ = tg.SendMessage(ctx, m.Chat.ID, "📌 All pinned messages have been unpinned.", &m.MessageID, m.MessageThreadID)
+	return true
+}
+
+func (h *WebhookHandler) adminHelp(ctx context.Context, tg *telegram.BotAPIClient, m *Message, lang string) bool {
+	helpText := `🤖 <b>iFragment Group Bot Commands:</b>
+
+⚙️ <b>Interactive GUI:</b>
+• <code>/settings</code>, <code>/config</code> — Open full in-chat interactive settings menu
+
+🛡️ <b>Moderation & Security:</b>
+• <code>/lock</code>, <code>/lockdown</code> — Close chat / disable member messages
+• <code>/unlock</code> — Open chat / restore member messages
+• <code>/ban</code>, <code>/tban [dur]</code> — Ban user (e.g. <code>/tban 7d</code>)
+• <code>/unban</code> — Unban user
+• <code>/kick</code> — Kick user out of group
+• <code>/mute</code>, <code>/tmute [dur]</code> — Mute user (e.g. <code>/mute 10m</code>, <code>/mute 1h</code>, <code>/mute 7d</code>)
+• <code>/unmute</code> — Unmute user
+• <code>/warn</code> — Issue a warning to member
+• <code>/unwarn</code>, <code>/resetwarns</code> — Reset/remove user warnings
+• <code>/warns</code> — View active warning count for user
+• <code>/antispam [on|off]</code> — Quick toggle for anti-spam & CAS
+
+⚡ <b>Chat Management:</b>
+• <code>/slowmode [sec]</code> — Set rate limit delay (e.g. <code>/slowmode 30</code>, <code>/slowmode 0</code>)
+• <code>/ephemeral [sec|off]</code> — Auto-delete bot messages (e.g. <code>/ephemeral 15s</code>)
+• <code>/del</code> — Delete replied-to message
+• <code>/purge</code> — Batch delete up to 100 messages up to replied message
+• <code>/pin</code> — Pin replied message
+• <code>/unpin</code> — Unpin replied message (or current pin)
+• <code>/unpinall</code> — Unpin all pinned messages in chat
+• <code>/quiet [start end|off]</code> — Schedule quiet hours (e.g. <code>/quiet 23:00 07:00</code>)
+
+📜 <b>Customization & Rules:</b>
+• <code>/rules</code> — Show group rules
+• <code>/setrules [text]</code> — Update group rules dynamically
+• <code>/welcome</code> — Preview group welcome message
+• <code>/setwelcome [text]</code> — Update welcome message
+• <code>/settitle [text]</code> — Change group title
+• <code>/setdesc [text]</code> — Change group description
+
+ℹ️ <b>Information & Utilities:</b>
+• <code>/id</code>, <code>/whois</code> — View Chat ID, User ID, and Message ID
+• <code>/admins</code>, <code>/staff</code> — List group administrators
+• <code>/link</code>, <code>/invitelink</code> — Get group invite link
+• <code>/info</code> — Bot and group status
+• <code>/stats</code> — Group activity stats
+• <code>/ping</code> — Test bot response latency`
+
+	_ = tg.SendMessage(ctx, m.Chat.ID, helpText, &m.MessageID, m.MessageThreadID)
+	return true
+}
+
+func (h *WebhookHandler) adminID(ctx context.Context, tg *telegram.BotAPIClient, m *Message) bool {
+	var targetUserID int64
+	var targetUserName string
+	if m.ReplyToMessage != nil && m.ReplyToMessage.From != nil {
+		targetUserID = m.ReplyToMessage.From.ID
+		targetUserName = m.ReplyToMessage.From.FirstName
+		if m.ReplyToMessage.From.Username != "" {
+			targetUserName = "@" + m.ReplyToMessage.From.Username
+		}
+	}
+
+	replyID := 0
+	if m.ReplyToMessage != nil {
+		replyID = m.ReplyToMessage.MessageID
+	}
+
+	text := fmt.Sprintf("🆔 <b>Chat & User ID Info:</b>\n\n• <b>Chat ID:</b> <code>%d</code>\n• <b>Chat Title:</b> %s\n• <b>Sender ID:</b> <code>%d</code>",
+		m.Chat.ID, telegram.EscapeHTML(m.Chat.Title), m.From.ID)
+
+	if targetUserID != 0 {
+		text += fmt.Sprintf("\n• <b>Target User:</b> %s (<code>%d</code>)", telegram.EscapeHTML(targetUserName), targetUserID)
+	}
+	if replyID != 0 {
+		text += fmt.Sprintf("\n• <b>Replied Message ID:</b> <code>%d</code>", replyID)
+	}
+	if m.MessageThreadID != nil {
+		text += fmt.Sprintf("\n• <b>Topic/Thread ID:</b> <code>%d</code>", *m.MessageThreadID)
+	}
+
+	_ = tg.SendMessage(ctx, m.Chat.ID, text, &m.MessageID, m.MessageThreadID)
+	return true
+}
+
+func (h *WebhookHandler) adminPing(ctx context.Context, tg *telegram.BotAPIClient, m *Message) bool {
+	msgTime := time.Unix(int64(m.Date), 0)
+	latency := time.Since(msgTime).Milliseconds()
+	if latency < 0 {
+		latency = 0
+	}
+	text := fmt.Sprintf("🏓 <b>Pong!</b>\n⚡ Latency: <code>%dms</code>\n🛡️ Engine: <b>iFragment v2.0 (Active)</b>", latency)
+	_ = tg.SendMessage(ctx, m.Chat.ID, text, &m.MessageID, m.MessageThreadID)
+	return true
+}
+
+func (h *WebhookHandler) adminAdmins(ctx context.Context, tg *telegram.BotAPIClient, m *Message) bool {
+	admins, err := tg.GetChatAdministrators(ctx, m.Chat.ID)
+	if err != nil || len(admins) == 0 {
+		_ = tg.SendMessage(ctx, m.Chat.ID, "❌ Failed to retrieve administrators.", &m.MessageID, m.MessageThreadID)
+		return true
+	}
+
+	text := fmt.Sprintf("👥 <b>Administrators of %s:</b>\n\n", telegram.EscapeHTML(m.Chat.Title))
+	for _, adm := range admins {
+		icon := "👤"
+		if adm.Status == "creator" {
+			icon = "👑"
+		} else if adm.CustomTitle != "" {
+			icon = "⭐"
+		}
+		name := adm.User.FirstName
+		if adm.User.Username != "" {
+			name = fmt.Sprintf("<a href=\"https://t.me/%s\">%s</a>", adm.User.Username, telegram.EscapeHTML(name))
+		} else {
+			name = telegram.EscapeHTML(name)
+		}
+		if adm.CustomTitle != "" {
+			text += fmt.Sprintf("%s %s (<i>%s</i>)\n", icon, name, telegram.EscapeHTML(adm.CustomTitle))
+		} else {
+			text += fmt.Sprintf("%s %s [%s]\n", icon, name, adm.Status)
+		}
+	}
+
+	_ = tg.SendMessage(ctx, m.Chat.ID, text, &m.MessageID, m.MessageThreadID)
+	return true
+}
+
+func (h *WebhookHandler) adminLink(ctx context.Context, tg *telegram.BotAPIClient, m *Message) bool {
+	if m.Chat.Username != "" {
+		link := fmt.Sprintf("https://t.me/%s", m.Chat.Username)
+		_ = tg.SendMessage(ctx, m.Chat.ID, fmt.Sprintf("🔗 <b>Group Link:</b> %s", link), &m.MessageID, m.MessageThreadID)
+		return true
+	}
+	link, err := tg.ExportChatInviteLink(ctx, m.Chat.ID)
+	if err != nil || link == "" {
+		_ = tg.SendMessage(ctx, m.Chat.ID, "❌ Unable to export invite link. Ensure bot has 'Invite Users' permission.", &m.MessageID, m.MessageThreadID)
+		return true
+	}
+	_ = tg.SendMessage(ctx, m.Chat.ID, fmt.Sprintf("🔗 <b>Group Invite Link:</b>\n%s", link), &m.MessageID, m.MessageThreadID)
+	return true
+}
+
+func (h *WebhookHandler) adminWelcome(ctx context.Context, tg *telegram.BotAPIClient, m *Message, groupID uuid.UUID) bool {
+	settings, _ := h.moderator.GetSettings(ctx, groupID)
+	var ct repository.SettingsCustomTexts
+	var gen repository.SettingsGeneral
+	if settings != nil {
+		_ = json.Unmarshal(settings.CustomTexts, &ct)
+		_ = json.Unmarshal(settings.General, &gen)
+	}
+
+	status := "❌ Disabled"
+	if gen.WelcomeMessage {
+		status = "✅ Enabled"
+	}
+
+	preview := ct.WelcomeText
+	if preview == "" {
+		preview = "(Default Welcome Message)"
+	}
+
+	text := fmt.Sprintf("👋 <b>Welcome Message Status:</b> %s\n\n<b>Current Template:</b>\n<code>%s</code>\n\n<i>Use <code>/setwelcome [text]</code> to change it.</i>", status, telegram.EscapeHTML(preview))
+	_ = tg.SendMessage(ctx, m.Chat.ID, text, &m.MessageID, m.MessageThreadID)
+	return true
+}
+
+func (h *WebhookHandler) adminSetWelcome(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, groupID uuid.UUID) bool {
+	newWelcome := strings.TrimSpace(strings.TrimPrefix(m.Text, strings.Split(m.Text, " ")[0]))
+	if newWelcome == "" {
+		_ = tg.SendMessage(ctx, m.Chat.ID, "⚠️ Usage: <code>/setwelcome Welcome to {group}, {first_name}!</code>", &m.MessageID, m.MessageThreadID)
+		return true
+	}
+
+	settings, _ := h.moderator.GetSettings(ctx, groupID)
+	var ct repository.SettingsCustomTexts
+	var gen repository.SettingsGeneral
+	if settings != nil {
+		_ = json.Unmarshal(settings.CustomTexts, &ct)
+		_ = json.Unmarshal(settings.General, &gen)
+	}
+	ct.WelcomeText = newWelcome
+	gen.WelcomeMessage = true
+
+	dataCT, _ := json.Marshal(ct)
+	dataGen, _ := json.Marshal(gen)
+	_ = h.moderator.ForceUpdateCategory(ctx, groupID, "custom_texts", dataCT)
+	_ = h.moderator.ForceUpdateCategory(ctx, groupID, "general", dataGen)
+
+	_ = tg.SendMessage(ctx, m.Chat.ID, "👋 <b>Welcome message updated & enabled!</b>", &m.MessageID, m.MessageThreadID)
+	return true
+}
+
+func (h *WebhookHandler) adminSetTitle(ctx context.Context, tg *telegram.BotAPIClient, m *Message) bool {
+	newTitle := strings.TrimSpace(strings.TrimPrefix(m.Text, strings.Split(m.Text, " ")[0]))
+	if newTitle == "" {
+		_ = tg.SendMessage(ctx, m.Chat.ID, "⚠️ Usage: <code>/settitle [New Group Title]</code>", &m.MessageID, m.MessageThreadID)
+		return true
+	}
+	err := tg.SetChatTitle(ctx, m.Chat.ID, newTitle)
+	if err != nil {
+		_ = tg.SendMessage(ctx, m.Chat.ID, "❌ Failed to change group title.", &m.MessageID, m.MessageThreadID)
+		return true
+	}
+	_ = tg.SendMessage(ctx, m.Chat.ID, fmt.Sprintf("✅ Group title changed to: <b>%s</b>", telegram.EscapeHTML(newTitle)), &m.MessageID, m.MessageThreadID)
+	return true
+}
+
+func (h *WebhookHandler) adminSetDescription(ctx context.Context, tg *telegram.BotAPIClient, m *Message) bool {
+	newDesc := strings.TrimSpace(strings.TrimPrefix(m.Text, strings.Split(m.Text, " ")[0]))
+	err := tg.SetChatDescription(ctx, m.Chat.ID, newDesc)
+	if err != nil {
+		_ = tg.SendMessage(ctx, m.Chat.ID, "❌ Failed to change group description.", &m.MessageID, m.MessageThreadID)
+		return true
+	}
+	_ = tg.SendMessage(ctx, m.Chat.ID, "✅ Group description updated successfully.", &m.MessageID, m.MessageThreadID)
+	return true
+}
+
 func (h *WebhookHandler) getTarget(m *Message) (int64, string) {
+
 
 	if m.ReplyToMessage != nil && m.ReplyToMessage.From != nil {
 		name := m.ReplyToMessage.From.FirstName
