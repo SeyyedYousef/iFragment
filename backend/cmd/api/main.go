@@ -123,6 +123,21 @@ func main() {
 		for i := 0; i < 5; i++ {
 			m, mErr := migrate.New("file://./migrations", os.Getenv("DATABASE_URL"))
 			if mErr == nil {
+				// Handle dirty database state from previous failed migration
+				v, dirty, vErr := m.Version()
+				if vErr == nil && dirty {
+					targetVersion := int(v - 1)
+					if v == 0 {
+						targetVersion = 0
+					}
+					slog.Warn("⚠️ Detected dirty database migration state, forcing clean version before reapplying...", "version", v, "force_version", targetVersion)
+					if fErr := m.Force(targetVersion); fErr != nil {
+						slog.Error("Failed to force clean migration version", "error", fErr, "target_version", targetVersion)
+					} else {
+						slog.Info("Successfully forced migration version, continuing...", "forced_version", targetVersion)
+					}
+				}
+
 				if upErr := m.Up(); upErr != nil && upErr != migrate.ErrNoChange {
 					if isProd {
 						slog.Error("FATAL: Database migration failed in production", "error", upErr)

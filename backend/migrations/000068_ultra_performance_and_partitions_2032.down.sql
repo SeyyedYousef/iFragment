@@ -4,7 +4,6 @@ DROP INDEX IF EXISTS idx_users_username_trgm;
 DROP INDEX IF EXISTS idx_clans_title_trgm;
 
 ALTER TABLE user_stats RESET (fillfactor);
-ALTER TABLE frg_balances RESET (fillfactor);
 ALTER TABLE users RESET (fillfactor);
 ALTER TABLE managed_groups RESET (fillfactor);
 ALTER TABLE managed_channels RESET (fillfactor);

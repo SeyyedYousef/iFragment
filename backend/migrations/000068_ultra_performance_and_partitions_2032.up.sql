@@ -207,7 +207,6 @@ DROP INDEX IF EXISTS idx_orders_payload_status;
 -- 6. HOT (Heap-Only Tuples) Update Optimization with Fillfactor
 -- ============================================================================
 ALTER TABLE user_stats SET (fillfactor = 85);
-ALTER TABLE frg_balances SET (fillfactor = 85);
 ALTER TABLE users SET (fillfactor = 90);
 ALTER TABLE managed_groups SET (fillfactor = 90);
 ALTER TABLE managed_channels SET (fillfactor = 90);
