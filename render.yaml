@@ -18,16 +18,22 @@ services:
         generateValue: true
       - key: WEBHOOK_SECRET_TOKEN
         generateValue: true
+      - key: BOT_TOKEN_KEY
+        generateValue: true
       - key: BOT_TOKEN
         sync: false
       - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TG_APP_ID
+        sync: false
+      - key: TG_APP_HASH
         sync: false
       - key: TONAPI_KEY
         sync: false
       - key: MARKETAPP_TOKEN
         sync: false
       - key: ALLOWED_ORIGINS
-        value: https://ifragment.onrender.com
+        value: https://ifragment.onrender.com,https://ifragment-webapp.onrender.com
       - key: APP_URL
         value: https://ifragment-api.onrender.com
 

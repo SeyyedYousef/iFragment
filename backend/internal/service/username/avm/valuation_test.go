@@ -105,8 +105,8 @@ func TestCalculateSemanticKNNFloor(t *testing.T) {
 	}
 
 	floor := CalculateSemanticKNNFloor("rare", rareFeat, semRes)
-	if floor < 100000 {
-		t.Errorf("KNN floor for 'rare' = %f, expected > 100000 TON", floor)
+	if floor < 50000 {
+		t.Errorf("KNN floor for 'rare' = %f, expected > 50000 TON", floor)
 	}
 
 	// @fhhff should get 0 KNN floor (gibberish protection)

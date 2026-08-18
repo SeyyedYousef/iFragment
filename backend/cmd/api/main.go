@@ -159,6 +159,9 @@ func main() {
 
 	// Initialize Gram Broadcaster
 	botToken := os.Getenv("BOT_TOKEN")
+	if botToken == "" {
+		botToken = os.Getenv("TELEGRAM_BOT_TOKEN")
+	}
 	if botToken != "" {
 		gramBroadcaster := broadcaster.NewGramBroadcaster(botToken, cryptoPriceService)
 		go gramBroadcaster.Start(ctx)

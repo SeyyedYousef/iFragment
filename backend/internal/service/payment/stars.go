@@ -17,8 +17,12 @@ type StarsService struct {
 }
 
 func NewStarsService(db *repository.Database) *StarsService {
+	token := os.Getenv("BOT_TOKEN")
+	if token == "" {
+		token = os.Getenv("TELEGRAM_BOT_TOKEN")
+	}
 	return &StarsService{
-		BotToken: os.Getenv("BOT_TOKEN"),
+		BotToken: token,
 		HTTP: &http.Client{
 			Timeout: 10 * time.Second,
 			Transport: &http.Transport{
