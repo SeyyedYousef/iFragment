@@ -53,7 +53,7 @@ const PRODUCTS: ShopProduct[] = [
 ];
 
 export const ShopView: Component = () => {
-	const [selectedDiscounts, setSelectedDiscounts] = createSignal<Record<string, 20 | 35 | 50 | 70>>({
+	const [selectedDiscounts, setSelectedDiscounts] = createSignal<Record<string, 25 | 50 | 75>>({
 		group_mgmt: 50,
 		channel_mgmt: 50,
 		valuation_quota: 50,
@@ -61,7 +61,7 @@ export const ShopView: Component = () => {
 
 	const [activeModalProduct, setActiveModalProduct] = createSignal<ShopProduct | null>(null);
 
-	const handleDiscountChange = (productId: string, percent: 20 | 35 | 50 | 70) => {
+	const handleDiscountChange = (productId: string, percent: 25 | 50 | 75) => {
 		try {
 			haptic.selection();
 		} catch (_) {}
@@ -77,7 +77,7 @@ export const ShopView: Component = () => {
 				haptic.notify('error');
 			} catch (_) {}
 			showToast(
-				`${t('shopInfo.insufficientCoins' as any) || 'Not enough coins'} (${formatNumber(balance())} / ${formatNumber(calc.requiredCoins)})`,
+				`${t('shopInfo.insufficientCoins' as any) || 'موجودی سکه کافی نیست'} (${formatNumber(balance())} / ${formatNumber(calc.requiredCoins)})`,
 				'error',
 			);
 			return;
@@ -115,7 +115,7 @@ export const ShopView: Component = () => {
 			dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
 		>
 			{/* Ambient Gradient Glow */}
-			<div class="absolute top-0 left-0 right-0 h-[280px] bg-gradient-to-b from-amber-500/15 via-amber-500/5 to-transparent blur-[80px] pointer-events-none z-0" />
+			<div class="absolute top-0 left-0 right-0 h-[300px] bg-gradient-to-b from-amber-500/15 via-amber-500/5 to-transparent blur-[80px] pointer-events-none z-0" />
 
 			<div class="max-w-md mx-auto w-full relative z-10 flex flex-col flex-1">
 				{/* ═══════ HEADER ═══════ */}
@@ -130,11 +130,11 @@ export const ShopView: Component = () => {
 						</span>
 					</div>
 					<h2 class="text-[20px] font-black text-white tracking-tight drop-shadow-md mb-1">
-						{t('shopInfo.title' as any) || 'Discount & Services Shop'}
+						{t('shopInfo.title' as any) || 'فروشگاه خدمات و تخفیف‌های استارز'}
 					</h2>
 					<p class="text-white/60 text-[12px] leading-relaxed font-medium max-w-[320px]">
 						{t('shopInfo.desc' as any) ||
-							'Your mined coins act as 25%, 50%, and 75% discount vouchers for premium bot tools.'}
+							'با سکه‌های ماین‌شده ووچرهای تخفیف ۲۵٪، ۵۰٪ و ۷۵٪ دریافت کنید و پرداخت‌ها را با استارز تلگرام نهایی فرمایید.'}
 					</p>
 				</div>
 
@@ -179,9 +179,10 @@ export const ShopView: Component = () => {
 									product.baseStars,
 								);
 							const hasEnoughCoins = () => balance() >= calc().requiredCoins;
+							const deficit = () => Math.max(0, calc().requiredCoins - balance());
 
 							return (
-								<div class="group bg-[#12141C]/85 backdrop-blur-xl border border-white/10 hover:border-white/20 rounded-[24px] p-4.5 flex flex-col gap-3.5 shadow-[0_8px_25px_rgba(0,0,0,0.3)] transition-all duration-300">
+								<div class="group bg-[#12141C]/85 backdrop-blur-xl border border-white/10 hover:border-amber-400/30 rounded-[26px] p-5 flex flex-col gap-4 shadow-[0_8px_25px_rgba(0,0,0,0.3)] transition-all duration-300">
 									{/* Product Header */}
 									<div class="flex items-start gap-3">
 										<div class="w-12 h-12 rounded-[16px] bg-[#1a1e2b] border border-white/10 flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform">
@@ -197,7 +198,7 @@ export const ShopView: Component = () => {
 												<h3 class="text-white font-black text-[15px] tracking-tight">
 													{t(product.titleKey as any)}
 												</h3>
-												<div class="flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded-[8px] border border-white/5 shrink-0">
+												<div class="flex items-center gap-1.5 bg-white/5 px-2.5 py-1 rounded-[10px] border border-white/5 shrink-0">
 													<span class="text-white/40 text-[11px] line-through font-mono">
 														⭐ {product.baseStars} (${product.baseUsd.toFixed(2)})
 													</span>
@@ -209,12 +210,13 @@ export const ShopView: Component = () => {
 										</div>
 									</div>
 
-									{/* Discount Tier Selector Buttons */}
-									<div class="flex flex-col gap-1.5 pt-1 border-t border-white/5">
-										<span class="text-white/50 text-[11px] font-bold text-start">
-											{t('shopInfo.selectDiscount' as any) || 'Select Coin Discount:'}
+									{/* 3 Tier Selector Buttons: 25%, 50%, 75% */}
+									<div class="flex flex-col gap-2 pt-1 border-t border-white/5">
+										<span class="text-white/50 text-[11px] font-bold text-start flex items-center justify-between">
+											<span>{t('shopInfo.selectDiscount' as any) || 'انتخاب درصد تخفیف با سکه:'}</span>
+											<span class="text-emerald-400 text-[10.5px]">سود شما: -{calc().savedStars} ⭐ (${calc().savedUsd.toFixed(2)})</span>
 										</span>
-										<div class="grid grid-cols-4 gap-2">
+										<div class="grid grid-cols-3 gap-2">
 											<For each={DISCOUNT_TIERS}>
 												{(opt) => {
 													const isSelected = () => currentDiscount() === opt.percent;
@@ -229,18 +231,18 @@ export const ShopView: Component = () => {
 														<button
 															type="button"
 															onClick={() => handleDiscountChange(product.id, opt.percent)}
-															class={`rounded-[14px] py-2 px-1 flex flex-col items-center justify-center transition-all duration-200 border ${
+															class={`rounded-[16px] py-2.5 px-1.5 flex flex-col items-center justify-center transition-all duration-200 border relative ${
 																isSelected()
-																	? 'bg-gradient-to-b from-amber-500/25 to-amber-500/10 border-amber-400 text-white shadow-[0_0_12px_rgba(245,158,11,0.2)]'
+																	? 'bg-gradient-to-b from-amber-500/25 to-amber-500/10 border-amber-400 text-white shadow-[0_0_14px_rgba(245,158,11,0.25)] scale-[1.02]'
 																	: canAfford()
 																		? 'bg-[#181b24] hover:bg-[#202532] border-white/10 text-white/80'
 																		: 'bg-[#12141C]/60 border-white/5 text-white/40 opacity-60'
 															}`}
 														>
-															<span class="font-black text-[13px] tracking-tight">
+															<span class="font-black text-[13.5px] tracking-tight">
 																{opt.label}
 															</span>
-															<span class="text-[9.5px] font-mono font-semibold text-amber-400/90 mt-0.5">
+															<span class="text-[10px] font-mono font-bold text-amber-400/90 mt-0.5">
 																{formatNumber(tierCalc.requiredCoins)} 🪙
 															</span>
 														</button>
@@ -251,16 +253,19 @@ export const ShopView: Component = () => {
 									</div>
 
 									{/* Action Row */}
-									<div class="flex items-center justify-between gap-3 pt-2">
+									<div class="flex items-center justify-between gap-3 pt-2 border-t border-white/5">
 										<div class="flex flex-col text-start">
 											<span class="text-white/40 text-[10px] uppercase font-bold tracking-wider">
-												{t('shopInfo.finalPrice' as any) || 'You Pay'}
+												{t('shopInfo.finalPrice' as any) || 'مبلغ نهایی پرداخت'}
 											</span>
 											<div class="flex items-center gap-1.5">
-												<span class="text-amber-400 font-black text-[17px] leading-none">
+												<span class="text-amber-400 font-black text-[18px] leading-none font-mono">
 													⭐ {calc().finalStars} Stars
 												</span>
-												<span class="text-[11px] font-bold text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded-[6px] border border-emerald-500/20">
+												<span class="text-white/40 text-[11.5px] font-mono">
+													(${calc().finalUsd.toFixed(2)})
+												</span>
+												<span class="text-[10.5px] font-black text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded-[6px] border border-emerald-500/20">
 													-{currentDiscount()}%
 												</span>
 											</div>
@@ -270,7 +275,7 @@ export const ShopView: Component = () => {
 											type="button"
 											onClick={() => handleInitiatePurchase(product)}
 											disabled={!hasEnoughCoins()}
-											class={`h-11 px-4 rounded-[14px] font-black text-[12.5px] uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-1.5 shadow-md ${
+											class={`h-11 px-4.5 rounded-[16px] font-black text-[12.5px] uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-1.5 shadow-md ${
 												hasEnoughCoins()
 													? 'bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black active:scale-95 shadow-[0_4px_16px_rgba(245,158,11,0.3)]'
 													: 'bg-white/10 text-white/40 cursor-not-allowed border border-white/5'
@@ -279,8 +284,8 @@ export const ShopView: Component = () => {
 											<span class="material-symbols-outlined text-[18px]">shopping_bag</span>
 											<span>
 												{hasEnoughCoins()
-													? t('shopInfo.applyDiscount' as any) || 'Apply & Buy'
-													: t('shopInfo.insufficientCoins' as any) || 'Need More Coins'}
+													? t('shopInfo.applyDiscount' as any) || 'دریافت تخفیف و خرید'
+													: `کسری ${formatNumber(deficit())} سکه`}
 											</span>
 										</button>
 									</div>
@@ -297,7 +302,7 @@ export const ShopView: Component = () => {
 					</span>
 					<p class="text-amber-300/90 text-[12px] font-medium leading-relaxed">
 						{t('shopInfo.comingSoon' as any) ||
-							'Mined coins are internal utility credits with a 15-day validity, used strictly for up to 70% discounts on bot services and hold no direct crypto value.'}
+							'سکه‌های به‌دست‌آمده اعتبار داخلی با مهلت استفاده ۱۵ روزه هستند و صرفاً جهت دریافت تا ۷۵٪ تخفیف در پرداخت خدمات بات کاربرد دارند و ارزش نقدی یا کریپتویی ندارند.'}
 					</p>
 				</div>
 			</div>
@@ -329,7 +334,7 @@ export const ShopView: Component = () => {
 									{t(prod().titleKey as any)}
 								</h3>
 								<p class="text-white/60 text-[12px] font-medium mb-5 px-2">
-									{t('shopInfo.selectDiscount' as any) || 'Confirm discounted purchase:'}
+									{t('shopInfo.selectDiscount' as any) || 'تأیید خرید با ووچر تخفیف:'}
 								</p>
 
 								{/* Price Breakdown */}
@@ -362,7 +367,7 @@ export const ShopView: Component = () => {
 										onClick={() => handleConfirmCheckout(prod())}
 										class="flex-1 h-12 rounded-[14px] bg-gradient-to-r from-amber-400 to-amber-500 text-black font-black text-[13px] uppercase tracking-wider active:scale-95 transition-all shadow-[0_4px_16px_rgba(245,158,11,0.3)]"
 									>
-										{t('common.confirm' as any) || 'Pay & Activate'}
+										{t('common.confirm' as any) || 'Confirm & Pay'}
 									</button>
 								</div>
 							</div>

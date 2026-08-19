@@ -217,7 +217,7 @@ export const CollectionInfoPage: Component = () => {
 							}`}
 						>
 							<span class="material-symbols-outlined text-[16px]">analytics</span>
-							{t('action.username.marketAnalysisTitle') || 'Market Overview'}
+							{t('collectionInfo.marketOverview' as any) || t('action.username.marketAnalysisTitle') || 'Market Overview'}
 						</button>
 						<button
 							onClick={() => {
@@ -231,7 +231,7 @@ export const CollectionInfoPage: Component = () => {
 							}`}
 						>
 							<span class="material-symbols-outlined text-[16px]">military_tech</span>
-							{t('valuation.leaderboard_title') ? 'Leaderboard' : 'Hall of Fame'}
+							{t('collectionInfo.hallOfFame' as any) || t('valuation.leaderboard_title') || 'Hall of Fame'}
 						</button>
 					</div>
 				</div>
@@ -241,7 +241,7 @@ export const CollectionInfoPage: Component = () => {
 					<div class="flex flex-col items-center justify-center h-[50vh]">
 						<div class="w-12 h-12 border-[3px] border-white/10 border-t-[#3390ec] rounded-full animate-spin mb-4 shadow-[0_0_15px_#3390ec]" />
 						<span class="text-[12px] font-mono font-bold tracking-widest text-white/40 uppercase animate-pulse">
-							SYNCHRONIZING ON-CHAIN DATA...
+							{t('collectionInfo.syncingOnChain' as any) || 'SYNCHRONIZING ON-CHAIN DATA...'}
 						</span>
 					</div>
 				</Show>
@@ -252,7 +252,9 @@ export const CollectionInfoPage: Component = () => {
 						<p class="text-white font-black text-[16px] tracking-tight mb-1">
 							{t('action.username.failedToLoad' as any) || 'Analysis Failed'}
 						</p>
-						<p class="text-[12px] text-white/50 font-medium">Please check your connection and try again.</p>
+						<p class="text-[12px] text-white/50 font-medium">
+							{t('collectionInfo.checkConnection' as any) || 'Please check your connection and try again.'}
+						</p>
 					</div>
 				</Show>
 
@@ -439,7 +441,7 @@ export const CollectionInfoPage: Component = () => {
 														</span>
 														<span class="text-[9px] font-bold text-amber-400 uppercase tracking-widest flex items-center gap-1">
 															<span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-															AUCTION ACTIVE
+															{t('collectionInfo.auctionActive' as any) || 'AUCTION ACTIVE'}
 														</span>
 													</div>
 												</div>
@@ -468,10 +470,10 @@ export const CollectionInfoPage: Component = () => {
 								</div>
 								<div class="flex flex-col text-start">
 									<h2 class="text-[16px] font-black text-white tracking-tight">
-										{t('valuation.leaderboard_title') || 'All-Time Record Handles'}
+										{t('collectionInfo.allTimeRecordHandles' as any) || t('valuation.leaderboard_title') || 'All-Time Record Handles'}
 									</h2>
 									<span class="text-[11px] text-white/50 font-medium">
-										{t('valuation.leaderboard_subtitle') || 'Highest confirmed sales in Telegram & TON history'}
+										{t('collectionInfo.highestSalesSubtitle' as any) || t('valuation.leaderboard_subtitle') || 'Highest confirmed sales in Telegram & TON history'}
 									</span>
 								</div>
 							</div>
@@ -481,10 +483,10 @@ export const CollectionInfoPage: Component = () => {
 						<div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
 							<For
 								each={[
-									{ id: 'all', label: t('valuation.leaderboard_tab_all') || 'All Time' },
-									{ id: 'short', label: t('valuation.leaderboard_tab_short') || 'Short (4-char)' },
-									{ id: 'crypto', label: t('valuation.leaderboard_tab_crypto') || 'Crypto & TON' },
-									{ id: 'brand', label: t('valuation.leaderboard_tab_brand') || 'Brand & Words' },
+									{ id: 'all', label: t('collectionInfo.tabAllTime' as any) || t('valuation.leaderboard_tab_all') || 'All Time' },
+									{ id: 'short', label: t('collectionInfo.tabShort' as any) || t('valuation.leaderboard_tab_short') || 'Short (4-char)' },
+									{ id: 'crypto', label: t('collectionInfo.tabCrypto' as any) || t('valuation.leaderboard_tab_crypto') || 'Crypto & TON' },
+									{ id: 'brand', label: t('collectionInfo.tabBrand' as any) || t('valuation.leaderboard_tab_brand') || 'Brand & Words' },
 								]}
 							>
 								{(chip) => (
@@ -577,7 +579,7 @@ export const CollectionInfoPage: Component = () => {
 						class="w-full h-14 bg-gradient-to-r from-[#3390ec] via-[#00f0ff] to-[#3390ec] text-black font-black text-[13px] uppercase tracking-wider rounded-[18px] flex items-center justify-center gap-2 shadow-[0_10px_25px_rgba(51,144,236,0.4)] active:scale-95 transition-all"
 					>
 						<span class="material-symbols-outlined text-[20px]">radar</span>
-						{t('action.username.analyzeBtn') || 'VALUATE ANY USERNAME NOW'}
+						{t('collectionInfo.valuateAnyBtn' as any) || t('action.username.analyzeBtn') || 'VALUATE ANY USERNAME NOW'}
 					</button>
 				</div>
 			</div>

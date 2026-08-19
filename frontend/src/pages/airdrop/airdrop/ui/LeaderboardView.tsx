@@ -194,7 +194,7 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 							fallback={
 								<div class="flex flex-col items-center justify-center py-16">
 									<div class="w-8 h-8 border-[3px] border-white/10 border-t-amber-400 rounded-full animate-spin" />
-									<span class="text-[12px] font-black text-white/40 mt-4 tracking-widest uppercase">Preparing Podium...</span>
+									<span class="text-[12px] font-black text-white/40 mt-4 tracking-widest uppercase">{t('airdropFinal.leaderboard.preparingPodium', { defaultValue: 'Preparing Podium...' })}</span>
 								</div>
 							}
 						>
@@ -287,7 +287,7 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 					{/* MINERS LIST */}
 					<Show when={activeTab() === 'miners'}>
 						<Show when={!leaderboardQuery.isLoading} fallback={<div class="flex justify-center py-10"><div class="w-8 h-8 border-[3px] border-white/10 border-t-[#3390ec] rounded-full animate-spin" /></div>}>
-							<For each={filteredMiners()} fallback={<div class="text-center py-10 text-white/40 text-[13px]">No miners found.</div>}>
+							<For each={filteredMiners()} fallback={<div class="text-center py-10 text-white/40 text-[13px]">{t('airdropFinal.leaderboard.noMiners', { defaultValue: 'No miners found.' })}</div>}>
 								{(entry, i) => {
 									const isTop = i() < 3;
 									return (

@@ -2970,50 +2970,7 @@ func (h *WebhookHandler) adminUnpinAll(ctx context.Context, bot *repository.Mana
 }
 
 func (h *WebhookHandler) adminHelp(ctx context.Context, tg *telegram.BotAPIClient, m *Message, lang string) bool {
-	helpText := `🤖 <b>iFragment Group Bot Commands:</b>
-
-⚙️ <b>Interactive GUI:</b>
-• <code>/settings</code>, <code>/config</code> — Open full in-chat interactive settings menu
-
-🛡️ <b>Moderation & Security:</b>
-• <code>/lock</code>, <code>/lockdown</code> — Close chat / disable member messages
-• <code>/unlock</code> — Open chat / restore member messages
-• <code>/ban</code>, <code>/tban [dur]</code> — Ban user (e.g. <code>/tban 7d</code>)
-• <code>/unban</code> — Unban user
-• <code>/kick</code> — Kick user out of group
-• <code>/mute</code>, <code>/tmute [dur]</code> — Mute user (e.g. <code>/mute 10m</code>, <code>/mute 1h</code>, <code>/mute 7d</code>)
-• <code>/unmute</code> — Unmute user
-• <code>/warn</code> — Issue a warning to member
-• <code>/unwarn</code>, <code>/resetwarns</code> — Reset/remove user warnings
-• <code>/warns</code> — View active warning count for user
-• <code>/antispam [on|off]</code> — Quick toggle for anti-spam & CAS
-
-⚡ <b>Chat Management:</b>
-• <code>/slowmode [sec]</code> — Set rate limit delay (e.g. <code>/slowmode 30</code>, <code>/slowmode 0</code>)
-• <code>/ephemeral [sec|off]</code> — Auto-delete bot messages (e.g. <code>/ephemeral 15s</code>)
-• <code>/del</code> — Delete replied-to message
-• <code>/purge</code> — Batch delete up to 100 messages up to replied message
-• <code>/pin</code> — Pin replied message
-• <code>/unpin</code> — Unpin replied message (or current pin)
-• <code>/unpinall</code> — Unpin all pinned messages in chat
-• <code>/quiet [start end|off]</code> — Schedule quiet hours (e.g. <code>/quiet 23:00 07:00</code>)
-
-📜 <b>Customization & Rules:</b>
-• <code>/rules</code> — Show group rules
-• <code>/setrules [text]</code> — Update group rules dynamically
-• <code>/welcome</code> — Preview group welcome message
-• <code>/setwelcome [text]</code> — Update welcome message
-• <code>/settitle [text]</code> — Change group title
-• <code>/setdesc [text]</code> — Change group description
-
-ℹ️ <b>Information & Utilities:</b>
-• <code>/id</code>, <code>/whois</code> — View Chat ID, User ID, and Message ID
-• <code>/admins</code>, <code>/staff</code> — List group administrators
-• <code>/link</code>, <code>/invitelink</code> — Get group invite link
-• <code>/info</code> — Bot and group status
-• <code>/stats</code> — Group activity stats
-• <code>/ping</code> — Test bot response latency`
-
+	helpText := i18n.T(lang, "help.admin_help")
 	_ = tg.SendMessage(ctx, m.Chat.ID, helpText, &m.MessageID, m.MessageThreadID)
 	return true
 }

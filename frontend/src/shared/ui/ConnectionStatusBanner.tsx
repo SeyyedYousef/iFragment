@@ -40,10 +40,10 @@ export const ConnectionStatusBanner: Component = () => {
 					</div>
 					<div class="flex flex-col gap-0.5">
 						<span class="text-[13px] font-black text-white">
-							{t('connection.interrupted' as any) || 'ارتباط قطع شد'}
+							{t('connection.interrupted' as any) || 'Connection Interrupted'}
 						</span>
 						<span class="text-[11px] font-semibold text-[#8e8e93] leading-snug">
-							{t('connection.checking' as any) || 'در حال بررسی اتصال اینترنت...'}
+							{t('connection.checking' as any) || 'Checking internet connection...'}
 						</span>
 					</div>
 				</div>
@@ -56,7 +56,7 @@ export const ConnectionStatusBanner: Component = () => {
 					}}
 					class="bg-[#ff3b30]/20 hover:bg-[#ff3b30]/30 text-white font-bold text-[11px] px-3.5 py-2 rounded-xl transition-all border border-[#ff3b30]/20 active:scale-95 duration-100"
 				>
-					{t('connection.retry' as any) || 'تلاش مجدد'}
+					{t('connection.retry' as any) || 'Retry'}
 				</button>
 			</Motion.div>
 		</Show>

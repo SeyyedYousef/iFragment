@@ -147,10 +147,10 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 							id="owner-gate-title"
 							class="text-lg font-black text-white uppercase tracking-wider"
 						>
-							{t('ownerGate.title') || 'احراز هویت ورود به پنل مدیریت'}
+							{t('ownerGate.title' as any) || 'Admin Authentication'}
 						</h2>
 						<p class="text-xs text-[#a0a4ad] font-bold mt-1 max-w-[240px]">
-							{t('ownerGate.desc') || 'جهت دسترسی ارشد، رمز عبور امنیتی خود را وارد نمایید.'}
+							{t('ownerGate.desc' as any) || 'Please enter your master security password to access the panel.'}
 						</p>
 					</div>
 
@@ -158,7 +158,7 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 					<div class="mb-6">
 						<input
 							type="password"
-							placeholder={t('ownerGate.placeholder') || 'رمز عبور ارشد...'}
+							placeholder={t('ownerGate.placeholder' as any) || 'Security password...'}
 							value={password()}
 							ref={inputRef}
 							onInput={(e) => setPassword(e.currentTarget.value)}
@@ -184,7 +184,7 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 						disabled={loading() || !password()}
 						class="w-full h-14 bg-[#3390ec] hover:bg-[#2b7ec9] active:bg-[#2368a8] disabled:opacity-50 disabled:cursor-not-allowed text-white font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center shadow-lg shadow-[#3390ec]/20"
 					>
-						<Show when={loading()} fallback={<span>{t('ownerGate.submit') || 'احراز هویت'}</span>}>
+						<Show when={loading()} fallback={<span>{t('ownerGate.submit' as any) || 'Authenticate'}</span>}>
 							<div class="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin" />
 						</Show>
 					</button>

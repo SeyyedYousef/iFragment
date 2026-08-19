@@ -18,6 +18,9 @@ import {
 } from '@/shared/lib/report-cache.js';
 import { copyToClipboard, shareToStory } from '@/shared/lib/telegram-native.js';
 import { haptic } from '@/shared/lib/haptic.js';
+import { balance } from '@/entities/airdrop/index.js';
+import { PaymentDiscountCard } from '@/shared/ui/payment-discount/PaymentDiscountCard.js';
+import { calculateDiscountForPlan } from '@/shared/lib/stars-calculator.js';
 
 interface ValuationResult {
 	run_id: number; username: string; model_version: string; base_price_ton: string; low_ton: string; expected_ton: string; high_ton: string; low_usd: string; expected_usd: string; high_usd: string; confidence_score: number; ton_usd_rate: number; comparable_sales_count: number;
@@ -87,6 +90,8 @@ export const UsernamePage: Component = () => {
 	const [inChannel, setInChannel] = createSignal<boolean>(false);
 	const [inGroup, setInGroup] = createSignal<boolean>(false);
 	const [isProcessingPayment, setIsProcessingPayment] = createSignal<boolean>(false);
+	const [isDiscountEnabled, setIsDiscountEnabled] = createSignal<boolean>(false);
+	const [discountPercent, setDiscountPercent] = createSignal<25 | 50 | 75>(50);
 	const [paymentError, setPaymentError] = createSignal<string>('');
 
 	// Cached-report state: a paid report stays readable for 24h, so a stray back
@@ -319,7 +324,8 @@ export const UsernamePage: Component = () => {
 		if (!u || isProcessingPayment()) return;
 		setIsProcessingPayment(true); setPaymentError('');
 		try {
-			const res = await valuationApi.createStarsInvoice(u);
+			const discount = isDiscountEnabled() ? discountPercent() : 0;
+			const res = await valuationApi.createStarsInvoice(u, discount);
 			if (res?.invoice_link) {
 				const tg = (window as any).Telegram?.WebApp;
 				if (tg?.openInvoice) {
@@ -339,19 +345,6 @@ export const UsernamePage: Component = () => {
 			}
 		} catch (e: any) {
 			setPaymentError(e?.message || 'Payment failed'); haptic.notify('error');
-		} finally { setIsProcessingPayment(false); }
-	};
-
-	const handlePayCoins = async () => {
-		const u = username();
-		if (!u || isProcessingPayment()) return;
-		setIsProcessingPayment(true); setPaymentError('');
-		try {
-			const res = await valuationApi.payWithAirdrop(u);
-			if (res?.success) { haptic.notify('success'); grantAccess('coins', u); }
-			else grantAccess('coins', u);
-		} catch (e: any) {
-			setPaymentError(e?.response?.data?.error || e?.message || 'Insufficient coin balance'); haptic.notify('error');
 		} finally { setIsProcessingPayment(false); }
 	};
 
@@ -1127,11 +1120,11 @@ export const UsernamePage: Component = () => {
 											<span class="text-white/30 text-[10px] font-mono">5.0% commission</span>
 										</div>
 										<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 flex flex-col gap-0.5 shadow-inner">
-											<span class="text-white/40 text-[9px] font-black uppercase tracking-widest">MINIMUM BID REQUIRED</span>
+											<span class="text-white/40 text-[9px] font-black uppercase tracking-widest">{t('valuation.minBidRequired' as any) || 'MINIMUM BID REQUIRED'}</span>
 											<span class="text-white font-mono font-black text-[14px] truncate">{econ().min_bid_ton} TON</span>
 										</div>
 										<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 flex flex-col gap-0.5 shadow-inner">
-											<span class="text-white/40 text-[9px] font-black uppercase tracking-widest">BID STEP INCREMENT</span>
+											<span class="text-white/40 text-[9px] font-black uppercase tracking-widest">{t('valuation.bidStepIncrement' as any) || 'BID STEP INCREMENT'}</span>
 											<span class="text-white font-mono font-black text-[14px] truncate">{econ().bid_step_ton} TON</span>
 										</div>
 									</div>
@@ -1146,10 +1139,10 @@ export const UsernamePage: Component = () => {
 									<div class="flex items-center justify-between gap-3 text-white/90 border-b border-white/5 pb-3">
 										<div class="flex items-center gap-2 min-w-0">
 											<span class="material-symbols-outlined text-[20px] text-cyan-400 shrink-0">security</span>
-											<span class="text-[13px] font-black uppercase tracking-widest truncate">SECURITY & RISK AUDIT</span>
+											<span class="text-[13px] font-black uppercase tracking-widest truncate">{t('valuation.securityAuditTitle' as any) || 'SECURITY & RISK AUDIT'}</span>
 										</div>
 										<span class="text-[10px] font-black text-cyan-400 bg-cyan-400/10 border border-cyan-400/25 px-2.5 py-1 rounded-[8px] shrink-0">
-											ON-CHAIN CHECK
+											{t('valuation.onChainCheck' as any) || 'ON-CHAIN CHECK'}
 										</span>
 									</div>
 
@@ -1630,7 +1623,7 @@ export const UsernamePage: Component = () => {
 
 								<div class="flex justify-between items-end border-t border-white/10 pt-4 z-10">
 									<div class="flex flex-col gap-0.5 text-left">
-										<span class="text-[9px] font-black text-white/40 uppercase tracking-widest">ESTIMATED VALUE</span>
+										<span class="text-[9px] font-black text-white/40 uppercase tracking-widest">{t('valuation.estimatedValue' as any) || 'ESTIMATED VALUE'}</span>
 										<div class="flex items-center gap-2">
 											<span class="text-[28px] font-black text-white leading-none tracking-tight">{parseFloat(data()?.expected_ton || '0').toLocaleString('en-US')}</span>
 											<span class="text-[13px] font-black text-[#3390ec] mb-0.5">TON</span>
@@ -1744,37 +1737,40 @@ export const UsernamePage: Component = () => {
 									</div>
 								</div>
 
+								{/* Discount Toggle & Tier Selector */}
+								<PaymentDiscountCard
+									baseUsd={4.99}
+									baseStars={249}
+									userCoins={balance()}
+									isDiscountEnabled={isDiscountEnabled()}
+									selectedPercent={discountPercent()}
+									onToggleDiscount={(enabled) => setIsDiscountEnabled(enabled)}
+									onSelectPercent={(pct) => setDiscountPercent(pct)}
+								/>
+
 								{/* Primary Action Button: Stars Pro Pass */}
-								<button
-									onClick={handlePayStars}
-									disabled={isProcessingPayment()}
-									class="w-full h-14 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-black text-[13px] tracking-wider uppercase rounded-[20px] flex items-center justify-center gap-2 shadow-[0_8px_30px_rgba(251,191,36,0.3)] active:scale-95 transition-all disabled:opacity-50 relative z-10"
-								>
-									<Show when={isProcessingPayment()} fallback={
-										<>
-											<span class="material-symbols-outlined text-[20px]">star</span>
-											<span>{t('valuation.unlock_pro_btn') || 'ACTIVATE PRO PASS (249 STARS)'}</span>
-										</>
-									}>
-										<div class="w-5 h-5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
-									</Show>
-								</button>
-
-								{/* Alternative payment options accordion / 1-time task */}
-								<div class="flex flex-col gap-2 pt-2 border-t border-white/5 relative z-10">
-									<div class="flex gap-2">
-										{/* Coins fallback */}
+								{(() => {
+									const calc = () => calculateDiscountForPlan(4.99, isDiscountEnabled() ? discountPercent() : 0, 249);
+									return (
 										<button
-											onClick={handlePayCoins}
+											onClick={handlePayStars}
 											disabled={isProcessingPayment()}
-											class="flex-1 py-3 px-3 rounded-[16px] bg-[#12141C] border border-white/10 hover:border-white/20 text-white/70 font-black text-[11px] flex items-center justify-center gap-1.5 transition-all active:scale-95"
+											class="w-full h-14 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-black text-[13px] tracking-wider uppercase rounded-[20px] flex items-center justify-center gap-2 shadow-[0_8px_30px_rgba(251,191,36,0.3)] active:scale-95 transition-all disabled:opacity-50 relative z-10"
 										>
-											<span class="text-cyan-400 text-[14px]">🪙</span>
-											<span>{t('valuation.pay_coins_title') || 'Pay with Coins'} (88K)</span>
+											<Show when={isProcessingPayment()} fallback={
+												<>
+													<span class="material-symbols-outlined text-[20px]">star</span>
+													<span>{t('valuation.unlock_pro_btn') || 'ACTIVATE PRO PASS'} ({calc().finalStars} STARS ⭐)</span>
+												</>
+											}>
+												<div class="w-5 h-5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+											</Show>
 										</button>
-									</div>
+									);
+								})()}
 
-									{/* 1-Time Free Task Checklist */}
+								{/* 1-Time Free Task Checklist */}
+								<div class="flex flex-col gap-2 pt-2 border-t border-white/5 relative z-10">
 									<Show when={!freeQuotaUsed()}>
 										<div class="w-full bg-[#08090D] border border-emerald-400/20 rounded-[20px] p-3.5 flex flex-col gap-2.5 shadow-md mt-1">
 											<div class="flex items-center justify-between">
@@ -1825,7 +1821,7 @@ export const UsernamePage: Component = () => {
 								<Show when={isProcessingPayment()}>
 									<div class="absolute inset-0 bg-[#0d0f16]/95 backdrop-blur-md z-30 flex flex-col items-center justify-center rounded-[36px]">
 										<span class="w-12 h-12 border-4 border-amber-400/30 border-t-amber-400 rounded-full animate-spin mb-4 shadow-[0_0_20px_rgba(251,191,36,0.5)]" />
-										<span class="text-[13px] font-black uppercase tracking-widest text-white animate-pulse">PROCESSING PRO ACTIVATION...</span>
+										<span class="text-[13px] font-black uppercase tracking-widest text-white animate-pulse">{t('valuation.processingProActivation' as any) || 'PROCESSING PRO ACTIVATION...'}</span>
 									</div>
 								</Show>
 							</Motion.div>

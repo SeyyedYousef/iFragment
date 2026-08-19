@@ -28,9 +28,12 @@ export const valuationApi = {
 			.post<{ success: boolean; method: string }>('/usernames/valuation-pay-airdrop', { username })
 			.then((r: any) => r.data),
 
-	createStarsInvoice: (username: string) =>
+	createStarsInvoice: (username: string, discountPercent?: number) =>
 		apiClient
-			.post<{ invoice_link: string }>('/usernames/valuation-pay-stars', { username })
+			.post<{ invoice_link: string }>('/usernames/valuation-pay-stars', {
+				username,
+				discount_percent: discountPercent || 0,
+			})
 			.then((r: any) => r.data),
 
 	verifyFreeAccess: (username: string) =>

@@ -20,16 +20,15 @@ export const usdToStars = (usd: number): number => {
 };
 
 export interface DiscountTier {
-	percent: 20 | 35 | 50 | 70;
+	percent: 25 | 50 | 75;
 	label: string;
 	coinsMultiplier: number;
 }
 
 export const DISCOUNT_TIERS: DiscountTier[] = [
-	{ percent: 20, label: '20%', coinsMultiplier: 0.2 },
-	{ percent: 35, label: '35%', coinsMultiplier: 0.35 },
+	{ percent: 25, label: '25%', coinsMultiplier: 0.25 },
 	{ percent: 50, label: '50%', coinsMultiplier: 0.5 },
-	{ percent: 70, label: '70% (MAX)', coinsMultiplier: 0.7 },
+	{ percent: 75, label: '75% (MAX)', coinsMultiplier: 0.75 },
 ];
 
 export interface DiscountCalculation {
@@ -49,7 +48,7 @@ export const calculateDiscountForPlan = (
 	customBaseStars?: number,
 ): DiscountCalculation => {
 	const baseStars = customBaseStars && customBaseStars > 0 ? customBaseStars : usdToStars(usdPrice);
-	const clampedPercent = Math.min(70, Math.max(0, discountPercent));
+	const clampedPercent = Math.min(75, Math.max(0, discountPercent));
 
 	if (clampedPercent <= 0) {
 		return {

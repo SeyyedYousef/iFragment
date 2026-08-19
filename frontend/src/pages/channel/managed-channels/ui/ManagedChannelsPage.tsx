@@ -27,7 +27,7 @@ export const ManagedChannelsPage: Component = () => {
 	const [selectedChan, setSelectedChan] = createSignal<string>('');
 	const [selectedPkg, setSelectedPkg] = createSignal<string>('');
 	const [isDiscountEnabled, setIsDiscountEnabled] = createSignal(false);
-	const [discountPercent, setDiscountPercent] = createSignal<20 | 35 | 50 | 70>(50);
+	const [discountPercent, setDiscountPercent] = createSignal<25 | 50 | 75>(50);
 	const [isProcessing, setIsProcessing] = createSignal(false);
 	const [successMsg, setSuccessMsg] = createSignal('');
 	const [errorMsg, setErrorMsg] = createSignal('');

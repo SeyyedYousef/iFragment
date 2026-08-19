@@ -1248,7 +1248,8 @@ func (h *UsernameHandler) isMemberCached(ctx context.Context, tg *telegram.BotAP
 }
 
 type valuationPayRequest struct {
-	Username string `json:"username"`
+	Username        string `json:"username"`
+	DiscountPercent int    `json:"discount_percent,omitempty"`
 }
 
 func (h *UsernameHandler) ValuationAccess(w http.ResponseWriter, r *http.Request) {
@@ -1425,12 +1426,44 @@ func (h *UsernameHandler) ValuationPayStars(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	baseStars := 249
+	finalStars := baseStars
+	if req.DiscountPercent > 0 {
+		discountPercent := req.DiscountPercent
+		if discountPercent > 75 {
+			discountPercent = 75
+		}
+		savedStars := (baseStars * discountPercent) / 100
+		finalStars = baseStars - savedStars
+		if finalStars < 1 {
+			finalStars = 1
+		}
+		requiredCoins := float64(savedStars * 1032)
+		if h.db != nil {
+			tx, err := h.db.Pool.Begin(ctx)
+			if err != nil {
+				RespondError(w, r, http.StatusInternalServerError, "failed to start transaction", err)
+				return
+			}
+			defer tx.Rollback(ctx)
+
+			if err := h.db.DeductCreditsFIFO(ctx, tx, userID, requiredCoins); err != nil {
+				RespondError(w, r, http.StatusBadRequest, err.Error(), err)
+				return
+			}
+			if err := tx.Commit(ctx); err != nil {
+				RespondError(w, r, http.StatusInternalServerError, "failed to commit credit deduction", err)
+				return
+			}
+		}
+	}
+
 	payload := fmt.Sprintf("val_pro:%d:%d", userID, time.Now().Unix())
 	invoiceLink, err := h.starsService.CreateInvoiceLink(
 		"👑 iFragment Pro Analyst Pass (30 Days)",
 		"3 Daily Deep Valuations + 70% Fragment Arbitrage Alerts + Digital Certificate",
 		payload,
-		249,
+		finalStars,
 	)
 	if err != nil {
 		slog.Error("Failed to create Stars invoice for Pro Pass", "user_id", userID, "err", err)
@@ -1441,7 +1474,7 @@ func (h *UsernameHandler) ValuationPayStars(w http.ResponseWriter, r *http.Reque
 	if h.db != nil {
 		_, _ = h.db.CreateOrder(ctx, repository.Order{
 			UserID:  userID,
-			Amount:  249,
+			Amount:  finalStars,
 			Status:  "pending",
 			Payload: payload,
 		})
@@ -1450,6 +1483,7 @@ func (h *UsernameHandler) ValuationPayStars(w http.ResponseWriter, r *http.Reque
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"invoice_link": invoiceLink,
+		"final_stars":  finalStars,
 	})
 }
 

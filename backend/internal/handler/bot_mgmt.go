@@ -347,8 +347,8 @@ func (h *BotMgmtHandler) SubscribeStarsInvoice(w http.ResponseWriter, r *http.Re
 	finalStars := pkg.PriceStars
 	if req.DiscountPercent > 0 {
 		discountPercent := req.DiscountPercent
-		if discountPercent > 70 {
-			discountPercent = 70
+		if discountPercent > 75 {
+			discountPercent = 75
 		}
 		savedStars := (pkg.PriceStars * discountPercent) / 100
 		finalStars = pkg.PriceStars - savedStars
@@ -475,8 +475,8 @@ func (h *BotMgmtHandler) SubscribeChannelStarsInvoice(w http.ResponseWriter, r *
 	finalStars := pkg.PriceStars
 	if req.DiscountPercent > 0 {
 		discountPercent := req.DiscountPercent
-		if discountPercent > 70 {
-			discountPercent = 70
+		if discountPercent > 75 {
+			discountPercent = 75
 		}
 		savedStars := (pkg.PriceStars * discountPercent) / 100
 		finalStars = pkg.PriceStars - savedStars

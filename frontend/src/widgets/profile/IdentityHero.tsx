@@ -113,7 +113,7 @@ export const IdentityHero = (props: Props) => {
 						>
 							<img
 								src={avatarUrl()}
-								alt={`تصویر ${displayName()}`}
+								alt={displayName()}
 								class="w-full h-full object-cover transition-opacity duration-300"
 								loading="lazy"
 								referrerPolicy="no-referrer"

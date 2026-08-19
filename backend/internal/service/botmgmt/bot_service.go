@@ -50,10 +50,9 @@ type DiscountTier struct {
 }
 
 var DiscountTiers = []DiscountTier{
-	{Percent: 20, RequiredCoins: 31000, Description: "20% OFF - Valid for 15 days"},
-	{Percent: 35, RequiredCoins: 54700, Description: "35% OFF - Valid for 15 days"},
+	{Percent: 25, RequiredCoins: 38700, Description: "25% OFF - Valid for 15 days"},
 	{Percent: 50, RequiredCoins: 77400, Description: "50% OFF - Valid for 15 days"},
-	{Percent: 70, RequiredCoins: 108400, Description: "70% OFF (MAX) - Valid for 15 days"},
+	{Percent: 75, RequiredCoins: 116100, Description: "75% OFF (MAX) - Valid for 15 days"},
 }
 
 var Packages = []SubscriptionPackage{

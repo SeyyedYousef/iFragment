@@ -104,7 +104,9 @@ export const ImpersonationBanner: Component = () => {
 					<span class="inline-block w-2.5 h-2.5 rounded-full bg-white animate-ping shrink-0" />
 					<span class="truncate max-w-[220px]">
 						{(
-							t('profile.impersonationBanner') || 'ورود پشتیبانی به حساب کاربر: {username}'
+							t('impersonation.banner' as any, { username: impersonatedUser() || '' }) ||
+							t('profile.impersonationBanner') ||
+							'Support Session Active: {username}'
 						).replace('{username}', impersonatedUser() || '')}
 					</span>
 					<span
@@ -121,25 +123,25 @@ export const ImpersonationBanner: Component = () => {
 						onClick={() => navigateTo('/managed-channels')}
 						class="h-7 px-2.5 bg-white/15 hover:bg-white/25 active:scale-95 text-[11px] font-bold rounded-lg transition-all border border-white/20"
 					>
-						کانال‌ها
+						{t('bottomNav.channels') || 'Channels'}
 					</button>
 					<button
 						onClick={() => navigateTo('/managed-bots')}
 						class="h-7 px-2.5 bg-white/15 hover:bg-white/25 active:scale-95 text-[11px] font-bold rounded-lg transition-all border border-white/20"
 					>
-						گروه‌ها
+						{t('bottomNav.groups') || 'Groups'}
 					</button>
 					<button
 						onClick={() => navigateTo('/profile')}
 						class="h-7 px-2.5 bg-white/15 hover:bg-white/25 active:scale-95 text-[11px] font-bold rounded-lg transition-all border border-white/20"
 					>
-						پروفایل
+						{t('bottomNav.profile') || 'Profile'}
 					</button>
 					<button
 						onClick={handleExitSimulation}
 						class="h-7 px-3 bg-white text-red-600 active:scale-95 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all shadow shadow-black/20"
 					>
-						{t('profile.exitSimulation') || 'خروج'}
+						{t('impersonation.exit' as any) || t('profile.exitSimulation') || 'Exit'}
 					</button>
 				</div>
 			</div>

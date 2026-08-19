@@ -41,7 +41,7 @@ export const BotManagePage: Component = () => {
 	const [selectedGroup, setSelectedGroup] = createSignal<string>('');
 	const [selectedPkg, setSelectedPkg] = createSignal<string>('');
 	const [isDiscountEnabled, setIsDiscountEnabled] = createSignal(false);
-	const [discountPercent, setDiscountPercent] = createSignal<20 | 35 | 50 | 70>(50);
+	const [discountPercent, setDiscountPercent] = createSignal<25 | 50 | 75>(50);
 	const [isProcessing, setIsProcessing] = createSignal(false);
 	const [successMsg, setSuccessMsg] = createSignal('');
 	const [errorMsg, setErrorMsg] = createSignal('');
@@ -181,9 +181,9 @@ export const BotManagePage: Component = () => {
 						</div>
 						<div class={`bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] border border-white/5 p-4.5 flex flex-col justify-center shadow-sm relative overflow-hidden ${bot()?.subscription_status === 'pro' ? 'border-amber-400/20' : ''}`}>
 							<Show when={bot()?.subscription_status === 'pro'}><div class="absolute -right-6 -top-6 w-20 h-20 bg-amber-400/10 blur-2xl rounded-full pointer-events-none" /></Show>
-							<span class="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">SUBSCRIPTION</span>
+							<span class="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">{t('botManage.subscription' as any) || 'SUBSCRIPTION'}</span>
 							<span class={`text-[20px] font-black uppercase tracking-wider drop-shadow-sm ${bot()?.subscription_status === 'pro' ? 'text-amber-400' : 'text-white/60'}`}>
-								{bot()?.subscription_status || 'FREE'}
+								{bot()?.subscription_status === 'pro' ? (t('common.pro' as any) || 'PRO') : (t('common.free' as any) || 'FREE')}
 							</span>
 						</div>
 					</div>

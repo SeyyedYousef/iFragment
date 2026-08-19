@@ -1,5 +1,6 @@
 import { Component, For, JSX, Show } from 'solid-js';
 import { FragmentPulse } from '@/shared/ui/FragmentPulse.js';
+import { t } from '@/shared/i18n/index.js';
 
 export interface LeaderboardEntry {
 	rank: number;
@@ -97,7 +98,7 @@ export const LeaderboardShell: Component<LeaderboardShellProps> = (props) => {
 			<Show when={props.loading}>
 				<div class="flex flex-col items-center justify-center py-16 gap-3">
 					<div class="w-8 h-8 border-3 border-[#3390ec] border-t-transparent rounded-full animate-spin" />
-					<span class="text-xs text-white/50 font-bold">در حال دریافت برترین‌ها...</span>
+					<span class="text-xs text-white/50 font-bold">{t('leaderboard.loading' as any) || 'Loading Leaderboard...'}</span>
 				</div>
 			</Show>
 
@@ -107,8 +108,8 @@ export const LeaderboardShell: Component<LeaderboardShellProps> = (props) => {
 					<div class="grid grid-cols-3 gap-3 items-end pt-4 pb-2">
 						{/* 2nd Place */}
 						<div class="bg-gradient-to-b from-[#151822] to-[#0F1117] border border-white/10 rounded-[20px] p-3 text-center space-y-2 flex flex-col items-center">
-							<span class="px-2 py-0.5 rounded-full bg-slate-400/20 border border-slate-400/40 text-slate-300 text-[10px] font-black">
-								رتبه ۲
+							<span class="px-2 py-0.5 rounded-full bg-slate-400/20 border border-slate-400/40 text-slate-300 text-[10px] font-black font-mono">
+								#2
 							</span>
 							<div class="w-12 h-12 rounded-full bg-slate-700/50 border-2 border-slate-400 flex items-center justify-center text-base font-black text-white overflow-hidden">
 								<Show when={topThree()[1]?.avatarUrl} fallback={topThree()[1]?.name?.[0] || '2'}>
@@ -123,8 +124,8 @@ export const LeaderboardShell: Component<LeaderboardShellProps> = (props) => {
 
 						{/* 1st Place */}
 						<div class="bg-gradient-to-b from-[#1e2433] to-[#0F1117] border border-amber-500/40 rounded-[24px] p-4 text-center space-y-2 flex flex-col items-center shadow-lg shadow-amber-500/10 -translate-y-2">
-							<span class="px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/50 text-amber-400 text-[10px] font-black">
-								👑 رتبه ۱
+							<span class="px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/50 text-amber-400 text-[10px] font-black font-mono">
+								👑 #1
 							</span>
 							<div class="w-14 h-14 rounded-full bg-amber-500/20 border-2 border-amber-400 flex items-center justify-center text-lg font-black text-white overflow-hidden">
 								<Show when={topThree()[0]?.avatarUrl} fallback={topThree()[0]?.name?.[0] || '1'}>
@@ -139,8 +140,8 @@ export const LeaderboardShell: Component<LeaderboardShellProps> = (props) => {
 
 						{/* 3rd Place */}
 						<div class="bg-gradient-to-b from-[#151822] to-[#0F1117] border border-amber-700/30 rounded-[20px] p-3 text-center space-y-2 flex flex-col items-center">
-							<span class="px-2 py-0.5 rounded-full bg-amber-700/20 border border-amber-700/40 text-amber-500 text-[10px] font-black">
-								رتبه ۳
+							<span class="px-2 py-0.5 rounded-full bg-amber-700/20 border border-amber-700/40 text-amber-500 text-[10px] font-black font-mono">
+								#3
 							</span>
 							<div class="w-12 h-12 rounded-full bg-amber-900/30 border-2 border-amber-700 flex items-center justify-center text-base font-black text-white overflow-hidden">
 								<Show when={topThree()[2]?.avatarUrl} fallback={topThree()[2]?.name?.[0] || '3'}>
@@ -204,7 +205,7 @@ export const LeaderboardShell: Component<LeaderboardShellProps> = (props) => {
 								#{props.currentUserEntry!.rank}
 							</span>
 							<div class="text-xs font-black text-white">
-								شما (<bdi>{props.currentUserEntry!.name}</bdi>)
+								{t('leaderboard.you' as any) || 'You'} (<bdi>{props.currentUserEntry!.name}</bdi>)
 							</div>
 						</div>
 						<div class="font-mono text-xs font-black text-[#3390ec]">
