@@ -2509,6 +2509,7 @@ export const dict = {
 	valuation: {
 		estimatedValue: 'ESTIMATED VALUE',
 		processingProActivation: 'PROCESSING PRO ACTIVATION...',
+		pay_single_coins: '1-Time Report for this Username (50K Coins)',
 		fragmentFee: 'FRAGMENT PLATFORM FEE',
 		minBidRequired: 'MINIMUM BID REQUIRED',
 		bidStepIncrement: 'BID STEP INCREMENT',

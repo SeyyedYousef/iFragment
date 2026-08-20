@@ -345,8 +345,9 @@ func (h *BotMgmtHandler) SubscribeStarsInvoice(w http.ResponseWriter, r *http.Re
 	}
 
 	finalStars := pkg.PriceStars
+	discountPercent := 0
 	if req.DiscountPercent > 0 {
-		discountPercent := req.DiscountPercent
+		discountPercent = req.DiscountPercent
 		if discountPercent > 75 {
 			discountPercent = 75
 		}
@@ -357,26 +358,20 @@ func (h *BotMgmtHandler) SubscribeStarsInvoice(w http.ResponseWriter, r *http.Re
 		}
 		requiredCoins := float64(savedStars * 1032)
 
-		tx, err := h.svc.BotRepo().DB().Pool.Begin(r.Context())
-		if err != nil {
-			RespondError(w, r, http.StatusInternalServerError, "failed to start transaction", err)
-			return
-		}
-		defer tx.Rollback(r.Context())
-
-		if err := h.svc.BotRepo().DB().DeductCreditsFIFO(r.Context(), tx, userID, requiredCoins); err != nil {
-			RespondError(w, r, http.StatusBadRequest, err.Error(), err)
-			return
-		}
-		if err := tx.Commit(r.Context()); err != nil {
-			RespondError(w, r, http.StatusInternalServerError, "failed to commit credit deduction", err)
+		profile, err := h.svc.BotRepo().DB().GetProfileStats(r.Context(), userID)
+		if err != nil || profile == nil || profile.AirdropCoins < requiredCoins {
+			currentCoins := 0.0
+			if profile != nil {
+				currentCoins = profile.AirdropCoins
+			}
+			RespondError(w, r, http.StatusBadRequest, fmt.Sprintf("Insufficient coins for discount voucher. Required: %.0f, Available: %.0f", requiredCoins, currentCoins), nil)
 			return
 		}
 	}
 
 	title := fmt.Sprintf("Subscription: %s", group.ChatTitle)
 	desc := fmt.Sprintf("%s subscription for %s", pkg.Name, group.ChatTitle)
-	payload := fmt.Sprintf("sub_stars_%s_%s", groupID.String(), pkg.ID)
+	payload := fmt.Sprintf("sub_stars_%s_%s_%d", groupID.String(), pkg.ID, discountPercent)
 
 	link, err := h.paymentService.CreateInvoiceLink(title, desc, payload, finalStars)
 	if err != nil {
@@ -473,8 +468,9 @@ func (h *BotMgmtHandler) SubscribeChannelStarsInvoice(w http.ResponseWriter, r *
 	}
 
 	finalStars := pkg.PriceStars
+	discountPercent := 0
 	if req.DiscountPercent > 0 {
-		discountPercent := req.DiscountPercent
+		discountPercent = req.DiscountPercent
 		if discountPercent > 75 {
 			discountPercent = 75
 		}
@@ -485,26 +481,20 @@ func (h *BotMgmtHandler) SubscribeChannelStarsInvoice(w http.ResponseWriter, r *
 		}
 		requiredCoins := float64(savedStars * 1032)
 
-		tx, err := h.svc.BotRepo().DB().Pool.Begin(r.Context())
-		if err != nil {
-			RespondError(w, r, http.StatusInternalServerError, "failed to start transaction", err)
-			return
-		}
-		defer tx.Rollback(r.Context())
-
-		if err := h.svc.BotRepo().DB().DeductCreditsFIFO(r.Context(), tx, userID, requiredCoins); err != nil {
-			RespondError(w, r, http.StatusBadRequest, err.Error(), err)
-			return
-		}
-		if err := tx.Commit(r.Context()); err != nil {
-			RespondError(w, r, http.StatusInternalServerError, "failed to commit credit deduction", err)
+		profile, err := h.svc.BotRepo().DB().GetProfileStats(r.Context(), userID)
+		if err != nil || profile == nil || profile.AirdropCoins < requiredCoins {
+			currentCoins := 0.0
+			if profile != nil {
+				currentCoins = profile.AirdropCoins
+			}
+			RespondError(w, r, http.StatusBadRequest, fmt.Sprintf("Insufficient coins for discount voucher. Required: %.0f, Available: %.0f", requiredCoins, currentCoins), nil)
 			return
 		}
 	}
 
 	title := "Channel Subscription"
 	desc := fmt.Sprintf("%s subscription for your channel", pkg.Name)
-	payload := fmt.Sprintf("sub_chan_stars_%s_%s", channelID.String(), pkg.ID)
+	payload := fmt.Sprintf("sub_chan_stars_%s_%s_%d", channelID.String(), pkg.ID, discountPercent)
 
 	link, err := h.paymentService.CreateInvoiceLink(title, desc, payload, finalStars)
 	if err != nil {

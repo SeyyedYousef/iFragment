@@ -1428,8 +1428,9 @@ func (h *UsernameHandler) ValuationPayStars(w http.ResponseWriter, r *http.Reque
 
 	baseStars := 249
 	finalStars := baseStars
+	discountPercent := 0
 	if req.DiscountPercent > 0 {
-		discountPercent := req.DiscountPercent
+		discountPercent = req.DiscountPercent
 		if discountPercent > 75 {
 			discountPercent = 75
 		}
@@ -1440,25 +1441,19 @@ func (h *UsernameHandler) ValuationPayStars(w http.ResponseWriter, r *http.Reque
 		}
 		requiredCoins := float64(savedStars * 1032)
 		if h.db != nil {
-			tx, err := h.db.Pool.Begin(ctx)
-			if err != nil {
-				RespondError(w, r, http.StatusInternalServerError, "failed to start transaction", err)
-				return
-			}
-			defer tx.Rollback(ctx)
-
-			if err := h.db.DeductCreditsFIFO(ctx, tx, userID, requiredCoins); err != nil {
-				RespondError(w, r, http.StatusBadRequest, err.Error(), err)
-				return
-			}
-			if err := tx.Commit(ctx); err != nil {
-				RespondError(w, r, http.StatusInternalServerError, "failed to commit credit deduction", err)
+			profile, err := h.db.GetProfileStats(ctx, userID)
+			if err != nil || profile == nil || profile.AirdropCoins < requiredCoins {
+				currentBalance := 0.0
+				if profile != nil {
+					currentBalance = profile.AirdropCoins
+				}
+				RespondError(w, r, http.StatusBadRequest, fmt.Sprintf("Insufficient coins for discount voucher. Required: %.0f (You have %.0f)", requiredCoins, currentBalance), nil)
 				return
 			}
 		}
 	}
 
-	payload := fmt.Sprintf("val_pro:%d:%d", userID, time.Now().Unix())
+	payload := fmt.Sprintf("val_pro:%d:%d:%d", userID, time.Now().Unix(), discountPercent)
 	invoiceLink, err := h.starsService.CreateInvoiceLink(
 		"👑 iFragment Pro Analyst Pass (30 Days)",
 		"3 Daily Deep Valuations + 70% Fragment Arbitrage Alerts + Digital Certificate",

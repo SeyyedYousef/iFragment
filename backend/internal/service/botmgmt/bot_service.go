@@ -936,7 +936,7 @@ func (s *BotService) GetPackageByID(packageID string) *SubscriptionPackage {
 	return nil
 }
 
-func (s *BotService) ActivateSubscriptionFromStars(ctx context.Context, userID int64, groupID uuid.UUID, packageID string) error {
+func (s *BotService) ActivateSubscriptionFromStars(ctx context.Context, userID int64, groupID uuid.UUID, packageID string, discountPercent int) error {
 	group, err := s.botRepo.GetGroupByID(ctx, groupID)
 	if err != nil {
 		return err
@@ -951,6 +951,15 @@ func (s *BotService) ActivateSubscriptionFromStars(ctx context.Context, userID i
 		return err
 	}
 	defer tx.Rollback(ctx)
+
+	if discountPercent > 0 {
+		if discountPercent > 75 {
+			discountPercent = 75
+		}
+		savedStars := (pkg.PriceStars * discountPercent) / 100
+		requiredCoins := float64(savedStars * 1032)
+		_ = s.botRepo.DB().DeductCreditsFIFO(ctx, tx, userID, requiredCoins)
+	}
 
 	if err := s.internalActivateSubscriptionTx(ctx, tx, userID, groupID, packageID, group, pkg); err != nil {
 		return err
@@ -1410,7 +1419,7 @@ func (s *BotService) SubscribeChannelWithAirdrop(ctx context.Context, userID int
 	return nil
 }
 
-func (s *BotService) ActivateChannelSubscriptionFromStars(ctx context.Context, userID int64, channelID uuid.UUID, packageID string) error {
+func (s *BotService) ActivateChannelSubscriptionFromStars(ctx context.Context, userID int64, channelID uuid.UUID, packageID string, discountPercent int) error {
 	channelRepo := repository.NewChannelRepo(s.botRepo.DB(), nil)
 	ch, err := channelRepo.GetChannelByID(ctx, channelID)
 	if err != nil {
@@ -1432,6 +1441,15 @@ func (s *BotService) ActivateChannelSubscriptionFromStars(ctx context.Context, u
 		return err
 	}
 	defer tx.Rollback(ctx)
+
+	if discountPercent > 0 {
+		if discountPercent > 75 {
+			discountPercent = 75
+		}
+		savedStars := (pkg.PriceStars * discountPercent) / 100
+		requiredCoins := float64(savedStars * 1032)
+		_ = s.botRepo.DB().DeductCreditsFIFO(ctx, tx, userID, requiredCoins)
+	}
 
 	if err := s.internalActivateChannelSubscriptionTx(ctx, tx, userID, channelID, packageID, ch, pkg); err != nil {
 		return err

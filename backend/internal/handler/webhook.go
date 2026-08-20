@@ -707,34 +707,78 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 		}
 	} else if strings.HasPrefix(pay.InvoicePayload, "sub_stars_") {
 		parts := strings.Split(strings.TrimPrefix(pay.InvoicePayload, "sub_stars_"), "_")
-		if len(parts) == 2 {
+		if len(parts) >= 2 {
 			groupIDStr := parts[0]
 			packageID := parts[1]
+			discountPercent := 0
+			if len(parts) >= 3 {
+				discountPercent, _ = strconv.Atoi(parts[2])
+			}
 			groupID, err := uuid.Parse(groupIDStr)
 			if err == nil {
 				botSvc := botmgmt.NewBotService(h.botRepo, repository.NewSettingsRepo(h.db, nil), repository.NewAuditRepo(h.db), repository.NewAnalyticsRepo(h.db), nil, nil)
-				err = botSvc.ActivateSubscriptionFromStars(ctx, msg.From.ID, groupID, packageID)
+				err = botSvc.ActivateSubscriptionFromStars(ctx, msg.From.ID, groupID, packageID, discountPercent)
 				if err != nil {
 					slog.Error("Failed to activate subscription from Stars webhook", "error", err, "payload", pay.InvoicePayload)
 				} else {
-					slog.Info("Successfully activated subscription via Stars Webhook", "group_id", groupIDStr, "package_id", packageID)
+					slog.Info("Successfully activated subscription via Stars Webhook", "group_id", groupIDStr, "package_id", packageID, "discount_percent", discountPercent)
 				}
 			}
 		}
 	} else if strings.HasPrefix(pay.InvoicePayload, "sub_chan_stars_") {
 		parts := strings.Split(strings.TrimPrefix(pay.InvoicePayload, "sub_chan_stars_"), "_")
-		if len(parts) == 2 {
+		if len(parts) >= 2 {
 			channelIDStr := parts[0]
 			packageID := parts[1]
+			discountPercent := 0
+			if len(parts) >= 3 {
+				discountPercent, _ = strconv.Atoi(parts[2])
+			}
 			channelID, err := uuid.Parse(channelIDStr)
 			if err == nil {
 				botSvc := botmgmt.NewBotService(h.botRepo, repository.NewSettingsRepo(h.db, nil), repository.NewAuditRepo(h.db), repository.NewAnalyticsRepo(h.db), nil, nil)
-				err = botSvc.ActivateChannelSubscriptionFromStars(ctx, msg.From.ID, channelID, packageID)
+				err = botSvc.ActivateChannelSubscriptionFromStars(ctx, msg.From.ID, channelID, packageID, discountPercent)
 				if err != nil {
 					slog.Error("Failed to activate channel subscription from Stars webhook", "error", err, "payload", pay.InvoicePayload)
 				} else {
-					slog.Info("Successfully activated channel subscription via Stars Webhook", "channel_id", channelIDStr, "package_id", packageID)
+					slog.Info("Successfully activated channel subscription via Stars Webhook", "channel_id", channelIDStr, "package_id", packageID, "discount_percent", discountPercent)
 				}
+			}
+		}
+	} else if strings.HasPrefix(pay.InvoicePayload, "val_pro:") {
+		parts := strings.Split(pay.InvoicePayload, ":")
+		if len(parts) >= 2 {
+			userID, parseErr := strconv.ParseInt(parts[1], 10, 64)
+			discountPercent := 0
+			if len(parts) >= 4 {
+				discountPercent, _ = strconv.Atoi(parts[3])
+			}
+			if parseErr == nil {
+				if discountPercent > 0 {
+					savedStars := (249 * discountPercent) / 100
+					requiredCoins := float64(savedStars * 1032)
+					tx, err := h.db.Pool.Begin(ctx)
+					if err == nil {
+						_ = h.db.DeductCreditsFIFO(ctx, tx, userID, requiredCoins)
+						_ = tx.Commit(ctx)
+					}
+				}
+				err := h.db.CompleteStarsPremiumPayment(ctx, pay.InvoicePayload, pay.TelegramPaymentChargeID, userID, 30*24*time.Hour)
+				if err != nil {
+					slog.Error("CRITICAL: Failed to complete Stars pro valuation payment atomically", "error", err, "user_id", userID, "payload", pay.InvoicePayload)
+					return
+				}
+				slog.Info("Granted 30-day Pro Valuation access to User via Stars Webhook", "user_id", userID)
+
+				auditRepo := repository.NewAuditRepo(h.db)
+				targetType := "user"
+				targetID := strconv.FormatInt(userID, 10)
+				_ = auditRepo.Log(ctx, &repository.AuditLog{
+					ActorID:    userID,
+					Action:     "valuation.pro.grant",
+					TargetType: &targetType,
+					TargetID:   &targetID,
+				})
 			}
 		}
 

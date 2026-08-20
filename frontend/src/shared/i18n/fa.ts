@@ -2498,6 +2498,7 @@ export const dict = {
 	valuation: {
 		estimatedValue: 'ارزش تخمینی',
 		processingProActivation: 'در حال فعال‌سازی اشتراک پرو...',
+		pay_single_coins: 'ارزیابی تک‌مرتبه‌ای این یوزرنیم با ۵۰,۰۰۰ سکه',
 		fragmentFee: 'کارمزد پلتفرم فرگمنت',
 		minBidRequired: 'حداقل پیشنهاد مورد نیاز',
 		bidStepIncrement: 'گام افزایش پیشنهاد',

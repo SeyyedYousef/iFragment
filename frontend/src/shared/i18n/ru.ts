@@ -2513,6 +2513,7 @@ export const dict = {
 	valuation: {
 		estimatedValue: 'ОЦЕНОЧНАЯ СТОИМОСТЬ',
 		processingProActivation: 'АКТИВАЦИЯ PRO-ДОСТУПА...',
+		pay_single_coins: 'Разовая оценка юзернейма за 50 000 монет',
 		fragmentFee: 'КОМИССИЯ ПЛАТФОРМЫ FRAGMENT',
 		minBidRequired: 'МИНИМАЛЬНАЯ СТАВКА',
 		bidStepIncrement: 'ШАГ СТАВКИ',

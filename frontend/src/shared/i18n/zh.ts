@@ -2448,6 +2448,7 @@ export const dict = {
 	valuation: {
 		estimatedValue: '预估价值',
 		processingProActivation: '正在处理 PRO 激活...',
+		pay_single_coins: '使用 50,000 硬币获取单次估值报告',
 		fragmentFee: 'FRAGMENT 平台手续费',
 		minBidRequired: '所需最低出价',
 		bidStepIncrement: '出价递增步长',

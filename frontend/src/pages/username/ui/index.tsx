@@ -348,6 +348,19 @@ export const UsernamePage: Component = () => {
 		} finally { setIsProcessingPayment(false); }
 	};
 
+	const handlePayCoins = async () => {
+		const u = username();
+		if (!u || isProcessingPayment()) return;
+		setIsProcessingPayment(true); setPaymentError('');
+		try {
+			const res = await valuationApi.payWithAirdrop(u);
+			if (res?.success) { haptic.notify('success'); grantAccess('coins', u); }
+			else grantAccess('coins', u);
+		} catch (e: any) {
+			setPaymentError(e?.response?.data?.error || e?.message || 'Insufficient coin balance'); haptic.notify('error');
+		} finally { setIsProcessingPayment(false); }
+	};
+
 	const handleVerifyFreeAccess = async () => {
 		const u = username();
 		if (!u || isProcessingPayment()) return;
@@ -1752,20 +1765,32 @@ export const UsernamePage: Component = () => {
 								{(() => {
 									const calc = () => calculateDiscountForPlan(4.99, isDiscountEnabled() ? discountPercent() : 0, 249);
 									return (
-										<button
-											onClick={handlePayStars}
-											disabled={isProcessingPayment()}
-											class="w-full h-14 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-black text-[13px] tracking-wider uppercase rounded-[20px] flex items-center justify-center gap-2 shadow-[0_8px_30px_rgba(251,191,36,0.3)] active:scale-95 transition-all disabled:opacity-50 relative z-10"
-										>
-											<Show when={isProcessingPayment()} fallback={
-												<>
-													<span class="material-symbols-outlined text-[20px]">star</span>
-													<span>{t('valuation.unlock_pro_btn') || 'ACTIVATE PRO PASS'} ({calc().finalStars} STARS ⭐)</span>
-												</>
-											}>
-												<div class="w-5 h-5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
-											</Show>
-										</button>
+										<div class="flex flex-col gap-2 w-full relative z-10">
+											<button
+												onClick={handlePayStars}
+												disabled={isProcessingPayment()}
+												class="w-full h-14 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-black text-[13px] tracking-wider uppercase rounded-[20px] flex items-center justify-center gap-2 shadow-[0_8px_30px_rgba(251,191,36,0.3)] active:scale-95 transition-all disabled:opacity-50"
+											>
+												<Show when={isProcessingPayment()} fallback={
+													<>
+														<span class="material-symbols-outlined text-[20px]">star</span>
+														<span>{t('valuation.unlock_pro_btn') || 'ACTIVATE PRO PASS'} ({calc().finalStars} STARS ⭐)</span>
+													</>
+												}>
+													<div class="w-5 h-5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+												</Show>
+											</button>
+
+											<button
+												type="button"
+												onClick={handlePayCoins}
+												disabled={isProcessingPayment()}
+												class="w-full py-2.5 px-3 rounded-[14px] bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-white/70 hover:text-white font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all active:scale-98"
+											>
+												<span class="text-amber-400">🪙</span>
+												<span>{t('valuation.pay_single_coins' as any) || 'ارزیابی تک‌مرتبه‌ای این یوزرنیم با ۵۰,۰۰۰ سکه'}</span>
+											</button>
+										</div>
 									);
 								})()}
 

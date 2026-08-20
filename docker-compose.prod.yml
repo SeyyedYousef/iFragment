@@ -25,19 +25,19 @@ services:
     image: postgres:17-alpine
     command: >
       postgres
-      -c shared_buffers=1GB
-      -c work_mem=32MB
-      -c maintenance_work_mem=256MB
-      -c effective_cache_size=3GB
+      -c shared_buffers=256MB
+      -c work_mem=8MB
+      -c maintenance_work_mem=64MB
+      -c effective_cache_size=1GB
       -c random_page_cost=1.1
-      -c effective_io_concurrency=200
-      -c wal_buffers=32MB
+      -c effective_io_concurrency=100
+      -c wal_buffers=8MB
       -c checkpoint_completion_target=0.9
-      -c checkpoint_timeout=15min
-      -c max_connections=200
-      -c max_worker_processes=8
-      -c max_parallel_workers=8
-      -c max_parallel_workers_per_gather=4
+      -c checkpoint_timeout=10min
+      -c max_connections=100
+      -c max_worker_processes=2
+      -c max_parallel_workers=2
+      -c max_parallel_workers_per_gather=1
       -c idle_in_transaction_session_timeout=10000
       -c statement_timeout=30000
       -c lock_timeout=5000
@@ -59,8 +59,9 @@ services:
     command: [
       "dragonfly",
       "--cache_mode=true",
-      "--maxmemory=${DRAGONFLY_MAX_MEMORY:-1GB}",
-      "--keys_output_limit=8192",
+      "--maxmemory=${DRAGONFLY_MAX_MEMORY:-256MB}",
+      "--keys_output_limit=4096",
+      "--proactor_threads=1",
       "--dbfilename=dump.rdb",
       "--dir=/data"
     ]
