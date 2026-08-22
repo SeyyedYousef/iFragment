@@ -62,7 +62,7 @@ services:
       "--maxmemory=${DRAGONFLY_MAX_MEMORY:-256MB}",
       "--keys_output_limit=4096",
       "--proactor_threads=1",
-      "--dbfilename=dump.rdb",
+      "--dbfilename=dump",
       "--dir=/data"
     ]
     volumes:
