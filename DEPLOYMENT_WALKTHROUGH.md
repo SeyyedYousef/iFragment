@@ -1,9 +1,11 @@
-# 👑 راهنمای جامع و اختصاصی استقرار iFragment با گیت‌هاب (۰ تا ۱۰۰ بدون دردسر)
+# 👑 راهنمای جامع استقرار iFragment روی سرور اختصاصی (از صفر تا صد)
 
-> **فرمول نهایی و استاندارد جهانی:**
-> * **بک‌اند و دیتابیس:** کلون مستقیم از گیت‌هاب روی سرور **Aeza VPS** (با ۲ گیگ رم + ۲ گیگ Swap + داکر)
-> * **فرانت‌اند:** اتصال خودکار ریپازیتوری گیت‌هاب به **Cloudflare Pages** (۱۰۰٪ رایگان و بدون اشغال منابع سرور)
-> * **ریپازیتوری اختصاصی شما:** `https://github.com/SeyyedYousef/iFragment.git`
+> **آخرین به‌روزرسانی:** ۲۲ آگوست ۲۰۲۶
+>
+> **فرمول نهایی:**
+> * **بک‌اند و دیتابیس:** سرور **Aeza VPS** آلمان (۲ گیگ رم + Swap + داکر)
+> * **فرانت‌اند:** **Cloudflare Pages** (۱۰۰٪ رایگان، بدون اشغال منابع سرور)
+> * **ریپازیتوری:** `https://github.com/SeyyedYousef/iFragment.git`
 
 ---
 
@@ -12,10 +14,10 @@
 ```mermaid
 graph TD
     GitHub[GitHub Repository\nSeyyedYousef/iFragment] -->|اتصال خودکار CI/CD| CF[Cloudflare Pages\nفرانت‌اند سریع و رایگان]
-    GitHub -->|git clone در ۲ ثانیه| VPS[سرور لینوکس Aeza]
-    
+    GitHub -->|git clone در ۲ ثانیه| VPS[سرور لینوکس Aeza\n109.172.94.139]
+
     User([کاربر تلگرام]) -->|باز کردن مینی‌اپ| CF
-    CF -->|درخواست‌های API| Caddy[Caddy HTTPS\nsslip.io]
+    CF -->|درخواست‌های API| Caddy[Caddy HTTPS\n109-172-94-139.sslip.io]
     Caddy -->|پورت 8080| GoApp[Go API Engine]
     GoApp -->|پورت 5432| DB[(PostgreSQL 17)]
     GoApp -->|پورت 6379| Cache[(DragonflyDB)]
@@ -23,52 +25,116 @@ graph TD
 
 ---
 
-## 📌 بخش اول: خرید سرور از Aeza (زمان: ۲ دقیقه)
+## 📌 مرحله صفر: پاک‌سازی کامل سرور (فقط اگر قبلاً چیزی نصب کرده‌اید)
 
-1. وارد سایت **[aeza.net](https://aeza.net)** شده و ثبت‌نام کنید.
-2. از منوی سرویس‌ها روی **Virtual Servers (VPS)** کلیک کنید.
-3. مشخصات زیر را انتخاب کنید:
-   * **لوکیشن (Location):** `Germany (Frankfurt / Falkenstein)` یا `Finland`
-   * **پلن سرور (Plan):** `DEs-1` (قیمت: ~۵.۹۳ یورو / ۱ هسته / ۲ گیگ رم / ۳۰ گیگ NVMe)
-   * **سیستم‌عامل (Operating System):** `Ubuntu 24.04` (۶۴ بیت)
-4. صورت‌حساب را با کریپتو (Tether USDT یا TON) پرداخت کنید.
-5. پس از ۲ دقیقه، مشخصات سرور را یادداشت کنید:
-   * **آی‌پی سرور (IP):** مثلاً `185.220.100.50`
-   * **نام کاربری:** `root`
-   * **رمز عبور (Password):** مثلاً `AbC!1234#XyZ`
+> **⚠️ توجه:** اگر سرور شما تازه خریداری شده و هیچ‌چیز روی آن نصب نکرده‌اید، این مرحله را **رد کنید** و مستقیم به مرحله ۱ بروید.
 
----
-
-## 📌 بخش دوم: اتصال به سرور از ویندوز با PowerShell
-
-1. در ویندوز برنامه **PowerShell** یا **cmd** را باز کنید.
-2. دستور زیر را وارد کرده و Enter بزنید (آی‌پی سرور خود را بگذارید):
-   ```bash
-   ssh root@185.220.100.50
-   ```
-3. در پیام اول بنویسید **`yes`** و اینتر بزنید.
-4. رمز عبور سرور را Paste کرده و اینتر بزنید (کاراکترها روی صفحه نشان داده نمی‌شوند که طبیعی است).
-
-حالا داخل محیط سرور لینوکس هستید! 🟢
-
----
-
-## 📌 بخش سوم: آماده‌سازی اولیه سرور (با یک دستور)
-
-این دستورات را در ترمینال سرور کپی و اینتر کنید تا حافظه کمکی Swap، داکر و فایروال نصب شوند:
+اگر قبلاً تلاشی برای نصب داشتید و می‌خواهید از صفر شروع کنید، این دستورات را در ترمینال سرور اجرا کنید:
 
 ```bash
-# ساخت حافظه مجازی 2 گیگابایتی Swap
-fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && echo '/swapfile none swap sw 0 0' >> /etc/fstab
+docker compose -f /opt/ifragment/docker-compose.prod.yml down -v --rmi all 2>/dev/null
+docker system prune -af --volumes
+rm -rf /opt/ifragment
+```
 
-# آپدیت سیستم و نصب ابزارهای مورد نیاز
+**توضیح:** این دستورات تمام کانتینرهای داکر، ایمیج‌ها، دیتابیس‌ها و کدهای قبلی را کامل پاک می‌کنند تا سرور به حالت تمیز برگردد.
+
+---
+
+## 📌 مرحله ۱: ورود به سرور از ویندوز
+
+### ۱.۱ باز کردن ترمینال ویندوز
+* در ویندوز، کلیدهای **`Win + R`** را فشار دهید.
+* در پنجره باز شده بنویسید **`cmd`** و Enter بزنید.
+* یک پنجره سیاه‌رنگ (Command Prompt) باز می‌شود.
+
+### ۱.۲ اتصال به سرور با SSH
+* در این پنجره سیاه، دستور زیر را تایپ کنید و **Enter** بزنید:
+
+```bash
+ssh root@109.172.94.139
+```
+
+### ۱.۳ تأیید اثرانگشت سرور (فقط بار اول)
+* اگر پیامی مشابه زیر آمد:
+  ```
+  Are you sure you want to continue connecting (yes/no/[fingerprint])?
+  ```
+* کلمه **`yes`** را بنویسید و **Enter** بزنید.
+
+### ۱.۴ وارد کردن رمز عبور
+* وقتی عبارت `root@109.172.94.139's password:` ظاهر شد:
+  1. به پنل Aeza بروید (سایت my.aeza.net) و روی دکمه **کپی** کنار Password کلیک کنید.
+  2. به پنجره سیاه CMD برگردید.
+  3. داخل پنجره سیاه **یک بار کلیک‌راست** ماوس کنید (با این کار پسورد پیست می‌شود).
+  4. کلید **Enter** را فشار دهید.
+
+> **⚠️ نکته مهم:** هنگام وارد کردن رمز عبور، هیچ ستاره‌ای (***) یا کاراکتری روی صفحه نمایش داده نمی‌شود. این رفتار طبیعی و امنیتی لینوکس است. فقط پیست کنید و Enter بزنید.
+
+> **⚠️ نکته مهم:** اگر خطای `Permission denied` دریافت کردید، ابتدا پسورد را در برنامه Notepad ویندوز پیست کنید تا مطمئن شوید فاصله اضافی (Space) اول یا آخر آن نباشد. سپس دوباره امتحان کنید.
+
+### ۱.۵ ورود موفق
+اگر عبارتی شبیه `root@vicarious-plum:~#` دیدید، یعنی با موفقیت وارد سرور شدید! 🟢
+
+---
+
+## 📌 مرحله ۲: ساخت حافظه مجازی Swap
+
+سرور شما ۲ گیگابایت رم دارد. برای اینکه هنگام کامپایل کد Go حافظه کم نیاید، یک فضای مجازی ۴ گیگابایتی (Swap) می‌سازیم.
+
+**دستور زیر را کامل کپی کنید، در ترمینال سرور کلیک‌راست کنید و Enter بزنید:**
+
+```bash
+fallocate -l 4G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+```
+
+سپس این دستور را هم اجرا کنید تا بعد از ریستارت سرور هم Swap فعال بماند:
+
+```bash
+grep -q '/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+```
+
+**تأیید:** با اجرای دستور زیر مطمئن شوید Swap فعال شده:
+```bash
+free -h
+```
+در خروجی باید ردیف **Swap** مقدار **4.0Gi** نشان دهد.
+
+---
+
+## 📌 مرحله ۳: آپدیت سیستم و نصب ابزارهای پایه
+
+```bash
 apt-get update -y && apt-get install -y curl wget git ufw htop ca-certificates gnupg nano
+```
 
-# نصب رسمی Docker و Docker Compose
+**توضیح:** این دستور سیستم‌عامل را به‌روزرسانی کرده و ابزارهای ضروری (Git برای دانلود کد، nano برای ویرایش فایل، curl برای تست و ...) را نصب می‌کند.
+
+---
+
+## 📌 مرحله ۴: نصب Docker و Docker Compose
+
+```bash
 curl -fsSL https://get.docker.com | sh
-systemctl enable docker && systemctl start docker
+```
 
-# تنظیم فایروال
+صبر کنید تا نصب تمام شود (حدود ۱ دقیقه). سپس داکر را فعال کنید:
+
+```bash
+systemctl enable docker && systemctl start docker
+```
+
+**تأیید:** با اجرای دستور زیر مطمئن شوید داکر نصب شده:
+```bash
+docker --version
+```
+باید خروجی شبیه `Docker version 28.x.x` ببینید.
+
+---
+
+## 📌 مرحله ۵: تنظیم فایروال (دیوار آتش)
+
+```bash
 ufw allow OpenSSH
 ufw allow 80/tcp
 ufw allow 443/tcp
@@ -76,23 +142,32 @@ ufw allow 8080/tcp
 ufw --force enable
 ```
 
+**توضیح:** این دستورات فقط پورت‌های لازم (SSH برای اتصال شما، HTTP/HTTPS برای وب، و ۸۰۸۰ برای بک‌اند) را باز می‌کنند و بقیه پورت‌ها را مسدود می‌کنند.
+
 ---
 
-## 📌 بخش چهارم: دانلود پروژه از گیت‌هاب در ۳ ثانیه (Git Clone) ⚡
-
-به جای آپلود دستی فایل‌های سنگین، این دستور را در سرور اجرا کنید تا تمام کدهای پروژه مستقیماً از گیت‌هاب دانلود شوند:
+## 📌 مرحله ۶: دانلود پروژه از گیت‌هاب
 
 ```bash
 git clone https://github.com/SeyyedYousef/iFragment.git /opt/ifragment
 ```
 
-*(سرور با پهنای باند ۲۵ گیگابیتی خود در کمتر از ۳ ثانیه کل کدهای پروژه را دانلود می‌کند).*
+**توضیح:** تمام کدهای پروژه مستقیماً از گیت‌هاب در پوشه `/opt/ifragment` دانلود می‌شوند. سرور با پهنای باند ۲۵ گیگابیتی خود در چند ثانیه این کار را انجام می‌دهد.
+
+**تأیید:** با اجرای دستور زیر مطمئن شوید فایل‌ها دانلود شدند:
+```bash
+ls /opt/ifragment/
+```
+باید فایل‌هایی مثل `docker-compose.prod.yml`، `backend/`، `frontend/` و ... را ببینید.
 
 ---
 
-## 📌 بخش پنجم: تنظیم دامنه و SSL رایگان (بدون خرید دامنه!)
+## 📌 مرحله ۷: نصب Caddy (وب‌سرور HTTPS رایگان)
 
-۱. وب‌سرور **Caddy** را روی سرور نصب می‌کنیم:
+Caddy یک وب‌سرور است که به‌صورت خودکار برای سرور شما گواهی SSL (قفل سبز مرورگر) دریافت می‌کند. بدون نیاز به خرید دامنه!
+
+### ۷.۱ نصب Caddy
+
 ```bash
 apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
@@ -100,145 +175,256 @@ curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /
 apt update && apt install -y caddy
 ```
 
-۲. تنظیم فایل کانفیگ Caddy:
-```bash
-nano /etc/caddy/Caddyfile
-```
-۳. تمام متن‌های داخل آن را پاک کرده و این کد را قرار دهید:
-*(اگر آی‌پی شما `185.220.100.50` است، نقطه‌ها را تبدیل به خط تیره کنید)*
+### ۷.۲ تنظیم Caddy
 
-```caddy
-185-220-100-50.sslip.io {
+دستور زیر را اجرا کنید تا فایل تنظیمات Caddy به‌صورت خودکار ساخته شود:
+
+```bash
+cat << 'CADDYEOF' > /etc/caddy/Caddyfile
+109-172-94-139.sslip.io {
     reverse_proxy localhost:8080
 }
+CADDYEOF
 ```
 
-۴. ذخیره با `Ctrl + O` و خروج با `Ctrl + X`.
-۵. راه‌اندازی Caddy:
+### ۷.۳ راه‌اندازی Caddy
+
 ```bash
 systemctl restart caddy
 ```
-آدرس دامنه امن بک‌اند شما فعال شد: `https://185-220-100-50.sslip.io`
+
+**توضیح:** از این لحظه آدرس `https://109-172-94-139.sslip.io` فعال شده و هر درخواستی که به آن برسد را به بک‌اند (پورت ۸۰۸۰) هدایت می‌کند. سرویس `sslip.io` یک DNS رایگان است که آی‌پی شما را به یک دامنه تبدیل می‌کند.
 
 ---
 
-## 📌 بخش ششم: تنظیم فایل رمزها و مقادیر (`.env`)
+## 📌 مرحله ۸: ساخت فایل تنظیمات `.env`
 
-در ترمینال سرور دستورات زیر را بزنید:
+### ۸.۱ ویرایشگر nano را باز کنید
 
 ```bash
-cd /opt/ifragment
-cp .env.example .env
-nano .env
+nano /opt/ifragment/.env
 ```
 
-مقادیر زیر را به دقت داخل فایل تنظیم کنید:
+یک صفحه خالی (یا تقریباً خالی) باز می‌شود.
+
+### ۸.۲ محتوای فایل `.env`
+
+متن زیر را **کامل کپی** کنید، سپس در ترمینال سرور **یک بار کلیک‌راست** کنید تا پیست شود:
 
 ```env
-# ─── وضعیت سرور ───────────────────────────
+# وضعیت سرور و آدرس‌ها
 APP_ENV=production
 PORT=8080
+APP_URL=https://109-172-94-139.sslip.io
+ALLOWED_ORIGINS=*
 
-# ─── امنیت و توکن‌ها (کلیدهای تصادفی) ─────
-JWT_SECRET=c8f2b3e4a5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2
-WEBHOOK_SECRET_TOKEN=my_secure_telegram_token_2026
-BOT_TOKEN_KEY=k9m2p4v7x1z3q5w8r0t2y4u6i8o0a1s3
+# امنیت و توکن‌ها
+JWT_SECRET=mySuperSecretSecretForIFragment2026
+BOT_TOKEN_KEY=a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6
+WEBHOOK_SECRET_TOKEN=Telegram
 
-# ─── توکن‌های ربات تلگرام (از BotFather) ──
-BOT_TOKEN=7778889999:AAHxxxxxxxxxxxxxxxxxxxxxx
-TELEGRAM_BOT_TOKEN=7778889999:AAHxxxxxxxxxxxxxxxxxxxxxx
+# ربات تلگرام و مالک
+BOT_TOKEN=<توکن ربات تلگرام از BotFather>
+OWNER_PASSWORD=<رمز عبور پنل ادمین>
+OWNER_TELEGRAM_IDS=<آیدی عددی تلگرام مالک>
 
-# ─── پایگاه داده ──────────────────────────
+# تاپیک‌های گروه ادمین
+ADMIN_GROUP_ID=<آیدی عددی گروه ادمین>
+ADMIN_TOPIC_AVM=50
+ADMIN_TOPIC_NEW_BOT=53
+ADMIN_TOPIC_NEW_CHANNEL=54
+ADMIN_TOPIC_PAYMENTS=52
+
+# سرویس‌های متصل
+TONAPI_KEY=<کلید TonAPI>
+GROQ_API_KEY=<کلید Groq>
+MARKETAPP_TOKEN=<توکن MarketApp>
+
+# مشخصات دیتابیس داخلی داکر (این مقادیر فقط برای دیتابیس محلی روی سرور هستند)
 POSTGRES_USER=ifragment_user
 POSTGRES_PASSWORD=SecureDbPass2026!
 POSTGRES_DB=ifragment
-
-# ─── دامنه‌ها (آدرس sslip شما) ─────────────
-ALLOWED_ORIGINS=*
-APP_URL=https://185-220-100-50.sslip.io
 ```
 
-ذخیره با `Ctrl + O` و خروج با `Ctrl + X`.
+> **⚠️ توجه:** مقادیری که با `<...>` مشخص شده‌اند باید با مقادیر واقعی خودتان جایگزین شوند. این مقادیر را از فایل `.env` فعلی پروژه (روی Render یا کامپیوتر خودتان) کپی کنید.
+
+### ۸.۳ ذخیره و خروج
+
+1. کلیدهای **`Ctrl + O`** را فشار دهید (ذخیره فایل).
+2. کلید **`Enter`** را بزنید (تأیید نام فایل).
+3. کلیدهای **`Ctrl + X`** را فشار دهید (خروج از ویرایشگر).
 
 ---
 
-## 📌 بخش هفتم: روشن کردن کل سیستم با داکر 🚀
+## 📌 مرحله ۹: روشن کردن کل سیستم با داکر 🚀
 
-در همان مسیر `/opt/ifragment` این دستور را اجرا کنید:
+### ۹.۱ اجرای بیلد و استارت
 
 ```bash
+cd /opt/ifragment
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-این دستور دیتابیس PostgreSQL 17، کش Dragonfly و بک‌اند Go را اجرا و جداول را خودکار می‌سازد.
+**توضیح:** این دستور سه کار انجام می‌دهد:
+1. **دیتابیس PostgreSQL 17** را دانلود و اجرا می‌کند.
+2. **کش DragonflyDB** را دانلود و اجرا می‌کند.
+3. **کدهای Go بک‌اند** را کامپایل کرده و به‌صورت یک سرویس اجرا می‌کند.
 
-### 🔍 بررسی صحت کارکرد:
+> **⏱️ زمان انتظار:** بار اول بین **۵ تا ۱۰ دقیقه** طول می‌کشد (به دلیل کامپایل کدهای Go روی ۱ هسته CPU). لطفاً صبر کنید و ترمینال را نبندید. وقتی خط فرمان `root@vicarious-plum:/opt/ifragment#` دوباره ظاهر شد، یعنی کار تمام شده.
+>
+> **نکته:** دفعات بعدی (آپدیت‌های آینده) این بیلد فقط ۲ تا ۵ ثانیه طول می‌کشد چون Docker از کش استفاده می‌کند.
+
+### ۹.۲ بررسی وضعیت سرویس‌ها
+
 ```bash
-# مشاهده وضعیت سالم بودن کانتینرها
 docker compose -f docker-compose.prod.yml ps
+```
 
-# تست زنده اتصال دیتابیس و سلامت API
+**خروجی مورد انتظار:** باید ۳ سرویس زیر را با وضعیت **Up** و **(healthy)** ببینید:
+| نام سرویس | وضعیت مورد انتظار |
+|---|---|
+| ifragment-api-1 | Up (healthy) |
+| ifragment-db-1 | Up (healthy) |
+| ifragment-dragonfly-1 | Up (healthy) |
+
+### ۹.۳ تست سلامت API
+
+```bash
 curl http://localhost:8080/api/v1/healthz/ready
 ```
-*(دریافت پاسخ `{"status":"ok"}` یعنی سیستم ۱۰۰٪ آماده و سالم است).*
+
+**خروجی مورد انتظار:**
+```json
+{"status":"ok"}
+```
+
+اگر این پاسخ را دریافت کردید، بک‌اند شما ۱۰۰٪ سالم و آماده است! 🎉
+
+### ۹.۴ عیب‌یابی (اگر مشکلی بود)
+
+اگر یکی از سرویس‌ها وضعیت **Restarting** یا **Unhealthy** داشت، لاگ‌های آن سرویس را بررسی کنید:
+
+```bash
+# لاگ بک‌اند
+docker logs ifragment-api-1 --tail 50
+
+# لاگ دیتابیس
+docker logs ifragment-db-1 --tail 50
+
+# لاگ کش
+docker logs ifragment-dragonfly-1 --tail 50
+```
 
 ---
 
-## 📌 بخش هشتم: راه‌اندازی فرانت‌اند در Cloudflare Pages (رایگان با گیت‌هاب)
+## 📌 مرحله ۱۰: راه‌اندازی فرانت‌اند در Cloudflare Pages
 
-1. وارد **[dash.cloudflare.com](https://dash.cloudflare.com)** شوید.
-2. از منوی سمت چپ به **Workers & Pages** > **Overview** بروید.
-3. روی **Create application** و سپس تب **Pages** کلیک کنید.
-4. گزینه **Connect to Git** را بزنید و ریپازیتوری **`SeyyedYousef/iFragment`** را انتخاب کنید.
-5. تنظیمات بیلد را وارد کنید:
-   * **Framework preset:** `Vite`
-   * **Root directory:** `frontend`
-   * **Build command:** `npm install -g pnpm && pnpm install && pnpm run build`
-   * **Build output directory:** `dist`
-6. در بخش **Environment variables** این متغیر را اضافه کنید:
-   * **نام متغیر:** `VITE_API_URL`
-   * **مقدار متغیر:** `https://185-220-100-50.sslip.io/api/v1`
-7. روی **Save and Deploy** کلیک کنید.
+### ۱۰.۱ ایجاد حساب Cloudflare (اگر ندارید)
+1. به آدرس **[dash.cloudflare.com](https://dash.cloudflare.com)** بروید.
+2. با ایمیل جدید ثبت‌نام کنید (کاملاً رایگان).
 
-سایت فرانت‌اند شما در دامنه‌ای مثل **`https://ifragment.pages.dev`** با بالاترین سرعت دنیا بالا می‌آید! 🌐
+### ۱۰.۲ ساخت پروژه جدید
+1. بعد از ورود، در منوی **سمت چپ** صفحه روی **Workers & Pages** کلیک کنید.
+2. روی دکمه آبی **Create** کلیک کنید.
+3. تب **Pages** را انتخاب کنید (نه Workers!).
+4. روی **Connect to Git** کلیک کنید.
+5. حساب GitHub خود را متصل کنید و ریپازیتوری **`SeyyedYousef/iFragment`** را انتخاب کنید.
 
----
+### ۱۰.۳ تنظیمات بیلد (بسیار مهم ⚠️)
 
-## 📌 بخش نهم: اتصال نهایی به ربات تلگرام
+در صفحه تنظیمات بیلد، فیلدهای زیر را **دقیقاً** پر کنید:
 
-۱. در تلگرام وارد **[@BotFather](https://t.me/BotFather)** شوید.
-2. از مسیر `/mybots` > انتخاب ربات > **Bot Settings** > **Menu Button**، آدرس فرانت‌اند را وارد کنید:
-   ```
-   https://ifragment.pages.dev
-   ```
-3. برای ثبت وب‌هوک تلگرام به بک‌اند، این دستور را اجرا کنید:
-   ```bash
-   curl -F "url=https://185-220-100-50.sslip.io/api/v1/telegram/webhook" -F "secret_token=my_secure_telegram_token_2026" https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook
-   ```
+| فیلد | مقدار |
+|---|---|
+| **Framework preset** | `None` |
+| **Root directory** | `frontend` |
+| **Build command** | `npm install -g pnpm && pnpm install && pnpm run build` |
+| **Build output directory** | `dist` |
 
----
+### ۱۰.۴ اضافه کردن متغیر محیطی (Environment Variable)
 
-## 🔄 نحوه آپدیت کردن پروژه در آینده (کاملاً خودکار با GitHub Actions)
+در همین صفحه، بخش **Environment variables** را پیدا کنید و روی **Add variable** کلیک کنید:
 
-سیستم CI/CD اختصاصی پروژه شما فعال شد! از این پس برای آپدیت کل پروژه حتی نیاز به باز کردن ترمینال سرور هم ندارید:
+| نام متغیر (Variable name) | مقدار (Value) |
+|---|---|
+| `VITE_API_URL` | `https://109-172-94-139.sslip.io/api/v1` |
 
-### 🔑 تنظیم یک‌بار برای همیشه در گیت‌هاب (زمان: ۱ دقیقه):
-1. وارد صفحه ریپازیتوری خود در GitHub شوید: `https://github.com/SeyyedYousef/iFragment`
-2. به تب **Settings** (تنظیمات بالای صفحه) بروید.
-3. از منوی سمت چپ، روی **Secrets and variables** > سپس **Actions** کلیک کنید.
-4. روی دکمه سبز **New repository secret** بزنید و این ۲ مورد را اضافه کنید:
-   * **Secret اول:**
-     * **Name:** `VPS_HOST`
-     * **Secret:** آی‌پی سرور شما (مثلاً `185.220.100.50`)
-   * **Secret دوم:**
-     * **Name:** `VPS_PASSWORD`
-     * **Secret:** رمز عبور سرور شما
+### ۱۰.۵ دیپلوی
+روی دکمه **Save and Deploy** کلیک کنید.
+
+**⏱️ زمان انتظار:** حدود ۲ تا ۳ دقیقه طول می‌کشد تا Cloudflare فرانت‌اند را بیلد و دیپلوی کند.
+
+**نتیجه:** پس از اتمام، آدرس فرانت‌اند شما چیزی شبیه این خواهد بود:
+```
+https://ifragment-xxxx.pages.dev
+```
+این آدرس را یادداشت کنید، در مرحله بعد به آن نیاز دارید.
 
 ---
 
-### 🎉 از این به بعد:
-تنها کاری که باید انجام دهید این است که در کامپیوترتان کد بنویسید و دستور `git push` را بزنید:
-* **فرانت‌اند:** Cloudflare Pages به طور خودکار مینی‌اپ را آپدیت می‌کند.
-* **بک‌اند:** ربات GitHub Actions به سرور وصل شده و کانتینرهای داکر را در ۲ ثانیه به‌روزرسانی می‌کند.
+## 📌 مرحله ۱۱: اتصال ربات تلگرام
 
-**شما دیگر نیاز به هیچ کار دستی نخواهید داشت! 🚀**
+### ۱۱.۱ تنظیم Menu Button در BotFather
+1. در تلگرام وارد **[@BotFather](https://t.me/BotFather)** شوید.
+2. دستور `/mybots` را بفرستید.
+3. ربات خود را انتخاب کنید.
+4. روی **Bot Settings** کلیک کنید.
+5. روی **Menu Button** کلیک کنید.
+6. روی **Configure menu button** کلیک کنید.
+7. آدرس فرانت‌اند خود را از مرحله ۱۰ وارد کنید (مثلاً `https://ifragment-xxxx.pages.dev`).
+8. متن دلخواه برای دکمه وارد کنید (مثلاً `Open App`).
+
+### ۱۱.۲ ثبت Webhook تلگرام
+
+به ترمینال سرور برگردید و دستور زیر را اجرا کنید (توکن ربات و secret خود را جایگزین کنید):
+
+```bash
+curl -F "url=https://109-172-94-139.sslip.io/api/v1/telegram/webhook" \
+     -F "secret_token=<مقدار WEBHOOK_SECRET_TOKEN از فایل env>" \
+     "https://api.telegram.org/bot<توکن ربات تلگرام>/setWebhook"
+```
+
+**خروجی مورد انتظار:**
+```json
+{"ok":true,"result":true,"description":"Webhook was set"}
+```
+
+---
+
+## 📌 مرحله ۱۲: تنظیم آپدیت خودکار با GitHub Actions
+
+این تنظیم **فقط یک‌بار** انجام می‌شود و بعد از آن، هر بار که `git push` بزنید، سرور به‌صورت خودکار آپدیت می‌شود.
+
+### ۱۲.۱ اضافه کردن Secretها در گیت‌هاب
+1. به آدرس `https://github.com/SeyyedYousef/iFragment` بروید.
+2. روی تب **Settings** (بالای صفحه) کلیک کنید.
+3. در منوی سمت چپ، روی **Secrets and variables** کلیک کنید.
+4. سپس روی **Actions** کلیک کنید.
+5. روی دکمه سبز **New repository secret** بزنید.
+
+**Secret اول:**
+* **Name:** `VPS_HOST`
+* **Secret:** `109.172.94.139`
+
+**Secret دوم:**
+* **Name:** `VPS_PASSWORD`
+* **Secret:** رمز عبور سرور شما (که از پنل Aeza کپی کردید)
+
+### ۱۲.۲ از این به بعد
+تنها با اجرای یک دستور `git push` در کامپیوترتان:
+* **فرانت‌اند:** Cloudflare Pages بلافاصله مینی‌اپ را بیلد و آپدیت می‌کند.
+* **بک‌اند:** GitHub Actions به سرور وصل شده و کانتینرهای داکر را به‌روزرسانی می‌کند.
+
+---
+
+## 🔧 دستورات مفید برای مدیریت سرور
+
+| کار | دستور |
+|---|---|
+| مشاهده وضعیت سرویس‌ها | `docker compose -f docker-compose.prod.yml ps` |
+| مشاهده لاگ بک‌اند (زنده) | `docker logs -f ifragment-api-1` |
+| ریستارت همه سرویس‌ها | `docker compose -f docker-compose.prod.yml restart` |
+| آپدیت دستی از گیت‌هاب | `cd /opt/ifragment && git pull && docker compose -f docker-compose.prod.yml up -d --build` |
+| تست سلامت API | `curl http://localhost:8080/api/v1/healthz/ready` |
+| مشاهده مصرف حافظه | `free -h` |
+| مشاهده فضای دیسک | `df -h` |
