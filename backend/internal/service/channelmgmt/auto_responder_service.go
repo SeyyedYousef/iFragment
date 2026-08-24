@@ -32,7 +32,7 @@ func (s *AutoResponderService) resolveChannelLLMCredentials(ctx context.Context,
 		var posting PostingSettingsSchema
 		if json.Unmarshal(settings.Posting, &posting) == nil {
 			provider = posting.AiProvider
-			apiKey = posting.ApiKey
+			apiKey = resolveEncryptedKey(posting.ApiKey)
 			model = posting.AiModel
 			customPrompt = posting.CustomSkillPrompt
 			tone = posting.Tone
@@ -202,6 +202,9 @@ func (s *AutoResponderService) ProcessMessage(ctx context.Context, tg *telegram.
 						cache.Client.Expire(ctx, rlKey, 1*time.Minute)
 					}
 					if count > 5 {
+						dropKey := fmt.Sprintf("ar_stats:drops:%s:%s", channelID.String(), time.Now().Format("2006-01-02"))
+						_ = cache.Client.Incr(ctx, dropKey)
+						_ = cache.Client.Expire(ctx, dropKey, 48*time.Hour)
 						slog.Warn("Auto-Responder rate limit exceeded", "chat_id", chatID)
 						return false, nil
 					}
@@ -213,6 +216,11 @@ func (s *AutoResponderService) ProcessMessage(ctx context.Context, tg *telegram.
 				if err != nil {
 					slog.Error("failed to send auto response", "error", err, "chat_id", chatID, "message_id", messageID)
 				} else if res != nil {
+					if cache := s.channelRepo.GetCache(); cache != nil && cache.Client != nil {
+						respKey := fmt.Sprintf("ar_stats:responses:%s:%s", channelID.String(), time.Now().Format("2006-01-02"))
+						_ = cache.Client.Incr(ctx, respKey)
+						_ = cache.Client.Expire(ctx, respKey, 48*time.Hour)
+					}
 					// Handle Auto Delete
 					var general map[string]interface{}
 					if json.Unmarshal(settings.General, &general) == nil {
@@ -344,3 +352,30 @@ func (s *AutoResponderService) ProcessAutoFirstComment(ctx context.Context, tg *
 
 	return true, nil
 }
+
+type AutoResponderStats struct {
+	TodayResponses int64 `json:"today_responses"`
+	TodayDrops     int64 `json:"today_drops"`
+}
+
+func (s *AutoResponderService) GetAutoResponderStats(ctx context.Context, channelID uuid.UUID) AutoResponderStats {
+	var stats AutoResponderStats
+	cache := s.channelRepo.GetCache()
+	if cache == nil || cache.Client == nil {
+		return stats
+	}
+
+	today := time.Now().Format("2006-01-02")
+	respKey := fmt.Sprintf("ar_stats:responses:%s:%s", channelID.String(), today)
+	dropKey := fmt.Sprintf("ar_stats:drops:%s:%s", channelID.String(), today)
+
+	if val, err := cache.Client.Get(ctx, respKey).Int64(); err == nil {
+		stats.TodayResponses = val
+	}
+	if val, err := cache.Client.Get(ctx, dropKey).Int64(); err == nil {
+		stats.TodayDrops = val
+	}
+
+	return stats
+}
+

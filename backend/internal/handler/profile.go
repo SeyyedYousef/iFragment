@@ -11,7 +11,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"time"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -245,10 +245,18 @@ func (h *ProfileHandler) AddTaps(w http.ResponseWriter, r *http.Request) {
 		req.Multiplier = 1
 	}
 
-	stats, err := h.profileService.AddTaps(r.Context(), userID, req.Taps, req.Multiplier)
+	stats, err := h.profileService.AddTaps(r.Context(), userID, req.Taps, req.Multiplier, req.Nonce, req.ClientTS)
 	if err != nil {
+		if strings.Contains(err.Error(), "replay_detected") {
+			RespondError(w, r, http.StatusBadRequest, "ERR_REPLAY_DETECTED", err)
+			return
+		}
+		if strings.Contains(err.Error(), "clock_skew") {
+			RespondError(w, r, http.StatusBadRequest, "ERR_CLOCK_SKEW", err)
+			return
+		}
 		if err.Error() == "not enough energy" {
-			RespondError(w, r, http.StatusBadRequest, "not enough energy", err)
+			RespondError(w, r, http.StatusBadRequest, "ERR_NOT_ENOUGH_ENERGY", err)
 			return
 		}
 		RespondError(w, r, http.StatusInternalServerError, "failed to update taps", err)
@@ -257,6 +265,23 @@ func (h *ProfileHandler) AddTaps(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(stats)
+}
+
+func (h *ProfileHandler) GetWalletExpirySummary(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.getUserID(r)
+	if !ok {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	summary, err := h.profileService.GetWalletExpirySummary(r.Context(), userID)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to get wallet expiry summary", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(summary)
 }
 
 func (h *ProfileHandler) GetAchievementDefs(w http.ResponseWriter, r *http.Request) {
@@ -463,118 +488,87 @@ func (h *ProfileHandler) GetAvatar(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ProfileHandler) GetMarketplaceOptions(w http.ResponseWriter, r *http.Request) {
-	options := []map[string]interface{}{
-		{
-			"id":           "pack_starter",
-			"title":        "Starter Pack",
-			"amount_stars": 50,
-			"amount_coins": 10000,
-			"frg_amount":   10,
-			"price":        0.99,
-			"discount":     "",
-		},
-		{
-			"id":           "pack_pro",
-			"title":        "Pro Investor Pack",
-			"amount_stars": 250,
-			"amount_coins": 65000,
-			"popular":      true,
-			"frg_amount":   70,
-			"price":        4.99,
-			"discount":     "15% OFF",
-		},
-		{
-			"id":           "pack_whale",
-			"title":        "Whale Dominator Pack",
-			"amount_stars": 1000,
-			"amount_coins": 300000,
-			"frg_amount":   350,
-			"price":        19.99,
-			"discount":     "30% OFF",
-		},
-	}
-	RespondJSON(w, http.StatusOK, options)
+	RespondError(w, r, http.StatusGone, "Marketplace and FRG have been permanently deprecated. Please use the Airdrop Shop (/airdrop).", nil)
 }
 
 func (h *ProfileHandler) BuyStarsMarketplace(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.getUserID(r)
-	if !ok {
-		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
-		return
-	}
-	var req struct {
-		OptionID string `json:"option_id"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.OptionID == "" {
-		RespondError(w, r, http.StatusBadRequest, "invalid payload", nil)
-		return
-	}
-
-	stars := 50
-	title := "Starter Pack"
-	switch req.OptionID {
-	case "pack_pro":
-		stars = 250
-		title = "Pro Investor Pack"
-	case "pack_whale":
-		stars = 1000
-		title = "Whale Dominator Pack"
-	}
-
-	if h.paymentService == nil {
-		RespondError(w, r, http.StatusInternalServerError, "payment service unavailable", nil)
-		return
-	}
-
-	payload := fmt.Sprintf("marketplace_%s_%d", req.OptionID, userID)
-	link, err := h.paymentService.CreateInvoiceLink(title, fmt.Sprintf("Purchase %s on iFragment", title), payload, stars)
-	if err != nil {
-		RespondError(w, r, http.StatusInternalServerError, "failed to create invoice link", err)
-		return
-	}
-
-	RespondJSON(w, http.StatusOK, map[string]string{"invoice_link": link})
+	RespondError(w, r, http.StatusGone, "Marketplace and FRG have been permanently deprecated. Please use the Airdrop Shop (/airdrop).", nil)
 }
 
 func (h *ProfileHandler) ConvertAirdropCoins(w http.ResponseWriter, r *http.Request) {
-	userID, ok := h.getUserID(r)
-	if !ok {
-		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
-		return
-	}
-	var req struct {
-		Amount float64 `json:"amount"`
-	}
-	_ = json.NewDecoder(r.Body).Decode(&req)
-	RespondJSON(w, http.StatusOK, map[string]interface{}{"success": true, "user_id": userID, "converted_amount": req.Amount})
+	RespondError(w, r, http.StatusGone, "Marketplace and FRG have been permanently deprecated. Please use the Airdrop Shop (/airdrop).", nil)
 }
 
 func (h *ProfileHandler) GetFRGBalance(w http.ResponseWriter, r *http.Request) {
+	RespondError(w, r, http.StatusGone, "Marketplace and FRG have been permanently deprecated. Please use the Airdrop Shop (/airdrop).", nil)
+}
+
+func (h *ProfileHandler) GetFRGTransactions(w http.ResponseWriter, r *http.Request) {
+	RespondError(w, r, http.StatusGone, "Marketplace and FRG have been permanently deprecated. Please use the Airdrop Shop (/airdrop).", nil)
+}
+
+// ─── Unified Financial Ledger Handler ───
+
+func (h *ProfileHandler) GetLedger(w http.ResponseWriter, r *http.Request) {
 	userID, ok := h.getUserID(r)
 	if !ok {
 		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
 		return
 	}
-	stats, err := h.profileService.GetStats(r.Context(), userID)
-	if err != nil || stats == nil {
-		RespondJSON(w, http.StatusOK, map[string]interface{}{
-			"user_id":      userID,
-			"balance":      0.0,
-			"total_earned": 0.0,
-			"total_spent":  0.0,
-			"updated_at":   time.Now().Format(time.RFC3339),
-		})
+
+	category := r.URL.Query().Get("category")
+	cursor := r.URL.Query().Get("cursor")
+	limitStr := r.URL.Query().Get("limit")
+
+	limit := 20
+	if limitStr != "" {
+		if parsed, err := strconv.Atoi(limitStr); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+
+	resp, err := h.profileService.GetLedger(r.Context(), userID, category, limit, cursor)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to fetch ledger events", err)
 		return
 	}
-	RespondJSON(w, http.StatusOK, map[string]interface{}{
-		"user_id":      userID,
-		"balance":      stats.AirdropCoins,
-		"total_earned": stats.TotalFrgEarned,
-		"total_spent":  stats.TotalFrgSpent,
-		"updated_at":   time.Now().Format(time.RFC3339),
-	})
+
+	RespondJSON(w, http.StatusOK, resp)
 }
 
-func (h *ProfileHandler) GetFRGTransactions(w http.ResponseWriter, r *http.Request) {
-	RespondJSON(w, http.StatusOK, []interface{}{})
+// ─── My Assets Handler ───
+
+func (h *ProfileHandler) GetMyAssets(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.getUserID(r)
+	if !ok {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	assets, err := h.profileService.GetMyAssets(r.Context(), userID)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to fetch user assets", err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, assets)
 }
+
+// ─── Emoji Status Reward Handler ───
+
+func (h *ProfileHandler) ClaimEmojiStatusReward(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.getUserID(r)
+	if !ok {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	resp, err := h.profileService.ClaimEmojiStatusReward(r.Context(), userID)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to claim emoji status reward", err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, resp)
+}
+

@@ -4,15 +4,19 @@ import { buildAvatarUrl } from '@/shared/api/config.js';
 import { getActiveImpersonationToken } from '@/shared/api/axios.js';
 import { formatNumber, t } from '@/shared/i18n/index.js';
 import { getLevelInfo, type ProfileStats } from '@/entities/user/index.js';
+import { haptic } from '@/shared/lib/haptic.js';
+import { EmojiStatusModal } from '@/features/emoji-status/EmojiStatusModal.js';
 
 interface Props {
 	stats: ProfileStats | null;
+	onStatusUpdated?: () => void;
 }
 
 export const IdentityHero = (props: Props) => {
 	const user = () => initData.user();
 	const [imgError, setImgError] = createSignal(false);
 	const [fallbackAttempted, setFallbackAttempted] = createSignal(false);
+	const [showEmojiModal, setShowEmojiModal] = createSignal(false);
 
 	const isImpersonating = createMemo(() => !!getActiveImpersonationToken());
 
@@ -64,12 +68,10 @@ export const IdentityHero = (props: Props) => {
 
 	const avatarUrl = createMemo(() => {
 		if (imgError() && !fallbackAttempted()) {
-			// Primary URL failed; try direct Telegram CDN as fallback
 			const fallback = directTgPhoto();
 			if (fallback) return fallback;
 		}
 		if (imgError() && fallbackAttempted()) {
-			// Both primary and fallback failed
 			return '';
 		}
 		return primaryAvatarUrl();
@@ -89,91 +91,133 @@ export const IdentityHero = (props: Props) => {
 		return name && name.length > 0 ? name[0].toUpperCase() : 'U';
 	});
 
-	return (
-		<div class="relative w-full flex flex-col items-center px-4 z-20 mt-4 select-none">
-			{/* Restrained Hero Glass Cover */}
-			<div class="absolute top-0 inset-x-4 bottom-0 bg-[#0F1117]/85 backdrop-blur-xl rounded-[28px] overflow-hidden border border-white/10 shadow-xl -z-10">
-				<div class="absolute -right-8 -top-8 w-40 h-40 bg-[#3390ec]/15 rounded-full blur-[50px] pointer-events-none" />
-				<div class="absolute -left-8 -bottom-8 w-40 h-40 bg-[#0088cc]/10 rounded-full blur-[50px] pointer-events-none" />
-			</div>
+	const handleOpenEmojiModal = () => {
+		try {
+			haptic.impact('light');
+		} catch {}
+		setShowEmojiModal(true);
+	};
 
-			{/* Avatar Container */}
-			<div class="relative mt-6 mb-4">
-				<div class="relative w-[96px] h-[96px] rounded-full p-[2px] bg-gradient-to-br from-[#3390ec]/40 to-white/10 shadow-2xl">
-					<div class="w-full h-full rounded-full bg-[#08090D] overflow-hidden flex items-center justify-center relative">
-						<Show
-							when={avatarUrl()}
-							fallback={
-								<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#151822] to-[#08090D]">
-									<span class="text-3xl font-black text-[#3390ec]">
-										{initialLetter()}
-									</span>
-								</div>
-							}
-						>
-							<img
-								src={avatarUrl()}
-								alt={displayName()}
-								class="w-full h-full object-cover transition-opacity duration-300"
-								loading="lazy"
-								referrerPolicy="no-referrer"
-								onError={() => {
-									if (!imgError()) {
-										// First failure: try fallback to direct Telegram CDN
-										setImgError(true);
-									} else {
-										// Fallback also failed: show initial letter
-										setFallbackAttempted(true);
-									}
-								}}
-							/>
+	return (
+		<>
+			<div class="relative w-full flex flex-col items-center px-4 z-20 select-none">
+				{/* Restrained Hero Glass Cover */}
+				<div class="absolute top-0 inset-x-0 bottom-0 bg-[#0D1017]/90 backdrop-blur-2xl rounded-[28px] overflow-hidden border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.5)] -z-10">
+					<div class="absolute -right-8 -top-8 w-40 h-40 bg-[#0098EA]/15 rounded-full blur-[50px] pointer-events-none" />
+					<div class="absolute -left-8 -bottom-8 w-40 h-40 bg-[#06b6d4]/10 rounded-full blur-[50px] pointer-events-none" />
+				</div>
+
+				{/* Avatar Container */}
+				<div class="relative mt-5 mb-3">
+					<div class="relative w-[92px] h-[92px] rounded-full p-[2px] bg-gradient-to-br from-[#0098EA]/40 via-white/10 to-transparent shadow-2xl">
+						<div class="w-full h-full rounded-full bg-[#08090D] overflow-hidden flex items-center justify-center relative">
+							<Show
+								when={avatarUrl()}
+								fallback={
+									<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#151822] to-[#08090D]">
+										<span class="text-3xl font-black text-[#0098EA]">
+											{initialLetter()}
+										</span>
+									</div>
+								}
+							>
+								<img
+									src={avatarUrl()}
+									alt={displayName()}
+									class="w-full h-full object-cover transition-opacity duration-300"
+									loading="lazy"
+									referrerPolicy="no-referrer"
+									onError={() => {
+										if (!imgError()) {
+											setImgError(true);
+										} else {
+											setFallbackAttempted(true);
+										}
+									}}
+								/>
+							</Show>
+						</div>
+					</div>
+
+					{/* Emoji Status Indicator (Clickable Action) */}
+					<button
+						onClick={handleOpenEmojiModal}
+						class="absolute -bottom-1 -right-1 w-7 h-7 bg-[#12141C] hover:bg-[#1A1D27] active:scale-90 border border-white/20 rounded-full flex items-center justify-center text-[14px] shadow-lg transition-all"
+						title={t('emoji.setStatus' as any) || 'Set Telegram Emoji Status'}
+					>
+						<span>{props.stats?.emojiStatus || '⭐️'}</span>
+					</button>
+				</div>
+
+				{/* User Info & Badges */}
+				<div class="flex flex-col items-center w-full text-center z-10 px-4 pb-5 space-y-2">
+					<div class="flex items-center justify-center gap-1.5 flex-wrap">
+						<h1 class="text-[20px] font-black leading-tight text-white tracking-tight">
+							<bdi>{displayName()}</bdi>
+						</h1>
+						<Show when={props.stats?.isPremium || props.stats?.subscription?.isActive}>
+							<span class="px-2 py-0.5 rounded-[8px] bg-purple-500/20 border border-purple-500/30 text-purple-300 text-[10px] font-black tracking-wide uppercase">
+								PRO
+							</span>
 						</Show>
 					</div>
-				</div>
 
-				<div class="absolute bottom-1 right-1 w-4 h-4 bg-[#10b981] rounded-full border-[2.5px] border-[#08090D]" />
-			</div>
+					<Show when={usernameTag()}>
+						<p class="text-[#0098EA] text-xs font-bold dir-ltr opacity-90 font-mono">
+							{usernameTag()}
+						</p>
+					</Show>
 
-			{/* User Info & Badges */}
-			<div class="flex flex-col items-center w-full text-center z-10 px-4 pb-5 space-y-2">
-				<h1 class="text-2xl font-black leading-tight text-white">
-					<bdi>{displayName()}</bdi>
-				</h1>
-
-				<Show when={usernameTag()}>
-					<p class="text-[#3390ec] text-xs font-bold dir-ltr opacity-90">
-						{usernameTag()}
-					</p>
-				</Show>
-
-				<div class="flex items-center justify-center flex-wrap gap-2 pt-1">
-					{/* Level Badge */}
-					<div class="flex items-center gap-1.5 bg-[#3390ec]/15 border border-[#3390ec]/30 px-3 py-1.5 rounded-xl backdrop-blur-md">
-						<span
-							class="material-symbols-outlined text-[15px] text-[#3390ec]"
-							style={{ 'font-variation-settings': '"FILL" 1' }}
-						>
-							star
-						</span>
-						<span class="text-white text-xs font-black">
-							{t('profile.levelBadge', {
-								level: formatNumber(info().current.level),
-								title: info().current.title,
-							})}
-						</span>
-					</div>
-
-					{/* Rank Badge */}
-					<Show when={props.stats?.globalRank}>
-						<div class="flex items-center gap-1.5 bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl backdrop-blur-md">
-							<span class="material-symbols-outlined text-[15px] text-white/50">public</span>
-							<span class="text-white/60 text-xs font-bold">
-								{t('profile.rankBadge', { rank: formatNumber(props.stats?.globalRank || 0) })}
+					<div class="flex items-center justify-center flex-wrap gap-2 pt-1">
+						{/* Level Badge */}
+						<div class="flex items-center gap-1.5 bg-[#0098EA]/15 border border-[#0098EA]/30 px-3 py-1 rounded-[12px] backdrop-blur-md">
+							<span
+								class="material-symbols-outlined text-[15px] text-[#0098EA]"
+								style={{ 'font-variation-settings': '"FILL" 1' }}
+							>
+								star
+							</span>
+							<span class="text-white text-xs font-black">
+								{t('profile.levelBadge', {
+									level: formatNumber(info().current.level),
+									title: info().current.title,
+								})}
 							</span>
 						</div>
-					</Show>
+
+						{/* Rank Badge */}
+						<Show when={props.stats?.globalRank}>
+							<div class="flex items-center gap-1.5 bg-white/5 border border-white/10 px-3 py-1 rounded-[12px] backdrop-blur-md">
+								<span class="material-symbols-outlined text-[15px] text-white/50">public</span>
+								<span class="text-white/60 text-xs font-bold">
+									{t('profile.rankBadge', { rank: formatNumber(props.stats?.globalRank || 0) })}
+								</span>
+							</div>
+						</Show>
+
+						{/* Set Emoji Status Action Pill */}
+						<button
+							onClick={handleOpenEmojiModal}
+							class="flex items-center gap-1 bg-amber-400/15 hover:bg-amber-400/25 border border-amber-400/30 px-2.5 py-1 rounded-[12px] text-amber-300 text-[11px] font-black active:scale-95 transition-all"
+						>
+							<span>{props.stats?.emojiStatus || '⭐️'}</span>
+							<span>{t('emoji.status' as any) || 'Status'}</span>
+						</button>
+					</div>
 				</div>
 			</div>
-		</div>
+
+			<Show when={showEmojiModal()}>
+				<EmojiStatusModal
+					currentStatus={props.stats?.emojiStatus}
+					isPro={props.stats?.isPremium || props.stats?.subscription?.isActive}
+					onClose={() => setShowEmojiModal(false)}
+					onSuccess={() => {
+						setShowEmojiModal(false);
+						if (props.onStatusUpdated) props.onStatusUpdated();
+					}}
+				/>
+			</Show>
+		</>
 	);
 };

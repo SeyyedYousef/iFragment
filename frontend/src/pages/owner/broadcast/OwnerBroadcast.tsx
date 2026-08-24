@@ -1,292 +1,334 @@
-
-import { Component, createSignal, For, onMount, Show } from 'solid-js';
-import { type BroadcastMessage, ownerApi } from '@/entities/owner/index.js';
-import { DangerActionDialog } from '@/widgets/owner/index.js';
-import { haptic } from '@/shared/lib/haptic.js';
+import { createSignal, createEffect, Show, For, type Component } from 'solid-js';
+import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
+import { ownerApi } from '../../../entities/owner/api/ownerApi';
+import type { BroadcastMessage } from '../../../entities/owner/model/types';
 
 export const OwnerBroadcast: Component = () => {
-	const [broadcasts, setBroadcasts] = createSignal<BroadcastMessage[]>([]);
-	const [loading, setLoading] = createSignal(true);
-	const [error, setError] = createSignal('');
-	const [successMsg, setSuccessMsg] = createSignal('');
+	const queryClient = useQueryClient();
 
-	const [audience, setAudience] = createSignal<'all' | 'premium' | 'active_7d' | 'inactive'>('all');
-	const [message, setMessage] = createSignal('');
-	const [sending, setSending] = createSignal(false);
-	const [isPreviewOpen, setIsPreviewOpen] = createSignal(false);
-	const [showConfirmDialog, setShowConfirmDialog] = createSignal(false);
+	// Form State
+	const [targetAudience, setTargetAudience] = createSignal<'all' | 'premium' | 'active_7d' | 'inactive'>('all');
+	const [messageText, setMessageText] = createSignal('');
+	const [isScheduled, setIsScheduled] = createSignal(false);
+	const [scheduledAt, setScheduledAt] = createSignal('');
 
-	const getSmartDefaultScheduleTime = () => {
-		const tomorrow = new Date();
-		tomorrow.setDate(tomorrow.getDate() + 1);
-		tomorrow.setHours(10, 0, 0, 0);
-		return tomorrow.toISOString().slice(0, 16);
+	const broadcastsQuery = createQuery(() => ({
+		queryKey: ['owner', 'broadcasts'],
+		queryFn: ownerApi.listBroadcasts,
+		refetchInterval: 5000, // 5s live progress polling
+	}));
+
+	const audienceCountQuery = createQuery(() => ({
+		queryKey: ['owner', 'broadcasts', 'audience-count', targetAudience()],
+		queryFn: () => ownerApi.getAudienceCount(targetAudience()),
+	}));
+
+	const createMutation = createMutation(() => ({
+		mutationFn: (data: { target_audience: string; message: string; scheduled_at?: string }) =>
+			ownerApi.createBroadcast(data),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['owner', 'broadcasts'] });
+			setMessageText('');
+			setIsScheduled(false);
+			setScheduledAt('');
+		},
+	}));
+
+	const pauseMutation = createMutation(() => ({
+		mutationFn: (id: string) => ownerApi.pauseBroadcast(id),
+		onSuccess: () => queryClient.invalidateQueries({ queryKey: ['owner', 'broadcasts'] }),
+	}));
+
+	const resumeMutation = createMutation(() => ({
+		mutationFn: (id: string) => ownerApi.resumeBroadcast(id),
+		onSuccess: () => queryClient.invalidateQueries({ queryKey: ['owner', 'broadcasts'] }),
+	}));
+
+	const insertTag = (openTag: string, closeTag: string) => {
+		setMessageText((prev) => `${prev}${openTag}text${closeTag}`);
 	};
-	const [scheduleTime, setScheduleTime] = createSignal(getSmartDefaultScheduleTime());
 
-	const fetchBroadcasts = async () => {
-		setLoading(true);
-		setError('');
-		try {
-			const data = await ownerApi.listBroadcasts();
-			setBroadcasts(data || []);
-		} catch (e: any) {
-			setError(e.response?.data?.error || 'خطا در دریافت لیست پیام‌های همگانی');
-		} finally {
-			setLoading(false);
-		}
-	};
-
-	onMount(() => {
-		fetchBroadcasts();
-	});
-
-	const handleInitiateSend = (e: Event) => {
+	const handleSubmit = (e: Event) => {
 		e.preventDefault();
-		if (!message().trim()) {
-			setError('متن پیام همگانی نمی‌تواند خالی باشد.');
-			return;
-		}
-		setShowConfirmDialog(true);
+		if (!messageText().trim()) return;
+
+		createMutation.mutate({
+			target_audience: targetAudience(),
+			message: messageText().trim(),
+			scheduled_at: isScheduled() && scheduledAt() ? new Date(scheduledAt()).toISOString() : undefined,
+		});
 	};
 
-	const executeSendBroadcast = async (_reason: string) => {
-		setSending(true);
-		setError('');
-		setSuccessMsg('');
-
-		try {
-			await ownerApi.sendBroadcast(audience(), message().trim(), scheduleTime() || undefined);
-			setSuccessMsg('پیام همگانی با موفقیت ثبت شد و در صف ارسال قرار گرفت.');
-			setMessage('');
-			setShowConfirmDialog(false);
-			fetchBroadcasts();
-			try {
-				haptic.notify('success');
-			} catch {}
-			setTimeout(() => setSuccessMsg(''), 4000);
-		} catch (e: any) {
-			setError(e.response?.data?.error || 'خطا در ارسال پیام همگانی');
-			try {
-				haptic.notify('error');
-			} catch {}
-		} finally {
-			setSending(false);
-		}
-	};
-
-	const getAudienceLabel = (aud: string) => {
-		if (aud === 'premium') return 'کاربران پرمیوم';
-		if (aud === 'active_7d' || aud === 'active') return 'فعالان ۷ روز اخیر';
-		if (aud === 'inactive') return 'کاربران غیرفعال';
-		return 'تمام کاربران ربات';
-	};
+	const broadcasts = () => broadcastsQuery.data || [];
 
 	return (
 		<div class="space-y-6">
 			{/* Header */}
-			<div class="bg-[#16171d]/60 border border-white/5 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
-				<div>
-					<h2 class="text-sm font-black text-white">سامانه ارسال پیام همگانی (Broadcast System)</h2>
-					<p class="text-xs text-white/40 font-bold mt-0.5">
-						ارسال انبوه پیام‌های اطلاع‌رسانی به کاربران با قابلیت انتخاب جامعه هدف
-					</p>
-				</div>
+			<div>
+				<h2 class="text-lg font-bold text-white">Broadcast Engine & Queue</h2>
+				<p class="text-xs text-white/50">
+					Scheduled rate-limited broadcaster (~25 msg/s) with real-time progress and audience dry-run
+				</p>
 			</div>
 
-			<Show when={error()}>
-				<div class="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-400 text-xs font-bold">
-					<span class="material-symbols-outlined text-xl">error</span>
-					<span>{error()}</span>
-				</div>
-			</Show>
-
-			<Show when={successMsg()}>
-				<div class="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-3 text-emerald-400 text-xs font-bold">
-					<span class="material-symbols-outlined text-xl">check_circle</span>
-					<span>{successMsg()}</span>
-				</div>
-			</Show>
-
-			{/* Form */}
-			<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-6 space-y-4">
-				<h3 class="text-xs font-black uppercase text-white tracking-wider">
-					تنظیم و ارسال پیام جدید
-				</h3>
-
-				<form onSubmit={handleInitiateSend} class="space-y-4">
-					<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-						<div>
-							<label class="block text-[10px] font-bold text-white/50 mb-1">
-								جامعه هدف (Audience)
-							</label>
-							<select
-								value={audience()}
-								onChange={(e) => setAudience(e.currentTarget.value as any)}
-								class="w-full h-11 bg-black/40 border border-white/10 rounded-xl px-4 text-xs text-white outline-none focus:border-[#3390ec]"
-							>
-								<option value="all">همه کاربران (عمومی)</option>
-								<option value="premium">کاربران پرمیوم (Premium)</option>
-								<option value="active_7d">کاربران فعال ۷ روز اخیر</option>
-								<option value="inactive">کاربران غیرفعال</option>
-							</select>
-						</div>
-
-						<div>
-							<label class="block text-[10px] font-bold text-white/50 mb-1">
-								زمان‌بندی ارسال (اختیاری)
-							</label>
-							<input
-								type="datetime-local"
-								value={scheduleTime()}
-								onInput={(e) => setScheduleTime(e.currentTarget.value)}
-								class="w-full h-11 bg-black/40 border border-white/10 rounded-xl px-4 text-xs font-mono text-white outline-none focus:border-[#3390ec]"
-							/>
-						</div>
+			{/* Compose Card */}
+			<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+				{/* Composer Form */}
+				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
+					<div class="flex items-center gap-2">
+						<span class="material-symbols-rounded text-amber-400">send</span>
+						<h3 class="text-sm font-bold text-white">New Broadcast Message</h3>
 					</div>
 
-					<div>
-						<div class="flex items-center justify-between mb-1">
-							<label class="block text-[10px] font-bold text-white/50">
-								متن پیام تلگرام (پشتیبانی از فرمت HTML)
-							</label>
+					<form onSubmit={handleSubmit} class="space-y-4">
+						{/* Target Audience */}
+						<div>
+							<div class="flex items-center justify-between text-xs mb-1.5">
+								<span class="text-white/60">Target Audience</span>
+								<span class="text-amber-400 font-mono">
+									{audienceCountQuery.isLoading
+										? 'Counting...'
+										: `${(audienceCountQuery.data?.count ?? 0).toLocaleString()} users targeted`}
+								</span>
+							</div>
+							<div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+								{[
+									{ id: 'all', label: 'All Users' },
+									{ id: 'premium', label: 'Premium Only' },
+									{ id: 'active_7d', label: 'Active 7D' },
+									{ id: 'inactive', label: 'Inactive' },
+								].map((aud) => (
+									<button
+										type="button"
+										onClick={() => setTargetAudience(aud.id as any)}
+										class={`py-2 rounded-xl text-xs font-semibold transition ${
+											targetAudience() === aud.id
+												? 'bg-amber-500 text-black'
+												: 'bg-white/5 text-white/60 hover:text-white'
+										}`}
+									>
+										{aud.label}
+									</button>
+								))}
+							</div>
+						</div>
+
+						{/* Formatting Toolbar */}
+						<div class="flex items-center gap-1.5 border-t border-b border-white/10 py-2 text-xs">
+							<span class="text-white/40 text-[11px] mr-1">HTML Tags:</span>
 							<button
 								type="button"
-								onClick={() => setIsPreviewOpen(!isPreviewOpen())}
-								class="text-[10px] text-[#3390ec] font-bold underline"
+								onClick={() => insertTag('<b>', '</b>')}
+								class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-white font-bold"
 							>
-								{isPreviewOpen() ? 'پنهان‌سازی پیش‌نمایش' : 'مشاهده پیش‌نمایش تلگرام'}
+								&lt;b&gt;
+							</button>
+							<button
+								type="button"
+								onClick={() => insertTag('<i>', '</i>')}
+								class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-white italic"
+							>
+								&lt;i&gt;
+							</button>
+							<button
+								type="button"
+								onClick={() => insertTag('<a href="https://t.me/...">', '</a>')}
+								class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-amber-400"
+							>
+								&lt;a&gt;
+							</button>
+							<button
+								type="button"
+								onClick={() => insertTag('<code>', '</code>')}
+								class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-sky-400 font-mono"
+							>
+								&lt;code&gt;
 							</button>
 						</div>
-						<textarea
-							rows={5}
-							required
-							value={message()}
-							onInput={(e) => setMessage(e.currentTarget.value)}
-							placeholder="سلام کاربران گرامی، نسخه جدید ربات منتشر شد..."
-							class="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-xs text-white focus:border-[#3390ec] outline-none resize-none font-sans leading-relaxed"
-						/>
-					</div>
 
-					{/* Telegram Live Preview */}
-					<Show when={isPreviewOpen() && message().trim()}>
-						<div class="p-4 bg-[#182533] border border-white/10 rounded-2xl space-y-2">
-							<div class="flex items-center gap-2 text-white/40 text-[9px] font-bold uppercase">
-								<span>📱 پیش‌نمایش نمایش پیام در تلگرام:</span>
-							</div>
-							<div class="text-xs text-white font-sans whitespace-pre-wrap leading-relaxed">
-								{message()}
-							</div>
+						{/* Textarea */}
+						<div>
+							<textarea
+								rows={5}
+								placeholder="Compose broadcast message in HTML format..."
+								value={messageText()}
+								onInput={(e) => setMessageText(e.currentTarget.value)}
+								class="w-full p-3.5 rounded-2xl bg-white/5 border border-white/15 text-white text-xs placeholder:text-white/30 focus:border-amber-400 focus:outline-none resize-none font-sans leading-relaxed"
+								required
+							/>
 						</div>
-					</Show>
 
-					<div class="flex justify-end pt-2">
+						{/* Scheduling Option */}
+						<div class="space-y-2 rounded-2xl bg-white/[0.02] border border-white/5 p-3.5">
+							<label class="flex items-center gap-2 text-xs text-white cursor-pointer select-none">
+								<input
+									type="checkbox"
+									checked={isScheduled()}
+									onChange={(e) => setIsScheduled(e.currentTarget.checked)}
+									class="rounded accent-amber-500 h-4 w-4"
+								/>
+								<span>Schedule for later delivery</span>
+							</label>
+
+							<Show when={isScheduled()}>
+								<div class="pt-2">
+									<input
+										type="datetime-local"
+										value={scheduledAt()}
+										onInput={(e) => setScheduledAt(e.currentTarget.value)}
+										class="w-full h-10 px-3 rounded-xl bg-black/50 border border-white/15 text-white text-xs focus:border-amber-400 focus:outline-none"
+									/>
+								</div>
+							</Show>
+						</div>
+
+						{/* Submit */}
 						<button
 							type="submit"
-							disabled={sending() || !message().trim()}
-							class="h-11 px-8 bg-[#3390ec] hover:bg-[#2b7ec9] text-xs font-black uppercase text-white rounded-xl transition-all disabled:opacity-40 flex items-center gap-2 active:scale-95 shadow-lg shadow-[#3390ec]/20"
+							disabled={createMutation.isPending || !messageText().trim()}
+							class="w-full py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs transition shadow-lg shadow-amber-500/20 disabled:opacity-50 flex items-center justify-center gap-2"
 						>
-							<span class="material-symbols-outlined text-[18px]">send</span>
-							ارسال همگانی پیام
+							<Show
+								when={createMutation.isPending}
+								fallback={<span>{isScheduled() ? 'Schedule Broadcast' : 'Queue Immediately (~25 msg/s)'}</span>}
+							>
+								<div class="h-4 w-4 animate-spin rounded-full border-2 border-black border-t-transparent" />
+								<span>Queueing...</span>
+							</Show>
 						</button>
+					</form>
+				</div>
+
+				{/* HTML Live Preview Box */}
+				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-4 flex flex-col">
+					<div class="flex items-center gap-2">
+						<span class="material-symbols-rounded text-sky-400">preview</span>
+						<h3 class="text-sm font-bold text-white">Live Telegram HTML Preview</h3>
 					</div>
-				</form>
+
+					<div class="flex-1 rounded-2xl border border-white/10 bg-[#17212b] p-4 text-white text-xs leading-relaxed overflow-y-auto">
+						<Show
+							when={messageText().trim()}
+							fallback={<div class="text-white/30 italic text-center my-auto">Type your message to see Telegram formatting preview...</div>}
+						>
+							<div
+								innerHTML={messageText()}
+								class="prose prose-invert prose-xs max-w-none break-words"
+							/>
+						</Show>
+					</div>
+					<div class="text-[11px] text-white/40 text-center">
+						Preview simulates Telegram client bubble styling
+					</div>
+				</div>
 			</div>
 
-			{/* History Table */}
-			<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-6 space-y-4">
-				<h3 class="text-xs font-black uppercase text-white tracking-wider">
-					تاریخچه پیام‌های صادر شده
-				</h3>
-
-				<Show when={loading()}>
-					<div class="flex justify-center items-center py-10">
-						<div class="w-8 h-8 border-3 border-[#3390ec] border-t-transparent rounded-full animate-spin" />
+			{/* Broadcast Queue & History */}
+			<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
+				<div class="flex items-center justify-between">
+					<div class="flex items-center gap-2">
+						<span class="material-symbols-rounded text-amber-400">queue</span>
+						<span class="text-sm font-bold text-white">Broadcast Queue & Status</span>
 					</div>
-				</Show>
+				</div>
 
-				<Show when={!loading() && broadcasts().length === 0}>
-					<div class="text-center py-10 text-white/40 text-xs font-bold">
-						هیچ پیام همگانی صادر نشده است.
-					</div>
-				</Show>
-
-				<Show when={!loading() && broadcasts().length > 0}>
-					<div class="overflow-x-auto">
-						<table class="w-full text-start text-xs">
-							<thead>
-								<tr class="border-b border-white/10 text-white/40 text-[10px] font-bold">
-									<th class="pb-3 text-start">تاریخ</th>
-									<th class="pb-3 text-start">جامعه هدف</th>
-									<th class="pb-3 text-start">خلاصه متن</th>
-									<th class="pb-3 text-start">وضعیت</th>
-									<th class="pb-3 text-end">تعداد ارسال شده</th>
-								</tr>
-							</thead>
-							<tbody>
+				<div class="overflow-x-auto">
+					<table class="w-full text-left text-xs">
+						<thead>
+							<tr class="border-b border-white/10 text-white/40">
+								<th class="pb-3 font-medium">Audience & Message</th>
+								<th class="pb-3 font-medium">Status</th>
+								<th class="pb-3 font-medium">Progress</th>
+								<th class="pb-3 font-medium">Scheduled</th>
+								<th class="pb-3 font-medium">Failed</th>
+								<th class="pb-3 font-medium text-right">Control</th>
+							</tr>
+						</thead>
+						<tbody class="divide-y divide-white/5">
+							<Show
+								when={!broadcastsQuery.isLoading && broadcasts().length > 0}
+								fallback={
+									<tr>
+										<td colspan="6" class="py-8 text-center text-white/40">
+											{broadcastsQuery.isLoading ? 'Loading queue...' : 'No broadcasts in queue'}
+										</td>
+									</tr>
+								}
+							>
 								<For each={broadcasts()}>
-									{(b) => (
-										<tr class="border-b border-white/5 hover:bg-white/5 transition-all">
-											<td class="py-4 text-start font-mono text-white/70 text-[11px]">
-												{b.created_at ? new Date(b.created_at).toLocaleDateString('fa-IR') : '---'}
-											</td>
-											<td class="py-4 text-start">
-												<span class="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[9px] font-bold text-white">
-													{getAudienceLabel(b.target_audience)}
-												</span>
-											</td>
-											<td
-												class="py-4 text-start max-w-[200px] truncate text-white/80 font-medium"
-												title={b.message_text}
-											>
-												{b.message_text}
-											</td>
-											<td class="py-4 text-start">
-												<span
-													class={`px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase ${
-														b.status === 'completed' || (b.status as string) === 'sent'
-															? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-															: b.status === 'failed'
-																? 'bg-red-500/10 text-red-400 border border-red-500/20'
-																: 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-													}`}
-												>
-													{b.status}
-												</span>
-											</td>
-											<td class="py-4 text-end font-mono font-bold text-white">
-												{b.sent_count?.toLocaleString() || 0}
-											</td>
-										</tr>
-									)}
+									{(b) => {
+										const pct = () => (b.total_count > 0 ? (b.sent_count / b.total_count) * 100 : 0);
+										return (
+											<tr class="hover:bg-white/[0.02] transition">
+												<td class="py-3 max-w-[280px]">
+													<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/5 text-amber-400 border border-white/10 uppercase mr-2">
+														{b.target_audience}
+													</span>
+													<div class="truncate text-white/80 mt-1">{b.message || b.message_text}</div>
+												</td>
+												<td class="py-3">
+													<span
+														class={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+															b.status === 'completed'
+																? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+																: b.status === 'sending'
+																? 'bg-sky-500/10 text-sky-400 border border-sky-500/20 animate-pulse'
+																: b.status === 'paused'
+																? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
+																: b.status === 'failed'
+																? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+																: 'bg-white/5 text-white/50'
+														}`}
+													>
+														{b.status}
+													</span>
+												</td>
+												<td class="py-3 w-40">
+													<div class="text-[11px] font-mono text-white/70 mb-1">
+														{b.sent_count.toLocaleString()} / {b.total_count.toLocaleString()} ({pct().toFixed(0)}%)
+													</div>
+													<div class="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
+														<div
+															style={{ width: `${pct()}%` }}
+															class="h-full bg-amber-400 transition-all duration-300"
+														/>
+													</div>
+												</td>
+												<td class="py-3 text-white/50">
+													{b.scheduled_at ? new Date(b.scheduled_at).toLocaleString() : 'Immediate'}
+												</td>
+												<td class="py-3 font-mono text-rose-400 font-bold">
+													{(b.failed_count ?? 0).toLocaleString()}
+												</td>
+												<td class="py-3 text-right">
+													<div class="flex items-center justify-end gap-1.5">
+														<Show when={b.status === 'sending'}>
+															<button
+																onClick={() => pauseMutation.mutate(b.id)}
+																class="px-2.5 py-1 rounded-lg bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 font-medium text-xs"
+															>
+																Pause
+															</button>
+														</Show>
+														<Show when={b.status === 'paused'}>
+															<button
+																onClick={() => resumeMutation.mutate(b.id)}
+																class="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-medium text-xs"
+															>
+																Resume
+															</button>
+														</Show>
+													</div>
+												</td>
+											</tr>
+										);
+									}}
 								</For>
-							</tbody>
-						</table>
-					</div>
-				</Show>
+							</Show>
+						</tbody>
+					</table>
+				</div>
 			</div>
-
-			{/* Review Confirmation Step */}
-			<Show when={showConfirmDialog()}>
-				<DangerActionDialog
-					isOpen={true}
-					title="تأیید نهایی ارسال همگانی پیام"
-					description={`آیا از ارسال پیام همگانی به ${getAudienceLabel(audience())} اطمینان کامل دارید؟ این عملیات غیرقابل بازگشت است.`}
-					actionLabel="تأیید و ارسال انبوه"
-					confirmWord="SEND"
-					riskLevel="critical"
-					details={[
-						{ label: 'جامعه هدف', value: getAudienceLabel(audience()) },
-						{
-							label: 'زمان ارسال',
-							value: scheduleTime() ? new Date(scheduleTime()).toLocaleString('fa-IR') : 'بلافاصله',
-						},
-					]}
-					loading={sending()}
-					onConfirm={executeSendBroadcast}
-					onClose={() => setShowConfirmDialog(false)}
-				/>
-			</Show>
 		</div>
 	);
 };

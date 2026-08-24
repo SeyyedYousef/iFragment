@@ -1,338 +1,283 @@
-
-import { Component, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
-import { type ManagedUserbot, ownerApi } from '@/entities/owner/index.js';
-import { DangerActionDialog } from '@/widgets/owner/index.js';
-import { haptic } from '@/shared/lib/haptic.js';
+import { createSignal, createEffect, onCleanup, Show, For, type Component } from 'solid-js';
+import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
+import { ownerApi } from '../../../entities/owner/api/ownerApi';
+import type { ManagedUserbot } from '../../../entities/owner/model/types';
+import { DangerActionDialog } from '../../../widgets/owner/DangerActionDialog';
 
 export const OwnerUserbot: Component = () => {
+	const queryClient = useQueryClient();
+
+	const [isConnecting, setIsConnecting] = createSignal(false);
 	const [phone, setPhone] = createSignal('');
 	const [code, setCode] = createSignal('');
-	const [password2FA, setPassword2FA] = createSignal('');
 	const [phoneCodeHash, setPhoneCodeHash] = createSignal('');
-	const [loading, setLoading] = createSignal(false);
-	const [successMsg, setSuccessMsg] = createSignal('');
-	const [errorMsg, setErrorMsg] = createSignal('');
 	const [step, setStep] = createSignal<'phone' | 'code'>('phone');
-	const [resendTimer, setResendTimer] = createSignal(0);
-	let countdownInterval: any;
+	const [countdown, setCountdown] = createSignal(0);
 
-	const [userbots, setUserbots] = createSignal<ManagedUserbot[]>([]);
-	const [loadingBots, setLoadingBots] = createSignal(true);
+	const [userbotToDelete, setUserbotToDelete] = createSignal<ManagedUserbot | null>(null);
 
-	// Danger action dialog state
-	const [deletingBotId, setDeletingBotId] = createSignal<string | null>(null);
+	let timer: any;
+	onCleanup(() => clearInterval(timer));
 
-	const loadUserbots = async () => {
-		try {
-			setLoadingBots(true);
-			const bots = await ownerApi.listUserbots();
-			setUserbots(bots || []);
-		} catch (err: any) {
-			setErrorMsg(err.response?.data?.error || 'خطا در بارگذاری لیست ربات‌ها');
-		}
-		setLoadingBots(false);
-	};
+	const userbotsQuery = createQuery(() => ({
+		queryKey: ['owner', 'userbots'],
+		queryFn: ownerApi.listUserbots,
+	}));
 
-	onMount(() => {
-		loadUserbots();
-	});
+	const sendCodeMutation = createMutation(() => ({
+		mutationFn: (phoneNumber: string) => ownerApi.sendUserbotCode(phoneNumber),
+		onSuccess: (data) => {
+			setPhoneCodeHash(data.phone_code_hash);
+			setStep('code');
+			startCountdown();
+		},
+	}));
 
-	onCleanup(() => {
-		if (countdownInterval) clearInterval(countdownInterval);
-	});
+	const verifyCodeMutation = createMutation(() => ({
+		mutationFn: () =>
+			ownerApi.verifyUserbotCode(phone().trim(), code().trim(), phoneCodeHash()),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['owner', 'userbots'] });
+			resetConnectModal();
+		},
+	}));
 
-	const startResendCountdown = () => {
-		setResendTimer(60);
-		if (countdownInterval) clearInterval(countdownInterval);
-		countdownInterval = setInterval(() => {
-			if (resendTimer() > 0) {
-				setResendTimer((t) => t - 1);
-			} else {
-				clearInterval(countdownInterval);
-			}
+	const deleteMutation = createMutation(() => ({
+		mutationFn: (id: string) => ownerApi.deleteUserbot(id),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['owner', 'userbots'] });
+			setUserbotToDelete(null);
+		},
+	}));
+
+	const startCountdown = () => {
+		setCountdown(60);
+		clearInterval(timer);
+		timer = setInterval(() => {
+			setCountdown((c) => {
+				if (c <= 1) {
+					clearInterval(timer);
+					return 0;
+				}
+				return c - 1;
+			});
 		}, 1000);
 	};
 
-	const maskPhoneNumber = (num: string): string => {
-		if (!num || num.length < 7) return num;
-		return `${num.slice(0, 4)} **** ${num.slice(-3)}`;
+	const resetConnectModal = () => {
+		setIsConnecting(false);
+		setPhone('');
+		setCode('');
+		setPhoneCodeHash('');
+		setStep('phone');
+		clearInterval(timer);
 	};
 
-	const handleSendCode = async () => {
-		const rawPhone = phone().trim();
-		if (!rawPhone?.startsWith('+')) {
-			setErrorMsg('لطفاً شماره تلفن معتبر همراه با پیش‌شماره کشور (مانند 989123456789+) وارد کنید.');
-			return;
-		}
-
-		try {
-			setLoading(true);
-			setErrorMsg('');
-			haptic.impact('light');
-
-			const resp = await ownerApi.sendUserbotCode(rawPhone);
-			setPhoneCodeHash(resp.phone_code_hash);
-			setStep('code');
-			startResendCountdown();
-		} catch (err: any) {
-			setErrorMsg(err?.response?.data?.error || 'ارسال کد تایید با خطا مواجه شد');
-		} finally {
-			setLoading(false);
-		}
+	const maskPhoneNumber = (raw: string) => {
+		if (!raw || raw.length < 7) return raw;
+		const clean = raw.replace(/\s+/g, '');
+		return `${clean.slice(0, 4)} *** **${clean.slice(-2)}`;
 	};
 
-	const handleVerifyCode = async () => {
-		if (!code().trim()) {
-			setErrorMsg('کد تایید دریافتی تلگرام را وارد کنید.');
-			return;
-		}
-
-		try {
-			setLoading(true);
-			setErrorMsg('');
-			haptic.impact('light');
-
-			await ownerApi.verifyUserbotCode(
-				phone().trim(),
-				code().trim(),
-				phoneCodeHash(),
-				password2FA().trim() || undefined,
-			);
-
-			setSuccessMsg('حساب تلگرام با موفقیت متصل شد.');
-			setStep('phone');
-			setPhone('');
-			setCode('');
-			setPassword2FA('');
-			setPhoneCodeHash('');
-			loadUserbots();
-		} catch (err: any) {
-			setErrorMsg(err?.response?.data?.error || 'تایید کد ورود ناموفق بود.');
-		} finally {
-			setLoading(false);
-		}
-	};
-
-	const confirmDeleteBot = async (_reason: string) => {
-		const id = deletingBotId();
-		if (!id) return;
-		try {
-			await ownerApi.deleteUserbot(id);
-			haptic.notify('success');
-			setDeletingBotId(null);
-			loadUserbots();
-		} catch (err: any) {
-			setErrorMsg(err.response?.data?.error || 'حذف ربات با خطا مواجه شد.');
-		}
-	};
+	const userbots = () => userbotsQuery.data || [];
 
 	return (
 		<div class="space-y-6">
 			{/* Header */}
-			<div class="bg-[#16171d]/60 border border-white/5 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
+			<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
 				<div>
-					<h2 class="text-sm font-black text-white">مدیریت حساب‌های ربات متصل (Userbot Session)</h2>
-					<p class="text-xs text-white/40 font-bold mt-0.5">
-						اتصال لایه استخراج و پایش کانال‌های رسمی تلگرام
-					</p>
+					<h2 class="text-lg font-bold text-white">MTProto Userbot Farm</h2>
+					<p class="text-xs text-white/50">Manage dedicated MTProto worker sessions for channel and group automation</p>
 				</div>
 				<button
-					onClick={loadUserbots}
-					class="w-10 h-10 rounded-2xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/70 transition-all active:scale-95"
+					onClick={() => {
+						resetConnectModal();
+						setIsConnecting(true);
+					}}
+					class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs transition shadow-lg shadow-amber-500/20"
 				>
-					<span
-						class={`material-symbols-outlined text-[20px] ${loadingBots() ? 'animate-spin' : ''}`}
-					>
-						refresh
-					</span>
+					<span class="material-symbols-rounded text-base">phonelink_setup</span>
+					<span>Connect New Userbot</span>
 				</button>
 			</div>
 
-			<Show when={errorMsg()}>
-				<div class="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-400 text-xs font-bold">
-					<span class="material-symbols-outlined text-xl">error</span>
-					<span>{errorMsg()}</span>
-				</div>
-			</Show>
-
-			<Show when={successMsg()}>
-				<div class="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-3 text-emerald-400 text-xs font-bold">
-					<span class="material-symbols-outlined text-xl">check_circle</span>
-					<span>{successMsg()}</span>
-				</div>
-			</Show>
-
-			{/* List of active userbots */}
-			<div class="space-y-3">
-				<h3 class="text-xs font-black uppercase text-white tracking-wider">حساب‌های فعال تلگرام</h3>
-				<Show
-					when={!loadingBots()}
-					fallback={
-						<div class="flex justify-center items-center py-10">
-							<div class="w-8 h-8 border-3 border-[#3390ec] border-t-transparent rounded-full animate-spin" />
-						</div>
-					}
-				>
-					<Show
-						when={userbots().length > 0}
-						fallback={
-							<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-8 text-center text-white/50 text-xs font-bold space-y-2">
-								<span class="material-symbols-outlined text-4xl text-white/20">smart_toy</span>
-								<p>هیچ حساب تلگرامی در حال حاضر به عنوان ربات پایش متصل نیست.</p>
-							</div>
-						}
-					>
-						<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<For each={userbots()}>
-								{(bot) => (
-									<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-5 flex items-center justify-between">
-										<div class="flex items-center gap-3">
-											<div class="w-10 h-10 rounded-2xl bg-[#3390ec]/10 border border-[#3390ec]/20 flex items-center justify-center text-[#3390ec]">
-												<span class="material-symbols-outlined text-xl">smart_toy</span>
-											</div>
-											<div>
-												<span class="font-mono font-bold text-xs text-white" dir="ltr">
-													{maskPhoneNumber(bot.phone_number)}
-												</span>
-												<div class="flex items-center gap-2 mt-1">
-													<span class="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 text-[9px] font-mono font-bold">
-														{bot.status}
-													</span>
-													<span class="text-[10px] text-white/40 font-bold">
-														پایش {bot.channels_count} کانال
-													</span>
-												</div>
-											</div>
-										</div>
-
-										<button
-											onClick={() => setDeletingBotId(bot.id)}
-											class="w-9 h-9 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 flex items-center justify-center transition-all active:scale-95"
-											title="قطع اتصال حساب"
-										>
-											<span class="material-symbols-outlined text-[18px]">delete</span>
-										</button>
-									</div>
-								)}
-							</For>
-						</div>
-					</Show>
-				</Show>
-			</div>
-
-			{/* Connect New Userbot Form */}
-			<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-6 space-y-4">
-				<h3 class="text-xs font-black uppercase text-white tracking-wider">
-					افزودن حساب جدید تلگرام
-				</h3>
-
-				<Show when={step() === 'phone'}>
-					<div class="space-y-3">
-						<div>
-							<label class="block text-[10px] font-bold text-white/50 mb-1">
-								شماره تلفن همراه با پیش‌شماره (مثلاً 989123456789+)
-							</label>
-							<input
-								type="tel"
-								value={phone()}
-								onInput={(e) => setPhone(e.currentTarget.value)}
-								placeholder="+989123456789"
-								class="w-full h-12 bg-black/40 border border-white/10 rounded-xl px-4 text-xs font-mono text-white outline-none focus:border-[#3390ec]"
-								dir="ltr"
-							/>
-						</div>
-
-						<button
-							onClick={handleSendCode}
-							disabled={loading() || !phone().trim()}
-							class="w-full h-12 bg-[#3390ec] hover:bg-[#2b7ec9] text-xs font-black uppercase text-white rounded-xl transition-all active:scale-95 disabled:opacity-40 flex items-center justify-center gap-2"
-						>
-							<Show when={loading()} fallback="ارسال کد ورود تلگرام">
-								<span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-							</Show>
+			{/* Connect Modal */}
+			<Show when={isConnecting()}>
+				<div class="rounded-3xl border border-amber-500/30 bg-black/70 p-6 space-y-4 backdrop-blur-xl max-w-md mx-auto">
+					<div class="flex items-center justify-between border-b border-white/10 pb-3">
+						<h3 class="text-sm font-bold text-white">
+							{step() === 'phone' ? 'Step 1: Enter Phone Number' : 'Step 2: Enter Telegram Auth Code'}
+						</h3>
+						<button onClick={resetConnectModal} class="text-xs text-white/50 hover:text-white">
+							Cancel
 						</button>
 					</div>
-				</Show>
 
-				<Show when={step() === 'code'}>
-					<div class="space-y-3">
-						<div>
-							<label class="block text-[10px] font-bold text-white/50 mb-1">
-								کد تایید ۵ رقمی تلگرام
-							</label>
-							<input
-								type="text"
-								value={code()}
-								onInput={(e) => setCode(e.currentTarget.value)}
-								placeholder="12345"
-								class="w-full h-12 bg-black/40 border border-white/10 rounded-xl px-4 text-sm font-mono text-white outline-none focus:border-[#3390ec]"
-								dir="ltr"
-							/>
-						</div>
-
-						<div>
-							<label class="block text-[10px] font-bold text-white/50 mb-1">
-								رمز 2FA تلگرام (در صورت داشتن تایید دو مرحله‌ای)
-							</label>
-							<input
-								type="password"
-								value={password2FA()}
-								onInput={(e) => setPassword2FA(e.currentTarget.value)}
-								placeholder="رمز دوم تلگرام..."
-								class="w-full h-12 bg-black/40 border border-white/10 rounded-xl px-4 text-xs text-white outline-none focus:border-[#3390ec]"
-							/>
-						</div>
-
-						<div class="flex gap-2">
-							<button
-								onClick={() => setStep('phone')}
-								class="flex-1 h-12 bg-white/5 text-xs font-bold text-white/70 rounded-xl"
-							>
-								اصلاح شماره
-							</button>
-
-							<button
-								onClick={handleVerifyCode}
-								disabled={loading() || !code().trim()}
-								class="flex-1 h-12 bg-emerald-500 hover:bg-emerald-600 text-xs font-black uppercase text-white rounded-xl transition-all active:scale-95 disabled:opacity-40 flex items-center justify-center gap-2"
-							>
-								<Show when={loading()} fallback="تکمیل ورود و ثبت حساب">
-									<span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-								</Show>
-							</button>
-						</div>
-
-						<Show
-							when={resendTimer() > 0}
-							fallback={
-								<button
-									onClick={handleSendCode}
-									class="text-[10px] text-[#3390ec] font-bold underline"
-								>
-									ارسال مجدد کد تایید
-								</button>
-							}
+					<Show when={step() === 'phone'}>
+						<form
+							onSubmit={(e) => {
+								e.preventDefault();
+								if (phone().trim()) sendCodeMutation.mutate(phone().trim());
+							}}
+							class="space-y-3"
 						>
-							<p class="text-[10px] text-white/40 font-mono text-center">
-								امکان ارسال مجدد کد تا {resendTimer()} ثانیه دیگر
-							</p>
-						</Show>
-					</div>
-				</Show>
+							<div>
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
+									Phone Number (with Country Code)
+								</label>
+								<input
+									type="tel"
+									placeholder="+1234567890"
+									value={phone()}
+									onInput={(e) => setPhone(e.currentTarget.value)}
+									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
+									required
+								/>
+							</div>
+
+							<button
+								type="submit"
+								disabled={sendCodeMutation.isPending || !phone().trim()}
+								class="w-full py-3 bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs rounded-xl transition disabled:opacity-50"
+							>
+								{sendCodeMutation.isPending ? 'Requesting Code...' : 'Send Login Code'}
+							</button>
+						</form>
+					</Show>
+
+					<Show when={step() === 'code'}>
+						<form
+							onSubmit={(e) => {
+								e.preventDefault();
+								if (code().trim()) verifyCodeMutation.mutate();
+							}}
+							class="space-y-3"
+						>
+							<div>
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
+									5-Digit Telegram Verification Code
+								</label>
+								<input
+									type="text"
+									inputMode="numeric"
+									placeholder="12345"
+									value={code()}
+									onInput={(e) => setCode(e.currentTarget.value)}
+									class="w-full h-11 text-center tracking-[0.5em] font-mono text-lg rounded-xl bg-white/5 border border-white/15 text-white focus:border-amber-400 focus:outline-none"
+									required
+								/>
+							</div>
+
+							<div class="flex items-center justify-between text-xs text-white/50">
+								<span>Sent to {maskPhoneNumber(phone())}</span>
+								<Show
+									when={countdown() > 0}
+									fallback={
+										<button
+											type="button"
+											onClick={() => sendCodeMutation.mutate(phone().trim())}
+											class="text-amber-400 hover:underline"
+										>
+											Resend Code
+										</button>
+									}
+								>
+									<span>Resend in {countdown()}s</span>
+								</Show>
+							</div>
+
+							<button
+								type="submit"
+								disabled={verifyCodeMutation.isPending || !code().trim()}
+								class="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs rounded-xl transition disabled:opacity-50"
+							>
+								{verifyCodeMutation.isPending ? 'Verifying...' : 'Authenticate & Save Session'}
+							</button>
+						</form>
+					</Show>
+				</div>
+			</Show>
+
+			{/* Userbots Table */}
+			<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
+				<div class="overflow-x-auto">
+					<table class="w-full text-left text-xs">
+						<thead>
+							<tr class="border-b border-white/10 text-white/40">
+								<th class="pb-3">Session ID</th>
+								<th class="pb-3">Masked Phone</th>
+								<th class="pb-3">Channels Managed</th>
+								<th class="pb-3">Status</th>
+								<th class="pb-3">Connected Since</th>
+								<th class="pb-3 text-right">Actions</th>
+							</tr>
+						</thead>
+						<tbody class="divide-y divide-white/5">
+							<Show
+								when={!userbotsQuery.isLoading && userbots().length > 0}
+								fallback={
+									<tr>
+										<td colspan="6" class="py-8 text-center text-white/40">
+											{userbotsQuery.isLoading ? 'Loading userbots...' : 'No userbots connected'}
+										</td>
+									</tr>
+								}
+							>
+								<For each={userbots()}>
+									{(bot) => (
+										<tr class="hover:bg-white/[0.02] transition">
+											<td class="py-3 font-mono text-white/70">{bot.id.slice(0, 8)}...</td>
+											<td class="py-3 font-mono font-bold text-amber-400">
+												{maskPhoneNumber(bot.phone_number)}
+											</td>
+											<td class="py-3 font-mono text-white/80">{bot.channels_count} channels</td>
+											<td class="py-3">
+												<span
+													class={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+														bot.status === 'active' || bot.status === 'connected'
+															? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+															: 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+													}`}
+												>
+													{bot.status}
+												</span>
+											</td>
+											<td class="py-3 text-white/50">{new Date(bot.created_at).toLocaleDateString()}</td>
+											<td class="py-3 text-right">
+												<button
+													onClick={() => setUserbotToDelete(bot)}
+													class="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition"
+													title="Log Out & Delete Userbot"
+												>
+													<span class="material-symbols-rounded text-base">logout</span>
+												</button>
+											</td>
+										</tr>
+									)}
+								</For>
+							</Show>
+						</tbody>
+					</table>
+				</div>
 			</div>
 
-			{/* Danger Action Confirmation */}
-			<Show when={deletingBotId()}>
+			{/* Logout Confirmation */}
+			<Show when={userbotToDelete()}>
 				<DangerActionDialog
 					isOpen={true}
-					title="قطع اتصال حساب تلگرام"
-					description="با قطع این حساب، دریافت اتوماتیک پیام‌ها و پایش کانال‌ها توسط این ربات متوقف خواهد شد."
-					actionLabel="حذف ربات"
+					title="Revoke & Delete MTProto Userbot"
+					description={`Terminate MTProto session for ${maskPhoneNumber(userbotToDelete()?.phone_number || '')}? This will log out on Telegram and delete the session file.`}
+					actionLabel="Revoke & Delete"
 					confirmWord="DELETE"
-					riskLevel="high"
-					details={[{ label: 'شناسه ربات', value: deletingBotId()! }]}
-					onConfirm={confirmDeleteBot}
-					onClose={() => setDeletingBotId(null)}
+					riskLevel="critical"
+					requireReason={false}
+					loading={deleteMutation.isPending}
+					onConfirm={() => {
+						if (userbotToDelete()) {
+							deleteMutation.mutate(userbotToDelete()!.id);
+						}
+					}}
+					onClose={() => setUserbotToDelete(null)}
 				/>
 			</Show>
 		</div>

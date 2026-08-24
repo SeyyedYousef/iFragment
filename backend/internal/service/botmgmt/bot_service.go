@@ -803,6 +803,61 @@ func (s *BotService) UpdateSettings(ctx context.Context, groupID uuid.UUID, cate
 		}
 	}
 
+	if category == "limits" {
+		var lim repository.SettingsLimits
+		if err := json.Unmarshal(data, &lim); err == nil {
+			group, err := s.botRepo.GetGroupByID(ctx, groupID)
+			if err == nil && group != nil {
+				bot, err := s.botRepo.GetBotByID(ctx, group.BotID)
+				if err == nil && bot != nil {
+					token, _ := DecryptToken(bot.BotTokenEncrypted)
+					if token != "" {
+						tg := telegram.NewBotAPIClient(token)
+						_ = tg.SetChatSlowModeDelay(ctx, group.ChatID, lim.SlowMode)
+					}
+				}
+			}
+		}
+	}
+
+	if category == "content_restrictions" {
+		var content repository.SettingsContentRestrictions
+		if err := json.Unmarshal(data, &content); err == nil {
+			group, err := s.botRepo.GetGroupByID(ctx, groupID)
+			if err == nil && group != nil {
+				bot, err := s.botRepo.GetBotByID(ctx, group.BotID)
+				if err == nil && bot != nil {
+					token, _ := DecryptToken(bot.BotTokenEncrypted)
+					if token != "" {
+						tg := telegram.NewBotAPIClient(token)
+						canSendAudios := !(content.BlockAudio.Enabled && content.BlockAudio.Window == "Always")
+						canSendDocs := !(content.BlockFiles.Enabled && content.BlockFiles.Window == "Always")
+						canSendPhotos := !(content.BlockPhotos.Enabled && content.BlockPhotos.Window == "Always")
+						canSendVideos := !(content.BlockGifs.Enabled && content.BlockGifs.Window == "Always")
+						canSendVoice := !(content.BlockVoiceMessages.Enabled && content.BlockVoiceMessages.Window == "Always")
+						canSendPolls := !(content.BlockPolls.Enabled && content.BlockPolls.Window == "Always")
+						canSendOther := !(content.BlockStickers.Enabled && content.BlockStickers.Window == "Always")
+						canAddPreviews := !(content.RemoveLinks.Enabled && content.RemoveLinks.Window == "Always")
+						canSendMsgs := true
+
+						perms := telegram.ChatPermissions{
+							CanSendMessages:       &canSendMsgs,
+							CanSendAudios:         &canSendAudios,
+							CanSendDocuments:      &canSendDocs,
+							CanSendPhotos:         &canSendPhotos,
+							CanSendVideos:         &canSendVideos,
+							CanSendVoiceNotes:     &canSendVoice,
+							CanSendPolls:          &canSendPolls,
+							CanSendOtherMessages:  &canSendOther,
+							CanAddWebPagePreviews: &canAddPreviews,
+						}
+						_ = tg.SetChatPermissions(ctx, group.ChatID, perms, true)
+					}
+				}
+			}
+		}
+	}
+
 	if category == "dynamic_bio" {
 		var config GroupDynamicBioConfig
 		if err := json.Unmarshal(data, &config); err == nil && config.Enabled {
@@ -1461,9 +1516,242 @@ func (s *BotService) ActivateChannelSubscriptionFromStars(ctx context.Context, u
 
 	s.notifyOwnerOnSubscription(context.Background(), bot.BotUsername, ch.ChatTitle, pkg.Name, "Telegram Stars (Channel)", userID)
 
-	go func() {
-
-	}()
-
 	return nil
+}
+
+// ─── Group Security & Members Moderation ─────────────────────────────────────
+
+type GroupTelegramInfo struct {
+	HasProtectedContent          bool                     `json:"has_protected_content"`
+	HasHiddenMembers             bool                     `json:"has_hidden_members"`
+	HasAggressiveAntiSpamEnabled bool                     `json:"has_aggressive_anti_spam_enabled"`
+	JoinToSendMessages           bool                     `json:"join_to_send_messages"`
+	JoinByRequest                bool                     `json:"join_by_request"`
+	SlowModeDelay                int                      `json:"slow_mode_delay"`
+	CanChangeInfo                bool                     `json:"can_change_info"`
+	Permissions                  *telegram.ChatPermissions `json:"permissions,omitempty"`
+}
+
+type MemberWarning struct {
+	UserID       int64     `json:"user_id"`
+	Username     string    `json:"username"`
+	FirstName    string    `json:"first_name"`
+	WarningCount int       `json:"warning_count"`
+	Threshold    int       `json:"threshold"`
+	LastReason   string    `json:"last_reason"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+func (s *BotService) GetGroupTelegramInfo(ctx context.Context, groupID uuid.UUID, ownerID int64) (*GroupTelegramInfo, error) {
+	group, err := s.GetGroup(ctx, groupID, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	bot, err := s.botRepo.GetBotByID(ctx, group.BotID)
+	if err != nil || bot == nil {
+		return nil, fmt.Errorf("bot not found")
+	}
+	token, err := DecryptToken(bot.BotTokenEncrypted)
+	if err != nil || token == "" {
+		return nil, fmt.Errorf("failed to decrypt bot token")
+	}
+
+	tg := telegram.NewBotAPIClient(token)
+	chatRes, err := tg.GetChat(ctx, group.ChatID)
+	if err != nil {
+		return nil, err
+	}
+
+	info := &GroupTelegramInfo{
+		HasProtectedContent:          chatRes.HasProtectedContent,
+		HasHiddenMembers:             chatRes.HasHiddenMembers,
+		HasAggressiveAntiSpamEnabled: chatRes.HasAggressiveAntiSpamEnabled,
+		JoinToSendMessages:           chatRes.JoinToSendMessages,
+		JoinByRequest:                chatRes.JoinByRequest,
+		SlowModeDelay:                chatRes.SlowModeDelay,
+		CanChangeInfo:                true, // Checked via bot permissions if needed
+		Permissions:                  chatRes.Permissions,
+	}
+
+	// Check bot's own permissions in chat
+	if member, err := tg.GetChatMemberFull(ctx, group.ChatID, bot.BotID); err == nil && member != nil {
+		if member.Status == "administrator" || member.Status == "creator" {
+			info.CanChangeInfo = true
+		}
+	}
+
+	return info, nil
+}
+
+func (s *BotService) ListGroupWarnings(ctx context.Context, groupID uuid.UUID, ownerID int64) ([]MemberWarning, error) {
+	_, err := s.GetGroup(ctx, groupID, ownerID)
+	if err != nil {
+		return nil, err
+	}
+
+	settings, _ := s.settingsRepo.GetSettings(ctx, groupID)
+	threshold := 3
+	if settings != nil {
+		var g repository.SettingsGeneral
+		if json.Unmarshal(settings.General, &g) == nil && g.WarningThreshold > 0 {
+			threshold = g.WarningThreshold
+		}
+	}
+
+	// Get warnings from audit logs
+	logs, err := s.auditRepo.GetByGroup(ctx, groupID, 100, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	warningMap := make(map[int64]*MemberWarning)
+	for _, l := range logs {
+		if strings.HasPrefix(l.Action, "warn") || strings.Contains(l.Action, "warning") || strings.Contains(string(l.Metadata), "warning") {
+			targetID := l.ActorID
+			if l.TargetID != nil {
+				if parsed, parseErr := strconv.ParseInt(*l.TargetID, 10, 64); parseErr == nil && parsed > 0 {
+					targetID = parsed
+				}
+			}
+			if targetID == 0 {
+				continue
+			}
+
+			reason := "Violation of group rules"
+			var meta map[string]interface{}
+			if len(l.Metadata) > 0 && json.Unmarshal(l.Metadata, &meta) == nil {
+				if r, ok := meta["reason"].(string); ok && r != "" {
+					reason = r
+				}
+			}
+
+			// Read count from Redis if available
+			count := 1
+			if s.cache != nil && s.cache.Client != nil {
+				key := fmt.Sprintf("warnings:%s:%d", groupID, targetID)
+				if val, err := s.cache.Client.Get(ctx, key).Result(); err == nil {
+					if c, err := strconv.Atoi(val); err == nil && c > 0 {
+						count = c
+					}
+				}
+			}
+
+			if _, exists := warningMap[targetID]; !exists {
+				warningMap[targetID] = &MemberWarning{
+					UserID:       targetID,
+					Username:     fmt.Sprintf("user_%d", targetID),
+					FirstName:    "Member",
+					WarningCount: count,
+					Threshold:    threshold,
+					LastReason:   reason,
+					UpdatedAt:    l.CreatedAt,
+				}
+			}
+		}
+	}
+
+	list := make([]MemberWarning, 0, len(warningMap))
+	for _, w := range warningMap {
+		list = append(list, *w)
+	}
+	return list, nil
+}
+
+func (s *BotService) ResetGroupWarnings(ctx context.Context, groupID uuid.UUID, targetUserID int64, ownerID int64) error {
+	group, err := s.GetGroup(ctx, groupID, ownerID)
+	if err != nil {
+		return err
+	}
+
+	if s.cache != nil && s.cache.Client != nil {
+		key := fmt.Sprintf("warnings:%s:%d", groupID, targetUserID)
+		s.cache.Client.Del(ctx, key)
+	}
+
+	targetStr := fmt.Sprintf("%d", targetUserID)
+	_ = s.auditRepo.Log(ctx, &repository.AuditLog{
+		GroupID:    &groupID,
+		ActorID:    ownerID,
+		Action:     "member.warnings_reset",
+		TargetType: stringPtr("user"),
+		TargetID:   &targetStr,
+	})
+
+	slog.Info("Reset warnings for user in group", "group_id", group.ID, "user_id", targetUserID, "admin_id", ownerID)
+	return nil
+}
+
+func (s *BotService) RestrictGroupMember(ctx context.Context, groupID uuid.UUID, targetUserID int64, ownerID int64, untilDate int64, perms telegram.ChatPermissions) error {
+	group, err := s.GetGroup(ctx, groupID, ownerID)
+	if err != nil {
+		return err
+	}
+	bot, err := s.botRepo.GetBotByID(ctx, group.BotID)
+	if err != nil || bot == nil {
+		return fmt.Errorf("bot not found")
+	}
+	token, _ := DecryptToken(bot.BotTokenEncrypted)
+	if token == "" {
+		return fmt.Errorf("failed to decrypt bot token")
+	}
+
+	// Max 366 days in Telegram
+	maxUntil := time.Now().Add(366 * 24 * time.Hour).Unix()
+	if untilDate > maxUntil {
+		untilDate = maxUntil
+	}
+
+	tg := telegram.NewBotAPIClient(token)
+	err = tg.RestrictChatMember(ctx, group.ChatID, targetUserID, untilDate)
+	if err != nil {
+		return err
+	}
+
+	targetStr := fmt.Sprintf("%d", targetUserID)
+	meta, _ := json.Marshal(map[string]interface{}{
+		"until_date":  untilDate,
+		"permissions": perms,
+	})
+	_ = s.auditRepo.Log(ctx, &repository.AuditLog{
+		GroupID:    &groupID,
+		ActorID:    ownerID,
+		Action:     "member.restricted",
+		TargetType: stringPtr("user"),
+		TargetID:   &targetStr,
+		Metadata:   meta,
+	})
+	return nil
+}
+
+func (s *BotService) UnbanGroupMember(ctx context.Context, groupID uuid.UUID, targetUserID int64, ownerID int64) error {
+	group, err := s.GetGroup(ctx, groupID, ownerID)
+	if err != nil {
+		return err
+	}
+	bot, err := s.botRepo.GetBotByID(ctx, group.BotID)
+	if err != nil || bot == nil {
+		return fmt.Errorf("bot not found")
+	}
+	token, _ := DecryptToken(bot.BotTokenEncrypted)
+	if token == "" {
+		return fmt.Errorf("failed to decrypt bot token")
+	}
+
+	tg := telegram.NewBotAPIClient(token)
+	_ = tg.UnbanChatMember(ctx, group.ChatID, targetUserID, false)
+	_ = tg.UnrestrictChatMember(ctx, group.ChatID, targetUserID)
+
+	targetStr := fmt.Sprintf("%d", targetUserID)
+	_ = s.auditRepo.Log(ctx, &repository.AuditLog{
+		GroupID:    &groupID,
+		ActorID:    ownerID,
+		Action:     "member.unbanned",
+		TargetType: stringPtr("user"),
+		TargetID:   &targetStr,
+	})
+	return nil
+}
+
+func stringPtr(s string) *string {
+	return &s
 }

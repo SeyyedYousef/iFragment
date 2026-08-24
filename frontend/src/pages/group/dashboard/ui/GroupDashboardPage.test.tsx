@@ -11,6 +11,7 @@ vi.mock('@solidjs/router', () => ({
 vi.mock('@/entities/group/index.js', () => ({
 	groupApi: {
 		getGroup: vi.fn(),
+		getGroupTelegramInfo: vi.fn(),
 		getAnalytics: vi.fn(),
 		getSettings: vi.fn(),
 		getAuditLogs: vi.fn(),
@@ -26,6 +27,14 @@ describe('GroupDashboardPage', () => {
 			chat_title: 'Test Group',
 			members_count: 500,
 			subscription_status: 'paid',
+		});
+		(groupApi.getGroupTelegramInfo as any).mockResolvedValue({
+			has_protected_content: true,
+			has_hidden_members: false,
+			has_aggressive_anti_spam_enabled: true,
+			join_by_request: false,
+			slow_mode_delay: 0,
+			can_change_info: true,
 		});
 		(groupApi.getAnalytics as any).mockResolvedValue({
 			summary: { spam_blocked: 5, total_messages: 100, new_members: 10, top_users: [] },

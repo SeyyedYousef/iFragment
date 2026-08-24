@@ -43,13 +43,20 @@ func GetFearAndGreedMultiplier() (float64, string, int) {
 	resp, err := fngHttp.Get("https://api.alternative.me/fng/")
 	if err != nil {
 		slog.Warn("FnG API fetch failed", "error", err)
+		fngMutex.Lock()
+		fngLastUpdate = time.Now() // Cache fallback so we don't repeat timeout
+		fngMutex.Unlock()
 		return cached, cachedClass, cachedIdx
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
+		fngMutex.Lock()
+		fngLastUpdate = time.Now()
+		fngMutex.Unlock()
 		return cached, cachedClass, cachedIdx
 	}
+
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -86,3 +93,31 @@ func GetFearAndGreedMultiplier() (float64, string, int) {
 
 	return multiplier, parsed.Data[0].ValueClassification, val
 }
+
+// GetCalibratedFnGMultiplier computes the market sentiment multiplier adjusted for asset segment elasticity.
+// Dictionary & established brand names exhibit defensive asset properties (elasticity = 0.50),
+// whereas speculative, meme, or hype handles exhibit higher market beta (elasticity = 1.00).
+// The resulting multiplier is strictly clamped to [0.90, 1.10] (maximum +/-10% influence).
+func GetCalibratedFnGMultiplier(isDefensive bool, cfg EngineConfig) (adjustedMultiplier float64, rawClass string, rawIndex int) {
+	rawMult, class, idx := GetFearAndGreedMultiplier()
+
+	elasticity := cfg.FnGElasticitySpeculative
+	if isDefensive {
+		elasticity = cfg.FnGElasticityDefensive
+	}
+
+	// Delta from neutral (1.0) scaled by elasticity
+	delta := (rawMult - 1.0) * elasticity
+	adj := 1.0 + delta
+
+	// Strict bounding to [FnGClampLow, FnGClampHigh]
+	if adj < cfg.FnGClampLow {
+		adj = cfg.FnGClampLow
+	}
+	if adj > cfg.FnGClampHigh {
+		adj = cfg.FnGClampHigh
+	}
+
+	return adj, class, idx
+}
+

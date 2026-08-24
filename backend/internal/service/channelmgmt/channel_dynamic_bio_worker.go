@@ -175,7 +175,11 @@ func (s *ChannelService) updateChannelDynamicBio(ctx context.Context, ch *reposi
 		res = strings.ReplaceAll(res, "$event", config.EventName)
 
 		if s.cryptoSvc != nil {
+			res = strings.ReplaceAll(res, "$btc", s.cryptoSvc.GetPrice("bitcoin"))
+			res = strings.ReplaceAll(res, "$ton", s.cryptoSvc.GetPrice("the-open-network"))
 			res = strings.ReplaceAll(res, "$Gram", s.cryptoSvc.GetPrice("the-open-network"))
+			res = strings.ReplaceAll(res, "$eth", s.cryptoSvc.GetPrice("ethereum"))
+			res = strings.ReplaceAll(res, "$frg", s.cryptoSvc.GetPrice("fragment"))
 		}
 
 		return res

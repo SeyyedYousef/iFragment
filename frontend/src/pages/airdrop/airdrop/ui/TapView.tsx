@@ -5,14 +5,21 @@ import { haptic } from '@/shared/lib/haptic.js';
 import {
 	activateTurbo,
 	balance,
+	checkedInToday,
+	claimDailyReward,
 	currentLeague,
+	DAILY_REWARDS,
+	dailyFatigueLimitRemaining,
+	dailyFatigueMultiplier,
 	energy,
 	globalRank,
 	isRocketSpawned,
 	isTurboActive,
 	maxEnergy,
 	recordTaps,
+	streakDay,
 	tapPower,
+	turboExpiresAt,
 	userClan,
 } from '@/entities/airdrop/index.js';
 import { ShopView } from './ShopView.js';
@@ -37,6 +44,8 @@ export const TapView: Component<{
 		!localStorage.getItem('airdrop-shop-coachmark-seen'),
 	);
 	const [showShopModal, setShowShopModal] = createSignal(false);
+	const [showStreakModal, setShowStreakModal] = createSignal(false);
+	const [isClaimingStreak, setIsClaimingStreak] = createSignal(false);
 	const [isShaking, setIsShaking] = createSignal(false);
 
 	// Micro-interactions
@@ -456,6 +465,44 @@ export const TapView: Component<{
 				</div>
 			</button>
 
+			{/* 3.5. Honest Fatigue, Turbo & Daily Streak HUD Pills */}
+			<div class="flex items-center gap-2 mb-2 relative z-20" dir="ltr">
+				<button
+					onClick={() => setShowStreakModal(true)}
+					class="bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:bg-amber-500/30 border border-amber-500/30 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+				>
+					<span class="text-[13px]">🔥</span>
+					<span class="text-amber-400 font-mono font-black text-[11px]">
+						DAY {streakDay()}
+					</span>
+					<Show when={!checkedInToday()}>
+						<span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+					</Show>
+				</button>
+
+				<Show when={isTurboActive()}>
+					<div class="bg-gradient-to-r from-red-500/20 to-orange-500/20 border border-red-500/40 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse">
+						<span class="text-[14px]">🔥</span>
+						<span class="text-red-400 font-mono font-black text-[12px]">
+							TURBO 5X ({Math.max(0, Math.ceil((turboExpiresAt() - Date.now()) / 1000))}s)
+						</span>
+					</div>
+				</Show>
+				<Show when={!isTurboActive()}>
+					<div class="bg-[#12141C]/80 border border-white/10 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+						<span class="w-2 h-2 rounded-full" style={{ 'background-color': dailyFatigueMultiplier() >= 1.0 ? '#10b981' : dailyFatigueMultiplier() >= 0.5 ? '#f59e0b' : '#ef4444' }} />
+						<span class="text-white/80 font-mono font-bold text-[11px]">
+							Rate: {dailyFatigueMultiplier()}x
+						</span>
+						<Show when={dailyFatigueLimitRemaining() > 0}>
+							<span class="text-white/40 text-[10px]">
+								({formatNumber(dailyFatigueLimitRemaining())} left)
+							</span>
+						</Show>
+					</div>
+				</Show>
+			</div>
+
 			{/* 4. The Hero Glowing Tap Coin (Perfectly Centered via flex-1) */}
 			<div class="flex-1 flex flex-col items-center justify-center w-full relative z-10 w-full">
 				<div
@@ -650,6 +697,81 @@ export const TapView: Component<{
 						</div>
 						<div class="flex-1 min-h-0 relative w-full flex flex-col overflow-hidden">
 							<ShopView />
+						</div>
+					</div>
+				</div>
+			</Show>
+			{/* ═══════ 7-DAY STREAK CALENDAR MODAL ═══════ */}
+			<Show when={showStreakModal()}>
+				<div class="fixed inset-0 z-[110] flex items-center justify-center p-4">
+					<div
+						class="absolute inset-0 bg-black/85 backdrop-blur-md transition-opacity animate-fade-in"
+						onClick={() => setShowStreakModal(false)}
+					/>
+					<div class="relative w-full max-w-sm bg-[#12141C] rounded-[32px] p-6 space-y-5 shadow-[0_20px_60px_rgba(0,0,0,0.8)] border border-amber-500/20 animate-slide-up text-center">
+						<div class="w-14 h-14 rounded-[20px] bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto shadow-[0_0_20px_rgba(245,158,11,0.25)]">
+							<span class="text-[30px]">🔥</span>
+						</div>
+
+						<div class="flex flex-col gap-1">
+							<h3 class="text-[20px] font-black text-white">7-Day Mining Streak</h3>
+							<p class="text-[12px] text-white/60">
+								Check in every day to claim bonus coins and Free Valuation Report credits.
+							</p>
+						</div>
+
+						{/* 7-Day Grid */}
+						<div class="grid grid-cols-4 gap-2 text-center" dir="ltr">
+							<For each={DAILY_REWARDS}>
+								{(rew) => {
+									const isCurrent = () => streakDay() === rew.day;
+									const isPast = () => (checkedInToday() ? streakDay() >= rew.day : streakDay() > rew.day);
+									return (
+										<div
+											class={`p-2.5 rounded-[16px] border flex flex-col items-center justify-center gap-1 transition-all ${
+												isCurrent()
+													? 'bg-amber-500/20 border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.3)]'
+													: isPast()
+													? 'bg-emerald-500/10 border-emerald-500/30 opacity-70'
+													: 'bg-[#08090D] border-white/5 opacity-40'
+											}`}
+										>
+											<span class="text-[10px] font-mono font-bold text-white/60">DAY {rew.day}</span>
+											<span class="text-[18px]">{rew.day === 7 ? '💎' : '🪙'}</span>
+											<span class="text-[11px] font-mono font-black text-amber-400">
+												+{formatNumber(rew.reward)}
+											</span>
+										</div>
+									);
+								}}
+							</For>
+						</div>
+
+						<div class="flex flex-col gap-2 pt-2">
+							<button
+								onClick={async () => {
+									if (checkedInToday() || isClaimingStreak()) return;
+									setIsClaimingStreak(true);
+									try {
+										await claimDailyReward();
+										haptic.notify('success');
+									} catch (_) {
+										haptic.notify('error');
+									} finally {
+										setIsClaimingStreak(false);
+									}
+								}}
+								disabled={checkedInToday() || isClaimingStreak()}
+								class="w-full h-14 bg-gradient-to-r from-amber-500 to-yellow-500 rounded-[18px] text-[14px] font-black text-black shadow-[0_8px_24px_rgba(245,158,11,0.35)] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:grayscale"
+							>
+								<span>{checkedInToday() ? 'Claimed Today ✓' : 'Claim Day ' + streakDay() + ' Reward'}</span>
+							</button>
+							<button
+								onClick={() => setShowStreakModal(false)}
+								class="w-full h-10 bg-transparent text-white/50 text-[12px] font-bold"
+							>
+								Close
+							</button>
 						</div>
 					</div>
 				</div>

@@ -1,50 +1,63 @@
 package avm
 
-const ModelVersion = "avm_v6.0_knn_grounded"
+// ModelVersion defines the active mathematical model version for the AVM engine.
+// Bumped to v7.0: includes adaptive uncertainty, rent yield floor, quantile blend range,
+// unicode confusable homoglyph analysis, and expanded 150+ brand trademarks.
+const ModelVersion = "avm_v7.0_adaptive_calibrated"
 
 // EngineConfig holds all hyperparameters for the AVM math engine.
-// These are snapshot-persisted with every valuation run for reproducibility.
+// Every parameter is documented with its mathematical purpose, econometric rationale,
+// and calibration method. These are snapshot-persisted with every valuation run for full auditability.
 type EngineConfig struct {
-	// Time-decay parameter for exponential weighting (higher = faster decay)
+	// Lambda: Time-decay parameter for exponential weighting w_i = exp(-lambda * days_ago).
+	// Calibrated so that sales from ~138 days ago receive 50% weight (half-life).
 	Lambda float64 `json:"lambda"`
 
-	// Bayesian maturity threshold — controls shrinkage blend between exact and broad
+	// K: Bayesian maturity threshold for blending exact and broad segment comparables.
+	// Controls shrinkage: exactWeight = n_eff / (n_eff + K). Higher K demands more comps before trusting exact.
 	K float64 `json:"k"`
 
-	// Bayesian target shrinkage threshold
+	// KTarget: Target Bayesian shrinkage threshold for exact username past sales.
+	// Low value (0.08) reflects very high econometric trust in the asset's own transaction record.
 	KTarget float64 `json:"k_target"`
 
-	// Annual market appreciation rate
+	// AppreciationRate: Annual market appreciation rate (CAGR) for TON usernames.
+	// Standardized at 20% annualized growth based on Fragment volume indices.
 	AppreciationRate float64 `json:"appreciation_rate"`
 
+	// MaxAppreciationYears: Maximum time horizon (years) for compounding appreciation.
+	// Prevents explosive runaway valuations on very old historical anchors (e.g. capped at 8 years).
+	MaxAppreciationYears float64 `json:"max_appreciation_years"`
+
 	// Morphology stacking clamp bounds (in log-space)
-	MorphClampLow  float64 `json:"morph_clamp_low"`  // ln(0.20)
-	MorphClampHigh float64 `json:"morph_clamp_high"` // ln(4.0)
+	MorphClampLow  float64 `json:"morph_clamp_low"`  // ln(0.20) -> max 80% discount
+	MorphClampHigh float64 `json:"morph_clamp_high"` // ln(4.00) -> max 4x multiplier
 
 	// Momentum clamp bounds (in log-space)
-	MomentumClampLow  float64 `json:"momentum_clamp_low"`  // ln(0.8)
-	MomentumClampHigh float64 `json:"momentum_clamp_high"` // ln(1.25)
+	MomentumClampLow  float64 `json:"momentum_clamp_low"`  // ln(0.80) -> max -20% cooldown
+	MomentumClampHigh float64 `json:"momentum_clamp_high"` // ln(1.25) -> max +25% surge
 
-	// Laplace smoothing alpha for momentum volume rates
+	// LaplaceAlpha: Smoothing parameter for momentum transaction rate calculation (avoids divide-by-zero).
 	LaplaceAlpha float64 `json:"laplace_alpha"`
 
-	// Minimum percentage for range width guard
+	// MinPct: Minimum percentage width guard for confidence intervals (0.15 = 15%).
 	MinPct float64 `json:"min_pct"`
 
-	// MAD multiplier for uncertainty width
+	// UncertaintyMult: MAD multiplier for log-space uncertainty width.
+	// Adaptively tuned by the calibration loop within bounds [1.0, 1.5].
 	UncertaintyMult float64 `json:"uncertainty_mult"`
 
-	// Sale type normalization factors: auction=1.0 is the reference
+	// Sale type normalization factors: auction = 1.0 is the reference standard
 	NormFactorAuction float64 `json:"norm_factor_auction"`
-	NormFactorBuyNow  float64 `json:"norm_factor_buy_now"`
-	NormFactorOffer   float64 `json:"norm_factor_offer"`
+	NormFactorBuyNow  float64 `json:"norm_factor_buy_now"` // 0.85 = buy-now ask premium discount
+	NormFactorOffer   float64 `json:"norm_factor_offer"`   // 1.10 = low-ball offer discount normalization
 
-	// Fallback anchor values
-	FallbackLen3  float64 `json:"fallback_len_3"`
-	FallbackLen4  float64 `json:"fallback_len_4"`
-	FallbackLen5  float64 `json:"fallback_len_5"`
-	FallbackLen6  float64 `json:"fallback_len_6"`
-	FallbackOther float64 `json:"fallback_other"`
+	// Fallback anchor values (official Fragment protocol baselines)
+	FallbackLen3  float64 `json:"fallback_len_3"`  // 10,000 TON
+	FallbackLen4  float64 `json:"fallback_len_4"`  // 5,050 TON
+	FallbackLen5  float64 `json:"fallback_len_5"`  // 1,000 TON
+	FallbackLen6  float64 `json:"fallback_len_6"`  // 100 TON
+	FallbackOther float64 `json:"fallback_other"` // 25 TON
 
 	// Clamps and dampings
 	ClampLowLimit    float64 `json:"clamp_low_limit"`
@@ -52,23 +65,43 @@ type EngineConfig struct {
 	MorphDamping     float64 `json:"morph_damping"`
 	DatabaseDamping  float64 `json:"database_damping"`
 
+	// Rent Yield Floor hyperparameters
+	// RentCapMonths: Multiplier for monthly median rent (18 months of rent = rational purchase floor)
+	RentCapMonths float64 `json:"rent_cap_months"`
+
+	// Winsorization percentiles to mitigate outlier skew in comparable buckets
+	WinsorizeP5  float64 `json:"winsorize_p5"`  // 0.05 (5th percentile lower clamp)
+	WinsorizeP95 float64 `json:"winsorize_p95"` // 0.95 (95th percentile upper clamp)
+
+	// Fear & Greed Segment Elasticity parameters
+	FnGElasticityDefensive   float64 `json:"fng_elasticity_defensive"`   // 0.50 for dictionary/brands
+	FnGElasticitySpeculative float64 `json:"fng_elasticity_speculative"` // 1.00 for hype/speculative
+	FnGClampLow              float64 `json:"fng_clamp_low"`              // 0.90 (-10% maximum market discount)
+	FnGClampHigh             float64 `json:"fng_clamp_high"`             // 1.10 (+10% maximum market premium)
+
+	// Confidence Band Blending
+	BandBlendNEffThreshold float64 `json:"band_blend_neff_threshold"` // 8.0 n_eff threshold for blending
+	BandBlendMADWeight     float64 `json:"band_blend_mad_weight"`      // 0.70 empirical MAD weight
+	BandBlendFixedWeight   float64 `json:"band_blend_fixed_weight"`    // 0.30 fixed band weight
+
 	// Morphology premium multipliers (PiT calibrated)
 	MorphMultipliers map[string]float64 `json:"morph_multipliers"`
 }
 
-// DefaultEngineConfig returns production-grade defaults.
+// DefaultEngineConfig returns production-grade defaults calibrated on Fragment sales.
 func DefaultEngineConfig() EngineConfig {
 	return EngineConfig{
-		Lambda: 0.005, // ~0.5% decay per day → 50% weight at ~138 days
+		Lambda: 0.005, // ~0.5% decay per day -> 50% weight at ~138 days
 
-		K:                10.0, // Bayesian maturity threshold
-		KTarget:          0.08, // Target Bayesian shrinkage — high trust in actual sale history
-		AppreciationRate: 0.20, // CAGR for TON usernames (20%)
+		K:                    10.0, // Bayesian maturity threshold
+		KTarget:              0.08, // Target Bayesian shrinkage — high trust in actual sale history
+		AppreciationRate:     0.20, // CAGR for TON usernames (20%)
+		MaxAppreciationYears: 8.0,  // Max 8-year appreciation clamp horizon
 
 		MorphClampLow:  -1.6094379, // ln(0.20)
 		MorphClampHigh: 1.3862944,  // ln(4.0) -> capped at 4x multiplier
 
-		MomentumClampLow:  -0.2231, // ln(0.8)
+		MomentumClampLow:  -0.2231, // ln(0.80)
 		MomentumClampHigh: 0.2231,  // ln(1.25)
 
 		LaplaceAlpha: 1.0,
@@ -91,9 +124,23 @@ func DefaultEngineConfig() EngineConfig {
 		MorphDamping:     0.1,
 		DatabaseDamping:  0.70,
 
+		RentCapMonths: 18.0, // 18 months rent capitalization floor
+
+		WinsorizeP5:  0.05,
+		WinsorizeP95: 0.95,
+
+		FnGElasticityDefensive:   0.50,
+		FnGElasticitySpeculative: 1.00,
+		FnGClampLow:              0.90,
+		FnGClampHigh:             1.10,
+
+		BandBlendNEffThreshold: 8.0,
+		BandBlendMADWeight:     0.70,
+		BandBlendFixedWeight:   0.30,
+
 		MorphMultipliers: map[string]float64{
 			"has_numbers":                  0.40, // 60% discount for containing numbers
-			"has_underscore":               0.35, // 65% discount for containing underscore (50%-70% user target)
+			"has_underscore":               0.35, // 65% discount for containing underscore
 			"fake_suffix":                  0.15, // 85% discount for fake copycat suffixes (_official, _admin, _bot)
 			"fake_prefix":                  0.20, // 80% discount for fake copycat prefixes (real_, the_)
 			"repetition_penalty":           0.60, // 40% discount for 3+ consecutive repeating chars
@@ -127,3 +174,4 @@ func (c EngineConfig) NormFactor(saleType string) float64 {
 		return 1.0
 	}
 }
+

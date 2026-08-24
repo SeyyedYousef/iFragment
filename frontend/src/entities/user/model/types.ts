@@ -8,6 +8,15 @@ export interface Achievement {
 	target: number;
 }
 
+export interface ActiveSubscriptionSummary {
+	type: string; // "none" | "pro" | "enterprise"
+	isActive: boolean;
+	autoRenew: boolean;
+	expiresAt?: string;
+	daysLeft: number;
+	packageTitle: string;
+}
+
 export interface ProfileStats {
 	telegramId?: number;
 	username?: string;
@@ -20,9 +29,6 @@ export interface ProfileStats {
 	currentStreak: number;
 	globalRank: number;
 	totalTaps: number;
-	totalFrgEarned: number;
-	totalFrgSpent: number;
-	frgBalance: number;
 	memberSince: string;
 	level: number;
 	xp: number;
@@ -38,8 +44,17 @@ export interface ProfileStats {
 	energyUpdatedAt?: string;
 	photoUrl?: string;
 	dailyTappedCoins?: number;
+	dailyFatigueMultiplier?: number;
+	dailyFatigueLimitRemaining?: number;
 	dailyTurboUsed?: number;
 	dailyFullEnergyUsed?: number;
+	boosterResetAt?: number;
+	turboExpiresAt?: string;
+	valuationCredits?: number;
+	earliestExpiringCoins?: number;
+	earliestExpiringDays?: number;
+	intelCredits?: number;
+	subscription?: ActiveSubscriptionSummary;
 }
 
 export interface ReferralInfo {
@@ -54,6 +69,8 @@ export interface ReferralInfo {
 		earned: number;
 		airdropCoins?: number;
 		frensCount?: number;
+		isActive?: boolean;
+		status?: string;
 	}[];
 }
 
@@ -72,7 +89,8 @@ export interface ProfileSettings {
 
 export interface DailyStatus {
 	streak: number;
-	frg_reward: number;
+	coins_reward?: number;
+	frg_reward?: number;
 	xp_reward: number;
 	claimed: boolean;
 	can_claim: boolean;
@@ -82,7 +100,8 @@ export interface DailyStatus {
 export interface TaskStatus {
 	key: string;
 	title: string;
-	reward_frg: number;
+	reward_coins?: number;
+	reward_frg?: number;
 	reward_xp: number;
 	completed: boolean;
 	type?: string;
@@ -107,7 +126,8 @@ export interface BoostStatus {
 	title: string;
 	current_level: number;
 	next_level: number;
-	price_frg: number;
+	price_coins?: number;
+	price_frg?: number;
 	max_level: boolean;
 }
 
@@ -131,30 +151,13 @@ export interface LeaderboardMember {
 export interface LeaderboardResponse {
 	leaderboard: LeaderboardMember[];
 	total_miners?: number;
+	user_rank?: number;
+	league?: string;
 }
 
 export interface AchievementDef {
 	id: string;
 	target: number;
-}
-
-export interface FRGBalance {
-	user_id: number;
-	balance: number;
-	total_earned: number;
-	total_spent: number;
-	updated_at: string;
-}
-
-export interface FRGTransaction {
-	id: string;
-	user_id: number;
-	type: string;
-	amount: number;
-	balance_before: number;
-	balance_after: number;
-	metadata?: Record<string, unknown>;
-	created_at: string;
 }
 
 export interface PurchaseOption {
@@ -163,7 +166,6 @@ export interface PurchaseOption {
 	amount_stars: number;
 	amount_coins: number;
 	popular?: boolean;
-	frg_amount: number;
 	price: number;
 	discount?: string;
 }
@@ -172,7 +174,7 @@ export interface CosmeticItem {
 	id: string;
 	type: 'border' | 'skin';
 	name: string;
-	cost: number;
+	cost: number; // in AirdropCoins
 	purchased: boolean;
 	borderClass?: string;
 	skinClass?: string;
@@ -209,6 +211,89 @@ export interface SuccessResponse {
 	status?: string;
 	message?: string;
 	[key: string]: unknown;
+}
+
+// ─── Unified Financial Ledger Types ───
+export interface LedgerEvent {
+	id: string;
+	userId: number;
+	category: 'coins' | 'credits' | 'stars' | 'subscription';
+	eventType: string;
+	amount: number;
+	balanceBefore: number;
+	balanceAfter: number;
+	title: string;
+	referenceId: string;
+	status: 'completed' | 'pending' | 'failed';
+	metadata?: Record<string, unknown>;
+	createdAt: string;
+}
+
+export interface LedgerResponse {
+	events: LedgerEvent[];
+	nextCursor?: string;
+	hasMore: boolean;
+	totalCount: number;
+}
+
+// ─── My Assets Types ───
+export interface MyReportsAsset {
+	username: string;
+	rarityScore: number;
+	status: string;
+	generatedAt: string;
+	certificateUrl: string;
+	notificationEnabled: boolean;
+}
+
+export interface MyConnectedProperty {
+	id: string;
+	type: 'channel' | 'group' | 'bot';
+	title: string;
+	username: string;
+	photoUrl?: string;
+	memberCount: number;
+	subscriptionStatus: string;
+	paidUntil?: string;
+	daysLeft: number;
+	dashboardUrl: string;
+}
+
+export interface MyProjectAsset {
+	id: string;
+	name: string;
+	status: string;
+	sourceChatTitle: string;
+	targetChatTitle: string;
+	sourceChatUsername: string;
+	targetChatUsername: string;
+	starsExpiresAt?: string;
+	daysLeft: number;
+	subscriptionActive: boolean;
+	pipelineEnabled: boolean;
+	autoRenew: boolean;
+}
+
+export interface MyBoostersAsset {
+	multitapLevel: number;
+	energyLimitLevel: number;
+	tapBotLevel: number;
+	tapBotCapHours: number;
+}
+
+export interface MyAssetsResponse {
+	reports: MyReportsAsset[];
+	properties: MyConnectedProperty[];
+	projects: MyProjectAsset[];
+	boosters: MyBoostersAsset;
+	summaryText: string;
+}
+
+export interface EmojiRewardResponse {
+	success: boolean;
+	rewarded: boolean;
+	amount: number;
+	message: string;
 }
 
 export const LEVELS = [

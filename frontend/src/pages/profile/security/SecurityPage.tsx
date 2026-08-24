@@ -1,7 +1,7 @@
 import { Motion } from '@motionone/solid';
 import { backButton } from '@tma.js/sdk-solid';
 import { Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
-import { deleteAccountGDPR, profileSettings, updateSetting } from '@/entities/user/index.js';
+import { deleteAccountGDPR, profileSettings, sessionsApi, updateSetting } from '@/entities/user/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import {
 	biometric,
@@ -13,6 +13,19 @@ import { haptic } from '@/shared/lib/haptic.js';
 
 export const SecurityPage: Component = () => {
 	const [biometricsAvailable, setBiometricsAvailable] = createSignal(false);
+	const [activeSessionsCount, setActiveSessionsCount] = createSignal<number>(1);
+	const [revokingSessions, setRevokingSessions] = createSignal(false);
+
+	const fetchSessions = async () => {
+		try {
+			const res = await sessionsApi.getSessions();
+			if (res && typeof res.active_sessions_count === 'number') {
+				setActiveSessionsCount(res.active_sessions_count);
+			}
+		} catch {
+			// keep default 1
+		}
+	};
 
 	onMount(async () => {
 		backButton.show();
@@ -31,6 +44,8 @@ export const SecurityPage: Component = () => {
 				disableClosingConfirmation();
 			} catch {}
 		});
+
+		fetchSessions();
 
 		// Check biometric availability
 		try {
@@ -71,6 +86,34 @@ export const SecurityPage: Component = () => {
 		}
 	};
 
+	const handleRevokeOtherSessions = async () => {
+		try {
+			haptic.impact('medium');
+		} catch {}
+
+		const confirmed = await showConfirm(
+			'آیا مایلید تمام نشست‌ها و سشن‌های فعال دیگر روی سایر دستگاه‌ها خاتمه یابند؟',
+		);
+		if (!confirmed) return;
+
+		setRevokingSessions(true);
+		try {
+			await sessionsApi.revokeAllSessions();
+			try {
+				haptic.notify('success');
+			} catch {}
+			await showAlert('تمام نشست‌های فعال دیگر با موفقیت خاتمه یافتند.');
+			setActiveSessionsCount(1);
+		} catch (e: any) {
+			try {
+				haptic.notify('error');
+			} catch {}
+			await showAlert('خطا در خاتمه نشست‌ها: ' + (e?.message || 'لطفاً دوباره امتحان کنید.'));
+		} finally {
+			setRevokingSessions(false);
+		}
+	};
+
 	const handleDeleteAccount = async () => {
 		try {
 			haptic.notify('warning');
@@ -86,7 +129,7 @@ export const SecurityPage: Component = () => {
 			try {
 				haptic.notify('success');
 			} catch {}
-			const profileKeys = ['profile-settings', 'kyc_verified', 'profile-cache'];
+			const profileKeys = ['profile-settings', 'kyc_verified', 'profile-cache', 'access_token', 'refresh_token'];
 			profileKeys.forEach((k) => localStorage.removeItem(k));
 			await showAlert(t('security.deleteSuccess'));
 			window.location.reload();
@@ -133,6 +176,53 @@ export const SecurityPage: Component = () => {
 			</div>
 
 			<div class="flex-1 w-full max-w-md mx-auto relative z-10 flex flex-col px-5 pt-6 gap-6">
+				{/* ═══════ SESSIONS MANAGEMENT ═══════ */}
+				<Motion.div
+					initial={{ opacity: 0, y: 15 }}
+					animate={{ opacity: 1, y: 0 }}
+					transition={{ delay: 0.03 }}
+					class="flex flex-col gap-3"
+				>
+					<h2 class="text-[11px] font-black text-white/40 uppercase tracking-widest px-2 flex items-center gap-2">
+						<span class="material-symbols-outlined text-[16px] text-white/30">
+							devices
+						</span>
+						نشست‌ها و دستگاه‌های متصل (Active Sessions)
+					</h2>
+
+					<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-4 shadow-sm relative overflow-hidden">
+						<div class="flex items-center justify-between relative z-10">
+							<div class="flex flex-col gap-1">
+								<div class="flex items-center gap-2">
+									<span class="w-2 h-2 rounded-full bg-[#10b981] animate-pulse" />
+									<span class="text-[14px] font-black text-white">
+										دستگاه فعلی (نشست معتبر)
+									</span>
+								</div>
+								<span class="text-[11px] font-medium text-white/50">
+									توکن دسترسی ۱۵ دقیقه‌ای با چرخش امن ۷ روزه
+								</span>
+							</div>
+							<span class="px-2.5 py-1 rounded-full bg-[#10b981]/15 text-[#10b981] border border-[#10b981]/25 text-[10px] font-black">
+								فعال
+							</span>
+						</div>
+
+						<div class="pt-2 border-t border-white/5 flex items-center justify-between">
+							<span class="text-[11px] text-white/60 font-bold">
+								مجموع نشست‌های فعال: <span class="text-white font-mono">{activeSessionsCount()}</span>
+							</span>
+							<button
+								onClick={handleRevokeOtherSessions}
+								disabled={revokingSessions()}
+								class="px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 text-[10px] font-black transition-all cursor-pointer disabled:opacity-40"
+							>
+								{revokingSessions() ? 'در حال خروج...' : 'خروج از سایر نشست‌ها'}
+							</button>
+						</div>
+					</div>
+				</Motion.div>
+
 				{/* ═══════ BIOMETRICS SECTION ═══════ */}
 				<Motion.div
 					initial={{ opacity: 0, y: 15 }}

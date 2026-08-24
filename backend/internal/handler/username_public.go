@@ -26,6 +26,7 @@ import (
 	"ifragment-backend/internal/service/notification"
 	"ifragment-backend/internal/service/payment"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/gotd/td/tg"
 	"golang.org/x/sync/errgroup"
@@ -1249,7 +1250,14 @@ func (h *UsernameHandler) isMemberCached(ctx context.Context, tg *telegram.BotAP
 
 type valuationPayRequest struct {
 	Username        string `json:"username"`
+	PackID          string `json:"pack_id,omitempty"`
 	DiscountPercent int    `json:"discount_percent,omitempty"`
+}
+
+type valuationMonitorRequest struct {
+	Username   string   `json:"username"`
+	Enabled    bool     `json:"enabled"`
+	AlertTypes []string `json:"alert_types"`
 }
 
 func (h *UsernameHandler) ValuationAccess(w http.ResponseWriter, r *http.Request) {
@@ -1267,6 +1275,8 @@ func (h *UsernameHandler) ValuationAccess(w http.ResponseWriter, r *http.Request
 	isPro := false
 	dailyUsed := 0
 	const dailyLimit = 3
+	firstReportDiscountEligible := true
+	isMonitored := false
 
 	// 1. Check if user has active Pro pass
 	if userID > 0 && h.cache != nil {
@@ -1333,20 +1343,75 @@ func (h *UsernameHandler) ValuationAccess(w http.ResponseWriter, r *http.Request
 				}
 			}
 		}
+		// Check if eligible for first report discount (has user bought any valuation order before?)
+		if h.db != nil {
+			var orderCount int
+			_ = h.db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM orders WHERE user_id = $1 AND status = 'paid' AND starts_with(payload, 'val_')`, userID).Scan(&orderCount)
+			if orderCount > 0 {
+				firstReportDiscountEligible = false
+			}
+		}
+		if h.cache != nil {
+			monVal, err := h.cache.Client.Get(ctx, fmt.Sprintf("val_monitor:%d:%s", userID, u)).Result()
+			if err == nil && monVal == "true" {
+				isMonitored = true
+			}
+		}
 	}
 
 	inChannel, inGroup := h.checkTelegramMembership(ctx, userID)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"has_access":      hasAccess,
-		"method":          method,
-		"is_pro":          isPro,
-		"daily_used":      dailyUsed,
-		"daily_limit":     dailyLimit,
-		"free_quota_used": freeQuotaUsed,
-		"in_channel":      inChannel,
-		"in_group":        inGroup,
+		"has_access":                      hasAccess,
+		"method":                          method,
+		"is_pro":                          isPro,
+		"daily_used":                      dailyUsed,
+		"daily_limit":                     dailyLimit,
+		"free_quota_used":                 freeQuotaUsed,
+		"first_report_discount_eligible":  firstReportDiscountEligible,
+		"is_monitored":                    isMonitored,
+		"in_channel":                      inChannel,
+		"in_group":                        inGroup,
+	})
+}
+
+func (h *UsernameHandler) ValuationOrderStatus(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID, errUser := middleware.GetUserID(ctx)
+	if errUser != nil || userID <= 0 {
+		RespondError(w, r, http.StatusUnauthorized, "Unauthorized", nil)
+		return
+	}
+
+	payload := r.URL.Query().Get("payload")
+	u := strings.ToLower(strings.TrimPrefix(r.URL.Query().Get("u"), "@"))
+
+	isPaid := false
+	status := "pending"
+
+	if payload != "" && h.db != nil {
+		order, err := h.db.GetOrderByPayload(ctx, payload)
+		if err == nil && order != nil {
+			status = order.Status
+			if order.Status == "paid" {
+				isPaid = true
+			}
+		}
+	}
+
+	if !isPaid && u != "" && h.db != nil {
+		paid, _, err := h.db.HasPaidValuation(ctx, userID, u)
+		if err == nil && paid {
+			isPaid = true
+			status = "paid"
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"paid":   isPaid,
+		"status": status,
 	})
 }
 
@@ -1370,7 +1435,52 @@ func (h *UsernameHandler) ValuationPayAirdrop(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	const priceFRG = 50000.0
+	// 1. Check if user has free valuation report credits from referral invites (1 per 3 frens)
+	var totalInvited int
+	_ = h.db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM users WHERE referred_by = $1`, userID).Scan(&totalInvited)
+	freeCreditsTotal := totalInvited / 3
+
+	var creditsUsed int
+	_ = h.db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM orders WHERE user_id = $1 AND status = 'paid' AND payload LIKE 'val_credit:%'`, userID).Scan(&creditsUsed)
+
+	useFreeCredit := (freeCreditsTotal > creditsUsed)
+
+	if useFreeCredit {
+		payload := fmt.Sprintf("val_credit:%s:%d:%d", u, userID, time.Now().Unix())
+		_, _ = h.db.CreateOrder(ctx, repository.Order{
+			UserID:  userID,
+			Amount:  0,
+			Status:  "paid",
+			Payload: payload,
+		})
+
+		if h.cache != nil {
+			h.cache.Client.Set(ctx, fmt.Sprintf("val_access:%d:%s", userID, u), "credit", 24*time.Hour)
+		}
+
+		profile, _ := h.db.GetProfileStats(ctx, userID)
+		currentBalance := 0.0
+		if profile != nil {
+			currentBalance = profile.AirdropCoins
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success":         true,
+			"method":          "free_credit",
+			"remaining_coins": currentBalance,
+		})
+		return
+	}
+
+	// 2. Economic Formula: P_report = 10 * E (with E=1500 -> 15,000 coins)
+	// First report discount = 50% (7,500 coins)
+	priceFRG := 15000.0
+	var prevOrders int
+	_ = h.db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM orders WHERE user_id = $1 AND status = 'paid' AND starts_with(payload, 'val_')`, userID).Scan(&prevOrders)
+	if prevOrders == 0 {
+		priceFRG = 7500.0
+	}
 
 	profile, err := h.db.GetProfileStats(ctx, userID)
 	if err != nil || profile == nil || profile.AirdropCoins < priceFRG {
@@ -1378,33 +1488,69 @@ func (h *UsernameHandler) ValuationPayAirdrop(w http.ResponseWriter, r *http.Req
 		if profile != nil {
 			currentBalance = profile.AirdropCoins
 		}
-		RespondError(w, r, http.StatusBadRequest, fmt.Sprintf("Insufficient coin balance. Required: 50,000 FRG (You have %.0f)", currentBalance), nil)
+		RespondError(w, r, http.StatusBadRequest, fmt.Sprintf("Insufficient coin balance. Required: %.0f FRG (You have %.0f)", priceFRG, currentBalance), nil)
 		return
 	}
 
-	_, err = h.db.AdjustAirdropCoins(ctx, userID, -priceFRG)
+	// 3. FIFO Deductions inside locked database transaction (Sacred Rule #4)
+	tx, err := h.db.Pool.Begin(ctx)
 	if err != nil {
-		slog.Error("Failed to deduct airdrop coins for valuation", "user_id", userID, "username", u, "err", err)
-		RespondError(w, r, http.StatusInternalServerError, "Failed to process payment", nil)
+		RespondError(w, r, http.StatusInternalServerError, "Failed to begin transaction", err)
+		return
+	}
+	defer tx.Rollback(ctx)
+
+	err = h.db.DeductCreditsFIFO(ctx, tx, userID, priceFRG)
+	if err != nil {
+		slog.Error("FIFO deduction failed for valuation report", "user_id", userID, "err", err)
+		RespondError(w, r, http.StatusBadRequest, err.Error(), err)
+		return
+	}
+
+	_, err = tx.Exec(ctx, `
+		UPDATE user_stats
+		SET airdrop_coins = airdrop_coins - $1
+		WHERE user_id = $2 AND airdrop_coins >= $1
+	`, priceFRG, userID)
+	if err != nil {
+		slog.Error("Failed to update user_stats airdrop_coins", "user_id", userID, "err", err)
+		RespondError(w, r, http.StatusInternalServerError, "Failed to update balance", err)
 		return
 	}
 
 	payload := fmt.Sprintf("val_coins:%s:%d:%d", u, userID, time.Now().Unix())
-	_, _ = h.db.CreateOrder(ctx, repository.Order{
-		UserID:  userID,
-		Amount:  50000,
-		Status:  "paid",
-		Payload: payload,
-	})
+	_, err = tx.Exec(ctx, `
+		INSERT INTO orders (user_id, amount, status, payload, created_at)
+		VALUES ($1, $2, 'paid', $3, CURRENT_TIMESTAMP)
+	`, userID, int(priceFRG), payload)
+	if err != nil {
+		slog.Error("Failed to record valuation order", "user_id", userID, "err", err)
+		RespondError(w, r, http.StatusInternalServerError, "Failed to record order", err)
+		return
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		slog.Error("Failed to commit valuation transaction", "user_id", userID, "err", err)
+		RespondError(w, r, http.StatusInternalServerError, "Transaction commit failed", err)
+		return
+	}
 
 	if h.cache != nil {
 		h.cache.Client.Set(ctx, fmt.Sprintf("val_access:%d:%s", userID, u), "coins", 24*time.Hour)
+		h.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
+	}
+
+	updatedProfile, _ := h.db.GetProfileStats(ctx, userID)
+	remainingCoins := 0.0
+	if updatedProfile != nil {
+		remainingCoins = updatedProfile.AirdropCoins
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
-		"method":  "coins",
+		"success":         true,
+		"method":          "coins",
+		"remaining_coins": remainingCoins,
 	})
 }
 
@@ -1426,42 +1572,31 @@ func (h *UsernameHandler) ValuationPayStars(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	baseStars := 249
-	finalStars := baseStars
-	discountPercent := 0
-	if req.DiscountPercent > 0 {
-		discountPercent = req.DiscountPercent
-		if discountPercent > 75 {
-			discountPercent = 75
-		}
-		savedStars := (baseStars * discountPercent) / 100
-		finalStars = baseStars - savedStars
-		if finalStars < 1 {
-			finalStars = 1
-		}
-		requiredCoins := float64(savedStars * 1032)
-		if h.db != nil {
-			profile, err := h.db.GetProfileStats(ctx, userID)
-			if err != nil || profile == nil || profile.AirdropCoins < requiredCoins {
-				currentBalance := 0.0
-				if profile != nil {
-					currentBalance = profile.AirdropCoins
-				}
-				RespondError(w, r, http.StatusBadRequest, fmt.Sprintf("Insufficient coins for discount voucher. Required: %.0f (You have %.0f)", requiredCoins, currentBalance), nil)
-				return
-			}
-		}
+	finalStars := 100
+	title := "⭐️ iFragment Starter Intel Pack (3 Credits)"
+	description := "3 Deep Valuation Reports for Telegram Usernames, Numbers & Gifts"
+	payload := fmt.Sprintf("val_credits:3:%d:%d", userID, time.Now().Unix())
+
+	if req.PackID == "pack_value_10" {
+		finalStars = 250
+		title = "⭐️ iFragment Pro Analyst Pack (10 Credits)"
+		description = "10 Deep Valuation Reports for Telegram Usernames, Numbers & Gifts (25% Savings)"
+		payload = fmt.Sprintf("val_credits:10:%d:%d", userID, time.Now().Unix())
+	} else if req.PackID == "pro" {
+		finalStars = 249
+		title = "👑 iFragment Pro Analyst Pass (30 Days)"
+		description = "3 Daily Deep Valuations + 2x Coin Earning + Digital Appraisal Certificate"
+		payload = fmt.Sprintf("val_pro:%d:%d:0", userID, time.Now().Unix())
 	}
 
-	payload := fmt.Sprintf("val_pro:%d:%d:%d", userID, time.Now().Unix(), discountPercent)
 	invoiceLink, err := h.starsService.CreateInvoiceLink(
-		"👑 iFragment Pro Analyst Pass (30 Days)",
-		"3 Daily Deep Valuations + 70% Fragment Arbitrage Alerts + Digital Certificate",
+		title,
+		description,
 		payload,
 		finalStars,
 	)
 	if err != nil {
-		slog.Error("Failed to create Stars invoice for Pro Pass", "user_id", userID, "err", err)
+		slog.Error("Failed to create Stars invoice", "user_id", userID, "err", err)
 		RespondError(w, r, http.StatusInternalServerError, "Failed to generate Stars invoice", nil)
 		return
 	}
@@ -1478,6 +1613,7 @@ func (h *UsernameHandler) ValuationPayStars(w http.ResponseWriter, r *http.Reque
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"invoice_link": invoiceLink,
+		"payload":      payload,
 		"final_stars":  finalStars,
 	})
 }
@@ -1534,3 +1670,112 @@ func (h *UsernameHandler) ValuationVerifyFree(w http.ResponseWriter, r *http.Req
 		"in_group":   true,
 	})
 }
+
+func (h *UsernameHandler) ValuationMonitor(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID, errUser := middleware.GetUserID(ctx)
+	if errUser != nil || userID <= 0 {
+		RespondError(w, r, http.StatusUnauthorized, "Unauthorized", nil)
+		return
+	}
+
+	var req valuationMonitorRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Username == "" {
+		RespondError(w, r, http.StatusBadRequest, "Invalid request body", nil)
+		return
+	}
+	u := strings.ToLower(strings.TrimPrefix(req.Username, "@"))
+
+	// Strict requirement: User MUST have purchased valuation report for this username
+	hasAccess := false
+	if h.db != nil {
+		paid, _, err := h.db.HasPaidValuation(ctx, userID, u)
+		if err == nil && paid {
+			hasAccess = true
+		}
+	}
+	if !hasAccess && h.cache != nil {
+		if val, err := h.cache.Client.Get(ctx, fmt.Sprintf("val_access:%d:%s", userID, u)).Result(); err == nil && val != "" {
+			hasAccess = true
+		}
+	}
+
+	if !hasAccess {
+		RespondError(w, r, http.StatusForbidden, "Monitoring is only available for usernames with a purchased report", nil)
+		return
+	}
+
+	if h.cache != nil {
+		val := "false"
+		if req.Enabled {
+			val = "true"
+		}
+		h.cache.Client.Set(ctx, fmt.Sprintf("val_monitor:%d:%s", userID, u), val, 90*24*time.Hour)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":      true,
+		"is_monitored": req.Enabled,
+	})
+}
+
+// GetOrderStatus returns the payment status for an order ID
+func (h *UsernameHandler) GetOrderStatus(w http.ResponseWriter, r *http.Request) {
+	orderIDStr := chi.URLParam(r, "id")
+	orderID, err := uuid.Parse(orderIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "Invalid order UUID format", err)
+		return
+	}
+
+	order, err := h.db.GetOrderByID(r.Context(), orderID)
+	if err != nil || order == nil {
+		RespondError(w, r, http.StatusNotFound, "Order not found", err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]interface{}{
+		"id":      order.ID.String(),
+		"user_id": order.UserID,
+		"status":  order.Status,
+		"amount":  order.Amount,
+		"payload": order.Payload,
+	})
+}
+
+// GetOrderStatusByPayload returns the payment status for an order by payload
+func (h *UsernameHandler) GetOrderStatusByPayload(w http.ResponseWriter, r *http.Request) {
+	payload := chi.URLParam(r, "payload")
+	if payload == "" {
+		RespondError(w, r, http.StatusBadRequest, "Payload cannot be empty", nil)
+		return
+	}
+
+	order, err := h.db.GetOrderByPayload(r.Context(), payload)
+	if err != nil || order == nil {
+		RespondError(w, r, http.StatusNotFound, "Order not found", err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]interface{}{
+		"id":      order.ID.String(),
+		"user_id": order.UserID,
+		"status":  order.Status,
+		"amount":  order.Amount,
+		"payload": order.Payload,
+	})
+}
+
+// GetAVMCalibration returns empirical calibration metrics and evaluation summary for AVM v7.0.
+func (h *UsernameHandler) GetAVMCalibration(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	summary, err := h.avmService.GetCalibrationSummary(ctx)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to get calibration summary", err)
+		return
+	}
+	RespondJSON(w, http.StatusOK, summary)
+}
+
+

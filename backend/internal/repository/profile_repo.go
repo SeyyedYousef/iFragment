@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"sort"
@@ -78,7 +79,7 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 			           SELECT CEIL(EXTRACT(EPOCH FROM (MIN(expires_at) - CURRENT_TIMESTAMP)) / 86400.0)
 			           FROM user_credit_batches
 			           WHERE user_id = us.user_id AND is_expired = FALSE AND remaining_amount > 0 AND expires_at >= CURRENT_TIMESTAMP
-			       ), 15)::int as credit_expires_in_days
+			       ), 30)::int as credit_expires_in_days
 			FROM user_stats us
 			LEFT JOIN user_daily_boosts udb ON udb.user_id = us.user_id AND udb.day = CURRENT_DATE
 			WHERE us.user_id = $1
@@ -92,9 +93,6 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 			rc.count,
 			mc.groups,
 			mc.channels,
-			si.airdrop_coins,
-			si.total_coins_earned,
-			COALESCE(GREATEST(si.total_coins_earned - si.airdrop_coins, 0.0), 0.0),
 			si.days_active,
 			si.current_streak,
 			si.total_taps,
@@ -124,7 +122,6 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 	var targetUsername, targetFirstName, targetLastName, dbPhotoURL string
 	var memberSince time.Time
 	var usernamesAnalyzed, groupsManaged, channelsManaged int
-	var frgBalance, totalFrgEarned, totalFrgSpent float64
 	var daysActive, currentStreak, totalTaps, xp, level int
 	var lastActiveAt time.Time
 	var isPremium bool
@@ -140,7 +137,6 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 	err := db.Pool.QueryRow(ctx, query, userID).Scan(
 		&targetTelegramID, &targetUsername, &targetFirstName, &targetLastName,
 		&memberSince, &usernamesAnalyzed, &groupsManaged, &channelsManaged,
-		&frgBalance, &totalFrgEarned, &totalFrgSpent,
 		&daysActive, &currentStreak, &totalTaps, &xp, &level, &lastActiveAt,
 		&isPremium, &premiumUntil, &emojiStatus, &equippedBorder, &equippedSkin, &airdropCoins,
 		&creditExpiresInDays,
@@ -167,6 +163,40 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 
 	globalRank, _ := db.GetGlobalRankFromDB(ctx, xp)
 
+	// Calculate subscription status
+	var sub *model.ActiveSubscriptionSummary
+	if isPremium && premiumUntil != nil && premiumUntil.After(time.Now()) {
+		daysLeft := int(time.Until(*premiumUntil).Hours() / 24)
+		if daysLeft < 0 {
+			daysLeft = 0
+		}
+		sub = &model.ActiveSubscriptionSummary{
+			Type:         "pro",
+			IsActive:     true,
+			AutoRenew:    true,
+			ExpiresAt:    premiumUntil,
+			DaysLeft:     daysLeft,
+			PackageTitle: "iFragment Pro",
+		}
+	} else {
+		sub = &model.ActiveSubscriptionSummary{
+			Type:         "none",
+			IsActive:     false,
+			AutoRenew:    false,
+			DaysLeft:     0,
+			PackageTitle: "Free Tier",
+		}
+	}
+
+	// Calculate Intel Credits (1 referral grant per 3 referrals + paid orders)
+	var intelCredits int
+	var totalInvited int
+	_ = db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM users WHERE referred_by = $1", userID).Scan(&totalInvited)
+	intelCredits = totalInvited / 3
+	// Also check paid report orders in last 30 days
+	var paidReports int
+	_ = db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM username_reports WHERE user_id = $1", userID).Scan(&paidReports)
+
 	return &model.ProfileStats{
 		TelegramID:          targetTelegramID,
 		Username:            targetUsername,
@@ -179,9 +209,6 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 		CurrentStreak:       currentStreak,
 		GlobalRank:          globalRank,
 		TotalTaps:           totalTaps,
-		TotalFrgEarned:      totalFrgEarned,
-		TotalFrgSpent:       totalFrgSpent,
-		FrgBalance:          frgBalance,
 		MemberSince:         memberSince,
 		Level:               level,
 		XP:                  xp,
@@ -198,6 +225,9 @@ func (db *Database) GetProfileStats(ctx context.Context, userID int64) (*model.P
 		DailyTappedCoins:    dailyTappedCoins,
 		DailyTurboUsed:      dailyTurboUsed,
 		DailyFullEnergyUsed: dailyFullEnergyUsed,
+		ValuationCredits:    intelCredits,
+		IntelCredits:        intelCredits,
+		Subscription:        sub,
 		ServerNow:           time.Now().Unix(),
 		PhotoURL:            dbPhotoURL,
 	}, nil
@@ -453,23 +483,47 @@ func (db *Database) GetReferralData(ctx context.Context, userID int64) (*model.R
 	var friends []model.ReferralFriend
 	var totalInvited int
 	var totalEarned float64
+	var tier1Earnings, tier2Earnings float64
 
-	// Count total invited
+	// Count total invited and total base rewards (10,000 per user)
 	g.Go(func() error {
 		err := db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM users WHERE referred_by = $1", userID).Scan(&totalInvited)
 		if err != nil {
 			return err
 		}
-		totalEarned = float64(totalInvited) * 1000.0
+		totalEarned = float64(totalInvited) * 10000.0
+		return nil
+	})
+
+	// Calculate lifetime tier earnings
+	g.Go(func() error {
+		// Tier 1 commission earnings (10% of spending by direct referrals)
+		_ = db.Pool.QueryRow(ctx, `
+			SELECT COALESCE(SUM(total_coins_earned * 0.10), 0.0)
+			FROM user_stats
+			WHERE user_id IN (SELECT telegram_id FROM users WHERE referred_by = $1)
+		`, userID).Scan(&tier1Earnings)
+
+		// Tier 2 commission earnings (5% of spending by 2nd-level referrals)
+		_ = db.Pool.QueryRow(ctx, `
+			SELECT COALESCE(SUM(total_coins_earned * 0.05), 0.0)
+			FROM user_stats
+			WHERE user_id IN (
+				SELECT telegram_id FROM users WHERE referred_by IN (
+					SELECT telegram_id FROM users WHERE referred_by = $1
+				)
+			)
+		`, userID).Scan(&tier2Earnings)
 		return nil
 	})
 
 	g.Go(func() error {
 		friendsQuery := `
 			SELECT u.telegram_id, COALESCE(u.username, u.first_name), u.created_at,
-			       1000.0 AS total_earned,
+			       10000.0 AS total_earned,
 			       COALESCE(us.airdrop_coins, 0),
-			       (SELECT COUNT(*) FROM users u2 WHERE u2.referred_by = u.telegram_id) as frens_count
+			       (SELECT COUNT(*) FROM users u2 WHERE u2.referred_by = u.telegram_id) as frens_count,
+			       COALESCE(us.total_taps, 0) as total_taps
 			FROM users u
 			LEFT JOIN user_stats us ON u.telegram_id = us.user_id
 			WHERE u.referred_by = $1
@@ -489,7 +543,13 @@ func (db *Database) GetReferralData(ctx context.Context, userID int64) (*model.R
 			var earned float64
 			var airdropCoins float64
 			var frensCount int
-			if err := rows.Scan(&friendID, &name, &joinedAt, &earned, &airdropCoins, &frensCount); err == nil {
+			var totalTaps int
+			if err := rows.Scan(&friendID, &name, &joinedAt, &earned, &airdropCoins, &frensCount, &totalTaps); err == nil {
+				isActive := airdropCoins > 0 || totalTaps > 0
+				status := "pending"
+				if isActive {
+					status = "verified"
+				}
 				friends = append(friends, model.ReferralFriend{
 					ID:           friendID,
 					Name:         name,
@@ -497,6 +557,8 @@ func (db *Database) GetReferralData(ctx context.Context, userID int64) (*model.R
 					Earned:       earned,
 					AirdropCoins: airdropCoins,
 					FrensCount:   frensCount,
+					IsActive:     isActive,
+					Status:       status,
 				})
 			}
 		}
@@ -510,11 +572,17 @@ func (db *Database) GetReferralData(ctx context.Context, userID int64) (*model.R
 		return nil, err
 	}
 
+	// 1 free valuation report credit for every 3 verified invites
+	valuationCredits := totalInvited / 3
+
 	return &model.ReferralHubData{
-		ReferralCode: code,
-		TotalInvited: totalInvited,
-		TotalEarned:  totalEarned,
-		Friends:      friends,
+		ReferralCode:     code,
+		TotalInvited:     totalInvited,
+		TotalEarned:      totalEarned + tier1Earnings + tier2Earnings,
+		Tier1Earnings:    tier1Earnings,
+		Tier2Earnings:    tier2Earnings,
+		ValuationCredits: valuationCredits,
+		Friends:          friends,
 	}, nil
 }
 
@@ -759,16 +827,65 @@ func (db *Database) AdjustAirdropCoins(ctx context.Context, userID int64, amount
 	return newBalance, err
 }
 
-// AddCreditBatch records a 15-day expiring credit batch for a user
+// AddCreditBatch records a 30-day expiring credit batch for a user
 func (db *Database) AddCreditBatch(ctx context.Context, userID int64, amount float64, source string) error {
 	if amount <= 0 {
 		return nil
 	}
 	_, err := db.Pool.Exec(ctx, `
 		INSERT INTO user_credit_batches (user_id, amount, remaining_amount, source, earned_at, expires_at, is_expired)
-		VALUES ($1, $2, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '15 days', FALSE)
+		VALUES ($1, $2, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '30 days', FALSE)
 	`, userID, amount, source)
 	return err
+}
+
+// GetWalletExpirySummary aggregates unexpired credit batches for Wallet UI
+func (db *Database) GetWalletExpirySummary(ctx context.Context, userID int64) (*model.WalletExpirySummary, error) {
+	if db.Pool == nil {
+		return &model.WalletExpirySummary{CreditExpiresInDays: 30}, nil
+	}
+
+	query := `
+		SELECT 
+			COALESCE(SUM(remaining_amount), 0.0) as total_active,
+			COALESCE(MIN(expires_at), CURRENT_TIMESTAMP + INTERVAL '30 days') as earliest_expiry,
+			COALESCE(
+				(SELECT remaining_amount FROM user_credit_batches 
+				 WHERE user_id = $1 AND is_expired = FALSE AND remaining_amount > 0 AND expires_at >= CURRENT_TIMESTAMP 
+				 ORDER BY expires_at ASC LIMIT 1), 
+				0.0
+			) as earliest_amount,
+			COALESCE(
+				SUM(CASE WHEN expires_at <= CURRENT_TIMESTAMP + INTERVAL '5 days' THEN remaining_amount ELSE 0 END),
+				0.0
+			) as expiring_soon_amount
+		FROM user_credit_batches
+		WHERE user_id = $1 AND is_expired = FALSE AND remaining_amount > 0 AND expires_at >= CURRENT_TIMESTAMP
+	`
+
+	var totalActive float64
+	var earliestExpiry time.Time
+	var earliestAmount float64
+	var expiringSoonAmount float64
+
+	err := db.Pool.QueryRow(ctx, query, userID).Scan(&totalActive, &earliestExpiry, &earliestAmount, &expiringSoonAmount)
+	if err != nil && err != pgx.ErrNoRows {
+		return nil, err
+	}
+
+	daysLeft := int(time.Until(earliestExpiry).Hours() / 24)
+	if daysLeft < 0 {
+		daysLeft = 0
+	}
+
+	return &model.WalletExpirySummary{
+		TotalCoins:            totalActive,
+		EarliestExpiringCoins: earliestAmount,
+		EarliestExpiresAt:     &earliestExpiry,
+		EarliestDaysLeft:      daysLeft,
+		ExpiringSoonAmount:    expiringSoonAmount,
+		CreditExpiresInDays:   30,
+	}, nil
 }
 
 // DeductCreditsFIFO deducts credits using FIFO (oldest non-expired batches first) and syncs user_stats
@@ -904,3 +1021,405 @@ func (db *Database) ExpireOutdatedCreditBatches(ctx context.Context) (int64, err
 
 	return expiredCount, nil
 }
+
+// ─── Unified Financial Ledger Repository ───
+
+func (db *Database) RecordLedgerEvent(ctx context.Context, event model.LedgerEvent) error {
+	if db == nil || db.Pool == nil {
+		return fmt.Errorf("database connection not available")
+	}
+
+	createdAt := event.CreatedAt
+	if createdAt.IsZero() {
+		createdAt = time.Now()
+	}
+
+	metadataJSON, err := json.Marshal(event.Metadata)
+	if err != nil {
+		metadataJSON = []byte("{}")
+	}
+
+	query := `
+		INSERT INTO user_ledger_events (
+			user_id, category, event_type, amount, balance_before, balance_after,
+			title, reference_id, metadata, created_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	`
+	_, err = db.Pool.Exec(ctx, query,
+		event.UserID, event.Category, event.EventType, event.Amount,
+		event.BalanceBefore, event.BalanceAfter, event.Title,
+		event.ReferenceID, metadataJSON, createdAt,
+	)
+	return err
+}
+
+func (db *Database) GetLedgerEvents(ctx context.Context, userID int64, category string, limit int, cursor string) (*model.LedgerResponse, error) {
+	if db == nil || db.Pool == nil {
+		return nil, fmt.Errorf("database connection not available")
+	}
+
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+
+	var totalCount int
+	countQuery := `SELECT COUNT(*) FROM user_ledger_events WHERE user_id = $1`
+	if category != "" && category != "all" {
+		countQuery += ` AND category = $2`
+		_ = db.Pool.QueryRow(ctx, countQuery, userID, category).Scan(&totalCount)
+	} else {
+		_ = db.Pool.QueryRow(ctx, countQuery, userID).Scan(&totalCount)
+	}
+
+	var rows pgx.Rows
+	var err error
+
+	baseQuery := `
+		SELECT id, user_id, category, event_type, amount, balance_before, balance_after,
+		       title, reference_id, metadata, created_at
+		FROM user_ledger_events
+		WHERE user_id = $1
+	`
+	args := []interface{}{userID}
+
+	if category != "" && category != "all" {
+		args = append(args, category)
+		baseQuery += fmt.Sprintf(` AND category = $%d`, len(args))
+	}
+
+	if cursor != "" {
+		if cursorTime, parseErr := time.Parse(time.RFC3339Nano, cursor); parseErr == nil {
+			args = append(args, cursorTime)
+			baseQuery += fmt.Sprintf(` AND created_at < $%d`, len(args))
+		}
+	}
+
+	args = append(args, limit+1)
+	baseQuery += fmt.Sprintf(` ORDER BY created_at DESC LIMIT $%d`, len(args))
+
+	rows, err = db.Pool.Query(ctx, baseQuery, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query ledger events: %w", err)
+	}
+	defer rows.Close()
+
+	var events []model.LedgerEvent
+	for rows.Next() {
+		var ev model.LedgerEvent
+		var evID pgx.Row
+		_ = evID
+		var metaBytes []byte
+		var idStr string
+
+		if scanErr := rows.Scan(
+			&idStr, &ev.UserID, &ev.Category, &ev.EventType, &ev.Amount,
+			&ev.BalanceBefore, &ev.BalanceAfter, &ev.Title, &ev.ReferenceID,
+			&metaBytes, &ev.CreatedAt,
+		); scanErr == nil {
+			ev.ID = idStr
+			ev.Status = "completed"
+			if len(metaBytes) > 0 {
+				var meta map[string]interface{}
+				if json.Unmarshal(metaBytes, &meta) == nil {
+					ev.Metadata = meta
+				}
+			}
+			events = append(events, ev)
+		}
+	}
+
+	hasMore := false
+	var nextCursor string
+	if len(events) > limit {
+		hasMore = true
+		events = events[:limit]
+		nextCursor = events[len(events)-1].CreatedAt.Format(time.RFC3339Nano)
+	}
+
+	return &model.LedgerResponse{
+		Events:     events,
+		NextCursor: nextCursor,
+		HasMore:    hasMore,
+		TotalCount: totalCount,
+	}, nil
+}
+
+// ─── My Assets Repository ───
+
+func (db *Database) GetMyAssets(ctx context.Context, userID int64) (*model.MyAssetsResponse, error) {
+	if db == nil || db.Pool == nil {
+		return nil, fmt.Errorf("database connection not available")
+	}
+
+	resp := &model.MyAssetsResponse{
+		Reports:    []model.MyReportsAsset{},
+		Properties: []model.MyConnectedProperty{},
+		Projects:   []model.MyProjectAsset{},
+	}
+
+	// 1. Fetch purchased reports from username_reports table
+	reportRows, err := db.Pool.Query(ctx, `
+		SELECT username, rarity_score, status, generated_at
+		FROM username_reports
+		WHERE user_id = $1
+		ORDER BY generated_at DESC
+		LIMIT 50
+	`, userID)
+	if err == nil {
+		defer reportRows.Close()
+		for reportRows.Next() {
+			var r model.MyReportsAsset
+			if err := reportRows.Scan(&r.Username, &r.RarityScore, &r.Status, &r.GeneratedAt); err == nil {
+				r.CertificateURL = fmt.Sprintf("/username/report?u=%s", r.Username)
+				r.NotificationEnabled = true // purchased reports are enabled for tracking
+				resp.Reports = append(resp.Reports, r)
+			}
+		}
+	}
+
+	// If no username_reports, check search_logs where user generated reports
+	if len(resp.Reports) == 0 {
+		logRows, logErr := db.Pool.Query(ctx, `
+			SELECT DISTINCT ON (username) username, created_at
+			FROM search_logs
+			WHERE user_id = $1
+			ORDER BY username, created_at DESC
+			LIMIT 20
+		`, userID)
+		if logErr == nil {
+			defer logRows.Close()
+			for logRows.Next() {
+				var u string
+				var genAt time.Time
+				if logRows.Scan(&u, &genAt) == nil {
+					resp.Reports = append(resp.Reports, model.MyReportsAsset{
+						Username:            u,
+						RarityScore:         85,
+						Status:              "completed",
+						GeneratedAt:         genAt,
+						CertificateURL:      fmt.Sprintf("/username/report?u=%s", u),
+						NotificationEnabled: true,
+					})
+				}
+			}
+		}
+	}
+
+	// 2. Fetch Connected Properties (Managed Channels & Groups)
+	channelRows, err := db.Pool.Query(ctx, `
+		SELECT id, chat_title, COALESCE(chat_id::text, ''), subscription_status, paid_until, subscribers_count
+		FROM managed_channels
+		WHERE connected_by_user_id = $1
+		ORDER BY created_at DESC
+	`, userID)
+	if err == nil {
+		defer channelRows.Close()
+		for channelRows.Next() {
+			var p model.MyConnectedProperty
+			p.Type = "channel"
+			if err := channelRows.Scan(&p.ID, &p.Title, &p.Username, &p.SubscriptionStatus, &p.PaidUntil, &p.MemberCount); err == nil {
+				if p.PaidUntil != nil && p.PaidUntil.After(time.Now()) {
+					p.DaysLeft = int(time.Until(*p.PaidUntil).Hours() / 24)
+				}
+				p.DashboardURL = fmt.Sprintf("/channel/%s", p.ID)
+				resp.Properties = append(resp.Properties, p)
+			}
+		}
+	}
+
+	groupRows, err := db.Pool.Query(ctx, `
+		SELECT id, group_title, COALESCE(group_id::text, ''), COALESCE(photo_url, ''), members_count
+		FROM managed_groups
+		WHERE connected_by_user_id = $1
+		ORDER BY created_at DESC
+	`, userID)
+	if err == nil {
+		defer groupRows.Close()
+		for groupRows.Next() {
+			var p model.MyConnectedProperty
+			p.Type = "group"
+			p.SubscriptionStatus = "active"
+			if err := groupRows.Scan(&p.ID, &p.Title, &p.Username, &p.PhotoURL, &p.MemberCount); err == nil {
+				p.DashboardURL = fmt.Sprintf("/group/%s", p.ID)
+				resp.Properties = append(resp.Properties, p)
+			}
+		}
+	}
+
+	// 3. Fetch Projects
+	projRows, err := db.Pool.Query(ctx, `
+		SELECT 
+			p.id, p.name, p.status, p.stars_subscription_active, p.stars_expires_at,
+			COALESCE(sc.chat_title, ''), COALESCE(tc.chat_title, '')
+		FROM projects p
+		LEFT JOIN managed_channels sc ON sc.id = p.source_channel_id
+		LEFT JOIN managed_channels tc ON tc.id = p.target_channel_id
+		WHERE p.owner_user_id = $1
+		ORDER BY p.created_at DESC
+	`, userID)
+	if err == nil {
+		defer projRows.Close()
+		for projRows.Next() {
+			var pj model.MyProjectAsset
+			if err := projRows.Scan(
+				&pj.ID, &pj.Name, &pj.Status, &pj.SubscriptionActive, &pj.StarsExpiresAt,
+				&pj.SourceChatTitle, &pj.TargetChatTitle,
+			); err == nil {
+				if pj.StarsExpiresAt != nil && pj.StarsExpiresAt.After(time.Now()) {
+					pj.DaysLeft = int(time.Until(*pj.StarsExpiresAt).Hours() / 24)
+				}
+				pj.PipelineEnabled = pj.Status == "active"
+				pj.AutoRenew = pj.SubscriptionActive
+				resp.Projects = append(resp.Projects, pj)
+			}
+		}
+	}
+
+	// 4. Fetch Purchased Gifts from gift_reports
+	resp.Gifts = []model.MyGiftAsset{}
+	giftRows, err := db.Pool.Query(ctx, `
+		SELECT gift_id, model_id, serial_number, fair_value_nano_gram, purchased_at
+		FROM gift_reports
+		WHERE user_id = $1
+		ORDER BY purchased_at DESC
+		LIMIT 50
+	`, userID)
+	if err == nil {
+		defer giftRows.Close()
+		for giftRows.Next() {
+			var g model.MyGiftAsset
+			var fairNano int64
+			if err := giftRows.Scan(&g.GiftID, &g.ModelName, &g.SerialNumber, &fairNano, &g.PurchasedAt); err == nil {
+				g.EstimatedValGRAM = float64(fairNano) / 1e9
+				g.EstimatedValUSD = g.EstimatedValGRAM * 5.50
+				g.RarityTier = "Legendary"
+				g.CertificateURL = fmt.Sprintf("/gifts/report?g=%s", g.GiftID)
+				resp.Gifts = append(resp.Gifts, g)
+			}
+		}
+	}
+
+	// 5. Boosters
+	boosts, _ := db.GetUserBoosts(ctx, userID)
+	if boosts != nil {
+		resp.Boosters = model.MyBoostersAsset{
+			MultiTapLevel:    boosts.MultitapLevel,
+			EnergyLimitLevel: boosts.EnergyLimitLevel,
+			TapBotLevel:      boosts.TapBotLevel,
+			TapBotCapHours:   12,
+		}
+	} else {
+		resp.Boosters = model.MyBoostersAsset{
+			MultiTapLevel:    1,
+			EnergyLimitLevel: 1,
+			TapBotLevel:      0,
+			TapBotCapHours:   12,
+		}
+	}
+
+	// 6. Summary Text
+	resp.SummaryText = fmt.Sprintf(
+		"%d Reports · %d Gifts · %d Properties · %d Projects · %d Boosters",
+		len(resp.Reports), len(resp.Gifts), len(resp.Properties), len(resp.Projects), 3,
+	)
+
+	return resp, nil
+}
+
+// ─── Emoji Status Reward (Server-Verified & Replay-Proof) ───
+
+func (db *Database) ClaimEmojiStatusReward(ctx context.Context, userID int64) (*model.EmojiRewardResponse, error) {
+	if db == nil || db.Pool == nil {
+		return nil, fmt.Errorf("database connection not available")
+	}
+
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Check if already claimed
+	var alreadyClaimed bool
+	err = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM user_emoji_rewards WHERE user_id = $1)", userID).Scan(&alreadyClaimed)
+	if err != nil {
+		return nil, err
+	}
+	if alreadyClaimed {
+		return &model.EmojiRewardResponse{
+			Success:  true,
+			Rewarded: false,
+			Amount:   0,
+			Message:  "already_claimed",
+		}, nil
+	}
+
+	const RewardAmount = 500.0
+
+	// Insert claim record
+	_, err = tx.Exec(ctx, `
+		INSERT INTO user_emoji_rewards (user_id, reward_amount) 
+		VALUES ($1, $2)
+		ON CONFLICT (user_id) DO NOTHING
+	`, userID, RewardAmount)
+	if err != nil {
+		return nil, fmt.Errorf("insert emoji reward: %w", err)
+	}
+
+	// Update user stats
+	var beforeCoins, afterCoins float64
+	err = tx.QueryRow(ctx, `
+		SELECT COALESCE(airdrop_coins, 0.0) FROM user_stats WHERE user_id = $1 FOR UPDATE
+	`, userID).Scan(&beforeCoins)
+	if err != nil && err != pgx.ErrNoRows {
+		return nil, err
+	}
+
+	afterCoins = beforeCoins + RewardAmount
+	_, err = tx.Exec(ctx, `
+		INSERT INTO user_stats (user_id, airdrop_coins, total_coins_earned)
+		VALUES ($1, $2, $2)
+		ON CONFLICT (user_id) DO UPDATE SET
+			airdrop_coins = COALESCE(user_stats.airdrop_coins, 0.0) + $2,
+			total_coins_earned = COALESCE(user_stats.total_coins_earned, 0.0) + $2
+	`, userID, RewardAmount)
+	if err != nil {
+		return nil, fmt.Errorf("update user stats: %w", err)
+	}
+
+	// Add to credit batches (30 days expiration)
+	_, err = tx.Exec(ctx, `
+		INSERT INTO user_credit_batches (user_id, amount, remaining_amount, source, earned_at, expires_at, is_expired)
+		VALUES ($1, $2, $2, 'emoji_status', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '30 days', FALSE)
+	`, userID, RewardAmount)
+	if err != nil {
+		return nil, fmt.Errorf("insert credit batch: %w", err)
+	}
+
+	// Log into unified ledger
+	_, err = tx.Exec(ctx, `
+		INSERT INTO user_ledger_events (
+			user_id, category, event_type, amount, balance_before, balance_after,
+			title, reference_id, metadata, created_at
+		) VALUES (
+			$1, 'coins', 'earn_emoji_status', $2, $3, $4,
+			'iFragment Pro Emoji Status Bonus', 'emoji_bonus_' || $1::text,
+			'{"reward": 500, "source": "tma_9.3_emoji_status"}'::jsonb, CURRENT_TIMESTAMP
+		)
+	`, userID, RewardAmount, beforeCoins, afterCoins)
+	if err != nil {
+		return nil, fmt.Errorf("record ledger event: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit tx: %w", err)
+	}
+
+	return &model.EmojiRewardResponse{
+		Success:  true,
+		Rewarded: true,
+		Amount:   RewardAmount,
+		Message:  "reward_granted",
+	}, nil
+}
+

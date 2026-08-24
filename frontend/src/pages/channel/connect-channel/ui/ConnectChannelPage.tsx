@@ -9,57 +9,58 @@ import { haptic } from '@/shared/lib/haptic.js';
 
 export const ConnectChannelPage: Component = () => {
 	const navigate = useNavigate();
-	const [projectName, setProjectName] = createSignal('');
-	const [inputChannel, setInputChannel] = createSignal('');
-	const [outputChannel, setOutputChannel] = createSignal('');
-	const [isVerifying, setIsVerifying] = createSignal(false);
+	const [channelUsername, setChannelUsername] = createSignal('');
+	const [isConnecting, setIsConnecting] = createSignal(false);
 
 	onMount(() => {
-		backButton.show();
-		const off = backButton.onClick(() => {
-			haptic.impact('light');
-			navigate(-1);
-		});
-		onCleanup(() => {
-			off();
-			backButton.hide();
-		});
+		try {
+			if (backButton.isSupported() && backButton.mount.isAvailable()) {
+				backButton.mount();
+				backButton.show();
+				backButton.onClick(() => {
+					haptic.impact('light');
+					navigate(-1);
+				});
+			}
+		} catch (_e) {}
+	});
+
+	onCleanup(() => {
+		try {
+			if (backButton.isSupported()) {
+				backButton.hide();
+			}
+		} catch (_e) {}
 	});
 
 	const handleConnect = async () => {
-		if (!projectName().trim() || !inputChannel().trim() || !outputChannel().trim()) {
-			showToast(t('connectChannel.validationError'), 'error');
-			haptic.notify('error');
+		const rawInput = channelUsername().trim();
+		if (!rawInput) {
+			showToast(t('connectChannel.validationError') || 'Please enter channel username or link', 'error');
+			haptic.notification('error');
 			return;
 		}
 
 		haptic.impact('medium');
-		setIsVerifying(true);
+		setIsConnecting(true);
 
 		try {
-			showToast(t('connectChannel.verifyingInput'), 'info');
-			const inChan = await channelApi.connectChannel('auto', inputChannel().trim());
+			showToast(t('connectChannel.verifyingInput') || 'Verifying bot administrator permissions in channel...', 'info');
+			const connectedChan = await channelApi.connectChannel('auto', rawInput);
 
-			showToast(t('connectChannel.verifyingOutput'), 'info');
-			const outChan = await channelApi.connectChannel('auto', outputChannel().trim());
-
-			showToast(t('connectChannel.creatingConnection'), 'info');
-			await channelApi.createFunnel(outChan.id, inChan.id, projectName().trim());
-
-			if (inChan.subscription_status === 'expired' || outChan.subscription_status === 'expired') {
-				showToast(t('connectChannel.trialLimitReached'), 'error');
-			} else {
-				showToast(t('connectChannel.success'), 'success');
-			}
-
-			haptic.notify('success');
-			navigate('/managed-channels', { replace: true });
+			haptic.notification('success');
+			showToast(t('connectChannel.success') || 'Channel successfully connected!', 'success');
+			navigate(`/channel/${connectedChan.id}/dashboard`, { replace: true });
 		} catch (err: any) {
-			const errMsg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Failed to connect channel';
+			const errMsg =
+				err?.response?.data?.error ||
+				err?.response?.data?.message ||
+				err?.message ||
+				'Failed to connect channel. Ensure the bot is added as administrator.';
 			showToast(errMsg, 'error');
-			haptic.notify('error');
+			haptic.notification('error');
 		} finally {
-			setIsVerifying(false);
+			setIsConnecting(false);
 		}
 	};
 
@@ -70,11 +71,10 @@ export const ConnectChannelPage: Component = () => {
 
 	return (
 		<div class="min-h-screen bg-[#030303] pb-32 relative overflow-x-hidden text-white font-sans selection:bg-[#3390ec]/30" dir={isRtl() ? 'rtl' : 'ltr'}>
-			
 			{/* Ambient Top Glow */}
 			<div class="absolute top-0 left-0 right-0 h-[350px] bg-gradient-to-b from-[#3390ec]/15 via-transparent to-transparent blur-[80px] pointer-events-none z-0" />
 
-			{/* ═══════ PREMIUM STICKY HEADER ═══════ */}
+			{/* Sticky Header */}
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center gap-3.5 shadow-sm">
 				<button
 					onClick={() => { haptic.impact('light'); navigate(-1); }}
@@ -85,121 +85,85 @@ export const ConnectChannelPage: Component = () => {
 				</button>
 				<div class="flex flex-col overflow-hidden">
 					<h1 class="text-[18px] font-black text-white leading-tight truncate tracking-tight">
-						{t('connectChannel.title')}
+						{t('connectChannel.title') || 'Connect Channel'}
 					</h1>
 					<span class="text-[11px] text-white/50 font-bold uppercase tracking-wider truncate mt-0.5">
-						{t('connectChannel.subtitle')}
+						{t('connectChannel.subtitle') || 'Add bot as administrator to manage automation'}
 					</span>
 				</div>
 			</div>
 
 			<div class="px-5 pt-6 flex flex-col gap-5 max-w-md mx-auto relative z-10 w-full">
-				
-				{/* ═══════ STEP 1: PROJECT NAME (Blue Theme) ═══════ */}
+				{/* 72h Free Trial & Project Model Banner */}
+				<div class="p-4 rounded-2xl bg-gradient-to-r from-blue-900/20 via-neutral-900 to-indigo-900/20 border border-blue-500/20 flex items-start gap-3">
+					<div class="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 text-base shrink-0 mt-0.5">
+						💎
+					</div>
+					<div class="text-xs text-neutral-300 space-y-1">
+						<div class="font-semibold text-blue-300">
+							{t('connectChannel.trialBannerTitle') || 'Free Channel Management'}
+						</div>
+						<p class="text-neutral-400 leading-relaxed">
+							{t('connectChannel.trialBannerDesc') || 'Connecting channels is completely free. You can configure AI posting, dynamic bios, and interactive inline buttons directly.'}
+						</p>
+					</div>
+				</div>
+
+				{/* STEP 1: ADD BOT AS ADMIN */}
 				<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] p-5 border border-white/5 flex flex-col gap-4 shadow-sm relative overflow-hidden">
-					<div class="absolute -right-6 -top-6 w-24 h-24 bg-[#3390ec]/10 blur-2xl rounded-full pointer-events-none" />
-					
 					<div class="flex items-center gap-3.5 relative z-10">
 						<div class="w-10 h-10 rounded-[12px] bg-[#3390ec]/15 text-[#3390ec] font-black flex items-center justify-center text-[16px] border border-[#3390ec]/30 shadow-inner shrink-0">1</div>
 						<h2 class="text-[16px] font-black text-white tracking-tight">
-							{t('connectChannel.step0Title')}
+							{t('connectChannel.step1Title') || 'Add Bot to Channel'}
 						</h2>
 					</div>
-					
-					<p class="text-[12px] text-white/50 font-medium leading-relaxed relative z-10">
-						{t('connectChannel.step0Desc')}
-					</p>
-					
-					<div class="relative z-10">
-						<input
-							type="text" value={projectName()} onInput={(e) => setProjectName(e.currentTarget.value)}
-							placeholder={t('connectChannel.projectNameLabel')}
-							class="w-full h-14 bg-[#08090D] border border-white/5 text-white text-[14px] font-bold rounded-[16px] px-4 focus:outline-none focus:border-[#3390ec]/50 placeholder-white/20 transition-all shadow-inner"
-						/>
-					</div>
-				</Motion.div>
 
-				{/* ═══════ STEP 2: ADD BOT (Amber Theme) ═══════ */}
-				<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] p-5 border border-white/5 flex flex-col gap-4 shadow-sm relative overflow-hidden">
-					<div class="absolute -left-6 -top-6 w-24 h-24 bg-amber-400/10 blur-2xl rounded-full pointer-events-none" />
-					
-					<div class="flex items-center gap-3.5 relative z-10">
-						<div class="w-10 h-10 rounded-[12px] bg-amber-400/15 text-amber-400 font-black flex items-center justify-center text-[16px] border border-amber-400/30 shadow-inner shrink-0">2</div>
-						<h2 class="text-[16px] font-black text-white tracking-tight">
-							{t('connectChannel.step1Title')}
-						</h2>
-					</div>
-					
 					<p class="text-[12px] text-white/50 font-medium leading-relaxed relative z-10">
-						{t('connectChannel.step1Desc')}
+						{t('connectChannel.step1Desc') || 'Add @iFragmentBot as an administrator with Post Messages & Edit Messages permissions.'}
 					</p>
-					
+
 					<button
 						onClick={handleOpenTelegram}
-						class="mt-1 w-full h-14 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-[16px] flex items-center justify-center gap-2 font-black text-[13px] uppercase tracking-widest transition-all active:scale-95 shadow-sm relative z-10"
+						class="w-full h-13 py-3 bg-gradient-to-r from-[#0098EA] to-[#0081C8] text-white rounded-[16px] flex items-center justify-center gap-2 font-black text-[13px] uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-[#0098EA]/20 relative z-10"
 					>
-						<span class="material-symbols-outlined text-[20px]">open_in_new</span>
-						{t('connectChannel.openTelegram')}
+						<span>🚀 {t('connectChannel.openTelegram') || 'Add Bot to Channel in Telegram'}</span>
 					</button>
 				</Motion.div>
 
-				{/* ═══════ STEP 3: CHANNELS INFO (Green Theme) ═══════ */}
-				<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] p-5 border border-white/5 flex flex-col gap-4 shadow-sm relative overflow-hidden">
-					<div class="absolute -right-6 -bottom-6 w-24 h-24 bg-[#10b981]/10 blur-2xl rounded-full pointer-events-none" />
-					
+				{/* STEP 2: ENTER CHANNEL USERNAME */}
+				<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] p-5 border border-white/5 flex flex-col gap-4 shadow-sm relative overflow-hidden">
 					<div class="flex items-center gap-3.5 relative z-10">
-						<div class="w-10 h-10 rounded-[12px] bg-[#10b981]/15 text-[#10b981] font-black flex items-center justify-center text-[16px] border border-[#10b981]/30 shadow-inner shrink-0">3</div>
+						<div class="w-10 h-10 rounded-[12px] bg-emerald-500/15 text-emerald-400 font-black flex items-center justify-center text-[16px] border border-emerald-500/30 shadow-inner shrink-0">2</div>
 						<h2 class="text-[16px] font-black text-white tracking-tight">
-							{t('connectChannel.step2Title')}
+							{t('connectChannel.step2Title') || 'Confirm Channel'}
 						</h2>
 					</div>
-					
-					<p class="text-[12px] text-white/50 font-medium leading-relaxed mb-1 relative z-10">
-						{t('connectChannel.step2Desc')}
+
+					<p class="text-[12px] text-white/50 font-medium leading-relaxed relative z-10">
+						{t('connectChannel.step2Desc') || 'Enter your public channel username or t.me link.'}
 					</p>
 
-					<div class="flex flex-col gap-4 relative z-10">
-						<div class="flex flex-col gap-1.5">
-							<label class="block text-[10px] font-black uppercase tracking-widest text-white/40 px-1">
-								{t('connectChannel.inputChannelLabel')}
-							</label>
-							<input
-								type="text" value={inputChannel()} onInput={(e) => setInputChannel(e.currentTarget.value)}
-								placeholder="e.g. @my_raw_posts_channel"
-								class="w-full h-14 bg-[#08090D] border border-white/5 text-white text-[14px] font-bold font-mono rounded-[16px] px-4 focus:outline-none focus:border-[#10b981]/50 placeholder-white/20 transition-all shadow-inner"
-								dir="ltr"
-							/>
-						</div>
-
-						<div class="flex flex-col gap-1.5">
-							<label class="block text-[10px] font-black uppercase tracking-widest text-white/40 px-1">
-								{t('connectChannel.outputChannelLabel')}
-							</label>
-							<input
-								type="text" value={outputChannel()} onInput={(e) => setOutputChannel(e.currentTarget.value)}
-								placeholder="e.g. @my_public_channel"
-								class="w-full h-14 bg-[#08090D] border border-white/5 text-white text-[14px] font-bold font-mono rounded-[16px] px-4 focus:outline-none focus:border-[#10b981]/50 placeholder-white/20 transition-all shadow-inner"
-								dir="ltr"
-							/>
-						</div>
+					<div class="relative z-10">
+						<input
+							type="text"
+							value={channelUsername()}
+							onInput={(e) => setChannelUsername(e.currentTarget.value)}
+							placeholder="e.g. @MyTelegramChannel or t.me/MyTelegramChannel"
+							class="w-full h-14 bg-[#08090D] border border-white/5 text-white text-[14px] font-bold rounded-[16px] px-4 focus:outline-none focus:border-[#3390ec]/50 placeholder-white/20 transition-all shadow-inner font-mono"
+							dir="ltr"
+						/>
 					</div>
-				</Motion.div>
-			</div>
 
-			{/* ═══════ FLOATING SUBMIT BUTTON ═══════ */}
-			<div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#030303] via-[#030303]/90 to-transparent z-40 pointer-events-none">
-				<div class="max-w-md mx-auto pointer-events-auto">
 					<button
 						onClick={handleConnect}
-						disabled={isVerifying() || !projectName().trim() || !inputChannel().trim() || !outputChannel().trim()}
-						class="w-full h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] hover:from-[#2b7ec9] hover:to-[#3390ec] text-white rounded-[16px] font-black text-[14px] uppercase tracking-widest transition-all disabled:opacity-40 disabled:scale-100 flex items-center justify-center gap-2 shadow-[0_10px_30px_rgba(51,144,236,0.35)] active:scale-95 border border-white/10"
+						disabled={isConnecting() || !channelUsername().trim()}
+						class="w-full h-14 bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95 text-white rounded-[16px] flex items-center justify-center gap-2 font-black text-[13px] uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-emerald-500/20 disabled:opacity-40 disabled:scale-100"
 					>
-						<Show when={!isVerifying()} fallback={<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}>
-							{t('connectChannel.verifyConnectBtn')}
-							<span class="material-symbols-outlined text-[22px]">rocket_launch</span>
+						<Show when={!isConnecting()} fallback={<div class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}>
+							<span>✅ {t('connectChannel.submitBtn') || 'Verify & Connect Channel'}</span>
 						</Show>
 					</button>
-				</div>
+				</Motion.div>
 			</div>
 		</div>
 	);

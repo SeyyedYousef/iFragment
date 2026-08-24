@@ -31,6 +31,6 @@ describe('ContentRestrictionsPage', () => {
 
 	it('renders subtitle', async () => {
 		render(() => <ContentRestrictionsPage />);
-		expect(await screen.findByText('contentRestrictions.subtitle')).toBeInTheDocument();
+		expect(await screen.findByText('contentRestrictions.description')).toBeInTheDocument();
 	});
 });

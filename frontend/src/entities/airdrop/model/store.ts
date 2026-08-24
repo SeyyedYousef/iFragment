@@ -79,9 +79,15 @@ export const [turboExpiresAt, setTurboExpiresAt] = createSignal(0);
 export const [dailyTappedCoins, setDailyTappedCoins] = createSignal(
 	typeof savedState.dailyTappedCoins === 'number' ? savedState.dailyTappedCoins : 0,
 );
+export const [dailyFatigueMultiplier, setDailyFatigueMultiplier] = createSignal(1.0);
+export const [dailyFatigueLimitRemaining, setDailyFatigueLimitRemaining] = createSignal(5000);
 export const [creditExpiresInDays, setCreditExpiresInDays] = createSignal(
-	typeof savedState.creditExpiresInDays === 'number' ? savedState.creditExpiresInDays : 15,
+	typeof savedState.creditExpiresInDays === 'number' ? savedState.creditExpiresInDays : 30,
 );
+export const [earliestExpiringCoins, setEarliestExpiringCoins] = createSignal(0);
+export const [earliestExpiringDays, setEarliestExpiringDays] = createSignal(30);
+export const [valuationCredits, setValuationCredits] = createSignal(0);
+export const [boosterResetAt, setBoosterResetAt] = createSignal(0);
 
 export const spawnRocket = () => {
 	if (turboCount() > 0 && !isTurboActive() && !isRocketSpawned()) {
@@ -102,12 +108,13 @@ export const activateTurbo = async () => {
 			await activateTurboServer();
 			setIsRocketSpawned(false);
 			setIsTurboActive(true);
-			setTurboExpiresAt(Date.now() + 10000); // 10 seconds
+			const expiry = Date.now() + 15000; // Unified 15-second Turbo
+			setTurboExpiresAt(expiry);
 			setTimeout(() => {
 				if (Date.now() >= turboExpiresAt()) {
 					setIsTurboActive(false);
 				}
-			}, 10000);
+			}, 15000);
 		} catch (e: any) {
 			console.error('Failed to activate turbo on server:', e);
 			setIsRocketSpawned(false);
@@ -150,11 +157,21 @@ export const [lastBoosterResetDate, setLastBoosterResetDate] = createSignal<stri
 );
 
 export const checkDailyBoosterReset = () => {
-	const today = new Date().toISOString().split('T')[0];
-	if (lastBoosterResetDate() !== today) {
+	const now = Date.now();
+	const resetTs = boosterResetAt();
+	if (resetTs > 0 && now >= resetTs) {
 		setTurboCount(2);
 		setFullEnergyCount(3);
-		setLastBoosterResetDate(today);
+		setDailyTappedCoins(0);
+		setDailyFatigueMultiplier(1.0);
+		setDailyFatigueLimitRemaining(5000);
+	} else {
+		const todayUTC = new Date().toISOString().split('T')[0];
+		if (lastBoosterResetDate() !== todayUTC) {
+			setTurboCount(2);
+			setFullEnergyCount(3);
+			setLastBoosterResetDate(todayUTC);
+		}
 	}
 };
 
@@ -208,7 +225,7 @@ export const syncBoostersStatus = async () => {
 							id: 'tapPower',
 							name: 'Multi-Tap',
 							level: b.current_level,
-							maxLevel: b.max_level ? b.current_level : Math.max(10, b.current_level + 1),
+							maxLevel: b.max_level || 10,
 							basePrice: b.price_frg,
 							priceMultiplier: 2,
 							effect: 1,
@@ -221,7 +238,7 @@ export const syncBoostersStatus = async () => {
 							id: 'energyCap',
 							name: 'Energy Limit',
 							level: b.current_level,
-							maxLevel: b.max_level ? b.current_level : Math.max(10, b.current_level + 1),
+							maxLevel: b.max_level || 10,
 							basePrice: b.price_frg,
 							priceMultiplier: 2,
 							effect: 500,
@@ -234,7 +251,7 @@ export const syncBoostersStatus = async () => {
 							id: 'tapBot',
 							name: 'Tap Bot',
 							level: b.current_level,
-							maxLevel: b.max_level ? b.current_level : 1,
+							maxLevel: b.max_level || 1,
 							basePrice: b.price_frg,
 							priceMultiplier: 1,
 							effect: 1,
@@ -296,7 +313,7 @@ export const syncDailyRewardStatus = async () => {
 	}
 };
 
-export const DAILY_REWARDS = [200, 400, 800, 1500, 3000, 5000, 8000];
+export const DAILY_REWARDS = [500, 1000, 2500, 5000, 10000, 25000, 50000];
 
 export const claimDailyReward = async () => {
 	try {
@@ -305,7 +322,7 @@ export const claimDailyReward = async () => {
 			setStreakDay(status.streak);
 			setLastCheckIn(status.claimed ? new Date().toISOString().split('T')[0] : null);
 			await syncProfileStats();
-			return status.frg_reward;
+			return status.frg_reward || status.coins_reward;
 		}
 	} catch (e) {
 		console.error('Failed to claim daily reward:', e);
@@ -315,7 +332,7 @@ export const claimDailyReward = async () => {
 
 // --- Referral ---
 export const [referralCount, setReferralCount] = createSignal(0);
-export const REFERRAL_REWARD = 1000;
+export const REFERRAL_REWARD = 10000;
 
 export const initEnergyRegen = () => {
 	let lastRegenTime = Date.now();
@@ -377,7 +394,7 @@ const getOptimisticCoins = () => {
 		return acc + coinsEarned;
 	}, 0);
 
-	let fatigueMultiplier = 1.0;
+	let fatigueMultiplier = dailyFatigueMultiplier();
 	if (dailyTappedCoins() > 30000) {
 		fatigueMultiplier = 0.1;
 	} else if (dailyTappedCoins() > 15000) {
@@ -447,9 +464,18 @@ export const syncPendingTaps = async () => {
 						setTotalTaps(
 							(typeof stats.totalTaps === 'number' ? stats.totalTaps : 0) + getOptimisticTaps(),
 						);
-						setUserXp((typeof stats.xp === 'number' ? stats.xp : 0) + getOptimisticTaps() * 2);
+						// Server-Authoritative XP
+						setUserXp(
+							(typeof stats.xp === 'number' ? stats.xp : 0) + Math.floor(getOptimisticCoins()),
+						);
 						if (typeof stats.globalRank === 'number') {
 							setGlobalRank(stats.globalRank);
+						}
+						if (typeof stats.dailyFatigueMultiplier === 'number') {
+							setDailyFatigueMultiplier(stats.dailyFatigueMultiplier);
+						}
+						if (typeof stats.dailyFatigueLimitRemaining === 'number') {
+							setDailyFatigueLimitRemaining(stats.dailyFatigueLimitRemaining);
 						}
 
 						try {
@@ -501,7 +527,7 @@ export const recordTaps = (count: number) => {
 		coinsEarned = energyConsumed;
 	}
 
-	let fatigueMultiplier = 1.0;
+	let fatigueMultiplier = dailyFatigueMultiplier();
 	if (dailyTappedCoins() > 30000) {
 		fatigueMultiplier = 0.1;
 	} else if (dailyTappedCoins() > 15000) {
@@ -519,7 +545,7 @@ export const recordTaps = (count: number) => {
 	setBalance((b) => b + coinsEarned);
 	setDailyTappedCoins((d) => d + coinsEarned);
 	setTotalTaps((t) => t + count);
-	setUserXp((x) => x + count * 2);
+	setUserXp((x) => x + Math.floor(coinsEarned));
 
 	const lastBucket = pendingTapBuckets[pendingTapBuckets.length - 1];
 	if (lastBucket && lastBucket.multiplier === multiplier && lastBucket.count + count <= 400) {
@@ -560,8 +586,8 @@ export const syncProfileStats = async () => {
 				);
 				setUserXp(
 					typeof stats.xp === 'number'
-						? stats.xp + getOptimisticTaps() * 2
-						: 0 + getOptimisticTaps() * 2,
+						? stats.xp + Math.floor(getOptimisticCoins())
+						: Math.floor(getOptimisticCoins()),
 				);
 				if (typeof stats.globalRank === 'number') {
 					setGlobalRank(stats.globalRank);
@@ -572,11 +598,36 @@ export const syncProfileStats = async () => {
 				if (typeof stats.dailyTappedCoins === 'number') {
 					setDailyTappedCoins(stats.dailyTappedCoins);
 				}
+				if (typeof stats.dailyFatigueMultiplier === 'number') {
+					setDailyFatigueMultiplier(stats.dailyFatigueMultiplier);
+				}
+				if (typeof stats.dailyFatigueLimitRemaining === 'number') {
+					setDailyFatigueLimitRemaining(stats.dailyFatigueLimitRemaining);
+				}
 				if (typeof stats.dailyTurboUsed === 'number') {
 					setTurboCount(Math.max(0, 2 - stats.dailyTurboUsed));
 				}
 				if (typeof stats.creditExpiresInDays === 'number') {
 					setCreditExpiresInDays(stats.creditExpiresInDays);
+				}
+				if (typeof stats.earliestExpiringCoins === 'number') {
+					setEarliestExpiringCoins(stats.earliestExpiringCoins);
+				}
+				if (typeof stats.earliestExpiringDays === 'number') {
+					setEarliestExpiringDays(stats.earliestExpiringDays);
+				}
+				if (typeof stats.valuationCredits === 'number') {
+					setValuationCredits(stats.valuationCredits);
+				}
+				if (typeof stats.boosterResetAt === 'number' && stats.boosterResetAt > 0) {
+					setBoosterResetAt(stats.boosterResetAt);
+				}
+				if (stats.turboExpiresAt) {
+					const exp = new Date(stats.turboExpiresAt).getTime();
+					if (exp > Date.now()) {
+						setIsTurboActive(true);
+						setTurboExpiresAt(exp);
+					}
 				}
 				if (typeof stats.dailyFullEnergyUsed === 'number') {
 					setFullEnergyCount(Math.max(0, 3 - stats.dailyFullEnergyUsed));

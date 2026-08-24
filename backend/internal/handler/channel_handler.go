@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1058,34 +1059,43 @@ func (h *ChannelHandler) DeleteFunnel(w http.ResponseWriter, r *http.Request) {
 
 func (h *ChannelHandler) respondServerError(w http.ResponseWriter, r *http.Request, publicMsg string, err error) {
 	if err == nil {
-		RespondError(w, r, http.StatusInternalServerError, publicMsg, nil)
+		RespondErrorCode(w, r, http.StatusInternalServerError, publicMsg, "ERR_INTERNAL", nil)
 		return
 	}
 
 	errStr := err.Error()
 	if strings.Contains(errStr, "unauthorized") || strings.Contains(errStr, "access denied") || strings.Contains(errStr, "telegram api error [403]") {
-		RespondError(w, r, http.StatusForbidden, errStr, err)
+		RespondErrorCode(w, r, http.StatusForbidden, errStr, "ERR_ACCESS_DENIED", err)
 		return
 	}
 
 	if strings.Contains(errStr, "not found") {
-		RespondError(w, r, http.StatusNotFound, errStr, err)
+		RespondErrorCode(w, r, http.StatusNotFound, errStr, "ERR_NOT_FOUND", err)
+		return
+	}
+
+	if strings.Contains(errStr, "trial expired") || strings.Contains(errStr, "subscription expired") {
+		RespondErrorCode(w, r, http.StatusPaymentRequired, errStr, "ERR_SUBSCRIPTION_EXPIRED", err)
+		return
+	}
+
+	if strings.Contains(errStr, "bot must be an administrator") || strings.Contains(errStr, "bot is not administrator") {
+		RespondErrorCode(w, r, http.StatusBadRequest, errStr, "ERR_BOT_NOT_ADMIN", err)
 		return
 	}
 
 	// Check for specific, safe-to-expose business validation and PV start messages
 	if strings.Contains(errStr, "settings validation failed") ||
-		strings.Contains(errStr, "bot must be an administrator") ||
 		strings.Contains(errStr, "located chat is not a channel") ||
 		strings.Contains(errStr, "لطفاً") ||
 		strings.Contains(errStr, "لطفا") ||
 		strings.Contains(errStr, "telegram api error [400]") {
-		RespondError(w, r, http.StatusBadRequest, errStr, err)
+		RespondErrorCode(w, r, http.StatusBadRequest, errStr, "ERR_VALIDATION_FAILED", err)
 		return
 	}
 
 	// Return a secure localized/generic message for internal exceptions, preventing db structure leaks
-	RespondError(w, r, http.StatusInternalServerError, publicMsg, err)
+	RespondErrorCode(w, r, http.StatusInternalServerError, publicMsg, "ERR_INTERNAL_ERROR", err)
 }
 
 func (h *ChannelHandler) GetTelegramInfo(w http.ResponseWriter, r *http.Request) {
@@ -1116,3 +1126,132 @@ func (h *ChannelHandler) GetTelegramInfo(w http.ResponseWriter, r *http.Request)
 
 	RespondJSON(w, http.StatusOK, info)
 }
+
+func (h *ChannelHandler) GetChannelHealth(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	channelIDStr := chi.URLParam(r, "channelID")
+	channelID, err := uuid.Parse(channelIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	health, err := h.svc.GetChannelHealth(r.Context(), userID, channelID)
+	if err != nil {
+		h.respondServerError(w, r, "failed to get channel health", err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, health)
+}
+
+type SaveAtomicButtonsRequest struct {
+	Enabled *bool                           `json:"enabled,omitempty"`
+	Preset  string                          `json:"preset,omitempty"`
+	Buttons []repository.ChannelInlineButton `json:"buttons"`
+}
+
+func (h *ChannelHandler) SaveInlineButtonsAtomic(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	channelIDStr := chi.URLParam(r, "channelID")
+	channelID, err := uuid.Parse(channelIDStr)
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid channel ID", err)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
+	var req SaveAtomicButtonsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
+	for i, btn := range req.Buttons {
+		req.Buttons[i].Title = strings.TrimSpace(btn.Title)
+		if len(req.Buttons[i].Title) == 0 {
+			RespondError(w, r, http.StatusBadRequest, "button title cannot be empty", nil)
+			return
+		}
+		if len(req.Buttons[i].Title) > 64 {
+			RespondError(w, r, http.StatusBadRequest, "button title cannot exceed 64 characters", nil)
+			return
+		}
+		btnType := strings.ToLower(btn.Type)
+		req.Buttons[i].Type = btnType
+		if btnType != "url" && btnType != "callback" && btnType != "share" && btnType != "webapp" && btnType != "payment" && btnType != "counter" {
+			RespondError(w, r, http.StatusBadRequest, "invalid button type", nil)
+			return
+		}
+	}
+
+	err = h.svc.SaveInlineButtonsAtomic(r.Context(), userID, channelID, req.Enabled, req.Preset, req.Buttons)
+	if err != nil {
+		h.respondServerError(w, r, "failed to save inline buttons", err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]string{"status": "saved"})
+}
+
+type PingWebhookRequest struct {
+	URL    string `json:"url"`
+	Secret string `json:"secret"`
+}
+
+func (h *ChannelHandler) PingWebhook(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
+	var req PingWebhookRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
+	if req.URL == "" {
+		RespondError(w, r, http.StatusBadRequest, "url is required", nil)
+		return
+	}
+
+	// Send Ping via SafeHTTPClient (SSRF guarded)
+	client := channelmgmt.SafeHTTPClient(5 * time.Second)
+	pingPayload := []byte(`{"event":"ping","timestamp":` + strconv.FormatInt(time.Now().Unix(), 10) + `}`)
+	httpReq, err := http.NewRequestWithContext(r.Context(), "POST", req.URL, bytes.NewReader(pingPayload))
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "failed to construct request", err)
+		return
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("User-Agent", "iFragment-Webhook-Ping/2.0")
+
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		RespondJSON(w, http.StatusOK, map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+	defer resp.Body.Close()
+
+	RespondJSON(w, http.StatusOK, map[string]interface{}{
+		"success":     resp.StatusCode >= 200 && resp.StatusCode < 300,
+		"status_code": resp.StatusCode,
+	})
+}
+

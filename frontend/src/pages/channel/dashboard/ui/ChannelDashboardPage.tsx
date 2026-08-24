@@ -22,16 +22,18 @@ export const ChannelDashboardPage: Component = () => {
 	const [searchQuery, setSearchQuery] = createSignal('');
 
 	const channelFeatures = () => [
-		{ name: t('search.features.channelPosting'), icon: 'send', path: `/channel/${params.id}/posting` },
-		{ name: t('search.features.channelSettings'), icon: 'settings', path: `/channel/${params.id}/settings` },
-		{ name: t('search.features.channelFunnel'), icon: 'filter_alt', path: `/channel/${params.id}/funnel` },
-		{ name: t('search.features.channelForwarding'), icon: 'forward', path: `/channel/${params.id}/forwarding` },
-		{ name: t('search.features.channelAdmins'), icon: 'admin_panel_settings', path: `/channel/${params.id}/admins` },
-		{ name: t('search.features.channelInlineButtons'), icon: 'smart_button', path: `/channel/${params.id}/inline-buttons` },
-		{ name: t('search.features.channelAutoResponder'), icon: 'question_answer', path: `/channel/${params.id}/auto-responder` },
-		{ name: t('search.features.channelAnalytics'), icon: 'analytics', path: `/channel/${params.id}/analytics` },
-		{ name: t('search.features.channelDynamicBio'), icon: 'badge', path: `/channel/${params.id}/dynamic-bio` },
-		{ name: t('search.features.channelAuditLog'), icon: 'history', path: `/channel/${params.id}/audit-log` },
+		{ name: t('search.features.channelHealth') || 'Health & Audit', icon: '🩺', path: `/channel/${params.id}/health` },
+		{ name: t('search.features.channelProjects') || 'Projects', icon: '⚡', path: `/channel/${params.id}/projects` },
+		{ name: t('search.features.channelPosting') || 'AI & Posting', icon: 'send', path: `/channel/${params.id}/posting` },
+		{ name: t('search.features.channelSettings') || 'General Settings', icon: 'settings', path: `/channel/${params.id}/settings` },
+		{ name: t('search.features.channelForwarding') || 'Forwarding & Webhooks', icon: 'forward', path: `/channel/${params.id}/forwarding` },
+		{ name: t('search.features.channelInlineButtons') || 'Inline Buttons', icon: 'smart_button', path: `/channel/${params.id}/inline-buttons` },
+		{ name: t('search.features.channelAutoResponder') || 'Auto Responder', icon: 'question_answer', path: `/channel/${params.id}/auto-responder` },
+		{ name: t('search.features.channelDynamicBio') || 'Dynamic Bio', icon: 'badge', path: `/channel/${params.id}/dynamic-bio` },
+		{ name: t('search.features.channelMembers') || 'Members Moderation', icon: 'groups', path: `/channel/${params.id}/members` },
+		{ name: t('search.features.channelAdmins') || 'Admins', icon: 'admin_panel_settings', path: `/channel/${params.id}/admins` },
+		{ name: t('search.features.channelAnalytics') || 'Analytics', icon: 'analytics', path: `/channel/${params.id}/analytics` },
+		{ name: t('search.features.channelAuditLog') || 'Audit Log', icon: 'history', path: `/channel/${params.id}/audit-log` },
 	];
 
 	const filteredFeatures = () => {

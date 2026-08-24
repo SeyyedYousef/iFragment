@@ -261,12 +261,10 @@ export const TasksPage: Component = () => {
 													{task.title}
 												</span>
 												<div class="flex items-center gap-2 flex-wrap">
-													<Show when={task.reward_frg}>
+													<Show when={task.reward_coins || task.reward_frg}>
 														<span class="px-2 py-0.5 rounded-[6px] bg-amber-400/10 border border-amber-400/20 text-[10px] font-black font-mono text-amber-400 tracking-tight shadow-sm flex items-center gap-1">
-															<span class="material-symbols-outlined text-[12px]">
-																toll
-															</span>{' '}
-															+{(task.reward_frg ?? 0).toLocaleString('en-US')}
+															<span>🪙</span>
+															+{(task.reward_coins ?? task.reward_frg ?? 0).toLocaleString('en-US')}
 														</span>
 													</Show>
 													<Show when={task.reward_xp}>

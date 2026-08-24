@@ -1,7 +1,6 @@
 import { render, screen } from '@solidjs/testing-library';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { botApi, subscriptionApi } from '@/entities/bot/index.js';
-import { frgApi } from '@/entities/user/index.js';
 import { BotManagePage } from './BotManagePage.js';
 
 vi.mock('@solidjs/router', () => ({
@@ -20,12 +19,6 @@ vi.mock('@/entities/bot/index.js', () => ({
 	},
 }));
 
-vi.mock('@/entities/user/index.js', () => ({
-	frgApi: {
-		getBalance: vi.fn(),
-	},
-}));
-
 describe('BotManagePage', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -40,7 +33,6 @@ describe('BotManagePage', () => {
 			{ id: 'g1', chat_title: 'My Group', members_count: 100, subscription_status: 'paid' },
 		]);
 		(subscriptionApi.getPackages as any).mockResolvedValue([]);
-		(frgApi.getBalance as any).mockResolvedValue({ balance: 500 });
 	});
 
 	it('renders bot manage title', async () => {

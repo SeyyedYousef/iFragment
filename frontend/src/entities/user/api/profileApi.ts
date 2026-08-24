@@ -9,7 +9,10 @@ import {
 	ClanSchema,
 	CosmeticItemSchema,
 	DailyStatusSchema,
+	EmojiRewardResponseSchema,
 	LeaderboardResponseSchema,
+	LedgerResponseSchema,
+	MyAssetsResponseSchema,
 	ProfileStatsSchema,
 	ReferralInfoSchema,
 	SuccessResponseSchema,
@@ -26,9 +29,10 @@ import type {
 	CosmeticItem,
 	DailyComboStatus,
 	DailyStatus,
-	FRGBalance,
-	FRGTransaction,
+	EmojiRewardResponse,
 	LeaderboardResponse,
+	LedgerResponse,
+	MyAssetsResponse,
 	ProfileStats,
 	PurchaseOption,
 	ReferralInfo,
@@ -110,9 +114,10 @@ export const upgradeBoost = (boostType: string): Promise<UserBoosts> =>
 		body: JSON.stringify({ boostType }),
 	}) as Promise<UserBoosts>;
 
-export const getLeaderboard = (period?: string | unknown): Promise<LeaderboardResponse> => {
+export const getLeaderboard = (period?: string | unknown, league?: string): Promise<LeaderboardResponse> => {
 	const p = typeof period === 'string' ? period : 'day';
-	return validatedFetch(`/profile/leaderboard?period=${p}`, LeaderboardResponseSchema) as Promise<LeaderboardResponse>;
+	const url = league ? `/profile/leaderboard?period=${p}&league=${encodeURIComponent(league)}` : `/profile/leaderboard?period=${p}`;
+	return validatedFetch(url, LeaderboardResponseSchema) as Promise<LeaderboardResponse>;
 };
 
 export const getAchievementDefs = (): Promise<AchievementDef[]> =>
@@ -229,25 +234,36 @@ export const deleteAccountGDPR = (): Promise<{ status: string; message: string }
 		method: 'DELETE',
 	}) as Promise<{ status: string; message: string }>;
 
-export const frgApi = {
-	getBalance: () => apiFetch<FRGBalance>('/frg/balance'),
-	getTransactions: (limit = 20, offset = 0) =>
-		apiFetch<FRGTransaction[]>(`/frg/transactions?limit=${limit}&offset=${offset}`),
+// ─── Unified Financial Ledger API ───
+export const getLedger = (
+	category?: string,
+	cursor?: string,
+	limit = 20,
+): Promise<LedgerResponse> => {
+	const params = new URLSearchParams();
+	if (category && category !== 'all') params.set('category', category);
+	if (cursor) params.set('cursor', cursor);
+	if (limit) params.set('limit', String(limit));
+	const queryString = params.toString() ? `?${params.toString()}` : '';
+	return validatedFetch(`/profile/ledger${queryString}`, LedgerResponseSchema) as Promise<LedgerResponse>;
 };
 
-export const marketplaceApi = {
-	getOptions: () => apiFetch<PurchaseOption[]>('/marketplace/options'),
-	createStarsInvoice: (id: string) =>
-		apiFetch<{ invoice_link: string }>('/marketplace/buy-stars', {
+// ─── My Assets API ───
+export const getMyAssets = (): Promise<MyAssetsResponse> =>
+	validatedFetch('/profile/assets', MyAssetsResponseSchema) as Promise<MyAssetsResponse>;
+
+// ─── Emoji Status Reward API ───
+export const claimEmojiStatusReward = (): Promise<EmojiRewardResponse> =>
+	validatedFetch('/profile/emoji-status/claim-reward', EmojiRewardResponseSchema, {
+		method: 'POST',
+	}) as Promise<EmojiRewardResponse>;
+
+export const sessionsApi = {
+	getSessions: () =>
+		apiFetch<{ active_sessions_count: number; sessions?: any[] }>('/profile/sessions'),
+	revokeAllSessions: () =>
+		apiFetch<{ success: boolean; message: string }>('/profile/sessions/revoke-all', {
 			method: 'POST',
-			body: JSON.stringify({ option_id: id }),
-			headers: { 'Content-Type': 'application/json' },
-		}),
-	convertAirdropCoins: (amount: number) =>
-		apiFetch<{ success: boolean }>('/marketplace/convert', {
-			method: 'POST',
-			body: JSON.stringify({ amount }),
-			headers: { 'Content-Type': 'application/json' },
 		}),
 };
 

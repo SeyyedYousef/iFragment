@@ -1,8 +1,8 @@
-import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
-
-import { Component, createSignal, For, Show } from 'solid-js';
-import { type AdminDailyCombo, ownerApi } from '@/entities/owner/index.js';
-import { haptic } from '@/shared/lib/haptic.js';
+import { createSignal, Show, For, type Component } from 'solid-js';
+import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
+import { ownerApi } from '../../../entities/owner/api/ownerApi';
+import type { AdminDailyCombo } from '../../../entities/owner/model/types';
+import { DangerActionDialog } from '../../../widgets/owner/DangerActionDialog';
 
 export const OwnerCombos: Component = () => {
 	const queryClient = useQueryClient();
@@ -10,52 +10,20 @@ export const OwnerCombos: Component = () => {
 	const [dateInput, setDateInput] = createSignal(new Date().toISOString().split('T')[0]);
 	const [wordInput, setWordInput] = createSignal('');
 	const [rewardInput, setRewardInput] = createSignal('500000');
-	const [showSecrets, setShowSecrets] = createSignal<Record<number, boolean>>({});
-	const [statusMsg, setStatusMsg] = createSignal<{
-		type: 'success' | 'error';
-		text: string;
-	} | null>(null);
+	const [showSecrets, setShowSecrets] = createSignal<Record<string, boolean>>({});
+	const [comboToDelete, setComboToDelete] = createSignal<AdminDailyCombo | null>(null);
 
 	const combosQuery = createQuery(() => ({
-		queryKey: ['admin-combos'],
-		queryFn: () => ownerApi.listCombos(),
+		queryKey: ['owner', 'combos'],
+		queryFn: ownerApi.listCombos,
 	}));
 
-	const createMutationHook = createMutation(() => ({
-		mutationFn: (data: { date: string; word: string; reward: number }) =>
-			ownerApi.createCombo(data.date, data.word, data.reward),
+	const upsertMutation = createMutation(() => ({
+		mutationFn: ({ date, word, reward }: { date: string; word: string; reward: number }) =>
+			ownerApi.upsertCombo(date, word, reward),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['admin-combos'] });
+			queryClient.invalidateQueries({ queryKey: ['owner', 'combos'] });
 			setWordInput('');
-			setStatusMsg({ type: 'success', text: 'کامبو روزانه با موفقیت ثبت شد.' });
-			try {
-				haptic.notify('success');
-			} catch {}
-			setTimeout(() => setStatusMsg(null), 3000);
-		},
-		onError: (err: any) => {
-			setStatusMsg({
-				type: 'error',
-				text: err.response?.data?.error || 'خطا در ثبت کامبو روزانه.',
-			});
-			try {
-				haptic.notify('error');
-			} catch {}
-		},
-	}));
-
-	const deleteMutationHook = createMutation(() => ({
-		mutationFn: (id: number) => ownerApi.deleteCombo(id),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['admin-combos'] });
-			setStatusMsg({ type: 'success', text: 'کامبو روزانه حذف شد.' });
-			try {
-				haptic.notify('success');
-			} catch {}
-			setTimeout(() => setStatusMsg(null), 3000);
-		},
-		onError: (err: any) => {
-			setStatusMsg({ type: 'error', text: err.response?.data?.error || 'خطا در حذف کامبو.' });
 		},
 	}));
 
@@ -63,93 +31,80 @@ export const OwnerCombos: Component = () => {
 		e.preventDefault();
 		const reward = parseInt(rewardInput(), 10);
 		if (!dateInput() || !wordInput().trim() || Number.isNaN(reward)) return;
-		createMutationHook.mutate({
+		upsertMutation.mutate({
 			date: dateInput(),
 			word: wordInput().trim().toUpperCase(),
 			reward,
 		});
 	};
 
-	const toggleSecret = (id: number) => {
-		setShowSecrets((prev) => ({ ...prev, [id]: !prev[id] }));
+	const toggleSecret = (key: string) => {
+		setShowSecrets((prev) => ({ ...prev, [key]: !prev[key] }));
 	};
+
+	const combos = () => combosQuery.data || [];
 
 	return (
 		<div class="space-y-6">
 			{/* Header */}
-			<div class="bg-[#16171d]/60 border border-white/5 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
-				<div>
-					<h2 class="text-sm font-black text-white">مدیریت کامبو و کلمات رمز روزانه</h2>
-					<p class="text-xs text-white/40 font-bold mt-0.5">
-						تعیین رمز عبور مخفی روزانه و مقدار سکه پاداش برای کاربران
-					</p>
-				</div>
+			<div>
+				<h2 class="text-lg font-bold text-white">Daily Secret Combos</h2>
+				<p class="text-xs text-white/50">Manage daily cipher words and coin rewards for the tapping game</p>
 			</div>
-
-			<Show when={statusMsg()}>
-				<div
-					class={`p-4 rounded-2xl border text-xs font-bold flex items-center gap-2 ${
-						statusMsg()?.type === 'success'
-							? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-							: 'bg-red-500/10 border-red-500/20 text-red-400'
-					}`}
-				>
-					<span class="material-symbols-outlined text-base">
-						{statusMsg()?.type === 'success' ? 'check_circle' : 'error'}
-					</span>
-					<span>{statusMsg()?.text}</span>
-				</div>
-			</Show>
 
 			<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 				{/* Create Form */}
 				<div class="lg:col-span-1">
-					<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-5 space-y-4">
-						<h3 class="text-xs font-black uppercase text-white tracking-wider">ثبت کامبو جدید</h3>
+					<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
+						<div class="flex items-center gap-2">
+							<span class="material-symbols-rounded text-amber-400">key</span>
+							<h3 class="text-sm font-bold text-white">Set Daily Combo</h3>
+						</div>
+
 						<form onSubmit={handleSubmit} class="space-y-3">
 							<div>
-								<label class="block text-[10px] font-bold text-white/50 mb-1">تاریخ فعالسازی</label>
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">Active Date</label>
 								<input
 									type="date"
 									value={dateInput()}
 									onInput={(e) => setDateInput(e.currentTarget.value)}
-									class="w-full h-11 bg-black/40 border border-white/10 rounded-xl px-3 text-xs text-white outline-none focus:border-[#3390ec]"
+									class="w-full h-11 bg-white/5 border border-white/15 rounded-xl px-3 text-xs text-white outline-none focus:border-amber-400"
 								/>
 							</div>
 
 							<div>
-								<label class="block text-[10px] font-bold text-white/50 mb-1">
-									کلمه رمز (Secret Word)
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
+									Secret Word (Uppercase)
 								</label>
 								<input
 									type="text"
-									placeholder="مثلاً SATOSHI_2026"
+									placeholder="e.g., SATOSHI"
 									value={wordInput()}
 									onInput={(e) => setWordInput(e.currentTarget.value)}
-									class="w-full h-11 bg-black/40 border border-white/10 rounded-xl px-4 text-xs font-mono uppercase text-white outline-none focus:border-[#3390ec]"
+									class="w-full h-11 bg-white/5 border border-white/15 rounded-xl px-4 text-xs font-mono uppercase text-white outline-none focus:border-amber-400"
 									required
 								/>
 							</div>
 
 							<div>
-								<label class="block text-[10px] font-bold text-white/50 mb-1">
-									مقدار سکه پاداش (FRG)
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
+									Reward Amount (Coins)
 								</label>
 								<input
 									type="number"
 									value={rewardInput()}
 									onInput={(e) => setRewardInput(e.currentTarget.value)}
-									class="w-full h-11 bg-black/40 border border-white/10 rounded-xl px-4 text-xs font-mono text-white outline-none focus:border-[#3390ec]"
+									class="w-full h-11 bg-white/5 border border-white/15 rounded-xl px-4 text-xs font-mono text-white outline-none focus:border-amber-400"
 									required
 								/>
 							</div>
 
 							<button
 								type="submit"
-								disabled={createMutationHook.isPending || !wordInput().trim()}
-								class="w-full h-11 bg-[#3390ec] hover:bg-[#2b7ec9] text-xs font-black uppercase text-white rounded-xl transition-all active:scale-95 disabled:opacity-40"
+								disabled={upsertMutation.isPending || !wordInput().trim()}
+								class="w-full py-3 bg-amber-500 hover:bg-amber-400 text-xs font-bold uppercase text-black rounded-xl transition-all disabled:opacity-40 shadow-lg shadow-amber-500/20"
 							>
-								{createMutationHook.isPending ? 'در حال ثبت...' : 'ذخیره کامبو روزانه'}
+								{upsertMutation.isPending ? 'Saving...' : 'Save Daily Combo'}
 							</button>
 						</form>
 					</div>
@@ -157,68 +112,66 @@ export const OwnerCombos: Component = () => {
 
 				{/* Combos Table */}
 				<div class="lg:col-span-2">
-					<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-5 space-y-4">
-						<h3 class="text-xs font-black uppercase text-white tracking-wider">
-							تاریخچه کامبوهای اخیر
-						</h3>
+					<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
+						<div class="flex items-center justify-between">
+							<div class="flex items-center gap-2">
+								<span class="material-symbols-rounded text-amber-400">history</span>
+								<h3 class="text-sm font-bold text-white">Combo History</h3>
+							</div>
+						</div>
 
 						<div class="overflow-x-auto">
-							<table class="w-full text-start text-xs">
+							<table class="w-full text-left text-xs">
 								<thead>
-									<tr class="border-b border-white/10 text-white/40 text-[10px] font-bold">
-										<th class="pb-3 text-start">تاریخ</th>
-										<th class="pb-3 text-start">کلمه محرمانه</th>
-										<th class="pb-3 text-start">پاداش (FRG)</th>
-										<th class="pb-3 text-end">عملیات</th>
+									<tr class="border-b border-white/10 text-white/40">
+										<th class="pb-3">Active Date</th>
+										<th class="pb-3">Secret Word (Masked)</th>
+										<th class="pb-3">Reward</th>
 									</tr>
 								</thead>
-								<tbody>
+								<tbody class="divide-y divide-white/5">
 									<Show
-										when={!combosQuery.isLoading}
+										when={!combosQuery.isLoading && combos().length > 0}
 										fallback={
 											<tr>
-												<td colSpan={4} class="py-8 text-center text-white/40 font-bold">
-													در حال دریافت اطلاعات...
+												<td colspan="3" class="py-8 text-center text-white/40">
+													{combosQuery.isLoading ? 'Loading combos...' : 'No combos recorded'}
 												</td>
 											</tr>
 										}
 									>
-										<For each={combosQuery.data}>
-											{(combo: AdminDailyCombo) => (
-												<tr class="border-b border-white/5 hover:bg-white/5 transition-all">
-													<td class="py-3 text-start font-mono text-white/80">
-														{new Date(combo.active_date).toLocaleDateString('fa-IR')}
-													</td>
-													<td class="py-3 text-start font-mono font-bold text-amber-400">
-														<div class="flex items-center gap-2">
-															<span>
-																{showSecrets()[combo.id] ? combo.secret_word : '••••••••'}
-															</span>
-															<button
-																onClick={() => toggleSecret(combo.id)}
-																class="text-white/40 hover:text-white text-[12px]"
-															>
-																<span class="material-symbols-outlined text-[14px]">
-																	{showSecrets()[combo.id] ? 'visibility_off' : 'visibility'}
+										<For each={combos()}>
+											{(combo) => {
+												const dateStr = combo.date || combo.active_date || '';
+												const wordStr = combo.word || combo.secret_word || '';
+												const rewardNum = combo.reward || combo.reward_amount || 0;
+												const isRevealed = () => showSecrets()[dateStr];
+
+												return (
+													<tr class="hover:bg-white/[0.02] transition">
+														<td class="py-3 font-mono text-white/80">{dateStr}</td>
+														<td class="py-3 font-mono font-bold text-amber-400">
+															<div class="flex items-center gap-2">
+																<span class="tracking-widest">
+																	{isRevealed() ? wordStr : '••••••••'}
 																</span>
-															</button>
-														</div>
-													</td>
-													<td class="py-3 text-start font-mono text-emerald-400 font-bold">
-														{combo.reward_amount.toLocaleString()} FRG
-													</td>
-													<td class="py-3 text-end">
-														<button
-															onClick={() => deleteMutationHook.mutate(combo.id)}
-															disabled={deleteMutationHook.isPending}
-															class="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[12px] transition-all"
-															title="حذف کامبو"
-														>
-															<span class="material-symbols-outlined text-[14px]">delete</span>
-														</button>
-													</td>
-												</tr>
-											)}
+																<button
+																	onClick={() => toggleSecret(dateStr)}
+																	class="p-1 rounded text-white/40 hover:text-white hover:bg-white/10 transition"
+																	title={isRevealed() ? 'Hide' : 'Reveal'}
+																>
+																	<span class="material-symbols-rounded text-sm">
+																		{isRevealed() ? 'visibility_off' : 'visibility'}
+																	</span>
+																</button>
+															</div>
+														</td>
+														<td class="py-3 font-mono text-emerald-400 font-bold">
+															{rewardNum.toLocaleString()} Coins
+														</td>
+													</tr>
+												);
+											}}
 										</For>
 									</Show>
 								</tbody>

@@ -51,6 +51,20 @@ func (db *Database) UpdateOrderStatus(ctx context.Context, payload string, statu
 	return err
 }
 
+func (db *Database) GetOrderByID(ctx context.Context, id uuid.UUID) (*Order, error) {
+	query := `
+		SELECT id, user_id, amount, status, payload, COALESCE(telegram_payment_charge_id, '')
+		FROM orders
+		WHERE id = $1
+	`
+	var o Order
+	err := db.Pool.QueryRow(ctx, query, id).Scan(&o.ID, &o.UserID, &o.Amount, &o.Status, &o.Payload, &o.TelegramPaymentChargeID)
+	if err != nil {
+		return nil, err
+	}
+	return &o, nil
+}
+
 func (db *Database) GetOrderByPayload(ctx context.Context, payload string) (*Order, error) {
 	query := `
 		SELECT id, user_id, amount, status, payload, COALESCE(telegram_payment_charge_id, '')
@@ -65,14 +79,8 @@ func (db *Database) GetOrderByPayload(ctx context.Context, payload string) (*Ord
 	return &o, nil
 }
 
-// CompleteStarsPremiumPayment atomically marks order as paid AND grants premium to the user.
-func (db *Database) CompleteStarsPremiumPayment(ctx context.Context, payload string, chargeID string, userID int64, duration time.Duration) error {
-	tx, err := db.Pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin tx: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
+// CompleteStarsPremiumPaymentTx marks order as paid AND grants premium within an existing transaction.
+func (db *Database) CompleteStarsPremiumPaymentTx(ctx context.Context, tx pgx.Tx, payload string, chargeID string, userID int64, duration time.Duration) error {
 	// 1. Update order status to paid
 	queryOrder := `
 		UPDATE orders
@@ -84,7 +92,7 @@ func (db *Database) CompleteStarsPremiumPayment(ctx context.Context, payload str
 		return fmt.Errorf("update order status: %w", err)
 	}
 	if cmdTag.RowsAffected() == 0 {
-		// Order might already be paid (idempotency), which is fine but we should proceed to grant premium if somehow not set.
+		// Order might already be paid (idempotency), proceed to grant/extend premium
 	}
 
 	// 2. Fetch current premium_until
@@ -103,6 +111,21 @@ func (db *Database) CompleteStarsPremiumPayment(ctx context.Context, payload str
 	_, err = tx.Exec(ctx, "UPDATE users SET is_premium = TRUE, premium_until = $1, updated_at = CURRENT_TIMESTAMP WHERE telegram_id = $2", newUntil, userID)
 	if err != nil {
 		return fmt.Errorf("grant premium: %w", err)
+	}
+
+	return nil
+}
+
+// CompleteStarsPremiumPayment atomically marks order as paid AND grants premium to the user.
+func (db *Database) CompleteStarsPremiumPayment(ctx context.Context, payload string, chargeID string, userID int64, duration time.Duration) error {
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	if err := db.CompleteStarsPremiumPaymentTx(ctx, tx, payload, chargeID, userID, duration); err != nil {
+		return err
 	}
 
 	return tx.Commit(ctx)

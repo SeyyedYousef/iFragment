@@ -266,6 +266,46 @@ func (s *ProfileService) GetStats(ctx context.Context, userID int64) (*model.Pro
 
 	stats.GlobalRank = s.getGlobalRank(ctx, userID, stats.XP)
 
+	// Enrich with server-authoritative UTC booster reset timestamp (Next 00:00:00 UTC in ms)
+	nowUTC := time.Now().UTC()
+	nextMidnightUTC := time.Date(nowUTC.Year(), nowUTC.Month(), nowUTC.Day()+1, 0, 0, 0, 0, time.UTC)
+	stats.BoosterResetAt = nextMidnightUTC.UnixMilli()
+
+	// Compute server-authoritative fatigue multiplier & remaining tier cap
+	if stats.DailyTappedCoins > 30000 {
+		stats.DailyFatigueMultiplier = 0.10
+		stats.DailyFatigueLimitRemaining = 0
+	} else if stats.DailyTappedCoins > 15000 {
+		stats.DailyFatigueMultiplier = 0.25
+		stats.DailyFatigueLimitRemaining = 30000 - stats.DailyTappedCoins
+	} else if stats.DailyTappedCoins > 5000 {
+		stats.DailyFatigueMultiplier = 0.50
+		stats.DailyFatigueLimitRemaining = 15000 - stats.DailyTappedCoins
+	} else {
+		stats.DailyFatigueMultiplier = 1.0
+		stats.DailyFatigueLimitRemaining = 5000 - stats.DailyTappedCoins
+	}
+
+	// Check active turbo boost on server
+	if s.db.Pool != nil {
+		var turboExpiresAt *time.Time
+		_ = s.db.Pool.QueryRow(ctx, `SELECT turbo_expires_at FROM user_daily_boosts WHERE user_id = $1 AND day = CURRENT_DATE`, userID).Scan(&turboExpiresAt)
+		if turboExpiresAt != nil && turboExpiresAt.After(time.Now()) {
+			stats.TurboExpiresAt = turboExpiresAt
+		}
+
+		// Calculate free valuation credits (1 credit per 3 verified invited frens)
+		var refCount int
+		_ = s.db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM users WHERE referred_by = $1`, userID).Scan(&refCount)
+		stats.ValuationCredits = refCount / 3
+
+		// Fetch wallet expiry summary
+		if expirySummary, err := s.db.GetWalletExpirySummary(ctx, userID); err == nil && expirySummary != nil {
+			stats.EarliestExpiringCoins = expirySummary.EarliestExpiringCoins
+			stats.EarliestExpiringDays = expirySummary.EarliestDaysLeft
+		}
+	}
+
 	// Add pending batched taps from Redis to ensure immediate UI updates upon page refresh
 	if s.cache != nil && s.cache.Client != nil {
 		userIDStr := strconv.FormatInt(userID, 10)
@@ -291,7 +331,7 @@ func (s *ProfileService) GetStats(ctx context.Context, userID int64) (*model.Pro
 	if s.cache != nil && s.cache.Client != nil {
 		data, err := json.Marshal(stats)
 		if err == nil {
-			s.cache.Client.Set(ctx, cacheKey, data, 30*time.Second)
+			s.cache.Client.Set(ctx, cacheKey, data, 15*time.Second)
 		}
 	}
 
@@ -491,7 +531,7 @@ func (s *ProfileService) SetReferralCode(ctx context.Context, userID int64, refe
 	return nil
 }
 
-func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, multiplier int) (*model.ProfileStats, error) {
+func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, multiplier int, nonce string, clientTS int64) (*model.ProfileStats, error) {
 	if taps <= 0 {
 		return nil, fmt.Errorf("invalid tap count")
 	}
@@ -501,26 +541,78 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 		return nil, fmt.Errorf("tap count exceeds maximum limit per request")
 	}
 
-	// Fetch current boost levels and current energy status from user_stats and user_boosts
+	// 1. Replay Prevention via single-use Nonce (Redis SETNX with 5-minute TTL)
+	if s.cache != nil && s.cache.Client != nil && nonce != "" {
+		nonceKey := fmt.Sprintf("tap:nonce:%d:%s", userID, nonce)
+		set, err := s.cache.Client.SetNX(ctx, nonceKey, "1", 5*time.Minute).Result()
+		if err == nil && !set {
+			return nil, fmt.Errorf("replay_detected: duplicate request nonce")
+		}
+	}
+
+	// 2. Client Timestamp Freshness Verification (max 30s skew)
+	if clientTS > 0 {
+		nowUnix := time.Now().Unix()
+		diff := nowUnix - clientTS
+		if diff < -30 || diff > 30 {
+			return nil, fmt.Errorf("clock_skew: timestamp is outside the valid 30s freshness window")
+		}
+	}
+
+	// 3. Fetch user boosts, energy status, turbo status, and premium flag
 	var multitapLevel, energyLimitLevel int
 	var storedEnergy int
 	var energyUpdatedAt time.Time
+	var turboExpiresAt *time.Time
+	var dailyTappedCoins float64
+	var isPremium bool
 
 	err := s.db.Pool.QueryRow(ctx, `
 		SELECT 
 			COALESCE(b.multitap_level, 1), 
 			COALESCE(b.energy_limit_level, 1),
 			COALESCE(s.energy, 500),
-			COALESCE(s.energy_updated_at, now())
+			COALESCE(s.energy_updated_at, now()),
+			udb.turbo_expires_at,
+			COALESCE(udb.tapped_coins, 0),
+			COALESCE(u.is_premium, false)
 		FROM user_stats s
+		JOIN users u ON u.telegram_id = s.user_id
 		LEFT JOIN user_boosts b ON s.user_id = b.user_id
+		LEFT JOIN user_daily_boosts udb ON udb.user_id = s.user_id AND udb.day = CURRENT_DATE
 		WHERE s.user_id = $1
-	`, userID).Scan(&multitapLevel, &energyLimitLevel, &storedEnergy, &energyUpdatedAt)
+	`, userID).Scan(&multitapLevel, &energyLimitLevel, &storedEnergy, &energyUpdatedAt, &turboExpiresAt, &dailyTappedCoins, &isPremium)
 	if err != nil {
 		multitapLevel = 1
 		energyLimitLevel = 1
 		storedEnergy = 500
 		energyUpdatedAt = time.Now()
+	}
+
+	// 4. Server-authoritative Turbo Verification
+	effectiveMultiplier := 1
+	if multiplier > 1 {
+		if turboExpiresAt != nil && turboExpiresAt.After(time.Now()) {
+			effectiveMultiplier = 5
+		} else {
+			effectiveMultiplier = 1 // Expired or unauthorized turbo, clamp to 1
+		}
+	}
+
+	// 5. Pro Subscriber 2x Multiplier
+	proMultiplier := 1.0
+	if isPremium {
+		proMultiplier = 2.0
+	}
+
+	// 6. Server-authoritative Tiered Fatigue Calculation
+	fatigueMultiplier := 1.0
+	if dailyTappedCoins > 30000 {
+		fatigueMultiplier = 0.10
+	} else if dailyTappedCoins > 15000 {
+		fatigueMultiplier = 0.25
+	} else if dailyTappedCoins > 5000 {
+		fatigueMultiplier = 0.50
 	}
 
 	// Calculate regenerated energy since energy_updated_at
@@ -534,9 +626,9 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 		}
 	}
 
-	// Calculate energy consumed by these taps
+	// Calculate energy consumed by these taps (Turbo consumes zero energy)
 	energyConsumed := 0
-	if multiplier != 5 { // multiplier = 5 represents Turbo boost where no energy is consumed
+	if effectiveMultiplier != 5 {
 		energyConsumed = taps * multitapLevel
 		if currentEnergy < energyConsumed {
 			taps = currentEnergy / multitapLevel
@@ -547,7 +639,7 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 		}
 	}
 
-	// Save the decremented energy and update total taps in the database
+	// Save decremented energy and increment total taps
 	newEnergy := currentEnergy - energyConsumed
 	_, err = s.db.Pool.Exec(ctx, `
 		UPDATE user_stats
@@ -561,9 +653,18 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 		return nil, fmt.Errorf("failed to update energy: %w", err)
 	}
 
-	coinsEarned := float64(taps * multitapLevel * multiplier)
-	redisFailed := false
+	// Exact coins earned with authoritative fatigue & pro multiplier
+	coinsEarned := float64(taps*multitapLevel*effectiveMultiplier) * fatigueMultiplier * proMultiplier
 
+	// Update daily tapped coins in user_daily_boosts
+	_, _ = s.db.Pool.Exec(ctx, `
+		INSERT INTO user_daily_boosts (user_id, day, tapped_coins)
+		VALUES ($1, CURRENT_DATE, $2)
+		ON CONFLICT (user_id, day) DO UPDATE
+		SET tapped_coins = user_daily_boosts.tapped_coins + $2
+	`, userID, coinsEarned)
+
+	redisFailed := false
 	if s.cache != nil && s.cache.Client != nil {
 		userIDStr := strconv.FormatInt(userID, 10)
 
@@ -579,7 +680,7 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 	}
 
 	if s.cache == nil || s.cache.Client == nil || redisFailed {
-		// Fallback to direct DB update if Redis is unavailable or failed (e.g. Upstash daily request limit exceeded)
+		// Fallback to direct DB update if Redis is unavailable or failed
 		_, err = s.db.Pool.Exec(ctx, `
 			UPDATE user_stats
 			SET total_taps = COALESCE(total_taps, 0) + $1,
@@ -611,6 +712,11 @@ func (s *ProfileService) AddTaps(ctx context.Context, userID int64, taps int, mu
 	}
 
 	return stats, nil
+}
+
+// GetWalletExpirySummary returns wallet coin expiration details for user
+func (s *ProfileService) GetWalletExpirySummary(ctx context.Context, userID int64) (*model.WalletExpirySummary, error) {
+	return s.db.GetWalletExpirySummary(ctx, userID)
 }
 
 func (s *ProfileService) GetCosmetics(ctx context.Context, userID int64) ([]model.CosmeticItem, error) {
@@ -807,6 +913,9 @@ func (s *ProfileService) DeleteUserDataGDPR(ctx context.Context, userID int64) e
 		table  string
 		column string
 	}{
+		{"user_ledger_events", "user_id"},
+		{"user_emoji_rewards", "user_id"},
+		{"user_credit_batches", "user_id"},
 		{"user_cosmetics", "user_id"},
 		{"user_boosts", "user_id"},
 		{"user_tasks", "user_id"},
@@ -840,8 +949,29 @@ func (s *ProfileService) DeleteUserDataGDPR(ctx context.Context, userID int64) e
 		pipe.Del(ctx, fmt.Sprintf("daily:%d", userID))
 		pipe.Del(ctx, fmt.Sprintf("tasks:%d", userID))
 		pipe.Del(ctx, fmt.Sprintf("boosts:%d", userID))
+		pipe.Del(ctx, fmt.Sprintf("profile:assets:%d", userID))
 		_, _ = pipe.Exec(ctx)
 	}
 
 	return nil
 }
+
+func (s *ProfileService) GetLedger(ctx context.Context, userID int64, category string, limit int, cursor string) (*model.LedgerResponse, error) {
+	return s.db.GetLedgerEvents(ctx, userID, category, limit, cursor)
+}
+
+func (s *ProfileService) GetMyAssets(ctx context.Context, userID int64) (*model.MyAssetsResponse, error) {
+	return s.db.GetMyAssets(ctx, userID)
+}
+
+func (s *ProfileService) ClaimEmojiStatusReward(ctx context.Context, userID int64) (*model.EmojiRewardResponse, error) {
+	resp, err := s.db.ClaimEmojiStatusReward(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if resp.Rewarded {
+		s.invalidateProfileCache(ctx, userID)
+	}
+	return resp, nil
+}
+

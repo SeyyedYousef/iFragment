@@ -1,10 +1,14 @@
 import { apiClient } from '@/shared/api/axios.js';
 import type {
 	ChannelAdmin,
+	ChannelAnalyticsData,
+	ChannelAuditResponse,
 	ChannelConfig,
+	ChannelHealth,
 	ChannelInlineButton,
 	ForwardingRule,
 	ManagedChannel,
+	Project,
 } from '../model/types.js';
 
 const unwrapApiData = (payload: any) => payload?.data?.data || payload?.data || payload;
@@ -45,8 +49,8 @@ export const channelApi = {
 			};
 		}),
 
-	getUserChannels: (botId: string) =>
-		apiClient.get<any>(`/channels`, { params: { bot_id: botId } }).then((r: any) => {
+	getUserChannels: (botId?: string) =>
+		apiClient.get<any>(`/channels`, { params: botId ? { bot_id: botId } : {} }).then((r: any) => {
 			const list = Array.isArray(r.data) ? r.data : r.data?.data || [];
 			return list.map((c: any) => ({
 				id: c.id,
@@ -79,69 +83,46 @@ export const channelApi = {
 			.put<ChannelConfig>(`/channels/${id}/settings`, { category, data, version })
 			.then((r: any) => r.data?.data || r.data),
 
-	getAnalytics: (id: string, days: number = 7) =>
+	getAnalytics: (id: string, days: number = 7): Promise<ChannelAnalyticsData> =>
 		apiClient.get<any>(`/channels/${id}/analytics`, { params: { days } }).then((r: any) => {
-			const list = Array.isArray(r.data) ? r.data : r.data?.data || [];
-			const topPosts = r.data?.summary?.top_posts || [];
-
-			const latest = list[list.length - 1];
-			const totalMembers = latest ? latest.subscribers_count : 0;
-			const newMembers = list.reduce((sum: number, item: any) => sum + item.new_subscribers, 0);
-			const totalViews = list.reduce((sum: number, item: any) => sum + item.views_count, 0);
-
-			const newMembersToday = latest ? latest.new_subscribers || 0 : 0;
-			const viewsToday = latest ? latest.views_count || 0 : 0;
-			const postsToday = latest ? latest.posts_count || 0 : 0;
-			const mentionsIn = r.data?.summary?.mentions_in || 0;
-			const mentionsOut = r.data?.summary?.mentions_out || 0;
-			const bestTime = r.data?.summary?.best_time || '18:30';
-
-			let ciScore = 'N/A';
-			if (totalMembers > 0 && totalViews > 0) {
-				const ratio = totalViews / totalMembers;
-				if (ratio > 2.0) ciScore = 'A+';
-				else if (ratio > 1.0) ciScore = 'A';
-				else if (ratio > 0.5) ciScore = 'B';
-				else if (ratio > 0.2) ciScore = 'C';
-				else ciScore = 'D';
-			}
-
-			const engagementRate =
-				totalMembers > 0
-					? Math.min(100, Math.round(((viewsToday + newMembersToday) / totalMembers) * 100))
-					: 0;
+			const data = unwrapApiData(r);
+			const list = Array.isArray(data) ? data : data?.data || [];
+			const summary = data?.summary || {};
 
 			return {
+				data: list,
 				summary: {
-					total_members: totalMembers,
-					new_members: newMembers,
-					total_views: totalViews,
-					engagement_rate: engagementRate,
-					top_posts: topPosts,
-					new_members_today: newMembersToday,
-					views_today: viewsToday,
-					posts_today: postsToday,
-					citation_index: ciScore,
-					mentions_in: mentionsIn,
-					mentions_out: mentionsOut,
-					best_time: bestTime,
+					total_members: summary.total_members || 0,
+					new_members: summary.new_members || 0,
+					total_views: summary.total_views || 0,
+					new_members_today: summary.new_members_today || 0,
+					views_today: summary.views_today || 0,
+					posts_today: summary.posts_today || 0,
+					engagement_rate: summary.engagement_rate || 0,
+					citation_index: summary.citation_index || 'N/A',
+					best_time: summary.best_time || null,
+					mentions_in: summary.mentions_in || 0,
+					mentions_out: summary.mentions_out || 0,
+					top_posts: summary.top_posts || [],
 				},
-				timeline: list,
 			};
 		}),
 
-	getAuditLogs: (id: string, limit = 50, cursor?: string) =>
+	getChannelHealth: (id: string): Promise<ChannelHealth> =>
+		apiClient.get<ChannelHealth>(`/channels/${id}/health`).then((r: any) => unwrapApiData(r)),
+
+	getAuditLogs: (id: string, limit = 50, cursor?: string): Promise<ChannelAuditResponse> =>
 		apiClient.get<any>(`/channels/${id}/audit`, { params: { limit, cursor } }).then((r: any) => {
 			const list = Array.isArray(r.data) ? r.data : r.data?.data || [];
 			return {
-				data: list.map((l: any) => ({
+				logs: list.map((l: any) => ({
 					...l,
 					id: l.id,
 					action: l.action,
 					actor_name: l.actor_id === 0 ? 'System' : l.actor_name || `User (${l.actor_id})`,
 					created_at: l.created_at,
 				})),
-				nextCursor: r.data?.next_cursor || null,
+				next_cursor: r.data?.next_cursor || undefined,
 			};
 		}),
 
@@ -175,6 +156,11 @@ export const channelApi = {
 			.get(`/channels/${channelId}/forwarding/logs`)
 			.then((r: any) => (Array.isArray(r.data) ? r.data : r.data?.data || [])),
 
+	pingWebhook: (channelId: string, url: string, secret?: string) =>
+		apiClient
+			.post(`/channels/${channelId}/webhooks/ping`, { url, secret: secret || '' })
+			.then((r: any) => unwrapApiData(r)),
+
 	getAdmins: (channelId: string) =>
 		apiClient
 			.get<ChannelAdmin[]>(`/channels/${channelId}/admins`)
@@ -193,12 +179,12 @@ export const channelApi = {
 			.get<any[]>(`/channels/${channelId}/members`)
 			.then((r: any) => (Array.isArray(r.data) ? r.data : r.data?.data || [])),
 
-	banMember: (channelId: string, memberId: string) =>
+	banMember: (channelId: string, memberId: string | number) =>
 		apiClient
 			.post(`/channels/${channelId}/members/${memberId}/ban`)
 			.then((r: any) => r.data?.data || r.data),
 
-	restrictMember: (channelId: string, memberId: string) =>
+	restrictMember: (channelId: string, memberId: string | number) =>
 		apiClient
 			.post(`/channels/${channelId}/members/${memberId}/restrict`)
 			.then((r: any) => r.data?.data || r.data),
@@ -211,6 +197,14 @@ export const channelApi = {
 	saveButtons: (channelId: string, buttons: ChannelInlineButton[]) =>
 		apiClient
 			.post(`/channels/${channelId}/buttons`, buttons)
+			.then((r: any) => r.data?.data || r.data),
+
+	saveInlineButtonsAtomic: (
+		channelId: string,
+		payload: { enabled?: boolean; preset?: string; buttons: ChannelInlineButton[] },
+	) =>
+		apiClient
+			.put(`/channels/${channelId}/inline-buttons`, payload)
 			.then((r: any) => r.data?.data || r.data),
 
 	getTelegramInfo: async (channelId: string) => {
@@ -234,6 +228,49 @@ export const channelApi = {
 			.post(`/channels/${channelId}/simulate`, { text, action, ...extra })
 			.then((r: any) => r.data?.data?.text || r.data?.text),
 
+	// ================= Project Endpoints (Independent Entity) =================
+	getProjects: (): Promise<Project[]> =>
+		apiClient.get<Project[]>(`/projects`).then((r: any) => {
+			const data = unwrapApiData(r);
+			return Array.isArray(data) ? data : [];
+		}),
+
+	getProject: (projectId: string): Promise<Project> =>
+		apiClient.get<Project>(`/projects/${projectId}`).then((r: any) => unwrapApiData(r)),
+
+	createProject: (payload: {
+		name: string;
+		source_channel_id?: string | null;
+		target_channel_id?: string | null;
+		source_channel_identifier?: string;
+		target_channel_identifier?: string;
+		pipeline_config?: any;
+	}): Promise<Project> =>
+		apiClient.post<Project>(`/projects`, payload).then((r: any) => unwrapApiData(r)),
+
+	updateProject: (
+		projectId: string,
+		payload: {
+			name?: string;
+			source_channel_id?: string | null;
+			target_channel_id?: string | null;
+			source_channel_identifier?: string;
+			target_channel_identifier?: string;
+			pipeline_config?: any;
+		},
+	): Promise<Project> =>
+		apiClient.put<Project>(`/projects/${projectId}`, payload).then((r: any) => unwrapApiData(r)),
+
+	toggleProject: (projectId: string, status: 'active' | 'paused'): Promise<Project> =>
+		apiClient.post<Project>(`/projects/${projectId}/toggle`, { status }).then((r: any) => unwrapApiData(r)),
+
+	renewProject: (projectId: string): Promise<{ success: boolean; expires_at: string }> =>
+		apiClient.post(`/projects/${projectId}/renew`).then((r: any) => unwrapApiData(r)),
+
+	deleteProject: (projectId: string) =>
+		apiClient.delete(`/projects/${projectId}`).then((r: any) => unwrapApiData(r)),
+
+	// Legacy backward compatibility aliases
 	getFunnel: (channelId: string) =>
 		apiClient.get<any>(`/channels/${channelId}/funnel`).then((r: any) => {
 			const data = r.data?.data || r.data;

@@ -19,10 +19,19 @@ type ComparableSale struct {
 }
 
 // ApplyMarketAppreciation inflates the PriceTON of older sales based on a compounded annual growth rate.
-// For example, if annualRate is 0.40 (40%), a sale from 2 years ago is multiplied by 1.40^2 = 1.96.
+// For example, if annualRate is 0.20 (20%), a sale from 2 years ago is multiplied by 1.20^2 = 1.44.
+// Time horizon is bounded to 8 years maximum to prevent unrealistic runaway appreciation.
 func ApplyMarketAppreciation(sales []ComparableSale, annualRate float64, now time.Time) {
+	ApplyMarketAppreciationWithHorizon(sales, annualRate, 8.0, now)
+}
+
+// ApplyMarketAppreciationWithHorizon inflates older sales with an explicit maximum years clamp.
+func ApplyMarketAppreciationWithHorizon(sales []ComparableSale, annualRate float64, maxYears float64, now time.Time) {
 	if annualRate <= 0 {
 		return
+	}
+	if maxYears <= 0 {
+		maxYears = 8.0
 	}
 	for i, s := range sales {
 		if sales[i].RawPriceTON == 0 {
@@ -30,11 +39,64 @@ func ApplyMarketAppreciation(sales []ComparableSale, annualRate float64, now tim
 		}
 		yearsAgo := now.Sub(s.SaleDate).Hours() / (24.0 * 365.25)
 		if yearsAgo > 0 {
+			if yearsAgo > maxYears {
+				yearsAgo = maxYears
+			}
 			multiplier := math.Pow(1.0+annualRate, yearsAgo)
 			sales[i].PriceTON = sales[i].RawPriceTON * multiplier
 		}
 	}
 }
+
+// WinsorizeComparables clamps extreme outliers in a set of comparable sales
+// to the [pLow, pHigh] percentiles (default 5th and 95th percentiles).
+// This mitigates the influence of wash sales, manipulative bids, or extreme lowball transactions.
+func WinsorizeComparables(sales []ComparableSale, pLow, pHigh float64) []ComparableSale {
+	if len(sales) < 5 {
+		return sales
+	}
+	if pLow <= 0 {
+		pLow = 0.05
+	}
+	if pHigh >= 1.0 || pHigh <= pLow {
+		pHigh = 0.95
+	}
+
+	prices := make([]float64, len(sales))
+	for i, s := range sales {
+		prices[i] = s.PriceTON
+	}
+	sort.Float64s(prices)
+
+	n := float64(len(prices) - 1)
+	lowIdx := int(math.Floor(n * pLow))
+	highIdx := int(math.Floor(n * pHigh))
+	if lowIdx < 0 {
+		lowIdx = 0
+	}
+	if highIdx >= len(prices) {
+		highIdx = len(prices) - 1
+	}
+	if highIdx <= lowIdx {
+		highIdx = len(prices) - 1
+	}
+
+	minVal := prices[lowIdx]
+	maxVal := prices[highIdx]
+
+
+	out := make([]ComparableSale, len(sales))
+	for i, s := range sales {
+		out[i] = s
+		if out[i].PriceTON < minVal {
+			out[i].PriceTON = minVal
+		} else if out[i].PriceTON > maxVal {
+			out[i].PriceTON = maxVal
+		}
+	}
+	return out
+}
+
 
 // CalcTimeDecayWeights computes exponential time-decay weights w_i = exp(-λ * days_ago).
 // The reference point is the most recent sale's date (or `now` if provided).
@@ -225,11 +287,24 @@ func CalcBaseLog(
 		broadSalesCopy[i].PriceTON = NormalizeToLength5(s.PriceTON, s.CharLength, cfg)
 	}
 
+	// Apply Winsorization to mitigate extreme outlier distortion before weighted medians
+	pLow := cfg.WinsorizeP5
+	pHigh := cfg.WinsorizeP95
+	if pLow <= 0 {
+		pLow = 0.05
+	}
+	if pHigh <= 0 || pHigh >= 1.0 {
+		pHigh = 0.95
+	}
+	exactSalesCopy = WinsorizeComparables(exactSalesCopy, pLow, pHigh)
+	broadSalesCopy = WinsorizeComparables(broadSalesCopy, pLow, pHigh)
+
 	// Target sales are for this exact username/length, so keep native TON prices!
 	targetSalesCopy := make([]ComparableSale, len(targetSales))
 	for i, s := range targetSales {
 		targetSalesCopy[i] = s
 	}
+
 
 	// Compute exact match statistics
 	exactWeights := CalcTimeDecayWeights(exactSalesCopy, cfg.Lambda, now)

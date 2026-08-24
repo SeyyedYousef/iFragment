@@ -1,0 +1,100 @@
+package features
+
+import (
+	"fmt"
+	"math/rand"
+	"testing"
+)
+
+func TestExtractFeatures_ATHNumber(t *testing.T) {
+	ath := "+888 8888 8888"
+	fv, err := ExtractFeatures(ath)
+	if err != nil {
+		t.Fatalf("unexpected error for ATH: %v", err)
+	}
+
+	if fv.MaxRun != 8 {
+		t.Errorf("expected MaxRun 8, got %d", fv.MaxRun)
+	}
+	if fv.DistinctDigits != 1 {
+		t.Errorf("expected DistinctDigits 1, got %d", fv.DistinctDigits)
+	}
+	if !fv.IsPalindrome {
+		t.Errorf("expected ATH to be palindrome")
+	}
+	if fv.RepeatedBlock != "ALL_SAME" {
+		t.Errorf("expected RepeatedBlock ALL_SAME, got %s", fv.RepeatedBlock)
+	}
+	if fv.TailClass != "QUAD_8888" {
+		t.Errorf("expected TailClass QUAD_8888, got %s", fv.TailClass)
+	}
+	if fv.RarityScore < 95 {
+		t.Errorf("expected RarityScore >= 95, got %d", fv.RarityScore)
+	}
+}
+
+func TestExtractFeatures_Palindrome(t *testing.T) {
+	num := "+888 1234 4321"
+	fv, err := ExtractFeatures(num)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !fv.IsPalindrome {
+		t.Errorf("expected palindrome for %s", num)
+	}
+	if fv.MirrorScore != 1.0 {
+		t.Errorf("expected mirror score 1.0, got %f", fv.MirrorScore)
+	}
+}
+
+func TestExtractFeatures_MonotonicAsc(t *testing.T) {
+	num := "+888 1234 5678"
+	fv, err := ExtractFeatures(num)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !fv.HasMonotonicAsc {
+		t.Errorf("expected monotonic asc for %s", num)
+	}
+}
+
+func TestExtractFeatures_500RandomCasesInvariant(t *testing.T) {
+	r := rand.New(rand.NewSource(42))
+
+	for i := 0; i < 500; i++ {
+		// Generate random 8-digit suffix
+		suffix := fmt.Sprintf("%08d", r.Intn(100000000))
+		num := "+888" + suffix
+
+		fv, err := ExtractFeatures(num)
+		if err != nil {
+			t.Fatalf("failed on valid input %s: %v", num, err)
+		}
+
+		// Invariant 1: MaxRun must be between 1 and 8
+		if fv.MaxRun < 1 || fv.MaxRun > 8 {
+			t.Errorf("invariant violated: MaxRun %d out of bounds for %s", fv.MaxRun, num)
+		}
+
+		// Invariant 2: DistinctDigits must be between 1 and 8
+		if fv.DistinctDigits < 1 || fv.DistinctDigits > 8 {
+			t.Errorf("invariant violated: DistinctDigits %d out of bounds for %s", fv.DistinctDigits, num)
+		}
+
+		// Invariant 3: Digit frequency sum must equal length (8)
+		sumFreq := 0
+		for _, f := range fv.DigitFreq {
+			sumFreq += f
+		}
+		if sumFreq != 8 {
+			t.Errorf("invariant violated: DigitFreq sum %d != 8 for %s", sumFreq, num)
+		}
+
+		// Invariant 4: RarityScore between 5 and 100
+		if fv.RarityScore < 5 || fv.RarityScore > 100 {
+			t.Errorf("invariant violated: RarityScore %d out of bounds for %s", fv.RarityScore, num)
+		}
+	}
+}

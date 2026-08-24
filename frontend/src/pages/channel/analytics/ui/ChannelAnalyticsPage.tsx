@@ -153,8 +153,10 @@ export const ChannelAnalyticsPage: Component = () => {
 							<span class="text-[10px] font-black uppercase tracking-widest text-white/40 flex items-center gap-1">{t('channelAnalytics.citationIndex')} <span class="material-symbols-outlined text-[14px]">info</span></span>
 						</div>
 						<div class="flex items-end gap-2 relative z-10">
-							<h3 class="text-[28px] font-black font-mono text-white tracking-tight drop-shadow-sm">{analytics()?.summary?.citation_index || 'A+'}</h3>
-							<span class="text-[10px] font-black text-[#06b6d4] bg-[#06b6d4]/10 px-2 py-0.5 rounded-[6px] border border-[#06b6d4]/20 uppercase tracking-widest mb-1 shadow-sm">TOP 5%</span>
+							<h3 class="text-[28px] font-black font-mono text-white tracking-tight drop-shadow-sm">{analytics()?.summary?.citation_index || 'N/A'}</h3>
+							<span class="text-[10px] font-black text-[#06b6d4] bg-[#06b6d4]/10 px-2 py-0.5 rounded-[6px] border border-[#06b6d4]/20 uppercase tracking-widest mb-1 shadow-sm">
+								{t('channelAnalytics.computed') || 'Verified'}
+							</span>
 						</div>
 					</button>
 
@@ -207,6 +209,30 @@ export const ChannelAnalyticsPage: Component = () => {
 						</div>
 					</Motion.div>
 
+					{/* ═══════ TOP POSTS SECTION ═══════ */}
+					<Show when={analytics()?.summary?.top_posts && analytics()!.summary.top_posts.length > 0}>
+						<div class="col-span-2 bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 flex flex-col gap-3 shadow-sm">
+							<span class="text-[11px] font-black uppercase tracking-widest text-white/40 flex items-center gap-1.5">
+								<span>🔥</span> {t('channelAnalytics.topPosts') || 'Top Performing Posts'}
+							</span>
+							<div class="space-y-2">
+								<For each={analytics()?.summary?.top_posts}>
+									{(post: any) => (
+										<div class="p-3 rounded-xl bg-neutral-900 border border-neutral-800 text-xs flex items-center justify-between gap-3">
+											<div class="flex-1 truncate font-medium text-white">
+												{post.text || `Message #${post.telegram_message_id}`}
+											</div>
+											<div class="text-[11px] font-mono text-[#0098EA] shrink-0 flex items-center gap-1">
+												<span>👁️</span>
+												<span>{post.views_count?.toLocaleString() || '0'}</span>
+											</div>
+										</div>
+									)}
+								</For>
+							</div>
+						</div>
+					</Show>
+
 				</div>
 			</div>
 
@@ -231,8 +257,10 @@ export const ChannelAnalyticsPage: Component = () => {
 
 						<div class="bg-[#08090D] border border-white/5 rounded-[20px] p-4 flex flex-col gap-3 relative z-10 shadow-inner mb-6">
 							<div class="flex items-center justify-between border-b border-white/5 pb-3">
-								<span class="text-[11px] font-black uppercase tracking-widest text-white/40">{t('channelAnalytics.currentRank')}</span>
-								<span class="text-[12px] font-black text-[#06b6d4] bg-[#06b6d4]/10 px-2.5 py-1 rounded-[8px] border border-[#06b6d4]/20 shadow-sm uppercase tracking-widest">TOP 5%</span>
+								<span class="text-[11px] font-black uppercase tracking-widest text-white/40">{t('channelAnalytics.currentRank') || 'Score Grade'}</span>
+								<span class="text-[12px] font-black text-[#06b6d4] bg-[#06b6d4]/10 px-2.5 py-1 rounded-[8px] border border-[#06b6d4]/20 shadow-sm uppercase tracking-widest">
+									{analytics()?.summary?.citation_index || 'N/A'}
+								</span>
 							</div>
 							<div class="flex items-center justify-between pt-1">
 								<span class="text-[11px] font-black uppercase tracking-widest text-white/40">{t('channelAnalytics.qualityClass')}</span>

@@ -23,6 +23,10 @@ type JWTClaims struct {
 	jwt.RegisteredClaims
 }
 
+const (
+	UserIDKey ContextKey = "user_id"
+)
+
 var (
 	ownerRepo       *repository.OwnerRepo
 	cachedJWTSecret string
@@ -36,6 +40,9 @@ func InitAuthMiddleware(repo *repository.OwnerRepo) {
 
 // GetUserID parses user ID from request context safely
 func GetUserID(ctx context.Context) (int64, error) {
+	if uid, ok := ctx.Value(UserIDKey).(int64); ok && uid != 0 {
+		return uid, nil
+	}
 	raw := ctx.Value(UserContextKey)
 	if raw == nil {
 		return 0, errors.New("unauthorized: missing user context")
@@ -116,6 +123,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 				"mfa_verified": claims.MFAVerified,
 			}
 			ctx := context.WithValue(r.Context(), UserContextKey, user)
+			ctx = context.WithValue(ctx, UserIDKey, claims.UserID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}

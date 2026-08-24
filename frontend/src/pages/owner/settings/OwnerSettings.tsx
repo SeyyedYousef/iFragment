@@ -1,281 +1,297 @@
-
-import { Component, createSignal, onMount, Show } from 'solid-js';
-import { ownerApi, type SystemSettings } from '@/entities/owner/index.js';
-import { DangerActionDialog } from '@/widgets/owner/index.js';
-import { haptic } from '@/shared/lib/haptic.js';
+import { createSignal, createEffect, Show, type Component } from 'solid-js';
+import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
+import { ownerApi } from '../../../entities/owner/api/ownerApi';
+import type { SystemSettings } from '../../../entities/owner/model/types';
+import { DangerActionDialog } from '../../../widgets/owner/DangerActionDialog';
 
 export const OwnerSettings: Component = () => {
-	const [initialSettings, setInitialSettings] = createSignal<SystemSettings | null>(null);
+	const queryClient = useQueryClient();
+
 	const [settings, setSettings] = createSignal<SystemSettings | null>(null);
-	const [loading, setLoading] = createSignal(true);
-	const [saving, setSaving] = createSignal(false);
-	const [error, setError] = createSignal('');
-	const [successMsg, setSuccessMsg] = createSignal('');
-	const [showConfirmDialog, setShowConfirmDialog] = createSignal(false);
+	const [statusMsg, setStatusMsg] = createSignal<{ type: 'success' | 'error'; text: string } | null>(null);
+	const [isMaintenanceDialogOpen, setIsMaintenanceDialogOpen] = createSignal(false);
+	const [pendingMaintenanceState, setPendingMaintenanceState] = createSignal(false);
 
-	const fetchSettings = async () => {
-		setLoading(true);
-		setError('');
-		try {
-			const data = await ownerApi.getSettings();
-			setInitialSettings(JSON.parse(JSON.stringify(data)));
-			setSettings(data);
-		} catch (e: any) {
-			setError(e.response?.data?.error || 'خطا در دریافت تنظیمات سیستم');
-		} finally {
-			setLoading(false);
+	const settingsQuery = createQuery(() => ({
+		queryKey: ['owner', 'settings'],
+		queryFn: ownerApi.getSettings,
+	}));
+
+	createEffect(() => {
+		if (settingsQuery.data) {
+			setSettings({ ...settingsQuery.data });
 		}
-	};
-
-	onMount(() => {
-		fetchSettings();
 	});
 
-	const isDirty = () => {
-		if (!initialSettings() || !settings()) return false;
-		return JSON.stringify(initialSettings()) !== JSON.stringify(settings());
+	const updateMutation = createMutation(() => ({
+		mutationFn: (newSettings: SystemSettings) => ownerApi.updateSettings(newSettings),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['owner', 'settings'] });
+			setStatusMsg({ type: 'success', text: 'System settings saved successfully.' });
+			setTimeout(() => setStatusMsg(null), 3000);
+		},
+		onError: (err: any) => {
+			if (err.response?.status === 409) {
+				setStatusMsg({
+					type: 'error',
+					text: 'Conflict: Settings were modified by another admin. Refreshing latest data...',
+				});
+				queryClient.invalidateQueries({ queryKey: ['owner', 'settings'] });
+			} else {
+				setStatusMsg({
+					type: 'error',
+					text: err.response?.data?.error || err.message || 'Failed to update settings.',
+				});
+			}
+		},
+	}));
+
+	const handleMaintenanceToggle = (checked: boolean) => {
+		setPendingMaintenanceState(checked);
+		setIsMaintenanceDialogOpen(true);
 	};
 
-	const handleSaveInitiate = (e: Event) => {
-		e.preventDefault();
-		if (!settings() || !isDirty()) return;
-
-		// If maintenance mode status changed or big multiplier jump, require confirmation
-		const initM = initialSettings()?.maintenance_mode;
-		const currM = settings()?.maintenance_mode;
-
-		if (initM !== currM) {
-			setShowConfirmDialog(true);
-		} else {
-			executeSave('تغییر پارامترهای اقتصادی بدون قطع دسترسی');
-		}
-	};
-
-	const executeSave = async (_reason: string) => {
-		const s = settings();
-		if (!s) return;
-
-		setSaving(true);
-		setError('');
-		setSuccessMsg('');
-
-		try {
-			const payload: SystemSettings = {
-				...s,
-				// P0-3 FIX: Explicitly preserve dashboard_ads so saving system settings never wipes ads!
-				dashboard_ads: initialSettings()?.dashboard_ads || s.dashboard_ads || [],
-			};
-
-			const updated = await ownerApi.updateSettings(payload);
-			setInitialSettings(JSON.parse(JSON.stringify(updated)));
+	const handleConfirmMaintenance = () => {
+		if (settings()) {
+			const updated = { ...settings()!, maintenance_mode: pendingMaintenanceState() };
 			setSettings(updated);
-			setSuccessMsg('تنظیمات با موفقیت ذخیره و در سراسر سرور اعمال شد.');
-			setShowConfirmDialog(false);
+			updateMutation.mutate(updated);
+		}
+		setIsMaintenanceDialogOpen(false);
+	};
 
-			try {
-				haptic.notify('success');
-			} catch {}
-
-			setTimeout(() => setSuccessMsg(''), 4000);
-		} catch (e: any) {
-			setError(e.response?.data?.error || 'خطا در ذخیره‌سازی تنظیمات');
-			try {
-				haptic.notify('error');
-			} catch {}
-		} finally {
-			setSaving(false);
+	const handleSaveForm = (e: Event) => {
+		e.preventDefault();
+		if (settings()) {
+			updateMutation.mutate(settings()!);
 		}
 	};
+
+	const updateField = (field: keyof SystemSettings, val: any) => {
+		if (settings()) {
+			setSettings({ ...settings()!, [field]: val });
+		}
+	};
+
+	const currentSettings = () => settings();
 
 	return (
 		<div class="space-y-6">
 			{/* Header */}
-			<div class="bg-[#16171d]/60 border border-white/5 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
+			<div class="flex items-center justify-between">
 				<div>
-					<h2 class="text-sm font-black text-white">تنظیمات اصلی و اقتصاد سیستم</h2>
-					<p class="text-xs text-white/40 font-bold mt-0.5">
-						مدیریت حالت تعمیرات و ضرایب پایه کلیک و پاداش‌ها
+					<h2 class="text-lg font-bold text-white">System Economics & Platform Configuration</h2>
+					<p class="text-xs text-white/50">
+						Optimistic concurrency controlled settings (Version: {currentSettings()?.version ?? 1})
 					</p>
 				</div>
 			</div>
 
-			<Show when={error()}>
-				<div class="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-400 text-xs font-bold">
-					<span class="material-symbols-outlined text-xl">error</span>
-					<span>{error()}</span>
-				</div>
-			</Show>
-
-			<Show when={successMsg()}>
-				<div class="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-3 text-emerald-400 text-xs font-bold">
-					<span class="material-symbols-outlined text-xl">check_circle</span>
-					<span>{successMsg()}</span>
+			<Show when={statusMsg()}>
+				<div
+					class={`p-4 rounded-2xl border text-xs font-bold flex items-center gap-2 ${
+						statusMsg()?.type === 'success'
+							? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+							: 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+					}`}
+				>
+					<span class="material-symbols-rounded text-base">
+						{statusMsg()?.type === 'success' ? 'check_circle' : 'error'}
+					</span>
+					<span>{statusMsg()?.text}</span>
 				</div>
 			</Show>
 
 			<Show
-				when={!loading() && settings()}
-				fallback={
-					<div class="flex flex-col items-center justify-center py-20 gap-3">
-						<div class="w-8 h-8 border-3 border-[#3390ec] border-t-transparent rounded-full animate-spin" />
-						<span class="text-xs text-white/50 font-bold">در حال دریافت متغیرهای سیستم...</span>
-					</div>
-				}
+				when={!settingsQuery.isLoading && currentSettings()}
+				fallback={<div class="p-8 text-center text-xs text-white/40">Loading system settings...</div>}
 			>
-				<form onSubmit={handleSaveInitiate} class="space-y-6">
-					{/* Maintenance Mode Control */}
-					<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-6">
-						<div class="flex justify-between items-start md:items-center">
-							<div>
-								<div class="flex items-center gap-2">
-									<h3 class="font-black text-sm text-white">
-										حالت تعمیرات و نگهداری (Maintenance Mode)
-									</h3>
-									<Show when={settings()?.maintenance_mode}>
-										<span class="px-2 py-0.5 rounded bg-red-500/20 text-red-400 text-[9px] font-black">
-											فعال (مسدود عمومی)
-										</span>
-									</Show>
-								</div>
-								<p class="text-xs text-white/50 font-medium mt-1 leading-relaxed">
-									در صورت فعال‌سازی، تمامی کاربران عادی با صفحه «در حال بروزرسانی» مواجه خواهند شد و
-									صرفاً ادمین‌ها دسترسی دارند.
-								</p>
+				<form onSubmit={handleSaveForm} class="space-y-6">
+					{/* Maintenance Mode Banner */}
+					<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 flex items-center justify-between">
+						<div>
+							<div class="text-sm font-bold text-white flex items-center gap-2">
+								<span class="material-symbols-rounded text-amber-400">construction</span>
+								<span>Maintenance Mode</span>
 							</div>
-
-							<label class="relative inline-flex items-center cursor-pointer shrink-0 mt-2 md:mt-0">
-								<input
-									type="checkbox"
-									class="sr-only peer"
-									checked={settings()?.maintenance_mode || false}
-									onChange={(e) =>
-										setSettings((s) => ({ ...s!, maintenance_mode: e.target.checked }))
-									}
-								/>
-								<div class="w-12 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500" />
-							</label>
+							<div class="text-xs text-white/50 mt-0.5">
+								Temporarily block regular users with a maintenance screen while allowing Owner access
+							</div>
 						</div>
+						<label class="relative inline-flex items-center cursor-pointer">
+							<input
+								type="checkbox"
+								checked={currentSettings()?.maintenance_mode ?? false}
+								onChange={(e) => handleMaintenanceToggle(e.currentTarget.checked)}
+								class="sr-only peer"
+							/>
+							<div class="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500" />
+						</label>
 					</div>
 
-					{/* Game Economy Variables */}
-					<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-6 space-y-6">
-						<h3 class="font-black text-sm text-white border-b border-white/5 pb-3">
-							اقتصاد و ضرایب پاداش
-						</h3>
+					{/* Economic Engine Parameters */}
+					<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-5">
+						<div class="flex items-center gap-2 border-b border-white/10 pb-3">
+							<span class="material-symbols-rounded text-amber-400">tune</span>
+							<h3 class="text-sm font-bold text-white">Tapping & Daily Rewards Mechanics</h3>
+						</div>
 
-						<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+						<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 							<div>
-								<label class="block text-xs font-bold text-white/60 mb-2">
-									ضریب تپ (Tap Multiplier)
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
+									Tap Multiplier
 								</label>
 								<input
 									type="number"
 									step="0.1"
-									min="0.1"
-									max="100"
-									value={settings()?.tap_multiplier || 1.0}
-									onInput={(e) =>
-										setSettings((s) => ({
-											...s!,
-											tap_multiplier: parseFloat(e.target.value) || 1.0,
-										}))
-									}
-									class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono focus:border-[#3390ec] outline-none"
-									dir="ltr"
+									value={currentSettings()?.tap_multiplier ?? 1}
+									onInput={(e) => updateField('tap_multiplier', parseFloat(e.currentTarget.value) || 1)}
+									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
 								/>
-								<p class="text-[10px] text-white/40 font-bold mt-1.5">
-									ضریب ضرب‌کننده به ازای هر تپ در استخراج
-								</p>
 							</div>
 
 							<div>
-								<label class="block text-xs font-bold text-white/60 mb-2">
-									پاداش دعوت دوستان (Referral Bonus)
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
+									Referral Bonus (Coins)
 								</label>
 								<input
 									type="number"
-									min="0"
-									value={settings()?.referral_bonus || 0}
-									onInput={(e) =>
-										setSettings((s) => ({
-											...s!,
-											referral_bonus: parseInt(e.target.value, 10) || 0,
-										}))
-									}
-									class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono focus:border-[#3390ec] outline-none"
-									dir="ltr"
+									value={currentSettings()?.referral_bonus ?? 25000}
+									onInput={(e) => updateField('referral_bonus', parseInt(e.currentTarget.value, 10) || 0)}
+									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
 								/>
-								<p class="text-[10px] text-white/40 font-bold mt-1.5">
-									مقدار پاداش اولیه جهت ورود هر زیرمجموعه
-								</p>
 							</div>
 
 							<div>
-								<label class="block text-xs font-bold text-white/60 mb-2">
-									پایه پاداش روزانه (Daily Base)
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
+									Daily Reward Base (Coins)
 								</label>
 								<input
 									type="number"
-									min="0"
-									value={settings()?.daily_reward_base || 0}
-									onInput={(e) =>
-										setSettings((s) => ({
-											...s!,
-											daily_reward_base: parseInt(e.target.value, 10) || 0,
-										}))
-									}
-									class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono focus:border-[#3390ec] outline-none"
-									dir="ltr"
+									value={currentSettings()?.daily_reward_base ?? 5000}
+									onInput={(e) => updateField('daily_reward_base', parseInt(e.currentTarget.value, 10) || 0)}
+									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
 								/>
-								<p class="text-[10px] text-white/40 font-bold mt-1.5">
-									مقدار پاداش ورود روزانه متوالی
-								</p>
+							</div>
+						</div>
+
+						{/* Fatigue Thresholds */}
+						<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+							<div>
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
+									Fatigue Threshold 1 (Taps)
+								</label>
+								<input
+									type="number"
+									value={currentSettings()?.fatigue_threshold_1 ?? 500}
+									onInput={(e) => updateField('fatigue_threshold_1', parseInt(e.currentTarget.value, 10) || 500)}
+									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
+								/>
+							</div>
+
+							<div>
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
+									Fatigue Threshold 2 (Taps)
+								</label>
+								<input
+									type="number"
+									value={currentSettings()?.fatigue_threshold_2 ?? 1500}
+									onInput={(e) => updateField('fatigue_threshold_2', parseInt(e.currentTarget.value, 10) || 1500)}
+									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
+								/>
+							</div>
+
+							<div>
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
+									Fatigue Threshold 3 (Taps)
+								</label>
+								<input
+									type="number"
+									value={currentSettings()?.fatigue_threshold_3 ?? 3000}
+									onInput={(e) => updateField('fatigue_threshold_3', parseInt(e.currentTarget.value, 10) || 3000)}
+									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
+								/>
 							</div>
 						</div>
 					</div>
 
-					{/* Save Actions Bar */}
-					<div class="flex justify-end">
+					{/* Economy Sinks & Inflation Controls */}
+					<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-5">
+						<div class="flex items-center gap-2 border-b border-white/10 pb-3">
+							<span class="material-symbols-rounded text-emerald-400">savings</span>
+							<h3 class="text-sm font-bold text-white">Monetary Policy & Deflationary Sinks</h3>
+						</div>
+
+						<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+							<div>
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
+									Inactivity Decay Rate (% / month)
+								</label>
+								<input
+									type="number"
+									step="0.5"
+									value={currentSettings()?.coin_decay_pct ?? 5.0}
+									onInput={(e) => updateField('coin_decay_pct', parseFloat(e.currentTarget.value) || 0)}
+									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
+								/>
+							</div>
+
+							<div>
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
+									Referral Rev-Share (% Stars)
+								</label>
+								<input
+									type="number"
+									value={currentSettings()?.referral_rev_share_pct ?? 15}
+									onInput={(e) => updateField('referral_rev_share_pct', parseInt(e.currentTarget.value, 10) || 0)}
+									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
+								/>
+							</div>
+
+							<div>
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
+									Turbo Mode Duration (Seconds)
+								</label>
+								<input
+									type="number"
+									value={currentSettings()?.turbo_duration_seconds ?? 20}
+									onInput={(e) => updateField('turbo_duration_seconds', parseInt(e.currentTarget.value, 10) || 20)}
+									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
+								/>
+							</div>
+						</div>
+					</div>
+
+					{/* Save Button */}
+					<div class="flex justify-end pt-2">
 						<button
 							type="submit"
-							disabled={saving() || !isDirty()}
-							class="h-12 px-8 bg-[#3390ec] hover:bg-[#2b7ec9] text-white text-xs font-black uppercase rounded-2xl transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 active:scale-95 shadow-lg shadow-[#3390ec]/20"
+							disabled={updateMutation.isPending}
+							class="px-8 py-3 bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs uppercase tracking-wider rounded-2xl transition shadow-lg shadow-amber-500/20 disabled:opacity-50"
 						>
-							<Show
-								when={saving()}
-								fallback={
-									<>
-										<span class="material-symbols-outlined text-[18px]">save</span>
-										ذخیره تغییرات تنظیمات
-									</>
-								}
-							>
-								<span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-								در حال ذخیره‌سازی...
-							</Show>
+							{updateMutation.isPending ? 'Saving Settings...' : 'Save Configuration'}
 						</button>
 					</div>
 				</form>
 			</Show>
 
-			{/* Review Modal for Maintenance Mode state changes */}
-			<Show when={showConfirmDialog()}>
+			{/* Maintenance Confirmation Dialog */}
+			<Show when={isMaintenanceDialogOpen()}>
 				<DangerActionDialog
 					isOpen={true}
-					title="تغییر وضعیت حالت تعمیرات (Maintenance Mode)"
-					description="با فعال یا غیرفعال‌سازی حالت تعمیرات، دسترسی تمامی کاربران عادی قطع یا وصل خواهد شد."
-					actionLabel="اعمال تغییرات حالت تعمیرات"
-					confirmWord="MAINTENANCE"
-					riskLevel="critical"
-					details={[
-						{
-							label: 'حالت تعمیرات',
-							before: initialSettings()?.maintenance_mode ? 'فعال' : 'غیرفعال',
-							after: settings()?.maintenance_mode ? 'فعال' : 'غیرفعال',
-						},
-					]}
-					onConfirm={executeSave}
-					onClose={() => setShowConfirmDialog(false)}
+					title={pendingMaintenanceState() ? 'Enable Maintenance Mode' : 'Disable Maintenance Mode'}
+					description={
+						pendingMaintenanceState()
+							? 'Are you sure you want to put the entire platform into Maintenance Mode? Regular users will be unable to access the app.'
+							: 'Re-enable public platform access for all Telegram users?'
+					}
+					actionLabel={pendingMaintenanceState() ? 'Enable Maintenance' : 'Disable Maintenance'}
+					confirmWord={pendingMaintenanceState() ? 'MAINTENANCE' : undefined}
+					riskLevel={pendingMaintenanceState() ? 'critical' : 'medium'}
+					requireReason={false}
+					loading={updateMutation.isPending}
+					onConfirm={handleConfirmMaintenance}
+					onClose={() => setIsMaintenanceDialogOpen(false)}
 				/>
 			</Show>
 		</div>

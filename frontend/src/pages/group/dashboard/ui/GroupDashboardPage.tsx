@@ -6,6 +6,7 @@ import { groupApi } from '@/entities/group/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 import { showToast } from '@/shared/ui/toast.js';
+import { calculateAcademyProgress } from './academyProgress.js';
 import { AntiSpamLessonCard } from './group-lessons/AntiSpamLessonCard.js';
 import { CustomTextsLessonCard } from './group-lessons/CustomTextsLessonCard.js';
 import { EphemeralLessonCard } from './group-lessons/EphemeralLessonCard.js';
@@ -25,6 +26,8 @@ export const GroupDashboardPage: Component = () => {
 	const [settingsVersion, setSettingsVersion] = createSignal(1);
 	const [showLockConfirm, setShowLockConfirm] = createSignal(false);
 	const [searchQuery, setSearchQuery] = createSignal('');
+	const [undoLockTimer, setUndoLockTimer] = createSignal<number | null>(null);
+	const [showUndoSnackbar, setShowUndoSnackbar] = createSignal(false);
 
 	const groupFeatures = () => [
 		{ name: t('search.features.groupSettings'), icon: 'settings', path: `/group/${params.id}/settings` },
@@ -33,6 +36,7 @@ export const GroupDashboardPage: Component = () => {
 		{ name: t('search.features.quietHours'), icon: 'bedtime', path: `/group/${params.id}/quiet` },
 		{ name: t('search.features.mandatoryChannels'), icon: 'how_to_reg', path: `/group/${params.id}/mandatory` },
 		{ name: t('search.features.customTexts'), icon: 'edit_note', path: `/group/${params.id}/settings/custom-texts` },
+		{ name: 'مدیریت اعضا و اخطارها', icon: 'group', path: `/group/${params.id}/members` },
 		{ name: t('search.features.groupAnalytics'), icon: 'analytics', path: `/group/${params.id}/analytics` },
 		{ name: t('search.features.groupDynamicBio'), icon: 'badge', path: `/group/${params.id}/dynamic-bio` },
 	];
@@ -44,6 +48,7 @@ export const GroupDashboardPage: Component = () => {
 	};
 
 	const [group] = createResource(() => params.id, (id) => groupApi.getGroup(id));
+	const [tgInfo] = createResource(() => params.id, (id) => groupApi.getGroupTelegramInfo(id));
 	const [settings, { mutate }] = createResource(() => params.id, async (id) => {
 		const s = await groupApi.getSettings(id);
 		setSettingsVersion(s.version);
@@ -56,7 +61,7 @@ export const GroupDashboardPage: Component = () => {
 		backButton.show();
 		const off = backButton.onClick(() => {
 			haptic.impact('light');
-			window.history.back();
+			navigate('/managed-bots');
 		});
 		const timer = setTimeout(() => setShowTooltip(false), 10000);
 		onCleanup(() => {
@@ -79,6 +84,17 @@ export const GroupDashboardPage: Component = () => {
 			mutate((prev: any) => (prev ? { ...prev, quiet_hours: qh } : { quiet_hours: qh }));
 			haptic.notify('success');
 			showToast(current ? t('groupDashboard.unlockSuccess') : t('groupDashboard.lockSuccess'), 'success');
+
+			if (!current) {
+				// Locked -> show 10s undo snackbar
+				setShowUndoSnackbar(true);
+				const timer = window.setTimeout(() => {
+					setShowUndoSnackbar(false);
+				}, 10000);
+				setUndoLockTimer(timer);
+			} else {
+				setShowUndoSnackbar(false);
+			}
 		} catch (_e) {
 			haptic.notify('error');
 			showToast(t('groupDashboard.lockError'), 'error');
@@ -87,36 +103,24 @@ export const GroupDashboardPage: Component = () => {
 		}
 	};
 
+	const handleUndoLock = async () => {
+		if (undoLockTimer()) {
+			clearTimeout(undoLockTimer()!);
+		}
+		setShowUndoSnackbar(false);
+		await confirmToggleGroupLock();
+	};
+
 	const handleMenuOpen = () => {
 		setIsMenuOpen(true);
 		setShowTooltip(false);
 		haptic.impact('light');
 	};
 
-	const learnedFeatures = () => {
-		const s = settings();
-		if (!s) return [];
-		const g = (s.general || {}) as any;
-		return [
-			{ key: 'ephemeral', done: !!(g.ephemeralAll || g.ephemeralWelcome || g.ephemeralWarnings || g.ephemeralCaptcha || g.ephemeralAdminCmd) },
-			{ key: 'antiSpam', done: !!((s as any)?.content_restrictions?.link_filter || (s as any)?.cas_enabled) },
-			{ key: 'quietHours', done: !!(s.quiet_hours as any)?.enabled },
-			{ key: 'limits', done: !!(s as any)?.limits?.slow_mode },
-			{ key: 'mandatory', done: !!(s as any)?.mandatory_channels?.length },
-			{ key: 'customTexts', done: !!(s as any)?.custom_texts?.welcome },
-			{ key: 'dynamicBio', done: !!(s as any)?.dynamic_bio?.enabled },
-		];
-	};
-
-	const progress = () => {
-		const list = learnedFeatures();
-		if (!list.length) return 0;
-		const completed = list.filter((item) => item.done).length;
-		return Math.round((completed / list.length) * 100);
-	};
+	const academyProgressData = () => calculateAcademyProgress(settings());
 
 	const isFeatureDone = (key: string) => {
-		return learnedFeatures().find((item) => item.key === key)?.done || false;
+		return academyProgressData().lessons.find((l) => l.key === key)?.done || false;
 	};
 
 	const navigateWithFeedback = (path: string) => {
@@ -130,11 +134,11 @@ export const GroupDashboardPage: Component = () => {
 			{/* Ambient Top Glow */}
 			<div class="absolute top-0 left-0 right-0 h-[400px] bg-gradient-to-b from-[#3390ec]/15 via-[#3390ec]/5 to-transparent blur-[80px] pointer-events-none z-0" />
 
-			{/* ═══════ PREMIUM STICKY HEADER ═══════ */}
+			{/* ═══════ STICKY HEADER ═══════ */}
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between shadow-sm">
 				<div class="flex items-center gap-3 overflow-hidden flex-1">
 					<button
-						onClick={() => { haptic.impact('light'); window.history.back(); }}
+						onClick={() => { haptic.impact('light'); navigate('/managed-bots'); }}
 						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm"
 						aria-label={t('common.back')}
 					>
@@ -247,6 +251,40 @@ export const GroupDashboardPage: Component = () => {
 					</Show>
 				</div>
 
+				{/* ═══════ TELEGRAM NATIVE SECURITY STATUS CARD ═══════ */}
+				<Show when={tgInfo()}>
+					<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[28px] p-5 flex flex-col gap-3.5 shadow-sm">
+						<div class="flex items-center justify-between">
+							<div class="flex items-center gap-2 text-[#3390ec]">
+								<span class="material-symbols-outlined text-[20px]">security</span>
+								<h3 class="text-[13px] font-black uppercase tracking-widest">وضعیت امنیت تلگرام (Telegram Security)</h3>
+							</div>
+							<span class="text-[9px] font-black bg-[#3390ec]/20 text-[#3390ec] border border-[#3390ec]/30 px-2 py-0.5 rounded-[6px] uppercase tracking-widest">
+								NATIVE
+							</span>
+						</div>
+
+						<div class="grid grid-cols-2 gap-2 text-[11px]">
+							<div class={`p-2.5 rounded-[14px] border flex items-center gap-2 ${tgInfo()?.has_protected_content ? 'bg-[#10b981]/10 border-[#10b981]/30 text-[#10b981]' : 'bg-white/5 border-white/5 text-white/40'}`}>
+								<span class="material-symbols-outlined text-[16px]">lock</span>
+								<span class="font-bold">محتوای محافظت‌شده</span>
+							</div>
+							<div class={`p-2.5 rounded-[14px] border flex items-center gap-2 ${tgInfo()?.has_hidden_members ? 'bg-[#10b981]/10 border-[#10b981]/30 text-[#10b981]' : 'bg-white/5 border-white/5 text-white/40'}`}>
+								<span class="material-symbols-outlined text-[16px]">visibility_off</span>
+								<span class="font-bold">مخفی‌سازی اعضا</span>
+							</div>
+							<div class={`p-2.5 rounded-[14px] border flex items-center gap-2 ${tgInfo()?.has_aggressive_anti_spam_enabled ? 'bg-[#10b981]/10 border-[#10b981]/30 text-[#10b981]' : 'bg-white/5 border-white/5 text-white/40'}`}>
+								<span class="material-symbols-outlined text-[16px]">shield</span>
+								<span class="font-bold">ضداسپم نیتیو تلگرام</span>
+							</div>
+							<div class={`p-2.5 rounded-[14px] border flex items-center gap-2 ${tgInfo()?.join_by_request ? 'bg-[#10b981]/10 border-[#10b981]/30 text-[#10b981]' : 'bg-white/5 border-white/5 text-white/40'}`}>
+								<span class="material-symbols-outlined text-[16px]">verified_user</span>
+								<span class="font-bold">ورود با درخواست</span>
+							</div>
+						</div>
+					</div>
+				</Show>
+
 				{/* ═══════ HERO: ACADEMY PROGRESS & EMERGENCY LOCK ═══════ */}
 				<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[28px] p-5 flex flex-col gap-4 shadow-sm relative overflow-hidden">
 					<div class="absolute -right-8 -top-8 w-28 h-28 bg-[#3390ec]/10 blur-2xl rounded-full pointer-events-none" />
@@ -257,18 +295,20 @@ export const GroupDashboardPage: Component = () => {
 								<circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="6" />
 								<circle
 									cx="32" cy="32" r="26" fill="none" stroke="#3390ec" stroke-width="6" stroke-linecap="round"
-									stroke-dasharray={`${(progress() / 100) * 163} 163`}
+									stroke-dasharray={`${(academyProgressData().percentage / 100) * 163} 163`}
 									class="transition-all duration-1000 ease-out"
 								/>
 							</svg>
 							<span class="absolute inset-0 flex items-center justify-center text-[13px] font-black font-mono text-white">
-								{progress()}%
+								{academyProgressData().percentage}%
 							</span>
 						</div>
 
 						<div class="flex flex-col">
 							<h2 class="text-[15px] font-black text-white tracking-tight">{t('groupLessons.heroTitle')}</h2>
-							<p class="text-[11px] text-white/50 font-bold mt-1 leading-relaxed">{t('groupLessons.heroDesc')}</p>
+							<p class="text-[11px] text-white/50 font-bold mt-1 leading-relaxed">
+								{academyProgressData().completedCount} از {academyProgressData().totalCount} سپر امنیتی فعال است
+							</p>
 						</div>
 					</div>
 
@@ -341,79 +381,125 @@ export const GroupDashboardPage: Component = () => {
 				</div>
 
 				{/* ═══════ 0 TO 100 INTERACTIVE GROUP LESSON CARDS ═══════ */}
-
 				<div class="flex flex-col gap-4">
 					<EphemeralLessonCard
 						isDone={isFeatureDone('ephemeral')}
 						onNavigate={() => navigateWithFeedback(`/group/${params.id}/settings`)}
 					/>
-
 					<AntiSpamLessonCard
 						isDone={isFeatureDone('antiSpam')}
 						onNavigate={() => navigateWithFeedback(`/group/${params.id}/content`)}
 					/>
-
 					<QuietHoursLessonCard
 						isDone={isFeatureDone('quietHours')}
 						onNavigate={() => navigateWithFeedback(`/group/${params.id}/quiet`)}
 					/>
-
 					<LimitsLessonCard
 						isDone={isFeatureDone('limits')}
 						onNavigate={() => navigateWithFeedback(`/group/${params.id}/limits`)}
 					/>
-
 					<MandatoryLessonCard
 						isDone={isFeatureDone('mandatory')}
 						onNavigate={() => navigateWithFeedback(`/group/${params.id}/mandatory`)}
 					/>
-
 					<CustomTextsLessonCard
 						isDone={isFeatureDone('customTexts')}
 						onNavigate={() => navigateWithFeedback(`/group/${params.id}/settings/custom-texts`)}
 					/>
-
 					<GroupDynamicBioLessonCard
 						isDone={isFeatureDone('dynamicBio')}
 						onNavigate={() => navigateWithFeedback(`/group/${params.id}/dynamic-bio`)}
 					/>
 				</div>
-
 			</div>
 
-			{/* ═══════ EMERGENCY LOCK MODAL ═══════ */}
-			<Show when={showLockConfirm()}>
-				<div class="fixed inset-0 z-[9990] bg-[#030303]/90 backdrop-blur-2xl flex items-center justify-center p-5" onClick={(e) => { if (e.target === e.currentTarget) setShowLockConfirm(false); }}>
-					<Motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.3, easing: [0.32, 0.72, 0, 1] }} class="w-full max-w-sm max-h-[85vh] overflow-y-auto no-scrollbar bg-[#12141C] border border-white/10 rounded-[32px] p-7 flex flex-col gap-5 shadow-[0_20px_60px_rgba(0,0,0,0.8)] relative">
-						<div class="absolute -top-10 -left-10 w-32 h-32 bg-[#ff4a4a]/20 blur-3xl rounded-full pointer-events-none" />
-						
-						<div class="w-16 h-16 rounded-[20px] bg-[#ff4a4a]/10 border border-[#ff4a4a]/30 flex items-center justify-center shadow-inner relative z-10 mx-auto mb-2">
-							<span class="material-symbols-outlined text-[#ff4a4a] text-[32px] drop-shadow-md">lock</span>
+			{/* ═══════ 10-SECOND UNDO SNACKBAR ═══════ */}
+			<Show when={showUndoSnackbar()}>
+				<div class="fixed bottom-6 left-5 right-5 z-50 flex justify-center animate-slide-up pointer-events-auto">
+					<div class="max-w-md w-full bg-[#181926] border border-[#ff4a4a]/40 rounded-[20px] p-4 shadow-2xl flex items-center justify-between gap-3">
+						<div class="flex items-center gap-3">
+							<span class="w-3 h-3 rounded-full bg-[#ff4a4a] animate-pulse shrink-0" />
+							<span class="text-[13px] font-bold text-white">گروه قفل شد (ارسال پیام مسدود شد)</span>
 						</div>
-
-						<div class="flex flex-col items-center text-center gap-1.5 relative z-10">
-							<h3 class="text-[18px] font-black text-white tracking-tight">{t('groupDashboard.toggleLockModalTitle')}</h3>
-							<p class="text-[12px] text-white/50 leading-relaxed font-medium px-2">
-								{t('groupDashboard.toggleLockModalDesc')}
-							</p>
-						</div>
-
-						<div class="flex flex-col gap-3 pt-2 relative z-10 w-full">
-							<button onClick={confirmToggleGroupLock} disabled={isLocking()} class="w-full h-14 bg-[#ff4a4a] hover:bg-[#ff3b30] rounded-[16px] text-[13px] font-black uppercase tracking-widest text-white shadow-[0_8px_24px_rgba(255,74,74,0.3)] active:scale-95 transition-all flex items-center justify-center gap-2 border border-white/10">
-								<Show when={!isLocking()} fallback={<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}>
-									<span class="material-symbols-outlined text-[20px]">{isGroupLocked() ? 'lock_open' : 'lock'}</span>
-									{isGroupLocked() ? t('groupDashboard.unlockGroupBtn') : t('groupDashboard.confirmLockGroupBtn')}
-								</Show>
-							</button>
-							<button onClick={() => setShowLockConfirm(false)} class="w-full h-14 bg-transparent hover:bg-white/5 rounded-[16px] text-[13px] font-bold uppercase tracking-widest text-white/60 hover:text-white transition-all active:scale-95 border border-transparent hover:border-white/5">
-								{t('common.cancel')}
-							</button>
-						</div>
-					</Motion.div>
+						<button
+							onClick={handleUndoLock}
+							class="px-3.5 py-1.5 rounded-[12px] bg-[#ff4a4a]/20 hover:bg-[#ff4a4a]/30 text-[#ff4a4a] border border-[#ff4a4a]/30 text-[12px] font-black active:scale-95 transition-all shrink-0"
+						>
+							لغو (Undo)
+						</button>
+					</div>
 				</div>
 			</Show>
 
-			<HamburgerMenu isOpen={isMenuOpen()} onClose={() => setIsMenuOpen(false)} groupId={params.id} activeTab="dashboard" />
+			{/* ═══════ EMERGENCY LOCK CONFIRM MODAL ═══════ */}
+			<Show when={showLockConfirm()}>
+				<div
+					class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-5 animate-fade-in"
+					onClick={(e) => {
+						if (e.target === e.currentTarget) setShowLockConfirm(false);
+					}}
+				>
+					<div
+						class="w-full max-w-md bg-[#12141C] border border-white/10 rounded-t-[28px] sm:rounded-[28px] p-6 shadow-2xl flex flex-col gap-4 animate-slide-up"
+					>
+						<div class="flex items-center gap-3">
+							<div
+								class={`w-12 h-12 rounded-[16px] flex items-center justify-center shrink-0 border ${
+									isGroupLocked()
+										? 'bg-[#10b981]/15 text-[#10b981] border-[#10b981]/30'
+										: 'bg-[#ff4a4a]/15 text-[#ff4a4a] border-[#ff4a4a]/30'
+								}`}
+							>
+								<span class="material-symbols-outlined text-[24px]">
+									{isGroupLocked() ? 'lock_open' : 'lock'}
+								</span>
+							</div>
+							<div class="flex flex-col">
+								<h3 class="text-[16px] font-black text-white leading-tight">
+									{isGroupLocked()
+										? t('groupDashboard.unlockGroupBtn')
+										: t('groupDashboard.toggleLockModalTitle')}
+								</h3>
+								<span class="text-[11px] text-white/50 font-bold mt-0.5">
+									{t('groupDashboard.attentionTitle')}
+								</span>
+							</div>
+						</div>
+
+						<p class="text-[13px] text-white/70 leading-relaxed font-medium">
+							{t('groupDashboard.toggleLockModalDesc')}
+						</p>
+
+						<div class="flex gap-3 pt-2">
+							<button
+								onClick={() => setShowLockConfirm(false)}
+								class="flex-1 h-12 rounded-[14px] bg-white/5 hover:bg-white/10 text-white/70 font-bold text-[13px] transition-colors active:scale-95"
+							>
+								{t('common.cancel')}
+							</button>
+							<button
+								onClick={confirmToggleGroupLock}
+								class={`flex-1 h-12 rounded-[14px] font-black text-[13px] shadow-lg transition-all active:scale-95 ${
+									isGroupLocked()
+										? 'bg-[#10b981] hover:bg-[#059669] text-white shadow-[#10b981]/20'
+										: 'bg-[#ff4a4a] hover:bg-[#e03838] text-white shadow-[#ff4a4a]/20'
+								}`}
+							>
+								{isGroupLocked()
+									? t('groupDashboard.unlockGroupBtn')
+									: t('groupDashboard.confirmLockGroupBtn')}
+							</button>
+						</div>
+					</div>
+				</div>
+			</Show>
+
+			<HamburgerMenu
+				isOpen={isMenuOpen()}
+				onClose={() => setIsMenuOpen(false)}
+				groupId={params.id}
+				activeTab="dashboard"
+			/>
 		</div>
 	);
 };

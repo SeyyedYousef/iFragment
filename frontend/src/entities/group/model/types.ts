@@ -72,6 +72,41 @@ export interface AnalyticsData {
 	activity: DailyMetric[];
 }
 
+export interface GroupTelegramInfo {
+	has_protected_content: boolean;
+	has_hidden_members: boolean;
+	has_aggressive_anti_spam_enabled: boolean;
+	join_to_send_messages: boolean;
+	join_by_request: boolean;
+	slow_mode_delay: number;
+	can_change_info: boolean;
+	permissions?: Record<string, boolean>;
+}
+
+export interface MemberWarning {
+	user_id: number;
+	username: string;
+	first_name: string;
+	warning_count: number;
+	threshold: number;
+	last_reason: string;
+	updated_at: string;
+}
+
+export interface HeatmapHour {
+	day: number; // 0 (Sun) to 6 (Sat)
+	hour: number; // 0 to 23
+	count: number;
+}
+
+export interface ModerationWorkload {
+	deleted_messages: number;
+	warnings_issued: number;
+	users_muted: number;
+	users_kicked: number;
+	users_banned: number;
+}
+
 export interface AuditLog {
 	id: string;
 	group_id: string;

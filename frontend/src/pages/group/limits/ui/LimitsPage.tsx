@@ -5,6 +5,7 @@ import {
 	Component,
 	createResource,
 	createSignal,
+	For,
 	onCleanup,
 	onMount,
 	Show,
@@ -14,13 +15,39 @@ import { createStore, reconcile } from 'solid-js/store';
 import { groupApi } from '@/entities/group/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
-import { NumberInputField } from '@/shared/ui/settings-controls.js';
+import { SettingsGuard } from '@/shared/ui/SettingsGuard.js';
 import { showToast } from '@/shared/ui/toast.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
-interface LimitsConfig { minMessageLength: number; maxMessageLength: number; floodMessages: number; floodWindow: number; duplicateCount: number; duplicateWindow: number; }
+interface LimitsConfig {
+	minMessageLength: number;
+	maxMessageLength: number;
+	floodMessages: number;
+	floodWindow: number;
+	duplicateCount: number;
+	duplicateWindow: number;
+	slowMode: number;
+}
 
-const defaultConfig: LimitsConfig = { minMessageLength: 0, maxMessageLength: 0, floodMessages: 0, floodWindow: 0, duplicateCount: 0, duplicateWindow: 0 };
+const defaultConfig: LimitsConfig = {
+	minMessageLength: 0,
+	maxMessageLength: 0,
+	floodMessages: 5,
+	floodWindow: 5,
+	duplicateCount: 2,
+	duplicateWindow: 10,
+	slowMode: 0,
+};
+
+const SLOW_MODE_PRESETS = [
+	{ label: '0s (خاموش)', value: 0 },
+	{ label: '10s', value: 10 },
+	{ label: '30s', value: 30 },
+	{ label: '1m', value: 60 },
+	{ label: '5m', value: 300 },
+	{ label: '15m', value: 900 },
+	{ label: '1h', value: 3600 },
+];
 
 export const LimitsPage: Component = () => {
 	const navigate = useNavigate();
@@ -29,35 +56,44 @@ export const LimitsPage: Component = () => {
 	const [isMenuOpen, setIsMenuOpen] = createSignal(false);
 	const [isSaving, setIsSaving] = createSignal(false);
 	const [isDirty, setIsDirty] = createSignal(false);
+	const [showUnsavedSheet, setShowUnsavedSheet] = createSignal(false);
 	const [settingsVersion, setSettingsVersion] = createSignal(1);
 
 	const [limits, setLimits] = createStore<LimitsConfig>({ ...defaultConfig });
+	const [initialLimits, setInitialLimits] = createSignal<LimitsConfig>({ ...defaultConfig });
 
 	const [_, { refetch }] = createResource(() => params.id, async (groupId) => {
 		const data = await groupApi.getSettings(groupId);
 		setSettingsVersion(data.version);
 
 		const remoteLimits = (data.limits || {}) as any;
-		const mappedLimits = {
+		const mappedLimits: LimitsConfig = {
 			minMessageLength: remoteLimits.minMessageLength ?? 0,
 			maxMessageLength: remoteLimits.maxMessageLength ?? 0,
 			floodMessages: remoteLimits.floodMessages || 5,
 			floodWindow: remoteLimits.floodWindow || 5,
 			duplicateCount: remoteLimits.duplicateCount || 2,
 			duplicateWindow: remoteLimits.duplicateWindow || 10,
+			slowMode: remoteLimits.slowMode ?? 0,
 		};
 
+		setInitialLimits({ ...mappedLimits });
 		setLimits(reconcile({ ...defaultConfig, ...mappedLimits }));
 		setIsDirty(false);
 		return data;
 	});
 
+	const handleBack = () => {
+		if (isDirty()) {
+			setShowUnsavedSheet(true);
+			return;
+		}
+		window.history.back();
+	};
+
 	onMount(() => {
 		backButton.show();
-		const off = backButton.onClick(() => {
-			haptic.impact('light');
-			window.history.back();
-		});
+		const off = backButton.onClick(handleBack);
 		onCleanup(() => off());
 	});
 
@@ -67,8 +103,7 @@ export const LimitsPage: Component = () => {
 	};
 
 	const handleSave = async () => {
-		if (!isDirty()) return;
-		haptic.notify('success');
+		if (!isDirty() || isSaving()) return;
 		setIsSaving(true);
 		try {
 			const payload = {
@@ -78,19 +113,29 @@ export const LimitsPage: Component = () => {
 				floodWindow: limits.floodWindow,
 				duplicateCount: limits.duplicateCount,
 				duplicateWindow: limits.duplicateWindow,
+				slowMode: limits.slowMode,
 			};
 			const result = await groupApi.updateSettings(params.id, 'limits', payload, settingsVersion());
 			setSettingsVersion(result.version);
+			setInitialLimits({ ...payload });
 			setIsDirty(false);
+			setShowUnsavedSheet(false);
+			haptic.notify('success');
 			showToast(t('common.settingsSaved'), 'success');
 			navigate(`/group/${params.id}`);
-			backButton.hide();
 		} catch (_e) {
-			showToast(t('common.errorUpdateFailed'), 'error');
 			haptic.notify('error');
+			showToast(t('common.errorUpdateFailed'), 'error');
 		} finally {
 			setIsSaving(false);
 		}
+	};
+
+	const handleDiscard = () => {
+		setLimits(reconcile({ ...initialLimits() }));
+		setIsDirty(false);
+		setShowUnsavedSheet(false);
+		window.history.back();
 	};
 
 	return (
@@ -99,11 +144,11 @@ export const LimitsPage: Component = () => {
 			{/* Ambient Top Glow */}
 			<div class="absolute top-0 left-0 right-0 h-[350px] bg-gradient-to-b from-[#3390ec]/15 via-transparent to-transparent blur-[80px] pointer-events-none z-0" />
 
-			{/* ═══════ PREMIUM STICKY HEADER ═══════ */}
+			{/* ═══════ STICKY HEADER ═══════ */}
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm">
 				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
-						onClick={() => { haptic.impact('light'); window.history.back(); }}
+						onClick={() => { haptic.impact('light'); handleBack(); }}
 						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm"
 						aria-label={t('common.back')}
 					>
@@ -115,12 +160,12 @@ export const LimitsPage: Component = () => {
 								{t('limitsSettings.title')}
 							</h1>
 							<Show when={isDirty()}>
-								<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0 shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
+								<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
 							</Show>
 						</div>
-						<p class="text-[11px] text-white/50 font-bold uppercase tracking-wider leading-snug truncate mt-0.5">
-							{t('limitsSettings.subtitle')}
-						</p>
+						<span class="text-[11px] text-white/50 font-bold uppercase tracking-wider leading-snug truncate mt-0.5">
+							{t('limitsSettings.description')}
+						</span>
 					</div>
 				</div>
 
@@ -135,106 +180,184 @@ export const LimitsPage: Component = () => {
 
 			<HamburgerMenu isOpen={isMenuOpen()} onClose={() => setIsMenuOpen(false)} groupId={params.id} activeTab="limits" />
 
-			<Suspense fallback={null}>
-				<div class="p-5 flex flex-col gap-4 max-w-md mx-auto relative z-10 w-full">
+			<Suspense fallback={<div class="p-8 flex justify-center"><div class="w-8 h-8 border-2 border-[#3390ec] border-t-transparent rounded-full animate-spin" /></div>}>
+				<div class="p-5 flex flex-col gap-5 max-w-md mx-auto relative z-10 w-full">
 					
-					{/* ═══════ INFO BANNER (Rule of Zero) ═══════ */}
-					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} class="bg-gradient-to-br from-[#3390ec]/10 to-transparent border border-[#3390ec]/20 rounded-[20px] p-4 flex items-start gap-3.5 shadow-sm relative overflow-hidden">
-						<div class="absolute -right-6 -top-6 w-24 h-24 bg-[#3390ec]/10 blur-2xl rounded-full pointer-events-none" />
-						<div class="w-9 h-9 rounded-[10px] bg-[#3390ec]/15 border border-[#3390ec]/30 flex items-center justify-center shrink-0 mt-0.5 shadow-inner">
-							<span class="material-symbols-outlined text-[#3390ec] text-[20px]">info</span>
-						</div>
-						<div class="flex flex-col relative z-10">
-							<span class="text-[13px] font-black text-white mb-1 tracking-tight">{t('limitsSettings.ruleOfZero')}</span>
-							<span class="text-[11px] text-white/60 leading-relaxed font-medium">
-								{t('limitsSettings.ruleOfZeroDesc')}<br />
-								<span class="text-[#3390ec] font-bold">{t('limitsSettings.ruleOfZeroExample')}</span> {t('limitsSettings.ruleOfZeroExampleText')}
-							</span>
+					{/* ═══════ NATIVE SLOW MODE CARD ═══════ */}
+					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+						<div class="bg-[#12141C]/80 backdrop-blur-xl border border-[#3390ec]/20 rounded-[24px] p-5 shadow-sm relative overflow-hidden flex flex-col gap-4">
+							<div class="flex items-center justify-between">
+								<div class="flex items-center gap-2">
+									<span class="material-symbols-outlined text-[#3390ec] text-[20px]">hourglass_bottom</span>
+									<h2 class="text-[13px] font-black text-[#3390ec] uppercase tracking-widest">اسلومود نیتیو تلگرام (Slow Mode)</h2>
+								</div>
+								<span class="text-[9px] font-black bg-[#3390ec]/20 text-[#3390ec] border border-[#3390ec]/30 px-2 py-0.5 rounded-[6px] uppercase tracking-widest">NATIVE</span>
+							</div>
+
+							<p class="text-[11px] text-white/50 leading-relaxed font-medium">
+								تعیین حداقل فاصله زمانی بین ارسال پیام‌های کاربران عادی مستقیماً در سرورهای تلگرام.
+							</p>
+
+							{/* Presets */}
+							<div class="grid grid-cols-4 gap-2">
+								<For each={SLOW_MODE_PRESETS}>
+									{(preset) => (
+										<button
+											type="button"
+											onClick={() => {
+												haptic.selection();
+												updateField('slowMode', preset.value);
+											}}
+											class={`h-10 rounded-[12px] text-[12px] font-mono font-bold transition-all border ${
+												limits.slowMode === preset.value
+													? 'bg-[#3390ec] text-white border-transparent shadow-[0_0_12px_rgba(51,144,236,0.5)]'
+													: 'bg-[#08090D] text-white/60 border-white/10 hover:border-white/20'
+											}`}
+										>
+											{preset.label}
+										</button>
+									)}
+								</For>
+							</div>
+
+							<div class="flex items-center gap-3 pt-1">
+								<input
+									type="range"
+									min="0"
+									max="3600"
+									step="10"
+									value={limits.slowMode}
+									onInput={(e) => updateField('slowMode', parseInt(e.currentTarget.value, 10) || 0)}
+									class="w-full accent-[#3390ec] cursor-pointer"
+								/>
+								<span class="text-[13px] font-mono font-black text-white shrink-0 min-w-[50px] text-end">
+									{limits.slowMode}s
+								</span>
+							</div>
 						</div>
 					</Motion.div>
 
-					{/* ═══════ DANGER BANNER (Loss Aversion) ═══════ */}
-					<Show when={limits.floodMessages === 0 || limits.duplicateCount === 0}>
-						<Motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} class="bg-[#ff4a4a]/10 border border-[#ff4a4a]/20 rounded-[20px] p-4 flex items-start gap-3.5 shadow-sm">
-							<div class="w-9 h-9 rounded-[10px] bg-[#ff4a4a]/15 border border-[#ff4a4a]/30 flex items-center justify-center shrink-0 mt-0.5 shadow-inner">
-								<span class="material-symbols-outlined text-[#ff4a4a] text-[20px]">warning</span>
+					{/* ═══════ FLOOD CONTROL CARD ═══════ */}
+					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+						<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 shadow-sm relative overflow-hidden flex flex-col gap-4">
+							<div class="flex items-center gap-2">
+								<span class="material-symbols-outlined text-amber-400 text-[20px]">flood</span>
+								<h2 class="text-[13px] font-black text-amber-400 uppercase tracking-widest">{t('limitsSettings.floodControl')}</h2>
 							</div>
-							<div class="flex flex-col">
-								<span class="text-[13px] font-black text-[#ff4a4a] mb-1 tracking-tight">
-									{t('limitsSettings.warningTitle')}
-								</span>
-								<span class="text-[11px] text-[#ff4a4a]/70 leading-relaxed font-bold">
-									{t('limitsSettings.warningDesc')}
-								</span>
+
+							<div class="grid grid-cols-2 gap-3.5">
+								<div class="flex flex-col gap-1.5">
+									<label class="text-[11px] font-bold text-white/60 uppercase tracking-wider">{t('limitsSettings.maxMessages')}</label>
+									<div class="relative flex items-center">
+										<input
+											type="number" min="1" max="100" value={limits.floodMessages}
+											onInput={(e) => updateField('floodMessages', parseInt(e.currentTarget.value, 10) || 1)}
+											class="w-full h-12 bg-[#08090D] border border-white/10 text-white font-mono font-bold text-[14px] rounded-[14px] px-4 focus:outline-none focus:border-amber-400/50 text-center"
+											dir="ltr"
+										/>
+										<span class="absolute right-3 text-[10px] text-white/40 pointer-events-none font-bold">پیام</span>
+									</div>
+								</div>
+								<div class="flex flex-col gap-1.5">
+									<label class="text-[11px] font-bold text-white/60 uppercase tracking-wider">{t('limitsSettings.timeWindow')}</label>
+									<div class="relative flex items-center">
+										<input
+											type="number" min="1" max="600" value={limits.floodWindow}
+											onInput={(e) => updateField('floodWindow', parseInt(e.currentTarget.value, 10) || 1)}
+											class="w-full h-12 bg-[#08090D] border border-white/10 text-white font-mono font-bold text-[14px] rounded-[14px] px-4 focus:outline-none focus:border-amber-400/50 text-center"
+											dir="ltr"
+										/>
+										<span class="absolute right-3 text-[10px] text-white/40 pointer-events-none font-bold">ثانیه</span>
+									</div>
+								</div>
 							</div>
-						</Motion.div>
-					</Show>
+						</div>
+					</Motion.div>
 
 					{/* ═══════ MESSAGE LENGTH LIMITS ═══════ */}
-					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 shadow-sm relative overflow-hidden flex flex-col gap-4 mt-2">
-						<div class="absolute -right-6 -top-6 w-24 h-24 bg-[#3390ec]/10 blur-2xl rounded-full pointer-events-none" />
-						<div class="flex items-center gap-2 mb-1 relative z-10">
-							<span class="material-symbols-outlined text-[20px] text-[#3390ec]">sort_by_alpha</span>
-							<h3 class="text-[13px] font-black text-[#3390ec] uppercase tracking-widest">{t('limitsSettings.messageLength')}</h3>
-						</div>
-						<div class="relative z-10 flex flex-col gap-4">
-							<NumberInputField label={t('limitsSettings.minLen')} description={t('limitsSettings.minLenDesc')} value={limits.minMessageLength} onChange={(v) => updateField('minMessageLength', v)} placeholder="0" />
-							<div class="w-full h-[1px] bg-white/5 rounded-full my-1" />
-							<NumberInputField label={t('limitsSettings.maxLen')} description={t('limitsSettings.maxLenDesc')} value={limits.maxMessageLength} onChange={(v) => updateField('maxMessageLength', v)} placeholder="0" />
+					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+						<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 shadow-sm relative overflow-hidden flex flex-col gap-4">
+							<div class="flex items-center gap-2">
+								<span class="material-symbols-outlined text-[#10b981] text-[20px]">text_fields</span>
+								<h2 class="text-[13px] font-black text-[#10b981] uppercase tracking-widest">{t('limitsSettings.messageLength')}</h2>
+							</div>
+
+							<div class="grid grid-cols-2 gap-3.5">
+								<div class="flex flex-col gap-1.5">
+									<label class="text-[11px] font-bold text-white/60 uppercase tracking-wider">{t('limitsSettings.minLength')}</label>
+									<div class="relative flex items-center">
+										<input
+											type="number" min="0" max="4096" value={limits.minMessageLength}
+											onInput={(e) => updateField('minMessageLength', parseInt(e.currentTarget.value, 10) || 0)}
+											class="w-full h-12 bg-[#08090D] border border-white/10 text-white font-mono font-bold text-[14px] rounded-[14px] px-4 focus:outline-none focus:border-[#10b981]/50 text-center"
+											dir="ltr"
+										/>
+										<span class="absolute right-3 text-[10px] text-white/40 pointer-events-none font-bold">حرف</span>
+									</div>
+								</div>
+								<div class="flex flex-col gap-1.5">
+									<label class="text-[11px] font-bold text-white/60 uppercase tracking-wider">{t('limitsSettings.maxLength')}</label>
+									<div class="relative flex items-center">
+										<input
+											type="number" min="0" max="4096" value={limits.maxMessageLength}
+											onInput={(e) => updateField('maxMessageLength', parseInt(e.currentTarget.value, 10) || 0)}
+											class="w-full h-12 bg-[#08090D] border border-white/10 text-white font-mono font-bold text-[14px] rounded-[14px] px-4 focus:outline-none focus:border-[#10b981]/50 text-center"
+											dir="ltr"
+										/>
+										<span class="absolute right-3 text-[10px] text-white/40 pointer-events-none font-bold">حرف</span>
+									</div>
+								</div>
+							</div>
 						</div>
 					</Motion.div>
 
-					{/* ═══════ FLOOD CONTROL ═══════ */}
-					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 shadow-sm relative overflow-hidden flex flex-col gap-4 mt-1">
-						<div class="absolute -left-6 -top-6 w-24 h-24 bg-amber-400/10 blur-2xl rounded-full pointer-events-none" />
-						<div class="flex items-center gap-2 mb-1 relative z-10">
-							<span class="material-symbols-outlined text-[20px] text-amber-400">speed</span>
-							<h3 class="text-[13px] font-black text-amber-400 uppercase tracking-widest">{t('limitsSettings.floodControl')}</h3>
-						</div>
-						<div class="relative z-10 flex flex-col gap-4">
-							<NumberInputField label={t('limitsSettings.floodMsgs')} description={t('limitsSettings.floodMsgsDesc')} value={limits.floodMessages} onChange={(v) => updateField('floodMessages', v)} placeholder="0" />
-							<div class="w-full h-[1px] bg-white/5 rounded-full my-1" />
-							<NumberInputField label={t('limitsSettings.floodWin')} description={t('limitsSettings.floodWinDesc')} value={limits.floodWindow} onChange={(v) => updateField('floodWindow', v)} placeholder="0" />
-						</div>
-					</Motion.div>
+					{/* ═══════ DUPLICATE MESSAGES ═══════ */}
+					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+						<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 shadow-sm relative overflow-hidden flex flex-col gap-4">
+							<div class="flex items-center gap-2">
+								<span class="material-symbols-outlined text-[#ff4a4a] text-[20px]">content_copy</span>
+								<h2 class="text-[13px] font-black text-[#ff4a4a] uppercase tracking-widest">{t('limitsSettings.duplicateMessages')}</h2>
+							</div>
 
-					{/* ═══════ DUPLICATE PROTECTION ═══════ */}
-					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 shadow-sm relative overflow-hidden flex flex-col gap-4 mt-1">
-						<div class="absolute -right-6 -bottom-6 w-24 h-24 bg-[#10b981]/10 blur-2xl rounded-full pointer-events-none" />
-						<div class="flex items-center gap-2 mb-1 relative z-10">
-							<span class="material-symbols-outlined text-[20px] text-[#10b981]">file_copy</span>
-							<h3 class="text-[13px] font-black text-[#10b981] uppercase tracking-widest">{t('limitsSettings.duplicateProtection')}</h3>
-						</div>
-						<div class="relative z-10 flex flex-col gap-4">
-							<NumberInputField label={t('limitsSettings.dupCount')} description={t('limitsSettings.dupCountDesc')} value={limits.duplicateCount} onChange={(v) => updateField('duplicateCount', v)} placeholder="0" />
-							<div class="w-full h-[1px] bg-white/5 rounded-full my-1" />
-							<NumberInputField label={t('limitsSettings.dupWin')} description={t('limitsSettings.dupWinDesc')} value={limits.duplicateWindow} onChange={(v) => updateField('duplicateWindow', v)} placeholder="0" />
+							<div class="grid grid-cols-2 gap-3.5">
+								<div class="flex flex-col gap-1.5">
+									<label class="text-[11px] font-bold text-white/60 uppercase tracking-wider">{t('limitsSettings.maxDuplicates')}</label>
+									<div class="relative flex items-center">
+										<input
+											type="number" min="1" max="20" value={limits.duplicateCount}
+											onInput={(e) => updateField('duplicateCount', parseInt(e.currentTarget.value, 10) || 1)}
+											class="w-full h-12 bg-[#08090D] border border-white/10 text-white font-mono font-bold text-[14px] rounded-[14px] px-4 focus:outline-none focus:border-[#ff4a4a]/50 text-center"
+											dir="ltr"
+										/>
+										<span class="absolute right-3 text-[10px] text-white/40 pointer-events-none font-bold">بار</span>
+									</div>
+								</div>
+								<div class="flex flex-col gap-1.5">
+									<label class="text-[11px] font-bold text-white/60 uppercase tracking-wider">{t('limitsSettings.duplicateWindow')}</label>
+									<div class="relative flex items-center">
+										<input
+											type="number" min="1" max="600" value={limits.duplicateWindow}
+											onInput={(e) => updateField('duplicateWindow', parseInt(e.currentTarget.value, 10) || 1)}
+											class="w-full h-12 bg-[#08090D] border border-white/10 text-white font-mono font-bold text-[14px] rounded-[14px] px-4 focus:outline-none focus:border-[#ff4a4a]/50 text-center"
+											dir="ltr"
+										/>
+										<span class="absolute right-3 text-[10px] text-white/40 pointer-events-none font-bold">ثانیه</span>
+									</div>
+								</div>
+							</div>
 						</div>
 					</Motion.div>
 				</div>
 			</Suspense>
 
-			{/* ═══════ FLOATING ACTION BAR ═══════ */}
-			<Show when={isDirty()}>
-				<div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#030303] via-[#030303]/90 to-transparent z-40 pointer-events-none">
-					<div class="max-w-md mx-auto flex gap-3 pointer-events-auto">
-						<button
-							onClick={() => refetch()} disabled={isSaving()}
-							class="w-16 h-14 bg-[#12141C]/80 backdrop-blur-md text-[#ff4a4a] border border-[#ff4a4a]/20 rounded-[16px] transition-all flex items-center justify-center hover:bg-[#ff4a4a]/10 active:scale-95 shadow-sm"
-						>
-							<span class="material-symbols-outlined text-[24px]">close</span>
-						</button>
-						<button
-							onClick={handleSave} disabled={isSaving()}
-							class="flex-1 h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] hover:from-[#2b7ec9] hover:to-[#3390ec] text-white rounded-[16px] font-black text-[14px] uppercase tracking-widest shadow-[0_10px_30px_rgba(51,144,236,0.35)] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:scale-100 active:scale-95 border border-white/10"
-						>
-							<Show when={!isSaving()} fallback={<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}>
-								{t('generalSettings.saveSettings')} <span class="material-symbols-outlined text-[22px]">save</span>
-							</Show>
-						</button>
-					</div>
-				</div>
-			</Show>
+			<SettingsGuard
+				isDirty={isDirty()}
+				isSaving={isSaving()}
+				showSheet={showUnsavedSheet()}
+				onSave={handleSave}
+				onDiscard={handleDiscard}
+				onCloseSheet={() => setShowUnsavedSheet(false)}
+			/>
 		</div>
 	);
 };

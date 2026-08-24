@@ -215,8 +215,71 @@ func (s *ModeratorService) checkAntiRaid(ctx context.Context, groupID uuid.UUID)
 				_ = s.settingsRepo.ForceUpdateQuietHours(ctx, groupID, raw)
 				slog.Info("ANTI-RAID TRIGGERED for group. Lockdown enabled.", "group_id", groupID)
 			}
+		} else if gen.AntiRaidAction == "alert" {
+			alertKey := fmt.Sprintf("anti_raid_alert:%s", groupID)
+			if set, _ := s.cache.Client.SetNX(ctx, alertKey, "1", 1*time.Minute).Result(); set {
+				bot, err := s.botRepo.GetBotByID(ctx, group.BotID)
+				if err == nil && bot != nil {
+					tgClient, tgErr := s.GetTelegramClient(ctx, bot)
+					if tgErr == nil {
+						targetUserID := bot.OwnerUserID
+						if group.ConnectedByUserID != nil {
+							targetUserID = *group.ConnectedByUserID
+						}
+						alertMsg := fmt.Sprintf("🚨 <b>Anti-Raid Alert:</b> High join activity in <b>%s</b> (%d joins in 1 minute).", telegram.EscapeHTML(group.ChatTitle), count)
+						_ = tgClient.SendMessage(ctx, targetUserID, alertMsg, nil, nil)
+						_ = tgClient.SendMessage(ctx, group.ChatID, alertMsg, nil, nil)
+					}
+				}
+				slog.Info("ANTI-RAID ALERT TRIGGERED for group", "group_id", groupID, "count", count)
+			}
 		}
 	}
+}
+
+// SyncNativeChatPermissions synchronizes Always restrictions with Telegram's native setChatPermissions
+func (s *ModeratorService) SyncNativeChatPermissions(ctx context.Context, bot *repository.ManagedBot, groupID uuid.UUID, content *repository.SettingsContentRestrictions) error {
+	if content == nil {
+		return nil
+	}
+	group, err := s.botRepo.GetGroupByID(ctx, groupID)
+	if err != nil || group == nil {
+		return err
+	}
+	tgClient, err := s.GetTelegramClient(ctx, bot)
+	if err != nil {
+		return err
+	}
+
+	canSendAudios := !(content.BlockAudio.Enabled && content.BlockAudio.Window == "Always")
+	canSendDocs := !(content.BlockFiles.Enabled && content.BlockFiles.Window == "Always")
+	canSendPhotos := !(content.BlockPhotos.Enabled && content.BlockPhotos.Window == "Always")
+	canSendVideos := !(content.BlockGifs.Enabled && content.BlockGifs.Window == "Always")
+	canSendVoice := !(content.BlockVoiceMessages.Enabled && content.BlockVoiceMessages.Window == "Always")
+	canSendPolls := !(content.BlockPolls.Enabled && content.BlockPolls.Window == "Always")
+	canSendOther := !(content.BlockStickers.Enabled && content.BlockStickers.Window == "Always")
+	canAddPreviews := !(content.RemoveLinks.Enabled && content.RemoveLinks.Window == "Always")
+	canSendMsgs := true
+
+	perms := telegram.ChatPermissions{
+		CanSendMessages:       &canSendMsgs,
+		CanSendAudios:         &canSendAudios,
+		CanSendDocuments:      &canSendDocs,
+		CanSendPhotos:         &canSendPhotos,
+		CanSendVideos:         &canSendVideos,
+		CanSendVoiceNotes:     &canSendVoice,
+		CanSendPolls:          &canSendPolls,
+		CanSendOtherMessages:  &canSendOther,
+		CanAddWebPagePreviews: &canAddPreviews,
+	}
+
+	err = tgClient.SetChatPermissions(ctx, group.ChatID, perms, true)
+	if err != nil {
+		slog.Warn("Failed to sync native chat permissions with Telegram (falling back to post-hoc)", "chat_id", group.ChatID, "error", err)
+	} else {
+		slog.Info("Successfully synced native chat permissions with Telegram", "chat_id", group.ChatID)
+	}
+	return nil
 }
 
 // Violation represents a detected rule violation.
@@ -877,23 +940,31 @@ func (s *ModeratorService) checkAllContent(c repository.SettingsContentRestricti
 		}
 
 		// Keywords
-		cleanedText := cleanTextForComparison(text)
-		for _, kw := range c.BannedKeywords {
-			if strings.Contains(cleanedText, cleanTextForComparison(kw)) {
-				return &Violation{Type: "banned_keyword", Message: fmt.Sprintf("Banned keyword: %s", kw), Action: s.ResolveAction(general.DefaultPenalty)}
+		if s.shouldBlock(c.BlockTextPatterns, quiet, general.Timezone, mc.Date) || len(c.BannedKeywords) > 0 || len(c.RequiredKeywords) > 0 {
+			kwPenalty := c.BlockTextPatterns.Penalty
+			if kwPenalty == "" || kwPenalty == "default" {
+				kwPenalty = general.DefaultPenalty
 			}
-		}
+			action := s.ResolveAction(kwPenalty)
 
-		if len(c.RequiredKeywords) > 0 {
-			found := false
-			for _, kw := range c.RequiredKeywords {
-				if strings.Contains(cleanedText, cleanTextForComparison(kw)) {
-					found = true
-					break
+			cleanedText := cleanTextForComparison(text)
+			for _, kw := range c.BannedKeywords {
+				if kw != "" && strings.Contains(cleanedText, cleanTextForComparison(kw)) {
+					return &Violation{Type: "banned_keyword", Message: fmt.Sprintf("Banned keyword: %s", kw), Action: action}
 				}
 			}
-			if !found {
-				return &Violation{Type: "required_keyword", Message: "Required keyword missing", Action: s.ResolveAction(general.DefaultPenalty)}
+
+			if len(c.RequiredKeywords) > 0 {
+				found := false
+				for _, kw := range c.RequiredKeywords {
+					if kw != "" && strings.Contains(cleanedText, cleanTextForComparison(kw)) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					return &Violation{Type: "required_keyword", Message: "Required keyword missing", Action: action}
+				}
 			}
 		}
 	}

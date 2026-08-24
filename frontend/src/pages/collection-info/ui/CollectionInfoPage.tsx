@@ -5,6 +5,7 @@ import { apiClient as api } from '@/shared/api/axios.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
+import { SparklineChart } from '@/shared/ui/SparklineChart.js';
 
 interface CollectionStats {
 	stat_date: string;
@@ -68,11 +69,6 @@ const HISTORICAL_HALL_OF_FAME: LeaderboardItem[] = [
 	{ rank: 18, handle: 'play', priceTon: 302000, priceUsd: 1661000, date: 'May 2023', category: 'short', verified: true },
 	{ rank: 19, handle: 'alfa', priceTon: 300000, priceUsd: 1650000, date: 'Nov 2022', category: 'brand', verified: true },
 	{ rank: 20, handle: 'coin', priceTon: 300000, priceUsd: 1650000, date: 'Nov 2022', category: 'crypto', verified: true },
-	{ rank: 21, handle: 'cash', priceTon: 284000, priceUsd: 1562000, date: 'Dec 2022', category: 'crypto', verified: true },
-	{ rank: 22, handle: 'rich', priceTon: 266000, priceUsd: 1463000, date: 'Dec 2022', category: 'short', verified: true },
-	{ rank: 23, handle: 'amazon', priceTon: 262500, priceUsd: 1443750, date: 'Jan 2023', category: 'brand', verified: true },
-	{ rank: 24, handle: 'adidas', priceTon: 250000, priceUsd: 1375000, date: 'Dec 2022', category: 'brand', verified: true },
-	{ rank: 25, handle: 'defi', priceTon: 250000, priceUsd: 1375000, date: 'Dec 2022', category: 'crypto', verified: true },
 ];
 
 export const CollectionInfoPage: Component = () => {
@@ -80,7 +76,9 @@ export const CollectionInfoPage: Component = () => {
 	const navigate = useNavigate();
 
 	const [activeTab, setActiveTab] = createSignal<'overview' | 'leaderboard'>('overview');
+	const [activeVertical, setActiveVertical] = createSignal<'usernames' | 'numbers' | 'gifts'>('usernames');
 	const [leaderboardFilter, setLeaderboardFilter] = createSignal<'all' | 'short' | 'crypto' | 'brand'>('all');
+	const [searchQuery, setSearchQuery] = createSignal<string>('');
 
 	const query = createQuery(() => ({
 		queryKey: ['collectionStats'],
@@ -114,19 +112,6 @@ export const CollectionInfoPage: Component = () => {
 		return '---';
 	};
 
-	const volumeCapContrast = createMemo(() => {
-		const data = query.data;
-		if (!data?.stats) return null;
-		const volVal = parseVolume(data.stats.total_volume || '0');
-		const capVal = parseVolume(data.stats.items_count || '0') * parseVolume(data.stats.floor_price || '0');
-		if (volVal > 0 && capVal > 0) {
-			return volVal >= capVal
-				? { ratioStr: `${(volVal / capVal).toFixed(1)}x`, label: 'Volume to Cap' }
-				: { ratioStr: `${((volVal / capVal) * 100).toFixed(0)}%`, label: 'Cap Traded' };
-		}
-		return null;
-	});
-
 	const fearGreedNotice = createMemo(() => {
 		const idx = query.data?.fear_greed_index ?? 78;
 		if (idx < 30)
@@ -135,8 +120,8 @@ export const CollectionInfoPage: Component = () => {
 				title: 'Opportunity Zone (Extreme Fear)',
 				desc: "Market is fearful. Don't miss out on discounted floors.",
 				icon: 'trending_up',
-				color: '#34d399',
-				bg: 'bg-[#34d399]/10 text-[#34d399] border-[#34d399]/20',
+				color: '#10b981',
+				bg: 'bg-[#10b981]/10 text-[#10b981] border-[#10b981]/20',
 			};
 		if (idx < 50)
 			return {
@@ -144,8 +129,8 @@ export const CollectionInfoPage: Component = () => {
 				title: 'Strategic Buy Zone (Fear)',
 				desc: 'Lower activity presents a window for strategic selection.',
 				icon: 'shopping_cart',
-				color: '#22d3ee',
-				bg: 'bg-[#22d3ee]/10 text-[#22d3ee] border-[#22d3ee]/20',
+				color: '#0098EA',
+				bg: 'bg-[#0098EA]/10 text-[#0098EA] border-[#0098EA]/20',
 			};
 		if (idx < 75)
 			return {
@@ -166,6 +151,8 @@ export const CollectionInfoPage: Component = () => {
 		};
 	});
 
+	const userHandle = createMemo(() => (window as any)?.Telegram?.WebApp?.initDataUnsafe?.user?.username || '');
+
 	const filteredLeaderboard = createMemo(() => {
 		const filter = leaderboardFilter();
 		if (filter === 'all') return HISTORICAL_HALL_OF_FAME;
@@ -174,37 +161,131 @@ export const CollectionInfoPage: Component = () => {
 
 	const openValuation = (handle: string) => {
 		haptic.impact('light');
-		navigate(`/username/report?u=${encodeURIComponent(handle)}`);
+		navigate(`/username/report?u=${encodeURIComponent(handle.replace('@', ''))}`);
+	};
+
+	const handleSearchSubmit = (e: Event) => {
+		e.preventDefault();
+		const q = searchQuery().trim().replace(/^@/, '');
+		if (q) {
+			openValuation(q);
+		}
 	};
 
 	return (
 		<div
-			class="min-h-screen bg-[#030303] text-white font-sans selection:bg-[#3390ec]/30 flex flex-col relative pb-32"
+			class="min-h-screen bg-[#030303] text-white font-sans selection:bg-[#0098EA]/30 flex flex-col relative pb-32"
 			dir={isRtl() ? 'rtl' : 'ltr'}
 		>
 			{/* Ambient Dynamic Background */}
-			<div class="fixed top-0 left-1/2 -translate-x-1/2 w-[140vw] h-[450px] bg-gradient-to-b from-[#3390ec]/20 via-[#00f0ff]/5 to-transparent blur-[100px] pointer-events-none z-0" />
+			<div class="fixed top-0 left-1/2 -translate-x-1/2 w-[140vw] h-[450px] bg-gradient-to-b from-[#0098EA]/20 via-[#0098EA]/5 to-transparent blur-[100px] pointer-events-none z-0" />
 
 			<div class="w-full max-w-[440px] mx-auto px-4 flex flex-col relative z-10 flex-1">
-				{/* ═══════ HEADER & TABS ═══════ */}
+				{/* ═══════ HEADER & VERTICAL SWITCHER ═══════ */}
 				<div class="flex flex-col items-start pt-6 pb-2 px-1">
 					<div class="flex items-center gap-2 mb-2">
-						<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[9px] font-black uppercase tracking-widest text-[#3390ec] shadow-sm">
-							<div class="w-1.5 h-1.5 rounded-full bg-[#3390ec] animate-pulse shadow-[0_0_6px_#3390ec]" />
+						<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[9px] font-black uppercase tracking-widest text-[#0098EA] shadow-sm">
+							<div class="w-1.5 h-1.5 rounded-full bg-[#0098EA] animate-pulse shadow-[0_0_6px_#0098EA]" />
 							FRAGMENT ON-CHAIN TERMINAL
 						</span>
 					</div>
 
 					<h1 class="text-[30px] font-black tracking-tight text-white leading-none mb-2">
-						{t('action.username.collection_stats_title') || 'Telegram Handles Intel'}
+						{t('action.username.collection_stats_title') || 'Telegram Assets Intel'}
 					</h1>
 					<p class="text-[13px] text-white/50 leading-relaxed font-medium">
 						{t('action.username.collection_stats_subtitle') ||
-							'Real-time analytics, market sentiment & hall-of-fame handles.'}
+							'Real-time valuation analytics, market sentiment & hall-of-fame assets.'}
 					</p>
 
+					{/* 💎 PERSONAL USERNAME 1-TAP VALUATION HOOK */}
+					<Show when={userHandle()}>
+						<div
+							onClick={() => openValuation(userHandle())}
+							class="w-full mt-3.5 p-3.5 bg-gradient-to-r from-[#0098EA]/20 via-[#0098EA]/5 to-transparent border border-[#0098EA]/30 hover:border-[#0098EA]/60 rounded-[20px] flex items-center justify-between cursor-pointer transition-all group active:scale-[0.99] shadow-[0_4px_20px_rgba(0,152,234,0.15)]"
+						>
+							<div class="flex items-center gap-3">
+								<div class="w-10 h-10 rounded-full bg-[#0098EA]/20 border border-[#0098EA]/40 flex items-center justify-center text-[#0098EA] shadow-[0_0_12px_rgba(0,152,234,0.3)]">
+									<span class="material-symbols-outlined text-[22px]">diamond</span>
+								</div>
+								<div class="flex flex-col text-start">
+									<span class="text-[9px] font-black uppercase tracking-widest text-[#0098EA]">
+										YOUR TELEGRAM ASSET
+									</span>
+									<span class="text-[14px] font-mono font-bold text-white group-hover:text-[#0098EA] transition-colors" dir="ltr">
+										@{userHandle()}
+									</span>
+								</div>
+							</div>
+							<div class="flex items-center gap-1.5 px-3 py-1.5 bg-[#0098EA] text-white rounded-[12px] text-[11px] font-black uppercase tracking-wider shadow-sm group-hover:shadow-[0_0_12px_rgba(0,152,234,0.5)] transition-all">
+								<span>Valuate</span>
+								<span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+							</div>
+						</div>
+					</Show>
+
+					{/* 🌐 VERTICAL SWITCHER (PHASE 8) */}
+					<div class="w-full grid grid-cols-3 gap-1.5 mt-4 p-1 bg-[#08090D] border border-white/5 rounded-[16px]">
+						<button
+							onClick={() => {
+								haptic.selection();
+								setActiveVertical('usernames');
+							}}
+							class={`py-2 rounded-[12px] text-[11px] font-black uppercase tracking-wider transition-all ${
+								activeVertical() === 'usernames'
+									? 'bg-[#0098EA] text-white shadow-sm'
+									: 'text-white/40 hover:text-white/70'
+							}`}
+						>
+							Usernames
+						</button>
+						<button
+							onClick={() => {
+								haptic.impact('light');
+							}}
+							class="py-2 rounded-[12px] text-[11px] font-bold uppercase tracking-wider text-white/30 hover:text-white/40 flex items-center justify-center gap-1 cursor-default"
+						>
+							<span>Numbers</span>
+							<span class="text-[8px] bg-white/5 px-1 py-0.5 rounded text-amber-400/80">SOON</span>
+						</button>
+						<button
+							onClick={() => {
+								haptic.impact('light');
+							}}
+							class="py-2 rounded-[12px] text-[11px] font-bold uppercase tracking-wider text-white/30 hover:text-white/40 flex items-center justify-center gap-1 cursor-default"
+						>
+							<span>Gifts</span>
+							<span class="text-[8px] bg-white/5 px-1 py-0.5 rounded text-amber-400/80">SOON</span>
+						</button>
+					</div>
+
+					{/* 🔍 LIVE SEARCH & VALUATION HOOK */}
+					<form onSubmit={handleSearchSubmit} class="w-full mt-3">
+						<div class="relative w-full flex items-center">
+							<input
+								type="text"
+								value={searchQuery()}
+								onInput={(e) => setSearchQuery(e.currentTarget.value)}
+								placeholder="Enter any @username to evaluate..."
+								class="w-full h-12 bg-[#12141C]/90 border border-white/10 focus:border-[#0098EA] rounded-[18px] px-4 ps-11 text-white font-mono text-[13px] placeholder:text-white/30 outline-none transition-all shadow-inner"
+								dir="ltr"
+							/>
+							<span class="material-symbols-outlined absolute left-3.5 text-white/40 text-[20px]">
+								search
+							</span>
+							<Show when={searchQuery().trim()}>
+								<button
+									type="submit"
+									class="absolute right-2 px-3 py-1.5 bg-[#0098EA] text-white font-black text-[11px] uppercase rounded-[12px]"
+								>
+									Valuate
+								</button>
+							</Show>
+						</div>
+					</form>
+
 					{/* NAVIGATION TABS */}
-					<div class="w-full bg-[#08090D]/90 border border-white/10 rounded-[18px] p-1.5 flex gap-1.5 mt-5 shadow-inner backdrop-blur-xl">
+					<div class="w-full bg-[#08090D]/90 border border-white/10 rounded-[18px] p-1.5 flex gap-1.5 mt-3 shadow-inner backdrop-blur-xl">
 						<button
 							onClick={() => {
 								haptic.selection();
@@ -212,12 +293,12 @@ export const CollectionInfoPage: Component = () => {
 							}}
 							class={`flex-1 py-2.5 rounded-[14px] text-[12px] font-black tracking-wide uppercase transition-all flex items-center justify-center gap-1.5 ${
 								activeTab() === 'overview'
-									? 'bg-gradient-to-r from-[#3390ec] to-[#0077d6] text-white shadow-[0_4px_15px_rgba(51,144,236,0.35)]'
+									? 'bg-gradient-to-r from-[#0098EA] to-[#007ebb] text-white shadow-[0_4px_15px_rgba(0,152,234,0.35)]'
 									: 'text-white/50 hover:text-white/80'
 							}`}
 						>
 							<span class="material-symbols-outlined text-[16px]">analytics</span>
-							{t('collectionInfo.marketOverview' as any) || t('action.username.marketAnalysisTitle') || 'Market Overview'}
+							{t('collectionInfo.marketOverview' as any) || 'Market Overview'}
 						</button>
 						<button
 							onClick={() => {
@@ -231,30 +312,18 @@ export const CollectionInfoPage: Component = () => {
 							}`}
 						>
 							<span class="material-symbols-outlined text-[16px]">military_tech</span>
-							{t('collectionInfo.hallOfFame' as any) || t('valuation.leaderboard_title') || 'Hall of Fame'}
+							{t('collectionInfo.hallOfFame' as any) || 'Hall of Fame'}
 						</button>
 					</div>
 				</div>
 
 				{/* ═══════ STATUS SCREENS ═══════ */}
 				<Show when={query.isLoading}>
-					<div class="flex flex-col items-center justify-center h-[50vh]">
-						<div class="w-12 h-12 border-[3px] border-white/10 border-t-[#3390ec] rounded-full animate-spin mb-4 shadow-[0_0_15px_#3390ec]" />
+					<div class="flex flex-col items-center justify-center h-[40vh]">
+						<div class="w-12 h-12 border-[3px] border-white/10 border-t-[#0098EA] rounded-full animate-spin mb-4 shadow-[0_0_15px_#0098EA]" />
 						<span class="text-[12px] font-mono font-bold tracking-widest text-white/40 uppercase animate-pulse">
-							{t('collectionInfo.syncingOnChain' as any) || 'SYNCHRONIZING ON-CHAIN DATA...'}
+							SYNCHRONIZING ON-CHAIN DATA...
 						</span>
-					</div>
-				</Show>
-
-				<Show when={query.isError}>
-					<div class="flex flex-col items-center justify-center bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] border border-[#ff4a4a]/20 p-8 text-center mt-6 shadow-sm">
-						<span class="material-symbols-outlined text-[#ff4a4a] text-[42px] mb-3 drop-shadow-md">error</span>
-						<p class="text-white font-black text-[16px] tracking-tight mb-1">
-							{t('action.username.failedToLoad' as any) || 'Analysis Failed'}
-						</p>
-						<p class="text-[12px] text-white/50 font-medium">
-							{t('collectionInfo.checkConnection' as any) || 'Please check your connection and try again.'}
-						</p>
 					</div>
 				</Show>
 
@@ -271,7 +340,7 @@ export const CollectionInfoPage: Component = () => {
 							<div class="flex items-center justify-between mb-4 relative z-10">
 								<div class="flex flex-col text-start">
 									<span class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">
-										{t('action.username.fearGreed') || 'MARKET SENTIMENT'}
+										MARKET SENTIMENT INDEX
 									</span>
 									<div class="flex items-end gap-2.5">
 										<span
@@ -330,13 +399,13 @@ export const CollectionInfoPage: Component = () => {
 							<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 hover:border-white/15 rounded-[20px] p-4 flex flex-col justify-between transition-all shadow-sm">
 								<div>
 									<span class="text-[10px] text-white/40 uppercase tracking-widest font-black block mb-1">
-										{t('action.username.floorPrice') || 'FLOOR PRICE'}
+										FLOOR PRICE
 									</span>
 									<div class="flex items-baseline gap-1" dir="ltr">
 										<span class="text-[22px] font-black font-mono text-white tracking-tight">
 											{query.data?.stats?.floor_price?.replace('TON', '').trim() || '10'}
 										</span>
-										<span class="text-[11px] text-[#3390ec] font-black">TON</span>
+										<span class="text-[11px] text-[#0098EA] font-black">TON</span>
 									</div>
 								</div>
 								<div class="text-[10px] text-white/40 font-mono mt-2 pt-2 border-t border-white/5">
@@ -351,28 +420,24 @@ export const CollectionInfoPage: Component = () => {
 							<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 hover:border-white/15 rounded-[20px] p-4 flex flex-col justify-between transition-all shadow-sm">
 								<div>
 									<span class="text-[10px] text-white/40 uppercase tracking-widest font-black block mb-1">
-										{t('action.username.totalVolume') || 'TOTAL VOLUME'}
+										TOTAL VOLUME
 									</span>
 									<div class="flex items-baseline gap-1" dir="ltr">
 										<span class="text-[22px] font-black font-mono text-white tracking-tight">
 											{query.data?.stats?.total_volume?.replace('TON', '').trim() || '5.2M'}
 										</span>
-										<span class="text-[11px] text-[#3390ec] font-black">TON</span>
+										<span class="text-[11px] text-[#0098EA] font-black">TON</span>
 									</div>
 								</div>
-								<Show when={volumeCapContrast()}>
-									{(contrast) => (
-										<div class="text-[10px] text-cyan-400 font-mono mt-2 pt-2 border-t border-white/5">
-											{contrast().label}: {contrast().ratioStr}
-										</div>
-									)}
-								</Show>
+								<div class="text-[10px] text-emerald-400 font-mono mt-2 pt-2 border-t border-white/5">
+									Verified On-Chain
+								</div>
 							</div>
 
 							{/* Total Supply */}
 							<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[20px] p-4 flex flex-col justify-center">
 								<span class="text-[10px] text-white/40 uppercase tracking-widest font-black block mb-0.5">
-									{t('action.username.totalSupply') || 'MINTED HANDLES'}
+									MINTED HANDLES
 								</span>
 								<span class="text-[22px] font-black font-mono text-white tracking-tight">
 									{query.data?.stats?.items_count || '128,450'}
@@ -382,30 +447,11 @@ export const CollectionInfoPage: Component = () => {
 							{/* Holders */}
 							<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[20px] p-4 flex flex-col justify-center">
 								<span class="text-[10px] text-white/40 uppercase tracking-widest font-black block mb-0.5">
-									{t('action.username.holders') || 'TOTAL OWNERS'}
+									TOTAL OWNERS
 								</span>
 								<span class="text-[22px] font-black font-mono text-white tracking-tight">
 									{query.data?.stats?.owners_count || '46,120'}
 								</span>
-							</div>
-						</div>
-
-						{/* MARKET CAP CARD */}
-						<div class="bg-gradient-to-r from-[#3390ec]/20 via-[#12141C] to-[#12141C] border border-[#3390ec]/30 rounded-[24px] p-5 flex items-center justify-between shadow-[0_8px_25px_rgba(51,144,236,0.1)] relative overflow-hidden">
-							<div class="flex flex-col relative z-10 text-start">
-								<span class="text-[10px] text-[#3390ec] uppercase tracking-widest font-black flex items-center gap-1.5 mb-1">
-									<span class="material-symbols-outlined text-[16px]">monitoring</span>{' '}
-									{t('action.username.marketCap') || 'COLLECTION MARKET CAP'}
-								</span>
-								<span class="text-[26px] font-black font-mono text-white tracking-tight" dir="ltr">
-									{calculateMarketCap(
-										query.data?.stats?.items_count || '128450',
-										query.data?.stats?.floor_price || '10'
-									)}
-								</span>
-							</div>
-							<div class="w-13 h-13 rounded-[16px] bg-[#3390ec]/20 flex items-center justify-center border border-[#3390ec]/40 shadow-inner relative z-10">
-								<span class="material-symbols-outlined text-[#3390ec] text-[26px]">diamond</span>
 							</div>
 						</div>
 
@@ -416,14 +462,14 @@ export const CollectionInfoPage: Component = () => {
 									<div class="flex items-center gap-2">
 										<span class="material-symbols-outlined text-amber-400 text-[18px]">gavel</span>
 										<h3 class="text-[11px] font-black tracking-widest text-white/60 uppercase">
-											{t('action.username.topAuctions') || 'LIVE FRAGMENT AUCTIONS'}
+											LIVE FRAGMENT AUCTIONS
 										</h3>
 									</div>
 									<span class="text-[10px] font-mono text-amber-400 font-bold">● LIVE</span>
 								</div>
 
 								<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[22px] overflow-hidden shadow-sm">
-									<For each={(query.data?.auctions || []).slice(0, 5)}>
+									<For each={(query.data?.auctions || []).slice(0, 6)}>
 										{(auc, index) => (
 											<div
 												onClick={() => openValuation(auc.item_name)}
@@ -441,13 +487,13 @@ export const CollectionInfoPage: Component = () => {
 														</span>
 														<span class="text-[9px] font-bold text-amber-400 uppercase tracking-widest flex items-center gap-1">
 															<span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-															{t('collectionInfo.auctionActive' as any) || 'AUCTION ACTIVE'}
+															AUCTION ACTIVE
 														</span>
 													</div>
 												</div>
 												<div class="flex flex-col items-end shrink-0" dir="ltr">
 													<span class="text-[14px] font-black font-mono text-white">{auc.price}</span>
-													<span class="text-[9px] font-black text-[#3390ec]">TON</span>
+													<span class="text-[9px] font-black text-[#0098EA]">TON</span>
 												</div>
 											</div>
 										)}
@@ -463,17 +509,16 @@ export const CollectionInfoPage: Component = () => {
 					<div class="flex flex-col gap-4 mt-3">
 						{/* LEADERBOARD HERO CARD */}
 						<div class="bg-gradient-to-br from-amber-500/20 via-[#12141C] to-[#12141C] border border-amber-500/30 rounded-[24px] p-5 shadow-[0_10px_30px_rgba(245,158,11,0.1)] relative overflow-hidden">
-							<div class="absolute -right-8 -bottom-8 w-28 h-28 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
 							<div class="flex items-center gap-3 mb-2">
 								<div class="w-10 h-10 rounded-[12px] bg-amber-400/20 border border-amber-400/40 flex items-center justify-center text-amber-400">
 									<span class="material-symbols-outlined text-[22px]">trophy</span>
 								</div>
 								<div class="flex flex-col text-start">
 									<h2 class="text-[16px] font-black text-white tracking-tight">
-										{t('collectionInfo.allTimeRecordHandles' as any) || t('valuation.leaderboard_title') || 'All-Time Record Handles'}
+										All-Time Record Handles
 									</h2>
 									<span class="text-[11px] text-white/50 font-medium">
-										{t('collectionInfo.highestSalesSubtitle' as any) || t('valuation.leaderboard_subtitle') || 'Highest confirmed sales in Telegram & TON history'}
+										Highest confirmed sales in Telegram & TON history
 									</span>
 								</div>
 							</div>
@@ -483,10 +528,10 @@ export const CollectionInfoPage: Component = () => {
 						<div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
 							<For
 								each={[
-									{ id: 'all', label: t('collectionInfo.tabAllTime' as any) || t('valuation.leaderboard_tab_all') || 'All Time' },
-									{ id: 'short', label: t('collectionInfo.tabShort' as any) || t('valuation.leaderboard_tab_short') || 'Short (4-char)' },
-									{ id: 'crypto', label: t('collectionInfo.tabCrypto' as any) || t('valuation.leaderboard_tab_crypto') || 'Crypto & TON' },
-									{ id: 'brand', label: t('collectionInfo.tabBrand' as any) || t('valuation.leaderboard_tab_brand') || 'Brand & Words' },
+									{ id: 'all', label: 'All Time' },
+									{ id: 'short', label: 'Short (4-char)' },
+									{ id: 'crypto', label: 'Crypto & TON' },
+									{ id: 'brand', label: 'Brand & Words' },
 								]}
 							>
 								{(chip) => (
@@ -515,10 +560,10 @@ export const CollectionInfoPage: Component = () => {
 										item.rank === 1
 											? 'text-amber-400 bg-amber-400/15 border-amber-400/30'
 											: item.rank === 2
-												? 'text-slate-300 bg-slate-300/15 border-slate-300/30'
-												: item.rank === 3
-													? 'text-amber-600 bg-amber-600/15 border-amber-600/30'
-													: 'text-white/40 bg-white/5 border-white/5';
+											? 'text-slate-300 bg-slate-300/15 border-slate-300/30'
+											: item.rank === 3
+											? 'text-amber-600 bg-amber-600/15 border-amber-600/30'
+											: 'text-white/40 bg-white/5 border-white/5';
 
 									return (
 										<div
@@ -526,21 +571,19 @@ export const CollectionInfoPage: Component = () => {
 											class="flex items-center justify-between p-4 hover:bg-white/[0.04] transition-all cursor-pointer border-b border-white/5 last:border-0 active:scale-[0.99]"
 										>
 											<div class="flex items-center gap-3.5 min-w-0">
-												{/* Rank Badge */}
 												<div
 													class={`w-8 h-8 rounded-[10px] flex items-center justify-center font-black font-mono text-[12px] border shrink-0 ${rankColor}`}
 												>
 													{item.rank === 1 ? '🥇' : item.rank === 2 ? '🥈' : item.rank === 3 ? '🥉' : `#${item.rank}`}
 												</div>
 
-												{/* Handle Info */}
 												<div class="flex flex-col min-w-0 text-start">
 													<div class="flex items-center gap-1.5">
 														<span class="text-white font-mono font-black text-[14px] truncate" dir="ltr">
 															@{item.handle}
 														</span>
 														<Show when={item.verified}>
-															<span class="material-symbols-outlined text-[#3390ec] text-[14px]">
+															<span class="material-symbols-outlined text-[#0098EA] text-[14px]">
 																verified
 															</span>
 														</Show>
@@ -549,13 +592,12 @@ export const CollectionInfoPage: Component = () => {
 												</div>
 											</div>
 
-											{/* Price info */}
 											<div class="flex flex-col items-end shrink-0" dir="ltr">
 												<div class="flex items-baseline gap-1">
 													<span class="text-[14px] font-black font-mono text-white">
 														{item.priceTon.toLocaleString('en-US')}
 													</span>
-													<span class="text-[10px] font-black text-[#3390ec]">TON</span>
+													<span class="text-[10px] font-black text-[#0098EA]">TON</span>
 												</div>
 												<span class="text-[10px] font-mono text-white/40">
 													≈ ${((item.priceUsd ?? item.priceTon * 5.5) / 1000).toFixed(0)}K
@@ -569,17 +611,17 @@ export const CollectionInfoPage: Component = () => {
 					</div>
 				</Show>
 
-				{/* ═══════ FLOATING BOTTOM CTA: VALUATE NOW ═══════ */}
+				{/* ═══════ FLOATING BOTTOM CTA ═══════ */}
 				<div class="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-[420px] px-4 z-40">
 					<button
 						onClick={() => {
 							haptic.impact('medium');
 							navigate('/username/report');
 						}}
-						class="w-full h-14 bg-gradient-to-r from-[#3390ec] via-[#00f0ff] to-[#3390ec] text-black font-black text-[13px] uppercase tracking-wider rounded-[18px] flex items-center justify-center gap-2 shadow-[0_10px_25px_rgba(51,144,236,0.4)] active:scale-95 transition-all"
+						class="w-full h-14 bg-gradient-to-r from-[#0098EA] via-[#00c0ff] to-[#0098EA] text-black font-black text-[13px] uppercase tracking-wider rounded-[18px] flex items-center justify-center gap-2 shadow-[0_10px_25px_rgba(0,152,234,0.4)] active:scale-95 transition-all"
 					>
 						<span class="material-symbols-outlined text-[20px]">radar</span>
-						{t('collectionInfo.valuateAnyBtn' as any) || t('action.username.analyzeBtn') || 'VALUATE ANY USERNAME NOW'}
+						VALUATE ANY USERNAME NOW
 					</button>
 				</div>
 			</div>

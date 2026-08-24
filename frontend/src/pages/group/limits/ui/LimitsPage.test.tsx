@@ -38,6 +38,6 @@ describe('LimitsPage', () => {
 
 	it('renders subtitle', async () => {
 		render(() => <LimitsPage />);
-		expect(await screen.findByText('limitsSettings.subtitle')).toBeInTheDocument();
+		expect(await screen.findByText('limitsSettings.description')).toBeInTheDocument();
 	});
 });

@@ -11,68 +11,25 @@ import (
 )
 
 type GeneralSettingsSchema struct {
-	Language            string `json:"language"`
-	Timezone            string `json:"timezone"`
-	WelcomeMessage      bool   `json:"welcomeMessage"`
-	WarningMessage      bool   `json:"warningMessage"`
-	AutoDeleteBot       bool   `json:"autoDeleteBot"`
-	AutoDeleteDelay     int    `json:"autoDeleteDelay"`
-	TrackAdmin          bool   `json:"trackAdmin"`
-	VerifyMembers       bool   `json:"verifyMembers"`
-	PublicCommands      bool   `json:"publicCommands"`
-	HideJoinLeave       bool   `json:"hideJoinLeave"`
-	EphemeralWelcome    bool   `json:"ephemeralWelcome"`
-	EphemeralWarnings   bool   `json:"ephemeralWarnings"`
-	EphemeralCaptcha    bool   `json:"ephemeralCaptcha"`
-	EphemeralAdminCmd   bool   `json:"ephemeralAdminCmd"`
-	EphemeralAll        bool   `json:"ephemeralAll"`
-	DefaultPenalty      string `json:"defaultPenalty"`
-	AutoWarning         bool   `json:"autoWarning"`
-	WarningThreshold    int    `json:"warningThreshold"`
-	WarningRetention    int    `json:"warningRetention"`
-	WarningFinalPenalty string `json:"warningFinalPenalty"`
-	CasEnabled          bool   `json:"casEnabled"`
-	AntiRaidThreshold   int    `json:"antiRaidThreshold"`
-	AntiRaidAction      string `json:"antiRaidAction"`
+	Language string `json:"language,omitempty"`
+	Timezone string `json:"timezone,omitempty"`
 
-	// Phase 1 Identity & Channel Moderation Config parameters
-	Name                string      `json:"name"`
-	Description         string      `json:"description"`
-	Photo               string      `json:"photo"`
-	Username            string      `json:"username"`
-	ShowAdminProfile    bool        `json:"showAdminProfile"`
-	HideChatHistory     bool        `json:"hideChatHistory"`
-	AntiSpam            bool        `json:"antiSpam"`
-	AutoDelete          int         `json:"autoDelete"`
-	DiscussionGroupID   string      `json:"discussionGroupId"`
-	JoinReqAge          int         `json:"joinReqAge"`
-	JoinReqPhoto        bool        `json:"joinReqPhoto"`
-	ChannelName         string      `json:"channelName"`
-	ChannelBio          string      `json:"channelBio"`
-	ChannelPhotoUrl     string      `json:"channelPhotoUrl"`
-	ChannelUsername     string      `json:"channelUsername"`
-	AdminProfileDisplay bool        `json:"adminProfileDisplay"`
-	HideHistory         bool        `json:"hideHistory"`
-	HideMemberList      bool        `json:"hideMemberList"`
-	TelegramAntiSpam    bool        `json:"telegramAntiSpam"`
-	SlowMode            interface{} `json:"slowMode"`
-	AutoDeleteTimer     interface{} `json:"autoDeleteTimer"`
-	DiscussionGroup     string      `json:"discussionGroup"`
-	ApproveAccountAge   bool        `json:"approveAccountAge"`
-	ApproveProfilePhoto bool        `json:"approveProfilePhoto"`
+	// Canonical Channel Identity & Configuration
+	Name              string `json:"name,omitempty"`
+	Description       string `json:"description,omitempty"`
+	Photo             string `json:"photo,omitempty"`
+	Username          string `json:"username,omitempty"`
+	SignMessages      bool   `json:"signMessages"`
+	CustomSignature   string `json:"customSignature,omitempty"`
+	ProtectContent    bool   `json:"protectContent"`
+	DiscussionGroupID string `json:"discussionGroupId,omitempty"`
 
-	// Missing General Settings Phase 2 UI properties
-	SignMessages       bool   `json:"signMessages"`
-	ProtectContent     bool   `json:"protectContent"`
-	CustomSignature    string `json:"customSignature"`
-	AutoForward        bool   `json:"autoForward"`
-	ForwardDestination string `json:"forwardDestination"`
-
-	// Join requests UI properties
-	JoinRequestsEnabled bool `json:"joinRequestsEnabled"`
-	ApprovePremium      bool `json:"approvePremium"`
-	ApproveGifts        bool `json:"approveGifts"`
-	ApproveCollectibles bool `json:"approveCollectibles"`
+	// Legacy alias compatibility fields
+	ChannelName     string `json:"channelName,omitempty"`
+	ChannelBio      string `json:"channelBio,omitempty"`
+	ChannelPhotoUrl string `json:"channelPhotoUrl,omitempty"`
+	ChannelUsername string `json:"channelUsername,omitempty"`
+	DiscussionGroup string `json:"discussionGroup,omitempty"`
 }
 
 type PostingSettingsSchema struct {
@@ -98,7 +55,7 @@ type ForwardingSettingsSchema struct {
 		ContentTypes  []string `json:"contentTypes"`
 		RemoveAds     bool     `json:"removeAds"`
 		RemoveLinks   bool     `json:"removeLinks"`
-	} `json:"rules"`
+	} `json:"rules,omitempty"`
 }
 
 type InlineButtonsSettingsSchema struct {
@@ -110,21 +67,21 @@ type InlineButtonsSettingsSchema struct {
 		Type  string `json:"type"`
 		Style string `json:"style"`
 		Emoji string `json:"emoji,omitempty"`
-	} `json:"buttons"`
+	} `json:"buttons,omitempty"`
 }
 
 type DynamicBioSettingsSchema struct {
 	Enabled           bool        `json:"enabled"`
-	Template          string      `json:"template"`
-	BioTemplate       string      `json:"bioTemplate"`
+	Template          string      `json:"template,omitempty"`
+	BioTemplate       string      `json:"bioTemplate,omitempty"`
 	DisplayInName     bool        `json:"displayInName"`
-	NameTemplate      string      `json:"nameTemplate"`
-	Interval          interface{} `json:"interval"`
+	NameTemplate      string      `json:"nameTemplate,omitempty"`
+	Interval          interface{} `json:"interval,omitempty"`
 	EnableCountdown   bool        `json:"enableCountdown"`
-	EventName         string      `json:"eventName"`
-	TargetDate        string      `json:"targetDate"`
-	CountdownLocation string      `json:"countdownLocation"`
-	PostExpiryText    string      `json:"postExpiryText"`
+	EventName         string      `json:"eventName,omitempty"`
+	TargetDate        string      `json:"targetDate,omitempty"`
+	CountdownLocation string      `json:"countdownLocation,omitempty"`
+	PostExpiryText    string      `json:"postExpiryText,omitempty"`
 	Fields            []string    `json:"fields,omitempty"`
 }
 
@@ -132,18 +89,18 @@ type AutoResponderRuleSchema struct {
 	ID        string `json:"id,omitempty"`
 	Keys      string `json:"keys"`
 	ReplyText string `json:"replyText"`
-	Match     string `json:"match"`
+	Match     string `json:"match"` // "exact", "contains", "regex", "keyword", "ai"
 	Enabled   *bool  `json:"enabled,omitempty"`
 	UseAI     bool   `json:"useAi,omitempty"`
-	Trigger   string `json:"trigger"`
-	Response  string `json:"response"`
-	Type      string `json:"type"`
+	Trigger   string `json:"trigger,omitempty"`
+	Response  string `json:"response,omitempty"`
+	Type      string `json:"type,omitempty"`
 }
 
 type AutoResponderSchema struct {
 	Enabled          bool                      `json:"enabled"`
 	AutoFirstComment bool                      `json:"autoFirstComment,omitempty"`
-	CommentMode      string                    `json:"commentMode,omitempty"`
+	CommentMode      string                    `json:"commentMode,omitempty"` // "fixed", "rotating", "ai"
 	FixedComment     string                    `json:"fixedComment,omitempty"`
 	RotatingTexts    []string                  `json:"rotatingTexts,omitempty"`
 	AttachButton     string                    `json:"attachButton,omitempty"`
@@ -240,8 +197,8 @@ func ValidateSettingsCategory(category string, data json.RawMessage) error {
 		if err := json.Unmarshal(data, &s); err != nil {
 			return fmt.Errorf("invalid forwarding settings structure: %w", err)
 		}
-		if len(s.Rules) > 20 {
-			return fmt.Errorf("maximum 20 forwarding rules allowed")
+		if len(s.Rules) > 50 {
+			return fmt.Errorf("maximum 50 forwarding rules allowed")
 		}
 
 	case "inline_buttons":
@@ -249,8 +206,8 @@ func ValidateSettingsCategory(category string, data json.RawMessage) error {
 		if err := json.Unmarshal(data, &s); err != nil {
 			return fmt.Errorf("invalid inline_buttons settings structure: %w", err)
 		}
-		if len(s.Buttons) > 15 {
-			return fmt.Errorf("maximum 15 inline buttons allowed")
+		if len(s.Buttons) > 25 {
+			return fmt.Errorf("maximum 25 inline buttons allowed")
 		}
 		for _, btn := range s.Buttons {
 			btn.Title = strings.TrimSpace(btn.Title)
@@ -299,41 +256,31 @@ func ValidateSettingsCategory(category string, data json.RawMessage) error {
 		}
 		interval, err := normalizeDynamicBioInterval(s.Interval)
 		if err != nil {
-			return err
+			return fmt.Errorf("invalid dynamic bio interval: %w", err)
 		}
-		if interval < 0 || interval > 1440 {
-			return fmt.Errorf("interval must be 0-1440 minutes")
+		if interval < 0 {
+			return fmt.Errorf("dynamic bio interval must be positive")
 		}
 		if interval > 0 && interval < 10 {
-			return fmt.Errorf("dynamic bio interval must be at least 10 minutes (minimum safe rate limit to protect channel against Telegram restrictions)")
+			return fmt.Errorf("dynamic bio interval must be at least 10 minutes (or 0 to disable)")
 		}
 
 	case "auto_responder":
 		var s AutoResponderSchema
 		if err := json.Unmarshal(data, &s); err != nil {
-			return fmt.Errorf("invalid auto_responder structure: %w", err)
+			return fmt.Errorf("invalid auto_responder settings structure: %w", err)
 		}
-		if len(s.Rules) > 50 {
-			return fmt.Errorf("maximum 50 auto-responder rules allowed")
+		if len(s.Rules) > 100 {
+			return fmt.Errorf("maximum 100 auto-responder rules allowed")
 		}
-		for _, rule := range s.Rules {
-			if rule.Enabled != nil && !*rule.Enabled {
-				continue
+		for _, r := range s.Rules {
+			key := firstNonEmpty(r.Keys, r.Trigger)
+			val := firstNonEmpty(r.ReplyText, r.Response)
+			if key == "" && r.Match != "ai" {
+				return fmt.Errorf("trigger key cannot be empty for rule")
 			}
-			trigger := firstNonEmpty(rule.Keys, rule.Trigger)
-			response := firstNonEmpty(rule.ReplyText, rule.Response)
-			match := firstNonEmpty(rule.Match, rule.Type)
-			if trigger == "" || response == "" {
-				return fmt.Errorf("trigger and response cannot be empty")
-			}
-			if utf8.RuneCountInString(trigger) > 200 {
-				return fmt.Errorf("trigger text too long (max 200 chars)")
-			}
-			if utf8.RuneCountInString(response) > 4096 {
-				return fmt.Errorf("response text too long (max 4096 chars)")
-			}
-			if match != "" && match != "exact" && match != "contains" && match != "regex" && match != "keyword" {
-				return fmt.Errorf("rule type must be 'exact', 'contains', 'regex', or 'keyword'")
+			if val == "" && !r.UseAI && r.Match != "ai" {
+				return fmt.Errorf("reply text cannot be empty for rule")
 			}
 		}
 

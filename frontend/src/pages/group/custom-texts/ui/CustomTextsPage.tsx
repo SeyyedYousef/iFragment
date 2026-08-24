@@ -4,16 +4,26 @@ import { backButton } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show, Suspense } from 'solid-js';
 import { createStore, reconcile } from 'solid-js/store';
 import { groupApi } from '@/entities/group/index.js';
-import { t } from '@/shared/i18n/index.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 import { InlineButtonField } from '@/shared/ui/settings-controls.js';
+import { SettingsGuard } from '@/shared/ui/SettingsGuard.js';
 import { showToast } from '@/shared/ui/toast.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
-interface CustomTextsConfig { welcomeText: string; warningText: string; silenceStartText: string; silenceEndText: string; rulesText: string; forceJoinText: string; forceAddText: string; inlineButtons: { id: string; title: string; url: string }[]; }
+interface CustomTextsConfig {
+	welcomeText: string;
+	warningText: string;
+	silenceStartText: string;
+	silenceEndText: string;
+	rulesText: string;
+	forceJoinText: string;
+	forceAddText: string;
+	inlineButtons: { id: string; title: string; url: string }[];
+}
 
 const defaults: CustomTextsConfig = {
-	welcomeText: '👋 Welcome {user}',
+	welcomeText: '👋 Welcome {user} to {group}!',
 	warningText: '⚠️ {user} | Warning {count}/{threshold} ▫️ {reason}',
 	silenceStartText: '🔒 Quiet mode activated',
 	silenceEndText: '🔓 Quiet mode deactivated',
@@ -30,56 +40,84 @@ export const CustomTextsPage: Component = () => {
 	const [isMenuOpen, setIsMenuOpen] = createSignal(false);
 	const [isSaving, setIsSaving] = createSignal(false);
 	const [isDirty, setIsDirty] = createSignal(false);
+	const [showUnsavedSheet, setShowUnsavedSheet] = createSignal(false);
 	const [settingsVersion, setSettingsVersion] = createSignal(1);
 
 	const [cfg, setCfg] = createStore<CustomTextsConfig>({ ...defaults });
+	const [initialCfg, setInitialCfg] = createSignal<CustomTextsConfig>({ ...defaults });
 
 	const [_, { refetch }] = createResource(() => params.id, async (groupId) => {
 		const data = await groupApi.getSettings(groupId);
 		setSettingsVersion(data.version);
 		const ct = (data.custom_texts || {}) as Partial<CustomTextsConfig>;
-		setCfg(reconcile({ ...defaults, ...ct }));
+		const merged = { ...defaults, ...ct };
+		setInitialCfg({ ...merged });
+		setCfg(reconcile(merged));
 		setIsDirty(false);
 		return data;
 	});
 
+	const handleBack = () => {
+		if (isDirty()) {
+			setShowUnsavedSheet(true);
+			return;
+		}
+		window.history.back();
+	};
+
 	onMount(() => {
 		backButton.show();
-		const off = backButton.onClick(() => { haptic.impact('light'); window.history.back(); });
+		const off = backButton.onClick(handleBack);
 		onCleanup(() => off());
 	});
 
-	const update = (key: keyof CustomTextsConfig, val: any) => { setCfg(key, val); setIsDirty(true); };
+	const update = (key: keyof CustomTextsConfig, val: any) => {
+		setCfg(key, val);
+		setIsDirty(true);
+	};
 
 	const handleSave = async () => {
-		if (!isDirty()) return;
-		haptic.notify('success');
+		if (!isDirty() || isSaving()) return;
 		setIsSaving(true);
 		try {
 			const result = await groupApi.updateSettings(params.id, 'custom_texts', cfg as any, settingsVersion());
 			setSettingsVersion(result.version);
+			setInitialCfg({ ...cfg });
 			setIsDirty(false);
+			setShowUnsavedSheet(false);
+			haptic.notify('success');
 			showToast(t('common.settingsSaved') || 'Settings saved successfully', 'success');
 			navigate(`/group/${params.id}`);
 			backButton.hide();
 		} catch (_e) {
-			showToast(t('error.title'), 'error');
+			showToast(t('common.errorUpdateFailed'), 'error');
 			haptic.notify('error');
 		} finally {
 			setIsSaving(false);
 		}
 	};
 
+	const handleDiscard = () => {
+		setCfg(reconcile({ ...initialCfg() }));
+		setIsDirty(false);
+		setShowUnsavedSheet(false);
+		window.history.back();
+	};
+
 	return (
-		<div class="min-h-screen bg-[#030303] text-white pb-28 relative font-sans selection:bg-[#3390ec]/30" dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}>
+		<div class="min-h-screen bg-[#030303] text-white pb-28 relative font-sans selection:bg-[#3390ec]/30" dir={isRtl() ? 'rtl' : 'ltr'}>
 			
 			{/* Ambient Top Glow */}
 			<div class="absolute top-0 left-0 right-0 h-[350px] bg-gradient-to-b from-[#3390ec]/15 via-transparent to-transparent blur-[80px] pointer-events-none z-0" />
 
-			{/* ═══════ PREMIUM STICKY HEADER ═══════ */}
+			{/* ═══════ STICKY HEADER ═══════ */}
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm">
 				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
-					<button onClick={() => { haptic.impact('light'); window.history.back(); }} class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm">
+					<button
+						onClick={() => { haptic.impact('light'); handleBack(); }}
+						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm"
+						aria-label={t('common.back')}
+					>
 						<span class="material-symbols-outlined text-white/80 text-[22px] rtl:-scale-x-100">arrow_back</span>
 					</button>
 					<div class="flex flex-col overflow-hidden">
@@ -90,166 +128,131 @@ export const CustomTextsPage: Component = () => {
 						<p class="text-[11px] text-white/50 font-bold uppercase tracking-wider leading-snug truncate mt-0.5">{t('customTextsSettings.subtitle')}</p>
 					</div>
 				</div>
-				<button onClick={() => setIsMenuOpen(true)} class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-colors shrink-0 shadow-sm text-white/80">
+				<button
+					onClick={() => setIsMenuOpen(true)}
+					class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-colors shrink-0 shadow-sm text-white/80"
+					aria-label={t('common.toggle')}
+				>
 					<span class="material-symbols-outlined text-[22px]">menu</span>
 				</button>
 			</div>
 
 			<HamburgerMenu isOpen={isMenuOpen()} onClose={() => setIsMenuOpen(false)} groupId={params.id} activeTab="custom" />
 
-			<Suspense fallback={null}>
-				<div class="p-5 flex flex-col gap-4 max-w-md mx-auto relative z-10 w-full">
+			<Suspense fallback={<div class="p-8 flex justify-center"><div class="w-8 h-8 border-2 border-[#3390ec] border-t-transparent rounded-full animate-spin" /></div>}>
+				<div class="p-5 flex flex-col gap-5 max-w-md mx-auto relative z-10">
 					
-					{/* ═══════ INFO BANNER (Placeholders) ═══════ */}
-					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} class="bg-gradient-to-br from-[#3390ec]/10 to-transparent border border-[#3390ec]/20 rounded-[24px] p-5 flex flex-col gap-4 shadow-sm relative overflow-hidden">
-						<div class="absolute -right-10 -top-10 w-32 h-32 bg-[#3390ec]/10 rounded-full blur-2xl pointer-events-none" />
+					{/* ═══════ WELCOME MESSAGE ═══════ */}
+					<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 shadow-sm flex flex-col gap-3">
+						<div class="flex items-center justify-between">
+							<div class="flex items-center gap-2">
+								<span class="material-symbols-outlined text-[#3390ec] text-[20px]">waving_hand</span>
+								<h2 class="text-[13px] font-black text-[#3390ec] uppercase tracking-widest">{t('customTextsSettings.welcomeTitle')}</h2>
+							</div>
+							<span class="text-[10px] text-white/40 font-mono font-bold">HTML Supported</span>
+						</div>
 						
-						<div class="flex items-center gap-3 relative z-10">
-							<div class="w-10 h-10 rounded-[12px] bg-[#3390ec]/15 flex items-center justify-center border border-[#3390ec]/30 shadow-inner">
-								<span class="material-symbols-outlined text-[#3390ec] text-[20px]">data_object</span>
+						<textarea
+							rows={3}
+							value={cfg.welcomeText}
+							onInput={(e) => update('welcomeText', e.currentTarget.value)}
+							placeholder={t('customTextsSettings.welcomePlaceholder')}
+							class="w-full bg-[#08090D] border border-white/10 rounded-[16px] p-4 text-[13px] text-white focus:outline-none focus:border-[#3390ec]/50 transition-colors resize-none shadow-inner leading-relaxed"
+						/>
+						<div class="flex items-center gap-1 text-[10px] text-white/40 font-mono">
+							<span>متغیرها: </span>
+							<code class="text-[#3390ec] font-bold">{"{user}"}</code>, <code class="text-[#3390ec] font-bold">{"{group}"}</code>, <code class="text-[#3390ec] font-bold">{"{id}"}</code>
+						</div>
+					</div>
+
+					{/* ═══════ WARNING MESSAGE ═══════ */}
+					<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 shadow-sm flex flex-col gap-3">
+						<div class="flex items-center justify-between">
+							<div class="flex items-center gap-2">
+								<span class="material-symbols-outlined text-amber-400 text-[20px]">warning</span>
+								<h2 class="text-[13px] font-black text-amber-400 uppercase tracking-widest">{t('customTextsSettings.warningTitle')}</h2>
 							</div>
-							<span class="text-[14px] font-black text-white tracking-tight">{t('customTextsSettings.placeholders')}</span>
 						</div>
-
-						<div class="grid grid-cols-2 gap-x-4 gap-y-3 relative z-10 bg-[#08090D]/50 p-4 rounded-[16px] border border-white/5">
-							<For each={[
-								{ tag: '{user}', label: t('customTextsSettings.phUser') }, { tag: '{id}', label: t('customTextsSettings.phId') },
-								{ tag: '{group}', label: t('customTextsSettings.phGroup') }, { tag: '{time}', label: t('customTextsSettings.phTime') },
-								{ tag: '{reason}', label: t('customTextsSettings.phReason') }, { tag: '{rule}', label: t('customTextsSettings.phRule') },
-								{ tag: '{count}', label: t('customTextsSettings.phCount') }, { tag: '{threshold}', label: t('customTextsSettings.phThreshold') },
-								{ tag: '{number}', label: t('customTextsSettings.phNumber') }, { tag: '{added}', label: t('customTextsSettings.phAdded') },
-								{ tag: '{remainadd}', label: t('customTextsSettings.phRemainAdd') }, { tag: '{channel_names}', label: t('customTextsSettings.phChannelNames') }
-							]}>
-								{(ph) => (
-									<div class="flex flex-col items-start gap-1">
-										<code class="text-[#3390ec] font-mono text-[10px] font-bold bg-[#3390ec]/10 px-2 py-0.5 rounded-[6px] border border-[#3390ec]/20">{ph.tag}</code>
-										<span class="text-[10px] text-white/50 leading-tight font-medium px-1">{ph.label}</span>
-									</div>
-								)}
-							</For>
+						
+						<textarea
+							rows={3}
+							value={cfg.warningText}
+							onInput={(e) => update('warningText', e.currentTarget.value)}
+							placeholder={t('customTextsSettings.warningPlaceholder')}
+							class="w-full bg-[#08090D] border border-white/10 rounded-[16px] p-4 text-[13px] text-white focus:outline-none focus:border-amber-400/50 transition-colors resize-none shadow-inner leading-relaxed"
+						/>
+						<div class="flex items-center gap-1 text-[10px] text-white/40 font-mono">
+							<span>متغیرها: </span>
+							<code class="text-amber-400 font-bold">{"{user}"}</code>, <code class="text-amber-400 font-bold">{"{count}"}</code>, <code class="text-amber-400 font-bold">{"{threshold}"}</code>, <code class="text-amber-400 font-bold">{"{reason}"}</code>
 						</div>
-					</Motion.div>
+					</div>
 
-					{/* ═══════ TEXT EDITORS ═══════ */}
-					
-					{/* Welcome Message */}
-					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] border border-white/5 p-5 flex flex-col gap-3 shadow-sm">
-						<div class="flex flex-col gap-1 mb-1">
-							<label class="text-[14px] font-black text-white flex items-center gap-2.5">
-								<div class="w-8 h-8 rounded-[10px] bg-[#34c759]/10 flex items-center justify-center border border-[#34c759]/20 shadow-inner"><span class="material-symbols-outlined text-[#34c759] text-[16px]">waving_hand</span></div>
-								{t('customTextsSettings.welcomeText')}
-							</label>
-							<span class="text-[11px] text-white/50 font-medium leading-snug px-1.5">{t('customTextsSettings.welcomeTextDesc')}</span>
-						</div>
-						<textarea value={cfg.welcomeText} onInput={(e) => update('welcomeText', e.currentTarget.value)} placeholder="👋 Welcome {user}" class="w-full h-20 bg-[#08090D] text-white text-[13px] font-medium leading-relaxed rounded-[16px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3390ec]/50 border border-white/5 transition-all resize-none placeholder-white/20 shadow-inner" />
-					</Motion.div>
-
-					{/* Warning Message */}
-					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] border border-white/5 p-5 flex flex-col gap-3 shadow-sm">
-						<div class="flex flex-col gap-1 mb-1">
-							<label class="text-[14px] font-black text-white flex items-center gap-2.5">
-								<div class="w-8 h-8 rounded-[10px] bg-[#ffcc00]/10 flex items-center justify-center border border-[#ffcc00]/20 shadow-inner"><span class="material-symbols-outlined text-[#ffcc00] text-[16px]">warning</span></div>
-								{t('customTextsSettings.warningText')}
-							</label>
-							<span class="text-[11px] text-white/50 font-medium leading-snug px-1.5">{t('customTextsSettings.warningTextDesc')}</span>
-						</div>
-						<textarea value={cfg.warningText} onInput={(e) => update('warningText', e.currentTarget.value)} placeholder="⚠️ {user} | Warning {count}/{threshold} ▫️ {reason}" class="w-full h-20 bg-[#08090D] text-white text-[13px] font-medium leading-relaxed rounded-[16px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3390ec]/50 border border-white/5 transition-all resize-none placeholder-white/20 shadow-inner" />
-					</Motion.div>
-
-					{/* Silence Messaging */}
-					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] border border-white/5 p-5 flex flex-col gap-6 shadow-sm">
-						<div class="flex flex-col gap-3">
-							<div class="flex flex-col gap-1">
-								<label class="text-[14px] font-black text-white flex items-center gap-2.5">
-									<div class="w-8 h-8 rounded-[10px] bg-[#ff3b30]/10 flex items-center justify-center border border-[#ff3b30]/20 shadow-inner"><span class="material-symbols-outlined text-[#ff3b30] text-[16px]">notifications_paused</span></div>
-									{t('customTextsSettings.silenceStartText')}
-								</label>
-								<span class="text-[11px] text-white/50 font-medium leading-snug px-1.5">{t('customTextsSettings.silenceStartTextDesc')}</span>
+					{/* ═══════ GROUP RULES ═══════ */}
+					<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 shadow-sm flex flex-col gap-3">
+						<div class="flex items-center justify-between">
+							<div class="flex items-center gap-2">
+								<span class="material-symbols-outlined text-[#10b981] text-[20px]">gavel</span>
+								<h2 class="text-[13px] font-black text-[#10b981] uppercase tracking-widest">{t('customTextsSettings.rulesTitle')}</h2>
 							</div>
-							<textarea value={cfg.silenceStartText} onInput={(e) => update('silenceStartText', e.currentTarget.value)} placeholder="🔒 Quiet mode activated" class="w-full h-20 bg-[#08090D] text-white text-[13px] font-medium leading-relaxed rounded-[16px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3390ec]/50 border border-white/5 transition-all resize-none placeholder-white/20 shadow-inner" />
+						</div>
+						
+						<textarea
+							rows={4}
+							value={cfg.rulesText}
+							onInput={(e) => update('rulesText', e.currentTarget.value)}
+							placeholder={t('customTextsSettings.rulesPlaceholder')}
+							class="w-full bg-[#08090D] border border-white/10 rounded-[16px] p-4 text-[13px] text-white focus:outline-none focus:border-[#10b981]/50 transition-colors resize-none shadow-inner leading-relaxed"
+						/>
+					</div>
+
+					{/* ═══════ QUIET HOURS NOTICES ═══════ */}
+					<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 shadow-sm flex flex-col gap-4">
+						<div class="flex items-center gap-2">
+							<span class="material-symbols-outlined text-[#ff4a4a] text-[20px]">bedtime</span>
+							<h2 class="text-[13px] font-black text-[#ff4a4a] uppercase tracking-widest">پیام‌های ساعات سکوت</h2>
 						</div>
 
-						<div class="w-full h-[1px] bg-white/5 rounded-full" />
-
-						<div class="flex flex-col gap-3">
-							<div class="flex flex-col gap-1">
-								<label class="text-[14px] font-black text-white flex items-center gap-2.5">
-									<div class="w-8 h-8 rounded-[10px] bg-[#34c759]/10 flex items-center justify-center border border-[#34c759]/20 shadow-inner"><span class="material-symbols-outlined text-[#34c759] text-[16px]">notifications_active</span></div>
-									{t('customTextsSettings.silenceEndText')}
-								</label>
-								<span class="text-[11px] text-white/50 font-medium leading-snug px-1.5">{t('customTextsSettings.silenceEndTextDesc')}</span>
-							</div>
-							<textarea value={cfg.silenceEndText} onInput={(e) => update('silenceEndText', e.currentTarget.value)} placeholder="🔓 Quiet mode deactivated" class="w-full h-20 bg-[#08090D] text-white text-[13px] font-medium leading-relaxed rounded-[16px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3390ec]/50 border border-white/5 transition-all resize-none placeholder-white/20 shadow-inner" />
-						</div>
-					</Motion.div>
-
-					{/* Rules Text */}
-					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] border border-white/5 p-5 flex flex-col gap-3 shadow-sm">
-						<div class="flex flex-col gap-1 mb-1">
-							<label class="text-[14px] font-black text-white flex items-center gap-2.5">
-								<div class="w-8 h-8 rounded-[10px] bg-[#ffcc00]/10 flex items-center justify-center border border-[#ffcc00]/20 shadow-inner"><span class="material-symbols-outlined text-[#ffcc00] text-[16px]">gavel</span></div>
-								{t('customTextsSettings.rulesText')}
-							</label>
-							<span class="text-[11px] text-white/50 font-medium leading-snug px-1.5">{t('customTextsSettings.rulesTextDesc')}</span>
-						</div>
-						<textarea value={cfg.rulesText} onInput={(e) => update('rulesText', e.currentTarget.value)} placeholder="📜 <b>Rules</b>: Respect others • No spam or links" class="w-full h-20 bg-[#08090D] text-white text-[13px] font-medium leading-relaxed rounded-[16px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3390ec]/50 border border-white/5 transition-all resize-none placeholder-white/20 shadow-inner" />
-					</Motion.div>
-
-					{/* Force Join & Add */}
-					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] border border-white/5 p-5 flex flex-col gap-6 shadow-sm">
-						<div class="flex flex-col gap-3">
-							<div class="flex flex-col gap-1">
-								<label class="text-[14px] font-black text-white flex items-center gap-2.5">
-									<div class="w-8 h-8 rounded-[10px] bg-[#3390ec]/10 flex items-center justify-center border border-[#3390ec]/20 shadow-inner"><span class="material-symbols-outlined text-[#3390ec] text-[16px]">campaign</span></div>
-									{t('customTextsSettings.forceJoinText')}
-								</label>
-								<span class="text-[11px] text-white/50 font-medium leading-snug px-1.5">{t('customTextsSettings.forceJoinTextDesc')}</span>
-							</div>
-							<textarea value={cfg.forceJoinText} onInput={(e) => update('forceJoinText', e.currentTarget.value)} placeholder="📢 {user}, join required channels to chat:\n{channel_names}" class="w-full h-20 bg-[#08090D] text-white text-[13px] font-medium leading-relaxed rounded-[16px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3390ec]/50 border border-white/5 transition-all resize-none placeholder-white/20 shadow-inner" />
+						<div class="flex flex-col gap-1.5">
+							<label class="text-[11px] font-bold text-white/50">{t('customTextsSettings.silenceStart')}</label>
+							<input
+								type="text"
+								value={cfg.silenceStartText}
+								onInput={(e) => update('silenceStartText', e.currentTarget.value)}
+								class="w-full h-12 bg-[#08090D] border border-white/10 rounded-[14px] px-4 text-[13px] text-white focus:outline-none focus:border-[#ff4a4a]/50"
+							/>
 						</div>
 
-						<div class="w-full h-[1px] bg-white/5 rounded-full" />
-
-						<div class="flex flex-col gap-3">
-							<div class="flex flex-col gap-1">
-								<label class="text-[14px] font-black text-white flex items-center gap-2.5">
-									<div class="w-8 h-8 rounded-[10px] bg-[#ff9500]/10 flex items-center justify-center border border-[#ff9500]/20 shadow-inner"><span class="material-symbols-outlined text-[#ff9500] text-[16px]">person_add</span></div>
-									{t('customTextsSettings.forceAddText')}
-								</label>
-								<span class="text-[11px] text-white/50 font-medium leading-snug px-1.5">{t('customTextsSettings.forceAddTextDesc')}</span>
-							</div>
-							<textarea value={cfg.forceAddText} onInput={(e) => update('forceAddText', e.currentTarget.value)} placeholder="👥 {user}, invite {remainadd} member(s) to chat ({added}/{number})" class="w-full h-20 bg-[#08090D] text-white text-[13px] font-medium leading-relaxed rounded-[16px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3390ec]/50 border border-white/5 transition-all resize-none placeholder-white/20 shadow-inner" />
+						<div class="flex flex-col gap-1.5">
+							<label class="text-[11px] font-bold text-white/50">{t('customTextsSettings.silenceEnd')}</label>
+							<input
+								type="text"
+								value={cfg.silenceEndText}
+								onInput={(e) => update('silenceEndText', e.currentTarget.value)}
+								class="w-full h-12 bg-[#08090D] border border-white/10 rounded-[14px] px-4 text-[13px] text-white focus:outline-none focus:border-[#ff4a4a]/50"
+							/>
 						</div>
-					</Motion.div>
+					</div>
 
-					{/* Inline Buttons */}
-					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] border border-white/5 p-5 flex flex-col shadow-sm">
+					{/* ═══════ INLINE BUTTONS ═══════ */}
+					<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 shadow-sm flex flex-col gap-3">
 						<InlineButtonField
 							label={t('customTextsSettings.inlineButtons')}
-							description={t('customTextsSettings.inlineButtonsDesc')}
 							buttons={cfg.inlineButtons}
-							onAdd={(btn) => update('inlineButtons', [...cfg.inlineButtons, btn])}
-							onRemove={(id) => update('inlineButtons', cfg.inlineButtons.filter((b) => b.id !== id))}
+							onChange={(btns) => update('inlineButtons', btns)}
+							description={t('customTextsSettings.inlineButtonsDesc')}
 						/>
-					</Motion.div>
+					</div>
 				</div>
 			</Suspense>
 
-			{/* ═══════ FLOATING SAVE BUTTON ═══════ */}
-			<Show when={isDirty()}>
-				<div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#030303] via-[#030303]/90 to-transparent z-40 pointer-events-none">
-					<div class="max-w-md mx-auto flex gap-3 pointer-events-auto">
-						<button onClick={() => refetch()} disabled={isSaving()} class="w-16 h-14 bg-[#12141C]/80 backdrop-blur-md text-[#ff4a4a] border border-[#ff4a4a]/20 rounded-[16px] transition-all flex items-center justify-center hover:bg-[#ff4a4a]/10 active:scale-95 shadow-sm">
-							<span class="material-symbols-outlined text-[24px]">close</span>
-						</button>
-						<button onClick={handleSave} disabled={isSaving()} class="flex-1 h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] hover:from-[#2b7ec9] hover:to-[#3390ec] text-white rounded-[16px] font-black text-[14px] uppercase tracking-widest shadow-[0_10px_30px_rgba(51,144,236,0.35)] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:scale-100 active:scale-95 border border-white/10">
-							<Show when={!isSaving()} fallback={<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}>
-								{t('generalSettings.saveSettings')} <span class="material-symbols-outlined text-[22px]">save</span>
-							</Show>
-						</button>
-					</div>
-				</div>
-			</Show>
+			<SettingsGuard
+				isDirty={isDirty()}
+				isSaving={isSaving()}
+				showSheet={showUnsavedSheet()}
+				onSave={handleSave}
+				onDiscard={handleDiscard}
+				onCloseSheet={() => setShowUnsavedSheet(false)}
+			/>
 		</div>
 	);
 };

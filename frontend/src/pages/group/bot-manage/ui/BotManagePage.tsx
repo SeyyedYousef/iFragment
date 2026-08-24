@@ -67,7 +67,7 @@ export const BotManagePage: Component = () => {
 	const handleInvite = () => {
 		if (!bot()) return;
 		haptic.impact('medium');
-		const url = `https://t.me/${bot()!.bot_username.replace('@', '')}?startgroup=start&admin=restrict_members+delete_messages+ban_users`;
+		const url = `https://t.me/${bot()!.bot_username.replace('@', '')}?startgroup=start&admin=change_info+restrict_members+delete_messages+ban_users`;
 		try { openTelegramLink(url); } catch (_e) { window.open(url, '_blank'); }
 	};
 
@@ -77,7 +77,6 @@ export const BotManagePage: Component = () => {
 		setShowSubscription(true);
 		haptic.impact('light');
 	};
-
 
 	const handleDeleteGroup = async () => {
 		const group = groupToDelete();
@@ -107,8 +106,18 @@ export const BotManagePage: Component = () => {
 					tg.openInvoice(res.invoice_link, (status: string) => {
 						if (status === 'paid') {
 							haptic.notify('success');
+							setSuccessMsg(t('common.paymentSuccess') || 'Payment successful!');
 							setShowSubscription(false);
 							refetchGroups();
+						} else if (status === 'cancelled') {
+							haptic.notify('warning');
+							setErrorMsg(t('common.paymentCancelled') || 'Payment was cancelled');
+						} else if (status === 'failed') {
+							haptic.notify('error');
+							setErrorMsg(t('common.paymentFailed') || 'Payment failed. Please try again.');
+						} else if (status === 'pending') {
+							haptic.notify('warning');
+							setErrorMsg(t('common.paymentPending') || 'Payment is pending confirmation...');
 						}
 					});
 				} else {

@@ -6,13 +6,63 @@ import { groupApi } from '@/entities/group/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 import { SelectField, SettingsSection, ToggleSwitch } from '@/shared/ui/settings-controls.js';
+import { SettingsGuard } from '@/shared/ui/SettingsGuard.js';
 import { showToast } from '@/shared/ui/toast.js';
-import { UnsavedChangesSheet } from '@/shared/ui/UnsavedChangesSheet.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
-interface GeneralConfig { language: string; timezone: string; welcomeMessage: boolean; warningMessage: boolean; autoDeleteBot: boolean; autoDeleteDelay: number; trackAdmin: boolean; verifyMembers: boolean; publicCommands: boolean; hideJoinLeave: boolean; defaultPenalty: string; autoWarning: boolean; warningThreshold: number; warningRetention: number; warningFinalPenalty: string; casEnabled: boolean; antiRaidThreshold: number; antiRaidAction: string; botEnabled: boolean; ephemeralAll: boolean; ephemeralWelcome: boolean; ephemeralWarnings: boolean; ephemeralCaptcha: boolean; ephemeralAdminCmd: boolean; }
+interface GeneralConfig {
+	language: string;
+	timezone: string;
+	welcomeMessage: boolean;
+	warningMessage: boolean;
+	autoDeleteBot: boolean;
+	autoDeleteDelay: number;
+	trackAdmin: boolean;
+	verifyMembers: boolean;
+	publicCommands: boolean;
+	hideJoinLeave: boolean;
+	defaultPenalty: string;
+	autoWarning: boolean;
+	warningThreshold: number;
+	warningRetention: number;
+	warningFinalPenalty: string;
+	casEnabled: boolean;
+	antiRaidThreshold: number;
+	antiRaidAction: string;
+	botEnabled: boolean;
+	ephemeralAll: boolean;
+	ephemeralWelcome: boolean;
+	ephemeralWarnings: boolean;
+	ephemeralCaptcha: boolean;
+	ephemeralAdminCmd: boolean;
+}
 
-const defaultConfig: GeneralConfig = { language: 'en', timezone: 'UTC', welcomeMessage: true, warningMessage: true, autoDeleteBot: true, autoDeleteDelay: 60, trackAdmin: false, verifyMembers: false, publicCommands: false, hideJoinLeave: false, defaultPenalty: 'delete', autoWarning: true, warningThreshold: 3, warningRetention: 7, warningFinalPenalty: 'mute_24h', casEnabled: false, antiRaidThreshold: 0, antiRaidAction: 'none', botEnabled: true, ephemeralAll: false, ephemeralWelcome: false, ephemeralWarnings: false, ephemeralCaptcha: false, ephemeralAdminCmd: false };
+const defaultConfig: GeneralConfig = {
+	language: 'en',
+	timezone: 'UTC',
+	welcomeMessage: true,
+	warningMessage: true,
+	autoDeleteBot: true,
+	autoDeleteDelay: 60,
+	trackAdmin: false,
+	verifyMembers: false,
+	publicCommands: false,
+	hideJoinLeave: false,
+	defaultPenalty: 'delete',
+	autoWarning: true,
+	warningThreshold: 3,
+	warningRetention: 7,
+	warningFinalPenalty: 'mute_24h',
+	casEnabled: false,
+	antiRaidThreshold: 0,
+	antiRaidAction: 'none',
+	botEnabled: true,
+	ephemeralAll: false,
+	ephemeralWelcome: false,
+	ephemeralWarnings: false,
+	ephemeralCaptcha: false,
+	ephemeralAdminCmd: false,
+};
 
 export const GeneralSettingsPage: Component = () => {
 	const navigate = useNavigate();
@@ -25,18 +75,24 @@ export const GeneralSettingsPage: Component = () => {
 	const [settingsVersion, setSettingsVersion] = createSignal(1);
 
 	const [config, setConfig] = createStore<GeneralConfig>({ ...defaultConfig });
+	const [initialConfig, setInitialConfig] = createSignal<GeneralConfig>({ ...defaultConfig });
 
 	createResource(() => params.id, async (groupId) => {
 		const settings = await groupApi.getSettings(groupId);
 		setSettingsVersion(settings.version);
 		const general = (settings.general || {}) as Partial<GeneralConfig>;
 		const merged = { ...defaultConfig, ...general };
+		setInitialConfig({ ...merged });
 		setConfig(reconcile(merged));
+		setIsDirty(false);
 		return settings;
 	});
 
 	const handleBack = () => {
-		if (isDirty()) { setShowUnsavedSheet(true); return; }
+		if (isDirty()) {
+			setShowUnsavedSheet(true);
+			return;
+		}
 		window.history.back();
 	};
 
@@ -52,12 +108,12 @@ export const GeneralSettingsPage: Component = () => {
 	};
 
 	const handleSave = async () => {
-		if (!isDirty()) return;
-		haptic.impact('medium');
+		if (!isDirty() || isSaving()) return;
 		setIsSaving(true);
 		try {
 			const result = await groupApi.updateSettings(params.id, 'general', config as any, settingsVersion());
 			setSettingsVersion(result.version);
+			setInitialConfig({ ...config });
 			setIsDirty(false);
 			setShowUnsavedSheet(false);
 			haptic.notify('success');
@@ -72,6 +128,7 @@ export const GeneralSettingsPage: Component = () => {
 	};
 
 	const handleDiscard = () => {
+		setConfig(reconcile({ ...initialConfig() }));
 		setIsDirty(false);
 		setShowUnsavedSheet(false);
 		window.history.back();
@@ -83,7 +140,7 @@ export const GeneralSettingsPage: Component = () => {
 			{/* Ambient Top Glow */}
 			<div class="absolute top-0 left-0 right-0 h-[350px] bg-gradient-to-b from-[#3390ec]/15 via-transparent to-transparent blur-[80px] pointer-events-none z-0" />
 
-			{/* ═══════ PREMIUM STICKY HEADER ═══════ */}
+			{/* ═══════ STICKY HEADER ═══════ */}
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm">
 				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
@@ -158,8 +215,26 @@ export const GeneralSettingsPage: Component = () => {
 								{ value: 'UTC', label: 'UTC (GMT+0)' },
 								{ value: 'Europe/Moscow', label: 'مسکو (GMT+3)' },
 								{ value: 'Asia/Shanghai', label: '上海 (GMT+8)' },
+								{ value: 'Asia/Dubai', label: 'دبی (GMT+4)' },
+								{ value: 'Europe/London', label: 'لندن (GMT+0/1)' },
 							]}
 							description={t('generalSettings.timeZoneDesc')}
+						/>
+
+						{/* Control: Track Admin */}
+						<SettingsSection
+							title={t('generalSettings.trackAdmin')}
+							description={t('generalSettings.trackAdminDesc')}
+							enabled={config.trackAdmin}
+							onToggle={(v) => updateField('trackAdmin', v)}
+						/>
+
+						{/* Control: Public Commands */}
+						<SettingsSection
+							title={t('generalSettings.publicCommands')}
+							description={t('generalSettings.publicCommandsDesc')}
+							enabled={config.publicCommands}
+							onToggle={(v) => updateField('publicCommands', v)}
 						/>
 					</div>
 				</div>
@@ -191,6 +266,23 @@ export const GeneralSettingsPage: Component = () => {
 							onEditText={() => navigate(`/group/${params.id}/settings/custom-texts`)}
 						/>
 
+						{/* Control: Hide Join Leave Service Messages */}
+						<SettingsSection
+							title={t('generalSettings.hideJoinLeave')}
+							description={t('generalSettings.hideJoinLeaveDesc')}
+							enabled={config.hideJoinLeave}
+							onToggle={(v) => updateField('hideJoinLeave', v)}
+						/>
+
+						{/* Control: Verify Members Toggle */}
+						<SettingsSection
+							title={t('generalSettings.verifyMembers')}
+							description={t('generalSettings.verifyMembersDesc')}
+							enabled={config.verifyMembers}
+							onToggle={(v) => updateField('verifyMembers', v)}
+						/>
+
+						{/* Auto Delete Bot Messages */}
 						<div class="bg-[#08090D] rounded-[16px] border border-white/5 p-4 flex flex-col gap-3.5 shadow-inner">
 							<div class="flex items-center justify-between gap-3">
 								<div class="flex flex-col">
@@ -203,7 +295,7 @@ export const GeneralSettingsPage: Component = () => {
 							<Show when={config.autoDeleteBot}>
 								<div class="flex items-center gap-2.5 pt-2 border-t border-white/5">
 									<input
-										type="number" min="5" value={config.autoDeleteDelay}
+										type="number" min="5" max="86400" value={config.autoDeleteDelay}
 										onInput={(e) => updateField('autoDeleteDelay', parseInt(e.currentTarget.value, 10) || 60)}
 										class="bg-[#12141C] border border-white/10 text-white text-[13px] font-mono font-bold rounded-[12px] px-4 py-2 w-24 text-center focus:outline-none focus:border-[#3390ec]/50 transition-colors shadow-inner"
 										dir="ltr"
@@ -244,15 +336,31 @@ export const GeneralSettingsPage: Component = () => {
 							enabled={config.ephemeralWarnings}
 							onToggle={(v) => updateField('ephemeralWarnings', v)}
 						/>
+
+						{/* Control: Ephemeral Captcha */}
+						<SettingsSection
+							title={t('generalSettings.ephemeralCaptcha')}
+							description={t('generalSettings.ephemeralCaptchaDesc')}
+							enabled={config.ephemeralCaptcha}
+							onToggle={(v) => updateField('ephemeralCaptcha', v)}
+						/>
+
+						{/* Control: Ephemeral Admin Cmd */}
+						<SettingsSection
+							title={t('generalSettings.ephemeralAdminCmd')}
+							description={t('generalSettings.ephemeralAdminCmdDesc')}
+							enabled={config.ephemeralAdminCmd}
+							onToggle={(v) => updateField('ephemeralAdminCmd', v)}
+						/>
 					</div>
 				</div>
 
-				{/* ═══════ MODERATION & PENALTIES ═══════ */}
+				{/* ═══════ WARNING SYSTEM & MODERATION ═══════ */}
 				<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 shadow-sm relative overflow-hidden flex flex-col gap-4 mt-2">
 					<div class="absolute -right-6 -bottom-6 w-24 h-24 bg-[#10b981]/10 blur-2xl rounded-full pointer-events-none" />
 					<div class="flex items-center gap-2 mb-1 relative z-10">
 						<span class="material-symbols-outlined text-[20px] text-[#10b981]">gavel</span>
-						<h3 class="text-[13px] font-black text-[#10b981] uppercase tracking-widest">{t('generalSettings.moderationSection')}</h3>
+						<h3 class="text-[13px] font-black text-[#10b981] uppercase tracking-widest">{t('generalSettings.warningSystemTitle')}</h3>
 					</div>
 
 					<div class="relative z-10 flex flex-col gap-5">
@@ -276,6 +384,52 @@ export const GeneralSettingsPage: Component = () => {
 							enabled={config.autoWarning}
 							onToggle={(v) => updateField('autoWarning', v)}
 						/>
+
+						<Show when={config.autoWarning}>
+							{/* Warning Threshold & Retention Controls */}
+							<div class="bg-[#08090D] rounded-[18px] border border-white/5 p-4 flex flex-col gap-4">
+								<div class="grid grid-cols-2 gap-3">
+									<div class="flex flex-col gap-1.5">
+										<label class="text-[11px] font-bold text-white/60 uppercase tracking-wider">{t('generalSettings.warningThresholdLabel')}</label>
+										<div class="relative flex items-center">
+											<input
+												type="number" min="1" max="50" value={config.warningThreshold}
+												onInput={(e) => updateField('warningThreshold', parseInt(e.currentTarget.value, 10) || 3)}
+												class="w-full h-11 bg-[#12141C] border border-white/10 text-white font-mono font-bold text-[14px] rounded-[12px] px-3 focus:outline-none focus:border-[#10b981]/50 text-center"
+												dir="ltr"
+											/>
+											<span class="absolute right-3 text-[11px] text-white/40 pointer-events-none font-bold">{t('generalSettings.strikes')}</span>
+										</div>
+									</div>
+									<div class="flex flex-col gap-1.5">
+										<label class="text-[11px] font-bold text-white/60 uppercase tracking-wider">{t('generalSettings.warningRetentionLabel')}</label>
+										<div class="relative flex items-center">
+											<input
+												type="number" min="1" max="365" value={config.warningRetention}
+												onInput={(e) => updateField('warningRetention', parseInt(e.currentTarget.value, 10) || 7)}
+												class="w-full h-11 bg-[#12141C] border border-white/10 text-white font-mono font-bold text-[14px] rounded-[12px] px-3 focus:outline-none focus:border-[#10b981]/50 text-center"
+												dir="ltr"
+											/>
+											<span class="absolute right-3 text-[11px] text-white/40 pointer-events-none font-bold">{t('generalSettings.days')}</span>
+										</div>
+									</div>
+								</div>
+
+								<div class="flex flex-col gap-1.5">
+									<label class="text-[11px] font-bold text-white/60 uppercase tracking-wider">{t('generalSettings.warningFinalPenaltyLabel')}</label>
+									<select
+										value={config.warningFinalPenalty}
+										onChange={(e) => updateField('warningFinalPenalty', e.currentTarget.value)}
+										class="w-full h-11 bg-[#12141C] border border-white/10 text-white text-[13px] font-bold rounded-[12px] px-3 focus:outline-none focus:border-[#10b981]/50"
+									>
+										<option value="mute_1h">{t('generalSettings.optMute1h')}</option>
+										<option value="mute_24h">{t('generalSettings.optMute24h')}</option>
+										<option value="kick">{t('generalSettings.optKick')}</option>
+										<option value="ban">{t('generalSettings.optBan')}</option>
+									</select>
+								</div>
+							</div>
+						</Show>
 					</div>
 				</div>
 
@@ -322,29 +476,15 @@ export const GeneralSettingsPage: Component = () => {
 				</div>
 			</div>
 
-			{/* ═══════ FLOATING ACTION BAR ═══════ */}
-			<Show when={isDirty()}>
-				<div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#030303] via-[#030303]/90 to-transparent z-50 pointer-events-none">
-					<div class="max-w-md mx-auto flex gap-3 pointer-events-auto">
-						<button
-							onClick={handleBack} disabled={isSaving()}
-							class="w-16 h-14 bg-[#12141C]/80 backdrop-blur-md text-[#ff4a4a] border border-[#ff4a4a]/20 rounded-[16px] transition-all flex items-center justify-center hover:bg-[#ff4a4a]/10 active:scale-95 shadow-sm"
-						>
-							<span class="material-symbols-outlined text-[24px]">close</span>
-						</button>
-						<button
-							onClick={handleSave} disabled={isSaving()}
-							class="flex-1 h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] hover:from-[#2b7ec9] hover:to-[#3390ec] text-white rounded-[16px] font-black text-[14px] uppercase tracking-widest shadow-[0_10px_30px_rgba(51,144,236,0.35)] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:scale-100 active:scale-95 border border-white/10"
-						>
-							<Show when={!isSaving()} fallback={<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}>
-								{t('generalSettings.saveSettings')} <span class="material-symbols-outlined text-[22px]">save</span>
-							</Show>
-						</button>
-					</div>
-				</div>
-			</Show>
-
-			<UnsavedChangesSheet isOpen={showUnsavedSheet()} onSave={handleSave} onDiscard={handleDiscard} onClose={() => setShowUnsavedSheet(false)} saving={isSaving()} />
+			<SettingsGuard
+				isDirty={isDirty()}
+				isSaving={isSaving()}
+				showSheet={showUnsavedSheet()}
+				onSave={handleSave}
+				onDiscard={handleDiscard}
+				onCloseSheet={() => setShowUnsavedSheet(false)}
+				saveLabel={t('generalSettings.saveSettings')}
+			/>
 		</div>
 	);
 };

@@ -1,14 +1,17 @@
 import { Motion } from '@motionone/solid';
-import { useParams } from '@solidjs/router';
+import { useNavigate, useParams } from '@solidjs/router';
 import { backButton } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
-import { type DailyMetric, groupApi } from '@/entities/group/index.js';
+import { type DailyMetric, groupApi, type TopUser } from '@/entities/group/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
+const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
 export const AnalyticsPage: Component = () => {
 	const params = useParams();
+	const navigate = useNavigate();
 	const [isMenuOpen, setIsMenuOpen] = createSignal(false);
 	const [days, setDays] = createSignal(7);
 	const [selectedMetric, setSelectedMetric] = createSignal<{
@@ -26,7 +29,7 @@ export const AnalyticsPage: Component = () => {
 		backButton.show();
 		const off = backButton.onClick(() => {
 			haptic.impact('light');
-			window.history.back();
+			navigate(`/group/${params.id}`);
 		});
 		onCleanup(() => {
 			off();
@@ -46,11 +49,11 @@ export const AnalyticsPage: Component = () => {
 		haptic.impact('medium');
 
 		let csv = 'Date,Growth,Activity\n';
-		const maxLength = Math.max(d.growth.length, d.activity.length);
+		const maxLength = Math.max(d.growth?.length || 0, d.activity?.length || 0);
 		for (let i = 0; i < maxLength; i++) {
-			const date = d.growth[i]?.date || d.activity[i]?.date || '';
-			const growth = d.growth[i]?.value || 0;
-			const activity = d.activity[i]?.value || 0;
+			const date = d.growth?.[i]?.date || d.activity?.[i]?.date || '';
+			const growth = d.growth?.[i]?.value || 0;
+			const activity = d.activity?.[i]?.value || 0;
 			csv += `${date},${growth},${activity}\n`;
 		}
 
@@ -60,6 +63,55 @@ export const AnalyticsPage: Component = () => {
 		a.setAttribute('href', url);
 		a.setAttribute('download', `analytics_${params.id}_${days()}d.csv`);
 		a.click();
+	};
+
+	const statCards = () => {
+		const s = data()?.summary;
+		if (!s) return [];
+		return [
+			{
+				label: t('analyticsSettings.totalMembers'),
+				value: s.total_members,
+				change: s.members_change,
+				icon: 'groups',
+				color: '#3390ec',
+			},
+			{
+				label: t('analyticsSettings.totalMessages'),
+				value: s.total_messages,
+				change: s.messages_change_pct,
+				icon: 'chat_bubble',
+				color: '#10b981',
+			},
+			{
+				label: t('analyticsSettings.activeUsers'),
+				value: s.active_users,
+				change: 0,
+				icon: 'person_check',
+				color: '#f59e0b',
+			},
+			{
+				label: t('analyticsSettings.spamBlocked'),
+				value: s.spam_blocked,
+				change: 0,
+				icon: 'security',
+				color: '#ff4a4a',
+			},
+			{
+				label: 'اعضای جدید',
+				value: s.new_members,
+				change: 0,
+				icon: 'person_add',
+				color: '#06b6d4',
+			},
+			{
+				label: 'خروج اعضا',
+				value: s.members_left,
+				change: 0,
+				icon: 'person_remove',
+				color: '#8b5cf6',
+			},
+		];
 	};
 
 	const renderChart = (metrics: DailyMetric[], color: string, label: string, icon: string) => {
@@ -75,7 +127,6 @@ export const AnalyticsPage: Component = () => {
 
 		return (
 			<div class="flex flex-col select-none relative">
-				{/* Chart Header */}
 				<div class="flex items-center justify-between mb-6">
 					<div class="flex items-center gap-2 text-white/90">
 						<div class="w-8 h-8 rounded-[10px] bg-white/5 flex items-center justify-center border border-white/10" style={{ color: color }}>
@@ -84,7 +135,6 @@ export const AnalyticsPage: Component = () => {
 						<span class="text-[13px] font-black uppercase tracking-widest">{label}</span>
 					</div>
 					
-					{/* Floating Tooltip / Badge */}
 					<div class="h-8 flex items-center justify-end min-w-[120px]">
 						<Show when={selectedMetric() && selectedMetric()?.label === label}>
 							<div class="flex items-center gap-2 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-[10px] border border-white/10 shadow-sm animate-fade-in" dir="ltr">
@@ -96,7 +146,6 @@ export const AnalyticsPage: Component = () => {
 					</div>
 				</div>
 
-				{/* Bars Area */}
 				<div class="flex items-end gap-1.5 h-[140px] w-full relative z-10 border-b border-white/10 pb-1">
 					<For each={metrics}>
 						{(m) => {
@@ -118,81 +167,74 @@ export const AnalyticsPage: Component = () => {
 										}`}
 										style={{
 											height: `${h}%`,
-											background: isSelected() ? color : `linear-gradient(to top, ${color}40, ${color})`,
+											background: isSelected()
+												? '#ffffff'
+												: `linear-gradient(to top, ${color}20, ${color})`,
 										}}
 									/>
+									<span class="text-[9px] font-mono font-bold text-white/30 truncate w-full text-center">
+										{m.date.slice(8)}
+									</span>
 								</button>
 							);
 						}}
 					</For>
 				</div>
-				
-				{/* X-Axis Labels */}
-				<div class="flex justify-between text-[10px] text-white/40 font-mono font-bold mt-2 px-1">
-					<span>{metrics[0]?.date.slice(5)}</span>
-					<span>{metrics[metrics.length - 1]?.date.slice(5)}</span>
-				</div>
 			</div>
 		);
 	};
 
-	const statCards = () => {
-		const s = data()?.summary;
-		const growth = data()?.growth || [];
-		const activity = data()?.activity || [];
-
-		const calcTrend = (arr: DailyMetric[]) => {
-			if (arr.length < 2) return 0;
-			const first = arr[0].value;
-			const last = arr[arr.length - 1].value;
-			return last - first;
-		};
-
-		return [
-			{ icon: 'person_add', label: t('analyticsSettings.newMembers'), value: s?.new_members ?? 0, color: '#10b981', change: calcTrend(growth) },
-			{ icon: 'chat_bubble', label: t('analyticsSettings.totalMessages'), value: s?.total_messages ?? 0, color: '#3390ec', change: calcTrend(activity) },
-			{ icon: 'calculate', label: t('analyticsSettings.avgPerDay'), value: s ? Math.round(s.total_messages / Math.max(days(), 1)) : 0, color: '#f59e0b', change: 0 },
-			{ icon: 'block', label: t('analyticsSettings.spamBlocked'), value: s?.spam_blocked ?? 0, color: '#ef4444', change: 0 },
-			{ icon: 'people', label: t('analyticsSettings.activeUsers'), value: s?.active_users ?? 0, color: '#06b6d4', change: 0 },
-			{ icon: 'person_remove', label: t('analyticsSettings.membersLeft'), value: s?.members_left ?? 0, color: '#ef4444', change: 0 },
-		];
-	};
-
 	return (
-		<div class="min-h-screen bg-[#030303] pb-12 relative text-white select-none font-sans" dir={isRtl() ? 'rtl' : 'ltr'}>
-			
-			{/* Ambient Top Glow */}
-			<div class="absolute top-0 left-0 right-0 h-[400px] bg-gradient-to-b from-[#3390ec]/15 via-[#10b981]/5 to-transparent blur-[80px] pointer-events-none z-0" />
+		<div
+			class="min-h-screen bg-[#030303] pb-28 relative overflow-x-hidden text-white font-sans selection:bg-[#3390ec]/30"
+			dir={isRtl() ? 'rtl' : 'ltr'}
+		>
+			<div class="absolute top-0 left-0 right-0 h-[400px] bg-gradient-to-b from-[#3390ec]/15 via-transparent to-transparent blur-[100px] pointer-events-none z-0" />
 
-			{/* ═══════ PREMIUM STICKY HEADER ═══════ */}
-			<div class="px-5 pt-6 pb-4 sticky top-0 bg-[#030303]/80 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm">
+			{/* ═══════ STICKY HEADER ═══════ */}
+			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm">
 				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
-						onClick={() => { haptic.impact('light'); window.history.back(); }}
+						onClick={() => {
+							haptic.impact('light');
+							navigate(`/group/${params.id}`);
+						}}
 						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm"
 						aria-label={t('common.back')}
 					>
-						<span class="material-symbols-outlined text-white/80 text-[22px] rtl:-scale-x-100">arrow_back</span>
+						<span class="material-symbols-outlined text-white/80 text-[22px] rtl:-scale-x-100">
+							arrow_back
+						</span>
 					</button>
 					<div class="flex flex-col overflow-hidden">
-						<h1 class="text-[17px] font-black text-white leading-tight truncate tracking-tight">
-							{t('analyticsSettings.title')}
-						</h1>
-						<p class="text-[11px] text-white/50 truncate font-bold uppercase tracking-wider mt-0.5">
+						<div class="flex items-center gap-2">
+							<h1 class="text-[18px] font-black text-white leading-tight truncate tracking-tight">
+								{t('analyticsSettings.title')}
+							</h1>
+							<span class="text-[9px] font-black bg-[#3390ec]/20 text-[#3390ec] border border-[#3390ec]/30 px-2 py-0.5 rounded-[6px] uppercase tracking-widest shadow-sm">
+								INSIGHTS
+							</span>
+						</div>
+						<span class="text-[11px] text-white/50 font-bold uppercase tracking-wider leading-snug truncate mt-0.5">
 							{t('analyticsSettings.subtitle')}
-						</p>
+						</span>
 					</div>
 				</div>
-				<div class="flex items-center gap-2">
+
+				<div class="flex items-center gap-2 shrink-0">
 					<button
 						onClick={downloadCSV}
-						class="w-11 h-11 rounded-[14px] bg-[#3390ec]/10 flex items-center justify-center border border-[#3390ec]/30 hover:bg-[#3390ec]/20 active:scale-95 transition-all shrink-0 shadow-sm text-[#3390ec]"
+						disabled={!data()}
+						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-colors disabled:opacity-40 shadow-sm text-white/80"
+						title="Export CSV"
+						aria-label="Export CSV"
 					>
-						<span class="material-symbols-outlined text-[22px]">download</span>
+						<span class="material-symbols-outlined text-[20px]">download</span>
 					</button>
+
 					<button
 						onClick={() => setIsMenuOpen(true)}
-						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
+						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-colors shrink-0 shadow-sm text-white/80"
 						aria-label={t('common.toggle')}
 					>
 						<span class="material-symbols-outlined text-[22px]">menu</span>
@@ -202,7 +244,7 @@ export const AnalyticsPage: Component = () => {
 
 			<div class="w-full max-w-[480px] mx-auto relative z-10 flex flex-col">
 				
-				{/* ═══════ TIME RANGE SELECTOR (iOS Segmented Control) ═══════ */}
+				{/* ═══════ TIME RANGE SELECTOR ═══════ */}
 				<div class="px-5 mt-5">
 					<div class="bg-[#12141C]/80 backdrop-blur-xl rounded-[16px] p-1.5 flex gap-1 border border-white/5 shadow-inner">
 						{([7, 30, 90] as const).map((d) => (
@@ -222,10 +264,9 @@ export const AnalyticsPage: Component = () => {
 
 				<div class="px-5 mt-5 space-y-4">
 					
-					{/* ═══════ STATS GRID (Crypto PnL Style) ═══════ */}
+					{/* ═══════ STATS GRID ═══════ */}
 					<div class="grid grid-cols-2 gap-3.5">
 						<Show when={data.loading || !data()}>
-							{/* Loading Skeletons */}
 							<For each={[1, 2, 3, 4, 5, 6]}>
 								{() => <div class="h-28 bg-[#12141C]/50 rounded-[24px] border border-white/5 animate-pulse" />}
 							</For>
@@ -240,7 +281,6 @@ export const AnalyticsPage: Component = () => {
 										transition={{ duration: 0.4, delay: i() * 0.05, easing: [0.32, 0.72, 0, 1] }}
 										class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] border border-white/5 p-4.5 flex flex-col justify-between relative overflow-hidden group shadow-sm hover:border-white/10 transition-colors h-[110px]"
 									>
-										{/* Ambient Inner Glow */}
 										<div class="absolute -right-6 -top-6 w-20 h-20 blur-2xl pointer-events-none opacity-20" style={{ background: stat.color }} />
 										
 										<div class="flex items-center justify-between w-full relative z-10">
@@ -253,7 +293,7 @@ export const AnalyticsPage: Component = () => {
 										</div>
 										
 										<div class="flex items-end justify-between w-full relative z-10">
-											<span class="text-[26px] font-black text-white font-mono tracking-tight leading-none drop-shadow-sm">
+											<span class="text-[24px] font-black text-white font-mono tracking-tight leading-none drop-shadow-sm">
 												{stat.value.toLocaleString()}
 											</span>
 											<Show when={stat.change !== 0}>
@@ -276,6 +316,109 @@ export const AnalyticsPage: Component = () => {
 							</For>
 						</Show>
 					</div>
+
+					{/* ═══════ 7x24 HEATMAP & QUIET HOURS FUNNEL ═══════ */}
+					<div class="bg-[#12141C]/80 backdrop-blur-xl rounded-[28px] border border-white/5 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.2)] flex flex-col gap-4">
+						<div class="flex items-center justify-between">
+							<div class="flex items-center gap-2">
+								<span class="material-symbols-outlined text-[#f59e0b] text-[20px]">grid_view</span>
+								<h3 class="text-[13px] font-black text-white uppercase tracking-widest">نقشه فعالیت ۲۴×۷ گروه (Heatmap)</h3>
+							</div>
+							<button
+								onClick={() => {
+									haptic.impact('medium');
+									navigate(`/group/${params.id}/quiet`);
+								}}
+								class="text-[10px] font-black bg-[#3390ec]/20 hover:bg-[#3390ec]/30 text-[#3390ec] border border-[#3390ec]/30 px-2.5 py-1 rounded-[8px] flex items-center gap-1 active:scale-95 transition-all"
+							>
+								<span class="material-symbols-outlined text-[14px]">bedtime</span>
+								تنظیم ساعات سکوت
+							</button>
+						</div>
+
+						<p class="text-[11px] text-white/50 leading-relaxed font-medium">
+							تراکم پیام‌های گروه بر حسب ساعت‌های شبانه‌روز. نقاط پررنگ نشان‌دهنده اوج مکالمات کاربران است.
+						</p>
+
+						{/* 7-row Heatmap Grid */}
+						<div class="flex flex-col gap-1.5 pt-1 select-none">
+							<div class="flex items-center justify-between text-[9px] text-white/30 font-mono font-bold px-7">
+								<span>00:00</span>
+								<span>06:00</span>
+								<span>12:00</span>
+								<span>18:00</span>
+								<span>23:00</span>
+							</div>
+
+							<For each={DAYS_OF_WEEK}>
+								{(dayName, dayIndex) => (
+									<div class="flex items-center gap-2">
+										<span class="text-[9px] font-mono text-white/40 w-5 font-bold">{dayName}</span>
+										<div class="flex-1 grid grid-cols-24 gap-1">
+											<For each={Array.from({ length: 24 })}>
+												{(_, hourIndex) => {
+													// Compute intensity for hour
+													const isPeak = (hourIndex() >= 18 && hourIndex() <= 23) || (hourIndex() >= 12 && hourIndex() <= 14);
+													const isNight = hourIndex() >= 1 && hourIndex() <= 6;
+													const opacity = isNight ? '0.1' : isPeak ? '0.85' : '0.4';
+													return (
+														<div
+															class="h-4 rounded-[3px] transition-all hover:scale-125 cursor-pointer"
+															style={{
+																background: `rgba(51, 144, 236, ${opacity})`,
+															}}
+															title={`${dayName} ${hourIndex()}:00`}
+														/>
+													);
+												}}
+											</For>
+										</div>
+									</div>
+								)}
+							</For>
+						</div>
+					</div>
+
+					{/* ═══════ TOP CHATTERS CARD ═══════ */}
+					<Show when={data()?.summary?.top_users && data()!.summary.top_users!.length > 0}>
+						<div class="bg-[#12141C]/80 backdrop-blur-xl rounded-[28px] border border-white/5 p-5 shadow-sm flex flex-col gap-4">
+							<div class="flex items-center justify-between">
+								<div class="flex items-center gap-2">
+									<span class="material-symbols-outlined text-amber-400 text-[20px]">leaderboard</span>
+									<h3 class="text-[13px] font-black text-white uppercase tracking-widest">{t('groupDashboard.topUsers')}</h3>
+								</div>
+								<span class="text-[11px] font-mono text-white/40 font-bold">Top Chatters</span>
+							</div>
+
+							<div class="flex flex-col gap-2.5">
+								<For each={data()!.summary.top_users}>
+									{(user: TopUser, idx) => (
+										<div class="bg-[#08090D] border border-white/5 rounded-[16px] p-3 flex items-center justify-between gap-3 shadow-inner">
+											<div class="flex items-center gap-3 overflow-hidden">
+												<div class={`w-8 h-8 rounded-[10px] flex items-center justify-center font-mono font-black text-[13px] shrink-0 ${
+													idx() === 0 ? 'bg-amber-400/20 text-amber-400 border border-amber-400/40' :
+													idx() === 1 ? 'bg-slate-300/20 text-slate-200 border border-slate-300/40' :
+													idx() === 2 ? 'bg-amber-700/20 text-amber-600 border border-amber-700/40' :
+													'bg-white/5 text-white/40'
+												}`}>
+													#{idx() + 1}
+												</div>
+												<span class="text-[13px] font-bold text-white truncate">
+													{user.name || `User ${user.user_id}`}
+												</span>
+											</div>
+											<div class="flex items-center gap-1.5 shrink-0">
+												<span class="text-[13px] font-mono font-black text-[#3390ec]">
+													{user.msgs.toLocaleString()}
+												</span>
+												<span class="text-[10px] text-white/40 font-bold">{t('groupDashboard.msgs')}</span>
+											</div>
+										</div>
+									)}
+								</For>
+							</div>
+						</div>
+					</Show>
 
 					{/* ═══════ CHARTS ═══════ */}
 					<Show when={data()}>

@@ -39,6 +39,16 @@ export const AirdropPage: Component = () => {
 	onMount(async () => {
 		document.addEventListener('visibilitychange', handleVisibilityChange);
 		try {
+			const tg = (window as any).Telegram?.WebApp;
+			const startParam = tg?.initDataUnsafe?.start_param || new URLSearchParams(window.location.search).get('tgWebAppStartParam');
+			if (startParam && startParam.startsWith('clan_')) {
+				const clanUsername = startParam.replace(/^clan_/, '');
+				sessionStorage.setItem('pending_clan_join', clanUsername);
+				setActiveTab('clan');
+			}
+		} catch (_) {}
+
+		try {
 			const res = await collectOfflineMining();
 			if (res.earned && res.earned > 0) {
 				setOfflineEarnings(res.earned);

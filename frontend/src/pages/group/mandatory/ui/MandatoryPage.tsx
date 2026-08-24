@@ -15,80 +15,103 @@ import { groupApi } from '@/entities/group/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 import { NumberInputField, StringListField, ToggleSwitch } from '@/shared/ui/settings-controls.js';
+import { SettingsGuard } from '@/shared/ui/SettingsGuard.js';
 import { showToast } from '@/shared/ui/toast.js';
 import { haptic } from '@/shared/lib/haptic.js';
+
+interface MandatoryConfig {
+	forcedAddEnabled: boolean;
+	forcedAddCount: number;
+	forceJoinEnabled: boolean;
+	requiredChannels: string[];
+	verificationEnabled: boolean;
+	excludedUsers: string[];
+}
+
+const defaults: MandatoryConfig = {
+	forcedAddEnabled: false,
+	forcedAddCount: 0,
+	forceJoinEnabled: false,
+	requiredChannels: [],
+	verificationEnabled: false,
+	excludedUsers: [],
+};
 
 export const MandatoryPage: Component = () => {
 	const navigate = useNavigate();
 	const params = useParams();
 	const [isMenuOpen, setIsMenuOpen] = createSignal(false);
-
-	const [cfg, setCfg] = createStore({
-		forcedAddEnabled: false,
-		forcedAddCount: 0,
-		forceJoinEnabled: false,
-		requiredChannels: [] as string[],
-		verificationEnabled: false,
-		excludedUsers: [] as string[],
-	});
-
 	const [isDirty, setIsDirty] = createSignal(false);
 	const [isSaving, setIsSaving] = createSignal(false);
+	const [showUnsavedSheet, setShowUnsavedSheet] = createSignal(false);
+	const [settingsVersion, setSettingsVersion] = createSignal(1);
+
+	const [cfg, setCfg] = createStore<MandatoryConfig>({ ...defaults });
+	const [initialCfg, setInitialCfg] = createSignal<MandatoryConfig>({ ...defaults });
 
 	const [settingsData, { refetch }] = createResource(
 		() => params.id,
 		async (groupId) => {
 			const res = await groupApi.getSettings(groupId);
+			setSettingsVersion(res.version);
 			const mm = (res.mandatory_membership || {}) as any;
-			setCfg(
-				reconcile({
-					forcedAddEnabled: mm.forced_add_enabled ?? false,
-					forcedAddCount: mm.forced_add_count ?? 0,
-					forceJoinEnabled: mm.force_join_enabled ?? false,
-					requiredChannels: mm.required_channels ?? [],
-					verificationEnabled: mm.verification_enabled ?? false,
-					excludedUsers: mm.exemptions ?? [],
-				}),
-			);
+			const mapped: MandatoryConfig = {
+				forcedAddEnabled: mm.forced_add_enabled ?? false,
+				forcedAddCount: mm.forced_add_count ?? 0,
+				forceJoinEnabled: mm.force_join_enabled ?? false,
+				requiredChannels: mm.required_channels ?? [],
+				verificationEnabled: mm.verification_enabled ?? false,
+				excludedUsers: mm.exemptions ?? [],
+			};
+			setInitialCfg({ ...mapped });
+			setCfg(reconcile(mapped));
 			setIsDirty(false);
 			return res;
 		},
 	);
 
+	const handleBack = () => {
+		if (isDirty()) {
+			setShowUnsavedSheet(true);
+			return;
+		}
+		window.history.back();
+	};
+
 	onMount(() => {
 		backButton.show();
-		const off = backButton.onClick(() => {
-			haptic.impact('light');
-			window.history.back();
-		});
+		const off = backButton.onClick(handleBack);
 		onCleanup(() => off());
 	});
 
-	const updateCfg = (key: keyof typeof cfg, value: any) => {
+	const updateCfg = (key: keyof MandatoryConfig, value: any) => {
 		setCfg(key, value);
 		setIsDirty(true);
 	};
 
 	const handleSave = async () => {
-		if (!isDirty() || !settingsData()) return;
-		haptic.notify('success');
+		if (!isDirty() || isSaving()) return;
 		setIsSaving(true);
 		try {
-			await groupApi.updateSettings(
+			const payload = {
+				forced_add_enabled: cfg.forcedAddEnabled,
+				forced_add_count: cfg.forcedAddCount,
+				force_join_enabled: cfg.forceJoinEnabled,
+				required_channels: cfg.requiredChannels,
+				verification_enabled: cfg.verificationEnabled,
+				exemptions: cfg.excludedUsers,
+			};
+			const res = await groupApi.updateSettings(
 				params.id,
 				'mandatory_membership',
-				{
-					forced_add_enabled: cfg.forcedAddEnabled,
-					forced_add_count: cfg.forcedAddCount,
-					force_join_enabled: cfg.forceJoinEnabled,
-					required_channels: cfg.requiredChannels,
-					verification_enabled: cfg.verificationEnabled,
-					exemptions: cfg.excludedUsers,
-				},
-				settingsData()!.version,
+				payload,
+				settingsVersion(),
 			);
+			setSettingsVersion(res.version);
+			setInitialCfg({ ...cfg });
 			setIsDirty(false);
-			refetch();
+			setShowUnsavedSheet(false);
+			haptic.notify('success');
 			showToast(t('common.settingsSaved'), 'success');
 			navigate(`/group/${params.id}`);
 		} catch (_e) {
@@ -97,6 +120,13 @@ export const MandatoryPage: Component = () => {
 		} finally {
 			setIsSaving(false);
 		}
+	};
+
+	const handleDiscard = () => {
+		setCfg(reconcile({ ...initialCfg() }));
+		setIsDirty(false);
+		setShowUnsavedSheet(false);
+		window.history.back();
 	};
 
 	return (
@@ -109,7 +139,7 @@ export const MandatoryPage: Component = () => {
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm">
 				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
-						onClick={() => { haptic.impact('light'); window.history.back(); }}
+						onClick={() => { haptic.impact('light'); handleBack(); }}
 						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm"
 						aria-label={t('common.back')}
 					>
@@ -124,9 +154,9 @@ export const MandatoryPage: Component = () => {
 								<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0 shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
 							</Show>
 						</div>
-						<p class="text-[11px] text-white/50 font-bold uppercase tracking-wider leading-snug truncate mt-0.5">
-							{t('mandatorySettings.subtitle')}
-						</p>
+						<span class="text-[11px] text-white/50 font-bold uppercase tracking-wider leading-snug truncate mt-0.5">
+							{t('mandatorySettings.description')}
+						</span>
 					</div>
 				</div>
 
@@ -141,131 +171,106 @@ export const MandatoryPage: Component = () => {
 
 			<HamburgerMenu isOpen={isMenuOpen()} onClose={() => setIsMenuOpen(false)} groupId={params.id} activeTab="mandatory" />
 
-			<Suspense fallback={null}>
-				<div class="p-5 flex flex-col gap-4 max-w-md mx-auto relative z-10 w-full">
+			<Suspense fallback={<div class="p-8 flex justify-center"><div class="w-8 h-8 border-2 border-[#3390ec] border-t-transparent rounded-full animate-spin" /></div>}>
+				<div class="p-5 flex flex-col gap-5 max-w-md mx-auto relative z-10 w-full">
 					
-					{/* ═══════ FORCED ADD ═══════ */}
-					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] border border-white/5 p-5 shadow-sm relative overflow-hidden flex flex-col gap-4">
-						<div class="absolute -left-6 -top-6 w-24 h-24 bg-[#3390ec]/10 blur-2xl rounded-full pointer-events-none" />
-						
-						<div class="flex items-center justify-between gap-3 relative z-10">
-							<div class="flex items-center gap-3.5">
-								<div class="w-10 h-10 rounded-[12px] bg-[#3390ec]/15 border border-[#3390ec]/30 flex items-center justify-center shadow-inner shrink-0">
-									<span class="material-symbols-outlined text-[#3390ec] text-[20px]">person_add</span>
+					{/* ═══════ JOIN REQUESTS VERIFICATION (PV CAPTCHA) ═══════ */}
+					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+						<div class="bg-[#12141C]/80 backdrop-blur-xl border border-[#3390ec]/20 rounded-[24px] p-5 shadow-sm flex flex-col gap-4">
+							<div class="flex items-center justify-between">
+								<div class="flex items-center gap-2">
+									<span class="material-symbols-outlined text-[#3390ec] text-[20px]">how_to_reg</span>
+									<h2 class="text-[13px] font-black text-[#3390ec] uppercase tracking-widest">تأیید هویت در چت خصوصی (PV Captcha)</h2>
 								</div>
-								<h2 class="text-[15px] font-black text-white tracking-tight">{t('mandatorySettings.forcedAdd')}</h2>
+								<span class="text-[9px] font-black bg-[#3390ec]/20 text-[#3390ec] border border-[#3390ec]/30 px-2 py-0.5 rounded-[6px] uppercase tracking-widest">NATIVE</span>
 							</div>
-							<ToggleSwitch checked={cfg.forcedAddEnabled} onChange={(v) => { haptic.impact('light'); updateCfg('forcedAddEnabled', v); }} />
-						</div>
 
-						<Show when={cfg.forcedAddEnabled}>
-							<div class="h-[1px] bg-white/5 w-full rounded-full relative z-10" />
-							<div class="relative z-10 mt-1">
-								<NumberInputField
-									label={t('mandatorySettings.forcedAddCount')}
-									description={t('mandatorySettings.forcedAddCountDesc')}
-									value={cfg.forcedAddCount}
-									onChange={(v) => updateCfg('forcedAddCount', v)}
-									min={0}
-									max={50}
-								/>
-							</div>
-						</Show>
-					</Motion.div>
-
-					{/* ═══════ FORCE JOIN CHANNELS ═══════ */}
-					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] border border-white/5 p-5 shadow-sm relative overflow-hidden flex flex-col gap-4">
-						<div class="absolute -right-6 -top-6 w-24 h-24 bg-amber-400/10 blur-2xl rounded-full pointer-events-none" />
-						
-						<div class="flex items-center justify-between gap-3 relative z-10">
-							<div class="flex items-center gap-3.5">
-								<div class="w-10 h-10 rounded-[12px] bg-amber-400/15 border border-amber-400/30 flex items-center justify-center shadow-inner shrink-0">
-									<span class="material-symbols-outlined text-amber-400 text-[20px]">campaign</span>
+							<div class="flex items-center justify-between gap-3">
+								<div class="flex flex-col">
+									<span class="text-[13px] font-bold text-white">وریفای قبل از ورود به گروه</span>
+									<span class="text-[11px] text-white/50 leading-relaxed mt-0.5">
+										هنگام ارسال درخواست عضویت، ربات در پی‌وی کاربر یک دکمه شیشه‌ای تأیید هویت ارسال می‌کند.
+									</span>
 								</div>
-								<h2 class="text-[15px] font-black text-white tracking-tight">{t('mandatorySettings.forceJoin')}</h2>
+								<ToggleSwitch checked={cfg.verificationEnabled} onChange={(v) => updateCfg('verificationEnabled', v)} />
 							</div>
-							<ToggleSwitch checked={cfg.forceJoinEnabled} onChange={(v) => { haptic.impact('light'); updateCfg('forceJoinEnabled', v); }} />
-						</div>
-
-						<Show when={cfg.forceJoinEnabled}>
-							<div class="h-[1px] bg-white/5 w-full rounded-full relative z-10" />
-							<div class="relative z-10 mt-1">
-								<StringListField
-									label={t('mandatorySettings.reqChannels')}
-									description={t('mandatorySettings.reqChannelsDesc')}
-									placeholder="@username or channel URL"
-									items={cfg.requiredChannels}
-									onAdd={(item) => updateCfg('requiredChannels', [...cfg.requiredChannels, item])}
-									onRemove={(item) => updateCfg('requiredChannels', cfg.requiredChannels.filter((c) => c !== item))}
-								/>
-							</div>
-						</Show>
-					</Motion.div>
-
-					{/* ═══════ VERIFICATION (Security Banner) ═══════ */}
-					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} class="bg-[#10b981]/10 border border-[#10b981]/20 rounded-[24px] p-5 flex items-start gap-4 shadow-sm relative overflow-hidden">
-						<div class="absolute -right-6 -bottom-6 w-28 h-28 bg-[#10b981]/20 blur-3xl rounded-full pointer-events-none" />
-						
-						<div class="w-10 h-10 rounded-[12px] bg-[#10b981]/20 flex items-center justify-center border border-[#10b981]/30 shadow-inner shrink-0 relative z-10">
-							<span class="material-symbols-outlined text-[#10b981] text-[20px]">verified_user</span>
-						</div>
-						
-						<div class="flex flex-col flex-1 relative z-10 min-w-0 pr-12">
-							<span class="text-[15px] font-black text-white mb-1 tracking-tight">{t('mandatorySettings.verification')}</span>
-							<span class="text-[11px] text-white/60 leading-relaxed font-medium">{t('mandatorySettings.verificationDesc')}</span>
-						</div>
-						
-						<div class="absolute right-5 top-5 z-10">
-							<ToggleSwitch checked={cfg.verificationEnabled} onChange={(v) => { haptic.impact('light'); updateCfg('verificationEnabled', v); }} />
 						</div>
 					</Motion.div>
 
-					{/* ═══════ EXEMPTIONS ═══════ */}
-					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] border border-white/5 p-5 shadow-sm relative overflow-hidden flex flex-col gap-4">
-						<div class="absolute -left-6 -bottom-6 w-24 h-24 bg-[#ff4a4a]/10 blur-2xl rounded-full pointer-events-none" />
-						
-						<div class="flex items-center gap-3.5 relative z-10 mb-2">
-							<div class="w-10 h-10 rounded-[12px] bg-[#ff4a4a]/15 border border-[#ff4a4a]/30 flex items-center justify-center shadow-inner shrink-0">
-								<span class="material-symbols-outlined text-[#ff4a4a] text-[20px]">do_not_disturb_off</span>
+					{/* ═══════ MANDATORY CHANNEL SUBSCRIPTION ═══════ */}
+					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+						<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 shadow-sm flex flex-col gap-4">
+							<div class="flex items-center justify-between gap-3">
+								<div class="flex flex-col">
+									<h2 class="text-[13px] font-black text-white uppercase tracking-widest">{t('mandatorySettings.forceJoinTitle')}</h2>
+									<span class="text-[11px] text-white/50 leading-relaxed mt-0.5">{t('mandatorySettings.forceJoinDesc')}</span>
+								</div>
+								<ToggleSwitch checked={cfg.forceJoinEnabled} onChange={(v) => updateCfg('forceJoinEnabled', v)} />
 							</div>
-							<h2 class="text-[15px] font-black text-white tracking-tight">{t('mandatorySettings.exemptions')}</h2>
-						</div>
 
-						<div class="relative z-10">
+							<Show when={cfg.forceJoinEnabled}>
+								<div class="pt-2 border-t border-white/5">
+									<StringListField
+										label={t('mandatorySettings.requiredChannels')}
+										items={cfg.requiredChannels}
+										onChange={(val) => updateCfg('requiredChannels', val)}
+										placeholder="@yourchannel"
+										description={t('mandatorySettings.requiredChannelsDesc')}
+									/>
+								</div>
+							</Show>
+						</div>
+					</Motion.div>
+
+					{/* ═══════ FORCED MEMBER INVITATION ═══════ */}
+					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+						<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 shadow-sm flex flex-col gap-4">
+							<div class="flex items-center justify-between gap-3">
+								<div class="flex flex-col">
+									<h2 class="text-[13px] font-black text-white uppercase tracking-widest">{t('mandatorySettings.forcedAddTitle')}</h2>
+									<span class="text-[11px] text-white/50 leading-relaxed mt-0.5">{t('mandatorySettings.forcedAddDesc')}</span>
+								</div>
+								<ToggleSwitch checked={cfg.forcedAddEnabled} onChange={(v) => updateCfg('forcedAddEnabled', v)} />
+							</div>
+
+							<Show when={cfg.forcedAddEnabled}>
+								<div class="pt-2 border-t border-white/5">
+									<NumberInputField
+										label={t('mandatorySettings.requiredAddCount')}
+										value={cfg.forcedAddCount}
+										onChange={(val) => updateCfg('forcedAddCount', val)}
+										min={1}
+										max={100}
+										description={t('mandatorySettings.requiredAddCountDesc')}
+									/>
+								</div>
+							</Show>
+						</div>
+					</Motion.div>
+
+					{/* ═══════ EXEMPTED USERS ═══════ */}
+					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+						<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 shadow-sm flex flex-col gap-4">
 							<StringListField
 								label={t('mandatorySettings.excludedUsers')}
-								description={t('mandatorySettings.excludedUsersDesc')}
-								placeholder="@username or User ID"
 								items={cfg.excludedUsers}
-								onAdd={(item) => updateCfg('excludedUsers', [...cfg.excludedUsers, item])}
-								onRemove={(item) => updateCfg('excludedUsers', cfg.excludedUsers.filter((e) => e !== item))}
+								onChange={(val) => updateCfg('excludedUsers', val)}
+								placeholder="@username / ID"
+								description={t('mandatorySettings.excludedUsersDesc')}
 							/>
 						</div>
 					</Motion.div>
 				</div>
 			</Suspense>
 
-			{/* ═══════ FLOATING ACTION BAR ═══════ */}
-			<Show when={isDirty()}>
-				<div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#030303] via-[#030303]/90 to-transparent z-40 pointer-events-none">
-					<div class="max-w-md mx-auto flex gap-3 pointer-events-auto">
-						<button
-							onClick={() => refetch()} disabled={isSaving()}
-							class="w-16 h-14 bg-[#12141C]/80 backdrop-blur-md text-[#ff4a4a] border border-[#ff4a4a]/20 rounded-[16px] transition-all flex items-center justify-center hover:bg-[#ff4a4a]/10 active:scale-95 shadow-sm"
-						>
-							<span class="material-symbols-outlined text-[24px]">close</span>
-						</button>
-						<button
-							onClick={handleSave} disabled={isSaving()}
-							class="flex-1 h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] hover:from-[#2b7ec9] hover:to-[#3390ec] text-white rounded-[16px] font-black text-[14px] uppercase tracking-widest shadow-[0_10px_30px_rgba(51,144,236,0.35)] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:scale-100 active:scale-95 border border-white/10"
-						>
-							<Show when={!isSaving()} fallback={<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}>
-								{t('generalSettings.saveSettings')} <span class="material-symbols-outlined text-[22px]">save</span>
-							</Show>
-						</button>
-					</div>
-				</div>
-			</Show>
+			<SettingsGuard
+				isDirty={isDirty()}
+				isSaving={isSaving()}
+				showSheet={showUnsavedSheet()}
+				onSave={handleSave}
+				onDiscard={handleDiscard}
+				onCloseSheet={() => setShowUnsavedSheet(false)}
+			/>
 		</div>
 	);
 };

@@ -95,16 +95,23 @@ export const TasksView: Component = () => {
 			}
 		} catch (e: any) {
 			console.error('Failed to complete task:', e);
-			let errorMessage = t('airdrop.tasks.errors.default') || 'Failed to verify task';
-			if (e?.message) {
-				const msg = e.message.toLowerCase();
-				if (msg.includes('gold league')) errorMessage = 'You need to reach Gold league first.';
-				else if (msg.includes('join a clan')) errorMessage = 'You need to join a clan first.';
-				else if (msg.includes('invite at least')) errorMessage = e.message;
-				else if (msg.includes('total taps')) errorMessage = 'Keep tapping! Goal not reached yet.';
-				else if (msg.includes('telegram premium')) errorMessage = 'Active Telegram Premium subscription required.';
-				else if (msg.includes('join official telegram channel') || msg.includes('official channel')) errorMessage = 'Please join the channel first.';
-				else if (msg.includes('network') || msg.includes('fetch')) errorMessage = t('airdrop.tasks.errors.network') || 'Network error.';
+			const raw = e?.message || String(e || '');
+			let errorMessage = t('airdrop.tasks.errors.default', { defaultValue: 'Failed to verify task' });
+			if (raw.includes('ERR_NEED_GOLD_LEAGUE') || raw.toLowerCase().includes('gold league')) {
+				errorMessage = t('airdrop.tasks.errors.needGoldLeague', { defaultValue: 'You need to reach Gold league first.' });
+			} else if (raw.includes('ERR_NEED_CLAN') || raw.toLowerCase().includes('join a clan')) {
+				errorMessage = t('airdrop.tasks.errors.needClan', { defaultValue: 'You need to join a squad first.' });
+			} else if (raw.includes('ERR_NEED_FRENS_COUNT')) {
+				const count = raw.split(':')[1] || '3';
+				errorMessage = t('airdrop.tasks.errors.needFrens', { count, defaultValue: `Invite at least ${count} friends first.` });
+			} else if (raw.includes('ERR_NEED_100K_TAPS') || raw.toLowerCase().includes('total taps')) {
+				errorMessage = t('airdrop.tasks.errors.need100kTaps', { defaultValue: 'Keep tapping! 100,000 taps required.' });
+			} else if (raw.includes('ERR_NEED_TG_PREMIUM') || raw.toLowerCase().includes('telegram premium')) {
+				errorMessage = t('airdrop.tasks.errors.needTgPremium', { defaultValue: 'Active Telegram Premium subscription required.' });
+			} else if (raw.includes('ERR_NEED_CHANNEL_JOIN') || raw.toLowerCase().includes('official channel')) {
+				errorMessage = t('airdrop.tasks.errors.needChannelJoin', { defaultValue: 'Please join the channel first.' });
+			} else if (raw.includes('ERR_MEMBERSHIP_PENDING')) {
+				errorMessage = t('airdrop.tasks.errors.membershipPending', { defaultValue: 'Verification in progress, please wait...' });
 			}
 			setTaskErrors((prev) => ({ ...prev, [key]: errorMessage }));
 			haptic.notify('error');

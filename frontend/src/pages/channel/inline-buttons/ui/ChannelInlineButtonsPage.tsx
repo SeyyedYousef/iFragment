@@ -267,8 +267,11 @@ export const ChannelInlineButtonsPage: Component = () => {
 		});
 
 		try {
-			await channelApi.updateSettings(params.id, 'inline_buttons', settingsPayload, currentVersion);
-			await channelApi.saveButtons(params.id, buttonsPayload);
+			await channelApi.saveInlineButtonsAtomic(params.id, {
+				enabled: isButtonsEnabled(),
+				preset: activePreset(),
+				buttons: buttonsPayload,
+			});
 			setIsDirty(false);
 			haptic.notify('success');
 			showToast(t('channelInlineButtons.saveSuccess'), 'success');

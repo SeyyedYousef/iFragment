@@ -1,9 +1,9 @@
 import { useNavigate } from '@solidjs/router';
 import { retrieveLaunchParams } from '@tma.js/sdk-solid';
 import { Component, createEffect, createSignal, onCleanup, Show } from 'solid-js';
-import { apiClient } from '@/shared/api/axios.js';
-import { t } from '@/shared/i18n/index.js';
-import { haptic } from '@/shared/lib/haptic.js';
+import { ownerApi } from '../../entities/owner/api/ownerApi';
+import { t } from '../../shared/i18n/index.js';
+import { haptic } from '../../shared/lib/haptic.js';
 
 interface OwnerGateModalProps {
 	isOpen: boolean;
@@ -12,21 +12,26 @@ interface OwnerGateModalProps {
 
 export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 	const navigate = useNavigate();
+	const [step, setStep] = createSignal<'password' | 'mfa'>('password');
 	const [password, setPassword] = createSignal('');
+	const [totpCode, setTotpCode] = createSignal('');
+	const [tempToken, setTempToken] = createSignal('');
 	const [errorMsg, setErrorMsg] = createSignal('');
 	const [loading, setLoading] = createSignal(false);
-	let inputRef: HTMLInputElement | undefined;
+	let passwordInputRef: HTMLInputElement | undefined;
+	let totpInputRef: HTMLInputElement | undefined;
 
-	// Focus input automatically whenever modal opens
 	createEffect(() => {
 		if (props.isOpen) {
 			setErrorMsg('');
 			setPassword('');
-			setTimeout(() => inputRef?.focus(), 50);
+			setTotpCode('');
+			setTempToken('');
+			setStep('password');
+			setTimeout(() => passwordInputRef?.focus(), 50);
 		}
 	});
 
-	// Close on Escape key
 	const handleGlobalKeyDown = (e: KeyboardEvent) => {
 		if (!props.isOpen) return;
 		if (e.key === 'Escape') {
@@ -39,13 +44,7 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 		onCleanup(() => window.removeEventListener('keydown', handleGlobalKeyDown));
 	}
 
-	const handleKeyDown = (e: KeyboardEvent) => {
-		if (e.key === 'Enter' && password().trim() !== '') {
-			handleSubmit();
-		}
-	};
-
-	const handleSubmit = async () => {
+	const handlePasswordSubmit = async () => {
 		if (loading() || !password()) return;
 		setErrorMsg('');
 		setLoading(true);
@@ -54,50 +53,51 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 			haptic.impact('medium');
 		} catch {}
 
-		let tgUser: any;
-		let initData: any;
-
+		let tgUserId = 0;
 		try {
 			const tg = (window as any).Telegram?.WebApp;
-			if (tg?.initData) initData = tg.initData;
-			if (tg?.initDataUnsafe?.user) tgUser = tg.initDataUnsafe.user;
+			if (tg?.initDataUnsafe?.user?.id) tgUserId = tg.initDataUnsafe.user.id;
 		} catch (_e) {}
 
 		try {
 			const lp = retrieveLaunchParams();
-			if (lp.initDataRaw) initData = lp.initDataRaw;
-			if ((lp.initData as any)?.user) tgUser = (lp.initData as any).user;
+			if ((lp.initData as any)?.user?.id) tgUserId = (lp.initData as any).user.id;
 		} catch (_e) {}
 
-		if (!initData) {
+		if (!tgUserId) {
+			// Fallback from localStorage or dev environment
+			const savedId = localStorage.getItem('owner_telegram_id');
+			if (savedId) {
+				tgUserId = parseInt(savedId, 10);
+			}
+		}
+
+		if (!tgUserId) {
 			setErrorMsg(
-				t('ownerGate.errorNotTMA') ||
-					'دسترسی به پنل مدیریتی تنها داخل نرم‌افزار تلگرام (TMA) امکان‌پذیر است.',
+				t('ownerGate.errorNotTMA' as any) ||
+					'Telegram User ID not detected. Please open this app inside Telegram.',
 			);
 			setLoading(false);
 			return;
 		}
 
 		try {
-			const resp = await apiClient.post('/owner/auth/totp', {
-				init_data: initData,
-				password: password(),
-			});
+			const res = await ownerApi.login(password(), tgUserId);
 
-			const { token } = resp.data;
-			if (token) {
+			if (res.mfa_required && res.temp_token) {
+				// Transition to MFA Step
+				setTempToken(res.temp_token);
+				setStep('mfa');
+				setTimeout(() => totpInputRef?.focus(), 50);
+			} else if (res.token) {
+				// Login success
+				localStorage.setItem('owner_token', res.token);
+				localStorage.setItem('owner_telegram_id', String(tgUserId));
 				try {
 					haptic.notify('success');
 				} catch {}
-				sessionStorage.setItem('owner_token', token);
-				if (tgUser?.id) {
-					sessionStorage.setItem('owner_telegram_id', String(tgUser.id));
-				}
-
 				props.onClose();
 				navigate('/owner/dashboard');
-			} else {
-				throw new Error('توکن امنیتی دریافت نشد');
 			}
 		} catch (err: any) {
 			try {
@@ -105,11 +105,38 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 			} catch {}
 			setErrorMsg(
 				err.response?.data?.error ||
-					t('ownerGate.errorAuth') ||
-					'احراز هویت با خطا مواجه شد. لطفاً رمز عبور را بررسی نمایید.',
+					t('ownerGate.errorAuth' as any) ||
+					'Authentication failed. Please verify your password.',
 			);
 			setPassword('');
-			inputRef?.focus();
+			passwordInputRef?.focus();
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	const handleMfaSubmit = async () => {
+		if (loading() || !totpCode()) return;
+		setErrorMsg('');
+		setLoading(true);
+
+		try {
+			const res = await ownerApi.verifyTotp(tempToken(), totpCode().trim());
+			if (res.token) {
+				localStorage.setItem('owner_token', res.token);
+				try {
+					haptic.notify('success');
+				} catch {}
+				props.onClose();
+				navigate('/owner/dashboard');
+			}
+		} catch (err: any) {
+			try {
+				haptic.notify('error');
+			} catch {}
+			setErrorMsg(err.response?.data?.error || 'Invalid 6-digit TOTP or recovery code.');
+			setTotpCode('');
+			totpInputRef?.focus();
 		} finally {
 			setLoading(false);
 		}
@@ -126,13 +153,12 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 				<div
 					role="dialog"
 					aria-modal="true"
-					aria-labelledby="owner-gate-title"
-					class="w-full max-w-sm max-h-[85vh] overflow-y-auto no-scrollbar bg-gradient-to-b from-[#1c1d22] to-[#121316] border border-[#2a2c35]/50 rounded-[32px] p-6 shadow-2xl relative"
+					class="w-full max-w-sm max-h-[85vh] overflow-y-auto no-scrollbar bg-gradient-to-b from-[#1c1d22] to-[#121316] border border-white/15 rounded-[32px] p-6 shadow-2xl relative text-white"
 				>
 					{/* Close button */}
 					<button
 						onClick={props.onClose}
-						aria-label="بستن پنجره"
+						aria-label="Close"
 						class="absolute top-5 end-5 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center border border-white/10 active:scale-95 transition-all text-white/70 hover:text-white"
 					>
 						<span class="material-symbols-outlined text-[18px]">close</span>
@@ -140,54 +166,104 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 
 					{/* Icon Header */}
 					<div class="flex flex-col items-center text-center mt-4 mb-6">
-						<div class="w-16 h-16 rounded-3xl bg-gradient-to-br from-[#3390ec]/20 to-[#3390ec]/5 border border-[#3390ec]/30 flex items-center justify-center text-3xl mb-4 shadow-inner">
-							🛡️
+						<div class="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-3xl mb-4 text-amber-400">
+							<span class="material-symbols-rounded text-3xl">
+								{step() === 'mfa' ? 'pin' : 'shield_person'}
+							</span>
 						</div>
-						<h2
-							id="owner-gate-title"
-							class="text-lg font-black text-white uppercase tracking-wider"
-						>
-							{t('ownerGate.title' as any) || 'Admin Authentication'}
+						<h2 class="text-lg font-black uppercase tracking-wider">
+							{step() === 'mfa' ? 'Two-Factor Authentication' : 'Owner Master Gate'}
 						</h2>
-						<p class="text-xs text-[#a0a4ad] font-bold mt-1 max-w-[240px]">
-							{t('ownerGate.desc' as any) || 'Please enter your master security password to access the panel.'}
+						<p class="text-xs text-white/60 font-medium mt-1 max-w-[240px]">
+							{step() === 'mfa'
+								? 'Enter the 6-digit authenticator code or single-use recovery code.'
+								: 'Enter your master security password to access the panel.'}
 						</p>
 					</div>
 
-					{/* Password Input */}
-					<div class="mb-6">
-						<input
-							type="password"
-							placeholder={t('ownerGate.placeholder' as any) || 'Security password...'}
-							value={password()}
-							ref={inputRef}
-							onInput={(e) => setPassword(e.currentTarget.value)}
-							onKeyDown={handleKeyDown}
-							class="w-full h-14 px-4 bg-[#0f1014] border border-[#2a2c35] focus:border-[#3390ec] text-white text-lg rounded-2xl shadow-inner focus:outline-none transition-all"
-							disabled={loading()}
-						/>
-					</div>
+					{/* Step 1: Master Password */}
+					<Show when={step() === 'password'}>
+						<form onSubmit={(e) => { e.preventDefault(); handlePasswordSubmit(); }} class="space-y-4">
+							<div>
+								<input
+									type="password"
+									placeholder="Security password..."
+									value={password()}
+									ref={passwordInputRef}
+									onInput={(e) => setPassword(e.currentTarget.value)}
+									class="w-full h-14 px-4 bg-[#0f1014] border border-white/15 focus:border-amber-400 text-white text-base rounded-2xl shadow-inner focus:outline-none transition-all placeholder:text-white/20"
+									disabled={loading()}
+								/>
+							</div>
 
-					{/* Error Message */}
-					<Show when={errorMsg()}>
-						<div class="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-start gap-2.5 animate-shake">
-							<span class="material-symbols-outlined text-[18px] text-red-500 flex-shrink-0 mt-0.5">
-								error
-							</span>
-							<p class="text-[11px] text-red-400 font-bold leading-normal">{errorMsg()}</p>
-						</div>
+							{/* Error Message */}
+							<Show when={errorMsg()}>
+								<div class="p-3 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-start gap-2.5">
+									<span class="material-symbols-outlined text-[18px] text-rose-400 flex-shrink-0 mt-0.5">
+										error
+									</span>
+									<p class="text-[11px] text-rose-300 font-medium leading-normal">{errorMsg()}</p>
+								</div>
+							</Show>
+
+							<button
+								type="submit"
+								disabled={loading() || !password()}
+								class="w-full h-14 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-black font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center shadow-lg shadow-amber-500/20 text-xs"
+							>
+								<Show when={loading()} fallback={<span>Authenticate</span>}>
+									<div class="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+								</Show>
+							</button>
+						</form>
 					</Show>
 
-					{/* Submit Button */}
-					<button
-						onClick={handleSubmit}
-						disabled={loading() || !password()}
-						class="w-full h-14 bg-[#3390ec] hover:bg-[#2b7ec9] active:bg-[#2368a8] disabled:opacity-50 disabled:cursor-not-allowed text-white font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center shadow-lg shadow-[#3390ec]/20"
-					>
-						<Show when={loading()} fallback={<span>{t('ownerGate.submit' as any) || 'Authenticate'}</span>}>
-							<div class="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin" />
-						</Show>
-					</button>
+					{/* Step 2: TOTP Code */}
+					<Show when={step() === 'mfa'}>
+						<form onSubmit={(e) => { e.preventDefault(); handleMfaSubmit(); }} class="space-y-4">
+							<div>
+								<input
+									type="text"
+									inputMode="numeric"
+									placeholder="000000 or Recovery Code"
+									value={totpCode()}
+									ref={totpInputRef}
+									onInput={(e) => setTotpCode(e.currentTarget.value)}
+									class="w-full h-14 text-center tracking-[0.3em] font-mono text-xl bg-[#0f1014] border border-amber-500/40 focus:border-amber-400 text-white rounded-2xl shadow-inner focus:outline-none transition-all placeholder:text-white/20 placeholder:tracking-normal placeholder:font-sans placeholder:text-sm"
+									disabled={loading()}
+									autofocus
+								/>
+							</div>
+
+							<Show when={errorMsg()}>
+								<div class="p-3 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-start gap-2.5">
+									<span class="material-symbols-outlined text-[18px] text-rose-400 flex-shrink-0 mt-0.5">
+										error
+									</span>
+									<p class="text-[11px] text-rose-300 font-medium leading-normal">{errorMsg()}</p>
+								</div>
+							</Show>
+
+							<div class="flex gap-2">
+								<button
+									type="button"
+									onClick={() => { setStep('password'); setTotpCode(''); }}
+									class="w-1/3 h-14 border border-white/15 text-white/70 hover:bg-white/5 rounded-2xl text-xs font-semibold"
+								>
+									Back
+								</button>
+								<button
+									type="submit"
+									disabled={loading() || !totpCode()}
+									class="w-2/3 h-14 bg-amber-500 hover:bg-amber-400 text-black font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center shadow-lg shadow-amber-500/20 text-xs disabled:opacity-50"
+								>
+									<Show when={loading()} fallback={<span>Verify & Enter</span>}>
+										<div class="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+									</Show>
+								</button>
+							</div>
+						</form>
+					</Show>
 				</div>
 			</div>
 		</Show>

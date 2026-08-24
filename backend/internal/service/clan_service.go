@@ -281,13 +281,15 @@ func (s *ClanService) SearchAndJoinClan(ctx context.Context, userID int64, usern
 		channelID = existingClan.TelegramChannelID
 	}
 
-	// Check channel membership if botClient is configured
+	// Check channel membership if botClient is configured (Fail-closed)
 	if s.botClient != nil {
 		status, err := s.botClient.GetChatMember(ctx, channelID, userID)
-		if err == nil {
-			if status == "left" || status == "kicked" {
-				return nil, ErrNotChannelMember
-			}
+		if err != nil {
+			slog.Warn("Failed to verify clan membership with Telegram Bot API", "channelID", channelID, "userID", userID, "err", err)
+			return nil, ErrNotChannelMember
+		}
+		if status == "left" || status == "kicked" {
+			return nil, ErrNotChannelMember
 		}
 	}
 
@@ -506,6 +508,67 @@ func (s *ClanService) StartWeeklyUpdater(ctx context.Context) {
 			}
 		}
 	}()
+}
+
+// StartMembershipReconcileWorker runs an hourly background worker verifying clan membership
+func (s *ClanService) StartMembershipReconcileWorker(ctx context.Context) {
+	if s.db == nil || s.botClient == nil {
+		return
+	}
+
+	ticker := time.NewTicker(1 * time.Hour)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				s.reconcileMemberships(ctx)
+			case <-ctx.Done():
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+}
+
+func (s *ClanService) reconcileMemberships(ctx context.Context) {
+	if s.db == nil || s.db.Pool == nil || s.botClient == nil {
+		return
+	}
+
+	rows, err := s.db.Pool.Query(ctx, `
+		SELECT cm.clan_id, cm.user_id, c.telegram_channel_id 
+		FROM clan_members cm 
+		JOIN clans c ON cm.clan_id = c.id 
+		LIMIT 200
+	`)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	type memberCheck struct {
+		clanID    string
+		userID    int64
+		channelID int64
+	}
+	var checks []memberCheck
+	for rows.Next() {
+		var mc memberCheck
+		if err := rows.Scan(&mc.clanID, &mc.userID, &mc.channelID); err == nil {
+			checks = append(checks, mc)
+		}
+	}
+	rows.Close()
+
+	for _, check := range checks {
+		status, err := s.botClient.GetChatMember(ctx, check.channelID, check.userID)
+		if err == nil && (status == "left" || status == "kicked") {
+			slog.Info("Purging invalid clan member during reconcile", "clanID", check.clanID, "userID", check.userID)
+			_, _ = s.db.Pool.Exec(ctx, "DELETE FROM clan_members WHERE clan_id = $1 AND user_id = $2", check.clanID, check.userID)
+			_, _ = s.db.Pool.Exec(ctx, "UPDATE clans SET members_count = GREATEST(0, members_count - 1) WHERE id = $1", check.clanID)
+		}
+		time.Sleep(100 * time.Millisecond) // Rate limit prevention
+	}
 }
 
 // StartScoreFlusher runs a background worker that syncs clan_leaderboard from Redis to PostgreSQL every 5 minutes.

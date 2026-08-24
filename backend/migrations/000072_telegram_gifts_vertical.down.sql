@@ -1,0 +1,13 @@
+BEGIN;
+
+DROP TABLE IF EXISTS gift_model_calibrations CASCADE;
+DROP TABLE IF EXISTS venue_snapshots CASCADE;
+DROP TABLE IF EXISTS gift_watchlist CASCADE;
+DROP TABLE IF EXISTS gift_reports CASCADE;
+DROP TABLE IF EXISTS gift_valuations CASCADE;
+DROP TABLE IF EXISTS gift_sales CASCADE;
+DROP TABLE IF EXISTS trait_supply_percentiles CASCADE;
+DROP TABLE IF EXISTS gift_traits CASCADE;
+DROP TABLE IF EXISTS gift_collections CASCADE;
+
+COMMIT;

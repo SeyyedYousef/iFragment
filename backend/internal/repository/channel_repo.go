@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -1901,10 +1902,9 @@ func IsExemptFromAutoLeave(ctx context.Context, db *Database, chatID int64, chat
 	cleanTitle := strings.ToLower(strings.TrimSpace(chatTitle))
 	normalizedTitle := strings.ReplaceAll(strings.TrimPrefix(cleanTitle, "@"), " ", "")
 
-	// 1. Check static exempt list (@Fragmentscommunity, @TheGramPrice, @Fragmentinvestort)
+	// 1. Check static exempt list (@Fragmentscommunity, @Fragmentinvestort)
 	staticExempt := []string{
 		"fragmentscommunity",
-		"thegramprice",
 		"fragmentinvestort",
 	}
 
@@ -1968,4 +1968,234 @@ func IsExemptFromAutoLeave(ctx context.Context, db *Database, chatID int64, chat
 
 	return false
 }
+
+// ─── Projects Architecture (Decoupled Funnel Model) ───────────────────
+
+type Project struct {
+	ID                      uuid.UUID       `json:"id"`
+	OwnerUserID             int64           `json:"owner_user_id"`
+	Name                    string          `json:"name"`
+	Status                  string          `json:"status"` // "active", "expired", "cancelled", "paused"
+	StarsSubscriptionActive bool            `json:"stars_subscription_active"`
+	StarsExpiresAt          *time.Time      `json:"stars_expires_at,omitempty"`
+	TrialUsed               bool            `json:"trial_used"`
+	TrialEndsAt             *time.Time      `json:"trial_ends_at,omitempty"`
+	SourceChannelID         *uuid.UUID      `json:"source_channel_id,omitempty"`
+	TargetChannelID         *uuid.UUID      `json:"target_channel_id,omitempty"`
+	SourceChatID            *int64          `json:"source_chat_id,omitempty"`
+	TargetChatID            *int64          `json:"target_chat_id,omitempty"`
+	PipelineConfig          json.RawMessage `json:"pipeline_config"`
+	CreatedAt               time.Time       `json:"created_at"`
+	UpdatedAt               time.Time       `json:"updated_at"`
+
+	// Enriched fields for UI presentation
+	SourceChannelTitle    string `json:"source_channel_title,omitempty"`
+	TargetChannelTitle    string `json:"target_channel_title,omitempty"`
+	SourceChannelUsername string `json:"source_channel_username,omitempty"`
+	TargetChannelUsername string `json:"target_channel_username,omitempty"`
+}
+
+func (r *ChannelRepo) CreateProject(ctx context.Context, p *Project) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("database pool is not initialized")
+	}
+	if p.PipelineConfig == nil || len(p.PipelineConfig) == 0 {
+		p.PipelineConfig = json.RawMessage("{}")
+	}
+	query := `INSERT INTO projects (
+		owner_user_id, name, status, stars_subscription_active, stars_expires_at, trial_used, trial_ends_at,
+		source_channel_id, target_channel_id, source_chat_id, target_chat_id, pipeline_config
+	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+	RETURNING id, created_at, updated_at`
+	return r.db.Pool.QueryRow(ctx, query,
+		p.OwnerUserID, p.Name, p.Status, p.StarsSubscriptionActive, p.StarsExpiresAt, p.TrialUsed, p.TrialEndsAt,
+		p.SourceChannelID, p.TargetChannelID, p.SourceChatID, p.TargetChatID, p.PipelineConfig,
+	).Scan(&p.ID, &p.CreatedAt, &p.UpdatedAt)
+}
+
+func (r *ChannelRepo) GetProjectsByOwner(ctx context.Context, ownerUserID int64) ([]*Project, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, fmt.Errorf("database pool is not initialized")
+	}
+	query := `SELECT 
+		p.id, p.owner_user_id, p.name, p.status, p.stars_subscription_active, p.stars_expires_at, p.trial_used, p.trial_ends_at,
+		p.source_channel_id, p.target_channel_id, p.source_chat_id, p.target_chat_id, p.pipeline_config, p.created_at, p.updated_at,
+		COALESCE(sc.chat_title, '') as source_title,
+		COALESCE(sc.username, '') as source_username,
+		COALESCE(tc.chat_title, '') as target_title,
+		COALESCE(tc.username, '') as target_username
+	FROM projects p
+	LEFT JOIN managed_channels sc ON sc.id = p.source_channel_id
+	LEFT JOIN managed_channels tc ON tc.id = p.target_channel_id
+	WHERE p.owner_user_id = $1
+	ORDER BY p.created_at DESC`
+
+	rows, err := r.db.Pool.Query(ctx, query, ownerUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []*Project
+	for rows.Next() {
+		var p Project
+		if err := rows.Scan(
+			&p.ID, &p.OwnerUserID, &p.Name, &p.Status, &p.StarsSubscriptionActive, &p.StarsExpiresAt, &p.TrialUsed, &p.TrialEndsAt,
+			&p.SourceChannelID, &p.TargetChannelID, &p.SourceChatID, &p.TargetChatID, &p.PipelineConfig, &p.CreatedAt, &p.UpdatedAt,
+			&p.SourceChannelTitle, &p.SourceChannelUsername, &p.TargetChannelTitle, &p.TargetChannelUsername,
+		); err != nil {
+			return nil, err
+		}
+		list = append(list, &p)
+	}
+	return list, nil
+}
+
+func (r *ChannelRepo) GetProjectByID(ctx context.Context, id uuid.UUID) (*Project, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, fmt.Errorf("database pool is not initialized")
+	}
+	query := `SELECT 
+		p.id, p.owner_user_id, p.name, p.status, p.stars_subscription_active, p.stars_expires_at, p.trial_used, p.trial_ends_at,
+		p.source_channel_id, p.target_channel_id, p.source_chat_id, p.target_chat_id, p.pipeline_config, p.created_at, p.updated_at,
+		COALESCE(sc.chat_title, '') as source_title,
+		COALESCE(sc.username, '') as source_username,
+		COALESCE(tc.chat_title, '') as target_title,
+		COALESCE(tc.username, '') as target_username
+	FROM projects p
+	LEFT JOIN managed_channels sc ON sc.id = p.source_channel_id
+	LEFT JOIN managed_channels tc ON tc.id = p.target_channel_id
+	WHERE p.id = $1`
+
+	var p Project
+	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
+		&p.ID, &p.OwnerUserID, &p.Name, &p.Status, &p.StarsSubscriptionActive, &p.StarsExpiresAt, &p.TrialUsed, &p.TrialEndsAt,
+		&p.SourceChannelID, &p.TargetChannelID, &p.SourceChatID, &p.TargetChatID, &p.PipelineConfig, &p.CreatedAt, &p.UpdatedAt,
+		&p.SourceChannelTitle, &p.SourceChannelUsername, &p.TargetChannelTitle, &p.TargetChannelUsername,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &p, nil
+}
+
+func (r *ChannelRepo) GetProjectsBySourceChatID(ctx context.Context, sourceChatID int64) ([]*Project, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, fmt.Errorf("database pool is not initialized")
+	}
+	query := `SELECT 
+		p.id, p.owner_user_id, p.name, p.status, p.stars_subscription_active, p.stars_expires_at, p.trial_used, p.trial_ends_at,
+		p.source_channel_id, p.target_channel_id, p.source_chat_id, p.target_chat_id, p.pipeline_config, p.created_at, p.updated_at,
+		COALESCE(sc.chat_title, '') as source_title,
+		COALESCE(sc.username, '') as source_username,
+		COALESCE(tc.chat_title, '') as target_title,
+		COALESCE(tc.username, '') as target_username
+	FROM projects p
+	LEFT JOIN managed_channels sc ON sc.id = p.source_channel_id
+	LEFT JOIN managed_channels tc ON tc.id = p.target_channel_id
+	WHERE p.source_chat_id = $1 AND p.status = 'active'`
+
+	rows, err := r.db.Pool.Query(ctx, query, sourceChatID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []*Project
+	for rows.Next() {
+		var p Project
+		if err := rows.Scan(
+			&p.ID, &p.OwnerUserID, &p.Name, &p.Status, &p.StarsSubscriptionActive, &p.StarsExpiresAt, &p.TrialUsed, &p.TrialEndsAt,
+			&p.SourceChannelID, &p.TargetChannelID, &p.SourceChatID, &p.TargetChatID, &p.PipelineConfig, &p.CreatedAt, &p.UpdatedAt,
+			&p.SourceChannelTitle, &p.SourceChannelUsername, &p.TargetChannelTitle, &p.TargetChannelUsername,
+		); err != nil {
+			return nil, err
+		}
+		list = append(list, &p)
+	}
+	return list, nil
+}
+
+func (r *ChannelRepo) UpdateProject(ctx context.Context, p *Project) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("database pool is not initialized")
+	}
+	query := `UPDATE projects SET
+		name = $1, status = $2, source_channel_id = $3, target_channel_id = $4,
+		source_chat_id = $5, target_chat_id = $6, pipeline_config = $7, updated_at = now()
+	WHERE id = $8`
+	_, err := r.db.Pool.Exec(ctx, query,
+		p.Name, p.Status, p.SourceChannelID, p.TargetChannelID,
+		p.SourceChatID, p.TargetChatID, p.PipelineConfig, p.ID,
+	)
+	return err
+}
+
+func (r *ChannelRepo) UpdateProjectSubscription(ctx context.Context, id uuid.UUID, status string, starsActive bool, expiresAt *time.Time) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("database pool is not initialized")
+	}
+	query := `UPDATE projects SET
+		status = $1, stars_subscription_active = $2, stars_expires_at = $3, updated_at = now()
+	WHERE id = $4`
+	_, err := r.db.Pool.Exec(ctx, query, status, starsActive, expiresAt, id)
+	return err
+}
+
+func (r *ChannelRepo) DeleteProject(ctx context.Context, id uuid.UUID) error {
+	if r.db == nil || r.db.Pool == nil {
+		return fmt.Errorf("database pool is not initialized")
+	}
+	query := `DELETE FROM projects WHERE id = $1`
+	_, err := r.db.Pool.Exec(ctx, query, id)
+	return err
+}
+
+func (r *ChannelRepo) HasUserUsedProjectTrial(ctx context.Context, ownerUserID int64) (bool, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return false, fmt.Errorf("database pool is not initialized")
+	}
+	var count int
+	err := r.db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM projects WHERE owner_user_id = $1 AND trial_used = true`, ownerUserID).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (r *ChannelRepo) GetExpiredProjects(ctx context.Context) ([]*Project, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, fmt.Errorf("database pool is not initialized")
+	}
+	query := `SELECT id, owner_user_id, name, status, stars_subscription_active, stars_expires_at, trial_used, trial_ends_at,
+		source_channel_id, target_channel_id, source_chat_id, target_chat_id, pipeline_config, created_at, updated_at
+	FROM projects
+	WHERE status = 'active' AND (
+		(stars_subscription_active = true AND stars_expires_at IS NOT NULL AND stars_expires_at < now()) OR
+		(stars_subscription_active = false AND trial_ends_at IS NOT NULL AND trial_ends_at < now())
+	)`
+
+	rows, err := r.db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []*Project
+	for rows.Next() {
+		var p Project
+		if err := rows.Scan(
+			&p.ID, &p.OwnerUserID, &p.Name, &p.Status, &p.StarsSubscriptionActive, &p.StarsExpiresAt, &p.TrialUsed, &p.TrialEndsAt,
+			&p.SourceChannelID, &p.TargetChannelID, &p.SourceChatID, &p.TargetChatID, &p.PipelineConfig, &p.CreatedAt, &p.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		list = append(list, &p)
+	}
+	return list, nil
+}
+
 

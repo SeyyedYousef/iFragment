@@ -29,8 +29,16 @@ func ValidateSettingsCategory(category string, raw json.RawMessage) error {
 		if g.WarningThreshold < 0 || g.WarningThreshold > 100 {
 			return fmt.Errorf("warningThreshold must be between 0 and 100")
 		}
-		if g.WarningRetention < 0 || g.WarningRetention > 43200 { // 30 days
-			return fmt.Errorf("warningRetention must be between 0 and 43200 minutes")
+		if g.WarningRetention < 0 || g.WarningRetention > 525600 {
+			return fmt.Errorf("warningRetention must be between 0 and 525600")
+		}
+		validFinalPenalties := map[string]bool{"": true, "default": true, "none": true, "delete": true, "mute_1h": true, "mute_24h": true, "kick": true, "ban": true}
+		if g.WarningFinalPenalty != "" && !validFinalPenalties[g.WarningFinalPenalty] {
+			return fmt.Errorf("invalid warningFinalPenalty: %s", g.WarningFinalPenalty)
+		}
+		validAntiRaidActions := map[string]bool{"": true, "none": true, "lockdown": true, "alert": true}
+		if g.AntiRaidAction != "" && !validAntiRaidActions[g.AntiRaidAction] {
+			return fmt.Errorf("invalid antiRaidAction: %s", g.AntiRaidAction)
 		}
 		if g.AntiRaidThreshold < 0 || g.AntiRaidThreshold > 1000 {
 			return fmt.Errorf("antiRaidThreshold must be between 0 and 1000")
@@ -105,6 +113,9 @@ func ValidateSettingsCategory(category string, raw json.RawMessage) error {
 		}
 		if l.DupWin < 0 || l.DupWin > 1440 {
 			return fmt.Errorf("duplicateWindow must be between 0 and 1440 minutes")
+		}
+		if l.SlowMode < 0 || l.SlowMode > 3600 {
+			return fmt.Errorf("slowMode must be between 0 and 3600 seconds")
 		}
 
 	case "quiet_hours":

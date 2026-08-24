@@ -36,6 +36,6 @@ describe('QuietHoursPage', () => {
 
 	it('renders subtitle', async () => {
 		render(() => <QuietHoursPage />);
-		expect(await screen.findByText('quietHoursSettings.subtitle')).toBeInTheDocument();
+		expect(await screen.findByText('quietHoursSettings.description')).toBeInTheDocument();
 	});
 });

@@ -106,9 +106,20 @@ var enDict = map[string]interface{}{
 		"no_rules":       "⚠️ <b>No Rules Set</b>\nThere are no rules configured for this group. You can set them up in the dashboard.",
 		"rules_title":    "📜 <b>Group Rules</b>\n\n{rules}",
 	},
+	"penalty": map[string]interface{}{
+		"mute": "🔇 <b>User restricted for {duration}</b>\n\nReason: {reason}",
+		"kick": "👢 <b>User kicked</b>\n\nReason: {reason}",
+		"ban":  "🚫 <b>User banned</b>\n\nReason: {reason}",
+		"warn": "⚠️ <b>Warning {count}/{threshold}</b>\n\n{reason}",
+	},
+	"verification": map[string]interface{}{
+		"pv_prompt": "🛡 To join <b>{group}</b>, please click the button below to verify yourself:",
+	},
 	"payments": map[string]interface{}{
-		"success":         "✅ <b>Payment Successful!</b>\n\nCredited <b>{amount}</b> Coins (FRG) to your balance.",
-		"report_unlocked": "💎 <b>Payment Received</b>\n\nYour <b>@{username}</b> report is unlocked:\n<a href=\"{url}\">View Report</a>",
+		"success":                "✅ <b>Payment Successful!</b>\n\nCredited <b>{amount}</b> Coins (FRG) to your balance.",
+		"report_unlocked":        "💎 <b>Payment Received</b>\n\nYour <b>@{username}</b> report is unlocked:\n<a href=\"{url}\">View Report</a>",
+		"number_report_unlocked": "💎 <b>Payment Received</b>\n\nYour <b>{number}</b> valuation report is unlocked:\n<a href=\"{url}\">View Report</a>",
+		"credit_deduct_failed":   "⚠️ Your payment was received, but coin deduction encountered an issue. Our team is reviewing this.",
 	},
 	"funnel": map[string]interface{}{
 		"failed":         "❌ <b>Failed to publish:</b> {err}",
@@ -140,6 +151,7 @@ var enDict = map[string]interface{}{
 		"milestone":           "🎉 <b>Milestone Reached!</b>\n\nCongratulations, the group has reached <b>{n}</b> messages!",
 		"channel_auto_left":   "🚪 <b>Auto Leave Executed</b>\n\nBecause the subscription for <b>{channel}</b> was not renewed for 7 days, I have automatically left the channel.",
 		"group_auto_left":     "🚪 <b>Auto Leave Executed</b>\n\nBecause the subscription for <b>{group}</b> was not renewed for 7 days, I have automatically left the group.",
+		"pro_pass_activated":  "👑 <b>iFragment Pro Pass Activated!</b>\n\nYou now have 30 days of:\n• 3 Deep Daily Valuations\n• 70%+ Fragment Arbitrage Alerts\n• Official Digital Valuation Certificate\n\nEnjoy trading on Fragment!",
 	},
 	"generalSettings": map[string]interface{}{
 		"welcomeMessage": "Welcome Message",
@@ -203,9 +215,19 @@ var faDict = map[string]interface{}{
 		"no_rules":       "⚠️ <b>بدون قانون</b>\nهیچ قانونی برای این گروه تنظیم نشده است. می‌توانید از طریق داشبورد قوانین را اضافه کنید.",
 		"rules_title":    "📜 <b>قوانین گروه</b>\n\n{rules}",
 	},
+	"penalty": map[string]interface{}{
+		"mute": "🔇 <b>کاربر به مدت {duration} بی‌صدا شد</b>\n\nعلت: {reason}",
+		"kick": "👢 <b>کاربر از گروه اخراج شد</b>\n\nعلت: {reason}",
+		"ban":  "🚫 <b>کاربر مسدود (Ban) شد</b>\n\nعلت: {reason}",
+		"warn": "⚠️ <b>اخطار {count} از {threshold}</b>\n\nعلت: {reason}",
+	},
+	"verification": map[string]interface{}{
+		"pv_prompt": "🛡 برای ورود به گروه <b>{group}</b>، لطفاً روی دکمه زیر کلیک کنید تا هویت شما تأیید شود:",
+	},
 	"payments": map[string]interface{}{
-		"success":         "✅ <b>پرداخت موفقیت‌آمیز!</b>\n\nمبلغ <b>{amount}</b> سکه (FRG) به حساب شما واریز شد.",
-		"report_unlocked": "💎 <b>تایید پرداخت</b>\n\nگزارش تحلیل یوزرنیم <b>@{username}</b> برای شما باز شد:\n<a href=\"{url}\">مشاهده گزارش</a>",
+		"success":                "✅ <b>پرداخت موفقیت‌آمیز!</b>\n\nمبلغ <b>{amount}</b> سکه (FRG) به حساب شما واریز شد.",
+		"report_unlocked":        "💎 <b>تایید پرداخت</b>\n\nگزارش تحلیل یوزرنیم <b>@{username}</b> برای شما باز شد:\n<a href=\"{url}\">مشاهده گزارش</a>",
+		"number_report_unlocked": "💎 <b>تایید پرداخت</b>\n\nگزارش ارزش‌گذاری شماره <b>{number}</b> برای شما باز شد:\n<a href=\"{url}\">مشاهده گزارش</a>",
 	},
 	"funnel": map[string]interface{}{
 		"failed":         "❌ <b>خطا در انتشار:</b> {err}",
@@ -237,6 +259,7 @@ var faDict = map[string]interface{}{
 		"milestone":           "🎉 <b>موفقیت جدید!</b>\n\nتبریک! گروه به رکورد <b>{n}</b> پیام دست یافت.",
 		"channel_auto_left":   "🚪 <b>خروج خودکار سیستم</b>\n\nبا توجه به گذشت ۷ روز از پایان اعتبار <b>{channel}</b> و عدم تمدید، ربات به صورت خودکار از کانال خارج شد.",
 		"group_auto_left":     "🚪 <b>خروج خودکار سیستم</b>\n\nبا توجه به گذشت ۷ روز از پایان اعتبار <b>{group}</b> و عدم تمدید، ربات به صورت خودکار از گروه خارج شد.",
+		"pro_pass_activated":  "👑 <b>اشتراک پرو iFragment فعال شد!</b>\n\nشما اکنون به مدت ۳۰ روز دسترسی دارید به:\n• ۳ قیمت‌گذاری عمیق روزانه\n• هشدارهای آربیتراژ فرگمنت بالای ۷۰٪\n• گواهی رسمی ارزیابی دیجیتال\n\nاز معاملات هوشمند در فرگمنت لذت ببرید!",
 	},
 	"generalSettings": map[string]interface{}{
 		"welcomeMessage": "پیام خوش‌آمدگویی",
@@ -299,9 +322,19 @@ var ruDict = map[string]interface{}{
 		"no_rules":       "⚠️ <b>Правила не установлены</b>\nВ этой группе нет правил. Вы можете настроить их в дашборде.",
 		"rules_title":    "📜 <b>Правила группы</b>\n\n{rules}",
 	},
+	"penalty": map[string]interface{}{
+		"mute": "🔇 <b>Пользователь ограничен на {duration}</b>\n\nПричина: {reason}",
+		"kick": "👢 <b>Пользователь исключен</b>\n\nПричина: {reason}",
+		"ban":  "🚫 <b>Пользователь заблокирован</b>\n\nПричина: {reason}",
+		"warn": "⚠️ <b>Предупреждение {count}/{threshold}</b>\n\nПричина: {reason}",
+	},
+	"verification": map[string]interface{}{
+		"pv_prompt": "🛡 Чтобы вступить в <b>{group}</b>, нажмите кнопку ниже для подтверждения:",
+	},
 	"payments": map[string]interface{}{
-		"success":         "✅ <b>Оплата прошла успешно!</b>\n\nЗачислено <b>{amount}</b> монет (FRG) на ваш баланс.",
-		"report_unlocked": "💎 <b>Оплата получена</b>\n\nВаш отчет <b>@{username}</b> разблокирован:\n<a href=\"{url}\">Посмотреть отчет</a>",
+		"success":                "✅ <b>Оплата прошла успешно!</b>\n\nЗачислено <b>{amount}</b> монет (FRG) на ваш баланс.",
+		"report_unlocked":        "💎 <b>Оплата получена</b>\n\nВаш отчет <b>@{username}</b> разблокирован:\n<a href=\"{url}\">Посмотреть отчет</a>",
+		"number_report_unlocked": "💎 <b>Оплата получена</b>\n\nВаш отчет по номеру <b>{number}</b> разблокирован:\n<a href=\"{url}\">Посмотреть отчет</a>",
 	},
 	"funnel": map[string]interface{}{
 		"failed":         "❌ <b>Не удалось опубликовать:</b> {err}",
@@ -394,9 +427,19 @@ var zhDict = map[string]interface{}{
 		"no_rules":       "⚠️ <b>未设置规则</b>\n此群组尚未配置规则。您可以在仪表板中进行设置。",
 		"rules_title":    "📜 <b>群组规则</b>\n\n{rules}",
 	},
+	"penalty": map[string]interface{}{
+		"mute": "🔇 <b>用户已被禁言 {duration}</b>\n\n原因: {reason}",
+		"kick": "👢 <b>用户已被移出群组</b>\n\n原因: {reason}",
+		"ban":  "🚫 <b>用户已被封禁</b>\n\n原因: {reason}",
+		"warn": "⚠️ <b>警告 {count}/{threshold}</b>\n\n原因: {reason}",
+	},
+	"verification": map[string]interface{}{
+		"pv_prompt": "🛡 要加入 <b>{group}</b>，请点击下方按钮完成验证：",
+	},
 	"payments": map[string]interface{}{
-		"success":         "✅ <b>支付成功！</b>\n\n已将 <b>{amount}</b> 金币（FRG）充值到您的账户。",
-		"report_unlocked": "💎 <b>已收到付款</b>\n\n您的 <b>@{username}</b> 报告已解锁：\n<a href=\"{url}\">查看报告</a>",
+		"success":                "✅ <b>支付成功！</b>\n\n已将 <b>{amount}</b> 金币（FRG）充值到您的账户。",
+		"report_unlocked":        "💎 <b>已收到付款</b>\n\n您的 <b>@{username}</b> 报告已解锁：\n<a href=\"{url}\">查看报告</a>",
+		"number_report_unlocked": "💎 <b>已收到付款</b>\n\n您的 <b>{number}</b> 号码估值报告已解锁：\n<a href=\"{url}\">查看报告</a>",
 	},
 	"funnel": map[string]interface{}{
 		"failed":         "❌ <b>发布失败：</b> {err}",

@@ -12,6 +12,8 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 	const [loading, setLoading] = createSignal(false);
 	const [errorMsg, setErrorMsg] = createSignal('');
 	const [showLeaveModal, setShowLeaveModal] = createSignal(false);
+	const [pendingClanModal, setPendingClanModal] = createSignal<string | null>(null);
+	const [showQrModal, setShowQrModal] = createSignal(false);
 	const [filterCategory, setFilterCategory] = createSignal<'featured' | 'growing'>('featured');
 	const [topClans] = createResource(getTopClans);
 
@@ -22,7 +24,7 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 		const pending = sessionStorage.getItem('pending_clan_join');
 		if (pending) {
 			sessionStorage.removeItem('pending_clan_join');
-			handleJoin(pending);
+			setPendingClanModal(pending);
 		}
 	});
 
@@ -411,6 +413,53 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 						</div>
 					</div>
 				</div>
+			</Show>
+			{/* ═══════ PENDING DEEP LINK CLAN JOIN MODAL ═══════ */}
+			<Show when={pendingClanModal()}>
+				{(clanUsername) => (
+					<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+						<div
+							class="absolute inset-0 bg-black/80 backdrop-blur-md transition-opacity animate-fade-in"
+							onClick={() => setPendingClanModal(null)}
+						/>
+						<div class="relative w-full max-w-sm bg-[#12141C] rounded-[32px] p-6 space-y-5 shadow-[0_20px_60px_rgba(0,0,0,0.8)] border border-white/10 animate-slide-up text-center">
+							<div class="w-16 h-16 rounded-[22px] bg-[#3390ec]/15 border border-[#3390ec]/30 flex items-center justify-center text-[#3390ec] mx-auto shadow-[0_0_20px_rgba(51,144,236,0.25)]">
+								<span class="material-symbols-outlined text-[32px]">shield</span>
+							</div>
+
+							<div class="flex flex-col gap-1">
+								<h3 class="text-[18px] font-black text-white">Join Squad via Invite</h3>
+								<p class="text-[13px] text-white/60 font-mono">
+									@{clanUsername().replace(/^@+/, '')}
+								</p>
+								<p class="text-[12px] text-white/50 mt-1">
+									You have been invited to join this squad and pool your mining scores together.
+								</p>
+							</div>
+
+							<div class="flex flex-col gap-2.5 pt-2">
+								<button
+									onClick={() => {
+										const u = pendingClanModal();
+										setPendingClanModal(null);
+										if (u) handleJoin(u);
+									}}
+									disabled={loading()}
+									class="w-full h-14 bg-gradient-to-r from-[#3390ec] to-[#2563eb] rounded-[18px] text-[14px] font-black text-white shadow-[0_8px_24px_rgba(51,144,236,0.35)] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+								>
+									<span>Join Squad</span>
+									<span class="material-symbols-outlined text-[18px]">group_add</span>
+								</button>
+								<button
+									onClick={() => setPendingClanModal(null)}
+									class="w-full h-12 bg-transparent hover:bg-white/5 rounded-[16px] text-[13px] font-bold text-white/60 active:scale-95 transition-all"
+								>
+									Cancel
+								</button>
+							</div>
+						</div>
+					</div>
+				)}
 			</Show>
 		</div>
 	);

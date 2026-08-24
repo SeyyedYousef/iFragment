@@ -54,6 +54,8 @@ vi.mock('@/entities/airdrop/index.js', () => ({
 	fullEnergyCount: () => 0,
 	creditExpiresInDays: () => 15,
 	batches: () => [],
+	dailyFatigueMultiplier: () => 1,
+	dailyFatigueLimitRemaining: () => 0,
 }));
 
 

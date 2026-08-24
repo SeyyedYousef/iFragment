@@ -168,17 +168,20 @@ func (h *GamificationHandler) GetLeaderboard(w http.ResponseWriter, r *http.Requ
 	if period == "" {
 		period = "day"
 	}
-	leaderboard, err := h.gamificationService.GetLeaderboard(r.Context(), period)
+	league := r.URL.Query().Get("league")
+	userID, _ := middleware.GetUserID(r.Context())
+
+	leaderboard, userRank, totalMiners, err := h.gamificationService.GetLeaderboard(r.Context(), userID, period, league)
 	if err != nil {
 		RespondError(w, r, http.StatusInternalServerError, "failed to get leaderboard", err)
 		return
 	}
 
-	totalMiners, _ := h.gamificationService.GetTotalMiners(r.Context())
-
 	response := map[string]interface{}{
 		"leaderboard":  leaderboard,
+		"user_rank":    userRank,
 		"total_miners": totalMiners,
+		"league":       league,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

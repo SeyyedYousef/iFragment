@@ -95,11 +95,15 @@ export const ChannelDynamicBioPage: Component = () => {
 	});
 
 	const variables = [
-		{ tag: '$members', desc: t('channelDynamicBio.varMembers'), val: '45,102' },
-		{ tag: '$Gram', desc: t('channelDynamicBio.varGram'), val: '$5.50' },
-		{ tag: '$time', desc: t('channelDynamicBio.varTime'), val: '14:30' },
-		{ tag: '$date', desc: t('channelDynamicBio.varDate'), val: '12 May 2026' },
-		{ tag: '$day_name', desc: t('channelDynamicBio.varDayNameEn'), val: 'Tuesday' },
+		{ tag: '$members', desc: t('channelDynamicBio.varMembers') || 'Subscribers Count', val: '45,102' },
+		{ tag: '$ton', desc: 'TON Price', val: '$5.50' },
+		{ tag: '$btc', desc: 'Bitcoin Price', val: '$64,200' },
+		{ tag: '$eth', desc: 'Ethereum Price', val: '$3,450' },
+		{ tag: '$frg', desc: 'Fragment Price', val: '$1.20' },
+		{ tag: '$countdown', desc: 'Event Countdown', val: '04d 12h' },
+		{ tag: '$time', desc: t('channelDynamicBio.varTime') || 'Current Time', val: '14:30' },
+		{ tag: '$date', desc: t('channelDynamicBio.varDate') || 'Current Date', val: '12 May 2026' },
+		{ tag: '$day_name', desc: t('channelDynamicBio.varDayNameEn') || 'Day Name', val: 'Tuesday' },
 	];
 
 	const handleSave = async () => {

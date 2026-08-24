@@ -49,6 +49,7 @@ func NewGamificationService(db *repository.Database, cache *repository.Cache) *G
 		go s.StartCoinDecayWorker(context.Background())
 		go s.startLeaderboardCacheWorker(context.Background())
 		go s.startTapBatchWorker(context.Background())
+		go s.StartExpirationReminderWorker(context.Background())
 	}
 
 	return s
@@ -524,7 +525,7 @@ func (s *GamificationService) GetTasksStatus(ctx context.Context, userID int64) 
 	}
 
 	ownerRepo := repository.NewOwnerRepo(s.db)
-	activeQuests, err := ownerRepo.GetActiveQuests(ctx)
+	activeQuests, err := ownerRepo.GetQuests(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -638,22 +639,20 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 		return nil, fmt.Errorf("quest is inactive or expired")
 	}
 
-	// 1. Dynamic backend verification checks (done BEFORE transaction to prevent pool starvation)
+	// 1. Dynamic backend verification checks with machine-readable error codes
 	switch target.Type {
 	case "league_gold":
 		var level int
 		_ = s.db.Pool.QueryRow(ctx, "SELECT level FROM user_stats WHERE user_id = $1", userID).Scan(&level)
-		if level < 3 { // Assuming level 3 is Gold
-			return nil, fmt.Errorf("you must reach Gold league first")
+		if level < 3 {
+			return nil, fmt.Errorf("ERR_NEED_GOLD_LEAGUE")
 		}
 	case "join_clan":
-		// Verify that the user belongs to a clan in the application
 		var hasClan bool
 		err := s.db.Pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM clan_members WHERE user_id = $1)", userID).Scan(&hasClan)
 		if err != nil || !hasClan {
-			return nil, fmt.Errorf("you must join a clan first")
+			return nil, fmt.Errorf("ERR_NEED_CLAN")
 		}
-		// No further verification needed; DB membership is sufficient.
 	case "invite_1_fren", "invite_3_frens", "invite_10_frens":
 		var frens int
 		_ = s.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM users WHERE referred_by = $1", userID).Scan(&frens)
@@ -665,19 +664,18 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 			required = 10
 		}
 		if frens < required {
-			return nil, fmt.Errorf("you must invite at least %d frens", required)
+			return nil, fmt.Errorf("ERR_NEED_FRENS_COUNT:%d", required)
 		}
 	case "taps_100k":
 		var taps int
 		_ = s.db.Pool.QueryRow(ctx, "SELECT COALESCE(total_taps, 0) FROM user_stats WHERE user_id = $1", userID).Scan(&taps)
 		if taps < 100000 {
-			return nil, fmt.Errorf("you must reach 100,000 total taps")
+			return nil, fmt.Errorf("ERR_NEED_100K_TAPS")
 		}
 	case "telegram_premium":
 		var isPremium bool
 		_ = s.db.Pool.QueryRow(ctx, "SELECT COALESCE(is_premium, false) FROM users WHERE telegram_id = $1", userID).Scan(&isPremium)
 		if !isPremium {
-			// 1. Check request context (populated from Telegram initData user object)
 			if rawUser := ctx.Value(middleware.UserContextKey); rawUser != nil {
 				if userMap, ok := rawUser.(map[string]interface{}); ok {
 					if tgIsPremium, ok := userMap["is_premium"].(bool); ok && tgIsPremium {
@@ -688,7 +686,6 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 			}
 		}
 		if !isPremium {
-			// 2. Query Telegram Bot API as dynamic verification fallback
 			tgClient := s.getBotAPIClient()
 			if tgClient != nil {
 				memberRes, err := tgClient.GetChatMemberFull(ctx, userID, userID)
@@ -699,7 +696,7 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 			}
 		}
 		if !isPremium {
-			return nil, fmt.Errorf("you must have Telegram Premium")
+			return nil, fmt.Errorf("ERR_NEED_TG_PREMIUM")
 		}
 	case "channel_join":
 		var config struct {
@@ -708,24 +705,23 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 		_ = json.Unmarshal(target.Config, &config)
 		channelName := config.ChannelUsername
 		if channelName == "" {
-			channelName = "@Fragmentscommunity" // fallback
+			channelName = "@Fragmentscommunity"
 		} else if !strings.HasPrefix(channelName, "@") && !strings.HasPrefix(channelName, "-") {
 			channelName = "@" + channelName
 		}
 
-		// Query live Telegram Bot API to check if user is a member
 		tgClient := s.getBotAPIClient()
 		if tgClient == nil {
 			if os.Getenv("APP_ENV") == "production" {
-				return nil, fmt.Errorf("official Telegram Bot Token not configured (fail-closed)")
+				return nil, fmt.Errorf("ERR_BOT_TOKEN_MISSING")
 			}
 		} else {
 			status, err := s.getChatMemberCached(ctx, tgClient, channelName, userID)
 			if err != nil {
-				return nil, fmt.Errorf("failed to verify official channel membership: %w", err)
+				return nil, fmt.Errorf("ERR_MEMBERSHIP_PENDING")
 			}
-			if status == "left" || status == "kicked" {
-				return nil, fmt.Errorf("you must join official Telegram channel %s first", channelName)
+			if status == "left" || status == "kicked" || status == "" {
+				return nil, fmt.Errorf("ERR_NEED_CHANNEL_JOIN")
 			}
 		}
 	case "quiz":
@@ -734,17 +730,16 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 		}
 		_ = json.Unmarshal(target.Config, &config)
 		if config.QuizAnswerHash == "" {
-			return nil, fmt.Errorf("quiz quest is misconfigured on the server")
+			return nil, fmt.Errorf("ERR_QUIZ_MISCONFIGURED")
 		}
 
-		// Cryptographic check: compare SHA256 of cleaned user input
 		cleanedInput := strings.ToLower(strings.TrimSpace(answer))
 		hash := sha256.New()
 		hash.Write([]byte(cleanedInput))
 		userHash := hex.EncodeToString(hash.Sum(nil))
 
 		if userHash != config.QuizAnswerHash {
-			return nil, fmt.Errorf("incorrect quiz answer")
+			return nil, fmt.Errorf("ERR_INCORRECT_QUIZ_ANSWER")
 		}
 	case "campaign":
 		var pendingSubquests int
@@ -1051,28 +1046,157 @@ type LeaderboardMember struct {
 	ClanName  string `json:"clan_name,omitempty"`
 }
 
-// GetLeaderboard retrieves Top 100 members sorted by XP for a given period ('day' or 'week')
-func (s *GamificationService) GetLeaderboard(ctx context.Context, period string) ([]LeaderboardMember, error) {
+// GetLeaderboard retrieves Top 100 members sorted by XP for a given period and league
+func (s *GamificationService) GetLeaderboard(ctx context.Context, userID int64, period string, league string) ([]LeaderboardMember, int, int64, error) {
 	if period == "" {
 		period = "day"
 	}
-	cacheKey := fmt.Sprintf("stats:leaderboard:payload:%s", period)
-	if s.cache != nil && s.cache.Client != nil {
-		cached, err := s.cache.Client.Get(ctx, cacheKey).Result()
-		if err == nil && cached != "" {
-			var res []LeaderboardMember
-			if json.Unmarshal([]byte(cached), &res) == nil {
-				return res, nil
+
+	var minXP, maxXP int
+	hasLeague := false
+	switch strings.ToLower(league) {
+	case "bronze":
+		minXP, maxXP = 0, 5000
+		hasLeague = true
+	case "silver":
+		minXP, maxXP = 5000, 25000
+		hasLeague = true
+	case "gold":
+		minXP, maxXP = 25000, 100000
+		hasLeague = true
+	case "platinum":
+		minXP, maxXP = 100000, 500000
+		hasLeague = true
+	case "diamond":
+		minXP, maxXP = 500000, 2000000
+		hasLeague = true
+	case "master":
+		minXP, maxXP = 2000000, 10000000
+		hasLeague = true
+	case "grandmaster":
+		minXP, maxXP = 10000000, 1000000000
+		hasLeague = true
+	}
+
+	var res []LeaderboardMember
+	var err error
+
+	if hasLeague && s.db != nil && s.db.Pool != nil {
+		// Query users in this league specifically
+		query := `
+			SELECT u.telegram_id, u.first_name, u.username, us.xp, us.level, c.chat_title as clan_name
+			FROM users u
+			JOIN user_stats us ON us.user_id = u.telegram_id
+			LEFT JOIN clan_members cm ON cm.user_id = u.telegram_id
+			LEFT JOIN clans c ON c.id = cm.clan_id
+			WHERE us.xp >= $1 AND us.xp < $2
+			ORDER BY us.xp DESC
+			LIMIT 100
+		`
+		rows, queryErr := s.db.Pool.Query(ctx, query, minXP, maxXP)
+		if queryErr == nil {
+			defer rows.Close()
+			rank := 1
+			for rows.Next() {
+				var m LeaderboardMember
+				var fn, username, clanName *string
+				if err := rows.Scan(&m.UserID, &fn, &username, &m.XP, &m.Level, &clanName); err == nil {
+					if fn != nil {
+						m.FirstName = *fn
+					}
+					if username != nil {
+						m.Username = *username
+					}
+					if clanName != nil {
+						m.ClanName = *clanName
+					}
+					m.Rank = rank
+					res = append(res, m)
+					rank++
+				}
+			}
+		}
+	} else {
+		cacheKey := fmt.Sprintf("stats:leaderboard:payload:%s", period)
+		if s.cache != nil && s.cache.Client != nil {
+			cached, err := s.cache.Client.Get(ctx, cacheKey).Result()
+			if err == nil && cached != "" {
+				_ = json.Unmarshal([]byte(cached), &res)
+			}
+		}
+		if len(res) == 0 {
+			res, err = s.computeAndCacheLeaderboard(ctx, period)
+			if err == nil && len(res) > 0 && s.cache != nil && s.cache.Client != nil {
+				if data, err := json.Marshal(res); err == nil {
+					_ = s.cache.Client.Set(ctx, cacheKey, string(data), 2*time.Minute).Err()
+				}
 			}
 		}
 	}
-	res, err := s.computeAndCacheLeaderboard(ctx, period)
-	if err == nil && len(res) > 0 && s.cache != nil && s.cache.Client != nil {
-		if data, err := json.Marshal(res); err == nil {
-			_ = s.cache.Client.Set(ctx, cacheKey, string(data), 2*time.Minute).Err()
+
+	userRank := 0
+	if userID > 0 && s.db != nil && s.db.Pool != nil {
+		if hasLeague {
+			_ = s.db.Pool.QueryRow(ctx, `
+				SELECT COUNT(*) + 1 FROM user_stats 
+				WHERE xp >= $1 AND xp < $2 AND xp > (SELECT COALESCE(xp, 0) FROM user_stats WHERE user_id = $3)
+			`, minXP, maxXP, userID).Scan(&userRank)
+		} else {
+			_ = s.db.Pool.QueryRow(ctx, `
+				SELECT COUNT(*) + 1 FROM user_stats 
+				WHERE xp > (SELECT COALESCE(xp, 0) FROM user_stats WHERE user_id = $1)
+			`, userID).Scan(&userRank)
 		}
 	}
-	return res, err
+
+	totalMiners, _ := s.GetTotalMiners(ctx)
+	return res, userRank, totalMiners, err
+}
+
+// StartExpirationReminderWorker checks users whose credit batches expire in 5 days (Day 25 of 30)
+func (s *GamificationService) StartExpirationReminderWorker(ctx context.Context) {
+	ticker := time.NewTicker(24 * time.Hour)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.checkExpiringCredits(ctx)
+		}
+	}
+}
+
+func (s *GamificationService) checkExpiringCredits(ctx context.Context) {
+	if s.db == nil || s.db.Pool == nil {
+		return
+	}
+
+	query := `
+		SELECT DISTINCT user_id, SUM(remaining_amount) as expiring_amount
+		FROM user_credit_batches
+		WHERE is_expired = FALSE 
+		  AND remaining_amount > 0 
+		  AND expires_at BETWEEN NOW() + INTERVAL '4 days' AND NOW() + INTERVAL '6 days'
+		GROUP BY user_id
+	`
+	rows, err := s.db.Pool.Query(ctx, query)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	count := 0
+	for rows.Next() {
+		var userID int64
+		var expiringAmount float64
+		if err := rows.Scan(&userID, &expiringAmount); err == nil {
+			slog.Info("Day-25 Expiration Reminder queued for user", "userID", userID, "expiringAmount", expiringAmount)
+			count++
+		}
+	}
+	slog.Info("Completed Day-25 coin expiration check", "notified_users", count)
 }
 
 func (s *GamificationService) computeAndCacheLeaderboard(ctx context.Context, period string) ([]LeaderboardMember, error) {

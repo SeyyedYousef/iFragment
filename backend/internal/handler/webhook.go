@@ -11,10 +11,12 @@ import (
 	"errors"
 	"fmt"
 	"ifragment-backend/internal/client/telegram"
+	"ifragment-backend/internal/config"
 	"ifragment-backend/internal/i18n"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/botmgmt"
 	"ifragment-backend/internal/service/channelmgmt"
+	"ifragment-backend/internal/service/notification"
 	"io"
 	"log/slog"
 	"math/rand"
@@ -388,23 +390,15 @@ func (h *WebhookHandler) HandleTelegramWebhook(w http.ResponseWriter, r *http.Re
 
 	webhookStatus = "success"
 
-	// 0. Idempotency Check (BUG #16 - Hardened & Improved)
+	// 0. Strict 48h Replay & Idempotency Check with Redis SETNX
 	cacheKey = fmt.Sprintf("update:%s:%d", botIDStr, update.UpdateID)
 	if cache != nil && cache.Client != nil {
-		// Use SETNX as a "processing" lock with 10 minutes TTL to protect long actions
-		locked, err := cache.Client.SetNX(ctx, cacheKey, "processing", 10*time.Minute).Result()
+		locked, err := cache.Client.SetNX(ctx, cacheKey, "processed", 48*time.Hour).Result()
 		if err != nil {
 			slog.Warn("Redis error in idempotency check", "error", err, "update_id", update.UpdateID, "bot_id", botIDStr)
 		} else if !locked {
-			val, _ := cache.Client.Get(ctx, cacheKey).Result()
-			if val == "processed" {
-				slog.Info("Duplicate Telegram update skipped (already processed)", "update_id", update.UpdateID, "bot_id", botIDStr)
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-			slog.Warn("Duplicate Telegram update ignored (still processing)", "update_id", update.UpdateID, "bot_id", botIDStr)
-			w.Header().Set("Retry-After", "60")
-			w.WriteHeader(http.StatusTooManyRequests) // HTTP 429 tells Telegram to retry later
+			slog.Info("Duplicate/replay Telegram update dropped (already processed)", "update_id", update.UpdateID, "bot_id", botIDStr)
+			w.WriteHeader(http.StatusOK)
 			return
 		}
 	}
@@ -753,23 +747,78 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 			if len(parts) >= 4 {
 				discountPercent, _ = strconv.Atoi(parts[3])
 			}
-			if parseErr == nil {
-				if discountPercent > 0 {
-					savedStars := (249 * discountPercent) / 100
-					requiredCoins := float64(savedStars * 1032)
-					tx, err := h.db.Pool.Begin(ctx)
-					if err == nil {
-						_ = h.db.DeductCreditsFIFO(ctx, tx, userID, requiredCoins)
-						_ = tx.Commit(ctx)
-					}
-				}
-				err := h.db.CompleteStarsPremiumPayment(ctx, pay.InvoicePayload, pay.TelegramPaymentChargeID, userID, 30*24*time.Hour)
+			if parseErr == nil && userID > 0 {
+				// 1. Begin atomic database transaction
+				tx, err := h.db.Pool.Begin(ctx)
 				if err != nil {
-					slog.Error("CRITICAL: Failed to complete Stars pro valuation payment atomically", "error", err, "user_id", userID, "payload", pay.InvoicePayload)
+					slog.Error("CRITICAL: Failed to begin transaction for val_pro payment", "error", err, "user_id", userID, "payload", pay.InvoicePayload)
+					h.pushPaymentDLQ(ctx, "begin_tx_failed", pay.InvoicePayload, err)
+					notification.GetAdminNotifier().NotifyPayment(ctx, fmt.Sprintf("🚨 <b>Payment TX Error</b>\nFailed to begin TX for user %d (payload: %s): %v", userID, pay.InvoicePayload, err))
 					return
 				}
-				slog.Info("Granted 30-day Pro Valuation access to User via Stars Webhook", "user_id", userID)
+				defer tx.Rollback(ctx)
 
+				// 2. If discount applied, deduct Airdrop Coins using FIFO inside transaction
+				if discountPercent > 0 {
+					_, requiredCoins := config.CalculateRequiredCoinsForDiscount(config.Economics.ProValuationStars, discountPercent)
+					if err := h.db.DeductCreditsFIFO(ctx, tx, userID, requiredCoins); err != nil {
+						slog.Error("CRITICAL: Failed to deduct credits for val_pro payment", "error", err, "user_id", userID, "required_coins", requiredCoins)
+						_ = tx.Rollback(ctx)
+						h.pushPaymentDLQ(ctx, "deduct_credits_failed", pay.InvoicePayload, err)
+						notification.GetAdminNotifier().NotifyPayment(ctx, fmt.Sprintf("🚨 <b>Credit Deduction Failed</b>\nUser %d failed to deduct %.0f coins: %v", userID, requiredCoins, err))
+
+						userLang, _ := h.db.GetUserLanguage(ctx, userID)
+						lang := i18n.DetectLanguage(userLang)
+						tg, _ := h.moderator.GetTelegramClient(ctx, bot)
+						if tg != nil {
+							failMsg := i18n.T(lang, "payment.credit_deduct_failed", nil)
+							if failMsg == "" || failMsg == "payment.credit_deduct_failed" {
+								failMsg = "⚠️ Your payment was received, but coin deduction encountered an issue. Our team is reviewing this."
+							}
+							_ = tg.SendMessage(ctx, userID, failMsg, nil, nil)
+						}
+						return
+					}
+				}
+
+				// 3. Mark order as paid AND grant Pro access atomically
+				if err := h.db.CompleteStarsPremiumPaymentTx(ctx, tx, pay.InvoicePayload, pay.TelegramPaymentChargeID, userID, config.Economics.ProValuationDuration); err != nil {
+					slog.Error("CRITICAL: Failed to complete Stars pro valuation payment atomically", "error", err, "user_id", userID, "payload", pay.InvoicePayload)
+					_ = tx.Rollback(ctx)
+					h.pushPaymentDLQ(ctx, "complete_order_failed", pay.InvoicePayload, err)
+					notification.GetAdminNotifier().NotifyPayment(ctx, fmt.Sprintf("🚨 <b>Order Completion Failed</b>\nUser %d payload %s: %v", userID, pay.InvoicePayload, err))
+					return
+				}
+
+				// 4. Commit transaction
+				if err := tx.Commit(ctx); err != nil {
+					slog.Error("CRITICAL: Failed to commit transaction for val_pro payment", "error", err, "user_id", userID)
+					h.pushPaymentDLQ(ctx, "commit_tx_failed", pay.InvoicePayload, err)
+					notification.GetAdminNotifier().NotifyPayment(ctx, fmt.Sprintf("🚨 <b>TX Commit Failed</b>\nUser %d payload %s: %v", userID, pay.InvoicePayload, err))
+					return
+				}
+
+				slog.Info("Granted Pro Valuation access to User via Stars Webhook", "user_id", userID, "duration", config.Economics.ProValuationDuration)
+
+				// 5. Update Redis read cache
+				cache := h.moderator.GetCache()
+				if cache != nil && cache.Client != nil {
+					cache.Client.Set(ctx, fmt.Sprintf("user_val_pro:%d", userID), "true", config.Economics.ProValuationDuration)
+				}
+
+				// 6. Send Pro Welcome message (after successful commit)
+				userLang, _ := h.db.GetUserLanguage(ctx, userID)
+				lang := i18n.DetectLanguage(userLang)
+				tg, _ := h.moderator.GetTelegramClient(ctx, bot)
+				if tg != nil {
+					welcomeMsg := i18n.T(lang, "notifications.pro_pass_activated", nil)
+					if welcomeMsg == "" || welcomeMsg == "notifications.pro_pass_activated" {
+						welcomeMsg = "👑 <b>iFragment Pro Pass Activated!</b>\n\nYou now have 30 days of:\n• 3 Deep Daily Valuations\n• 70%+ Fragment Arbitrage Alerts\n• Official Digital Valuation Certificate\n\nEnjoy trading on Fragment!"
+					}
+					_ = tg.SendMessage(ctx, userID, welcomeMsg, nil, nil)
+				}
+
+				// 7. Audit log
 				auditRepo := repository.NewAuditRepo(h.db)
 				targetType := "user"
 				targetID := strconv.FormatInt(userID, 10)
@@ -809,17 +858,52 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 						_ = tg.SendMessage(ctx, userID, fmt.Sprintf("Payment received. Your @%s report is unlocked:\n%s", username, reportURL), nil, nil)
 					}
 				}
-			} else if strings.HasPrefix(pay.InvoicePayload, "val_pro:") {
+			} else if strings.HasPrefix(pay.InvoicePayload, "number_report:") {
 				parts := strings.Split(pay.InvoicePayload, ":")
-				if len(parts) >= 2 {
+				if len(parts) >= 3 {
 					userID, parseErr := strconv.ParseInt(parts[1], 10, 64)
-					if parseErr == nil {
-						cache := h.moderator.GetCache()
-						if cache != nil && cache.Client != nil {
-							cache.Client.Set(ctx, fmt.Sprintf("user_val_pro:%d", userID), "true", 30*24*time.Hour)
+					number := parts[2]
+					if parseErr == nil && number != "" {
+						auditRepo := repository.NewAuditRepo(h.db)
+						targetType := "number"
+						_ = auditRepo.Log(ctx, &repository.AuditLog{
+							ActorID:    userID,
+							Action:     "number_report.payment.success",
+							TargetType: &targetType,
+							TargetID:   &number,
+						})
+						miniAppURL := os.Getenv("MINI_APP_URL")
+						if miniAppURL == "" {
+							miniAppURL = "https://t.me/iFragmentBot/iFragment"
 						}
+						reportURL := fmt.Sprintf("%s?startapp=number_%s", miniAppURL, strings.TrimPrefix(number, "+"))
 						tg, _ := h.moderator.GetTelegramClient(ctx, bot)
-						_ = tg.SendMessage(ctx, userID, "👑 <b>iFragment Pro Pass Activated!</b>\n\nYou now have 30 days of:\n• 3 Deep Daily Valuations\n• 70%+ Fragment Arbitrage Alerts\n• Official Digital Valuation Certificate\n\nEnjoy trading on Fragment!", nil, nil)
+						_ = tg.SendMessage(ctx, userID, fmt.Sprintf("Payment received! Your %s valuation report is unlocked:\n%s", number, reportURL), nil, nil)
+					}
+				}
+			} else if strings.HasPrefix(pay.InvoicePayload, "gift_report:") || strings.HasPrefix(pay.InvoicePayload, "val_gift:") {
+				parts := strings.Split(pay.InvoicePayload, ":")
+				if len(parts) >= 3 {
+					userID, parseErr := strconv.ParseInt(parts[1], 10, 64)
+					giftID := parts[2]
+					if parseErr == nil && giftID != "" {
+						auditRepo := repository.NewAuditRepo(h.db)
+						targetType := "gift"
+						_ = auditRepo.Log(ctx, &repository.AuditLog{
+							ActorID:    userID,
+							Action:     "gift_report.payment.success",
+							TargetType: &targetType,
+							TargetID:   &giftID,
+						})
+						miniAppURL := os.Getenv("MINI_APP_URL")
+						if miniAppURL == "" {
+							miniAppURL = "https://t.me/iFragmentBot/iFragment"
+						}
+						reportURL := fmt.Sprintf("%s?startapp=gift_%s", miniAppURL, giftID)
+						tg, _ := h.moderator.GetTelegramClient(ctx, bot)
+						if tg != nil {
+							_ = tg.SendMessage(ctx, userID, fmt.Sprintf("🎁 <b>Payment Received!</b>\nYour %s Gift valuation report is unlocked:\n%s", giftID, reportURL), nil, nil)
+						}
 					}
 				}
 			} else if strings.HasPrefix(pay.InvoicePayload, "val_stars:") {
@@ -1620,6 +1704,28 @@ func (h *WebhookHandler) answerPreCheckout(botToken string, id string, ok bool, 
 	_, err := tg.Request(ctx, "answerPreCheckoutQuery", payload)
 	if err != nil {
 		slog.Error("CRITICAL: Failed to answer pre-checkout query", "error", err, "query_id", id)
+	}
+}
+
+func (h *WebhookHandler) pushPaymentDLQ(ctx context.Context, reason string, payload string, err error) {
+	if cache := h.moderator.GetCache(); cache != nil && cache.Client != nil {
+		errStr := ""
+		if err != nil {
+			errStr = err.Error()
+		}
+		_, errX := cache.Client.XAdd(ctx, &redis.XAddArgs{
+			Stream: "payment:dlq",
+			MaxLen: 10000,
+			Values: map[string]interface{}{
+				"reason":    reason,
+				"payload":   payload,
+				"error":     errStr,
+				"timestamp": time.Now().Format(time.RFC3339),
+			},
+		}).Result()
+		if errX != nil {
+			slog.Error("Failed to write to payment DLQ", "error", errX)
+		}
 	}
 }
 
@@ -2517,9 +2623,10 @@ func parseDurationStr(s string, defaultDur time.Duration) time.Duration {
 }
 
 func (h *WebhookHandler) adminLock(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, lang string, groupID uuid.UUID) bool {
+	bFalse := false
 	_ = tg.SetChatPermissions(ctx, m.Chat.ID, telegram.ChatPermissions{
-		CanSendMessages: false,
-	})
+		CanSendMessages: &bFalse,
+	}, false)
 
 	settings, _ := h.moderator.GetSettings(ctx, groupID)
 	var quiet repository.SettingsQuietHours
@@ -2536,15 +2643,16 @@ func (h *WebhookHandler) adminLock(ctx context.Context, bot *repository.ManagedB
 }
 
 func (h *WebhookHandler) adminUnlock(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, lang string, groupID uuid.UUID) bool {
+	bTrue := true
 	_ = tg.SetChatPermissions(ctx, m.Chat.ID, telegram.ChatPermissions{
-		CanSendMessages:       true,
-		CanSendPhotos:         true,
-		CanSendVideos:         true,
-		CanSendAudios:         true,
-		CanSendDocuments:      true,
-		CanSendOtherMessages:  true,
-		CanAddWebPagePreviews: true,
-	})
+		CanSendMessages:       &bTrue,
+		CanSendPhotos:         &bTrue,
+		CanSendVideos:         &bTrue,
+		CanSendAudios:         &bTrue,
+		CanSendDocuments:      &bTrue,
+		CanSendOtherMessages:  &bTrue,
+		CanAddWebPagePreviews: &bTrue,
+	}, false)
 
 	settings, _ := h.moderator.GetSettings(ctx, groupID)
 	var quiet repository.SettingsQuietHours
@@ -3420,6 +3528,36 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 }
 
 func (h *WebhookHandler) handleCallbackQuery(ctx context.Context, bot *repository.ManagedBot, cq *CallbackQuery) {
+	if strings.HasPrefix(cq.Data, "verify_join:") {
+		parts := strings.Split(cq.Data, ":")
+		if len(parts) >= 3 {
+			groupIDStr := parts[1]
+			userIDStr := parts[2]
+			if gid, err := uuid.Parse(groupIDStr); err == nil {
+				group, errGroup := h.botRepo.GetGroupByID(ctx, gid)
+				if errGroup == nil && group != nil {
+					targetUserID, _ := strconv.ParseInt(userIDStr, 10, 64)
+					if targetUserID == cq.From.ID {
+						tg, tgErr := h.moderator.GetTelegramClient(ctx, bot)
+						if tgErr == nil {
+							_ = tg.ApproveChatJoinRequest(ctx, group.ChatID, cq.From.ID)
+							userLang := i18n.DetectLanguage(cq.From.LanguageCode)
+							successMsg := "✅ شما تأیید شدید و درخواست شما پذیرفته شد!"
+							if userLang != "fa" {
+								successMsg = "✅ You have been verified and approved to join!"
+							}
+							_ = tg.AnswerCallbackQuery(ctx, cq.ID, successMsg, true)
+							if cq.Message != nil {
+								_ = tg.DeleteMessage(ctx, cq.Message.Chat.ID, cq.Message.MessageID)
+							}
+						}
+					}
+				}
+			}
+		}
+		return
+	}
+
 	if strings.HasPrefix(cq.Data, "gset:") {
 		h.handleGroupSettingsCallback(ctx, bot, cq)
 		return
@@ -4568,14 +4706,58 @@ func (h *WebhookHandler) handleChatJoinRequest(ctx context.Context, bot *reposit
 		}
 	}
 
-	// 1. Verify channel connection exists in managed_channels
-	ch, err := h.channelService.GetChannelByChatID(ctx, req.Chat.ID)
-	if err != nil || ch == nil {
-		slog.Warn("Chat join request ignored: channel is not managed", "chat_id", req.Chat.ID)
+	// 1. Check if group connection exists in managed_groups
+	group, errGroup := h.botRepo.GetGroup(ctx, bot.ID, req.Chat.ID)
+	if errGroup == nil && group != nil {
+		tg, err := h.moderator.GetTelegramClient(ctx, bot)
+		if err != nil {
+			return
+		}
+		settings, _ := h.moderator.GetSettings(ctx, group.ID)
+		var mandatory repository.SettingsMandatoryMembership
+		if settings != nil {
+			_ = json.Unmarshal(settings.MandatoryMembership, &mandatory)
+		}
+
+		if mandatory.VerificationEnabled {
+			// Send verification button in PV to the user
+			userLang := i18n.DetectLanguage(req.From.LanguageCode)
+			verifyText := i18n.T(userLang, "verification.pv_prompt", map[string]interface{}{"group": group.ChatTitle})
+			if verifyText == "" || verifyText == "verification.pv_prompt" {
+				if userLang == "fa" {
+					verifyText = fmt.Sprintf("🛡 برای ورود به گروه <b>%s</b>، لطفاً روی دکمه زیر کلیک کنید تا هویت شما تأیید شود:", telegram.EscapeHTML(group.ChatTitle))
+				} else {
+					verifyText = fmt.Sprintf("🛡 To join <b>%s</b>, please click the button below to verify yourself:", telegram.EscapeHTML(group.ChatTitle))
+				}
+			}
+			btnText := "✅ تأیید و ورود"
+			if userLang != "fa" {
+				btnText = "✅ Verify & Join"
+			}
+			markup := map[string]interface{}{
+				"inline_keyboard": [][]map[string]interface{}{
+					{
+						{"text": btnText, "callback_data": fmt.Sprintf("verify_join:%s:%d", group.ID.String(), req.From.ID)},
+					},
+				},
+			}
+			_, _ = tg.SendMessageWithMarkup(ctx, req.From.ID, verifyText, markup, nil, "HTML")
+			return
+		}
+
+		// Auto approve if verification is not enabled
+		_ = tg.ApproveChatJoinRequest(ctx, req.Chat.ID, req.From.ID)
 		return
 	}
 
-	// 2. Fetch channel settings via Service layer to check active policies
+	// 2. Verify channel connection exists in managed_channels
+	ch, err := h.channelService.GetChannelByChatID(ctx, req.Chat.ID)
+	if err != nil || ch == nil {
+		slog.Warn("Chat join request ignored: chat is not managed", "chat_id", req.Chat.ID)
+		return
+	}
+
+	// 3. Fetch channel settings via Service layer to check active policies
 	settings, err := h.channelService.GetChannelSettingsDirect(ctx, ch.ID)
 	if err != nil {
 		slog.Error("Failed to fetch general settings for join request validation", "channel_id", ch.ID, "error", err)

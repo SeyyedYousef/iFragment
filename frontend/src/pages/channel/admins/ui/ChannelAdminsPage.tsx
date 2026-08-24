@@ -300,6 +300,9 @@ export const ChannelAdminsPage: Component = () => {
 									placeholder={t('channelAdmins.customTitlePlaceholder')}
 									class="bg-[#08090D] border border-white/5 shadow-inner text-white text-[13px] font-bold rounded-[16px] px-4 py-4 w-full focus:outline-none focus:border-[#3390ec]/50 transition-all placeholder-white/20"
 								/>
+								<span class="text-[11px] text-white/40 leading-relaxed px-1">
+									💡 Tip: Setting Custom Title to <code class="text-[#3390ec] font-mono font-bold">viewer</code> grants read-only access in iFragment without write permissions.
+								</span>
 							</div>
 
 							{/* Permissions Toggles */}

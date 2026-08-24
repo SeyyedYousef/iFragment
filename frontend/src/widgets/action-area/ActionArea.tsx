@@ -58,23 +58,36 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
 	const handleAnalyze = async () => {
 		if (analyzeState() !== 'idle' || !searchQuery() || searchError()) return;
-		if (validate(searchQuery(), props.activeTab)) {
-			try {
-				haptic.impact('medium');
-			} catch {}
-			navigate(`/username/report?u=${searchQuery()}`);
+		try {
+			haptic.impact('medium');
+		} catch {}
+		if (props.activeTab === 'gifts') {
+			const q = searchQuery().trim();
+			if (q.startsWith('@') || (!q.includes('-') && !q.includes('_') && !/\d/.test(q))) {
+				navigate(`/gifts/portfolio?u=${encodeURIComponent(q.replace(/^@/, ''))}`);
+			} else {
+				navigate(`/gifts/report?g=${encodeURIComponent(q)}`);
+			}
+		} else if (props.activeTab === 'collectibles') {
+			navigate(`/numbers/report?n=${encodeURIComponent(searchQuery())}`);
 		} else {
-			try {
-				haptic.notify('error');
-			} catch {}
+			if (validate(searchQuery(), props.activeTab)) {
+				navigate(`/username/report?u=${encodeURIComponent(searchQuery())}`);
+			} else {
+				try { haptic.notify('error'); } catch {}
+			}
 		}
 	};
 
 	const updateSearchQuery = (val: string) => {
 		const stripped = val.replace(/^[@+]/, '');
 		setSearchQuery(stripped);
-		if (stripped.length > 0) {
-			validate(stripped, props.activeTab);
+		if (props.activeTab === 'username') {
+			if (stripped.length > 0) {
+				validate(stripped, props.activeTab);
+			} else {
+				setSearchError(null);
+			}
 		} else {
 			setSearchError(null);
 		}
@@ -84,6 +97,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 		if (analyzeState() === 'loading') return t('action.analyzing');
 		if (analyzeState() === 'success') return t('home.success');
 		if (props.activeTab === 'username') return t('action.username.analyzeMarketBtn');
+		if (props.activeTab === 'gifts') return t('action.gifts.analyzeBtn');
 		return t(keys().analyzeBtn);
 	};
 
@@ -95,7 +109,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
 	// Determine the semantic color of the input field based on validation
 	const inputStateColors = createMemo(() => {
-		const isError = searchError() || (searchQuery() && charCount() < 4);
+		const isError = searchError();
 		const isSuccess = searchQuery() && !isError;
 
 		if (isError) {
@@ -104,7 +118,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 				glowSoft: 'rgba(255,69,58,0.1)',
 				borderTop: 'rgba(255,69,58,0.6)',
 				borderBottom: 'rgba(255,69,58,0.15)',
-				bg: '#140c0c', // subtle red tint background
+				bg: '#140c0c',
 				icon: '#ff453a',
 			};
 		}
@@ -114,11 +128,10 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 				glowSoft: 'rgba(48,209,88,0.1)',
 				borderTop: 'rgba(48,209,88,0.6)',
 				borderBottom: 'rgba(48,209,88,0.15)',
-				bg: '#0a140d', // subtle green tint background
+				bg: '#0a140d',
 				icon: '#30d158',
 			};
 		}
-		// Empty / Default state
 		return {
 			glow: 'rgba(51,144,236,0.5)',
 			glowSoft: 'rgba(51,144,236,0.15)',
@@ -144,124 +157,57 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			/>
 
 			<div class="relative z-10 w-full max-w-[520px] mx-auto pt-8 px-5">
-				<Show
-					when={props.activeTab === 'username'}
-					fallback={
-						<Motion.div
-							initial={{ opacity: 0, y: 12 }}
-							animate={{ opacity: 1, y: 0 }}
-							transition={{ duration: 0.5 }}
-							class="w-full rounded-[28px] bg-[#111214] border border-white/[0.06] p-8 flex flex-col items-center justify-center text-center relative overflow-hidden"
-						>
-							<div class="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
-
-							<div class="w-16 h-16 rounded-[20px] bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-6 relative">
-								<span
-									class="material-symbols-outlined text-[28px] text-white/70"
-									style={{ 'font-variation-settings': '"wght" 300' }}
-								>
-									{props.activeTab === 'collectibles' ? 'tag' : 'featured_seasonal_and_gifts'}
-								</span>
-								<div class="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-full bg-[#111214] border border-white/10 flex items-center justify-center">
-									<span class="material-symbols-outlined text-[12px] text-white/40">lock</span>
-								</div>
-							</div>
-
-							<span class="px-3 py-1 bg-white/[0.04] border border-white/[0.08] rounded-full text-[10px] font-semibold tracking-[0.15em] uppercase text-white/50 mb-5">
-								{t('action.comingSoon.badge')}
-							</span>
-
-							<h3 class="text-xl font-semibold text-white/90 tracking-tight mb-3">
-								{t('action.comingSoon.title')}
-							</h3>
-							<p class="text-white/35 text-[13px] leading-[1.7] max-w-[90%] mb-8">
-								{t('action.comingSoon.description')}
-							</p>
-
+				<div class="flex flex-col w-full">
+					{/* ━━━ HEADER ━━━ */}
+					<Motion.div
+						initial={{ opacity: 0, y: 16 }}
+						animate={{ opacity: 1, y: 0 }}
+						transition={{ duration: 0.7, easing: [0.16, 1, 0.3, 1] }}
+						class="text-center w-full mb-10 flex flex-col items-center"
+					>
+						<div class="flex items-center justify-center gap-3 mb-6">
 							<button
 								onClick={() => {
-									try {
-										haptic.impact('medium');
-									} catch {}
-									props.onTabChange?.('username');
-									window.scrollTo({ top: 0, behavior: 'smooth' });
+									setTimeout(() => {
+										document.querySelector<HTMLInputElement>('input[type="text"]')?.focus();
+									}, 100);
 								}}
-								class="px-7 py-3 rounded-full bg-white text-black font-semibold text-[13px] flex items-center gap-2 hover:brightness-90 active:scale-[0.97] transition-all"
+								class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08] backdrop-blur-md shadow-[0_2px_10px_rgba(0,0,0,0.1)] hover:bg-white/[0.08] transition-colors"
 							>
-								<span>{t('action.comingSoon.btn')}</span>
+								<div class="w-1.5 h-1.5 rounded-full bg-[#3390ec] shadow-[0_0_8px_#3390ec]" />
+								<span class="text-[10px] font-semibold text-white/70 tracking-[0.2em] uppercase">
+									{t('home.premiumReport')}
+								</span>
 							</button>
-						</Motion.div>
-					}
-				>
-					<div class="flex flex-col w-full">
-						{/* ━━━ HEADER ━━━ */}
-						<Motion.div
-							initial={{ opacity: 0, y: 16 }}
-							animate={{ opacity: 1, y: 0 }}
-							transition={{ duration: 0.7, easing: [0.16, 1, 0.3, 1] }}
-							class="text-center w-full mb-10 flex flex-col items-center"
-						>
-							<div class="flex items-center justify-center gap-3 mb-6">
+							<div class="relative">
 								<button
 									onClick={() => {
-										props.onTabChange?.('username');
-										setTimeout(() => {
-											document.querySelector<HTMLInputElement>('input[type="text"]')?.focus();
-										}, 100);
+										if (props.activeTab === 'collectibles') {
+											navigate('/numbers/intel');
+										} else if (props.activeTab === 'gifts') {
+											navigate('/gifts/intel');
+										} else {
+											navigate('/collection-info');
+										}
 									}}
 									class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08] backdrop-blur-md shadow-[0_2px_10px_rgba(0,0,0,0.1)] hover:bg-white/[0.08] transition-colors"
 								>
-									<div class="w-1.5 h-1.5 rounded-full bg-[#3390ec] shadow-[0_0_8px_#3390ec]" />
+									<span class="material-symbols-outlined text-[14px] text-white/70">
+										collections_bookmark
+									</span>
 									<span class="text-[10px] font-semibold text-white/70 tracking-[0.2em] uppercase">
-										{t('home.premiumReport')}
+										{props.activeTab === 'gifts' ? 'Gifts Intel' : t('home.collectionInfo')}
 									</span>
 								</button>
-								<div class="relative">
-									<Show when={showCollectionTooltip()}>
-										<Motion.div
-											initial={{ opacity: 0, scale: 0.9, y: 10 }}
-											animate={{ opacity: 1, scale: 1, y: 0 }}
-											exit={{ opacity: 0, scale: 0.9 }}
-											class="absolute bottom-[130%] left-1/2 -translate-x-1/2 w-max max-w-[200px] bg-[#3390ec] text-white text-[12px] font-bold p-3 rounded-2xl shadow-[0_10px_25px_rgba(51,144,236,0.4)] z-50 flex flex-col gap-2"
-										>
-											<div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#3390ec] rotate-45 rounded-sm"></div>
-											<div class="relative z-10 flex items-start justify-between gap-3">
-												<span class="leading-relaxed text-right">
-													{t('home.collectionSubtitle')}
-												</span>
-												<button
-													onClick={(e) => {
-														e.stopPropagation();
-														setShowCollectionTooltip(false);
-													}}
-													class="mt-0.5 opacity-80 hover:opacity-100 p-0.5 shrink-0 active:scale-95 transition-transform"
-													aria-label="Close tooltip"
-												>
-													<span class="material-symbols-outlined text-[14px]">close</span>
-												</button>
-											</div>
-										</Motion.div>
-									</Show>
-									<button
-										onClick={() => navigate('/collection-info')}
-										class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08] backdrop-blur-md shadow-[0_2px_10px_rgba(0,0,0,0.1)] hover:bg-white/[0.08] transition-colors"
-									>
-										<span class="material-symbols-outlined text-[14px] text-white/70">
-											collections_bookmark
-										</span>
-										<span class="text-[10px] font-semibold text-white/70 tracking-[0.2em] uppercase">
-											{t('home.collectionInfo')}
-										</span>
-									</button>
-								</div>
 							</div>
-							<h2 class="text-[34px] md:text-[44px] font-extrabold tracking-tight leading-[1.2] mb-3 text-white">
-								{t(keys().title)}
-							</h2>
-							<p class="text-white/50 text-[15px] font-medium max-w-[400px] leading-[1.6] mx-auto">
-								{t(keys().description)}
-							</p>
-						</Motion.div>
+						</div>
+						<h2 class="text-[34px] md:text-[44px] font-extrabold tracking-tight leading-[1.2] mb-3 text-white">
+							{t(keys().title)}
+						</h2>
+						<p class="text-white/50 text-[15px] font-medium max-w-[400px] leading-[1.6] mx-auto">
+							{t(keys().description)}
+						</p>
+					</Motion.div>
 
 						{/* ━━━ SEARCH COMPONENT ━━━ */}
 						<Motion.div
@@ -425,7 +371,6 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 							</div>
 						</Motion.div>
 					</div>
-				</Show>
 			</div>
 
 			<style>{`

@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"math"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -164,4 +165,54 @@ func ScrapeMarketappMaxPrice(ctx context.Context, username string) float64 {
 	}
 	return 0
 }
+
+// RentYieldDto conveys the rental capitalization intelligence of a username.
+type RentYieldDto struct {
+	MonthlyMedianTON float64 `json:"monthly_median_ton"`
+	CapMonths        float64 `json:"cap_months"`
+	RentFloorTON     float64 `json:"rent_floor_ton"`
+	Source           string  `json:"source"`
+}
+
+// EstimateRentYieldFloor computes the rent yield floor for a username based on its segment, length, and base estimate.
+// A rational buyer will not price an asset below its capitalized rental yield over rent_cap_months (default 18 months).
+func EstimateRentYieldFloor(charLen int, features MorphFeatures, expectedBaseTON float64, cfg EngineConfig) RentYieldDto {
+	capMonths := cfg.RentCapMonths
+	if capMonths <= 0 {
+		capMonths = 18.0
+	}
+
+	if features.IsGibberish || features.HasCheapPrefix || features.HasCheapSuffix || expectedBaseTON <= 0 {
+		return RentYieldDto{
+			MonthlyMedianTON: 0,
+			CapMonths:        capMonths,
+			RentFloorTON:     0,
+			Source:           "none",
+		}
+	}
+
+	// Monthly rental rate typically yields 2.5% to 4.5% of asset value
+	monthlyRate := 0.035
+	if features.IsDictionary {
+		monthlyRate = 0.045
+	} else if features.HasNumbers || features.HasUnderscore {
+		monthlyRate = 0.020
+	}
+
+	monthlyRent := expectedBaseTON * monthlyRate
+	if monthlyRent < 1.0 && expectedBaseTON >= 25.0 {
+		monthlyRent = 1.0
+	}
+
+	rentFloor := AestheticRound(monthlyRent * capMonths)
+
+	return RentYieldDto{
+		MonthlyMedianTON: math.Round(monthlyRent*100) / 100,
+		CapMonths:        capMonths,
+		RentFloorTON:     rentFloor,
+		Source:           "marketapp_rent_capitalization",
+	}
+}
+
+
 

@@ -1,212 +1,178 @@
-import { Component, createSignal, For, onMount, Show } from 'solid-js';
-import { type FinanceOrder, type OwnerEntityItem, ownerApi } from '@/entities/owner/index.js';
+import { createSignal, Show, For, type Component } from 'solid-js';
+import { createQuery } from '@tanstack/solid-query';
+import { ownerApi } from '../../../entities/owner/api/ownerApi';
 
 export const OwnerFinance: Component = () => {
-	const [orders, setOrders] = createSignal<FinanceOrder[]>([]);
-	const [subscriptions, setSubscriptions] = createSignal<OwnerEntityItem[]>([]);
-	const [loading, setLoading] = createSignal(true);
-	const [error, setError] = createSignal('');
+	const [page, setPage] = createSignal(0);
+	const pageSize = 20;
 
-	const fetchData = async () => {
-		setLoading(true);
-		setError('');
-		try {
-			const [ordersData, entitiesData] = await Promise.all([
-				ownerApi.getFinanceOrders().catch(() => []),
-				ownerApi.listEntities().catch(() => []),
-			]);
-			setOrders(ordersData || []);
-			setSubscriptions(entitiesData?.filter((e) => e.status === 'active') || []);
-		} catch (e: any) {
-			setError(e.response?.data?.error || 'خطا در دریافت اطلاعات مالی سرور');
-		} finally {
-			setLoading(false);
-		}
-	};
+	const summaryQuery = createQuery(() => ({
+		queryKey: ['owner', 'finance', 'summary'],
+		queryFn: ownerApi.getFinanceSummary,
+	}));
 
-	onMount(() => {
-		fetchData();
-	});
+	const ordersQuery = createQuery(() => ({
+		queryKey: ['owner', 'finance', 'orders', page()],
+		queryFn: () => ownerApi.getFinanceOrders(pageSize, page() * pageSize),
+	}));
 
-	const totalRevenueStars = () =>
-		orders()
-			.filter((o) => o.status === 'paid')
-			.reduce((sum, o) => sum + (o.amount_stars || 0), 0);
+	const summary = () => summaryQuery.data;
+	const orders = () => ordersQuery.data || [];
 
 	return (
 		<div class="space-y-6">
 			{/* Header */}
-			<div class="bg-[#16171d]/60 border border-white/5 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
-				<div>
-					<h2 class="text-sm font-black text-white">امور مالی، خریدهای ستاره و اشتراک‌ها</h2>
-					<p class="text-xs text-white/40 font-bold mt-0.5">
-						مدیریت تراکنش‌های درگاه ستاره تلگرام و وضعیت اعتبارات
-					</p>
+			<div>
+				<h2 class="text-lg font-bold text-white">Financial Aggregation & Orders</h2>
+				<p class="text-xs text-white/50">Server-aggregated Telegram Stars revenue and transaction ledger</p>
+			</div>
+
+			{/* Aggregation Cards */}
+			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+				{/* Total Revenue */}
+				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2">
+					<div class="flex items-center justify-between text-xs text-white/50">
+						<span>Total Stars Revenue</span>
+						<span class="material-symbols-rounded text-base text-yellow-400">payments</span>
+					</div>
+					<div class="text-2xl font-black text-amber-400 font-mono flex items-center gap-1.5">
+						<span>⭐</span>
+						<span>{summaryQuery.isLoading ? '...' : (summary()?.total_revenue_stars ?? 0).toLocaleString()}</span>
+					</div>
+					<div class="text-[11px] text-white/40">Lifetime Invoiced</div>
+				</div>
+
+				{/* 7-Day Revenue */}
+				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2">
+					<div class="flex items-center justify-between text-xs text-white/50">
+						<span>7-Day Volume</span>
+						<span class="material-symbols-rounded text-base text-emerald-400">trending_up</span>
+					</div>
+					<div class="text-2xl font-black text-emerald-400 font-mono flex items-center gap-1.5">
+						<span>⭐</span>
+						<span>{summaryQuery.isLoading ? '...' : (summary()?.revenue_7d ?? 0).toLocaleString()}</span>
+					</div>
+					<div class="text-[11px] text-emerald-400/80 font-mono">Last 7 Days</div>
+				</div>
+
+				{/* 30-Day Revenue */}
+				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2">
+					<div class="flex items-center justify-between text-xs text-white/50">
+						<span>30-Day Volume</span>
+						<span class="material-symbols-rounded text-base text-sky-400">calendar_view_month</span>
+					</div>
+					<div class="text-2xl font-black text-white font-mono flex items-center gap-1.5">
+						<span>⭐</span>
+						<span>{summaryQuery.isLoading ? '...' : (summary()?.revenue_30d ?? 0).toLocaleString()}</span>
+					</div>
+					<div class="text-[11px] text-white/40">Monthly Velocity</div>
+				</div>
+
+				{/* Active Subscriptions & Churn */}
+				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2">
+					<div class="flex items-center justify-between text-xs text-white/50">
+						<span>VIP Subscriptions</span>
+						<span class="material-symbols-rounded text-base text-purple-400">workspace_premium</span>
+					</div>
+					<div class="text-2xl font-black text-white font-mono">
+						{summaryQuery.isLoading ? '...' : (summary()?.active_subscriptions ?? 0).toLocaleString()}
+					</div>
+					<div class="text-[11px] text-white/50">
+						Churn Rate: <span class="font-mono text-white">{(summary()?.churn_rate ?? 0).toFixed(1)}%</span>
+					</div>
 				</div>
 			</div>
 
-			<Show when={error()}>
-				<div class="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-400 text-xs font-bold">
-					<span class="material-symbols-outlined text-xl">error</span>
-					<span>{error()}</span>
-				</div>
-			</Show>
-
-			<Show
-				when={!loading()}
-				fallback={
-					<div class="flex flex-col items-center justify-center py-20 gap-3">
-						<div class="w-8 h-8 border-3 border-[#3390ec] border-t-transparent rounded-full animate-spin" />
-						<span class="text-xs text-white/50 font-bold">در حال دریافت داده‌های حسابداری...</span>
-					</div>
-				}
-			>
-				{/* Financial KPI Summary Cards */}
-				<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-					<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-5 space-y-2">
-						<span class="text-[10px] text-white/40 font-black uppercase tracking-wider block">
-							کل درآمد ستاره (Telegram Stars)
-						</span>
-						<div class="text-3xl font-black text-amber-400 font-mono">
-							{totalRevenueStars().toLocaleString()} ⭐
-						</div>
-						<p class="text-[10px] text-emerald-400 font-bold">پرداخت‌های موفق ثبت‌شده</p>
-					</div>
-
-					<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-5 space-y-2">
-						<span class="text-[10px] text-white/40 font-black uppercase tracking-wider block">
-							تعداد سفارشات
-						</span>
-						<div class="text-3xl font-black text-white font-mono">
-							{orders().length.toLocaleString()}
-						</div>
-						<p class="text-[10px] text-white/50 font-bold">کل سفارشات صادرشده</p>
-					</div>
-
-					<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-5 space-y-2">
-						<span class="text-[10px] text-white/40 font-black uppercase tracking-wider block">
-							اشتراک‌های فعال
-						</span>
-						<div class="text-3xl font-black text-[#3390ec] font-mono">
-							{subscriptions().length.toLocaleString()}
-						</div>
-						<p class="text-[10px] text-white/50 font-bold">کانال‌ها و گروه‌های دارای اعتبار فعال</p>
+			{/* Orders Table */}
+			<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
+				<div class="flex items-center justify-between">
+					<div class="flex items-center gap-2">
+						<span class="material-symbols-rounded text-amber-400">receipt_long</span>
+						<span class="text-sm font-bold text-white">Recent Transactions</span>
 					</div>
 				</div>
 
-				{/* Active Subscriptions */}
-				<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-6 space-y-4">
-					<h3 class="text-xs font-black uppercase text-white tracking-wider">
-						اشتراک‌های فعال پریمیوم (گروه‌ها و کانال‌ها)
-					</h3>
-					<div class="overflow-x-auto">
-						<table class="w-full text-start text-xs">
-							<thead>
-								<tr class="border-b border-white/10 text-white/40 text-[10px] font-bold">
-									<th class="pb-3 text-start">نوع</th>
-									<th class="pb-3 text-start">عنوان / آیدی</th>
-									<th class="pb-3 text-start">شناسه مالك</th>
-									<th class="pb-3 text-end">موجودی اعتبار (اعتبار باقی‌مانده)</th>
-								</tr>
-							</thead>
-							<tbody>
-								<For
-									each={subscriptions()}
-									fallback={
-										<tr>
-											<td colSpan={4} class="py-6 text-center text-white/40 font-bold">
-												هیچ اشتراک فعالی یافت نشد.
-											</td>
-										</tr>
-									}
-								>
-									{(sub) => (
-										<tr class="border-b border-white/5 hover:bg-white/5 transition-all">
-											<td class="py-3 text-start">
-												<span class="px-2 py-0.5 rounded bg-[#3390ec]/10 text-[#3390ec] text-[9px] font-bold">
-													{sub.type === 'channel' ? 'کانال' : 'گروه'}
-												</span>
-											</td>
-											<td class="py-3 text-start font-bold text-white">
-												{sub.title}{' '}
-												<span class="text-white/40 text-[10px] font-mono block">
-													@{sub.username || sub.telegram_id}
-												</span>
-											</td>
-											<td class="py-3 text-start font-mono text-white/70">
-												{sub.owner_username ? `@${sub.owner_username}` : sub.owner_id}
-											</td>
-											<td class="py-3 text-end font-mono font-bold text-emerald-400">
-												{sub.credit_balance?.toLocaleString() || 0} سکه اعتبار
-											</td>
-										</tr>
-									)}
-								</For>
-							</tbody>
-						</table>
-					</div>
-				</div>
-
-				{/* Transactions History */}
-				<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-6 space-y-4">
-					<h3 class="text-xs font-black uppercase text-white tracking-wider">
-						تاریخچه آخرین تراکنش‌های پرداختی
-					</h3>
-					<div class="overflow-x-auto">
-						<table class="w-full text-start text-xs">
-							<thead>
-								<tr class="border-b border-white/10 text-white/40 text-[10px] font-bold">
-									<th class="pb-3 text-start">وضعیت</th>
-									<th class="pb-3 text-start">مبلغ</th>
-									<th class="pb-3 text-start">شناسه کاربر</th>
-									<th class="pb-3 text-start">نوع سفارش</th>
-									<th class="pb-3 text-end">تاریخ تراکنش</th>
-								</tr>
-							</thead>
-							<tbody>
-								<For
-									each={orders()}
-									fallback={
-										<tr>
-											<td colSpan={5} class="py-6 text-center text-white/40 font-bold">
-												هیچ تراکنشی ثبت نشده است.
-											</td>
-										</tr>
-									}
-								>
+				<div class="overflow-x-auto">
+					<table class="w-full text-left text-xs">
+						<thead>
+							<tr class="border-b border-white/10 text-white/40">
+								<th class="pb-3 font-medium">Order ID</th>
+								<th class="pb-3 font-medium">User</th>
+								<th class="pb-3 font-medium">Payload / Item</th>
+								<th class="pb-3 font-medium">Amount</th>
+								<th class="pb-3 font-medium">Status</th>
+								<th class="pb-3 font-medium text-right">Date</th>
+							</tr>
+						</thead>
+						<tbody class="divide-y divide-white/5">
+							<Show
+								when={!ordersQuery.isLoading && orders().length > 0}
+								fallback={
+									<tr>
+										<td colspan="6" class="py-8 text-center text-white/40">
+											{ordersQuery.isLoading ? 'Loading orders...' : 'No orders found'}
+										</td>
+									</tr>
+								}
+							>
+								<For each={orders()}>
 									{(order) => (
-										<tr class="border-b border-white/5 hover:bg-white/5 transition-all">
-											<td class="py-3 text-start">
+										<tr class="hover:bg-white/[0.02] transition">
+											<td class="py-3 font-mono text-white/70">{order.id.slice(0, 8)}...</td>
+											<td class="py-3">
+												<div class="font-mono text-white">{order.user_id}</div>
+												<Show when={order.username}>
+													<div class="text-[11px] text-white/40">@{order.username}</div>
+												</Show>
+											</td>
+											<td class="py-3 text-white/80 font-mono text-[11px]">{order.payload || 'Stars Purchase'}</td>
+											<td class="py-3 font-mono font-bold text-amber-400 flex items-center gap-1">
+												<span>⭐</span>
+												<span>{(order.amount ?? order.amount_stars ?? 0).toLocaleString()}</span>
+											</td>
+											<td class="py-3">
 												<span
-													class={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
+													class={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
 														order.status === 'paid'
 															? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-															: 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+															: order.status === 'pending'
+															? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+															: 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
 													}`}
 												>
-													{order.status === 'paid' ? 'موفق' : order.status}
+													{order.status}
 												</span>
 											</td>
-											<td class="py-3 text-start font-mono font-bold text-amber-400">
-												{order.amount_stars} ⭐️
-											</td>
-											<td class="py-3 text-start font-mono text-white/80">{order.user_id}</td>
-											<td class="py-3 text-start text-white/70 font-medium">
-												{order.item_type || 'خرید داخل برنامه'}
-											</td>
-											<td class="py-3 text-end font-mono text-white/40 text-[10px]">
-												{order.created_at
-													? new Date(order.created_at).toLocaleDateString('fa-IR')
-													: '---'}
+											<td class="py-3 text-white/50 text-right">
+												{new Date(order.created_at).toLocaleString()}
 											</td>
 										</tr>
 									)}
 								</For>
-							</tbody>
-						</table>
-					</div>
+							</Show>
+						</tbody>
+					</table>
 				</div>
-			</Show>
+
+				{/* Pagination */}
+				<div class="flex items-center justify-between pt-4 border-t border-white/10 text-xs">
+					<button
+						onClick={() => setPage((p) => Math.max(0, p - 1))}
+						disabled={page() === 0}
+						class="px-3 py-1.5 rounded-xl border border-white/10 text-white/70 hover:bg-white/5 disabled:opacity-40"
+					>
+						Previous
+					</button>
+					<span class="text-white/50">Page {page() + 1}</span>
+					<button
+						onClick={() => setPage((p) => p + 1)}
+						disabled={orders().length < pageSize}
+						class="px-3 py-1.5 rounded-xl border border-white/10 text-white/70 hover:bg-white/5 disabled:opacity-40"
+					>
+						Next
+					</button>
+				</div>
+			</div>
 		</div>
 	);
 };

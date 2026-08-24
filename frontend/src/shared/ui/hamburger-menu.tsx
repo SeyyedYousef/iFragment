@@ -72,6 +72,12 @@ export const HamburgerMenu: Component<HamburgerMenuProps> = (props) => {
 			path: `/group/${props.groupId}/dynamic-bio`,
 		},
 		{
+			id: 'members',
+			icon: 'group',
+			label: t('groupDashboard.menuMembers' as any) || 'اعضا و اخطارها',
+			path: `/group/${props.groupId}/members`,
+		},
+		{
 			id: 'analytics',
 			icon: 'analytics',
 			label: t('groupDashboard.menuAnalytics'),

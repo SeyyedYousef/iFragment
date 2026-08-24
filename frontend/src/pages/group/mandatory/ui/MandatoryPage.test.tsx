@@ -36,8 +36,8 @@ describe('MandatoryPage', () => {
 		expect(await screen.findByText('mandatorySettings.title')).toBeInTheDocument();
 	});
 
-	it('renders subtitle', async () => {
+	it('renders subtitle/description', async () => {
 		render(() => <MandatoryPage />);
-		expect(await screen.findByText('mandatorySettings.subtitle')).toBeInTheDocument();
+		expect(await screen.findByText('mandatorySettings.description')).toBeInTheDocument();
 	});
 });

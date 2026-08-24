@@ -23,6 +23,9 @@ type Config struct {
 	ClanHandler         *handler.ClanHandler
 	WebhookHandler      *handler.WebhookHandler
 	OwnerHandler        *handler.OwnerHandler
+	NumbersHandler      *handler.NumbersHandler
+	GiftsHandler        *handler.GiftsHandler
+	ProjectHandler      *handler.ProjectHandler
 }
 
 // RegisterAPIRoutes mounts API v1 sub-routes onto the router
@@ -37,6 +40,7 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 		r.Post("/webhook/telegram/{botID}", cfg.WebhookHandler.HandleTelegramWebhook)
 		r.Post("/webhook/tonapi", cfg.WebhookHandler.HandleTonAPIWebhook)
 		r.With(middleware.ValidateTelegramInitData(cfg.DB, cfg.Cache)).Post("/auth/token", cfg.AuthHandler.IssueToken)
+		r.Post("/auth/refresh", cfg.AuthHandler.RefreshToken)
 
 		r.Route("/usernames", func(r chi.Router) {
 			r.Get("/check", cfg.UsernameHandler.CheckAvailability)
@@ -44,15 +48,50 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 			r.With(middleware.OptionalAuthMiddleware).Get("/quick/stream", cfg.UsernameHandler.StreamQuickAnalysis)
 			r.Get("/rates", cfg.UsernameHandler.GetRates)
 			r.Get("/similar", cfg.UsernameHandler.GetSimilar)
+			r.Get("/calibration", cfg.UsernameHandler.GetAVMCalibration)
 			r.With(middleware.AuthMiddleware).Get("/valuate", cfg.UsernameHandler.Valuate)
 			r.Post("/share", cfg.UsernameHandler.Share)
 			r.With(middleware.AuthMiddleware).Post("/send-to-chat", cfg.UsernameHandler.SendToChat)
 
 			r.With(middleware.AuthMiddleware).Get("/valuation-access", cfg.UsernameHandler.ValuationAccess)
+			r.With(middleware.AuthMiddleware).Get("/valuation-order-status", cfg.UsernameHandler.ValuationOrderStatus)
 			r.With(middleware.AuthMiddleware).Post("/valuation-pay-airdrop", cfg.UsernameHandler.ValuationPayAirdrop)
 			r.With(middleware.AuthMiddleware).Post("/valuation-pay-stars", cfg.UsernameHandler.ValuationPayStars)
 			r.With(middleware.AuthMiddleware).Post("/valuation-verify-free", cfg.UsernameHandler.ValuationVerifyFree)
+			r.With(middleware.AuthMiddleware).Post("/valuation-monitor", cfg.UsernameHandler.ValuationMonitor)
 		})
+
+		r.Route("/orders", func(r chi.Router) {
+			r.Use(middleware.OptionalAuthMiddleware)
+			r.Get("/{id}/status", cfg.UsernameHandler.GetOrderStatus)
+			r.Get("/by-payload/{payload}/status", cfg.UsernameHandler.GetOrderStatusByPayload)
+		})
+
+		r.Route("/numbers", func(r chi.Router) {
+			r.Get("/intel", cfg.NumbersHandler.GetIntel)
+			r.Get("/gate", cfg.NumbersHandler.GetCuriosityGate)
+			r.Get("/mask", cfg.NumbersHandler.SearchMask)
+			r.With(middleware.OptionalAuthMiddleware).Get("/valuate", cfg.NumbersHandler.Valuate)
+			r.With(middleware.AuthMiddleware).Post("/unlock-coins", cfg.NumbersHandler.UnlockWithCoins)
+			r.With(middleware.AuthMiddleware).Post("/unlock-credit", cfg.NumbersHandler.UnlockWithCredit)
+			r.With(middleware.AuthMiddleware).Post("/watchlist", cfg.NumbersHandler.ToggleWatchlist)
+			r.With(middleware.AuthMiddleware).Get("/watchlist", cfg.NumbersHandler.GetWatchlist)
+		})
+
+		if cfg.GiftsHandler != nil {
+			r.Route("/gifts", func(r chi.Router) {
+				r.Get("/intel", cfg.GiftsHandler.GetIntel)
+				r.Get("/gate", cfg.GiftsHandler.GetCuriosityGate)
+				r.Get("/upgrade-advice", cfg.GiftsHandler.GetUpgradeAdvice)
+				r.Get("/portfolio", cfg.GiftsHandler.ScanPortfolio)
+				r.Post("/crafting-ev", cfg.GiftsHandler.CalculateCraftingEV)
+				r.With(middleware.OptionalAuthMiddleware).Get("/valuate", cfg.GiftsHandler.Valuate)
+				r.With(middleware.AuthMiddleware).Post("/unlock-coins", cfg.GiftsHandler.UnlockWithCoins)
+				r.With(middleware.AuthMiddleware).Post("/unlock-credit", cfg.GiftsHandler.UnlockWithCredit)
+				r.With(middleware.AuthMiddleware).Post("/watchlist", cfg.GiftsHandler.ToggleWatchlist)
+				r.With(middleware.AuthMiddleware).Get("/watchlist", cfg.GiftsHandler.GetWatchlist)
+			})
+		}
 
 		r.Route("/collection", func(r chi.Router) {
 			r.Get("/stats", cfg.CollectionHandler.GetStats)
@@ -75,6 +114,11 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 			r.Delete("/{groupID}", cfg.BotMgmtHandler.DeleteGroup)
 			r.Get("/{groupID}/settings", cfg.BotMgmtHandler.GetSettings)
 			r.Put("/{groupID}/settings", cfg.BotMgmtHandler.UpdateSettings)
+			r.Get("/{groupID}/telegram-info", cfg.BotMgmtHandler.GetGroupTelegramInfo)
+			r.Get("/{groupID}/members/warnings", cfg.BotMgmtHandler.ListGroupWarnings)
+			r.Post("/{groupID}/members/warnings/{targetUserID}/reset", cfg.BotMgmtHandler.ResetGroupWarnings)
+			r.Post("/{groupID}/members/restrict", cfg.BotMgmtHandler.RestrictMemberManual)
+			r.Post("/{groupID}/members/unban", cfg.BotMgmtHandler.UnbanMember)
 			r.Get("/{groupID}/analytics", cfg.BotMgmtHandler.GetAnalytics)
 			r.Get("/{groupID}/audit", cfg.BotMgmtHandler.GetAuditLogs)
 		})
@@ -92,6 +136,7 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 			r.Get("/{channelID}/telegram-info", cfg.ChannelHandler.GetTelegramInfo)
 			r.Get("/{channelID}/audit", cfg.ChannelHandler.GetAuditLogs)
 			r.Get("/{channelID}/analytics", cfg.ChannelHandler.GetAnalytics)
+			r.Get("/{channelID}/health", cfg.ChannelHandler.GetChannelHealth)
 			r.Post("/{channelID}/posts", cfg.ChannelHandler.CreatePost)
 			r.Post("/{channelID}/simulate", cfg.ChannelHandler.SimulateAI)
 			r.Post("/{channelID}/verify", cfg.ChannelHandler.VerifyChannel)
@@ -107,6 +152,7 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 			r.Post("/{channelID}/forwarding/rules", cfg.ChannelHandler.CreateForwardingRule)
 			r.Put("/{channelID}/forwarding/rules/{ruleID}", cfg.ChannelHandler.UpdateForwardingRule)
 			r.Delete("/{channelID}/forwarding/rules/{ruleID}", cfg.ChannelHandler.DeleteForwardingRule)
+			r.Post("/{channelID}/webhooks/ping", cfg.ChannelHandler.PingWebhook)
 
 			r.Post("/{channelID}/admins/sync", cfg.ChannelHandler.SyncAdmins)
 			r.Get("/{channelID}/admins", cfg.ChannelHandler.GetAdmins)
@@ -118,6 +164,21 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 
 			r.Get("/{channelID}/buttons", cfg.ChannelHandler.GetButtons)
 			r.Post("/{channelID}/buttons", cfg.ChannelHandler.SaveButtons)
+			r.Put("/{channelID}/inline-buttons", cfg.ChannelHandler.SaveInlineButtonsAtomic)
+		})
+
+		r.Route("/projects", func(r chi.Router) {
+			r.Use(middleware.AuthMiddleware)
+
+			if cfg.ProjectHandler != nil {
+				r.Get("/", cfg.ProjectHandler.ListProjects)
+				r.Post("/", cfg.ProjectHandler.CreateProject)
+				r.Get("/{projectID}", cfg.ProjectHandler.GetProject)
+				r.Put("/{projectID}", cfg.ProjectHandler.UpdateProject)
+				r.Post("/{projectID}/toggle", cfg.ProjectHandler.ToggleProject)
+				r.Post("/{projectID}/renew", cfg.ProjectHandler.RenewProject)
+				r.Delete("/{projectID}", cfg.ProjectHandler.DeleteProject)
+			}
 		})
 
 		r.Route("/subscription", func(r chi.Router) {
@@ -149,11 +210,17 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 				r.Get("/referral", cfg.ProfileHandler.GetReferralData)
 				r.Post("/referral", cfg.ProfileHandler.SetReferrerCode)
 				r.Post("/tap", cfg.ProfileHandler.AddTaps)
+				r.Get("/wallet-expiry", cfg.ProfileHandler.GetWalletExpirySummary)
+				r.Get("/ledger", cfg.ProfileHandler.GetLedger)
+				r.Get("/assets", cfg.ProfileHandler.GetMyAssets)
+				r.Get("/sessions", cfg.AuthHandler.GetSessions)
+				r.Post("/sessions/revoke-all", cfg.AuthHandler.RevokeAllSessions)
 
 				r.Get("/cosmetics", cfg.ProfileHandler.GetCosmetics)
 				r.Post("/cosmetics/purchase", cfg.ProfileHandler.PurchaseCosmetic)
 				r.Post("/cosmetics/equip", cfg.ProfileHandler.EquipCosmetic)
 				r.Post("/emoji-status", cfg.ProfileHandler.SetEmojiStatus)
+				r.Post("/emoji-status/claim-reward", cfg.ProfileHandler.ClaimEmojiStatusReward)
 				r.Post("/premium/checkout", cfg.ProfileHandler.CreatePremiumCheckout)
 
 				r.Get("/daily", cfg.GamificationHandler.GetDailyStatus)
@@ -194,57 +261,93 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 			r.Get("/transactions", cfg.ProfileHandler.GetFRGTransactions)
 		})
 
+		// Public Ads Tracking
+		r.Post("/ads/{id}/impression", cfg.OwnerHandler.TrackAdImpression)
+		r.Post("/ads/{id}/click", cfg.OwnerHandler.TrackAdClick)
+
 		// Owner Panel Routes
 		r.Route("/owner", func(r chi.Router) {
-				r.Post("/auth/totp", cfg.OwnerHandler.Login)
+			r.Post("/auth/login", cfg.OwnerHandler.Login)
+			r.Post("/auth/totp", cfg.OwnerHandler.Login)
+			r.Post("/auth/totp/verify", cfg.OwnerHandler.VerifyTOTP)
 
-				r.Group(func(r chi.Router) {
-					r.Use(middleware.AuthMiddleware)
-					r.Use(middleware.ValidateOwnerAdmin)
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.AuthMiddleware)
+				r.Use(middleware.ValidateOwnerAdmin)
 
-					r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/dashboard/stats", cfg.OwnerHandler.GetStats)
+				// TOTP Management
+				r.Post("/auth/totp/setup", cfg.OwnerHandler.SetupTOTP)
+				r.Post("/auth/totp/verify-setup", cfg.OwnerHandler.VerifyTOTPSetup)
+				r.Post("/auth/totp/disable", cfg.OwnerHandler.DisableTOTP)
 
-					r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/settings", cfg.OwnerHandler.GetSettings)
-					r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Put("/settings", cfg.OwnerHandler.UpdateSettings)
+				// Dashboard & Settings
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/dashboard/stats", cfg.OwnerHandler.GetDashboardStats)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/settings", cfg.OwnerHandler.GetSettings)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Put("/settings", cfg.OwnerHandler.UpdateSettings)
 
-					r.With(middleware.RequirePermission(middleware.PermSearchUsers)).Get("/users/search", cfg.OwnerHandler.SearchUsers)
-					r.With(middleware.RequirePermission(middleware.PermImpersonate)).Post("/users/impersonate", cfg.OwnerHandler.Impersonate)
-					r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/ban", cfg.OwnerHandler.BanUser)
-					r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/unban", cfg.OwnerHandler.UnbanUser)
-					r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/flag", cfg.OwnerHandler.FlagUser)
-					r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/adjust-frg", cfg.OwnerHandler.AdjustAirdropCoins)
-					r.With(middleware.RequirePermission(middleware.PermAuditView)).Get("/audit-logs", cfg.OwnerHandler.GetAuditLogs)
+				// Users
+				r.With(middleware.RequirePermission(middleware.PermSearchUsers)).Get("/users/search", cfg.OwnerHandler.SearchUsers)
+				r.With(middleware.RequirePermission(middleware.PermImpersonate)).Post("/users/impersonate", cfg.OwnerHandler.Impersonate)
+				r.With(middleware.RequirePermission(middleware.PermImpersonate)).Post("/users/impersonate/end", cfg.OwnerHandler.EndImpersonation)
+				r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/ban", cfg.OwnerHandler.BanUser)
+				r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/unban", cfg.OwnerHandler.UnbanUser)
+				r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/flag", cfg.OwnerHandler.FlagUser)
+				r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/adjust-balance", cfg.OwnerHandler.AdjustBalance)
+				r.With(middleware.RequirePermission(middleware.PermBanUser)).Post("/users/adjust-frg", cfg.OwnerHandler.AdjustBalance)
+				r.With(middleware.RequirePermission(middleware.PermAuditView)).Get("/audit-logs", cfg.OwnerHandler.GetAuditLogs)
 
-					r.With(middleware.RequirePermission(middleware.PermPromoManage)).Post("/promos", cfg.OwnerHandler.CreatePromo)
-					r.With(middleware.RequirePermission(middleware.PermPromoManage)).Delete("/promos", cfg.OwnerHandler.DeletePromo)
-					r.With(middleware.RequirePermission(middleware.PermPromoView)).Get("/promos", cfg.OwnerHandler.ListPromos)
+				// Promos
+				r.With(middleware.RequirePermission(middleware.PermPromoManage)).Post("/promos", cfg.OwnerHandler.CreatePromo)
+				r.With(middleware.RequirePermission(middleware.PermPromoManage)).Delete("/promos/{code}", cfg.OwnerHandler.DeletePromo)
+				r.With(middleware.RequirePermission(middleware.PermPromoView)).Get("/promos", cfg.OwnerHandler.ListPromos)
 
-					r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Post("/broadcasts", cfg.OwnerHandler.CreateBroadcast)
-					r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/broadcasts", cfg.OwnerHandler.ListBroadcasts)
+				// Broadcasts
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Post("/broadcasts", cfg.OwnerHandler.CreateBroadcast)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/broadcasts", cfg.OwnerHandler.ListBroadcasts)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/broadcasts/audience-count", cfg.OwnerHandler.GetAudienceCount)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Post("/broadcasts/{id}/pause", cfg.OwnerHandler.PauseBroadcast)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Post("/broadcasts/{id}/resume", cfg.OwnerHandler.ResumeBroadcast)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Post("/broadcasts/{id}/cancel", cfg.OwnerHandler.CancelBroadcast)
 
-					r.With(middleware.RequirePermission(middleware.PermQuestManage)).Get("/quests", cfg.OwnerHandler.ListQuests)
-					r.With(middleware.RequirePermission(middleware.PermQuestManage)).Post("/quests", cfg.OwnerHandler.CreateQuest)
-					r.With(middleware.RequirePermission(middleware.PermQuestManage)).Put("/quests", cfg.OwnerHandler.UpdateQuest)
-					r.With(middleware.RequirePermission(middleware.PermQuestManage)).Delete("/quests", cfg.OwnerHandler.DeleteQuest)
+				// Quests
+				r.With(middleware.RequirePermission(middleware.PermQuestManage)).Get("/quests", cfg.OwnerHandler.ListQuests)
+				r.With(middleware.RequirePermission(middleware.PermQuestManage)).Post("/quests", cfg.OwnerHandler.CreateQuest)
+				r.With(middleware.RequirePermission(middleware.PermQuestManage)).Put("/quests/{key}", cfg.OwnerHandler.UpdateQuest)
+				r.With(middleware.RequirePermission(middleware.PermQuestManage)).Delete("/quests/{key}", cfg.OwnerHandler.DeleteQuest)
 
-					r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/combos", cfg.OwnerHandler.AdminListCombos)
-					r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Post("/combos", cfg.OwnerHandler.AdminCreateCombo)
+				// Daily Combos
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/combos", cfg.OwnerHandler.ListCombos)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Post("/combos", cfg.OwnerHandler.UpsertCombo)
 
-					r.With(middleware.RequirePermission(middleware.PermUserbotManage)).Get("/userbots", cfg.OwnerHandler.ListUserbots)
-					r.With(middleware.RequirePermission(middleware.PermUserbotManage)).Delete("/userbots/{id}", cfg.OwnerHandler.DeleteUserbot)
-					r.With(middleware.RequirePermission(middleware.PermUserbotManage)).Post("/userbot/send-code", cfg.OwnerHandler.UserbotSendCode)
-					r.With(middleware.RequirePermission(middleware.PermUserbotManage)).Post("/userbot/verify-code", cfg.OwnerHandler.UserbotVerifyCode)
+				// Ads Management & Media Pipeline
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Post("/ads/upload", cfg.OwnerHandler.UploadAdImage)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/ads", cfg.OwnerHandler.ListAdCampaigns)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Post("/ads", cfg.OwnerHandler.CreateAdCampaign)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Put("/ads/{id}", cfg.OwnerHandler.UpdateAdCampaign)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Delete("/ads/{id}", cfg.OwnerHandler.DeleteAdCampaign)
 
-					r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/finance/orders", cfg.OwnerHandler.GetFinanceOrders)
-					r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/finance/subscriptions", cfg.OwnerHandler.GetPremiumEntities)
+				// Userbots
+				r.With(middleware.RequirePermission(middleware.PermUserbotManage)).Get("/userbots", cfg.OwnerHandler.ListUserbots)
+				r.With(middleware.RequirePermission(middleware.PermUserbotManage)).Delete("/userbots/{id}", cfg.OwnerHandler.DeleteUserbot)
+				r.With(middleware.RequirePermission(middleware.PermUserbotManage)).Post("/userbot/send-code", cfg.OwnerHandler.UserbotSendCode)
+				r.With(middleware.RequirePermission(middleware.PermUserbotManage)).Post("/userbot/verify-code", cfg.OwnerHandler.UserbotVerifyCode)
 
-					r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/health/errors", cfg.OwnerHandler.GetSystemErrors)
-					r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/health/metrics", cfg.OwnerHandler.GetSystemHealthMetrics)
+				// Finance
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/finance/summary", cfg.OwnerHandler.GetFinanceSummary)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/finance/orders", cfg.OwnerHandler.GetOrdersList)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/finance/subscriptions", cfg.OwnerHandler.GetPremiumEntities)
 
-					r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/entities/channels", cfg.OwnerHandler.GetAllChannels)
-					r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/entities/groups", cfg.OwnerHandler.GetAllGroups)
-					r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Post("/entities/add-credit", cfg.OwnerHandler.AddEntityCredit)
-				})
+				// Health
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/health/errors", cfg.OwnerHandler.GetSystemErrors)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/health/metrics", cfg.OwnerHandler.GetHealth)
+
+				// Entities
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/entities/channels", cfg.OwnerHandler.GetAllChannels)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Get("/entities/groups", cfg.OwnerHandler.GetAllGroups)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Post("/entities/extend-subscription", cfg.OwnerHandler.ExtendEntitySubscription)
+				r.With(middleware.RequirePermission(middleware.PermViewDashboard)).Post("/entities/grant-coins", cfg.OwnerHandler.GrantEntityCoins)
 			})
 		})
+	})
 }
+

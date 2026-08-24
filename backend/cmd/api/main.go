@@ -32,6 +32,8 @@ import (
 	"ifragment-backend/internal/service/broadcaster"
 	"ifragment-backend/internal/service/channelmgmt"
 	"ifragment-backend/internal/service/cryptoprice"
+	"ifragment-backend/internal/service/gifts"
+	"ifragment-backend/internal/service/numbers"
 	"ifragment-backend/internal/service/payment"
 	"ifragment-backend/internal/service/username"
 	"ifragment-backend/internal/service/username/avm"
@@ -342,6 +344,9 @@ func main() {
 	}
 
 	channelHandler := handler.NewChannelHandler(channelService)
+	projectService := channelmgmt.NewProjectService(channelRepo, botRepo, auditRepo)
+	go projectService.StartProjectExpirationWorker(ctx)
+	projectHandler := handler.NewProjectHandler(projectService)
 
 	avmService := avm.NewValuationService(db, cache, tonClient)
 
@@ -377,11 +382,14 @@ func main() {
 	collectionRepo := repository.NewCollectionRepo(db)
 	collectionHandler := handler.NewCollectionHandler(collectionRepo)
 
-	authHandler := handler.NewAuthHandler(db, profileService)
+	authHandler := handler.NewAuthHandler(db, cache, profileService)
 
 	// Initialize Owner components
 	middleware.InitAuthMiddleware(ownerRepo)
 	ownerService := service.NewOwnerService(ownerRepo, cache, settingsRepo, userbotManager)
+	if ownerService.GetBroadcastWorker() != nil {
+		go ownerService.GetBroadcastWorker().Start(ctx)
+	}
 	ownerHandler := handler.NewOwnerHandler(ownerService)
 
 	// Base health check for external ping services (e.g. cron-job.org, Render, K8s)
@@ -395,8 +403,15 @@ func main() {
 	r.Get("/healthz", healthOK)
 	r.Get("/ping", healthOK)
 
-	// Static files serving (e.g., generated username card images for stories)
+	// Static files serving (e.g., generated username card images for stories and ads uploads)
+	_ = os.MkdirAll("./static", 0755)
+	_ = os.MkdirAll("./uploads/ads", 0755)
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
+	r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		http.FileServer(http.Dir("./uploads")).ServeHTTP(w, r)
+	})))
+
 
 	// Public Health check routes
 	r.Get("/api/v1/health", func(w http.ResponseWriter, r *http.Request) {
@@ -449,6 +464,14 @@ func main() {
 		w.Write([]byte(`{"status": "healthy", "telegram_api": "reachable"}`))
 	})
 
+	// Initialize Numbers Vertical (Vertical 2)
+	numbersService := numbers.NewNumbersService(db, cache, cryptoPriceService)
+	numbersHandler := handler.NewNumbersHandler(numbersService)
+
+	// Initialize Gifts Vertical (Vertical 3 — Largest Vertical)
+	giftsService := gifts.NewGiftsService(db, cache, cryptoPriceService)
+	giftsHandler := handler.NewGiftsHandler(giftsService)
+
 	// Register API and Owner routes via modular router package
 	router.RegisterAPIRoutes(r, router.Config{
 		DB:                  db,
@@ -465,6 +488,9 @@ func main() {
 		ClanHandler:         clanHandler,
 		WebhookHandler:      webhookHandler,
 		OwnerHandler:        ownerHandler,
+		NumbersHandler:      numbersHandler,
+		GiftsHandler:        giftsHandler,
+		ProjectHandler:      projectHandler,
 	})
 
 	// Start server with graceful shutdown

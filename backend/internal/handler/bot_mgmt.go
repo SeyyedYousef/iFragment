@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/botmgmt"
@@ -581,4 +582,123 @@ func (h *BotMgmtHandler) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	RespondJSON(w, http.StatusOK, logs)
+}
+
+// ─── Group Security & Members Moderation ──────────────────
+
+func (h *BotMgmtHandler) GetGroupTelegramInfo(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+	groupID, err := uuid.Parse(chi.URLParam(r, "groupID"))
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid group ID", err)
+		return
+	}
+	info, err := h.svc.GetGroupTelegramInfo(r.Context(), groupID, userID)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to get telegram info", err)
+		return
+	}
+	RespondJSON(w, http.StatusOK, info)
+}
+
+func (h *BotMgmtHandler) ListGroupWarnings(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+	groupID, err := uuid.Parse(chi.URLParam(r, "groupID"))
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid group ID", err)
+		return
+	}
+	warnings, err := h.svc.ListGroupWarnings(r.Context(), groupID, userID)
+	if err != nil {
+		RespondError(w, r, http.StatusForbidden, "access denied", err)
+		return
+	}
+	RespondJSON(w, http.StatusOK, warnings)
+}
+
+func (h *BotMgmtHandler) ResetGroupWarnings(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+	groupID, err := uuid.Parse(chi.URLParam(r, "groupID"))
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid group ID", err)
+		return
+	}
+	targetUserID, err := strconv.ParseInt(chi.URLParam(r, "targetUserID"), 10, 64)
+	if err != nil || targetUserID == 0 {
+		RespondError(w, r, http.StatusBadRequest, "invalid target user ID", err)
+		return
+	}
+	if err := h.svc.ResetGroupWarnings(r.Context(), groupID, targetUserID, userID); err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to reset warnings", err)
+		return
+	}
+	RespondJSON(w, http.StatusOK, map[string]string{"status": "reset"})
+}
+
+type RestrictMemberRequest struct {
+	TargetUserID int64                    `json:"target_user_id"`
+	UntilDate    int64                    `json:"until_date"`
+	Permissions  telegram.ChatPermissions `json:"permissions"`
+}
+
+func (h *BotMgmtHandler) RestrictMemberManual(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+	groupID, err := uuid.Parse(chi.URLParam(r, "groupID"))
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid group ID", err)
+		return
+	}
+	var req RestrictMemberRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.TargetUserID == 0 {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+	if err := h.svc.RestrictGroupMember(r.Context(), groupID, req.TargetUserID, userID, req.UntilDate, req.Permissions); err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to restrict member", err)
+		return
+	}
+	RespondJSON(w, http.StatusOK, map[string]string{"status": "restricted"})
+}
+
+type UnbanMemberRequest struct {
+	TargetUserID int64 `json:"target_user_id"`
+}
+
+func (h *BotMgmtHandler) UnbanMember(w http.ResponseWriter, r *http.Request) {
+	userID := h.getUserID(r)
+	if userID == 0 {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", nil)
+		return
+	}
+	groupID, err := uuid.Parse(chi.URLParam(r, "groupID"))
+	if err != nil {
+		RespondError(w, r, http.StatusBadRequest, "invalid group ID", err)
+		return
+	}
+	var req UnbanMemberRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.TargetUserID == 0 {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+	if err := h.svc.UnbanGroupMember(r.Context(), groupID, req.TargetUserID, userID); err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to unban member", err)
+		return
+	}
+	RespondJSON(w, http.StatusOK, map[string]string{"status": "unbanned"})
 }

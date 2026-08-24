@@ -12,3 +12,5 @@ export * from './hamburger-menu.js';
 export * from './section-header.js';
 export * from './settings-controls.js';
 export * from './toast.js';
+export * from './SparklineChart.js';
+export * from './SettingsGuard.js';

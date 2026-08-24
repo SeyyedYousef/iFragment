@@ -7,6 +7,15 @@ export const UserBoostsSchema = v.object({
 	tap_bot_level: v.pipe(v.number(), v.integer()),
 });
 
+export const ActiveSubscriptionSummarySchema = v.object({
+	type: v.string(),
+	isActive: v.boolean(),
+	autoRenew: v.boolean(),
+	expiresAt: v.optional(v.string()),
+	daysLeft: v.pipe(v.number(), v.integer()),
+	packageTitle: v.string(),
+});
+
 export const ProfileStatsSchema = v.object({
 	telegramId: v.optional(v.number()),
 	username: v.optional(v.string()),
@@ -19,9 +28,6 @@ export const ProfileStatsSchema = v.object({
 	currentStreak: v.pipe(v.number(), v.integer(), v.minValue(0)),
 	globalRank: v.pipe(v.number(), v.integer(), v.minValue(0)),
 	totalTaps: v.pipe(v.number(), v.integer(), v.minValue(0)),
-	totalFrgEarned: v.pipe(v.number(), v.minValue(0)),
-	totalFrgSpent: v.pipe(v.number(), v.minValue(0)),
-	frgBalance: v.pipe(v.number(), v.minValue(0)),
 	memberSince: v.string(),
 	level: v.pipe(v.number(), v.integer(), v.minValue(1)),
 	xp: v.pipe(v.number(), v.integer(), v.minValue(0)),
@@ -32,13 +38,16 @@ export const ProfileStatsSchema = v.object({
 	equippedBorder: v.string(),
 	equippedSkin: v.string(),
 	airdropCoins: v.optional(v.number()),
-	creditExpiresInDays: v.optional(v.number(), 15),
+	creditExpiresInDays: v.optional(v.number(), 30),
 	energy: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
 	energyUpdatedAt: v.optional(v.string()),
 	photoUrl: v.optional(v.string()),
 	dailyTappedCoins: v.optional(v.number()),
 	dailyTurboUsed: v.optional(v.number(), 0),
 	dailyFullEnergyUsed: v.optional(v.number(), 0),
+	valuationCredits: v.optional(v.number(), 0),
+	intelCredits: v.optional(v.number(), 0),
+	subscription: v.optional(ActiveSubscriptionSummarySchema),
 });
 
 export const AchievementSchema = v.object({
@@ -61,6 +70,8 @@ export const ReferralFriendSchema = v.object({
 	earned: v.pipe(v.number(), v.minValue(0)),
 	airdropCoins: v.optional(v.pipe(v.number(), v.minValue(0)), 0),
 	frensCount: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0)), 0),
+	isActive: v.optional(v.boolean()),
+	status: v.optional(v.string()),
 });
 
 export const ReferralInfoSchema = v.object({
@@ -72,7 +83,8 @@ export const ReferralInfoSchema = v.object({
 
 export const DailyStatusSchema = v.object({
 	streak: v.pipe(v.number(), v.integer(), v.minValue(0)),
-	frg_reward: v.pipe(v.number(), v.minValue(0)),
+	coins_reward: v.optional(v.number()),
+	frg_reward: v.optional(v.number()),
 	xp_reward: v.pipe(v.number(), v.minValue(0)),
 	claimed: v.boolean(),
 	can_claim: v.boolean(),
@@ -82,7 +94,8 @@ export const DailyStatusSchema = v.object({
 export const TaskStatusSchema = v.object({
 	key: v.string(),
 	title: v.string(),
-	reward_frg: v.pipe(v.number(), v.minValue(0)),
+	reward_coins: v.optional(v.number()),
+	reward_frg: v.optional(v.number()),
 	reward_xp: v.pipe(v.number(), v.minValue(0)),
 	completed: v.boolean(),
 	type: v.optional(v.string()),
@@ -107,7 +120,8 @@ export const BoostStatusSchema = v.object({
 	title: v.string(),
 	current_level: v.pipe(v.number(), v.integer(), v.minValue(0)),
 	next_level: v.pipe(v.number(), v.integer(), v.minValue(0)),
-	price_frg: v.pipe(v.number(), v.minValue(0)),
+	price_coins: v.optional(v.number()),
+	price_frg: v.optional(v.number()),
 	max_level: v.boolean(),
 });
 
@@ -124,6 +138,8 @@ export const LeaderboardMemberSchema = v.object({
 export const LeaderboardResponseSchema = v.object({
 	leaderboard: v.array(LeaderboardMemberSchema),
 	total_miners: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
+	user_rank: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
+	league: v.optional(v.string()),
 });
 
 export const AchievementDefSchema = v.object({
@@ -185,4 +201,87 @@ export const ProfileSettingsSchema = v.object({
 	soundEnabled: v.optional(v.boolean()),
 	autoPlayAnimations: v.optional(v.boolean()),
 	biometricEnabled: v.optional(v.boolean()),
+});
+
+// ─── Unified Ledger Schemas ───
+export const LedgerEventSchema = v.object({
+	id: v.string(),
+	userId: v.number(),
+	category: v.picklist(['coins', 'credits', 'stars', 'subscription']),
+	eventType: v.string(),
+	amount: v.number(),
+	balanceBefore: v.number(),
+	balanceAfter: v.number(),
+	title: v.string(),
+	referenceId: v.string(),
+	status: v.picklist(['completed', 'pending', 'failed']),
+	metadata: v.optional(v.record(v.string(), v.unknown())),
+	createdAt: v.string(),
+});
+
+export const LedgerResponseSchema = v.object({
+	events: v.array(LedgerEventSchema),
+	nextCursor: v.optional(v.string()),
+	hasMore: v.boolean(),
+	totalCount: v.number(),
+});
+
+// ─── My Assets Schemas ───
+export const MyReportsAssetSchema = v.object({
+	username: v.string(),
+	rarityScore: v.number(),
+	status: v.string(),
+	generatedAt: v.string(),
+	certificateUrl: v.string(),
+	notificationEnabled: v.boolean(),
+});
+
+export const MyConnectedPropertySchema = v.object({
+	id: v.string(),
+	type: v.picklist(['channel', 'group', 'bot']),
+	title: v.string(),
+	username: v.string(),
+	photoUrl: v.optional(v.string()),
+	memberCount: v.number(),
+	subscriptionStatus: v.string(),
+	paidUntil: v.optional(v.string()),
+	daysLeft: v.number(),
+	dashboardUrl: v.string(),
+});
+
+export const MyProjectAssetSchema = v.object({
+	id: v.string(),
+	name: v.string(),
+	status: v.string(),
+	sourceChatTitle: v.string(),
+	targetChatTitle: v.string(),
+	sourceChatUsername: v.string(),
+	targetChatUsername: v.string(),
+	starsExpiresAt: v.optional(v.string()),
+	daysLeft: v.number(),
+	subscriptionActive: v.boolean(),
+	pipelineEnabled: v.boolean(),
+	autoRenew: v.boolean(),
+});
+
+export const MyBoostersAssetSchema = v.object({
+	multitapLevel: v.number(),
+	energyLimitLevel: v.number(),
+	tapBotLevel: v.number(),
+	tapBotCapHours: v.number(),
+});
+
+export const MyAssetsResponseSchema = v.object({
+	reports: v.array(MyReportsAssetSchema),
+	properties: v.array(MyConnectedPropertySchema),
+	projects: v.array(MyProjectAssetSchema),
+	boosters: MyBoostersAssetSchema,
+	summaryText: v.string(),
+});
+
+export const EmojiRewardResponseSchema = v.object({
+	success: v.boolean(),
+	rewarded: v.boolean(),
+	amount: v.number(),
+	message: v.string(),
 });

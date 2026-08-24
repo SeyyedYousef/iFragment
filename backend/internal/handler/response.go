@@ -8,11 +8,17 @@ import (
 
 type errResp struct {
 	Error     string `json:"error"`
+	Code      string `json:"code,omitempty"`
 	RequestID string `json:"request_id,omitempty"`
 }
 
 // RespondError wraps errors securely. Internal errors are logged, publicMsg is sent to the client.
 func RespondError(w http.ResponseWriter, r *http.Request, code int, publicMsg string, internalErr error) {
+	RespondErrorCode(w, r, code, publicMsg, "", internalErr)
+}
+
+// RespondErrorCode wraps errors with a machine-readable error code.
+func RespondErrorCode(w http.ResponseWriter, r *http.Request, code int, publicMsg string, errCode string, internalErr error) {
 	reqID := r.Header.Get("X-Request-ID")
 
 	// Structured logging for the internal error
@@ -20,6 +26,7 @@ func RespondError(w http.ResponseWriter, r *http.Request, code int, publicMsg st
 		"request_id", reqID,
 		"path", r.URL.Path,
 		"code", code,
+		"err_code", errCode,
 		"err", internalErr,
 	)
 
@@ -27,6 +34,7 @@ func RespondError(w http.ResponseWriter, r *http.Request, code int, publicMsg st
 	w.WriteHeader(code)
 	json.NewEncoder(w).Encode(errResp{
 		Error:     publicMsg,
+		Code:      errCode,
 		RequestID: reqID,
 	})
 }
@@ -39,3 +47,4 @@ func RespondJSON(w http.ResponseWriter, status int, payload interface{}) {
 		slog.Error("failed to encode JSON response", "error", err)
 	}
 }
+

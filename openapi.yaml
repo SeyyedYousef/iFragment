@@ -17,7 +17,6 @@ tags:
   - name: Groups
   - name: Channels
   - name: Profile
-  - name: Marketplace
 paths:
   /health:
     get:
@@ -141,7 +140,40 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/SimilarUsername"
+  /usernames/calibration:
+    get:
+      tags: [Usernames]
+      summary: Get AVM v7.0 empirical calibration and backtest accuracy metrics
+      responses:
+        "200":
+          description: AVM Calibration Summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelCalibrationSummary"
+  /usernames/valuate:
+    get:
+      tags: [Usernames]
+      summary: Execute AVM v7.0 algorithmic valuation for a Telegram username
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UsernameQuery"
+      responses:
+        "200":
+          description: Algorithmic Valuation Result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValuationResultV7"
+        "400":
+          description: Invalid username format
+        "429":
+          description: Rate limit exceeded
+        "500":
+          description: Valuation pipeline failed
   /usernames/report/request:
+
     post:
       tags: [Premium Reports]
       summary: Create Telegram Stars invoice for a premium username report
@@ -323,14 +355,51 @@ paths:
       responses:
         "200":
           description: Referral data
-    post:
+  /profile/ledger:
+    get:
       tags: [Profile]
-      summary: Set referrer code
+      summary: Get unified financial ledger transactions
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [all, coins, credits, stars, subscription]
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Ledger response
+  /profile/assets:
+    get:
+      tags: [Profile]
+      summary: Get user assets (Reports, Properties, Projects, Boosters)
       security:
         - BearerAuth: []
       responses:
         "200":
-          description: Referrer applied
+          description: Assets response
+  /profile/emoji-status/claim-reward:
+    post:
+      tags: [Profile]
+      summary: Claim one-time verified reward for setting emoji status
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Claim result
   /marketplace/options:
     get:
       tags: [Marketplace]
@@ -870,3 +939,92 @@ components:
           type: string
         row:
           type: integer
+    ModelCalibrationSummary:
+      type: object
+      properties:
+        model_version:
+          type: string
+        sample_size:
+          type: integer
+        median_error_pct:
+          type: number
+        within_band_pct:
+          type: number
+        uncertainty_mult:
+          type: number
+        calibration_note:
+          type: string
+        evaluated_at:
+          type: string
+          format: date-time
+    RentYieldDto:
+      type: object
+      properties:
+        monthly_median_ton:
+          type: number
+        cap_months:
+          type: number
+        rent_floor_ton:
+          type: number
+        source:
+          type: string
+    HomoglyphTwinDto:
+      type: object
+      properties:
+        twin:
+          type: string
+        status:
+          type: string
+        price_ton:
+          type: number
+        risk_level:
+          type: string
+        similarity:
+          type: string
+    ValuationResultV7:
+      type: object
+      properties:
+        run_id:
+          type: integer
+        username:
+          type: string
+        model_version:
+          type: string
+        base_price_ton:
+          type: string
+        low_ton:
+          type: string
+        expected_ton:
+          type: string
+        high_ton:
+          type: string
+        low_usd:
+          type: string
+        expected_usd:
+          type: string
+        high_usd:
+          type: string
+        confidence_score:
+          type: integer
+        ton_usd_rate:
+          type: number
+        comparable_sales_count:
+          type: integer
+        homoglyph_twins:
+          type: array
+          items:
+            $ref: "#/components/schemas/HomoglyphTwinDto"
+        rent_yield:
+          $ref: "#/components/schemas/RentYieldDto"
+        band_method:
+          type: string
+        calibration_note:
+          type: string
+        data_freshness:
+          type: string
+          format: date-time
+        avm_version:
+          type: string
+        reasoning_log:
+          type: object
+

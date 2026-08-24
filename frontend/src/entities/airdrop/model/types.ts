@@ -12,6 +12,7 @@ export interface LeaderEntry {
 	league: string;
 	level: number;
 	clanName?: string;
+	userId?: number;
 }
 
 export interface Booster {
@@ -26,24 +27,51 @@ export interface Booster {
 	icon: string;
 }
 
+export interface WalletExpirySummary {
+	totalCoins: number;
+	earliestExpiringCoins: number;
+	earliestExpiresAt: string;
+	earliestDaysLeft: number;
+	expiringSoonAmount: number;
+	creditExpiresInDays: number;
+}
+
+export interface ReferralFriend {
+	telegramId: number;
+	username?: string;
+	firstName?: string;
+	joinedAt: string;
+	coinsEarned: number;
+	tier: number;
+	active: boolean;
+}
+
+export interface ReferralHubData {
+	referralCode: string;
+	totalInvited: number;
+	totalEarned: number;
+	tier1Earnings: number;
+	tier2Earnings: number;
+	valuationCredits: number;
+	friends: ReferralFriend[];
+}
+
 export const LEAGUES: League[] = [
-	{ name: 'Wood', icon: 'park', minScore: 0, color: '#8B6F47' },
-	{ name: 'Bronze', icon: 'looks_3', minScore: 5_000, color: '#cd7f32' },
-	{ name: 'Silver', icon: 'looks_two', minScore: 50_000, color: '#c0c0c0' },
-	{ name: 'Gold', icon: 'looks_one', minScore: 500_000, color: '#ffd700' },
-	{ name: 'Platinum', icon: 'workspace_premium', minScore: 2_000_000, color: '#e5e4e2' },
-	{ name: 'Diamond', icon: 'diamond', minScore: 10_000_000, color: '#3390ec' },
-	{ name: 'Master', icon: 'auto_awesome', minScore: 50_000_000, color: '#ff6b35' },
-	{ name: 'Grandmaster', icon: 'emoji_events', minScore: 100_000_000, color: '#ff1744' },
+	{ name: 'Bronze', icon: 'looks_3', minScore: 0, color: '#cd7f32' },
+	{ name: 'Silver', icon: 'looks_two', minScore: 5_000, color: '#c0c0c0' },
+	{ name: 'Gold', icon: 'looks_one', minScore: 25_000, color: '#ffd700' },
+	{ name: 'Platinum', icon: 'workspace_premium', minScore: 100_000, color: '#e5e4e2' },
+	{ name: 'Diamond', icon: 'diamond', minScore: 500_000, color: '#3390ec' },
+	{ name: 'Master', icon: 'auto_awesome', minScore: 2_000_000, color: '#ff6b35' },
+	{ name: 'Grandmaster', icon: 'emoji_events', minScore: 10_000_000, color: '#ff1744' },
 ];
 
 export const CLAN_LEAGUES: League[] = [
-	{ name: 'Wood', icon: 'park', minScore: 0, color: '#8B6F47' },
-	{ name: 'Bronze', icon: 'looks_3', minScore: 1_000_000, color: '#cd7f32' },
-	{ name: 'Silver', icon: 'looks_two', minScore: 10_000_000, color: '#c0c0c0' },
-	{ name: 'Gold', icon: 'looks_one', minScore: 50_000_000, color: '#ffd700' },
-	{ name: 'Platinum', icon: 'workspace_premium', minScore: 250_000_000, color: '#e5e4e2' },
-	{ name: 'Diamond', icon: 'diamond', minScore: 1_000_000_000, color: '#3390ec' },
-	{ name: 'Master', icon: 'auto_awesome', minScore: 5_000_000_000, color: '#ff6b35' },
-	{ name: 'Grandmaster', icon: 'emoji_events', minScore: 25_000_000_000, color: '#ff1744' },
+	{ name: 'Bronze', icon: 'looks_3', minScore: 0, color: '#cd7f32' },
+	{ name: 'Silver', icon: 'looks_two', minScore: 100_000, color: '#c0c0c0' },
+	{ name: 'Gold', icon: 'looks_one', minScore: 1_000_000, color: '#ffd700' },
+	{ name: 'Platinum', icon: 'workspace_premium', minScore: 10_000_000, color: '#e5e4e2' },
+	{ name: 'Diamond', icon: 'diamond', minScore: 50_000_000, color: '#3390ec' },
+	{ name: 'Master', icon: 'auto_awesome', minScore: 250_000_000, color: '#ff6b35' },
+	{ name: 'Grandmaster', icon: 'emoji_events', minScore: 1_000_000_000, color: '#ff1744' },
 ];

@@ -31,6 +31,18 @@ func NewPremiumGroupService(botRepo *repository.BotRepo, analyticsRepo *reposito
 	}
 }
 
+// IsPremiumGated checks dynamically whether a chat requires Telegram Premium via premium_gate_rules table or static fallback.
+func (s *PremiumGroupService) IsPremiumGated(ctx context.Context, chatID int64, chatTitle, chatUsername string) bool {
+	if s.botRepo != nil && s.botRepo.DB() != nil && s.botRepo.DB().Pool != nil && chatID != 0 {
+		var requirePremium bool
+		err := s.botRepo.DB().Pool.QueryRow(ctx, `SELECT require_premium FROM premium_gate_rules WHERE chat_id = $1`, chatID).Scan(&requirePremium)
+		if err == nil {
+			return requirePremium
+		}
+	}
+	return IsFragmentInvestorsGroup(chatTitle, chatUsername)
+}
+
 // IsFragmentInvestorsGroup checks if a given chat title or username corresponds to @FragmentInvestors.
 func IsFragmentInvestorsGroup(chatTitle, chatUsername string) bool {
 	cleanUsername := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(chatUsername), "@"))

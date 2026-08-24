@@ -639,17 +639,28 @@ func (r *SettingsRepo) GetSystemSettings(ctx context.Context) (*model.SystemSett
 		}
 	}
 
-	query := `SELECT value FROM system_settings WHERE key = 'global'`
+	query := `SELECT value, COALESCE(version, 1) FROM system_settings WHERE key = 'global'`
 	var b []byte
-	err := r.db.Pool.QueryRow(ctx, query).Scan(&b)
+	var version int
+	err := r.db.Pool.QueryRow(ctx, query).Scan(&b, &version)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			// Return defaults if not set
 			return &model.SystemSettings{
-				MaintenanceMode: false,
-				TapMultiplier:   1.0,
-				ReferralBonus:   1000,
-				DailyRewardBase: 500,
+				MaintenanceMode:      false,
+				TapMultiplier:        1.0,
+				ReferralBonus:        1000,
+				DailyRewardBase:      500,
+				FatigueThreshold1:    200,
+				FatigueThreshold2:    500,
+				FatigueThreshold3:    1000,
+				TapBotCapSeconds:     43200, // 12h
+				ReferralRevSharePct:  10.0,
+				CoinDecayPct:         0.5,
+				CoinExpiryDays:       90,
+				TurboDurationSeconds: 20,
+				InflationCap:         100000000.0,
+				Version:              1,
 			}, nil
 		}
 		return nil, err
@@ -659,28 +670,46 @@ func (r *SettingsRepo) GetSystemSettings(ctx context.Context) (*model.SystemSett
 	if err := json.Unmarshal(b, &s); err != nil {
 		return nil, err
 	}
+	s.Version = version
 
 	// Store in cache
 	if r.cache != nil && r.cache.Client != nil {
-		r.cache.Client.Set(ctx, cacheKey, string(b), 5*time.Minute)
+		data, _ := json.Marshal(s)
+		r.cache.Client.Set(ctx, cacheKey, string(data), 5*time.Minute)
 	}
 
 	return &s, nil
 }
 
 func (r *SettingsRepo) UpdateSystemSettings(ctx context.Context, settings *model.SystemSettings) error {
+	// Check existing version for optimistic locking
+	var currentVersion int
+	queryCheck := `SELECT COALESCE(version, 1) FROM system_settings WHERE key = 'global'`
+	err := r.db.Pool.QueryRow(ctx, queryCheck).Scan(&currentVersion)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+
+	if currentVersion > 0 && settings.Version > 0 && settings.Version != currentVersion {
+		return errors.New("OPTIMISTIC_LOCK_CONFLICT: settings have been modified by another administrator. Please refresh the page and apply your changes again.")
+	}
+
+	nextVersion := currentVersion + 1
+	settings.Version = nextVersion
+
 	b, err := json.Marshal(settings)
 	if err != nil {
 		return err
 	}
 	query := `
-		INSERT INTO system_settings (key, value)
-		VALUES ('global', $1)
-		ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP
+		INSERT INTO system_settings (key, value, version, updated_at)
+		VALUES ('global', $1, $2, CURRENT_TIMESTAMP)
+		ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, version = $2, updated_at = CURRENT_TIMESTAMP
 	`
-	_, err = r.db.Pool.Exec(ctx, query, b)
+	_, err = r.db.Pool.Exec(ctx, query, b, nextVersion)
 	if err == nil && r.cache != nil && r.cache.Client != nil {
 		r.cache.Client.Del(ctx, "system_settings:global")
 	}
 	return err
 }
+

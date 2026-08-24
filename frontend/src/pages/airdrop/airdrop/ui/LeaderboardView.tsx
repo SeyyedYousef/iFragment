@@ -13,8 +13,8 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 	const [activeSubTab, setActiveSubTab] = createSignal<'day' | 'week'>('day');
 
 	const leaderboardQuery = createQuery(() => ({
-		queryKey: ['leaderboard', activeSubTab()],
-		queryFn: () => fetchLeaderboard(activeSubTab()),
+		queryKey: ['leaderboard', activeSubTab(), currentLeague().name.toLowerCase()],
+		queryFn: () => fetchLeaderboard(activeSubTab(), currentLeague().name.toLowerCase()),
 		staleTime: 30_000,
 		refetchOnWindowFocus: false,
 	}));
@@ -39,9 +39,7 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 	const handleNextLeague = () => setSelectedLeagueIndex((prev) => Math.min(LEAGUES.length - 1, prev + 1));
 
 	const filteredMiners = () => {
-		const data = leaderboardQuery.data?.leaderboard || [];
-		const league = currentLeague().name;
-		return data.filter((e) => e.league === league);
+		return leaderboardQuery.data?.leaderboard || [];
 	};
 
 	const sortedGlobalClans = () => {

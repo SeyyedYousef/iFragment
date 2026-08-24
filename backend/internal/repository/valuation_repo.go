@@ -342,3 +342,60 @@ func (db *Database) GetActiveBid(ctx context.Context, username string) (*ActiveB
 	}
 	return &b, nil
 }
+
+// ModelCalibrationRecord stores the empirical backtest and accuracy evaluation snapshot.
+type ModelCalibrationRecord struct {
+	ID                 int64           `json:"id"`
+	ModelVersion       string          `json:"model_version"`
+	SampleSize         int             `json:"sample_size"`
+	MedianErrorPct     float64         `json:"median_error_pct"`
+	WithinBandPct      float64         `json:"within_band_pct"`
+	UncertaintyMult    float64         `json:"uncertainty_mult"`
+	SegmentBreakdown   json.RawMessage `json:"segment_breakdown,omitempty"`
+	LengthBreakdown    json.RawMessage `json:"length_breakdown,omitempty"`
+	BasisBreakdown     json.RawMessage `json:"basis_breakdown,omitempty"`
+	AIPresentBreakdown json.RawMessage `json:"ai_present_breakdown,omitempty"`
+	EvaluatedAt        time.Time       `json:"evaluated_at"`
+}
+
+// InsertModelCalibration persists an empirical calibration run record.
+func (db *Database) InsertModelCalibration(ctx context.Context, r ModelCalibrationRecord) (int64, error) {
+	query := `
+		INSERT INTO model_calibration (
+			model_version, sample_size, median_error_pct, within_band_pct, uncertainty_mult,
+			segment_breakdown, length_breakdown, basis_breakdown, ai_present_breakdown, evaluated_at
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+		RETURNING id`
+
+	var id int64
+	err := db.Pool.QueryRow(ctx, query,
+		r.ModelVersion, r.SampleSize, r.MedianErrorPct, r.WithinBandPct, r.UncertaintyMult,
+		r.SegmentBreakdown, r.LengthBreakdown, r.BasisBreakdown, r.AIPresentBreakdown, r.EvaluatedAt,
+	).Scan(&id)
+	return id, err
+}
+
+// GetLatestModelCalibration returns the most recent calibration run for a given model version.
+func (db *Database) GetLatestModelCalibration(ctx context.Context, modelVersion string) (*ModelCalibrationRecord, error) {
+	query := `
+		SELECT id, model_version, sample_size, median_error_pct, within_band_pct, uncertainty_mult,
+		       segment_breakdown, length_breakdown, basis_breakdown, ai_present_breakdown, evaluated_at
+		FROM model_calibration
+		WHERE model_version = $1
+		ORDER BY evaluated_at DESC
+		LIMIT 1`
+
+	var r ModelCalibrationRecord
+	err := db.Pool.QueryRow(ctx, query, modelVersion).Scan(
+		&r.ID, &r.ModelVersion, &r.SampleSize, &r.MedianErrorPct, &r.WithinBandPct, &r.UncertaintyMult,
+		&r.SegmentBreakdown, &r.LengthBreakdown, &r.BasisBreakdown, &r.AIPresentBreakdown, &r.EvaluatedAt,
+	)
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
+}
+

@@ -7,6 +7,7 @@ import { groupApi } from '@/entities/group/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
 import { SettingsSection } from '@/shared/ui/settings-controls.js';
+import { SettingsGuard } from '@/shared/ui/SettingsGuard.js';
 import { showToast } from '@/shared/ui/toast.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
@@ -22,26 +23,60 @@ export const QuietHoursPage: Component = () => {
 	const [isMenuOpen, setIsMenuOpen] = createSignal(false);
 	const [isSaving, setIsSaving] = createSignal(false);
 	const [isDirty, setIsDirty] = createSignal(false);
+	const [showUnsavedSheet, setShowUnsavedSheet] = createSignal(false);
 	const [settingsVersion, setSettingsVersion] = createSignal(1);
 	const [overlapWarning, setOverlapWarning] = createSignal('');
+	const [timezone, setTimezone] = createSignal('UTC');
+	const [currentTimeStr, setCurrentTimeStr] = createSignal('');
 
 	const [config, setConfig] = createStore<QuietHoursConfig>({ ...defaultConfig });
+	const [initialConfig, setInitialConfig] = createSignal<QuietHoursConfig>({ ...defaultConfig });
+
+	const updateClock = () => {
+		try {
+			const formatter = new Intl.DateTimeFormat('en-GB', {
+				timeZone: timezone() || 'UTC',
+				hour: '2-digit',
+				minute: '2-digit',
+				hour12: false,
+			});
+			setCurrentTimeStr(formatter.format(new Date()));
+		} catch {
+			const now = new Date();
+			setCurrentTimeStr(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`);
+		}
+	};
 
 	const [_, { refetch }] = createResource(() => params.id, async (groupId) => {
 		const data = await groupApi.getSettings(groupId);
 		setSettingsVersion(data.version);
+		const gen = (data.general || {}) as any;
+		if (gen.timezone) {
+			setTimezone(gen.timezone);
+		}
+		updateClock();
 		const qh = (data.quiet_hours || {}) as Partial<QuietHoursConfig>;
-		setConfig(reconcile({ ...defaultConfig, ...qh }));
+		const merged = { ...defaultConfig, ...qh };
+		setInitialConfig(merged);
+		setConfig(reconcile(merged));
 		setIsDirty(false);
 		return data;
 	});
 
+	const clockTimer = setInterval(updateClock, 10000);
+	onCleanup(() => clearInterval(clockTimer));
+
+	const handleBack = () => {
+		if (isDirty()) {
+			setShowUnsavedSheet(true);
+			return;
+		}
+		window.history.back();
+	};
+
 	onMount(() => {
 		backButton.show();
-		const off = backButton.onClick(() => {
-			haptic.impact('light');
-			window.history.back();
-		});
+		const off = backButton.onClick(handleBack);
 		onCleanup(() => off());
 	});
 
@@ -87,9 +122,9 @@ export const QuietHoursPage: Component = () => {
 
 	const isCurrentlyQuiet = () => {
 		if (config.emergencyLock) return true;
-		const now = new Date();
-		const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-		return config.periods.some((p) => isTimeInPeriod(currentTime, p.start, p.end));
+		const nowStr = currentTimeStr();
+		if (!nowStr) return false;
+		return config.periods.some((p) => isTimeInPeriod(nowStr, p.start, p.end));
 	};
 
 	const addPeriod = () => {
@@ -101,59 +136,62 @@ export const QuietHoursPage: Component = () => {
 	};
 
 	const removePeriod = (id: string) => {
-		haptic.impact('light');
-		const updated = config.periods.filter((p) => p.id !== id);
-		setConfig('periods', updated);
+		haptic.impact('medium');
+		const filtered = config.periods.filter((p) => p.id !== id);
+		setConfig('periods', filtered);
 		setIsDirty(true);
-		checkOverlaps(updated);
+		checkOverlaps(filtered);
 	};
 
-	const updatePeriod = (id: string, field: 'start' | 'end', value: string) => {
-		const updated = config.periods.map((p) => (p.id === id ? { ...p, [field]: value } : p));
+	const updatePeriod = (id: string, field: 'start' | 'end', val: string) => {
+		const updated = config.periods.map((p) => (p.id === id ? { ...p, [field]: val } : p));
 		setConfig('periods', updated);
 		setIsDirty(true);
 		checkOverlaps(updated);
 	};
 
 	const handleSave = async () => {
-		if (overlapWarning()) {
-			haptic.notify('error');
-			return;
-		}
-		if (!isDirty()) return;
-
-		haptic.notify('success');
+		if (!isDirty() || isSaving()) return;
 		setIsSaving(true);
 		try {
-			const result = await groupApi.updateSettings(params.id, 'quiet_hours', config as any, settingsVersion());
-			setSettingsVersion(result.version);
+			const res = await groupApi.updateSettings(params.id, 'quiet_hours', config as any, settingsVersion());
+			setSettingsVersion(res.version);
+			setInitialConfig({ ...config });
 			setIsDirty(false);
+			setShowUnsavedSheet(false);
+			haptic.notify('success');
 			showToast(t('common.settingsSaved'), 'success');
 			navigate(`/group/${params.id}`);
-			backButton.hide();
-		} catch (_e) {
-			showToast(t('common.errorUpdateFailed'), 'error');
+		} catch (_e: any) {
 			haptic.notify('error');
+			showToast(t('common.errorUpdateFailed'), 'error');
 		} finally {
 			setIsSaving(false);
 		}
 	};
 
+	const handleDiscard = () => {
+		setConfig(reconcile({ ...initialConfig() }));
+		setIsDirty(false);
+		setShowUnsavedSheet(false);
+		window.history.back();
+	};
+
 	return (
-		<div class="min-h-screen bg-[#030303] text-white pb-28 relative font-sans selection:bg-[#3390ec]/30" dir={isRtl() ? 'rtl' : 'ltr'}>
+		<div class="min-h-screen bg-[#030303] pb-28 relative overflow-x-hidden text-white font-sans selection:bg-[#3390ec]/30" dir={isRtl() ? 'rtl' : 'ltr'}>
 			
 			{/* Ambient Top Glow */}
 			<div class="absolute top-0 left-0 right-0 h-[350px] bg-gradient-to-b from-[#3390ec]/15 via-transparent to-transparent blur-[80px] pointer-events-none z-0" />
 
-			{/* ═══════ PREMIUM STICKY HEADER ═══════ */}
+			{/* ═══════ STICKY HEADER ═══════ */}
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm">
 				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
-						onClick={() => { haptic.impact('light'); window.history.back(); }}
-						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
+						onClick={() => { haptic.impact('light'); handleBack(); }}
+						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm"
 						aria-label={t('common.back')}
 					>
-						<span class="material-symbols-outlined text-[22px] rtl:-scale-x-100">arrow_back</span>
+						<span class="material-symbols-outlined text-white/80 text-[22px] rtl:-scale-x-100">arrow_back</span>
 					</button>
 					<div class="flex flex-col overflow-hidden">
 						<div class="flex items-center gap-2.5">
@@ -161,12 +199,12 @@ export const QuietHoursPage: Component = () => {
 								{t('quietHoursSettings.title')}
 							</h1>
 							<Show when={isDirty()}>
-								<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0 shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
+								<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
 							</Show>
 						</div>
-						<p class="text-[11px] text-white/50 font-bold uppercase tracking-wider leading-snug truncate mt-0.5">
-							{t('quietHoursSettings.subtitle')}
-						</p>
+						<span class="text-[11px] text-white/50 font-bold uppercase tracking-wider leading-snug truncate mt-0.5">
+							{t('quietHoursSettings.description')}
+						</span>
 					</div>
 				</div>
 
@@ -181,32 +219,26 @@ export const QuietHoursPage: Component = () => {
 
 			<HamburgerMenu isOpen={isMenuOpen()} onClose={() => setIsMenuOpen(false)} groupId={params.id} activeTab="quiet" />
 
-			<Suspense fallback={null}>
-				<div class="p-5 flex flex-col gap-4 max-w-md mx-auto relative z-10 w-full">
+			<Suspense fallback={<div class="p-8 flex justify-center"><div class="w-8 h-8 border-2 border-[#3390ec] border-t-transparent rounded-full animate-spin" /></div>}>
+				<div class="p-5 flex flex-col gap-5 max-w-md mx-auto relative z-10 w-full">
 					
-					{/* ═══════ CURRENT STATUS PREVIEW ═══════ */}
-					<Motion.div
-						initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-						class={`p-5 rounded-[24px] border backdrop-blur-xl flex items-center justify-between shadow-sm relative overflow-hidden transition-colors duration-500 ${
-							isCurrentlyQuiet() ? 'bg-[#ff4a4a]/10 border-[#ff4a4a]/30 text-[#ff4a4a]' : 'bg-[#10b981]/10 border-[#10b981]/30 text-[#10b981]'
-						}`}
-					>
-						<div class={`absolute -right-6 -top-6 w-24 h-24 rounded-full blur-2xl pointer-events-none ${isCurrentlyQuiet() ? 'bg-[#ff4a4a]/20' : 'bg-[#10b981]/20'}`} />
-						
-						<div class="flex items-center gap-4 relative z-10">
-							<div class={`w-12 h-12 rounded-[16px] flex items-center justify-center shadow-inner border ${isCurrentlyQuiet() ? 'bg-[#ff4a4a]/20 border-[#ff4a4a]/30' : 'bg-[#10b981]/20 border-[#10b981]/30'}`}>
-								<span class="material-symbols-outlined text-[24px]">
+					{/* ═══════ CURRENT STATUS HERO BANNER ═══════ */}
+					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+						<div class={`rounded-[24px] p-5 border flex items-center gap-4.5 relative overflow-hidden backdrop-blur-xl shadow-sm ${isCurrentlyQuiet() ? 'bg-gradient-to-r from-[#ff4a4a]/20 to-[#12141C]/80 border-[#ff4a4a]/30' : 'bg-gradient-to-r from-[#10b981]/20 to-[#12141C]/80 border-[#10b981]/30'}`}>
+							<div class={`w-12 h-12 rounded-[16px] flex items-center justify-center shrink-0 border shadow-inner ${isCurrentlyQuiet() ? 'bg-[#ff4a4a]/20 border-[#ff4a4a]/40 text-[#ff4a4a]' : 'bg-[#10b981]/20 border-[#10b981]/40 text-[#10b981]'}`}>
+								<span class="material-symbols-outlined text-[26px]">
 									{isCurrentlyQuiet() ? 'lock' : 'lock_open'}
 								</span>
 							</div>
-							<div class="flex flex-col gap-0.5">
+							<div class="flex flex-col gap-0.5 flex-1">
 								<span class="text-[15px] font-black uppercase tracking-tight flex items-center gap-2">
 									{isCurrentlyQuiet() ? t('quietHoursSettings.groupLocked') : t('quietHoursSettings.groupActive')}
 									<span class={`w-2 h-2 rounded-full animate-pulse ${isCurrentlyQuiet() ? 'bg-[#ff4a4a] shadow-[0_0_8px_#ff4a4a]' : 'bg-[#10b981] shadow-[0_0_8px_#10b981]'}`} />
 								</span>
-								<span class="text-[11px] opacity-70 font-bold font-mono tracking-tight">
-									{t('quietHoursSettings.serverTime')}: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-								</span>
+								<div class="flex items-center justify-between text-[11px] opacity-70 font-bold font-mono tracking-tight pt-0.5">
+									<span>{t('quietHoursSettings.serverTime')}: {currentTimeStr()}</span>
+									<span class="text-[10px] text-white/40">{timezone()}</span>
+								</div>
 							</div>
 						</div>
 					</Motion.div>
@@ -302,27 +334,14 @@ export const QuietHoursPage: Component = () => {
 				</div>
 			</Suspense>
 
-			{/* ═══════ FLOATING ACTION BAR ═══════ */}
-			<Show when={isDirty()}>
-				<div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#030303] via-[#030303]/90 to-transparent z-40 pointer-events-none">
-					<div class="max-w-md mx-auto flex gap-3 pointer-events-auto">
-						<button
-							onClick={() => refetch()} disabled={isSaving()}
-							class="w-16 h-14 bg-[#12141C]/80 backdrop-blur-md text-[#ff4a4a] border border-[#ff4a4a]/20 rounded-[16px] transition-all flex items-center justify-center hover:bg-[#ff4a4a]/10 active:scale-95 shadow-sm"
-						>
-							<span class="material-symbols-outlined text-[24px]">close</span>
-						</button>
-						<button
-							onClick={handleSave} disabled={isSaving()}
-							class="flex-1 h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] hover:from-[#2b7ec9] hover:to-[#3390ec] text-white rounded-[16px] font-black text-[14px] uppercase tracking-widest shadow-[0_10px_30px_rgba(51,144,236,0.35)] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:scale-100 active:scale-95 border border-white/10"
-						>
-							<Show when={!isSaving()} fallback={<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}>
-								{t('generalSettings.saveSettings')} <span class="material-symbols-outlined text-[22px]">save</span>
-							</Show>
-						</button>
-					</div>
-				</div>
-			</Show>
+			<SettingsGuard
+				isDirty={isDirty()}
+				isSaving={isSaving()}
+				showSheet={showUnsavedSheet()}
+				onSave={handleSave}
+				onDiscard={handleDiscard}
+				onCloseSheet={() => setShowUnsavedSheet(false)}
+			/>
 		</div>
 	);
 };

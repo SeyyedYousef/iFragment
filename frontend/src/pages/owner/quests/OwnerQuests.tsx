@@ -1,394 +1,374 @@
-
-import { Component, createSignal, For, onMount, Show } from 'solid-js';
-import { ownerApi, type QuestItem } from '@/entities/owner/index.js';
-import { haptic } from '@/shared/lib/haptic.js';
+import { createSignal, Show, For, type Component } from 'solid-js';
+import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
+import { ownerApi } from '../../../entities/owner/api/ownerApi';
+import type { QuestItem } from '../../../entities/owner/model/types';
+import { DangerActionDialog } from '../../../widgets/owner/DangerActionDialog';
 
 export const OwnerQuests: Component = () => {
-	const [quests, setQuests] = createSignal<QuestItem[]>([]);
-	const [loading, setLoading] = createSignal(true);
-	const [errorMsg, setErrorMsg] = createSignal('');
+	const queryClient = useQueryClient();
 
-	// Modal state
-	const [isModalOpen, setIsModalOpen] = createSignal(false);
-	const [isEditing, setIsEditing] = createSignal(false);
+	const [isCreating, setIsCreating] = createSignal(false);
+	const [editingQuest, setEditingQuest] = createSignal<QuestItem | null>(null);
 
-	// Form fields
-	const [questKey, setQuestKey] = createSignal<string>('');
-	const [title, setTitle] = createSignal('');
-	const [description, setDescription] = createSignal('');
-	const [type, setType] = createSignal<QuestItem['type']>('telegram_channel');
-	const [rewardFrg, setRewardFrg] = createSignal(1000);
-	const [rewardXp, setRewardXp] = createSignal(10);
-	const [isActive, setIsActive] = createSignal(true);
-	const [expiresAt, setExpiresAt] = createSignal('');
-	const [channelUsername, setChannelUsername] = createSignal('');
-	const [taskUrl, setTaskUrl] = createSignal('');
+	// Form State
+	const [formKey, setFormKey] = createSignal('');
+	const [formTitle, setFormTitle] = createSignal('');
+	const [formType, setFormType] = createSignal<QuestItem['type']>('telegram_channel');
+	const [formRewardCoins, setFormRewardCoins] = createSignal(5000);
+	const [formRewardXp, setFormRewardXp] = createSignal(50);
+	const [formChannelUsername, setFormChannelUsername] = createSignal('');
+	const [formChannelId, setFormChannelId] = createSignal('');
+	const [formIsActive, setFormIsActive] = createSignal(true);
 
-	const loadQuests = async () => {
-		setLoading(true);
-		setErrorMsg('');
-		try {
-			const data = await ownerApi.listQuests();
-			setQuests(data || []);
-		} catch (err: any) {
-			setErrorMsg(err.response?.data?.error || 'خطا در دریافت مأموریت‌های سرور');
-		} finally {
-			setLoading(false);
-		}
+	const [questToDelete, setQuestToDelete] = createSignal<QuestItem | null>(null);
+
+	const questsQuery = createQuery(() => ({
+		queryKey: ['owner', 'quests'],
+		queryFn: ownerApi.listQuests,
+	}));
+
+	const createMutation = createMutation(() => ({
+		mutationFn: (q: Partial<QuestItem>) => ownerApi.createQuest(q),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['owner', 'quests'] });
+			resetForm();
+		},
+	}));
+
+	const updateMutation = createMutation(() => ({
+		mutationFn: ({ key, q }: { key: string; q: Partial<QuestItem> }) =>
+			ownerApi.updateQuest(key, q),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['owner', 'quests'] });
+			resetForm();
+		},
+	}));
+
+	const deleteMutation = createMutation(() => ({
+		mutationFn: (key: string) => ownerApi.deleteQuest(key),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['owner', 'quests'] });
+			setQuestToDelete(null);
+		},
+	}));
+
+	const resetForm = () => {
+		setIsCreating(false);
+		setEditingQuest(null);
+		setFormKey('');
+		setFormTitle('');
+		setFormType('telegram_channel');
+		setFormRewardCoins(5000);
+		setFormRewardXp(50);
+		setFormChannelUsername('');
+		setFormChannelId('');
+		setFormIsActive(true);
 	};
 
-	onMount(() => {
-		loadQuests();
-	});
-
-	const openCreateModal = () => {
-		try {
-			haptic.impact('medium');
-		} catch {}
-		setIsEditing(false);
-		setQuestKey('');
-		setTitle('');
-		setDescription('');
-		setType('telegram_channel');
-		setRewardFrg(5000);
-		setRewardXp(50);
-		setIsActive(true);
-
-		const defaultExpiry = new Date();
-		defaultExpiry.setDate(defaultExpiry.getDate() + 30);
-		setExpiresAt(defaultExpiry.toISOString().slice(0, 10));
-
-		setChannelUsername('@Fragmentscommunity');
-		setTaskUrl('https://ifragment.app');
-		setIsModalOpen(true);
+	const handleEdit = (q: QuestItem) => {
+		setEditingQuest(q);
+		setFormKey(q.key);
+		setFormTitle(q.title);
+		setFormType(q.type);
+		setFormRewardCoins(q.reward_frg);
+		setFormRewardXp(q.reward_xp);
+		setFormChannelUsername(q.config?.channel_username || '');
+		setFormChannelId(q.config?.channel_id || '');
+		setFormIsActive(q.is_active);
+		setIsCreating(true);
 	};
 
-	const openEditModal = (q: QuestItem) => {
-		try {
-			haptic.impact('medium');
-		} catch {}
-		setIsEditing(true);
-		setQuestKey(q.key || String(q.id));
-		setTitle(q.title);
-		setDescription(q.description || '');
-		setType(q.type);
-		setRewardFrg(q.reward_frg);
-		setRewardXp(q.reward_xp);
-		setIsActive(q.is_active);
-		setExpiresAt(q.expires_at ? q.expires_at.slice(0, 10) : '');
-		setChannelUsername(q.config?.channel_username || '');
-		setTaskUrl(q.config?.url || '');
-		setIsModalOpen(true);
-	};
-
-	const handleSubmit = async (e: Event) => {
+	const handleSubmit = (e: Event) => {
 		e.preventDefault();
-		setErrorMsg('');
-		setLoading(true);
-
-		const configObj: Record<string, any> = {};
-		if (type() === 'telegram_channel' || type() === 'telegram_group') {
-			configObj.channel_username = channelUsername();
-		} else if (type() === 'external_link' || type() === 'partner') {
-			configObj.url = taskUrl();
-		}
-
-		const questData: Partial<QuestItem> = {
-			title: title(),
-			description: description(),
-			type: type(),
-			reward_frg: Number(rewardFrg()),
-			reward_xp: Number(rewardXp()),
-			config: configObj,
-			is_active: isActive(),
-			expires_at: expiresAt() ? new Date(expiresAt()).toISOString() : undefined,
+		const payload: Partial<QuestItem> = {
+			key: formKey().trim(),
+			title: formTitle().trim(),
+			type: formType(),
+			reward_frg: formRewardCoins(),
+			reward_xp: formRewardXp(),
+			is_active: formIsActive(),
+			config: {
+				channel_username: formChannelUsername().trim(),
+				channel_id: formChannelId().trim(),
+			},
 		};
 
-		try {
-			if (isEditing() && questKey()) {
-				await ownerApi.updateQuest(questKey(), questData);
-			} else {
-				await ownerApi.createQuest(questData);
-			}
-			try {
-				haptic.notify('success');
-			} catch {}
-			setIsModalOpen(false);
-			loadQuests();
-		} catch (err: any) {
-			setErrorMsg(err.response?.data?.error || 'ذخیره‌سازی مأموریت با خطا مواجه شد.');
-		} finally {
-			setLoading(false);
+		if (editingQuest()) {
+			updateMutation.mutate({ key: editingQuest()!.key, q: payload });
+		} else {
+			createMutation.mutate(payload);
 		}
 	};
 
-	const handleDelete = async (key: string) => {
-		if (!confirm('آیا از حذف این مأموریت اطمینان دارید؟')) return;
-		setLoading(true);
-		try {
-			await ownerApi.deleteQuest(key);
-			haptic.notify('success');
-			loadQuests();
-		} catch (err: any) {
-			setErrorMsg(err.response?.data?.error || 'خطا در حذف مأموریت');
-			setLoading(false);
-		}
-	};
+	const quests = () => questsQuery.data || [];
 
 	return (
 		<div class="space-y-6">
-			{/* Action & Filter Bar */}
-			<div class="bg-[#16171d]/60 border border-white/5 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
+			{/* Header */}
+			<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
 				<div>
-					<h2 class="text-sm font-black text-white">مدیریت مأموریت‌ها و کمپین‌های پاداش‌دار</h2>
-					<p class="text-xs text-white/40 font-bold mt-0.5">
-						تعریف مأموریت‌های پاداش سکه و XP برای اعضای بات
-					</p>
+					<h2 class="text-lg font-bold text-white">Quests & Tasks Management</h2>
+					<p class="text-xs text-white/50">Manage dynamic channel subscriptions, partner quests, and check-in tasks</p>
 				</div>
-
 				<button
-					onClick={openCreateModal}
-					class="h-10 px-5 bg-[#3390ec] hover:bg-[#2b7ec9] text-xs font-black uppercase text-white rounded-2xl active:scale-95 transition-all flex items-center gap-1.5 shadow-lg shadow-[#3390ec]/20"
+					onClick={() => {
+						resetForm();
+						setIsCreating(true);
+					}}
+					class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs transition shadow-lg shadow-amber-500/20"
 				>
-					<span class="material-symbols-outlined text-[18px]">add</span>
-					ایجاد مأموریت جدید
+					<span class="material-symbols-rounded text-base">add_task</span>
+					<span>Create Quest</span>
 				</button>
 			</div>
 
-			<Show when={errorMsg()}>
-				<div class="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-400 text-xs font-bold">
-					<span class="material-symbols-outlined text-xl">error</span>
-					<span>{errorMsg()}</span>
-				</div>
-			</Show>
-
-			{/* Quests Grid */}
-			<Show
-				when={!loading()}
-				fallback={
-					<div class="flex flex-col items-center justify-center py-20 gap-3">
-						<div class="w-8 h-8 border-3 border-[#3390ec] border-t-transparent rounded-full animate-spin" />
-						<span class="text-xs text-white/50 font-bold">در حال دریافت لیست مأموریت‌ها...</span>
-					</div>
-				}
-			>
-				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-					<For each={quests()}>
-						{(q) => {
-							const isExpired = q.expires_at
-								? new Date(q.expires_at).getTime() < Date.now()
-								: false;
-							return (
-								<div class="bg-gradient-to-b from-[#16171d] to-[#0f1014] border border-[#2a2c35]/40 rounded-3xl p-5 space-y-4 hover:border-white/20 transition-all flex flex-col justify-between">
-									<div class="space-y-2">
-										<div class="flex items-center justify-between gap-2">
-											<h3 class="text-sm font-black text-white">{q.title}</h3>
-											<span
-												class={`px-2.5 py-0.5 text-[9px] font-black uppercase rounded-lg border ${
-													!q.is_active || isExpired
-														? 'bg-red-500/10 border-red-500/20 text-red-400'
-														: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-												}`}
-											>
-												{!q.is_active ? 'غیرفعال' : isExpired ? 'منقضی شده' : 'فعال'}
-											</span>
-										</div>
-
-										<p class="text-xs text-white/60 font-medium line-clamp-2">
-											{q.description || 'بدون توضیحات'}
-										</p>
-
-										<div class="flex items-center gap-3 text-[10px] text-amber-400 font-mono font-bold pt-1">
-											<span>🪙 {q.reward_frg.toLocaleString()} FRG</span>
-											<span>⚡ {q.reward_xp.toLocaleString()} XP</span>
-										</div>
-									</div>
-
-									<div class="pt-3 border-t border-white/5 flex items-center justify-between">
-										<span class="text-[9px] text-white/40 font-mono">
-											انقضا:{' '}
-											{q.expires_at
-												? new Date(q.expires_at).toLocaleDateString('fa-IR')
-												: 'نامحدود'}
-										</span>
-
-										<div class="flex gap-2">
-											<button
-												onClick={() => openEditModal(q)}
-												class="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 flex items-center justify-center transition-all"
-											>
-												<span class="material-symbols-outlined text-[16px]">edit</span>
-											</button>
-											<button
-												onClick={() => handleDelete(q.key || String(q.id))}
-												class="w-8 h-8 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 flex items-center justify-center transition-all"
-											>
-												<span class="material-symbols-outlined text-[16px]">delete</span>
-											</button>
-										</div>
-									</div>
-								</div>
-							);
-						}}
-					</For>
-				</div>
-			</Show>
-
-			{/* Create/Edit Quest Modal */}
-			<Show when={isModalOpen()}>
-				<div class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-					<div class="w-full max-w-md bg-gradient-to-b from-[#1a1b22] to-[#111216] border border-white/10 rounded-[28px] p-6 shadow-2xl space-y-4 relative">
-						<button
-							onClick={() => setIsModalOpen(false)}
-							class="absolute top-5 end-5 w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10 text-white/70"
-						>
-							<span class="material-symbols-outlined text-[18px]">close</span>
-						</button>
-
-						<h3 class="text-sm font-black text-white">
-							{isEditing() ? 'ویرایش مأموریت' : 'ایجاد مأموریت جدید'}
+			{/* Form Modal / Card */}
+			<Show when={isCreating()}>
+				<div class="rounded-3xl border border-amber-500/30 bg-black/60 p-6 space-y-5 backdrop-blur-xl">
+					<div class="flex items-center justify-between border-b border-white/10 pb-3">
+						<h3 class="text-sm font-bold text-white">
+							{editingQuest() ? 'Edit Quest' : 'Create New Quest'}
 						</h3>
+						<button onClick={resetForm} class="text-xs text-white/50 hover:text-white">
+							Cancel
+						</button>
+					</div>
 
-						<form onSubmit={handleSubmit} class="space-y-3">
+					<form onSubmit={handleSubmit} class="space-y-4">
+						<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 							<div>
-								<label class="block text-[10px] text-white/50 font-bold mb-1">عنوان مأموریت</label>
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">Unique Key</label>
 								<input
 									type="text"
+									placeholder="e.g., join_main_channel"
+									value={formKey()}
+									disabled={!!editingQuest()}
+									onInput={(e) => setFormKey(e.currentTarget.value)}
+									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none disabled:opacity-50"
 									required
-									value={title()}
-									onInput={(e) => setTitle(e.currentTarget.value)}
-									class="w-full h-11 bg-black/40 border border-white/10 rounded-xl px-4 text-xs text-white focus:border-[#3390ec] outline-none"
-									placeholder="مثال: عضویت در کانال تلگرام"
 								/>
 							</div>
 
 							<div>
-								<label class="block text-[10px] text-white/50 font-bold mb-1">توضیحات کوتاه</label>
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">Title</label>
 								<input
 									type="text"
-									value={description()}
-									onInput={(e) => setDescription(e.currentTarget.value)}
-									class="w-full h-11 bg-black/40 border border-white/10 rounded-xl px-4 text-xs text-white focus:border-[#3390ec] outline-none"
-									placeholder="راهنمای انجام تسک برای کاربر..."
+									placeholder="e.g., Join Official Community"
+									value={formTitle()}
+									onInput={(e) => setFormTitle(e.currentTarget.value)}
+									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs focus:border-amber-400 focus:outline-none"
+									required
 								/>
 							</div>
 
-							<div class="grid grid-cols-2 gap-3">
-								<div>
-									<label class="block text-[10px] text-white/50 font-bold mb-1">
-										پاداش سکه (FRG)
-									</label>
-									<input
-										type="number"
-										required
-										min="0"
-										value={rewardFrg()}
-										onInput={(e) => setRewardFrg(Number(e.currentTarget.value))}
-										class="w-full h-11 bg-black/40 border border-white/10 rounded-xl px-3 text-xs font-mono text-white outline-none"
-									/>
-								</div>
-								<div>
-									<label class="block text-[10px] text-white/50 font-bold mb-1">
-										پاداش تجربه (XP)
-									</label>
-									<input
-										type="number"
-										required
-										min="0"
-										value={rewardXp()}
-										onInput={(e) => setRewardXp(Number(e.currentTarget.value))}
-										class="w-full h-11 bg-black/40 border border-white/10 rounded-xl px-3 text-xs font-mono text-white outline-none"
-									/>
-								</div>
-							</div>
-
 							<div>
-								<label class="block text-[10px] text-white/50 font-bold mb-1">نوع مأموریت</label>
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">Quest Type</label>
 								<select
-									value={type()}
-									onChange={(e) => setType(e.currentTarget.value as any)}
-									class="w-full h-11 bg-black/40 border border-white/10 rounded-xl px-3 text-xs text-white outline-none"
+									value={formType()}
+									onChange={(e) => setFormType(e.currentTarget.value as any)}
+									class="w-full h-11 px-3 rounded-xl bg-neutral-900 border border-white/15 text-white text-xs focus:border-amber-400 focus:outline-none"
 								>
-									<option value="telegram_channel">عضویت در کانال تلگرام</option>
-									<option value="telegram_group">عضویت در گروه تلگرام</option>
-									<option value="external_link">بازدید از وبسایت / لینک خارجی</option>
-									<option value="partner">مأموریت همکاران / اسپانسر</option>
+									<option value="telegram_channel">Telegram Channel</option>
+									<option value="telegram_group">Telegram Group</option>
+									<option value="daily_checkin">Daily Check-in</option>
+									<option value="invite">Invite Friends</option>
+									<option value="external_link">External Link</option>
+									<option value="partner">Partner Quest</option>
 								</select>
 							</div>
+						</div>
 
-							<Show when={type() === 'telegram_channel' || type() === 'telegram_group'}>
-								<div>
-									<label class="block text-[10px] text-white/50 font-bold mb-1">
-										شناسه کانال/گروه (آیدی با @)
-									</label>
-									<input
-										type="text"
-										value={channelUsername()}
-										onInput={(e) => setChannelUsername(e.currentTarget.value)}
-										class="w-full h-11 bg-black/40 border border-white/10 rounded-xl px-4 text-xs font-mono text-white outline-none"
-										placeholder="@Fragmentscommunity"
-									/>
-								</div>
-							</Show>
-
-							<Show when={type() === 'external_link' || type() === 'partner'}>
-								<div>
-									<label class="block text-[10px] text-white/50 font-bold mb-1">
-										آدرس لینک مقصد (URL)
-									</label>
-									<input
-										type="url"
-										value={taskUrl()}
-										onInput={(e) => setTaskUrl(e.currentTarget.value)}
-										class="w-full h-11 bg-black/40 border border-white/10 rounded-xl px-4 text-xs font-mono text-white outline-none"
-										placeholder="https://..."
-									/>
-								</div>
-							</Show>
-
-							<div class="grid grid-cols-2 gap-3 pt-2">
-								<div>
-									<label class="block text-[10px] text-white/50 font-bold mb-1">تاریخ انقضا</label>
-									<input
-										type="date"
-										value={expiresAt()}
-										onInput={(e) => setExpiresAt(e.currentTarget.value)}
-										class="w-full h-11 bg-black/40 border border-white/10 rounded-xl px-3 text-xs text-white outline-none"
-									/>
-								</div>
-								<div class="flex flex-col justify-end">
-									<button
-										type="button"
-										onClick={() => setIsActive(!isActive())}
-										class={`h-11 rounded-xl text-xs font-bold border transition-all ${
-											isActive()
-												? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-												: 'bg-red-500/10 border-red-500/20 text-red-400'
-										}`}
-									>
-										{isActive() ? 'وضعیت: فعال' : 'وضعیت: غیرفعال'}
-									</button>
-								</div>
+						<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+							<div>
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
+									Channel Username (Config-driven, no @)
+								</label>
+								<input
+									type="text"
+									placeholder="e.g., iFragmentNews"
+									value={formChannelUsername()}
+									onInput={(e) => setFormChannelUsername(e.currentTarget.value.replace('@', ''))}
+									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs focus:border-amber-400 focus:outline-none"
+								/>
 							</div>
 
-							<div class="pt-3 flex gap-2">
+							<div>
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">
+									Channel ID (Optional, e.g. -100123456789)
+								</label>
+								<input
+									type="text"
+									placeholder="-100123456789"
+									value={formChannelId()}
+									onInput={(e) => setFormChannelId(e.currentTarget.value)}
+									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
+								/>
+							</div>
+						</div>
+
+						<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+							<div>
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">Reward Coins</label>
+								<input
+									type="number"
+									value={formRewardCoins()}
+									onInput={(e) => setFormRewardCoins(parseInt(e.currentTarget.value, 10) || 0)}
+									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
+									required
+								/>
+							</div>
+
+							<div>
+								<label class="block text-[11px] font-semibold text-white/60 mb-1">Reward XP</label>
+								<input
+									type="number"
+									value={formRewardXp()}
+									onInput={(e) => setFormRewardXp(parseInt(e.currentTarget.value, 10) || 0)}
+									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
+									required
+								/>
+							</div>
+						</div>
+
+						<div class="flex items-center justify-between pt-2 border-t border-white/10">
+							<label class="flex items-center gap-2 text-xs text-white cursor-pointer select-none">
+								<input
+									type="checkbox"
+									checked={formIsActive()}
+									onChange={(e) => setFormIsActive(e.currentTarget.checked)}
+									class="rounded accent-amber-500 h-4 w-4"
+								/>
+								<span>Quest Active & Visible</span>
+							</label>
+
+							<div class="flex gap-2">
 								<button
 									type="button"
-									onClick={() => setIsModalOpen(false)}
-									class="flex-1 h-11 bg-white/5 text-xs font-bold rounded-xl"
+									onClick={resetForm}
+									class="px-4 py-2.5 rounded-xl text-xs text-white/70 hover:bg-white/5"
 								>
-									انصراف
+									Cancel
 								</button>
 								<button
 									type="submit"
-									class="flex-1 h-11 bg-[#3390ec] text-white text-xs font-black rounded-xl"
+									disabled={createMutation.isPending || updateMutation.isPending}
+									class="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs transition shadow-lg shadow-amber-500/20 disabled:opacity-50"
 								>
-									ذخیره‌سازی
+									{editingQuest() ? 'Save Quest' : 'Create Quest'}
 								</button>
 							</div>
-						</form>
-					</div>
+						</div>
+					</form>
 				</div>
+			</Show>
+
+			{/* Quests Table */}
+			<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
+				<div class="overflow-x-auto">
+					<table class="w-full text-left text-xs">
+						<thead>
+							<tr class="border-b border-white/10 text-white/40">
+								<th class="pb-3">Title & Key</th>
+								<th class="pb-3">Type</th>
+								<th class="pb-3">Channel / Config</th>
+								<th class="pb-3">Reward</th>
+								<th class="pb-3">Status</th>
+								<th class="pb-3 text-right">Actions</th>
+							</tr>
+						</thead>
+						<tbody class="divide-y divide-white/5">
+							<Show
+								when={!questsQuery.isLoading && quests().length > 0}
+								fallback={
+									<tr>
+										<td colspan="6" class="py-8 text-center text-white/40">
+											{questsQuery.isLoading ? 'Loading quests...' : 'No quests configured'}
+										</td>
+									</tr>
+								}
+							>
+								<For each={quests()}>
+									{(quest) => (
+										<tr class="hover:bg-white/[0.02] transition">
+											<td class="py-3">
+												<div class="font-bold text-white">{quest.title}</div>
+												<div class="text-[11px] font-mono text-white/40">{quest.key}</div>
+											</td>
+											<td class="py-3">
+												<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/5 text-amber-400 border border-white/10">
+													{quest.type}
+												</span>
+											</td>
+											<td class="py-3 text-white/70">
+												<Show
+													when={quest.config?.channel_username}
+													fallback={<span class="text-white/30">—</span>}
+												>
+													<span class="text-sky-400 font-mono">@{quest.config?.channel_username}</span>
+												</Show>
+											</td>
+											<td class="py-3">
+												<div class="font-mono text-amber-400 font-bold">
+													{quest.reward_frg.toLocaleString()} Coins
+												</div>
+												<div class="font-mono text-purple-400 text-[11px]">+{quest.reward_xp} XP</div>
+											</td>
+											<td class="py-3">
+												<span
+													class={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+														quest.is_active
+															? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+															: 'bg-white/5 text-white/40'
+													}`}
+												>
+													{quest.is_active ? 'Active' : 'Disabled'}
+												</span>
+											</td>
+											<td class="py-3 text-right">
+												<div class="flex items-center justify-end gap-1.5">
+													<button
+														onClick={() => handleEdit(quest)}
+														class="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition"
+														title="Edit Quest"
+													>
+														<span class="material-symbols-rounded text-base">edit</span>
+													</button>
+													<button
+														onClick={() => setQuestToDelete(quest)}
+														class="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition"
+														title="Delete Quest"
+													>
+														<span class="material-symbols-rounded text-base">delete</span>
+													</button>
+												</div>
+											</td>
+										</tr>
+									)}
+								</For>
+							</Show>
+						</tbody>
+					</table>
+				</div>
+			</div>
+
+			{/* Delete Quest Confirmation */}
+			<Show when={questToDelete()}>
+				<DangerActionDialog
+					isOpen={true}
+					title="Delete Quest"
+					description={`Permanently remove quest "${questToDelete()?.title}" (${questToDelete()?.key})? Users will no longer see or earn from this quest.`}
+					actionLabel="Delete Quest"
+					confirmWord="DELETE"
+					riskLevel="medium"
+					requireReason={false}
+					loading={deleteMutation.isPending}
+					onConfirm={() => {
+						if (questToDelete()) {
+							deleteMutation.mutate(questToDelete()!.key);
+						}
+					}}
+					onClose={() => setQuestToDelete(null)}
+				/>
 			</Show>
 		</div>
 	);
