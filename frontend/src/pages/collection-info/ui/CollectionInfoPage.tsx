@@ -5,7 +5,6 @@ import { apiClient as api } from '@/shared/api/axios.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
-import { SparklineChart } from '@/shared/ui/SparklineChart.js';
 
 interface CollectionStats {
 	stat_date: string;
@@ -88,29 +87,6 @@ export const CollectionInfoPage: Component = () => {
 		},
 		staleTime: 5 * 60 * 1000,
 	}));
-
-	const parseVolume = (volStr: string): number => {
-		if (!volStr) return 0;
-		const cleaned = volStr.toUpperCase().replace(/[^\d.KMB]/g, '');
-		let multiplier = 1;
-		if (cleaned.includes('K')) multiplier = 1_000;
-		if (cleaned.includes('M')) multiplier = 1_000_000;
-		if (cleaned.includes('B')) multiplier = 1_000_000_000;
-		const val = parseFloat(cleaned.replace(/[KMB]/g, ''));
-		return Number.isNaN(val) ? 0 : val * multiplier;
-	};
-
-	const calculateMarketCap = (items: string, floor: string): string => {
-		const itemsNum = parseVolume(items);
-		const floorNum = parseVolume(floor);
-		if (itemsNum > 0 && floorNum > 0) {
-			const cap = itemsNum * floorNum;
-			if (cap > 1000000) return `${(cap / 1000000).toFixed(1)}M TON`;
-			if (cap > 1000) return `${(cap / 1000).toFixed(1)}K TON`;
-			return `${cap.toString()} TON`;
-		}
-		return '---';
-	};
 
 	const fearGreedNotice = createMemo(() => {
 		const idx = query.data?.fear_greed_index ?? 78;
@@ -224,7 +200,7 @@ export const CollectionInfoPage: Component = () => {
 						</div>
 					</Show>
 
-					{/* 🌐 VERTICAL SWITCHER (PHASE 8) */}
+					{/* 🌐 VERTICAL SWITCHER */}
 					<div class="w-full grid grid-cols-3 gap-1.5 mt-4 p-1 bg-[#08090D] border border-white/5 rounded-[16px]">
 						<button
 							onClick={() => {
@@ -241,21 +217,23 @@ export const CollectionInfoPage: Component = () => {
 						</button>
 						<button
 							onClick={() => {
-								haptic.impact('light');
+								haptic.selection();
+								navigate('/numbers/intel');
 							}}
-							class="py-2 rounded-[12px] text-[11px] font-bold uppercase tracking-wider text-white/30 hover:text-white/40 flex items-center justify-center gap-1 cursor-default"
+							class="py-2 rounded-[12px] text-[11px] font-black uppercase tracking-wider text-white/60 hover:text-white flex items-center justify-center gap-1 transition-all active:scale-95"
 						>
 							<span>Numbers</span>
-							<span class="text-[8px] bg-white/5 px-1 py-0.5 rounded text-amber-400/80">SOON</span>
+							<span class="text-[8px] bg-[#0098EA]/20 px-1 py-0.5 rounded text-[#0098EA] font-bold">LIVE</span>
 						</button>
 						<button
 							onClick={() => {
-								haptic.impact('light');
+								haptic.selection();
+								navigate('/gifts/intel');
 							}}
-							class="py-2 rounded-[12px] text-[11px] font-bold uppercase tracking-wider text-white/30 hover:text-white/40 flex items-center justify-center gap-1 cursor-default"
+							class="py-2 rounded-[12px] text-[11px] font-black uppercase tracking-wider text-white/60 hover:text-white flex items-center justify-center gap-1 transition-all active:scale-95"
 						>
 							<span>Gifts</span>
-							<span class="text-[8px] bg-white/5 px-1 py-0.5 rounded text-amber-400/80">SOON</span>
+							<span class="text-[8px] bg-[#0098EA]/20 px-1 py-0.5 rounded text-[#0098EA] font-bold">LIVE</span>
 						</button>
 					</div>
 

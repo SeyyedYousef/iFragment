@@ -38,6 +38,7 @@ export interface GroupSettings {
 	}>;
 	mandatory_membership: Record<string, any>;
 	custom_texts: Record<string, any>;
+	dynamic_bio?: Record<string, any>;
 	version: number;
 	updated_at: string;
 	updated_by?: number;

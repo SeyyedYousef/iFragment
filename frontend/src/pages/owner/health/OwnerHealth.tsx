@@ -1,6 +1,7 @@
-import { createSignal, createEffect, onCleanup, Show, For, type Component } from 'solid-js';
+import { createSignal, onCleanup, Show, For, type Component } from 'solid-js';
 import { createQuery } from '@tanstack/solid-query';
-import { ownerApi } from '../../../entities/owner/api/ownerApi';
+import { ownerApi } from '@/entities/owner/api/ownerApi.js';
+import type { SystemErrorLog, SystemHealthMetrics } from '@/entities/owner/model/types.js';
 
 export const OwnerHealth: Component = () => {
 	const [isTabVisible, setIsTabVisible] = createSignal(!document.hidden);
@@ -14,13 +15,13 @@ export const OwnerHealth: Component = () => {
 		onCleanup(() => document.removeEventListener('visibilitychange', handleVisibilityChange));
 	}
 
-	const healthQuery = createQuery(() => ({
+	const healthQuery = createQuery<SystemHealthMetrics>(() => ({
 		queryKey: ['owner', 'health', 'metrics'],
 		queryFn: ownerApi.getHealth,
 		refetchInterval: () => (isTabVisible() ? 5000 : false), // Pause on hidden tab
 	}));
 
-	const errorsQuery = createQuery(() => ({
+	const errorsQuery = createQuery<SystemErrorLog[]>(() => ({
 		queryKey: ['owner', 'health', 'errors'],
 		queryFn: () => ownerApi.getSystemErrors(50),
 		refetchInterval: () => (isTabVisible() ? 10000 : false),
@@ -33,8 +34,8 @@ export const OwnerHealth: Component = () => {
 		return `${days}d ${hours}h ${mins}m`;
 	};
 
-	const health = () => healthQuery.data;
-	const errors = () => errorsQuery.data || [];
+	const health = () => healthQuery.data as SystemHealthMetrics | undefined;
+	const errors = () => (errorsQuery.data || []) as SystemErrorLog[];
 
 	return (
 		<div class="space-y-6">
@@ -102,7 +103,7 @@ export const OwnerHealth: Component = () => {
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2">
 					<div class="flex items-center justify-between text-xs text-white/50">
 						<span>Memory & Uptime</span>
-						<span class="material-symbols-rounded text-base text-purple-400">timer</span>
+						<span class="material-symbols-rounded text-base text-cyan-400">timer</span>
 					</div>
 					<div class="text-2xl font-black font-mono text-white">
 						{health()?.memory_used_mb ?? 38} MB

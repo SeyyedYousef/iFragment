@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -344,3 +345,74 @@ func NewChannelRateLimiter(cache *repository.Cache) func(http.Handler) http.Hand
 		})
 	}
 }
+
+// NewStrictRateLimiter creates a per-IP rate limiter for security-critical endpoints (e.g., owner auth: 5 req/min)
+func NewStrictRateLimiter(cache *repository.Cache, limit int64, window time.Duration) func(http.Handler) http.Handler {
+	rl := &rateLimiter{
+		ips: make(map[string][]time.Time),
+	}
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ip := GetRealIP(r)
+
+			if cache != nil && cache.Client != nil && !cache.IsQuotaExceeded() {
+				ctx := r.Context()
+				key := "rate_limit:strict:ip:" + ip
+				now := time.Now()
+				nowMs := now.UnixNano() / int64(time.Millisecond)
+				clearBefore := now.Add(-window).UnixNano() / int64(time.Millisecond)
+				uniqueMember := fmt.Sprintf("%d:%p:%s", now.UnixNano(), r, ip)
+
+				res, err := slidingWindowScript.Run(ctx, cache.Client, []string{key}, nowMs, clearBefore, limit, int(window.Seconds())+5, uniqueMember).Result()
+				if err == nil {
+					if resSlice, ok := res.([]interface{}); ok && len(resSlice) == 2 {
+						if allowed, ok := resSlice[1].(int64); ok && allowed == 0 {
+							slog.Warn("Strict auth rate limit exceeded", "ip", ip, "limit", limit)
+							w.Header().Set("Retry-After", fmt.Sprintf("%d", int(window.Seconds())))
+							w.Header().Set("Content-Type", "application/json")
+							w.WriteHeader(http.StatusTooManyRequests)
+							_ = json.NewEncoder(w).Encode(map[string]string{
+								"error": "too_many_requests",
+								"message": "Too many failed attempts. Please wait before retrying.",
+							})
+							return
+						}
+						next.ServeHTTP(w, r)
+						return
+					}
+				}
+			}
+
+			// In-memory fallback
+			rl.mu.Lock()
+			if len(rl.ips) > 10000 {
+				rl.ips = make(map[string][]time.Time)
+			}
+			now := time.Now()
+			var valid []time.Time
+			for _, t := range rl.ips[ip] {
+				if now.Sub(t) < window {
+					valid = append(valid, t)
+				}
+			}
+			if int64(len(valid)) >= limit {
+				rl.mu.Unlock()
+				slog.Warn("Strict auth rate limit exceeded (Memory)", "ip", ip)
+				w.Header().Set("Retry-After", fmt.Sprintf("%d", int(window.Seconds())))
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusTooManyRequests)
+				_ = json.NewEncoder(w).Encode(map[string]string{
+					"error": "too_many_requests",
+					"message": "Too many failed attempts. Please wait before retrying.",
+				})
+				return
+			}
+			rl.ips[ip] = append(valid, now)
+			rl.mu.Unlock()
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+

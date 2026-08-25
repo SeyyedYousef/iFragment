@@ -1,4 +1,4 @@
-import { Component, createSignal, For, Show } from 'solid-js';
+import { Component, For, Show } from 'solid-js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
@@ -20,8 +20,6 @@ interface WalletModalProps {
 }
 
 export const WalletModal: Component<WalletModalProps> = (props) => {
-	const [activeTab, setActiveTab] = createSignal<'overview' | 'history'>('overview');
-
 	// Local or cached receipts
 	const mockTransactions: WalletTransaction[] = [
 		{

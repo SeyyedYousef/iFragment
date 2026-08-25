@@ -200,8 +200,7 @@ func (r *NumbersRepo) SearchNumbersByMask(ctx context.Context, pattern string, l
 	}
 
 	if r.db == nil || r.db.Pool == nil {
-		// Mock dynamic result if DB pool uninitialized
-		return r.generateMockMaskResults(sqlPattern, limit), nil
+		return []MaskSearchResultItem{}, nil
 	}
 
 	query := `
@@ -213,11 +212,11 @@ func (r *NumbersRepo) SearchNumbersByMask(ctx context.Context, pattern string, l
 
 	rows, err := r.db.Pool.Query(ctx, query, sqlPattern, limit, offset)
 	if err != nil {
-		return r.generateMockMaskResults(sqlPattern, limit), nil
+		return []MaskSearchResultItem{}, nil
 	}
 	defer rows.Close()
 
-	var results []MaskSearchResultItem
+	results := make([]MaskSearchResultItem, 0)
 	for rows.Next() {
 		var num, color string
 		var featJSON []byte
@@ -232,39 +231,7 @@ func (r *NumbersRepo) SearchNumbersByMask(ctx context.Context, pattern string, l
 		}
 	}
 
-	if len(results) == 0 {
-		return r.generateMockMaskResults(sqlPattern, limit), nil
-	}
-
 	return results, nil
-}
-
-func (r *NumbersRepo) generateMockMaskResults(pattern string, limit int) []MaskSearchResultItem {
-	var items []MaskSearchResultItem
-	base := strings.ReplaceAll(pattern, "_", "")
-	for i := 0; i < limit; i++ {
-		suffix := fmt.Sprintf("%04d", i*111+1)
-		num := base + suffix
-		if len(num) > 12 {
-			num = num[:12]
-		}
-		status := "taken"
-		var price *float64
-		if i%3 == 0 {
-			status = "for_sale"
-			p := 2100.0 + float64(i*150)
-			price = &p
-		}
-		items = append(items, MaskSearchResultItem{
-			Number:       num,
-			Display:      formatDisplay(num),
-			Status:       status,
-			ListingPrice: price,
-			Color:        "Blue",
-			RarityScore:  60 + (i%35),
-		})
-	}
-	return items
 }
 
 func formatDisplay(num string) string {
@@ -274,3 +241,4 @@ func formatDisplay(num string) string {
 	}
 	return num
 }
+

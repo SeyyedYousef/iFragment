@@ -156,7 +156,7 @@ export const IdentityHero = (props: Props) => {
 							<bdi>{displayName()}</bdi>
 						</h1>
 						<Show when={props.stats?.isPremium || props.stats?.subscription?.isActive}>
-							<span class="px-2 py-0.5 rounded-[8px] bg-purple-500/20 border border-purple-500/30 text-purple-300 text-[10px] font-black tracking-wide uppercase">
+							<span class="px-2 py-0.5 rounded-[8px] bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-[10px] font-black tracking-wide uppercase">
 								PRO
 							</span>
 						</Show>

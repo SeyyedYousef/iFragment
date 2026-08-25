@@ -69,6 +69,14 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 							</span>
 						</div>
 					</div>
+					<Show when={props.onClose}>
+						<button
+							onClick={props.onClose}
+							class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/60 active:scale-95"
+						>
+							<span class="material-symbols-outlined text-[18px]">close</span>
+						</button>
+					</Show>
 				</div>
 
 				{/* 4 Tabs */}
@@ -206,7 +214,7 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 												class="p-3 bg-[#07090E] border border-white/5 hover:border-white/15 rounded-[18px] flex items-center justify-between gap-3 active:scale-[0.99] transition-all cursor-pointer group"
 											>
 												<div class="flex items-center gap-3 min-w-0">
-													<div class="w-10 h-10 rounded-[12px] bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0">
+													<div class="w-10 h-10 rounded-[12px] bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
 														<span class="material-symbols-outlined text-[20px]">
 															{p.type === 'channel' ? 'campaign' : 'groups'}
 														</span>
@@ -319,7 +327,7 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 										<div class="flex flex-col">
 											<span class="text-[13px] font-black text-white">Multi-Tap</span>
 											<span class="text-[10px] text-white/40">
-												Level {assets()?.boosters.multiTapLevel || 1} (+{assets()?.boosters.multiTapLevel || 1} per tap)
+												Level {assets()?.boosters.multitapLevel || 1} (+{assets()?.boosters.multitapLevel || 1} per tap)
 											</span>
 										</div>
 									</div>

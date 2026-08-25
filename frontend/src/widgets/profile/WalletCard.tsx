@@ -149,7 +149,7 @@ export const WalletCard: Component<Props> = (props) => {
 									{t('wallet.subscription' as any) || 'Plan'}
 								</span>
 								<div class="flex items-baseline gap-1">
-									<span class={`text-[15px] font-black tracking-tight ${subscription()?.isActive ? 'text-purple-400' : 'text-white/60'}`}>
+									<span class={`text-[15px] font-black tracking-tight ${subscription()?.isActive ? 'text-cyan-400' : 'text-white/60'}`}>
 										{subscription()?.packageTitle || 'Free'}
 									</span>
 								</div>
@@ -161,13 +161,13 @@ export const WalletCard: Component<Props> = (props) => {
 									fallback={
 										<button
 											onClick={() => props.onBuyStars ? props.onBuyStars() : navigate('/marketplace')}
-											class="w-full py-1 rounded-[8px] bg-purple-500/15 hover:bg-purple-500/25 active:scale-95 border border-purple-500/30 text-purple-300 text-[9px] font-black tracking-wide uppercase transition-all"
+											class="w-full py-1 rounded-[8px] bg-cyan-500/15 hover:bg-cyan-500/25 active:scale-95 border border-cyan-500/30 text-cyan-300 text-[9px] font-black tracking-wide uppercase transition-all"
 										>
 											{t('wallet.upgrade' as any) || 'Pro'}
 										</button>
 									}
 								>
-									<div class="flex items-center gap-1 text-[9px] font-bold text-purple-300">
+									<div class="flex items-center gap-1 text-[9px] font-bold text-cyan-300">
 										<span class="material-symbols-outlined text-[12px]">verified</span>
 										<span>{subscription()?.daysLeft}d left</span>
 									</div>

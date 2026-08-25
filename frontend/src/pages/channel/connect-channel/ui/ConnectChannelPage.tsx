@@ -37,7 +37,7 @@ export const ConnectChannelPage: Component = () => {
 		const rawInput = channelUsername().trim();
 		if (!rawInput) {
 			showToast(t('connectChannel.validationError') || 'Please enter channel username or link', 'error');
-			haptic.notification('error');
+			haptic.notify('error');
 			return;
 		}
 
@@ -48,7 +48,7 @@ export const ConnectChannelPage: Component = () => {
 			showToast(t('connectChannel.verifyingInput') || 'Verifying bot administrator permissions in channel...', 'info');
 			const connectedChan = await channelApi.connectChannel('auto', rawInput);
 
-			haptic.notification('success');
+			haptic.notify('success');
 			showToast(t('connectChannel.success') || 'Channel successfully connected!', 'success');
 			navigate(`/channel/${connectedChan.id}/dashboard`, { replace: true });
 		} catch (err: any) {
@@ -58,7 +58,7 @@ export const ConnectChannelPage: Component = () => {
 				err?.message ||
 				'Failed to connect channel. Ensure the bot is added as administrator.';
 			showToast(errMsg, 'error');
-			haptic.notification('error');
+			haptic.notify('error');
 		} finally {
 			setIsConnecting(false);
 		}

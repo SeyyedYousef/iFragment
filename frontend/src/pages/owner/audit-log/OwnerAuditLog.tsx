@@ -1,7 +1,7 @@
 import { createSignal, createEffect, onCleanup, Show, For, type Component } from 'solid-js';
 import { createQuery } from '@tanstack/solid-query';
-import { ownerApi } from '../../../entities/owner/api/ownerApi';
-import type { AuditLogEntry } from '../../../entities/owner/model/types';
+import { ownerApi } from '@/entities/owner/api/ownerApi.js';
+import type { AuditLogEntry } from '@/entities/owner/model/types.js';
 
 export const OwnerAuditLog: Component = () => {
 	const [actionFilter, setActionFilter] = createSignal('');
@@ -22,7 +22,7 @@ export const OwnerAuditLog: Component = () => {
 	});
 	onCleanup(() => clearTimeout(timer));
 
-	const auditQuery = createQuery(() => ({
+	const auditQuery = createQuery<{ logs: AuditLogEntry[]; total: number }>(() => ({
 		queryKey: ['owner', 'audit-logs', actionFilter(), debouncedKeyword(), page()],
 		queryFn: () =>
 			ownerApi.getAuditLogs({

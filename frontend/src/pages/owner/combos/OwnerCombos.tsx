@@ -1,8 +1,7 @@
 import { createSignal, Show, For, type Component } from 'solid-js';
 import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
-import { ownerApi } from '../../../entities/owner/api/ownerApi';
-import type { AdminDailyCombo } from '../../../entities/owner/model/types';
-import { DangerActionDialog } from '../../../widgets/owner/DangerActionDialog';
+import { ownerApi } from '@/entities/owner/api/ownerApi.js';
+import type { AdminDailyCombo } from '@/entities/owner/model/types.js';
 
 export const OwnerCombos: Component = () => {
 	const queryClient = useQueryClient();
@@ -11,9 +10,8 @@ export const OwnerCombos: Component = () => {
 	const [wordInput, setWordInput] = createSignal('');
 	const [rewardInput, setRewardInput] = createSignal('500000');
 	const [showSecrets, setShowSecrets] = createSignal<Record<string, boolean>>({});
-	const [comboToDelete, setComboToDelete] = createSignal<AdminDailyCombo | null>(null);
 
-	const combosQuery = createQuery(() => ({
+	const combosQuery = createQuery<AdminDailyCombo[]>(() => ({
 		queryKey: ['owner', 'combos'],
 		queryFn: ownerApi.listCombos,
 	}));
@@ -42,7 +40,7 @@ export const OwnerCombos: Component = () => {
 		setShowSecrets((prev) => ({ ...prev, [key]: !prev[key] }));
 	};
 
-	const combos = () => combosQuery.data || [];
+	const combos = () => (combosQuery.data || []) as AdminDailyCombo[];
 
 	return (
 		<div class="space-y-6">

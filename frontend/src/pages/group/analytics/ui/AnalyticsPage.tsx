@@ -109,7 +109,7 @@ export const AnalyticsPage: Component = () => {
 				value: s.members_left,
 				change: 0,
 				icon: 'person_remove',
-				color: '#8b5cf6',
+				color: '#f43f5e',
 			},
 		];
 	};
@@ -351,7 +351,7 @@ export const AnalyticsPage: Component = () => {
 							</div>
 
 							<For each={DAYS_OF_WEEK}>
-								{(dayName, dayIndex) => (
+								{(dayName) => (
 									<div class="flex items-center gap-2">
 										<span class="text-[9px] font-mono text-white/40 w-5 font-bold">{dayName}</span>
 										<div class="flex-1 grid grid-cols-24 gap-1">

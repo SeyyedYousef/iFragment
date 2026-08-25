@@ -1,4 +1,3 @@
-import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton } from '@tma.js/sdk-solid';
 import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
@@ -19,8 +18,6 @@ export const MembersPage: Component = () => {
 	// Manual Restrict Form state
 	const [targetUserId, setTargetUserId] = createSignal('');
 	const [durationHours, setDurationHours] = createSignal(24);
-	const [canSendMessages, setCanSendMessages] = createSignal(false);
-	const [canSendMedia, setCanSendMedia] = createSignal(false);
 	const [isSubmitting, setIsSubmitting] = createSignal(false);
 
 	// Data resources
@@ -75,8 +72,8 @@ export const MembersPage: Component = () => {
 				target_user_id: uid,
 				until_date: untilDate,
 				permissions: {
-					can_send_messages: canSendMessages(),
-					can_send_media_messages: canSendMedia(),
+					can_send_messages: false,
+					can_send_media_messages: false,
 					can_send_polls: false,
 					can_send_other_messages: false,
 					can_add_web_page_previews: false,

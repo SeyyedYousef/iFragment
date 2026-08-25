@@ -4,7 +4,6 @@ import { formatNumber, t, isRtl } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { showToast } from '@/shared/ui/index.js';
 import { valuationApi } from '@/entities/username/index.js';
-import { ECONOMY_CONFIG } from '@/shared/config/economy.js';
 import { openTelegramLink } from '@tma.js/sdk-solid';
 
 interface IntelPack {

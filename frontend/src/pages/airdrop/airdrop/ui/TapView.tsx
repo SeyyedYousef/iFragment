@@ -1,4 +1,4 @@
-import { Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
+import { Component, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { API_CONFIG } from '@/shared/api/config.js';
 import { formatNumber, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
@@ -723,9 +723,10 @@ export const TapView: Component<{
 						{/* 7-Day Grid */}
 						<div class="grid grid-cols-4 gap-2 text-center" dir="ltr">
 							<For each={DAILY_REWARDS}>
-								{(rew) => {
-									const isCurrent = () => streakDay() === rew.day;
-									const isPast = () => (checkedInToday() ? streakDay() >= rew.day : streakDay() > rew.day);
+								{(rewardAmount, index) => {
+									const dayNumber = () => index() + 1;
+									const isCurrent = () => streakDay() === dayNumber();
+									const isPast = () => (checkedInToday() ? streakDay() >= dayNumber() : streakDay() > dayNumber());
 									return (
 										<div
 											class={`p-2.5 rounded-[16px] border flex flex-col items-center justify-center gap-1 transition-all ${
@@ -736,10 +737,10 @@ export const TapView: Component<{
 													: 'bg-[#08090D] border-white/5 opacity-40'
 											}`}
 										>
-											<span class="text-[10px] font-mono font-bold text-white/60">DAY {rew.day}</span>
-											<span class="text-[18px]">{rew.day === 7 ? '💎' : '🪙'}</span>
+											<span class="text-[10px] font-mono font-bold text-white/60">DAY {dayNumber()}</span>
+											<span class="text-[18px]">{dayNumber() === 7 ? '💎' : '🪙'}</span>
 											<span class="text-[11px] font-mono font-black text-amber-400">
-												+{formatNumber(rew.reward)}
+												+{formatNumber(rewardAmount)}
 											</span>
 										</div>
 									);

@@ -1,6 +1,8 @@
 package router
 
 import (
+	"time"
+
 	"ifragment-backend/internal/handler"
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/repository"
@@ -26,6 +28,7 @@ type Config struct {
 	NumbersHandler      *handler.NumbersHandler
 	GiftsHandler        *handler.GiftsHandler
 	ProjectHandler      *handler.ProjectHandler
+	IntelCreditHandler  *handler.IntelCreditHandler
 }
 
 // RegisterAPIRoutes mounts API v1 sub-routes onto the router
@@ -261,15 +264,26 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 			r.Get("/transactions", cfg.ProfileHandler.GetFRGTransactions)
 		})
 
+		// Intel Credits System
+		if cfg.IntelCreditHandler != nil {
+			r.Route("/intel", func(r chi.Router) {
+				r.Use(middleware.AuthMiddleware)
+				r.Get("/credits", cfg.IntelCreditHandler.GetBalance)
+				r.Post("/credits/consume", cfg.IntelCreditHandler.Consume)
+			})
+		}
+
 		// Public Ads Tracking
 		r.Post("/ads/{id}/impression", cfg.OwnerHandler.TrackAdImpression)
 		r.Post("/ads/{id}/click", cfg.OwnerHandler.TrackAdClick)
 
 		// Owner Panel Routes
 		r.Route("/owner", func(r chi.Router) {
-			r.Post("/auth/login", cfg.OwnerHandler.Login)
-			r.Post("/auth/totp", cfg.OwnerHandler.Login)
-			r.Post("/auth/totp/verify", cfg.OwnerHandler.VerifyTOTP)
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.NewStrictRateLimiter(cfg.Cache, 5, time.Minute))
+				r.Post("/auth/login", cfg.OwnerHandler.Login)
+				r.Post("/auth/totp/verify", cfg.OwnerHandler.VerifyTOTP)
+			})
 
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.AuthMiddleware)

@@ -1,9 +1,9 @@
 import { createSignal, Show, For, type Component } from 'solid-js';
 import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
-import { ownerApi } from '../../../entities/owner/api/ownerApi';
-import type { AdCampaign } from '../../../entities/owner/model/types';
-import { ImageCropUploader } from '../../../features/owner/ads/ImageCropUploader';
-import { DangerActionDialog } from '../../../widgets/owner/DangerActionDialog';
+import { ownerApi } from '@/entities/owner/api/ownerApi.js';
+import type { AdCampaign } from '@/entities/owner/model/types.js';
+import { ImageCropUploader } from '@/features/owner/ads/ImageCropUploader.jsx';
+import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.jsx';
 
 export const OwnerAds: Component = () => {
 	const queryClient = useQueryClient();
@@ -21,12 +21,12 @@ export const OwnerAds: Component = () => {
 	// Deletion state
 	const [adToDelete, setAdToDelete] = createSignal<AdCampaign | null>(null);
 
-	const adsQuery = createQuery(() => ({
+	const adsQuery = createQuery<AdCampaign[]>(() => ({
 		queryKey: ['owner', 'ads', activeSlot()],
 		queryFn: () => ownerApi.listAdCampaigns(activeSlot()),
 	}));
 
-	const createMutation = createMutation(() => ({
+	const createAdMutation = createMutation(() => ({
 		mutationFn: (ad: Partial<AdCampaign>) => ownerApi.createAdCampaign(ad),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['owner', 'ads'] });
@@ -85,7 +85,7 @@ export const OwnerAds: Component = () => {
 		if (editingAd()) {
 			updateMutation.mutate({ id: editingAd()!.id, ad: payload });
 		} else {
-			createMutation.mutate(payload);
+			createAdMutation.mutate(payload);
 		}
 	};
 
@@ -180,7 +180,7 @@ export const OwnerAds: Component = () => {
 							<ImageCropUploader
 								slot={activeSlot()}
 								currentImageUrl={formImageUrl()}
-								onUploaded={(url) => setFormImageUrl(url)}
+								onUploaded={(url: string) => setFormImageUrl(url)}
 							/>
 						</div>
 
@@ -205,11 +205,11 @@ export const OwnerAds: Component = () => {
 								</button>
 								<button
 									type="submit"
-									disabled={createMutation.isPending || updateMutation.isPending || !formImageUrl()}
+									disabled={createAdMutation.isPending || updateMutation.isPending || !formImageUrl()}
 									class="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs transition shadow-lg shadow-amber-500/20 disabled:opacity-50"
 								>
 									<Show
-										when={createMutation.isPending || updateMutation.isPending}
+										when={createAdMutation.isPending || updateMutation.isPending}
 										fallback={<span>{editingAd() ? 'Save Changes' : 'Publish Campaign'}</span>}
 									>
 										Saving...

@@ -1,7 +1,7 @@
 import { useNavigate } from '@solidjs/router';
 import { retrieveLaunchParams } from '@tma.js/sdk-solid';
 import { Component, createEffect, createSignal, onCleanup, Show } from 'solid-js';
-import { ownerApi } from '../../entities/owner/api/ownerApi';
+import { ownerApi } from '../../entities/owner/api/ownerApi.js';
 import { t } from '../../shared/i18n/index.js';
 import { haptic } from '../../shared/lib/haptic.js';
 
@@ -91,7 +91,8 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 				setTimeout(() => totpInputRef?.focus(), 50);
 			} else if (res.token) {
 				// Login success
-				localStorage.setItem('owner_token', res.token);
+				sessionStorage.setItem('owner_token', res.token);
+				sessionStorage.setItem('owner_telegram_id', String(tgUserId));
 				localStorage.setItem('owner_telegram_id', String(tgUserId));
 				try {
 					haptic.notify('success');
@@ -123,7 +124,7 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 		try {
 			const res = await ownerApi.verifyTotp(tempToken(), totpCode().trim());
 			if (res.token) {
-				localStorage.setItem('owner_token', res.token);
+				sessionStorage.setItem('owner_token', res.token);
 				try {
 					haptic.notify('success');
 				} catch {}

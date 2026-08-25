@@ -47,7 +47,7 @@ export const QuietHoursPage: Component = () => {
 		}
 	};
 
-	const [_, { refetch }] = createResource(() => params.id, async (groupId) => {
+	const [_] = createResource(() => params.id, async (groupId) => {
 		const data = await groupApi.getSettings(groupId);
 		setSettingsVersion(data.version);
 		const gen = (data.general || {}) as any;

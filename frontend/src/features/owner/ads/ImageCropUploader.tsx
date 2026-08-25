@@ -1,5 +1,5 @@
-import { createSignal, createEffect, onCleanup, Show, type Component } from 'solid-js';
-import { ownerApi } from '../../../entities/owner/api/ownerApi';
+import { createSignal, createEffect, Show, type Component } from 'solid-js';
+import { ownerApi } from '../../../entities/owner/api/ownerApi.js';
 
 interface ImageCropUploaderProps {
 	slot?: string;
@@ -11,9 +11,8 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 	const slot = () => props.slot || 'dashboard_banner';
 	const targetWidth = 1080;
 	const targetHeight = 384;
-	const targetRatio = targetWidth / targetHeight; // 2.8125
 
-	const [selectedFile, setSelectedFile] = createSignal<File | null>(null);
+	const [_selectedFile, setSelectedFile] = createSignal<File | null>(null);
 	const [imageSrc, setImageSrc] = createSignal<string | null>(null);
 	const [imageEl, setImageEl] = createSignal<HTMLImageElement | null>(null);
 
@@ -29,7 +28,6 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 	const [uploadedUrl, setUploadedUrl] = createSignal<string | null>(props.currentImageUrl || null);
 
 	let canvasRef: HTMLCanvasElement | undefined;
-	let previewCanvasRef: HTMLCanvasElement | undefined;
 
 	const handleFileSelect = (e: Event) => {
 		const target = e.target as HTMLInputElement;
@@ -175,13 +173,14 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 
 			{/* Drop Zone */}
 			<Show when={!imageSrc()}>
-				<div
+				<label
 					onDragOver={(e) => e.preventDefault()}
 					onDrop={handleDrop}
 					class="relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-white/20 bg-white/[0.02] p-6 text-center hover:border-amber-500/50 hover:bg-white/[0.04] transition-all cursor-pointer"
 				>
 					<input
 						type="file"
+						aria-label="Upload banner image file"
 						accept="image/jpeg,image/png,image/webp"
 						onChange={handleFileSelect}
 						class="absolute inset-0 opacity-0 cursor-pointer"
@@ -193,7 +192,7 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 					<div class="text-xs text-white/50 mt-1">
 						JPG, PNG, or WebP (Max 5MB) • Required resolution: 1080x384 (25:9)
 					</div>
-				</div>
+				</label>
 			</Show>
 
 			{/* Interactive Canvas Cropper */}
@@ -242,10 +241,11 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 					</div>
 
 					{/* Zoom & Controls */}
-					<div class="flex items-center gap-4 bg-white/5 p-3 rounded-xl">
+					<label class="flex items-center gap-4 bg-white/5 p-3 rounded-xl cursor-pointer">
 						<span class="material-symbols-rounded text-white/50 text-base">zoom_out</span>
 						<input
 							type="range"
+							aria-label="Zoom adjustment"
 							min="1"
 							max="3"
 							step="0.05"
@@ -254,17 +254,7 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 							class="w-full accent-amber-500"
 						/>
 						<span class="material-symbols-rounded text-white/50 text-base">zoom_in</span>
-						<button
-							onClick={() => {
-								setZoom(1);
-								setPanX(0);
-								setPanY(0);
-							}}
-							class="text-xs px-2.5 py-1 rounded bg-white/10 text-white/80 hover:bg-white/20"
-						>
-							Reset
-						</button>
-					</div>
+					</label>
 
 					{/* Action Buttons */}
 					<div class="flex items-center justify-end gap-3 pt-2">

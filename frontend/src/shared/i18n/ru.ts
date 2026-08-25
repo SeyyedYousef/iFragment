@@ -62,6 +62,7 @@ export const dict = {
 	},
 	"action": {
 		"analyzing": "Анализ...",
+		"creditsLeft": "Кредиты",
 		"collectibles": {
 			"analyzeBtn": "Анализировать анонимный номер",
 			"description": "Отслеживайте историю владения и оценивайте рыночные премии для номеров +888.",
@@ -2118,6 +2119,8 @@ export const dict = {
 		"asset3d": "3D АКТИВ ЗДЕСЬ",
 		"collectionInfo": "Инфо о коллекции",
 		"collectionSubtitle": "Просмотр общей информации о коллекции здесь!",
+		"giftsIntel": "ИНТЕЛ ПОДАРКОВ",
+		"numbersIntel": "ИНТЕЛ НОМЕРОВ",
 		"premiumReport": "ПРЕМИУМ ОТЧЕТ",
 		"promotion": "АКЦИЯ",
 		"scatterFloorLimit": "Лимит пола Scatter",
@@ -3217,5 +3220,22 @@ export const dict = {
 		"subtitle": "Единые активы и реестр транзакций",
 		"title": "Кошелек экосистемы",
 		"upgrade": "Pro"
+	},
+	"lockedReport": {
+		"title": "Разблокировать полный отчет",
+		"subtitle": "Глубокая оценка и структурный анализ рынка для {name}",
+		"featureFairValue": "Количественная справедливая стоимость и точность",
+		"featureComps": "Матрица сопоставимых закрытых продаж",
+		"featureProjection": "12-месячные прогнозы рынка и сигналы",
+		"unlockWithCredit": "Разблокировать за 1 Intel Credit (осталось {credits})",
+		"unlockNoCredit": "Нет кредитов Intel",
+		"buyCredits": "Купить кредиты",
+		"earnCredits": "Получить бесплатно"
+	},
+	"noCreditsModal": {
+		"title": "Закончились кредиты Intel",
+		"description": "Для создания подробных аналитических отчетов требуются кредиты Intel.",
+		"buyCredits": "Купить в магазине",
+		"earnCredits": "Выполнить задания"
 	}
 };

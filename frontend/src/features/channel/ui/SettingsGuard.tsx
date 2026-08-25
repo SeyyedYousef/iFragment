@@ -53,7 +53,7 @@ export const SettingsGuardModal: Component<SettingsGuardProps> = (props) => {
 
 						<button
 							onClick={() => {
-								haptic.notification('warning');
+								haptic.notify('warning');
 								props.onDiscard();
 							}}
 							class="w-full py-2.5 px-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 font-medium text-sm hover:bg-red-500/20 active:scale-[0.98] transition-all"

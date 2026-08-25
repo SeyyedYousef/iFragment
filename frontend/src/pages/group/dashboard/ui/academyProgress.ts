@@ -19,7 +19,7 @@ export const ACADEMY_LESSONS: AcademyLesson[] = [
 		done: (s) => {
 			if (!s?.general) return false;
 			const g = s.general as any;
-			return !!(g.ephemeralAll || g.ephemeralWelcome || g.ephemeralWarnings || g.ephemeralCaptcha || g.ephemeralAdminCmd);
+			return !!(g.ephemeralAll || g.ephemeralWelcome || g.ephemeralWarnings || g.ephemeralCaptcha || g.ephemeralAdminCmd || g.welcome_message);
 		},
 	},
 	{
@@ -108,7 +108,7 @@ export function calculateAcademyProgress(settings: GroupSettings | null | undefi
 			completedCount: 0,
 			totalCount: ACADEMY_LESSONS.length,
 			percentage: 0,
-			lessons: ACADEMY_LESSONS.map((l) => ({ key: l.key, done: false, path: l.path(settings?.group_id || '') })),
+			lessons: ACADEMY_LESSONS.map((l) => ({ key: l.key, done: false, path: l.path('') })),
 		};
 	}
 

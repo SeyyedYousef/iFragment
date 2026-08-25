@@ -33,6 +33,7 @@ import (
 	"ifragment-backend/internal/service/channelmgmt"
 	"ifragment-backend/internal/service/cryptoprice"
 	"ifragment-backend/internal/service/gifts"
+	"ifragment-backend/internal/service/intelcredit"
 	"ifragment-backend/internal/service/numbers"
 	"ifragment-backend/internal/service/payment"
 	"ifragment-backend/internal/service/username"
@@ -472,6 +473,10 @@ func main() {
 	giftsService := gifts.NewGiftsService(db, cache, cryptoPriceService)
 	giftsHandler := handler.NewGiftsHandler(giftsService)
 
+	// Initialize Intel Credits System
+	intelCreditService := intelcredit.NewIntelCreditService(db)
+	intelCreditHandler := handler.NewIntelCreditHandler(intelCreditService)
+
 	// Register API and Owner routes via modular router package
 	router.RegisterAPIRoutes(r, router.Config{
 		DB:                  db,
@@ -491,6 +496,7 @@ func main() {
 		NumbersHandler:      numbersHandler,
 		GiftsHandler:        giftsHandler,
 		ProjectHandler:      projectHandler,
+		IntelCreditHandler:  intelCreditHandler,
 	})
 
 	// Start server with graceful shutdown

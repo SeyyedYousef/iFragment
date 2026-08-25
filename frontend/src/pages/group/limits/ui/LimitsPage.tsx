@@ -62,7 +62,7 @@ export const LimitsPage: Component = () => {
 	const [limits, setLimits] = createStore<LimitsConfig>({ ...defaultConfig });
 	const [initialLimits, setInitialLimits] = createSignal<LimitsConfig>({ ...defaultConfig });
 
-	const [_, { refetch }] = createResource(() => params.id, async (groupId) => {
+	const [_] = createResource(() => params.id, async (groupId) => {
 		const data = await groupApi.getSettings(groupId);
 		setSettingsVersion(data.version);
 

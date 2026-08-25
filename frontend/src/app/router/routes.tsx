@@ -50,12 +50,10 @@ const OwnerSettingsPage = lazy(() => import('@/pages/owner/settings/index.js').t
 const OwnerUserbot = lazy(() => import('@/pages/owner/userbot/index.js').then((m) => ({ default: m.OwnerUserbot })));
 const OwnerUsersPage = lazy(() => import('@/pages/owner/users/index.js').then((m) => ({ default: m.OwnerUsersPage })));
 const AchievementsPage = lazy(() => import('@/pages/profile/achievements/index.js').then((m) => ({ default: m.AchievementsPage })));
-const BoostsPage = lazy(() => import('@/pages/profile/boosts/index.js').then((m) => ({ default: m.BoostsPage })));
 const LeaderboardPage = lazy(() => import('@/pages/profile/leaderboard/index.js').then((m) => ({ default: m.LeaderboardPage })));
 const ProfilePage = lazy(() => import('@/pages/profile/profile/index.js').then((m) => ({ default: m.ProfilePage })));
 const SecurityPage = lazy(() => import('@/pages/profile/security/index.js').then((m) => ({ default: m.SecurityPage })));
 const SettingsPage = lazy(() => import('@/pages/profile/settings/index.js').then((m) => ({ default: m.SettingsPage })));
-const TasksPage = lazy(() => import('@/pages/profile/tasks/index.js').then((m) => ({ default: m.TasksPage })));
 const UsernamePage = lazy(() => import('@/pages/username/index.js').then((m) => ({ default: m.UsernamePage })));
 const NumbersIntelPage = lazy(() => import('@/pages/numbers/intel/index.js').then((m) => ({ default: m.NumbersIntelPage })));
 const NumberReportPage = lazy(() => import('@/pages/numbers/report/index.js').then((m) => ({ default: m.NumberReportPage })));

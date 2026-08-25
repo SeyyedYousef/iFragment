@@ -104,13 +104,20 @@ func NormalizeGiftIdentifier(raw string) (*ParsedGiftRef, error) {
 		}, nil
 	}
 
-	// Fallback default
-	return &ParsedGiftRef{
-		GiftID:       "plush_pepe-42",
-		ModelID:      "plush_pepe",
-		SerialNumber: 42,
-		RawInput:     raw,
-	}, nil
+	if clean != "" {
+		for mID := range traits.OfficialCollections {
+			if strings.Contains(clean, mID) || strings.Contains(clean, strings.ReplaceAll(mID, "_", "")) {
+				return &ParsedGiftRef{
+					GiftID:       fmt.Sprintf("%s-1", mID),
+					ModelID:      mID,
+					SerialNumber: 1,
+					RawInput:     raw,
+				}, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("invalid gift identifier: %s", raw)
 }
 
 // GenerateCuriosityGate creates the pre-paywall teaser with ZERO valuation leakage (Sacred Rule 3)

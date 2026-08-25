@@ -1,6 +1,5 @@
-import { Component, createSignal, createResource, Show, For, onMount, onCleanup } from 'solid-js';
+import { Component, createSignal, createResource, onMount, onCleanup } from 'solid-js';
 import { useNavigate, useParams } from '@solidjs/router';
-import { Motion } from '@motionone/solid';
 import { backButton } from '@tma.js/sdk-solid';
 import { ChannelContextBar, ChannelHamburgerMenu, channelApi } from '@/entities/channel/index.js';
 import { t, isRtl } from '@/shared/i18n/index.js';
@@ -48,15 +47,15 @@ export const ChannelMembersPage: Component = () => {
 			return;
 		}
 		setIsBanning(true);
-		haptic.notification('warning');
+		haptic.notify('warning');
 
 		try {
 			await channelApi.banMember(params.id, targetId);
-			haptic.notification('success');
+			haptic.notify('success');
 			showToast(`User ${targetId} has been banned from the channel.`, 'success');
 			setMemberIdInput('');
 		} catch (err: any) {
-			haptic.notification('error');
+			haptic.notify('error');
 			showToast(err?.response?.data?.error || 'Failed to ban user', 'error');
 		} finally {
 			setIsBanning(false);
@@ -74,11 +73,11 @@ export const ChannelMembersPage: Component = () => {
 
 		try {
 			await channelApi.restrictMember(params.id, targetId);
-			haptic.notification('success');
+			haptic.notify('success');
 			showToast(`User ${targetId} permissions restricted in channel.`, 'success');
 			setMemberIdInput('');
 		} catch (err: any) {
-			haptic.notification('error');
+			haptic.notify('error');
 			showToast(err?.response?.data?.error || 'Failed to restrict user', 'error');
 		} finally {
 			setIsRestricting(false);
@@ -87,8 +86,8 @@ export const ChannelMembersPage: Component = () => {
 
 	return (
 		<div class="min-h-screen bg-neutral-950 text-neutral-100 pb-28 pt-2 px-4" dir={isRtl() ? 'rtl' : 'ltr'}>
-			<ChannelContextBar currentChannelId={params.id} onMenuClick={() => setIsMenuOpen(true)} />
-			<ChannelHamburgerMenu isOpen={isMenuOpen()} onClose={() => setIsMenuOpen(false)} currentChannelId={params.id} />
+			<ChannelContextBar channelId={params.id} />
+			<ChannelHamburgerMenu isOpen={isMenuOpen()} onClose={() => setIsMenuOpen(false)} channelId={params.id} activeTab="members" />
 
 			{/* Header */}
 			<div class="mt-4 mb-5 flex items-center justify-between">

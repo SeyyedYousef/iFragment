@@ -17,7 +17,7 @@ import type {
 	SystemSettings,
 	TotpSetupResponse,
 	AdCampaign,
-} from '../model/types';
+} from '../model/types.js';
 
 const api = axios.create({
 	baseURL: '/api/v1/owner',
@@ -27,7 +27,7 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-	const token = localStorage.getItem('owner_token');
+	const token = sessionStorage.getItem('owner_token');
 	if (token) {
 		config.headers.Authorization = `Bearer ${token}`;
 	}
@@ -238,6 +238,21 @@ export const ownerApi = {
 		return res.data;
 	},
 
+	addEntityCredit: async (
+		entityType: 'channel' | 'group',
+		entityId: string,
+		coins: number,
+		reason: string
+	): Promise<{ success: boolean; new_balance: number }> => {
+		const res = await api.post<{ success: boolean; new_balance: number }>('/entities/grant-coins', {
+			entity_type: entityType,
+			entity_id: entityId,
+			coins,
+			reason,
+		});
+		return res.data;
+	},
+
 	// ─── Finance ────────────────────────────────────────────────────────────────
 	getFinanceSummary: async (): Promise<FinanceSummary> => {
 		const res = await api.get<FinanceSummary>('/finance/summary');
@@ -308,12 +323,12 @@ export const ownerApi = {
 	},
 
 	updateQuest: async (key: string, quest: Partial<QuestItem>): Promise<{ success: boolean }> => {
-		const res = await api.put<{ success: boolean }>(`/quests/${key}`, quest);
+		const res = await api.put<{ success: boolean }>(`/quests/${encodeURIComponent(key)}`, quest);
 		return res.data;
 	},
 
 	deleteQuest: async (key: string): Promise<{ success: boolean }> => {
-		const res = await api.delete<{ success: boolean }>(`/quests/${key}`);
+		const res = await api.delete<{ success: boolean }>(`/quests/${encodeURIComponent(key)}`);
 		return res.data;
 	},
 

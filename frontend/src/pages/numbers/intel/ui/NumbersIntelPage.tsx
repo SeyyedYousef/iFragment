@@ -188,11 +188,11 @@ export const NumbersIntelPage: Component = () => {
 						<div class="bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl p-3.5 relative overflow-hidden">
 							<div class="text-[11px] font-bold text-white/50 mb-1 flex items-center justify-between">
 								<span>{t('numbers.recordATH' as any) || 'Record ATH'}</span>
-								<span class="material-symbols-outlined text-xs text-purple-400">military_tech</span>
+								<span class="material-symbols-outlined text-xs text-cyan-400">military_tech</span>
 							</div>
 							<div class="text-xl font-black text-white tracking-tight flex items-baseline gap-1">
 								864,000
-								<span class="text-xs font-bold text-purple-400">TON</span>
+								<span class="text-xs font-bold text-cyan-400">TON</span>
 							</div>
 							<div class="text-[11px] font-medium text-white/40 mt-0.5 truncate">
 								+888 8888 8888

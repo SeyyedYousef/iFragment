@@ -49,7 +49,7 @@ export const MandatoryPage: Component = () => {
 	const [cfg, setCfg] = createStore<MandatoryConfig>({ ...defaults });
 	const [initialCfg, setInitialCfg] = createSignal<MandatoryConfig>({ ...defaults });
 
-	const [settingsData, { refetch }] = createResource(
+	const [_settingsData] = createResource(
 		() => params.id,
 		async (groupId) => {
 			const res = await groupApi.getSettings(groupId);
@@ -213,7 +213,8 @@ export const MandatoryPage: Component = () => {
 									<StringListField
 										label={t('mandatorySettings.requiredChannels')}
 										items={cfg.requiredChannels}
-										onChange={(val) => updateCfg('requiredChannels', val)}
+										onAdd={(item) => updateCfg('requiredChannels', [...cfg.requiredChannels, item])}
+										onRemove={(item) => updateCfg('requiredChannels', cfg.requiredChannels.filter((c) => c !== item))}
 										placeholder="@yourchannel"
 										description={t('mandatorySettings.requiredChannelsDesc')}
 									/>
@@ -254,7 +255,8 @@ export const MandatoryPage: Component = () => {
 							<StringListField
 								label={t('mandatorySettings.excludedUsers')}
 								items={cfg.excludedUsers}
-								onChange={(val) => updateCfg('excludedUsers', val)}
+								onAdd={(item) => updateCfg('excludedUsers', [...cfg.excludedUsers, item])}
+								onRemove={(item) => updateCfg('excludedUsers', cfg.excludedUsers.filter((u) => u !== item))}
 								placeholder="@username / ID"
 								description={t('mandatorySettings.excludedUsersDesc')}
 							/>

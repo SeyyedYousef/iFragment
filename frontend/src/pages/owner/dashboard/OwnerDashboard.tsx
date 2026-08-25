@@ -1,8 +1,9 @@
 import { createSignal, Show, For, type Component } from 'solid-js';
 import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
-import { ownerApi } from '../../../entities/owner/api/ownerApi';
-import { TotpSetupModal } from '../../../widgets/owner/TotpSetupModal';
-import { DangerActionDialog, type DangerActionDetail } from '../../../widgets/owner/DangerActionDialog';
+import { ownerApi } from '@/entities/owner/api/ownerApi.js';
+import type { OwnerDashboardStats } from '@/entities/owner/model/types.js';
+import { TotpSetupModal } from '@/widgets/owner/TotpSetupModal.jsx';
+import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.jsx';
 
 export const OwnerDashboard: Component = () => {
 	const queryClient = useQueryClient();
@@ -12,7 +13,7 @@ export const OwnerDashboard: Component = () => {
 	// Impersonation state
 	const [impersonateTarget, setImpersonateTarget] = createSignal<{ id: number; name: string } | null>(null);
 
-	const statsQuery = createQuery(() => ({
+	const statsQuery = createQuery<OwnerDashboardStats>(() => ({
 		queryKey: ['owner', 'dashboard', 'stats'],
 		queryFn: ownerApi.getDashboardStats,
 		refetchInterval: 30000, // 30s polling
@@ -20,7 +21,7 @@ export const OwnerDashboard: Component = () => {
 
 	const impersonateMutation = createMutation(() => ({
 		mutationFn: (targetUserId: number) => ownerApi.impersonateUser(targetUserId),
-		onSuccess: (data) => {
+		onSuccess: (data: { token: string }) => {
 			if (data.token) {
 				localStorage.setItem('impersonation_token', data.token);
 				window.location.href = '/';
@@ -35,7 +36,7 @@ export const OwnerDashboard: Component = () => {
 		}
 	};
 
-	const stats = () => statsQuery.data;
+	const stats = () => statsQuery.data as OwnerDashboardStats | undefined;
 
 	return (
 		<div class="space-y-6">
@@ -123,7 +124,7 @@ export const OwnerDashboard: Component = () => {
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2 backdrop-blur-sm">
 					<div class="flex items-center justify-between text-xs text-white/50">
 						<span>Telegram Stars Volume</span>
-						<span class="material-symbols-rounded text-base text-purple-400">star</span>
+						<span class="material-symbols-rounded text-base text-cyan-400">star</span>
 					</div>
 					<div class="text-2xl font-black text-white font-mono flex items-center gap-1">
 						<span>⭐</span>
@@ -215,7 +216,7 @@ export const OwnerDashboard: Component = () => {
 						</div>
 						<div class="flex justify-between items-center text-xs p-3 rounded-2xl bg-white/[0.02] border border-white/5">
 							<span class="text-white/60">Referral Rev-Share Paid</span>
-							<span class="font-mono font-bold text-purple-400">
+							<span class="font-mono font-bold text-cyan-400">
 								{(stats()?.today_economy?.rev_share_paid_today ?? 4800).toLocaleString()}
 							</span>
 						</div>

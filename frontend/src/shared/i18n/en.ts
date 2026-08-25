@@ -62,6 +62,7 @@ export const dict = {
 	},
 	"action": {
 		"analyzing": "Analyzing...",
+		"creditsLeft": "Credits",
 		"collectibles": {
 			"analyzeBtn": "Analyze Anonymous Number",
 			"description": "Trace ownership history and evaluate market premiums for +888 numbers.",
@@ -2118,6 +2119,8 @@ export const dict = {
 		"asset3d": "3D ASSET HERE",
 		"collectionInfo": "Collection Info",
 		"collectionSubtitle": "View general collection info from here!",
+		"giftsIntel": "GIFTS INTEL",
+		"numbersIntel": "NUMBERS INTEL",
 		"premiumReport": "PREMIUM REPORT",
 		"promotion": "PROMOTION",
 		"scatterFloorLimit": "Scatter Floor Limit",
@@ -3217,5 +3220,22 @@ export const dict = {
 		"subtitle": "Unified Assets & Ledger",
 		"title": "Ecosystem Wallet",
 		"upgrade": "Pro"
+	},
+	"lockedReport": {
+		"title": "Unlock Full Intelligence Report",
+		"subtitle": "Deep valuation and structural market analysis for {name}",
+		"featureFairValue": "Quantitative Fair Value & Confidence",
+		"featureComps": "Comparable Closed Sales Matrix",
+		"featureProjection": "12-Month Market Projections & Signals",
+		"unlockWithCredit": "Unlock with 1 Intel Credit ({credits} left)",
+		"unlockNoCredit": "No Intel Credits Available",
+		"buyCredits": "Buy Credits",
+		"earnCredits": "Earn Free Credits"
+	},
+	"noCreditsModal": {
+		"title": "Out of Intel Credits",
+		"description": "You need Intel Credits to generate full deep intelligence reports.",
+		"buyCredits": "Get Credits in Shop",
+		"earnCredits": "Complete Tasks to Earn"
 	}
 };

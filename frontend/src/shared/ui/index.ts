@@ -14,3 +14,5 @@ export * from './settings-controls.js';
 export * from './toast.js';
 export * from './SparklineChart.js';
 export * from './SettingsGuard.js';
+export * from './LockedReportCard.js';
+

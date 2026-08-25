@@ -1,8 +1,8 @@
 import { createSignal, createEffect, onCleanup, Show, For, type Component } from 'solid-js';
 import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
-import { ownerApi } from '../../../entities/owner/api/ownerApi';
-import type { SearchedUser } from '../../../entities/owner/model/types';
-import { DangerActionDialog, type DangerActionDetail } from '../../../widgets/owner/DangerActionDialog';
+import { ownerApi } from '@/entities/owner/api/ownerApi.js';
+import type { SearchedUser } from '@/entities/owner/model/types.js';
+import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.jsx';
 
 export const OwnerUsers: Component = () => {
 	const queryClient = useQueryClient();
@@ -16,7 +16,7 @@ export const OwnerUsers: Component = () => {
 	const [selectedUser, setSelectedUser] = createSignal<SearchedUser | null>(null);
 	const [dialogMode, setDialogMode] = createSignal<'simulate' | 'ban' | 'unban' | 'flag' | 'adjust' | null>(null);
 	const [adjustAmount, setAdjustAmount] = createSignal<number>(0);
-	const [banDuration, setBanDuration] = createSignal<number>(86400); // 1 day default
+	const [banDuration, _setBanDuration] = createSignal<number>(86400); // 1 day default
 
 	// 300ms Search Debounce
 	let timer: any;
@@ -43,7 +43,7 @@ export const OwnerUsers: Component = () => {
 
 	const simulateMutation = createMutation(() => ({
 		mutationFn: (targetUserId: number) => ownerApi.impersonateUser(targetUserId),
-		onSuccess: (data) => {
+		onSuccess: (data: { token: string }) => {
 			if (data.token) {
 				localStorage.setItem('impersonation_token', data.token);
 				window.location.href = '/';
@@ -68,15 +68,6 @@ export const OwnerUsers: Component = () => {
 		},
 	}));
 
-	const flagMutation = createMutation(() => ({
-		mutationFn: ({ userId, isFlagged, reason }: { userId: number; isFlagged: boolean; reason: string }) =>
-			ownerApi.flagUser(userId, isFlagged, reason),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['owner', 'users'] });
-			closeDialog();
-		},
-	}));
-
 	const adjustMutation = createMutation(() => ({
 		mutationFn: ({ userId, amount, reason }: { userId: number; amount: number; reason: string }) =>
 			ownerApi.adjustCoins(userId, amount, reason),
@@ -95,19 +86,6 @@ export const OwnerUsers: Component = () => {
 	const users = () => usersQuery.data?.users || [];
 	const total = () => usersQuery.data?.total || 0;
 	const totalPages = () => Math.ceil(total() / pageSize);
-
-	const getAdjustDetails = (): DangerActionDetail[] => {
-		const user = selectedUser();
-		if (!user) return [];
-		return [
-			{
-				label: 'Current Coins Balance',
-				before: `${user.balance.toLocaleString()} Coins`,
-				after: `${(user.balance + adjustAmount()).toLocaleString()} Coins`,
-			},
-			{ label: 'Adjustment Amount', value: `${adjustAmount() > 0 ? '+' : ''}${adjustAmount()} Coins` },
-		];
-	};
 
 	return (
 		<div class="space-y-6">
@@ -404,7 +382,7 @@ export const OwnerUsers: Component = () => {
 					riskLevel="critical"
 					requireReason={true}
 					loading={banMutation.isPending}
-					onConfirm={(reason) =>
+					onConfirm={(reason: string) =>
 						banMutation.mutate({
 							userId: selectedUser()!.telegram_id,
 							reason,

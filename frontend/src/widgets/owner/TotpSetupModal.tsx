@@ -1,6 +1,6 @@
-import { createSignal, createEffect, onMount, For, Show, type Component } from 'solid-js';
+import { createSignal, createEffect, For, Show, type Component } from 'solid-js';
 import QRCode from 'qrcode';
-import { ownerApi } from '../../entities/owner/api/ownerApi';
+import { ownerApi } from '../../entities/owner/api/ownerApi.js';
 
 interface TotpSetupModalProps {
 	isOpen: boolean;

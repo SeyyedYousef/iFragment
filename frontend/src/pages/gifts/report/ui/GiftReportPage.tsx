@@ -22,7 +22,6 @@ export const GiftReportPage: Component = () => {
 	// Local State
 	const [unlockedReport, setUnlockedReport] = createSignal<GiftValuationReport | null>(null);
 	const [isWatching, setIsWatching] = createSignal(false);
-	const [unlockMethod, setUnlockMethod] = createSignal<'credit' | 'coins' | 'stars'>('credit');
 	const [unlockError, setUnlockError] = createSignal<string | null>(null);
 
 	// Curiosity Gate Query (Zero Price Leakage)

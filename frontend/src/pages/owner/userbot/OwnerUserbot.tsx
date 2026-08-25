@@ -1,8 +1,8 @@
-import { createSignal, createEffect, onCleanup, Show, For, type Component } from 'solid-js';
+import { createSignal, onCleanup, Show, For, type Component } from 'solid-js';
 import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
-import { ownerApi } from '../../../entities/owner/api/ownerApi';
-import type { ManagedUserbot } from '../../../entities/owner/model/types';
-import { DangerActionDialog } from '../../../widgets/owner/DangerActionDialog';
+import { ownerApi } from '@/entities/owner/api/ownerApi.js';
+import type { ManagedUserbot } from '@/entities/owner/model/types.js';
+import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.jsx';
 
 export const OwnerUserbot: Component = () => {
 	const queryClient = useQueryClient();
@@ -19,14 +19,16 @@ export const OwnerUserbot: Component = () => {
 	let timer: any;
 	onCleanup(() => clearInterval(timer));
 
-	const userbotsQuery = createQuery(() => ({
+	const userbotsQuery = createQuery<ManagedUserbot[]>(() => ({
 		queryKey: ['owner', 'userbots'],
 		queryFn: ownerApi.listUserbots,
 	}));
 
+	const userbots = () => (userbotsQuery.data || []) as ManagedUserbot[];
+
 	const sendCodeMutation = createMutation(() => ({
 		mutationFn: (phoneNumber: string) => ownerApi.sendUserbotCode(phoneNumber),
-		onSuccess: (data) => {
+		onSuccess: (data: { phone_code_hash: string }) => {
 			setPhoneCodeHash(data.phone_code_hash);
 			setStep('code');
 			startCountdown();
@@ -78,8 +80,6 @@ export const OwnerUserbot: Component = () => {
 		const clean = raw.replace(/\s+/g, '');
 		return `${clean.slice(0, 4)} *** **${clean.slice(-2)}`;
 	};
-
-	const userbots = () => userbotsQuery.data || [];
 
 	return (
 		<div class="space-y-6">

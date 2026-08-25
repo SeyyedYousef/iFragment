@@ -14,7 +14,6 @@ export const ProjectsPage: Component = () => {
 	const params = useParams();
 	const [isMenuOpen, setIsMenuOpen] = createSignal(false);
 	const [isCreateModalOpen, setIsCreateModalOpen] = createSignal(false);
-	const [editingProject, setEditingProject] = createSignal<Project | null>(null);
 
 	// New Project Form Signals
 	const [projectName, setProjectName] = createSignal('');
@@ -88,13 +87,13 @@ export const ProjectsPage: Component = () => {
 				},
 			});
 
-			haptic.notification('success');
+			haptic.notify('success');
 			showToast(t('channel.projects.created_success') || 'Project created successfully with 72h free trial!', 'success');
 			setIsCreateModalOpen(false);
 			resetForm();
 			refetchProjects();
 		} catch (err: any) {
-			haptic.notification('error');
+			haptic.notify('error');
 			const errorMsg = err?.response?.data?.error || err?.message || 'Failed to create project';
 			showToast(errorMsg, 'error');
 		} finally {
@@ -125,13 +124,13 @@ export const ProjectsPage: Component = () => {
 			await channelApi.updateProject(projectId, {
 				[field === 'source' ? 'source_channel_id' : 'target_channel_id']: newChannelId || null,
 			});
-			haptic.notification('success');
+			haptic.notify('success');
 			showToast(t('channel.projects.channel_switched') || 'Channel switched instantly without extra cost!', 'success');
 			setSwitchingProjectId(null);
 			setSwitchingType(null);
 			refetchProjects();
 		} catch (err: any) {
-			haptic.notification('error');
+			haptic.notify('error');
 			showToast(err?.response?.data?.error || 'Failed to switch channel', 'error');
 		}
 	};
@@ -140,7 +139,7 @@ export const ProjectsPage: Component = () => {
 		if (!confirm(t('channel.projects.confirm_delete') || 'Are you sure you want to delete this project?')) {
 			return;
 		}
-		haptic.notification('warning');
+		haptic.notify('warning');
 		try {
 			await channelApi.deleteProject(projectId);
 			showToast(t('channel.projects.deleted') || 'Project deleted', 'info');
@@ -167,15 +166,15 @@ export const ProjectsPage: Component = () => {
 		<div class="min-h-screen bg-neutral-950 text-neutral-100 pb-28 pt-2 px-4" dir={isRtl() ? 'rtl' : 'ltr'}>
 			{/* Context Bar */}
 			<ChannelContextBar
-				currentChannelId={params.id}
-				onMenuClick={() => setIsMenuOpen(true)}
+				channelId={params.id}
 			/>
 
 			{/* Hamburger Drawer */}
 			<ChannelHamburgerMenu
 				isOpen={isMenuOpen()}
 				onClose={() => setIsMenuOpen(false)}
-				currentChannelId={params.id}
+				channelId={params.id}
+				activeTab="projects"
 			/>
 
 			{/* Header */}
@@ -400,7 +399,7 @@ export const ProjectsPage: Component = () => {
 									</span>
 								</Show>
 								<Show when={project.pipeline_config?.drop_media}>
-									<span class="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20 text-[10px]">
+									<span class="px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[10px]">
 										📄 Text Only
 									</span>
 								</Show>

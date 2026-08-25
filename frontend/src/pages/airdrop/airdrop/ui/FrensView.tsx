@@ -9,7 +9,7 @@ import { ECONOMY_CONFIG } from '@/shared/config/economy.js';
 
 export const FrensView: Component = () => {
 	const [copied, setCopied] = createSignal(false);
-	const [sharing, setSharing] = createSignal(false);
+	const [_sharing, setSharing] = createSignal(false);
 
 	const referralQuery = createQuery(() => ({
 		queryKey: ['profile', 'referral'],

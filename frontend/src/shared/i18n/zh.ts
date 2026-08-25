@@ -62,6 +62,7 @@ export const dict = {
 	},
 	"action": {
 		"analyzing": "正在分析...",
+		"creditsLeft": "积分",
 		"collectibles": {
 			"analyzeBtn": "分析匿名号码",
 			"description": "追踪所有权历史并评估 +888 号码的市场溢价。",
@@ -2118,6 +2119,8 @@ export const dict = {
 		"asset3d": "3D 资产在这里",
 		"collectionInfo": "收藏信息",
 		"collectionSubtitle": "在此处查看一般收藏信息！",
+		"giftsIntel": "礼物情报",
+		"numbersIntel": "号码情报",
 		"premiumReport": "高级报告",
 		"promotion": "促销活动",
 		"scatterFloorLimit": "分散下限",
@@ -3217,5 +3220,22 @@ export const dict = {
 		"subtitle": "统一资产与账本中心",
 		"title": "生态钱包",
 		"upgrade": "Pro"
+	},
+	"lockedReport": {
+		"title": "解锁完整情报报告",
+		"subtitle": "针对 {name} 的深度估值和市场结构分析",
+		"featureFairValue": "量化公允价值与置信度",
+		"featureComps": "历史相似成交矩阵",
+		"featureProjection": "12个月市场预测与信号",
+		"unlockWithCredit": "使用 1 个 Intel 积分解锁 (剩余 {credits})",
+		"unlockNoCredit": "Intel 积分不足",
+		"buyCredits": "购买积分",
+		"earnCredits": "赚取免费积分"
+	},
+	"noCreditsModal": {
+		"title": "Intel 积分已用尽",
+		"description": "生成完整深度情报报告需要 Intel 积分。",
+		"buyCredits": "在商店中购买",
+		"earnCredits": "完成任务赚取"
 	}
 };

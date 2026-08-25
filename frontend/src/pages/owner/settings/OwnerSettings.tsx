@@ -1,8 +1,8 @@
 import { createSignal, createEffect, Show, type Component } from 'solid-js';
 import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
-import { ownerApi } from '../../../entities/owner/api/ownerApi';
-import type { SystemSettings } from '../../../entities/owner/model/types';
-import { DangerActionDialog } from '../../../widgets/owner/DangerActionDialog';
+import { ownerApi } from '@/entities/owner/api/ownerApi.js';
+import type { SystemSettings } from '@/entities/owner/model/types.js';
+import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.jsx';
 
 export const OwnerSettings: Component = () => {
 	const queryClient = useQueryClient();

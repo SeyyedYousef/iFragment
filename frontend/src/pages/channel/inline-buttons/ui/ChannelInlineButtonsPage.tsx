@@ -246,9 +246,6 @@ export const ChannelInlineButtonsPage: Component = () => {
 		setIsSaving(true);
 		haptic.impact('medium');
 
-		const currentVersion = settings()?.version ?? 1;
-		const settingsPayload = { enabled: isButtonsEnabled(), preset: activePreset() };
-
 		const buttonsPayload = buttons().map((b) => {
 			const payload: any = {
 				channel_id: params.id,

@@ -1,8 +1,8 @@
 import { createSignal, Show, For, type Component } from 'solid-js';
 import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
-import { ownerApi } from '../../../entities/owner/api/ownerApi';
-import type { PromoCode } from '../../../entities/owner/model/types';
-import { DangerActionDialog } from '../../../widgets/owner/DangerActionDialog';
+import { ownerApi } from '@/entities/owner/api/ownerApi.js';
+import type { PromoCode } from '@/entities/owner/model/types.js';
+import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.jsx';
 
 export const OwnerPromos: Component = () => {
 	const queryClient = useQueryClient();
@@ -13,12 +13,12 @@ export const OwnerPromos: Component = () => {
 	const [expiresAt, setExpiresAt] = createSignal('');
 	const [promoToDelete, setPromoToDelete] = createSignal<PromoCode | null>(null);
 
-	const promosQuery = createQuery(() => ({
+	const promosQuery = createQuery<PromoCode[]>(() => ({
 		queryKey: ['owner', 'promos'],
 		queryFn: ownerApi.listPromos,
 	}));
 
-	const createMutation = createMutation(() => ({
+	const createPromoMutation = createMutation(() => ({
 		mutationFn: () =>
 			ownerApi.createPromo(
 				code().trim().toUpperCase(),
@@ -61,10 +61,10 @@ export const OwnerPromos: Component = () => {
 			alert('Maximum promo reward amount is 100,000 Coins');
 			return;
 		}
-		createMutation.mutate();
+		createPromoMutation.mutate();
 	};
 
-	const promos = () => promosQuery.data || [];
+	const promos = () => (promosQuery.data || []) as PromoCode[];
 
 	return (
 		<div class="space-y-6">
@@ -147,10 +147,10 @@ export const OwnerPromos: Component = () => {
 
 							<button
 								type="submit"
-								disabled={createMutation.isPending || !code().trim()}
+								disabled={createPromoMutation.isPending || !code().trim()}
 								class="w-full py-3 bg-amber-500 hover:bg-amber-400 text-xs font-bold uppercase text-black rounded-xl transition-all disabled:opacity-40 shadow-lg shadow-amber-500/20"
 							>
-								{createMutation.isPending ? 'Generating...' : 'Create Promo Code'}
+								{createPromoMutation.isPending ? 'Generating...' : 'Create Promo Code'}
 							</button>
 						</form>
 					</div>

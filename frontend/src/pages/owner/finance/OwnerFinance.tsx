@@ -1,23 +1,24 @@
 import { createSignal, Show, For, type Component } from 'solid-js';
 import { createQuery } from '@tanstack/solid-query';
-import { ownerApi } from '../../../entities/owner/api/ownerApi';
+import { ownerApi } from '@/entities/owner/api/ownerApi.js';
+import type { FinanceOrder, FinanceSummary } from '@/entities/owner/model/types.js';
 
 export const OwnerFinance: Component = () => {
 	const [page, setPage] = createSignal(0);
 	const pageSize = 20;
 
-	const summaryQuery = createQuery(() => ({
+	const summaryQuery = createQuery<FinanceSummary>(() => ({
 		queryKey: ['owner', 'finance', 'summary'],
 		queryFn: ownerApi.getFinanceSummary,
 	}));
 
-	const ordersQuery = createQuery(() => ({
+	const ordersQuery = createQuery<FinanceOrder[]>(() => ({
 		queryKey: ['owner', 'finance', 'orders', page()],
 		queryFn: () => ownerApi.getFinanceOrders(pageSize, page() * pageSize),
 	}));
 
-	const summary = () => summaryQuery.data;
-	const orders = () => ordersQuery.data || [];
+	const summary = () => summaryQuery.data as FinanceSummary | undefined;
+	const orders = () => (ordersQuery.data || []) as FinanceOrder[];
 
 	return (
 		<div class="space-y-6">
@@ -72,7 +73,7 @@ export const OwnerFinance: Component = () => {
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2">
 					<div class="flex items-center justify-between text-xs text-white/50">
 						<span>VIP Subscriptions</span>
-						<span class="material-symbols-rounded text-base text-purple-400">workspace_premium</span>
+						<span class="material-symbols-rounded text-base text-cyan-400">workspace_premium</span>
 					</div>
 					<div class="text-2xl font-black text-white font-mono">
 						{summaryQuery.isLoading ? '...' : (summary()?.active_subscriptions ?? 0).toLocaleString()}

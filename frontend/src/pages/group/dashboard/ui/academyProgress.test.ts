@@ -16,7 +16,7 @@ describe('academyProgress mapping', () => {
 			version: 1,
 			updated_at: new Date().toISOString(),
 			general: {
-				ephemeralWelcome: true,
+				welcome_message: true,
 			},
 			content_restrictions: {
 				removeLinks: { enabled: true, window: 'Always', penalty: 'delete' },

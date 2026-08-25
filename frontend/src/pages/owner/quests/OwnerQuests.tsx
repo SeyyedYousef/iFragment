@@ -1,8 +1,8 @@
 import { createSignal, Show, For, type Component } from 'solid-js';
 import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
-import { ownerApi } from '../../../entities/owner/api/ownerApi';
-import type { QuestItem } from '../../../entities/owner/model/types';
-import { DangerActionDialog } from '../../../widgets/owner/DangerActionDialog';
+import { ownerApi } from '@/entities/owner/api/ownerApi.js';
+import type { QuestItem } from '@/entities/owner/model/types.js';
+import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.jsx';
 
 export const OwnerQuests: Component = () => {
 	const queryClient = useQueryClient();
@@ -22,12 +22,12 @@ export const OwnerQuests: Component = () => {
 
 	const [questToDelete, setQuestToDelete] = createSignal<QuestItem | null>(null);
 
-	const questsQuery = createQuery(() => ({
+	const questsQuery = createQuery<QuestItem[]>(() => ({
 		queryKey: ['owner', 'quests'],
 		queryFn: ownerApi.listQuests,
 	}));
 
-	const createMutation = createMutation(() => ({
+	const createQuestMutation = createMutation(() => ({
 		mutationFn: (q: Partial<QuestItem>) => ownerApi.createQuest(q),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['owner', 'quests'] });
@@ -96,11 +96,11 @@ export const OwnerQuests: Component = () => {
 		if (editingQuest()) {
 			updateMutation.mutate({ key: editingQuest()!.key, q: payload });
 		} else {
-			createMutation.mutate(payload);
+			createQuestMutation.mutate(payload);
 		}
 	};
 
-	const quests = () => questsQuery.data || [];
+	const quests = () => (questsQuery.data || []) as QuestItem[];
 
 	return (
 		<div class="space-y-6">
@@ -251,7 +251,7 @@ export const OwnerQuests: Component = () => {
 								</button>
 								<button
 									type="submit"
-									disabled={createMutation.isPending || updateMutation.isPending}
+									disabled={createQuestMutation.isPending || updateMutation.isPending}
 									class="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs transition shadow-lg shadow-amber-500/20 disabled:opacity-50"
 								>
 									{editingQuest() ? 'Save Quest' : 'Create Quest'}
@@ -311,7 +311,7 @@ export const OwnerQuests: Component = () => {
 												<div class="font-mono text-amber-400 font-bold">
 													{quest.reward_frg.toLocaleString()} Coins
 												</div>
-												<div class="font-mono text-purple-400 text-[11px]">+{quest.reward_xp} XP</div>
+												<div class="font-mono text-cyan-400 text-[11px]">+{quest.reward_xp} XP</div>
 											</td>
 											<td class="py-3">
 												<span

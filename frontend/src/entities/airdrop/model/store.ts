@@ -225,8 +225,8 @@ export const syncBoostersStatus = async () => {
 							id: 'tapPower',
 							name: 'Multi-Tap',
 							level: b.current_level,
-							maxLevel: b.max_level || 10,
-							basePrice: b.price_frg,
+							maxLevel: typeof b.max_level === 'number' ? b.max_level : 10,
+							basePrice: typeof b.price_frg === 'number' ? b.price_frg : 100,
 							priceMultiplier: 2,
 							effect: 1,
 							effectUnit: 'tap',
@@ -238,8 +238,8 @@ export const syncBoostersStatus = async () => {
 							id: 'energyCap',
 							name: 'Energy Limit',
 							level: b.current_level,
-							maxLevel: b.max_level || 10,
-							basePrice: b.price_frg,
+							maxLevel: typeof b.max_level === 'number' ? b.max_level : 10,
+							basePrice: typeof b.price_frg === 'number' ? b.price_frg : 100,
 							priceMultiplier: 2,
 							effect: 500,
 							effectUnit: 'cap',
@@ -251,8 +251,8 @@ export const syncBoostersStatus = async () => {
 							id: 'tapBot',
 							name: 'Tap Bot',
 							level: b.current_level,
-							maxLevel: b.max_level || 1,
-							basePrice: b.price_frg,
+							maxLevel: typeof b.max_level === 'number' ? b.max_level : 1,
+							basePrice: typeof b.price_frg === 'number' ? b.price_frg : 50000,
 							priceMultiplier: 1,
 							effect: 1,
 							effectUnit: 'bot',
@@ -460,7 +460,7 @@ export const syncPendingTaps = async () => {
 						if (typeof stats.energy === 'number') {
 							setEnergy(Math.max(0, stats.energy - getOptimisticEnergyCost()));
 						}
-						setFrgBalance(typeof stats.frgBalance === 'number' ? stats.frgBalance : 0);
+						setFrgBalance(typeof (stats as any).frgBalance === 'number' ? (stats as any).frgBalance : ((stats as any).frg_balance ?? 0));
 						setTotalTaps(
 							(typeof stats.totalTaps === 'number' ? stats.totalTaps : 0) + getOptimisticTaps(),
 						);
@@ -576,7 +576,7 @@ export const syncProfileStats = async () => {
 	try {
 		const stats = await getProfileStats();
 		if (stats) {
-			setFrgBalance(typeof stats.frgBalance === 'number' ? stats.frgBalance : 0);
+			setFrgBalance(typeof (stats as any).frgBalance === 'number' ? (stats as any).frgBalance : ((stats as any).frg_balance ?? 0));
 			if (!isSyncing) {
 				setBalance(
 					(typeof stats.airdropCoins === 'number' ? stats.airdropCoins : 0) + getOptimisticCoins(),

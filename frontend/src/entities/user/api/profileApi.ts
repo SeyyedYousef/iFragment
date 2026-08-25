@@ -34,7 +34,6 @@ import type {
 	LedgerResponse,
 	MyAssetsResponse,
 	ProfileStats,
-	PurchaseOption,
 	ReferralInfo,
 	SuccessResponse,
 	TaskStatus,

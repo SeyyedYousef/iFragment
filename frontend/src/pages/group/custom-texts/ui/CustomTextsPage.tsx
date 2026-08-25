@@ -1,7 +1,6 @@
-import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton } from '@tma.js/sdk-solid';
-import { Component, createResource, createSignal, For, onCleanup, onMount, Show, Suspense } from 'solid-js';
+import { Component, createResource, createSignal, onCleanup, onMount, Show, Suspense } from 'solid-js';
 import { createStore, reconcile } from 'solid-js/store';
 import { groupApi } from '@/entities/group/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
@@ -23,13 +22,13 @@ interface CustomTextsConfig {
 }
 
 const defaults: CustomTextsConfig = {
-	welcomeText: '👋 Welcome {user} to {group}!',
-	warningText: '⚠️ {user} | Warning {count}/{threshold} ▫️ {reason}',
-	silenceStartText: '🔒 Quiet mode activated',
-	silenceEndText: '🔓 Quiet mode deactivated',
-	rulesText: '📜 <b>Rules</b>: Respect others • No spam or links',
-	forceJoinText: '📢 {user}, join required channels to chat:\n{channel_names}',
-	forceAddText: '👥 {user}, invite {remainadd} member(s) to chat ({added}/{number})',
+	welcomeText: '',
+	warningText: '',
+	silenceStartText: '',
+	silenceEndText: '',
+	rulesText: '',
+	forceJoinText: '',
+	forceAddText: '',
 	inlineButtons: [],
 };
 
@@ -38,15 +37,15 @@ export const CustomTextsPage: Component = () => {
 	const params = useParams();
 
 	const [isMenuOpen, setIsMenuOpen] = createSignal(false);
-	const [isSaving, setIsSaving] = createSignal(false);
 	const [isDirty, setIsDirty] = createSignal(false);
+	const [isSaving, setIsSaving] = createSignal(false);
 	const [showUnsavedSheet, setShowUnsavedSheet] = createSignal(false);
 	const [settingsVersion, setSettingsVersion] = createSignal(1);
 
 	const [cfg, setCfg] = createStore<CustomTextsConfig>({ ...defaults });
 	const [initialCfg, setInitialCfg] = createSignal<CustomTextsConfig>({ ...defaults });
 
-	const [_, { refetch }] = createResource(() => params.id, async (groupId) => {
+	const [_] = createResource(() => params.id, async (groupId) => {
 		const data = await groupApi.getSettings(groupId);
 		setSettingsVersion(data.version);
 		const ct = (data.custom_texts || {}) as Partial<CustomTextsConfig>;
@@ -238,7 +237,8 @@ export const CustomTextsPage: Component = () => {
 						<InlineButtonField
 							label={t('customTextsSettings.inlineButtons')}
 							buttons={cfg.inlineButtons}
-							onChange={(btns) => update('inlineButtons', btns)}
+							onAdd={(btn) => update('inlineButtons', [...cfg.inlineButtons, btn])}
+							onRemove={(id) => update('inlineButtons', cfg.inlineButtons.filter((b) => b.id !== id))}
 							description={t('customTextsSettings.inlineButtonsDesc')}
 						/>
 					</div>

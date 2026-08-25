@@ -13,7 +13,6 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 	const [errorMsg, setErrorMsg] = createSignal('');
 	const [showLeaveModal, setShowLeaveModal] = createSignal(false);
 	const [pendingClanModal, setPendingClanModal] = createSignal<string | null>(null);
-	const [showQrModal, setShowQrModal] = createSignal(false);
 	const [filterCategory, setFilterCategory] = createSignal<'featured' | 'growing'>('featured');
 	const [topClans] = createResource(getTopClans);
 

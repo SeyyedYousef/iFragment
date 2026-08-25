@@ -2,7 +2,7 @@ import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
 import { backButton } from '@tma.js/sdk-solid';
-import { Component, createMemo, createSignal, ErrorBoundary, For, onMount, Show } from 'solid-js';
+import { Component, createSignal, ErrorBoundary, For, onMount, Show } from 'solid-js';
 import { useSecretTrigger } from '@/features/owner-gate/index.js';
 import { getProfileAchievements, getProfileStats, getReferralInfo, setProfilePhotoUrl } from '@/entities/user/index.js';
 import { formatNumber, locale, setLocale, t } from '@/shared/i18n/index.js';
@@ -296,7 +296,7 @@ export const ProfilePage: Component = () => {
 								>
 									<span class="text-[22px]">🎁</span>
 									<span class="text-[11px] font-black text-white/80">Gifts</span>
-									<span class="text-[8px] px-1.5 py-0.5 rounded-[6px] bg-purple-400/20 text-purple-300 font-black uppercase">
+									<span class="text-[8px] px-1.5 py-0.5 rounded-[6px] bg-cyan-400/20 text-cyan-300 font-black uppercase">
 										🔜 Soon
 									</span>
 								</button>

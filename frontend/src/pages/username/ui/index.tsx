@@ -1,18 +1,15 @@
-import { Motion } from '@motionone/solid';
 import { useNavigate, useSearchParams } from '@solidjs/router';
-import { backButton, openLink, openTelegramLink } from '@tma.js/sdk-solid';
+import { backButton, openTelegramLink } from '@tma.js/sdk-solid';
 import { toPng } from 'html-to-image';
-import { Component, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import { Component, createEffect, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { apiFetch } from '@/shared/api/base.js';
 import { valuationApi } from '@/entities/username/index.js';
 import { formatNumber, isRtl, t } from '@/shared/i18n/index.js';
 import { cloudStorage } from '@/shared/lib/cloud-storage.js';
 import {
-	formatRemaining,
 	getCacheExpiry,
 	getCachedReport,
 	getRecentReports,
-	invalidateReport,
 	saveReport,
 	type RecentReport,
 } from '@/shared/lib/report-cache.js';
@@ -191,7 +188,7 @@ export const UsernamePage: Component = () => {
 	const [isPro, setIsPro] = createSignal<boolean>(false);
 	const [dailyUsed, setDailyUsed] = createSignal<number>(0);
 	const [copiedCert, setCopiedCert] = createSignal<boolean>(false);
-	const [showPaymentGate, setShowPaymentGate] = createSignal<boolean>(false);
+	const [_showPaymentGate, setShowPaymentGate] = createSignal<boolean>(false);
 	const [freeQuotaUsed, setFreeQuotaUsed] = createSignal<boolean>(false);
 	const [firstReportDiscountEligible, setFirstReportDiscountEligible] = createSignal<boolean>(true);
 	const [inChannel, setInChannel] = createSignal<boolean>(false);
@@ -207,15 +204,10 @@ export const UsernamePage: Component = () => {
 	const [isTogglingMonitor, setIsTogglingMonitor] = createSignal<boolean>(false);
 
 	// Cached-report state: a paid report stays readable for 24h
-	const [fromCache, setFromCache] = createSignal<boolean>(false);
-	const [cacheExpiry, setCacheExpiry] = createSignal<number | null>(null);
-	const [recents, setRecents] = createSignal<RecentReport[]>([]);
-	const [refreshing, setRefreshing] = createSignal<boolean>(false);
-	const [showRecents, setShowRecents] = createSignal<boolean>(false);
-
-	// Ticks once a second purely to drive the auction countdown when active
-	const [now, setNow] = createSignal<number>(Date.now());
-	const [expanded, setExpanded] = createSignal<Record<string, boolean>>({});
+	const [_fromCache, setFromCache] = createSignal<boolean>(false);
+	const [_cacheExpiry, setCacheExpiry] = createSignal<number | null>(null);
+	const [_recents, setRecents] = createSignal<RecentReport[]>([]);
+	const [_showRecents, _setShowRecents] = createSignal<boolean>(false);
 
 	const navigate = useNavigate();
 	const username = () => (searchParams.u || '').replace(/^@/, '');
@@ -237,25 +229,10 @@ export const UsernamePage: Component = () => {
 		clearPaymentPolling();
 	});
 
-	const toggleSection = (key: string) => {
-		haptic.selection();
-		setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
-	};
-
 	const openReport = (name: string) => {
 		if (!name) return;
 		haptic.impact('light');
 		navigate(`/username/report?u=${encodeURIComponent(name.replace(/^@/, ''))}`);
-	};
-
-	const openExternal = (url?: string) => {
-		if (!url) return;
-		haptic.impact('medium');
-		try {
-			url.includes('t.me/') ? openTelegramLink(url) : openLink(url);
-		} catch (_) {
-			window.open(url, '_blank');
-		}
 	};
 
 	const handleMouseMove = (e: MouseEvent) => {
@@ -315,49 +292,6 @@ export const UsernamePage: Component = () => {
 		};
 	};
 
-	const similarBadge = (item: { status?: string; sale_price?: number; price_source?: string }) => {
-		const status = item.status || '';
-		const priced = (item.sale_price ?? 0) > 0;
-		if (status === 'sold' && priced) {
-			return item.price_source === 'archive_anchor'
-				? { label: t('valuation.archive_sale_badge') || 'ARCHIVE SALE', class: 'bg-amber-400/15 text-amber-400 border-amber-400/30' }
-				: { label: t('valuation.historical_sale_badge') || 'VERIFIED SALE', class: 'bg-[#10b981]/15 text-[#10b981] border-[#10b981]/30' };
-		}
-		if (status === 'on_sale' || status === 'on_auction') {
-			return { label: t('valuation.on_sale_badge') || 'ON SALE', class: 'bg-[#0098EA]/15 text-[#0098EA] border-[#0098EA]/30' };
-		}
-		if (status === 'taken' || status === 'sold') {
-			return { label: t('valuation.taken_badge') || 'TAKEN', class: 'bg-white/10 text-white/60 border-white/10' };
-		}
-		if (status === 'available') {
-			return { label: t('valuation.no_sale_badge') || 'AVAILABLE', class: 'bg-emerald-400/10 text-emerald-300/70 border-emerald-400/20' };
-		}
-		return { label: t('valuation.unverified_badge') || 'UNVERIFIED', class: 'bg-white/5 text-white/35 border-white/10' };
-	};
-
-	const portfolioBadge = (status: string) => {
-		switch (status) {
-			case 'on_sale':
-			case 'sale':
-				return { label: t('valuation.listed_badge') || 'LISTED', class: 'bg-[#0098EA]/10 text-[#0098EA] border-[#0098EA]/30' };
-			case 'on_auction':
-				return { label: t('valuation.auction_badge') || 'AUCTION', class: 'bg-amber-400/10 text-amber-400 border-amber-400/30' };
-			case 'bought':
-				return { label: t('valuation.acquired_badge') || 'ACQUIRED', class: 'bg-cyan-400/10 text-cyan-300 border-cyan-400/30' };
-			default:
-				return { label: t('valuation.holding_badge') || 'HOLDING', class: 'bg-emerald-400/10 text-emerald-400 border-emerald-400/30' };
-		}
-	};
-
-	const hasPortfolio = () => (data()?.portfolio?.items?.length ?? 0) > 0;
-
-	const ownerProfile = () => {
-		const p = data()?.owner_profile;
-		if (!p) return null;
-		if (!p.user_id && !p.first_name && !p.username) return null;
-		return p;
-	};
-
 	const triggerAlert = (msg: string) => {
 		const tg = (window as any).Telegram?.WebApp;
 		tg?.showAlert ? tg.showAlert(msg) : alert(msg);
@@ -403,7 +337,7 @@ export const UsernamePage: Component = () => {
 			}
 		}
 
-		opts.force ? setRefreshing(true) : setLoading(true);
+		setLoading(true);
 		setError(null);
 		try {
 			const res = await apiFetch<ValuationResult>(
@@ -422,17 +356,8 @@ export const UsernamePage: Component = () => {
 				setError(err.message || t('valuation.err_server') || 'A server error occurred');
 			}
 		} finally {
-			setRefreshing(false);
 			setLoading(false);
 		}
-	};
-
-	const handleRefresh = async () => {
-		const u = data()?.username || username();
-		if (!u || refreshing()) return;
-		haptic.impact('medium');
-		invalidateReport(u);
-		await fetchValuation(u, { force: true });
 	};
 
 	// ─── Polling payment confirmation (Phase 0 Fix) ───
@@ -727,14 +652,6 @@ export const UsernamePage: Component = () => {
 		initValuation();
 	});
 
-	// Conditional countdown timer: runs ONLY when an auction is actively in progress
-	createEffect(() => {
-		const isAuction = () => data()?.live_market?.status === 'on_auction';
-		if (!isAuction()) return;
-		const timer = setInterval(() => setNow(Date.now()), 1000);
-		onCleanup(() => clearInterval(timer));
-	});
-
 	// Derived metrics
 	const expectedTon = () => parseFloat(data()?.expected_ton || '0');
 	const lowTon = () => parseFloat(data()?.low_ton || '0');
@@ -747,35 +664,12 @@ export const UsernamePage: Component = () => {
 		return Math.min(96, Math.max(4, ((value - lo) / (hi - lo)) * 100));
 	};
 
-	const live = () => data()?.live_market;
-
-	const countdown = createMemo(() => {
-		const endsAt = live()?.auction_ends_at;
-		if (!endsAt) return null;
-		const endMs = new Date(endsAt).getTime();
-		const diff = endMs - now();
-		if (diff <= 0) return null;
-		const totalSec = Math.floor(diff / 1000);
-		const days = Math.floor(totalSec / 86400);
-		const hours = Math.floor((totalSec % 86400) / 3600);
-		const minutes = Math.floor((totalSec % 3600) / 60);
-		const seconds = totalSec % 60;
-		return { days, hours, minutes, seconds, urgent: totalSec < 3600 };
-	});
-
 	const confidenceTheme = () => {
 		const score = data()?.confidence_score ?? 0;
 		if (score >= 80) return { color: '#10b981', label: t('valuation.conf_high') || 'HIGH CONFIDENCE' };
 		if (score >= 60) return { color: '#0098EA', label: t('valuation.conf_medium') || 'MODERATE CONFIDENCE' };
 		if (score >= 45) return { color: '#f59e0b', label: t('valuation.conf_low') || 'LOW CONFIDENCE' };
 		return { color: '#ff4a4a', label: t('valuation.conf_thin') || 'THIN DATA' };
-	};
-
-	const growthPct = (value?: number) => {
-		const base = expectedTon();
-		if (!value || !base) return '';
-		const pct = Math.round((value / base - 1) * 100);
-		return `${pct >= 0 ? '+' : ''}${pct}%`;
 	};
 
 	const fmtTon = (value?: number | null) => (value ?? 0).toLocaleString('en-US', { maximumFractionDigits: 0 });

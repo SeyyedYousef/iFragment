@@ -38,7 +38,7 @@ export const ChannelAnalyticsPage: Component = () => {
 		onCleanup(() => off());
 	});
 
-	const timeline = createMemo(() => analytics()?.timeline || []);
+	const timeline = createMemo(() => analytics()?.data || []);
 
 	const growthData = createMemo(() => {
 		const arr = timeline().map((t: any) => t.subscribers_count);

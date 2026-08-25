@@ -391,7 +391,7 @@ export const TasksView: Component = () => {
 																		</div>
 																		<div class="flex items-center gap-2.5 flex-wrap opacity-90">
 																			<span class={`font-mono font-black text-[12px] flex items-center gap-0.5 shrink-0 ${task.completed ? 'text-white/40' : 'text-amber-400'}`}>
-																				<span>🪙</span> <span>{formatCoins(task.reward_frg)}</span>
+																				<span>🪙</span> <span>{formatCoins(task.reward_frg ?? 0)}</span>
 																			</span>
 																			{(actionText || (task.config as any)?.channel_username) && !task.completed && (
 																				<span class="text-[#3390ec] bg-[#3390ec]/10 border border-[#3390ec]/20 px-2 py-[2px] rounded-[6px] font-mono text-[10px] font-bold truncate max-w-[140px] flex items-center gap-1" dir="ltr">
@@ -547,9 +547,9 @@ export const TasksView: Component = () => {
 													</div>
 													<div class="flex flex-col min-w-0 pr-1">
 														<span class="text-white font-bold text-[13px] truncate">{details.title}</span>
-														<Show when={task.reward_frg > 0}>
+														<Show when={(task.reward_frg ?? 0) > 0}>
 															<span class="text-amber-400 font-mono font-bold text-[11px] flex items-center gap-1 mt-0.5" dir="ltr">
-																<span>🪙</span> {formatCoins(task.reward_frg)}
+																<span>🪙</span> {formatCoins(task.reward_frg ?? 0)}
 															</span>
 														</Show>
 													</div>

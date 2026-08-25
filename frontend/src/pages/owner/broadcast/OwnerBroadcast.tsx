@@ -1,7 +1,7 @@
-import { createSignal, createEffect, Show, For, type Component } from 'solid-js';
+import { createSignal, Show, For, type Component } from 'solid-js';
 import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
-import { ownerApi } from '../../../entities/owner/api/ownerApi';
-import type { BroadcastMessage } from '../../../entities/owner/model/types';
+import { ownerApi } from '@/entities/owner/api/ownerApi.js';
+import type { BroadcastMessage } from '@/entities/owner/model/types.js';
 
 export const OwnerBroadcast: Component = () => {
 	const queryClient = useQueryClient();
@@ -12,18 +12,18 @@ export const OwnerBroadcast: Component = () => {
 	const [isScheduled, setIsScheduled] = createSignal(false);
 	const [scheduledAt, setScheduledAt] = createSignal('');
 
-	const broadcastsQuery = createQuery(() => ({
+	const broadcastsQuery = createQuery<BroadcastMessage[]>(() => ({
 		queryKey: ['owner', 'broadcasts'],
 		queryFn: ownerApi.listBroadcasts,
 		refetchInterval: 5000, // 5s live progress polling
 	}));
 
-	const audienceCountQuery = createQuery(() => ({
+	const audienceCountQuery = createQuery<{ count: number }>(() => ({
 		queryKey: ['owner', 'broadcasts', 'audience-count', targetAudience()],
 		queryFn: () => ownerApi.getAudienceCount(targetAudience()),
 	}));
 
-	const createMutation = createMutation(() => ({
+	const createBroadcastMutation = createMutation(() => ({
 		mutationFn: (data: { target_audience: string; message: string; scheduled_at?: string }) =>
 			ownerApi.createBroadcast(data),
 		onSuccess: () => {
@@ -52,14 +52,14 @@ export const OwnerBroadcast: Component = () => {
 		e.preventDefault();
 		if (!messageText().trim()) return;
 
-		createMutation.mutate({
+		createBroadcastMutation.mutate({
 			target_audience: targetAudience(),
 			message: messageText().trim(),
 			scheduled_at: isScheduled() && scheduledAt() ? new Date(scheduledAt()).toISOString() : undefined,
 		});
 	};
 
-	const broadcasts = () => broadcastsQuery.data || [];
+	const broadcasts = () => (broadcastsQuery.data || []) as BroadcastMessage[];
 
 	return (
 		<div class="space-y-6">
@@ -185,11 +185,11 @@ export const OwnerBroadcast: Component = () => {
 						{/* Submit */}
 						<button
 							type="submit"
-							disabled={createMutation.isPending || !messageText().trim()}
+							disabled={createBroadcastMutation.isPending || !messageText().trim()}
 							class="w-full py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs transition shadow-lg shadow-amber-500/20 disabled:opacity-50 flex items-center justify-center gap-2"
 						>
 							<Show
-								when={createMutation.isPending}
+								when={createBroadcastMutation.isPending}
 								fallback={<span>{isScheduled() ? 'Schedule Broadcast' : 'Queue Immediately (~25 msg/s)'}</span>}
 							>
 								<div class="h-4 w-4 animate-spin rounded-full border-2 border-black border-t-transparent" />

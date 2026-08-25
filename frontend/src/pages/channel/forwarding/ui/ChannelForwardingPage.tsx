@@ -1,4 +1,4 @@
-import { Component, createSignal, createResource, createEffect, Show, For, onMount, onCleanup } from 'solid-js';
+import { Component, createSignal, createResource, Show, For, onMount, onCleanup } from 'solid-js';
 import { useNavigate, useParams } from '@solidjs/router';
 import { Motion } from '@motionone/solid';
 import { backButton } from '@tma.js/sdk-solid';
@@ -25,11 +25,11 @@ export const ChannelForwardingPage: Component = () => {
 	const [removeLinks, setRemoveLinks] = createSignal(false);
 	const [removeHashtags, setRemoveHashtags] = createSignal(false);
 	const [watermark, setWatermark] = createSignal('');
-	const [textType, setTextType] = createSignal(true);
-	const [photosType, setPhotosType] = createSignal(true);
-	const [videosType, setVideosType] = createSignal(true);
-	const [filesType, setFilesType] = createSignal(true);
-	const [voiceType, setVoiceType] = createSignal(true);
+	const [textType, _setTextType] = createSignal(true);
+	const [photosType, _setPhotosType] = createSignal(true);
+	const [videosType, _setVideosType] = createSignal(true);
+	const [filesType, _setFilesType] = createSignal(true);
+	const [voiceType, _setVoiceType] = createSignal(true);
 	const [isVerifyingTarget, setIsVerifyingTarget] = createSignal(false);
 	const [targetVerified, setTargetVerified] = createSignal<boolean | null>(null);
 	const [isSaving, setIsSaving] = createSignal(false);
@@ -42,7 +42,7 @@ export const ChannelForwardingPage: Component = () => {
 
 	// Resources
 	const [rules, { refetch: refetchRules }] = createResource(() => params.id, (id) => channelApi.getForwardingRules(id));
-	const [logs, { refetch: refetchLogs }] = createResource(() => params.id, (id) => channelApi.getForwardingLogs(id));
+	const [logs] = createResource(() => params.id, (id) => channelApi.getForwardingLogs(id));
 
 	onMount(() => {
 		try {
@@ -73,16 +73,16 @@ export const ChannelForwardingPage: Component = () => {
 			const res = await channelApi.verifyForwardingTarget(params.id, target().trim());
 			if (res?.valid) {
 				setTargetVerified(true);
-				haptic.notification('success');
+				haptic.notify('success');
 				showToast(t('channel.forwarding.target_verified') || 'Target verified successfully!', 'success');
 			} else {
 				setTargetVerified(false);
-				haptic.notification('error');
+				haptic.notify('error');
 				showToast(res?.message || 'Invalid target destination', 'error');
 			}
 		} catch (err: any) {
 			setTargetVerified(false);
-			haptic.notification('error');
+			haptic.notify('error');
 			showToast(err?.response?.data?.error || 'Verification failed', 'error');
 		} finally {
 			setIsVerifyingTarget(false);
@@ -122,13 +122,13 @@ export const ChannelForwardingPage: Component = () => {
 
 		try {
 			await channelApi.createForwardingRule(params.id, rulePayload);
-			haptic.notification('success');
+			haptic.notify('success');
 			showToast(t('channel.forwarding.rule_created') || 'Forwarding rule created successfully!', 'success');
 			setIsCreatingRule(false);
 			resetRuleForm();
 			refetchRules();
 		} catch (err: any) {
-			haptic.notification('error');
+			haptic.notify('error');
 			showToast(err?.response?.data?.error || 'Failed to create forwarding rule', 'error');
 		} finally {
 			setIsSaving(false);
@@ -153,7 +153,7 @@ export const ChannelForwardingPage: Component = () => {
 	const handleDeleteRule = async (ruleId?: string) => {
 		if (!ruleId) return;
 		if (!confirm(t('channel.forwarding.confirm_delete_rule') || 'Delete this forwarding rule?')) return;
-		haptic.notification('warning');
+		haptic.notify('warning');
 		try {
 			await channelApi.deleteForwardingRule(params.id, ruleId);
 			showToast(t('channel.forwarding.rule_deleted') || 'Rule deleted', 'info');
@@ -176,14 +176,14 @@ export const ChannelForwardingPage: Component = () => {
 			const res = await channelApi.pingWebhook(params.id, pingUrl().trim(), pingSecret().trim());
 			setPingResult(res);
 			if (res.success) {
-				haptic.notification('success');
+				haptic.notify('success');
 				showToast(`Webhook ping succeeded (Status ${res.status_code})`, 'success');
 			} else {
-				haptic.notification('error');
+				haptic.notify('error');
 				showToast(`Webhook ping failed: ${res.error || 'Non-200 response'}`, 'error');
 			}
 		} catch (err: any) {
-			haptic.notification('error');
+			haptic.notify('error');
 			setPingResult({ success: false, error: err?.message });
 			showToast(err?.response?.data?.error || 'Ping request failed', 'error');
 		} finally {
@@ -204,8 +204,8 @@ export const ChannelForwardingPage: Component = () => {
 
 	return (
 		<div class="min-h-screen bg-neutral-950 text-neutral-100 pb-28 pt-2 px-4" dir={isRtl() ? 'rtl' : 'ltr'}>
-			<ChannelContextBar currentChannelId={params.id} onMenuClick={() => setIsMenuOpen(true)} />
-			<ChannelHamburgerMenu isOpen={isMenuOpen()} onClose={() => setIsMenuOpen(false)} currentChannelId={params.id} />
+			<ChannelContextBar channelId={params.id} />
+			<ChannelHamburgerMenu isOpen={isMenuOpen()} onClose={() => setIsMenuOpen(false)} channelId={params.id} activeTab="forwarding" />
 
 			{/* Header */}
 			<div class="mt-4 mb-5 flex items-center justify-between">

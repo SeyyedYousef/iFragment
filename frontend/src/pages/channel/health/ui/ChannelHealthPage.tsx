@@ -1,9 +1,7 @@
 import { Component, createResource, Show, For, onMount, onCleanup, createSignal } from 'solid-js';
 import { useNavigate, useParams } from '@solidjs/router';
-import { Motion } from '@motionone/solid';
 import { backButton } from '@tma.js/sdk-solid';
 import { ChannelContextBar, ChannelHamburgerMenu, channelApi } from '@/entities/channel/index.js';
-import type { ChannelHealth } from '@/entities/channel/model/types.js';
 import { t, isRtl } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
@@ -61,8 +59,8 @@ export const ChannelHealthPage: Component = () => {
 
 	return (
 		<div class="min-h-screen bg-neutral-950 text-neutral-100 pb-28 pt-2 px-4" dir={isRtl() ? 'rtl' : 'ltr'}>
-			<ChannelContextBar currentChannelId={params.id} onMenuClick={() => setIsMenuOpen(true)} />
-			<ChannelHamburgerMenu isOpen={isMenuOpen()} onClose={() => setIsMenuOpen(false)} currentChannelId={params.id} />
+			<ChannelContextBar channelId={params.id} />
+			<ChannelHamburgerMenu isOpen={isMenuOpen()} onClose={() => setIsMenuOpen(false)} channelId={params.id} activeTab="health" />
 
 			{/* Header */}
 			<div class="mt-4 mb-5 flex items-center justify-between">
@@ -206,10 +204,10 @@ export const ChannelHealthPage: Component = () => {
 											</span>
 											<div>
 												<div class="text-xs font-bold text-white">
-													{t(rec.title_key) || rec.code}
+													{t(rec.title_key as any) || rec.code}
 												</div>
 												<div class="text-[11px] text-neutral-400 mt-0.5">
-													{t(rec.desc_key) || 'Improve your channel automation score by configuring this module.'}
+													{t(rec.desc_key as any) || 'Improve your channel automation score by configuring this module.'}
 												</div>
 											</div>
 										</div>

@@ -55,7 +55,7 @@ export const GroupDynamicBioPage: Component = () => {
 	);
 
 	const [tgInfo] = createResource(() => params.id, (id) => groupApi.getGroupTelegramInfo(id));
-	const [group] = createResource(() => params.id, (id) => groupApi.getGroup(id));
+	const [_group] = createResource(() => params.id, (id) => groupApi.getGroup(id));
 
 	createEffect(() => {
 		const data = settings();

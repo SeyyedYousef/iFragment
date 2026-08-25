@@ -73,16 +73,22 @@ export const AirdropPage: Component = () => {
 
 	return (
 		<div
-			class="h-screen max-h-screen overflow-hidden flex flex-col justify-between bg-[#030303] relative select-none font-sans text-white"
-			style={{ height: 'var(--tg-viewport-stable-height, 100vh)' }}
+			class="h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col justify-between bg-[#030303] relative select-none font-sans text-white"
+			style={{ height: 'var(--tg-viewport-stable-height, 100dvh)' }}
 		>
 			{/* Main Content Area */}
-			<div class="flex-1 overflow-hidden relative flex flex-col pt-0">
-				
+			<main
+				class={`min-h-0 w-full flex-1 relative flex flex-col pt-0 ${
+					activeTab() === 'mine'
+						? 'overflow-hidden'
+						: 'overflow-y-auto overscroll-contain pb-[calc(env(safe-area-inset-bottom)+6rem)]'
+				}`}
+				style={{ '-webkit-overflow-scrolling': 'touch' }}
+			>
 				{/* Premium Glassmorphic Header for sub-pages */}
 				<Show when={activeTab() !== 'mine' && activeTab() !== 'shop'}>
 					<div
-						class="absolute top-0 left-0 right-0 z-[60] bg-gradient-to-b from-[#030303]/90 to-transparent pt-4 pb-8 pointer-events-none"
+						class="sticky top-0 left-0 right-0 z-[60] bg-gradient-to-b from-[#030303]/95 via-[#030303]/80 to-transparent pt-3 pb-5 pointer-events-none"
 						dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
 					>
 						<div class="flex items-center px-5 max-w-md mx-auto pointer-events-auto">
@@ -117,10 +123,10 @@ export const AirdropPage: Component = () => {
 					<Match when={activeTab() === 'boost'}><BoostersView onTurboClick={() => handleTabChange('mine')} /></Match>
 					<Match when={activeTab() === 'shop'}><ShopView /></Match>
 				</Switch>
-			</div>
+			</main>
 
 			{/* Main Bottom Nav */}
-			<div class="z-50 relative">
+			<div class="z-50 shrink-0 relative">
 				<BottomNav />
 			</div>
 

@@ -837,12 +837,37 @@ func (s *GamificationService) CompleteTask(ctx context.Context, userID int64, ta
 		}
 	}
 
-	// Record 15-day expiring credit batch
+	// Record 15-day expiring credit batch for airdrop coins
 	if target.RewardFrg > 0 {
 		_, _ = tx.Exec(ctx, `
 			INSERT INTO user_credit_batches (user_id, amount, remaining_amount, source, earned_at, expires_at, is_expired)
 			VALUES ($1, $2, $2, 'task', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '15 days', FALSE)
 		`, userID, target.RewardFrg)
+	}
+
+	// Reward Intel Credits if quest config specifies intel_credit reward
+	var questCfg struct {
+		RewardType   string `json:"reward_type"`
+		IntelCredits int    `json:"intel_credits"`
+	}
+	_ = json.Unmarshal(target.Config, &questCfg)
+	if questCfg.RewardType == "intel_credit" || questCfg.IntelCredits > 0 {
+		creditsAmount := questCfg.IntelCredits
+		if creditsAmount <= 0 {
+			creditsAmount = 1
+		}
+		var batchID string
+		err = tx.QueryRow(ctx, `
+			INSERT INTO intel_credit_batches (user_id, kind, amount, remaining, source, reference_id, created_at)
+			VALUES ($1, 'intel_report', $2, $2, 'task_reward', $3, now())
+			RETURNING id::text
+		`, userID, creditsAmount, taskKey).Scan(&batchID)
+		if err == nil && batchID != "" {
+			_, _ = tx.Exec(ctx, `
+				INSERT INTO intel_credit_ledger (user_id, delta, reason, entity, batch_id, created_at)
+				VALUES ($1, $2, $3, $4, $5::uuid, now())
+			`, userID, creditsAmount, "reward:"+taskKey, taskKey, batchID)
+		}
 	}
 
 	// Commit transaction

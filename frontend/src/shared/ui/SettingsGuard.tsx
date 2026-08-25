@@ -27,7 +27,7 @@ export const SettingsGuard: Component<Props> = (props) => {
 			setPendingAction(() => onConfirmLeave);
 			setShowPrompt(true);
 			try {
-				haptic.notification('warning');
+				haptic.notify('warning');
 			} catch {}
 		} else {
 			onConfirmLeave();
@@ -39,7 +39,7 @@ export const SettingsGuard: Component<Props> = (props) => {
 		try {
 			await props.onSave();
 			try {
-				haptic.notification('success');
+				haptic.notify('success');
 			} catch {}
 			setShowPrompt(false);
 			const action = pendingAction();

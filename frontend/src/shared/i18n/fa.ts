@@ -62,6 +62,7 @@ export const dict = {
 	},
 	"action": {
 		"analyzing": "در حال تحلیل...",
+		"creditsLeft": "اعتبار",
 		"collectibles": {
 			"analyzeBtn": "تحلیل شماره مجازی",
 			"description": "تاریخچه مالکیت را ردیابی و ارزش واقعی شماره‌های ۸۸۸+ را ارزیابی کنید.",
@@ -2118,6 +2119,8 @@ export const dict = {
 		"asset3d": "نمایش سه بعدی",
 		"collectionInfo": "اطلاعات کالکشن",
 		"collectionSubtitle": "اطلاعات کلی کالکشن را از اینجا مشاهده کنید!",
+		"giftsIntel": "اطلاعات هدایا",
+		"numbersIntel": "اطلاعات شماره‌ها",
 		"premiumReport": "گزارش پرمیوم",
 		"promotion": "تبلیغات",
 		"scatterFloorLimit": "محدودیت کف قیمت",
@@ -3217,5 +3220,22 @@ export const dict = {
 		"subtitle": "مدیریت دارایی‌ها و دفتر تراکنش‌ها",
 		"title": "کیف پول اکوسیستم",
 		"upgrade": "پرو"
+	},
+	"lockedReport": {
+		"title": "بازگشایی گزارش کامل اطلاعاتی",
+		"subtitle": "ارزش‌گذاری عمیق و تحلیل ساختاری بازار برای {name}",
+		"featureFairValue": "ارزش منصفانه محاسباتی و درصد اطمینان",
+		"featureComps": "ماتریس معاملات مشابه انجام‌شده",
+		"featureProjection": "پیش‌بینی ۱۲ ماهه بازار و سیگنال‌ها",
+		"unlockWithCredit": "بازگشایی با ۱ اعتبار اینتل ({credits} مانده)",
+		"unlockNoCredit": "اعتبار اینتل موجود نیست",
+		"buyCredits": "خرید اعتبار",
+		"earnCredits": "کسب اعتبار رایگان"
+	},
+	"noCreditsModal": {
+		"title": "اعتبار اینتل به پایان رسید",
+		"description": "برای تولید گزارش‌های عمیق و تخصصی به اعتبار اینتل نیاز دارید.",
+		"buyCredits": "خرید اعتبار از فروشگاه",
+		"earnCredits": "انجام ماموریت‌ها و کسب اعتبار"
 	}
 };

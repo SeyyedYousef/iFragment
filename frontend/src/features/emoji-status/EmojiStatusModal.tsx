@@ -49,7 +49,7 @@ export const EmojiStatusModal: Component<Props> = (props) => {
 		const handleEmojiStatusSet = async () => {
 			setIsSetting(false);
 			try {
-				haptic.notification('success');
+				haptic.notify('success');
 				triggerConfetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
 			} catch {}
 
@@ -71,7 +71,7 @@ export const EmojiStatusModal: Component<Props> = (props) => {
 		const handleEmojiStatusFailed = (err?: any) => {
 			setIsSetting(false);
 			try {
-				haptic.notification('error');
+				haptic.notify('error');
 			} catch {}
 			setStatusError(
 				typeof err?.error === 'string'
@@ -124,7 +124,7 @@ export const EmojiStatusModal: Component<Props> = (props) => {
 					setRewardClaimed(true);
 				}
 				try {
-					haptic.notification('success');
+					haptic.notify('success');
 				} catch {}
 				if (props.onSuccess) {
 					props.onSuccess(emoji.symbol);
@@ -224,7 +224,7 @@ export const EmojiStatusModal: Component<Props> = (props) => {
 										{emoji.title}
 									</span>
 									<Show when={emoji.requiresPro}>
-										<span class="absolute top-1.5 right-1.5 text-[8px] px-1.5 py-0.5 rounded-[6px] bg-purple-500/20 text-purple-300 font-black border border-purple-500/30">
+										<span class="absolute top-1.5 right-1.5 text-[8px] px-1.5 py-0.5 rounded-[6px] bg-cyan-500/20 text-cyan-300 font-black border border-cyan-500/30">
 											PRO
 										</span>
 									</Show>

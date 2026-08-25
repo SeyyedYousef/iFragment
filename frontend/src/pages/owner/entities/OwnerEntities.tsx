@@ -1,8 +1,8 @@
 import { createSignal, Show, For, type Component } from 'solid-js';
 import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
-import { ownerApi } from '../../../entities/owner/api/ownerApi';
-import type { OwnerEntityItem } from '../../../entities/owner/model/types';
-import { DangerActionDialog, type DangerActionDetail } from '../../../widgets/owner/DangerActionDialog';
+import { ownerApi } from '@/entities/owner/api/ownerApi.js';
+import type { OwnerEntityItem } from '@/entities/owner/model/types.js';
+import { DangerActionDialog, type DangerActionDetail } from '@/widgets/owner/DangerActionDialog.jsx';
 
 export const OwnerEntities: Component = () => {
 	const queryClient = useQueryClient();
@@ -14,7 +14,7 @@ export const OwnerEntities: Component = () => {
 	const [daysToAdd, setDaysToAdd] = createSignal(30);
 	const [coinsToGrant, setCoinsToGrant] = createSignal(1000);
 
-	const entitiesQuery = createQuery(() => ({
+	const entitiesQuery = createQuery<OwnerEntityItem[]>(() => ({
 		queryKey: ['owner', 'entities', activeTab()],
 		queryFn: () =>
 			activeTab() === 'channel'
@@ -215,7 +215,7 @@ export const OwnerEntities: Component = () => {
 					requireReason={true}
 					details={getExtendSubDetails()}
 					loading={extendSubMutation.isPending}
-					onConfirm={(reason) => {
+					onConfirm={(reason: string) => {
 						extendSubMutation.mutate({
 							entityType: activeTab(),
 							entityId: selectedEntity()!.entity_id,
@@ -238,7 +238,7 @@ export const OwnerEntities: Component = () => {
 					requireReason={true}
 					details={getGrantCoinsDetails()}
 					loading={grantCoinsMutation.isPending}
-					onConfirm={(reason) => {
+					onConfirm={(reason: string) => {
 						grantCoinsMutation.mutate({
 							entityType: activeTab(),
 							entityId: selectedEntity()!.entity_id,

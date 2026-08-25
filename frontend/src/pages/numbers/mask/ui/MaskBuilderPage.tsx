@@ -126,6 +126,7 @@ export const MaskBuilderPage: Component = () => {
 							{(slot, idx) => (
 								<input
 									type="text"
+									aria-label={`Number slot ${idx() + 1}`}
 									maxLength={1}
 									value={slot}
 									onFocus={(e) => e.currentTarget.select()}
