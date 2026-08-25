@@ -31,15 +31,7 @@ ON CONFLICT (address) DO UPDATE SET
     market_type = EXCLUDED.market_type,
     is_official = EXCLUDED.is_official;
 
--- 3. Enhance sales table with market address, confidence rating, and indexing timestamp
-ALTER TABLE sales ADD COLUMN IF NOT EXISTS market_address VARCHAR(128) DEFAULT '';
-ALTER TABLE sales ADD COLUMN IF NOT EXISTS price_confidence VARCHAR(32) DEFAULT 'exact';
-ALTER TABLE sales ADD COLUMN IF NOT EXISTS indexed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
-
-CREATE INDEX IF NOT EXISTS idx_sales_market_address ON sales(market_address);
-CREATE INDEX IF NOT EXISTS idx_sales_sale_date ON sales(sale_date DESC);
-
--- 4. Dynamic Telegram Premium Gate Rules (replaces hardcoded group checks)
+-- 3. Dynamic Telegram Premium Gate Rules (replaces hardcoded group checks)
 CREATE TABLE IF NOT EXISTS premium_gate_rules (
     chat_id BIGINT PRIMARY KEY,
     chat_title VARCHAR(255) DEFAULT '',
@@ -49,7 +41,7 @@ CREATE TABLE IF NOT EXISTS premium_gate_rules (
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
--- 5. Enhance broadcasts table for the production broadcast worker
+-- 4. Enhance broadcasts table for the production broadcast worker
 ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMP WITH TIME ZONE;
 ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS started_at TIMESTAMP WITH TIME ZONE;
 ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP WITH TIME ZONE;

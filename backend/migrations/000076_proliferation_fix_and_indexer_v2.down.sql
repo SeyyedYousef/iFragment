@@ -4,10 +4,6 @@ DROP TABLE IF EXISTS premium_gate_rules;
 DROP TABLE IF EXISTS market_registry;
 DROP TABLE IF EXISTS indexer_checkpoints;
 
-ALTER TABLE sales DROP COLUMN IF EXISTS indexed_at;
-ALTER TABLE sales DROP COLUMN IF EXISTS price_confidence;
-ALTER TABLE sales DROP COLUMN IF EXISTS market_address;
-
 ALTER TABLE broadcasts DROP COLUMN IF EXISTS updated_at;
 ALTER TABLE broadcasts DROP COLUMN IF EXISTS failed_count;
 ALTER TABLE broadcasts DROP COLUMN IF EXISTS total_count;
