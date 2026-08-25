@@ -37,12 +37,12 @@ CREATE TABLE IF NOT EXISTS user_emoji_rewards (
 INSERT INTO audit_logs (
     actor_id,
     action,
-    details,
+    metadata,
     created_at
 ) VALUES (
     0,
     'system.migration.frg_to_airdrop_coins',
-    '{"description": "One-time automatic conversion of legacy FRG balances to AirdropCoins 1:1 and deprecation of FRG currency"}',
+    '{"description": "One-time automatic conversion of legacy FRG balances to AirdropCoins 1:1 and deprecation of FRG currency"}'::jsonb,
     CURRENT_TIMESTAMP
 );
 
