@@ -118,7 +118,10 @@ export const ECONOMY_CONFIG = {
 /**
  * Calculates the required coin amount to unlock or refresh a valuation report.
  */
-export const calculateReportCoinPrice = (isFirstReport: boolean = false, reportAgeDays: number = 0): number => {
+export const calculateReportCoinPrice = (
+	isFirstReport: boolean = false,
+	reportAgeDays: number = 0,
+): number => {
 	if (isFirstReport || reportAgeDays > ECONOMY_CONFIG.STALE_REPORT_DAYS_THRESHOLD) {
 		return ECONOMY_CONFIG.FIRST_REPORT_COIN_PRICE;
 	}

@@ -1,6 +1,7 @@
-import { createSignal, onCleanup, Show, For, type Component } from 'solid-js';
 import { createQuery } from '@tanstack/solid-query';
+import { type Component, createSignal, For, onCleanup, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/api/ownerApi.js';
+import { t } from '@/shared/i18n/index.js';
 import type { SystemErrorLog, SystemHealthMetrics } from '@/entities/owner/model/types.js';
 
 export const OwnerHealth: Component = () => {
@@ -42,8 +43,10 @@ export const OwnerHealth: Component = () => {
 			{/* Header */}
 			<div class="flex items-center justify-between">
 				<div>
-					<h2 class="text-lg font-bold text-white">System Health & Infrastructure</h2>
-					<p class="text-xs text-white/50">Real-time runtime diagnostics, memory profiling, and cluster telemetry</p>
+					<h2 class="text-lg font-bold text-white">{t('ownerHealth.title')}</h2>
+					<p class="text-xs text-white/50">
+						{t('ownerHealth.subtitle')}
+					</p>
 				</div>
 				<div class="flex items-center gap-2 text-xs">
 					<span
@@ -62,54 +65,56 @@ export const OwnerHealth: Component = () => {
 				{/* Database Status & Latency */}
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2">
 					<div class="flex items-center justify-between text-xs text-white/50">
-						<span>PostgreSQL DB</span>
+						<span>{t('ownerHealth.postgresDb')}</span>
 						<span class="material-symbols-rounded text-base text-sky-400">database</span>
 					</div>
 					<div class="text-2xl font-black font-mono text-emerald-400">
 						{health()?.db_status?.toUpperCase() || 'OK'}
 					</div>
 					<div class="text-xs text-white/50 font-mono">
-						Latency: <span class="text-white font-bold">{health()?.db_latency_ms ?? 1.2} ms</span>
+						{t('ownerHealth.latency')} <span class="text-white font-bold">{health()?.db_latency_ms ?? 1.2} ms</span>
 					</div>
 				</div>
 
 				{/* Redis Cache */}
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2">
 					<div class="flex items-center justify-between text-xs text-white/50">
-						<span>Redis Cache</span>
+						<span>{t('ownerHealth.redisCache')}</span>
 						<span class="material-symbols-rounded text-base text-rose-400">memory</span>
 					</div>
 					<div class="text-2xl font-black font-mono text-emerald-400">
 						{health()?.redis_status?.toUpperCase() || 'OK'}
 					</div>
-					<div class="text-xs text-white/50 font-mono">Hit Rate: 98.4%</div>
+					<div class="text-xs text-white/50 font-mono">{t('ownerHealth.hitRate')}</div>
 				</div>
 
 				{/* Goroutines & CPU */}
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2">
 					<div class="flex items-center justify-between text-xs text-white/50">
-						<span>Active Goroutines</span>
+						<span>{t('ownerHealth.goroutines')}</span>
 						<span class="material-symbols-rounded text-base text-amber-400">alt_route</span>
 					</div>
 					<div class="text-2xl font-black font-mono text-white">
 						{health()?.active_goroutines ?? 42}
 					</div>
 					<div class="text-xs text-white/50 font-mono">
-						CPU Usage: <span class="text-amber-400 font-bold">{health()?.cpu_usage_percent ?? 3.5}%</span>
+						CPU Usage:{' '}
+						<span class="text-amber-400 font-bold">{health()?.cpu_usage_percent ?? 3.5}%</span>
 					</div>
 				</div>
 
 				{/* Memory & Uptime */}
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2">
 					<div class="flex items-center justify-between text-xs text-white/50">
-						<span>Memory & Uptime</span>
+						<span>{t('ownerHealth.memoryUptime')}</span>
 						<span class="material-symbols-rounded text-base text-cyan-400">timer</span>
 					</div>
 					<div class="text-2xl font-black font-mono text-white">
 						{health()?.memory_used_mb ?? 38} MB
 					</div>
 					<div class="text-xs text-white/50 font-mono">
-						Uptime: <span class="text-white font-bold">{formatUptime(health()?.uptime_seconds)}</span>
+						Uptime:{' '}
+						<span class="text-white font-bold">{formatUptime(health()?.uptime_seconds)}</span>
 					</div>
 				</div>
 			</div>
@@ -119,21 +124,19 @@ export const OwnerHealth: Component = () => {
 				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-2">
 						<span class="material-symbols-rounded text-rose-400">bug_report</span>
-						<span class="text-sm font-bold text-white">System Error & Warning Logs</span>
+						<span class="text-sm font-bold text-white">{t('ownerHealth.errorLogs')}</span>
 					</div>
-					<div class="text-xs text-white/40 font-mono">
-						Recent 50 Events
-					</div>
+					<div class="text-xs text-white/40 font-mono">{t('ownerHealth.recentEvents')}</div>
 				</div>
 
 				<div class="overflow-x-auto">
 					<table class="w-full text-left text-xs">
 						<thead>
 							<tr class="border-b border-white/10 text-white/40">
-								<th class="pb-3">Source / Module</th>
-								<th class="pb-3">Severity</th>
-								<th class="pb-3">Message</th>
-								<th class="pb-3 text-right">Timestamp</th>
+								<th class="pb-3">{t('ownerHealth.sourceModule')}</th>
+								<th class="pb-3">{t('ownerHealth.severity')}</th>
+								<th class="pb-3">{t('ownerHealth.message')}</th>
+								<th class="pb-3 text-right">{t('ownerHealth.timestamp')}</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-white/5">
@@ -142,7 +145,9 @@ export const OwnerHealth: Component = () => {
 								fallback={
 									<tr>
 										<td colspan="4" class="py-8 text-center text-white/40">
-											{errorsQuery.isLoading ? 'Loading system logs...' : 'No critical errors in recent logs'}
+											{errorsQuery.isLoading
+												? 'Loading system logs...'
+												: 'No critical errors in recent logs'}
 										</td>
 									</tr>
 								}

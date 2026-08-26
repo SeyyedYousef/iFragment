@@ -1,7 +1,7 @@
 import { Motion } from '@motionone/solid';
 import { createQuery } from '@tanstack/solid-query';
 import { backButton } from '@tma.js/sdk-solid';
-import { Component, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import { type Component, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import {
 	ACHIEVEMENT_DEFS,
 	getAchievementDefs,
@@ -156,7 +156,11 @@ export const AchievementsPage: Component = () => {
 						</div>
 
 						<div class="relative w-16 h-16 flex items-center justify-center shrink-0 z-10">
-							<svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+							<svg
+								class="w-full h-full transform -rotate-90"
+								viewBox="0 0 36 36"
+								aria-hidden="true"
+							>
 								<path
 									class="text-white/5"
 									stroke-dasharray="100"
@@ -190,6 +194,7 @@ export const AchievementsPage: Component = () => {
 					<For each={categories}>
 						{(cat) => (
 							<button
+								type="button"
 								onClick={() => {
 									haptic.selection();
 									setActiveCategory(cat.id);
@@ -240,9 +245,7 @@ export const AchievementsPage: Component = () => {
 									</span>
 									<Show when={!ach.unlocked}>
 										<div class="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-[8px] bg-[#12141C] flex items-center justify-center border border-white/10 shadow-sm">
-											<span class="material-symbols-outlined text-[12px] text-white/40">
-												lock
-											</span>
+											<span class="material-symbols-outlined text-[12px] text-white/40">lock</span>
 										</div>
 									</Show>
 								</div>
@@ -322,6 +325,7 @@ export const AchievementsPage: Component = () => {
 							{/* Handle & Close */}
 							<div class="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-4 relative z-10" />
 							<button
+								type="button"
 								onClick={() => setSelectedAch(null)}
 								class="absolute top-5 right-5 w-9 h-9 rounded-[12px] bg-white/5 flex items-center justify-center border border-white/10 hover:bg-white/10 text-white/60 hover:text-white transition-all active:scale-95 z-20"
 							>
@@ -336,7 +340,9 @@ export const AchievementsPage: Component = () => {
 										: 'bg-[#08090D] border border-white/5 grayscale opacity-60'
 								}`}
 							>
-								<span class={ach().unlocked ? 'drop-shadow-[0_10px_20px_rgba(251,191,36,0.6)]' : ''}>
+								<span
+									class={ach().unlocked ? 'drop-shadow-[0_10px_20px_rgba(251,191,36,0.6)]' : ''}
+								>
 									{ach().icon}
 								</span>
 							</div>
@@ -404,6 +410,7 @@ export const AchievementsPage: Component = () => {
 							<Show when={ach().unlocked}>
 								<div class="flex flex-col gap-3 w-full relative z-10">
 									<button
+										type="button"
 										onClick={handleShareToStory}
 										class="w-full h-14 rounded-[16px] bg-gradient-to-r from-amber-400 to-orange-500 text-black font-black uppercase tracking-widest text-[13px] flex items-center justify-center gap-2 shadow-[0_10px_25px_rgba(251,191,36,0.3)] active:scale-95 transition-all"
 									>
@@ -416,6 +423,7 @@ export const AchievementsPage: Component = () => {
 										{t('achievements.shareStory')}
 									</button>
 									<button
+										type="button"
 										onClick={handleShareToChat}
 										class="w-full h-14 bg-white/5 border border-white/10 hover:bg-white/10 text-white/80 hover:text-white font-black uppercase tracking-widest text-[13px] flex items-center justify-center gap-2 rounded-[16px] active:scale-95 transition-all shadow-sm"
 									>

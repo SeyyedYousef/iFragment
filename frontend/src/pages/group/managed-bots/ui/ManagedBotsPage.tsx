@@ -1,7 +1,15 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
-import { backButton } from '@tma.js/sdk-solid';
-import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import { backButton, openTelegramLink } from '@tma.js/sdk-solid';
+import {
+	type Component,
+	createResource,
+	createSignal,
+	For,
+	onCleanup,
+	onMount,
+	Show,
+} from 'solid-js';
 import { botApi, type ManagedBot } from '@/entities/bot/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
@@ -24,7 +32,10 @@ export const ManagedBotsPage: Component = () => {
 			if (showCreateModal()) setShowCreateModal(false);
 			else navigate('/dashboard');
 		});
-		onCleanup(() => { off(); backButton.hide(); });
+		onCleanup(() => {
+			off();
+			backButton.hide();
+		});
 	});
 
 	const handleCreateBot = async () => {
@@ -85,16 +96,39 @@ export const ManagedBotsPage: Component = () => {
 		}
 	};
 
+	// ── Native Managed-Bot creation (Bot API 9.6) ──
+	// Opens Telegram's native "create managed bot" sheet via the manager bot's
+	// t.me/newbot deep link. The user confirms in one tap; the token is
+	// delivered server-side (never shown/copied). On clients without support
+	// we fall back to BotFather.
+	const handleRequestNativeBot = () => {
+		haptic.impact('medium');
+		const managerUsername = 'iFragmentManagerBot'; // manager bot handle
+		const suggested = `ifrag_bot_${Math.random().toString(36).slice(2, 8)}`;
+		const url = `https://t.me/newbot/${managerUsername}/${suggested}?name=iFragment%20Bot`;
+		try {
+			openTelegramLink(url);
+		} catch (_e) {
+			window.open(url, '_blank');
+		}
+	};
+
 	return (
-		<div class="min-h-screen bg-[#030303] pb-28 relative overflow-x-hidden text-white font-sans selection:bg-[#3390ec]/30" dir={isRtl() ? 'rtl' : 'ltr'}>
-			
+		<div
+			class="min-h-screen bg-[#030303] pb-28 relative overflow-x-hidden text-white font-sans selection:bg-[#3390ec]/30"
+			dir={isRtl() ? 'rtl' : 'ltr'}
+		>
 			{/* Ambient Top Glow */}
 			<div class="absolute top-0 left-0 right-0 h-[350px] bg-gradient-to-b from-[#3390ec]/15 via-[#3390ec]/5 to-transparent blur-[80px] pointer-events-none z-0" />
 
 			{/* ═══════ PREMIUM STICKY HEADER ═══════ */}
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-30 border-b border-white/5 flex items-center gap-3.5 shadow-sm">
 				<button
-					onClick={() => { haptic.impact('light'); navigate('/dashboard'); }}
+					type="button"
+					onClick={() => {
+						haptic.impact('light');
+						navigate('/dashboard');
+					}}
 					class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
 					aria-label={t('common.back')}
 				>
@@ -111,17 +145,23 @@ export const ManagedBotsPage: Component = () => {
 			</div>
 
 			<div class="px-5 mt-6 flex flex-col gap-6 max-w-md mx-auto relative z-10 w-full">
-				
 				{/* ═══════ CREATE BOT HERO BUTTON ═══════ */}
 				<Motion.button
-					initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, easing: [0.32, 0.72, 0, 1] }}
-					onClick={() => { haptic.impact('medium'); setShowCreateModal(true); }}
+					initial={{ opacity: 0, y: 15 }}
+					animate={{ opacity: 1, y: 0 }}
+					transition={{ duration: 0.4, easing: [0.32, 0.72, 0, 1] }}
+					onClick={() => {
+						haptic.impact('medium');
+						setShowCreateModal(true);
+					}}
 					class="w-full group relative overflow-hidden rounded-[24px] p-[1.5px] bg-gradient-to-br from-[#3390ec] via-[#3390ec] to-[#2b7bc9] shadow-[0_15px_35px_rgba(51,144,236,0.25)] active:scale-95 transition-all text-left"
 				>
 					<div class="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
 					<div class="bg-[#12141C]/60 backdrop-blur-xl rounded-[22.5px] p-5 flex items-center gap-4 relative z-10">
 						<div class="w-14 h-14 rounded-[16px] bg-white/10 flex items-center justify-center border border-white/20 shadow-inner shrink-0 group-hover:scale-105 transition-transform duration-300">
-							<span class="material-symbols-outlined text-white text-[32px] drop-shadow-md">add_circle</span>
+							<span class="material-symbols-outlined text-white text-[32px] drop-shadow-md">
+								add_circle
+							</span>
 						</div>
 						<div class="flex flex-col items-start gap-1 flex-1 min-w-0">
 							<span class="text-[16px] font-black text-white leading-tight truncate w-full">
@@ -131,8 +171,12 @@ export const ManagedBotsPage: Component = () => {
 								{t('managedBots.connectBotFatherApi')}
 							</span>
 						</div>
-						<div class={`shrink-0 w-8 h-8 rounded-[10px] bg-white/10 flex items-center justify-center border border-white/5 ${isRtl() ? 'rotate-180' : ''}`}>
-							<span class="material-symbols-outlined text-white/60 text-[18px] group-hover:translate-x-0.5 transition-transform">arrow_forward_ios</span>
+						<div
+							class={`shrink-0 w-8 h-8 rounded-[10px] bg-white/10 flex items-center justify-center border border-white/5 ${isRtl() ? 'rotate-180' : ''}`}
+						>
+							<span class="material-symbols-outlined text-white/60 text-[18px] group-hover:translate-x-0.5 transition-transform">
+								arrow_forward_ios
+							</span>
 						</div>
 					</div>
 				</Motion.button>
@@ -154,12 +198,22 @@ export const ManagedBotsPage: Component = () => {
 					</div>
 
 					<Show when={!bots.loading && (!bots() || bots()!.length === 0)}>
-						<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, easing: [0.32, 0.72, 0, 1] }} class="relative overflow-hidden rounded-[28px] bg-[#12141C]/80 backdrop-blur-xl border border-white/5 p-8 flex flex-col items-center text-center gap-6 shadow-sm">
+						<Motion.div
+							initial={{ opacity: 0, y: 15 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{ duration: 0.5, easing: [0.32, 0.72, 0, 1] }}
+							class="relative overflow-hidden rounded-[28px] bg-[#12141C]/80 backdrop-blur-xl border border-white/5 p-8 flex flex-col items-center text-center gap-6 shadow-sm"
+						>
 							<div class="absolute -top-16 -left-16 w-32 h-32 bg-[#3390ec]/15 rounded-full blur-3xl pointer-events-none" />
 							<div class="absolute -bottom-16 -right-16 w-32 h-32 bg-[#34c759]/10 rounded-full blur-3xl pointer-events-none" />
 
 							<div class="relative w-20 h-20 rounded-[20px] bg-gradient-to-tr from-[#3390ec]/20 to-[#3390ec]/5 flex items-center justify-center border border-[#3390ec]/30 shadow-inner">
-								<span class="material-symbols-outlined text-[42px] text-[#3390ec] drop-shadow-[0_0_10px_rgba(51,144,236,0.5)]" style={{ 'font-variation-settings': '"FILL" 1' }}>smart_toy</span>
+								<span
+									class="material-symbols-outlined text-[42px] text-[#3390ec] drop-shadow-[0_0_10px_rgba(51,144,236,0.5)]"
+									style={{ 'font-variation-settings': '"FILL" 1' }}
+								>
+									smart_toy
+								</span>
 							</div>
 
 							<div class="flex flex-col gap-2.5 max-w-xs relative z-10">
@@ -173,34 +227,56 @@ export const ManagedBotsPage: Component = () => {
 
 							<div class="w-full flex flex-col gap-2.5 text-start relative z-10">
 								<div class="flex items-center gap-3.5 bg-[#08090D] rounded-[16px] p-3.5 border border-white/5 shadow-inner">
-									<span class="material-symbols-outlined text-[#3390ec] text-[22px]">brand_family</span>
+									<span class="material-symbols-outlined text-[#3390ec] text-[22px]">
+										brand_family
+									</span>
 									<div class="flex flex-col gap-0.5">
-										<span class="text-[13px] font-black text-white">{t('managedBots.featureBrandTitle')}</span>
-										<span class="text-[11px] font-medium text-white/40">{t('managedBots.featureBrandDesc')}</span>
+										<span class="text-[13px] font-black text-white">
+											{t('managedBots.featureBrandTitle')}
+										</span>
+										<span class="text-[11px] font-medium text-white/40">
+											{t('managedBots.featureBrandDesc')}
+										</span>
 									</div>
 								</div>
 								<div class="flex items-center gap-3.5 bg-[#08090D] rounded-[16px] p-3.5 border border-white/5 shadow-inner">
 									<span class="material-symbols-outlined text-[#10b981] text-[22px]">security</span>
 									<div class="flex flex-col gap-0.5">
-										<span class="text-[13px] font-black text-white">{t('managedBots.featureProtectTitle')}</span>
-										<span class="text-[11px] font-medium text-white/40">{t('managedBots.featureProtectDesc')}</span>
+										<span class="text-[13px] font-black text-white">
+											{t('managedBots.featureProtectTitle')}
+										</span>
+										<span class="text-[11px] font-medium text-white/40">
+											{t('managedBots.featureProtectDesc')}
+										</span>
 									</div>
 								</div>
 								<div class="flex items-center gap-3.5 bg-[#08090D] rounded-[16px] p-3.5 border border-white/5 shadow-inner">
-									<span class="material-symbols-outlined text-amber-400 text-[22px]">monetization_on</span>
+									<span class="material-symbols-outlined text-amber-400 text-[22px]">
+										monetization_on
+									</span>
 									<div class="flex flex-col gap-0.5">
-										<span class="text-[13px] font-black text-white">{t('managedBots.featureEarnTitle')}</span>
-										<span class="text-[11px] font-medium text-white/40">{t('managedBots.featureEarnDesc')}</span>
+										<span class="text-[13px] font-black text-white">
+											{t('managedBots.featureEarnTitle')}
+										</span>
+										<span class="text-[11px] font-medium text-white/40">
+											{t('managedBots.featureEarnDesc')}
+										</span>
 									</div>
 								</div>
 							</div>
 
 							<button
+								type="button"
 								onClick={() => {
 									haptic.impact('medium');
 									const link = 'https://t.me/BotFather';
-									try { if ((window as any).Telegram?.WebApp?.openTelegramLink) (window as any).Telegram.WebApp.openTelegramLink(link); else window.open(link, '_blank'); }
-									catch (_) { window.open(link, '_blank'); }
+									try {
+										if ((window as any).Telegram?.WebApp?.openTelegramLink)
+											(window as any).Telegram.WebApp.openTelegramLink(link);
+										else window.open(link, '_blank');
+									} catch (_) {
+										window.open(link, '_blank');
+									}
 								}}
 								class="w-full h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7bc9] hover:from-[#2b7bc9] hover:to-[#3390ec] active:scale-95 text-white rounded-[16px] font-black text-[13px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-[0_10px_25px_rgba(51,144,236,0.3)] relative z-10 border border-white/10"
 							>
@@ -209,7 +285,11 @@ export const ManagedBotsPage: Component = () => {
 							</button>
 
 							<button
-								onClick={() => { haptic.impact('light'); navigate('/group/demo-group'); }}
+								type="button"
+								onClick={() => {
+									haptic.impact('light');
+									navigate('/group/demo-group');
+								}}
 								class="w-full h-12 bg-amber-400/10 hover:bg-amber-400/15 border border-amber-400/30 text-amber-300 rounded-[16px] font-bold text-[12px] transition-all flex items-center justify-center gap-2 relative z-10 active:scale-95"
 							>
 								<span class="material-symbols-outlined text-[18px]">science</span>
@@ -222,34 +302,56 @@ export const ManagedBotsPage: Component = () => {
 						<For each={bots() || []}>
 							{(bot: ManagedBot, index) => (
 								<Motion.div
-									initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: index() * 0.08, easing: [0.32, 0.72, 0, 1] }}
-									onClick={() => { haptic.impact('light'); navigate(`/bot/${bot.id}/manage`); }}
+									initial={{ opacity: 0, y: 10 }}
+									animate={{ opacity: 1, y: 0 }}
+									transition={{ duration: 0.4, delay: index() * 0.08, easing: [0.32, 0.72, 0, 1] }}
+									onClick={() => {
+										haptic.impact('light');
+										navigate(`/bot/${bot.id}/manage`);
+									}}
 									class="bg-[#12141C]/80 backdrop-blur-xl rounded-[20px] border border-white/5 p-4 flex items-center gap-4 hover:border-[#3390ec]/30 transition-all cursor-pointer active:scale-[0.98] shadow-sm group"
 								>
-									<div class={`w-14 h-14 rounded-[16px] flex items-center justify-center shrink-0 relative overflow-hidden shadow-inner ${bot.status === 'active' ? 'bg-[#3390ec]/15 border border-[#3390ec]/30' : 'bg-[#08090D] border border-white/10'}`}>
+									<div
+										class={`w-14 h-14 rounded-[16px] flex items-center justify-center shrink-0 relative overflow-hidden shadow-inner ${bot.status === 'active' ? 'bg-[#3390ec]/15 border border-[#3390ec]/30' : 'bg-[#08090D] border border-white/10'}`}
+									>
 										<div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent pointer-events-none" />
-										<span class={`material-symbols-outlined text-[28px] relative z-10 ${bot.status === 'active' ? 'text-[#3390ec] drop-shadow-md' : 'text-white/30'}`}>
+										<span
+											class={`material-symbols-outlined text-[28px] relative z-10 ${bot.status === 'active' ? 'text-[#3390ec] drop-shadow-md' : 'text-white/30'}`}
+										>
 											smart_toy
 										</span>
 									</div>
 
 									<div class="flex flex-col flex-1 min-w-0 gap-0.5">
 										<div class="flex items-center gap-2">
-											<span class="text-[15px] font-black text-white truncate tracking-tight">{bot.bot_name}</span>
-											<div class={`w-2 h-2 rounded-full shrink-0 shadow-sm ${bot.status === 'active' ? 'bg-[#10b981] shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse' : 'bg-[#ff4a4a]'}`} />
+											<span class="text-[15px] font-black text-white truncate tracking-tight">
+												{bot.bot_name}
+											</span>
+											<div
+												class={`w-2 h-2 rounded-full shrink-0 shadow-sm ${bot.status === 'active' ? 'bg-[#10b981] shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse' : 'bg-[#ff4a4a]'}`}
+											/>
 										</div>
-										<span class="text-[12px] font-bold text-white/40 font-mono truncate">@{bot.bot_username}</span>
+										<span class="text-[12px] font-bold text-white/40 font-mono truncate">
+											@{bot.bot_username}
+										</span>
 									</div>
 
 									<div class="flex items-center gap-1.5 shrink-0">
 										<button
-											onClick={(e) => { e.stopPropagation(); haptic.impact('medium'); setBotToDelete(bot); }}
+											type="button"
+											onClick={(e) => {
+												e.stopPropagation();
+												haptic.impact('medium');
+												setBotToDelete(bot);
+											}}
 											class="w-10 h-10 rounded-[12px] flex items-center justify-center bg-transparent hover:bg-[#ff4a4a]/10 text-white/20 hover:text-[#ff4a4a] transition-colors border border-transparent hover:border-[#ff4a4a]/20"
 											aria-label={t('managedBots.delete')}
 										>
 											<span class="material-symbols-outlined text-[20px]">delete</span>
 										</button>
-										<div class={`w-10 h-10 rounded-[12px] flex items-center justify-center transition-transform ${isRtl() ? 'rotate-180' : ''} group-hover:translate-x-1 text-white/20 group-hover:text-[#3390ec]`}>
+										<div
+											class={`w-10 h-10 rounded-[12px] flex items-center justify-center transition-transform ${isRtl() ? 'rotate-180' : ''} group-hover:translate-x-1 text-white/20 group-hover:text-[#3390ec]`}
+										>
 											<span class="material-symbols-outlined text-[24px]">chevron_right</span>
 										</div>
 									</div>
@@ -262,36 +364,66 @@ export const ManagedBotsPage: Component = () => {
 
 			{/* ═══════ CREATE BOT MODAL (Bottom Sheet) ═══════ */}
 			<Show when={showCreateModal()}>
-				<Motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} class="fixed inset-0 bg-[#030303]/90 backdrop-blur-2xl z-50 flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowCreateModal(false); }}>
-					<Motion.div initial={{ y: '100%' }} animate={{ y: 0 }} transition={{ duration: 0.35, easing: [0.32, 0.72, 0, 1] }} class="w-full max-h-[92vh] bg-[#12141C] rounded-t-[32px] border-t border-white/10 p-6 overflow-y-auto no-scrollbar shadow-[0_-30px_80px_rgba(0,0,0,0.8)] relative">
-						
+				<Motion.div
+					initial={{ opacity: 0 }}
+					animate={{ opacity: 1 }}
+					class="fixed inset-0 bg-[#030303]/90 backdrop-blur-2xl z-50 flex items-end justify-center"
+					onClick={(e) => {
+						if (e.target === e.currentTarget) setShowCreateModal(false);
+					}}
+				>
+					<Motion.div
+						initial={{ y: '100%' }}
+						animate={{ y: 0 }}
+						transition={{ duration: 0.35, easing: [0.32, 0.72, 0, 1] }}
+						class="w-full max-h-[92vh] bg-[#12141C] rounded-t-[32px] border-t border-white/10 p-6 overflow-y-auto no-scrollbar shadow-[0_-30px_80px_rgba(0,0,0,0.8)] relative"
+					>
 						<div class="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-6" />
 
 						<div class="flex flex-col gap-1.5 mb-6">
-							<h3 class="text-[20px] font-black text-white tracking-tight">{t('managedBots.connectYourBot')}</h3>
+							<h3 class="text-[20px] font-black text-white tracking-tight">
+								{t('managedBots.connectYourBot')}
+							</h3>
 							<p class="text-[12px] font-medium text-white/50">{t('managedBots.pasteBotToken')}</p>
 						</div>
 
 						<div class="flex flex-col gap-3.5 mb-6">
 							<div class="flex items-center gap-3.5 bg-[#08090D] p-3.5 rounded-[16px] border border-white/5 shadow-inner">
-								<div class="w-9 h-9 rounded-[12px] bg-[#3390ec]/15 flex items-center justify-center shrink-0 border border-[#3390ec]/30 shadow-sm"><span class="text-[13px] font-black text-[#3390ec]">1</span></div>
+								<div class="w-9 h-9 rounded-[12px] bg-[#3390ec]/15 flex items-center justify-center shrink-0 border border-[#3390ec]/30 shadow-sm">
+									<span class="text-[13px] font-black text-[#3390ec]">1</span>
+								</div>
 								<div class="flex flex-col gap-0.5">
-									<p class="text-[13px] text-white font-bold tracking-tight">{t('managedBots.step1Title')}</p>
+									<p class="text-[13px] text-white font-bold tracking-tight">
+										{t('managedBots.step1Title')}
+									</p>
 									<p class="text-[11px] font-medium text-white/40">{t('managedBots.step1Desc')}</p>
 								</div>
 							</div>
 							<div class="flex items-center gap-3.5 bg-[#08090D] p-3.5 rounded-[16px] border border-white/5 shadow-inner">
-								<div class="w-9 h-9 rounded-[12px] bg-[#3390ec]/15 flex items-center justify-center shrink-0 border border-[#3390ec]/30 shadow-sm"><span class="text-[13px] font-black text-[#3390ec]">2</span></div>
+								<div class="w-9 h-9 rounded-[12px] bg-[#3390ec]/15 flex items-center justify-center shrink-0 border border-[#3390ec]/30 shadow-sm">
+									<span class="text-[13px] font-black text-[#3390ec]">2</span>
+								</div>
 								<div class="flex flex-col gap-0.5">
-									<p class="text-[13px] text-white font-bold tracking-tight">{t('managedBots.step2Title')}</p>
-									<p class="text-[11px] font-medium text-white/40 font-mono">{t('managedBots.step2Desc')}</p>
+									<p class="text-[13px] text-white font-bold tracking-tight">
+										{t('managedBots.step2Title')}
+									</p>
+									<p class="text-[11px] font-medium text-white/40 font-mono">
+										{t('managedBots.step2Desc')}
+									</p>
 								</div>
 							</div>
 							<div class="flex items-center gap-3.5 bg-[#08090D] p-3.5 rounded-[16px] border border-white/5 shadow-inner">
-								<div class="w-9 h-9 rounded-[12px] bg-[#3390ec]/15 flex items-center justify-center shrink-0 border border-[#3390ec]/30 shadow-sm"><span class="text-[13px] font-black text-[#3390ec]">3</span></div>
+								<div class="w-9 h-9 rounded-[12px] bg-[#3390ec]/15 flex items-center justify-center shrink-0 border border-[#3390ec]/30 shadow-sm">
+									<span class="text-[13px] font-black text-[#3390ec]">3</span>
+								</div>
 								<div class="flex flex-col gap-0.5">
-									<p class="text-[13px] text-white font-bold tracking-tight">{t('managedBots.step3Title')}</p>
-									<p class="text-[11px] font-medium text-[#10b981] flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">lock</span> {t('managedBots.step3Desc')}</p>
+									<p class="text-[13px] text-white font-bold tracking-tight">
+										{t('managedBots.step3Title')}
+									</p>
+									<p class="text-[11px] font-medium text-[#10b981] flex items-center gap-1">
+										<span class="material-symbols-outlined text-[14px]">lock</span>{' '}
+										{t('managedBots.step3Desc')}
+									</p>
 								</div>
 							</div>
 						</div>
@@ -304,20 +436,55 @@ export const ManagedBotsPage: Component = () => {
 
 						<div class="relative mb-5">
 							<input
-								type="password" value={botToken()} onInput={(e) => setBotToken(e.currentTarget.value)} placeholder={t('managedBots.pasteBotTokenPlaceholder')}
+								type="password"
+								value={botToken()}
+								onInput={(e) => setBotToken(e.currentTarget.value)}
+								placeholder={t('managedBots.pasteBotTokenPlaceholder')}
 								class="w-full h-14 bg-[#08090D] border border-white/10 text-white text-[14px] font-mono font-bold rounded-[16px] px-4 pl-12 focus:outline-none focus:border-[#3390ec]/50 transition-colors placeholder-white/20 shadow-inner"
 								dir="ltr"
 							/>
-							<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-white/30 text-[20px] pointer-events-none">key</span>
+							<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-white/30 text-[20px] pointer-events-none">
+								key
+							</span>
 						</div>
 
 						<button
-							onClick={handleCreateBot} disabled={isCreating() || !botToken().trim()}
+							type="button"
+							onClick={handleCreateBot}
+							disabled={isCreating() || !botToken().trim()}
 							class="w-full h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7bc9] hover:from-[#2b7bc9] hover:to-[#3390ec] text-white rounded-[16px] font-black text-[13px] uppercase tracking-widest transition-all disabled:opacity-40 disabled:scale-100 flex items-center justify-center gap-2 shadow-[0_10px_25px_rgba(51,144,236,0.3)] active:scale-95 border border-white/10"
 						>
-							<Show when={!isCreating()} fallback={<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}>
-								<span class="material-symbols-outlined text-[20px]">link</span> {t('managedBots.connectBotBtn')}
+							<Show
+								when={!isCreating()}
+								fallback={
+									<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+								}
+							>
+								<span class="material-symbols-outlined text-[20px]">link</span>{' '}
+								{t('managedBots.connectBotBtn')}
 							</Show>
+						</button>
+
+						{/* Divider */}
+						<div class="flex items-center gap-3 my-1">
+							<div class="h-px flex-1 bg-white/10" />
+							<span class="text-[11px] font-bold text-white/40 uppercase tracking-widest">
+								{t('managedBots.orDivider') || 'OR'}
+							</span>
+							<div class="h-px flex-1 bg-white/10" />
+						</div>
+
+						{/* Native Managed-Bot creation (Bot API 9.6) — one tap in Telegram.
+						    The manager flow delivers the token to the backend without the
+						    user ever copying it. Falls back to BotFather link on older clients. */}
+						<button
+							type="button"
+							onClick={handleRequestNativeBot}
+							data-hermes-send={undefined}
+							class="w-full h-14 bg-[#10b981]/15 hover:bg-[#10b981]/25 text-[#10b981] rounded-[16px] font-black text-[13px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-[#10b981]/40 active:scale-95"
+						>
+							<span class="material-symbols-outlined text-[20px]">auto_awesome</span>{' '}
+							{t('managedBots.createNativeBtn') || 'CREATE BOT IN ONE TAP'}
 						</button>
 					</Motion.div>
 				</Motion.div>
@@ -325,26 +492,58 @@ export const ManagedBotsPage: Component = () => {
 
 			{/* ═══════ DELETE BOT MODAL (Danger Zone) ═══════ */}
 			<Show when={botToDelete()}>
-				<Motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} class="fixed inset-0 bg-[#030303]/90 backdrop-blur-2xl z-50 flex items-center justify-center px-5" onClick={(e) => { if (e.target === e.currentTarget && !isDeleting()) setBotToDelete(null); }}>
-					<Motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.3, easing: [0.32, 0.72, 0, 1] }} class="w-full max-w-sm max-h-[85vh] overflow-y-auto no-scrollbar bg-[#12141C] border border-white/10 rounded-[32px] p-7 flex flex-col items-center text-center shadow-[0_20px_60px_rgba(0,0,0,0.8)] relative">
+				<Motion.div
+					initial={{ opacity: 0 }}
+					animate={{ opacity: 1 }}
+					class="fixed inset-0 bg-[#030303]/90 backdrop-blur-2xl z-50 flex items-center justify-center px-5"
+					onClick={(e) => {
+						if (e.target === e.currentTarget && !isDeleting()) setBotToDelete(null);
+					}}
+				>
+					<Motion.div
+						initial={{ scale: 0.9, opacity: 0 }}
+						animate={{ scale: 1, opacity: 1 }}
+						transition={{ duration: 0.3, easing: [0.32, 0.72, 0, 1] }}
+						class="w-full max-w-sm max-h-[85vh] overflow-y-auto no-scrollbar bg-[#12141C] border border-white/10 rounded-[32px] p-7 flex flex-col items-center text-center shadow-[0_20px_60px_rgba(0,0,0,0.8)] relative"
+					>
 						<div class="absolute -top-10 -left-10 w-32 h-32 bg-[#ff4a4a]/20 blur-3xl rounded-full pointer-events-none" />
-						
+
 						<div class="w-20 h-20 rounded-[24px] bg-[#ff4a4a]/10 border border-[#ff4a4a]/30 flex items-center justify-center mb-5 shadow-inner relative z-10">
-							<span class="material-symbols-outlined text-[#ff4a4a] text-[40px] drop-shadow-md">delete_forever</span>
+							<span class="material-symbols-outlined text-[#ff4a4a] text-[40px] drop-shadow-md">
+								delete_forever
+							</span>
 						</div>
 
-						<h3 class="text-[22px] font-black text-white mb-2 tracking-tight relative z-10">{t('managedBots.deleteConfirmTitle')}</h3>
+						<h3 class="text-[22px] font-black text-white mb-2 tracking-tight relative z-10">
+							{t('managedBots.deleteConfirmTitle')}
+						</h3>
 						<p class="text-[13px] text-white/50 mb-8 leading-relaxed font-medium px-2 relative z-10">
 							{t('managedBots.deleteConfirmDesc')}
 						</p>
 
 						<div class="w-full flex flex-col gap-3 relative z-10">
-							<button onClick={handleDeleteBot} disabled={isDeleting()} class="w-full h-14 rounded-[16px] font-black text-[14px] uppercase tracking-widest bg-[#ff4a4a] hover:bg-[#ff3b30] text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_8px_24px_rgba(255,74,74,0.3)] active:scale-95 border border-white/10">
-								<Show when={!isDeleting()} fallback={<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}>
-									<span class="material-symbols-outlined text-[20px]">warning</span> {t('managedBots.delete')}
+							<button
+								type="button"
+								onClick={handleDeleteBot}
+								disabled={isDeleting()}
+								class="w-full h-14 rounded-[16px] font-black text-[14px] uppercase tracking-widest bg-[#ff4a4a] hover:bg-[#ff3b30] text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_8px_24px_rgba(255,74,74,0.3)] active:scale-95 border border-white/10"
+							>
+								<Show
+									when={!isDeleting()}
+									fallback={
+										<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+									}
+								>
+									<span class="material-symbols-outlined text-[20px]">warning</span>{' '}
+									{t('managedBots.delete')}
 								</Show>
 							</button>
-							<button onClick={() => setBotToDelete(null)} disabled={isDeleting()} class="w-full h-14 rounded-[16px] font-bold text-[14px] uppercase tracking-widest bg-transparent hover:bg-white/5 text-white/60 hover:text-white transition-all disabled:opacity-50 active:scale-95 border border-transparent hover:border-white/5">
+							<button
+								type="button"
+								onClick={() => setBotToDelete(null)}
+								disabled={isDeleting()}
+								class="w-full h-14 rounded-[16px] font-bold text-[14px] uppercase tracking-widest bg-transparent hover:bg-white/5 text-white/60 hover:text-white transition-all disabled:opacity-50 active:scale-95 border border-transparent hover:border-white/5"
+							>
 								{t('common.cancel')}
 							</button>
 						</div>

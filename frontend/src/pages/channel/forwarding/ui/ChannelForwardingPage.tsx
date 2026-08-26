@@ -1,10 +1,18 @@
-import { Component, createSignal, createResource, Show, For, onMount, onCleanup } from 'solid-js';
-import { useNavigate, useParams } from '@solidjs/router';
 import { Motion } from '@motionone/solid';
+import { useNavigate, useParams } from '@solidjs/router';
 import { backButton } from '@tma.js/sdk-solid';
+import {
+	type Component,
+	createResource,
+	createSignal,
+	For,
+	onCleanup,
+	onMount,
+	Show,
+} from 'solid-js';
 import { ChannelContextBar, ChannelHamburgerMenu, channelApi } from '@/entities/channel/index.js';
 import type { ForwardingRule } from '@/entities/channel/model/types.js';
-import { t, isRtl } from '@/shared/i18n/index.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { showToast } from '@/shared/ui/index.js';
 
@@ -38,11 +46,21 @@ export const ChannelForwardingPage: Component = () => {
 	const [pingUrl, setPingUrl] = createSignal('');
 	const [pingSecret, setPingSecret] = createSignal('');
 	const [isPinging, setIsPinging] = createSignal(false);
-	const [pingResult, setPingResult] = createSignal<{ success: boolean; status_code?: number; error?: string } | null>(null);
+	const [pingResult, setPingResult] = createSignal<{
+		success: boolean;
+		status_code?: number;
+		error?: string;
+	} | null>(null);
 
 	// Resources
-	const [rules, { refetch: refetchRules }] = createResource(() => params.id, (id) => channelApi.getForwardingRules(id));
-	const [logs] = createResource(() => params.id, (id) => channelApi.getForwardingLogs(id));
+	const [rules, { refetch: refetchRules }] = createResource(
+		() => params.id,
+		(id) => channelApi.getForwardingRules(id),
+	);
+	const [logs] = createResource(
+		() => params.id,
+		(id) => channelApi.getForwardingLogs(id),
+	);
 
 	onMount(() => {
 		try {
@@ -74,7 +92,10 @@ export const ChannelForwardingPage: Component = () => {
 			if (res?.valid) {
 				setTargetVerified(true);
 				haptic.notify('success');
-				showToast(t('channel.forwarding.target_verified') || 'Target verified successfully!', 'success');
+				showToast(
+					t('channel.forwarding.target_verified') || 'Target verified successfully!',
+					'success',
+				);
 			} else {
 				setTargetVerified(false);
 				haptic.notify('error');
@@ -92,7 +113,10 @@ export const ChannelForwardingPage: Component = () => {
 	const handleSaveRule = async (e: Event) => {
 		e.preventDefault();
 		if (!target().trim()) {
-			showToast(t('channel.forwarding.target_required') || 'Target destination is required', 'error');
+			showToast(
+				t('channel.forwarding.target_required') || 'Target destination is required',
+				'error',
+			);
 			return;
 		}
 
@@ -123,7 +147,10 @@ export const ChannelForwardingPage: Component = () => {
 		try {
 			await channelApi.createForwardingRule(params.id, rulePayload);
 			haptic.notify('success');
-			showToast(t('channel.forwarding.rule_created') || 'Forwarding rule created successfully!', 'success');
+			showToast(
+				t('channel.forwarding.rule_created') || 'Forwarding rule created successfully!',
+				'success',
+			);
 			setIsCreatingRule(false);
 			resetRuleForm();
 			refetchRules();
@@ -152,7 +179,8 @@ export const ChannelForwardingPage: Component = () => {
 
 	const handleDeleteRule = async (ruleId?: string) => {
 		if (!ruleId) return;
-		if (!confirm(t('channel.forwarding.confirm_delete_rule') || 'Delete this forwarding rule?')) return;
+		if (!confirm(t('channel.forwarding.confirm_delete_rule') || 'Delete this forwarding rule?'))
+			return;
 		haptic.notify('warning');
 		try {
 			await channelApi.deleteForwardingRule(params.id, ruleId);
@@ -203,9 +231,17 @@ export const ChannelForwardingPage: Component = () => {
 	};
 
 	return (
-		<div class="min-h-screen bg-neutral-950 text-neutral-100 pb-28 pt-2 px-4" dir={isRtl() ? 'rtl' : 'ltr'}>
+		<div
+			class="min-h-screen bg-neutral-950 text-neutral-100 pb-28 pt-2 px-4"
+			dir={isRtl() ? 'rtl' : 'ltr'}
+		>
 			<ChannelContextBar channelId={params.id} />
-			<ChannelHamburgerMenu isOpen={isMenuOpen()} onClose={() => setIsMenuOpen(false)} channelId={params.id} activeTab="forwarding" />
+			<ChannelHamburgerMenu
+				isOpen={isMenuOpen()}
+				onClose={() => setIsMenuOpen(false)}
+				channelId={params.id}
+				activeTab="forwarding"
+			/>
 
 			{/* Header */}
 			<div class="mt-4 mb-5 flex items-center justify-between">
@@ -215,11 +251,13 @@ export const ChannelForwardingPage: Component = () => {
 						<span>{t('channel.forwarding.title') || 'Auto Forwarding & Webhooks'}</span>
 					</h1>
 					<p class="text-xs text-neutral-400 mt-1">
-						{t('channel.forwarding.subtitle') || 'Replicate channel posts to Telegram targets or secure HTTP Webhooks.'}
+						{t('channel.forwarding.subtitle') ||
+							'Replicate channel posts to Telegram targets or secure HTTP Webhooks.'}
 					</p>
 				</div>
 
 				<button
+					type="button"
 					onClick={() => {
 						haptic.impact('medium');
 						setIsCreatingRule(true);
@@ -234,36 +272,45 @@ export const ChannelForwardingPage: Component = () => {
 			{/* Navigation Tabs */}
 			<div class="flex items-center gap-2 p-1 rounded-xl bg-neutral-900 border border-neutral-800 mb-5">
 				<button
+					type="button"
 					onClick={() => {
 						haptic.selection();
 						setActiveTab('rules');
 					}}
 					class={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
-						activeTab() === 'rules' ? 'bg-[#0098EA] text-white shadow-md' : 'text-neutral-400 hover:text-white'
+						activeTab() === 'rules'
+							? 'bg-[#0098EA] text-white shadow-md'
+							: 'text-neutral-400 hover:text-white'
 					}`}
 				>
 					📋 {t('channel.forwarding.tab_rules') || 'Rules'} ({rules()?.length || 0})
 				</button>
 
 				<button
+					type="button"
 					onClick={() => {
 						haptic.selection();
 						setActiveTab('webhooks');
 					}}
 					class={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
-						activeTab() === 'webhooks' ? 'bg-[#0098EA] text-white shadow-md' : 'text-neutral-400 hover:text-white'
+						activeTab() === 'webhooks'
+							? 'bg-[#0098EA] text-white shadow-md'
+							: 'text-neutral-400 hover:text-white'
 					}`}
 				>
 					🌐 {t('channel.forwarding.tab_webhooks') || 'Webhooks'}
 				</button>
 
 				<button
+					type="button"
 					onClick={() => {
 						haptic.selection();
 						setActiveTab('logs');
 					}}
 					class={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
-						activeTab() === 'logs' ? 'bg-[#0098EA] text-white shadow-md' : 'text-neutral-400 hover:text-white'
+						activeTab() === 'logs'
+							? 'bg-[#0098EA] text-white shadow-md'
+							: 'text-neutral-400 hover:text-white'
 					}`}
 				>
 					📜 {t('channel.forwarding.tab_logs') || 'Logs'}
@@ -287,7 +334,8 @@ export const ChannelForwardingPage: Component = () => {
 									{t('channel.forwarding.empty_rules') || 'No Forwarding Rules Active'}
 								</h3>
 								<p class="text-xs text-neutral-400 max-w-xs mx-auto">
-									{t('channel.forwarding.empty_desc') || 'Create a rule to auto-copy incoming posts or publish outbound posts to other channels.'}
+									{t('channel.forwarding.empty_desc') ||
+										'Create a rule to auto-copy incoming posts or publish outbound posts to other channels.'}
 								</p>
 							</div>
 						</div>
@@ -302,28 +350,37 @@ export const ChannelForwardingPage: Component = () => {
 										<div>
 											<div class="text-xs font-bold text-white flex items-center gap-1.5">
 												<span>{rule.target}</span>
-												<span class={`px-1.5 py-0.2 rounded text-[10px] uppercase font-semibold ${
-													rule.direction === 'inbound' ? 'bg-blue-500/10 text-blue-400' : 'bg-emerald-500/10 text-emerald-400'
-												}`}>
+												<span
+													class={`px-1.5 py-0.2 rounded text-[10px] uppercase font-semibold ${
+														rule.direction === 'inbound'
+															? 'bg-blue-500/10 text-blue-400'
+															: 'bg-emerald-500/10 text-emerald-400'
+													}`}
+												>
 													{rule.direction}
 												</span>
 											</div>
 											<div class="text-[11px] text-neutral-400">
-												Mode: <span class="capitalize text-neutral-300 font-medium">{rule.mode}</span>
+												Mode:{' '}
+												<span class="capitalize text-neutral-300 font-medium">{rule.mode}</span>
 											</div>
 										</div>
 									</div>
 
 									<div class="flex items-center gap-2">
 										<button
+											type="button"
 											onClick={() => handleToggleRule(rule)}
 											class={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
-												rule.is_active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-neutral-800 text-neutral-400'
+												rule.is_active
+													? 'bg-emerald-500/10 text-emerald-400'
+													: 'bg-neutral-800 text-neutral-400'
 											}`}
 										>
 											{rule.is_active ? 'Active' : 'Disabled'}
 										</button>
 										<button
+											type="button"
 											onClick={() => handleDeleteRule(rule.id)}
 											class="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 text-xs"
 										>
@@ -335,16 +392,24 @@ export const ChannelForwardingPage: Component = () => {
 								{/* Rule Filter Pills */}
 								<div class="flex flex-wrap gap-1.5 pt-1 border-t border-neutral-800/60 text-[10px]">
 									<Show when={rule.remove_ads}>
-										<span class="px-2 py-0.5 rounded bg-neutral-950 text-neutral-300 border border-neutral-800">🛡️ No Ads</span>
+										<span class="px-2 py-0.5 rounded bg-neutral-950 text-neutral-300 border border-neutral-800">
+											{t('channelForwarding.noAds')}
+										</span>
 									</Show>
 									<Show when={rule.remove_links}>
-										<span class="px-2 py-0.5 rounded bg-neutral-950 text-neutral-300 border border-neutral-800">🔗 No Links</span>
+										<span class="px-2 py-0.5 rounded bg-neutral-950 text-neutral-300 border border-neutral-800">
+											{t('channelForwarding.noLinks')}
+										</span>
 									</Show>
 									<Show when={rule.remove_hashtags}>
-										<span class="px-2 py-0.5 rounded bg-neutral-950 text-neutral-300 border border-neutral-800"># No Tags</span>
+										<span class="px-2 py-0.5 rounded bg-neutral-950 text-neutral-300 border border-neutral-800">
+											{t('channelForwarding.noTags')}
+										</span>
 									</Show>
 									<Show when={rule.watermark}>
-										<span class="px-2 py-0.5 rounded bg-neutral-950 text-neutral-300 border border-neutral-800">💧 Watermark</span>
+										<span class="px-2 py-0.5 rounded bg-neutral-950 text-neutral-300 border border-neutral-800">
+											{t('channelForwarding.watermark')}
+										</span>
 									</Show>
 								</div>
 							</div>
@@ -359,15 +424,20 @@ export const ChannelForwardingPage: Component = () => {
 					<div class="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-4">
 						<div class="flex items-center gap-2 text-sm font-bold text-white">
 							<span>🌐</span>
-							<span>{t('channel.forwarding.webhook_tester') || 'Outbound Webhook Tester & HMAC'}</span>
+							<span>
+								{t('channel.forwarding.webhook_tester') || 'Outbound Webhook Tester & HMAC'}
+							</span>
 						</div>
 
 						<p class="text-xs text-neutral-400 leading-relaxed">
-							{t('channel.forwarding.webhook_desc') || 'Receive realtime JSON payloads for every channel post with HMAC-SHA256 signature verification and SSRF-guarded delivery.'}
+							{t('channel.forwarding.webhook_desc') ||
+								'Receive realtime JSON payloads for every channel post with HMAC-SHA256 signature verification and SSRF-guarded delivery.'}
 						</p>
 
 						<div class="space-y-2">
-							<label class="text-xs font-semibold text-neutral-300">Target Webhook HTTPS Endpoint</label>
+							<div class="text-xs font-semibold text-neutral-300">
+								{t('channelForwarding.targetWebhookHttps')}
+							</div>
 							<input
 								type="url"
 								value={pingUrl()}
@@ -378,7 +448,7 @@ export const ChannelForwardingPage: Component = () => {
 						</div>
 
 						<div class="space-y-2">
-							<label class="text-xs font-semibold text-neutral-300">HMAC Secret Key (Optional)</label>
+							<div class="text-xs font-semibold text-neutral-300">HMAC Secret Key (Optional)</div>
 							<input
 								type="password"
 								value={pingSecret()}
@@ -389,6 +459,7 @@ export const ChannelForwardingPage: Component = () => {
 						</div>
 
 						<button
+							type="button"
 							onClick={handleTestPing}
 							disabled={isPinging()}
 							class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#0098EA] to-[#0081C8] text-white text-xs font-semibold hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
@@ -400,9 +471,13 @@ export const ChannelForwardingPage: Component = () => {
 						</button>
 
 						<Show when={pingResult()}>
-							<div class={`p-3 rounded-xl text-xs border ${
-								pingResult()?.success ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-300' : 'bg-red-950/30 border-red-500/30 text-red-300'
-							}`}>
+							<div
+								class={`p-3 rounded-xl text-xs border ${
+									pingResult()?.success
+										? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-300'
+										: 'bg-red-950/30 border-red-500/30 text-red-300'
+								}`}
+							>
 								<div class="font-bold">
 									{pingResult()?.success ? '✅ Ping Succeeded' : '❌ Ping Failed'}
 								</div>
@@ -426,7 +501,7 @@ export const ChannelForwardingPage: Component = () => {
 
 					<Show when={!logs.loading && (!logs() || logs()?.length === 0)}>
 						<div class="py-12 px-6 rounded-2xl bg-neutral-900/40 border border-neutral-800 text-center text-xs text-neutral-400">
-							No delivery events logged yet.
+							{t('channelForwarding.noDeliveryEvents')}
 						</div>
 					</Show>
 
@@ -434,10 +509,14 @@ export const ChannelForwardingPage: Component = () => {
 						{(log: any) => (
 							<div class="p-3 rounded-xl bg-neutral-900 border border-neutral-800 text-xs space-y-1">
 								<div class="flex items-center justify-between">
-									<span class={`font-semibold ${log.status === 'success' ? 'text-emerald-400' : 'text-amber-400'}`}>
-										{log.status === 'success' ? '✅ Forwarded' : '⚠️ ' + (log.status || 'Event')}
+									<span
+										class={`font-semibold ${log.status === 'success' ? 'text-emerald-400' : 'text-amber-400'}`}
+									>
+										{log.status === 'success' ? '✅ Forwarded' : `⚠️ ${log.status || 'Event'}`}
 									</span>
-									<span class="text-[10px] text-neutral-500">{new Date(log.created_at || Date.now()).toLocaleTimeString()}</span>
+									<span class="text-[10px] text-neutral-500">
+										{new Date(log.created_at || Date.now()).toLocaleTimeString()}
+									</span>
 								</div>
 								<p class="text-neutral-300 font-mono text-[11px] truncate">
 									{log.message || log.text || 'Message processed successfully'}
@@ -461,7 +540,11 @@ export const ChannelForwardingPage: Component = () => {
 								<span>➕</span>
 								<span>{t('channel.forwarding.create_rule_title') || 'New Forwarding Rule'}</span>
 							</h3>
-							<button onClick={() => setIsCreatingRule(false)} class="text-neutral-400 hover:text-white p-1">
+							<button
+								type="button"
+								onClick={() => setIsCreatingRule(false)}
+								class="text-neutral-400 hover:text-white p-1"
+							>
 								✕
 							</button>
 						</div>
@@ -470,7 +553,7 @@ export const ChannelForwardingPage: Component = () => {
 							{/* Direction & Target Type */}
 							<div class="grid grid-cols-2 gap-2">
 								<div class="space-y-1">
-									<label class="text-[11px] font-semibold text-neutral-300">Direction</label>
+									<div class="text-[11px] font-semibold text-neutral-300">{t('channelForwarding.direction')}</div>
 									<select
 										value={direction()}
 										onChange={(e) => setDirection(e.currentTarget.value as any)}
@@ -482,23 +565,25 @@ export const ChannelForwardingPage: Component = () => {
 								</div>
 
 								<div class="space-y-1">
-									<label class="text-[11px] font-semibold text-neutral-300">Target Type</label>
+									<div class="text-[11px] font-semibold text-neutral-300">{t('channelForwarding.targetType')}</div>
 									<select
 										value={targetType()}
 										onChange={(e) => setTargetType(e.currentTarget.value as any)}
 										class="w-full py-2 px-3 rounded-xl bg-neutral-950 border border-neutral-800 text-white text-xs"
 									>
 										<option value="telegram">Telegram Chat/Channel</option>
-										<option value="webhook">HTTPS Webhook</option>
+										<option value="webhook">{t('channelForwarding.httpsWebhook')}</option>
 									</select>
 								</div>
 							</div>
 
 							{/* Target Input with Verify */}
 							<div class="space-y-1">
-								<label class="text-[11px] font-semibold text-neutral-300">
-									{targetType() === 'telegram' ? 'Target Channel (@username or -100... ID)' : 'Target Webhook HTTPS URL'}
-								</label>
+								<div class="text-[11px] font-semibold text-neutral-300">
+									{targetType() === 'telegram'
+										? 'Target Channel (@username or -100... ID)'
+										: 'Target Webhook HTTPS URL'}
+								</div>
 								<div class="flex gap-2">
 									<input
 										type="text"
@@ -507,7 +592,11 @@ export const ChannelForwardingPage: Component = () => {
 											setTarget(e.currentTarget.value);
 											setTargetVerified(null);
 										}}
-										placeholder={targetType() === 'telegram' ? '@target_channel' : 'https://api.domain.com/hook'}
+										placeholder={
+											targetType() === 'telegram'
+												? '@target_channel'
+												: 'https://api.domain.com/hook'
+										}
 										class="flex-1 py-2 px-3 rounded-xl bg-neutral-950 border border-neutral-800 text-white text-xs focus:border-[#0098EA] focus:outline-none"
 										required
 									/>
@@ -521,7 +610,9 @@ export const ChannelForwardingPage: Component = () => {
 									</button>
 								</div>
 								<Show when={targetVerified() !== null}>
-									<div class={`text-[10px] mt-1 ${targetVerified() ? 'text-emerald-400' : 'text-red-400'}`}>
+									<div
+										class={`text-[10px] mt-1 ${targetVerified() ? 'text-emerald-400' : 'text-red-400'}`}
+									>
 										{targetVerified() ? '✓ Valid Destination' : '✗ Verification Failed'}
 									</div>
 								</Show>
@@ -529,7 +620,7 @@ export const ChannelForwardingPage: Component = () => {
 
 							{/* Forwarding Mode */}
 							<div class="space-y-1">
-								<label class="text-[11px] font-semibold text-neutral-300">Delivery Mode</label>
+								<div class="text-[11px] font-semibold text-neutral-300">{t('channelForwarding.deliveryMode')}</div>
 								<select
 									value={mode()}
 									onChange={(e) => setMode(e.currentTarget.value as any)}
@@ -537,44 +628,46 @@ export const ChannelForwardingPage: Component = () => {
 								>
 									<option value="forward">Standard Forward (Preserve Author)</option>
 									<option value="copy">Clean Copy (No Forward Tag)</option>
-									<option value="ai">AI Paraphrase & Polish</option>
+									<option value="ai">{t('channelForwarding.aiParaphrasePolish')}</option>
 								</select>
 							</div>
 
 							{/* Filter Options */}
 							<div class="space-y-2 pt-2 border-t border-neutral-800">
-								<div class="text-[11px] font-semibold text-neutral-300">Clean-up Filters</div>
+								<div class="text-[11px] font-semibold text-neutral-300">{t('channelForwarding.cleanupFilters')}</div>
 								<div class="grid grid-cols-3 gap-2">
-									<label class="flex items-center gap-1.5 p-2 rounded-lg bg-neutral-950 border border-neutral-800 text-[11px] cursor-pointer">
+									<div class="flex items-center gap-1.5 p-2 rounded-lg bg-neutral-950 border border-neutral-800 text-[11px] cursor-pointer">
 										<input
 											type="checkbox"
 											checked={removeAds()}
 											onChange={(e) => setRemoveAds(e.currentTarget.checked)}
 										/>
-										<span>No Ads</span>
-									</label>
-									<label class="flex items-center gap-1.5 p-2 rounded-lg bg-neutral-950 border border-neutral-800 text-[11px] cursor-pointer">
+										<span>{t('channelForwarding.noAds')}</span>
+									</div>
+									<div class="flex items-center gap-1.5 p-2 rounded-lg bg-neutral-950 border border-neutral-800 text-[11px] cursor-pointer">
 										<input
 											type="checkbox"
 											checked={removeLinks()}
 											onChange={(e) => setRemoveLinks(e.currentTarget.checked)}
 										/>
-										<span>No Links</span>
-									</label>
-									<label class="flex items-center gap-1.5 p-2 rounded-lg bg-neutral-950 border border-neutral-800 text-[11px] cursor-pointer">
+										<span>{t('channelForwarding.noLinks')}</span>
+									</div>
+									<div class="flex items-center gap-1.5 p-2 rounded-lg bg-neutral-950 border border-neutral-800 text-[11px] cursor-pointer">
 										<input
 											type="checkbox"
 											checked={removeHashtags()}
 											onChange={(e) => setRemoveHashtags(e.currentTarget.checked)}
 										/>
-										<span>No Tags</span>
-									</label>
+										<span>{t('channelForwarding.noTags')}</span>
+									</div>
 								</div>
 							</div>
 
 							{/* Watermark Signature */}
 							<div class="space-y-1">
-								<label class="text-[11px] font-semibold text-neutral-300">Attach Watermark / Signature (Optional)</label>
+								<div class="text-[11px] font-semibold text-neutral-300">
+									Attach Watermark / Signature (Optional)
+								</div>
 								<input
 									type="text"
 									value={watermark()}
@@ -593,7 +686,7 @@ export const ChannelForwardingPage: Component = () => {
 								<Show when={isSaving()}>
 									<div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
 								</Show>
-								<span>Save Forwarding Rule</span>
+								<span>{t('channelForwarding.saveRule')}</span>
 							</button>
 						</form>
 					</Motion.div>

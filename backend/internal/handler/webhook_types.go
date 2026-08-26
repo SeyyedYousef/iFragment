@@ -24,6 +24,16 @@ type TelegramUpdate struct {
 	ChannelPost       *Message           `json:"channel_post"`
 	EditedChannelPost *Message           `json:"edited_channel_post"`
 	ChatJoinRequest   *ChatJoinRequest   `json:"chat_join_request"`
+
+	// ── Bot API 9.4+ / 10.x new-era updates (added 2026-08-25) ──
+	// Managed bot lifecycle (Bot API 9.6): fired on this manager bot when a
+	// user creates/rotates a managed bot through us.
+	ManagedBotUpdated *ManagedBotUpdated `json:"managed_bot_updated,omitempty"`
+	// Bot subscription changes (Bot API 10.2): a user's paid subscription to
+	// this bot started/stopped/renewed.
+	BotSubscriptionUpdated *BotSubscriptionUpdated `json:"bot_subscription_updated,omitempty"`
+	// Guest mode (Bot API 10.0): mention in a chat where the bot is not a member.
+	GuestMessage *GuestMessageUpdate `json:"guest_message,omitempty"`
 }
 
 type ChatJoinRequest struct {
@@ -54,6 +64,46 @@ type ChatMemberUpdated struct {
 type ChatMember struct {
 	User   User   `json:"user"`
 	Status string `json:"status"`
+	// Bot API 9.5: short member tag shown next to the name.
+	Tag *string `json:"tag,omitempty"`
+}
+
+// ── New-era update payload types (Bot API 9.4 → 10.3) ──
+
+// ManagedBotUpdated (Bot API 9.6): a managed bot owned through this manager
+// bot was created or had its token rotated.
+type ManagedBotUpdated struct {
+	ManagedBot ManagedBotInfo `json:"managed_bot"`
+	Date       int            `json:"date,omitempty"`
+}
+
+type ManagedBotInfo struct {
+	ID       int64  `json:"id"`
+	IsBot    bool   `json:"is_bot"`
+	Username string `json:"username,omitempty"`
+	FirstName string `json:"first_name,omitempty"`
+}
+
+// BotSubscriptionUpdated (Bot API 10.2): the user's paid subscription to this
+// bot started, renewed, or expired.
+type BotSubscriptionUpdated struct {
+	Subscription BotSubscription `json:"subscription"`
+}
+
+type BotSubscription struct {
+	UserID          int64  `json:"user_id,omitempty"`
+	PeriodEndDate   int    `json:"period_end_date,omitempty"`
+	IsExpired       bool   `json:"is_expired,omitempty"`
+	IsRenewal       bool   `json:"is_renewal,omitempty"`
+	IsCanceled      bool   `json:"is_canceled,omitempty"`
+}
+
+// GuestMessageUpdate (Bot API 10.0): the bot was mentioned in a chat it is
+// not a member of; answer via answerGuestQuery.
+type GuestMessageUpdate struct {
+	GuestQueryID string  `json:"guest_query_id"`
+	From         User    `json:"from"`
+	Message      Message `json:"message"`
 }
 
 type ChatInviteLink struct {
@@ -79,6 +129,7 @@ type Chat struct {
 type Message struct {
 	MessageID          int                     `json:"message_id"`
 	MessageThreadID    *int                    `json:"message_thread_id,omitempty"`
+	IsTopicMessage     bool                    `json:"is_topic_message,omitempty"`
 	From               *User                   `json:"from"`
 	Chat               *Chat                   `json:"chat"`
 	Date               int                     `json:"date"`
@@ -117,6 +168,7 @@ type MessageEntity struct {
 	Offset int    `json:"offset"`
 	Length int    `json:"length"`
 	URL    string `json:"url,omitempty"`
+	User   *User  `json:"user,omitempty"`
 }
 
 type BotPermissions struct {

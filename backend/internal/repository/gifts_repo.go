@@ -259,3 +259,150 @@ func (r *GiftsRepo) SaveValuationAudit(ctx context.Context, giftID, modelID stri
 
 	return id, err
 }
+
+// GetCompsForGift fetches closest comparable sales by model and serial proximity
+func (r *GiftsRepo) GetCompsForGift(ctx context.Context, modelID string, serialNumber int, limit int) ([]GiftSaleRecord, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return []GiftSaleRecord{}, nil
+	}
+	if limit <= 0 {
+		limit = 5
+	}
+
+	query := `
+		SELECT id, gift_id, model_id, serial_number, venue, currency,
+		       sale_price_raw, sale_price_gram, sale_price_usd, venue_fee_pct,
+		       price_confidence, sale_date, buyer_address, seller_address, tx_hash
+		FROM gift_sales
+		WHERE model_id = $1
+		ORDER BY ABS(serial_number - $2) ASC, sale_date DESC
+		LIMIT $3`
+
+	rows, err := r.db.Pool.Query(ctx, query, modelID, serialNumber, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var comps []GiftSaleRecord
+	for rows.Next() {
+		var s GiftSaleRecord
+		if err := rows.Scan(
+			&s.ID, &s.GiftID, &s.ModelID, &s.SerialNumber, &s.Venue, &s.Currency,
+			&s.SalePriceRaw, &s.SalePriceGRAM, &s.SalePriceUSD, &s.VenueFeePct,
+			&s.PriceConfidence, &s.SaleDate, &s.BuyerAddress, &s.SellerAddress, &s.TxHash,
+		); err == nil {
+			comps = append(comps, s)
+		}
+	}
+	return comps, nil
+}
+
+// GetRecentSalesByModel fetches recent sales for a collection model
+func (r *GiftsRepo) GetRecentSalesByModel(ctx context.Context, modelID string, limit int) ([]GiftSaleRecord, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return []GiftSaleRecord{}, nil
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+
+	query := `
+		SELECT id, gift_id, model_id, serial_number, venue, currency,
+		       sale_price_raw, sale_price_gram, sale_price_usd, venue_fee_pct,
+		       price_confidence, sale_date, buyer_address, seller_address, tx_hash
+		FROM gift_sales
+		WHERE model_id = $1 OR $1 = ''
+		ORDER BY sale_date DESC
+		LIMIT $2`
+
+	rows, err := r.db.Pool.Query(ctx, query, modelID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sales []GiftSaleRecord
+	for rows.Next() {
+		var s GiftSaleRecord
+		if err := rows.Scan(
+			&s.ID, &s.GiftID, &s.ModelID, &s.SerialNumber, &s.Venue, &s.Currency,
+			&s.SalePriceRaw, &s.SalePriceGRAM, &s.SalePriceUSD, &s.VenueFeePct,
+			&s.PriceConfidence, &s.SaleDate, &s.BuyerAddress, &s.SellerAddress, &s.TxHash,
+		); err == nil {
+			sales = append(sales, s)
+		}
+	}
+	return sales, nil
+}
+
+// UpsertVenueSnapshot inserts or updates a venue's floor and volume snapshot
+func (r *GiftsRepo) UpsertVenueSnapshot(ctx context.Context, s VenueSnapshotRecord) error {
+	if r.db == nil || r.db.Pool == nil {
+		return nil
+	}
+
+	query := `
+		INSERT INTO venue_snapshots (
+			model_id, venue, floor_price_raw, floor_price_gram, currency,
+			volume_24h_gram, volume_7d_gram, active_listings, venue_fee_pct,
+			has_real_volume_badge, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
+		ON CONFLICT (model_id, venue) DO UPDATE SET
+			floor_price_raw = EXCLUDED.floor_price_raw,
+			floor_price_gram = EXCLUDED.floor_price_gram,
+			currency = EXCLUDED.currency,
+			volume_24h_gram = EXCLUDED.volume_24h_gram,
+			volume_7d_gram = EXCLUDED.volume_7d_gram,
+			active_listings = EXCLUDED.active_listings,
+			venue_fee_pct = EXCLUDED.venue_fee_pct,
+			has_real_volume_badge = EXCLUDED.has_real_volume_badge,
+			updated_at = now()`
+
+	_, err := r.db.Pool.Exec(ctx, query,
+		s.ModelID, s.Venue, s.FloorPriceRaw, s.FloorPriceGRAM, s.Currency,
+		s.Volume24hGRAM, s.Volume7dGRAM, s.ActiveListings, s.VenueFeePct,
+		s.HasRealVolumeBadge,
+	)
+	return err
+}
+
+// GetGiftTraits fetches traits for a model from gift_traits table
+func (r *GiftsRepo) GetGiftTraits(ctx context.Context, modelID string) ([]struct {
+	TraitType string
+	TraitName string
+	Permille  int
+}, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return nil, nil
+	}
+
+	query := `
+		SELECT trait_type, trait_name, permille
+		FROM gift_traits
+		WHERE model_id = $1
+		ORDER BY trait_type ASC, permille ASC`
+
+	rows, err := r.db.Pool.Query(ctx, query, modelID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []struct {
+		TraitType string
+		TraitName string
+		Permille  int
+	}
+	for rows.Next() {
+		var item struct {
+			TraitType string
+			TraitName string
+			Permille  int
+		}
+		if err := rows.Scan(&item.TraitType, &item.TraitName, &item.Permille); err == nil {
+			result = append(result, item)
+		}
+	}
+	return result, nil
+}

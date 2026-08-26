@@ -30,10 +30,10 @@ export function Coin3D(props: Coin3DProps) {
 		camera.position.z = 5.5; // Slightly pulled back to let the glow breathe
 
 		// 3. Premium Renderer Setup
-		renderer = new THREE.WebGLRenderer({ 
-			alpha: true, 
+		renderer = new THREE.WebGLRenderer({
+			alpha: true,
 			antialias: true,
-			powerPreference: "high-performance" 
+			powerPreference: 'high-performance',
 		});
 		renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Balanced for performance and sharpness
 		containerRef.appendChild(renderer.domElement);
@@ -44,7 +44,7 @@ export function Coin3D(props: Coin3DProps) {
 			const width = containerRef.clientWidth;
 			const height = containerRef.clientHeight;
 			if (width === 0 || height === 0) return;
-			
+
 			renderer.setSize(width, height);
 			camera.aspect = width / height;
 			camera.updateProjectionMatrix();
@@ -62,7 +62,7 @@ export function Coin3D(props: Coin3DProps) {
 			clearcoat: 1.0,
 			clearcoatRoughness: 0.05,
 			emissive: 0x000000,
-			emissiveIntensity: 0
+			emissiveIntensity: 0,
 		});
 
 		if (props.textureUrl) {
@@ -122,7 +122,7 @@ export function Coin3D(props: Coin3DProps) {
 		const handleOrientation = (event: DeviceOrientationEvent) => {
 			if (event.gamma !== null && event.beta !== null) {
 				const clampedGamma = Math.max(-30, Math.min(30, event.gamma));
-				const clampedBeta = Math.max(-30, Math.min(30, event.beta - 45)); 
+				const clampedBeta = Math.max(-30, Math.min(30, event.beta - 45));
 				setTiltX(clampedBeta * (Math.PI / 180));
 				setTiltY(clampedGamma * (Math.PI / 180));
 			}
@@ -150,7 +150,7 @@ export function Coin3D(props: Coin3DProps) {
 			// Target rotations with Gyro + Idle
 			const targetRotationX = Math.PI / 2 + tiltX() + (props.isPressed ? 0.15 : 0);
 			const targetRotationY = tiltY() + idleRotZ;
-			
+
 			// Smooth Lerping for movement
 			coinMesh.rotation.x += (targetRotationX - coinMesh.rotation.x) * 0.15;
 			coinMesh.rotation.y += (targetRotationY - coinMesh.rotation.y) * 0.15;
@@ -164,7 +164,7 @@ export function Coin3D(props: Coin3DProps) {
 			const targetEmissive = props.isTurboActive ? turboEmissive : defaultEmissive;
 			const targetIntensity = props.isTurboActive ? 1.5 : 0;
 			const targetBaseColor = props.isTurboActive ? turboColor : defaultColor;
-			
+
 			material.emissive.lerp(targetEmissive, 0.1);
 			material.emissiveIntensity += (targetIntensity - material.emissiveIntensity) * 0.1;
 			material.color.lerp(targetBaseColor, 0.1);
@@ -184,11 +184,11 @@ export function Coin3D(props: Coin3DProps) {
 			if (renderer.domElement) {
 				renderer.domElement.removeEventListener('pointerdown', handlePointerDown);
 			}
-			
+
 			renderer.dispose();
 			geometry.dispose();
 			material.dispose();
-			
+
 			if (containerRef && renderer.domElement) {
 				containerRef.removeChild(renderer.domElement);
 			}

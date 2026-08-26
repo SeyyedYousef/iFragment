@@ -1,5 +1,10 @@
 import { retrieveLaunchParams } from '@tma.js/sdk-solid';
-import axios, { AxiosError, AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+import axios, {
+	type AxiosError,
+	type AxiosInstance,
+	type AxiosResponse,
+	type InternalAxiosRequestConfig,
+} from 'axios';
 import { API_CONFIG } from './config.js';
 
 import { demoAdapter, isDemoRequest } from './demo-adapter.js';

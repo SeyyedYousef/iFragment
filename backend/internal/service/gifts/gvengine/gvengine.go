@@ -80,40 +80,24 @@ func NormalizeGiftIdentifier(raw string) (*ParsedGiftRef, error) {
 			serial = 1
 		}
 
-		// Normalize known model keys
-		resolvedModel := "plush_pepe"
-		if strings.Contains(modelKey, "pepe") {
-			resolvedModel = "plush_pepe"
-		} else if strings.Contains(modelKey, "cap") || strings.Contains(modelKey, "durov") {
-			resolvedModel = "durov_cap"
-		} else if strings.Contains(modelKey, "snoop") || strings.Contains(modelKey, "dogg") {
-			resolvedModel = "snoop_dogg"
-		} else if strings.Contains(modelKey, "star") {
-			resolvedModel = "golden_star"
-		} else if strings.Contains(modelKey, "heart") {
-			resolvedModel = "cyber_heart"
-		} else if strings.Contains(modelKey, "feather") || strings.Contains(modelKey, "phoenix") {
-			resolvedModel = "phoenix_feather"
-		}
-
+		col, _ := traits.ResolveCollection(modelKey)
 		return &ParsedGiftRef{
-			GiftID:       fmt.Sprintf("%s-%d", resolvedModel, serial),
-			ModelID:      resolvedModel,
+			GiftID:       fmt.Sprintf("%s-%d", col.ModelID, serial),
+			ModelID:      col.ModelID,
 			SerialNumber: serial,
 			RawInput:     raw,
 		}, nil
 	}
 
 	if clean != "" {
-		for mID := range traits.OfficialCollections {
-			if strings.Contains(clean, mID) || strings.Contains(clean, strings.ReplaceAll(mID, "_", "")) {
-				return &ParsedGiftRef{
-					GiftID:       fmt.Sprintf("%s-1", mID),
-					ModelID:      mID,
-					SerialNumber: 1,
-					RawInput:     raw,
-				}, nil
-			}
+		col, ok := traits.ResolveCollection(clean)
+		if ok {
+			return &ParsedGiftRef{
+				GiftID:       fmt.Sprintf("%s-1", col.ModelID),
+				ModelID:      col.ModelID,
+				SerialNumber: 1,
+				RawInput:     raw,
+			}, nil
 		}
 	}
 
@@ -127,10 +111,7 @@ func (e *ValuationEngine) GenerateCuriosityGate(ctx context.Context, raw string)
 		return nil, err
 	}
 
-	col, ok := traits.OfficialCollections[ref.ModelID]
-	if !ok {
-		col = traits.OfficialCollections["plush_pepe"]
-	}
+	col, _ := traits.ResolveCollection(ref.ModelID)
 
 	gramUsdRate := 5.50
 	if e.cryptoPriceSvc != nil {
@@ -184,10 +165,7 @@ func (e *ValuationEngine) Valuate(ctx context.Context, raw string) (*GiftValuati
 }
 
 func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftRef) (*GiftValuation, error) {
-	col, ok := traits.OfficialCollections[ref.ModelID]
-	if !ok {
-		col = traits.OfficialCollections["plush_pepe"]
-	}
+	col, isKnownCol := traits.ResolveCollection(ref.ModelID)
 
 	// 1. Fetch live GRAM/USD rate (CryptoPrice)
 	gramUsdRate := 5.50
@@ -217,38 +195,82 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 		betaModel = 0.35
 	}
 
-	// Axis 2: Backdrop exact permille
+	// Axis 2: Backdrop exact permille & resolution from DB or official catalog
 	backdropKey := "Obsidian Matrix"
-	if ref.SerialNumber%6 == 1 {
-		backdropKey = "Obsidian Matrix" // Legendary (15 permille)
-	} else if ref.SerialNumber%6 == 2 {
-		backdropKey = "Solar Flare"     // Epic (35 permille)
-	} else if ref.SerialNumber%6 == 3 {
-		backdropKey = "Cyber Cyan"      // Rare (80 permille)
-	} else if ref.SerialNumber%6 == 4 {
-		backdropKey = "Emerald Oasis"   // Rare (120 permille)
-	} else if ref.SerialNumber%6 == 5 {
-		backdropKey = "Deep Amethyst"   // Uncommon (180 permille)
+	backdropCertainty := "measured"
+	var backdropColors traits.BackdropColorSet
+	var backdropPermille int
+
+	// Check if traits exist in database
+	dbTraits, _ := e.giftsRepo.GetGiftTraits(ctx, ref.ModelID)
+	foundDBBackdrop := false
+	foundDBSymbol := false
+	symbolKey := "Aero Crest"
+	symbolPermille := 50
+	symbolCertainty := "measured"
+
+	for _, tr := range dbTraits {
+		if tr.TraitType == "backdrop" && !foundDBBackdrop {
+			backdropKey = tr.TraitName
+			backdropPermille = tr.Permille
+			backdropCertainty = "exact"
+			foundDBBackdrop = true
+		}
+		if tr.TraitType == "symbol" && !foundDBSymbol {
+			symbolKey = tr.TraitName
+			symbolPermille = tr.Permille
+			symbolCertainty = "exact"
+			foundDBSymbol = true
+		}
+	}
+
+	if !foundDBBackdrop {
+		bName, bPerm, bColors, isExact := traits.ResolveBackdrop(backdropKey)
+		backdropKey = bName
+		backdropPermille = bPerm
+		backdropColors = bColors
+		if !isExact {
+			backdropCertainty = "estimated"
+		}
 	} else {
-		backdropKey = "Midnight Blue"   // Common (570 permille)
+		_, _, bColors, _ := traits.ResolveBackdrop(backdropKey)
+		backdropColors = bColors
+	}
+
+	if !foundDBSymbol {
+		sName, sPerm, _, isExact := traits.ResolveSymbol(symbolKey)
+		symbolKey = sName
+		symbolPermille = sPerm
+		if !isExact {
+			symbolCertainty = "estimated"
+		}
 	}
 
 	bdMeta := traits.OfficialBackdrops[backdropKey]
+	if bdMeta.Permille > 0 {
+		backdropPermille = bdMeta.Permille
+		backdropColors = bdMeta.Colors
+	}
+
 	betaBackdrop := 0.0
 	switch {
-	case bdMeta.Permille <= 20:
+	case backdropPermille <= 20:
 		betaBackdrop = 1.45 // Legendary
-	case bdMeta.Permille <= 50:
+	case backdropPermille <= 50:
 		betaBackdrop = 0.90 // Epic
-	case bdMeta.Permille <= 150:
+	case backdropPermille <= 150:
 		betaBackdrop = 0.45 // Rare
-	case bdMeta.Permille <= 300:
+	case backdropPermille <= 300:
 		betaBackdrop = 0.18 // Uncommon
 	}
 
 	// Axis 3: Symbol
-	symbolPermille := 50
-	betaSymbol := 0.30
+	betaSymbol := 0.15
+	if symbolPermille <= 20 {
+		betaSymbol = 0.45
+	} else if symbolPermille <= 50 {
+		betaSymbol = 0.30
+	}
 
 	// Axis 4: Serial non-linear curve f(rank / supply) with sacred jumps
 	betaSerial := computeSerialExponent(ref.SerialNumber, col.TotalSupply)
@@ -262,13 +284,6 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 
 	if rawEstimateGRAM < col.InitialFloorGRAM {
 		rawEstimateGRAM = col.InitialFloorGRAM
-	}
-
-	// 4. Bayesian Shrinkage to class median comps
-	comps := generateGiftComps(ref, backdropKey, gramUsdRate, rawEstimateGRAM)
-	priceBasis := "trait_comps_shrunk_to_class"
-	if len(comps) == 0 {
-		priceBasis = "class_median_only"
 	}
 
 	expectedGRAM := roundPrice(rawEstimateGRAM)
@@ -287,16 +302,26 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, ref *ParsedGiftR
 	expectedUSD := roundPrice(expectedGRAM * gramUsdRate)
 	highUSD := roundPrice(highGRAM * gramUsdRate)
 
-	// 5. 4-Component Confidence Score
-	confidence := int16(82)
-	if ref.SerialNumber <= 100 || bdMeta.Permille <= 35 {
-		confidence = 94
-	} else if ref.SerialNumber <= 500 {
-		confidence = 88
+	// 4. Fetch Real Comparable Sales from Database
+	comps, priceBasis := e.resolveComps(ctx, ref, backdropKey, gramUsdRate, expectedGRAM)
+
+	// 5. 4-Component Confidence Score with Real Calibration
+	confidence := int16(78)
+	if isKnownCol {
+		confidence += 6
+	}
+	if foundDBBackdrop || foundDBSymbol {
+		confidence += 8
+	}
+	if len(comps) > 0 {
+		confidence += 6
+	}
+	if confidence > 96 {
+		confidence = 96
 	}
 
-	// 6. Trait DNA with 3 Certainty Badges (Exact blue, Measured green, Estimated yellow)
-	traitDNA := buildTraitDNA(col, ref.SerialNumber, backdropKey, bdMeta.Permille, bdMeta.Colors, symbolPermille)
+	// 6. Trait DNA with Certainty Badges
+	traitDNA := buildTraitDNAWithCertainty(col, ref.SerialNumber, backdropKey, backdropPermille, backdropColors, symbolKey, symbolPermille, backdropCertainty, symbolCertainty)
 
 	// 7. Multi-Market Exit Planner (6 venues ranked by net payout)
 	exitPlanner := venues.ComputeExitPlan(ctx, expectedGRAM, gramUsdRate, 80)
@@ -437,10 +462,53 @@ func computeSerialExponent(serial, supply int) float64 {
 	return 0.05
 }
 
-func buildTraitDNA(col traits.CollectionMeta, serial int, backdropName string, backdropPermille int, colors traits.BackdropColorSet, symbolPermille int) []TraitDNABar {
+func (e *ValuationEngine) resolveComps(ctx context.Context, ref *ParsedGiftRef, backdrop string, gramUsdRate, targetGRAM float64) ([]ComparableGiftSale, string) {
+	if e.giftsRepo != nil {
+		sales, err := e.giftsRepo.GetCompsForGift(ctx, ref.ModelID, ref.SerialNumber, 4)
+		if err == nil && len(sales) > 0 {
+			comps := make([]ComparableGiftSale, 0, len(sales))
+			for _, s := range sales {
+				pGram, _ := s.SalePriceGRAM.Float64()
+				pUsd, _ := s.SalePriceUSD.Float64()
+				if pUsd <= 0 {
+					pUsd = pGram * gramUsdRate
+				}
+
+				diffPct := 0.0
+				if targetGRAM > 0 {
+					diffPct = roundPrice(((pGram - targetGRAM) / targetGRAM) * 100.0)
+				}
+
+				tonviewer := "https://tonviewer.com"
+				if s.TxHash != "" {
+					tonviewer = "https://tonviewer.com/transaction/" + s.TxHash
+				}
+
+				comps = append(comps, ComparableGiftSale{
+					GiftID:        s.GiftID,
+					ModelID:       s.ModelID,
+					SerialNumber:  s.SerialNumber,
+					Venue:         s.Venue,
+					SalePriceGRAM: roundPrice(pGram),
+					SalePriceUSD:  roundPrice(pUsd),
+					SaleDate:      s.SaleDate,
+					BackdropName:  backdrop,
+					DiffPercent:   diffPct,
+					TonviewerURL:  tonviewer,
+				})
+			}
+			return comps, "real_market_sales_comps"
+		}
+	}
+
+	// If no sales in DB, return empty comps and clear basis
+	return []ComparableGiftSale{}, "hedonic_model_floor_basis"
+}
+
+func buildTraitDNAWithCertainty(col traits.CollectionMeta, serial int, backdropName string, backdropPermille int, colors traits.BackdropColorSet, symbolName string, symbolPermille int, backdropCert, symbolCert string) []TraitDNABar {
 	serialPct, serialRankText := traits.CalculateSerialPercentile(serial, col.TotalSupply)
 	bdRarity := traits.CalculateExactRarity("backdrop", backdropName, backdropPermille, &colors)
-	symRarity := traits.CalculateExactRarity("symbol", "Aero Crest", symbolPermille, nil)
+	symRarity := traits.CalculateExactRarity("symbol", symbolName, symbolPermille, nil)
 
 	modelPct := (float64(col.TotalSupply) / 1000000.0) * 100.0
 	if modelPct < 0.1 {
@@ -455,7 +523,7 @@ func buildTraitDNA(col traits.CollectionMeta, serial int, backdropName string, b
 			Value:          col.Name,
 			Percentile:     math.Round(modelPct*100.0) / 100.0,
 			RarityTier:     "Legendary",
-			CertaintyLevel: "exact", // Sacred Rule 6: Blue Badge
+			CertaintyLevel: "exact", // Official Collection Model is verified
 			Description:    fmt.Sprintf("Official Telegram collection of %s total minted units", formatCount(col.TotalSupply)),
 		},
 		{
@@ -465,7 +533,7 @@ func buildTraitDNA(col traits.CollectionMeta, serial int, backdropName string, b
 			Value:          backdropName,
 			Percentile:     bdRarity.Percentile,
 			RarityTier:     bdRarity.RarityTier,
-			CertaintyLevel: "exact", // Sacred Rule 6: Blue Badge
+			CertaintyLevel: backdropCert,
 			Colors:         &colors,
 			Description:    fmt.Sprintf("%d/1000 official permille scarcity on-chain", bdRarity.Permille),
 		},
@@ -473,11 +541,11 @@ func buildTraitDNA(col traits.CollectionMeta, serial int, backdropName string, b
 			AxisKey:        "symbol",
 			LabelEn:        "Emblem Symbol",
 			LabelFa:        "نماد و نشان",
-			Value:          "Aero Crest",
+			Value:          symbolName,
 			Percentile:     symRarity.Percentile,
 			RarityTier:     symRarity.RarityTier,
-			CertaintyLevel: "exact", // Sacred Rule 6: Blue Badge
-			Description:    "50/1000 permille scarcity emblem layer",
+			CertaintyLevel: symbolCert,
+			Description:    fmt.Sprintf("%d/1000 permille scarcity emblem layer", symbolPermille),
 		},
 		{
 			AxisKey:        "serial",
@@ -486,10 +554,14 @@ func buildTraitDNA(col traits.CollectionMeta, serial int, backdropName string, b
 			Value:          serialRankText,
 			Percentile:     math.Round(serialPct*100.0) / 100.0,
 			RarityTier:     "Legendary",
-			CertaintyLevel: "exact", // Sacred Rule 6: Blue Badge
+			CertaintyLevel: "exact", // Serial number is exact on-chain
 			Description:    fmt.Sprintf("Absolute rank #%d out of total supply of %s", serial, formatCount(col.TotalSupply)),
 		},
 	}
+}
+
+func buildTraitDNA(col traits.CollectionMeta, serial int, backdropName string, backdropPermille int, colors traits.BackdropColorSet, symbolPermille int) []TraitDNABar {
+	return buildTraitDNAWithCertainty(col, serial, backdropName, backdropPermille, colors, "Aero Crest", symbolPermille, "exact", "exact")
 }
 
 func buildGiftRecommendation(expectedGRAM float64, exitPlan *venues.ExitPlannerPlan, craftEV *crafting.CraftingEVResult) ValuationActionVerdict {

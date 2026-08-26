@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ECONOMY_CONFIG, calculateReportCoinPrice } from './economy.js';
+import { calculateReportCoinPrice, ECONOMY_CONFIG } from './economy.js';
 
 describe('Economy Config & Formula Engine', () => {
 	it('should maintain standard baseline daily mining emission E = 1500', () => {

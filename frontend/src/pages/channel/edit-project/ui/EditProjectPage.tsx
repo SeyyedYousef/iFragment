@@ -2,7 +2,7 @@ import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton } from '@tma.js/sdk-solid';
 import {
-	Component,
+	type Component,
 	createEffect,
 	createResource,
 	createSignal,
@@ -12,8 +12,8 @@ import {
 } from 'solid-js';
 import { channelApi } from '@/entities/channel/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
-import { showToast } from '@/shared/ui/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
+import { showToast } from '@/shared/ui/index.js';
 
 export const EditProjectPage: Component = () => {
 	const params = useParams();
@@ -77,7 +77,7 @@ export const EditProjectPage: Component = () => {
 			showToast(t('connectChannel.success'), 'success');
 
 			haptic.notify('success');
-			
+
 			if (outChan.id !== params.id) {
 				navigate('/managed-channels', { replace: true });
 			} else {
@@ -106,6 +106,7 @@ export const EditProjectPage: Component = () => {
 			{/* ═══════ PREMIUM STICKY HEADER ═══════ */}
 			<div class="px-5 pt-6 pb-4 bg-[#030303]/85 backdrop-blur-2xl sticky top-0 z-40 border-b border-white/5 flex items-center gap-3.5 shadow-sm">
 				<button
+					type="button"
 					onClick={() => {
 						haptic.impact('light');
 						navigate(-1);
@@ -113,9 +114,7 @@ export const EditProjectPage: Component = () => {
 					class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
 					aria-label={t('common.back')}
 				>
-					<span class="material-symbols-outlined text-[22px] rtl:-scale-x-100">
-						arrow_back
-					</span>
+					<span class="material-symbols-outlined text-[22px] rtl:-scale-x-100">arrow_back</span>
 				</button>
 				<div class="flex flex-col overflow-hidden">
 					<h1 class="text-[18px] font-black text-white leading-tight truncate tracking-tight">
@@ -155,22 +154,22 @@ export const EditProjectPage: Component = () => {
 
 						<div class="flex flex-col gap-5 relative z-10">
 							<div class="flex flex-col gap-1.5">
-								<label class="block text-[10px] font-black uppercase tracking-widest text-white/40 px-1">
+								<div class="block text-[10px] font-black uppercase tracking-widest text-white/40 px-1">
 									{t('connectChannel.projectNameLabel')}
-								</label>
+								</div>
 								<input
 									type="text"
 									value={projectName()}
 									onInput={(e) => setProjectName(e.currentTarget.value)}
-									placeholder="e.g. My Crypto Channel"
+									placeholder={t('channelProjects.namePlaceholder')}
 									class="w-full h-14 bg-[#08090D] border border-white/5 text-white text-[14px] font-bold rounded-[16px] px-4 focus:outline-none focus:border-[#3390ec]/50 placeholder-white/20 transition-all shadow-inner"
 								/>
 							</div>
 
 							<div class="flex flex-col gap-1.5">
-								<label class="block text-[10px] font-black uppercase tracking-widest text-white/40 px-1">
+								<div class="block text-[10px] font-black uppercase tracking-widest text-white/40 px-1">
 									{t('connectChannel.inputChannelLabel')}
-								</label>
+								</div>
 								<input
 									type="text"
 									value={inputChannel()}
@@ -185,9 +184,9 @@ export const EditProjectPage: Component = () => {
 							</div>
 
 							<div class="flex flex-col gap-1.5">
-								<label class="block text-[10px] font-black uppercase tracking-widest text-white/40 px-1">
+								<div class="block text-[10px] font-black uppercase tracking-widest text-white/40 px-1">
 									{t('connectChannel.outputChannelLabel')}
-								</label>
+								</div>
 								<input
 									type="text"
 									value={outputChannel()}
@@ -209,6 +208,7 @@ export const EditProjectPage: Component = () => {
 			<div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#030303] via-[#030303]/90 to-transparent z-40 pointer-events-none">
 				<div class="max-w-md mx-auto pointer-events-auto">
 					<button
+						type="button"
 						onClick={handleSave}
 						disabled={
 							isSaving() ||

@@ -44,7 +44,7 @@ describe('axios API client and auth interceptor', () => {
 
 	it('handles token request interceptor logic for standard user requests', async () => {
 		localStorage.setItem('jwt_token', 'test-user-jwt');
-		
+
 		// Internal endpoint config
 		const config = {
 			url: '/user/profile',

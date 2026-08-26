@@ -1,6 +1,6 @@
 import { useNavigate } from '@solidjs/router';
 import { retrieveLaunchParams } from '@tma.js/sdk-solid';
-import { Component, createEffect, createSignal, onCleanup, Show } from 'solid-js';
+import { type Component, createEffect, createSignal, onCleanup, Show } from 'solid-js';
 import { ownerApi } from '../../entities/owner/api/ownerApi.js';
 import { t } from '../../shared/i18n/index.js';
 import { haptic } from '../../shared/lib/haptic.js';
@@ -146,6 +146,11 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 	return (
 		<Show when={props.isOpen}>
 			<div
+				role="button"
+				tabIndex={0}
+				onKeyDown={(e) => {
+					if (e.key === 'Escape') props.onClose();
+				}}
 				onClick={(e) => {
 					if (e.target === e.currentTarget) props.onClose();
 				}}
@@ -158,8 +163,9 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 				>
 					{/* Close button */}
 					<button
+						type="button"
 						onClick={props.onClose}
-						aria-label="Close"
+						aria-label={t('dangerAction.closeWindow')}
 						class="absolute top-5 end-5 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center border border-white/10 active:scale-95 transition-all text-white/70 hover:text-white"
 					>
 						<span class="material-symbols-outlined text-[18px]">close</span>
@@ -184,11 +190,17 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 
 					{/* Step 1: Master Password */}
 					<Show when={step() === 'password'}>
-						<form onSubmit={(e) => { e.preventDefault(); handlePasswordSubmit(); }} class="space-y-4">
+						<form
+							onSubmit={(e) => {
+								e.preventDefault();
+								handlePasswordSubmit();
+							}}
+							class="space-y-4"
+						>
 							<div>
 								<input
 									type="password"
-									placeholder="Security password..."
+									placeholder={t('ownerGate.securityPasswordPlaceholder')}
 									value={password()}
 									ref={passwordInputRef}
 									onInput={(e) => setPassword(e.currentTarget.value)}
@@ -212,7 +224,7 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 								disabled={loading() || !password()}
 								class="w-full h-14 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-black font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center shadow-lg shadow-amber-500/20 text-xs"
 							>
-								<Show when={loading()} fallback={<span>Authenticate</span>}>
+								<Show when={loading()} fallback={<span>{t('ownerGate.authenticate')}</span>}>
 									<div class="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
 								</Show>
 							</button>
@@ -221,12 +233,18 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 
 					{/* Step 2: TOTP Code */}
 					<Show when={step() === 'mfa'}>
-						<form onSubmit={(e) => { e.preventDefault(); handleMfaSubmit(); }} class="space-y-4">
+						<form
+							onSubmit={(e) => {
+								e.preventDefault();
+								handleMfaSubmit();
+							}}
+							class="space-y-4"
+						>
 							<div>
 								<input
 									type="text"
 									inputMode="numeric"
-									placeholder="000000 or Recovery Code"
+									placeholder={t('ownerGate.totpPlaceholder')}
 									value={totpCode()}
 									ref={totpInputRef}
 									onInput={(e) => setTotpCode(e.currentTarget.value)}
@@ -248,17 +266,20 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 							<div class="flex gap-2">
 								<button
 									type="button"
-									onClick={() => { setStep('password'); setTotpCode(''); }}
+									onClick={() => {
+										setStep('password');
+										setTotpCode('');
+									}}
 									class="w-1/3 h-14 border border-white/15 text-white/70 hover:bg-white/5 rounded-2xl text-xs font-semibold"
 								>
-									Back
+									{t('ownerCommon.back')}
 								</button>
 								<button
 									type="submit"
 									disabled={loading() || !totpCode()}
 									class="w-2/3 h-14 bg-amber-500 hover:bg-amber-400 text-black font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center shadow-lg shadow-amber-500/20 text-xs disabled:opacity-50"
 								>
-									<Show when={loading()} fallback={<span>Verify & Enter</span>}>
+									<Show when={loading()} fallback={<span>{t('ownerGate.verifyEnter')}</span>}>
 										<div class="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
 									</Show>
 								</button>

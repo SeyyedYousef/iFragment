@@ -1,12 +1,20 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
 import { backButton, openTelegramLink } from '@tma.js/sdk-solid';
-import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import {
+	type Component,
+	createResource,
+	createSignal,
+	For,
+	onCleanup,
+	onMount,
+	Show,
+} from 'solid-js';
+import { balance } from '@/entities/airdrop/index.js';
 import { type SubscriptionPackage, subscriptionApi } from '@/entities/bot/index.js';
 import { channelApi } from '@/entities/channel/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
-import { balance } from '@/entities/airdrop/index.js';
 import { calculateDiscountForPlan } from '@/shared/lib/stars-calculator.js';
 import { PaymentDiscountCard } from '@/shared/ui/payment-discount/PaymentDiscountCard.js';
 
@@ -40,7 +48,6 @@ export const ManagedChannelsPage: Component = () => {
 		setShowSubscription(true);
 		haptic.impact('light');
 	};
-
 
 	const handleSubscribeStars = async () => {
 		if (!selectedPkg() || !selectedChan()) return;
@@ -138,6 +145,7 @@ export const ManagedChannelsPage: Component = () => {
 			{/* ═══════ PREMIUM STICKY HEADER ═══════ */}
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-30 border-b border-white/5 flex items-center gap-3.5 shadow-sm">
 				<button
+					type="button"
 					onClick={() => {
 						haptic.impact('light');
 						navigate('/dashboard');
@@ -145,9 +153,7 @@ export const ManagedChannelsPage: Component = () => {
 					class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
 					aria-label="Back"
 				>
-					<span class="material-symbols-outlined text-[22px] rtl:-scale-x-100">
-						arrow_back
-					</span>
+					<span class="material-symbols-outlined text-[22px] rtl:-scale-x-100">arrow_back</span>
 				</button>
 				<div class="flex flex-col gap-0.5 min-w-0">
 					<h1 class="text-[18px] font-black text-white leading-tight truncate tracking-tight">
@@ -163,6 +169,7 @@ export const ManagedChannelsPage: Component = () => {
 				{/* ═══════ TOP ACTION BUTTONS ═══════ */}
 				<div class="grid grid-cols-2 gap-3">
 					<button
+						type="button"
 						onClick={handleConnectNew}
 						class="h-14 bg-[#12141C]/80 backdrop-blur-md border border-white/5 hover:border-[#3390ec]/50 hover:bg-[#3390ec]/10 rounded-[18px] flex items-center justify-center gap-2 font-black text-[12px] uppercase tracking-widest text-[#3390ec] transition-all shadow-sm active:scale-95 group"
 					>
@@ -171,6 +178,7 @@ export const ManagedChannelsPage: Component = () => {
 					</button>
 
 					<button
+						type="button"
 						onClick={() => {
 							haptic.impact('medium');
 							navigate('/channel/projects');
@@ -237,17 +245,20 @@ export const ManagedChannelsPage: Component = () => {
 								</div>
 
 								<button
+									type="button"
 									onClick={handleConnectNew}
 									class="mt-4 w-full h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white font-black text-[13px] uppercase tracking-widest rounded-[16px] flex items-center justify-center gap-2 hover:from-[#2b7ec9] hover:to-[#3390ec] transition-all active:scale-95 shadow-[0_10px_25px_rgba(51,144,236,0.3)] relative z-10 border border-white/10"
 								>
-									<span class="material-symbols-outlined text-[20px]">
-										rocket_launch
-									</span>
+									<span class="material-symbols-outlined text-[20px]">rocket_launch</span>
 									{t('managedChannels.connectFirst')}
 								</button>
 
 								<button
-									onClick={() => { haptic.impact('light'); navigate('/channel/demo-channel'); }}
+									type="button"
+									onClick={() => {
+										haptic.impact('light');
+										navigate('/channel/demo-channel');
+									}}
 									class="w-full h-12 bg-amber-400/10 hover:bg-amber-400/15 border border-amber-400/30 text-amber-300 rounded-[16px] font-bold text-[12px] transition-all flex items-center justify-center gap-2 relative z-10 active:scale-95"
 								>
 									<span class="material-symbols-outlined text-[18px]">science</span>
@@ -278,9 +289,7 @@ export const ManagedChannelsPage: Component = () => {
 					<div class="flex flex-col gap-4">
 						<div class="flex items-center justify-between mb-1 px-1 border-b border-white/5 pb-2">
 							<div class="flex items-center gap-2">
-								<span class="material-symbols-outlined text-[#3390ec] text-[20px]">
-									view_list
-								</span>
+								<span class="material-symbols-outlined text-[#3390ec] text-[20px]">view_list</span>
 								<h2 class="text-[12px] font-black text-white/40 uppercase tracking-widest">
 									{t('managedChannels.yourChannels')}
 								</h2>
@@ -341,6 +350,7 @@ export const ManagedChannelsPage: Component = () => {
 										<div class="flex gap-2.5 w-full relative z-10">
 											<Show when={channel.subscription_status !== 'expired'}>
 												<button
+													type="button"
 													onClick={() => {
 														haptic.impact('light');
 														navigate(`/channel/${channel.id}`);
@@ -351,6 +361,7 @@ export const ManagedChannelsPage: Component = () => {
 												</button>
 											</Show>
 											<button
+												type="button"
 												onClick={() => openSubscription(channel.id)}
 												class={`h-12 rounded-[14px] text-[12px] uppercase tracking-widest font-black transition-all border active:scale-95 flex items-center justify-center gap-1 shadow-sm ${
 													channel.subscription_status === 'paid'
@@ -366,6 +377,7 @@ export const ManagedChannelsPage: Component = () => {
 													: t('botManage.buySubscription')}
 											</button>
 											<button
+												type="button"
 												onClick={(e) => {
 													e.stopPropagation();
 													haptic.impact('medium');
@@ -374,9 +386,7 @@ export const ManagedChannelsPage: Component = () => {
 												class="w-12 h-12 rounded-[14px] bg-transparent flex items-center justify-center border border-transparent hover:bg-[#ff4a4a]/10 hover:border-[#ff4a4a]/30 text-white/30 hover:text-[#ff4a4a] transition-all active:scale-95 shrink-0"
 												aria-label={t('managedChannels.delete')}
 											>
-												<span class="material-symbols-outlined text-[20px]">
-													delete
-												</span>
+												<span class="material-symbols-outlined text-[20px]">delete</span>
 											</button>
 										</div>
 									</Motion.div>
@@ -420,6 +430,7 @@ export const ManagedChannelsPage: Component = () => {
 
 						<div class="w-full flex flex-col gap-3 relative z-10">
 							<button
+								type="button"
 								onClick={handleDeleteChannel}
 								disabled={isDeleting()}
 								class="w-full h-14 rounded-[16px] font-black text-[14px] uppercase tracking-widest bg-[#ff4a4a] text-white hover:bg-[#ff3b30] transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_8px_24px_rgba(255,74,74,0.3)] active:scale-95 border border-white/10"
@@ -430,13 +441,12 @@ export const ManagedChannelsPage: Component = () => {
 										<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
 									}
 								>
-									<span class="material-symbols-outlined text-[20px]">
-										warning
-									</span>{' '}
+									<span class="material-symbols-outlined text-[20px]">warning</span>{' '}
 									{t('managedChannels.delete')}
 								</Show>
 							</button>
 							<button
+								type="button"
 								onClick={() => setChannelToDelete(null)}
 								disabled={isDeleting()}
 								class="w-full h-14 rounded-[16px] font-bold text-[14px] uppercase tracking-widest bg-transparent text-white/60 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/5 transition-all disabled:opacity-50 active:scale-95"
@@ -472,8 +482,7 @@ export const ManagedChannelsPage: Component = () => {
 						</Show>
 						<Show when={errorMsg()}>
 							<div class="bg-[#ff4a4a]/10 border border-[#ff4a4a]/20 text-[#ff4a4a] rounded-[16px] px-4 py-3.5 flex items-center gap-2.5 text-[13px] font-bold mb-5 shadow-sm">
-								<span class="material-symbols-outlined text-[20px]">error</span>{' '}
-								{errorMsg()}
+								<span class="material-symbols-outlined text-[20px]">error</span> {errorMsg()}
 							</div>
 						</Show>
 
@@ -494,6 +503,7 @@ export const ManagedChannelsPage: Component = () => {
 									<For each={packages() || []}>
 										{(pkg: SubscriptionPackage) => (
 											<button
+												type="button"
 												onClick={() => {
 													setSelectedPkg(pkg.id);
 													haptic.selection();
@@ -551,6 +561,7 @@ export const ManagedChannelsPage: Component = () => {
 								</div>
 
 								<button
+									type="button"
 									onClick={() => {
 										haptic.impact('medium');
 										setPaymentStep('method');
@@ -559,15 +570,14 @@ export const ManagedChannelsPage: Component = () => {
 									class="w-full h-16 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] hover:from-[#2b7ec9] hover:to-[#3390ec] text-white rounded-[20px] font-black text-[15px] uppercase tracking-widest mt-4 transition-all disabled:opacity-40 disabled:scale-100 flex items-center justify-center gap-2 shadow-[0_10px_30px_rgba(51,144,236,0.3)] active:scale-95 border border-white/10"
 								>
 									{t('botManage.continuePayment')}{' '}
-									<span class="material-symbols-outlined text-[20px]">
-										arrow_forward
-									</span>
+									<span class="material-symbols-outlined text-[20px]">arrow_forward</span>
 								</button>
 							</div>
 						) : (
 							<div class="flex flex-col gap-5">
 								<div class="flex items-center gap-4 mb-2">
 									<button
+										type="button"
 										onClick={() => setPaymentStep('package')}
 										class="w-11 h-11 rounded-[14px] bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors border border-white/10 active:scale-95 shrink-0"
 									>
@@ -633,13 +643,15 @@ export const ManagedChannelsPage: Component = () => {
 
 												{/* Pay Action Button */}
 												<button
+													type="button"
 													onClick={handleSubscribeStars}
 													disabled={isProcessing()}
 													class="w-full h-15 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-500 text-black font-black text-[15px] uppercase tracking-wider rounded-[20px] shadow-[0_10px_25px_rgba(245,158,11,0.3)] transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2.5 mt-2"
 												>
 													<span class="text-[20px]">⭐</span>
 													<span>
-														{t('botManage.payWithStars' as any) || 'Pay with Stars'} ({calc().finalStars} ⭐)
+														{t('botManage.payWithStars' as any) || 'Pay with Stars'} (
+														{calc().finalStars} ⭐)
 													</span>
 												</button>
 											</div>
@@ -653,7 +665,7 @@ export const ManagedChannelsPage: Component = () => {
 							<div class="absolute inset-0 bg-[#030303]/90 backdrop-blur-xl z-50 flex flex-col items-center justify-center rounded-t-[32px] gap-4">
 								<span class="w-12 h-12 border-4 border-[#3390ec]/30 border-t-[#3390ec] rounded-full animate-spin" />
 								<span class="text-[14px] font-black uppercase tracking-widest text-[#3390ec] animate-pulse">
-									Processing...
+									{t('managedChannels.processing')}
 								</span>
 							</div>
 						</Show>

@@ -1,11 +1,19 @@
-import { Component, createSignal, createResource, Show, For, onMount, onCleanup } from 'solid-js';
-import { useNavigate, useParams } from '@solidjs/router';
 import { Motion } from '@motionone/solid';
+import { useNavigate, useParams } from '@solidjs/router';
 import { backButton } from '@tma.js/sdk-solid';
+import {
+	type Component,
+	createResource,
+	createSignal,
+	For,
+	onCleanup,
+	onMount,
+	Show,
+} from 'solid-js';
 import { channelApi } from '@/entities/channel/api/channelApi.js';
-import type { Project, ManagedChannel } from '@/entities/channel/model/types.js';
 import { ChannelContextBar, ChannelHamburgerMenu } from '@/entities/channel/index.js';
-import { t, isRtl } from '@/shared/i18n/index.js';
+import type { ManagedChannel, Project } from '@/entities/channel/model/types.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { showToast } from '@/shared/ui/index.js';
 
@@ -88,7 +96,11 @@ export const ProjectsPage: Component = () => {
 			});
 
 			haptic.notify('success');
-			showToast(t('channel.projects.created_success') || 'Project created successfully with 72h free trial!', 'success');
+			showToast(
+				t('channel.projects.created_success') ||
+					'Project created successfully with 72h free trial!',
+				'success',
+			);
 			setIsCreateModalOpen(false);
 			resetForm();
 			refetchProjects();
@@ -108,9 +120,9 @@ export const ProjectsPage: Component = () => {
 			await channelApi.toggleProject(project.id, newStatus);
 			showToast(
 				newStatus === 'active'
-					? (t('channel.projects.resumed') || 'Project activated')
-					: (t('channel.projects.paused') || 'Project paused'),
-				'info'
+					? t('channel.projects.resumed') || 'Project activated'
+					: t('channel.projects.paused') || 'Project paused',
+				'info',
 			);
 			refetchProjects();
 		} catch (err: any) {
@@ -118,14 +130,21 @@ export const ProjectsPage: Component = () => {
 		}
 	};
 
-	const handleFastSwitchChannel = async (projectId: string, field: 'source' | 'target', newChannelId: string) => {
+	const handleFastSwitchChannel = async (
+		projectId: string,
+		field: 'source' | 'target',
+		newChannelId: string,
+	) => {
 		haptic.impact('medium');
 		try {
 			await channelApi.updateProject(projectId, {
 				[field === 'source' ? 'source_channel_id' : 'target_channel_id']: newChannelId || null,
 			});
 			haptic.notify('success');
-			showToast(t('channel.projects.channel_switched') || 'Channel switched instantly without extra cost!', 'success');
+			showToast(
+				t('channel.projects.channel_switched') || 'Channel switched instantly without extra cost!',
+				'success',
+			);
 			setSwitchingProjectId(null);
 			setSwitchingType(null);
 			refetchProjects();
@@ -136,7 +155,11 @@ export const ProjectsPage: Component = () => {
 	};
 
 	const handleDeleteProject = async (projectId: string) => {
-		if (!confirm(t('channel.projects.confirm_delete') || 'Are you sure you want to delete this project?')) {
+		if (
+			!confirm(
+				t('channel.projects.confirm_delete') || 'Are you sure you want to delete this project?',
+			)
+		) {
 			return;
 		}
 		haptic.notify('warning');
@@ -163,11 +186,12 @@ export const ProjectsPage: Component = () => {
 	};
 
 	return (
-		<div class="min-h-screen bg-neutral-950 text-neutral-100 pb-28 pt-2 px-4" dir={isRtl() ? 'rtl' : 'ltr'}>
+		<div
+			class="min-h-screen bg-neutral-950 text-neutral-100 pb-28 pt-2 px-4"
+			dir={isRtl() ? 'rtl' : 'ltr'}
+		>
 			{/* Context Bar */}
-			<ChannelContextBar
-				channelId={params.id}
-			/>
+			<ChannelContextBar channelId={params.id} />
 
 			{/* Hamburger Drawer */}
 			<ChannelHamburgerMenu
@@ -185,11 +209,13 @@ export const ProjectsPage: Component = () => {
 						<span>{t('channel.projects.title') || 'Channel Projects'}</span>
 					</h1>
 					<p class="text-xs text-neutral-400 mt-1">
-						{t('channel.projects.subtitle') || 'Decoupled pipelines: connect, filter, and switch channels freely in <5s.'}
+						{t('channel.projects.subtitle') ||
+							'Decoupled pipelines: connect, filter, and switch channels freely in <5s.'}
 					</p>
 				</div>
 
 				<button
+					type="button"
 					onClick={() => {
 						haptic.impact('medium');
 						setIsCreateModalOpen(true);
@@ -211,7 +237,8 @@ export const ProjectsPage: Component = () => {
 						{t('channel.projects.banner_title') || 'Project-Centric Architecture'}
 					</div>
 					<p class="text-neutral-400 leading-relaxed">
-						{t('channel.projects.banner_desc') || 'Subscriptions belong to the Project, not individual channels. Switch input and output channels in seconds without paying or reconnecting bots.'}
+						{t('channel.projects.banner_desc') ||
+							'Subscriptions belong to the Project, not individual channels. Switch input and output channels in seconds without paying or reconnecting bots.'}
 					</p>
 				</div>
 			</div>
@@ -235,10 +262,12 @@ export const ProjectsPage: Component = () => {
 								{t('channel.projects.empty_title') || 'No Projects Yet'}
 							</h3>
 							<p class="text-xs text-neutral-400 max-w-sm mx-auto">
-								{t('channel.projects.empty_desc') || 'Create your first project to start forwarding, filtering, or AI paraphrasing posts between channels.'}
+								{t('channel.projects.empty_desc') ||
+									'Create your first project to start forwarding, filtering, or AI paraphrasing posts between channels.'}
 							</p>
 						</div>
 						<button
+							type="button"
 							onClick={() => {
 								haptic.impact('medium');
 								setIsCreateModalOpen(true);
@@ -265,17 +294,21 @@ export const ProjectsPage: Component = () => {
 											<span>{project.name}</span>
 											<Show when={project.stars_subscription_active}>
 												<span class="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-medium">
-													⭐ Stars Active
+													{t('channelProjects.starsActive')}
 												</span>
 											</Show>
 											<Show when={!project.stars_subscription_active && project.trial_ends_at}>
 												<span class="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-medium">
-													⏳ Trial
+													{t('channelProjects.trial')}
 												</span>
 											</Show>
 										</h3>
 										<p class="text-[11px] text-neutral-400">
-											{project.status === 'active' ? '🟢 Active' : project.status === 'paused' ? '⏸️ Paused' : '🔴 Expired'}
+											{project.status === 'active'
+												? '🟢 Active'
+												: project.status === 'paused'
+													? '⏸️ Paused'
+													: '🔴 Expired'}
 										</p>
 									</div>
 								</div>
@@ -283,6 +316,7 @@ export const ProjectsPage: Component = () => {
 								{/* Toggle & Action Buttons */}
 								<div class="flex items-center gap-1.5">
 									<button
+										type="button"
 										onClick={() => handleToggleStatus(project)}
 										class={`p-2 rounded-xl text-xs font-semibold transition-all ${
 											project.status === 'active'
@@ -295,9 +329,10 @@ export const ProjectsPage: Component = () => {
 									</button>
 
 									<button
+										type="button"
 										onClick={() => handleDeleteProject(project.id)}
 										class="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 text-xs transition-all"
-										title="Delete Project"
+										title={t('channelProjects.deleteProject')}
 									>
 										🗑️
 									</button>
@@ -312,9 +347,11 @@ export const ProjectsPage: Component = () => {
 										{t('channel.projects.source') || 'Source'}
 									</div>
 									<div class="font-medium text-white truncate text-xs">
-										{project.source_title || (project.source_chat_id ? `ID: ${project.source_chat_id}` : 'Not connected')}
+										{project.source_title ||
+											(project.source_chat_id ? `ID: ${project.source_chat_id}` : 'Not connected')}
 									</div>
 									<button
+										type="button"
 										onClick={() => {
 											setSwitchingProjectId(project.id);
 											setSwitchingType('source');
@@ -337,9 +374,11 @@ export const ProjectsPage: Component = () => {
 										{t('channel.projects.target') || 'Target'}
 									</div>
 									<div class="font-medium text-white truncate text-xs">
-										{project.target_title || (project.target_chat_id ? `ID: ${project.target_chat_id}` : 'Not connected')}
+										{project.target_title ||
+											(project.target_chat_id ? `ID: ${project.target_chat_id}` : 'Not connected')}
 									</div>
 									<button
+										type="button"
 										onClick={() => {
 											setSwitchingProjectId(project.id);
 											setSwitchingType('target');
@@ -357,10 +396,11 @@ export const ProjectsPage: Component = () => {
 									<div class="text-xs font-semibold text-white flex items-center justify-between">
 										<span>
 											{switchingType() === 'source'
-												? (t('channel.projects.select_new_source') || 'Select New Source Channel')
-												: (t('channel.projects.select_new_target') || 'Select New Target Channel')}
+												? t('channel.projects.select_new_source') || 'Select New Source Channel'
+												: t('channel.projects.select_new_target') || 'Select New Target Channel'}
 										</span>
 										<button
+											type="button"
 											onClick={() => setSwitchingProjectId(null)}
 											class="text-neutral-400 hover:text-white text-xs"
 										>
@@ -368,13 +408,19 @@ export const ProjectsPage: Component = () => {
 										</button>
 									</div>
 									<select
-										onChange={(e) => handleFastSwitchChannel(project.id, switchingType()!, e.currentTarget.value)}
+										onChange={(e) =>
+											handleFastSwitchChannel(project.id, switchingType()!, e.currentTarget.value)
+										}
 										class="w-full py-2 px-3 rounded-lg bg-neutral-900 border border-neutral-700 text-white text-xs"
 									>
-										<option value="">{t('channel.projects.select_channel_placeholder') || '-- Choose Channel --'}</option>
+										<option value="">
+											{t('channel.projects.select_channel_placeholder') || '-- Choose Channel --'}
+										</option>
 										<For each={userChannels()}>
 											{(ch: ManagedChannel) => (
-												<option value={ch.id}>{ch.chat_title} (@{ch.chat_username || ch.chat_id})</option>
+												<option value={ch.id}>
+													{ch.chat_title} (@{ch.chat_username || ch.chat_id})
+												</option>
 											)}
 										</For>
 									</select>
@@ -385,27 +431,27 @@ export const ProjectsPage: Component = () => {
 							<div class="flex flex-wrap items-center gap-1.5 pt-1">
 								<Show when={project.pipeline_config?.remove_ads}>
 									<span class="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px]">
-										🛡️ No Ads
+										{t('channelForwarding.noAds')}
 									</span>
 								</Show>
 								<Show when={project.pipeline_config?.remove_links}>
 									<span class="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px]">
-										🔗 No Links
+										{t('channelForwarding.noLinks')}
 									</span>
 								</Show>
 								<Show when={project.pipeline_config?.remove_hashtags}>
 									<span class="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-[10px]">
-										# No Tags
+										{t('channelForwarding.noTags')}
 									</span>
 								</Show>
 								<Show when={project.pipeline_config?.drop_media}>
 									<span class="px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[10px]">
-										📄 Text Only
+										{t('channelProjects.textOnly')}
 									</span>
 								</Show>
 								<Show when={project.pipeline_config?.ai_rewrite}>
 									<span class="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px]">
-										🤖 AI Rewrite
+										{t('channelProjects.aiRewrite')}
 									</span>
 								</Show>
 							</div>
@@ -428,6 +474,7 @@ export const ProjectsPage: Component = () => {
 								<span>{t('channel.projects.create_modal_title') || 'Create New Project'}</span>
 							</h3>
 							<button
+								type="button"
 								onClick={() => setIsCreateModalOpen(false)}
 								class="text-neutral-400 hover:text-white p-1"
 							>
@@ -438,14 +485,14 @@ export const ProjectsPage: Component = () => {
 						<form onSubmit={handleCreateProject} class="space-y-4">
 							{/* Project Name */}
 							<div class="space-y-1">
-								<label class="text-xs font-semibold text-neutral-300">
+								<div class="text-xs font-semibold text-neutral-300">
 									{t('channel.projects.form_name') || 'Project Name'}
-								</label>
+								</div>
 								<input
 									type="text"
 									value={projectName()}
 									onInput={(e) => setProjectName(e.currentTarget.value)}
-									placeholder="e.g. VIP News Pipeline"
+									placeholder={t('channelProjects.namePlaceholder')}
 									class="w-full py-2 px-3 rounded-xl bg-neutral-950 border border-neutral-800 text-white text-xs focus:border-[#0098EA] focus:outline-none"
 									required
 								/>
@@ -453,18 +500,22 @@ export const ProjectsPage: Component = () => {
 
 							{/* Source Channel */}
 							<div class="space-y-1">
-								<label class="text-xs font-semibold text-neutral-300">
+								<div class="text-xs font-semibold text-neutral-300">
 									{t('channel.projects.form_source') || 'Source Channel (Input)'}
-								</label>
+								</div>
 								<select
 									value={sourceChannelId()}
 									onChange={(e) => setSourceChannelId(e.currentTarget.value)}
 									class="w-full py-2 px-3 rounded-xl bg-neutral-950 border border-neutral-800 text-white text-xs"
 								>
-									<option value="">{t('channel.projects.choose_or_type') || '-- Select from Connected Channels --'}</option>
+									<option value="">
+										{t('channel.projects.choose_or_type') || '-- Select from Connected Channels --'}
+									</option>
 									<For each={userChannels()}>
 										{(ch: ManagedChannel) => (
-											<option value={ch.id}>{ch.chat_title} (@{ch.chat_username || ch.chat_id})</option>
+											<option value={ch.id}>
+												{ch.chat_title} (@{ch.chat_username || ch.chat_id})
+											</option>
 										)}
 									</For>
 								</select>
@@ -472,25 +523,33 @@ export const ProjectsPage: Component = () => {
 									type="text"
 									value={sourceIdentifier()}
 									onInput={(e) => setSourceIdentifier(e.currentTarget.value)}
-									placeholder={t('channel.projects.or_public_username') || 'Or enter public @channel (e.g. @durov)'}
+									placeholder={
+										t('channel.projects.or_public_username') ||
+										'Or enter public @channel (e.g. @durov)'
+									}
 									class="w-full py-2 px-3 rounded-xl bg-neutral-950 border border-neutral-800 text-white text-xs focus:border-[#0098EA] focus:outline-none mt-1"
 								/>
 							</div>
 
 							{/* Target Channel */}
 							<div class="space-y-1">
-								<label class="text-xs font-semibold text-neutral-300">
+								<div class="text-xs font-semibold text-neutral-300">
 									{t('channel.projects.form_target') || 'Target Channel (Output Destination)'}
-								</label>
+								</div>
 								<select
 									value={targetChannelId()}
 									onChange={(e) => setTargetChannelId(e.currentTarget.value)}
 									class="w-full py-2 px-3 rounded-xl bg-neutral-950 border border-neutral-800 text-white text-xs"
 								>
-									<option value="">{t('channel.projects.select_target_placeholder') || '-- Choose Managed Channel --'}</option>
+									<option value="">
+										{t('channel.projects.select_target_placeholder') ||
+											'-- Choose Managed Channel --'}
+									</option>
 									<For each={userChannels()}>
 										{(ch: ManagedChannel) => (
-											<option value={ch.id}>{ch.chat_title} (@{ch.chat_username || ch.chat_id})</option>
+											<option value={ch.id}>
+												{ch.chat_title} (@{ch.chat_username || ch.chat_id})
+											</option>
 										)}
 									</For>
 								</select>
@@ -503,7 +562,7 @@ export const ProjectsPage: Component = () => {
 								</div>
 
 								<div class="grid grid-cols-2 gap-2">
-									<label class="flex items-center gap-2 p-2 rounded-lg bg-neutral-950 border border-neutral-800 text-xs cursor-pointer">
+									<div class="flex items-center gap-2 p-2 rounded-lg bg-neutral-950 border border-neutral-800 text-xs cursor-pointer">
 										<input
 											type="checkbox"
 											checked={removeAds()}
@@ -511,9 +570,9 @@ export const ProjectsPage: Component = () => {
 											class="rounded text-[#0098EA]"
 										/>
 										<span>🛡️ {t('channel.projects.remove_ads') || 'Remove Ads'}</span>
-									</label>
+									</div>
 
-									<label class="flex items-center gap-2 p-2 rounded-lg bg-neutral-950 border border-neutral-800 text-xs cursor-pointer">
+									<div class="flex items-center gap-2 p-2 rounded-lg bg-neutral-950 border border-neutral-800 text-xs cursor-pointer">
 										<input
 											type="checkbox"
 											checked={removeLinks()}
@@ -521,9 +580,9 @@ export const ProjectsPage: Component = () => {
 											class="rounded text-[#0098EA]"
 										/>
 										<span>🔗 {t('channel.projects.remove_links') || 'Remove Links'}</span>
-									</label>
+									</div>
 
-									<label class="flex items-center gap-2 p-2 rounded-lg bg-neutral-950 border border-neutral-800 text-xs cursor-pointer">
+									<div class="flex items-center gap-2 p-2 rounded-lg bg-neutral-950 border border-neutral-800 text-xs cursor-pointer">
 										<input
 											type="checkbox"
 											checked={removeHashtags()}
@@ -531,9 +590,9 @@ export const ProjectsPage: Component = () => {
 											class="rounded text-[#0098EA]"
 										/>
 										<span># {t('channel.projects.remove_hashtags') || 'No Hashtags'}</span>
-									</label>
+									</div>
 
-									<label class="flex items-center gap-2 p-2 rounded-lg bg-neutral-950 border border-neutral-800 text-xs cursor-pointer">
+									<div class="flex items-center gap-2 p-2 rounded-lg bg-neutral-950 border border-neutral-800 text-xs cursor-pointer">
 										<input
 											type="checkbox"
 											checked={dropMedia()}
@@ -541,7 +600,7 @@ export const ProjectsPage: Component = () => {
 											class="rounded text-[#0098EA]"
 										/>
 										<span>📄 {t('channel.projects.drop_media') || 'Text Only'}</span>
-									</label>
+									</div>
 								</div>
 							</div>
 
@@ -554,7 +613,9 @@ export const ProjectsPage: Component = () => {
 								<Show when={isSubmitting()}>
 									<div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
 								</Show>
-								<span>{t('channel.projects.start_trial_btn') || 'Create Project (72h Free Trial)'}</span>
+								<span>
+									{t('channel.projects.start_trial_btn') || 'Create Project (72h Free Trial)'}
+								</span>
 							</button>
 						</form>
 					</Motion.div>

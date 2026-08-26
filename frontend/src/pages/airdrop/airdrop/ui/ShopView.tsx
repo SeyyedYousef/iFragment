@@ -1,10 +1,10 @@
-import { Component, createSignal, For, Show } from 'solid-js';
+import { openTelegramLink } from '@tma.js/sdk-solid';
+import { type Component, createSignal, For, Show } from 'solid-js';
 import { balance } from '@/entities/airdrop/index.js';
-import { formatNumber, t, isRtl } from '@/shared/i18n/index.js';
+import { valuationApi } from '@/entities/username/index.js';
+import { formatNumber, isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { showToast } from '@/shared/ui/index.js';
-import { valuationApi } from '@/entities/username/index.js';
-import { openTelegramLink } from '@tma.js/sdk-solid';
 
 interface IntelPack {
 	id: string;
@@ -145,7 +145,7 @@ export const ShopView: Component = () => {
 
 					<div class="flex items-center gap-1.5 bg-[#1a1e2b] px-3 py-1.5 rounded-[12px] border border-white/5 text-end">
 						<span class="material-symbols-outlined text-amber-400/80 text-[16px]">schedule</span>
-						<span class="text-[11px] font-bold text-white/80">30 Days Expiry</span>
+						<span class="text-[11px] font-bold text-white/80">{t('shop.expiry30Days')}</span>
 					</div>
 				</div>
 
@@ -155,7 +155,9 @@ export const ShopView: Component = () => {
 						<span class="text-white/50 text-[11px] font-black uppercase tracking-widest">
 							INTEL PACKS (TELEGRAM STARS)
 						</span>
-						<span class="text-amber-400 text-[10px] font-black uppercase tracking-wider">NO KYC</span>
+						<span class="text-amber-400 text-[10px] font-black uppercase tracking-wider">
+							{t('shop.noKyc')}
+						</span>
 					</div>
 
 					<For each={INTEL_PACKS}>
@@ -165,8 +167,8 @@ export const ShopView: Component = () => {
 									pack.isPopular
 										? 'border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.15)]'
 										: pack.isPro
-										? 'border-amber-400/40 shadow-[0_0_20px_rgba(251,191,36,0.15)]'
-										: 'border-white/10'
+											? 'border-amber-400/40 shadow-[0_0_20px_rgba(251,191,36,0.15)]'
+											: 'border-white/10'
 								}`}
 							>
 								{/* Popular / Pro Badge */}
@@ -206,7 +208,7 @@ export const ShopView: Component = () => {
 								<div class="flex items-center justify-between gap-3 pt-2 border-t border-white/5">
 									<div class="flex flex-col text-start">
 										<span class="text-white/40 text-[10px] uppercase font-bold tracking-wider">
-											PRICE
+											{t('shop.price')}
 										</span>
 										<div class="flex items-center gap-1.5">
 											<span class="text-amber-400 font-black text-[18px] leading-none font-mono">
@@ -224,7 +226,7 @@ export const ShopView: Component = () => {
 										class="h-11 px-5 rounded-[16px] font-black text-[12.5px] uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black active:scale-95 shadow-[0_4px_16px_rgba(245,158,11,0.3)]"
 									>
 										<span class="material-symbols-outlined text-[18px]">shopping_bag</span>
-										<span>BUY PACK</span>
+										<span>{t('shop.buyPack')}</span>
 									</button>
 								</div>
 							</div>
@@ -237,7 +239,7 @@ export const ShopView: Component = () => {
 					<div class="flex items-center gap-2 text-amber-400">
 						<span class="material-symbols-outlined text-[20px]">lightbulb</span>
 						<h4 class="text-white font-black text-[13px] uppercase tracking-wider">
-							How Coin Economy Works
+							{t('shop.howEconomyWorks')}
 						</h4>
 					</div>
 
@@ -245,19 +247,22 @@ export const ShopView: Component = () => {
 						<div class="flex items-start gap-2">
 							<span class="text-[#0098EA] font-bold">1.</span>
 							<span>
-								<strong>Mine & Refer:</strong> Earn coins daily through mining, referral ladder, and community tasks.
+								<strong>{t('shop.mineAndRefer')}</strong> Earn coins daily through mining, referral ladder, and
+								community tasks.
 							</span>
 						</div>
 						<div class="flex items-start gap-2">
 							<span class="text-emerald-400 font-bold">2.</span>
 							<span>
-								<strong>Spend on Reports:</strong> Unlock full AVM valuation reports (15,000 coins, or 7,500 coins for your first report).
+								<strong>{t('shop.spendOnReports')}</strong> Unlock full AVM valuation reports (15,000 coins,
+								or 7,500 coins for your first report).
 							</span>
 						</div>
 						<div class="flex items-start gap-2">
 							<span class="text-amber-400 font-bold">3.</span>
 							<span>
-								<strong>30-Day Expiry:</strong> Spend active coins within 30 days before they expire to keep the economy fluid.
+								<strong>{t('shop.expiryDesc')}</strong> Spend active coins within 30 days before they expire
+								to keep the economy fluid.
 							</span>
 						</div>
 					</div>
@@ -299,11 +304,11 @@ export const ShopView: Component = () => {
 							{/* Price Breakdown */}
 							<div class="w-full bg-[#090a0f] rounded-[18px] p-4 border border-white/5 space-y-2.5 mb-5 text-[13px]">
 								<div class="flex justify-between items-center text-white/60">
-									<span>Credits Provided:</span>
+									<span>{t('shop.creditsProvided')}</span>
 									<span class="font-mono font-bold text-white">{pack().credits} Reports</span>
 								</div>
 								<div class="border-t border-white/10 pt-2 flex justify-between items-center text-white font-black text-[15px]">
-									<span>Total Price:</span>
+									<span>{t('shop.totalPrice')}</span>
 									<span class="text-amber-400 font-mono">⭐ {pack().stars} Stars</span>
 								</div>
 							</div>

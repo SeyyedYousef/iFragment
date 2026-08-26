@@ -1,9 +1,9 @@
 import { openTelegramLink } from '@tma.js/sdk-solid';
-import { Component, createEffect, createResource, createSignal, For, Show } from 'solid-js';
-import { API_CONFIG } from '@/shared/api/config.js';
-import { getClanMembers, getTopClans, joinClan, leaveClan } from '@/entities/user/index.js';
-import { formatNumber, t } from '@/shared/i18n/index.js';
+import { type Component, createEffect, createResource, createSignal, For, Show } from 'solid-js';
 import { setUserClan, userClan } from '@/entities/airdrop/index.js';
+import { getClanMembers, getTopClans, joinClan, leaveClan } from '@/entities/user/index.js';
+import { API_CONFIG } from '@/shared/api/config.js';
+import { formatNumber, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) => {
@@ -29,7 +29,6 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 
 	const triggerHaptic = (type: 'impact' | 'success' | 'error' | 'light') => {
 		try {
-			
 			if (type === 'impact') {
 				haptic.impact('medium');
 			} else if (type === 'light') {
@@ -126,6 +125,7 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 						</p>
 
 						<button
+							type="button"
 							onClick={() => setShowSearch(!showSearch())}
 							class="w-full h-14 rounded-[20px] bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white font-black text-[14px] flex items-center justify-center gap-2 active:scale-95 transition-all duration-300 shadow-[0_8px_24px_rgba(51,144,236,0.3)] hover:shadow-[0_12px_32px_rgba(51,144,236,0.4)] mb-6 border border-white/10"
 						>
@@ -150,6 +150,7 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 										dir="ltr"
 									/>
 									<button
+										type="button"
 										onClick={() => handleJoin()}
 										disabled={loading() || !usernameInput().trim()}
 										class="px-5 py-2.5 rounded-[14px] bg-[#3390ec] text-white font-black text-xs shrink-0 active:scale-95 disabled:opacity-40 disabled:scale-100 transition-all shadow-md"
@@ -169,6 +170,7 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 						{/* Discovery Category Filters */}
 						<div class="w-full bg-[#12141C]/60 backdrop-blur-md rounded-2xl p-1 flex gap-1 mb-5 border border-white/5 shadow-inner">
 							<button
+								type="button"
 								onClick={() => setFilterCategory('featured')}
 								class={`flex-1 h-9 rounded-xl text-[13px] font-bold transition-all duration-300 ${
 									filterCategory() === 'featured'
@@ -179,6 +181,7 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 								{t('airdrop.clan.featuredTab')}
 							</button>
 							<button
+								type="button"
 								onClick={() => setFilterCategory('growing')}
 								class={`flex-1 h-9 rounded-xl text-[13px] font-bold transition-all duration-300 ${
 									filterCategory() === 'growing'
@@ -201,7 +204,9 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 													when={clan.channel_photo}
 													fallback={<span class="text-amber-400 font-bold text-lg">🛡️</span>}
 												>
-													<img loading="lazy" 														src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan.channel_username}`}
+													<img
+														loading="lazy"
+														src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan.channel_username}`}
 														alt=""
 														class="w-full h-full object-cover"
 													/>
@@ -224,12 +229,14 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 
 										<div class="flex items-center gap-2 shrink-0">
 											<button
+												type="button"
 												onClick={() => openTelegramLink(`https://t.me/${clan.channel_username}`)}
 												class="w-9 h-9 rounded-[12px] bg-white/5 hover:bg-white/15 text-white/70 flex items-center justify-center transition-colors border border-transparent hover:border-white/10"
 											>
 												<span class="material-symbols-outlined text-[18px]">open_in_new</span>
 											</button>
 											<button
+												type="button"
 												onClick={() => handleJoin(clan.channel_username)}
 												class="h-9 px-4 rounded-[12px] bg-[#3390ec] hover:bg-[#2b7ec9] text-white text-[12px] font-black active:scale-95 transition-all shadow-[0_4px_12px_rgba(51,144,236,0.3)]"
 											>
@@ -256,7 +263,9 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 									when={clan().channel_photo}
 									fallback={<span class="text-3xl drop-shadow-md">🛡️</span>}
 								>
-									<img loading="lazy" 										src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`}
+									<img
+										loading="lazy"
+										src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`}
 										alt=""
 										class="w-full h-full object-cover"
 									/>
@@ -264,7 +273,9 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 							</div>
 
 							<div class="space-y-1.5 relative z-10">
-								<h2 class="text-[20px] font-black text-white tracking-tight">{clan().chat_title}</h2>
+								<h2 class="text-[20px] font-black text-white tracking-tight">
+									{clan().chat_title}
+								</h2>
 								<div class="inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20">
 									<span class="text-[14px] drop-shadow-[0_0_8px_rgba(252,211,77,0.8)]">🏆</span>
 									<span class="text-[13px] font-mono tabular-nums text-amber-400 font-bold pt-0.5">
@@ -277,6 +288,7 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 
 							<div class="grid grid-cols-3 gap-2.5 pt-6 relative z-10">
 								<button
+									type="button"
 									onClick={handleInvite}
 									class="col-span-2 h-12 rounded-[16px] bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white font-black text-[13px] flex items-center justify-center gap-2 shadow-[0_8px_24px_rgba(51,144,236,0.3)] active:scale-95 transition-all border border-white/10"
 								>
@@ -284,6 +296,7 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 									{t('airdrop.clan.inviteFriendsBtn')}
 								</button>
 								<button
+									type="button"
 									onClick={() => setShowLeaveModal(true)}
 									class="h-12 rounded-[16px] bg-[#1a1010] text-[#ff4a4a] border border-[#ff4a4a]/20 font-black text-[13px] flex items-center justify-center active:scale-95 transition-all hover:bg-[#ff4a4a]/10"
 								>
@@ -293,6 +306,7 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 
 							<Show when={props.onOpenLeaderboard}>
 								<button
+									type="button"
 									onClick={() => props.onOpenLeaderboard?.()}
 									class="w-full mt-3 h-11 rounded-[16px] bg-white/5 hover:bg-white/10 text-white/80 font-bold text-[13px] flex items-center justify-center gap-1.5 transition-colors border border-transparent hover:border-white/5"
 								>
@@ -380,6 +394,12 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 				<div class="fixed inset-0 z-[9990] flex items-end sm:items-center justify-center p-0 sm:p-6">
 					<div
 						class="absolute inset-0 bg-black/80 backdrop-blur-md transition-opacity animate-fade-in"
+						role="button"
+						tabIndex={0}
+						onKeyDown={(e) => {
+							if (e.key === 'Enter') (e.currentTarget as HTMLElement).click();
+							else if (e.key === 'Escape') setShowLeaveModal(false);
+						}}
 						onClick={() => setShowLeaveModal(false)}
 					/>
 
@@ -398,12 +418,14 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 
 						<div class="flex flex-col gap-2.5 pt-2">
 							<button
+								type="button"
 								onClick={confirmLeaveClan}
 								class="w-full h-14 bg-[#ff4a4a] hover:bg-[#eb3b3b] rounded-[18px] text-[14px] font-black text-white shadow-[0_8px_24px_rgba(255,74,74,0.3)] active:scale-95 transition-all"
 							>
 								{t('airdrop.clan.confirmLeaveBtn')}
 							</button>
 							<button
+								type="button"
 								onClick={() => setShowLeaveModal(false)}
 								class="w-full h-14 bg-transparent hover:bg-white/5 rounded-[18px] text-[14px] font-bold text-white/70 active:scale-95 transition-all"
 							>
@@ -419,6 +441,12 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 					<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
 						<div
 							class="absolute inset-0 bg-black/80 backdrop-blur-md transition-opacity animate-fade-in"
+							role="button"
+							tabIndex={0}
+							onKeyDown={(e) => {
+								if (e.key === 'Enter') (e.currentTarget as HTMLElement).click();
+								else if (e.key === 'Escape') setPendingClanModal(null);
+							}}
 							onClick={() => setPendingClanModal(null)}
 						/>
 						<div class="relative w-full max-w-sm bg-[#12141C] rounded-[32px] p-6 space-y-5 shadow-[0_20px_60px_rgba(0,0,0,0.8)] border border-white/10 animate-slide-up text-center">
@@ -427,17 +455,18 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 							</div>
 
 							<div class="flex flex-col gap-1">
-								<h3 class="text-[18px] font-black text-white">Join Squad via Invite</h3>
+								<h3 class="text-[18px] font-black text-white">{t('clan.joinSquadInvite')}</h3>
 								<p class="text-[13px] text-white/60 font-mono">
 									@{clanUsername().replace(/^@+/, '')}
 								</p>
 								<p class="text-[12px] text-white/50 mt-1">
-									You have been invited to join this squad and pool your mining scores together.
+									{t('clan.joinSquadDesc')}
 								</p>
 							</div>
 
 							<div class="flex flex-col gap-2.5 pt-2">
 								<button
+									type="button"
 									onClick={() => {
 										const u = pendingClanModal();
 										setPendingClanModal(null);
@@ -446,14 +475,15 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 									disabled={loading()}
 									class="w-full h-14 bg-gradient-to-r from-[#3390ec] to-[#2563eb] rounded-[18px] text-[14px] font-black text-white shadow-[0_8px_24px_rgba(51,144,236,0.35)] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
 								>
-									<span>Join Squad</span>
+									<span>{t('clan.joinSquad')}</span>
 									<span class="material-symbols-outlined text-[18px]">group_add</span>
 								</button>
 								<button
+									type="button"
 									onClick={() => setPendingClanModal(null)}
 									class="w-full h-12 bg-transparent hover:bg-white/5 rounded-[16px] text-[13px] font-bold text-white/60 active:scale-95 transition-all"
 								>
-									Cancel
+									{t('common.cancel')}
 								</button>
 							</div>
 						</div>

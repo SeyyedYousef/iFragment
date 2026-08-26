@@ -1,6 +1,7 @@
 import { useNavigate } from '@solidjs/router';
 
-import { Component, For, onMount } from 'solid-js';
+import { type Component, For, onMount } from 'solid-js';
+import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 export type OwnerTabId =
@@ -20,25 +21,90 @@ export type OwnerTabId =
 
 interface TabConfig {
 	id: OwnerTabId;
-	label: string;
+	labelKey: string;
 	icon: string;
 	path: string;
 }
 
 const TABS: TabConfig[] = [
-	{ id: 'dashboard', label: 'داشبورد', icon: 'dashboard', path: '/owner/dashboard' },
-	{ id: 'users', label: 'کاربران', icon: 'group', path: '/owner/users' },
-	{ id: 'audit-logs', label: 'لاگ‌های سیستم', icon: 'receipt_long', path: '/owner/audit-logs' },
-	{ id: 'promos', label: 'کدهای هدیه', icon: 'redeem', path: '/owner/promos' },
-	{ id: 'broadcast', label: 'ارسال همگانی', icon: 'campaign', path: '/owner/broadcast' },
-	{ id: 'quests', label: 'مأموریت‌ها', icon: 'task', path: '/owner/quests' },
-	{ id: 'combos', label: 'کامبو روزانه', icon: 'extension', path: '/owner/combos' },
-	{ id: 'userbot', label: 'ربات‌های متصل', icon: 'smart_toy', path: '/owner/userbot' },
-	{ id: 'settings', label: 'تنظیمات سیستم', icon: 'settings', path: '/owner/settings' },
-	{ id: 'finance', label: 'امور مالی', icon: 'account_balance', path: '/owner/finance' },
-	{ id: 'entities', label: 'گروه‌ها و کانال‌ها', icon: 'grid_view', path: '/owner/entities' },
-	{ id: 'health', label: 'سلامت سیستم', icon: 'monitor_heart', path: '/owner/health' },
-	{ id: 'ads', label: 'تبلیغات', icon: 'campaign', path: '/owner/ads' },
+	{
+		id: 'dashboard',
+		labelKey: 'ownerNav.dashboardLabel',
+		icon: 'dashboard',
+		path: '/owner/dashboard',
+	},
+	{
+		id: 'users',
+		labelKey: 'ownerNav.usersLabel',
+		icon: 'group',
+		path: '/owner/users',
+	},
+	{
+		id: 'audit-logs',
+		labelKey: 'ownerNav.auditLogsLabel',
+		icon: 'receipt_long',
+		path: '/owner/audit-logs',
+	},
+	{
+		id: 'promos',
+		labelKey: 'ownerNav.promosLabel',
+		icon: 'redeem',
+		path: '/owner/promos',
+	},
+	{
+		id: 'broadcast',
+		labelKey: 'ownerNav.broadcastLabel',
+		icon: 'campaign',
+		path: '/owner/broadcast',
+	},
+	{
+		id: 'quests',
+		labelKey: 'ownerNav.questsLabel',
+		icon: 'task',
+		path: '/owner/quests',
+	},
+	{
+		id: 'combos',
+		labelKey: 'ownerNav.combosLabel',
+		icon: 'extension',
+		path: '/owner/combos',
+	},
+	{
+		id: 'userbot',
+		labelKey: 'ownerNav.userbotLabel',
+		icon: 'smart_toy',
+		path: '/owner/userbot',
+	},
+	{
+		id: 'settings',
+		labelKey: 'ownerNav.settingsLabel',
+		icon: 'settings',
+		path: '/owner/settings',
+	},
+	{
+		id: 'finance',
+		labelKey: 'ownerNav.financeLabel',
+		icon: 'account_balance',
+		path: '/owner/finance',
+	},
+	{
+		id: 'entities',
+		labelKey: 'ownerNav.entitiesLabel',
+		icon: 'grid_view',
+		path: '/owner/entities',
+	},
+	{
+		id: 'health',
+		labelKey: 'ownerNav.healthLabel',
+		icon: 'monitor_heart',
+		path: '/owner/health',
+	},
+	{
+		id: 'ads',
+		labelKey: 'ownerNav.adsLabel',
+		icon: 'campaign',
+		path: '/owner/ads',
+	},
 ];
 
 interface OwnerTabsProps {
@@ -64,7 +130,7 @@ export const OwnerTabs: Component<OwnerTabsProps> = (props) => {
 
 	return (
 		<nav
-			aria-label="بخش‌های اصلی پنل مدیریت"
+			aria-label={t('ownerChrome.tabsAriaLabel' as any)}
 			class="px-6 py-3 flex gap-2 overflow-x-auto relative z-10 border-b border-white/5 bg-[#0f1016]/80 backdrop-blur-md select-none scrollbar-none"
 		>
 			<For each={TABS}>
@@ -72,6 +138,7 @@ export const OwnerTabs: Component<OwnerTabsProps> = (props) => {
 					const isActive = () => props.active === tab.id;
 					return (
 						<button
+							type="button"
 							ref={(el) => {
 								if (isActive()) activeBtnRef = el;
 							}}
@@ -84,7 +151,7 @@ export const OwnerTabs: Component<OwnerTabsProps> = (props) => {
 							}`}
 						>
 							<span class="material-symbols-outlined text-[16px]">{tab.icon}</span>
-							<span>{tab.label}</span>
+							<span>{t(tab.labelKey as any)}</span>
 						</button>
 					);
 				}}

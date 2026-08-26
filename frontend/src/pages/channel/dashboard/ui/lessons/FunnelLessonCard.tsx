@@ -1,8 +1,10 @@
 import { Motion } from '@motionone/solid';
-import { Component, createSignal, onCleanup, onMount } from 'solid-js';
+import { type Component, createSignal, onCleanup, onMount } from 'solid-js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 
-export const FunnelLessonCard: Component<{ onNavigate: () => void; isDone?: boolean }> = (props) => {
+export const FunnelLessonCard: Component<{ onNavigate: () => void; isDone?: boolean }> = (
+	props,
+) => {
 	const [stage, setStage] = createSignal(0);
 
 	onMount(() => {
@@ -40,28 +42,51 @@ export const FunnelLessonCard: Component<{ onNavigate: () => void; isDone?: bool
 			</p>
 
 			{/* Interactive Animated Demo */}
-			<div class="relative h-24 bg-[#08090D] rounded-[20px] border border-white/5 p-3 shadow-inner overflow-hidden" dir="ltr">
+			<div
+				class="relative h-24 bg-[#08090D] rounded-[20px] border border-white/5 p-3 shadow-inner overflow-hidden"
+				dir="ltr"
+			>
 				<div class="absolute inset-3 flex items-center justify-between">
 					{[
-						{ icon: 'edit_note', label: t('lessons.funnel.stageDraft'), active: stage() === 0, color: '#ffffff' },
-						{ icon: 'bolt', label: t('lessons.funnel.stageProcess'), active: stage() === 1, color: '#06b6d4' },
-						{ icon: 'campaign', label: t('lessons.funnel.stagePublic'), active: stage() === 2, color: '#10b981' },
+						{
+							icon: 'edit_note',
+							label: t('lessons.funnel.stageDraft'),
+							active: stage() === 0,
+							color: '#ffffff',
+						},
+						{
+							icon: 'bolt',
+							label: t('lessons.funnel.stageProcess'),
+							active: stage() === 1,
+							color: '#06b6d4',
+						},
+						{
+							icon: 'campaign',
+							label: t('lessons.funnel.stagePublic'),
+							active: stage() === 2,
+							color: '#10b981',
+						},
 					].map((s) => (
 						<div class="flex flex-col items-center gap-1.5 w-16">
 							<div
 								class="w-10 h-10 rounded-[12px] flex items-center justify-center border transition-all duration-500"
 								style={{
 									'border-color': s.active ? s.color : 'rgba(255,255,255,0.1)',
-									'background': s.active ? `${s.color}20` : 'rgba(255,255,255,0.03)',
+									background: s.active ? `${s.color}20` : 'rgba(255,255,255,0.03)',
 									'box-shadow': s.active ? `0 0 20px ${s.color}40` : 'none',
-									'transform': s.active ? 'scale(1.08)' : 'scale(1)',
+									transform: s.active ? 'scale(1.08)' : 'scale(1)',
 								}}
 							>
-								<span class="material-symbols-outlined text-[20px]" style={{ color: s.active ? s.color : 'rgba(255,255,255,0.3)' }}>
+								<span
+									class="material-symbols-outlined text-[20px]"
+									style={{ color: s.active ? s.color : 'rgba(255,255,255,0.3)' }}
+								>
 									{s.icon}
 								</span>
 							</div>
-							<span class="text-[8px] font-black uppercase tracking-widest text-white/40 truncate w-full text-center">{s.label}</span>
+							<span class="text-[8px] font-black uppercase tracking-widest text-white/40 truncate w-full text-center">
+								{s.label}
+							</span>
 						</div>
 					))}
 				</div>
@@ -77,6 +102,7 @@ export const FunnelLessonCard: Component<{ onNavigate: () => void; isDone?: bool
 
 			{/* CTA */}
 			<button
+				type="button"
 				onClick={props.onNavigate}
 				class="w-full h-12 bg-gradient-to-r from-[#06b6d4] to-[#0284c7] hover:from-[#0284c7] hover:to-[#06b6d4] text-white rounded-[16px] text-[12px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all shadow-[0_4px_20px_rgba(6,182,212,0.25)] border border-white/10"
 			>

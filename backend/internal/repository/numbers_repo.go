@@ -186,6 +186,196 @@ func (r *NumbersRepo) GetWatchlist(ctx context.Context, userID int64) ([]NumberW
 	return items, nil
 }
 
+type NumberSaleRecord struct {
+	ID              int64     `json:"id"`
+	Number          string    `json:"number"`
+	SalePriceTON    float64   `json:"sale_price_ton"`
+	SaleType        string    `json:"sale_type"`
+	SaleDate        time.Time `json:"sale_date"`
+	BuyerAddress    string    `json:"buyer_address"`
+	SellerAddress   string    `json:"seller_address"`
+	MarketAddress   string    `json:"market_address"`
+	PriceConfidence string    `json:"price_confidence"`
+	TransactionHash string    `json:"transaction_hash"`
+	RawData         []byte    `json:"raw_data,omitempty"`
+	IndexedAt       time.Time `json:"indexed_at"`
+}
+
+// InsertNumberSale inserts a verified on-chain sale for a number
+func (r *NumbersRepo) InsertNumberSale(ctx context.Context, sale NumberSaleRecord) error {
+	if r.db == nil || r.db.Pool == nil {
+		return nil
+	}
+	query := `
+		INSERT INTO number_sales (
+			number, sale_price_ton, sale_type, sale_date,
+			buyer_address, seller_address, market_address,
+			price_confidence, transaction_hash, raw_data, indexed_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())`
+
+	_, err := r.db.Pool.Exec(ctx, query,
+		sale.Number, sale.SalePriceTON, sale.SaleType, sale.SaleDate,
+		sale.BuyerAddress, sale.SellerAddress, sale.MarketAddress,
+		sale.PriceConfidence, sale.TransactionHash, sale.RawData,
+	)
+	return err
+}
+
+// GetHistoricalSalesForNumber retrieves real on-chain sales for a specific number
+func (r *NumbersRepo) GetHistoricalSalesForNumber(ctx context.Context, number string) ([]NumberSaleRecord, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return []NumberSaleRecord{}, nil
+	}
+	query := `
+		SELECT id, number, sale_price_ton, sale_type, sale_date,
+		       COALESCE(buyer_address, ''), COALESCE(seller_address, ''), COALESCE(market_address, ''),
+		       price_confidence, COALESCE(transaction_hash, ''), indexed_at
+		FROM number_sales
+		WHERE number = $1
+		ORDER BY sale_date DESC
+		LIMIT 20`
+
+	rows, err := r.db.Pool.Query(ctx, query, number)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	sales := make([]NumberSaleRecord, 0)
+	for rows.Next() {
+		var s NumberSaleRecord
+		if err := rows.Scan(
+			&s.ID, &s.Number, &s.SalePriceTON, &s.SaleType, &s.SaleDate,
+			&s.BuyerAddress, &s.SellerAddress, &s.MarketAddress,
+			&s.PriceConfidence, &s.TransactionHash, &s.IndexedAt,
+		); err == nil {
+			sales = append(sales, s)
+		}
+	}
+	return sales, nil
+}
+
+// GetCompsForNumber retrieves real peer sales in similar class (same tail or pattern or recent)
+func (r *NumbersRepo) GetCompsForNumber(ctx context.Context, targetNumber, tailClass string, maxRun int, limit int) ([]NumberSaleRecord, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return []NumberSaleRecord{}, nil
+	}
+	if limit <= 0 {
+		limit = 5
+	}
+
+	// 1. Try to find sales with same tail class or feature pattern first
+	query := `
+		SELECT s.id, s.number, s.sale_price_ton, s.sale_type, s.sale_date,
+		       COALESCE(s.buyer_address, ''), COALESCE(s.seller_address, ''), COALESCE(s.market_address, ''),
+		       s.price_confidence, COALESCE(s.transaction_hash, ''), s.indexed_at
+		FROM number_sales s
+		LEFT JOIN number_features f ON s.number = f.number
+		WHERE s.number != $1
+		  AND (
+		      (f.features->>'tail_class' = $2 AND $2 != '')
+		      OR (f.features->>'max_run')::int >= $3
+		  )
+		ORDER BY s.sale_date DESC
+		LIMIT $4`
+
+	rows, err := r.db.Pool.Query(ctx, query, targetNumber, tailClass, maxRun, limit)
+	if err == nil {
+		defer rows.Close()
+		sales := make([]NumberSaleRecord, 0)
+		for rows.Next() {
+			var s NumberSaleRecord
+			if err := rows.Scan(
+				&s.ID, &s.Number, &s.SalePriceTON, &s.SaleType, &s.SaleDate,
+				&s.BuyerAddress, &s.SellerAddress, &s.MarketAddress,
+				&s.PriceConfidence, &s.TransactionHash, &s.IndexedAt,
+			); err == nil {
+				sales = append(sales, s)
+			}
+		}
+		if len(sales) > 0 {
+			return sales, nil
+		}
+	}
+
+	// 2. Fallback to most recent verified sales
+	fallbackQuery := `
+		SELECT id, number, sale_price_ton, sale_type, sale_date,
+		       COALESCE(buyer_address, ''), COALESCE(seller_address, ''), COALESCE(market_address, ''),
+		       price_confidence, COALESCE(transaction_hash, ''), indexed_at
+		FROM number_sales
+		WHERE number != $1
+		ORDER BY sale_date DESC
+		LIMIT $2`
+
+	rowsFallback, err := r.db.Pool.Query(ctx, fallbackQuery, targetNumber, limit)
+	if err != nil {
+		return []NumberSaleRecord{}, nil
+	}
+	defer rowsFallback.Close()
+
+	fallbackSales := make([]NumberSaleRecord, 0)
+	for rowsFallback.Next() {
+		var s NumberSaleRecord
+		if err := rowsFallback.Scan(
+			&s.ID, &s.Number, &s.SalePriceTON, &s.SaleType, &s.SaleDate,
+			&s.BuyerAddress, &s.SellerAddress, &s.MarketAddress,
+			&s.PriceConfidence, &s.TransactionHash, &s.IndexedAt,
+		); err == nil {
+			fallbackSales = append(fallbackSales, s)
+		}
+	}
+	return fallbackSales, nil
+}
+
+// GetFeatureHistograms loads global frequency counts for exact percentile calculations
+func (r *NumbersRepo) GetFeatureHistograms(ctx context.Context) (map[string]map[string]int, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return make(map[string]map[string]int), nil
+	}
+	query := `SELECT feature_key, bucket, count FROM feature_histograms`
+	rows, err := r.db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	hist := make(map[string]map[string]int)
+	for rows.Next() {
+		var k, b string
+		var c int
+		if err := rows.Scan(&k, &b, &c); err == nil {
+			if hist[k] == nil {
+				hist[k] = make(map[string]int)
+			}
+			hist[k][b] = c
+		}
+	}
+	return hist, nil
+}
+
+// GetWatchedUsersForNumber returns all user IDs watching this number
+func (r *NumbersRepo) GetWatchedUsersForNumber(ctx context.Context, number string) ([]int64, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return []int64{}, nil
+	}
+	query := `SELECT user_id FROM number_watchlist WHERE number = $1 AND alert_on_sale = TRUE`
+	rows, err := r.db.Pool.Query(ctx, query, number)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	userIDs := make([]int64, 0)
+	for rows.Next() {
+		var uID int64
+		if err := rows.Scan(&uID); err == nil {
+			userIDs = append(userIDs, uID)
+		}
+	}
+	return userIDs, nil
+}
+
 // SearchNumbersByMask searches the 136k supply with wildcard or regex matching in <150ms p95
 func (r *NumbersRepo) SearchNumbersByMask(ctx context.Context, pattern string, limit, offset int) ([]MaskSearchResultItem, error) {
 	if limit <= 0 || limit > 50 {
@@ -221,12 +411,25 @@ func (r *NumbersRepo) SearchNumbersByMask(ctx context.Context, pattern string, l
 		var num, color string
 		var featJSON []byte
 		if err := rows.Scan(&num, &color, &featJSON); err == nil {
+			rarity := 50
+			var fv struct {
+				RarityScore      int     `json:"rarity_score"`
+				RarityPercentile float64 `json:"rarity_percentile"`
+			}
+			if json.Unmarshal(featJSON, &fv) == nil {
+				if fv.RarityScore > 0 {
+					rarity = fv.RarityScore
+				} else if fv.RarityPercentile > 0 {
+					rarity = int(fv.RarityPercentile)
+				}
+			}
+
 			results = append(results, MaskSearchResultItem{
 				Number:      num,
 				Display:     formatDisplay(num),
 				Status:      "taken",
 				Color:       color,
-				RarityScore: 75,
+				RarityScore: rarity,
 			})
 		}
 	}
@@ -241,4 +444,5 @@ func formatDisplay(num string) string {
 	}
 	return num
 }
+
 

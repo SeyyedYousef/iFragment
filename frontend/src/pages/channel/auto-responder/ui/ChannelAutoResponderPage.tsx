@@ -2,7 +2,7 @@ import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton } from '@tma.js/sdk-solid';
 import {
-	Component,
+	type Component,
 	createEffect,
 	createMemo,
 	createResource,
@@ -14,9 +14,9 @@ import {
 } from 'solid-js';
 import { ChannelContextBar, ChannelHamburgerMenu, channelApi } from '@/entities/channel/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
-import { SelectField, SettingsSection, ToggleSwitch } from '@/shared/ui/settings-controls.js';
-import { showToast } from '@/shared/ui/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
+import { showToast } from '@/shared/ui/index.js';
+import { SelectField, SettingsSection, ToggleSwitch } from '@/shared/ui/settings-controls.js';
 
 interface AutoResponderRule {
 	id: string;
@@ -216,8 +216,10 @@ export const ChannelAutoResponderPage: Component = () => {
 	});
 
 	return (
-		<div class="min-h-screen bg-[#030303] pb-28 relative overflow-x-hidden text-white font-sans selection:bg-[#3390ec]/30" dir={isRtl() ? 'rtl' : 'ltr'}>
-			
+		<div
+			class="min-h-screen bg-[#030303] pb-28 relative overflow-x-hidden text-white font-sans selection:bg-[#3390ec]/30"
+			dir={isRtl() ? 'rtl' : 'ltr'}
+		>
 			{/* Ambient Top Glow */}
 			<div class="absolute top-0 left-0 right-0 h-[350px] bg-gradient-to-b from-[#3390ec]/15 via-transparent to-transparent blur-[80px] pointer-events-none z-0" />
 
@@ -225,6 +227,7 @@ export const ChannelAutoResponderPage: Component = () => {
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm">
 				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
+						type="button"
 						onClick={() => {
 							haptic.impact('light');
 							if (isCreating()) setIsCreating(false);
@@ -246,6 +249,7 @@ export const ChannelAutoResponderPage: Component = () => {
 				</div>
 
 				<button
+					type="button"
 					onClick={() => setIsMenuOpen(true)}
 					class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-colors shrink-0 shadow-sm text-white/80"
 					aria-label={t('common.toggle')}
@@ -254,10 +258,14 @@ export const ChannelAutoResponderPage: Component = () => {
 				</button>
 			</div>
 
-			<ChannelHamburgerMenu isOpen={isMenuOpen()} onClose={() => setIsMenuOpen(false)} channelId={params.id} activeTab="auto-responder" />
+			<ChannelHamburgerMenu
+				isOpen={isMenuOpen()}
+				onClose={() => setIsMenuOpen(false)}
+				channelId={params.id}
+				activeTab="auto-responder"
+			/>
 
 			<div class="px-5 pt-5 flex flex-col gap-5 max-w-md mx-auto relative z-10 w-full pb-10">
-				
 				<ChannelContextBar channelId={params.id} />
 
 				<Show when={settings.loading}>
@@ -269,54 +277,99 @@ export const ChannelAutoResponderPage: Component = () => {
 
 				<Show when={settings()}>
 					{/* ═══════ MAIN ENGINE TOGGLE ═══════ */}
-					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] border border-white/5 p-5 flex items-center justify-between gap-3 shadow-sm relative overflow-hidden">
+					<Motion.div
+						initial={{ opacity: 0, y: 15 }}
+						animate={{ opacity: 1, y: 0 }}
+						transition={{ delay: 0.05 }}
+						class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] border border-white/5 p-5 flex items-center justify-between gap-3 shadow-sm relative overflow-hidden"
+					>
 						<div class="absolute -right-10 -top-10 w-32 h-32 bg-[#3390ec]/10 rounded-full blur-3xl pointer-events-none" />
 						<div class="flex flex-col flex-1 min-w-0 relative z-10">
 							<span class="text-[15px] font-black text-white tracking-tight flex items-center gap-2">
 								<span class="material-symbols-outlined text-[#3390ec] text-[20px]">smart_toy</span>
 								{t('channelAutoResponder.title')}
 							</span>
-							<span class="text-[11px] font-medium text-white/50 mt-1">{t('channelAutoResponder.engineSub')}</span>
+							<span class="text-[11px] font-medium text-white/50 mt-1">
+								{t('channelAutoResponder.engineSub')}
+							</span>
 						</div>
 						<div class="relative z-10">
-							<ToggleSwitch checked={enabled()} onChange={(v) => { haptic.impact('light'); setEnabled(v); }} />
+							<ToggleSwitch
+								checked={enabled()}
+								onChange={(v) => {
+									haptic.impact('light');
+									setEnabled(v);
+								}}
+							/>
 						</div>
 					</Motion.div>
 
 					<Show when={enabled()}>
 						<Show when={!isCreating()}>
-							<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} class="flex flex-col gap-5">
-								
+							<Motion.div
+								initial={{ opacity: 0, y: 15 }}
+								animate={{ opacity: 1, y: 0 }}
+								transition={{ delay: 0.1 }}
+								class="flex flex-col gap-5"
+							>
 								{/* ═══════ GUIDE BANNER ═══════ */}
 								<div class="bg-gradient-to-br from-[#3390ec]/15 to-[#12141C]/50 border border-[#3390ec]/20 rounded-[24px] p-5 flex flex-col gap-4 relative overflow-hidden shadow-sm">
 									<div class="absolute -right-6 -top-6 w-32 h-32 bg-[#3390ec]/20 rounded-full blur-3xl pointer-events-none" />
-									
+
 									<div class="flex items-center gap-2.5 relative z-10">
 										<div class="w-10 h-10 rounded-[12px] bg-[#3390ec]/15 flex items-center justify-center border border-[#3390ec]/30 shadow-inner shrink-0">
-											<span class="material-symbols-outlined text-[#3390ec] text-[20px]">lightbulb</span>
+											<span class="material-symbols-outlined text-[#3390ec] text-[20px]">
+												lightbulb
+											</span>
 										</div>
-										<h2 class="text-[14px] font-black text-white tracking-tight">{t('channelAutoResponder.guideTitle')}</h2>
+										<h2 class="text-[14px] font-black text-white tracking-tight">
+											{t('channelAutoResponder.guideTitle')}
+										</h2>
 									</div>
-									
+
 									<p class="text-[12px] text-white/70 font-medium leading-relaxed relative z-10 pl-1">
 										{t('channelAutoResponder.guideDesc')}
 									</p>
-									
+
 									<div class="bg-amber-400/10 border border-amber-400/20 rounded-[16px] p-4 flex items-start gap-3 relative z-10 shadow-inner">
-										<span class="material-symbols-outlined text-amber-400 text-[20px] shrink-0 mt-0.5">warning</span>
+										<span class="material-symbols-outlined text-amber-400 text-[20px] shrink-0 mt-0.5">
+											warning
+										</span>
 										<p class="text-[11px] text-amber-400/90 font-bold leading-relaxed">
 											{t('channelAutoResponder.adminRequirementNotice')}
 										</p>
 									</div>
-									
+
 									<div class="flex flex-col gap-3.5 relative z-10 mt-1 pl-1">
 										<div class="flex items-center gap-3">
-											<div class="w-8 h-8 rounded-[10px] bg-white/5 flex items-center justify-center border border-white/10 shadow-inner shrink-0"><span class="material-symbols-outlined text-[#3390ec] text-[16px]">forum</span></div>
-											<div class="flex flex-col"><span class="text-[13px] font-black text-white">{t('channelAutoResponder.featFirstCommentTitle')}</span><span class="text-[10px] font-medium text-white/50">{t('channelAutoResponder.featFirstCommentDesc')}</span></div>
+											<div class="w-8 h-8 rounded-[10px] bg-white/5 flex items-center justify-center border border-white/10 shadow-inner shrink-0">
+												<span class="material-symbols-outlined text-[#3390ec] text-[16px]">
+													forum
+												</span>
+											</div>
+											<div class="flex flex-col">
+												<span class="text-[13px] font-black text-white">
+													{t('channelAutoResponder.featFirstCommentTitle')}
+												</span>
+												<span class="text-[10px] font-medium text-white/50">
+													{t('channelAutoResponder.featFirstCommentDesc')}
+												</span>
+											</div>
 										</div>
 										<div class="flex items-center gap-3">
-											<div class="w-8 h-8 rounded-[10px] bg-white/5 flex items-center justify-center border border-white/10 shadow-inner shrink-0"><span class="material-symbols-outlined text-cyan-400 text-[16px]">quickreply</span></div>
-											<div class="flex flex-col"><span class="text-[13px] font-black text-white">{t('channelAutoResponder.featKeywordTitle')}</span><span class="text-[10px] font-medium text-white/50">{t('channelAutoResponder.featKeywordDesc')}</span></div>
+											<div class="w-8 h-8 rounded-[10px] bg-white/5 flex items-center justify-center border border-white/10 shadow-inner shrink-0">
+												<span class="material-symbols-outlined text-cyan-400 text-[16px]">
+													quickreply
+												</span>
+											</div>
+											<div class="flex flex-col">
+												<span class="text-[13px] font-black text-white">
+													{t('channelAutoResponder.featKeywordTitle')}
+												</span>
+												<span class="text-[10px] font-medium text-white/50">
+													{t('channelAutoResponder.featKeywordDesc')}
+												</span>
+											</div>
 										</div>
 									</div>
 								</div>
@@ -327,7 +380,10 @@ export const ChannelAutoResponderPage: Component = () => {
 										title={t('channelAutoResponder.firstComment')}
 										description={t('channelAutoResponder.firstCommentDesc')}
 										enabled={autoFirstComment()}
-										onToggle={(v) => { haptic.impact('light'); setAutoFirstComment(v); }}
+										onToggle={(v) => {
+											haptic.impact('light');
+											setAutoFirstComment(v);
+										}}
 									/>
 
 									<Show when={autoFirstComment()}>
@@ -336,7 +392,10 @@ export const ChannelAutoResponderPage: Component = () => {
 												<SelectField
 													label={t('channelAutoResponder.firstCommentMode')}
 													value={commentMode()}
-													onChange={(v) => { haptic.selection(); setCommentMode(v); }}
+													onChange={(v) => {
+														haptic.selection();
+														setCommentMode(v);
+													}}
 													options={[
 														{ value: 'fixed', label: t('channelAutoResponder.modeFixed') },
 														{ value: 'rotating', label: t('channelAutoResponder.modeRotating') },
@@ -347,9 +406,12 @@ export const ChannelAutoResponderPage: Component = () => {
 
 											<Show when={commentMode() === 'fixed'}>
 												<div class="flex flex-col gap-2">
-													<label class="text-[11px] font-black uppercase tracking-widest text-white/40 px-1">{t('channelAutoResponder.commentText')}</label>
+													<div class="text-[11px] font-black uppercase tracking-widest text-white/40 px-1">
+														{t('channelAutoResponder.commentText')}
+													</div>
 													<textarea
-														value={fixedComment()} onInput={(e) => setFixedComment(e.currentTarget.value)}
+														value={fixedComment()}
+														onInput={(e) => setFixedComment(e.currentTarget.value)}
 														placeholder={t('channelAutoResponder.commentTextPlaceholder')}
 														class="bg-[#08090D] border border-white/5 text-white text-[13px] font-medium leading-relaxed rounded-[16px] px-4 py-3.5 w-full min-h-[100px] focus:outline-none focus:border-[#3390ec]/50 transition-colors resize-none placeholder-white/20 shadow-inner"
 													/>
@@ -358,13 +420,19 @@ export const ChannelAutoResponderPage: Component = () => {
 
 											<Show when={commentMode() === 'rotating'}>
 												<div class="flex flex-col gap-3">
-													<label class="text-[11px] font-black uppercase tracking-widest text-white/40 px-1">{t('channelAutoResponder.rotatingTexts')}</label>
+													<div class="text-[11px] font-black uppercase tracking-widest text-white/40 px-1">
+														{t('channelAutoResponder.rotatingTexts')}
+													</div>
 													<div class="flex flex-col gap-2">
 														<For each={rotatingTexts()}>
 															{(text, i) => (
 																<div class="flex items-center justify-between bg-[#08090D] px-4 py-3 rounded-[16px] border border-white/5 shadow-inner">
 																	<span class="text-[13px] font-medium text-white/90">{text}</span>
-																	<button onClick={() => handleRemoveRotatingText(i())} class="w-8 h-8 flex items-center justify-center text-[#ff4a4a] bg-[#ff4a4a]/10 hover:bg-[#ff4a4a] hover:text-white transition-all rounded-[10px] shrink-0 border border-[#ff4a4a]/20">
+																	<button
+																		type="button"
+																		onClick={() => handleRemoveRotatingText(i())}
+																		class="w-8 h-8 flex items-center justify-center text-[#ff4a4a] bg-[#ff4a4a]/10 hover:bg-[#ff4a4a] hover:text-white transition-all rounded-[10px] shrink-0 border border-[#ff4a4a]/20"
+																	>
 																		<span class="material-symbols-outlined text-[16px]">close</span>
 																	</button>
 																</div>
@@ -373,11 +441,18 @@ export const ChannelAutoResponderPage: Component = () => {
 													</div>
 													<div class="flex gap-2.5 mt-1">
 														<input
-															type="text" value={newRotatingText()} onInput={(e) => setNewRotatingText(e.currentTarget.value)}
+															type="text"
+															value={newRotatingText()}
+															onInput={(e) => setNewRotatingText(e.currentTarget.value)}
 															placeholder={t('channelAutoResponder.addRotatingTextPlaceholder')}
 															class="bg-[#08090D] border border-white/5 text-white text-[13px] font-bold rounded-[14px] px-4 py-3.5 flex-1 focus:outline-none focus:border-[#3390ec]/50 shadow-inner placeholder-white/20 transition-colors"
 														/>
-														<button onClick={handleAddRotatingText} disabled={!newRotatingText().trim()} class="px-5 bg-[#3390ec] text-white font-black uppercase tracking-widest text-[11px] rounded-[14px] hover:bg-[#2b7bc9] disabled:opacity-50 active:scale-95 transition-all shadow-[0_4px_15px_rgba(51,144,236,0.2)]">
+														<button
+															type="button"
+															onClick={handleAddRotatingText}
+															disabled={!newRotatingText().trim()}
+															class="px-5 bg-[#3390ec] text-white font-black uppercase tracking-widest text-[11px] rounded-[14px] hover:bg-[#2b7bc9] disabled:opacity-50 active:scale-95 transition-all shadow-[0_4px_15px_rgba(51,144,236,0.2)]"
+														>
 															{t('channelAutoResponder.add')}
 														</button>
 													</div>
@@ -401,7 +476,10 @@ export const ChannelAutoResponderPage: Component = () => {
 													<SelectField
 														label={t('channelAutoResponder.attachInlineBtn')}
 														value={attachButton()}
-														onChange={(v) => { haptic.selection(); setAttachButton(v); }}
+														onChange={(v) => {
+															haptic.selection();
+															setAttachButton(v);
+														}}
 														options={[
 															{ value: '', label: t('channelAutoResponder.btnNone') },
 															{ value: 'like_set', label: t('channelAutoResponder.btnLikeSet') },
@@ -418,19 +496,29 @@ export const ChannelAutoResponderPage: Component = () => {
 								<div class="flex flex-col gap-3.5">
 									<div class="flex items-center justify-between px-2 mb-1">
 										<h2 class="text-[13px] font-black text-white/80 uppercase tracking-widest flex items-center gap-2">
-											<span class="material-symbols-outlined text-[#3390ec] text-[20px]">manage_search</span>
+											<span class="material-symbols-outlined text-[#3390ec] text-[20px]">
+												manage_search
+											</span>
 											{t('channelAutoResponder.keywordAutoReplies')}
 										</h2>
-										<span class="bg-[#3390ec]/10 text-[#3390ec] font-black px-2.5 py-1 rounded-[8px] text-[10px] border border-[#3390ec]/20 shadow-sm">{rules().length}</span>
+										<span class="bg-[#3390ec]/10 text-[#3390ec] font-black px-2.5 py-1 rounded-[8px] text-[10px] border border-[#3390ec]/20 shadow-sm">
+											{rules().length}
+										</span>
 									</div>
 
 									<Show when={rules().length === 0}>
 										<div class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] border border-white/5 border-dashed p-8 flex flex-col items-center text-center gap-3 shadow-sm">
 											<div class="w-16 h-16 rounded-[20px] bg-white/5 flex items-center justify-center mb-1 border border-white/10">
-												<span class="material-symbols-outlined text-[36px] text-white/30">quickreply</span>
+												<span class="material-symbols-outlined text-[36px] text-white/30">
+													quickreply
+												</span>
 											</div>
-											<h2 class="text-[15px] font-black text-white/60 tracking-tight">{t('channelAutoResponder.noRules')}</h2>
-											<p class="text-[12px] text-white/40 font-medium">{t('channelAutoResponder.keywordRepliesDesc')}</p>
+											<h2 class="text-[15px] font-black text-white/60 tracking-tight">
+												{t('channelAutoResponder.noRules')}
+											</h2>
+											<p class="text-[12px] text-white/40 font-medium">
+												{t('channelAutoResponder.keywordRepliesDesc')}
+											</p>
 										</div>
 									</Show>
 
@@ -440,22 +528,30 @@ export const ChannelAutoResponderPage: Component = () => {
 												{(rule) => (
 													<div class="bg-[#12141C]/80 backdrop-blur-xl rounded-[20px] border border-white/5 p-4.5 flex items-center justify-between gap-3 shadow-sm group hover:border-[#3390ec]/30 transition-colors">
 														<div class="flex flex-col flex-1 min-w-0 gap-1.5">
-															<span class="text-[15px] font-black text-white truncate tracking-tight">{rule.keys}</span>
+															<span class="text-[15px] font-black text-white truncate tracking-tight">
+																{rule.keys}
+															</span>
 															<div class="flex items-center gap-2 flex-wrap">
 																<span class="text-[9px] font-black uppercase tracking-widest text-[#3390ec] bg-[#3390ec]/10 px-2 py-0.5 rounded-[6px] border border-[#3390ec]/20 shadow-sm">
 																	{getLocalizedMatch(rule.match)}
 																</span>
 																<Show when={!rule.enabled}>
-																	<span class="text-[9px] font-black uppercase tracking-widest text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-[6px] border border-amber-400/20 shadow-sm">{t('channelAutoResponder.ruleDisabled')}</span>
+																	<span class="text-[9px] font-black uppercase tracking-widest text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-[6px] border border-amber-400/20 shadow-sm">
+																		{t('channelAutoResponder.ruleDisabled')}
+																	</span>
 																</Show>
 																<Show when={rule.useAi}>
 																	<span class="text-[9px] font-black uppercase tracking-widest text-[#06b6d4] bg-[#06b6d4]/10 px-2 py-0.5 rounded-[6px] border border-[#06b6d4]/20 shadow-sm flex items-center gap-1">
-																		<span class="material-symbols-outlined text-[10px]">auto_awesome</span> AI
+																		<span class="material-symbols-outlined text-[10px]">
+																			auto_awesome
+																		</span>{' '}
+																		AI
 																	</span>
 																</Show>
 															</div>
 														</div>
 														<button
+															type="button"
 															onClick={() => {
 																if (confirm(t('channelAutoResponder.deleteRuleConfirm'))) {
 																	haptic.impact('medium');
@@ -471,9 +567,13 @@ export const ChannelAutoResponderPage: Component = () => {
 											</For>
 										</div>
 									</Show>
-									
+
 									<button
-										onClick={() => { haptic.impact('light'); setIsCreating(true); }}
+										type="button"
+										onClick={() => {
+											haptic.impact('light');
+											setIsCreating(true);
+										}}
 										class="mt-2 h-14 bg-white/5 border border-white/10 hover:border-[#3390ec]/50 hover:bg-[#3390ec]/10 text-white/60 hover:text-[#3390ec] font-black uppercase tracking-widest text-[12px] rounded-[16px] transition-all flex items-center justify-center gap-2 active:scale-95"
 									>
 										<span class="material-symbols-outlined text-[22px]">add_circle</span>
@@ -485,24 +585,40 @@ export const ChannelAutoResponderPage: Component = () => {
 
 						{/* ═══════ CREATE RULE VIEW ═══════ */}
 						<Show when={isCreating()}>
-							<Motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3, easing: [0.32, 0.72, 0, 1] }} class="flex flex-col gap-4">
-								
+							<Motion.div
+								initial={{ opacity: 0, scale: 0.95 }}
+								animate={{ opacity: 1, scale: 1 }}
+								transition={{ duration: 0.3, easing: [0.32, 0.72, 0, 1] }}
+								class="flex flex-col gap-4"
+							>
 								<div class="flex items-center justify-between px-2 mb-1">
 									<h2 class="text-[14px] font-black text-white tracking-tight flex items-center gap-2">
-										<span class="material-symbols-outlined text-[#3390ec] text-[20px]">add_task</span>
+										<span class="material-symbols-outlined text-[#3390ec] text-[20px]">
+											add_task
+										</span>
 										{t('channelAutoResponder.addRule')}
 									</h2>
-									<ToggleSwitch checked={isRuleEnabled()} onChange={(v) => { haptic.impact('light'); setIsRuleEnabled(v); }} />
+									<ToggleSwitch
+										checked={isRuleEnabled()}
+										onChange={(v) => {
+											haptic.impact('light');
+											setIsRuleEnabled(v);
+										}}
+									/>
 								</div>
 
 								<div class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] border border-white/5 p-5 flex flex-col gap-5 shadow-sm">
 									<div class="flex flex-col gap-1.5">
-										<label class="text-[11px] font-black uppercase tracking-widest text-white/40 px-1 flex justify-between items-end">
+										<div class="text-[11px] font-black uppercase tracking-widest text-white/40 px-1 flex justify-between items-end">
 											{t('channelAutoResponder.triggerKey')}
-											<span class="text-[9px] text-white/30 lowercase tracking-normal">{t('channelAutoResponder.commaSeparated')}</span>
-										</label>
+											<span class="text-[9px] text-white/30 lowercase tracking-normal">
+												{t('channelAutoResponder.commaSeparated')}
+											</span>
+										</div>
 										<input
-											type="text" value={keywords()} onInput={(e) => setKeywords(e.currentTarget.value)}
+											type="text"
+											value={keywords()}
+											onInput={(e) => setKeywords(e.currentTarget.value)}
 											placeholder="price, buy, cost"
 											class="bg-[#08090D] border border-white/5 text-white text-[13px] font-bold rounded-[16px] px-4 py-3.5 w-full focus:outline-none focus:border-[#3390ec]/50 transition-colors shadow-inner placeholder-white/20"
 										/>
@@ -512,7 +628,10 @@ export const ChannelAutoResponderPage: Component = () => {
 										<SelectField
 											label={t('channelAutoResponder.matchType')}
 											value={matchType()}
-											onChange={(v) => { haptic.selection(); setMatchType(v); }}
+											onChange={(v) => {
+												haptic.selection();
+												setMatchType(v);
+											}}
 											options={[
 												{ value: 'exact', label: t('channelAutoResponder.matchExact') },
 												{ value: 'contains', label: t('channelAutoResponder.matchContains') },
@@ -524,11 +643,12 @@ export const ChannelAutoResponderPage: Component = () => {
 
 								<div class="bg-[#12141C]/80 backdrop-blur-xl rounded-[24px] border border-white/5 p-5 flex flex-col gap-5 shadow-sm">
 									<div class="flex flex-col gap-1.5">
-										<label class="text-[11px] font-black uppercase tracking-widest text-white/40 px-1">
+										<div class="text-[11px] font-black uppercase tracking-widest text-white/40 px-1">
 											{t('channelAutoResponder.replyText')}
-										</label>
+										</div>
 										<textarea
-											value={replyText()} onInput={(e) => setReplyText(e.currentTarget.value)}
+											value={replyText()}
+											onInput={(e) => setReplyText(e.currentTarget.value)}
 											placeholder={t('channelAutoResponder.replyPlaceholder')}
 											class="bg-[#08090D] border border-white/5 text-white text-[13px] font-medium leading-relaxed rounded-[16px] px-4 py-3.5 w-full min-h-[120px] focus:outline-none focus:border-[#3390ec]/50 transition-colors resize-none placeholder-white/20 shadow-inner"
 										/>
@@ -544,15 +664,33 @@ export const ChannelAutoResponderPage: Component = () => {
 												{t('channelAutoResponder.useAiDesc')}
 											</span>
 										</div>
-										<ToggleSwitch checked={useAi()} onChange={(v) => { haptic.impact('light'); setUseAi(v); }} />
+										<ToggleSwitch
+											checked={useAi()}
+											onChange={(v) => {
+												haptic.impact('light');
+												setUseAi(v);
+											}}
+										/>
 									</div>
 								</div>
 
 								<div class="flex gap-3 mt-1">
-									<button onClick={() => { haptic.impact('light'); setIsCreating(false); }} class="flex-1 h-14 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-[16px] font-black uppercase tracking-widest text-[13px] transition-all border border-transparent hover:border-white/10 active:scale-95">
+									<button
+										type="button"
+										onClick={() => {
+											haptic.impact('light');
+											setIsCreating(false);
+										}}
+										class="flex-1 h-14 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-[16px] font-black uppercase tracking-widest text-[13px] transition-all border border-transparent hover:border-white/10 active:scale-95"
+									>
 										{t('common.cancel')}
 									</button>
-									<button onClick={handleSaveRule} disabled={!keywords().trim() || !replyText().trim()} class="flex-[2] h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] hover:from-[#2b7ec9] hover:to-[#3390ec] text-white rounded-[16px] font-black uppercase tracking-widest text-[13px] shadow-[0_8px_20px_rgba(51,144,236,0.3)] transition-all disabled:opacity-50 disabled:scale-100 active:scale-95 border border-white/10">
+									<button
+										type="button"
+										onClick={handleSaveRule}
+										disabled={!keywords().trim() || !replyText().trim()}
+										class="flex-[2] h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] hover:from-[#2b7ec9] hover:to-[#3390ec] text-white rounded-[16px] font-black uppercase tracking-widest text-[13px] shadow-[0_8px_20px_rgba(51,144,236,0.3)] transition-all disabled:opacity-50 disabled:scale-100 active:scale-95 border border-white/10"
+									>
 										{t('channelAutoResponder.saveRule')}
 									</button>
 								</div>
@@ -567,16 +705,28 @@ export const ChannelAutoResponderPage: Component = () => {
 				<div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#030303] via-[#030303]/90 to-transparent z-40 pointer-events-none">
 					<div class="max-w-md mx-auto flex gap-3 pointer-events-auto">
 						<button
-							onClick={() => { haptic.impact('light'); navigate(`/channel/${params.id}`); }} disabled={isSaving()}
+							type="button"
+							onClick={() => {
+								haptic.impact('light');
+								navigate(`/channel/${params.id}`);
+							}}
+							disabled={isSaving()}
 							class="w-16 h-14 bg-[#12141C]/80 backdrop-blur-md text-[#ff4a4a] border border-[#ff4a4a]/20 rounded-[16px] transition-all flex items-center justify-center hover:bg-[#ff4a4a]/10 active:scale-95 shadow-sm"
 						>
 							<span class="material-symbols-outlined text-[24px]">close</span>
 						</button>
 						<button
-							onClick={handleSave} disabled={isSaving()}
+							type="button"
+							onClick={handleSave}
+							disabled={isSaving()}
 							class="flex-1 h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] hover:from-[#2b7ec9] hover:to-[#3390ec] text-white rounded-[16px] font-black text-[14px] uppercase tracking-widest shadow-[0_10px_30px_rgba(51,144,236,0.35)] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:scale-100 active:scale-95 border border-white/10"
 						>
-							<Show when={!isSaving()} fallback={<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}>
+							<Show
+								when={!isSaving()}
+								fallback={
+									<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+								}
+							>
 								{t('common.save')} <span class="material-symbols-outlined text-[22px]">save</span>
 							</Show>
 						</button>

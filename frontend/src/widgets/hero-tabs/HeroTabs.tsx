@@ -1,6 +1,6 @@
 import { Motion } from '@motionone/solid';
 
-import { Component, For, Show } from 'solid-js';
+import { type Component, For, Show } from 'solid-js';
 import { type DictPaths, locale, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
@@ -37,7 +37,8 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 			<div
 				class={`orb w-64 h-64 top-0 ${isRtl() ? '-right-24' : '-left-24'} opacity-40 pointer-events-none`}
 				style={{
-					background: 'radial-gradient(circle, rgba(16,185,129,0.25) 0%, rgba(6,182,212,0.15) 50%, transparent 70%)',
+					background:
+						'radial-gradient(circle, rgba(16,185,129,0.25) 0%, rgba(6,182,212,0.15) 50%, transparent 70%)',
 					animation: 'orb-float-1 12s ease-in-out infinite',
 				}}
 			></div>
@@ -91,11 +92,12 @@ export const HeroTabs: Component<HeroTabsProps> = (props) => {
 					props.activeTab ? '' : 'mb-12'
 				}`}
 				role="tablist"
-				aria-label="Analysis categories"
+				aria-label={t('heroTabs.analysisCategories')}
 			>
 				<For each={TABS}>
 					{(tab) => (
 						<button
+							type="button"
 							onClick={() => handleTabClick(tab)}
 							role="tab"
 							aria-selected={props.activeTab === tab.id}

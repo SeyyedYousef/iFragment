@@ -1,8 +1,8 @@
-import { createSignal, Show, For, type Component } from 'solid-js';
-import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
-import { ownerApi } from '@/entities/owner/api/ownerApi.js';
-import type { PromoCode } from '@/entities/owner/model/types.js';
-import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.jsx';
+import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
+import { type Component, createSignal, For, Show } from 'solid-js';
+import { ownerApi, type PromoCode } from '@/entities/owner/index.js';
+import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.js';
+import { t } from '@/shared/i18n/index.js';
 
 export const OwnerPromos: Component = () => {
 	const queryClient = useQueryClient();
@@ -24,7 +24,7 @@ export const OwnerPromos: Component = () => {
 				code().trim().toUpperCase(),
 				rewardAmount(),
 				maxUses(),
-				expiresAt() ? new Date(expiresAt()).toISOString() : undefined
+				expiresAt() ? new Date(expiresAt()).toISOString() : undefined,
 			),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['owner', 'promos'] });
@@ -70,9 +70,9 @@ export const OwnerPromos: Component = () => {
 		<div class="space-y-6">
 			{/* Header */}
 			<div>
-				<h2 class="text-lg font-bold text-white">Promotional Gift Codes</h2>
+				<h2 class="text-lg font-bold text-white">{t('ownerPromos.title')}</h2>
 				<p class="text-xs text-white/50">
-					Generate and distribute promo codes with redemption limits and anti-abuse caps (max 100K)
+					{t('ownerPromos.subtitle')}
 				</p>
 			</div>
 
@@ -83,7 +83,7 @@ export const OwnerPromos: Component = () => {
 						<div class="flex items-center justify-between">
 							<div class="flex items-center gap-2">
 								<span class="material-symbols-rounded text-amber-400">confirmation_number</span>
-								<h3 class="text-sm font-bold text-white">Create Promo Code</h3>
+								<h3 class="text-sm font-bold text-white">{t('ownerPromos.createCode')}</h3>
 							</div>
 							<button
 								type="button"
@@ -91,16 +91,16 @@ export const OwnerPromos: Component = () => {
 								class="text-[11px] text-amber-400 hover:underline flex items-center gap-1"
 							>
 								<span class="material-symbols-rounded text-xs">autorenew</span>
-								<span>Generate</span>
+								<span>{t('ownerPromos.generate')}</span>
 							</button>
 						</div>
 
 						<form onSubmit={handleSubmit} class="space-y-3">
 							<div>
-								<label class="block text-[11px] font-semibold text-white/60 mb-1">Promo Code</label>
+								<div class="block text-[11px] font-semibold text-white/60 mb-1">{t('ownerPromos.promoCode')}</div>
 								<input
 									type="text"
-									placeholder="e.g., SUMMER2026"
+									placeholder={t('ownerPromos.placeholderCode')}
 									value={code()}
 									onInput={(e) => setCode(e.currentTarget.value.toUpperCase())}
 									class="w-full h-11 bg-white/5 border border-white/15 rounded-xl px-4 text-xs font-mono uppercase text-white outline-none focus:border-amber-400"
@@ -109,9 +109,9 @@ export const OwnerPromos: Component = () => {
 							</div>
 
 							<div>
-								<label class="block text-[11px] font-semibold text-white/60 mb-1">
-									Reward Amount (Max 100,000 Coins)
-								</label>
+								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+									{t('ownerPromos.rewardAmount')}
+								</div>
 								<input
 									type="number"
 									max={100000}
@@ -124,7 +124,9 @@ export const OwnerPromos: Component = () => {
 							</div>
 
 							<div>
-								<label class="block text-[11px] font-semibold text-white/60 mb-1">Max Redemptions</label>
+								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+									{t('ownerPromos.maxRedemptions')}
+								</div>
 								<input
 									type="number"
 									min={1}
@@ -136,7 +138,9 @@ export const OwnerPromos: Component = () => {
 							</div>
 
 							<div>
-								<label class="block text-[11px] font-semibold text-white/60 mb-1">Expiry Date (Optional)</label>
+								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+									{t('ownerPromos.expiryDate')}
+								</div>
 								<input
 									type="datetime-local"
 									value={expiresAt()}
@@ -162,7 +166,7 @@ export const OwnerPromos: Component = () => {
 						<div class="flex items-center justify-between">
 							<div class="flex items-center gap-2">
 								<span class="material-symbols-rounded text-amber-400">redeem</span>
-								<h3 class="text-sm font-bold text-white">Active Promo Codes</h3>
+								<h3 class="text-sm font-bold text-white">{t('ownerPromos.activeCodes')}</h3>
 							</div>
 						</div>
 
@@ -170,11 +174,11 @@ export const OwnerPromos: Component = () => {
 							<table class="w-full text-left text-xs">
 								<thead>
 									<tr class="border-b border-white/10 text-white/40">
-										<th class="pb-3">Code</th>
-										<th class="pb-3">Reward</th>
-										<th class="pb-3">Uses / Limit</th>
-										<th class="pb-3">Expires</th>
-										<th class="pb-3 text-right">Actions</th>
+										<th class="pb-3">{t('ownerPromos.code')}</th>
+										<th class="pb-3">{t('ownerPromos.reward')}</th>
+										<th class="pb-3">{t('ownerPromos.usesLimit')}</th>
+										<th class="pb-3">{t('ownerPromos.expires')}</th>
+										<th class="pb-3 text-right">{t('ownerCommon.actions')}</th>
 									</tr>
 								</thead>
 								<tbody class="divide-y divide-white/5">
@@ -183,7 +187,9 @@ export const OwnerPromos: Component = () => {
 										fallback={
 											<tr>
 												<td colspan="5" class="py-8 text-center text-white/40">
-													{promosQuery.isLoading ? 'Loading promo codes...' : 'No promo codes found'}
+													{promosQuery.isLoading
+														? 'Loading promo codes...'
+														: 'No promo codes found'}
 												</td>
 											</tr>
 										}
@@ -208,20 +214,20 @@ export const OwnerPromos: Component = () => {
 																{used} / {max}
 															</div>
 															<div class="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
-																<div
-																	style={{ width: `${pct}%` }}
-																	class="h-full bg-amber-400"
-																/>
+																<div style={{ width: `${pct}%` }} class="h-full bg-amber-400" />
 															</div>
 														</td>
 														<td class="py-3 text-white/50">
-															{promo.expires_at ? new Date(promo.expires_at).toLocaleDateString() : 'Never'}
+															{promo.expires_at
+																? new Date(promo.expires_at).toLocaleDateString()
+																: 'Never'}
 														</td>
 														<td class="py-3 text-right">
 															<button
+																type="button"
 																onClick={() => setPromoToDelete(promo)}
 																class="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition"
-																title="Delete Promo Code"
+																title={t('ownerPromos.deleteCode')}
 															>
 																<span class="material-symbols-rounded text-base">delete</span>
 															</button>
@@ -242,7 +248,7 @@ export const OwnerPromos: Component = () => {
 			<Show when={promoToDelete()}>
 				<DangerActionDialog
 					isOpen={true}
-					title="Delete Promo Code"
+					title={t('ownerPromos.deleteCode')}
 					description={`Permanently invalidate promo code "${promoToDelete()?.code}"? Users will no longer be able to claim it.`}
 					actionLabel="Delete Promo Code"
 					confirmWord="DELETE"

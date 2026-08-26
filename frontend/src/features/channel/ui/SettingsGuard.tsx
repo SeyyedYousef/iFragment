@@ -1,6 +1,6 @@
-import { Component, Show } from 'solid-js';
 import { Motion } from '@motionone/solid';
-import { t, isRtl } from '@/shared/i18n/index.js';
+import { type Component, Show } from 'solid-js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 interface SettingsGuardProps {
@@ -15,7 +15,10 @@ interface SettingsGuardProps {
 export const SettingsGuardModal: Component<SettingsGuardProps> = (props) => {
 	return (
 		<Show when={props.isOpen}>
-			<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" dir={isRtl() ? 'rtl' : 'ltr'}>
+			<div
+				class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+				dir={isRtl() ? 'rtl' : 'ltr'}
+			>
 				<Motion.div
 					initial={{ scale: 0.95, opacity: 0 }}
 					animate={{ scale: 1, opacity: 1 }}
@@ -38,6 +41,7 @@ export const SettingsGuardModal: Component<SettingsGuardProps> = (props) => {
 
 					<div class="space-y-2 pt-2">
 						<button
+							type="button"
 							onClick={() => {
 								haptic.impact('medium');
 								props.onSaveAndExit();
@@ -52,6 +56,7 @@ export const SettingsGuardModal: Component<SettingsGuardProps> = (props) => {
 						</button>
 
 						<button
+							type="button"
 							onClick={() => {
 								haptic.notify('warning');
 								props.onDiscard();
@@ -62,6 +67,7 @@ export const SettingsGuardModal: Component<SettingsGuardProps> = (props) => {
 						</button>
 
 						<button
+							type="button"
 							onClick={() => {
 								haptic.selection();
 								props.onCancel();

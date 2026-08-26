@@ -319,8 +319,12 @@ type MessageContext struct {
 	HasInlineKeyboard  bool
 	HasReply           bool
 	IsReplyToCrossChat bool
-	HasViaBot          bool // sent via inline bot / mini app
-	IsCommand          bool // starts with /
+	// Bot API 9.5-era additions for the /tag command and topic-aware replies.
+	ReplyToUserID    int64 // 0 when HasReply is false or sender is unknown
+	MessageThreadID  *int
+	IsTopicMessage   bool // Bot API: message belongs to a forum topic
+	HasViaBot        bool // sent via inline bot / mini app
+	IsCommand        bool // starts with /
 	HasTextLinks       bool
 	TextLinks          []string
 }

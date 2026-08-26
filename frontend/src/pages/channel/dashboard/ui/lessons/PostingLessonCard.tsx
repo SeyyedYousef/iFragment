@@ -1,7 +1,9 @@
-import { Component, createSignal, onCleanup, onMount } from 'solid-js';
+import { type Component, createSignal, onCleanup, onMount } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 
-export const PostingLessonCard: Component<{ onNavigate: () => void; isDone?: boolean }> = (props) => {
+export const PostingLessonCard: Component<{ onNavigate: () => void; isDone?: boolean }> = (
+	props,
+) => {
 	const [activeTab, setActiveTab] = createSignal(0);
 
 	onMount(() => {
@@ -42,7 +44,9 @@ export const PostingLessonCard: Component<{ onNavigate: () => void; isDone?: boo
 					].map((item, idx) => (
 						<div
 							class={`flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-[8px] transition-all ${
-								activeTab() === idx ? 'bg-[#10b981]/20 border border-[#10b981]/40 text-[#10b981]' : 'text-white/40'
+								activeTab() === idx
+									? 'bg-[#10b981]/20 border border-[#10b981]/40 text-[#10b981]'
+									: 'text-white/40'
 							}`}
 						>
 							<span class="material-symbols-outlined text-[14px]">{item.icon}</span>
@@ -63,6 +67,7 @@ export const PostingLessonCard: Component<{ onNavigate: () => void; isDone?: boo
 			</div>
 
 			<button
+				type="button"
 				onClick={props.onNavigate}
 				class="w-full h-12 bg-white/5 border border-[#10b981]/30 text-[#10b981] hover:bg-[#10b981]/10 rounded-[16px] text-[12px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
 			>

@@ -1,7 +1,7 @@
-import { Component, createResource, Show } from 'solid-js';
+import { type Component, createResource, Show } from 'solid-js';
+import { t } from '@/shared/i18n/index.js';
 import { channelApi } from '../api/channelApi.js';
 import type { ManagedChannel } from '../model/types.js';
-import { isRtl } from '@/shared/i18n/index.js';
 
 interface ChannelContextBarProps {
 	channelId: string;
@@ -17,7 +17,7 @@ const formatCount = (value?: number) => {
 
 const channelLabel = (channel?: ManagedChannel) => {
 	if (!channel) return '';
-	return channel.chat_title || `Channel ${channel.chat_id}`;
+	return channel.chat_title || t('channelCtxBar.channelFallback' as any, { id: channel.chat_id });
 };
 
 export const ChannelContextBar: Component<ChannelContextBarProps> = (props) => {
@@ -44,18 +44,14 @@ export const ChannelContextBar: Component<ChannelContextBarProps> = (props) => {
 			</div>
 			<div class="flex flex-col min-w-0 flex-1">
 				<span class="text-[12px] font-bold uppercase tracking-wide text-[#8e8e93]">
-					{isRtl() ? 'کانال فعال' : 'Current channel'}
+					{t('channelCtxBar.currentChannel' as any)}
 				</span>
 				<span class="text-[14px] font-black text-white truncate">
-					{channel.loading
-						? isRtl()
-							? 'در حال بارگیری...'
-							: 'Loading channel...'
-						: channelLabel(channel())}
+					{channel.loading ? t('channelCtxBar.loadingChannel' as any) : channelLabel(channel())}
 				</span>
 				<Show when={!channel.loading && channel()}>
 					<span class="text-[11px] text-[#8e8e93] truncate" dir="ltr">
-						{formatCount(channel()?.subscribers_count)} {isRtl() ? 'عضو' : 'subscribers'}
+						{formatCount(channel()?.subscribers_count)} {t('channelCtxBar.subscribers' as any)}
 						{channel()?.chat_id ? ` · ID ${channel()?.chat_id}` : ''}
 					</span>
 				</Show>

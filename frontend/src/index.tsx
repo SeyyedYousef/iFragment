@@ -6,8 +6,8 @@ import { render } from 'solid-js/web';
 import { init } from '@/app/init.js';
 import { Root } from '@/app/Root.js';
 import { bootstrapAuth } from '@/shared/api/axios.js';
-import { ErrorBoundary } from '@/shared/ui/ErrorBoundary.js';
 import { hideSplash } from '@/shared/lib/splash.js';
+import { ErrorBoundary } from '@/shared/ui/ErrorBoundary.js';
 
 import './app/styles/index.css';
 
@@ -32,7 +32,7 @@ async function startApp() {
 
 	try {
 		// 1. Check if we already have real launch params (e.g. from URL or Session Storage)
-		let realParams;
+		let realParams: ReturnType<typeof retrieveLaunchParams> | undefined;
 		try {
 			realParams = retrieveLaunchParams();
 		} catch (_e) {
@@ -155,16 +155,26 @@ async function startApp() {
 		errorContainer.style.cssText =
 			'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#0f1014;color:white;font-family:sans-serif;text-align:center;padding:20px;';
 
+		// Localized boot-error copy, loaded straight from the dictionary files
+		// (the full i18n chain / Telegram SDK is not available in this crash path).
+		let be = { title: 'Failed to initialize', unknownError: 'Unknown error', reload: 'Reload' };
+		try {
+			const loc = (navigator.language || 'en').slice(0, 2).toLowerCase();
+			const pick = ['fa', 'ru', 'zh'].includes(loc) ? loc : 'en';
+			const mod = await import(`./shared/i18n/${pick}.js`);
+			if (mod?.dict?.bootError) be = mod.dict.bootError;
+		} catch (_e) {}
+
 		const title = document.createElement('h1');
 		title.style.fontSize = '20px';
-		title.textContent = 'Failed to initialize';
+		title.textContent = be.title;
 
 		const msg = document.createElement('p');
 		msg.style.cssText = 'color:#a0a4ad;font-size:14px;';
-		msg.textContent = e instanceof Error ? e.message : 'Unknown error';
+		msg.textContent = e instanceof Error ? e.message : be.unknownError;
 
 		const btn = document.createElement('button');
-		btn.textContent = 'Reload';
+		btn.textContent = be.reload;
 		btn.onclick = () => location.reload();
 		btn.style.cssText =
 			'margin-top:20px;padding:10px 20px;background:#0088CC;border:none;border-radius:20px;color:white;cursor:pointer;';

@@ -1,6 +1,6 @@
 import { Motion } from '@motionone/solid';
-import { Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { useQueryClient } from '@tanstack/solid-query';
+import { type Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 
 export const ConnectionStatusBanner: Component = () => {
@@ -48,6 +48,7 @@ export const ConnectionStatusBanner: Component = () => {
 					</div>
 				</div>
 				<button
+					type="button"
 					onClick={() => {
 						setIsOnline(navigator.onLine);
 						if (navigator.onLine) {

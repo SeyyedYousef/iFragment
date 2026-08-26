@@ -1,3 +1,4 @@
+import { t } from '@/shared/i18n/index.js';
 import { DEMO_BOT_ID, DEMO_CHANNEL_ID, DEMO_GROUP_ID } from '@/shared/lib/demo-mode.js';
 
 const now = () => new Date().toISOString();
@@ -74,14 +75,14 @@ const createState = () => ({
 			channels: [{ id: 'demo-fj-1', username: '@ifragment', title: 'iFragment' }],
 		},
 		custom_texts: {
-			welcome: 'سلام {name} 👋 به گروه دمو خوش آمدی!',
-			warn: '⚠️ {name} اخطار {count} از {max}',
-			ban: '🚫 {name} از گروه حذف شد.',
-			muted: '🔇 {name} تا {time} سکوت شد.',
+			welcome: t('demoContent.welcome'),
+			warn: t('demoContent.warn'),
+			ban: t('demoContent.ban'),
+			muted: t('demoContent.muted'),
 		},
 		dynamic_bio: {
 			enabled: true,
-			bioTemplate: 'iFragment Demo | اعضا: $members',
+			bioTemplate: t('demoContent.bioTemplate'),
 			displayInName: false,
 			nameTemplate: '',
 			interval: '10m',
@@ -91,12 +92,30 @@ const createState = () => ({
 	},
 
 	groupAudit: [
-		{ id: 'g-log-1', group_id: DEMO_GROUP_ID, actor_id: 0, actor_name: 'System',
-			action: 'حذف پیام حاوی لینک تبلیغاتی', created_at: daysAgo(0) },
-		{ id: 'g-log-2', group_id: DEMO_GROUP_ID, actor_id: 55501, actor_name: 'Demo Admin',
-			action: 'اخطار برای @spam_user', created_at: daysAgo(1) },
-		{ id: 'g-log-3', group_id: DEMO_GROUP_ID, actor_id: 0, actor_name: 'System',
-			action: 'مسدودسازی فلود (۷ پیام در ۱۰ ثانیه)', created_at: daysAgo(2) },
+		{
+			id: 'g-log-1',
+			group_id: DEMO_GROUP_ID,
+			actor_id: 0,
+			actor_name: 'System',
+			action: t('demoContent.logDeleteAdMessage'),
+			created_at: daysAgo(0),
+		},
+		{
+			id: 'g-log-2',
+			group_id: DEMO_GROUP_ID,
+			actor_id: 55501,
+			actor_name: 'Demo Admin',
+			action: t('demoContent.logWarnSpamUser'),
+			created_at: daysAgo(1),
+		},
+		{
+			id: 'g-log-3',
+			group_id: DEMO_GROUP_ID,
+			actor_id: 0,
+			actor_name: 'System',
+			action: t('demoContent.logFloodBlock'),
+			created_at: daysAgo(2),
+		},
 	],
 
 	channel: {
@@ -130,25 +149,47 @@ const createState = () => ({
 	channelSettings: {
 		channel_id: DEMO_CHANNEL_ID,
 		general: {
-			language: 'fa', timezone: 'Asia/Tehran', signMessages: true,
-			customSignature: 'iFragment Demo', autoForward: false, forwardDestination: '',
-			disableReactions: false, name: 'iFragment Demo Channel',
-			description: 'این یک کانال نمونه برای پیش‌نمایش امکانات است.',
-			photo: '', username: 'ifragment_demo', showAdminProfile: true,
-			hideChatHistory: false, hideMemberList: false, antiSpam: true,
-			slowMode: 0, autoDelete: 0, discussionGroupId: null,
-			joinReqAge: 0, joinReqPhoto: false,
+			language: 'fa',
+			timezone: 'Asia/Tehran',
+			signMessages: true,
+			customSignature: 'iFragment Demo',
+			autoForward: false,
+			forwardDestination: '',
+			disableReactions: false,
+			name: 'iFragment Demo Channel',
+			description: t('demoContent.channelDescription'),
+			photo: '',
+			username: 'ifragment_demo',
+			showAdminProfile: true,
+			hideChatHistory: false,
+			hideMemberList: false,
+			antiSpam: true,
+			slowMode: 0,
+			autoDelete: 0,
+			discussionGroupId: null,
+			joinReqAge: 0,
+			joinReqPhoto: false,
 		},
 		posting: {
-			autoPostEnabled: true, postInterval: '1h', watermarkEnabled: true,
-			watermarkText: '@ifragment_demo', silentPosting: false, deleteAfter: 0,
-			aiComposerEnabled: true, aiProvider: 'demo', aiModel: 'demo-1', tone: 'friendly',
+			autoPostEnabled: true,
+			postInterval: '1h',
+			watermarkEnabled: true,
+			watermarkText: '@ifragment_demo',
+			silentPosting: false,
+			deleteAfter: 0,
+			aiComposerEnabled: true,
+			aiProvider: 'demo',
+			aiModel: 'demo-1',
+			tone: 'friendly',
 		},
 		inline_buttons: { enabled: true, preset: 'like' },
 		forwarding: { enabled: true },
 		dynamic_bio: {
-			enabled: true, bioTemplate: 'iFragment Demo | اعضا: $members',
-			displayInName: false, nameTemplate: '', interval: '10m',
+			enabled: true,
+			bioTemplate: t('demoContent.bioTemplate'),
+			displayInName: false,
+			nameTemplate: '',
+			interval: '10m',
 		},
 		auto_responder: { enabled: true, rules: [] },
 		version: 1,
@@ -156,45 +197,105 @@ const createState = () => ({
 	},
 
 	channelAdmins: [
-		{ id: 'demo-admin-1', channel_id: DEMO_CHANNEL_ID, telegram_id: 55501,
-			username: 'demo_owner', first_name: 'Demo Owner', custom_title: 'مالک',
-			is_owner: true, created_at: daysAgo(21) },
-		{ id: 'demo-admin-2', channel_id: DEMO_CHANNEL_ID, telegram_id: 55502,
-			username: 'demo_editor', first_name: 'Demo Editor', custom_title: 'ادیتور',
-			is_owner: false, created_at: daysAgo(9) },
+		{
+			id: 'demo-admin-1',
+			channel_id: DEMO_CHANNEL_ID,
+			telegram_id: 55501,
+			username: 'demo_owner',
+			first_name: 'Demo Owner',
+			custom_title: t('demoContent.customTitleOwner'),
+			is_owner: true,
+			created_at: daysAgo(21),
+		},
+		{
+			id: 'demo-admin-2',
+			channel_id: DEMO_CHANNEL_ID,
+			telegram_id: 55502,
+			username: 'demo_editor',
+			first_name: 'Demo Editor',
+			custom_title: t('demoContent.customTitleEditor'),
+			is_owner: false,
+			created_at: daysAgo(9),
+		},
 	],
 
 	channelButtons: [
-		{ id: 'demo-btn-1', channel_id: DEMO_CHANNEL_ID, title: 'مشاهده سایت',
-			value: 'https://example.com', type: 'url' as const, style: 'primary',
-			emoji: '🌐', click_count: 421, created_at: daysAgo(7) },
-		{ id: 'demo-btn-2', channel_id: DEMO_CHANNEL_ID, title: 'لایک',
-			value: 'like', type: 'counter' as const, style: 'secondary',
-			emoji: '👍', click_count: 1893, created_at: daysAgo(7) },
+		{
+			id: 'demo-btn-1',
+			channel_id: DEMO_CHANNEL_ID,
+			title: t('demoContent.buttonViewSite'),
+			value: 'https://example.com',
+			type: 'url' as const,
+			style: 'primary',
+			emoji: '🌐',
+			click_count: 421,
+			created_at: daysAgo(7),
+		},
+		{
+			id: 'demo-btn-2',
+			channel_id: DEMO_CHANNEL_ID,
+			title: t('demoContent.buttonLike'),
+			value: 'like',
+			type: 'counter' as const,
+			style: 'secondary',
+			emoji: '👍',
+			click_count: 1893,
+			created_at: daysAgo(7),
+		},
 	],
 
 	forwardingRules: [
-		{ id: 'demo-rule-1', channel_id: DEMO_CHANNEL_ID, direction: 'inbound' as const,
-			target_type: 'telegram' as const, target: '@source_channel', mode: 'copy' as const,
-			delay: '0s', is_active: true,
+		{
+			id: 'demo-rule-1',
+			channel_id: DEMO_CHANNEL_ID,
+			direction: 'inbound' as const,
+			target_type: 'telegram' as const,
+			target: '@source_channel',
+			mode: 'copy' as const,
+			delay: '0s',
+			is_active: true,
 			content_types: { text: true, photos: true, videos: true, files: false, voice: false },
-			remove_ads: true, remove_hashtags: false, remove_links: true, watermark: '@ifragment_demo',
-			created_at: daysAgo(4) },
+			remove_ads: true,
+			remove_hashtags: false,
+			remove_links: true,
+			watermark: '@ifragment_demo',
+			created_at: daysAgo(4),
+		},
 	],
 
 	channelAudit: [
-		{ id: 'c-log-1', channel_id: DEMO_CHANNEL_ID, actor_id: 55501, actor_name: 'Demo Owner',
-			action: 'ویرایش تنظیمات انتشار', created_at: daysAgo(0) },
-		{ id: 'c-log-2', channel_id: DEMO_CHANNEL_ID, actor_id: 0, actor_name: 'System',
-			action: 'ارسال خودکار پست زمان‌بندی‌شده', created_at: daysAgo(1) },
-		{ id: 'c-log-3', channel_id: DEMO_CHANNEL_ID, actor_id: 55502, actor_name: 'Demo Editor',
-			action: 'افزودن دکمه شیشه‌ای «لایک»', created_at: daysAgo(3) },
+		{
+			id: 'c-log-1',
+			channel_id: DEMO_CHANNEL_ID,
+			actor_id: 55501,
+			actor_name: 'Demo Owner',
+			action: t('demoContent.logEditPostingSettings'),
+			created_at: daysAgo(0),
+		},
+		{
+			id: 'c-log-2',
+			channel_id: DEMO_CHANNEL_ID,
+			actor_id: 0,
+			actor_name: 'System',
+			action: t('demoContent.logScheduledPostSent'),
+			created_at: daysAgo(1),
+		},
+		{
+			id: 'c-log-3',
+			channel_id: DEMO_CHANNEL_ID,
+			actor_id: 55502,
+			actor_name: 'Demo Editor',
+			action: t('demoContent.logGlassButtonAdded'),
+			created_at: daysAgo(3),
+		},
 	],
 });
 
 let state = createState();
 export const getDemoState = () => state;
-export const resetDemoState = () => { state = createState(); };
+export const resetDemoState = () => {
+	state = createState();
+};
 
 const groupAnalytics = () => {
 	const days = Array.from({ length: 7 }, (_, i) => ({
@@ -205,20 +306,33 @@ const groupAnalytics = () => {
 	}));
 	return {
 		summary: {
-			total_members: state.group.members_count, members_change: 120,
-			total_messages: 7420, messages_change_pct: 14.2, spam_blocked: 318,
-			new_members: 164, members_left: 44, active_users: 362,
-			deleted_messages: 210, warnings_issued: 27, bans_issued: 3,
+			total_members: state.group.members_count,
+			members_change: 120,
+			total_messages: 7420,
+			messages_change_pct: 14.2,
+			spam_blocked: 318,
+			new_members: 164,
+			members_left: 44,
+			active_users: 362,
+			deleted_messages: 210,
+			warnings_issued: 27,
+			bans_issued: 3,
 			top_users: [
 				{ user_id: 1, name: 'Demo User A', msgs: 412 },
 				{ user_id: 2, name: 'Demo User B', msgs: 305 },
 				{ user_id: 3, name: 'Demo User C', msgs: 288 },
 			],
 		},
-		growth: days.map((d) => ({ date: d.date, members_count: d.members_count, value: d.members_count })),
+		growth: days.map((d) => ({
+			date: d.date,
+			members_count: d.members_count,
+			value: d.members_count,
+		})),
 		activity: days.map((d) => ({
-			date: d.date, messages_count: d.messages_count,
-			active_users: d.active_users, value: d.messages_count,
+			date: d.date,
+			messages_count: d.messages_count,
+			active_users: d.active_users,
+			value: d.messages_count,
 		})),
 	};
 };
@@ -232,10 +346,12 @@ const channelAnalytics = () => ({
 		posts_count: 3 + (i % 3),
 	})),
 	summary: {
-		mentions_in: 34, mentions_out: 12, best_time: '20:30',
+		mentions_in: 34,
+		mentions_out: 12,
+		best_time: '20:30',
 		top_posts: [
-			{ id: 'demo-post-1', title: 'معرفی امکانات iFragment', views: 8210, reactions: 412 },
-			{ id: 'demo-post-2', title: 'آموزش اتصال کانال', views: 6140, reactions: 287 },
+			{ id: 'demo-post-1', title: t('demoContent.postIntroTitle'), views: 8210, reactions: 412 },
+			{ id: 'demo-post-2', title: t('demoContent.postConnectGuide'), views: 6140, reactions: 287 },
 		],
 	},
 });
@@ -251,7 +367,10 @@ const lockedError = async (config: any, fallback: string) => {
 	err.isDemoLocked = true;
 	err.config = config;
 	err.response = {
-		status: 423, statusText: 'Locked (demo)', headers: {}, config,
+		status: 423,
+		statusText: 'Locked (demo)',
+		headers: {},
+		config,
 		data: { error: message, demo_locked: true },
 	};
 	return err;
@@ -269,10 +388,16 @@ const mergeCategory = (target: any, body: any) => {
 	return { ...target };
 };
 
-export interface DemoResult { data?: any; error?: any }
+export interface DemoResult {
+	data?: any;
+	error?: any;
+}
 
 export const resolveDemoRoute = async (
-	method: string, rawPath: string, body: any, config: any,
+	method: string,
+	rawPath: string,
+	body: any,
+	config: any,
 ): Promise<DemoResult> => {
 	const p = rawPath.split('?')[0];
 	const m = method.toUpperCase();
@@ -282,9 +407,37 @@ export const resolveDemoRoute = async (
 	if (p.endsWith('/subscription/packages') && m === 'GET') {
 		return {
 			data: [
-				{ id: '1m', name: '1 Month', price_usd: 4.99, price_stars: 250, price_coins: 50000, price_per_month: 4.99, duration_months: 1 },
-				{ id: '3m', name: '3 Months', price_usd: 11.99, price_stars: 600, price_coins: 120000, price_per_month: 3.99, discount: '20%', badge: 'popular', duration_months: 3 },
-				{ id: '12m', name: '1 Year', price_usd: 35.99, price_stars: 1800, price_coins: 350000, price_per_month: 2.99, discount: '40%', badge: 'best_value', duration_months: 12 },
+				{
+					id: '1m',
+					name: '1 Month',
+					price_usd: 4.99,
+					price_stars: 250,
+					price_coins: 50000,
+					price_per_month: 4.99,
+					duration_months: 1,
+				},
+				{
+					id: '3m',
+					name: '3 Months',
+					price_usd: 11.99,
+					price_stars: 600,
+					price_coins: 120000,
+					price_per_month: 3.99,
+					discount: '20%',
+					badge: 'popular',
+					duration_months: 3,
+				},
+				{
+					id: '12m',
+					name: '1 Year',
+					price_usd: 35.99,
+					price_stars: 1800,
+					price_coins: 350000,
+					price_per_month: 2.99,
+					discount: '40%',
+					badge: 'best_value',
+					duration_months: 12,
+				},
 			],
 		};
 	}
@@ -293,7 +446,7 @@ export const resolveDemoRoute = async (
 	if (/\/bots\/[^/]+\/groups$/.test(p)) return { data: [s.group] };
 	if (/\/bots\/[^/]+$/.test(p) && m === 'GET') return { data: s.bot };
 	if (/\/bots\/[^/]+$/.test(p) && m === 'DELETE')
-		return { error: await lockedError(config, 'در حالت دمو امکان‌پذیر نیست.') };
+		return { error: await lockedError(config, t('demoContent.lockedGeneric')) };
 
 	// ── گروه ──
 	if (p.includes(`/groups/${DEMO_GROUP_ID}`)) {
@@ -303,21 +456,26 @@ export const resolveDemoRoute = async (
 		}
 		if (p.endsWith('/analytics')) return { data: groupAnalytics() };
 		if (p.endsWith('/audit')) return { data: s.groupAudit };
-		if (m === 'DELETE') return { error: await lockedError(config, 'در حالت دمو امکان‌پذیر نیست.') };
+		if (m === 'DELETE') return { error: await lockedError(config, t('demoContent.lockedGeneric')) };
 		return { data: s.group };
 	}
 
 	// ── کانال ──
 	if (p.includes('/channels')) {
-		if (p.endsWith('/connect')) return { error: await lockedError(config, 'در حالت دمو امکان‌پذیر نیست.') };
+		if (p.endsWith('/connect'))
+			return { error: await lockedError(config, t('demoContent.lockedGeneric')) };
 		if (p.endsWith('/telegram-info'))
-			return { data: {
-				title: s.channel.chat_title, username: 'ifragment_demo',
-				description: s.channelSettings.general.description,
-				members_count: s.channel.subscribers_count, photo_url: '',
-			} };
+			return {
+				data: {
+					title: s.channel.chat_title,
+					username: 'ifragment_demo',
+					description: s.channelSettings.general.description,
+					members_count: s.channel.subscribers_count,
+					photo_url: '',
+				},
+			};
 		if (p.endsWith('/simulate'))
-			return { data: { text: `✨ (خروجی نمونه‌ی هوش مصنوعی)\n\n${body?.text || ''}` } };
+			return { data: { text: `${t('demoContent.aiSamplePrefix')}\n\n${body?.text || ''}` } };
 		if (p.includes('/forwarding/rules')) {
 			if (m === 'GET') return { data: s.forwardingRules };
 			if (m === 'POST') {
@@ -336,7 +494,8 @@ export const resolveDemoRoute = async (
 				return { data: { success: true } };
 			}
 		}
-		if (p.endsWith('/forwarding/verify')) return { data: { ok: true, title: 'Demo Target Channel' } };
+		if (p.endsWith('/forwarding/verify'))
+			return { data: { ok: true, title: 'Demo Target Channel' } };
 		if (p.endsWith('/forwarding/logs')) return { data: [] };
 		if (p.includes('/admins')) {
 			if (p.endsWith('/sync')) return { data: { synced: s.channelAdmins.length } };
@@ -363,14 +522,15 @@ export const resolveDemoRoute = async (
 				s.funnel = { ...s.funnel, ...(body || {}) };
 				return { data: s.funnel };
 			}
-			return { error: await lockedError(config, 'در حالت دمو امکان‌پذیر نیست.') };
+			return { error: await lockedError(config, t('demoContent.lockedGeneric')) };
 		}
 		if (p.endsWith('/settings')) {
 			if (m === 'PUT') return { data: mergeCategory(s.channelSettings, body) };
 			return { data: { ...s.channelSettings } };
 		}
 		if (new RegExp(`/channels/${DEMO_CHANNEL_ID}$`).test(p)) {
-			if (m === 'DELETE') return { error: await lockedError(config, 'در حالت دمو امکان‌پذیر نیست.') };
+			if (m === 'DELETE')
+				return { error: await lockedError(config, t('demoContent.lockedGeneric')) };
 			return { data: s.channel };
 		}
 		if (m === 'GET') return { data: [s.channel] }; // GET /channels?bot_id=demo-bot
@@ -378,7 +538,7 @@ export const resolveDemoRoute = async (
 
 	// ── سایر عملیات‌های پرداخت/اشتراک: در دمو قفل است ──
 	if (p.includes('/subscription'))
-		return { error: await lockedError(config, 'در حالت دمو امکان خرید وجود ندارد.') };
+		return { error: await lockedError(config, t('demoContent.lockedPurchase')) };
 
 	return { data: { success: true, demo: true } };
 };

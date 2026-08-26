@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -109,7 +110,18 @@ func (b *BootstrapWorker) processNFTItem(ctx context.Context, item tonapi.NFTIte
 		return
 	}
 
-	colorName := "Blue" // Default color, can be refined from metadata
+	colorName := "Blue" // Default baseline
+	for _, attr := range item.Metadata.Attributes {
+		if strings.EqualFold(attr.TraitType, "Color") || strings.EqualFold(attr.TraitType, "Theme") {
+			for cName := range registry.OfficialColors {
+				if strings.EqualFold(cName, strings.TrimSpace(attr.Value)) {
+					colorName = cName
+					break
+				}
+			}
+			break
+		}
+	}
 	featuresJSON, _ := json.Marshal(fv)
 
 	// Upsert into number_features

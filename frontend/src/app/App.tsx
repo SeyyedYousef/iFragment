@@ -25,6 +25,7 @@ const PageErrorFallback = (err: any, reset: () => void) => {
 				{err?.message || 'An unexpected rendering error occurred.'}
 			</p>
 			<button
+				type="button"
 				onClick={() => {
 					if (isChunkError) {
 						window.location.reload();

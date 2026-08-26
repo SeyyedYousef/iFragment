@@ -1,9 +1,10 @@
-import { createSignal, Show, For, type Component } from 'solid-js';
-import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
-import { ownerApi } from '@/entities/owner/api/ownerApi.js';
-import type { OwnerDashboardStats } from '@/entities/owner/model/types.js';
-import { TotpSetupModal } from '@/widgets/owner/TotpSetupModal.jsx';
-import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.jsx';
+import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
+import { type Component, createSignal, For, Show } from 'solid-js';
+import { ownerApi } from '@/entities/owner/index.js';
+import { type OwnerDashboardStats } from '@/entities/owner/model/types.js';
+import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.js';
+import { TotpSetupModal } from '@/widgets/owner/TotpSetupModal.js';
+import { t } from '@/shared/i18n/index.js';
 
 export const OwnerDashboard: Component = () => {
 	const queryClient = useQueryClient();
@@ -11,7 +12,10 @@ export const OwnerDashboard: Component = () => {
 	const [isTotpModalOpen, setIsTotpModalOpen] = createSignal(false);
 
 	// Impersonation state
-	const [impersonateTarget, setImpersonateTarget] = createSignal<{ id: number; name: string } | null>(null);
+	const [impersonateTarget, setImpersonateTarget] = createSignal<{
+		id: number;
+		name: string;
+	} | null>(null);
 
 	const statsQuery = createQuery<OwnerDashboardStats>(() => ({
 		queryKey: ['owner', 'dashboard', 'stats'],
@@ -48,17 +52,19 @@ export const OwnerDashboard: Component = () => {
 							<span class="material-symbols-rounded text-2xl">shield</span>
 						</div>
 						<div>
-							<div class="text-sm font-bold text-white">MFA Enrollment Required</div>
+							<div class="text-sm font-bold text-white">{t('ownerDashboard.mfaRequired')}</div>
 							<div class="text-xs text-amber-200/80">
-								{stats()?.totp_grace_days_left} days remaining in grace period. Enable Two-Factor Authentication now to secure the admin panel.
+								{stats()?.totp_grace_days_left} days remaining in grace period. Enable Two-Factor
+								Authentication now to secure the admin panel.
 							</div>
 						</div>
 					</div>
 					<button
+						type="button"
 						onClick={() => setIsTotpModalOpen(true)}
 						class="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs transition shadow-lg shadow-amber-500/20 whitespace-nowrap"
 					>
-						Enable TOTP MFA
+						{t('ownerDashboard.enableTotp')}
 					</button>
 				</div>
 			</Show>
@@ -68,7 +74,7 @@ export const OwnerDashboard: Component = () => {
 				{/* DAU */}
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2 backdrop-blur-sm">
 					<div class="flex items-center justify-between text-xs text-white/50">
-						<span>Daily Active Users (DAU)</span>
+						<span>{t('ownerDashboard.dau')}</span>
 						<span class="material-symbols-rounded text-base text-amber-400">group</span>
 					</div>
 					<div class="text-2xl font-black text-white font-mono">
@@ -87,14 +93,14 @@ export const OwnerDashboard: Component = () => {
 								↑ {(stats()?.dau_trend ?? 0).toFixed(1)}%
 							</span>
 						</Show>
-						<span class="text-white/40 text-[11px]">vs yesterday</span>
+						<span class="text-white/40 text-[11px]">{t('ownerDashboard.vsYesterday')}</span>
 					</div>
 				</div>
 
 				{/* MAU */}
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2 backdrop-blur-sm">
 					<div class="flex items-center justify-between text-xs text-white/50">
-						<span>Monthly Active (MAU)</span>
+						<span>{t('ownerDashboard.mau')}</span>
 						<span class="material-symbols-rounded text-base text-sky-400">calendar_month</span>
 					</div>
 					<div class="text-2xl font-black text-white font-mono">
@@ -103,7 +109,9 @@ export const OwnerDashboard: Component = () => {
 					<div class="text-xs text-white/50">
 						Stickiness:{' '}
 						<span class="font-mono text-white">
-							{stats()?.mau ? `${(((stats()?.dau ?? 0) / (stats()?.mau || 1)) * 100).toFixed(1)}%` : '—'}
+							{stats()?.mau
+								? `${(((stats()?.dau ?? 0) / (stats()?.mau || 1)) * 100).toFixed(1)}%`
+								: '—'}
 						</span>
 					</div>
 				</div>
@@ -111,26 +119,30 @@ export const OwnerDashboard: Component = () => {
 				{/* Coins Circulation */}
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2 backdrop-blur-sm">
 					<div class="flex items-center justify-between text-xs text-white/50">
-						<span>Coins in Circulation</span>
+						<span>{t('ownerDashboard.coinsCirculation')}</span>
 						<span class="material-symbols-rounded text-base text-yellow-400">monetization_on</span>
 					</div>
 					<div class="text-2xl font-black text-amber-400 font-mono">
-						{statsQuery.isLoading ? '...' : (stats()?.coins_circulation ?? stats()?.frg_circulation ?? 0).toLocaleString()}
+						{statsQuery.isLoading
+							? '...'
+							: (stats()?.coins_circulation ?? stats()?.frg_circulation ?? 0).toLocaleString()}
 					</div>
-					<div class="text-xs text-white/40 text-[11px]">Economy Total Minted</div>
+					<div class="text-xs text-white/40 text-[11px]">{t('ownerDashboard.economyTotalMinted')}</div>
 				</div>
 
 				{/* Stars Volume */}
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2 backdrop-blur-sm">
 					<div class="flex items-center justify-between text-xs text-white/50">
-						<span>Telegram Stars Volume</span>
+						<span>{t('ownerDashboard.starsVolume')}</span>
 						<span class="material-symbols-rounded text-base text-cyan-400">star</span>
 					</div>
 					<div class="text-2xl font-black text-white font-mono flex items-center gap-1">
 						<span>⭐</span>
-						<span>{statsQuery.isLoading ? '...' : (stats()?.stars_volume ?? 0).toLocaleString()}</span>
+						<span>
+							{statsQuery.isLoading ? '...' : (stats()?.stars_volume ?? 0).toLocaleString()}
+						</span>
 					</div>
-					<div class="text-xs text-emerald-400 font-mono">100% Real Server SQL Data</div>
+					<div class="text-xs text-emerald-400 font-mono">{t('ownerDashboard.realServerSql')}</div>
 				</div>
 			</div>
 
@@ -141,14 +153,17 @@ export const OwnerDashboard: Component = () => {
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-2">
 							<span class="material-symbols-rounded text-amber-400">show_chart</span>
-							<span class="text-sm font-bold text-white">Daily Signups Trend</span>
+							<span class="text-sm font-bold text-white">{t('ownerDashboard.dailySignupsTrend')}</span>
 						</div>
 						<div class="flex gap-1 rounded-xl bg-white/5 p-1 text-xs">
 							{(['7d', '30d', '90d'] as const).map((r) => (
 								<button
+									type="button"
 									onClick={() => setChartRange(r)}
 									class={`px-2.5 py-1 rounded-lg transition ${
-										chartRange() === r ? 'bg-amber-500 text-black font-bold' : 'text-white/60 hover:text-white'
+										chartRange() === r
+											? 'bg-amber-500 text-black font-bold'
+											: 'text-white/60 hover:text-white'
 									}`}
 								>
 									{r}
@@ -161,7 +176,11 @@ export const OwnerDashboard: Component = () => {
 					<div class="h-56 flex items-end gap-2 pt-6 pb-2 px-2 border-b border-white/10">
 						<Show
 							when={stats()?.dau_chart && stats()!.dau_chart.length > 0}
-							fallback={<div class="w-full text-center text-xs text-white/40 my-auto">Loading chart data...</div>}
+							fallback={
+								<div class="w-full text-center text-xs text-white/40 my-auto">
+									{t('ownerDashboard.loadingChart')}
+								</div>
+							}
 						>
 							<For each={stats()?.dau_chart}>
 								{(point) => {
@@ -192,30 +211,30 @@ export const OwnerDashboard: Component = () => {
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
 					<div class="flex items-center gap-2">
 						<span class="material-symbols-rounded text-emerald-400">account_balance</span>
-						<span class="text-sm font-bold text-white">Today's Economy</span>
+						<span class="text-sm font-bold text-white">{t('ownerDashboard.todayEconomy')}</span>
 					</div>
 
 					<div class="space-y-3 pt-2">
 						<div class="flex justify-between items-center text-xs p-3 rounded-2xl bg-white/[0.02] border border-white/5">
-							<span class="text-white/60">Coins Minted Today</span>
+							<span class="text-white/60">{t('ownerDashboard.coinsMintedToday')}</span>
 							<span class="font-mono font-bold text-emerald-400">
 								+{(stats()?.today_economy?.minted_today ?? 150000).toLocaleString()}
 							</span>
 						</div>
 						<div class="flex justify-between items-center text-xs p-3 rounded-2xl bg-white/[0.02] border border-white/5">
-							<span class="text-white/60">Coins Burned (Upgrades)</span>
+							<span class="text-white/60">{t('ownerDashboard.coinsBurned')}</span>
 							<span class="font-mono font-bold text-rose-400">
 								-{(stats()?.today_economy?.burned_today ?? 25000).toLocaleString()}
 							</span>
 						</div>
 						<div class="flex justify-between items-center text-xs p-3 rounded-2xl bg-white/[0.02] border border-white/5">
-							<span class="text-white/60">Inactivity Decay</span>
+							<span class="text-white/60">{t('ownerDashboard.inactivityDecay')}</span>
 							<span class="font-mono font-bold text-orange-400">
 								-{(stats()?.today_economy?.decayed_today ?? 12000).toLocaleString()}
 							</span>
 						</div>
 						<div class="flex justify-between items-center text-xs p-3 rounded-2xl bg-white/[0.02] border border-white/5">
-							<span class="text-white/60">Referral Rev-Share Paid</span>
+							<span class="text-white/60">{t('ownerDashboard.referralRevShare')}</span>
 							<span class="font-mono font-bold text-cyan-400">
 								{(stats()?.today_economy?.rev_share_paid_today ?? 4800).toLocaleString()}
 							</span>
@@ -229,7 +248,9 @@ export const OwnerDashboard: Component = () => {
 				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-2">
 						<span class="material-symbols-rounded text-sky-400">person_add</span>
-						<span class="text-sm font-bold text-white">Recent Registrations (Quick Simulation)</span>
+						<span class="text-sm font-bold text-white">
+							{t('ownerDashboard.recentRegistrations')}
+						</span>
 					</div>
 				</div>
 
@@ -237,11 +258,11 @@ export const OwnerDashboard: Component = () => {
 					<table class="w-full text-left text-xs">
 						<thead>
 							<tr class="border-b border-white/10 text-white/40">
-								<th class="pb-3 font-medium">User</th>
-								<th class="pb-3 font-medium">Telegram ID</th>
-								<th class="pb-3 font-medium">Balance</th>
-								<th class="pb-3 font-medium">Joined</th>
-								<th class="pb-3 font-medium text-right">Action</th>
+								<th class="pb-3 font-medium">{t('ownerDashboard.user')}</th>
+								<th class="pb-3 font-medium">{t('ownerCommon.telegramId')}</th>
+								<th class="pb-3 font-medium">{t('ownerDashboard.balance')}</th>
+								<th class="pb-3 font-medium">{t('ownerDashboard.joined')}</th>
+								<th class="pb-3 font-medium text-right">{t('ownerDashboard.action')}</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-white/5">
@@ -255,14 +276,24 @@ export const OwnerDashboard: Component = () => {
 											</Show>
 										</td>
 										<td class="py-3 font-mono text-white/70">{user.telegram_id}</td>
-										<td class="py-3 font-mono text-amber-400 font-bold">{user.balance.toLocaleString()} Coins</td>
-										<td class="py-3 text-white/50">{new Date(user.created_at).toLocaleDateString()}</td>
+										<td class="py-3 font-mono text-amber-400 font-bold">
+											{user.balance.toLocaleString()} Coins
+										</td>
+										<td class="py-3 text-white/50">
+											{new Date(user.created_at).toLocaleDateString()}
+										</td>
 										<td class="py-3 text-right">
 											<button
-												onClick={() => setImpersonateTarget({ id: user.telegram_id, name: user.first_name || String(user.telegram_id) })}
+												type="button"
+												onClick={() =>
+													setImpersonateTarget({
+														id: user.telegram_id,
+														name: user.first_name || String(user.telegram_id),
+													})
+												}
 												class="px-3 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 font-medium transition"
 											>
-												Simulate
+												{t('ownerDashboard.simulate')}
 											</button>
 										</td>
 									</tr>
@@ -286,7 +317,7 @@ export const OwnerDashboard: Component = () => {
 			<Show when={impersonateTarget()}>
 				<DangerActionDialog
 					isOpen={true}
-					title="Confirm User Simulation"
+					title={t('ownerCommon.confirmSimulation')}
 					description={`You are about to simulate user ${impersonateTarget()?.name} (${impersonateTarget()?.id}). A temporary 15-minute session will be created and logged.`}
 					actionLabel="Start Simulation"
 					confirmWord="SIMULATE"

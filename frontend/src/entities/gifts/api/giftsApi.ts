@@ -42,14 +42,16 @@ export const giftsApi = {
 		return res.data;
 	},
 
-	calculateCraftingEV: async (inputs: Array<{
-		gift_id: string;
-		model_id: string;
-		name: string;
-		serial_number: number;
-		estimated_value_gram: number;
-		craft_chance_permille: number;
-	}>): Promise<CraftingEVData> => {
+	calculateCraftingEV: async (
+		inputs: Array<{
+			gift_id: string;
+			model_id: string;
+			name: string;
+			serial_number: number;
+			estimated_value_gram: number;
+			craft_chance_permille: number;
+		}>,
+	): Promise<CraftingEVData> => {
 		const res = await apiClient.post<CraftingEVData>('/gifts/crafting-ev', {
 			inputs,
 		});
@@ -70,7 +72,10 @@ export const giftsApi = {
 		return res.data;
 	},
 
-	toggleWatchlist: async (giftID: string, enable: boolean): Promise<{ success: boolean; gift_id: string; enabled: boolean }> => {
+	toggleWatchlist: async (
+		giftID: string,
+		enable: boolean,
+	): Promise<{ success: boolean; gift_id: string; enabled: boolean }> => {
 		const res = await apiClient.post('/gifts/watchlist', {
 			gift_id: giftID,
 			enable,

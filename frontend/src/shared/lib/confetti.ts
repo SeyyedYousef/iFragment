@@ -1,5 +1,9 @@
 // High-performance, zero-dependency canvas confetti burst
-export function triggerConfetti(options?: { particleCount?: number; spread?: number; origin?: { y?: number } }) {
+export function triggerConfetti(options?: {
+	particleCount?: number;
+	spread?: number;
+	origin?: { y?: number };
+}) {
 	if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
 	const count = options?.particleCount || 60;
@@ -38,7 +42,7 @@ export function triggerConfetti(options?: { particleCount?: number; spread?: num
 	}> = [];
 
 	for (let i = 0; i < count; i++) {
-		const angle = (Math.PI * (Math.random() * 1.2 + 0.9)); // upwards spray
+		const angle = Math.PI * (Math.random() * 1.2 + 0.9); // upwards spray
 		const speed = Math.random() * 12 + 8;
 		particles.push({
 			x: canvas.width / 2 + (Math.random() - 0.5) * 80,

@@ -1,8 +1,10 @@
 import { Motion } from '@motionone/solid';
-import { Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
+import { type Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 
-export const AntiSpamLessonCard: Component<{ onNavigate: () => void; isDone?: boolean }> = (props) => {
+export const AntiSpamLessonCard: Component<{ onNavigate: () => void; isDone?: boolean }> = (
+	props,
+) => {
 	const [spamBlocked, setSpamBlocked] = createSignal(false);
 
 	onMount(() => {
@@ -65,6 +67,7 @@ export const AntiSpamLessonCard: Component<{ onNavigate: () => void; isDone?: bo
 			</div>
 
 			<button
+				type="button"
 				onClick={props.onNavigate}
 				class="w-full h-12 bg-white/5 border border-[#ff4a4a]/30 text-[#ff4a4a] hover:bg-[#ff4a4a]/10 rounded-[16px] text-[12px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
 			>

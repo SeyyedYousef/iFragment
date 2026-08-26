@@ -1,4 +1,4 @@
-import { Component, createSignal, For, Show } from 'solid-js';
+import { type Component, createSignal, For, Show } from 'solid-js';
 import {
 	activateFullEnergy,
 	balance,
@@ -72,6 +72,7 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 				<div class="grid grid-cols-2 gap-3">
 					{/* Turbo Button */}
 					<button
+						type="button"
 						onClick={() => {
 							spawnRocket();
 							props.onTurboClick?.();
@@ -100,6 +101,7 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 
 					{/* Full Energy Button */}
 					<button
+						type="button"
 						onClick={() => {
 							activateFullEnergy();
 							props.onTurboClick?.();
@@ -136,7 +138,7 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 				<div class="flex items-center gap-2 px-2 mb-3">
 					<span class="material-symbols-outlined text-white/40 text-[18px]">upgrade</span>
 					<h2 class="text-[12px] font-mono font-black uppercase tracking-widest text-white/60">
-						Mining Upgrades
+						{t('boosters.miningUpgrades')}
 					</h2>
 				</div>
 
@@ -159,6 +161,7 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 
 							return (
 								<button
+									type="button"
 									onClick={() => handleUpgrade(id)}
 									disabled={isMaxed() || !canAfford()}
 									class={`flex items-center p-3.5 my-0.5 transition-all duration-300 text-start rounded-[20px] border 
@@ -226,9 +229,7 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 									{/* Action Icon */}
 									<div class="shrink-0 pl-2">
 										{isMaxed() && id !== 'tapBot' ? (
-											<span class="material-symbols-outlined text-white/30 text-[24px]">
-												check
-											</span>
+											<span class="material-symbols-outlined text-white/30 text-[24px]">check</span>
 										) : isBotActive ? (
 											<span class="material-symbols-outlined text-emerald-400 text-[24px] drop-shadow-sm">
 												check_circle

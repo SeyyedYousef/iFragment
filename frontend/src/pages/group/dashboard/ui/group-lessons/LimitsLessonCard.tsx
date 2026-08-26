@@ -1,8 +1,10 @@
 import { Motion } from '@motionone/solid';
-import { Component, createSignal, onCleanup, onMount } from 'solid-js';
+import { type Component, createSignal, onCleanup, onMount } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 
-export const LimitsLessonCard: Component<{ onNavigate: () => void; isDone?: boolean }> = (props) => {
+export const LimitsLessonCard: Component<{ onNavigate: () => void; isDone?: boolean }> = (
+	props,
+) => {
 	const [slowModeSeconds, setSlowModeSeconds] = createSignal(10);
 
 	onMount(() => {
@@ -42,8 +44,12 @@ export const LimitsLessonCard: Component<{ onNavigate: () => void; isDone?: bool
 						{slowModeSeconds()}s
 					</div>
 					<div class="flex flex-col">
-						<span class="text-[12px] font-black text-white">{t('groupLessons.limits.slowModeLabel')}</span>
-						<span class="text-[10px] font-bold text-white/40">{t('groupLessons.limits.waitNotice')}</span>
+						<span class="text-[12px] font-black text-white">
+							{t('groupLessons.limits.slowModeLabel')}
+						</span>
+						<span class="text-[10px] font-bold text-white/40">
+							{t('groupLessons.limits.waitNotice')}
+						</span>
 					</div>
 				</div>
 
@@ -60,6 +66,7 @@ export const LimitsLessonCard: Component<{ onNavigate: () => void; isDone?: bool
 			</div>
 
 			<button
+				type="button"
 				onClick={props.onNavigate}
 				class="w-full h-12 bg-white/5 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 rounded-[16px] text-[12px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
 			>

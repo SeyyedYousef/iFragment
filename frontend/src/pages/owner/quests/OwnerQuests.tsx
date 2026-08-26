@@ -1,7 +1,8 @@
-import { createSignal, Show, For, type Component } from 'solid-js';
-import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
+import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
+import { type Component, createSignal, For, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/api/ownerApi.js';
 import type { QuestItem } from '@/entities/owner/model/types.js';
+import { t } from '@/shared/i18n/index.js';
 import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.jsx';
 
 export const OwnerQuests: Component = () => {
@@ -107,10 +108,11 @@ export const OwnerQuests: Component = () => {
 			{/* Header */}
 			<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
 				<div>
-					<h2 class="text-lg font-bold text-white">Quests & Tasks Management</h2>
-					<p class="text-xs text-white/50">Manage dynamic channel subscriptions, partner quests, and check-in tasks</p>
+					<h2 class="text-lg font-bold text-white">{t('owner.quests.title')}</h2>
+					<p class="text-xs text-white/50">{t('owner.quests.subtitle')}</p>
 				</div>
 				<button
+					type="button"
 					onClick={() => {
 						resetForm();
 						setIsCreating(true);
@@ -118,7 +120,7 @@ export const OwnerQuests: Component = () => {
 					class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs transition shadow-lg shadow-amber-500/20"
 				>
 					<span class="material-symbols-rounded text-base">add_task</span>
-					<span>Create Quest</span>
+					<span>{t('owner.quests.createQuest')}</span>
 				</button>
 			</div>
 
@@ -127,20 +129,26 @@ export const OwnerQuests: Component = () => {
 				<div class="rounded-3xl border border-amber-500/30 bg-black/60 p-6 space-y-5 backdrop-blur-xl">
 					<div class="flex items-center justify-between border-b border-white/10 pb-3">
 						<h3 class="text-sm font-bold text-white">
-							{editingQuest() ? 'Edit Quest' : 'Create New Quest'}
+							{editingQuest() ? t('owner.quests.editQuest') : t('owner.quests.createNewQuest')}
 						</h3>
-						<button onClick={resetForm} class="text-xs text-white/50 hover:text-white">
-							Cancel
+						<button
+							type="button"
+							onClick={resetForm}
+							class="text-xs text-white/50 hover:text-white"
+						>
+							{t('common.cancel')}
 						</button>
 					</div>
 
 					<form onSubmit={handleSubmit} class="space-y-4">
 						<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 							<div>
-								<label class="block text-[11px] font-semibold text-white/60 mb-1">Unique Key</label>
+								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+									{t('owner.quests.uniqueKey')}
+								</div>
 								<input
 									type="text"
-									placeholder="e.g., join_main_channel"
+									placeholder={t('owner.quests.uniqueKeyPlaceholder')}
 									value={formKey()}
 									disabled={!!editingQuest()}
 									onInput={(e) => setFormKey(e.currentTarget.value)}
@@ -150,10 +158,12 @@ export const OwnerQuests: Component = () => {
 							</div>
 
 							<div>
-								<label class="block text-[11px] font-semibold text-white/60 mb-1">Title</label>
+								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+									{t('owner.quests.titleLabel')}
+								</div>
 								<input
 									type="text"
-									placeholder="e.g., Join Official Community"
+									placeholder={t('owner.quests.titlePlaceholder')}
 									value={formTitle()}
 									onInput={(e) => setFormTitle(e.currentTarget.value)}
 									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs focus:border-amber-400 focus:outline-none"
@@ -162,30 +172,32 @@ export const OwnerQuests: Component = () => {
 							</div>
 
 							<div>
-								<label class="block text-[11px] font-semibold text-white/60 mb-1">Quest Type</label>
+								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+									{t('owner.quests.questType')}
+								</div>
 								<select
 									value={formType()}
 									onChange={(e) => setFormType(e.currentTarget.value as any)}
 									class="w-full h-11 px-3 rounded-xl bg-neutral-900 border border-white/15 text-white text-xs focus:border-amber-400 focus:outline-none"
 								>
-									<option value="telegram_channel">Telegram Channel</option>
-									<option value="telegram_group">Telegram Group</option>
-									<option value="daily_checkin">Daily Check-in</option>
-									<option value="invite">Invite Friends</option>
-									<option value="external_link">External Link</option>
-									<option value="partner">Partner Quest</option>
+									<option value="telegram_channel">{t('owner.quests.typeTelegramChannel')}</option>
+									<option value="telegram_group">{t('owner.quests.typeTelegramGroup')}</option>
+									<option value="daily_checkin">{t('owner.quests.typeDailyCheckin')}</option>
+									<option value="invite">{t('owner.quests.typeInviteFriends')}</option>
+									<option value="external_link">{t('owner.quests.typeExternalLink')}</option>
+									<option value="partner">{t('owner.quests.typePartner')}</option>
 								</select>
 							</div>
 						</div>
 
 						<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 							<div>
-								<label class="block text-[11px] font-semibold text-white/60 mb-1">
-									Channel Username (Config-driven, no @)
-								</label>
+								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+									{t('owner.quests.channelUsernameLabel')}
+								</div>
 								<input
 									type="text"
-									placeholder="e.g., iFragmentNews"
+									placeholder={t('owner.quests.channelUsernamePlaceholder')}
 									value={formChannelUsername()}
 									onInput={(e) => setFormChannelUsername(e.currentTarget.value.replace('@', ''))}
 									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs focus:border-amber-400 focus:outline-none"
@@ -193,9 +205,9 @@ export const OwnerQuests: Component = () => {
 							</div>
 
 							<div>
-								<label class="block text-[11px] font-semibold text-white/60 mb-1">
-									Channel ID (Optional, e.g. -100123456789)
-								</label>
+								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+									{t('owner.quests.channelIdLabel')}
+								</div>
 								<input
 									type="text"
 									placeholder="-100123456789"
@@ -208,7 +220,9 @@ export const OwnerQuests: Component = () => {
 
 						<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 							<div>
-								<label class="block text-[11px] font-semibold text-white/60 mb-1">Reward Coins</label>
+								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+									{t('owner.quests.rewardCoins')}
+								</div>
 								<input
 									type="number"
 									value={formRewardCoins()}
@@ -219,7 +233,9 @@ export const OwnerQuests: Component = () => {
 							</div>
 
 							<div>
-								<label class="block text-[11px] font-semibold text-white/60 mb-1">Reward XP</label>
+								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+									{t('owner.quests.rewardXp')}
+								</div>
 								<input
 									type="number"
 									value={formRewardXp()}
@@ -231,15 +247,15 @@ export const OwnerQuests: Component = () => {
 						</div>
 
 						<div class="flex items-center justify-between pt-2 border-t border-white/10">
-							<label class="flex items-center gap-2 text-xs text-white cursor-pointer select-none">
+							<div class="flex items-center gap-2 text-xs text-white cursor-pointer select-none">
 								<input
 									type="checkbox"
 									checked={formIsActive()}
 									onChange={(e) => setFormIsActive(e.currentTarget.checked)}
 									class="rounded accent-amber-500 h-4 w-4"
 								/>
-								<span>Quest Active & Visible</span>
-							</label>
+								<span>{t('owner.quests.questActiveVisible')}</span>
+							</div>
 
 							<div class="flex gap-2">
 								<button
@@ -247,14 +263,14 @@ export const OwnerQuests: Component = () => {
 									onClick={resetForm}
 									class="px-4 py-2.5 rounded-xl text-xs text-white/70 hover:bg-white/5"
 								>
-									Cancel
+									{t('common.cancel')}
 								</button>
 								<button
 									type="submit"
 									disabled={createQuestMutation.isPending || updateMutation.isPending}
 									class="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs transition shadow-lg shadow-amber-500/20 disabled:opacity-50"
 								>
-									{editingQuest() ? 'Save Quest' : 'Create Quest'}
+									{editingQuest() ? t('owner.quests.saveQuest') : t('owner.quests.createQuest')}
 								</button>
 							</div>
 						</div>
@@ -268,12 +284,12 @@ export const OwnerQuests: Component = () => {
 					<table class="w-full text-left text-xs">
 						<thead>
 							<tr class="border-b border-white/10 text-white/40">
-								<th class="pb-3">Title & Key</th>
-								<th class="pb-3">Type</th>
-								<th class="pb-3">Channel / Config</th>
-								<th class="pb-3">Reward</th>
-								<th class="pb-3">Status</th>
-								<th class="pb-3 text-right">Actions</th>
+								<th class="pb-3">{t('owner.quests.thTitleKey')}</th>
+								<th class="pb-3">{t('owner.quests.thType')}</th>
+								<th class="pb-3">{t('owner.quests.thChannelConfig')}</th>
+								<th class="pb-3">{t('owner.quests.thReward')}</th>
+								<th class="pb-3">{t('owner.quests.thStatus')}</th>
+								<th class="pb-3 text-right">{t('owner.quests.thActions')}</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-white/5">
@@ -282,7 +298,7 @@ export const OwnerQuests: Component = () => {
 								fallback={
 									<tr>
 										<td colspan="6" class="py-8 text-center text-white/40">
-											{questsQuery.isLoading ? 'Loading quests...' : 'No quests configured'}
+											{questsQuery.isLoading ? t('owner.quests.loading') : t('owner.quests.empty')}
 										</td>
 									</tr>
 								}
@@ -304,12 +320,16 @@ export const OwnerQuests: Component = () => {
 													when={quest.config?.channel_username}
 													fallback={<span class="text-white/30">—</span>}
 												>
-													<span class="text-sky-400 font-mono">@{quest.config?.channel_username}</span>
+													<span class="text-sky-400 font-mono">
+														@{quest.config?.channel_username}
+													</span>
 												</Show>
 											</td>
 											<td class="py-3">
 												<div class="font-mono text-amber-400 font-bold">
-													{quest.reward_frg.toLocaleString()} Coins
+													{t('owner.quests.coinsAmount', {
+														amount: quest.reward_frg.toLocaleString(),
+													})}
 												</div>
 												<div class="font-mono text-cyan-400 text-[11px]">+{quest.reward_xp} XP</div>
 											</td>
@@ -321,22 +341,24 @@ export const OwnerQuests: Component = () => {
 															: 'bg-white/5 text-white/40'
 													}`}
 												>
-													{quest.is_active ? 'Active' : 'Disabled'}
+													{quest.is_active ? t('owner.quests.active') : t('owner.quests.disabled')}
 												</span>
 											</td>
 											<td class="py-3 text-right">
 												<div class="flex items-center justify-end gap-1.5">
 													<button
+														type="button"
 														onClick={() => handleEdit(quest)}
 														class="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition"
-														title="Edit Quest"
+														title={t('owner.quests.editQuest')}
 													>
 														<span class="material-symbols-rounded text-base">edit</span>
 													</button>
 													<button
+														type="button"
 														onClick={() => setQuestToDelete(quest)}
 														class="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition"
-														title="Delete Quest"
+														title={t('owner.quests.deleteQuest')}
 													>
 														<span class="material-symbols-rounded text-base">delete</span>
 													</button>
@@ -355,9 +377,12 @@ export const OwnerQuests: Component = () => {
 			<Show when={questToDelete()}>
 				<DangerActionDialog
 					isOpen={true}
-					title="Delete Quest"
-					description={`Permanently remove quest "${questToDelete()?.title}" (${questToDelete()?.key})? Users will no longer see or earn from this quest.`}
-					actionLabel="Delete Quest"
+					title={t('owner.quests.deleteQuest')}
+					description={t('owner.quests.deleteConfirmDesc', {
+						title: questToDelete()?.title,
+						key: questToDelete()?.key,
+					})}
+					actionLabel={t('owner.quests.deleteQuest')}
 					confirmWord="DELETE"
 					riskLevel="medium"
 					requireReason={false}

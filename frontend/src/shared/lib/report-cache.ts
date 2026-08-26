@@ -31,7 +31,7 @@ interface CachedReport<T> {
 	data: T;
 }
 
-const readJson = <T,>(key: string): T | null => {
+const readJson = <T>(key: string): T | null => {
 	try {
 		const raw = localStorage.getItem(key);
 		if (!raw) return null;
@@ -85,7 +85,7 @@ export const getRecentReports = (): RecentReport[] => {
 };
 
 /** Reads a cached report, or null when absent or older than 24 hours. */
-export const getCachedReport = <T,>(username: string): T | null => {
+export const getCachedReport = <T>(username: string): T | null => {
 	const key = normalize(username);
 	if (!key) return null;
 

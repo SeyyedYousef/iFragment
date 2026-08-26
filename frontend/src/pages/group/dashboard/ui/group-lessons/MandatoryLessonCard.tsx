@@ -1,8 +1,10 @@
 import { Motion } from '@motionone/solid';
-import { Component, createSignal, onCleanup, onMount } from 'solid-js';
+import { type Component, createSignal, onCleanup, onMount } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 
-export const MandatoryLessonCard: Component<{ onNavigate: () => void; isDone?: boolean }> = (props) => {
+export const MandatoryLessonCard: Component<{ onNavigate: () => void; isDone?: boolean }> = (
+	props,
+) => {
 	const [isJoined, setIsJoined] = createSignal(false);
 
 	onMount(() => {
@@ -40,8 +42,12 @@ export const MandatoryLessonCard: Component<{ onNavigate: () => void; isDone?: b
 						<span class="material-symbols-outlined text-[22px]">campaign</span>
 					</div>
 					<div class="flex flex-col">
-						<span class="text-[12px] font-black text-white">{t('groupLessons.mandatory.channelRequired')}</span>
-						<span class="text-[10px] font-bold text-white/40">{t('groupLessons.mandatory.joinStatus')}</span>
+						<span class="text-[12px] font-black text-white">
+							{t('groupLessons.mandatory.channelRequired')}
+						</span>
+						<span class="text-[10px] font-bold text-white/40">
+							{t('groupLessons.mandatory.joinStatus')}
+						</span>
 					</div>
 				</div>
 
@@ -56,11 +62,16 @@ export const MandatoryLessonCard: Component<{ onNavigate: () => void; isDone?: b
 					<span class="material-symbols-outlined text-[14px]">
 						{isJoined() ? 'check_circle' : 'lock'}
 					</span>
-					<span>{isJoined() ? t('groupLessons.mandatory.verified') : t('groupLessons.mandatory.joinToChat')}</span>
+					<span>
+						{isJoined()
+							? t('groupLessons.mandatory.verified')
+							: t('groupLessons.mandatory.joinToChat')}
+					</span>
 				</Motion.div>
 			</div>
 
 			<button
+				type="button"
 				onClick={props.onNavigate}
 				class="w-full h-12 bg-white/5 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 rounded-[16px] text-[12px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
 			>

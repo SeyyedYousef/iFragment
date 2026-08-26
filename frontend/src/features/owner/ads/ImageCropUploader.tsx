@@ -1,5 +1,6 @@
-import { createSignal, createEffect, Show, type Component } from 'solid-js';
-import { ownerApi } from '../../../entities/owner/api/ownerApi.js';
+import { type Component, createEffect, createSignal, Show } from 'solid-js';
+import { ownerApi } from '@/entities/owner/index.js';
+import { t } from '@/shared/i18n/index.js';
 
 interface ImageCropUploaderProps {
 	slot?: string;
@@ -31,14 +32,14 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 
 	const handleFileSelect = (e: Event) => {
 		const target = e.target as HTMLInputElement;
-		if (target.files && target.files[0]) {
+		if (target.files?.[0]) {
 			loadFile(target.files[0]);
 		}
 	};
 
 	const handleDrop = (e: DragEvent) => {
 		e.preventDefault();
-		if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+		if (e.dataTransfer?.files?.[0]) {
 			loadFile(e.dataTransfer.files[0]);
 		}
 	};
@@ -144,7 +145,7 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 					}
 				},
 				'image/webp',
-				0.85
+				0.85,
 			);
 		} catch (err: any) {
 			setErrorMessage(err.message || 'Error processing crop');
@@ -158,29 +159,25 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 			<Show when={uploadedUrl() && !imageSrc()}>
 				<div class="rounded-xl border border-white/10 bg-black/40 p-4">
 					<div class="mb-2 flex items-center justify-between text-xs text-white/60">
-						<span>Active Banner (1080x384 / 25:9)</span>
-						<span class="text-emerald-400 font-mono">Ready</span>
+						<span>{t('imageCrop.activeBanner')}</span>
+						<span class="text-emerald-400 font-mono">{t('imageCrop.ready')}</span>
 					</div>
 					<div class="relative overflow-hidden rounded-lg border border-white/10 aspect-[25/9] bg-white/5">
-						<img
-							src={uploadedUrl()!}
-							alt="Banner Preview"
-							class="h-full w-full object-cover"
-						/>
+						<img src={uploadedUrl()!} alt={t('imageCrop.bannerPreviewAlt')} class="h-full w-full object-cover" />
 					</div>
 				</div>
 			</Show>
 
 			{/* Drop Zone */}
 			<Show when={!imageSrc()}>
-				<label
+				<div
 					onDragOver={(e) => e.preventDefault()}
 					onDrop={handleDrop}
 					class="relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-white/20 bg-white/[0.02] p-6 text-center hover:border-amber-500/50 hover:bg-white/[0.04] transition-all cursor-pointer"
 				>
 					<input
 						type="file"
-						aria-label="Upload banner image file"
+						aria-label={t('imageCrop.uploadAriaLabel')}
 						accept="image/jpeg,image/png,image/webp"
 						onChange={handleFileSelect}
 						class="absolute inset-0 opacity-0 cursor-pointer"
@@ -188,11 +185,11 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 					<div class="flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/10 text-amber-400 mb-3">
 						<span class="material-symbols-rounded text-2xl">cloud_upload</span>
 					</div>
-					<div class="text-sm font-medium text-white">Drag & drop your banner here, or browse</div>
+					<div class="text-sm font-medium text-white">{t('imageCrop.dragDrop')}</div>
 					<div class="text-xs text-white/50 mt-1">
-						JPG, PNG, or WebP (Max 5MB) • Required resolution: 1080x384 (25:9)
+						{t('imageCrop.formats')}
 					</div>
-				</label>
+				</div>
 			</Show>
 
 			{/* Interactive Canvas Cropper */}
@@ -201,31 +198,33 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-2">
 							<span class="material-symbols-rounded text-amber-400 text-lg">crop</span>
-							<span class="text-sm font-semibold text-white">Adjust Banner Crop (25:9 Aspect Ratio)</span>
+							<span class="text-sm font-semibold text-white">
+								{t('imageCrop.adjustCrop')}
+							</span>
 						</div>
 						<button
+							type="button"
 							onClick={() => {
 								setImageSrc(null);
 								setImageEl(null);
 							}}
 							class="text-xs text-white/50 hover:text-rose-400 transition"
 						>
-							Cancel
+							{t('ownerCommon.cancel')}
 						</button>
 					</div>
 
 					{/* Crop Canvas Display */}
 					<div
 						class="relative overflow-hidden rounded-xl border border-white/20 aspect-[25/9] bg-black cursor-move select-none"
+						role="application"
+						aria-label={t('imageCrop.cropAreaAriaLabel')}
 						onMouseDown={handleMouseDown}
 						onMouseMove={handleMouseMove}
 						onMouseUp={handleMouseUp}
 						onMouseLeave={handleMouseUp}
 					>
-						<canvas
-							ref={canvasRef}
-							class="w-full h-full object-contain pointer-events-none"
-						/>
+						<canvas ref={canvasRef} class="w-full h-full object-contain pointer-events-none" />
 						{/* Grid overlay guides */}
 						<div class="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none border border-amber-500/20">
 							<div class="border-r border-b border-amber-500/10" />
@@ -241,11 +240,11 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 					</div>
 
 					{/* Zoom & Controls */}
-					<label class="flex items-center gap-4 bg-white/5 p-3 rounded-xl cursor-pointer">
+					<div class="flex items-center gap-4 bg-white/5 p-3 rounded-xl cursor-pointer">
 						<span class="material-symbols-rounded text-white/50 text-base">zoom_out</span>
 						<input
 							type="range"
-							aria-label="Zoom adjustment"
+							aria-label={t('imageCrop.zoomAriaLabel')}
 							min="1"
 							max="3"
 							step="0.05"
@@ -254,25 +253,27 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 							class="w-full accent-amber-500"
 						/>
 						<span class="material-symbols-rounded text-white/50 text-base">zoom_in</span>
-					</label>
+					</div>
 
 					{/* Action Buttons */}
 					<div class="flex items-center justify-end gap-3 pt-2">
 						<button
+							type="button"
 							onClick={() => {
 								setImageSrc(null);
 								setImageEl(null);
 							}}
 							class="px-4 py-2 rounded-xl text-xs font-medium text-white/70 hover:bg-white/5 transition"
 						>
-							Cancel
+							{t('ownerCommon.cancel')}
 						</button>
 						<button
+							type="button"
 							onClick={handlePerformUpload}
 							disabled={isUploading()}
 							class="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-black transition shadow-lg shadow-amber-500/20 disabled:opacity-50"
 						>
-							<Show when={isUploading()} fallback={<span>Apply & Upload WebP</span>}>
+							<Show when={isUploading()} fallback={<span>{t('imageCrop.applyUpload')}</span>}>
 								<div class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-black border-t-transparent" />
 								<span>Processing... {uploadProgress()}%</span>
 							</Show>

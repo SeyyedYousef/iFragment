@@ -4,13 +4,17 @@ import (
 	"context"
 	"time"
 
-	"github.com/google/uuid"
 	"ifragment-backend/internal/repository"
+
+	"github.com/google/uuid"
 )
 
 type IntelCreditService struct {
 	repo *repository.IntelCreditRepo
 }
+
+// DB exposes the underlying database handle for store operations.
+func (s *IntelCreditService) DB() *repository.Database { return s.repo.DB() }
 
 func NewIntelCreditService(db *repository.Database) *IntelCreditService {
 	return &IntelCreditService{

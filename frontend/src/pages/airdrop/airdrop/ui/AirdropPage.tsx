@@ -1,23 +1,25 @@
-import { Component, createSignal, Match, onCleanup, onMount, Show, Switch } from 'solid-js';
+import { type Component, createSignal, Match, onCleanup, onMount, Show, Switch } from 'solid-js';
+import { syncProfileStats } from '@/entities/airdrop/index.js';
 import { collectOfflineMining, startOfflineMining } from '@/entities/user/index.js';
 import { t } from '@/shared/i18n/index.js';
-import { syncProfileStats } from '@/entities/airdrop/index.js';
-import { BottomNav } from '@/widgets/bottom-nav/index.js';
+import { haptic } from '@/shared/lib/haptic.js';
 import { BoostersView } from '@/widgets/airdrop-boosters/index.js';
+import { BottomNav } from '@/widgets/bottom-nav/index.js';
 import { ClanView } from './ClanView.js';
 import { FrensView } from './FrensView.js';
 import { LeaderboardView } from './LeaderboardView.js';
 import { ShopView } from './ShopView.js';
 import { TapView } from './TapView.js';
 import { TasksView } from './TasksView.js';
-import { haptic } from '@/shared/lib/haptic.js';
 
 type AirdropTab = 'mine' | 'earn' | 'clan' | 'frens' | 'boost' | 'shop';
 
 export const AirdropPage: Component = () => {
 	const [activeTab, setActiveTab] = createSignal<AirdropTab>('mine');
 	const [showLeaderboard, setShowLeaderboard] = createSignal(false);
-	const [leaderboardInitialTab, setLeaderboardInitialTab] = createSignal<'miners' | 'squads'>('miners');
+	const [leaderboardInitialTab, setLeaderboardInitialTab] = createSignal<'miners' | 'squads'>(
+		'miners',
+	);
 	const [offlineEarnings, setOfflineEarnings] = createSignal(0);
 
 	const handleVisibilityChange = async () => {
@@ -40,8 +42,10 @@ export const AirdropPage: Component = () => {
 		document.addEventListener('visibilitychange', handleVisibilityChange);
 		try {
 			const tg = (window as any).Telegram?.WebApp;
-			const startParam = tg?.initDataUnsafe?.start_param || new URLSearchParams(window.location.search).get('tgWebAppStartParam');
-			if (startParam && startParam.startsWith('clan_')) {
+			const startParam =
+				tg?.initDataUnsafe?.start_param ||
+				new URLSearchParams(window.location.search).get('tgWebAppStartParam');
+			if (startParam?.startsWith('clan_')) {
 				const clanUsername = startParam.replace(/^clan_/, '');
 				sessionStorage.setItem('pending_clan_join', clanUsername);
 				setActiveTab('clan');
@@ -65,7 +69,6 @@ export const AirdropPage: Component = () => {
 
 	const handleTabChange = (tab: AirdropTab) => {
 		try {
-			
 			haptic.selection();
 		} catch (_) {}
 		setActiveTab(tab);
@@ -93,10 +96,13 @@ export const AirdropPage: Component = () => {
 					>
 						<div class="flex items-center px-5 max-w-md mx-auto pointer-events-auto">
 							<button
+								type="button"
 								onClick={() => handleTabChange('mine')}
 								class="w-11 h-11 flex items-center justify-center text-white/70 hover:text-white bg-[#12141C]/80 border border-white/10 rounded-[14px] active:scale-95 transition-all shadow-[0_8px_20px_rgba(0,0,0,0.4)] backdrop-blur-xl group"
 							>
-								<span class="material-symbols-outlined text-[24px] group-active:scale-90 transition-transform">close</span>
+								<span class="material-symbols-outlined text-[24px] group-active:scale-90 transition-transform">
+									close
+								</span>
 							</button>
 						</div>
 					</div>
@@ -115,13 +121,26 @@ export const AirdropPage: Component = () => {
 							onActionClick={(tabId) => handleTabChange(tabId as any)}
 						/>
 					</Match>
-					<Match when={activeTab() === 'earn'}><TasksView /></Match>
-					<Match when={activeTab() === 'clan'}>
-						<ClanView onOpenLeaderboard={() => { setLeaderboardInitialTab('squads'); setShowLeaderboard(true); }} />
+					<Match when={activeTab() === 'earn'}>
+						<TasksView />
 					</Match>
-					<Match when={activeTab() === 'frens'}><FrensView /></Match>
-					<Match when={activeTab() === 'boost'}><BoostersView onTurboClick={() => handleTabChange('mine')} /></Match>
-					<Match when={activeTab() === 'shop'}><ShopView /></Match>
+					<Match when={activeTab() === 'clan'}>
+						<ClanView
+							onOpenLeaderboard={() => {
+								setLeaderboardInitialTab('squads');
+								setShowLeaderboard(true);
+							}}
+						/>
+					</Match>
+					<Match when={activeTab() === 'frens'}>
+						<FrensView />
+					</Match>
+					<Match when={activeTab() === 'boost'}>
+						<BoostersView onTurboClick={() => handleTabChange('mine')} />
+					</Match>
+					<Match when={activeTab() === 'shop'}>
+						<ShopView />
+					</Match>
 				</Switch>
 			</main>
 
@@ -132,17 +151,23 @@ export const AirdropPage: Component = () => {
 
 			{/* ═══════ LEADERBOARD OVERLAY ═══════ */}
 			<Show when={showLeaderboard()}>
-				<div class="fixed inset-0 z-[70] bg-[#030303]/95 backdrop-blur-2xl flex flex-col animate-slide-up" dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}>
+				<div
+					class="fixed inset-0 z-[70] bg-[#030303]/95 backdrop-blur-2xl flex flex-col animate-slide-up"
+					dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
+				>
 					<div class="flex items-center justify-between px-5 py-4 border-b border-white/5 bg-[#12141C]/50 shadow-sm">
 						<div class="flex items-center gap-2.5">
 							<div class="w-8 h-8 rounded-[10px] bg-[#3390ec]/15 flex items-center justify-center border border-[#3390ec]/30">
-								<span class="material-symbols-outlined text-[#3390ec] text-[20px]">leaderboard</span>
+								<span class="material-symbols-outlined text-[#3390ec] text-[20px]">
+									leaderboard
+								</span>
 							</div>
 							<h2 class="text-white font-black text-[18px] tracking-tight">
 								{t('gamification.leaderboard' as any) || 'Leaderboard'}
 							</h2>
 						</div>
 						<button
+							type="button"
 							onClick={() => setShowLeaderboard(false)}
 							class="w-10 h-10 rounded-[12px] bg-white/5 hover:bg-white/10 flex items-center justify-center active:scale-95 transition-all border border-white/5"
 						>
@@ -157,9 +182,11 @@ export const AirdropPage: Component = () => {
 
 			{/* ═══════ OFFLINE EARNINGS MODAL (Premium Reward Screen) ═══════ */}
 			<Show when={offlineEarnings() > 0}>
-				<div class="fixed inset-0 z-[100] flex items-center justify-center p-5 bg-black/80 backdrop-blur-md animate-fade-in" dir="rtl">
+				<div
+					class="fixed inset-0 z-[100] flex items-center justify-center p-5 bg-black/80 backdrop-blur-md animate-fade-in"
+					dir="rtl"
+				>
 					<div class="bg-[#12141C] w-full max-w-sm rounded-[32px] p-7 flex flex-col items-center shadow-[0_20px_60px_rgba(0,0,0,0.8)] border border-white/10 relative overflow-hidden animate-slide-up">
-						
 						{/* Ambient Glows */}
 						<div class="absolute -top-10 -left-10 w-48 h-48 bg-amber-500/20 rounded-full blur-3xl pointer-events-none" />
 						<div class="absolute -bottom-10 -right-10 w-48 h-48 bg-orange-500/20 rounded-full blur-3xl pointer-events-none" />
@@ -175,14 +202,18 @@ export const AirdropPage: Component = () => {
 							{t('airdropFinal.bot.collected' as any) || 'Bot Collected'}
 						</h3>
 						<p class="text-white/60 text-center text-[13px] mb-6 z-10 font-medium px-2 leading-relaxed">
-							{t('airdropFinal.bot.description' as any) || 'Your Tap-Bot has been mining while you were away!'}
+							{t('airdropFinal.bot.description' as any) ||
+								'Your Tap-Bot has been mining while you were away!'}
 						</p>
 
 						{/* Earnings Badge */}
 						<div class="bg-[#08090D] rounded-[24px] p-4 w-full flex items-center justify-center gap-4 mb-6 z-10 border border-amber-500/20 shadow-inner relative overflow-hidden">
 							<div class="absolute inset-0 bg-amber-500/5 pointer-events-none" />
 							<div class="w-14 h-14 rounded-[16px] bg-amber-500/10 flex items-center justify-center border border-amber-500/20 shrink-0">
-								<span class="material-symbols-outlined text-amber-400 text-[32px] drop-shadow-sm" style={{ 'font-variation-settings': '"FILL" 1' }}>
+								<span
+									class="material-symbols-outlined text-amber-400 text-[32px] drop-shadow-sm"
+									style={{ 'font-variation-settings': '"FILL" 1' }}
+								>
 									monetization_on
 								</span>
 							</div>
@@ -198,6 +229,7 @@ export const AirdropPage: Component = () => {
 
 						{/* Claim Button */}
 						<button
+							type="button"
 							onClick={() => setOfflineEarnings(0)}
 							class="w-full h-14 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 rounded-[18px] text-black font-black text-[14px] uppercase tracking-widest active:scale-95 transition-all shadow-[0_8px_24px_rgba(245,158,11,0.3)] z-10 border border-white/10"
 						>

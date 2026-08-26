@@ -1,13 +1,16 @@
-import { createSignal, Show, For, type Component } from 'solid-js';
-import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
+import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
+import { type Component, createSignal, For, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/api/ownerApi.js';
 import type { BroadcastMessage } from '@/entities/owner/model/types.js';
+import { t } from '@/shared/i18n/index.js';
 
 export const OwnerBroadcast: Component = () => {
 	const queryClient = useQueryClient();
 
 	// Form State
-	const [targetAudience, setTargetAudience] = createSignal<'all' | 'premium' | 'active_7d' | 'inactive'>('all');
+	const [targetAudience, setTargetAudience] = createSignal<
+		'all' | 'premium' | 'active_7d' | 'inactive'
+	>('all');
 	const [messageText, setMessageText] = createSignal('');
 	const [isScheduled, setIsScheduled] = createSignal(false);
 	const [scheduledAt, setScheduledAt] = createSignal('');
@@ -55,7 +58,8 @@ export const OwnerBroadcast: Component = () => {
 		createBroadcastMutation.mutate({
 			target_audience: targetAudience(),
 			message: messageText().trim(),
-			scheduled_at: isScheduled() && scheduledAt() ? new Date(scheduledAt()).toISOString() : undefined,
+			scheduled_at:
+				isScheduled() && scheduledAt() ? new Date(scheduledAt()).toISOString() : undefined,
 		});
 	};
 
@@ -65,10 +69,8 @@ export const OwnerBroadcast: Component = () => {
 		<div class="space-y-6">
 			{/* Header */}
 			<div>
-				<h2 class="text-lg font-bold text-white">Broadcast Engine & Queue</h2>
-				<p class="text-xs text-white/50">
-					Scheduled rate-limited broadcaster (~25 msg/s) with real-time progress and audience dry-run
-				</p>
+				<h2 class="text-lg font-bold text-white">{t('ownerBroadcast.title')}</h2>
+				<p class="text-xs text-white/50">{t('ownerBroadcast.subtitle')}</p>
 			</div>
 
 			{/* Compose Card */}
@@ -77,26 +79,28 @@ export const OwnerBroadcast: Component = () => {
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
 					<div class="flex items-center gap-2">
 						<span class="material-symbols-rounded text-amber-400">send</span>
-						<h3 class="text-sm font-bold text-white">New Broadcast Message</h3>
+						<h3 class="text-sm font-bold text-white">{t('ownerBroadcast.newMessageTitle')}</h3>
 					</div>
 
 					<form onSubmit={handleSubmit} class="space-y-4">
 						{/* Target Audience */}
 						<div>
 							<div class="flex items-center justify-between text-xs mb-1.5">
-								<span class="text-white/60">Target Audience</span>
+								<span class="text-white/60">{t('ownerBroadcast.targetAudience')}</span>
 								<span class="text-amber-400 font-mono">
 									{audienceCountQuery.isLoading
-										? 'Counting...'
-										: `${(audienceCountQuery.data?.count ?? 0).toLocaleString()} users targeted`}
+										? t('ownerBroadcast.counting')
+										: t('ownerBroadcast.usersTargeted', {
+												count: (audienceCountQuery.data?.count ?? 0).toLocaleString(),
+											})}
 								</span>
 							</div>
 							<div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
 								{[
-									{ id: 'all', label: 'All Users' },
-									{ id: 'premium', label: 'Premium Only' },
-									{ id: 'active_7d', label: 'Active 7D' },
-									{ id: 'inactive', label: 'Inactive' },
+									{ id: 'all', label: t('ownerBroadcast.allUsers') },
+									{ id: 'premium', label: t('ownerBroadcast.premiumOnly') },
+									{ id: 'active_7d', label: t('ownerBroadcast.active7d') },
+									{ id: 'inactive', label: t('ownerBroadcast.inactive') },
 								].map((aud) => (
 									<button
 										type="button"
@@ -115,34 +119,34 @@ export const OwnerBroadcast: Component = () => {
 
 						{/* Formatting Toolbar */}
 						<div class="flex items-center gap-1.5 border-t border-b border-white/10 py-2 text-xs">
-							<span class="text-white/40 text-[11px] mr-1">HTML Tags:</span>
+							<span class="text-white/40 text-[11px] mr-1">{t('ownerBroadcast.htmlTags')}</span>
 							<button
 								type="button"
 								onClick={() => insertTag('<b>', '</b>')}
 								class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-white font-bold"
 							>
-								&lt;b&gt;
+								{'<b>'}
 							</button>
 							<button
 								type="button"
 								onClick={() => insertTag('<i>', '</i>')}
 								class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-white italic"
 							>
-								&lt;i&gt;
+								{'<i>'}
 							</button>
 							<button
 								type="button"
 								onClick={() => insertTag('<a href="https://t.me/...">', '</a>')}
 								class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-amber-400"
 							>
-								&lt;a&gt;
+								{'<a>'}
 							</button>
 							<button
 								type="button"
 								onClick={() => insertTag('<code>', '</code>')}
 								class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-sky-400 font-mono"
 							>
-								&lt;code&gt;
+								{'<code>'}
 							</button>
 						</div>
 
@@ -150,7 +154,7 @@ export const OwnerBroadcast: Component = () => {
 						<div>
 							<textarea
 								rows={5}
-								placeholder="Compose broadcast message in HTML format..."
+								placeholder={t('ownerBroadcast.placeholder')}
 								value={messageText()}
 								onInput={(e) => setMessageText(e.currentTarget.value)}
 								class="w-full p-3.5 rounded-2xl bg-white/5 border border-white/15 text-white text-xs placeholder:text-white/30 focus:border-amber-400 focus:outline-none resize-none font-sans leading-relaxed"
@@ -160,15 +164,15 @@ export const OwnerBroadcast: Component = () => {
 
 						{/* Scheduling Option */}
 						<div class="space-y-2 rounded-2xl bg-white/[0.02] border border-white/5 p-3.5">
-							<label class="flex items-center gap-2 text-xs text-white cursor-pointer select-none">
+							<div class="flex items-center gap-2 text-xs text-white cursor-pointer select-none">
 								<input
 									type="checkbox"
 									checked={isScheduled()}
 									onChange={(e) => setIsScheduled(e.currentTarget.checked)}
 									class="rounded accent-amber-500 h-4 w-4"
 								/>
-								<span>Schedule for later delivery</span>
-							</label>
+								<span>{t('ownerBroadcast.scheduleLater')}</span>
+							</div>
 
 							<Show when={isScheduled()}>
 								<div class="pt-2">
@@ -190,10 +194,16 @@ export const OwnerBroadcast: Component = () => {
 						>
 							<Show
 								when={createBroadcastMutation.isPending}
-								fallback={<span>{isScheduled() ? 'Schedule Broadcast' : 'Queue Immediately (~25 msg/s)'}</span>}
+								fallback={
+									<span>
+										{isScheduled()
+											? t('ownerBroadcast.scheduleBroadcast')
+											: t('ownerBroadcast.queueImmediately')}
+									</span>
+								}
 							>
 								<div class="h-4 w-4 animate-spin rounded-full border-2 border-black border-t-transparent" />
-								<span>Queueing...</span>
+								<span>{t('ownerBroadcast.queueing')}</span>
 							</Show>
 						</button>
 					</form>
@@ -203,13 +213,17 @@ export const OwnerBroadcast: Component = () => {
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-4 flex flex-col">
 					<div class="flex items-center gap-2">
 						<span class="material-symbols-rounded text-sky-400">preview</span>
-						<h3 class="text-sm font-bold text-white">Live Telegram HTML Preview</h3>
+						<h3 class="text-sm font-bold text-white">{t('ownerBroadcast.previewTitle')}</h3>
 					</div>
 
 					<div class="flex-1 rounded-2xl border border-white/10 bg-[#17212b] p-4 text-white text-xs leading-relaxed overflow-y-auto">
 						<Show
 							when={messageText().trim()}
-							fallback={<div class="text-white/30 italic text-center my-auto">Type your message to see Telegram formatting preview...</div>}
+							fallback={
+								<div class="text-white/30 italic text-center my-auto">
+									{t('ownerBroadcast.previewEmpty')}
+								</div>
+							}
 						>
 							<div
 								innerHTML={messageText()}
@@ -217,9 +231,7 @@ export const OwnerBroadcast: Component = () => {
 							/>
 						</Show>
 					</div>
-					<div class="text-[11px] text-white/40 text-center">
-						Preview simulates Telegram client bubble styling
-					</div>
+					<div class="text-[11px] text-white/40 text-center">{t('ownerBroadcast.previewNote')}</div>
 				</div>
 			</div>
 
@@ -228,7 +240,7 @@ export const OwnerBroadcast: Component = () => {
 				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-2">
 						<span class="material-symbols-rounded text-amber-400">queue</span>
-						<span class="text-sm font-bold text-white">Broadcast Queue & Status</span>
+						<span class="text-sm font-bold text-white">{t('ownerBroadcast.queueTitle')}</span>
 					</div>
 				</div>
 
@@ -236,12 +248,12 @@ export const OwnerBroadcast: Component = () => {
 					<table class="w-full text-left text-xs">
 						<thead>
 							<tr class="border-b border-white/10 text-white/40">
-								<th class="pb-3 font-medium">Audience & Message</th>
-								<th class="pb-3 font-medium">Status</th>
-								<th class="pb-3 font-medium">Progress</th>
-								<th class="pb-3 font-medium">Scheduled</th>
-								<th class="pb-3 font-medium">Failed</th>
-								<th class="pb-3 font-medium text-right">Control</th>
+								<th class="pb-3 font-medium">{t('ownerBroadcast.thAudienceMessage')}</th>
+								<th class="pb-3 font-medium">{t('ownerBroadcast.thStatus')}</th>
+								<th class="pb-3 font-medium">{t('ownerBroadcast.thProgress')}</th>
+								<th class="pb-3 font-medium">{t('ownerBroadcast.thScheduled')}</th>
+								<th class="pb-3 font-medium">{t('ownerBroadcast.thFailed')}</th>
+								<th class="pb-3 font-medium text-right">{t('ownerBroadcast.thControl')}</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-white/5">
@@ -250,21 +262,26 @@ export const OwnerBroadcast: Component = () => {
 								fallback={
 									<tr>
 										<td colspan="6" class="py-8 text-center text-white/40">
-											{broadcastsQuery.isLoading ? 'Loading queue...' : 'No broadcasts in queue'}
+											{broadcastsQuery.isLoading
+												? t('ownerBroadcast.loadingQueue')
+												: t('ownerBroadcast.emptyQueue')}
 										</td>
 									</tr>
 								}
 							>
 								<For each={broadcasts()}>
 									{(b) => {
-										const pct = () => (b.total_count > 0 ? (b.sent_count / b.total_count) * 100 : 0);
+										const pct = () =>
+											b.total_count > 0 ? (b.sent_count / b.total_count) * 100 : 0;
 										return (
 											<tr class="hover:bg-white/[0.02] transition">
 												<td class="py-3 max-w-[280px]">
 													<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/5 text-amber-400 border border-white/10 uppercase mr-2">
 														{b.target_audience}
 													</span>
-													<div class="truncate text-white/80 mt-1">{b.message || b.message_text}</div>
+													<div class="truncate text-white/80 mt-1">
+														{b.message || b.message_text}
+													</div>
 												</td>
 												<td class="py-3">
 													<span
@@ -272,12 +289,12 @@ export const OwnerBroadcast: Component = () => {
 															b.status === 'completed'
 																? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
 																: b.status === 'sending'
-																? 'bg-sky-500/10 text-sky-400 border border-sky-500/20 animate-pulse'
-																: b.status === 'paused'
-																? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
-																: b.status === 'failed'
-																? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-																: 'bg-white/5 text-white/50'
+																	? 'bg-sky-500/10 text-sky-400 border border-sky-500/20 animate-pulse'
+																	: b.status === 'paused'
+																		? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
+																		: b.status === 'failed'
+																			? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+																			: 'bg-white/5 text-white/50'
 														}`}
 													>
 														{b.status}
@@ -285,7 +302,8 @@ export const OwnerBroadcast: Component = () => {
 												</td>
 												<td class="py-3 w-40">
 													<div class="text-[11px] font-mono text-white/70 mb-1">
-														{b.sent_count.toLocaleString()} / {b.total_count.toLocaleString()} ({pct().toFixed(0)}%)
+														{b.sent_count.toLocaleString()} / {b.total_count.toLocaleString()} (
+														{pct().toFixed(0)}%)
 													</div>
 													<div class="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
 														<div
@@ -295,7 +313,9 @@ export const OwnerBroadcast: Component = () => {
 													</div>
 												</td>
 												<td class="py-3 text-white/50">
-													{b.scheduled_at ? new Date(b.scheduled_at).toLocaleString() : 'Immediate'}
+													{b.scheduled_at
+														? new Date(b.scheduled_at).toLocaleString()
+														: t('ownerBroadcast.immediate')}
 												</td>
 												<td class="py-3 font-mono text-rose-400 font-bold">
 													{(b.failed_count ?? 0).toLocaleString()}
@@ -304,18 +324,20 @@ export const OwnerBroadcast: Component = () => {
 													<div class="flex items-center justify-end gap-1.5">
 														<Show when={b.status === 'sending'}>
 															<button
+																type="button"
 																onClick={() => pauseMutation.mutate(b.id)}
 																class="px-2.5 py-1 rounded-lg bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 font-medium text-xs"
 															>
-																Pause
+																{t('ownerBroadcast.pause')}
 															</button>
 														</Show>
 														<Show when={b.status === 'paused'}>
 															<button
+																type="button"
 																onClick={() => resumeMutation.mutate(b.id)}
 																class="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-medium text-xs"
 															>
-																Resume
+																{t('ownerBroadcast.resume')}
 															</button>
 														</Show>
 													</div>

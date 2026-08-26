@@ -1,9 +1,9 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
 import createFocusTrap from 'solid-focus-trap';
-import { Component, createResource, For, Show } from 'solid-js';
-import { channelApi } from '../api/channelApi.js';
+import { type Component, createResource, For, Show } from 'solid-js';
 import { isRtl, t } from '@/shared/i18n/index.js';
+import { channelApi } from '../api/channelApi.js';
 
 interface ChannelHamburgerMenuProps {
 	isOpen: boolean;
@@ -26,19 +26,84 @@ export const ChannelHamburgerMenu: Component<ChannelHamburgerMenuProps> = (props
 	});
 
 	const menuItems = () => [
-		{ id: 'dashboard', label: t('channel.menu.dashboard' as any) || 'Dashboard', path: `/channel/${props.channelId}/dashboard`, icon: '📊' },
-		{ id: 'health', label: t('channel.menu.health' as any) || 'Health & Audit', path: `/channel/${props.channelId}/health`, icon: '🩺' },
-		{ id: 'projects', label: t('channel.menu.projects' as any) || 'Projects', path: `/channel/${props.channelId}/projects`, icon: '⚡' },
-		{ id: 'general', label: t('channel.menu.generalSettings' as any) || 'General Settings', path: `/channel/${props.channelId}/general`, icon: '⚙️' },
-		{ id: 'posting', label: t('channel.menu.posting' as any) || 'AI & Posting', path: `/channel/${props.channelId}/posting`, icon: '📝' },
-		{ id: 'forwarding', label: t('channel.menu.forwarding' as any) || 'Auto Forwarding', path: `/channel/${props.channelId}/forwarding`, icon: '🔄' },
-		{ id: 'inline-buttons', label: t('channel.menu.inlineButtons' as any) || 'Inline Buttons', path: `/channel/${props.channelId}/inline-buttons`, icon: '🔘' },
-		{ id: 'auto-responder', label: t('channel.menu.autoResponder' as any) || 'Auto Responder', path: `/channel/${props.channelId}/auto-responder`, icon: '🤖' },
-		{ id: 'dynamic-bio', label: t('channel.menu.dynamicBio' as any) || 'Dynamic Bio', path: `/channel/${props.channelId}/dynamic-bio`, icon: '✨' },
-		{ id: 'members', label: t('channel.menu.members' as any) || 'Members Moderation', path: `/channel/${props.channelId}/members`, icon: '🛡️' },
-		{ id: 'admins', label: t('channel.menu.admins' as any) || 'Administrators', path: `/channel/${props.channelId}/admins`, icon: '👥' },
-		{ id: 'analytics', label: t('channel.menu.analytics' as any) || 'Analytics', path: `/channel/${props.channelId}/analytics`, icon: '📈' },
-		{ id: 'audit-log', label: t('channel.menu.auditLog' as any) || 'Audit Log', path: `/channel/${props.channelId}/audit-log`, icon: '📜' },
+		{
+			id: 'dashboard',
+			label: t('channel.menu.dashboard' as any) || 'Dashboard',
+			path: `/channel/${props.channelId}/dashboard`,
+			icon: '📊',
+		},
+		{
+			id: 'health',
+			label: t('channel.menu.health' as any) || 'Health & Audit',
+			path: `/channel/${props.channelId}/health`,
+			icon: '🩺',
+		},
+		{
+			id: 'projects',
+			label: t('channel.menu.projects' as any) || 'Projects',
+			path: `/channel/${props.channelId}/projects`,
+			icon: '⚡',
+		},
+		{
+			id: 'general',
+			label: t('channel.menu.generalSettings' as any) || 'General Settings',
+			path: `/channel/${props.channelId}/general`,
+			icon: '⚙️',
+		},
+		{
+			id: 'posting',
+			label: t('channel.menu.posting' as any) || 'AI & Posting',
+			path: `/channel/${props.channelId}/posting`,
+			icon: '📝',
+		},
+		{
+			id: 'forwarding',
+			label: t('channel.menu.forwarding' as any) || 'Auto Forwarding',
+			path: `/channel/${props.channelId}/forwarding`,
+			icon: '🔄',
+		},
+		{
+			id: 'inline-buttons',
+			label: t('channel.menu.inlineButtons' as any) || 'Inline Buttons',
+			path: `/channel/${props.channelId}/inline-buttons`,
+			icon: '🔘',
+		},
+		{
+			id: 'auto-responder',
+			label: t('channel.menu.autoResponder' as any) || 'Auto Responder',
+			path: `/channel/${props.channelId}/auto-responder`,
+			icon: '🤖',
+		},
+		{
+			id: 'dynamic-bio',
+			label: t('channel.menu.dynamicBio' as any) || 'Dynamic Bio',
+			path: `/channel/${props.channelId}/dynamic-bio`,
+			icon: '✨',
+		},
+		{
+			id: 'members',
+			label: t('channel.menu.members' as any) || 'Members Moderation',
+			path: `/channel/${props.channelId}/members`,
+			icon: '🛡️',
+		},
+		{
+			id: 'admins',
+			label: t('channel.menu.admins' as any) || 'Administrators',
+			path: `/channel/${props.channelId}/admins`,
+			icon: '👥',
+		},
+		{
+			id: 'analytics',
+			label: t('channel.menu.analytics' as any) || 'Analytics',
+			path: `/channel/${props.channelId}/analytics`,
+			icon: '📈',
+		},
+		{
+			id: 'audit-log',
+			label: t('channel.menu.auditLog' as any) || 'Audit Log',
+			path: `/channel/${props.channelId}/audit-log`,
+			icon: '📜',
+		},
 	];
 
 	return (

@@ -1,10 +1,10 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
-import { Component, createEffect, createSignal, Show } from 'solid-js';
-import { isRtl, t } from '@/shared/i18n/index.js';
-import { haptic } from '@/shared/lib/haptic.js';
-import { lastDemoAction, useDemoMode } from '@/shared/lib/demo-mode.js';
+import { type Component, createEffect, createSignal, Show } from 'solid-js';
 import { resetDemoState } from '@/shared/api/demo-fixtures.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
+import { lastDemoAction, useDemoMode } from '@/shared/lib/demo-mode.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 export const DemoBanner: Component = () => {
 	const demo = useDemoMode();
@@ -51,11 +51,17 @@ export const DemoBanner: Component = () => {
 							</p>
 						</div>
 						<button
-							onClick={() => { haptic.impact('light'); setExpanded(!expanded()); }}
+							type="button"
+							onClick={() => {
+								haptic.impact('light');
+								setExpanded(!expanded());
+							}}
 							class="w-8 h-8 rounded-[10px] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/5 transition-colors shrink-0"
 							aria-label={t('common.more' as any)}
 						>
-							<span class={`material-symbols-outlined text-[20px] transition-transform ${expanded() ? 'rotate-180' : ''}`}>
+							<span
+								class={`material-symbols-outlined text-[20px] transition-transform ${expanded() ? 'rotate-180' : ''}`}
+							>
 								expand_less
 							</span>
 						</button>
@@ -68,6 +74,7 @@ export const DemoBanner: Component = () => {
 							</p>
 							<div class="flex gap-2">
 								<button
+									type="button"
 									onClick={() => {
 										haptic.impact('medium');
 										navigate(demo().kind === 'channel' ? '/channel/connect' : '/managed-bots');
@@ -78,6 +85,7 @@ export const DemoBanner: Component = () => {
 									{demo().kind === 'channel' ? t('demo.ctaChannel') : t('demo.ctaGroup')}
 								</button>
 								<button
+									type="button"
 									onClick={exitDemo}
 									class="h-11 px-4 rounded-[14px] bg-white/5 hover:bg-white/10 text-white/60 text-[12px] font-bold active:scale-95 transition-all border border-white/5"
 								>

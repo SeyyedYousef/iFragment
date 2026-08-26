@@ -1,7 +1,7 @@
 import { useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
 import { backButton } from '@tma.js/sdk-solid';
-import { Component, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
+import { type Component, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
 import {
 	type Clan,
 	getLeaderboard,
@@ -10,8 +10,8 @@ import {
 	type LeaderboardMember,
 } from '@/entities/user/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
-import { type LeaderboardEntry, LeaderboardShell } from '@/widgets/leaderboard/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
+import { type LeaderboardEntry, LeaderboardShell } from '@/widgets/leaderboard/index.js';
 
 export const LeaderboardPage: Component = () => {
 	const navigate = useNavigate();

@@ -270,6 +270,9 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 				r.Use(middleware.AuthMiddleware)
 				r.Get("/credits", cfg.IntelCreditHandler.GetBalance)
 				r.Post("/credits/consume", cfg.IntelCreditHandler.Consume)
+				r.Get("/credits/config", cfg.IntelCreditHandler.GetStoreConfig)
+				r.Post("/credits/exchange-coins", cfg.IntelCreditHandler.ExchangeCoins)
+				r.Post("/credits/purchase", cfg.IntelCreditHandler.Purchase)
 			})
 		}
 
@@ -364,4 +367,3 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 		})
 	})
 }
-

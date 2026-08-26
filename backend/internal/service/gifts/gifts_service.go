@@ -11,6 +11,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
+	"ifragment-backend/internal/client/telegram"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/cryptoprice"
 	"ifragment-backend/internal/service/gifts/crafting"
@@ -35,6 +36,7 @@ type GiftsService struct {
 	creditRepo  *repository.IntelCreditRepo
 	engine      *gvengine.ValuationEngine
 	cryptoPrice *cryptoprice.CryptoPriceService
+	tgClient    *telegram.BotAPIClient
 }
 
 func NewGiftsService(
@@ -53,6 +55,14 @@ func NewGiftsService(
 		engine:      engine,
 		cryptoPrice: cryptoPrice,
 	}
+}
+
+func (s *GiftsService) SetTelegramClient(tg *telegram.BotAPIClient) {
+	s.tgClient = tg
+}
+
+func (s *GiftsService) GetSnapshotWorker() *venues.VenueSnapshotWorker {
+	return venues.NewVenueSnapshotWorker(s.repo, s.cryptoPrice, 3*time.Minute)
 }
 
 // GiftsIntelResponse holds the public market intelligence overview
@@ -402,17 +412,76 @@ func (s *GiftsService) ScanPortfolio(ctx context.Context, username string) (*Por
 		}
 	}
 
-	// Look up any verified reports or sales associated with user in database
 	items := make([]PortfolioItemSummary, 0)
-	breakdown := make([]CollectionShareItem, 0)
+	seenGifts := make(map[string]bool)
+	modelCounts := make(map[string]int)
+	modelValues := make(map[string]float64)
 	totalGRAM := 0.0
+	historicalInvested := 0.0
 
+	// 1. Look up Telegram user ID
+	var telegramID int64
 	if s.db != nil && s.db.Pool != nil {
+		_ = s.db.Pool.QueryRow(ctx, "SELECT telegram_id FROM users WHERE LOWER(username) = $1 LIMIT 1", cleanUser).Scan(&telegramID)
+	}
+
+	// 2. Fetch live gifts via Bot API if available and user is known
+	if s.tgClient != nil && telegramID > 0 {
+		tgGifts, _, err := s.tgClient.GetUserGifts(ctx, telegramID, 50)
+		if err == nil {
+			for _, g := range tgGifts {
+				if g.IsBurned {
+					continue
+				}
+				gID := g.GiftID
+				if gID == "" {
+					gID = fmt.Sprintf("%s-%d", strings.ToLower(strings.ReplaceAll(g.Model, " ", "_")), g.Number)
+				}
+				if seenGifts[gID] {
+					continue
+				}
+				seenGifts[gID] = true
+
+				col, _ := traits.ResolveCollection(g.Model)
+				valGRAM := col.InitialFloorGRAM
+				if valGRAM <= 0 {
+					valGRAM = 20.0
+				}
+				if g.LastResaleAmount > 0 {
+					historicalInvested += g.LastResaleAmount
+				} else {
+					historicalInvested += valGRAM * 0.8
+				}
+
+				totalGRAM += valGRAM
+				modelCounts[col.ModelID]++
+				modelValues[col.ModelID] += valGRAM
+
+				rarity := "Measured"
+				if g.Rarity > 0 {
+					rarity = "Exact"
+				}
+
+				items = append(items, PortfolioItemSummary{
+					GiftID:           gID,
+					ModelName:        col.Name,
+					SerialNumber:     int(g.Number),
+					EstimatedValGRAM: round2(valGRAM),
+					EstimatedValUSD:  round2(valGRAM * gramUsdRate),
+					RarityTier:       rarity,
+					ReportDeepLink:   fmt.Sprintf("/gifts/report?g=%s", gID),
+				})
+			}
+		}
+	}
+
+	// 3. Supplement with user's verified reports or purchased assets from database
+	if s.db != nil && s.db.Pool != nil && telegramID > 0 {
 		rows, err := s.db.Pool.Query(ctx, `
 			SELECT gift_id, model_id, serial_number, fair_value_nano_gram
 			FROM gift_reports
-			WHERE user_id = (SELECT telegram_id FROM users WHERE LOWER(username) = $1 LIMIT 1)
-			ORDER BY purchased_at DESC LIMIT 20`, cleanUser)
+			WHERE user_id = $1
+			ORDER BY purchased_at DESC LIMIT 20`, telegramID)
 		if err == nil {
 			defer rows.Close()
 			for rows.Next() {
@@ -420,11 +489,20 @@ func (s *GiftsService) ScanPortfolio(ctx context.Context, username string) (*Por
 				var sNum int
 				var fNano int64
 				if err := rows.Scan(&gID, &mID, &sNum, &fNano); err == nil {
+					if seenGifts[gID] {
+						continue
+					}
+					seenGifts[gID] = true
 					valGRAM := float64(fNano) / 1e9
 					totalGRAM += valGRAM
+					historicalInvested += valGRAM * 0.85
+					col, _ := traits.ResolveCollection(mID)
+					modelCounts[col.ModelID]++
+					modelValues[col.ModelID] += valGRAM
+
 					items = append(items, PortfolioItemSummary{
 						GiftID:           gID,
-						ModelName:        mID,
+						ModelName:        col.Name,
 						SerialNumber:     sNum,
 						EstimatedValGRAM: round2(valGRAM),
 						EstimatedValUSD:  round2(valGRAM * gramUsdRate),
@@ -436,14 +514,39 @@ func (s *GiftsService) ScanPortfolio(ctx context.Context, username string) (*Por
 		}
 	}
 
+	// 4. Compute Collection Breakdown
+	breakdown := make([]CollectionShareItem, 0, len(modelCounts))
+	for mID, count := range modelCounts {
+		col, _ := traits.ResolveCollection(mID)
+		vGRAM := modelValues[mID]
+		sharePct := 0.0
+		if totalGRAM > 0 {
+			sharePct = round2((vGRAM / totalGRAM) * 100.0)
+		}
+		breakdown = append(breakdown, CollectionShareItem{
+			ModelID:      mID,
+			ModelName:    col.Name,
+			Count:        count,
+			TotalValGRAM: round2(vGRAM),
+			SharePercent: sharePct,
+		})
+	}
+
+	pnlGRAM := 0.0
+	pnlPct := 0.0
+	if historicalInvested > 0 {
+		pnlGRAM = round2(totalGRAM - historicalInvested)
+		pnlPct = round2((pnlGRAM / historicalInvested) * 100.0)
+	}
+
 	return &PortfolioScanResponse{
 		Username:               cleanUser,
 		TotalGiftsCount:        len(items),
 		TotalPortfolioValGRAM:  round2(totalGRAM),
 		TotalPortfolioValUSD:   round2(totalGRAM * gramUsdRate),
-		HistoricalInvestedGRAM: round2(totalGRAM),
-		TotalPnLGRAM:           0,
-		TotalPnLPercent:        0,
+		HistoricalInvestedGRAM: round2(historicalInvested),
+		TotalPnLGRAM:           pnlGRAM,
+		TotalPnLPercent:        pnlPct,
 		TopValuedGifts:         items,
 		CollectionBreakdown:    breakdown,
 		ScannedAt:              time.Now().UTC(),

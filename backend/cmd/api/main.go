@@ -35,6 +35,7 @@ import (
 	"ifragment-backend/internal/service/gifts"
 	"ifragment-backend/internal/service/intelcredit"
 	"ifragment-backend/internal/service/numbers"
+	numbersindexer "ifragment-backend/internal/service/numbers/indexer"
 	"ifragment-backend/internal/service/payment"
 	"ifragment-backend/internal/service/username"
 	"ifragment-backend/internal/service/username/avm"
@@ -469,8 +470,20 @@ func main() {
 	numbersService := numbers.NewNumbersService(db, cache, cryptoPriceService)
 	numbersHandler := handler.NewNumbersHandler(numbersService)
 
+	// 🚀 Start Background Numbers Sales Indexer
+	if db != nil && tonClient != nil {
+		numbersSalesIndexer := numbersindexer.NewNumbersSalesIndexer(tonClient, db, cryptoPriceService)
+		numbersSalesIndexer.StartBackgroundLoop(ctx, 30*time.Second)
+	}
+
 	// Initialize Gifts Vertical (Vertical 3 — Largest Vertical)
 	giftsService := gifts.NewGiftsService(db, cache, cryptoPriceService)
+	if botToken != "" {
+		giftsService.SetTelegramClient(telegram.NewBotAPIClient(botToken))
+	}
+	if giftsService.GetSnapshotWorker() != nil {
+		go giftsService.GetSnapshotWorker().Start(ctx)
+	}
 	giftsHandler := handler.NewGiftsHandler(giftsService)
 
 	// Initialize Intel Credits System

@@ -1,6 +1,6 @@
-import { Component, createMemo, For, Show } from 'solid-js';
-import { t } from '@/shared/i18n/index.js';
+import { type Component, createMemo, For, Show } from 'solid-js';
 import { ACHIEVEMENT_DEFS, type Achievement } from '@/entities/user/index.js';
+import { t } from '@/shared/i18n/index.js';
 
 interface Props {
 	achievements: Achievement[];

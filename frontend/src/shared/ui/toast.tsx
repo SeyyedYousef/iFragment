@@ -1,5 +1,5 @@
 import { Motion } from '@motionone/solid';
-import { Component, createSignal, For, onCleanup, onMount } from 'solid-js';
+import { type Component, createSignal, For, onCleanup, onMount } from 'solid-js';
 
 interface ToastProps {
 	message: string;
@@ -10,7 +10,7 @@ interface ToastProps {
 
 export const Toast: Component<ToastProps> = (props) => {
 	let timer: any;
-	
+
 	onMount(() => {
 		timer = setTimeout(props.onClose, props.duration);
 		onCleanup(() => clearTimeout(timer));
@@ -87,13 +87,17 @@ interface ToastItem {
 
 const [toasts, setToasts] = createSignal<ToastItem[]>([]);
 
-export const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info', options?: { duration?: number }) => {
+export const showToast = (
+	message: string,
+	type: 'success' | 'error' | 'info' = 'info',
+	options?: { duration?: number },
+) => {
 	const id = Date.now();
 	let duration = options?.duration;
 	if (!duration) {
 		duration = type === 'success' ? 3000 : type === 'error' ? 6000 : 4000;
 	}
-	
+
 	setToasts((prev) => {
 		const newToasts = [...prev, { id, message, type, duration }];
 		if (newToasts.length > 3) {

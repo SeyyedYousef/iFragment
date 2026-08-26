@@ -1,11 +1,11 @@
-import { Component, createMemo, For, Show } from 'solid-js';
+import { type Component, createMemo, For, Show } from 'solid-js';
+import { formatNumber, t } from '@/shared/i18n/index.js';
+import { haptic } from '@/shared/lib/haptic.js';
 import {
 	calculateDiscountForPlan,
 	DISCOUNT_TIERS,
-	DiscountTier,
+	type DiscountTier,
 } from '@/shared/lib/stars-calculator.js';
-import { formatNumber, t } from '@/shared/i18n/index.js';
-import { haptic } from '@/shared/lib/haptic.js';
 
 export interface PaymentDiscountProps {
 	baseUsd: number;
@@ -57,14 +57,14 @@ export const PaymentDiscountCard: Component<PaymentDiscountProps> = (props) => {
 					<div class="flex flex-col text-start min-w-0">
 						<div class="flex items-center gap-1.5 flex-wrap">
 							<span class="text-white font-black text-[14.5px] tracking-tight truncate">
-								{t('shopInfo.applyDiscountTitle' as any) || 'گرفتن تخفیف با سکه‌های جایزه'}
+								{t('shopInfo.applyDiscountTitle')}
 							</span>
 							<span class="text-[10px] font-black uppercase tracking-wider text-amber-400 bg-amber-400/15 border border-amber-400/30 px-1.5 py-0.5 rounded-[6px]">
-								75% MAX
+								{t('payDiscount.maxBadge' as any)}
 							</span>
 						</div>
 						<span class="text-white/55 text-[11.5px] font-medium leading-tight mt-0.5">
-							{t('shopInfo.applyDiscountSubtitle' as any) || 'کاهش هزینه پرداختی با مصرف سکه‌های ماین‌شده'}
+							{t('shopInfo.applyDiscountSubtitle')}
 						</span>
 					</div>
 				</div>
@@ -97,8 +97,10 @@ export const PaymentDiscountCard: Component<PaymentDiscountProps> = (props) => {
 					{/* Balance Bar */}
 					<div class="flex items-center justify-between bg-[#08090E]/90 px-3.5 py-2 rounded-[14px] border border-white/5">
 						<span class="text-white/60 text-[11.5px] font-bold flex items-center gap-1.5">
-							<span class="material-symbols-outlined text-[15px] text-amber-400">account_balance_wallet</span>
-							{t('shopInfo.selectDiscount' as any) || 'انتخاب درصد تخفیف:'}
+							<span class="material-symbols-outlined text-[15px] text-amber-400">
+								account_balance_wallet
+							</span>
+							{t('shopInfo.selectDiscount')}
 						</span>
 						<div class="flex items-center gap-1 font-mono text-[12px] font-black text-amber-400">
 							<span>{formatNumber(props.userCoins)}</span>
@@ -134,7 +136,7 @@ export const PaymentDiscountCard: Component<PaymentDiscountProps> = (props) => {
 										{/* Highlight Badge for 75% MAX */}
 										<Show when={tier.percent === 75}>
 											<div class="absolute top-0 right-0 bg-gradient-to-l from-amber-400 to-amber-600 text-black text-[8px] font-black px-1.5 py-0.5 rounded-bl-[8px] uppercase tracking-tighter">
-												MAX
+												{t('payDiscount.tierMaxBadge' as any)}
 											</div>
 										</Show>
 
@@ -153,7 +155,7 @@ export const PaymentDiscountCard: Component<PaymentDiscountProps> = (props) => {
 										{/* Insufficient Coins Warning */}
 										<Show when={!canAfford()}>
 											<span class="text-[8.5px] font-bold text-rose-400 mt-1 truncate">
-												کسری: {formatNumber(deficit())}
+												{t('payDiscount.deficit' as any, { amount: formatNumber(deficit()) })}
 											</span>
 										</Show>
 									</button>
@@ -167,17 +169,20 @@ export const PaymentDiscountCard: Component<PaymentDiscountProps> = (props) => {
 						<div class="flex justify-between items-center text-white/60">
 							<span class="flex items-center gap-1.5">
 								<span class="material-symbols-outlined text-[15px] text-white/40">sell</span>
-								{t('shopInfo.originalPrice' as any) || 'قیمت پایه:'}
+								{t('shopInfo.originalPrice')}
 							</span>
 							<span class="line-through font-mono font-bold text-white/50">
-								⭐ {calc().baseStars} Stars (${calc().baseUsd.toFixed(2)})
+								{t('payDiscount.basePriceLine' as any, {
+									stars: calc().baseStars,
+									usd: calc().baseUsd.toFixed(2),
+								})}
 							</span>
 						</div>
 
 						<div class="flex justify-between items-center text-emerald-400">
 							<span class="flex items-center gap-1.5 font-bold">
 								<span class="material-symbols-outlined text-[15px]">confirmation_number</span>
-								{t('shopInfo.coinsRequired' as any) || 'ووچر سکه جایزه:'}
+								{t('shopInfo.coinsRequired')}
 							</span>
 							<span class="font-mono font-black">
 								-{formatNumber(calc().requiredCoins)} 🪙 (-{calc().discountPercent}%)
@@ -187,13 +192,17 @@ export const PaymentDiscountCard: Component<PaymentDiscountProps> = (props) => {
 						<div class="border-t border-dashed border-white/15 pt-2.5 flex justify-between items-center text-white font-black text-[14.5px]">
 							<span class="flex items-center gap-1.5 text-amber-300">
 								<span class="material-symbols-outlined text-[17px] text-amber-400">payments</span>
-								{t('shopInfo.finalPrice' as any) || 'مبلغ قابل پرداخت:'}
+								{t('shopInfo.finalPrice')}
 							</span>
 							<div class="flex items-center gap-1.5 font-mono">
 								<span class="text-amber-400 font-black text-[16px] drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]">
-									⭐ {calc().finalStars} Stars
+									{t('payDiscount.finalPriceLine' as any, { stars: calc().finalStars })}
 								</span>
-								<span class="text-white/50 text-[12px]">(${calc().finalUsd.toFixed(2)})</span>
+								<span class="text-white/50 text-[12px]">
+									{t('payDiscount.usdAmount' as any, {
+										usd: calc().finalUsd.toFixed(2),
+									})}
+								</span>
 							</div>
 						</div>
 					</div>

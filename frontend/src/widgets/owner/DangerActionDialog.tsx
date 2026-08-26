@@ -1,4 +1,5 @@
-import { Component, createSignal, For, Show } from 'solid-js';
+import { type Component, createSignal, For, Show } from 'solid-js';
+import { t } from '@/shared/i18n/index.js';
 
 export interface DangerActionDetail {
 	label: string;
@@ -63,8 +64,9 @@ export const DangerActionDialog: Component<DangerActionDialogProps> = (props) =>
 
 					{/* Close Button */}
 					<button
+						type="button"
 						onClick={props.onClose}
-						aria-label="بستن پنجره"
+						aria-label={t('dangerAction.closeWindow')}
 						class="absolute top-5 end-5 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center border border-white/10 transition-all active:scale-95 text-white/70 hover:text-white"
 					>
 						<span class="material-symbols-outlined text-[18px]">close</span>
@@ -120,13 +122,13 @@ export const DangerActionDialog: Component<DangerActionDialogProps> = (props) =>
 					<form onSubmit={handleSubmit} class="space-y-4 mt-4">
 						<Show when={props.requireReason !== false}>
 							<div>
-								<label class="block text-[10px] text-white/60 font-black uppercase tracking-wider mb-1.5">
-									دلیل اجرای عملیات (الزامی جهت ثبت در لاگ امنیتی)
-								</label>
+								<div class="block text-[10px] text-white/60 font-black uppercase tracking-wider mb-1.5">
+									{t('dangerAction.reasonLabel')}
+								</div>
 								<textarea
 									value={reason()}
 									onInput={(e) => setReason(e.currentTarget.value)}
-									placeholder="مثال: دستور پشتیبانی / اصلاح خطا در خرید..."
+									placeholder={t('dangerAction.reasonPlaceholder')}
 									rows={2}
 									class="w-full bg-black/50 border border-white/10 focus:border-[#3390ec] rounded-xl p-3 text-xs text-white placeholder:text-white/20 focus:outline-none transition-all resize-none font-sans"
 									required
@@ -136,13 +138,13 @@ export const DangerActionDialog: Component<DangerActionDialogProps> = (props) =>
 
 						<Show when={props.confirmWord}>
 							<div>
-								<label class="block text-[10px] text-red-400 font-black uppercase tracking-wider mb-1.5">
-									جهت تایید، عبارت{' '}
+								<div class="block text-[10px] text-red-400 font-black uppercase tracking-wider mb-1.5">
+									{t('dangerAction.toConfirmType')}{' '}
 									<code class="bg-red-500/20 px-1 py-0.5 rounded text-red-300 font-mono">
 										{props.confirmWord}
 									</code>{' '}
-									را وارد کنید:
-								</label>
+									{t('dangerAction.typeBelow')}
+								</div>
 								<input
 									type="text"
 									value={typedWord()}
@@ -160,7 +162,7 @@ export const DangerActionDialog: Component<DangerActionDialogProps> = (props) =>
 								onClick={props.onClose}
 								class="flex-1 h-11 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 text-xs font-bold rounded-xl transition-all active:scale-95"
 							>
-								انصراف
+								{t('ownerCommon.cancel')}
 							</button>
 
 							<button
@@ -174,7 +176,7 @@ export const DangerActionDialog: Component<DangerActionDialogProps> = (props) =>
 							>
 								<Show when={props.loading} fallback={props.actionLabel}>
 									<span class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-									در حال پردازش...
+									{t('dangerAction.processing')}
 								</Show>
 							</button>
 						</div>

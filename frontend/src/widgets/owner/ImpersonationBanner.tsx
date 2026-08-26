@@ -1,5 +1,4 @@
-
-import { Component, createEffect, createSignal, onCleanup, Show } from 'solid-js';
+import { type Component, createEffect, createSignal, onCleanup, Show } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
@@ -120,24 +119,28 @@ export const ImpersonationBanner: Component = () => {
 
 				<div class="flex items-center gap-1.5">
 					<button
+						type="button"
 						onClick={() => navigateTo('/managed-channels')}
 						class="h-7 px-2.5 bg-white/15 hover:bg-white/25 active:scale-95 text-[11px] font-bold rounded-lg transition-all border border-white/20"
 					>
 						{t('bottomNav.channels') || 'Channels'}
 					</button>
 					<button
+						type="button"
 						onClick={() => navigateTo('/managed-bots')}
 						class="h-7 px-2.5 bg-white/15 hover:bg-white/25 active:scale-95 text-[11px] font-bold rounded-lg transition-all border border-white/20"
 					>
 						{t('bottomNav.groups') || 'Groups'}
 					</button>
 					<button
+						type="button"
 						onClick={() => navigateTo('/profile')}
 						class="h-7 px-2.5 bg-white/15 hover:bg-white/25 active:scale-95 text-[11px] font-bold rounded-lg transition-all border border-white/20"
 					>
 						{t('bottomNav.profile') || 'Profile'}
 					</button>
 					<button
+						type="button"
 						onClick={handleExitSimulation}
 						class="h-7 px-3 bg-white text-red-600 active:scale-95 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all shadow shadow-black/20"
 					>

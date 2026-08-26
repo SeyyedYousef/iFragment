@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), '../../.env'))
 
 DB_URL = os.getenv("DATABASE_URL")
-COLLECTION_URL = "https://getgems.io/collection/EQCA14o1-VWhS2efqoh_9M1b_A9DtKTuoqfmkn83AbJzwnPi"
+COLLECTION_URL = "https://getgems.io/collection/EQAOQdwdw8kGftJCSFgOErM1mXYYXPphTXjqIw35JGhJjpSf"
 
 def connect_db():
     try:
@@ -18,7 +18,7 @@ def connect_db():
         return None
 
 def main():
-    print("Starting GetGems Scraper using Scrapling...")
+    print("Starting GetGems Anonymous Numbers Scraper using Scrapling...")
     
     # Enable adaptive mode to survive minor layout changes
     StealthyFetcher.adaptive = True
@@ -29,34 +29,28 @@ def main():
         page = StealthyFetcher.fetch(COLLECTION_URL, headless=True)
         
         # Scrape Overall Stats
-        # Note: Selectors might need adjustment based on GetGems current layout,
-        # but Scrapling's adaptive parser helps heal them over time.
-        
-        # Example naive selectors for stats - you can refine these by inspecting GetGems
-        # Items (% Listed)
-        items_count = page.css('.stats-items', adaptive=True).text(default="581K")
-        # Owners (% Unique)
-        owners_count = page.css('.stats-owners', adaptive=True).text(default="164K")
-        # Floor price
-        floor_price = page.css('.stats-floor', adaptive=True).text(default="5.66 GRAM")
-        # Total volume
-        total_volume = page.css('.stats-volume', adaptive=True).text(default="124M GRAM")
+        items_count = page.css('.stats-items', adaptive=True).text(default="")
+        owners_count = page.css('.stats-owners', adaptive=True).text(default="")
+        floor_price = page.css('.stats-floor', adaptive=True).text(default="")
+        total_volume = page.css('.stats-volume', adaptive=True).text(default="")
         
         # Top Categories
         categories = []
         cat_elements = page.css('.category-row', adaptive=True)
         for cat in cat_elements[:5]: # Top 5
-            name = cat.css('.cat-name').text(default="Category")
-            volume = cat.css('.cat-volume').text(default="10K")
-            categories.append({"name": name, "volume": volume})
+            name = cat.css('.cat-name').text(default="")
+            volume = cat.css('.cat-volume').text(default="")
+            if name:
+                categories.append({"name": name, "volume": volume})
             
         # Recent Auctions
         auctions = []
         auction_elements = page.css('.auction-card', adaptive=True)
         for auc in auction_elements[:5]: # Top 5
-            item_name = auc.css('.item-name').text(default="+888 0000 0000")
-            price = auc.css('.item-price').text(default="1,000 TON")
-            auctions.append({"item_name": item_name, "price": price, "status": "Active"})
+            item_name = auc.css('.item-name').text(default="")
+            price = auc.css('.item-price').text(default="")
+            if item_name and price:
+                auctions.append({"item_name": item_name, "price": price, "status": "Active"})
 
         # Save to DB
         save_to_db(items_count, owners_count, floor_price, total_volume, categories, auctions)

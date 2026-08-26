@@ -29,6 +29,7 @@ const (
 // ValuationEngine coordinates the quantitative valuation process for Telegram Anonymous Numbers
 type ValuationEngine struct {
 	db              *repository.Database
+	repo            *repository.NumbersRepo
 	cache           *repository.Cache
 	cryptoPriceSvc  *cryptoprice.CryptoPriceService
 	sfGroup         singleflight.Group
@@ -39,8 +40,13 @@ func NewValuationEngine(
 	cache *repository.Cache,
 	cryptoPrice *cryptoprice.CryptoPriceService,
 ) *ValuationEngine {
+	var repo *repository.NumbersRepo
+	if db != nil {
+		repo = repository.NewNumbersRepo(db)
+	}
 	return &ValuationEngine{
 		db:             db,
+		repo:           repo,
 		cache:          cache,
 		cryptoPriceSvc: cryptoPrice,
 	}
@@ -121,9 +127,21 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 
 	// 3. Fetch or compute color info
 	colorName := "Blue" // default on-chain baseline
+	if e.repo != nil {
+		if rec, err := e.repo.GetNumberFeatures(ctx, normNumber); err == nil && rec != nil && rec.Color != "" {
+			colorName = rec.Color
+		}
+	}
 	colorInfo, ok := registry.OfficialColors[colorName]
 	if !ok {
 		colorInfo = registry.OfficialColors["Blue"]
+	}
+
+	// Calculate exact histogram percentiles if histograms table is populated
+	if e.repo != nil {
+		if histograms, err := e.repo.GetFeatureHistograms(ctx); err == nil && len(histograms) > 0 {
+			features.CalculateExactPercentiles(&fv, histograms, registry.TotalSupply)
+		}
 	}
 
 	// 4. Hedonic Regression Model
@@ -224,13 +242,6 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		rawEstimateTON = registry.RecordATHSaleTON
 	}
 
-	// 5. Comps & Bayesian Shrinkage (Mocked historical comps for determinism)
-	comps := generateClassComps(fv, colorName, tonUsdRate, rawEstimateTON)
-	priceBasis := "pattern_comps_shrunk_to_class"
-	if len(comps) == 0 {
-		priceBasis = "class_median_only"
-	}
-
 	expectedTON := roundPrice(rawEstimateTON)
 	lowTON := roundPrice(expectedTON * 0.82)
 	highTON := roundPrice(expectedTON * 1.22)
@@ -247,27 +258,94 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	expectedUSD := expectedTON * tonUsdRate
 	highUSD := highTON * tonUsdRate
 
-	// 6. Confidence Score
-	confidenceScore := int16(78)
-	if fv.MaxRun >= 5 || fv.IsPalindrome {
-		confidenceScore = 92
-	} else if fv.DistinctDigits <= 3 {
-		confidenceScore = 86
+	// 5. Query Real Comps from on-chain sales
+	var comps []ComparableSale
+	if e.repo != nil {
+		realSales, err := e.repo.GetCompsForNumber(ctx, normNumber, fv.TailClass, fv.MaxRun, 5)
+		if err == nil && len(realSales) > 0 {
+			for _, rs := range realSales {
+				diffPct := 0.0
+				if expectedTON > 0 {
+					diffPct = ((rs.SalePriceTON - expectedTON) / expectedTON) * 100.0
+				}
+				comps = append(comps, ComparableSale{
+					Number:       rs.Number,
+					PriceTON:     rs.SalePriceTON,
+					PriceUSD:     rs.SalePriceTON * tonUsdRate,
+					SaleDate:     rs.SaleDate,
+					Color:        colorName,
+					TailClass:    fv.TailClass,
+					DiffPercent:  math.Round(diffPct*10.0) / 10.0,
+					TonviewerURL: fmt.Sprintf("https://tonviewer.com/transaction/%s", rs.TransactionHash),
+				})
+			}
+		}
+	}
+	priceBasis := "hedonic_regression_only"
+	if len(comps) > 0 {
+		priceBasis = "pattern_comps_shrunk_to_class"
 	}
 
-	// 7. Rarity DNA Bars
+	// 6. Query Real Historical Sales for this exact number
+	var history ValuationHistory
+	if e.repo != nil {
+		pastSales, err := e.repo.GetHistoricalSalesForNumber(ctx, normNumber)
+		if err == nil && len(pastSales) > 0 {
+			history.IsSold = true
+			maxSale := 0.0
+			txs := make([]HistoricalSaleEvent, 0, len(pastSales))
+			for _, ps := range pastSales {
+				if ps.SalePriceTON > maxSale {
+					maxSale = ps.SalePriceTON
+				}
+				txs = append(txs, HistoricalSaleEvent{
+					PriceTON:      ps.SalePriceTON,
+					PriceUSD:      ps.SalePriceTON * tonUsdRate,
+					SaleDate:      ps.SaleDate,
+					BuyerAddress:  ps.BuyerAddress,
+					SellerAddress: ps.SellerAddress,
+					Source:        ps.MarketAddress,
+				})
+			}
+			history.HighestPastSaleTON = maxSale
+			history.Transactions = txs
+		} else {
+			history.IsSold = false
+			history.HighestPastSaleTON = 0
+			history.Transactions = []HistoricalSaleEvent{}
+		}
+	}
+
+	// 7. Dynamic Confidence Score based on real evidence
+	confidenceScore := int16(72) // Mathematical regression baseline
+	if len(comps) >= 3 {
+		confidenceScore += 16
+	} else if len(comps) > 0 {
+		confidenceScore += 8
+	}
+	if fv.MaxRun >= 5 || fv.IsPalindrome {
+		confidenceScore += 8
+	}
+	if history.IsSold {
+		confidenceScore += 6
+	}
+	if confidenceScore > 98 {
+		confidenceScore = 98
+	}
+
+	// 8. Rarity DNA Bars
 	rarityDNA := buildRarityDNA(fv)
 
-	// 8. Cultural Radar
+	// 9. Cultural Radar
 	culturalRadar := buildCulturalRadar(fv)
 
-	// 9. Liquidity & Sell-Time
-	liquidity := buildLiquidityMetrics(fv, expectedTON)
+	// 10. Liquidity & Sell-Time (dynamic)
+	liquidity := buildLiquidityMetrics(fv, expectedTON, len(comps))
 
-	// 10. Risk Audit
-	riskAudit := buildRiskAudit(fv, rawEstimateTON)
+	// 11. Risk Audit
+	riskAudit := buildRiskAudit(fv, expectedTON)
 
-	// 11. Transaction Economics (5% Fragment Fee)
+	// 12. Transaction Economics (5% Fragment Fee)
 	feeTON := expectedTON * registry.FragmentFeePercent
 	netPayoutTON := expectedTON - feeTON
 	economics := TransactionEconomics{
@@ -281,7 +359,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		BuyNowUSD:      (highTON * 1.10) * tonUsdRate,
 	}
 
-	// 12. 12-Month Projection
+	// 13. 12-Month Projection
 	projection := GrowthProjection{
 		BullTON: roundPrice(expectedTON * 1.35),
 		BullUSD: (expectedTON * 1.35) * tonUsdRate,
@@ -291,10 +369,10 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		BearUSD: (expectedTON * 0.90) * tonUsdRate,
 	}
 
-	// 13. Recommendation Verdict
+	// 14. Recommendation Verdict
 	recommendation := buildRecommendation(fv, expectedTON, netPayoutTON)
 
-	// 14. Certificate Hash ID
+	// 15. Certificate Hash ID
 	certPayload := fmt.Sprintf("%s:%s:%f:%d", normNumber, ModelVersion, expectedTON, time.Now().Unix())
 	certHash := sha256.Sum256([]byte(certPayload))
 	certificateID := "IFRG-NUM-" + hex.EncodeToString(certHash[:])[:12]
@@ -313,6 +391,8 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		"fng_multiplier":     fngMult,
 		"bayesian_k":         ShrinkageK,
 		"price_basis":        priceBasis,
+		"comps_count":        len(comps),
+		"is_sold_historical": history.IsSold,
 		"signals_count":      27,
 	}
 
@@ -334,20 +414,7 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		Features:        fv,
 		RarityDNA:       rarityDNA,
 		Color:           colorInfo,
-		History: ValuationHistory{
-			IsSold:             true,
-			HighestPastSaleTON: expectedTON * 0.95,
-			Transactions: []HistoricalSaleEvent{
-				{
-					PriceTON:     roundPrice(expectedTON * 0.95),
-					PriceUSD:     (expectedTON * 0.95) * tonUsdRate,
-					SaleDate:     time.Now().Add(-180 * 24 * time.Hour),
-					BuyerAddress: "EQ...AnonymousBuyer",
-					SellerAddress: "EQ...TelemintAuction",
-					Source:       "fragment_telemint",
-				},
-			},
-		},
+		History:         history,
 		Comps:          comps,
 		CulturalRadar:  culturalRadar,
 		Liquidity:      liquidity,
@@ -441,7 +508,7 @@ func buildRarityDNA(fv features.FeatureVector) []RarityBar {
 			LabelEn:     "Tail Pattern",
 			LabelFa:     "الگوی ۴ رقم پایانی",
 			Value:       fv.TailClass,
-			Percentile:  85.0,
+			Percentile:  fv.RarityPercentile,
 			IsExact:     true,
 			Description: "Classification of the final 4-digit signature",
 		},
@@ -450,7 +517,7 @@ func buildRarityDNA(fv features.FeatureVector) []RarityBar {
 			LabelEn:     "Block Structure",
 			LabelFa:     "ساختار بلوک تکرار",
 			Value:       fv.RepeatedBlock,
-			Percentile:  75.0,
+			Percentile:  fv.RarityPercentile,
 			IsExact:     true,
 			Description: "Internal repetitive pattern grouping",
 		},
@@ -510,22 +577,30 @@ func buildCulturalRadar(fv features.FeatureVector) []CulturalScoreItem {
 	return items
 }
 
-func buildLiquidityMetrics(fv features.FeatureVector, expectedTON float64) LiquidityMetrics {
+func buildLiquidityMetrics(fv features.FeatureVector, expectedTON float64, compsCount int) LiquidityMetrics {
 	rating := "Medium"
 	days := "7 - 14 Days"
 	medianDays := 10
 	buyer := "General NFT Collector"
+	bidVelocity := 7.5
 
 	if fv.MaxRun >= 5 || fv.IsPalindrome || expectedTON >= 10000 {
 		rating = "High"
 		days = "3 - 7 Days"
 		medianDays = 5
 		buyer = "East Asian Whale / VIP Investor"
+		bidVelocity = 9.2
 	} else if expectedTON <= registry.InitialFloorTON*1.2 {
 		rating = "High"
 		days = "2 - 5 Days"
 		medianDays = 3
 		buyer = "Floor Arbitrage Hunter"
+		bidVelocity = 8.8
+	} else if compsCount == 0 {
+		rating = "Moderate"
+		days = "10 - 20 Days"
+		medianDays = 14
+		bidVelocity = 6.2
 	}
 
 	return LiquidityMetrics{
@@ -533,14 +608,19 @@ func buildLiquidityMetrics(fv features.FeatureVector, expectedTON float64) Liqui
 		EstimatedSellDays:  days,
 		MedianDaysToSell:   medianDays,
 		TargetBuyerProfile: buyer,
-		BidVelocityScore:   8.4,
+		BidVelocityScore:   bidVelocity,
 	}
 }
 
 func buildRiskAudit(fv features.FeatureVector, expectedTON float64) RiskAuditReport {
+	churn := "Healthy (1 - 2 Historical Transfers)"
+	distress := false
+	if fv.UnluckyWeight > 5.0 {
+		churn = "Higher cultural resistance in East Asian markets"
+	}
 	return RiskAuditReport{
-		OwnershipChurn:     "Healthy (1 - 2 Historical Transfers)",
-		DistressSignal:     false,
+		OwnershipChurn:     churn,
+		DistressSignal:     distress,
 		RestrictedRisk:     "Verified On-Chain Asset (Clean Record)",
 		RestrictedGuide:    "Telegram numbers operate strictly via Fragment and Telemint smart contracts. Ensure your Telegram app session is active.",
 		ManagementDeepLink: "https://fragment.com/numbers",
@@ -567,40 +647,4 @@ func buildRecommendation(fv features.FeatureVector, expectedTON, netPayoutTON fl
 		SummaryEn:      sumEn,
 		SummaryFa:      sumFa,
 	}
-}
-
-func generateClassComps(fv features.FeatureVector, color string, tonUsdRate, targetTON float64) []ComparableSale {
-	comps := []ComparableSale{
-		{
-			Number:       "+888 " + fv.LeadingPattern + "88 8800",
-			PriceTON:     roundPrice(targetTON * 1.05),
-			PriceUSD:     (targetTON * 1.05) * tonUsdRate,
-			SaleDate:     time.Now().Add(-14 * 24 * time.Hour),
-			Color:        color,
-			TailClass:    fv.TailClass,
-			DiffPercent:  5.0,
-			TonviewerURL: "https://tonviewer.com",
-		},
-		{
-			Number:       "+888 0123 " + fv.Suffix[len(fv.Suffix)-4:],
-			PriceTON:     roundPrice(targetTON * 0.96),
-			PriceUSD:     (targetTON * 0.96) * tonUsdRate,
-			SaleDate:     time.Now().Add(-32 * 24 * time.Hour),
-			Color:        color,
-			TailClass:    fv.TailClass,
-			DiffPercent:  -4.0,
-			TonviewerURL: "https://tonviewer.com",
-		},
-		{
-			Number:       "+888 7777 " + fv.LeadingPattern + "99",
-			PriceTON:     roundPrice(targetTON * 1.02),
-			PriceUSD:     (targetTON * 1.02) * tonUsdRate,
-			SaleDate:     time.Now().Add(-55 * 24 * time.Hour),
-			Color:        color,
-			TailClass:    fv.TailClass,
-			DiffPercent:  2.0,
-			TonviewerURL: "https://tonviewer.com",
-		},
-	}
-	return comps
 }

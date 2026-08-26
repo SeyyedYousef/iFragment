@@ -114,7 +114,10 @@ export const CHANNEL_FEATURES: Record<string, FeatureCapability> = {
 	},
 };
 
-export function canAccessFeature(userRole: string, requiredRole: 'owner' | 'admin' | 'viewer'): boolean {
+export function canAccessFeature(
+	userRole: string,
+	requiredRole: 'owner' | 'admin' | 'viewer',
+): boolean {
 	const roleHierarchy: Record<string, number> = {
 		owner: 3,
 		admin: 2,

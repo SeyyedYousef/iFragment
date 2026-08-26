@@ -1,6 +1,6 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
-import { Component, createSignal, Show } from 'solid-js';
+import { type Component, createSignal, Show } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { SkeletonBlock } from './Skeleton.js';
@@ -34,7 +34,7 @@ export const LockedReportCard: Component<LockedReportCardProps> = (props) => {
 	return (
 		<div class="relative w-full max-w-[560px] mx-auto my-4 rounded-[28px] overflow-hidden border border-white/10 bg-[#12141C]/90 backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
 			{/* ━━━ Blurred Mock Skeleton Preview ━━━ */}
-			<div 
+			<div
 				class="relative p-6 transition-all duration-700 pointer-events-none select-none"
 				style={{
 					filter: 'blur(14px)',
@@ -114,13 +114,16 @@ export const LockedReportCard: Component<LockedReportCardProps> = (props) => {
 					{/* Dual Actions */}
 					<div class="w-full space-y-3">
 						<button
+							type="button"
 							onClick={handleUnlock}
 							disabled={loading() || props.isUnlocking}
 							class="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[#3390EC] to-[#2071C4] hover:from-[#3a9afc] hover:to-[#2580dc] text-white font-semibold text-sm shadow-[0_4px_20px_rgba(51,144,236,0.4)] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
 						>
 							<Show
 								when={!loading() && !props.isUnlocking}
-								fallback={<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+								fallback={
+									<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+								}
 							>
 								<span class="material-symbols-outlined text-lg">bolt</span>
 								<span>
@@ -133,6 +136,7 @@ export const LockedReportCard: Component<LockedReportCardProps> = (props) => {
 
 						<div class="flex items-center justify-center gap-4 text-xs">
 							<button
+								type="button"
 								onClick={() => navigate('/airdrop?tab=shop')}
 								class="text-white/60 hover:text-white transition-colors underline underline-offset-4"
 							>
@@ -140,6 +144,7 @@ export const LockedReportCard: Component<LockedReportCardProps> = (props) => {
 							</button>
 							<span class="text-white/20">•</span>
 							<button
+								type="button"
 								onClick={() => navigate('/airdrop?tab=tasks')}
 								class="text-[#3390EC] hover:text-[#52a7ff] transition-colors"
 							>

@@ -1,11 +1,11 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
-import { Component, createMemo, createSignal, For, onMount, Show } from 'solid-js';
-import { useUsernameSearch } from '@/entities/username/model/index.js';
-import { getRandomTrending } from '@/entities/username/model/trendingList.js';
-import { numbersApi } from '@/entities/numbers/api/numbersApi.js';
+import { type Component, createMemo, createSignal, For, onMount, Show } from 'solid-js';
 import { giftsApi } from '@/entities/gifts/api/giftsApi.js';
 import { creditsApi } from '@/entities/intel/api/creditsApi.js';
+import { numbersApi } from '@/entities/numbers/api/numbersApi.js';
+import { useUsernameSearch } from '@/entities/username/model/index.js';
+import { getRandomTrending } from '@/entities/username/model/trendingList.js';
 import { type DictPaths, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
@@ -46,7 +46,8 @@ const CONTENT: Record<
 type AnalyzeState = 'idle' | 'loading' | 'success';
 
 export const ActionArea: Component<ActionAreaProps> = (props) => {
-	const { searchQuery, setSearchQuery, searchError, setSearchError, validate } = useUsernameSearch();
+	const { searchQuery, setSearchQuery, searchError, setSearchError, validate } =
+		useUsernameSearch();
 	const navigate = useNavigate();
 	const [analyzeState, setAnalyzeState] = createSignal<AnalyzeState>('idle');
 	const [isFocused, setIsFocused] = createSignal(false);
@@ -86,10 +87,14 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
 	const trendingItems = createMemo(() => {
 		if (props.activeTab === 'collectibles') {
-			return trendingNumbers().length > 0 ? trendingNumbers() : ['+888 8888 8888', '+888 0000 0000', '+888 7777 7777', '+888 1234 5678'];
+			return trendingNumbers().length > 0
+				? trendingNumbers()
+				: ['+888 8888 8888', '+888 0000 0000', '+888 7777 7777', '+888 1234 5678'];
 		}
 		if (props.activeTab === 'gifts') {
-			return trendingGifts().length > 0 ? trendingGifts() : ['Plush Pepe', "Durov's Black Cap", 'Phoenix Feather', 'Celestial Star'];
+			return trendingGifts().length > 0
+				? trendingGifts()
+				: ['Plush Pepe', "Durov's Black Cap", 'Phoenix Feather', 'Celestial Star'];
 		}
 		return trendingUsernames();
 	});
@@ -196,7 +201,10 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 	});
 
 	return (
-		<main class="action-area w-full relative overflow-visible font-sans pb-20" aria-label="Analysis section">
+		<main
+			class="action-area w-full relative overflow-visible font-sans pb-20"
+			aria-label={t('actionArea.analysisSection')}
+		>
 			{/* Ambient light */}
 			<div
 				class="absolute top-[20%] left-1/2 -translate-x-1/2 w-[70%] h-[40%] rounded-full pointer-events-none transition-all duration-1000 z-0"
@@ -218,6 +226,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 						<div class="flex items-center justify-center gap-3 mb-6">
 							{/* Intel Credits Badge */}
 							<button
+								type="button"
 								onClick={() => navigate('/airdrop?tab=shop')}
 								class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#3390EC]/10 border border-[#3390EC]/30 backdrop-blur-md shadow-[0_2px_10px_rgba(51,144,236,0.15)] hover:bg-[#3390EC]/20 transition-all active:scale-95"
 							>
@@ -229,6 +238,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
 							<div class="relative">
 								<button
+									type="button"
 									onClick={() => {
 										if (props.activeTab === 'collectibles') {
 											navigate('/numbers/intel');
@@ -240,13 +250,15 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 									}}
 									class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08] backdrop-blur-md shadow-[0_2px_10px_rgba(0,0,0,0.1)] hover:bg-white/[0.08] transition-colors"
 								>
-									<span class="material-symbols-outlined text-[14px] text-white/70">collections_bookmark</span>
+									<span class="material-symbols-outlined text-[14px] text-white/70">
+										collections_bookmark
+									</span>
 									<span class="text-[10px] font-semibold text-white/70 tracking-[0.2em] uppercase">
 										{props.activeTab === 'gifts'
 											? t('home.giftsIntel')
 											: props.activeTab === 'collectibles'
-											? t('home.numbersIntel')
-											: t('home.collectionInfo')}
+												? t('home.numbersIntel')
+												: t('home.collectionInfo')}
 									</span>
 								</button>
 							</div>
@@ -320,6 +332,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 									<Show when={searchQuery()}>
 										<div class="flex items-center shrink-0">
 											<button
+												type="button"
 												onClick={() => setSearchQuery('')}
 												class="w-8 h-8 rounded-full bg-white/[0.05] hover:bg-white/10 text-white/40 hover:text-white transition-all flex items-center justify-center"
 											>
@@ -345,6 +358,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
 						{/* Analyze Button */}
 						<button
+							type="button"
 							onClick={handleAnalyze}
 							disabled={analyzeState() === 'loading' || !searchQuery() || !!searchError()}
 							class="relative w-full h-[60px] rounded-[22px] font-semibold text-[15px] flex items-center justify-center gap-2 transition-all duration-300 overflow-hidden group mt-4"
@@ -353,14 +367,14 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 									analyzeState() === 'success'
 										? 'linear-gradient(135deg, #28a745, #30d158)'
 										: !searchQuery() || searchError()
-										? 'rgba(255,255,255,0.04)'
-										: 'linear-gradient(135deg, #ffffff, #e0e0e0)',
+											? 'rgba(255,255,255,0.04)'
+											: 'linear-gradient(135deg, #ffffff, #e0e0e0)',
 								color:
 									analyzeState() === 'success'
 										? '#fff'
 										: !searchQuery() || searchError()
-										? 'rgba(255,255,255,0.25)'
-										: '#000',
+											? 'rgba(255,255,255,0.25)'
+											: '#000',
 								cursor: !searchQuery() || searchError() ? 'not-allowed' : 'pointer',
 								'box-shadow':
 									searchQuery() && !searchError() && analyzeState() === 'idle'
@@ -371,7 +385,9 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 							<Show when={analyzeState() === 'loading'}>
 								<div class="w-5 h-5 rounded-full border-[2.5px] border-black/20 border-t-black animate-spin" />
 							</Show>
-							<span class="relative z-10 transition-transform group-hover:scale-[1.02]">{getButtonText()}</span>
+							<span class="relative z-10 transition-transform group-hover:scale-[1.02]">
+								{getButtonText()}
+							</span>
 							<Show when={analyzeState() === 'idle' && searchQuery() && !searchError()}>
 								<span class="material-symbols-outlined text-[18px] rtl:rotate-180 relative z-10 group-hover:translate-x-1 transition-transform">
 									arrow_forward
@@ -404,9 +420,15 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 										}}
 										onClick={() => {
 											if (props.activeTab === 'collectibles') {
-												navigate(`/numbers/report?n=${encodeURIComponent(item.replace(/^\+/, ''))}`);
+												navigate(
+													`/numbers/report?n=${encodeURIComponent(item.replace(/^\+/, ''))}`,
+												);
 											} else if (props.activeTab === 'gifts') {
-												navigate(`/gifts/report?g=${encodeURIComponent(item)}`);
+												const slug = item
+													.toLowerCase()
+													.replace(/[^a-z0-9]+/g, '_')
+													.replace(/^_+|_+$/g, '');
+												navigate(`/gifts/report?g=${encodeURIComponent(slug)}-1`);
 											} else {
 												updateSearchQuery(item);
 												document.getElementById('search-input')?.focus();
@@ -441,6 +463,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 							{t('noCreditsModal.description')}
 						</p>
 						<button
+							type="button"
 							onClick={() => {
 								setShowNoCreditsModal(false);
 								navigate('/airdrop?tab=shop');
@@ -450,6 +473,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 							{t('noCreditsModal.buyCredits')}
 						</button>
 						<button
+							type="button"
 							onClick={() => {
 								setShowNoCreditsModal(false);
 								navigate('/airdrop?tab=earn');

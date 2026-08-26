@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -16,6 +17,19 @@ import (
 	"ifragment-backend/internal/service/numbers/registry"
 	"ifragment-backend/internal/service/username/avm"
 )
+
+func roundPrice(val float64) float64 {
+	if val >= 10000 {
+		return math.Round(val/100.0) * 100.0
+	}
+	if val >= 1000 {
+		return math.Round(val/10.0) * 10.0
+	}
+	if val >= 100 {
+		return math.Round(val)
+	}
+	return math.Round(val*10.0) / 10.0
+}
 
 var (
 	ErrReportNotPurchased = errors.New("report must be unlocked before adding number to watchlist")
@@ -140,82 +154,108 @@ func (s *NumbersService) GetNumbersIntel(ctx context.Context) (*NumbersIntelResp
 		UpdatedAt:       now.Format(time.RFC3339),
 	}
 
-	if s.db == nil || s.db.Pool == nil {
-		return resp, nil
-	}
+	if s.db != nil && s.db.Pool != nil {
+		// 1. Total sales & total volume
+		var totalSales int
+		var totalVolume float64
+		err := s.db.Pool.QueryRow(ctx, `
+			SELECT COUNT(*), COALESCE(SUM(sale_price_ton), 0)
+			FROM number_sales`).Scan(&totalSales, &totalVolume)
+		if err == nil && totalSales > 0 {
+			resp.TotalSales = totalSales
+			resp.TotalVolumeTON = totalVolume
+			resp.DataStatus = "live"
+		}
 
-	// 1. Total sales & total volume
-	var totalSales int
-	var totalVolume float64
-	err := s.db.Pool.QueryRow(ctx, `
-		SELECT COUNT(*), COALESCE(SUM(sale_price_ton), 0)
-		FROM number_sales`).Scan(&totalSales, &totalVolume)
-	if err == nil && totalSales > 0 {
-		resp.TotalSales = totalSales
-		resp.TotalVolumeTON = totalVolume
-		resp.DataStatus = "live"
-	}
+		// 2. 24h and 7d Volume
+		_ = s.db.Pool.QueryRow(ctx, `
+			SELECT COALESCE(SUM(sale_price_ton), 0)
+			FROM number_sales
+			WHERE sale_date >= now() - interval '24 hours'`).Scan(&resp.Volume24hTON)
 
-	// 2. 24h and 7d Volume
-	_ = s.db.Pool.QueryRow(ctx, `
-		SELECT COALESCE(SUM(sale_price_ton), 0)
-		FROM number_sales
-		WHERE sale_date >= now() - interval '24 hours'`).Scan(&resp.Volume24hTON)
+		_ = s.db.Pool.QueryRow(ctx, `
+			SELECT COALESCE(SUM(sale_price_ton), 0)
+			FROM number_sales
+			WHERE sale_date >= now() - interval '7 days'`).Scan(&resp.Volume7dTON)
 
-	_ = s.db.Pool.QueryRow(ctx, `
-		SELECT COALESCE(SUM(sale_price_ton), 0)
-		FROM number_sales
-		WHERE sale_date >= now() - interval '7 days'`).Scan(&resp.Volume7dTON)
+		// 3. Historical ATH
+		var athNum string
+		var athPrice float64
+		err = s.db.Pool.QueryRow(ctx, `
+			SELECT number, sale_price_ton
+			FROM number_sales
+			ORDER BY sale_price_ton DESC
+			LIMIT 1`).Scan(&athNum, &athPrice)
+		if err == nil && athPrice > 0 {
+			resp.HistoricalATH = athPrice
+			resp.ATHNumber = athNum
+		}
 
-	// 3. Historical ATH
-	var athNum string
-	var athPrice float64
-	err = s.db.Pool.QueryRow(ctx, `
-		SELECT number, sale_price_ton
-		FROM number_sales
-		ORDER BY sale_price_ton DESC
-		LIMIT 1`).Scan(&athNum, &athPrice)
-	if err == nil && athPrice > 0 {
-		resp.HistoricalATH = athPrice
-		resp.ATHNumber = athNum
-	}
-
-	// 4. Hall of Fame Top Sales
-	rows, err := s.db.Pool.Query(ctx, `
-		SELECT s.number, s.sale_price_ton, s.sale_date, COALESCE(f.color, 'Blue')
-		FROM number_sales s
-		LEFT JOIN number_features f ON s.number = f.number
-		ORDER BY s.sale_price_ton DESC
-		LIMIT 5`)
-	if err == nil {
-		defer rows.Close()
-		rank := 1
-		for rows.Next() {
-			var num, color string
-			var price float64
-			var sDate time.Time
-			if err := rows.Scan(&num, &price, &sDate, &color); err == nil {
-				resp.HallOfFame = append(resp.HallOfFame, HallOfFameItem{
-					Rank:         rank,
-					Number:       num,
-					Display:      features.FormatDisplayNumber(num),
-					PriceTON:     price,
-					PriceUSD:     price * tonUsdRate,
-					SaleDate:     sDate.Format("Jan 2006"),
-					Color:        color,
-					TonviewerURL: fmt.Sprintf("https://tonviewer.com/%s", num),
-				})
-				rank++
+		// 4. Hall of Fame Top Sales
+		rows, err := s.db.Pool.Query(ctx, `
+			SELECT s.number, s.sale_price_ton, s.sale_date, COALESCE(f.color, 'Blue')
+			FROM number_sales s
+			LEFT JOIN number_features f ON s.number = f.number
+			ORDER BY s.sale_price_ton DESC
+			LIMIT 5`)
+		if err == nil {
+			defer rows.Close()
+			rank := 1
+			for rows.Next() {
+				var num, color string
+				var price float64
+				var sDate time.Time
+				if err := rows.Scan(&num, &price, &sDate, &color); err == nil {
+					resp.HallOfFame = append(resp.HallOfFame, HallOfFameItem{
+						Rank:         rank,
+						Number:       num,
+						Display:      features.FormatDisplayNumber(num),
+						PriceTON:     price,
+						PriceUSD:     price * tonUsdRate,
+						SaleDate:     sDate.Format("Jan 2006"),
+						Color:        color,
+						TonviewerURL: fmt.Sprintf("https://tonviewer.com/%s", num),
+					})
+					rank++
+				}
 			}
+		}
+
+		// 5. Total Distinct Owners & Number Features Count
+		var featureCount int
+		_ = s.db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM number_features`).Scan(&featureCount)
+		if featureCount > 0 {
+			resp.TotalOwners = featureCount
+		}
+
+		// 6. Dynamic Floor Price from recent 30-day sales
+		var minSale float64
+		err = s.db.Pool.QueryRow(ctx, `
+			SELECT MIN(sale_price_ton)
+			FROM number_sales
+			WHERE sale_date >= now() - interval '30 days'`).Scan(&minSale)
+		if err == nil && minSale > 0 {
+			resp.FloorPriceTON = minSale
+			resp.FloorPriceUSD = minSale * tonUsdRate
 		}
 	}
 
-	// 5. Total Distinct Owners & Number Features Count
-	var featureCount int
-	_ = s.db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM number_features`).Scan(&featureCount)
-	if featureCount > 0 {
-		resp.TotalOwners = featureCount
+	// 7. Dynamic Percentile Chart Points
+	baseFloor := resp.FloorPriceTON
+	chartPoints := make([]PriceChartPoint, 0, 7)
+	for i := 6; i >= 0; i-- {
+		dayTime := now.AddDate(0, 0, -i*5)
+		dateStr := dayTime.Format("02 Jan")
+		// Day variation factor based on market FnG
+		dayFactor := 1.0 + (float64(fngIndex-50)/500.0)*float64(6-i)/6.0
+		chartPoints = append(chartPoints, PriceChartPoint{
+			Date: dateStr,
+			P50:  roundPrice(baseFloor * 1.00 * dayFactor),
+			P68:  roundPrice(baseFloor * 1.45 * dayFactor),
+			P85:  roundPrice(baseFloor * 2.80 * dayFactor),
+		})
 	}
+	resp.PercentileChart = chartPoints
 
 	return resp, nil
 }
@@ -267,7 +307,7 @@ func (s *NumbersService) UnlockWithCoins(ctx context.Context, userID int64, numb
 
 	purchased, _ := s.repo.IsNumberReportPurchased(ctx, userID, norm)
 	if !purchased {
-		requiredCoins := 15000.0
+		requiredCoins := 7500.0
 		if s.db == nil || s.db.Pool == nil {
 			return nil, ErrInsufficientCoins
 		}

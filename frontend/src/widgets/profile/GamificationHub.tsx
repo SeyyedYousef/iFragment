@@ -1,6 +1,6 @@
 import { useNavigate } from '@solidjs/router';
 
-import { Component } from 'solid-js';
+import type { Component } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
@@ -15,6 +15,7 @@ export const QuestCard: Component = () => {
 	const navigate = useNavigate();
 	return (
 		<button
+			type="button"
 			onClick={() => handleNavigate(navigate, '/profile/tasks')}
 			class="bg-[#1c1c1c] border border-[#2a2a2a] rounded-3xl p-5 flex flex-col items-start text-left group hover:bg-[#202020] active:scale-[0.98] transition-all relative overflow-hidden"
 		>
@@ -36,6 +37,7 @@ export const BoostsCard: Component = () => {
 	const navigate = useNavigate();
 	return (
 		<button
+			type="button"
 			onClick={() => handleNavigate(navigate, '/profile/boosts')}
 			class="bg-[#1c1c1c] border border-[#2a2a2a] rounded-3xl p-5 flex flex-col items-start text-left group hover:bg-[#202020] active:scale-[0.98] transition-all relative overflow-hidden"
 		>
@@ -55,6 +57,7 @@ export const LeaderboardCard: Component = () => {
 	const navigate = useNavigate();
 	return (
 		<button
+			type="button"
 			onClick={() => handleNavigate(navigate, '/profile/leaderboard')}
 			class="col-span-2 bg-gradient-to-r from-[#1c1c1c] to-[#15161d] border border-[#2a2a2a] rounded-3xl p-4 flex items-center justify-between group hover:bg-[#202020] active:scale-[0.98] transition-all"
 		>

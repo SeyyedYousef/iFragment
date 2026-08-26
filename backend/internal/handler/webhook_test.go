@@ -103,3 +103,73 @@ func TestMapToModeratorContext_LinkExtraction(t *testing.T) {
 		})
 	}
 }
+
+func TestGetTarget(t *testing.T) {
+	h := &WebhookHandler{}
+
+	// 1. Target via ReplyToMessage
+	msgReply := &Message{
+		Text: "/ban",
+		ReplyToMessage: &Message{
+			From: &User{
+				ID:        999888,
+				FirstName: "Spammer",
+				Username:  "spammer_user",
+			},
+		},
+	}
+	id, name := h.getTarget(msgReply)
+	if id != 999888 || name != "@spammer_user" {
+		t.Errorf("Expected 999888, @spammer_user, got: %d, %s", id, name)
+	}
+
+	// 2. Target via numeric ID argument
+	msgIDArg := &Message{
+		Text: "/ban 11223344",
+	}
+	id, name = h.getTarget(msgIDArg)
+	if id != 11223344 || name != "11223344" {
+		t.Errorf("Expected 11223344, '11223344', got: %d, %s", id, name)
+	}
+
+	// 3. Target via text_mention entity
+	msgMention := &Message{
+		Text: "/mute BadUser 2h",
+		Entities: []MessageEntity{
+			{
+				Type:   "text_mention",
+				Offset: 6,
+				Length: 7,
+				User: &User{
+					ID:        554433,
+					FirstName: "BadUser",
+				},
+			},
+		},
+	}
+	id, name = h.getTarget(msgMention)
+	if id != 554433 || name != "BadUser" {
+		t.Errorf("Expected 554433, BadUser, got: %d, %s", id, name)
+	}
+}
+
+func TestParseDurationStr(t *testing.T) {
+	cases := []struct {
+		input    string
+		expected int64
+	}{
+		{"1h", 3600},
+		{"24h", 86400},
+		{"7d", 7 * 86400},
+		{"30m", 1800},
+		{"invalid", 86400}, // fallback to default 24h
+	}
+
+	for _, c := range cases {
+		dur := parseDurationStr(c.input, 24*3600*1e9)
+		if int64(dur.Seconds()) != c.expected {
+			t.Errorf("For input %s, expected %d seconds, got %f", c.input, c.expected, dur.Seconds())
+		}
+	}
+}
+

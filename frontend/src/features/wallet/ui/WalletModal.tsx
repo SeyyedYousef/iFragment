@@ -1,4 +1,4 @@
-import { Component, For, Show } from 'solid-js';
+import { type Component, For, Show } from 'solid-js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
@@ -53,7 +53,16 @@ export const WalletModal: Component<WalletModalProps> = (props) => {
 				dir={isRtl() ? 'rtl' : 'ltr'}
 			>
 				{/* Backdrop click */}
-				<div class="absolute inset-0" onClick={props.onClose} />
+				<div
+					class="absolute inset-0"
+					role="button"
+					tabIndex={0}
+					onKeyDown={(e) => {
+						if (e.key === 'Enter') (e.currentTarget as HTMLElement).click();
+						else if (e.key === 'Escape') props.onClose();
+					}}
+					onClick={props.onClose}
+				/>
 
 				{/* Modal Container */}
 				<div class="relative w-full max-w-[440px] max-h-[85vh] bg-[#0c0e14] border border-white/10 rounded-t-[28px] sm:rounded-[28px] overflow-hidden flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.8)] z-10">
@@ -68,12 +77,13 @@ export const WalletModal: Component<WalletModalProps> = (props) => {
 									{t('wallet.title' as any) || 'Intelligence Vault'}
 								</h3>
 								<span class="text-[10px] font-mono text-white/40 uppercase tracking-wider">
-									iFragment Asset Ledger
+									{t('wallet.assetLedger')}
 								</span>
 							</div>
 						</div>
 
 						<button
+							type="button"
 							onClick={props.onClose}
 							class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/50 hover:text-white transition-colors"
 						>
@@ -88,34 +98,41 @@ export const WalletModal: Component<WalletModalProps> = (props) => {
 							<div class="bg-gradient-to-br from-[#0098EA]/20 via-[#12141c] to-[#08090d] border border-[#0098EA]/30 rounded-[20px] p-4 flex flex-col justify-between relative overflow-hidden shadow-inner">
 								<div class="flex items-center justify-between mb-2">
 									<span class="text-[9px] font-black uppercase tracking-widest text-[#0098EA]">
-										INTEL CREDITS
+										{t('wallet.intelCredits')}
 									</span>
 									<span class="material-symbols-outlined text-[#0098EA] text-[16px]">token</span>
 								</div>
 								<div class="text-[26px] font-black font-mono text-white leading-none mb-1">
 									{props.creditsBalance}
 								</div>
-								<span class="text-[10px] text-white/40 font-medium">Never expires (All verticals)</span>
+								<span class="text-[10px] text-white/40 font-medium">
+									Never expires (All verticals)
+								</span>
 							</div>
 
 							{/* Airdrop Coins Card */}
 							<div class="bg-gradient-to-br from-amber-500/15 via-[#12141c] to-[#08090d] border border-amber-500/25 rounded-[20px] p-4 flex flex-col justify-between relative overflow-hidden shadow-inner">
 								<div class="flex items-center justify-between mb-2">
 									<span class="text-[9px] font-black uppercase tracking-widest text-amber-400">
-										AIRDROP COINS
+										{t('wallet.airdropCoins')}
 									</span>
-									<span class="material-symbols-outlined text-amber-400 text-[16px]">monetization_on</span>
+									<span class="material-symbols-outlined text-amber-400 text-[16px]">
+										monetization_on
+									</span>
 								</div>
 								<div class="text-[24px] font-black font-mono text-white leading-none mb-1">
 									{props.coinsBalance.toLocaleString()}
 								</div>
-								<span class="text-[10px] text-amber-400/80 font-medium">30-day dynamic validity</span>
+								<span class="text-[10px] text-amber-400/80 font-medium">
+									{t('wallet.dynamicValidity')}
+								</span>
 							</div>
 						</div>
 
 						{/* Quick Top-up Action */}
 						<Show when={props.onTopUpCredits}>
 							<button
+								type="button"
 								onClick={() => {
 									haptic.impact('medium');
 									props.onClose();
@@ -124,7 +141,7 @@ export const WalletModal: Component<WalletModalProps> = (props) => {
 								class="w-full py-3 bg-[#0098EA] hover:bg-[#0087d0] text-white font-black text-[12px] uppercase tracking-wider rounded-[16px] flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(0,152,234,0.35)] transition-all active:scale-[0.99]"
 							>
 								<span class="material-symbols-outlined text-[16px]">stars</span>
-								<span>Top Up Intel Credits via Stars</span>
+								<span>{t('wallet.topUpViaStars')}</span>
 							</button>
 						</Show>
 
@@ -132,9 +149,9 @@ export const WalletModal: Component<WalletModalProps> = (props) => {
 						<div class="flex flex-col gap-2.5 mt-2">
 							<div class="flex items-center justify-between px-1">
 								<span class="text-[11px] font-black text-white/60 uppercase tracking-widest">
-									RECENT ACTIVITY
+									{t('wallet.recentActivity')}
 								</span>
-								<span class="text-[10px] font-mono text-white/30">LATEST 3 TRANSACTIONS</span>
+								<span class="text-[10px] font-mono text-white/30">{t('wallet.latestTransactions')}</span>
 							</div>
 
 							<div class="bg-[#12141c]/80 border border-white/5 rounded-[20px] divide-y divide-white/5 overflow-hidden">

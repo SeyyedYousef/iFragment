@@ -1,13 +1,15 @@
 import { useNavigate } from '@solidjs/router';
-import { Component, createSignal, JSX, onMount, Show } from 'solid-js';
-import { OwnerGateModal } from '@/widgets/owner/index.js';
+import { type Component, createSignal, type JSX, onMount, Show } from 'solid-js';
 import { isJwtExpired } from '@/shared/lib/jwt.js';
+import { useI18n } from '@/shared/i18n/index.js';
+import { OwnerGateModal } from '@/widgets/owner/index.js';
 
 interface OwnerRouteGuardProps {
 	children: JSX.Element;
 }
 
 export const OwnerRouteGuard: Component<OwnerRouteGuardProps> = (props) => {
+	const { t } = useI18n();
 	const navigate = useNavigate();
 	const [status, setStatus] = createSignal<'checking' | 'authenticated' | 'unauthorized'>(
 		'checking',
@@ -50,7 +52,7 @@ export const OwnerRouteGuard: Component<OwnerRouteGuardProps> = (props) => {
 			<Show when={status() === 'checking'}>
 				<div class="min-h-screen bg-[#090a0f] flex flex-col items-center justify-center text-white p-6">
 					<div class="w-12 h-12 border-4 border-[#3390ec] border-t-transparent rounded-full animate-spin mb-4" />
-					<p class="text-xs text-white/60 font-bold">در حال بررسی دسترسی مدیریت...</p>
+					<p class="text-xs text-white/60 font-bold">{t('ownerGuard.checkingAccess')}</p>
 				</div>
 			</Show>
 

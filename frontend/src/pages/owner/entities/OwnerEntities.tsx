@@ -1,8 +1,12 @@
-import { createSignal, Show, For, type Component } from 'solid-js';
-import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
+import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
+import { type Component, createSignal, For, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/api/ownerApi.js';
+import { t } from '@/shared/i18n/index.js';
 import type { OwnerEntityItem } from '@/entities/owner/model/types.js';
-import { DangerActionDialog, type DangerActionDetail } from '@/widgets/owner/DangerActionDialog.jsx';
+import {
+	type DangerActionDetail,
+	DangerActionDialog,
+} from '@/widgets/owner/DangerActionDialog.jsx';
 
 export const OwnerEntities: Component = () => {
 	const queryClient = useQueryClient();
@@ -17,9 +21,7 @@ export const OwnerEntities: Component = () => {
 	const entitiesQuery = createQuery<OwnerEntityItem[]>(() => ({
 		queryKey: ['owner', 'entities', activeTab()],
 		queryFn: () =>
-			activeTab() === 'channel'
-				? ownerApi.getAllChannels(50, 0)
-				: ownerApi.getAllGroups(50, 0),
+			activeTab() === 'channel' ? ownerApi.getAllChannels(50, 0) : ownerApi.getAllGroups(50, 0),
 	}));
 
 	const extendSubMutation = createMutation(() => ({
@@ -70,7 +72,10 @@ export const OwnerEntities: Component = () => {
 		if (!ent) return [];
 		return [
 			{ label: 'Target Entity', value: `${ent.title} (${ent.entity_id})` },
-			{ label: 'Current Paid Until', value: ent.paid_until ? new Date(ent.paid_until).toLocaleDateString() : 'Expired' },
+			{
+				label: 'Current Paid Until',
+				value: ent.paid_until ? new Date(ent.paid_until).toLocaleDateString() : 'Expired',
+			},
 			{ label: 'Days Extension', value: `+${daysToAdd()} Days` },
 		];
 	};
@@ -93,12 +98,15 @@ export const OwnerEntities: Component = () => {
 			{/* Header & Tabs */}
 			<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
 				<div>
-					<h2 class="text-lg font-bold text-white">Managed Channels & Groups</h2>
-					<p class="text-xs text-white/50">Manage subscription validity and credit balances for VIP entities</p>
+					<h2 class="text-lg font-bold text-white">{t('ownerEntities.title')}</h2>
+					<p class="text-xs text-white/50">
+						{t('ownerEntities.subtitle')}
+					</p>
 				</div>
 
 				<div class="flex gap-1.5 rounded-2xl bg-white/5 p-1 text-xs">
 					<button
+						type="button"
 						onClick={() => setActiveTab('channel')}
 						class={`px-4 py-2 rounded-xl font-medium transition ${
 							activeTab() === 'channel'
@@ -106,9 +114,10 @@ export const OwnerEntities: Component = () => {
 								: 'text-white/60 hover:text-white'
 						}`}
 					>
-						Channels
+						{t('ownerEntities.channels')}
 					</button>
 					<button
+						type="button"
 						onClick={() => setActiveTab('group')}
 						class={`px-4 py-2 rounded-xl font-medium transition ${
 							activeTab() === 'group'
@@ -116,7 +125,7 @@ export const OwnerEntities: Component = () => {
 								: 'text-white/60 hover:text-white'
 						}`}
 					>
-						Groups
+						{t('ownerEntities.groups')}
 					</button>
 				</div>
 			</div>
@@ -127,12 +136,12 @@ export const OwnerEntities: Component = () => {
 					<table class="w-full text-left text-xs">
 						<thead>
 							<tr class="border-b border-white/10 text-white/40">
-								<th class="pb-3 font-medium">Title & Telegram ID</th>
-								<th class="pb-3 font-medium">Owner</th>
-								<th class="pb-3 font-medium">Paid Until</th>
-								<th class="pb-3 font-medium">Credit Balance</th>
-								<th class="pb-3 font-medium">Status</th>
-								<th class="pb-3 font-medium text-right">Actions</th>
+								<th class="pb-3 font-medium">{t('ownerEntities.titleAndId')}</th>
+								<th class="pb-3 font-medium">{t('ownerEntities.owner')}</th>
+								<th class="pb-3 font-medium">{t('ownerEntities.paidUntil')}</th>
+								<th class="pb-3 font-medium">{t('ownerEntities.creditBalance')}</th>
+								<th class="pb-3 font-medium">{t('ownerCommon.status')}</th>
+								<th class="pb-3 font-medium text-right">{t('ownerCommon.actions')}</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-white/5">
@@ -141,7 +150,9 @@ export const OwnerEntities: Component = () => {
 								fallback={
 									<tr>
 										<td colspan="6" class="py-8 text-center text-white/40">
-											{entitiesQuery.isLoading ? 'Loading entities...' : 'No managed entities found'}
+											{entitiesQuery.isLoading
+												? 'Loading entities...'
+												: 'No managed entities found'}
 										</td>
 									</tr>
 								}
@@ -174,24 +185,26 @@ export const OwnerEntities: Component = () => {
 												<div class="flex items-center justify-end gap-2">
 													{/* Extend Subscription */}
 													<button
+														type="button"
 														onClick={() => {
 															setSelectedEntity(entity);
 															setDialogMode('extend_sub');
 														}}
 														class="px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 font-medium transition"
 													>
-														+ Days
+														{t('ownerEntities.plusDays')}
 													</button>
 
 													{/* Grant Coins */}
 													<button
+														type="button"
 														onClick={() => {
 															setSelectedEntity(entity);
 															setDialogMode('grant_coins');
 														}}
 														class="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 font-medium transition"
 													>
-														+ Coins
+														{t('ownerEntities.plusCoins')}
 													</button>
 												</div>
 											</td>
@@ -208,7 +221,7 @@ export const OwnerEntities: Component = () => {
 			<Show when={dialogMode() === 'extend_sub' && selectedEntity()}>
 				<DangerActionDialog
 					isOpen={true}
-					title="Extend Subscription Validity"
+					title={t('ownerEntities.extendSub')}
 					description="Grant premium subscription days to this entity. Requires reason for audit logging."
 					actionLabel="Confirm Subscription Extension"
 					riskLevel="medium"
@@ -231,7 +244,7 @@ export const OwnerEntities: Component = () => {
 			<Show when={dialogMode() === 'grant_coins' && selectedEntity()}>
 				<DangerActionDialog
 					isOpen={true}
-					title="Grant Entity Coins Credit"
+					title={t('ownerEntities.grantCoins')}
 					description="Increase credit balance for auto-renewal and bot upgrades. Requires reason for audit logging."
 					actionLabel="Confirm Coins Grant"
 					riskLevel="medium"

@@ -1,10 +1,10 @@
 import { A, useLocation } from '@solidjs/router';
 import { initData } from '@tma.js/sdk-solid';
-import { Component, createEffect, createSignal, onCleanup, onMount, Show } from 'solid-js';
+import { type Component, createEffect, createSignal, onCleanup, onMount, Show } from 'solid-js';
+import { profilePhotoUrl } from '@/entities/user/index.js';
 import { buildAvatarUrl } from '@/shared/api/config.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
-import { profilePhotoUrl } from '@/entities/user/index.js';
 
 export const BottomNav: Component = () => {
 	const location = useLocation();
@@ -62,7 +62,12 @@ export const BottomNav: Component = () => {
 			let docHeight = document.documentElement.scrollHeight;
 			let windowHeight = window.innerHeight;
 
-			if (target && 'scrollTop' in target && (target as any) !== document && (target as any) !== document.documentElement) {
+			if (
+				target &&
+				'scrollTop' in target &&
+				(target as any) !== document &&
+				(target as any) !== document.documentElement
+			) {
 				currentScrollY = (target as HTMLElement).scrollTop;
 				docHeight = (target as HTMLElement).scrollHeight;
 				windowHeight = (target as HTMLElement).clientHeight;
@@ -191,7 +196,9 @@ export const BottomNav: Component = () => {
 			>
 				<div
 					class={`w-16 h-16 rounded-[28px] backdrop-blur-2xl shadow-[0_16px_50px_rgba(0,0,0,0.85)] border-[2.5px] flex items-center justify-center overflow-hidden transition-all bg-[#0D0F17]/95 ${
-						isActive('/profile') ? 'border-[#3390ec] shadow-[#3390ec]/40 ring-2 ring-[#3390ec]/20' : 'border-white/15'
+						isActive('/profile')
+							? 'border-[#3390ec] shadow-[#3390ec]/40 ring-2 ring-[#3390ec]/20'
+							: 'border-white/15'
 					}`}
 				>
 					<Show

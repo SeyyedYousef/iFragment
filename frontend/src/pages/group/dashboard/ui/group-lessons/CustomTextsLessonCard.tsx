@@ -1,8 +1,10 @@
 import { Motion } from '@motionone/solid';
-import { Component, createSignal, onCleanup, onMount } from 'solid-js';
+import { type Component, createSignal, onCleanup, onMount } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 
-export const CustomTextsLessonCard: Component<{ onNavigate: () => void; isDone?: boolean }> = (props) => {
+export const CustomTextsLessonCard: Component<{ onNavigate: () => void; isDone?: boolean }> = (
+	props,
+) => {
 	const [activeTemplate, setActiveTemplate] = createSignal(0);
 
 	onMount(() => {
@@ -40,7 +42,9 @@ export const CustomTextsLessonCard: Component<{ onNavigate: () => void; isDone?:
 						<span class="material-symbols-outlined text-[14px]">tune</span>
 						{t('groupLessons.customTexts.templateLabel')}
 					</span>
-					<span class="text-[9px] font-mono text-white/40">{activeTemplate() === 0 ? '$name' : '$rules'}</span>
+					<span class="text-[9px] font-mono text-white/40">
+						{activeTemplate() === 0 ? '$name' : '$rules'}
+					</span>
 				</div>
 
 				<Motion.div
@@ -54,6 +58,7 @@ export const CustomTextsLessonCard: Component<{ onNavigate: () => void; isDone?:
 			</div>
 
 			<button
+				type="button"
 				onClick={props.onNavigate}
 				class="w-full h-12 bg-white/5 border border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 rounded-[16px] text-[12px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
 			>

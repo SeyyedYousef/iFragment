@@ -1,4 +1,4 @@
-import { Component, createSignal, Show } from 'solid-js';
+import { type Component, createSignal, Show } from 'solid-js';
 
 interface AvatarProps {
 	src?: string;
@@ -7,7 +7,16 @@ interface AvatarProps {
 	class?: string;
 }
 
-const COLORS = ['#E17055', '#00B894', '#0984E3', '#6C5CE7', '#FDCB6E', '#E84393', '#00CEC9', '#55A3F5'];
+const COLORS = [
+	'#E17055',
+	'#00B894',
+	'#0984E3',
+	'#6C5CE7',
+	'#FDCB6E',
+	'#E84393',
+	'#00CEC9',
+	'#55A3F5',
+];
 
 const getSizeClass = (size?: string) => {
 	switch (size) {
@@ -17,7 +26,6 @@ const getSizeClass = (size?: string) => {
 			return 'w-12 h-12 text-lg';
 		case 'xl':
 			return 'w-16 h-16 text-xl';
-		case 'md':
 		default:
 			return 'w-10 h-10 text-sm';
 	}
@@ -44,10 +52,7 @@ export const Avatar: Component<AvatarProps> = (props) => {
 			class={`relative flex-shrink-0 rounded-full flex items-center justify-center font-bold text-white overflow-hidden ${getSizeClass(props.size)} ${props.class || ''}`}
 			style={{ 'background-color': bgColor() }}
 		>
-			<Show
-				when={props.src && !imageError()}
-				fallback={<span>{initial()}</span>}
-			>
+			<Show when={props.src && !imageError()} fallback={<span>{initial()}</span>}>
 				<img
 					src={props.src}
 					alt={props.name}

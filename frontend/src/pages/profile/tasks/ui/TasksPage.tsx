@@ -2,11 +2,11 @@ import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
 import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
 import { backButton, openTelegramLink } from '@tma.js/sdk-solid';
-import { Component, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import { type Component, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { completeTask, getTasksStatus } from '@/entities/user/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
-import { SkeletonTask } from '@/shared/ui/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
+import { SkeletonTask } from '@/shared/ui/index.js';
 
 export const TasksPage: Component = () => {
 	const navigate = useNavigate();
@@ -128,7 +128,7 @@ export const TasksPage: Component = () => {
 
 	const getTaskIcon = (type?: string, key?: string) => {
 		if (type === 'quiz') return 'psychology';
-		if (type === 'channel_join' || (key && key.includes('join'))) return 'campaign';
+		if (type === 'channel_join' || key?.includes('join')) return 'campaign';
 		return 'task_alt';
 	};
 
@@ -144,6 +144,7 @@ export const TasksPage: Component = () => {
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-30 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm shrink-0">
 				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
+						type="button"
 						onClick={() => {
 							try {
 								haptic.impact('light');
@@ -153,9 +154,7 @@ export const TasksPage: Component = () => {
 						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
 						aria-label="Back"
 					>
-						<span class="material-symbols-outlined text-[22px] rtl:-scale-x-100">
-							arrow_back
-						</span>
+						<span class="material-symbols-outlined text-[22px] rtl:-scale-x-100">arrow_back</span>
 					</button>
 					<div class="flex flex-col gap-0.5 min-w-0">
 						<h1 class="text-[18px] font-black text-white leading-tight tracking-tight">
@@ -263,16 +262,14 @@ export const TasksPage: Component = () => {
 												<div class="flex items-center gap-2 flex-wrap">
 													<Show when={task.reward_coins || task.reward_frg}>
 														<span class="px-2 py-0.5 rounded-[6px] bg-amber-400/10 border border-amber-400/20 text-[10px] font-black font-mono text-amber-400 tracking-tight shadow-sm flex items-center gap-1">
-															<span>🪙</span>
-															+{(task.reward_coins ?? task.reward_frg ?? 0).toLocaleString('en-US')}
+															<span>🪙</span>+
+															{(task.reward_coins ?? task.reward_frg ?? 0).toLocaleString('en-US')}
 														</span>
 													</Show>
 													<Show when={task.reward_xp}>
 														<span class="px-2 py-0.5 rounded-[6px] bg-[#3390ec]/10 border border-[#3390ec]/20 text-[10px] font-black font-mono text-[#3390ec] tracking-tight shadow-sm flex items-center gap-1">
-															<span class="material-symbols-outlined text-[12px]">
-																bolt
-															</span>{' '}
-															+{(task.reward_xp ?? 0).toLocaleString('en-US')} XP
+															<span class="material-symbols-outlined text-[12px]">bolt</span> +
+															{(task.reward_xp ?? 0).toLocaleString('en-US')} XP
 														</span>
 													</Show>
 												</div>
@@ -284,6 +281,7 @@ export const TasksPage: Component = () => {
 												when={task.completed}
 												fallback={
 													<button
+														type="button"
 														onClick={() => handleComplete(task)}
 														disabled={
 															completeTaskMutation.isPending &&
@@ -333,6 +331,7 @@ export const TasksPage: Component = () => {
 						<div class="absolute -top-10 -right-10 w-40 h-40 bg-[#3390ec]/20 rounded-full blur-3xl pointer-events-none" />
 
 						<button
+							type="button"
 							onClick={() => setActiveQuizTask(null)}
 							class="absolute top-5 right-5 w-9 h-9 rounded-[12px] bg-white/5 hover:bg-white/10 flex items-center justify-center border border-white/10 active:scale-95 transition-all text-white/60 hover:text-white z-20"
 						>
@@ -384,9 +383,7 @@ export const TasksPage: Component = () => {
 									<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
 								) : (
 									<>
-										<span class="material-symbols-outlined text-[20px]">
-											fact_check
-										</span>
+										<span class="material-symbols-outlined text-[20px]">fact_check</span>
 										{t('airdropNew.tasks.buttons.check')}
 									</>
 								)}

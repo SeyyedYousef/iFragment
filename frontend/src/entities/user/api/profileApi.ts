@@ -1,6 +1,5 @@
 import * as v from 'valibot';
 import { apiFetch } from '@/shared/api/base.js';
-import { setProfilePhotoUrl } from '../model/store.js';
 import {
 	AchievementDefSchema,
 	AchievementSchema,
@@ -20,6 +19,7 @@ import {
 	UserBoostsSchema,
 	UserClanDetailsSchema,
 } from '../model/schemas.js';
+import { setProfilePhotoUrl } from '../model/store.js';
 import type {
 	Achievement,
 	AchievementDef,
@@ -113,14 +113,21 @@ export const upgradeBoost = (boostType: string): Promise<UserBoosts> =>
 		body: JSON.stringify({ boostType }),
 	}) as Promise<UserBoosts>;
 
-export const getLeaderboard = (period?: string | unknown, league?: string): Promise<LeaderboardResponse> => {
+export const getLeaderboard = (
+	period?: string | unknown,
+	league?: string,
+): Promise<LeaderboardResponse> => {
 	const p = typeof period === 'string' ? period : 'day';
-	const url = league ? `/profile/leaderboard?period=${p}&league=${encodeURIComponent(league)}` : `/profile/leaderboard?period=${p}`;
+	const url = league
+		? `/profile/leaderboard?period=${p}&league=${encodeURIComponent(league)}`
+		: `/profile/leaderboard?period=${p}`;
 	return validatedFetch(url, LeaderboardResponseSchema) as Promise<LeaderboardResponse>;
 };
 
 export const getAchievementDefs = (): Promise<AchievementDef[]> =>
-	validatedFetch('/profile/achievements/defs', v.array(AchievementDefSchema)) as Promise<AchievementDef[]>;
+	validatedFetch('/profile/achievements/defs', v.array(AchievementDefSchema)) as Promise<
+		AchievementDef[]
+	>;
 
 export const getCosmetics = (): Promise<CosmeticItem[]> =>
 	validatedFetch('/profile/cosmetics', v.array(CosmeticItemSchema)) as Promise<CosmeticItem[]>;
@@ -198,10 +205,14 @@ export const startOfflineMining = async (): Promise<SuccessResponse> => {
 };
 
 export const activateTurboServer = (): Promise<SuccessResponse> =>
-	validatedFetch('/profile/boosts/daily/turbo', SuccessResponseSchema, { method: 'POST' }) as Promise<SuccessResponse>;
+	validatedFetch('/profile/boosts/daily/turbo', SuccessResponseSchema, {
+		method: 'POST',
+	}) as Promise<SuccessResponse>;
 
 export const activateFullEnergyServer = (): Promise<SuccessResponse> =>
-	validatedFetch('/profile/boosts/daily/full-energy', SuccessResponseSchema, { method: 'POST' }) as Promise<SuccessResponse>;
+	validatedFetch('/profile/boosts/daily/full-energy', SuccessResponseSchema, {
+		method: 'POST',
+	}) as Promise<SuccessResponse>;
 
 export const getClan = (): Promise<UserClanDetails> =>
 	validatedFetch('/profile/clan', UserClanDetailsSchema) as Promise<UserClanDetails>;
@@ -244,7 +255,10 @@ export const getLedger = (
 	if (cursor) params.set('cursor', cursor);
 	if (limit) params.set('limit', String(limit));
 	const queryString = params.toString() ? `?${params.toString()}` : '';
-	return validatedFetch(`/profile/ledger${queryString}`, LedgerResponseSchema) as Promise<LedgerResponse>;
+	return validatedFetch(
+		`/profile/ledger${queryString}`,
+		LedgerResponseSchema,
+	) as Promise<LedgerResponse>;
 };
 
 // ─── My Assets API ───

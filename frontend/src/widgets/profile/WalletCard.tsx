@@ -1,8 +1,8 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
-import { Component, createMemo, createSignal, Show } from 'solid-js';
-import { formatNumber, t } from '@/shared/i18n/index.js';
+import { type Component, createMemo, createSignal, Show } from 'solid-js';
 import type { ProfileStats } from '@/entities/user/index.js';
+import { formatNumber, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { LedgerModal } from './LedgerModal.js';
 
@@ -50,7 +50,10 @@ export const WalletCard: Component<Props> = (props) => {
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-2.5">
 							<div class="w-9 h-9 rounded-[12px] bg-[#0098EA]/15 border border-[#0098EA]/30 flex items-center justify-center text-[#0098EA] shadow-inner">
-								<span class="material-symbols-outlined text-[20px]" style={{ 'font-variation-settings': '"FILL" 1' }}>
+								<span
+									class="material-symbols-outlined text-[20px]"
+									style={{ 'font-variation-settings': '"FILL" 1' }}
+								>
 									account_balance_wallet
 								</span>
 							</div>
@@ -66,12 +69,11 @@ export const WalletCard: Component<Props> = (props) => {
 
 						{/* Ledger Action */}
 						<button
+							type="button"
 							onClick={handleOpenLedger}
 							class="flex items-center gap-1.5 px-3 py-1.5 rounded-[12px] bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 text-white/80 text-[11px] font-black transition-all"
 						>
-							<span class="material-symbols-outlined text-[16px] text-[#0098EA]">
-								receipt_long
-							</span>
+							<span class="material-symbols-outlined text-[16px] text-[#0098EA]">receipt_long</span>
 							<span>{t('wallet.ledger' as any) || 'Ledger'}</span>
 						</button>
 					</div>
@@ -94,14 +96,14 @@ export const WalletCard: Component<Props> = (props) => {
 
 							<div class="flex flex-col gap-1">
 								<div class="flex items-center gap-1 text-[9px] font-bold text-white/40">
-									<span class="material-symbols-outlined text-[12px] text-amber-400/80">
-										timer
-									</span>
+									<span class="material-symbols-outlined text-[12px] text-amber-400/80">timer</span>
 									<span>
-										{t('wallet.expiresIn' as any, { days: expiryDays() }) || `${expiryDays()}d left`}
+										{t('wallet.expiresIn' as any, { days: expiryDays() }) ||
+											`${expiryDays()}d left`}
 									</span>
 								</div>
 								<button
+									type="button"
 									onClick={handleOpenShop}
 									class="w-full py-1 rounded-[8px] bg-amber-400/15 hover:bg-amber-400/25 active:scale-95 border border-amber-400/30 text-amber-300 text-[9px] font-black tracking-wide uppercase transition-all"
 								>
@@ -128,13 +130,12 @@ export const WalletCard: Component<Props> = (props) => {
 
 							<div class="flex flex-col gap-1">
 								<div class="flex items-center gap-1 text-[9px] font-bold text-emerald-400/80">
-									<span class="material-symbols-outlined text-[12px]">
-										all_inclusive
-									</span>
+									<span class="material-symbols-outlined text-[12px]">all_inclusive</span>
 									<span>{t('wallet.noExpiry' as any) || 'No Expiry'}</span>
 								</div>
 								<button
-									onClick={() => props.onBuyStars ? props.onBuyStars() : navigate('/marketplace')}
+									type="button"
+									onClick={() => (props.onBuyStars ? props.onBuyStars() : navigate('/marketplace'))}
 									class="w-full py-1 rounded-[8px] bg-[#0098EA]/15 hover:bg-[#0098EA]/25 active:scale-95 border border-[#0098EA]/30 text-[#0098EA] text-[9px] font-black tracking-wide uppercase transition-all"
 								>
 									{t('wallet.buyStars' as any) || '+ Stars'}
@@ -149,7 +150,9 @@ export const WalletCard: Component<Props> = (props) => {
 									{t('wallet.subscription' as any) || 'Plan'}
 								</span>
 								<div class="flex items-baseline gap-1">
-									<span class={`text-[15px] font-black tracking-tight ${subscription()?.isActive ? 'text-cyan-400' : 'text-white/60'}`}>
+									<span
+										class={`text-[15px] font-black tracking-tight ${subscription()?.isActive ? 'text-cyan-400' : 'text-white/60'}`}
+									>
 										{subscription()?.packageTitle || 'Free'}
 									</span>
 								</div>
@@ -160,7 +163,10 @@ export const WalletCard: Component<Props> = (props) => {
 									when={subscription()?.isActive}
 									fallback={
 										<button
-											onClick={() => props.onBuyStars ? props.onBuyStars() : navigate('/marketplace')}
+											type="button"
+											onClick={() =>
+												props.onBuyStars ? props.onBuyStars() : navigate('/marketplace')
+											}
 											class="w-full py-1 rounded-[8px] bg-cyan-500/15 hover:bg-cyan-500/25 active:scale-95 border border-cyan-500/30 text-cyan-300 text-[9px] font-black tracking-wide uppercase transition-all"
 										>
 											{t('wallet.upgrade' as any) || 'Pro'}

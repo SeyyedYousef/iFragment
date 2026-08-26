@@ -82,3 +82,79 @@ func (h *IntelCreditHandler) Consume(w http.ResponseWriter, r *http.Request) {
 		"balance": remaining,
 	})
 }
+
+// GetStoreConfig returns the server-authoritative credit store pricing.
+// The Mini App must render prices exclusively from this response.
+func (h *IntelCreditHandler) GetStoreConfig(w http.ResponseWriter, r *http.Request) {
+	store := intelcredit.NewStoreService(nil)
+	RespondJSON(w, http.StatusOK, store.GetConfig())
+}
+
+type PurchaseCreditsRequest struct {
+	Method string `json:"method"` // currently only "stars"
+	Pack   string `json:"pack"`   // "c1", "c3p1", "c10p3"
+}
+
+// Purchase creates a pending order and returns a Telegram Stars invoice link.
+// Credits are granted asynchronously by the bot webhook after successful payment.
+func (h *IntelCreditHandler) Purchase(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID, err := middleware.GetUserID(ctx)
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
+		return
+	}
+
+	var req PurchaseCreditsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Pack == "" {
+		RespondError(w, r, http.StatusBadRequest, "invalid request body", nil)
+		return
+	}
+	if req.Method != "" && req.Method != "stars" {
+		RespondError(w, r, http.StatusBadRequest, "unsupported purchase method", nil)
+		return
+	}
+
+	store := intelcredit.NewStoreService(h.service.DB())
+	link, err := store.CreateStarsInvoice(ctx, userID, req.Pack)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to create invoice", err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]interface{}{
+		"success":      true,
+		"invoice_link": link,
+	})
+}
+
+// ExchangeCoins atomically converts Airdrop Coins into 1 Intel Credit (HTTP 402 when short).
+func (h *IntelCreditHandler) ExchangeCoins(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID, err := middleware.GetUserID(ctx)
+	if err != nil {
+		RespondError(w, r, http.StatusUnauthorized, "unauthorized", err)
+		return
+	}
+
+	store := intelcredit.NewStoreService(h.service.DB())
+	balance, err := store.ExchangeCoins(ctx, userID)
+	if err != nil {
+		if errors.Is(err, repository.ErrInsufficientCoins) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusPaymentRequired)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"error":   "insufficient_coins",
+				"message": "not enough airdrop coins for exchange",
+			})
+			return
+		}
+		RespondError(w, r, http.StatusInternalServerError, "failed to exchange coins", err)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]interface{}{
+		"success": true,
+		"balance": balance,
+	})
+}

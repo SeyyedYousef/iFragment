@@ -106,6 +106,9 @@ var enDict = map[string]interface{}{
 		"no_rules":       "⚠️ <b>No Rules Set</b>\nThere are no rules configured for this group. You can set them up in the dashboard.",
 		"rules_title":    "📜 <b>Group Rules</b>\n\n{rules}",
 	},
+	"help": map[string]interface{}{
+		"admin_help": "📖 <b>iFragment Bot Commands Guide:</b>\n\n⚡ <b>Moderation & Security:</b>\n• <code>/settings</code> or <code>/config</code> — Interactive Settings Menu\n• <code>/lock</code> | <code>/unlock</code> — Lock / Unlock Group Chat\n• <code>/ban</code> | <code>/unban</code> | <code>/kick</code> — Ban / Unban / Kick Member\n• <code>/mute [time]</code> | <code>/unmute</code> — Mute / Unmute Member (e.g. /mute 1h)\n• <code>/warn</code> | <code>/warns</code> | <code>/unwarn</code> — Manage User Warnings\n• <code>/antispam [on|off]</code> — Quick Anti-Spam Toggle\n• <code>/quiet [start] [end]</code> — Automated Quiet Hours\n\n🧹 <b>Cleanup & Messages:</b>\n• <code>/del</code> — Delete Replied Message\n• <code>/purge</code> — Bulk Delete Messages to this point\n• <code>/clean [count]</code> — Clean up to 100 recent messages\n• <code>/ephemeral [time|off]</code> — Auto-delete bot messages\n• <code>/slowmode [sec]</code> — Chat Rate Limiting\n\n⚙️ <b>Configuration & Info:</b>\n• <code>/rules</code> | <code>/setrules [text]</code> — Group Rules\n• <code>/welcome</code> | <code>/setwelcome [text]</code> — Welcome Message\n• <code>/pin</code> | <code>/unpin</code> | <code>/unpinall</code> — Pin Management\n• <code>/tag [args]</code> — Tag Group Members\n• <code>/info</code> — Bot Status & Group License\n• <code>/stats</code> — 7-Day Group Activity Stats\n• <code>/id</code> | <code>/ping</code> | <code>/admins</code> | <code>/link</code> | <code>/debug</code> — Utilities",
+	},
 	"penalty": map[string]interface{}{
 		"mute": "🔇 <b>User restricted for {duration}</b>\n\nReason: {reason}",
 		"kick": "👢 <b>User kicked</b>\n\nReason: {reason}",
@@ -214,6 +217,9 @@ var faDict = map[string]interface{}{
 		"user_unmuted":   "🔊 <b>کاربر صدادار شد</b>\n\nکاربر: <a href=\"tg://user?id={id}\">{name}</a>",
 		"no_rules":       "⚠️ <b>بدون قانون</b>\nهیچ قانونی برای این گروه تنظیم نشده است. می‌توانید از طریق داشبورد قوانین را اضافه کنید.",
 		"rules_title":    "📜 <b>قوانین گروه</b>\n\n{rules}",
+	},
+	"help": map[string]interface{}{
+		"admin_help": "📖 <b>راهنمای دستورات ربات (iFragment):</b>\n\n⚡ <b>مدیریت و نظارت:</b>\n• <code>/settings</code> یا <code>/config</code> — منوی شیشه‌ای و تعاملی تنظیمات\n• <code>/lock</code> | <code>/unlock</code> — قفل و باز کردن چت\n• <code>/ban</code> | <code>/unban</code> | <code>/kick</code> — مسدودسازی و اخراج\n• <code>/mute [زمان]</code> | <code>/unmute</code> — بی‌صدا کردن (مثلاً /mute 1h)\n• <code>/warn</code> | <code>/warns</code> | <code>/unwarn</code> — مدیریت اخطارها\n• <code>/antispam [on|off]</code> — محافظت سریع ضد اسپم\n• <code>/quiet [شروع] [پایان]</code> — ساعات سکوت خودکار\n\n🧹 <b>پاکسازی و محتوا:</b>\n• <code>/del</code> — حذف پیام ریپلای شده\n• <code>/purge</code> — حذف دسته‌جمعی پیام‌ها تا این نقطه\n• <code>/clean [تعداد]</code> — پاکسازی N پیام اخیر (حداکثر ۱۰۰)\n• <code>/ephemeral [زمان|off]</code> — حذف خودکار پیام‌های ربات\n• <code>/slowmode [ثانیه]</code> — فعال‌سازی اسلومود\n\n⚙️ <b>پیکربندی و اطلاعات:</b>\n• <code>/rules</code> | <code>/setrules [متن]</code> — قوانین گروه\n• <code>/welcome</code> | <code>/setwelcome [متن]</code> — پیام خوش‌آمدگویی\n• <code>/pin</code> | <code>/unpin</code> | <code>/unpinall</code> — سنجاق پیام‌ها\n• <code>/tag [متن]</code> — تگ کردن اعضای گروه\n• <code>/info</code> — مشخصات فنی و لایسنس ربات\n• <code>/stats</code> — آمار ۷ روزه فعالیت گروه\n• <code>/id</code> | <code>/ping</code> | <code>/admins</code> | <code>/link</code> | <code>/debug</code> — ابزارهای سیستمی",
 	},
 	"penalty": map[string]interface{}{
 		"mute": "🔇 <b>کاربر به مدت {duration} بی‌صدا شد</b>\n\nعلت: {reason}",

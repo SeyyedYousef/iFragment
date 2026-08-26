@@ -2,7 +2,7 @@ import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton } from '@tma.js/sdk-solid';
 import {
-	Component,
+	type Component,
 	createEffect,
 	createSignal,
 	For,
@@ -18,9 +18,9 @@ import {
 	useUpdateChannelSettings,
 } from '@/entities/channel/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
-import { SelectField, ToggleSwitch } from '@/shared/ui/settings-controls.js';
-import { showToast } from '@/shared/ui/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
+import { showToast } from '@/shared/ui/index.js';
+import { SelectField, ToggleSwitch } from '@/shared/ui/settings-controls.js';
 
 export const ChannelDynamicBioPage: Component = () => {
 	const params = useParams();
@@ -95,7 +95,11 @@ export const ChannelDynamicBioPage: Component = () => {
 	});
 
 	const variables = [
-		{ tag: '$members', desc: t('channelDynamicBio.varMembers') || 'Subscribers Count', val: '45,102' },
+		{
+			tag: '$members',
+			desc: t('channelDynamicBio.varMembers') || 'Subscribers Count',
+			val: '45,102',
+		},
 		{ tag: '$ton', desc: 'TON Price', val: '$5.50' },
 		{ tag: '$btc', desc: 'Bitcoin Price', val: '$64,200' },
 		{ tag: '$eth', desc: 'Ethereum Price', val: '$3,450' },
@@ -138,8 +142,10 @@ export const ChannelDynamicBioPage: Component = () => {
 	};
 
 	return (
-		<div class="min-h-screen bg-[#030303] pb-28 relative overflow-x-hidden text-white font-sans selection:bg-[#3390ec]/30" dir={isRtl() ? 'rtl' : 'ltr'}>
-			
+		<div
+			class="min-h-screen bg-[#030303] pb-28 relative overflow-x-hidden text-white font-sans selection:bg-[#3390ec]/30"
+			dir={isRtl() ? 'rtl' : 'ltr'}
+		>
 			{/* Ambient Top Glow */}
 			<div class="absolute top-0 left-0 right-0 h-[350px] bg-gradient-to-b from-[#3390ec]/15 via-transparent to-transparent blur-[80px] pointer-events-none z-0" />
 
@@ -147,7 +153,11 @@ export const ChannelDynamicBioPage: Component = () => {
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm">
 				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
-						onClick={() => { haptic.impact('light'); navigate(`/channel/${params.id}`); }}
+						type="button"
+						onClick={() => {
+							haptic.impact('light');
+							navigate(`/channel/${params.id}`);
+						}}
 						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
 						aria-label={t('common.back')}
 					>
@@ -164,6 +174,7 @@ export const ChannelDynamicBioPage: Component = () => {
 				</div>
 
 				<button
+					type="button"
 					onClick={() => setIsMenuOpen(true)}
 					class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-colors shrink-0 shadow-sm text-white/80"
 					aria-label={t('common.toggle')}
@@ -172,10 +183,14 @@ export const ChannelDynamicBioPage: Component = () => {
 				</button>
 			</div>
 
-			<ChannelHamburgerMenu isOpen={isMenuOpen()} onClose={() => setIsMenuOpen(false)} channelId={params.id} activeTab="dynamic-bio" />
+			<ChannelHamburgerMenu
+				isOpen={isMenuOpen()}
+				onClose={() => setIsMenuOpen(false)}
+				channelId={params.id}
+				activeTab="dynamic-bio"
+			/>
 
 			<div class="px-5 pt-5 flex flex-col gap-4 max-w-md mx-auto relative z-10 w-full pb-10">
-				
 				<ChannelContextBar channelId={params.id} />
 
 				<Show when={settingsQuery.isLoading}>
@@ -187,34 +202,54 @@ export const ChannelDynamicBioPage: Component = () => {
 
 				<Show when={settingsQuery.isError}>
 					<div class="bg-[#ff4a4a]/10 backdrop-blur-md rounded-[24px] border border-[#ff4a4a]/20 p-6 flex flex-col gap-3 items-center text-center shadow-sm mt-2">
-						<span class="material-symbols-outlined text-[42px] text-[#ff4a4a] drop-shadow-md">error</span>
+						<span class="material-symbols-outlined text-[42px] text-[#ff4a4a] drop-shadow-md">
+							error
+						</span>
 						<div class="flex flex-col gap-1">
-							<span class="text-[15px] font-black text-white tracking-tight">{t('common.errorUpdateFailed')}</span>
+							<span class="text-[15px] font-black text-white tracking-tight">
+								{t('common.errorUpdateFailed')}
+							</span>
 							<span class="text-[12px] font-medium text-white/60 leading-relaxed">
 								{t('common.errors.generic')}
 							</span>
 						</div>
-						<button onClick={() => settingsQuery.refetch()} class="px-6 py-3 bg-[#ff4a4a] hover:bg-[#ff3b30] text-white rounded-[14px] font-black uppercase tracking-widest text-[11px] shadow-[0_4px_15px_rgba(255,74,74,0.3)] active:scale-95 transition-all mt-2">
+						<button
+							type="button"
+							onClick={() => settingsQuery.refetch()}
+							class="px-6 py-3 bg-[#ff4a4a] hover:bg-[#ff3b30] text-white rounded-[14px] font-black uppercase tracking-widest text-[11px] shadow-[0_4px_15px_rgba(255,74,74,0.3)] active:scale-95 transition-all mt-2"
+						>
 							{t('common.retry')}
 						</button>
 					</div>
 				</Show>
 
 				<Show when={settingsQuery.data}>
-					<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} class="bg-[#12141C]/80 backdrop-blur-xl rounded-[28px] border border-white/5 p-5 flex flex-col gap-5 shadow-sm relative overflow-hidden">
-						
+					<Motion.div
+						initial={{ opacity: 0, y: 15 }}
+						animate={{ opacity: 1, y: 0 }}
+						transition={{ delay: 0.05 }}
+						class="bg-[#12141C]/80 backdrop-blur-xl rounded-[28px] border border-white/5 p-5 flex flex-col gap-5 shadow-sm relative overflow-hidden"
+					>
 						{/* ═══════ ENGINE TOGGLE ═══════ */}
 						<div class="flex items-center justify-between gap-3 relative z-10 border-b border-white/5 pb-3">
 							<div class="flex flex-col flex-1 min-w-0 gap-0.5">
 								<span class="text-[15px] font-black text-white tracking-tight flex items-center gap-2">
-									<span class="material-symbols-outlined text-[#3390ec] text-[20px]">smart_toy</span>
+									<span class="material-symbols-outlined text-[#3390ec] text-[20px]">
+										smart_toy
+									</span>
 									{t('channelDynamicBio.title')}
 								</span>
 								<span class="text-[11px] font-medium text-white/50">
 									{t('channelDynamicBio.subtitle2')}
 								</span>
 							</div>
-							<ToggleSwitch checked={enabled()} onChange={(v) => { haptic.impact('light'); setEnabled(v); }} />
+							<ToggleSwitch
+								checked={enabled()}
+								onChange={(v) => {
+									haptic.impact('light');
+									setEnabled(v);
+								}}
+							/>
 						</div>
 
 						<Show when={!enabled()}>
@@ -230,7 +265,6 @@ export const ChannelDynamicBioPage: Component = () => {
 						</Show>
 
 						<Show when={enabled()}>
-							
 							{/* ═══════ CURRENT TELEGRAM STATUS ═══════ */}
 							<div class="bg-[#08090D] p-4 rounded-[20px] border border-white/5 flex flex-col gap-3 shadow-inner">
 								<span class="text-[10px] font-black uppercase tracking-widest text-white/40 flex items-center gap-1.5">
@@ -239,15 +273,21 @@ export const ChannelDynamicBioPage: Component = () => {
 								</span>
 								<div class="flex flex-col gap-2 border-t border-white/5 pt-2">
 									<div class="flex flex-col gap-0.5">
-										<span class="text-[10px] font-bold text-white/30 uppercase">{t('channelDynamicBio.currentName')}</span>
+										<span class="text-[10px] font-bold text-white/30 uppercase">
+											{t('channelDynamicBio.currentName')}
+										</span>
 										<span class="text-[13px] font-bold text-white">
 											{telegramInfo()?.title || currentName() || t('channelDynamicBio.fetching')}
 										</span>
 									</div>
 									<div class="flex flex-col gap-0.5 mt-1">
-										<span class="text-[10px] font-bold text-white/30 uppercase">{t('channelDynamicBio.currentBioReal')}</span>
+										<span class="text-[10px] font-bold text-white/30 uppercase">
+											{t('channelDynamicBio.currentBioReal')}
+										</span>
 										<span class="text-[13px] font-medium text-white leading-relaxed">
-											{telegramInfo()?.description || currentBio() || t('channelDynamicBio.fetching')}
+											{telegramInfo()?.description ||
+												currentBio() ||
+												t('channelDynamicBio.fetching')}
 										</span>
 									</div>
 								</div>
@@ -255,18 +295,24 @@ export const ChannelDynamicBioPage: Component = () => {
 
 							{/* ═══════ BIO INPUT ═══════ */}
 							<div class="flex flex-col gap-2 mt-1">
-								<label class="text-[12px] font-black text-white flex justify-between items-center uppercase tracking-wider px-1">
+								<div class="text-[12px] font-black text-white flex justify-between items-center uppercase tracking-wider px-1">
 									<div class="flex items-center gap-1.5">
-										<span class="material-symbols-outlined text-[16px] text-pink-400">format_quote</span>
+										<span class="material-symbols-outlined text-[16px] text-pink-400">
+											format_quote
+										</span>
 										{t('channelDynamicBio.currentBio')}
 									</div>
-									<span class={`text-[10px] font-bold font-mono px-2 py-0.5 rounded-[6px] border ${bioTemplate().length > 255 ? 'bg-[#ff4a4a]/10 text-[#ff4a4a] border-[#ff4a4a]/20' : 'bg-white/5 text-white/40 border-white/10'}`}>
+									<span
+										class={`text-[10px] font-bold font-mono px-2 py-0.5 rounded-[6px] border ${bioTemplate().length > 255 ? 'bg-[#ff4a4a]/10 text-[#ff4a4a] border-[#ff4a4a]/20' : 'bg-white/5 text-white/40 border-white/10'}`}
+									>
 										{bioTemplate().length} / 255
 									</span>
-								</label>
+								</div>
 								<textarea
-									value={bioTemplate()} onInput={(e) => setBioTemplate(e.currentTarget.value)}
-									placeholder="Official Channel | Members: $members" maxLength={255}
+									value={bioTemplate()}
+									onInput={(e) => setBioTemplate(e.currentTarget.value)}
+									placeholder="Official Channel | Members: $members"
+									maxLength={255}
 									class="bg-[#08090D] border border-white/5 text-white text-[13px] font-medium leading-relaxed rounded-[18px] px-4 py-3.5 w-full min-h-[100px] focus:outline-none focus:border-[#3390ec]/50 transition-all resize-none placeholder-white/20 shadow-inner"
 								/>
 							</div>
@@ -275,17 +321,30 @@ export const ChannelDynamicBioPage: Component = () => {
 							<div class="bg-[#08090D] p-4 rounded-[20px] border border-white/5 flex flex-col gap-4 shadow-inner mt-1">
 								<div class="flex items-center justify-between">
 									<div class="flex flex-col flex-1 min-w-0">
-										<span class="text-[13px] font-bold text-white tracking-tight">{t('channelDynamicBio.displayName')}</span>
-										<span class="text-[11px] font-medium text-white/50 mt-0.5">{t('channelDynamicBio.displayInNameDesc')}</span>
+										<span class="text-[13px] font-bold text-white tracking-tight">
+											{t('channelDynamicBio.displayName')}
+										</span>
+										<span class="text-[11px] font-medium text-white/50 mt-0.5">
+											{t('channelDynamicBio.displayInNameDesc')}
+										</span>
 									</div>
-									<ToggleSwitch checked={displayInName()} onChange={(v) => { haptic.impact('light'); setDisplayInName(v); }} />
+									<ToggleSwitch
+										checked={displayInName()}
+										onChange={(v) => {
+											haptic.impact('light');
+											setDisplayInName(v);
+										}}
+									/>
 								</div>
 
 								<Show when={displayInName()}>
 									<div class="border-t border-white/5 pt-3">
 										<input
-											type="text" value={nameTemplate()} onInput={(e) => setNameTemplate(e.currentTarget.value)}
-											placeholder="iFragment News $time" maxLength={128}
+											type="text"
+											value={nameTemplate()}
+											onInput={(e) => setNameTemplate(e.currentTarget.value)}
+											placeholder={'iFragment News $time'}
+											maxLength={128}
 											class="w-full h-12 bg-[#12141C] text-white text-[13px] font-bold rounded-[14px] px-4 border border-white/5 focus:outline-none focus:border-[#3390ec]/50 transition-colors placeholder-white/20 shadow-inner"
 										/>
 									</div>
@@ -295,13 +354,16 @@ export const ChannelDynamicBioPage: Component = () => {
 							{/* ═══════ DYNAMIC VARIABLES ═══════ */}
 							<div class="flex flex-col gap-2 mt-2">
 								<span class="text-[11px] font-black uppercase tracking-widest text-white/40 px-1 flex items-center gap-1.5">
-									<span class="material-symbols-outlined text-[16px] text-amber-400">data_object</span>
+									<span class="material-symbols-outlined text-[16px] text-amber-400">
+										data_object
+									</span>
 									{t('channelDynamicBio.variables')}
 								</span>
 								<div class="flex flex-wrap gap-2 pt-1">
 									<For each={variables}>
 										{(v) => (
 											<button
+												type="button"
 												onClick={() => {
 													haptic.impact('light');
 													if (bioTemplate().length + v.tag.length <= 255) {
@@ -310,7 +372,9 @@ export const ChannelDynamicBioPage: Component = () => {
 												}}
 												class="bg-[#08090D] hover:bg-white/10 transition-all border border-white/5 hover:border-white/20 rounded-[14px] px-3 py-2 flex flex-col items-start active:scale-95 shadow-sm group"
 											>
-												<span class="text-[12px] font-black text-[#3390ec] font-mono group-hover:drop-shadow-[0_0_8px_rgba(51,144,236,0.5)]">{v.tag}</span>
+												<span class="text-[12px] font-black text-[#3390ec] font-mono group-hover:drop-shadow-[0_0_8px_rgba(51,144,236,0.5)]">
+													{v.tag}
+												</span>
 												<span class="text-[10px] font-medium text-white/40 mt-0.5">{v.desc}</span>
 											</button>
 										)}
@@ -325,7 +389,10 @@ export const ChannelDynamicBioPage: Component = () => {
 								<SelectField
 									label={t('channelDynamicBio.updateInterval')}
 									value={interval()}
-									onChange={(v) => { haptic.selection(); setIntervalVal(v); }}
+									onChange={(v) => {
+										haptic.selection();
+										setIntervalVal(v);
+									}}
 									options={[
 										{ value: '10m', label: t('channelDynamicBio.interval10m') },
 										{ value: '30m', label: t('channelDynamicBio.interval30m') },
@@ -339,12 +406,19 @@ export const ChannelDynamicBioPage: Component = () => {
 
 					{/* ═══════ LIVE PREVIEW CARD ═══════ */}
 					<Show when={enabled()}>
-						<Motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} class="bg-gradient-to-br from-[#3390ec]/15 to-transparent rounded-[28px] border border-[#3390ec]/30 p-5 flex flex-col gap-4 relative overflow-hidden shadow-[inset_0_0_20px_rgba(51,144,236,0.05)] mt-1">
+						<Motion.div
+							initial={{ opacity: 0, y: 15 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{ delay: 0.15 }}
+							class="bg-gradient-to-br from-[#3390ec]/15 to-transparent rounded-[28px] border border-[#3390ec]/30 p-5 flex flex-col gap-4 relative overflow-hidden shadow-[inset_0_0_20px_rgba(51,144,236,0.05)] mt-1"
+						>
 							<div class="absolute -top-10 -right-10 w-32 h-32 bg-[#3390ec]/20 rounded-full blur-3xl pointer-events-none" />
-							
+
 							<div class="flex items-center gap-2 relative z-10">
 								<div class="w-8 h-8 rounded-[10px] bg-[#3390ec]/20 flex items-center justify-center border border-[#3390ec]/40 shadow-inner">
-									<span class="material-symbols-outlined text-[16px] text-[#3390ec]">visibility</span>
+									<span class="material-symbols-outlined text-[16px] text-[#3390ec]">
+										visibility
+									</span>
 								</div>
 								<span class="text-[12px] font-black uppercase tracking-widest text-[#3390ec]">
 									{t('channelDynamicBio.preview')}
@@ -370,7 +444,9 @@ export const ChannelDynamicBioPage: Component = () => {
 										.replace(/\$date/g, '12 May 2026')
 										.replace(/\$day_name/g, 'Tuesday')
 										.replace(/\$btc/g, '$64,200')
-										.replace(/\$Gram/g, '$5.50') || <span class="text-white/30 italic">{t('channelDynamicBio.noBioWritten')}</span>}
+										.replace(/\$Gram/g, '$5.50') || (
+										<span class="text-white/30 italic">{t('channelDynamicBio.noBioWritten')}</span>
+									)}
 								</p>
 							</div>
 						</Motion.div>
@@ -382,10 +458,17 @@ export const ChannelDynamicBioPage: Component = () => {
 			<div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#030303] via-[#030303]/90 to-transparent z-40 pointer-events-none">
 				<div class="max-w-md mx-auto pointer-events-auto">
 					<button
-						onClick={handleSave} disabled={isSaving()}
+						type="button"
+						onClick={handleSave}
+						disabled={isSaving()}
 						class="w-full h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] hover:from-[#2b7ec9] hover:to-[#3390ec] text-white rounded-[16px] font-black text-[14px] uppercase tracking-widest shadow-[0_10px_30px_rgba(51,144,236,0.35)] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:scale-100 active:scale-95 border border-white/10"
 					>
-						<Show when={!isSaving()} fallback={<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}>
+						<Show
+							when={!isSaving()}
+							fallback={
+								<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+							}
+						>
 							{t('common.save')}
 							<span class="material-symbols-outlined text-[22px]">save</span>
 						</Show>

@@ -48,7 +48,10 @@ export const valuationApi = {
 	 */
 	payWithAirdrop: (username: string) =>
 		apiClient
-			.post<{ success: boolean; method: string; remaining_coins?: number }>('/usernames/valuation-pay-airdrop', { username })
+			.post<{ success: boolean; method: string; remaining_coins?: number }>(
+				'/usernames/valuation-pay-airdrop',
+				{ username },
+			)
 			.then((r: any) => r.data),
 
 	/**
@@ -68,7 +71,9 @@ export const valuationApi = {
 	 */
 	checkOrderStatus: (params: { payload?: string; username?: string }) =>
 		apiClient
-			.get<OrderStatusResponse>('/usernames/valuation-order-status', { params: { payload: params.payload, u: params.username } })
+			.get<OrderStatusResponse>('/usernames/valuation-order-status', {
+				params: { payload: params.payload, u: params.username },
+			})
 			.then((r: any) => r.data)
 			.catch(() => ({ paid: false, status: 'pending' as const })),
 
@@ -96,4 +101,3 @@ export const valuationApi = {
 			.then((r: any) => r.data)
 			.catch(() => ({ success: false, is_monitored: false })),
 };
-

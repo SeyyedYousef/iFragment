@@ -1,8 +1,10 @@
 import { Motion } from '@motionone/solid';
-import { Component, createSignal, onCleanup, onMount } from 'solid-js';
+import { type Component, createSignal, onCleanup, onMount } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 
-export const QuietHoursLessonCard: Component<{ onNavigate: () => void; isDone?: boolean }> = (props) => {
+export const QuietHoursLessonCard: Component<{ onNavigate: () => void; isDone?: boolean }> = (
+	props,
+) => {
 	const [isNight, setIsNight] = createSignal(false);
 
 	onMount(() => {
@@ -51,7 +53,9 @@ export const QuietHoursLessonCard: Component<{ onNavigate: () => void; isDone?: 
 					</Motion.div>
 					<div class="flex flex-col">
 						<span class="text-[12px] font-black text-white">
-							{isNight() ? t('groupLessons.quietHours.nightMode') : t('groupLessons.quietHours.dayMode')}
+							{isNight()
+								? t('groupLessons.quietHours.nightMode')
+								: t('groupLessons.quietHours.dayMode')}
 						</span>
 						<span class="text-[10px] font-mono font-bold text-white/40">
 							{isNight() ? '23:00 - 07:00' : '07:00 - 23:00'}
@@ -71,6 +75,7 @@ export const QuietHoursLessonCard: Component<{ onNavigate: () => void; isDone?: 
 			</div>
 
 			<button
+				type="button"
 				onClick={props.onNavigate}
 				class="w-full h-12 bg-white/5 border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 rounded-[16px] text-[12px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
 			>

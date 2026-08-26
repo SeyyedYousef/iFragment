@@ -40,11 +40,17 @@ export const numbersApi = {
 		return data;
 	},
 
-	toggleWatchlist: async (number: string, enable: boolean): Promise<{ success: boolean; number: string; enabled: boolean }> => {
-		const { data } = await apiClient.post<{ success: boolean; number: string; enabled: boolean }>('/numbers/watchlist', {
-			number,
-			enable,
-		});
+	toggleWatchlist: async (
+		number: string,
+		enable: boolean,
+	): Promise<{ success: boolean; number: string; enabled: boolean }> => {
+		const { data } = await apiClient.post<{ success: boolean; number: string; enabled: boolean }>(
+			'/numbers/watchlist',
+			{
+				number,
+				enable,
+			},
+		);
 		return data;
 	},
 

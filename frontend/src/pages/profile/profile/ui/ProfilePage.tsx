@@ -2,10 +2,16 @@ import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
 import { backButton } from '@tma.js/sdk-solid';
-import { Component, createSignal, ErrorBoundary, For, onMount, Show } from 'solid-js';
+import { type Component, createSignal, ErrorBoundary, For, onMount, Show } from 'solid-js';
+import {
+	getProfileAchievements,
+	getProfileStats,
+	getReferralInfo,
+	setProfilePhotoUrl,
+} from '@/entities/user/index.js';
 import { useSecretTrigger } from '@/features/owner-gate/index.js';
-import { getProfileAchievements, getProfileStats, getReferralInfo, setProfilePhotoUrl } from '@/entities/user/index.js';
 import { formatNumber, locale, setLocale, t } from '@/shared/i18n/index.js';
+import { haptic } from '@/shared/lib/haptic.js';
 import { ErrorFallback, SkeletonProfile } from '@/shared/ui/index.js';
 import { BottomNav } from '@/widgets/bottom-nav/index.js';
 import { OwnerGateModal } from '@/widgets/owner/index.js';
@@ -15,7 +21,6 @@ import {
 	MyAssetsGallery,
 	WalletCard,
 } from '@/widgets/profile/index.js';
-import { haptic } from '@/shared/lib/haptic.js';
 
 export const ProfilePage: Component = () => {
 	const secretTrigger = useSecretTrigger();
@@ -70,7 +75,10 @@ export const ProfilePage: Component = () => {
 				try {
 					const storedUserId = localStorage.getItem('tg_user_id');
 					if (storedUserId) {
-						localStorage.setItem(`cached_profile_achievements_${storedUserId}`, JSON.stringify(res));
+						localStorage.setItem(
+							`cached_profile_achievements_${storedUserId}`,
+							JSON.stringify(res),
+						);
 					}
 					localStorage.setItem('cached_profile_achievements', JSON.stringify(res));
 				} catch {}
@@ -132,17 +140,11 @@ export const ProfilePage: Component = () => {
 							onMouseUp={secretTrigger.onLogoPressEnd}
 							onMouseLeave={secretTrigger.onLogoPressEnd}
 						>
-							<IdentityHero
-								stats={stats()}
-								onStatusUpdated={() => statsQuery.refetch()}
-							/>
+							<IdentityHero stats={stats()} onStatusUpdated={() => statsQuery.refetch()} />
 						</Motion.div>
 
 						{/* ═══════ 2. WALLET & UNIFIED LEDGER SUMMARY ═══════ */}
-						<WalletCard
-							stats={stats()}
-							onBuyStars={() => handleNavigate('/marketplace')}
-						/>
+						<WalletCard stats={stats()} onBuyStars={() => handleNavigate('/marketplace')} />
 
 						{/* ═══════ 3. MY ASSETS GALLERY (4 TABS) ═══════ */}
 						<MyAssetsGallery />
@@ -161,20 +163,21 @@ export const ProfilePage: Component = () => {
 									</div>
 									<div class="flex flex-col">
 										<span class="text-[13px] font-black text-white tracking-tight">
-											{t('progress.title' as any) || "Today's Progress"}
+											{t('progress.title')}
 										</span>
 										<span class="text-[9px] text-white/40 font-bold uppercase tracking-wider">
-											{t('progress.streak' as any, { days: stats()?.currentStreak || 1 }) || `${stats()?.currentStreak || 1} Day Streak`}
+											{t('progress.streak', { days: stats()?.currentStreak || 1 })}
 										</span>
 									</div>
 								</div>
 
 								{/* Direct deep-links to Airdrop tabs */}
 								<button
+									type="button"
 									onClick={() => handleNavigate('/airdrop?tab=earn')}
 									class="flex items-center gap-1 px-3 py-1.5 rounded-[12px] bg-amber-400/15 hover:bg-amber-400/25 border border-amber-400/30 text-amber-300 text-[10px] font-black uppercase tracking-wide active:scale-95 transition-all"
 								>
-									<span>{t('progress.earnTasks' as any) || 'Earn Tasks'}</span>
+									<span>{t('progress.earnTasks')}</span>
 									<span class="material-symbols-outlined text-[14px]">arrow_forward</span>
 								</button>
 							</div>
@@ -188,11 +191,17 @@ export const ProfilePage: Component = () => {
 									<div class="flex items-center gap-2">
 										<span class="text-[20px]">🚀</span>
 										<div class="flex flex-col">
-											<span class="text-[11px] font-black text-white">Boosters</span>
-											<span class="text-[9px] text-cyan-400 font-bold">Speed up mining</span>
+											<span class="text-[11px] font-black text-white">
+												{t('profilePg.boostersTitle' as any)}
+											</span>
+											<span class="text-[9px] text-cyan-400 font-bold">
+												{t('profilePg.boostersSubtitle' as any)}
+											</span>
 										</div>
 									</div>
-									<span class="material-symbols-outlined text-[16px] text-white/40">chevron_right</span>
+									<span class="material-symbols-outlined text-[16px] text-white/40">
+										chevron_right
+									</span>
 								</div>
 
 								<div
@@ -202,11 +211,17 @@ export const ProfilePage: Component = () => {
 									<div class="flex items-center gap-2">
 										<span class="text-[20px]">🏆</span>
 										<div class="flex flex-col">
-											<span class="text-[11px] font-black text-white">Rank #{stats()?.globalRank || 1}</span>
-											<span class="text-[9px] text-amber-400 font-bold">Global Board</span>
+											<span class="text-[11px] font-black text-white">
+												{t('profilePg.rankLabel' as any, { rank: stats()?.globalRank || 1 })}
+											</span>
+											<span class="text-[9px] text-amber-400 font-bold">
+												{t('profilePg.globalBoard' as any)}
+											</span>
 										</div>
 									</div>
-									<span class="material-symbols-outlined text-[16px] text-white/40">chevron_right</span>
+									<span class="material-symbols-outlined text-[16px] text-white/40">
+										chevron_right
+									</span>
 								</div>
 							</div>
 						</Motion.div>
@@ -225,19 +240,21 @@ export const ProfilePage: Component = () => {
 									</div>
 									<div class="flex flex-col">
 										<span class="text-[13px] font-black text-white tracking-tight">
-											{t('referral.title' as any) || 'Frens Network'}
+											{t('referral.title')}
 										</span>
 										<span class="text-[9px] text-white/40 font-bold uppercase tracking-wider">
-											{referrals()?.totalInvited || 0} {t('referral.friends' as any) || 'Friends'} · {formatNumber(referrals()?.totalEarned || 0)}🪙 {t('referral.earned' as any) || 'Earned'}
+											{referrals()?.totalInvited || 0} {t('referral.friends')} ·{' '}
+											{formatNumber(referrals()?.totalEarned || 0)}🪙 {t('referral.earned')}
 										</span>
 									</div>
 								</div>
 
 								<button
+									type="button"
 									onClick={() => handleNavigate('/airdrop?tab=frens')}
 									class="flex items-center gap-1 px-3 py-1.5 rounded-[12px] bg-cyan-400/15 hover:bg-cyan-400/25 border border-cyan-400/30 text-cyan-300 text-[10px] font-black uppercase tracking-wide active:scale-95 transition-all"
 								>
-									<span>{t('referral.invite' as any) || 'Invite Frens'}</span>
+									<span>{t('referral.invite')}</span>
 									<span class="material-symbols-outlined text-[14px]">arrow_forward</span>
 								</button>
 							</div>
@@ -256,10 +273,10 @@ export const ProfilePage: Component = () => {
 								</div>
 								<div class="flex flex-col">
 									<span class="text-[13px] font-black text-white tracking-tight">
-										{t('verticals.title' as any) || 'Ecosystem Verticals'}
+										{t('verticals.title')}
 									</span>
 									<span class="text-[9px] text-white/40 font-bold uppercase tracking-wider">
-										{t('verticals.subtitle' as any) || 'Cross-vertical navigation'}
+										{t('verticals.subtitle')}
 									</span>
 								</div>
 							</div>
@@ -267,37 +284,46 @@ export const ProfilePage: Component = () => {
 							<div class="grid grid-cols-3 gap-2 pt-1">
 								{/* 1. Usernames Vertical (Active) */}
 								<button
+									type="button"
 									onClick={() => handleNavigate('/')}
 									class="p-3 bg-[#07090E] border border-[#0098EA]/40 rounded-[18px] flex flex-col items-center gap-1.5 active:scale-95 transition-all shadow-[0_0_15px_rgba(0,152,234,0.15)]"
 								>
 									<span class="text-[22px]">🏷️</span>
-									<span class="text-[11px] font-black text-white">Usernames</span>
+									<span class="text-[11px] font-black text-white">
+										{t('profilePg.verticalUsernames' as any)}
+									</span>
 									<span class="text-[8px] px-1.5 py-0.5 rounded-[6px] bg-[#0098EA]/20 text-[#0098EA] font-black uppercase">
-										Active ✓
+										{t('profilePg.badgeActive' as any)}
 									</span>
 								</button>
 
 								{/* 2. Numbers Vertical (Coming Soon) */}
 								<button
+									type="button"
 									onClick={() => handleNavigate('/numbers')}
 									class="p-3 bg-[#07090E] border border-white/5 hover:border-white/15 rounded-[18px] flex flex-col items-center gap-1.5 active:scale-95 transition-all group"
 								>
 									<span class="text-[22px]">📱</span>
-									<span class="text-[11px] font-black text-white/80">Numbers</span>
+									<span class="text-[11px] font-black text-white/80">
+										{t('profilePg.verticalNumbers' as any)}
+									</span>
 									<span class="text-[8px] px-1.5 py-0.5 rounded-[6px] bg-amber-400/20 text-amber-400 font-black uppercase">
-										🔜 Soon
+										{t('profilePg.badgeSoon' as any)}
 									</span>
 								</button>
 
 								{/* 3. Gifts Vertical (Coming Soon) */}
 								<button
+									type="button"
 									onClick={() => handleNavigate('/gifts')}
 									class="p-3 bg-[#07090E] border border-white/5 hover:border-white/15 rounded-[18px] flex flex-col items-center gap-1.5 active:scale-95 transition-all group"
 								>
 									<span class="text-[22px]">🎁</span>
-									<span class="text-[11px] font-black text-white/80">Gifts</span>
+									<span class="text-[11px] font-black text-white/80">
+										{t('profilePg.verticalGifts' as any)}
+									</span>
 									<span class="text-[8px] px-1.5 py-0.5 rounded-[6px] bg-cyan-400/20 text-cyan-300 font-black uppercase">
-										🔜 Soon
+										{t('profilePg.badgeSoon' as any)}
 									</span>
 								</button>
 							</div>
@@ -321,14 +347,13 @@ export const ProfilePage: Component = () => {
 							class="bg-[#0D1017]/90 backdrop-blur-2xl border border-white/10 rounded-[24px] p-2 flex items-center justify-between gap-2 mt-1 shadow-sm"
 						>
 							<button
+								type="button"
 								onClick={() => handleNavigate('/profile/settings')}
 								aria-label={t('profile.settings')}
 								class="flex-1 min-h-[48px] flex items-center justify-center gap-2 py-3 bg-[#07090E] border border-white/5 rounded-[18px] hover:bg-white/5 hover:border-white/10 active:scale-95 transition-all shadow-inner group"
 							>
 								<div class="w-8 h-8 rounded-[10px] bg-[#0098EA]/15 border border-[#0098EA]/30 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-									<span class="material-symbols-outlined text-[#0098EA] text-[18px]">
-										settings
-									</span>
+									<span class="material-symbols-outlined text-[#0098EA] text-[18px]">settings</span>
 								</div>
 								<span class="text-[11px] font-black uppercase tracking-widest text-white/80">
 									{t('profile.settings')}
@@ -336,14 +361,13 @@ export const ProfilePage: Component = () => {
 							</button>
 
 							<button
+								type="button"
 								onClick={() => setShowLangMenu(true)}
 								aria-label={t('profile.language')}
 								class="flex-1 min-h-[48px] flex items-center justify-center gap-2 py-3 bg-[#07090E] border border-white/5 rounded-[18px] hover:bg-white/5 hover:border-white/10 active:scale-95 transition-all shadow-inner group"
 							>
 								<div class="w-8 h-8 rounded-[10px] bg-amber-400/15 border border-amber-400/30 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-									<span class="material-symbols-outlined text-amber-400 text-[18px]">
-										language
-									</span>
+									<span class="material-symbols-outlined text-amber-400 text-[18px]">language</span>
 								</div>
 								<span class="text-[11px] font-black uppercase tracking-widest text-white/80">
 									{t('profile.language')}
@@ -351,6 +375,7 @@ export const ProfilePage: Component = () => {
 							</button>
 
 							<button
+								type="button"
 								onClick={() => handleNavigate('/profile/security')}
 								aria-label={t('profile.security')}
 								class="flex-1 min-h-[48px] flex items-center justify-center gap-2 py-3 bg-[#07090E] border border-white/5 rounded-[18px] hover:bg-white/5 hover:border-white/10 active:scale-95 transition-all shadow-inner group"
@@ -369,7 +394,7 @@ export const ProfilePage: Component = () => {
 						{/* Version & Build */}
 						<div class="mt-4 mb-2 text-center flex flex-col items-center gap-1 opacity-50 relative z-10">
 							<span class="text-[9px] font-black text-white uppercase tracking-widest">
-								iFragment Command Center · 3-Pillar Economy
+								{t('profilePg.versionTagline' as any)}
 							</span>
 							<span
 								onClick={secretTrigger.onVersionTap}
@@ -407,9 +432,7 @@ export const ProfilePage: Component = () => {
 						<div class="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-4 relative z-10" />
 						<div class="flex items-center gap-3 mb-4 relative z-10">
 							<div class="w-10 h-10 rounded-[12px] bg-amber-400/15 border border-amber-400/30 flex items-center justify-center shrink-0 shadow-inner">
-								<span class="material-symbols-outlined text-amber-400 text-[20px]">
-									language
-								</span>
+								<span class="material-symbols-outlined text-amber-400 text-[20px]">language</span>
 							</div>
 							<h3 class="text-white text-[18px] font-black tracking-tight">
 								{t('profile.selectLanguageTitle')}
@@ -420,15 +443,16 @@ export const ProfilePage: Component = () => {
 							<For
 								each={
 									[
-										{ code: 'fa', label: 'فارسی (Persian)', icon: '🇮🇷' },
-										{ code: 'en', label: 'English (US)', icon: '🇬🇧' },
-										{ code: 'ru', label: 'Русский', icon: '🇷🇺' },
-										{ code: 'zh', label: '中文', icon: '🇨🇳' },
+										{ code: 'fa', label: t('profilePg.langFaFull' as any), icon: '🇮🇷' },
+										{ code: 'en', label: t('profilePg.langEnFull' as any), icon: '🇬🇧' },
+										{ code: 'ru', label: t('profilePg.langRuFull' as any), icon: '🇷🇺' },
+										{ code: 'zh', label: t('profilePg.langZhFull' as any), icon: '🇨🇳' },
 									] as const
 								}
 							>
 								{(lang) => (
 									<button
+										type="button"
 										onClick={() => {
 											setLocale(lang.code);
 											try {

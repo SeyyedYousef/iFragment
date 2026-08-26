@@ -1,8 +1,10 @@
 import { Motion } from '@motionone/solid';
-import { Component, createSignal, onCleanup, onMount } from 'solid-js';
+import { type Component, createSignal, onCleanup, onMount } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 
-export const ForwardingLessonCard: Component<{ onNavigate: () => void; isDone?: boolean }> = (props) => {
+export const ForwardingLessonCard: Component<{ onNavigate: () => void; isDone?: boolean }> = (
+	props,
+) => {
 	const [activeChannel, setActiveChannel] = createSignal(0);
 
 	onMount(() => {
@@ -39,7 +41,9 @@ export const ForwardingLessonCard: Component<{ onNavigate: () => void; isDone?: 
 					<div class="w-10 h-10 rounded-[12px] bg-white/5 border border-white/10 flex items-center justify-center text-white/80">
 						<span class="material-symbols-outlined text-[20px]">rss_feed</span>
 					</div>
-					<span class="text-[9px] font-black text-white/50 uppercase tracking-widest">{t('lessons.forwarding.source')}</span>
+					<span class="text-[9px] font-black text-white/50 uppercase tracking-widest">
+						{t('lessons.forwarding.source')}
+					</span>
 				</div>
 
 				<div class="flex-1 flex flex-col items-center justify-center relative">
@@ -59,11 +63,14 @@ export const ForwardingLessonCard: Component<{ onNavigate: () => void; isDone?: 
 					>
 						<span class="material-symbols-outlined text-[20px]">campaign</span>
 					</Motion.div>
-					<span class="text-[9px] font-black text-white/50 uppercase tracking-widest">{t('lessons.forwarding.destination')}</span>
+					<span class="text-[9px] font-black text-white/50 uppercase tracking-widest">
+						{t('lessons.forwarding.destination')}
+					</span>
 				</div>
 			</div>
 
 			<button
+				type="button"
 				onClick={props.onNavigate}
 				class="w-full h-12 bg-white/5 border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 rounded-[16px] text-[12px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
 			>

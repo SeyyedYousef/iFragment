@@ -1,5 +1,5 @@
 import { hapticFeedback } from '@tma.js/sdk-solid';
-import { Component, createSignal, For, Show } from 'solid-js';
+import { type Component, createSignal, For, Show } from 'solid-js';
 import { locale, t } from '@/shared/i18n/index.js';
 
 const isRtl = () => locale() === 'fa';
@@ -10,6 +10,7 @@ export const ToggleSwitch: Component<{ checked: boolean; onChange: (v: boolean) 
 ) => {
 	return (
 		<button
+			type="button"
 			dir="ltr"
 			role="switch"
 			aria-checked={props.checked}
@@ -165,10 +166,11 @@ export const StringListField: Component<{
 					class="flex-1 bg-[#2c2c2e] text-white text-[14px] rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-transparent transition-all placeholder-on-surface-variant"
 				/>
 				<button
+					type="button"
 					onClick={handleAdd}
 					disabled={!inputValue().trim()}
 					class="w-11 shrink-0 bg-[#3390ec] hover:bg-[#2b7bc9] disabled:opacity-50 text-white rounded-xl flex items-center justify-center transition-colors"
-					aria-label="Add item"
+					aria-label={t('settingsControls.addItem')}
 				>
 					<span class="material-symbols-outlined text-[20px]">add</span>
 				</button>
@@ -187,12 +189,13 @@ export const StringListField: Component<{
 							<div class="bg-[#2c2c2e] border border-[#3a3a3c] rounded-lg px-3 py-1.5 flex items-center gap-2">
 								<span class="text-[13px] text-white">{item}</span>
 								<button
+									type="button"
 									onClick={() => {
 										hapticFeedback.impactOccurred('light');
 										props.onRemove(item);
 									}}
 									class="text-on-surface-variant hover:text-[#ff3b30] transition-colors flex items-center justify-center"
-									aria-label="Remove item"
+									aria-label={t('settingsControls.removeItem')}
 								>
 									<span class="material-symbols-outlined text-[16px]">close</span>
 								</button>
@@ -229,7 +232,7 @@ export const InlineButtonField: Component<{
 
 	return (
 		<div class="flex flex-col gap-3 w-full">
-			<label class="text-[15px] font-bold text-white">{props.label}</label>
+			<div class="text-[15px] font-bold text-white">{props.label}</div>
 
 			<Show when={props.description}>
 				<span class="text-[12px] text-on-surface-variant leading-snug px-1 -mt-1">
@@ -254,10 +257,11 @@ export const InlineButtonField: Component<{
 						class="flex-1 bg-[#1c1c1c] text-white text-[14px] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#3390ec] border border-transparent transition-all placeholder-on-surface-variant"
 					/>
 					<button
+						type="button"
 						onClick={handleAdd}
 						disabled={!title().trim() || !url().trim()}
 						class="w-10 shrink-0 bg-[#3390ec] hover:bg-[#2b7bc9] disabled:opacity-50 text-white rounded-lg flex items-center justify-center transition-colors"
-						aria-label="Add link"
+						aria-label={t('settingsControls.addLink')}
 					>
 						<span class="material-symbols-outlined text-[20px]">add</span>
 					</button>
@@ -274,12 +278,13 @@ export const InlineButtonField: Component<{
 									<span class="text-[11px] text-[#3390ec] truncate">{btn.url}</span>
 								</div>
 								<button
+									type="button"
 									onClick={() => {
 										hapticFeedback.impactOccurred('light');
 										props.onRemove(btn.id);
 									}}
 									class="w-8 h-8 rounded-full bg-[#ff3b30]/10 text-[#ff3b30] flex items-center justify-center hover:bg-[#ff3b30]/20 transition-colors shrink-0"
-									aria-label="Remove link"
+									aria-label={t('settingsControls.removeLink')}
 								>
 									<span class="material-symbols-outlined text-[16px]">delete</span>
 								</button>
@@ -341,9 +346,9 @@ export const SettingsSection: Component<{
 					<Show when={props.windowVal === 'Custom'}>
 						<div class="grid grid-cols-2 gap-3 mt-1">
 							<div class="flex flex-col gap-1.5">
-								<label class="text-[12px] font-bold text-on-surface-variant">
+								<div class="text-[12px] font-bold text-on-surface-variant">
 									{t('generalSettings.startTime')}
-								</label>
+								</div>
 								<input
 									type="time"
 									value={props.customStart}
@@ -352,9 +357,9 @@ export const SettingsSection: Component<{
 								/>
 							</div>
 							<div class="flex flex-col gap-1.5">
-								<label class="text-[12px] font-bold text-on-surface-variant">
+								<div class="text-[12px] font-bold text-on-surface-variant">
 									{t('generalSettings.endTime')}
-								</label>
+								</div>
 								<input
 									type="time"
 									value={props.customEnd}
@@ -386,6 +391,7 @@ export const SettingsSection: Component<{
 
 				<Show when={props.hasEditText}>
 					<button
+						type="button"
 						class="flex items-center gap-2 text-[#3390ec] text-[13px] font-bold mt-2 pt-1"
 						onClick={() => {
 							hapticFeedback.impactOccurred('light');

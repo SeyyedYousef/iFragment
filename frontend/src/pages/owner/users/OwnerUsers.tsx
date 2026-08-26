@@ -1,8 +1,9 @@
-import { createSignal, createEffect, onCleanup, Show, For, type Component } from 'solid-js';
-import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
+import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
+import { type Component, createEffect, createSignal, For, onCleanup, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/api/ownerApi.js';
 import type { SearchedUser } from '@/entities/owner/model/types.js';
 import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.jsx';
+import { t } from '@/shared/i18n/index.js';
 
 export const OwnerUsers: Component = () => {
 	const queryClient = useQueryClient();
@@ -14,7 +15,9 @@ export const OwnerUsers: Component = () => {
 
 	// Dialog States
 	const [selectedUser, setSelectedUser] = createSignal<SearchedUser | null>(null);
-	const [dialogMode, setDialogMode] = createSignal<'simulate' | 'ban' | 'unban' | 'flag' | 'adjust' | null>(null);
+	const [dialogMode, setDialogMode] = createSignal<
+		'simulate' | 'ban' | 'unban' | 'flag' | 'adjust' | null
+	>(null);
 	const [adjustAmount, setAdjustAmount] = createSignal<number>(0);
 	const [banDuration, _setBanDuration] = createSignal<number>(86400); // 1 day default
 
@@ -97,7 +100,7 @@ export const OwnerUsers: Component = () => {
 					</span>
 					<input
 						type="text"
-						placeholder="Search by username, name, or Telegram ID..."
+						placeholder={t('ownerCommon.searchPlaceholder')}
 						value={searchQuery()}
 						onInput={(e) => setSearchQuery(e.currentTarget.value)}
 						class="w-full h-11 pl-10 pr-4 rounded-2xl bg-white/5 border border-white/15 text-white text-xs placeholder:text-white/30 focus:border-amber-400 focus:outline-none transition"
@@ -112,6 +115,7 @@ export const OwnerUsers: Component = () => {
 						{ id: 'banned', label: 'Banned' },
 					].map((tab) => (
 						<button
+							type="button"
 							onClick={() => {
 								setActiveFilter(tab.id);
 								setPage(0);
@@ -132,7 +136,8 @@ export const OwnerUsers: Component = () => {
 			<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
 				<div class="flex items-center justify-between">
 					<div class="text-xs text-white/50">
-						Found <span class="font-mono text-white font-bold">{total().toLocaleString()}</span> users
+						{t('ownerCommon.found')} <span class="font-mono text-white font-bold">{total().toLocaleString()}</span>{' '}
+						users
 					</div>
 				</div>
 
@@ -140,12 +145,12 @@ export const OwnerUsers: Component = () => {
 					<table class="w-full text-left text-xs">
 						<thead>
 							<tr class="border-b border-white/10 text-white/40">
-								<th class="pb-3 font-medium">User Profile</th>
-								<th class="pb-3 font-medium">Telegram ID</th>
-								<th class="pb-3 font-medium">Coins Balance</th>
-								<th class="pb-3 font-medium">Status</th>
-								<th class="pb-3 font-medium">Registered</th>
-								<th class="pb-3 font-medium text-right">Actions</th>
+								<th class="pb-3 font-medium">{t('ownerCommon.userProfile')}</th>
+								<th class="pb-3 font-medium">{t('ownerCommon.telegramId')}</th>
+								<th class="pb-3 font-medium">{t('ownerCommon.coinsBalance')}</th>
+								<th class="pb-3 font-medium">{t('ownerCommon.status')}</th>
+								<th class="pb-3 font-medium">{t('ownerCommon.registered')}</th>
+								<th class="pb-3 font-medium text-right">{t('ownerCommon.actions')}</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-white/5">
@@ -164,7 +169,9 @@ export const OwnerUsers: Component = () => {
 										<tr class="hover:bg-white/[0.02] transition">
 											<td class="py-3">
 												<div class="font-bold text-white flex items-center gap-1.5">
-													<span>{user.first_name} {user.last_name}</span>
+													<span>
+														{user.first_name} {user.last_name}
+													</span>
 													<Show when={user.is_premium}>
 														<span class="text-amber-400 text-xs">★</span>
 													</Show>
@@ -181,50 +188,55 @@ export const OwnerUsers: Component = () => {
 												<div class="flex flex-wrap gap-1">
 													<Show when={user.is_banned}>
 														<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
-															Banned
+															{t('ownerCommon.banned')}
 														</span>
 													</Show>
 													<Show when={user.is_flagged}>
 														<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/10 text-orange-400 border border-orange-500/20">
-															Flagged
+															{t('ownerCommon.flagged')}
 														</span>
 													</Show>
 													<Show when={!user.is_banned && !user.is_flagged}>
 														<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-															Active
+															{t('ownerCommon.active')}
 														</span>
 													</Show>
 												</div>
 											</td>
-											<td class="py-3 text-white/50">{new Date(user.created_at).toLocaleDateString()}</td>
+											<td class="py-3 text-white/50">
+												{new Date(user.created_at).toLocaleDateString()}
+											</td>
 											<td class="py-3 text-right">
 												<div class="flex items-center justify-end gap-1.5">
 													{/* Simulate */}
 													<button
+														type="button"
 														onClick={() => {
 															setSelectedUser(user);
 															setDialogMode('simulate');
 														}}
 														class="p-1.5 rounded-lg text-sky-400 hover:bg-sky-500/10 transition"
-														title="Simulate User"
+														title={t('ownerCommon.simulateUser')}
 													>
 														<span class="material-symbols-rounded text-base">person</span>
 													</button>
 
 													{/* Adjust Balance */}
 													<button
+														type="button"
 														onClick={() => {
 															setSelectedUser(user);
 															setDialogMode('adjust');
 														}}
 														class="p-1.5 rounded-lg text-amber-400 hover:bg-amber-500/10 transition"
-														title="Adjust Coins"
+														title={t('ownerCommon.adjustCoins')}
 													>
 														<span class="material-symbols-rounded text-base">toll</span>
 													</button>
 
 													{/* Flag/Unflag */}
 													<button
+														type="button"
 														onClick={() => {
 															setSelectedUser(user);
 															setDialogMode('flag');
@@ -244,24 +256,26 @@ export const OwnerUsers: Component = () => {
 														when={user.is_banned}
 														fallback={
 															<button
+																type="button"
 																onClick={() => {
 																	setSelectedUser(user);
 																	setDialogMode('ban');
 																}}
 																class="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition"
-																title="Ban User"
+																title={t('ownerCommon.banUser')}
 															>
 																<span class="material-symbols-rounded text-base">block</span>
 															</button>
 														}
 													>
 														<button
+															type="button"
 															onClick={() => {
 																setSelectedUser(user);
 																setDialogMode('unban');
 															}}
 															class="p-1.5 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition"
-															title="Unban User"
+															title={t('ownerCommon.unbanUser')}
 														>
 															<span class="material-symbols-rounded text-base">lock_open</span>
 														</button>
@@ -280,21 +294,23 @@ export const OwnerUsers: Component = () => {
 				<Show when={totalPages() > 1}>
 					<div class="flex items-center justify-between pt-4 border-t border-white/10 text-xs">
 						<button
+							type="button"
 							onClick={() => setPage((p) => Math.max(0, p - 1))}
 							disabled={page() === 0}
 							class="px-3 py-1.5 rounded-xl border border-white/10 text-white/70 hover:bg-white/5 disabled:opacity-40"
 						>
-							Previous
+							{t('ownerCommon.previous')}
 						</button>
 						<span class="text-white/50">
 							Page {page() + 1} of {totalPages()}
 						</span>
 						<button
+							type="button"
 							onClick={() => setPage((p) => Math.min(totalPages() - 1, p + 1))}
 							disabled={page() >= totalPages() - 1}
 							class="px-3 py-1.5 rounded-xl border border-white/10 text-white/70 hover:bg-white/5 disabled:opacity-40"
 						>
-							Next
+							{t('ownerCommon.next')}
 						</button>
 					</div>
 				</Show>
@@ -304,13 +320,14 @@ export const OwnerUsers: Component = () => {
 			<Show when={dialogMode() === 'adjust' && selectedUser()}>
 				<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
 					<div class="w-full max-w-sm rounded-3xl border border-white/15 bg-neutral-900 p-6 space-y-4 text-white">
-						<h3 class="text-sm font-bold">Adjust Coins Balance</h3>
+						<h3 class="text-sm font-bold">{t('ownerCommon.adjustCoinsBalance')}</h3>
 						<p class="text-xs text-white/60">
-							Target user: <span class="font-bold text-white">{selectedUser()?.first_name}</span> ({selectedUser()?.telegram_id})
+							{t('ownerCommon.targetUser')} <span class="font-bold text-white">{selectedUser()?.first_name}</span> (
+							{selectedUser()?.telegram_id})
 						</p>
 
 						<div class="space-y-2">
-							<label class="text-[11px] text-white/50">Delta Amount (+ to add, - to deduct)</label>
+							<div class="text-[11px] text-white/50">{t('ownerCommon.deltaAmount')}</div>
 							<input
 								type="number"
 								value={adjustAmount()}
@@ -321,23 +338,28 @@ export const OwnerUsers: Component = () => {
 
 						<div class="text-xs p-3 rounded-xl bg-white/5 space-y-1">
 							<div class="flex justify-between text-white/50">
-								<span>Current Balance:</span>
+								<span>{t('ownerCommon.currentBalance')}</span>
 								<span>{selectedUser()?.balance.toLocaleString()} Coins</span>
 							</div>
 							<div class="flex justify-between font-bold text-amber-400">
-								<span>New Balance:</span>
+								<span>{t('ownerCommon.newBalance')}</span>
 								<span>{(selectedUser()!.balance + adjustAmount()).toLocaleString()} Coins</span>
 							</div>
 						</div>
 
 						<div class="flex gap-2 pt-2">
-							<button onClick={closeDialog} class="flex-1 py-2.5 rounded-xl border border-white/15 text-xs text-white/70">
-								Cancel
+							<button
+								type="button"
+								onClick={closeDialog}
+								class="flex-1 py-2.5 rounded-xl border border-white/15 text-xs text-white/70"
+							>
+								{t('ownerCommon.cancel')}
 							</button>
 							<button
+								type="button"
 								onClick={() => {
 									const reason = prompt('Please enter justification reason for audit log:');
-									if (reason && reason.trim()) {
+									if (reason?.trim()) {
 										adjustMutation.mutate({
 											userId: selectedUser()!.telegram_id,
 											amount: adjustAmount(),
@@ -359,7 +381,7 @@ export const OwnerUsers: Component = () => {
 			<Show when={dialogMode() === 'simulate' && selectedUser()}>
 				<DangerActionDialog
 					isOpen={true}
-					title="Confirm User Simulation"
+					title={t('ownerCommon.confirmSimulation')}
 					description={`Simulate session for ${selectedUser()?.first_name} (${selectedUser()?.telegram_id}).`}
 					actionLabel="Start Simulation"
 					confirmWord="SIMULATE"
@@ -375,7 +397,7 @@ export const OwnerUsers: Component = () => {
 			<Show when={dialogMode() === 'ban' && selectedUser()}>
 				<DangerActionDialog
 					isOpen={true}
-					title="Ban User Account"
+					title={t('ownerCommon.banUserAccount')}
 					description={`Permanently or temporarily restrict ${selectedUser()?.first_name} (${selectedUser()?.telegram_id}).`}
 					actionLabel="Execute Ban"
 					confirmWord="BAN"
@@ -397,7 +419,7 @@ export const OwnerUsers: Component = () => {
 			<Show when={dialogMode() === 'unban' && selectedUser()}>
 				<DangerActionDialog
 					isOpen={true}
-					title="Unban User Account"
+					title={t('ownerCommon.unbanUserAccount')}
 					description={`Lift restrictions for ${selectedUser()?.first_name} (${selectedUser()?.telegram_id}).`}
 					actionLabel="Unban User"
 					confirmWord="UNBAN"

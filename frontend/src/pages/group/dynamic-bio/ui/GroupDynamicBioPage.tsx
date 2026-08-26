@@ -2,7 +2,7 @@ import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton } from '@tma.js/sdk-solid';
 import {
-	Component,
+	type Component,
 	createEffect,
 	createResource,
 	createSignal,
@@ -13,11 +13,11 @@ import {
 } from 'solid-js';
 import { groupApi } from '@/entities/group/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
-import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
-import { SelectField, ToggleSwitch } from '@/shared/ui/settings-controls.js';
-import { SettingsGuard } from '@/shared/ui/SettingsGuard.js';
-import { showToast } from '@/shared/ui/toast.js';
 import { haptic } from '@/shared/lib/haptic.js';
+import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
+import { SettingsGuard } from '@/shared/ui/SettingsGuard.js';
+import { SelectField, ToggleSwitch } from '@/shared/ui/settings-controls.js';
+import { showToast } from '@/shared/ui/toast.js';
 
 export const GroupDynamicBioPage: Component = () => {
 	const params = useParams();
@@ -54,8 +54,14 @@ export const GroupDynamicBioPage: Component = () => {
 		},
 	);
 
-	const [tgInfo] = createResource(() => params.id, (id) => groupApi.getGroupTelegramInfo(id));
-	const [_group] = createResource(() => params.id, (id) => groupApi.getGroup(id));
+	const [tgInfo] = createResource(
+		() => params.id,
+		(id) => groupApi.getGroupTelegramInfo(id),
+	);
+	const [_group] = createResource(
+		() => params.id,
+		(id) => groupApi.getGroup(id),
+	);
 
 	createEffect(() => {
 		const data = settings();
@@ -214,6 +220,7 @@ export const GroupDynamicBioPage: Component = () => {
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm">
 				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
+						type="button"
 						onClick={() => {
 							haptic.impact('light');
 							handleBack();
@@ -241,6 +248,7 @@ export const GroupDynamicBioPage: Component = () => {
 				</div>
 
 				<button
+					type="button"
 					onClick={() => setIsMenuOpen(true)}
 					class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-colors shrink-0 shadow-sm text-white/80"
 					aria-label={t('common.toggle')}
@@ -273,10 +281,10 @@ export const GroupDynamicBioPage: Component = () => {
 						<div class="bg-amber-500/10 border border-amber-500/30 rounded-[20px] p-4 flex flex-col gap-2.5">
 							<div class="flex items-center gap-2 text-amber-400">
 								<span class="material-symbols-outlined text-[20px]">warning</span>
-								<span class="text-[13px] font-bold">دسترسی تغییر اطلاعات گروه یافت نشد</span>
+								<span class="text-[13px] font-bold">{t('groupDynamicBio.noPermission')}</span>
 							</div>
 							<p class="text-[11px] text-white/60 leading-relaxed font-medium">
-								برای به‌روزرسانی خودکار بیوگرافی و نام، ربات باید دسترسی Change Group Info را در تلگرام داشته باشد.
+								{t('groupDynamicBio.noPermissionDesc')}
 							</p>
 						</div>
 					</Show>
@@ -315,9 +323,9 @@ export const GroupDynamicBioPage: Component = () => {
 								<Show when={displayInName()}>
 									<div class="flex flex-col gap-1.5 mt-2">
 										<div class="flex justify-between items-center px-1">
-											<label class="text-[11px] font-bold text-white/50 uppercase tracking-wider">
+											<div class="text-[11px] font-bold text-white/50 uppercase tracking-wider">
 												{t('channelDynamicBio.nameTemplate')}
-											</label>
+											</div>
 											<span class="text-[10px] font-mono text-white/40">
 												{nameTemplate().length}/128
 											</span>
@@ -339,9 +347,9 @@ export const GroupDynamicBioPage: Component = () => {
 							{/* ═══════ BIO TEMPLATE ═══════ */}
 							<div class="flex flex-col gap-2">
 								<div class="flex justify-between items-center px-1">
-									<label class="text-[11px] font-bold text-white/50 uppercase tracking-wider">
+									<div class="text-[11px] font-bold text-white/50 uppercase tracking-wider">
 										{t('channelDynamicBio.bioTemplate')}
-									</label>
+									</div>
 									<span class="text-[10px] font-mono text-white/40">
 										{bioTemplate().length}/255
 									</span>
@@ -444,7 +452,7 @@ export const GroupDynamicBioPage: Component = () => {
 										.replace(/\$date/g, '12 May 2026')
 										.replace(/\$day_name/g, 'Tuesday')
 										.replace(/\$Gram/g, '$5.50') || (
-										<span class="text-white/30 italic">No bio written yet...</span>
+										<span class="text-white/30 italic">{t('groupDynamicBio.noBioWritten')}</span>
 									)}
 								</p>
 							</div>

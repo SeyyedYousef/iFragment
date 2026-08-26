@@ -127,8 +127,21 @@ type NFTItem struct {
 	Owner    struct {
 		Address string `json:"address"`
 	} `json:"owner"`
-	Sale *NFTSale `json:"sale"`
-	DNS  string   `json:"dns"`
+	Sale     *NFTSale     `json:"sale"`
+	DNS      string       `json:"dns"`
+	Metadata NFTMetadata  `json:"metadata"`
+}
+
+type NFTMetadata struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Image       string          `json:"image"`
+	Attributes  []NFTAttribute  `json:"attributes"`
+}
+
+type NFTAttribute struct {
+	TraitType string `json:"trait_type"`
+	Value     string `json:"value"`
 }
 
 type NFTSale struct {

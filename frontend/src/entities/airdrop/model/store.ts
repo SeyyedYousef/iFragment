@@ -5,11 +5,11 @@ import {
 	addTaps,
 	claimDailyReward as apiClaimDailyReward,
 	upgradeBoost as apiUpgradeBoost,
+	type Clan,
 	getBoostsStatus,
 	getClan,
 	getDailyStatus,
 	getProfileStats,
-	type Clan,
 } from '@/entities/user/index.js';
 import { showToast } from '@/shared/ui/toast.js';
 import { type Booster, LEAGUES } from './types.js';
@@ -372,7 +372,8 @@ const getPendingTapsKey = () => {
 
 let pendingTapBuckets: TapBucket[] = [];
 try {
-	const savedPending = localStorage.getItem(getPendingTapsKey()) || localStorage.getItem('airdrop-pending-taps');
+	const savedPending =
+		localStorage.getItem(getPendingTapsKey()) || localStorage.getItem('airdrop-pending-taps');
 	if (savedPending) {
 		const parsed = JSON.parse(savedPending);
 		if (Array.isArray(parsed)) {
@@ -460,7 +461,11 @@ export const syncPendingTaps = async () => {
 						if (typeof stats.energy === 'number') {
 							setEnergy(Math.max(0, stats.energy - getOptimisticEnergyCost()));
 						}
-						setFrgBalance(typeof (stats as any).frgBalance === 'number' ? (stats as any).frgBalance : ((stats as any).frg_balance ?? 0));
+						setFrgBalance(
+							typeof (stats as any).frgBalance === 'number'
+								? (stats as any).frgBalance
+								: ((stats as any).frg_balance ?? 0),
+						);
 						setTotalTaps(
 							(typeof stats.totalTaps === 'number' ? stats.totalTaps : 0) + getOptimisticTaps(),
 						);
@@ -576,7 +581,11 @@ export const syncProfileStats = async () => {
 	try {
 		const stats = await getProfileStats();
 		if (stats) {
-			setFrgBalance(typeof (stats as any).frgBalance === 'number' ? (stats as any).frgBalance : ((stats as any).frg_balance ?? 0));
+			setFrgBalance(
+				typeof (stats as any).frgBalance === 'number'
+					? (stats as any).frgBalance
+					: ((stats as any).frg_balance ?? 0),
+			);
 			if (!isSyncing) {
 				setBalance(
 					(typeof stats.airdropCoins === 'number' ? stats.airdropCoins : 0) + getOptimisticCoins(),

@@ -1,6 +1,6 @@
 import { Motion } from '@motionone/solid';
 import { createQuery } from '@tanstack/solid-query';
-import { Component, createMemo, createSignal, For, Show } from 'solid-js';
+import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
 import { getLedger, type LedgerEvent } from '@/entities/user/index.js';
 import { formatNumber, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
@@ -52,8 +52,10 @@ export const LedgerModal: Component<Props> = (props) => {
 	};
 
 	const getEventIcon = (eventType: string, category: string) => {
-		if (eventType.startsWith('earn_taps') || eventType.startsWith('earn_offline')) return 'touch_app';
-		if (eventType.startsWith('earn_streak') || eventType.startsWith('earn_combo')) return 'local_fire_department';
+		if (eventType.startsWith('earn_taps') || eventType.startsWith('earn_offline'))
+			return 'touch_app';
+		if (eventType.startsWith('earn_streak') || eventType.startsWith('earn_combo'))
+			return 'local_fire_department';
 		if (eventType.startsWith('earn_task')) return 'task_alt';
 		if (eventType.startsWith('earn_referral')) return 'group_add';
 		if (eventType.startsWith('earn_emoji')) return 'star';
@@ -82,6 +84,12 @@ export const LedgerModal: Component<Props> = (props) => {
 	return (
 		<div
 			class="fixed inset-0 z-[120] flex flex-col justify-end px-2 pb-2"
+			role="button"
+			tabIndex={0}
+			aria-label="Close"
+			onKeyDown={(e) => {
+				if (e.key === 'Enter' || e.key === 'Escape') props.onClose();
+			}}
 			onClick={props.onClose}
 		>
 			{/* Backdrop */}
@@ -102,9 +110,7 @@ export const LedgerModal: Component<Props> = (props) => {
 				<div class="flex items-center justify-between shrink-0">
 					<div class="flex items-center gap-2.5">
 						<div class="w-9 h-9 rounded-[12px] bg-[#0098EA]/15 border border-[#0098EA]/30 flex items-center justify-center text-[#0098EA]">
-							<span class="material-symbols-outlined text-[20px]">
-								receipt_long
-							</span>
+							<span class="material-symbols-outlined text-[20px]">receipt_long</span>
 						</div>
 						<div class="flex flex-col">
 							<h3 class="text-white text-[17px] font-black tracking-tight">
@@ -117,6 +123,7 @@ export const LedgerModal: Component<Props> = (props) => {
 					</div>
 
 					<button
+						type="button"
 						onClick={props.onClose}
 						class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/60 active:scale-95 transition-all"
 					>
@@ -127,15 +134,18 @@ export const LedgerModal: Component<Props> = (props) => {
 				{/* Category Filter Chips */}
 				<div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 shrink-0">
 					<For
-						each={[
-							{ id: 'all', label: t('ledger.all' as any) || 'All' },
-							{ id: 'coins', label: t('ledger.coins' as any) || 'Coins' },
-							{ id: 'credits', label: t('ledger.credits' as any) || 'Credits' },
-							{ id: 'stars', label: t('ledger.stars' as any) || 'Stars' },
-						] as const}
+						each={
+							[
+								{ id: 'all', label: t('ledger.all' as any) || 'All' },
+								{ id: 'coins', label: t('ledger.coins' as any) || 'Coins' },
+								{ id: 'credits', label: t('ledger.credits' as any) || 'Credits' },
+								{ id: 'stars', label: t('ledger.stars' as any) || 'Stars' },
+							] as const
+						}
 					>
 						{(cat) => (
 							<button
+								type="button"
 								onClick={() => handleCategoryChange(cat.id as LedgerCategory)}
 								class={`px-3.5 py-1.5 rounded-[12px] text-[11px] font-black transition-all whitespace-nowrap active:scale-95 border ${
 									activeCategory() === cat.id
@@ -177,6 +187,11 @@ export const LedgerModal: Component<Props> = (props) => {
 							<For each={events()}>
 								{(ev) => (
 									<div
+										role="button"
+										tabIndex={0}
+										onKeyDown={(e) => {
+											if (e.key === 'Enter') handleSelectEvent(ev);
+										}}
 										onClick={() => handleSelectEvent(ev)}
 										class="p-3 bg-[#07090E] hover:bg-white/5 active:scale-[0.99] border border-white/5 hover:border-white/10 rounded-[18px] flex items-center justify-between gap-3 cursor-pointer transition-all shadow-sm"
 									>
@@ -197,8 +212,14 @@ export const LedgerModal: Component<Props> = (props) => {
 										</div>
 
 										<div class="flex flex-col items-end shrink-0">
-											<span class={`text-[13px] font-black font-mono tracking-tight ${getEventColor(ev.category, ev.amount)}`}>
-												{ev.amount > 0 ? `+${formatNumber(ev.amount)}` : ev.amount < 0 ? formatNumber(ev.amount) : '0'}
+											<span
+												class={`text-[13px] font-black font-mono tracking-tight ${getEventColor(ev.category, ev.amount)}`}
+											>
+												{ev.amount > 0
+													? `+${formatNumber(ev.amount)}`
+													: ev.amount < 0
+														? formatNumber(ev.amount)
+														: '0'}
 											</span>
 											<span class="text-[9px] uppercase font-bold text-white/30 tracking-wider">
 												{ev.category}
@@ -216,10 +237,21 @@ export const LedgerModal: Component<Props> = (props) => {
 			<Show when={selectedEvent()}>
 				<div
 					class="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+					role="button"
+					tabIndex={0}
+					onKeyDown={(e) => {
+						if (e.key === 'Enter') (e.currentTarget as HTMLElement).click();
+						else if (e.key === 'Escape') setSelectedEvent(null);
+					}}
 					onClick={() => setSelectedEvent(null)}
 				>
 					<div
 						class="bg-[#12141C] border border-white/10 rounded-[28px] p-6 w-full max-w-sm flex flex-col gap-4 shadow-2xl relative overflow-hidden"
+						role="button"
+						tabIndex={0}
+						onKeyDown={(e) => {
+							if (e.key === 'Enter') (e.currentTarget as HTMLElement).click();
+						}}
 						onClick={(e: Event) => e.stopPropagation()}
 					>
 						{/* Top Icon */}
@@ -243,8 +275,12 @@ export const LedgerModal: Component<Props> = (props) => {
 							<span class="text-[10px] font-bold text-white/40 uppercase tracking-widest">
 								{t('ledger.amount' as any) || 'Amount'}
 							</span>
-							<span class={`text-[24px] font-black font-mono ${getEventColor(selectedEvent()!.category, selectedEvent()!.amount)}`}>
-								{selectedEvent()!.amount > 0 ? `+${formatNumber(selectedEvent()!.amount)}` : formatNumber(selectedEvent()!.amount)}
+							<span
+								class={`text-[24px] font-black font-mono ${getEventColor(selectedEvent()!.category, selectedEvent()!.amount)}`}
+							>
+								{selectedEvent()!.amount > 0
+									? `+${formatNumber(selectedEvent()!.amount)}`
+									: formatNumber(selectedEvent()!.amount)}
 							</span>
 						</div>
 
@@ -263,23 +299,32 @@ export const LedgerModal: Component<Props> = (props) => {
 							</div>
 							<div class="flex justify-between items-center text-white/60">
 								<span>{t('ledger.date' as any) || 'Timestamp'}</span>
-								<span class="text-white/80 font-mono text-[11px]">{formatEventDate(selectedEvent()!.createdAt)}</span>
+								<span class="text-white/80 font-mono text-[11px]">
+									{formatEventDate(selectedEvent()!.createdAt)}
+								</span>
 							</div>
-							<Show when={selectedEvent()!.balanceBefore !== 0 || selectedEvent()!.balanceAfter !== 0}>
+							<Show
+								when={selectedEvent()!.balanceBefore !== 0 || selectedEvent()!.balanceAfter !== 0}
+							>
 								<div class="h-[1px] bg-white/5 my-1" />
 								<div class="flex justify-between items-center text-white/60">
 									<span>{t('ledger.before' as any) || 'Balance Before'}</span>
-									<span class="text-white/70 font-mono">{formatNumber(selectedEvent()!.balanceBefore)}</span>
+									<span class="text-white/70 font-mono">
+										{formatNumber(selectedEvent()!.balanceBefore)}
+									</span>
 								</div>
 								<div class="flex justify-between items-center text-white/60">
 									<span>{t('ledger.after' as any) || 'Balance After'}</span>
-									<span class="text-white font-mono font-bold">{formatNumber(selectedEvent()!.balanceAfter)}</span>
+									<span class="text-white font-mono font-bold">
+										{formatNumber(selectedEvent()!.balanceAfter)}
+									</span>
 								</div>
 							</Show>
 						</div>
 
 						{/* Close Button */}
 						<button
+							type="button"
 							onClick={() => setSelectedEvent(null)}
 							class="w-full py-3 rounded-[16px] bg-white/10 hover:bg-white/15 active:scale-95 text-white font-black text-[13px] tracking-wide transition-all border border-white/10"
 						>

@@ -1,9 +1,9 @@
 import { useNavigate } from '@solidjs/router';
 import { backButton } from '@tma.js/sdk-solid';
-import { Component, onCleanup, onMount } from 'solid-js';
-import { BoostersView } from '@/widgets/airdrop-boosters/index.js';
+import { type Component, onCleanup, onMount } from 'solid-js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
+import { BoostersView } from '@/widgets/airdrop-boosters/index.js';
 
 export const BoostsPage: Component = () => {
 	const navigate = useNavigate();
@@ -38,6 +38,7 @@ export const BoostsPage: Component = () => {
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm shrink-0">
 				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
+						type="button"
 						onClick={() => {
 							try {
 								haptic.impact('light');
@@ -47,9 +48,7 @@ export const BoostsPage: Component = () => {
 						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
 						aria-label="Back"
 					>
-						<span class="material-symbols-outlined text-[22px] rtl:-scale-x-100">
-							arrow_back
-						</span>
+						<span class="material-symbols-outlined text-[22px] rtl:-scale-x-100">arrow_back</span>
 					</button>
 					<div class="flex flex-col overflow-hidden">
 						<h1 class="text-[18px] font-black text-white leading-tight truncate tracking-tight">

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { calculateAcademyProgress } from './academyProgress.js';
 import type { GroupSettings } from '@/entities/group/index.js';
+import { calculateAcademyProgress } from './academyProgress.js';
 
 describe('academyProgress mapping', () => {
 	it('returns 0% for empty settings', () => {

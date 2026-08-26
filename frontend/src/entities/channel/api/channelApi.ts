@@ -262,7 +262,9 @@ export const channelApi = {
 		apiClient.put<Project>(`/projects/${projectId}`, payload).then((r: any) => unwrapApiData(r)),
 
 	toggleProject: (projectId: string, status: 'active' | 'paused'): Promise<Project> =>
-		apiClient.post<Project>(`/projects/${projectId}/toggle`, { status }).then((r: any) => unwrapApiData(r)),
+		apiClient
+			.post<Project>(`/projects/${projectId}/toggle`, { status })
+			.then((r: any) => unwrapApiData(r)),
 
 	renewProject: (projectId: string): Promise<{ success: boolean; expires_at: string }> =>
 		apiClient.post(`/projects/${projectId}/renew`).then((r: any) => unwrapApiData(r)),

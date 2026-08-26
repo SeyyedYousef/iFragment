@@ -1,9 +1,12 @@
 import { Motion } from '@motionone/solid';
-import { Component, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
-import { claimEmojiStatusReward, setEmojiStatus as setServerEmojiStatus } from '@/entities/user/index.js';
+import { type Component, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import {
+	claimEmojiStatusReward,
+	setEmojiStatus as setServerEmojiStatus,
+} from '@/entities/user/index.js';
 import { t } from '@/shared/i18n/index.js';
-import { haptic } from '@/shared/lib/haptic.js';
 import { triggerConfetti } from '@/shared/lib/confetti.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 interface Props {
 	currentStatus?: string;
@@ -21,12 +24,48 @@ interface EmojiOption {
 }
 
 const PRESET_EMOJIS: EmojiOption[] = [
-	{ id: 'pro_star', customEmojiId: '5368324170671202286', symbol: '⭐️', title: 'iFragment Star', requiresPro: false },
-	{ id: 'verified_shield', customEmojiId: '5409146200234057850', symbol: '🛡️', title: 'Guardian Pro', requiresPro: true },
-	{ id: 'fire_streak', customEmojiId: '5411234567890123456', symbol: '🔥', title: 'Streak Flame', requiresPro: false },
-	{ id: 'whale_crown', customEmojiId: '5422345678901234567', symbol: '👑', title: 'Whale Master', requiresPro: true },
-	{ id: 'rocket_boost', customEmojiId: '5433456789012345678', symbol: '🚀', title: 'Turbo Rocket', requiresPro: false },
-	{ id: 'diamond_tier', customEmojiId: '5444567890123456789', symbol: '💎', title: 'Diamond Elite', requiresPro: true },
+	{
+		id: 'pro_star',
+		customEmojiId: '5368324170671202286',
+		symbol: '⭐️',
+		title: 'iFragment Star',
+		requiresPro: false,
+	},
+	{
+		id: 'verified_shield',
+		customEmojiId: '5409146200234057850',
+		symbol: '🛡️',
+		title: 'Guardian Pro',
+		requiresPro: true,
+	},
+	{
+		id: 'fire_streak',
+		customEmojiId: '5411234567890123456',
+		symbol: '🔥',
+		title: 'Streak Flame',
+		requiresPro: false,
+	},
+	{
+		id: 'whale_crown',
+		customEmojiId: '5422345678901234567',
+		symbol: '👑',
+		title: 'Whale Master',
+		requiresPro: true,
+	},
+	{
+		id: 'rocket_boost',
+		customEmojiId: '5433456789012345678',
+		symbol: '🚀',
+		title: 'Turbo Rocket',
+		requiresPro: false,
+	},
+	{
+		id: 'diamond_tier',
+		customEmojiId: '5444567890123456789',
+		symbol: '💎',
+		title: 'Diamond Elite',
+		requiresPro: true,
+	},
 ];
 
 const DURATIONS = [
@@ -76,7 +115,7 @@ export const EmojiStatusModal: Component<Props> = (props) => {
 			setStatusError(
 				typeof err?.error === 'string'
 					? err.error
-					: (t('emoji.failedToSet' as any) || 'Failed to update emoji status in Telegram.')
+					: t('emoji.failedToSet' as any) || 'Failed to update emoji status in Telegram.',
 			);
 		};
 
@@ -106,14 +145,23 @@ export const EmojiStatusModal: Component<Props> = (props) => {
 		const durationSeconds = selectedDuration() > 0 ? selectedDuration() * 3600 : undefined;
 
 		// 1. Check if Telegram Bot API 9.3 requestEmojiStatusAccess & setEmojiStatus are available
-		if (tg && typeof tg.requestEmojiStatusAccess === 'function' && typeof tg.setEmojiStatus === 'function') {
+		if (
+			tg &&
+			typeof tg.requestEmojiStatusAccess === 'function' &&
+			typeof tg.setEmojiStatus === 'function'
+		) {
 			tg.requestEmojiStatusAccess((granted: boolean) => {
 				if (!granted) {
 					setIsSetting(false);
-					setStatusError(t('emoji.accessDenied' as any) || 'Permission to set emoji status was declined.');
+					setStatusError(
+						t('emoji.accessDenied' as any) || 'Permission to set emoji status was declined.',
+					);
 					return;
 				}
-				tg.setEmojiStatus(emoji.customEmojiId || '', durationSeconds ? { duration: durationSeconds } : undefined);
+				tg.setEmojiStatus(
+					emoji.customEmojiId || '',
+					durationSeconds ? { duration: durationSeconds } : undefined,
+				);
 			});
 		} else {
 			// Fallback: save status in iFragment server profile
@@ -132,7 +180,7 @@ export const EmojiStatusModal: Component<Props> = (props) => {
 				setIsSetting(false);
 			} catch (err: any) {
 				setIsSetting(false);
-				setStatusError(err?.message || (t('emoji.failedToSet' as any) || 'Failed to set status.'));
+				setStatusError(err?.message || t('emoji.failedToSet' as any) || 'Failed to set status.');
 			}
 		}
 	};
@@ -140,6 +188,12 @@ export const EmojiStatusModal: Component<Props> = (props) => {
 	return (
 		<div
 			class="fixed inset-0 z-[125] flex flex-col justify-end px-2 pb-2"
+			role="button"
+			tabIndex={0}
+			onKeyDown={(e) => {
+				if (e.key === 'Enter') (e.currentTarget as HTMLElement).click();
+				else if (e.key === 'Escape') props.onClose();
+			}}
 			onClick={props.onClose}
 		>
 			<div class="absolute inset-0 bg-[#030303]/90 backdrop-blur-2xl transition-opacity" />
@@ -158,7 +212,10 @@ export const EmojiStatusModal: Component<Props> = (props) => {
 				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-2.5">
 						<div class="w-10 h-10 rounded-[14px] bg-amber-400/15 border border-amber-400/30 flex items-center justify-center text-amber-400 shadow-inner">
-							<span class="material-symbols-outlined text-[22px]" style={{ 'font-variation-settings': '"FILL" 1' }}>
+							<span
+								class="material-symbols-outlined text-[22px]"
+								style={{ 'font-variation-settings': '"FILL" 1' }}
+							>
 								star
 							</span>
 						</div>
@@ -173,6 +230,7 @@ export const EmojiStatusModal: Component<Props> = (props) => {
 					</div>
 
 					<button
+						type="button"
 						onClick={props.onClose}
 						class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/60 active:scale-95 transition-all"
 					>
@@ -195,7 +253,7 @@ export const EmojiStatusModal: Component<Props> = (props) => {
 					</div>
 					<Show when={rewardClaimed()}>
 						<span class="text-[10px] px-2.5 py-1 rounded-[10px] bg-emerald-500/20 text-emerald-400 font-black border border-emerald-500/30">
-							Claimed ✓
+							{t('emojiStatus.claimed')}
 						</span>
 					</Show>
 				</div>
@@ -207,6 +265,7 @@ export const EmojiStatusModal: Component<Props> = (props) => {
 							const isSelected = () => selectedEmoji().id === emoji.id;
 							return (
 								<button
+									type="button"
 									onClick={() => {
 										try {
 											haptic.selection();
@@ -225,7 +284,7 @@ export const EmojiStatusModal: Component<Props> = (props) => {
 									</span>
 									<Show when={emoji.requiresPro}>
 										<span class="absolute top-1.5 right-1.5 text-[8px] px-1.5 py-0.5 rounded-[6px] bg-cyan-500/20 text-cyan-300 font-black border border-cyan-500/30">
-											PRO
+											{'PRO'}
 										</span>
 									</Show>
 								</button>
@@ -243,6 +302,7 @@ export const EmojiStatusModal: Component<Props> = (props) => {
 						<For each={DURATIONS}>
 							{(dur) => (
 								<button
+									type="button"
 									onClick={() => {
 										try {
 											haptic.selection();
@@ -272,6 +332,7 @@ export const EmojiStatusModal: Component<Props> = (props) => {
 
 				{/* Action CTA */}
 				<button
+					type="button"
 					disabled={isSetting()}
 					onClick={handleApplyStatus}
 					class="w-full py-3.5 rounded-[18px] bg-gradient-to-r from-[#0098EA] to-[#00b4d8] hover:opacity-95 active:scale-[0.98] disabled:opacity-50 text-black font-black text-[14px] tracking-wide transition-all shadow-[0_4px_20px_rgba(0,152,234,0.4)] flex items-center justify-center gap-2"

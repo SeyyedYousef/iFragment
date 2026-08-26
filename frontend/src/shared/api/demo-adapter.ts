@@ -16,17 +16,25 @@ export const isDemoRequest = (config: AxiosRequestConfig): boolean => {
 	if (isDemoPath(config.url)) return true;
 	if (config.params && scan(config.params)) return true;
 	let body: any = config.data;
-	if (typeof body === 'string') { try { body = JSON.parse(body); } catch { return false; } }
+	if (typeof body === 'string') {
+		try {
+			body = JSON.parse(body);
+		} catch {
+			return false;
+		}
+	}
 	return scan(body);
 };
 
-export const demoAdapter = async (
-	config: InternalAxiosRequestConfig,
-): Promise<AxiosResponse> => {
+export const demoAdapter = async (config: InternalAxiosRequestConfig): Promise<AxiosResponse> => {
 	const method = (config.method || 'get').toUpperCase();
 	const path = (config.url || '').split('?')[0];
 	let body: any = config.data;
-	if (typeof body === 'string') { try { body = JSON.parse(body); } catch {} }
+	if (typeof body === 'string') {
+		try {
+			body = JSON.parse(body);
+		} catch {}
+	}
 
 	await new Promise((r) => setTimeout(r, DEMO_LATENCY_MS));
 	const result = await resolveDemoRoute(method, path, body, config);

@@ -1,6 +1,7 @@
-import { createSignal, Show, For, type Component } from 'solid-js';
-import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
+import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
+import { type Component, createSignal, For, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/api/ownerApi.js';
+import { t } from '@/shared/i18n/index.js';
 import type { AdminDailyCombo } from '@/entities/owner/model/types.js';
 
 export const OwnerCombos: Component = () => {
@@ -46,8 +47,10 @@ export const OwnerCombos: Component = () => {
 		<div class="space-y-6">
 			{/* Header */}
 			<div>
-				<h2 class="text-lg font-bold text-white">Daily Secret Combos</h2>
-				<p class="text-xs text-white/50">Manage daily cipher words and coin rewards for the tapping game</p>
+				<h2 class="text-lg font-bold text-white">{t('ownerCombos.title')}</h2>
+				<p class="text-xs text-white/50">
+					{t('ownerCombos.subtitle')}
+				</p>
 			</div>
 
 			<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -56,12 +59,12 @@ export const OwnerCombos: Component = () => {
 					<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
 						<div class="flex items-center gap-2">
 							<span class="material-symbols-rounded text-amber-400">key</span>
-							<h3 class="text-sm font-bold text-white">Set Daily Combo</h3>
+							<h3 class="text-sm font-bold text-white">{t('ownerCombos.setDailyCombo')}</h3>
 						</div>
 
 						<form onSubmit={handleSubmit} class="space-y-3">
 							<div>
-								<label class="block text-[11px] font-semibold text-white/60 mb-1">Active Date</label>
+								<div class="block text-[11px] font-semibold text-white/60 mb-1">{t('ownerCombos.activeDate')}</div>
 								<input
 									type="date"
 									value={dateInput()}
@@ -71,12 +74,12 @@ export const OwnerCombos: Component = () => {
 							</div>
 
 							<div>
-								<label class="block text-[11px] font-semibold text-white/60 mb-1">
-									Secret Word (Uppercase)
-								</label>
+								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+									{t('ownerCombos.secretWord')}
+								</div>
 								<input
 									type="text"
-									placeholder="e.g., SATOSHI"
+									placeholder={t('ownerCombos.placeholderWord')}
 									value={wordInput()}
 									onInput={(e) => setWordInput(e.currentTarget.value)}
 									class="w-full h-11 bg-white/5 border border-white/15 rounded-xl px-4 text-xs font-mono uppercase text-white outline-none focus:border-amber-400"
@@ -85,9 +88,9 @@ export const OwnerCombos: Component = () => {
 							</div>
 
 							<div>
-								<label class="block text-[11px] font-semibold text-white/60 mb-1">
-									Reward Amount (Coins)
-								</label>
+								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+									{t('ownerCombos.rewardCoins')}
+								</div>
 								<input
 									type="number"
 									value={rewardInput()}
@@ -114,7 +117,7 @@ export const OwnerCombos: Component = () => {
 						<div class="flex items-center justify-between">
 							<div class="flex items-center gap-2">
 								<span class="material-symbols-rounded text-amber-400">history</span>
-								<h3 class="text-sm font-bold text-white">Combo History</h3>
+								<h3 class="text-sm font-bold text-white">{t('ownerCombos.comboHistory')}</h3>
 							</div>
 						</div>
 
@@ -122,9 +125,9 @@ export const OwnerCombos: Component = () => {
 							<table class="w-full text-left text-xs">
 								<thead>
 									<tr class="border-b border-white/10 text-white/40">
-										<th class="pb-3">Active Date</th>
-										<th class="pb-3">Secret Word (Masked)</th>
-										<th class="pb-3">Reward</th>
+										<th class="pb-3">{t('ownerCombos.activeDate')}</th>
+										<th class="pb-3">{t('ownerCombos.secretWordMasked')}</th>
+										<th class="pb-3">{t('ownerPromos.reward')}</th>
 									</tr>
 								</thead>
 								<tbody class="divide-y divide-white/5">
@@ -154,6 +157,7 @@ export const OwnerCombos: Component = () => {
 																	{isRevealed() ? wordStr : '••••••••'}
 																</span>
 																<button
+																	type="button"
 																	onClick={() => toggleSecret(dateStr)}
 																	class="p-1 rounded text-white/40 hover:text-white hover:bg-white/10 transition"
 																	title={isRevealed() ? 'Hide' : 'Reveal'}

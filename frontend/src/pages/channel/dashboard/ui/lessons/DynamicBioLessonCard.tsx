@@ -1,12 +1,17 @@
 import { Motion } from '@motionone/solid';
-import { Component, createSignal, onCleanup, onMount } from 'solid-js';
+import { type Component, createSignal, onCleanup, onMount } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 
-export const DynamicBioLessonCard: Component<{ onNavigate: () => void; isDone?: boolean }> = (props) => {
+export const DynamicBioLessonCard: Component<{ onNavigate: () => void; isDone?: boolean }> = (
+	props,
+) => {
 	const [membersCount, setMembersCount] = createSignal(12450);
 
 	onMount(() => {
-		const timer = setInterval(() => setMembersCount((m) => m + Math.floor(Math.random() * 5) + 1), 1500);
+		const timer = setInterval(
+			() => setMembersCount((m) => m + Math.floor(Math.random() * 5) + 1),
+			1500,
+		);
 		onCleanup(() => clearInterval(timer));
 	});
 
@@ -52,6 +57,7 @@ export const DynamicBioLessonCard: Component<{ onNavigate: () => void; isDone?: 
 			</div>
 
 			<button
+				type="button"
 				onClick={props.onNavigate}
 				class="w-full h-12 bg-white/5 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 rounded-[16px] text-[12px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
 			>

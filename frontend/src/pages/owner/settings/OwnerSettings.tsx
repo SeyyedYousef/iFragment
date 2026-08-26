@@ -1,6 +1,7 @@
-import { createSignal, createEffect, Show, type Component } from 'solid-js';
-import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
+import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
+import { type Component, createEffect, createSignal, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/api/ownerApi.js';
+import { t } from '@/shared/i18n/index.js';
 import type { SystemSettings } from '@/entities/owner/model/types.js';
 import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.jsx';
 
@@ -8,7 +9,10 @@ export const OwnerSettings: Component = () => {
 	const queryClient = useQueryClient();
 
 	const [settings, setSettings] = createSignal<SystemSettings | null>(null);
-	const [statusMsg, setStatusMsg] = createSignal<{ type: 'success' | 'error'; text: string } | null>(null);
+	const [statusMsg, setStatusMsg] = createSignal<{
+		type: 'success' | 'error';
+		text: string;
+	} | null>(null);
 	const [isMaintenanceDialogOpen, setIsMaintenanceDialogOpen] = createSignal(false);
 	const [pendingMaintenanceState, setPendingMaintenanceState] = createSignal(false);
 
@@ -80,7 +84,7 @@ export const OwnerSettings: Component = () => {
 			{/* Header */}
 			<div class="flex items-center justify-between">
 				<div>
-					<h2 class="text-lg font-bold text-white">System Economics & Platform Configuration</h2>
+					<h2 class="text-lg font-bold text-white">{t('ownerSettings.title')}</h2>
 					<p class="text-xs text-white/50">
 						Optimistic concurrency controlled settings (Version: {currentSettings()?.version ?? 1})
 					</p>
@@ -104,7 +108,9 @@ export const OwnerSettings: Component = () => {
 
 			<Show
 				when={!settingsQuery.isLoading && currentSettings()}
-				fallback={<div class="p-8 text-center text-xs text-white/40">Loading system settings...</div>}
+				fallback={
+					<div class="p-8 text-center text-xs text-white/40">{t('ownerSettings.loading')}</div>
+				}
 			>
 				<form onSubmit={handleSaveForm} class="space-y-6">
 					{/* Maintenance Mode Banner */}
@@ -112,13 +118,14 @@ export const OwnerSettings: Component = () => {
 						<div>
 							<div class="text-sm font-bold text-white flex items-center gap-2">
 								<span class="material-symbols-rounded text-amber-400">construction</span>
-								<span>Maintenance Mode</span>
+								<span>{t('ownerSettings.maintenanceMode')}</span>
 							</div>
 							<div class="text-xs text-white/50 mt-0.5">
-								Temporarily block regular users with a maintenance screen while allowing Owner access
+								Temporarily block regular users with a maintenance screen while allowing Owner
+								access
 							</div>
 						</div>
-						<label class="relative inline-flex items-center cursor-pointer">
+						<div class="relative inline-flex items-center cursor-pointer">
 							<input
 								type="checkbox"
 								checked={currentSettings()?.maintenance_mode ?? false}
@@ -126,50 +133,54 @@ export const OwnerSettings: Component = () => {
 								class="sr-only peer"
 							/>
 							<div class="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500" />
-						</label>
+						</div>
 					</div>
 
 					{/* Economic Engine Parameters */}
 					<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-5">
 						<div class="flex items-center gap-2 border-b border-white/10 pb-3">
 							<span class="material-symbols-rounded text-amber-400">tune</span>
-							<h3 class="text-sm font-bold text-white">Tapping & Daily Rewards Mechanics</h3>
+							<h3 class="text-sm font-bold text-white">{t('ownerSettings.tapDailyRewards')}</h3>
 						</div>
 
 						<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 							<div>
-								<label class="block text-[11px] font-semibold text-white/60 mb-1">
-									Tap Multiplier
-								</label>
+								<div class="block text-[11px] font-semibold text-white/60 mb-1">{t('ownerSettings.tapMultiplier')}</div>
 								<input
 									type="number"
 									step="0.1"
 									value={currentSettings()?.tap_multiplier ?? 1}
-									onInput={(e) => updateField('tap_multiplier', parseFloat(e.currentTarget.value) || 1)}
+									onInput={(e) =>
+										updateField('tap_multiplier', parseFloat(e.currentTarget.value) || 1)
+									}
 									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
 								/>
 							</div>
 
 							<div>
-								<label class="block text-[11px] font-semibold text-white/60 mb-1">
-									Referral Bonus (Coins)
-								</label>
+								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+									{t('ownerSettings.referralBonus')}
+								</div>
 								<input
 									type="number"
 									value={currentSettings()?.referral_bonus ?? 25000}
-									onInput={(e) => updateField('referral_bonus', parseInt(e.currentTarget.value, 10) || 0)}
+									onInput={(e) =>
+										updateField('referral_bonus', parseInt(e.currentTarget.value, 10) || 0)
+									}
 									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
 								/>
 							</div>
 
 							<div>
-								<label class="block text-[11px] font-semibold text-white/60 mb-1">
-									Daily Reward Base (Coins)
-								</label>
+								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+									{t('ownerSettings.dailyRewardBase')}
+								</div>
 								<input
 									type="number"
 									value={currentSettings()?.daily_reward_base ?? 5000}
-									onInput={(e) => updateField('daily_reward_base', parseInt(e.currentTarget.value, 10) || 0)}
+									onInput={(e) =>
+										updateField('daily_reward_base', parseInt(e.currentTarget.value, 10) || 0)
+									}
 									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
 								/>
 							</div>
@@ -178,37 +189,43 @@ export const OwnerSettings: Component = () => {
 						{/* Fatigue Thresholds */}
 						<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
 							<div>
-								<label class="block text-[11px] font-semibold text-white/60 mb-1">
-									Fatigue Threshold 1 (Taps)
-								</label>
+								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+									{t('ownerSettings.fatigueThreshold1')}
+								</div>
 								<input
 									type="number"
 									value={currentSettings()?.fatigue_threshold_1 ?? 500}
-									onInput={(e) => updateField('fatigue_threshold_1', parseInt(e.currentTarget.value, 10) || 500)}
+									onInput={(e) =>
+										updateField('fatigue_threshold_1', parseInt(e.currentTarget.value, 10) || 500)
+									}
 									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
 								/>
 							</div>
 
 							<div>
-								<label class="block text-[11px] font-semibold text-white/60 mb-1">
-									Fatigue Threshold 2 (Taps)
-								</label>
+								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+									{t('ownerSettings.fatigueThreshold2')}
+								</div>
 								<input
 									type="number"
 									value={currentSettings()?.fatigue_threshold_2 ?? 1500}
-									onInput={(e) => updateField('fatigue_threshold_2', parseInt(e.currentTarget.value, 10) || 1500)}
+									onInput={(e) =>
+										updateField('fatigue_threshold_2', parseInt(e.currentTarget.value, 10) || 1500)
+									}
 									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
 								/>
 							</div>
 
 							<div>
-								<label class="block text-[11px] font-semibold text-white/60 mb-1">
-									Fatigue Threshold 3 (Taps)
-								</label>
+								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+									{t('ownerSettings.fatigueThreshold3')}
+								</div>
 								<input
 									type="number"
 									value={currentSettings()?.fatigue_threshold_3 ?? 3000}
-									onInput={(e) => updateField('fatigue_threshold_3', parseInt(e.currentTarget.value, 10) || 3000)}
+									onInput={(e) =>
+										updateField('fatigue_threshold_3', parseInt(e.currentTarget.value, 10) || 3000)
+									}
 									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
 								/>
 							</div>
@@ -219,43 +236,49 @@ export const OwnerSettings: Component = () => {
 					<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-5">
 						<div class="flex items-center gap-2 border-b border-white/10 pb-3">
 							<span class="material-symbols-rounded text-emerald-400">savings</span>
-							<h3 class="text-sm font-bold text-white">Monetary Policy & Deflationary Sinks</h3>
+							<h3 class="text-sm font-bold text-white">{t('ownerSettings.monetaryPolicy')}</h3>
 						</div>
 
 						<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 							<div>
-								<label class="block text-[11px] font-semibold text-white/60 mb-1">
-									Inactivity Decay Rate (% / month)
-								</label>
+								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+									{t('ownerSettings.inactivityDecayRate')}
+								</div>
 								<input
 									type="number"
 									step="0.5"
 									value={currentSettings()?.coin_decay_pct ?? 5.0}
-									onInput={(e) => updateField('coin_decay_pct', parseFloat(e.currentTarget.value) || 0)}
+									onInput={(e) =>
+										updateField('coin_decay_pct', parseFloat(e.currentTarget.value) || 0)
+									}
 									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
 								/>
 							</div>
 
 							<div>
-								<label class="block text-[11px] font-semibold text-white/60 mb-1">
-									Referral Rev-Share (% Stars)
-								</label>
+								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+									{t('ownerSettings.referralRevSharePct')}
+								</div>
 								<input
 									type="number"
 									value={currentSettings()?.referral_rev_share_pct ?? 15}
-									onInput={(e) => updateField('referral_rev_share_pct', parseInt(e.currentTarget.value, 10) || 0)}
+									onInput={(e) =>
+										updateField('referral_rev_share_pct', parseInt(e.currentTarget.value, 10) || 0)
+									}
 									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
 								/>
 							</div>
 
 							<div>
-								<label class="block text-[11px] font-semibold text-white/60 mb-1">
-									Turbo Mode Duration (Seconds)
-								</label>
+								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+									{t('ownerSettings.turboDuration')}
+								</div>
 								<input
 									type="number"
 									value={currentSettings()?.turbo_duration_seconds ?? 20}
-									onInput={(e) => updateField('turbo_duration_seconds', parseInt(e.currentTarget.value, 10) || 20)}
+									onInput={(e) =>
+										updateField('turbo_duration_seconds', parseInt(e.currentTarget.value, 10) || 20)
+									}
 									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
 								/>
 							</div>

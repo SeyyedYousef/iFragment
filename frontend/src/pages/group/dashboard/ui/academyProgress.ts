@@ -19,7 +19,14 @@ export const ACADEMY_LESSONS: AcademyLesson[] = [
 		done: (s) => {
 			if (!s?.general) return false;
 			const g = s.general as any;
-			return !!(g.ephemeralAll || g.ephemeralWelcome || g.ephemeralWarnings || g.ephemeralCaptcha || g.ephemeralAdminCmd || g.welcome_message);
+			return !!(
+				g.ephemeralAll ||
+				g.ephemeralWelcome ||
+				g.ephemeralWarnings ||
+				g.ephemeralCaptcha ||
+				g.ephemeralAdminCmd ||
+				g.welcome_message
+			);
 		},
 	},
 	{
@@ -32,7 +39,12 @@ export const ACADEMY_LESSONS: AcademyLesson[] = [
 			if (!s) return false;
 			const cr = (s.content_restrictions || {}) as any;
 			const g = (s.general || {}) as any;
-			return !!(cr.removeLinks?.enabled || cr.blockDomains?.enabled || cr.blockBots?.enabled || g.casEnabled);
+			return !!(
+				cr.removeLinks?.enabled ||
+				cr.blockDomains?.enabled ||
+				cr.blockBots?.enabled ||
+				g.casEnabled
+			);
 		},
 	},
 	{
@@ -56,7 +68,9 @@ export const ACADEMY_LESSONS: AcademyLesson[] = [
 		done: (s) => {
 			if (!s?.limits) return false;
 			const l = s.limits as any;
-			return (l.floodMessages > 0 && l.floodMessages !== 10) || l.maxMessageLength > 0 || (l.slowMode > 0);
+			return (
+				(l.floodMessages > 0 && l.floodMessages !== 10) || l.maxMessageLength > 0 || l.slowMode > 0
+			);
 		},
 	},
 	{
@@ -68,7 +82,11 @@ export const ACADEMY_LESSONS: AcademyLesson[] = [
 		done: (s) => {
 			if (!s?.mandatory_membership) return false;
 			const m = s.mandatory_membership as any;
-			return !!(m.required_channels && m.required_channels.length > 0) || !!m.forced_add_enabled || !!m.verification_enabled;
+			return (
+				!!(m.required_channels && m.required_channels.length > 0) ||
+				!!m.forced_add_enabled ||
+				!!m.verification_enabled
+			);
 		},
 	},
 	{

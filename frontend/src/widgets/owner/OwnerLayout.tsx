@@ -1,4 +1,4 @@
-import { Component, JSX } from 'solid-js';
+import type { Component, JSX } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 import { ImpersonationBanner } from './ImpersonationBanner.js';
 import { OwnerTabs } from './OwnerTabs.js';
@@ -19,6 +19,7 @@ interface OwnerLayoutProps {
 		| 'health'
 		| 'entities'
 		| 'ads';
+	/** i18n key resolved by OwnerLayout, e.g. 'ownerNav.dashboardTitle' */
 	title?: string;
 }
 
@@ -41,18 +42,21 @@ export const OwnerLayout: Component<OwnerLayoutProps> = (props) => {
 					<div>
 						<div class="flex items-center gap-2">
 							<h1 class="text-sm font-black uppercase tracking-wider text-white">
-								{props.title || 'پنل مدیریت اونر'}
+								{props.title ? t(props.title as any) : t('ownerNav.defaultTitle' as any)}
 							</h1>
 							<span class="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-black uppercase text-emerald-400">
-								{t('common.live' as any) || 'Live'}
+								{t('common.live')}
 							</span>
 						</div>
-						<p class="text-[10px] text-white/40 font-bold mt-0.5">سامانه مدیریت ارشد iFragment</p>
+						<p class="text-[10px] text-white/40 font-bold mt-0.5">
+							{t('ownerChrome.headerSubtitle' as any)}
+						</p>
 					</div>
 				</div>
 
 				<div class="flex items-center gap-3">
 					<button
+						type="button"
 						onClick={() => {
 							sessionStorage.removeItem('owner_token');
 							sessionStorage.removeItem('owner_telegram_id');
@@ -60,10 +64,10 @@ export const OwnerLayout: Component<OwnerLayoutProps> = (props) => {
 							window.location.reload();
 						}}
 						class="h-8 px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 active:scale-95"
-						title="خروج از حساب مدیریت"
+						title={t('ownerChrome.logoutTooltip' as any)}
 					>
 						<span class="material-symbols-outlined text-[14px]">logout</span>
-						خروج
+						{t('ownerChrome.logout' as any)}
 					</button>
 				</div>
 			</header>

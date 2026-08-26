@@ -23,6 +23,7 @@ export type DemoAction =
 	| { kind: 'locked'; label: string; at: number };
 
 const [lastDemoAction, setLastDemoAction] = createSignal<DemoAction | null>(null);
+
 export { lastDemoAction };
 export const notifyDemoAction = (kind: DemoAction['kind'], label: string) =>
 	setLastDemoAction({ kind, label, at: Date.now() });

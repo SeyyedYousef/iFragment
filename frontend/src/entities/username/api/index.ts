@@ -112,9 +112,7 @@ export const useUsernameValuation = (username: () => string | undefined | null) 
 			queryKey: ['username', 'valuate', u],
 			queryFn: async () => {
 				if (!u) throw new Error('Username is required');
-				return await apiFetch<ValuationResult>(
-					`/usernames/valuate?u=${encodeURIComponent(u)}`,
-				);
+				return await apiFetch<ValuationResult>(`/usernames/valuate?u=${encodeURIComponent(u)}`);
 			},
 			enabled: !!u && u.length >= 4,
 			staleTime: TTI_TIERS.VALUATION, // 5m fresh state

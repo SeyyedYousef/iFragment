@@ -1,8 +1,9 @@
-import { createSignal, onCleanup, Show, For, type Component } from 'solid-js';
-import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
+import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
+import { type Component, createSignal, For, onCleanup, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/api/ownerApi.js';
 import type { ManagedUserbot } from '@/entities/owner/model/types.js';
 import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.jsx';
+import { t } from '@/shared/i18n/index.js';
 
 export const OwnerUserbot: Component = () => {
 	const queryClient = useQueryClient();
@@ -36,8 +37,7 @@ export const OwnerUserbot: Component = () => {
 	}));
 
 	const verifyCodeMutation = createMutation(() => ({
-		mutationFn: () =>
-			ownerApi.verifyUserbotCode(phone().trim(), code().trim(), phoneCodeHash()),
+		mutationFn: () => ownerApi.verifyUserbotCode(phone().trim(), code().trim(), phoneCodeHash()),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['owner', 'userbots'] });
 			resetConnectModal();
@@ -86,10 +86,13 @@ export const OwnerUserbot: Component = () => {
 			{/* Header */}
 			<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
 				<div>
-					<h2 class="text-lg font-bold text-white">MTProto Userbot Farm</h2>
-					<p class="text-xs text-white/50">Manage dedicated MTProto worker sessions for channel and group automation</p>
+					<h2 class="text-lg font-bold text-white">{t('ownerUserbot.title')}</h2>
+					<p class="text-xs text-white/50">
+						{t('ownerUserbot.subtitle')}
+					</p>
 				</div>
 				<button
+					type="button"
 					onClick={() => {
 						resetConnectModal();
 						setIsConnecting(true);
@@ -97,7 +100,7 @@ export const OwnerUserbot: Component = () => {
 					class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs transition shadow-lg shadow-amber-500/20"
 				>
 					<span class="material-symbols-rounded text-base">phonelink_setup</span>
-					<span>Connect New Userbot</span>
+					<span>{t('ownerUserbot.connectNew')}</span>
 				</button>
 			</div>
 
@@ -106,10 +109,16 @@ export const OwnerUserbot: Component = () => {
 				<div class="rounded-3xl border border-amber-500/30 bg-black/70 p-6 space-y-4 backdrop-blur-xl max-w-md mx-auto">
 					<div class="flex items-center justify-between border-b border-white/10 pb-3">
 						<h3 class="text-sm font-bold text-white">
-							{step() === 'phone' ? 'Step 1: Enter Phone Number' : 'Step 2: Enter Telegram Auth Code'}
+							{step() === 'phone'
+								? 'Step 1: Enter Phone Number'
+								: 'Step 2: Enter Telegram Auth Code'}
 						</h3>
-						<button onClick={resetConnectModal} class="text-xs text-white/50 hover:text-white">
-							Cancel
+						<button
+							type="button"
+							onClick={resetConnectModal}
+							class="text-xs text-white/50 hover:text-white"
+						>
+							{t('ownerCommon.cancel')}
 						</button>
 					</div>
 
@@ -122,9 +131,9 @@ export const OwnerUserbot: Component = () => {
 							class="space-y-3"
 						>
 							<div>
-								<label class="block text-[11px] font-semibold text-white/60 mb-1">
-									Phone Number (with Country Code)
-								</label>
+								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+									{t('ownerUserbot.phoneInput')}
+								</div>
 								<input
 									type="tel"
 									placeholder="+1234567890"
@@ -154,9 +163,9 @@ export const OwnerUserbot: Component = () => {
 							class="space-y-3"
 						>
 							<div>
-								<label class="block text-[11px] font-semibold text-white/60 mb-1">
-									5-Digit Telegram Verification Code
-								</label>
+								<div class="block text-[11px] font-semibold text-white/60 mb-1">
+									{t('ownerUserbot.verificationCode')}
+								</div>
 								<input
 									type="text"
 									inputMode="numeric"
@@ -178,7 +187,7 @@ export const OwnerUserbot: Component = () => {
 											onClick={() => sendCodeMutation.mutate(phone().trim())}
 											class="text-amber-400 hover:underline"
 										>
-											Resend Code
+											{t('ownerUserbot.resendCode')}
 										</button>
 									}
 								>
@@ -204,12 +213,12 @@ export const OwnerUserbot: Component = () => {
 					<table class="w-full text-left text-xs">
 						<thead>
 							<tr class="border-b border-white/10 text-white/40">
-								<th class="pb-3">Session ID</th>
-								<th class="pb-3">Masked Phone</th>
-								<th class="pb-3">Channels Managed</th>
-								<th class="pb-3">Status</th>
-								<th class="pb-3">Connected Since</th>
-								<th class="pb-3 text-right">Actions</th>
+								<th class="pb-3">{t('ownerUserbot.sessionId')}</th>
+								<th class="pb-3">{t('ownerUserbot.maskedPhone')}</th>
+								<th class="pb-3">{t('ownerUserbot.channelsManaged')}</th>
+								<th class="pb-3">{t('ownerCommon.status')}</th>
+								<th class="pb-3">{t('ownerUserbot.connectedSince')}</th>
+								<th class="pb-3 text-right">{t('ownerCommon.actions')}</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-white/5">
@@ -242,12 +251,15 @@ export const OwnerUserbot: Component = () => {
 													{bot.status}
 												</span>
 											</td>
-											<td class="py-3 text-white/50">{new Date(bot.created_at).toLocaleDateString()}</td>
+											<td class="py-3 text-white/50">
+												{new Date(bot.created_at).toLocaleDateString()}
+											</td>
 											<td class="py-3 text-right">
 												<button
+													type="button"
 													onClick={() => setUserbotToDelete(bot)}
 													class="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition"
-													title="Log Out & Delete Userbot"
+													title={t('ownerUserbot.deleteUserbot')}
 												>
 													<span class="material-symbols-rounded text-base">logout</span>
 												</button>
@@ -265,7 +277,7 @@ export const OwnerUserbot: Component = () => {
 			<Show when={userbotToDelete()}>
 				<DangerActionDialog
 					isOpen={true}
-					title="Revoke & Delete MTProto Userbot"
+					title={t('ownerUserbot.revokeUserbot')}
 					description={`Terminate MTProto session for ${maskPhoneNumber(userbotToDelete()?.phone_number || '')}? This will log out on Telegram and delete the session file.`}
 					actionLabel="Revoke & Delete"
 					confirmWord="DELETE"

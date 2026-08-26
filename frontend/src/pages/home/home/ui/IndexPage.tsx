@@ -1,11 +1,12 @@
 import { Motion } from '@motionone/solid';
+import { t } from '@/shared/i18n/index.js';
+import { useQueryClient } from '@tanstack/solid-query';
 import { backButton, viewport } from '@tma.js/sdk-solid';
 import { type Component, createEffect, createSignal, Show } from 'solid-js';
-import { useQueryClient } from '@tanstack/solid-query';
+import { PullToRefresh } from '@/shared/ui/PullToRefresh.js';
 import { ActionArea } from '@/widgets/action-area/index.js';
 import { BottomNav } from '@/widgets/bottom-nav/index.js';
 import { HeroTabs } from '@/widgets/hero-tabs/index.js';
-import { PullToRefresh } from '@/shared/ui/PullToRefresh.js';
 
 export const IndexPage: Component = () => {
 	const getInitialTab = (): 'username' | 'collectibles' | 'gifts' | null => {
@@ -46,7 +47,7 @@ export const IndexPage: Component = () => {
 					class="pb-40 bg-[#030303] text-white min-h-full relative flex flex-col"
 					style={{ 'min-height': 'var(--tg-viewport-stable-height, 100vh)' }}
 					role="application"
-					aria-label="iFragment Home"
+					aria-label={t('home.title')}
 				>
 					{/* Premium Ambient Background Glow */}
 					<div class="absolute top-0 left-0 right-0 h-[350px] bg-gradient-to-b from-[#3390ec]/15 via-[#3390ec]/5 to-transparent blur-[80px] pointer-events-none z-0" />

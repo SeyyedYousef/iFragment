@@ -1,7 +1,9 @@
-import { Component } from 'solid-js';
+import type { Component } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 
-export const AdminsLessonCard: Component<{ onNavigate: () => void; isDone?: boolean }> = (props) => {
+export const AdminsLessonCard: Component<{ onNavigate: () => void; isDone?: boolean }> = (
+	props,
+) => {
 	return (
 		<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 hover:border-white/15 rounded-[28px] p-5 flex flex-col gap-4 shadow-sm relative overflow-hidden transition-all">
 			<div class="absolute -right-10 -bottom-10 w-32 h-32 bg-indigo-500/10 blur-3xl rounded-full pointer-events-none" />
@@ -49,6 +51,7 @@ export const AdminsLessonCard: Component<{ onNavigate: () => void; isDone?: bool
 			</div>
 
 			<button
+				type="button"
 				onClick={props.onNavigate}
 				class="w-full h-12 bg-white/5 border border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 rounded-[16px] text-[12px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
 			>

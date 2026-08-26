@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type {
+	AdCampaign,
 	AdminDailyCombo,
 	AuditLogEntry,
 	AuthLoginResponse,
@@ -16,7 +17,6 @@ import type {
 	SystemHealthMetrics,
 	SystemSettings,
 	TotpSetupResponse,
-	AdCampaign,
 } from '../model/types.js';
 
 const api = axios.create({
@@ -105,7 +105,10 @@ export const ownerApi = {
 		return res.data;
 	},
 
-	endImpersonation: async (sessionId: string, actionsTaken: string[] = []): Promise<{ success: boolean }> => {
+	endImpersonation: async (
+		sessionId: string,
+		actionsTaken: string[] = [],
+	): Promise<{ success: boolean }> => {
 		const res = await api.post<{ success: boolean }>('/users/impersonate/end', {
 			session_id: sessionId,
 			actions_taken: actionsTaken,
@@ -117,7 +120,7 @@ export const ownerApi = {
 		targetUserId: number,
 		banType: string,
 		reason: string,
-		durationSeconds: number = 0
+		durationSeconds: number = 0,
 	): Promise<{ success: boolean }> => {
 		const res = await api.post<{ success: boolean }>('/users/ban', {
 			target_user_id: targetUserId,
@@ -138,7 +141,7 @@ export const ownerApi = {
 	flagUser: async (
 		targetUserId: number,
 		isFlagged: boolean,
-		reason: string
+		reason: string,
 	): Promise<{ success: boolean }> => {
 		const res = await api.post<{ success: boolean }>('/users/flag', {
 			target_user_id: targetUserId,
@@ -151,7 +154,7 @@ export const ownerApi = {
 	adjustCoins: async (
 		userId: number,
 		amount: number,
-		reason: string
+		reason: string,
 	): Promise<{ success: boolean; new_balance: number }> => {
 		const res = await api.post<{ success: boolean; new_balance: number }>('/users/adjust-balance', {
 			user_id: userId,
@@ -212,14 +215,17 @@ export const ownerApi = {
 		entityType: 'channel' | 'group',
 		entityId: string,
 		days: number,
-		reason: string
+		reason: string,
 	): Promise<{ success: boolean; new_until: string }> => {
-		const res = await api.post<{ success: boolean; new_until: string }>('/entities/extend-subscription', {
-			entity_type: entityType,
-			entity_id: entityId,
-			days,
-			reason,
-		});
+		const res = await api.post<{ success: boolean; new_until: string }>(
+			'/entities/extend-subscription',
+			{
+				entity_type: entityType,
+				entity_id: entityId,
+				days,
+				reason,
+			},
+		);
 		return res.data;
 	},
 
@@ -227,7 +233,7 @@ export const ownerApi = {
 		entityType: 'channel' | 'group',
 		entityId: string,
 		coins: number,
-		reason: string
+		reason: string,
 	): Promise<{ success: boolean; new_balance: number }> => {
 		const res = await api.post<{ success: boolean; new_balance: number }>('/entities/grant-coins', {
 			entity_type: entityType,
@@ -242,7 +248,7 @@ export const ownerApi = {
 		entityType: 'channel' | 'group',
 		entityId: string,
 		coins: number,
-		reason: string
+		reason: string,
 	): Promise<{ success: boolean; new_balance: number }> => {
 		const res = await api.post<{ success: boolean; new_balance: number }>('/entities/grant-coins', {
 			entity_type: entityType,
@@ -272,7 +278,10 @@ export const ownerApi = {
 	},
 
 	// ─── Ads & Media Pipeline ───────────────────────────────────────────────────
-	uploadAdImage: async (file: File | Blob, slot = 'dashboard_banner'): Promise<{ url: string; width: number; height: number; size_bytes: number }> => {
+	uploadAdImage: async (
+		file: File | Blob,
+		slot = 'dashboard_banner',
+	): Promise<{ url: string; width: number; height: number; size_bytes: number }> => {
 		const formData = new FormData();
 		formData.append('image', file);
 		formData.append('slot', slot);
@@ -284,7 +293,7 @@ export const ownerApi = {
 				headers: {
 					'Content-Type': 'multipart/form-data',
 				},
-			}
+			},
 		);
 		return res.data;
 	},
@@ -338,7 +347,11 @@ export const ownerApi = {
 		return res.data;
 	},
 
-	upsertCombo: async (date: string, word: string, reward: number): Promise<{ success: boolean }> => {
+	upsertCombo: async (
+		date: string,
+		word: string,
+		reward: number,
+	): Promise<{ success: boolean }> => {
 		const res = await api.post<{ success: boolean }>('/combos', {
 			date,
 			word,
@@ -357,7 +370,7 @@ export const ownerApi = {
 		code: string,
 		rewardAmount: number,
 		maxUses: number,
-		expiresAt?: string
+		expiresAt?: string,
 	): Promise<{ success: boolean }> => {
 		const res = await api.post<{ success: boolean }>('/promos', {
 			code,
@@ -389,7 +402,7 @@ export const ownerApi = {
 	verifyUserbotCode: async (
 		phoneNumber: string,
 		code: string,
-		phoneCodeHash: string
+		phoneCodeHash: string,
 	): Promise<{ success: boolean }> => {
 		const res = await api.post<{ success: boolean }>('/userbot/verify-code', {
 			phone_number: phoneNumber,

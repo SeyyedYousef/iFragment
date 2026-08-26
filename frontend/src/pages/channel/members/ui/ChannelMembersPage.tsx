@@ -1,8 +1,8 @@
-import { Component, createSignal, createResource, onMount, onCleanup } from 'solid-js';
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton } from '@tma.js/sdk-solid';
+import { type Component, createResource, createSignal, onCleanup, onMount } from 'solid-js';
 import { ChannelContextBar, ChannelHamburgerMenu, channelApi } from '@/entities/channel/index.js';
-import { t, isRtl } from '@/shared/i18n/index.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { showToast } from '@/shared/ui/index.js';
 
@@ -14,7 +14,10 @@ export const ChannelMembersPage: Component = () => {
 	const [isBanning, setIsBanning] = createSignal(false);
 	const [isRestricting, setIsRestricting] = createSignal(false);
 
-	const [channelInfo] = createResource(() => params.id, (id) => channelApi.getChannel(id));
+	const [channelInfo] = createResource(
+		() => params.id,
+		(id) => channelApi.getChannel(id),
+	);
 
 	onMount(() => {
 		try {
@@ -85,9 +88,17 @@ export const ChannelMembersPage: Component = () => {
 	};
 
 	return (
-		<div class="min-h-screen bg-neutral-950 text-neutral-100 pb-28 pt-2 px-4" dir={isRtl() ? 'rtl' : 'ltr'}>
+		<div
+			class="min-h-screen bg-neutral-950 text-neutral-100 pb-28 pt-2 px-4"
+			dir={isRtl() ? 'rtl' : 'ltr'}
+		>
 			<ChannelContextBar channelId={params.id} />
-			<ChannelHamburgerMenu isOpen={isMenuOpen()} onClose={() => setIsMenuOpen(false)} channelId={params.id} activeTab="members" />
+			<ChannelHamburgerMenu
+				isOpen={isMenuOpen()}
+				onClose={() => setIsMenuOpen(false)}
+				channelId={params.id}
+				activeTab="members"
+			/>
 
 			{/* Header */}
 			<div class="mt-4 mb-5 flex items-center justify-between">
@@ -97,7 +108,8 @@ export const ChannelMembersPage: Component = () => {
 						<span>{t('channel.members.title') || 'Channel Members & Moderation'}</span>
 					</h1>
 					<p class="text-xs text-neutral-400 mt-1">
-						{t('channel.members.subtitle') || 'Search, moderate, and enforce user access control on your channel.'}
+						{t('channel.members.subtitle') ||
+							'Search, moderate, and enforce user access control on your channel.'}
 					</p>
 				</div>
 			</div>
@@ -105,14 +117,16 @@ export const ChannelMembersPage: Component = () => {
 			{/* Channel Subscribers Card */}
 			<div class="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-3 mb-5 shadow-lg">
 				<div class="flex items-center justify-between">
-					<div class="text-xs text-neutral-400">Total Channel Subscribers</div>
+					<div class="text-xs text-neutral-400">{t('channelMembers.totalSubscribers')}</div>
 					<div class="text-lg font-bold text-white">
 						{channelInfo()?.subscribers_count?.toLocaleString() || '0'}
 					</div>
 				</div>
 
 				<div class="p-3 rounded-xl bg-neutral-950 border border-neutral-800/80 text-[11px] text-neutral-400 leading-relaxed">
-					ℹ️ Telegram Bot API privacy policies restrict bots from downloading full membership rosters of large channels without active interaction. You can execute direct moderation actions below using user Telegram IDs.
+					ℹ️ Telegram Bot API privacy policies restrict bots from downloading full membership rosters
+					of large channels without active interaction. You can execute direct moderation actions
+					below using user Telegram IDs.
 				</div>
 			</div>
 
@@ -124,7 +138,7 @@ export const ChannelMembersPage: Component = () => {
 				</h3>
 
 				<div class="space-y-2">
-					<label class="text-xs font-semibold text-neutral-300">Target Telegram User ID</label>
+					<div class="text-xs font-semibold text-neutral-300">{t('channelMembers.targetUserId')}</div>
 					<input
 						type="number"
 						value={memberIdInput()}
@@ -136,19 +150,21 @@ export const ChannelMembersPage: Component = () => {
 
 				<div class="grid grid-cols-2 gap-2.5 pt-1">
 					<button
+						type="button"
 						onClick={handleRestrict}
 						disabled={isRestricting() || !memberIdInput().trim()}
 						class="py-2.5 px-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold hover:bg-amber-500/20 active:scale-[0.98] transition-all disabled:opacity-40"
 					>
-						<span>⚠️ Restrict User</span>
+						<span>{t('channelMembers.restrictUser')}</span>
 					</button>
 
 					<button
+						type="button"
 						onClick={handleBan}
 						disabled={isBanning() || !memberIdInput().trim()}
 						class="py-2.5 px-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold hover:bg-red-500/20 active:scale-[0.98] transition-all disabled:opacity-40"
 					>
-						<span>🚫 Ban User</span>
+						<span>{t('channelMembers.banUser')}</span>
 					</button>
 				</div>
 			</div>

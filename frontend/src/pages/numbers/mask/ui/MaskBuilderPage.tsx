@@ -1,6 +1,6 @@
-import { createQuery } from '@tanstack/solid-query';
 import { useNavigate } from '@solidjs/router';
-import { Component, createMemo, createSignal, For, Show } from 'solid-js';
+import { createQuery } from '@tanstack/solid-query';
+import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
 import { numbersApi } from '@/entities/numbers/index.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
@@ -23,11 +23,11 @@ export const MaskBuilderPage: Component = () => {
 	];
 
 	const currentMaskString = createMemo(() => {
-		return '+888 ' + slots().slice(0, 4).join('') + ' ' + slots().slice(4).join('');
+		return `+888 ${slots().slice(0, 4).join('')} ${slots().slice(4).join('')}`;
 	});
 
 	const rawQueryString = createMemo(() => {
-		return '+888' + slots().join('');
+		return `+888${slots().join('')}`;
 	});
 
 	const maskQuery = createQuery(() => ({
@@ -48,7 +48,9 @@ export const MaskBuilderPage: Component = () => {
 	});
 
 	const handleSlotChange = (index: number, val: string) => {
-		haptic.selection();
+		try {
+			haptic.selection();
+		} catch {}
 		const next = [...slots()];
 		if (!val || val === ' ') {
 			next[index] = '*';
@@ -64,7 +66,9 @@ export const MaskBuilderPage: Component = () => {
 	};
 
 	const applyPreset = (presetMask: string[]) => {
-		haptic.impact('medium');
+		try {
+			haptic.impact('medium');
+		} catch {}
 		setSlots([...presetMask]);
 	};
 
@@ -74,11 +78,11 @@ export const MaskBuilderPage: Component = () => {
 	};
 
 	return (
-		<div class="pb-36 bg-[#07080c] text-white min-h-screen relative font-sans selection:bg-[#0098EA]/30 overflow-x-hidden">
+		<div class="pb-36 bg-[#06070B] text-white min-h-screen relative font-sans selection:bg-[#0098EA]/30 overflow-x-hidden">
 			{/* Ambient Glow */}
-			<div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-96 bg-gradient-to-b from-[#0098EA]/15 via-transparent to-transparent blur-3xl pointer-events-none z-0" />
+			<div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-96 bg-gradient-to-b from-[#0098EA]/20 via-[#AF52DE]/10 to-transparent blur-[90px] pointer-events-none z-0" />
 
-			<div class="relative z-10 max-w-md mx-auto px-4 pt-4">
+			<div class="relative z-10 max-w-[480px] mx-auto px-4 pt-4">
 				{/* Top Navigation */}
 				<div class="flex items-center justify-between mb-4">
 					<div class="flex items-center gap-2.5">
@@ -88,34 +92,35 @@ export const MaskBuilderPage: Component = () => {
 							</div>
 						</div>
 						<div>
-							<h1 class="text-[19px] font-black tracking-tight text-white">
-								{t('numbers.maskBuilderTitle' as any) || 'Mask Builder'}
+							<h1 class="text-[18px] font-black tracking-tight text-white">
+								{t('numbers.maskBuilderTitle')}
 							</h1>
-							<p class="text-[12px] font-medium text-white/50">
-								{t('numbers.maskBuilderSub' as any) || 'Search 136,566 numbers by visual pattern'}
-							</p>
+							<p class="text-[11px] font-medium text-white/50">{t('numbers.maskBuilderSub')}</p>
 						</div>
 					</div>
 
 					<button
+						type="button"
 						onClick={() => {
-							haptic.impact('light');
+							try {
+								haptic.impact('light');
+							} catch {}
 							navigate('/numbers/intel');
 						}}
-						class="px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 text-xs font-bold text-white/80 transition-all"
+						class="px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 text-xs font-bold text-white/80 transition-all active:scale-95"
 					>
-						Intel Overview
+						{t('numbers.intelOverview')}
 					</button>
 				</div>
 
 				{/* 8-Box Visual Selector */}
-				<div class="bg-gradient-to-b from-white/[0.06] to-white/[0.02] backdrop-blur-2xl border border-white/10 rounded-3xl p-5 mb-4 shadow-xl">
+				<div class="bg-[#12141C]/80 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 mb-4 shadow-xl">
 					<div class="flex items-center justify-between mb-3">
-						<span class="text-xs font-bold text-white/60">Pattern Query:</span>
+						<span class="text-xs font-bold text-white/60">{t('numbers.patternQuery')}:</span>
 						<span class="text-xs font-mono font-black text-[#0098EA]">{currentMaskString()}</span>
 					</div>
 
-					<div class="flex items-center gap-1.5 justify-center mb-4">
+					<div class="flex items-center gap-1.5 justify-center mb-4" dir="ltr">
 						{/* +888 Fixed Badge */}
 						<div class="px-2.5 py-3 rounded-2xl bg-[#0098EA]/20 border border-[#0098EA]/40 text-[#0098EA] font-mono font-black text-sm flex items-center justify-center">
 							+888
@@ -131,7 +136,7 @@ export const MaskBuilderPage: Component = () => {
 									value={slot}
 									onFocus={(e) => e.currentTarget.select()}
 									onInput={(e) => handleSlotChange(idx(), e.currentTarget.value)}
-									class={`w-8 h-12 rounded-xl text-center font-mono font-black text-sm focus:outline-none transition-all ${
+									class={`w-8 h-12 rounded-xl text-center font-mono font-black text-base focus:outline-none transition-all ${
 										slot === '*'
 											? 'bg-white/[0.04] text-white/40 border border-white/10 focus:border-[#0098EA] focus:bg-black/60'
 											: 'bg-[#0098EA]/15 text-white border border-[#0098EA]/50 focus:border-[#0098EA] focus:ring-1 focus:ring-[#0098EA]'
@@ -146,6 +151,7 @@ export const MaskBuilderPage: Component = () => {
 						<For each={PRESET_PATTERNS}>
 							{(preset) => (
 								<button
+									type="button"
 									onClick={() => applyPreset(preset.mask)}
 									class="px-2.5 py-1 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-[11px] font-bold text-white/70 whitespace-nowrap active:scale-95 transition-all"
 								>
@@ -158,39 +164,48 @@ export const MaskBuilderPage: Component = () => {
 
 				{/* Filter Chips: All | For Sale | Taken */}
 				<div class="flex items-center justify-between mb-3">
-					<div class="flex items-center gap-1.5 bg-black/40 p-1 rounded-2xl border border-white/10 text-xs font-bold">
+					<div class="flex items-center gap-1 bg-[#12141C]/80 p-1 rounded-2xl border border-white/10 text-xs font-bold">
 						<button
+							type="button"
 							onClick={() => {
-								haptic.selection();
+								try {
+									haptic.selection();
+								} catch {}
 								setFilterStatus('all');
 							}}
 							class={`px-3 py-1 rounded-xl transition-all ${
-								filterStatus() === 'all' ? 'bg-[#0098EA] text-white' : 'text-white/50'
+								filterStatus() === 'all' ? 'bg-[#0098EA] text-white font-black' : 'text-white/50'
 							}`}
 						>
-							All
+							{t('numbers.allResults')}
 						</button>
 						<button
+							type="button"
 							onClick={() => {
-								haptic.selection();
+								try {
+									haptic.selection();
+								} catch {}
 								setFilterStatus('for_sale');
 							}}
 							class={`px-3 py-1 rounded-xl transition-all ${
-								filterStatus() === 'for_sale' ? 'bg-amber-500 text-white' : 'text-white/50'
+								filterStatus() === 'for_sale' ? 'bg-amber-500 text-white font-black' : 'text-white/50'
 							}`}
 						>
-							🟡 For Sale
+							🟡 {t('numbers.forSale')}
 						</button>
 						<button
+							type="button"
 							onClick={() => {
-								haptic.selection();
+								try {
+									haptic.selection();
+								} catch {}
 								setFilterStatus('taken');
 							}}
 							class={`px-3 py-1 rounded-xl transition-all ${
-								filterStatus() === 'taken' ? 'bg-slate-700 text-white' : 'text-white/50'
+								filterStatus() === 'taken' ? 'bg-slate-700 text-white font-black' : 'text-white/50'
 							}`}
 						>
-							🔴 Taken
+							🔴 {t('numbers.taken')}
 						</button>
 					</div>
 
@@ -205,10 +220,12 @@ export const MaskBuilderPage: Component = () => {
 						{(item) => (
 							<div
 								onClick={() => {
-									haptic.impact('light');
+									try {
+										haptic.impact('light');
+									} catch {}
 									navigate(`/numbers/report?n=${encodeURIComponent(item.number)}`);
 								}}
-								class="bg-white/[0.04] hover:bg-white/[0.08] backdrop-blur-xl border border-white/10 rounded-2xl p-3.5 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all"
+								class="bg-[#12141C]/80 hover:bg-[#181b26] backdrop-blur-xl border border-white/[0.08] rounded-2xl p-3.5 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all shadow-lg"
 							>
 								<div class="flex items-center gap-3">
 									<div
@@ -218,7 +235,7 @@ export const MaskBuilderPage: Component = () => {
 									/>
 									<div>
 										<div class="text-sm font-black text-white font-mono">{item.display_number}</div>
-										<div class="text-[10px] text-white/40 flex items-center gap-1.5 mt-0.5">
+										<div class="text-[10px] text-white/40 flex items-center gap-1.5 mt-0.5 font-mono">
 											<span>{item.color}</span>
 											<span>·</span>
 											<span>Rarity {item.rarity_score}/100</span>
@@ -226,16 +243,16 @@ export const MaskBuilderPage: Component = () => {
 									</div>
 								</div>
 
-								<div class="text-right">
+								<div class="text-right rtl:text-left">
 									<Show when={item.status === 'for_sale' && item.listing_price_ton}>
 										<div class="text-xs font-black text-amber-400 font-mono">
-											{formatTon(item.listing_price_ton)} TON
+											{formatTon(item.listing_price_ton)} {t('common.ton')}
 										</div>
-										<div class="text-[9px] text-white/40 uppercase font-bold">Ask Price</div>
+										<div class="text-[9px] text-white/40 uppercase font-bold">{t('numbers.askPrice')}</div>
 									</Show>
 									<Show when={item.status !== 'for_sale'}>
-										<span class="text-[11px] font-bold text-white/50 bg-white/5 px-2 py-0.5 rounded-lg">
-											Taken
+										<span class="text-[10px] font-bold text-white/50 bg-white/[0.06] px-2 py-0.5 rounded-lg">
+											{t('numbers.taken')}
 										</span>
 									</Show>
 								</div>

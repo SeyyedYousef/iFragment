@@ -1,7 +1,7 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
 import createFocusTrap from 'solid-focus-trap';
-import { Component, For, Show } from 'solid-js';
+import { type Component, For, Show } from 'solid-js';
 import { locale, t } from '@/shared/i18n/index.js';
 
 const isRtl = () => locale() === 'fa';
@@ -68,13 +68,13 @@ export const HamburgerMenu: Component<HamburgerMenuProps> = (props) => {
 		{
 			id: 'dynamic-bio',
 			icon: 'badge',
-			label: t('channelDynamicBio.title') || 'بیوگرافی زنده',
+			label: t('channelDynamicBio.title'),
 			path: `/group/${props.groupId}/dynamic-bio`,
 		},
 		{
 			id: 'members',
 			icon: 'group',
-			label: t('groupDashboard.menuMembers' as any) || 'اعضا و اخطارها',
+			label: t('groupDashboard.menuMembers'),
 			path: `/group/${props.groupId}/members`,
 		},
 		{
@@ -112,6 +112,7 @@ export const HamburgerMenu: Component<HamburgerMenuProps> = (props) => {
 						<div class="p-5 border-b border-[#2a2a2a] flex items-center justify-between bg-[#1c1c1c] sticky top-0 z-20">
 							<h2 class="text-lg font-black text-white">{t('groupDashboard.menu')}</h2>
 							<button
+								type="button"
 								onClick={props.onClose}
 								class="w-8 h-8 rounded-full bg-[#2a2a2a] flex items-center justify-center text-on-surface-variant hover:text-white transition-colors"
 								aria-label={t('common.close')}
@@ -125,6 +126,7 @@ export const HamburgerMenu: Component<HamburgerMenuProps> = (props) => {
 								<For each={menuItems()}>
 									{(item) => (
 										<button
+											type="button"
 											onClick={() => {
 												props.onClose();
 												navigate(item.path, { replace: props.activeTab !== 'dashboard' });

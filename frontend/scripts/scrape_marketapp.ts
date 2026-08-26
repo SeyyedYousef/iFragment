@@ -26,8 +26,9 @@ async function run() {
     });
     const page = await context.newPage();
 
-    console.log('Navigating to MarketApp sales page...');
-    await page.goto('https://marketapp.org/collection/EQCA14o1-VWhS2efqoh_9M1b_A9DtKTuoqfmkn83AbJzwnPi/sales/', { timeout: 60000 });
+    const collectionAddr = process.env.COLLECTION_ADDR || 'EQAOQdwdw8kGftJCSFgOErM1mXYYXPphTXjqIw35JGhJjpSf';
+    console.log(`Navigating to MarketApp sales page for collection ${collectionAddr}...`);
+    await page.goto(`https://marketapp.org/collection/${collectionAddr}/sales/`, { timeout: 60000 });
 
     console.log('Waiting for table to load...');
     await page.waitForSelector('table tbody tr', { timeout: 30000 });

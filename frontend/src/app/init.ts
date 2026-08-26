@@ -16,6 +16,7 @@ import {
 
 import { initStorageSync } from '@/entities/airdrop/index.js';
 import { initProfileSync, profileSettings } from '@/entities/user/index.js';
+import { checkMiniAppOrigin } from '@/shared/lib/mini-app-origin.js';
 
 /**
  * Initializes the application and configures its dependencies.
@@ -27,7 +28,7 @@ export async function init(options: {
 }): Promise<void> {
 	// 1. First, handle environment mocking if we're not in Telegram
 	// This must happen BEFORE initSDK to prevent hanging
-	let realParams;
+	let realParams: ReturnType<typeof retrieveLaunchParams> | undefined;
 	try {
 		realParams = retrieveLaunchParams();
 	} catch (_e) {
@@ -98,6 +99,10 @@ export async function init(options: {
 	setDebug(options.debug);
 	initSDK();
 
+	// 2.1 Bot API 10.2 origin guard — warn on domain mismatch with BotFather
+	// allow-list (native methods are blocked by Telegram since 2026-07-20).
+	checkMiniAppOrigin();
+
 	// Add Eruda if needed.
 	if (import.meta.env.DEV && options.eruda) {
 		void import('eruda').then(({ default: eruda }) => {
@@ -111,7 +116,7 @@ export async function init(options: {
 	// event for the "web_app_request_safe_area" method.
 	if (options.mockForMacOS) {
 		let firstThemeSent = false;
-		let currentParams;
+		let currentParams: ReturnType<typeof retrieveLaunchParams> | undefined;
 		try {
 			currentParams = retrieveLaunchParams();
 		} catch (_e) {}

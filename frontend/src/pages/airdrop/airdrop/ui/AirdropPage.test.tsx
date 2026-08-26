@@ -58,7 +58,6 @@ vi.mock('@/entities/airdrop/index.js', () => ({
 	dailyFatigueLimitRemaining: () => 0,
 }));
 
-
 describe('AirdropPage', () => {
 	it('renders the league name', () => {
 		render(() => <AirdropPage />);

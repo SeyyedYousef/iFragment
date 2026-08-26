@@ -2,7 +2,7 @@ import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton } from '@tma.js/sdk-solid';
 import {
-	Component,
+	type Component,
 	createEffect,
 	createResource,
 	createSignal,
@@ -13,10 +13,10 @@ import {
 } from 'solid-js';
 import { ChannelContextBar, ChannelHamburgerMenu, channelApi } from '@/entities/channel/index.js';
 import { t } from '@/shared/i18n/index.js';
-import { showConfirm } from '@/shared/lib/telegram-native.js';
-import { SelectField, SettingsSection } from '@/shared/ui/settings-controls.js';
-import { showToast } from '@/shared/ui/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
+import { showConfirm } from '@/shared/lib/telegram-native.js';
+import { showToast } from '@/shared/ui/index.js';
+import { SelectField, SettingsSection } from '@/shared/ui/settings-controls.js';
 
 interface InlineBtn {
 	id: string;
@@ -182,7 +182,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 			setButtons([
 				{
 					id: 'p1',
-					title: t('channelInlineButtons.likeBtn') || 'پسندیدم',
+					title: t('channelInlineButtons.likeBtn'),
 					value: 'like',
 					type: 'counter',
 					style: 'success',
@@ -192,7 +192,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 				},
 				{
 					id: 'p2',
-					title: t('channelInlineButtons.dislikeBtn') || 'نپسندیدم',
+					title: t('channelInlineButtons.dislikeBtn'),
 					value: 'dislike',
 					type: 'counter',
 					style: 'danger',
@@ -205,7 +205,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 			setButtons([
 				{
 					id: 'p1',
-					title: t('channelInlineButtons.viewSiteBtn') || 'مشاهده سایت',
+					title: t('channelInlineButtons.viewSiteBtn'),
 					value: 'https://site.com',
 					type: 'url',
 					style: 'primary',
@@ -215,7 +215,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 				},
 				{
 					id: 'p2',
-					title: t('channelInlineButtons.shareBtn') || 'اشتراک‌گذاری',
+					title: t('channelInlineButtons.shareBtn'),
 					value: 'share',
 					type: 'share',
 					style: 'default',
@@ -228,7 +228,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 			setButtons([
 				{
 					id: 'p1',
-					title: t('channelInlineButtons.buyNowBtn') || 'خرید مستقیم',
+					title: t('channelInlineButtons.buyNowBtn'),
 					value: 'payment_id',
 					type: 'payment',
 					style: 'primary',
@@ -294,6 +294,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm">
 				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
+						type="button"
 						onClick={() => {
 							haptic.impact('light');
 							navigate(`/channel/${params.id}`);
@@ -301,9 +302,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
 						aria-label="Back"
 					>
-						<span class="material-symbols-outlined text-[22px] rtl:-scale-x-100">
-							arrow_back
-						</span>
+						<span class="material-symbols-outlined text-[22px] rtl:-scale-x-100">arrow_back</span>
 					</button>
 					<div class="flex flex-col overflow-hidden">
 						<div class="flex items-center gap-2.5">
@@ -321,9 +320,10 @@ export const ChannelInlineButtonsPage: Component = () => {
 				</div>
 
 				<button
+					type="button"
 					onClick={() => setIsMenuOpen(true)}
 					class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-colors shrink-0 shadow-sm text-white/80"
-					aria-label="Open menu"
+					aria-label={t('groupDashboard.menu')}
 				>
 					<span class="material-symbols-outlined text-[22px]">menu</span>
 				</button>
@@ -409,6 +409,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 
 						<div class="grid grid-cols-2 gap-3">
 							<button
+								type="button"
 								onClick={() => applyPreset('like')}
 								class={`p-4 rounded-[20px] border transition-all flex flex-col gap-2 relative overflow-hidden active:scale-95 shadow-sm group ${activePreset() === 'like' ? 'bg-[#3390ec]/15 border-[#3390ec]/40 shadow-[0_0_20px_rgba(51,144,236,0.15)]' : 'bg-[#12141C]/80 border-white/5 hover:border-white/20'}`}
 							>
@@ -433,6 +434,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 							</button>
 
 							<button
+								type="button"
 								onClick={() => applyPreset('link_share')}
 								class={`p-4 rounded-[20px] border transition-all flex flex-col gap-2 relative overflow-hidden active:scale-95 shadow-sm group ${activePreset() === 'link_share' ? 'bg-[#3390ec]/15 border-[#3390ec]/40 shadow-[0_0_20px_rgba(51,144,236,0.15)]' : 'bg-[#12141C]/80 border-white/5 hover:border-white/20'}`}
 							>
@@ -457,6 +459,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 							</button>
 
 							<button
+								type="button"
 								onClick={() => applyPreset('buy')}
 								class={`p-4 rounded-[20px] border transition-all flex flex-col gap-2 relative overflow-hidden active:scale-95 shadow-sm group ${activePreset() === 'buy' ? 'bg-[#3390ec]/15 border-[#3390ec]/40 shadow-[0_0_20px_rgba(51,144,236,0.15)]' : 'bg-[#12141C]/80 border-white/5 hover:border-white/20'}`}
 							>
@@ -481,6 +484,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 							</button>
 
 							<button
+								type="button"
 								onClick={() => applyPreset('custom')}
 								class={`p-4 rounded-[20px] border transition-all flex flex-col gap-2 relative overflow-hidden active:scale-95 shadow-sm group ${activePreset() === 'custom' ? 'bg-[#3390ec]/15 border-[#3390ec]/40 shadow-[0_0_20px_rgba(51,144,236,0.15)]' : 'bg-[#12141C]/80 border-white/5 hover:border-white/20'}`}
 							>
@@ -516,9 +520,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 						{/* Active Buttons List */}
 						<div class="flex flex-col gap-3">
 							<h3 class="text-[11px] font-black uppercase tracking-widest text-white/40 flex items-center gap-1.5 px-1 border-b border-white/5 pb-2 mb-1">
-								<span class="material-symbols-outlined text-[16px] text-white/30">
-									splitscreen
-								</span>
+								<span class="material-symbols-outlined text-[16px] text-white/30">splitscreen</span>
 								{t('channelInlineButtons.activeButtons')}
 							</h3>
 
@@ -567,6 +569,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 													<div class="flex items-center gap-1.5 shrink-0">
 														<Show when={index() > 0}>
 															<button
+																type="button"
 																onClick={() => {
 																	haptic.impact('light');
 																	const newBtns = [...buttons()];
@@ -578,7 +581,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 																	setIsDirty(true);
 																}}
 																class="w-8 h-8 bg-black/20 hover:bg-black/40 rounded-[8px] flex items-center justify-center text-current opacity-70 hover:opacity-100 transition-all border border-white/5 active:scale-95"
-																title="Move Up"
+																title={'Move Up'}
 															>
 																<span class="material-symbols-outlined text-[16px]">
 																	keyboard_arrow_up
@@ -587,6 +590,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 														</Show>
 														<Show when={index() < buttons().length - 1}>
 															<button
+																type="button"
 																onClick={() => {
 																	haptic.impact('light');
 																	const newBtns = [...buttons()];
@@ -598,7 +602,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 																	setIsDirty(true);
 																}}
 																class="w-8 h-8 bg-black/20 hover:bg-black/40 rounded-[8px] flex items-center justify-center text-current opacity-70 hover:opacity-100 transition-all border border-white/5 active:scale-95"
-																title="Move Down"
+																title={'Move Down'}
 															>
 																<span class="material-symbols-outlined text-[16px]">
 																	keyboard_arrow_down
@@ -606,22 +610,20 @@ export const ChannelInlineButtonsPage: Component = () => {
 															</button>
 														</Show>
 														<button
+															type="button"
 															onClick={() => handleEditButton(btn.id)}
 															class="w-8 h-8 bg-black/20 hover:bg-black/40 rounded-[8px] flex items-center justify-center text-current opacity-70 hover:opacity-100 transition-all border border-white/5 active:scale-95 ml-1"
 															title={t('channelInlineButtons.editButton')}
 														>
-															<span class="material-symbols-outlined text-[16px]">
-																edit
-															</span>
+															<span class="material-symbols-outlined text-[16px]">edit</span>
 														</button>
 														<button
+															type="button"
 															onClick={() => handleRemoveButton(btn.id)}
 															class="w-8 h-8 bg-[#ff4a4a]/20 hover:bg-[#ff4a4a] rounded-[8px] flex items-center justify-center text-[#ff4a4a] hover:text-white transition-all border border-[#ff4a4a]/30 active:scale-95"
 															title={t('common.close')}
 														>
-															<span class="material-symbols-outlined text-[16px]">
-																delete
-															</span>
+															<span class="material-symbols-outlined text-[16px]">delete</span>
 														</button>
 													</div>
 												</div>
@@ -651,9 +653,9 @@ export const ChannelInlineButtonsPage: Component = () => {
 
 							<div class="flex gap-2">
 								<div class="w-16 flex-shrink-0 flex flex-col gap-1.5">
-									<label class="text-[9px] font-black uppercase tracking-widest text-white/40 px-1 text-center">
-										Icon
-									</label>
+									<div class="text-[9px] font-black uppercase tracking-widest text-white/40 px-1 text-center">
+										{t('channelInlineButtons.icon')}
+									</div>
 									<input
 										type="text"
 										value={btnEmoji()}
@@ -663,14 +665,14 @@ export const ChannelInlineButtonsPage: Component = () => {
 									/>
 								</div>
 								<div class="flex-1 flex flex-col gap-1.5">
-									<label class="text-[9px] font-black uppercase tracking-widest text-white/40 px-1">
+									<div class="text-[9px] font-black uppercase tracking-widest text-white/40 px-1">
 										{t('channelInlineButtons.buttonText')}
-									</label>
+									</div>
 									<input
 										type="text"
 										value={btnTitle()}
 										onInput={(e) => setBtnTitle(e.currentTarget.value)}
-										placeholder="e.g. Join Channel"
+										placeholder={t('channelInlineButtons.joinChannelPlaceholder')}
 										class="w-full h-12 bg-[#12141C] text-white text-[13px] font-bold rounded-[14px] px-4 border border-white/5 focus:outline-none focus:border-[#3390ec]/50 placeholder-white/20 transition-colors shadow-inner"
 									/>
 								</div>
@@ -703,12 +705,12 @@ export const ChannelInlineButtonsPage: Component = () => {
 							</div>
 
 							<div class="flex flex-col gap-1.5">
-								<label class="text-[9px] font-black uppercase tracking-widest text-white/40 px-1 flex justify-between">
+								<div class="text-[9px] font-black uppercase tracking-widest text-white/40 px-1 flex justify-between">
 									{t('channelInlineButtons.buttonValue')}
 									<span class="lowercase font-normal tracking-normal text-[#3390ec]">
-										url, command, or callback
+										{t('channelInlineButtons.urlCommandCallback')}
 									</span>
-								</label>
+								</div>
 								<input
 									type="text"
 									value={btnValue()}
@@ -722,6 +724,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 							<div class="flex gap-2.5 w-full mt-2">
 								<Show when={editingId()}>
 									<button
+										type="button"
 										onClick={handleCancelEdit}
 										class="flex-1 h-12 bg-[#12141C] text-white/60 hover:text-white border border-white/5 hover:border-white/10 rounded-[14px] font-black uppercase tracking-widest text-[11px] flex items-center justify-center transition-all active:scale-95 shadow-sm"
 									>
@@ -729,6 +732,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 									</button>
 								</Show>
 								<button
+									type="button"
 									onClick={handleAddButton}
 									disabled={!btnTitle().trim() || !btnValue().trim()}
 									class={`flex-[2] h-12 rounded-[14px] font-black uppercase tracking-widest text-[12px] flex items-center justify-center gap-2 transition-all active:scale-95 disabled:active:scale-100 disabled:opacity-40 border ${
@@ -749,12 +753,10 @@ export const ChannelInlineButtonsPage: Component = () => {
 
 						{/* ═══════ TELEGRAM LIVE MOCKUP SIMULATOR ═══════ */}
 						<div class="flex flex-col gap-2.5 mt-2">
-							<label class="text-[11px] font-black uppercase tracking-widest text-white/40 px-1 flex items-center gap-1.5">
-								<span class="material-symbols-outlined text-[16px] text-[#3390ec]">
-									visibility
-								</span>
+							<div class="text-[11px] font-black uppercase tracking-widest text-white/40 px-1 flex items-center gap-1.5">
+								<span class="material-symbols-outlined text-[16px] text-[#3390ec]">visibility</span>
 								{t('channelDynamicBio.preview')}
-							</label>
+							</div>
 
 							<div class="bg-gradient-to-br from-[#1c2c3d] via-[#111a22] to-[#0a0f14] rounded-[24px] p-5 min-h-[180px] flex flex-col justify-end relative overflow-hidden border border-[#2a3c4f] shadow-inner">
 								<div class="absolute inset-0 bg-black/30"></div>
@@ -799,6 +801,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 														return (
 															<div class="relative w-full">
 																<button
+																	type="button"
 																	class={`w-full h-[38px] rounded-[10px] text-[12px] font-black flex items-center justify-center gap-1.5 shadow-sm border ${styleClass} pointer-events-none`}
 																>
 																	<Show when={btn.emoji}>
@@ -825,6 +828,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 				<div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#030303] via-[#030303]/90 to-transparent z-40 pointer-events-none">
 					<div class="max-w-md mx-auto flex gap-3 pointer-events-auto">
 						<button
+							type="button"
 							onClick={() => {
 								haptic.impact('light');
 								navigate(`/channel/${params.id}`);
@@ -835,6 +839,7 @@ export const ChannelInlineButtonsPage: Component = () => {
 							<span class="material-symbols-outlined text-[24px]">close</span>
 						</button>
 						<button
+							type="button"
 							onClick={handleSave}
 							disabled={isSaving()}
 							class="flex-1 h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] hover:from-[#2b7ec9] hover:to-[#3390ec] text-white rounded-[16px] font-black text-[14px] uppercase tracking-widest shadow-[0_10px_30px_rgba(51,144,236,0.35)] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:scale-100 active:scale-95 border border-white/10"

@@ -1,29 +1,86 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton } from '@tma.js/sdk-solid';
-import { Component, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import {
+	type Component,
+	createResource,
+	createSignal,
+	For,
+	onCleanup,
+	onMount,
+	Show,
+} from 'solid-js';
 import { createStore, reconcile } from 'solid-js/store';
 import { groupApi } from '@/entities/group/index.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
-import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
-import { SettingsSection } from '@/shared/ui/settings-controls.js';
-import { SettingsGuard } from '@/shared/ui/SettingsGuard.js';
-import { showToast } from '@/shared/ui/toast.js';
 import { haptic } from '@/shared/lib/haptic.js';
+import { HamburgerMenu } from '@/shared/ui/hamburger-menu.js';
+import { SettingsGuard } from '@/shared/ui/SettingsGuard.js';
+import { SettingsSection } from '@/shared/ui/settings-controls.js';
+import { showToast } from '@/shared/ui/toast.js';
 
-type RestrictionSetting = { enabled: boolean; window: string; start: string; end: string; penalty: string; };
+type RestrictionSetting = {
+	enabled: boolean;
+	window: string;
+	start: string;
+	end: string;
+	penalty: string;
+};
 
-const defaultSetting = (): RestrictionSetting => ({ enabled: false, window: 'Always', start: '08:00', end: '22:00', penalty: 'default' });
+const defaultSetting = (): RestrictionSetting => ({
+	enabled: false,
+	window: 'Always',
+	start: '08:00',
+	end: '22:00',
+	penalty: 'default',
+});
 
 const settingKeys = {
 	links: ['removeLinks', 'blockBots', 'removeBotInviters', 'blockDomains', 'blockUsernames'],
-	text: ['blockHashtags', 'blockTextPatterns', 'blockEmojis', 'blockEmojiOnly', 'blockPhoneNumbers'],
-	media: ['blockPhotos', 'blockStickers', 'blockLocations', 'blockAudio', 'blockVoiceMessages', 'blockFiles', 'blockGifs', 'blockCaptionless'],
-	interactions: ['blockForwards', 'restrictChannelForwards', 'blockAppMessages', 'blockPolls', 'blockInlineKeyboards', 'blockGames', 'blockSlashCommands', 'blockUserReplies', 'blockCrossChatReplies'],
-	languages: ['blockLatinLetters', 'blockPersianArabicLetters', 'blockCyrillicLetters', 'blockChineseCharacters'],
+	text: [
+		'blockHashtags',
+		'blockTextPatterns',
+		'blockEmojis',
+		'blockEmojiOnly',
+		'blockPhoneNumbers',
+	],
+	media: [
+		'blockPhotos',
+		'blockStickers',
+		'blockLocations',
+		'blockAudio',
+		'blockVoiceMessages',
+		'blockFiles',
+		'blockGifs',
+		'blockCaptionless',
+	],
+	interactions: [
+		'blockForwards',
+		'restrictChannelForwards',
+		'blockAppMessages',
+		'blockPolls',
+		'blockInlineKeyboards',
+		'blockGames',
+		'blockSlashCommands',
+		'blockUserReplies',
+		'blockCrossChatReplies',
+	],
+	languages: [
+		'blockLatinLetters',
+		'blockPersianArabicLetters',
+		'blockCyrillicLetters',
+		'blockChineseCharacters',
+	],
 };
 
-const NATIVE_KEYS = ['blockPhotos', 'blockAudio', 'blockFiles', 'blockStickers', 'blockPolls', 'removeLinks'];
+const NATIVE_KEYS = [
+	'blockPhotos',
+	'blockAudio',
+	'blockFiles',
+	'blockStickers',
+	'blockPolls',
+	'removeLinks',
+];
 
 const allKeys = Object.values(settingKeys).flat();
 
@@ -39,35 +96,42 @@ export const ContentRestrictionsPage: Component = () => {
 	const [settingsVersion, setSettingsVersion] = createSignal(1);
 
 	const defaultStore: Record<string, RestrictionSetting> = {};
-	allKeys.forEach((k) => { defaultStore[k] = defaultSetting(); });
+	allKeys.forEach((k) => {
+		defaultStore[k] = defaultSetting();
+	});
 
 	const [settings, setSettings] = createStore(defaultStore);
-	const [initialSettings, setInitialSettings] = createSignal<Record<string, RestrictionSetting>>({});
+	const [initialSettings, setInitialSettings] = createSignal<Record<string, RestrictionSetting>>(
+		{},
+	);
 	const [bannedKeywords, setBannedKeywords] = createSignal<string[]>([]);
 	const [requiredKeywords, setRequiredKeywords] = createSignal<string[]>([]);
 	const [newBannedKeyword, setNewBannedKeyword] = createSignal('');
 	const [newRequiredKeyword, setNewRequiredKeyword] = createSignal('');
 
-	createResource(() => params.id, async (groupId) => {
-		const data = await groupApi.getSettings(groupId);
-		setSettingsVersion(data.version);
-		const cr = (data.content_restrictions || {}) as any;
-		const snapshot: Record<string, RestrictionSetting> = {};
-		allKeys.forEach((k) => {
-			if (cr[k]) {
-				const val = { ...defaultSetting(), ...cr[k] };
-				snapshot[k] = val;
-				setSettings(k, reconcile(val));
-			} else {
-				snapshot[k] = defaultSetting();
-			}
-		});
-		setInitialSettings(snapshot);
-		if (cr.bannedKeywords) setBannedKeywords(cr.bannedKeywords);
-		if (cr.requiredKeywords) setRequiredKeywords(cr.requiredKeywords);
-		setIsDirty(false);
-		return data;
-	});
+	createResource(
+		() => params.id,
+		async (groupId) => {
+			const data = await groupApi.getSettings(groupId);
+			setSettingsVersion(data.version);
+			const cr = (data.content_restrictions || {}) as any;
+			const snapshot: Record<string, RestrictionSetting> = {};
+			allKeys.forEach((k) => {
+				if (cr[k]) {
+					const val = { ...defaultSetting(), ...cr[k] };
+					snapshot[k] = val;
+					setSettings(k, reconcile(val));
+				} else {
+					snapshot[k] = defaultSetting();
+				}
+			});
+			setInitialSettings(snapshot);
+			if (cr.bannedKeywords) setBannedKeywords(cr.bannedKeywords);
+			if (cr.requiredKeywords) setRequiredKeywords(cr.requiredKeywords);
+			setIsDirty(false);
+			return data;
+		},
+	);
 
 	const handleBack = () => {
 		if (isDirty()) {
@@ -87,8 +151,17 @@ export const ContentRestrictionsPage: Component = () => {
 		if (!isDirty() || isSaving()) return;
 		setIsSaving(true);
 		try {
-			const payload: any = { ...settings, bannedKeywords: bannedKeywords(), requiredKeywords: requiredKeywords() };
-			const result = await groupApi.updateSettings(params.id, 'content_restrictions', payload, settingsVersion());
+			const payload: any = {
+				...settings,
+				bannedKeywords: bannedKeywords(),
+				requiredKeywords: requiredKeywords(),
+			};
+			const result = await groupApi.updateSettings(
+				params.id,
+				'content_restrictions',
+				payload,
+				settingsVersion(),
+			);
 			setSettingsVersion(result.version);
 			setIsDirty(false);
 			setShowUnsavedSheet(false);
@@ -129,7 +202,9 @@ export const ContentRestrictionsPage: Component = () => {
 			<div class="relative">
 				<SettingsSection
 					title={t(`contentRestrictions.${titleKey}` as import('@/shared/i18n/index.js').DictPaths)}
-					description={t(`contentRestrictions.${descKey}` as import('@/shared/i18n/index.js').DictPaths)}
+					description={t(
+						`contentRestrictions.${descKey}` as import('@/shared/i18n/index.js').DictPaths,
+					)}
 					enabled={settings[key].enabled}
 					onToggle={(v) => updateSetting(key, 'enabled', v)}
 					hasWindow={true}
@@ -146,7 +221,7 @@ export const ContentRestrictionsPage: Component = () => {
 				<Show when={isNative && isAlwaysActive}>
 					<div class="absolute top-4 left-4 pointer-events-none">
 						<span class="text-[9px] font-black bg-[#3390ec]/20 text-[#3390ec] border border-[#3390ec]/30 px-2 py-0.5 rounded-[6px] uppercase tracking-widest shadow-sm">
-							NATIVE
+							{'NATIVE'}
 						</span>
 					</div>
 				</Show>
@@ -180,8 +255,10 @@ export const ContentRestrictionsPage: Component = () => {
 	};
 
 	return (
-		<div class="min-h-screen bg-[#030303] pb-28 relative overflow-x-hidden text-white font-sans selection:bg-[#3390ec]/30" dir={isRtl() ? 'rtl' : 'ltr'}>
-			
+		<div
+			class="min-h-screen bg-[#030303] pb-28 relative overflow-x-hidden text-white font-sans selection:bg-[#3390ec]/30"
+			dir={isRtl() ? 'rtl' : 'ltr'}
+		>
 			{/* Ambient Top Glow */}
 			<div class="absolute top-0 left-0 right-0 h-[350px] bg-gradient-to-b from-[#3390ec]/15 via-transparent to-transparent blur-[80px] pointer-events-none z-0" />
 
@@ -189,11 +266,17 @@ export const ContentRestrictionsPage: Component = () => {
 			<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center justify-between gap-3 shadow-sm">
 				<div class="flex items-center gap-3.5 overflow-hidden flex-1">
 					<button
-						onClick={() => { haptic.impact('light'); handleBack(); }}
+						type="button"
+						onClick={() => {
+							haptic.impact('light');
+							handleBack();
+						}}
 						class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm"
 						aria-label={t('common.back')}
 					>
-						<span class="material-symbols-outlined text-white/80 text-[22px] rtl:-scale-x-100">arrow_back</span>
+						<span class="material-symbols-outlined text-white/80 text-[22px] rtl:-scale-x-100">
+							arrow_back
+						</span>
 					</button>
 					<div class="flex flex-col overflow-hidden">
 						<div class="flex items-center gap-2.5">
@@ -211,6 +294,7 @@ export const ContentRestrictionsPage: Component = () => {
 				</div>
 
 				<button
+					type="button"
 					onClick={() => setIsMenuOpen(true)}
 					class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-colors shrink-0 shadow-sm text-white/80"
 					aria-label={t('common.toggle')}
@@ -219,7 +303,12 @@ export const ContentRestrictionsPage: Component = () => {
 				</button>
 			</div>
 
-			<HamburgerMenu isOpen={isMenuOpen()} onClose={() => setIsMenuOpen(false)} groupId={params.id} activeTab="content" />
+			<HamburgerMenu
+				isOpen={isMenuOpen()}
+				onClose={() => setIsMenuOpen(false)}
+				groupId={params.id}
+				activeTab="content"
+			/>
 
 			{/* ═══════ CATEGORY TABS ═══════ */}
 			<div class="px-5 pt-4 pb-2 max-w-md mx-auto relative z-10 w-full">
@@ -227,7 +316,11 @@ export const ContentRestrictionsPage: Component = () => {
 					<For each={tabs}>
 						{(tab) => (
 							<button
-								onClick={() => { haptic.selection(); setActiveTab(tab.id); }}
+								type="button"
+								onClick={() => {
+									haptic.selection();
+									setActiveTab(tab.id);
+								}}
 								class={`px-4 py-2.5 rounded-[16px] text-[12px] font-black uppercase tracking-wider whitespace-nowrap transition-all flex items-center gap-2 border active:scale-95 shadow-sm ${activeTab() === tab.id ? 'bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white border-transparent shadow-[0_4px_15px_rgba(51,144,236,0.3)]' : 'bg-[#12141C]/80 text-white/50 border-white/5 hover:border-white/15'}`}
 							>
 								<span class="material-symbols-outlined text-[18px]">{tab.icon}</span>
@@ -239,10 +332,13 @@ export const ContentRestrictionsPage: Component = () => {
 			</div>
 
 			<div class="p-5 flex flex-col gap-4 max-w-md mx-auto relative z-10 w-full">
-				
 				{/* ═══════ TAB: LINKS & SPAM ═══════ */}
 				<Show when={activeTab() === 'links'}>
-					<Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} class="flex flex-col gap-4">
+					<Motion.div
+						initial={{ opacity: 0, y: 10 }}
+						animate={{ opacity: 1, y: 0 }}
+						class="flex flex-col gap-4"
+					>
 						{renderSetting('removeLinks', 'removeLinks', 'removeLinksDesc')}
 						{renderSetting('blockBots', 'blockBots', 'blockBotsDesc')}
 						{renderSetting('removeBotInviters', 'removeBotInviters', 'removeBotInvitersDesc')}
@@ -253,7 +349,11 @@ export const ContentRestrictionsPage: Component = () => {
 
 				{/* ═══════ TAB: TEXT PATTERNS ═══════ */}
 				<Show when={activeTab() === 'text'}>
-					<Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} class="flex flex-col gap-4">
+					<Motion.div
+						initial={{ opacity: 0, y: 10 }}
+						animate={{ opacity: 1, y: 0 }}
+						class="flex flex-col gap-4"
+					>
 						{renderSetting('blockHashtags', 'blockHashtags', 'blockHashtagsDesc')}
 						{renderSetting('blockTextPatterns', 'blockTextPatterns', 'blockTextPatternsDesc')}
 						{renderSetting('blockEmojis', 'blockEmojis', 'blockEmojisDesc')}
@@ -264,7 +364,11 @@ export const ContentRestrictionsPage: Component = () => {
 
 				{/* ═══════ TAB: MEDIA CONTROLS ═══════ */}
 				<Show when={activeTab() === 'media'}>
-					<Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} class="flex flex-col gap-4">
+					<Motion.div
+						initial={{ opacity: 0, y: 10 }}
+						animate={{ opacity: 1, y: 0 }}
+						class="flex flex-col gap-4"
+					>
 						{renderSetting('blockPhotos', 'blockPhotos', 'blockPhotosDesc')}
 						{renderSetting('blockStickers', 'blockStickers', 'blockStickersDesc')}
 						{renderSetting('blockLocations', 'blockLocations', 'blockLocationsDesc')}
@@ -278,40 +382,79 @@ export const ContentRestrictionsPage: Component = () => {
 
 				{/* ═══════ TAB: INTERACTIONS ═══════ */}
 				<Show when={activeTab() === 'interactions'}>
-					<Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} class="flex flex-col gap-4">
+					<Motion.div
+						initial={{ opacity: 0, y: 10 }}
+						animate={{ opacity: 1, y: 0 }}
+						class="flex flex-col gap-4"
+					>
 						{renderSetting('blockForwards', 'blockForwards', 'blockForwardsDesc')}
-						{renderSetting('restrictChannelForwards', 'restrictChannelForwards', 'restrictChannelForwardsDesc')}
+						{renderSetting(
+							'restrictChannelForwards',
+							'restrictChannelForwards',
+							'restrictChannelForwardsDesc',
+						)}
 						{renderSetting('blockAppMessages', 'blockAppMessages', 'blockAppMessagesDesc')}
 						{renderSetting('blockPolls', 'blockPolls', 'blockPollsDesc')}
-						{renderSetting('blockInlineKeyboards', 'blockInlineKeyboards', 'blockInlineKeyboardsDesc')}
+						{renderSetting(
+							'blockInlineKeyboards',
+							'blockInlineKeyboards',
+							'blockInlineKeyboardsDesc',
+						)}
 						{renderSetting('blockGames', 'blockGames', 'blockGamesDesc')}
 						{renderSetting('blockSlashCommands', 'blockSlashCommands', 'blockSlashCommandsDesc')}
 						{renderSetting('blockUserReplies', 'blockUserReplies', 'blockUserRepliesDesc')}
-						{renderSetting('blockCrossChatReplies', 'blockCrossChatReplies', 'blockCrossChatRepliesDesc')}
+						{renderSetting(
+							'blockCrossChatReplies',
+							'blockCrossChatReplies',
+							'blockCrossChatRepliesDesc',
+						)}
 					</Motion.div>
 				</Show>
 
 				{/* ═══════ TAB: LANGUAGES ═══════ */}
 				<Show when={activeTab() === 'languages'}>
-					<Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} class="flex flex-col gap-4">
+					<Motion.div
+						initial={{ opacity: 0, y: 10 }}
+						animate={{ opacity: 1, y: 0 }}
+						class="flex flex-col gap-4"
+					>
 						{renderSetting('blockLatinLetters', 'blockLatinLetters', 'blockLatinLettersDesc')}
-						{renderSetting('blockPersianArabicLetters', 'blockPersianArabicLetters', 'blockPersianArabicLettersDesc')}
-						{renderSetting('blockCyrillicLetters', 'blockCyrillicLetters', 'blockCyrillicLettersDesc')}
-						{renderSetting('blockChineseCharacters', 'blockChineseCharacters', 'blockChineseCharactersDesc')}
+						{renderSetting(
+							'blockPersianArabicLetters',
+							'blockPersianArabicLetters',
+							'blockPersianArabicLettersDesc',
+						)}
+						{renderSetting(
+							'blockCyrillicLetters',
+							'blockCyrillicLetters',
+							'blockCyrillicLettersDesc',
+						)}
+						{renderSetting(
+							'blockChineseCharacters',
+							'blockChineseCharacters',
+							'blockChineseCharactersDesc',
+						)}
 					</Motion.div>
 				</Show>
 
 				{/* ═══════ TAB: KEYWORDS ═══════ */}
 				<Show when={activeTab() === 'keywords'}>
-					<Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} class="flex flex-col gap-6">
-						
+					<Motion.div
+						initial={{ opacity: 0, y: 10 }}
+						animate={{ opacity: 1, y: 0 }}
+						class="flex flex-col gap-6"
+					>
 						{/* Banned Keywords */}
 						<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 shadow-sm flex flex-col gap-4">
 							<div class="flex items-center gap-2">
 								<span class="material-symbols-outlined text-[#ff4a4a] text-[20px]">block</span>
 								<div class="flex flex-col">
-									<h2 class="text-[13px] font-black text-[#ff4a4a] uppercase tracking-widest">{t('contentRestrictions.bannedKeywords')}</h2>
-									<span class="text-[11px] text-white/40">{t('contentRestrictions.bannedKeywordsDesc')}</span>
+									<h2 class="text-[13px] font-black text-[#ff4a4a] uppercase tracking-widest">
+										{t('contentRestrictions.bannedKeywords')}
+									</h2>
+									<span class="text-[11px] text-white/40">
+										{t('contentRestrictions.bannedKeywordsDesc')}
+									</span>
 								</div>
 							</div>
 
@@ -320,7 +463,14 @@ export const ContentRestrictionsPage: Component = () => {
 									{(kw) => (
 										<span class="bg-[#ff4a4a]/10 text-[#ff4a4a] border border-[#ff4a4a]/20 px-3.5 py-1.5 rounded-[12px] text-[12px] font-bold flex items-center gap-1.5 shadow-sm">
 											{kw}
-											<button onClick={() => { setBannedKeywords(bannedKeywords().filter((k) => k !== kw)); setIsDirty(true); }} class="hover:text-white transition-colors">
+											<button
+												type="button"
+												onClick={() => {
+													setBannedKeywords(bannedKeywords().filter((k) => k !== kw));
+													setIsDirty(true);
+												}}
+												class="hover:text-white transition-colors"
+											>
 												<span class="material-symbols-outlined text-[16px] mt-0.5">close</span>
 											</button>
 										</span>
@@ -330,10 +480,18 @@ export const ContentRestrictionsPage: Component = () => {
 
 							<div class="flex items-center gap-2 mt-1">
 								<input
-									type="text" value={newBannedKeyword()} onInput={(e) => setNewBannedKeyword(e.currentTarget.value)} onKeyDown={(e) => e.key === 'Enter' && addBannedKeyword()} placeholder={t('contentRestrictions.addKeyword')}
+									type="text"
+									value={newBannedKeyword()}
+									onInput={(e) => setNewBannedKeyword(e.currentTarget.value)}
+									onKeyDown={(e) => e.key === 'Enter' && addBannedKeyword()}
+									placeholder={t('contentRestrictions.addKeyword')}
 									class="flex-1 h-12 bg-[#08090D] border border-white/10 text-white text-[13px] font-bold rounded-[14px] px-4 focus:outline-none focus:border-[#ff4a4a]/50 transition-colors placeholder-white/20 shadow-inner"
 								/>
-								<button onClick={addBannedKeyword} class="w-12 h-12 rounded-[14px] bg-[#ff4a4a] hover:bg-[#e03838] text-white flex items-center justify-center shrink-0 active:scale-95 transition-all shadow-[0_4px_15px_rgba(255,74,74,0.3)]">
+								<button
+									type="button"
+									onClick={addBannedKeyword}
+									class="w-12 h-12 rounded-[14px] bg-[#ff4a4a] hover:bg-[#e03838] text-white flex items-center justify-center shrink-0 active:scale-95 transition-all shadow-[0_4px_15px_rgba(255,74,74,0.3)]"
+								>
 									<span class="material-symbols-outlined text-[24px]">add</span>
 								</button>
 							</div>
@@ -342,10 +500,16 @@ export const ContentRestrictionsPage: Component = () => {
 						{/* Required Keywords */}
 						<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[24px] p-5 shadow-sm flex flex-col gap-4">
 							<div class="flex items-center gap-2">
-								<span class="material-symbols-outlined text-[#10b981] text-[20px]">check_circle</span>
+								<span class="material-symbols-outlined text-[#10b981] text-[20px]">
+									check_circle
+								</span>
 								<div class="flex flex-col">
-									<h2 class="text-[13px] font-black text-[#10b981] uppercase tracking-widest">{t('contentRestrictions.requiredKeywords')}</h2>
-									<span class="text-[11px] text-white/40">{t('contentRestrictions.requiredKeywordsDesc')}</span>
+									<h2 class="text-[13px] font-black text-[#10b981] uppercase tracking-widest">
+										{t('contentRestrictions.requiredKeywords')}
+									</h2>
+									<span class="text-[11px] text-white/40">
+										{t('contentRestrictions.requiredKeywordsDesc')}
+									</span>
 								</div>
 							</div>
 
@@ -354,7 +518,14 @@ export const ContentRestrictionsPage: Component = () => {
 									{(kw) => (
 										<span class="bg-[#10b981]/10 text-[#10b981] border border-[#10b981]/20 px-3.5 py-1.5 rounded-[12px] text-[12px] font-bold flex items-center gap-1.5 shadow-sm">
 											{kw}
-											<button onClick={() => { setRequiredKeywords(requiredKeywords().filter((k) => k !== kw)); setIsDirty(true); }} class="hover:text-white transition-colors">
+											<button
+												type="button"
+												onClick={() => {
+													setRequiredKeywords(requiredKeywords().filter((k) => k !== kw));
+													setIsDirty(true);
+												}}
+												class="hover:text-white transition-colors"
+											>
 												<span class="material-symbols-outlined text-[16px] mt-0.5">close</span>
 											</button>
 										</span>
@@ -364,15 +535,22 @@ export const ContentRestrictionsPage: Component = () => {
 
 							<div class="flex items-center gap-2 mt-1">
 								<input
-									type="text" value={newRequiredKeyword()} onInput={(e) => setNewRequiredKeyword(e.currentTarget.value)} onKeyDown={(e) => e.key === 'Enter' && addRequiredKeyword()} placeholder={t('contentRestrictions.addKeyword')}
+									type="text"
+									value={newRequiredKeyword()}
+									onInput={(e) => setNewRequiredKeyword(e.currentTarget.value)}
+									onKeyDown={(e) => e.key === 'Enter' && addRequiredKeyword()}
+									placeholder={t('contentRestrictions.addKeyword')}
 									class="flex-1 h-12 bg-[#08090D] border border-white/10 text-white text-[13px] font-bold rounded-[14px] px-4 focus:outline-none focus:border-[#10b981]/50 transition-colors placeholder-white/20 shadow-inner"
 								/>
-								<button onClick={addRequiredKeyword} class="w-12 h-12 rounded-[14px] bg-[#10b981] hover:bg-[#059669] text-white flex items-center justify-center shrink-0 active:scale-95 transition-all shadow-[0_4px_15px_rgba(16,185,129,0.3)]">
+								<button
+									type="button"
+									onClick={addRequiredKeyword}
+									class="w-12 h-12 rounded-[14px] bg-[#10b981] hover:bg-[#059669] text-white flex items-center justify-center shrink-0 active:scale-95 transition-all shadow-[0_4px_15px_rgba(16,185,129,0.3)]"
+								>
 									<span class="material-symbols-outlined text-[24px]">add</span>
 								</button>
 							</div>
 						</div>
-
 					</Motion.div>
 				</Show>
 			</div>

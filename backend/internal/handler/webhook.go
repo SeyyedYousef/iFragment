@@ -16,6 +16,7 @@ import (
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/botmgmt"
 	"ifragment-backend/internal/service/channelmgmt"
+	"ifragment-backend/internal/service/intelcredit"
 	"ifragment-backend/internal/service/notification"
 	"io"
 	"log/slog"
@@ -44,6 +45,7 @@ type WebhookHandler struct {
 	botRepo         *repository.BotRepo
 	channelService  *channelmgmt.ChannelService
 	premiumGroupSvc *botmgmt.PremiumGroupService
+	memberTagSvc    *botmgmt.MemberTagService
 	processedJoins  sync.Map
 }
 
@@ -55,6 +57,7 @@ func NewWebhookHandler(db *repository.Database, moderator *botmgmt.ModeratorServ
 		botRepo:         botRepo,
 		channelService:  channelService,
 		premiumGroupSvc: botmgmt.NewPremiumGroupService(botRepo, analyticsRepo),
+		memberTagSvc:    botmgmt.NewMemberTagService(botRepo, moderator.GetSettingsRepo(), moderator.GetCache()),
 	}
 }
 
@@ -145,6 +148,12 @@ func (h *WebhookHandler) processUpdateAsync(parentCtx context.Context, bot *repo
 		h.handleChannelPost(ctx, bot, update.EditedChannelPost, true)
 	} else if update.ChatJoinRequest != nil {
 		h.handleChatJoinRequest(ctx, bot, update.ChatJoinRequest)
+	} else if update.ManagedBotUpdated != nil {
+		h.handleManagedBotUpdated(ctx, bot, update.ManagedBotUpdated)
+	} else if update.BotSubscriptionUpdated != nil {
+		h.handleBotSubscriptionUpdated(ctx, bot, update.BotSubscriptionUpdated)
+	} else if update.GuestMessage != nil {
+		h.handleGuestMessage(ctx, bot, update.GuestMessage)
 	} else if update.Message != nil {
 		if update.Message.SuccessfulPayment != nil {
 			h.handleSuccessfulPaymentUpdate(ctx, bot, update.Message)
@@ -916,6 +925,27 @@ func (h *WebhookHandler) handleSuccessfulPaymentUpdate(ctx context.Context, bot 
 						_ = tg.SendMessage(ctx, userID, fmt.Sprintf("Payment received! You now have 24-hour full access to @%s AI valuation.", username), nil, nil)
 					}
 				}
+			} else if strings.HasPrefix(pay.InvoicePayload, "intel_credits:") {
+				// Credit pack fulfillment: payload format intel_credits:<packID>:<userID>
+				parts := strings.Split(pay.InvoicePayload, ":")
+				if len(parts) >= 3 {
+					userID, parseErr := strconv.ParseInt(parts[2], 10, 64)
+					packID := parts[1]
+					if parseErr == nil && packID != "" {
+						creditRepo := repository.NewIntelCreditRepo(h.db)
+						exp := time.Now().Add(time.Duration(config.Economics.CreditBatchExpiryDays) * 24 * time.Hour)
+						granted, grantErr := creditRepo.GrantPackOnce(ctx, userID, intelcredit.PackCredits(packID), "stars_pack", pay.TelegramPaymentChargeID, &exp)
+						if grantErr != nil {
+							slog.Error("CRITICAL: Failed to grant Intel Credit pack", "error", grantErr, "user_id", userID, "payload", pay.InvoicePayload)
+							h.pushPaymentDLQ(ctx, "intel_credits_grant_failed", pay.InvoicePayload, grantErr)
+						} else if granted {
+							tg, _ := h.moderator.GetTelegramClient(ctx, bot)
+							if tg != nil {
+								_ = tg.SendMessage(ctx, userID, fmt.Sprintf("🔑 Payment received! %d Intel Credit(s) were added to your wallet.", intelcredit.PackCredits(packID)), nil, nil)
+							}
+						}
+					}
+				}
 			} else {
 				// Payment Notification
 				ownerLang, _ := h.db.GetUserLanguage(ctx, msg.From.ID)
@@ -1238,9 +1268,6 @@ func (h *WebhookHandler) handleRegularMessageUpdate(ctx context.Context, bot *re
 		if msg.Chat.Type == "private" {
 			h.handlePrivateCommand(ctx, bot, msg)
 			return
-		} else if strings.HasPrefix(mc.Text, "/settings") {
-			h.handleGroupSettingsCommand(ctx, bot, msg)
-			return
 		} else {
 			handled := h.handleGroupAdminCommand(ctx, bot, msg)
 			if handled {
@@ -1356,6 +1383,11 @@ func (h *WebhookHandler) mapToModeratorContext(m *Message) *botmgmt.MessageConte
 		}
 	}
 
+	var replyToUserID int64
+	if m.ReplyToMessage != nil && m.ReplyToMessage.From != nil {
+		replyToUserID = m.ReplyToMessage.From.ID
+	}
+
 	hasRawField := func(raw json.RawMessage) bool {
 		return len(raw) > 0 && string(raw) != "null"
 	}
@@ -1401,6 +1433,7 @@ func (h *WebhookHandler) mapToModeratorContext(m *Message) *botmgmt.MessageConte
 		Text:               m.Text,
 		Caption:            m.Caption,
 		IsBot:              m.From.IsBot,
+		IsTopicMessage:     m.IsTopicMessage,
 		HasPhoto:           len(m.Photo) > 0,
 		HasSticker:         hasRawField(m.Sticker),
 		HasLocation:        hasRawField(m.Location),
@@ -1416,9 +1449,11 @@ func (h *WebhookHandler) mapToModeratorContext(m *Message) *botmgmt.MessageConte
 		ForwardFromChatID:  h.getForwardID(m),
 		HasInlineKeyboard:  hasRawField(m.ReplyMarkup),
 		HasReply:           m.ReplyToMessage != nil,
+		ReplyToUserID:      replyToUserID,
 		IsReplyToCrossChat: m.ReplyToMessage != nil && m.ReplyToMessage.Chat != nil && m.ReplyToMessage.Chat.ID != m.Chat.ID,
 		HasViaBot:          m.ViaBot != nil,
 		IsCommand:          isCommand,
+		MessageThreadID:    m.MessageThreadID,
 		Username:           m.From.Username,
 		FirstName:          m.From.FirstName,
 		HasTextLinks:       hasTextLinks,
@@ -1839,6 +1874,61 @@ func (h *WebhookHandler) handlePrivateCommand(ctx context.Context, bot *reposito
 			},
 		}
 		_, _ = tg.SendMessageWithMarkup(ctx, m.Chat.ID, msgText, markup, m.MessageThreadID)
+	} else if strings.HasPrefix(m.Text, "/settings") || strings.HasPrefix(m.Text, "/config") {
+		token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+		tg := telegram.NewBotAPIClient(token)
+
+		miniAppURL := os.Getenv("MINI_APP_URL")
+		if miniAppURL == "" {
+			miniAppURL = "https://t.me/iFragmentBot/iFragment"
+		}
+
+		userLangFromDB, _ := h.db.GetUserLanguage(ctx, m.From.ID)
+		langCode := m.From.LanguageCode
+		if userLangFromDB != "" {
+			langCode = userLangFromDB
+		}
+		lang := i18n.DetectLanguage(langCode)
+
+		var msgText string
+		if lang == "fa" {
+			msgText = "⚙️ <b>تنظیمات ربات و مینی‌اپ:</b>\n\nبرای پیکربندی محافظت گروه‌ها، ربات را به عنوان ادمین به گروه خود اضافه کرده و دستور <code>/settings</code> را در گروه ارسال کنید؛ یا از طریق وب‌اپلیکیشن مینی‌اپ به صورت کامل آن را مدیریت فرمایید:"
+		} else {
+			msgText = "⚙️ <b>Bot & Mini App Settings:</b>\n\nTo configure group protection, add the bot as an Administrator to your group and type <code>/settings</code> in the group, or launch the full Web App dashboard below:"
+		}
+
+		markup := map[string]interface{}{
+			"inline_keyboard": [][]map[string]interface{}{
+				{
+					{"text": "🌐 Web App Dashboard", "url": miniAppURL},
+				},
+			},
+		}
+		_, _ = tg.SendMessageWithMarkup(ctx, m.Chat.ID, msgText, markup, m.MessageThreadID)
+	} else if strings.HasPrefix(m.Text, "/help") || strings.HasPrefix(m.Text, "/commands") {
+		token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+		tg := telegram.NewBotAPIClient(token)
+
+		userLangFromDB, _ := h.db.GetUserLanguage(ctx, m.From.ID)
+		langCode := m.From.LanguageCode
+		if userLangFromDB != "" {
+			langCode = userLangFromDB
+		}
+		lang := i18n.DetectLanguage(langCode)
+
+		helpText := i18n.T(lang, "help.admin_help")
+		_ = tg.SendMessage(ctx, m.Chat.ID, helpText, &m.MessageID, m.MessageThreadID)
+	} else if strings.HasPrefix(m.Text, "/ping") {
+		token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
+		tg := telegram.NewBotAPIClient(token)
+
+		msgTime := time.Unix(int64(m.Date), 0)
+		latency := time.Since(msgTime).Milliseconds()
+		if latency < 0 {
+			latency = 0
+		}
+		text := fmt.Sprintf("🏓 <b>Pong!</b>\n⚡ Latency: <code>%dms</code>\n🛡️ Engine: <b>iFragment v2.0 (Active)</b>", latency)
+		_ = tg.SendMessage(ctx, m.Chat.ID, text, &m.MessageID, m.MessageThreadID)
 	}
 }
 
@@ -2137,7 +2227,6 @@ func (h *WebhookHandler) renderCategorySettingsMenu(ctx context.Context, group *
 	return text, markup
 }
 
-
 func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *repository.ManagedBot, chat *Chat, inviterID int64, isAlreadyAdmin bool, inviterLang string) {
 	token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 	var tg *telegram.BotAPIClient
@@ -2240,7 +2329,6 @@ func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *reposit
 		}
 		_ = lang
 
-
 		miniAppURL := os.Getenv("MINI_APP_URL")
 		if miniAppURL == "" {
 			miniAppURL = "https://t.me/iFragmentBot/iFragment"
@@ -2283,7 +2371,6 @@ func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *reposit
 		}
 	})
 }
-
 
 func (h *WebhookHandler) handleWelcomeMessage(ctx context.Context, bot *repository.ManagedBot, chat *Chat, threadID *int, newMembers []User) {
 	slog.Info("handleWelcomeMessage triggered", "chat_id", chat.ID, "members_count", len(newMembers))
@@ -2475,6 +2562,15 @@ func (h *WebhookHandler) handleGroupAdminCommand(ctx context.Context, bot *repos
 		if ent.Type == "bot_command" && ent.Offset == 0 {
 			cmd = strings.Split(m.Text, "@")[0]
 			cmd = strings.Split(cmd, " ")[0]
+
+			// Check if command is addressed to a specific bot username (e.g. /ping@OtherBot)
+			parts := strings.Split(strings.Fields(m.Text)[0], "@")
+			if len(parts) > 1 && bot.BotUsername != "" {
+				targetBot := parts[1]
+				if !strings.EqualFold(targetBot, bot.BotUsername) {
+					return false // Addressed to another bot in the group
+				}
+			}
 			break
 		}
 	}
@@ -2496,7 +2592,7 @@ func (h *WebhookHandler) handleGroupAdminCommand(ctx context.Context, bot *repos
 	}
 
 	// 2. Classify commands
-	isPublicCmd := cmd == "/rules" || cmd == "/info" || cmd == "/stats" || cmd == "/report"
+	isPublicCmd := cmd == "/rules" || cmd == "/info" || cmd == "/stats" || cmd == "/report" || cmd == "/ping" || cmd == "/id" || cmd == "/whois"
 
 	isAdmin := h.isAdmin(ctx, tg, m.Chat.ID, m.From.ID)
 
@@ -2504,8 +2600,8 @@ func (h *WebhookHandler) handleGroupAdminCommand(ctx context.Context, bot *repos
 	if !isAdmin {
 		if cmd == "/report" {
 			// /report is always allowed for regular users (replies to reported message)
-		} else if isPublicCmd && general.PublicCommands {
-			// rules, info, stats are allowed if publicCommands is true
+		} else if isPublicCmd && (general.PublicCommands || cmd == "/report") {
+			// rules, info, stats, ping, id are allowed if publicCommands is true
 		} else {
 			return false
 		}
@@ -2521,6 +2617,10 @@ func (h *WebhookHandler) handleGroupAdminCommand(ctx context.Context, bot *repos
 	switch cmd {
 	case "/help", "/commands":
 		return h.adminHelp(ctx, tg, m, lang)
+	case "/tag":
+		args := strings.TrimSpace(strings.TrimPrefix(m.Text, cmd))
+		h.memberTagSvc.HandleTagCommand(ctx, tg, h.mapToModeratorContext(m), group, bot.ID, args)
+		return true
 	case "/lock", "/lockdown":
 		return h.adminLock(ctx, bot, tg, m, lang, group.ID)
 	case "/unlock":
@@ -2584,6 +2684,8 @@ func (h *WebhookHandler) handleGroupAdminCommand(ctx context.Context, bot *repos
 		return h.adminID(ctx, tg, m)
 	case "/ping":
 		return h.adminPing(ctx, tg, m)
+	case "/debug", "/status":
+		return h.adminDebug(ctx, bot, tg, m, lang, group)
 	case "/admins", "/staff":
 		return h.adminAdmins(ctx, tg, m)
 	case "/link", "/invitelink":
@@ -2595,7 +2697,6 @@ func (h *WebhookHandler) handleGroupAdminCommand(ctx context.Context, bot *repos
 	case "/clean":
 		return h.adminClean(ctx, tg, m, lang)
 	}
-
 
 	return false
 }
@@ -2625,7 +2726,13 @@ func parseDurationStr(s string, defaultDur time.Duration) time.Duration {
 func (h *WebhookHandler) adminLock(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, lang string, groupID uuid.UUID) bool {
 	bFalse := false
 	_ = tg.SetChatPermissions(ctx, m.Chat.ID, telegram.ChatPermissions{
-		CanSendMessages: &bFalse,
+		CanSendMessages:       &bFalse,
+		CanSendPhotos:         &bFalse,
+		CanSendVideos:         &bFalse,
+		CanSendAudios:         &bFalse,
+		CanSendDocuments:      &bFalse,
+		CanSendOtherMessages:  &bFalse,
+		CanAddWebPagePreviews: &bFalse,
 	}, false)
 
 	settings, _ := h.moderator.GetSettings(ctx, groupID)
@@ -2753,7 +2860,7 @@ func (h *WebhookHandler) adminUnmute(ctx context.Context, bot *repository.Manage
 		return true
 	}
 
-	_ = tg.RestrictChatMember(ctx, m.Chat.ID, targetID, 0)
+	_ = tg.UnrestrictChatMember(ctx, m.Chat.ID, targetID)
 	_ = tg.SendMessage(ctx, m.Chat.ID, i18n.T(lang, "moderation.user_unmuted", map[string]interface{}{"id": targetID, "name": targetName}), &m.MessageID, m.MessageThreadID)
 	return true
 }
@@ -3295,8 +3402,6 @@ func (h *WebhookHandler) adminSetDescription(ctx context.Context, tg *telegram.B
 }
 
 func (h *WebhookHandler) getTarget(m *Message) (int64, string) {
-
-
 	if m.ReplyToMessage != nil && m.ReplyToMessage.From != nil {
 		name := m.ReplyToMessage.From.FirstName
 		if m.ReplyToMessage.From.Username != "" {
@@ -3304,6 +3409,26 @@ func (h *WebhookHandler) getTarget(m *Message) (int64, string) {
 		}
 		return m.ReplyToMessage.From.ID, name
 	}
+
+	// Check text_mention in entities
+	for _, ent := range m.Entities {
+		if ent.Type == "text_mention" && ent.User != nil {
+			name := ent.User.FirstName
+			if ent.User.Username != "" {
+				name = "@" + ent.User.Username
+			}
+			return ent.User.ID, name
+		}
+	}
+
+	// Check numeric ID in arguments (e.g. /ban 123456789)
+	fields := strings.Fields(m.Text)
+	if len(fields) > 1 {
+		if id, err := strconv.ParseInt(fields[1], 10, 64); err == nil && id > 0 {
+			return id, fmt.Sprintf("%d", id)
+		}
+	}
+
 	return 0, ""
 }
 
@@ -3517,7 +3642,6 @@ func (h *WebhookHandler) handleGroupSettingsCallback(ctx context.Context, bot *r
 				_ = h.moderator.ForceUpdateCategory(ctx, group.ID, "general", data)
 			}
 		}
-
 
 		updatedSettings, _ := h.moderator.GetSettings(ctx, group.ID)
 		text, markup := h.renderCategorySettingsMenu(ctx, group, updatedSettings, category)
@@ -4470,12 +4594,19 @@ func (h *WebhookHandler) adminClean(ctx context.Context, tg *telegram.BotAPIClie
 			defer cache.Client.Del(bgCtx, fmt.Sprintf("clean_lock:%d", m.Chat.ID))
 		}
 
+		var msgIDs []int
 		for i := 1; i <= n; i++ {
-			msgID := m.MessageID - i
-			_ = tg.DeleteMessage(bgCtx, m.Chat.ID, msgID)
-			// P1-P2: Respect Telegram API rate limit (max 30 req/sec) with a steady 40ms delay
-			time.Sleep(40 * time.Millisecond)
+			msgIDs = append(msgIDs, m.MessageID-i)
 		}
+
+		errDel := tg.DeleteMessages(bgCtx, m.Chat.ID, msgIDs)
+		if errDel != nil {
+			for _, msgID := range msgIDs {
+				_ = tg.DeleteMessage(bgCtx, m.Chat.ID, msgID)
+				time.Sleep(35 * time.Millisecond)
+			}
+		}
+
 		successMsg := "🧹 Cleaned %d messages."
 		if lang == "fa" {
 			successMsg = "🧹 تعداد %d پیام پاکسازی شد."
@@ -4487,6 +4618,147 @@ func (h *WebhookHandler) adminClean(ctx context.Context, tg *telegram.BotAPIClie
 		}
 	})
 
+	return true
+}
+
+func (h *WebhookHandler) adminDebug(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, lang string, group *repository.ManagedGroup) bool {
+	startTime := time.Unix(int64(m.Date), 0)
+	latency := time.Since(startTime).Milliseconds()
+	if latency < 0 {
+		latency = 0
+	}
+
+	// 1. Check DB Health
+	dbStatus := "✅ Connected"
+	if err := h.db.Pool.Ping(ctx); err != nil {
+		dbStatus = fmt.Sprintf("❌ Error: %v", err)
+	}
+
+	// 2. Check Cache Health
+	cacheStatus := "✅ Active"
+	cache := h.moderator.GetCache()
+	if cache == nil || cache.Client == nil {
+		cacheStatus = "❌ Nil"
+	} else if err := cache.Client.Ping(ctx).Err(); err != nil {
+		cacheStatus = fmt.Sprintf("❌ Error: %v", err)
+	}
+
+	// 3. Check Bot Permissions
+	botPerms, errPerms := h.getBotPermissionsCached(ctx, tg, m.Chat.ID, bot.BotID)
+	permsStr := "⚠️ Unknown"
+	if errPerms == nil && botPerms != nil {
+		del := "❌"
+		if botPerms.CanDeleteMessages {
+			del = "✅"
+		}
+		res := "❌"
+		if botPerms.CanRestrictMembers {
+			res = "✅"
+		}
+		pin := "❌"
+		if botPerms.CanPinMessages {
+			pin = "✅"
+		}
+		inv := "❌"
+		if botPerms.CanInviteUsers {
+			inv = "✅"
+		}
+		permsStr = fmt.Sprintf("Del: %s | Restrict: %s | Pin: %s | Invite: %s", del, res, pin, inv)
+	}
+
+	// 4. Group Protection Settings Summary
+	var gen repository.SettingsGeneral
+	var cont repository.SettingsContentRestrictions
+	var quiet repository.SettingsQuietHours
+	var mand repository.SettingsMandatoryMembership
+	settings, errSet := h.moderator.GetSettings(ctx, group.ID)
+	if errSet == nil && settings != nil {
+		_ = json.Unmarshal(settings.General, &gen)
+		_ = json.Unmarshal(settings.ContentRestrictions, &cont)
+		_ = json.Unmarshal(settings.QuietHours, &quiet)
+		_ = json.Unmarshal(settings.MandatoryMembership, &mand)
+	}
+
+	linkFilt := "Off"
+	if cont.RemoveLinks.Enabled {
+		linkFilt = "On"
+	}
+	casFilt := "Off"
+	if gen.CasEnabled {
+		casFilt = "On"
+	}
+	quietFilt := "Off"
+	if quiet.EmergencyLock {
+		quietFilt = "Locked"
+	} else if len(quiet.Periods) > 0 {
+		quietFilt = "Active"
+	}
+	fjFilt := "Off"
+	if mand.ForceJoinEnabled {
+		fjFilt = "On"
+	}
+	ephFilt := "Off"
+	if gen.EphemeralAll || gen.EphemeralAdminCmd || gen.EphemeralWarnings {
+		ephFilt = fmt.Sprintf("%ds", gen.AutoDeleteDelay)
+	}
+
+	var debugText string
+	if lang == "fa" {
+		debugText = fmt.Sprintf(
+			"🛠 <b>وضعیت سیستم و عیب‌یابی (iFragment Debug):</b>\n\n"+
+				"🖥 <b>سلامت زیرساخت:</b>\n"+
+				"• دیتابیس (PostgreSQL): %s\n"+
+				"• ردیس (DragonflyDB): %s\n"+
+				"• تاخیر شبکه (Latency): <code>%dms</code>\n\n"+
+				"🤖 <b>دسترسی‌های ربات:</b>\n"+
+				"• ربات: @%s (ID: <code>%d</code>)\n"+
+				"• دسترسی‌ها: %s\n\n"+
+				"🛡 <b>تنظیمات امنیتی فعال:</b>\n"+
+				"• فیلتر لینک: <code>%s</code> | آنتی‌اسپم CAS: <code>%s</code>\n"+
+				"• حالت سکوت/قفل: <code>%s</code> | جوین اجباری: <code>%s</code>\n"+
+				"• پیام موقت (Ephemeral): <code>%s</code>\n\n"+
+				"📊 <b>وضعیت گروه:</b>\n"+
+				"• شناسه چت: <code>%d</code>\n"+
+				"• اشتراک: <b>%s</b>",
+			dbStatus, cacheStatus, latency,
+			bot.BotUsername, bot.BotID, permsStr,
+			linkFilt, casFilt, quietFilt, fjFilt, ephFilt,
+			group.ChatID, group.SubscriptionStatus,
+		)
+	} else {
+		debugText = fmt.Sprintf(
+			"🛠 <b>System Diagnostics (iFragment Debug):</b>\n\n"+
+				"🖥 <b>Infrastructure Health:</b>\n"+
+				"• PostgreSQL DB: %s\n"+
+				"• DragonflyDB / Redis: %s\n"+
+				"• Network Latency: <code>%dms</code>\n\n"+
+				"🤖 <b>Bot Permissions:</b>\n"+
+				"• Bot: @%s (ID: <code>%d</code>)\n"+
+				"• Permissions: %s\n\n"+
+				"🛡 <b>Active Security Filters:</b>\n"+
+				"• Link Filter: <code>%s</code> | CAS: <code>%s</code>\n"+
+				"• Quiet/Lock: <code>%s</code> | ForceJoin: <code>%s</code>\n"+
+				"• Ephemeral Mode: <code>%s</code>\n\n"+
+				"📊 <b>Group State:</b>\n"+
+				"• Chat ID: <code>%d</code>\n"+
+				"• Subscription: <b>%s</b>",
+			dbStatus, cacheStatus, latency,
+			bot.BotUsername, bot.BotID, permsStr,
+			linkFilt, casFilt, quietFilt, fjFilt, ephFilt,
+			group.ChatID, group.SubscriptionStatus,
+		)
+	}
+
+	var general repository.SettingsGeneral
+	if settings != nil {
+		_ = json.Unmarshal(settings.General, &general)
+	}
+
+	if m.From != nil && (general.EphemeralAdminCmd || general.EphemeralAll) {
+		h.sendEphemeralBotMessage(ctx, tg, m.Chat.ID, m.From.ID, debugText, nil, m.MessageThreadID, general)
+	} else {
+		_ = tg.SendMessage(ctx, m.Chat.ID, debugText, &m.MessageID, m.MessageThreadID)
+	}
 	return true
 }
 

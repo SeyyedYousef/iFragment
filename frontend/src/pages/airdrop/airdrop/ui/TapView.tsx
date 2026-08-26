@@ -1,7 +1,4 @@
-import { Component, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
-import { API_CONFIG } from '@/shared/api/config.js';
-import { formatNumber, t } from '@/shared/i18n/index.js';
-import { haptic } from '@/shared/lib/haptic.js';
+import { type Component, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import {
 	activateTurbo,
 	balance,
@@ -22,6 +19,9 @@ import {
 	turboExpiresAt,
 	userClan,
 } from '@/entities/airdrop/index.js';
+import { API_CONFIG } from '@/shared/api/config.js';
+import { formatNumber, t } from '@/shared/i18n/index.js';
+import { haptic } from '@/shared/lib/haptic.js';
 import { ShopView } from './ShopView.js';
 
 interface CanvasParticle {
@@ -282,6 +282,7 @@ export const TapView: Component<{
 			{/* Flying Rocket for Turbo */}
 			<Show when={isRocketSpawned()}>
 				<button
+					type="button"
 					onClick={() => activateTurbo()}
 					class="absolute z-[70] text-[56px] drop-shadow-[0_0_20px_rgba(239,68,68,0.8)]"
 					style={{ top: '35%', right: '8%', animation: 'rocketFloat 4s ease-in-out infinite' }}
@@ -295,6 +296,7 @@ export const TapView: Component<{
 			{/* 1. Clan Bar (Top - Z-20) - Added margin-top for breathing room */}
 			<div class="w-full px-4 mt-5 relative z-20" dir="rtl">
 				<button
+					type="button"
 					onClick={() => props.onClanClick?.()}
 					class="w-full bg-[#12141C]/80 backdrop-blur-xl border border-white/10 hover:border-white/20 rounded-[22px] p-3 active:scale-[0.98] transition-all duration-300 shadow-[0_8px_32px_rgba(0,0,0,0.5)] relative overflow-hidden group"
 				>
@@ -343,6 +345,7 @@ export const TapView: Component<{
 															<svg
 																viewBox="0 0 100 100"
 																class="w-full h-full text-white fill-current drop-shadow"
+																aria-hidden="true"
 															>
 																<path d="M 11 14 L 89 14 L 50 36 Z" />
 																<path d="M 7 19 L 47 42 L 47 88 Z" />
@@ -351,7 +354,9 @@ export const TapView: Component<{
 														</div>
 													}
 												>
-													<img loading="lazy" 														src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`}
+													<img
+														loading="lazy"
+														src={`${API_CONFIG.BASE_URL}/profile/clan/photo?username=${clan().channel_username}`}
 														alt={clan().chat_title}
 														class="w-full h-full object-cover"
 													/>
@@ -388,6 +393,7 @@ export const TapView: Component<{
 
 			{/* 2. Total Coins (Balance - Z-20) - Perfected spacing and alignment */}
 			<button
+				type="button"
 				onClick={() => {
 					if (showShopCoachmark()) {
 						setShowShopCoachmark(false);
@@ -418,6 +424,7 @@ export const TapView: Component<{
 
 			{/* 3. Rank & League (Z-20) */}
 			<button
+				type="button"
 				onClick={() => props.onLeagueClick?.()}
 				class="flex items-center gap-2 mb-4 relative z-20 active:scale-95 transition-transform"
 				dir="ltr"
@@ -468,13 +475,12 @@ export const TapView: Component<{
 			{/* 3.5. Honest Fatigue, Turbo & Daily Streak HUD Pills */}
 			<div class="flex items-center gap-2 mb-2 relative z-20" dir="ltr">
 				<button
+					type="button"
 					onClick={() => setShowStreakModal(true)}
 					class="bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:bg-amber-500/30 border border-amber-500/30 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
 				>
 					<span class="text-[13px]">🔥</span>
-					<span class="text-amber-400 font-mono font-black text-[11px]">
-						DAY {streakDay()}
-					</span>
+					<span class="text-amber-400 font-mono font-black text-[11px]">DAY {streakDay()}</span>
 					<Show when={!checkedInToday()}>
 						<span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
 					</Show>
@@ -490,7 +496,17 @@ export const TapView: Component<{
 				</Show>
 				<Show when={!isTurboActive()}>
 					<div class="bg-[#12141C]/80 border border-white/10 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
-						<span class="w-2 h-2 rounded-full" style={{ 'background-color': dailyFatigueMultiplier() >= 1.0 ? '#10b981' : dailyFatigueMultiplier() >= 0.5 ? '#f59e0b' : '#ef4444' }} />
+						<span
+							class="w-2 h-2 rounded-full"
+							style={{
+								'background-color':
+									dailyFatigueMultiplier() >= 1.0
+										? '#10b981'
+										: dailyFatigueMultiplier() >= 0.5
+											? '#f59e0b'
+											: '#ef4444',
+							}}
+						/>
 						<span class="text-white/80 font-mono font-bold text-[11px]">
 							Rate: {dailyFatigueMultiplier()}x
 						</span>
@@ -522,6 +538,7 @@ export const TapView: Component<{
 					class={`relative flex items-center justify-center w-[70vw] max-w-[280px] aspect-square ${isPressed() ? '' : 'coin-wrapper'} ${isShaking() ? 'animate-shake' : ''}`}
 				>
 					<button
+						type="button"
 						onPointerDown={handleTap}
 						onPointerUp={handlePointerUp}
 						onPointerLeave={handlePointerUp}
@@ -553,6 +570,7 @@ export const TapView: Component<{
 									? 'drop-shadow(0px 0px 18px rgba(255,80,80,1))'
 									: 'drop-shadow(0px 0px 14px rgba(255,255,255,0.5))',
 							}}
+							aria-hidden="true"
 						>
 							<path
 								d="M 11 14 L 89 14 L 50 36 Z"
@@ -622,6 +640,7 @@ export const TapView: Component<{
 				<div class="grid grid-cols-3 gap-2.5 w-full pointer-events-auto" dir="rtl">
 					{/* Boost / Upgrade */}
 					<button
+						type="button"
 						onClick={() => props.onActionClick?.('boost')}
 						class="h-14 rounded-2xl bg-[#12141C]/80 backdrop-blur-xl border border-white/10 hover:border-[#f59e0b]/50 hover:bg-[#12141C]/90 flex items-center justify-center gap-2 active:scale-95 transition-all duration-200 group shadow-[0_4px_16px_rgba(0,0,0,0.3)] relative overflow-hidden"
 					>
@@ -633,12 +652,13 @@ export const TapView: Component<{
 							rocket_launch
 						</span>
 						<span class="text-white text-[13px] font-black tracking-wide relative z-10">
-							{t('airdropTabs.boost' as any) || 'ارتقا'}
+							{t('airdropTabs.boost')}
 						</span>
 					</button>
 
 					{/* Tasks */}
 					<button
+						type="button"
 						onClick={() => props.onActionClick?.('earn')}
 						class="h-14 rounded-2xl bg-[#12141C]/80 backdrop-blur-xl border border-white/10 hover:border-[#10b981]/50 hover:bg-[#12141C]/90 flex items-center justify-center gap-2 active:scale-95 transition-all duration-200 group shadow-[0_4px_16px_rgba(0,0,0,0.3)] relative overflow-hidden"
 					>
@@ -650,12 +670,13 @@ export const TapView: Component<{
 							task_alt
 						</span>
 						<span class="text-white text-[13px] font-black tracking-wide relative z-10">
-							{t('airdropTabs.earn' as any) || 'تسک‌ها'}
+							{t('airdropTabs.earn')}
 						</span>
 					</button>
 
 					{/* Friends */}
 					<button
+						type="button"
 						onClick={() => props.onActionClick?.('frens')}
 						class="h-14 rounded-2xl bg-[#12141C]/80 backdrop-blur-xl border border-white/10 hover:border-[#3b82f6]/50 hover:bg-[#12141C]/90 flex items-center justify-center gap-2 active:scale-95 transition-all duration-200 group shadow-[0_4px_16px_rgba(0,0,0,0.3)] relative overflow-hidden"
 					>
@@ -667,7 +688,7 @@ export const TapView: Component<{
 							group
 						</span>
 						<span class="text-white text-[13px] font-black tracking-wide relative z-10">
-							{t('airdropTabs.frens' as any) || 'دوستان'}
+							{t('airdropTabs.frens')}
 						</span>
 					</button>
 				</div>
@@ -678,17 +699,26 @@ export const TapView: Component<{
 				<div class="fixed inset-0 z-[100] flex flex-col justify-end">
 					<div
 						class="absolute inset-0 bg-black/80 backdrop-blur-sm animate-fade-in"
+						role="button"
+						tabIndex={0}
+						onKeyDown={(e) => {
+							if (e.key === 'Enter') (e.currentTarget as HTMLElement).click();
+							else if (e.key === 'Escape') setShowShopModal(false);
+						}}
 						onClick={() => setShowShopModal(false)}
 					/>
 					<div class="relative w-full h-[85vh] sm:h-[80vh] bg-[#07080c] rounded-t-[32px] border-t border-amber-500/20 flex flex-col animate-slide-up shadow-[0_-10px_60px_rgba(0,0,0,0.9)] overflow-hidden z-10">
 						{/* Header handle and Close button */}
 						<div class="w-full flex items-center justify-between px-5 py-3.5 shrink-0 border-b border-white/5 bg-[#10121a]/80 backdrop-blur-md relative z-20">
 							<div class="w-8" />
-							<div
+							<button
+								type="button"
+								aria-label="Close"
 								class="w-12 h-1.5 rounded-full bg-white/20 hover:bg-white/40 transition-colors cursor-pointer"
 								onClick={() => setShowShopModal(false)}
 							/>
 							<button
+								type="button"
 								onClick={() => setShowShopModal(false)}
 								class="w-8 h-8 flex items-center justify-center rounded-full bg-white/5 text-white/60 hover:bg-white/10 hover:text-white transition-colors"
 							>
@@ -706,6 +736,12 @@ export const TapView: Component<{
 				<div class="fixed inset-0 z-[110] flex items-center justify-center p-4">
 					<div
 						class="absolute inset-0 bg-black/85 backdrop-blur-md transition-opacity animate-fade-in"
+						role="button"
+						tabIndex={0}
+						aria-label="Close"
+						onKeyDown={(e) => {
+							if (e.key === 'Enter') setShowStreakModal(false);
+						}}
 						onClick={() => setShowStreakModal(false)}
 					/>
 					<div class="relative w-full max-w-sm bg-[#12141C] rounded-[32px] p-6 space-y-5 shadow-[0_20px_60px_rgba(0,0,0,0.8)] border border-amber-500/20 animate-slide-up text-center">
@@ -714,9 +750,9 @@ export const TapView: Component<{
 						</div>
 
 						<div class="flex flex-col gap-1">
-							<h3 class="text-[20px] font-black text-white">7-Day Mining Streak</h3>
+							<h3 class="text-[20px] font-black text-white">{t('tap.miningStreak7Days')}</h3>
 							<p class="text-[12px] text-white/60">
-								Check in every day to claim bonus coins and Free Valuation Report credits.
+								{t('tap.miningStreakDesc')}
 							</p>
 						</div>
 
@@ -726,18 +762,21 @@ export const TapView: Component<{
 								{(rewardAmount, index) => {
 									const dayNumber = () => index() + 1;
 									const isCurrent = () => streakDay() === dayNumber();
-									const isPast = () => (checkedInToday() ? streakDay() >= dayNumber() : streakDay() > dayNumber());
+									const isPast = () =>
+										checkedInToday() ? streakDay() >= dayNumber() : streakDay() > dayNumber();
 									return (
 										<div
 											class={`p-2.5 rounded-[16px] border flex flex-col items-center justify-center gap-1 transition-all ${
 												isCurrent()
 													? 'bg-amber-500/20 border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.3)]'
 													: isPast()
-													? 'bg-emerald-500/10 border-emerald-500/30 opacity-70'
-													: 'bg-[#08090D] border-white/5 opacity-40'
+														? 'bg-emerald-500/10 border-emerald-500/30 opacity-70'
+														: 'bg-[#08090D] border-white/5 opacity-40'
 											}`}
 										>
-											<span class="text-[10px] font-mono font-bold text-white/60">DAY {dayNumber()}</span>
+											<span class="text-[10px] font-mono font-bold text-white/60">
+												DAY {dayNumber()}
+											</span>
 											<span class="text-[18px]">{dayNumber() === 7 ? '💎' : '🪙'}</span>
 											<span class="text-[11px] font-mono font-black text-amber-400">
 												+{formatNumber(rewardAmount)}
@@ -750,6 +789,7 @@ export const TapView: Component<{
 
 						<div class="flex flex-col gap-2 pt-2">
 							<button
+								type="button"
 								onClick={async () => {
 									if (checkedInToday() || isClaimingStreak()) return;
 									setIsClaimingStreak(true);
@@ -765,13 +805,16 @@ export const TapView: Component<{
 								disabled={checkedInToday() || isClaimingStreak()}
 								class="w-full h-14 bg-gradient-to-r from-amber-500 to-yellow-500 rounded-[18px] text-[14px] font-black text-black shadow-[0_8px_24px_rgba(245,158,11,0.35)] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:grayscale"
 							>
-								<span>{checkedInToday() ? 'Claimed Today ✓' : 'Claim Day ' + streakDay() + ' Reward'}</span>
+								<span>
+									{checkedInToday() ? 'Claimed Today ✓' : `Claim Day ${streakDay()} Reward`}
+								</span>
 							</button>
 							<button
+								type="button"
 								onClick={() => setShowStreakModal(false)}
 								class="w-full h-10 bg-transparent text-white/50 text-[12px] font-bold"
 							>
-								Close
+								{t('common.close')}
 							</button>
 						</div>
 					</div>

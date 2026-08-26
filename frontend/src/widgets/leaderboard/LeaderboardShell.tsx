@@ -1,6 +1,6 @@
-import { Component, For, JSX, Show } from 'solid-js';
-import { FragmentPulse } from '@/shared/ui/FragmentPulse.js';
+import { type Component, For, type JSX, Show } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
+import { FragmentPulse } from '@/shared/ui/FragmentPulse.js';
 
 export interface LeaderboardEntry {
 	rank: number;
@@ -59,6 +59,7 @@ export const LeaderboardShell: Component<LeaderboardShellProps> = (props) => {
 							<For each={props.periodFilter}>
 								{(period) => (
 									<button
+										type="button"
 										onClick={() => props.onPeriodChange?.(period.id)}
 										class={`px-3 py-1 text-[11px] font-bold rounded-lg transition-all ${
 											props.activePeriod === period.id
@@ -80,6 +81,7 @@ export const LeaderboardShell: Component<LeaderboardShellProps> = (props) => {
 						<For each={props.scopeTabs}>
 							{(tab) => (
 								<button
+									type="button"
 									onClick={() => props.onScopeChange?.(tab.id)}
 									class={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
 										props.activeScope === tab.id
@@ -98,7 +100,9 @@ export const LeaderboardShell: Component<LeaderboardShellProps> = (props) => {
 			<Show when={props.loading}>
 				<div class="flex flex-col items-center justify-center py-16 gap-3">
 					<div class="w-8 h-8 border-3 border-[#3390ec] border-t-transparent rounded-full animate-spin" />
-					<span class="text-xs text-white/50 font-bold">{t('leaderboard.loading' as any) || 'Loading Leaderboard...'}</span>
+					<span class="text-xs text-white/50 font-bold">
+						{t('leaderboard.loading' as any) || 'Loading Leaderboard...'}
+					</span>
 				</div>
 			</Show>
 
@@ -113,7 +117,12 @@ export const LeaderboardShell: Component<LeaderboardShellProps> = (props) => {
 							</span>
 							<div class="w-12 h-12 rounded-full bg-slate-700/50 border-2 border-slate-400 flex items-center justify-center text-base font-black text-white overflow-hidden">
 								<Show when={topThree()[1]?.avatarUrl} fallback={topThree()[1]?.name?.[0] || '2'}>
-									<img loading="lazy" src={topThree()[1].avatarUrl} alt="" class="w-full h-full object-cover" />
+									<img
+										loading="lazy"
+										src={topThree()[1].avatarUrl}
+										alt=""
+										class="w-full h-full object-cover"
+									/>
 								</Show>
 							</div>
 							<div class="w-full truncate text-xs font-bold text-white">{topThree()[1]?.name}</div>
@@ -129,7 +138,12 @@ export const LeaderboardShell: Component<LeaderboardShellProps> = (props) => {
 							</span>
 							<div class="w-14 h-14 rounded-full bg-amber-500/20 border-2 border-amber-400 flex items-center justify-center text-lg font-black text-white overflow-hidden">
 								<Show when={topThree()[0]?.avatarUrl} fallback={topThree()[0]?.name?.[0] || '1'}>
-									<img loading="lazy" src={topThree()[0].avatarUrl} alt="" class="w-full h-full object-cover" />
+									<img
+										loading="lazy"
+										src={topThree()[0].avatarUrl}
+										alt=""
+										class="w-full h-full object-cover"
+									/>
 								</Show>
 							</div>
 							<div class="w-full truncate text-xs font-black text-white">{topThree()[0]?.name}</div>
@@ -145,7 +159,12 @@ export const LeaderboardShell: Component<LeaderboardShellProps> = (props) => {
 							</span>
 							<div class="w-12 h-12 rounded-full bg-amber-900/30 border-2 border-amber-700 flex items-center justify-center text-base font-black text-white overflow-hidden">
 								<Show when={topThree()[2]?.avatarUrl} fallback={topThree()[2]?.name?.[0] || '3'}>
-									<img loading="lazy" src={topThree()[2].avatarUrl} alt="" class="w-full h-full object-cover" />
+									<img
+										loading="lazy"
+										src={topThree()[2].avatarUrl}
+										alt=""
+										class="w-full h-full object-cover"
+									/>
 								</Show>
 							</div>
 							<div class="w-full truncate text-xs font-bold text-white">{topThree()[2]?.name}</div>
@@ -176,7 +195,12 @@ export const LeaderboardShell: Component<LeaderboardShellProps> = (props) => {
 											when={entry.avatarUrl}
 											fallback={<span class="text-xs font-bold text-white">{entry.name[0]}</span>}
 										>
-											<img loading="lazy" src={entry.avatarUrl} alt="" class="w-full h-full object-cover" />
+											<img
+												loading="lazy"
+												src={entry.avatarUrl}
+												alt=""
+												class="w-full h-full object-cover"
+											/>
 										</Show>
 									</div>
 									<div class="truncate text-xs font-bold text-white">

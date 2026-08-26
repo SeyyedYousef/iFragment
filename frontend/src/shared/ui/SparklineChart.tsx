@@ -1,4 +1,4 @@
-import { Component, createMemo, createSignal, For, Show } from 'solid-js';
+import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
 
 interface SparklinePoint {
 	label: string;
@@ -94,7 +94,9 @@ export const SparklineChart: Component<SparklineChartProps> = (props) => {
 		<div class="w-full flex flex-col gap-2.5">
 			<div class="flex items-center justify-between">
 				<Show when={props.title}>
-					<span class="text-white/50 text-[10px] font-black uppercase tracking-widest">{props.title}</span>
+					<span class="text-white/50 text-[10px] font-black uppercase tracking-widest">
+						{props.title}
+					</span>
 				</Show>
 				<div class="flex items-center gap-1.5 ms-auto">
 					<span
@@ -114,6 +116,7 @@ export const SparklineChart: Component<SparklineChartProps> = (props) => {
 				<svg
 					viewBox={`0 0 ${w()} ${h()}`}
 					class="w-full h-[110px] overflow-visible"
+					aria-hidden="true"
 					onMouseLeave={() => setActiveIdx(null)}
 				>
 					<defs>
@@ -186,9 +189,7 @@ export const SparklineChart: Component<SparklineChartProps> = (props) => {
 				{/* Active Hover Floating Tooltip */}
 				<Show when={activePoint()}>
 					{(pt) => (
-						<div
-							class="absolute top-2 left-1/2 -translate-x-1/2 bg-[#12141C]/95 border border-white/15 px-3 py-1 rounded-[10px] text-center shadow-lg backdrop-blur-md pointer-events-none"
-						>
+						<div class="absolute top-2 left-1/2 -translate-x-1/2 bg-[#12141C]/95 border border-white/15 px-3 py-1 rounded-[10px] text-center shadow-lg backdrop-blur-md pointer-events-none">
 							<span class="text-white/40 text-[9px] font-mono block">{pt().label}</span>
 							<span class="text-white font-mono font-black text-[12px]">
 								{pt().value.toLocaleString('en-US')} {props.unit || 'TON'}

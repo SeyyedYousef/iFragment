@@ -66,6 +66,12 @@ type SettingsGeneral struct {
 	AntiRaidThreshold   int    `json:"antiRaidThreshold"` // Joins per minute
 	AntiRaidAction      string `json:"antiRaidAction"`    // lockdown, alert
 	BotEnabled          *bool  `json:"botEnabled"`
+
+	// Member tags (Bot API 9.5, setChatMemberTag). User decision 2026-08-25:
+	// enabled by default for all groups; admins may tag anyone and every
+	// member may change their own tag; purely manual (no gamification sync).
+	MemberTagsEnabled bool   `json:"memberTagsEnabled"`
+	MaxTagLength      int    `json:"maxTagLength,omitempty"` // server-side clamp; 0 = API default
 }
 
 type RestrictionDetail struct {

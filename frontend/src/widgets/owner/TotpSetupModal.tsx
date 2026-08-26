@@ -1,6 +1,7 @@
-import { createSignal, createEffect, For, Show, type Component } from 'solid-js';
 import QRCode from 'qrcode';
-import { ownerApi } from '../../entities/owner/api/ownerApi.js';
+import { type Component, createEffect, createSignal, For, Show } from 'solid-js';
+import { ownerApi } from '@/entities/owner/index.js';
+import { t } from '@/shared/i18n/index.js';
 
 interface TotpSetupModalProps {
 	isOpen: boolean;
@@ -94,11 +95,12 @@ export const TotpSetupModal: Component<TotpSetupModalProps> = (props) => {
 								<span class="material-symbols-rounded text-2xl">verified_user</span>
 							</div>
 							<div>
-								<h2 class="text-base font-bold">Two-Factor Authentication (MFA)</h2>
-								<p class="text-xs text-white/50">Secure your Owner panel with TOTP</p>
+								<h2 class="text-base font-bold">{t('ownerTotp.title')}</h2>
+								<p class="text-xs text-white/50">{t('ownerTotp.subtitle')}</p>
 							</div>
 						</div>
 						<button
+							type="button"
 							onClick={props.onClose}
 							class="rounded-lg p-1.5 text-white/40 hover:bg-white/10 hover:text-white transition"
 						>
@@ -110,34 +112,48 @@ export const TotpSetupModal: Component<TotpSetupModalProps> = (props) => {
 					<Show when={step() === 'qr'}>
 						<div class="space-y-4 text-center">
 							<p class="text-xs text-white/70">
-								Scan this QR code using Google Authenticator, 1Password, or Authy:
+								{t('ownerTotp.scanQr')}
 							</p>
 
-							<Show when={qrDataUrl()} fallback={<div class="h-48 flex items-center justify-center text-xs text-white/50">Generating QR...</div>}>
+							<Show
+								when={qrDataUrl()}
+								fallback={
+									<div class="h-48 flex items-center justify-center text-xs text-white/50">
+										{t('ownerTotp.generatingQr')}
+									</div>
+								}
+							>
 								<div class="mx-auto flex h-52 w-52 items-center justify-center rounded-2xl bg-white p-3 shadow-inner">
-									<img src={qrDataUrl()} alt="TOTP QR Code" class="h-full w-full object-contain" />
+									<img src={qrDataUrl()} alt={t('ownerTotp.qrAlt')} class="h-full w-full object-contain" />
 								</div>
 							</Show>
 
 							{/* Manual Entry Key */}
 							<div class="rounded-xl border border-white/10 bg-black/40 p-3 text-left">
 								<div class="flex items-center justify-between text-xs text-white/50 mb-1">
-									<span>Manual Entry Secret Key:</span>
-									<button onClick={copySecret} class="text-amber-400 hover:underline flex items-center gap-1">
+									<span>{t('ownerTotp.manualKey')}</span>
+									<button
+										type="button"
+										onClick={copySecret}
+										class="text-amber-400 hover:underline flex items-center gap-1"
+									>
 										<span class="material-symbols-rounded text-sm">
 											{copiedSecret() ? 'done' : 'content_copy'}
 										</span>
 										<span>{copiedSecret() ? 'Copied' : 'Copy'}</span>
 									</button>
 								</div>
-								<div class="font-mono text-xs text-amber-200 tracking-wider break-all">{secret()}</div>
+								<div class="font-mono text-xs text-amber-200 tracking-wider break-all">
+									{secret()}
+								</div>
 							</div>
 
 							<button
+								type="button"
 								onClick={() => setStep('recovery')}
 								class="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-semibold text-xs transition shadow-lg shadow-amber-500/20"
 							>
-								Next: Save Recovery Codes →
+								{t('ownerTotp.nextSaveCodes')}
 							</button>
 						</div>
 					</Show>
@@ -146,11 +162,13 @@ export const TotpSetupModal: Component<TotpSetupModalProps> = (props) => {
 					<Show when={step() === 'recovery'}>
 						<div class="space-y-4">
 							<div class="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200 flex items-start gap-2.5">
-								<span class="material-symbols-rounded text-amber-400 text-base mt-0.5">warning</span>
+								<span class="material-symbols-rounded text-amber-400 text-base mt-0.5">
+									warning
+								</span>
 								<div>
-									<div class="font-semibold">Save your backup recovery codes</div>
+									<div class="font-semibold">{t('ownerTotp.saveBackupTitle')}</div>
 									<div class="text-[11px] text-amber-200/80 mt-0.5">
-										Each code can be used once if you lose access to your authenticator app.
+										{t('ownerTotp.saveBackupDesc')}
 									</div>
 								</div>
 							</div>
@@ -166,6 +184,7 @@ export const TotpSetupModal: Component<TotpSetupModalProps> = (props) => {
 							</div>
 
 							<button
+								type="button"
 								onClick={copyRecoveryCodes}
 								class="w-full py-2 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 text-xs font-medium text-white flex items-center justify-center gap-2 transition"
 							>
@@ -177,16 +196,18 @@ export const TotpSetupModal: Component<TotpSetupModalProps> = (props) => {
 
 							<div class="flex gap-2 pt-2">
 								<button
+									type="button"
 									onClick={() => setStep('qr')}
 									class="w-1/3 py-2.5 rounded-xl border border-white/10 text-xs text-white/70 hover:bg-white/5 transition"
 								>
-									Back
+									{t('ownerCommon.back')}
 								</button>
 								<button
+									type="button"
 									onClick={() => setStep('verify')}
 									class="w-2/3 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-semibold text-xs transition"
 								>
-									Next: Verify 6-Digit Code →
+									{t('ownerTotp.nextVerify')}
 								</button>
 							</div>
 						</div>
@@ -196,7 +217,7 @@ export const TotpSetupModal: Component<TotpSetupModalProps> = (props) => {
 					<Show when={step() === 'verify'}>
 						<form onSubmit={handleVerifyAndEnable} class="space-y-4">
 							<p class="text-xs text-white/70">
-								Enter the 6-digit code currently shown in your authenticator app to confirm setup:
+								{t('ownerTotp.enter6Digit')}
 							</p>
 
 							<div>
@@ -225,16 +246,16 @@ export const TotpSetupModal: Component<TotpSetupModalProps> = (props) => {
 									onClick={() => setStep('recovery')}
 									class="w-1/3 py-3 rounded-xl border border-white/10 text-xs text-white/70 hover:bg-white/5 transition"
 								>
-									Back
+									{t('ownerCommon.back')}
 								</button>
 								<button
 									type="submit"
 									disabled={isLoading() || verifyCode().length !== 6}
 									class="w-2/3 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs transition shadow-lg shadow-emerald-500/20 disabled:opacity-50 flex items-center justify-center gap-2"
 								>
-									<Show when={isLoading()} fallback={<span>Verify & Activate MFA</span>}>
+									<Show when={isLoading()} fallback={<span>{t('ownerTotp.activateBtn')}</span>}>
 										<div class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-black border-t-transparent" />
-										<span>Activating...</span>
+										<span>{t('ownerTotp.activating')}</span>
 									</Show>
 								</button>
 							</div>

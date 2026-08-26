@@ -1,14 +1,22 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton } from '@tma.js/sdk-solid';
-import { Component, createResource, createSignal, onCleanup, onMount, For, Show } from 'solid-js';
-import { showConfirm } from '@/shared/lib/telegram-native.js';
+import {
+	type Component,
+	createResource,
+	createSignal,
+	For,
+	onCleanup,
+	onMount,
+	Show,
+} from 'solid-js';
 import { createStore, reconcile, unwrap } from 'solid-js/store';
 import { ChannelContextBar, ChannelHamburgerMenu, channelApi } from '@/entities/channel/index.js';
 import { t } from '@/shared/i18n/index.js';
-import { SettingsSection } from '@/shared/ui/settings-controls.js';
-import { showToast } from '@/shared/ui/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
+import { showConfirm } from '@/shared/lib/telegram-native.js';
+import { showToast } from '@/shared/ui/index.js';
+import { SettingsSection } from '@/shared/ui/settings-controls.js';
 
 interface PostingConfig {
 	autoPostEnabled: boolean;
@@ -49,14 +57,36 @@ const defaultConfig: PostingConfig = {
 };
 
 const AI_PROVIDERS = [
-	{ id: 'gemini', label: 'Gemini', hint: 'AIza...', free: true, keyUrl: 'https://aistudio.google.com/' },
-	{ id: 'openai', label: 'ChatGPT', hint: 'sk-...', keyUrl: 'https://platform.openai.com/api-keys' },
-	{ id: 'anthropic', label: 'Claude', hint: 'sk-ant-...', keyUrl: 'https://console.anthropic.com/' },
+	{
+		id: 'gemini',
+		label: 'Gemini',
+		hint: 'AIza...',
+		free: true,
+		keyUrl: 'https://aistudio.google.com/',
+	},
+	{
+		id: 'openai',
+		label: 'ChatGPT',
+		hint: 'sk-...',
+		keyUrl: 'https://platform.openai.com/api-keys',
+	},
+	{
+		id: 'anthropic',
+		label: 'Claude',
+		hint: 'sk-ant-...',
+		keyUrl: 'https://console.anthropic.com/',
+	},
 	{ id: 'groq', label: 'Groq', hint: 'gsk_...', free: true, keyUrl: 'https://console.groq.com/' },
 	{ id: 'xai', label: 'Grok', hint: 'xai-...', keyUrl: 'https://console.x.ai/' },
 	{ id: 'kimi', label: 'Kimi', hint: 'sk-...', keyUrl: 'https://platform.moonshot.cn/' },
 	{ id: 'deepseek', label: 'DeepSeek', hint: 'sk-...', keyUrl: 'https://platform.deepseek.com/' },
-	{ id: 'openrouter', label: 'OpenRouter', hint: 'sk-or-...', free: true, keyUrl: 'https://openrouter.ai/' },
+	{
+		id: 'openrouter',
+		label: 'OpenRouter',
+		hint: 'sk-or-...',
+		free: true,
+		keyUrl: 'https://openrouter.ai/',
+	},
 ];
 
 export const ChannelPostingPage: Component = () => {
@@ -250,6 +280,7 @@ export const ChannelPostingPage: Component = () => {
 			<div class="px-5 pt-6 pb-4 bg-[#0f1014]/80 backdrop-blur-md sticky top-0 z-30 border-b border-[#1c1c1c] flex items-center justify-between gap-3">
 				<div class="flex items-center gap-2 overflow-hidden flex-1">
 					<button
+						type="button"
 						onClick={() => {
 							haptic.impact('light');
 							if (isDirty()) {
@@ -292,9 +323,10 @@ export const ChannelPostingPage: Component = () => {
 				</div>
 
 				<button
+					type="button"
 					onClick={() => setIsMenuOpen(true)}
 					class="w-10 h-10 rounded-full bg-[#1c1c1c] flex items-center justify-center border border-[#2a2a2a] hover:bg-[#2a2a2a] active:scale-95 transition-all shrink-0"
-					aria-label="Open menu"
+					aria-label={t('groupDashboard.menu')}
 				>
 					<span class="material-symbols-outlined text-white text-[20px]">menu</span>
 				</button>
@@ -359,10 +391,15 @@ export const ChannelPostingPage: Component = () => {
 							</div>
 							{/* Provider Key Link */}
 							<a
-								href={(AI_PROVIDERS.find(p => p.id === (config.aiProvider || 'gemini')) || AI_PROVIDERS[0]).keyUrl}
+								href={
+									(
+										AI_PROVIDERS.find((p) => p.id === (config.aiProvider || 'gemini')) ||
+										AI_PROVIDERS[0]
+									).keyUrl
+								}
 								target="_blank"
 								class="flex items-center gap-1 px-2.5 py-1 bg-[#3390ec]/10 rounded-full border border-[#3390ec]/20 text-[#3390ec] text-[11px] font-bold hover:bg-[#3390ec]/20 transition-all cursor-pointer shrink-0"
-								title="Get API Key"
+								title={t('channelPosting.getApiKey')}
 								rel="noopener"
 							>
 								<span class="material-symbols-outlined text-[13px]">school</span>
@@ -378,9 +415,9 @@ export const ChannelPostingPage: Component = () => {
 
 						{/* AI Provider Selector Chips */}
 						<div class="flex flex-col gap-2">
-							<label class="text-[13px] font-bold text-white">
+							<div class="text-[13px] font-bold text-white">
 								{t('channelPosting.selectProvider') || 'Select Provider'}
-							</label>
+							</div>
 							<div class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar">
 								<For each={AI_PROVIDERS}>
 									{(p) => (
@@ -398,7 +435,9 @@ export const ChannelPostingPage: Component = () => {
 										>
 											{p.label}
 											<Show when={p.free}>
-												<span class="ms-1 text-[9px] text-[#34c759] font-black uppercase">Free</span>
+												<span class="ms-1 text-[9px] text-[#34c759] font-black uppercase">
+													{t('channelPosting.free')}
+												</span>
 											</Show>
 										</button>
 									)}
@@ -407,18 +446,24 @@ export const ChannelPostingPage: Component = () => {
 						</div>
 
 						<div class="flex flex-col gap-2">
-							<label class="text-[13px] font-bold text-white">
+							<div class="text-[13px] font-bold text-white">
 								{t('channelPosting.webServiceKey') || 'API Key'}
-							</label>
+							</div>
 							<div class="flex gap-2">
 								<input
 									type="password"
 									value={config.apiKey}
 									onInput={(e) => updateField('apiKey', e.currentTarget.value)}
-									placeholder={(AI_PROVIDERS.find(p => p.id === (config.aiProvider || 'gemini')) || AI_PROVIDERS[0]).hint}
+									placeholder={
+										(
+											AI_PROVIDERS.find((p) => p.id === (config.aiProvider || 'gemini')) ||
+											AI_PROVIDERS[0]
+										).hint
+									}
 									class="bg-[#2c2c2e] text-white text-[15px] rounded-xl px-4 py-2.5 flex-1 focus:outline-none focus:ring-2 focus:ring-[#3390ec] placeholder-[#a0a4ad]"
 								/>
 								<button
+									type="button"
 									onClick={handleTestConnection}
 									disabled={!config.apiKey || connectionStatus() === 'testing'}
 									class="px-4 bg-[#3390ec]/10 text-[#3390ec] font-bold text-[13px] rounded-xl border border-[#3390ec]/20 hover:bg-[#3390ec]/20 active:scale-95 transition-all disabled:opacity-50 disabled:active:scale-100 flex flex-col items-center justify-center min-w-[70px]"
@@ -492,6 +537,7 @@ export const ChannelPostingPage: Component = () => {
 								>
 									{(sk) => (
 										<button
+											type="button"
 											onClick={() => {
 												updateField('selectedSkill', sk.id);
 												haptic.selection();
@@ -513,9 +559,9 @@ export const ChannelPostingPage: Component = () => {
 						{/* Custom Skill Prompts Instructions */}
 						<Show when={config.selectedSkill === 'custom'}>
 							<div class="flex flex-col gap-2 relative z-10 mt-1 pl-3 border-l-2 border-[#3390ec]/30">
-								<label class="text-[12px] text-on-surface-variant font-bold">
+								<div class="text-[12px] text-on-surface-variant font-bold">
 									{t('channelPosting.customSkillInstructions')}
-								</label>
+								</div>
 								<textarea
 									value={config.customSkillPrompt || ''}
 									onInput={(e) => updateField('customSkillPrompt', e.currentTarget.value)}
@@ -545,9 +591,9 @@ export const ChannelPostingPage: Component = () => {
 						</p>
 
 						<div class="flex flex-col gap-2">
-							<label class="text-[13px] font-bold text-white">
+							<div class="text-[13px] font-bold text-white">
 								{t('channelPosting.rawTextInputLabel')}
-							</label>
+							</div>
 							<textarea
 								value={simulatorPrompt()}
 								onInput={(e) => {
@@ -564,6 +610,7 @@ export const ChannelPostingPage: Component = () => {
 						</div>
 
 						<button
+							type="button"
 							onClick={() => handleGenerate('generate')}
 							disabled={isGenerating() || !simulatorPrompt()}
 							class="h-11 bg-[#3390ec] hover:bg-[#2b7bc9] text-white rounded-xl font-bold text-[14px] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:hover:bg-[#3390ec]"
@@ -583,9 +630,9 @@ export const ChannelPostingPage: Component = () => {
 
 						{/* Final Output Message Mockup (Visual Masterpiece resembling real Telegram Channel post) */}
 						<div class="flex flex-col gap-2 mt-2">
-							<label class="text-[13px] font-bold text-[#8e8e93]">
+							<div class="text-[13px] font-bold text-[#8e8e93]">
 								{t('channelPosting.finalPostLabel')}
-							</label>
+							</div>
 
 							{/* Premium Mockup Wallpaper and bubble layout */}
 							<div class="bg-gradient-to-br from-[#1a2b3c] via-[#111a22] to-[#0a0f14] rounded-2xl p-4 min-h-[160px] flex flex-col justify-end relative overflow-hidden border border-[#2a2a2a]">
@@ -621,22 +668,34 @@ export const ChannelPostingPage: Component = () => {
 									<div class="flex flex-col gap-1 mt-1.5 w-full">
 										{/* Row 1 */}
 										<div class="flex gap-1 w-full">
-											<button class="flex-1 bg-[#1c2c3d]/90 hover:bg-[#233549] text-[#3390ec] border border-[#29425a] py-2 rounded-xl text-[12px] font-black transition-all flex items-center justify-center gap-1.5 backdrop-blur-md shadow-md active:scale-95">
+											<button
+												type="button"
+												class="flex-1 bg-[#1c2c3d]/90 hover:bg-[#233549] text-[#3390ec] border border-[#29425a] py-2 rounded-xl text-[12px] font-black transition-all flex items-center justify-center gap-1.5 backdrop-blur-md shadow-md active:scale-95"
+											>
 												<span>👍</span>
 												<span>{t('channelPosting.likeMockup')}</span>
 											</button>
-											<button class="flex-1 bg-[#1c2c3d]/90 hover:bg-[#233549] text-[#ff3b30] border border-[#29425a] py-2 rounded-xl text-[12px] font-black transition-all flex items-center justify-center gap-1.5 backdrop-blur-md shadow-md active:scale-95">
+											<button
+												type="button"
+												class="flex-1 bg-[#1c2c3d]/90 hover:bg-[#233549] text-[#ff3b30] border border-[#29425a] py-2 rounded-xl text-[12px] font-black transition-all flex items-center justify-center gap-1.5 backdrop-blur-md shadow-md active:scale-95"
+											>
 												<span>👎</span>
 												<span>{t('channelPosting.dislikeMockup')}</span>
 											</button>
 										</div>
 										{/* Row 2 */}
 										<div class="flex gap-1 w-full">
-											<button class="flex-1 bg-[#1c2c3d]/90 hover:bg-[#233549] text-[#34c759] border border-[#29425a] py-2 rounded-xl text-[12px] font-black transition-all flex items-center justify-center gap-1.5 backdrop-blur-md shadow-md active:scale-95">
+											<button
+												type="button"
+												class="flex-1 bg-[#1c2c3d]/90 hover:bg-[#233549] text-[#34c759] border border-[#29425a] py-2 rounded-xl text-[12px] font-black transition-all flex items-center justify-center gap-1.5 backdrop-blur-md shadow-md active:scale-95"
+											>
 												<span>📎</span>
 												<span>{t('channelPosting.viewDetailsMockup')}</span>
 											</button>
-											<button class="flex-1 bg-[#1c2c3d]/90 hover:bg-[#233549] text-white border border-[#29425a] py-2 rounded-xl text-[12px] font-black transition-all flex items-center justify-center gap-1.5 backdrop-blur-md shadow-md active:scale-95">
+											<button
+												type="button"
+												class="flex-1 bg-[#1c2c3d]/90 hover:bg-[#233549] text-white border border-[#29425a] py-2 rounded-xl text-[12px] font-black transition-all flex items-center justify-center gap-1.5 backdrop-blur-md shadow-md active:scale-95"
+											>
 												<span>📢</span>
 												<span>{t('channelPosting.shareMockup')}</span>
 											</button>
@@ -663,6 +722,7 @@ export const ChannelPostingPage: Component = () => {
 			<Show when={isDirty()}>
 				<div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#0f1014] via-[#0f1014]/90 to-transparent z-40 flex gap-3">
 					<button
+						type="button"
 						onClick={() => navigate(`/channel/${params.id}`)}
 						disabled={isSaving()}
 						class="flex-1 h-14 bg-[#1c1c1c] text-[#ff3b30] border border-[#ff3b30]/20 rounded-2xl font-bold text-[15px] transition-all flex items-center justify-center gap-2 hover:bg-[#ff3b30]/10"
@@ -671,6 +731,7 @@ export const ChannelPostingPage: Component = () => {
 						<span class="material-symbols-outlined text-[18px]">close</span>
 					</button>
 					<button
+						type="button"
 						onClick={handleSave}
 						disabled={isSaving()}
 						class="flex-[2] h-14 bg-[#32ade6] hover:bg-[#2b96c8] text-black rounded-2xl font-bold text-[16px] shadow-[0_10px_25px_rgba(50,173,230,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-40"

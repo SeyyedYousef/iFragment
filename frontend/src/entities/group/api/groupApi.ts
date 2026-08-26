@@ -1,5 +1,12 @@
 import { apiClient } from '@/shared/api/axios.js';
-import type { AnalyticsData, AuditLog, GroupSettings, GroupTelegramInfo, ManagedGroup, MemberWarning } from '../model/types.js';
+import type {
+	AnalyticsData,
+	AuditLog,
+	GroupSettings,
+	GroupTelegramInfo,
+	ManagedGroup,
+	MemberWarning,
+} from '../model/types.js';
 
 export const groupApi = {
 	getGroup: (groupId: string) =>
@@ -22,13 +29,19 @@ export const groupApi = {
 		apiClient.get<MemberWarning[]>(`/groups/${groupId}/members/warnings`).then((r: any) => r.data),
 
 	resetGroupWarnings: (groupId: string, targetUserId: number) =>
-		apiClient.post(`/groups/${groupId}/members/warnings/${targetUserId}/reset`).then((r: any) => r.data),
+		apiClient
+			.post(`/groups/${groupId}/members/warnings/${targetUserId}/reset`)
+			.then((r: any) => r.data),
 
-	restrictMember: (groupId: string, data: { target_user_id: number; until_date: number; permissions?: Record<string, boolean> }) =>
-		apiClient.post(`/groups/${groupId}/members/restrict`, data).then((r: any) => r.data),
+	restrictMember: (
+		groupId: string,
+		data: { target_user_id: number; until_date: number; permissions?: Record<string, boolean> },
+	) => apiClient.post(`/groups/${groupId}/members/restrict`, data).then((r: any) => r.data),
 
 	unbanMember: (groupId: string, targetUserId: number) =>
-		apiClient.post(`/groups/${groupId}/members/unban`, { target_user_id: targetUserId }).then((r: any) => r.data),
+		apiClient
+			.post(`/groups/${groupId}/members/unban`, { target_user_id: targetUserId })
+			.then((r: any) => r.data),
 
 	getAnalytics: (groupId: string, days: number = 7) =>
 		apiClient
@@ -40,4 +53,3 @@ export const groupApi = {
 			.get<AuditLog[]>(`/groups/${groupId}/audit`, { params: { limit, offset } })
 			.then((r: any) => r.data),
 };
-

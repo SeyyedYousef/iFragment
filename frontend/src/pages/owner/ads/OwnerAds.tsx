@@ -1,8 +1,9 @@
-import { createSignal, Show, For, type Component } from 'solid-js';
-import { createQuery, createMutation, useQueryClient } from '@tanstack/solid-query';
+import { createMutation, createQuery, useQueryClient } from '@tanstack/solid-query';
+import { type Component, createSignal, For, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/api/ownerApi.js';
 import type { AdCampaign } from '@/entities/owner/model/types.js';
 import { ImageCropUploader } from '@/features/owner/ads/ImageCropUploader.jsx';
+import { t } from '@/shared/i18n/index.js';
 import { DangerActionDialog } from '@/widgets/owner/DangerActionDialog.jsx';
 
 export const OwnerAds: Component = () => {
@@ -94,10 +95,11 @@ export const OwnerAds: Component = () => {
 			{/* Header & Add Button */}
 			<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
 				<div>
-					<h2 class="text-lg font-bold text-white">Ad Campaigns & Media Storage</h2>
-					<p class="text-xs text-white/50">Manage dashboard banners, aspect ratios, and campaign analytics</p>
+					<h2 class="text-lg font-bold text-white">{t('owner.ads.title')}</h2>
+					<p class="text-xs text-white/50">{t('owner.ads.subtitle')}</p>
 				</div>
 				<button
+					type="button"
 					onClick={() => {
 						resetForm();
 						setIsCreating(true);
@@ -105,13 +107,14 @@ export const OwnerAds: Component = () => {
 					class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs transition shadow-lg shadow-amber-500/20"
 				>
 					<span class="material-symbols-rounded text-base">add_photo_alternate</span>
-					<span>Create Campaign</span>
+					<span>{t('owner.ads.createCampaign')}</span>
 				</button>
 			</div>
 
 			{/* Slot Selector */}
 			<div class="flex gap-2 border-b border-white/10 pb-3">
 				<button
+					type="button"
 					onClick={() => setActiveSlot('dashboard_banner')}
 					class={`px-4 py-2 rounded-xl text-xs font-semibold transition ${
 						activeSlot() === 'dashboard_banner'
@@ -119,9 +122,10 @@ export const OwnerAds: Component = () => {
 							: 'text-white/50 hover:text-white'
 					}`}
 				>
-					Dashboard Banner (1080x384 / 25:9)
+					{t('owner.ads.slotDashboardBanner')}
 				</button>
 				<button
+					type="button"
 					onClick={() => setActiveSlot('interstitial')}
 					class={`px-4 py-2 rounded-xl text-xs font-semibold transition ${
 						activeSlot() === 'interstitial'
@@ -129,7 +133,7 @@ export const OwnerAds: Component = () => {
 							: 'text-white/50 hover:text-white'
 					}`}
 				>
-					Interstitial Stories
+					{t('owner.ads.slotInterstitial')}
 				</button>
 			</div>
 
@@ -138,20 +142,26 @@ export const OwnerAds: Component = () => {
 				<div class="rounded-3xl border border-amber-500/30 bg-black/60 p-6 space-y-5 backdrop-blur-xl">
 					<div class="flex items-center justify-between border-b border-white/10 pb-3">
 						<h3 class="text-sm font-bold text-white">
-							{editingAd() ? 'Edit Campaign' : 'Create New Ad Campaign'}
+							{editingAd() ? t('owner.ads.editCampaign') : t('owner.ads.createNewCampaign')}
 						</h3>
-						<button onClick={resetForm} class="text-xs text-white/50 hover:text-white">
-							Cancel
+						<button
+							type="button"
+							onClick={resetForm}
+							class="text-xs text-white/50 hover:text-white"
+						>
+							{t('common.cancel')}
 						</button>
 					</div>
 
 					<form onSubmit={handleSubmit} class="space-y-4">
 						<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 							<div>
-								<label class="block text-[11px] text-white/60 font-semibold mb-1">Campaign Title</label>
+								<div class="block text-[11px] text-white/60 font-semibold mb-1">
+									{t('owner.ads.campaignTitle')}
+								</div>
 								<input
 									type="text"
-									placeholder="e.g., Summer TON Tournament"
+									placeholder={t('owner.ads.campaignTitlePlaceholder')}
 									value={formTitle()}
 									onInput={(e) => setFormTitle(e.currentTarget.value)}
 									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs focus:border-amber-400 focus:outline-none"
@@ -160,10 +170,12 @@ export const OwnerAds: Component = () => {
 							</div>
 
 							<div>
-								<label class="block text-[11px] text-white/60 font-semibold mb-1">Target URL / Telegram Link</label>
+								<div class="block text-[11px] text-white/60 font-semibold mb-1">
+									{t('owner.ads.targetUrlLabel')}
+								</div>
 								<input
 									type="text"
-									placeholder="https://t.me/channel or https://example.com"
+									placeholder={t('owner.ads.targetUrlPlaceholder')}
 									value={formTargetUrl()}
 									onInput={(e) => setFormTargetUrl(e.currentTarget.value)}
 									class="w-full h-11 px-3.5 rounded-xl bg-white/5 border border-white/15 text-white text-xs focus:border-amber-400 focus:outline-none"
@@ -174,9 +186,9 @@ export const OwnerAds: Component = () => {
 
 						{/* Image Uploader Component */}
 						<div>
-							<label class="block text-[11px] text-white/60 font-semibold mb-1.5">
-								Banner Image (Drag & Drop or Interactive Crop)
-							</label>
+							<div class="block text-[11px] text-white/60 font-semibold mb-1.5">
+								{t('owner.ads.bannerImageLabel')}
+							</div>
 							<ImageCropUploader
 								slot={activeSlot()}
 								currentImageUrl={formImageUrl()}
@@ -185,15 +197,15 @@ export const OwnerAds: Component = () => {
 						</div>
 
 						<div class="flex items-center justify-between pt-2 border-t border-white/10">
-							<label class="flex items-center gap-2 text-xs text-white cursor-pointer select-none">
+							<div class="flex items-center gap-2 text-xs text-white cursor-pointer select-none">
 								<input
 									type="checkbox"
 									checked={formIsActive()}
 									onChange={(e) => setFormIsActive(e.currentTarget.checked)}
 									class="rounded accent-amber-500 h-4 w-4"
 								/>
-								<span>Active & Displaying</span>
-							</label>
+								<span>{t('owner.ads.activeDisplaying')}</span>
+							</div>
 
 							<div class="flex items-center gap-3">
 								<button
@@ -201,18 +213,24 @@ export const OwnerAds: Component = () => {
 									onClick={resetForm}
 									class="px-4 py-2.5 rounded-xl text-xs text-white/70 hover:bg-white/5"
 								>
-									Cancel
+									{t('common.cancel')}
 								</button>
 								<button
 									type="submit"
-									disabled={createAdMutation.isPending || updateMutation.isPending || !formImageUrl()}
+									disabled={
+										createAdMutation.isPending || updateMutation.isPending || !formImageUrl()
+									}
 									class="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs transition shadow-lg shadow-amber-500/20 disabled:opacity-50"
 								>
 									<Show
 										when={createAdMutation.isPending || updateMutation.isPending}
-										fallback={<span>{editingAd() ? 'Save Changes' : 'Publish Campaign'}</span>}
+										fallback={
+											<span>
+												{editingAd() ? t('owner.ads.saveChanges') : t('owner.ads.publishCampaign')}
+											</span>
+										}
 									>
-										Saving...
+										{t('owner.ads.saving')}
 									</Show>
 								</button>
 							</div>
@@ -226,7 +244,7 @@ export const OwnerAds: Component = () => {
 				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-2">
 						<span class="material-symbols-rounded text-amber-400">campaign</span>
-						<span class="text-sm font-bold text-white">Active Campaigns</span>
+						<span class="text-sm font-bold text-white">{t('owner.ads.activeCampaigns')}</span>
 					</div>
 				</div>
 
@@ -234,13 +252,13 @@ export const OwnerAds: Component = () => {
 					<table class="w-full text-left text-xs">
 						<thead>
 							<tr class="border-b border-white/10 text-white/40">
-								<th class="pb-3 font-medium">Banner Preview</th>
-								<th class="pb-3 font-medium">Title & Target</th>
-								<th class="pb-3 font-medium">Status</th>
-								<th class="pb-3 font-medium">Impressions</th>
-								<th class="pb-3 font-medium">Clicks</th>
-								<th class="pb-3 font-medium">CTR</th>
-								<th class="pb-3 font-medium text-right">Actions</th>
+								<th class="pb-3 font-medium">{t('owner.ads.thBannerPreview')}</th>
+								<th class="pb-3 font-medium">{t('owner.ads.thTitleTarget')}</th>
+								<th class="pb-3 font-medium">{t('owner.ads.thStatus')}</th>
+								<th class="pb-3 font-medium">{t('owner.ads.thImpressions')}</th>
+								<th class="pb-3 font-medium">{t('owner.ads.thClicks')}</th>
+								<th class="pb-3 font-medium">{t('owner.ads.thCtr')}</th>
+								<th class="pb-3 font-medium text-right">{t('owner.ads.thActions')}</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-white/5">
@@ -249,7 +267,7 @@ export const OwnerAds: Component = () => {
 								fallback={
 									<tr>
 										<td colspan="7" class="py-8 text-center text-white/40">
-											{adsQuery.isLoading ? 'Loading campaigns...' : 'No ad campaigns in this slot'}
+											{adsQuery.isLoading ? t('owner.ads.loading') : t('owner.ads.empty')}
 										</td>
 									</tr>
 								}
@@ -264,7 +282,11 @@ export const OwnerAds: Component = () => {
 											<tr class="hover:bg-white/[0.02] transition">
 												<td class="py-3">
 													<div class="h-10 w-28 rounded-lg overflow-hidden border border-white/10 bg-black/40">
-														<img src={ad.image_url} alt={ad.title} class="h-full w-full object-cover" />
+														<img
+															src={ad.image_url}
+															alt={ad.title}
+															class="h-full w-full object-cover"
+														/>
 													</div>
 												</td>
 												<td class="py-3">
@@ -286,25 +308,31 @@ export const OwnerAds: Component = () => {
 																: 'bg-white/5 text-white/40'
 														}`}
 													>
-														{ad.is_active ? 'Active' : 'Paused'}
+														{ad.is_active ? t('owner.ads.active') : t('owner.ads.paused')}
 													</span>
 												</td>
-												<td class="py-3 font-mono text-white/80">{ad.impressions_count.toLocaleString()}</td>
-												<td class="py-3 font-mono text-white/80">{ad.clicks_count.toLocaleString()}</td>
+												<td class="py-3 font-mono text-white/80">
+													{ad.impressions_count.toLocaleString()}
+												</td>
+												<td class="py-3 font-mono text-white/80">
+													{ad.clicks_count.toLocaleString()}
+												</td>
 												<td class="py-3 font-mono text-emerald-400 font-semibold">{ctr()}%</td>
 												<td class="py-3 text-right">
 													<div class="flex items-center justify-end gap-1.5">
 														<button
+															type="button"
 															onClick={() => handleEdit(ad)}
 															class="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition"
-															title="Edit"
+															title={t('common.edit')}
 														>
 															<span class="material-symbols-rounded text-base">edit</span>
 														</button>
 														<button
+															type="button"
 															onClick={() => setAdToDelete(ad)}
 															class="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition"
-															title="Delete"
+															title={t('common.delete')}
 														>
 															<span class="material-symbols-rounded text-base">delete</span>
 														</button>
@@ -324,9 +352,9 @@ export const OwnerAds: Component = () => {
 			<Show when={adToDelete()}>
 				<DangerActionDialog
 					isOpen={true}
-					title="Delete Ad Campaign"
-					description={`Are you sure you want to permanently delete campaign "${adToDelete()?.title}"? This cannot be undone.`}
-					actionLabel="Delete Campaign"
+					title={t('owner.ads.deleteAdTitle')}
+					description={t('owner.ads.deleteConfirmDesc', { title: adToDelete()?.title })}
+					actionLabel={t('owner.ads.deleteAdAction')}
 					confirmWord="DELETE"
 					riskLevel="high"
 					requireReason={false}

@@ -1,8 +1,16 @@
-import { Component, createResource, Show, For, onMount, onCleanup, createSignal } from 'solid-js';
 import { useNavigate, useParams } from '@solidjs/router';
 import { backButton } from '@tma.js/sdk-solid';
+import {
+	type Component,
+	createResource,
+	createSignal,
+	For,
+	onCleanup,
+	onMount,
+	Show,
+} from 'solid-js';
 import { ChannelContextBar, ChannelHamburgerMenu, channelApi } from '@/entities/channel/index.js';
-import { t, isRtl } from '@/shared/i18n/index.js';
+import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 export const ChannelHealthPage: Component = () => {
@@ -12,7 +20,7 @@ export const ChannelHealthPage: Component = () => {
 
 	const [health, { refetch: refetchHealth }] = createResource(
 		() => params.id,
-		(id) => channelApi.getChannelHealth(id)
+		(id) => channelApi.getChannelHealth(id),
 	);
 
 	onMount(() => {
@@ -38,29 +46,48 @@ export const ChannelHealthPage: Component = () => {
 
 	const getGradeColor = (grade: string) => {
 		switch (grade) {
-			case 'A': return 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10';
-			case 'B': return 'text-blue-400 border-blue-500/30 bg-blue-500/10';
-			case 'C': return 'text-amber-400 border-amber-500/30 bg-amber-500/10';
-			default: return 'text-red-400 border-red-500/30 bg-red-500/10';
+			case 'A':
+				return 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10';
+			case 'B':
+				return 'text-blue-400 border-blue-500/30 bg-blue-500/10';
+			case 'C':
+				return 'text-amber-400 border-amber-500/30 bg-amber-500/10';
+			default:
+				return 'text-red-400 border-red-500/30 bg-red-500/10';
 		}
 	};
 
 	const getRouteForCode = (code: string) => {
 		switch (code) {
-			case 'BOT_NOT_ADMIN': return `/channel/${params.id}/admins`;
-			case 'NO_POSTING': return `/channel/${params.id}/posting`;
-			case 'NO_FORWARDING': return `/channel/${params.id}/forwarding`;
-			case 'NO_AUTO_RESPONDER': return `/channel/${params.id}/auto-responder`;
-			case 'NO_DYNAMIC_BIO': return `/channel/${params.id}/dynamic-bio`;
-			case 'NO_BUTTONS': return `/channel/${params.id}/buttons`;
-			default: return `/channel/${params.id}/general`;
+			case 'BOT_NOT_ADMIN':
+				return `/channel/${params.id}/admins`;
+			case 'NO_POSTING':
+				return `/channel/${params.id}/posting`;
+			case 'NO_FORWARDING':
+				return `/channel/${params.id}/forwarding`;
+			case 'NO_AUTO_RESPONDER':
+				return `/channel/${params.id}/auto-responder`;
+			case 'NO_DYNAMIC_BIO':
+				return `/channel/${params.id}/dynamic-bio`;
+			case 'NO_BUTTONS':
+				return `/channel/${params.id}/buttons`;
+			default:
+				return `/channel/${params.id}/general`;
 		}
 	};
 
 	return (
-		<div class="min-h-screen bg-neutral-950 text-neutral-100 pb-28 pt-2 px-4" dir={isRtl() ? 'rtl' : 'ltr'}>
+		<div
+			class="min-h-screen bg-neutral-950 text-neutral-100 pb-28 pt-2 px-4"
+			dir={isRtl() ? 'rtl' : 'ltr'}
+		>
 			<ChannelContextBar channelId={params.id} />
-			<ChannelHamburgerMenu isOpen={isMenuOpen()} onClose={() => setIsMenuOpen(false)} channelId={params.id} activeTab="health" />
+			<ChannelHamburgerMenu
+				isOpen={isMenuOpen()}
+				onClose={() => setIsMenuOpen(false)}
+				channelId={params.id}
+				activeTab="health"
+			/>
 
 			{/* Header */}
 			<div class="mt-4 mb-5 flex items-center justify-between">
@@ -70,17 +97,19 @@ export const ChannelHealthPage: Component = () => {
 						<span>{t('channel.health.title') || 'Channel Health & Audit'}</span>
 					</h1>
 					<p class="text-xs text-neutral-400 mt-1">
-						{t('channel.health.subtitle') || 'Live diagnostic audit of bot permissions, automation, and channel configuration.'}
+						{t('channel.health.subtitle') ||
+							'Live diagnostic audit of bot permissions, automation, and channel configuration.'}
 					</p>
 				</div>
 
 				<button
+					type="button"
 					onClick={() => {
 						haptic.impact('light');
 						refetchHealth();
 					}}
 					class="p-2.5 rounded-xl bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white text-xs transition-all active:scale-95"
-					title="Refresh Audit"
+					title={t('channelHealth.refreshAudit')}
 				>
 					🔄
 				</button>
@@ -108,11 +137,13 @@ export const ChannelHealthPage: Component = () => {
 										<span class="text-xs text-neutral-500 font-normal">/ 100</span>
 									</div>
 									<div class="text-xs font-medium text-neutral-400 mt-1">
-										Status: <span class="capitalize text-white font-semibold">{data().status}</span>
+										{t('channelHealth.status')} <span class="capitalize text-white font-semibold">{data().status}</span>
 									</div>
 								</div>
 
-								<div class={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center text-3xl font-black shadow-lg ${getGradeColor(data().grade)}`}>
+								<div
+									class={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center text-3xl font-black shadow-lg ${getGradeColor(data().grade)}`}
+								>
 									{data().grade}
 								</div>
 							</div>
@@ -136,48 +167,60 @@ export const ChannelHealthPage: Component = () => {
 								<div class="p-3.5 rounded-xl bg-neutral-900 border border-neutral-800 flex items-center gap-3">
 									<span class="text-lg">{data().bot_admin_verified ? '✅' : '❌'}</span>
 									<div class="text-xs">
-										<div class="font-semibold text-white">Bot Permissions</div>
-										<div class="text-[10px] text-neutral-400">{data().bot_admin_verified ? 'Admin verified' : 'Missing admin rights'}</div>
+										<div class="font-semibold text-white">{t('channelHealth.botPermissions')}</div>
+										<div class="text-[10px] text-neutral-400">
+											{data().bot_admin_verified ? 'Admin verified' : 'Missing admin rights'}
+										</div>
 									</div>
 								</div>
 
 								<div class="p-3.5 rounded-xl bg-neutral-900 border border-neutral-800 flex items-center gap-3">
 									<span class="text-lg">{data().has_posting_configured ? '✅' : '⚠️'}</span>
 									<div class="text-xs">
-										<div class="font-semibold text-white">AI & Posting</div>
-										<div class="text-[10px] text-neutral-400">{data().has_posting_configured ? 'Active' : 'Not configured'}</div>
+										<div class="font-semibold text-white">{t('channelHealth.aiPosting')}</div>
+										<div class="text-[10px] text-neutral-400">
+											{data().has_posting_configured ? 'Active' : 'Not configured'}
+										</div>
 									</div>
 								</div>
 
 								<div class="p-3.5 rounded-xl bg-neutral-900 border border-neutral-800 flex items-center gap-3">
 									<span class="text-lg">{data().has_forwarding_rules ? '✅' : 'ℹ️'}</span>
 									<div class="text-xs">
-										<div class="font-semibold text-white">Forwarding Rules</div>
-										<div class="text-[10px] text-neutral-400">{data().has_forwarding_rules ? 'Configured' : 'None active'}</div>
+										<div class="font-semibold text-white">{t('channelHealth.forwardingRules')}</div>
+										<div class="text-[10px] text-neutral-400">
+											{data().has_forwarding_rules ? 'Configured' : 'None active'}
+										</div>
 									</div>
 								</div>
 
 								<div class="p-3.5 rounded-xl bg-neutral-900 border border-neutral-800 flex items-center gap-3">
 									<span class="text-lg">{data().has_auto_responder ? '✅' : 'ℹ️'}</span>
 									<div class="text-xs">
-										<div class="font-semibold text-white">Auto Responder</div>
-										<div class="text-[10px] text-neutral-400">{data().has_auto_responder ? 'Enabled' : 'Disabled'}</div>
+										<div class="font-semibold text-white">{t('channelHealth.autoResponder')}</div>
+										<div class="text-[10px] text-neutral-400">
+											{data().has_auto_responder ? 'Enabled' : 'Disabled'}
+										</div>
 									</div>
 								</div>
 
 								<div class="p-3.5 rounded-xl bg-neutral-900 border border-neutral-800 flex items-center gap-3">
 									<span class="text-lg">{data().has_dynamic_bio ? '✅' : 'ℹ️'}</span>
 									<div class="text-xs">
-										<div class="font-semibold text-white">Dynamic Bio</div>
-										<div class="text-[10px] text-neutral-400">{data().has_dynamic_bio ? 'Syncing' : 'Disabled'}</div>
+										<div class="font-semibold text-white">{t('channelHealth.dynamicBio')}</div>
+										<div class="text-[10px] text-neutral-400">
+											{data().has_dynamic_bio ? 'Syncing' : 'Disabled'}
+										</div>
 									</div>
 								</div>
 
 								<div class="p-3.5 rounded-xl bg-neutral-900 border border-neutral-800 flex items-center gap-3">
 									<span class="text-lg">{data().has_inline_buttons ? '✅' : 'ℹ️'}</span>
 									<div class="text-xs">
-										<div class="font-semibold text-white">Inline Buttons</div>
-										<div class="text-[10px] text-neutral-400">{data().has_inline_buttons ? 'Attached' : 'None'}</div>
+										<div class="font-semibold text-white">{t('channelHealth.inlineButtons')}</div>
+										<div class="text-[10px] text-neutral-400">
+											{data().has_inline_buttons ? 'Attached' : 'None'}
+										</div>
 									</div>
 								</div>
 							</div>
@@ -191,7 +234,7 @@ export const ChannelHealthPage: Component = () => {
 
 							<Show when={!data().recommendations || data().recommendations.length === 0}>
 								<div class="p-4 rounded-xl bg-emerald-950/20 border border-emerald-500/20 text-center text-xs text-emerald-400">
-									🎉 Excellent! All channel optimizations and bot permissions are in optimal health.
+									{t('channelHealth.excellentHealth')}
 								</div>
 							</Show>
 
@@ -207,12 +250,14 @@ export const ChannelHealthPage: Component = () => {
 													{t(rec.title_key as any) || rec.code}
 												</div>
 												<div class="text-[11px] text-neutral-400 mt-0.5">
-													{t(rec.desc_key as any) || 'Improve your channel automation score by configuring this module.'}
+													{t(rec.desc_key as any) ||
+														'Improve your channel automation score by configuring this module.'}
 												</div>
 											</div>
 										</div>
 
 										<button
+											type="button"
 											onClick={() => {
 												haptic.impact('light');
 												navigate(getRouteForCode(rec.code));

@@ -126,7 +126,11 @@ export type DictPaths = FlattenKeys<Dictionary>;
 export const getDict = () => {
 	const currentLocale = getLocale();
 	const dicts = loadedDicts();
-	if (currentLocale === 'en' || !dicts[currentLocale] || Object.keys(dicts[currentLocale]).length === 0) {
+	if (
+		currentLocale === 'en' ||
+		!dicts[currentLocale] ||
+		Object.keys(dicts[currentLocale]).length === 0
+	) {
 		return enFlattened;
 	}
 	return { ...enFlattened, ...dicts[currentLocale] };
@@ -179,4 +183,3 @@ export const formatCoins = (coins: number | undefined | null): string => {
 
 export const I18nContext = createContext({ t, locale: getLocale, setLocale, isRtl, formatNumber });
 export const useI18n = () => useContext(I18nContext);
-

@@ -1,5 +1,5 @@
 import { getLeaderboard } from '@/entities/user/index.js';
-import { type LeaderEntry, LEAGUES } from '../model/types.js';
+import { LEAGUES, type LeaderEntry } from '../model/types.js';
 
 export const fetchLeaderboard = async (
 	period?: string | unknown,

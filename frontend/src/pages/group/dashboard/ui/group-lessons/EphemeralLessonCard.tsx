@@ -1,8 +1,10 @@
 import { Motion } from '@motionone/solid';
-import { Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
+import { type Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 
-export const EphemeralLessonCard: Component<{ onNavigate: () => void; isDone?: boolean }> = (props) => {
+export const EphemeralLessonCard: Component<{ onNavigate: () => void; isDone?: boolean }> = (
+	props,
+) => {
 	const [visible, setVisible] = createSignal(true);
 	const [countdown, setCountdown] = createSignal(3);
 
@@ -54,7 +56,9 @@ export const EphemeralLessonCard: Component<{ onNavigate: () => void; isDone?: b
 						transition={{ duration: 0.4 }}
 						class="self-start bg-white/5 border border-white/10 rounded-[12px] rounded-bl-[4px] px-3 py-1.5 flex items-center gap-2"
 					>
-						<span class="text-[11px] font-bold text-white/70">{t('groupLessons.ephemeral.demoWelcome')}</span>
+						<span class="text-[11px] font-bold text-white/70">
+							{t('groupLessons.ephemeral.demoWelcome')}
+						</span>
 						<span class="text-[9px] font-mono font-black text-sky-400 bg-sky-400/10 border border-sky-400/20 rounded-[5px] px-1.5 py-0.5">
 							{countdown()}s
 						</span>
@@ -63,6 +67,7 @@ export const EphemeralLessonCard: Component<{ onNavigate: () => void; isDone?: b
 			</div>
 
 			<button
+				type="button"
 				onClick={props.onNavigate}
 				class="w-full h-12 bg-white/5 border border-sky-400/30 text-sky-400 hover:bg-sky-400/10 rounded-[16px] text-[12px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
 			>

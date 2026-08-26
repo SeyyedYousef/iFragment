@@ -1,6 +1,6 @@
-import { createMutation } from '@tanstack/solid-query';
 import { useLocation, useNavigate } from '@solidjs/router';
-import { Component, createSignal, For, onMount, Show } from 'solid-js';
+import { createMutation } from '@tanstack/solid-query';
+import { type Component, createSignal, For, onMount, Show } from 'solid-js';
 import { giftsApi, type PortfolioScanResponse } from '@/entities/gifts/index.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
@@ -27,28 +27,45 @@ export const PortfolioScannerPage: Component = () => {
 	const scanMutation = createMutation(() => ({
 		mutationFn: (targetUser: string) => giftsApi.scanPortfolio(targetUser),
 		onSuccess: (data) => {
-			try { haptic.notify('success'); } catch {}
+			try {
+				haptic.notify('success');
+			} catch {}
 			setErrorMsg(null);
 			setScanResult(data);
 		},
 		onError: (err: any) => {
-			try { haptic.notify('error'); } catch {}
-			setErrorMsg(err?.response?.data?.message || 'Failed to scan portfolio. Please check username.');
+			try {
+				haptic.notify('error');
+			} catch {}
+			setErrorMsg(
+				err?.response?.data?.message || 'Failed to scan portfolio. Please check username.',
+			);
 		},
 	}));
 
 	const handleScan = () => {
 		const u = username().trim();
 		if (!u) return;
-		try { haptic.impact('medium'); } catch {}
+		try {
+			haptic.impact('medium');
+		} catch {}
 		scanMutation.mutate(u);
 	};
 
 	const exportCSV = () => {
 		if (!scanResult()) return;
-		try { haptic.impact('light'); } catch {}
+		try {
+			haptic.impact('light');
+		} catch {}
 		const rows = [
-			['Gift ID', 'Model', 'Serial Number', 'Estimated Value (GRAM)', 'Estimated Value (USD)', 'Rarity Tier'],
+			[
+				'Gift ID',
+				'Model',
+				'Serial Number',
+				'Estimated Value (TON)',
+				'Estimated Value (USD)',
+				'Rarity Tier',
+			],
 			...scanResult()!.top_valued_gifts.map((g) => [
 				g.gift_id,
 				g.model_name,
@@ -58,7 +75,7 @@ export const PortfolioScannerPage: Component = () => {
 				g.rarity_tier,
 			]),
 		];
-		const csvContent = 'data:text/csv;charset=utf-8,' + rows.map((e) => e.join(',')).join('\n');
+		const csvContent = `data:text/csv;charset=utf-8,${rows.map((e) => e.join(',')).join('\n')}`;
 		const encodedUri = encodeURI(csvContent);
 		const link = document.createElement('a');
 		link.setAttribute('href', encodedUri);
@@ -75,57 +92,65 @@ export const PortfolioScannerPage: Component = () => {
 
 	const formatUsd = (val?: number) => {
 		if (val === undefined || val === null) return '$0';
-		return '$' + val.toLocaleString('en-US', { maximumFractionDigits: 0 });
+		return `$${val.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 	};
 
 	return (
-		<div class="pb-36 bg-[#090a0f] text-white min-h-screen relative font-sans selection:bg-[#0098EA]/30 overflow-x-hidden">
+		<div class="pb-36 bg-[#06070B] text-white min-h-screen relative font-sans selection:bg-[#0098EA]/30 overflow-x-hidden">
 			{/* Ambient Light */}
-			<div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-96 bg-gradient-to-b from-[#34C759]/15 via-[#0098EA]/10 to-transparent blur-3xl pointer-events-none z-0" />
+			<div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-96 bg-gradient-to-b from-[#34C759]/20 via-[#0098EA]/10 to-transparent blur-[90px] pointer-events-none z-0" />
 
-			<div class="relative z-10 max-w-md mx-auto px-4 pt-4">
+			<div class="relative z-10 max-w-[480px] mx-auto px-4 pt-4">
 				{/* Top Bar */}
 				<div class="flex items-center justify-between mb-4">
 					<button
+						type="button"
 						onClick={() => navigate('/gifts/intel')}
-						class="flex items-center gap-1 text-xs font-bold text-white/60 hover:text-white transition-colors"
+						class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-xs font-bold text-white/80 transition-all active:scale-95"
 					>
-						<span class="material-symbols-outlined text-sm">arrow_back</span>
-						<span>{t('gifts.backToIntel' as any) || 'Gifts Intel'}</span>
+						<span class="material-symbols-outlined text-sm rtl:rotate-180">arrow_back</span>
+						<span>{t('gifts.backToIntel')}</span>
 					</button>
 
-					<div class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-[10px] font-bold text-emerald-300">
-						<span>Portfolio Scanner</span>
+					<div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-[10px] font-bold text-emerald-300">
+						<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+						<span>{t('gifts.portfolio')}</span>
 					</div>
 				</div>
 
 				<div class="text-center mb-5">
-					<div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#34C759] to-[#0098EA] p-[1px] mx-auto mb-2 shadow-lg shadow-emerald-500/20 flex items-center justify-center">
-						<div class="w-full h-full bg-[#0d111a] rounded-2xl flex items-center justify-center">
+					<div class="w-14 h-14 rounded-3xl bg-gradient-to-tr from-[#34C759] to-[#0098EA] p-[1px] mx-auto mb-2.5 shadow-lg shadow-emerald-500/20 flex items-center justify-center">
+						<div class="w-full h-full bg-[#0d111a] rounded-3xl flex items-center justify-center">
 							<span class="material-symbols-outlined text-2xl text-emerald-400">inventory_2</span>
 						</div>
 					</div>
-					<h1 class="text-xl font-black text-white">Instant Gift Portfolio Scanner</h1>
-					<p class="text-xs text-white/50 font-medium mt-1">Scan any Telegram username to value their collectible inventory and historical PnL.</p>
+					<h1 class="text-xl font-black text-white">{t('gifts.scanPortfolio')}</h1>
+					<p class="text-xs text-white/50 font-medium mt-1">
+						{t('gifts.scanPortfolioDesc')}
+					</p>
 				</div>
 
 				{/* Search Input */}
-				<div class="bg-[#12141C]/80 border border-white/10 rounded-[28px] p-3 mb-4 backdrop-blur-xl shadow-xl flex items-center gap-2" dir="ltr">
-					<span class="text-white/40 font-bold text-sm pl-2">@</span>
+				<div
+					class="bg-[#12141C]/80 border border-white/10 rounded-[28px] p-2.5 mb-4 backdrop-blur-xl shadow-xl flex items-center gap-2"
+					dir="ltr"
+				>
+					<span class="text-[#0098EA] font-bold text-lg pl-3">@</span>
 					<input
 						type="text"
-						placeholder="username (e.g. durov)"
+						placeholder={t('gifts.enterUsername')}
 						value={username()}
-						onInput={(e) => setUsername(e.currentTarget.value)}
+						onInput={(e) => setUsername(e.currentTarget.value.replace(/^@/, ''))}
 						onKeyDown={(e) => e.key === 'Enter' && handleScan()}
-						class="flex-1 bg-transparent border-none outline-none text-white text-sm font-semibold placeholder:text-white/30"
+						class="flex-1 bg-transparent border-none outline-none text-white text-base font-semibold placeholder:text-white/30"
 					/>
 					<button
+						type="button"
 						onClick={handleScan}
 						disabled={scanMutation.isPending || !username()}
-						class="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-500/20 active:scale-95 transition-all"
+						class="px-5 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-emerald-500/20 active:scale-95 transition-all hover:brightness-110"
 					>
-						<span>{scanMutation.isPending ? 'Scanning...' : 'Scan'}</span>
+						<span>{scanMutation.isPending ? t('gifts.unlocking') : t('gifts.scanPortfolio')}</span>
 						<span class="material-symbols-outlined text-sm">search</span>
 					</button>
 				</div>
@@ -143,62 +168,80 @@ export const PortfolioScannerPage: Component = () => {
 							{/* Portfolio Net Worth Banner */}
 							<div class="bg-gradient-to-b from-[#161925] to-[#0d1017] border border-white/15 rounded-[32px] p-6 shadow-2xl relative overflow-hidden">
 								<div class="flex items-center justify-between mb-2">
-									<span class="text-xs uppercase font-black text-emerald-400">@{res().username}'s Portfolio</span>
+									<span class="text-xs uppercase font-black text-emerald-400 tracking-wider">
+										@{res().username}'s {t('gifts.portfolio')}
+									</span>
 									<button
+										type="button"
 										onClick={exportCSV}
-										class="px-2.5 py-1 rounded-xl bg-white/[0.06] hover:bg-white/10 border border-white/10 text-[10px] font-bold text-white/80 flex items-center gap-1"
+										class="px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/10 border border-white/10 text-[10px] font-bold text-white/80 flex items-center gap-1 transition-all active:scale-95"
 									>
 										<span class="material-symbols-outlined text-xs">download</span>
-										<span>Export CSV</span>
+										<span>{t('gifts.exportCsv')}</span>
 									</button>
 								</div>
 
 								<div class="my-3">
-									<span class="text-3xl font-black text-white">
+									<span class="text-3xl font-black text-white font-mono">
 										{formatGram(res().total_portfolio_value_gram)}{' '}
-										<span class="text-sm font-bold text-[#0098EA]" title="Formerly: TON">GRAM</span>
+										<span class="text-sm font-bold text-[#0098EA]">{t('common.ton')}</span>
 									</span>
-									<span class="text-sm font-bold text-white/40 block mt-0.5">
+									<span class="text-sm font-bold text-white/40 block mt-0.5 font-mono">
 										({formatUsd(res().total_portfolio_value_usd)})
 									</span>
 								</div>
 
 								<div class="grid grid-cols-3 gap-2 pt-3 border-t border-white/[0.08] text-xs">
 									<div>
-										<span class="text-[9px] uppercase font-bold text-white/40 block">Items</span>
-										<span class="font-black text-white">{res().total_gifts_count} Collectibles</span>
+										<span class="text-[9px] uppercase font-bold text-white/40 block">{t('gifts.items')}</span>
+										<span class="font-black text-white">
+											{res().total_gifts_count} Collectibles
+										</span>
 									</div>
 									<div>
-										<span class="text-[9px] uppercase font-bold text-white/40 block">Invested</span>
-										<span class="font-black text-white">{formatGram(res().historical_invested_gram)} G</span>
+										<span class="text-[9px] uppercase font-bold text-white/40 block">{t('gifts.invested')}</span>
+										<span class="font-black text-white font-mono">
+											{formatGram(res().historical_invested_gram)} {t('common.ton')}
+										</span>
 									</div>
 									<div>
-										<span class="text-[9px] uppercase font-bold text-white/40 block">Total PnL</span>
-										<span class="font-black text-emerald-400">+{res().total_pnl_percent}%</span>
+										<span class="text-[9px] uppercase font-bold text-white/40 block">
+											{t('gifts.pnl')}
+										</span>
+										<span class="font-black text-emerald-400 font-mono">
+											+{res().total_pnl_percent}%
+										</span>
 									</div>
 								</div>
 							</div>
 
-							{/* Top 3 Most Valuable Gifts */}
+							{/* Top Most Valuable Gifts */}
 							<div class="bg-[#12141C]/80 border border-white/10 rounded-[28px] p-5 shadow-xl">
 								<h3 class="text-xs font-black uppercase text-white/60 mb-3 tracking-wider">
-									Top Valued Collectibles
+									{t('gifts.topGifts')}
 								</h3>
 								<div class="space-y-2">
 									<For each={res().top_valued_gifts}>
 										{(gift) => (
 											<div class="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-3 flex items-center justify-between">
 												<div>
-													<h4 class="font-black text-white text-xs">{gift.model_name} #{gift.serial_number}</h4>
-													<span class="text-[10px] text-emerald-400 font-bold">{gift.rarity_tier} Tier</span>
+													<h4 class="font-black text-white text-xs">
+														{gift.model_name} #{gift.serial_number}
+													</h4>
+													<span class="text-[10px] text-emerald-400 font-bold">
+														{gift.rarity_tier} Tier
+													</span>
 												</div>
 												<div class="text-right">
-													<span class="font-black text-white text-xs block">{formatGram(gift.estimated_val_gram)} GRAM</span>
+													<span class="font-black text-white text-xs block font-mono">
+														{formatGram(gift.estimated_val_gram)} {t('common.ton')}
+													</span>
 													<button
+														type="button"
 														onClick={() => navigate(gift.report_deep_link)}
 														class="text-[10px] text-[#0098EA] font-bold hover:underline"
 													>
-														View Report ➔
+														{t('gifts.viewReport')}
 													</button>
 												</div>
 											</div>

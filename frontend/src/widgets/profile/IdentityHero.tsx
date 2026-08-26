@@ -1,11 +1,11 @@
 import { initData } from '@tma.js/sdk-solid';
 import { createEffect, createMemo, createSignal, Show } from 'solid-js';
-import { buildAvatarUrl } from '@/shared/api/config.js';
-import { getActiveImpersonationToken } from '@/shared/api/axios.js';
-import { formatNumber, t } from '@/shared/i18n/index.js';
 import { getLevelInfo, type ProfileStats } from '@/entities/user/index.js';
-import { haptic } from '@/shared/lib/haptic.js';
 import { EmojiStatusModal } from '@/features/emoji-status/EmojiStatusModal.js';
+import { getActiveImpersonationToken } from '@/shared/api/axios.js';
+import { buildAvatarUrl } from '@/shared/api/config.js';
+import { formatNumber, t } from '@/shared/i18n/index.js';
+import { haptic } from '@/shared/lib/haptic.js';
 
 interface Props {
 	stats: ProfileStats | null;
@@ -40,7 +40,12 @@ export const IdentityHero = (props: Props) => {
 	});
 
 	const usernameTag = createMemo(() => {
-		if (props.stats?.username && !props.stats.username.startsWith('owner_') && !props.stats.username.startsWith('impersonated_user_')) return `@${props.stats.username}`;
+		if (
+			props.stats?.username &&
+			!props.stats.username.startsWith('owner_') &&
+			!props.stats.username.startsWith('impersonated_user_')
+		)
+			return `@${props.stats.username}`;
 		if (isImpersonating()) {
 			const su = sessionStorage.getItem('impersonated_username');
 			if (su && !su.startsWith('impersonated_user_') && !su.startsWith('owner_')) return `@${su}`;
@@ -51,7 +56,7 @@ export const IdentityHero = (props: Props) => {
 
 	const directTgPhoto = createMemo(() => {
 		if (isImpersonating()) return '';
-		return ((user() as any)?.photo_url || (user() as any)?.photoUrl) || '';
+		return (user() as any)?.photo_url || (user() as any)?.photoUrl || '';
 	});
 
 	const primaryAvatarUrl = createMemo(() => {
@@ -115,9 +120,7 @@ export const IdentityHero = (props: Props) => {
 								when={avatarUrl()}
 								fallback={
 									<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#151822] to-[#08090D]">
-										<span class="text-3xl font-black text-[#0098EA]">
-											{initialLetter()}
-										</span>
+										<span class="text-3xl font-black text-[#0098EA]">{initialLetter()}</span>
 									</div>
 								}
 							>
@@ -141,6 +144,7 @@ export const IdentityHero = (props: Props) => {
 
 					{/* Emoji Status Indicator (Clickable Action) */}
 					<button
+						type="button"
 						onClick={handleOpenEmojiModal}
 						class="absolute -bottom-1 -right-1 w-7 h-7 bg-[#12141C] hover:bg-[#1A1D27] active:scale-90 border border-white/20 rounded-full flex items-center justify-center text-[14px] shadow-lg transition-all"
 						title={t('emoji.setStatus' as any) || 'Set Telegram Emoji Status'}
@@ -157,7 +161,7 @@ export const IdentityHero = (props: Props) => {
 						</h1>
 						<Show when={props.stats?.isPremium || props.stats?.subscription?.isActive}>
 							<span class="px-2 py-0.5 rounded-[8px] bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-[10px] font-black tracking-wide uppercase">
-								PRO
+								{'PRO'}
 							</span>
 						</Show>
 					</div>
@@ -197,6 +201,7 @@ export const IdentityHero = (props: Props) => {
 
 						{/* Set Emoji Status Action Pill */}
 						<button
+							type="button"
 							onClick={handleOpenEmojiModal}
 							class="flex items-center gap-1 bg-amber-400/15 hover:bg-amber-400/25 border border-amber-400/30 px-2.5 py-1 rounded-[12px] text-amber-300 text-[11px] font-black active:scale-95 transition-all"
 						>

@@ -65,7 +65,7 @@ vi.mock('@/shared/ui/toast.js', () => ({
 vi.mock('@/shared/ui/settings-controls.js', () => ({
 	SettingsSection: (props: any) => <div data-testid="settings-section">{props.title}</div>,
 	ToggleSwitch: (props: any) => (
-		<button data-testid="toggle" onClick={() => props.onChange?.(!props.checked)}>
+		<button type="button" data-testid="toggle" onClick={() => props.onChange?.(!props.checked)}>
 			{props.checked ? 'ON' : 'OFF'}
 		</button>
 	),
@@ -76,10 +76,10 @@ vi.mock('@/shared/ui/settings-controls.js', () => ({
 	),
 	NumberInputField: (props: any) => (
 		<div data-testid="number-input">
-			<label>
+			<div>
 				<span>{props.label}</span>
 				<input type="number" value={props.value} />
-			</label>
+			</div>
 		</div>
 	),
 	InlineButtonField: (props: any) => <div data-testid="inline-button">{props.title}</div>,

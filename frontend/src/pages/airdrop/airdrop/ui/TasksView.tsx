@@ -1,6 +1,7 @@
 import { createQuery } from '@tanstack/solid-query';
 import { openTelegramLink } from '@tma.js/sdk-solid';
-import { Component, createSignal, For, Show } from 'solid-js';
+import { type Component, createSignal, For, Show } from 'solid-js';
+import { syncProfileStats } from '@/entities/airdrop/index.js';
 import {
 	claimDailyCombo,
 	completeTask,
@@ -10,7 +11,6 @@ import {
 	type TaskStatus,
 } from '@/entities/user/index.js';
 import { t } from '@/shared/i18n/index.js';
-import { syncProfileStats } from '@/entities/airdrop/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
 export const TasksView: Component = () => {
@@ -96,22 +96,45 @@ export const TasksView: Component = () => {
 		} catch (e: any) {
 			console.error('Failed to complete task:', e);
 			const raw = e?.message || String(e || '');
-			let errorMessage = t('airdrop.tasks.errors.default', { defaultValue: 'Failed to verify task' });
+			let errorMessage = t('airdrop.tasks.errors.default', {
+				defaultValue: 'Failed to verify task',
+			});
 			if (raw.includes('ERR_NEED_GOLD_LEAGUE') || raw.toLowerCase().includes('gold league')) {
-				errorMessage = t('airdrop.tasks.errors.needGoldLeague', { defaultValue: 'You need to reach Gold league first.' });
+				errorMessage = t('airdrop.tasks.errors.needGoldLeague', {
+					defaultValue: 'You need to reach Gold league first.',
+				});
 			} else if (raw.includes('ERR_NEED_CLAN') || raw.toLowerCase().includes('join a clan')) {
-				errorMessage = t('airdrop.tasks.errors.needClan', { defaultValue: 'You need to join a squad first.' });
+				errorMessage = t('airdrop.tasks.errors.needClan', {
+					defaultValue: 'You need to join a squad first.',
+				});
 			} else if (raw.includes('ERR_NEED_FRENS_COUNT')) {
 				const count = raw.split(':')[1] || '3';
-				errorMessage = t('airdrop.tasks.errors.needFrens', { count, defaultValue: `Invite at least ${count} friends first.` });
+				errorMessage = t('airdrop.tasks.errors.needFrens', {
+					count,
+					defaultValue: `Invite at least ${count} friends first.`,
+				});
 			} else if (raw.includes('ERR_NEED_100K_TAPS') || raw.toLowerCase().includes('total taps')) {
-				errorMessage = t('airdrop.tasks.errors.need100kTaps', { defaultValue: 'Keep tapping! 100,000 taps required.' });
-			} else if (raw.includes('ERR_NEED_TG_PREMIUM') || raw.toLowerCase().includes('telegram premium')) {
-				errorMessage = t('airdrop.tasks.errors.needTgPremium', { defaultValue: 'Active Telegram Premium subscription required.' });
-			} else if (raw.includes('ERR_NEED_CHANNEL_JOIN') || raw.toLowerCase().includes('official channel')) {
-				errorMessage = t('airdrop.tasks.errors.needChannelJoin', { defaultValue: 'Please join the channel first.' });
+				errorMessage = t('airdrop.tasks.errors.need100kTaps', {
+					defaultValue: 'Keep tapping! 100,000 taps required.',
+				});
+			} else if (
+				raw.includes('ERR_NEED_TG_PREMIUM') ||
+				raw.toLowerCase().includes('telegram premium')
+			) {
+				errorMessage = t('airdrop.tasks.errors.needTgPremium', {
+					defaultValue: 'Active Telegram Premium subscription required.',
+				});
+			} else if (
+				raw.includes('ERR_NEED_CHANNEL_JOIN') ||
+				raw.toLowerCase().includes('official channel')
+			) {
+				errorMessage = t('airdrop.tasks.errors.needChannelJoin', {
+					defaultValue: 'Please join the channel first.',
+				});
 			} else if (raw.includes('ERR_MEMBERSHIP_PENDING')) {
-				errorMessage = t('airdrop.tasks.errors.membershipPending', { defaultValue: 'Verification in progress, please wait...' });
+				errorMessage = t('airdrop.tasks.errors.membershipPending', {
+					defaultValue: 'Verification in progress, please wait...',
+				});
 			}
 			setTaskErrors((prev) => ({ ...prev, [key]: errorMessage }));
 			haptic.notify('error');
@@ -151,7 +174,8 @@ export const TasksView: Component = () => {
 			if (e?.message) {
 				const msg = e.message.toLowerCase();
 				if (msg.includes('incorrect')) errorMessage = 'Incorrect answer. Please try again.';
-				else if (msg.includes('network') || msg.includes('fetch')) errorMessage = t('airdrop.tasks.errors.network') || 'Network error.';
+				else if (msg.includes('network') || msg.includes('fetch'))
+					errorMessage = t('airdrop.tasks.errors.network') || 'Network error.';
 				else errorMessage = e.message;
 			}
 			setQuizError(errorMessage);
@@ -199,18 +223,28 @@ export const TasksView: Component = () => {
 	const getTaskDetails = (task: TaskStatus) => {
 		const key = task.key;
 		switch (key) {
-			case 'league_gold': return { title: t('airdropFinal.tasks.leagueGold') || task.title, icon: 'emoji_events' };
-			case 'join_clan': return { title: t('airdropFinal.tasks.joinClan') || task.title, icon: 'shield' };
-			case 'invite_1_fren': return { title: t('airdropFinal.tasks.invite1') || task.title, icon: 'person_add' };
-			case 'invite_3_frens': return { title: t('airdropFinal.tasks.invite3') || task.title, icon: 'group_add' };
-			case 'invite_10_frens': return { title: t('airdropFinal.tasks.invite10') || task.title, icon: 'groups' };
-			case 'taps_100k': return { title: t('airdropFinal.tasks.taps100k') || task.title, icon: 'touch_app' };
-			case 'telegram_premium': return { title: t('airdropFinal.tasks.premium') || task.title, icon: 'stars' };
-			case 'join_ifragment_channel': return { title: t('airdropFinal.tasks.joinChannel') || task.title, icon: 'podcasts' };
+			case 'league_gold':
+				return { title: t('airdropFinal.tasks.leagueGold') || task.title, icon: 'emoji_events' };
+			case 'join_clan':
+				return { title: t('airdropFinal.tasks.joinClan') || task.title, icon: 'shield' };
+			case 'invite_1_fren':
+				return { title: t('airdropFinal.tasks.invite1') || task.title, icon: 'person_add' };
+			case 'invite_3_frens':
+				return { title: t('airdropFinal.tasks.invite3') || task.title, icon: 'group_add' };
+			case 'invite_10_frens':
+				return { title: t('airdropFinal.tasks.invite10') || task.title, icon: 'groups' };
+			case 'taps_100k':
+				return { title: t('airdropFinal.tasks.taps100k') || task.title, icon: 'touch_app' };
+			case 'telegram_premium':
+				return { title: t('airdropFinal.tasks.premium') || task.title, icon: 'stars' };
+			case 'join_ifragment_channel':
+				return { title: t('airdropFinal.tasks.joinChannel') || task.title, icon: 'podcasts' };
 			default: {
 				let icon = 'card_giftcard';
-				if (task.type === 'channel_join' || key.includes('channel') || key.includes('telegram')) icon = 'podcasts';
-				else if (task.type === 'quiz' || key.includes('quiz') || key.includes('question')) icon = 'help';
+				if (task.type === 'channel_join' || key.includes('channel') || key.includes('telegram'))
+					icon = 'podcasts';
+				else if (task.type === 'quiz' || key.includes('quiz') || key.includes('question'))
+					icon = 'help';
 				else if (key.includes('invite') || key.includes('fren')) icon = 'group_add';
 				return { title: task.title || t('airdropFinal.tasks.specialTask'), icon };
 			}
@@ -228,11 +262,12 @@ export const TasksView: Component = () => {
 			<div class="absolute top-0 left-0 right-0 h-[300px] bg-gradient-to-b from-[#3390ec]/15 via-[#3390ec]/5 to-transparent blur-[80px] pointer-events-none z-0" />
 
 			<div class="max-w-md mx-auto relative z-10 pt-8 flex flex-col gap-5">
-				
 				{/* ═══════ HEADER ═══════ */}
 				<div class="px-5 flex flex-col items-center text-center">
 					<div class="w-20 h-20 bg-gradient-to-br from-[#12141C] to-[#08090D] rounded-[22px] border-[1.5px] border-[#3390ec]/30 flex items-center justify-center mb-4 shadow-[inset_0_2px_12px_rgba(255,255,255,0.05),0_10px_30px_rgba(51,144,236,0.2)]">
-						<span class="material-symbols-outlined text-[40px] text-[#3390ec] drop-shadow-md">task_alt</span>
+						<span class="material-symbols-outlined text-[40px] text-[#3390ec] drop-shadow-md">
+							task_alt
+						</span>
 					</div>
 					<h1 class="text-[24px] font-black tracking-tight mb-1.5 text-white drop-shadow-sm">
 						{t('airdropFinal.tasks.title')}
@@ -248,13 +283,13 @@ export const TasksView: Component = () => {
 						<div class="bg-gradient-to-b from-[#1c1608] to-[#12141C] rounded-[28px] p-5 flex flex-col items-center relative border border-amber-400/20 shadow-[0_12px_40px_rgba(0,0,0,0.4)] overflow-hidden">
 							{/* Golden Inner Glow */}
 							<div class="absolute -top-10 left-1/2 -translate-x-1/2 w-32 h-32 bg-amber-400/10 rounded-full blur-2xl pointer-events-none" />
-							
+
 							<h3 class="text-white text-[17px] font-black mb-1.5 z-10 flex items-center gap-2 drop-shadow-md">
-								<span class="material-symbols-outlined text-amber-400 text-[20px]">extension</span> 
-								Daily Combo
+								<span class="material-symbols-outlined text-amber-400 text-[20px]">extension</span>
+								{t('tasks.dailyCombo')}
 							</h3>
 							<p class="text-white/60 text-[12px] text-center mb-4 z-10 flex items-center justify-center gap-1.5 font-medium">
-								Guess secret word & earn
+								{t('tasks.guessSecretWord')}
 								<span class="bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-md text-amber-400 font-mono font-bold text-[11px] flex items-center gap-0.5 shadow-sm">
 									{formatCoins(comboQuery.data?.reward || 0)} 🪙
 								</span>
@@ -264,9 +299,15 @@ export const TasksView: Component = () => {
 								when={!comboQuery.data?.is_claimed}
 								fallback={
 									<div class="w-full py-4 bg-emerald-500/10 border border-emerald-500/20 rounded-[18px] flex flex-col items-center justify-center z-10 shadow-inner">
-										<span class="material-symbols-outlined text-emerald-400 text-[24px] mb-1">check_circle</span>
-										<span class="text-emerald-400 font-black text-[13px] tracking-wide">REWARD CLAIMED!</span>
-										<span class="text-emerald-400/60 text-[11px] font-mono mt-1">Come back tomorrow.</span>
+										<span class="material-symbols-outlined text-emerald-400 text-[24px] mb-1">
+											check_circle
+										</span>
+										<span class="text-emerald-400 font-black text-[13px] tracking-wide">
+											{t('tasks.rewardClaimed')}
+										</span>
+										<span class="text-emerald-400/60 text-[11px] font-mono mt-1">
+											{t('tasks.comeBackTomorrow')}
+										</span>
 									</div>
 								}
 							>
@@ -274,7 +315,7 @@ export const TasksView: Component = () => {
 									<div class="relative">
 										<input
 											type="text"
-											placeholder="Enter secret word..."
+											placeholder={t('tasks.enterSecretWord')}
 											value={comboInput()}
 											onInput={(e) => setComboInput(e.target.value)}
 											class="w-full bg-[#08090D] border border-amber-400/20 focus:border-amber-400 rounded-[16px] py-3.5 px-4 text-amber-50 placeholder-white/20 text-center font-mono font-bold text-[14px] outline-none transition-all shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)]"
@@ -283,7 +324,8 @@ export const TasksView: Component = () => {
 									</div>
 									<Show when={comboError()}>
 										<div class="text-[#ff4a4a] text-[11px] text-center bg-[#ff4a4a]/10 py-1.5 px-3 rounded-[10px] border border-[#ff4a4a]/20 font-bold flex items-center justify-center gap-1">
-											<span class="material-symbols-outlined text-[14px]">error</span> {comboError()}
+											<span class="material-symbols-outlined text-[14px]">error</span>{' '}
+											{comboError()}
 										</div>
 									</Show>
 									<button
@@ -292,7 +334,8 @@ export const TasksView: Component = () => {
 										class="w-full h-14 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-black text-[13px] uppercase tracking-widest rounded-[16px] active:scale-95 transition-all disabled:opacity-40 disabled:scale-100 flex justify-center items-center gap-2 shadow-[0_8px_20px_rgba(245,158,11,0.3)]"
 									>
 										<Show when={isSubmittingCombo()} fallback="Verify Code">
-											<div class="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" /> Verifying...
+											<div class="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />{' '}
+											Verifying...
 										</Show>
 									</button>
 								</form>
@@ -304,7 +347,9 @@ export const TasksView: Component = () => {
 				{/* ═══════ TASKS LIST ═══════ */}
 				<div class="px-4 flex flex-col">
 					<div class="flex items-center gap-2 px-2 mb-3">
-						<span class="material-symbols-outlined text-white/40 text-[18px]">format_list_bulleted</span>
+						<span class="material-symbols-outlined text-white/40 text-[18px]">
+							format_list_bulleted
+						</span>
 						<h2 class="text-[12px] font-mono font-black uppercase tracking-widest text-white/60">
 							{t('airdropFinal.tasks.tasksTab')}
 						</h2>
@@ -316,7 +361,9 @@ export const TasksView: Component = () => {
 							fallback={
 								<div class="w-full py-16 flex flex-col items-center justify-center gap-3">
 									<div class="w-8 h-8 border-[3px] border-white/10 border-t-[#3390ec] rounded-full animate-spin" />
-									<span class="text-[12px] font-mono font-bold text-white/40 tracking-widest">LOADING TASKS...</span>
+									<span class="text-[12px] font-mono font-bold text-white/40 tracking-widest">
+										{t('tasks.loadingTasks')}
+									</span>
 								</div>
 							}
 						>
@@ -324,8 +371,14 @@ export const TasksView: Component = () => {
 								when={!tasksQuery.isError}
 								fallback={
 									<div class="py-12 text-center flex flex-col items-center">
-										<span class="text-[#ff4a4a]/80 text-[13px] font-bold mb-3">{t('airdropFinal.tasks.failedLoad')}</span>
-										<button onClick={() => tasksQuery.refetch()} class="px-6 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-[14px] font-bold text-[12px] border border-white/10 transition-all">
+										<span class="text-[#ff4a4a]/80 text-[13px] font-bold mb-3">
+											{t('airdropFinal.tasks.failedLoad')}
+										</span>
+										<button
+											type="button"
+											onClick={() => tasksQuery.refetch()}
+											class="px-6 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-[14px] font-bold text-[12px] border border-white/10 transition-all"
+										>
 											{t('airdropFinal.tasks.retryBtn')}
 										</button>
 									</div>
@@ -343,62 +396,92 @@ export const TasksView: Component = () => {
 										<For each={tasksQuery.data?.filter((t) => !t.parent_key)}>
 											{(task) => {
 												const details = getTaskDetails(task);
-												const hasProgress = typeof task.progress_target === 'number' && task.progress_target > 0;
-												const progressCurrent = typeof task.progress_current === 'number' ? task.progress_current : 0;
+												const hasProgress =
+													typeof task.progress_target === 'number' && task.progress_target > 0;
+												const progressCurrent =
+													typeof task.progress_current === 'number' ? task.progress_current : 0;
 												const progressTarget = task.progress_target || 1;
-												let progressPercent = hasProgress ? Math.min(100, Math.round((progressCurrent / progressTarget) * 100)) : 0;
-												if (hasProgress && progressCurrent > 0 && !task.completed) progressPercent = Math.max(15, progressPercent);
-												
+												let progressPercent = hasProgress
+													? Math.min(100, Math.round((progressCurrent / progressTarget) * 100))
+													: 0;
+												if (hasProgress && progressCurrent > 0 && !task.completed)
+													progressPercent = Math.max(15, progressPercent);
+
 												const isPremium = task.is_premium_req;
 												const actionText = task.action_text || '';
 												let btnText = 'START';
 												if (task.type === 'channel_join') btnText = 'JOIN';
 												else if (task.type === 'quiz') btnText = 'SOLVE';
-												else if (hasProgress && progressCurrent >= progressTarget) btnText = 'CLAIM';
+												else if (hasProgress && progressCurrent >= progressTarget)
+													btnText = 'CLAIM';
 												else if (task.type === 'link' || task.type === 'social') btnText = 'GO';
 
 												return (
 													<div class="flex flex-col relative group">
 														<button
+															type="button"
 															onClick={() => handleTaskClick(task)}
 															disabled={task.completed || loadingKeys()[task.key]}
 															class={`w-full flex flex-col p-3 text-start transition-all duration-300 disabled:opacity-100 rounded-[20px] border 
-																${task.completed ? 'bg-white/[0.02] border-transparent opacity-60' : 
-																  isPremium ? 'bg-gradient-to-r from-amber-400/10 to-transparent border-amber-400/20 hover:border-amber-400/40 hover:bg-amber-400/10' : 
-																  'bg-[#161b28]/40 border-white/5 hover:border-white/15 hover:bg-[#1a2133]'}`
-															}
+																${
+																	task.completed
+																		? 'bg-white/[0.02] border-transparent opacity-60'
+																		: isPremium
+																			? 'bg-gradient-to-r from-amber-400/10 to-transparent border-amber-400/20 hover:border-amber-400/40 hover:bg-amber-400/10'
+																			: 'bg-[#161b28]/40 border-white/5 hover:border-white/15 hover:bg-[#1a2133]'
+																}`}
 														>
 															<div class="flex items-center justify-between w-full">
 																<div class="flex items-center gap-3.5 min-w-0 flex-1 pr-2">
 																	{/* Task Icon */}
-																	<div class={`w-12 h-12 rounded-[16px] flex items-center justify-center shrink-0 border shadow-inner transition-colors
-																		${task.completed ? 'bg-[#08090D] border-white/5 text-white/30' : 
-																		  isPremium ? 'bg-gradient-to-br from-amber-400/20 to-amber-400/5 border-amber-400/40 text-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.2)]' : 
-																		  'bg-[#08090D] border-white/10 text-white/80'}`
-																	}>
-																		<span class="material-symbols-outlined text-[24px]">{details.icon}</span>
+																	<div
+																		class={`w-12 h-12 rounded-[16px] flex items-center justify-center shrink-0 border shadow-inner transition-colors
+																		${
+																			task.completed
+																				? 'bg-[#08090D] border-white/5 text-white/30'
+																				: isPremium
+																					? 'bg-gradient-to-br from-amber-400/20 to-amber-400/5 border-amber-400/40 text-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.2)]'
+																					: 'bg-[#08090D] border-white/10 text-white/80'
+																		}`}
+																	>
+																		<span class="material-symbols-outlined text-[24px]">
+																			{details.icon}
+																		</span>
 																	</div>
 
 																	{/* Task Info */}
 																	<div class="flex flex-col min-w-0 py-0.5">
 																		<div class="flex items-center gap-2 mb-1 flex-wrap">
-																			<span class="text-white font-bold text-[14.5px] truncate tracking-tight">{details.title}</span>
+																			<span class="text-white font-bold text-[14.5px] truncate tracking-tight">
+																				{details.title}
+																			</span>
 																			{isPremium && !task.completed && (
 																				<span class="text-amber-400 text-[9px] bg-amber-400/10 border border-amber-400/30 px-1.5 py-0.5 rounded-[6px] font-mono font-black uppercase tracking-wider drop-shadow-md">
-																					STAR ⭐️
+																					{t('tasks.starBadge')}
 																				</span>
 																			)}
 																		</div>
 																		<div class="flex items-center gap-2.5 flex-wrap opacity-90">
-																			<span class={`font-mono font-black text-[12px] flex items-center gap-0.5 shrink-0 ${task.completed ? 'text-white/40' : 'text-amber-400'}`}>
-																				<span>🪙</span> <span>{formatCoins(task.reward_frg ?? 0)}</span>
+																			<span
+																				class={`font-mono font-black text-[12px] flex items-center gap-0.5 shrink-0 ${task.completed ? 'text-white/40' : 'text-amber-400'}`}
+																			>
+																				<span>🪙</span>{' '}
+																				<span>{formatCoins(task.reward_frg ?? 0)}</span>
 																			</span>
-																			{(actionText || (task.config as any)?.channel_username) && !task.completed && (
-																				<span class="text-[#3390ec] bg-[#3390ec]/10 border border-[#3390ec]/20 px-2 py-[2px] rounded-[6px] font-mono text-[10px] font-bold truncate max-w-[140px] flex items-center gap-1" dir="ltr">
-																					<span class="material-symbols-outlined text-[12px]">podcasts</span>
-																					{(task.config as any)?.channel_username ? `@${(task.config as any).channel_username.replace(/^@+/, '')}` : actionText}
-																				</span>
-																			)}
+																			{(actionText || (task.config as any)?.channel_username) &&
+																				!task.completed && (
+																					<span
+																						class="text-[#3390ec] bg-[#3390ec]/10 border border-[#3390ec]/20 px-2 py-[2px] rounded-[6px] font-mono text-[10px] font-bold truncate max-w-[140px] flex items-center gap-1"
+																						dir="ltr"
+																					>
+																						<span class="material-symbols-outlined text-[12px]">
+																							podcasts
+																						</span>
+																						{(task.config as any)?.channel_username
+																							? `@${(task.config as any).channel_username.replace(/^@+/, '')}`
+																							: actionText}
+																					</span>
+																				)}
 																		</div>
 																	</div>
 																</div>
@@ -406,13 +489,18 @@ export const TasksView: Component = () => {
 																{/* Action Button / Status */}
 																<div class="shrink-0 flex items-center justify-center pl-2">
 																	{task.completed ? (
-																		<span class="material-symbols-outlined text-emerald-500/80 text-[28px] mr-1">check_circle</span>
+																		<span class="material-symbols-outlined text-emerald-500/80 text-[28px] mr-1">
+																			check_circle
+																		</span>
 																	) : loadingKeys()[task.key] ? (
-																		<span class="material-symbols-outlined animate-spin text-[22px] text-white/40 mr-2">progress_activity</span>
+																		<span class="material-symbols-outlined animate-spin text-[22px] text-white/40 mr-2">
+																			progress_activity
+																		</span>
 																	) : (
-																		<div class={`h-9 px-4 rounded-[12px] font-black text-[11px] uppercase tracking-widest flex items-center justify-center transition-all shadow-md active:scale-95
-																			${isPremium ? 'bg-amber-400 text-black shadow-[0_4px_12px_rgba(251,191,36,0.3)] hover:bg-amber-300' : 'bg-[#3390ec] text-white shadow-[0_4px_12px_rgba(51,144,236,0.3)] hover:bg-[#2b7ec9]'}`
-																		}>
+																		<div
+																			class={`h-9 px-4 rounded-[12px] font-black text-[11px] uppercase tracking-widest flex items-center justify-center transition-all shadow-md active:scale-95
+																			${isPremium ? 'bg-amber-400 text-black shadow-[0_4px_12px_rgba(251,191,36,0.3)] hover:bg-amber-300' : 'bg-[#3390ec] text-white shadow-[0_4px_12px_rgba(51,144,236,0.3)] hover:bg-[#2b7ec9]'}`}
+																		>
 																			{btnText}
 																		</div>
 																	)}
@@ -423,12 +511,24 @@ export const TasksView: Component = () => {
 															<Show when={hasProgress && !task.completed}>
 																<div class="w-full mt-3 flex items-center gap-3 px-1">
 																	<div class="flex-1 h-[6px] bg-black/60 rounded-full overflow-hidden border border-white/5 p-[1px] shadow-inner">
-																		<div class="h-full bg-gradient-to-r from-[#3390ec] to-[#60a5fa] rounded-full transition-all duration-700 ease-out relative overflow-hidden" style={{ width: `${progressPercent}%` }}>
-																			<div class="absolute inset-0 bg-white/20 w-full h-full animate-[spinSlow_2s_linear_infinite]" style={{ transform: 'skewX(-45deg)' }} />
+																		<div
+																			class="h-full bg-gradient-to-r from-[#3390ec] to-[#60a5fa] rounded-full transition-all duration-700 ease-out relative overflow-hidden"
+																			style={{ width: `${progressPercent}%` }}
+																		>
+																			<div
+																				class="absolute inset-0 bg-white/20 w-full h-full animate-[spinSlow_2s_linear_infinite]"
+																				style={{ transform: 'skewX(-45deg)' }}
+																			/>
 																		</div>
 																	</div>
 																	<span class="text-[11px] font-mono font-bold text-white/50 shrink-0 tabular-nums">
-																		{progressCurrent >= 1000 ? `${(progressCurrent / 1000).toFixed(1)}k` : progressCurrent} / {progressTarget >= 1000 ? `${(progressTarget / 1000).toFixed(1)}k` : progressTarget}
+																		{progressCurrent >= 1000
+																			? `${(progressCurrent / 1000).toFixed(1)}k`
+																			: progressCurrent}{' '}
+																		/{' '}
+																		{progressTarget >= 1000
+																			? `${(progressTarget / 1000).toFixed(1)}k`
+																			: progressTarget}
 																	</span>
 																</div>
 															</Show>
@@ -437,7 +537,8 @@ export const TasksView: Component = () => {
 														{/* Error Message */}
 														<Show when={taskErrors()[task.key]}>
 															<div class="mt-1 text-[#ff4a4a] font-bold text-[11px] py-2 px-3 text-center bg-[#ff4a4a]/10 rounded-[14px] mx-1 border border-[#ff4a4a]/20 flex items-center justify-center gap-1">
-																<span class="material-symbols-outlined text-[14px]">info</span> {taskErrors()[task.key]}
+																<span class="material-symbols-outlined text-[14px]">info</span>{' '}
+																{taskErrors()[task.key]}
 															</div>
 														</Show>
 													</div>
@@ -454,12 +555,19 @@ export const TasksView: Component = () => {
 
 			{/* ═══════ QUIZ MODAL (Glassmorphic Box) ═══════ */}
 			<Show when={activeQuizTask()}>
-				<div class="fixed inset-0 z-[9999] flex items-center justify-center p-5 bg-black/80 backdrop-blur-md animate-fade-in" dir="rtl">
+				<div
+					class="fixed inset-0 z-[9999] flex items-center justify-center p-5 bg-black/80 backdrop-blur-md animate-fade-in"
+					dir="rtl"
+				>
 					<div class="w-full max-w-sm max-h-[85vh] overflow-y-auto no-scrollbar bg-[#12141C] border border-white/10 rounded-[32px] p-7 shadow-[0_20px_60px_rgba(0,0,0,0.8)] relative animate-slide-up">
 						{/* Ambient Glow */}
 						<div class="absolute -top-10 -right-10 w-32 h-32 bg-[#3390ec]/20 rounded-full blur-3xl pointer-events-none" />
-						
-						<button onClick={() => setActiveQuizTask(null)} class="absolute top-5 right-5 w-8 h-8 rounded-[12px] bg-white/5 hover:bg-white/10 flex items-center justify-center border border-white/10 active:scale-95 transition-all text-white/50 hover:text-white">
+
+						<button
+							type="button"
+							onClick={() => setActiveQuizTask(null)}
+							class="absolute top-5 right-5 w-8 h-8 rounded-[12px] bg-white/5 hover:bg-white/10 flex items-center justify-center border border-white/10 active:scale-95 transition-all text-white/50 hover:text-white"
+						>
 							<span class="material-symbols-outlined text-[20px]">close</span>
 						</button>
 
@@ -471,7 +579,8 @@ export const TasksView: Component = () => {
 								{activeQuizTask()?.title || t('airdropFinal.tasks.specialTask')}
 							</h3>
 							<p class="text-[13px] text-white/60 leading-relaxed mb-6 font-medium">
-								{activeQuizTask()?.config?.quiz_question || 'Solve this riddle to claim the reward!'}
+								{activeQuizTask()?.config?.quiz_question ||
+									'Solve this riddle to claim the reward!'}
 							</p>
 						</div>
 
@@ -482,7 +591,7 @@ export const TasksView: Component = () => {
 								value={quizAnswerInput()}
 								onInput={(e) => setQuizAnswerInput(e.currentTarget.value)}
 								class="w-full h-14 px-4 bg-[#08090D] border border-white/10 focus:border-[#3390ec] text-white text-[15px] font-bold rounded-[16px] focus:outline-none transition-all text-center font-mono shadow-inner placeholder-white/20"
-								placeholder="Enter your answer..."
+								placeholder={t('tasks.enterYourAnswer')}
 								autofocus
 								dir="ltr"
 							/>
@@ -497,7 +606,9 @@ export const TasksView: Component = () => {
 								class="w-full h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] active:scale-95 text-[13px] font-black uppercase tracking-widest rounded-[16px] shadow-[0_8px_20px_rgba(51,144,236,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-50 text-white border border-white/10"
 							>
 								{loadingKeys()[activeQuizTask()!.key] ? (
-									<span class="material-symbols-outlined animate-spin text-[22px]">progress_activity</span>
+									<span class="material-symbols-outlined animate-spin text-[22px]">
+										progress_activity
+									</span>
 								) : (
 									t('airdrop.tasks.buttons.check') || 'CHECK ANSWER'
 								)}
@@ -509,11 +620,18 @@ export const TasksView: Component = () => {
 
 			{/* ═══════ CAMPAIGN MODAL (Premium Nested List) ═══════ */}
 			<Show when={activeCampaign()}>
-				<div class="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-5 bg-black/80 backdrop-blur-md animate-fade-in" dir="rtl">
+				<div
+					class="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-5 bg-black/80 backdrop-blur-md animate-fade-in"
+					dir="rtl"
+				>
 					<div class="w-full max-w-sm bg-[#12141C] sm:rounded-[32px] rounded-t-[32px] p-6 sm:p-7 shadow-[0_-20px_60px_rgba(0,0,0,0.8)] sm:shadow-[0_20px_60px_rgba(0,0,0,0.8)] relative max-h-[85vh] overflow-y-auto no-scrollbar animate-slide-up border-t sm:border border-white/10">
 						<div class="w-12 h-1.5 bg-white/10 rounded-full mx-auto sm:hidden mb-4" />
-						
-						<button onClick={() => setActiveCampaign(null)} class="absolute top-5 right-5 w-8 h-8 rounded-[12px] bg-white/5 hover:bg-white/10 flex items-center justify-center border border-white/10 active:scale-95 transition-all text-white/50 hover:text-white hidden sm:flex">
+
+						<button
+							type="button"
+							onClick={() => setActiveCampaign(null)}
+							class="absolute top-5 right-5 w-8 h-8 rounded-[12px] bg-white/5 hover:bg-white/10 flex items-center justify-center border border-white/10 active:scale-95 transition-all text-white/50 hover:text-white hidden sm:flex"
+						>
 							<span class="material-symbols-outlined text-[20px]">close</span>
 						</button>
 
@@ -525,7 +643,7 @@ export const TasksView: Component = () => {
 							</div>
 							<h3 class="text-[18px] font-black text-white mb-1.5">{activeCampaign()?.title}</h3>
 							<p class="text-[12px] text-white/50 font-medium px-4">
-								Complete all sub-tasks to unlock the final campaign reward.
+								{t('tasks.completeSubTasksDesc')}
 							</p>
 						</div>
 
@@ -533,22 +651,34 @@ export const TasksView: Component = () => {
 							<For each={tasksQuery.data?.filter((t) => t.parent_key === activeCampaign()?.key)}>
 								{(task, index) => {
 									const details = getTaskDetails(task);
-									const isLast = index() === (tasksQuery.data?.filter((t) => t.parent_key === activeCampaign()?.key).length || 0) - 1;
+									const isLast =
+										index() ===
+										(tasksQuery.data?.filter((t) => t.parent_key === activeCampaign()?.key)
+											.length || 0) -
+											1;
 									return (
 										<div class={`flex flex-col ${!isLast ? 'border-b border-white/5' : ''}`}>
 											<button
+												type="button"
 												onClick={() => handleTaskClick(task)}
 												disabled={task.completed || loadingKeys()[task.key]}
 												class="w-full flex items-center justify-between py-3.5 px-4 text-start hover:bg-white/5 active:bg-white/10 transition-colors disabled:opacity-100 group"
 											>
 												<div class="flex items-center gap-3.5 min-w-0 flex-1 pr-2">
 													<div class="w-10 h-10 bg-[#161b28] rounded-[12px] flex items-center justify-center shrink-0 border border-white/10 group-hover:border-white/20 transition-colors">
-														<span class="material-symbols-outlined text-[20px] text-white/70">{details.icon}</span>
+														<span class="material-symbols-outlined text-[20px] text-white/70">
+															{details.icon}
+														</span>
 													</div>
 													<div class="flex flex-col min-w-0 pr-1">
-														<span class="text-white font-bold text-[13px] truncate">{details.title}</span>
+														<span class="text-white font-bold text-[13px] truncate">
+															{details.title}
+														</span>
 														<Show when={(task.reward_frg ?? 0) > 0}>
-															<span class="text-amber-400 font-mono font-bold text-[11px] flex items-center gap-1 mt-0.5" dir="ltr">
+															<span
+																class="text-amber-400 font-mono font-bold text-[11px] flex items-center gap-1 mt-0.5"
+																dir="ltr"
+															>
 																<span>🪙</span> {formatCoins(task.reward_frg ?? 0)}
 															</span>
 														</Show>
@@ -556,11 +686,17 @@ export const TasksView: Component = () => {
 												</div>
 												<div class="shrink-0 flex items-center justify-center">
 													{task.completed ? (
-														<span class="material-symbols-outlined text-emerald-500 text-[24px]">check_circle</span>
+														<span class="material-symbols-outlined text-emerald-500 text-[24px]">
+															check_circle
+														</span>
 													) : loadingKeys()[task.key] ? (
-														<span class="material-symbols-outlined animate-spin text-[20px] text-white/40">progress_activity</span>
+														<span class="material-symbols-outlined animate-spin text-[20px] text-white/40">
+															progress_activity
+														</span>
 													) : (
-														<span class="material-symbols-outlined text-[20px] text-white/30 rtl:-scale-x-100 group-hover:text-white/60 transition-colors">chevron_right</span>
+														<span class="material-symbols-outlined text-[20px] text-white/30 rtl:-scale-x-100 group-hover:text-white/60 transition-colors">
+															chevron_right
+														</span>
 													)}
 												</div>
 											</button>
@@ -571,11 +707,22 @@ export const TasksView: Component = () => {
 						</div>
 
 						<button
+							type="button"
 							onClick={() => handleTaskClick(activeCampaign()!)}
-							disabled={activeCampaign()?.completed || loadingKeys()[activeCampaign()!.key] || tasksQuery.data?.filter((t) => t.parent_key === activeCampaign()?.key).some((t) => !t.completed)}
+							disabled={
+								activeCampaign()?.completed ||
+								loadingKeys()[activeCampaign()!.key] ||
+								tasksQuery.data
+									?.filter((t) => t.parent_key === activeCampaign()?.key)
+									.some((t) => !t.completed)
+							}
 							class="w-full h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] active:scale-95 disabled:opacity-40 disabled:grayscale text-white font-black text-[13px] uppercase tracking-widest rounded-[16px] shadow-[0_8px_20px_rgba(51,144,236,0.3)] transition-all flex items-center justify-center border border-white/10"
 						>
-							{activeCampaign()?.completed ? 'REWARD CLAIMED' : loadingKeys()[activeCampaign()!.key] ? 'CLAIMING...' : 'CLAIM REWARD'}
+							{activeCampaign()?.completed
+								? 'REWARD CLAIMED'
+								: loadingKeys()[activeCampaign()!.key]
+									? 'CLAIMING...'
+									: 'CLAIM REWARD'}
 						</button>
 					</div>
 				</div>

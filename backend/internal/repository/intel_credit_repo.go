@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -239,4 +240,127 @@ func (r *IntelCreditRepo) RefundCredit(ctx context.Context, userID int64, reason
 	}
 
 	return tx.Commit(ctx)
+}
+
+// DB exposes the underlying database handle for cross-ledger operations.
+func (r *IntelCreditRepo) DB() *Database { return r.db }
+
+// ErrInsufficientCoins is returned when the Airdrop coin balance cannot cover an exchange.
+var ErrInsufficientCoins = errors.New("insufficient airdrop coins")
+
+// ExchangeCoinsForCredit atomically deducts Airdrop Coins and grants exactly one
+// purchased Intel Credit batch inside a single transaction. Returns the new credit balance.
+func (r *IntelCreditRepo) ExchangeCoinsForCredit(ctx context.Context, userID int64, coinsCost float64, expiresAt *time.Time) (int, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return 0, fmt.Errorf("database unavailable")
+	}
+	if coinsCost <= 0 {
+		return 0, fmt.Errorf("coin cost must be positive")
+	}
+
+	tx, err := r.db.Pool.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Deduct Airdrop Coins (FIFO across user_credit_batches)
+	if err := r.db.DeductCreditsFIFO(ctx, tx, userID, coinsCost); err != nil {
+		if strings.Contains(err.Error(), "insufficient active credits") {
+			return 0, ErrInsufficientCoins
+		}
+		return 0, fmt.Errorf("failed to deduct coins: %w", err)
+	}
+
+	// 2. Grant exactly one purchased credit batch
+	var batchID uuid.UUID
+	err = tx.QueryRow(ctx, `
+		INSERT INTO intel_credit_batches (user_id, kind, amount, remaining, source, expires_at, created_at)
+		VALUES ($1, 'purchased', 1, 1, 'coins_exchange', $2, now())
+		RETURNING id
+	`, userID, expiresAt).Scan(&batchID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create credit batch: %w", err)
+	}
+
+	// 3. Ledger entry
+	_, err = tx.Exec(ctx, `
+		INSERT INTO intel_credit_ledger (user_id, delta, reason, entity, batch_id, created_at)
+		VALUES ($1, 1, 'grant:coins_exchange', 'coins_exchange', $2, now())
+	`, userID, batchID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to log exchange ledger: %w", err)
+	}
+
+	// 4. New balance
+	var bal int
+	err = tx.QueryRow(ctx, `
+		SELECT COALESCE(SUM(remaining), 0) FROM intel_credit_batches
+		WHERE user_id = $1 AND remaining > 0 AND (expires_at IS NULL OR expires_at > now())
+	`, userID).Scan(&bal)
+	if err != nil {
+		return 0, fmt.Errorf("failed to compute balance: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+	return bal, nil
+}
+
+// GrantPackOnce grants a pack of credits exactly once per reference ID (Telegram charge ID).
+// Returns false when the reference was already fulfilled (idempotent duplicate delivery).
+func (r *IntelCreditRepo) GrantPackOnce(ctx context.Context, userID int64, credits int, source, referenceID string, expiresAt *time.Time) (bool, error) {
+	if r.db == nil || r.db.Pool == nil {
+		return false, fmt.Errorf("database unavailable")
+	}
+	if credits <= 0 || referenceID == "" {
+		return false, fmt.Errorf("credits and reference ID are required")
+	}
+
+	tx, err := r.db.Pool.Begin(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Idempotency guard on the charge reference
+	var exists int
+	err = tx.QueryRow(ctx, `
+		SELECT COUNT(*) FROM intel_credit_ledger
+		WHERE user_id = $1 AND reason = 'grant:stars_pack' AND entity = $2
+	`, userID, referenceID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("idempotency check failed: %w", err)
+	}
+	if exists > 0 {
+		return false, nil
+	}
+
+	// 2. Grant the batch
+	var refVal *string
+	refVal = &referenceID
+	var batchID uuid.UUID
+	err = tx.QueryRow(ctx, `
+		INSERT INTO intel_credit_batches (user_id, kind, amount, remaining, source, reference_id, expires_at, created_at)
+		VALUES ($1, 'purchased', $2, $2, $3, $4, $5, now())
+		RETURNING id
+	`, userID, credits, source, refVal, expiresAt).Scan(&batchID)
+	if err != nil {
+		return false, fmt.Errorf("failed to create credit batch: %w", err)
+	}
+
+	// 3. Ledger entry
+	_, err = tx.Exec(ctx, `
+		INSERT INTO intel_credit_ledger (user_id, delta, reason, entity, batch_id, created_at)
+		VALUES ($1, $2, 'grant:stars_pack', $3, $4, now())
+	`, userID, credits, referenceID, batchID)
+	if err != nil {
+		return false, fmt.Errorf("failed to log grant ledger: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return false, err
+	}
+	return true, nil
 }

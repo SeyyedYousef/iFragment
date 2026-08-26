@@ -4,6 +4,7 @@
  */
 
 import { haptic } from './haptic.js';
+
 export { haptic };
 
 const getWebApp = () => (window as any).Telegram?.WebApp;

@@ -1,8 +1,10 @@
 import { Motion } from '@motionone/solid';
-import { Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
+import { type Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 
-export const AutoResponderLessonCard: Component<{ onNavigate: () => void; isDone?: boolean }> = (props) => {
+export const AutoResponderLessonCard: Component<{ onNavigate: () => void; isDone?: boolean }> = (
+	props,
+) => {
 	const [replyStep, setReplyStep] = createSignal(0);
 
 	onMount(() => {
@@ -54,6 +56,7 @@ export const AutoResponderLessonCard: Component<{ onNavigate: () => void; isDone
 			</div>
 
 			<button
+				type="button"
 				onClick={props.onNavigate}
 				class="w-full h-12 bg-white/5 border border-[#3390ec]/30 text-[#3390ec] hover:bg-[#3390ec]/10 rounded-[16px] text-[12px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
 			>

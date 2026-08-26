@@ -35,6 +35,7 @@ export const Root: Component = () => {
 									{err instanceof Error ? err.message : String(err)}
 								</p>
 								<button
+									type="button"
 									onClick={reset}
 									class="px-6 py-2.5 bg-[#0088CC] text-white font-semibold text-sm rounded-full shadow-lg hover:brightness-110 active:scale-95 transition-all"
 								>

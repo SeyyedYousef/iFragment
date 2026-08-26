@@ -1,4 +1,4 @@
-import { Component, createSignal, JSX, Show } from 'solid-js';
+import { type Component, createSignal, type JSX, Show } from 'solid-js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { UnsavedChangesSheet } from './UnsavedChangesSheet.js';
@@ -12,7 +12,9 @@ interface Props {
 	onCloseSheet?: () => void;
 	saveLabel?: string;
 	changedCount?: number;
-	children?: ((props: { requestLeave: (onConfirmLeave: () => void) => void }) => JSX.Element) | JSX.Element;
+	children?:
+		| ((props: { requestLeave: (onConfirmLeave: () => void) => void }) => JSX.Element)
+		| JSX.Element;
 }
 
 export const SettingsGuard: Component<Props> = (props) => {
@@ -93,8 +95,12 @@ export const SettingsGuard: Component<Props> = (props) => {
 			{/* Floating Action Bar (shown when dirty and no children wrapper) */}
 			<Show when={props.isDirty && typeof props.children !== 'function'}>
 				<div class="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-[#030303] via-[#030303]/90 to-transparent z-50 pointer-events-none">
-					<div class="max-w-md mx-auto flex gap-3 pointer-events-auto" dir={isRtl() ? 'rtl' : 'ltr'}>
+					<div
+						class="max-w-md mx-auto flex gap-3 pointer-events-auto"
+						dir={isRtl() ? 'rtl' : 'ltr'}
+					>
 						<button
+							type="button"
 							onClick={handleDiscard}
 							disabled={isSaving()}
 							class="w-16 h-14 bg-[#12141C]/80 backdrop-blur-md text-[#ff4a4a] border border-[#ff4a4a]/20 rounded-[16px] transition-all flex items-center justify-center hover:bg-[#ff4a4a]/10 active:scale-95 shadow-sm min-h-[44px] min-w-[44px]"
@@ -104,15 +110,19 @@ export const SettingsGuard: Component<Props> = (props) => {
 							<span class="material-symbols-outlined text-[24px]">close</span>
 						</button>
 						<button
+							type="button"
 							onClick={handleSave}
 							disabled={isSaving()}
 							class="flex-1 h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] hover:from-[#2b7ec9] hover:to-[#3390ec] text-white rounded-[16px] font-black text-[14px] uppercase tracking-widest shadow-[0_10px_30px_rgba(51,144,236,0.35)] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:scale-100 active:scale-95 border border-white/10 min-h-[44px]"
 						>
 							<Show
 								when={!isSaving()}
-								fallback={<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+								fallback={
+									<span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+								}
 							>
-								{props.saveLabel || t('common.save')} <span class="material-symbols-outlined text-[22px]">save</span>
+								{props.saveLabel || t('common.save')}{' '}
+								<span class="material-symbols-outlined text-[22px]">save</span>
 							</Show>
 						</button>
 					</div>

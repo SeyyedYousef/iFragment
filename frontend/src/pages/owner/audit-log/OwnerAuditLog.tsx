@@ -1,7 +1,8 @@
-import { createSignal, createEffect, onCleanup, Show, For, type Component } from 'solid-js';
 import { createQuery } from '@tanstack/solid-query';
+import { type Component, createEffect, createSignal, For, onCleanup, Show } from 'solid-js';
 import { ownerApi } from '@/entities/owner/api/ownerApi.js';
 import type { AuditLogEntry } from '@/entities/owner/model/types.js';
+import { t } from '@/shared/i18n/index.js';
 
 export const OwnerAuditLog: Component = () => {
 	const [actionFilter, setActionFilter] = createSignal('');
@@ -42,9 +43,9 @@ export const OwnerAuditLog: Component = () => {
 			{/* Header */}
 			<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
 				<div>
-					<h2 class="text-lg font-bold text-white">Immutable Security Audit Logs</h2>
+					<h2 class="text-lg font-bold text-white">{t('ownerAudit.title')}</h2>
 					<p class="text-xs text-white/50">
-						Server-sanitized security events with recursive secret redaction (Total: {total().toLocaleString()} events)
+						{t('ownerAudit.subtitle', { total: total().toLocaleString() })}
 					</p>
 				</div>
 			</div>
@@ -57,7 +58,7 @@ export const OwnerAuditLog: Component = () => {
 					</span>
 					<input
 						type="text"
-						placeholder="Search by action, operator ID, IP, or payload..."
+						placeholder={t('ownerAudit.searchPlaceholder')}
 						value={searchKeyword()}
 						onInput={(e) => setSearchKeyword(e.currentTarget.value)}
 						class="w-full h-11 pl-10 pr-4 rounded-2xl bg-white/5 border border-white/15 text-white text-xs placeholder:text-white/30 focus:border-amber-400 focus:outline-none transition"
@@ -72,17 +73,17 @@ export const OwnerAuditLog: Component = () => {
 					}}
 					class="h-11 px-4 rounded-2xl bg-neutral-900 border border-white/15 text-white text-xs focus:border-amber-400 focus:outline-none"
 				>
-					<option value="">All Action Types</option>
-					<option value="owner_login">Owner Login</option>
-					<option value="setup_totp">Setup TOTP</option>
-					<option value="impersonate_user">Impersonate User</option>
-					<option value="ban_user">Ban User</option>
-					<option value="adjust_balance">Adjust Balance</option>
-					<option value="extend_subscription">Extend Subscription</option>
-					<option value="grant_coins">Grant Coins</option>
-					<option value="update_settings">Update Settings</option>
-					<option value="create_ad">Create Ad</option>
-					<option value="delete_userbot">Delete Userbot</option>
+					<option value="">{t('ownerAudit.allActionTypes')}</option>
+					<option value="owner_login">{t('ownerAudit.actionOwnerLogin')}</option>
+					<option value="setup_totp">{t('ownerAudit.actionSetupTotp')}</option>
+					<option value="impersonate_user">{t('ownerAudit.actionImpersonateUser')}</option>
+					<option value="ban_user">{t('ownerAudit.actionBanUser')}</option>
+					<option value="adjust_balance">{t('ownerAudit.actionAdjustBalance')}</option>
+					<option value="extend_subscription">{t('ownerAudit.actionExtendSubscription')}</option>
+					<option value="grant_coins">{t('ownerAudit.actionGrantCoins')}</option>
+					<option value="update_settings">{t('ownerAudit.actionUpdateSettings')}</option>
+					<option value="create_ad">{t('ownerAudit.actionCreateAd')}</option>
+					<option value="delete_userbot">{t('ownerAudit.actionDeleteUserbot')}</option>
 				</select>
 			</div>
 
@@ -92,11 +93,11 @@ export const OwnerAuditLog: Component = () => {
 					<table class="w-full text-left text-xs">
 						<thead>
 							<tr class="border-b border-white/10 text-white/40">
-								<th class="pb-3">Action</th>
-								<th class="pb-3">Operator / Target</th>
-								<th class="pb-3">Payload (Sanitized)</th>
-								<th class="pb-3">IP / Network</th>
-								<th class="pb-3 text-right">Timestamp</th>
+								<th class="pb-3">{t('ownerAudit.thAction')}</th>
+								<th class="pb-3">{t('ownerAudit.thOperatorTarget')}</th>
+								<th class="pb-3">{t('ownerAudit.thPayload')}</th>
+								<th class="pb-3">{t('ownerAudit.thIpNetwork')}</th>
+								<th class="pb-3 text-right">{t('ownerAudit.thTimestamp')}</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-white/5">
@@ -105,7 +106,7 @@ export const OwnerAuditLog: Component = () => {
 								fallback={
 									<tr>
 										<td colspan="5" class="py-8 text-center text-white/40">
-											{auditQuery.isLoading ? 'Loading audit logs...' : 'No audit events found'}
+											{auditQuery.isLoading ? t('ownerAudit.loading') : t('ownerAudit.empty')}
 										</td>
 									</tr>
 								}
@@ -119,9 +120,13 @@ export const OwnerAuditLog: Component = () => {
 												</span>
 											</td>
 											<td class="py-3 font-mono text-white/80">
-												<div>Owner: {log.owner_id}</div>
+												<div>{t('ownerAudit.ownerPrefix', { id: log.owner_id })}</div>
 												<Show when={log.target_user_id || log.target_id}>
-													<div class="text-[11px] text-sky-400">Target: {log.target_user_id || log.target_id}</div>
+													<div class="text-[11px] text-sky-400">
+														{t('ownerAudit.targetPrefix', {
+															id: log.target_user_id || log.target_id,
+														})}
+													</div>
 												</Show>
 											</td>
 											<td class="py-3 max-w-sm">
@@ -137,7 +142,9 @@ export const OwnerAuditLog: Component = () => {
 											<td class="py-3 font-mono text-white/50 text-[11px]">
 												<div>{log.ip_address || '—'}</div>
 												<Show when={log.user_agent}>
-													<div class="truncate max-w-[120px] text-[10px] text-white/30">{log.user_agent}</div>
+													<div class="truncate max-w-[120px] text-[10px] text-white/30">
+														{log.user_agent}
+													</div>
 												</Show>
 											</td>
 											<td class="py-3 text-white/50 text-right font-mono text-[11px]">
@@ -155,21 +162,23 @@ export const OwnerAuditLog: Component = () => {
 				<Show when={totalPages() > 1}>
 					<div class="flex items-center justify-between pt-4 border-t border-white/10 text-xs">
 						<button
+							type="button"
 							onClick={() => setPage((p) => Math.max(0, p - 1))}
 							disabled={page() === 0}
 							class="px-3 py-1.5 rounded-xl border border-white/10 text-white/70 hover:bg-white/5 disabled:opacity-40"
 						>
-							Previous
+							{t('ownerAudit.previous')}
 						</button>
 						<span class="text-white/50">
-							Page {page() + 1} of {totalPages()}
+							{t('ownerAudit.pageInfo', { page: page() + 1, total: totalPages() })}
 						</span>
 						<button
+							type="button"
 							onClick={() => setPage((p) => Math.min(totalPages() - 1, p + 1))}
 							disabled={page() >= totalPages() - 1}
 							class="px-3 py-1.5 rounded-xl border border-white/10 text-white/70 hover:bg-white/5 disabled:opacity-40"
 						>
-							Next
+							{t('ownerAudit.next')}
 						</button>
 					</div>
 				</Show>

@@ -30,7 +30,13 @@ export interface AuditLogEntry {
 export interface QuestItem {
 	key: string;
 	title: string;
-	type: 'telegram_channel' | 'telegram_group' | 'daily_checkin' | 'invite' | 'external_link' | 'partner';
+	type:
+		| 'telegram_channel'
+		| 'telegram_group'
+		| 'daily_checkin'
+		| 'invite'
+		| 'external_link'
+		| 'partner';
 	reward_frg: number; // mapped to Coins in UI
 	reward_xp: number;
 	is_active: boolean;

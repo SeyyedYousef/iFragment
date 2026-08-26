@@ -1,2 +1,2 @@
-export * from './model/types.js';
 export * from './api/numbersApi.js';
+export * from './model/types.js';

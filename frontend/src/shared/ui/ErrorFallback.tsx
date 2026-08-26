@@ -1,4 +1,4 @@
-import { Component } from 'solid-js';
+import type { Component } from 'solid-js';
 import { t } from '@/shared/i18n/index.js';
 
 export const ErrorFallback: Component<{ err: Error; reset: () => void }> = (props) => {
@@ -19,6 +19,7 @@ export const ErrorFallback: Component<{ err: Error; reset: () => void }> = (prop
 				</pre>
 			)}
 			<button
+				type="button"
 				onClick={props.reset}
 				class="px-4 py-2 bg-[#3390ec] hover:bg-[#2b7ec9] text-white text-xs font-black rounded-xl active:scale-95 transition-all"
 			>

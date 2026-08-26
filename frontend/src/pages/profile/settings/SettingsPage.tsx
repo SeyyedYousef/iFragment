@@ -1,11 +1,11 @@
 import { Motion } from '@motionone/solid';
-import { Component, createSignal, Show } from 'solid-js';
+import { type Component, createSignal, Show } from 'solid-js';
+import { profileSettings, updateNotification, updateSetting } from '@/entities/user/index.js';
 import { isRtl, locale, setLocale, t } from '@/shared/i18n/index.js';
+import { haptic } from '@/shared/lib/haptic.js';
 import { requestWriteAccess } from '@/shared/lib/telegram-native.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
-import { profileSettings, updateNotification, updateSetting } from '@/entities/user/index.js';
-import { ToggleSwitch, SettingsGuard } from '@/shared/ui/index.js';
-import { haptic } from '@/shared/lib/haptic.js';
+import { SettingsGuard, ToggleSwitch } from '@/shared/ui/index.js';
 
 export const SettingsPage: Component = () => {
 	useTelegramBackButton(-1);
@@ -63,11 +63,7 @@ export const SettingsPage: Component = () => {
 	};
 
 	return (
-		<SettingsGuard
-			isDirty={isDirty()}
-			onSave={handleSave}
-			onDiscard={handleDiscard}
-		>
+		<SettingsGuard isDirty={isDirty()} onSave={handleSave} onDiscard={handleDiscard}>
 			{({ requestLeave }) => (
 				<div
 					class="min-h-screen bg-[#030303] pb-28 text-white font-sans flex flex-col relative overflow-x-hidden selection:bg-[#0098EA]/30"
@@ -79,13 +75,12 @@ export const SettingsPage: Component = () => {
 					{/* ═══════ PREMIUM STICKY HEADER ═══════ */}
 					<div class="pt-6 pb-4 px-5 sticky top-0 bg-[#030303]/85 backdrop-blur-2xl z-40 border-b border-white/5 flex items-center gap-3.5 shadow-sm shrink-0">
 						<button
+							type="button"
 							onClick={() => requestLeave(() => window.history.back())}
 							class="w-11 h-11 rounded-[14px] bg-[#12141C]/80 flex items-center justify-center border border-white/10 hover:bg-white/10 active:scale-95 transition-all shrink-0 shadow-sm text-white/80"
-							aria-label="Back"
+							aria-label={t('common.back')}
 						>
-							<span class="material-symbols-outlined text-[22px] rtl:-scale-x-100">
-								arrow_back
-							</span>
+							<span class="material-symbols-outlined text-[22px] rtl:-scale-x-100">arrow_back</span>
 						</button>
 						<div class="flex flex-col gap-0.5 min-w-0">
 							<h1 class="text-[18px] font-black text-white leading-tight tracking-tight">
@@ -106,9 +101,7 @@ export const SettingsPage: Component = () => {
 							class="flex flex-col gap-3"
 						>
 							<h2 class="text-[11px] font-black text-white/40 uppercase tracking-widest px-2 flex items-center gap-2">
-								<span class="material-symbols-outlined text-[16px] text-white/30">
-									tune
-								</span>
+								<span class="material-symbols-outlined text-[16px] text-white/30">tune</span>
 								{t('settings.general')}
 							</h2>
 
@@ -119,9 +112,7 @@ export const SettingsPage: Component = () => {
 								<div class="flex items-center justify-between gap-4 relative z-10">
 									<div class="flex items-center gap-3.5">
 										<div class="w-10 h-10 rounded-[12px] bg-white/5 flex items-center justify-center border border-white/10 shadow-inner shrink-0 text-white/70">
-											<span class="material-symbols-outlined text-[20px]">
-												vibration
-											</span>
+											<span class="material-symbols-outlined text-[20px]">vibration</span>
 										</div>
 										<div class="flex flex-col gap-0.5">
 											<span class="text-[14px] font-black text-white tracking-tight">
@@ -144,9 +135,7 @@ export const SettingsPage: Component = () => {
 								<div class="flex items-center justify-between gap-4 relative z-10">
 									<div class="flex items-center gap-3.5">
 										<div class="w-10 h-10 rounded-[12px] bg-white/5 flex items-center justify-center border border-white/10 shadow-inner shrink-0 text-white/70">
-											<span class="material-symbols-outlined text-[20px]">
-												volume_up
-											</span>
+											<span class="material-symbols-outlined text-[20px]">volume_up</span>
 										</div>
 										<div class="flex flex-col gap-0.5">
 											<span class="text-[14px] font-black text-white tracking-tight">
@@ -169,9 +158,7 @@ export const SettingsPage: Component = () => {
 								<div class="flex items-center justify-between gap-4 relative z-10">
 									<div class="flex items-center gap-3.5">
 										<div class="w-10 h-10 rounded-[12px] bg-white/5 flex items-center justify-center border border-white/10 shadow-inner shrink-0 text-white/70">
-											<span class="material-symbols-outlined text-[20px]">
-												animation
-											</span>
+											<span class="material-symbols-outlined text-[20px]">animation</span>
 										</div>
 										<div class="flex flex-col gap-0.5">
 											<span class="text-[14px] font-black text-white tracking-tight">
@@ -211,9 +198,7 @@ export const SettingsPage: Component = () => {
 								<div class="flex items-center justify-between gap-4 relative z-10">
 									<div class="flex items-center gap-3.5">
 										<div class="w-10 h-10 rounded-[12px] bg-amber-400/10 flex items-center justify-center border border-amber-400/20 shadow-inner shrink-0 text-amber-400">
-											<span class="material-symbols-outlined text-[20px]">
-												diamond
-											</span>
+											<span class="material-symbols-outlined text-[20px]">diamond</span>
 										</div>
 										<span class="text-[14px] font-black text-white tracking-tight">
 											{t('settings.pushMining')}
@@ -231,9 +216,7 @@ export const SettingsPage: Component = () => {
 								<div class="flex items-center justify-between gap-4 relative z-10">
 									<div class="flex items-center gap-3.5">
 										<div class="w-10 h-10 rounded-[12px] bg-[#10b981]/10 flex items-center justify-center border border-[#10b981]/20 shadow-inner shrink-0 text-[#10b981]">
-											<span class="material-symbols-outlined text-[20px]">
-												group_add
-											</span>
+											<span class="material-symbols-outlined text-[20px]">group_add</span>
 										</div>
 										<span class="text-[14px] font-black text-white tracking-tight">
 											{t('settings.pushReferrals')}
@@ -251,9 +234,7 @@ export const SettingsPage: Component = () => {
 								<div class="flex items-center justify-between gap-4 relative z-10">
 									<div class="flex items-center gap-3.5">
 										<div class="w-10 h-10 rounded-[12px] bg-[#0098EA]/10 flex items-center justify-center border border-[#0098EA]/20 shadow-inner shrink-0 text-[#0098EA]">
-											<span class="material-symbols-outlined text-[20px]">
-												forum
-											</span>
+											<span class="material-symbols-outlined text-[20px]">forum</span>
 										</div>
 										<span class="text-[14px] font-black text-white tracking-tight">
 											{t('settings.pushCommunity')}
@@ -271,9 +252,7 @@ export const SettingsPage: Component = () => {
 								<div class="flex items-center justify-between gap-4 relative z-10">
 									<div class="flex items-center gap-3.5">
 										<div class="w-10 h-10 rounded-[12px] bg-[#ff4a4a]/10 flex items-center justify-center border border-[#ff4a4a]/20 shadow-inner shrink-0 text-[#ff4a4a]">
-											<span class="material-symbols-outlined text-[20px]">
-												campaign
-											</span>
+											<span class="material-symbols-outlined text-[20px]">campaign</span>
 										</div>
 										<span class="text-[14px] font-black text-white tracking-tight">
 											{t('settings.pushPromotions')}
@@ -295,9 +274,7 @@ export const SettingsPage: Component = () => {
 							class="flex flex-col gap-3"
 						>
 							<h2 class="text-[11px] font-black text-white/40 uppercase tracking-widest px-2 flex items-center gap-2">
-								<span class="material-symbols-outlined text-[16px] text-white/30">
-									language
-								</span>
+								<span class="material-symbols-outlined text-[16px] text-white/30">language</span>
 								{t('profile.languageSettings')}
 							</h2>
 
@@ -305,6 +282,7 @@ export const SettingsPage: Component = () => {
 								<div class="grid grid-cols-2 gap-3">
 									{/* English */}
 									<button
+										type="button"
 										onClick={() => {
 											setLocale('en');
 											try {
@@ -332,12 +310,13 @@ export const SettingsPage: Component = () => {
 										<span
 											class={`font-black tracking-wide ${locale() === 'en' ? 'text-[#0098EA] text-[13px]' : 'text-white/80 text-[12px]'}`}
 										>
-											English
+											{t('settingsPg.langEn' as any)}
 										</span>
 									</button>
 
 									{/* Persian */}
 									<button
+										type="button"
 										onClick={() => {
 											setLocale('fa');
 											try {
@@ -365,12 +344,13 @@ export const SettingsPage: Component = () => {
 										<span
 											class={`font-black tracking-wide ${locale() === 'fa' ? 'text-[#0098EA] text-[13px]' : 'text-white/80 text-[12px]'}`}
 										>
-											فارسی
+											{t('settingsPg.langFa' as any)}
 										</span>
 									</button>
 
 									{/* Russian */}
 									<button
+										type="button"
 										onClick={() => {
 											setLocale('ru');
 											try {
@@ -398,12 +378,13 @@ export const SettingsPage: Component = () => {
 										<span
 											class={`font-black tracking-wide ${locale() === 'ru' ? 'text-[#0098EA] text-[13px]' : 'text-white/80 text-[12px]'}`}
 										>
-											Русский
+											{t('settingsPg.langRu' as any)}
 										</span>
 									</button>
 
 									{/* Chinese */}
 									<button
+										type="button"
 										onClick={() => {
 											setLocale('zh');
 											try {
@@ -431,7 +412,7 @@ export const SettingsPage: Component = () => {
 										<span
 											class={`font-black tracking-wide ${locale() === 'zh' ? 'text-[#0098EA] text-[13px]' : 'text-white/80 text-[12px]'}`}
 										>
-											简体中文
+											{t('settingsPg.langZh' as any)}
 										</span>
 									</button>
 								</div>

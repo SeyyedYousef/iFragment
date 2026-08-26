@@ -896,10 +896,36 @@ func (s *ProfileService) SetEmojiStatus(ctx context.Context, userID int64, emoji
 		return err
 	}
 
+	// Push the status to Telegram itself (Bot API setUserEmojiStatus).
+	// Previously this was DB-only — the badge never actually appeared on the
+	// user's profile. Best-effort: a Telegram-side failure must not roll back
+	// the DB state (the webhook retry loop can re-apply later).
+	s.pushEmojiStatusToTelegram(ctx, userID, emoji)
+
 	if s.cache != nil && s.cache.Client != nil {
 		s.cache.Client.Del(ctx, fmt.Sprintf("profile:stats:%d", userID))
 	}
 	return nil
+}
+
+// pushEmojiStatusToTelegram applies the emoji via the main bot. The main bot
+// token comes from env; managed bots have no cross-user emoji rights.
+func (s *ProfileService) pushEmojiStatusToTelegram(ctx context.Context, userID int64, emoji string) {
+	token := os.Getenv("TELEGRAM_BOT_TOKEN")
+	if token == "" {
+		token = os.Getenv("BOT_TOKEN")
+	}
+	if token == "" {
+		slog.Warn("emoji status push skipped: no main bot token configured")
+		return
+	}
+	tg := telegram.NewBotAPIClient(token)
+	if err := tg.SetUserEmojiStatus(ctx, userID, emoji); err != nil {
+		slog.Warn("setUserEmojiStatus failed (user may need to allow the bot)",
+			"user", userID, "error", err)
+	} else if emoji != "" {
+		slog.Info("emoji status applied on Telegram profile", "user", userID)
+	}
 }
 
 func (s *ProfileService) DeleteUserDataGDPR(ctx context.Context, userID int64) error {
