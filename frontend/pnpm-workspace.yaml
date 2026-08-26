@@ -4,5 +4,3 @@ packages:
 ignoredBuiltDependencies:
   - esbuild
 
-onlyBuiltDependencies:
-  - ngrok

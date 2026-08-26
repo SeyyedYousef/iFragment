@@ -57,7 +57,6 @@
 		"gh-pages": "^6.1.1",
 		"jsdom": "^29.1.1",
 		"knip": "^6.6.3",
-		"ngrok": "5.0.0-beta.2",
 		"rollup-plugin-visualizer": "^7.0.1",
 		"tailwindcss": "^4.2.4",
 		"typescript": "^5.4.4",
