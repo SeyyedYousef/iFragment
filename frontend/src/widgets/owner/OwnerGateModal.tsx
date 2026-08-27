@@ -18,8 +18,30 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 	const [tempToken, setTempToken] = createSignal('');
 	const [errorMsg, setErrorMsg] = createSignal('');
 	const [loading, setLoading] = createSignal(false);
+	const [manualTgId, setManualTgId] = createSignal('');
+	const [showManualTgInput, setShowManualTgInput] = createSignal(false);
 	let passwordInputRef: HTMLInputElement | undefined;
 	let totpInputRef: HTMLInputElement | undefined;
+
+	const getDetectedTelegramId = (): number => {
+		try {
+			const tg = (window as any).Telegram?.WebApp;
+			if (tg?.initDataUnsafe?.user?.id) return tg.initDataUnsafe.user.id;
+		} catch (_e) {}
+
+		try {
+			const lp = retrieveLaunchParams();
+			if ((lp.initData as any)?.user?.id) return (lp.initData as any).user.id;
+		} catch (_e) {}
+
+		const savedId = localStorage.getItem('owner_telegram_id') || localStorage.getItem('tg_user_id');
+		if (savedId) {
+			const parsed = parseInt(savedId, 10);
+			if (!isNaN(parsed) && parsed > 0) return parsed;
+		}
+
+		return 0;
+	};
 
 	createEffect(() => {
 		if (props.isOpen) {
@@ -28,6 +50,16 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 			setTotpCode('');
 			setTempToken('');
 			setStep('password');
+
+			const detected = getDetectedTelegramId();
+			if (detected) {
+				setManualTgId(String(detected));
+				setShowManualTgInput(false);
+			} else {
+				setManualTgId('');
+				setShowManualTgInput(true);
+			}
+
 			setTimeout(() => passwordInputRef?.focus(), 50);
 		}
 	});
@@ -53,29 +85,19 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 			haptic.impact('medium');
 		} catch {}
 
-		let tgUserId = 0;
-		try {
-			const tg = (window as any).Telegram?.WebApp;
-			if (tg?.initDataUnsafe?.user?.id) tgUserId = tg.initDataUnsafe.user.id;
-		} catch (_e) {}
-
-		try {
-			const lp = retrieveLaunchParams();
-			if ((lp.initData as any)?.user?.id) tgUserId = (lp.initData as any).user.id;
-		} catch (_e) {}
-
-		if (!tgUserId) {
-			// Fallback from localStorage or dev environment
-			const savedId = localStorage.getItem('owner_telegram_id');
-			if (savedId) {
-				tgUserId = parseInt(savedId, 10);
+		let tgUserId = getDetectedTelegramId();
+		if (!tgUserId && manualTgId().trim()) {
+			const parsed = parseInt(manualTgId().trim(), 10);
+			if (!isNaN(parsed) && parsed > 0) {
+				tgUserId = parsed;
 			}
 		}
 
 		if (!tgUserId) {
+			setShowManualTgInput(true);
 			setErrorMsg(
 				t('ownerGate.errorNotTMA' as any) ||
-					'Telegram User ID not detected. Please open this app inside Telegram.',
+					'Telegram User ID not detected. Please enter your Telegram ID or open inside Telegram.',
 			);
 			setLoading(false);
 			return;
@@ -94,6 +116,7 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 				sessionStorage.setItem('owner_token', res.token);
 				sessionStorage.setItem('owner_telegram_id', String(tgUserId));
 				localStorage.setItem('owner_telegram_id', String(tgUserId));
+				localStorage.setItem('tg_user_id', String(tgUserId));
 				try {
 					haptic.notify('success');
 				} catch {}
@@ -197,6 +220,23 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 							}}
 							class="space-y-4"
 						>
+							<Show when={showManualTgInput()}>
+								<div>
+									<label class="block text-[11px] font-bold text-white/60 mb-1.5 uppercase tracking-wider">
+										Telegram User ID (Browser Mode)
+									</label>
+									<input
+										type="text"
+										inputMode="numeric"
+										placeholder="e.g. 5076130392"
+										value={manualTgId()}
+										onInput={(e) => setManualTgId(e.currentTarget.value)}
+										class="w-full h-12 px-4 bg-[#0f1014] border border-white/15 focus:border-amber-400 text-white text-sm rounded-2xl shadow-inner focus:outline-none transition-all placeholder:text-white/20 font-mono"
+										disabled={loading()}
+									/>
+								</div>
+							</Show>
+
 							<div>
 								<input
 									type="password"

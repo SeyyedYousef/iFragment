@@ -224,3 +224,19 @@ type CuriosityGateResponse struct {
 	ColorName        string   `json:"color_name,omitempty"`
 	CheckedAt        string   `json:"checked_at"`
 }
+
+// NumberVerificationResult returns on-chain & collection validity for live checks
+type NumberVerificationResult struct {
+	Number             string   `json:"number"`
+	DisplayNumber      string   `json:"display_number"`
+	IsMinted           bool     `json:"is_minted"`
+	Exists             bool     `json:"exists"`
+	Tier               string   `json:"tier"`
+	CategoryClub       string   `json:"category_club"`
+	GlobalRank         int      `json:"global_rank"`
+	TeaserChips        []string `json:"teaser_chips"`
+	OwnerAddress       string   `json:"owner_address,omitempty"`
+	NFTAddress         string   `json:"nft_address,omitempty"`
+	Color              string   `json:"color,omitempty"`
+	Error              string   `json:"error,omitempty"`
+}

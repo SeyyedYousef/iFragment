@@ -45,6 +45,7 @@ export const TapView: Component<{
 	);
 	const [showShopModal, setShowShopModal] = createSignal(false);
 	const [showStreakModal, setShowStreakModal] = createSignal(false);
+	const [showRateInfoModal, setShowRateInfoModal] = createSignal(false);
 	const [isClaimingStreak, setIsClaimingStreak] = createSignal(false);
 	const [isShaking, setIsShaking] = createSignal(false);
 
@@ -230,7 +231,7 @@ export const TapView: Component<{
 	};
 
 	return (
-		<div class="flex-1 flex flex-col items-center relative overflow-hidden bg-[#000000] text-white">
+		<div class="flex-1 w-full min-h-full flex flex-col items-center relative select-none bg-[#000000] text-white pb-4">
 			<style>{`
 				@keyframes fragmentFly {
 					to {
@@ -505,7 +506,16 @@ export const TapView: Component<{
 					</div>
 				</Show>
 				<Show when={!isTurboActive()}>
-					<div class="bg-[#12141C]/80 border border-white/10 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+					<button
+						type="button"
+						onClick={() => {
+							try {
+								haptic.impact('light');
+							} catch {}
+							setShowRateInfoModal(true);
+						}}
+						class="bg-[#12141C]/80 hover:bg-[#12141C] border border-white/10 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+					>
 						<span
 							class="w-2 h-2 rounded-full"
 							style={{
@@ -525,7 +535,7 @@ export const TapView: Component<{
 								({formatNumber(dailyFatigueLimitRemaining())} left)
 							</span>
 						</Show>
-					</div>
+					</button>
 				</Show>
 			</div>
 
@@ -609,7 +619,7 @@ export const TapView: Component<{
 			</div>
 
 			{/* 5. Golden Ratio Bottom Area (Z-30) - Swapped & Spaced Properly */}
-			<div class="w-full px-4 mt-auto mb-[96px] relative z-30 flex flex-col gap-4 pointer-events-none">
+			<div class="w-full px-4 mt-auto mb-2 relative z-30 flex flex-col gap-4 pointer-events-none">
 				{/* Row A: Energy Counter & Sleek Full Bar (Now Top) */}
 				<div
 					class="w-full flex items-center justify-between px-1 pointer-events-auto select-none"
@@ -816,7 +826,9 @@ export const TapView: Component<{
 								class="w-full h-14 bg-gradient-to-r from-amber-500 to-yellow-500 rounded-[18px] text-[14px] font-black text-black shadow-[0_8px_24px_rgba(245,158,11,0.35)] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:grayscale"
 							>
 								<span>
-									{checkedInToday() ? 'Claimed Today ✓' : `Claim Day ${streakDay()} Reward`}
+									{checkedInToday()
+										? t('tap.streakClaimed')
+										: t('tap.streakClaimDay', { day: streakDay() })}
 								</span>
 							</button>
 							<button
@@ -827,6 +839,119 @@ export const TapView: Component<{
 								{t('common.close')}
 							</button>
 						</div>
+					</div>
+				</div>
+			</Show>
+
+			{/* ═══════ RATE / ANTI-FATIGUE INFO MODAL ═══════ */}
+			<Show when={showRateInfoModal()}>
+				<div
+					class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in"
+					dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
+				>
+					<div
+						class="absolute inset-0"
+						role="button"
+						tabIndex={0}
+						aria-label="Close"
+						onKeyDown={(e) => {
+							if (e.key === 'Enter' || e.key === 'Escape') setShowRateInfoModal(false);
+						}}
+						onClick={() => setShowRateInfoModal(false)}
+					/>
+					<div class="relative w-full max-w-sm bg-[#12141C] rounded-[32px] p-6 space-y-4 shadow-[0_20px_60px_rgba(0,0,0,0.85)] border border-white/10 animate-slide-up text-start z-10">
+						{/* Header Icon */}
+						<div class="flex items-center gap-3 border-b border-white/10 pb-4">
+							<div class="w-12 h-12 rounded-[16px] bg-[#3390ec]/15 border border-[#3390ec]/30 flex items-center justify-center text-[#3390ec] shadow-[0_0_15px_rgba(51,144,236,0.2)] shrink-0">
+								<span class="material-symbols-outlined text-[26px]">speed</span>
+							</div>
+							<div class="flex flex-col">
+								<h3 class="text-[17px] font-black text-white">{t('tap.rateTitle')}</h3>
+								<span class="text-[11px] text-white/50 font-medium">{t('tap.rateSubtitle')}</span>
+							</div>
+						</div>
+
+						{/* Current Status Pill Box */}
+						<div class="bg-white/5 border border-white/10 rounded-[18px] p-3.5 flex items-center justify-between" dir="ltr">
+							<div class="flex items-center gap-2">
+								<span
+									class="w-3 h-3 rounded-full animate-pulse"
+									style={{
+										'background-color':
+											dailyFatigueMultiplier() >= 1.0
+												? '#10b981'
+												: dailyFatigueMultiplier() >= 0.5
+													? '#f59e0b'
+													: '#ef4444',
+									}}
+								/>
+								<span class="text-white font-mono font-bold text-[13px]">
+									{t('tap.rateCurrent')} {dailyFatigueMultiplier()}x
+								</span>
+							</div>
+							<span class="text-white/70 font-mono text-[11px] bg-white/5 px-2.5 py-1 rounded-lg border border-white/5">
+								{dailyFatigueLimitRemaining() > 0
+									? `(${formatNumber(dailyFatigueLimitRemaining())} left)`
+									: t('tap.rateMinRate')}
+							</span>
+						</div>
+
+						{/* Tier Breakdown */}
+						<div class="space-y-2 text-[12px]">
+							<div class="flex items-center justify-between p-2 rounded-xl bg-[#10b981]/10 border border-[#10b981]/20 text-white">
+								<div class="flex items-center gap-2">
+									<span class="w-2 h-2 rounded-full bg-[#10b981]" />
+									<span class="font-bold">{t('tap.rateTier1')}</span>
+								</div>
+								<span class="font-mono font-black text-[#10b981]">1.0x (100%)</span>
+							</div>
+
+							<div class="flex items-center justify-between p-2 rounded-xl bg-[#f59e0b]/10 border border-[#f59e0b]/20 text-white">
+								<div class="flex items-center gap-2">
+									<span class="w-2 h-2 rounded-full bg-[#f59e0b]" />
+									<span class="font-bold">{t('tap.rateTier2')}</span>
+								</div>
+								<span class="font-mono font-black text-[#f59e0b]">0.50x (50%)</span>
+							</div>
+
+							<div class="flex items-center justify-between p-2 rounded-xl bg-orange-500/10 border border-orange-500/20 text-white">
+								<div class="flex items-center gap-2">
+									<span class="w-2 h-2 rounded-full bg-orange-500" />
+									<span class="font-bold">{t('tap.rateTier3')}</span>
+								</div>
+								<span class="font-mono font-black text-orange-400">0.25x (25%)</span>
+							</div>
+
+							<div class="flex items-center justify-between p-2 rounded-xl bg-red-500/10 border border-red-500/20 text-white">
+								<div class="flex items-center gap-2">
+									<span class="w-2 h-2 rounded-full bg-red-500" />
+									<span class="font-bold">{t('tap.rateTier4')}</span>
+								</div>
+								<span class="font-mono font-black text-red-400">0.10x (10%)</span>
+							</div>
+						</div>
+
+						{/* Pro-Tips & Reset Info */}
+						<div class="bg-[#3390ec]/10 border border-[#3390ec]/20 rounded-[18px] p-3 text-[11px] text-white/80 space-y-1.5 leading-relaxed">
+							<div class="flex items-center gap-1.5 font-bold text-[#3390ec]">
+								<span>🚀</span>
+								<span>{t('tap.rateTurboTipTitle')}</span>
+							</div>
+							<p>
+								{t('tap.rateTurboTipDesc')}
+							</p>
+							<div class="text-[10px] text-white/50 pt-1 border-t border-white/5 font-mono">
+								🔄 {t('tap.rateResetInfo')}
+							</div>
+						</div>
+
+						<button
+							type="button"
+							onClick={() => setShowRateInfoModal(false)}
+							class="w-full h-12 bg-white/10 hover:bg-white/15 text-white font-bold rounded-[16px] text-[13px] active:scale-95 transition-all"
+						>
+							متوجه شدم
+						</button>
 					</div>
 				</div>
 			</Show>

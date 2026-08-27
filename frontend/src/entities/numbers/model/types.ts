@@ -57,6 +57,21 @@ export interface CuriosityGateData {
 	checked_at: string;
 }
 
+export interface NumberVerifyResult {
+	number: string;
+	display_number: string;
+	is_minted: boolean;
+	exists: boolean;
+	tier: string;
+	category_club: string;
+	global_rank: number;
+	teaser_chips: string[];
+	owner_address?: string;
+	nft_address?: string;
+	color?: string;
+	error?: string;
+}
+
 export interface RarityBarItem {
 	key: string;
 	label_en: string;

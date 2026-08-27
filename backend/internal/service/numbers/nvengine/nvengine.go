@@ -755,3 +755,11 @@ func determineCategoryClub(fv features.FeatureVector) string {
 	return "Standard Collection"
 }
 
+func (e *ValuationEngine) ComputeRank(fv features.FeatureVector) int {
+	return computeGlobalRank(fv)
+}
+
+func (e *ValuationEngine) DetermineClub(fv features.FeatureVector) string {
+	return determineCategoryClub(fv)
+}
+

@@ -11,8 +11,43 @@ import (
 )
 
 var (
-	ErrInvalidNumberFormat = errors.New("invalid anonymous number format; must start with +888 or 888 followed by 8 digits")
+	ErrInvalidNumberFormat = errors.New("invalid anonymous number format; Telegram numbers must be 8 digits or genesis 8888")
+	ErrNumberNotMinted     = errors.New("this number was not minted in the 136,566 Telegram Anonymous Numbers collection")
 )
+
+// NormalizeNumber parses and standardizes valid Telegram Anonymous Numbers.
+// Telegram minted exactly 136,566 numbers in total:
+// 1) Genesis 4-digit number: "8888" -> "+8888888"
+// 2) Standard 8-digit numbers: 8 digits -> "+888XXXXXXXX"
+// Numbers with 1..3, 5, 6 (e.g. 715311), 7, or 9+ digits were NEVER minted by Telegram.
+func NormalizeNumber(raw string) (string, error) {
+	cleaned := CleanNumber(raw)
+	if cleaned == "" {
+		return "", ErrInvalidNumberFormat
+	}
+
+	// Extract the suffix after +888 or 888
+	suffix := cleaned
+	if strings.HasPrefix(cleaned, "888") && len(cleaned) > 3 {
+		suffix = strings.TrimPrefix(cleaned, "888")
+	}
+
+	// 1. Genesis 4-digit numbers: only "8888"
+	if len(suffix) == 4 {
+		if suffix == "8888" {
+			return "+888" + suffix, nil
+		}
+		return "", ErrNumberNotMinted
+	}
+
+	// 2. Standard 8-digit Telemint numbers
+	if len(suffix) == 8 {
+		return "+888" + suffix, nil
+	}
+
+	// Any other length (5, 6 like 715311, 7, 9+) is NOT a valid Telegram number
+	return "", ErrNumberNotMinted
+}
 
 // FeatureVector represents the complete mathematical profile of an anonymous number
 type FeatureVector struct {
@@ -52,34 +87,6 @@ func CleanNumber(raw string) string {
 		}
 	}
 	return sb.String()
-}
-
-// NormalizeNumber parses and standardizes any valid Telegram number input into +888XXXXXXXX
-func NormalizeNumber(raw string) (string, error) {
-	cleaned := CleanNumber(raw)
-	if cleaned == "" {
-		return "", ErrInvalidNumberFormat
-	}
-
-	// Case 1: user entered 888 followed by 7-9 digits (standard is 8 digits -> total 11 digits)
-	if strings.HasPrefix(cleaned, "888") {
-		suffix := strings.TrimPrefix(cleaned, "888")
-		if len(suffix) >= 4 && len(suffix) <= 9 {
-			return "+888" + suffix, nil
-		}
-	}
-
-	// Case 2: user entered just the suffix (4 to 9 digits)
-	if len(cleaned) >= 4 && len(cleaned) <= 9 {
-		return "+888" + cleaned, nil
-	}
-
-	// Case 3: total 11 digits (888 + 8 digits)
-	if len(cleaned) == 11 && strings.HasPrefix(cleaned, "888") {
-		return "+" + cleaned, nil
-	}
-
-	return "", ErrInvalidNumberFormat
 }
 
 // ValidateNumber returns true if the input can be normalized into a valid +888 number

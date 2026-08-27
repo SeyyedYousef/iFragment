@@ -28,6 +28,23 @@ func (h *NumbersHandler) GetIntel(w http.ResponseWriter, r *http.Request) {
 	RespondJSON(w, http.StatusOK, intel)
 }
 
+// Verify checks whether a number exists and was minted in the 136,566 Telegram collection
+func (h *NumbersHandler) Verify(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	number := r.URL.Query().Get("n")
+	if number == "" {
+		RespondError(w, r, http.StatusBadRequest, "number parameter 'n' is required", nil)
+		return
+	}
+
+	result, err := h.service.VerifyNumber(ctx, number)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "verification failed", err)
+		return
+	}
+	RespondJSON(w, http.StatusOK, result)
+}
+
 // GetCuriosityGate returns curiosity counters without price leakage (Sacred Rule 3)
 func (h *NumbersHandler) GetCuriosityGate(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

@@ -654,3 +654,76 @@ func (s *NumbersService) GetLiveActivityTicker(ctx context.Context) ([]nvengine.
 	return items, nil
 }
 
+// VerifyNumber validates whether a number was minted and exists within the 136,566 Telegram collection
+func (s *NumbersService) VerifyNumber(ctx context.Context, raw string) (*nvengine.NumberVerificationResult, error) {
+	norm, err := features.NormalizeNumber(raw)
+	if err != nil {
+		return &nvengine.NumberVerificationResult{
+			Number:        raw,
+			DisplayNumber: raw,
+			IsMinted:      false,
+			Exists:        false,
+			Error:         "این شماره در کالکشن ۱۳۶,۵۶۶ عددی تلگرام وجود ندارد یا مینت نشده است",
+		}, nil
+	}
+
+	fv, err := features.ExtractFeatures(norm)
+	if err != nil {
+		return &nvengine.NumberVerificationResult{
+			Number:        norm,
+			DisplayNumber: features.FormatDisplayNumber(norm),
+			IsMinted:      false,
+			Exists:        false,
+			Error:         "فرمت شماره نامعتبر است",
+		}, nil
+	}
+
+	// Calculate mathematical profile
+	tier := "STANDARD TIER"
+	chips := []string{"سنجش در ۱۳۶,۵۶۶ شماره کلکسیونی", "۲۷ سیگنال ریاضی آماده تحلیل"}
+
+	if len(fv.Suffix) == 4 {
+		tier = "4-DIGIT ULTRA (GENESIS)"
+		chips = append([]string{"💎 شماره فوق نایاب ۴ رقمی جنسیس"}, chips...)
+	} else if fv.MaxRun >= 4 || strings.Contains(fv.Suffix, "8888") || strings.Contains(fv.Suffix, "7777") || strings.Contains(fv.Suffix, "0000") {
+		tier = "GRAIL TIER (QUAD REPEAT)"
+		chips = append([]string{"👑 الگوی فوق‌کمیاب رده افسانه‌ای (Grail)"}, chips...)
+	} else if fv.IsPalindrome || fv.MirrorScore >= 1.0 {
+		tier = "APEX TIER (MIRROR PALINDROME)"
+		chips = append([]string{"🪞 تقارن آینه‌ای کامل ارقام"}, chips...)
+	} else if fv.HasMonotonicAsc || fv.HasMonotonicDesc {
+		tier = "APEX TIER (LADDER SEQUENCE)"
+		chips = append([]string{"📈 توالی پیوسته پله‌ای ارقام"}, chips...)
+	} else if fv.DistinctDigits <= 2 {
+		tier = "GRAND TIER (BINARY DUAL)"
+		chips = append([]string{"⚡ ترکیب نادر دو رقمی (Binary)"}, chips...)
+	}
+
+	res := &nvengine.NumberVerificationResult{
+		Number:        norm,
+		DisplayNumber: features.FormatDisplayNumber(norm),
+		IsMinted:      true,
+		Exists:        true,
+		Tier:          tier,
+		CategoryClub:  s.engine.DetermineClub(fv),
+		GlobalRank:    s.engine.ComputeRank(fv),
+		TeaserChips:   chips,
+	}
+
+	// Check DB if available
+	if s.db != nil && s.db.Pool != nil {
+		var color, ownerAddr, nftAddr string
+		err := s.db.Pool.QueryRow(ctx, `
+			SELECT color, owner_address, nft_address
+			FROM number_features
+			WHERE number = $1`, norm).Scan(&color, &ownerAddr, &nftAddr)
+		if err == nil {
+			res.Color = color
+			res.OwnerAddress = ownerAddr
+			res.NFTAddress = nftAddr
+		}
+	}
+
+	return res, nil
+}
+

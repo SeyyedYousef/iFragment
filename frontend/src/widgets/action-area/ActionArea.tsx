@@ -54,7 +54,10 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 	const [credits, setCredits] = createSignal<number>(3);
 	const [showNoCreditsModal, setShowNoCreditsModal] = createSignal(false);
 	const [showNumberGuide, setShowNumberGuide] = createSignal(false);
+	const [serverVerified, setServerVerified] = createSignal<import('@/entities/numbers/model/types.js').NumberVerifyResult | null>(null);
+	const [isVerifying, setIsVerifying] = createSignal(false);
 	let autoGuideTimeout: any = null;
+	let verifyTimeout: any = null;
 
 	const [trendingUsernames] = createSignal<string[]>(getRandomTrending(4));
 	const [trendingNumbers, setTrendingNumbers] = createSignal<string[]>([]);
@@ -85,7 +88,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			return {
 				isValid: false,
 				cleanDigits: digitsOnly,
-				error: 'فقط ارقام مجاز است (Invalid characters)',
+				error: t('numbers.errorInvalidChars'),
 				tier: '',
 				chips: [],
 			};
@@ -95,17 +98,17 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			return {
 				isValid: false,
 				cleanDigits: digitsOnly,
-				error: 'Too long / حداکثر ۸ رقم مجاز است',
+				error: t('numbers.errorTooLong'),
 				tier: '',
 				chips: [],
 			};
 		}
 
-		if (digitsOnly.length > 0 && digitsOnly.length < 4) {
+		if (digitsOnly.length > 0 && digitsOnly.length !== 8 && digitsOnly !== '8888') {
 			return {
 				isValid: false,
 				cleanDigits: digitsOnly,
-				error: 'خیلی کوتاه است (حداقل ۴ رقم نیاز است)',
+				error: t('numbers.errorNotMinted'),
 				tier: '',
 				chips: [],
 			};
@@ -113,33 +116,32 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
 		// Determine Pattern Tier & Teaser Chips
 		let tier = 'STANDARD TIER';
-		const chips: string[] = ['سنجش در ۱۳۶,۵۶۶ شماره کلکسیونی', '۲۷ سیگنال ریاضی آماده تحلیل'];
+		const chips: string[] = [t('numbers.chipSupply'), t('numbers.chipSignals')];
 
-		if (digitsOnly.length === 4) {
+		if (digitsOnly === '8888') {
 			tier = '4-DIGIT ULTRA (GENESIS)';
-			chips.unshift('💎 شماره فوق نایاب ۴ رقمی جنسیس');
+			chips.unshift(t('numbers.chipGenesis'));
 		} else if (/^(.)\1+$/.test(digitsOnly) || digitsOnly.includes('8888') || digitsOnly.includes('7777') || digitsOnly.includes('0000')) {
 			tier = 'GRAIL TIER (QUAD REPEAT)';
-			chips.unshift('👑 الگوی فوق‌کمیاب رده افسانه‌ای (Grail)');
+			chips.unshift(t('numbers.chipGrail'));
 		} else {
 			// Palindrome check
 			const rev = digitsOnly.split('').reverse().join('');
 			if (digitsOnly === rev) {
 				tier = 'APEX TIER (MIRROR PALINDROME)';
-				chips.unshift('🪞 تقارن آینه‌ای کامل ارقام');
+				chips.unshift(t('numbers.chipMirror'));
 			} else if (
 				digitsOnly === '12345678' ||
 				digitsOnly === '87654321' ||
-				digitsOnly === '01234567' ||
-				digitsOnly === '1234'
+				digitsOnly === '01234567'
 			) {
 				tier = 'APEX TIER (LADDER SEQUENCE)';
-				chips.unshift('📈 توالی پیوسته پله‌ای ارقام');
+				chips.unshift(t('numbers.chipLadder'));
 			} else {
 				const distinct = new Set(digitsOnly.split('')).size;
 				if (distinct <= 2) {
 					tier = 'GRAND TIER (BINARY DUAL)';
-					chips.unshift('⚡ ترکیب نادر دو رقمی (Binary)');
+					chips.unshift(t('numbers.chipBinary'));
 				}
 			}
 		}
@@ -198,6 +200,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 		if (props.activeTab === 'collectibles') {
 			const v = numbersValidation();
 			if (!v.isValid || !v.cleanDigits) return;
+			if (serverVerified() && !serverVerified()?.is_minted) return;
 			try {
 				haptic.impact('medium');
 			} catch {}
@@ -248,19 +251,46 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			setSearchQuery(cleaned);
 
 			if (autoGuideTimeout) clearTimeout(autoGuideTimeout);
+			if (verifyTimeout) clearTimeout(verifyTimeout);
+
+			const digits = cleaned.replace(/[^\d]/g, '');
 
 			// Auto-open format guide if invalid after 2.5 seconds
 			if (cleaned.trim().length > 0) {
-				const digits = cleaned.replace(/[^\d]/g, '');
-				if (digits.length < 4 || digits.length > 8) {
+				if (digits.length !== 8 && digits !== '8888') {
+					setServerVerified(null);
+					setIsVerifying(false);
 					autoGuideTimeout = setTimeout(() => {
 						setShowNumberGuide(true);
 					}, 2500);
 				} else {
 					setShowNumberGuide(false);
+					// Trigger live debounced server verification
+					setIsVerifying(true);
+					verifyTimeout = setTimeout(async () => {
+						try {
+							const res = await numbersApi.verifyNumber('+888' + digits);
+							setServerVerified(res);
+						} catch {
+							setServerVerified({
+								number: '+888' + digits,
+								display_number: '+888 ' + digits,
+								is_minted: true,
+								exists: true,
+								tier: numbersValidation().tier,
+								category_club: 'Standard Collection',
+								global_rank: 50000,
+								teaser_chips: numbersValidation().chips,
+							});
+						} finally {
+							setIsVerifying(false);
+						}
+					}, 200);
 				}
 			} else {
 				setShowNumberGuide(false);
+				setServerVerified(null);
+				setIsVerifying(false);
 			}
 			return;
 		}
@@ -277,6 +307,19 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			setSearchError(null);
 		}
 	};
+
+	const isAnalyzeDisabled = createMemo(() => {
+		if (analyzeState() === 'loading') return true;
+		if (isVerifying()) return true;
+		if (props.activeTab === 'collectibles') {
+			const v = numbersValidation();
+			if (!v.isValid) return true;
+			const sv = serverVerified();
+			if (sv && sv.is_minted === false) return true;
+			return false;
+		}
+		return !searchQuery() || Boolean(searchError());
+	});
 
 	const getButtonText = () => {
 		if (analyzeState() === 'loading') return t('action.analyzing');
@@ -566,6 +609,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
 								{/* Reactive Realtime Validation & Teasers for Collectible Numbers */}
 								<Show when={props.activeTab === 'collectibles' && searchQuery().trim().length > 0}>
+									{/* 1. Client format error */}
 									<Show when={numbersValidation().error}>
 										<div class="px-4 pb-2.5 pt-1 flex items-center justify-between text-xs font-bold text-rose-400 animate-in fade-in">
 											<span class="flex items-center gap-1.5">
@@ -577,26 +621,52 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 												onClick={() => setShowNumberGuide(true)}
 												class="text-[11px] text-[#0098EA] underline hover:brightness-120"
 											>
-												راهنمای فرمت
+												{t('numbers.formatGuideBtn')}
 											</button>
 										</div>
 									</Show>
 
-									<Show when={numbersValidation().isValid}>
+									{/* 2. On-chain Verifying state */}
+									<Show when={!numbersValidation().error && isVerifying()}>
+										<div class="px-4 pb-2.5 pt-1 flex items-center gap-2 text-xs font-bold text-[#0098EA] animate-pulse">
+											<span class="w-2 h-2 rounded-full bg-[#0098EA] animate-ping" />
+											<span>{t('numbers.verifyingStatus')}</span>
+										</div>
+									</Show>
+
+									{/* 3. Server unminted error */}
+									<Show when={!numbersValidation().error && !isVerifying() && serverVerified() && !serverVerified()?.is_minted}>
+										<div class="px-4 pb-2.5 pt-1 flex items-center justify-between text-xs font-bold text-rose-400 animate-in fade-in">
+											<span class="flex items-center gap-1.5">
+												<span class="material-symbols-outlined text-sm">cancel</span>
+												<span>{t('numbers.errorUnmintedServer')}</span>
+											</span>
+											<button
+												type="button"
+												onClick={() => setShowNumberGuide(true)}
+												class="text-[11px] text-[#0098EA] underline hover:brightness-120"
+											>
+												{t('numbers.formatGuideBtn')}
+											</button>
+										</div>
+									</Show>
+
+									{/* 4. Valid & Minted */}
+									<Show when={numbersValidation().isValid && !isVerifying() && (!serverVerified() || serverVerified()?.is_minted)}>
 										<div class="px-3 pb-3 pt-1 border-t border-white/5 space-y-2 animate-in fade-in">
 											<div class="flex items-center justify-between">
 												<span class="text-[11px] font-bold text-emerald-400 flex items-center gap-1">
 													<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-													{t('numbers.validNumberReady')}
+													<span>{t('numbers.mintedConfirmed')}</span>
 												</span>
 												<span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
-													{numbersValidation().tier}
+													{serverVerified()?.tier || numbersValidation().tier}
 												</span>
 											</div>
 
 											{/* Pattern Teaser Chips */}
 											<div class="flex flex-wrap gap-1.5">
-												<For each={numbersValidation().chips}>
+												<For each={serverVerified()?.teaser_chips || numbersValidation().chips}>
 													{(chip) => (
 														<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-white/[0.04] border border-white/10 text-white/80">
 															{chip}
@@ -614,38 +684,25 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 						<button
 							type="button"
 							onClick={handleAnalyze}
-							disabled={
-								analyzeState() === 'loading' ||
-								(props.activeTab === 'collectibles'
-									? !numbersValidation().isValid
-									: !searchQuery() || !!searchError())
-							}
+							disabled={isAnalyzeDisabled()}
 							class="relative w-full h-[60px] rounded-[22px] font-black text-[15px] flex items-center justify-center gap-2 transition-all duration-300 overflow-hidden group mt-4"
 							style={{
 								background:
 									analyzeState() === 'success'
 										? 'linear-gradient(135deg, #28a745, #30d158)'
-										: (props.activeTab === 'collectibles' && !numbersValidation().isValid) ||
-											  (props.activeTab !== 'collectibles' && (!searchQuery() || !!searchError()))
+										: isAnalyzeDisabled()
 											? 'rgba(255,255,255,0.04)'
 											: 'linear-gradient(135deg, #ffffff, #e0e0e0)',
 								color:
 									analyzeState() === 'success'
 										? '#fff'
-										: (props.activeTab === 'collectibles' && !numbersValidation().isValid) ||
-											  (props.activeTab !== 'collectibles' && (!searchQuery() || !!searchError()))
+										: isAnalyzeDisabled()
 											? 'rgba(255,255,255,0.25)'
 											: '#000',
-								cursor:
-									(props.activeTab === 'collectibles' && !numbersValidation().isValid) ||
-									(props.activeTab !== 'collectibles' && (!searchQuery() || !!searchError()))
-										? 'not-allowed'
-										: 'pointer',
-								'box-shadow':
-									(props.activeTab === 'collectibles' && numbersValidation().isValid) ||
-									(props.activeTab !== 'collectibles' && searchQuery() && !searchError())
-										? '0 8px 24px -6px rgba(255,255,255,0.2)'
-										: 'none',
+								cursor: isAnalyzeDisabled() ? 'not-allowed' : 'pointer',
+								'box-shadow': !isAnalyzeDisabled()
+									? '0 8px 24px -6px rgba(255,255,255,0.2)'
+									: 'none',
 							}}
 						>
 							<Show when={analyzeState() === 'loading'}>
@@ -654,13 +711,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 							<span class="relative z-10 transition-transform group-hover:scale-[1.02]">
 								{getButtonText()}
 							</span>
-							<Show
-								when={
-									analyzeState() === 'idle' &&
-									((props.activeTab === 'collectibles' && numbersValidation().isValid) ||
-										(props.activeTab !== 'collectibles' && searchQuery() && !searchError()))
-								}
-							>
+							<Show when={analyzeState() === 'idle' && !isAnalyzeDisabled()}>
 								<span class="material-symbols-outlined text-[18px] rtl:rotate-180 relative z-10 group-hover:translate-x-1 transition-transform">
 									arrow_forward
 								</span>

@@ -12,6 +12,13 @@ export const numbersApi = {
 		return data;
 	},
 
+	verifyNumber: async (number: string): Promise<import('../model/types.js').NumberVerifyResult> => {
+		const { data } = await apiClient.get<import('../model/types.js').NumberVerifyResult>('/numbers/verify', {
+			params: { n: number },
+		});
+		return data;
+	},
+
 	getCuriosityGate: async (number: string): Promise<CuriosityGateData> => {
 		const { data } = await apiClient.get<CuriosityGateData>('/numbers/gate', {
 			params: { n: number },

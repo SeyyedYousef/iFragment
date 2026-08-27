@@ -220,11 +220,11 @@ export const NumberReportPage: Component = () => {
 		setTilt({ x: 0, y: 0, glossX: 50, glossY: 50 });
 	};
 
-	const ANALYSIS_STEPS = [
-		'Connecting to Telemint Smart Contracts...',
-		'Querying 136,566 Closed Collection Matrix...',
-		'Extracting 11 Structural & Mathematical Features...',
-		'Running Hedonic Regression & Bayesian Shrinkage...',
+	const analysisSteps = () => [
+		t('numbers.stepConnectingContracts'),
+		t('numbers.stepQueryingMatrix'),
+		t('numbers.stepExtractingFeatures'),
+		t('numbers.stepRunningHedonic'),
 	];
 
 	onMount(() => {
@@ -452,14 +452,14 @@ export const NumberReportPage: Component = () => {
 
 						<h2 class="text-lg font-black text-white mb-1">{t('numbers.engineScanning')}</h2>
 						<p class="text-xs text-white/50 mb-6 font-mono font-bold">
-							{ANALYSIS_STEPS[analysisStep()]}
+							{analysisSteps()[analysisStep()]}
 						</p>
 
 						{/* Progress Bar */}
 						<div class="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mb-2">
 							<div
 								class="h-full bg-gradient-to-r from-[#0098EA] to-emerald-400 rounded-full transition-all duration-500"
-								style={{ width: `${((analysisStep() + 1) / ANALYSIS_STEPS.length) * 100}%` }}
+								style={{ width: `${((analysisStep() + 1) / analysisSteps().length) * 100}%` }}
 							/>
 						</div>
 						<div class="text-[10px] text-white/40 font-mono">
@@ -486,7 +486,7 @@ export const NumberReportPage: Component = () => {
 								</div>
 								<span class="text-[10px] font-mono text-emerald-400 font-bold flex items-center gap-1">
 									<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-									136,566 Total Supply
+									{t('numbers.totalSupplySupplyBadge')}
 								</span>
 							</div>
 
@@ -500,7 +500,7 @@ export const NumberReportPage: Component = () => {
 							<div class="flex items-center justify-center gap-2 text-[11px] text-white/70 font-semibold bg-white/[0.04] p-2 rounded-xl border border-white/5">
 								<span class="material-symbols-outlined text-[#0098EA] text-sm">verified_user</span>
 								<span>
-									{gateData()?.signals_analyzed || 27} on-chain & statistical signals analyzed
+									{t('numbers.signalsAnalyzedBadge')}
 								</span>
 							</div>
 						</div>
