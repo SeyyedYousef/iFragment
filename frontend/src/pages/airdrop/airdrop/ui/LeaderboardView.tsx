@@ -12,6 +12,8 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 	const [activeTab, setActiveTab] = createSignal<'miners' | 'squads'>(props.initialTab || 'miners');
 	const [activeSubTab, setActiveSubTab] = createSignal<'day' | 'week'>('day');
 
+	const currentLeague = () => LEAGUES[selectedLeagueIndex()] || LEAGUES[0];
+
 	const leaderboardQuery = createQuery(() => ({
 		queryKey: ['leaderboard', activeSubTab(), currentLeague().name.toLowerCase()],
 		queryFn: () => fetchLeaderboard(activeSubTab(), currentLeague().name.toLowerCase()),
@@ -32,8 +34,6 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 		staleTime: 30_000,
 		refetchOnWindowFocus: false,
 	}));
-
-	const currentLeague = () => LEAGUES[selectedLeagueIndex()] || LEAGUES[0];
 
 	const handlePrevLeague = () => setSelectedLeagueIndex((prev) => Math.max(0, prev - 1));
 	const handleNextLeague = () =>

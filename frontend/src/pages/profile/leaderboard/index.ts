@@ -1,1 +1,1 @@
-export { LeaderboardPage } from './ui/LeaderboardPage.jsx';
+export { LeaderboardPage } from './ui/LeaderboardPage.js';

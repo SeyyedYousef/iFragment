@@ -532,13 +532,20 @@ export const recordTaps = (count: number) => {
 		coinsEarned = energyConsumed;
 	}
 
-	let fatigueMultiplier = dailyFatigueMultiplier();
-	if (dailyTappedCoins() > 30000) {
+	let fatigueMultiplier = 1.0;
+	let limitRemaining = 5000;
+	const currentTapped = dailyTappedCoins();
+	if (currentTapped > 30000) {
 		fatigueMultiplier = 0.1;
-	} else if (dailyTappedCoins() > 15000) {
+		limitRemaining = 0;
+	} else if (currentTapped > 15000) {
 		fatigueMultiplier = 0.25;
-	} else if (dailyTappedCoins() > 5000) {
+		limitRemaining = Math.max(0, 30000 - currentTapped);
+	} else if (currentTapped > 5000) {
 		fatigueMultiplier = 0.5;
+		limitRemaining = Math.max(0, 15000 - currentTapped);
+	} else {
+		limitRemaining = Math.max(0, 5000 - currentTapped);
 	}
 
 	coinsEarned = coinsEarned * fatigueMultiplier;
@@ -547,10 +554,29 @@ export const recordTaps = (count: number) => {
 		setEnergy((e) => Math.max(0, e - energyConsumed));
 	}
 
+	const nextTapped = currentTapped + coinsEarned;
 	setBalance((b) => b + coinsEarned);
-	setDailyTappedCoins((d) => d + coinsEarned);
+	setDailyTappedCoins(nextTapped);
 	setTotalTaps((t) => t + count);
 	setUserXp((x) => x + Math.floor(coinsEarned));
+
+	// Optimistically compute new fatigue state after this tap
+	let nextFatigueMultiplier = 1.0;
+	let nextLimitRemaining = 5000;
+	if (nextTapped > 30000) {
+		nextFatigueMultiplier = 0.1;
+		nextLimitRemaining = 0;
+	} else if (nextTapped > 15000) {
+		nextFatigueMultiplier = 0.25;
+		nextLimitRemaining = Math.max(0, 30000 - nextTapped);
+	} else if (nextTapped > 5000) {
+		nextFatigueMultiplier = 0.5;
+		nextLimitRemaining = Math.max(0, 15000 - nextTapped);
+	} else {
+		nextLimitRemaining = Math.max(0, 5000 - nextTapped);
+	}
+	setDailyFatigueMultiplier(nextFatigueMultiplier);
+	setDailyFatigueLimitRemaining(Math.round(nextLimitRemaining));
 
 	const lastBucket = pendingTapBuckets[pendingTapBuckets.length - 1];
 	if (lastBucket && lastBucket.multiplier === multiplier && lastBucket.count + count <= 400) {

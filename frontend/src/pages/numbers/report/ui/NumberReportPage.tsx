@@ -407,204 +407,36 @@ export const NumberReportPage: Component = () => {
 			<div class="fixed bottom-20 right-0 w-80 h-80 bg-emerald-500/10 blur-[100px] pointer-events-none z-0" />
 
 			<div class="relative z-10 max-w-[480px] mx-auto px-4 pt-4">
-				{/* ═══════ HEADER SECTION ═══════ */}
-				<div class="flex items-center justify-between mb-4">
-					<div class="flex items-center gap-2.5">
-						<div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#0098EA] to-[#00c6ff] p-[1px] shadow-lg shadow-[#0098EA]/20 flex items-center justify-center">
-							<div class="w-full h-full bg-[#0d111a] rounded-2xl flex items-center justify-center">
-								<span class="material-symbols-outlined text-[#0098EA] text-[22px]">pin</span>
-							</div>
-						</div>
-						<div>
-							<h1 class="text-[17px] font-black tracking-tight text-white flex items-center gap-1.5">
-								{t('numbers.intelTitle')}
-								<span class="text-[9px] uppercase font-extrabold px-2 py-0.5 rounded-full bg-[#0098EA]/20 text-[#0098EA] border border-[#0098EA]/30">
-									+888
-								</span>
-							</h1>
-							<p class="text-[11px] font-medium text-white/50">{t('numbers.intelSubtitle')}</p>
-						</div>
-					</div>
-
-					{/* Guide Toggle Button */}
+				{/* ═══════ CLEAN DEDICATED HEADER ═══════ */}
+				<div class="flex items-center justify-between mb-5">
 					<button
 						type="button"
 						onClick={() => {
 							try {
 								haptic.selection();
 							} catch {}
-							setShowGuide(!showGuide());
+							navigate('/?tab=collectibles');
 						}}
-						class={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 ${
-							showGuide()
-								? 'bg-[#0098EA]/20 border-[#0098EA]/50 text-[#0098EA]'
-								: 'bg-white/[0.06] border-white/10 text-white/80 hover:bg-white/10'
-						}`}
+						class="w-10 h-10 rounded-2xl bg-white/[0.06] hover:bg-white/10 border border-white/10 flex items-center justify-center text-white/80 active:scale-95 transition-all shadow-sm"
 					>
-						<span class="material-symbols-outlined text-sm">help_outline</span>
-						<span>{t('numbers.formatGuideTitle')}</span>
+						<span class="material-symbols-outlined text-xl rtl:rotate-180">arrow_back</span>
 					</button>
-				</div>
 
-				{/* ═══════ 1. INTERACTIVE FORMAT GUIDE ACCORDION ═══════ */}
-				<Show when={showGuide()}>
-					<div class="mb-4 bg-[#12141C]/90 border border-[#0098EA]/30 rounded-[24px] p-4 shadow-xl backdrop-blur-2xl animate-in fade-in slide-in-from-top-2 duration-200">
-						<div class="flex items-center gap-2 mb-2">
-							<span class="material-symbols-outlined text-sm text-[#0098EA]">info</span>
-							<h3 class="text-xs font-black text-white">{t('numbers.formatGuideTitle')}</h3>
-						</div>
-						<p class="text-[11px] text-white/60 mb-3 leading-relaxed">
-							{t('numbers.formatGuideSubtitle')}
-						</p>
-
-						<div class="grid grid-cols-1 xs:grid-cols-2 gap-2 text-xs">
-							{/* Valid Card */}
-							<div class="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/25">
-								<span class="text-[10px] font-black uppercase text-emerald-400 flex items-center gap-1 mb-1.5">
-									<span class="material-symbols-outlined text-xs">check_circle</span>
-									{t('numbers.formatValidBadge')}
-								</span>
-								<div class="space-y-1 font-mono text-[11px] text-white/90" dir="ltr">
-									<div class="bg-black/30 px-2 py-1 rounded-lg">
-										+888 8888 8888 <span class="text-[9px] text-emerald-400">✓</span>
-									</div>
-									<div class="bg-black/30 px-2 py-1 rounded-lg">
-										+888 0123 4567 <span class="text-[9px] text-emerald-400">✓</span>
-									</div>
-									<div class="bg-black/30 px-2 py-1 rounded-lg">
-										8888 8888 <span class="text-[9px] text-emerald-400">✓ (Auto +888)</span>
-									</div>
-								</div>
-							</div>
-
-							{/* Invalid Card */}
-							<div class="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/25">
-								<span class="text-[10px] font-black uppercase text-rose-400 flex items-center gap-1 mb-1.5">
-									<span class="material-symbols-outlined text-xs">cancel</span>
-									{t('numbers.formatInvalidBadge')}
-								</span>
-								<div class="space-y-1 font-mono text-[11px] text-white/90" dir="ltr">
-									<div class="bg-black/30 px-2 py-1 rounded-lg">
-										+98 912 ... <span class="text-[9px] text-rose-400">✗ Mobile</span>
-									</div>
-									<div class="bg-black/30 px-2 py-1 rounded-lg">
-										+888 12 <span class="text-[9px] text-rose-400">✗ Too short</span>
-									</div>
-									<div class="bg-black/30 px-2 py-1 rounded-lg">
-										+1 555 ... <span class="text-[9px] text-rose-400">✗ Non-888</span>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				</Show>
-
-				{/* ═══════ 2. LIVE REACTIVE SEARCH & INPUT BAR ═══════ */}
-				<div class="mb-4">
-					<div
-						class={`relative backdrop-blur-2xl border rounded-[26px] p-2 flex items-center gap-2 shadow-2xl transition-all duration-200 ${
-							validation().error && inputNumber().length > 0
-								? 'border-rose-500/60 bg-rose-500/10 shadow-[0_0_20px_rgba(244,63,94,0.25)]'
-								: validation().isValid
-									? 'border-[#0098EA]/50 bg-[#12141C]/90 shadow-[0_0_20px_rgba(0,152,234,0.15)]'
-									: 'border-white/10 bg-[#12141C]/80'
-						}`}
-						dir="ltr"
-					>
-						{/* +888 Prefix Stamp */}
-						<div
-							class={`w-10 h-10 rounded-2xl flex items-center justify-center font-mono font-black text-sm border transition-all ${
-								validation().error && inputNumber().length > 0
-									? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
-									: validation().isValid
-										? 'bg-[#0098EA]/20 text-[#0098EA] border-[#0098EA]/40'
-										: 'bg-white/5 text-white/50 border-white/10'
-							}`}
-						>
-							+888
-						</div>
-
-						{/* Number Input */}
-						<input
-							type="text"
-							value={inputNumber()}
-							onInput={(e) => {
-								setInputNumber(e.currentTarget.value);
-								if (error()) setError(null);
-							}}
-							onKeyDown={(e) => {
-								if (e.key === 'Enter') handleRunAnalysis(inputNumber());
-							}}
-							placeholder="8888 8888 or 0123 4567"
-							class="flex-1 bg-transparent text-white placeholder-white/30 text-base font-mono font-black focus:outline-none tracking-wide"
-						/>
-
-						{/* Live Status Icon */}
-						<Show when={inputNumber().trim().length > 0}>
-							<Show
-								when={validation().isValid}
-								fallback={
-									<span class="material-symbols-outlined text-rose-400 text-lg">error</span>
-								}
-							>
-								<span class="material-symbols-outlined text-emerald-400 text-lg">check_circle</span>
-							</Show>
-						</Show>
-
-						{/* Valuate Button */}
-						<button
-							type="button"
-							onClick={() => handleRunAnalysis(inputNumber())}
-							disabled={isAnalyzing() || (!validation().isValid && inputNumber().trim().length > 0)}
-							class={`px-4 py-2.5 rounded-2xl text-xs font-black tracking-tight active:scale-95 transition-all shadow-md flex items-center gap-1.5 ${
-								isAnalyzing()
-									? 'bg-white/10 text-white/40 cursor-not-allowed'
-									: validation().isValid
-										? 'bg-gradient-to-r from-[#0098EA] to-[#0070BA] text-white shadow-[#0098EA]/30 hover:brightness-110'
-										: 'bg-white/10 text-white/40'
-							}`}
-						>
-							<Show
-								when={!isAnalyzing()}
-								fallback={
-									<span class="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-								}
-							>
-								<span class="material-symbols-outlined text-sm">search_insights</span>
-							</Show>
-							<span>{isAnalyzing() ? 'Analyzing...' : t('numbers.valuateBtn')}</span>
-						</button>
+					<div class="text-center flex-1 px-3">
+						<h1 class="text-base font-black text-white flex items-center justify-center gap-1.5">
+							<span>{isUnlocked() ? t('numbers.valuationReportTitle') : t('numbers.paywallHeaderTitle')}</span>
+							<span class="text-[9px] uppercase font-extrabold px-2 py-0.5 rounded-full bg-[#0098EA]/20 text-[#0098EA] border border-[#0098EA]/30">
+								+888
+							</span>
+						</h1>
+						<p class="text-[11px] font-medium text-white/50">{t('numbers.intelSubtitle')}</p>
 					</div>
 
-					{/* Reactive Error Helper Message */}
-					<Show when={validation().error && inputNumber().length > 0}>
-						<div class="mt-2 px-3 py-1.5 bg-rose-500/15 border border-rose-500/30 rounded-xl text-xs font-bold text-rose-300 flex items-center gap-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
-							<span class="material-symbols-outlined text-sm">warning</span>
-							<span>{validation().error}</span>
-						</div>
-					</Show>
-
-					{/* Live Valid Preview Badge & Micro-Intelligence Teasers */}
-					<Show when={validation().isValid}>
-						<div class="mt-2 flex items-center justify-between px-1">
-							<span class="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400">
-								<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-								{t('numbers.validNumberReady')}
-							</span>
-
-							<span
-								class={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${getNumberTheme().badgeBg}`}
-							>
-								{validation().patternLabel || `${getNumberTheme().name} TIER`}
-							</span>
-						</div>
-
-						{/* Realtime Mystery Hints & Pattern Chips */}
-						<SearchTeaser vertical="number" value={inputNumber()} />
-					</Show>
+					{/* Spacer to keep title centered */}
+					<div class="w-10 h-10" />
 				</div>
 
-				<Show when={error() && !validation().error}>
+				<Show when={error()}>
 					<div class="bg-red-500/10 border border-red-500/30 rounded-2xl p-3.5 mb-4 text-xs text-red-400 flex items-center gap-2">
 						<span class="material-symbols-outlined text-base">error</span>
 						<span>{error()}</span>

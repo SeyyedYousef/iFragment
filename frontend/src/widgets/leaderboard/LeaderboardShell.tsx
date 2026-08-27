@@ -193,7 +193,7 @@ export const LeaderboardShell: Component<LeaderboardShellProps> = (props) => {
 									<div class="w-9 h-9 rounded-full bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center shrink-0">
 										<Show
 											when={entry.avatarUrl}
-											fallback={<span class="text-xs font-bold text-white">{entry.name[0]}</span>}
+											fallback={<span class="text-xs font-bold text-white">{entry.name?.[0] || '?'}</span>}
 										>
 											<img
 												loading="lazy"

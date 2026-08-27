@@ -53,21 +53,114 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 	const [isFocused, setIsFocused] = createSignal(false);
 	const [credits, setCredits] = createSignal<number>(3);
 	const [showNoCreditsModal, setShowNoCreditsModal] = createSignal(false);
+	const [showNumberGuide, setShowNumberGuide] = createSignal(false);
+	let autoGuideTimeout: any = null;
 
 	const [trendingUsernames] = createSignal<string[]>(getRandomTrending(4));
 	const [trendingNumbers, setTrendingNumbers] = createSignal<string[]>([]);
 	const [trendingGifts, setTrendingGifts] = createSignal<string[]>([]);
 
+	const toAsciiDigits = (str: string): string => {
+		return str
+			.replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
+			.replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660));
+	};
+
+	const numbersValidation = createMemo(() => {
+		if (props.activeTab !== 'collectibles') {
+			return { isValid: false, cleanDigits: '', error: null, tier: '', chips: [] };
+		}
+		const raw = toAsciiDigits(searchQuery().trim());
+		if (!raw) {
+			return { isValid: false, cleanDigits: '', error: null, tier: '', chips: [] };
+		}
+
+		// Strip +888 or 888 if present
+		let digitsOnly = raw.replace(/[^\d]/g, '');
+		if (digitsOnly.startsWith('888') && digitsOnly.length > 3) {
+			digitsOnly = digitsOnly.substring(3);
+		}
+
+		if (/[^\d\s\(\)\-]/.test(raw)) {
+			return {
+				isValid: false,
+				cleanDigits: digitsOnly,
+				error: 'فقط ارقام مجاز است (Invalid characters)',
+				tier: '',
+				chips: [],
+			};
+		}
+
+		if (digitsOnly.length > 8) {
+			return {
+				isValid: false,
+				cleanDigits: digitsOnly,
+				error: 'Too long / حداکثر ۸ رقم مجاز است',
+				tier: '',
+				chips: [],
+			};
+		}
+
+		if (digitsOnly.length > 0 && digitsOnly.length < 4) {
+			return {
+				isValid: false,
+				cleanDigits: digitsOnly,
+				error: 'خیلی کوتاه است (حداقل ۴ رقم نیاز است)',
+				tier: '',
+				chips: [],
+			};
+		}
+
+		// Determine Pattern Tier & Teaser Chips
+		let tier = 'STANDARD TIER';
+		const chips: string[] = ['سنجش در ۱۳۶,۵۶۶ شماره کلکسیونی', '۲۷ سیگنال ریاضی آماده تحلیل'];
+
+		if (digitsOnly.length === 4) {
+			tier = '4-DIGIT ULTRA (GENESIS)';
+			chips.unshift('💎 شماره فوق نایاب ۴ رقمی جنسیس');
+		} else if (/^(.)\1+$/.test(digitsOnly) || digitsOnly.includes('8888') || digitsOnly.includes('7777') || digitsOnly.includes('0000')) {
+			tier = 'GRAIL TIER (QUAD REPEAT)';
+			chips.unshift('👑 الگوی فوق‌کمیاب رده افسانه‌ای (Grail)');
+		} else {
+			// Palindrome check
+			const rev = digitsOnly.split('').reverse().join('');
+			if (digitsOnly === rev) {
+				tier = 'APEX TIER (MIRROR PALINDROME)';
+				chips.unshift('🪞 تقارن آینه‌ای کامل ارقام');
+			} else if (
+				digitsOnly === '12345678' ||
+				digitsOnly === '87654321' ||
+				digitsOnly === '01234567' ||
+				digitsOnly === '1234'
+			) {
+				tier = 'APEX TIER (LADDER SEQUENCE)';
+				chips.unshift('📈 توالی پیوسته پله‌ای ارقام');
+			} else {
+				const distinct = new Set(digitsOnly.split('')).size;
+				if (distinct <= 2) {
+					tier = 'GRAND TIER (BINARY DUAL)';
+					chips.unshift('⚡ ترکیب نادر دو رقمی (Binary)');
+				}
+			}
+		}
+
+		return {
+			isValid: true,
+			cleanDigits: digitsOnly,
+			error: null,
+			tier,
+			chips,
+		};
+	});
+
 	const keys = createMemo(() => CONTENT[props.activeTab]);
 
 	onMount(async () => {
-		// 1. Fetch user credit balance
 		try {
 			const creditData = await creditsApi.getCredits();
 			setCredits(creditData.balance);
 		} catch (_e) {}
 
-		// 2. Fetch live trending numbers and gifts from backend APIs
 		try {
 			const nIntel = await numbersApi.getIntel();
 			if (nIntel.trending_tail && nIntel.trending_tail.length > 0) {
@@ -100,7 +193,21 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 	});
 
 	const handleAnalyze = async () => {
-		if (analyzeState() !== 'idle' || !searchQuery() || searchError()) return;
+		if (analyzeState() !== 'idle') return;
+
+		if (props.activeTab === 'collectibles') {
+			const v = numbersValidation();
+			if (!v.isValid || !v.cleanDigits) return;
+			try {
+				haptic.impact('medium');
+			} catch {}
+			setAnalyzeState('loading');
+			navigate(`/numbers/report?n=${encodeURIComponent('+888' + v.cleanDigits)}`);
+			setAnalyzeState('idle');
+			return;
+		}
+
+		if (!searchQuery() || searchError()) return;
 		try {
 			haptic.impact('medium');
 		} catch {}
@@ -109,7 +216,6 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
 		if (props.activeTab === 'gifts') {
 			let q = searchQuery().trim();
-			// Parse t.me/nft link
 			const m = q.match(/t\.me\/nft\/([A-Za-z0-9_]+)-?(\d*)/i);
 			if (m) {
 				q = `${m[1].toLowerCase()}-${m[2] || '1'}`;
@@ -122,9 +228,6 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 				setAnalyzeState('idle');
 				navigate(`/gifts/report?g=${encodeURIComponent(q)}`);
 			}
-		} else if (props.activeTab === 'collectibles') {
-			setAnalyzeState('idle');
-			navigate(`/numbers/report?n=${encodeURIComponent(searchQuery())}`);
 		} else {
 			if (validate(searchQuery(), props.activeTab)) {
 				setAnalyzeState('idle');
@@ -139,6 +242,29 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 	};
 
 	const updateSearchQuery = (val: string) => {
+		if (props.activeTab === 'collectibles') {
+			const ascii = toAsciiDigits(val);
+			let cleaned = ascii.replace(/^\+?888\s*/, '').replace(/[^\d\s]/g, '');
+			setSearchQuery(cleaned);
+
+			if (autoGuideTimeout) clearTimeout(autoGuideTimeout);
+
+			// Auto-open format guide if invalid after 2.5 seconds
+			if (cleaned.trim().length > 0) {
+				const digits = cleaned.replace(/[^\d]/g, '');
+				if (digits.length < 4 || digits.length > 8) {
+					autoGuideTimeout = setTimeout(() => {
+						setShowNumberGuide(true);
+					}, 2500);
+				} else {
+					setShowNumberGuide(false);
+				}
+			} else {
+				setShowNumberGuide(false);
+			}
+			return;
+		}
+
 		const stripped = val.replace(/^[@+]/, '');
 		setSearchQuery(stripped);
 		if (props.activeTab === 'username') {
@@ -160,13 +286,31 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 		return t(keys().analyzeBtn);
 	};
 
-	const getPrefix = () => {
-		if (props.activeTab === 'username') return '@';
-		if (props.activeTab === 'collectibles') return '+';
-		return '';
-	};
-
 	const inputStateColors = createMemo(() => {
+		if (props.activeTab === 'collectibles') {
+			const v = numbersValidation();
+			if (v.error && searchQuery().trim().length > 0) {
+				return {
+					glow: 'rgba(255,69,58,0.4)',
+					glowSoft: 'rgba(255,69,58,0.1)',
+					borderTop: 'rgba(255,69,58,0.6)',
+					borderBottom: 'rgba(255,69,58,0.15)',
+					bg: '#140c0c',
+					icon: '#ff453a',
+				};
+			}
+			if (v.isValid) {
+				return {
+					glow: 'rgba(48,209,88,0.4)',
+					glowSoft: 'rgba(48,209,88,0.1)',
+					borderTop: 'rgba(48,209,88,0.6)',
+					borderBottom: 'rgba(48,209,88,0.15)',
+					bg: '#0a140d',
+					icon: '#30d158',
+				};
+			}
+		}
+
 		const isError = searchError();
 		const isSuccess = searchQuery() && !isError;
 
@@ -272,6 +416,54 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 						</p>
 					</Motion.div>
 
+					{/* ━━━ FORMAT GUIDE (ACCORDION) ━━━ */}
+					<Show when={props.activeTab === 'collectibles' && showNumberGuide()}>
+						<div class="mb-5 bg-[#12141C]/90 border border-[#0098EA]/30 rounded-[24px] p-4 shadow-xl backdrop-blur-2xl animate-in fade-in slide-in-from-top-2 duration-200">
+							<div class="flex items-center justify-between mb-2">
+								<div class="flex items-center gap-2">
+									<span class="material-symbols-outlined text-sm text-[#0098EA]">info</span>
+									<h3 class="text-xs font-black text-white">{t('numbers.formatGuideTitle')}</h3>
+								</div>
+								<button
+									type="button"
+									onClick={() => setShowNumberGuide(false)}
+									class="text-white/40 hover:text-white text-xs font-bold"
+								>
+									✕
+								</button>
+							</div>
+							<p class="text-[11px] text-white/60 mb-3 leading-relaxed">
+								{t('numbers.formatGuideSubtitle')}
+							</p>
+
+							<div class="grid grid-cols-1 xs:grid-cols-2 gap-2 text-xs">
+								<div class="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/25">
+									<span class="text-[10px] font-black uppercase text-emerald-400 flex items-center gap-1 mb-1.5">
+										<span class="material-symbols-outlined text-xs">check_circle</span>
+										{t('numbers.formatValidBadge')}
+									</span>
+									<div class="space-y-1 font-mono text-[11px] text-white/90" dir="ltr">
+										<div class="bg-black/30 px-2 py-1 rounded-lg">8888 8888 <span class="text-[9px] text-emerald-400">✓</span></div>
+										<div class="bg-black/30 px-2 py-1 rounded-lg">0123 4567 <span class="text-[9px] text-emerald-400">✓</span></div>
+										<div class="bg-black/30 px-2 py-1 rounded-lg">8888 <span class="text-[9px] text-emerald-400">✓ (4 Digits)</span></div>
+									</div>
+								</div>
+
+								<div class="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/25">
+									<span class="text-[10px] font-black uppercase text-rose-400 flex items-center gap-1 mb-1.5">
+										<span class="material-symbols-outlined text-xs">cancel</span>
+										{t('numbers.formatInvalidBadge')}
+									</span>
+									<div class="space-y-1 font-mono text-[11px] text-white/90" dir="ltr">
+										<div class="bg-black/30 px-2 py-1 rounded-lg">0912 ... <span class="text-[9px] text-rose-400">✗ Regular Sim</span></div>
+										<div class="bg-black/30 px-2 py-1 rounded-lg">12 <span class="text-[9px] text-rose-400">✗ Too short</span></div>
+										<div class="bg-black/30 px-2 py-1 rounded-lg">1234567890 <span class="text-[9px] text-rose-400">✗ Too long</span></div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</Show>
+
 					{/* ━━━ SEARCH COMPONENT ━━━ */}
 					<Motion.div
 						initial={{ opacity: 0, y: 12 }}
@@ -305,23 +497,38 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 						>
 							<div class="flex flex-col p-2">
 								{/* Input Row */}
-								<div class="flex items-center px-4 py-4 gap-2" dir="ltr">
-									<span
-										class="text-[24px] font-medium transition-colors duration-300 min-w-[20px]"
-										style={{
-											color: isFocused()
-												? searchQuery()
-													? inputStateColors().icon
-													: '#3390ec'
-												: 'rgba(255,255,255,0.2)',
-										}}
+								<div class="flex items-center px-3 py-3 gap-2.5" dir="ltr">
+									<Show
+										when={props.activeTab === 'collectibles'}
+										fallback={
+											<span
+												class="text-[24px] font-medium transition-colors duration-300 min-w-[20px]"
+												style={{
+													color: isFocused()
+														? searchQuery()
+															? inputStateColors().icon
+															: '#3390ec'
+														: 'rgba(255,255,255,0.2)',
+												}}
+											>
+												{props.activeTab === 'username' ? '@' : ''}
+											</span>
+										}
 									>
-										{getPrefix()}
-									</span>
+										{/* Fixed +888 Prefix Badge */}
+										<div class="px-3 py-1.5 rounded-xl bg-[#0098EA]/15 border border-[#0098EA]/30 text-[#0098EA] font-mono font-black text-sm select-none shrink-0 flex items-center gap-1 shadow-sm">
+											<span>+888</span>
+										</div>
+									</Show>
+
 									<input
 										id="search-input"
-										class="flex-1 bg-transparent border-none focus:ring-0 outline-none text-left font-sans text-[22px] font-semibold text-white placeholder:text-white/20 tracking-wide"
-										placeholder={t(keys().inputPlaceholder)}
+										class="flex-1 bg-transparent border-none focus:ring-0 outline-none text-left font-mono text-[20px] font-bold text-white placeholder:text-white/20 tracking-wider"
+										placeholder={
+											props.activeTab === 'collectibles'
+												? '8888 8888'
+												: t(keys().inputPlaceholder)
+										}
 										value={searchQuery()}
 										onInput={(e) => updateSearchQuery(e.currentTarget.value)}
 										onFocus={() => setIsFocused(true)}
@@ -333,7 +540,10 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 										<div class="flex items-center shrink-0">
 											<button
 												type="button"
-												onClick={() => setSearchQuery('')}
+												onClick={() => {
+													setSearchQuery('');
+													setShowNumberGuide(false);
+												}}
 												class="w-8 h-8 rounded-full bg-white/[0.05] hover:bg-white/10 text-white/40 hover:text-white transition-all flex items-center justify-center"
 											>
 												<span class="material-symbols-outlined text-[18px]">close</span>
@@ -342,8 +552,8 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 									</Show>
 								</div>
 
-								{/* Error */}
-								<Show when={searchError()}>
+								{/* Error for Usernames / Gifts */}
+								<Show when={props.activeTab !== 'collectibles' && searchError()}>
 									<Motion.div
 										initial={{ opacity: 0, height: 0 }}
 										animate={{ opacity: 1, height: 'auto' }}
@@ -353,6 +563,50 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 										<span class="text-[13px] font-medium text-[#ff453a]">{searchError()}</span>
 									</Motion.div>
 								</Show>
+
+								{/* Reactive Realtime Validation & Teasers for Collectible Numbers */}
+								<Show when={props.activeTab === 'collectibles' && searchQuery().trim().length > 0}>
+									<Show when={numbersValidation().error}>
+										<div class="px-4 pb-2.5 pt-1 flex items-center justify-between text-xs font-bold text-rose-400 animate-in fade-in">
+											<span class="flex items-center gap-1.5">
+												<span class="material-symbols-outlined text-sm">warning</span>
+												<span>{numbersValidation().error}</span>
+											</span>
+											<button
+												type="button"
+												onClick={() => setShowNumberGuide(true)}
+												class="text-[11px] text-[#0098EA] underline hover:brightness-120"
+											>
+												راهنمای فرمت
+											</button>
+										</div>
+									</Show>
+
+									<Show when={numbersValidation().isValid}>
+										<div class="px-3 pb-3 pt-1 border-t border-white/5 space-y-2 animate-in fade-in">
+											<div class="flex items-center justify-between">
+												<span class="text-[11px] font-bold text-emerald-400 flex items-center gap-1">
+													<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+													{t('numbers.validNumberReady')}
+												</span>
+												<span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+													{numbersValidation().tier}
+												</span>
+											</div>
+
+											{/* Pattern Teaser Chips */}
+											<div class="flex flex-wrap gap-1.5">
+												<For each={numbersValidation().chips}>
+													{(chip) => (
+														<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-white/[0.04] border border-white/10 text-white/80">
+															{chip}
+														</span>
+													)}
+												</For>
+											</div>
+										</div>
+									</Show>
+								</Show>
 							</div>
 						</div>
 
@@ -360,24 +614,36 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 						<button
 							type="button"
 							onClick={handleAnalyze}
-							disabled={analyzeState() === 'loading' || !searchQuery() || !!searchError()}
-							class="relative w-full h-[60px] rounded-[22px] font-semibold text-[15px] flex items-center justify-center gap-2 transition-all duration-300 overflow-hidden group mt-4"
+							disabled={
+								analyzeState() === 'loading' ||
+								(props.activeTab === 'collectibles'
+									? !numbersValidation().isValid
+									: !searchQuery() || !!searchError())
+							}
+							class="relative w-full h-[60px] rounded-[22px] font-black text-[15px] flex items-center justify-center gap-2 transition-all duration-300 overflow-hidden group mt-4"
 							style={{
 								background:
 									analyzeState() === 'success'
 										? 'linear-gradient(135deg, #28a745, #30d158)'
-										: !searchQuery() || searchError()
+										: (props.activeTab === 'collectibles' && !numbersValidation().isValid) ||
+											  (props.activeTab !== 'collectibles' && (!searchQuery() || !!searchError()))
 											? 'rgba(255,255,255,0.04)'
 											: 'linear-gradient(135deg, #ffffff, #e0e0e0)',
 								color:
 									analyzeState() === 'success'
 										? '#fff'
-										: !searchQuery() || searchError()
+										: (props.activeTab === 'collectibles' && !numbersValidation().isValid) ||
+											  (props.activeTab !== 'collectibles' && (!searchQuery() || !!searchError()))
 											? 'rgba(255,255,255,0.25)'
 											: '#000',
-								cursor: !searchQuery() || searchError() ? 'not-allowed' : 'pointer',
+								cursor:
+									(props.activeTab === 'collectibles' && !numbersValidation().isValid) ||
+									(props.activeTab !== 'collectibles' && (!searchQuery() || !!searchError()))
+										? 'not-allowed'
+										: 'pointer',
 								'box-shadow':
-									searchQuery() && !searchError() && analyzeState() === 'idle'
+									(props.activeTab === 'collectibles' && numbersValidation().isValid) ||
+									(props.activeTab !== 'collectibles' && searchQuery() && !searchError())
 										? '0 8px 24px -6px rgba(255,255,255,0.2)'
 										: 'none',
 							}}
@@ -388,7 +654,13 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 							<span class="relative z-10 transition-transform group-hover:scale-[1.02]">
 								{getButtonText()}
 							</span>
-							<Show when={analyzeState() === 'idle' && searchQuery() && !searchError()}>
+							<Show
+								when={
+									analyzeState() === 'idle' &&
+									((props.activeTab === 'collectibles' && numbersValidation().isValid) ||
+										(props.activeTab !== 'collectibles' && searchQuery() && !searchError()))
+								}
+							>
 								<span class="material-symbols-outlined text-[18px] rtl:rotate-180 relative z-10 group-hover:translate-x-1 transition-transform">
 									arrow_forward
 								</span>
@@ -396,7 +668,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 						</button>
 					</Motion.div>
 
-					{/* ━━━ TAB-AWARE TRENDING ━━━ */}
+					{/* ━━━ TAB-AWARE TRENDING (FILLING INPUT WITHOUT NAVIGATING) ━━━ */}
 					<Motion.div
 						initial={{ opacity: 0 }}
 						animate={{ opacity: 1 }}
@@ -419,20 +691,12 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 											easing: [0.16, 1, 0.3, 1],
 										}}
 										onClick={() => {
-											if (props.activeTab === 'collectibles') {
-												navigate(
-													`/numbers/report?n=${encodeURIComponent(item.replace(/^\+/, ''))}`,
-												);
-											} else if (props.activeTab === 'gifts') {
-												const slug = item
-													.toLowerCase()
-													.replace(/[^a-z0-9]+/g, '_')
-													.replace(/^_+|_+$/g, '');
-												navigate(`/gifts/report?g=${encodeURIComponent(slug)}-1`);
-											} else {
-												updateSearchQuery(item);
-												document.getElementById('search-input')?.focus();
-											}
+											try {
+												haptic.selection();
+											} catch {}
+											updateSearchQuery(item);
+											const el = document.getElementById('search-input');
+											if (el) el.focus();
 										}}
 										class="px-4 py-2.5 rounded-[14px] bg-white/[0.03] hover:bg-white/[0.08] text-white/60 text-[13px] font-medium transition-all duration-300 active:scale-95 flex items-center gap-1 hover:text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] border border-white/[0.02]"
 									>
@@ -440,7 +704,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 											<span class="text-white/20">@</span>
 										</Show>
 										<Show when={props.activeTab === 'collectibles' && !item.startsWith('+')}>
-											<span class="text-white/20">+</span>
+											<span class="text-white/20">+888 </span>
 										</Show>
 										<span>{item}</span>
 									</Motion.button>

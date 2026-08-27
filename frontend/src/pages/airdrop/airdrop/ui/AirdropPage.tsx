@@ -88,11 +88,7 @@ export const AirdropPage: Component = () => {
 		>
 			{/* Main Content Area */}
 			<main
-				class={`min-h-0 w-full flex-1 relative flex flex-col pt-0 ${
-					activeTab() === 'mine'
-						? 'overflow-hidden'
-						: 'overflow-y-auto overscroll-contain pb-[calc(env(safe-area-inset-bottom)+6rem)]'
-				}`}
+				class="min-h-0 w-full flex-1 relative flex flex-col pt-0 overflow-y-auto overscroll-contain no-scrollbar pb-[calc(env(safe-area-inset-bottom)+5.5rem)]"
 				style={{ '-webkit-overflow-scrolling': 'touch' }}
 			>
 				{/* Premium Glassmorphic Header for sub-pages */}
