@@ -1103,7 +1103,7 @@ func (s *GamificationService) GetLeaderboard(ctx context.Context, userID int64, 
 		hasLeague = true
 	}
 
-	var res []LeaderboardMember
+	res := make([]LeaderboardMember, 0)
 	var err error
 
 	if hasLeague && s.db != nil && s.db.Pool != nil {
@@ -1325,8 +1325,34 @@ func (s *GamificationService) computeAndCacheLeaderboard(ctx context.Context, pe
 			LIMIT 100
 		`, interval)
 		rows, err := s.db.Pool.Query(ctx, query)
-		if err != nil {
-			// If no results for interval, fallback to overall top
+		fallbackNeeded := err != nil
+		if err == nil {
+			rank := 1
+			for rows.Next() {
+				var m LeaderboardMember
+				var fn, username, clanName *string
+				if scanErr := rows.Scan(&m.UserID, &fn, &username, &m.XP, &m.Level, &clanName); scanErr == nil {
+					if fn != nil {
+						m.FirstName = *fn
+					}
+					if username != nil {
+						m.Username = *username
+					}
+					if clanName != nil {
+						m.ClanName = *clanName
+					}
+					m.Rank = rank
+					result = append(result, m)
+					rank++
+				}
+			}
+			rows.Close()
+			if len(result) == 0 {
+				fallbackNeeded = true
+			}
+		}
+
+		if fallbackNeeded {
 			fallbackQuery := `
 				SELECT u.telegram_id, u.first_name, u.username, us.xp, us.level, c.chat_title as clan_name
 				FROM users u
@@ -1336,42 +1362,40 @@ func (s *GamificationService) computeAndCacheLeaderboard(ctx context.Context, pe
 				ORDER BY us.xp DESC
 				LIMIT 100
 			`
-			rows, err = s.db.Pool.Query(ctx, fallbackQuery)
-			if err != nil {
-				return nil, err
+			fbRows, fbErr := s.db.Pool.Query(ctx, fallbackQuery)
+			if fbErr == nil {
+				defer fbRows.Close()
+				rank := 1
+				for fbRows.Next() {
+					var m LeaderboardMember
+					var fn, username, clanName *string
+					if scanErr := fbRows.Scan(&m.UserID, &fn, &username, &m.XP, &m.Level, &clanName); scanErr == nil {
+						if fn != nil {
+							m.FirstName = *fn
+						}
+						if username != nil {
+							m.Username = *username
+						}
+						if clanName != nil {
+							m.ClanName = *clanName
+						}
+						m.Rank = rank
+						result = append(result, m)
+						rank++
+					}
+				}
 			}
-		}
-		defer rows.Close()
-
-		rank := 1
-		var zsetMembers []redis.Z
-		for rows.Next() {
-			var m LeaderboardMember
-			var fn, username, clanName *string
-			err := rows.Scan(&m.UserID, &fn, &username, &m.XP, &m.Level, &clanName)
-			if err != nil {
-				continue
-			}
-			if fn != nil {
-				m.FirstName = *fn
-			}
-			if username != nil {
-				m.Username = *username
-			}
-			if clanName != nil {
-				m.ClanName = *clanName
-			}
-			m.Rank = rank
-			result = append(result, m)
-			rank++
-			zsetMembers = append(zsetMembers, redis.Z{
-				Score:  float64(m.XP),
-				Member: strconv.FormatInt(m.UserID, 10),
-			})
 		}
 
 		// Repair sorted set if needed
-		if s.cache != nil && s.cache.Client != nil && len(zsetMembers) > 0 {
+		if s.cache != nil && s.cache.Client != nil && len(result) > 0 {
+			var zsetMembers []redis.Z
+			for _, m := range result {
+				zsetMembers = append(zsetMembers, redis.Z{
+					Score:  float64(m.XP),
+					Member: strconv.FormatInt(m.UserID, 10),
+				})
+			}
 			s.cache.Client.ZAdd(ctx, redisZSetKey, zsetMembers...)
 		}
 	}

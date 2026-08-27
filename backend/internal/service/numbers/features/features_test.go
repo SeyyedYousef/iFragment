@@ -98,3 +98,26 @@ func TestExtractFeatures_500RandomCasesInvariant(t *testing.T) {
 		}
 	}
 }
+
+func TestCleanNumber_PersianAndArabicNumerals(t *testing.T) {
+	// Persian input: +۸۸۸ ۸۸۸۸ ۸۸۸۸
+	persian := "+۸۸۸ ۸۸۸۸ ۸۸۸۸"
+	normPersian, err := NormalizeNumber(persian)
+	if err != nil {
+		t.Fatalf("expected Persian numerals to normalize successfully, got err: %v", err)
+	}
+	if normPersian != "+88888888888" {
+		t.Errorf("expected +88888888888, got %s", normPersian)
+	}
+
+	// Arabic-Indic input: +٨٨٨ ١٢٣٤ ٥٦٧٨
+	arabic := "+٨٨٨ ١٢٣٤ ٥٦٧٨"
+	normArabic, err := NormalizeNumber(arabic)
+	if err != nil {
+		t.Fatalf("expected Arabic numerals to normalize successfully, got err: %v", err)
+	}
+	if normArabic != "+88812345678" {
+		t.Errorf("expected +88812345678, got %s", normArabic)
+	}
+}
+

@@ -293,12 +293,12 @@ export const TapView: Component<{
 
 			<canvas ref={canvasRef} class="absolute inset-0 w-full h-full pointer-events-none z-50" />
 
-			{/* 1. Clan Bar (Top - Z-20) - Added margin-top for breathing room */}
-			<div class="w-full px-4 mt-5 relative z-20" dir="rtl">
+			{/* 1. Clan Bar & Leaderboard (Top - Z-20) */}
+			<div class="w-full px-4 mt-5 relative z-20 flex items-center gap-2.5" dir="rtl">
 				<button
 					type="button"
 					onClick={() => props.onClanClick?.()}
-					class="w-full bg-[#12141C]/80 backdrop-blur-xl border border-white/10 hover:border-white/20 rounded-[22px] p-3 active:scale-[0.98] transition-all duration-300 shadow-[0_8px_32px_rgba(0,0,0,0.5)] relative overflow-hidden group"
+					class="flex-1 bg-[#12141C]/80 backdrop-blur-xl border border-white/10 hover:border-white/20 rounded-[22px] p-3 active:scale-[0.98] transition-all duration-300 shadow-[0_8px_32px_rgba(0,0,0,0.5)] relative overflow-hidden group"
 				>
 					<div class="absolute -right-10 -top-10 w-32 h-32 bg-[#3390ec]/20 rounded-full blur-2xl pointer-events-none group-hover:bg-[#3390ec]/30 transition-all" />
 					<div class="absolute -left-10 -bottom-10 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
@@ -388,6 +388,16 @@ export const TapView: Component<{
 							);
 						}}
 					</Show>
+				</button>
+				<button
+					type="button"
+					onClick={() => props.onLeagueClick?.()}
+					aria-label={t('gamification.leaderboard' as any) || 'Leaderboard'}
+					class="w-[54px] h-[54px] bg-[#12141C]/80 hover:bg-[#12141C] backdrop-blur-xl border border-white/10 hover:border-amber-400/40 rounded-[20px] flex items-center justify-center shrink-0 active:scale-95 transition-all shadow-[0_8px_20px_rgba(0,0,0,0.4)] group"
+				>
+					<span class="text-[24px] group-hover:scale-110 transition-transform drop-shadow-[0_0_10px_rgba(252,211,77,0.6)]">
+						🏆
+					</span>
 				</button>
 			</div>
 

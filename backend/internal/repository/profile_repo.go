@@ -519,7 +519,7 @@ func (db *Database) GetReferralData(ctx context.Context, userID int64) (*model.R
 
 	g.Go(func() error {
 		friendsQuery := `
-			SELECT u.telegram_id, COALESCE(u.username, u.first_name), u.created_at,
+			SELECT u.telegram_id, COALESCE(u.username, u.first_name, 'Anonymous'), u.created_at,
 			       10000.0 AS total_earned,
 			       COALESCE(us.airdrop_coins, 0),
 			       (SELECT COUNT(*) FROM users u2 WHERE u2.referred_by = u.telegram_id) as frens_count,

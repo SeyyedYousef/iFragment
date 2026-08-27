@@ -1,8 +1,14 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
+	"strings"
 	"testing"
+
+	"ifragment-backend/internal/repository"
+
+	"github.com/google/uuid"
 )
 
 func TestMapToModeratorContext_LinkExtraction(t *testing.T) {
@@ -170,6 +176,96 @@ func TestParseDurationStr(t *testing.T) {
 		if int64(dur.Seconds()) != c.expected {
 			t.Errorf("For input %s, expected %d seconds, got %f", c.input, c.expected, dur.Seconds())
 		}
+	}
+}
+
+func TestRenderMainSettingsMenu(t *testing.T) {
+	h := &WebhookHandler{}
+	ctx := context.Background()
+
+	gid := uuid.New()
+	group := &repository.ManagedGroup{
+		ID:        gid,
+		ChatTitle: "بازار اسلامی افغانستان 🇦🇫",
+	}
+
+	settings := &repository.GroupSettings{
+		General:              json.RawMessage(`{"casEnabled": true, "autoDeleteDelay": 15, "ephemeralAll": true}`),
+		ContentRestrictions: json.RawMessage(`{"removeLinks": {"enabled": true}}`),
+		QuietHours:           json.RawMessage(`{"emergencyLock": false}`),
+		MandatoryMembership:  json.RawMessage(`{"forceJoinEnabled": true, "requiredChannels": ["-100123"]}`),
+	}
+
+	// Test Persian rendering
+	textFa, markupFa := h.renderMainSettingsMenu(ctx, group, settings, "fa")
+	if !strings.Contains(textFa, "تنظیمات و امنیت گروه:") {
+		t.Errorf("Expected Persian header in textFa, got: %s", textFa)
+	}
+	if !strings.Contains(textFa, "بازار اسلامی افغانستان 🇦🇫") {
+		t.Errorf("Expected group title in textFa, got: %s", textFa)
+	}
+
+	kbFa, ok := markupFa["inline_keyboard"].([][]map[string]interface{})
+	if !ok || len(kbFa) != 5 {
+		t.Fatalf("Expected 5 rows in Persian inline keyboard, got %v", markupFa)
+	}
+	if kbFa[0][0]["text"] != "🛡 فیلتر محتوا" {
+		t.Errorf("Expected '🛡 فیلتر محتوا', got %v", kbFa[0][0]["text"])
+	}
+	if kbFa[2][0]["text"] != "📢 جوین اجباری" {
+		t.Errorf("Expected '📢 جوین اجباری', got %v", kbFa[2][0]["text"])
+	}
+
+	// Test English rendering
+	textEn, markupEn := h.renderMainSettingsMenu(ctx, group, settings, "en")
+	if !strings.Contains(textEn, "Group Security & Settings:") {
+		t.Errorf("Expected English header in textEn, got: %s", textEn)
+	}
+	kbEn, ok := markupEn["inline_keyboard"].([][]map[string]interface{})
+	if !ok || len(kbEn) != 5 {
+		t.Fatalf("Expected 5 rows in English inline keyboard, got %v", markupEn)
+	}
+	if kbEn[2][0]["text"] != "📢 Force Join" {
+		t.Errorf("Expected '📢 Force Join', got %v", kbEn[2][0]["text"])
+	}
+}
+
+func TestRenderCategorySettingsMenu(t *testing.T) {
+	h := &WebhookHandler{}
+	ctx := context.Background()
+
+	gid := uuid.New()
+	group := &repository.ManagedGroup{
+		ID:        gid,
+		ChatTitle: "Test Group",
+	}
+
+	settings := &repository.GroupSettings{
+		General:              json.RawMessage(`{"casEnabled": true}`),
+		ContentRestrictions: json.RawMessage(`{"removeLinks": {"enabled": true}}`),
+	}
+
+	// Test content category in Persian
+	textFa, markupFa := h.renderCategorySettingsMenu(ctx, group, settings, "content", "fa")
+	if !strings.Contains(textFa, "فیلتر و محدودیت‌های محتوا") {
+		t.Errorf("Expected Persian content header, got: %s", textFa)
+	}
+	kbFa, ok := markupFa["inline_keyboard"].([][]map[string]interface{})
+	if !ok || len(kbFa) != 6 {
+		t.Fatalf("Expected 6 rows in content menu, got %v", markupFa)
+	}
+	if !strings.Contains(kbFa[0][0]["text"].(string), "حذف لینک‌ها: ✅ فعال") {
+		t.Errorf("Expected 'حذف لینک‌ها: ✅ فعال', got %v", kbFa[0][0]["text"])
+	}
+
+	// Test limits category in English
+	textEn, markupEn := h.renderCategorySettingsMenu(ctx, group, settings, "limits", "en")
+	if !strings.Contains(textEn, "Limits & Flood Control") {
+		t.Errorf("Expected English limits header, got: %s", textEn)
+	}
+	kbEn, ok := markupEn["inline_keyboard"].([][]map[string]interface{})
+	if !ok || len(kbEn) != 2 {
+		t.Fatalf("Expected 2 rows in limits menu, got %v", markupEn)
 	}
 }
 

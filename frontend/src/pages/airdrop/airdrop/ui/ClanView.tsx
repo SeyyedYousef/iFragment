@@ -124,14 +124,26 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 							{t('airdrop.clan.officialClansDesc')}
 						</p>
 
-						<button
-							type="button"
-							onClick={() => setShowSearch(!showSearch())}
-							class="w-full h-14 rounded-[20px] bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white font-black text-[14px] flex items-center justify-center gap-2 active:scale-95 transition-all duration-300 shadow-[0_8px_24px_rgba(51,144,236,0.3)] hover:shadow-[0_12px_32px_rgba(51,144,236,0.4)] mb-6 border border-white/10"
-						>
-							<span class="material-symbols-outlined text-[20px]">search</span>
-							{t('airdrop.clan.searchAndJoinBtn')}
-						</button>
+						<div class="w-full flex gap-3 mb-6">
+							<button
+								type="button"
+								onClick={() => setShowSearch(!showSearch())}
+								class="flex-1 h-14 rounded-[20px] bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white font-black text-[14px] flex items-center justify-center gap-2 active:scale-95 transition-all duration-300 shadow-[0_8px_24px_rgba(51,144,236,0.3)] hover:shadow-[0_12px_32px_rgba(51,144,236,0.4)] border border-white/10"
+							>
+								<span class="material-symbols-outlined text-[20px]">search</span>
+								{t('airdrop.clan.searchAndJoinBtn')}
+							</button>
+							<Show when={props.onOpenLeaderboard}>
+								<button
+									type="button"
+									onClick={() => props.onOpenLeaderboard?.()}
+									class="h-14 px-5 rounded-[20px] bg-[#12141C]/80 hover:bg-[#12141C] text-amber-400 font-black text-[13px] flex items-center justify-center gap-2 active:scale-95 transition-all border border-amber-400/30 shadow-[0_4px_16px_rgba(0,0,0,0.3)]"
+								>
+									<span class="material-symbols-outlined text-[20px]">leaderboard</span>
+									{t('airdropFinal.leaderboard.squads', { defaultValue: 'SQUADS' })}
+								</button>
+							</Show>
+						</div>
 
 						<div
 							class={`w-full transition-all duration-400 overflow-hidden ${

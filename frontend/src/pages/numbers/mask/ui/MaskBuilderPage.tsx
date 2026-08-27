@@ -47,22 +47,72 @@ export const MaskBuilderPage: Component = () => {
 		return list;
 	});
 
+	const inputRefs: HTMLInputElement[] = [];
+
+	const toAscii = (str: string) => {
+		return str
+			.replace(/[۰-۹]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 1728))
+			.replace(/[٠-٩]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 1584));
+	};
+
 	const handleSlotChange = (index: number, val: string) => {
 		try {
 			haptic.selection();
 		} catch {}
+		const asciiVal = toAscii(val || '');
 		const next = [...slots()];
-		if (!val || val === ' ') {
+		if (!asciiVal || asciiVal === ' ' || asciiVal === '*') {
 			next[index] = '*';
 		} else {
-			const char = val.slice(-1);
+			const char = asciiVal.slice(-1);
 			if (char >= '0' && char <= '9') {
 				next[index] = char;
+				// Auto-advance focus to next slot
+				if (index < 7 && inputRefs[index + 1]) {
+					inputRefs[index + 1]?.focus();
+					inputRefs[index + 1]?.select();
+				}
 			} else {
 				next[index] = '*';
 			}
 		}
 		setSlots(next);
+	};
+
+	const handleKeyDown = (index: number, e: KeyboardEvent) => {
+		if (e.key === 'Backspace') {
+			if (slots()[index] === '*' && index > 0) {
+				e.preventDefault();
+				inputRefs[index - 1]?.focus();
+				inputRefs[index - 1]?.select();
+			}
+		} else if (e.key === 'ArrowLeft' && index > 0) {
+			e.preventDefault();
+			inputRefs[index - 1]?.focus();
+		} else if (e.key === 'ArrowRight' && index < 7) {
+			e.preventDefault();
+			inputRefs[index + 1]?.focus();
+		}
+	};
+
+	const handlePaste = (e: ClipboardEvent) => {
+		e.preventDefault();
+		const text = e.clipboardData?.getData('text') || '';
+		const digitsOnly = toAscii(text).replace(/\D/g, '').replace(/^888/, '');
+		if (digitsOnly.length > 0) {
+			try {
+				haptic.impact('medium');
+			} catch {}
+			const next = [...slots()];
+			for (let i = 0; i < 8; i++) {
+				if (i < digitsOnly.length) {
+					next[i] = digitsOnly[i];
+				}
+			}
+			setSlots(next);
+			const targetFocus = Math.min(7, digitsOnly.length);
+			inputRefs[targetFocus]?.focus();
+		}
 	};
 
 	const applyPreset = (presetMask: string[]) => {
@@ -130,12 +180,18 @@ export const MaskBuilderPage: Component = () => {
 						<For each={slots()}>
 							{(slot, idx) => (
 								<input
+									ref={(el) => {
+										inputRefs[idx()] = el;
+									}}
 									type="text"
+									inputMode="numeric"
 									aria-label={`Number slot ${idx() + 1}`}
 									maxLength={1}
 									value={slot}
 									onFocus={(e) => e.currentTarget.select()}
 									onInput={(e) => handleSlotChange(idx(), e.currentTarget.value)}
+									onKeyDown={(e) => handleKeyDown(idx(), e)}
+									onPaste={handlePaste}
 									class={`w-8 h-12 rounded-xl text-center font-mono font-black text-base focus:outline-none transition-all ${
 										slot === '*'
 											? 'bg-white/[0.04] text-white/40 border border-white/10 focus:border-[#0098EA] focus:bg-black/60'

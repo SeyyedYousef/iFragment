@@ -184,3 +184,54 @@ func (h *NumbersHandler) SearchMask(w http.ResponseWriter, r *http.Request) {
 	RespondJSON(w, http.StatusOK, results)
 }
 
+// GetDeals returns top undervalued arbitrage deals
+func (h *NumbersHandler) GetDeals(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	deals, err := h.service.GetDealsSniper(ctx)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to fetch deals", nil)
+		return
+	}
+	RespondJSON(w, http.StatusOK, deals)
+}
+
+// GetClubs returns curated collectible categories with floor prices
+func (h *NumbersHandler) GetClubs(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	clubs, err := h.service.GetCategoryClubs(ctx)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to fetch category clubs", nil)
+		return
+	}
+	RespondJSON(w, http.StatusOK, clubs)
+}
+
+// ScanPortfolio scans an owner's wallet and computes total portfolio value
+func (h *NumbersHandler) ScanPortfolio(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	address := r.URL.Query().Get("address")
+	if address == "" {
+		RespondError(w, r, http.StatusBadRequest, "query parameter 'address' is required", nil)
+		return
+	}
+
+	result, err := h.service.ScanWalletPortfolio(ctx, address)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to scan portfolio", err)
+		return
+	}
+	RespondJSON(w, http.StatusOK, result)
+}
+
+// GetLiveActivity returns the recent sales activity stream
+func (h *NumbersHandler) GetLiveActivity(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	activity, err := h.service.GetLiveActivityTicker(ctx)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to fetch activity ticker", nil)
+		return
+	}
+	RespondJSON(w, http.StatusOK, activity)
+}
+
+

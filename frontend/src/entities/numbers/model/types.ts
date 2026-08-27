@@ -120,6 +120,11 @@ export interface NumberValuationResult {
 	ton_usd_rate: number;
 	confidence_score: number;
 	price_basis: string;
+	global_rank?: number;
+	category_club?: string;
+	collateral_value_ton?: number;
+	collateral_value_usd?: number;
+	fragment_direct_url?: string;
 	rarity_dna: RarityBarItem[];
 	color: ColorMeta;
 	history: {
@@ -182,3 +187,63 @@ export interface MaskItem {
 	color: string;
 	rarity_score: number;
 }
+
+export interface DealSniperItem {
+	number: string;
+	display_number: string;
+	listing_price_ton: number;
+	fair_value_ton: number;
+	discount_percent: number;
+	profit_potential_ton: number;
+	marketplace: string;
+	marketplace_url: string;
+	color: string;
+	global_rank: number;
+	category_club: string;
+}
+
+export interface CategoryClubItem {
+	id: string;
+	name_en: string;
+	name_fa: string;
+	icon: string;
+	floor_price_ton: number;
+	total_supply: number;
+	top_sale_ton: number;
+	description_en: string;
+	description_fa: string;
+}
+
+export interface WalletPortfolioResult {
+	owner_address: string;
+	total_assets: number;
+	total_value_ton: number;
+	total_value_usd: number;
+	average_rarity_score: number;
+	best_global_rank: number;
+	assets: PortfolioAssetItem[];
+}
+
+export interface PortfolioAssetItem {
+	number: string;
+	display_number: string;
+	expected_ton: number;
+	expected_usd: number;
+	rarity_score: number;
+	global_rank: number;
+	category_club: string;
+	color: string;
+}
+
+export interface LiveActivityItem {
+	id: string;
+	number: string;
+	display_number: string;
+	sale_price_ton: number;
+	sale_price_usd: number;
+	sale_date: string;
+	tx_hash: string;
+	tonviewer_url: string;
+	marketplace: string;
+}
+

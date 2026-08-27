@@ -5,6 +5,8 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -29,6 +31,13 @@ func TestProcessAndStoreAdImageValidPNG(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to process valid PNG: %v", err)
 	}
+
+	t.Cleanup(func() {
+		if res != nil && res.Filename != "" {
+			_ = os.Remove(filepath.Join(UploadDirBase, res.Filename))
+			_ = os.Remove(filepath.Join(UploadDirBase, strings.TrimSuffix(res.Filename, filepath.Ext(res.Filename))+"_thumb.jpg"))
+		}
+	})
 
 	if res.Width != 1080 || res.Height != 384 {
 		t.Errorf("Expected 1080x384 dimensions, got %dx%d", res.Width, res.Height)

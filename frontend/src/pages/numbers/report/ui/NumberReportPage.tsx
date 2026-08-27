@@ -1,5 +1,5 @@
 import { useSearchParams } from '@solidjs/router';
-import { type Component, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import { type Component, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import {
 	type CuriosityGateData,
 	type NumberValuationResult,
@@ -8,15 +8,173 @@ import {
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { copyToClipboard, shareToStory } from '@/shared/lib/telegram-native.js';
-import { SearchTeaser, UnifiedPaywallGate } from '@/widgets/paywall/index.js';
+import { CreditStoreSheet, SearchTeaser, useWallet } from '@/widgets/paywall/index.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
+
+interface NumberValidation {
+	isValid: boolean;
+	error: string | null;
+	formatted: string;
+	cleanDigits: string;
+	suffix: string;
+	tier: 'GRAIL' | 'APEX' | 'GRAND' | 'STANDARD';
+	patternLabel: string;
+}
+
+function toAsciiDigits(str: string): string {
+	return str
+		.replace(/[۰-۹]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 1728))
+		.replace(/[٠-٩]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 1584));
+}
+
+function validateAndFormatAnonymousNumber(raw: string): NumberValidation {
+	const asciiRaw = toAsciiDigits(raw || '');
+	const trimmed = asciiRaw.trim();
+	if (!trimmed) {
+		return {
+			isValid: false,
+			error: null,
+			formatted: '',
+			cleanDigits: '',
+			suffix: '',
+			tier: 'STANDARD',
+			patternLabel: '',
+		};
+	}
+
+	// Check if contains illegal non-numeric characters (allow +, space, hyphen, parentheses)
+	if (/[^0-9+\s\-()]/.test(trimmed)) {
+		return {
+			isValid: false,
+			error: t('numbers.errorInvalidChars'),
+			formatted: trimmed,
+			cleanDigits: '',
+			suffix: '',
+			tier: 'STANDARD',
+			patternLabel: '',
+		};
+	}
+
+	// Check if user entered a cellular country code like +98, +1, +44 instead of +888
+	if (trimmed.startsWith('+') && !trimmed.startsWith('+888')) {
+		return {
+			isValid: false,
+			error: t('numbers.errorInvalidPrefix'),
+			formatted: trimmed,
+			cleanDigits: '',
+			suffix: '',
+			tier: 'STANDARD',
+			patternLabel: '',
+		};
+	}
+
+	const clean = trimmed.replace(/\D/g, '');
+	let suffix = '';
+	if (clean.startsWith('888')) {
+		suffix = clean.slice(3);
+	} else {
+		suffix = clean;
+	}
+
+	if (suffix.length === 0) {
+		return {
+			isValid: false,
+			error: trimmed.startsWith('+888') ? t('numbers.errorTooShort') : null,
+			formatted: '+888',
+			cleanDigits: clean,
+			suffix: '',
+			tier: 'STANDARD',
+			patternLabel: '',
+		};
+	}
+
+	if (suffix.length < 4) {
+		return {
+			isValid: false,
+			error: t('numbers.errorTooShort'),
+			formatted: `+888 ${suffix}`,
+			cleanDigits: clean,
+			suffix,
+			tier: 'STANDARD',
+			patternLabel: '',
+		};
+	}
+
+	if (suffix.length > 8) {
+		return {
+			isValid: false,
+			error: t('numbers.errorTooLong'),
+			formatted: `+888 ${suffix.slice(0, 4)} ${suffix.slice(4)}`,
+			cleanDigits: clean,
+			suffix,
+			tier: 'STANDARD',
+			patternLabel: '',
+		};
+	}
+
+	// Format display number: +888 XXXX XXXX
+	let formatted = '';
+	if (suffix.length <= 4) {
+		formatted = `+888 ${suffix}`;
+	} else {
+		formatted = `+888 ${suffix.slice(0, 4)} ${suffix.slice(4)}`;
+	}
+
+	// Calculate rarity tier preview based on structural pattern
+	let tier: 'GRAIL' | 'APEX' | 'GRAND' | 'STANDARD' = 'STANDARD';
+	let patternLabel = '';
+
+	if (
+		suffix.includes('8888') ||
+		suffix.includes('7777') ||
+		suffix.includes('0000') ||
+		suffix.includes('9999') ||
+		suffix.includes('1111') ||
+		(suffix.length === 8 && new Set(suffix).size === 1)
+	) {
+		tier = 'GRAIL';
+		patternLabel = 'GRAIL TIER (Quad Repeat)';
+	} else if (
+		suffix.includes('1234') ||
+		suffix.includes('5678') ||
+		suffix.includes('8989') ||
+		suffix.includes('0101') ||
+		/012|123|234|345|456|567|678|789/.test(suffix)
+	) {
+		tier = 'APEX';
+		patternLabel = 'APEX TIER (Sequence/Pair)';
+	} else if (
+		suffix.endsWith('888') ||
+		suffix.endsWith('777') ||
+		suffix.endsWith('000') ||
+		(suffix.length >= 4 && suffix === [...suffix].reverse().join(''))
+	) {
+		tier = 'GRAND';
+		patternLabel = 'GRAND TIER (Triple/Mirror)';
+	} else {
+		tier = 'STANDARD';
+		patternLabel = 'STANDARD TIER';
+	}
+
+	return {
+		isValid: true,
+		error: null,
+		formatted,
+		cleanDigits: `888${suffix}`,
+		suffix,
+		tier,
+		patternLabel,
+	};
+}
 
 export const NumberReportPage: Component = () => {
 	useTelegramBackButton(-1);
 	const [searchParams] = useSearchParams();
+	const wallet = useWallet();
 
 	// Search & Input state
 	const [inputNumber, setInputNumber] = createSignal(searchParams.n || '+888 8888 8888');
+	const [showGuide, setShowGuide] = createSignal(false);
 	const [isAnalyzing, setIsAnalyzing] = createSignal(false);
 	const [analysisStep, setAnalysisStep] = createSignal(0);
 
@@ -26,6 +184,7 @@ export const NumberReportPage: Component = () => {
 	const [reportData, setReportData] = createSignal<NumberValuationResult | null>(null);
 	const [loading, setLoading] = createSignal(false);
 	const [error, setError] = createSignal<string | null>(null);
+	const [storeOpen, setStoreOpen] = createSignal(false);
 
 	// Watchlist state
 	const [isWatching, setIsWatching] = createSignal(false);
@@ -34,11 +193,14 @@ export const NumberReportPage: Component = () => {
 	// Certificate copy state
 	const [copiedCert, setCopiedCert] = createSignal(false);
 
+	// Reactive validation
+	const validation = createMemo(() => validateAndFormatAnonymousNumber(inputNumber()));
+
 	// 3D Holographic Gyro Tilt State
 	const [tilt, setTilt] = createSignal({ x: 0, y: 0, glossX: 50, glossY: 50 });
 	let cardRef: HTMLDivElement | undefined;
 
-	const handleMouseMove = (e: MouseEvent) => {
+	const handlePointerMove = (e: PointerEvent) => {
 		if (!cardRef) return;
 		const rect = cardRef.getBoundingClientRect();
 		const x = e.clientX - rect.left;
@@ -46,44 +208,17 @@ export const NumberReportPage: Component = () => {
 		const centerX = rect.width / 2;
 		const centerY = rect.height / 2;
 
-		const tiltX = ((y - centerY) / centerY) * -12;
-		const tiltY = ((x - centerX) / centerX) * 12;
-		const glossX = (x / rect.width) * 100;
-		const glossY = (y / rect.height) * 100;
-
-		setTilt({ x: tiltX, y: tiltY, glossX, glossY });
-	};
-
-	const handleMouseLeave = () => {
-		setTilt({ x: 0, y: 0, glossX: 50, glossY: 50 });
-	};
-
-	const handleTouchMove = (e: TouchEvent) => {
-		if (!cardRef || e.touches.length === 0) return;
-		const touch = e.touches[0];
-		const rect = cardRef.getBoundingClientRect();
-		const x = touch.clientX - rect.left;
-		const y = touch.clientY - rect.top;
-		const centerX = rect.width / 2;
-		const centerY = rect.height / 2;
-
-		const tiltX = Math.max(-15, Math.min(15, ((y - centerY) / centerY) * -14));
-		const tiltY = Math.max(-15, Math.min(15, ((x - centerX) / centerX) * 14));
+		const tiltX = Math.max(-14, Math.min(14, ((y - centerY) / centerY) * -12));
+		const tiltY = Math.max(-14, Math.min(14, ((x - centerX) / centerX) * 12));
 		const glossX = Math.max(0, Math.min(100, (x / rect.width) * 100));
 		const glossY = Math.max(0, Math.min(100, (y / rect.height) * 100));
 
 		setTilt({ x: tiltX, y: tiltY, glossX, glossY });
 	};
 
-	onMount(() => {
-		window.addEventListener('touchmove', handleTouchMove, { passive: true });
-		window.addEventListener('touchend', handleMouseLeave);
-	});
-
-	onCleanup(() => {
-		window.removeEventListener('touchmove', handleTouchMove);
-		window.removeEventListener('touchend', handleMouseLeave);
-	});
+	const handlePointerLeave = () => {
+		setTilt({ x: 0, y: 0, glossX: 50, glossY: 50 });
+	};
 
 	const ANALYSIS_STEPS = [
 		'Connecting to Telemint Smart Contracts...',
@@ -101,7 +236,12 @@ export const NumberReportPage: Component = () => {
 	});
 
 	const handleRunAnalysis = async (num: string) => {
-		if (!num) return;
+		const val = validateAndFormatAnonymousNumber(num);
+		if (!val.isValid) {
+			setError(val.error || t('numbers.errorTooShort'));
+			return;
+		}
+
 		setIsAnalyzing(true);
 		setIsUnlocked(false);
 		setAnalysisStep(0);
@@ -115,7 +255,7 @@ export const NumberReportPage: Component = () => {
 		}, 650);
 
 		try {
-			const gate = await numbersApi.getCuriosityGate(num);
+			const gate = await numbersApi.getCuriosityGate(val.cleanDigits);
 			setGateData(gate);
 		} catch (err: any) {
 			setError(err?.message || 'Failed to connect to Telegram Telemint registry');
@@ -123,15 +263,25 @@ export const NumberReportPage: Component = () => {
 			setTimeout(() => {
 				clearInterval(interval);
 				setIsAnalyzing(false);
-			}, 2600);
+			}, 2400);
 		}
+	};
+
+	const canAfford = () => {
+		const b = wallet.balance();
+		return b !== null && b >= 1;
 	};
 
 	const handleUnlockWithCredit = async () => {
 		try {
 			haptic.impact('medium');
+			if (!canAfford()) {
+				setStoreOpen(true);
+				return;
+			}
 			setLoading(true);
-			const res = await numbersApi.unlockWithCredit(inputNumber());
+			const targetNum = validation().cleanDigits || inputNumber();
+			const res = await numbersApi.unlockWithCredit(targetNum);
 			setReportData(res);
 			setIsUnlocked(true);
 			haptic.notify('success');
@@ -194,11 +344,11 @@ export const NumberReportPage: Component = () => {
 
 	// Dynamic Rarity Tier Theme for Numbers
 	const getNumberTheme = () => {
-		const num = (reportData()?.display_number || gateData()?.display_number || inputNumber()).replace(
+		const num = (reportData()?.display_number || gateData()?.display_number || validation().formatted || inputNumber()).replace(
 			/\s+/g,
 			'',
 		);
-		// Quad repeating digits (e.g. 8888 8888, 7777, etc.) -> Grail Gold
+		// Quad repeating digits -> Grail Gold
 		if (
 			num.includes('88888888') ||
 			num.includes('77777777') ||
@@ -211,9 +361,10 @@ export const NumberReportPage: Component = () => {
 				gradient: 'from-[#FFB800] via-[#FF8C00] to-[#E52E71]',
 				glowColor: 'rgba(255, 184, 0, 0.35)',
 				border: 'border-amber-400/40',
+				accent: '#FFB800',
 			};
 		}
-		// Sequential/Alternating (1234, 8989, etc.) -> Apex Purple
+		// Sequential/Alternating -> Apex Purple
 		if (num.includes('1234') || num.includes('8989') || num.includes('0101')) {
 			return {
 				name: 'APEX',
@@ -221,6 +372,7 @@ export const NumberReportPage: Component = () => {
 				gradient: 'from-[#AF52DE] via-[#8A2BE2] to-[#0098EA]',
 				glowColor: 'rgba(175, 82, 222, 0.35)',
 				border: 'border-purple-400/40',
+				accent: '#AF52DE',
 			};
 		}
 		// Triple Tail -> Grand Blue
@@ -231,6 +383,7 @@ export const NumberReportPage: Component = () => {
 				gradient: 'from-[#0098EA] via-[#0070BA] to-[#34C759]',
 				glowColor: 'rgba(0, 152, 234, 0.35)',
 				border: 'border-[#0098EA]/40',
+				accent: '#0098EA',
 			};
 		}
 		// Default -> Emerald Teal
@@ -240,55 +393,225 @@ export const NumberReportPage: Component = () => {
 			gradient: 'from-[#34C759] via-[#10B981] to-[#0098EA]',
 			glowColor: 'rgba(52, 199, 89, 0.3)',
 			border: 'border-emerald-500/30',
+			accent: '#34C759',
 		};
 	};
 
 	return (
-		<div class="pb-36 bg-[#06070B] text-white min-h-screen relative font-sans selection:bg-[#0098EA]/30 overflow-x-hidden">
-			{/* Ambient Gradient Glows */}
+		<div
+			class="pb-36 bg-[#06070B] text-white min-h-screen relative font-sans selection:bg-[#0098EA]/30 overflow-x-hidden"
+			dir={isRtl() ? 'rtl' : 'ltr'}
+		>
+			{/* Ambient Dynamic Background Glows */}
 			<div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-96 bg-gradient-to-b from-[#0098EA]/20 via-[#AF52DE]/10 to-transparent blur-[90px] pointer-events-none z-0" />
 			<div class="fixed bottom-20 right-0 w-80 h-80 bg-emerald-500/10 blur-[100px] pointer-events-none z-0" />
 
 			<div class="relative z-10 max-w-[480px] mx-auto px-4 pt-4">
-				{/* Top Search Input Bar */}
-				<div
-					class="bg-[#12141C]/80 backdrop-blur-2xl border border-white/10 rounded-[28px] p-2.5 mb-4 flex items-center gap-2 shadow-2xl"
-					dir="ltr"
-				>
-					<div class="w-10 h-10 rounded-2xl bg-[#0098EA]/15 text-[#0098EA] flex items-center justify-center font-mono font-black text-sm border border-[#0098EA]/30">
-						+888
+				{/* ═══════ HEADER SECTION ═══════ */}
+				<div class="flex items-center justify-between mb-4">
+					<div class="flex items-center gap-2.5">
+						<div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#0098EA] to-[#00c6ff] p-[1px] shadow-lg shadow-[#0098EA]/20 flex items-center justify-center">
+							<div class="w-full h-full bg-[#0d111a] rounded-2xl flex items-center justify-center">
+								<span class="material-symbols-outlined text-[#0098EA] text-[22px]">pin</span>
+							</div>
+						</div>
+						<div>
+							<h1 class="text-[17px] font-black tracking-tight text-white flex items-center gap-1.5">
+								{t('numbers.intelTitle')}
+								<span class="text-[9px] uppercase font-extrabold px-2 py-0.5 rounded-full bg-[#0098EA]/20 text-[#0098EA] border border-[#0098EA]/30">
+									+888
+								</span>
+							</h1>
+							<p class="text-[11px] font-medium text-white/50">{t('numbers.intelSubtitle')}</p>
+						</div>
 					</div>
-					<input
-						type="text"
-						value={inputNumber()}
-						onInput={(e) => setInputNumber(e.currentTarget.value)}
-						onKeyDown={(e) => {
-							if (e.key === 'Enter') handleRunAnalysis(inputNumber());
-						}}
-						placeholder="8888 8888 or 0123 4567"
-						class="flex-1 bg-transparent text-white placeholder-white/30 text-base font-mono font-black focus:outline-none"
-					/>
+
+					{/* Guide Toggle Button */}
 					<button
 						type="button"
-						onClick={() => handleRunAnalysis(inputNumber())}
-						disabled={isAnalyzing()}
-						class="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-[#0098EA] to-[#0070BA] hover:brightness-110 text-white text-xs font-black tracking-tight active:scale-95 transition-all shadow-md shadow-[#0098EA]/30"
+						onClick={() => {
+							try {
+								haptic.selection();
+							} catch {}
+							setShowGuide(!showGuide());
+						}}
+						class={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 ${
+							showGuide()
+								? 'bg-[#0098EA]/20 border-[#0098EA]/50 text-[#0098EA]'
+								: 'bg-white/[0.06] border-white/10 text-white/80 hover:bg-white/10'
+						}`}
 					>
-						{isAnalyzing() ? 'Analyzing...' : t('numbers.valuateBtn')}
+						<span class="material-symbols-outlined text-sm">help_outline</span>
+						<span>{t('numbers.formatGuideTitle')}</span>
 					</button>
 				</div>
 
-				{/* Mystery hints computed locally from the raw query — zero price leakage */}
-				<SearchTeaser vertical="number" value={inputNumber()} />
+				{/* ═══════ 1. INTERACTIVE FORMAT GUIDE ACCORDION ═══════ */}
+				<Show when={showGuide()}>
+					<div class="mb-4 bg-[#12141C]/90 border border-[#0098EA]/30 rounded-[24px] p-4 shadow-xl backdrop-blur-2xl animate-in fade-in slide-in-from-top-2 duration-200">
+						<div class="flex items-center gap-2 mb-2">
+							<span class="material-symbols-outlined text-sm text-[#0098EA]">info</span>
+							<h3 class="text-xs font-black text-white">{t('numbers.formatGuideTitle')}</h3>
+						</div>
+						<p class="text-[11px] text-white/60 mb-3 leading-relaxed">
+							{t('numbers.formatGuideSubtitle')}
+						</p>
 
-				<Show when={error()}>
+						<div class="grid grid-cols-1 xs:grid-cols-2 gap-2 text-xs">
+							{/* Valid Card */}
+							<div class="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/25">
+								<span class="text-[10px] font-black uppercase text-emerald-400 flex items-center gap-1 mb-1.5">
+									<span class="material-symbols-outlined text-xs">check_circle</span>
+									{t('numbers.formatValidBadge')}
+								</span>
+								<div class="space-y-1 font-mono text-[11px] text-white/90" dir="ltr">
+									<div class="bg-black/30 px-2 py-1 rounded-lg">
+										+888 8888 8888 <span class="text-[9px] text-emerald-400">✓</span>
+									</div>
+									<div class="bg-black/30 px-2 py-1 rounded-lg">
+										+888 0123 4567 <span class="text-[9px] text-emerald-400">✓</span>
+									</div>
+									<div class="bg-black/30 px-2 py-1 rounded-lg">
+										8888 8888 <span class="text-[9px] text-emerald-400">✓ (Auto +888)</span>
+									</div>
+								</div>
+							</div>
+
+							{/* Invalid Card */}
+							<div class="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/25">
+								<span class="text-[10px] font-black uppercase text-rose-400 flex items-center gap-1 mb-1.5">
+									<span class="material-symbols-outlined text-xs">cancel</span>
+									{t('numbers.formatInvalidBadge')}
+								</span>
+								<div class="space-y-1 font-mono text-[11px] text-white/90" dir="ltr">
+									<div class="bg-black/30 px-2 py-1 rounded-lg">
+										+98 912 ... <span class="text-[9px] text-rose-400">✗ Mobile</span>
+									</div>
+									<div class="bg-black/30 px-2 py-1 rounded-lg">
+										+888 12 <span class="text-[9px] text-rose-400">✗ Too short</span>
+									</div>
+									<div class="bg-black/30 px-2 py-1 rounded-lg">
+										+1 555 ... <span class="text-[9px] text-rose-400">✗ Non-888</span>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</Show>
+
+				{/* ═══════ 2. LIVE REACTIVE SEARCH & INPUT BAR ═══════ */}
+				<div class="mb-4">
+					<div
+						class={`relative backdrop-blur-2xl border rounded-[26px] p-2 flex items-center gap-2 shadow-2xl transition-all duration-200 ${
+							validation().error && inputNumber().length > 0
+								? 'border-rose-500/60 bg-rose-500/10 shadow-[0_0_20px_rgba(244,63,94,0.25)]'
+								: validation().isValid
+									? 'border-[#0098EA]/50 bg-[#12141C]/90 shadow-[0_0_20px_rgba(0,152,234,0.15)]'
+									: 'border-white/10 bg-[#12141C]/80'
+						}`}
+						dir="ltr"
+					>
+						{/* +888 Prefix Stamp */}
+						<div
+							class={`w-10 h-10 rounded-2xl flex items-center justify-center font-mono font-black text-sm border transition-all ${
+								validation().error && inputNumber().length > 0
+									? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+									: validation().isValid
+										? 'bg-[#0098EA]/20 text-[#0098EA] border-[#0098EA]/40'
+										: 'bg-white/5 text-white/50 border-white/10'
+							}`}
+						>
+							+888
+						</div>
+
+						{/* Number Input */}
+						<input
+							type="text"
+							value={inputNumber()}
+							onInput={(e) => {
+								setInputNumber(e.currentTarget.value);
+								if (error()) setError(null);
+							}}
+							onKeyDown={(e) => {
+								if (e.key === 'Enter') handleRunAnalysis(inputNumber());
+							}}
+							placeholder="8888 8888 or 0123 4567"
+							class="flex-1 bg-transparent text-white placeholder-white/30 text-base font-mono font-black focus:outline-none tracking-wide"
+						/>
+
+						{/* Live Status Icon */}
+						<Show when={inputNumber().trim().length > 0}>
+							<Show
+								when={validation().isValid}
+								fallback={
+									<span class="material-symbols-outlined text-rose-400 text-lg">error</span>
+								}
+							>
+								<span class="material-symbols-outlined text-emerald-400 text-lg">check_circle</span>
+							</Show>
+						</Show>
+
+						{/* Valuate Button */}
+						<button
+							type="button"
+							onClick={() => handleRunAnalysis(inputNumber())}
+							disabled={isAnalyzing() || (!validation().isValid && inputNumber().trim().length > 0)}
+							class={`px-4 py-2.5 rounded-2xl text-xs font-black tracking-tight active:scale-95 transition-all shadow-md flex items-center gap-1.5 ${
+								isAnalyzing()
+									? 'bg-white/10 text-white/40 cursor-not-allowed'
+									: validation().isValid
+										? 'bg-gradient-to-r from-[#0098EA] to-[#0070BA] text-white shadow-[#0098EA]/30 hover:brightness-110'
+										: 'bg-white/10 text-white/40'
+							}`}
+						>
+							<Show
+								when={!isAnalyzing()}
+								fallback={
+									<span class="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+								}
+							>
+								<span class="material-symbols-outlined text-sm">search_insights</span>
+							</Show>
+							<span>{isAnalyzing() ? 'Analyzing...' : t('numbers.valuateBtn')}</span>
+						</button>
+					</div>
+
+					{/* Reactive Error Helper Message */}
+					<Show when={validation().error && inputNumber().length > 0}>
+						<div class="mt-2 px-3 py-1.5 bg-rose-500/15 border border-rose-500/30 rounded-xl text-xs font-bold text-rose-300 flex items-center gap-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
+							<span class="material-symbols-outlined text-sm">warning</span>
+							<span>{validation().error}</span>
+						</div>
+					</Show>
+
+					{/* Live Valid Preview Badge & Micro-Intelligence Teasers */}
+					<Show when={validation().isValid}>
+						<div class="mt-2 flex items-center justify-between px-1">
+							<span class="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400">
+								<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+								{t('numbers.validNumberReady')}
+							</span>
+
+							<span
+								class={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${getNumberTheme().badgeBg}`}
+							>
+								{validation().patternLabel || `${getNumberTheme().name} TIER`}
+							</span>
+						</div>
+
+						{/* Realtime Mystery Hints & Pattern Chips */}
+						<SearchTeaser vertical="number" value={inputNumber()} />
+					</Show>
+				</div>
+
+				<Show when={error() && !validation().error}>
 					<div class="bg-red-500/10 border border-red-500/30 rounded-2xl p-3.5 mb-4 text-xs text-red-400 flex items-center gap-2">
 						<span class="material-symbols-outlined text-base">error</span>
 						<span>{error()}</span>
 					</div>
 				</Show>
 
-				{/* ── STATE 1: ANALYZING SCAN ANIMATION ── */}
+				{/* ═══════ 3. STATE 1: ANALYZING SCAN ANIMATION ═══════ */}
 				<Show when={isAnalyzing()}>
 					<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[32px] p-8 mb-6 text-center relative overflow-hidden shadow-2xl">
 						<div class="w-16 h-16 rounded-3xl bg-gradient-to-tr from-[#0098EA] to-[#00c6ff] mx-auto mb-4 flex items-center justify-center shadow-lg shadow-[#0098EA]/40 animate-pulse">
@@ -313,85 +636,293 @@ export const NumberReportPage: Component = () => {
 					</div>
 				</Show>
 
-				{/* ── STATE 2 & 3: 3D HOLOGRAPHIC GYRO CARD (LOCKED OR UNLOCKED) ── */}
-				<Show when={!isAnalyzing() && (gateData() || reportData())}>
-					<div class="perspective-[1200px] mb-5">
-						<div
-							ref={cardRef}
-							onMouseMove={handleMouseMove}
-							onMouseLeave={handleMouseLeave}
-							class={`relative w-full rounded-[32px] p-6 backdrop-blur-2xl border ${getNumberTheme().border} bg-gradient-to-b from-[#161925]/90 to-[#0A0C12]/95 shadow-2xl transition-transform duration-150 ease-out select-none cursor-pointer overflow-hidden`}
-							style={{
-								transform: `perspective(1200px) rotateX(${tilt().x}deg) rotateY(${tilt().y}deg)`,
-								'box-shadow': `0 20px 45px -10px ${getNumberTheme().glowColor}`,
-							}}
-						>
-							{/* Gloss Reflex Overlay */}
-							<div
-								class="absolute inset-0 pointer-events-none rounded-[32px] transition-opacity duration-300"
-								style={{
-									background: `radial-gradient(circle 350px at ${tilt().glossX}% ${tilt().glossY}%, rgba(255,255,255,0.18), transparent 70%)`,
-								}}
-							/>
-
-							{/* Card Header Stamp */}
-							<div class="flex items-center justify-between mb-4 relative z-10">
+				{/* ═══════ 4. STATE 2: WORLD-CLASS PAYWALL & VALUE PROPOSITION (NO BLURRED CARDS) ═══════ */}
+				<Show when={!isAnalyzing() && !isUnlocked() && gateData()}>
+					<div class="mb-6 space-y-4">
+						{/* Target Asset Header Card */}
+						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-[#0098EA]/30 rounded-[28px] p-4.5 shadow-2xl relative overflow-hidden">
+							<div class="flex items-center justify-between mb-2">
 								<div class="flex items-center gap-2">
 									<span
 										class={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border ${getNumberTheme().badgeBg}`}
 									>
 										{getNumberTheme().name} TIER
 									</span>
-									<span class="text-[10px] font-mono text-white/40 uppercase tracking-wider">
-										{'NV-v2.4'}
+									<span class="text-[10px] font-mono text-white/40 uppercase">
+										{t('numbers.frozenAnonymous')}
 									</span>
 								</div>
-
-								<div class="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/[0.06] border border-white/10 text-[10px] font-mono font-bold text-white/70">
+								<span class="text-[10px] font-mono text-emerald-400 font-bold flex items-center gap-1">
 									<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-									<span>{t('numbers.supplyCount')}</span>
-								</div>
-							</div>
-
-							{/* Monospace Phone Number */}
-							<div class="text-center my-5 relative z-10">
-								<h1 class="text-3xl xs:text-4xl font-black text-white font-mono tracking-tight drop-shadow-md">
-									{reportData()?.display_number || gateData()?.display_number || inputNumber()}
-								</h1>
-								<span class="text-xs text-white/40 font-mono mt-1 block">
-									{t('numbers.frozenAnonymous')}
+									136,566 Total Supply
 								</span>
 							</div>
 
-							{/* Valuation Display (Locked vs Unlocked) */}
-							<div class="bg-black/50 backdrop-blur-md rounded-2xl p-4 border border-white/10 relative z-10 mb-4">
-								<div class="flex items-center justify-between mb-1">
-									<span class="text-[10px] uppercase font-bold text-white/50 tracking-wider">
-										{t('numbers.fairValue')}
+							<div class="text-center my-3" dir="ltr">
+								<span class="text-2xl xs:text-3xl font-black text-white font-mono tracking-tight drop-shadow-md">
+									{gateData()?.display_number || validation().formatted || inputNumber()}
+								</span>
+							</div>
+
+							{/* Signals Analyzed Badge */}
+							<div class="flex items-center justify-center gap-2 text-[11px] text-white/70 font-semibold bg-white/[0.04] p-2 rounded-xl border border-white/5">
+								<span class="material-symbols-outlined text-[#0098EA] text-sm">verified_user</span>
+								<span>
+									{gateData()?.signals_analyzed || 27} on-chain & statistical signals analyzed
+								</span>
+							</div>
+						</div>
+
+						{/* Dedicated Payment & Quota Card */}
+						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-2xl relative overflow-hidden">
+							<div class="flex items-center justify-between mb-4 pb-3 border-b border-white/5">
+								<div>
+									<h3 class="text-sm font-black text-white">{t('numbers.paywallHeaderTitle')}</h3>
+									<p class="text-[11px] text-white/50 mt-0.5">
+										{t('numbers.universalCredit')}
+									</p>
+								</div>
+
+								{/* Cost Tag */}
+								<div class="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#0098EA]/15 border border-[#0098EA]/30 text-[#0098EA]">
+									<span class="material-symbols-outlined text-sm">key</span>
+									<span class="font-mono text-xs font-black">1 CREDIT</span>
+								</div>
+							</div>
+
+							{/* Quota & Wallet Balance Bar */}
+							<div class="flex items-center justify-between p-3.5 bg-black/40 rounded-2xl border border-white/5 mb-4">
+								<div class="flex items-center gap-2.5">
+									<div class="w-9 h-9 rounded-xl bg-[#0098EA]/20 text-[#0098EA] flex items-center justify-center border border-[#0098EA]/30">
+										<span class="material-symbols-outlined text-lg">account_balance_wallet</span>
+									</div>
+									<div>
+										<div class="text-[10px] text-white/50 font-bold uppercase tracking-wider">
+											{t('numbers.paywallUserBalance')}
+										</div>
+										<div class="text-sm font-black text-white font-mono flex items-center gap-1">
+											<span>{wallet.balance() !== null ? wallet.balance() : '...'}</span>
+											<span class="text-xs text-white/50 font-sans">{t('paywall.credit_unit')}</span>
+										</div>
+									</div>
+								</div>
+
+								<button
+									type="button"
+									onClick={() => setStoreOpen(true)}
+									class="px-3 py-1.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.15] border border-white/10 text-xs font-bold text-white transition-all active:scale-95"
+								>
+									+ {t('paywall.get_credits')}
+								</button>
+							</div>
+
+							{/* Primary Action Button */}
+							<button
+								type="button"
+								disabled={loading()}
+								onClick={handleUnlockWithCredit}
+								class={`w-full h-14 rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-xl active:scale-[0.98] transition-all hover:brightness-110 ${
+									canAfford()
+										? 'bg-gradient-to-r from-[#0098EA] via-[#00c6ff] to-[#0098EA] text-white shadow-[#0098EA]/30'
+										: 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 text-white shadow-amber-500/20'
+								}`}
+							>
+								<Show
+									when={!loading()}
+									fallback={
+										<span class="material-symbols-outlined animate-spin text-lg">progress_activity</span>
+									}
+								>
+									<span class="material-symbols-outlined text-lg">
+										{canAfford() ? 'lock_open' : 'shopping_bag'}
 									</span>
-									<Show when={isUnlocked() && reportData()}>
+								</Show>
+								<span>
+									{loading()
+										? t('paywall.working')
+										: canAfford()
+											? t('numbers.paywallUnlockNowCta')
+											: t('numbers.paywallGetCreditsCta')}
+								</span>
+							</button>
+
+							{/* Trust Footer */}
+							<div class="flex items-center justify-center gap-3 text-[10px] font-bold text-white/50 mt-3.5">
+								<span class="flex items-center gap-1">
+									<span class="material-symbols-outlined text-[12px] text-emerald-400">bolt</span>
+									{t('numbers.paywallTrustInstant')}
+								</span>
+								<span class="h-3 w-px bg-white/10" />
+								<span class="flex items-center gap-1">
+									<span class="material-symbols-outlined text-[12px] text-emerald-400">history</span>
+									{t('numbers.paywallTrustValidity')}
+								</span>
+							</div>
+						</div>
+
+						{/* ═══════ WHAT YOU UNLOCK: 7-FEATURE VALUE PROPOSITION ═══════ */}
+						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-2xl">
+							<h3 class="text-sm font-black text-white mb-1 flex items-center gap-2">
+								<span class="material-symbols-outlined text-amber-400 text-lg">workspace_premium</span>
+								<span>{t('numbers.paywallBenefitsTitle')}</span>
+							</h3>
+							<p class="text-[11px] text-white/50 mb-4">
+								{t('numbers.paywallCuriosityText')}
+							</p>
+
+							<div class="space-y-2.5 text-xs">
+								{/* 1. Fair Valuation */}
+								<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-start gap-3">
+									<div class="w-8 h-8 rounded-xl bg-[#0098EA]/20 text-[#0098EA] flex items-center justify-center shrink-0 mt-0.5">
+										<span class="material-symbols-outlined text-base">price_check</span>
+									</div>
+									<div>
+										<h4 class="font-black text-white text-xs">{t('numbers.benefit1Title')}</h4>
+										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">{t('numbers.benefit1Desc')}</p>
+									</div>
+								</div>
+
+								{/* 2. Rarity DNA */}
+								<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-start gap-3">
+									<div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0 mt-0.5">
+										<span class="material-symbols-outlined text-base">genetics</span>
+									</div>
+									<div>
+										<h4 class="font-black text-white text-xs">{t('numbers.benefit2Title')}</h4>
+										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">{t('numbers.benefit2Desc')}</p>
+									</div>
+								</div>
+
+								{/* 3. Color Tier */}
+								<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-start gap-3">
+									<div class="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center shrink-0 mt-0.5">
+										<span class="material-symbols-outlined text-base">palette</span>
+									</div>
+									<div>
+										<h4 class="font-black text-white text-xs">{t('numbers.benefit3Title')}</h4>
+										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">{t('numbers.benefit3Desc')}</p>
+									</div>
+								</div>
+
+								{/* 4. Cultural Radar */}
+								<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-start gap-3">
+									<div class="w-8 h-8 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center shrink-0 mt-0.5">
+										<span class="material-symbols-outlined text-base">public</span>
+									</div>
+									<div>
+										<h4 class="font-black text-white text-xs">{t('numbers.benefit4Title')}</h4>
+										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">{t('numbers.benefit4Desc')}</p>
+									</div>
+								</div>
+
+								{/* 5. Comps */}
+								<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-start gap-3">
+									<div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0 mt-0.5">
+										<span class="material-symbols-outlined text-base">table_chart</span>
+									</div>
+									<div>
+										<h4 class="font-black text-white text-xs">{t('numbers.benefit5Title')}</h4>
+										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">{t('numbers.benefit5Desc')}</p>
+									</div>
+								</div>
+
+								{/* 6. Economics */}
+								<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-start gap-3">
+									<div class="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-300 flex items-center justify-center shrink-0 mt-0.5">
+										<span class="material-symbols-outlined text-base">account_balance</span>
+									</div>
+									<div>
+										<h4 class="font-black text-white text-xs">{t('numbers.benefit6Title')}</h4>
+										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">{t('numbers.benefit6Desc')}</p>
+									</div>
+								</div>
+
+								{/* 7. Projections */}
+								<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-start gap-3">
+									<div class="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-300 flex items-center justify-center shrink-0 mt-0.5">
+										<span class="material-symbols-outlined text-base">trending_up</span>
+									</div>
+									<div>
+										<h4 class="font-black text-white text-xs">{t('numbers.benefit7Title')}</h4>
+										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">{t('numbers.benefit7Desc')}</p>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</Show>
+
+				{/* ═══════ 5. STATE 3: WORLD-CLASS UNLOCKED 9-SECTION PREMIUM REPORT ═══════ */}
+				<Show when={isUnlocked() && reportData()}>
+					<div class="space-y-4">
+						{/* 1. 3D HOLOGRAPHIC GYRO CERTIFICATE CARD */}
+						<div class="perspective-[1200px]">
+							<div
+								ref={cardRef}
+								onPointerMove={handlePointerMove}
+								onPointerLeave={handlePointerLeave}
+								class={`relative w-full rounded-[32px] p-6 backdrop-blur-2xl border ${getNumberTheme().border} bg-gradient-to-b from-[#161925]/90 to-[#0A0C12]/95 shadow-2xl transition-transform duration-150 ease-out select-none cursor-pointer overflow-hidden touch-pan-y will-change-transform`}
+								style={{
+									transform: `perspective(1200px) rotateX(${tilt().x}deg) rotateY(${tilt().y}deg)`,
+									'box-shadow': `0 20px 45px -10px ${getNumberTheme().glowColor}`,
+								}}
+							>
+								{/* Gloss Reflex Overlay */}
+								<div
+									class="absolute inset-0 pointer-events-none rounded-[32px] transition-opacity duration-300"
+									style={{
+										background: `radial-gradient(circle 350px at ${tilt().glossX}% ${tilt().glossY}%, rgba(255,255,255,0.18), transparent 70%)`,
+									}}
+								/>
+
+								{/* Card Header Stamp */}
+								<div class="flex items-center justify-between mb-4 relative z-10">
+									<div class="flex items-center gap-2">
+										<span
+											class={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border ${getNumberTheme().badgeBg}`}
+										>
+											{getNumberTheme().name} TIER
+										</span>
+										<span class="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1 font-mono">
+											👑 {t('numbers.globalRankBadge')} #{reportData()?.global_rank || 1}
+										</span>
+									</div>
+
+									<div class="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/[0.06] border border-white/10 text-[10px] font-mono font-bold text-white/70">
+										<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+										<span>{t('numbers.supplyCount')}</span>
+									</div>
+								</div>
+
+								{/* Monospace Phone Number */}
+								<div class="text-center my-4 relative z-10" dir="ltr">
+									<h2 class="text-3xl xs:text-4xl font-black text-white font-mono tracking-tight drop-shadow-md">
+										{reportData()?.display_number || inputNumber()}
+									</h2>
+									<div class="flex items-center justify-center gap-2 mt-1.5">
+										<span class="text-xs text-white/50 font-mono">
+											{t('numbers.frozenAnonymous')}
+										</span>
+										<span class="text-white/30">•</span>
+										<span class="text-xs text-[#0098EA] font-bold">
+											{reportData()?.category_club || 'Standard Collection'}
+										</span>
+									</div>
+								</div>
+
+								{/* Valuation Display Banner */}
+								<div class="bg-black/50 backdrop-blur-md rounded-2xl p-4 border border-white/10 relative z-10 mb-4">
+									<div class="flex items-center justify-between mb-1">
+										<span class="text-[10px] uppercase font-bold text-white/50 tracking-wider">
+											{t('numbers.fairValue')}
+										</span>
 										<span class="text-[11px] font-black text-emerald-400 font-mono flex items-center gap-1">
 											<span class="material-symbols-outlined text-xs">verified</span>
 											{reportData()?.confidence_score}% {t('numbers.confidence')}
 										</span>
-									</Show>
-								</div>
+									</div>
 
-								<Show
-									when={isUnlocked() && reportData()}
-									fallback={
-										<div class="flex items-center justify-between py-1">
-											<div class="text-2xl font-black text-white/30 filter blur-sm select-none font-mono">
-												{'••••••••'} {t('common.ton')}
-											</div>
-											<span class="text-xs font-bold text-amber-400 flex items-center gap-1 bg-amber-500/10 px-2 py-1 rounded-lg border border-amber-500/20">
-												<span class="material-symbols-outlined text-sm">lock</span>
-												{t('numbers.lockedIntel')}
-											</span>
-										</div>
-									}
-								>
-									<div class="flex items-baseline gap-2">
+									<div class="flex items-baseline gap-2" dir="ltr">
 										<span class="text-3xl font-black text-white font-mono">
 											{formatTon(reportData()?.expected_ton)}
 										</span>
@@ -400,46 +931,81 @@ export const NumberReportPage: Component = () => {
 											({formatUsd(reportData()?.expected_usd)})
 										</span>
 									</div>
-									<div class="text-[11px] text-white/40 font-mono mt-1 flex items-center gap-2">
+									<div class="text-[11px] text-white/40 font-mono mt-1 flex items-center gap-2" dir="ltr">
 										<span>
-											Range: {formatTon(reportData()?.low_ton)} -{' '}
-											{formatTon(reportData()?.high_ton)} TON
+											Range: {formatTon(reportData()?.low_ton)} - {formatTon(reportData()?.high_ton)} TON
 										</span>
 										<span>·</span>
 										<span>Rate: ${reportData()?.ton_usd_rate}/TON</span>
 									</div>
-								</Show>
-							</div>
+								</div>
 
-							{/* Card Footer */}
-							<div class="flex items-center justify-between text-[10px] text-white/40 font-mono relative z-10">
-								<span>{t('numbers.verifiedStamp')}</span>
-								<span>
-									{isUnlocked()
-										? `CERT: ${reportData()?.certificate_id || 'IF-NUM-001'}`
-										: 'TELEMINT REGISTRY'}
-								</span>
+								{/* Card Footer */}
+								<div class="flex items-center justify-between text-[10px] text-white/40 font-mono relative z-10">
+									<span>{t('numbers.verifiedStamp')}</span>
+									<span>CERT: {reportData()?.certificate_id || 'IF-NUM-001'}</span>
+								</div>
 							</div>
 						</div>
-					</div>
-				</Show>
 
-				{/* ── STATE 2: UNIFIED PAYWALL GATE (payment only) ── */}
-				<Show when={!isAnalyzing() && !isUnlocked() && gateData()}>
-					<div class="mb-6">
-						<UnifiedPaywallGate
-							vertical="number"
-							onUnlock={handleUnlockWithCredit}
-							unlocking={loading()}
-							error={null}
-						/>
-					</div>
-				</Show>
+						{/* 2. DIRECT FRAGMENT ACTION & LIVE AUCTION CARD */}
+						<div class="bg-gradient-to-r from-[#0098EA]/15 via-purple-500/10 to-[#0098EA]/15 border border-[#0098EA]/30 rounded-[28px] p-4.5 shadow-xl backdrop-blur-2xl">
+							<div class="flex items-center justify-between mb-3">
+								<div class="flex items-center gap-2">
+									<div class="w-8 h-8 rounded-xl bg-[#0098EA]/20 text-[#0098EA] flex items-center justify-center border border-[#0098EA]/30">
+										<span class="material-symbols-outlined text-base">gavel</span>
+									</div>
+									<div>
+										<h3 class="text-xs font-black text-white">Fragment Protocol Integration</h3>
+										<span class="text-[10px] text-white/50">Direct on-chain Telemint link</span>
+									</div>
+								</div>
+								<div class="text-right rtl:text-left">
+									<div class="text-[9px] uppercase font-bold text-white/40">Min Next Bid</div>
+									<div class="text-xs font-mono font-black text-white">
+										{formatTon(reportData()?.economics?.min_bid_ton || 2205)} TON
+									</div>
+								</div>
+							</div>
 
-				{/* ── STATE 3: 14-SECTION UNLOCKED PREMIUM REPORT ── */}
-				<Show when={isUnlocked() && reportData()}>
-					<div class="space-y-4">
-						{/* 1. Exact Rarity DNA (Signature Feature) */}
+							<a
+								href={reportData()?.fragment_direct_url || `https://fragment.com/number/${(reportData()?.number || '').replace('+888', '')}`}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="w-full py-3 rounded-2xl bg-gradient-to-r from-[#0098EA] via-[#00c6ff] to-[#0098EA] text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-[#0098EA]/25 active:scale-[0.98] transition-all hover:brightness-110"
+							>
+								<span class="material-symbols-outlined text-sm">open_in_new</span>
+								<span>{t('numbers.fragmentDirectCta')}</span>
+							</a>
+						</div>
+
+						{/* 3. NFT COLLATERAL & INSTANT LENDING LIMIT */}
+						<div class="bg-gradient-to-r from-emerald-500/15 via-cyan-500/10 to-emerald-500/15 border border-emerald-500/30 rounded-[28px] p-4.5 shadow-xl backdrop-blur-2xl">
+							<div class="flex items-center justify-between mb-2">
+								<div class="flex items-center gap-2">
+									<div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
+										<span class="material-symbols-outlined text-base">account_balance</span>
+									</div>
+									<div>
+										<h3 class="text-xs font-black text-white">{t('numbers.collateralTitle')}</h3>
+										<span class="text-[10px] text-emerald-400 font-bold">55% LTV DeFi Credit Line</span>
+									</div>
+								</div>
+								<div class="text-right rtl:text-left">
+									<div class="text-sm font-mono font-black text-emerald-400">
+										{formatTon(reportData()?.collateral_value_ton)} TON
+									</div>
+									<div class="text-[9px] text-white/40 font-mono">
+										≈ {formatUsd(reportData()?.collateral_value_usd)}
+									</div>
+								</div>
+							</div>
+							<p class="text-[10px] text-white/60 leading-relaxed mt-1">
+								{t('numbers.collateralDesc')}
+							</p>
+						</div>
+
+						{/* 4. EXACT RARITY DNA (Signature Feature) */}
 						<div class="bg-[#12141C]/80 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl">
 							<div class="flex items-center justify-between mb-3">
 								<div>
@@ -478,7 +1044,7 @@ export const NumberReportPage: Component = () => {
 							</div>
 						</div>
 
-						{/* 2. Color Premium Card */}
+						{/* 3. COLOR PREMIUM CARD */}
 						<div class="bg-[#12141C]/80 backdrop-blur-2xl border border-white/10 rounded-[28px] p-4 flex items-center justify-between shadow-xl">
 							<div class="flex items-center gap-3">
 								<div
@@ -492,7 +1058,7 @@ export const NumberReportPage: Component = () => {
 									</div>
 								</div>
 							</div>
-							<div class="text-right">
+							<div class="text-right rtl:text-left">
 								<div class="text-sm font-black text-emerald-400 font-mono">
 									+{Math.round(((reportData()?.color?.multiplier || 1.0) - 1.0) * 100)}%
 								</div>
@@ -500,7 +1066,7 @@ export const NumberReportPage: Component = () => {
 							</div>
 						</div>
 
-						{/* 3. Cultural Radar Card */}
+						{/* 4. CULTURAL RADAR CARD */}
 						<div class="bg-[#12141C]/80 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl">
 							<h3 class="text-sm font-black text-white mb-1">
 								🌏 {t('numbers.culturalRadar')}
@@ -522,7 +1088,7 @@ export const NumberReportPage: Component = () => {
 											<div class="text-[11px] font-bold text-[#0098EA]">
 												{isRtl() ? item.verdict_fa : item.verdict_en}
 											</div>
-											<p class="text-[10px] text-white/50 mt-0.5">
+											<p class="text-[10px] text-white/50 mt-0.5 leading-relaxed">
 												{isRtl() ? item.description_fa : item.description_en}
 											</p>
 										</div>
@@ -531,7 +1097,7 @@ export const NumberReportPage: Component = () => {
 							</div>
 						</div>
 
-						{/* 4. Comparable Historical Sales (Comps) */}
+						{/* 5. COMPARABLE HISTORICAL SALES (COMPS) */}
 						<div class="bg-[#12141C]/80 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl">
 							<h3 class="text-sm font-black text-white mb-1">
 								📊 {t('numbers.comparableSales')}
@@ -545,20 +1111,21 @@ export const NumberReportPage: Component = () => {
 									{(comp) => (
 										<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-between text-xs">
 											<div>
-												<span class="font-mono font-black text-white block">
+												<span class="font-mono font-black text-white block" dir="ltr">
 													{comp.number}
 												</span>
 												<span class="text-[10px] text-white/40">
 													{comp.sale_date} · {comp.tail_class}
 												</span>
 											</div>
-											<div class="text-right">
+											<div class="text-right rtl:text-left">
 												<span class="font-mono font-black text-white block">
 													{formatTon(comp.price_ton)} TON
 												</span>
 												<span
-													class={`text-[10px] font-bold ${comp.diff_percent >= 0 ? 'text-emerald-400' : 'text-rose-400'
-														}`}
+													class={`text-[10px] font-bold ${
+														comp.diff_percent >= 0 ? 'text-emerald-400' : 'text-rose-400'
+													}`}
 												>
 													{comp.diff_percent >= 0 ? `+${comp.diff_percent}%` : `${comp.diff_percent}%`}
 												</span>
@@ -569,7 +1136,7 @@ export const NumberReportPage: Component = () => {
 							</div>
 						</div>
 
-						{/* 5. Transaction Economics & Net Payout */}
+						{/* 6. TRANSACTION ECONOMICS & NET PAYOUT */}
 						<div class="bg-[#12141C]/80 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl">
 							<h3 class="text-sm font-black text-white mb-1">💰 {t('numbers.economics')}</h3>
 							<p class="text-[10px] text-white/50 mb-3">
@@ -585,7 +1152,7 @@ export const NumberReportPage: Component = () => {
 								</div>
 								<div class="flex items-center justify-between py-1 pt-2">
 									<span class="text-white font-bold">{t('numbers.netPayout')}</span>
-									<div class="text-right">
+									<div class="text-right rtl:text-left">
 										<span class="font-mono font-black text-emerald-400 text-sm block">
 											{formatTon(reportData()?.economics?.net_payout_ton)} TON
 										</span>
@@ -597,7 +1164,7 @@ export const NumberReportPage: Component = () => {
 							</div>
 						</div>
 
-						{/* 6. 12-Month Valuation Projections */}
+						{/* 7. 12-MONTH VALUATION PROJECTIONS */}
 						<div class="bg-[#12141C]/80 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl">
 							<h3 class="text-sm font-black text-white mb-1">
 								📈 {t('numbers.projections')}
@@ -628,16 +1195,17 @@ export const NumberReportPage: Component = () => {
 							</div>
 						</div>
 
-						{/* 7. Action Bar (Watchlist & Story) */}
+						{/* 8. ACTION TOOLBAR (WATCHLIST & STORY) */}
 						<div class="bg-[#12141C]/80 backdrop-blur-2xl border border-white/10 rounded-[28px] p-4 flex items-center justify-between gap-2 shadow-xl">
 							<button
 								type="button"
 								onClick={handleToggleWatchlist}
 								disabled={watchLoading()}
-								class={`flex-1 py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 ${isWatching()
-									? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-									: 'bg-white/[0.06] text-white/80 hover:bg-white/10 border border-white/10'
-									}`}
+								class={`flex-1 py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 ${
+									isWatching()
+										? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+										: 'bg-white/[0.06] text-white/80 hover:bg-white/10 border border-white/10'
+								}`}
 							>
 								<span class="material-symbols-outlined text-sm">
 									{isWatching() ? 'bookmark_added' : 'bookmark_add'}
@@ -668,6 +1236,13 @@ export const NumberReportPage: Component = () => {
 					</div>
 				</Show>
 			</div>
+
+			{/* Credit Store Sheet */}
+			<CreditStoreSheet
+				open={storeOpen()}
+				onClose={() => setStoreOpen(false)}
+				vertical="number"
+			/>
 		</div>
 	);
 };

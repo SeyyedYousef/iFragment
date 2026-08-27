@@ -695,11 +695,17 @@ export const CollectionInfoPage: Component = () => {
 										{t('collectionInfo.totalVolume')}
 									</span>
 									<div class="flex items-baseline gap-1" dir="ltr">
-										<span class="text-[22px] font-black font-mono text-white">117.4M</span>
+										<span class="text-[22px] font-black font-mono text-white">
+											{numbersQuery.data?.total_volume_ton
+												? formatTon(numbersQuery.data.total_volume_ton)
+												: '117.4M'}
+										</span>
 										<span class="text-[11px] text-[#0098EA] font-black">{t('common.ton')}</span>
 									</div>
 									<div class="text-[10px] text-white/40 font-mono mt-1">
-										{t('collectionInfo.verifiedSalesCount')}
+										{numbersQuery.data?.total_sales
+											? `${formatTon(numbersQuery.data.total_sales)} sales`
+											: t('collectionInfo.verifiedSalesCount')}
 									</div>
 								</div>
 
@@ -708,11 +714,15 @@ export const CollectionInfoPage: Component = () => {
 										{t('collectionInfo.allTimeAth')}
 									</span>
 									<div class="flex items-baseline gap-1" dir="ltr">
-										<span class="text-[22px] font-black font-mono text-amber-400">864K</span>
+										<span class="text-[22px] font-black font-mono text-amber-400">
+											{numbersQuery.data?.historical_ath_ton
+												? formatTon(numbersQuery.data.historical_ath_ton)
+												: '864,000'}
+										</span>
 										<span class="text-[11px] text-amber-400 font-black">{t('common.ton')}</span>
 									</div>
 									<div class="text-[10px] text-white/40 font-mono mt-1 truncate">
-										+888 8888 8888
+										{numbersQuery.data?.ath_number || '+888 8888 8888'}
 									</div>
 								</div>
 							</div>

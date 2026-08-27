@@ -24,6 +24,11 @@ type NumberValuation struct {
 	TONUSDRate           float64                  `json:"ton_usd_rate"`
 	ConfidenceScore      int16                    `json:"confidence_score"` // 0 - 100
 	PriceBasis           string                   `json:"price_basis"`      // direct_sales_of_this_number | pattern_comps_shrunk_to_class | class_median_only
+	GlobalRank           int                      `json:"global_rank"`      // 1 to 136566
+	CategoryClub         string                   `json:"category_club"`    // "4-Digit Club", "Grail Monodigit", "Binary Dual", etc.
+	CollateralValueTON   float64                  `json:"collateral_value_ton"`
+	CollateralValueUSD   float64                  `json:"collateral_value_usd"`
+	FragmentDirectURL    string                   `json:"fragment_direct_url"`
 	Features             features.FeatureVector   `json:"features"`
 	RarityDNA            []RarityBar              `json:"rarity_dna"`
 	Color                registry.ColorInfo       `json:"color"`
@@ -38,6 +43,70 @@ type NumberValuation struct {
 	CertificateID        string                   `json:"certificate_id"`
 	EvaluatedAt          time.Time                `json:"evaluated_at"`
 	ReasoningLog         map[string]interface{}   `json:"reasoning_log"`
+}
+
+// DealSniperItem represents an undervalued deal on Fragment or Getgems
+type DealSniperItem struct {
+	Number             string  `json:"number"`
+	DisplayNumber      string  `json:"display_number"`
+	ListingPriceTON    float64 `json:"listing_price_ton"`
+	FairValueTON       float64 `json:"fair_value_ton"`
+	DiscountPercent    float64 `json:"discount_percent"`
+	ProfitPotentialTON float64 `json:"profit_potential_ton"`
+	Marketplace        string  `json:"marketplace"` // "Fragment" | "Getgems"
+	MarketplaceURL     string  `json:"marketplace_url"`
+	Color              string  `json:"color"`
+	GlobalRank         int     `json:"global_rank"`
+	CategoryClub       string  `json:"category_club"`
+}
+
+// CategoryClubItem represents a distinct collectible tier with dynamic floor
+type CategoryClubItem struct {
+	ID            string  `json:"id"`
+	NameEn        string  `json:"name_en"`
+	NameFa        string  `json:"name_fa"`
+	Icon          string  `json:"icon"`
+	FloorPriceTON float64 `json:"floor_price_ton"`
+	TotalSupply   int     `json:"total_supply"`
+	TopSaleTON    float64 `json:"top_sale_ton"`
+	DescriptionEn string  `json:"description_en"`
+	DescriptionFa string  `json:"description_fa"`
+}
+
+// WalletPortfolioResult summarizes all numbers in a connected wallet
+type WalletPortfolioResult struct {
+	OwnerAddress       string               `json:"owner_address"`
+	TotalAssets        int                  `json:"total_assets"`
+	TotalValueTON      float64              `json:"total_value_ton"`
+	TotalValueUSD      float64              `json:"total_value_usd"`
+	AverageRarityScore float64              `json:"average_rarity_score"`
+	BestGlobalRank     int                  `json:"best_global_rank"`
+	Assets             []PortfolioAssetItem `json:"assets"`
+}
+
+// PortfolioAssetItem details one owned number
+type PortfolioAssetItem struct {
+	Number        string  `json:"number"`
+	DisplayNumber string  `json:"display_number"`
+	ExpectedTON   float64 `json:"expected_ton"`
+	ExpectedUSD   float64 `json:"expected_usd"`
+	RarityScore   int     `json:"rarity_score"`
+	GlobalRank    int     `json:"global_rank"`
+	CategoryClub  string  `json:"category_club"`
+	Color         string  `json:"color"`
+}
+
+// LiveActivityItem represents a real-time sale on TON
+type LiveActivityItem struct {
+	ID            string    `json:"id"`
+	Number        string    `json:"number"`
+	DisplayNumber string    `json:"display_number"`
+	SalePriceTON  float64   `json:"sale_price_ton"`
+	SalePriceUSD  float64   `json:"sale_price_usd"`
+	SaleDate      time.Time `json:"sale_date"`
+	TxHash        string    `json:"tx_hash"`
+	TonviewerURL  string    `json:"tonviewer_url"`
+	Marketplace   string    `json:"marketplace"`
 }
 
 // RarityBar represents an individual deterministic attribute bar

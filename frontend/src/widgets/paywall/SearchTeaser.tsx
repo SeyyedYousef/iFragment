@@ -13,10 +13,28 @@ interface TeaserChip {
     key: string;
 }
 
+function toAsciiDigits(str: string): string {
+    return str
+        .replace(/[۰-۹]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 1728))
+        .replace(/[٠-٩]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 1584));
+}
+
 function analyzeNumber(raw: string): TeaserChip[] {
-    const digits = raw.replace(/\D/g, '').replace(/^888/, '');
+    const ascii = toAsciiDigits(raw || '');
+    const digits = ascii.replace(/\D/g, '').replace(/^888/, '');
     if (digits.length < 3) return [];
     const chips: TeaserChip[] = [];
+
+    // Check quad/grail repeat
+    if (
+        digits.includes('8888') ||
+        digits.includes('7777') ||
+        digits.includes('0000') ||
+        digits.includes('9999') ||
+        digits.includes('1111')
+    ) {
+        chips.push({ id: 'grail', key: 'paywall.teaser.grail_tier' });
+    }
 
     let maxRun = 1;
     let run = 1;
@@ -28,14 +46,30 @@ function analyzeNumber(raw: string): TeaserChip[] {
     const mirrored =
         digits.length >= 4 && digits === [...digits].reverse().join('');
 
-    if (maxRun >= 3) chips.push({ id: 'run', key: 'paywall.teaser.pattern_run' });
+    // Check sequential
+    const isAscending = /012|123|234|345|456|567|678|789/.test(digits);
+    const isDescending = /987|876|765|654|543|432|321|210/.test(digits);
+    if (isAscending || isDescending) {
+        chips.push({ id: 'seq', key: 'paywall.teaser.sequential' });
+    }
+
+    if (maxRun >= 3 && !chips.some((c) => c.id === 'grail'))
+        chips.push({ id: 'run', key: 'paywall.teaser.pattern_run' });
     else if (maxRun === 2 && digits.length >= 6)
         chips.push({ id: 'pairs', key: 'paywall.teaser.pattern_pairs' });
     if (mirrored) chips.push({ id: 'mirror', key: 'paywall.teaser.mirror' });
     if (distinct <= 3) chips.push({ id: 'rare', key: 'paywall.teaser.rare_mix' });
     if (/(\d)\1{2,}$/.test(digits)) chips.push({ id: 'tail', key: 'paywall.teaser.signature_tail' });
 
-    return chips.slice(0, 2);
+    // Always ensure at least signals_27 or supply_check when valid
+    if (chips.length === 0) {
+        chips.push({ id: 'signals', key: 'paywall.teaser.signals_27' });
+    }
+    if (chips.length === 1 && digits.length >= 4) {
+        chips.push({ id: 'supply', key: 'paywall.teaser.supply_check' });
+    }
+
+    return chips.slice(0, 3);
 }
 
 function analyzeUsername(raw: string): TeaserChip[] {

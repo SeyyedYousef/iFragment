@@ -65,4 +65,26 @@ export const numbersApi = {
 		});
 		return data;
 	},
+
+	getDeals: async (): Promise<import('../model/types.js').DealSniperItem[]> => {
+		const { data } = await apiClient.get<import('../model/types.js').DealSniperItem[]>('/numbers/deals');
+		return data;
+	},
+
+	getClubs: async (): Promise<import('../model/types.js').CategoryClubItem[]> => {
+		const { data } = await apiClient.get<import('../model/types.js').CategoryClubItem[]>('/numbers/clubs');
+		return data;
+	},
+
+	scanPortfolio: async (address: string): Promise<import('../model/types.js').WalletPortfolioResult> => {
+		const { data } = await apiClient.get<import('../model/types.js').WalletPortfolioResult>('/numbers/portfolio', {
+			params: { address },
+		});
+		return data;
+	},
+
+	getActivity: async (): Promise<import('../model/types.js').LiveActivityItem[]> => {
+		const { data } = await apiClient.get<import('../model/types.js').LiveActivityItem[]>('/numbers/activity');
+		return data;
+	},
 };

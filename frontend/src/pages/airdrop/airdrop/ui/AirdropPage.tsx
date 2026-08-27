@@ -42,13 +42,20 @@ export const AirdropPage: Component = () => {
 		document.addEventListener('visibilitychange', handleVisibilityChange);
 		try {
 			const tg = (window as any).Telegram?.WebApp;
+			const searchParams = new URLSearchParams(window.location.search);
 			const startParam =
 				tg?.initDataUnsafe?.start_param ||
-				new URLSearchParams(window.location.search).get('tgWebAppStartParam');
+				searchParams.get('tgWebAppStartParam');
 			if (startParam?.startsWith('clan_')) {
 				const clanUsername = startParam.replace(/^clan_/, '');
 				sessionStorage.setItem('pending_clan_join', clanUsername);
 				setActiveTab('clan');
+			}
+			const tabParam = searchParams.get('tab');
+			if (tabParam === 'leaderboard') {
+				setShowLeaderboard(true);
+			} else if (tabParam && ['mine', 'earn', 'clan', 'frens', 'boost', 'shop'].includes(tabParam)) {
+				setActiveTab(tabParam as AirdropTab);
 			}
 		} catch (_) {}
 

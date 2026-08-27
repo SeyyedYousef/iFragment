@@ -18,9 +18,9 @@ export const ActiveSubscriptionSummarySchema = v.object({
 
 export const ProfileStatsSchema = v.object({
 	telegramId: v.optional(v.number()),
-	username: v.optional(v.string()),
-	firstName: v.optional(v.string()),
-	lastName: v.optional(v.string()),
+	username: v.optional(v.nullable(v.string())),
+	firstName: v.optional(v.nullable(v.string())),
+	lastName: v.optional(v.nullable(v.string())),
 	usernamesAnalyzed: v.pipe(v.number(), v.integer(), v.minValue(0)),
 	groupsManaged: v.pipe(v.number(), v.integer(), v.minValue(0)),
 	channelsManaged: v.pipe(v.number(), v.integer(), v.minValue(0)),
@@ -28,20 +28,20 @@ export const ProfileStatsSchema = v.object({
 	currentStreak: v.pipe(v.number(), v.integer(), v.minValue(0)),
 	globalRank: v.pipe(v.number(), v.integer(), v.minValue(0)),
 	totalTaps: v.pipe(v.number(), v.integer(), v.minValue(0)),
-	memberSince: v.string(),
-	level: v.pipe(v.number(), v.integer(), v.minValue(1)),
+	memberSince: v.optional(v.nullable(v.string()), ''),
+	level: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0)), 1),
 	xp: v.pipe(v.number(), v.integer(), v.minValue(0)),
 	xpToNextLevel: v.pipe(v.number(), v.integer(), v.minValue(0)),
-	isPremium: v.boolean(),
-	premiumUntil: v.optional(v.string()),
-	emojiStatus: v.string(),
-	equippedBorder: v.string(),
-	equippedSkin: v.string(),
+	isPremium: v.optional(v.boolean(), false),
+	premiumUntil: v.optional(v.nullable(v.string())),
+	emojiStatus: v.optional(v.nullable(v.string()), ''),
+	equippedBorder: v.optional(v.nullable(v.string()), ''),
+	equippedSkin: v.optional(v.nullable(v.string()), ''),
 	airdropCoins: v.optional(v.number()),
 	creditExpiresInDays: v.optional(v.number(), 30),
 	energy: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
-	energyUpdatedAt: v.optional(v.string()),
-	photoUrl: v.optional(v.string()),
+	energyUpdatedAt: v.optional(v.nullable(v.string())),
+	photoUrl: v.optional(v.nullable(v.string())),
 	dailyTappedCoins: v.optional(v.number()),
 	dailyTurboUsed: v.optional(v.number(), 0),
 	dailyFullEnergyUsed: v.optional(v.number(), 0),
@@ -53,9 +53,11 @@ export const ProfileStatsSchema = v.object({
 export const AchievementSchema = v.object({
 	id: v.string(),
 	category: v.optional(
-		v.picklist(['onboarding', 'mining', 'analysis', 'social', 'management', 'streaks', 'special']),
+		v.nullable(
+			v.picklist(['onboarding', 'mining', 'analysis', 'social', 'management', 'streaks', 'special']),
+		),
 	),
-	icon: v.optional(v.string()),
+	icon: v.optional(v.nullable(v.string())),
 	unlocked: v.boolean(),
 	unlockedAt: v.nullish(v.string()),
 	progress: v.pipe(v.number(), v.minValue(0)),
@@ -64,21 +66,21 @@ export const AchievementSchema = v.object({
 
 export const ReferralFriendSchema = v.object({
 	id: v.number(),
-	name: v.string(),
-	avatar: v.optional(v.string()),
-	joinedAt: v.string(),
+	name: v.optional(v.nullable(v.string()), ''),
+	avatar: v.optional(v.nullable(v.string())),
+	joinedAt: v.optional(v.nullable(v.string()), ''),
 	earned: v.pipe(v.number(), v.minValue(0)),
 	airdropCoins: v.optional(v.pipe(v.number(), v.minValue(0)), 0),
 	frensCount: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0)), 0),
 	isActive: v.optional(v.boolean()),
-	status: v.optional(v.string()),
+	status: v.optional(v.nullable(v.string())),
 });
 
 export const ReferralInfoSchema = v.object({
 	referralCode: v.string(),
 	totalInvited: v.pipe(v.number(), v.integer(), v.minValue(0)),
 	totalEarned: v.pipe(v.number(), v.minValue(0)),
-	friends: v.array(ReferralFriendSchema),
+	friends: v.optional(v.nullable(v.array(ReferralFriendSchema)), []),
 });
 
 export const DailyStatusSchema = v.object({
@@ -126,20 +128,20 @@ export const BoostStatusSchema = v.object({
 });
 
 export const LeaderboardMemberSchema = v.object({
-	rank: v.pipe(v.number(), v.integer(), v.minValue(1)),
+	rank: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0)), 1),
 	user_id: v.number(),
-	first_name: v.string(),
-	username: v.string(),
-	level: v.pipe(v.number(), v.integer(), v.minValue(1)),
+	first_name: v.optional(v.nullable(v.string()), ''),
+	username: v.optional(v.nullable(v.string()), ''),
+	level: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0)), 1),
 	xp: v.pipe(v.number(), v.integer(), v.minValue(0)),
-	clan_name: v.optional(v.string()),
+	clan_name: v.optional(v.nullable(v.string())),
 });
 
 export const LeaderboardResponseSchema = v.object({
-	leaderboard: v.array(LeaderboardMemberSchema),
-	total_miners: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
-	user_rank: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
-	league: v.optional(v.string()),
+	leaderboard: v.optional(v.nullable(v.array(LeaderboardMemberSchema)), []),
+	total_miners: v.optional(v.nullable(v.pipe(v.number(), v.integer(), v.minValue(0)))),
+	user_rank: v.optional(v.nullable(v.pipe(v.number(), v.integer(), v.minValue(0)))),
+	league: v.optional(v.nullable(v.string())),
 });
 
 export const AchievementDefSchema = v.object({
@@ -161,11 +163,11 @@ export const ClanSchema = v.object({
 	id: v.string(),
 	telegram_channel_id: v.number(),
 	channel_username: v.string(),
-	channel_photo: v.optional(v.string()),
+	channel_photo: v.optional(v.nullable(v.string())),
 	chat_title: v.string(),
 	members_count: v.pipe(v.number(), v.integer(), v.minValue(0)),
-	total_score: v.optional(v.pipe(v.number(), v.minValue(0))),
-	rank: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
+	total_score: v.optional(v.nullable(v.pipe(v.number(), v.minValue(0)))),
+	rank: v.optional(v.nullable(v.pipe(v.number(), v.integer(), v.minValue(0)))),
 });
 
 export const UserClanDetailsSchema = v.object({
@@ -176,12 +178,12 @@ export const UserClanDetailsSchema = v.object({
 
 export const ClanMemberSchema = v.object({
 	telegram_id: v.number(),
-	username: v.optional(v.string()),
-	first_name: v.string(),
-	last_name: v.optional(v.string()),
-	score: v.number(),
-	level: v.pipe(v.number(), v.integer(), v.minValue(0)),
-	xp: v.pipe(v.number(), v.integer(), v.minValue(0)),
+	username: v.optional(v.nullable(v.string())),
+	first_name: v.optional(v.nullable(v.string()), ''),
+	last_name: v.optional(v.nullable(v.string())),
+	score: v.optional(v.nullable(v.pipe(v.number(), v.minValue(0))), 0),
+	level: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0)), 1),
+	xp: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0)), 0),
 });
 
 export const SuccessResponseSchema = v.record(v.string(), v.unknown());
@@ -213,17 +215,17 @@ export const LedgerEventSchema = v.object({
 	balanceBefore: v.number(),
 	balanceAfter: v.number(),
 	title: v.string(),
-	referenceId: v.string(),
+	referenceId: v.optional(v.nullable(v.string()), ''),
 	status: v.picklist(['completed', 'pending', 'failed']),
 	metadata: v.optional(v.record(v.string(), v.unknown())),
 	createdAt: v.string(),
 });
 
 export const LedgerResponseSchema = v.object({
-	events: v.array(LedgerEventSchema),
-	nextCursor: v.optional(v.string()),
-	hasMore: v.boolean(),
-	totalCount: v.number(),
+	events: v.optional(v.nullable(v.array(LedgerEventSchema)), []),
+	nextCursor: v.optional(v.nullable(v.string())),
+	hasMore: v.optional(v.boolean(), false),
+	totalCount: v.optional(v.number(), 0),
 });
 
 // ─── My Assets Schemas ───
@@ -241,10 +243,10 @@ export const MyConnectedPropertySchema = v.object({
 	type: v.picklist(['channel', 'group', 'bot']),
 	title: v.string(),
 	username: v.string(),
-	photoUrl: v.optional(v.string()),
+	photoUrl: v.optional(v.nullable(v.string())),
 	memberCount: v.number(),
 	subscriptionStatus: v.string(),
-	paidUntil: v.optional(v.string()),
+	paidUntil: v.optional(v.nullable(v.string())),
 	daysLeft: v.number(),
 	dashboardUrl: v.string(),
 });
@@ -257,7 +259,7 @@ export const MyProjectAssetSchema = v.object({
 	targetChatTitle: v.string(),
 	sourceChatUsername: v.string(),
 	targetChatUsername: v.string(),
-	starsExpiresAt: v.optional(v.string()),
+	starsExpiresAt: v.optional(v.nullable(v.string())),
 	daysLeft: v.number(),
 	subscriptionActive: v.boolean(),
 	pipelineEnabled: v.boolean(),
@@ -272,11 +274,11 @@ export const MyBoostersAssetSchema = v.object({
 });
 
 export const MyAssetsResponseSchema = v.object({
-	reports: v.array(MyReportsAssetSchema),
-	properties: v.array(MyConnectedPropertySchema),
-	projects: v.array(MyProjectAssetSchema),
-	boosters: MyBoostersAssetSchema,
-	summaryText: v.string(),
+	reports: v.optional(v.nullable(v.array(MyReportsAssetSchema)), []),
+	properties: v.optional(v.nullable(v.array(MyConnectedPropertySchema)), []),
+	projects: v.optional(v.nullable(v.array(MyProjectAssetSchema)), []),
+	boosters: v.optional(MyBoostersAssetSchema),
+	summaryText: v.optional(v.nullable(v.string()), ''),
 });
 
 export const EmojiRewardResponseSchema = v.object({

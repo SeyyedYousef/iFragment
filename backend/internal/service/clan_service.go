@@ -420,9 +420,11 @@ func (s *ClanService) GetTopClans(ctx context.Context, limit int, period string)
 		interval = "7 days"
 	}
 
+	clans := make([]model.Clan, 0)
+
 	query := fmt.Sprintf(`
 		SELECT c.id, c.telegram_channel_id, c.channel_username, COALESCE(c.channel_photo, '') as channel_photo, c.chat_title, c.members_count,
-		       COALESCE(SUM(us.xp), c.total_score) as period_score, c.created_at
+		       COALESCE(SUM(us.xp), c.total_score, 0)::BIGINT as period_score, c.created_at
 		FROM clans c
 		LEFT JOIN clan_members cm ON cm.clan_id = c.id
 		LEFT JOIN user_stats us ON us.user_id = cm.user_id AND us.last_active_at >= NOW() - INTERVAL '%s'
@@ -432,45 +434,56 @@ func (s *ClanService) GetTopClans(ctx context.Context, limit int, period string)
 	`, interval)
 
 	rows, err := s.db.Pool.Query(ctx, query, limit)
-	if err != nil {
-		// Fallback query
+	fallbackNeeded := err != nil
+	if err == nil {
+		rank := 1
+		for rows.Next() {
+			var c model.Clan
+			var channelPhoto sql.NullString
+			if scanErr := rows.Scan(&c.ID, &c.TelegramChannelID, &c.ChannelUsername, &channelPhoto, &c.ChatTitle, &c.MembersCount, &c.TotalScore, &c.CreatedAt); scanErr == nil {
+				c.ChannelPhoto = channelPhoto.String
+				if c.ChannelPhoto == "" || strings.Contains(c.ChannelPhoto, "t.me/i/userpic/320") {
+					c.ChannelPhoto = scrapeChannelPhoto(c.ChannelUsername)
+				}
+				c.Rank = rank
+				rank++
+				clans = append(clans, c)
+			}
+		}
+		rows.Close()
+		if len(clans) == 0 {
+			fallbackNeeded = true
+		}
+	}
+
+	if fallbackNeeded {
 		fallbackQuery := `
-			SELECT c.id, c.telegram_channel_id, c.channel_username, COALESCE(c.channel_photo, '') as channel_photo, c.chat_title, c.members_count, c.total_score, c.created_at
+			SELECT c.id, c.telegram_channel_id, c.channel_username, COALESCE(c.channel_photo, '') as channel_photo, c.chat_title, c.members_count, COALESCE(c.total_score, 0)::BIGINT, c.created_at
 			FROM clans c
 			ORDER BY c.total_score DESC, c.members_count DESC, c.chat_title ASC
 			LIMIT $1
 		`
-		rows, err = s.db.Pool.Query(ctx, fallbackQuery, limit)
-		if err != nil {
-			return nil, err
-		}
-	}
-	defer rows.Close()
-
-	clans := []model.Clan{}
-	rank := 1
-	for rows.Next() {
-		var c model.Clan
-		var channelPhoto sql.NullString
-		err := rows.Scan(&c.ID, &c.TelegramChannelID, &c.ChannelUsername, &channelPhoto, &c.ChatTitle, &c.MembersCount, &c.TotalScore, &c.CreatedAt)
-		if err != nil {
-			return nil, err
-		}
-		c.ChannelPhoto = channelPhoto.String
-		if c.ChannelPhoto == "" || strings.Contains(c.ChannelPhoto, "t.me/i/userpic/320") {
-			c.ChannelPhoto = scrapeChannelPhoto(c.ChannelUsername)
-			if s.db != nil && s.db.Pool != nil && c.ID != "" {
-				go func(id, photo string) {
-					_, _ = s.db.Pool.Exec(context.Background(), "UPDATE clans SET channel_photo = $1 WHERE id = $2", photo, id)
-				}(c.ID, c.ChannelPhoto)
+		fbRows, fbErr := s.db.Pool.Query(ctx, fallbackQuery, limit)
+		if fbErr == nil {
+			defer fbRows.Close()
+			rank := 1
+			for fbRows.Next() {
+				var c model.Clan
+				var channelPhoto sql.NullString
+				if scanErr := fbRows.Scan(&c.ID, &c.TelegramChannelID, &c.ChannelUsername, &channelPhoto, &c.ChatTitle, &c.MembersCount, &c.TotalScore, &c.CreatedAt); scanErr == nil {
+					c.ChannelPhoto = channelPhoto.String
+					if c.ChannelPhoto == "" || strings.Contains(c.ChannelPhoto, "t.me/i/userpic/320") {
+						c.ChannelPhoto = scrapeChannelPhoto(c.ChannelUsername)
+					}
+					c.Rank = rank
+					rank++
+					clans = append(clans, c)
+				}
 			}
 		}
-		c.Rank = rank
-		rank++
-		clans = append(clans, c)
 	}
 
-	if s.cache != nil && s.cache.Client != nil {
+	if s.cache != nil && s.cache.Client != nil && len(clans) > 0 {
 		if data, err := json.Marshal(clans); err == nil {
 			s.cache.Client.Set(ctx, cacheKey, data, 60*time.Second)
 		}
@@ -642,10 +655,10 @@ func (s *ClanService) flushScoresToDB(ctx context.Context) {
 		count := 0
 		for rows.Next() {
 			var id string
-			var score float64
+			var score int64
 			if err := rows.Scan(&id, &score); err == nil {
 				pipe.ZAdd(ctx, "clan_leaderboard", redis.Z{
-					Score:  score,
+					Score:  float64(score),
 					Member: id,
 				})
 				count++
@@ -697,13 +710,13 @@ func (s *ClanService) updateAllClans(ctx context.Context) {
 }
 
 type ClanMemberInfo struct {
-	TelegramID int64   `json:"telegram_id"`
-	Username   string  `json:"username,omitempty"`
-	FirstName  string  `json:"first_name"`
-	LastName   string  `json:"last_name,omitempty"`
-	Score      float64 `json:"score"`
-	Level      int     `json:"level"`
-	XP         int     `json:"xp"`
+	TelegramID int64  `json:"telegram_id"`
+	Username   string `json:"username,omitempty"`
+	FirstName  string `json:"first_name"`
+	LastName   string `json:"last_name,omitempty"`
+	Score      int64  `json:"score"`
+	Level      int    `json:"level"`
+	XP         int    `json:"xp"`
 }
 
 // GetClanMembers returns members of a clan ordered by score descending

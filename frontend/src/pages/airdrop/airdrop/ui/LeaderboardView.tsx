@@ -245,14 +245,23 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 						<Show
 							when={!clansQuery.isLoading && sortedGlobalClans().length > 0}
 							fallback={
-								<div class="flex flex-col items-center justify-center py-16">
-									<div class="w-8 h-8 border-[3px] border-white/10 border-t-amber-400 rounded-full animate-spin" />
-									<span class="text-[12px] font-black text-white/40 mt-4 tracking-widest uppercase">
-										{t('airdropFinal.leaderboard.preparingPodium', {
-											defaultValue: 'Preparing Podium...',
-										})}
-									</span>
-								</div>
+								<Show
+									when={clansQuery.isLoading}
+									fallback={
+										<div class="text-center py-12 text-white/40 text-[13px] bg-[#12141C]/40 rounded-[24px] border border-white/5 p-6">
+											{t('airdropFinal.leaderboard.noSquads', { defaultValue: 'No squads found.' })}
+										</div>
+									}
+								>
+									<div class="flex flex-col items-center justify-center py-16">
+										<div class="w-8 h-8 border-[3px] border-white/10 border-t-amber-400 rounded-full animate-spin" />
+										<span class="text-[12px] font-black text-white/40 mt-4 tracking-widest uppercase">
+											{t('airdropFinal.leaderboard.preparingPodium', {
+												defaultValue: 'Preparing Podium...',
+											})}
+										</span>
+									</div>
+								</Show>
 							}
 						>
 							{/* LTR FORCED CONTAINER TO KEEP PODIUM ORDER EXACT (2nd - 1st - 3rd) */}

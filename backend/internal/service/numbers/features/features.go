@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"unicode"
 
 	"ifragment-backend/internal/service/numbers/registry"
 )
@@ -38,12 +37,18 @@ type FeatureVector struct {
 	RarityScore      int     `json:"rarity_score"`      // Composite score 0 - 100
 }
 
-// CleanNumber removes whitespace, hyphens, and standardizes input to digits only
+// CleanNumber removes whitespace, hyphens, and standardizes input to ASCII digits only
+// Fully supports Eastern Arabic (Persian) ۰-۹ and Arabic-Indic ٠-٩ numeral conversions
 func CleanNumber(raw string) string {
 	var sb strings.Builder
 	for _, r := range raw {
-		if unicode.IsDigit(r) {
+		switch {
+		case r >= '0' && r <= '9':
 			sb.WriteRune(r)
+		case r >= '۰' && r <= '۹': // Persian / Eastern Arabic digits (U+06F0 - U+06F9)
+			sb.WriteRune('0' + (r - '۰'))
+		case r >= '٠' && r <= '٩': // Arabic-Indic digits (U+0660 - U+0669)
+			sb.WriteRune('0' + (r - '٠'))
 		}
 	}
 	return sb.String()

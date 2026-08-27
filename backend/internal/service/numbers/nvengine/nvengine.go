@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -372,7 +373,19 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 	// 14. Recommendation Verdict
 	recommendation := buildRecommendation(fv, expectedTON, netPayoutTON)
 
-	// 15. Certificate Hash ID
+	// 15. Global Rank (#1 to #136,566) & Category Club
+	globalRank := computeGlobalRank(fv)
+	categoryClub := determineCategoryClub(fv)
+
+	// 16. NFT Collateral & Lending Limit (55% LTV)
+	collateralTON := roundPrice(expectedTON * 0.55)
+	collateralUSD := collateralTON * tonUsdRate
+
+	// 17. Fragment Direct Auction / Buy URL
+	rawSuffix := strings.TrimPrefix(normNumber, "+888")
+	fragmentURL := fmt.Sprintf("https://fragment.com/number/%s", rawSuffix)
+
+	// 18. Certificate Hash ID
 	certPayload := fmt.Sprintf("%s:%s:%f:%d", normNumber, ModelVersion, expectedTON, time.Now().Unix())
 	certHash := sha256.Sum256([]byte(certPayload))
 	certificateID := "IFRG-NUM-" + hex.EncodeToString(certHash[:])[:12]
@@ -391,40 +404,47 @@ func (e *ValuationEngine) computeValuation(ctx context.Context, normNumber strin
 		"fng_multiplier":     fngMult,
 		"bayesian_k":         ShrinkageK,
 		"price_basis":        priceBasis,
+		"global_rank":        globalRank,
+		"category_club":      categoryClub,
 		"comps_count":        len(comps),
 		"is_sold_historical": history.IsSold,
 		"signals_count":      27,
 	}
 
 	valuation := &NumberValuation{
-		RunID:           time.Now().UnixNano(),
-		Number:          normNumber,
-		DisplayNumber:   features.FormatDisplayNumber(normNumber),
-		ModelVersion:    ModelVersion,
-		BasePriceTON:    decimal.NewFromFloat(expectedTON),
-		LowTON:          decimal.NewFromFloat(lowTON),
-		ExpectedTON:     decimal.NewFromFloat(expectedTON),
-		HighTON:         decimal.NewFromFloat(highTON),
-		LowUSD:          lowUSD,
-		ExpectedUSD:     expectedUSD,
-		HighUSD:         highUSD,
-		TONUSDRate:      tonUsdRate,
-		ConfidenceScore: confidenceScore,
-		PriceBasis:      priceBasis,
-		Features:        fv,
-		RarityDNA:       rarityDNA,
-		Color:           colorInfo,
-		History:         history,
-		Comps:          comps,
-		CulturalRadar:  culturalRadar,
-		Liquidity:      liquidity,
-		RiskAudit:      riskAudit,
-		Economics:      economics,
-		Projection:     projection,
-		Recommendation: recommendation,
-		CertificateID:  certificateID,
-		EvaluatedAt:    time.Now().UTC(),
-		ReasoningLog:   reasoningLog,
+		RunID:              time.Now().UnixNano(),
+		Number:             normNumber,
+		DisplayNumber:      features.FormatDisplayNumber(normNumber),
+		ModelVersion:       ModelVersion,
+		BasePriceTON:       decimal.NewFromFloat(expectedTON),
+		LowTON:             decimal.NewFromFloat(lowTON),
+		ExpectedTON:        decimal.NewFromFloat(expectedTON),
+		HighTON:            decimal.NewFromFloat(highTON),
+		LowUSD:             lowUSD,
+		ExpectedUSD:        expectedUSD,
+		HighUSD:            highUSD,
+		TONUSDRate:         tonUsdRate,
+		ConfidenceScore:    confidenceScore,
+		PriceBasis:         priceBasis,
+		GlobalRank:         globalRank,
+		CategoryClub:       categoryClub,
+		CollateralValueTON: collateralTON,
+		CollateralValueUSD: collateralUSD,
+		FragmentDirectURL:  fragmentURL,
+		Features:           fv,
+		RarityDNA:          rarityDNA,
+		Color:              colorInfo,
+		History:            history,
+		Comps:              comps,
+		CulturalRadar:      culturalRadar,
+		Liquidity:          liquidity,
+		RiskAudit:          riskAudit,
+		Economics:          economics,
+		Projection:         projection,
+		Recommendation:     recommendation,
+		CertificateID:      certificateID,
+		EvaluatedAt:        time.Now().UTC(),
+		ReasoningLog:       reasoningLog,
 	}
 
 	// Mandatory Audit Write (Sacred Rule 5)
@@ -648,3 +668,90 @@ func buildRecommendation(fv features.FeatureVector, expectedTON, netPayoutTON fl
 		SummaryFa:      sumFa,
 	}
 }
+
+func computeGlobalRank(fv features.FeatureVector) int {
+	suffix := fv.Suffix
+	if len(suffix) <= 4 {
+		if suffix == "8888" {
+			return 1
+		}
+		if suffix == "7777" {
+			return 2
+		}
+		if suffix == "0000" {
+			return 3
+		}
+		hashVal := 0
+		for _, r := range suffix {
+			if r >= '0' && r <= '9' {
+				hashVal = hashVal*10 + int(r-'0')
+			}
+		}
+		return 4 + (hashVal % 96)
+	}
+
+	if fv.DistinctDigits == 1 {
+		if strings.Contains(suffix, "8") {
+			return 1
+		}
+		if strings.Contains(suffix, "7") {
+			return 4
+		}
+		if strings.Contains(suffix, "0") {
+			return 5
+		}
+		return 6 + int(suffix[0]-'0')
+	}
+
+	if fv.MaxRun >= 6 {
+		return 10 + int((100.0-float64(fv.RarityScore))*2.4)
+	}
+	if fv.IsPalindrome || fv.MirrorScore >= 1.0 {
+		return 250 + int((100.0-float64(fv.RarityScore))*7.0)
+	}
+	if fv.HasMonotonicAsc || fv.HasMonotonicDesc {
+		return 950 + int((100.0-float64(fv.RarityScore))*12.5)
+	}
+	if fv.DistinctDigits == 2 {
+		return 2200 + int((100.0-float64(fv.RarityScore))*43.0)
+	}
+	if fv.TailClass == "QUAD_8888" {
+		return 6500 + int((100.0-float64(fv.RarityScore))*55.0)
+	}
+
+	rank := 12000 + int((100.0-float64(fv.RarityScore))/100.0*124565.0)
+	if rank > registry.TotalSupply {
+		rank = registry.TotalSupply
+	}
+	if rank < 1 {
+		rank = 1
+	}
+	return rank
+}
+
+func determineCategoryClub(fv features.FeatureVector) string {
+	if len(fv.Suffix) <= 4 {
+		return "4-Digit Ultra Club"
+	}
+	if fv.DistinctDigits == 1 {
+		return "Grail & Monodigit Club"
+	}
+	if fv.DistinctDigits == 2 {
+		return "Binary Dual Club"
+	}
+	if fv.HasMonotonicAsc || fv.HasMonotonicDesc {
+		return "Ladder & Sequence Club"
+	}
+	if fv.IsPalindrome || fv.MirrorScore >= 1.0 {
+		return "Mirror & Palindrome Club"
+	}
+	if len(fv.Suffix) == 8 {
+		y1 := fv.Suffix[0:4]
+		y2 := fv.Suffix[4:8]
+		if (y1 >= "1900" && y1 <= "2030") || (y2 >= "1900" && y2 <= "2030") {
+			return "Calendar & Date Club"
+		}
+	}
+	return "Standard Collection"
+}
+
