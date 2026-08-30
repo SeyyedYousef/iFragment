@@ -1,6 +1,8 @@
 import {
+	createEffect,
 	createSignal,
 	For,
+	onMount,
 	Show,
 	type Component,
 } from 'solid-js';
@@ -21,6 +23,19 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 	const [result, setResult] = createSignal<WalletPortfolioResult | null>(null);
 	const [error, setError] = createSignal<string | null>(null);
 	const [deductFee, setDeductFee] = createSignal<boolean>(false);
+
+	createEffect(() => {
+		if (props.initialAddress && props.initialAddress !== address()) {
+			setAddress(props.initialAddress);
+			handleScan(props.initialAddress);
+		}
+	});
+
+	onMount(() => {
+		if (props.initialAddress) {
+			handleScan(props.initialAddress);
+		}
+	});
 
 	const floorTon = () => props.floorPriceTon || 2179;
 	const tonRate = 5.5;

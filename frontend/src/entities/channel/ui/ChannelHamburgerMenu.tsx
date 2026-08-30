@@ -2,7 +2,7 @@ import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
 import createFocusTrap from 'solid-focus-trap';
 import { type Component, createResource, For, Show } from 'solid-js';
-import { isRtl, t } from '@/shared/i18n/index.js';
+import { isRtl, locale, t } from '@/shared/i18n/index.js';
 import { channelApi } from '../api/channelApi.js';
 
 interface ChannelHamburgerMenuProps {
@@ -14,142 +14,150 @@ interface ChannelHamburgerMenuProps {
 
 export const ChannelHamburgerMenu: Component<ChannelHamburgerMenuProps> = (props) => {
 	const navigate = useNavigate();
+	const isRtlLang = () => (typeof isRtl === 'function' ? isRtl() : locale() === 'fa');
+
 	const [channel] = createResource(
 		() => props.channelId,
 		(id) => channelApi.getChannel(id),
 	);
 
-	let containerRef!: HTMLDivElement;
+	let drawerRef: HTMLDivElement | undefined;
 	createFocusTrap({
-		element: () => containerRef,
+		element: () => drawerRef || null,
 		enabled: () => props.isOpen,
 	});
+
+	const channelTitle = () =>
+		channel()?.chat_title ||
+		(channel() as any)?.title ||
+		t('channel.defaultTitle' as any) ||
+		'کانال من';
+
+	const channelUsername = () =>
+		channel()?.chat_username || (channel() as any)?.username;
 
 	const menuItems = () => [
 		{
 			id: 'dashboard',
-			label: t('channel.menu.dashboard' as any) || 'Dashboard',
+			icon: 'dashboard',
+			label: t('channel.menu.dashboard' as any) || 'داشبورد',
 			path: `/channel/${props.channelId}/dashboard`,
-			icon: '📊',
-		},
-		{
-			id: 'health',
-			label: t('channel.menu.health' as any) || 'Health & Audit',
-			path: `/channel/${props.channelId}/health`,
-			icon: '🩺',
 		},
 		{
 			id: 'projects',
-			label: t('channel.menu.projects' as any) || 'Projects',
+			icon: 'bolt',
+			label: t('channel.menu.projects' as any) || 'پروژه‌ها',
 			path: `/channel/${props.channelId}/projects`,
-			icon: '⚡',
 		},
 		{
 			id: 'general',
-			label: t('channel.menu.generalSettings' as any) || 'General Settings',
+			icon: 'settings',
+			label: t('channel.menu.generalSettings' as any) || 'تنظیمات عمومی',
 			path: `/channel/${props.channelId}/general`,
-			icon: '⚙️',
 		},
 		{
 			id: 'posting',
-			label: t('channel.menu.posting' as any) || 'AI & Posting',
+			icon: 'smart_toy',
+			label: t('channel.menu.posting' as any) || 'ارسال هوشمند و AI',
 			path: `/channel/${props.channelId}/posting`,
-			icon: '📝',
 		},
 		{
 			id: 'forwarding',
-			label: t('channel.menu.forwarding' as any) || 'Auto Forwarding',
+			icon: 'sync_alt',
+			label: t('channel.menu.forwarding' as any) || 'فوروارد خودکار و وبهوک',
 			path: `/channel/${props.channelId}/forwarding`,
-			icon: '🔄',
 		},
 		{
 			id: 'inline-buttons',
-			label: t('channel.menu.inlineButtons' as any) || 'Inline Buttons',
+			icon: 'smart_button',
+			label: t('channel.menu.inlineButtons' as any) || 'دکمه‌های شیشه‌ای',
 			path: `/channel/${props.channelId}/inline-buttons`,
-			icon: '🔘',
 		},
 		{
 			id: 'auto-responder',
-			label: t('channel.menu.autoResponder' as any) || 'Auto Responder',
+			icon: 'chat',
+			label: t('channel.menu.autoResponder' as any) || 'پاسخگوی خودکار',
 			path: `/channel/${props.channelId}/auto-responder`,
-			icon: '🤖',
 		},
 		{
 			id: 'dynamic-bio',
-			label: t('channel.menu.dynamicBio' as any) || 'Dynamic Bio',
+			icon: 'badge',
+			label: t('channel.menu.dynamicBio' as any) || 'بیوی پویا',
 			path: `/channel/${props.channelId}/dynamic-bio`,
-			icon: '✨',
 		},
 		{
 			id: 'members',
-			label: t('channel.menu.members' as any) || 'Members Moderation',
+			icon: 'shield_person',
+			label: t('channel.menu.members' as any) || 'مدیریت اعضا',
 			path: `/channel/${props.channelId}/members`,
-			icon: '🛡️',
 		},
 		{
 			id: 'admins',
-			label: t('channel.menu.admins' as any) || 'Administrators',
+			icon: 'admin_panel_settings',
+			label: t('channel.menu.admins' as any) || 'مدیران',
 			path: `/channel/${props.channelId}/admins`,
-			icon: '👥',
 		},
 		{
 			id: 'analytics',
-			label: t('channel.menu.analytics' as any) || 'Analytics',
+			icon: 'analytics',
+			label: t('channel.menu.analytics' as any) || 'آمار و تحلیل',
 			path: `/channel/${props.channelId}/analytics`,
-			icon: '📈',
-		},
-		{
-			id: 'audit-log',
-			label: t('channel.menu.auditLog' as any) || 'Audit Log',
-			path: `/channel/${props.channelId}/audit-log`,
-			icon: '📜',
 		},
 	];
 
 	return (
 		<Show when={props.isOpen}>
-			<div class="fixed inset-0 z-50 overflow-hidden">
+			<div
+				class="fixed inset-0 z-[100] flex"
+				style={{ 'justify-content': isRtlLang() ? 'flex-start' : 'flex-end' }}
+			>
+				{/* Overlay */}
 				<Motion.div
 					initial={{ opacity: 0 }}
 					animate={{ opacity: 1 }}
 					exit={{ opacity: 0 }}
-					transition={{ duration: 0.2 }}
 					class="absolute inset-0 bg-black/60 backdrop-blur-sm"
 					onClick={props.onClose}
 				/>
-				<div class="absolute inset-y-0 right-0 max-w-full flex pl-10">
-					<Motion.div
-						ref={containerRef}
-						initial={{ x: isRtl() ? -300 : 300 }}
-						animate={{ x: 0 }}
-						exit={{ x: isRtl() ? -300 : 300 }}
-						transition={{ duration: 0.25, easing: [0.16, 1, 0.3, 1] }}
-						class="w-screen max-w-xs bg-[#16171d] border-l border-white/10 flex flex-col shadow-2xl"
-					>
-						<div class="p-4 border-b border-white/10 flex items-center justify-between">
-							<div class="flex items-center gap-3">
-								<div class="w-9 h-9 rounded-xl bg-[#3390ec]/20 border border-[#3390ec]/30 flex items-center justify-center text-[#3390ec] font-bold text-sm">
-									{channel()?.title?.charAt(0) || 'C'}
+
+				{/* Drawer */}
+				<Motion.div
+					initial={{ x: isRtlLang() ? '-100%' : '100%' }}
+					animate={{ x: 0 }}
+					exit={{ x: isRtlLang() ? '-100%' : '100%' }}
+					transition={{ duration: 0.3, easing: [0.25, 1, 0.5, 1] }}
+					class={`w-[82%] max-w-[320px] h-full bg-[#1c1c1c] relative z-10 flex flex-col shadow-2xl ${
+						isRtlLang() ? 'border-r border-[#2a2a2a]' : 'border-l border-[#2a2a2a]'
+					}`}
+				>
+					<div ref={drawerRef} class="flex flex-col h-full">
+						{/* Header */}
+						<div class="p-4 border-b border-[#2a2a2a] flex items-center justify-between bg-[#1c1c1c] sticky top-0 z-20">
+							<div class="flex items-center gap-3 min-w-0">
+								<div class="w-10 h-10 rounded-xl bg-[#3390ec]/20 border border-[#3390ec]/30 flex items-center justify-center text-[#3390ec] font-black text-sm shrink-0">
+									{channelTitle().charAt(0).toUpperCase()}
 								</div>
-								<div>
-									<h3 class="text-sm font-bold text-white leading-none truncate max-w-[140px]">
-										{channel()?.title || t('channel.defaultTitle' as any)}
-									</h3>
-									<p class="text-[11px] text-white/40 mt-1 truncate max-w-[140px]">
-										{channel()?.username ? `@${channel()?.username}` : `ID: ${props.channelId}`}
+								<div class="flex flex-col min-w-0">
+									<h2 class="text-[14px] font-black text-white leading-tight truncate">
+										{channelTitle()}
+									</h2>
+									<p class="text-[11px] text-[#8e8e93] mt-0.5 truncate font-mono" dir="ltr">
+										{channelUsername() ? `@${channelUsername()}` : `ID: ${props.channelId}`}
 									</p>
 								</div>
 							</div>
 							<button
 								type="button"
 								onClick={props.onClose}
-								class="p-2 -mr-2 text-white/40 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
+								class="w-8 h-8 rounded-full bg-[#2a2a2a] flex items-center justify-center text-[#8e8e93] hover:text-white transition-colors shrink-0"
+								aria-label={t('common.close')}
 							>
-								✕
+								<span class="material-symbols-outlined text-[20px]">close</span>
 							</button>
 						</div>
 
-						<nav class="flex-1 overflow-y-auto p-3 space-y-1">
+						{/* Menu items */}
+						<div class="flex-1 overflow-y-auto no-scrollbar p-3 space-y-1">
 							<For each={menuItems()}>
 								{(item) => {
 									const isActive = () => props.activeTab === item.id;
@@ -158,36 +166,44 @@ export const ChannelHamburgerMenu: Component<ChannelHamburgerMenuProps> = (props
 											type="button"
 											onClick={() => {
 												props.onClose();
-												navigate(item.path);
+												navigate(item.path, { replace: props.activeTab !== 'dashboard' });
 											}}
-											class={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+											class={`flex items-center gap-3 p-3.5 rounded-2xl transition-colors w-full text-right ${
 												isActive()
-													? 'bg-[#3390ec] text-white font-bold shadow-lg shadow-[#3390ec]/20'
-													: 'text-white/70 hover:text-white hover:bg-white/5'
+													? 'bg-[#3390ec]/10 text-[#3390ec]'
+													: 'text-white hover:bg-[#2a2a2a]'
 											}`}
 										>
-											<span class="text-base">{item.icon}</span>
-											<span>{item.label}</span>
+											<span
+												class={`material-symbols-outlined text-[22px] ${
+													isActive() ? 'text-[#3390ec]' : 'opacity-80'
+												}`}
+											>
+												{item.icon}
+											</span>
+											<span class="text-[14px] font-bold">{item.label}</span>
 										</button>
 									);
 								}}
 							</For>
-						</nav>
+						</div>
 
-						<div class="p-4 border-t border-white/10">
+						{/* Footer: Back to Managed Channels */}
+						<div class="p-3 border-t border-[#2a2a2a] bg-[#1c1c1c] sticky bottom-0">
 							<button
 								type="button"
 								onClick={() => {
 									props.onClose();
 									navigate('/managed-channels');
 								}}
-								class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold text-white/80 transition-colors border border-white/5"
+								class="w-full flex items-center justify-center gap-2 p-3 rounded-2xl bg-[#2a2a2a]/60 hover:bg-[#2a2a2a] text-[13px] font-bold text-[#8e8e93] hover:text-white transition-colors"
 							>
-								← {t('channel.backToChannels' as any)}
+								<span class="material-symbols-outlined text-[18px] rtl:rotate-180">arrow_back</span>
+								<span>{t('channel.backToChannels' as any) || 'بازگشت به کانال‌ها'}</span>
 							</button>
 						</div>
-					</Motion.div>
-				</div>
+					</div>
+				</Motion.div>
 			</div>
 		</Show>
 	);

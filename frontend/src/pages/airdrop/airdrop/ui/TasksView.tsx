@@ -263,18 +263,18 @@ export const TasksView: Component = () => {
 				<div class="absolute top-0 left-0 right-0 h-[300px] bg-gradient-to-b from-[#3390ec]/15 via-[#3390ec]/5 to-transparent blur-[80px]" />
 			</div>
 
-			<div class="max-w-md mx-auto relative z-10 pt-8 flex flex-col gap-5">
+			<div class="max-w-md mx-auto relative z-10 pt-3 flex flex-col gap-4">
 				{/* ═══════ HEADER ═══════ */}
 				<div class="px-5 flex flex-col items-center text-center">
-					<div class="w-20 h-20 bg-gradient-to-br from-[#12141C] to-[#08090D] rounded-[22px] border-[1.5px] border-[#3390ec]/30 flex items-center justify-center mb-4 shadow-[inset_0_2px_12px_rgba(255,255,255,0.05),0_10px_30px_rgba(51,144,236,0.2)]">
-						<span class="material-symbols-outlined text-[40px] text-[#3390ec] drop-shadow-md">
+					<div class="w-16 h-16 bg-gradient-to-br from-[#12141C] to-[#08090D] rounded-[20px] border-[1.5px] border-[#3390ec]/30 flex items-center justify-center mb-3 shadow-[inset_0_2px_12px_rgba(255,255,255,0.05),0_10px_30px_rgba(51,144,236,0.2)]">
+						<span class="material-symbols-outlined text-[36px] text-[#3390ec] drop-shadow-md">
 							task_alt
 						</span>
 					</div>
-					<h1 class="text-[24px] font-black tracking-tight mb-1.5 text-white drop-shadow-sm">
+					<h1 class="text-[22px] font-black tracking-tight mb-1 text-white drop-shadow-sm">
 						{t('airdropFinal.tasks.title')}
 					</h1>
-					<p class="text-white/60 text-[13px] font-medium max-w-[280px] leading-relaxed">
+					<p class="text-white/60 text-[12px] font-medium max-w-[280px] leading-relaxed">
 						{t('airdropFinal.tasks.subtitle')}
 					</p>
 				</div>

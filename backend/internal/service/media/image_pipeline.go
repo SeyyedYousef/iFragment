@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"image"
 	"image/draw"
+	_ "image/gif"
 	"image/jpeg"
 	"image/png"
 	"io"
@@ -73,14 +74,16 @@ func ProcessAndStoreAdImage(r io.Reader, slot string) (*ProcessedImage, error) {
 
 	// 2. Magic Bytes Inspection
 	mimeType := http.DetectContentType(data[:min(512, len(data))])
-	if mimeType != "image/jpeg" && mimeType != "image/png" && mimeType != "image/webp" && mimeType != "image/jpg" {
-		// Also check standard PNG/JPEG/WEBP magic signatures
+	if mimeType != "image/jpeg" && mimeType != "image/png" && mimeType != "image/webp" && mimeType != "image/jpg" && mimeType != "image/gif" {
+		// Also check standard PNG/JPEG/WEBP/GIF magic signatures
 		if isPNG(data) {
 			mimeType = "image/png"
 		} else if isJPEG(data) {
 			mimeType = "image/jpeg"
 		} else if isWEBP(data) {
 			mimeType = "image/webp"
+		} else if isGIF(data) {
+			mimeType = "image/gif"
 		} else {
 			return nil, fmt.Errorf("invalid file format (%s). Only JPG, PNG, and WebP are allowed", mimeType)
 		}
@@ -218,6 +221,10 @@ func isJPEG(data []byte) bool {
 
 func isWEBP(data []byte) bool {
 	return len(data) >= 12 && string(data[0:4]) == "RIFF" && string(data[8:12]) == "WEBP"
+}
+
+func isGIF(data []byte) bool {
+	return len(data) >= 6 && (string(data[:6]) == "GIF87a" || string(data[:6]) == "GIF89a")
 }
 
 func min(a, b int) int {

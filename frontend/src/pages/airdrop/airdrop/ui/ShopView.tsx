@@ -95,7 +95,7 @@ export const ShopView: Component = () => {
 
 	return (
 		<div
-			class="w-full max-w-full h-full overflow-y-auto overflow-x-hidden px-4 pt-5 pb-28 animate-fade-in no-scrollbar bg-[#030303] text-white relative flex flex-col min-h-0"
+			class="w-full max-w-full h-full overflow-y-auto overflow-x-hidden px-4 pt-3 pb-28 animate-fade-in no-scrollbar bg-[#030303] text-white relative flex flex-col min-h-0"
 			dir={isRtl() ? 'rtl' : 'ltr'}
 		>
 			{/* Ambient Gradient Glow - Contained in overflow-hidden wrapper */}
@@ -103,13 +103,13 @@ export const ShopView: Component = () => {
 				<div class="absolute top-0 left-0 right-0 h-[300px] bg-gradient-to-b from-[#0098EA]/15 via-amber-500/5 to-transparent blur-[80px]" />
 			</div>
 
-			<div class="max-w-md mx-auto w-full relative z-10 flex flex-col flex-1 gap-5">
+			<div class="max-w-md mx-auto w-full relative z-10 flex flex-col flex-1 gap-4">
 				{/* ═══════ HEADER ═══════ */}
 				<div class="flex flex-col items-center text-center shrink-0">
-					<div class="w-16 h-16 bg-gradient-to-br from-[#12141C] to-[#08090D] rounded-[22px] border-[1.5px] border-[#0098EA]/30 flex items-center justify-center shadow-[inset_0_2px_12px_rgba(255,255,255,0.05),0_10px_25px_rgba(0,152,234,0.2)] mb-3 relative overflow-hidden">
+					<div class="w-16 h-16 bg-gradient-to-br from-[#12141C] to-[#08090D] rounded-[20px] border-[1.5px] border-[#0098EA]/30 flex items-center justify-center shadow-[inset_0_2px_12px_rgba(255,255,255,0.05),0_10px_25px_rgba(0,152,234,0.2)] mb-2 relative overflow-hidden">
 						<div class="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-8 bg-[#0098EA]/25 blur-md rounded-full pointer-events-none" />
 						<span
-							class="material-symbols-outlined text-[34px] text-[#0098EA] drop-shadow-[0_0_12px_rgba(0,152,234,0.6)]"
+							class="material-symbols-outlined text-[32px] text-[#0098EA] drop-shadow-[0_0_12px_rgba(0,152,234,0.6)]"
 							style={{ 'font-variation-settings': '"FILL" 1' }}
 						>
 							storefront

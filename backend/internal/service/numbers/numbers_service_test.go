@@ -9,7 +9,7 @@ import (
 )
 
 func TestNumbersService_GetNumbersIntel_Structure(t *testing.T) {
-	svc := NewNumbersService(nil, nil, nil)
+	svc := NewNumbersService(nil, nil, nil, nil)
 	ctx := context.Background()
 
 	intel, err := svc.GetNumbersIntel(ctx)
@@ -37,7 +37,7 @@ func TestNumbersService_GetNumbersIntel_Structure(t *testing.T) {
 }
 
 func TestNumbersService_CuriosityGate(t *testing.T) {
-	svc := NewNumbersService(nil, nil, nil)
+	svc := NewNumbersService(nil, nil, nil, nil)
 	ctx := context.Background()
 
 	gate, err := svc.GetCuriosityGate(ctx, "+888 8888 8888")
@@ -77,5 +77,22 @@ func TestFeatures_NormalizationAndRarity(t *testing.T) {
 		if tc.valid && norm != tc.expectedNum {
 			t.Errorf("expected %s, got %s", tc.expectedNum, norm)
 		}
+	}
+}
+
+func TestNumbersService_ScanWalletPortfolio_Empty(t *testing.T) {
+	svc := NewNumbersService(nil, nil, nil, nil)
+	ctx := context.Background()
+
+	res, err := svc.ScanWalletPortfolio(ctx, "EQBPsG9cmIq0V56Hlkd-7YkR0O1qJcDk1so_nomdKG7GT3gH")
+	if err != nil {
+		t.Fatalf("unexpected error scanning wallet portfolio: %v", err)
+	}
+
+	if res.TotalAssets != 0 {
+		t.Errorf("expected 0 assets for mock empty scan, got %d", res.TotalAssets)
+	}
+	if len(res.Assets) != 0 {
+		t.Errorf("expected empty assets list, got %d", len(res.Assets))
 	}
 }

@@ -1,6 +1,6 @@
 import { createQuery } from '@tanstack/solid-query';
-import { useNavigate } from '@solidjs/router';
-import { type Component, createSignal, Show } from 'solid-js';
+import { useNavigate, useSearchParams } from '@solidjs/router';
+import { type Component, createEffect, createSignal, Show } from 'solid-js';
 import { numbersApi } from '@/entities/numbers/index.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
@@ -12,6 +12,7 @@ import { NumbersPortfolioView } from './components/NumbersPortfolioView.js';
 export const NumbersIntelPage: Component = () => {
 	useTelegramBackButton(-1);
 	const navigate = useNavigate();
+	const [searchParams] = useSearchParams();
 
 	const [activeTab, setActiveTab] = createSignal<'chart' | 'numbers' | 'portfolio'>('chart');
 	const [listFilterState, setListFilterState] = createSignal<{
@@ -19,6 +20,17 @@ export const NumbersIntelPage: Component = () => {
 		numberType?: '' | 'banned' | 'not_banned';
 	}>({});
 	const [portfolioTargetAddress, setPortfolioTargetAddress] = createSignal<string>('');
+
+	createEffect(() => {
+		const addr = searchParams.address;
+		const tab = searchParams.tab;
+		if (addr) {
+			setPortfolioTargetAddress(decodeURIComponent(addr));
+			setActiveTab('portfolio');
+		} else if (tab === 'portfolio') {
+			setActiveTab('portfolio');
+		}
+	});
 
 	// Intel / Market overview query
 	const intelQuery = createQuery(() => ({

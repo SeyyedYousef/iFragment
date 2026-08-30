@@ -38,7 +38,7 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 
 	return (
 		<div
-			class="flex-1 w-full max-w-full overflow-y-auto overflow-x-hidden px-4 pt-8 pb-36 animate-fade-in no-scrollbar h-full relative bg-[#030303] text-white"
+			class="flex-1 w-full max-w-full overflow-y-auto overflow-x-hidden px-4 pt-3 pb-36 animate-fade-in no-scrollbar h-full relative bg-[#030303] text-white"
 			dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
 		>
 			{/* Premium Ambient Radial Glow - Contained in overflow-hidden wrapper */}
@@ -47,17 +47,17 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 			</div>
 
 			{/* ═══════ HEADER ═══════ */}
-			<div class="flex flex-col items-center mb-7 text-center relative z-10 pt-2">
-				<div class="w-20 h-20 rounded-[24px] bg-gradient-to-br from-[#1c1608] to-[#08090D] border-[1.5px] border-amber-500/30 flex items-center justify-center mb-4 shadow-[inset_0_2px_12px_rgba(255,255,255,0.05),0_10px_30px_rgba(245,158,11,0.15)] relative overflow-hidden">
-					<div class="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-10 bg-amber-400/20 blur-xl rounded-full" />
-					<span class="material-symbols-outlined text-[42px] text-amber-400 drop-shadow-[0_0_12px_rgba(245,158,11,0.6)]">
+			<div class="flex flex-col items-center mb-5 text-center relative z-10 pt-1">
+				<div class="w-16 h-16 rounded-[20px] bg-gradient-to-br from-[#1c1608] to-[#08090D] border-[1.5px] border-amber-500/30 flex items-center justify-center mb-3 shadow-[inset_0_2px_12px_rgba(255,255,255,0.05),0_10px_30px_rgba(245,158,11,0.15)] relative overflow-hidden">
+					<div class="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-8 bg-amber-400/20 blur-xl rounded-full" />
+					<span class="material-symbols-outlined text-[36px] text-amber-400 drop-shadow-[0_0_12px_rgba(245,158,11,0.6)]">
 						rocket_launch
 					</span>
 				</div>
-				<h1 class="text-[24px] font-black tracking-tight text-white mb-1.5 drop-shadow-md">
+				<h1 class="text-[22px] font-black tracking-tight text-white mb-1 drop-shadow-md">
 					{t('airdropFinal.boosters.boostersTitle')}
 				</h1>
-				<p class="text-white/60 text-[13px] font-medium max-w-[260px] leading-relaxed">
+				<p class="text-white/60 text-[12px] font-medium max-w-[260px] leading-relaxed">
 					{t('airdropFinal.boosters.subtitle')}
 				</p>
 			</div>

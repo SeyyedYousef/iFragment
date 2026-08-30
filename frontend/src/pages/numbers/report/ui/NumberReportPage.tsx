@@ -8,8 +8,7 @@ import {
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { copyToClipboard, shareToStory } from '@/shared/lib/telegram-native.js';
-import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
-import { CreditStoreSheet, SearchTeaser, useWallet } from '@/widgets/paywall/index.js';
+import { SearchTeaser, UnifiedPaywallGate } from '@/widgets/paywall/index.js';
 
 interface NumberValidation {
 	isValid: boolean;
@@ -475,143 +474,21 @@ export const NumberReportPage: Component = () => {
 					</div>
 				</Show>
 
-				{/* ═══════ 3. STATE 2: PRE-UNLOCK PAYWALL GATE ═══════ */}
+				{/* ═══════ 3. STATE 2: PRE-UNLOCK MINIMALIST PAYWALL GATE ═══════ */}
 				<Show when={!isAnalyzing() && !isUnlocked() && gateData()}>
-					<div class="mb-6 space-y-4">
-						{/* 🔒 100% ZERO VALUE LEAKAGE PAYWALL HERO TEASER (SQUARE) */}
-						<div class="w-full aspect-square p-[3px] bg-gradient-to-br from-[#0098EA]/40 via-amber-500/30 to-[#08090D] rounded-[48px] my-2 relative z-20 shadow-[0_20px_50px_rgba(0,152,234,0.2)]">
-							<div class="w-full h-full bg-[#08090D] rounded-[45px] p-6 sm:p-8 relative overflow-hidden flex flex-col justify-between shadow-inner">
-								{/* Ambient Lock Glow */}
-								<div class="absolute inset-0 bg-gradient-to-b from-[#0098EA]/10 via-transparent to-black/60 pointer-events-none" />
-
-								<div class="flex justify-between items-center z-10">
-									<span class="px-3.5 py-1.5 bg-[#0098EA]/15 border border-[#0098EA]/40 text-[#0098EA] rounded-[12px] text-[10px] font-black tracking-widest uppercase shadow-sm flex items-center gap-1.5">
-										<span class="material-symbols-outlined text-[14px]">lock</span>
-										{t('valuation.lockedIntel') || 'LOCKED INTEL'}
-									</span>
-									<span class="text-[11px] font-mono font-black text-white/30 tracking-[4px] uppercase bg-white/5 border border-white/5 px-3.5 py-1.5 rounded-[12px]">
-										{'IFRAGMENT'}
-									</span>
-								</div>
-
-								{/* Target Number */}
-								<div class="flex flex-col justify-center items-center z-10 text-center flex-grow py-4 w-full">
-									<div class="flex items-center justify-center gap-2 w-full">
-										<span class="text-amber-400/40 font-black text-[22px]">✦</span>
-										<span
-											class="inline-block font-black font-mono tracking-tight text-white drop-shadow-[0_10px_30px_rgba(0,0,0,0.8)] truncate max-w-[85%] pb-1"
-											style={{
-												'font-size': getNumberFontSize(
-													gateData()?.display_number || inputNumber(),
-												),
-											}}
-											dir="ltr"
-										>
-											{gateData()?.display_number || validation().formatted || inputNumber()}
-										</span>
-										<span class="text-amber-400/40 font-black text-[22px]">✦</span>
-									</div>
-
-									<div class="flex justify-center mt-3 w-full">
-										<SearchTeaser vertical="number" value={inputNumber()} />
-									</div>
-								</div>
-
-								{/* Blurred Value Container */}
-								<div class="flex justify-between items-end border-t border-white/10 pt-4 z-10">
-									<div class="flex flex-col gap-1 text-start">
-										<span class="text-[9px] font-black text-white/40 uppercase tracking-widest">
-											{t('numbers.fairValue') || 'ESTIMATED FAIR VALUE'}
-										</span>
-										<div
-											class="flex items-center gap-2 filter blur-[6px] select-none opacity-60"
-											dir="ltr"
-										>
-											<span class="text-[26px] font-black text-white font-mono">••••••••</span>
-											<span class="text-[13px] font-black text-[#0098EA]">
-												{t('common.ton')}
-											</span>
-										</div>
-									</div>
-									<div class="flex items-center gap-1.5 bg-amber-400/20 border border-amber-400/40 text-amber-300 font-mono font-black text-[11px] px-3 py-1.5 rounded-[12px]">
-										<span class="material-symbols-outlined text-[16px]">key</span>
-										<span>{t('valuation.oneCredit') || '1 CREDIT'}</span>
-									</div>
-								</div>
-							</div>
-						</div>
-
-						{/* Payment / Unlock Card */}
-						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-2xl relative overflow-hidden">
-							<div class="flex items-center justify-between mb-4 pb-3 border-b border-white/5">
-								<div>
-									<h3 class="text-sm font-black text-white">{t('numbers.paywallHeaderTitle')}</h3>
-									<p class="text-[11px] text-white/50 mt-0.5">{t('numbers.universalCredit')}</p>
-								</div>
-								<div class="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#0098EA]/15 border border-[#0098EA]/30 text-[#0098EA]">
-									<span class="material-symbols-outlined text-sm">key</span>
-									<span class="font-mono text-xs font-black">1 CREDIT</span>
-								</div>
-							</div>
-
-							<div class="flex items-center justify-between p-3.5 bg-black/40 rounded-2xl border border-white/5 mb-4">
-								<div class="flex items-center gap-2.5">
-									<div class="w-9 h-9 rounded-xl bg-[#0098EA]/20 text-[#0098EA] flex items-center justify-center border border-[#0098EA]/30">
-										<span class="material-symbols-outlined text-lg">account_balance_wallet</span>
-									</div>
-									<div>
-										<div class="text-[10px] text-white/50 font-bold uppercase tracking-wider">
-											{t('numbers.paywallUserBalance')}
-										</div>
-										<div class="text-sm font-black text-white font-mono flex items-center gap-1">
-											<span>{wallet.balance() !== null ? wallet.balance() : '...'}</span>
-											<span class="text-xs text-white/50 font-sans">
-												{t('paywall.credit_unit')}
-											</span>
-										</div>
-									</div>
-								</div>
-
-								<button
-									type="button"
-									onClick={() => setStoreOpen(true)}
-									class="px-3 py-1.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.15] border border-white/10 text-xs font-bold text-white transition-all active:scale-95"
-								>
-									+ {t('paywall.get_credits')}
-								</button>
-							</div>
-
-							<button
-								type="button"
-								disabled={loading()}
-								onClick={handleUnlockWithCredit}
-								class={`w-full h-14 rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-xl active:scale-[0.98] transition-all hover:brightness-110 ${
-									canAfford()
-										? 'bg-gradient-to-r from-[#0098EA] via-[#00c6ff] to-[#0098EA] text-white shadow-[#0098EA]/30'
-										: 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 text-white shadow-amber-500/20'
-								}`}
-							>
-								<Show
-									when={!loading()}
-									fallback={
-										<span class="material-symbols-outlined animate-spin text-lg">
-											progress_activity
-										</span>
-									}
-								>
-									<span class="material-symbols-outlined text-lg">
-										{canAfford() ? 'lock_open' : 'shopping_bag'}
-									</span>
-								</Show>
-								<span>
-									{loading()
-										? t('paywall.working')
-										: canAfford()
-											? t('numbers.paywallUnlockNowCta')
-											: t('numbers.paywallGetCreditsCta')}
-								</span>
-							</button>
-						</div>
+					<div class="mb-6 w-full max-w-[440px] mx-auto">
+						<UnifiedPaywallGate
+							vertical="number"
+							targetTitle={gateData()?.display_number || validation().formatted || inputNumber()}
+							targetIcon="tag"
+							targetBadge={t('paywall.ready_for_appraisal')}
+							unlockCtaText={t('paywall.cta_unlock_specific', {
+								target: gateData()?.display_number || validation().formatted || inputNumber(),
+							})}
+							onUnlock={handleUnlockWithCredit}
+							unlocking={loading()}
+							error={error()}
+						/>
 					</div>
 				</Show>
 

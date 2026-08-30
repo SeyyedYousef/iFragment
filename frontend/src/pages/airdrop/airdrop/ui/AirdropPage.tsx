@@ -126,16 +126,17 @@ export const AirdropPage: Component = () => {
 				{/* Premium Glassmorphic Header for sub-pages */}
 				<Show when={activeTab() !== 'mine'}>
 					<div
-						class="sticky top-0 left-0 right-0 z-[60] bg-gradient-to-b from-[#030303]/95 via-[#030303]/80 to-transparent pt-3 pb-5 pointer-events-none"
+						class="sticky top-0 left-0 right-0 z-[60] h-0 overflow-visible pointer-events-none"
 						dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
 					>
-						<div class="flex items-center px-5 max-w-md mx-auto pointer-events-auto">
+						<div class="flex items-center px-4 pt-3 max-w-md mx-auto pointer-events-auto">
 							<button
 								type="button"
 								onClick={() => handleTabChange('mine')}
-								class="w-11 h-11 flex items-center justify-center text-white/70 hover:text-white bg-[#12141C]/80 border border-white/10 rounded-[14px] active:scale-95 transition-all shadow-[0_8px_20px_rgba(0,0,0,0.4)] backdrop-blur-xl group"
+								class="w-10 h-10 flex items-center justify-center text-white/80 hover:text-white bg-[#12141C]/80 border border-white/10 rounded-[14px] active:scale-95 transition-all shadow-[0_8px_20px_rgba(0,0,0,0.4)] backdrop-blur-xl group"
+								aria-label={t('common.close') || 'Close'}
 							>
-								<span class="material-symbols-outlined text-[24px] group-active:scale-90 transition-transform">
+								<span class="material-symbols-outlined text-[22px] group-active:scale-90 transition-transform">
 									close
 								</span>
 							</button>

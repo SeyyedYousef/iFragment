@@ -236,108 +236,23 @@ export const GiftReportPage: Component = () => {
 				{/* ════════════════════════════════════════════════════════════════
 				    STATE A: PRE-PAYWALL CURIOSITY GATE (3D Locked Gyro Card)
 				   ════════════════════════════════════════════════════════════════ */}
+				{/* ════════════════════════════════════════════════════════════════
+				    STATE A: PRE-PAYWALL MINIMALIST GATE
+				   ════════════════════════════════════════════════════════════════ */}
 				<Show when={!currentReport()}>
-					<div class="flex flex-col items-center">
-						{/* 💎 3D HOLOGRAPHIC GYRO CARD (LOCKED STATE) */}
-						<div
-							class={`w-full aspect-square p-[3px] bg-gradient-to-br ${theme().wrapper
-								} rounded-[44px] my-2 relative z-20 transition-all duration-300`}
-						>
-							<div
-								ref={cardRef}
-								onMouseMove={handleMouseMove}
-								onMouseLeave={handleMouseLeave}
-								class="w-full h-full bg-[#08090D] rounded-[41px] p-7 relative overflow-hidden flex flex-col justify-between shadow-inner"
-								style={{
-									transform: `perspective(1200px) rotateX(${tilt().x}deg) rotateY(${tilt().y}deg)`,
-									'background-image':
-										'radial-gradient(rgba(255, 255, 255, 0.08) 1.5px, transparent 1.5px)',
-									'background-size': '24px 24px',
-									transition: 'transform 0.1s ease-out',
-								}}
-							>
-								{/* Gloss Shimmer */}
-								<div
-									class="absolute inset-0 pointer-events-none z-20 mix-blend-overlay transition-opacity duration-300 opacity-70"
-									style={{
-										background: `radial-gradient(circle at ${tilt().glossX}% ${tilt().glossY
-											}%, rgba(255,255,255,0.45) 0%, transparent 60%)`,
-									}}
-								/>
-								<div class="absolute inset-0 bg-gradient-to-b from-white/[0.06] to-transparent pointer-events-none" />
-
-								{/* Card Header */}
-								<div class="flex justify-between items-center z-10">
-									<span class="px-3.5 py-1.5 border border-amber-400/40 bg-amber-400/15 rounded-[12px] text-[10px] font-black tracking-widest text-amber-300 uppercase shadow-sm flex items-center gap-1">
-										<span class="material-symbols-outlined text-[13px]">lock</span>
-										{t('gifts.lockedIntel')}
-									</span>
-									<span class="text-[11px] font-mono font-black text-white/30 tracking-[4px] uppercase bg-white/5 border border-white/5 px-3.5 py-1 rounded-[12px]">
-										IFRAGMENT
-									</span>
-								</div>
-
-								{/* Gift Name & Visual Symbol */}
-								<div class="flex flex-col justify-center items-center z-10 text-center flex-grow py-4 w-full">
-									<div class="w-16 h-16 rounded-3xl bg-gradient-to-tr from-[#0098EA] to-[#AF52DE] p-[1px] mb-3 shadow-lg shadow-[#0098EA]/30 flex items-center justify-center">
-										<div class="w-full h-full bg-[#0d111a] rounded-3xl flex items-center justify-center">
-											<span class="material-symbols-outlined text-3xl text-[#0098EA]">
-												featured_seasonal_and_gifts
-											</span>
-										</div>
-									</div>
-
-									<h2 class="text-2xl font-black text-white tracking-tight drop-shadow-md truncate max-w-[90%]">
-										{gateQuery.data?.model_name ? `${gateQuery.data.model_name} #${gateQuery.data.serial_number}` : (gateQuery.isPending ? '...' : giftID())}
-									</h2>
-
-									{/* Local mystery hints from the raw identifier — zero price leakage */}
-									<div class="flex justify-center mt-3 w-full">
-										<SearchTeaser vertical="gift" value={giftID()} />
-									</div>
-								</div>
-
-								{/* Blurred Value Container */}
-								<div class="flex justify-between items-end border-t border-white/10 pt-4 z-10">
-									<div class="flex flex-col gap-0.5 text-left">
-										<span class="text-[9px] font-black text-white/40 uppercase tracking-widest">
-											{t('gifts.estimatedValue')}
-										</span>
-										<div class="flex items-center gap-2 filter blur-[6px] select-none opacity-60">
-											<span class="text-[26px] font-black text-white font-mono">••••••••</span>
-											<span class="text-[13px] font-black text-[#0098EA]">{t('common.ton')}</span>
-										</div>
-									</div>
-									<div class="flex items-center gap-1 bg-amber-400/20 border border-amber-400/40 text-amber-300 font-mono font-black text-[11px] px-3 py-1.5 rounded-[12px]">
-										<span class="material-symbols-outlined text-[15px]">key</span>
-										<span>{t('valuation.oneCredit')}</span>
-									</div>
-								</div>
-							</div>
-						</div>
-
-						{/* Collection Floor Context — rendered only with real data */}
-						<Show when={typeof gateQuery.data?.floor_price_gram === 'number'}>
-							<div class="w-full bg-white/[0.03] border border-white/[0.08] rounded-2xl p-3.5 my-3 flex items-center justify-between text-xs backdrop-blur-xl">
-								<span class="text-white/50 font-medium">{t('gifts.collectionFloor')}:</span>
-								<span class="font-black text-white font-mono">
-									{formatGram(gateQuery.data?.floor_price_gram)} GRAM (
-									{formatUsd(gateQuery.data?.floor_price_usd)})
-								</span>
-							</div>
-						</Show>
-
-						{/* Unified Paywall Gate (payment only) */}
-						<div class="mt-1">
-							<UnifiedPaywallGate
-								vertical="gift"
-								onUnlock={async () => {
-									await unlockCreditMutation.mutateAsync();
-								}}
-								unlocking={unlockCreditMutation.isPending}
-								error={unlockError()}
-							/>
-						</div>
+					<div class="w-full max-w-[440px] mx-auto my-2">
+						<UnifiedPaywallGate
+							vertical="gift"
+							targetTitle={giftName()}
+							targetIcon="featured_seasonal_and_gifts"
+							targetBadge={t('paywall.ready_for_appraisal')}
+							unlockCtaText={t('paywall.cta_unlock_specific', { target: giftName() })}
+							onUnlock={async () => {
+								await unlockCreditMutation.mutateAsync();
+							}}
+							unlocking={unlockCreditMutation.isPending}
+							error={unlockError()}
+						/>
 					</div>
 				</Show>
 

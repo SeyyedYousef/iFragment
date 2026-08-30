@@ -113,7 +113,10 @@ func (c *Client) getAPIKeyAndLimit(ctx context.Context) (string, error) {
 	return c.APIKeys[idx], nil
 }
 
-const UsernamesCollectionAddr = "EQCA14o1-VWhS2efqoh_9M1b_A9DtKTuoqfmkn83AbJzwnPi"
+const (
+	UsernamesCollectionAddr        = "EQCA14o1-VWhS2efqoh_9M1b_A9DtKTuoqfmkn83AbJzwnPi"
+	AnonymousNumbersCollectionAddr = "EQAOQdwdw8kGftJCSFgOErM1mXYYXPphTXjqIw35JGhJjpSf"
+)
 
 type NFTCollection struct {
 	Address       string `json:"address"`
@@ -394,6 +397,16 @@ func (c *Client) GetWalletInfo(ctx context.Context, address string) (*WalletInfo
 
 // GetOwnerNFTs fetches all NFTs owned by a wallet in the usernames collection with full pagination
 func (c *Client) GetOwnerNFTs(ctx context.Context, ownerAddr string) (*NFTItems, error) {
+	return c.GetOwnerNFTsByCollection(ctx, ownerAddr, UsernamesCollectionAddr)
+}
+
+// GetOwnerAnonymousNumbers fetches all NFTs owned by a wallet in the Telegram Anonymous Numbers (+888) collection
+func (c *Client) GetOwnerAnonymousNumbers(ctx context.Context, ownerAddr string) (*NFTItems, error) {
+	return c.GetOwnerNFTsByCollection(ctx, ownerAddr, AnonymousNumbersCollectionAddr)
+}
+
+// GetOwnerNFTsByCollection fetches all NFTs owned by a wallet in a specific collection with full pagination
+func (c *Client) GetOwnerNFTsByCollection(ctx context.Context, ownerAddr string, collectionAddr string) (*NFTItems, error) {
 	if !IsValidTONAddress(ownerAddr) {
 		return nil, fmt.Errorf("invalid TON address: %s", ownerAddr)
 	}
@@ -402,7 +415,7 @@ func (c *Client) GetOwnerNFTs(ctx context.Context, ownerAddr string) (*NFTItems,
 	offset := 0
 
 	for {
-		url := fmt.Sprintf("%s/accounts/%s/nfts?collection=%s&limit=%d&offset=%d", c.BaseURL, ownerAddr, UsernamesCollectionAddr, limit, offset)
+		url := fmt.Sprintf("%s/accounts/%s/nfts?collection=%s&limit=%d&offset=%d", c.BaseURL, ownerAddr, collectionAddr, limit, offset)
 		resp, err := c.doRequest(ctx, url)
 		if err != nil {
 			if len(allItems.Items) > 0 {

@@ -196,6 +196,19 @@ export const OwnerAds: Component = () => {
 							/>
 						</div>
 
+						<Show when={createAdMutation.error || updateMutation.error}>
+							<div class="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300 flex items-center gap-2">
+								<span class="material-symbols-outlined text-rose-400 text-sm">error</span>
+								<span>
+									{(createAdMutation.error as any)?.response?.data?.error ||
+										(updateMutation.error as any)?.response?.data?.error ||
+										createAdMutation.error?.message ||
+										updateMutation.error?.message ||
+										'Operation failed'}
+								</span>
+							</div>
+						</Show>
+
 						<div class="flex items-center justify-between pt-2 border-t border-white/10">
 							<div class="flex items-center gap-2 text-xs text-white cursor-pointer select-none">
 								<input

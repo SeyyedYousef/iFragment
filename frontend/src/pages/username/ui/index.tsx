@@ -25,8 +25,8 @@ import {
 	saveReport,
 } from '@/shared/lib/report-cache.js';
 import { copyToClipboard, shareToStory } from '@/shared/lib/telegram-native.js';
-import { SparklineChart } from '@/shared/ui/SparklineChart.js';
-import { SearchTeaser } from '@/widgets/paywall/index.js';
+import { creditsApi } from '@/entities/intel/api/creditsApi.js';
+import { SearchTeaser, UnifiedPaywallGate } from '@/widgets/paywall/index.js';
 
 interface ValuationResult {
 	run_id: number;
@@ -504,6 +504,28 @@ export const UsernamePage: Component = () => {
 		}, 3000);
 	};
 
+	const handleUnlockWithCredit = async () => {
+		const u = username();
+		if (!u || isProcessingPayment() || paymentPending()) return;
+		setIsProcessingPayment(true);
+		setPaymentError('');
+		try {
+			await creditsApi.consumeCredit('username', u);
+			haptic.notify('success');
+			grantAccess('credit', u);
+		} catch (e: any) {
+			setPaymentError(
+				e?.response?.data?.error ||
+					e?.message ||
+					t('valuation.payment_failed') ||
+					'Failed to unlock valuation',
+			);
+			haptic.notify('error');
+		} finally {
+			setIsProcessingPayment(false);
+		}
+	};
+
 	const handlePayStars = async (packId?: string) => {
 		const u = username();
 		if (!u || isProcessingPayment() || paymentPending()) return;
@@ -918,65 +940,25 @@ export const UsernamePage: Component = () => {
 							</div>
 						</Show>
 
-						{/* ═══════ HERO CARD: UNLOCKED (3D GYRO) vs LOCKED PAYWALL (ZERO LEAKAGE) ═══════ */}
+						{/* ═══════ HERO CARD: UNLOCKED (3D GYRO) vs MINIMALIST PAYWALL ═══════ */}
 						<Show
 							when={accessGranted() && data()}
 							fallback={
-								/* 🔒 100% ZERO VALUE LEAKAGE PAYWALL HERO TEASER */
-								<div class="w-full aspect-square p-[3px] bg-gradient-to-br from-[#0098EA]/40 via-amber-500/30 to-[#08090D] rounded-[48px] my-2 relative z-20 shadow-[0_20px_50px_rgba(0,152,234,0.2)]">
-									<div class="w-full h-full bg-[#08090D] rounded-[45px] p-8 relative overflow-hidden flex flex-col justify-between shadow-inner">
-										{/* Ambient Lock Glow */}
-										<div class="absolute inset-0 bg-gradient-to-b from-[#0098EA]/10 via-transparent to-black/60 pointer-events-none" />
-
-										<div class="flex justify-between items-center z-10">
-											<span class="px-4 py-1.5 bg-[#0098EA]/15 border border-[#0098EA]/40 text-[#0098EA] rounded-[12px] text-[10px] font-black tracking-widest uppercase shadow-sm flex items-center gap-1.5">
-												<span class="material-symbols-outlined text-[14px]">lock</span>
-												{t('valuation.lockedIntel')}
-											</span>
-											<span class="text-[11px] font-mono font-black text-white/30 tracking-[5px] uppercase bg-white/5 border border-white/5 px-4 py-1.5 rounded-[12px]">
-												{'IFRAGMENT'}
-											</span>
-										</div>
-
-										{/* Target Username */}
-										<div class="flex flex-col justify-center items-center z-10 text-center flex-grow py-6 w-full">
-											<div class="flex items-center justify-center gap-2 w-full">
-												<span class="text-amber-400/40 font-black text-[28px]">✦</span>
-												<span
-													class="inline-block font-black tracking-tighter text-white drop-shadow-[0_10px_30px_rgba(0,0,0,0.8)] truncate max-w-[80%] pb-2"
-													style={{ 'font-size': getFontSize(username()) }}
-													dir="ltr"
-												>
-													@{username()}
-												</span>
-												<span class="text-amber-400/40 font-black text-[28px]">✦</span>
-											</div>
-
-											{/* Local mystery hints from the raw handle — zero price leakage */}
-											<div class="flex justify-center mt-4 w-full">
-												<SearchTeaser vertical="username" value={username()} />
-											</div>
-										</div>
-
-										{/* Blurred Value Container */}
-										<div class="flex justify-between items-end border-t border-white/10 pt-4 z-10">
-											<div class="flex flex-col gap-1 text-left">
-												<span class="text-[9px] font-black text-white/40 uppercase tracking-widest">
-													{t('valuation.estimated_price') || 'ESTIMATED FAIR VALUE'}
-												</span>
-												<div class="flex items-center gap-2 filter blur-[6px] select-none opacity-60">
-													<span class="text-[28px] font-black text-white font-mono">••••••••</span>
-													<span class="text-[14px] font-black text-[#0098EA]">
-														{t('common.ton')}
-													</span>
-												</div>
-											</div>
-											<div class="flex items-center gap-1.5 bg-amber-400/20 border border-amber-400/40 text-amber-300 font-mono font-black text-[11px] px-3 py-1.5 rounded-[12px]">
-												<span class="material-symbols-outlined text-[16px]">key</span>
-												<span>{t('valuation.oneCredit')}</span>
-											</div>
-										</div>
-									</div>
+								<div class="w-full max-w-[440px] mx-auto my-3 relative z-20">
+									<UnifiedPaywallGate
+										vertical="username"
+										targetTitle={`@${username()}`}
+										targetIcon="alternate_email"
+										targetBadge={t('paywall.ready_for_appraisal')}
+										unlockCtaText={t('paywall.cta_unlock_specific', { target: `@${username()}` })}
+										onUnlock={handleUnlockWithCredit}
+										unlocking={isProcessingPayment() || loading()}
+										error={paymentError()}
+										lastOrderPayload={lastOrderPayload()}
+										paymentPending={paymentPending()}
+										pollingStatus={pollingStatus()}
+										onCheckPaymentStatus={() => pollPaymentAccess(username(), lastOrderPayload(), 5)}
+									/>
 								</div>
 							}
 						>
@@ -1089,240 +1071,6 @@ export const UsernamePage: Component = () => {
 										</div>
 									</div>
 								</div>
-							</div>
-						</Show>
-
-						{/* ═══════ HIERARCHICAL PAYWALL GATE (WHEN NOT UNLOCKED) ═══════ */}
-						<Show when={!accessGranted()}>
-							<div class="w-full flex flex-col gap-4 relative z-20">
-								{/* Error State Banner */}
-								<Show when={paymentError()}>
-									<div class="p-3.5 bg-[#ff4a4a]/10 border border-[#ff4a4a]/30 rounded-[18px] text-[#ff4a4a] text-[12px] font-bold text-center flex items-center justify-between gap-2">
-										<span class="truncate">{paymentError()}</span>
-										<Show when={lastOrderPayload()}>
-											<button
-												type="button"
-												onClick={() => pollPaymentAccess(username(), lastOrderPayload(), 5)}
-												class="px-2.5 py-1 bg-[#ff4a4a]/20 hover:bg-[#ff4a4a]/30 text-white rounded-[8px] text-[10px] uppercase font-mono font-bold shrink-0"
-											>
-												{t('valuation.check_payment_status') || 'Check'}
-											</button>
-										</Show>
-									</div>
-								</Show>
-
-								{/* Polling In-Progress Banner */}
-								<Show when={paymentPending()}>
-									<div class="p-4 bg-[#0098EA]/10 border border-[#0098EA]/30 rounded-[20px] flex items-center justify-between gap-3 animate-pulse">
-										<div class="flex items-center gap-3 min-w-0">
-											<div class="w-5 h-5 border-2 border-[#0098EA]/30 border-t-[#0098EA] rounded-full animate-spin shrink-0" />
-											<span class="text-[12px] text-white font-bold truncate">
-												{pollingStatus() ||
-													t('valuation.payment_pending_check') ||
-													'Confirming payment on-chain...'}
-											</span>
-										</div>
-										<button
-											type="button"
-											onClick={() => pollPaymentAccess(username(), lastOrderPayload(), 5)}
-											class="px-3 py-1 bg-[#0098EA] text-black font-black text-[10px] rounded-[10px] shrink-0"
-										>
-											{t('valuation.check_payment_status') || 'Check'}
-										</button>
-									</div>
-								</Show>
-
-								{/* 👑 ROUTE 1: PRIMARY STARS CREDIT PACKS */}
-								<div class="w-full bg-gradient-to-br from-amber-500/15 via-[#12141C]/95 to-[#08090D] border border-amber-400/40 rounded-[32px] p-5 flex flex-col gap-4 shadow-[0_10px_35px_rgba(245,158,11,0.15)] relative overflow-hidden">
-									<div class="flex items-center justify-between border-b border-white/5 pb-3">
-										<div class="flex items-center gap-2">
-											<span class="text-[20px]">⭐</span>
-											<h3 class="text-white font-black text-[15px] tracking-tight">
-												{t('economy.credits_balance') || 'Telegram Stars Intel Pack'}
-											</h3>
-										</div>
-										<span class="text-[9px] font-black uppercase tracking-widest bg-amber-400/15 text-amber-300 border border-amber-400/30 px-2.5 py-1 rounded-[8px]">
-											{t('valuation.noKyc')}
-										</span>
-									</div>
-
-									{/* Pack Selection Tabs */}
-									<div class="grid grid-cols-2 gap-2.5">
-										<button
-											type="button"
-											onClick={() => {
-												haptic.selection();
-												setActiveStarsPack('pack_starter_3');
-											}}
-											class={`p-3 rounded-[16px] border text-start flex flex-col gap-1 transition-all ${
-												activeStarsPack() === 'pack_starter_3'
-													? 'bg-amber-400/15 border-amber-400 text-white shadow-sm'
-													: 'bg-[#08090D] border-white/5 text-white/70 hover:bg-white/[0.03]'
-											}`}
-										>
-											<span class="text-[10px] font-black text-amber-400 uppercase tracking-widest">
-												{t('valuation.threeCredits')}
-											</span>
-											<span class="text-[16px] font-mono font-black text-white">100 ⭐</span>
-											<span class="text-[9px] text-white/40">33.3 ⭐ / report</span>
-										</button>
-
-										<button
-											type="button"
-											onClick={() => {
-												haptic.selection();
-												setActiveStarsPack('pack_value_10');
-											}}
-											class={`p-3 rounded-[16px] border text-start flex flex-col gap-1 transition-all relative overflow-hidden ${
-												activeStarsPack() === 'pack_value_10'
-													? 'bg-amber-400/15 border-amber-400 text-white shadow-sm'
-													: 'bg-[#08090D] border-white/5 text-white/70 hover:bg-white/[0.03]'
-											}`}
-										>
-											<div class="absolute top-0 right-0 bg-emerald-500 text-black font-mono font-black text-[8px] px-1.5 py-0.5 rounded-bl-[8px]">
-												-25%
-											</div>
-											<span class="text-[10px] font-black text-emerald-400 uppercase tracking-widest">
-												{t('valuation.tenCredits')}
-											</span>
-											<span class="text-[16px] font-mono font-black text-white">250 ⭐</span>
-											<span class="text-[9px] text-white/40">25 ⭐ / report</span>
-										</button>
-									</div>
-
-									{/* Primary Purchase CTA Button */}
-									<button
-										type="button"
-										onClick={() => handlePayStars(activeStarsPack())}
-										disabled={isProcessingPayment() || paymentPending()}
-										class="w-full h-13 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-black text-[13px] tracking-wider uppercase rounded-[18px] flex items-center justify-center gap-2 shadow-[0_8px_25px_rgba(251,191,36,0.3)] active:scale-95 transition-all disabled:opacity-50"
-									>
-										<Show
-											when={isProcessingPayment()}
-											fallback={
-												<>
-													<span class="material-symbols-outlined text-[20px]">shopping_bag</span>
-													<span>
-														{t('valuation.buy_with_stars', {
-															stars: activeStarsPack() === 'pack_starter_3' ? 100 : 250,
-														}) ||
-															`Buy Stars Pack (${activeStarsPack() === 'pack_starter_3' ? 100 : 250} ⭐)`}
-													</span>
-												</>
-											}
-										>
-											<div class="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-										</Show>
-									</button>
-								</div>
-
-								{/* 🪙 ROUTE 2: SECONDARY 100% AIRDROP COINS */}
-								<div class="w-full bg-[#12141C]/90 border border-white/10 rounded-[24px] p-4 flex flex-col gap-3">
-									<div class="flex items-center justify-between">
-										<div class="flex items-center gap-2">
-											<span class="text-[18px]">🪙</span>
-											<span class="text-white font-black text-[13px]">
-												{firstReportDiscountEligible()
-													? t('valuation.pay_single_coins_discounted', { coins: '7,500' }) ||
-														'First Report Special (7,500 Coins)'
-													: t('valuation.pay_single_coins', { coins: '15,000' }) ||
-														'Full Coin Purchase (15,000 Coins)'}
-											</span>
-										</div>
-										<Show when={firstReportDiscountEligible()}>
-											<span class="text-[9px] font-mono font-black text-emerald-400 bg-emerald-400/10 border border-emerald-400/25 px-2 py-0.5 rounded-[6px]">
-												{t('valuation.fiftyOff')}
-											</span>
-										</Show>
-									</div>
-
-									<div class="flex items-center justify-between text-[11px] text-white/50 px-1">
-										<span>{t('profile.balance' as any) || 'Your Balance'}:</span>
-										<span class="font-mono font-bold text-amber-400">
-											{formatNumber(balance())} / {formatNumber(coinRequiredAmount())} Coins
-										</span>
-									</div>
-
-									<button
-										type="button"
-										onClick={handlePayCoins}
-										disabled={isProcessingPayment() || paymentPending()}
-										class="w-full h-11 bg-white/[0.06] hover:bg-white/[0.1] border border-white/15 text-white font-bold text-[12px] rounded-[16px] flex items-center justify-center gap-2 active:scale-98 transition-all disabled:opacity-50"
-									>
-										<span>{t('economy.unlock_report') || 'Unlock with Coins (1 Credit)'}</span>
-									</button>
-								</div>
-
-								{/* 🎁 ROUTE 3: TERTIARY 1-TIME FREE COMMUNITY ACCESS */}
-								<Show when={!freeQuotaUsed()}>
-									<div class="w-full bg-[#12141C]/70 border border-emerald-500/20 rounded-[24px] p-4 flex flex-col gap-3">
-										<div class="flex items-center justify-between">
-											<div class="flex items-center gap-2">
-												<span class="material-symbols-outlined text-emerald-400 text-[18px]">
-													card_giftcard
-												</span>
-												<span class="text-white font-black text-[13px]">
-													{t('valuation.free_channel_group_title') ||
-														'1-Time Free Community Sample'}
-												</span>
-											</div>
-										</div>
-
-										<div class="grid grid-cols-2 gap-2">
-											<button
-												type="button"
-												onClick={() => openTelegramLink('https://t.me/FragmentsCommunity')}
-												class={`p-2.5 rounded-[12px] border text-start flex items-center justify-between gap-1.5 ${
-													inChannel()
-														? 'bg-emerald-500/10 border-emerald-500/30'
-														: 'bg-white/[0.02] border-white/10'
-												}`}
-											>
-												<span class="text-[10px] font-bold text-white truncate">
-													{t('valuation.officialChannel')}
-												</span>
-												<span class="text-[10px] text-emerald-400 font-bold">
-													{inChannel() ? '✓' : 'Join'}
-												</span>
-											</button>
-
-											<button
-												type="button"
-												onClick={() => openTelegramLink('https://t.me/FragmentInvestors')}
-												class={`p-2.5 rounded-[12px] border text-start flex items-center justify-between gap-1.5 ${
-													inGroup()
-														? 'bg-emerald-500/10 border-emerald-500/30'
-														: 'bg-white/[0.02] border-white/10'
-												}`}
-											>
-												<span class="text-[10px] font-bold text-white truncate">
-													{t('valuation.communityGroup')}
-												</span>
-												<span class="text-[10px] text-emerald-400 font-bold">
-													{inGroup() ? '✓' : 'Join'}
-												</span>
-											</button>
-										</div>
-
-										<button
-											type="button"
-											onClick={handleVerifyFreeAccess}
-											disabled={isProcessingPayment()}
-											class="w-full h-10 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-[11px] uppercase tracking-wider rounded-[14px] flex items-center justify-center gap-1.5 active:scale-95 transition-all"
-										>
-											<span class="material-symbols-outlined text-[16px]">verified</span>
-											<span>
-												{t('valuation.verify_membership_btn') || 'Verify & Claim 1-Time Report'}
-											</span>
-										</button>
-									</div>
-								</Show>
-
-								{/* Legal Disclaimer */}
-								<p class="text-white/35 text-[10px] leading-relaxed text-center px-4 pt-1">
-									{t('valuation.disclaimer') ||
-										'This valuation is calculated from public blockchain & auction market data and does not constitute financial advice.'}
-								</p>
 							</div>
 						</Show>
 

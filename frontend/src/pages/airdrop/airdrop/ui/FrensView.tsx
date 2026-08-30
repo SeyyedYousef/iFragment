@@ -96,24 +96,24 @@ export const FrensView: Component = () => {
 				<div class="absolute top-0 left-0 right-0 h-[350px] bg-gradient-to-b from-[#0098EA]/20 via-[#0098EA]/5 to-transparent blur-[80px]" />
 			</div>
 
-			<div class="max-w-md mx-auto px-4 pt-8 relative z-10 flex flex-col gap-6">
+			<div class="max-w-md mx-auto px-4 pt-3 relative z-10 flex flex-col gap-5">
 				{/* ═══════ HERO HEADER ═══════ */}
 				<div class="flex flex-col items-center text-center relative">
 					{/* Icon Badge */}
-					<div class="w-20 h-20 rounded-[24px] bg-gradient-to-br from-[#12141C] to-[#08090D] border-[1.5px] border-[#0098EA]/30 flex items-center justify-center mb-5 shadow-[inset_0_2px_12px_rgba(255,255,255,0.05),0_10px_30px_rgba(0,152,234,0.2)] relative overflow-hidden shrink-0">
-						<div class="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-10 bg-[#0098EA]/20 blur-xl rounded-full" />
-						<span class="material-symbols-outlined text-[#0098EA] text-[40px] drop-shadow-[0_0_12px_rgba(0,152,234,0.6)]">
+					<div class="w-16 h-16 rounded-[20px] bg-gradient-to-br from-[#12141C] to-[#08090D] border-[1.5px] border-[#0098EA]/30 flex items-center justify-center mb-3 shadow-[inset_0_2px_12px_rgba(255,255,255,0.05),0_10px_30px_rgba(0,152,234,0.2)] relative overflow-hidden shrink-0">
+						<div class="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-8 bg-[#0098EA]/20 blur-xl rounded-full" />
+						<span class="material-symbols-outlined text-[#0098EA] text-[36px] drop-shadow-[0_0_12px_rgba(0,152,234,0.6)]">
 							group_add
 						</span>
 					</div>
 
-					<h1 class="text-[32px] font-black tracking-tight text-white mb-2 drop-shadow-md flex items-center gap-2">
-						<span class="font-mono tabular-nums text-[#0098EA] bg-[#0098EA]/10 px-3 py-1 rounded-[12px] border border-[#0098EA]/20 shadow-inner">
+					<h1 class="text-[28px] font-black tracking-tight text-white mb-1.5 drop-shadow-md flex items-center gap-2">
+						<span class="font-mono tabular-nums text-[#0098EA] bg-[#0098EA]/10 px-2.5 py-0.5 rounded-[10px] border border-[#0098EA]/20 shadow-inner text-[24px]">
 							{frensCount()}
 						</span>
 						{t('airdrop.friends.friendsJoined') || 'Frens'}
 					</h1>
-					<p class="text-white/60 text-[13px] font-medium leading-relaxed max-w-[280px] mb-4">
+					<p class="text-white/60 text-[12px] font-medium leading-relaxed max-w-[280px] mb-3">
 						{t('airdrop.friends.subtitle') ||
 							'Invite friends to earn bonus coins, Intel Report credits, and climb leaderboard.'}
 					</p>

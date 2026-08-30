@@ -108,21 +108,21 @@ export const ClanView: Component<{ onOpenLeaderboard?: () => void }> = (props) =
 				when={userClan()}
 				fallback={
 					/* --- NOT IN A CLAN --- */
-					<div class="px-5 pt-8 relative z-10 min-h-full flex flex-col items-center max-w-md mx-auto">
+					<div class="px-5 pt-3 relative z-10 min-h-full flex flex-col items-center max-w-md mx-auto">
 						{/* Hero Icon */}
-						<div class="relative w-20 h-20 mb-5">
+						<div class="relative w-16 h-16 mb-3">
 							<div class="absolute inset-0 bg-amber-500/20 blur-xl rounded-full animate-pulse" />
-							<div class="relative w-full h-full rounded-[24px] bg-gradient-to-b from-[#12141C] to-[#08090D] border border-amber-500/30 shadow-[inset_0_2px_10px_rgba(255,255,255,0.1),0_8px_20px_rgba(0,0,0,0.5)] flex items-center justify-center text-amber-400">
-								<span class="material-symbols-outlined text-[40px] drop-shadow-[0_0_12px_rgba(252,211,77,0.6)]">
+							<div class="relative w-full h-full rounded-[20px] bg-gradient-to-b from-[#12141C] to-[#08090D] border border-amber-500/30 shadow-[inset_0_2px_10px_rgba(255,255,255,0.1),0_8px_20px_rgba(0,0,0,0.5)] flex items-center justify-center text-amber-400">
+								<span class="material-symbols-outlined text-[36px] drop-shadow-[0_0_12px_rgba(252,211,77,0.6)]">
 									shield
 								</span>
 							</div>
 						</div>
 
-						<h1 class="text-[22px] font-black text-white mb-2 text-center tracking-tight drop-shadow-md">
+						<h1 class="text-[22px] font-black text-white mb-1.5 text-center tracking-tight drop-shadow-md">
 							{t('airdrop.clan.officialClansTitle')}
 						</h1>
-						<p class="text-white/60 text-[13px] text-center mb-6 leading-relaxed font-medium max-w-[280px]">
+						<p class="text-white/60 text-[12px] text-center mb-5 leading-relaxed font-medium max-w-[280px]">
 							{t('airdrop.clan.officialClansDesc')}
 						</p>
 

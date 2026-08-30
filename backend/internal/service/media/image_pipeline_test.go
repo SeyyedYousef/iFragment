@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"image"
 	"image/color"
+	"image/jpeg"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -20,6 +21,18 @@ func createTestPNG(w, h int) []byte {
 	}
 	buf := new(bytes.Buffer)
 	_ = png.Encode(buf, img)
+	return buf.Bytes()
+}
+
+func createTestJPEG(w, h int) []byte {
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			img.Set(x, y, color.RGBA{R: 200, G: uint8(y % 255), B: uint8(x % 255), A: 255})
+		}
+	}
+	buf := new(bytes.Buffer)
+	_ = jpeg.Encode(buf, img, &jpeg.Options{Quality: 90})
 	return buf.Bytes()
 }
 
@@ -47,6 +60,27 @@ func TestProcessAndStoreAdImageValidPNG(t *testing.T) {
 	}
 	if res.ETag == "" {
 		t.Error("Expected valid ETag")
+	}
+}
+
+func TestProcessAndStoreAdImageValidJPEG(t *testing.T) {
+	jpegData := createTestJPEG(1200, 800)
+	r := bytes.NewReader(jpegData)
+
+	res, err := ProcessAndStoreAdImage(r, "dashboard_banner")
+	if err != nil {
+		t.Fatalf("Failed to process valid JPEG: %v", err)
+	}
+
+	t.Cleanup(func() {
+		if res != nil && res.Filename != "" {
+			_ = os.Remove(filepath.Join(UploadDirBase, res.Filename))
+			_ = os.Remove(filepath.Join(UploadDirBase, strings.TrimSuffix(res.Filename, filepath.Ext(res.Filename))+"_thumb.jpg"))
+		}
+	})
+
+	if res.Width != 1080 || res.Height != 384 {
+		t.Errorf("Expected 1080x384 dimensions, got %dx%d", res.Width, res.Height)
 	}
 }
 

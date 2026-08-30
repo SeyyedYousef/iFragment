@@ -467,7 +467,7 @@ func main() {
 	})
 
 	// Initialize Numbers Vertical (Vertical 2)
-	numbersService := numbers.NewNumbersService(db, cache, cryptoPriceService)
+	numbersService := numbers.NewNumbersService(db, cache, tonClient, cryptoPriceService)
 	numbersHandler := handler.NewNumbersHandler(numbersService)
 
 	// 🚀 Start Background Numbers Sales Indexer

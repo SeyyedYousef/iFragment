@@ -55,10 +55,6 @@ export const ManagedChannelsPage: Component = () => {
 	const [isCheckingTarget, setIsCheckingTarget] = createSignal(false);
 	const [sourceError, setSourceError] = createSignal('');
 	const [targetError, setTargetError] = createSignal('');
-	const [removeAds, setRemoveAds] = createSignal(true);
-	const [removeLinks, setRemoveLinks] = createSignal(false);
-	const [removeHashtags, setRemoveHashtags] = createSignal(false);
-	const [dropMedia, setDropMedia] = createSignal(false);
 	const [isCreatingProject, setIsCreatingProject] = createSignal(false);
 
 	const [packages] = createResource(subscriptionApi.getPackages);
@@ -239,12 +235,6 @@ export const ManagedChannelsPage: Component = () => {
 					'پروژه انتقال هوشمند',
 				source_channel_id: src.id,
 				target_channel_id: tgt.id,
-				pipeline_config: {
-					remove_ads: removeAds(),
-					remove_links: removeLinks(),
-					remove_hashtags: removeHashtags(),
-					drop_media: dropMedia(),
-				},
 			});
 
 			haptic.notify('success');
@@ -830,54 +820,6 @@ export const ManagedChannelsPage: Component = () => {
 										<span>{targetError()}</span>
 									</div>
 								</Show>
-							</div>
-
-							{/* Pipeline Options */}
-							<div class="flex flex-col gap-2 pt-2 border-t border-white/5">
-								<span class="text-[12px] font-bold text-white/70">
-									{t('managedChannels.pipelineRules') || 'قوانین هوشمند فیلتر و پردازش پست‌ها'}
-								</span>
-								<div class="grid grid-cols-2 gap-2">
-									<label class="flex items-center gap-2.5 p-3 rounded-[14px] bg-[#08090D] border border-white/5 text-[12px] font-medium text-white/90 cursor-pointer select-none">
-										<input
-											type="checkbox"
-											checked={removeAds()}
-											onChange={(e) => setRemoveAds(e.currentTarget.checked)}
-											class="w-4 h-4 accent-[#3390ec] rounded"
-										/>
-										<span>{t('managedChannels.removeAds') || '🛡️ حذف تبلیغات'}</span>
-									</label>
-
-									<label class="flex items-center gap-2.5 p-3 rounded-[14px] bg-[#08090D] border border-white/5 text-[12px] font-medium text-white/90 cursor-pointer select-none">
-										<input
-											type="checkbox"
-											checked={removeLinks()}
-											onChange={(e) => setRemoveLinks(e.currentTarget.checked)}
-											class="w-4 h-4 accent-[#3390ec] rounded"
-										/>
-										<span>{t('managedChannels.removeLinks') || '🔗 حذف لینک‌ها'}</span>
-									</label>
-
-									<label class="flex items-center gap-2.5 p-3 rounded-[14px] bg-[#08090D] border border-white/5 text-[12px] font-medium text-white/90 cursor-pointer select-none">
-										<input
-											type="checkbox"
-											checked={removeHashtags()}
-											onChange={(e) => setRemoveHashtags(e.currentTarget.checked)}
-											class="w-4 h-4 accent-[#3390ec] rounded"
-										/>
-										<span>{t('managedChannels.removeHashtags') || '# حذف هشتگ‌ها'}</span>
-									</label>
-
-									<label class="flex items-center gap-2.5 p-3 rounded-[14px] bg-[#08090D] border border-white/5 text-[12px] font-medium text-white/90 cursor-pointer select-none">
-										<input
-											type="checkbox"
-											checked={dropMedia()}
-											onChange={(e) => setDropMedia(e.currentTarget.checked)}
-											class="w-4 h-4 accent-[#3390ec] rounded"
-										/>
-										<span>{t('managedChannels.dropMedia') || '📄 فقط متن (بدون مدیا)'}</span>
-									</label>
-								</div>
 							</div>
 
 							{/* Submit Button */}

@@ -31,64 +31,54 @@ export const ChannelDashboardPage: Component = () => {
 
 	const channelFeatures = () => [
 		{
-			name: t('search.features.channelHealth') || 'Health & Audit',
-			icon: '🩺',
-			path: `/channel/${params.id}/health`,
-		},
-		{
-			name: t('search.features.channelProjects') || 'Projects',
-			icon: '⚡',
+			name: t('search.features.channelProjects') || 'پروژه‌ها',
+			icon: 'bolt',
 			path: `/channel/${params.id}/projects`,
 		},
 		{
-			name: t('search.features.channelPosting') || 'AI & Posting',
-			icon: 'send',
+			name: t('search.features.channelPosting') || 'ارسال هوشمند و AI',
+			icon: 'smart_toy',
 			path: `/channel/${params.id}/posting`,
 		},
 		{
-			name: t('search.features.channelSettings') || 'General Settings',
+			name: t('search.features.channelSettings') || 'تنظیمات عمومی',
 			icon: 'settings',
-			path: `/channel/${params.id}/settings`,
+			path: `/channel/${params.id}/general`,
 		},
 		{
-			name: t('search.features.channelForwarding') || 'Forwarding & Webhooks',
-			icon: 'forward',
+			name: t('search.features.channelForwarding') || 'فوروارد خودکار و وبهوک',
+			icon: 'sync_alt',
 			path: `/channel/${params.id}/forwarding`,
 		},
 		{
-			name: t('search.features.channelInlineButtons') || 'Inline Buttons',
+			name: t('search.features.channelInlineButtons') || 'دکمه‌های شیشه‌ای',
 			icon: 'smart_button',
 			path: `/channel/${params.id}/inline-buttons`,
 		},
 		{
-			name: t('search.features.channelAutoResponder') || 'Auto Responder',
-			icon: 'question_answer',
+			name: t('search.features.channelAutoResponder') || 'پاسخگوی خودکار',
+			icon: 'chat',
 			path: `/channel/${params.id}/auto-responder`,
 		},
 		{
-			name: t('search.features.channelDynamicBio') || 'Dynamic Bio',
+			name: t('search.features.channelDynamicBio') || 'بیوی پویا',
 			icon: 'badge',
 			path: `/channel/${params.id}/dynamic-bio`,
 		},
 		{
-			name: t('search.features.channelMembers') || 'Members Moderation',
-			icon: 'groups',
+			name: t('search.features.channelMembers') || 'مدیریت اعضا',
+			icon: 'shield_person',
 			path: `/channel/${params.id}/members`,
 		},
 		{
-			name: t('search.features.channelAdmins') || 'Admins',
+			name: t('search.features.channelAdmins') || 'مدیران',
 			icon: 'admin_panel_settings',
 			path: `/channel/${params.id}/admins`,
 		},
 		{
-			name: t('search.features.channelAnalytics') || 'Analytics',
+			name: t('search.features.channelAnalytics') || 'آمار و تحلیل',
 			icon: 'analytics',
 			path: `/channel/${params.id}/analytics`,
-		},
-		{
-			name: t('search.features.channelAuditLog') || 'Audit Log',
-			icon: 'history',
-			path: `/channel/${params.id}/audit-log`,
 		},
 	];
 

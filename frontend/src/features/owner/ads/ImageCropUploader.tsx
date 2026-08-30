@@ -46,8 +46,8 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 
 	const loadFile = (file: File) => {
 		setErrorMessage(null);
-		if (!file.type.match(/^image\/(jpeg|png|webp)$/)) {
-			setErrorMessage('Only JPG, PNG, and WebP files are supported');
+		if (!file.type.startsWith('image/') && !/\.(jpe?g|png|webp|gif|bmp|avif|heic|svg)$/i.test(file.name)) {
+			setErrorMessage(t('imageCrop.invalidFormat') || 'Only image files are supported');
 			return;
 		}
 		if (file.size > 5 * 1024 * 1024) {
@@ -144,8 +144,7 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 						setIsUploading(false);
 					}
 				},
-				'image/webp',
-				0.85,
+				'image/png',
 			);
 		} catch (err: any) {
 			setErrorMessage(err.message || 'Error processing crop');
@@ -178,7 +177,7 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 					<input
 						type="file"
 						aria-label={t('imageCrop.uploadAriaLabel')}
-						accept="image/jpeg,image/png,image/webp"
+						accept="image/*"
 						onChange={handleFileSelect}
 						class="absolute inset-0 opacity-0 cursor-pointer"
 					/>

@@ -43,14 +43,4 @@ describe('DashboardPage', () => {
 		render(() => <DashboardPage />);
 		expect(screen.getByText('bottomNav.dashboard')).toBeInTheDocument();
 	});
-
-	it('navigates to /airdrop?tab=shop when clicking shop promo banner', () => {
-		mockNavigate.mockClear();
-		render(() => <DashboardPage />);
-		const shopTitle = screen.getByText('dashboardPg.shopCtaTitle');
-		const banner = shopTitle.closest('[role="button"]');
-		expect(banner).toBeTruthy();
-		banner?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-		expect(mockNavigate).toHaveBeenCalledWith('/airdrop?tab=shop');
-	});
 });

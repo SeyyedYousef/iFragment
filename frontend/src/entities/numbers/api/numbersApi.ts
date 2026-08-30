@@ -224,60 +224,21 @@ export const numbersApi = {
 	},
 
 	scanPortfolio: async (address: string): Promise<import('../model/types.js').WalletPortfolioResult> => {
-		// 1. Try local backend scan
-		try {
-			const { data } = await apiClient.get<import('../model/types.js').WalletPortfolioResult>('/numbers/portfolio', {
-				params: { address },
-			});
-			if (data && typeof data.total_assets === 'number') {
-				return data;
+		const cleanAddress = address.trim();
+		const { data } = await apiClient.get<import('../model/types.js').WalletPortfolioResult>('/numbers/portfolio', {
+			params: { address: cleanAddress },
+		});
+		return (
+			data || {
+				owner_address: cleanAddress,
+				total_assets: 0,
+				total_value_ton: 0,
+				total_value_usd: 0,
+				average_rarity_score: 0,
+				best_global_rank: 0,
+				assets: [],
 			}
-		} catch {}
-
-		// 2. Scan live on-chain data from nums888
-		try {
-			const res = await fetch(`https://nums888.io/portfolio/${encodeURIComponent(address)}/`);
-			if (res.ok) {
-				const html = await res.text();
-				const parsed = parseNumbersFromHTML(html);
-				const intel = await numbersApi.getIntel().catch(() => null);
-				const floorTon = intel?.floor_price_ton || 2244;
-
-				const assets: import('../model/types.js').PortfolioAssetItem[] = parsed.items.map((item, idx) => ({
-					number: item.number,
-					display_number: item.display_number,
-					expected_ton: item.last_sale_ton || floorTon,
-					expected_usd: item.last_sale_usd || Math.round(floorTon * 5.5),
-					rarity_score: Math.max(70, 99 - idx * 2),
-					global_rank: 100 + idx * 50,
-					color: item.color_hex,
-				}));
-
-				const totalTon = assets.reduce((sum, a) => sum + a.expected_ton, 0);
-
-				return {
-					owner_address: address,
-					total_assets: assets.length,
-					total_value_ton: totalTon,
-					total_value_usd: Math.round(totalTon * 5.5),
-					average_rarity_score: assets.length > 0 ? 85 : 0,
-					best_global_rank: assets.length > 0 ? 100 : 0,
-					assets,
-				};
-			}
-		} catch (err) {
-			console.warn('Live portfolio scan failed, using fallback', err);
-		}
-
-		return {
-			owner_address: address,
-			total_assets: 0,
-			total_value_ton: 0,
-			total_value_usd: 0,
-			average_rarity_score: 0,
-			best_global_rank: 0,
-			assets: [],
-		};
+		);
 	},
 
 	getActivity: async (): Promise<import('../model/types.js').LiveActivityItem[]> => {

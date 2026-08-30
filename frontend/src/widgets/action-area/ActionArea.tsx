@@ -106,13 +106,39 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 	const [trendingUsernames] = createSignal<string[]>(getRandomTrending(4));
 	const [trendingGifts, setTrendingGifts] = createSignal<string[]>([]);
 
+	const isTonWalletAddress = (val: string) => {
+		const s = val.trim();
+		if ((s.startsWith('EQ') || s.startsWith('UQ') || s.startsWith('kQ') || s.startsWith('0Q')) && s.length >= 44 && s.length <= 50) return true;
+		if ((s.startsWith('0:') || s.startsWith('-1:')) && s.length >= 66) return true;
+		return false;
+	};
+
 	const numbersValidation = createMemo(() => {
 		if (props.activeTab !== 'collectibles') {
-			return { isValid: false, cleanDigits: '', error: null, pattern: null as NumberPatternInfo | null };
+			return { isValid: false, isWallet: false, walletAddress: '', cleanDigits: '', error: null, pattern: null as NumberPatternInfo | null };
 		}
 		const raw = searchQuery().trim();
 		if (!raw) {
-			return { isValid: false, cleanDigits: '', error: null, pattern: null as NumberPatternInfo | null };
+			return { isValid: false, isWallet: false, walletAddress: '', cleanDigits: '', error: null, pattern: null as NumberPatternInfo | null };
+		}
+
+		if (isTonWalletAddress(raw)) {
+			return {
+				isValid: true,
+				isWallet: true,
+				walletAddress: raw,
+				cleanDigits: '',
+				error: null,
+				pattern: {
+					name: t('numbers.portfolioTitle') || 'TON Wallet Portfolio',
+					tier: 'WALLET SCANNER',
+					subtitle: t('numbers.portfolioDescription') || 'Inspect any TON wallet holdings',
+					rarity: t('numbers.tabPortfolio') || 'Portfolio',
+					glow: 'rgba(0,152,234,0.2)',
+					gradient: 'from-[#0098EA]/20 to-[#0098EA]/5 border-[#0098EA]/30 text-[#0098EA]',
+					icon: 'account_balance_wallet',
+				},
+			};
 		}
 
 		const { digits } = formatLiveNumberInput(raw);
@@ -120,6 +146,8 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 		if (/[^\d\s\(\)\-\+]/.test(raw)) {
 			return {
 				isValid: false,
+				isWallet: false,
+				walletAddress: '',
 				cleanDigits: digits,
 				error: t('numbers.errorInvalidChars'),
 				pattern: null,
@@ -129,6 +157,8 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 		if (digits.length > 8) {
 			return {
 				isValid: false,
+				isWallet: false,
+				walletAddress: '',
 				cleanDigits: digits,
 				error: t('numbers.errorTooLong'),
 				pattern: null,
@@ -138,6 +168,8 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 		if (digits.length > 0 && digits.length !== 8 && digits !== '8888') {
 			return {
 				isValid: false,
+				isWallet: false,
+				walletAddress: '',
 				cleanDigits: digits,
 				error: t('numbers.errorNotMinted'),
 				pattern: null,
@@ -219,6 +251,8 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
 		return {
 			isValid: true,
+			isWallet: false,
+			walletAddress: '',
 			cleanDigits: digits,
 			error: null,
 			pattern,
@@ -289,6 +323,13 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
 		if (props.activeTab === 'collectibles') {
 			const v = numbersValidation();
+			if (v.isWallet && v.walletAddress) {
+				try {
+					haptic.impact('medium');
+				} catch {}
+				navigate(`/numbers/intel?tab=portfolio&address=${encodeURIComponent(v.walletAddress)}`);
+				return;
+			}
 			if (!v.isValid || !v.cleanDigits) return;
 			if (serverVerified() && !serverVerified()?.is_minted) return;
 			try {
@@ -336,6 +377,16 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
 	const updateSearchQuery = (val: string) => {
 		if (props.activeTab === 'collectibles') {
+			if (isTonWalletAddress(val)) {
+				setSearchQuery(val.trim());
+				if (autoGuideTimeout) clearTimeout(autoGuideTimeout);
+				if (verifyTimeout) clearTimeout(verifyTimeout);
+				setShowNumberGuide(false);
+				setServerVerified(null);
+				setIsVerifying(false);
+				return;
+			}
+
 			const { formatted, digits } = formatLiveNumberInput(val);
 			setSearchQuery(formatted);
 
@@ -413,6 +464,9 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 		if (analyzeState() === 'success') return t('home.success');
 		if (props.activeTab === 'collectibles') {
 			const v = numbersValidation();
+			if (v.isWallet) {
+				return t('numbers.tabPortfolio') || 'Scan Wallet Portfolio';
+			}
 			if (v.isValid) {
 				return 'کشف ارزش و تحلیل آن‌چین';
 			}

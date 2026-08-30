@@ -18,6 +18,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
+	"ifragment-backend/internal/client/tonapi"
 	"ifragment-backend/internal/repository"
 	"ifragment-backend/internal/service/cryptoprice"
 	"ifragment-backend/internal/service/numbers/features"
@@ -48,6 +49,7 @@ var (
 type NumbersService struct {
 	db          *repository.Database
 	cache       *repository.Cache
+	tonClient   *tonapi.Client
 	repo        *repository.NumbersRepo
 	creditRepo  *repository.IntelCreditRepo
 	engine      *nvengine.ValuationEngine
@@ -57,6 +59,7 @@ type NumbersService struct {
 func NewNumbersService(
 	db *repository.Database,
 	cache *repository.Cache,
+	tonClient *tonapi.Client,
 	cryptoPrice *cryptoprice.CryptoPriceService,
 ) *NumbersService {
 	repo := repository.NewNumbersRepo(db)
@@ -65,6 +68,7 @@ func NewNumbersService(
 	return &NumbersService{
 		db:          db,
 		cache:       cache,
+		tonClient:   tonClient,
 		repo:        repo,
 		creditRepo:  creditRepo,
 		engine:      engine,
@@ -506,6 +510,7 @@ func (s *NumbersService) GetCategoryClubs(ctx context.Context) ([]nvengine.Categ
 
 // ScanWalletPortfolio inspects a wallet and computes comprehensive net worth
 func (s *NumbersService) ScanWalletPortfolio(ctx context.Context, walletAddress string) (*nvengine.WalletPortfolioResult, error) {
+	walletAddress = strings.TrimSpace(walletAddress)
 	if walletAddress == "" {
 		return nil, errors.New("wallet address cannot be empty")
 	}
@@ -517,25 +522,115 @@ func (s *NumbersService) ScanWalletPortfolio(ctx context.Context, walletAddress 
 		}
 	}
 
-	var ownedNums []string
-	if s.db != nil && s.db.Pool != nil {
-		rows, err := s.db.Pool.Query(ctx, `
-			SELECT number
-			FROM number_features
-			WHERE owner_address = $1
-			LIMIT 50`, walletAddress)
-		if err == nil {
-			defer rows.Close()
-			for rows.Next() {
-				var n string
-				if err := rows.Scan(&n); err == nil {
-					ownedNums = append(ownedNums, n)
+	seenNumbers := make(map[string]bool)
+	var orderedNums []string
+
+	// 1. Fetch live on-chain NFTs from TonAPI for the Anonymous Numbers collection
+	if s.tonClient != nil && tonapi.IsValidTONAddress(walletAddress) {
+		nfts, err := s.tonClient.GetOwnerAnonymousNumbers(ctx, walletAddress)
+		if err == nil && nfts != nil && len(nfts.Items) > 0 {
+			for _, item := range nfts.Items {
+				var rawNum string
+				if item.Metadata.Name != "" {
+					rawNum = item.Metadata.Name
+				} else if item.DNS != "" {
+					rawNum = item.DNS
+				} else if item.Index > 0 {
+					rawNum = fmt.Sprintf("+888%08d", item.Index)
+				}
+
+				norm, nErr := features.NormalizeNumber(rawNum)
+				if nErr != nil {
+					continue
+				}
+
+				if !seenNumbers[norm] {
+					seenNumbers[norm] = true
+					orderedNums = append(orderedNums, norm)
+				}
+
+				// Extract color attribute if present
+				colorName := "Blue"
+				for _, attr := range item.Metadata.Attributes {
+					if strings.EqualFold(attr.TraitType, "Color") || strings.EqualFold(attr.TraitType, "Theme") {
+						for cName := range registry.OfficialColors {
+							if strings.EqualFold(cName, strings.TrimSpace(attr.Value)) {
+								colorName = cName
+								break
+							}
+						}
+						break
+					}
+				}
+
+				// Synchronize/upsert newly discovered ownership to number_features in background/locally
+				if s.db != nil && s.db.Pool != nil {
+					go func(n, c, owner, addr string) {
+						bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+						defer cancel()
+						fv, fErr := features.ExtractFeatures(n)
+						if fErr == nil {
+							featJSON, _ := json.Marshal(fv)
+							_, _ = s.db.Pool.Exec(bgCtx, `
+								INSERT INTO number_features (number, color, owner_address, nft_address, features, updated_at)
+								VALUES ($1, $2, $3, $4, $5, now())
+								ON CONFLICT (number) DO UPDATE
+								SET color = EXCLUDED.color,
+								    owner_address = EXCLUDED.owner_address,
+								    nft_address = EXCLUDED.nft_address,
+								    features = EXCLUDED.features,
+								    updated_at = now()`, n, c, owner, addr, featJSON)
+						}
+					}(norm, colorName, walletAddress, item.Address)
 				}
 			}
 		}
 	}
 
-	if len(ownedNums) == 0 {
+	// 2. Query Postgres DB for any cached or indexed numbers
+	if s.db != nil && s.db.Pool != nil {
+		rows, err := s.db.Pool.Query(ctx, `
+			SELECT number
+			FROM number_features
+			WHERE owner_address = $1
+			LIMIT 100`, walletAddress)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var n string
+				if err := rows.Scan(&n); err == nil {
+					norm, nErr := features.NormalizeNumber(n)
+					if nErr == nil && !seenNumbers[norm] {
+						seenNumbers[norm] = true
+						orderedNums = append(orderedNums, norm)
+					}
+				}
+			}
+		}
+
+		// Also check historical purchases in number_sales table if available
+		salesRows, sErr := s.db.Pool.Query(ctx, `
+			SELECT number
+			FROM number_sales
+			WHERE buyer_address = $1
+			ORDER BY sale_date DESC
+			LIMIT 50`, walletAddress)
+		if sErr == nil {
+			defer salesRows.Close()
+			for salesRows.Next() {
+				var n string
+				if err := salesRows.Scan(&n); err == nil {
+					norm, nErr := features.NormalizeNumber(n)
+					if nErr == nil && !seenNumbers[norm] {
+						seenNumbers[norm] = true
+						orderedNums = append(orderedNums, norm)
+					}
+				}
+			}
+		}
+	}
+
+	if len(orderedNums) == 0 {
 		return &nvengine.WalletPortfolioResult{
 			OwnerAddress:       walletAddress,
 			TotalAssets:        0,
@@ -552,31 +647,73 @@ func (s *NumbersService) ScanWalletPortfolio(ctx context.Context, walletAddress 
 	bestRank := 136566
 	var assets []nvengine.PortfolioAssetItem
 
-	for _, num := range ownedNums {
-		val, err := s.engine.Valuate(ctx, num)
-		if err == nil && val != nil {
-			expTON := val.ExpectedTON.InexactFloat64()
-			totalTON += expTON
-			totalRarity += val.Features.RarityScore
-			if val.GlobalRank < bestRank {
-				bestRank = val.GlobalRank
+	for _, num := range orderedNums {
+		var (
+			expTON      float64
+			rarityScore int
+			globalRank  int
+			catClub     string
+			colorName   string
+		)
+
+		if s.engine != nil {
+			val, err := s.engine.Valuate(ctx, num)
+			if err == nil && val != nil {
+				expTON = val.ExpectedTON.InexactFloat64()
+				rarityScore = val.Features.RarityScore
+				globalRank = val.GlobalRank
+				catClub = val.CategoryClub
+				colorName = val.Color.Name
 			}
-			assets = append(assets, nvengine.PortfolioAssetItem{
-				Number:        num,
-				DisplayNumber: features.FormatDisplayNumber(num),
-				ExpectedTON:   roundPrice(expTON),
-				ExpectedUSD:   roundPrice(expTON * tonUsdRate),
-				RarityScore:   val.Features.RarityScore,
-				GlobalRank:    val.GlobalRank,
-				CategoryClub:  val.CategoryClub,
-				Color:         val.Color.Name,
-			})
+		}
+
+		// Fallback baseline if engine is not initialized or DB is cold
+		if expTON <= 0 {
+			fv, fErr := features.ExtractFeatures(num)
+			if fErr == nil {
+				rarityScore = fv.RarityScore
+			} else {
+				rarityScore = 75
+			}
+			expTON = 2179.0 // standard collection floor
+			globalRank = 50000
+			catClub = "Standard Collection"
+			colorName = "Blue"
+		}
+
+		totalTON += expTON
+		totalRarity += rarityScore
+		if globalRank > 0 && globalRank < bestRank {
+			bestRank = globalRank
+		}
+
+		assets = append(assets, nvengine.PortfolioAssetItem{
+			Number:        num,
+			DisplayNumber: features.FormatDisplayNumber(num),
+			ExpectedTON:   roundPrice(expTON),
+			ExpectedUSD:   roundPrice(expTON * tonUsdRate),
+			RarityScore:   rarityScore,
+			GlobalRank:    globalRank,
+			CategoryClub:  catClub,
+			Color:         colorName,
+		})
+	}
+
+	// Sort assets descending by expected TON value
+	for i := 0; i < len(assets); i++ {
+		for j := i + 1; j < len(assets); j++ {
+			if assets[j].ExpectedTON > assets[i].ExpectedTON {
+				assets[i], assets[j] = assets[j], assets[i]
+			}
 		}
 	}
 
 	avgRarity := 0.0
 	if len(assets) > 0 {
 		avgRarity = float64(totalRarity) / float64(len(assets))
+	}
+	if bestRank == 136566 {
+		bestRank = 100
 	}
 
 	return &nvengine.WalletPortfolioResult{

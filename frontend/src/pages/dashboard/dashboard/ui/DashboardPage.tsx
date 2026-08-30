@@ -111,52 +111,6 @@ export const DashboardPage: Component = () => {
 						</div>
 					</Show>
 
-					{/* ── SHOP CROSS-PROMO BANNER ── */}
-					<div
-						role="button"
-						tabIndex={0}
-						onClick={() => {
-							haptic.impact('medium');
-							navigate('/airdrop?tab=shop');
-						}}
-						onKeyDown={(e) => {
-							if (e.key === 'Enter' || e.key === ' ') {
-								e.preventDefault();
-								haptic.impact('medium');
-								navigate('/airdrop?tab=shop');
-							}
-						}}
-						class="w-full bg-gradient-to-br from-[#1c1917]/90 via-[#181411]/80 to-[#0c0a09] rounded-[24px] p-4.5 border border-amber-500/30 hover:border-amber-400/60 shadow-[0_8px_32px_rgba(245,158,11,0.12)] flex items-center justify-between gap-4 relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-all duration-300 outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50"
-					>
-						<div class="absolute -right-8 -top-8 w-28 h-28 bg-amber-500/15 rounded-full blur-2xl group-hover:bg-amber-500/25 transition-all pointer-events-none" />
-						<div class="flex items-center gap-3.5 relative z-10">
-							<div class="w-12 h-12 rounded-[16px] bg-gradient-to-br from-amber-400 to-amber-600 text-black flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/20 group-hover:scale-105 transition-transform">
-								<span
-									class="material-symbols-outlined text-[26px] font-black"
-									style={{ 'font-variation-settings': '"FILL" 1' }}
-								>
-									stars
-								</span>
-							</div>
-							<div class="flex flex-col text-start">
-								<span class="text-[14px] font-black text-amber-300 tracking-tight flex items-center gap-1.5">
-									{t('dashboardPg.shopCtaTitle')}
-									<span class="bg-amber-400/20 text-amber-300 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider border border-amber-400/30">
-										{t('dashboardPg.shopBadge')}
-									</span>
-								</span>
-								<span class="text-[11px] text-white/60 font-medium mt-0.5">
-									{t('dashboardPg.shopCtaDesc')}
-								</span>
-							</div>
-						</div>
-						<div class="w-9 h-9 rounded-[12px] bg-amber-500/20 border border-amber-400/30 text-amber-300 flex items-center justify-center shrink-0 group-hover:bg-amber-500 group-hover:text-black transition-all">
-							<span class="material-symbols-outlined rtl:-scale-x-100 text-[18px]">
-								arrow_forward
-							</span>
-						</div>
-					</div>
-
 					{/* ── MANAGEMENT CARDS ── */}
 					<div class="flex flex-col gap-3.5 w-full">
 						{/* Card 1: Group Management */}
