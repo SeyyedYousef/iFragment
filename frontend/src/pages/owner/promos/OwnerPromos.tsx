@@ -82,7 +82,7 @@ export const OwnerPromos: Component = () => {
 					<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
 						<div class="flex items-center justify-between">
 							<div class="flex items-center gap-2">
-								<span class="material-symbols-rounded text-amber-400">confirmation_number</span>
+								<span class="material-symbols-outlined text-amber-400">confirmation_number</span>
 								<h3 class="text-sm font-bold text-white">{t('ownerPromos.createCode')}</h3>
 							</div>
 							<button
@@ -90,7 +90,7 @@ export const OwnerPromos: Component = () => {
 								onClick={generateRandomCode}
 								class="text-[11px] text-amber-400 hover:underline flex items-center gap-1"
 							>
-								<span class="material-symbols-rounded text-xs">autorenew</span>
+								<span class="material-symbols-outlined text-xs">autorenew</span>
 								<span>{t('ownerPromos.generate')}</span>
 							</button>
 						</div>
@@ -165,7 +165,7 @@ export const OwnerPromos: Component = () => {
 					<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
 						<div class="flex items-center justify-between">
 							<div class="flex items-center gap-2">
-								<span class="material-symbols-rounded text-amber-400">redeem</span>
+								<span class="material-symbols-outlined text-amber-400">redeem</span>
 								<h3 class="text-sm font-bold text-white">{t('ownerPromos.activeCodes')}</h3>
 							</div>
 						</div>
@@ -229,7 +229,7 @@ export const OwnerPromos: Component = () => {
 																class="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition"
 																title={t('ownerPromos.deleteCode')}
 															>
-																<span class="material-symbols-rounded text-base">delete</span>
+																<span class="material-symbols-outlined text-base">delete</span>
 															</button>
 														</td>
 													</tr>

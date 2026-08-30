@@ -95,7 +95,7 @@ export const OwnerUsers: Component = () => {
 			{/* Search & Filter Bar */}
 			<div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
 				<div class="relative flex-1">
-					<span class="material-symbols-rounded absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40 text-lg">
+					<span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40 text-lg">
 						search
 					</span>
 					<input
@@ -218,7 +218,7 @@ export const OwnerUsers: Component = () => {
 														class="p-1.5 rounded-lg text-sky-400 hover:bg-sky-500/10 transition"
 														title={t('ownerCommon.simulateUser')}
 													>
-														<span class="material-symbols-rounded text-base">person</span>
+														<span class="material-symbols-outlined text-base">person</span>
 													</button>
 
 													{/* Adjust Balance */}
@@ -231,7 +231,7 @@ export const OwnerUsers: Component = () => {
 														class="p-1.5 rounded-lg text-amber-400 hover:bg-amber-500/10 transition"
 														title={t('ownerCommon.adjustCoins')}
 													>
-														<span class="material-symbols-rounded text-base">toll</span>
+														<span class="material-symbols-outlined text-base">toll</span>
 													</button>
 
 													{/* Flag/Unflag */}
@@ -248,7 +248,7 @@ export const OwnerUsers: Component = () => {
 														}`}
 														title={user.is_flagged ? 'Unflag' : 'Flag for Fraud'}
 													>
-														<span class="material-symbols-rounded text-base">flag</span>
+														<span class="material-symbols-outlined text-base">flag</span>
 													</button>
 
 													{/* Ban/Unban */}
@@ -264,7 +264,7 @@ export const OwnerUsers: Component = () => {
 																class="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition"
 																title={t('ownerCommon.banUser')}
 															>
-																<span class="material-symbols-rounded text-base">block</span>
+																<span class="material-symbols-outlined text-base">block</span>
 															</button>
 														}
 													>
@@ -277,7 +277,7 @@ export const OwnerUsers: Component = () => {
 															class="p-1.5 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition"
 															title={t('ownerCommon.unbanUser')}
 														>
-															<span class="material-symbols-rounded text-base">lock_open</span>
+															<span class="material-symbols-outlined text-base">lock_open</span>
 														</button>
 													</Show>
 												</div>

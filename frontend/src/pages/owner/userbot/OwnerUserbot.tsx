@@ -99,7 +99,7 @@ export const OwnerUserbot: Component = () => {
 					}}
 					class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs transition shadow-lg shadow-amber-500/20"
 				>
-					<span class="material-symbols-rounded text-base">phonelink_setup</span>
+					<span class="material-symbols-outlined text-base">phonelink_setup</span>
 					<span>{t('ownerUserbot.connectNew')}</span>
 				</button>
 			</div>
@@ -261,7 +261,7 @@ export const OwnerUserbot: Component = () => {
 													class="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition"
 													title={t('ownerUserbot.deleteUserbot')}
 												>
-													<span class="material-symbols-rounded text-base">logout</span>
+													<span class="material-symbols-outlined text-base">logout</span>
 												</button>
 											</td>
 										</tr>

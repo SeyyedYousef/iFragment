@@ -279,6 +279,7 @@ export interface NumberTableItem {
 	last_sale_ton: number;
 	last_sale_usd: number;
 	last_sale_date: string;
+	current_bid_ton?: number;
 	last_sale_tx?: string;
 	owners_count: number;
 	current_owner: string;

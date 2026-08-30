@@ -277,8 +277,9 @@
 	background: linear-gradient(180deg, #151822 0%, #0f1117 100%);
 }
 
-.material-symbols-outlined {
-	font-family: "Material Symbols Outlined";
+.material-symbols-outlined,
+.material-symbols-rounded {
+	font-family: "Material Symbols Outlined", "Material Symbols Rounded", sans-serif;
 	font-weight: normal;
 	font-style: normal;
 	font-size: 24px;

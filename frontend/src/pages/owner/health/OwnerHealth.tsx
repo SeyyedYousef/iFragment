@@ -66,7 +66,7 @@ export const OwnerHealth: Component = () => {
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2">
 					<div class="flex items-center justify-between text-xs text-white/50">
 						<span>{t('ownerHealth.postgresDb')}</span>
-						<span class="material-symbols-rounded text-base text-sky-400">database</span>
+						<span class="material-symbols-outlined text-base text-sky-400">database</span>
 					</div>
 					<div class="text-2xl font-black font-mono text-emerald-400">
 						{health()?.db_status?.toUpperCase() || 'OK'}
@@ -80,7 +80,7 @@ export const OwnerHealth: Component = () => {
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2">
 					<div class="flex items-center justify-between text-xs text-white/50">
 						<span>{t('ownerHealth.redisCache')}</span>
-						<span class="material-symbols-rounded text-base text-rose-400">memory</span>
+						<span class="material-symbols-outlined text-base text-rose-400">memory</span>
 					</div>
 					<div class="text-2xl font-black font-mono text-emerald-400">
 						{health()?.redis_status?.toUpperCase() || 'OK'}
@@ -92,7 +92,7 @@ export const OwnerHealth: Component = () => {
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2">
 					<div class="flex items-center justify-between text-xs text-white/50">
 						<span>{t('ownerHealth.goroutines')}</span>
-						<span class="material-symbols-rounded text-base text-amber-400">alt_route</span>
+						<span class="material-symbols-outlined text-base text-amber-400">alt_route</span>
 					</div>
 					<div class="text-2xl font-black font-mono text-white">
 						{health()?.active_goroutines ?? 42}
@@ -107,7 +107,7 @@ export const OwnerHealth: Component = () => {
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2">
 					<div class="flex items-center justify-between text-xs text-white/50">
 						<span>{t('ownerHealth.memoryUptime')}</span>
-						<span class="material-symbols-rounded text-base text-cyan-400">timer</span>
+						<span class="material-symbols-outlined text-base text-cyan-400">timer</span>
 					</div>
 					<div class="text-2xl font-black font-mono text-white">
 						{health()?.memory_used_mb ?? 38} MB
@@ -123,7 +123,7 @@ export const OwnerHealth: Component = () => {
 			<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
 				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-2">
-						<span class="material-symbols-rounded text-rose-400">bug_report</span>
+						<span class="material-symbols-outlined text-rose-400">bug_report</span>
 						<span class="text-sm font-bold text-white">{t('ownerHealth.errorLogs')}</span>
 					</div>
 					<div class="text-xs text-white/40 font-mono">{t('ownerHealth.recentEvents')}</div>

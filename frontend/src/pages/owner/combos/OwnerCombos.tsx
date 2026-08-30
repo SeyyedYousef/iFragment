@@ -58,7 +58,7 @@ export const OwnerCombos: Component = () => {
 				<div class="lg:col-span-1">
 					<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
 						<div class="flex items-center gap-2">
-							<span class="material-symbols-rounded text-amber-400">key</span>
+							<span class="material-symbols-outlined text-amber-400">key</span>
 							<h3 class="text-sm font-bold text-white">{t('ownerCombos.setDailyCombo')}</h3>
 						</div>
 
@@ -116,7 +116,7 @@ export const OwnerCombos: Component = () => {
 					<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-4">
 						<div class="flex items-center justify-between">
 							<div class="flex items-center gap-2">
-								<span class="material-symbols-rounded text-amber-400">history</span>
+								<span class="material-symbols-outlined text-amber-400">history</span>
 								<h3 class="text-sm font-bold text-white">{t('ownerCombos.comboHistory')}</h3>
 							</div>
 						</div>
@@ -162,7 +162,7 @@ export const OwnerCombos: Component = () => {
 																	class="p-1 rounded text-white/40 hover:text-white hover:bg-white/10 transition"
 																	title={isRevealed() ? 'Hide' : 'Reveal'}
 																>
-																	<span class="material-symbols-rounded text-sm">
+																	<span class="material-symbols-outlined text-sm">
 																		{isRevealed() ? 'visibility_off' : 'visibility'}
 																	</span>
 																</button>

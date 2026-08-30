@@ -183,7 +183,7 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 						class="absolute inset-0 opacity-0 cursor-pointer"
 					/>
 					<div class="flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/10 text-amber-400 mb-3">
-						<span class="material-symbols-rounded text-2xl">cloud_upload</span>
+						<span class="material-symbols-outlined text-2xl">cloud_upload</span>
 					</div>
 					<div class="text-sm font-medium text-white">{t('imageCrop.dragDrop')}</div>
 					<div class="text-xs text-white/50 mt-1">
@@ -197,7 +197,7 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 				<div class="rounded-2xl border border-amber-500/30 bg-black/60 p-4 space-y-4">
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-2">
-							<span class="material-symbols-rounded text-amber-400 text-lg">crop</span>
+							<span class="material-symbols-outlined text-amber-400 text-lg">crop</span>
 							<span class="text-sm font-semibold text-white">
 								{t('imageCrop.adjustCrop')}
 							</span>
@@ -241,7 +241,7 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 
 					{/* Zoom & Controls */}
 					<div class="flex items-center gap-4 bg-white/5 p-3 rounded-xl cursor-pointer">
-						<span class="material-symbols-rounded text-white/50 text-base">zoom_out</span>
+						<span class="material-symbols-outlined text-white/50 text-base">zoom_out</span>
 						<input
 							type="range"
 							aria-label={t('imageCrop.zoomAriaLabel')}
@@ -252,7 +252,7 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 							onInput={(e) => setZoom(parseFloat(e.currentTarget.value))}
 							class="w-full accent-amber-500"
 						/>
-						<span class="material-symbols-rounded text-white/50 text-base">zoom_in</span>
+						<span class="material-symbols-outlined text-white/50 text-base">zoom_in</span>
 					</div>
 
 					{/* Action Buttons */}
@@ -285,7 +285,7 @@ export const ImageCropUploader: Component<ImageCropUploaderProps> = (props) => {
 			{/* Error Message Alert */}
 			<Show when={errorMessage()}>
 				<div class="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300 flex items-center gap-2">
-					<span class="material-symbols-rounded text-rose-400">error</span>
+					<span class="material-symbols-outlined text-rose-400">error</span>
 					<span>{errorMessage()}</span>
 				</div>
 			</Show>

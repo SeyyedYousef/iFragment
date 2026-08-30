@@ -99,7 +99,7 @@ export const OwnerSettings: Component = () => {
 							: 'bg-rose-500/10 border-rose-500/20 text-rose-400'
 					}`}
 				>
-					<span class="material-symbols-rounded text-base">
+					<span class="material-symbols-outlined text-base">
 						{statusMsg()?.type === 'success' ? 'check_circle' : 'error'}
 					</span>
 					<span>{statusMsg()?.text}</span>
@@ -117,7 +117,7 @@ export const OwnerSettings: Component = () => {
 					<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 flex items-center justify-between">
 						<div>
 							<div class="text-sm font-bold text-white flex items-center gap-2">
-								<span class="material-symbols-rounded text-amber-400">construction</span>
+								<span class="material-symbols-outlined text-amber-400">construction</span>
 								<span>{t('ownerSettings.maintenanceMode')}</span>
 							</div>
 							<div class="text-xs text-white/50 mt-0.5">
@@ -139,7 +139,7 @@ export const OwnerSettings: Component = () => {
 					{/* Economic Engine Parameters */}
 					<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-5">
 						<div class="flex items-center gap-2 border-b border-white/10 pb-3">
-							<span class="material-symbols-rounded text-amber-400">tune</span>
+							<span class="material-symbols-outlined text-amber-400">tune</span>
 							<h3 class="text-sm font-bold text-white">{t('ownerSettings.tapDailyRewards')}</h3>
 						</div>
 
@@ -235,7 +235,7 @@ export const OwnerSettings: Component = () => {
 					{/* Economy Sinks & Inflation Controls */}
 					<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-5">
 						<div class="flex items-center gap-2 border-b border-white/10 pb-3">
-							<span class="material-symbols-rounded text-emerald-400">savings</span>
+							<span class="material-symbols-outlined text-emerald-400">savings</span>
 							<h3 class="text-sm font-bold text-white">{t('ownerSettings.monetaryPolicy')}</h3>
 						</div>
 

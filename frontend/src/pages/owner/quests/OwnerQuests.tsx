@@ -119,7 +119,7 @@ export const OwnerQuests: Component = () => {
 					}}
 					class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs transition shadow-lg shadow-amber-500/20"
 				>
-					<span class="material-symbols-rounded text-base">add_task</span>
+					<span class="material-symbols-outlined text-base">add_task</span>
 					<span>{t('owner.quests.createQuest')}</span>
 				</button>
 			</div>
@@ -352,7 +352,7 @@ export const OwnerQuests: Component = () => {
 														class="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition"
 														title={t('owner.quests.editQuest')}
 													>
-														<span class="material-symbols-rounded text-base">edit</span>
+														<span class="material-symbols-outlined text-base">edit</span>
 													</button>
 													<button
 														type="button"
@@ -360,7 +360,7 @@ export const OwnerQuests: Component = () => {
 														class="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition"
 														title={t('owner.quests.deleteQuest')}
 													>
-														<span class="material-symbols-rounded text-base">delete</span>
+														<span class="material-symbols-outlined text-base">delete</span>
 													</button>
 												</div>
 											</td>

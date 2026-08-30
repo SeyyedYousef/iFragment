@@ -49,7 +49,7 @@ export const OwnerDashboard: Component = () => {
 				<div class="rounded-3xl border border-amber-500/30 bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
 					<div class="flex items-center gap-3">
 						<div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-400">
-							<span class="material-symbols-rounded text-2xl">shield</span>
+							<span class="material-symbols-outlined text-2xl">shield</span>
 						</div>
 						<div>
 							<div class="text-sm font-bold text-white">{t('ownerDashboard.mfaRequired')}</div>
@@ -75,7 +75,7 @@ export const OwnerDashboard: Component = () => {
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2 backdrop-blur-sm">
 					<div class="flex items-center justify-between text-xs text-white/50">
 						<span>{t('ownerDashboard.dau')}</span>
-						<span class="material-symbols-rounded text-base text-amber-400">group</span>
+						<span class="material-symbols-outlined text-base text-amber-400">group</span>
 					</div>
 					<div class="text-2xl font-black text-white font-mono">
 						{statsQuery.isLoading ? '...' : (stats()?.dau ?? 0).toLocaleString()}
@@ -101,7 +101,7 @@ export const OwnerDashboard: Component = () => {
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2 backdrop-blur-sm">
 					<div class="flex items-center justify-between text-xs text-white/50">
 						<span>{t('ownerDashboard.mau')}</span>
-						<span class="material-symbols-rounded text-base text-sky-400">calendar_month</span>
+						<span class="material-symbols-outlined text-base text-sky-400">calendar_month</span>
 					</div>
 					<div class="text-2xl font-black text-white font-mono">
 						{statsQuery.isLoading ? '...' : (stats()?.mau ?? 0).toLocaleString()}
@@ -120,7 +120,7 @@ export const OwnerDashboard: Component = () => {
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2 backdrop-blur-sm">
 					<div class="flex items-center justify-between text-xs text-white/50">
 						<span>{t('ownerDashboard.coinsCirculation')}</span>
-						<span class="material-symbols-rounded text-base text-yellow-400">monetization_on</span>
+						<span class="material-symbols-outlined text-base text-yellow-400">monetization_on</span>
 					</div>
 					<div class="text-2xl font-black text-amber-400 font-mono">
 						{statsQuery.isLoading
@@ -134,7 +134,7 @@ export const OwnerDashboard: Component = () => {
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2 backdrop-blur-sm">
 					<div class="flex items-center justify-between text-xs text-white/50">
 						<span>{t('ownerDashboard.starsVolume')}</span>
-						<span class="material-symbols-rounded text-base text-cyan-400">star</span>
+						<span class="material-symbols-outlined text-base text-cyan-400">star</span>
 					</div>
 					<div class="text-2xl font-black text-white font-mono flex items-center gap-1">
 						<span>⭐</span>
@@ -152,7 +152,7 @@ export const OwnerDashboard: Component = () => {
 				<div class="lg:col-span-2 rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-2">
-							<span class="material-symbols-rounded text-amber-400">show_chart</span>
+							<span class="material-symbols-outlined text-amber-400">show_chart</span>
 							<span class="text-sm font-bold text-white">{t('ownerDashboard.dailySignupsTrend')}</span>
 						</div>
 						<div class="flex gap-1 rounded-xl bg-white/5 p-1 text-xs">
@@ -210,7 +210,7 @@ export const OwnerDashboard: Component = () => {
 				{/* Today's Economy Card */}
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
 					<div class="flex items-center gap-2">
-						<span class="material-symbols-rounded text-emerald-400">account_balance</span>
+						<span class="material-symbols-outlined text-emerald-400">account_balance</span>
 						<span class="text-sm font-bold text-white">{t('ownerDashboard.todayEconomy')}</span>
 					</div>
 
@@ -247,7 +247,7 @@ export const OwnerDashboard: Component = () => {
 			<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
 				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-2">
-						<span class="material-symbols-rounded text-sky-400">person_add</span>
+						<span class="material-symbols-outlined text-sky-400">person_add</span>
 						<span class="text-sm font-bold text-white">
 							{t('ownerDashboard.recentRegistrations')}
 						</span>

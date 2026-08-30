@@ -236,9 +236,9 @@ export const NumbersChartView: Component<Props> = (props) => {
 			if (chartType() === 'line') {
 				candleSeries.setData([]);
 				areaSeries.applyOptions({
-					topColor: isTon ? 'rgba(0, 152, 234, 0.35)' : 'rgba(16, 185, 129, 0.35)',
-					bottomColor: isTon ? 'rgba(0, 152, 234, 0.01)' : 'rgba(16, 185, 129, 0.01)',
-					lineColor: isTon ? '#0098EA' : '#10B981',
+					topColor: isTon ? 'rgba(0, 152, 234, 0.35)' : 'rgba(159, 196, 4, 0.35)',
+					bottomColor: isTon ? 'rgba(0, 152, 234, 0.01)' : 'rgba(159, 196, 4, 0.01)',
+					lineColor: isTon ? '#0098EA' : '#9FC404',
 				});
 
 				const areaPoints = dates
@@ -298,8 +298,8 @@ export const NumbersChartView: Component<Props> = (props) => {
 						value: isTon ? data[d][2] : data[d][3],
 						color:
 							data[d][isTon ? 7 : 11] >= data[d][isTon ? 4 : 8]
-								? 'rgba(16, 185, 129, 0.4)'
-								: 'rgba(239, 68, 68, 0.4)',
+								? 'rgba(15, 186, 108, 0.5)'
+								: 'rgba(205, 20, 57, 0.5)',
 					}));
 				volumeSeries.setData(volumePoints);
 			} else {
@@ -318,15 +318,19 @@ export const NumbersChartView: Component<Props> = (props) => {
 		if (dates.length === 0) return;
 
 		try {
+			if (range === 'all') {
+				chartInstance.timeScale().fitContent();
+				return;
+			}
+
 			const lastDate = new Date(dates[dates.length - 1]);
-			let fromDate = new Date(lastDate);
+			const fromDate = new Date(lastDate);
 
 			if (range === '1w') fromDate.setDate(lastDate.getDate() - 7);
 			else if (range === '1m') fromDate.setMonth(lastDate.getMonth() - 1);
 			else if (range === '3m') fromDate.setMonth(lastDate.getMonth() - 3);
 			else if (range === '6m') fromDate.setMonth(lastDate.getMonth() - 6);
 			else if (range === '1y') fromDate.setFullYear(lastDate.getFullYear() - 1);
-			else fromDate = new Date('2022-12-06');
 
 			const fromStr = fromDate.toISOString().split('T')[0];
 			chartInstance.timeScale().setVisibleRange({

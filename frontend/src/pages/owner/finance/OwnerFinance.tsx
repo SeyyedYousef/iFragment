@@ -35,7 +35,7 @@ export const OwnerFinance: Component = () => {
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2">
 					<div class="flex items-center justify-between text-xs text-white/50">
 						<span>{t('ownerFinance.totalRevenue')}</span>
-						<span class="material-symbols-rounded text-base text-yellow-400">payments</span>
+						<span class="material-symbols-outlined text-base text-yellow-400">payments</span>
 					</div>
 					<div class="text-2xl font-black text-amber-400 font-mono flex items-center gap-1.5">
 						<span>⭐</span>
@@ -52,7 +52,7 @@ export const OwnerFinance: Component = () => {
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2">
 					<div class="flex items-center justify-between text-xs text-white/50">
 						<span>{t('ownerFinance.volume7d')}</span>
-						<span class="material-symbols-rounded text-base text-emerald-400">trending_up</span>
+						<span class="material-symbols-outlined text-base text-emerald-400">trending_up</span>
 					</div>
 					<div class="text-2xl font-black text-emerald-400 font-mono flex items-center gap-1.5">
 						<span>⭐</span>
@@ -67,7 +67,7 @@ export const OwnerFinance: Component = () => {
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2">
 					<div class="flex items-center justify-between text-xs text-white/50">
 						<span>{t('ownerFinance.volume30d')}</span>
-						<span class="material-symbols-rounded text-base text-sky-400">calendar_view_month</span>
+						<span class="material-symbols-outlined text-base text-sky-400">calendar_view_month</span>
 					</div>
 					<div class="text-2xl font-black text-white font-mono flex items-center gap-1.5">
 						<span>⭐</span>
@@ -82,7 +82,7 @@ export const OwnerFinance: Component = () => {
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-5 space-y-2">
 					<div class="flex items-center justify-between text-xs text-white/50">
 						<span>{t('ownerFinance.vipSubscriptions')}</span>
-						<span class="material-symbols-rounded text-base text-cyan-400">workspace_premium</span>
+						<span class="material-symbols-outlined text-base text-cyan-400">workspace_premium</span>
 					</div>
 					<div class="text-2xl font-black text-white font-mono">
 						{summaryQuery.isLoading
@@ -100,7 +100,7 @@ export const OwnerFinance: Component = () => {
 			<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
 				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-2">
-						<span class="material-symbols-rounded text-amber-400">receipt_long</span>
+						<span class="material-symbols-outlined text-amber-400">receipt_long</span>
 						<span class="text-sm font-bold text-white">{t('ownerFinance.recentTransactions')}</span>
 					</div>
 				</div>

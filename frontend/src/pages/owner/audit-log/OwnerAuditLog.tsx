@@ -53,7 +53,7 @@ export const OwnerAuditLog: Component = () => {
 			{/* Filters Bar */}
 			<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
 				<div class="relative flex-1">
-					<span class="material-symbols-rounded absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40 text-lg">
+					<span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40 text-lg">
 						search
 					</span>
 					<input

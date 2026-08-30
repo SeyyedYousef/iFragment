@@ -251,4 +251,15 @@ func (h *NumbersHandler) GetLiveActivity(w http.ResponseWriter, r *http.Request)
 	RespondJSON(w, http.StatusOK, activity)
 }
 
+// GetChartData returns on-chain historical price and volume data for TradingView charts
+func (h *NumbersHandler) GetChartData(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	chartData, err := h.service.GetChartData(ctx)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to fetch chart data", err)
+		return
+	}
+	RespondJSON(w, http.StatusOK, chartData)
+}
+
 

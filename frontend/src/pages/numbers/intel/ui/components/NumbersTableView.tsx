@@ -45,13 +45,14 @@ export const NumbersTableView: Component<Props> = (props) => {
 		nftColors: [],
 		mask: '',
 		page: 1,
-		limit: 15,
+		limit: 50,
 	});
 
 	const [isFiltersOpen, setIsFiltersOpen] = createSignal<boolean>(false);
 	const [copiedAddress, setCopiedAddress] = createSignal<string | null>(null);
+	const [jumpPageInput, setJumpPageInput] = createSignal<string>('');
 
-	// Fetch filtered list
+	// Fetch filtered list (50 real numbers per page)
 	const numbersQuery = createQuery(() => ({
 		queryKey: ['numbersList', filters()],
 		queryFn: () => numbersApi.getNumbersList(filters()),
@@ -79,7 +80,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 			nftColors: [],
 			mask: '',
 			page: 1,
-			limit: 15,
+			limit: 50,
 		});
 	};
 
@@ -94,11 +95,82 @@ export const NumbersTableView: Component<Props> = (props) => {
 
 	const formatTon = (val?: number) => {
 		if (val === undefined || val === null) return '0';
-		return val.toLocaleString('en-US', { maximumFractionDigits: 0 });
+		return val.toLocaleString('en-US', { maximumFractionDigits: 1 });
+	};
+
+	const handleJumpPage = (e: Event) => {
+		e.preventDefault();
+		const p = parseInt(jumpPageInput(), 10);
+		const max = numbersQuery.data?.totalPages || 1;
+		if (!isNaN(p) && p >= 1 && p <= max) {
+			try {
+				haptic.selection();
+			} catch {}
+			setFilters((prev) => ({ ...prev, page: p }));
+			setJumpPageInput('');
+		}
+	};
+
+	// Generate pagination page list
+	const getPagePills = () => {
+		const cur = filters().page;
+		const total = numbersQuery.data?.totalPages || 1;
+		if (total <= 7) {
+			return Array.from({ length: total }, (_, i) => i + 1);
+		}
+
+		const pages: (number | string)[] = [];
+		if (cur <= 4) {
+			pages.push(1, 2, 3, 4, 5, '...', total);
+		} else if (cur >= total - 3) {
+			pages.push(1, '...', total - 4, total - 3, total - 2, total - 1, total);
+		} else {
+			pages.push(1, '...', cur - 1, cur, cur + 1, '...', total);
+		}
+		return pages;
 	};
 
 	return (
 		<div class="space-y-4">
+			{/* Fast Filter Quick Chips */}
+			<div class="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+				{[
+					{ label: 'All Numbers', count: '136.5k', saleType: '', numberType: '' },
+					{ label: '🔥 Auctions', count: '190+', saleType: 'auction', numberType: '' },
+					{ label: '💎 Fixed Price', count: '860+', saleType: 'for_sale', numberType: '' },
+					{ label: '🔒 Not For Sale', count: '135k', saleType: 'not_for_sale', numberType: '' },
+					{ label: '⚠️ Restricted', count: '4.5k', saleType: '', numberType: 'banned' },
+				].map((chip) => {
+					const isActive = () =>
+						filters().saleType === chip.saleType &&
+						(chip.numberType === '' ? filters().numberType !== 'banned' : filters().numberType === chip.numberType);
+					return (
+						<button
+							type="button"
+							onClick={() => {
+								try {
+									haptic.selection();
+								} catch {}
+								setFilters((prev) => ({
+									...prev,
+									saleType: chip.saleType as any,
+									numberType: chip.numberType as any,
+									page: 1,
+								}));
+							}}
+							class={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border flex items-center gap-1.5 ${
+								isActive()
+									? 'bg-[#0098EA]/20 border-[#0098EA] text-[#0098EA] shadow-[0_0_12px_rgba(0,152,234,0.3)]'
+									: 'bg-white/[0.03] border-white/[0.08] text-white/70 hover:text-white hover:bg-white/[0.06]'
+							}`}
+						>
+							<span>{chip.label}</span>
+							<span class="text-[10px] opacity-60 font-mono">({chip.count})</span>
+						</button>
+					);
+				})}
+			</div>
+
 			{/* Filters Accordion / Control Bar */}
 			<div class="bg-[#0e131d]/90 border border-white/[0.08] rounded-2xl p-4 backdrop-blur-xl shadow-xl">
 				<div class="flex items-center justify-between">
@@ -113,7 +185,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 						class="flex items-center gap-2 text-sm font-black text-white hover:text-[#0098EA] transition-all"
 					>
 						<span class="material-symbols-outlined text-lg text-[#0098EA]">tune</span>
-						<span>{t('numbers.filtersTitle') || 'Filters'}</span>
+						<span>{t('numbers.filtersTitle') || 'Advanced Filters'}</span>
 						<Show when={activeFiltersCount() > 0}>
 							<span class="px-2 py-0.5 text-[10px] font-black rounded-full bg-[#0098EA] text-white">
 								{activeFiltersCount()}
@@ -271,26 +343,21 @@ export const NumbersTableView: Component<Props> = (props) => {
 
 						{/* 5. NFT Colors Palette */}
 						<div>
-							<label class="block text-[11px] font-extrabold text-white/50 mb-1.5 uppercase tracking-wider">
-								NFT Colors ({filters().nftColors.length === 0 ? 'All' : filters().nftColors.length})
-							</label>
-							<div class="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto no-scrollbar p-1 bg-black/20 rounded-xl border border-white/[0.04]">
-								<button
-									type="button"
-									onClick={() => {
-										try {
-											haptic.selection();
-										} catch {}
-										setFilters((prev) => ({ ...prev, nftColors: [], page: 1 }));
-									}}
-									class={`px-2 py-1 rounded-lg text-[10px] font-extrabold border flex items-center gap-1.5 ${
-										filters().nftColors.length === 0
-											? 'bg-white/20 border-white text-white'
-											: 'bg-white/[0.03] border-white/10 text-white/50'
-									}`}
-								>
-									<span>Any</span>
-								</button>
+							<div class="flex items-center justify-between mb-1.5">
+								<label class="block text-[11px] font-extrabold text-white/50 uppercase tracking-wider">
+									NFT Color
+								</label>
+								<Show when={filters().nftColors.length > 0}>
+									<button
+										type="button"
+										onClick={() => setFilters((prev) => ({ ...prev, nftColors: [], page: 1 }))}
+										class="text-[10px] text-[#0098EA] hover:underline"
+									>
+										Clear colors
+									</button>
+								</Show>
+							</div>
+							<div class="grid grid-cols-4 sm:grid-cols-5 gap-1.5 max-h-40 overflow-y-auto pr-1">
 								<For each={NFT_COLORS}>
 									{(c) => {
 										const isSelected = () => filters().nftColors.includes(c.hex);
@@ -307,17 +374,17 @@ export const NumbersTableView: Component<Props> = (props) => {
 														: [...current, c.hex];
 													setFilters((prev) => ({ ...prev, nftColors: next, page: 1 }));
 												}}
-												class={`px-2 py-1 rounded-lg text-[10px] font-bold border flex items-center gap-1.5 transition-all ${
+												class={`px-2 py-1.5 rounded-xl text-[11px] font-bold border flex items-center gap-1.5 transition-all ${
 													isSelected()
-														? 'bg-white/15 border-white text-white'
+														? 'bg-white/15 border-white text-white shadow-sm'
 														: 'bg-white/[0.02] border-white/[0.06] text-white/60 hover:text-white'
 												}`}
 											>
 												<span
-													class="w-2.5 h-2.5 rounded-full border border-white/30 shrink-0"
+													class="w-3 h-3 rounded-full border border-white/30 shrink-0"
 													style={{ background: `#${c.hex}` }}
 												/>
-												<span>{c.name}</span>
+												<span class="truncate">{c.name}</span>
 											</button>
 										);
 									}}
@@ -328,15 +395,28 @@ export const NumbersTableView: Component<Props> = (props) => {
 				</Show>
 			</div>
 
-			{/* Results Table */}
+			{/* Results Table (50 real numbers per page) */}
 			<div class="bg-[#0e131d]/90 border border-white/[0.08] rounded-2xl backdrop-blur-xl shadow-xl overflow-hidden">
+				<div class="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
+					<div class="flex items-center gap-2">
+						<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+						<span class="text-xs font-black text-white">Live On-Chain Feed</span>
+						<span class="text-[10px] font-mono text-white/40">
+							(Showing {numbersQuery.data?.items.length || 0} of {numbersQuery.data?.total?.toLocaleString() || '136,566'})
+						</span>
+					</div>
+					<div class="text-[11px] font-mono text-white/60">
+						Page <span class="font-bold text-white">{filters().page}</span> / {numbersQuery.data?.totalPages || 2732}
+					</div>
+				</div>
+
 				<Show
 					when={!numbersQuery.isPending}
 					fallback={
-						<div class="p-8 text-center space-y-3">
+						<div class="p-12 text-center space-y-3">
 							<div class="w-8 h-8 rounded-full border-2 border-[#0098EA] border-t-transparent animate-spin mx-auto" />
 							<p class="text-xs text-white/50 font-bold">
-								{t('common.loading') || 'Loading numbers...'}
+								{t('common.loading') || 'Fetching on-chain numbers...'}
 							</p>
 						</div>
 					}
@@ -359,13 +439,13 @@ export const NumbersTableView: Component<Props> = (props) => {
 							</div>
 						}
 					>
-						{/* Desktop/Tablet Table & Mobile Card List */}
+						{/* Table */}
 						<div class="overflow-x-auto">
 							<table class="w-full text-left border-collapse">
 								<thead>
 									<tr class="border-b border-white/[0.08] bg-white/[0.02] text-[10px] font-black text-white/40 uppercase tracking-wider">
 										<th class="py-3 px-4">Number</th>
-										<th class="py-3 px-4 text-center">Last Sale</th>
+										<th class="py-3 px-4 text-center">Last Sale / Bid</th>
 										<th class="py-3 px-4 text-center">Owners</th>
 										<th class="py-3 px-4 text-right">Current Owner</th>
 									</tr>
@@ -373,43 +453,70 @@ export const NumbersTableView: Component<Props> = (props) => {
 								<tbody class="divide-y divide-white/[0.04] text-xs">
 									<For each={numbersQuery.data?.items || []}>
 										{(item) => (
-											<tr class="hover:bg-white/[0.03] transition-colors group">
+											<tr class="hover:bg-white/[0.04] transition-colors group">
 												{/* Number & Color */}
 												<td class="py-3 px-4">
-													<div class="flex items-center gap-2">
+													<div class="flex items-center gap-2.5">
 														<span
-															class="w-3 h-3 rounded-full shrink-0 shadow-sm border border-white/20"
+															class="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm border border-white/30"
 															style={{ background: item.color_hex }}
 															title={item.color_name}
 														/>
-														<a
-															href={item.market_url}
-															target="_blank"
-															rel="noreferrer"
-															class="font-black text-white font-mono hover:text-[#0098EA] transition-colors flex items-center gap-1.5"
-														>
-															<span>{item.number}</span>
-															<Show when={item.is_restricted}>
-																<span
-																	class="text-[9px] px-1 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30"
-																	title="Restricted / Banned"
+														<div class="flex flex-col">
+															<button
+																type="button"
+																onClick={() => props.onSelectNumber?.(item.number)}
+																class="font-black text-white font-mono hover:text-[#0098EA] transition-colors flex items-center gap-1.5 text-left"
+															>
+																<span>{item.number}</span>
+																<Show when={item.is_restricted}>
+																	<span
+																		class="text-[9px] px-1 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30"
+																		title="Restricted / Banned"
+																	>
+																		⚠️
+																	</span>
+																</Show>
+															</button>
+															<div class="flex items-center gap-1.5 mt-0.5">
+																<a
+																	href={item.market_url}
+																	target="_blank"
+																	rel="noreferrer"
+																	class="text-[9px] font-bold text-white/40 hover:text-[#0098EA] transition-colors flex items-center gap-0.5"
 																>
-																	⚠️
-																</span>
-															</Show>
-														</a>
+																	<span class="material-symbols-outlined text-[10px]">open_in_new</span>
+																	<span>{item.source === 'getgems' ? 'Getgems' : 'Fragment'}</span>
+																</a>
+															</div>
+														</div>
 													</div>
 												</td>
 
-												{/* Last Sale Price & Date */}
+												{/* Last Sale / Current Bid */}
 												<td class="py-3 px-4 text-center">
-													<div class="font-black text-white font-mono flex items-center justify-center gap-1">
-														<span class="text-[#0098EA] text-xs">💎</span>
-														<span>{formatTon(item.last_sale_ton)}</span>
-													</div>
-													<div class="text-[10px] text-white/40 mt-0.5 hover:text-white transition-colors">
-														{item.last_sale_date}
-													</div>
+													<Show
+														when={item.current_bid_ton}
+														fallback={
+															<>
+																<div class="font-black text-white font-mono flex items-center justify-center gap-1">
+																	<span class="text-[#0098EA] text-xs">💎</span>
+																	<span>{formatTon(item.last_sale_ton)}</span>
+																</div>
+																<div class="text-[10px] text-white/40 mt-0.5 hover:text-white transition-colors">
+																	{item.last_sale_date}
+																</div>
+															</>
+														}
+													>
+														<div class="font-black text-amber-400 font-mono flex items-center justify-center gap-1">
+															<span class="text-xs">⚡</span>
+															<span>{formatTon(item.current_bid_ton)} TON</span>
+														</div>
+														<div class="text-[9px] font-bold text-emerald-400 uppercase tracking-wider mt-0.5">
+															Live Bid
+														</div>
+													</Show>
 												</td>
 
 												{/* Owners count */}
@@ -423,15 +530,17 @@ export const NumbersTableView: Component<Props> = (props) => {
 														<button
 															type="button"
 															onClick={() => props.onViewOwnerPortfolio?.(item.current_owner)}
-															class="font-mono text-[11px] text-white/60 hover:text-[#0098EA] underline decoration-dotted transition-colors"
+															class="font-mono text-[11px] text-white/60 hover:text-[#0098EA] underline decoration-dotted transition-colors max-w-[120px] sm:max-w-none truncate"
 															title="View Portfolio"
 														>
-															{item.current_owner}
+															{item.current_owner.length > 15
+																? `${item.current_owner.slice(0, 6)}...${item.current_owner.slice(-6)}`
+																: item.current_owner}
 														</button>
 														<button
 															type="button"
 															onClick={() => handleCopy(item.current_owner)}
-															class="text-white/30 hover:text-white transition-colors"
+															class="text-white/30 hover:text-white transition-colors p-1"
 															title="Copy address"
 														>
 															<span class="material-symbols-outlined text-xs">
@@ -447,16 +556,26 @@ export const NumbersTableView: Component<Props> = (props) => {
 							</table>
 						</div>
 
-						{/* Pagination Controls */}
-						<div class="p-3 border-t border-white/[0.06] flex items-center justify-between text-xs text-white/50">
-							<div>
-								Page <span class="font-bold text-white font-mono">{filters().page}</span> of{' '}
-								<span class="font-bold text-white font-mono">
-									{numbersQuery.data?.totalPages || 1}
-								</span>
-							</div>
-
-							<div class="flex items-center gap-1">
+						{/* Advanced Pagination & Quick Jump */}
+						<div class="p-4 border-t border-white/[0.06] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+							{/* Page Navigation Buttons */}
+							<div class="flex items-center gap-1 overflow-x-auto max-w-full pb-1 sm:pb-0">
+								{/* First Page */}
+								<button
+									type="button"
+									disabled={filters().page <= 1}
+									onClick={() => {
+										try {
+											haptic.selection();
+										} catch {}
+										setFilters((prev) => ({ ...prev, page: 1 }));
+									}}
+									class="px-2 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] disabled:opacity-20 disabled:pointer-events-none font-bold text-white transition-all text-xs"
+									title="First page"
+								>
+									⏮
+								</button>
+								{/* Prev Page */}
 								<button
 									type="button"
 									disabled={filters().page <= 1}
@@ -466,10 +585,40 @@ export const NumbersTableView: Component<Props> = (props) => {
 										} catch {}
 										setFilters((prev) => ({ ...prev, page: Math.max(1, prev.page - 1) }));
 									}}
-									class="px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] disabled:opacity-30 disabled:pointer-events-none font-bold text-white transition-all"
+									class="px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] disabled:opacity-20 disabled:pointer-events-none font-bold text-white transition-all text-xs"
 								>
-									Prev
+									◀ Prev
 								</button>
+
+								{/* Page Number Pills */}
+								<For each={getPagePills()}>
+									{(p) => {
+										if (typeof p === 'string') {
+											return <span class="px-1.5 text-white/30 font-mono">...</span>;
+										}
+										const isCur = () => filters().page === p;
+										return (
+											<button
+												type="button"
+												onClick={() => {
+													try {
+														haptic.selection();
+													} catch {}
+													setFilters((prev) => ({ ...prev, page: p }));
+												}}
+												class={`min-w-[28px] h-7 px-1.5 rounded-lg text-xs font-mono font-bold transition-all border ${
+													isCur()
+														? 'bg-[#0098EA] border-[#0098EA] text-white shadow-md'
+														: 'bg-white/[0.03] border-white/[0.08] text-white/70 hover:text-white hover:bg-white/[0.08]'
+												}`}
+											>
+												{p}
+											</button>
+										);
+									}}
+								</For>
+
+								{/* Next Page */}
 								<button
 									type="button"
 									disabled={filters().page >= (numbersQuery.data?.totalPages || 1)}
@@ -479,11 +628,46 @@ export const NumbersTableView: Component<Props> = (props) => {
 										} catch {}
 										setFilters((prev) => ({ ...prev, page: prev.page + 1 }));
 									}}
-									class="px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] disabled:opacity-30 disabled:pointer-events-none font-bold text-white transition-all"
+									class="px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] disabled:opacity-20 disabled:pointer-events-none font-bold text-white transition-all text-xs"
 								>
-									Next
+									Next ▶
+								</button>
+								{/* Last Page */}
+								<button
+									type="button"
+									disabled={filters().page >= (numbersQuery.data?.totalPages || 1)}
+									onClick={() => {
+										try {
+											haptic.selection();
+										} catch {}
+										setFilters((prev) => ({ ...prev, page: numbersQuery.data?.totalPages || 1 }));
+									}}
+									class="px-2 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] disabled:opacity-20 disabled:pointer-events-none font-bold text-white transition-all text-xs"
+									title="Last page"
+								>
+									⏭
 								</button>
 							</div>
+
+							{/* Jump to Page Form */}
+							<form onSubmit={handleJumpPage} class="flex items-center gap-2">
+								<span class="text-white/40 text-[11px]">Go to:</span>
+								<input
+									type="number"
+									min="1"
+									max={numbersQuery.data?.totalPages || 2732}
+									placeholder={String(filters().page)}
+									value={jumpPageInput()}
+									onInput={(e) => setJumpPageInput(e.currentTarget.value)}
+									class="w-16 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-xs text-white text-center font-mono focus:outline-none focus:border-[#0098EA]"
+								/>
+								<button
+									type="submit"
+									class="px-2.5 py-1 rounded-lg bg-[#0098EA]/20 border border-[#0098EA]/40 text-[#0098EA] font-bold text-xs hover:bg-[#0098EA] hover:text-white transition-all"
+								>
+									Go
+								</button>
+							</form>
 						</div>
 					</Show>
 				</Show>

@@ -78,7 +78,7 @@ export const OwnerBroadcast: Component = () => {
 				{/* Composer Form */}
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
 					<div class="flex items-center gap-2">
-						<span class="material-symbols-rounded text-amber-400">send</span>
+						<span class="material-symbols-outlined text-amber-400">send</span>
 						<h3 class="text-sm font-bold text-white">{t('ownerBroadcast.newMessageTitle')}</h3>
 					</div>
 
@@ -212,7 +212,7 @@ export const OwnerBroadcast: Component = () => {
 				{/* HTML Live Preview Box */}
 				<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-4 flex flex-col">
 					<div class="flex items-center gap-2">
-						<span class="material-symbols-rounded text-sky-400">preview</span>
+						<span class="material-symbols-outlined text-sky-400">preview</span>
 						<h3 class="text-sm font-bold text-white">{t('ownerBroadcast.previewTitle')}</h3>
 					</div>
 
@@ -239,7 +239,7 @@ export const OwnerBroadcast: Component = () => {
 			<div class="rounded-3xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
 				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-2">
-						<span class="material-symbols-rounded text-amber-400">queue</span>
+						<span class="material-symbols-outlined text-amber-400">queue</span>
 						<span class="text-sm font-bold text-white">{t('ownerBroadcast.queueTitle')}</span>
 					</div>
 				</div>

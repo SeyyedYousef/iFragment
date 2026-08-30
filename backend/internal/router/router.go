@@ -73,6 +73,7 @@ func RegisterAPIRoutes(r chi.Router, cfg Config) {
 		r.Route("/numbers", func(r chi.Router) {
 			r.Get("/verify", cfg.NumbersHandler.Verify)
 			r.Get("/intel", cfg.NumbersHandler.GetIntel)
+			r.Get("/chart-data", cfg.NumbersHandler.GetChartData)
 			r.Get("/gate", cfg.NumbersHandler.GetCuriosityGate)
 			r.Get("/mask", cfg.NumbersHandler.SearchMask)
 			r.Get("/deals", cfg.NumbersHandler.GetDeals)

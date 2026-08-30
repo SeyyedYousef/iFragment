@@ -92,7 +92,7 @@ export const TotpSetupModal: Component<TotpSetupModalProps> = (props) => {
 					<div class="flex items-center justify-between border-b border-white/10 pb-4">
 						<div class="flex items-center gap-2.5">
 							<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400">
-								<span class="material-symbols-rounded text-2xl">verified_user</span>
+								<span class="material-symbols-outlined text-2xl">verified_user</span>
 							</div>
 							<div>
 								<h2 class="text-base font-bold">{t('ownerTotp.title')}</h2>
@@ -104,7 +104,7 @@ export const TotpSetupModal: Component<TotpSetupModalProps> = (props) => {
 							onClick={props.onClose}
 							class="rounded-lg p-1.5 text-white/40 hover:bg-white/10 hover:text-white transition"
 						>
-							<span class="material-symbols-rounded text-xl">close</span>
+							<span class="material-symbols-outlined text-xl">close</span>
 						</button>
 					</div>
 
@@ -137,7 +137,7 @@ export const TotpSetupModal: Component<TotpSetupModalProps> = (props) => {
 										onClick={copySecret}
 										class="text-amber-400 hover:underline flex items-center gap-1"
 									>
-										<span class="material-symbols-rounded text-sm">
+										<span class="material-symbols-outlined text-sm">
 											{copiedSecret() ? 'done' : 'content_copy'}
 										</span>
 										<span>{copiedSecret() ? 'Copied' : 'Copy'}</span>
@@ -162,7 +162,7 @@ export const TotpSetupModal: Component<TotpSetupModalProps> = (props) => {
 					<Show when={step() === 'recovery'}>
 						<div class="space-y-4">
 							<div class="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200 flex items-start gap-2.5">
-								<span class="material-symbols-rounded text-amber-400 text-base mt-0.5">
+								<span class="material-symbols-outlined text-amber-400 text-base mt-0.5">
 									warning
 								</span>
 								<div>
@@ -188,7 +188,7 @@ export const TotpSetupModal: Component<TotpSetupModalProps> = (props) => {
 								onClick={copyRecoveryCodes}
 								class="w-full py-2 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 text-xs font-medium text-white flex items-center justify-center gap-2 transition"
 							>
-								<span class="material-symbols-rounded text-sm">
+								<span class="material-symbols-outlined text-sm">
 									{copiedRecovery() ? 'done' : 'content_copy'}
 								</span>
 								<span>{copiedRecovery() ? 'All Codes Copied!' : 'Copy All 10 Recovery Codes'}</span>
@@ -235,7 +235,7 @@ export const TotpSetupModal: Component<TotpSetupModalProps> = (props) => {
 
 							<Show when={error()}>
 								<div class="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300 flex items-center gap-2">
-									<span class="material-symbols-rounded text-sm">error</span>
+									<span class="material-symbols-outlined text-sm">error</span>
 									<span>{error()}</span>
 								</div>
 							</Show>
