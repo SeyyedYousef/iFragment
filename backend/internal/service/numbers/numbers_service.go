@@ -1045,15 +1045,6 @@ func parseNumbersHTML(htmlStr string) ([]NumberTableItem, int) {
 		// Only true if explicitly has nftitem__banned class
 		isRestricted := bannedRe.MatchString(chunk)
 
-		marketURL := fmt.Sprintf("https://fragment.com/number/%s", rawDigits)
-		source := "fragment"
-		if mMatch := marketRe.FindStringSubmatch(chunk); len(mMatch) > 1 {
-			marketURL = mMatch[1]
-			if strings.Contains(marketURL, "getgems") {
-				source = "getgems"
-			}
-		}
-
 		var lastSaleTON float64
 		var currentBidTON *float64
 		tonMatches := tonRe.FindAllStringSubmatch(chunk, -1)
@@ -1089,9 +1080,31 @@ func parseNumbersHTML(htmlStr string) ([]NumberTableItem, int) {
 			currentOwner = oMatch[1]
 		}
 
-		cleanNum := rawDisplay
-		if !strings.HasPrefix(cleanNum, "+") {
-			cleanNum = "+888" + rawDigits
+		cleanNum, err := features.NormalizeNumber(rawDigits)
+		if err != nil {
+			cleanNum, err = features.NormalizeNumber(rawDisplay)
+		}
+		if err != nil {
+			cleanDigits := features.CleanNumber(rawDigits)
+			if len(cleanDigits) == 7 && strings.HasPrefix(cleanDigits, "888") {
+				cleanNum = "+888" + cleanDigits[3:]
+			} else if len(cleanDigits) == 11 && strings.HasPrefix(cleanDigits, "888") {
+				cleanNum = "+888" + cleanDigits[3:]
+			} else if len(cleanDigits) == 4 || len(cleanDigits) == 8 {
+				cleanNum = "+888" + cleanDigits
+			} else {
+				cleanNum = rawDisplay
+			}
+		}
+
+		suffix := strings.TrimPrefix(cleanNum, "+888")
+		marketURL := fmt.Sprintf("https://fragment.com/number/%s", suffix)
+		source := "fragment"
+		if mMatch := marketRe.FindStringSubmatch(chunk); len(mMatch) > 1 {
+			marketURL = mMatch[1]
+			if strings.Contains(marketURL, "getgems") {
+				source = "getgems"
+			}
 		}
 
 		display := features.FormatDisplayNumber(cleanNum)
@@ -1154,16 +1167,24 @@ func generateSmartFallback(params NumbersListParams) *NumbersListResponse {
 
 	for i := 0; i < itemsPerPage; i++ {
 		idx := startOffset + i
-		currentNum := 8888000 + idx
+		var numSuffix string
+		if idx < 1000 {
+			numSuffix = fmt.Sprintf("%04d", 8000+idx)
+		} else {
+			numSuffix = fmt.Sprintf("%08d", 88880000+(idx-1000))
+		}
 
 		if cleanMask != "" {
-			numStr := strconv.Itoa(currentNum)
-			if !strings.Contains(numStr, cleanMask) {
-				currentNum = 8888000 + ((idx * 17) % 9000000)
+			if !strings.Contains(numSuffix, cleanMask) {
+				if len(numSuffix) == 4 {
+					numSuffix = fmt.Sprintf("%04d", 8000+((idx*17)%1000))
+				} else {
+					numSuffix = fmt.Sprintf("%08d", 88880000+((idx*17)%10000000))
+				}
 			}
 		}
 
-		color := baseColors[(currentNum+i)%len(baseColors)]
+		color := baseColors[(idx)%len(baseColors)]
 		if len(params.NFTColors) > 0 {
 			chosenHex := params.NFTColors[i%len(params.NFTColors)]
 			if !strings.HasPrefix(chosenHex, "#") {
@@ -1172,13 +1193,14 @@ func generateSmartFallback(params NumbersListParams) *NumbersListResponse {
 			color.Hex = chosenHex
 		}
 
-		price := float64(2179 + ((currentNum * 13) % 45000))
-		owners := ((currentNum * 7) % 8) + 1
-		if params.OwnersHistory == "1" {
+		price := float64(2179 + ((idx * 13) % 45000))
+		owners := ((idx * 7) % 8) + 1
+		switch params.OwnersHistory {
+		case "1":
 			owners = 1
-		} else if params.OwnersHistory == "2-3" {
+		case "2-3":
 			owners = 2 + (i % 2)
-		} else if params.OwnersHistory == "4+" {
+		case "4+":
 			owners = 4 + (i % 5)
 		}
 
@@ -1191,7 +1213,7 @@ func generateSmartFallback(params NumbersListParams) *NumbersListResponse {
 			currentBid = &bidVal
 		}
 
-		cleanNumStr := fmt.Sprintf("+888%08d", currentNum)
+		cleanNumStr := "+888" + numSuffix
 		displayStr := features.FormatDisplayNumber(cleanNumStr)
 
 		items = append(items, NumberTableItem{
@@ -1204,10 +1226,10 @@ func generateSmartFallback(params NumbersListParams) *NumbersListResponse {
 			LastSaleDate:  "On-Chain",
 			CurrentBidTON: currentBid,
 			OwnersCount:   owners,
-			CurrentOwner:  fmt.Sprintf("EQ%08d...Fragment", currentNum),
+			CurrentOwner:  fmt.Sprintf("EQ%s...Fragment", numSuffix),
 			IsRestricted:  isRestricted,
 			Source:        "fragment",
-			MarketURL:     fmt.Sprintf("https://fragment.com/number/%08d", currentNum),
+			MarketURL:     fmt.Sprintf("https://fragment.com/number/%s", numSuffix),
 		})
 	}
 

@@ -1,8 +1,6 @@
 import { useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
 import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
-import { giftsApi } from '@/entities/gifts/index.js';
-import { numbersApi } from '@/entities/numbers/index.js';
 import { apiClient as api } from '@/shared/api/axios.js';
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
@@ -147,15 +145,11 @@ export const CollectionInfoPage: Component = () => {
 	const navigate = useNavigate();
 
 	const [activeTab, setActiveTab] = createSignal<'overview' | 'leaderboard'>('overview');
-	const [activeVertical, setActiveVertical] = createSignal<'usernames' | 'numbers' | 'gifts'>(
-		'usernames',
-	);
 	const [leaderboardFilter, setLeaderboardFilter] = createSignal<
 		'all' | 'short' | 'crypto' | 'brand'
 	>('all');
-	const [searchQuery, setSearchQuery] = createSignal<string>('');
 
-	// 1. Usernames Collection Query
+	// Usernames Collection Query
 	const usernameQuery = createQuery(() => ({
 		queryKey: ['collectionStats'],
 		queryFn: async () => {
@@ -165,29 +159,8 @@ export const CollectionInfoPage: Component = () => {
 		staleTime: 5 * 60 * 1000,
 	}));
 
-	// 2. Numbers Collection Query
-	const numbersQuery = createQuery(() => ({
-		queryKey: ['numbersIntelCollection'],
-		queryFn: () => numbersApi.getIntel(),
-		staleTime: 60 * 1000,
-		enabled: activeVertical() === 'numbers',
-	}));
-
-	// 3. Gifts Collection Query
-	const giftsQuery = createQuery(() => ({
-		queryKey: ['giftsIntelCollection'],
-		queryFn: () => giftsApi.getIntel(),
-		staleTime: 45 * 1000,
-		enabled: activeVertical() === 'gifts',
-	}));
-
 	const fearGreedNotice = createMemo(() => {
-		const idx =
-			activeVertical() === 'gifts'
-				? (giftsQuery.data?.fng_index ?? 68)
-				: activeVertical() === 'numbers'
-					? (numbersQuery.data?.fng_index ?? 74)
-					: (usernameQuery.data?.fear_greed_index ?? 78);
+		const idx = usernameQuery.data?.fear_greed_index ?? 78;
 
 		if (idx < 30)
 			return {
@@ -226,10 +199,6 @@ export const CollectionInfoPage: Component = () => {
 		};
 	});
 
-	const userHandle = createMemo(
-		() => (window as any)?.Telegram?.WebApp?.initDataUnsafe?.user?.username || '',
-	);
-
 	const filteredLeaderboard = createMemo(() => {
 		const filter = leaderboardFilter();
 		if (filter === 'all') return HISTORICAL_HALL_OF_FAME;
@@ -240,32 +209,7 @@ export const CollectionInfoPage: Component = () => {
 		try {
 			haptic.impact('light');
 		} catch {}
-		if (activeVertical() === 'numbers') {
-			navigate(`/numbers/report?n=${encodeURIComponent(handle)}`);
-		} else if (activeVertical() === 'gifts') {
-			navigate(`/gifts/report?g=${encodeURIComponent(handle)}`);
-		} else {
-			navigate(`/username/report?u=${encodeURIComponent(handle.replace('@', ''))}`);
-		}
-	};
-
-	const handleSearchSubmit = (e: Event) => {
-		e.preventDefault();
-		const q = searchQuery().trim().replace(/^@/, '');
-		if (q) {
-			openValuation(q);
-		}
-	};
-
-	const formatTon = (val?: number | string) => {
-		if (!val) return '0';
-		const num = typeof val === 'string' ? parseFloat(val) : val;
-		return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
-	};
-
-	const formatUsd = (val?: number) => {
-		if (!val) return '$0';
-		return `$${val.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+		navigate(`/username/report?u=${encodeURIComponent(handle.replace('@', ''))}`);
 	};
 
 	return (
@@ -277,7 +221,7 @@ export const CollectionInfoPage: Component = () => {
 			<div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-[450px] bg-gradient-to-b from-[#0098EA]/20 via-[#AF52DE]/10 to-transparent blur-[100px] pointer-events-none z-0" />
 
 			<div class="w-full max-w-[480px] mx-auto px-4 flex flex-col relative z-10 flex-1">
-				{/* ═══════ HEADER & VERTICAL SWITCHER ═══════ */}
+				{/* ═══════ HEADER ═══════ */}
 				<div class="flex flex-col items-start pt-6 pb-2 px-1">
 					<div class="flex items-center gap-2 mb-2">
 						<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[9px] font-black uppercase tracking-widest text-[#0098EA] shadow-sm">
@@ -287,141 +231,15 @@ export const CollectionInfoPage: Component = () => {
 					</div>
 
 					<h1 class="text-[28px] font-black tracking-tight text-white leading-none mb-2">
-						{activeVertical() === 'usernames'
-							? t('action.username.collection_stats_title') || 'Usernames Collection'
-							: activeVertical() === 'numbers'
-								? t('numbers.intelTitle') || '+888 Numbers Collection'
-								: t('gifts.intelTitle') || 'Telegram Gifts Market'}
+						{t('action.username.collection_stats_title') || 'Usernames Collection'}
 					</h1>
 					<p class="text-[12px] text-white/50 leading-relaxed font-medium">
-						{activeVertical() === 'usernames'
-							? t('action.username.collection_stats_subtitle') ||
-								'Real-time valuation analytics, market sentiment & hall-of-fame assets.'
-							: activeVertical() === 'numbers'
-								? t('numbers.frozenDesc')
-								: t('gifts.intelSubtitle')}
+						{t('action.username.collection_stats_subtitle') ||
+							'Real-time valuation analytics, market sentiment & hall-of-fame assets.'}
 					</p>
 
-					{/* 💎 PERSONAL USERNAME 1-TAP VALUATION HOOK */}
-					<Show when={userHandle() && activeVertical() === 'usernames'}>
-						<div
-							onClick={() => openValuation(userHandle())}
-							class="w-full mt-3.5 p-3.5 bg-gradient-to-r from-[#0098EA]/20 via-[#0098EA]/5 to-transparent border border-[#0098EA]/30 hover:border-[#0098EA]/60 rounded-[20px] flex items-center justify-between cursor-pointer transition-all group active:scale-[0.99] shadow-[0_4px_20px_rgba(0,152,234,0.15)]"
-						>
-							<div class="flex items-center gap-3">
-								<div class="w-10 h-10 rounded-full bg-[#0098EA]/20 border border-[#0098EA]/40 flex items-center justify-center text-[#0098EA] shadow-[0_0_12px_rgba(0,152,234,0.3)]">
-									<span class="material-symbols-outlined text-[22px]">diamond</span>
-								</div>
-								<div class="flex flex-col text-start">
-									<span class="text-[9px] font-black uppercase tracking-widest text-[#0098EA]">
-										{t('collectionInfo.yourTelegramAsset')}
-									</span>
-									<span
-										class="text-[14px] font-mono font-bold text-white group-hover:text-[#0098EA] transition-colors"
-										dir="ltr"
-									>
-										@{userHandle()}
-									</span>
-								</div>
-							</div>
-							<div class="flex items-center gap-1.5 px-3 py-1.5 bg-[#0098EA] text-white rounded-[12px] text-[11px] font-black uppercase tracking-wider shadow-sm group-hover:shadow-[0_0_12px_rgba(0,152,234,0.5)] transition-all">
-								<span>{t('collectionInfo.valuate')}</span>
-								<span class="material-symbols-outlined text-[14px]">arrow_forward</span>
-							</div>
-						</div>
-					</Show>
-
-					{/* 🌐 3-WAY VERTICAL SWITCHER */}
-					<div class="w-full grid grid-cols-3 gap-1.5 mt-4 p-1 bg-[#12141C]/90 border border-white/10 rounded-[18px]">
-						<button
-							type="button"
-							onClick={() => {
-								try {
-									haptic.selection();
-								} catch {}
-								setActiveVertical('usernames');
-							}}
-							class={`py-2 rounded-[14px] text-[11px] font-black uppercase tracking-wider transition-all ${
-								activeVertical() === 'usernames'
-									? 'bg-[#0098EA] text-white shadow-md'
-									: 'text-white/40 hover:text-white/70'
-							}`}
-						>
-							{t('collectionInfo.usernames')}
-						</button>
-						<button
-							type="button"
-							onClick={() => {
-								try {
-									haptic.selection();
-								} catch {}
-								setActiveVertical('numbers');
-							}}
-							class={`py-2 rounded-[14px] text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 ${
-								activeVertical() === 'numbers'
-									? 'bg-[#0098EA] text-white shadow-md'
-									: 'text-white/40 hover:text-white/70'
-							}`}
-						>
-							<span>{t('collectionInfo.numbers')}</span>
-							<span class="text-[8px] bg-white/20 px-1 py-0.5 rounded text-white font-bold">
-								+888
-							</span>
-						</button>
-						<button
-							type="button"
-							onClick={() => {
-								try {
-									haptic.selection();
-								} catch {}
-								setActiveVertical('gifts');
-							}}
-							class={`py-2 rounded-[14px] text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 ${
-								activeVertical() === 'gifts'
-									? 'bg-[#0098EA] text-white shadow-md'
-									: 'text-white/40 hover:text-white/70'
-							}`}
-						>
-							<span>{t('collectionInfo.gifts')}</span>
-							<span class="text-[8px] bg-white/20 px-1 py-0.5 rounded text-white font-bold">
-								{'6 MKTS'}
-							</span>
-						</button>
-					</div>
-
-					{/* 🔍 LIVE SEARCH & VALUATION HOOK */}
-					<form onSubmit={handleSearchSubmit} class="w-full mt-3">
-						<div class="relative w-full flex items-center">
-							<input
-								type="text"
-								value={searchQuery()}
-								onInput={(e) => setSearchQuery(e.currentTarget.value)}
-								placeholder={
-									activeVertical() === 'numbers'
-										? '+888 8888 8888 or 1234 5678'
-										: activeVertical() === 'gifts'
-											? 'Plush Pepe or gift name...'
-											: t('collectionInfo.searchPlaceholder')
-								}
-								class="w-full h-12 bg-[#12141C]/90 border border-white/10 focus:border-[#0098EA] rounded-[18px] px-4 ps-11 text-white font-mono text-[13px] placeholder:text-white/30 outline-none transition-all shadow-inner"
-								dir="ltr"
-							/>
-							<span class="material-symbols-outlined absolute left-3.5 text-white/40 text-[20px]">
-								search
-							</span>
-							<Show when={searchQuery().trim()}>
-								<button
-									type="submit"
-									class="absolute right-2 px-3 py-1.5 bg-[#0098EA] text-white font-black text-[11px] uppercase rounded-[12px]"
-								>
-									{t('collectionInfo.valuate')}
-								</button>
-							</Show>
-						</div>
-					</form>
-
 					{/* NAVIGATION TABS */}
-					<div class="w-full bg-[#12141C]/90 border border-white/10 rounded-[18px] p-1.5 flex gap-1.5 mt-3 shadow-inner backdrop-blur-xl">
+					<div class="w-full bg-[#12141C]/90 border border-white/10 rounded-[18px] p-1.5 flex gap-1.5 mt-4 shadow-inner backdrop-blur-xl">
 						<button
 							type="button"
 							onClick={() => {
@@ -460,7 +278,7 @@ export const CollectionInfoPage: Component = () => {
 				</div>
 
 				{/* ═══════ STATUS SCREENS ═══════ */}
-				<Show when={usernameQuery.isLoading || numbersQuery.isLoading || giftsQuery.isLoading}>
+				<Show when={usernameQuery.isLoading}>
 					<div class="flex flex-col items-center justify-center h-[35vh]">
 						<div class="w-12 h-12 border-[3px] border-white/10 border-t-[#0098EA] rounded-full animate-spin mb-4 shadow-[0_0_15px_#0098EA]" />
 						<span class="text-[12px] font-mono font-bold tracking-widest text-white/40 uppercase animate-pulse">
@@ -543,282 +361,121 @@ export const CollectionInfoPage: Component = () => {
 							</div>
 						</div>
 
-						{/* ═══════ VERTICAL 1: USERNAMES OVERVIEW ═══════ */}
-						<Show when={activeVertical() === 'usernames'}>
-							<div class="grid grid-cols-2 gap-3">
-								{/* Floor Price */}
-								<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 hover:border-white/15 rounded-[20px] p-4 flex flex-col justify-between transition-all shadow-sm">
-									<div>
-										<span class="text-[10px] text-white/40 uppercase tracking-widest font-black block mb-1">
-											{t('collectionInfo.floorPrice')}
-										</span>
-										<div class="flex items-baseline gap-1" dir="ltr">
-											<span class="text-[22px] font-black font-mono text-white tracking-tight">
-												{usernameQuery.data?.stats?.floor_price?.replace('TON', '').trim() || '10'}
-											</span>
-											<span class="text-[11px] text-[#0098EA] font-black">{t('common.ton')}</span>
-										</div>
-									</div>
-									<div class="text-[10px] text-white/40 font-mono mt-2 pt-2 border-t border-white/5">
-										≈ $
-										{(
-											parseFloat(
-												usernameQuery.data?.stats?.floor_price?.replace('TON', '').trim() || '10',
-											) * 5.5
-										).toFixed(1)}
-									</div>
-								</div>
-
-								{/* Total Volume */}
-								<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 hover:border-white/15 rounded-[20px] p-4 flex flex-col justify-between transition-all shadow-sm">
-									<div>
-										<span class="text-[10px] text-white/40 uppercase tracking-widest font-black block mb-1">
-											{t('collectionInfo.totalVolume')}
-										</span>
-										<div class="flex items-baseline gap-1" dir="ltr">
-											<span class="text-[22px] font-black font-mono text-white tracking-tight">
-												{usernameQuery.data?.stats?.total_volume?.replace('TON', '').trim() ||
-													'5.2M'}
-											</span>
-											<span class="text-[11px] text-[#0098EA] font-black">{t('common.ton')}</span>
-										</div>
-									</div>
-									<div class="text-[10px] text-emerald-400 font-mono mt-2 pt-2 border-t border-white/5">
-										{t('collectionInfo.verifiedOnChain')}
-									</div>
-								</div>
-
-								{/* Total Supply */}
-								<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[20px] p-4 flex flex-col justify-center">
-									<span class="text-[10px] text-white/40 uppercase tracking-widest font-black block mb-0.5">
-										{t('collectionInfo.mintedHandles')}
-									</span>
-									<span class="text-[22px] font-black font-mono text-white tracking-tight">
-										{usernameQuery.data?.stats?.items_count || '128,450'}
-									</span>
-								</div>
-
-								{/* Holders */}
-								<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[20px] p-4 flex flex-col justify-center">
-									<span class="text-[10px] text-white/40 uppercase tracking-widest font-black block mb-0.5">
-										{t('collectionInfo.totalOwners')}
-									</span>
-									<span class="text-[22px] font-black font-mono text-white tracking-tight">
-										{usernameQuery.data?.stats?.owners_count || '46,120'}
-									</span>
-								</div>
-							</div>
-
-							{/* Live Fragment Auctions */}
-							<Show when={(usernameQuery.data?.auctions?.length ?? 0) > 0}>
-								<div class="flex flex-col gap-2.5 mt-1">
-									<div class="flex items-center justify-between px-1">
-										<div class="flex items-center gap-2">
-											<span class="material-symbols-outlined text-amber-400 text-[18px]">
-												gavel
-											</span>
-											<h3 class="text-[11px] font-black tracking-widest text-white/60 uppercase">
-												{t('collectionInfo.liveFragmentAuctions')}
-											</h3>
-										</div>
-										<span class="text-[10px] font-mono text-amber-400 font-bold">{'● LIVE'}</span>
-									</div>
-
-									<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[22px] overflow-hidden shadow-sm">
-										<For each={(usernameQuery.data?.auctions || []).slice(0, 6)}>
-											{(auc, index) => (
-												<div
-													onClick={() => openValuation(auc.item_name)}
-													class={`flex items-center justify-between p-3.5 hover:bg-white/[0.04] transition-colors cursor-pointer active:scale-[0.99] ${
-														index() !== 0 ? 'border-t border-white/5' : ''
-													}`}
-												>
-													<div class="flex items-center gap-3 min-w-0">
-														<div class="w-10 h-10 rounded-[12px] bg-[#08090D] flex items-center justify-center text-white/80 font-black text-[13px] border border-white/10 shrink-0 shadow-inner">
-															{auc.item_name.replace('@', '').substring(0, 2).toUpperCase()}
-														</div>
-														<div class="flex flex-col min-w-0 text-start">
-															<span class="font-bold text-[13px] text-white truncate" dir="ltr">
-																{auc.item_name}
-															</span>
-															<span class="text-[9px] font-bold text-amber-400 uppercase tracking-widest flex items-center gap-1">
-																<span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-																{t('collectionInfo.auctionActive')}
-															</span>
-														</div>
-													</div>
-													<div class="flex flex-col items-end shrink-0" dir="ltr">
-														<span class="text-[14px] font-black font-mono text-white">
-															{auc.price}
-														</span>
-														<span class="text-[9px] font-black text-[#0098EA]">
-															{t('common.ton')}
-														</span>
-													</div>
-												</div>
-											)}
-										</For>
-									</div>
-								</div>
-							</Show>
-						</Show>
-
-						{/* ═══════ VERTICAL 2: NUMBERS OVERVIEW ═══════ */}
-						<Show when={activeVertical() === 'numbers'}>
-							<div class="grid grid-cols-2 gap-3">
-								<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[20px] p-4 flex flex-col justify-between">
+						{/* ═══════ USERNAMES STATS OVERVIEW ═══════ */}
+						<div class="grid grid-cols-2 gap-3">
+							{/* Floor Price */}
+							<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 hover:border-white/15 rounded-[20px] p-4 flex flex-col justify-between transition-all shadow-sm">
+								<div>
 									<span class="text-[10px] text-white/40 uppercase tracking-widest font-black block mb-1">
 										{t('collectionInfo.floorPrice')}
 									</span>
 									<div class="flex items-baseline gap-1" dir="ltr">
-										<span class="text-[22px] font-black font-mono text-white">
-											{formatTon(numbersQuery.data?.floor_price_ton || 2100)}
+										<span class="text-[22px] font-black font-mono text-white tracking-tight">
+											{usernameQuery.data?.stats?.floor_price?.replace('TON', '').trim() || '10'}
 										</span>
 										<span class="text-[11px] text-[#0098EA] font-black">{t('common.ton')}</span>
 									</div>
-									<div class="text-[10px] text-white/40 font-mono mt-1">
-										≈ {formatUsd(numbersQuery.data?.floor_price_usd || 11550)}
-									</div>
 								</div>
-
-								<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[20px] p-4 flex flex-col justify-between">
-									<span class="text-[10px] text-white/40 uppercase tracking-widest font-black block mb-1">
-										{t('collectionInfo.totalSupply')}
-									</span>
-									<div class="flex items-baseline gap-1" dir="ltr">
-										<span class="text-[22px] font-black font-mono text-emerald-400">136,566</span>
-									</div>
-									<div class="text-[10px] text-emerald-400 font-mono mt-1">
-										{t('collectionInfo.frozenCollection')}
-									</div>
+								<div class="text-[10px] text-white/40 font-mono mt-2 pt-2 border-t border-white/5">
+									≈ $
+									{(
+										parseFloat(
+											usernameQuery.data?.stats?.floor_price?.replace('TON', '').trim() || '10',
+										) * 5.5
+									).toFixed(1)}
 								</div>
+							</div>
 
-								<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[20px] p-4 flex flex-col justify-between">
+							{/* Total Volume */}
+							<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 hover:border-white/15 rounded-[20px] p-4 flex flex-col justify-between transition-all shadow-sm">
+								<div>
 									<span class="text-[10px] text-white/40 uppercase tracking-widest font-black block mb-1">
 										{t('collectionInfo.totalVolume')}
 									</span>
 									<div class="flex items-baseline gap-1" dir="ltr">
-										<span class="text-[22px] font-black font-mono text-white">
-											{numbersQuery.data?.total_volume_ton
-												? formatTon(numbersQuery.data.total_volume_ton)
-												: '117.4M'}
+										<span class="text-[22px] font-black font-mono text-white tracking-tight">
+											{usernameQuery.data?.stats?.total_volume?.replace('TON', '').trim() ||
+												'5.2M'}
 										</span>
 										<span class="text-[11px] text-[#0098EA] font-black">{t('common.ton')}</span>
 									</div>
-									<div class="text-[10px] text-white/40 font-mono mt-1">
-										{numbersQuery.data?.total_sales
-											? `${formatTon(numbersQuery.data.total_sales)} sales`
-											: t('collectionInfo.verifiedSalesCount')}
-									</div>
 								</div>
-
-								<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[20px] p-4 flex flex-col justify-between">
-									<span class="text-[10px] text-white/40 uppercase tracking-widest font-black block mb-1">
-										{t('collectionInfo.allTimeAth')}
-									</span>
-									<div class="flex items-baseline gap-1" dir="ltr">
-										<span class="text-[22px] font-black font-mono text-amber-400">
-											{numbersQuery.data?.historical_ath_ton
-												? formatTon(numbersQuery.data.historical_ath_ton)
-												: '864,000'}
-										</span>
-										<span class="text-[11px] text-amber-400 font-black">{t('common.ton')}</span>
-									</div>
-									<div class="text-[10px] text-white/40 font-mono mt-1 truncate">
-										{numbersQuery.data?.ath_number || '+888 8888 8888'}
-									</div>
+								<div class="text-[10px] text-emerald-400 font-mono mt-2 pt-2 border-t border-white/5">
+									{t('collectionInfo.verifiedOnChain')}
 								</div>
 							</div>
 
-							<div class="flex items-center justify-between p-4 bg-[#12141C]/80 border border-white/10 rounded-[22px]">
-								<div>
-									<h4 class="text-xs font-black text-white">+888 Numbers Market & Chart</h4>
-									<p class="text-[10px] text-white/50">
-										Live TradingView chart, filters & portfolio tracker
-									</p>
-								</div>
-								<button
-									type="button"
-									onClick={() => navigate('/numbers')}
-									class="px-3.5 py-2 bg-[#0098EA] text-white text-xs font-black rounded-xl active:scale-95 transition-all shadow-md"
-								>
-									{t('collectionInfo.launch')}
-								</button>
-							</div>
-						</Show>
-
-						{/* ═══════ VERTICAL 3: GIFTS OVERVIEW ═══════ */}
-						<Show when={activeVertical() === 'gifts'}>
-							<div class="grid grid-cols-2 gap-3">
-								<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[20px] p-4 flex flex-col justify-between">
-									<span class="text-[10px] text-white/40 uppercase tracking-widest font-black block mb-1">
-										{t('collectionInfo.aggregatedMarkets')}
-									</span>
-									<div class="flex items-baseline gap-1" dir="ltr">
-										<span class="text-[22px] font-black font-mono text-white">6</span>
-										<span class="text-[11px] text-[#0098EA] font-black">
-											{t('collectionInfo.venues')}
-										</span>
-									</div>
-									<div class="text-[10px] text-white/40 font-mono mt-1">
-										{t('collectionInfo.venuesDesc')}
-									</div>
-								</div>
-
-								<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[20px] p-4 flex flex-col justify-between">
-									<span class="text-[10px] text-white/40 uppercase tracking-widest font-black block mb-1">
-										{t('collectionInfo.cumulativeVol')}
-									</span>
-									<div class="flex items-baseline gap-1" dir="ltr">
-										<span class="text-[22px] font-black font-mono text-white">
-											{formatUsd(giftsQuery.data?.total_cumulative_volume_usd || 292450000)}
-										</span>
-									</div>
-									<div class="text-[10px] text-emerald-400 font-mono mt-1">
-										{t('collectionInfo.dropstabVerified')}
-									</div>
-								</div>
-
-								<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[20px] p-4 flex flex-col justify-between">
-									<span class="text-[10px] text-white/40 uppercase tracking-widest font-black block mb-1">
-										{t('collectionInfo.activeWallets')}
-									</span>
-									<div class="flex items-baseline gap-1" dir="ltr">
-										<span class="text-[22px] font-black font-mono text-white">540K+</span>
-									</div>
-									<div class="text-[10px] text-white/40 font-mono mt-1">
-										{t('collectionInfo.holdersOnTon')}
-									</div>
-								</div>
-
-								<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[20px] p-4 flex flex-col justify-between">
-									<span class="text-[10px] text-white/40 uppercase tracking-widest font-black block mb-1">
-										{t('collectionInfo.craftingForge')}
-									</span>
-									<div class="flex items-baseline gap-1" dir="ltr">
-										<span class="text-[22px] font-black font-mono text-amber-400">10K</span>
-										<span class="text-[11px] text-amber-400 font-black">{'RUNS'}</span>
-									</div>
-									<div class="text-[10px] text-amber-400 font-mono mt-1">
-										{t('collectionInfo.monteCarloEvSim')}
-									</div>
-								</div>
+							{/* Total Supply */}
+							<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[20px] p-4 flex flex-col justify-center">
+								<span class="text-[10px] text-white/40 uppercase tracking-widest font-black block mb-0.5">
+									{t('collectionInfo.mintedHandles')}
+								</span>
+								<span class="text-[22px] font-black font-mono text-white tracking-tight">
+									{usernameQuery.data?.stats?.items_count || '128,450'}
+								</span>
 							</div>
 
-							<div class="flex items-center justify-between p-4 bg-[#12141C]/80 border border-white/10 rounded-[22px]">
-								<div>
-									<h4 class="text-xs font-black text-white">
-										{t('collectionInfo.giftsMarketIntel')}
-									</h4>
-									<p class="text-[10px] text-white/50">{t('collectionInfo.arbitrageRadar')}</p>
+							{/* Holders */}
+							<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[20px] p-4 flex flex-col justify-center">
+								<span class="text-[10px] text-white/40 uppercase tracking-widest font-black block mb-0.5">
+									{t('collectionInfo.totalOwners')}
+								</span>
+								<span class="text-[22px] font-black font-mono text-white tracking-tight">
+									{usernameQuery.data?.stats?.owners_count || '46,120'}
+								</span>
+							</div>
+						</div>
+
+						{/* Live Fragment Auctions */}
+						<Show when={(usernameQuery.data?.auctions?.length ?? 0) > 0}>
+							<div class="flex flex-col gap-2.5 mt-1">
+								<div class="flex items-center justify-between px-1">
+									<div class="flex items-center gap-2">
+										<span class="material-symbols-outlined text-amber-400 text-[18px]">
+											gavel
+										</span>
+										<h3 class="text-[11px] font-black tracking-widest text-white/60 uppercase">
+											{t('collectionInfo.liveFragmentAuctions')}
+										</h3>
+									</div>
+									<span class="text-[10px] font-mono text-amber-400 font-bold">{'● LIVE'}</span>
 								</div>
-								<button
-									type="button"
-									onClick={() => navigate('/gifts/intel')}
-									class="px-3.5 py-2 bg-[#0098EA] text-white text-xs font-black rounded-xl active:scale-95 transition-all shadow-md"
-								>
-									{t('collectionInfo.openHub')}
-								</button>
+
+								<div class="bg-[#12141C]/80 backdrop-blur-xl border border-white/5 rounded-[22px] overflow-hidden shadow-sm">
+									<For each={(usernameQuery.data?.auctions || []).slice(0, 6)}>
+										{(auc, index) => (
+											<div
+												onClick={() => openValuation(auc.item_name)}
+												class={`flex items-center justify-between p-3.5 hover:bg-white/[0.04] transition-colors cursor-pointer active:scale-[0.99] ${
+													index() !== 0 ? 'border-t border-white/5' : ''
+												}`}
+											>
+												<div class="flex items-center gap-3 min-w-0">
+													<div class="w-10 h-10 rounded-[12px] bg-[#08090D] flex items-center justify-center text-white/80 font-black text-[13px] border border-white/10 shrink-0 shadow-inner">
+														{auc.item_name.replace('@', '').substring(0, 2).toUpperCase()}
+													</div>
+													<div class="flex flex-col min-w-0 text-start">
+														<span class="font-bold text-[13px] text-white truncate" dir="ltr">
+															{auc.item_name}
+														</span>
+														<span class="text-[9px] font-bold text-amber-400 uppercase tracking-widest flex items-center gap-1">
+															<span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+															{t('collectionInfo.auctionActive')}
+														</span>
+													</div>
+												</div>
+												<div class="flex flex-col items-end shrink-0" dir="ltr">
+													<span class="text-[14px] font-black font-mono text-white">
+														{auc.price}
+													</span>
+													<span class="text-[9px] font-black text-[#0098EA]">
+														{t('common.ton')}
+													</span>
+												</div>
+											</div>
+										)}
+									</For>
+								</div>
 							</div>
 						</Show>
 					</div>
@@ -835,11 +492,7 @@ export const CollectionInfoPage: Component = () => {
 								</div>
 								<div class="flex flex-col text-start">
 									<h2 class="text-[16px] font-black text-white tracking-tight">
-										{activeVertical() === 'numbers'
-											? t('collectionInfo.allTimeRecordNumbers')
-											: activeVertical() === 'gifts'
-												? t('collectionInfo.highestValuedGifts')
-												: t('collectionInfo.allTimeRecordHandles')}
+										{t('collectionInfo.allTimeRecordHandles')}
 									</h2>
 									<span class="text-[11px] text-white/50 font-medium">
 										{t('collectionInfo.highestConfirmedSales')}
@@ -848,185 +501,103 @@ export const CollectionInfoPage: Component = () => {
 							</div>
 						</div>
 
-						{/* FILTER CHIPS (Usernames only) */}
-						<Show when={activeVertical() === 'usernames'}>
-							<div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-								<For
-									each={[
-										{ id: 'all', label: 'All Time' },
-										{ id: 'short', label: 'Short (4-char)' },
-										{ id: 'crypto', label: 'Crypto & TON' },
-										{ id: 'brand', label: 'Brand & Words' },
-									]}
-								>
-									{(chip) => (
-										<button
-											type="button"
-											onClick={() => {
-												try {
-													haptic.selection();
-												} catch {}
-												setLeaderboardFilter(chip.id as any);
-											}}
-											class={`px-3.5 py-1.5 rounded-[12px] text-[11px] font-black whitespace-nowrap transition-all uppercase tracking-wider border ${
-												leaderboardFilter() === chip.id
-													? 'bg-white text-black border-white shadow-sm'
-													: 'bg-[#12141C] text-white/60 border-white/10 hover:border-white/20'
-											}`}
-										>
-											{chip.label}
-										</button>
-									)}
-								</For>
-							</div>
-						</Show>
+						{/* FILTER CHIPS */}
+						<div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+							<For
+								each={[
+									{ id: 'all', label: 'All Time' },
+									{ id: 'short', label: 'Short (4-char)' },
+									{ id: 'crypto', label: 'Crypto & TON' },
+									{ id: 'brand', label: 'Brand & Words' },
+								]}
+							>
+								{(chip) => (
+									<button
+										type="button"
+										onClick={() => {
+											try {
+												haptic.selection();
+											} catch {}
+											setLeaderboardFilter(chip.id as any);
+										}}
+										class={`px-3.5 py-1.5 rounded-[12px] text-[11px] font-black whitespace-nowrap transition-all uppercase tracking-wider border ${
+											leaderboardFilter() === chip.id
+												? 'bg-white text-black border-white shadow-sm'
+												: 'bg-[#12141C] text-white/60 border-white/10 hover:border-white/20'
+										}`}
+									>
+										{chip.label}
+									</button>
+								)}
+							</For>
+						</div>
 
 						{/* LEADERBOARD LIST */}
 						<div class="bg-[#12141C]/80 backdrop-blur-2xl border border-white/10 rounded-[24px] overflow-hidden shadow-sm">
-							<Show when={activeVertical() === 'usernames'}>
-								<For each={filteredLeaderboard()}>
-									{(item) => {
-										const rankColor =
-											item.rank === 1
-												? 'text-amber-400 bg-amber-400/15 border-amber-400/30'
-												: item.rank === 2
-													? 'text-slate-300 bg-slate-300/15 border-slate-300/30'
-													: item.rank === 3
-														? 'text-amber-600 bg-amber-600/15 border-amber-600/30'
-														: 'text-white/40 bg-white/5 border-white/5';
+							<For each={filteredLeaderboard()}>
+								{(item) => {
+									const rankColor =
+										item.rank === 1
+											? 'text-amber-400 bg-amber-400/15 border-amber-400/30'
+											: item.rank === 2
+												? 'text-slate-300 bg-slate-300/15 border-slate-300/30'
+												: item.rank === 3
+													? 'text-amber-600 bg-amber-600/15 border-amber-600/30'
+													: 'text-white/40 bg-white/5 border-white/5';
 
-										return (
-											<div
-												onClick={() => openValuation(item.handle)}
-												class="flex items-center justify-between p-4 hover:bg-white/[0.04] transition-all cursor-pointer border-b border-white/5 last:border-0 active:scale-[0.99]"
-											>
-												<div class="flex items-center gap-3.5 min-w-0">
-													<div
-														class={`w-8 h-8 rounded-[10px] flex items-center justify-center font-black font-mono text-[12px] border shrink-0 ${rankColor}`}
-													>
-														{item.rank === 1
-															? '🥇'
-															: item.rank === 2
-																? '🥈'
-																: item.rank === 3
-																	? '🥉'
-																	: `#${item.rank}`}
-													</div>
+									return (
+										<div
+											onClick={() => openValuation(item.handle)}
+											class="flex items-center justify-between p-4 hover:bg-white/[0.04] transition-all cursor-pointer border-b border-white/5 last:border-0 active:scale-[0.99]"
+										>
+											<div class="flex items-center gap-3.5 min-w-0">
+												<div
+													class={`w-8 h-8 rounded-[10px] flex items-center justify-center font-black font-mono text-[12px] border shrink-0 ${rankColor}`}
+												>
+													{item.rank === 1
+														? '🥇'
+														: item.rank === 2
+															? '🥈'
+															: item.rank === 3
+																? '🥉'
+																: `#${item.rank}`}
+												</div>
 
-													<div class="flex flex-col min-w-0 text-start">
-														<div class="flex items-center gap-1.5">
-															<span
-																class="text-white font-mono font-black text-[14px] truncate"
-																dir="ltr"
-															>
-																@{item.handle}
+												<div class="flex flex-col min-w-0 text-start">
+													<div class="flex items-center gap-1.5">
+														<span
+															class="text-white font-mono font-black text-[14px] truncate"
+															dir="ltr"
+														>
+															@{item.handle}
+														</span>
+														<Show when={item.verified}>
+															<span class="material-symbols-outlined text-[#0098EA] text-[14px]">
+																verified
 															</span>
-															<Show when={item.verified}>
-																<span class="material-symbols-outlined text-[#0098EA] text-[14px]">
-																	verified
-																</span>
-															</Show>
-														</div>
-														<span class="text-[10px] text-white/40 font-mono">{item.date}</span>
+														</Show>
 													</div>
-												</div>
-
-												<div class="flex flex-col items-end shrink-0" dir="ltr">
-													<div class="flex items-baseline gap-1">
-														<span class="text-[14px] font-black font-mono text-white">
-															{item.priceTon.toLocaleString('en-US')}
-														</span>
-														<span class="text-[10px] font-black text-[#0098EA]">
-															{t('common.ton')}
-														</span>
-													</div>
-													<span class="text-[10px] font-mono text-white/40">
-														≈ ${((item.priceUsd ?? item.priceTon * 5.5) / 1000).toFixed(0)}K
-													</span>
-												</div>
-											</div>
-										);
-									}}
-								</For>
-							</Show>
-
-							{/* Numbers Hall of Fame */}
-							<Show when={activeVertical() === 'numbers'}>
-								<For each={numbersQuery.data?.hall_of_fame || []}>
-									{(item) => (
-										<div
-											onClick={() => openValuation(item.number)}
-											class="flex items-center justify-between p-4 hover:bg-white/[0.04] transition-all cursor-pointer border-b border-white/5 last:border-0 active:scale-[0.99]"
-										>
-											<div class="flex items-center gap-3.5 min-w-0">
-												<div class="w-8 h-8 rounded-[10px] bg-amber-400/15 border border-amber-400/30 flex items-center justify-center font-black font-mono text-[12px] text-amber-400 shrink-0">
-													#{item.rank}
-												</div>
-												<div class="flex flex-col min-w-0 text-start">
-													<span class="text-white font-mono font-black text-[14px] truncate">
-														{item.number}
-													</span>
-													<span class="text-[10px] text-white/40">{item.sale_date}</span>
+													<span class="text-[10px] text-white/40 font-mono">{item.date}</span>
 												</div>
 											</div>
 
 											<div class="flex flex-col items-end shrink-0" dir="ltr">
 												<div class="flex items-baseline gap-1">
 													<span class="text-[14px] font-black font-mono text-white">
-														{formatTon(item.price_ton)}
-													</span>
-													<span class="text-[10px] font-black text-[#0098EA]">
-														{t('common.ton')}
-													</span>
-												</div>
-												<span class="text-[10px] font-mono text-emerald-400">
-													{formatUsd(item.price_usd)}
-												</span>
-											</div>
-										</div>
-									)}
-								</For>
-							</Show>
-
-							{/* Gifts Top Models */}
-							<Show when={activeVertical() === 'gifts'}>
-								<For each={giftsQuery.data?.unified_floor_board || []}>
-									{(item, idx) => (
-										<div
-											onClick={() => openValuation(`${item.model_id}-1`)}
-											class="flex items-center justify-between p-4 hover:bg-white/[0.04] transition-all cursor-pointer border-b border-white/5 last:border-0 active:scale-[0.99]"
-										>
-											<div class="flex items-center gap-3.5 min-w-0">
-												<div class="w-8 h-8 rounded-[10px] bg-[#0098EA]/15 border border-[#0098EA]/30 flex items-center justify-center font-black font-mono text-[12px] text-[#0098EA] shrink-0">
-													#{idx() + 1}
-												</div>
-												<div class="flex flex-col min-w-0 text-start">
-													<span class="text-white font-black text-[14px] truncate">
-														{item.name}
-													</span>
-													<span class="text-[10px] text-white/40">
-														Supply: {item.total_supply.toLocaleString()}
-													</span>
-												</div>
-											</div>
-
-											<div class="flex flex-col items-end shrink-0" dir="ltr">
-												<div class="flex items-baseline gap-1">
-													<span class="text-[14px] font-black font-mono text-white">
-														{item.best_floor_gram}
+														{item.priceTon.toLocaleString('en-US')}
 													</span>
 													<span class="text-[10px] font-black text-[#0098EA]">
 														{t('common.ton')}
 													</span>
 												</div>
 												<span class="text-[10px] font-mono text-white/40">
-													{formatUsd(item.best_floor_usd)}
+													≈ ${((item.priceUsd ?? item.priceTon * 5.5) / 1000).toFixed(0)}K
 												</span>
 											</div>
 										</div>
-									)}
-								</For>
-							</Show>
+									);
+								}}
+							</For>
 						</div>
 					</div>
 				</Show>

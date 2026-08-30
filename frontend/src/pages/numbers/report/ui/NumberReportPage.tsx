@@ -9,7 +9,7 @@ import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { copyToClipboard, shareToStory } from '@/shared/lib/telegram-native.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
-import { CreditStoreSheet, useWallet } from '@/widgets/paywall/index.js';
+import { CreditStoreSheet, SearchTeaser, useWallet } from '@/widgets/paywall/index.js';
 
 interface NumberValidation {
 	isValid: boolean;
@@ -364,41 +364,48 @@ export const NumberReportPage: Component = () => {
 		) {
 			return {
 				name: 'GRAIL',
-				badgeBg: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
-				gradient: 'from-[#FFB800] via-[#FF8C00] to-[#E52E71]',
-				glowColor: 'rgba(255, 184, 0, 0.35)',
-				border: 'border-amber-400/40',
-				accent: '#FFB800',
+				wrapper:
+					'from-[#ffaa00] via-[#ff7700] to-[#e65100] shadow-[0_20px_50px_rgba(255,119,0,0.4),inset_0_2px_10px_rgba(255,255,255,0.3)]',
+				badge:
+					'bg-[#ffaa00]/15 border-[#ffaa00]/40 text-[#ffaa00] shadow-[0_0_15px_rgba(255,170,0,0.3)]',
+				glow: 'rgba(255,119,0,0.35)',
 			};
 		}
 		if (num.includes('1234') || num.includes('8989') || num.includes('0101')) {
 			return {
 				name: 'APEX',
-				badgeBg: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
-				gradient: 'from-[#AF52DE] via-[#8A2BE2] to-[#0098EA]',
-				glowColor: 'rgba(175, 82, 222, 0.35)',
-				border: 'border-purple-400/40',
-				accent: '#AF52DE',
+				wrapper:
+					'from-[#0098EA] via-[#0070BA] to-[#004B87] shadow-[0_20px_50px_rgba(0,152,234,0.4),inset_0_2px_10px_rgba(255,255,255,0.3)]',
+				badge:
+					'bg-[#0098EA]/15 border-[#0098EA]/40 text-[#0098EA] shadow-[0_0_15px_rgba(0,152,234,0.3)]',
+				glow: 'rgba(0,152,234,0.35)',
 			};
 		}
 		if (num.endsWith('888') || num.endsWith('777') || num.endsWith('000')) {
 			return {
 				name: 'GRAND',
-				badgeBg: 'bg-[#0098EA]/20 text-[#0098EA] border-[#0098EA]/40',
-				gradient: 'from-[#0098EA] via-[#0070BA] to-[#34C759]',
-				glowColor: 'rgba(0, 152, 234, 0.35)',
-				border: 'border-[#0098EA]/40',
-				accent: '#0098EA',
+				wrapper:
+					'from-[#10b981] via-[#059669] to-[#047857] shadow-[0_20px_50px_rgba(16,185,129,0.4),inset_0_2px_10px_rgba(255,255,255,0.3)]',
+				badge:
+					'bg-[#10b981]/15 border-[#10b981]/40 text-[#10b981] shadow-[0_0_15px_rgba(16,185,129,0.3)]',
+				glow: 'rgba(16,185,129,0.35)',
 			};
 		}
 		return {
 			name: 'STANDARD',
-			badgeBg: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
-			gradient: 'from-[#34C759] via-[#10B981] to-[#0098EA]',
-			glowColor: 'rgba(52, 199, 89, 0.3)',
-			border: 'border-emerald-500/30',
-			accent: '#34C759',
+			wrapper:
+				'from-[#64748b] via-[#475569] to-[#334155] shadow-[0_20px_50px_rgba(100,116,139,0.25),inset_0_2px_10px_rgba(255,255,255,0.15)]',
+			badge: 'bg-[#64748b]/15 border-[#64748b]/40 text-[#cbd5e1]',
+			glow: 'rgba(255,255,255,0.12)',
 		};
+	};
+
+	const getNumberFontSize = (numStr: string) => {
+		const len = (numStr || '').replace(/\s+/g, '').length;
+		if (len <= 7) return '34px';
+		if (len <= 10) return '28px';
+		if (len <= 12) return '24px';
+		return '20px';
 	};
 
 	return (
@@ -471,29 +478,66 @@ export const NumberReportPage: Component = () => {
 				{/* ═══════ 3. STATE 2: PRE-UNLOCK PAYWALL GATE ═══════ */}
 				<Show when={!isAnalyzing() && !isUnlocked() && gateData()}>
 					<div class="mb-6 space-y-4">
-						{/* Target Asset Preview */}
-						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-[#0098EA]/30 rounded-[28px] p-5 shadow-2xl relative overflow-hidden text-center">
-							<div class="flex items-center justify-between mb-3">
-								<span
-									class={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border ${getNumberTheme().badgeBg}`}
-								>
-									{getNumberTheme().name} TIER
-								</span>
-								<span class="text-[10px] font-mono text-emerald-400 font-bold flex items-center gap-1">
-									<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-									{t('numbers.totalSupplySupplyBadge')}
-								</span>
-							</div>
+						{/* 🔒 100% ZERO VALUE LEAKAGE PAYWALL HERO TEASER (SQUARE) */}
+						<div class="w-full aspect-square p-[3px] bg-gradient-to-br from-[#0098EA]/40 via-amber-500/30 to-[#08090D] rounded-[48px] my-2 relative z-20 shadow-[0_20px_50px_rgba(0,152,234,0.2)]">
+							<div class="w-full h-full bg-[#08090D] rounded-[45px] p-6 sm:p-8 relative overflow-hidden flex flex-col justify-between shadow-inner">
+								{/* Ambient Lock Glow */}
+								<div class="absolute inset-0 bg-gradient-to-b from-[#0098EA]/10 via-transparent to-black/60 pointer-events-none" />
 
-							<div class="my-3" dir="ltr">
-								<span class="text-3xl font-black text-white font-mono tracking-tight drop-shadow-md">
-									{gateData()?.display_number || validation().formatted || inputNumber()}
-								</span>
-							</div>
+								<div class="flex justify-between items-center z-10">
+									<span class="px-3.5 py-1.5 bg-[#0098EA]/15 border border-[#0098EA]/40 text-[#0098EA] rounded-[12px] text-[10px] font-black tracking-widest uppercase shadow-sm flex items-center gap-1.5">
+										<span class="material-symbols-outlined text-[14px]">lock</span>
+										{t('valuation.lockedIntel') || 'LOCKED INTEL'}
+									</span>
+									<span class="text-[11px] font-mono font-black text-white/30 tracking-[4px] uppercase bg-white/5 border border-white/5 px-3.5 py-1.5 rounded-[12px]">
+										{'IFRAGMENT'}
+									</span>
+								</div>
 
-							<div class="flex items-center justify-center gap-2 text-[11px] text-white/70 font-semibold bg-white/[0.04] p-2.5 rounded-xl border border-white/5">
-								<span class="material-symbols-outlined text-[#0098EA] text-sm">verified_user</span>
-								<span>{t('numbers.signalsAnalyzedBadge')}</span>
+								{/* Target Number */}
+								<div class="flex flex-col justify-center items-center z-10 text-center flex-grow py-4 w-full">
+									<div class="flex items-center justify-center gap-2 w-full">
+										<span class="text-amber-400/40 font-black text-[22px]">✦</span>
+										<span
+											class="inline-block font-black font-mono tracking-tight text-white drop-shadow-[0_10px_30px_rgba(0,0,0,0.8)] truncate max-w-[85%] pb-1"
+											style={{
+												'font-size': getNumberFontSize(
+													gateData()?.display_number || inputNumber(),
+												),
+											}}
+											dir="ltr"
+										>
+											{gateData()?.display_number || validation().formatted || inputNumber()}
+										</span>
+										<span class="text-amber-400/40 font-black text-[22px]">✦</span>
+									</div>
+
+									<div class="flex justify-center mt-3 w-full">
+										<SearchTeaser vertical="number" value={inputNumber()} />
+									</div>
+								</div>
+
+								{/* Blurred Value Container */}
+								<div class="flex justify-between items-end border-t border-white/10 pt-4 z-10">
+									<div class="flex flex-col gap-1 text-start">
+										<span class="text-[9px] font-black text-white/40 uppercase tracking-widest">
+											{t('numbers.fairValue') || 'ESTIMATED FAIR VALUE'}
+										</span>
+										<div
+											class="flex items-center gap-2 filter blur-[6px] select-none opacity-60"
+											dir="ltr"
+										>
+											<span class="text-[26px] font-black text-white font-mono">••••••••</span>
+											<span class="text-[13px] font-black text-[#0098EA]">
+												{t('common.ton')}
+											</span>
+										</div>
+									</div>
+									<div class="flex items-center gap-1.5 bg-amber-400/20 border border-amber-400/40 text-amber-300 font-mono font-black text-[11px] px-3 py-1.5 rounded-[12px]">
+										<span class="material-symbols-outlined text-[16px]">key</span>
+										<span>{t('valuation.oneCredit') || '1 CREDIT'}</span>
+									</div>
+								</div>
 							</div>
 						</div>
 
@@ -574,103 +618,142 @@ export const NumberReportPage: Component = () => {
 				{/* ═══════ 4. STATE 3: UNLOCKED 10-MODULE LUXURY APPRAISAL REPORT ═══════ */}
 				<Show when={isUnlocked() && reportData()}>
 					<div class="space-y-4">
-						{/* 👑 MODULE 1: 3D HOLOGRAPHIC GYRO CERTIFICATE CARD */}
-						<div class="perspective-[1200px]">
+						{/* 💎 1:1 PERFECT SQUARE 3D HOLOGRAPHIC HERO CARD (PROFILE-READY & SHOWCASE-GRADE) */}
+						<div
+							class={`w-full aspect-square p-[3px] bg-gradient-to-br ${
+								getNumberTheme().wrapper
+							} rounded-[48px] my-2 relative z-20 transition-all duration-300 shadow-2xl`}
+						>
 							<div
 								ref={cardRef}
 								onPointerMove={handlePointerMove}
 								onPointerLeave={handlePointerLeave}
-								class={`relative w-full rounded-[32px] p-6 backdrop-blur-2xl border ${getNumberTheme().border} bg-gradient-to-b from-[#161925]/95 to-[#0A0C12]/98 shadow-2xl transition-transform duration-150 ease-out select-none cursor-pointer overflow-hidden touch-pan-y will-change-transform`}
+								class="w-full h-full bg-[#08090D] rounded-[45px] p-6 sm:p-8 relative overflow-hidden flex flex-col justify-between shadow-inner select-none cursor-pointer touch-pan-y will-change-transform"
 								style={{
 									transform: `perspective(1200px) rotateX(${tilt().x}deg) rotateY(${tilt().y}deg)`,
-									'box-shadow': `0 20px 45px -10px ${getNumberTheme().glowColor}`,
+									'background-image':
+										'radial-gradient(rgba(255, 255, 255, 0.08) 1.5px, transparent 1.5px)',
+									'background-size': '24px 24px',
+									transition: 'transform 0.1s ease-out',
 								}}
 							>
 								{/* Gloss Reflex Overlay */}
 								<div
-									class="absolute inset-0 pointer-events-none rounded-[32px] transition-opacity duration-300"
+									class="absolute inset-0 pointer-events-none z-20 mix-blend-overlay transition-opacity duration-300 opacity-80"
 									style={{
-										background: `radial-gradient(circle 350px at ${tilt().glossX}% ${tilt().glossY}%, rgba(255,255,255,0.18), transparent 70%)`,
+										background: `radial-gradient(circle at ${tilt().glossX}% ${
+											tilt().glossY
+										}%, rgba(255,255,255,0.35) 0%, transparent 60%)`,
 									}}
 								/>
+								<div class="absolute inset-0 bg-gradient-to-b from-white/[0.04] to-transparent pointer-events-none" />
 
-								{/* Card Header Stamp */}
-								<div class="flex items-center justify-between mb-4 relative z-10">
-									<div class="flex items-center gap-2">
-										<span
-											class={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border ${getNumberTheme().badgeBg}`}
-										>
-											{reportData()?.pattern_anatomy?.club_name_en ||
-												reportData()?.category_club ||
-												'GRAIL TIER'}
-										</span>
-										<span class="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1 font-mono">
-											👑 #{reportData()?.global_rank || 1} / 136k
-										</span>
-									</div>
-
-									<div class="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/[0.06] border border-white/10 text-[10px] font-mono font-bold text-white/70">
-										<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-										<span>Telemint NFT</span>
-									</div>
+								{/* Top Header Stamp */}
+								<div class="flex justify-between items-center z-10">
+									<span
+										class={`px-3.5 py-1.5 border rounded-[12px] text-[10px] font-black tracking-widest uppercase shadow-sm ${
+											getNumberTheme().badge
+										}`}
+									>
+										{reportData()?.pattern_anatomy?.club_name_en ||
+											reportData()?.category_club ||
+											`${getNumberTheme().name} TIER`}
+									</span>
+									<span class="text-[11px] font-mono font-black text-white/30 tracking-[3px] uppercase bg-white/5 border border-white/5 px-3.5 py-1.5 rounded-[12px] shadow-inner">
+										👑 #{reportData()?.global_rank || 1} / 136k
+									</span>
 								</div>
 
-								{/* Monospace Phone Number */}
-								<div class="text-center my-4 relative z-10" dir="ltr">
-									<h2 class="text-3xl xs:text-4xl font-black text-white font-mono tracking-tight drop-shadow-md">
-										{reportData()?.display_number || inputNumber()}
-									</h2>
-									<div class="flex items-center justify-center gap-2 mt-1.5">
-										<span class="text-xs text-white/50 font-mono">
+								{/* Center Hero: Monospace Phone Number & Ambient Glow */}
+								<div class="flex flex-col justify-center items-center z-10 text-center flex-grow relative py-2 w-full">
+									{/* Ambient Tier Aura */}
+									<div
+										class="absolute w-full h-[140px] opacity-70 -z-10 pointer-events-none mix-blend-screen"
+										style={{
+											background: `radial-gradient(ellipse 65% 65% at 50% 50%, ${
+												getNumberTheme().glow
+											}, transparent 70%)`,
+										}}
+									/>
+									<div class="flex items-center justify-center gap-2 w-full">
+										<span class="text-white/20 font-black text-[22px] sm:text-[26px] select-none drop-shadow-md">
+											✦
+										</span>
+										<span
+											class="inline-block font-black font-mono tracking-tight text-white drop-shadow-[0_10px_30px_rgba(0,0,0,0.8)] truncate max-w-[85%] pb-1"
+											style={{
+												'font-size': getNumberFontSize(
+													reportData()?.display_number || inputNumber(),
+												),
+											}}
+											dir="ltr"
+										>
+											{reportData()?.display_number || inputNumber()}
+										</span>
+										<span class="text-white/20 font-black text-[22px] sm:text-[26px] select-none drop-shadow-md">
+											✦
+										</span>
+									</div>
+
+									<div class="mt-2">
+										<span class="text-[11px] font-mono font-bold text-white/50 tracking-wider">
+											✦{' '}
 											{isRtl()
 												? reportData()?.pattern_anatomy?.pattern_type_fa ||
 													reportData()?.category_club_fa ||
-													'شماره کلکسیونی ناشناس تلگرام'
+													'شماره کلکسیونی تلگرام'
 												: reportData()?.pattern_anatomy?.pattern_type_en ||
 													reportData()?.category_club ||
-													'Telegram Anonymous Number'}
+													'Telegram Anonymous Number'}{' '}
+											✦
 										</span>
 									</div>
 								</div>
 
-								{/* Valuation Display Banner */}
-								<div class="bg-black/60 backdrop-blur-md rounded-2xl p-4 border border-white/10 relative z-10 mb-4">
-									<div class="flex items-center justify-between mb-1">
-										<span class="text-[10px] uppercase font-bold text-white/50 tracking-wider">
-											{t('numbers.fairValue')}
+								{/* Bottom Valuation & Status Bar */}
+								<div class="flex justify-between items-end border-t border-white/10 pt-4 z-10">
+									<div class="flex flex-col gap-0.5 text-start">
+										<span class="text-[9px] font-black text-white/40 uppercase tracking-widest mb-0.5">
+											{t('numbers.fairValue') || 'ESTIMATED VALUE'}
 										</span>
-										<span class="text-[11px] font-black text-emerald-400 font-mono flex items-center gap-1">
-											<span class="material-symbols-outlined text-xs">verified</span>
-											{reportData()?.confidence_score}% {t('numbers.confidence')}
-										</span>
+										<div class="flex items-center gap-2" dir="ltr">
+											<svg
+												class="w-7 h-7 filter drop-shadow-[0_0_15px_rgba(0,152,234,0.6)]"
+												viewBox="0 0 56 56"
+												fill="none"
+												xmlns="http://www.w3.org/2000/svg"
+												aria-hidden="true"
+											>
+												<path
+													d="M28 56C43.464 56 56 43.464 56 28C56 12.536 43.464 0 28 0C12.536 0 0 12.536 0 28C0 43.464 12.536 56 28 56Z"
+													fill="#0098EA"
+												/>
+												<path
+													d="M37.5603 15.6277H18.4386C14.9228 15.6277 12.6944 19.4202 14.4632 22.4861L26.2644 42.9409C27.0345 44.2765 28.9644 44.2765 29.7345 42.9409L41.5765 22.4861C43.3045 19.4202 41.0761 15.6277 37.5765 15.6277H37.5603ZM26.2483 36.8068L23.6119 31.8097L17.2017 20.6506C16.6742 19.7557 17.3255 18.6198 18.4223 18.6198H26.2483V36.8068ZM38.7972 20.6506L32.387 31.8259L29.7506 36.8068V18.6361H37.5765C38.6734 18.6361 39.3247 19.772 38.7972 20.6669V20.6506Z"
+													fill="white"
+												/>
+											</svg>
+											<span class="text-[28px] sm:text-[32px] font-black text-white leading-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] tracking-tight font-mono">
+												{formatTon(reportData()?.expected_ton)}
+											</span>
+											<span class="text-[13px] font-black text-[#0098EA] leading-none mb-1">
+												{t('common.ton')}
+											</span>
+										</div>
 									</div>
 
-									<div class="flex items-baseline gap-2" dir="ltr">
-										<span class="text-3xl font-black text-white font-mono">
-											{formatTon(reportData()?.expected_ton)}
-										</span>
-										<span class="text-sm font-bold text-[#0098EA]">{t('common.ton')}</span>
-										<span class="text-xs font-semibold text-white/40 ml-1 font-mono">
-											({formatUsd(reportData()?.expected_usd)})
+									<div class="flex flex-col items-end gap-1.5">
+										<div class="flex items-center gap-1.5 bg-[#10b981]/15 px-3 py-1 rounded-[10px] border border-[#10b981]/40 text-[#10b981] font-black uppercase tracking-widest text-[9px] shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+											<div class="w-1.5 h-1.5 bg-[#10b981] rounded-full animate-pulse" />{' '}
+											{t('valuation.verified') || 'VERIFIED'}
+										</div>
+										<span
+											class="text-[13px] text-white/60 font-black leading-none font-mono"
+											dir="ltr"
+										>
+											≈ ${formatUsd(reportData()?.expected_usd)}
 										</span>
 									</div>
-									<div
-										class="text-[11px] text-white/40 font-mono mt-1 flex items-center gap-2"
-										dir="ltr"
-									>
-										<span>
-											Range: {formatTon(reportData()?.low_ton)} -{' '}
-											{formatTon(reportData()?.high_ton)} TON
-										</span>
-										<span>·</span>
-										<span>Rate: ${reportData()?.ton_usd_rate}/TON</span>
-									</div>
-								</div>
-
-								{/* Card Footer */}
-								<div class="flex items-center justify-between text-[10px] text-white/40 font-mono relative z-10">
-									<span>{t('numbers.verifiedStamp')}</span>
-									<span>CERT: {reportData()?.certificate_id || 'IFRG-NUM-001'}</span>
 								</div>
 							</div>
 						</div>
@@ -912,9 +995,7 @@ export const NumberReportPage: Component = () => {
 											{t('numbers.uniqueDigitsLabel')}
 										</span>
 										<span class="font-mono font-black text-white text-xs">
-											{reportData()?.pattern_anatomy?.distinct_digits ||
-												reportData()?.features?.distinct_digits ||
-												1}{' '}
+											{reportData()?.pattern_anatomy?.distinct_digits ?? 1}{' '}
 											{t('numbers.digitUnit')}
 										</span>
 									</div>

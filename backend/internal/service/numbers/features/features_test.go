@@ -133,12 +133,16 @@ func TestNormalizeNumber_Comprehensive(t *testing.T) {
 		{input: "+888 8888 0000", expected: "+88888880000", wantErr: false},
 		{input: "8888", expected: "+8888888", wantErr: false},
 		{input: "+888 8888", expected: "+8888888", wantErr: false},
+		{input: "8000", expected: "+8888000", wantErr: false},
+		{input: "+888 8000", expected: "+8888000", wantErr: false},
+		{input: "8888000", expected: "+8888000", wantErr: false},
 		{input: "01234567", expected: "+88801234567", wantErr: false},
 		{input: "+888 0123 4567", expected: "+88801234567", wantErr: false},
-		{input: "1234", expected: "", wantErr: true},       // non-genesis 4-digit
-		{input: "715311", expected: "", wantErr: true},     // 6 digits
-		{input: "12345", expected: "", wantErr: true},      // 5 digits
-		{input: "123456789", expected: "", wantErr: true},  // 9 digits
+		{input: "1234", expected: "+8881234", wantErr: false},
+		{input: "+888 1234", expected: "+8881234", wantErr: false},
+		{input: "715311", expected: "", wantErr: true},    // 6 digits
+		{input: "12345", expected: "", wantErr: true},     // 5 digits
+		{input: "123456789", expected: "", wantErr: true}, // 9 digits
 	}
 
 	for _, tc := range testCases {
@@ -154,6 +158,29 @@ func TestNormalizeNumber_Comprehensive(t *testing.T) {
 			if res != tc.expected {
 				t.Errorf("for input %q: expected %q, got %q", tc.input, tc.expected, res)
 			}
+		}
+	}
+}
+
+func TestFormatDisplayNumber(t *testing.T) {
+	testCases := []struct {
+		input    string
+		expected string
+	}{
+		{input: "+8888000", expected: "+888 8000"},
+		{input: "8888000", expected: "+888 8000"},
+		{input: "8000", expected: "+888 8000"},
+		{input: "+888 8000", expected: "+888 8000"},
+		{input: "+88888880000", expected: "+888 8888 0000"},
+		{input: "88880000", expected: "+888 8888 0000"},
+		{input: "+88801234567", expected: "+888 0123 4567"},
+		{input: "01234567", expected: "+888 0123 4567"},
+	}
+
+	for _, tc := range testCases {
+		got := FormatDisplayNumber(tc.input)
+		if got != tc.expected {
+			t.Errorf("FormatDisplayNumber(%q) = %q, expected %q", tc.input, got, tc.expected)
 		}
 	}
 }

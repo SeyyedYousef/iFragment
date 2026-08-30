@@ -20,12 +20,19 @@ export function splitNumberPrefix(raw?: string | null): FormattedNumberParts {
 		.replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
 		.replace(/[^\d]/g, '');
 
+	// Extract suffix:
 	// 11 digits: +888 XXXXXXXX -> extract 8-digit suffix
 	if (cleaned.length === 11 && cleaned.startsWith('888')) {
 		cleaned = cleaned.slice(3);
 	} else if (cleaned.length === 7 && cleaned.startsWith('888')) {
-		// 7 digits: +888 8888 -> extract 4-digit genesis suffix
+		// 7 digits: +888 XXXX -> extract 4-digit genesis suffix
 		cleaned = cleaned.slice(3);
+	} else if (cleaned.length === 14 && cleaned.startsWith('888888')) {
+		// Defensive cleanup for redundant double +888 prefix
+		cleaned = cleaned.slice(6);
+	} else if (cleaned.length === 10 && cleaned.startsWith('888888')) {
+		// Defensive cleanup for redundant double +888 prefix (e.g. 888+888+8000)
+		cleaned = cleaned.slice(6);
 	}
 
 	let body = '';
@@ -33,7 +40,7 @@ export function splitNumberPrefix(raw?: string | null): FormattedNumberParts {
 		// Standard 8-digit Telemint format: 4 digits + 4 digits
 		body = `${cleaned.slice(0, 4)} ${cleaned.slice(4)}`;
 	} else if (cleaned.length === 4) {
-		// Genesis 4-digit format: e.g. 8888
+		// Genesis 4-digit format: e.g. 8000, 8888
 		body = cleaned;
 	} else if (cleaned.length > 4 && cleaned.length < 8) {
 		body = `${cleaned.slice(0, 4)} ${cleaned.slice(4)}`;

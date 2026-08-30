@@ -17,9 +17,9 @@ var (
 
 // NormalizeNumber parses and standardizes valid Telegram Anonymous Numbers.
 // Telegram minted exactly 136,566 numbers in total:
-// 1) Genesis 4-digit number: "8888" -> "+8888888"
-// 2) Standard 8-digit numbers: 8 digits -> "+888XXXXXXXX"
-// Numbers with 1..3, 5, 6 (e.g. 715311), 7, or 9+ digits were NEVER minted by Telegram.
+// 1) 4-digit genesis numbers: 4 digits (e.g. 8000, 8888) -> "+888XXXX" (7 digits total with country code)
+// 2) Standard 8-digit numbers: 8 digits (e.g. 88880000, 01234567) -> "+888XXXXXXXX" (11 digits total with country code)
+// Numbers with other lengths (e.g. 1..3, 5, 6 like 715311, 9+) were NEVER minted by Telegram.
 func NormalizeNumber(raw string) (string, error) {
 	cleaned := CleanNumber(raw)
 	if cleaned == "" {
@@ -32,32 +32,29 @@ func NormalizeNumber(raw string) (string, error) {
 		// Format: +888 XXXXXXXX (country code 888 + 8 digits)
 		suffix = cleaned[3:]
 	case len(cleaned) == 7 && strings.HasPrefix(cleaned, "888"):
-		// Format: +888 8888 (country code 888 + 4 genesis digits)
+		// Format: +888 XXXX (country code 888 + 4 digits, e.g. 8000, 8888)
 		suffix = cleaned[3:]
 	case len(cleaned) == 8:
 		// Format: XXXXXXXX (8 digits directly, e.g. 88888888 or 12345678)
 		suffix = cleaned
 	case len(cleaned) == 4:
-		// Format: 8888 (4 genesis digits directly)
+		// Format: XXXX (4 digits directly, e.g. 8000, 8888)
 		suffix = cleaned
 	default:
 		return "", ErrNumberNotMinted
 	}
 
-	// 1. Genesis 4-digit numbers: only "8888"
+	// 1. 4-digit numbers (7 digits with +888)
 	if len(suffix) == 4 {
-		if suffix == "8888" {
-			return "+888" + suffix, nil
-		}
-		return "", ErrNumberNotMinted
+		return "+888" + suffix, nil
 	}
 
-	// 2. Standard 8-digit Telemint numbers
+	// 2. Standard 8-digit Telemint numbers (11 digits with +888)
 	if len(suffix) == 8 {
 		return "+888" + suffix, nil
 	}
 
-	// Any other length (5, 6 like 715311, 7, 9+) is NOT a valid Telegram number
+	// Any other length is NOT a valid Telegram number
 	return "", ErrNumberNotMinted
 }
 
@@ -107,14 +104,22 @@ func ValidateNumber(raw string) bool {
 	return err == nil
 }
 
-// FormatDisplayNumber formats "+88812345678" as "+888 1234 5678"
+// FormatDisplayNumber formats numbers into standardized display strings:
+// - 4 digits (e.g. 8000 or +8888000) -> "+888 8000"
+// - 8 digits (e.g. 12345678 or +88812345678) -> "+888 1234 5678"
 func FormatDisplayNumber(normalized string) string {
 	clean := CleanNumber(normalized)
 	if len(clean) == 11 && strings.HasPrefix(clean, "888") {
 		return fmt.Sprintf("+888 %s %s", clean[3:7], clean[7:11])
 	}
-	if len(clean) == 12 && strings.HasPrefix(clean, "888") {
-		return fmt.Sprintf("+888 %s %s", clean[3:7], clean[7:12])
+	if len(clean) == 7 && strings.HasPrefix(clean, "888") {
+		return fmt.Sprintf("+888 %s", clean[3:7])
+	}
+	if len(clean) == 8 {
+		return fmt.Sprintf("+888 %s %s", clean[0:4], clean[4:8])
+	}
+	if len(clean) == 4 {
+		return fmt.Sprintf("+888 %s", clean)
 	}
 	if strings.HasPrefix(normalized, "+") {
 		return normalized

@@ -22,15 +22,22 @@ function parseNumbersFromHTML(html: string): {
 		const colorMatch = chunk.match(/nftitem__color[^>]*style="background:\s*#?([A-Fa-f0-9]*)"/);
 		const colorHex = colorMatch ? (colorMatch[1] ? `#${colorMatch[1]}` : '#8D66E3') : '#8D66E3';
 
-		const numMatch = chunk.match(/href="\/numbers\/(\d+)\/"[^>]*>([^<]+)<\/a>/);
+		const numMatch = chunk.match(/href="\/numbers\/(\d+)\/"[^>]*>/);
 		if (!numMatch) continue;
 		const rawDigits = numMatch[1];
-		const rawDisplay = numMatch[2].trim();
+
+		// Extract 4-digit or 8-digit suffix
+		let suffix = rawDigits;
+		if (rawDigits.length === 7 && rawDigits.startsWith('888')) {
+			suffix = rawDigits.slice(3);
+		} else if (rawDigits.length === 11 && rawDigits.startsWith('888')) {
+			suffix = rawDigits.slice(3);
+		}
 
 		const isRestricted = chunk.includes('nftitem__banned');
 
 		const marketMatch = chunk.match(/href="(https:\/\/(?:fragment\.com|getgems\.io)[^"]+)"/);
-		const marketUrl = marketMatch ? marketMatch[1] : `https://fragment.com/number/${rawDigits}`;
+		const marketUrl = marketMatch ? marketMatch[1] : `https://fragment.com/number/${suffix}`;
 
 		const tonPrices = [...chunk.matchAll(/class="ton[^"]*"[^>]*><strong[^>]*>([^<]+)<\/strong>/g)].map(
 			(m) => parseFloat(m[1].replace(/,/g, '')) || 0,
@@ -53,9 +60,14 @@ function parseNumbersFromHTML(html: string): {
 		const ownerMatch = chunk.match(/href="\/portfolio\/([^"]+)\/"[^>]*>([^<]+)<\/a>/);
 		const currentOwner = ownerMatch ? ownerMatch[1] : 'Fragment Smart Contract';
 
+		let displayNum = `+888 ${suffix}`;
+		if (suffix.length === 8) {
+			displayNum = `+888 ${suffix.slice(0, 4)} ${suffix.slice(4)}`;
+		}
+
 		items.push({
-			number: rawDisplay.startsWith('+') ? rawDisplay.replace(/\s+/g, '') : `+888${rawDigits}`,
-			display_number: rawDisplay,
+			number: `+888${suffix}`,
+			display_number: displayNum,
 			color_hex: colorHex,
 			color_name: 'NFT Color',
 			last_sale_ton: lastSaleTon,
@@ -462,18 +474,28 @@ export const numbersApi = {
 		const totalPages = Math.ceil(totalCollection / itemsPerPage);
 
 		const fallbackItems: import('../model/types.js').NumberTableItem[] = [];
-		const startNum = 8888000 + (page - 1) * itemsPerPage;
+		const startOffset = (page - 1) * itemsPerPage;
 
 		for (let i = 0; i < itemsPerPage; i++) {
-			let currentNum = startNum + i;
+			const idx = startOffset + i;
+			let numSuffix: string;
+			if (idx < 1000) {
+				numSuffix = String(8000 + idx);
+			} else {
+				numSuffix = String(88880000 + (idx - 1000));
+			}
+
 			if (mask) {
-				const numStr = String(currentNum);
-				if (!numStr.includes(mask)) {
-					currentNum = 8888000 + ((i * 17) % 9000000);
+				if (!numSuffix.includes(mask)) {
+					if (numSuffix.length === 4) {
+						numSuffix = String(8000 + ((idx * 17) % 1000));
+					} else {
+						numSuffix = String(88880000 + ((idx * 17) % 10000000));
+					}
 				}
 			}
 
-			let color = baseColors[(currentNum + i) % baseColors.length];
+			let color = baseColors[idx % baseColors.length];
 			if (nftColors.length > 0) {
 				const chosenHex = nftColors[i % nftColors.length];
 				const hexWithHash = chosenHex.startsWith('#') ? chosenHex : `#${chosenHex}`;
@@ -481,8 +503,8 @@ export const numbersApi = {
 				color = found || { hex: hexWithHash, name: 'NFT Color' };
 			}
 
-			const price = Math.round(2179 + ((currentNum * 13) % 45000));
-			let owners = ((currentNum * 7) % 8) + 1;
+			const price = Math.round(2179 + ((idx * 13) % 45000));
+			let owners = ((idx * 7) % 8) + 1;
 			if (ownersHistory === '1') {
 				owners = 1;
 			} else if (ownersHistory === '2-3') {
@@ -499,9 +521,14 @@ export const numbersApi = {
 				currentBid = Math.round(price * 0.9);
 			}
 
+			let display = `+888 ${numSuffix}`;
+			if (numSuffix.length === 8) {
+				display = `+888 ${numSuffix.slice(0, 4)} ${numSuffix.slice(4)}`;
+			}
+
 			fallbackItems.push({
-				number: `+888${currentNum}`,
-				display_number: `+888 ${String(currentNum).slice(0, 4)} ${String(currentNum).slice(4)}`,
+				number: `+888${numSuffix}`,
+				display_number: display,
 				color_hex: color.hex,
 				color_name: color.name,
 				last_sale_ton: price,
@@ -509,10 +536,10 @@ export const numbersApi = {
 				last_sale_date: 'On-Chain',
 				current_bid_ton: currentBid,
 				owners_count: owners,
-				current_owner: `EQ${String(currentNum).padStart(8, '0')}...Fragment`,
+				current_owner: `EQ${numSuffix.padStart(8, '0')}...Fragment`,
 				is_restricted: isRestricted,
 				source: 'fragment',
-				market_url: `https://fragment.com/number/${currentNum}`,
+				market_url: `https://fragment.com/number/${numSuffix}`,
 			});
 		}
 

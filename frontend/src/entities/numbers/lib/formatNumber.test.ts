@@ -18,6 +18,22 @@ describe('formatNumber utilities', () => {
 			expect(res.fullDisplay).toBe('+888 8888 0000');
 		});
 
+		it('formats genesis 8000 properly', () => {
+			const res = splitNumberPrefix('+888 8000');
+			expect(res.prefix).toBe('+888');
+			expect(res.body).toBe('8000');
+			expect(res.rawDigits).toBe('8000');
+			expect(res.fullDisplay).toBe('+888 8000');
+		});
+
+		it('formats 8888000 properly without duplicate 888', () => {
+			const res = splitNumberPrefix('8888000');
+			expect(res.prefix).toBe('+888');
+			expect(res.body).toBe('8000');
+			expect(res.rawDigits).toBe('8000');
+			expect(res.fullDisplay).toBe('+888 8000');
+		});
+
 		it('formats genesis 8888 properly', () => {
 			const res = splitNumberPrefix('8888');
 			expect(res.body).toBe('8888');

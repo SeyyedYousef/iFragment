@@ -689,35 +689,25 @@ func (r *OwnerRepo) SearchUsers(ctx context.Context, searchQuery string) ([]Sear
 
 func (r *OwnerRepo) SearchUsersPaginated(ctx context.Context, searchQuery string, limit, offset int, filter string) ([]SearchUserResult, int64, error) {
 	searchQuery = strings.TrimSpace(searchQuery)
-
-	isNumeric := true
-	if searchQuery != "" {
-		for _, c := range searchQuery {
-			if c < '0' || c > '9' {
-				isNumeric = false
-				break
-			}
-		}
-	} else {
-		isNumeric = false
-	}
+	cleanQuery := strings.TrimPrefix(searchQuery, "@")
 
 	var conditions []string
 	var args []interface{}
 	idx := 1
 
-	if searchQuery != "" {
-		if isNumeric {
-			id, _ := strconv.ParseInt(searchQuery, 10, 64)
-			conditions = append(conditions, fmt.Sprintf("u.telegram_id = $%d", idx))
-			args = append(args, id)
-			idx++
+	if cleanQuery != "" {
+		escaped := strings.ReplaceAll(cleanQuery, "\\", "\\\\")
+		escaped = strings.ReplaceAll(escaped, "%", "\\%")
+		escaped = strings.ReplaceAll(escaped, "_", "\\_")
+		likePattern := "%" + escaped + "%"
+
+		if id, err := strconv.ParseInt(cleanQuery, 10, 64); err == nil && id > 0 {
+			conditions = append(conditions, fmt.Sprintf("(u.telegram_id = $%d OR u.username ILIKE $%d OR u.first_name ILIKE $%d OR u.last_name ILIKE $%d)", idx, idx+1, idx+1, idx+1))
+			args = append(args, id, likePattern)
+			idx += 2
 		} else {
-			escapedQuery := strings.ReplaceAll(searchQuery, "\\", "\\\\")
-			escapedQuery = strings.ReplaceAll(escapedQuery, "%", "\\%")
-			escapedQuery = strings.ReplaceAll(escapedQuery, "_", "\\_")
-			conditions = append(conditions, fmt.Sprintf("(u.username %% $%d OR u.first_name %% $%d OR u.last_name %% $%d)", idx, idx, idx))
-			args = append(args, escapedQuery)
+			conditions = append(conditions, fmt.Sprintf("(u.username ILIKE $%d OR u.first_name ILIKE $%d OR u.last_name ILIKE $%d OR CAST(u.telegram_id AS TEXT) LIKE $%d)", idx, idx, idx, idx))
+			args = append(args, likePattern)
 			idx++
 		}
 	}
@@ -743,7 +733,10 @@ func (r *OwnerRepo) SearchUsersPaginated(ctx context.Context, searchQuery string
 	`, whereClause)
 
 	var total int64
-	_ = r.db.Pool.QueryRow(ctx, countQuery, args...).Scan(&total)
+	err := r.db.Pool.QueryRow(ctx, countQuery, args...).Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
 
 	dataQuery := fmt.Sprintf(`
 		SELECT u.telegram_id, COALESCE(u.username, ''), COALESCE(u.first_name, ''), COALESCE(u.last_name, ''),
