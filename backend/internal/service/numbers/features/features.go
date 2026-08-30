@@ -26,10 +26,22 @@ func NormalizeNumber(raw string) (string, error) {
 		return "", ErrInvalidNumberFormat
 	}
 
-	// Extract the suffix after +888 or 888
-	suffix := cleaned
-	if strings.HasPrefix(cleaned, "888") && len(cleaned) > 3 {
-		suffix = strings.TrimPrefix(cleaned, "888")
+	var suffix string
+	switch {
+	case len(cleaned) == 11 && strings.HasPrefix(cleaned, "888"):
+		// Format: +888 XXXXXXXX (country code 888 + 8 digits)
+		suffix = cleaned[3:]
+	case len(cleaned) == 7 && strings.HasPrefix(cleaned, "888"):
+		// Format: +888 8888 (country code 888 + 4 genesis digits)
+		suffix = cleaned[3:]
+	case len(cleaned) == 8:
+		// Format: XXXXXXXX (8 digits directly, e.g. 88888888 or 12345678)
+		suffix = cleaned
+	case len(cleaned) == 4:
+		// Format: 8888 (4 genesis digits directly)
+		suffix = cleaned
+	default:
+		return "", ErrNumberNotMinted
 	}
 
 	// 1. Genesis 4-digit numbers: only "8888"

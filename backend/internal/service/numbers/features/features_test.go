@@ -121,3 +121,41 @@ func TestCleanNumber_PersianAndArabicNumerals(t *testing.T) {
 	}
 }
 
+func TestNormalizeNumber_Comprehensive(t *testing.T) {
+	testCases := []struct {
+		input    string
+		expected string
+		wantErr  bool
+	}{
+		{input: "88888888", expected: "+88888888888", wantErr: false},
+		{input: "+888 8888 8888", expected: "+88888888888", wantErr: false},
+		{input: "88880000", expected: "+88888880000", wantErr: false},
+		{input: "+888 8888 0000", expected: "+88888880000", wantErr: false},
+		{input: "8888", expected: "+8888888", wantErr: false},
+		{input: "+888 8888", expected: "+8888888", wantErr: false},
+		{input: "01234567", expected: "+88801234567", wantErr: false},
+		{input: "+888 0123 4567", expected: "+88801234567", wantErr: false},
+		{input: "1234", expected: "", wantErr: true},       // non-genesis 4-digit
+		{input: "715311", expected: "", wantErr: true},     // 6 digits
+		{input: "12345", expected: "", wantErr: true},      // 5 digits
+		{input: "123456789", expected: "", wantErr: true},  // 9 digits
+	}
+
+	for _, tc := range testCases {
+		res, err := NormalizeNumber(tc.input)
+		if tc.wantErr {
+			if err == nil {
+				t.Errorf("expected error for input %q, got %q", tc.input, res)
+			}
+		} else {
+			if err != nil {
+				t.Errorf("unexpected error for input %q: %v", tc.input, err)
+			}
+			if res != tc.expected {
+				t.Errorf("for input %q: expected %q, got %q", tc.input, tc.expected, res)
+			}
+		}
+	}
+}
+
+

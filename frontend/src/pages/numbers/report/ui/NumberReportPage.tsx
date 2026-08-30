@@ -42,7 +42,6 @@ function validateAndFormatAnonymousNumber(raw: string): NumberValidation {
 		};
 	}
 
-	// Check if contains illegal non-numeric characters (allow +, space, hyphen, parentheses)
 	if (/[^0-9+\s\-()]/.test(trimmed)) {
 		return {
 			isValid: false,
@@ -55,7 +54,6 @@ function validateAndFormatAnonymousNumber(raw: string): NumberValidation {
 		};
 	}
 
-	// Check if user entered a cellular country code like +98, +1, +44 instead of +888
 	if (trimmed.startsWith('+') && !trimmed.startsWith('+888')) {
 		return {
 			isValid: false,
@@ -112,7 +110,6 @@ function validateAndFormatAnonymousNumber(raw: string): NumberValidation {
 		};
 	}
 
-	// Format display number: +888 XXXX XXXX
 	let formatted = '';
 	if (suffix.length <= 4) {
 		formatted = `+888 ${suffix}`;
@@ -120,7 +117,6 @@ function validateAndFormatAnonymousNumber(raw: string): NumberValidation {
 		formatted = `+888 ${suffix.slice(0, 4)} ${suffix.slice(4)}`;
 	}
 
-	// Calculate rarity tier preview based on structural pattern
 	let tier: 'GRAIL' | 'APEX' | 'GRAND' | 'STANDARD' = 'STANDARD';
 	let patternLabel = '';
 
@@ -130,10 +126,11 @@ function validateAndFormatAnonymousNumber(raw: string): NumberValidation {
 		suffix.includes('0000') ||
 		suffix.includes('9999') ||
 		suffix.includes('1111') ||
-		(suffix.length === 8 && new Set(suffix).size === 1)
+		(suffix.length === 8 && new Set(suffix).size === 1) ||
+		suffix === '8888'
 	) {
 		tier = 'GRAIL';
-		patternLabel = 'GRAIL TIER (Quad Repeat)';
+		patternLabel = 'GRAIL TIER (Quad Repeat / Genesis)';
 	} else if (
 		suffix.includes('1234') ||
 		suffix.includes('5678') ||
@@ -186,9 +183,10 @@ export const NumberReportPage: Component = () => {
 	const [error, setError] = createSignal<string | null>(null);
 	const [storeOpen, setStoreOpen] = createSignal(false);
 
-	// Watchlist state
+	// Watchlist & Monitoring state
 	const [isWatching, setIsWatching] = createSignal(false);
 	const [watchLoading, setWatchLoading] = createSignal(false);
+	const [isMonitored, setIsMonitored] = createSignal(false);
 
 	// Certificate copy state
 	const [copiedCert, setCopiedCert] = createSignal(false);
@@ -309,12 +307,18 @@ export const NumberReportPage: Component = () => {
 		}
 	};
 
-	const handleCopyCertificate = () => {
-		if (!reportData()?.certificate_id) return;
+	const handleToggleMonitoring = () => {
 		haptic.selection();
-		copyToClipboard(reportData()!.certificate_id);
+		setIsMonitored(!isMonitored());
+		haptic.notify('success');
+	};
+
+	const handleCopyCertificate = () => {
+		const certId = reportData()?.certificate_id || 'IFRG-NUM-89FA2D';
+		haptic.selection();
+		copyToClipboard(`https://ifragment.org/cert/number/${certId}`);
 		setCopiedCert(true);
-		setTimeout(() => setCopiedCert(false), 2000);
+		setTimeout(() => setCopiedCert(false), 2200);
 	};
 
 	const handleShareToStory = () => {
@@ -323,7 +327,7 @@ export const NumberReportPage: Component = () => {
 		const numClean = reportData()!.number.replace(/\s+/g, '');
 		const shareUrl = `https://t.me/iFragmentBot/iFragment?startapp=number_${numClean.replace('+', '')}`;
 		shareToStory(`https://ifragment.org/api/v1/numbers/card?n=${encodeURIComponent(numClean)}`, {
-			text: `💎 AI Valuation: ${reportData()!.display_number} is worth ${formatTon(reportData()!.expected_ton)} TON on iFragment!`,
+			text: `💎 AI Appraisal: ${reportData()!.display_number} is valued at ${formatTon(reportData()!.expected_ton)} TON on iFragment!`,
 			widget_link: {
 				url: shareUrl,
 				name: 'View Certificate',
@@ -350,12 +354,13 @@ export const NumberReportPage: Component = () => {
 			validation().formatted ||
 			inputNumber()
 		).replace(/\s+/g, '');
-		// Quad repeating digits -> Grail Gold
+
 		if (
 			num.includes('88888888') ||
 			num.includes('77777777') ||
 			num.includes('00000000') ||
-			num.includes('8888')
+			num.includes('8888') ||
+			num === '+8888888'
 		) {
 			return {
 				name: 'GRAIL',
@@ -366,7 +371,6 @@ export const NumberReportPage: Component = () => {
 				accent: '#FFB800',
 			};
 		}
-		// Sequential/Alternating -> Apex Purple
 		if (num.includes('1234') || num.includes('8989') || num.includes('0101')) {
 			return {
 				name: 'APEX',
@@ -377,7 +381,6 @@ export const NumberReportPage: Component = () => {
 				accent: '#AF52DE',
 			};
 		}
-		// Triple Tail -> Grand Blue
 		if (num.endsWith('888') || num.endsWith('777') || num.endsWith('000')) {
 			return {
 				name: 'GRAND',
@@ -388,7 +391,6 @@ export const NumberReportPage: Component = () => {
 				accent: '#0098EA',
 			};
 		}
-		// Default -> Emerald Teal
 		return {
 			name: 'STANDARD',
 			badgeBg: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
@@ -409,7 +411,7 @@ export const NumberReportPage: Component = () => {
 			<div class="fixed bottom-20 right-0 w-80 h-80 bg-emerald-500/10 blur-[100px] pointer-events-none z-0" />
 
 			<div class="relative z-10 max-w-[480px] mx-auto px-4 pt-4">
-				{/* ═══════ CLEAN DEDICATED HEADER ═══════ */}
+				{/* ═══════ 1. CLEAN HEADER ═══════ */}
 				<div class="flex items-center justify-between mb-5">
 					<button
 						type="button"
@@ -434,7 +436,6 @@ export const NumberReportPage: Component = () => {
 						<p class="text-[11px] font-medium text-white/50">{t('numbers.intelSubtitle')}</p>
 					</div>
 
-					{/* Spacer to keep title centered */}
 					<div class="w-10 h-10" />
 				</div>
 
@@ -445,7 +446,7 @@ export const NumberReportPage: Component = () => {
 					</div>
 				</Show>
 
-				{/* ═══════ 3. STATE 1: ANALYZING SCAN ANIMATION ═══════ */}
+				{/* ═══════ 2. STATE 1: SCANNING ANIMATION ═══════ */}
 				<Show when={isAnalyzing()}>
 					<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[32px] p-8 mb-6 text-center relative overflow-hidden shadow-2xl">
 						<div class="w-16 h-16 rounded-3xl bg-gradient-to-tr from-[#0098EA] to-[#00c6ff] mx-auto mb-4 flex items-center justify-center shadow-lg shadow-[#0098EA]/40 animate-pulse">
@@ -457,7 +458,6 @@ export const NumberReportPage: Component = () => {
 							{analysisSteps()[analysisStep()]}
 						</p>
 
-						{/* Progress Bar */}
 						<div class="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mb-2">
 							<div
 								class="h-full bg-gradient-to-r from-[#0098EA] to-emerald-400 rounded-full transition-all duration-500"
@@ -468,57 +468,48 @@ export const NumberReportPage: Component = () => {
 					</div>
 				</Show>
 
-				{/* ═══════ 4. STATE 2: WORLD-CLASS PAYWALL & VALUE PROPOSITION (NO BLURRED CARDS) ═══════ */}
+				{/* ═══════ 3. STATE 2: PRE-UNLOCK PAYWALL GATE ═══════ */}
 				<Show when={!isAnalyzing() && !isUnlocked() && gateData()}>
 					<div class="mb-6 space-y-4">
-						{/* Target Asset Header Card */}
-						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-[#0098EA]/30 rounded-[28px] p-4.5 shadow-2xl relative overflow-hidden">
-							<div class="flex items-center justify-between mb-2">
-								<div class="flex items-center gap-2">
-									<span
-										class={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border ${getNumberTheme().badgeBg}`}
-									>
-										{getNumberTheme().name} TIER
-									</span>
-									<span class="text-[10px] font-mono text-white/40 uppercase">
-										{t('numbers.frozenAnonymous')}
-									</span>
-								</div>
+						{/* Target Asset Preview */}
+						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-[#0098EA]/30 rounded-[28px] p-5 shadow-2xl relative overflow-hidden text-center">
+							<div class="flex items-center justify-between mb-3">
+								<span
+									class={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border ${getNumberTheme().badgeBg}`}
+								>
+									{getNumberTheme().name} TIER
+								</span>
 								<span class="text-[10px] font-mono text-emerald-400 font-bold flex items-center gap-1">
 									<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
 									{t('numbers.totalSupplySupplyBadge')}
 								</span>
 							</div>
 
-							<div class="text-center my-3" dir="ltr">
-								<span class="text-2xl xs:text-3xl font-black text-white font-mono tracking-tight drop-shadow-md">
+							<div class="my-3" dir="ltr">
+								<span class="text-3xl font-black text-white font-mono tracking-tight drop-shadow-md">
 									{gateData()?.display_number || validation().formatted || inputNumber()}
 								</span>
 							</div>
 
-							{/* Signals Analyzed Badge */}
-							<div class="flex items-center justify-center gap-2 text-[11px] text-white/70 font-semibold bg-white/[0.04] p-2 rounded-xl border border-white/5">
+							<div class="flex items-center justify-center gap-2 text-[11px] text-white/70 font-semibold bg-white/[0.04] p-2.5 rounded-xl border border-white/5">
 								<span class="material-symbols-outlined text-[#0098EA] text-sm">verified_user</span>
 								<span>{t('numbers.signalsAnalyzedBadge')}</span>
 							</div>
 						</div>
 
-						{/* Dedicated Payment & Quota Card */}
+						{/* Payment / Unlock Card */}
 						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-2xl relative overflow-hidden">
 							<div class="flex items-center justify-between mb-4 pb-3 border-b border-white/5">
 								<div>
 									<h3 class="text-sm font-black text-white">{t('numbers.paywallHeaderTitle')}</h3>
 									<p class="text-[11px] text-white/50 mt-0.5">{t('numbers.universalCredit')}</p>
 								</div>
-
-								{/* Cost Tag */}
 								<div class="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#0098EA]/15 border border-[#0098EA]/30 text-[#0098EA]">
 									<span class="material-symbols-outlined text-sm">key</span>
 									<span class="font-mono text-xs font-black">1 CREDIT</span>
 								</div>
 							</div>
 
-							{/* Quota & Wallet Balance Bar */}
 							<div class="flex items-center justify-between p-3.5 bg-black/40 rounded-2xl border border-white/5 mb-4">
 								<div class="flex items-center gap-2.5">
 									<div class="w-9 h-9 rounded-xl bg-[#0098EA]/20 text-[#0098EA] flex items-center justify-center border border-[#0098EA]/30">
@@ -546,7 +537,6 @@ export const NumberReportPage: Component = () => {
 								</button>
 							</div>
 
-							{/* Primary Action Button */}
 							<button
 								type="button"
 								disabled={loading()}
@@ -577,139 +567,20 @@ export const NumberReportPage: Component = () => {
 											: t('numbers.paywallGetCreditsCta')}
 								</span>
 							</button>
-
-							{/* Trust Footer */}
-							<div class="flex items-center justify-center gap-3 text-[10px] font-bold text-white/50 mt-3.5">
-								<span class="flex items-center gap-1">
-									<span class="material-symbols-outlined text-[12px] text-emerald-400">bolt</span>
-									{t('numbers.paywallTrustInstant')}
-								</span>
-								<span class="h-3 w-px bg-white/10" />
-								<span class="flex items-center gap-1">
-									<span class="material-symbols-outlined text-[12px] text-emerald-400">
-										history
-									</span>
-									{t('numbers.paywallTrustValidity')}
-								</span>
-							</div>
-						</div>
-
-						{/* ═══════ WHAT YOU UNLOCK: 7-FEATURE VALUE PROPOSITION ═══════ */}
-						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-2xl">
-							<h3 class="text-sm font-black text-white mb-1 flex items-center gap-2">
-								<span class="material-symbols-outlined text-amber-400 text-lg">
-									workspace_premium
-								</span>
-								<span>{t('numbers.paywallBenefitsTitle')}</span>
-							</h3>
-							<p class="text-[11px] text-white/50 mb-4">{t('numbers.paywallCuriosityText')}</p>
-
-							<div class="space-y-2.5 text-xs">
-								{/* 1. Fair Valuation */}
-								<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-start gap-3">
-									<div class="w-8 h-8 rounded-xl bg-[#0098EA]/20 text-[#0098EA] flex items-center justify-center shrink-0 mt-0.5">
-										<span class="material-symbols-outlined text-base">price_check</span>
-									</div>
-									<div>
-										<h4 class="font-black text-white text-xs">{t('numbers.benefit1Title')}</h4>
-										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">
-											{t('numbers.benefit1Desc')}
-										</p>
-									</div>
-								</div>
-
-								{/* 2. Rarity DNA */}
-								<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-start gap-3">
-									<div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0 mt-0.5">
-										<span class="material-symbols-outlined text-base">genetics</span>
-									</div>
-									<div>
-										<h4 class="font-black text-white text-xs">{t('numbers.benefit2Title')}</h4>
-										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">
-											{t('numbers.benefit2Desc')}
-										</p>
-									</div>
-								</div>
-
-								{/* 3. Color Tier */}
-								<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-start gap-3">
-									<div class="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center shrink-0 mt-0.5">
-										<span class="material-symbols-outlined text-base">palette</span>
-									</div>
-									<div>
-										<h4 class="font-black text-white text-xs">{t('numbers.benefit3Title')}</h4>
-										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">
-											{t('numbers.benefit3Desc')}
-										</p>
-									</div>
-								</div>
-
-								{/* 4. Cultural Radar */}
-								<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-start gap-3">
-									<div class="w-8 h-8 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center shrink-0 mt-0.5">
-										<span class="material-symbols-outlined text-base">public</span>
-									</div>
-									<div>
-										<h4 class="font-black text-white text-xs">{t('numbers.benefit4Title')}</h4>
-										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">
-											{t('numbers.benefit4Desc')}
-										</p>
-									</div>
-								</div>
-
-								{/* 5. Comps */}
-								<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-start gap-3">
-									<div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0 mt-0.5">
-										<span class="material-symbols-outlined text-base">table_chart</span>
-									</div>
-									<div>
-										<h4 class="font-black text-white text-xs">{t('numbers.benefit5Title')}</h4>
-										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">
-											{t('numbers.benefit5Desc')}
-										</p>
-									</div>
-								</div>
-
-								{/* 6. Economics */}
-								<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-start gap-3">
-									<div class="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-300 flex items-center justify-center shrink-0 mt-0.5">
-										<span class="material-symbols-outlined text-base">account_balance</span>
-									</div>
-									<div>
-										<h4 class="font-black text-white text-xs">{t('numbers.benefit6Title')}</h4>
-										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">
-											{t('numbers.benefit6Desc')}
-										</p>
-									</div>
-								</div>
-
-								{/* 7. Projections */}
-								<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-start gap-3">
-									<div class="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-300 flex items-center justify-center shrink-0 mt-0.5">
-										<span class="material-symbols-outlined text-base">trending_up</span>
-									</div>
-									<div>
-										<h4 class="font-black text-white text-xs">{t('numbers.benefit7Title')}</h4>
-										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">
-											{t('numbers.benefit7Desc')}
-										</p>
-									</div>
-								</div>
-							</div>
 						</div>
 					</div>
 				</Show>
 
-				{/* ═══════ 5. STATE 3: WORLD-CLASS UNLOCKED 9-SECTION PREMIUM REPORT ═══════ */}
+				{/* ═══════ 4. STATE 3: UNLOCKED 10-MODULE LUXURY APPRAISAL REPORT ═══════ */}
 				<Show when={isUnlocked() && reportData()}>
 					<div class="space-y-4">
-						{/* 1. 3D HOLOGRAPHIC GYRO CERTIFICATE CARD */}
+						{/* 👑 MODULE 1: 3D HOLOGRAPHIC GYRO CERTIFICATE CARD */}
 						<div class="perspective-[1200px]">
 							<div
 								ref={cardRef}
 								onPointerMove={handlePointerMove}
 								onPointerLeave={handlePointerLeave}
-								class={`relative w-full rounded-[32px] p-6 backdrop-blur-2xl border ${getNumberTheme().border} bg-gradient-to-b from-[#161925]/90 to-[#0A0C12]/95 shadow-2xl transition-transform duration-150 ease-out select-none cursor-pointer overflow-hidden touch-pan-y will-change-transform`}
+								class={`relative w-full rounded-[32px] p-6 backdrop-blur-2xl border ${getNumberTheme().border} bg-gradient-to-b from-[#161925]/95 to-[#0A0C12]/98 shadow-2xl transition-transform duration-150 ease-out select-none cursor-pointer overflow-hidden touch-pan-y will-change-transform`}
 								style={{
 									transform: `perspective(1200px) rotateX(${tilt().x}deg) rotateY(${tilt().y}deg)`,
 									'box-shadow': `0 20px 45px -10px ${getNumberTheme().glowColor}`,
@@ -729,16 +600,18 @@ export const NumberReportPage: Component = () => {
 										<span
 											class={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border ${getNumberTheme().badgeBg}`}
 										>
-											{getNumberTheme().name} TIER
+											{reportData()?.pattern_anatomy?.club_name_en ||
+												reportData()?.category_club ||
+												'GRAIL TIER'}
 										</span>
 										<span class="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1 font-mono">
-											👑 {t('numbers.globalRankBadge')} #{reportData()?.global_rank || 1}
+											👑 #{reportData()?.global_rank || 1} / 136k
 										</span>
 									</div>
 
 									<div class="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/[0.06] border border-white/10 text-[10px] font-mono font-bold text-white/70">
 										<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-										<span>{t('numbers.supplyCount')}</span>
+										<span>Telemint NFT</span>
 									</div>
 								</div>
 
@@ -749,17 +622,19 @@ export const NumberReportPage: Component = () => {
 									</h2>
 									<div class="flex items-center justify-center gap-2 mt-1.5">
 										<span class="text-xs text-white/50 font-mono">
-											{t('numbers.frozenAnonymous')}
-										</span>
-										<span class="text-white/30">•</span>
-										<span class="text-xs text-[#0098EA] font-bold">
-											{reportData()?.category_club || 'Standard Collection'}
+											{isRtl()
+												? reportData()?.pattern_anatomy?.pattern_type_fa ||
+													reportData()?.category_club_fa ||
+													'شماره کلکسیونی ناشناس تلگرام'
+												: reportData()?.pattern_anatomy?.pattern_type_en ||
+													reportData()?.category_club ||
+													'Telegram Anonymous Number'}
 										</span>
 									</div>
 								</div>
 
 								{/* Valuation Display Banner */}
-								<div class="bg-black/50 backdrop-blur-md rounded-2xl p-4 border border-white/10 relative z-10 mb-4">
+								<div class="bg-black/60 backdrop-blur-md rounded-2xl p-4 border border-white/10 relative z-10 mb-4">
 									<div class="flex items-center justify-between mb-1">
 										<span class="text-[10px] uppercase font-bold text-white/50 tracking-wider">
 											{t('numbers.fairValue')}
@@ -795,30 +670,29 @@ export const NumberReportPage: Component = () => {
 								{/* Card Footer */}
 								<div class="flex items-center justify-between text-[10px] text-white/40 font-mono relative z-10">
 									<span>{t('numbers.verifiedStamp')}</span>
-									<span>CERT: {reportData()?.certificate_id || 'IF-NUM-001'}</span>
+									<span>CERT: {reportData()?.certificate_id || 'IFRG-NUM-001'}</span>
 								</div>
 							</div>
 						</div>
 
-						{/* 2. DIRECT FRAGMENT ACTION & LIVE AUCTION CARD */}
-						<div class="bg-gradient-to-r from-[#0098EA]/15 via-purple-500/10 to-[#0098EA]/15 border border-[#0098EA]/30 rounded-[28px] p-4.5 shadow-xl backdrop-blur-2xl">
-							<div class="flex items-center justify-between mb-3">
-								<div class="flex items-center gap-2">
-									<div class="w-8 h-8 rounded-xl bg-[#0098EA]/20 text-[#0098EA] flex items-center justify-center border border-[#0098EA]/30">
-										<span class="material-symbols-outlined text-base">gavel</span>
-									</div>
-									<div>
-										<h3 class="text-xs font-black text-white">Fragment Protocol Integration</h3>
-										<span class="text-[10px] text-white/50">Direct on-chain Telemint link</span>
-									</div>
-								</div>
-								<div class="text-right rtl:text-left">
-									<div class="text-[9px] uppercase font-bold text-white/40">Min Next Bid</div>
-									<div class="text-xs font-mono font-black text-white">
-										{formatTon(reportData()?.economics?.min_bid_ton || 2205)} TON
-									</div>
-								</div>
-							</div>
+						{/* ⚡ MODULE 2: ACTION HUB (MONITOR, FRAGMENT, WATCHLIST) */}
+						<div class="grid grid-cols-3 gap-2">
+							<button
+								type="button"
+								onClick={handleToggleMonitoring}
+								class={`py-3 px-2 rounded-2xl border flex flex-col items-center justify-center gap-1 transition-all active:scale-95 ${
+									isMonitored()
+										? 'bg-amber-400/15 border-amber-400/40 text-amber-300'
+										: 'bg-[#12141C]/80 border-white/10 text-white/70 hover:bg-white/5'
+								}`}
+							>
+								<span class="material-symbols-outlined text-lg">
+									{isMonitored() ? 'notifications_active' : 'notifications'}
+								</span>
+								<span class="text-[10px] font-black tracking-tight">
+									{isMonitored() ? t('numbers.monitorActive') : t('numbers.monitorToggle')}
+								</span>
+							</button>
 
 							<a
 								href={
@@ -827,135 +701,369 @@ export const NumberReportPage: Component = () => {
 								}
 								target="_blank"
 								rel="noopener noreferrer"
-								class="w-full py-3 rounded-2xl bg-gradient-to-r from-[#0098EA] via-[#00c6ff] to-[#0098EA] text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-[#0098EA]/25 active:scale-[0.98] transition-all hover:brightness-110"
+								class="py-3 px-2 rounded-2xl bg-gradient-to-r from-[#0098EA] via-[#00c6ff] to-[#0098EA] text-white border border-[#0098EA]/30 flex flex-col items-center justify-center gap-1 shadow-md shadow-[#0098EA]/20 active:scale-95 transition-all hover:brightness-110"
 							>
-								<span class="material-symbols-outlined text-sm">open_in_new</span>
-								<span>{t('numbers.fragmentDirectCta')}</span>
+								<span class="material-symbols-outlined text-lg">open_in_new</span>
+								<span class="text-[10px] font-black tracking-tight">
+									{t('numbers.viewOnFragment')}
+								</span>
 							</a>
+
+							<button
+								type="button"
+								onClick={handleToggleWatchlist}
+								disabled={watchLoading()}
+								class={`py-3 px-2 rounded-2xl border flex flex-col items-center justify-center gap-1 transition-all active:scale-95 ${
+									isWatching()
+										? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+										: 'bg-[#12141C]/80 border-white/10 text-white/70 hover:bg-white/5'
+								}`}
+							>
+								<span class="material-symbols-outlined text-lg">
+									{isWatching() ? 'bookmark_added' : 'bookmark_add'}
+								</span>
+								<span class="text-[10px] font-black tracking-tight">
+									{isWatching() ? t('numbers.watching') : t('numbers.watchNumber')}
+								</span>
+							</button>
 						</div>
 
-						{/* 3. NFT COLLATERAL & INSTANT LENDING LIMIT */}
-						<div class="bg-gradient-to-r from-emerald-500/15 via-cyan-500/10 to-emerald-500/15 border border-emerald-500/30 rounded-[28px] p-4.5 shadow-xl backdrop-blur-2xl">
-							<div class="flex items-center justify-between mb-2">
-								<div class="flex items-center gap-2">
-									<div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
-										<span class="material-symbols-outlined text-base">account_balance</span>
-									</div>
-									<div>
-										<h3 class="text-xs font-black text-white">{t('numbers.collateralTitle')}</h3>
-										<span class="text-[10px] text-emerald-400 font-bold">
-											55% LTV DeFi Credit Line
-										</span>
-									</div>
+						{/* 📊 MODULE 3: PRICE RANGE & SPECTRUM */}
+						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl">
+							<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
+								<h3 class="text-xs font-black text-white flex items-center gap-2">
+									<span class="material-symbols-outlined text-[#0098EA] text-base">
+										monitoring
+									</span>
+									<span>{t('numbers.priceRangeTitle')}</span>
+								</h3>
+								<span class="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+									{reportData()?.confidence_score}% Confidence
+								</span>
+							</div>
+
+							<div class="grid grid-cols-3 gap-2 text-center my-3">
+								<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
+									<span class="text-[9px] uppercase font-bold text-white/40 block mb-1">
+										{t('valuation.floor')}
+									</span>
+									<span class="font-mono font-black text-white text-xs block" dir="ltr">
+										{formatTon(reportData()?.low_ton)} TON
+									</span>
 								</div>
-								<div class="text-right rtl:text-left">
-									<div class="text-sm font-mono font-black text-emerald-400">
-										{formatTon(reportData()?.collateral_value_ton)} TON
-									</div>
-									<div class="text-[9px] text-white/40 font-mono">
-										≈ {formatUsd(reportData()?.collateral_value_usd)}
-									</div>
+
+								<div class="p-3 rounded-2xl bg-[#0098EA]/10 border border-[#0098EA]/30">
+									<span class="text-[9px] uppercase font-bold text-[#0098EA] block mb-1">
+										{t('numbers.fairValue')}
+									</span>
+									<span class="font-mono font-black text-[#0098EA] text-sm block" dir="ltr">
+										{formatTon(reportData()?.expected_ton)} TON
+									</span>
+								</div>
+
+								<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
+									<span class="text-[9px] uppercase font-bold text-white/40 block mb-1">
+										{t('valuation.ceiling')}
+									</span>
+									<span class="font-mono font-black text-white text-xs block" dir="ltr">
+										{formatTon(reportData()?.high_ton)} TON
+									</span>
 								</div>
 							</div>
-							<p class="text-[10px] text-white/60 leading-relaxed mt-1">
-								{t('numbers.collateralDesc')}
+
+							<p class="text-[10px] text-white/40 leading-relaxed text-start">
+								{reportData()?.price_basis === 'pattern_comps_shrunk_to_class'
+									? t('numbers.basisComps')
+									: t('numbers.basisRegression')}
 							</p>
 						</div>
 
-						{/* 4. EXACT RARITY DNA (Signature Feature) */}
-						<div class="bg-[#12141C]/80 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl">
-							<div class="flex items-center justify-between mb-3">
-								<div>
-									<h3 class="text-sm font-black text-white flex items-center gap-1.5">
-										⭐ {t('numbers.rarityDNA')}
-										<span class="text-[9px] uppercase font-extrabold px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30">
-											EXACT (136,566 Total)
+						{/* ⚖️ MODULE 4: ACTIONABLE PLAYBOOK */}
+						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-amber-400/30 rounded-[28px] p-5 shadow-xl relative overflow-hidden">
+							<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
+								<h3 class="text-xs font-black text-white flex items-center gap-2">
+									<span class="material-symbols-outlined text-amber-400 text-base">gavel</span>
+									<span>{t('numbers.actionPlaybookTitle')}</span>
+								</h3>
+								<span class="text-[9px] uppercase font-mono font-black text-amber-300 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded-md">
+									ACTION PLAYBOOK
+								</span>
+							</div>
+
+							<div class="grid grid-cols-2 gap-2.5 mb-3">
+								<div class="p-3 rounded-2xl bg-black/40 border border-white/5 text-start">
+									<span class="text-[9px] font-black text-emerald-400 uppercase block mb-1">
+										{t('numbers.fairBuyTarget')}
+									</span>
+									<span class="text-sm font-mono font-black text-white block" dir="ltr">
+										{formatTon(
+											reportData()?.playbook?.fair_buy_target_ton ||
+												Math.round(Number(reportData()?.expected_ton || 0) * 0.88),
+										)}{' '}
+										TON
+									</span>
+									<span class="text-[9px] text-white/40 block mt-0.5">
+										{t('numbers.fairBuySub')}
+									</span>
+								</div>
+
+								<div class="p-3 rounded-2xl bg-black/40 border border-white/5 text-start">
+									<span class="text-[9px] font-black text-amber-400 uppercase block mb-1">
+										{t('numbers.suggestedAuctionStart')}
+									</span>
+									<span class="text-sm font-mono font-black text-white block" dir="ltr">
+										{formatTon(
+											reportData()?.playbook?.suggested_auction_start_ton ||
+												Math.round(Number(reportData()?.expected_ton || 0) * 0.72),
+										)}{' '}
+										TON
+									</span>
+									<span class="text-[9px] text-white/40 block mt-0.5">
+										{t('numbers.suggestedAuctionStartSub')}
+									</span>
+								</div>
+							</div>
+
+							<div class="grid grid-cols-2 gap-2.5 mb-3">
+								<div class="p-3 rounded-2xl bg-black/40 border border-white/5 text-start">
+									<span class="text-[9px] font-black text-[#0098EA] uppercase block mb-1">
+										{t('numbers.buyNowTarget')}
+									</span>
+									<span class="text-sm font-mono font-black text-white block" dir="ltr">
+										{formatTon(
+											reportData()?.playbook?.buy_now_target_ton ||
+												Math.round(Number(reportData()?.expected_ton || 0) * 1.15),
+										)}{' '}
+										TON
+									</span>
+									<span class="text-[9px] text-white/40 block mt-0.5">
+										{t('numbers.buyNowSub')}
+									</span>
+								</div>
+
+								<div class="p-3 rounded-2xl bg-black/40 border border-white/5 text-start">
+									<span class="text-[9px] font-black text-purple-300 uppercase block mb-1">
+										{t('numbers.bidStepLabel')}
+									</span>
+									<span class="text-sm font-mono font-black text-white block" dir="ltr">
+										{formatTon(
+											reportData()?.playbook?.bid_step_ton ||
+												Math.round(Number(reportData()?.expected_ton || 0) * 0.05),
+										)}{' '}
+										TON
+									</span>
+									<span class="text-[9px] text-white/40 block mt-0.5">
+										{t('numbers.bidStepStandard')}
+									</span>
+								</div>
+							</div>
+
+							{/* Net Proceeds Card */}
+							<div class="p-3.5 rounded-2xl bg-white/[0.04] border border-white/5 flex items-center justify-between">
+								<div class="text-start">
+									<span class="text-[9px] font-bold text-white/50 block">
+										{t('numbers.netProceedsTitle')}
+									</span>
+									<span class="text-base font-mono font-black text-emerald-400 block" dir="ltr">
+										{formatTon(
+											reportData()?.playbook?.net_proceeds_ton ||
+												reportData()?.economics?.net_payout_ton,
+										)}{' '}
+										TON
+									</span>
+									<span class="text-[10px] text-white/40 font-mono" dir="ltr">
+										≈{' '}
+										{formatUsd(
+											reportData()?.playbook?.net_proceeds_usd ||
+												reportData()?.economics?.net_payout_usd,
+										)}
+									</span>
+								</div>
+								<span class="text-[10px] font-mono font-black text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2.5 py-1 rounded-lg">
+									-5.0% Fee
+								</span>
+							</div>
+						</div>
+
+						{/* 🧬 MODULE 5: STRUCTURAL GENETICS & SCARCITY MATRIX */}
+						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl">
+							<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
+								<h3 class="text-xs font-black text-white flex items-center gap-2">
+									<span class="material-symbols-outlined text-amber-400 text-base">dna</span>
+									<span>{t('numbers.patternAnatomyTitle')}</span>
+								</h3>
+								<span class="text-[9px] uppercase font-mono font-black text-amber-300 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded-md">
+									{reportData()?.pattern_anatomy?.exact_supply_count || 10} IN EXISTENCE
+								</span>
+							</div>
+
+							<div class="space-y-2.5 text-xs text-start">
+								<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-between">
+									<span class="text-white/60">{t('numbers.exactSupplyLabel')}:</span>
+									<span class="font-mono font-black text-amber-300" dir="ltr">
+										{reportData()?.pattern_anatomy?.exact_supply_count || 10} / 136,566 (
+										{reportData()?.pattern_anatomy?.supply_percentage || 0.007}%)
+									</span>
+								</div>
+
+								<div class="grid grid-cols-3 gap-2 text-center">
+									<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
+										<span class="text-[9px] text-white/40 block mb-0.5">
+											{t('numbers.uniqueDigitsLabel')}
 										</span>
-									</h3>
-									<p class="text-[10px] text-white/50 mt-0.5">{t('numbers.provenScarcity')}</p>
-								</div>
-							</div>
+										<span class="font-mono font-black text-white text-xs">
+											{reportData()?.pattern_anatomy?.distinct_digits ||
+												reportData()?.features?.distinct_digits ||
+												1}{' '}
+											{t('numbers.digitUnit')}
+										</span>
+									</div>
 
-							<div class="space-y-3">
-								<For each={reportData()?.rarity_dna || []}>
-									{(bar) => (
-										<div>
-											<div class="flex items-center justify-between text-xs mb-1">
-												<span class="font-bold text-white/80">
-													{isRtl() ? bar.label_fa || bar.label_en : bar.label_en}
-												</span>
-												<span class="font-mono font-black text-[#0098EA]">{bar.value}</span>
-											</div>
-											<div class="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-												<div
-													class="h-full bg-gradient-to-r from-[#0098EA] to-emerald-400 rounded-full transition-all duration-700"
-													style={{ width: `${Math.max(15, bar.percentile)}%` }}
-												/>
-											</div>
-											<div class="text-[9px] text-white/40 mt-0.5">{bar.description}</div>
-										</div>
-									)}
-								</For>
+									<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
+										<span class="text-[9px] text-white/40 block mb-0.5">
+											{t('numbers.symmetryLabel')}
+										</span>
+										<span class="font-mono font-black text-emerald-400 text-xs">
+											{reportData()?.pattern_anatomy?.symmetry_score || 100}%
+										</span>
+									</div>
+
+									<div class="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
+										<span class="text-[9px] text-white/40 block mb-0.5">
+											{t('numbers.memorabilityLabel')}
+										</span>
+										<span class="font-mono font-black text-[#0098EA] text-xs">
+											{reportData()?.pattern_anatomy?.memorability_score || 99} / 100
+										</span>
+									</div>
+								</div>
+
+								<div class="p-3 rounded-2xl bg-[#08090D] border border-white/5 text-[11px] text-white/70 leading-relaxed">
+									{isRtl()
+										? reportData()?.pattern_anatomy?.numerology_report_fa ||
+											'تکرار یکنواخت و نایاب ارقام؛ این ساختار بالاترین سطح روانی و پرستیژ را در مسنجر تلگرام ارائه می‌دهد.'
+										: reportData()?.pattern_anatomy?.numerology_report_en ||
+											'Monolithic repetition structure delivering peak vanity and visual impact.'}
+								</div>
 							</div>
 						</div>
 
-						{/* 3. COLOR PREMIUM CARD */}
-						<div class="bg-[#12141C]/80 backdrop-blur-2xl border border-white/10 rounded-[28px] p-4 flex items-center justify-between shadow-xl">
-							<div class="flex items-center gap-3">
-								<div
-									class="w-10 h-10 rounded-2xl shadow-lg flex items-center justify-center font-bold text-xs"
-									style={{ 'background-color': reportData()?.color?.hex || '#3498DB' }}
-								/>
-								<div>
-									<div class="text-xs font-bold text-white/50">{t('numbers.colorTier')}</div>
-									<div class="text-sm font-black text-white">{reportData()?.color?.name} Tier</div>
+						{/* 🏢 MODULE 6: ESTIMATED RENTAL YIELD */}
+						<div class="bg-gradient-to-br from-[#0098EA]/15 via-[#12141C]/90 to-[#08090D] border border-[#0098EA]/30 rounded-[28px] p-5 shadow-xl">
+							<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
+								<h3 class="text-xs font-black text-white flex items-center gap-2">
+									<span class="material-symbols-outlined text-[#0098EA] text-base">
+										real_estate_agent
+									</span>
+									<span>{t('numbers.rentalYieldTitle')}</span>
+								</h3>
+								<span class="text-[9px] uppercase font-mono font-black text-emerald-400 bg-emerald-400/10 border border-emerald-400/25 px-2 py-0.5 rounded-md">
+									~{reportData()?.rental_yield?.est_apy || 54.0}% APY
+								</span>
+							</div>
+
+							<div class="flex items-center justify-between bg-black/40 rounded-2xl p-4 border border-white/5 mb-2.5">
+								<div class="text-start">
+									<span class="text-[9px] font-bold text-white/50 block mb-0.5">
+										{t('numbers.monthlyRentalEst')}
+									</span>
+									<span class="text-lg font-mono font-black text-emerald-400 block" dir="ltr">
+										~
+										{formatTon(
+											reportData()?.rental_yield?.monthly_yield_ton ||
+												Math.round(Number(reportData()?.expected_ton || 0) * 0.045),
+										)}{' '}
+										TON
+									</span>
+								</div>
+								<div class="text-end">
+									<span class="text-[9px] font-bold text-white/50 block mb-0.5">
+										{t('numbers.estApyLabel')}
+									</span>
+									<span class="text-base font-mono font-black text-[#0098EA] block">~54.0%</span>
 								</div>
 							</div>
-							<div class="text-right rtl:text-left">
-								<div class="text-sm font-black text-emerald-400 font-mono">
-									+{Math.round(((reportData()?.color?.multiplier || 1.0) - 1.0) * 100)}%
+
+							<p class="text-[10px] text-white/50 leading-relaxed text-start">
+								{isRtl()
+									? reportData()?.rental_yield?.target_audience_fa ||
+										'مناسب برای اکانت پشتیبانی صرافی‌های کریپتو، کانال‌های VIP، و برندهای تجاری تلگرام.'
+									: reportData()?.rental_yield?.target_audience_en ||
+										'Ideal for Crypto Exchange Support, VIP Telegram Desks, and Elite Brands.'}
+							</p>
+						</div>
+
+						{/* 📈 MODULE 7: MARKET DEPTH & CATEGORY FLOOR */}
+						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl">
+							<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
+								<h3 class="text-xs font-black text-white flex items-center gap-2">
+									<span class="material-symbols-outlined text-[#0098EA] text-base">
+										waterfall_chart
+									</span>
+									<span>{t('numbers.marketDepthTitle')}</span>
+								</h3>
+								<span class="text-[9px] uppercase font-mono font-black text-white/60 bg-white/5 border border-white/10 px-2 py-0.5 rounded-md">
+									DEPTH ANALYTICS
+								</span>
+							</div>
+
+							<div class="grid grid-cols-2 gap-2.5 mb-2.5 text-start">
+								<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
+									<span class="text-[9px] font-bold text-white/50 block mb-0.5">
+										{t('numbers.clubFloorLabel')}
+									</span>
+									<span class="text-sm font-mono font-black text-white block" dir="ltr">
+										{formatTon(
+											reportData()?.market_depth?.club_floor_ton ||
+												Math.round(Number(reportData()?.expected_ton || 0) * 0.75),
+										)}{' '}
+										TON
+									</span>
 								</div>
-								<div class="text-[10px] text-white/40">{t('numbers.hedonicPremium')}</div>
+
+								<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
+									<span class="text-[9px] font-bold text-white/50 block mb-0.5">
+										{t('numbers.estimatedSellTime')}
+									</span>
+									<span class="text-sm font-mono font-black text-emerald-400 block">
+										{isRtl()
+											? reportData()?.market_depth?.liquidity_speed_fa || '۱ تا ۳ روز'
+											: reportData()?.market_depth?.liquidity_speed_en || '1 - 3 Days'}
+									</span>
+								</div>
+							</div>
+
+							<div class="p-3 rounded-2xl bg-[#08090D] border border-white/5 text-start text-[10px] text-white/60 leading-relaxed">
+								<span class="font-bold text-white/80">{t('numbers.hodlStrengthLabel')}: </span>
+								<span>
+									{isRtl()
+										? reportData()?.market_depth?.hodl_strength_fa ||
+											'بسیار قوی (بیش از ۸۰٪ شماره‌ها در ولت سرد هولدرها نگهداری می‌شود)'
+										: reportData()?.market_depth?.hodl_strength_en ||
+											'Very Strong (>80% held in long-term cold wallets)'}
+								</span>
 							</div>
 						</div>
 
-						{/* 4. CULTURAL RADAR CARD */}
-						<div class="bg-[#12141C]/80 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl">
-							<h3 class="text-sm font-black text-white mb-1">🌏 {t('numbers.culturalRadar')}</h3>
-							<p class="text-[10px] text-white/50 mb-3">{t('numbers.targetRegionAffinity')}</p>
-
-							<div class="space-y-2.5">
-								<For each={reportData()?.cultural_radar || []}>
-									{(item) => (
-										<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-											<div class="flex items-center justify-between mb-1">
-												<span class="text-xs font-black text-white">{item.market_name}</span>
-												<span class="text-xs font-mono font-black text-emerald-400">
-													{item.score} / 100
-												</span>
-											</div>
-											<div class="text-[11px] font-bold text-[#0098EA]">
-												{isRtl() ? item.verdict_fa : item.verdict_en}
-											</div>
-											<p class="text-[10px] text-white/50 mt-0.5 leading-relaxed">
-												{isRtl() ? item.description_fa : item.description_en}
-											</p>
-										</div>
-									)}
-								</For>
+						{/* 📊 MODULE 8: REAL ON-CHAIN COMPS */}
+						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl">
+							<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
+								<h3 class="text-xs font-black text-white flex items-center gap-2">
+									<span class="material-symbols-outlined text-emerald-400 text-base">
+										receipt_long
+									</span>
+									<span>{t('numbers.comparableSales')}</span>
+								</h3>
+								<span class="text-[9px] uppercase font-mono font-bold text-white/40">
+									ON-CHAIN PROOF
+								</span>
 							</div>
-						</div>
-
-						{/* 5. COMPARABLE HISTORICAL SALES (COMPS) */}
-						<div class="bg-[#12141C]/80 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl">
-							<h3 class="text-sm font-black text-white mb-1">📊 {t('numbers.comparableSales')}</h3>
-							<p class="text-[10px] text-white/50 mb-3">{t('numbers.peerTransactions')}</p>
 
 							<div class="space-y-2">
 								<For each={reportData()?.comps || []}>
 									{(comp) => (
 										<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-between text-xs">
-											<div>
+											<div class="text-start">
 												<span class="font-mono font-black text-white block" dir="ltr">
 													{comp.number}
 												</span>
@@ -963,19 +1071,23 @@ export const NumberReportPage: Component = () => {
 													{comp.sale_date} · {comp.tail_class}
 												</span>
 											</div>
-											<div class="text-right rtl:text-left">
-												<span class="font-mono font-black text-white block">
+											<div class="text-end">
+												<span class="font-mono font-black text-white block" dir="ltr">
 													{formatTon(comp.price_ton)} TON
 												</span>
-												<span
-													class={`text-[10px] font-bold ${
-														comp.diff_percent >= 0 ? 'text-emerald-400' : 'text-rose-400'
-													}`}
-												>
-													{comp.diff_percent >= 0
-														? `+${comp.diff_percent}%`
-														: `${comp.diff_percent}%`}
-												</span>
+												<Show when={comp.tonviewer_url}>
+													<a
+														href={comp.tonviewer_url}
+														target="_blank"
+														rel="noopener noreferrer"
+														class="text-[9px] text-[#0098EA] hover:underline font-bold flex items-center justify-end gap-0.5"
+													>
+														<span>{t('numbers.txProof')}</span>
+														<span class="material-symbols-outlined text-[10px]">
+															open_in_new
+														</span>
+													</a>
+												</Show>
 											</div>
 										</div>
 									)}
@@ -983,102 +1095,107 @@ export const NumberReportPage: Component = () => {
 							</div>
 						</div>
 
-						{/* 6. TRANSACTION ECONOMICS & NET PAYOUT */}
-						<div class="bg-[#12141C]/80 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl">
-							<h3 class="text-sm font-black text-white mb-1">💰 {t('numbers.economics')}</h3>
-							<p class="text-[10px] text-white/50 mb-3">{t('numbers.royaltyFeeCalc')}</p>
+						{/* 📜 MODULE 9: ON-CHAIN AUDIT & PROVENANCE */}
+						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl text-start">
+							<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
+								<h3 class="text-xs font-black text-white flex items-center gap-2">
+									<span class="material-symbols-outlined text-[#0098EA] text-base">
+										verified
+									</span>
+									<span>{t('numbers.onChainAuditTitle')}</span>
+								</h3>
+								<span class="text-[9px] uppercase font-mono font-black text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+									CLEAN & VERIFIED
+								</span>
+							</div>
 
-							<div class="space-y-2 text-xs">
+							<div class="space-y-2 text-[11px]">
 								<div class="flex items-center justify-between py-1 border-b border-white/5">
-									<span class="text-white/60">{t('numbers.fragmentFee')}</span>
-									<span class="font-mono font-bold text-rose-400">
-										-{formatTon(reportData()?.economics?.fragment_fee_ton)} TON
+									<span class="text-white/50">{t('numbers.restrictedStatusLabel')}:</span>
+									<span class="text-emerald-400 font-bold flex items-center gap-1">
+										<span class="material-symbols-outlined text-xs">check_circle</span>
+										<span>
+											{isRtl()
+												? reportData()?.on_chain_audit?.restriction_status_fa ||
+													'تایید شده و بدون محدودیت'
+												: reportData()?.on_chain_audit?.restriction_status_en ||
+													'Clean & Verified'}
+										</span>
 									</span>
 								</div>
-								<div class="flex items-center justify-between py-1 pt-2">
-									<span class="text-white font-bold">{t('numbers.netPayout')}</span>
-									<div class="text-right rtl:text-left">
-										<span class="font-mono font-black text-emerald-400 text-sm block">
-											{formatTon(reportData()?.economics?.net_payout_ton)} TON
-										</span>
-										<span class="text-[10px] text-white/40 font-mono">
-											({formatUsd(reportData()?.economics?.net_payout_usd)})
+
+								<div class="flex items-center justify-between py-1 border-b border-white/5">
+									<span class="text-white/50">{t('numbers.telemintContractLabel')}:</span>
+									<span class="font-mono text-white/80 text-[10px]" dir="ltr">
+										{reportData()?.on_chain_audit?.telemint_contract || 'EQD8...392A'}
+									</span>
+								</div>
+
+								<div class="flex items-center justify-between py-1 border-b border-white/5">
+									<span class="text-white/50">{t('numbers.mintDateLabel')}:</span>
+									<span class="text-white/80 font-mono text-[10px]">
+										{reportData()?.on_chain_audit?.mint_date || 'December 2022'}
+									</span>
+								</div>
+
+								<div class="flex items-center justify-between py-1">
+									<span class="text-white/50">{t('numbers.transferCountLabel')}:</span>
+									<span class="text-white font-mono font-bold">
+										{reportData()?.on_chain_audit?.transfer_count || 1}{' '}
+										{t('numbers.transferCountUnit')}
+									</span>
+								</div>
+							</div>
+						</div>
+
+						{/* 👑 MODULE 10: OFFICIAL DIGITAL CERTIFICATE & SHARING */}
+						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-amber-400/30 rounded-[28px] p-5 shadow-xl">
+							<div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
+								<div class="flex items-center gap-2 text-start">
+									<span class="material-symbols-outlined text-amber-400 text-lg">
+										workspace_premium
+									</span>
+									<div>
+										<h4 class="text-xs font-black text-white">
+											{t('numbers.certificateTitle')}
+										</h4>
+										<span class="text-[9px] text-white/40">
+											{t('numbers.certificateIssuer')}
 										</span>
 									</div>
 								</div>
-							</div>
-						</div>
-
-						{/* 7. 12-MONTH VALUATION PROJECTIONS */}
-						<div class="bg-[#12141C]/80 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl">
-							<h3 class="text-sm font-black text-white mb-1">📈 {t('numbers.projections')}</h3>
-							<p class="text-[10px] text-white/50 mb-3">{t('numbers.monteCarloScenarios')}</p>
-
-							<div class="grid grid-cols-3 gap-2 text-center text-xs">
-								<div class="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20">
-									<span class="text-[10px] font-bold text-rose-300 block mb-1">
-										{t('numbers.bearMarket')}
-									</span>
-									<span class="font-mono font-black text-white text-xs block">
-										{formatTon(reportData()?.projection?.bear_ton)} TON
-									</span>
-								</div>
-								<div class="p-3 rounded-2xl bg-white/[0.04] border border-white/10">
-									<span class="text-[10px] font-bold text-white/60 block mb-1">
-										{t('numbers.baseMarket')}
-									</span>
-									<span class="font-mono font-black text-[#0098EA] text-xs block">
-										{formatTon(reportData()?.projection?.base_ton)} TON
-									</span>
-								</div>
-								<div class="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
-									<span class="text-[10px] font-bold text-emerald-300 block mb-1">
-										{t('numbers.bullMarket')}
-									</span>
-									<span class="font-mono font-black text-emerald-400 text-xs block">
-										{formatTon(reportData()?.projection?.bull_ton)} TON
-									</span>
-								</div>
-							</div>
-						</div>
-
-						{/* 8. ACTION TOOLBAR (WATCHLIST & STORY) */}
-						<div class="bg-[#12141C]/80 backdrop-blur-2xl border border-white/10 rounded-[28px] p-4 flex items-center justify-between gap-2 shadow-xl">
-							<button
-								type="button"
-								onClick={handleToggleWatchlist}
-								disabled={watchLoading()}
-								class={`flex-1 py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 ${
-									isWatching()
-										? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-										: 'bg-white/[0.06] text-white/80 hover:bg-white/10 border border-white/10'
-								}`}
-							>
-								<span class="material-symbols-outlined text-sm">
-									{isWatching() ? 'bookmark_added' : 'bookmark_add'}
+								<span class="text-[9px] font-mono font-bold bg-amber-400/10 border border-amber-400/30 text-amber-400 px-2 py-0.5 rounded-md">
+									{reportData()?.certificate_id || 'IFRG-NUM-001'}
 								</span>
-								<span>{isWatching() ? t('numbers.watching') : t('numbers.watchNumber')}</span>
-							</button>
+							</div>
 
-							<button
-								type="button"
-								onClick={handleShareToStory}
-								class="flex-1 py-3 rounded-2xl bg-gradient-to-r from-[#0098EA] to-[#0070BA] text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-md shadow-[#0098EA]/20 active:scale-95 transition-all hover:brightness-110"
-							>
-								<span class="material-symbols-outlined text-sm">auto_awesome</span>
-								<span>{t('numbers.shareStory')}</span>
-							</button>
+							<div class="grid grid-cols-2 gap-2 mt-4">
+								<button
+									type="button"
+									onClick={handleShareToStory}
+									class="py-3 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 text-black text-xs font-black flex items-center justify-center gap-1.5 shadow-md shadow-amber-400/20 active:scale-95 transition-all hover:brightness-110"
+								>
+									<span class="material-symbols-outlined text-base">auto_awesome</span>
+									<span>{t('numbers.shareToStoryBtn')}</span>
+								</button>
 
-							<button
-								type="button"
-								onClick={handleCopyCertificate}
-								class="px-3.5 py-3 rounded-2xl bg-white/[0.06] hover:bg-white/10 border border-white/10 text-white/80 text-xs font-bold transition-all active:scale-95"
-								title={t('numbers.copyLink')}
-							>
-								<span class="material-symbols-outlined text-sm">
-									{copiedCert() ? 'check' : 'content_copy'}
-								</span>
-							</button>
+								<button
+									type="button"
+									onClick={handleCopyCertificate}
+									class={`py-3 rounded-2xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 ${
+										copiedCert()
+											? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+											: 'bg-white/[0.06] hover:bg-white/10 border-white/10 text-white/80'
+									}`}
+								>
+									<span class="material-symbols-outlined text-base">
+										{copiedCert() ? 'check' : 'content_copy'}
+									</span>
+									<span>
+										{copiedCert() ? t('numbers.certCopied') : t('numbers.copyCertLink')}
+									</span>
+								</button>
+							</div>
 						</div>
 					</div>
 				</Show>

@@ -26,6 +26,7 @@ type NumberValuation struct {
 	PriceBasis           string                   `json:"price_basis"`      // direct_sales_of_this_number | pattern_comps_shrunk_to_class | class_median_only
 	GlobalRank           int                      `json:"global_rank"`      // 1 to 136566
 	CategoryClub         string                   `json:"category_club"`    // "4-Digit Club", "Grail Monodigit", "Binary Dual", etc.
+	CategoryClubFa       string                   `json:"category_club_fa"`
 	CollateralValueTON   float64                  `json:"collateral_value_ton"`
 	CollateralValueUSD   float64                  `json:"collateral_value_usd"`
 	FragmentDirectURL    string                   `json:"fragment_direct_url"`
@@ -40,6 +41,11 @@ type NumberValuation struct {
 	Economics            TransactionEconomics     `json:"economics"`
 	Projection           GrowthProjection         `json:"projection"`
 	Recommendation       ActionRecommendation     `json:"recommendation"`
+	Playbook             ActionablePlaybook       `json:"playbook"`
+	PatternAnatomy       PatternAnatomy           `json:"pattern_anatomy"`
+	RentalYield          RentalYield              `json:"rental_yield"`
+	MarketDepth          MarketDepthInfo          `json:"market_depth"`
+	OnChainAudit         OnChainAudit             `json:"on_chain_audit"`
 	CertificateID        string                   `json:"certificate_id"`
 	EvaluatedAt          time.Time                `json:"evaluated_at"`
 	ReasoningLog         map[string]interface{}   `json:"reasoning_log"`
@@ -210,6 +216,69 @@ type ActionRecommendation struct {
 	ExpectedNetTON float64 `json:"expected_net_ton"`
 	SummaryEn      string  `json:"summary_en"`
 	SummaryFa      string  `json:"summary_fa"`
+}
+
+// ActionablePlaybook provides precise trading targets for buyers and sellers
+type ActionablePlaybook struct {
+	FairBuyTargetTON         float64 `json:"fair_buy_target_ton"`
+	FairBuyTargetUSD         float64 `json:"fair_buy_target_usd"`
+	SuggestedAuctionStartTON float64 `json:"suggested_auction_start_ton"`
+	SuggestedAuctionStartUSD float64 `json:"suggested_auction_start_usd"`
+	BuyNowTargetTON          float64 `json:"buy_now_target_ton"`
+	BuyNowTargetUSD          float64 `json:"buy_now_target_usd"`
+	BidStepTON               float64 `json:"bid_step_ton"`
+	NetProceedsTON           float64 `json:"net_proceeds_ton"`
+	NetProceedsUSD           float64 `json:"net_proceeds_usd"`
+	FragmentFeeTON           float64 `json:"fragment_fee_ton"`
+}
+
+// PatternAnatomy details the mathematical and cultural characteristics of this specific number
+type PatternAnatomy struct {
+	ClubNameEn         string  `json:"club_name_en"`
+	ClubNameFa         string  `json:"club_name_fa"`
+	PatternTypeEn      string  `json:"pattern_type_en"`
+	PatternTypeFa      string  `json:"pattern_type_fa"`
+	ExactSupplyCount   int     `json:"exact_supply_count"`
+	SupplyPercentage   float64 `json:"supply_percentage"`
+	DistinctDigits     int     `json:"distinct_digits"`
+	MaxRun             int     `json:"max_run"`
+	SymmetryScore      int     `json:"symmetry_score"`
+	MemorabilityScore  int     `json:"memorability_score"`
+	NumerologyReportEn string  `json:"numerology_report_en"`
+	NumerologyReportFa string  `json:"numerology_report_fa"`
+}
+
+// RentalYield estimates passive earning potential in TON ecosystem
+type RentalYield struct {
+	MonthlyYieldTON  float64 `json:"monthly_yield_ton"`
+	MonthlyYieldUSD  float64 `json:"monthly_yield_usd"`
+	EstApy           float64 `json:"est_apy"`
+	TargetAudienceFa string  `json:"target_audience_fa"`
+	TargetAudienceEn string  `json:"target_audience_en"`
+}
+
+// MarketDepthInfo tracks current club competition and liquidity speed
+type MarketDepthInfo struct {
+	ClubFloorTON       float64 `json:"club_floor_ton"`
+	ClubFloorUSD       float64 `json:"club_floor_usd"`
+	ListedRatioPct     float64 `json:"listed_ratio_pct"`
+	EstimatedSellDays  string  `json:"estimated_sell_days"`
+	HodlStrengthFa     string  `json:"hodl_strength_fa"`
+	HodlStrengthEn     string  `json:"hodl_strength_en"`
+	LiquiditySpeedEn   string  `json:"liquidity_speed_en"`
+	LiquiditySpeedFa   string  `json:"liquidity_speed_fa"`
+}
+
+// OnChainAudit verifies provenance, Telemint contract status, and restriction checks
+type OnChainAudit struct {
+	IsRestricted        bool    `json:"is_restricted"`
+	RestrictionStatusFa string  `json:"restriction_status_fa"`
+	RestrictionStatusEn string  `json:"restriction_status_en"`
+	TelemintContract    string  `json:"telemint_contract"`
+	MintDate            string  `json:"mint_date"`
+	TransferCount       int     `json:"transfer_count"`
+	HighestPastSaleTON  float64 `json:"highest_past_sale_ton"`
+	AppreciationPct     float64 `json:"appreciation_pct"`
 }
 
 // CuriosityGateResponse is the strictly locked pre-paywall payload (Sacred Rule 3)

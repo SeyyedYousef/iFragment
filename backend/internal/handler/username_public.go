@@ -1577,12 +1577,13 @@ func (h *UsernameHandler) ValuationPayStars(w http.ResponseWriter, r *http.Reque
 	description := "3 Deep Valuation Reports for Telegram Usernames, Numbers & Gifts"
 	payload := fmt.Sprintf("val_credits:3:%d:%d", userID, time.Now().Unix())
 
-	if req.PackID == "pack_value_10" {
+	switch req.PackID {
+	case "pack_value_10":
 		finalStars = 250
 		title = "⭐️ iFragment Pro Analyst Pack (10 Credits)"
 		description = "10 Deep Valuation Reports for Telegram Usernames, Numbers & Gifts (25% Savings)"
 		payload = fmt.Sprintf("val_credits:10:%d:%d", userID, time.Now().Unix())
-	} else if req.PackID == "pro" {
+	case "pro":
 		finalStars = 249
 		title = "👑 iFragment Pro Analyst Pass (30 Days)"
 		description = "3 Daily Deep Valuations + 2x Coin Earning + Digital Appraisal Certificate"

@@ -1976,7 +1976,7 @@ func (h *WebhookHandler) handleGroupSettingsCommand(ctx context.Context, bot *re
 	_, _ = tg.SendMessageWithMarkup(ctx, m.Chat.ID, text, markup, m.MessageThreadID, "HTML")
 }
 
-func (h *WebhookHandler) renderMainSettingsMenu(ctx context.Context, group *repository.ManagedGroup, settings *repository.GroupSettings, lang string) (string, map[string]interface{}) {
+func (h *WebhookHandler) renderMainSettingsMenu(_ context.Context, group *repository.ManagedGroup, settings *repository.GroupSettings, lang string) (string, map[string]interface{}) {
 	var gen repository.SettingsGeneral
 	var cont repository.SettingsContentRestrictions
 	var quiet repository.SettingsQuietHours
@@ -2138,7 +2138,7 @@ func (h *WebhookHandler) renderMainSettingsMenu(ctx context.Context, group *repo
 	return text, markup
 }
 
-func (h *WebhookHandler) renderCategorySettingsMenu(ctx context.Context, group *repository.ManagedGroup, settings *repository.GroupSettings, category string, lang string) (string, map[string]interface{}) {
+func (h *WebhookHandler) renderCategorySettingsMenu(_ context.Context, group *repository.ManagedGroup, settings *repository.GroupSettings, category string, lang string) (string, map[string]interface{}) {
 	var gen repository.SettingsGeneral
 	var cont repository.SettingsContentRestrictions
 	var limits repository.SettingsLimits
@@ -2457,7 +2457,7 @@ func (h *WebhookHandler) renderCategorySettingsMenu(ctx context.Context, group *
 	return text, markup
 }
 
-func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *repository.ManagedBot, chat *Chat, inviterID int64, isAlreadyAdmin bool, inviterLang string) {
+func (h *WebhookHandler) handleBotAddedToGroup(ctx context.Context, bot *repository.ManagedBot, chat *Chat, inviterID int64, _ bool, inviterLang string) {
 	token, _ := botmgmt.DecryptToken(bot.BotTokenEncrypted)
 	var tg *telegram.BotAPIClient
 	if token != "" {
@@ -2958,7 +2958,7 @@ func parseDurationStr(s string, defaultDur time.Duration) time.Duration {
 	return defaultDur
 }
 
-func (h *WebhookHandler) adminLock(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, lang string, groupID uuid.UUID) bool {
+func (h *WebhookHandler) adminLock(ctx context.Context, _ *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, _ string, groupID uuid.UUID) bool {
 	bFalse := false
 	_ = tg.SetChatPermissions(ctx, m.Chat.ID, telegram.ChatPermissions{
 		CanSendMessages:       &bFalse,
@@ -2984,7 +2984,7 @@ func (h *WebhookHandler) adminLock(ctx context.Context, bot *repository.ManagedB
 	return true
 }
 
-func (h *WebhookHandler) adminUnlock(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, lang string, groupID uuid.UUID) bool {
+func (h *WebhookHandler) adminUnlock(ctx context.Context, _ *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, _ string, groupID uuid.UUID) bool {
 	bTrue := true
 	_ = tg.SetChatPermissions(ctx, m.Chat.ID, telegram.ChatPermissions{
 		CanSendMessages:       &bTrue,
@@ -3115,7 +3115,7 @@ func (h *WebhookHandler) adminWarn(ctx context.Context, bot *repository.ManagedB
 	return true
 }
 
-func (h *WebhookHandler) adminResetWarns(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, lang string, groupID uuid.UUID) bool {
+func (h *WebhookHandler) adminResetWarns(ctx context.Context, _ *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, _ string, groupID uuid.UUID) bool {
 	targetID, targetName := h.getTarget(m)
 	if targetID == 0 {
 		return false
@@ -3132,7 +3132,7 @@ func (h *WebhookHandler) adminResetWarns(ctx context.Context, bot *repository.Ma
 	return true
 }
 
-func (h *WebhookHandler) adminCheckWarns(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, lang string, groupID uuid.UUID) bool {
+func (h *WebhookHandler) adminCheckWarns(ctx context.Context, _ *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, _ string, groupID uuid.UUID) bool {
 	targetID, targetName := h.getTarget(m)
 	if targetID == 0 {
 		return false
@@ -3152,7 +3152,7 @@ func (h *WebhookHandler) adminCheckWarns(ctx context.Context, bot *repository.Ma
 	return true
 }
 
-func (h *WebhookHandler) adminSlowmode(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, lang string, groupID uuid.UUID) bool {
+func (h *WebhookHandler) adminSlowmode(ctx context.Context, _ *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, _ string, groupID uuid.UUID) bool {
 	args := strings.TrimSpace(strings.TrimPrefix(m.Text, strings.Split(m.Text, " ")[0]))
 	seconds := 0
 	if args != "" {
@@ -3182,7 +3182,7 @@ func (h *WebhookHandler) adminSlowmode(ctx context.Context, bot *repository.Mana
 	return true
 }
 
-func (h *WebhookHandler) adminEphemeral(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, lang string, groupID uuid.UUID) bool {
+func (h *WebhookHandler) adminEphemeral(ctx context.Context, _ *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, _ string, groupID uuid.UUID) bool {
 	args := strings.ToLower(strings.TrimSpace(strings.TrimPrefix(m.Text, strings.Split(m.Text, " ")[0])))
 
 	settings, _ := h.moderator.GetSettings(ctx, groupID)
@@ -3228,7 +3228,7 @@ func (h *WebhookHandler) adminDel(ctx context.Context, tg *telegram.BotAPIClient
 	return true
 }
 
-func (h *WebhookHandler) adminPurge(ctx context.Context, tg *telegram.BotAPIClient, m *Message, lang string) bool {
+func (h *WebhookHandler) adminPurge(ctx context.Context, tg *telegram.BotAPIClient, m *Message, _ string) bool {
 	if m.ReplyToMessage == nil {
 		_ = tg.SendMessage(ctx, m.Chat.ID, "⚠️ Reply to a message to purge up to that point.", &m.MessageID, m.MessageThreadID)
 		return true
@@ -3264,7 +3264,7 @@ func (h *WebhookHandler) adminPurge(ctx context.Context, tg *telegram.BotAPIClie
 	return true
 }
 
-func (h *WebhookHandler) adminSetRules(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, lang string, groupID uuid.UUID) bool {
+func (h *WebhookHandler) adminSetRules(ctx context.Context, _ *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, _ string, groupID uuid.UUID) bool {
 	newRules := strings.TrimSpace(strings.TrimPrefix(m.Text, strings.Split(m.Text, " ")[0]))
 	if newRules == "" {
 		_ = tg.SendMessage(ctx, m.Chat.ID, "⚠️ Usage: <code>/setrules [Your Group Rules Here]</code>", &m.MessageID, m.MessageThreadID)
@@ -3284,7 +3284,7 @@ func (h *WebhookHandler) adminSetRules(ctx context.Context, bot *repository.Mana
 	return true
 }
 
-func (h *WebhookHandler) adminAntispam(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, lang string, groupID uuid.UUID) bool {
+func (h *WebhookHandler) adminAntispam(ctx context.Context, _ *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, _ string, groupID uuid.UUID) bool {
 	args := strings.ToLower(strings.TrimSpace(strings.TrimPrefix(m.Text, strings.Split(m.Text, " ")[0])))
 
 	settings, _ := h.moderator.GetSettings(ctx, groupID)
@@ -3320,7 +3320,7 @@ func (h *WebhookHandler) adminAntispam(ctx context.Context, bot *repository.Mana
 	return true
 }
 
-func (h *WebhookHandler) adminQuiet(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, lang string, groupID uuid.UUID) bool {
+func (h *WebhookHandler) adminQuiet(ctx context.Context, _ *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, _ string, groupID uuid.UUID) bool {
 	args := strings.Fields(strings.TrimSpace(strings.TrimPrefix(m.Text, strings.Split(m.Text, " ")[0])))
 
 	settings, _ := h.moderator.GetSettings(ctx, groupID)
@@ -3439,7 +3439,7 @@ func (h *WebhookHandler) adminPin(ctx context.Context, bot *repository.ManagedBo
 	return true
 }
 
-func (h *WebhookHandler) adminUnpin(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message) bool {
+func (h *WebhookHandler) adminUnpin(ctx context.Context, _ *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message) bool {
 	msgID := 0
 	if m.ReplyToMessage != nil {
 		msgID = m.ReplyToMessage.MessageID
@@ -3453,7 +3453,7 @@ func (h *WebhookHandler) adminUnpin(ctx context.Context, bot *repository.Managed
 	return true
 }
 
-func (h *WebhookHandler) adminUnpinAll(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message) bool {
+func (h *WebhookHandler) adminUnpinAll(ctx context.Context, _ *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message) bool {
 	err := tg.UnpinAllChatMessages(ctx, m.Chat.ID)
 	if err != nil {
 		_ = tg.SendMessage(ctx, m.Chat.ID, "❌ Failed to unpin all messages.", &m.MessageID, m.MessageThreadID)
@@ -3584,7 +3584,7 @@ func (h *WebhookHandler) adminWelcome(ctx context.Context, tg *telegram.BotAPICl
 	return true
 }
 
-func (h *WebhookHandler) adminSetWelcome(ctx context.Context, bot *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, groupID uuid.UUID) bool {
+func (h *WebhookHandler) adminSetWelcome(ctx context.Context, _ *repository.ManagedBot, tg *telegram.BotAPIClient, m *Message, groupID uuid.UUID) bool {
 	newWelcome := strings.TrimSpace(strings.TrimPrefix(m.Text, strings.Split(m.Text, " ")[0]))
 	if newWelcome == "" {
 		_ = tg.SendMessage(ctx, m.Chat.ID, "⚠️ Usage: <code>/setwelcome Welcome to {group}, {first_name}!</code>", &m.MessageID, m.MessageThreadID)
@@ -4465,8 +4465,8 @@ func (h *WebhookHandler) buildChannelInlineKeyboard(ctx context.Context, channel
 			ikb.Style = btn.Style
 		}
 
-		btnType := strings.ToLower(btn.Type)
-		if btnType == "url" || btnType == "share" {
+		switch btnType := strings.ToLower(btn.Type); btnType {
+		case "url", "share":
 			if btnType == "share" && (btn.Value == "" || btn.Value == "share") {
 				ikb.URL = "https://t.me/share/url?url="
 			} else {
@@ -4476,13 +4476,13 @@ func (h *WebhookHandler) buildChannelInlineKeyboard(ctx context.Context, channel
 				}
 				ikb.URL = uStr
 			}
-		} else if btnType == "payment" {
+		case "payment":
 			if strings.HasPrefix(btn.Value, "http://") || strings.HasPrefix(btn.Value, "https://") || strings.HasPrefix(btn.Value, "tg://") {
 				ikb.URL = btn.Value
 			} else {
 				ikb.CallbackData = fmt.Sprintf("btn_click:%s", btn.ID.String())
 			}
-		} else {
+		default:
 			ikb.CallbackData = fmt.Sprintf("btn_click:%s", btn.ID.String())
 		}
 		row = append(row, ikb)
@@ -4526,8 +4526,8 @@ func buildReplyMarkupFromButtons(buttons []repository.ChannelInlineButton) inter
 			ikb.Style = btn.Style
 		}
 
-		btnType := strings.ToLower(btn.Type)
-		if btnType == "url" || btnType == "share" {
+		switch btnType := strings.ToLower(btn.Type); btnType {
+		case "url", "share":
 			if btnType == "share" && (btn.Value == "" || btn.Value == "share") {
 				ikb.URL = "https://t.me/share/url?url="
 			} else {
@@ -4537,13 +4537,13 @@ func buildReplyMarkupFromButtons(buttons []repository.ChannelInlineButton) inter
 				}
 				ikb.URL = uStr
 			}
-		} else if btnType == "payment" {
+		case "payment":
 			if strings.HasPrefix(btn.Value, "http://") || strings.HasPrefix(btn.Value, "https://") || strings.HasPrefix(btn.Value, "tg://") {
 				ikb.URL = btn.Value
 			} else {
 				ikb.CallbackData = fmt.Sprintf("btn_click:%s", btn.ID.String())
 			}
-		} else {
+		default:
 			ikb.CallbackData = fmt.Sprintf("btn_click:%s", btn.ID.String())
 		}
 		row = append(row, ikb)

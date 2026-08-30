@@ -1,9 +1,10 @@
 import { Motion } from '@motionone/solid';
 import { useNavigate } from '@solidjs/router';
-import { type Component, createMemo, createSignal, For, onMount, Show } from 'solid-js';
+import { type Component, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { giftsApi } from '@/entities/gifts/api/giftsApi.js';
 import { creditsApi } from '@/entities/intel/api/creditsApi.js';
 import { numbersApi } from '@/entities/numbers/api/numbersApi.js';
+import { formatLiveNumberInput } from '@/entities/numbers/lib/formatNumber.js';
 import { useUsernameSearch } from '@/entities/username/model/index.js';
 import { getRandomTrending } from '@/entities/username/model/trendingList.js';
 import { type DictPaths, t } from '@/shared/i18n/index.js';
@@ -45,6 +46,45 @@ const CONTENT: Record<
 
 type AnalyzeState = 'idle' | 'loading' | 'success';
 
+interface NumberPatternInfo {
+	name: string;
+	tier: string;
+	subtitle: string;
+	rarity: string;
+	glow: string;
+	gradient: string;
+	icon: string;
+}
+
+interface TrendingPool {
+	categoryKey: DictPaths;
+	badge: string;
+	items: string[];
+}
+
+const NUMBER_TRENDING_POOLS: TrendingPool[] = [
+	{
+		categoryKey: 'numbers.poolRoyal',
+		badge: 'ROYAL & GENESIS',
+		items: ['+888 8888 8888', '+888 0000 0000', '+888 8888', '+888 7777 7777'],
+	},
+	{
+		categoryKey: 'numbers.poolMirror',
+		badge: 'APEX MIRROR',
+		items: ['+888 1234 4321', '+888 0123 3210', '+888 8008 8008', '+888 0990 0990'],
+	},
+	{
+		categoryKey: 'numbers.poolLadder',
+		badge: 'LADDER RUNS',
+		items: ['+888 1234 5678', '+888 0123 4567', '+888 9876 5432', '+888 8765 4321'],
+	},
+	{
+		categoryKey: 'numbers.poolBinary',
+		badge: 'BINARY DUAL',
+		items: ['+888 0101 0101', '+888 8080 8080', '+888 1100 1100', '+888 7788 7788'],
+	},
+];
+
 export const ActionArea: Component<ActionAreaProps> = (props) => {
 	const { searchQuery, setSearchQuery, searchError, setSearchError, validate } =
 		useUsernameSearch();
@@ -56,102 +96,132 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 	const [showNumberGuide, setShowNumberGuide] = createSignal(false);
 	const [serverVerified, setServerVerified] = createSignal<import('@/entities/numbers/model/types.js').NumberVerifyResult | null>(null);
 	const [isVerifying, setIsVerifying] = createSignal(false);
+	const [poolIndex, setPoolIndex] = createSignal(0);
+	const [isRotating, setIsRotating] = createSignal(false);
+
 	let autoGuideTimeout: any = null;
 	let verifyTimeout: any = null;
+	let cycleInterval: any = null;
 
 	const [trendingUsernames] = createSignal<string[]>(getRandomTrending(4));
-	const [trendingNumbers, setTrendingNumbers] = createSignal<string[]>([]);
 	const [trendingGifts, setTrendingGifts] = createSignal<string[]>([]);
-
-	const toAsciiDigits = (str: string): string => {
-		return str
-			.replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
-			.replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660));
-	};
 
 	const numbersValidation = createMemo(() => {
 		if (props.activeTab !== 'collectibles') {
-			return { isValid: false, cleanDigits: '', error: null, tier: '', chips: [] };
+			return { isValid: false, cleanDigits: '', error: null, pattern: null as NumberPatternInfo | null };
 		}
-		const raw = toAsciiDigits(searchQuery().trim());
+		const raw = searchQuery().trim();
 		if (!raw) {
-			return { isValid: false, cleanDigits: '', error: null, tier: '', chips: [] };
+			return { isValid: false, cleanDigits: '', error: null, pattern: null as NumberPatternInfo | null };
 		}
 
-		// Strip +888 or 888 if present
-		let digitsOnly = raw.replace(/[^\d]/g, '');
-		if (digitsOnly.startsWith('888') && digitsOnly.length > 3) {
-			digitsOnly = digitsOnly.substring(3);
-		}
+		const { digits } = formatLiveNumberInput(raw);
 
-		if (/[^\d\s\(\)\-]/.test(raw)) {
+		if (/[^\d\s\(\)\-\+]/.test(raw)) {
 			return {
 				isValid: false,
-				cleanDigits: digitsOnly,
+				cleanDigits: digits,
 				error: t('numbers.errorInvalidChars'),
-				tier: '',
-				chips: [],
+				pattern: null,
 			};
 		}
 
-		if (digitsOnly.length > 8) {
+		if (digits.length > 8) {
 			return {
 				isValid: false,
-				cleanDigits: digitsOnly,
+				cleanDigits: digits,
 				error: t('numbers.errorTooLong'),
-				tier: '',
-				chips: [],
+				pattern: null,
 			};
 		}
 
-		if (digitsOnly.length > 0 && digitsOnly.length !== 8 && digitsOnly !== '8888') {
+		if (digits.length > 0 && digits.length !== 8 && digits !== '8888') {
 			return {
 				isValid: false,
-				cleanDigits: digitsOnly,
+				cleanDigits: digits,
 				error: t('numbers.errorNotMinted'),
-				tier: '',
-				chips: [],
+				pattern: null,
 			};
 		}
 
-		// Determine Pattern Tier & Teaser Chips
-		let tier = 'STANDARD TIER';
-		const chips: string[] = [t('numbers.chipSupply'), t('numbers.chipSignals')];
+		// Pattern Classification for luxury preview
+		let pattern: NumberPatternInfo = {
+			name: t('numbers.patternCollectorName'),
+			tier: 'COLLECTOR EDITION',
+			subtitle: t('numbers.patternCollectorSubtitle'),
+			rarity: t('numbers.patternCollectorRarity'),
+			glow: 'rgba(255,255,255,0.08)',
+			gradient: 'from-white/10 to-white/5 border-white/15 text-white/90',
+			icon: 'stars',
+		};
 
-		if (digitsOnly === '8888') {
-			tier = '4-DIGIT ULTRA (GENESIS)';
-			chips.unshift(t('numbers.chipGenesis'));
-		} else if (/^(.)\1+$/.test(digitsOnly) || digitsOnly.includes('8888') || digitsOnly.includes('7777') || digitsOnly.includes('0000')) {
-			tier = 'GRAIL TIER (QUAD REPEAT)';
-			chips.unshift(t('numbers.chipGrail'));
+		if (digits === '8888') {
+			pattern = {
+				name: t('numbers.patternGenesisName'),
+				tier: '4-DIGIT ULTRA (GENESIS)',
+				subtitle: t('numbers.patternGenesisSubtitle'),
+				rarity: t('numbers.patternGenesisRarity'),
+				glow: 'rgba(255,215,0,0.25)',
+				gradient: 'from-amber-400/20 to-yellow-600/10 border-amber-400/40 text-amber-300',
+				icon: 'diamond',
+			};
+		} else if (/^(.)\1+$/.test(digits) || digits.includes('8888') || digits.includes('7777') || digits.includes('0000')) {
+			pattern = {
+				name: t('numbers.patternGrailName'),
+				tier: 'GRAIL TIER (QUAD REPEAT)',
+				subtitle: t('numbers.patternGrailSubtitle'),
+				rarity: t('numbers.patternGrailRarity'),
+				glow: 'rgba(255,180,0,0.2)',
+				gradient: 'from-amber-500/20 to-amber-700/10 border-amber-500/40 text-amber-300',
+				icon: 'crown',
+			};
 		} else {
-			// Palindrome check
-			const rev = digitsOnly.split('').reverse().join('');
-			if (digitsOnly === rev) {
-				tier = 'APEX TIER (MIRROR PALINDROME)';
-				chips.unshift(t('numbers.chipMirror'));
+			const rev = digits.split('').reverse().join('');
+			if (digits === rev) {
+				pattern = {
+					name: t('numbers.patternMirrorName'),
+					tier: 'APEX TIER (MIRROR PALINDROME)',
+					subtitle: t('numbers.patternMirrorSubtitle'),
+					rarity: t('numbers.patternMirrorRarity'),
+					glow: 'rgba(0,195,255,0.2)',
+					gradient: 'from-cyan-400/20 to-blue-600/10 border-cyan-400/40 text-cyan-300',
+					icon: 'auto_awesome',
+				};
 			} else if (
-				digitsOnly === '12345678' ||
-				digitsOnly === '87654321' ||
-				digitsOnly === '01234567'
+				digits === '12345678' ||
+				digits === '87654321' ||
+				digits === '01234567'
 			) {
-				tier = 'APEX TIER (LADDER SEQUENCE)';
-				chips.unshift(t('numbers.chipLadder'));
+				pattern = {
+					name: t('numbers.patternLadderName'),
+					tier: 'APEX TIER (LADDER SEQUENCE)',
+					subtitle: t('numbers.patternLadderSubtitle'),
+					rarity: t('numbers.patternLadderRarity'),
+					glow: 'rgba(48,209,88,0.2)',
+					gradient: 'from-emerald-400/20 to-teal-600/10 border-emerald-400/40 text-emerald-300',
+					icon: 'trending_up',
+				};
 			} else {
-				const distinct = new Set(digitsOnly.split('')).size;
+				const distinct = new Set(digits.split('')).size;
 				if (distinct <= 2) {
-					tier = 'GRAND TIER (BINARY DUAL)';
-					chips.unshift(t('numbers.chipBinary'));
+					pattern = {
+						name: t('numbers.patternBinaryName'),
+						tier: 'GRAND TIER (BINARY DUAL)',
+						subtitle: t('numbers.patternBinarySubtitle'),
+						rarity: t('numbers.patternBinaryRarity'),
+						glow: 'rgba(175,82,222,0.2)',
+						gradient: 'from-indigo-400/20 to-purple-600/10 border-indigo-400/40 text-indigo-300',
+						icon: 'bolt',
+					};
 				}
 			}
 		}
 
 		return {
 			isValid: true,
-			cleanDigits: digitsOnly,
+			cleanDigits: digits,
 			error: null,
-			tier,
-			chips,
+			pattern,
 		};
 	});
 
@@ -165,10 +235,8 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
 		try {
 			const nIntel = await numbersApi.getIntel();
-			if (nIntel.trending_tail && nIntel.trending_tail.length > 0) {
-				setTrendingNumbers(nIntel.trending_tail.slice(0, 4).map((x) => x.label));
-			} else if (nIntel.hall_of_fame && nIntel.hall_of_fame.length > 0) {
-				setTrendingNumbers(nIntel.hall_of_fame.slice(0, 4).map((x) => x.display_number));
+			if (nIntel.hall_of_fame && nIntel.hall_of_fame.length > 0) {
+				NUMBER_TRENDING_POOLS[0].items = nIntel.hall_of_fame.slice(0, 4).map((x) => x.display_number);
 			}
 		} catch (_e) {}
 
@@ -178,13 +246,26 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 				setTrendingGifts(gIntel.trending_models.slice(0, 4).map((m) => m.name));
 			}
 		} catch (_e) {}
+
+		// Auto cycle collectibles trending numbers every 7 seconds when idle
+		cycleInterval = setInterval(() => {
+			if (!isFocused() && !searchQuery() && props.activeTab === 'collectibles') {
+				setPoolIndex((prev) => (prev + 1) % NUMBER_TRENDING_POOLS.length);
+			}
+		}, 7000);
 	});
+
+	onCleanup(() => {
+		if (cycleInterval) clearInterval(cycleInterval);
+		if (autoGuideTimeout) clearTimeout(autoGuideTimeout);
+		if (verifyTimeout) clearTimeout(verifyTimeout);
+	});
+
+	const currentTrendingPool = createMemo(() => NUMBER_TRENDING_POOLS[poolIndex()]);
 
 	const trendingItems = createMemo(() => {
 		if (props.activeTab === 'collectibles') {
-			return trendingNumbers().length > 0
-				? trendingNumbers()
-				: ['+888 8888 8888', '+888 0000 0000', '+888 7777 7777', '+888 1234 5678'];
+			return currentTrendingPool().items;
 		}
 		if (props.activeTab === 'gifts') {
 			return trendingGifts().length > 0
@@ -193,6 +274,15 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 		}
 		return trendingUsernames();
 	});
+
+	const handleCycleTrending = () => {
+		try {
+			haptic.selection();
+		} catch {}
+		setIsRotating(true);
+		setPoolIndex((prev) => (prev + 1) % NUMBER_TRENDING_POOLS.length);
+		setTimeout(() => setIsRotating(false), 450);
+	};
 
 	const handleAnalyze = async () => {
 		if (analyzeState() !== 'idle') return;
@@ -246,17 +336,14 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
 	const updateSearchQuery = (val: string) => {
 		if (props.activeTab === 'collectibles') {
-			const ascii = toAsciiDigits(val);
-			let cleaned = ascii.replace(/^\+?888\s*/, '').replace(/[^\d\s]/g, '');
-			setSearchQuery(cleaned);
+			const { formatted, digits } = formatLiveNumberInput(val);
+			setSearchQuery(formatted);
 
 			if (autoGuideTimeout) clearTimeout(autoGuideTimeout);
 			if (verifyTimeout) clearTimeout(verifyTimeout);
 
-			const digits = cleaned.replace(/[^\d]/g, '');
-
-			// Auto-open format guide if invalid after 2.5 seconds
-			if (cleaned.trim().length > 0) {
+			// Auto-open format guide if invalid after 2.5 seconds of non-empty typing
+			if (digits.length > 0) {
 				if (digits.length !== 8 && digits !== '8888') {
 					setServerVerified(null);
 					setIsVerifying(false);
@@ -274,13 +361,13 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 						} catch {
 							setServerVerified({
 								number: '+888' + digits,
-								display_number: '+888 ' + digits,
-								is_minted: true,
+								display_number: '+888 ' + (digits.length > 4 ? `${digits.slice(0, 4)} ${digits.slice(4)}` : digits),
+								is_minted: digits.length === 8 || digits === '8888',
 								exists: true,
-								tier: numbersValidation().tier,
+								tier: numbersValidation().pattern?.tier || 'STANDARD TIER',
 								category_club: 'Standard Collection',
 								global_rank: 50000,
-								teaser_chips: numbersValidation().chips,
+								teaser_chips: [],
 							});
 						} finally {
 							setIsVerifying(false);
@@ -324,6 +411,13 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 	const getButtonText = () => {
 		if (analyzeState() === 'loading') return t('action.analyzing');
 		if (analyzeState() === 'success') return t('home.success');
+		if (props.activeTab === 'collectibles') {
+			const v = numbersValidation();
+			if (v.isValid) {
+				return 'کشف ارزش و تحلیل آن‌چین';
+			}
+			return t('action.collectibles.analyzeBtn');
+		}
 		if (props.activeTab === 'username') return t('action.username.analyzeMarketBtn');
 		if (props.activeTab === 'gifts') return t('action.gifts.analyzeBtn');
 		return t(keys().analyzeBtn);
@@ -334,22 +428,22 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 			const v = numbersValidation();
 			if (v.error && searchQuery().trim().length > 0) {
 				return {
-					glow: 'rgba(255,69,58,0.4)',
-					glowSoft: 'rgba(255,69,58,0.1)',
-					borderTop: 'rgba(255,69,58,0.6)',
-					borderBottom: 'rgba(255,69,58,0.15)',
+					glow: 'rgba(255,69,58,0.25)',
+					glowSoft: 'rgba(255,69,58,0.06)',
+					borderTop: 'rgba(255,69,58,0.4)',
+					borderBottom: 'rgba(255,69,58,0.1)',
 					bg: '#140c0c',
 					icon: '#ff453a',
 				};
 			}
 			if (v.isValid) {
 				return {
-					glow: 'rgba(48,209,88,0.4)',
-					glowSoft: 'rgba(48,209,88,0.1)',
-					borderTop: 'rgba(48,209,88,0.6)',
-					borderBottom: 'rgba(48,209,88,0.15)',
-					bg: '#0a140d',
-					icon: '#30d158',
+					glow: 'rgba(0,152,234,0.3)',
+					glowSoft: 'rgba(0,152,234,0.08)',
+					borderTop: 'rgba(0,152,234,0.4)',
+					borderBottom: 'rgba(0,152,234,0.1)',
+					bg: '#0a1017',
+					icon: '#0098ea',
 				};
 			}
 		}
@@ -359,29 +453,29 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 
 		if (isError) {
 			return {
-				glow: 'rgba(255,69,58,0.4)',
-				glowSoft: 'rgba(255,69,58,0.1)',
-				borderTop: 'rgba(255,69,58,0.6)',
-				borderBottom: 'rgba(255,69,58,0.15)',
+				glow: 'rgba(255,69,58,0.25)',
+				glowSoft: 'rgba(255,69,58,0.06)',
+				borderTop: 'rgba(255,69,58,0.4)',
+				borderBottom: 'rgba(255,69,58,0.1)',
 				bg: '#140c0c',
 				icon: '#ff453a',
 			};
 		}
 		if (isSuccess) {
 			return {
-				glow: 'rgba(48,209,88,0.4)',
-				glowSoft: 'rgba(48,209,88,0.1)',
-				borderTop: 'rgba(48,209,88,0.6)',
-				borderBottom: 'rgba(48,209,88,0.15)',
+				glow: 'rgba(48,209,88,0.3)',
+				glowSoft: 'rgba(48,209,88,0.08)',
+				borderTop: 'rgba(48,209,88,0.4)',
+				borderBottom: 'rgba(48,209,88,0.1)',
 				bg: '#0a140d',
 				icon: '#30d158',
 			};
 		}
 		return {
-			glow: 'rgba(51,144,236,0.5)',
-			glowSoft: 'rgba(51,144,236,0.15)',
-			borderTop: isFocused() ? 'rgba(51,144,236,0.5)' : 'rgba(255,255,255,0.25)',
-			borderBottom: isFocused() ? 'rgba(51,144,236,0.1)' : 'rgba(255,255,255,0.08)',
+			glow: 'rgba(51,144,236,0.35)',
+			glowSoft: 'rgba(51,144,236,0.1)',
+			borderTop: isFocused() ? 'rgba(51,144,236,0.4)' : 'rgba(255,255,255,0.12)',
+			borderBottom: isFocused() ? 'rgba(51,144,236,0.1)' : 'rgba(255,255,255,0.04)',
 			bg: '#111214',
 			icon: isFocused() ? '#3390ec' : 'rgba(255,255,255,0.4)',
 		};
@@ -408,9 +502,9 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 						initial={{ opacity: 0, y: 16 }}
 						animate={{ opacity: 1, y: 0 }}
 						transition={{ duration: 0.7, easing: [0.16, 1, 0.3, 1] }}
-						class="text-center w-full mb-10 flex flex-col items-center"
+						class="text-center w-full mb-8 flex flex-col items-center"
 					>
-						<div class="flex items-center justify-center gap-3 mb-6">
+						<div class="flex items-center justify-center gap-3 mb-5">
 							{/* Intel Credits Badge */}
 							<button
 								type="button"
@@ -451,10 +545,10 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 							</div>
 						</div>
 
-						<h2 class="text-[34px] md:text-[44px] font-extrabold tracking-tight leading-[1.2] mb-3 text-white">
+						<h2 class="text-[32px] md:text-[42px] font-extrabold tracking-tight leading-[1.2] mb-2.5 text-white">
 							{t(keys().title)}
 						</h2>
-						<p class="text-white/50 text-[15px] font-medium max-w-[400px] leading-[1.6] mx-auto">
+						<p class="text-white/50 text-[14px] font-medium max-w-[400px] leading-[1.6] mx-auto">
 							{t(keys().description)}
 						</p>
 					</Motion.div>
@@ -488,7 +582,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 									<div class="space-y-1 font-mono text-[11px] text-white/90" dir="ltr">
 										<div class="bg-black/30 px-2 py-1 rounded-lg">8888 8888 <span class="text-[9px] text-emerald-400">✓</span></div>
 										<div class="bg-black/30 px-2 py-1 rounded-lg">0123 4567 <span class="text-[9px] text-emerald-400">✓</span></div>
-										<div class="bg-black/30 px-2 py-1 rounded-lg">8888 <span class="text-[9px] text-emerald-400">✓ (4 Digits)</span></div>
+										<div class="bg-black/30 px-2 py-1 rounded-lg">8888 <span class="text-[9px] text-emerald-400">✓ (Genesis)</span></div>
 									</div>
 								</div>
 
@@ -531,11 +625,11 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 						<div
 							class="relative w-full rounded-[28px] transition-all duration-500 overflow-hidden backdrop-blur-2xl"
 							style={{
-								background: 'rgba(20, 20, 22, 0.4)',
+								background: 'rgba(20, 20, 22, 0.45)',
 								border: `1px solid ${inputStateColors().borderTop}`,
 								'box-shadow': isFocused()
-									? '0 20px 40px -10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)'
-									: '0 10px 30px -10px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.02)',
+									? '0 20px 40px -10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)'
+									: '0 10px 30px -10px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03)',
 							}}
 						>
 							<div class="flex flex-col p-2">
@@ -586,6 +680,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 												onClick={() => {
 													setSearchQuery('');
 													setShowNumberGuide(false);
+													setServerVerified(null);
 												}}
 												class="w-8 h-8 rounded-full bg-white/[0.05] hover:bg-white/10 text-white/40 hover:text-white transition-all flex items-center justify-center"
 											>
@@ -607,7 +702,7 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 									</Motion.div>
 								</Show>
 
-								{/* Reactive Realtime Validation & Teasers for Collectible Numbers */}
+								{/* Reactive Realtime Validation & VIP Live Intelligence for Collectible Numbers */}
 								<Show when={props.activeTab === 'collectibles' && searchQuery().trim().length > 0}>
 									{/* 1. Client format error */}
 									<Show when={numbersValidation().error}>
@@ -651,28 +746,25 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 										</div>
 									</Show>
 
-									{/* 4. Valid & Minted */}
+									{/* 4. Valid & Minted - Minimalist VIP Live Intelligence Card */}
 									<Show when={numbersValidation().isValid && !isVerifying() && (!serverVerified() || serverVerified()?.is_minted)}>
-										<div class="px-3 pb-3 pt-1 border-t border-white/5 space-y-2 animate-in fade-in">
-											<div class="flex items-center justify-between">
-												<span class="text-[11px] font-bold text-emerald-400 flex items-center gap-1">
-													<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-													<span>{t('numbers.mintedConfirmed')}</span>
-												</span>
-												<span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
-													{serverVerified()?.tier || numbersValidation().tier}
+										<div class="mx-1 mb-1.5 p-3 rounded-[20px] bg-white/[0.03] border border-white/[0.08] backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200">
+											<div class="flex items-center justify-between gap-2 mb-1">
+												<div class="flex items-center gap-2">
+													<div class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,199,89,0.8)] animate-pulse shrink-0" />
+													<span class="text-[13px] font-bold text-white tracking-tight">
+														{numbersValidation().pattern?.name}
+													</span>
+												</div>
+												<span class="text-[9px] font-mono font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-white/[0.06] border border-white/10 text-white/80 shrink-0">
+													{numbersValidation().pattern?.tier}
 												</span>
 											</div>
-
-											{/* Pattern Teaser Chips */}
-											<div class="flex flex-wrap gap-1.5">
-												<For each={serverVerified()?.teaser_chips || numbersValidation().chips}>
-													{(chip) => (
-														<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-white/[0.04] border border-white/10 text-white/80">
-															{chip}
-														</span>
-													)}
-												</For>
+											<div class="flex items-center justify-between text-[11px] text-white/50 pt-0.5">
+												<span>{numbersValidation().pattern?.subtitle}</span>
+												<span class="text-emerald-400 font-semibold text-[10px] shrink-0">
+													{numbersValidation().pattern?.rarity}
+												</span>
 											</div>
 										</div>
 									</Show>
@@ -719,26 +811,42 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 						</button>
 					</Motion.div>
 
-					{/* ━━━ TAB-AWARE TRENDING (FILLING INPUT WITHOUT NAVIGATING) ━━━ */}
+					{/* ━━━ TAB-AWARE DYNAMIC TRENDING (CONVERT & CYCLE ENGINE) ━━━ */}
 					<Motion.div
 						initial={{ opacity: 0 }}
 						animate={{ opacity: 1 }}
 						transition={{ duration: 0.5, delay: 0.2 }}
 						class="w-full mb-8 flex flex-col items-center"
-						dir="ltr"
 					>
-						<span class="text-[11px] font-semibold text-white/30 uppercase tracking-[0.25em] mb-4">
-							{t('action.trending.title')}
-						</span>
-						<div class="flex flex-wrap justify-center gap-2.5">
+						<div class="flex items-center justify-between w-full max-w-[440px] px-2 mb-3.5">
+							<span class="text-[11px] font-bold text-white/40 uppercase tracking-[0.2em] flex items-center gap-1.5">
+								<span class="material-symbols-outlined text-[14px] text-amber-400">trending_up</span>
+								<span>{t('action.trending.title')}</span>
+							</span>
+
+							<Show when={props.activeTab === 'collectibles'}>
+								<button
+									type="button"
+									onClick={handleCycleTrending}
+									class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-[11px] font-medium text-white/70 hover:text-white transition-all active:scale-95 group"
+								>
+									<span class={`material-symbols-outlined text-[13px] text-[#0098EA] transition-transform duration-500 ${isRotating() ? 'rotate-180' : 'group-hover:rotate-45'}`}>
+										cached
+									</span>
+									<span>{t(currentTrendingPool().categoryKey)}</span>
+								</button>
+							</Show>
+						</div>
+
+						<div class="flex flex-wrap justify-center gap-2.5 w-full" dir="ltr">
 							<For each={trendingItems()}>
 								{(item, idx) => (
 									<Motion.button
-										initial={{ opacity: 0, y: 10 }}
+										initial={{ opacity: 0, y: 8 }}
 										animate={{ opacity: 1, y: 0 }}
 										transition={{
-											duration: 0.4,
-											delay: 0.25 + idx() * 0.05,
+											duration: 0.35,
+											delay: idx() * 0.04,
 											easing: [0.16, 1, 0.3, 1],
 										}}
 										onClick={() => {
@@ -749,15 +857,18 @@ export const ActionArea: Component<ActionAreaProps> = (props) => {
 											const el = document.getElementById('search-input');
 											if (el) el.focus();
 										}}
-										class="px-4 py-2.5 rounded-[14px] bg-white/[0.03] hover:bg-white/[0.08] text-white/60 text-[13px] font-medium transition-all duration-300 active:scale-95 flex items-center gap-1 hover:text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] border border-white/[0.02]"
+										class="group relative px-4 py-2.5 rounded-[16px] bg-white/[0.03] hover:bg-white/[0.07] text-white/70 hover:text-white text-[13px] font-mono font-medium transition-all duration-300 active:scale-95 flex items-center gap-1.5 border border-white/[0.05] hover:border-white/15 shadow-[0_4px_12px_rgba(0,0,0,0.2)]"
 									>
 										<Show when={props.activeTab === 'username'}>
-											<span class="text-white/20">@</span>
+											<span class="text-white/25">@</span>
 										</Show>
 										<Show when={props.activeTab === 'collectibles' && !item.startsWith('+')}>
-											<span class="text-white/20">+888 </span>
+											<span class="text-[#0098EA]/60 font-bold">+888 </span>
 										</Show>
-										<span>{item}</span>
+										<span class="tracking-wider">{item}</span>
+										<span class="material-symbols-outlined text-[12px] opacity-0 group-hover:opacity-60 -translate-x-1 group-hover:translate-x-0 transition-all text-white">
+											arrow_outward
+										</span>
 									</Motion.button>
 								)}
 							</For>

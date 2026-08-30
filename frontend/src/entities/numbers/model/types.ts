@@ -120,6 +120,64 @@ export interface CulturalScore {
 	description_fa: string;
 }
 
+export interface ActionablePlaybook {
+	fair_buy_target_ton: number;
+	fair_buy_target_usd: number;
+	suggested_auction_start_ton: number;
+	suggested_auction_start_usd: number;
+	buy_now_target_ton: number;
+	buy_now_target_usd: number;
+	bid_step_ton: number;
+	net_proceeds_ton: number;
+	net_proceeds_usd: number;
+	fragment_fee_ton: number;
+}
+
+export interface PatternAnatomyData {
+	club_name_en: string;
+	club_name_fa: string;
+	pattern_type_en: string;
+	pattern_type_fa: string;
+	exact_supply_count: number;
+	supply_percentage: number;
+	distinct_digits: number;
+	max_run: number;
+	symmetry_score: number;
+	memorability_score: number;
+	numerology_report_en: string;
+	numerology_report_fa: string;
+}
+
+export interface RentalYieldData {
+	monthly_yield_ton: number;
+	monthly_yield_usd: number;
+	est_apy: number;
+	target_audience_fa: string;
+	target_audience_en: string;
+}
+
+export interface MarketDepthData {
+	club_floor_ton: number;
+	club_floor_usd: number;
+	listed_ratio_pct: number;
+	estimated_sell_days: string;
+	hodl_strength_fa: string;
+	hodl_strength_en: string;
+	liquidity_speed_en: string;
+	liquidity_speed_fa: string;
+}
+
+export interface OnChainAuditData {
+	is_restricted: boolean;
+	restriction_status_fa: string;
+	restriction_status_en: string;
+	telemint_contract: string;
+	mint_date: string;
+	transfer_count: number;
+	highest_past_sale_ton: number;
+	appreciation_pct: number;
+}
+
 export interface NumberValuationResult {
 	run_id: number;
 	number: string;
@@ -137,6 +195,7 @@ export interface NumberValuationResult {
 	price_basis: string;
 	global_rank?: number;
 	category_club?: string;
+	category_club_fa?: string;
 	collateral_value_ton?: number;
 	collateral_value_usd?: number;
 	fragment_direct_url?: string;
@@ -190,6 +249,11 @@ export interface NumberValuationResult {
 		summary_en: string;
 		summary_fa: string;
 	};
+	playbook?: ActionablePlaybook;
+	pattern_anatomy?: PatternAnatomyData;
+	rental_yield?: RentalYieldData;
+	market_depth?: MarketDepthData;
+	on_chain_audit?: OnChainAuditData;
 	certificate_id: string;
 	evaluated_at: string;
 }

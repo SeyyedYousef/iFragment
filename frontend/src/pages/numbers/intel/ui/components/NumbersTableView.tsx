@@ -1,6 +1,6 @@
 import { createQuery } from '@tanstack/solid-query';
 import { type Component, createSignal, For, Show } from 'solid-js';
-import { numbersApi } from '@/entities/numbers/index.js';
+import { numbersApi, splitNumberPrefix } from '@/entities/numbers/index.js';
 import type { NumbersFilterState } from '@/entities/numbers/model/types.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
@@ -51,6 +51,22 @@ export const NumbersTableView: Component<Props> = (props) => {
 	const [isFiltersOpen, setIsFiltersOpen] = createSignal<boolean>(false);
 	const [copiedAddress, setCopiedAddress] = createSignal<string | null>(null);
 	const [jumpPageInput, setJumpPageInput] = createSignal<string>('');
+	const [localMask, setLocalMask] = createSignal<string>(props.initialFilter?.saleType || '');
+	let maskDebounceTimer: any = null;
+
+	const handleMaskInput = (val: string) => {
+		setLocalMask(val);
+		if (maskDebounceTimer) clearTimeout(maskDebounceTimer);
+		maskDebounceTimer = setTimeout(() => {
+			setFilters((prev) => ({ ...prev, mask: val, page: 1 }));
+		}, 300);
+	};
+
+	const handleClearMask = () => {
+		setLocalMask('');
+		if (maskDebounceTimer) clearTimeout(maskDebounceTimer);
+		setFilters((prev) => ({ ...prev, mask: '', page: 1 }));
+	};
 
 	// Fetch filtered list (50 real numbers per page)
 	const numbersQuery = createQuery(() => ({
@@ -73,6 +89,8 @@ export const NumbersTableView: Component<Props> = (props) => {
 		try {
 			haptic.impact('medium');
 		} catch {}
+		setLocalMask('');
+		if (maskDebounceTimer) clearTimeout(maskDebounceTimer);
 		setFilters({
 			saleType: '',
 			numberType: '',
@@ -225,12 +243,20 @@ export const NumbersTableView: Component<Props> = (props) => {
 								<input
 									type="text"
 									placeholder="e.g. 8888000 or +888..."
-									value={filters().mask}
-									onInput={(e) => {
-										setFilters((prev) => ({ ...prev, mask: e.currentTarget.value, page: 1 }));
-									}}
-									class="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-[#0098EA] font-mono transition-all"
+									value={localMask()}
+									onInput={(e) => handleMaskInput(e.currentTarget.value)}
+									class="w-full bg-black/40 border border-white/10 rounded-xl pl-3 pr-8 py-2 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-[#0098EA] font-mono transition-all"
 								/>
+								<Show when={localMask()}>
+									<button
+										type="button"
+										onClick={handleClearMask}
+										class="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors"
+										title="Clear search"
+									>
+										<span class="material-symbols-outlined text-sm">close</span>
+									</button>
+								</Show>
 							</div>
 						</div>
 
@@ -413,11 +439,23 @@ export const NumbersTableView: Component<Props> = (props) => {
 				<Show
 					when={!numbersQuery.isPending}
 					fallback={
-						<div class="p-12 text-center space-y-3">
-							<div class="w-8 h-8 rounded-full border-2 border-[#0098EA] border-t-transparent animate-spin mx-auto" />
-							<p class="text-xs text-white/50 font-bold">
-								{t('common.loading') || 'Fetching on-chain numbers...'}
-							</p>
+						<div class="p-4 space-y-3 animate-pulse">
+							<For each={[1, 2, 3, 4, 5, 6]}>
+								{() => (
+									<div class="flex items-center justify-between py-2 border-b border-white/[0.04]">
+										<div class="flex items-center gap-2.5">
+											<div class="w-3.5 h-3.5 rounded-full bg-white/10" />
+											<div class="flex items-center gap-1.5">
+												<div class="w-10 h-5 rounded bg-[#0098EA]/15" />
+												<div class="w-20 h-5 rounded bg-white/10" />
+											</div>
+										</div>
+										<div class="w-16 h-5 rounded bg-white/10" />
+										<div class="w-8 h-5 rounded bg-white/10" />
+										<div class="w-24 h-5 rounded bg-white/10" />
+									</div>
+								)}
+							</For>
 						</div>
 					}
 				>
@@ -441,7 +479,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 					>
 						{/* Table */}
 						<div class="overflow-x-auto">
-							<table class="w-full text-left border-collapse">
+							<table class="w-full text-left border-collapse min-w-[460px]">
 								<thead>
 									<tr class="border-b border-white/[0.08] bg-white/[0.02] text-[10px] font-black text-white/40 uppercase tracking-wider">
 										<th class="py-3 px-4">Number</th>
@@ -466,17 +504,29 @@ export const NumbersTableView: Component<Props> = (props) => {
 															<button
 																type="button"
 																onClick={() => props.onSelectNumber?.(item.number)}
-																class="font-black text-white font-mono hover:text-[#0098EA] transition-colors flex items-center gap-1.5 text-left"
+																class="font-mono hover:opacity-80 transition-opacity flex items-center text-left"
 															>
-																<span>{item.number}</span>
-																<Show when={item.is_restricted}>
-																	<span
-																		class="text-[9px] px-1 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30"
-																		title="Restricted / Banned"
-																	>
-																		⚠️
-																	</span>
-																</Show>
+																{(() => {
+																	const p = splitNumberPrefix(item.display_number || item.number);
+																	return (
+																		<div class="flex items-center gap-1.5 font-mono">
+																			<span class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-[#0098EA]/15 text-[#0098EA] border border-[#0098EA]/30 shrink-0 select-none">
+																				+888
+																			</span>
+																			<span class="font-black text-white text-xs tracking-wider">
+																				{p.body || p.rawDigits}
+																			</span>
+																			<Show when={item.is_restricted}>
+																				<span
+																					class="text-[9px] px-1 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 font-sans leading-none"
+																					title="Restricted / Banned on Telegram"
+																				>
+																					⚠️
+																				</span>
+																			</Show>
+																		</div>
+																	);
+																})()}
 															</button>
 															<div class="flex items-center gap-1.5 mt-0.5">
 																<a

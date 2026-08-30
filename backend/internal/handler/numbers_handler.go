@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"ifragment-backend/internal/middleware"
 	"ifragment-backend/internal/service/numbers"
@@ -261,5 +262,50 @@ func (h *NumbersHandler) GetChartData(w http.ResponseWriter, r *http.Request) {
 	}
 	RespondJSON(w, http.StatusOK, chartData)
 }
+
+// GetNumbersList returns paginated on-chain numbers with multi-axis filtering
+func (h *NumbersHandler) GetNumbersList(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page <= 0 {
+		page = 1
+	}
+
+	saleType := r.URL.Query().Get("sale_type")
+	numberType := r.URL.Query().Get("number_type")
+	ownersHistory := r.URL.Query().Get("owners_history")
+	mask := r.URL.Query().Get("mask")
+
+	// Support both multiple ?nft_color=A&nft_color=B and comma-separated ?nft_color=A,B
+	var nftColors []string
+	if rawColors := r.URL.Query()["nft_color"]; len(rawColors) > 0 {
+		for _, rc := range rawColors {
+			for _, splitColor := range strings.Split(rc, ",") {
+				c := strings.TrimSpace(splitColor)
+				if c != "" {
+					nftColors = append(nftColors, c)
+				}
+			}
+		}
+	}
+
+	params := numbers.NumbersListParams{
+		Page:          page,
+		SaleType:      saleType,
+		NumberType:    numberType,
+		OwnersHistory: ownersHistory,
+		NFTColors:     nftColors,
+		Mask:          mask,
+	}
+
+	result, err := h.service.GetNumbersList(ctx, params)
+	if err != nil {
+		RespondError(w, r, http.StatusInternalServerError, "failed to load numbers list", err)
+		return
+	}
+	RespondJSON(w, http.StatusOK, result)
+}
+
 
 

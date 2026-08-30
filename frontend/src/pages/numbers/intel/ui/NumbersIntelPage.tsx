@@ -1,4 +1,5 @@
 import { createQuery } from '@tanstack/solid-query';
+import { useNavigate } from '@solidjs/router';
 import { type Component, createSignal, Show } from 'solid-js';
 import { numbersApi } from '@/entities/numbers/index.js';
 import { t } from '@/shared/i18n/index.js';
@@ -10,6 +11,7 @@ import { NumbersPortfolioView } from './components/NumbersPortfolioView.js';
 
 export const NumbersIntelPage: Component = () => {
 	useTelegramBackButton(-1);
+	const navigate = useNavigate();
 
 	const [activeTab, setActiveTab] = createSignal<'chart' | 'numbers' | 'portfolio'>('chart');
 	const [listFilterState, setListFilterState] = createSignal<{
@@ -63,6 +65,13 @@ export const NumbersIntelPage: Component = () => {
 		} catch {}
 		setPortfolioTargetAddress(address);
 		setActiveTab('portfolio');
+	};
+
+	const handleSelectNumber = (number: string) => {
+		try {
+			haptic.selection();
+		} catch {}
+		navigate(`/numbers/report?n=${encodeURIComponent(number)}`);
 	};
 
 	return (
@@ -172,6 +181,7 @@ export const NumbersIntelPage: Component = () => {
 				<Show when={activeTab() === 'numbers'}>
 					<NumbersTableView
 						initialFilter={listFilterState()}
+						onSelectNumber={handleSelectNumber}
 						onViewOwnerPortfolio={handleViewOwnerPortfolio}
 					/>
 				</Show>
@@ -180,6 +190,7 @@ export const NumbersIntelPage: Component = () => {
 					<NumbersPortfolioView
 						initialAddress={portfolioTargetAddress()}
 						floorPriceTon={intel()?.floor_price_ton || 2179}
+						onValuateNumber={handleSelectNumber}
 					/>
 				</Show>
 			</div>

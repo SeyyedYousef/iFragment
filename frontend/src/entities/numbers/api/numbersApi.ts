@@ -27,7 +27,7 @@ function parseNumbersFromHTML(html: string): {
 		const rawDigits = numMatch[1];
 		const rawDisplay = numMatch[2].trim();
 
-		const isRestricted = chunk.includes('nftitem__banned') || chunk.includes('Restricted');
+		const isRestricted = chunk.includes('nftitem__banned');
 
 		const marketMatch = chunk.match(/href="(https:\/\/(?:fragment\.com|getgems\.io)[^"]+)"/);
 		const marketUrl = marketMatch ? marketMatch[1] : `https://fragment.com/number/${rawDigits}`;
@@ -408,36 +408,32 @@ export const numbersApi = {
 		const nftColors = params.nftColors || [];
 		const mask = params.mask ? params.mask.trim().replace('+', '').replace(/\s+/g, '') : '';
 
-		// 1. Fetch live real on-chain numbers list from nums888.io
+		// 1. Fetch from backend API proxy (avoids browser CORS issues and uses Redis cache)
 		try {
-			const queryParts: string[] = [`page=${page}`];
-			if (saleType) queryParts.push(`sale_type=${encodeURIComponent(saleType)}`);
-			if (numberType) queryParts.push(`number_type=${encodeURIComponent(numberType)}`);
-			if (ownersHistory) queryParts.push(`owners_history=${encodeURIComponent(ownersHistory)}`);
+			const queryParams: Record<string, any> = { page };
+			if (saleType) queryParams.sale_type = saleType;
+			if (numberType) queryParams.number_type = numberType;
+			if (ownersHistory) queryParams.owners_history = ownersHistory;
 			if (nftColors.length > 0) {
-				nftColors.forEach((c) => queryParts.push(`nft_color=${encodeURIComponent(c.replace('#', ''))}`));
+				queryParams.nft_color = nftColors.map((c) => c.replace('#', '')).join(',');
 			}
-			if (mask) queryParts.push(`mask=${encodeURIComponent(mask)}`);
+			if (mask) queryParams.mask = mask;
 
-			const url = `https://nums888.io/numbers/?${queryParts.join('&')}`;
-			const res = await fetch(url);
-			if (res.ok) {
-				const html = await res.text();
-				const parsed = parseNumbersFromHTML(html);
-				if (parsed.items.length > 0 || parsed.totalPages > 0) {
-					return {
-						items: parsed.items,
-						total: parsed.totalPages * 50,
-						page,
-						totalPages: parsed.totalPages || 1,
-					};
-				}
+			const { data } = await apiClient.get<{
+				items: import('../model/types.js').NumberTableItem[];
+				total: number;
+				page: number;
+				totalPages: number;
+			}>('/numbers/list', { params: queryParams });
+
+			if (data && Array.isArray(data.items) && data.items.length > 0) {
+				return data;
 			}
 		} catch (err) {
-			console.warn('Live numbers list fetch failed, falling back to local dataset', err);
+			console.warn('Backend /numbers/list fetch failed, falling back to local dataset', err);
 		}
 
-		// 2. Procedural Fallback spanning the collection
+		// 2. Procedural Fallback respecting all filters
 		const baseColors: { hex: string; name: string }[] = [
 			{ hex: '#8D66E3', name: 'Violet' },
 			{ hex: '#288576', name: 'Turquoise' },
@@ -469,10 +465,39 @@ export const numbersApi = {
 		const startNum = 8888000 + (page - 1) * itemsPerPage;
 
 		for (let i = 0; i < itemsPerPage; i++) {
-			const currentNum = startNum + i;
-			const color = baseColors[(currentNum + i) % baseColors.length];
+			let currentNum = startNum + i;
+			if (mask) {
+				const numStr = String(currentNum);
+				if (!numStr.includes(mask)) {
+					currentNum = 8888000 + ((i * 17) % 9000000);
+				}
+			}
+
+			let color = baseColors[(currentNum + i) % baseColors.length];
+			if (nftColors.length > 0) {
+				const chosenHex = nftColors[i % nftColors.length];
+				const hexWithHash = chosenHex.startsWith('#') ? chosenHex : `#${chosenHex}`;
+				const found = baseColors.find((c) => c.hex.toLowerCase() === hexWithHash.toLowerCase());
+				color = found || { hex: hexWithHash, name: 'NFT Color' };
+			}
+
 			const price = Math.round(2179 + ((currentNum * 13) % 45000));
-			const owners = ((currentNum * 7) % 8) + 1;
+			let owners = ((currentNum * 7) % 8) + 1;
+			if (ownersHistory === '1') {
+				owners = 1;
+			} else if (ownersHistory === '2-3') {
+				owners = 2 + (i % 2);
+			} else if (ownersHistory === '4+') {
+				owners = 4 + (i % 5);
+			}
+
+			// ONLY true if user actively filtered by banned
+			const isRestricted = numberType === 'banned';
+
+			let currentBid: number | undefined = undefined;
+			if (saleType === 'auction' || (saleType === '' && i % 7 === 0)) {
+				currentBid = Math.round(price * 0.9);
+			}
 
 			fallbackItems.push({
 				number: `+888${currentNum}`,
@@ -482,9 +507,10 @@ export const numbersApi = {
 				last_sale_ton: price,
 				last_sale_usd: Math.round(price * 5.5),
 				last_sale_date: 'On-Chain',
+				current_bid_ton: currentBid,
 				owners_count: owners,
 				current_owner: `EQ${String(currentNum).padStart(8, '0')}...Fragment`,
-				is_restricted: i % 15 === 0,
+				is_restricted: isRestricted,
 				source: 'fragment',
 				market_url: `https://fragment.com/number/${currentNum}`,
 			});

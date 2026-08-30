@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 
 	"ifragment-backend/internal/client/telegram"
@@ -22,7 +21,7 @@ import (
 // manager flow or rotated its token. We log it; token retrieval happens via
 // getManagedBotToken when the owner opens the Mini App (tokens are never
 // pushed into chat).
-func (h *WebhookHandler) handleManagedBotUpdated(ctx context.Context, bot *repository.ManagedBot, upd *ManagedBotUpdated) {
+func (h *WebhookHandler) handleManagedBotUpdated(_ context.Context, bot *repository.ManagedBot, upd *ManagedBotUpdated) {
 	if upd == nil {
 		return
 	}
@@ -102,7 +101,7 @@ func (h *WebhookHandler) handleGuestMessage(ctx context.Context, bot *repository
 		"type":  "article",
 		"id":    "guest-intro",
 		"title": "iFragment — Fragment Market Intelligence",
-		"description": fmt.Sprintf("Valuations for usernames, +888 numbers & gifts. Mention me with any @handle!"),
+		"description": "Valuations for usernames, +888 numbers & gifts. Mention me with any @handle!",
 		"input_message_content": map[string]interface{}{
 			"message_text": "💎 <b>iFragment</b> — professional valuation for Telegram assets.\n\nMention me like: <code>@thisbot durov</code> or open the app below.",
 		},

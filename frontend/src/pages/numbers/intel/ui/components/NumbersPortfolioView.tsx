@@ -4,7 +4,7 @@ import {
 	Show,
 	type Component,
 } from 'solid-js';
-import { numbersApi } from '@/entities/numbers/index.js';
+import { numbersApi, splitNumberPrefix } from '@/entities/numbers/index.js';
 import type { WalletPortfolioResult } from '@/entities/numbers/model/types.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
@@ -227,13 +227,27 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 							<div class="space-y-2">
 								<For each={result()?.assets || []}>
 									{(asset) => (
-										<div class="bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.05] rounded-xl p-3 flex items-center justify-between transition-colors">
+										<button
+											type="button"
+											onClick={() => {
+												try {
+													haptic.selection();
+												} catch {}
+												props.onValuateNumber?.(asset.number);
+											}}
+											class="w-full bg-white/[0.02] hover:bg-white/[0.06] active:scale-[0.99] border border-white/[0.05] hover:border-[#0098EA]/30 rounded-xl p-3 flex items-center justify-between transition-all group text-left"
+										>
 											<div class="flex items-center gap-2.5">
-												<div class="w-8 h-8 rounded-lg bg-[#0098EA]/10 border border-[#0098EA]/20 flex items-center justify-center font-bold text-xs text-[#0098EA]">
+												<div class="w-8 h-8 rounded-lg bg-[#0098EA]/10 border border-[#0098EA]/20 flex items-center justify-center font-bold text-xs text-[#0098EA] font-mono shrink-0">
 													+888
 												</div>
 												<div>
-													<div class="font-black text-white font-mono text-xs">{asset.display_number}</div>
+													<div class="font-black text-white font-mono text-xs group-hover:text-[#0098EA] transition-colors">
+														{(() => {
+															const p = splitNumberPrefix(asset.display_number || asset.number);
+															return p.body || p.rawDigits;
+														})()}
+													</div>
 													<div class="text-[10px] text-white/40 font-medium">
 														Rank #{asset.global_rank} • Score {asset.rarity_score}
 													</div>
@@ -249,7 +263,7 @@ export const NumbersPortfolioView: Component<Props> = (props) => {
 													≈ {formatUsd(asset.expected_usd || Math.round(floorTon() * tonRate))}
 												</div>
 											</div>
-										</div>
+										</button>
 									)}
 								</For>
 							</div>
