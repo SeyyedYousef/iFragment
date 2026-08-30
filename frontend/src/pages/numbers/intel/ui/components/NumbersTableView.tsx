@@ -1,13 +1,7 @@
-import {
-	createSignal,
-	createEffect,
-	For,
-	Show,
-	type Component,
-} from 'solid-js';
 import { createQuery } from '@tanstack/solid-query';
+import { type Component, createSignal, For, Show } from 'solid-js';
 import { numbersApi } from '@/entities/numbers/index.js';
-import type { NumbersFilterState, NumberTableItem } from '@/entities/numbers/model/types.js';
+import type { NumbersFilterState } from '@/entities/numbers/model/types.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 
@@ -92,7 +86,7 @@ export const NumbersTableView: Component<Props> = (props) => {
 	const handleCopy = (address: string) => {
 		try {
 			navigator.clipboard.writeText(address);
-			haptic.notification('success');
+			haptic.notify('success');
 			setCopiedAddress(address);
 			setTimeout(() => setCopiedAddress(null), 2000);
 		} catch {}
@@ -341,7 +335,9 @@ export const NumbersTableView: Component<Props> = (props) => {
 					fallback={
 						<div class="p-8 text-center space-y-3">
 							<div class="w-8 h-8 rounded-full border-2 border-[#0098EA] border-t-transparent animate-spin mx-auto" />
-							<p class="text-xs text-white/50 font-bold">{t('common.loading') || 'Loading numbers...'}</p>
+							<p class="text-xs text-white/50 font-bold">
+								{t('common.loading') || 'Loading numbers...'}
+							</p>
 						</div>
 					}
 				>
@@ -455,7 +451,9 @@ export const NumbersTableView: Component<Props> = (props) => {
 						<div class="p-3 border-t border-white/[0.06] flex items-center justify-between text-xs text-white/50">
 							<div>
 								Page <span class="font-bold text-white font-mono">{filters().page}</span> of{' '}
-								<span class="font-bold text-white font-mono">{numbersQuery.data?.totalPages || 1}</span>
+								<span class="font-bold text-white font-mono">
+									{numbersQuery.data?.totalPages || 1}
+								</span>
 							</div>
 
 							<div class="flex items-center gap-1">

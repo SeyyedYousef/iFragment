@@ -1,5 +1,5 @@
-import { useSearchParams } from '@solidjs/router';
-import { type Component, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import { useNavigate, useSearchParams } from '@solidjs/router';
+import { type Component, createMemo, createSignal, For, onMount, Show } from 'solid-js';
 import {
 	type CuriosityGateData,
 	type NumberValuationResult,
@@ -8,8 +8,8 @@ import {
 import { isRtl, t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
 import { copyToClipboard, shareToStory } from '@/shared/lib/telegram-native.js';
-import { CreditStoreSheet, SearchTeaser, useWallet } from '@/widgets/paywall/index.js';
 import { useTelegramBackButton } from '@/shared/lib/useTelegramBackButton.js';
+import { CreditStoreSheet, useWallet } from '@/widgets/paywall/index.js';
 
 interface NumberValidation {
 	isValid: boolean;
@@ -169,12 +169,12 @@ function validateAndFormatAnonymousNumber(raw: string): NumberValidation {
 
 export const NumberReportPage: Component = () => {
 	useTelegramBackButton(-1);
+	const navigate = useNavigate();
 	const [searchParams] = useSearchParams();
 	const wallet = useWallet();
 
 	// Search & Input state
-	const [inputNumber, setInputNumber] = createSignal(searchParams.n || '+888 8888 8888');
-	const [showGuide, setShowGuide] = createSignal(false);
+	const [inputNumber] = createSignal(searchParams.n || '+888 8888 8888');
 	const [isAnalyzing, setIsAnalyzing] = createSignal(false);
 	const [analysisStep, setAnalysisStep] = createSignal(0);
 
@@ -249,7 +249,7 @@ export const NumberReportPage: Component = () => {
 
 		const interval = setInterval(() => {
 			setAnalysisStep((prev) => {
-				if (prev < ANALYSIS_STEPS.length - 1) return prev + 1;
+				if (prev < analysisSteps().length - 1) return prev + 1;
 				return prev;
 			});
 		}, 650);
@@ -344,10 +344,12 @@ export const NumberReportPage: Component = () => {
 
 	// Dynamic Rarity Tier Theme for Numbers
 	const getNumberTheme = () => {
-		const num = (reportData()?.display_number || gateData()?.display_number || validation().formatted || inputNumber()).replace(
-			/\s+/g,
-			'',
-		);
+		const num = (
+			reportData()?.display_number ||
+			gateData()?.display_number ||
+			validation().formatted ||
+			inputNumber()
+		).replace(/\s+/g, '');
 		// Quad repeating digits -> Grail Gold
 		if (
 			num.includes('88888888') ||
@@ -424,7 +426,7 @@ export const NumberReportPage: Component = () => {
 
 					<div class="text-center flex-1 px-3">
 						<h1 class="text-base font-black text-white flex items-center justify-center gap-1.5">
-							<span>{isUnlocked() ? t('numbers.valuationReportTitle') : t('numbers.paywallHeaderTitle')}</span>
+							<span>{t('numbers.paywallHeaderTitle')}</span>
 							<span class="text-[9px] uppercase font-extrabold px-2 py-0.5 rounded-full bg-[#0098EA]/20 text-[#0098EA] border border-[#0098EA]/30">
 								+888
 							</span>
@@ -462,9 +464,7 @@ export const NumberReportPage: Component = () => {
 								style={{ width: `${((analysisStep() + 1) / analysisSteps().length) * 100}%` }}
 							/>
 						</div>
-						<div class="text-[10px] text-white/40 font-mono">
-							{t('numbers.telemintContracts')}
-						</div>
+						<div class="text-[10px] text-white/40 font-mono">{t('numbers.telemintContracts')}</div>
 					</div>
 				</Show>
 
@@ -499,9 +499,7 @@ export const NumberReportPage: Component = () => {
 							{/* Signals Analyzed Badge */}
 							<div class="flex items-center justify-center gap-2 text-[11px] text-white/70 font-semibold bg-white/[0.04] p-2 rounded-xl border border-white/5">
 								<span class="material-symbols-outlined text-[#0098EA] text-sm">verified_user</span>
-								<span>
-									{t('numbers.signalsAnalyzedBadge')}
-								</span>
+								<span>{t('numbers.signalsAnalyzedBadge')}</span>
 							</div>
 						</div>
 
@@ -510,9 +508,7 @@ export const NumberReportPage: Component = () => {
 							<div class="flex items-center justify-between mb-4 pb-3 border-b border-white/5">
 								<div>
 									<h3 class="text-sm font-black text-white">{t('numbers.paywallHeaderTitle')}</h3>
-									<p class="text-[11px] text-white/50 mt-0.5">
-										{t('numbers.universalCredit')}
-									</p>
+									<p class="text-[11px] text-white/50 mt-0.5">{t('numbers.universalCredit')}</p>
 								</div>
 
 								{/* Cost Tag */}
@@ -534,7 +530,9 @@ export const NumberReportPage: Component = () => {
 										</div>
 										<div class="text-sm font-black text-white font-mono flex items-center gap-1">
 											<span>{wallet.balance() !== null ? wallet.balance() : '...'}</span>
-											<span class="text-xs text-white/50 font-sans">{t('paywall.credit_unit')}</span>
+											<span class="text-xs text-white/50 font-sans">
+												{t('paywall.credit_unit')}
+											</span>
 										</div>
 									</div>
 								</div>
@@ -562,7 +560,9 @@ export const NumberReportPage: Component = () => {
 								<Show
 									when={!loading()}
 									fallback={
-										<span class="material-symbols-outlined animate-spin text-lg">progress_activity</span>
+										<span class="material-symbols-outlined animate-spin text-lg">
+											progress_activity
+										</span>
 									}
 								>
 									<span class="material-symbols-outlined text-lg">
@@ -586,7 +586,9 @@ export const NumberReportPage: Component = () => {
 								</span>
 								<span class="h-3 w-px bg-white/10" />
 								<span class="flex items-center gap-1">
-									<span class="material-symbols-outlined text-[12px] text-emerald-400">history</span>
+									<span class="material-symbols-outlined text-[12px] text-emerald-400">
+										history
+									</span>
 									{t('numbers.paywallTrustValidity')}
 								</span>
 							</div>
@@ -595,12 +597,12 @@ export const NumberReportPage: Component = () => {
 						{/* ═══════ WHAT YOU UNLOCK: 7-FEATURE VALUE PROPOSITION ═══════ */}
 						<div class="bg-[#12141C]/90 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-2xl">
 							<h3 class="text-sm font-black text-white mb-1 flex items-center gap-2">
-								<span class="material-symbols-outlined text-amber-400 text-lg">workspace_premium</span>
+								<span class="material-symbols-outlined text-amber-400 text-lg">
+									workspace_premium
+								</span>
 								<span>{t('numbers.paywallBenefitsTitle')}</span>
 							</h3>
-							<p class="text-[11px] text-white/50 mb-4">
-								{t('numbers.paywallCuriosityText')}
-							</p>
+							<p class="text-[11px] text-white/50 mb-4">{t('numbers.paywallCuriosityText')}</p>
 
 							<div class="space-y-2.5 text-xs">
 								{/* 1. Fair Valuation */}
@@ -610,7 +612,9 @@ export const NumberReportPage: Component = () => {
 									</div>
 									<div>
 										<h4 class="font-black text-white text-xs">{t('numbers.benefit1Title')}</h4>
-										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">{t('numbers.benefit1Desc')}</p>
+										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">
+											{t('numbers.benefit1Desc')}
+										</p>
 									</div>
 								</div>
 
@@ -621,7 +625,9 @@ export const NumberReportPage: Component = () => {
 									</div>
 									<div>
 										<h4 class="font-black text-white text-xs">{t('numbers.benefit2Title')}</h4>
-										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">{t('numbers.benefit2Desc')}</p>
+										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">
+											{t('numbers.benefit2Desc')}
+										</p>
 									</div>
 								</div>
 
@@ -632,7 +638,9 @@ export const NumberReportPage: Component = () => {
 									</div>
 									<div>
 										<h4 class="font-black text-white text-xs">{t('numbers.benefit3Title')}</h4>
-										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">{t('numbers.benefit3Desc')}</p>
+										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">
+											{t('numbers.benefit3Desc')}
+										</p>
 									</div>
 								</div>
 
@@ -643,7 +651,9 @@ export const NumberReportPage: Component = () => {
 									</div>
 									<div>
 										<h4 class="font-black text-white text-xs">{t('numbers.benefit4Title')}</h4>
-										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">{t('numbers.benefit4Desc')}</p>
+										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">
+											{t('numbers.benefit4Desc')}
+										</p>
 									</div>
 								</div>
 
@@ -654,7 +664,9 @@ export const NumberReportPage: Component = () => {
 									</div>
 									<div>
 										<h4 class="font-black text-white text-xs">{t('numbers.benefit5Title')}</h4>
-										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">{t('numbers.benefit5Desc')}</p>
+										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">
+											{t('numbers.benefit5Desc')}
+										</p>
 									</div>
 								</div>
 
@@ -665,7 +677,9 @@ export const NumberReportPage: Component = () => {
 									</div>
 									<div>
 										<h4 class="font-black text-white text-xs">{t('numbers.benefit6Title')}</h4>
-										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">{t('numbers.benefit6Desc')}</p>
+										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">
+											{t('numbers.benefit6Desc')}
+										</p>
 									</div>
 								</div>
 
@@ -676,7 +690,9 @@ export const NumberReportPage: Component = () => {
 									</div>
 									<div>
 										<h4 class="font-black text-white text-xs">{t('numbers.benefit7Title')}</h4>
-										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">{t('numbers.benefit7Desc')}</p>
+										<p class="text-[11px] text-white/50 mt-0.5 leading-relaxed">
+											{t('numbers.benefit7Desc')}
+										</p>
 									</div>
 								</div>
 							</div>
@@ -763,9 +779,13 @@ export const NumberReportPage: Component = () => {
 											({formatUsd(reportData()?.expected_usd)})
 										</span>
 									</div>
-									<div class="text-[11px] text-white/40 font-mono mt-1 flex items-center gap-2" dir="ltr">
+									<div
+										class="text-[11px] text-white/40 font-mono mt-1 flex items-center gap-2"
+										dir="ltr"
+									>
 										<span>
-											Range: {formatTon(reportData()?.low_ton)} - {formatTon(reportData()?.high_ton)} TON
+											Range: {formatTon(reportData()?.low_ton)} -{' '}
+											{formatTon(reportData()?.high_ton)} TON
 										</span>
 										<span>·</span>
 										<span>Rate: ${reportData()?.ton_usd_rate}/TON</span>
@@ -801,7 +821,10 @@ export const NumberReportPage: Component = () => {
 							</div>
 
 							<a
-								href={reportData()?.fragment_direct_url || `https://fragment.com/number/${(reportData()?.number || '').replace('+888', '')}`}
+								href={
+									reportData()?.fragment_direct_url ||
+									`https://fragment.com/number/${(reportData()?.number || '').replace('+888', '')}`
+								}
 								target="_blank"
 								rel="noopener noreferrer"
 								class="w-full py-3 rounded-2xl bg-gradient-to-r from-[#0098EA] via-[#00c6ff] to-[#0098EA] text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-[#0098EA]/25 active:scale-[0.98] transition-all hover:brightness-110"
@@ -820,7 +843,9 @@ export const NumberReportPage: Component = () => {
 									</div>
 									<div>
 										<h3 class="text-xs font-black text-white">{t('numbers.collateralTitle')}</h3>
-										<span class="text-[10px] text-emerald-400 font-bold">55% LTV DeFi Credit Line</span>
+										<span class="text-[10px] text-emerald-400 font-bold">
+											55% LTV DeFi Credit Line
+										</span>
 									</div>
 								</div>
 								<div class="text-right rtl:text-left">
@@ -847,9 +872,7 @@ export const NumberReportPage: Component = () => {
 											EXACT (136,566 Total)
 										</span>
 									</h3>
-									<p class="text-[10px] text-white/50 mt-0.5">
-										{t('numbers.provenScarcity')}
-									</p>
+									<p class="text-[10px] text-white/50 mt-0.5">{t('numbers.provenScarcity')}</p>
 								</div>
 							</div>
 
@@ -885,9 +908,7 @@ export const NumberReportPage: Component = () => {
 								/>
 								<div>
 									<div class="text-xs font-bold text-white/50">{t('numbers.colorTier')}</div>
-									<div class="text-sm font-black text-white">
-										{reportData()?.color?.name} Tier
-									</div>
+									<div class="text-sm font-black text-white">{reportData()?.color?.name} Tier</div>
 								</div>
 							</div>
 							<div class="text-right rtl:text-left">
@@ -900,12 +921,8 @@ export const NumberReportPage: Component = () => {
 
 						{/* 4. CULTURAL RADAR CARD */}
 						<div class="bg-[#12141C]/80 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl">
-							<h3 class="text-sm font-black text-white mb-1">
-								🌏 {t('numbers.culturalRadar')}
-							</h3>
-							<p class="text-[10px] text-white/50 mb-3">
-								{t('numbers.targetRegionAffinity')}
-							</p>
+							<h3 class="text-sm font-black text-white mb-1">🌏 {t('numbers.culturalRadar')}</h3>
+							<p class="text-[10px] text-white/50 mb-3">{t('numbers.targetRegionAffinity')}</p>
 
 							<div class="space-y-2.5">
 								<For each={reportData()?.cultural_radar || []}>
@@ -931,12 +948,8 @@ export const NumberReportPage: Component = () => {
 
 						{/* 5. COMPARABLE HISTORICAL SALES (COMPS) */}
 						<div class="bg-[#12141C]/80 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl">
-							<h3 class="text-sm font-black text-white mb-1">
-								📊 {t('numbers.comparableSales')}
-							</h3>
-							<p class="text-[10px] text-white/50 mb-3">
-								{t('numbers.peerTransactions')}
-							</p>
+							<h3 class="text-sm font-black text-white mb-1">📊 {t('numbers.comparableSales')}</h3>
+							<p class="text-[10px] text-white/50 mb-3">{t('numbers.peerTransactions')}</p>
 
 							<div class="space-y-2">
 								<For each={reportData()?.comps || []}>
@@ -959,7 +972,9 @@ export const NumberReportPage: Component = () => {
 														comp.diff_percent >= 0 ? 'text-emerald-400' : 'text-rose-400'
 													}`}
 												>
-													{comp.diff_percent >= 0 ? `+${comp.diff_percent}%` : `${comp.diff_percent}%`}
+													{comp.diff_percent >= 0
+														? `+${comp.diff_percent}%`
+														: `${comp.diff_percent}%`}
 												</span>
 											</div>
 										</div>
@@ -971,9 +986,7 @@ export const NumberReportPage: Component = () => {
 						{/* 6. TRANSACTION ECONOMICS & NET PAYOUT */}
 						<div class="bg-[#12141C]/80 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl">
 							<h3 class="text-sm font-black text-white mb-1">💰 {t('numbers.economics')}</h3>
-							<p class="text-[10px] text-white/50 mb-3">
-								{t('numbers.royaltyFeeCalc')}
-							</p>
+							<p class="text-[10px] text-white/50 mb-3">{t('numbers.royaltyFeeCalc')}</p>
 
 							<div class="space-y-2 text-xs">
 								<div class="flex items-center justify-between py-1 border-b border-white/5">
@@ -998,28 +1011,30 @@ export const NumberReportPage: Component = () => {
 
 						{/* 7. 12-MONTH VALUATION PROJECTIONS */}
 						<div class="bg-[#12141C]/80 backdrop-blur-2xl border border-white/10 rounded-[28px] p-5 shadow-xl">
-							<h3 class="text-sm font-black text-white mb-1">
-								📈 {t('numbers.projections')}
-							</h3>
-							<p class="text-[10px] text-white/50 mb-3">
-								{t('numbers.monteCarloScenarios')}
-							</p>
+							<h3 class="text-sm font-black text-white mb-1">📈 {t('numbers.projections')}</h3>
+							<p class="text-[10px] text-white/50 mb-3">{t('numbers.monteCarloScenarios')}</p>
 
 							<div class="grid grid-cols-3 gap-2 text-center text-xs">
 								<div class="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20">
-									<span class="text-[10px] font-bold text-rose-300 block mb-1">{t('numbers.bearMarket')}</span>
+									<span class="text-[10px] font-bold text-rose-300 block mb-1">
+										{t('numbers.bearMarket')}
+									</span>
 									<span class="font-mono font-black text-white text-xs block">
 										{formatTon(reportData()?.projection?.bear_ton)} TON
 									</span>
 								</div>
 								<div class="p-3 rounded-2xl bg-white/[0.04] border border-white/10">
-									<span class="text-[10px] font-bold text-white/60 block mb-1">{t('numbers.baseMarket')}</span>
+									<span class="text-[10px] font-bold text-white/60 block mb-1">
+										{t('numbers.baseMarket')}
+									</span>
 									<span class="font-mono font-black text-[#0098EA] text-xs block">
 										{formatTon(reportData()?.projection?.base_ton)} TON
 									</span>
 								</div>
 								<div class="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
-									<span class="text-[10px] font-bold text-emerald-300 block mb-1">{t('numbers.bullMarket')}</span>
+									<span class="text-[10px] font-bold text-emerald-300 block mb-1">
+										{t('numbers.bullMarket')}
+									</span>
 									<span class="font-mono font-black text-emerald-400 text-xs block">
 										{formatTon(reportData()?.projection?.bull_ton)} TON
 									</span>
@@ -1070,11 +1085,7 @@ export const NumberReportPage: Component = () => {
 			</div>
 
 			{/* Credit Store Sheet */}
-			<CreditStoreSheet
-				open={storeOpen()}
-				onClose={() => setStoreOpen(false)}
-				vertical="number"
-			/>
+			<CreditStoreSheet open={storeOpen()} onClose={() => setStoreOpen(false)} vertical="number" />
 		</div>
 	);
 };

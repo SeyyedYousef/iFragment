@@ -184,10 +184,10 @@ export const CollectionInfoPage: Component = () => {
 	const fearGreedNotice = createMemo(() => {
 		const idx =
 			activeVertical() === 'gifts'
-				? giftsQuery.data?.fng_index ?? 68
+				? (giftsQuery.data?.fng_index ?? 68)
 				: activeVertical() === 'numbers'
-					? numbersQuery.data?.fng_index ?? 74
-					: usernameQuery.data?.fear_greed_index ?? 78;
+					? (numbersQuery.data?.fng_index ?? 74)
+					: (usernameQuery.data?.fear_greed_index ?? 78);
 
 		if (idx < 30)
 			return {
@@ -577,7 +577,8 @@ export const CollectionInfoPage: Component = () => {
 										</span>
 										<div class="flex items-baseline gap-1" dir="ltr">
 											<span class="text-[22px] font-black font-mono text-white tracking-tight">
-												{usernameQuery.data?.stats?.total_volume?.replace('TON', '').trim() || '5.2M'}
+												{usernameQuery.data?.stats?.total_volume?.replace('TON', '').trim() ||
+													'5.2M'}
 											</span>
 											<span class="text-[11px] text-[#0098EA] font-black">{t('common.ton')}</span>
 										</div>
@@ -650,7 +651,9 @@ export const CollectionInfoPage: Component = () => {
 														<span class="text-[14px] font-black font-mono text-white">
 															{auc.price}
 														</span>
-														<span class="text-[9px] font-black text-[#0098EA]">{t('common.ton')}</span>
+														<span class="text-[9px] font-black text-[#0098EA]">
+															{t('common.ton')}
+														</span>
 													</div>
 												</div>
 											)}
@@ -729,12 +732,14 @@ export const CollectionInfoPage: Component = () => {
 
 							<div class="flex items-center justify-between p-4 bg-[#12141C]/80 border border-white/10 rounded-[22px]">
 								<div>
-									<h4 class="text-xs font-black text-white">{t('collectionInfo.interactiveMaskBuilder')}</h4>
-									<p class="text-[10px] text-white/50">{t('collectionInfo.searchPatternsNumbers')}</p>
+									<h4 class="text-xs font-black text-white">+888 Numbers Market & Chart</h4>
+									<p class="text-[10px] text-white/50">
+										Live TradingView chart, filters & portfolio tracker
+									</p>
 								</div>
 								<button
 									type="button"
-									onClick={() => navigate('/numbers/mask')}
+									onClick={() => navigate('/numbers')}
 									class="px-3.5 py-2 bg-[#0098EA] text-white text-xs font-black rounded-xl active:scale-95 transition-all shadow-md"
 								>
 									{t('collectionInfo.launch')}
@@ -751,7 +756,9 @@ export const CollectionInfoPage: Component = () => {
 									</span>
 									<div class="flex items-baseline gap-1" dir="ltr">
 										<span class="text-[22px] font-black font-mono text-white">6</span>
-										<span class="text-[11px] text-[#0098EA] font-black">{t('collectionInfo.venues')}</span>
+										<span class="text-[11px] text-[#0098EA] font-black">
+											{t('collectionInfo.venues')}
+										</span>
 									</div>
 									<div class="text-[10px] text-white/40 font-mono mt-1">
 										{t('collectionInfo.venuesDesc')}
@@ -800,7 +807,9 @@ export const CollectionInfoPage: Component = () => {
 
 							<div class="flex items-center justify-between p-4 bg-[#12141C]/80 border border-white/10 rounded-[22px]">
 								<div>
-									<h4 class="text-xs font-black text-white">{t('collectionInfo.giftsMarketIntel')}</h4>
+									<h4 class="text-xs font-black text-white">
+										{t('collectionInfo.giftsMarketIntel')}
+									</h4>
 									<p class="text-[10px] text-white/50">{t('collectionInfo.arbitrageRadar')}</p>
 								</div>
 								<button
@@ -927,7 +936,9 @@ export const CollectionInfoPage: Component = () => {
 														<span class="text-[14px] font-black font-mono text-white">
 															{item.priceTon.toLocaleString('en-US')}
 														</span>
-														<span class="text-[10px] font-black text-[#0098EA]">{t('common.ton')}</span>
+														<span class="text-[10px] font-black text-[#0098EA]">
+															{t('common.ton')}
+														</span>
 													</div>
 													<span class="text-[10px] font-mono text-white/40">
 														≈ ${((item.priceUsd ?? item.priceTon * 5.5) / 1000).toFixed(0)}K
@@ -964,7 +975,9 @@ export const CollectionInfoPage: Component = () => {
 													<span class="text-[14px] font-black font-mono text-white">
 														{formatTon(item.price_ton)}
 													</span>
-													<span class="text-[10px] font-black text-[#0098EA]">{t('common.ton')}</span>
+													<span class="text-[10px] font-black text-[#0098EA]">
+														{t('common.ton')}
+													</span>
 												</div>
 												<span class="text-[10px] font-mono text-emerald-400">
 													{formatUsd(item.price_usd)}
@@ -1002,7 +1015,9 @@ export const CollectionInfoPage: Component = () => {
 													<span class="text-[14px] font-black font-mono text-white">
 														{item.best_floor_gram}
 													</span>
-													<span class="text-[10px] font-black text-[#0098EA]">{t('common.ton')}</span>
+													<span class="text-[10px] font-black text-[#0098EA]">
+														{t('common.ton')}
+													</span>
 												</div>
 												<span class="text-[10px] font-mono text-white/40">
 													{formatUsd(item.best_floor_usd)}

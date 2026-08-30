@@ -21,11 +21,6 @@ const ChannelAutoResponderPage = lazy(() =>
 		default: m.ChannelAutoResponderPage,
 	})),
 );
-const ConnectChannelPage = lazy(() =>
-	import('@/pages/channel/connect-channel/index.js').then((m) => ({
-		default: m.ConnectChannelPage,
-	})),
-);
 const ChannelDashboardPage = lazy(() =>
 	import('@/pages/channel/dashboard/index.js').then((m) => ({ default: m.ChannelDashboardPage })),
 );

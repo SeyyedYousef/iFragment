@@ -1,20 +1,23 @@
 import {
+	AreaSeries,
+	CandlestickSeries,
+	ColorType,
+	createChart,
+	HistogramSeries,
+	type IChartApi,
+	type ISeriesApi,
+	LineType,
+	PriceScaleMode,
+} from 'lightweight-charts';
+import {
+	type Component,
 	createEffect,
 	createMemo,
 	createSignal,
 	onCleanup,
 	onMount,
 	Show,
-	type Component,
 } from 'solid-js';
-import {
-	createChart,
-	type IChartApi,
-	type ISeriesApi,
-	ColorType,
-	LineType,
-	PriceScaleMode,
-} from 'lightweight-charts';
 import type { NumbersIntelData } from '@/entities/numbers/model/types.js';
 import { t } from '@/shared/i18n/index.js';
 import { haptic } from '@/shared/lib/haptic.js';
@@ -58,12 +61,12 @@ export const NumbersChartView: Component<Props> = (props) => {
 	});
 
 	const formatTon = (val?: number) => {
-		if (val === undefined || val === null) return '0';
+		if (val === undefined || val === null || Number.isNaN(val)) return '0';
 		return val.toLocaleString('en-US', { maximumFractionDigits: 0 });
 	};
 
 	const formatUsd = (val?: number) => {
-		if (val === undefined || val === null) return '$0';
+		if (val === undefined || val === null || Number.isNaN(val)) return '$0';
 		return `$${val.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 	};
 
@@ -110,100 +113,107 @@ export const NumbersChartView: Component<Props> = (props) => {
 	onMount(() => {
 		if (!chartContainerRef) return;
 
-		chartInstance = createChart(chartContainerRef, {
-			autoSize: true,
-			layout: {
-				background: { type: ColorType.Solid, color: 'transparent' },
-				textColor: 'rgba(255, 255, 255, 0.7)',
-				fontSize: 11,
-			},
-			grid: {
-				vertLines: { color: 'rgba(255, 255, 255, 0.03)' },
-				horzLines: { color: 'rgba(255, 255, 255, 0.05)' },
-			},
-			rightPriceScale: {
-				borderColor: 'rgba(255, 255, 255, 0.1)',
-				scaleMargins: { top: 0.1, bottom: 0.2 },
-				mode: PriceScaleMode.Normal,
-			},
-			timeScale: {
-				borderColor: 'rgba(255, 255, 255, 0.1)',
-				fixLeftEdge: true,
-				fixRightEdge: true,
-				timeVisible: false,
-			},
-			crosshair: {
-				vertLine: {
-					color: 'rgba(0, 152, 234, 0.5)',
-					width: 1,
-					style: 2,
-					labelBackgroundColor: '#0098EA',
+		try {
+			chartInstance = createChart(chartContainerRef, {
+				autoSize: true,
+				layout: {
+					background: { type: ColorType.Solid, color: 'transparent' },
+					textColor: 'rgba(255, 255, 255, 0.7)',
+					fontSize: 11,
 				},
-				horzLine: {
-					color: 'rgba(0, 152, 234, 0.5)',
-					width: 1,
-					style: 2,
-					labelBackgroundColor: '#0098EA',
+				grid: {
+					vertLines: { color: 'rgba(255, 255, 255, 0.03)' },
+					horzLines: { color: 'rgba(255, 255, 255, 0.05)' },
 				},
-			},
-			handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: false },
-			handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
-		});
-
-		// Area series
-		areaSeries = chartInstance.addAreaSeries({
-			lineWidth: 2,
-			lineType: LineType.Curved,
-			topColor: 'rgba(0, 152, 234, 0.35)',
-			bottomColor: 'rgba(0, 152, 234, 0.01)',
-			lineColor: '#0098EA',
-			priceFormat: { type: 'price', precision: 0, minMove: 1 },
-		});
-
-		// Candlestick series
-		candleSeries = chartInstance.addCandlestickSeries({
-			upColor: '#10B981',
-			downColor: '#EF4444',
-			borderVisible: false,
-			wickUpColor: '#10B981',
-			wickDownColor: '#EF4444',
-			priceFormat: { type: 'price', precision: 0, minMove: 1 },
-		});
-
-		// Volume series
-		volumeSeries = chartInstance.addHistogramSeries({
-			color: 'rgba(175, 82, 222, 0.45)',
-			priceFormat: { type: 'volume' },
-			priceScaleId: 'volume',
-		});
-
-		chartInstance.priceScale('volume').applyOptions({
-			scaleMargins: { top: 0.8, bottom: 0 },
-		});
-
-		// Crosshair subscription for tooltip
-		chartInstance.subscribeCrosshairMove((param) => {
-			if (!param.time || !param.point || param.point.x < 0 || param.point.y < 0) {
-				setTooltipData((prev) => ({ ...prev, visible: false }));
-				return;
-			}
-			const dateStr = String(param.time);
-			const values = props.chartData?.[dateStr];
-			const isTon = chartCurrency() === 'ton';
-			const price = values ? values[isTon ? 0 : 1] : 0;
-			const vol = values ? values[isTon ? 2 : 3] : 0;
-
-			setTooltipData({
-				visible: true,
-				x: Math.min(param.point.x + 10, (chartContainerRef?.clientWidth || 300) - 130),
-				y: Math.max(10, param.point.y - 70),
-				date: dateStr,
-				price,
-				volume: vol,
+				rightPriceScale: {
+					borderColor: 'rgba(255, 255, 255, 0.1)',
+					scaleMargins: { top: 0.1, bottom: 0.2 },
+					mode: PriceScaleMode.Normal,
+				},
+				timeScale: {
+					borderColor: 'rgba(255, 255, 255, 0.1)',
+					fixLeftEdge: true,
+					fixRightEdge: true,
+					timeVisible: false,
+				},
+				crosshair: {
+					vertLine: {
+						color: 'rgba(0, 152, 234, 0.5)',
+						width: 1,
+						style: 2,
+						labelBackgroundColor: '#0098EA',
+					},
+					horzLine: {
+						color: 'rgba(0, 152, 234, 0.5)',
+						width: 1,
+						style: 2,
+						labelBackgroundColor: '#0098EA',
+					},
+				},
+				handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: false },
+				handleScroll: {
+					mouseWheel: true,
+					pressedMouseMove: true,
+					horzTouchDrag: true,
+					vertTouchDrag: false,
+				},
 			});
-		});
 
-		updateChartData();
+			// In Lightweight Charts v5, use chart.addSeries(...)
+			areaSeries = chartInstance.addSeries(AreaSeries, {
+				lineWidth: 2,
+				lineType: LineType.Curved,
+				topColor: 'rgba(0, 152, 234, 0.35)',
+				bottomColor: 'rgba(0, 152, 234, 0.01)',
+				lineColor: '#0098EA',
+				priceFormat: { type: 'price', precision: 0, minMove: 1 },
+			});
+
+			candleSeries = chartInstance.addSeries(CandlestickSeries, {
+				upColor: '#10B981',
+				downColor: '#EF4444',
+				borderVisible: false,
+				wickUpColor: '#10B981',
+				wickDownColor: '#EF4444',
+				priceFormat: { type: 'price', precision: 0, minMove: 1 },
+			});
+
+			volumeSeries = chartInstance.addSeries(HistogramSeries, {
+				color: 'rgba(175, 82, 222, 0.45)',
+				priceFormat: { type: 'volume' },
+				priceScaleId: 'volume',
+			});
+
+			chartInstance.priceScale('volume').applyOptions({
+				scaleMargins: { top: 0.8, bottom: 0 },
+			});
+
+			// Crosshair subscription for tooltip
+			chartInstance.subscribeCrosshairMove((param) => {
+				if (!param.time || !param.point || param.point.x < 0 || param.point.y < 0) {
+					setTooltipData((prev) => ({ ...prev, visible: false }));
+					return;
+				}
+				const dateStr = String(param.time);
+				const values = props.chartData?.[dateStr];
+				const isTon = chartCurrency() === 'ton';
+				const price = values ? values[isTon ? 0 : 1] : 0;
+				const vol = values ? values[isTon ? 2 : 3] : 0;
+
+				setTooltipData({
+					visible: true,
+					x: Math.min(param.point.x + 10, (chartContainerRef?.clientWidth || 300) - 130),
+					y: Math.max(10, param.point.y - 70),
+					date: dateStr,
+					price,
+					volume: vol,
+				});
+			});
+
+			updateChartData();
+		} catch (err) {
+			console.error('Failed to initialize lightweight chart:', err);
+		}
 	});
 
 	onCleanup(() => {
@@ -215,58 +225,91 @@ export const NumbersChartView: Component<Props> = (props) => {
 
 	// Update chart series data on state changes
 	const updateChartData = () => {
-		if (!chartInstance || !props.chartData) return;
+		if (!chartInstance || !areaSeries || !candleSeries || !volumeSeries || !props.chartData) return;
 		const data = props.chartData;
 		const dates = Object.keys(data).sort();
 		if (dates.length === 0) return;
 
-		const isTon = chartCurrency() === 'ton';
+		try {
+			const isTon = chartCurrency() === 'ton';
 
-		if (chartType() === 'line') {
-			candleSeries?.setData([]);
-			areaSeries?.applyOptions({
-				topColor: isTon ? 'rgba(0, 152, 234, 0.35)' : 'rgba(16, 185, 129, 0.35)',
-				bottomColor: isTon ? 'rgba(0, 152, 234, 0.01)' : 'rgba(16, 185, 129, 0.01)',
-				lineColor: isTon ? '#0098EA' : '#10B981',
-			});
+			if (chartType() === 'line') {
+				candleSeries.setData([]);
+				areaSeries.applyOptions({
+					topColor: isTon ? 'rgba(0, 152, 234, 0.35)' : 'rgba(16, 185, 129, 0.35)',
+					bottomColor: isTon ? 'rgba(0, 152, 234, 0.01)' : 'rgba(16, 185, 129, 0.01)',
+					lineColor: isTon ? '#0098EA' : '#10B981',
+				});
 
-			const areaPoints = dates.map((d) => ({
-				time: d,
-				value: isTon ? data[d][0] : data[d][1],
-			}));
-			areaSeries?.setData(areaPoints);
-		} else {
-			areaSeries?.setData([]);
-			const indices = isTon
-				? { open: 4, high: 5, low: 6, close: 7 }
-				: { open: 8, high: 9, low: 10, close: 11 };
+				const areaPoints = dates
+					.filter(
+						(d) =>
+							Array.isArray(data[d]) &&
+							data[d][isTon ? 0 : 1] != null &&
+							!Number.isNaN(data[d][isTon ? 0 : 1]),
+					)
+					.map((d) => ({
+						time: d,
+						value: isTon ? data[d][0] : data[d][1],
+					}));
+				areaSeries.setData(areaPoints);
+			} else {
+				areaSeries.setData([]);
+				const indices = isTon
+					? { open: 4, high: 5, low: 6, close: 7 }
+					: { open: 8, high: 9, low: 10, close: 11 };
 
-			const candlePoints = dates.map((d) => ({
-				time: d,
-				open: data[d][indices.open],
-				high: data[d][indices.high],
-				low: data[d][indices.low],
-				close: data[d][indices.close],
-			}));
-			candleSeries?.setData(candlePoints);
+				const candlePoints = dates
+					.filter((d) => {
+						const row = data[d];
+						return (
+							Array.isArray(row) &&
+							row[indices.open] != null &&
+							row[indices.high] != null &&
+							row[indices.low] != null &&
+							row[indices.close] != null &&
+							!Number.isNaN(row[indices.open]) &&
+							!Number.isNaN(row[indices.high]) &&
+							!Number.isNaN(row[indices.low]) &&
+							!Number.isNaN(row[indices.close])
+						);
+					})
+					.map((d) => ({
+						time: d,
+						open: data[d][indices.open],
+						high: data[d][indices.high],
+						low: data[d][indices.low],
+						close: data[d][indices.close],
+					}));
+				candleSeries.setData(candlePoints);
+			}
+
+			// Volume
+			if (volumeEnabled()) {
+				const volumePoints = dates
+					.filter(
+						(d) =>
+							Array.isArray(data[d]) &&
+							data[d][isTon ? 2 : 3] != null &&
+							!Number.isNaN(data[d][isTon ? 2 : 3]),
+					)
+					.map((d) => ({
+						time: d,
+						value: isTon ? data[d][2] : data[d][3],
+						color:
+							data[d][isTon ? 7 : 11] >= data[d][isTon ? 4 : 8]
+								? 'rgba(16, 185, 129, 0.4)'
+								: 'rgba(239, 68, 68, 0.4)',
+					}));
+				volumeSeries.setData(volumePoints);
+			} else {
+				volumeSeries.setData([]);
+			}
+
+			applyRange(chartRange());
+		} catch (err) {
+			console.error('Error updating chart data:', err);
 		}
-
-		// Volume
-		if (volumeEnabled()) {
-			const volumePoints = dates.map((d) => ({
-				time: d,
-				value: isTon ? data[d][2] : data[d][3],
-				color:
-					data[d][isTon ? 7 : 11] >= data[d][isTon ? 4 : 8]
-						? 'rgba(16, 185, 129, 0.4)'
-						: 'rgba(239, 68, 68, 0.4)',
-			}));
-			volumeSeries?.setData(volumePoints);
-		} else {
-			volumeSeries?.setData([]);
-		}
-
-		applyRange(chartRange());
 	};
 
 	const applyRange = (range: '1w' | '1m' | '3m' | '6m' | '1y' | 'all') => {
@@ -274,21 +317,25 @@ export const NumbersChartView: Component<Props> = (props) => {
 		const dates = Object.keys(props.chartData).sort();
 		if (dates.length === 0) return;
 
-		const lastDate = new Date(dates[dates.length - 1]);
-		let fromDate = new Date(lastDate);
+		try {
+			const lastDate = new Date(dates[dates.length - 1]);
+			let fromDate = new Date(lastDate);
 
-		if (range === '1w') fromDate.setDate(lastDate.getDate() - 7);
-		else if (range === '1m') fromDate.setMonth(lastDate.getMonth() - 1);
-		else if (range === '3m') fromDate.setMonth(lastDate.getMonth() - 3);
-		else if (range === '6m') fromDate.setMonth(lastDate.getMonth() - 6);
-		else if (range === '1y') fromDate.setFullYear(lastDate.getFullYear() - 1);
-		else fromDate = new Date('2022-12-06');
+			if (range === '1w') fromDate.setDate(lastDate.getDate() - 7);
+			else if (range === '1m') fromDate.setMonth(lastDate.getMonth() - 1);
+			else if (range === '3m') fromDate.setMonth(lastDate.getMonth() - 3);
+			else if (range === '6m') fromDate.setMonth(lastDate.getMonth() - 6);
+			else if (range === '1y') fromDate.setFullYear(lastDate.getFullYear() - 1);
+			else fromDate = new Date('2022-12-06');
 
-		const fromStr = fromDate.toISOString().split('T')[0];
-		chartInstance.timeScale().setVisibleRange({
-			from: fromStr,
-			to: dates[dates.length - 1],
-		});
+			const fromStr = fromDate.toISOString().split('T')[0];
+			chartInstance.timeScale().setVisibleRange({
+				from: fromStr,
+				to: dates[dates.length - 1],
+			});
+		} catch (err) {
+			console.warn('Could not set visible range on timeScale:', err);
+		}
 	};
 
 	createEffect(() => {
@@ -301,11 +348,13 @@ export const NumbersChartView: Component<Props> = (props) => {
 		props.chartData;
 
 		if (chartInstance) {
-			chartInstance.applyOptions({
-				rightPriceScale: {
-					mode: scaleMode() === 'log' ? PriceScaleMode.Logarithmic : PriceScaleMode.Normal,
-				},
-			});
+			try {
+				chartInstance.applyOptions({
+					rightPriceScale: {
+						mode: scaleMode() === 'log' ? PriceScaleMode.Logarithmic : PriceScaleMode.Normal,
+					},
+				});
+			} catch {}
 			updateChartData();
 		}
 	});
@@ -322,7 +371,8 @@ export const NumbersChartView: Component<Props> = (props) => {
 						<div class="flex items-baseline gap-2.5">
 							<span class="text-2xl sm:text-3xl font-black text-white font-mono flex items-center gap-1">
 								<span class="text-[#0098EA] text-xl sm:text-2xl">💎</span>
-								{formatTon(currentFloor().ton)} <span class="text-xs font-extrabold text-[#0098EA]">TON</span>
+								{formatTon(currentFloor().ton)}{' '}
+								<span class="text-xs font-extrabold text-[#0098EA]">TON</span>
 							</span>
 							<span class="text-sm sm:text-base font-bold text-white/40 font-mono">
 								≈ {formatUsd(currentFloor().usd)}
@@ -407,7 +457,9 @@ export const NumbersChartView: Component<Props> = (props) => {
 								setChartCurrency('ton');
 							}}
 							class={`px-2.5 py-1 text-[11px] font-black rounded-lg transition-all ${
-								chartCurrency() === 'ton' ? 'bg-[#0098EA] text-white shadow-md' : 'text-white/40 hover:text-white'
+								chartCurrency() === 'ton'
+									? 'bg-[#0098EA] text-white shadow-md'
+									: 'text-white/40 hover:text-white'
 							}`}
 						>
 							TON
@@ -421,7 +473,9 @@ export const NumbersChartView: Component<Props> = (props) => {
 								setChartCurrency('usd');
 							}}
 							class={`px-2.5 py-1 text-[11px] font-black rounded-lg transition-all ${
-								chartCurrency() === 'usd' ? 'bg-[#10B981] text-white shadow-md' : 'text-white/40 hover:text-white'
+								chartCurrency() === 'usd'
+									? 'bg-[#10B981] text-white shadow-md'
+									: 'text-white/40 hover:text-white'
 							}`}
 						>
 							USD
@@ -446,7 +500,9 @@ export const NumbersChartView: Component<Props> = (props) => {
 							<div class="flex items-center gap-1 text-white font-black">
 								<span class="text-white/50 text-[10px]">Price:</span>
 								<span>
-									{chartCurrency() === 'ton' ? `${formatTon(tooltipData().price)} TON` : formatUsd(tooltipData().price)}
+									{chartCurrency() === 'ton'
+										? `${formatTon(tooltipData().price)} TON`
+										: formatUsd(tooltipData().price)}
 								</span>
 							</div>
 							<Show when={volumeEnabled()}>
@@ -520,10 +576,18 @@ export const NumbersChartView: Component<Props> = (props) => {
 									setChartType('line');
 								}}
 								class={`p-1 rounded-lg transition-all ${
-									chartType() === 'line' ? 'bg-white/20 text-white' : 'text-white/40 hover:text-white'
+									chartType() === 'line'
+										? 'bg-white/20 text-white'
+										: 'text-white/40 hover:text-white'
 								}`}
 							>
-								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									viewBox="0 0 24 24"
+									width="16"
+									height="16"
+									fill="currentColor"
+								>
 									<path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z" />
 								</svg>
 							</button>
@@ -537,10 +601,18 @@ export const NumbersChartView: Component<Props> = (props) => {
 									setChartType('candles');
 								}}
 								class={`p-1 rounded-lg transition-all ${
-									chartType() === 'candles' ? 'bg-white/20 text-white' : 'text-white/40 hover:text-white'
+									chartType() === 'candles'
+										? 'bg-white/20 text-white'
+										: 'text-white/40 hover:text-white'
 								}`}
 							>
-								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									viewBox="0 0 24 24"
+									width="16"
+									height="16"
+									fill="currentColor"
+								>
 									<path d="M9 4H7v2H5v12h2v2h2v-2h2V6H9V4zm0 12H7V8h2v8zm8-8h-2V4h-2v4h-2v10h2v2h2v-2h2V8zm-2 8h-2v-6h2v6z" />
 								</svg>
 							</button>

@@ -533,19 +533,13 @@ export const recordTaps = (count: number) => {
 	}
 
 	let fatigueMultiplier = 1.0;
-	let limitRemaining = 5000;
 	const currentTapped = dailyTappedCoins();
 	if (currentTapped > 30000) {
 		fatigueMultiplier = 0.1;
-		limitRemaining = 0;
 	} else if (currentTapped > 15000) {
 		fatigueMultiplier = 0.25;
-		limitRemaining = Math.max(0, 30000 - currentTapped);
 	} else if (currentTapped > 5000) {
 		fatigueMultiplier = 0.5;
-		limitRemaining = Math.max(0, 15000 - currentTapped);
-	} else {
-		limitRemaining = Math.max(0, 5000 - currentTapped);
 	}
 
 	coinsEarned = coinsEarned * fatigueMultiplier;

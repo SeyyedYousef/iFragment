@@ -246,6 +246,88 @@ export const UsernamePage: Component = () => {
 		navigate(`/username/report?u=${encodeURIComponent(name.replace(/^@/, ''))}`);
 	};
 
+	const similarBadge = (item: { status?: string; sale_price?: number; price_source?: string }) => {
+		const status = item.status || '';
+		const priced = (item.sale_price ?? 0) > 0;
+		if (status === 'sold' && priced) {
+			return item.price_source === 'archive_anchor'
+				? {
+						label: t('valuation.archive_sale_badge') || 'ARCHIVE SALE',
+						class: 'bg-amber-400/15 text-amber-400 border-amber-400/30',
+					}
+				: {
+						label: t('valuation.historical_sale_badge') || 'VERIFIED SALE',
+						class: 'bg-[#10b981]/15 text-[#10b981] border-[#10b981]/30',
+					};
+		}
+		if (status === 'on_sale' || status === 'on_auction') {
+			return {
+				label: t('valuation.on_sale_badge') || 'ON SALE',
+				class: 'bg-[#0098EA]/15 text-[#0098EA] border-[#0098EA]/30',
+			};
+		}
+		if (status === 'taken' || status === 'sold') {
+			return {
+				label: t('valuation.taken_badge') || 'TAKEN',
+				class: 'bg-white/10 text-white/60 border-white/10',
+			};
+		}
+		if (status === 'available') {
+			return {
+				label: t('valuation.no_sale_badge') || 'UNSOLD / AVAILABLE',
+				class: 'bg-emerald-400/10 text-emerald-300/70 border-emerald-400/20',
+			};
+		}
+		return {
+			label: t('valuation.unverified_badge') || 'UNVERIFIED',
+			class: 'bg-white/5 text-white/35 border-white/10',
+		};
+	};
+
+	const portfolioBadge = (status: string) => {
+		switch (status) {
+			case 'on_sale':
+			case 'sale':
+				return {
+					label: t('valuation.listed_badge') || 'LISTED',
+					class: 'bg-[#0098EA]/10 text-[#0098EA] border-[#0098EA]/30',
+				};
+			case 'on_auction':
+				return {
+					label: t('valuation.auction_badge') || 'AUCTION',
+					class: 'bg-amber-400/10 text-amber-400 border-amber-400/30',
+				};
+			case 'bought':
+				return {
+					label: t('valuation.acquired_badge') || 'ACQUIRED',
+					class: 'bg-cyan-400/10 text-cyan-300 border-cyan-400/30',
+				};
+			default:
+				return {
+					label: t('valuation.holding_badge') || 'HOLDING',
+					class: 'bg-emerald-400/10 text-emerald-400 border-emerald-400/30',
+				};
+		}
+	};
+
+	const hasPortfolio = () => (data()?.portfolio?.items?.length ?? 0) > 0;
+
+	const ownerProfile = () => {
+		const p = data()?.owner_profile;
+		if (!p) return null;
+		if (!p.user_id && !p.first_name) return null;
+		return p;
+	};
+
+	const [copiedWallet, setCopiedWallet] = createSignal<boolean>(false);
+	const handleCopyWallet = async (addr: string) => {
+		if (!addr) return;
+		await copyToClipboard(addr);
+		setCopiedWallet(true);
+		haptic.notify('success');
+		setTimeout(() => setCopiedWallet(false), 2500);
+	};
+
 	const handleMouseMove = (e: MouseEvent) => {
 		if (!cardRef) return;
 		const rect = cardRef.getBoundingClientRect();
@@ -331,7 +413,7 @@ export const UsernamePage: Component = () => {
 	) => {
 		try {
 			localStorage.setItem(`val_access_${targetUser}`, method);
-		} catch (_) { }
+		} catch (_) {}
 		setAccessMethod(method);
 		setAccessGranted(true);
 		setShowPaymentGate(false);
@@ -409,14 +491,14 @@ export const UsernamePage: Component = () => {
 					haptic.notify('error');
 					return;
 				}
-			} catch (_) { }
+			} catch (_) {}
 
 			if (attempts >= maxAttempts) {
 				clearPaymentPolling();
 				setPaymentPending(false);
 				setPaymentError(
 					t('valuation.payment_timeout') ||
-					'Payment verification timed out. Click below to check again.',
+						'Payment verification timed out. Click below to check again.',
 				);
 			}
 		}, 3000);
@@ -479,9 +561,9 @@ export const UsernamePage: Component = () => {
 		} catch (e: any) {
 			setPaymentError(
 				e?.response?.data?.error ||
-				e?.message ||
-				t('shopInfo.insufficientCoins') ||
-				'Insufficient coin balance',
+					e?.message ||
+					t('shopInfo.insufficientCoins') ||
+					'Insufficient coin balance',
 			);
 			haptic.notify('error');
 		} finally {
@@ -667,7 +749,7 @@ export const UsernamePage: Component = () => {
 						const method = res.method || (res.is_pro ? 'pro' : 'stars');
 						try {
 							localStorage.setItem(`val_access_${u}`, method);
-						} catch (_) { }
+						} catch (_) {}
 						setAccessGranted(true);
 						setAccessMethod(method as any);
 						setShowPaymentGate(false);
@@ -776,10 +858,11 @@ export const UsernamePage: Component = () => {
 					<div
 						class="fixed top-0 left-1/2 -translate-x-1/2 w-[150vw] h-[500px] blur-[120px] pointer-events-none z-0 opacity-40 transition-colors duration-1000"
 						style={{
-							background: `radial-gradient(circle, ${accessGranted()
-								? getTierTheme(data()?.rarity?.tier || '').glow
-								: 'rgba(0,152,234,0.25)'
-								} 0%, transparent 60%)`,
+							background: `radial-gradient(circle, ${
+								accessGranted()
+									? getTierTheme(data()?.rarity?.tier || '').glow
+									: 'rgba(0,152,234,0.25)'
+							} 0%, transparent 60%)`,
 						}}
 					/>
 
@@ -789,12 +872,13 @@ export const UsernamePage: Component = () => {
 							<div class="w-full bg-[#12141C]/80 backdrop-blur-2xl border border-white/5 rounded-[20px] p-3.5 flex items-center justify-between shadow-sm relative z-10">
 								<div class="flex items-center gap-3.5">
 									<div
-										class={`w-11 h-11 rounded-[14px] flex items-center justify-center text-[22px] shrink-0 border shadow-inner ${accessMethod() === 'pro' || accessMethod() === 'stars'
-											? 'bg-amber-400/10 text-amber-400 border-amber-400/30'
-											: accessMethod() === 'coins'
-												? 'bg-[#0098EA]/10 text-[#0098EA] border-[#0098EA]/30'
-												: 'bg-emerald-400/10 text-emerald-400 border-emerald-400/30'
-											}`}
+										class={`w-11 h-11 rounded-[14px] flex items-center justify-center text-[22px] shrink-0 border shadow-inner ${
+											accessMethod() === 'pro' || accessMethod() === 'stars'
+												? 'bg-amber-400/10 text-amber-400 border-amber-400/30'
+												: accessMethod() === 'coins'
+													? 'bg-[#0098EA]/10 text-[#0098EA] border-[#0098EA]/30'
+													: 'bg-emerald-400/10 text-emerald-400 border-emerald-400/30'
+										}`}
 									>
 										{accessMethod() === 'pro'
 											? '👑'
@@ -882,7 +966,9 @@ export const UsernamePage: Component = () => {
 												</span>
 												<div class="flex items-center gap-2 filter blur-[6px] select-none opacity-60">
 													<span class="text-[28px] font-black text-white font-mono">••••••••</span>
-													<span class="text-[14px] font-black text-[#0098EA]">{t('common.ton')}</span>
+													<span class="text-[14px] font-black text-[#0098EA]">
+														{t('common.ton')}
+													</span>
 												</div>
 											</div>
 											<div class="flex items-center gap-1.5 bg-amber-400/20 border border-amber-400/40 text-amber-300 font-mono font-black text-[11px] px-3 py-1.5 rounded-[12px]">
@@ -896,8 +982,9 @@ export const UsernamePage: Component = () => {
 						>
 							{/* 💎 FULL UNLOCKED 3D HOLOGRAPHIC GYRO CARD */}
 							<div
-								class={`w-full aspect-square p-[3px] bg-gradient-to-br ${getTierTheme(data()?.rarity?.tier || '').wrapper
-									} rounded-[48px] my-2 relative z-20 transition-all duration-300`}
+								class={`w-full aspect-square p-[3px] bg-gradient-to-br ${
+									getTierTheme(data()?.rarity?.tier || '').wrapper
+								} rounded-[48px] my-2 relative z-20 transition-all duration-300`}
 							>
 								<div
 									ref={cardRef}
@@ -915,16 +1002,18 @@ export const UsernamePage: Component = () => {
 									<div
 										class="absolute inset-0 pointer-events-none z-20 mix-blend-overlay transition-opacity duration-300 opacity-80"
 										style={{
-											background: `radial-gradient(circle at ${tilt().glossX}% ${tilt().glossY
-												}%, rgba(255,255,255,0.4) 0%, transparent 60%)`,
+											background: `radial-gradient(circle at ${tilt().glossX}% ${
+												tilt().glossY
+											}%, rgba(255,255,255,0.4) 0%, transparent 60%)`,
 										}}
 									/>
 									<div class="absolute inset-0 bg-gradient-to-b from-white/[0.05] to-transparent pointer-events-none" />
 
 									<div class="flex justify-between items-center z-10">
 										<span
-											class={`px-4 py-2 border rounded-[12px] text-[10px] font-black tracking-widest uppercase shadow-sm ${getTierTheme(data()?.rarity?.tier || '').badge
-												}`}
+											class={`px-4 py-2 border rounded-[12px] text-[10px] font-black tracking-widest uppercase shadow-sm ${
+												getTierTheme(data()?.rarity?.tier || '').badge
+											}`}
 										>
 											{data()?.rarity?.tier || 'STANDARD'}
 										</span>
@@ -937,8 +1026,9 @@ export const UsernamePage: Component = () => {
 										<div
 											class="absolute w-full h-[160px] opacity-70 -z-10 pointer-events-none mix-blend-screen"
 											style={{
-												background: `radial-gradient(ellipse 60% 60% at 50% 50%, ${getTierTheme(data()?.rarity?.tier || '').glow
-													}, transparent 70%)`,
+												background: `radial-gradient(ellipse 60% 60% at 50% 50%, ${
+													getTierTheme(data()?.rarity?.tier || '').glow
+												}, transparent 70%)`,
 											}}
 										/>
 										<div class="flex items-center justify-center gap-2.5 w-full">
@@ -990,7 +1080,8 @@ export const UsernamePage: Component = () => {
 										</div>
 										<div class="flex flex-col items-end gap-2">
 											<div class="flex items-center gap-1.5 bg-[#10b981]/15 px-3 py-1 rounded-[10px] border border-[#10b981]/40 text-[#10b981] font-black uppercase tracking-widest text-[9px] shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-												<div class="w-1.5 h-1.5 bg-[#10b981] rounded-full animate-pulse" /> {t('valuation.verified')}
+												<div class="w-1.5 h-1.5 bg-[#10b981] rounded-full animate-pulse" />{' '}
+												{t('valuation.verified')}
 											</div>
 											<span class="text-[14px] text-white/60 font-black leading-none font-mono">
 												≈ ${fmtUsd(parseFloat(data()?.expected_usd || '0'))}
@@ -1063,10 +1154,11 @@ export const UsernamePage: Component = () => {
 												haptic.selection();
 												setActiveStarsPack('pack_starter_3');
 											}}
-											class={`p-3 rounded-[16px] border text-start flex flex-col gap-1 transition-all ${activeStarsPack() === 'pack_starter_3'
-												? 'bg-amber-400/15 border-amber-400 text-white shadow-sm'
-												: 'bg-[#08090D] border-white/5 text-white/70 hover:bg-white/[0.03]'
-												}`}
+											class={`p-3 rounded-[16px] border text-start flex flex-col gap-1 transition-all ${
+												activeStarsPack() === 'pack_starter_3'
+													? 'bg-amber-400/15 border-amber-400 text-white shadow-sm'
+													: 'bg-[#08090D] border-white/5 text-white/70 hover:bg-white/[0.03]'
+											}`}
 										>
 											<span class="text-[10px] font-black text-amber-400 uppercase tracking-widest">
 												{t('valuation.threeCredits')}
@@ -1081,10 +1173,11 @@ export const UsernamePage: Component = () => {
 												haptic.selection();
 												setActiveStarsPack('pack_value_10');
 											}}
-											class={`p-3 rounded-[16px] border text-start flex flex-col gap-1 transition-all relative overflow-hidden ${activeStarsPack() === 'pack_value_10'
-												? 'bg-amber-400/15 border-amber-400 text-white shadow-sm'
-												: 'bg-[#08090D] border-white/5 text-white/70 hover:bg-white/[0.03]'
-												}`}
+											class={`p-3 rounded-[16px] border text-start flex flex-col gap-1 transition-all relative overflow-hidden ${
+												activeStarsPack() === 'pack_value_10'
+													? 'bg-amber-400/15 border-amber-400 text-white shadow-sm'
+													: 'bg-[#08090D] border-white/5 text-white/70 hover:bg-white/[0.03]'
+											}`}
 										>
 											<div class="absolute top-0 right-0 bg-emerald-500 text-black font-mono font-black text-[8px] px-1.5 py-0.5 rounded-bl-[8px]">
 												-25%
@@ -1131,9 +1224,9 @@ export const UsernamePage: Component = () => {
 											<span class="text-white font-black text-[13px]">
 												{firstReportDiscountEligible()
 													? t('valuation.pay_single_coins_discounted', { coins: '7,500' }) ||
-													'First Report Special (7,500 Coins)'
+														'First Report Special (7,500 Coins)'
 													: t('valuation.pay_single_coins', { coins: '15,000' }) ||
-													'Full Coin Purchase (15,000 Coins)'}
+														'Full Coin Purchase (15,000 Coins)'}
 											</span>
 										</div>
 										<Show when={firstReportDiscountEligible()}>
@@ -1179,10 +1272,11 @@ export const UsernamePage: Component = () => {
 											<button
 												type="button"
 												onClick={() => openTelegramLink('https://t.me/FragmentsCommunity')}
-												class={`p-2.5 rounded-[12px] border text-start flex items-center justify-between gap-1.5 ${inChannel()
-													? 'bg-emerald-500/10 border-emerald-500/30'
-													: 'bg-white/[0.02] border-white/10'
-													}`}
+												class={`p-2.5 rounded-[12px] border text-start flex items-center justify-between gap-1.5 ${
+													inChannel()
+														? 'bg-emerald-500/10 border-emerald-500/30'
+														: 'bg-white/[0.02] border-white/10'
+												}`}
 											>
 												<span class="text-[10px] font-bold text-white truncate">
 													{t('valuation.officialChannel')}
@@ -1195,10 +1289,11 @@ export const UsernamePage: Component = () => {
 											<button
 												type="button"
 												onClick={() => openTelegramLink('https://t.me/FragmentInvestors')}
-												class={`p-2.5 rounded-[12px] border text-start flex items-center justify-between gap-1.5 ${inGroup()
-													? 'bg-emerald-500/10 border-emerald-500/30'
-													: 'bg-white/[0.02] border-white/10'
-													}`}
+												class={`p-2.5 rounded-[12px] border text-start flex items-center justify-between gap-1.5 ${
+													inGroup()
+														? 'bg-emerald-500/10 border-emerald-500/30'
+														: 'bg-white/[0.02] border-white/10'
+												}`}
 											>
 												<span class="text-[10px] font-bold text-white truncate">
 													{t('valuation.communityGroup')}
@@ -1289,10 +1384,11 @@ export const UsernamePage: Component = () => {
 								<button
 									type="button"
 									onClick={handleCopyCertificate}
-									class={`w-full h-11 rounded-[14px] font-black text-[12px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm border ${copiedCert()
-										? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
-										: 'bg-gradient-to-r from-amber-400/20 to-amber-500/20 border-amber-400/40 text-amber-300 hover:from-amber-400/30 hover:to-amber-500/30'
-										}`}
+									class={`w-full h-11 rounded-[14px] font-black text-[12px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm border ${
+										copiedCert()
+											? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+											: 'bg-gradient-to-r from-amber-400/20 to-amber-500/20 border-amber-400/40 text-amber-300 hover:from-amber-400/30 hover:to-amber-500/30'
+									}`}
 								>
 									<span class="material-symbols-outlined text-[17px]">
 										{copiedCert() ? 'check' : 'content_copy'}
@@ -1309,10 +1405,11 @@ export const UsernamePage: Component = () => {
 							<div class="w-full bg-[#12141C]/80 border border-white/10 rounded-[24px] p-4 flex items-center justify-between gap-3 shadow-sm">
 								<div class="flex items-center gap-3 min-w-0">
 									<div
-										class={`w-10 h-10 rounded-[14px] flex items-center justify-center shrink-0 border ${isMonitored()
-											? 'bg-amber-400/15 border-amber-400/40 text-amber-400'
-											: 'bg-white/5 border-white/10 text-white/40'
-											}`}
+										class={`w-10 h-10 rounded-[14px] flex items-center justify-center shrink-0 border ${
+											isMonitored()
+												? 'bg-amber-400/15 border-amber-400/40 text-amber-400'
+												: 'bg-white/5 border-white/10 text-white/40'
+										}`}
 									>
 										<span class="material-symbols-outlined text-[20px]">
 											{isMonitored() ? 'notifications_active' : 'notifications'}
@@ -1333,10 +1430,11 @@ export const UsernamePage: Component = () => {
 									type="button"
 									onClick={handleToggleMonitoring}
 									disabled={isTogglingMonitor()}
-									class={`px-3.5 py-1.5 rounded-[12px] font-black text-[11px] uppercase tracking-wider transition-all active:scale-95 shrink-0 border ${isMonitored()
-										? 'bg-amber-400 text-black border-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.3)]'
-										: 'bg-white/5 text-white/70 hover:text-white border-white/10'
-										}`}
+									class={`px-3.5 py-1.5 rounded-[12px] font-black text-[11px] uppercase tracking-wider transition-all active:scale-95 shrink-0 border ${
+										isMonitored()
+											? 'bg-amber-400 text-black border-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.3)]'
+											: 'bg-white/5 text-white/70 hover:text-white border-white/10'
+									}`}
 								>
 									{isMonitored() ? 'ACTIVE' : 'MONITOR'}
 								</button>
@@ -1526,6 +1624,547 @@ export const UsernamePage: Component = () => {
 								</div>
 							</div>
 
+							{/* 🌟 1. LINGUISTIC MEANING, DICTIONARY & WIKIPEDIA */}
+							<div class="w-full bg-gradient-to-br from-[#0098EA]/15 via-[#12141C]/90 to-[#08090D] backdrop-blur-2xl border border-[#0098EA]/30 rounded-[28px] p-6 flex flex-col gap-3.5 shadow-[0_10px_30px_rgba(0,152,234,0.15)] relative overflow-hidden">
+								<div class="absolute -right-8 -top-8 w-32 h-32 bg-[#0098EA]/10 blur-3xl rounded-full pointer-events-none" />
+
+								<div class="flex items-center justify-between text-white/90 relative z-10 border-b border-[#0098EA]/20 pb-3">
+									<div class="flex items-center gap-2.5">
+										<span class="material-symbols-outlined text-[22px] text-[#0098EA]">
+											translate
+										</span>
+										<span class="text-[13px] font-black uppercase tracking-widest text-[#0098EA]">
+											{t('valuation.ling_meaning_title') || 'MEANING & IDENTITY'}
+										</span>
+									</div>
+									<span
+										class={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-[8px] border shadow-sm ${
+											data()?.dictionary?.is_word
+												? 'bg-[#10b981]/15 text-[#10b981] border-[#10b981]/40'
+												: 'bg-white/5 text-white/40 border-white/10'
+										}`}
+									>
+										{data()?.dictionary?.is_word
+											? t('valuation.dict_word_title') || 'DICTIONARY WORD'
+											: t('valuation.dict_none') || 'GENERIC HANDLE'}
+									</span>
+								</div>
+
+								<div class="relative z-10 flex flex-col gap-2.5">
+									<Show
+										when={data()?.dictionary?.is_word && data()?.dictionary?.definition}
+										fallback={
+											<Show when={!data()?.dictionary?.is_word && !data()?.wikipedia_summary}>
+												<div class="bg-[#08090D]/60 rounded-[18px] p-3.5 border border-white/5 text-white/40 text-[12px] font-medium text-start">
+													{t('valuation.not_dict_word_desc') ||
+														'Non-dictionary alphanumeric handle without recorded lexical definitions.'}
+												</div>
+											</Show>
+										}
+									>
+										<div class="bg-[#08090D]/80 rounded-[18px] p-4 border border-[#0098EA]/20 text-white/90 text-[13px] leading-relaxed font-medium italic border-l-[4px] border-l-[#0098EA] shadow-inner text-start flex flex-col gap-1">
+											<Show when={data()?.dictionary?.part_of_speech}>
+												<span class="text-[10px] text-[#0098EA] font-mono font-bold uppercase not-italic">
+													[{data()?.dictionary?.part_of_speech}]
+												</span>
+											</Show>
+											<span>"{data()?.dictionary?.definition}"</span>
+										</div>
+									</Show>
+
+									<Show when={data()?.wikipedia_summary}>
+										<div class="bg-[#08090D]/80 rounded-[18px] p-4 border border-white/5 flex flex-col gap-2 shadow-inner text-start">
+											<span class="text-[10px] font-black text-amber-400 uppercase tracking-widest flex items-center gap-1.5">
+												<span class="material-symbols-outlined text-[16px] text-amber-400">
+													menu_book
+												</span>
+												{t('valuation.wiki_summary_title') || 'WIKIPEDIA & KNOWLEDGE BASE'}
+											</span>
+											<p class="text-[12px] font-medium text-white/70 leading-relaxed">
+												{data()?.wikipedia_summary}
+											</p>
+										</div>
+									</Show>
+								</div>
+							</div>
+
+							{/* 🧬 2. USERNAME STRUCTURAL ANATOMY */}
+							<div class="w-full bg-[#12141C]/80 backdrop-blur-2xl border border-white/5 rounded-[28px] p-6 flex flex-col gap-4 shadow-sm">
+								<div class="flex items-center justify-between text-white/90 border-b border-white/5 pb-3">
+									<div class="flex items-center gap-2">
+										<span class="material-symbols-outlined text-[20px] text-[#0098EA]">dna</span>
+										<span class="text-[13px] font-black uppercase tracking-widest truncate">
+											{t('valuation.anatomy_title') || 'STRUCTURAL ANATOMY'}
+										</span>
+									</div>
+									<span class="text-[10px] font-mono font-black text-white/40 bg-white/5 border border-white/10 px-2.5 py-1 rounded-[8px]">
+										{data()?.length || username().length} {t('valuation.chars_suffix') || 'CHARS'}
+									</span>
+								</div>
+
+								<div class="grid grid-cols-2 gap-3 text-start">
+									<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 flex items-center justify-between">
+										<div class="flex flex-col min-w-0">
+											<span class="text-white/40 text-[9px] font-black uppercase tracking-widest truncate">
+												{t('valuation.letters_only') || 'LETTERS ONLY'}
+											</span>
+											<span class="text-[12px] font-bold text-white mt-0.5 truncate">
+												{data()?.structure?.letters_only
+													? t('valuation.anatomy_pure') || 'Pure Alphabetic'
+													: t('valuation.no') || 'Mixed'}
+											</span>
+										</div>
+										<span
+											class={`material-symbols-outlined text-[20px] shrink-0 ${
+												data()?.structure?.letters_only ? 'text-[#10b981]' : 'text-white/30'
+											}`}
+										>
+											{data()?.structure?.letters_only ? 'check_circle' : 'remove_circle_outline'}
+										</span>
+									</div>
+
+									<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 flex items-center justify-between">
+										<div class="flex flex-col min-w-0">
+											<span class="text-white/40 text-[9px] font-black uppercase tracking-widest truncate">
+												{t('valuation.has_digits') || 'NUMBERS'}
+											</span>
+											<span class="text-[12px] font-bold text-white mt-0.5 truncate">
+												{data()?.structure?.has_digits
+													? t('valuation.anatomy_contains') || 'Contains Digits'
+													: t('valuation.anatomy_none') || 'None'}
+											</span>
+										</div>
+										<span
+											class={`material-symbols-outlined text-[20px] shrink-0 ${
+												data()?.structure?.has_digits ? 'text-amber-400' : 'text-[#10b981]'
+											}`}
+										>
+											{data()?.structure?.has_digits ? 'pin' : 'check_circle'}
+										</span>
+									</div>
+
+									<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 flex items-center justify-between">
+										<div class="flex flex-col min-w-0">
+											<span class="text-white/40 text-[9px] font-black uppercase tracking-widest truncate">
+												{t('valuation.has_underscore') || 'UNDERSCORE (_)'}
+											</span>
+											<span class="text-[12px] font-bold text-white mt-0.5 truncate">
+												{data()?.structure?.has_underscore
+													? t('valuation.anatomy_yes') || 'Contains (_)'
+													: t('valuation.anatomy_clean') || 'Clean (No _)'}
+											</span>
+										</div>
+										<span
+											class={`material-symbols-outlined text-[20px] shrink-0 ${
+												data()?.structure?.has_underscore ? 'text-amber-400' : 'text-[#10b981]'
+											}`}
+										>
+											{data()?.structure?.has_underscore ? 'horizontal_rule' : 'check_circle'}
+										</span>
+									</div>
+
+									<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 flex items-center justify-between">
+										<div class="flex flex-col min-w-0">
+											<span class="text-white/40 text-[9px] font-black uppercase tracking-widest truncate">
+												{t('valuation.len_title') || 'LENGTH TIER'}
+											</span>
+											<span class="text-[12px] font-bold text-white mt-0.5 truncate">
+												{(data()?.length || username().length) <= 4
+													? t('valuation.len_ultra_short') || 'Ultra Short'
+													: (data()?.length || username().length) <= 6
+														? t('valuation.len_short') || 'Short'
+														: t('valuation.len_standard') || 'Standard'}
+											</span>
+										</div>
+										<span class="material-symbols-outlined text-[20px] text-[#0098EA] shrink-0">
+											straighten
+										</span>
+									</div>
+								</div>
+							</div>
+
+							{/* 🕮 3. HISTORY & OWNERSHIP */}
+							<div class="w-full bg-[#12141C]/80 backdrop-blur-2xl border border-white/5 rounded-[28px] p-6 flex flex-col gap-4 shadow-sm">
+								<div class="flex items-center justify-between text-white/90 border-b border-white/5 pb-3">
+									<div class="flex items-center gap-2">
+										<span class="material-symbols-outlined text-[20px] text-white">history</span>
+										<span class="text-[13px] font-black uppercase tracking-widest">
+											{t('valuation.history_title') || 'OWNERSHIP HISTORY'}
+										</span>
+									</div>
+									<Show when={data()?.history?.highest_past_sale_ton}>
+										<span class="text-[10px] font-mono font-black text-amber-400 bg-amber-400/10 border border-amber-400/25 px-2.5 py-1 rounded-[8px]">
+											MAX: {fmtTon(data()?.history?.highest_past_sale_ton)} TON
+										</span>
+									</Show>
+								</div>
+
+								{/* Owner Address Box */}
+								<Show when={data()?.history?.owner_address}>
+									<div class="flex items-center justify-between bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 text-start gap-2">
+										<div class="flex flex-col min-w-0">
+											<span class="text-[9px] font-black text-white/40 uppercase tracking-wider">
+												{t('valuation.owner') || 'Current Owner Wallet:'}
+											</span>
+											<span class="text-white font-mono font-black text-[12px] truncate" dir="ltr">
+												{data()?.history?.owner_address}
+											</span>
+										</div>
+										<button
+											type="button"
+											onClick={() => handleCopyWallet(data()?.history?.owner_address || '')}
+											class="p-2 rounded-[10px] bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors shrink-0"
+											title="Copy Address"
+										>
+											<span class="material-symbols-outlined text-[16px]">
+												{copiedWallet() ? 'check' : 'content_copy'}
+											</span>
+										</button>
+									</div>
+								</Show>
+
+								<Show
+									when={
+										data()?.history?.is_sold || (data()?.history?.transactions?.length ?? 0) > 0
+									}
+									fallback={
+										<div class="flex items-center gap-3 bg-[#08090D] border border-[#10b981]/20 rounded-[18px] p-4 text-start">
+											<div class="w-8 h-8 rounded-[10px] bg-[#10b981]/20 flex items-center justify-center shrink-0">
+												<span class="material-symbols-outlined text-[#10b981] text-[18px]">
+													verified
+												</span>
+											</div>
+											<span class="text-[#10b981] text-[12px] font-black uppercase tracking-wider">
+												{t('valuation.not_sold') || 'Status: Never sold on Fragment!'}
+											</span>
+										</div>
+									}
+								>
+									<div class="flex flex-col rounded-[16px] overflow-hidden bg-[#08090D] border border-white/5 shadow-inner">
+										<div class="grid grid-cols-3 p-3.5 bg-white/[0.03] text-[10px] font-black text-white/30 uppercase tracking-widest border-b border-white/5">
+											<span class="text-start">{t('valuation.sale_price') || 'PRICE'}</span>
+											<span class="text-center">{t('valuation.date') || 'DATE'}</span>
+											<span class="text-end">{t('valuation.buyer') || 'BUYER'}</span>
+										</div>
+										<Show
+											when={(data()?.history?.transactions?.length ?? 0) > 0}
+											fallback={
+												<div class="p-6 text-center text-white/30 text-[12px] font-bold uppercase tracking-widest">
+													{t('valuation.no_transaction_data') || 'No transaction data'}
+												</div>
+											}
+										>
+											<For each={data()?.history?.transactions}>
+												{(tx, idx) => (
+													<div
+														class={`grid grid-cols-3 p-3.5 items-center text-[13px] hover:bg-white/[0.02] transition-colors ${
+															idx() !== (data()?.history?.transactions?.length || 0) - 1
+																? 'border-b border-white/5'
+																: ''
+														}`}
+													>
+														<span class="text-emerald-400 font-mono font-black text-start">
+															{tx.sale_price_ton} TON
+														</span>
+														<span class="text-white/40 text-[11px] font-mono font-bold text-center">
+															{new Date(tx.date).toLocaleDateString('en-GB', {
+																day: 'numeric',
+																month: 'short',
+																year: '2-digit',
+															})}
+														</span>
+														<span
+															class="text-white font-mono font-bold text-[12px] truncate text-end"
+															dir="ltr"
+														>
+															{tx.buyer
+																? `${tx.buyer.slice(0, 4)}...${tx.buyer.slice(-3)}`
+																: 'Fragment'}
+														</span>
+													</div>
+												)}
+											</For>
+										</Show>
+									</div>
+								</Show>
+							</div>
+
+							{/* 🐋 4. HOLDER PORTFOLIO & WHALE PROFILE */}
+							<Show when={hasPortfolio() || ownerProfile()}>
+								<div class="w-full bg-gradient-to-br from-amber-500/10 via-[#12141C]/90 to-[#08090D] backdrop-blur-2xl border border-amber-500/30 rounded-[28px] p-6 flex flex-col gap-4 shadow-[0_10px_30px_rgba(245,158,11,0.12)] relative overflow-hidden">
+									<div class="absolute -right-8 -top-8 w-32 h-32 bg-amber-500/10 blur-3xl rounded-full pointer-events-none" />
+
+									<div class="flex items-center justify-between text-white/90 relative z-10 border-b border-white/5 pb-3">
+										<div class="flex items-center gap-2.5 min-w-0">
+											<div class="w-8 h-8 rounded-[10px] bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-inner shrink-0">
+												<span class="material-symbols-outlined text-[18px]">
+													account_balance_wallet
+												</span>
+											</div>
+											<div class="flex flex-col text-start min-w-0">
+												<span class="text-[13px] font-black uppercase tracking-widest text-white truncate">
+													{t('valuation.whale_portfolio_title') || 'HOLDER PORTFOLIO'}
+												</span>
+												<span class="text-[10px] text-white/40 font-medium truncate">
+													{t('valuation.whale_portfolio_subtitle') || 'ON-CHAIN ASSET DISTRIBUTION'}
+												</span>
+											</div>
+										</div>
+										<Show when={hasPortfolio()}>
+											<span
+												class={`text-[10px] font-black px-2.5 py-1 rounded-[8px] border shadow-sm shrink-0 whitespace-nowrap ${
+													data()?.wallet_info?.is_whale
+														? 'bg-amber-500/15 border-amber-500/40 text-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.25)]'
+														: 'bg-[#0098EA]/15 border-[#0098EA]/30 text-[#0098EA]'
+												}`}
+											>
+												{data()?.wallet_info?.is_whale ? '🐋 WHALE HOLDER' : '👤 COLLECTOR'}
+											</span>
+										</Show>
+									</div>
+
+									{/* Owner Profile Badge — when MTProto resolved a real Telegram identity */}
+									<Show when={ownerProfile()}>
+										<div class="flex items-center justify-between gap-3 bg-[#08090D]/90 border border-white/10 rounded-[18px] p-3.5 relative z-10 shadow-inner">
+											<div class="flex items-center gap-3 min-w-0">
+												<div class="w-9 h-9 rounded-full bg-gradient-to-tr from-[#0098EA] to-[#00f0ff] flex items-center justify-center text-white font-black text-[14px] shadow-sm shrink-0">
+													{(
+														ownerProfile()?.first_name?.[0] ||
+														ownerProfile()?.username?.[0] ||
+														'?'
+													).toUpperCase()}
+												</div>
+												<div class="flex flex-col text-start min-w-0">
+													<div class="flex items-center gap-1.5 min-w-0">
+														<span class="text-white font-bold text-[13px] truncate">
+															{[ownerProfile()?.first_name, ownerProfile()?.last_name]
+																.filter(Boolean)
+																.join(' ')}
+														</span>
+														<Show when={ownerProfile()?.is_premium}>
+															<span class="material-symbols-outlined text-amber-400 text-[14px] shrink-0">
+																star
+															</span>
+														</Show>
+													</div>
+													<Show when={ownerProfile()?.username}>
+														<span
+															class="text-white/40 text-[11px] font-mono font-semibold truncate"
+															dir="ltr"
+														>
+															@{ownerProfile()?.username}
+														</span>
+													</Show>
+												</div>
+											</div>
+											<span class="text-[10px] font-black text-[#0098EA] bg-[#0098EA]/10 border border-[#0098EA]/30 px-2.5 py-1 rounded-[8px] shrink-0 uppercase">
+												{ownerProfile()?.peer_type || 'account'}
+											</span>
+										</div>
+									</Show>
+
+									<Show
+										when={hasPortfolio()}
+										fallback={
+											<div class="flex items-center gap-3 bg-[#08090D] border border-white/5 rounded-[18px] p-4 relative z-10 shadow-inner text-start">
+												<span class="material-symbols-outlined text-white/25 text-[20px] shrink-0">
+													search_off
+												</span>
+												<div class="flex flex-col text-start min-w-0">
+													<span class="text-white/60 text-[12px] font-bold">
+														{t('valuation.portfolio_empty_title') || 'No public holdings found'}
+													</span>
+													<span class="text-white/30 text-[11px] font-medium">
+														{t('valuation.portfolio_empty_desc') ||
+															'This wallet has no other verifiable collectibles on-chain.'}
+													</span>
+												</div>
+											</div>
+										}
+									>
+										{/* Wallet summary */}
+										<div class="grid grid-cols-2 gap-3 relative z-10 text-start">
+											<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 flex flex-col gap-0.5 shadow-inner min-w-0">
+												<span class="text-white/40 text-[9px] font-black uppercase tracking-widest">
+													{t('valuation.holder_wallet') || 'HOLDER WALLET'}
+												</span>
+												<span
+													class="text-amber-400 font-mono font-black text-[12px] truncate"
+													dir="ltr"
+												>
+													{data()?.portfolio?.owner_address
+														? `${data()!.portfolio!.owner_address.slice(0, 6)}...${data()!.portfolio!.owner_address.slice(-4)}`
+														: '—'}
+												</span>
+											</div>
+											<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 flex flex-col gap-0.5 shadow-inner min-w-0">
+												<span class="text-white/40 text-[9px] font-black uppercase tracking-widest">
+													{t('valuation.total_nfts') || 'TOTAL ASSETS'}
+												</span>
+												<span class="text-white font-mono font-black text-[14px] truncate">
+													{data()?.wallet_info?.nft_count ||
+														data()?.portfolio?.total_count ||
+														data()?.portfolio?.items?.length ||
+														0}{' '}
+													{t('valuation.items_suffix') || 'items'}
+												</span>
+											</div>
+											<Show when={(data()?.portfolio?.total_est_value_ton ?? 0) > 0}>
+												<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 flex flex-col gap-0.5 shadow-inner min-w-0">
+													<span class="text-white/40 text-[9px] font-black uppercase tracking-widest">
+														{t('valuation.portfolio_est_val') || 'EST. PORTFOLIO VALUE'}
+													</span>
+													<span class="text-emerald-400 font-mono font-black text-[14px] truncate">
+														{fmtTon(data()?.portfolio?.total_est_value_ton)} TON
+													</span>
+												</div>
+											</Show>
+											<Show when={(data()?.portfolio?.total_acquisition_cost_ton ?? 0) > 0}>
+												<div class="bg-[#08090D] border border-white/5 rounded-[18px] p-3.5 flex flex-col gap-0.5 shadow-inner min-w-0">
+													<span class="text-white/40 text-[9px] font-black uppercase tracking-widest">
+														{t('valuation.portfolio_spent_total') || 'TOTAL ACQUISITION COST'}
+													</span>
+													<span class="text-white font-mono font-black text-[14px] truncate">
+														{fmtTon(data()?.portfolio?.total_acquisition_cost_ton)} TON
+													</span>
+												</div>
+											</Show>
+										</div>
+
+										{/* Portfolio Collectibles List */}
+										<div class="flex flex-col gap-2 relative z-10 pt-1 text-start">
+											<div class="flex items-center justify-between gap-2 px-1">
+												<span class="text-white/50 text-[10px] font-black uppercase tracking-widest truncate">
+													{t('valuation.other_collectibles') || 'OTHER ASSETS IN SAME WALLET'}
+												</span>
+												<span class="text-[#0098EA] text-[10px] font-mono font-bold shrink-0">
+													{data()?.portfolio?.items?.length} ITEMS
+												</span>
+											</div>
+
+											<div class="flex flex-col gap-2 max-h-[240px] overflow-y-auto pr-1">
+												<For each={data()?.portfolio?.items}>
+													{(item) => {
+														const badge = portfolioBadge(item.status);
+														return (
+															<div
+																onClick={() => openReport(item.username)}
+																class="flex items-center justify-between gap-2 bg-[#08090D] hover:bg-white/[0.04] border border-white/5 rounded-[14px] p-3 cursor-pointer transition-all active:scale-[0.98]"
+															>
+																<div class="flex items-center gap-2 min-w-0">
+																	<span class="text-white/30 text-[12px] font-mono shrink-0">
+																		✦
+																	</span>
+																	<span
+																		class="text-white font-mono font-black text-[13px] truncate"
+																		dir="ltr"
+																	>
+																		@{item.username}
+																	</span>
+																</div>
+																<div class="flex items-center gap-2 shrink-0">
+																	<Show
+																		when={(item.last_sale_ton ?? 0) > 0}
+																		fallback={
+																			<span class="text-white/25 text-[10px] font-medium whitespace-nowrap">
+																				{t('valuation.portfolio_unpriced') || 'no public price'}
+																			</span>
+																		}
+																	>
+																		<span class="text-amber-400 font-mono font-black text-[11px] whitespace-nowrap">
+																			{fmtTon(item.last_sale_ton)} TON
+																		</span>
+																	</Show>
+																	<span
+																		class={`text-[9px] font-black px-2 py-0.5 rounded-[6px] border whitespace-nowrap ${badge.class}`}
+																	>
+																		{badge.label}
+																	</span>
+																</div>
+															</div>
+														);
+													}}
+												</For>
+											</div>
+										</div>
+									</Show>
+								</div>
+							</Show>
+
+							{/* 🔥 5. SEMANTIC SIMILAR USERNAMES & BRAND EQUIVALENTS */}
+							<Show when={(data()?.similar?.length ?? 0) > 0}>
+								<div class="w-full bg-[#12141C]/90 backdrop-blur-2xl border border-[#0098EA]/30 rounded-[28px] p-6 flex flex-col gap-4 shadow-[0_10px_30px_rgba(0,152,234,0.15)] relative overflow-hidden">
+									<div class="absolute -right-8 -bottom-8 w-28 h-28 bg-[#0098EA]/10 blur-3xl rounded-full pointer-events-none" />
+
+									<div class="flex items-center justify-between text-white/90 relative z-10 border-b border-white/5 pb-3">
+										<div class="flex items-center gap-2.5">
+											<span class="material-symbols-outlined text-[22px] text-[#0098EA]">hub</span>
+											<span class="text-[13px] font-black uppercase tracking-widest text-white">
+												{t('valuation.concept_similar_title') || 'CONCEPT SIMILAR USERNAMES'}
+											</span>
+										</div>
+										<span class="text-[10px] font-black text-[#0098EA] bg-[#0098EA]/10 border border-[#0098EA]/30 px-2.5 py-1 rounded-[8px] shadow-sm">
+											{t('valuation.ai_matched') || 'AI MATCHED'}
+										</span>
+									</div>
+
+									<div class="flex flex-col gap-2.5 relative z-10 text-start">
+										<For each={data()?.similar}>
+											{(item) => {
+												const badge = similarBadge(item);
+												const hasPrice = (item.sale_price ?? 0) > 0;
+
+												return (
+													<div
+														onClick={() => openReport(item.username)}
+														class="flex items-center justify-between gap-3 bg-[#08090D] hover:bg-white/[0.04] p-3.5 rounded-[18px] border border-white/5 hover:border-[#0098EA]/30 transition-all cursor-pointer shadow-inner group"
+													>
+														<div class="flex flex-col gap-1 min-w-0 flex-1">
+															<div class="flex items-center gap-2 min-w-0">
+																<span
+																	class="text-[#0098EA] font-black text-[14px] group-hover:underline truncate"
+																	dir="ltr"
+																>
+																	@{item.username}
+																</span>
+																<span
+																	class={`text-[9px] font-black uppercase px-2 py-0.5 rounded-[6px] border shrink-0 whitespace-nowrap ${badge.class}`}
+																>
+																	{badge.label}
+																</span>
+															</div>
+															<span class="text-white/40 text-[11px] font-medium truncate">
+																{item.reason}
+															</span>
+														</div>
+
+														<div class="flex flex-col items-end shrink-0">
+															<Show
+																when={hasPrice}
+																fallback={
+																	<span class="text-white/25 text-[11px] font-medium whitespace-nowrap">
+																		{t('valuation.no_sale_price') || 'No Sale Record'}
+																	</span>
+																}
+															>
+																<span class="text-white font-mono font-black text-[13px] whitespace-nowrap">
+																	{fmtTon(item.sale_price)} TON
+																</span>
+																<Show when={(item.sale_price_usd ?? 0) > 0}>
+																	<span class="text-white/40 text-[10px] font-mono font-bold whitespace-nowrap">
+																		≈ ${fmtUsd(item.sale_price_usd)}
+																	</span>
+																</Show>
+															</Show>
+														</div>
+													</div>
+												);
+											}}
+										</For>
+									</div>
+								</div>
+							</Show>
+
 							{/* 📈 COMPARABLE REAL SALES */}
 							<Show when={(data()?.comparables?.length ?? 0) > 0}>
 								<div class="w-full bg-[#12141C]/80 backdrop-blur-2xl border border-white/5 rounded-[28px] p-6 flex flex-col gap-4 shadow-sm">
@@ -1652,14 +2291,16 @@ export const UsernamePage: Component = () => {
 					<div class="fixed left-[-9999px] top-[-9999px] pointer-events-none">
 						<div
 							ref={hiddenCardRef}
-							class={`w-[400px] h-[400px] p-[3px] bg-gradient-to-br ${getTierTheme(data()?.rarity?.tier || '').wrapper
-								} rounded-[40px] flex flex-col overflow-hidden`}
+							class={`w-[400px] h-[400px] p-[3px] bg-gradient-to-br ${
+								getTierTheme(data()?.rarity?.tier || '').wrapper
+							} rounded-[40px] flex flex-col overflow-hidden`}
 						>
 							<div class="w-full h-full bg-[#08090D] rounded-[37px] p-7 flex flex-col justify-between relative overflow-hidden">
 								<div class="flex justify-between items-center z-10">
 									<span
-										class={`px-3 py-1.5 border rounded-[10px] text-[9px] font-black tracking-widest uppercase shadow-sm ${getTierTheme(data()?.rarity?.tier || '').badge
-											}`}
+										class={`px-3 py-1.5 border rounded-[10px] text-[9px] font-black tracking-widest uppercase shadow-sm ${
+											getTierTheme(data()?.rarity?.tier || '').badge
+										}`}
 									>
 										{data()?.rarity?.tier || 'STANDARD'}
 									</span>
@@ -1687,7 +2328,9 @@ export const UsernamePage: Component = () => {
 											<span class="text-[28px] font-black text-white leading-none tracking-tight">
 												{fmtTon(expectedTon())}
 											</span>
-											<span class="text-[13px] font-black text-[#0098EA] mb-0.5">{t('common.ton')}</span>
+											<span class="text-[13px] font-black text-[#0098EA] mb-0.5">
+												{t('common.ton')}
+											</span>
 										</div>
 									</div>
 									<span class="text-[13px] text-white/60 font-black leading-none font-mono">

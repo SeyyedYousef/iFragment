@@ -39,14 +39,14 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 			const sessionCached = sessionStorage.getItem('cached_tg_init_data_user_id');
 			if (sessionCached) {
 				const parsed = parseInt(sessionCached, 10);
-				if (!isNaN(parsed) && parsed > 0) return parsed;
+				if (!Number.isNaN(parsed) && parsed > 0) return parsed;
 			}
 		} catch (_e) {}
 
 		const savedId = localStorage.getItem('owner_telegram_id') || localStorage.getItem('tg_user_id');
 		if (savedId) {
 			const parsed = parseInt(savedId, 10);
-			if (!isNaN(parsed) && parsed > 0) return parsed;
+			if (!Number.isNaN(parsed) && parsed > 0) return parsed;
 		}
 
 		return 0;
@@ -58,13 +58,21 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 		if (lower.includes('invalid password')) {
 			return t('ownerGate.errorInvalidPassword');
 		}
-		if (lower.includes('not registered') || lower.includes('not allowed') || lower.includes('unauthorized')) {
+		if (
+			lower.includes('not registered') ||
+			lower.includes('not allowed') ||
+			lower.includes('unauthorized')
+		) {
 			return t('ownerGate.errorNotRegistered');
 		}
 		if (lower.includes('too many') || lower.includes('locked')) {
 			return t('ownerGate.errorRateLimited');
 		}
-		if (lower.includes('not configured') || lower.includes('missing owner_password') || lower.includes('missing owner_telegram_ids')) {
+		if (
+			lower.includes('not configured') ||
+			lower.includes('missing owner_password') ||
+			lower.includes('missing owner_telegram_ids')
+		) {
 			return t('ownerGate.errorServerConfig');
 		}
 		if (lower.includes('totp') || lower.includes('recovery code')) {
@@ -119,7 +127,7 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 		let tgUserId = getDetectedTelegramId();
 		if (!tgUserId && manualTgId().trim()) {
 			const parsed = parseInt(manualTgId().trim(), 10);
-			if (!isNaN(parsed) && parsed > 0) {
+			if (!Number.isNaN(parsed) && parsed > 0) {
 				tgUserId = parsed;
 			}
 		}
@@ -277,12 +285,14 @@ export const OwnerGateModal: Component<OwnerGateModalProps> = (props) => {
 									onInput={(e) => setPassword(e.currentTarget.value)}
 									class="w-full h-14 ps-4 pe-12 bg-[#0a0b0f] border border-white/15 focus:border-amber-400 text-white text-base rounded-2xl shadow-inner focus:outline-none transition-all placeholder:text-white/30"
 									disabled={loading()}
-									autoComplete="current-password"
+									autocomplete="current-password"
 								/>
 								<button
 									type="button"
 									onClick={() => setShowPassword(!showPassword())}
-									aria-label={showPassword() ? t('ownerGate.hidePassword') : t('ownerGate.showPassword')}
+									aria-label={
+										showPassword() ? t('ownerGate.hidePassword') : t('ownerGate.showPassword')
+									}
 									class="absolute end-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl flex items-center justify-center text-white/50 hover:text-white active:scale-95 transition-all"
 									tabIndex={-1}
 								>

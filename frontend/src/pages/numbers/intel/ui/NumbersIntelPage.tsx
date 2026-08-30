@@ -1,4 +1,3 @@
-import { useNavigate } from '@solidjs/router';
 import { createQuery } from '@tanstack/solid-query';
 import { type Component, createSignal, Show } from 'solid-js';
 import { numbersApi } from '@/entities/numbers/index.js';
@@ -11,7 +10,6 @@ import { NumbersPortfolioView } from './components/NumbersPortfolioView.js';
 
 export const NumbersIntelPage: Component = () => {
 	useTelegramBackButton(-1);
-	const navigate = useNavigate();
 
 	const [activeTab, setActiveTab] = createSignal<'chart' | 'numbers' | 'portfolio'>('chart');
 	const [listFilterState, setListFilterState] = createSignal<{
