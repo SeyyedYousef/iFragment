@@ -234,10 +234,19 @@ const BoostsRedirect: Component = () => {
 	return null;
 };
 
+const ShopRedirect: Component = () => {
+	const nav = useNavigate();
+	onMount(() => nav('/airdrop?tab=shop', { replace: true }));
+	return null;
+};
+
 export const routes: Route[] = [
 	{ path: '/', Component: IndexPage },
 
 	{ path: '/airdrop', Component: AirdropPage },
+	{ path: '/shop', Component: ShopRedirect },
+	{ path: '/store', Component: ShopRedirect },
+	{ path: '/marketplace', Component: ShopRedirect },
 	{ path: '/dashboard', Component: DashboardPage },
 	{ path: '/profile', Component: ProfilePage },
 	{ path: '/profile/achievements', Component: AchievementsPage },
@@ -246,6 +255,7 @@ export const routes: Route[] = [
 	{ path: '/profile/leaderboard', Component: LeaderboardPage },
 	{ path: '/profile/tasks', Component: TasksRedirect },
 	{ path: '/profile/boosts', Component: BoostsRedirect },
+	{ path: '/profile/shop', Component: ShopRedirect },
 	{ path: '/managed-bots', Component: ManagedBotsPage },
 	{ path: '/bot/:botId/manage', Component: BotManagePage },
 	{ path: '/group/:id', Component: GroupDashboardPage },
@@ -259,7 +269,7 @@ export const routes: Route[] = [
 	{ path: '/group/:id/analytics', Component: AnalyticsPage },
 	{ path: '/group/:id/dynamic-bio', Component: GroupDynamicBioPage },
 	{ path: '/managed-channels', Component: ManagedChannelsPage },
-	{ path: '/channel/connect', Component: ConnectChannelPage },
+	{ path: '/channel/connect', Component: ProjectsPage },
 	{ path: '/channel/projects', Component: ProjectsPage },
 	{ path: '/channel/:id', Component: ChannelDashboardPage },
 	{ path: '/channel/:id/dashboard', Component: ChannelDashboardPage },

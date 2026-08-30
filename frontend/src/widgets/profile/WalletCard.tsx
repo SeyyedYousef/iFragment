@@ -135,7 +135,7 @@ export const WalletCard: Component<Props> = (props) => {
 								</div>
 								<button
 									type="button"
-									onClick={() => (props.onBuyStars ? props.onBuyStars() : navigate('/marketplace'))}
+									onClick={() => (props.onBuyStars ? props.onBuyStars() : navigate('/airdrop?tab=shop'))}
 									class="w-full py-1 rounded-[8px] bg-[#0098EA]/15 hover:bg-[#0098EA]/25 active:scale-95 border border-[#0098EA]/30 text-[#0098EA] text-[9px] font-black tracking-wide uppercase transition-all"
 								>
 									{t('wallet.buyStars' as any) || '+ Stars'}
@@ -165,7 +165,7 @@ export const WalletCard: Component<Props> = (props) => {
 										<button
 											type="button"
 											onClick={() =>
-												props.onBuyStars ? props.onBuyStars() : navigate('/marketplace')
+												props.onBuyStars ? props.onBuyStars() : navigate('/airdrop?tab=shop')
 											}
 											class="w-full py-1 rounded-[8px] bg-cyan-500/15 hover:bg-cyan-500/25 active:scale-95 border border-cyan-500/30 text-cyan-300 text-[9px] font-black tracking-wide uppercase transition-all"
 										>

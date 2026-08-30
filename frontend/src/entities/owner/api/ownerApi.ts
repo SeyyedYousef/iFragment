@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { API_CONFIG } from '@/shared/api/config.js';
 import type {
 	AdCampaign,
 	AdminDailyCombo,
@@ -20,7 +21,8 @@ import type {
 } from '../model/types.js';
 
 const api = axios.create({
-	baseURL: '/api/v1/owner',
+	baseURL: `${API_CONFIG.BASE_URL}/owner`,
+	timeout: API_CONFIG.TIMEOUT,
 	headers: {
 		'Content-Type': 'application/json',
 	},

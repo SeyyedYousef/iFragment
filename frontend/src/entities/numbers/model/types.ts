@@ -246,7 +246,6 @@ export interface PortfolioAssetItem {
 	expected_usd: number;
 	rarity_score: number;
 	global_rank: number;
-	category_club: string;
 	color: string;
 }
 
@@ -260,5 +259,47 @@ export interface LiveActivityItem {
 	tx_hash: string;
 	tonviewer_url: string;
 	marketplace: string;
+}
+
+export interface NumbersFilterState {
+	saleType: '' | 'auction' | 'for_sale' | 'not_for_sale';
+	numberType: '' | 'banned' | 'not_banned';
+	ownersHistory: '' | '1' | '2-3' | '4+';
+	nftColors: string[];
+	mask: string;
+	page: number;
+	limit: number;
+}
+
+export interface NumberTableItem {
+	number: string;
+	display_number: string;
+	color_hex: string;
+	color_name: string;
+	last_sale_ton: number;
+	last_sale_usd: number;
+	last_sale_date: string;
+	last_sale_tx?: string;
+	owners_count: number;
+	current_owner: string;
+	is_restricted: boolean;
+	source: string;
+	market_url: string;
+}
+
+export interface ChartHistoricalPoint {
+	date: string;
+	ton: number;
+	usd: number;
+	volume_ton: number;
+	volume_usd: number;
+	open_ton: number;
+	high_ton: number;
+	low_ton: number;
+	close_ton: number;
+	open_usd: number;
+	high_usd: number;
+	low_usd: number;
+	close_usd: number;
 }
 

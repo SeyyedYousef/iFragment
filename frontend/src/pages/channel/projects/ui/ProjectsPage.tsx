@@ -227,21 +227,7 @@ export const ProjectsPage: Component = () => {
 				</button>
 			</div>
 
-			{/* Trial / Independent Entity Banner */}
-			<div class="mb-6 p-4 rounded-2xl bg-gradient-to-r from-blue-900/20 via-neutral-900 to-indigo-900/20 border border-blue-500/20 flex items-start gap-3">
-				<div class="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 text-base shrink-0 mt-0.5">
-					💎
-				</div>
-				<div class="text-xs text-neutral-300 space-y-1">
-					<div class="font-semibold text-blue-300">
-						{t('channel.projects.banner_title') || 'Project-Centric Architecture'}
-					</div>
-					<p class="text-neutral-400 leading-relaxed">
-						{t('channel.projects.banner_desc') ||
-							'Subscriptions belong to the Project, not individual channels. Switch input and output channels in seconds without paying or reconnecting bots.'}
-					</p>
-				</div>
-			</div>
+
 
 			{/* Projects List */}
 			<div class="space-y-4">

@@ -38,11 +38,13 @@ export const BoostersView: Component<{ onTurboClick?: () => void }> = (props) =>
 
 	return (
 		<div
-			class="flex-1 overflow-y-auto overflow-x-hidden px-4 pt-8 pb-36 animate-fade-in no-scrollbar h-full relative bg-[#030303] text-white"
+			class="flex-1 w-full max-w-full overflow-y-auto overflow-x-hidden px-4 pt-8 pb-36 animate-fade-in no-scrollbar h-full relative bg-[#030303] text-white"
 			dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
 		>
-			{/* Premium Ambient Radial Glow */}
-			<div class="absolute top-0 left-0 right-0 h-[350px] bg-gradient-to-b from-amber-500/15 via-amber-500/5 to-transparent blur-[80px] pointer-events-none z-0" />
+			{/* Premium Ambient Radial Glow - Contained in overflow-hidden wrapper */}
+			<div class="absolute inset-0 overflow-hidden pointer-events-none z-0">
+				<div class="absolute top-0 left-0 right-0 h-[350px] bg-gradient-to-b from-amber-500/15 via-amber-500/5 to-transparent blur-[80px]" />
+			</div>
 
 			{/* ═══════ HEADER ═══════ */}
 			<div class="flex flex-col items-center mb-7 text-center relative z-10 pt-2">

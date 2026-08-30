@@ -12,6 +12,7 @@ vi.mock('@tma.js/sdk-solid', () => ({
 
 vi.mock('@solidjs/router', () => ({
 	useLocation: () => ({ pathname: '/airdrop' }),
+	useSearchParams: () => [{ tab: undefined }, vi.fn()],
 	A: (props: any) => <a {...props}>{props.children}</a>,
 }));
 

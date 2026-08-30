@@ -95,11 +95,13 @@ export const ShopView: Component = () => {
 
 	return (
 		<div
-			class="w-full h-full overflow-y-auto px-4 pt-5 pb-28 animate-fade-in no-scrollbar bg-[#030303] text-white relative flex flex-col min-h-0"
+			class="w-full max-w-full h-full overflow-y-auto overflow-x-hidden px-4 pt-5 pb-28 animate-fade-in no-scrollbar bg-[#030303] text-white relative flex flex-col min-h-0"
 			dir={isRtl() ? 'rtl' : 'ltr'}
 		>
-			{/* Ambient Gradient Glow */}
-			<div class="absolute top-0 left-0 right-0 h-[300px] bg-gradient-to-b from-[#0098EA]/15 via-amber-500/5 to-transparent blur-[80px] pointer-events-none z-0" />
+			{/* Ambient Gradient Glow - Contained in overflow-hidden wrapper */}
+			<div class="absolute inset-0 overflow-hidden pointer-events-none z-0">
+				<div class="absolute top-0 left-0 right-0 h-[300px] bg-gradient-to-b from-[#0098EA]/15 via-amber-500/5 to-transparent blur-[80px]" />
+			</div>
 
 			<div class="max-w-md mx-auto w-full relative z-10 flex flex-col flex-1 gap-5">
 				{/* ═══════ HEADER ═══════ */}

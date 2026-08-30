@@ -1,4 +1,5 @@
-import { type Component, createSignal, Match, onCleanup, onMount, Show, Switch } from 'solid-js';
+import { useSearchParams } from '@solidjs/router';
+import { type Component, createEffect, createSignal, Match, onCleanup, onMount, Show, Switch } from 'solid-js';
 import { syncProfileStats } from '@/entities/airdrop/index.js';
 import { collectOfflineMining, startOfflineMining } from '@/entities/user/index.js';
 import { t } from '@/shared/i18n/index.js';
@@ -15,12 +16,49 @@ import { TasksView } from './TasksView.js';
 type AirdropTab = 'mine' | 'earn' | 'clan' | 'frens' | 'boost' | 'shop';
 
 export const AirdropPage: Component = () => {
+	const [searchParams] = useSearchParams();
 	const [activeTab, setActiveTab] = createSignal<AirdropTab>('mine');
 	const [showLeaderboard, setShowLeaderboard] = createSignal(false);
 	const [leaderboardInitialTab, setLeaderboardInitialTab] = createSignal<'miners' | 'squads'>(
 		'miners',
 	);
 	const [offlineEarnings, setOfflineEarnings] = createSignal(0);
+
+	createEffect(() => {
+		let tab = searchParams?.tab;
+		if (!tab) {
+			try {
+				const hashParts = window.location.hash.split('?');
+				if (hashParts.length > 1) {
+					const hashParams = new URLSearchParams(hashParts[1]);
+					tab = hashParams.get('tab') || undefined;
+				}
+				if (!tab) {
+					const urlParams = new URLSearchParams(window.location.search);
+					tab = urlParams.get('tab') || undefined;
+				}
+			} catch (_) {}
+		}
+
+		if (tab) {
+			const normalized = String(tab).toLowerCase();
+			if (normalized === 'leaderboard') {
+				setShowLeaderboard(true);
+			} else if (normalized === 'shop' || normalized === 'store' || normalized === 'credits') {
+				setActiveTab('shop');
+			} else if (normalized === 'earn' || normalized === 'tasks' || normalized === 'quests') {
+				setActiveTab('earn');
+			} else if (normalized === 'boost' || normalized === 'boosts' || normalized === 'boosters') {
+				setActiveTab('boost');
+			} else if (normalized === 'clan' || normalized === 'squad' || normalized === 'clans') {
+				setActiveTab('clan');
+			} else if (normalized === 'frens' || normalized === 'friends' || normalized === 'referrals') {
+				setActiveTab('frens');
+			} else if (normalized === 'mine' || normalized === 'tap') {
+				setActiveTab('mine');
+			}
+		}
+	});
 
 	const handleVisibilityChange = async () => {
 		if (document.visibilityState === 'hidden') {
@@ -42,20 +80,14 @@ export const AirdropPage: Component = () => {
 		document.addEventListener('visibilitychange', handleVisibilityChange);
 		try {
 			const tg = (window as any).Telegram?.WebApp;
-			const searchParams = new URLSearchParams(window.location.search);
+			const searchParamsUrl = new URLSearchParams(window.location.search);
 			const startParam =
 				tg?.initDataUnsafe?.start_param ||
-				searchParams.get('tgWebAppStartParam');
+				searchParamsUrl.get('tgWebAppStartParam');
 			if (startParam?.startsWith('clan_')) {
 				const clanUsername = startParam.replace(/^clan_/, '');
 				sessionStorage.setItem('pending_clan_join', clanUsername);
 				setActiveTab('clan');
-			}
-			const tabParam = searchParams.get('tab');
-			if (tabParam === 'leaderboard') {
-				setShowLeaderboard(true);
-			} else if (tabParam && ['mine', 'earn', 'clan', 'frens', 'boost', 'shop'].includes(tabParam)) {
-				setActiveTab(tabParam as AirdropTab);
 			}
 		} catch (_) {}
 
@@ -83,16 +115,16 @@ export const AirdropPage: Component = () => {
 
 	return (
 		<div
-			class="h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col justify-between bg-[#030303] relative select-none font-sans text-white"
+			class="h-[100dvh] max-h-[100dvh] w-full max-w-full overflow-hidden flex flex-col justify-between bg-[#030303] relative select-none font-sans text-white"
 			style={{ height: 'var(--tg-viewport-stable-height, 100dvh)' }}
 		>
 			{/* Main Content Area */}
 			<main
-				class="min-h-0 w-full flex-1 relative flex flex-col pt-0 overflow-y-auto overscroll-contain no-scrollbar pb-[calc(env(safe-area-inset-bottom)+5.5rem)]"
-				style={{ '-webkit-overflow-scrolling': 'touch' }}
+				class="min-h-0 w-full max-w-full flex-1 relative flex flex-col pt-0 overflow-y-auto overflow-x-hidden overscroll-y-contain no-scrollbar pb-[calc(env(safe-area-inset-bottom)+5.5rem)]"
+				style={{ '-webkit-overflow-scrolling': 'touch', 'touch-action': 'pan-y' }}
 			>
 				{/* Premium Glassmorphic Header for sub-pages */}
-				<Show when={activeTab() !== 'mine' && activeTab() !== 'shop'}>
+				<Show when={activeTab() !== 'mine'}>
 					<div
 						class="sticky top-0 left-0 right-0 z-[60] bg-gradient-to-b from-[#030303]/95 via-[#030303]/80 to-transparent pt-3 pb-5 pointer-events-none"
 						dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}

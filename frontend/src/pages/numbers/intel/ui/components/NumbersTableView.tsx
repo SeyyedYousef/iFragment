@@ -1,0 +1,495 @@
+import {
+	createSignal,
+	createEffect,
+	For,
+	Show,
+	type Component,
+} from 'solid-js';
+import { createQuery } from '@tanstack/solid-query';
+import { numbersApi } from '@/entities/numbers/index.js';
+import type { NumbersFilterState, NumberTableItem } from '@/entities/numbers/model/types.js';
+import { t } from '@/shared/i18n/index.js';
+import { haptic } from '@/shared/lib/haptic.js';
+
+interface Props {
+	initialFilter?: {
+		saleType?: '' | 'auction' | 'for_sale' | 'not_for_sale';
+		numberType?: '' | 'banned' | 'not_banned';
+	};
+	onSelectNumber?: (num: string) => void;
+	onViewOwnerPortfolio?: (address: string) => void;
+}
+
+const NFT_COLORS: { hex: string; name: string }[] = [
+	{ hex: 'D35E9E', name: 'Pink' },
+	{ hex: 'C49A3F', name: 'Gold' },
+	{ hex: '43A34E', name: 'Green' },
+	{ hex: '66A14D', name: 'Olive' },
+	{ hex: '111518', name: 'Black' },
+	{ hex: '73589A', name: 'Purple' },
+	{ hex: '7A6147', name: 'Brown' },
+	{ hex: '14ACB9', name: 'Teal' },
+	{ hex: '288576', name: 'Turquoise' },
+	{ hex: '998655', name: 'Tan' },
+	{ hex: '377E8A', name: 'Blue Gray' },
+	{ hex: 'E06054', name: 'Red' },
+	{ hex: '984D4B', name: 'Rose' },
+	{ hex: '3BA76E', name: 'Mint' },
+	{ hex: '5863D1', name: 'Blue' },
+	{ hex: '6F7D8A', name: 'Gray' },
+	{ hex: 'D47650', name: 'Orange' },
+	{ hex: '368DEB', name: 'Sky' },
+	{ hex: '8D66E3', name: 'Violet' },
+	{ hex: 'BD66DA', name: 'Lavender' },
+];
+
+export const NumbersTableView: Component<Props> = (props) => {
+	const [filters, setFilters] = createSignal<NumbersFilterState>({
+		saleType: props.initialFilter?.saleType || '',
+		numberType: props.initialFilter?.numberType || '',
+		ownersHistory: '',
+		nftColors: [],
+		mask: '',
+		page: 1,
+		limit: 15,
+	});
+
+	const [isFiltersOpen, setIsFiltersOpen] = createSignal<boolean>(false);
+	const [copiedAddress, setCopiedAddress] = createSignal<string | null>(null);
+
+	// Fetch filtered list
+	const numbersQuery = createQuery(() => ({
+		queryKey: ['numbersList', filters()],
+		queryFn: () => numbersApi.getNumbersList(filters()),
+		staleTime: 30 * 1000,
+	}));
+
+	const activeFiltersCount = () => {
+		let count = 0;
+		if (filters().saleType) count++;
+		if (filters().numberType) count++;
+		if (filters().ownersHistory) count++;
+		if (filters().nftColors.length > 0) count++;
+		if (filters().mask) count++;
+		return count;
+	};
+
+	const resetFilters = () => {
+		try {
+			haptic.impact('medium');
+		} catch {}
+		setFilters({
+			saleType: '',
+			numberType: '',
+			ownersHistory: '',
+			nftColors: [],
+			mask: '',
+			page: 1,
+			limit: 15,
+		});
+	};
+
+	const handleCopy = (address: string) => {
+		try {
+			navigator.clipboard.writeText(address);
+			haptic.notification('success');
+			setCopiedAddress(address);
+			setTimeout(() => setCopiedAddress(null), 2000);
+		} catch {}
+	};
+
+	const formatTon = (val?: number) => {
+		if (val === undefined || val === null) return '0';
+		return val.toLocaleString('en-US', { maximumFractionDigits: 0 });
+	};
+
+	return (
+		<div class="space-y-4">
+			{/* Filters Accordion / Control Bar */}
+			<div class="bg-[#0e131d]/90 border border-white/[0.08] rounded-2xl p-4 backdrop-blur-xl shadow-xl">
+				<div class="flex items-center justify-between">
+					<button
+						type="button"
+						onClick={() => {
+							try {
+								haptic.selection();
+							} catch {}
+							setIsFiltersOpen(!isFiltersOpen());
+						}}
+						class="flex items-center gap-2 text-sm font-black text-white hover:text-[#0098EA] transition-all"
+					>
+						<span class="material-symbols-outlined text-lg text-[#0098EA]">tune</span>
+						<span>{t('numbers.filtersTitle') || 'Filters'}</span>
+						<Show when={activeFiltersCount() > 0}>
+							<span class="px-2 py-0.5 text-[10px] font-black rounded-full bg-[#0098EA] text-white">
+								{activeFiltersCount()}
+							</span>
+						</Show>
+						<span
+							class={`material-symbols-outlined text-sm transition-transform duration-200 ${
+								isFiltersOpen() ? 'rotate-180' : ''
+							}`}
+						>
+							expand_more
+						</span>
+					</button>
+
+					<div class="flex items-center gap-2">
+						<Show when={activeFiltersCount() > 0}>
+							<button
+								type="button"
+								onClick={resetFilters}
+								class="text-[11px] font-bold text-rose-400 hover:underline px-2 py-1"
+							>
+								{t('numbers.reset') || 'Reset'}
+							</button>
+						</Show>
+					</div>
+				</div>
+
+				{/* Expanded Filters Drawer */}
+				<Show when={isFiltersOpen()}>
+					<div class="pt-4 mt-4 border-t border-white/[0.06] space-y-4 animate-in fade-in duration-200">
+						{/* 1. Mask / Search Box */}
+						<div>
+							<label class="block text-[11px] font-extrabold text-white/50 mb-1.5 uppercase tracking-wider">
+								{t('numbers.patternQuery') || 'Search Number / Mask'}
+							</label>
+							<div class="relative">
+								<input
+									type="text"
+									placeholder="e.g. 8888000 or +888..."
+									value={filters().mask}
+									onInput={(e) => {
+										setFilters((prev) => ({ ...prev, mask: e.currentTarget.value, page: 1 }));
+									}}
+									class="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-[#0098EA] font-mono transition-all"
+								/>
+							</div>
+						</div>
+
+						{/* 2. Sale Type */}
+						<div>
+							<label class="block text-[11px] font-extrabold text-white/50 mb-1.5 uppercase tracking-wider">
+								Sale Type
+							</label>
+							<div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+								{[
+									{ id: '', label: 'Any' },
+									{ id: 'auction', label: 'Auction' },
+									{ id: 'for_sale', label: 'Fixed Price' },
+									{ id: 'not_for_sale', label: 'Not For Sale' },
+								].map((item) => (
+									<button
+										type="button"
+										onClick={() => {
+											try {
+												haptic.selection();
+											} catch {}
+											setFilters((prev) => ({
+												...prev,
+												saleType: item.id as any,
+												page: 1,
+											}));
+										}}
+										class={`px-3 py-1.5 rounded-xl text-xs font-bold text-center border transition-all ${
+											filters().saleType === item.id
+												? 'bg-[#0098EA]/20 border-[#0098EA] text-[#0098EA]'
+												: 'bg-white/[0.02] border-white/[0.06] text-white/60 hover:text-white'
+										}`}
+									>
+										{item.label}
+									</button>
+								))}
+							</div>
+						</div>
+
+						{/* 3. Number Type */}
+						<div>
+							<label class="block text-[11px] font-extrabold text-white/50 mb-1.5 uppercase tracking-wider">
+								Number Type
+							</label>
+							<div class="grid grid-cols-3 gap-1.5">
+								{[
+									{ id: '', label: 'Any' },
+									{ id: 'banned', label: 'Restricted' },
+									{ id: 'not_banned', label: 'Non-Restricted' },
+								].map((item) => (
+									<button
+										type="button"
+										onClick={() => {
+											try {
+												haptic.selection();
+											} catch {}
+											setFilters((prev) => ({
+												...prev,
+												numberType: item.id as any,
+												page: 1,
+											}));
+										}}
+										class={`px-3 py-1.5 rounded-xl text-xs font-bold text-center border transition-all ${
+											filters().numberType === item.id
+												? 'bg-[#0098EA]/20 border-[#0098EA] text-[#0098EA]'
+												: 'bg-white/[0.02] border-white/[0.06] text-white/60 hover:text-white'
+										}`}
+									>
+										{item.label}
+									</button>
+								))}
+							</div>
+						</div>
+
+						{/* 4. Owners History */}
+						<div>
+							<label class="block text-[11px] font-extrabold text-white/50 mb-1.5 uppercase tracking-wider">
+								Owners History
+							</label>
+							<div class="grid grid-cols-4 gap-1.5">
+								{[
+									{ id: '', label: 'Any' },
+									{ id: '1', label: 'The Only' },
+									{ id: '2-3', label: '2-3' },
+									{ id: '4+', label: '4+' },
+								].map((item) => (
+									<button
+										type="button"
+										onClick={() => {
+											try {
+												haptic.selection();
+											} catch {}
+											setFilters((prev) => ({
+												...prev,
+												ownersHistory: item.id as any,
+												page: 1,
+											}));
+										}}
+										class={`px-3 py-1.5 rounded-xl text-xs font-bold text-center border transition-all ${
+											filters().ownersHistory === item.id
+												? 'bg-[#0098EA]/20 border-[#0098EA] text-[#0098EA]'
+												: 'bg-white/[0.02] border-white/[0.06] text-white/60 hover:text-white'
+										}`}
+									>
+										{item.label}
+									</button>
+								))}
+							</div>
+						</div>
+
+						{/* 5. NFT Colors Palette */}
+						<div>
+							<label class="block text-[11px] font-extrabold text-white/50 mb-1.5 uppercase tracking-wider">
+								NFT Colors ({filters().nftColors.length === 0 ? 'All' : filters().nftColors.length})
+							</label>
+							<div class="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto no-scrollbar p-1 bg-black/20 rounded-xl border border-white/[0.04]">
+								<button
+									type="button"
+									onClick={() => {
+										try {
+											haptic.selection();
+										} catch {}
+										setFilters((prev) => ({ ...prev, nftColors: [], page: 1 }));
+									}}
+									class={`px-2 py-1 rounded-lg text-[10px] font-extrabold border flex items-center gap-1.5 ${
+										filters().nftColors.length === 0
+											? 'bg-white/20 border-white text-white'
+											: 'bg-white/[0.03] border-white/10 text-white/50'
+									}`}
+								>
+									<span>Any</span>
+								</button>
+								<For each={NFT_COLORS}>
+									{(c) => {
+										const isSelected = () => filters().nftColors.includes(c.hex);
+										return (
+											<button
+												type="button"
+												onClick={() => {
+													try {
+														haptic.selection();
+													} catch {}
+													const current = filters().nftColors;
+													const next = current.includes(c.hex)
+														? current.filter((x) => x !== c.hex)
+														: [...current, c.hex];
+													setFilters((prev) => ({ ...prev, nftColors: next, page: 1 }));
+												}}
+												class={`px-2 py-1 rounded-lg text-[10px] font-bold border flex items-center gap-1.5 transition-all ${
+													isSelected()
+														? 'bg-white/15 border-white text-white'
+														: 'bg-white/[0.02] border-white/[0.06] text-white/60 hover:text-white'
+												}`}
+											>
+												<span
+													class="w-2.5 h-2.5 rounded-full border border-white/30 shrink-0"
+													style={{ background: `#${c.hex}` }}
+												/>
+												<span>{c.name}</span>
+											</button>
+										);
+									}}
+								</For>
+							</div>
+						</div>
+					</div>
+				</Show>
+			</div>
+
+			{/* Results Table */}
+			<div class="bg-[#0e131d]/90 border border-white/[0.08] rounded-2xl backdrop-blur-xl shadow-xl overflow-hidden">
+				<Show
+					when={!numbersQuery.isPending}
+					fallback={
+						<div class="p-8 text-center space-y-3">
+							<div class="w-8 h-8 rounded-full border-2 border-[#0098EA] border-t-transparent animate-spin mx-auto" />
+							<p class="text-xs text-white/50 font-bold">{t('common.loading') || 'Loading numbers...'}</p>
+						</div>
+					}
+				>
+					<Show
+						when={(numbersQuery.data?.items || []).length > 0}
+						fallback={
+							<div class="p-12 text-center space-y-2">
+								<span class="material-symbols-outlined text-4xl text-white/20">search_off</span>
+								<p class="text-xs text-white/60 font-bold">
+									{t('numbers.noNumbersFound') || 'No numbers matching the filters'}
+								</p>
+								<button
+									type="button"
+									onClick={resetFilters}
+									class="text-xs text-[#0098EA] font-extrabold hover:underline pt-2"
+								>
+									Clear filters
+								</button>
+							</div>
+						}
+					>
+						{/* Desktop/Tablet Table & Mobile Card List */}
+						<div class="overflow-x-auto">
+							<table class="w-full text-left border-collapse">
+								<thead>
+									<tr class="border-b border-white/[0.08] bg-white/[0.02] text-[10px] font-black text-white/40 uppercase tracking-wider">
+										<th class="py-3 px-4">Number</th>
+										<th class="py-3 px-4 text-center">Last Sale</th>
+										<th class="py-3 px-4 text-center">Owners</th>
+										<th class="py-3 px-4 text-right">Current Owner</th>
+									</tr>
+								</thead>
+								<tbody class="divide-y divide-white/[0.04] text-xs">
+									<For each={numbersQuery.data?.items || []}>
+										{(item) => (
+											<tr class="hover:bg-white/[0.03] transition-colors group">
+												{/* Number & Color */}
+												<td class="py-3 px-4">
+													<div class="flex items-center gap-2">
+														<span
+															class="w-3 h-3 rounded-full shrink-0 shadow-sm border border-white/20"
+															style={{ background: item.color_hex }}
+															title={item.color_name}
+														/>
+														<a
+															href={item.market_url}
+															target="_blank"
+															rel="noreferrer"
+															class="font-black text-white font-mono hover:text-[#0098EA] transition-colors flex items-center gap-1.5"
+														>
+															<span>{item.number}</span>
+															<Show when={item.is_restricted}>
+																<span
+																	class="text-[9px] px-1 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30"
+																	title="Restricted / Banned"
+																>
+																	⚠️
+																</span>
+															</Show>
+														</a>
+													</div>
+												</td>
+
+												{/* Last Sale Price & Date */}
+												<td class="py-3 px-4 text-center">
+													<div class="font-black text-white font-mono flex items-center justify-center gap-1">
+														<span class="text-[#0098EA] text-xs">💎</span>
+														<span>{formatTon(item.last_sale_ton)}</span>
+													</div>
+													<div class="text-[10px] text-white/40 mt-0.5 hover:text-white transition-colors">
+														{item.last_sale_date}
+													</div>
+												</td>
+
+												{/* Owners count */}
+												<td class="py-3 px-4 text-center font-bold text-white/70 font-mono">
+													{item.owners_count}
+												</td>
+
+												{/* Current Owner Address */}
+												<td class="py-3 px-4 text-right">
+													<div class="flex items-center justify-end gap-1.5">
+														<button
+															type="button"
+															onClick={() => props.onViewOwnerPortfolio?.(item.current_owner)}
+															class="font-mono text-[11px] text-white/60 hover:text-[#0098EA] underline decoration-dotted transition-colors"
+															title="View Portfolio"
+														>
+															{item.current_owner}
+														</button>
+														<button
+															type="button"
+															onClick={() => handleCopy(item.current_owner)}
+															class="text-white/30 hover:text-white transition-colors"
+															title="Copy address"
+														>
+															<span class="material-symbols-outlined text-xs">
+																{copiedAddress() === item.current_owner ? 'check' : 'content_copy'}
+															</span>
+														</button>
+													</div>
+												</td>
+											</tr>
+										)}
+									</For>
+								</tbody>
+							</table>
+						</div>
+
+						{/* Pagination Controls */}
+						<div class="p-3 border-t border-white/[0.06] flex items-center justify-between text-xs text-white/50">
+							<div>
+								Page <span class="font-bold text-white font-mono">{filters().page}</span> of{' '}
+								<span class="font-bold text-white font-mono">{numbersQuery.data?.totalPages || 1}</span>
+							</div>
+
+							<div class="flex items-center gap-1">
+								<button
+									type="button"
+									disabled={filters().page <= 1}
+									onClick={() => {
+										try {
+											haptic.selection();
+										} catch {}
+										setFilters((prev) => ({ ...prev, page: Math.max(1, prev.page - 1) }));
+									}}
+									class="px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] disabled:opacity-30 disabled:pointer-events-none font-bold text-white transition-all"
+								>
+									Prev
+								</button>
+								<button
+									type="button"
+									disabled={filters().page >= (numbersQuery.data?.totalPages || 1)}
+									onClick={() => {
+										try {
+											haptic.selection();
+										} catch {}
+										setFilters((prev) => ({ ...prev, page: prev.page + 1 }));
+									}}
+									class="px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] disabled:opacity-30 disabled:pointer-events-none font-bold text-white transition-all"
+								>
+									Next
+								</button>
+							</div>
+						</div>
+					</Show>
+				</Show>
+			</div>
+		</div>
+	);
+};

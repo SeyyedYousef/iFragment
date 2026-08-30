@@ -145,7 +145,7 @@ export const LockedReportCard: Component<LockedReportCardProps> = (props) => {
 							<span class="text-white/20">•</span>
 							<button
 								type="button"
-								onClick={() => navigate('/airdrop?tab=tasks')}
+								onClick={() => navigate('/airdrop?tab=earn')}
 								class="text-[#3390EC] hover:text-[#52a7ff] transition-colors"
 							>
 								{t('lockedReport.earnCredits')}

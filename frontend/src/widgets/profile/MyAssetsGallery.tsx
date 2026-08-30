@@ -301,7 +301,7 @@ export const MyAssetsGallery: Component<Props> = (props) => {
 											</span>
 											<button
 												type="button"
-												onClick={() => navigate('/managed-channels')}
+												onClick={() => navigate('/channel/projects')}
 												class="px-4 py-1.5 rounded-[10px] bg-[#0098EA]/20 border border-[#0098EA]/40 text-[#0098EA] text-[10px] font-black uppercase tracking-wider"
 											>
 												{t('assets.createProject' as any) || 'Create Project'}

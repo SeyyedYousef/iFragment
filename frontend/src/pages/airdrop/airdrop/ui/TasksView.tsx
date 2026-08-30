@@ -255,11 +255,13 @@ export const TasksView: Component = () => {
 
 	return (
 		<div
-			class="flex-1 overflow-y-auto no-scrollbar pb-32 relative bg-[#030303] text-white selection:bg-[#3390ec]/30"
+			class="flex-1 w-full max-w-full overflow-x-hidden no-scrollbar pb-32 relative bg-[#030303] text-white selection:bg-[#3390ec]/30"
 			dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
 		>
-			{/* Ambient Top Glow */}
-			<div class="absolute top-0 left-0 right-0 h-[300px] bg-gradient-to-b from-[#3390ec]/15 via-[#3390ec]/5 to-transparent blur-[80px] pointer-events-none z-0" />
+			{/* Ambient Top Glow - Contained in overflow-hidden wrapper */}
+			<div class="absolute inset-0 overflow-hidden pointer-events-none z-0">
+				<div class="absolute top-0 left-0 right-0 h-[300px] bg-gradient-to-b from-[#3390ec]/15 via-[#3390ec]/5 to-transparent blur-[80px]" />
+			</div>
 
 			<div class="max-w-md mx-auto relative z-10 pt-8 flex flex-col gap-5">
 				{/* ═══════ HEADER ═══════ */}

@@ -129,9 +129,9 @@ export const ManagedChannelsPage: Component = () => {
 		});
 	});
 
-	const handleConnectNew = () => {
+	const handleOpenProjects = () => {
 		haptic.impact('medium');
-		navigate('/channel/connect');
+		navigate('/channel/projects');
 	};
 
 	return (
@@ -166,29 +166,15 @@ export const ManagedChannelsPage: Component = () => {
 			</div>
 
 			<div class="px-5 pt-6 flex flex-col gap-6 max-w-md mx-auto relative z-10 w-full">
-				{/* ═══════ TOP ACTION BUTTONS ═══════ */}
-				<div class="grid grid-cols-2 gap-3">
-					<button
-						type="button"
-						onClick={handleConnectNew}
-						class="h-14 bg-[#12141C]/80 backdrop-blur-md border border-white/5 hover:border-[#3390ec]/50 hover:bg-[#3390ec]/10 rounded-[18px] flex items-center justify-center gap-2 font-black text-[12px] uppercase tracking-widest text-[#3390ec] transition-all shadow-sm active:scale-95 group"
-					>
-						<span class="material-symbols-outlined text-[18px]">add</span>
-						{t('managedChannels.connectNew')}
-					</button>
-
-					<button
-						type="button"
-						onClick={() => {
-							haptic.impact('medium');
-							navigate('/channel/projects');
-						}}
-						class="h-14 bg-gradient-to-r from-blue-600/20 to-indigo-600/20 border border-blue-500/30 hover:border-blue-400 rounded-[18px] flex items-center justify-center gap-2 font-black text-[12px] uppercase tracking-widest text-blue-300 transition-all shadow-sm active:scale-95 group"
-					>
-						<span>⚡</span>
-						<span>{t('channel.projects.title') || 'Projects'}</span>
-					</button>
-				</div>
+				{/* ═══════ TOP ACTION BUTTON ═══════ */}
+				<button
+					type="button"
+					onClick={handleOpenProjects}
+					class="w-full h-14 bg-gradient-to-r from-blue-600/30 via-indigo-600/30 to-[#3390ec]/30 hover:from-blue-600/40 hover:to-[#3390ec]/40 border border-blue-500/40 hover:border-blue-400 rounded-[18px] flex items-center justify-center gap-2.5 font-black text-[13px] uppercase tracking-widest text-white transition-all shadow-[0_4px_20px_rgba(51,144,236,0.2)] active:scale-95 group"
+				>
+					<span class="text-[18px]">⚡</span>
+					<span>{t('channel.projects.title') || 'پروژه‌های کانال'}</span>
+				</button>
 
 				{/* ═══════ CHANNEL LIST ═══════ */}
 				<Show
@@ -246,11 +232,11 @@ export const ManagedChannelsPage: Component = () => {
 
 								<button
 									type="button"
-									onClick={handleConnectNew}
+									onClick={handleOpenProjects}
 									class="mt-4 w-full h-14 bg-gradient-to-r from-[#3390ec] to-[#2b7ec9] text-white font-black text-[13px] uppercase tracking-widest rounded-[16px] flex items-center justify-center gap-2 hover:from-[#2b7ec9] hover:to-[#3390ec] transition-all active:scale-95 shadow-[0_10px_25px_rgba(51,144,236,0.3)] relative z-10 border border-white/10"
 								>
 									<span class="material-symbols-outlined text-[20px]">rocket_launch</span>
-									{t('managedChannels.connectFirst')}
+									{t('channel.projects.create_first') || t('managedChannels.connectFirst')}
 								</button>
 
 								<button

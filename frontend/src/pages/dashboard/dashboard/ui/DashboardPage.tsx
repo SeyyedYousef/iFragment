@@ -117,13 +117,13 @@ export const DashboardPage: Component = () => {
 						tabIndex={0}
 						onClick={() => {
 							haptic.impact('medium');
-							navigate('/airdrop');
+							navigate('/airdrop?tab=shop');
 						}}
 						onKeyDown={(e) => {
 							if (e.key === 'Enter' || e.key === ' ') {
 								e.preventDefault();
 								haptic.impact('medium');
-								navigate('/airdrop');
+								navigate('/airdrop?tab=shop');
 							}
 						}}
 						class="w-full bg-gradient-to-br from-[#1c1917]/90 via-[#181411]/80 to-[#0c0a09] rounded-[24px] p-4.5 border border-amber-500/30 hover:border-amber-400/60 shadow-[0_8px_32px_rgba(245,158,11,0.12)] flex items-center justify-between gap-4 relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-all duration-300 outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50"

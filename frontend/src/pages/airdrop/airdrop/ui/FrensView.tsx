@@ -88,11 +88,13 @@ export const FrensView: Component = () => {
 
 	return (
 		<div
-			class="flex-1 overflow-y-auto no-scrollbar relative pb-32 bg-[#030303] text-white selection:bg-[#0098EA]/30"
+			class="flex-1 w-full max-w-full overflow-x-hidden no-scrollbar relative pb-32 bg-[#030303] text-white selection:bg-[#0098EA]/30"
 			dir={isRtl() ? 'rtl' : 'ltr'}
 		>
-			{/* Ambient Top Glow */}
-			<div class="absolute top-0 left-0 right-0 h-[350px] bg-gradient-to-b from-[#0098EA]/20 via-[#0098EA]/5 to-transparent blur-[80px] pointer-events-none z-0" />
+			{/* Ambient Top Glow - Contained in overflow-hidden wrapper */}
+			<div class="absolute inset-0 overflow-hidden pointer-events-none z-0">
+				<div class="absolute top-0 left-0 right-0 h-[350px] bg-gradient-to-b from-[#0098EA]/20 via-[#0098EA]/5 to-transparent blur-[80px]" />
+			</div>
 
 			<div class="max-w-md mx-auto px-4 pt-8 relative z-10 flex flex-col gap-6">
 				{/* ═══════ HERO HEADER ═══════ */}

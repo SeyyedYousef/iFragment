@@ -144,7 +144,7 @@ export const ProfilePage: Component = () => {
 						</Motion.div>
 
 						{/* ═══════ 2. WALLET & UNIFIED LEDGER SUMMARY ═══════ */}
-						<WalletCard stats={stats()} onBuyStars={() => handleNavigate('/marketplace')} />
+						<WalletCard stats={stats()} onBuyStars={() => handleNavigate('/airdrop?tab=shop')} />
 
 						{/* ═══════ 3. MY ASSETS GALLERY (4 TABS) ═══════ */}
 						<MyAssetsGallery />

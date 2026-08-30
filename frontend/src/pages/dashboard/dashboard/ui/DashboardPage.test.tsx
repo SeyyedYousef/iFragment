@@ -2,9 +2,11 @@ import { render, screen } from '@solidjs/testing-library';
 import { describe, expect, it, vi } from 'vitest';
 import { DashboardPage } from './DashboardPage.js';
 
+const mockNavigate = vi.fn();
+
 // Mock the router and query hooks
 vi.mock('@solidjs/router', () => ({
-	useNavigate: () => vi.fn(),
+	useNavigate: () => mockNavigate,
 	useLocation: () => ({ pathname: '/dashboard' }),
 	A: (props: any) => <a {...props}>{props.children}</a>,
 }));
@@ -40,5 +42,15 @@ describe('DashboardPage', () => {
 	it('contains the bottom navigation dashboard link', () => {
 		render(() => <DashboardPage />);
 		expect(screen.getByText('bottomNav.dashboard')).toBeInTheDocument();
+	});
+
+	it('navigates to /airdrop?tab=shop when clicking shop promo banner', () => {
+		mockNavigate.mockClear();
+		render(() => <DashboardPage />);
+		const shopTitle = screen.getByText('dashboardPg.shopCtaTitle');
+		const banner = shopTitle.closest('[role="button"]');
+		expect(banner).toBeTruthy();
+		banner?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+		expect(mockNavigate).toHaveBeenCalledWith('/airdrop?tab=shop');
 	});
 });

@@ -88,19 +88,21 @@ export const LeaderboardView: Component<{ initialTab?: 'miners' | 'squads' }> = 
 
 	return (
 		<div
-			class="h-full w-full overflow-y-auto no-scrollbar relative pb-32 bg-[#030303] text-white selection:bg-[#3390ec]/30"
+			class="h-full w-full max-w-full overflow-y-auto overflow-x-hidden no-scrollbar relative pb-32 bg-[#030303] text-white selection:bg-[#3390ec]/30"
 			dir={t('dir' as any) === 'rtl' ? 'rtl' : 'ltr'}
 		>
-			{/* Ambient Top Glow */}
-			<div
-				class="absolute top-0 left-0 right-0 h-[400px] pointer-events-none transition-colors duration-1000 ease-in-out z-0 blur-[90px] opacity-30"
-				style={{
-					background:
-						activeTab() === 'miners'
-							? `radial-gradient(circle at 50% -10%, ${currentLeague().color}, transparent 80%)`
-							: `radial-gradient(circle at 50% -10%, #f59e0b, transparent 80%)`,
-				}}
-			/>
+			{/* Ambient Top Glow - Contained in overflow-hidden wrapper */}
+			<div class="absolute inset-0 overflow-hidden pointer-events-none z-0">
+				<div
+					class="absolute top-0 left-0 right-0 h-[400px] pointer-events-none transition-colors duration-1000 ease-in-out blur-[90px] opacity-30"
+					style={{
+						background:
+							activeTab() === 'miners'
+								? `radial-gradient(circle at 50% -10%, ${currentLeague().color}, transparent 80%)`
+								: `radial-gradient(circle at 50% -10%, #f59e0b, transparent 80%)`,
+					}}
+				/>
+			</div>
 
 			<div class="relative z-10 flex flex-col gap-5 pt-4 max-w-md mx-auto">
 				{/* ═══════ TAB SWITCHER (Premium Pill) ═══════ */}

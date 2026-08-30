@@ -231,7 +231,7 @@ export const TapView: Component<{
 	};
 
 	return (
-		<div class="flex-1 w-full min-h-full flex flex-col items-center relative select-none bg-[#000000] text-white pb-4">
+		<div class="flex-1 w-full max-w-full min-h-full flex flex-col items-center relative select-none bg-[#000000] text-white pb-4 overflow-x-hidden">
 			<style>{`
 				@keyframes fragmentFly {
 					to {
@@ -269,16 +269,18 @@ export const TapView: Component<{
 				}
 			`}</style>
 
-			{/* Background Aura (Z-0) */}
-			<div
-				class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[160vw] h-[160vw] pointer-events-none z-0"
-				style={{
-					background: isTurboActive()
-						? 'radial-gradient(circle at 50% 50%, rgba(255,60,60,0.8) 0%, rgba(255,40,40,0.3) 30%, transparent 60%)'
-						: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.15) 35%, transparent 65%)',
-					filter: 'blur(40px)',
-				}}
-			/>
+			{/* Background Aura (Z-0) - Contained in overflow-hidden wrapper */}
+			<div class="absolute inset-0 overflow-hidden pointer-events-none z-0">
+				<div
+					class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[160vw] h-[160vw] pointer-events-none"
+					style={{
+						background: isTurboActive()
+							? 'radial-gradient(circle at 50% 50%, rgba(255,60,60,0.8) 0%, rgba(255,40,40,0.3) 30%, transparent 60%)'
+							: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.15) 35%, transparent 65%)',
+						filter: 'blur(40px)',
+					}}
+				/>
+			</div>
 
 			{/* Flying Rocket for Turbo */}
 			<Show when={isRocketSpawned()}>

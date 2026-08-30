@@ -77,7 +77,7 @@ export const DemoBanner: Component = () => {
 									type="button"
 									onClick={() => {
 										haptic.impact('medium');
-										navigate(demo().kind === 'channel' ? '/channel/connect' : '/managed-bots');
+										navigate(demo().kind === 'channel' ? '/channel/projects' : '/managed-bots');
 									}}
 									class="flex-1 h-11 rounded-[14px] bg-gradient-to-r from-[#3390ec] to-[#2b7bc9] text-white text-[12px] font-black uppercase tracking-wider active:scale-95 transition-all flex items-center justify-center gap-1.5 border border-white/10"
 								>

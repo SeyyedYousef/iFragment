@@ -1989,10 +1989,8 @@ type Project struct {
 	UpdatedAt               time.Time       `json:"updated_at"`
 
 	// Enriched fields for UI presentation
-	SourceChannelTitle    string `json:"source_channel_title,omitempty"`
-	TargetChannelTitle    string `json:"target_channel_title,omitempty"`
-	SourceChannelUsername string `json:"source_channel_username,omitempty"`
-	TargetChannelUsername string `json:"target_channel_username,omitempty"`
+	SourceTitle string `json:"source_title,omitempty"`
+	TargetTitle string `json:"target_title,omitempty"`
 }
 
 func (r *ChannelRepo) CreateProject(ctx context.Context, p *Project) error {
@@ -2021,9 +2019,7 @@ func (r *ChannelRepo) GetProjectsByOwner(ctx context.Context, ownerUserID int64)
 		p.id, p.owner_user_id, p.name, p.status, p.stars_subscription_active, p.stars_expires_at, p.trial_used, p.trial_ends_at,
 		p.source_channel_id, p.target_channel_id, p.source_chat_id, p.target_chat_id, p.pipeline_config, p.created_at, p.updated_at,
 		COALESCE(sc.chat_title, '') as source_title,
-		COALESCE(sc.username, '') as source_username,
-		COALESCE(tc.chat_title, '') as target_title,
-		COALESCE(tc.username, '') as target_username
+		COALESCE(tc.chat_title, '') as target_title
 	FROM projects p
 	LEFT JOIN managed_channels sc ON sc.id = p.source_channel_id
 	LEFT JOIN managed_channels tc ON tc.id = p.target_channel_id
@@ -2042,7 +2038,7 @@ func (r *ChannelRepo) GetProjectsByOwner(ctx context.Context, ownerUserID int64)
 		if err := rows.Scan(
 			&p.ID, &p.OwnerUserID, &p.Name, &p.Status, &p.StarsSubscriptionActive, &p.StarsExpiresAt, &p.TrialUsed, &p.TrialEndsAt,
 			&p.SourceChannelID, &p.TargetChannelID, &p.SourceChatID, &p.TargetChatID, &p.PipelineConfig, &p.CreatedAt, &p.UpdatedAt,
-			&p.SourceChannelTitle, &p.SourceChannelUsername, &p.TargetChannelTitle, &p.TargetChannelUsername,
+			&p.SourceTitle, &p.TargetTitle,
 		); err != nil {
 			return nil, err
 		}
@@ -2059,9 +2055,7 @@ func (r *ChannelRepo) GetProjectByID(ctx context.Context, id uuid.UUID) (*Projec
 		p.id, p.owner_user_id, p.name, p.status, p.stars_subscription_active, p.stars_expires_at, p.trial_used, p.trial_ends_at,
 		p.source_channel_id, p.target_channel_id, p.source_chat_id, p.target_chat_id, p.pipeline_config, p.created_at, p.updated_at,
 		COALESCE(sc.chat_title, '') as source_title,
-		COALESCE(sc.username, '') as source_username,
-		COALESCE(tc.chat_title, '') as target_title,
-		COALESCE(tc.username, '') as target_username
+		COALESCE(tc.chat_title, '') as target_title
 	FROM projects p
 	LEFT JOIN managed_channels sc ON sc.id = p.source_channel_id
 	LEFT JOIN managed_channels tc ON tc.id = p.target_channel_id
@@ -2071,7 +2065,7 @@ func (r *ChannelRepo) GetProjectByID(ctx context.Context, id uuid.UUID) (*Projec
 	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
 		&p.ID, &p.OwnerUserID, &p.Name, &p.Status, &p.StarsSubscriptionActive, &p.StarsExpiresAt, &p.TrialUsed, &p.TrialEndsAt,
 		&p.SourceChannelID, &p.TargetChannelID, &p.SourceChatID, &p.TargetChatID, &p.PipelineConfig, &p.CreatedAt, &p.UpdatedAt,
-		&p.SourceChannelTitle, &p.SourceChannelUsername, &p.TargetChannelTitle, &p.TargetChannelUsername,
+		&p.SourceTitle, &p.TargetTitle,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -2090,9 +2084,7 @@ func (r *ChannelRepo) GetProjectsBySourceChatID(ctx context.Context, sourceChatI
 		p.id, p.owner_user_id, p.name, p.status, p.stars_subscription_active, p.stars_expires_at, p.trial_used, p.trial_ends_at,
 		p.source_channel_id, p.target_channel_id, p.source_chat_id, p.target_chat_id, p.pipeline_config, p.created_at, p.updated_at,
 		COALESCE(sc.chat_title, '') as source_title,
-		COALESCE(sc.username, '') as source_username,
-		COALESCE(tc.chat_title, '') as target_title,
-		COALESCE(tc.username, '') as target_username
+		COALESCE(tc.chat_title, '') as target_title
 	FROM projects p
 	LEFT JOIN managed_channels sc ON sc.id = p.source_channel_id
 	LEFT JOIN managed_channels tc ON tc.id = p.target_channel_id
@@ -2110,7 +2102,7 @@ func (r *ChannelRepo) GetProjectsBySourceChatID(ctx context.Context, sourceChatI
 		if err := rows.Scan(
 			&p.ID, &p.OwnerUserID, &p.Name, &p.Status, &p.StarsSubscriptionActive, &p.StarsExpiresAt, &p.TrialUsed, &p.TrialEndsAt,
 			&p.SourceChannelID, &p.TargetChannelID, &p.SourceChatID, &p.TargetChatID, &p.PipelineConfig, &p.CreatedAt, &p.UpdatedAt,
-			&p.SourceChannelTitle, &p.SourceChannelUsername, &p.TargetChannelTitle, &p.TargetChannelUsername,
+			&p.SourceTitle, &p.TargetTitle,
 		); err != nil {
 			return nil, err
 		}
